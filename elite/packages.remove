@@ -89,3 +89,9 @@ gpm
 
 ## Instalador TUI do Arch (a Elite já tem Calamares + ABIF)
 archinstall
+
+## Removidos dos repos oficiais (quebram o resolve do pacstrap)
+# python-pywal: saiu do extra/archcraft — reinstalável via yay (cores dinâmicas do rice)
+python-pywal
+# p7zip: virou pacote VIRTUAL de '7zip' (prompt interativo de provider no pacstrap)
+p7zip

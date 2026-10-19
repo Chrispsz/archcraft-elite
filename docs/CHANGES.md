@@ -39,6 +39,8 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 | Initramfs | `mkinitcpio-firmware` | duplicava firmware dentro de cada initramfs (×2 kernels no ISO) | nenhum — hook `kms` já embute o necessário |
 | Console/access. | `brltty` `gpm` | braille/mouse de console | `pacman -S <pkg>` |
 | Instalador TUI | `archinstall` | redundante com Calamares + ABIF | `pacman -S archinstall` |
+| Pywal | `python-pywal` | **saiu dos repos oficiais** (quebrava o resolve do pacstrap); só as cores dinâmicas do rice perdem o helper | `yay -S python-pywal` |
+| p7zip | `p7zip` → `7zip` | `p7zip` virou pacote **virtual** de `7zip` (2 providers em repos distintos = prompt interativo no build) | já substituído |
 
 ## 🧩 Firmware cirúrgico (apply-overlay)
 
