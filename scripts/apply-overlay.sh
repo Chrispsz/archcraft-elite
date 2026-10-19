@@ -142,6 +142,13 @@ if ! grep -qE '^Architecture = .*\bx86_64_v3\b' "$PC"; then
   fi
 fi
 
+# Downloads resilientes: mirrors rolling (CachyOS) têm janelas em que o
+# db anuncia versão que o arquivo ainda não propagou (404 transitório).
+# curl com --retry-all-errors espera o mirror sincronizar.
+if ! grep -q '^XferCommand' "$PC"; then
+  sed -i '/^\[options\]/a XferCommand = /usr/bin/curl -L -C - -f -o %o %u --retry 4 --retry-delay 5 --retry-all-errors' "$PC"
+fi
+
 # ── [5.1] (CI/root) mirrorlist do repo [archcraft] p/ o ambiente de build
 #          (o conf do profile referencia via Include; o pacstrap resolve)
 if [[ $EUID -eq 0 && ! -f /etc/pacman.d/archcraft-mirrorlist ]]; then

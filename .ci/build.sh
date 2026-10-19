@@ -114,7 +114,22 @@ bash scripts/apply-overlay.sh
 say "Construindo ISO (mkarchcraftiso — fork oficial do Archcraft)"
 mkdir -p /mnt/iso-work /work/out
 cd elite-build/profile
-./mkarchcraftiso -v -w /mnt/iso-work -o /work/out .
+# Mirrors rolling (CachyOS) têm janelas de dessincronização db/arquivo
+# (404 transitório — gcc/glibc/qt5 durante update deles). O cache do
+# container persiste entre tentativas (pacstrap -c), então o retry é
+# barato: só re-sync dos dbs + os arquivos que faltaram.
+for attempt in 1 2 3; do
+    rm -rf /mnt/iso-work
+    if ./mkarchcraftiso -v -w /mnt/iso-work -o /work/out . ; then
+        break
+    fi
+    if [[ "$attempt" == "3" ]]; then
+        echo "FALHOU após 3 tentativas"
+        exit 1
+    fi
+    say "Tentativa $attempt falhou — aguardando 90s (mirrors sincronizam) e repetindo"
+    sleep 90
+done
 
 say "Checksums + relatório de tamanho"
 cd /work/out
