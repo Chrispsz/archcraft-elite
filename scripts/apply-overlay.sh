@@ -117,6 +117,17 @@ fi
 # multilib (lib32-gamemode, lib32-mangohud, lib32-vulkan, steam no --apps)
 grep -q '^\[multilib\]' "$PC" || printf '\n[multilib]\nInclude = /etc/pacman.d/mirrorlist\n' >> "$PC"
 
+# Arquitetura: os pacotes do cachyos-v3 são arch "x86_64_v3" — sem isto
+# o pacstrap rejeita com "does not have a valid architecture" (o "auto"
+# resolve só x86_64). Lista = aceita os dois (pacman 6.1+).
+if ! grep -qE '^Architecture = .*\bx86_64_v3\b' "$PC"; then
+  if grep -qE '^Architecture = ' "$PC"; then
+    sed -i -E 's|^Architecture = .*$|Architecture = x86_64 x86_64_v3|' "$PC"
+  else
+    sed -i '/^\[options\]/a Architecture = x86_64 x86_64_v3' "$PC"
+  fi
+fi
+
 # ── [5.1] (CI/root) mirrorlist do repo [archcraft] p/ o ambiente de build
 #          (o conf do profile referencia via Include; o pacstrap resolve)
 if [[ $EUID -eq 0 && ! -f /etc/pacman.d/archcraft-mirrorlist ]]; then
