@@ -1,0 +1,91 @@
+# =====================================================================
+#  packages.remove — debloat cirúrgico da Elite Edition
+#
+#  Cada linha = pacote COMENTADO no packages.x86_64 do upstream
+#  (o apply-overlay.sh faz o sed; nomes inexistentes são avisados).
+#  Restaurar qualquer um:  sudo pacman -S <pacote>
+#  Justificativa completa pacote a pacote: docs/CHANGES.md
+# =====================================================================
+
+## WM Wayland — a Elite é X11 (Openbox + BSPWM); o fg-booster é X11/EWMH
+archcraft-sway-free
+
+## Stack de impressão (~400MB instalados com deps)
+cups
+cups-pdf
+cups-filters
+ghostscript
+gsfonts
+foomatic-db-engine
+foomatic-db
+gutenprint
+
+## Cloud / VM guests (daemons rodando de graça em bare-metal)
+cloud-init
+hyperv
+open-vm-tools
+virtualbox-guest-utils
+qemu-guest-agent
+xf86-input-vmmouse
+
+## Modem / VPN enterprise / legacy (PPPoE, dial-up, iSCSI…)
+modemmanager
+ppp
+pptpclient
+xl2tpd
+wvdial
+linux-atm
+open-iscsi
+openconnect
+vpnc
+networkmanager-openconnect
+networkmanager-pptp
+networkmanager-vpnc
+network-manager-sstp
+networkmanager-strongswan
+b43-fwcutter
+broadcom-wl
+
+## Ferramentas de resgate pesadas (testdisk/gparted/gparted ficam)
+clonezilla
+partclone
+partimage
+fsarchiver
+gpart
+ddrescue
+
+## Servidores / nicho de rede (isto é um desktop, não um servidor)
+bind
+dnsmasq
+nbd
+nfs-utils
+mkinitcpio-nfs-utils
+darkhttpd
+lftp
+lynx
+irssi
+nmap
+ldns
+sequoia-sq
+openpgp-card-tools
+pcsclite
+
+## Filesystems exóticos (ext4/xfs/btrfs/ntfs/exfat/f2fs ficam)
+bcachefs-tools
+jfsutils
+nilfs-utils
+udftools
+refind
+
+## Fontes CJK (~90MB — restaure se ler/jogar em japonês/coreano/chinês)
+noto-fonts-cjk
+
+## Initramfs inchado (o hook 'kms' do mkinitcpio já embute o necessário)
+mkinitcpio-firmware
+
+## Acessibilidade/nicho de console (restauráveis em 1 comando)
+brltty
+gpm
+
+## Instalador TUI do Arch (a Elite já tem Calamares + ABIF)
+archinstall

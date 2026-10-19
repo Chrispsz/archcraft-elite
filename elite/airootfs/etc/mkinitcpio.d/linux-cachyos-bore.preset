@@ -1,0 +1,16 @@
+# mkinitcpio preset file for the 'linux-cachyos-bore' package on archiso (Elite)
+#
+# Este preset gera o initramfs da SESSÃO LIVE (hooks archiso + kms), no
+# mesmo padrão dos presets linux.preset/linux-nvidia.preset do Archcraft.
+# Presets de kernel usam backup=() no pacman, então este arquivo sobrevive
+# à instalação do pacote (a versão do pacote vai para .pacnew).
+#
+# No sistema INSTALADO, o elite-customize.sh [E6] o reescreve para
+# default/fallback — e o initcpio@elite do Calamares o utiliza.
+
+PRESETS=('archiso')
+
+ALL_kver='/boot/vmlinuz-linux-cachyos-bore'
+archiso_config='/etc/mkinitcpio.conf.d/archiso.conf'
+
+archiso_image="/boot/initramfs-linux-cachyos-bore.img"

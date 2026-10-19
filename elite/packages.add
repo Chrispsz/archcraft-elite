@@ -1,29 +1,33 @@
-## ── ELITE: kernel CachyOS BORE (o 'linux' do Arch permanece como fallback de boot) ──
+## ── ELITE: kernel CachyOS BORE (GCC/BORE — latência de desktop+game) ──
+## O 'linux' + 'linux-headers' do Arch PERMANECEM na ISO: fallback de boot no
+## GRUB, entrada NVIDIA do live (módulo pré-compilado) e alvo do dkms no firstboot.
 linux-cachyos-bore
 linux-cachyos-bore-headers
-linux-headers
 
-## ── ELITE: tuning/settings da CachyOS ──
+## ── ELITE: tuning CachyOS (sysctl/udev/modprobe + boosters oficiais) ──
 cachyos-settings
 cachyos-ananicy-rules
 ananicy-cpp
+scx-scheds
 scx-tools
 dmemcg-booster
 
-## ── ELITE: stack de gaming ──
+## ── ELITE: stack de gaming (Vulkan incluso — o upstream NÃO traz!) ──
 gamemode
 lib32-gamemode
 gamescope
 mangohud
 lib32-mangohud
+vulkan-radeon
+vulkan-intel
+lib32-vulkan-radeon
+lib32-vulkan-intel
+lib32-mesa
 nvtop
+btop
 lact
 
-## ── ELITE: infra de rollback ──
+## ── ELITE: infra de rollback + diagnóstico ──
 grub-btrfs
 timeshift
-
-## ── ELITE: ferramentas (fg-booster / firstboot / diagnóstico) ──
-xdotool
-curl
-htop
+pciutils

@@ -25,6 +25,7 @@ set -u
 CG=/sys/fs/cgroup
 POLL=1
 last=""
+tick=0
 declare -A ORIG   # pid-raiz → cgroup leaf de origem
 
 command -v xdotool >/dev/null 2>&1 || { echo "fg-booster: xdotool ausente"; exit 1; }
@@ -67,6 +68,10 @@ promote() {
 }
 
 while sleep "$POLL"; do
+  # a cada 30 polls: limpa PIDs mortos do mapa ORIG (evita crescimento)
+  (( tick = (tick + 1) % 30 )) || for _p in "${!ORIG[@]}"; do
+    [[ -e /proc/$_p ]] || unset "ORIG[$_p]"
+  done
   # sessões gráficas seat0 (uid por uid)
   for uid in $(loginctl list-sessions --no-legend  2>/dev/null \
                | awk '($4=="seat0"){print $2}' | sort -u); do
