@@ -94,6 +94,16 @@ EOL
 } > "$ELITE_PC"
 rm -f /tmp/elite-pc-options
 
+## [E3b] Arquitetura: pacotes cachyos-v3 são arch "x86_64_v3" — o conf
+##       do sistema precisa aceitar as duas (senão 'pacman -Syu' quebra)
+if ! grep -qE '^Architecture = .*\bx86_64_v3\b' "$ELITE_PC"; then
+    if grep -qE '^Architecture = ' "$ELITE_PC"; then
+        sed -i -E 's|^Architecture = .*$|Architecture = x86_64 x86_64_v3|' "$ELITE_PC"
+    else
+        sed -i '/^\[options\]/a Architecture = x86_64 x86_64_v3' "$ELITE_PC"
+    fi
+fi
+
 ## [E4] Refresh das DBs (valida que os 6 repos resolvem dentro do chroot)
 pacman -Sy --noconfirm || true
 

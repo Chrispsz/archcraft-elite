@@ -160,6 +160,19 @@ EOF
     ' "$PACMAN_CONF" > "$tmp"
     cat "$tmp" > "$PACMAN_CONF"; rm -f "$tmp"
   fi
+  # Arquitetura: pacotes v3 do CachyOS são arch "x86_64_v3" (o "auto"
+  # só aceita x86_64 — sem isso o pacman rejeita a transação)
+  if ! grep -qE '^Architecture = .*\bx86_64_v3\b' "$PACMAN_CONF"; then
+    say "pacman.conf: Architecture = x86_64 x86_64_v3 (necessário p/ os pacotes v3)"
+    if (( ! DRY )); then
+      backup "$PACMAN_CONF"
+      if grep -qE '^Architecture = ' "$PACMAN_CONF"; then
+        sed -i -E 's|^Architecture = .*$|Architecture = x86_64 x86_64_v3|' "$PACMAN_CONF"
+      else
+        sed -i '/^\[options\]/a Architecture = x86_64 x86_64_v3' "$PACMAN_CONF"
+      fi
+    fi
+  fi
   grep -q '^\[multilib\]' "$PACMAN_CONF" || warn "ative [multilib] no pacman.conf (lib32 p/ Steam)"
   run pacman -Sy
 }
