@@ -117,6 +117,34 @@ fi
 # multilib (lib32-gamemode, lib32-mangohud, lib32-vulkan, steam no --apps)
 grep -q '^\[multilib\]' "$PC" || printf '\n[multilib]\nInclude = /etc/pacman.d/mirrorlist\n' >> "$PC"
 
+# ── [5.1] (CI/root) mirrorlist do repo [archcraft] p/ o ambiente de build
+#          (o conf do profile referencia via Include; o pacstrap resolve)
+if [[ $EUID -eq 0 && ! -f /etc/pacman.d/archcraft-mirrorlist ]]; then
+  printf 'Server = https://packages.archcraft.io/$arch\n' > /etc/pacman.d/archcraft-mirrorlist
+  say "Escrito /etc/pacman.d/archcraft-mirrorlist (ambiente de build)"
+fi
+
+# ── [5.2] (CI/root) expandir GRUPOS em pacotes explícitos ──────────
+#  pacstrap não-interativo ABORTA em prompt de seleção de grupo (stdin
+#  EOF ≠ default). O build oficial do Archcraft é interativo (TTY) —
+#  aqui expandimos cada grupo nos mesmos membros que o default=all
+#  escolheria, consultando os dbs reais (mesma seleção, zero prompts).
+if [[ $EUID -eq 0 && -x /usr/bin/pacman ]]; then
+  say "Sincronizando dbs do profile p/ expandir grupos (melhor esforço)"
+  pacman -Sy --noconfirm --config "$PC" >/dev/null 2>&1 || true
+  for g in xorg archcraft-cursors archcraft-icons archcraft-themes archcraft-wallpapers; do
+    grep -qxF "$g" "$PROFILE/packages.x86_64" || continue
+    members=$(pacman --config "$PC" -Sgq "$g" 2>/dev/null | sort -u) || members=""
+    if [[ -n "$members" ]]; then
+      say "Grupo '$g' → $(wc -l <<< "$members") pacote(s) explícito(s)"
+      sed -i "s|^${g}\$|#${g} # ELITE-EXPANDED: grupo virou lista explícita (prompt quebra o pacstrap CI)|" "$PROFILE/packages.x86_64"
+      printf '%s\n' "$members" >> "$PROFILE/packages.x86_64"
+    else
+      echo "  (aviso: não foi possível expandir '$g' — pacman -Sgq falhou; build CI vai travar no prompt deste grupo)"
+    fi
+  done
+fi
+
 # ── [6] Entradas de boot → kernel BORE ─────────────────────────────
 #  default/opensource/nomodeset bootam o BORE (v3). A entrada NVIDIA
 #  continua no kernel stock (o nvidia-open pré-compilado só existe p/
@@ -174,14 +202,7 @@ mkdir -p "$(dirname "$CF")"
 cat elite/fragments/elite-customize.sh >> "$CF"
 chmod +x "$CF"
 
-# ── [9] (só no CI/container, root) mirrorlist do repo archcraft p/ o
-#        pacstrap resolver o Include [archcraft] no ambiente de build
-if [[ $EUID -eq 0 && ! -f /etc/pacman.d/archcraft-mirrorlist ]]; then
-  printf 'Server = https://packages.archcraft.io/$arch\n' > /etc/pacman.d/archcraft-mirrorlist
-  say "Escrito /etc/pacman.d/archcraft-mirrorlist (ambiente de build)"
-fi
-
-# ── [10] Identidade da ISO ─────────────────────────────────────────
+# ── [9] Identidade da ISO ─────────────────────────────────────────
 say "Rebatizando a ISO (archcraft-elite-<data>)"
 sed -i -e 's|iso_name="archcraft"|iso_name="archcraft-elite"|' \
        -e 's|iso_application="Archcraft Live/Installation/Rescue CD"|iso_application="Archcraft Elite Edition - Gaming Tuned Live/Installer"|' \
