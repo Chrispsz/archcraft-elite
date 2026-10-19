@@ -33,67 +33,39 @@ jobs:
           shopt -s globstar
           shellcheck -S warning -x \
             scripts/*.sh \
+            .ci/*.sh \
             elite/fragments/*.sh \
             elite/airootfs/usr/local/bin/elite-tune \
             elite/airootfs/usr/local/bin/fg-booster \
             elite/airootfs/usr/local/bin/elite-status \
             elite/airootfs/usr/local/bin/elite-wallpaper
       - name: shfmt (informativo — não bloqueia)
-        run: shfmt -d scripts/*.sh elite/fragments/*.sh || true
+        run: shfmt -d scripts/*.sh .ci/*.sh elite/fragments/*.sh || true
 
-  # ── Build da ISO ──────────────────────────────────────────────────
+  # ── Build da ISO (container Arch PRIVILEGIADO via docker run) ────
+  # jobs.container: não tem permissão de mount (pacstrap monta /proc
+  # no chroot) — por isso o docker run --privileged a partir do runner.
   build:
     needs: lint
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    container:
-      image: archlinux:base-devel
-      volumes:
-        - /mnt:/mnt   # disco grande do runner p/ o working dir do archiso
     steps:
-      - name: Preparar container (archiso + deps do mkarchcraftiso)
-        run: |
-          df -h / /mnt || true
-          sed -i 's/^#ParallelDownloads/ParallelDownloads/; s/^#Color/Color/' /etc/pacman.conf
-          pacman -Syu --noconfirm --needed \
-            git rsync curl archiso xorriso mtools dosfstools \
-            e2fsprogs squashfs-tools openssl arch-install-scripts
-
       - uses: actions/checkout@v4
 
-      - name: Importar chave CachyOS (ambiente de build)
+      - name: Construir ISO (container Arch privilegiado)
         run: |
-          # a imagem archlinux não traz chave secreta no keyring — init primeiro
-          pacman-key --init
-          if ! pacman-key --recv-keys F3B607488DB35A47 --keyserver keyserver.ubuntu.com 2>/dev/null \
-             && ! pacman-key --recv-keys F3B607488DB35A47 2>/dev/null; then
-            curl -fsSL https://raw.githubusercontent.com/CachyOS/CachyOS-PKGBUILDs/master/cachyos-keyring/cachyos.gpg \
-              | pacman-key --add -
-          fi
-          pacman-key --lsign-key F3B607488DB35A47
-
-      - name: Aplicar overlay Elite sobre o profile Archcraft
-        run: bash scripts/apply-overlay.sh
-
-      - name: Buildar ISO (mkarchcraftiso — fork oficial do Archcraft)
-        run: |
-          cd elite-build/profile
-          mkdir -p /mnt/iso-work "$GITHUB_WORKSPACE/out"
-          ./mkarchcraftiso -v -w /mnt/iso-work -o "$GITHUB_WORKSPACE/out" .
-
-      - name: Checksums + relatório de tamanho
-        run: |
-          cd "$GITHUB_WORKSPACE/out"
-          sha256sum -- * > sha256sums.txt
-          cat sha256sums.txt
-          ls -lh --si
-          echo "Tamanho acima — limite p/ asset único de release: 2 GiB"
+          docker run --rm --privileged \
+            -v "$PWD":/work \
+            -v /mnt:/mnt \
+            -w /work \
+            archlinux:base-devel \
+            bash .ci/build.sh
 
       - name: Upload artefato (ISO inteira, sempre)
         uses: actions/upload-artifact@v4
         with:
           name: archcraft-elite-iso
-          path: ${{ github.workspace }}/out/*
+          path: out/*
           retention-days: 30
           compression-level: 0
 
@@ -101,7 +73,7 @@ jobs:
       - name: Preparar assets de release (split se > 2 GiB)
         if: startsWith(github.ref, 'refs/tags/')
         run: |
-          cd "$GITHUB_WORKSPACE/out"
+          cd out
           ISO=$(ls *.iso)
           SZ=$(stat -c%s "$ISO")
           LIMIT=2147483648
@@ -111,16 +83,15 @@ jobs:
             echo "ISO $SZ bytes > 2GiB — dividindo em partes de 1.9GB."
             split -b 1900M -d "$ISO" "${ISO}.part-"
             rm -f "$ISO"
-            {
-              echo "# ISO dividida (limite de 2 GiB por arquivo do GitHub)"
-              echo ""
-              echo "Baixe **todas** as partes \`${ISO}.part-*\` na mesma pasta e junte:"
-              echo ""
-              echo "    cat ${ISO}.part-* > ${ISO}"
-              echo ""
-              echo "Confira a integridade: \`sha256sum ${ISO}\` (compare com sha256sums.txt)."
-              echo "No Linux/grão de salt: \`curl -LO <url-da-parte>\` para cada parte."
-            } > JUNTAR-ISO.md
+            printf '%s\n' \
+              "# ISO dividida (limite de 2 GiB por arquivo do GitHub)" \
+              "" \
+              "Baixe **todas** as partes \`${ISO}.part-*\` na mesma pasta e junte:" \
+              "" \
+              "    cat ${ISO}.part-* > ${ISO}" \
+              "" \
+              "Confira a integridade: \`sha256sum ${ISO}\` (compare com sha256sums.txt)." \
+              > JUNTAR-ISO.md
             ls -lh --si
           fi
 
