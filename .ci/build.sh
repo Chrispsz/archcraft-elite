@@ -65,7 +65,7 @@ from pywal.__main__ import main
 if __name__ == "__main__":
     main()
 EOS
-    install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+    install -Dm644 LICENSE.md "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
 }
 EOPKGBUILD
 
