@@ -101,10 +101,24 @@ linux-firmware-whence
 EOF
 fi
 
-# ── [5] Repos CachyOS no pacman.conf de BUILD ──────────────────────
-say "Mesclando repos CachyOS no pacman.conf (build)"
+# ── [5] Repos no pacman.conf de BUILD ──────────────────────────────
+say "Mesclando repos no pacman.conf (build)"
 PC="$PROFILE/pacman.conf"
 sed -i '/^DownloadUser/d' "$PC"
+
+# [elite-local]: repo file:// construído pelo CI (.ci/build.sh) — resolve as
+# dependências que o upstream Archcraft quebrou (python-pywal saiu dos repos
+# oficiais; qt5-virtualkeyboard é vestígio Qt5 do archcraft-sddm-theme).
+# O caminho /var/cache/elite-local existe no host E no chroot do pacstrap
+# (via overlay) — e é removido da ISO final pelo customize [E8].
+if ! grep -q '^\[elite-local\]' "$PC"; then
+  # insere ANTES do primeiro repo ([archcraft]; fallback: antes de [core])
+  if grep -q '^\[archcraft\]' "$PC"; then
+    sed -i '0,/^\[archcraft\]/s//[elite-local]\nSigLevel = Optional TrustAll\nServer = file:\/\/\/var\/cache\/elite-local\n\n&/' "$PC"
+  else
+    sed -i '0,/^\[core\]/s//[elite-local]\nSigLevel = Optional TrustAll\nServer = file:\/\/\/var\/cache\/elite-local\n\n&/' "$PC"
+  fi
+fi
 if ! grep -q '^\[cachyos-v3\]' "$PC"; then
   TMP=$(mktemp)
   awk -v block="$(cat elite/pacman-repos.build.add)" '

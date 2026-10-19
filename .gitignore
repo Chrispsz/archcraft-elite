@@ -4,3 +4,6 @@ out/
 work/
 *.iso
 *.sha256
+
+# repo local construído pelo CI (não versionar)
+elite/airootfs/var/cache/

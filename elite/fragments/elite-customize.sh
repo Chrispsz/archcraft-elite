@@ -163,3 +163,7 @@ ELITE_PIS="/usr/bin/chrooted_post_install.sh"
 if [[ -f "$ELITE_PIS" ]]; then
     sed -i -e "s/'cups.service'//" -e "s/'avahi-daemon.service'//" "$ELITE_PIS"
 fi
+
+## [E8] Remove o repo local [elite-local] da ISO (só é necessário durante
+##      o pacstrap; os pacotes instalados ficam, o repo não)
+rm -rf /var/cache/elite-local
