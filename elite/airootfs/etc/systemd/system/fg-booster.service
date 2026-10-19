@@ -1,0 +1,14 @@
+[Unit]
+Description=Elite: foreground booster (X11 — Openbox/BSPWM)
+Documentation=https://github.com/ValveSoftware
+After=graphical.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/fg-booster
+# on-failure (e não always): se xdotool sumir, não virar crash-loop
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical.target

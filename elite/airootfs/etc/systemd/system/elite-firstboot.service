@@ -1,0 +1,19 @@
+[Unit]
+Description=Elite: first-boot (driver GPU + serviços + tokens GRUB) — auto-desativa
+Documentation=https://wiki.cachyos.org
+# Só no sistema INSTALADO — na sessão live (/run/archiso existe) nunca roda
+ConditionPathExists=!/run/archiso
+ConditionPathExists=!/var/lib/elite/firstboot-done
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/elite-tune --firstboot
+TimeoutStartSec=1800
+StandardOutput=append:/var/log/elite-firstboot.log
+StandardError=append:/var/log/elite-firstboot.log
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

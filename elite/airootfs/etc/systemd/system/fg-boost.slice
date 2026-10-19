@@ -1,0 +1,12 @@
+[Unit]
+Description=Elite: slice turbinado para o app em foco (sem tetos de VRAM/memória)
+
+[Slice]
+CPUWeight=900
+IOWeight=900
+# Sem MemoryDevice* aqui POR DESIGN: os tetos de VRAM para background são
+# responsabilidade do dmemcg-booster (CachyOS). Este slice apenas dá peso
+# de CPU/IO ao app em foco (jogo), sem limites.
+
+[Install]
+WantedBy=multi-user.target

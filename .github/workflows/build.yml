@@ -1,0 +1,70 @@
+name: Build Elite ISO
+
+on:
+  workflow_dispatch:
+    inputs:
+      notes:
+        description: 'Notas da build (opcional)'
+        required: false
+        default: ''
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    container:
+      image: archlinux:base-devel
+    steps:
+      - name: Preparar container (archiso + deps do mkarchcraftiso)
+        run: |
+          sed -i 's/^#ParallelDownloads/ParallelDownloads/; s/^#Color/Color/' /etc/pacman.conf
+          pacman -Syu --noconfirm --needed \
+            git rsync curl archiso xorriso mtools dosfstools \
+            e2fsprogs squashfs-tools openssl arch-install-scripts
+
+      - name: Checkout (repo Elite)
+        uses: actions/checkout@v4
+
+      - name: Importar chave CachyOS (ambiente de build)
+        run: |
+          pacman-key --recv-keys F3B607488DB35A47 --keyserver keyserver.ubuntu.com \
+            || pacman-key --recv-keys F3B607488DB35A47
+          pacman-key --lsign-key F3B607488DB35A47
+
+      - name: Aplicar overlay Elite sobre o profile Archcraft
+        run: bash scripts/apply-overlay.sh
+
+      - name: Buildar ISO (mkarchcraftiso — fork oficial do Archcraft)
+        run: |
+          cd elite-build/profile
+          mkdir -p /tmp/iso-work "$GITHUB_WORKSPACE/out"
+          ./mkarchcraftiso -v -w /tmp/iso-work -o "$GITHUB_WORKSPACE/out" .
+
+      - name: Checksums
+        run: |
+          cd "$GITHUB_WORKSPACE/out"
+          sha256sum -- * > sha256sums.txt
+          cat sha256sums.txt
+
+      - name: Upload artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: archcraft-elite-iso
+          path: ${{ github.workspace }}/out/*
+          retention-days: 14
+          compression-level: 0
+
+      - name: Release (push de tag v*)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            out/*.iso
+            out/sha256sums.txt
+          generate_release_notes: true
