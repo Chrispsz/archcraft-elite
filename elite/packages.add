@@ -31,3 +31,8 @@ lact
 grub-btrfs
 timeshift
 pciutils
+
+## ── ELITE: substituições (upstream desatualizado) ──
+## p7zip virou pacote virtual de '7zip' — nome explícito evita prompt
+## de provider no pacstrap (build não-interativo)
+7zip
