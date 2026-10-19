@@ -63,6 +63,8 @@ jobs:
 
       - name: Importar chave CachyOS (ambiente de build)
         run: |
+          # a imagem archlinux não traz chave secreta no keyring — init primeiro
+          pacman-key --init
           if ! pacman-key --recv-keys F3B607488DB35A47 --keyserver keyserver.ubuntu.com 2>/dev/null \
              && ! pacman-key --recv-keys F3B607488DB35A47 2>/dev/null; then
             curl -fsSL https://raw.githubusercontent.com/CachyOS/CachyOS-PKGBUILDs/master/cachyos-keyring/cachyos.gpg \
