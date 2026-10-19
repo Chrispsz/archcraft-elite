@@ -1,0 +1,29 @@
+## ── ELITE: kernel CachyOS BORE (o 'linux' do Arch permanece como fallback de boot) ──
+linux-cachyos-bore
+linux-cachyos-bore-headers
+linux-headers
+
+## ── ELITE: tuning/settings da CachyOS ──
+cachyos-settings
+cachyos-ananicy-rules
+ananicy-cpp
+scx-tools
+dmemcg-booster
+
+## ── ELITE: stack de gaming ──
+gamemode
+lib32-gamemode
+gamescope
+mangohud
+lib32-mangohud
+nvtop
+lact
+
+## ── ELITE: infra de rollback ──
+grub-btrfs
+timeshift
+
+## ── ELITE: ferramentas (fg-booster / firstboot / diagnóstico) ──
+xdotool
+curl
+htop

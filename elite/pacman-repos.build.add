@@ -1,0 +1,19 @@
+# >>> ELITE: CachyOS (inserido ANTES de [core] — precedência v3 sobre core/extra,
+# mantendo [archcraft] acima). Servers diretos: conf de BUILD (o pacman.conf do
+# sistema instalado usa Include cachyos-v3-mirrorlist, via elite-customize.sh).
+# Base v2 = meta-pacotes (cachyos-settings, dmemcg-booster, cachyos-ananicy-rules).
+[cachyos]
+Server = https://mirror.cachyos.org/repo/x86_64/cachyos
+
+# v3: kernels (linux-cachyos-bore), gamescope, nvidia-open-dkms...
+[cachyos-v3]
+Server = https://mirror.cachyos.org/repo/x86_64_v3/cachyos-v3
+
+# v3: rebuilds do [core]
+[cachyos-core-v3]
+Server = https://mirror.cachyos.org/repo/x86_64_v3/cachyos-core-v3
+
+# v3: rebuilds do [extra] (ananicy-cpp, scx-tools, gamemode, mangohud, lact...)
+[cachyos-extra-v3]
+Server = https://mirror.cachyos.org/repo/x86_64_v3/cachyos-extra-v3
+# <<< ELITE

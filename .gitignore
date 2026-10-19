@@ -1,0 +1,6 @@
+# Build artifacts
+elite-build/
+out/
+work/
+*.iso
+*.sha256
