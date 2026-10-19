@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# =====================================================================
+#  elite-wallpaper [1|2] — aplica um wallpaper da coleção Elite
+#
+#  O quê: define o wallpaper da sessão X11 (feh imediato + nitrogen
+#         persistente) e, se disponível, atualiza a tela de lock.
+#  Como rodar: elite-wallpaper        (aplica elite-01)
+#              elite-wallpaper 2      (aplica elite-02)
+#  Reverter: nitrogen / feh --bg-fill <outro-arquivo>
+#  Depende de: feh e/ou nitrogen (já vêm no Archcraft); betterlockscreen opcional
+# =====================================================================
+set -u
+DIR=/usr/share/backgrounds/elite
+n="${1:-1}"
+
+case "$n" in
+  1|2) f="$DIR/elite-0$n.png" ;;
+  *) echo "uso: elite-wallpaper [1|2]"; exit 1 ;;
+esac
+[[ -f "$f" ]] || { echo "wallpaper não encontrado: $f"; exit 1; }
+
+if command -v feh >/dev/null 2>&1 && [[ -n "${DISPLAY:-}" ]]; then
+  feh --bg-fill "$f" && echo "feh: aplicado"
+fi
+if command -v nitrogen >/dev/null 2>&1; then
+  nitrogen --set-zoom-fill --save "$f" 2>/dev/null && echo "nitrogen: salvo (persiste entre logins)"
+fi
+if command -v betterlockscreen >/dev/null 2>&1; then
+  echo "dica: sudo betterlockscreen -u '$f'   # atualiza a tela de lock"
+fi
+echo "wallpaper Elite aplicado: $f"

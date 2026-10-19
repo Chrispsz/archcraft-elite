@@ -1,8 +1,15 @@
 #!/usr/bin/env bash
 # =====================================================================
-#  elite-tune v4.1 — Archcraft Elite Edition
+#  elite-tune v4.2 — Archcraft Elite Edition
 #  Elite A: Ryzen 7 5700X · RTX 5060 8GB · 16GB · B550M
 #  Elite B: veterano — detecção automática de GPU/CPU/disco
+#
+#  v4.2: · scx-elite.service própria (bpfland) — 'scx.service' não existe em
+#          pacote nenhum (scx-scheds = binários; scx-tools = scx_loader)
+#        · dmemcg-booster-SYSTEM.service (nome real da unit)
+#        · Vulkan stack AMD/Intel idempotente no firstboot
+#        · mirror us.cachyos.org (mirror.cachyos.org desativado no mirrorlist
+#          oficial) · repos inseridos antes de [core], não antes do [archcraft]
 #
 #  Modos:
 #    elite-tune               → tune interativo (máquina já instalada)
@@ -37,7 +44,7 @@ done
 # Constantes validadas (projeto archcraft-cachyos-elite)
 KERNEL_PKG="${KERNEL_PKG:-linux-cachyos-bore}"   # BORE p/ interatividade/gaming
 CACHYOS_KEY="F3B607488DB35A47"
-MIRROR="https://mirror.cachyos.org"
+MIRROR="https://us.cachyos.org"    # listagem de dir. p/ discover_latest (mirror.cachyos.org está desativado)
 PINNED_KEYRING="cachyos-keyring-20240331-1-any.pkg.tar.zst"
 PINNED_V3ML="cachyos-v3-mirrorlist-27-1-any.pkg.tar.zst"
 PACMAN_CONF="/etc/pacman.conf"
@@ -132,7 +139,8 @@ ensure_cachyos() {
     read -r -d '' block <<'EOF' || true
 # >>> ELITE: CachyOS — wiki.cachyos.org/features/optimized_repos
 [cachyos]
-Server = https://mirror.cachyos.org/repo/x86_64/cachyos
+Server = https://cdn77.cachyos.org/repo/x86_64/cachyos
+Server = https://us.cachyos.org/repo/x86_64/cachyos
 
 [cachyos-v3]
 Include = /etc/pacman.d/cachyos-v3-mirrorlist
@@ -146,7 +154,7 @@ Include = /etc/pacman.d/cachyos-v3-mirrorlist
 EOF
     tmp=$(mktemp)
     awk -v block="$block" '
-      /^\[/ && !done && !/^\[options\]/ { print block; print ""; done = 1 }
+      /^\[core\]/ && !done { print block; print ""; done = 1 }
       { print }
       END { if (!done) { print ""; print block } }
     ' "$PACMAN_CONF" > "$tmp"
@@ -168,7 +176,7 @@ if (( STATUS )); then
   printf '%-22s %s\n' "THP:" "$(cat /sys/kernel/mm/transparent_hugepage/enabled 2>/dev/null)"
   printf '%-22s %s\n' "repos cachyos:" "$(grep -oE '^\[cachyos[^]]*\]' $PACMAN_CONF 2>/dev/null | tr '\n' ' ')"
   echo ""
-  for s in scx ananicy-cpp fg-booster dmemcg-booster grub-btrfsd lactd elite-firstboot; do
+  for s in scx-elite ananicy-cpp fg-booster dmemcg-booster-system grub-btrfsd lactd elite-firstboot; do
     printf 'service %-15s %s\n' "$s" "$(systemctl is-active $s.service 2>/dev/null || echo inactive)"
   done
   echo ""
@@ -179,7 +187,7 @@ if (( STATUS )); then
     echo "GPU: ${GPULINE:-$(lspci 2>/dev/null | grep -Ei 'vga|3d' | head -1)}"
   fi
   echo ""
-  echo "fg-boost.slice: $(cat /sys/fs/cgroup/fg-boost.slice/cgroup.procs 2>/dev/null | wc -l) pid(s) no slice turbinado"
+  echo "fg-boost.slice: $(wc -l < /sys/fs/cgroup/fg-boost.slice/cgroup.procs 2>/dev/null) pid(s) no slice turbinado"
   echo "firstboot:      $([[ -f /var/lib/elite/firstboot-done ]] && echo 'concluído' || echo 'pendente/não-ISO')"
   echo ""
   echo "Verificações manuais: systemd-cgls /fg-boost.slice | nvtop | elite-tune --apps"
@@ -237,10 +245,12 @@ if (( FIRSTBOOT )); then
       fi
       ;;
     amd:*)
-      say "AMD → mesa/RADV já no sistema (vulkan-radeon presente na ISO); nada a instalar"
+      say "AMD → mesa/RADV (vulkan-radeon assado na ISO Elite; --needed = no-op)"
+      run pacman -S --needed --noconfirm mesa lib32-mesa vulkan-radeon lib32-vulkan-radeon || true
       ;;
     intel:*)
-      say "Intel → mesa/vulkan-intel já no sistema; nada a instalar"
+      say "Intel → mesa/ANV (vulkan-intel assado na ISO Elite; --needed = no-op)"
+      run pacman -S --needed --noconfirm mesa lib32-mesa vulkan-intel || true
       ;;
     *)
       warn "GPU não identificada ($GPULINE) — nenhum driver extra instalado"
@@ -257,17 +267,28 @@ EOF
 
   # 3. serviços de tuning
   run systemctl enable --now ananicy-cpp.service || true
-  if [[ -f /etc/default/scx ]]; then
-    if (( ! DRY )) && ! grep -q '^SCX_SCHEDULER=' /etc/default/scx 2>/dev/null; then
-      echo 'SCX_SCHEDULER="bpfland"' >> /etc/default/scx
-    fi
-    run systemctl enable --now scx.service || true
-  else
-    run systemctl enable --now scx.service 2>/dev/null || run systemctl enable --now scx_bpfland.service || \
-      warn "scx: nenhuma unit encontrada — confira: systemctl list-unit-files | grep scx"
+  # sched-ext: unit própria scx-elite (bpfland). Trocar scheduler:
+  #   sudo systemctl edit scx-elite  →  ExecStart=/usr/bin/scx_lavd
+  if [[ ! -f /etc/systemd/system/scx-elite.service ]]; then
+    wfile /etc/systemd/system/scx-elite.service <<'EOF'
+[Unit]
+Description=Elite: sched-ext bpfland (games first)
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/scx_bpfland
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    run systemctl daemon-reload
   fi
-  run systemctl enable --now dmemcg-booster.service 2>/dev/null \
-    || warn "dmemcg-booster: unit não encontrada (verifique pacman -Ql dmemcg-booster | grep service)"
+  run systemctl enable --now scx-elite.service || warn "scx-elite: falhou (kernel sem sched-ext?)"
+  run systemctl enable --now dmemcg-booster-system.service 2>/dev/null \
+    || warn "dmemcg-booster-system: unit não encontrada (pacman -Ql dmemcg-booster | grep service)"
   run systemctl enable --now fg-boost.slice fg-booster.service || true
   run systemctl enable --now grub-btrfsd.service 2>/dev/null || true
   run systemctl enable --now lactd.service 2>/dev/null || true
@@ -304,19 +325,29 @@ confirm "Aplicar o Elite Tune neste hardware?" || exit 0
 # ── [1] CachyOS + kernel BORE (fallback 'linux' permanece) ─────────
 ensure_cachyos
 run pacman -S --needed --noconfirm "$KERNEL_PKG" "${KERNEL_PKG}-headers" linux-headers
-run pacman -S --needed --noconfirm cachyos-settings cachyos-ananicy-rules ananicy-cpp scx-tools dmemcg-booster
+run pacman -S --needed --noconfirm cachyos-settings cachyos-ananicy-rules ananicy-cpp scx-scheds scx-tools dmemcg-booster
 
 # ── [2] Daemons ─────────────────────────────────────────────────────
 run systemctl enable --now ananicy-cpp.service || true
-if [[ -f /etc/default/scx ]]; then
-  if (( ! DRY )) && ! grep -q '^SCX_SCHEDULER=' /etc/default/scx 2>/dev/null; then
-    echo 'SCX_SCHEDULER="bpfland"' >> /etc/default/scx
-  fi
-  run systemctl enable --now scx.service || true
-else
-  run systemctl enable --now scx.service 2>/dev/null || run systemctl enable --now scx_bpfland.service || true
+if [[ ! -f /etc/systemd/system/scx-elite.service ]]; then
+  wfile /etc/systemd/system/scx-elite.service <<'EOF'
+[Unit]
+Description=Elite: sched-ext bpfland (games first)
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/scx_bpfland
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+EOF
+  run systemctl daemon-reload
 fi
-run systemctl enable --now dmemcg-booster.service 2>/dev/null || true
+run systemctl enable --now scx-elite.service || true
+run systemctl enable --now dmemcg-booster-system.service 2>/dev/null || true
 
 # ── [3] Boot params ────────────────────────────────────────────────
 (( CPU_AMD )) && ensure_cmdline_token /etc/default/grub amd_pstate=active
