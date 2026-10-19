@@ -219,8 +219,18 @@ find "$SD" -type l \( -name '*cloud-init*' -o -name '*ModemManager*' \
   -o -name 'cups*' -o -name 'pcscd*' \) -delete 2>/dev/null || true
 rm -rf "$SD/cloud-init.target.wants"
 
-# ── [8] Fragmento elite no customize_airootfs.sh ───────────────────
-say "Anexando fragmento elite ao customize_airootfs.sh (E0–E7)"
+# ── [8] mkarchcraftiso NÃO-INTERATIVO ──────────────────────────────
+#  O fork do Archcraft invoca 'pacstrap -i' (mudança CUSTOM deles: o adi
+#  responde os prompts no TTY da máquina dele). Em CI, stdin EOF no
+#  'Proceed with installation?' do pacstrap aborta o build. Sem o -i o
+#  pacstrap passa --noconfirm ao pacman: todos os prompts (grupos,
+#  providers, Y/n) resolvem pelo default — mesmo comportamento do
+#  build oficial (default=all/default=1), sem interação.
+say "Patch: pacstrap não-interativo no mkarchcraftiso (remove -i)"
+sed -i 's|pacstrap -C "${work_dir}/${buildmode}.pacman.conf" -i -c -G -M|pacstrap -C "${work_dir}/${buildmode}.pacman.conf" -c -G -M|g' "$PROFILE/mkarchcraftiso"
+
+# ── [9] Fragmento elite no customize_airootfs.sh ───────────────────
+say "Anexando fragmento elite ao customize_airootfs.sh (E0–E8)"
 CF="$PROFILE/airootfs/root/customize_airootfs.sh"
 mkdir -p "$(dirname "$CF")"
 [[ -f "$CF" ]] || printf '#!/usr/bin/env bash\nset -e -u\n' > "$CF"
