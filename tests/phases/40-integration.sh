@@ -20,6 +20,19 @@ fi
 P="$RE/elite-build/archcraft"   # profile transformado
 assert_file "$P/packages.x86_64" "cadeia A: elite-build/archcraft existe (profile detectado)"
 
+# proveniência do clone (armadilha #6 da revisão deepseek): se o insteadOf
+# falhar em silêncio, o overlay teria clonado o upstream REAL — verde por sorte.
+# ls-remote --get-url aplica o insteadOf (remote get-url mostra a URL crua);
+# precisa do HOME onde o insteadOf foi registrado
+if [[ -d "$RE/elite-build/.git" ]]; then
+  purl=$(HOME="$WORK/home" git -C "$RE/elite-build" ls-remote --get-url 2>/dev/null || echo FALHOU)
+  [[ "$purl" == "$WORK/upstream-src" ]] \
+    && ok "cadeia A: clone veio do FIXTURE (insteadOf ativo — hermético, sem rede)" \
+    || fail "cadeia A: proveniência do clone" "resolver='$purl' ≠ fixture — risco de fixture-rot"
+else
+  fail "cadeia A: proveniência do clone" "elite-build/.git ausente"
+fi
+
 PKG="$P/packages.x86_64"
 assert_grep "$PKG" '^#cups # ELITE-REMOVED$' "cadeia A: cups comentado com marcador ELITE-REMOVED"
 assert_nogrep "$PKG" '^cups$' "cadeia A: cups ativo sumiu"
