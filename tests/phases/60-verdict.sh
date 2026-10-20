@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # VEREDICTO — a última peça: a imagem completa do quebra-cabeça
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/core.sh"
 
@@ -15,7 +16,7 @@ if [[ -f "$WORK/summary.txt" ]]; then
   done < "$WORK/summary.txt"
 fi
 
-printf '\n%s'
+printf '\n'
 printf '%s══════════════════════════════════════════════════════════════%s\n' "$C_BLD" "$C_RST"
 printf '%s ARCHCRAFT-ELITE — QUEBRA-CABEÇA DE TESTES (cadeia completa) %s\n' "$C_BLD" "$C_RST"
 printf '%s══════════════════════════════════════════════════════════════%s\n' "$C_BLD" "$C_RST"
@@ -30,7 +31,6 @@ for r in "${ROWS[@]}"; do
   fi
 done
 printf '%s──────────────────────────────────────────────────────────────%s\n' "$C_DIM" "$C_RST"
-total=$((tp+tf+ts))
 printf '  PEÇAS ENCAIXADAS: %d · falhas: %d · pulos: %d · bloqueadas: %d\n' "$tp" "$tf" "$ts" "$tb"
 
 if (( tf == 0 && tb == 0 )); then

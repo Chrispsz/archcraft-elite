@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # tests/lib/setup.sh — montagem da mesa do quebra-cabeça (sourced 1×, idempotente)
 # Produz: $WORK/mocks (pacman/lspci/nvidia-smi/systemctl/…), $WORK/extract.sh
 # (funções reais extraídas do elite-tune) e $WORK/upstream-src (clone-fixture
