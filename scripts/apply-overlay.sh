@@ -153,10 +153,17 @@ fi
 
 # Downloads resilientes: mirrors rolling (CachyOS) têm janelas em que o
 # db anuncia versão que o arquivo ainda não propagou (404 transitório).
-# curl com --retry-all-errors espera o mirror sincronizar. SEM operadores
-# de shell: o pacman executa o XferCommand via fork/execv (não sh -c).
+# Retries MODERADOS (5×5s, cap 120s): cobrem erro transitório de rede e
+# janelas CURTAS de propagação durante o pacstrap. Janelas longas são
+# curadas deterministicamente pela sonda+injeção de baseline do preflight
+# na retentativa do build — esperar 300s às cegas só queimaria tempo.
+# --retry-connrefused: edge CDN recusando conexão é erro retriable;
+# --speed-time/-limit: transferência PARADA (hang sem timeout no curl)
+# vira erro retriable em vez de travar o build até o timeout do job.
+# SEM operadores de shell: o pacman executa o XferCommand via fork/execv
+# (não sh -c) — flags apenas, sempre.
 if ! grep -q '^XferCommand' "$PC"; then
-  sed -i '/^\[options\]/a XferCommand = /usr/bin/curl -L -C - -f -o %o %u --retry 3 --retry-delay 4 --retry-all-errors' "$PC"
+  sed -i '/^\[options\]/a XferCommand = /usr/bin/curl -L -C - -f -o %o %u --retry 5 --retry-delay 5 --retry-connrefused --retry-all-errors --retry-max-time 120 --speed-time 60 --speed-limit 1024' "$PC"
 fi
 
 # Throughput de build: 10 downloads simultâneos no conf de BUILD (o conf

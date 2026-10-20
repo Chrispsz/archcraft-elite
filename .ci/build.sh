@@ -98,6 +98,41 @@ for pkgdir in python-pywal qt5-virtualkeyboard; do
         || { echo "FALHA ao construir $pkgdir"; exit 1; }
     cp "/tmp/elite-src/$pkgdir/"*.pkg.tar.zst /var/cache/elite-local/
 done
+# cachyos-keyring + cachyos-v3-mirrorlist também entram no [elite-local]:
+# o E2 do customize instala os dois por file:// (PRIMEIRO repo do conf) —
+# o chroot não toca a rede no customize (era a última fonte potencial de
+# curl errors do build; skew de mirror não alcança mais esta fase).
+# Escada: nome = listing do us (único mirror com listing; cdn77 devolve
+# 404 em diretório) → pin; download = cdn77 → us → pin de novo (o listing
+# pode anunciar nome que ainda não propagou). Tudo falhou: avisa e segue
+# (E1 cobre a chave via keyserver; E2 tem fallback manual de mirrorlist).
+say "Buscando cachyos-keyring + cachyos-v3-mirrorlist (E2 offline-first)"
+elite_latest() {
+    curl -fsSL --max-time 30 "https://us.cachyos.org/repo/x86_64/cachyos/" 2>/dev/null \
+        | grep -oE "$1-[0-9][^\"]*\.pkg\.tar\.zst" | sort -Vu | tail -1 || true
+}
+elite_fetch() { # $1 = nome do arquivo → /var/cache/elite-local/
+    local m
+    for m in https://cdn77.cachyos.org/repo/x86_64/cachyos \
+             https://us.cachyos.org/repo/x86_64/cachyos; do
+        if curl -fsSL --retry 3 --retry-delay 3 --retry-all-errors \
+                -o "/var/cache/elite-local/$1" "$m/$1"; then
+            say "  ok: $1 (${m#https://})"
+            return 0
+        fi
+        rm -f "/var/cache/elite-local/$1"
+    done
+    return 1
+}
+KR_LATEST="$(elite_latest cachyos-keyring)"
+ML_LATEST="$(elite_latest cachyos-v3-mirrorlist)"
+elite_fetch "${KR_LATEST:-cachyos-keyring-20240331-1-any.pkg.tar.zst}" \
+    || elite_fetch "cachyos-keyring-20240331-1-any.pkg.tar.zst" \
+    || echo "  (aviso: cachyos-keyring fora do ar nos 2 mirrors — E2 usará fallback de rede)"
+elite_fetch "${ML_LATEST:-cachyos-v3-mirrorlist-27-1-any.pkg.tar.zst}" \
+    || elite_fetch "cachyos-v3-mirrorlist-27-1-any.pkg.tar.zst" \
+    || echo "  (aviso: cachyos-v3-mirrorlist fora do ar nos 2 mirrors — E2 usará fallback de rede)"
+
 repo-add --quiet /var/cache/elite-local/elite-local.db.tar.gz /var/cache/elite-local/*.pkg.tar.zst
 ls -la /var/cache/elite-local/
 

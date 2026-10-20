@@ -18,8 +18,9 @@ ELITE_MIRROR2="https://cdn77.cachyos.org"
 ELITE_KEYRING_PINNED="cachyos-keyring-20240331-1-any.pkg.tar.zst"
 ELITE_V3ML_PINNED="cachyos-v3-mirrorlist-27-1-any.pkg.tar.zst"
 
-## [E0] DNS no chroot (o E2 usa curl; o arch-chroot normalmente copia o
-##      resolv.conf, mas o symlink stub do systemd-resolved pode estar morto)
+## [E0] DNS no chroot (o fallback de rede do E2 usa curl; o arch-chroot
+##      normalmente copia o resolv.conf, mas o symlink stub do
+##      systemd-resolved pode estar morto)
 if [[ ! -e /etc/resolv.conf ]]; then
     rm -f /etc/resolv.conf
     printf 'nameserver 1.1.1.1\nnameserver 8.8.8.8\n' > /etc/resolv.conf
@@ -33,21 +34,30 @@ if ! pacman-key --list-keys "$ELITE_KEY" >/dev/null 2>&1; then
     pacman-key --lsign-key "$ELITE_KEY" || true
 fi
 
-## [E2] keyring + mirrorlist v3 oficiais (pacman -U — SEM o pacman forkado)
+## [E2] keyring + mirrorlist v3 oficiais — OFFLINE-FIRST. O .ci/build.sh
+##      baixa os dois (listing us → pin; download cdn77 → us) p/ o
+##      [elite-local], que é o PRIMEIRO repo do conf de build: o pacman -S
+##      resolve por file:// e o customize NÃO toca a rede (download aqui
+##      era a última fonte potencial de curl errors do chroot — skew de
+##      mirror não alcança mais esta fase). Camadas: [elite-local] →
+##      pacman -U (mirror) → mirrorlist manual (a chave já caiu via E1;
+##      o keyring empacotado é a forma canônica, atualizável pelo pacman).
 elite_latest() {
     curl -fsSL --max-time 30 "${ELITE_MIRROR}/repo/x86_64/cachyos/" 2>/dev/null \
         | grep -oE "$1-[0-9][^\"]*\.pkg\.tar\.zst" | sort -Vu | tail -1 || true
 }
-ELITE_KEYRING_PKG="$(elite_latest cachyos-keyring)"
-[[ -n "$ELITE_KEYRING_PKG" ]] || ELITE_KEYRING_PKG="$ELITE_KEYRING_PINNED"
-ELITE_V3ML_PKG="$(elite_latest cachyos-v3-mirrorlist)"
-[[ -n "$ELITE_V3ML_PKG" ]] || ELITE_V3ML_PKG="$ELITE_V3ML_PINNED"
-if ! pacman -U --noconfirm \
-        "${ELITE_MIRROR}/repo/x86_64/cachyos/${ELITE_KEYRING_PKG}" \
-        "${ELITE_MIRROR}/repo/x86_64/cachyos/${ELITE_V3ML_PKG}"; then
-    ## Fallback: escreve o mirrorlist na mão (a chave já caiu via E1)
-    printf 'Server = %s/repo/x86_64_v3/$repo\nServer = %s/repo/x86_64_v3/$repo\n' \
-        "$ELITE_MIRROR2" "$ELITE_MIRROR" > /etc/pacman.d/cachyos-v3-mirrorlist
+if ! pacman -S --noconfirm cachyos-keyring cachyos-v3-mirrorlist; then
+    ELITE_KEYRING_PKG="$(elite_latest cachyos-keyring)"
+    [[ -n "$ELITE_KEYRING_PKG" ]] || ELITE_KEYRING_PKG="$ELITE_KEYRING_PINNED"
+    ELITE_V3ML_PKG="$(elite_latest cachyos-v3-mirrorlist)"
+    [[ -n "$ELITE_V3ML_PKG" ]] || ELITE_V3ML_PKG="$ELITE_V3ML_PINNED"
+    if ! pacman -U --noconfirm \
+            "${ELITE_MIRROR}/repo/x86_64/cachyos/${ELITE_KEYRING_PKG}" \
+            "${ELITE_MIRROR}/repo/x86_64/cachyos/${ELITE_V3ML_PKG}"; then
+        ## Fallback: escreve o mirrorlist na mão (a chave já caiu via E1)
+        printf 'Server = %s/repo/x86_64_v3/$repo\nServer = %s/repo/x86_64_v3/$repo\n' \
+            "$ELITE_MIRROR2" "$ELITE_MIRROR" > /etc/pacman.d/cachyos-v3-mirrorlist
+    fi
 fi
 
 ## [E3] pacman.conf do SISTEMA: reescrito canônico e limpo (o customize do
