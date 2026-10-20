@@ -120,14 +120,33 @@ export async function harborChat(opts: {
         // dobra o orçamento e repete a chamada (mesma conversa, sem re-montar).
         const reasoning: string | undefined = msg?.reasoning_content;
         if (reasoning && opts.allowBudgetRetry !== false) {
+          // Modelos reasoning EXPANDEM o raciocínio para preencher o orçamento
+          // (relay #5: 27.399 chars de raciocínio comeram 8192 E 16384). O
+          // retry multiplica ×4 e injeta diretriz de concisão no final da
+          // mensagem do usuário — ataca o problema dos dois lados.
           console.error(
-            `[harbor] content vazio com raciocínio de ${reasoning.length} chars — reexecutando com o dobro do orçamento`,
+            `[harbor] content vazio com raciocínio de ${reasoning.length} chars — reexecutando com 4x o orçamento + diretriz de concisão`,
+          );
+          const messages = opts.messages.map((m, i) =>
+            i === opts.messages.length - 1 && m.role === "user"
+              ? { ...m, content: m.content + "\n\n[diretiva: orçamento ampliado — raciocine o mínimo necessário e vá DIRETO à resposta estruturada pedida]" }
+              : m,
           );
           return harborChat({
             ...opts,
-            maxTokens: (opts.maxTokens ?? 8192) * 2,
+            messages,
+            maxTokens: (opts.maxTokens ?? 8192) * 4,
             allowBudgetRetry: false,
           });
+        }
+        if (reasoning && reasoning.length > 2000) {
+          // Último recurso: o content nunca veio, mas o raciocínio traz a
+          // análise (parcial). Entrega MARCADA — melhor que run falho.
+          console.error(
+            `[harbor] content vazio após retry; entregando o raciocínio (${reasoning.length} chars) como relatório marcado`,
+          );
+          return "> **[harbor]** content veio vazio mesmo após retry orçado —\n> relatório recuperado do canal de raciocínio (pode estar incompleto):\n\n" +
+            reasoning.slice(-12000);
         }
         throw new HarborError(
           `completion vazia do Harbor: ${JSON.stringify(data).slice(0, 400)}`,
