@@ -1,8 +1,14 @@
 #!/usr/bin/env bash
 # =====================================================================
-#  elite-tune v4.2 — Archcraft Elite Edition
+#  elite-tune v4.3 — Archcraft Elite Edition
 #  Elite A: Ryzen 7 5700X · RTX 5060 8GB · 16GB · B550M
 #  Elite B: veterano — detecção automática de GPU/CPU/disco
+#
+#  v4.3: · fix detecção de vendor: '\b(amd|ati|radeon)\b' — o 'ati' solto
+#          casava dentro de 'compatible' e 'Corporation' (toda linha lspci
+#          diz 'VGA compatible controller'!) e classificava GPU NV/desconhecida
+#          como AMD. Pegado pela suíte de testes (tests/, peça nv-device-bare
+#          + matrox); mesmo bug já corrigido no archcraft-cachyos-elite.
 #
 #  v4.2: · scx-elite.service própria (bpfland) — 'scx.service' não existe em
 #          pacote nenhum (scx-scheds = binários; scx-tools = scx_loader)
@@ -69,7 +75,7 @@ detect_hw() {
   GPULINE=$(lspci 2>/dev/null | grep -Ei 'vga|3d' | head -1); GLOW=$(tr 'A-Z' 'a-z' <<< "${GPULINE:-}")
   VENDOR=unknown; GEN=unknown
   grep -q nvidia            <<< "$GLOW" && VENDOR=nvidia
-  grep -qE 'amd|ati|radeon' <<< "$GLOW" && VENDOR=amd
+  grep -qE '\b(amd|ati|radeon)\b' <<< "$GLOW" && VENDOR=amd
   grep -qE 'intel'          <<< "$GLOW" && VENDOR=intel
   if command -v nvidia-smi >/dev/null 2>&1; then
     GLOW2=$(tr 'A-Z' 'a-z' <<< "$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1)")

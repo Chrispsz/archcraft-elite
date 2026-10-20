@@ -1,0 +1,2 @@
+01:00.0 VGA compatible controller: NVIDIA Corporation GB206 [GeForce RTX 5060] (rev a1)
+33:00.0 Non-VGA unclassified device: AMD
