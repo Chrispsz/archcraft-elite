@@ -114,55 +114,71 @@ bash scripts/apply-overlay.sh
 # ─────────────────────────────────────────────────────────────────────
 # Preflight auto-curativo: os mirrors rolling do CachyOS vivem em janelas
 # de dessincronização db↔arquivo (migração de toolchain: gcc/glibc/qt5/
-# libyuv 404 por horas). Antes de CADA tentativa: resolve todas as URLs
-# da transação, verifica nos mirrors; arquivo que faltar em TODOS ganha a
-# versão BASELINE do Arch injetada no [elite-local] (primeiro repo do conf).
+# libyuv 404 por horas). Antes de CADA tentativa:
+#   1. baixa TODOS os pacotes da transação p/ o cache (-Syw — mesma
+#      resolução que o pacstrap usará; nada é instalado no host)
+#   2. o XferCommand de preflight REGISTRA cada URL que falhar
+#   3. arquivo 404 no cdn77 E no gêmeo us → injeta a versão BASELINE do
+#      Arch no repo [elite-local] (primeiro repo do conf) e refaz o round
+# Com o cache completo, o pacstrap do mkarchcraftiso não baixa nada.
 # ─────────────────────────────────────────────────────────────────────
 preflight() {
     local pc=/work/elite-build/profile/pacman.conf
-    say "Preflight: verificando disponibilidade dos arquivos nos mirrors"
+    local plconf=/tmp/elite-preflight.conf
     cd /work/elite-build/profile
+
+    # conf de preflight: profile + XferCommand que loga as falhas
+    sed -e 's@^XferCommand = .*@XferCommand = /usr/bin/curl -L -C - -f -o %o %u --retry 2 --retry-delay 3 --retry-all-errors || echo "ELITE-FAIL %u" >> /tmp/elite-404s.txt@' \
+        "$pc" > "$plconf"
+
+    # conf Arch-only p/ resolver os fallbacks baseline
+    grep -vE '^\[cachyos|\.cachyos\.org|^\[elite-local\]|file:///var/cache/elite-local' \
+        "$pc" > /tmp/elite-arch-only.conf
+
     mapfile -t PL < <(grep -vE '^#|^ *$' packages.x86_64 | sed 's|^archcraft/||')
-    pacman --config "$pc" -Sp --print-uris --noconfirm "${PL[@]}" 2>/dev/null \
-        | grep -oE 'https?://[^ ]+' | sort -u > /tmp/elite-uris.txt || true
-    local n; n=$(wc -l < /tmp/elite-uris.txt)
-    say "Preflight: $n URLs resolvidas — HEAD-check (paralelo)"
-    : > /tmp/elite-bad.txt
-    xargs -P 20 -I{} sh -c 'c=$(curl -s -o /dev/null -w "%{http_code}" -m 25 --head "{}"); [ "$c" != "200" ] && echo "{}"' \
-        < /tmp/elite-uris.txt >> /tmp/elite-bad.txt || true
+    say "Preflight: ${#PL[@]} alvos — baixando tudo p/ o cache (round 1)"
 
-    # conf Arch-only (sem cachyos) para resolver os fallbacks
-    grep -vE '^\[cachyos|\.cachyos\.org' "$pc" > /tmp/elite-arch-only.conf
-
-    local added=0 u fn base fu u2 c2
-    while read -r u; do
-        [ -z "$u" ] && continue
-        # espelho gêmeo (cdn77↔us): só é problema se faltar em AMBOS
-        if [[ "$u" == *cdn77.cachyos.org* ]]; then
-            u2=${u/cdn77.cachyos.org/us.cachyos.org}
+    local round u u2 c2 fn base fu
+    for round in 1 2 3 4 5; do
+        rm -f /tmp/elite-404s.txt
+        if pacman --config "$plconf" -Syw --needed --noconfirm "${PL[@]}" >/tmp/elite-pf.log 2>&1; then
+            say "Preflight round $round: cache completo — pacstrap não vai baixar pacote da rede"
+            return 0
+        fi
+        say "Preflight round $round falhou — tail do pacman:"
+        tail -5 /tmp/elite-pf.log || true
+        mapfile -t BAD < <(grep '^ELITE-FAIL ' /tmp/elite-404s.txt 2>/dev/null | awk '{print $2}' | grep '\.pkg\.tar\.zst$' | sort -u || true)
+        if (( ${#BAD[@]} == 0 )); then
+            say "Preflight: falha sem 404 de pacote mapeado — re-sincronizando e repetindo"
+            continue
+        fi
+        local injected=0
+        for u in "${BAD[@]}"; do
+            # gêmeo cdn77↔us: só é problema se faltar em AMBOS
+            u2=$u
+            [[ "$u" == *cdn77.cachyos.org* ]] && u2=${u/cdn77.cachyos.org/us.cachyos.org}
             c2=$(curl -s -o /dev/null -w '%{http_code}' -m 25 --head "$u2" 2>/dev/null) || c2=000
-            [ "$c2" = "200" ] && continue
+            [[ "$c2" == "200" ]] && continue
+            fn=${u##*/}
+            base=$(printf '%s' "$fn" | sed -E 's/-(any|x86_64(_v3)?)\.pkg\.tar\.zst$//' | rev | cut -d- -f3- | rev)
+            fu=$(pacman --config /tmp/elite-arch-only.conf -Sp --print-uris --noconfirm "$base" 2>/dev/null \
+                 | grep -oE 'https?://[^ ]+' | head -1 || true)
+            if [[ -n "$fu" ]]; then
+                say "Preflight: $fn quebrado nos 2 mirrors → baseline Arch injetado no [elite-local]"
+                curl -fsSL -o "/var/cache/elite-local/${fu##*/}" "$fu" || true
+                injected=1
+            else
+                say "Preflight: $fn quebrado e sem fallback Arch — próxima rodada decide"
+            fi
+        done
+        if (( injected )); then
+            repo-add --quiet /var/cache/elite-local/elite-local.db.tar.gz /var/cache/elite-local/*.pkg.tar.zst
+            cp /var/cache/elite-local/* /work/elite-build/profile/airootfs/var/cache/elite-local/
+            say "Preflight: repo [elite-local] atualizado com baseline(s)"
         fi
-        fn=${u##*/}
-        base=$(printf '%s' "$fn" | sed -E 's/-(any|x86_64(_v3)?)\.pkg\.tar\.zst$//' | rev | cut -d- -f3- | rev)
-        fu=$(pacman --config /tmp/elite-arch-only.conf -Sp --print-uris --noconfirm "$base" 2>/dev/null \
-             | grep -oE 'https?://[^ ]+' | head -1 || true)
-        if [ -n "$fu" ]; then
-            say "Preflight: $fn indisponível nos mirrors → injetando baseline Arch no [elite-local]"
-            curl -fsSL -o "/var/cache/elite-local/${fu##*/}" "$fu" || true
-            added=1
-        else
-            say "Preflight: AVISO — $fn indisponível e sem fallback Arch (retry cuidará)"
-        fi
-    done < /tmp/elite-bad.txt
-
-    if [ "$added" = "1" ]; then
-        repo-add --quiet /var/cache/elite-local/elite-local.db.tar.gz /var/cache/elite-local/*.pkg.tar.zst
-        cp /var/cache/elite-local/* /work/elite-build/profile/airootfs/var/cache/elite-local/
-        say "Preflight: baseline(s) injetado(s) no [elite-local]"
-    else
-        say "Preflight: todos os arquivos disponíveis"
-    fi
+    done
+    say "Preflight: 5 rodadas sem fechar o cache — seguindo (retry externo cobre)"
+    return 0
 }
 
 say "Construindo ISO (mkarchcraftiso — fork oficial do Archcraft)"
