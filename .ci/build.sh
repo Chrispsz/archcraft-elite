@@ -113,8 +113,11 @@ elite_latest() {
 }
 elite_fetch() { # $1 = nome do arquivo → /var/cache/elite-local/
     local m
-    for m in https://cdn77.cachyos.org/repo/x86_64/cachyos \
-             https://us.cachyos.org/repo/x86_64/cachyos; do
+    # us PRIMEIRO: é o mirror completo (listing + arquivos); o cdn77 está
+    # cronicamente desincronizado nos v3 (db na frente dos arquivos por
+    # HORAS — runs #17/#19). Listing continua do us (cdn77 não lista).
+    for m in https://us.cachyos.org/repo/x86_64/cachyos \
+             https://cdn77.cachyos.org/repo/x86_64/cachyos; do
         if curl -fsSL --retry 3 --retry-delay 3 --retry-all-errors \
                 -o "/var/cache/elite-local/$1" "$m/$1"; then
             say "  ok: $1 (${m#https://})"
@@ -214,7 +217,9 @@ preflight() {
             say "Preflight: cache completo — pacstrap offline dali em diante"
             return 0
         fi
-        say "Preflight round $round: -Syw falhou — mapeando URLs quebradas (sonda HEAD paralela)"
+        say "Preflight round $round: -Syw falhou — stderr do próprio -Syw (causa real; #19 escondeu isto aqui):"
+        tail -25 /tmp/elite-pf.log || true
+        say "Mapeando URLs quebradas (sonda HEAD paralela)"
         # --print-format '%l' (pacman 6+): URL p/ não-cacheado, file:// p/
         # cacheado — o grep deixa passar só as URLs (o conjunto quebrado).
         # stderr do -Sp vai p/ arquivo: se a lista vier vazia (flag inválida,
@@ -251,7 +256,20 @@ preflight() {
             u2=$u
             [[ "$u" == *cdn77.cachyos.org* ]] && u2=${u/cdn77.cachyos.org/us.cachyos.org}
             code=$(curl -s -o /dev/null -w '%{http_code}' -m 25 --head "$u2" 2>/dev/null) || code=000
-            [[ "$code" == "200" ]] && { say "  ok no gêmeo us (cdn77 desinc só) — $u2"; continue; }
+            if [[ "$code" == "200" ]]; then
+                # SEMÂNTICA PACMAN (comprovada no #19): XferCommand NÃO tem
+                # failover por servidor p/ PACOTES — servidor-1 falhar =
+                # pacote falhar (o #17 "curou" só porque o skew durava ~30s
+                # = o tempo da própria ladder; o do #19 dura HORAS). O us
+                # tem o arquivo: baixa DIRETO p/ o cache — a verificação
+                # sha256 do db na próxima rodada valida o conteúdo.
+                if curl -fsSL -o "/var/cache/pacman/pkg/${u2##*/}" "$u2"; then
+                    say "  baixado do gêmeo us direto p/ o cache — ${u2##*/}"
+                else
+                    say "  us responde 200 no HEAD mas GET falhou — ${u2}"
+                fi
+                continue
+            fi
             fn=${u##*/}
             base=$(printf '%s' "$fn" | sed -E 's/-(any|x86_64(_v3)?)\.pkg\.tar\.zst$//' | rev | cut -d- -f3- | rev)
             fu=$(pacman --config /tmp/elite-arch-only.conf -b "$pfdb" -Sp --print-format '%l' --noconfirm "$base" 2>/dev/null \
