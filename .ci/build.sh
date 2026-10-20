@@ -363,3 +363,11 @@ cd /work/out
 sha256sum -- * > sha256sums.txt
 cat sha256sums.txt
 ls -lh --si
+
+# fix #25: out/ é gravado pelo container (root); os steps do RUNNER (split
+# do release, >2GiB) precisam escrever nele — sem isto o 'split' morre com
+# 'Permission denied' em .part-00. chown p/ o uid/gid do runner.
+if [[ -n "${HOST_UID:-}" ]]; then
+    chown -R "${HOST_UID}:${HOST_GID:-$HOST_UID}" /work/out 2>/dev/null || true
+    say "out/ entregue ao uid do runner (${HOST_UID}) — steps de release podem escrever"
+fi
