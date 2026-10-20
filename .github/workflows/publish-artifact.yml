@@ -1,0 +1,124 @@
+name: Publish Artifact as Release
+
+# Utilitário: publica o artefato JÁ CONSTRUÍDO de um run (ex: ISO do
+# Build Elite ISO) como release — SEM recompilar nada. O GitHub não
+# permite "mover" artefato → release, então este workflow só faz a
+# transferência: download (banda GitHub↔GitHub) → verificação sha256 →
+# split 1.9 GB (limite de 2 GiB por asset) → upload. ~10 min em vez de
+# ~40 min de rebuild, com os mesmos bits.
+#
+# IMPORTANTE: a release é criada com GITHUB_TOKEN — eventos gerados por
+# ele não disparam outros workflows (documentado), então o build.yml
+# NÃO roda de novo por causa da tag criada aqui.
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'ID do run que produziu o artefato archcraft-elite-iso'
+        required: true
+        type: string
+      tag:
+        description: 'Tag da release (ex: v1.0.2)'
+        required: true
+        type: string
+      target:
+        description: 'Commit (SHA) ou branch onde a tag aponta'
+        required: false
+        default: 'main'
+        type: string
+      notes:
+        description: 'Linhas extras para o corpo da release (opcional)'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: write   # criar tag + release + subir assets
+  actions: read     # baixar artefato de outro run
+
+concurrency:
+  group: publish-artifact
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Baixar artefato archcraft-elite-iso (run ${{ inputs.run_id }})
+        uses: actions/download-artifact@v4
+        with:
+          name: archcraft-elite-iso
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: out
+
+      - name: Integridade — sha256 da ISO deve bater com o do build original
+        run: |
+          cd out
+          ls -lh --si
+          sha256sum -c sha256sums.txt
+
+      # Mesma lógica do build.yml: asset único ≤ 2 GiB; senão partes de 1.9 GB
+      - name: Preparar assets de release (split se > 2 GiB)
+        run: |
+          cd out
+          ISO=$(ls *.iso)
+          SZ=$(stat -c%s "$ISO")
+          LIMIT=2147483648
+          if [ "$SZ" -le "$LIMIT" ]; then
+            echo "ISO única ($SZ bytes ≤ 2GiB) — asset único."
+          else
+            echo "ISO $SZ bytes > 2GiB — dividindo em partes de 1.9GB."
+            split -b 1900M -d "$ISO" "${ISO}.part-"
+            rm -f "$ISO"
+            printf '%s\n' \
+              "# ISO dividida (limite de 2 GiB por arquivo do GitHub)" \
+              "" \
+              "Baixe **todas** as partes \`${ISO}.part-*\` na mesma pasta e junte:" \
+              "" \
+              "    cat ${ISO}.part-* > ${ISO}" \
+              "" \
+              "Confira a integridade: \`sha256sum -c <(grep -E 'part|${ISO}$' sha256sums.txt)\`" \
+              "(sha256sums.txt traz a ISO inteira E as partes)." \
+              > JUNTAR-ISO.md
+            # hashes das PARTES entram no sha256sums.txt (a da ISO inteira já
+            # veio do build) — permite verificar cada parte ANTES de juntar
+            sha256sum -- "${ISO}.part-"* >> sha256sums.txt
+            ls -lh --si
+          fi
+
+      - name: Escrever corpo da release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NOTES: ${{ inputs.notes }}
+        run: |
+          SRC_SHA=$(gh api "repos/${{ github.repository }}/actions/runs/${{ inputs.run_id }}" --jq .head_sha)
+          ISO_NAME=$(grep -E '\.iso$' out/sha256sums.txt | awk '{print $2}')
+          ISO_HASH=$(grep -E '\.iso$' out/sha256sums.txt | awk '{print $1}')
+          {
+            echo "ISO **reaproveitada do run [#${{ inputs.run_id }}](https://github.com/${{ github.repository }}/actions/runs/${{ inputs.run_id }})** — commit \`${SRC_SHA:0:7}\` — publicada **sem recompilar**: mesmos bits validados pelo build original (sha256 conferido antes do upload)."
+            echo ""
+            echo "## Integridade"
+            echo "| Arquivo | SHA256 |"
+            echo "|---|---|"
+            echo "| \`${ISO_NAME}\` | \`${ISO_HASH}\` |"
+            echo ""
+            echo "\`sha256sums.txt\` traz o hash da ISO inteira **e** das partes — verifique cada parte ANTES de juntar (instruções em JUNTAR-ISO.md)."
+            if [ -n "$NOTES" ]; then
+              echo ""
+              echo "$NOTES"
+            fi
+          } > RELEASE_BODY.md
+          cat RELEASE_BODY.md
+
+      - name: Publicar release ${{ inputs.tag }} (artefato reaproveitado)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag }}
+          target_commitish: ${{ inputs.target }}
+          body_path: RELEASE_BODY.md
+          generate_release_notes: true
+          files: |
+            out/*
