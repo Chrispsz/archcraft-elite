@@ -255,6 +255,10 @@ preflight() {
             # gêmeo cdn77↔us: só é problema se faltar em AMBOS
             u2=$u
             [[ "$u" == *cdn77.cachyos.org* ]] && u2=${u/cdn77.cachyos.org/us.cachyos.org}
+            # gêmeo REVERSO (#22: o skew ROTACIONA — libyuv/vid.stab estavam
+            # no US, não no cdn77; sem esta regra o buraco do us só fecha via
+            # baseline Arch, gastando rounds a mais)
+            [[ "$u" == *us.cachyos.org* ]] && u2=${u/us.cachyos.org/cdn77.cachyos.org}
             code=$(curl -s -o /dev/null -w '%{http_code}' -m 25 --head "$u2" 2>/dev/null) || code=000
             if [[ "$code" == "200" ]]; then
                 # SEMÂNTICA PACMAN (comprovada no #19): XferCommand NÃO tem
