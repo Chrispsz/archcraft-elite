@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # tests/lib/core.sh — motor do quebra-cabeça (sourced, nunca executado direto)
 # Contrato: cada fase roda num processo bash próprio; o estado global vive
 # em $WORK (dir temporário compartilhado via ELITE_TESTS_WORK) e o placar

@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # FASE 3 — PEÇAS AVULSAS SOB A LUZ: unidade (cada peça isolada, peça por peça)
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/core.sh"
 phase_start 3 "UNIDADE — peças avulsas sob a luz"

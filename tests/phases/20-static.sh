@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # FASE 2 — A TAMPA DA CAIXA: qualidade estática (o desenho completo antes de abrir)
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/core.sh"
 phase_start 2 "QUALIDADE ESTÁTICA — a tampa da caixa"
@@ -10,6 +11,8 @@ SHELLS=(
   elite/airootfs/usr/local/bin/fg-booster
   elite/airootfs/usr/local/bin/elite-status
   tests/run-tests.sh
+  tests/lib/core.sh
+  tests/lib/setup.sh
   tests/phases/10-env.sh tests/phases/20-static.sh tests/phases/30-unit.sh
   tests/phases/40-integration.sh tests/phases/50-release.sh tests/phases/60-verdict.sh
 )
@@ -27,7 +30,7 @@ if command -v shellcheck >/dev/null 2>&1; then
   for s in "${SHELLS[@]}"; do
     shellcheck -S warning -x "$REPO/$s" >> "$sc_log" 2>&1 || true
   done
-  # shellcheck também nos mocks/extract gerados (padrão de qualidade da suíte)
+  # o lint cobre também os mocks/extract gerados (padrão de qualidade da suíte)
   assert_eq "$(wc -l < "$sc_log")" "0" "shellcheck: 0 avisos em ${#SHELLS[@]} scripts (gate do CI)"
 else
   skip "shellcheck: gate do CI" "binário ausente neste ambiente — o job de lint no GitHub o executa"

@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # FASE 1 — A MESA: ambiente e inventário (sem mesa não há quebra-cabeça)
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/core.sh"
 phase_start 1 "A MESA — ambiente e inventário"

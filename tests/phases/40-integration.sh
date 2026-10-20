@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # FASE 4 — A CADEIA: integração (peças encaixando: a saída de uma é a entrada da outra)
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/core.sh"
 phase_start 4 "CADEIA — peças encaixando"
@@ -111,7 +112,8 @@ ISO="mini.bin"
 ( cd "$CH" && split -b 2097152 -d "$ISO" "${ISO}.part-" && rm -f "$ISO" )
 ( cd "$CH" && sha256sum -- "${ISO}.part-"* >> sha256sums.txt )
 assert_file "$CH/mini.bin.part-00" "cadeia B: split produziu part-00"
-assert_eq "$(ls "$CH" | grep -c 'part-')" "3" "cadeia B: 3 partes (2 MiB + 2 MiB + 1 MiB)"
+parts=("$CH"/mini.bin.part-*)
+assert_eq "${#parts[@]}" "3" "cadeia B: 3 partes (2 MiB + 2 MiB + 1 MiB)"
 # o usuário final: junta e confere EXATAMENTE como o JUNTAR-ISO.md manda
 ( cd "$CH" && cat "${ISO}.part-"* > "$ISO" )
 verif=$( cd "$CH" && sha256sum -c <(grep -E "part|$ISO\$" sha256sums.txt) 2>&1 )

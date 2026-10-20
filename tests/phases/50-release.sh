@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # FASE 5 — O PRODUTO NA MÃO: uso real + release pública (rede; degrada sem quebrar a cadeia)
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/core.sh"
 phase_start 5 "USO & RELEASE — o produto na mão"
