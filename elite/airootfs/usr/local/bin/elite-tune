@@ -138,10 +138,7 @@ ensure_cachyos() {
     local block tmp
     read -r -d '' block <<'EOF' || true
 # >>> ELITE: CachyOS — wiki.cachyos.org/features/optimized_repos
-[cachyos]
-Server = https://cdn77.cachyos.org/repo/x86_64/cachyos
-Server = https://us.cachyos.org/repo/x86_64/cachyos
-
+# Trio v3 ANTES do baseline (o kernel BORE existe nos dois: baseline é x86_64)
 [cachyos-v3]
 Include = /etc/pacman.d/cachyos-v3-mirrorlist
 
@@ -150,6 +147,10 @@ Include = /etc/pacman.d/cachyos-v3-mirrorlist
 
 [cachyos-extra-v3]
 Include = /etc/pacman.d/cachyos-v3-mirrorlist
+
+[cachyos]
+Server = https://cdn77.cachyos.org/repo/x86_64/cachyos
+Server = https://us.cachyos.org/repo/x86_64/cachyos
 # <<< ELITE
 EOF
     tmp=$(mktemp)

@@ -64,12 +64,9 @@ SigLevel = Optional TrustAll
 Include = /etc/pacman.d/archcraft-mirrorlist
 
 # >>> ELITE: CachyOS — wiki.cachyos.org/features/optimized_repos
-# v2 (baseline): keyring, mirrorlists, cachyos-settings, dmemcg-booster, rules
-[cachyos]
-Server = https://cdn77.cachyos.org/repo/x86_64/cachyos
-Server = https://us.cachyos.org/repo/x86_64/cachyos
-
-# v3: kernels (linux-cachyos-bore), nvidia-open-dkms, gamescope
+# Ordem: trio v3 ANTES do baseline (kernel linux-cachyos-bore existe nos dois:
+# baseline 7.2.7 x86_64 vs v3 7.2.11 x86-64-v3 — pacman prefere o primeiro repo)
+# v3: kernels, nvidia-open-dkms, gamescope
 [cachyos-v3]
 Include = /etc/pacman.d/cachyos-v3-mirrorlist
 
@@ -80,6 +77,11 @@ Include = /etc/pacman.d/cachyos-v3-mirrorlist
 # v3: rebuilds do [extra]
 [cachyos-extra-v3]
 Include = /etc/pacman.d/cachyos-v3-mirrorlist
+
+# v2 (baseline): keyring, cachyos-settings, dmemcg-booster, rules (exclusivos)
+[cachyos]
+Server = https://cdn77.cachyos.org/repo/x86_64/cachyos
+Server = https://us.cachyos.org/repo/x86_64/cachyos
 # <<< ELITE
 
 [core]
