@@ -59,7 +59,7 @@ depends=(python)
 source=("pywal-master.tar.gz")
 sha256sums=('SKIP')
 package() {
-    cd pywal-*
+    cd pywal-*/  # barra final: só diretórios (o tarball pywal-master.tar.gz NÃO casa)
     _site=$(python -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')
     install -d "${pkgdir}${_site}"
     cp -a pywal "${pkgdir}${_site}/"
