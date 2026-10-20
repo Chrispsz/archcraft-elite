@@ -154,6 +154,10 @@ firstboot() { # encaminha p/ o wrapper de root escolhido; saída SEM códigos AN
 }
 
 # Setup A (RTX 5060) herdando ICDs Vulkan AMD/Intel da ISO:
+# (guard deepseek #3: sem root E sem unshare → SKIP, nunca FAIL por ambiente)
+if [[ ${ROOTWRAP[0]} == SKIP ]]; then
+  skip "cadeia C (firstboot ×3): exige root (unshare indisponível)" "o job do CI roda como root no container Arch"
+else
 : > "$STATE/installed.txt"; : > "$STATE/pacman.log"; rm -f "$STATE/refuse"
 for p in vulkan-radeon lib32-vulkan-radeon vulkan-intel lib32-vulkan-intel \
          mesa steam linux-cachyos-bore nvidia-open nvidia-utils; do
@@ -193,6 +197,7 @@ if outU="$(firstboot LSPCI_FIXTURE="$TESTS_DIR/fixtures/lspci/matrox-unknown.txt
   bash "$TUNE" --firstboot --dry-run --yes 2>&1)"; then rcU=0; else rcU=$?; fi
 assert_eq "$rcU" "0" "cadeia C (exótica): Matrox → exit 0 (nunca trava o firstboot)"
 assert_match "$outU" 'GPU não identificada' "cadeia C (exótica): aviso explícito de GPU desconhecida"
+fi
 
 # modo --status (uso diário): certifica sem alterar nada
 outS="$(with_mocks env LSPCI_FIXTURE="$TESTS_DIR/fixtures/lspci/rtx-5060.txt" \
