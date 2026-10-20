@@ -56,7 +56,7 @@ if ! pacman -S --noconfirm cachyos-keyring cachyos-v3-mirrorlist; then
             "${ELITE_MIRROR}/repo/x86_64/cachyos/${ELITE_V3ML_PKG}"; then
         ## Fallback: escreve o mirrorlist na mão (a chave já caiu via E1)
         printf 'Server = %s/repo/x86_64_v3/$repo\nServer = %s/repo/x86_64_v3/$repo\n' \
-            "$ELITE_MIRROR2" "$ELITE_MIRROR" > /etc/pacman.d/cachyos-v3-mirrorlist
+            "$ELITE_MIRROR" "$ELITE_MIRROR2" > /etc/pacman.d/cachyos-v3-mirrorlist
     fi
 fi
 
@@ -93,8 +93,8 @@ Include = /etc/pacman.d/cachyos-v3-mirrorlist
 
 # v2 (baseline): keyring, cachyos-settings, dmemcg-booster, rules (exclusivos)
 [cachyos]
-Server = https://cdn77.cachyos.org/repo/x86_64/cachyos
 Server = https://us.cachyos.org/repo/x86_64/cachyos
+Server = https://cdn77.cachyos.org/repo/x86_64/cachyos
 # <<< ELITE
 
 [core]

@@ -1,7 +1,8 @@
 # >>> ELITE: CachyOS — inserido ANTES de [core] (precedência v3 sobre core/extra;
 # [archcraft] continua acima, como no upstream). Servers seguem o mirrorlist
 # oficial (cdn77 primário; mirror.cachyos.org está DESABILITADO no mirrorlist
-# deles). SigLevel TrustAll SÓ neste conf de BUILD — bootstrap determinístico,
+# deles). ORDEM INVERTIDA vs oficial: us PRIMEIRO (mirror completo;
+# cdn77 cronicamente desincronizado nos v3 — runs #17/#19). SigLevel TrustAll SÓ neste conf de BUILD — bootstrap determinístico,
 # o mesmo padrão que o próprio repo [archcraft] usa. O SISTEMA instalado
 # recebe o keyring oficial (chave F3B607488DB35A47) via elite-customize.sh [E1/E2].
 #
@@ -11,23 +12,23 @@
 # ordem o kernel v3 nunca seria escolhido.
 [cachyos-v3]
 SigLevel = Optional TrustAll
-Server = https://cdn77.cachyos.org/repo/x86_64_v3/cachyos-v3
 Server = https://us.cachyos.org/repo/x86_64_v3/cachyos-v3
+Server = https://cdn77.cachyos.org/repo/x86_64_v3/cachyos-v3
 
 [cachyos-core-v3]
 SigLevel = Optional TrustAll
-Server = https://cdn77.cachyos.org/repo/x86_64_v3/cachyos-core-v3
 Server = https://us.cachyos.org/repo/x86_64_v3/cachyos-core-v3
+Server = https://cdn77.cachyos.org/repo/x86_64_v3/cachyos-core-v3
 
 [cachyos-extra-v3]
 SigLevel = Optional TrustAll
-Server = https://cdn77.cachyos.org/repo/x86_64_v3/cachyos-extra-v3
 Server = https://us.cachyos.org/repo/x86_64_v3/cachyos-extra-v3
+Server = https://cdn77.cachyos.org/repo/x86_64_v3/cachyos-extra-v3
 
 # v2 (baseline): keyring, mirrorlists, cachyos-settings, dmemcg-booster, rules
 # (exclusivos daqui — o trio v3 não os tem)
 [cachyos]
 SigLevel = Optional TrustAll
-Server = https://cdn77.cachyos.org/repo/x86_64/cachyos
 Server = https://us.cachyos.org/repo/x86_64/cachyos
+Server = https://cdn77.cachyos.org/repo/x86_64/cachyos
 # <<< ELITE
