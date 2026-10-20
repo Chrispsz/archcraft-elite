@@ -113,11 +113,22 @@ jobs:
           } > RELEASE_BODY.md
           cat RELEASE_BODY.md
 
+      # A API de release EXIGE target_commitish = SHA completo (40 chars) ou
+      # branch — SHA curto (7 chars) devolve 422 "invalid target_commitish".
+      # Resolve qualquer forma (branch/SHA curto/SHA completo) p/ SHA completo.
+      - name: Resolver target_commitish (SHA completo)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TARGET_FULL=$(gh api "repos/${{ github.repository }}/commits/${{ inputs.target }}" --jq .sha)
+          echo "Tag ${{ inputs.tag }} → ${TARGET_FULL}"
+          echo "TARGET_FULL=$TARGET_FULL" >> "$GITHUB_ENV"
+
       - name: Publicar release ${{ inputs.tag }} (artefato reaproveitado)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.tag }}
-          target_commitish: ${{ inputs.target }}
+          target_commitish: ${{ env.TARGET_FULL }}
           body_path: RELEASE_BODY.md
           generate_release_notes: true
           files: |
