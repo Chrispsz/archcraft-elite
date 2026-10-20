@@ -113,12 +113,21 @@ sed -i '/^DownloadUser/d' "$PC"
 # (via overlay) — e é removido da ISO final pelo customize [E8].
 if ! grep -q '^\[elite-local\]' "$PC"; then
   # insere ANTES do primeiro repo ([archcraft]; fallback: antes de [core])
+  # SigLevel = Never: repo file:// SEM assinatura — Never elimina a sonda
+  # do db.sig (curl 37 “Could not open file …db.sig”, 4× por sincronização)
   if grep -q '^\[archcraft\]' "$PC"; then
-    sed -i '0,/^\[archcraft\]/s//[elite-local]\nSigLevel = Optional TrustAll\nServer = file:\/\/\/var\/cache\/elite-local\n\n&/' "$PC"
+    sed -i '0,/^\[archcraft\]/s//[elite-local]\nSigLevel = Never\nServer = file:\/\/\/var\/cache\/elite-local\n\n&/' "$PC"
   else
-    sed -i '0,/^\[core\]/s//[elite-local]\nSigLevel = Optional TrustAll\nServer = file:\/\/\/var\/cache\/elite-local\n\n&/' "$PC"
+    sed -i '0,/^\[core\]/s//[elite-local]\nSigLevel = Never\nServer = file:\/\/\/var\/cache\/elite-local\n\n&/' "$PC"
   fi
 fi
+
+# [archcraft] é UNSIGNED (packages.archcraft.io não publica .sig): com
+# Optional TrustAll o pacman SONDA db.sig e <pkg>.sig em cada download →
+# curl 404 (GitHub Pages) em toda sincronização — e na fase de pacotes o
+# XferCommand falhando nessa sonda ABORTA a transação (“failed to commit
+# transaction”). Never = zero sondas; mesma segurança p/ repo unsigned.
+sed -i '/^\[archcraft\]$/{n;s/^SigLevel .*/SigLevel = Never/}' "$PC"
 if ! grep -q '^\[cachyos-v3\]' "$PC"; then
   TMP=$(mktemp)
   awk -v block="$(cat elite/pacman-repos.build.add)" '
@@ -148,6 +157,8 @@ fi
 if ! grep -q '^XferCommand' "$PC"; then
   sed -i '/^\[options\]/a XferCommand = /usr/bin/curl -L -C - -f -o %o %u --retry 3 --retry-delay 4 --retry-all-errors' "$PC"
 fi
+# (o XferCommand fica no conf de BUILD; os repos unsigned já não sondam
+#  .sig — com Never as únicas transferências são 200 OK)
 
 # ── [5.1] (CI/root) mirrorlist do repo [archcraft] p/ o ambiente de build
 #          (o conf do profile referencia via Include; o pacstrap resolve)
