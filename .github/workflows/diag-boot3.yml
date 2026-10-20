@@ -1,0 +1,200 @@
+name: Diag Boot 3 (QEMU)
+
+# Round 3 — o round 2 (diag-boot2) provou:
+#   · Tests A/B: a ISO BOOTA COMPLETAMENTE pelo caminho normal (CD/USB
+#     direto): sddm autologin, sessão live, "Startup finished". ISO sadia.
+#   · Bug real: fg-booster/elite-tune 0644 no squashfs (mkarchcraftiso copia
+#     airootfs com --no-preserve=mode) → 203/EXEC. Fix já commitado no
+#     overlay (file_permissions 0755).
+#   · Teste D (caminho Ventoy) saiu INVÁLIDO: img_dev apontava /dev/vdb1 num
+#     disco virtio que seria vda, e o log serial não mostra NENHUM device
+#     virtio (driver possivelmente ausente do initramfs) → não prova nada.
+# Round 3:
+#   FORENSE  → modos de /usr/local/bin no squashfs + matriz de módulos dos
+#              initramfs (exfat/ntfs3/vfat/ext4/iso9660/virtio_blk/uas/
+#              usb-storage/xhci) — responde SE o initramfs consegue montar
+#              o stick Ventoy.
+#   TESTE E  → caminho systemd-boot REAL da ISO (arquivo entry 01):
+#              archisosearchuuid=<uuid do marcador /boot/*.uuid>.
+#   TESTE V  → Ventoy FIEL: qemu-xhci + usb-storage (USB de verdade, não
+#              virtio), img_dev=UUID=<partição> img_loop=/elite.iso, em
+#              ext4 E exfat (formatos típicos de stick Ventoy).
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (ex: v1.0.2)'
+        required: true
+        default: 'v1.0.2'
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  qemu-boot3:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 110
+    steps:
+      - name: Instalar QEMU + 7zip + squashfs-tools + exfatprogs
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qemu-system-x86 p7zip-full squashfs-tools exfatprogs >/dev/null
+          qemu-system-x86_64 --version | head -1
+          unsquashfs -version 2>&1 | head -1
+          mkfs.exfat -V 2>&1 | head -1
+
+      - name: Baixar release, juntar e verificar sha256
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern '*.part-*' --pattern 'sha256sums.txt' --clobber
+          cat archcraft-elite-*.iso.part-* > elite.iso
+          rm -f archcraft-elite-*.iso.part-*   # economiza 3.7GB de disco
+          ls -la elite.iso
+          grep ' archcraft-elite-.*\.iso$' sha256sums.txt | sed 's/archcraft-elite-[^ ]*\.iso/elite.iso/' > check.txt
+          cat check.txt
+          sha256sum -c check.txt
+
+      - name: FORENSE - squashfs (modos) + initramfs (matriz de módulos)
+        run: |
+          set +e
+          7z l elite.iso | grep -iE 'airootfs|\.uuid|boot/x86_64' > forensic-iso-listing.txt
+          cat forensic-iso-listing.txt
+          echo "════ squashfs: modos de /usr/local/bin ════"
+          7z x -y elite.iso -oiso/ 'arch/x86_64/airootfs.sfs' 'arch/boot/x86_64/*' >/dev/null
+          unsquashfs -ll iso/arch/x86_64/airootfs.sfs 2>/dev/null | grep -E ' usr/local/bin| usr/local/sbin' | tee forensic-squashfs-modes.txt
+          rm -f iso/arch/x86_64/airootfs.sfs   # economiza 2.5GB de disco (forense já extraída)
+          echo
+          echo "════ initramfs: matriz de drivers de boot ════"
+          for img in iso/arch/boot/x86_64/initramfs-*.img; do
+            echo "── $img"
+            case "$img" in
+              *.gz)  DC="gzip -dc" ;;
+              *.zst) DC="zstd -dc"  ;;
+              *)     DC="xz -dc"    ;;
+            esac
+            $DC "$img" 2>/dev/null | cpio -it 2>/dev/null \
+              | grep -oE '(exfat|ntfs3|ntfs|vfat|ext4|ext2|iso9660|udf|fuse|virtio_blk|virtio_pci|virtio_scsi|xhci_pci|ehci_pci|uhci_hcd|uas|usb_storage|usb-storage|loop|sr_mod|sd_mod)\.ko(\.xz|\.zst|\.gz)?$' \
+              | sed 's/\.ko.*$//' | sort -u | sed 's/^/    /' | tee -a forensic-modules.txt
+          done
+
+      - name: Boot tests - E (sdboot real) + V (Ventoy ext4/exfat)
+        run: |
+          set +e
+          # UUID do marcador (arquivo /boot/<uuid>.uuid criado pelo mkarchcraftiso)
+          MARKER=$(7z l elite.iso | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2}\.uuid' | head -1)
+          IUUID=${MARKER%.uuid}
+          echo "Marcador: $MARKER → archisosearchuuid=$IUUID"
+          K="iso/arch/boot/x86_64/vmlinuz-linux-cachyos-bore"
+          I="iso/arch/boot/x86_64/initramfs-linux-cachyos-bore.img"
+          COMMON="archisobasedir=arch loglevel=7 udev.log_level=3 vt.global_cursor_default=0 cow_spacesize=5G copytoram=n nvme_load=yes lsm=landlock,lockdown,yama,integrity,apparmor,bpf console=ttyS0,115200 systemd.log_target=console systemd.log_level=info systemd.show_status=yes"
+
+          # ── imagem de "stick Ventoy": partição única com a ISO dentro ──
+          mkimg() { # $1=nome $2=fs → cria vtoy-$1.img
+            local IMG="vtoy-$1.img"
+            dd if=/dev/zero of="$IMG" bs=1M count=3900 status=none
+            echo -e "o\nn\np\n1\n\n\nt\n83\nw" | fdisk "$IMG" >/dev/null 2>&1
+            LOOP=$(sudo losetup -fP --show "$IMG")
+            case "$2" in
+              ext4) sudo mkfs.$2 -q -F "${LOOP}p1" >/dev/null 2>&1 ;;
+              *)    sudo mkfs.$2 "${LOOP}p1" >/dev/null 2>&1 ;;
+            esac
+            sudo mkdir -p "/mnt/v-$1"
+            sudo mount "${LOOP}p1" "/mnt/v-$1"
+            sudo cp elite.iso "/mnt/v-$1/"
+            sync; sudo umount "/mnt/v-$1"
+            sudo losetup -d "$LOOP"
+          }
+          img_uuid() { # $1=arquivo.img → UUID da partição
+            LOOP=$(sudo losetup -fP --show "$1")
+            U=$(sudo blkid -s UUID -o value "${LOOP}p1")
+            sudo losetup -d "$LOOP"
+            echo "$U"
+          }
+
+          verdict() { # $1=nome $2=serial.log
+            if grep -q 'Startup finished' "$2" 2>/dev/null; then
+              echo "[$1] RESULTADO=COMPLETO ✔"
+            elif grep -q 'rootfs ~]#' "$2" 2>/dev/null; then
+              echo "[$1] RESULTADO=SHELL_EMERGENCIA (initramfs não achou o meio)"
+            else
+              echo "[$1] RESULTADO=CONGELADO (nem shell apareceu)"
+            fi
+          }
+
+          wait_boot() { # $1=qemu_pid $2=serial.log (espera até ~40min)
+            for i in $(seq 1 480); do
+              grep -q 'Startup finished' "$2" 2>/dev/null && return 0
+              grep -q 'rootfs ~]#' "$2" 2>/dev/null && return 1
+              kill -0 "$1" 2>/dev/null || return 2
+              sleep 5
+            done
+            return 3
+          }
+
+          # ═══ E: caminho systemd-boot (arquivo de entrada 01 da ISO) ═══
+          test_E() {
+            echo "[E] sdboot real: archisosearchuuid=$IUUID (+cdrom)"
+            qemu-system-x86_64 \
+              -machine q35 -cpu max -smp 2 -m 3072 \
+              -kernel "$K" -initrd "$I" \
+              -append "archisosearchuuid=$IUUID $COMMON" \
+              -cdrom "$PWD/elite.iso" \
+              -nographic -no-reboot -nic user \
+              > serial-E.log 2>&1 &
+            Q=$!
+            wait_boot $Q serial-E.log; RC=$?
+            kill $Q 2>/dev/null; wait $Q 2>/dev/null
+            verdict E serial-E.log
+            tail -25 serial-E.log
+          }
+
+          # ═══ V: caminho Ventoy (USB real via xhci, ISO como arquivo) ═══
+          test_V() { # $1=nome $2=fs
+            mkimg "$1" "$2"
+            U=$(img_uuid "vtoy-$1.img")
+            echo "[$1] Ventoy $2: img_dev=UUID=$U img_loop=/elite.iso (USB xhci)"
+            qemu-system-x86_64 \
+              -machine q35 -cpu max -smp 2 -m 3072 \
+              -kernel "$K" -initrd "$I" \
+              -append "img_dev=UUID=$U img_loop=/elite.iso loglevel=7 console=ttyS0,115200 systemd.log_target=console systemd.log_level=info systemd.show_status=yes" \
+              -drive id=udisk,format=raw,if=none,file="$PWD/vtoy-$1.img" \
+              -device qemu-xhci,id=xhci \
+              -device usb-storage,bus=xhci.0,drive=udisk \
+              -nographic -no-reboot -nic user \
+              > "serial-V-$1.log" 2>&1 &
+            Q=$!
+            wait_boot $Q "serial-V-$1.log"; RC=$?
+            kill $Q 2>/dev/null; wait $Q 2>/dev/null
+            verdict "$1" "serial-V-$1.log"
+            tail -25 "serial-V-$1.log"
+            rm -f "vtoy-$1.img"
+          }
+
+          # E + V-ext4 + V-exfat em paralelo (3 QEMUs, 3×3GB RAM)
+          test_E               > out-E.txt     2>&1 &
+          PE=$!
+          test_V ext4  ext4    > out-V-ext4.txt 2>&1 &
+          P1=$!
+          test_V exfat exfat   > out-V-exfat.txt 2>&1 &
+          P2=$!
+          wait $PE; wait $P1; wait $P2
+          echo "════════ VEREDITOS ════════"
+          cat out-E.txt out-V-ext4.txt out-V-exfat.txt | grep -E "RESULTADO|Ventoy|sdboot"
+
+      - name: Upload dos logs seriais + forense
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diag-boot3-logs
+          path: |
+            serial-*.log
+            out-*.txt
+            forensic-*.txt
+            check.txt
+          if-no-files-found: warn
+          retention-days: 7

@@ -292,6 +292,25 @@ sed -i -e 's|iso_name="archcraft"|iso_name="archcraft-elite"|' \
        -e 's|iso_application="Archcraft Live/Installation/Rescue CD"|iso_application="Archcraft Elite Edition - Gaming Tuned Live/Installer"|' \
        "$PROFILE/profiledef.sh"
 
+# ── [9b] Permissões exec dos binários Elite (fix diag-boot2: 203/EXEC)
+#  O mkarchcraftiso copia o airootfs custom com `cp --no-preserve=mode`
+#  (mkarchcraftiso:318) → TODO arquivo custom vira 0644 no squashfs. Sem
+#  entrada em file_permissions, /usr/local/bin/{elite-tune,elite-status,
+#  fg-booster} ficam não-executáveis no live: elite-firstboot.service e
+#  fg-booster.service morrem com 203/EXEC (comprovado no boot QEMU do
+#  diag-boot2, tests A/B, "Unable to locate executable: Permission denied").
+#  O upstream só registra os PRÓPRIOS scripts (choose-mirror, xflock4).
+say "Registrando 0755 dos binários Elite no file_permissions do profiledef"
+PD="$PROFILE/profiledef.sh"
+if grep -q '^file_permissions=(' "$PD"; then
+  for p in /usr/local/bin/elite-tune /usr/local/bin/elite-status /usr/local/bin/fg-booster; do
+    grep -qF "[\"$p\"]" "$PD" || sed -i "s|^file_permissions=(|file_permissions=(\n  [\"$p\"]=\"0:0:755\"|" "$PD"
+  done
+  grep -A9 '^file_permissions=' "$PD"
+else
+  echo "AVISO: file_permissions não encontrado no profiledef — binários Elite ficarão 0644!" >&2
+fi
+
 say "Overlay aplicado com sucesso."
 echo -e "  ${B}kernel live:${N} $BORE nas entradas default/opensource/nomodeset"
 echo -e "  ${B}nvidia live:${N} entrada 'Nvidia' no kernel stock (módulo pré-compilado)"
