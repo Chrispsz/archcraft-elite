@@ -256,12 +256,38 @@ preflight() {
     return 1
 }
 
+# ── Selo pós-preflight: pacstrap OFFLINE, zero curl ──────────────────
+#  O preflight VERIFICA (dbs ao vivo + cache completo). Sem o selo, o
+#  pacstrap re-sincroniza dbs AO VIVO: dbs novos ≠ dbs verificados →
+#  versões novas → cache miss → download ao vivo → skew de mirror →
+#  curl 404 em escada. Foi exatamente assim que o run #17 emitiu ~118
+#  curl-22 espalhados por 78 min MESMO com o preflight perfeito: o sync
+#  do pacstrap (02:56) pegou dbs diferentes dos do preflight (02:42),
+#  ~57 pacotes mudaram de versão e o download ao vivo apanhou do skew.
+#  O selo aponta TODOS os Server/Include https do conf de build para
+#  file:///var/lib/pacman/sync — os MESMOS dbs que o preflight acabou
+#  de baixar e verificar. O pacstrap lê local, resolve as MESMAS
+#  versões e instala 100% do cache: zero rede, zero curl, determinís-
+#  tico. Buraco no cache? O preflight JÁ abortou antes (sonda + base-
+#  line); aqui o file:// falha alto — nunca baixa "mudo" do mirror errado.
+#  Idempotente: linhas já file:// não casam nos padrões https/Include.
+seal_build_conf() {
+    local pc=/work/elite-build/profile/pacman.conf
+    sed -i -E \
+        -e 's@^Server = https?://.+@Server = file:///var/lib/pacman/sync@' \
+        -e 's@^Include = /etc/pacman\.d/mirrorlist$@Server = file:///var/lib/pacman/sync@' \
+        -e 's@^Include = /etc/pacman\.d/archcraft-mirrorlist$@Server = file:///var/lib/pacman/sync@' \
+        -e '/^DownloadUser = /d' \
+        "$pc"
+    say "Conf de build lacrado: dbs file:///var/lib/pacman/sync (pacstrap offline, zero curl)"
+}
+
 say "Construindo ISO (mkarchcraftiso — fork oficial do Archcraft)"
 mkdir -p /mnt/iso-work /work/out
 cd elite-build/profile
 for attempt in 1 2; do
     rm -rf /mnt/iso-work
-    if preflight && ./mkarchcraftiso -v -w /mnt/iso-work -o /work/out . ; then
+    if preflight && seal_build_conf && ./mkarchcraftiso -v -w /mnt/iso-work -o /work/out . ; then
         break
     fi
     if [ "$attempt" = "2" ]; then

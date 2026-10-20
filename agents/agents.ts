@@ -41,6 +41,31 @@ const PROJECT = `
   * SigLevel = Never no [elite-local] é intencional (repo local não assinado);
     adicionar .sig dummy seria FATAL para o pacman.
   * actions/checkout@v5 (a v4 mira Node 20 e emite warning de deprecação).
+  * FORENSE do run #17 (build 99% completo; derrubado no ÚLTIMO passo): o
+    pacstrap re-sincroniza dbs AO VIVO mesmo com o preflight perfeito — dbs
+    novos (02:56) ≠ dbs verificados (02:42) → ~57 pacotes mudaram de versão →
+    cache miss → download ao vivo → skew → 118 curl-22 em ~20 escadas de retry
+    ao longo de 78 min. Identificação por tamanho exato: 33692=archcraft.db,
+    132.1k=cachyos-v3.db, 4.35M=cachyos-extra-v3.db, 510.6k=cachyos.db,
+    127.0k=core.db, 8.45M=extra.db; os 438B são .db.sig (RSA3072 CachyOS =
+    tamanho fixo); a 1ª escada foi extra.db do Arch (mirror em mid-sync), as
+    demais foram pacotes/sigs no cdn77 (db na frente dos arquivos).
+  * LEI do pacman (validada no #17): cache hit NÃO gera fetch de .sig — pacman
+    valida pelo sha256 do db; .sig (438B CachyOS / 119B EdDSA Arch) só é
+    baixado em download ao vivo. Logo: selar o conf de build com
+    Server = file:///var/lib/pacman/sync (os MESMOS dbs do preflight) torna o
+    pacstrap 100% offline — zero curl, determinístico. O selo é idempotente
+    (linhas já file:// não casam nos padrões https/Include) e remove o
+    DownloadUser do upstream (adi1090x não existe no container de build).
+  * O customize_airootfs.sh do upstream assume as 3 edições (openbox/bspwm/
+    sway) e roda com set -e: o debloat Elite remove archcraft-skeleton-wayland
+    → sed do upstream em /etc/skel/.config/sway aborta o build (foi o que
+    derrubou o #17). A guarda [[ -f ]] no apply-overlay ([8.5]) resolve:
+    presente = comportamento upstream; ausente = no-op sem órfãos no skel.
+  * Os "error: command failed to execute correctly" dos hooks GRUB durante o
+    pacstrap (grub-editenv: canonical path //boot/grub) são upstream-comport:
+    no chroot de build não há /boot montado; não são fatais nem afetam a ISO
+    (grub.cfg da ISO vem do mkarchcraftiso, não do hook). Cosmético.
 - Missão permanente do projeto: ZERO erros de curl no CI; toda URL/repo
   verificado e saudável; build rápido e determinístico.`.trim();
 
