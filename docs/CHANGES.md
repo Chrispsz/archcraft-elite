@@ -149,3 +149,28 @@ Triagem de uma análise externa do repo — 3 alegações, 2 procedentes
   (chave via E1 keyserver). Validado ao vivo: escada executada de
   verdade (cdn77 primeiro, 200/200), pacotes abertos e conferidos
   (`usr/share/pacman/keyrings/cachyos.gpg`; `etc/pacman.d/cachyos-v3-mirrorlist`).
+
+## v4.6 — run #16: causa raiz do preflight surdo (prova binária)
+
+- **Run #16**: execv-safe funcionou (dbs sincronizaram; round 1 baixou
+  440 pacotes em 239s), mas **2 pacotes 404aram em TODOS os 6 rounds**
+  e o preflight nunca injetou baseline: `pacman -Sp --print-uris`
+  morreu em TUDO com saída vazia ("db sync quebrado?" — diagnóstico
+  errado).
+- **Prova binária**: `--print-uris` foi REMOVIDO no pacman 6.0 (2021) —
+  `strings` no binário real do core (pacman 7.1.0): 0 ocorrências de
+  `print-uris`, `--print-format <string>` presente. getopt mata o
+  comando com "unrecognized option" (stderr silenciado pelo 2>/dev/null)
+  → zero URLs → sonda cega → injeção nunca dispara → abort.
+- **Fix (2 call sites)**: `-Sp --print-uris` → `-Sp --print-format '%l'`.
+  Semântica do substituto (lida no fonte 6.0.2, `pkg_get_location`):
+  URL p/ pacote fora do cache, `file://<caminho>` p/ cacheado — o grep
+  `^https?` filtra os locais e a sonda recebe EXATAMENTE o conjunto
+  não-cacheado (o que interessa). Fonte: sync.c + util.c do pacman.
+- **Diagnóstico honesto**: stderr do -Sp agora vai p/ arquivo e, se a
+  lista vier vazia, o ERRO REAL do -Sp aparece no console (antes só o
+  tail do -Syw — que apontava p/ lugar errado).
+- **Sweep dos repos (agora)**: CachyOS 4 dbs × listing do us = 0 faltando;
+  archcraft 190/190 HEADs = 200. Os 2× 404 do #16 eram janela transitória
+  de propagação (02:19–02:28 UTC), já curada — a sonda+baseline é o
+  remédio permanente p/ quando a janela reabrir.
