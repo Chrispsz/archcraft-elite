@@ -153,12 +153,15 @@ fi
 
 # Downloads resilientes: mirrors rolling (CachyOS) têm janelas em que o
 # db anuncia versão que o arquivo ainda não propagou (404 transitório).
-# curl com --retry-all-errors espera o mirror sincronizar.
+# curl com --retry-all-errors espera o mirror sincronizar. SEM operadores
+# de shell: o pacman executa o XferCommand via fork/execv (não sh -c).
 if ! grep -q '^XferCommand' "$PC"; then
   sed -i '/^\[options\]/a XferCommand = /usr/bin/curl -L -C - -f -o %o %u --retry 3 --retry-delay 4 --retry-all-errors' "$PC"
 fi
-# (o XferCommand fica no conf de BUILD; os repos unsigned já não sondam
-#  .sig — com Never as únicas transferências são 200 OK)
+
+# Throughput de build: 10 downloads simultâneos no conf de BUILD (o conf
+# do sistema instalado é reescrito pelo E3 com os defaults do pacman)
+sed -i -E 's|^#?ParallelDownloads = .*|ParallelDownloads = 10|' "$PC"
 
 # ── [5.1] (CI/root) mirrorlist do repo [archcraft] p/ o ambiente de build
 #          (o conf do profile referencia via Include; o pacstrap resolve)
