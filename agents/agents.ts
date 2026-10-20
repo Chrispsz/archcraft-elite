@@ -51,12 +51,18 @@ const PROJECT = `
     tamanho fixo); a 1ª escada foi extra.db do Arch (mirror em mid-sync), as
     demais foram pacotes/sigs no cdn77 (db na frente dos arquivos).
   * LEI do pacman (validada no #17): cache hit NÃO gera fetch de .sig — pacman
-    valida pelo sha256 do db; .sig (438B CachyOS / 119B EdDSA Arch) só é
-    baixado em download ao vivo. Logo: selar o conf de build com
-    Server = file:///var/lib/pacman/sync (os MESMOS dbs do preflight) torna o
-    pacstrap 100% offline — zero curl, determinístico. O selo é idempotente
-    (linhas já file:// não casam nos padrões https/Include) e remove o
-    DownloadUser do upstream (adi1090x não existe no container de build).
+    valida pelo sha256 do db; .sig só é baixado em download ao vivo.
+  * FORENSE do run #18 (selo v1 aplicado — dbs congelados ✓, mas FATAL em
+    linux-api-headers-1:7.1-1-x86_64_v3): o buraco de 173.65 MiB era
+    "Total Download Size" idêntico nos runs #17 e #18 — o -Syw do preflight
+    rodava no HOST: o local db do container (base-devel + prep) satisfez
+    dezenas de deps → ficavam FORA da closure → "cache completo" era mentira
+    parcial. O pacstrap resolve para um chroot de local db VAZIO → precisa
+    delas → cache miss. Fix: preflight resolve com --dbpath /tmp/pf-db (dir
+    só-de-dbs, local vazio = visão do chroot); selo v3 = Server
+    file:///tmp/pf-db/sync (LAYOUT: dbpath grava em <dir>/sync/, não flat!)
+    + SigLevel=Never em core/extra/multilib (mata os probes .db.sig que no
+    #18 viraram curl 37) + marcador '# elite-sealed' (idempotência).
   * O customize_airootfs.sh do upstream assume as 3 edições (openbox/bspwm/
     sway) e roda com set -e: o debloat Elite remove archcraft-skeleton-wayland
     → sed do upstream em /etc/skel/.config/sway aborta o build (foi o que

@@ -174,7 +174,24 @@ bash scripts/apply-overlay.sh
 preflight() {
     local pc=/work/elite-build/profile/pacman.conf
     local plconf=/tmp/elite-preflight.conf
+    # RAIZ DO RUN #18: o -Syw rodava no HOST, cujo local db (base-devel +
+    # prep) já satisfaz dezenas de deps → elas ficavam FORA da closure e o
+    # “cache completo” era mentira parcial (173.65 MiB de buraco — exato o
+    # “Total Download Size” da transação do pacstrap, idêntico nos runs #17
+    # e #18). O pacstrap resolve para um chroot de local db VAZIO → precisa
+    # delas → cache miss → (no #17: download ao vivo + skew; no #18 selado:
+    # file:// fatal no linux-api-headers-v3). Fix: resolver com --dbpath num
+    # dir SÓ DE DBS — local db vazio = mesma visão do pacstrap. A closure do
+    # preflight passa a ser EXATAMENTE a do pacstrap.
+    local pfdb=/tmp/pf-db
+    mkdir -p "$pfdb" "$pfdb/sync" # dbpath: sync dbs caem em $pfdb/sync/ (layout do pacman)
     cd /work/elite-build/profile
+
+    # Evidência (pedido do auditor mimo, R1): a mirrorlist do Arch é a única
+    # superfície de curl que o selo não cobre (só o preflight a usa). Quais
+    # mirrors estavam em jogo fica registrado no log para qualquer triagem.
+    echo "    Mirrorlist Arch em uso (até 5):"
+    grep -m5 '^Server' /etc/pacman.d/mirrorlist 2>/dev/null | sed 's/^/      /' || true
 
     # XferCommand PLANO (execv-safe: flags apenas). O logger de falhas
     # mora FORA do XferCommand (sonda pós-round), nunca dentro dele.
@@ -193,7 +210,7 @@ preflight() {
     local round u u2 code fn base fu
     for round in 1 2 3; do
         say "Preflight round $round/3: -Syw de ${#PL[@]} alvos (só download; nada é instalado)"
-        if pacman --config "$plconf" -Syw --noconfirm "${PL[@]}" >/tmp/elite-pf.log 2>&1; then
+        if pacman --config "$plconf" -b "$pfdb" -Syw --noconfirm "${PL[@]}" >/tmp/elite-pf.log 2>&1; then
             say "Preflight: cache completo — pacstrap offline dali em diante"
             return 0
         fi
@@ -204,7 +221,7 @@ preflight() {
         # db sync, resolução), o ERRO REAL aparece no console — não só o
         # tail do -Syw (no run #16 "db sync quebrado?" era mentira: era
         # "unrecognized option '--print-uris'" do pacman 7, silenciado).
-        mapfile -t URLS < <(pacman --config "$plconf" -Sp --print-format '%l' --noconfirm "${PL[@]}" 2>/tmp/elite-sp.err \
+        mapfile -t URLS < <(pacman --config "$plconf" -b "$pfdb" -Sp --print-format '%l' --noconfirm "${PL[@]}" 2>/tmp/elite-sp.err \
             | grep -oE '^https?://[^ ]+\.pkg\.tar\.zst$' | sort -u || true)
         if (( ${#URLS[@]} == 0 )); then
             say "Preflight: -Sp não listou URLs — stderr do próprio -Sp (causa real):"
@@ -237,7 +254,7 @@ preflight() {
             [[ "$code" == "200" ]] && { say "  ok no gêmeo us (cdn77 desinc só) — $u2"; continue; }
             fn=${u##*/}
             base=$(printf '%s' "$fn" | sed -E 's/-(any|x86_64(_v3)?)\.pkg\.tar\.zst$//' | rev | cut -d- -f3- | rev)
-            fu=$(pacman --config /tmp/elite-arch-only.conf -Sp --print-format '%l' --noconfirm "$base" 2>/dev/null \
+            fu=$(pacman --config /tmp/elite-arch-only.conf -b "$pfdb" -Sp --print-format '%l' --noconfirm "$base" 2>/dev/null \
                  | grep -oE '^https?://[^ ]+\.pkg\.tar\.zst$' | head -1 || true)
             if [[ -n "$fu" ]]; then
                 say "  $fn quebrado nos 2 mirrors → baseline Arch injetado no [elite-local]"
@@ -261,25 +278,47 @@ preflight() {
 #  pacstrap re-sincroniza dbs AO VIVO: dbs novos ≠ dbs verificados →
 #  versões novas → cache miss → download ao vivo → skew de mirror →
 #  curl 404 em escada. Foi exatamente assim que o run #17 emitiu ~118
-#  curl-22 espalhados por 78 min MESMO com o preflight perfeito: o sync
-#  do pacstrap (02:56) pegou dbs diferentes dos do preflight (02:42),
-#  ~57 pacotes mudaram de versão e o download ao vivo apanhou do skew.
+#  curl-22 espalhados por 78 min MESMO com o preflight "perfeito": o sync
+#  do pacstrap (02:56) pegou dbs diferentes dos do preflight (02:42).
+#  E o run #18 revelou a SEGUNDA metade da verdade: o buraco de 173.65
+#  MiB ("Total Download Size" idêntico nos 2 runs) vinha do -Syw rodando
+#  no HOST — o local db do container (base-devel + prep) satisfez dezenas
+#  de deps fora da closure. O preflight agora resolve com --dbpath num
+#  dir só-de-dbs (local db vazio = visão do chroot) — closure idêntica.
 #  O selo aponta TODOS os Server/Include https do conf de build para
-#  file:///var/lib/pacman/sync — os MESMOS dbs que o preflight acabou
-#  de baixar e verificar. O pacstrap lê local, resolve as MESMAS
-#  versões e instala 100% do cache: zero rede, zero curl, determinís-
-#  tico. Buraco no cache? O preflight JÁ abortou antes (sonda + base-
-#  line); aqui o file:// falha alto — nunca baixa "mudo" do mirror errado.
-#  Idempotente: linhas já file:// não casam nos padrões https/Include.
+#  file:///tmp/pf-db/sync — os MESMOS dbs que o preflight verificou. SigLevel
+#  = Never nas seções Arch (core/extra/multilib) mata os probes .db.sig
+#  (curl 37 no #18 — a única causa restante de ruído curl no pacstrap).
+#  Idempotente via marcador '# elite-sealed'.
 seal_build_conf() {
     local pc=/work/elite-build/profile/pacman.conf
+    grep -q '^# elite-sealed' "$pc" && { say "Selo já aplicado (idempotente)"; return 0; }
+
+    # Assert (auditor mimo, R2): todo .db que o pacstrap vai ler precisa
+    # existir no pf-db ANTES do selo — sem isto, um db ausente viraria falha
+    # file:// LOCAL no meio do pacstrap, com mensagem confusa.
+    local missing=() s
+    for s in $(awk '/^\[/{sec=$0; gsub(/[][]/,"",sec); if (sec!="options" && sec!="elite-local") print sec}' "$pc"); do
+        [[ -s /tmp/pf-db/sync/$s.db ]] || missing+=("$s")
+    done
+    if ((${#missing[@]})); then
+        say "SELO ABORTADO: db(s) ausente(s) em /tmp/pf-db: ${missing[*]} — preflight não fechou estes repos"
+        return 1
+    fi
+
     sed -i -E \
-        -e 's@^Server = https?://.+@Server = file:///var/lib/pacman/sync@' \
-        -e 's@^Include = /etc/pacman\.d/mirrorlist$@Server = file:///var/lib/pacman/sync@' \
-        -e 's@^Include = /etc/pacman\.d/archcraft-mirrorlist$@Server = file:///var/lib/pacman/sync@' \
+        -e 's@^Server = https?://.+@Server = file:///tmp/pf-db/sync@' \
+        -e 's@^Include = /etc/pacman\.d/mirrorlist$@Server = file:///tmp/pf-db/sync@' \
+        -e 's@^Include = /etc/pacman\.d/archcraft-mirrorlist$@Server = file:///tmp/pf-db/sync@' \
         -e '/^DownloadUser = /d' \
+        -e 's@^\[core\]$@[core]\nSigLevel = Never@' \
+        -e 's@^\[extra\]$@[extra]\nSigLevel = Never@' \
+        -e 's@^\[multilib\]$@[multilib]\nSigLevel = Never@' \
         "$pc"
-    say "Conf de build lacrado: dbs file:///var/lib/pacman/sync (pacstrap offline, zero curl)"
+    sed -i '1i # elite-sealed (pacstrap offline; dbs = os que o preflight verificou em /tmp/pf-db)' "$pc"
+    say "Conf de build lacrado: dbs file:///tmp/pf-db/sync (pacstrap offline, zero curl)"
+    # Prova de evidência no log (R2): mapa seção → Server efetivo pós-selo
+    awk '/^\[/{sec=$0} /^[[:space:]]*Server/{print "    " sec " " $0}' "$pc"
 }
 
 say "Construindo ISO (mkarchcraftiso — fork oficial do Archcraft)"
