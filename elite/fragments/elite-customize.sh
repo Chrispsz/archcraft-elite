@@ -68,12 +68,18 @@ fi
 ##      Archcraft duplica [core]/[extra] no fim; aqui fica sem duplicatas).
 ##      Ordem: archcraft > cachyos(v2) > cachyos-v3 trio > core/extra/multilib
 ELITE_PC="/etc/pacman.conf"
-awk '/^\[/ {exit} {print}' "$ELITE_PC" > /tmp/elite-pc-options
-# fix #20 (fatal do run): o conf herdado veio SEM Architecture → o mirror
-# $arch do [archcraft] faz o pacman abortar com "mirror contains the
-# '$arch' variable, but no 'Architecture' is defined" (matou o passo
-# 'Creating a list of installed packages' do mkarchcraftiso). Garante a
-# linha dentro do bloco [options] (o arquivo é só-mais-[options]).
+# [options] INTEIRO (header + diretivas) até a próxima seção. O awk
+# antigo ('/^\[/{exit}') capturava os COMENTÁRIOS acima de [options] —
+# o conf saía SEM seção nenhuma ("line 9: All directives must belong
+# to a section" — matou o run #21; no #20 o mesmo bug se manifestou
+# como "$arch sem Architecture"). Latente desde sempre: E3 só rodou
+# de verdade no #20 (primeiro build a chegar ao customize).
+awk '/^\[options\]/{opt=1; print; next}
+     opt && /^\[/{exit}
+     opt{print}' "$ELITE_PC" > /tmp/elite-pc-options
+# fix #20: garante Architecture p/ o mirror $arch do [archcraft]
+# (pacman fatal: "contains the '$arch' variable, but no 'Architecture'
+# is defined"). Append dentro do bloco [options] (arquivo é só-options).
 grep -q '^Architecture' /tmp/elite-pc-options \
     || printf 'Architecture = x86_64 x86_64_v3\n' >> /tmp/elite-pc-options
 {
