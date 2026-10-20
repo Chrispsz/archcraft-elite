@@ -42,7 +42,11 @@ mkdir -p /var/cache/elite-local
 rm -rf /tmp/elite-src && mkdir -p /tmp/elite-src/python-pywal /tmp/elite-src/qt5-virtualkeyboard
 
 cd /tmp/elite-src/python-pywal
-curl -fsSL -o pywal-master.tar.gz "https://codeload.github.com/dylanaraps/pywal/tar.gz/refs/heads/master"
+# PIN de commit (R6 do auditor mimo): a URL branch-driven (refs/heads/master)
+# pode mudar sem aviso; o tarball de commit é imutável. Extração vira
+# pywal-<sha> → o cd do package() usa glob.
+PYWAL_PIN="236aa48e741ff8d65c4c3826db2813bf2ee6f352" # master @ 2026-10-20
+curl -fsSL -o pywal-master.tar.gz "https://codeload.github.com/dylanaraps/pywal/tar.gz/${PYWAL_PIN}"
 cat > PKGBUILD <<'EOPKGBUILD'
 pkgname=python-pywal
 pkgver=3.3.1
@@ -55,7 +59,7 @@ depends=(python)
 source=("pywal-master.tar.gz")
 sha256sums=('SKIP')
 package() {
-    cd pywal-master
+    cd pywal-*
     _site=$(python -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')
     install -d "${pkgdir}${_site}"
     cp -a pywal "${pkgdir}${_site}/"

@@ -109,6 +109,33 @@ ensure_cmdline_token() {
   fi
 }
 
+# ── gpu_cleanup_foreign: auto-limpeza do stack estranho à GPU detectada ──
+# A ISO Elite carrega os DOIS stacks de driver (o live tem que bootar em
+# qualquer máquina); no primeiro boot do sistema INSTALADO o que não
+# pertence ao hardware sai do disco — cada rig fica só com seus pacotes:
+#   amd|intel → stack NVIDIA inteiro (nvidia-open/nvidia-utils/…, ~500MB
+#               de userspace que nunca carrega em GPU AMD/Intel)
+#   nvidia    → ICDs Vulkan AMD/Intel (~50MB; o loader nunca os escolhe)
+# Mesa fica SEMPRE (llvmpipe do primeiro login, fallback de boot, GL).
+# Idempotente (pacman -Qq decide), auto-verificante (avisa o que restou)
+# e seguro no --dry-run (só o 'run' escreve).
+gpu_cleanup_foreign() {
+  local vendor=$1 np pkgs=()
+  case "$vendor" in
+    amd)    for np in nvidia-open nvidia-utils nvidia-settings lib32-nvidia-utils vulkan-intel lib32-vulkan-intel; do pacman -Qq "$np" >/dev/null 2>&1 && pkgs+=("$np"); done ;;
+    intel)  for np in nvidia-open nvidia-utils nvidia-settings lib32-nvidia-utils vulkan-radeon lib32-vulkan-radeon; do pacman -Qq "$np" >/dev/null 2>&1 && pkgs+=("$np"); done ;;
+    nvidia) for np in vulkan-radeon lib32-vulkan-radeon vulkan-intel lib32-vulkan-intel; do pacman -Qq "$np" >/dev/null 2>&1 && pkgs+=("$np"); done ;;
+    *)      return 0 ;;
+  esac
+  (( ${#pkgs[@]} )) || { say "Auto-limpeza: nenhum pacote estranho ao hardware (já limpo)"; return 0; }
+  say "Auto-limpeza: GPU $vendor → removendo stack do outro vendor (${pkgs[*]})"
+  run pacman -Rns --noconfirm "${pkgs[@]}" || true
+  for np in "${pkgs[@]}"; do
+    pacman -Qq "$np" >/dev/null 2>&1 && warn "restou '$np' (dependência?) — manual: pacman -Rns $np"
+  done
+  return 0
+}
+
 # ── CachyOS: chave + keyring + mirrorlist + repos (padrão validado) ──
 cachyos_key_present() { pacman-key --list-keys "$CACHYOS_KEY" >/dev/null 2>&1; }
 
@@ -283,6 +310,10 @@ EOF
     run systemctl enable nvidia-suspend.service nvidia-resume.service nvidia-hibernate.service nvidia-persistenced.service || true
   fi
 
+  # 2b. auto-limpeza: cada rig fica SÓ com os pacotes do SEU hardware
+  #     (NVIDIA em AMD/Intel = ~500MB inertes; ICDs Vulkan alienígenas ~50MB)
+  gpu_cleanup_foreign "$VENDOR"
+
   # 3. serviços de tuning
   run systemctl enable --now ananicy-cpp.service || true
   # sched-ext: unit própria scx-elite (bpfland). Trocar scheduler:
@@ -410,6 +441,8 @@ EOF
 fi
 
 # ── [5] Memória + I/O (idempotente — na ISO já vêm assados) ───────
+# Auto-limpeza também no modo interativo (enxerto em sistema existente):
+gpu_cleanup_foreign "$VENDOR"
 ZMB=$(( MEM_GIB * 1024 )); (( ZMB > 8192 )) && ZMB=8192
 run pacman -S --needed --noconfirm zram-generator
 wfile /etc/systemd/zram-generator.conf <<EOF

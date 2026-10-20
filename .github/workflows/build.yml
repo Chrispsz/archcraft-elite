@@ -22,7 +22,10 @@ concurrency:
 jobs:
   # ── Qualidade: shellcheck como gate + shfmt informativo ──────────
   lint:
-    runs-on: ubuntu-latest
+    # FIXO em 24.04: o label ubuntu-latest migrou p/ Ubuntu 26 em out/2026 —
+    # runner image é superfície de risco p/ o build privilegiado (docker run
+    # --privileged); pin = build reproduzível, migração avaliada com calma.
+    runs-on: ubuntu-24.04
     container: archlinux:base-devel
     steps:
       - name: Preparar container
@@ -47,7 +50,7 @@ jobs:
   # no chroot) — por isso o docker run --privileged a partir do runner.
   build:
     needs: lint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v5
@@ -91,8 +94,13 @@ jobs:
               "" \
               "    cat ${ISO}.part-* > ${ISO}" \
               "" \
-              "Confira a integridade: \`sha256sum ${ISO}\` (compare com sha256sums.txt)." \
+              "Confira a integridade: \`sha256sum -c <(grep -E 'part|${ISO}$' sha256sums.txt)\`" \
+              "(sha256sums.txt traz a ISO inteira E as partes)." \
               > JUNTAR-ISO.md
+            # hashes das PARTES entram no sha256sums.txt (a da ISO inteira já
+            # foi gravada pelo .ci/build.sh antes do split) — permite
+            # verificar cada parte ANTES de juntar
+            sha256sum -- "${ISO}.part-"* >> sha256sums.txt
             ls -lh --si
           fi
 
