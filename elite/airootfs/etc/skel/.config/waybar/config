@@ -13,7 +13,7 @@
 
   "modules-left": ["wlr/taskbar"],
   "modules-center": ["clock"],
-  "modules-right": ["idle_inhibitor", "pulseaudio", "cpu", "memory", "tray"],
+  "modules-right": ["idle_inhibitor", "mpris", "pulseaudio", "cpu", "memory", "tray"],
 
   // Taskbar (janelas abertas — protocolo wlr-foreign-toplevel, nativo do labwc)
   "wlr/taskbar": {
@@ -40,6 +40,35 @@
       "activated": "",
       "deactivated": ""
     }
+  },
+
+  // Música do USUÁRIO (MPRIS) — YouTube no navegador, Spotify, mpv: o que
+  // VOCÊ tocar aparece aqui. Zero sample music no sistema; com nada tocando
+  // o módulo some sozinho (format-empty vazio). Clique: esq = play/pause,
+  // meio = próxima, dir = anterior (nativo do módulo — D-Bus direto).
+  "mpris": {
+    "format": " {player_icon} {dynamic}",
+    "format-paused": " {status_icon} {dynamic}",
+    "format-stopped": " {status_icon}",
+    "format-empty": "",
+    "player-icons": {
+      "default": "",
+      "firefox": "",
+      "librewolf": "",
+      "chromium": "",
+      "brave": "",
+      "thorium-browser": "",
+      "mpv": "",
+      "spotify": ""
+    },
+    "status-icons": {
+      "playing": "",
+      "paused": "",
+      "stopped": ""
+    },
+    "ignored-players": ["playerctld"],
+    "dynamic-len": 40,
+    "interval": 10
   },
 
   // Volume (PipeWire/PulseAudio) — clique muta, scroll ajusta
