@@ -143,8 +143,11 @@ pacman -Sy --noconfirm || true
 ##   a) unpackfs copia também o vmlinuz do BORE p/ /boot do instalado
 ##      (upstream só copia o vmlinuz-linux — sem isto o BORE nunca bootaria)
 ##   b) instância initcpio@elite gera o initramfs do BORE no alvo
-##   c) packagechooser sem a opção Sway (pacote removido da ISO Elite)
-##   d) btrfs como filesystem default (timeshift + grub-btrfs = rollback real)
+##   c) packagechooser: sessão ÚNICA labwc (v1.0.3 — openbox/bspwm/sway fora
+##      da ISO; a página "Desktop" apenas confirma o labwc)
+##   d) autologin contextual: única escolha possível = labwc
+##   e) chrooted_autologin.sh: branch --labwc (herda o slot do --everything)
+##   f) btrfs como filesystem default (timeshift + grub-btrfs = rollback real)
 CC="/etc/calamares"
 if [[ -d "$CC" ]]; then
     # a) unpackfs
@@ -162,11 +165,42 @@ if [[ -d "$CC" ]]; then
         printf '%s\n' '---' 'kernel: linux-cachyos-bore' 'be_unsafe: false' \
             > "$CC/modules/initcpio_elite.conf"
     fi
-    # c) packagechooser: remove o item Sway
+    # c) packagechooser: itens openbox/bspwm/sway fora; everything vira labwc
     if [[ -f "$CC/modules/packagechooser.conf" ]]; then
-        sed -i '/- id: sway/,/sway\.png/d' "$CC/modules/packagechooser.conf"
+        sed -i -e '/- id: openbox/,/openbox\.png/d' \
+               -e '/- id: bspwm/,/bspwm\.png/d' \
+               -e '/- id: sway/,/sway\.png/d' \
+               -e 's|- id: everything|- id: labwc|' \
+               -e 's|^      name: "Everything"|      name: "Archcraft Elite"|' \
+               -e 's|^      description: "Install Everything.*|      description: "labwc (Wayland), rice Catppuccin Mocha — a sessão única da Elite, já instalada."|' \
+               -e 's|^default: everything|default: labwc|' \
+               "$CC/modules/packagechooser.conf"
     fi
-    # d) btrfs default
+    # d) autologin contextual: só existe uma escolha — labwc
+    if [[ -f "$CC/modules/contextualprocess_autologin.conf" ]]; then
+        awk '
+          /^packagechooser_packagechooser:/ {
+            print
+            print "    labwc:"
+            print "        - echo \"Setting labwc as session for autologin...\""
+            print "        - /usr/bin/chrooted_autologin.sh --labwc"
+            exit
+          }
+          { print }
+        ' "$CC/modules/contextualprocess_autologin.conf" > /tmp/elite-cpa.conf
+        cat /tmp/elite-cpa.conf > "$CC/modules/contextualprocess_autologin.conf"
+        rm -f /tmp/elite-cpa.conf
+    fi
+    # e) chrooted_autologin.sh: --labwc (o slot --everything vira labwc;
+    #    o corpo 'openbox' também vira 'labwc' — qualquer caminho legado
+    #    configura a sessão certa). No-op de qualquer forma se /etc/sddm.conf
+    #    não tem [Autologin] (o autologin real do live vem do drop-in .d/).
+    if [[ -f /usr/bin/chrooted_autologin.sh ]]; then
+        sed -i -e "s|--everything' ]]; then|--labwc' ]]; then|" \
+               -e "s|enable_autologin 'openbox'|enable_autologin 'labwc'|g" \
+               /usr/bin/chrooted_autologin.sh
+    fi
+    # f) btrfs default
     if [[ -f "$CC/modules/partition.conf" ]]; then
         sed -i 's|defaultFileSystemType: *"ext4"|defaultFileSystemType:  "btrfs"|' "$CC/modules/partition.conf"
     fi
@@ -222,3 +256,13 @@ fi
 ## [E8] Remove o repo local [elite-local] da ISO (só é necessário durante
 ##      o pacstrap; os pacotes instalados ficam, o repo não)
 rm -rf /var/cache/elite-local
+
+## [E9] Sessão única labwc (v1.0.3): remove do skel as configs órfãs das
+##      sessões/satélites que saíram (openbox, bspwm, polybar, tint2, rofi,
+##      dunst, alacritty, kitty vieram do archcraft-skeleton). Sem isto o
+##      home do liveuser nasce com diretórios mortos de apps que não existem.
+##      Os configs Elite (labwc/waybar/swaync/fuzzel) e os do que fica
+##      (Thunar, geany, ranger, qt5ct/qt6ct, Kvantum, neofetch) permanecem.
+for d in openbox bspwm polybar tint2 rofi dunst alacritty kitty; do
+    rm -rf "/etc/skel/.config/$d"
+done

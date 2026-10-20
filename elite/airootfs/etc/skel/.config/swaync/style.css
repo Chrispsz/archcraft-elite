@@ -1,0 +1,180 @@
+/* Archcraft Cockpit · SwayNC CSS — Catppuccin Mocha
+ * Palette oficial: github.com/catppuccin/palette (mocha)
+ * GTK CSS (clases do tema padrão do SwayNC). */
+
+@define-color rosewater #f5e0dc;
+@define-color flamingo  #f2cdcd;
+@define-color pink      #f5c2e7;
+@define-color mauve     #cba6f7;
+@define-color red       #f38ba8;
+@define-color maroon    #eba0ac;
+@define-color peach     #fab387;
+@define-color yellow    #f9e2af;
+@define-color green     #a6e3a1;
+@define-color teal      #94e2d5;
+@define-color sky       #89dceb;
+@define-color sapphire  #74c7ec;
+@define-color blue      #89b4fa;
+@define-color lavender  #b4befe;
+@define-color text      #cdd6f4;
+@define-color subtext1  #bac2de;
+@define-color subtext0  #a6adc8;
+@define-color overlay2  #9399b2;
+@define-color overlay1  #7f849c;
+@define-color overlay0  #6c7086;
+@define-color surface2  #585b70;
+@define-color surface1  #45475a;
+@define-color surface0  #313244;
+@define-color base      #1e1e2e;
+@define-color mantle    #181825;
+@define-color crust     #11111b;
+
+/* ===== Notificações flutuantes ===== */
+.notification-row {
+  outline: none;
+}
+
+.notification {
+  background: alpha(@base, 0.92);
+  border: 1px solid alpha(@surface1, 0.9);
+  border-radius: 14px;
+  margin: 6px 12px;
+}
+
+.notification-content {
+  background: transparent;
+  padding: 8px;
+  border-radius: 14px;
+}
+
+.notification-default-action:hover,
+.notification-action:hover {
+  background: alpha(@surface0, 0.9);
+}
+
+.close-button {
+  background: @surface0;
+  color: @text;
+  border-radius: 999px;
+  margin: 4px;
+}
+
+.close-button:hover {
+  background: @red;
+  color: @crust;
+}
+
+.image {
+  border-radius: 10px;
+}
+
+.summary {
+  color: @text;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.time {
+  color: @subtext0;
+  font-size: 12px;
+}
+
+.body {
+  color: @subtext1;
+  font-size: 13px;
+}
+
+.notification-action {
+  background: @surface0;
+  color: @text;
+  border-radius: 10px;
+  margin: 4px;
+}
+
+.notification-action:active {
+  background: @surface2;
+}
+
+/* ===== Central de Controle ===== */
+.control-center {
+  background: alpha(@base, 0.95);
+  border: 1px solid alpha(@surface1, 0.9);
+  border-radius: 16px;
+  margin: 12px;
+}
+
+.control-center-list {
+  background: transparent;
+}
+
+.blank-window {
+  background: alpha(@crust, 0.25);
+}
+
+/* Título + botão "Limpar" */
+.widget-title {
+  color: @text;
+  font-size: 15px;
+  font-weight: 700;
+  margin: 10px 10px 4px;
+}
+
+.widget-title > button {
+  background: @surface0;
+  color: @red;
+  border-radius: 10px;
+  padding: 4px 12px;
+  font-weight: 600;
+}
+
+.widget-title > button:hover {
+  background: @surface1;
+}
+
+/* Toggle "Não Perturbe" (GTK switch) */
+.widget-dnd {
+  color: @subtext0;
+  margin: 4px 10px;
+  font-size: 13px;
+}
+
+.widget-dnd > switch {
+  background: @surface0;
+  border-radius: 999px;
+}
+
+.widget-dnd > switch:checked {
+  background: @mauve;
+}
+
+.widget-dnd > switch slider {
+  background: @text;
+  border-radius: 999px;
+}
+
+/* Grade de botões (toggles WiFi/BT etc.) */
+.widget-buttons-grid {
+  margin: 8px;
+}
+
+.widget-button {
+  background: @surface0;
+  color: @text;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+.widget-button:hover {
+  background: @surface1;
+}
+
+/* Toggle ativo — classe documentada: ".toggle:checked" */
+.widget-button.toggle:checked {
+  background: @mauve;
+  color: @crust;
+}
+
+/* Lista de notificações */
+.widget-notifications {
+  margin: 4px;
+}

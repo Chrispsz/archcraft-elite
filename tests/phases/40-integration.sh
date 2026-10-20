@@ -44,6 +44,89 @@ assert_eq "$(grep -cx 'vulkan-intel'  "$PKG")" "1" "cadeia A: vulkan-intel 1× (
 dups=$(sort "$PKG" | uniq -d | wc -l)
 assert_eq "$dups" "0" "cadeia A: packages.x86_64 sem nenhuma duplicata"
 
+# ── v1.0.3: sessão única labwc — debloat com comentário inline ─────────
+assert_grep "$PKG" '^#archcraft-openbox # ELITE-REMOVED$' "v1.0.3: archcraft-openbox debloatado (linha com comentário inline no .remove)"
+assert_grep "$PKG" '^#archcraft-bspwm # ELITE-REMOVED$' "v1.0.3: archcraft-bspwm debloatado"
+assert_grep "$PKG" '^#archcraft-installer # ELITE-REMOVED$' "v1.0.3: archcraft-installer debloatado (Calamares fica)"
+assert_grep "$PKG" '^#polybar # ELITE-REMOVED$' "v1.0.3: polybar (barra X11) debloatado"
+assert_grep "$PKG" '^#alacritty # ELITE-REMOVED$' "v1.0.3: alacritty debloatado (foot é O terminal)"
+assert_grep "$PKG" '^#mpd # ELITE-REMOVED$' "v1.0.3: mpd (sample music) debloatado"
+assert_nogrep "$PKG" '^archcraft-openbox$' "v1.0.3: archcraft-openbox ativo sumiu"
+assert_nogrep "$PKG" '^alacritty$' "v1.0.3: alacritty ativo sumiu"
+assert_grep "$PKG" '^labwc$' "v1.0.3: labwc no packages (a sessão)"
+assert_grep "$PKG" '^waybar$' "v1.0.3: waybar no packages"
+assert_grep "$PKG" '^foot$' "v1.0.3: foot no packages"
+assert_grep "$PKG" '^swaync$' "v1.0.3: swaync no packages"
+assert_grep "$PKG" '^fuzzel$' "v1.0.3: fuzzel no packages"
+assert_grep "$PKG" '^fastfetch$' "v1.0.3: fastfetch no packages (craft-hello)"
+
+# ── v1.0.3: skel labwc + sddm sessão labwc ─────────────────────────────
+assert_file "$P/airootfs/etc/skel/.config/labwc/rc.xml" "v1.0.3: rc.xml do labwc no skel"
+assert_file "$P/airootfs/etc/skel/.config/labwc/menu.xml" "v1.0.3: menu.xml no skel"
+assert_file "$P/airootfs/etc/skel/.config/labwc/autostart" "v1.0.3: autostart no skel"
+assert_file "$P/airootfs/etc/skel/.config/waybar/config" "v1.0.3: waybar config no skel"
+assert_file "$P/airootfs/etc/skel/.config/swaync/config.json" "v1.0.3: swaync config no skel"
+assert_file "$P/airootfs/etc/skel/.config/fuzzel/fuzzel.ini" "v1.0.3: fuzzel config no skel"
+assert_grep "$P/airootfs/etc/sddm.conf.d/kde_settings.conf" '^Session=labwc$' "v1.0.3: SDDM autologin Session=labwc"
+assert_grep "$P/airootfs/var/lib/sddm/state.conf" 'wayland-sessions/labwc\.desktop' "v1.0.3: greeter pré-seleciona labwc"
+assert_grep "$P/airootfs/etc/systemd/system/fg-booster.service" '^Slice=fg-boost\.slice$' "v1.0.3: fg-booster com Slice= (fix restart-loop)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'blueman-applet' "v1.0.3: autostart sobe blueman-applet (fix bluetooth)"
+
+# ── v1.0.3: [9b] file_permissions — 12 caminhos 0:0:755 no profiledef ──
+PD="$P/profiledef.sh"
+for p in /usr/local/bin/elite-tune /usr/local/bin/elite-status /usr/local/bin/fg-booster \
+         /usr/local/bin/craft-hello /usr/local/bin/craft-update /usr/local/bin/craft-clean \
+         /usr/local/bin/craft-rollback /usr/local/bin/craft-lock /usr/local/bin/craft-logout \
+         /usr/local/bin/craft-shot /usr/local/bin/craft-bat \
+         /etc/skel/.config/labwc/autostart; do
+  assert_grep "$PD" "\\[\"$p\"\\]=\"0:0:755\"" "v1.0.3 [9b]: 0755 p/ $p"
+done
+
+# ── v1.0.3: E5 (Calamares) e E9 (skel) EXECUTADOS de verdade ───────────
+# extrai os blocos do fragmento, aponta os caminhos pro profile de teste
+# e roda: a cirurgia labwc tem que produzir exatamente o esperado.
+FRAG="$REPO/elite/fragments/elite-customize.sh"
+CFX="$P/airootfs/etc/calamares"
+sed -n '/^## \[E5\]/,/^## \[E6\]/p' "$FRAG" \
+  | sed -e "s|^CC=\"/etc/calamares\"|CC=\"$CFX\"|" \
+        -e "s|/usr/bin/chrooted_autologin\.sh|$P/airootfs/usr/bin/chrooted_autologin.sh|g" \
+  > "$WORK/e5-block.sh"
+if bash "$WORK/e5-block.sh" 2>"$WORK/e5.err"; then
+  ok "E5: bloco Calamares executa limpo (CC → fixture)"
+else
+  fail "E5: bloco Calamares executa limpo" "$(head -c 200 "$WORK/e5.err")"
+fi
+PCC="$CFX/modules/packagechooser.conf"
+assert_grep "$PCC" '^    - id: labwc$' "E5c: packagechooser tem o item labwc"
+assert_nogrep "$PCC" '- id: (openbox|bspwm|sway|everything)$' "E5c: itens openbox/bspwm/sway/everything fora"
+assert_grep "$PCC" '^default: labwc$' "E5c: default = labwc"
+assert_grep "$PCC" 'name: "Archcraft Elite"' "E5c: nome do item = Archcraft Elite"
+assert_grep "$CFX/modules/contextualprocess_autologin.conf" 'chrooted_autologin\.sh --labwc' "E5d: autologin contextual → --labwc"
+assert_nogrep "$CFX/modules/contextualprocess_autologin.conf" '--(openbox|bspwm|sway|everything)$' "E5d: nenhum caminho de sessão antiga"
+AI="$P/airootfs/usr/bin/chrooted_autologin.sh"
+assert_grep "$AI" "'--labwc' \]\]; then" "E5e: chrooted_autologin aceita --labwc"
+assert_grep "$AI" "enable_autologin 'labwc'" "E5e: sessão configurada = labwc"
+assert_nogrep "$AI" "enable_autologin 'openbox'" "E5e: nenhum 'openbox' residual"
+assert_grep "$CFX/modules/partition.conf" 'defaultFileSystemType:  "btrfs"' "E5f: btrfs default no installer"
+
+# E9: cria skel sujo (dirs órfãos), roda o bloco, confere a limpeza
+for d in openbox bspwm polybar tint2 rofi dunst alacritty kitty; do
+  mkdir -p "$P/airootfs/etc/skel/.config/$d"
+done
+sed -n '/^## \[E9\]/,$p' "$FRAG" \
+  | sed "s|/etc/skel|$P/airootfs/etc/skel|g" > "$WORK/e9-block.sh"
+if bash "$WORK/e9-block.sh" 2>"$WORK/e9.err"; then
+  ok "E9: bloco de limpeza do skel executa limpo"
+else
+  fail "E9: bloco de limpeza do skel" "$(head -c 200 "$WORK/e9.err")"
+fi
+dead=0
+for d in openbox bspwm polybar tint2 rofi dunst alacritty kitty; do
+  [[ -d "$P/airootfs/etc/skel/.config/$d" ]] && dead=$((dead+1))
+done
+assert_eq "$dead" "0" "E9: skel sem diretórios órfãos de sessões removidas"
+assert_file "$P/airootfs/etc/skel/.config/labwc/rc.xml" "E9: configs labwc sobrevivem à limpeza"
+
 PC="$P/pacman.conf"
 assert_grep "$PC" '^\[elite-local\]' "cadeia A: repo [elite-local] injetado"
 el=$(grep -n '^\[elite-local\]' "$PC" | cut -d: -f1); ac=$(grep -n '^\[archcraft\]' "$PC" | head -1 | cut -d: -f1)

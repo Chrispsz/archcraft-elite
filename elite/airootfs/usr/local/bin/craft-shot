@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# craft-shot — screenshots defensivos (grim + slurp + wl-copy)
+# uso: craft-shot area   → região selecionada → clipboard + arquivo
+#      craft-shot full   → tela cheia → arquivo
+set -euo pipefail
+mode="${1:-area}"
+for bin in grim wl-copy; do
+  command -v "$bin" >/dev/null 2>&1 \
+    || { echo "✖ $bin ausente: sudo pacman -S grim wl-clipboard" >&2; exit 1; }
+done
+dir="$HOME/Pictures"
+mkdir -p -- "$dir"
+file="$dir/shot-$(date +%Y%m%d-%H%M%S).png"
+notify() {
+  if command -v notify-send >/dev/null 2>&1; then
+    notify-send -t 2000 "Screenshot" "$1" >/dev/null 2>&1 || true
+  fi
+}
+case "$mode" in
+  area)
+    command -v slurp >/dev/null 2>&1 \
+      || { echo "✖ slurp ausente: sudo pacman -S slurp" >&2; exit 1; }
+    grim -g "$(slurp)" "$file" && wl-copy < "$file"
+    notify "região → clipboard + $file" ;;
+  full)
+    grim "$file"
+    notify "tela cheia → $file" ;;
+  *) echo "uso: craft-shot area|full" >&2; exit 1 ;;
+esac

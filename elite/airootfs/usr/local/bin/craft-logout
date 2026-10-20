@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# craft-logout — menu de sessão (fuzzel --dmenu; Esc cancela)
+# opções: lock · logout (labwc) · reboot · shutdown
+set -euo pipefail
+choice="$(printf 'lock\nlogout\nreboot\nshutdown' \
+  | fuzzel --dmenu --prompt 'sessão: ' 2>/dev/null)" || exit 0
+case "$choice" in
+  lock)
+    if command -v swaylock >/dev/null 2>&1; then exec swaylock
+    elif command -v loginctl >/dev/null 2>&1; then exec loginctl lock-session
+    fi ;;
+  logout)
+    if command -v labwc >/dev/null 2>&1; then exec labwc --exit; fi
+    echo "labwc não encontrado (não é uma sessão labwc?)" >&2 ;;
+  reboot)    exec systemctl reboot ;;
+  shutdown)  exec systemctl poweroff ;;
+  *) exit 0 ;;
+esac

@@ -1,10 +1,14 @@
 [Unit]
-Description=Elite: foreground booster (X11 — Openbox/BSPWM)
+Description=Elite: foreground booster (promove o app/jogo em foco p/ fg-boost.slice)
 Documentation=https://github.com/ValveSoftware
 After=graphical.target
 
 [Service]
 Type=simple
+# Slice= realiza o fg-boost.slice (CPUWeight/IOWeight altos) — sem isto o
+# script morre na guarda '[[ -d /sys/fs/cgroup/fg-boost.slice ]]' (fix diag:
+# restart-loop 203 + slice nunca criado no live da v1.0.2)
+Slice=fg-boost.slice
 ExecStart=/usr/local/bin/fg-booster
 # on-failure (e não always): se xdotool sumir, não virar crash-loop
 Restart=on-failure

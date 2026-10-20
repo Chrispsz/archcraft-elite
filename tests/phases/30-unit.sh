@@ -86,7 +86,13 @@ assert_grep "$REPO/.ci/build.sh" 'cd pywal-\*/' "pywal #27: o PKGBUILD do CI usa
 
 # ── 3.D contratos dos workflows (o texto do CI é promessa pública) ──
 BY="$REPO/.github/workflows/build.yml"
-assert_eq "$(grep -c 'runs-on: ubuntu-24.04' "$BY")" "2" "contrato: build.yml — os 2 jobs pinados em ubuntu-24.04"
+# v1.0.3: 4 jobs pinados em ubuntu-24.04 (lint, build, release, verify —
+# runner image é superfície de risco p/ o build privilegiado, o release e
+# o QEMU do gate); relay-agents (só dispatch da API) fica no ubuntu-latest
+assert_eq "$(grep -c 'runs-on: ubuntu-24.04' "$BY")" "4" "contrato: build.yml — 4 jobs pinados em ubuntu-24.04 (lint/build/release/verify)"
+assert_grep "$BY" 'needs: \[build, verify\]' "contrato: release SÓ depois do gate de boot (needs build+verify)"
+assert_grep "$BY" "code=203/EXEC" "contrato: gate verifica 203/EXEC (binários executáveis no live)"
+assert_grep "$BY" 'gh workflow run agents\.yml' "contrato: relay dispara mimo/deepseek pós-build"
 assert_grep "$BY" 'split -b 1900M -d "\$ISO" "\$\{ISO\}\.part-"' "contrato: split com prefixo aspasado"
 assert_grep "$BY" 'sha256sum -- "\$\{ISO\}\.part-"\* >> sha256sums\.txt' "contrato: hashes das PARTES ANEXADOS (>>)"
 pat_q=$(printf '%s' "grep -E 'part|" "\${ISO}\$' sha256sums.txt")

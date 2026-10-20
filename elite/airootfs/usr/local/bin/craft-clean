@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# craft-clean — cache do pacman, órfãos e journal
+set -euo pipefail
+echo "==> cache: mantendo 2 versões (paccache -rk2)"
+sudo paccache -rk2 2>/dev/null || echo "  (instale pacman-contrib)"
+sudo paccache -ruk1 2>/dev/null || true
+orphans="$(pacman -Qtdq 2>/dev/null || true)"
+if [[ -n "$orphans" ]]; then
+  echo "==> órfãos:"; echo "$orphans" | sed 's/^/  /'
+  read -r -p "remover todos? [s/N] " ans
+  [[ "${ans,,}" == "s" ]] && sudo pacman -Rns --noconfirm $orphans
+fi
+echo "==> journal: retendo 2 semanas"
+sudo journalctl --vacuum-time=2weeks
+echo "✔ limpo."

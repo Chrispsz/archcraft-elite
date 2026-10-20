@@ -7,7 +7,9 @@
 #  Justificativa completa pacote a pacote: docs/CHANGES.md
 # =====================================================================
 
-## WM Wayland — a Elite é X11 (Openbox + BSPWM); o fg-booster é X11/EWMH
+## WM Wayland — o SWAY do Archcraft sai (é outra stack); a sessão Wayland
+## da Elite é o LABWC (packages.add), com rice Catppuccin Mocha próprio.
+## Openbox/BSPWM ficam instalados como fallback (fg-booster é X11/EWMH).
 archcraft-sway-free
 
 ## Stack de impressão (~400MB instalados com deps)
@@ -95,3 +97,66 @@ archinstall
 python-pywal
 # p7zip: virou pacote VIRTUAL de '7zip' (prompt interativo de provider no pacstrap)
 p7zip
+
+## ── v1.0.3: sessão ÚNICA labwc — Openbox/BSPWM e satélites X11 saem ────
+## Diretriz do dono do projeto: labwc é A sessão (Wayland, leve, moderna);
+## openbox/bspwm removidos completamente. Temas Openbox FICAM (labwc lê
+## temas OB — OB-Catppuccin-Mocha é o tema aplicado). Restore de qualquer
+## item: sudo pacman -S <pacote> (archcraft-openbox traz o openbox de volta).
+archcraft-openbox
+archcraft-bspwm
+archcraft-installer      # instalador TUI alternativo (dep dura de alacritty); Calamares fica
+archcraft-randr          # helper xrandr X11; wdisplays cobre no Wayland
+archcraft-dunst-icons    # ícones p/ o dunst — sai junto com o dunst
+polybar
+tint2
+rofi
+picom
+obmenu-generator
+lead-git
+skippy-xd-git
+plank
+ksuperkey
+wmname
+wmctrl
+nitrogen
+hsetroot
+maim
+slop
+xclip
+betterlockscreen
+i3lock-color
+dunst
+obconf-qt
+light
+archcraft-arandr
+networkmanager-dmenu-git
+
+## v1.0.3: UM terminal (foot) — os outros três saem (dedupe de duplicação)
+alacritty
+kitty
+kitty-terminfo
+xfce4-terminal
+
+## v1.0.3: música de exemplo/console FORA (diretriz: barra de música é p/ a
+## MÍSICA DO USUÁRIO via playerctl/MPRIS; nada de sample music no sistema)
+archcraft-music
+archcraft-config-music
+mpd
+ncmpcpp
+mpc
+mplayer
+
+## v1.0.3: X11 dev/test (vieram da expansão do grupo xorg no pacstrap CI)
+xorg-server-devel
+xorg-server-src
+xorg-server-xephyr
+xorg-server-xnest
+xorg-server-xvfb
+xorg-docs
+xorg-util-macros
+xorg-bdftopcf
+xorg-fonts-100dpi
+xorg-fonts-75dpi
+xorg-fonts-alias
+xorg-x11perf

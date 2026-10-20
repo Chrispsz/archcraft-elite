@@ -10,6 +10,15 @@ SHELLS=(
   elite/airootfs/usr/local/bin/elite-tune
   elite/airootfs/usr/local/bin/fg-booster
   elite/airootfs/usr/local/bin/elite-status
+  elite/airootfs/usr/local/bin/craft-hello
+  elite/airootfs/usr/local/bin/craft-update
+  elite/airootfs/usr/local/bin/craft-clean
+  elite/airootfs/usr/local/bin/craft-rollback
+  elite/airootfs/usr/local/bin/craft-lock
+  elite/airootfs/usr/local/bin/craft-logout
+  elite/airootfs/usr/local/bin/craft-shot
+  elite/airootfs/usr/local/bin/craft-bat
+  elite/airootfs/etc/skel/.config/labwc/autostart
   tests/run-tests.sh
   tests/lib/core.sh
   tests/lib/setup.sh
@@ -53,6 +62,15 @@ for x in \
   elite/airootfs/usr/local/bin/elite-tune \
   elite/airootfs/usr/local/bin/fg-booster \
   elite/airootfs/usr/local/bin/elite-status \
+  elite/airootfs/usr/local/bin/craft-hello \
+  elite/airootfs/usr/local/bin/craft-update \
+  elite/airootfs/usr/local/bin/craft-clean \
+  elite/airootfs/usr/local/bin/craft-rollback \
+  elite/airootfs/usr/local/bin/craft-lock \
+  elite/airootfs/usr/local/bin/craft-logout \
+  elite/airootfs/usr/local/bin/craft-shot \
+  elite/airootfs/usr/local/bin/craft-bat \
+  elite/airootfs/etc/skel/.config/labwc/autostart \
   scripts/apply-overlay.sh
 do
   [[ -x "$REPO/$x" ]] && ok "exec: $x" || fail "exec: $x" "sem bit de execução"
@@ -66,10 +84,14 @@ done
 assert_eq "$crlf" "0" "higiene: 0 arquivos com CRLF"
 
 sheb=0
-for x in elite-tune fg-booster elite-status; do
+for x in elite-tune fg-booster elite-status craft-hello craft-update craft-clean \
+         craft-rollback craft-lock craft-logout craft-shot craft-bat; do
   head -1 "$REPO/elite/airootfs/usr/local/bin/$x" | grep -q '^#!' && sheb=$((sheb+1))
 done
-assert_eq "$sheb" "3" "higiene: shebang nos 3 binários do airootfs"
+assert_eq "$sheb" "11" "higiene: shebang nos 11 binários do airootfs"
+head -1 "$REPO/elite/airootfs/etc/skel/.config/labwc/autostart" | grep -q '^#!/bin/sh' \
+  && ok "higiene: autostart do labwc é POSIX sh com shebang" \
+  || fail "autostart do labwc" "shebang #!/bin/sh ausente"
 
 # ── peças: units systemd embarcadas (parse INI de verdade — typo não passa) ──
 U="$REPO/elite/airootfs/etc/systemd/system"

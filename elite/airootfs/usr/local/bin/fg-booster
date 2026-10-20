@@ -3,6 +3,12 @@
 #  fg-booster v4.1 — o "plasma-foreground-booster" (CachyOS) para X11
 #  genérico (Openbox/BSPWM do Archcraft).
 #
+#  Sessão labwc (default da Elite v1.0.3+): este booster atua apenas em
+#  clientes XWayland (jogos Steam/proton são X11 na prática) quando há
+#  ~/.Xauthority; sem Xauthority ele fica em no-op silencioso — sem erro,
+#  sem crash-loop (guarda `[[ -f $XA ]] || continue`). Jogo em foco segue
+#  garantido por gamemoderun/mangohud em qualquer sessão.
+#
 #  O que faz:
 #    · App em foco  → árvore de processos promovida para fg-boost.slice
 #                     (CPUWeight/IOWeight altos, SEM teto de VRAM).

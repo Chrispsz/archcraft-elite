@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# craft-lock — bloqueia a tela (swaylock → loginctl → erro claro)
+set -euo pipefail
+if command -v swaylock >/dev/null 2>&1; then
+  exec swaylock
+fi
+if command -v loginctl >/dev/null 2>&1; then
+  exec loginctl lock-session
+fi
+echo "✖ instale o locker: sudo pacman -S swaylock" >&2
+exit 1

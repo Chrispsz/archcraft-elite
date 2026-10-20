@@ -36,3 +36,31 @@ pciutils
 ## p7zip virou pacote virtual de '7zip' — nome explícito evita prompt
 ## de provider no pacstrap (build não-interativo)
 7zip
+
+## ── ELITE: sessão labwc (Wayland) — o desktop default da ISO ──────────
+## O Openbox/BSPWM do Archcraft continuam instalados como fallback (SDDM
+## lista todas as sessões), mas o live autologa e o sistema instalado
+## iniciam na sessão labwc com o rice Catppuccin Mocha do projeto.
+## Deps dos keybinds do rc.xml embutido: playerctl (mídia), brightnessctl
+## (notebooks), pulsemixer (W-a), pactl (libpipe, volume), craft-shot
+## (grim+slurp+wl-clipboard), craft-lock (swaylock).
+labwc
+waybar
+swaync
+fuzzel
+foot
+swaybg
+swaylock
+wl-clipboard
+grim
+slurp
+playerctl
+brightnessctl
+pulsemixer
+polkit-gnome
+xdg-desktop-portal-wlr
+mpv
+imv
+
+## ── ELITE v1.0.3: fastfetch (o craft-hello usa quando existe) ─────────
+fastfetch

@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Archcraft Cockpit · labwc menu.xml — PERFIL ELITE (v1.2)
+  ══════════════════════════════════════════════════════════════════════════
+  Estrutura derivada do menu do criador do Archcraft (Aditya Shakya):
+  no Archcraft Openbox o menu é gerado dinamicamente por obmenu-generator
+  (schema.pl com as categorias Applications/Settings/System) — o labwc lê
+  apenas menu.xml ESTÁTICO, então este arquivo reproduz a hierarquia dele
+  com os apps que o Cockpit instala/archcraft já traz.
+  Fonte: archcraft-openbox/files/obmenu-generator/schema.pl
+  Sintaxe: labwc docs/menu.xml + labwc-menu(5) (formato openbox_menu)
+-->
+<openbox_menu>
+
+  <!-- Menu da janela (botão direito na titlebar / A-Space) -->
+  <menu id="client-menu">
+    <item label="Minimizar">
+      <action name="Iconify" />
+    </item>
+    <item label="Maximizar">
+      <action name="ToggleMaximize" />
+    </item>
+    <item label="Fullscreen">
+      <action name="ToggleFullscreen" />
+    </item>
+    <item label="Decorações">
+      <action name="ToggleDecorations" />
+    </item>
+    <item label="Sempre no topo">
+      <action name="ToggleAlwaysOnTop" />
+    </item>
+    <item label="Fechar">
+      <action name="Close" />
+    </item>
+  </menu>
+
+  <!-- root-menu (W-space / W-Menu / clique no desktop) -->
+  <menu id="root-menu">
+    <item label="Terminal (foot)">
+      <action name="Execute" command="foot" />
+    </item>
+    <item label="Navegador">
+      <action name="Execute" command="sh -c 'for b in thorium-browser firefox librewolf chromium brave-browser qutebrowser; do command -v &quot;$b&quot; &gt;/dev/null &amp;&amp; exec &quot;$b&quot;; done; exec xdg-open https://archlinux.org'" />
+    </item>
+    <item label="Arquivos (thunar)">
+      <action name="Execute" command="thunar" />
+    </item>
+    <separator />
+    <!-- Applications (categorias do criador, versão enxuta do Cockpit) -->
+    <menu id="cockpit-menu" label="Cockpit">
+      <item label="craft-hello · overview">
+        <action name="Execute" command="craft-hello" />
+      </item>
+      <item label="craft-update · atualizar sistema">
+        <action name="Execute" command="foot -e craft-update" />
+      </item>
+      <item label="craft-clean · limpeza">
+        <action name="Execute" command="foot -e craft-clean" />
+      </item>
+      <item label="craft-rollback · restaurar backups">
+        <action name="Execute" command="foot -e sudo craft-rollback" />
+      </item>
+      <separator />
+      <item label="Monitor (btop)">
+        <action name="Execute" command="foot -e btop" />
+      </item>
+      <item label="Mixer (pulsemixer)">
+        <action name="Execute" command="foot -e pulsemixer" />
+      </item>
+      <item label="Rede (nmtui)">
+        <action name="Execute" command="foot -e nmtui" />
+      </item>
+    </menu>
+    <menu id="client-list-combined-menu" label="Janelas..." />
+    <separator />
+    <item label="Reconfigure (W-S-r)">
+      <action name="Reconfigure" />
+    </item>
+    <item label="Lock (W-l)">
+      <action name="Execute" command="craft-lock" />
+    </item>
+    <item label="Sessão (W-Escape)">
+      <action name="Execute" command="craft-logout" />
+    </item>
+    <item label="Encerrar labwc">
+      <action name="Exit" />
+    </item>
+  </menu>
+
+</openbox_menu>

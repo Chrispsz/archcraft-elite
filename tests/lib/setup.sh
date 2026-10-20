@@ -129,18 +129,27 @@ git config --global user.name   "Elite Test Fixture"
 git config --global init.defaultBranch master
 
 P="$UP/archcraft"
-mkdir -p "$P"/{airootfs/root,airootfs/usr/local/bin,airootfs/etc/systemd/system/multi-user.target.wants,efiboot/loader/entries,syslinux,grub}
+mkdir -p "$P"/{airootfs/root,airootfs/usr/local/bin,airootfs/etc/systemd/system/multi-user.target.wants,airootfs/etc/calamares/modules,airootfs/usr/bin,efiboot/loader/entries,syslinux,grub}
 
-# profiledef (a sed do apply-overlay rebatiza a ISO)
+# profiledef (a sed do apply-overlay rebatiza a ISO) — file_permissions como
+# no upstream real (só os scripts próprios) p/ o [9b] injetar os Elite
+# shellcheck disable=SC2016
 cat > "$P/profiledef.sh" <<'EOP'
 #!/usr/bin/env bash
 iso_name="archcraft"
 iso_application="Archcraft Live/Installation/Rescue CD"
+file_permissions=(
+  ["/usr/bin/choose-mirror"]="0:0:755"
+  ["/usr/bin/xflock4"]="0:0:755"
+)
 EOP
 
 # packages: itens do packages.remove que EXISTEM upstream (cups, sway-free,
 # cjk, linux-firmware) + itens do packages.add já presentes (vulkan-radeon)
-# para provar dedupe — SEM grupos (xorg etc.) para manter o teste offline
+# para provar dedupe — SEM grupos (xorg etc.) para manter o teste offline.
+# v1.0.3: alvos da sessão única labwc (openbox/bspwm/satélites/terminais/
+# música) também no fixture p/ provar o debloat + comentário inline.
+# shellcheck disable=SC2016
 cat > "$P/packages.x86_64" <<'EOP'
 base
 linux
@@ -154,6 +163,16 @@ cups
 archcraft-sway-free
 noto-fonts-cjk
 steam
+archcraft-openbox
+archcraft-bspwm
+archcraft-installer
+polybar
+rofi
+alacritty
+kitty
+xfce4-terminal
+mpd
+archcraft-music
 EOP
 
 # pacman.conf: [options] sem Architecture (a sed insere), com DownloadUser
@@ -187,6 +206,79 @@ sed -i -e '/## Welcome-App-Run-Once/Q' /etc/skel/.config/sway/scripts/startup
 cat >> "/etc/skel/.config/sway/scripts/startup" <<- EOL
 echo wayland
 EOL
+EOP
+
+# ── Calamares fixture (v1.0.3): arquivos REAIS do calamares-config /
+# archcraft-install-scripts — o 40-integration executa o bloco E5 do
+# fragmento contra estes arquivos e confere a cirurgia labwc ──────────
+cat > "$P/airootfs/etc/calamares/modules/packagechooser.conf" <<'EOP'
+---
+mode: required
+method: legacy
+labels:
+    step: "Desktop"
+default: everything
+items:
+    - id: openbox
+      name: "Openbox"
+      description: "Only Install Openbox Window Manager."
+      screenshot: "/etc/calamares/branding/archcraft/desktop/openbox.png"
+    - id: bspwm
+      name: "Bspwm"
+      description: "Only Install Bspwm Window Manager."
+      screenshot: "/etc/calamares/branding/archcraft/desktop/bspwm.png"
+    - id: sway
+      name: "Sway"
+      description: "Only Install Sway Wayland Compositor."
+      screenshot: "/etc/calamares/branding/archcraft/desktop/sway.png"
+    - id: everything
+      name: "Everything"
+      description: "Install Everything (All Window Managers & Wayland Compositors)."
+      screenshot: "/etc/calamares/branding/archcraft/desktop/everything.png"
+EOP
+
+cat > "$P/airootfs/etc/calamares/modules/contextualprocess_autologin.conf" <<'EOP'
+---
+dontChroot: false
+timeout: 9999
+packagechooser_packagechooser:
+    openbox:
+        - echo "Setting openbox as session for autologin..."
+        - /usr/bin/chrooted_autologin.sh --openbox
+    bspwm:
+        - echo "Setting bspwm as session for autologin..."
+        - /usr/bin/chrooted_autologin.sh --bspwm
+    sway:
+        - echo "Setting sway as session for autologin..."
+        - /usr/bin/chrooted_autologin.sh --sway
+    everything:
+        - echo "Setting openbox as session for autologin..."
+        - /usr/bin/chrooted_autologin.sh --everything
+EOP
+
+cat > "$P/airootfs/etc/calamares/modules/partition.conf" <<'EOP'
+---
+defaultFileSystemType:  "ext4"
+EOP
+
+cat > "$P/airootfs/usr/bin/chrooted_autologin.sh" <<'EOP'
+#!/bin/bash
+DM_FILE='/etc/sddm.conf'
+enable_autologin() {
+        _session_name="$1"
+        if [[ `cat $DM_FILE | grep 'Autologin'` ]]; then
+                sed -i -e "/\[Autologin\]/{ n; n; s/Session=.*/Session=$_session_name/g }" "$DM_FILE"
+        fi
+}
+if [[ "$1" == '--openbox' ]]; then
+        enable_autologin 'openbox'
+elif [[ "$1" == '--bspwm' ]]; then
+        enable_autologin 'bspwm'
+elif [[ "$1" == '--sway' ]]; then
+        enable_autologin 'sway'
+elif [[ "$1" == '--everything' ]]; then
+        enable_autologin 'openbox'
+fi
 EOP
 
 # arquivos airootfs pré-existentes (o overlay soma, nunca apaga)

@@ -21,7 +21,7 @@ Verificação em qualquer máquina: `/lib64/ld-linux-x86-64.so.2 --help | grep s
 
 | Etapa | O que acontece |
 |---|---|
-| Live (pendrive) | Usar a entrada **Nvidia** do menu de boot: kernel Arch stock + driver `nvidia-open` 615 pré-compilado na ISO (o único caminho para Blackwell — branch fechada não existe nesta geração). A entrada default (kernel BORE) usa nouveau, sem aceleração em Blackwell; serve apenas como fallback de boot. |
+| Live (pendrive) | Usar a entrada **Nvidia** do menu de boot: kernel Arch stock + driver `nvidia-open` 615 pré-compilado na ISO (o único caminho para Blackwell — branch fechada não existe nesta geração). A entrada default (kernel BORE) usa nouveau, sem aceleração em Blackwell; serve apenas como fallback de boot. Ambas entram na sessão labwc (a Nvidia com `modeset=1` — Wayland OK); se o vídeo travar no live, usar a entrada **Nomodeset** (04). |
 | Instalação | Calamares padrão, btrfs como filesystem default. Internet necessária. |
 | Primeiro boot | `elite-firstboot.service` detecta NVIDIA Blackwell, remove o `nvidia-open` pré-compilado e instala `nvidia-open-dkms` — o DKMS compila o módulo para o kernel BORE v3 e para o kernel stock (rollback). Escreve `nvidia-drm modeset=1 fbdev=1`, `NVreg_PreserveVideoMemoryAllocations=1`, habilita os serviços de tuning e insere os parâmetros GRUB (`amd_pstate=active nowatchdog zswap.enabled=0 transparent_hugepage=always`). Pede reboot. |
 | Segundo boot | RTX 5060 com driver open/GSP em ambos os kernels. Shader cache de 1 GB persistente configurado. Vulkan via NVIDIA, Steam/Feral GameMode e MangoHud prontos. |
@@ -32,7 +32,7 @@ Verificação em qualquer máquina: `/lib64/ld-linux-x86-64.so.2 --help | grep s
 
 | Etapa | O que acontece |
 |---|---|
-| Live (pendrive) | Entrada default (kernel BORE v3). A ISO traz `vulkan-radeon` (RADV) e mesa assados — aceleração 3D completa desde o live, sem instalar driver nenhum. |
+| Live (pendrive) | Entrada default (kernel BORE v3), sessão labwc com aceleração desde o boot: a ISO traz `vulkan-radeon` (RADV) e mesa assados — 3D completo no live, sem instalar driver nenhum. |
 | Instalação | Idêntica: Calamares, btrfs default. |
 | Primeiro boot | Detecta AMD: nada a instalar (RADV já presente). O serviço grava `amdgpu ppfeaturemask=0xffffffff` (destrava undervolt/overclock para o LACT), habilita o stack de tuning e insere os mesmos parâmetros GRUB. Reboot. |
 | Segundo boot | RX 7600 com RADV Vulkan. LACT disponível para undervolt/OC (ppfeaturemask destravado). |
@@ -41,6 +41,7 @@ Verificação em qualquer máquina: `/lib64/ld-linux-x86-64.so.2 --help | grep s
 
 ### Comum aos dois alvos
 
+- **Sessão única = labwc (Wayland)** com o rice Catppuccin Mocha do projeto: Waybar (floating pill), SwayNC, Fuzzel, foot, keybinds `rc.xml` derivados do criador do Archcraft e helpers `craft-*` de fábrica (v1.0.3+). Openbox/BSPWM e seus satélites X11 foram **removidos da ISO** (diretriz: zero duplicação — um WM, um terminal, uma barra, um launcher). Quem quiser o Openbox de volta: `sudo pacman -S archcraft-openbox` (os temas OB ficam na ISO — o labwc lê os mesmos temas).
 - Kernel `linux-cachyos-bore` v3 (BORE + patchset CachyOS, build x86-64-v3) como padrão; kernel `linux` do Arch permanece instalado como fallback no GRUB.
 - `scx-elite.service` (sched-ext bpfland) — trocar para `scx_lavd` com `sudo systemctl edit scx-elite`.
 - `ananicy-cpp` + regras CachyOS para prioridade dinâmica.
@@ -52,22 +53,23 @@ Verificação em qualquer máquina: `/lib64/ld-linux-x86-64.so.2 --help | grep s
 
 | Camada | Componente | Origem |
 |---|---|---|
+| **Sessão (v1.0.3+)** | **labwc** (Wayland, única) + Waybar + SwayNC + Fuzzel + foot + swaybg/swaylock + grim/slurp + rice Catppuccin Mocha + helpers `craft-*` + fastfetch | Arch [extra] + este repo |
 | Kernel | `linux-cachyos-bore` + `linux` (fallback) | CachyOS v3 / Arch |
 | Repositórios | `[cachyos-v3] [cachyos-core-v3] [cachyos-extra-v3]` antes de `[core]`, baseline `[cachyos]` para os pacotes exclusivos | CachyOS |
 | Scheduler | `scx-scheds` + `scx-tools` + unidade própria | sched-ext / Arch |
 | Prioridade dinâmica | `ananicy-cpp` + `cachyos-ananicy-rules` | CachyOS |
 | Tuning de base | `cachyos-settings` + sysctl/zram/udev Elite | CachyOS + este repo |
-| VRAM/foreground | `dmemcg-booster` (tetos p/ segundo plano) + `fg-booster` (peso p/ app em foco, X11) | CachyOS + este repo |
+| VRAM/foreground | `dmemcg-booster` (tetos p/ segundo plano) + `fg-booster` (peso p/ app em foco, X11/XWayland) | CachyOS + este repo |
 | Gaming | `gamemode` `gamescope` `mangohud` (lib32 incluídos) `lact` `nvtop` `btop` | Arch / CachyOS |
 | Vulkan | `vulkan-radeon` `vulkan-intel` + pares lib32 (a ISO upstream do Archcraft não trazia) | Arch |
-| NVIDIA live | Entrada dedicada no menu de boot (kernel stock + `nvidia-open`) | Archcraft upstream |
+| NVIDIA live | Entrada dedicada no menu de boot (kernel stock + `nvidia-open`, `nvidia-drm.modeset=1` — funciona no labwc) | Archcraft upstream |
 | Rollback | btrfs default no installer, `timeshift`, `grub-btrfs` | Arch |
 
 ## O que foi removido da ISO (debloat)
 
-Cerca de 60 pacotes e ~1 GB de payload: stack de impressão, cloud-init, guest tools de VM, VPN/modem enterprise, ferramentas de resgate pesadas, Sway/Wayland, fontes CJK e firmwares de servidor/NIC enterprise. A seleção completa, justificativa pacote a pacote e o comando de restauração de cada item está em [docs/CHANGES.md](docs/CHANGES.md). Tudo volta com um `pacman -S <pacote>`.
+Cerca de 170 pacotes e ~1,5 GB de payload: stack de impressão, cloud-init, guest tools de VM, VPN/modem enterprise, ferramentas de resgate pesadas, a edição Sway do Archcraft, **as sessões Openbox/BSPWM + satélites X11** (polybar/tint2/rofi/picom/plank…, v1.0.3), **3 dos 4 terminais** (fica o foot), **a música de exemplo/console** (mpd/ncmpcpp/mplayer — a barra mostra a SUA música via playerctl), fontes CJK e firmwares de servidor/NIC enterprise. A seleção completa, justificativa pacote a pacote e o comando de restauração de cada item está em [docs/CHANGES.md](docs/CHANGES.md). Tudo volta com um `pacman -S <pacote>`.
 
-Aparência: nada é imposto. O rice do Archcraft e os pacotes de tema/ícones/cursores upstream permanecem intactos; wallpaper e afins são escolha do usuário, pelas ferramentas padrão da distro (nitrogen/feh).
+Aparência: a sessão labwc nasce com o rice Catppuccin Mocha do projeto (tema de janela `OB-Catppuccin-Mocha` já embutido no Archcraft, wallpaper cor sólida Base `#1e1e2e`, Waybar/SwayNC/Fuzzel no mesmo tema). O resto do rice do Archcraft (temas GTK, ícones, cursores) permanece na ISO intacto.
 
 ## Download e verificação
 
