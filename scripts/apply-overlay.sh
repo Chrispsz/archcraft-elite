@@ -51,7 +51,7 @@ PROFILE=$(dirname "$(find "$OUT" -maxdepth 3 -name profiledef.sh -print -quit)")
 say "Profile detectado: $PROFILE"
 
 # ── [3] Overlay airootfs (arquivos Elite vencem; nada deles é apagado)
-say "Aplicando overlay airootfs/ (sysctl, zram, udev, units, scripts, wallpapers, preset BORE)"
+say "Aplicando overlay airootfs/ (sysctl, zram, udev, units, scripts, preset BORE)"
 rsync -a elite/airootfs/ "$PROFILE/airootfs/"
 
 # ── [4] Pacotes: add + debloat + firmware cirúrgico ────────────────

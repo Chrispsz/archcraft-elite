@@ -83,5 +83,4 @@ Restore total: `sudo pacman -S linux-firmware`.
 - `/etc/systemd/system/{elite-firstboot,fg-booster,scx-elite}.service`, `fg-boost.slice` (+ wants)
 - `/etc/mkinitcpio.d/linux-cachyos-bore.preset` — preset archiso p/ o live
 - `/etc/skel/.config/MangoHud/MangoHud.conf` — overlay com VRAM
-- `/usr/local/bin/{elite-tune,elite-status,fg-booster,elite-wallpaper}`
-- `/usr/share/backgrounds/elite/elite-0{1,2}.png`
+- `/usr/local/bin/{elite-tune,elite-status,fg-booster}`

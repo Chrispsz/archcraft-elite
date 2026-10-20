@@ -261,6 +261,10 @@ if (( FIRSTBOOT )); then
     amd:*)
       say "AMD → mesa/RADV (vulkan-radeon assado na ISO Elite; --needed = no-op)"
       run pacman -S --needed --noconfirm mesa lib32-mesa vulkan-radeon lib32-vulkan-radeon || true
+      wfile /etc/modprobe.d/00-elite-amdgpu.conf <<'EOF'
+# ── ELITE: AMD — destrava undervolt/OC p/ LACT/CoreCtrl
+options amdgpu ppfeaturemask=0xffffffff
+EOF
       ;;
     intel:*)
       say "Intel → mesa/ANV (vulkan-intel assado na ISO Elite; --needed = no-op)"

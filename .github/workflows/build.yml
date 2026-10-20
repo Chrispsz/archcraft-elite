@@ -37,8 +37,7 @@ jobs:
             elite/fragments/*.sh \
             elite/airootfs/usr/local/bin/elite-tune \
             elite/airootfs/usr/local/bin/fg-booster \
-            elite/airootfs/usr/local/bin/elite-status \
-            elite/airootfs/usr/local/bin/elite-wallpaper
+            elite/airootfs/usr/local/bin/elite-status
       - name: shfmt (informativo — não bloqueia)
         run: shfmt -d scripts/*.sh .ci/*.sh elite/fragments/*.sh || true
 
