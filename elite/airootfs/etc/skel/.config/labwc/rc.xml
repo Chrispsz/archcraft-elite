@@ -1,0 +1,375 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Archcraft Cockpit · labwc rc.xml — PERFIL ELITE (v1.2)
+  ══════════════════════════════════════════════════════════════════════════
+  DERIVADO DO ARQUIVO OFICIAL DO CRIADOR DO ARCHCRAFT
+  Base: archcraft-openbox/files/rc.xml · Aditya Shakya (adi1090x)
+        https://github.com/archcraft-os/archcraft-openbox
+  O labwc é um clone Openbox para Wayland (mesma gramática de rc.xml),
+  então este arquivo porta as convenções do criador 1:1 onde o Wayland permite:
+
+  Adotado do criador (archcraft-openbox rc.xml):
+    · Fonte JetBrains Mono 9 (ActiveWindow Bold / InactiveWindow Normal)
+    · W-space → root-menu · C-A-space → launcher (no lugar do app-menu dele)
+    · C-A-t → terminal (alias) · W-Return → terminal (foot no lugar de alacritty)
+    · W-w → navegador (thorium do dia-1 em 1º, firefox do criador como fallback)
+    · W-b mantido como alias do navegador
+    · W-f → gerenciador de arquivos (thunar, igual ao criador) · W-e alias nosso
+    · W-q e W-c → fechar (o criador usa ambos) · A-F4 · W-i / A-F5 → minimizar
+    · W-m / A-F10 → maximizar · A-F11 → fullscreen (fullscreen do criador!)
+    · W-←/→/↑/↓ → snap em metades (mesma semântica do snap MoveResizeTo dele)
+    · W-n → rede (criador: networkmanager_dmenu; aqui: nmtui no foot)
+    · W-x → menu de sessão (criador: rofi-powermenu; aqui: craft-logout)
+    · C-A-Delete → sessão (criador: Exit com prompt; aqui: menu craft-logout)
+    · C-S-R → Reconfigure (alias do W-S-r)
+    · Teclas XF86 de volume/brilho/mídia (o criador também as usa)
+
+  Desvios conscientes (documentados):
+    · W-d → fuzzel (criador: ToggleShowDesktop → preservada em W-S-d)
+    · 4 desktops, não 5 (W-1..4 cabe na fileira sem olhar; popupTime 800 p/
+      feedback — o criador usa popupTime 0)
+    · Screenshots em W-P/W-S-P: o AULA F75 MAX (75%) NÃO tem tecla Print
+      (criador usa Print → ob-screenshot, que é X11)
+    · labwc ganha de graça: <core><gap>, cornerRadius, dropShadows, snapping
+      overlay — não existem no Openbox do criador
+    · Tema OB-Catppuccin-Mocha (o criador embarca este tema no Archcraft;
+      default dele é OB-Arc-Dark — troque em <theme><name> se preferir)
+
+  Teclado alvo: AULA F75 MAX (75% ANSI US · 80 teclas + knob de volume
+  metálico + tela TFT · gasket · tri-mode). O knob é HID puro → envia
+  XF86AudioRaise/LowerVolume (mapeados abaixo — funciona no cabo, 2.4G e BT).
+
+  Fonte de sintaxe labwc: docs/rc.xml.all + labwc-config(5) + labwc-actions(5)
+-->
+<labwc_config>
+
+  <core>
+    <decoration>server</decoration>
+    <!-- Gaps entre janelas/bordas (novo no labwc vs Openbox do criador) -->
+    <gap>10</gap>
+    <!-- VRR/FreeSync quando o monitor suportar (RX 7600 + FreeSync) -->
+    <adaptiveSync>auto</adaptiveSync>
+    <!-- Para gaming competitivo: "yes" libera tearing imediato (com VRR fica imperceptível) -->
+    <allowTearing>no</allowTearing>
+  </core>
+
+  <placement>
+    <policy>center</policy>
+  </placement>
+
+  <theme>
+    <!-- Tema Catppuccin Mocha embutido no Archcraft (labwc usa temas Openbox).
+         Default do criador: OB-Arc-Dark. Liste: ls /usr/share/themes -->
+    <name>OB-Catppuccin-Mocha</name>
+    <cornerRadius>10</cornerRadius>
+    <keepBorder>yes</keepBorder>
+    <dropShadows>yes</dropShadows>
+    <dropShadowsOnTiled>no</dropShadowsOnTiled>
+    <titlebar>
+      <layout>icon:iconify,max,close</layout>
+      <showTitle>yes</showTitle>
+    </titlebar>
+    <!-- Fonte do criador: JetBrains Mono 9 (pacote archcraft-fonts) -->
+    <font place="ActiveWindow">
+      <name>JetBrains Mono</name>
+      <size>9</size>
+      <weight>bold</weight>
+    </font>
+    <font place="InactiveWindow">
+      <name>JetBrains Mono</name>
+      <size>9</size>
+      <weight>normal</weight>
+    </font>
+  </theme>
+
+  <!-- Alt+Tab com preview e miniaturas -->
+  <windowSwitcher preview="yes" outlines="yes" unshade="yes">
+    <osd show="yes" style="classic" output="all" thumbnailLabelFormat="%T" />
+    <fields>
+      <field content="icon" width="5%" />
+      <field content="desktop_entry_name" width="30%" />
+      <field content="title" width="65%" />
+    </fields>
+  </windowSwitcher>
+
+  <!-- Resistência do criador: screen_edge_strength 20 -->
+  <resistance>
+    <screenEdgeStrength>20</screenEdgeStrength>
+    <windowEdgeStrength>20</windowEdgeStrength>
+    <unSnapThreshold>20</unSnapThreshold>
+    <unMaximizeThreshold>150</unMaximizeThreshold>
+  </resistance>
+
+  <snapping>
+    <range inner="10" outer="10" />
+    <cornerRange>50</cornerRange>
+    <overlay enabled="yes">
+      <delay inner="500" outer="500" />
+      <placement>below</placement>
+    </overlay>
+    <topMaximize>yes</topMaximize>
+    <notifyClient>always</notifyClient>
+  </snapping>
+
+  <focus>
+    <followMouse>no</followMouse>
+    <raiseOnFocus>no</raiseOnFocus>
+  </focus>
+
+  <desktops>
+    <!-- Criador usa 5 desktops e popupTime 0; aqui 4 com popup visível -->
+    <popupTime>800</popupTime>
+    <names>
+      <name>1</name>
+      <name>2</name>
+      <name>3</name>
+      <name>4</name>
+    </names>
+  </desktops>
+
+  <keyboard>
+    <default/>
+    <repeatRate>30</repeatRate>
+    <repeatDelay>330</repeatDelay>
+
+    <!-- ===== Aplicativos (convenções do criador + núcleo do projeto) ===== -->
+    <!-- Terminal: W-Return (criador) e C-A-t (criador) → foot -->
+    <keybind key="W-Return">
+      <action name="Execute" command="foot" />
+    </keybind>
+    <keybind key="C-A-t">
+      <action name="Execute" command="foot" />
+    </keybind>
+    <!-- Launcher: W-d → fuzzel · C-A-space (app-menu do criador) também abre -->
+    <keybind key="W-d">
+      <action name="Execute" command="fuzzel" />
+    </keybind>
+    <keybind key="C-A-space">
+      <action name="Execute" command="fuzzel" />
+    </keybind>
+    <!-- Navegador: W-w (criador) e alias W-b — thorium (seu navegador, dia-1)
+         entra na frente; o firefox do criador é o fallback -->
+    <keybind key="W-w">
+      <action name="Execute" command="sh -c 'for b in thorium-browser firefox librewolf chromium brave-browser qutebrowser; do command -v &quot;$b&quot; &gt;/dev/null &amp;&amp; exec &quot;$b&quot;; done; exec xdg-open https://archlinux.org'" />
+    </keybind>
+    <keybind key="W-b">
+      <action name="Execute" command="sh -c 'for b in thorium-browser firefox librewolf chromium brave-browser qutebrowser; do command -v &quot;$b&quot; &gt;/dev/null &amp;&amp; exec &quot;$b&quot;; done; exec xdg-open https://archlinux.org'" />
+    </keybind>
+    <!-- Arquivos: W-f (criador: thunar) e alias W-e -->
+    <keybind key="W-f">
+      <action name="Execute" command="sh -c 'for f in thunar pcmanfm nautilus; do command -v &quot;$f&quot; &gt;/dev/null &amp;&amp; exec &quot;$f&quot;; done; exec foot -e eza'" />
+    </keybind>
+    <keybind key="W-e">
+      <action name="Execute" command="sh -c 'for f in thunar pcmanfm nautilus; do command -v &quot;$f&quot; &gt;/dev/null &amp;&amp; exec &quot;$f&quot;; done; exec foot -e eza'" />
+    </keybind>
+    <!-- Rede (W-n · criador: networkmanager_dmenu) e monitor (W-s) e mixer (W-a) -->
+    <keybind key="W-n">
+      <action name="Execute" command="foot -e nmtui" />
+    </keybind>
+    <keybind key="W-s">
+      <action name="Execute" command="foot -e btop" />
+    </keybind>
+    <keybind key="W-a">
+      <action name="Execute" command="foot -e pulsemixer" />
+    </keybind>
+    <!-- craft-hello: visão rápida do sistema (helper do 01-system-core.sh) -->
+    <keybind key="W-S-h">
+      <action name="Execute" command="craft-hello" />
+    </keybind>
+
+    <!-- ===== Screenshot (F75 Max não tem Print → combos em P) ===== -->
+    <keybind key="W-P">
+      <action name="Execute" command="craft-shot area" />
+    </keybind>
+    <keybind key="W-S-P">
+      <action name="Execute" command="craft-shot full" />
+    </keybind>
+
+    <!-- ===== Janelas (convenções do criador) ===== -->
+    <keybind key="A-Tab">
+      <action name="NextWindow" />
+    </keybind>
+    <keybind key="A-S-Tab">
+      <action name="PreviousWindow" />
+    </keybind>
+    <!-- Fechar: W-q e W-c (o criador usa ambos) + A-F4 -->
+    <keybind key="A-F4">
+      <action name="Close" />
+    </keybind>
+    <keybind key="W-q">
+      <action name="Close" />
+    </keybind>
+    <keybind key="W-c">
+      <action name="Close" />
+    </keybind>
+    <!-- Minimizar: W-i e A-F5 (criador) -->
+    <keybind key="W-i">
+      <action name="Iconify" />
+    </keybind>
+    <keybind key="A-F5">
+      <action name="Iconify" />
+    </keybind>
+    <!-- Maximizar: W-m e A-F10 (criador) · Fullscreen: A-F11 (criador) -->
+    <keybind key="W-m">
+      <action name="ToggleMaximize" />
+    </keybind>
+    <keybind key="A-F10">
+      <action name="ToggleMaximize" />
+    </keybind>
+    <keybind key="A-F11">
+      <action name="ToggleFullscreen" />
+    </keybind>
+    <keybind key="W-S-f">
+      <action name="ToggleDecorations" />
+    </keybind>
+    <!-- Show desktop (W-d do criador → aqui W-S-d, pois W-d é o fuzzel) -->
+    <keybind key="W-S-d">
+      <action name="ToggleShowDesktop" />
+    </keybind>
+    <!-- Snap em metades/terços — mesma semântica do snap do criador (W-setas) -->
+    <keybind key="W-Left">
+      <action name="SnapToEdge" direction="left" combine="yes" />
+    </keybind>
+    <keybind key="W-Right">
+      <action name="SnapToEdge" direction="right" combine="yes" />
+    </keybind>
+    <keybind key="W-Up">
+      <action name="SnapToEdge" direction="up" combine="yes" />
+    </keybind>
+    <keybind key="W-Down">
+      <action name="SnapToEdge" direction="down" combine="yes" />
+    </keybind>
+
+    <!-- ===== Desktops (criador: W-1..5; aqui 1..4) ===== -->
+    <keybind key="W-1">
+      <action name="GoToDesktop" to="1" />
+    </keybind>
+    <keybind key="W-2">
+      <action name="GoToDesktop" to="2" />
+    </keybind>
+    <keybind key="W-3">
+      <action name="GoToDesktop" to="3" />
+    </keybind>
+    <keybind key="W-4">
+      <action name="GoToDesktop" to="4" />
+    </keybind>
+    <keybind key="W-S-1">
+      <action name="SendToDesktop" to="1" follow="yes" />
+    </keybind>
+    <keybind key="W-S-2">
+      <action name="SendToDesktop" to="2" follow="yes" />
+    </keybind>
+    <keybind key="W-S-3">
+      <action name="SendToDesktop" to="3" follow="yes" />
+    </keybind>
+    <keybind key="W-S-4">
+      <action name="SendToDesktop" to="4" follow="yes" />
+    </keybind>
+
+    <!-- ===== Menus / Sessão ===== -->
+    <!-- W-space → root-menu (convenção do criador) -->
+    <keybind key="W-space">
+      <action name="ShowMenu" menu="root-menu" />
+    </keybind>
+    <keybind key="A-Space">
+      <action name="ShowMenu" menu="client-menu" atCursor="no" />
+    </keybind>
+    <keybind key="W-Menu">
+      <action name="ShowMenu" menu="root-menu" />
+    </keybind>
+    <!-- Lock (W-l) e sessão: W-Escape · W-x (powermenu do criador) · C-A-Delete -->
+    <keybind key="W-l">
+      <action name="Execute" command="craft-lock" />
+    </keybind>
+    <keybind key="W-Escape">
+      <action name="Execute" command="craft-logout" />
+    </keybind>
+    <keybind key="W-x">
+      <action name="Execute" command="craft-logout" />
+    </keybind>
+    <keybind key="C-A-Delete">
+      <action name="Execute" command="craft-logout" />
+    </keybind>
+    <!-- Recarregar configs: W-S-r e C-S-R (convenção do criador) -->
+    <keybind key="W-S-r">
+      <action name="Reconfigure" />
+    </keybind>
+    <keybind key="C-S-R">
+      <action name="Reconfigure" />
+    </keybind>
+    <keybind key="W-S-e">
+      <action name="Exit" />
+    </keybind>
+
+    <!-- ===== Mídia (knob do F75 Max + teclas Fn de notebook/fone) ===== -->
+    <keybind key="XF86AudioRaiseVolume">
+      <action name="Execute" command="pactl set-sink-volume @DEFAULT_SINK@ +5%" />
+    </keybind>
+    <keybind key="XF86AudioLowerVolume">
+      <action name="Execute" command="pactl set-sink-volume @DEFAULT_SINK@ -5%" />
+    </keybind>
+    <keybind key="XF86AudioMute">
+      <action name="Execute" command="pactl set-sink-mute @DEFAULT_SINK@ toggle" />
+    </keybind>
+    <keybind key="XF86AudioMicMute">
+      <action name="Execute" command="pactl set-source-mute @DEFAULT_SOURCE@ toggle" />
+    </keybind>
+    <keybind key="XF86AudioPlay">
+      <action name="Execute" command="playerctl play-pause" />
+    </keybind>
+    <keybind key="XF86AudioPause">
+      <action name="Execute" command="playerctl play-pause" />
+    </keybind>
+    <keybind key="XF86AudioNext">
+      <action name="Execute" command="playerctl next" />
+    </keybind>
+    <keybind key="XF86AudioPrev">
+      <action name="Execute" command="playerctl previous" />
+    </keybind>
+    <keybind key="XF86MonBrightnessUp">
+      <action name="Execute" command="brightnessctl set +10%" />
+    </keybind>
+    <keybind key="XF86MonBrightnessDown">
+      <action name="Execute" command="brightnessctl set 10%-" />
+    </keybind>
+  </keyboard>
+
+  <mouse>
+    <default/>
+    <context name="Root">
+      <!-- Clique no desktop → menu raiz (estilo Archcraft) -->
+      <mousebind button="Left" action="Press">
+        <action name="ShowMenu" menu="root-menu" />
+      </mousebind>
+      <mousebind button="Right" action="Press">
+        <action name="ShowMenu" menu="client-list-combined-menu" />
+      </mousebind>
+      <mousebind direction="Up" action="Scroll">
+        <action name="GoToDesktop" to="left" wrap="yes" />
+      </mousebind>
+      <mousebind direction="Down" action="Scroll">
+        <action name="GoToDesktop" to="right" wrap="yes" />
+      </mousebind>
+    </context>
+  </mouse>
+
+  <!-- Desktop (Aula F75 Max): mouse — tap é irrelevante; ajuste ao gosto -->
+  <libinput>
+    <device category="default">
+      <tap>yes</tap>
+      <!-- <naturalScroll>no</naturalScroll> -->
+      <!-- <pointerSpeed>0.0</pointerSpeed> -->
+      <!-- <disableWhileTyping>yes</disableWhileTyping> -->
+    </device>
+  </libinput>
+
+  <!-- Exemplos de regras por janela (descomente e ajuste):
+  <windowRules>
+    <windowRule identifier="pavucontrol">
+      <action name="ToggleAlwaysOnTop" />
+    </windowRule>
+    <windowRule identifier="^(foot|fuzzel)$" skipTaskbar="yes" />
+  </windowRules>
+  -->
+
+</labwc_config>

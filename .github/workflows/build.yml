@@ -14,6 +14,7 @@ on:
 
 permissions:
   contents: write
+  actions: write # dispatch do agents.yml (relay mimo/deepseek pós-build)
 
 concurrency:
   group: build-elite-${{ github.ref }}
@@ -41,7 +42,9 @@ jobs:
             elite/fragments/*.sh \
             elite/airootfs/usr/local/bin/elite-tune \
             elite/airootfs/usr/local/bin/fg-booster \
-            elite/airootfs/usr/local/bin/elite-status
+            elite/airootfs/usr/local/bin/elite-status \
+            elite/airootfs/usr/local/bin/craft-* \
+            elite/airootfs/etc/skel/.config/labwc/autostart
       - name: shfmt (informativo — não bloqueia)
         run: shfmt -d scripts/*.sh .ci/*.sh elite/fragments/*.sh || true
 
@@ -73,9 +76,21 @@ jobs:
           retention-days: 30
           compression-level: 0
 
+  # ── Release: SÓ depois do gate de boot (needs verify) ─────────────
+  release:
+    needs: [build, verify]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Baixar artefato da ISO (desta build)
+        uses: actions/download-artifact@v4
+        with:
+          name: archcraft-elite-iso
+          path: out
+
       # ── Release: asset único ≤ 2 GiB; senão, partes de 1.9 GB ─────
       - name: Preparar assets de release (split se > 2 GiB)
-        if: startsWith(github.ref, 'refs/tags/')
         run: |
           cd out
           ISO=$(ls *.iso)
@@ -97,17 +112,129 @@ jobs:
               "Confira a integridade: \`sha256sum -c <(grep -E 'part|${ISO}$' sha256sums.txt)\`" \
               "(sha256sums.txt traz a ISO inteira E as partes)." \
               > JUNTAR-ISO.md
-            # hashes das PARTES entram no sha256sums.txt (a da ISO inteira já
-            # foi gravada pelo .ci/build.sh antes do split) — permite
-            # verificar cada parte ANTES de juntar
             sha256sum -- "${ISO}.part-"* >> sha256sums.txt
             ls -lh --si
           fi
 
       - name: Release (push de tag v*)
-        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: |
             out/*
           generate_release_notes: true
+
+  # ── Verificação pós-build: a ISO recém-nascida BOOTA? (gate QEMU) ─
+  # Diretriz do dono do projeto: "você testando, você dando o boot" —
+  # toda build passa pelo boot serial no QEMU ANTES de ser considerada
+  # boa. GATE duro: Startup finished + sem shell de emergência + sem
+  # 203/EXEC (binários executáveis no squashfs).
+  verify:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - name: Instalar QEMU + 7zip
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qemu-system-x86 p7zip-full >/dev/null
+          qemu-system-x86_64 --version | head -1
+
+      - name: Baixar artefato da ISO (desta build)
+        uses: actions/download-artifact@v4
+        with:
+          name: archcraft-elite-iso
+          path: iso-out
+
+      - name: Extrair kernel/initrd + UUID do marcador
+        run: |
+          cd iso-out
+          ISO=$(ls *.iso)
+          echo "ISO=$ISO" >> "$GITHUB_ENV"
+          sha256sum -c sha256sums.txt --ignore-missing || true
+          7z x -y "$ISO" -o../extracted/ 'arch/boot/x86_64/vmlinuz-linux-cachyos-bore' 'arch/boot/x86_64/initramfs-linux-cachyos-bore.img' >/dev/null
+          cd ../extracted
+          ls -la arch/boot/x86_64/
+
+      - name: Boot serial no QEMU (kernel BORE, caminho sdboot real)
+        run: |
+          set +e
+          MARKER=$(7z l "iso-out/$ISO" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2}\.uuid' | head -1)
+          IUUID=${MARKER%.uuid}
+          echo "archisosearchuuid=$IUUID"
+          K="extracted/arch/boot/x86_64/vmlinuz-linux-cachyos-bore"
+          I="extracted/arch/boot/x86_64/initramfs-linux-cachyos-bore.img"
+          qemu-system-x86_64 \
+            -machine q35 -cpu max -smp 2 -m 3072 \
+            -kernel "$K" -initrd "$I" \
+            -append "archisosearchuuid=$IUUID archisobasedir=arch loglevel=7 udev.log_level=3 vt.global_cursor_default=0 cow_spacesize=5G copytoram=n nvme_load=yes lsm=landlock,lockdown,yama,integrity,apparmor,bpf console=ttyS0,115200 systemd.log_target=console systemd.log_level=info systemd.show_status=yes" \
+            -cdrom "$PWD/iso-out/$ISO" \
+            -nographic -no-reboot -nic user \
+            > serial-verify.log 2>&1 &
+          Q=$!
+          # até ~55 min (TCG é lento; round 2 completou em ~14 min de userspace)
+          for i in $(seq 1 660); do
+            grep -q 'Startup finished' serial-verify.log 2>/dev/null && break
+            grep -q 'rootfs ~]#' serial-verify.log 2>/dev/null && break
+            kill -0 $Q 2>/dev/null || break
+            sleep 5
+          done
+          # +90s de logs pós-target (autologin/sessão sobem depois do target)
+          sleep 90
+          kill $Q 2>/dev/null; wait $Q 2>/dev/null
+          echo "════════ ÚLTIMAS 40 LINHAS DO SERIAL ════════"
+          tail -40 serial-verify.log
+
+      - name: GATE — veredito do boot
+        run: |
+          set -e
+          FAIL=0
+          chk() { # $1=condição(0=ok) $2=mensagem-ok $3=mensagem-fail
+            if [ "$1" -eq 0 ]; then echo "✔ $2"; else echo "✖ $3"; FAIL=1; fi
+          }
+          grep -q 'Startup finished' serial-verify.log
+          chk $? "boot COMPLETO (Startup finished)" "boot NÃO completou (sem Startup finished)"
+          ! grep -q 'rootfs ~]#' serial-verify.log
+          chk $? "sem shell de emergência do initramfs" "initramfs caiu em shell de emergência"
+          ! grep -qE 'code=203/EXEC|Unable to locate executable' serial-verify.log
+          chk $? "binários Elite executáveis (sem 203/EXEC — fix [9b] verificado)" "203/EXEC no live: binário 0644 no squashfs"
+          # informativos (não derrubam o gate — headless QEMU nem sempre
+          # mostra a sessão gráfica subindo)
+          echo "── informativos ──"
+          grep -qE 'sddm' serial-verify.log && echo "· sddm presente no log" || echo "· (sddm: sem menção no serial — normal em headless)"
+          grep -qiE 'labwc' serial-verify.log && echo "· labwc mencionado no log" || echo "· (labwc: sem menção no serial)"
+          grep -qE 'fg-booster' serial-verify.log && echo "· fg-booster no log" || echo "· (fg-booster: sem menção)"
+          exit $FAIL
+
+      - name: Upload serial log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-boot-serial
+          path: serial-verify.log
+          if-no-files-found: warn
+          retention-days: 14
+
+  # ── Relay dos agentes (mimo + deepseek): auditoria pós-build ──────
+  # Diretriz do dono: usar os outros modelos para obter relatórios/logs
+  # e ajudar o desenvolvimento. O agents.yml roda NO RUNNER (relay Token
+  # Harbor) e publica o relatório na branch agent-reports.
+  relay-agents:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Dispatch auditoria (deepseek + mimo, contexto = esta run)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TASK="Audite a run de build do Archcraft Elite (log completo dos jobs lint/build/verify). Procure: (1) warnings/anomalias no pacstrap e no customize (E0-E9); (2) pacotes que falharam ou ficaram órfãos; (3) regressões vs build anterior; (4) riscos na sessão labwc (deps faltando, units quebradas). Seja específico: cite linhas do log."
+          for AGENT in deepseek mimo; do
+            if gh workflow run agents.yml \
+                 -f "agent=$AGENT" \
+                 -f "task=$TASK" \
+                 -f "context=ci:$GITHUB_RUN_ID"; then
+              echo "✔ dispatch $AGENT OK"
+            else
+              echo "✖ dispatch $AGENT falhou (não derruba a build)"
+            fi
+          done

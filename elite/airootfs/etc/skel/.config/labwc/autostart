@@ -1,0 +1,50 @@
+#!/bin/sh
+# Archcraft ELITE ISO · labwc autostart — sessão ÚNICA do live e do sistema
+# instalado (v1.0.3+): openbox/bspwm foram removidos da ISO. Idêntico ao
+# autostart do zip Cockpit: quem instala a ISO já nasce no mesmo ambiente
+# de quem rodou o zip.
+# Executado no início da sessão LABWC — termine comandos com & para não bloquear.
+#
+# Wallpaper = COR SÓLIDA Catppuccin Base (#1e1e2e): zero decodificação de
+# imagem, zero textura em RAM, visual coeso com o tema. Quer imagem? Veja
+# as alternativas comentadas abaixo.
+
+# --- Wallpaper: cor sólida Catppuccin Base --------------------------------------
+if command -v swaybg >/dev/null 2>&1; then
+    swaybg -m fill -c '#1e1e2e' &
+fi
+# Alternativa 1 — imagem própria:
+# swaybg -m fill -i "$HOME/.config/labwc/wallpaper.png" &
+# Alternativa 2 — wallpapers que vêm com o Archcraft:
+# f="$(ls /usr/share/archcraft/wallpapers/* 2>/dev/null | head -1)"
+# [ -n "$f" ] && swaybg -m fill -i "$f" &
+
+# --- Barra (Waybar · Floating Pill) e central de notificações (SwayNC) ----------
+waybar &
+swaync &
+
+# --- Diálogo de senha gráfico (polkit) — o Archcraft só sobe agente na sessão
+#     Openbox dele; na sessão LABWC é este arquivo que sobe o agente
+#     (necessário p/ gparted, coolercontrol, btrfs-assistant no dia-1)
+if [ -x /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 ]; then
+    /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 &
+fi
+
+# --- Bluetooth: applet no tray (pareamento de fone em 2 cliques). O toggle
+#     de power fica no SwayNC; o blueman cuida de parear/conectar (fix do
+#     "clico no ícone e não abre nada" do Openbox stock)
+if command -v blueman-applet >/dev/null 2>&1; then
+    blueman-applet &
+fi
+
+# --- Rede: applet no tray (WiFi/ethernet — alternativa gráfica ao W-n/nmtui)
+if command -v nm-applet >/dev/null 2>&1; then
+    nm-applet &
+fi
+
+# --- EasyEffects em modo serviço (DSP do microfone): sobe no login pronto para
+#     OBS/Discord. O preset (ex.: RNNoise na entrada) é criado 1× no app e
+#     carrega sozinho nas sessões seguintes (dia-1 · v1.2.2)
+if command -v easyeffects >/dev/null 2>&1; then
+    easyeffects --gapplication-service &
+fi

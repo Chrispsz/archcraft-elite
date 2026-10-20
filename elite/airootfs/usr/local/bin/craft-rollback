@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# craft-rollback — restauração: snapshots Timeshift/btrfs na Elite ISO.
+# (No zip Cockpit este helper restaura os backups de /etc do 01-system-core;
+#  na ISO o rollback de sistema é o Timeshift — snapshots btrfs no menu GRUB.)
+set -euo pipefail
+if command -v timeshift-launcher >/dev/null 2>&1; then
+  exec timeshift-launcher
+fi
+if command -v timeshift >/dev/null 2>&1; then
+  exec timeshift
+fi
+echo "✖ Timeshift ausente: sudo pacman -S timeshift" >&2
+echo "  (snapshots btrfs também aparecem no menu do GRUB a cada snapshot)" >&2
+exit 1

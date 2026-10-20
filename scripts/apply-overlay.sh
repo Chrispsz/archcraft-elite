@@ -55,9 +55,13 @@ say "Aplicando overlay airootfs/ (sysctl, zram, udev, units, scripts, preset BOR
 rsync -a elite/airootfs/ "$PROFILE/airootfs/"
 
 # ── [4] Pacotes: add + debloat + firmware cirúrgico ────────────────
+# Nota: as duas listas aceitam comentário inline ('pkg  # motivo') — o
+# loop descasca tudo depois do '#' (v1.0.3; antes só linha 100% limpa).
 say "Mesclando elite/packages.add"
 while IFS= read -r pkg; do
-  [[ -z "${pkg// /}" || "${pkg:0:1}" == '#' ]] && continue
+  pkg="${pkg%%#*}"
+  [[ -z "${pkg// /}" ]] && continue
+  pkg="${pkg// /}"
   grep -qxF "$pkg" "$PROFILE/packages.x86_64" || echo "$pkg" >> "$PROFILE/packages.x86_64"
 done < elite/packages.add
 
@@ -65,7 +69,9 @@ if [[ -f elite/packages.remove ]]; then
   say "Aplicando debloat (elite/packages.remove)"
   n=0
   while IFS= read -r pkg; do
-    [[ -z "${pkg// /}" || "${pkg:0:1}" == '#' ]] && continue
+    pkg="${pkg%%#*}"
+    [[ -z "${pkg// /}" ]] && continue
+    pkg="${pkg// /}"
     if grep -qxF "$pkg" "$PROFILE/packages.x86_64"; then
       sed -i "s|^${pkg}$|#${pkg} # ELITE-REMOVED|" "$PROFILE/packages.x86_64"
       n=$((n+1))
@@ -300,13 +306,19 @@ sed -i -e 's|iso_name="archcraft"|iso_name="archcraft-elite"|' \
 #  fg-booster.service morrem com 203/EXEC (comprovado no boot QEMU do
 #  diag-boot2, tests A/B, "Unable to locate executable: Permission denied").
 #  O upstream só registra os PRÓPRIOS scripts (choose-mirror, xflock4).
+#  v1.0.3: + craft-* (keybinds do rc.xml labwc) + autostart do labwc
+#  (o skel→home do mkarchcraftiso preserva o modo → liveuser herda 0755).
 say "Registrando 0755 dos binários Elite no file_permissions do profiledef"
 PD="$PROFILE/profiledef.sh"
 if grep -q '^file_permissions=(' "$PD"; then
-  for p in /usr/local/bin/elite-tune /usr/local/bin/elite-status /usr/local/bin/fg-booster; do
+  for p in /usr/local/bin/elite-tune /usr/local/bin/elite-status /usr/local/bin/fg-booster \
+           /usr/local/bin/craft-hello /usr/local/bin/craft-update /usr/local/bin/craft-clean \
+           /usr/local/bin/craft-rollback /usr/local/bin/craft-lock /usr/local/bin/craft-logout \
+           /usr/local/bin/craft-shot /usr/local/bin/craft-bat \
+           /etc/skel/.config/labwc/autostart; do
     grep -qF "[\"$p\"]" "$PD" || sed -i "s|^file_permissions=(|file_permissions=(\n  [\"$p\"]=\"0:0:755\"|" "$PD"
   done
-  grep -A9 '^file_permissions=' "$PD"
+  grep -A14 '^file_permissions=' "$PD"
 else
   echo "AVISO: file_permissions não encontrado no profiledef — binários Elite ficarão 0644!" >&2
 fi

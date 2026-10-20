@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# craft-update — atualiza repos oficiais + AUR (paru) em um comando
+set -euo pipefail
+sudo pacman -Syu
+if command -v paru >/dev/null 2>&1; then
+  echo "==> AUR (paru -Sua)"
+  paru -Sua
+fi

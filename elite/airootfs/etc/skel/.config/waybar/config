@@ -1,0 +1,70 @@
+// Archcraft Cockpit · Waybar — "Floating Pill" (Catppuccin Mocha)
+// Sintaxe validada contra a wiki oficial (Bar Config) — JSONC com comentários.
+{
+  "layer": "top",
+  "position": "top",
+  "height": 34,
+  "margin-top": 10,
+  "margin-left": 14,
+  "margin-right": 14,
+  "spacing": 6,
+  "fixed-center": true,
+  "reload_style_on_change": true,
+
+  "modules-left": ["wlr/taskbar"],
+  "modules-center": ["clock"],
+  "modules-right": ["idle_inhibitor", "pulseaudio", "cpu", "memory", "tray"],
+
+  // Taskbar (janelas abertas — protocolo wlr-foreign-toplevel, nativo do labwc)
+  "wlr/taskbar": {
+    "format": "{icon}",
+    "icon-size": 18,
+    "tooltip-format": "{title}",
+    "on-click": "activate",
+    "on-click-middle": "close",
+    "ignore-list": []
+  },
+
+  // Relógio — clique alternar hora/data; tooltip com calendário
+  "clock": {
+    "format": " {:%H:%M}",
+    "format-alt": " {:%A, %d %b %Y}",
+    "tooltip-format": "<tt>{calendar}</tt>",
+    "interval": 60
+  },
+
+  // Café: inibir idle (útil em vídeos/jogos) — vira "toggle" na barra
+  "idle_inhibitor": {
+    "format": "{icon}",
+    "format-icons": {
+      "activated": "",
+      "deactivated": ""
+    }
+  },
+
+  // Volume (PipeWire/PulseAudio) — clique muta, scroll ajusta
+  "pulseaudio": {
+    "format": "{volume}%",
+    "format-muted": "󰖁 MUT",
+    "on-click": "pactl set-sink-mute @DEFAULT_SINK@ toggle",
+    "scroll-step": 5,
+    "tooltip-format": "{desc}"
+  },
+
+  "cpu": {
+    "format": " {usage}%",
+    "interval": 2,
+    "tooltip-format": "Load: {load}"
+  },
+
+  "memory": {
+    "format": " {percentage}%",
+    "interval": 5,
+    "tooltip-format": "{used:0.1f}G / {total:0.1f}G"
+  },
+
+  "tray": {
+    "icon-size": 16,
+    "spacing": 8
+  }
+}

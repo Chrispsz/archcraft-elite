@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# craft-hello — visão rápida do sistema (Archcraft Elite)
+set -euo pipefail
+if command -v fastfetch >/dev/null 2>&1; then
+  exec fastfetch
+fi
+k="$(uname -r)"
+c="$(grep -m1 'model name' /proc/cpuinfo | cut -d: -f2 | xargs)"
+u="$(uptime -p 2>/dev/null || uptime)"
+n="$(pacman -Q 2>/dev/null | wc -l)"
+printf '\n  ⚡ Archcraft Elite (labwc · CachyOS engine)\n'
+printf '  ────────────────────────────────────────\n'
+printf '  kernel : %s\n' "$k"
+printf '  cpu    : %s\n' "$c"
+printf '  pkgs   : %s\n' "$n"
+printf '  %s\n\n' "$u"

@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# craft-bat — resumo da bateria em notificação (notebooks · W-S-b)
+set -euo pipefail
+if ! command -v upower >/dev/null 2>&1; then
+  echo "✖ upower ausente: sudo pacman -S upower" >&2
+  exit 1
+fi
+dev="$(upower -e | grep -m1 '^/org/freedesktop/UPower/devices/battery_BAT')"
+[[ -n "$dev" ]] || { echo "✖ nenhuma bateria encontrada (é um notebook?)" >&2; exit 1; }
+info="$(upower -i "$dev")"
+pct="$(awk -F': *' '/percentage:/{print $2; exit}' <<<"$info")"
+state="$(awk -F': *' '/state:/{print $2; exit}' <<<"$info")"
+left="$(awk -F': *' '/time to (full|empty):/{print $2; exit}' <<<"$info")"
+msg="🔋 ${pct:-?} · ${state:-?}${left:+ · $left}"
+if command -v notify-send >/dev/null 2>&1; then
+  notify-send -t 4000 "Bateria" "$msg"
+else
+  echo "$msg"
+fi
