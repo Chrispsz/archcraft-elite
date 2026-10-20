@@ -1,0 +1,148 @@
+name: Diag Boot 2 (QEMU)
+
+# Round 2: round 1 provou initramfs/kernels sãos mas booteou com UUID inválida
+# (extraída errada do grub.cfg estilo Ventoy) → shell de emergência.
+# Agora: archisodevice=/dev/sr0 direto + teste A/B do suspeito #1 (scx-elite).
+#   A = BORE plain           → espera-se CONGELAR (reproduz o hang do usuário)
+#   B = BORE + mask scx      → se COMPLETAR, culpado = scx-elite.service
+#   C = B + mask dos 3 units elite (só se A e B congelarem)
+#   D = caminho Ventoy real (img_dev/img_loop, só se A completar)
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (ex: v1.0.2)'
+        required: true
+        default: 'v1.0.2'
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  qemu-boot2:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 115
+    steps:
+      - name: Instalar QEMU + 7zip
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qemu-system-x86 p7zip-full >/dev/null
+          qemu-system-x86_64 --version | head -1
+
+      - name: Baixar release, juntar e verificar sha256
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern '*.part-*' --pattern 'sha256sums.txt' --clobber
+          cat archcraft-elite-*.iso.part-* > elite.iso
+          grep ' archcraft-elite-.*\.iso$' sha256sums.txt | sed 's/archcraft-elite-[^ ]*\.iso/elite.iso/' > check.txt
+          sha256sum -c check.txt
+
+      - name: Extrair kernel+initrd da ISO
+        run: |
+          7z x -y elite.iso -oiso/ 'arch/boot/x86_64/*' >/dev/null
+          ls -la iso/arch/boot/x86_64/
+
+      - name: Testes A/B paralelos (plain vs mask scx)
+        run: |
+          set +e
+          COMMON="archisobasedir=arch archisodevice=/dev/sr0 loglevel=7 udev.log_level=3 vt.global_cursor_default=0 cow_spacesize=5G copytoram=n nvme_load=yes lsm=landlock,lockdown,yama,integrity,apparmor,bpf console=ttyS0,115200 systemd.log_target=console systemd.log_level=info systemd.show_status=yes"
+
+          boot_test() {
+            NAME="$1"; EXTRA="$2"
+            LOG="serial-$NAME.log"
+            echo "[$NAME] iniciando (extra: $EXTRA)"
+            qemu-system-x86_64 \
+              -machine q35 -cpu max -smp 2 -m 4096 \
+              -kernel iso/arch/boot/x86_64/vmlinuz-linux-cachyos-bore \
+              -initrd iso/arch/boot/x86_64/initramfs-linux-cachyos-bore.img \
+              -append "$COMMON $EXTRA" \
+              -cdrom "$PWD/elite.iso" \
+              -nographic -no-reboot -nic user \
+              > "$LOG" 2>&1 &
+            Q=$!
+            for i in $(seq 1 264); do
+              grep -q 'Startup finished' "$LOG" 2>/dev/null && break
+              kill -0 $Q 2>/dev/null || break
+              sleep 5
+            done
+            sleep 20
+            kill $Q 2>/dev/null; wait $Q 2>/dev/null
+            if grep -q 'Startup finished' "$LOG" 2>/dev/null; then
+              echo "[$NAME] RESULTADO=COMPLETO"
+            elif grep -q 'rootfs ~]#' "$LOG" 2>/dev/null; then
+              echo "[$NAME] RESULTADO=SHELL_EMERGENCIA"
+            else
+              echo "[$NAME] RESULTADO=CONGELADO"
+            fi
+            echo "[$NAME] últimas 60 linhas:"
+            tail -60 "$LOG"
+            echo "[$NAME] unidades systemd:"
+            grep -aE 'systemd\[1\]:' "$LOG" | tail -40 || true
+          }
+
+          boot_test A "" > out-A.txt 2>&1 &
+          PA=$!
+          boot_test B "systemd.mask=scx-elite.service" > out-B.txt 2>&1 &
+          PB=$!
+          wait $PA; wait $PB
+          cat out-A.txt out-B.txt
+          RA=$(grep -c 'RESULTADO=COMPLETO' out-A.txt || true)
+          RB=$(grep -c 'RESULTADO=COMPLETO' out-B.txt || true)
+
+          if [ "$RA" -eq 0 ] && [ "$RB" -eq 0 ]; then
+            echo "════ A e B congelaram → teste C: mascara TODOS os units elite ════"
+            boot_test C "systemd.mask=scx-elite.service systemd.mask=fg-booster.service systemd.mask=dmemcg-booster-system.service"
+          elif [ "$RA" -gt 0 ]; then
+            echo "════ A COMPLETO no QEMU → teste D: caminho Ventoy real (img_dev/img_loop) ════"
+            dd if=/dev/zero of=ventoy.img bs=1M count=5120 status=none
+            echo -e "o\nn\np\n1\n\n\nt\n83\nw" | fdisk ventoy.img >/dev/null 2>&1
+            LOOP=$(sudo losetup -fP --show ventoy.img)
+            sudo mkfs.ext4 -q "${LOOP}p1"
+            sudo mkdir -p /mnt/vtoy
+            sudo mount "${LOOP}p1" /mnt/vtoy
+            sudo cp elite.iso /mnt/vtoy/
+            sudo umount /mnt/vtoy
+            sudo losetup -d "$LOOP"
+            NAME=D; LOG="serial-D.log"
+            qemu-system-x86_64 \
+              -machine q35 -cpu max -smp 2 -m 4096 \
+              -kernel iso/arch/boot/x86_64/vmlinuz-linux-cachyos-bore \
+              -initrd iso/arch/boot/x86_64/initramfs-linux-cachyos-bore.img \
+              -append "archisobasedir=arch img_dev=/dev/vdb1 img_loop=/elite.iso loglevel=7 console=ttyS0,115200 systemd.log_target=console systemd.log_level=info systemd.show_status=yes" \
+              -cdrom "$PWD/elite.iso" \
+              -drive file="$PWD/ventoy.img",format=raw,if=virtio \
+              -nographic -no-reboot -nic user \
+              > "$LOG" 2>&1 &
+            Q=$!
+            for i in $(seq 1 264); do
+              grep -q 'Startup finished' "$LOG" 2>/dev/null && break
+              kill -0 $Q 2>/dev/null || break
+              sleep 5
+            done
+            sleep 20
+            kill $Q 2>/dev/null; wait $Q 2>/dev/null
+            if grep -q 'Startup finished' "$LOG" 2>/dev/null; then
+              echo "[D] RESULTADO=COMPLETO"
+            else
+              echo "[D] RESULTADO=FALHOU"
+            fi
+            tail -60 "$LOG"
+            grep -aE 'systemd\[1\]:' "$LOG" | tail -40 || true
+          fi
+
+      - name: Upload dos logs seriais
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diag-boot2-logs
+          path: |
+            serial-*.log
+            out-*.txt
+            check.txt
+          if-no-files-found: warn
+          retention-days: 7
