@@ -155,7 +155,7 @@ bash scripts/apply-overlay.sh
 #   1. pacman -Syw baixa a transação INTEIRA p/ o cache (download-only;
 #      SEM --needed: o cache tem de cobrir tudo que o pacstrap pede no
 #      chroot — o host já tem base+deps instalados e --needed pularia)
-#   2. round falhou → pacman -Sp --print-uris lista as URLs → sonda
+#   2. round falhou → pacman -Sp --print-format '%l' lista as URLs → sonda
 #      HEAD paralela → os 404 reais (janela de desync db↔arquivo dos
 #      mirrors rolling: db anuncia, mirror ainda não propagou)
 #   3. 404 no cdn77 E no gêmeo us → injeta o BASELINE Arch oficial no
@@ -163,6 +163,13 @@ bash scripts/apply-overlay.sh
 #   4. 3 rounds sem fechar o cache → ABORTA com diagnóstico — nunca
 #      entra num build com cache sabidamente quebrado
 # Cache completo → pacstrap offline (não baixa nada da rede).
+#
+# NOTA pacman 6+/7: --print-uris FOI REMOVIDO (pacman 6.0, 2021) — o
+# binário 7.1 nem contém a string (verificado com strings; exit 1
+# silencioso "unrecognized option" custou o run #16 inteiro). O
+# substituto é --print-format '%l': URL p/ pacote fora do cache,
+# caminho local file:// p/ cacheado (o grep ^https? filtra — sobra
+# exatamente o conjunto NÃO-cacheado, que é o que a sonda quer).
 # ─────────────────────────────────────────────────────────────────────
 preflight() {
     local pc=/work/elite-build/profile/pacman.conf
@@ -191,10 +198,18 @@ preflight() {
             return 0
         fi
         say "Preflight round $round: -Syw falhou — mapeando URLs quebradas (sonda HEAD paralela)"
-        mapfile -t URLS < <(pacman --config "$plconf" -Sp --print-uris --noconfirm "${PL[@]}" 2>/dev/null \
+        # --print-format '%l' (pacman 6+): URL p/ não-cacheado, file:// p/
+        # cacheado — o grep deixa passar só as URLs (o conjunto quebrado).
+        # stderr do -Sp vai p/ arquivo: se a lista vier vazia (flag inválida,
+        # db sync, resolução), o ERRO REAL aparece no console — não só o
+        # tail do -Syw (no run #16 "db sync quebrado?" era mentira: era
+        # "unrecognized option '--print-uris'" do pacman 7, silenciado).
+        mapfile -t URLS < <(pacman --config "$plconf" -Sp --print-format '%l' --noconfirm "${PL[@]}" 2>/tmp/elite-sp.err \
             | grep -oE '^https?://[^ ]+\.pkg\.tar\.zst$' | sort -u || true)
         if (( ${#URLS[@]} == 0 )); then
-            say "Preflight: -Sp não listou URLs (db sync quebrado?) — tail do pacman:"
+            say "Preflight: -Sp não listou URLs — stderr do próprio -Sp (causa real):"
+            head -5 /tmp/elite-sp.err || true
+            say "tail do pacman -Syw do round:"
             tail -8 /tmp/elite-pf.log || true
             continue
         fi
@@ -222,7 +237,7 @@ preflight() {
             [[ "$code" == "200" ]] && { say "  ok no gêmeo us (cdn77 desinc só) — $u2"; continue; }
             fn=${u##*/}
             base=$(printf '%s' "$fn" | sed -E 's/-(any|x86_64(_v3)?)\.pkg\.tar\.zst$//' | rev | cut -d- -f3- | rev)
-            fu=$(pacman --config /tmp/elite-arch-only.conf -Sp --print-uris --noconfirm "$base" 2>/dev/null \
+            fu=$(pacman --config /tmp/elite-arch-only.conf -Sp --print-format '%l' --noconfirm "$base" 2>/dev/null \
                  | grep -oE '^https?://[^ ]+\.pkg\.tar\.zst$' | head -1 || true)
             if [[ -n "$fu" ]]; then
                 say "  $fn quebrado nos 2 mirrors → baseline Arch injetado no [elite-local]"
