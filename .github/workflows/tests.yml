@@ -34,7 +34,7 @@ jobs:
       - name: Preparar container (mesa, ferramentas)
         run: |
           pacman-key --init
-          pacman -Sy --noconfirm --needed git rsync shellcheck python-yaml shfmt || true
+          pacman -Sy --noconfirm --needed git rsync shellcheck python-yaml shfmt bun || true
       - uses: actions/checkout@v5
       - name: Montar o quebra-cabeça (5 fases + veredito)
         run: bash tests/run-tests.sh

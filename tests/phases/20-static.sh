@@ -13,6 +13,7 @@ SHELLS=(
   tests/run-tests.sh
   tests/lib/core.sh
   tests/lib/setup.sh
+  tests/lib/ns-body.sh
   tests/phases/10-env.sh tests/phases/20-static.sh tests/phases/30-unit.sh
   tests/phases/40-integration.sh tests/phases/50-release.sh tests/phases/60-verdict.sh
 )
@@ -69,5 +70,83 @@ for x in elite-tune fg-booster elite-status; do
   head -1 "$REPO/elite/airootfs/usr/local/bin/$x" | grep -q '^#!' && sheb=$((sheb+1))
 done
 assert_eq "$sheb" "3" "higiene: shebang nos 3 binários do airootfs"
+
+# ── peças: units systemd embarcadas (parse INI de verdade — typo não passa) ──
+U="$REPO/elite/airootfs/etc/systemd/system"
+uout=$(python3 - "$U" 2>&1 <<'PYEOF' || true
+import configparser, sys
+u = sys.argv[1]
+cases = {
+  'scx-elite.service':      {'Unit', 'Service', 'Install'},
+  'fg-booster.service':     {'Unit', 'Service', 'Install'},
+  'elite-firstboot.service': {'Unit', 'Service', 'Install'},
+  'fg-boost.slice':         {'Unit', 'Slice', 'Install'},
+}
+# strict=False: systemd PERMITE chaves repetidas (ConditionPathExists=
+# acumula condições) — o parse aqui checa sintaxe e seções, não política
+# de duplicatas (que é legítima em units)
+for f, want in cases.items():
+    cp = configparser.ConfigParser(strict=False)
+    try:
+        cp.read(f'{u}/{f}')
+        got = set(cp.sections())
+        missing = want - got
+        if missing:
+            raise AssertionError(f'{f}: sem seção(ões) {missing}')
+    except Exception as e:
+        print(f'FALHOU: {e}'); sys.exit(1)
+print('OK 4')
+PYEOF
+)
+assert_eq "$uout" "OK 4" "systemd: 4 units parseiam (INI válido) com Unit+Service|Slice+Install"
+
+for f in scx-elite.service fg-booster.service elite-firstboot.service; do
+  assert_grep "$U/$f" '^ExecStart=/' "systemd: $f ExecStart com caminho absoluto"
+done
+
+for l in multi-user.target.wants/elite-firstboot.service \
+         multi-user.target.wants/scx-elite.service \
+         multi-user.target.wants/dmemcg-booster-system.service \
+         graphical.target.wants/fg-booster.service; do
+  [[ -L "$U/$l" ]] \
+    && ok "systemd: symlink $l (unit habilitada de fábrica)" \
+    || fail "systemd: symlink $l" "não é symlink"
+done
+
+# ── peças: preset mkinitcpio do BORE (o initramfs do live) ─────────────
+PR="$REPO/elite/airootfs/etc/mkinitcpio.d/linux-cachyos-bore.preset"
+assert_grep "$PR" "^ALL_kver='/boot/vmlinuz-linux-cachyos-bore'$" "preset: ALL_kver aponta o BORE"
+assert_grep "$PR" '^archiso_image="/boot/initramfs-linux-cachyos-bore\.img"$' "preset: imagem archiso do BORE"
+
+# ── peças: configs embarcadas (o tuning assado na ISO) ──────────────
+SC="$REPO/elite/airootfs/etc/sysctl.d/99-elite.conf"
+for k in 'vm\.swappiness' 'vm\.vfs_cache_pressure' 'vm\.max_map_count'; do
+  assert_grep "$SC" "^${k} = " "sysctl: $k presente (gaming)"
+done
+UV="$REPO/elite/airootfs/etc/udev/rules.d/60-io-elite.rules"
+assert_grep "$UV" 'ATTR\{queue/scheduler\}="none"' "udev: scheduler none p/ NVMe/SSD"
+assert_grep "$UV" 'ATTR\{queue/scheduler\}="bfq"' "udev: bfq p/ HDD (rotacional)"
+ZR="$REPO/elite/airootfs/etc/systemd/zram-generator.conf"
+assert_grep "$ZR" '^\[zram0\]$' "zram: seção [zram0]"
+assert_grep "$ZR" 'compression-algorithm = zstd' "zram: compressão zstd"
+
+# ── peça: agents/*.ts transpilam (o agents.yml roda bun neles no CI) ──
+if command -v bun >/dev/null 2>&1; then
+  tsfail=""
+  for f in "$REPO"/agents/*.ts; do
+    bun build "$f" --target=bun --outfile="$WORK/ts-check.js" >/dev/null 2>&1 \
+      || tsfail="$tsfail $(basename "$f")"
+  done
+  assert_eq "$tsfail" "" "agents: todo *.ts transpila (gate de sintaxe bun)"
+else
+  skip "agents: gate de sintaxe bun" "bun ausente — o workflow agents.yml o executa"
+fi
+
+# ── peças: contratos do tests.yml (a suíte protege o PRÓPRIO gate) ──
+TY="$REPO/.github/workflows/tests.yml"
+assert_grep "$TY" 'container: archlinux:base-devel' "contrato: tests.yml roda no container Arch"
+assert_grep "$TY" 'bash tests/run-tests\.sh' "contrato: tests.yml executa a suíte inteira"
+assert_grep "$TY" 'shellcheck' "contrato: tests.yml instala o shellcheck (o gate de lint)"
+assert_grep "$TY" 'pull_request:' "contrato: tests.yml roda em PR (gate de merge)"
 
 phase_end
