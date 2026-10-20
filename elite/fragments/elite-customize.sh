@@ -60,7 +60,10 @@ awk '/^\[/ {exit} {print}' "$ELITE_PC" > /tmp/elite-pc-options
     cat <<'EOL'
 
 [archcraft]
-SigLevel = Optional TrustAll
+# packages.archcraft.io é UNSIGNED (nenhum .sig no repo): Never = zero
+# sondas db.sig/pacote.sig (curl 404 no primeiro -Sy do sistema instalado);
+# mesma segurança que TrustAll para um repo sem assinaturas.
+SigLevel = Never
 Include = /etc/pacman.d/archcraft-mirrorlist
 
 # >>> ELITE: CachyOS — wiki.cachyos.org/features/optimized_repos

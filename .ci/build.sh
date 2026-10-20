@@ -127,15 +127,22 @@ preflight() {
     local plconf=/tmp/elite-preflight.conf
     cd /work/elite-build/profile
 
-    # conf de preflight: profile + XferCommand que loga as falhas
-    sed -e 's@^XferCommand = .*@XferCommand = /usr/bin/curl -L -C - -f -o %o %u --retry 2 --retry-delay 3 --retry-all-errors || echo "ELITE-FAIL %u" >> /tmp/elite-404s.txt@' \
+    # conf de preflight: profile + XferCommand que loga as falhas.
+    # -s: o preflight NÃO imprime erro de curl (a falha vira a linha limpa
+    # “ELITE-FAIL <url>” no /tmp/elite-404s.txt — zero ruído de curl no log)
+    sed -e 's@^XferCommand = .*@XferCommand = /usr/bin/curl -s -L -C - -f -o %o %u --retry 2 --retry-delay 3 --retry-all-errors || echo "ELITE-FAIL %u" >> /tmp/elite-404s.txt@' \
         "$pc" > "$plconf"
 
-    # conf Arch-only p/ resolver os fallbacks baseline
-    grep -vE '^\[cachyos|\.cachyos\.org|^\[elite-local\]|file:///var/cache/elite-local' \
+    # conf Arch-only p/ resolver os fallbacks baseline (awk remove as
+    # SEÇÕES inteiras — sem grep -v, que deixaria SigLevel órfão)
+    awk '/^\[/{keep = !($0 ~ /^\[(elite-local|cachyos|cachyos-v3|cachyos-core-v3|cachyos-extra-v3)\]$/)} keep' \
         "$pc" > /tmp/elite-arch-only.conf
 
-    mapfile -t PL < <(grep -vE '^#|^ *$' packages.x86_64 | sed 's|^archcraft/||')
+    # lista de alvos IDÊNTICA à do pacstrap: mkarchcraftiso passa
+    # “grep -h '^[^#]' packages.x86_64” verbatim (inclui nomes qualificados
+    # “archcraft/grub”) — o preflight resolve exatamente o que o pacstrap
+    # vai pedir, senão o cache diverge e o pacstrap volta à rede
+    mapfile -t PL < <(grep -h '^[^#]' packages.x86_64)
     say "Preflight: ${#PL[@]} alvos — baixando tudo p/ o cache (round 1)"
 
     local round u u2 c2 fn base fu
