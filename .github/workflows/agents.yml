@@ -1,0 +1,111 @@
+# .github/workflows/agents.yml — Relay dos agentes de IA (Token Harbor).
+#
+# POR QUÊ UM RELAY: a API do Token Harbor (tokenharbor.ai/v1) bloqueia
+# HK/Macau/China continental e regiões sancionadas. Nem toda região de
+# execução é permitida — os runners do GitHub Actions (EUA) sempre são.
+# Este workflow executa agents/run.ts NO RUNNER, com o TH_TOKEN vindo do
+# repo secret (nunca em log), e devolve o relatório como:
+#   1. print no log do job (marcadores ===AGENT-REPORT-BEGIN/END===)
+#   2. artifact "agent-<id>-<n>"
+#   3. commit na branch agent-reports (reports/<ts>-<agent>.md)
+#
+# USO (UI): Actions → Agents → Run workflow → escolha agente/tarefa/contexto.
+# USO (API):
+#   curl -X POST .../actions/workflows/agents.yml/dispatches \
+#     -d '{"ref":"main","inputs":{"agent":"deepseek","task":"...","context":"ci"}}'
+#
+# context: "ci" (run mais recente de build.yml) | "ci:<run_id>" | "links" | vazio
+
+name: Agents
+
+on:
+  workflow_dispatch:
+    inputs:
+      agent:
+        description: "Agente"
+        required: true
+        type: choice
+        default: deepseek
+        options:
+          - deepseek
+          - mimo
+      task:
+        description: "Tarefa (o que o agente deve fazer)"
+        required: true
+        type: string
+      context:
+        description: "Contexto: ci | ci:<run_id> | links | (vazio)"
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: write # publicar relatório na branch agent-reports
+  actions: read # ler runs/jobs/logs do build.yml
+
+concurrency:
+  group: agents-relay
+  cancel-in-progress: false
+
+jobs:
+  agent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      AGENT_ID: ${{ inputs.agent }}
+      AGENT_TASK: ${{ inputs.task }}
+      AGENT_CONTEXT: ${{ inputs.context }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Executar agente (Token Harbor)
+        shell: bash
+        timeout-minutes: 15
+        env:
+          TH_TOKEN: ${{ secrets.TH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p agents/out
+          # Contexto vazio → não passa a flag (run.ts aceita tarefa seca).
+          ARGS=( "$AGENT_ID" "$AGENT_TASK" )
+          if [ -n "$AGENT_CONTEXT" ]; then
+            ARGS+=( --context "$AGENT_CONTEXT" )
+          fi
+          bun agents/run.ts "${ARGS[@]}" 2>&1 | tee agents/out/agent-output.txt
+
+      - name: Anexar relatório (artifact)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-${{ inputs.agent }}-${{ github.run_number }}
+          path: agents/out/
+          if-no-files-found: ignore
+
+      - name: Publicar na branch agent-reports
+        if: success()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          [ -f agents/out/report.md ] || { echo "sem report.md — nada a publicar"; exit 0; }
+          ts=$(date -u +%Y%m%d-%H%M%S)
+          file="reports/${ts}-${AGENT_ID}.md"
+          if ! gh api "repos/$REPO/git/ref/heads/agent-reports" >/dev/null 2>&1; then
+            echo "branch agent-reports não existe — criando em $GITHUB_SHA"
+            gh api -X POST "repos/$REPO/git/refs" \
+              -f ref="refs/heads/agent-reports" -f sha="$GITHUB_SHA" >/dev/null
+          fi
+          b64=$(base64 -w0 agents/out/report.md)
+          gh api -X PUT "repos/$REPO/contents/$file" \
+            -f message="agent: ${AGENT_ID} — ${ts}" \
+            -f content="$b64" \
+            -f branch="agent-reports" >/dev/null
+          echo "publicado: https://github.com/$REPO/blob/agent-reports/$file"

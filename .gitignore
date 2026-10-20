@@ -7,3 +7,7 @@ work/
 
 # repo local construído pelo CI (não versionar)
 elite/airootfs/var/cache/
+
+# agentes IA — token NUNCA versionado; saídas são efêmeras
+agents/.env
+agents/out/
