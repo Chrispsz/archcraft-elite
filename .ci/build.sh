@@ -111,19 +111,70 @@ mkdir -p elite/airootfs/var/cache/elite-local
 cp /var/cache/elite-local/* elite/airootfs/var/cache/elite-local/
 bash scripts/apply-overlay.sh
 
+# ─────────────────────────────────────────────────────────────────────
+# Preflight auto-curativo: os mirrors rolling do CachyOS vivem em janelas
+# de dessincronização db↔arquivo (migração de toolchain: gcc/glibc/qt5/
+# libyuv 404 por horas). Antes de CADA tentativa: resolve todas as URLs
+# da transação, verifica nos mirrors; arquivo que faltar em TODOS ganha a
+# versão BASELINE do Arch injetada no [elite-local] (primeiro repo do conf).
+# ─────────────────────────────────────────────────────────────────────
+preflight() {
+    local pc=/work/elite-build/profile/pacman.conf
+    say "Preflight: verificando disponibilidade dos arquivos nos mirrors"
+    cd /work/elite-build/profile
+    mapfile -t PL < <(grep -vE '^#|^ *$' packages.x86_64 | sed 's|^archcraft/||')
+    pacman --config "$pc" -Sp --print-uris --noconfirm "${PL[@]}" 2>/dev/null \
+        | grep -oE 'https?://[^ ]+' | sort -u > /tmp/elite-uris.txt || true
+    local n; n=$(wc -l < /tmp/elite-uris.txt)
+    say "Preflight: $n URLs resolvidas — HEAD-check (paralelo)"
+    : > /tmp/elite-bad.txt
+    xargs -P 20 -I{} sh -c 'c=$(curl -s -o /dev/null -w "%{http_code}" -m 25 --head "{}"); [ "$c" != "200" ] && echo "{}"' \
+        < /tmp/elite-uris.txt >> /tmp/elite-bad.txt || true
+
+    # conf Arch-only (sem cachyos) para resolver os fallbacks
+    grep -vE '^\[cachyos|\.cachyos\.org' "$pc" > /tmp/elite-arch-only.conf
+
+    local added=0 u fn base fu u2 c2
+    while read -r u; do
+        [ -z "$u" ] && continue
+        # espelho gêmeo (cdn77↔us): só é problema se faltar em AMBOS
+        if [[ "$u" == *cdn77.cachyos.org* ]]; then
+            u2=${u/cdn77.cachyos.org/us.cachyos.org}
+            c2=$(curl -s -o /dev/null -w '%{http_code}' -m 25 --head "$u2" 2>/dev/null) || c2=000
+            [ "$c2" = "200" ] && continue
+        fi
+        fn=${u##*/}
+        base=$(printf '%s' "$fn" | sed -E 's/-(any|x86_64(_v3)?)\.pkg\.tar\.zst$//' | rev | cut -d- -f3- | rev)
+        fu=$(pacman --config /tmp/elite-arch-only.conf -Sp --print-uris --noconfirm "$base" 2>/dev/null \
+             | grep -oE 'https?://[^ ]+' | head -1 || true)
+        if [ -n "$fu" ]; then
+            say "Preflight: $fn indisponível nos mirrors → injetando baseline Arch no [elite-local]"
+            curl -fsSL -o "/var/cache/elite-local/${fu##*/}" "$fu" || true
+            added=1
+        else
+            say "Preflight: AVISO — $fn indisponível e sem fallback Arch (retry cuidará)"
+        fi
+    done < /tmp/elite-bad.txt
+
+    if [ "$added" = "1" ]; then
+        repo-add --quiet /var/cache/elite-local/elite-local.db.tar.gz /var/cache/elite-local/*.pkg.tar.zst
+        cp /var/cache/elite-local/* /work/elite-build/profile/airootfs/var/cache/elite-local/
+        say "Preflight: baseline(s) injetado(s) no [elite-local]"
+    else
+        say "Preflight: todos os arquivos disponíveis"
+    fi
+}
+
 say "Construindo ISO (mkarchcraftiso — fork oficial do Archcraft)"
 mkdir -p /mnt/iso-work /work/out
 cd elite-build/profile
-# Mirrors rolling (CachyOS) têm janelas de dessincronização db/arquivo
-# (404 transitório — gcc/glibc/qt5 durante update deles). O cache do
-# container persiste entre tentativas (pacstrap -c), então o retry é
-# barato: só re-sync dos dbs + os arquivos que faltaram.
 for attempt in 1 2 3; do
+    preflight
     rm -rf /mnt/iso-work
     if ./mkarchcraftiso -v -w /mnt/iso-work -o /work/out . ; then
         break
     fi
-    if [[ "$attempt" == "3" ]]; then
+    if [ "$attempt" = "3" ]; then
         echo "FALHOU após 3 tentativas"
         exit 1
     fi
