@@ -240,9 +240,10 @@ dryrun() { # env… → elite-tune --dry-run --yes, ANSI-stripado, rc preservado
   printf '%s\n' "$out" | sed 's/\x1b\[[0-9;]*m//g'
   return $rc
 }
-if [[ ${ROOTWRAP[0]:-SKIP} == SKIP ]]; then
+if [[ ${ROOTWRAP[0]} == SKIP ]]; then
   skip "cadeia D (modo padrão dry): exige root (unshare indisponível)" "o job do CI roda como root"
 else
+  touch "$STATE/ran-D"   # prova p/ a peça anti-skip (abaixo): o bloco ENTROU
   baks0=$(ls /etc/*.bak.* 2>/dev/null | wc -l)
   # estado: Setup A herdando os ICDs Vulkan AMD/Intel da ISO (a auto-limpeza
   # do modo padrão tem o que anunciar no plano)
@@ -294,9 +295,10 @@ fi
 # 4.E MODO --apps (menu do usuário — "baixo só o que vou usar"), NÃO-dry:
 #     o pacman mockado registra exatamente o que cada opção instala
 # ════════════════════════════════════════════════════════════════════
-if [[ ${ROOTWRAP[0]:-SKIP} == SKIP ]]; then
+if [[ ${ROOTWRAP[0]} == SKIP ]]; then
   skip "cadeia E (--apps): exige root (unshare indisponível)" "o job do CI roda como root"
 else
+  touch "$STATE/ran-E"   # prova p/ a peça anti-skip: o bloco ENTROU
   apps() { # opção do menu via stdin → saída ANSI-stripada, rc preservado
     local out rc
     out=$(with_mocks "${ROOTWRAP[@]}" env LSPCI_FIXTURE="$TESTS_DIR/fixtures/lspci/rtx-5060.txt" \
@@ -336,7 +338,7 @@ elif [[ $EUID -eq 0 ]]; then
 else
   ISOL=("SKIP")
 fi
-if [[ ${ISOL[0]:-SKIP} == SKIP ]]; then
+if [[ ${ISOL[0]} == SKIP ]]; then
   skip "cadeia F (firstboot real ×3): exige root/ns (unshare indisponível)" "o job do CI roda como root"
 else
   fbreal() { # <cenario> <fixture> <smi> <refuse> [pkgs…] → evidência em $STATE/fb-real-<cenario>.log
@@ -415,10 +417,26 @@ else
   fi
 fi
 
-# ════════════════════════════════════════════════════════════════════
-# 4.G DETERMINISMO DO OVERLAY: a segunda montagem é bit-a-bit igual à
-#     primeira (nenhum sed/awk acumulando edição em cima de edição)
-# ════════════════════════════════════════════════════════════════════
+# ── peças ANTI-SKIP: as cadeias novas são CONTRATO — pulo silencioso = NO-GO.
+#    (Bug real que motivou isto: ${arr[0]:-SKIP} colapsa array vazia em SKIP
+#    e fez o CI pular D/E/F num veredito verde — falsa segurança.)
+can_root=0; { [[ $EUID -eq 0 ]] || unshare -r true 2>/dev/null; } && can_root=1
+can_ns=0;   { [[ $EUID -eq 0 ]] || unshare -rm true 2>/dev/null; } && can_ns=1
+if (( can_root )); then
+  for p in D E; do
+    [[ -f "$STATE/ran-$p" ]] \
+      && ok "anti-skip: cadeia $p executou (guard não comeu o bloco)" \
+      || fail "anti-skip: cadeia $p executou" "bloco pulado com root/unshare disponível — bug de guard"
+  done
+fi
+if (( can_ns )); then
+  [[ -f "$STATE/fb-real-nvbw.log" ]] \
+    && ok "anti-skip: cadeia F executou (firstboot real com evidência)" \
+    || fail "anti-skip: cadeia F executou" "evidência ausente com root/ns disponível"
+fi
+
+# 4.G (determinismo): a segunda montagem do overlay é bit-a-bit igual à
+# primeira (nenhum sed/awk acumulando edição em cima de edição)
 DET="$WORK/det1"; mkdir -p "$DET"
 cp "$P/packages.x86_64" "$DET/packages.x86_64"
 cp "$P/pacman.conf"     "$DET/pacman.conf"
