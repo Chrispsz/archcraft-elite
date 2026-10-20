@@ -57,6 +57,7 @@ jobs:
           docker run --rm --privileged \
             -v "$PWD":/work \
             -v /mnt:/mnt \
+            -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
             -w /work \
             archlinux:base-devel \
             bash .ci/build.sh
