@@ -110,3 +110,42 @@ Restore total: `sudo pacman -S linux-firmware`.
   (7752 arquivos, 0 mkinitcpio).
 - ParallelDownloads 10 no conf de build; -n1 no xargs (sem ele, só a
   1ª URL era sondada); Never nos repos unsigned (archcraft/elite-local).
+
+## v4.5 — triagem do feedback externo (só o real) + E2 offline-first
+
+Triagem de uma análise externa do repo — 3 alegações, 2 procedentes
+(1 parcialmente), 1 falsa/perigosa:
+
+- **REAL — checkout@v4 em Node 20**: warning de deprecação confirmado
+  nos logs de TODO run (`##[warning]Node.js 20 is deprecated … forced to
+  run on Node.js 24: actions/checkout@v4`). Bump para `actions/checkout@v5`
+  (Node 24 nativo) nos 2 jobs. `upload-artifact@v4` não gera warning
+  (4.x atual já é Node 24).
+- **PARCIAL — XferCommand com mais retries**: o conf de build sobe para
+  `--retry 5 --retry-delay 5 --retry-connrefused --retry-all-errors
+  --retry-max-time 120 --speed-time 60 --speed-limit 1024`.
+  O que foi REJEITADO da sugestão (10×10s/300s): janelas reais de skew
+  duram MINUTOS (run #13: 216×404) — esperar 300s às cegas não cura nada,
+  só queima tempo; e no preflight a espera cegaria a sonda HEAD que
+  injeta o baseline Arch em segundos (determinístico). Preflight continua
+  fail-fast 3×3 (saída já vai p/ /tmp/elite-pf.log, console limpo).
+  Acréscimos próprios: `--retry-connrefused` (edge CDN recusando é
+  retriable) e `--speed-time/-limit` (transferência PARADA vira erro
+  retriable — sem isso o curl não tem timeout e travaria até o limite
+  do job).
+- **FALSA — .sig dummy no [elite-local]**: o curl (37) do `elite-local.db.sig`
+  era real no run #13 (12×), mas já foi eliminado NA RAIZ pelo
+  `SigLevel = Never` (v4.4, runs #14/#15 com 0 curl errors na fase que
+  rodou): Never = pacman não sonda .sig NENHUM. O fix sugerido seria
+  nocivo: `.sig` presente + `Optional` = assinatura inválida = erro FATAL
+  do pacman ("invalid or corrupted database"); sob Never o arquivo nem
+  é lido. Nada aplicado — problema não existe mais.
+- **E2 offline-first (além do feedback, mata a última rede do customize)**:
+  `.ci/build.sh` baixa `cachyos-keyring` + `cachyos-v3-mirrorlist`
+  (listing do us → pin; download cdn77 → us → pin) p/ o `[elite-local]`
+  ANTES do repo-add; o E2 vira `pacman -S` file:// (primeiro repo do
+  conf de build) — o chroot não toca a rede no customize. Escada de
+  fallback: `[elite-local]` → `pacman -U` mirror → mirrorlist manual
+  (chave via E1 keyserver). Validado ao vivo: escada executada de
+  verdade (cdn77 primeiro, 200/200), pacotes abertos e conferidos
+  (`usr/share/pacman/keyrings/cachyos.gpg`; `etc/pacman.d/cachyos-v3-mirrorlist`).

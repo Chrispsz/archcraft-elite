@@ -27,7 +27,8 @@ jobs:
     steps:
       - name: Preparar container
         run: pacman -Sy --noconfirm --needed git shellcheck shfmt
-      - uses: actions/checkout@v4
+      # v5 = Node 24 nativo (v4 alvo Node 20: warning de deprecação em todo run)
+      - uses: actions/checkout@v5
       - name: shellcheck (gate — warning ou acima; infos são intencionais e documentadas)
         run: |
           shopt -s globstar
@@ -49,7 +50,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Construir ISO (container Arch privilegiado)
         run: |
