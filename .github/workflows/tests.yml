@@ -1,0 +1,42 @@
+name: Test Suite
+
+# O quebra-cabeça em cadeia: FASE 1 A MESA → 2 QUALIDADE → 3 UNIDADE →
+# 4 CADEIA (overlay + split→hash→reassemble + firstboot dry-run) →
+# 5 USO/RELEASE → VEREDICTO. Fase que quebra bloqueia as seguintes;
+# GO exige todas as peças encaixadas.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'elite/**'
+      - 'scripts/**'
+      - '.ci/**'
+      - 'tests/**'
+      - '.github/workflows/**'
+  pull_request:
+    paths:
+      - 'elite/**'
+      - 'scripts/**'
+      - '.ci/**'
+      - 'tests/**'
+      - '.github/workflows/**'
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  puzzle:
+    runs-on: ubuntu-24.04
+    container: archlinux:base-devel
+    steps:
+      - name: Preparar container (mesa, ferramentas)
+        run: |
+          pacman-key --init
+          pacman -Sy --noconfirm --needed git rsync shellcheck python-yaml shfmt || true
+      - uses: actions/checkout@v5
+      - name: Montar o quebra-cabeça (5 fases + veredito)
+        run: bash tests/run-tests.sh
+      - name: shfmt (informativo — não bloqueia)
+        run: shfmt -d scripts/*.sh .ci/*.sh elite/fragments/*.sh || true
