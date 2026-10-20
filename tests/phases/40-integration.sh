@@ -179,6 +179,7 @@ done
 if outA="$(firstboot LSPCI_FIXTURE="$TESTS_DIR/fixtures/lspci/rtx-5060.txt" \
   NVIDIA_SMI='NVIDIA GeForce RTX 5060' \
   bash "$TUNE" --firstboot --dry-run --yes 2>&1)"; then rcA=0; else rcA=$?; fi
+fbm0=0; [[ -f /var/lib/elite/firstboot-done ]] && fbm0=1
 assert_eq "$rcA" "0" "cadeia C (Setup A): firstboot dry-run exit 0"
 assert_match "$outA" 'NVIDIA blackwell → nvidia-open-dkms' "cadeia C (Setup A): plano do driver certo p/ Blackwell"
 assert_match "$outA" 'Auto-limpeza: GPU nvidia → removendo stack do outro vendor' "cadeia C (Setup A): auto-limpeza anunciada"
@@ -190,6 +191,15 @@ grep -q -- '-Rns' "$STATE/pacman.log" \
   || ok "cadeia C (Setup A): dry-run não executou -Rns (só -Qq consultou)"
 assert_nofile "/etc/modprobe.d/00-elite-nvidia.conf" "cadeia C (Setup A): nada escrito em /etc (dry é seco)"
 assert_nofile "/etc/systemd/system/scx-elite.service" "cadeia C (Setup A): unit não criada fora do dry"
+# regressão v4.4: dry não cria marker nem transmite wall (o aviso "REINICIE"
+# numa SIMULAÇÃO seria mentira broadcastada para todos os ttys do usuário)
+if [[ -s "$STATE/wall.log" ]]; then
+  fail "cadeia C (Setup A): dry não transmite wall" "wall.log tem conteúdo"
+else
+  ok "cadeia C (Setup A): dry NÃO transmite wall (nenhum aviso falso)"
+fi
+fbm1=0; [[ -f /var/lib/elite/firstboot-done ]] && fbm1=1
+assert_eq "$fbm1" "$fbm0" "cadeia C (Setup A): dry não cria/toca /var/lib/elite/firstboot-done"
 
 # Setup B (RX 7600) herdando o stack NVIDIA inteiro:
 : > "$STATE/installed.txt"; : > "$STATE/pacman.log"
@@ -218,5 +228,214 @@ outS="$(with_mocks env LSPCI_FIXTURE="$TESTS_DIR/fixtures/lspci/rtx-5060.txt" \
   bash "$TUNE" --status 2>&1)"; rcS=$?
 assert_eq "$rcS" "0" "cadeia C (uso): --status exit 0"
 assert_match "$outS" 'scx-elite' "cadeia C (uso): --status lista os serviços elite"
+
+# ════════════════════════════════════════════════════════════════════
+# 4.D MODO PADRÃO INTERATIVO (o enxerto em qualquer Arch) — dry de ponta
+#     a ponta: dossiê, plano de cada seção [1]-[8] e o contrato "dry é
+#     seco" auditado em /etc (nenhum .bak, nenhum arquivo novo)
+# ════════════════════════════════════════════════════════════════════
+dryrun() { # env… → elite-tune --dry-run --yes, ANSI-stripado, rc preservado
+  local out rc
+  out=$(with_mocks "${ROOTWRAP[@]}" env "$@" bash "$TUNE" --dry-run --yes 2>&1); rc=$?
+  printf '%s\n' "$out" | sed 's/\x1b\[[0-9;]*m//g'
+  return $rc
+}
+if [[ ${ROOTWRAP[0]:-SKIP} == SKIP ]]; then
+  skip "cadeia D (modo padrão dry): exige root (unshare indisponível)" "o job do CI roda como root"
+else
+  baks0=$(ls /etc/*.bak.* 2>/dev/null | wc -l)
+  # estado: Setup A herdando os ICDs Vulkan AMD/Intel da ISO (a auto-limpeza
+  # do modo padrão tem o que anunciar no plano)
+  : > "$STATE/installed.txt"; : > "$STATE/pacman.log"
+  for p in vulkan-radeon lib32-vulkan-radeon vulkan-intel lib32-vulkan-intel \
+           mesa steam linux-cachyos-bore nvidia-open nvidia-utils; do
+    echo "$p" >> "$STATE/installed.txt"
+  done
+  if outP="$(dryrun LSPCI_FIXTURE="$TESTS_DIR/fixtures/lspci/rtx-5060.txt" \
+              NVIDIA_SMI='NVIDIA GeForce RTX 5060')"; then rcP=0; else rcP=$?; fi
+  assert_eq "$rcP" "0" "cadeia D (Setup A): modo padrão dry exit 0"
+  assert_match "$outP" 'DOSSIÊ DETECTADO' "cadeia D: dossiê abre a sessão"
+  assert_match "$outP" 'gen=blackwell vendor=nvidia' "cadeia D: dossiê mostra o hardware certo"
+  assert_match "$outP" '\$ pacman -S --needed --noconfirm linux-cachyos-bore linux-cachyos-bore-headers linux-headers' \
+    "cadeia D: [1] kernel BORE no plano"
+  assert_match "$outP" '\$ pacman -S --needed --noconfirm cachyos-settings cachyos-ananicy-rules ananicy-cpp scx-scheds scx-tools dmemcg-booster' \
+    "cadeia D: [1] stack CachyOS completo no plano"
+  assert_match "$outP" '\[arquivo\] /etc/systemd/system/scx-elite\.service' "cadeia D: [2] unit scx planejada"
+  assert_match "$outP" '\$ grub-mkconfig -o /boot/grub/grub\.cfg' "cadeia D: [3] grub-mkconfig no plano"
+  assert_match "$outP" 'NVIDIA blackwell → nvidia-open-dkms' "cadeia D: [4] driver certo p/ Blackwell"
+  assert_match "$outP" '\[arquivo\] /etc/modprobe\.d/00-elite-nvidia\.conf' "cadeia D: [4] modprobe modeset/VRAM planejado"
+  assert_match "$outP" 'Auto-limpeza: GPU nvidia' "cadeia D: [4] auto-limpeza de ICDs no plano"
+  assert_match "$outP" '\[arquivo\] /etc/systemd/zram-generator\.conf' "cadeia D: [5] zram planejado"
+  assert_match "$outP" '\[arquivo\] /etc/sysctl\.d/99-elite\.conf' "cadeia D: [5] sysctl de gaming planejado"
+  assert_match "$outP" '\[arquivo\] /etc/udev/rules\.d/60-io-elite\.rules' "cadeia D: [5] udev I/O planejado"
+  assert_match "$outP" 'fg-booster: binário não encontrado' "cadeia D: [6] graft fora da ISO avisa (fg-booster)"
+  assert_match "$outP" '\[arquivo\] /etc/systemd/system/fg-boost\.slice' "cadeia D: [6] slice turbinado planejado"
+  assert_match "$outP" '\$ pacman -S --needed --noconfirm gamemode lib32-gamemode gamescope' \
+    "cadeia D: [7] stack de jogo no plano"
+  assert_match "$outP" 'CONCLUÍDO. Reboot' "cadeia D: chegou ao fim"
+  baks1=$(ls /etc/*.bak.* 2>/dev/null | wc -l)
+  assert_eq "$baks1" "$baks0" "cadeia D: dry NÃO cria .bak em /etc (backup guardado — v4.4)"
+
+  if outP2="$(dryrun LSPCI_FIXTURE="$TESTS_DIR/fixtures/lspci/rx-7600.txt")"; then rcP2=0; else rcP2=$?; fi
+  assert_eq "$rcP2" "0" "cadeia D (Setup B): modo padrão dry exit 0"
+  assert_match "$outP2" 'radeontop' "cadeia D (Setup B): plano AMD inclui radeontop"
+  assert_match "$outP2" '\[arquivo\] /etc/modprobe\.d/00-elite-amdgpu\.conf' "cadeia D (Setup B): ppfeaturemask planejado"
+
+  # aconselhamento de hardware (qualidade de USO, não só de código):
+  outP3="$(with_mocks "${ROOTWRAP[@]}" env DMIDECODE_MODE=single \
+    LSPCI_FIXTURE="$TESTS_DIR/fixtures/lspci/rtx-5060.txt" \
+    NVIDIA_SMI='NVIDIA GeForce RTX 5060' \
+    bash "$TUNE" --dry-run --yes 2>&1 | sed 's/\x1b\[[0-9;]*m//g')"
+  assert_match "$outP3" 'SINGLE-CHANNEL' "cadeia D (conselho): 1 pente de RAM → alerta de upgrade"
+  assert_match "$outP3" 'DOCP/XMP' "cadeia D (conselho): RAM @ 2666MHz → aviso de BIOS"
+fi
+
+# ════════════════════════════════════════════════════════════════════
+# 4.E MODO --apps (menu do usuário — "baixo só o que vou usar"), NÃO-dry:
+#     o pacman mockado registra exatamente o que cada opção instala
+# ════════════════════════════════════════════════════════════════════
+if [[ ${ROOTWRAP[0]:-SKIP} == SKIP ]]; then
+  skip "cadeia E (--apps): exige root (unshare indisponível)" "o job do CI roda como root"
+else
+  apps() { # opção do menu via stdin → saída ANSI-stripada, rc preservado
+    local out rc
+    out=$(with_mocks "${ROOTWRAP[@]}" env LSPCI_FIXTURE="$TESTS_DIR/fixtures/lspci/rtx-5060.txt" \
+      bash "$TUNE" --apps <<< "$1" 2>&1); rc=$?
+    printf '%s\n' "$out" | sed 's/\x1b\[[0-9;]*m//g'
+    return $rc
+  }
+  : > "$STATE/pacman.log"
+  if out1="$(apps 1)"; then rc1=0; else rc1=$?; fi
+  assert_eq "$rc1" "0" "cadeia E: opção 1 (Steam) exit 0"
+  assert_grep "$STATE/pacman.log" 'pacman -S --needed --noconfirm steam protontricks$' \
+    "cadeia E: Steam+protontricks EXATOS no log do pacman"
+  assert_match "$out1" 'Concluído. Steam' "cadeia E: dica de Shader Pre-Caching"
+  : > "$STATE/pacman.log"
+  apps 4 >/dev/null
+  assert_grep "$STATE/pacman.log" 'pacman -S --needed --noconfirm gimp inkscape kdenlive$' \
+    "cadeia E: opção 4 instala a suíte de criação"
+  : > "$STATE/pacman.log"
+  if out0="$(apps 9)"; then rc0=0; else rc0=$?; fi
+  assert_eq "$rc0" "0" "cadeia E: opção inválida exit 0 (não trava)"
+  assert_match "$out0" 'Nada instalado' "cadeia E: opção inválida → recusa educada"
+  nS=$(grep -c -- '-S --needed' "$STATE/pacman.log" 2>/dev/null || true)
+  assert_eq "$nS" "0" "cadeia E: opção inválida não instala NADA"
+fi
+
+# ════════════════════════════════════════════════════════════════════
+# 4.F FIRSTBOOT DE VERDADE (NÃO-dry) — as escritas REAIS, isoladas:
+#     unshare -rm + tmpfs em /etc e /var (dev machine; host intocado) ou
+#     root direto no container efêmero do CI. O dry-run prova o PLANO;
+#     aqui prova-se a EXECUÇÃO: modprobe.d, tokens GRUB, unit scx, marker,
+#     wall transmitido — e o caminho pascal-sem-nvidia-dkms (pacman recusa)
+# ════════════════════════════════════════════════════════════════════
+if unshare -rm true 2>/dev/null; then
+  ISOL=(unshare -rm); NS_TMPFS=1
+elif [[ $EUID -eq 0 ]]; then
+  ISOL=(); NS_TMPFS=0
+else
+  ISOL=("SKIP")
+fi
+if [[ ${ISOL[0]:-SKIP} == SKIP ]]; then
+  skip "cadeia F (firstboot real ×3): exige root/ns (unshare indisponível)" "o job do CI roda como root"
+else
+  fbreal() { # <cenario> <fixture> <smi> <refuse> [pkgs…] → evidência em $STATE/fb-real-<cenario>.log
+    local scen=$1 fix=$2 smi=$3 refuse=$4
+    shift 4
+    with_mocks "${ISOL[@]}" env NS_TMPFS="$NS_TMPFS" TUNE="$TUNE" \
+      FB_LOG="$STATE/fb-real-$scen.log" \
+      FB_FIXTURE="$fix" FB_SMI="$smi" FB_REFUSE="$refuse" FB_PKGS="$*" \
+      MOCK_DIR="$STATE" bash "$TESTS_DIR/lib/ns-body.sh"
+  }
+  hostmod0=0; [[ -f /etc/modprobe.d/00-elite-nvidia.conf ]] && hostmod0=1
+
+  # cenário INTEL primeiro (no modo container o /etc é compartilhado entre
+  # cenários; intel não cria modprobe — a ordem mantém as asserções válidas)
+  fbreal intel "$TESTS_DIR/fixtures/lspci/intel-igpu.txt" "" 0 mesa steam
+  LI="$STATE/fb-real-intel.log"
+  assert_match "$(sed -n '/^RC=/p' "$LI")" '^RC=0$' "cadeia F (intel): firstboot REAL exit 0"
+  assert_grep "$LI" 'Intel → mesa/ANV' "cadeia F (intel): plano mesa/ANV executado"
+  if grep -q '00-elite-nvidia\|00-elite-amdgpu' "$LI"; then
+    fail "cadeia F (intel): nenhum modprobe elite" "apareceu modprobe de outro vendor"
+  else
+    ok "cadeia F (intel): nenhum modprobe elite (intel não precisa)"
+  fi
+  assert_grep "$STATE/pacman.log" 'pacman -S --needed --noconfirm mesa lib32-mesa vulkan-intel$' \
+    "cadeia F (intel): stack mesa/ANV no pacman real"
+  assert_match "$(sed -n '/^=== MARKER/,+1p' "$LI" | tail -1)" '^yes$' \
+    "cadeia F (intel): marker firstboot-done CRIADO (execução real)"
+
+  # cenário NVIDIA BLACKWELL (Setup A) — o caminho completo
+  fbreal nvbw "$TESTS_DIR/fixtures/lspci/rtx-5060.txt" 'NVIDIA GeForce RTX 5060' 0 \
+    vulkan-radeon lib32-vulkan-radeon vulkan-intel lib32-vulkan-intel \
+    mesa steam linux-cachyos-bore nvidia-open nvidia-utils
+  LA="$STATE/fb-real-nvbw.log"
+  assert_match "$(sed -n '/^RC=/p' "$LA")" '^RC=0$' "cadeia F (Setup A): firstboot REAL exit 0"
+  assert_grep "$LA" '^/etc/modprobe\.d/00-elite-nvidia\.conf$' "cadeia F (Setup A): /etc/modprobe.d/00-elite-nvidia.conf escrito"
+  assert_grep "$LA" 'options nvidia-drm modeset=1 fbdev=1' "cadeia F (Setup A): modeset+fbdev (Wayland)"
+  assert_grep "$LA" 'NVreg_PreserveVideoMemoryAllocations=1' "cadeia F (Setup A): VRAM preservada em suspend"
+  assert_grep "$LA" 'GRUB_CMDLINE_LINUX_DEFAULT=.*nowatchdog' "cadeia F (Setup A): token nowatchdog no GRUB real"
+  assert_grep "$LA" 'GRUB_CMDLINE_LINUX_DEFAULT=.*zswap\.enabled=0' "cadeia F (Setup A): zswap desligado no cmdline"
+  assert_grep "$LA" 'GRUB_CMDLINE_LINUX_DEFAULT=.*transparent_hugepage=always' "cadeia F (Setup A): THP always no cmdline"
+  if grep -A1 '^=== ISAMD' "$LA" | grep -q '^yes$'; then
+    assert_grep "$LA" 'GRUB_CMDLINE_LINUX_DEFAULT=.*amd_pstate=active' \
+      "cadeia F (Setup A): CPU AMD → amd_pstate=active no cmdline"
+  else
+    ok "cadeia F (Setup A): CPU não-AMD → sem amd_pstate (decisão certa)"
+  fi
+  assert_grep "$LA" 'ExecStart=/usr/bin/scx_bpfland' "cadeia F (Setup A): unit scx-elite escrita (bpfland)"
+  assert_match "$(sed -n '/^=== MARKER/,+1p' "$LA" | tail -1)" '^yes$' \
+    "cadeia F (Setup A): marker firstboot-done criado"
+  assert_grep "$STATE/pacman.log" 'pacman -R --noconfirm nvidia-open$' \
+    "cadeia F (Setup A): nvidia-open pré-compilado removido (vai entrar o dkms)"
+  assert_grep "$STATE/pacman.log" 'pacman -S --needed --noconfirm nvidia-open-dkms nvidia-utils nvidia-settings lib32-nvidia-utils$' \
+    "cadeia F (Setup A): stack dkms instalado (mock log exato)"
+  assert_grep "$STATE/pacman.log" 'pacman -Rns --noconfirm vulkan-radeon' \
+    "cadeia F (Setup A): ICDs alienígenas removidos na execução real"
+  assert_grep "$STATE/systemctl.log" 'disable elite-firstboot' \
+    "cadeia F (Setup A): unit firstboot auto-desativada"
+  assert_grep "$STATE/wall.log" 'wall ELITE:' "cadeia F (Setup A): wall transmitido (aviso real de reboot)"
+
+  # cenário PASCAL (rig veterano) COM pacman recusando nvidia-dkms:
+  # o firstboot não pode morrer — o fallback AUR tem que aparecer
+  fbreal pascal "$TESTS_DIR/fixtures/lspci/nv-gp102-bare.txt" 'NVIDIA GeForce GTX 1080' 1 mesa
+  LP="$STATE/fb-real-pascal.log"
+  assert_match "$(sed -n '/^RC=/p' "$LP")" '^RC=0$' "cadeia F (pascal): pacman recusa → firstboot AINDA exit 0"
+  assert_grep "$LP" 'tentando nvidia-dkms' "cadeia F (pascal): plano branch 580 anunciado"
+  assert_grep "$LP" 'nvidia-dkms indisponível' "cadeia F (pascal): falha assumida (sem crash)"
+  assert_grep "$LP" 'paru -S nvidia-580xx-dkms' "cadeia F (pascal): instrução AUR de resgate"
+
+  # prova de isolamento (modo ns): o HOST não ganhou nenhum arquivo elite
+  if [[ $NS_TMPFS == 1 ]]; then
+    hostmod1=0; [[ -f /etc/modprobe.d/00-elite-nvidia.conf ]] && hostmod1=1
+    assert_eq "$hostmod1" "$hostmod0" \
+      "cadeia F: host INTOCADO (escritas viveram no tmpfs do namespace)"
+  else
+    skip "cadeia F: host intocado (modo container)" "CI escreve no /etc do container efêmero — por design"
+  fi
+fi
+
+# ════════════════════════════════════════════════════════════════════
+# 4.G DETERMINISMO DO OVERLAY: a segunda montagem é bit-a-bit igual à
+#     primeira (nenhum sed/awk acumulando edição em cima de edição)
+# ════════════════════════════════════════════════════════════════════
+DET="$WORK/det1"; mkdir -p "$DET"
+cp "$P/packages.x86_64" "$DET/packages.x86_64"
+cp "$P/pacman.conf"     "$DET/pacman.conf"
+cp "$P/grub/grub.cfg"   "$DET/grub.cfg"
+cp "$P/efiboot/loader/entries/01-archiso-linux.conf" "$DET/01-archiso-linux.conf"
+if out="$( cd "$RE" && HOME="$WORK/home" bash scripts/apply-overlay.sh 2>&1 )"; then
+  detsame=1; detbad=""
+  cmp -s "$DET/packages.x86_64" "$P/packages.x86_64" || { detsame=0; detbad="packages.x86_64"; }
+  cmp -s "$DET/pacman.conf"     "$P/pacman.conf"     || { detsame=0; detbad="pacman.conf"; }
+  cmp -s "$DET/grub.cfg"        "$P/grub/grub.cfg"   || { detsame=0; detbad="grub.cfg"; }
+  cmp -s "$DET/01-archiso-linux.conf" "$P/efiboot/loader/entries/01-archiso-linux.conf" \
+    || { detsame=0; detbad="01-archiso-linux.conf"; }
+  (( detsame )) \
+    && ok "cadeia G: 2ª montagem do overlay → bit-a-bit idêntica (determinismo)" \
+    || fail "cadeia G: determinismo do overlay" "divergiu: $detbad"
+else
+  fail "cadeia G: 2ª montagem do overlay" "${out:0:200}"
+fi
 
 phase_end

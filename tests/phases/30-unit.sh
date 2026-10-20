@@ -140,4 +140,74 @@ assert_grep "$REPO/elite/fragments/elite-customize.sh" "grep -q '\^Architecture'
 assert_grep "$REPO/elite/fragments/elite-customize.sh" "Architecture = x86_64 x86_64_v3" "contrato E3:Architecture aceita v3 (#21)"
 assert_grep "$REPO/elite/fragments/elite-customize.sh" 'opt && /\^\\\[/\{' "contrato E3: awk captura [options] inteiro — sem ele o conf sai sem seção"
 
+# ── 3.H ensure_cmdline_token (a inserção GRUB "à prova de aspas") ────
+#  A função mais delicada do produto: sed in-place numa linha aspasada do
+#  GRUB. O dry-run NUNCA a exercita (guard EUID/DRY) — aqui ela roda de
+#  verdade, peça por peça, num arquivo do $WORK (nunca no /etc do host).
+if [[ $EUID -eq 0 ]] || unshare -r true 2>/dev/null; then
+  ECTROOT=(); [[ $EUID -ne 0 ]] && ECTROOT=(unshare -r)
+  ect() { # <arquivo> <token> [ECT_DRY=1] → executa a função REAL do produto
+    local f=$1 t=$2; shift 2
+    with_mocks "${ECTROOT[@]}" env ECT_FILE="$f" ECT_TOKEN="$t" "$@" bash "$WORK/extract.sh"
+  }
+  D="$WORK/ect"; rm -rf "$D"; mkdir -p "$D"
+
+  printf 'GRUB_TIMEOUT=5\n' > "$D/g1"
+  ect "$D/g1" amd_pstate=active
+  assert_grep "$D/g1" '^GRUB_CMDLINE_LINUX_DEFAULT="quiet amd_pstate=active"$' \
+    "GRUB: arquivo SEM a linha → cria com o token"
+
+  printf 'GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"\n' > "$D/g2"
+  ect "$D/g2" nowatchdog
+  assert_grep "$D/g2" 'GRUB_CMDLINE_LINUX_DEFAULT="quiet splash nowatchdog"' \
+    "GRUB: token entra DENTRO das aspas existentes"
+
+  printf 'GRUB_CMDLINE_LINUX_DEFAULT="quiet nowatchdog"\n' > "$D/g3"
+  cp "$D/g3" "$D/g3.orig"
+  ect "$D/g3" nowatchdog
+  cmp -s "$D/g3" "$D/g3.orig" \
+    && ok "GRUB: token repetido → arquivo intocado (idempotente)" \
+    || fail "GRUB: token repetido → idempotente" "arquivo mudou"
+
+  printf 'GRUB_CMDLINE_LINUX_DEFAULT="quiet splash"\n' > "$D/g4"
+  ect "$D/g4" zswap.enabled=0
+  ect "$D/g4" transparent_hugepage=always
+  assert_grep "$D/g4" 'quiet splash zswap\.enabled=0 transparent_hugepage=always' \
+    "GRUB: múltiplos tokens encadeiam sem perder os anteriores"
+
+  printf 'GRUB_CMDLINE_LINUX_DEFAULT="quiet"\n' > "$D/g5"
+  ect "$D/g5" nowatchdog ECT_DRY=1
+  assert_grep "$D/g5" '^GRUB_CMDLINE_LINUX_DEFAULT="quiet"$' \
+    "GRUB: --dry-run não toca no arquivo (guard EUID/DRY)"
+  if ls "$D"/g5.bak.* >/dev/null 2>&1; then
+    fail "GRUB: dry não cria backup" "apareceu .bak em simulação"
+  else
+    ok "GRUB: dry não cria .bak (v4.4)"
+  fi
+
+  printf 'GRUB_CMDLINE_LINUX_DEFAULT="quiet"\n' > "$D/g6"
+  ect "$D/g6" nowatchdog
+  if ls "$D"/g6.bak.* >/dev/null 2>&1; then
+    ok "GRUB: modo REAL preserva o histórico (.bak criado)"
+  else
+    fail "GRUB: modo real cria .bak" "backup ausente na edição real"
+  fi
+else
+  skip "3.H GRUB (6 peças): exige root" "unshare indisponível — o job do CI roda como root"
+fi
+
+# ── 3.I mirror CachyOS fora do ar → PINNED salvam o dia (resiliência) ─
+#  O curl mockado SEMPRE falha: discover_latest tem que voltar vazio e o
+#  produto tem que cair nos nomes PINNED (contrato de rede instável).
+dl() { with_mocks env DL_PROBE="$1" bash "$WORK/extract.sh"; }
+assert_eq "$(dl cachyos-keyring)"       "[]" "resiliência: mirror fora → discover_latest(keyring) vazio"
+assert_eq "$(dl cachyos-v3-mirrorlist)" "[]" "resiliência: mirror fora → discover_latest(mirrorlist v3) vazio"
+TUNE_BIN="$REPO/elite/airootfs/usr/local/bin/elite-tune"
+assert_grep "$TUNE_BIN" '\|\| kr="\$PINNED_KEYRING"' "resiliência: fallback kr=PINNED_KEYRING no produto"
+assert_grep "$TUNE_BIN" '\|\| ml="\$PINNED_V3ML"'    "resiliência: fallback ml=PINNED_V3ML no produto"
+
+# ── 3.J híbrido Optimus COM nvidia-smi: a dGPU dedicada vence ─────────
+assert_eq "$(detect hybrid-optimus.txt 'NVIDIA GeForce RTX 4060')" "nvidia ada" \
+  "detect: híbrido + smi → dGPU vence (rtx 40 → ada, driver certo)"
+
 phase_end

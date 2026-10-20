@@ -27,6 +27,11 @@ case "$1" in
               grep -vxF -- "$p" "$INST" > "$INST.new" && mv "$INST.new" "$INST"
             done
             exit 0 ;;
+  -S)       # refuse também bloqueia instalação (p/ o caminho pascal sem nvidia-dkms)
+            if [[ -f "$ST/refuse" ]]; then
+              echo "mock pacman: instalação bloqueada (modo refuse)" >&2; exit 1
+            fi
+            exit 0 ;;
   *)        exit 0 ;;
 esac
 EOF
@@ -59,11 +64,23 @@ esac
 exit 0
 EOF
 
+mk "$WORK/mocks/curl" <<'EOF'
+#!/usr/bin/env bash
+# mock curl — SEMPRE falha ("mirror fora do ar"): usado para provar os
+# fallbacks PINNED_* do elite-tune sem depender de rede. Só entra em cena
+# via with_mocks; as fases de overlay/release usam o curl REAL.
+echo "mock curl: rede desligada (modo hermético)" >&2
+exit 1
+EOF
+
 mk "$WORK/mocks/dmidecode" <<'EOF'
 #!/usr/bin/env bash
-printf '%s\n' \
-  'Size: 16 GB' 'Size: 16 GB' \
-  'Configured Clock Speed: 3200' 'Configured Clock Speed: 3200'
+# mock dmidecode — 2 cenários de RAM: dual (saudável) e single/lenta (alertas)
+case "${DMIDECODE_MODE:-dual}" in
+  single) printf '%s\n' 'Size: 16 GB' 'Configured Clock Speed: 2666' ;;
+  *)      printf '%s\n' 'Size: 16 GB' 'Size: 16 GB' \
+                   'Configured Clock Speed: 3200' 'Configured Clock Speed: 3200' ;;
+esac
 exit 0
 EOF
 
@@ -82,15 +99,21 @@ T="$REPO/elite/airootfs/usr/local/bin/elite-tune"
 {
   echo '#!/usr/bin/env bash'
   echo "G='[1;32m'; Y='[1;33m'; R='[1;31m'; B='[1m'; N='[0m'"
-  echo 'DRY=0; YES=0'
-  # funções de 1 linha (say/warn/err/run) e blocos multi-linha (closes em ^})
-  grep -E '^(say|warn|err|run)\(\)' "$T"
+  echo 'DRY="${ECT_DRY:-0}"; YES=0'
+  # funções de 1 linha (say/warn/err/run/backup) e blocos multi-linha (closes em ^})
+  grep -E '^(say|warn|err|run|backup)\(\)' "$T"
+  sed -n '/^BK=/p' "$T"
   sed -n '/^gpu_cleanup_foreign()/,/^}$/p' "$T"
   sed -n '/^detect_hw()/,/^}$/p'      "$T"
+  sed -n '/^ensure_cmdline_token()/,/^}$/p' "$T"
+  grep -E '^MIRROR=|^PINNED_KEYRING=|^PINNED_V3ML=' "$T"
+  sed -n '/^discover_latest()/,/^}$/p' "$T"
   cat <<'EOF'
 # gatilhos de teste (controlados por env)
 if [[ -n "${CU_VENDOR:-}" ]]; then gpu_cleanup_foreign "$CU_VENDOR"; exit 0; fi
 if [[ -n "${DETECT_ONLY:-}" ]]; then detect_hw; printf '%s %s\n' "$VENDOR" "$GEN"; exit 0; fi
+if [[ -n "${DL_PROBE:-}" ]]; then v="$(discover_latest "$DL_PROBE")"; printf '[%s]\n' "$v"; exit 0; fi
+if [[ -n "${ECT_FILE:-}" ]]; then ensure_cmdline_token "$ECT_FILE" "${ECT_TOKEN:-}"; exit 0; fi
 EOF
 } > "$WORK/extract.sh"
 
