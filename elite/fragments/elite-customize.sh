@@ -26,8 +26,12 @@ if [[ ! -e /etc/resolv.conf ]]; then
     printf 'nameserver 1.1.1.1\nnameserver 8.8.8.8\n' > /etc/resolv.conf
 fi
 
-## [E1] Chave CachyOS no keyring do airootfs (vale p/ live E p/ instalado:
-##      o /etc/pacman.d/gnupg inteiro é copiado pelo unpackfs)
+## [E1] chave CachyOS no keyring do chroot (fix #20: o chroot vem SEM gnupg —
+##      pacstrap -G não copia o do host e nada o inicializa; sem isto,
+##      recv/lsign morrem com "insufficient permissions" e o E2 entra em
+##      chicken-and-egg: instalar o keyring precisa do keyring p/ verificar
+##      a própria assinatura). Init ANTES de qualquer op de chave.
+pacman-key --init >/dev/null 2>&1 || true
 if ! pacman-key --list-keys "$ELITE_KEY" >/dev/null 2>&1; then
     pacman-key --recv-keys "$ELITE_KEY" --keyserver keyserver.ubuntu.com \
         || pacman-key --recv-keys "$ELITE_KEY" || true
@@ -65,6 +69,13 @@ fi
 ##      Ordem: archcraft > cachyos(v2) > cachyos-v3 trio > core/extra/multilib
 ELITE_PC="/etc/pacman.conf"
 awk '/^\[/ {exit} {print}' "$ELITE_PC" > /tmp/elite-pc-options
+# fix #20 (fatal do run): o conf herdado veio SEM Architecture → o mirror
+# $arch do [archcraft] faz o pacman abortar com "mirror contains the
+# '$arch' variable, but no 'Architecture' is defined" (matou o passo
+# 'Creating a list of installed packages' do mkarchcraftiso). Garante a
+# linha dentro do bloco [options] (o arquivo é só-mais-[options]).
+grep -q '^Architecture' /tmp/elite-pc-options \
+    || printf 'Architecture = x86_64 x86_64_v3\n' >> /tmp/elite-pc-options
 {
     cat /tmp/elite-pc-options
     cat <<'EOL'

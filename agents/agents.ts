@@ -52,6 +52,19 @@ const PROJECT = `
     demais foram pacotes/sigs no cdn77 (db na frente dos arquivos).
   * LEI do pacman (validada no #17): cache hit NÃO gera fetch de .sig — pacman
     valida pelo sha256 do db; .sig só é baixado em download ao vivo.
+  * AUDITORIA DO DEEPSEEK (relay #6) sobre a tese do failover — parciais
+    REFUTADAS com as próprias linhas: o conjunto quebrado era INSTÁVEL
+    (15→6 entre rounds), os timings variavam 60s↔278s, e a sonda é HEAD
+    (não GET). Tese classificada: INDETERMINÁVEL. Lição: distinguir sempre
+    o que a evidência mostra do que a tese precisa.
+  * FORENSE do run #20 (progresso MASSIVO — chegou ao customize): preflight
+    curou com self-heal + us-first; guarda sway OK; E2 fallback OK. FATAL
+    real: E3 herdou [options] SEM Architecture → mirror $arch do [archcraft]
+    aborta o pacman ("contains the '$arch' variable, but no 'Architecture'
+    is defined") no passo 'Creating a list of installed packages'. Segundo
+    furo: chroot vem SEM gnupg (pacstrap -G) → E1 "insufficient permissions"
+    + E2 chicken-and-egg do keyring. Fixes: E1 pacman-key --init; E3 garante
+    Architecture = x86_64 x86_64_v3.
   * FORENSE do run #18 (selo v1 aplicado — dbs congelados ✓, mas FATAL em
     linux-api-headers-1:7.1-1-x86_64_v3): o buraco de 173.65 MiB era
     "Total Download Size" idêntico nos runs #17 e #18 — o -Syw do preflight
