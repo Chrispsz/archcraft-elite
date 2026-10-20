@@ -84,7 +84,7 @@ export const AGENTS: Record<string, AgentProfile> = {
     name: "Elite Builder",
     model: "deepseek-v4.1-flash:free",
     temperature: 0.2,
-    maxTokens: 4096,
+    maxTokens: 8192,
     role: `${PROJECT}
 
 # Seu papel: Elite Builder — engenheiro sênior de build
@@ -110,7 +110,7 @@ ${OUTPUT_RULES}
     name: "Elite Auditor",
     model: "mimo-v2.6-flash:free",
     temperature: 0.1,
-    maxTokens: 4096,
+    maxTokens: 8192,
     role: `${PROJECT}
 
 # Seu papel: Elite Auditor — auditor de QA & confiabilidade de links

@@ -62,6 +62,9 @@ export async function harborChat(opts: {
   temperature?: number;
   maxTokens?: number;
   timeoutMs?: number;
+  /** Retry interno: se o raciocínio consumir o orçamento e o content vier
+   *  vazio (modelos reasoning), dobra maxTokens e tenta UMA vez. */
+  allowBudgetRetry?: boolean;
 }): Promise<string> {
   const token = loadToken();
   const url = `${baseUrl()}/chat/completions`;
@@ -69,7 +72,7 @@ export async function harborChat(opts: {
     model: opts.model,
     messages: opts.messages,
     temperature: opts.temperature ?? 0.2,
-    max_tokens: opts.maxTokens ?? 4096,
+    max_tokens: opts.maxTokens ?? 8192,
   });
 
   // 3 tentativas: 429/5xx fazem backoff (modelos :free têm rate limit apertado).
@@ -109,8 +112,23 @@ export async function harborChat(opts: {
           "EMPTY",
         );
       }
-      const content: string | undefined = data?.choices?.[0]?.message?.content;
+      const msg: any = data?.choices?.[0]?.message;
+      const content: string | undefined = msg?.content;
       if (!content) {
+        // Modelos reasoning (deepseek/mimo flash): o raciocínio pode consumir
+        // o orçamento inteiro e o content final vem vazio/truncado. Uma vez:
+        // dobra o orçamento e repete a chamada (mesma conversa, sem re-montar).
+        const reasoning: string | undefined = msg?.reasoning_content;
+        if (reasoning && opts.allowBudgetRetry !== false) {
+          console.error(
+            `[harbor] content vazio com raciocínio de ${reasoning.length} chars — reexecutando com o dobro do orçamento`,
+          );
+          return harborChat({
+            ...opts,
+            maxTokens: (opts.maxTokens ?? 8192) * 2,
+            allowBudgetRetry: false,
+          });
+        }
         throw new HarborError(
           `completion vazia do Harbor: ${JSON.stringify(data).slice(0, 400)}`,
           "EMPTY",
