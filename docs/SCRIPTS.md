@@ -46,21 +46,9 @@ elite-tune --status            # certificação (sem root) — alias: elite-stat
 
 ---
 
-## elite-wallpaper — `/usr/local/bin/elite-wallpaper`
-
-**O quê:** aplica um wallpaper da coleção Elite (`/usr/share/backgrounds/elite/`): `feh` imediato + `nitrogen` persistente; dica de `betterlockscreen`.
-
-**Como rodar:** `elite-wallpaper` (elite-01) ou `elite-wallpaper 2` (elite-02), dentro da sessão X11.
-
-**Reverter:** `nitrogen` (GUI) ou `feh --bg-fill <arquivo>`.
-
-**Depende de:** feh e/ou nitrogen (já no Archcraft).
-
----
-
 ## apply-overlay.sh — `scripts/apply-overlay.sh` (repo)
 
-**O quê:** o "delta" inteiro. Clona o profile oficial do Archcraft, aplica o overlay `elite/airootfs`, mescla `packages.add`, comenta os de `packages.remove`, troca o firmware meta por subpacotes, insere os repos CachyOS antes de `[core]`, patcha as entradas de boot (BORE em default/opensource/nomodeset; Nvidia fica no stock), remove wants de serviços debloatados, anexa o fragmento E0–E7 ao customize_airootfs, cria o mirrorlist do archcraft p/ o ambiente de build (root/CI) e rebatiza a ISO p/ `archcraft-elite-<data>`.
+**O quê:** o "delta" inteiro. Clona o profile oficial do Archcraft, aplica o overlay `elite/airootfs`, mescla `packages.add`, comenta os de `packages.remove`, troca o firmware meta por subpacotes, insere os repos CachyOS (trio v3 + baseline) antes de `[core]`, patcha as entradas de boot (BORE em default/opensource/nomodeset; Nvidia fica no stock), remove wants de serviços debloatados, patcha o mkarchcraftiso p/ pacstrap não-interativo, anexa o fragmento E0–E8 ao customize_airootfs, expande grupos em pacotes explícitos (CI), cria o mirrorlist do archcraft p/ o ambiente de build (root/CI) e rebatiza a ISO p/ `archcraft-elite-<data>`.
 
 **Como rodar:** `bash scripts/apply-overlay.sh` → saída em `elite-build/`.
 

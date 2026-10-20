@@ -1,131 +1,134 @@
-# Archcraft Elite Edition 🏎️
+# Archcraft Elite Edition
 
-**Archcraft (Openbox/BSPWM) com a camada completa de otimização CachyOS + Valve aplicada de fábrica** — kernel BORE x86-64-v3, sched-ext, ananicy-cpp, boosters de foreground/VRAM, zram, Vulkan de série, debloat cirúrgico e rollback real (btrfs + timeshift + grub-btrfs). Uma ISO tão enxuta e afiada quanto qualquer distro gamer por aí — sem abrir mão do rice lindo do Archcraft.
+ISO live/installer baseada no Archcraft (Openbox/BSPWM) com a camada de otimização CachyOS + Valve aplicada de fábrica: kernel BORE x86-64-v3, sched-ext, Vulkan de série, gerenciamento de VRAM em primeiro plano e rollback nativo. Construída para dois alvos de hardware.
 
 ![Build](https://github.com/Chrispsz/archcraft-elite/actions/workflows/build.yml/badge.svg)
 [![Release](https://img.shields.io/github/v/release/Chrispsz/archcraft-elite?label=Release)](../../releases)
 
-> **Não é um fork.** É um *overlay delta*: a cada build, o GitHub Actions clona o profile oficial do Archcraft e aplica a camada Elite por cima — dotfiles, temas, Calamares e driver NVIDIA live sempre sincronizados com o upstream, zero manutenção de fork.
+## Alvos de hardware
 
----
+| Alvo | CPU | GPU | RAM |
+|---|---|---|---|
+| **Elite A** | Ryzen 7 5700X (Zen 3) | NVIDIA RTX 5060 8 GB (Blackwell) | 16 GB |
+| **Elite B** | Ryzen 5 5600 (Zen 3) | AMD RX 7600 (RDNA 3) | 32 GB |
 
-## ⚠️ Requisito de hardware
+Requisito: CPU x86-64-v3 ou superior. Ambos os alvos (Zen 3) atendem com folga.
+Verificação em qualquer máquina: `/lib64/ld-linux-x86-64.so.2 --help | grep supported`
 
-**CPU x86-64-v3 ou superior** (Haswell 2014+ / Zen+ / Excavator+). O kernel e os pacotes do repo `[cachyos-v3]` usam instruções AVX2/AVX-512 — em CPU mais antiga dá `illegal instruction`.
-Verifique: `/lib64/ld-linux-x86-64.so.2 --help | grep -o 'x86-64-v[0-9]'`
+## Como a ISO se comporta em cada alvo
 
-| Máquina alvo | CPU | Veredicto |
+### Elite A — Ryzen 7 5700X + RTX 5060 (NVIDIA)
+
+| Etapa | O que acontece |
+|---|---|
+| Live (pendrive) | Usar a entrada **Nvidia** do menu de boot: kernel Arch stock + driver `nvidia-open` 615 pré-compilado na ISO (o único caminho para Blackwell — branch fechada não existe nesta geração). A entrada default (kernel BORE) usa nouveau, sem aceleração em Blackwell; serve apenas como fallback de boot. |
+| Instalação | Calamares padrão, btrfs como filesystem default. Internet necessária. |
+| Primeiro boot | `elite-firstboot.service` detecta NVIDIA Blackwell, remove o `nvidia-open` pré-compilado e instala `nvidia-open-dkms` — o DKMS compila o módulo para o kernel BORE v3 e para o kernel stock (rollback). Escreve `nvidia-drm modeset=1 fbdev=1`, `NVreg_PreserveVideoMemoryAllocations=1`, habilita os serviços de tuning e insere os parâmetros GRUB (`amd_pstate=active nowatchdog zswap.enabled=0 transparent_hugepage=always`). Pede reboot. |
+| Segundo boot | RTX 5060 com driver open/GSP em ambos os kernels. Shader cache de 1 GB persistente configurado. Vulkan via NVIDIA, Steam/Feral GameMode e MangoHud prontos. |
+| Rotina de jogo | `PROTON_ENABLE_NVAPI=1 gamemoderun mangohud %command%`. VRAM de 8 GB sob vigilância: `dmemcg-booster` limita aplicativos em segundo plano e o `fg-booster` promove o jogo em foco (peso de CPU/IO 900). Se apertar: `gamescope` com upscaling NIS/FSR subnativo. |
+| BIOS recomendada | DOCP/XMP 3200 MHz, Above 4G Decoding + ReBAR (ligar os dois), PBO + Curve Optimizer −15 a −20. |
+
+### Elite B — Ryzen 5 5600 + RX 7600 (AMD)
+
+| Etapa | O que acontece |
+|---|---|
+| Live (pendrive) | Entrada default (kernel BORE v3). A ISO traz `vulkan-radeon` (RADV) e mesa assados — aceleração 3D completa desde o live, sem instalar driver nenhum. |
+| Instalação | Idêntica: Calamares, btrfs default. |
+| Primeiro boot | Detecta AMD: nada a instalar (RADV já presente). O serviço grava `amdgpu ppfeaturemask=0xffffffff` (destrava undervolt/overclock para o LACT), habilita o stack de tuning e insere os mesmos parâmetros GRUB. Reboot. |
+| Segundo boot | RX 7600 com RADV Vulkan. LACT disponível para undervolt/OC (ppfeaturemask destravado). |
+| Rotina de jogo | `gamemoderun mangohud %command%`. O `dmemcg-booster` **enforça de verdade** os tetos de VRAM de aplicativos em segundo plano em AMD (era o comportamento que faltava no plasma-foreground-booster) — é aqui que a camada rende mais. |
+| BIOS recomendada | DOCP/XMP 3600 MHz ( Ryzen 5 5600 escala bem até ~3600–3800 com FCLK 1:1), Above 4G + ReBAR, PBO + Curve Optimizer. |
+
+### Comum aos dois alvos
+
+- Kernel `linux-cachyos-bore` v3 (BORE + patchset CachyOS, build x86-64-v3) como padrão; kernel `linux` do Arch permanece instalado como fallback no GRUB.
+- `scx-elite.service` (sched-ext bpfland) — trocar para `scx_lavd` com `sudo systemctl edit scx-elite`.
+- `ananicy-cpp` + regras CachyOS para prioridade dinâmica.
+- zram zstd (metade da RAM, teto 8 GB), `vm.swappiness=180`, `max_map_count` Steam, schedulers de I/O por tipo de disco.
+- Rollback real: btrfs + Timeshift + grub-btrfs (snapshot no menu do GRUB).
+- Aplicativos opcionais por demanda: `sudo elite-tune --apps` (Steam, Lutris, OBS, escritório — nada pré-instalado além do essencial).
+
+## O que vem na ISO
+
+| Camada | Componente | Origem |
 |---|---|---|
-| Elite A | Ryzen 7 5700X (Zen 3) | ✅ v3 |
-| Elite B | (veterano — o próprio installer detecta) | ✅ se ≥ Zen+/Haswell |
-
-## 📥 Download
-
-Aba **[Releases](../../releases)** → `archcraft-elite-<data>-x86_64.iso` + `sha256sums.txt`.
-Se a ISO vier dividida em partes (limite de 2 GiB por arquivo do GitHub): baixe todas e `cat archcraft-elite-*.part-* > arquivo.iso` (instruções dentro do `JUNTAR-ISO.md` que acompanha).
-
-Verifique sempre: `sha256sum -c sha256sums.txt`
-
-## 🔧 O que vem assado na ISO
-
-| Camada | O quê | Fonte |
-|---|---|---|
-| Kernel | `linux-cachyos-bore` (BORE + patchset CachyOS, build v3) · `linux` do Arch como fallback no GRUB | CachyOS v3 |
-| Repos v3 | `[cachyos]` + `[cachyos-v3\|core-v3\|extra-v3]` **antes** de `[core]` | wiki.cachyos.org |
-| Scheduler plugável | `scx-scheds` + `scx-tools` + unidade própria `scx-elite.service` (bpfland; troque p/ `scx_lavd` com `systemctl edit`) | sched-ext |
+| Kernel | `linux-cachyos-bore` + `linux` (fallback) | CachyOS v3 / Arch |
+| Repositórios | `[cachyos-v3] [cachyos-core-v3] [cachyos-extra-v3]` antes de `[core]`, baseline `[cachyos]` para os pacotes exclusivos | CachyOS |
+| Scheduler | `scx-scheds` + `scx-tools` + unidade própria | sched-ext / Arch |
 | Prioridade dinâmica | `ananicy-cpp` + `cachyos-ananicy-rules` | CachyOS |
-| Tuning de sistema | `cachyos-settings` (sysctl/udev/modprobe/limits) + `99-elite.conf` por cima | CachyOS + Elite |
-| **VRAM mgmt** | `dmemcg-booster` (tetos de VRAM p/ apps em background — morde de verdade em AMD) | CachyOS |
-| Foreground booster | `fg-booster` (nossa versão X11 do plasma-foreground-booster; cgroups v2, devolve ao leaf de origem) | este repo |
-| Memória | zram zstd (½ RAM, teto 8 GB) + swappiness 180 + `max_map_count` Steam | SteamOS/Fedora style |
-| Gaming | gamemode + gamescope + mangohud (lib32 incluso), LACT, nvtop, btop | multi |
-| **Vulkan de série** | `vulkan-radeon` + `vulkan-intel` + pares lib32 (o ISO upstream **não** trazia!) | Arch |
-| Rollback | GRUB + **btrfs default no installer** + timeshift + grub-btrfs | Arch |
-| NVIDIA | live: entrada de boot dedicada (kernel stock + nvidia-open do próprio Archcraft) · instalado: `elite-firstboot` troca p/ `nvidia-open-dkms` e compila pros 2 kernels | este repo |
-| Ricing | rice Archcraft intacto + 2 wallpapers Elite (`elite-wallpaper 1\|2`) + picom com fullscreen unredirect | upstream + Elite |
+| Tuning de base | `cachyos-settings` + sysctl/zram/udev Elite | CachyOS + este repo |
+| VRAM/foreground | `dmemcg-booster` (tetos p/ segundo plano) + `fg-booster` (peso p/ app em foco, X11) | CachyOS + este repo |
+| Gaming | `gamemode` `gamescope` `mangohud` (lib32 incluídos) `lact` `nvtop` `btop` | Arch / CachyOS |
+| Vulkan | `vulkan-radeon` `vulkan-intel` + pares lib32 (a ISO upstream do Archcraft não trazia) | Arch |
+| NVIDIA live | Entrada dedicada no menu de boot (kernel stock + `nvidia-open`) | Archcraft upstream |
+| Rollback | btrfs default no installer, `timeshift`, `grub-btrfs` | Arch |
 
-## 🚀 Fluxo do usuário (a "mágica")
+## O que foi removido da ISO (debloat)
 
-1. **Live**: boota como Archcraft (entrada default = kernel BORE). GPU NVIDIA e quer aceleração no live? Use a entrada **"Nvidia"** (kernel stock + driver da ISO). AMD/Intel funcionam em qualquer entrada.
-2. **Instala**: Calamares padrão — **btrfs já é o filesystem default** (escolha outro se quiser). Internet necessária.
-3. **Primeiro boot**: `elite-firstboot.service` roda UMA vez → detecta a GPU (Turing+ → `nvidia-open-dkms`; AMD/Intel → nada a fazer), habilita scx/ananicy/fg-booster/dmemcg/grub-btrfsd/lact, insere os tokens GRUB (`amd_pstate=active nowatchdog zswap.enabled=0 transparent_hugepage=always`), se auto-desativa e pede **reboot**.
-4. **Segundo boot**: sistema Elite completo. Certifique com `sudo elite-tune --status` (ou `elite-status`).
-5. **Apps à la carte**: `sudo elite-tune --apps` (Steam, Lutris+Wine, OBS, criação, escritório — só instala o que você marcar).
+Cerca de 60 pacotes e ~1 GB de payload: stack de impressão, cloud-init, guest tools de VM, VPN/modem enterprise, ferramentas de resgate pesadas, Sway/Wayland, fontes CJK e firmwares de servidor/NIC enterprise. A seleção completa, justificativa pacote a pacote e o comando de restauração de cada item está em [docs/CHANGES.md](docs/CHANGES.md). Tudo volta com um `pacman -S <pacote>`.
 
-## ✂️ Debloat (o que SAI da ISO)
+Aparência: nada é imposto. O rice do Archcraft e os pacotes de tema/ícones/cursores upstream permanecem intactos; wallpaper e afins são escolha do usuário, pelas ferramentas padrão da distro (nitrogen/feh).
 
-~55 pacotes + firmware enterprise/nvidia-nouveau cortados ≈ **1 GB+ de payload**. Nada essencial: impressão, cloud-init, guest tools de VM, VPN/modem enterprise, resgate pesado, Sway (Wayland), fontes CJK, firmwares de SoC/servidor…
+## Download e verificação
 
-Tabela completa pacote-a-pacote com justificativa e comando de restore: **[docs/CHANGES.md](docs/CHANGES.md)**.
-Tudo volta com 1 comando: `sudo pacman -S <pacote>` (ou `linux-firmware` p/ firmware completo).
+Aba [Releases](../../releases): `archcraft-elite-<data>-x86_64.iso` + `sha256sums.txt`.
 
-## 🎮 Launch options recomendadas
-
+```bash
+sha256sum -c sha256sums.txt
 ```
-PROTON_ENABLE_NVAPI=1 gamemoderun mangohud %command%
-```
-VRAM apertada (8 GB): `gamescope -W 1920 -H 1080 -w 1280 -h 720 -Y -f -- %command%` (NIS; troque `-Y` por `-U` para FSR).
-Experimental (kernel 6.14+): adicionar `PROTON_USE_NTSYNC=1`.
 
-## 🧬 BIOS — checklist Elite A (Ryzen 7 5700X + RTX 5060)
+Se a ISO vier dividida em partes (limite de 2 GB por arquivo do GitHub), as instruções de reconstrução acompanham o release (`JUNTAR-ISO.md`).
 
-- [ ] **DOCP/XMP** a 3200 MHz (`elite-tune` reclama se a RAM estiver abaixo de 3000)
-- [ ] **2 pentes** = dual-channel (1 pente = −10~15% fps — `dmidecode -t 17` pra conferir)
-- [ ] **Above 4G Decoding + ReBAR** (ligar os DOIS juntos)
-- [ ] **PBO + Curve Optimizer** negativo (−15 → −20, testar estabilidade)
+## Instalação
 
-## 🩺 Troubleshooting
+1. Boot pelo pendrive (Entrada default, ou **Nvidia** no Elite A).
+2. Ícone do Calamares na sessão live — filesystem btrfs já vem como default.
+3. Ao terminar, remover a mídia e reiniciar; o primeiro boot executa a configuração automática (ver tabelas por alvo acima) e pede um reboot.
+4. Certificação do sistema: `elite-status`.
 
-| Sintoma | Causa | Solução |
-|---|---|---|
-| `illegal instruction` no boot | CPU < x86-64-v3 | Use a ISO oficial do Archcraft (o script/tuning ainda serve via `elite-tune`) |
-| Tela preta NVIDIA no live | Blackwell + nouveau | Entrada **"Nvidia"** no menu de boot |
-| GTX 900/1000 no instalado | branch open não suporta Maxwell/Pascal | `paru -S nvidia-580xx-dkms` e `sudo elite-tune --yes` (script orienta) |
-| Janela não acelera ao ganhar foco | fg-booster | `systemd-cgls /fg-boost.slice` (app focado deve aparecer; some ao perder foco) |
-| Snapshot não aparece no GRUB | grub-btrfsd × timeshift | `sudo systemctl status grub-btrfsd` — snapshots da timeshift são detectados automaticamente nas versões atuais |
+## Rollback e segurança
 
-## 🔒 Segurança / rollback
+- Toda alteração de arquivo feita pelos scripts Elite gera backup `.bak.<timestamp>` junto ao original.
+- `elite-tune` aceita `--dry-run` (simulação completa, nada é escrito).
+- Kernel Arch sempre instalado como entrada de fallback no GRUB.
+- Rollback do sistema: Timeshift + entrada de snapshot no GRUB (grub-btrfs).
+- Rollback dos repositórios: remover as seções `[cachyos*]` do `/etc/pacman.conf` e `sudo pacman -Qqn | pacman -S -`.
+- pacman original preservado (o fork do CachyOS não é instalado); chave GPG CachyOS `F3B607488DB35A47` importada no sistema instalado.
 
-- Chave GPG CachyOS `F3B607488DB35A47` importada no build **e** no sistema instalado; pacman **stock** (o fork do CachyOS não é instalado)
-- `elite-tune` aceita `--dry-run`; toda mudança em arquivo ganha `.bak.<timestamp>`
-- Kernel `linux` do Arch permanece instalado → fallback no GRUB (Advanced options)
-- Rollback dos repos: remover as seções `[cachyos*]` do `/etc/pacman.conf` + `sudo pacman -Qqn | pacman -S -`
+## Build
 
-## 🏗️ Build
+O build roda no GitHub Actions: job `lint` (shellcheck como gate) e job `build` (container Arch Linux privilegiado, `mkarchcraftiso` do upstream). Push em `main` ou *Run workflow* dispara o build (~30–60 min); tags `v*` publicam release com ISO + checksums automaticamente.
 
-**GitHub Actions (recomendado):** push na `main` (ou *Run workflow*) → job `lint` (shellcheck gate) → job `build` (~35–55 min) → artefato + release automático em tag `v*`.
+Local (em Arch Linux, requer archiso e privilégios):
 
-**Local (em Arch, com archiso):**
 ```bash
 bash scripts/apply-overlay.sh
 cd elite-build/profile && sudo ./mkarchcraftiso -v -w /tmp/iso-work -o out .
 ```
 
-## 📁 Estrutura
+Este repositório é um *overlay delta*: a cada build ele clona o profile oficial do Archcraft e aplica a camada Elite por cima — sem fork, sempre sincronizado com o upstream.
+
+## Estrutura
 
 ```
-├── .github/workflows/build.yml      ← CI: lint (shellcheck) + build + release (split se >2GiB)
-├── scripts/apply-overlay.sh         ← o "delta": clona upstream + aplica a camada Elite
-└── elite/
-    ├── packages.add                 ← kernel BORE, scx, boosters, gaming, Vulkan
-    ├── packages.remove              ← debloat cirúrgico documentado
-    ├── pacman-repos.build.add       ← repos CachyOS (cdn77+us) antes de [core]
-    ├── fragments/elite-customize.sh ← E0–E7: chave, keyring, pacman.conf limpo,
-    │                                  cirurgia no Calamares (BORE no /boot do alvo,
-    │                                  initcpio@elite, btrfs default), preset pós-install
-    └── airootfs/                    ← sysctl, zram, udev, units (scx-elite, fg-booster,
-                                       dmemcg, firstboot), preset mkinitcpio BORE,
-                                       MangoHud, wallpapers Elite, scripts usr/local/bin
+.github/workflows/build.yml     CI: lint + build + release
+.ci/build.sh                    Lógica de build dentro do container Arch
+scripts/apply-overlay.sh        O delta: clona o upstream e aplica a camada Elite
+elite/packages.add              Pacotes adicionais
+elite/packages.remove           Debloat (comentados, restauráveis)
+elite/pacman-repos.build.add    Repositórios CachyOS para o build
+elite/fragments/elite-customize.sh   E0–E8: keyring, pacman.conf, cirurgia no Calamares
+elite/airootfs/                 sysctl, zram, udev, units, preset mkinitcpio, scripts
+docs/CHANGES.md                 Delta completo vs. upstream, com justificativas
+docs/SCRIPTS.md                 Documentação por script (uso / reversão / dependências)
 ```
 
-Documentação por script (o quê / como rodar / como reverter / dependências): **[docs/SCRIPTS.md](docs/SCRIPTS.md)**.
+## Créditos
 
-## 🙏 Créditos
+- [Archcraft](https://github.com/archcraft-os/archcraft) — Aditya Shakya (adi1090x): profile, rice, pacotes e mkarchcraftiso. Este projeto é um overlay; o sistema base é dele.
+- [CachyOS](https://cachyos.org) — kernel BORE, repositórios v3, settings e boosters.
+- Arch Linux, [sched-ext](https://github.com/sched-ext/scx), Valve (gamemode/gamescope/Proton), SteamOS e Fedora (referências de sysctl/zram).
 
-- **[Archcraft](https://github.com/archcraft-os/archcraft)** — Aditya Shakya (adi1090x): profile, rice, pacotes e o mkarchcraftiso. A Elite é um overlay; o mérito do sistema base é todo dele.
-- **[CachyOS](https://cachyos.org)** — kernel BORE, repos v3, settings, boosters (dmemcg/plasma-foreground-booster) e a wiki que guia boa parte das decisões.
-- **Arch Linux**, **[sched-ext/scx](https://github.com/sched-ext/scx)**, **Valve** (gamemode/gamescope/Proton), **SteamOS** (sysctl/zram), **Fedora** (zram-generator).
+## Licença
 
-## 📄 Licença
-
-MIT para os arquivos deste overlay (veja [LICENSE](LICENSE)). O profile do Archcraft clonado em build-time mantém a licença do upstream (GPL-3.0), assim como os respectivos softwares de cada projeto citado acima.
+MIT para os arquivos deste repositório ([LICENSE](LICENSE)). O profile do Archcraft clonado em tempo de build e os pacotes instalados mantêm as licenças dos projetos de origem.
