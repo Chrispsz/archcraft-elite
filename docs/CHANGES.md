@@ -84,3 +84,29 @@ Restore total: `sudo pacman -S linux-firmware`.
 - `/etc/mkinitcpio.d/linux-cachyos-bore.preset` — preset archiso p/ o live
 - `/etc/skel/.config/MangoHud/MangoHud.conf` — overlay com VRAM
 - `/usr/local/bin/{elite-tune,elite-status,fg-booster}`
+
+## v4.4 — zero-curl ×2 + preflight execv-safe (runs #14/#15)
+
+- **Causa raiz dos runs #14–#15 (prova binária)**: `libalpm.so` importa
+  `execv`+`fork`, não `system()` — o pacman executa o XferCommand via
+  fork/execv, SEM shell. O `|| echo "ELITE-FAIL %u" >> …` do preflight
+  virava argumento literal do curl → "failed to synchronize all
+  databases" em TODA transferência → 4-5 rounds inúteis.
+- **Preflight v3**: XferCommand plano (flags apenas); mapeamento de
+  falhas por SONDA pós-round (`pacman -Sp --print-uris` → HEAD paralelo
+  16× via xargs -n1); 3 rounds (não 5); ABORTA com diagnóstico em vez
+  de "seguir mesmo assim"; mkarchcraftiso 2 tentativas sem sleeps de
+  90s; -Syw SEM --needed (cache = transação inteira do chroot).
+- **E6b**: linux.preset reescrito para default/fallback no customize —
+  no alvo, o chrooted_post_install_nvidia.sh do Archcraft DELETA
+  /etc/mkinitcpio.conf.d/ antes do initcpio do Calamares; o preset
+  'archiso' apontava para o conf deletado → `mkinitcpio -p linux`
+  morreria em "must be readable" (check_path r, fonte 42.2) e o kernel
+  stock (entrada NVIDIA: nvidia-open pré-compilado) ficaria sem
+  initramfs no sistema instalado.
+- **BORE não shipa preset** (MTREE verificado: 0 arquivos etc/) — sem
+  conflito com o overlay; o hook 90-mkinitcpio-install gera os 3
+  initramfs do live num `mkinitcpio -P` único. O `linux` do Arch idem
+  (7752 arquivos, 0 mkinitcpio).
+- ParallelDownloads 10 no conf de build; -n1 no xargs (sem ele, só a
+  1ª URL era sondada); Never nos repos unsigned (archcraft/elite-local).

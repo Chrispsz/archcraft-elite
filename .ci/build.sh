@@ -112,97 +112,113 @@ cp /var/cache/elite-local/* elite/airootfs/var/cache/elite-local/
 bash scripts/apply-overlay.sh
 
 # ─────────────────────────────────────────────────────────────────────
-# Preflight auto-curativo: os mirrors rolling do CachyOS vivem em janelas
-# de dessincronização db↔arquivo (migração de toolchain: gcc/glibc/qt5/
-# libyuv 404 por horas). Antes de CADA tentativa:
-#   1. baixa TODOS os pacotes da transação p/ o cache (-Syw — mesma
-#      resolução que o pacstrap usará; nada é instalado no host)
-#   2. o XferCommand de preflight REGISTRA cada URL que falhar
-#   3. arquivo 404 no cdn77 E no gêmeo us → injeta a versão BASELINE do
-#      Arch no repo [elite-local] (primeiro repo do conf) e refaz o round
-# Com o cache completo, o pacstrap do mkarchcraftiso não baixa nada.
+# Preflight v3 — EXECV-SEGURO. O pacman executa o XferCommand via
+# fork/execv (libalpm importa execv+fork, NÃO system()): operadores de
+# shell ("|| echo … >>") viram argumentos literais do curl e matam TODA
+# transferência — "failed to synchronize all databases", a falha que
+# custou os runs #14 e #15. Agora:
+#   1. pacman -Syw baixa a transação INTEIRA p/ o cache (download-only;
+#      SEM --needed: o cache tem de cobrir tudo que o pacstrap pede no
+#      chroot — o host já tem base+deps instalados e --needed pularia)
+#   2. round falhou → pacman -Sp --print-uris lista as URLs → sonda
+#      HEAD paralela → os 404 reais (janela de desync db↔arquivo dos
+#      mirrors rolling: db anuncia, mirror ainda não propagou)
+#   3. 404 no cdn77 E no gêmeo us → injeta o BASELINE Arch oficial no
+#      [elite-local] (primeiro repo do conf) e refaz o round
+#   4. 3 rounds sem fechar o cache → ABORTA com diagnóstico — nunca
+#      entra num build com cache sabidamente quebrado
+# Cache completo → pacstrap offline (não baixa nada da rede).
 # ─────────────────────────────────────────────────────────────────────
 preflight() {
     local pc=/work/elite-build/profile/pacman.conf
     local plconf=/tmp/elite-preflight.conf
     cd /work/elite-build/profile
 
-    # conf de preflight: profile + XferCommand que loga as falhas.
-    # -s: o preflight NÃO imprime erro de curl (a falha vira a linha limpa
-    # “ELITE-FAIL <url>” no /tmp/elite-404s.txt — zero ruído de curl no log)
-    sed -e 's@^XferCommand = .*@XferCommand = /usr/bin/curl -s -L -C - -f -o %o %u --retry 2 --retry-delay 3 --retry-all-errors || echo "ELITE-FAIL %u" >> /tmp/elite-404s.txt@' \
+    # XferCommand PLANO (execv-safe: flags apenas). O logger de falhas
+    # mora FORA do XferCommand (sonda pós-round), nunca dentro dele.
+    sed -e 's@^XferCommand = .*@XferCommand = /usr/bin/curl -L -C - -f -o %o %u --retry 3 --retry-delay 3 --retry-all-errors@' \
         "$pc" > "$plconf"
 
-    # conf Arch-only p/ resolver os fallbacks baseline (awk remove as
-    # SEÇÕES inteiras — sem grep -v, que deixaria SigLevel órfão)
-    awk '/^\[/{keep = !($0 ~ /^\[(elite-local|cachyos|cachyos-v3|cachyos-core-v3|cachyos-extra-v3)\]$/)} keep' \
+    # conf Arch-only p/ os baselines: awk remove as SEÇÕES inteiras dos
+    # repos Elite/Archcraft/CachyOS (grep -v deixaria SigLevel órfão)
+    awk '/^\[/{keep = !($0 ~ /^\[(elite-local|archcraft|cachyos|cachyos-v3|cachyos-core-v3|cachyos-extra-v3)\]$/)} keep' \
         "$pc" > /tmp/elite-arch-only.conf
 
     # lista de alvos IDÊNTICA à do pacstrap: mkarchcraftiso passa
-    # “grep -h '^[^#]' packages.x86_64” verbatim (inclui nomes qualificados
-    # “archcraft/grub”) — o preflight resolve exatamente o que o pacstrap
-    # vai pedir, senão o cache diverge e o pacstrap volta à rede
+    # "grep -h '^[^#]'" verbatim (inclui qualificados "archcraft/grub")
     mapfile -t PL < <(grep -h '^[^#]' packages.x86_64)
-    say "Preflight: ${#PL[@]} alvos — baixando tudo p/ o cache (round 1)"
 
-    local round u u2 c2 fn base fu
-    for round in 1 2 3 4 5; do
-        rm -f /tmp/elite-404s.txt
-        if pacman --config "$plconf" -Syw --needed --noconfirm "${PL[@]}" >/tmp/elite-pf.log 2>&1; then
-            say "Preflight round $round: cache completo — pacstrap não vai baixar pacote da rede"
+    local round u u2 code fn base fu
+    for round in 1 2 3; do
+        say "Preflight round $round/3: -Syw de ${#PL[@]} alvos (só download; nada é instalado)"
+        if pacman --config "$plconf" -Syw --noconfirm "${PL[@]}" >/tmp/elite-pf.log 2>&1; then
+            say "Preflight: cache completo — pacstrap offline dali em diante"
             return 0
         fi
-        say "Preflight round $round falhou — tail do pacman:"
-        tail -5 /tmp/elite-pf.log || true
-        mapfile -t BAD < <(grep '^ELITE-FAIL ' /tmp/elite-404s.txt 2>/dev/null | awk '{print $2}' | grep '\.pkg\.tar\.zst$' | sort -u || true)
-        if (( ${#BAD[@]} == 0 )); then
-            say "Preflight: falha sem 404 de pacote mapeado — re-sincronizando e repetindo"
+        say "Preflight round $round: -Syw falhou — mapeando URLs quebradas (sonda HEAD paralela)"
+        mapfile -t URLS < <(pacman --config "$plconf" -Sp --print-uris --noconfirm "${PL[@]}" 2>/dev/null \
+            | grep -oE '^https?://[^ ]+\.pkg\.tar\.zst$' | sort -u || true)
+        if (( ${#URLS[@]} == 0 )); then
+            say "Preflight: -Sp não listou URLs (db sync quebrado?) — tail do pacman:"
+            tail -8 /tmp/elite-pf.log || true
             continue
         fi
+        # sonda paralela: 16 HEADs simultâneos. -n1 = uma URL por invocação
+        # (sem ele o xargs empilha todas num único sh: só a 1ª sairia).
+        # SEM -I{}: trocaria também o "{}" interno de "%{http_code}".
+        # A URL entra como $1 (append padrão do xargs); $0="sh".
+        : > /tmp/elite-probe.txt
+        printf '%s\n' "${URLS[@]}" | xargs -d '\n' -n1 -P 16 sh -c \
+            'u=$1; c=$(curl -s -o /dev/null -w "%{http_code}" -m 25 --head "$u" 2>/dev/null) || c=000; echo "$c $u"' sh \
+            >> /tmp/elite-probe.txt
+        mapfile -t BAD < <(awk '$1 != "200" {print $2}' /tmp/elite-probe.txt | sort -u || true)
+        if (( ${#BAD[@]} == 0 )); then
+            say "Preflight: nenhuma URL quebrada (falha transiente de rede) — re-sincronizando"
+            continue
+        fi
+        say "Preflight: ${#BAD[@]} URL(s) quebrada(s):"
+        printf '  ELITE-FAIL %s\n' "${BAD[@]}"
         local injected=0
         for u in "${BAD[@]}"; do
             # gêmeo cdn77↔us: só é problema se faltar em AMBOS
             u2=$u
             [[ "$u" == *cdn77.cachyos.org* ]] && u2=${u/cdn77.cachyos.org/us.cachyos.org}
-            c2=$(curl -s -o /dev/null -w '%{http_code}' -m 25 --head "$u2" 2>/dev/null) || c2=000
-            [[ "$c2" == "200" ]] && continue
+            code=$(curl -s -o /dev/null -w '%{http_code}' -m 25 --head "$u2" 2>/dev/null) || code=000
+            [[ "$code" == "200" ]] && { say "  ok no gêmeo us (cdn77 desinc só) — $u2"; continue; }
             fn=${u##*/}
             base=$(printf '%s' "$fn" | sed -E 's/-(any|x86_64(_v3)?)\.pkg\.tar\.zst$//' | rev | cut -d- -f3- | rev)
             fu=$(pacman --config /tmp/elite-arch-only.conf -Sp --print-uris --noconfirm "$base" 2>/dev/null \
-                 | grep -oE 'https?://[^ ]+' | head -1 || true)
+                 | grep -oE '^https?://[^ ]+\.pkg\.tar\.zst$' | head -1 || true)
             if [[ -n "$fu" ]]; then
-                say "Preflight: $fn quebrado nos 2 mirrors → baseline Arch injetado no [elite-local]"
-                curl -fsSL -o "/var/cache/elite-local/${fu##*/}" "$fu" || true
-                injected=1
+                say "  $fn quebrado nos 2 mirrors → baseline Arch injetado no [elite-local]"
+                if curl -fsSL -o "/var/cache/elite-local/${fu##*/}" "$fu"; then injected=1; fi
             else
-                say "Preflight: $fn quebrado e sem fallback Arch — próxima rodada decide"
+                say "  $fn quebrado e SEM baseline Arch — próximo round decide"
             fi
         done
         if (( injected )); then
             repo-add --quiet /var/cache/elite-local/elite-local.db.tar.gz /var/cache/elite-local/*.pkg.tar.zst
             cp /var/cache/elite-local/* /work/elite-build/profile/airootfs/var/cache/elite-local/
-            say "Preflight: repo [elite-local] atualizado com baseline(s)"
+            say "  [elite-local] atualizado com baseline(s) — refazendo o round"
         fi
     done
-    say "Preflight: 5 rodadas sem fechar o cache — seguindo (retry externo cobre)"
-    return 0
+    say "Preflight: 3 rounds sem fechar o cache — ABORTANDO com o diagnóstico acima (build com cache quebrado é tempo perdido)"
+    return 1
 }
 
 say "Construindo ISO (mkarchcraftiso — fork oficial do Archcraft)"
 mkdir -p /mnt/iso-work /work/out
 cd elite-build/profile
-for attempt in 1 2 3; do
-    preflight
+for attempt in 1 2; do
     rm -rf /mnt/iso-work
-    if ./mkarchcraftiso -v -w /mnt/iso-work -o /work/out . ; then
+    if preflight && ./mkarchcraftiso -v -w /mnt/iso-work -o /work/out . ; then
         break
     fi
-    if [ "$attempt" = "3" ]; then
-        echo "FALHOU após 3 tentativas"
+    if [ "$attempt" = "2" ]; then
+        echo "FALHOU nas 2 tentativas — causa acima nos logs (falha determinística não se cura com retry; não há 3ª)"
         exit 1
     fi
-    say "Tentativa $attempt falhou — aguardando 90s (mirrors sincronizam) e repetindo"
-    sleep 90
+    say "Tentativa $attempt falhou — UMA retentativa, sem sleep (cache do preflight acelera a 2ª)"
 done
 
 say "Checksums + relatório de tamanho"

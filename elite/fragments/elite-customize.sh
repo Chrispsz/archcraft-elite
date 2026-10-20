@@ -161,6 +161,29 @@ fallback_image="/boot/initramfs-linux-cachyos-bore-fallback.img"
 fallback_options="-S autodetect"
 EOL
 
+## [E6b] linux.preset do KERNEL STOCK também vira default/fallback. O preset
+##       'archiso' do upstream aponta archiso_config p/ /etc/mkinitcpio.conf.d/
+##       archiso.conf — que o chrooted_post_install_nvidia.sh do Archcraft
+##       DELETA do alvo (junto com o conf.d inteiro) ANTES do módulo initcpio
+##       do Calamares. mkinitcpio -p linux morreria em “must be readable”
+##       (check_path r em arquivo inexistente — verificado no fonte 42.2) e o
+##       kernel stock ficaria sem initramfs no disco instalado — perdendo a
+##       entrada NVIDIA no alvo (o nvidia-open pré-compilado é só p/ ele).
+##       Live não muda: os initramfs da sessão live já foram gerados pelo hook
+##       90-mkinitcpio-install durante o pacstrap (antes deste customize).
+cat > /etc/mkinitcpio.d/linux.preset <<'EOL'
+# mkinitcpio preset file for the 'linux' package (Elite — installed system)
+ALL_kver="/boot/vmlinuz-linux"
+ALL_config="/etc/mkinitcpio.conf"
+
+PRESETS=('default' 'fallback')
+
+default_image="/boot/initramfs-linux.img"
+
+fallback_image="/boot/initramfs-linux-fallback.img"
+fallback_options="-S autodetect"
+EOL
+
 ## [E7] post-install do Archcraft: tira da lista de serviços habilitados
 ##      os que a Elite debloatou (cups via cups-filters→avahi) — evita
 ##      erro de "unit inexistente" no log da instalação
