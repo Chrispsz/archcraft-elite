@@ -257,6 +257,27 @@ rm -rf "$SD/cloud-init.target.wants"
 say "Patch: pacstrap não-interativo no mkarchcraftiso (remove -i)"
 sed -i 's|pacstrap -C "${work_dir}/${buildmode}.pacman.conf" -i -c -G -M|pacstrap -C "${work_dir}/${buildmode}.pacman.conf" -c -G -M|g' "$PROFILE/mkarchcraftiso"
 
+# ── [8.5] customize_airootfs.sh: guarda do bloco sway ──────────────
+#  O upstream do customize trata as 3 edições como presentes (openbox/
+#  bspwm/sway). O debloat Elite remove o archcraft-skeleton-wayland →
+#  /etc/skel/.config/sway NÃO existe no airootfs → o 'sed -i' do upstream
+#  morre com 'can't read' (set -e aborta o script inteiro — foi exata-
+#  mente o que derrubou o run #17 no ÚLTIMO passo do build) e o 'cat >>'
+#  criaria um arquivo órfão no skel. A guarda [[ -f ]] preserva o com-
+#  portamento upstream quando a edição existe e vira no-op quando não.
+#  openbox/bspwm ficam intocados (edições presentes na Elite).
+say "Patch: guarda do bloco sway no customize_airootfs.sh (edição wayland debloatada)"
+CS="$PROFILE/airootfs/root/customize_airootfs.sh"
+# delimitador @ (o replacement contém '|| true' — '|' colidiria);
+# \. casa o ponto literal; \$ protege o anchor do bash em aspas duplas
+sed -i \
+  -e "s@^sed -i -e '/## Welcome-App-Run-Once/Q' /etc/skel/\.config/sway/scripts/startup\$@[[ -f /etc/skel/.config/sway/scripts/startup ]] \&\& sed -i -e '/## Welcome-App-Run-Once/Q' /etc/skel/.config/sway/scripts/startup || true@" \
+  -e 's@^cat >> "/etc/skel/\.config/sway/scripts/startup" <<- EOL$@[[ -f /etc/skel/.config/sway/scripts/startup ]] \&\& cat >> "/etc/skel/.config/sway/scripts/startup" <<- EOL || true@' \
+  "$CS"
+if ! grep -q '\[\[ -f /etc/skel/.config/sway/scripts/startup \]\]' "$CS"; then
+  say "AVISO: bloco sway não encontrado no customize (upstream mudou o padrão?) — conferir manualmente"
+fi
+
 # ── [9] Fragmento elite no customize_airootfs.sh ───────────────────
 say "Anexando fragmento elite ao customize_airootfs.sh (E0–E8)"
 CF="$PROFILE/airootfs/root/customize_airootfs.sh"
