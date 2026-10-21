@@ -76,9 +76,22 @@ jobs:
           retention-days: 30
           compression-level: 0
 
-  # ── Release: SÓ depois do gate de boot (needs verify) ─────────────
+  # ── GATE DE INSTALAÇÃO (v1.0.5): o disco INSTALADO tem que bootar ──────
+  # Reusa o diag-install.yml (workflow_call) — a cadeia Calamares fiel
+  # (unpackfs rsync→btrfs + E5a + E10 cp + initcpio@elite + GRUB) e o boot
+  # do disco instalado no QEMU. O verify acima só prova o LIVE; o bug do
+  # rig B (vmlinuz truncado em btrfs → 'premature end of file' no GRUB)
+  # era invisível para ele. Release sem install-boot verde = gambiarra.
+  verify-install:
+    needs: build
+    uses: ./.github/workflows/diag-install.yml
+    permissions:
+      contents: read
+      actions: read
+
+  # ── Release: SÓ depois dos gates (live-boot verify + install-boot) ──
   release:
-    needs: [build, verify]
+    needs: [build, verify, verify-install]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -203,7 +216,11 @@ jobs:
 
       - name: GATE — veredito do boot
         run: |
-          set -e
+          # v1.0.5: set +e — o 'set -e' antigo matava o gate no PRIMEIRO grep
+          # sem match, ANTES do chk imprimir o diagnóstico (#42/#43: gate
+          # vermelho sem uma única linha de explicação no log). Cada grep
+          # alimenta o chk; o exit $FAIL no final decide a run.
+          set +e
           FAIL=0
           chk() { # $1=condição(0=ok) $2=mensagem-ok $3=mensagem-fail
             if [ "$1" -eq 0 ]; then echo "✔ $2"; else echo "✖ $3"; FAIL=1; fi

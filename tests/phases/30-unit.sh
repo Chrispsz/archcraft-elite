@@ -86,11 +86,15 @@ assert_grep "$REPO/.ci/build.sh" 'cd pywal-\*/' "pywal #27: o PKGBUILD do CI usa
 
 # ── 3.D contratos dos workflows (o texto do CI é promessa pública) ──
 BY="$REPO/.github/workflows/build.yml"
-# v1.0.3: 4 jobs pinados em ubuntu-24.04 (lint, build, release, verify —
-# runner image é superfície de risco p/ o build privilegiado, o release e
-# o QEMU do gate); relay-agents (só dispatch da API) fica no ubuntu-latest
+# v1.0.3/v1.0.5: 4 jobs com runs-on próprio pinados em ubuntu-24.04 (lint,
+# build, release, verify — runner image é superfície de risco p/ o build
+# privilegiado, o release e o QEMU do gate); relay-agents (só dispatch da
+# API) fica no ubuntu-latest; verify-install (v1.0.5) é workflow_call — o
+# runs-on mora no diag-install.yml reutilizado, também 24.04
 assert_eq "$(grep -c 'runs-on: ubuntu-24.04' "$BY")" "4" "contrato: build.yml — 4 jobs pinados em ubuntu-24.04 (lint/build/release/verify)"
-assert_grep "$BY" 'needs: \[build, verify\]' "contrato: release SÓ depois do gate de boot (needs build+verify)"
+assert_grep "$BY" 'needs: \[build, verify, verify-install\]' "contrato: release SÓ depois do gate de boot E do gate de instalação (v1.0.5)"
+assert_grep "$BY" 'verify-install:' "contrato: job verify-install presente (install-gate no pipeline)"
+assert_grep "$BY" 'uses: \./\.github/workflows/diag-install\.yml' "contrato: install-gate reusa o diag-install.yml (workflow_call — zero duplicação)"
 assert_grep "$BY" "code=203/EXEC" "contrato: gate verifica 203/EXEC (binários executáveis no live)"
 assert_grep "$BY" 'gh workflow run agents\.yml' "contrato: relay dispara mimo/deepseek pós-build"
 assert_grep "$BY" 'split -b 1900M -d "\$ISO" "\$\{ISO\}\.part-"' "contrato: split com prefixo aspasado"
@@ -108,6 +112,14 @@ AY="$REPO/.github/workflows/agents.yml"
 assert_grep "$AY" 'deepseek' "contrato: agents.yml — deepseek presente"
 assert_grep "$AY" 'mimo' "contrato: agents.yml — mimo presente"
 assert_grep "$AY" 'actions: read' "contrato: agents.yml — permissão de ler runs"
+# v1.0.5: o install-gate tem contrato próprio — o grep de entradas do
+# grub.cfg casa TAB (o '(linux|initrd) ' com espaço da v1.0.4 devolvia vazio
+# = falso negativo; a run #2 da branch diag-install morreu nisso sem o
+# bug existir) e o unsquashfs roda com sudo (xattrs security.capability)
+DI="$REPO/.github/workflows/diag-install.yml"
+assert_grep "$DI" 'workflow_call:' "contrato: diag-install.yml é workflow reutilizável (chamável como gate)"
+assert_grep "$DI" 'sudo unsquashfs' "contrato: unsquashfs com sudo (xattrs exigem root — run #1)"
+assert_grep "$DI" '\(linux\|initrd\)\[\[:space:\]\]' "contrato: grep de entradas do grub.cfg casa TAB ([[:space:]])"
 
 # ── 3.E listas de pacotes (sanidade das duas caixas) ─────────────────
 PA="$REPO/elite/packages.add"; PR="$REPO/elite/packages.remove"

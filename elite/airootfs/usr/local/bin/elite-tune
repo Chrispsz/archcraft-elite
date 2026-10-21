@@ -1,8 +1,16 @@
 #!/usr/bin/env bash
 # =====================================================================
-#  elite-tune v4.4 — Archcraft Elite Edition
+#  elite-tune v4.5 — Archcraft Elite Edition
 #  Elite A: Ryzen 7 5700X · RTX 5060 8GB · 16GB · B550M
 #  Elite B: veterano — detecção automática de GPU/CPU/disco
+#
+#  v4.5: · firstboot NVIDIA sem rede não BRICA o driver: o nvidia-open-dkms
+#          é instalado ANTES de destronar o nvidia-open pré-compilado (a
+#          ordem antiga era -R → -S: sem rede no 1º boot o rig ficava sem
+#          driver NENHUM). Falha no -S → driver do live preservado + marker
+#          NÃO escrito → elite-firstboot re-tenta no próximo boot com rede.
+#        · wall honesto: "REINICIE" só quando o driver foi trocado de fato;
+#          sem rede avisa para conectar e reiniciar em vez de mentir.
 #
 #  v4.4: · "dry é seco" DE VERDADE (3 side-effects pegados pela suíte):
 #          · backup() ignorava --dry-run → criava /etc/*.bak.* em simulação
@@ -65,6 +73,13 @@ PACMAN_CONF="/etc/pacman.conf"
 BK=".bak.$(date +%Y%m%d-%H%M%S)"
 backup() { (( DRY )) && return 0; [[ $EUID -eq 0 && -f "$1" ]] && cp -a "$1" "$1$BK" 2>/dev/null; return 0; }
 run() { echo -e "  ${B}\$${N} $*"; (( DRY )) || "$@"; return 0; }
+pacman_s() { # pacman -S com código de retorno REAL (run() engole rc por design)
+  # v4.5: fluxos que DECIDEM algo (troca de driver) precisam do rc de
+  # verdade. --dry-run: NÃO executa (dry é seco, v4.4) — simulado = OK,
+  # o plano segue como se a rede existisse.
+  if (( DRY )); then say "[dry] pacman -S --needed --noconfirm $* (simulado: OK)"; return 0; fi
+  pacman -S --needed --noconfirm "$@"
+}
 wfile() { # wfile <dest>  (heredoc via stdin)
   local f=$1
   echo -e "  ${B}[arquivo]${N} $f"
@@ -278,6 +293,7 @@ if (( FIRSTBOOT )); then
   say "ELITE FIRSTBOOT — hardware: ISA=$ISA GPU=$VENDOR/$GEN RAM=${MEM_GIB}GB"
   [[ "$ISA" == "v1" || "$ISA" == "v2" ]] && \
     err "CPU não reporta x86-64-v3 — esta ISO é v3 (legal instruction pode falhar). Considere a ISO padrão do Archcraft."
+  RETRY_DRIVER=0   # 1 = driver pendente → NÃO marca done; re-tenta no próximo boot
 
   # 1. keyring fresco (ISO pode ter meses)
   run pacman -Sy --noconfirm archlinux-keyring || true
@@ -286,15 +302,27 @@ if (( FIRSTBOOT )); then
   case "$VENDOR:$GEN" in
     nvidia:blackwell|nvidia:ada|nvidia:ampere|nvidia:turing)
       say "NVIDIA $GEN → nvidia-open-dkms (dkms cobre o kernel BORE E o fallback do Arch)"
-      run pacman -R --noconfirm nvidia-open 2>/dev/null || true
-      run pacman -S --needed --noconfirm nvidia-open-dkms nvidia-utils nvidia-settings lib32-nvidia-utils
+      # v4.5: instalar ANTES de remover. A ordem antiga (-R → -S) deixava o
+      # rig sem driver NENHUM se o -S falhasse (ex.: sem rede no 1º boot) —
+      # e o marker 'done' sepultava o retry. Agora: -S vence → -R limpa o
+      # pré-compilado; -S falha → nvidia-open PRESERVADO e re-tenta amanhã.
+      if pacman_s nvidia-open-dkms nvidia-utils nvidia-settings lib32-nvidia-utils; then
+        run pacman -R --noconfirm nvidia-open 2>/dev/null || true
+      else
+        RETRY_DRIVER=1
+        warn "nvidia-open-dkms não instalou (sem rede?) — nvidia-open PRESERVADO"
+        warn "elite-firstboot vai re-tentar no próximo boot (marker não escrito)"
+      fi
       ;;
     nvidia:pascal|nvidia:maxwell)
       say "NVIDIA $GEN → tentando nvidia-dkms (branch 580 = última p/ Maxwell/Pascal)"
-      run pacman -R --noconfirm nvidia-open 2>/dev/null || true
-      if ! pacman -S --needed --noconfirm nvidia-dkms nvidia-utils lib32-nvidia-utils; then
+      if pacman_s nvidia-dkms nvidia-utils lib32-nvidia-utils; then
+        run pacman -R --noconfirm nvidia-open 2>/dev/null || true
+      else
+        RETRY_DRIVER=1
         warn "pacote nvidia-dkms indisponível p/ $GEN. Rode manualmente:"
         warn "  paru -S nvidia-580xx-dkms && sudo elite-tune --yes"
+        warn "elite-firstboot vai re-tentar no próximo boot (marker não escrito)"
       fi
       ;;
     amd:*)
@@ -362,15 +390,26 @@ EOF
   run grub-mkconfig -o /boot/grub/grub.cfg
 
   # 5. self-disable + marker + aviso
+  #    v4.5: marker/só-disable APENAS com driver garantido. Sem rede no 1º
+  #    boot o marker NÃO é escrito — a unit (ConditionPathExists=!done)
+  #    re-tenta no boot seguinte até conseguir. É o comportamento de uma
+  #    distro de verdade: nunca deixa o usuário num estado sem saída.
   if (( DRY )); then
     say "[dry] marker firstboot-done e self-disable apenas simulados"
+  elif (( RETRY_DRIVER )); then
+    say "driver pendente — marker NÃO escrito; elite-firstboot re-tenta no próximo boot"
   else
     mkdir -p /var/lib/elite && touch /var/lib/elite/firstboot-done
+    run systemctl disable elite-firstboot.service || true
   fi
-  run systemctl disable elite-firstboot.service || true
   say "FIRSTBOOT CONCLUÍDO — log: /var/log/elite-firstboot.log"
   if [[ "$VENDOR" == "nvidia" ]]; then
-    (( DRY )) || wall "ELITE: driver NVIDIA instalado. REINICIE para ativar (o atual usa o módulo antigo/nouveau)." 2>/dev/null || true
+    if (( RETRY_DRIVER )); then
+      # honesto: não trocamos nada — pedir reboot seria mentira
+      (( DRY )) || wall "ELITE: driver NVIDIA pendente (sem rede?). Conecte-se e reinicie — o firstboot re-tenta." 2>/dev/null || true
+    else
+      (( DRY )) || wall "ELITE: driver NVIDIA instalado. REINICIE para ativar (o atual usa o módulo antigo/nouveau)." 2>/dev/null || true
+    fi
   else
     (( DRY )) || wall "ELITE: primeiro boot concluído (serviços de tuning ativos). Reboot recomendado." 2>/dev/null || true
   fi

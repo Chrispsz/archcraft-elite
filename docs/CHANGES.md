@@ -6,6 +6,36 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **v1.0.5 (branch fix/estabilidade-gates)** — **GATES DE VERDADE + FIRSTBOOT
+  ANTI-BRICK** (auditoria completa das runs de Actions + logs de falha):
+  - **`diag-install` virou gate obrigatório de release** (`workflow_call` —
+    job `verify-install` no build.yml; release agora exige `needs:
+    [build, verify, verify-install]`). O teste de instalação existia mas era
+    manual: o bug do rig B teria sido pego ANTES da v1.0.x sair se já
+    estivesse na cadeia.
+  - **fix do falso negativo do gate de install**: o grep das entradas do
+    grub.cfg usava espaço literal (`'(linux|initrd) '`) — grub.cfg usa TAB;
+    devolvia vazio e a run morria com o passo verde de verdade (prova:
+    artifacts da run #2 da branch diag-install — `grub-mkconfig.log` com
+    "Found linux image", `grub-entries.txt` vazio). Agora `[[:space:]]`.
+  - **fix do gate de verify calado**: `set -e` + grep solto abortava o
+    script ANTES do `chk` imprimir o diagnóstico — as builds #42/#43
+    falharam sem uma linha de explicação. Agora `set +e` + `exit $FAIL`.
+  - **fix unsquashfs sem sudo** (merge da branch diag-install — xattrs
+    `security.capability` exigem root, exit 2 na run #1).
+  - **elite-tune v4.5 — firstboot NVIDIA anti-brick**: a ordem antiga era
+    `-R nvidia-open` → `-S nvidia-open-dkms`; sem rede no 1º boot o rig
+    ficava **sem driver NENHUM** e o marker `firstboot-done` (escrito
+    incondicionalmente) sepultava o retry. Agora: `-S` primeiro (`pacman_s`,
+    dry-aware), `-R` só após sucesso; sem rede → driver preservado, marker
+    não escrito, unit re-tenta no próximo boot, wall honesto ("pendente").
+    Novo cenário na suíte: Blackwell + pacman recusando tudo.
+  - **docs sincronizadas**: README (zram = min(RAM, 8GB), E0–E10, cadeia de
+    gates), SCRIPTS.md (v4.5, E8–E10), craft-bat (bind fantasma W-S-b).
+  - **scripts/qemu-boot-test.sh**: loop local rápido — boota a ISO com a
+    cmdline REAL extraída dela (KVM se disponível; ~1 min vs ~55 min de
+    TCG no CI) p/ iterar sem esperar runner.
+
 - **v1.0.4 (main)** — **FIX DO BOOT DO SISTEMA INSTALADO** (bug real do
   rig B: GRUB `premature end of file /boot/vmlinuz-linux-cachyos-bore` →
   `you need to load the kernel first`): o install do Archcraft é

@@ -5,6 +5,7 @@ phase_start 2 "QUALIDADE ESTÁTICA — a tampa da caixa"
 
 SHELLS=(
   scripts/apply-overlay.sh
+  scripts/qemu-boot-test.sh
   .ci/build.sh
   elite/fragments/elite-customize.sh
   elite/airootfs/usr/local/bin/elite-tune
@@ -48,8 +49,9 @@ else
   skip "shellcheck: gate do CI" "binário ausente neste ambiente — o job de lint no GitHub o executa"
 fi
 
-# peças: YAML válido (os 3 workflows)
-for y in build.yml agents.yml tests.yml; do
+# peças: YAML válido (os 4 workflows — diag-install entrou na lista v1.0.5:
+# virou workflow_call load-bearing, gate obrigatório do release)
+for y in build.yml diag-install.yml agents.yml tests.yml; do
   if [[ -f "$REPO/.github/workflows/$y" ]]; then
     python3 -c "import yaml,sys; yaml.safe_load(open(sys.argv[1]))" "$REPO/.github/workflows/$y" 2>/dev/null \
       && ok "yaml: $y parseia" \
@@ -75,7 +77,8 @@ for x in \
   elite/airootfs/usr/local/bin/craft-shot \
   elite/airootfs/usr/local/bin/craft-bat \
   elite/airootfs/etc/skel/.config/labwc/autostart \
-  scripts/apply-overlay.sh
+  scripts/apply-overlay.sh \
+  scripts/qemu-boot-test.sh
 do
   [[ -x "$REPO/$x" ]] && ok "exec: $x" || fail "exec: $x" "sem bit de execução"
 done
