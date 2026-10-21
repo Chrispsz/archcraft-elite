@@ -329,14 +329,24 @@ assert_match "$(CP reload)" 'waybar não está rodando' "craft-pin: reload sem w
 
 # ── 3.L elite_inject_bumped (ELITE-BUMP — build #49: pkgrel 3 componentes) ─
 #  A função REAL do .ci/build.sh, extraída por fidelidade (como o extract.sh
-#  faz com o elite-tune), em unshare -rm com tmpfs em /var: as escritas em
-#  /var/cache/elite-local evaporam com o namespace. vercmp/bsdtar/runuser/
-#  makepkg são mockados na frente do PATH — o makepkg-mock valida o pkgrel
-#  com a MESMA regra do real ('integer[.integer]'): foi exatamente "pkgrel
-#  must be of the form 'integer[.integer]', not 1.1.1" que derrubou a
-#  build #49 (o repack falhava, caía no cp clássico que não satisfaz o
-#  resolve, 6 rounds quebrados, abort sem ISO).
-if [[ $EUID -eq 0 ]] || unshare -r true 2>/dev/null; then
+#  faz com o elite-tune), rodando isolada do host: unshare -rm com tmpfs em
+#  /var quando o kernel permite (dev machine), ou DIRETO quando já é root no
+#  container efêmero do CI (mesma detecção do ns-body da fase 4 — o runner
+#  GitHub bloqueia userns+mountns: 'unshare: Operation not permitted',
+#  pego na Test Suite #26). vercmp/bsdtar/runuser/makepkg são mockados na
+#  frente do PATH — o makepkg-mock valida o pkgrel com a MESMA regra do
+#  real ('integer[.integer]'): foi exatamente "pkgrel must be of the form
+#  'integer[.integer]', not 1.1.1" que derrubou a build #49 (o repack
+#  falhava, caía no cp clássico que não satisfaz o resolve, 6 rounds
+#  quebrados, abort sem ISO).
+if unshare -rm true 2>/dev/null; then
+  BUMP_ISOL=(unshare -rm); BUMP_MODE=ns   # dev machine: escritas evaporam com o ns
+elif [[ $EUID -eq 0 ]]; then
+  BUMP_ISOL=();          BUMP_MODE=root  # container do CI: root direto, /var do job
+else
+  BUMP_MODE=skip
+fi
+if [[ "$BUMP_MODE" != skip ]]; then
   # harness: função real + driver (tmpfs em /var como o ns-body faz).
   # extração por PROFUNDIDADE DE CHAVES (awk): o sed /^}$/ cortaria no '}'
   # do package() DENTRO do heredoc do PKGBUILD — função truncada = script
@@ -399,7 +409,13 @@ fi
 touch "$name-$ver-$rel-$arch.pkg.tar.zst"
 EOF
   chmod +x "$MB"/*
-  run_bump() { PATH="$MB:$PATH" unshare -rm bash "$BUMPBIN" "$1" "$2"; }
+  run_bump() {
+    if (( ${#BUMP_ISOL[@]} )); then
+      PATH="$MB:$PATH" "${BUMP_ISOL[@]}" bash "$BUMPBIN" "$1" "$2"
+    else
+      PATH="$MB:$PATH" bash "$BUMPBIN" "$1" "$2"
+    fi
+  }
 
   # baseline dummy (o bsdtar é mockado; o cp lê o arquivo real)
   BL="$WORK/bump-baseline"; mkdir -p "$BL"
@@ -449,7 +465,7 @@ EOF
   out="$(run_bump "demo-2.0-3+x1-x86_64_v3.pkg.tar.zst" "$BL/demo-2.0-2-x86_64.pkg.tar.zst")"
   assert_match "$out" 'fora do formato' "bump: rel exótica → cp clássico honesto (sem aritmética cega)"
 else
-  skip "3.L elite_inject_bumped" "unshare -r indisponível (contratos estáticos abaixo valem)"
+  skip "3.L elite_inject_bumped" "sem root nem unshare -rm (contratos estáticos abaixo valem)"
 fi
 
 # contratos estáticos (valem SEM unshare): major+1 no lugar do .1 de 3 componentes
