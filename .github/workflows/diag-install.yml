@@ -225,8 +225,16 @@ jobs:
             || { echo "✖ grub-mkconfig falhou:"; cat grub-mkconfig.log; exit 1; }
           tail -6 grub-mkconfig.log
           echo "── entradas de kernel no grub.cfg gerado:"
-          sudo grep -E '^(\s*)?(linux|initrd) ' /mnt/elite/boot/grub/grub.cfg \
-            | head -12 | tee grub-entries.txt
+          # [[:space:]]: grub.cfg separa com TAB, não espaço (a run #2 morreu
+          # aqui num grep que exigia 'linux ' com espaço — pipefail + grep
+          # vazio = exit 1, com a instalação PERFEITA). grep direto no arquivo:
+          # sem pipe p/ head (SIGPIPE + pipefail = falso negativo).
+          if sudo grep -E '^[[:space:]]*(linux|initrd)[[:space:]]' \
+               /mnt/elite/boot/grub/grub.cfg > grub-entries.txt; then
+            head -12 grub-entries.txt
+          else
+            echo "✖ nenhuma entrada linux/initrd no grub.cfg"; exit 1
+          fi
 
           sudo umount /mnt/elite
           sudo losetup -d "$LOOP"
