@@ -47,6 +47,11 @@ on:
         required: false
         default: ''
         type: string
+  # v1.0.5: chamado pelo build.yml (job verify-install) como GATE
+  # obrigatório de release — a ISO só vira release se o disco INSTALADO
+  # bootar. É o teste que qualquer distro sética tem e este projeto não
+  # tinha rodando em cadeia (o bug do rig B vive exatamente aqui).
+  workflow_call:
 
 permissions:
   contents: read
@@ -73,7 +78,16 @@ jobs:
           TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
-          if [ -n "$TAG" ]; then
+          if [[ "${GITHUB_EVENT_NAME:-}" == "workflow_call" ]]; then
+            # gate do build.yml: artifact DESTA run corrente (a ISO que acabou
+            # de ser construída — não a última bem-sucedida, que pode ser antiga)
+            echo "→ workflow_call: artifact da run corrente $GITHUB_RUN_ID"
+            gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" \
+              --name archcraft-elite-iso --dir iso-out
+            ( cd iso-out && sha256sum -c sha256sums.txt --ignore-missing || true )
+            mv iso-out/*.iso elite.iso
+            rm -rf iso-out
+          elif [ -n "$TAG" ]; then
             echo "→ release $TAG"
             gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
               --pattern '*.part-*' --pattern 'sha256sums.txt' --clobber
@@ -117,7 +131,10 @@ jobs:
         run: |
           set -euo pipefail
           echo "── [1/8] unpackfs entrada 1: airootfs.sfs → rootfs/ (o que o Calamares desempacota)"
-          unsquashfs -no-progress -d rootfs pd/arch/x86_64/airootfs.sfs >/dev/null
+          # sudo: fiel ao Calamares (que roda como root) E necessário —
+          # sem root o unsquashfs morre nos xattrs security.capability
+          # (write_xattr ... you're not superuser! → exit 2, run #1)
+          sudo unsquashfs -no-progress -d rootfs pd/arch/x86_64/airootfs.sfs >/dev/null
           rm -f pd/arch/x86_64/airootfs.sfs   # libera 2.8GB
           # pré-flight: as peças que o install precisa existem no alvo
           test -x rootfs/usr/bin/mkinitcpio  || { echo "✖ mkinitcpio ausente no airootfs"; exit 1; }
@@ -222,8 +239,15 @@ jobs:
             || { echo "✖ grub-mkconfig falhou:"; cat grub-mkconfig.log; exit 1; }
           tail -6 grub-mkconfig.log
           echo "── entradas de kernel no grub.cfg gerado:"
-          sudo grep -E '^(\s*)?(linux|initrd) ' /mnt/elite/boot/grub/grub.cfg \
-            | head -12 | tee grub-entries.txt
+          # grub.cfg usa TAB entre keyword e caminho: '(linux|initrd) ' com
+          # espaço devolve VAZIO (falso negativo — a run #2 da branch
+          # diag-install morreu aqui sem o bug existir). [[:space:]] casa os
+          # dois. Entrada ausente = sistema instalado sem kernel = GATE para.
+          if ! sudo grep -E '^[[:space:]]*(linux|initrd)[[:space:]]' \
+                /mnt/elite/boot/grub/grub.cfg | head -12 | tee grub-entries.txt; then
+            echo "✖ nenhuma entrada linux/initrd no grub.cfg — grub-mkconfig não achou os kernels"
+            exit 1
+          fi
 
           sudo umount /mnt/elite
           sudo losetup -d "$LOOP"
@@ -273,7 +297,7 @@ jobs:
           if grep -q 'you need to load the kernel first' serial-install.log; then echo "✖ 'you need to load the kernel first' — kernel não carregou"; FAIL=1; else echo "✔ SEM 'you need to load the kernel first'"; fi
           grep -q 'BORE_INTEGRAL=OK' integridade.txt && echo "✔ kernel BORE byte-idêntico ao pendrive no disco" || { echo "✖ BORE truncado mesmo após E10"; FAIL=1; }
           grep -q "vmlinuz-linux-cachyos-bore $(cat bore-size.txt)" sizes-depois-e10.txt && echo "✔ BORE com tamanho integral no disco" || echo "⚠ conferir sizes-depois-e10.txt"
-          grep -q 'cachyos-bore' grub-entries.txt && echo "✔ entrada BORE presente no grub.cfg" || { echo "⚠ entrada BORE não vista em grub-entries.txt"; }
+          grep -q 'cachyos-bore' grub-entries.txt && echo "✔ entrada BORE presente no grub.cfg" || { echo "✖ entrada BORE AUSENTE no grub.cfg — o instalado bootaria só o kernel stock"; FAIL=1; }
           exit $FAIL
 
       - name: Cleanup loop devices

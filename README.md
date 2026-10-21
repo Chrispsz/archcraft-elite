@@ -23,7 +23,7 @@ Verificação em qualquer máquina: `/lib64/ld-linux-x86-64.so.2 --help | grep s
 |---|---|
 | Live (pendrive) | Usar a entrada **Nvidia** do menu de boot: kernel Arch stock + driver `nvidia-open` 615 pré-compilado na ISO (o único caminho para Blackwell — branch fechada não existe nesta geração). A entrada default (kernel BORE) usa nouveau, sem aceleração em Blackwell; serve apenas como fallback de boot. Ambas entram na sessão labwc (a Nvidia com `modeset=1` — Wayland OK); se o vídeo travar no live, usar a entrada **Nomodeset** (04). |
 | Instalação | Calamares padrão, btrfs como filesystem default. Internet necessária. |
-| Primeiro boot | `elite-firstboot.service` detecta NVIDIA Blackwell, remove o `nvidia-open` pré-compilado e instala `nvidia-open-dkms` — o DKMS compila o módulo para o kernel BORE v3 e para o kernel stock (rollback). Escreve `nvidia-drm modeset=1 fbdev=1`, `NVreg_PreserveVideoMemoryAllocations=1`, habilita os serviços de tuning e insere os parâmetros GRUB (`amd_pstate=active nowatchdog zswap.enabled=0 transparent_hugepage=always`). Pede reboot. |
+| Primeiro boot | `elite-firstboot.service` detecta NVIDIA Blackwell, instala o `nvidia-open-dkms` (DKMS compila o módulo para o kernel BORE v3 e para o kernel stock — rollback) e **só depois** remove o `nvidia-open` pré-compilado. Se não houver rede neste boot, o driver do live é **preservado** e o firstboot re-tenta no boot seguinte (nada de rig sem vídeo). Escreve `nvidia-drm modeset=1 fbdev=1`, `NVreg_PreserveVideoMemoryAllocations=1`, habilita os serviços de tuning e insere os parâmetros GRUB (`amd_pstate=active nowatchdog zswap.enabled=0 transparent_hugepage=always`). Pede reboot. |
 | Segundo boot | RTX 5060 com driver open/GSP em ambos os kernels. Shader cache de 1 GB persistente configurado. Vulkan via NVIDIA, Steam/Feral GameMode e MangoHud prontos. |
 | Rotina de jogo | `PROTON_ENABLE_NVAPI=1 gamemoderun mangohud %command%`. VRAM de 8 GB sob vigilância: `dmemcg-booster` limita aplicativos em segundo plano e o `fg-booster` promove o jogo em foco (peso de CPU/IO 900). Se apertar: `gamescope` com upscaling NIS/FSR subnativo. |
 | BIOS recomendada | DOCP/XMP 3200 MHz, Above 4G Decoding + ReBAR (ligar os dois), PBO + Curve Optimizer −15 a −20. |
@@ -45,7 +45,7 @@ Verificação em qualquer máquina: `/lib64/ld-linux-x86-64.so.2 --help | grep s
 - Kernel `linux-cachyos-bore` v3 (BORE + patchset CachyOS, build x86-64-v3) como padrão; kernel `linux` do Arch permanece instalado como fallback no GRUB.
 - `scx-elite.service` (sched-ext bpfland) — trocar para `scx_lavd` com `sudo systemctl edit scx-elite`.
 - `ananicy-cpp` + regras CachyOS para prioridade dinâmica.
-- zram zstd (metade da RAM, teto 8 GB), `vm.swappiness=180`, `max_map_count` Steam, schedulers de I/O por tipo de disco.
+- zram zstd (metade da RAM até o teto de 8 GB), `vm.swappiness=180`, `max_map_count` Steam, schedulers de I/O por tipo de disco.
 - Rollback real: btrfs + Timeshift + grub-btrfs (snapshot no menu do GRUB).
 - Aplicativos opcionais por demanda: `sudo elite-tune --apps` (Steam, Lutris, OBS, escritório — nada pré-instalado além do essencial).
 
@@ -99,7 +99,7 @@ Se a ISO vier dividida em partes (limite de 2 GB por arquivo do GitHub), as inst
 
 ## Build
 
-O build roda no GitHub Actions: job `lint` (shellcheck como gate) e job `build` (container Arch Linux privilegiado, `mkarchcraftiso` do upstream). Push em `main` ou *Run workflow* dispara o build (~30–60 min); tags `v*` publicam release com ISO + checksums automaticamente.
+O build roda no GitHub Actions em cadeia de gates: `lint` (shellcheck bloqueante) → `build` (container Arch Linux privilegiado, `mkarchcraftiso` do upstream) → `verify` (boota a ISO em QEMU com a cmdline real e exige boot completo sem shell de emergência) → `verify-install` (reproduz a cadeia Calamares inteira — unpackfs→btrfs, initcpio, GRUB — e boota o disco instalado no QEMU; é o gate que caça o bug do rig B). A ISO só vira release com os dois boots verdes. Push em `main` ou *Run workflow* dispara o build (~1h com os gates); tags `v*` publicam release com ISO + checksums automaticamente.
 
 Local (em Arch Linux, requer archiso e privilégios):
 
@@ -119,7 +119,7 @@ scripts/apply-overlay.sh        O delta: clona o upstream e aplica a camada Elit
 elite/packages.add              Pacotes adicionais
 elite/packages.remove           Debloat (comentados, restauráveis)
 elite/pacman-repos.build.add    Repositórios CachyOS para o build
-elite/fragments/elite-customize.sh   E0–E8: keyring, pacman.conf, cirurgia no Calamares
+elite/fragments/elite-customize.sh   E0–E10: keyring, pacman.conf, cirurgia no Calamares, fix btrfs do boot instalado
 elite/airootfs/                 sysctl, zram, udev, units, preset mkinitcpio, scripts
 docs/CHANGES.md                 Delta completo vs. upstream, com justificativas
 docs/SCRIPTS.md                 Documentação por script (uso / reversão / dependências)

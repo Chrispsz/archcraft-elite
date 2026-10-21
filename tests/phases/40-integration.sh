@@ -667,6 +667,30 @@ else
   assert_grep "$LP" 'nvidia-dkms indisponível' "cadeia F (pascal): falha assumida (sem crash)"
   assert_grep "$LP" 'paru -S nvidia-580xx-dkms' "cadeia F (pascal): instrução AUR de resgate"
 
+  # cenário NVIDIA BLACKWELL SEM REDE (v4.5 — anti-brick do 1º boot offline):
+  # o -S do dkms falha → nvidia-open PRESERVADO (nunca removido antes do
+  # sucesso), marker NÃO escrito (a unit re-tenta no próximo boot) e sem
+  # self-disable. Era o risco real do Elite A: live OK, install OK, reboot
+  # sem cabo de rede → sem driver NENHUM e sem retry. Agora é contrato.
+  # (ns-body reseta pacman/systemctl/wall por cenário; o marker precisa de
+  #  limpeza manual só no modo container, que compartilha o /var real)
+  [[ $NS_TMPFS == 0 ]] && rm -f /var/lib/elite/firstboot-done
+  fbreal nvbw-net0 "$TESTS_DIR/fixtures/lspci/rtx-5060.txt" 'NVIDIA GeForce RTX 5060' 1 \
+    nvidia-open nvidia-utils mesa
+  LN="$STATE/fb-real-nvbw-net0.log"
+  assert_match "$(sed -n '/^RC=/p' "$LN")" '^RC=0$' "cadeia F (A sem rede): firstboot AINDA exit 0 (nunca trava)"
+  assert_grep "$LN" 'nvidia-open-dkms não instalou' "cadeia F (A sem rede): falha assumida com aviso"
+  assert_grep "$LN" 'nvidia-open PRESERVADO' "cadeia F (A sem rede): driver do live PRESERVADO (anti-brick)"
+  assert_grep "$STATE/pacman.log" 'pacman -S --needed --noconfirm nvidia-open-dkms nvidia-utils nvidia-settings lib32-nvidia-utils$' \
+    "cadeia F (A sem rede): tentativa de dkms registrada (ordem -S→-R)"
+  assert_nogrep "$STATE/pacman.log" 'pacman -R --noconfirm nvidia-open$' \
+    "cadeia F (A sem rede): NUNCA removeu o nvidia-open (o -R só existe após -S vencer)"
+  assert_match "$(sed -n '/^=== MARKER/,+1p' "$LN" | tail -1)" '^no$' \
+    "cadeia F (A sem rede): marker NÃO escrito → re-tenta no próximo boot"
+  assert_nogrep "$STATE/systemctl.log" 'disable elite-firstboot' \
+    "cadeia F (A sem rede): unit NÃO auto-desativada (retry vivo)"
+  assert_grep "$STATE/wall.log" 'pendente' "cadeia F (A sem rede): wall honesto ('pendente', não 'REINICIE')"
+
   # prova de isolamento (modo ns): o HOST não ganhou nenhum arquivo elite
   if [[ $NS_TMPFS == 1 ]]; then
     hostmod1=0; [[ -f /etc/modprobe.d/00-elite-nvidia.conf ]] && hostmod1=1

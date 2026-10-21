@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# craft-bat — resumo da bateria em notificação (notebooks · W-S-b)
+# craft-bat — resumo da bateria em notificação (notebooks — chame do terminal/launcher)
 set -euo pipefail
 if ! command -v upower >/dev/null 2>&1; then
   echo "✖ upower ausente: sudo pacman -S upower" >&2
