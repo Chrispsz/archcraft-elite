@@ -241,10 +241,25 @@ elite_inject_bumped() { # $1 = filename quebrado (cachyos) $2 = path do baseline
         say "  ELITE-INJECT ${basepkg##*/} (baseline >= quebrada: resolve no elite-local)"
         return 0
     fi
-    # baseline mais VELHA: repack com pkgrel da quebrada + '.1' (3.1 → 3.1.1)
-    local bver newrel parch d="/tmp/elite-bump/$nb_name"
+    # baseline mais VELHA: repack com o pkgrel MAJOR da quebrada + 1
+    # ('1.1'→'2', '3.1'→'4', '1'→'2'). O original fazia '3.1→3.1.1' —
+    # makepkg REJEITA pkgrel com 3 componentes ("pkgrel must be of the
+    # form 'integer[.integer]', not 1.1.1" — build #49, libyuv 1.1→1.1.1)
+    # e o fallback cp clássico NÃO satisfaz o resolve (versão mais velha
+    # perde p/ a quebrada anunciada) → 6 rounds quebrados → abort sem
+    # build. vercmp('2','1.1')>0: major+1 SEMPRE supera a quebrada (que
+    # tem o mesmo major ou menor) e fica no formato válido.
+    local bver brrel brmaj newrel parch d="/tmp/elite-bump/$nb_name"
     bver=$(printf '%s' "$bverrel" | rev | cut -d- -f2- | rev)
-    newrel="${nb_verrel##*-}.1"
+    brrel="${nb_verrel##*-}"                                       # rel da QUEBRADA
+    brmaj="${brrel%%.*}"
+    if [[ ! "$brmaj" =~ ^[0-9]+$ ]]; then
+        # rel fora do formato pacote (epoch? sufixo?): honesto — cp clássico
+        say "  ELITE-BUMP: rel quebrada '$brrel' fora do formato integer[.integer] — cp clássico"
+        cp -f "$basepkg" "/var/cache/elite-local/${basepkg##*/}"
+        return 0
+    fi
+    newrel=$(( brmaj + 1 ))
     parch=$(printf '%s' "${basepkg##*/}" | sed -nE 's/.*-(any|x86_64(_v3)?)\.pkg\.tar\.zst$/\1/p')
     [[ -n "$parch" ]] || parch=any
     rm -rf "$d" && mkdir -p "$d/payload"
@@ -365,9 +380,9 @@ preflight() {
                 # tem o arquivo: baixa DIRETO p/ o cache — a verificação
                 # sha256 do db na próxima rodada valida o conteúdo.
                 if curl -fsSL -o "/var/cache/pacman/pkg/${u2##*/}" "$u2"; then
-                    say "  baixado do gêmeo us direto p/ o cache — ${u2##*/}"
+                    say "  baixado do mirror gêmeo (${u2#https://}) direto p/ o cache — ${u2##*/}"
                 else
-                    say "  us responde 200 no HEAD mas GET falhou — ${u2}"
+                    say "  gêmeo responde 200 no HEAD mas GET falhou — ${u2}"
                 fi
                 continue
             fi
