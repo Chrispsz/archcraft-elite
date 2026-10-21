@@ -1,0 +1,58 @@
+/* Archcraft ELITE · nwg-drawer CSS — o "Launchpad" · Catppuccin Mocha
+ * Seletores oficiais do upstream (drawer.css do repo nwg-piotr/nwg-drawer):
+ * window, entry, button, image, #category-button, #pinned-box, #files-box,
+ * #math-label. É lido de ~/.config/nwg-drawer/drawer.css. */
+
+window {
+    background-color: rgba(17, 17, 27, 0.88);   /* crust */
+    color: #cdd6f4                                 /* text */
+}
+
+/* Busca — pílula escura com borda sutil */
+entry {
+    background-color: rgba(49, 54, 68, 0.9);      /* surface0 */
+    border-radius: 12px;
+    border: 1px solid rgba(69, 71, 90, 0.9);      /* surface1 */
+    color: #cdd6f4;
+    padding: 6px 14px;
+    font-size: 15px;
+}
+
+entry:focus {
+    border-color: rgba(203, 166, 247, 0.85);      /* mauve */
+}
+
+button, image {
+    background: none;
+    border: none
+}
+
+button:hover {
+    background-color: rgba(49, 54, 68, 0.95);     /* surface0 */
+    border-radius: 12px
+}
+
+#category-button {
+    margin: 0 10px 0 10px;
+    color: #a6adc8                                 /* subtext0 */
+}
+
+#category-button:checked {
+    color: #cba6f7                                 /* mauve */
+}
+
+#pinned-box {
+    padding-bottom: 5px;
+    border-bottom: 1px dotted rgba(69, 71, 90, 0.9)
+}
+
+#files-box {
+    padding: 5px;
+    border: 1px dotted rgba(69, 71, 90, 0.9);
+    border-radius: 15px
+}
+
+#math-label {
+    font-weight: bold;
+    font-size: 16px
+}

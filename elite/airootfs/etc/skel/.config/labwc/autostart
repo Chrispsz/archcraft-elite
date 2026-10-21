@@ -5,22 +5,31 @@
 # de quem rodou o zip.
 # Executado no início da sessão LABWC — termine comandos com & para não bloquear.
 #
-# Wallpaper = COR SÓLIDA Catppuccin Base (#1e1e2e): zero decodificação de
-# imagem, zero textura em RAM, visual coeso com o tema. Quer imagem? Veja
-# as alternativas comentadas abaixo.
+# Desktop v2 (v1.0.4) — estilo macOS, mouse-first: menu bar no topo
+# (waybar config.top) + DOCK flutuante na base (waybar config.dock),
+# Launchpad (nwg-drawer via craft-drawer) e wallpaper de imagem.
 
-# --- Wallpaper: cor sólida Catppuccin Base --------------------------------------
+# --- Wallpaper: imagem Catppuccin da Elite (fallback: cor sólida Base) ------
 if command -v swaybg >/dev/null 2>&1; then
-    swaybg -m fill -c '#1e1e2e' &
+    if [ -r "$HOME/.config/labwc/wallpaper.jpg" ]; then
+        swaybg -m fill -i "$HOME/.config/labwc/wallpaper.jpg" &
+    else
+        # sem imagem (ex.: skel parcial): cor sólida, zero decodificação
+        swaybg -m fill -c '#1e1e2e' &
+    fi
 fi
-# Alternativa 1 — imagem própria:
-# swaybg -m fill -i "$HOME/.config/labwc/wallpaper.png" &
-# Alternativa 2 — wallpapers que vêm com o Archcraft:
-# f="$(ls /usr/share/archcraft/wallpapers/* 2>/dev/null | head -1)"
-# [ -n "$f" ] && swaybg -m fill -i "$f" &
 
-# --- Barra (Waybar · Floating Pill) e central de notificações (SwayNC) ----------
-waybar &
+# --- Barras (Desktop v2): menu bar no TOPO + DOCK na base ------------------
+#     2 instâncias do waybar: o tray (SNI watcher é único por sessão) fica
+#     SÓ na de cima; o dock tem launchers fixos + janelas abertas.
+if command -v waybar >/dev/null 2>&1; then
+    waybar -c "$HOME/.config/waybar/config.top" \
+           -s "$HOME/.config/waybar/style.top.css" &
+    waybar -c "$HOME/.config/waybar/config.dock" \
+           -s "$HOME/.config/waybar/style.dock.css" &
+fi
+
+# --- Central de notificações (SwayNC) — toggle no relógio da barra ---------
 swaync &
 
 # --- Diálogo de senha gráfico (polkit) — o Archcraft só sobe agente na sessão

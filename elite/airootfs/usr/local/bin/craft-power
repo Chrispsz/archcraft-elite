@@ -1,0 +1,28 @@
+#!/bin/sh
+# craft-power — menu de sessão MOUSE-FIRST (Desktop v2 · v1.0.4)
+# Barra de botões no topo (labnag, o "nag bar" nativo do labwc — zero
+# dependências novas): Lock · Logout · Reboot · Desligar · Cancelar.
+# Sem labnag no PATH cai no craft-logout clássico (fuzzel --dmenu).
+set -eu
+
+if command -v labnag >/dev/null 2>&1; then
+  exec labnag \
+    -t 86400 \
+    -e top \
+    -y overlay \
+    -k none \
+    -m 'Sessão' \
+    --background-color 1e1e2eee \
+    --text-color cdd6f4ff \
+    --button-background-color 313244ff \
+    --button-text-color cdd6f4ff \
+    --button-border-color 45475aff \
+    --border-bottom-color cba6f7ff \
+    -Z 'Lock' 'craft-lock' \
+    -Z 'Logout' 'labwc --exit' \
+    -Z 'Reboot' 'systemctl reboot' \
+    -Z 'Desligar' 'systemctl poweroff' \
+    -Z 'Cancelar' 'true'
+fi
+
+exec craft-logout

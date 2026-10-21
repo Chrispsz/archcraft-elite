@@ -1,0 +1,94 @@
+// Archcraft ELITE · Waybar DOCK — barra flutuante estilo macOS (Catppuccin Mocha)
+// ─────────────────────────────────────────────────────────────────────────
+// Desktop v2 (v1.0.4): o DOCK — pílula flutuante na base da tela com
+// apps fixos (launchers clicáveis) + janelas abertas (wlr/taskbar com
+// ícones reais das apps via Papirus) + lock/power. Tudo mouse-first.
+//
+// Roda como 2ª instância do waybar (o autostart sobe esta e a config.top).
+// Sem módulo de tray aqui: o SNI watcher é único por sessão (fica no topo).
+{
+  "layer": "top",
+  "position": "bottom",
+  "height": 62,
+  "margin-top": 0,
+  "margin-bottom": 10,
+  "margin-left": 12,
+  "margin-right": 12,
+  "spacing": 4,
+  "fixed-center": true,
+  "reload_style_on_change": true,
+
+  // Esquerda: Launchpad (grade) + apps fixos
+  "modules-left": [
+    "custom/drawer",
+    "custom/term",
+    "custom/files",
+    "custom/web",
+    "custom/editor",
+    "custom/shot"
+  ],
+
+  // Centro: janelas abertas — ícones reais das apps (wlr-foreign-toplevel,
+  // nativo do labwc). Clique foca, meio fecha, direito minimiza.
+  "modules-center": ["wlr/taskbar"],
+
+  // Direita: lock + power
+  "modules-right": ["custom/lock", "custom/power"],
+
+  // Launchpad — grade de apps com busca e categorias (nwg-drawer)
+  "custom/drawer": {
+    "format": "",
+    "tooltip-format": "Aplicativos",
+    "on-click": "craft-drawer"
+  },
+
+  // ── Apps fixos (mouse-first: um clique, um app) ──────────────────────
+  "custom/term": {
+    "format": "",
+    "tooltip-format": "Terminal (foot)",
+    "on-click": "foot"
+  },
+  "custom/files": {
+    "format": "",
+    "tooltip-format": "Arquivos (Thunar)",
+    "on-click": "thunar"
+  },
+  "custom/web": {
+    "format": "󰈹",
+    "tooltip-format": "Firefox",
+    "on-click": "firefox"
+  },
+  "custom/editor": {
+    "format": "",
+    "tooltip-format": "Editor (Mousepad)",
+    "on-click": "mousepad"
+  },
+  "custom/shot": {
+    "format": "",
+    "tooltip-format": "Screenshot (região)",
+    "on-click": "craft-shot"
+  },
+
+  // Janelas abertas — ícones grandes estilo dock (Papirus via wlr/taskbar)
+  "wlr/taskbar": {
+    "format": "{icon}",
+    "icon-size": 40,
+    "tooltip-format": "{title}",
+    "on-click": "activate",
+    "on-click-middle": "close",
+    "on-click-right": "minimize",
+    "ignore-list": []
+  },
+
+  // Lock e power (fecha o círculo de sessão no dock)
+  "custom/lock": {
+    "format": "",
+    "tooltip-format": "Travar tela",
+    "on-click": "craft-lock"
+  },
+  "custom/power": {
+    "format": "⏻",
+    "tooltip-format": "Sessão",
+    "on-click": "craft-power"
+  }
+}

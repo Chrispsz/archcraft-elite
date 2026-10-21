@@ -140,9 +140,11 @@
     <keybind key="C-A-t">
       <action name="Execute" command="foot" />
     </keybind>
-    <!-- Launcher: W-d → fuzzel · C-A-space (app-menu do criador) também abre -->
+    <!-- Launcher: W-d → Launchpad (craft-drawer · Desktop v2: grade de apps
+         com busca + barra de sessão — mouse-first). O fuzzel clássico fica
+         no C-A-space (app-menu do criador) p/ quem quer digitar. -->
     <keybind key="W-d">
-      <action name="Execute" command="fuzzel" />
+      <action name="Execute" command="craft-drawer" />
     </keybind>
     <keybind key="C-A-space">
       <action name="Execute" command="fuzzel" />

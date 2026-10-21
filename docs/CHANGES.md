@@ -6,7 +6,24 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
-- **v1.0.4 (main)** — coerência de snapshots: `btrfs-assistant` (stock) sai —
+- **v1.0.4 (main)** — **DESKTOP v2 · macOS-style, mouse-first** (diretriz do
+  dono pós-teste no hardware: "labwc tá muito ruim/seco, quero interface
+  com barra tipo macOS e mais utilizável — não sou muito de atalho"):
+  **menu bar** no topo (waybar `config.top`: logo→Launchpad, nome da janela
+  focada, música/MPRIS, rede→`nm-connection-editor`, volume→`pavucontrol`,
+  tray, relógio→SwayNC, power) + **DOCK** flutuante na base (waybar
+  `config.dock`: Launchpad, launchers fixos — terminal/arquivos/navegador/
+  editor/screenshot — e **janelas abertas com ícones reais** via
+  `wlr/taskbar`/foreign-toplevel, lock e power); **Launchpad** =
+  `nwg-drawer` (`craft-drawer`: grade full-screen com busca, categorias e
+  barra de sessão); **power mouse-first** = `craft-power` (labnag, o nag
+  bar nativo do labwc — zero dependências novas); **ícones Papirus-Dark**
+  no GTK3/4 (dock/Launchpad/apps); **wallpaper de imagem** (Sonoma-style,
+  1920x1088, gerado para o projeto; fallback: cor sólida) no lugar da cor
+  sólida; menu raiz ganha Aplicativos/Reboot/Desligar. A rota wlogout foi
+  descartada (**saiu dos repos oficiais**); nwg-dock também (task buttons
+  exigem IPC do sway — inexistente no labwc; o waybar-dock cobre via
+  protocolo). Coerência de snapshots: `btrfs-assistant` (stock) sai —
   é GUI do **snapper**, que não vem na ISO (meia-ferramenta) e duplicaria a
   estratégia do **Timeshift** (`craft-rollback` + `grub-btrfs`). Rota snapper
   = opcional, documentada no cockpit dia-1. Acompanha o **cockpit v1.4.0**:
@@ -57,6 +74,8 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 | **v1.0.3** `playerctl` `brightnessctl` `pulsemixer` | Teclas de mídia/brilho e o mixer W-a do `rc.xml` |
 | **v1.0.3** `polkit-gnome` | Agente de senha da sessão labwc (o do Archcraft só sobe no Openbox) |
 | **v1.0.3** `mpv` `imv` `fastfetch` | Vídeo/imagem minimalistas Wayland + system info (o `craft-hello` usa) |
+| **v1.0.4** `nwg-drawer` | O **Launchpad**: grade de apps full-screen com busca, categorias, pin e barra de sessão (`craft-drawer`) — mouse-first (diretriz do dono) |
+| **v1.0.4** `papirus-icon-theme` | Ícones de apps em toda parte: dock (waybar `wlr/taskbar`), Launchpad e GTK (skel aponta `Papirus-Dark`) |
 | **v1.0.3** `mousepad` `zathura`+`-pdf-poppler` `qalculate-gtk` `file-roller` `nwg-look` | **Curadoria brabos 2026** (uso geral de fábrica, GTK3 temável): editor de texto simples (geany→IDE-lite saiu), PDF keyboard-driven (atril saiu), a calculadora "de outro nível" 5.13 (galculator saiu), archives GUI integrado ao Thunar (xarchiver→bug DnD Wayland saiu), aparência GTK no labwc (xfce4-settings saiu) |
 | **v1.0.3** `yazi` | FM TUI em rust com previews nativos — substitui ranger+ueberzug+highlight+mc |
 | **v1.0.3** `ripgrep` `fd` `fzf` `eza` `bat` `zoxide` `dust` `procs` `sd` `starship` `tealdeer` | CLI modernos (rust) — os "essenciais" do cockpit agora nascem na ISO; o W-f do `rc.xml` já usava eza |
