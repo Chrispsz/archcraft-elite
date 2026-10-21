@@ -51,17 +51,17 @@
   "custom/files": {
     "format": "",
     "tooltip-format": "Arquivos (Thunar)",
-    "on-click": "thunar"
+    "on-click": "foot -e yazi"
   },
   "custom/web": {
     "format": "󰈹",
     "tooltip-format": "Firefox",
-    "on-click": "firefox"
+    "on-click": "brave"
   },
   "custom/editor": {
     "format": "",
     "tooltip-format": "Editor (Mousepad)",
-    "on-click": "mousepad"
+    "on-click": "foot -e helix"
   },
   "custom/shot": {
     "format": "",

@@ -13,10 +13,12 @@ name: Diag Install (QEMU)
 # para o sistema instalado — sem GUI:
 #   1. unpackfs entrada 1  → rsync do conteúdo do airootfs p/ btrfs @
 #   2. unpackfs E5a        → rsync dos vmlinuz-* do "pendrive" p/ /boot
+#                           (v1.1: entrada única = vmlinuz-linux-cachyos-bore)
 #      (é aqui que o bug vivia: cópia rsync→btrfs chegava truncada)
 #   3. E10 comando 1       → cp -f de TODOS os vmlinuz-* (fonte íntegra)
 #   4. initcpio@elite      → mkinitcpio -p linux-cachyos-bore NO ALVO
-#      + initcpio          → mkinitcpio -p linux (kernel stock)
+#                           (v1.1: initcpio stock REMOVIDO da sequência —
+#                            kernel único BORE; módulo stock quebraria)
 #   5. grubcfg/bootloader  → grub-install + grub-mkconfig no alvo
 # Depois BOOTA o disco instalado no QEMU (BIOS/MBR + serial) e olha:
 #   ✖ 'premature end of file'          = o bug do rig B voltou
@@ -143,8 +145,17 @@ jobs:
           [ -d "$1" ] || { echo "✖ grub ausente no pacman db do airootfs"; exit 1; }
           echo "✔ grub presente: $1"
           test -f rootfs/etc/mkinitcpio.d/linux-cachyos-bore.preset || { echo "✖ preset BORE (E6) ausente"; exit 1; }
-          test -f rootfs/etc/mkinitcpio.d/linux.preset || { echo "✖ preset stock (E6b) ausente"; exit 1; }
-          echo "✔ pré-flight ok (mkinitcpio, arch-chroot, grub, presets E6/E6b)"
+          test ! -e rootfs/etc/mkinitcpio.d/linux.preset || { echo "✖ preset stock PRESENTE (E6b foi aposentado na v1.1)"; exit 1; }
+          # v1.1: dkms nvidia pré-compilado (E11) viaja no airootfs — o QEMU
+          # não tem GPU, mas os .ko provam que o build compilou contra o BORE
+          KVER_AI=$(sudo ls rootfs/usr/lib/modules/ | grep -m1 cachyos-bore)
+          [ -n "$KVER_AI" ] || { echo "✖ kernel BORE ausente no airootfs"; exit 1; }
+          if sudo ls "rootfs/usr/lib/modules/$KVER_AI/updates/dkms/nvidia.ko"* >/dev/null 2>&1; then
+            echo "✔ dkms nvidia pré-compilado presente p/ $KVER_AI (E11)"
+          else
+            echo "✖ E11: módulos nvidia AUSENTES no airootfs (entrada NVIDIA do live = mentira)"; exit 1
+          fi
+          echo "✔ pré-flight ok (mkinitcpio, arch-chroot, grub, preset E6, dkms E11)"
 
           echo "── [2/8] disco: MBR + partição btrfs única (Calamares erase-disk, BIOS)"
           truncate -s 14G elite-disk.img
@@ -189,33 +200,41 @@ jobs:
           else
             echo "BORE_INTEGRAL=TRUNCADO/BUG" | tee integridade.txt
           fi
-          if sudo cmp -s pd/arch/boot/x86_64/vmlinuz-linux /mnt/elite/boot/vmlinuz-linux; then
-            echo "STOCK_INTEGRAL=OK" | tee -a integridade.txt
-          else
-            echo "STOCK_INTEGRAL=TRUNCADO/BUG" | tee -a integridade.txt
-          fi
+          # v1.1: kernel único — não existe mais vmlinuz-linux p/ conferir
           cat integridade.txt
+          echo "── [6b/8] E10 v1.1: especialização por GPU (detector de vendor)"
+          # Roda o MESMO detector do shellprocess_btrfs.conf: no runner sem
+          # DRM o esperado é 'unknown' (nenhum branch toca no alvo) — prova
+          # que o loop não explode e o default é não-op seguro
+          ELITE_GPU=unknown
+          for v in /sys/class/drm/card*/device/vendor; do
+            [ -r "$v" ] || continue
+            case "$(cat "$v" 2>/dev/null)" in
+              0x10de) ELITE_GPU=nvidia ;;
+              0x1002) [ "$ELITE_GPU" != "nvidia" ] && ELITE_GPU=amd ;;
+            esac
+          done
+          echo "ELITE_GPU=$ELITE_GPU (QEMU: esperado unknown)"
+          echo "ELITE_GPU=$ELITE_GPU" | tee gpu-detect.txt
+          # contrato do per-rig no YAML que o Calamares real executa:
+          for pat in '0x10de) ELITE_GPU=nvidia' 'MODULES=(amdgpu)' 'nvidia_drm.fbdev=1' 'pacman -Rdd --noconfirm nvidia-open-dkms'; do
+            sudo grep -qF "$pat" rootfs/etc/calamares/modules/shellprocess_btrfs.conf \
+              && echo "✔ per-rig no shellprocess_btrfs: $pat" \
+              || { echo "✖ per-rig AUSENTE no shellprocess_btrfs: $pat"; exit 1; }
+          done
 
-          echo "── [7/8] initcpio + initcpio@elite: initramfs dos 2 kernels NO ALVO"
+          echo "── [7/8] initcpio@elite: initramfs do kernel ÚNICO (BORE) NO ALVO"
           sudo arch-chroot /mnt/elite mkinitcpio -p linux-cachyos-bore > mkinitcpio-bore.log 2>&1 \
             || { echo "✖ mkinitcpio BORE falhou:"; tail -40 mkinitcpio-bore.log; exit 1; }
           tail -6 mkinitcpio-bore.log
-          sudo arch-chroot /mnt/elite mkinitcpio -p linux > mkinitcpio-stock.log 2>&1 \
-            || { echo "✖ mkinitcpio stock falhou:"; tail -40 mkinitcpio-stock.log; exit 1; }
-          tail -4 mkinitcpio-stock.log
-          # test-only: regenera as imagens DEFAULT sem autodetect (ver header)
+          # test-only: regenera a imagem DEFAULT sem autodetect (ver header)
           KVER_BORE=$(sudo arch-chroot /mnt/elite sh -c 'ls /usr/lib/modules | grep -m1 cachyos')
-          KVER_STOCK=$(sudo arch-chroot /mnt/elite sh -c 'ls /usr/lib/modules | grep -vm1 cachyos | head -1')
-          echo "kernels no alvo: BORE=$KVER_BORE stock=$KVER_STOCK"
+          echo "kernel único no alvo: BORE=$KVER_BORE"
           sudo arch-chroot /mnt/elite mkinitcpio -S autodetect \
             -g /boot/initramfs-linux-cachyos-bore.img -k "$KVER_BORE" \
             >> mkinitcpio-bore.log 2>&1 \
             || { echo "✖ regen BORE (sem autodetect) falhou:"; tail -40 mkinitcpio-bore.log; exit 1; }
-          sudo arch-chroot /mnt/elite mkinitcpio -S autodetect \
-            -g /boot/initramfs-linux.img -k "$KVER_STOCK" \
-            >> mkinitcpio-stock.log 2>&1 \
-            || { echo "✖ regen stock (sem autodetect) falhou:"; tail -40 mkinitcpio-stock.log; exit 1; }
-          echo "── /boot final do alvo:"
+          echo "── /boot final do alvo (v1.1: só BORE — stock saiu da ISO):"
           sudo stat -c '   %n %s' /mnt/elite/boot/* | tee boot-final.txt
 
           echo "── [8/8] grubcfg + bootloader: grub-install + grub-mkconfig (serial test-only)"
@@ -306,7 +325,8 @@ jobs:
           if grep -q 'you need to load the kernel first' serial-install.log; then echo "✖ 'you need to load the kernel first' — kernel não carregou"; FAIL=1; else echo "✔ SEM 'you need to load the kernel first'"; fi
           grep -q 'BORE_INTEGRAL=OK' integridade.txt && echo "✔ kernel BORE byte-idêntico ao pendrive no disco" || { echo "✖ BORE truncado mesmo após E10"; FAIL=1; }
           grep -q "vmlinuz-linux-cachyos-bore $(cat bore-size.txt)" sizes-depois-e10.txt && echo "✔ BORE com tamanho integral no disco" || echo "⚠ conferir sizes-depois-e10.txt"
-          grep -q 'cachyos-bore' grub-entries.txt && echo "✔ entrada BORE presente no grub.cfg" || { echo "✖ entrada BORE AUSENTE no grub.cfg — o instalado bootaria só o kernel stock"; FAIL=1; }
+          grep -q 'cachyos-bore' grub-entries.txt && echo "✔ entrada BORE presente no grub.cfg" || { echo "✖ entrada BORE AUSENTE no grub.cfg — instalado sem kernel (v1.1: único é o BORE)"; FAIL=1; }
+          grep -q 'ELITE_GPU=unknown' gpu-detect.txt && echo "✔ detector de GPU do E10: unknown no QEMU (não-op seguro)" || { echo "⚠ detector de GPU resolveu diferente no QEMU — ver gpu-detect.txt"; }
           exit $FAIL
 
       - name: Cleanup loop devices
@@ -332,6 +352,6 @@ jobs:
             grub-install.log
             grub-mkconfig.log
             mkinitcpio-bore.log
-            mkinitcpio-stock.log
+            gpu-detect.txt
           if-no-files-found: warn
           retention-days: 14

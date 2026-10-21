@@ -54,7 +54,7 @@ else
 fi
 
 qemu-system-x86_64 \
-  -machine q35 -smp 2 -m 3072 "${ACCEL[@]}" \
+  -machine q35 -smp 2 -m 7168 "${ACCEL[@]}" \
   -kernel "$WORK/arch/boot/x86_64/vmlinuz-linux-cachyos-bore" \
   -initrd "$WORK/arch/boot/x86_64/initramfs-linux-cachyos-bore.img" \
   -append "$APPEND_GATE" \

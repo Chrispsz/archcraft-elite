@@ -4,9 +4,9 @@ Formato: **o quê faz / como rodar / como reverter / dependências**.
 
 ---
 
-## elite-tune (v4.5) — `/usr/local/bin/elite-tune`
+## elite-tune (v4.6) — `/usr/local/bin/elite-tune`
 
-**O quê:** detecção de hardware (ISA x86-64, GPU+geração, RAM/pentes/MHz, discos) e aplicação da camada Elite: repos CachyOS (chave F3B607488DB35A47 + keyring + mirrorlist via `pacman -U`, sem pacman fork), kernel BORE, daemons (ananicy, scx-elite, dmemcg, fg-booster, grub-btrfsd, lactd), boot params GRUB (quote-safe), driver NVIDIA por geração (Turing+ → `nvidia-open-dkms`; Maxwell/Pascal → orientação AUR `nvidia-580xx-dkms`), zram/sysctl/udev idempotentes, shader cache NVIDIA. **v4.5 — firstboot anti-brick:** a troca de driver NVIDIA é `-S` → `-R` (instala o dkms ANTES de remover o pré-compilado); sem rede no 1º boot o driver do live fica **preservado**, o marker `firstboot-done` **não** é escrito e a unit re-tenta no boot seguinte — o wall avisa "pendente" em vez de "REINICIE".
+**O quê:** detecção de hardware (ISA x86-64, GPU+geração, RAM/pentes/MHz, discos) e aplicação da camada Elite: repos CachyOS (chave F3B607488DB35A47 + keyring + mirrorlist via `pacman -U`, sem pacman fork), kernel BORE, daemons (ananicy, scx-elite, dmemcg, fg-booster, grub-btrfsd, lactd), boot params GRUB (quote-safe), driver NVIDIA por geração (Turing+ → `nvidia-open-dkms`; Maxwell/Pascal → orientação AUR `nvidia-580xx-dkms`), zram/sysctl/udev idempotentes, shader cache NVIDIA. **v4.5 — firstboot anti-brick:** a troca de driver NVIDIA é `-S` → `-R` (instala o dkms ANTES de remover o pré-compilado); sem rede no 1º boot o driver do live fica **preservado**, o marker `firstboot-done` **não** é escrito e a unit re-tenta no boot seguinte — o wall avisa "pendente" em vez de "REINICIE". **v4.6 — ISO v1.1:** detecta o dkms NVIDIA **pré-compilado** da ISO (módulos em `/usr/lib/modules/<kver>/updates/dkms` + nvidia-utils) → primeiro boot do rig NVIDIA instala NADA (offline total, marker na primeira passada; online vira fallback p/ sistema não-ISO); `gpu_cleanup_foreign` varre também nvidia-open-dkms e os .ko pré-compilados em rigs AMD/Intel; **guard BBR** — kernel sem bbr remove as linhas do `99-elite-net.conf` em vez de deixar sysctl morto reclamando; interativo instala só headers do BORE (kernel único).
 
 **Modos:**
 ```bash
@@ -48,7 +48,7 @@ elite-tune --status            # certificação (sem root) — alias: elite-stat
 
 ## apply-overlay.sh — `scripts/apply-overlay.sh` (repo)
 
-**O quê:** o "delta" inteiro. Clona o profile oficial do Archcraft, aplica o overlay `elite/airootfs`, mescla `packages.add`, comenta os de `packages.remove`, troca o firmware meta por subpacotes, insere os repos CachyOS (trio v3 + baseline) antes de `[core]`, patcha as entradas de boot (BORE em default/opensource/nomodeset; Nvidia fica no stock), adiciona a entrada "Copy to RAM" (`copytoram=y`, USB lento/Ventoy), injeta `systemd.default_timeout_start_sec=90 systemd.default_timeout_stop_sec=90` no cmdline de TODAS as entradas dos 3 bootloaders ([6.2] — no live o PID-1 vindo do initramfs não reavalia drop-ins de `/etc` após o switch_root; o cmdline é a única precedência que sempre vence), remove wants de serviços debloatados, patcha o mkarchcraftiso p/ pacstrap não-interativo, anexa o fragmento E0–E8 ao customize_airootfs, expande grupos em pacotes explícitos (CI), cria o mirrorlist do archcraft p/ o ambiente de build (root/CI) e rebatiza a ISO p/ `archcraft-elite-<data>`.
+**O quê:** o "delta" inteiro. Clona o profile oficial do Archcraft, aplica o overlay `elite/airootfs`, mescla `packages.add`, comenta os de `packages.remove`, troca o firmware meta por subpacotes, insere os repos CachyOS (trio v3 + baseline) antes de `[core]`, reescreve o **menu de boot v1.1** (3 entradas: AMD default · NVIDIA dkms · nomodeset rescue — TODAS no BORE, copy-to-RAM no default e na NVIDIA; OpenSource e a antiga 05 Copy-to-RAM saem; guarda de sanidade contra referência a kernel stock), injeta `systemd.default_timeout_start_sec=90 systemd.default_timeout_stop_sec=90` no cmdline de TODAS as entradas dos 3 bootloaders ([6.2] — no live o PID-1 vindo do initramfs não reavalia drop-ins de `/etc` após o switch_root; o cmdline é a única precedência que sempre vence), remove wants de serviços debloatados, patcha o mkarchcraftiso p/ pacstrap não-interativo, anexa o fragmento E0–E12 ao customize_airootfs, expande grupos em pacotes explícitos (CI), cria o mirrorlist do archcraft p/ o ambiente de build (root/CI) e rebatiza a ISO p/ `archcraft-elite-<data>`.
 
 **Como rodar:** `bash scripts/apply-overlay.sh` → saída em `elite-build/`.
 
@@ -58,7 +58,7 @@ elite-tune --status            # certificação (sem root) — alias: elite-stat
 
 ---
 
-## elite-customize.sh (fragmento E0–E10) — anexado ao customize_airootfs do upstream
+## elite-customize.sh (fragmento E0–E12) — anexado ao customize_airootfs do upstream
 
 **O quê:** roda DENTRO do airootfs no fim do build. E0: DNS do chroot. E1: chave CachyOS no keyring (vale p/ live e instalado — o gnupg é copiado pelo unpackfs). E2: keyring+mirrorlist v3 via `pacman -U` (fallback: mirrorlist escrito na mão). E3: pacman.conf do sistema reescrito limpo (archcraft → cachyos → core/extra/multilib). E4: `pacman -Sy` valida os 6 repos no chroot. E5: cirurgia no Calamares (unpackfs copia o vmlinuz BORE; instância `initcpio@elite`; packagechooser só labwc; btrfs default). E6/E6b: presets default/fallback do BORE **e** do kernel stock p/ o instalado. E7: tira cups/avahi da lista de serviços do post-install do Archcraft. E8: remove o repo de build `[elite-local]` da ISO. E9: limpa do skel configs de sessões extintas. **E10 (v1.0.4): recopia TODOS os vmlinuz-\*** do pendrive p/ `/boot` do alvo (o rsync→btrfs do unpackfs truncava arquivos grandes — causa-raiz do `premature end of file` no rig B) **e regenera o initramfs do BORE no alvo** com hooks de sistema.
 

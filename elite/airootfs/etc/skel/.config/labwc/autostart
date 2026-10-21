@@ -39,17 +39,10 @@ if [ -x /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 ]; then
     /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 &
 fi
 
-# --- Bluetooth: applet no tray (pareamento de fone em 2 cliques). O toggle
-#     de power fica no SwayNC; o blueman cuida de parear/conectar (fix do
-#     "clico no ícone e não abre nada" do Openbox stock)
-if command -v blueman-applet >/dev/null 2>&1; then
-    blueman-applet &
-fi
-
-# --- Rede: applet no tray (WiFi/ethernet — alternativa gráfica ao W-n/nmtui)
-if command -v nm-applet >/dev/null 2>&1; then
-    nm-applet &
-fi
+# --- Bluetooth/Rede (v1.1): os applets GTK3 (blueman, nm-applet) saíram —
+#     pareamento = bluetui (W-b no rc.xml), rede = impala (W-n) ou o módulo
+#     network da waybar (clique abre o nmtui no foot). Zero daemon GTK3
+#     rodando de graça na sessão; o bluetooth.service segue habilitado.
 
 # --- USB: automount + notificação (udiskie — daemon próprio; o
 #     thunar-volman só age com o Thunar aberto)

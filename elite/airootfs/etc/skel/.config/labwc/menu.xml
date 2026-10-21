@@ -40,13 +40,16 @@
       <action name="Execute" command="foot" />
     </item>
     <item label="Navegador">
-      <action name="Execute" command="sh -c 'for b in thorium-browser firefox librewolf chromium brave-browser qutebrowser; do command -v &quot;$b&quot; &gt;/dev/null &amp;&amp; exec &quot;$b&quot;; done; exec xdg-open https://archlinux.org'" />
+      <action name="Execute" command="sh -c 'for b in brave librewolf chromium thorium-browser qutebrowser; do command -v &quot;$b&quot; &gt;/dev/null &amp;&amp; exec &quot;$b&quot;; done; exec xdg-open https://archlinux.org'" />
     </item>
-    <item label="Arquivos (thunar)">
-      <action name="Execute" command="thunar" />
+    <item label="Arquivos (yazi)">
+      <action name="Execute" command="foot -e yazi" />
     </item>
-    <item label="Editor (mousepad)">
-      <action name="Execute" command="mousepad" />
+    <item label="Editor (helix)">
+      <action name="Execute" command="foot -e helix" />
+    </item>
+    <item label="Leitor de PDF (papers)">
+      <action name="Execute" command="papers" />
     </item>
     <item label="Calculadora (qalculate)">
       <action name="Execute" command="qalculate-gtk" />
@@ -70,17 +73,20 @@
       <item label="Monitor (btop)">
         <action name="Execute" command="foot -e btop" />
       </item>
-      <item label="Mixer (pulsemixer)">
-        <action name="Execute" command="foot -e pulsemixer" />
+      <item label="Mixer (pwvucontrol)">
+        <action name="Execute" command="pwvucontrol" />
       </item>
-      <item label="Rede (nmtui)">
-        <action name="Execute" command="foot -e nmtui" />
+      <item label="Rede (impala)">
+        <action name="Execute" command="foot -e impala" />
+      </item>
+      <item label="Bluetooth (bluetui)">
+        <action name="Execute" command="foot -e bluetui" />
       </item>
       <item label="Aparência GTK (nwg-look)">
         <action name="Execute" command="nwg-look" />
       </item>
-      <item label="Arquivos compactados (file-roller)">
-        <action name="Execute" command="file-roller" />
+      <item label="Arquivos compactados (7z)">
+        <action name="Execute" command="foot -e 7z" />
       </item>
     </menu>
     <menu id="client-list-combined-menu" label="Janelas..." />

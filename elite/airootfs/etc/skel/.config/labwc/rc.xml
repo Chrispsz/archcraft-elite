@@ -12,13 +12,13 @@
     · Fonte JetBrains Mono 9 (ActiveWindow Bold / InactiveWindow Normal)
     · W-space → root-menu · C-A-space → launcher (no lugar do app-menu dele)
     · C-A-t → terminal (alias) · W-Return → terminal (foot no lugar de alacritty)
-    · W-w → navegador (thorium do dia-1 em 1º, firefox do criador como fallback)
+    · W-w → navegador (brave em 1º — Wayland-native, v1.1)
     · W-b mantido como alias do navegador
-    · W-f → gerenciador de arquivos (thunar, igual ao criador) · W-e alias nosso
+    · W-f → gerenciador de arquivos (yazi) · W-e alias nosso
     · W-q e W-c → fechar (o criador usa ambos) · A-F4 · W-i / A-F5 → minimizar
     · W-m / A-F10 → maximizar · A-F11 → fullscreen (fullscreen do criador!)
     · W-←/→/↑/↓ → snap em metades (mesma semântica do snap MoveResizeTo dele)
-    · W-n → rede (criador: networkmanager_dmenu; aqui: nmtui no foot)
+    · W-n → rede (impala) · W-S-b → bluetooth (bluetui)
     · W-x → menu de sessão (criador: rofi-powermenu; aqui: craft-logout)
     · C-A-Delete → sessão (criador: Exit com prompt; aqui: menu craft-logout)
     · C-S-R → Reconfigure (alias do W-S-r)
@@ -154,24 +154,28 @@
     <keybind key="C-A-space">
       <action name="Execute" command="fuzzel" />
     </keybind>
-    <!-- Navegador: W-w (criador) e alias W-b — thorium (seu navegador, dia-1)
-         entra na frente; o firefox do criador é o fallback -->
+    <!-- Navegador: W-w (criador) e alias W-b — brave (Wayland-native, v1.1)
+         em 1º; os outros são fallback de máquina sem brave -->
     <keybind key="W-w">
-      <action name="Execute" command="sh -c 'for b in thorium-browser firefox librewolf chromium brave-browser qutebrowser; do command -v &quot;$b&quot; &gt;/dev/null &amp;&amp; exec &quot;$b&quot;; done; exec xdg-open https://archlinux.org'" />
+      <action name="Execute" command="sh -c 'for b in brave librewolf chromium thorium-browser qutebrowser; do command -v &quot;$b&quot; &gt;/dev/null &amp;&amp; exec &quot;$b&quot;; done; exec xdg-open https://archlinux.org'" />
     </keybind>
     <keybind key="W-b">
-      <action name="Execute" command="sh -c 'for b in thorium-browser firefox librewolf chromium brave-browser qutebrowser; do command -v &quot;$b&quot; &gt;/dev/null &amp;&amp; exec &quot;$b&quot;; done; exec xdg-open https://archlinux.org'" />
+      <action name="Execute" command="sh -c 'for b in brave librewolf chromium thorium-browser qutebrowser; do command -v &quot;$b&quot; &gt;/dev/null &amp;&amp; exec &quot;$b&quot;; done; exec xdg-open https://archlinux.org'" />
     </keybind>
-    <!-- Arquivos: W-f (criador: thunar) e alias W-e -->
+    <!-- Arquivos: W-f e alias W-e — yazi (TUI rust, v1.1: O gerenciador) -->
     <keybind key="W-f">
-      <action name="Execute" command="sh -c 'for f in thunar pcmanfm nautilus; do command -v &quot;$f&quot; &gt;/dev/null &amp;&amp; exec &quot;$f&quot;; done; exec foot -e eza'" />
+      <action name="Execute" command="foot -e yazi" />
     </keybind>
     <keybind key="W-e">
-      <action name="Execute" command="sh -c 'for f in thunar pcmanfm nautilus; do command -v &quot;$f&quot; &gt;/dev/null &amp;&amp; exec &quot;$f&quot;; done; exec foot -e eza'" />
+      <action name="Execute" command="foot -e yazi" />
     </keybind>
-    <!-- Rede (W-n · criador: networkmanager_dmenu) e monitor (W-s) e mixer (W-a) -->
+    <!-- Rede (W-n · impala, TUI rust v1.1) · monitor (W-s) · mixer (W-a) -->
     <keybind key="W-n">
-      <action name="Execute" command="foot -e nmtui" />
+      <action name="Execute" command="foot -e impala" />
+    </keybind>
+    <!-- Bluetooth (W-S-b · bluetui — o applet GTK3 saiu na v1.1) -->
+    <keybind key="W-S-b">
+      <action name="Execute" command="foot -e bluetui" />
     </keybind>
     <keybind key="W-s">
       <action name="Execute" command="foot -e btop" />
@@ -377,7 +381,7 @@
 
   <!-- Exemplos de regras por janela (descomente e ajuste):
   <windowRules>
-    <windowRule identifier="pavucontrol">
+    <windowRule identifier="com.github.dominiksalvet.pwvucontrol">
       <action name="ToggleAlwaysOnTop" />
     </windowRule>
     <windowRule identifier="^(foot|fuzzel)$" skipTaskbar="yes" />

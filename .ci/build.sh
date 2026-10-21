@@ -18,7 +18,8 @@ say "Preparando container (archiso + deps do mkarchcraftiso)"
 sed -i 's/^#ParallelDownloads/ParallelDownloads/; s/^#Color/Color/' /etc/pacman.conf
 pacman -Syu --noconfirm --needed \
     git rsync curl archiso xorriso mtools dosfstools \
-    e2fsprogs squashfs-tools openssl arch-install-scripts
+    e2fsprogs squashfs-tools openssl arch-install-scripts \
+    base-devel sudo
 
 say "Importando chave CachyOS (ambiente de build)"
 # a imagem archlinux não traz chave secreta no keyring — init primeiro
@@ -140,6 +141,45 @@ elite_fetch "${ML_LATEST:-cachyos-v3-mirrorlist-27-1-any.pkg.tar.zst}" \
     || elite_fetch "cachyos-v3-mirrorlist-27-1-any.pkg.tar.zst" \
     || echo "  (aviso: cachyos-v3-mirrorlist fora do ar nos 2 mirrors — E2 usará fallback de rede)"
 
+
+# ── v1.1: estágio AUR → [elite-local] ─────────────────────────────────
+#  brave-bin e pwvucontrol não existem nos repos oficiais ( conferido
+#  via archlinux.org/packages/search). O build clona o AUR, compila como
+#  usuário descartável e os pacotes entram no repo file:// — o pacstrap
+#  selado os resolve OFFLINE como qualquer outro. Falha de CDN/AUR após
+#  2 tentativas = abort com diagnóstico (mesma filosofia do preflight:
+#  fail loud no build, nunca no boot).
+say "Estágio AUR: brave-bin + pwvucontrol → /var/cache/elite-local/"
+mkdir -p /tmp/elite-src/aur
+# makepkg -s (syncdeps) instala deps de build via sudo — regra descartável
+printf 'builder ALL=(ALL) NOPASSWD: ALL\n' > /etc/sudoers.d/builder
+chmod 440 /etc/sudoers.d/builder
+aur_build() { # $1 = nome do pacote AUR
+    local pkg=$1 try
+    for try in 1 2; do
+        rm -rf "/tmp/elite-src/aur/$pkg"
+        if git clone --depth=1 --quiet "https://aur.archlinux.org/${pkg}.git" "/tmp/elite-src/aur/$pkg"; then
+            chown -R builder "/tmp/elite-src/aur/$pkg"
+            # --skippgpcheck: PKGBUILDs de bin sem assinatura PGP própria;
+            #  sha256 do source continua verificado pelo makepkg
+            if runuser -l builder -c "cd /tmp/elite-src/aur/$pkg && makepkg -sf --noconfirm --skippgpcheck" \
+               && cp /tmp/elite-src/aur/$pkg/*.pkg.tar.zst /var/cache/elite-local/; then
+                say "  ok: $pkg (tentativa $try)"
+                return 0
+            fi
+            say "  makepkg falhou p/ $pkg (tentativa $try) — últimos logs:"
+            tail -15 "/tmp/elite-src/aur/$pkg"/*.log 2>/dev/null || true
+        else
+            say "  git clone do AUR falhou p/ $pkg (tentativa $try)"
+        fi
+    done
+    echo "ELITE-FAIL: não foi possível construir '$pkg' (AUR/CDN fora?) — 2 tentativas" >&2
+    return 1
+}
+aur_build brave-bin     || exit 1
+aur_build pwvucontrol  || exit 1
+rm -f /etc/sudoers.d/builder
+
 repo-add --quiet /var/cache/elite-local/elite-local.db.tar.gz /var/cache/elite-local/*.pkg.tar.zst
 ls -la /var/cache/elite-local/
 
@@ -178,6 +218,59 @@ bash scripts/apply-overlay.sh
 # caminho local file:// p/ cacheado (o grep ^https? filtra — sobra
 # exatamente o conjunto NÃO-cacheado, que é o que a sonda quer).
 # ─────────────────────────────────────────────────────────────────────
+
+# v1.1 — injeção de baseline com BUMP de versão. O CachyOS é rolling: às
+# vezes o db anuncia uma versão cujo arquivo NUNCA propaga (skew travado —
+# ex.: libcdio-paranoia 10.2+2.0.2-3.1, 404 nos 2 mirrors por >24h, run
+# #47). A injeção de baseline antiga não resolve: pacman prefere a versão
+# NOVA (quebrada) — repo order só decide EMPATE. Último recurso
+# determinístico: repack do baseline Arch com pkgrel +0.1 no [elite-local]
+# (1º repo + versão maior = vence o resolve; o mirror sara e o próximo
+# -Syu normaliza). Registrado com ELITE-BUMP no log — nunca silencioso.
+elite_inject_bumped() { # $1 = filename quebrado (cachyos) $2 = path do baseline .pkg.tar.zst
+    local broken="$1" basepkg="$2"
+    # name-ver-rel: strip arch/ext, rev/cut como no preflight (ver não tem '-')
+    local nb nb_name nb_verrel bverrel
+    nb=$(printf '%s' "$broken" | sed -E 's/-(any|x86_64(_v3)?)\.pkg\.tar\.zst$//')
+    nb_name=$(printf '%s' "$nb" | rev | cut -d- -f3- | rev)
+    nb_verrel=$(printf '%s' "$nb" | rev | cut -d- -f1-2 | rev)     # ver-rel quebrada
+    bverrel=$(printf '%s' "${basepkg##*/}" | sed -E 's/-(any|x86_64(_v3)?)\.pkg\.tar\.zst$//' | rev | cut -d- -f1-2 | rev)
+    if [[ "$(vercmp "$bverrel" "$nb_verrel")" -ge 0 ]]; then
+        # baseline >= quebrada: injeção simples (comportamento clássico)
+        cp -f "$basepkg" "/var/cache/elite-local/${basepkg##*/}"
+        say "  ELITE-INJECT ${basepkg##*/} (baseline >= quebrada: resolve no elite-local)"
+        return 0
+    fi
+    # baseline mais VELHA: repack com pkgrel da quebrada + '.1' (3.1 → 3.1.1)
+    local bver newrel parch d="/tmp/elite-bump/$nb_name"
+    bver=$(printf '%s' "$bverrel" | rev | cut -d- -f2- | rev)
+    newrel="${nb_verrel##*-}.1"
+    parch=$(printf '%s' "${basepkg##*/}" | sed -nE 's/.*-(any|x86_64(_v3)?)\.pkg\.tar\.zst$/\1/p')
+    [[ -n "$parch" ]] || parch=any
+    rm -rf "$d" && mkdir -p "$d/payload"
+    bsdtar -xf "$basepkg" -C "$d/payload" --exclude='.PKGINFO' --exclude='.MTREE' --exclude='.BUILDINFO'
+    cat > "$d/PKGBUILD" <<EOP
+pkgname=$nb_name
+pkgver=$bver
+pkgrel=$newrel
+pkgdesc="ELITE baseline override (mirror CachyOS com skew travado — ver CHANGES v1.1)"
+arch=($parch)
+license=(unknown)
+package() {
+    cp -a "\$srcdir/../payload/." "\$pkgdir"/
+}
+EOP
+    chown -R builder "$d"
+    if runuser -l builder -c "cd $d && makepkg -f --noconfirm" \
+       && cp "$d/"*.pkg.tar.zst /var/cache/elite-local/; then
+        say "  ELITE-BUMP $nb_name $bverrel → $bver-$newrel (baseline repackeada: versão > quebrada, elite-local vence)"
+        return 0
+    fi
+    say "  ELITE-BUMP falhou p/ $nb_name — caindo no comportamento clássico (cp do baseline)"
+    cp -f "$basepkg" "/var/cache/elite-local/${basepkg##*/}"
+    return 0
+}
+
 preflight() {
     local pc=/work/elite-build/profile/pacman.conf
     local plconf=/tmp/elite-preflight.conf
@@ -284,13 +377,54 @@ preflight() {
                  | grep -oE '^https?://[^ ]+\.pkg\.tar\.zst$' | head -1 || true)
             if [[ -n "$fu" ]]; then
                 say "  $fn quebrado nos 2 mirrors → baseline Arch injetado no [elite-local]"
-                if curl -fsSL -o "/var/cache/elite-local/${fu##*/}" "$fu"; then injected=1; fi
+                if curl -fsSL -o /tmp/elite-baseline.pkg.tar.zst "$fu"; then
+                    elite_inject_bumped "$fn" /tmp/elite-baseline.pkg.tar.zst && injected=1
+                fi
             else
                 say "  $fn quebrado e SEM baseline Arch — próximo round decide"
             fi
         done
         if (( injected )); then
-            repo-add --quiet /var/cache/elite-local/elite-local.db.tar.gz /var/cache/elite-local/*.pkg.tar.zst
+            
+# ── v1.1: estágio AUR → [elite-local] ─────────────────────────────────
+#  brave-bin e pwvucontrol não existem nos repos oficiais ( conferido
+#  via archlinux.org/packages/search). O build clona o AUR, compila como
+#  usuário descartável e os pacotes entram no repo file:// — o pacstrap
+#  selado os resolve OFFLINE como qualquer outro. Falha de CDN/AUR após
+#  2 tentativas = abort com diagnóstico (mesma filosofia do preflight:
+#  fail loud no build, nunca no boot).
+say "Estágio AUR: brave-bin + pwvucontrol → /var/cache/elite-local/"
+mkdir -p /tmp/elite-src/aur
+# makepkg -s (syncdeps) instala deps de build via sudo — regra descartável
+printf 'builder ALL=(ALL) NOPASSWD: ALL\n' > /etc/sudoers.d/builder
+chmod 440 /etc/sudoers.d/builder
+aur_build() { # $1 = nome do pacote AUR
+    local pkg=$1 try
+    for try in 1 2; do
+        rm -rf "/tmp/elite-src/aur/$pkg"
+        if git clone --depth=1 --quiet "https://aur.archlinux.org/${pkg}.git" "/tmp/elite-src/aur/$pkg"; then
+            chown -R builder "/tmp/elite-src/aur/$pkg"
+            # --skippgpcheck: PKGBUILDs de bin sem assinatura PGP própria;
+            #  sha256 do source continua verificado pelo makepkg
+            if runuser -l builder -c "cd /tmp/elite-src/aur/$pkg && makepkg -sf --noconfirm --skippgpcheck" \
+               && cp /tmp/elite-src/aur/$pkg/*.pkg.tar.zst /var/cache/elite-local/; then
+                say "  ok: $pkg (tentativa $try)"
+                return 0
+            fi
+            say "  makepkg falhou p/ $pkg (tentativa $try) — últimos logs:"
+            tail -15 "/tmp/elite-src/aur/$pkg"/*.log 2>/dev/null || true
+        else
+            say "  git clone do AUR falhou p/ $pkg (tentativa $try)"
+        fi
+    done
+    echo "ELITE-FAIL: não foi possível construir '$pkg' (AUR/CDN fora?) — 2 tentativas" >&2
+    return 1
+}
+aur_build brave-bin     || exit 1
+aur_build pwvucontrol  || exit 1
+rm -f /etc/sudoers.d/builder
+
+repo-add --quiet /var/cache/elite-local/elite-local.db.tar.gz /var/cache/elite-local/*.pkg.tar.zst
             cp /var/cache/elite-local/* /work/elite-build/profile/airootfs/var/cache/elite-local/
             say "  [elite-local] atualizado com baseline(s) — refazendo o round"
         fi

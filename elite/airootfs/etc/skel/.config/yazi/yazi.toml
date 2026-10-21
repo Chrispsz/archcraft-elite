@@ -1,0 +1,18 @@
+# ── ELITE v1.1 · yazi — O gerenciador de arquivos (TUI rust) ────────────
+# Doc: yazi-rs.github.io — preview de imagens via Sixel no foot, vídeos
+# via ffmpeg, PDFs via poppler, arquivos via 7zip. Tema: theme.toml.
+
+[manager]
+ratio        = [1, 4, 3]     # navegação · lista · preview
+sort_by      = "natural"
+sort_dir_first = true
+show_hidden  = false
+show_symlink = true
+
+[preview]
+max_preview = 3   # MB — acima disto só mostra metadados
+
+[opener]
+edit = [{ run = 'helix "$@"', block = true, for = "text" }]
+play = [{ run = 'mpv "$@"', orphan = true, for = "audio" }]
+open = [{ run = 'xdg-open "$@"', desc = "Abrir", for = "mime" }]
