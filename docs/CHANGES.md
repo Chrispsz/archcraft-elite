@@ -77,6 +77,14 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
   tmpfiles completa, boot chega à fase final (~5min) → gate verde. A linha
   de comando do kernel é a única precedência que o PID-1 do live respeita
   sempre. Kernel-agnóstico (vale p/ BORE, stock e nvidia).
+  **FIX DO GATE `verify` (build #43 vermelha)**: o gate boota com
+  `-kernel/-append` direto e o `-append` era **hardcoded, sem o fix [6.2]**
+  — a #43 testou uma cmdline que nenhum usuário boota (timeouts 15s de
+  volta → nsresourced em loop, 153 falhas, SDDM só aos 56min, gate morto).
+  O gate agora extrai o cmdline **REAL** da entrada default do syslinux da
+  própria ISO (só observabilidade muda: sem quiet/splash, loglevel=7,
+  console=ttyS0) e ganhou **check de regressão**: entrada sem
+  `systemd.default_timeout_start_sec=90` = gate vermelho na hora.
 - **v1.0.3** — sessão **ÚNICA labwc (Wayland)** com o rice Catppuccin Mocha
   (Waybar/SwayNC/Fuzzel/foot + helpers `craft-*` + fastfetch);
   **Openbox/BSPWM + satélites X11 removidos** (zero duplicação: um WM, um
@@ -232,9 +240,13 @@ caminho real do systemd-boot, `archisosearchuuid`):
 
 **Fix**: `elite/airootfs/etc/systemd/system.conf.d/00-elite-timeout.conf`
 (start/stop = **90s**, padrão vanilla do systemd). Drop-ins em `/etc` têm
-precedência sobre `/usr/lib` — o 15s do CachyOS fica neutralizado no live e
-no instalado. Quem quiser o 15s de volta: `sudo rm` o arquivo. O gate
-`verify` do CI (que boota o caminho REAL em QEMU) valida o fix em toda build.
+precedência sobre `/usr/lib` — o 15s do CachyOS fica neutralizado no
+**sistema instalado** (no live o drop-in nunca valeu — ver [6.2] acima,
+foi exatamente o que a #42/#43 expôs). Quem quiser o 15s de volta:
+`sudo rm` o arquivo. (Correção histórica: quando isto foi escrito, o gate
+`verify` do CI boota com `-append` próprio hardcoded — ele NÃO validava o
+caminho real; a partir da v1.0.4 o gate extrai o cmdline da entrada default
+da ISO e caça regressão do [6.2] em toda build.)
 
 ## ⚠️ Requisito de CPU (v1.0.3 — documentado)
 

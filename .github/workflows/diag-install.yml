@@ -61,7 +61,7 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq qemu-system-x86 p7zip-full btrfs-progs \
-            arch-install-scripts rsync >/dev/null
+            arch-install-scripts rsync squashfs-tools >/dev/null
           qemu-system-x86_64 --version | head -1
           mkfs.btrfs --version | head -1
           if [ -e /dev/kvm ]; then echo "KVM presente: $(ls -la /dev/kvm)"; else echo "KVM ausente — TCG (lento)"; fi
