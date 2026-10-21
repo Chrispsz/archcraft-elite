@@ -117,7 +117,10 @@ jobs:
         run: |
           set -euo pipefail
           echo "── [1/8] unpackfs entrada 1: airootfs.sfs → rootfs/ (o que o Calamares desempacota)"
-          unsquashfs -no-progress -d rootfs pd/arch/x86_64/airootfs.sfs >/dev/null
+          # sudo: fiel ao Calamares (que roda como root) E necessário —
+          # sem root o unsquashfs morre nos xattrs security.capability
+          # (write_xattr ... you're not superuser! → exit 2, run #1)
+          sudo unsquashfs -no-progress -d rootfs pd/arch/x86_64/airootfs.sfs >/dev/null
           rm -f pd/arch/x86_64/airootfs.sfs   # libera 2.8GB
           # pré-flight: as peças que o install precisa existem no alvo
           test -x rootfs/usr/bin/mkinitcpio  || { echo "✖ mkinitcpio ausente no airootfs"; exit 1; }
