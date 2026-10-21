@@ -162,3 +162,9 @@ window#waybar > box {
   border-bottom: 3px solid @mauve;
   border-radius: 2px;
 }
+
+/* ── Pins do usuário (craft-pin) ────────────────────────────────────────
+ * Apps fixados via `craft-pin add NOME GLYPH TOOLTIP COMANDO [COR]`:
+ * o script apoia aqui um bloco autocontido por app com o MESMO DNA visual
+ * dos launchers fixos (glyph 30px → zoom 34px no hover, realce surface).
+ * `craft-pin rm NOME` apaga o bloco inteiro — não edite à mão. */

@@ -58,6 +58,28 @@ elite-tune --status            # certificação (sem root) — alias: elite-stat
 
 ---
 
+## craft-pin (v1.1) — `/usr/local/bin/craft-pin`
+
+**O quê:** fixa (pin) apps do usuário na DOCK — os launchers fixos do skel (Launchpad, terminal, arquivos, navegador, editor, screenshot) nascem na ISO; os SEUS ficam na seção `PINS` do `config.dock`, gerenciada por este script. Um pin = 1 linha JSONC no config + 1 entrada no `modules-left` + 1 bloco CSS autocontido no `style.dock.css` com o mesmo DNA visual dos fixos (glyph 30px → zoom 34px no hover, realce surface, cor Catppuccin à escolha). As vírgulas do JSON ficam SEMPRE corretas (juiz: parse JSON a cada mutação); skel antigo sem a seção PINS é auto-curado; toda alteração grava `.bak.<ts>` dos dois arquivos e recarrega as barras via `SIGUSR2` (man 5 waybar: "By default reloads (resets) the bar" — config + estilo, sem reiniciar a sessão). Limite honesto vs macOS: app fixado rodando aparece como ícone extra no CENTRO (wlr/taskbar) — o waybar não une pin+running.
+
+```bash
+craft-pin list                                  # apps fixados
+craft-pin add steam   ''  Steam    steam     green
+craft-pin add discord ''  Discord  discord   mauve
+craft-pin add code    ''  VS Code  code      sky
+craft-pin rm steam                               # desfixa
+craft-pin reload                                 # recarrega as barras (SIGUSR2)
+craft-pin restore                                # desfaz a última alteração
+```
+
+**Como rodar:** `craft-pin <comando>` (sem root — edita `~/.config/waybar/`). GLYPH é um glifo Nerd Font (nerdfonts.com/cheat-sheet); NOME só `[a-z0-9-]`; COR é um nome Catppuccin do `style.dock.css` (padrão `mauve`).
+
+**Reverter:** `craft-pin rm <nome>` por pin, `craft-pin restore` para a última alteração, ou restaure os `.bak.<ts>` manualmente. Add/rm em qualquer ordem devolve os arquivos **byte a byte** ao estado de fábrica (garantido por teste).
+
+**Depende de:** bash, awk, sed, grep, waybar (opcional — sem waybar rodando, só avisa).
+
+---
+
 ## elite-customize.sh (fragmento E0–E12) — anexado ao customize_airootfs do upstream
 
 **O quê:** roda DENTRO do airootfs no fim do build. E0: DNS do chroot. E1: chave CachyOS no keyring (vale p/ live e instalado — o gnupg é copiado pelo unpackfs). E2: keyring+mirrorlist v3 via `pacman -U` (fallback: mirrorlist escrito na mão). E3: pacman.conf do sistema reescrito limpo (archcraft → cachyos → core/extra/multilib). E4: `pacman -Sy` valida os 6 repos no chroot. E5: cirurgia no Calamares (unpackfs copia o vmlinuz BORE; instância `initcpio@elite`; packagechooser só labwc; btrfs default). E6/E6b: presets default/fallback do BORE **e** do kernel stock p/ o instalado. E7: tira cups/avahi da lista de serviços do post-install do Archcraft. E8: remove o repo de build `[elite-local]` da ISO. E9: limpa do skel configs de sessões extintas. **E10 (v1.0.4): recopia TODOS os vmlinuz-\*** do pendrive p/ `/boot` do alvo (o rsync→btrfs do unpackfs truncava arquivos grandes — causa-raiz do `premature end of file` no rig B) **e regenera o initramfs do BORE no alvo** com hooks de sistema.

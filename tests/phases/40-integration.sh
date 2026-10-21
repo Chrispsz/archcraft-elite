@@ -113,6 +113,12 @@ assert_grep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"custom/drawer"' 
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"custom/web"' "v1.0.4: dock tem launcher do navegador"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"icon-size": 40' "v1.0.4: ícones grandes no dock (estilo dock)"
 assert_nogrep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"tray"' "v1.0.4: dock SEM tray (SNI watcher único — tray fica na barra do topo)"
+# v1.1: auto-hide + pins do usuário (craft-pin) — a seção PINS viaja na ISO
+assert_grep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"exclusive": false' "v1.1: dock auto-ocultante (exclusive false — janelas usam a base)"
+assert_grep "$P/airootfs/etc/skel/.config/waybar/config.dock" 'PINS \(craft-pin\)' "v1.1: seção PINS no config.dock da ISO (fixar apps do usuário)"
+assert_grep "$P/airootfs/etc/skel/.config/waybar/style.dock.css" 'margin-bottom: -52px' "v1.1: CSS auto-ocultante (pílula some fora do hover)"
+assert_grep "$P/airootfs/etc/skel/.config/waybar/style.dock.css" 'Pins do usuário \(craft-pin\)' "v1.1: CSS com seção de pins (craft-pin add apoia os blocos aqui)"
+assert_grep "$P/airootfs/usr/local/bin/craft-pin" '#!/usr/bin/env bash' "v1.1: craft-pin embarcado (fixar/desfixar apps da dock)"
 # Menu bar: tudo clicável (mouse-first — diretriz do dono; v1.1: rede abre
 # impala no foot, volume abre pwvucontrol — zero applet/dialog GTK3 legado)
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" 'foot -e impala' "v1.1: rede abre impala no foot no clique (TUI rust)"
@@ -312,12 +318,12 @@ assert_file "$P/airootfs/etc/systemd/system.conf.d/00-elite-timeout.conf" "fix f
 assert_grep "$P/airootfs/etc/systemd/system.conf.d/00-elite-timeout.conf" '^DefaultTimeoutStartSec=90s$' "fix freeze: start timeout 90s (vence o 15s do cachyos-settings)"
 assert_grep "$P/airootfs/etc/systemd/system.conf.d/00-elite-timeout.conf" '^DefaultTimeoutStopSec=90s$' "fix freeze: stop timeout 90s (o 10s do cachyos era igualmente perigoso no shutdown)"
 
-# ── v1.0.3: [9b] file_permissions — 12 caminhos 0:0:755 no profiledef ──
+# ── v1.0.3→v1.1: [9b] file_permissions — 13 caminhos 0:0:755 no profiledef ─
 PD="$P/profiledef.sh"
 for p in /usr/local/bin/elite-tune /usr/local/bin/elite-status /usr/local/bin/fg-booster \
          /usr/local/bin/craft-hello /usr/local/bin/craft-update /usr/local/bin/craft-clean \
          /usr/local/bin/craft-rollback /usr/local/bin/craft-lock /usr/local/bin/craft-logout \
-         /usr/local/bin/craft-shot /usr/local/bin/craft-bat \
+         /usr/local/bin/craft-shot /usr/local/bin/craft-bat /usr/local/bin/craft-pin \
          /etc/skel/.config/labwc/autostart; do
   assert_grep "$PD" "\\[\"$p\"\\]=\"0:0:755\"" "v1.0.3 [9b]: 0755 p/ $p"
 done

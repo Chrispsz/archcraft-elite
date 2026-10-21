@@ -21,10 +21,10 @@ Verificação em qualquer máquina: `/lib64/ld-linux-x86-64.so.2 --help | grep s
 
 | Etapa | O que acontece |
 |---|---|
-| Live (pendrive) | Usar a entrada **Nvidia** do menu de boot: kernel Arch stock + driver `nvidia-open` 615 pré-compilado na ISO (o único caminho para Blackwell — branch fechada não existe nesta geração). A entrada default (kernel BORE) usa nouveau, sem aceleração em Blackwell; serve apenas como fallback de boot. Ambas entram na sessão labwc (a Nvidia com `modeset=1` — Wayland OK); se o vídeo travar no live, usar a entrada **Nomodeset** (04). |
-| Instalação | Calamares padrão, btrfs como filesystem default. Internet necessária. |
-| Primeiro boot | `elite-firstboot.service` detecta NVIDIA Blackwell, instala o `nvidia-open-dkms` (DKMS compila o módulo para o kernel BORE v3 e para o kernel stock — rollback) e **só depois** remove o `nvidia-open` pré-compilado. Se não houver rede neste boot, o driver do live é **preservado** e o firstboot re-tenta no boot seguinte (nada de rig sem vídeo). Escreve `nvidia-drm modeset=1 fbdev=1`, `NVreg_PreserveVideoMemoryAllocations=1`, habilita os serviços de tuning e insere os parâmetros GRUB (`amd_pstate=active nowatchdog zswap.enabled=0 transparent_hugepage=always`). Pede reboot. |
-| Segundo boot | RTX 5060 com driver open/GSP em ambos os kernels. Shader cache de 1 GB persistente configurado. Vulkan via NVIDIA, Steam/Feral GameMode e MangoHud prontos. |
+| Live (pendrive) | Usar a entrada **Nvidia** do menu de boot (v1.1): mesmo kernel BORE, com o `nvidia-open-dkms` **pré-compilado contra o BORE no build** (E11) — driver proprietário + early-KMS desde o live, sem compilar nada e sem depender de rede; copy-to-RAM. A entrada default (AMD) também boota no rig A (sem driver proprietário — usar só como fallback). Se o vídeo travar no live, usar a entrada **Nomodeset** (rescue). |
+| Instalação | Calamares padrão, btrfs como filesystem default. O E10 v1.1 detecta o vendor pela GPU e especializa o ALVO: rig NVIDIA nasce com `MODULES=(nvidia*)` + modeset/fbdev — zero contaminação do stack AMD. |
+| Primeiro boot | `elite-firstboot.service` detecta NVIDIA e o dkms **já pré-compilado da ISO** (v4.6 NV_PREBUILT): **não instala nada** — offline total, marker na primeira passada (instalar via rede vira fallback só p/ sistema não-ISO). Escreve `nvidia-drm modeset=1 fbdev=1`, `NVreg_PreserveVideoMemoryAllocations=1`, habilita os serviços de tuning e insere os parâmetros GRUB (`amd_pstate=active nowatchdog zswap.enabled=0 transparent_hugepage=always`). Pede reboot. |
+| Segundo boot | RTX 5060 com driver open/GSP no kernel BORE (único). Shader cache de 1 GB persistente configurado. Vulkan via NVIDIA, Steam/Feral GameMode e MangoHud prontos. |
 | Rotina de jogo | `PROTON_ENABLE_NVAPI=1 gamemoderun mangohud %command%`. VRAM de 8 GB sob vigilância: `dmemcg-booster` limita aplicativos em segundo plano e o `fg-booster` promove o jogo em foco (peso de CPU/IO 900). Se apertar: `gamescope` com upscaling NIS/FSR subnativo. |
 | BIOS recomendada | DOCP/XMP 3200 MHz, Above 4G Decoding + ReBAR (ligar os dois), PBO + Curve Optimizer −15 a −20. |
 
@@ -41,8 +41,8 @@ Verificação em qualquer máquina: `/lib64/ld-linux-x86-64.so.2 --help | grep s
 
 ### Comum aos dois alvos
 
-- **Sessão única = labwc (Wayland)** com o rice Catppuccin Mocha do projeto: Waybar (floating pill), SwayNC, Fuzzel, foot, keybinds `rc.xml` derivados do criador do Archcraft e helpers `craft-*` de fábrica (v1.0.3+). Openbox/BSPWM e seus satélites X11 foram **removidos da ISO** (diretriz: zero duplicação — um WM, um terminal, uma barra, um launcher). Quem quiser o Openbox de volta: `sudo pacman -S archcraft-openbox` (os temas OB ficam na ISO — o labwc lê os mesmos temas).
-- Kernel `linux-cachyos-bore` v3 (BORE + patchset CachyOS, build x86-64-v3) como padrão; kernel `linux` do Arch permanece instalado como fallback no GRUB.
+- **Sessão única = labwc (Wayland)** com o rice Catppuccin Mocha do projeto: menu bar + **dock flutuante AUTO-OCULTANTE** estilo COSMIC (reveal no hover), Launchpad (nwg-drawer), SwayNC, Fuzzel, foot, keybinds `rc.xml` derivados do criador do Archcraft e helpers `craft-*` de fábrica (v1.0.3+). **Fixar apps na dock: `craft-pin add steam '' Steam steam green`** (v1.1 — gerencia a seção PINS do config com vírgulas/backup/reload por conta própria; `craft-pin rm/list/restore`). Openbox/BSPWM e seus satélites X11 foram **removidos da ISO** (diretriz: zero duplicação — um WM, um terminal, uma barra, um launcher). Quem quiser o Openbox de volta: `sudo pacman -S archcraft-openbox` (os temas OB ficam na ISO — o labwc lê os mesmos temas).
+- Kernel `linux-cachyos-bore` v3 (BORE + patchset CachyOS, build x86-64-v3) **único** (v1.1 — o kernel stock saiu da ISO); rollback de kernel = snapshot btrfs/Timeshift no menu do GRUB.
 - `scx-elite.service` (sched-ext bpfland) — trocar para `scx_lavd` com `sudo systemctl edit scx-elite`.
 - `ananicy-cpp` + regras CachyOS para prioridade dinâmica.
 - zram zstd (metade da RAM até o teto de 8 GB), `vm.swappiness=180`, `max_map_count` Steam, schedulers de I/O por tipo de disco.
