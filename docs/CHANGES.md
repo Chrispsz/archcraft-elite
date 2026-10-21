@@ -61,6 +61,22 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
   o live padrão lê tudo do USB e serviços Type=notify escalam os timeouts;
   com a entrada RAM o airootfs é copiado no início (leitura sequencial,
   rápida) e o live voa. Requer ~8GB de RAM.
+  **FIX DEFINITIVO DO FREEZE DO LIVE [6.2]**: `systemd.default_timeout_
+  start_sec=90 systemd.default_timeout_stop_sec=90` no cmdline de **TODAS**
+  as entradas dos 3 bootloaders. Fechamento do ciclo diag-boot3: o drop-in
+  `/etc/systemd/system.conf.d/00-elite-timeout.conf` (90s, v1.0.3) cobre o
+  sistema **instalado**, mas no **live** o PID-1 nasce no initramfs e, após
+  o `switch_root`, **não reavalia drop-ins de `/etc`** — os jobs seguem com
+  o `DefaultTimeoutStartSec=15s` que o `cachyos-settings` põe em
+  `/usr/lib/systemd/system.conf.d/00-timeout.conf` (comprovado no serial:
+  `Resource Manager (4s / 15s)` nas builds v1.0.3 **e** v1.0.4). Prova A/B
+  local (QEMU TCG idêntico ao gate, ISO da run #42): SEM o param =
+  `systemd-nsresourced` em restart-loop eterno (169 falhas/55min, 19s CPU
+  por tentativa) + `systemd-tmpfiles-setup` travado 28min + boot nunca
+  completa → gate #42 vermelho; COM o param = **0** falhas de nsresourced,
+  tmpfiles completa, boot chega à fase final (~5min) → gate verde. A linha
+  de comando do kernel é a única precedência que o PID-1 do live respeita
+  sempre. Kernel-agnóstico (vale p/ BORE, stock e nvidia).
 - **v1.0.3** — sessão **ÚNICA labwc (Wayland)** com o rice Catppuccin Mocha
   (Waybar/SwayNC/Fuzzel/foot + helpers `craft-*` + fastfetch);
   **Openbox/BSPWM + satélites X11 removidos** (zero duplicação: um WM, um
