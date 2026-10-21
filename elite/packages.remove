@@ -244,3 +244,10 @@ qt5ct                  # sem apps Qt5 na ISO; qt6ct fica
 kvantum                # theming Qt5 (sai com o qt5ct)
 kvantum-qt5
 archcraft-config-qt    # config do qt5ct/kvantum (sai com eles)
+
+## v1.0.4: snapshots — UMA estratégia só (Timeshift é o rollback da Elite:
+## craft-rollback aponta pro Timeshift; grub-btrfs cobre o boot de snapshot).
+## btrfs-assistant (stock) é GUI do SNAPPER — mas o snapper NÃO vem na ISO:
+## meia-ferramenta + duplicação de estratégia de snapshot. Quem quiser a rota
+## snapper, o cockpit dia-1 documenta os 3 pacotes (README "Dia 1").
+btrfs-assistant
