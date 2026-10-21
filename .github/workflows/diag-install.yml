@@ -1,0 +1,304 @@
+name: Diag Install (QEMU)
+
+# ════════════════════════════════════════════════════════════════════
+# TESTE DE INSTALAÇÃO DE VERDADE — "o live boota, mas e o install?"
+#
+# Bug que este teste caça (reportado no rig B, ISO v1.0.x):
+#   error: kern/verifiers.c:grub_verifiers_open:156:
+#          premature end of file /@/boot/vmlinuz-linux-cachyos-bore.
+#   error: loader/i386/linux.c:grub_cmd_initrd:1082:
+#          you need to load the kernel first.
+#
+# COMO: reproduz no runner (root) a CADEIA EXATA do Calamares/Archcraft
+# para o sistema instalado — sem GUI:
+#   1. unpackfs entrada 1  → rsync do conteúdo do airootfs p/ btrfs @
+#   2. unpackfs E5a        → rsync dos vmlinuz-* do "pendrive" p/ /boot
+#      (é aqui que o bug vivia: cópia rsync→btrfs chegava truncada)
+#   3. E10 comando 1       → cp -f de TODOS os vmlinuz-* (fonte íntegra)
+#   4. initcpio@elite      → mkinitcpio -p linux-cachyos-bore NO ALVO
+#      + initcpio          → mkinitcpio -p linux (kernel stock)
+#   5. grubcfg/bootloader  → grub-install + grub-mkconfig no alvo
+# Depois BOOTA o disco instalado no QEMU (BIOS/MBR + serial) e olha:
+#   ✖ 'premature end of file'          = o bug do rig B voltou
+#   ✖ 'you need to load the kernel…'   = kernel não carregou
+#   ✔ 'Startup finished'               = sistema instalado boota COMPLETO
+#
+# Desvios intencionais (test-only, documentados):
+#   · GRUB serial + console=ttyS0 + GRUB_TIMEOUT=1  → ver o boot headless
+#   · GRUB_CMDLINE_LINUX=rootflags=subvol=@         → belt & suspenders
+#   · imagem initramfs DEFAULT regenerada com -S autodetect: o autodetect
+#     amostra o hardware da MÁQUINA onde roda (aqui, o runner Azure) —
+#     no install real amostra o rig do usuário. Sem isto o initramfs
+#     nasceria sem os drivers de disco do QEMU (falso negativo).
+#   · sem fstab/users/locale (não afetam o carregamento do kernel —
+#     que é exatamente onde o bug do rig B vivia)
+# ════════════════════════════════════════════════════════════════════
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'Run ID da build (artifact archcraft-elite-iso). Vazio = mais recente bem-sucedida'
+        required: false
+        default: ''
+        type: string
+      tag:
+        description: 'OU release tag (ex: v1.0.4) — tem prioridade sobre run_id'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  install-boot-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
+    steps:
+      - name: Ferramentas (QEMU, 7z, btrfs-progs, arch-install-scripts)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qemu-system-x86 p7zip-full btrfs-progs \
+            arch-install-scripts rsync >/dev/null
+          qemu-system-x86_64 --version | head -1
+          mkfs.btrfs --version | head -1
+          if [ -e /dev/kvm ]; then echo "KVM presente: $(ls -la /dev/kvm)"; else echo "KVM ausente — TCG (lento)"; fi
+
+      - name: Baixar ISO (artifact da build OU release tag)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ inputs.run_id }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          if [ -n "$TAG" ]; then
+            echo "→ release $TAG"
+            gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
+              --pattern '*.part-*' --pattern 'sha256sums.txt' --clobber
+            cat archcraft-elite-*.iso.part-* > elite.iso
+            rm -f archcraft-elite-*.iso.part-*
+            grep ' archcraft-elite-.*\.iso$' sha256sums.txt \
+              | sed 's/archcraft-elite-[^ ]*\.iso/elite.iso/' > check.txt
+            sha256sum -c check.txt
+          else
+            RID="$RUN_ID"
+            if [ -z "$RID" ]; then
+              RID=$(gh run list --repo "$GITHUB_REPOSITORY" \
+                --workflow 'Build Elite ISO' --status success --limit 5 \
+                --json databaseId --jq '.[0].databaseId')
+              echo "→ run_id não informado; usando a mais recente bem-sucedida: $RID"
+            else
+              echo "→ run_id $RID"
+            fi
+            gh run download "$RID" --repo "$GITHUB_REPOSITORY" \
+              --name archcraft-elite-iso --dir iso-out
+            ( cd iso-out && sha256sum -c sha256sums.txt --ignore-missing || true )
+            mv iso-out/*.iso elite.iso
+            rm -rf iso-out
+          fi
+          ls -la elite.iso
+          df -h . | tail -1
+
+      - name: Extrai airootfs.sfs + kernels do "pendrive"
+        run: |
+          set -euo pipefail
+          7z x -y elite.iso -opd/ 'arch/x86_64/airootfs.sfs' \
+            'arch/boot/x86_64/vmlinuz-*' >/dev/null
+          rm -f elite.iso   # libera 3.4GB — não precisamos mais da ISO
+          echo "═══ kernels no pendrive (fonte íntegra) ═══"
+          stat -c '%n %s' pd/arch/boot/x86_64/vmlinuz-*
+          stat -c '%s' pd/arch/boot/x86_64/vmlinuz-linux-cachyos-bore > bore-size.txt
+          echo "BORE no pendrive: $(cat bore-size.txt) bytes"
+          stat -c '%n %s' pd/arch/x86_64/airootfs.sfs
+
+      - name: Instalacao fiel (unpackfs + E5a + E10 + initcpio + GRUB)
+        run: |
+          set -euo pipefail
+          echo "── [1/8] unpackfs entrada 1: airootfs.sfs → rootfs/ (o que o Calamares desempacota)"
+          unsquashfs -no-progress -d rootfs pd/arch/x86_64/airootfs.sfs >/dev/null
+          rm -f pd/arch/x86_64/airootfs.sfs   # libera 2.8GB
+          # pré-flight: as peças que o install precisa existem no alvo
+          test -x rootfs/usr/bin/mkinitcpio  || { echo "✖ mkinitcpio ausente no airootfs"; exit 1; }
+          test -x rootfs/usr/bin/arch-chroot || { echo "✖ arch-chroot ausente"; exit 1; }
+          set -- rootfs/var/lib/pacman/local/grub-*/
+          [ -d "$1" ] || { echo "✖ grub ausente no pacman db do airootfs"; exit 1; }
+          echo "✔ grub presente: $1"
+          test -f rootfs/etc/mkinitcpio.d/linux-cachyos-bore.preset || { echo "✖ preset BORE (E6) ausente"; exit 1; }
+          test -f rootfs/etc/mkinitcpio.d/linux.preset || { echo "✖ preset stock (E6b) ausente"; exit 1; }
+          echo "✔ pré-flight ok (mkinitcpio, arch-chroot, grub, presets E6/E6b)"
+
+          echo "── [2/8] disco: MBR + partição btrfs única (Calamares erase-disk, BIOS)"
+          truncate -s 14G elite-disk.img
+          LOOP=$(sudo losetup -fP --show "$PWD/elite-disk.img")
+          echo "LOOP=$LOOP" >> "$GITHUB_ENV"
+          sudo sfdisk --quiet "$LOOP" <<EOF
+          label: dos
+          start=2048, type=83, bootable
+          EOF
+          sudo mkfs.btrfs -L elite-root "${LOOP}p1" >/dev/null
+
+          echo "── [3/8] subvolume @ montado como raiz (layout do Calamares)"
+          sudo mkdir -p /mnt/fsroot /mnt/elite
+          sudo mount "${LOOP}p1" /mnt/fsroot
+          sudo btrfs subvolume create /mnt/fsroot/@
+          sudo umount /mnt/fsroot
+          sudo mount -o subvol=@ "${LOOP}p1" /mnt/elite
+
+          echo "── [4/8] unpackfs: rsync airootfs → alvo (a cópia que truncava no btrfs)"
+          sudo rsync -aHAX --numeric-ids --info=stats1 rootfs/ /mnt/elite/ | tail -6
+
+          echo "── [5/8] unpackfs E5a: rsync dos kernels do pendrive → /boot"
+          sudo mkdir -p /mnt/elite/boot
+          for kv in pd/arch/boot/x86_64/vmlinuz-*; do
+            sudo rsync -a "$kv" /mnt/elite/boot/
+          done
+          echo "── tamanhos APÓS o rsync (ANTES do E10 — era aqui o bug do rig B):"
+          sudo stat -c '   %n %s' /mnt/elite/boot/vmlinuz-* | tee sizes-antes-e10.txt
+
+          echo "── [6/8] E10 comando 1: cp -f de TODOS os vmlinuz-* (fonte íntegra)"
+          for kv in pd/arch/boot/x86_64/vmlinuz-*; do
+            kbase=$(basename "$kv")
+            if sudo test -f "/mnt/elite/boot/$kbase"; then
+              sudo cp -f "$kv" "/mnt/elite/boot/$kbase"
+              sudo touch "/mnt/elite/boot/.kernel-copy-success"
+            fi
+          done
+          echo "── tamanhos APÓS o E10 (cp):"
+          sudo stat -c '   %n %s' /mnt/elite/boot/vmlinuz-* | tee sizes-depois-e10.txt
+          if sudo cmp -s pd/arch/boot/x86_64/vmlinuz-linux-cachyos-bore /mnt/elite/boot/vmlinuz-linux-cachyos-bore; then
+            echo "BORE_INTEGRAL=OK" | tee integridade.txt
+          else
+            echo "BORE_INTEGRAL=TRUNCADO/BUG" | tee integridade.txt
+          fi
+          if sudo cmp -s pd/arch/boot/x86_64/vmlinuz-linux /mnt/elite/boot/vmlinuz-linux; then
+            echo "STOCK_INTEGRAL=OK" | tee -a integridade.txt
+          else
+            echo "STOCK_INTEGRAL=TRUNCADO/BUG" | tee -a integridade.txt
+          fi
+          cat integridade.txt
+
+          echo "── [7/8] initcpio + initcpio@elite: initramfs dos 2 kernels NO ALVO"
+          sudo arch-chroot /mnt/elite mkinitcpio -p linux-cachyos-bore > mkinitcpio-bore.log 2>&1 \
+            || { echo "✖ mkinitcpio BORE falhou:"; tail -40 mkinitcpio-bore.log; exit 1; }
+          tail -6 mkinitcpio-bore.log
+          sudo arch-chroot /mnt/elite mkinitcpio -p linux > mkinitcpio-stock.log 2>&1 \
+            || { echo "✖ mkinitcpio stock falhou:"; tail -40 mkinitcpio-stock.log; exit 1; }
+          tail -4 mkinitcpio-stock.log
+          # test-only: regenera as imagens DEFAULT sem autodetect (ver header)
+          KVER_BORE=$(sudo arch-chroot /mnt/elite sh -c 'ls /usr/lib/modules | grep -m1 cachyos')
+          KVER_STOCK=$(sudo arch-chroot /mnt/elite sh -c 'ls /usr/lib/modules | grep -vm1 cachyos | head -1')
+          echo "kernels no alvo: BORE=$KVER_BORE stock=$KVER_STOCK"
+          sudo arch-chroot /mnt/elite mkinitcpio -S autodetect \
+            -g /boot/initramfs-linux-cachyos-bore.img -k "$KVER_BORE" \
+            >> mkinitcpio-bore.log 2>&1 \
+            || { echo "✖ regen BORE (sem autodetect) falhou:"; tail -40 mkinitcpio-bore.log; exit 1; }
+          sudo arch-chroot /mnt/elite mkinitcpio -S autodetect \
+            -g /boot/initramfs-linux.img -k "$KVER_STOCK" \
+            >> mkinitcpio-stock.log 2>&1 \
+            || { echo "✖ regen stock (sem autodetect) falhou:"; tail -40 mkinitcpio-stock.log; exit 1; }
+          echo "── /boot final do alvo:"
+          sudo stat -c '   %n %s' /mnt/elite/boot/* | tee boot-final.txt
+
+          echo "── [8/8] grubcfg + bootloader: grub-install + grub-mkconfig (serial test-only)"
+          sudo sed -i \
+            -e 's|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT="console=ttyS0,115200 quiet loglevel=3"|' \
+            -e 's|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX="rootflags=subvol=@"|' \
+            -e 's|^GRUB_TIMEOUT=.*|GRUB_TIMEOUT=1|' \
+            -e 's|^GRUB_DEFAULT=.*|GRUB_DEFAULT=0|' \
+            -e 's|^GRUB_DISABLE_OS_PROBER=.*|GRUB_DISABLE_OS_PROBER=true|' \
+            -e 's|^GRUB_SAVEDEFAULT=.*|#GRUB_SAVEDEFAULT=true|' \
+            /mnt/elite/etc/default/grub
+          printf '%s\n' 'GRUB_TERMINAL="console serial"' \
+            'GRUB_SERIAL_COMMAND="serial --unit=0 --speed=115200"' \
+            | sudo tee -a /mnt/elite/etc/default/grub >/dev/null
+          sudo arch-chroot /mnt/elite grub-install --target=i386-pc --recheck "$LOOP" \
+            > grub-install.log 2>&1 \
+            || { echo "✖ grub-install falhou:"; cat grub-install.log; exit 1; }
+          tail -3 grub-install.log
+          sudo arch-chroot /mnt/elite grub-mkconfig -o /boot/grub/grub.cfg \
+            > grub-mkconfig.log 2>&1 \
+            || { echo "✖ grub-mkconfig falhou:"; cat grub-mkconfig.log; exit 1; }
+          tail -6 grub-mkconfig.log
+          echo "── entradas de kernel no grub.cfg gerado:"
+          sudo grep -E '^(\s*)?(linux|initrd) ' /mnt/elite/boot/grub/grub.cfg \
+            | head -12 | tee grub-entries.txt
+
+          sudo umount /mnt/elite
+          sudo losetup -d "$LOOP"
+          echo "✔ instalação montada. Disco pronto para o boot test."
+          df -h . | tail -1
+
+      - name: Boot test — o disco INSTALADO boota? (o bug apareceria AQUI)
+        run: |
+          set +e
+          KVM=""
+          if [ -e /dev/kvm ]; then
+            sudo chmod 666 /dev/kvm 2>/dev/null
+            [ -w /dev/kvm ] && KVM="-enable-kvm -cpu host"
+          fi
+          [ -z "$KVM" ] && KVM="-cpu max"
+          echo "QEMU flags: $KVM"
+          qemu-system-x86_64 \
+            -machine q35 -smp 2 -m 3072 $KVM \
+            -drive file="$PWD/elite-disk.img",format=raw \
+            -nographic -no-reboot -nic user \
+            > serial-install.log 2>&1 &
+          Q=$!
+          VERDICT=TIMEOUT
+          for i in $(seq 1 300); do   # até 25 min
+            if grep -q 'premature end of file' serial-install.log 2>/dev/null; then VERDICT=BUG_PREMATURE_EOF; break; fi
+            if grep -q 'you need to load the kernel first' serial-install.log 2>/dev/null; then VERDICT=BUG_KERNEL_NAO_CARREGOU; break; fi
+            if grep -q 'Startup finished' serial-install.log 2>/dev/null; then VERDICT=BOOT_COMPLETO; break; fi
+            if grep -qE 'Kernel panic|emergency mode|Give root password' serial-install.log 2>/dev/null; then VERDICT=PANIC_OU_EMERGENCIA; break; fi
+            kill -0 "$Q" 2>/dev/null || break
+            sleep 5
+          done
+          sleep 15   # um pouco mais de log pós-veredito
+          kill "$Q" 2>/dev/null; wait "$Q" 2>/dev/null
+          echo "VERDICT=$VERDICT" | tee verdict.txt
+          echo "── kernel que boota (primeira linha 'Linux version' do serial):"
+          grep -m1 'Linux version' serial-install.log || echo "(nenhuma — kernel não chegou a rodar)"
+          echo "════════ ÚLTIMAS 60 LINHAS DO SERIAL (disco instalado) ════════"
+          tail -60 serial-install.log
+
+      - name: GATE — boot do sistema instalado
+        run: |
+          set -euo pipefail
+          FAIL=0
+          V=$(cat verdict.txt)
+          if [ "$V" = "BOOT_COMPLETO" ]; then echo "✔ BOOT_COMPLETO — sistema instalado chega ao 'Startup finished'"; else echo "✖ veredito: $V"; FAIL=1; fi
+          if grep -q 'premature end of file' serial-install.log; then echo "✖ 'premature end of file' NO LOG — o bug do rig B voltou"; FAIL=1; else echo "✔ SEM 'premature end of file' (o bug do rig B não voltou)"; fi
+          if grep -q 'you need to load the kernel first' serial-install.log; then echo "✖ 'you need to load the kernel first' — kernel não carregou"; FAIL=1; else echo "✔ SEM 'you need to load the kernel first'"; fi
+          grep -q 'BORE_INTEGRAL=OK' integridade.txt && echo "✔ kernel BORE byte-idêntico ao pendrive no disco" || { echo "✖ BORE truncado mesmo após E10"; FAIL=1; }
+          grep -q "vmlinuz-linux-cachyos-bore $(cat bore-size.txt)" sizes-depois-e10.txt && echo "✔ BORE com tamanho integral no disco" || echo "⚠ conferir sizes-depois-e10.txt"
+          grep -q 'cachyos-bore' grub-entries.txt && echo "✔ entrada BORE presente no grub.cfg" || { echo "⚠ entrada BORE não vista em grub-entries.txt"; }
+          exit $FAIL
+
+      - name: Cleanup loop devices
+        if: always()
+        run: |
+          sudo umount -R /mnt/elite 2>/dev/null || true
+          sudo umount /mnt/fsroot 2>/dev/null || true
+          sudo losetup -D || true
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diag-install-logs
+          path: |
+            serial-install.log
+            verdict.txt
+            integridade.txt
+            sizes-antes-e10.txt
+            sizes-depois-e10.txt
+            boot-final.txt
+            grub-entries.txt
+            grub-install.log
+            grub-mkconfig.log
+            mkinitcpio-bore.log
+            mkinitcpio-stock.log
+          if-no-files-found: warn
+          retention-days: 14
