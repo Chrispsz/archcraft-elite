@@ -76,6 +76,71 @@ assert_grep "$P/airootfs/var/lib/sddm/state.conf" 'wayland-sessions/labwc\.deskt
 assert_grep "$P/airootfs/etc/systemd/system/fg-booster.service" '^Slice=fg-boost\.slice$' "v1.0.3: fg-booster com Slice= (fix restart-loop)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'blueman-applet' "v1.0.3: autostart sobe blueman-applet (fix bluetooth)"
 
+# ── v1.0.3 CURADORIA "brabos 2026": uso geral de fábrica ───────────────
+# GUI best-in-class (substituições validadas na pesquisa Task 42-a)
+assert_grep "$PKG" '^mousepad$' "curadoria: mousepad (editor GUI — geany saiu)"
+assert_grep "$PKG" '^zathura$' "curadoria: zathura (PDF — atril saiu)"
+assert_grep "$PKG" '^zathura-pdf-poppler$' "curadoria: backend poppler do zathura"
+assert_grep "$PKG" '^qalculate-gtk$' "curadoria: qalculate (galculator saiu)"
+assert_grep "$PKG" '^file-roller$' "curadoria: file-roller (xarchiver saiu)"
+assert_grep "$PKG" '^nwg-look$' "curadoria: nwg-look (xfce4-settings saiu)"
+assert_grep "$PKG" '^yazi$' "curadoria: yazi FM TUI rust (ranger saiu)"
+assert_grep "$PKG" '^thunar$' "curadoria: thunar fica (O gerenciador de arquivos)"
+assert_grep "$PKG" '^pavucontrol$' "curadoria: pavucontrol fica (mixer GUI)"
+# Satélites do labwc (docs oficiais: idle/automount/gamma/clipboard)
+assert_grep "$PKG" '^swayidle$' "curadoria: swayidle (idle→lock automático)"
+assert_grep "$PKG" '^udiskie$' "curadoria: udiskie (automount USB + notificação)"
+assert_grep "$PKG" '^wlsunset$' "curadoria: wlsunset (night light)"
+assert_grep "$PKG" '^cliphist$' "curadoria: cliphist (clipboard history — W-v)"
+assert_grep "$PKG" '^libnotify$' "curadoria: libnotify (notify-send dos craft-*)"
+# CLI brabos (rust — os essenciais do cockpit nascem na ISO)
+for cli in ripgrep fd fzf eza bat zoxide dust procs sd starship tealdeer; do
+  assert_grep "$PKG" "^$cli\$" "curadoria: CLI brabo $cli"
+done
+assert_grep "$PKG" '^zsh-autosuggestions$' "curadoria: plugin zsh autosuggestions"
+assert_grep "$PKG" '^zsh-syntax-highlighting$' "curadoria: plugin zsh syntax-highlighting"
+# Remoções-chave (cada uma com o substituto/razão)
+assert_nogrep "$PKG" '^geany$' "curadoria: geany saiu (mousepad entra)"
+assert_nogrep "$PKG" '^atril$' "curadoria: atril saiu (zathura entra)"
+assert_nogrep "$PKG" '^galculator$' "curadoria: galculator saiu (qalculate entra)"
+assert_nogrep "$PKG" '^xarchiver$' "curadoria: xarchiver saiu (file-roller entra)"
+assert_nogrep "$PKG" '^ranger$' "curadoria: ranger saiu (yazi entra)"
+assert_nogrep "$PKG" '^mc$' "curadoria: mc saiu (yazi fica)"
+assert_nogrep "$PKG" '^htop$' "curadoria: htop saiu (btop fica)"
+assert_nogrep "$PKG" '^ncdu$' "curadoria: ncdu saiu (dust entra)"
+assert_nogrep "$PKG" '^simplescreenrecorder$' "curadoria: gravador X11 saiu (diretriz do dono)"
+assert_nogrep "$PKG" '^archcraft-omz$' "curadoria: oh-my-zsh saiu (plugins+starship)"
+assert_nogrep "$PKG" '^archcraft-skeleton$' "curadoria: skel órfão do stock saiu (skel Elite é o dono)"
+assert_nogrep "$PKG" '^archcraft-welcome$' "curadoria: welcome do stock saiu (craft-hello cobre)"
+assert_nogrep "$PKG" '^archcraft-neofetch$' "curadoria: neofetch descontinuado saiu (fastfetch)"
+assert_nogrep "$PKG" '^xfce4-settings$' "curadoria: xfce4-settings saiu (nwg-look entra)"
+assert_nogrep "$PKG" '^xfce4-power-manager$' "curadoria: power manager saiu (swayidle entra)"
+assert_nogrep "$PKG" '^gvfs-afc$' "curadoria: iPhone mount saiu (gvfs+mtp+smb ficam)"
+assert_grep "$PKG" '^gvfs$' "curadoria: gvfs fica (trash/mtp/smb)"
+assert_grep "$PKG" '^xdotool$' "curadoria: xdotool FICA (dep dura do fg-booster)"
+assert_grep "$PKG" '^qt6ct$' "curadoria: qt6ct fica (config de apps Qt futuros)"
+assert_nogrep "$PKG" '^qt5ct$' "curadoria: qt5ct saiu (zero apps Qt5)"
+assert_grep "$PKG" '^firefox$' "curadoria: firefox fica (default em toda distro 2026)"
+# Skel próprio: .zshrc sem oh-my-zsh + .hushlogin (skeleton saiu)
+assert_file "$P/airootfs/etc/skel/.zshrc" "curadoria: .zshrc próprio da Elite (omz saiu)"
+assert_grep "$P/airootfs/etc/skel/.zshrc" 'starship init zsh' "curadoria: starship no prompt do .zshrc"
+assert_grep "$P/airootfs/etc/skel/.zshrc" 'zsh-autosuggestions' "curadoria: autosuggestions no .zshrc"
+assert_grep "$P/airootfs/etc/skel/.zshrc" 'zsh-syntax-highlighting' "curadoria: syntax-highlighting no .zshrc"
+assert_grep "$P/airootfs/etc/skel/.zshrc" 'zoxide init zsh' "curadoria: zoxide no .zshrc"
+assert_nogrep "$P/airootfs/etc/skel/.zshrc" 'oh-my-zsh|ZSH_THEME' "curadoria: .zshrc sem vestígio de omz"
+assert_file "$P/airootfs/etc/skel/.hushlogin" "curadoria: .hushlogin (1º login limpo, skeleton saiu)"
+# Autostart: os 4 satélites sobem sozinhos
+assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'udiskie' "curadoria: udiskie no autostart"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'swayidle' "curadoria: swayidle no autostart"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'wlsunset' "curadoria: wlsunset no autostart"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'cliphist store' "curadoria: watcher cliphist no autostart"
+# W-v clipboard + menu com os apps novos
+assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'W-v' "curadoria: W-v = histórico de clipboard"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'cliphist decode' "curadoria: pipe cliphist→fuzzel→wl-copy"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'mousepad' "curadoria: mousepad no menu"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'qalculate-gtk' "curadoria: qalculate no menu"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'nwg-look' "curadoria: nwg-look no menu"
+
 # ── v1.0.3: [9b] file_permissions — 12 caminhos 0:0:755 no profiledef ──
 PD="$P/profiledef.sh"
 for p in /usr/local/bin/elite-tune /usr/local/bin/elite-status /usr/local/bin/fg-booster \

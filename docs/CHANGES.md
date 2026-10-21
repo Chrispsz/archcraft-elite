@@ -10,9 +10,14 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
   (Waybar/SwayNC/Fuzzel/foot + helpers `craft-*` + fastfetch);
   **Openbox/BSPWM + satélites X11 removidos** (zero duplicação: um WM, um
   terminal, uma barra, um launcher — música de exemplo fora, a barra toca a
-  SUA música via playerctl); fix 203/EXEC dos binários no live (0755 no
+  SUA música via MPRIS); fix 203/EXEC dos binários no live (0755 no
   `file_permissions`); `Slice=` no fg-booster; Calamares apontado p/ labwc;
-  documentado o requisito **x86-64-v3** (ISO inteira, não só o kernel).
+  documentado o requisito **x86-64-v3** (ISO inteira, não só o kernel);
+  **curadoria "brabos 2026"**: ~30 best-in-class de uso geral entram
+  (zathura/qalculate/file-roller/mousepad/nwg-look/yazi + CLI rust +
+  satélites labwc: swayidle/udiskie/wlsunset/cliphist), ~60 saem
+  (email-like/gravador/geany/ranger/oh-my-zsh/legado) — skel `.zshrc`
+  próprio (plugins standalone + starship).
 - **v1.0.2** — primeira pública (kernel BORE v3 + engine CachyOS + Vulkan + debloat).
 
 ## ➕ Adicionados (`elite/packages.add`)
@@ -39,9 +44,13 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 | **v1.0.3** `swaybg` `swaylock` `wl-clipboard` `grim` `slurp` | Wallpaper (cor sólida Base), bloqueio de tela (W-l/`craft-lock`), clipboard Wayland e screenshots (W-P/`craft-shot`) |
 | **v1.0.3** `playerctl` `brightnessctl` `pulsemixer` | Teclas de mídia/brilho e o mixer W-a do `rc.xml` |
 | **v1.0.3** `polkit-gnome` | Agente de senha da sessão labwc (o do Archcraft só sobe no Openbox) |
+| **v1.0.3** `mpv` `imv` `fastfetch` | Vídeo/imagem minimalistas Wayland + system info (o `craft-hello` usa) |
+| **v1.0.3** `mousepad` `zathura`+`-pdf-poppler` `qalculate-gtk` `file-roller` `nwg-look` | **Curadoria brabos 2026** (uso geral de fábrica, GTK3 temável): editor de texto simples (geany→IDE-lite saiu), PDF keyboard-driven (atril saiu), a calculadora "de outro nível" 5.13 (galculator saiu), archives GUI integrado ao Thunar (xarchiver→bug DnD Wayland saiu), aparência GTK no labwc (xfce4-settings saiu) |
+| **v1.0.3** `yazi` | FM TUI em rust com previews nativos — substitui ranger+ueberzug+highlight+mc |
+| **v1.0.3** `ripgrep` `fd` `fzf` `eza` `bat` `zoxide` `dust` `procs` `sd` `starship` `tealdeer` | CLI modernos (rust) — os "essenciais" do cockpit agora nascem na ISO; o W-f do `rc.xml` já usava eza |
+| **v1.0.3** `swayidle` `udiskie` `wlsunset` `cliphist` `libnotify` | Satélites oficiais do labwc: idle→lock automático (10 min), automount USB com notificação, night light e histórico de clipboard (W-v no fuzzel — receita oficial labwc) |
+| **v1.0.3** `zsh-autosuggestions` `zsh-syntax-highlighting` | Plugins standalone que substituem o oh-my-zsh inteiro (skel `.zshrc` próprio + starship) |
 | **v1.0.3** `xdg-desktop-portal-wlr` | Screenshare/gravação no Wayland (sem isto OBS vê tela preta no labwc) |
-| **v1.0.3** `mpv` `imv` | Player de vídeo/imagem minimalistas (mesmo set do zip Cockpit) |
-| **v1.0.3** `fastfetch` | O `craft-hello` (W-S-h) mostra o sistema com ele |
 
 ## ➖ Removidos (`elite/packages.remove`) — restore: `sudo pacman -S <pkg>`
 
@@ -66,6 +75,13 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 | Instalador TUI | `archinstall` | redundante com Calamares + ABIF | `pacman -S archinstall` |
 | Pywal | `python-pywal` | **saiu dos repos oficiais** (quebrava o resolve do pacstrap); só as cores dinâmicas do rice perdem o helper | `yay -S python-pywal` |
 | p7zip | `p7zip` → `7zip` | `p7zip` virou pacote **virtual** de `7zip` (2 providers em repos distintos = prompt interativo no build) | já substituído |
+| **v1.0.3** Apps "simples demais" | `simplescreenrecorder` `geany` `geany-plugins` `meld` `catfish` `viewnior` `atril` `galculator` `xarchiver` `yad` `pastel` `xcolor` `xmlstarlet` `trash-cli` | **Diretriz do dono**: email, gravador de tela e afins = específico → cockpit pós-install. Cada um tem substituto brabo entrando: mousepad, zathura, qalculate-gtk, file-roller; viewnior duplicava o `imv` (Wayland-nativo); catfish perde p/ fd/fzf/yazi; trash-cli p/ `gio trash` | `pacman -S <pkg>` |
+| **v1.0.3** CLI duplicados/legados | `htop` `nethogs` `ncdu` `powertop` `screen` `unarchiver` `lrzip` `lzop` `mc` `ranger` `ueberzug` `highlight` `archcraft-ranger` `archcraft-vim` | Dedupe com os brabos: `btop` fica, `dust` entra (ncdu sai), `tmux` fica, `yazi` (rust) substitui ranger+ueberzug+highlight+mc, unrar/zip/unzip ficam | `pacman -S <pkg>` |
+| **v1.0.3** Shell | `archcraft-omz` | oh-my-zsh = 7.3 MB de framework carregado a cada prompt; substituído por zsh puro + `zsh-autosuggestions` + `zsh-syntax-highlighting` + `starship` (skel `.zshrc` próprio da Elite, técnica de rehash on-demand do criador preservada) | `pacman -S archcraft-omz` |
+| **v1.0.3** Skel órfão | `archcraft-skeleton` | 6.4 MB de configs de sessões extintas (openbox/polybar/rofi) no `$HOME` de todo usuário novo — "sistema limpo desse lixo" (diretriz do dono). O skel Elite (labwc/waybar/swaync/fuzzel/`.zshrc`/`.hushlogin`) é o único dono do `/etc/skel` | `pacman -S archcraft-skeleton` |
+| **v1.0.3** Fluff do stock | `archcraft-welcome` `archcraft-about` `archcraft-artworks` `archcraft-funscripts` `archcraft-help` `archcraft-neofetch` `archcraft-scripts` | Welcome/about/artworks/funscripts/help = fluff de desktop; neofetch descontinuado (fastfetch já na ISO); "arcs" do criador cobertos pelos `craft-*` da Elite | `pacman -S <pkg>` |
+| **v1.0.3** Sessão Xfce/X11 | `xfce4-settings` `xsettingsd` `xfce4-power-manager` `xfce-polkit` `gtk-nocsd-git` `perl-linux-desktopfiles` `thunar-shares-plugin` `thunar-media-tags-plugin` | Theming X11 → `nwg-look`; power manager inútil em desktop sem bateria → `swayidle`; polkit duplicado do `polkit-gnome`; deps órfãs de ferramentas já removidas; plugins Thunar de nicho (samba/ID3) | `pacman -S <pkg>` |
+| **v1.0.3** Sistema legado/nicho | `bolt` `dmraid` `mmc-utils` `ndisc6` `usb_modeswitch` `usbmuxd` `gvfs-afc` `gvfs-gphoto2` `sdparm` `sg3_utils` `lsscsi` `inetutils` `wireless_tools` `libusb-compat` `qt5ct` `kvantum` `kvantum-qt5` `archcraft-config-qt` | Thunderbolt/RAID legado/eMMC/modem 3G/daemon iPhone/SCSI admin/telnet-ftp/tools WiFi legados — nada disso existe no desktop alvo (Ryzen+RX 7600). `gvfs`+`gvfs-mtp`+`gvfs-smb` FICAM; `qt6ct` fica p/ apps Qt futuros; zero apps Qt5 restantes | `pacman -S <pkg>` |
 
 ## 🧩 Firmware cirúrgico (apply-overlay)
 

@@ -160,3 +160,87 @@ xorg-fonts-100dpi
 xorg-fonts-75dpi
 xorg-fonts-alias
 xorg-x11perf
+
+## ── v1.0.3 CURADORIA "BRABOS 2026" ───────────────────────────────────
+## Diretriz do dono: email, gravador de tela nativo e afins NÃO vêm de
+## fábrica (específico = cockpit pós-install); todo substituto melhor
+## entra via packages.add. Restore de qualquer item: sudo pacman -S <pkg>
+
+## Apps específicos ou "simples demais" (não são uso geral de fábrica)
+simplescreenrecorder   # gravador X11 — diretriz do dono; OBS fica no cockpit
+geany                  # IDE-lite; mousepad cobre o editor simples
+geany-plugins
+archcraft-config-geany # config do geany (sai com ele)
+meld                   # diff GUI (dev tool)
+catfish                # busca de arquivos (fd/fzf/yazi cobrem)
+viewnior               # duplicado do imv (Wayland-nativo, já na Elite)
+atril                  # PDF legado MATE; zathura entra
+galculator             # abandonado; qalculate-gtk entra
+xarchiver              # bug DnD Wayland→Thunar; file-roller entra
+yad                    # dialogs: nenhum script Elite usa
+pastel                 # cores CLI (nicho dev)
+xcolor                 # color picker X11
+xmlstarlet             # XML CLI (nicho dev)
+trash-cli              # gio trash cobre (gvfs fica)
+ranger                 # FM TUI python lento; yazi (rust) entra
+ueberzug               # hack de preview do ranger
+highlight              # syntax p/ preview do ranger
+mc                     # FM TUI duplicado (yazi fica)
+archcraft-ranger       # config ranger (sai com ele)
+archcraft-vim          # .vimrc do criador (vim fica puro)
+archcraft-scripts      # "arcs" do criador; os craft-* da Elite cobrem
+archcraft-neofetch     # neofetch descontinuado; fastfetch já na Elite
+archcraft-about        # fluff de desktop
+archcraft-artworks     # arte de exemplo (nicho)
+archcraft-funscripts   # easter eggs
+archcraft-help         # docs do criador
+archcraft-welcome      # welcome do stock; craft-hello cobre
+
+## Shell: oh-my-zsh (7.3MB de framework) → zsh puro + plugins standalone
+## + starship (skel .zshrc próprio da Elite)
+archcraft-omz
+
+## Skel: 6.4MB de configs de sessões extintas (openbox/polybar/rofi) —
+## o skel Elite (labwc/waybar/swaync/fuzzel/.zshrc) é o único dono do
+## /etc/skel agora ("sistema limpo desse lixo" — diretriz do dono)
+archcraft-skeleton
+
+## Sessão Xfce/X11 morta no labwc
+xfce4-power-manager    # desktop sem bateria; swayidle entra
+xfce4-settings         # theming X11; nwg-look entra
+xsettingsd             # daemon XSettings (X11 puro)
+xfce-polkit            # duplicado do polkit-gnome (já na Elite)
+gtk-nocsd-git          # anti-CSD nicho
+perl-linux-desktopfiles # dep órfã do obmenu-generator (removido)
+thunar-shares-plugin   # samba share (exige samba server)
+thunar-media-tags-plugin # tags ID3 (nicho)
+
+## CLI duplicados/legados (o brabo fica)
+htop                   # btop fica
+nethogs                # rede por processo (btop cobre a visão geral)
+ncdu                   # dust entra
+powertop               # tuning de notebook; elite-tune não usa
+screen                 # tmux fica
+unarchiver             # duplicado (unrar fica)
+lrzip                  # compressores nicho (bzip2/gzip/xz/zstd/lz4 ficam)
+lzop
+
+## Sistema legado/nicho (desktop AMD moderno)
+bolt                   # thunderbolt security
+dmraid                 # RAID legado
+mmc-utils              # eMMC embedded
+ndisc6                 # IPv6 diag
+usb_modeswitch         # modem 3G
+usbmuxd                # daemon iPhone (gvfs-afc sai junto)
+gvfs-afc               # iPhone mount (nicho; gvfs+mtp+smb ficam)
+gvfs-gphoto2           # câmera PTP (nicho)
+sdparm                 # SCSI admin (smartmontools/nvme-cli ficam)
+sg3_utils
+lsscsi
+inetutils              # telnet/ftp legado (openssh fica)
+wireless_tools         # legado (iw fica)
+libusb-compat          # lib órfã do usb_modeswitch
+qt5ct                  # sem apps Qt5 na ISO; qt6ct fica
+kvantum                # theming Qt5 (sai com o qt5ct)
+kvantum-qt5
+archcraft-config-qt    # config do qt5ct/kvantum (sai com eles)

@@ -42,6 +42,32 @@ if command -v nm-applet >/dev/null 2>&1; then
     nm-applet &
 fi
 
+# --- USB: automount + notificação (udiskie — daemon próprio; o
+#     thunar-volman só age com o Thunar aberto)
+if command -v udiskie >/dev/null 2>&1; then
+    udiskie --automount --notify --no-tray &
+fi
+
+# --- Idle: trava a tela após 10 min de inatividade e antes de suspender
+#     (swayidle + swaylock — par oficial do ecossistema labwc)
+if command -v swayidle >/dev/null 2>&1; then
+    swayidle -w \
+        timeout 600 'swaylock -f' \
+        before-sleep 'swaylock -f' &
+fi
+
+# --- Night light: gamma quente à noite (wlsunset; para horários reais
+#     do SEU local adicione -l <lat> -L <lon>)
+if command -v wlsunset >/dev/null 2>&1; then
+    wlsunset -t 4000 -T 6500 &
+fi
+
+# --- Clipboard: histórico persistente (cliphist — receita oficial do
+#     labwc; W-v abre o histórico no fuzzel)
+if command -v wl-paste >/dev/null 2>&1 && command -v cliphist >/dev/null 2>&1; then
+    wl-paste --watch cliphist store &
+fi
+
 # --- EasyEffects em modo serviço (DSP do microfone): sobe no login pronto para
 #     OBS/Discord. O preset (ex.: RNNoise na entrada) é criado 1× no app e
 #     carrega sozinho nas sessões seguintes (dia-1 · v1.2.2)

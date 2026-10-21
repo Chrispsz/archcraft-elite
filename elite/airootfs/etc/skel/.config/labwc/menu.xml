@@ -45,6 +45,12 @@
     <item label="Arquivos (thunar)">
       <action name="Execute" command="thunar" />
     </item>
+    <item label="Editor (mousepad)">
+      <action name="Execute" command="mousepad" />
+    </item>
+    <item label="Calculadora (qalculate)">
+      <action name="Execute" command="qalculate-gtk" />
+    </item>
     <separator />
     <!-- Applications (categorias do criador, versão enxuta do Cockpit) -->
     <menu id="cockpit-menu" label="Cockpit">
@@ -69,6 +75,12 @@
       </item>
       <item label="Rede (nmtui)">
         <action name="Execute" command="foot -e nmtui" />
+      </item>
+      <item label="Aparência GTK (nwg-look)">
+        <action name="Execute" command="nwg-look" />
+      </item>
+      <item label="Arquivos compactados (file-roller)">
+        <action name="Execute" command="file-roller" />
       </item>
     </menu>
     <menu id="client-list-combined-menu" label="Janelas..." />
