@@ -85,7 +85,8 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
     sem a seção. Skel sai de fábrica com ZERO pins (launchers fixos do
     skel continuam nascendo na ISO). Limite documentado: wlr/taskbar não
     une pin+running (app fixado rodando = ícone extra no centro).
-  - **Suíte**: 460 → **700 peças, 0 falhas, GO** (contratos v1.1: pacotes,
+  - **Suíte**: 460 → **699 peças, 0 falhas, GO** (700 quando a fase 5 de
+    release rodar pós-tag; contratos v1.1: pacotes,
     menu de boot, E5a/E5b/E10/E11/E12, firstboot NV_PREBUILT/BBR on/off,
     brave-flags, mimeapps, yazi/helix, autostart sem applets GTK3,
     craft-pin, presets órfãos do kernel stock — fixture upstream agora
