@@ -64,3 +64,53 @@ imv
 
 ## ── ELITE v1.0.3: fastfetch (o craft-hello usa quando existe) ─────────
 fastfetch
+
+## ── ELITE v1.0.3 CURADORIA "BRABOS 2026" ──────────────────────────────
+## Diretriz do dono: só o REALMENTE ÚTIL de fábrica (email, gravador de
+## tela e apps nicho = cockpit pós-install). Substituições validadas na
+## pesquisa 2026 (Task 42-a) e contra os dbs REAIS do build (cachyos-v3
+## + extra Arch — todos os nomes conferidos, out/2026).
+
+## CLI modernos (rust — os "essenciais" do cockpit agora nascem na ISO;
+## o W-f do rc.xml já usava eza no fallback)
+ripgrep
+fd
+fzf
+eza
+bat
+zoxide
+dust
+procs
+sd
+starship
+tealdeer
+
+## GUI de uso geral — best-in-class 2026, GTK3 (temável Catppuccin):
+## mousepad substitui geany (IDE-lite = nicho dev), zathura substitui
+## atril (legado MATE), qalculate substitui galculator (abandonado),
+## file-roller substitui xarchiver (bug DnD Wayland→Thunar), nwg-look
+## substitui xfce4-settings (theming X11), yazi substitui ranger+
+## ueberzug (python lento → rust com preview nativo)
+mousepad
+zathura
+zathura-pdf-poppler
+qalculate-gtk
+file-roller
+nwg-look
+yazi
+
+## Satélites oficiais do labwc (docs labwc.github.io/integration):
+## idle→lock, automount USB, night light, clipboard history
+swayidle
+udiskie
+wlsunset
+cliphist
+
+## Infra de notificação (craft-shot/craft-bat usam notify-send; o dunst
+## removido era quem trazia libnotify por transição)
+libnotify
+
+## zsh brabo: plugins standalone substituem o oh-my-zsh inteiro (7.3MB
+## de framework) — skel .zshrc próprio + starship (prompt rust)
+zsh-autosuggestions
+zsh-syntax-highlighting

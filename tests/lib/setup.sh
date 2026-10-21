@@ -149,6 +149,9 @@ EOP
 # para provar dedupe — SEM grupos (xorg etc.) para manter o teste offline.
 # v1.0.3: alvos da sessão única labwc (openbox/bspwm/satélites/terminais/
 # música) também no fixture p/ provar o debloat + comentário inline.
+# v1.0.3 CURADORIA: alvos do "brabos 2026" (apps simples/nicho/legado +
+# os que FICAM e são assertados: thunar/gvfs/xdotool/qt6ct/firefox/
+# pavucontrol) — mesmos nomes do packages.x86_64 real do stock.
 # shellcheck disable=SC2016
 cat > "$P/packages.x86_64" <<'EOP'
 base
@@ -173,6 +176,80 @@ kitty
 xfce4-terminal
 mpd
 archcraft-music
+geany
+geany-plugins
+archcraft-config-geany
+meld
+catfish
+viewnior
+atril
+galculator
+xarchiver
+yad
+pastel
+xcolor
+xmlstarlet
+trash-cli
+ranger
+ueberzug
+highlight
+mc
+archcraft-ranger
+archcraft-vim
+archcraft-scripts
+archcraft-neofetch
+archcraft-about
+archcraft-artworks
+archcraft-funscripts
+archcraft-help
+archcraft-welcome
+archcraft-omz
+archcraft-skeleton
+xfce4-power-manager
+xfce4-settings
+xsettingsd
+xfce-polkit
+gtk-nocsd-git
+perl-linux-desktopfiles
+thunar-shares-plugin
+thunar-media-tags-plugin
+thunar
+thunar-archive-plugin
+thunar-volman
+pavucontrol
+gvfs
+gvfs-mtp
+gvfs-smb
+gvfs-afc
+gvfs-gphoto2
+xdotool
+qt5ct
+qt6ct
+kvantum
+kvantum-qt5
+archcraft-config-qt
+firefox
+htop
+nethogs
+ncdu
+powertop
+screen
+unarchiver
+lrzip
+lzop
+bolt
+dmraid
+mmc-utils
+ndisc6
+usb_modeswitch
+usbmuxd
+sdparm
+sg3_utils
+lsscsi
+inetutils
+wireless_tools
+libusb-compat
+simplescreenrecorder
 EOP
 
 # pacman.conf: [options] sem Architecture (a sed insere), com DownloadUser
