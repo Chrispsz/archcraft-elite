@@ -235,11 +235,23 @@ assert_grep "$E03" 'vmlinuz-linux$' "cadeia A (A COROA): entrada NVIDIA permanec
 assert_nogrep "$E03" 'cachyos-bore' "cadeia A: entrada NVIDIA intocada pelo BORE"
 
 SL="$P/syslinux/archiso_sys-linux.cfg"
-assert_eq "$(grep -c 'vmlinuz-linux-cachyos-bore' "$SL")" "1" "cadeia A: syslinux default → BORE (1×)"
+assert_eq "$(grep -c 'vmlinuz-linux-cachyos-bore' "$SL")" "2" "cadeia A: syslinux default+ram → BORE (2×)"
 assert_grep "$SL" 'LABEL archnonfree' "cadeia A: bloco archnonfree preservado"
 grep -A3 '^LABEL archnonfree' "$SL" | grep -q 'vmlinuz-linux$' \
   && ok "cadeia A: archnonfree segue no kernel stock (BIOS)" \
   || fail "cadeia A: archnonfree segue no kernel stock (BIOS)" "bloco foi reescrito"
+# v1.0.4: entrada Copy to RAM (live rápido em USB lento — Ventoy/USB 2.0)
+assert_grep "$SL" '^LABEL archram' "boot RAM: LABEL archram (BIOS) criado"
+assert_grep "$SL" 'copytoram=y' "boot RAM: copytoram=y no syslinux"
+grep -A6 '^LABEL archram' "$SL" | grep -q 'vmlinuz-linux-cachyos-bore' \
+  && ok "boot RAM: archram no kernel BORE (BIOS)" \
+  || fail "boot RAM: archram no kernel BORE (BIOS)" "bloco não convertido pelo loop [6]"
+
+E05="$P/efiboot/loader/entries/05-archiso-linux-ram.conf"
+assert_file "$E05" "boot RAM: entrada Copy to RAM (UEFI) criada"
+assert_grep "$E05" 'copytoram=y' "boot RAM: copytoram=y na entrada UEFI"
+assert_grep "$E05" 'vmlinuz-linux-cachyos-bore' "boot RAM: entrada UEFI no kernel BORE"
+assert_nogrep "$E05" 'locklock' "boot RAM: cmdline sem typo (landlock,lockdown)"
 
 GR="$P/grub/grub.cfg"
 assert_grep "$GR" "--id 'archcraftpn'" "cadeia A: menuentry NVIDIA (archcraftpn) preservado"
@@ -254,10 +266,18 @@ if grep -A4 -- "--id 'archcraftpn'" "$GR" | grep -q 'initramfs-linux-nvidia\.img
 else
   fail "cadeia A: initramfs-nvidia.img preservado" "linha ausente no bloco pn"
 fi
-assert_eq "$(grep -c 'vmlinuz-linux-cachyos-bore' "$GR")" "3" \
-  "cadeia A: default+opensource+nomodeset → BORE (3×, NVIDIA fora)"
+assert_eq "$(grep -c 'vmlinuz-linux-cachyos-bore' "$GR")" "4" \
+  "cadeia A: default+opensource+nomodeset+ram → BORE (4×, NVIDIA fora)"
 assert_grep "$GR" "--id 'archcraftos'" "cadeia A: menuentry opensource presente"
 assert_grep "$GR" "--id 'archcraftnm'" "cadeia A: menuentry nomodeset presente"
+# v1.0.4: menuentry Copy to RAM — o loopback.cfg é o que o VENTOY usa!
+for GRF in "$GR" "$P/grub/loopback.cfg"; do
+  assert_grep "$GRF" "--id 'archcraftram'" "boot RAM: menuentry archcraftram presente"
+  assert_grep "$GRF" 'copytoram=y' "boot RAM: copytoram=y no cmdline"
+  grep -A2 -- "--id 'archcraftram'" "$GRF" | grep -q 'vmlinuz-linux-cachyos-bore' \
+    && ok "boot RAM: menuentry RAM no kernel BORE" \
+    || fail "boot RAM: menuentry RAM no kernel BORE" "não convertido"
+done
 
 W="$P/airootfs/etc/systemd/system/multi-user.target.wants"
 [[ ! -L "$W/cups.service" && ! -L "$W/vmtoolsd.service" ]] \

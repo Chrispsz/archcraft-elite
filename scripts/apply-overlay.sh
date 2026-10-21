@@ -210,6 +210,52 @@ fi
 #  ele — e o initramfs-linux-nvidia.img é gerado pelo preset deles).
 say "Patch das entradas de boot → kernel $BORE (default/opensource/nomodeset)"
 
+# ── [6.1] Entrada extra "Copy to RAM" (live rápido em USB lento) ───
+#  Padrão upstream: copytoram=n — o live lê TUDO do USB o tempo todo.
+#  Em pendrive lento (USB 2.0 / Ventoy) cada leitura aleatória custa
+#  caro e os serviços Type=notify podem escalar os timeouts (v1.0.2
+#  congelava nisso). Esta entrada copia o airootfs p/ RAM no início
+#  (leitura SEQUENCIAL — rápida até em USB 2.0) e o live voa. Requer
+#  ~8GB de RAM (2.9GB de ISO + 5G de cow). Nomes stock: os loops [6]
+#  abaixo convertem p/ BORE junto com as demais.
+say "Entrada de boot extra: Copy to RAM (copytoram=y)"
+
+cat > "$PROFILE/efiboot/loader/entries/05-archiso-linux-ram.conf" <<'RAM'
+title   Boot Archcraft Elite (%ARCH%, UEFI, Copy to RAM)
+sort-key 05
+linux   /%INSTALL_DIR%/boot/%ARCH%/vmlinuz-linux
+initrd  /%INSTALL_DIR%/boot/%ARCH%/initramfs-linux.img
+options archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% quiet splash loglevel=3 udev.log_level=3 vt.global_cursor_default=0 cow_spacesize=5G copytoram=y nvme_load=yes lsm=landlock,lockdown,yama,integrity,apparmor,bpf
+RAM
+
+SL="$PROFILE/syslinux/archiso_sys-linux.cfg"
+if [[ -f "$SL" ]]; then
+  cat >> "$SL" <<'RAM'
+
+# Copy to RAM
+LABEL archram
+TEXT HELP
+Boot Archcraft Elite with the airootfs copied to RAM (fast live session).
+It allows you to install Archcraft or perform system maintenance.
+ENDTEXT
+MENU LABEL Boot Archcraft Elite (%ARCH%, BIOS, Copy to RAM)
+LINUX /%INSTALL_DIR%/boot/%ARCH%/vmlinuz-linux
+INITRD /%INSTALL_DIR%/boot/%ARCH%/initramfs-linux.img
+APPEND archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% quiet splash loglevel=3 udev.log_level=3 vt.global_cursor_default=0 cow_spacesize=5G copytoram=y nvme_load=yes lsm=landlock,lockdown,yama,integrity,apparmor,bpf
+RAM
+fi
+
+for GF in "$PROFILE/grub/grub.cfg" "$PROFILE/grub/loopback.cfg"; do
+  [[ -f "$GF" ]] || continue
+  cat >> "$GF" <<'RAM'
+menuentry "Boot Archcraft Elite (%ARCH%, ${archiso_platform}, Copy to RAM)" --class archcraft --class arch --class gnu-linux --class gnu --class os --id 'archcraftram' {
+    set gfxpayload=keep
+    linux /%INSTALL_DIR%/boot/%ARCH%/vmlinuz-linux archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% quiet splash loglevel=3 udev.log_level=3 vt.global_cursor_default=0 cow_spacesize=5G copytoram=y nvme_load=yes lsm=landlock,lockdown,yama,integrity,apparmor,bpf
+    initrd /%INSTALL_DIR%/boot/%ARCH%/initramfs-linux.img
+}
+RAM
+done
+
 # efiboot: arquivos por entrada — pular a 03 (nvidia)
 for f in "$PROFILE"/efiboot/loader/entries/*.conf; do
   [[ -f "$f" ]] || continue
