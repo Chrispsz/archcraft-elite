@@ -1,25 +1,35 @@
 /* Archcraft ELITE · nwg-drawer CSS — o "Launchpad" · Catppuccin Mocha
  * Seletores oficiais do upstream (drawer.css do repo nwg-piotr/nwg-drawer):
  * window, entry, button, image, #category-button, #pinned-box, #files-box,
- * #math-label. É lido de ~/.config/nwg-drawer/drawer.css. */
+ * #math-label. Lido de ~/.config/nwg-drawer/drawer.css.
+ * Tokens em @define-color (GTK CSS) — zero hex cru, mesma paleta do rice. */
+
+@define-color crust    #11111b;
+@define-color mantle   #181825;
+@define-color base     #1e1e2e;
+@define-color surface0 #313244;
+@define-color surface1 #45475a;
+@define-color text     #cdd6f4;
+@define-color subtext0 #a6adc8;
+@define-color mauve    #cba6f7;
 
 window {
-    background-color: rgba(17, 17, 27, 0.88);   /* crust */
-    color: #cdd6f4                                 /* text */
+    background-color: alpha(@crust, 0.9);
+    color: @text
 }
 
-/* Busca — pílula escura com borda sutil */
+/* Busca — pílula escura com borda sutil; focus = acento mauve */
 entry {
-    background-color: rgba(49, 54, 68, 0.9);      /* surface0 */
+    background-color: alpha(@surface0, 0.9);
     border-radius: 12px;
-    border: 1px solid rgba(69, 71, 90, 0.9);      /* surface1 */
-    color: #cdd6f4;
+    border: 1px solid alpha(@surface1, 0.9);
+    color: @text;
     padding: 6px 14px;
     font-size: 15px;
 }
 
 entry:focus {
-    border-color: rgba(203, 166, 247, 0.85);      /* mauve */
+    border-color: alpha(@mauve, 0.85)
 }
 
 button, image {
@@ -27,28 +37,37 @@ button, image {
     border: none
 }
 
+/* Hover: pílula · :active: pressed mais escuro (matriz de estados) */
 button:hover {
-    background-color: rgba(49, 54, 68, 0.95);     /* surface0 */
+    background-color: alpha(@surface0, 0.95);
     border-radius: 12px
 }
 
+button:active {
+    background-color: alpha(@surface1, 0.95);
+    border-radius: 12px
+}
+
+/* Categoria ativa: fundo + cor (estado ≠ só cor) */
 #category-button {
     margin: 0 10px 0 10px;
-    color: #a6adc8                                 /* subtext0 */
+    color: @subtext0
 }
 
 #category-button:checked {
-    color: #cba6f7                                 /* mauve */
+    color: @mauve;
+    background-color: alpha(@surface0, 0.9);
+    border-radius: 8px
 }
 
 #pinned-box {
     padding-bottom: 5px;
-    border-bottom: 1px dotted rgba(69, 71, 90, 0.9)
+    border-bottom: 1px dotted alpha(@surface1, 0.9)
 }
 
 #files-box {
     padding: 5px;
-    border: 1px dotted rgba(69, 71, 90, 0.9);
+    border: 1px dotted alpha(@surface1, 0.9);
     border-radius: 15px
 }
 

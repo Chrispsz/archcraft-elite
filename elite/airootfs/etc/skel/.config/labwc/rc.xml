@@ -32,8 +32,11 @@
       (criador usa Print → ob-screenshot, que é X11)
     · labwc ganha de graça: <core><gap>, cornerRadius, dropShadows, snapping
       overlay — não existem no Openbox do criador
-    · Tema OB-Catppuccin-Mocha (o criador embarca este tema no Archcraft;
-      default dele é OB-Arc-Dark — troque em <theme><name> se preferir)
+    · RICE PRÓPRIO (v1.0.4): themerc-override Catppuccin Mocha — traffic
+      lights, borda ativa mauve, sombras 60/40, menu/OSD coerentes. Zero
+      dependência de pacote de tema: o "tema OB Catppuccin" citado em
+      versões anteriores NUNCA existiu (tema fantasma) — era a causa do
+      visual "cru" das titlebars; corrigido de vez com o override)
 
   Teclado alvo: AULA F75 MAX (75% ANSI US · 80 teclas + knob de volume
   metálico + tela TFT · gasket · tri-mode). O knob é HID puro → envia
@@ -58,10 +61,12 @@
   </placement>
 
   <theme>
-    <!-- Tema Catppuccin Mocha embutido no Archcraft (labwc usa temas Openbox).
-         Default do criador: OB-Arc-Dark. Liste: ls /usr/share/themes -->
-    <name>OB-Catppuccin-Mocha</name>
-    <cornerRadius>10</cornerRadius>
+    <!-- RICE PRÓPRIO (v1.0.4): TODO o visual vive em themerc-override —
+         labwc-theme(5): "themerc-override in the configuration directory"
+         sobrescreve qualquer tema. O <name> só é fallback se o override
+         sumir. Traffic-lights Mocha, borda ativa mauve, sombras 60/40. -->
+    <name>default</name>
+    <cornerRadius>12</cornerRadius>
     <keepBorder>yes</keepBorder>
     <dropShadows>yes</dropShadows>
     <dropShadowsOnTiled>no</dropShadowsOnTiled>

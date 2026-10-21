@@ -106,6 +106,34 @@ assert_file "$P/airootfs/etc/skel/.config/gtk-3.0/settings.ini" "v1.0.4: setting
 assert_grep "$P/airootfs/etc/skel/.config/gtk-3.0/settings.ini" 'Papirus-Dark' "v1.0.4: GTK usa Papirus-Dark (ícones de apps)"
 assert_grep "$P/airootfs/etc/skel/.config/gtk-4.0/settings.ini" 'Papirus-Dark' "v1.0.4: GTK4 espelha o Papirus-Dark"
 assert_grep "$REPO/scripts/apply-overlay.sh" 'craft-drawer' "v1.0.4: craft-drawer no file_permissions (0755 no live)"
+
+# ── v1.0.4 RICE PRÓPRIO: themerc-override (fim do tema fantasma) ────────
+assert_file "$P/airootfs/etc/skel/.config/labwc/themerc-override" "v1.0.4: themerc-override no skel (rice próprio — zero dependência de tema OB)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/themerc-override" 'window.active.border.color: #cba6f7' "v1.0.4: borda de janela ativa MAUVE (assinatura do rice)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/themerc-override" '#a6e3a1' "v1.0.4: traffic lights — iconify green"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/themerc-override" '#f9e2af' "v1.0.4: traffic lights — max yellow"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/themerc-override" '#f38ba8' "v1.0.4: traffic lights — close red"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/themerc-override" 'window.active.shadow.size: 60' "v1.0.4: sombras grandes (receita hakuspace)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/themerc-override" 'osd.label.text.color: #cba6f7' "v1.0.4: OSD mauve (coerência com o acento)"
+assert_nogrep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'OB-Catppuccin-Mocha' "v1.0.4: tema FANTASMA OB-Catppuccin-Mocha removido do rc.xml (nunca existiu — causa do 'cru')"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" '<cornerRadius>12</cornerRadius>' "v1.0.4: cornerRadius 12 (ladder de raio do design system)"
+
+# ── v1.0.4 RICE: tema GTK Catppuccin oficial + cursor Bibata ─────────────
+assert_grep "$PKG" '^catppuccin-gtk-theme-mocha$' "v1.0.4: tema GTK Catppuccin Mocha oficial (repo [archcraft])"
+assert_grep "$PKG" '^gtk-engine-murrine$' "v1.0.4: engine murrine (exigida pelo tema GTK)"
+assert_grep "$PKG" '^archcraft-cursor-bibata$' "v1.0.4: cursor Bibata (o cursor dos melhores rices)"
+assert_grep "$P/airootfs/etc/skel/.config/gtk-3.0/settings.ini" 'gtk-theme-name=Catppuccin-Mocha-Standard-Mauve-Dark' "v1.0.4: GTK3 usa Catppuccin-Mocha Mauve-Dark (= acento do rice)"
+assert_grep "$P/airootfs/etc/skel/.config/gtk-3.0/settings.ini" 'gtk-cursor-theme-name=Bibata' "v1.0.4: cursor Bibata no GTK3"
+assert_grep "$P/airootfs/etc/skel/.config/gtk-4.0/settings.ini" 'gtk-theme-name=Catppuccin-Mocha-Standard-Mauve-Dark' "v1.0.4: GTK4 espelha o tema Mauve-Dark"
+
+# ── v1.0.4 FIX DO BOOT INSTALADO (shellprocess@btrfs × kernel BORE) ─────
+# Bug reportado no rig B: GRUB "premature end of file vmlinuz-linux-cachyos-bore"
+# pós-install em btrfs. O workaround upstream só recopia o kernel STOCK; o
+# E10 estende pra TODOS os vmlinuz-* + regenera o initramfs do BORE no alvo.
+assert_grep "$REPO/elite/fragments/elite-customize.sh" 'shellprocess_btrfs.conf' "v1.0.4: E10 patcha o shellprocess_btrfs do Calamares"
+assert_grep "$REPO/elite/fragments/elite-customize.sh" 'for kv in /run/archiso/bootmnt/arch/boot/x86_64/vmlinuz-\*' "v1.0.4: E10 recopia TODOS os vmlinuz-* do pendrive (não só o stock)"
+assert_grep "$REPO/elite/fragments/elite-customize.sh" 'arch-chroot "\${ROOT}" mkinitcpio -p linux-cachyos-bore' "v1.0.4: E10 regenera initramfs do BORE no alvo (hooks de sistema, não do live)"
+assert_grep "$REPO/elite/fragments/elite-customize.sh" 'kernel-copy-success' "v1.0.4: E10 preserva o marcador do upstream"
 assert_grep "$P/airootfs/etc/sddm.conf.d/kde_settings.conf" '^Session=labwc$' "v1.0.3: SDDM autologin Session=labwc"
 assert_grep "$P/airootfs/var/lib/sddm/state.conf" 'wayland-sessions/labwc\.desktop' "v1.0.3: greeter pré-seleciona labwc"
 assert_grep "$P/airootfs/etc/systemd/system/fg-booster.service" '^Slice=fg-boost\.slice$' "v1.0.3: fg-booster com Slice= (fix restart-loop)"

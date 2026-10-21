@@ -70,8 +70,15 @@ fastfetch
 ## categorias e barra de sessão (craft-drawer). wlroots-agnóstico.
 ## papirus-icon-theme: ícones de apps p/ o dock (waybar wlr/taskbar),
 ## Launchpad e GTK (settings.ini do skel aponta Papirus-Dark).
+## catppuccin-gtk-theme-mocha: tema GTK oficial Catppuccin (repo [archcraft])
+## — variantes Standard-<accent>-Dark; o skel usa a Mauve (= acento do rice:
+## fuzzel/swaync/dock/borda de janela). gtk-engine-murrine: engine exigida.
+## archcraft-cursor-bibata: cursor Bibata — o cursor dos melhores rices.
 nwg-drawer
 papirus-icon-theme
+catppuccin-gtk-theme-mocha
+gtk-engine-murrine
+archcraft-cursor-bibata
 
 ## ── ELITE v1.0.3 CURADORIA "BRABOS 2026" ──────────────────────────────
 ## Diretriz do dono: só o REALMENTE ÚTIL de fábrica (email, gravador de

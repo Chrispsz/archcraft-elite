@@ -6,9 +6,33 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
-- **v1.0.4 (main)** — **DESKTOP v2 · macOS-style, mouse-first** (diretriz do
+- **v1.0.4 (main)** — **FIX DO BOOT DO SISTEMA INSTALADO** (bug real do
+  rig B: GRUB `premature end of file /boot/vmlinuz-linux-cachyos-bore` →
+  `you need to load the kernel first`): o install do Archcraft é
+  **unpackfs** (cópia do live pro alvo) e em btrfs arquivos grandes chegam
+  truncados — o upstream já tem workaround (`shellprocess@btrfs`) que
+  **recopia só o vmlinuz-linux STOCK**; como a Elite boota o BORE por
+  default, o kernel do BORE ficava truncado. Pior: o initramfs do BORE
+  copiado era o do LIVE (hooks archiso). **[E10]** estende o workaround
+  para **TODOS os vmlinuz-\*** do pendrive + **regenera o initramfs do
+  BORE no alvo** (`arch-chroot mkinitcpio -p linux-cachyos-bore`, hooks
+  de sistema). **DESKTOP v2 · macOS-style, mouse-first** (diretriz do
   dono pós-teste no hardware: "labwc tá muito ruim/seco, quero interface
-  com barra tipo macOS e mais utilizável — não sou muito de atalho"):
+  com barra tipo macOS e mais utilizável — não sou muito de atalho").
+  **RICE PRÓPRIO** (fim do visual "cru": o `OB-Catppuccin-Mocha` citado
+  desde o cockpit **NUNCA EXISTIU** — tema fantasma; labwc caía no tema
+  default cinza): **themerc-override** próprio (labwc-theme(5)) com
+  traffic-lights Mocha, **borda de janela ativa mauve**, titlebar
+  centralizada, **sombras grandes 60/40** (receita hakuspace), menu/OSD
+  coerentes — receita sintetizada dos melhores rices labwc públicos
+  (hakuspace 272★, Speyll, modern-labwc 143★, dux-shell 8.4k★, themercs
+  Catppuccin reais); **tema GTK Catppuccin Mocha OFICIAL**
+  (`catppuccin-gtk-theme-mocha`, repo [archcraft], variante
+  Standard-**Mauve**-Dark = acento do rice) + **cursor Bibata**
+  (`archcraft-cursor-bibata`) + JetBrainsMono Nerd Font (já vinha do
+  archcraft-fonts); **wallpaper REAL da internet** (dark-waves, coleção
+  walls-catppuccin-mocha 2.9k★ — dominante #1d1f2d ≈ base Mocha; o
+  AI-generated foi DESCARTADO a pedido do dono):
   **menu bar** no topo (waybar `config.top`: logo→Launchpad, nome da janela
   focada, música/MPRIS, rede→`nm-connection-editor`, volume→`pavucontrol`,
   tray, relógio→SwayNC, power) + **DOCK** flutuante na base (waybar
@@ -18,17 +42,19 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
   `nwg-drawer` (`craft-drawer`: grade full-screen com busca, categorias e
   barra de sessão); **power mouse-first** = `craft-power` (labnag, o nag
   bar nativo do labwc — zero dependências novas); **ícones Papirus-Dark**
-  no GTK3/4 (dock/Launchpad/apps); **wallpaper de imagem** (Sonoma-style,
-  1920x1088, gerado para o projeto; fallback: cor sólida) no lugar da cor
-  sólida; menu raiz ganha Aplicativos/Reboot/Desligar. A rota wlogout foi
-  descartada (**saiu dos repos oficiais**); nwg-dock também (task buttons
-  exigem IPC do sway — inexistente no labwc; o waybar-dock cobre via
-  protocolo). Coerência de snapshots: `btrfs-assistant` (stock) sai —
-  é GUI do **snapper**, que não vem na ISO (meia-ferramenta) e duplicaria a
-  estratégia do **Timeshift** (`craft-rollback` + `grub-btrfs`). Rota snapper
-  = opcional, documentada no cockpit dia-1. Acompanha o **cockpit v1.4.0**:
-  dia-1 alinhado à ISO (só o stack especializado — launchers, produção de
-  conteúdo, dev, ventoinha, Android; mangohud/gamemode/gamescope/pavucontrol/
+  no GTK3/4 (dock/Launchpad/apps); menu raiz ganha Aplicativos/Reboot/
+  Desligar. Polish ui-ux-pro-max: matriz de estados completa (hover+
+  `:active`+transition em tudo), alpha do dock 0.85 (contraste composto
+  sobre wallpaper), drawer.css com tokens `@define-color`, categoria
+  ativa com fundo (estado ≠ só cor). A rota wlogout foi descartada (**saiu
+  dos repos oficiais**); nwg-dock também (task buttons exigem IPC do sway
+  — inexistente no labwc; o waybar-dock cobre via protocolo). Coerência de
+  snapshots: `btrfs-assistant` (stock) sai — é GUI do **snapper**, que não
+  vem na ISO (meia-ferramenta) e duplicaria a estratégia do **Timeshift**
+  (`craft-rollback` + `grub-btrfs`). Rota snapper = opcional, documentada
+  no cockpit dia-1. Acompanha o **cockpit v1.4.0**: dia-1 alinhado à ISO
+  (só o stack especializado — launchers, produção de conteúdo, dev,
+  ventoinha, Android; mangohud/gamemode/gamescope/pavucontrol/
   polkit-gnome/file-roller/gparted/gcc já vêm de fábrica).
   **Entrada de boot "Copy to RAM"** nos 3 bootloaders (sdboot/syslinux/grub
   + loopback do Ventoy): `copytoram=y` — em pendrive lento (USB 2.0/Ventoy)
@@ -76,6 +102,9 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 | **v1.0.3** `mpv` `imv` `fastfetch` | Vídeo/imagem minimalistas Wayland + system info (o `craft-hello` usa) |
 | **v1.0.4** `nwg-drawer` | O **Launchpad**: grade de apps full-screen com busca, categorias, pin e barra de sessão (`craft-drawer`) — mouse-first (diretriz do dono) |
 | **v1.0.4** `papirus-icon-theme` | Ícones de apps em toda parte: dock (waybar `wlr/taskbar`), Launchpad e GTK (skel aponta `Papirus-Dark`) |
+| **v1.0.4** `catppuccin-gtk-theme-mocha` | Tema GTK **oficial Catppuccin** (repo [archcraft], 42 variantes) — o skel usa `Catppuccin-Mocha-Standard-Mauve-Dark` (= o acento do rice). Apps GTK nascem Mocha, não Adwaita |
+| **v1.0.4** `gtk-engine-murrine` | Engine exigida pelo tema GTK Catppuccin |
+| **v1.0.4** `archcraft-cursor-bibata` | Cursor **Bibata** — o cursor dos melhores rices labwc (hakuspace/modern-labwc) |
 | **v1.0.3** `mousepad` `zathura`+`-pdf-poppler` `qalculate-gtk` `file-roller` `nwg-look` | **Curadoria brabos 2026** (uso geral de fábrica, GTK3 temável): editor de texto simples (geany→IDE-lite saiu), PDF keyboard-driven (atril saiu), a calculadora "de outro nível" 5.13 (galculator saiu), archives GUI integrado ao Thunar (xarchiver→bug DnD Wayland saiu), aparência GTK no labwc (xfce4-settings saiu) |
 | **v1.0.3** `yazi` | FM TUI em rust com previews nativos — substitui ranger+ueberzug+highlight+mc |
 | **v1.0.3** `ripgrep` `fd` `fzf` `eza` `bat` `zoxide` `dust` `procs` `sd` `starship` `tealdeer` | CLI modernos (rust) — os "essenciais" do cockpit agora nascem na ISO; o W-f do `rc.xml` já usava eza |

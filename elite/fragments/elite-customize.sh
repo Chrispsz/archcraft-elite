@@ -266,3 +266,67 @@ rm -rf /var/cache/elite-local
 for d in openbox bspwm polybar tint2 rofi dunst alacritty kitty; do
     rm -rf "/etc/skel/.config/$d"
 done
+
+## [E10] FIX DO BOOT DO SISTEMA INSTALADO (v1.0.4 · bug reportado no rig B)
+##      ══════════════════════════════════════════════════════════════════
+##      SINTOMA (GRUB, pós-instalação em btrfs):
+##        error: kern/verifiers.c:grub_verifiers_open:156:
+##               premature end of file /boot/vmlinuz-linux-cachyos-bore.
+##        error: loader/i386/linux.c:grub_cmd_initrd:1882:
+##               you need to load the kernel first.
+##      CAUSA RAIZ (2 camadas, ambas do fluxo upstream do Calamares):
+##       1. O install é UNPACKFS: o airootfs.sfs do LIVE é desempacotado
+##          direto pro disco do alvo. Em btrfs, arquivos grandes podem
+##          chegar TRUNCADOS — o próprio Archcraft já tem um workaround
+##          (shellprocess@btrfs: "Copying kernel to target to fix BTRFS
+##          boot issue") que recopia o vmlinuz-linux do pendrive… mas SÓ
+##          o kernel STOCK. Nossa ISO boota o linux-cachyos-bore por
+##          default → o vmlinuz do BORE ficava truncado no alvo → GRUB
+##          "premature end of file" → sistema instalado não boota.
+##       2. O initramfs-linux-cachyos-bore.img que o unpackfs copia é o
+##          do LIVE (hooks ARCHISO — feitos pra achar a ISO de boot, não
+##          o disco instalado). O módulo initcpio do Calamares regenera
+##          APENAS o initramfs do kernel stock; o do BORE chegava ao alvo
+##          com hooks de live → mesmo com o vmlinuz inteiro, o boot morria.
+##      FIX (2 comandos no mesmo job, ANTES do grubcfg/bootloader — a
+##      sequência do settings.conf upstream já executa shellprocess@btrfs
+##      nesse ponto):
+##       1. Recopia TODOS os vmlinuz-* do pendrive (fonte íntegra — é dela
+##          que o live bootou) para os que existem no /boot do alvo.
+##       2. Regenera o initramfs do BORE NO ALVO (arch-chroot + preset E6:
+##          default/fallback com ALL_config=/etc/mkinitcpio.conf — o conf
+##          que o módulo initcpiocfg do Calamares escreveu com hooks de
+##          sistema). || true: best-effort, nunca aborta o install.
+##      O marcador .kernel-copy-success do upstream é preservado.
+if [[ -f /etc/calamares/modules/shellprocess_btrfs.conf ]]; then
+    cat > /etc/calamares/modules/shellprocess_btrfs.conf <<'EOSB'
+# SPDX-FileCopyrightText: no
+# SPDX-License-Identifier: CC0-1.0
+#
+# ELITE v1.0.4 — fix do boot instalado em btrfs (estende o workaround
+# upstream "fix BTRFS boot issue" para TODOS os kernels + regenera o
+# initramfs do kernel BORE com hooks de sistema). Ver elite-customize [E10].
+---
+dontChroot: true
+timeout: 9999
+verbose: false
+script:
+    - command: >
+        if [ "$(findmnt -n -o FSTYPE "${ROOT}")" = "btrfs" ]; then
+          for kv in /run/archiso/bootmnt/arch/boot/x86_64/vmlinuz-*; do
+            kbase="$(basename "${kv}")"
+            if [ -f "${ROOT}/boot/${kbase}" ]; then
+              cp -f "${kv}" "${ROOT}/boot/${kbase}" &&
+              touch "${ROOT}/boot/.kernel-copy-success"
+            fi
+          done
+        fi
+    - command: >
+        if [ -f "${ROOT}/boot/vmlinuz-linux-cachyos-bore" ] &&
+           [ -x "${ROOT}/usr/bin/mkinitcpio" ]; then
+          arch-chroot "${ROOT}" mkinitcpio -p linux-cachyos-bore || true
+        fi
+i18n:
+     name: "Copying kernels + regenerating BORE initramfs (Elite btrfs boot fix)..."
+EOSB
+fi
