@@ -151,27 +151,44 @@ jobs:
           ISO=$(ls *.iso)
           echo "ISO=$ISO" >> "$GITHUB_ENV"
           sha256sum -c sha256sums.txt --ignore-missing || true
-          7z x -y "$ISO" -o../extracted/ 'arch/boot/x86_64/vmlinuz-linux-cachyos-bore' 'arch/boot/x86_64/initramfs-linux-cachyos-bore.img' >/dev/null
+          7z x -y "$ISO" -o../extracted/ 'arch/boot/x86_64/vmlinuz-linux-cachyos-bore' 'arch/boot/x86_64/initramfs-linux-cachyos-bore.img' 'boot/syslinux/archiso_sys-linux.cfg' >/dev/null
           cd ../extracted
           ls -la arch/boot/x86_64/
+          echo "── entrada default do syslinux (cmdline que o usuário boota):"
+          grep -m1 '^APPEND ' boot/syslinux/archiso_sys-linux.cfg || { echo '✖ APPEND ausente'; exit 1; }
 
-      - name: Boot serial no QEMU (kernel BORE, caminho sdboot real)
+      - name: Boot serial no QEMU (kernel BORE, CMDLINE REAL da ISO)
         run: |
           set +e
-          MARKER=$(7z l "iso-out/$ISO" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2}-[0-9]{2}\.uuid' | head -1)
-          IUUID=${MARKER%.uuid}
-          echo "archisosearchuuid=$IUUID"
-          K="extracted/arch/boot/x86_64/vmlinuz-linux-cachyos-bore"
-          I="extracted/arch/boot/x86_64/initramfs-linux-cachyos-bore.img"
+          # LIÇÃO DA #43: o gate NÃO pode inventar a própria cmdline. A #43
+          # falhou porque o -append hardcoded não tinha o fix [6.2]
+          # (timeouts 90s) — bootava com os 15s do cachyos-settings e o
+          # nsresourced entrava em loop (153 falhas). O usuário real boota
+          # pela entrada do syslinux/grub, QUE TEM o fix. Então o gate extrai
+          # a cmdline REAL da entrada default (label 'arch', kernel BORE) e
+          # só ajusta observabilidade p/ serial: sem quiet/splash, loglevel=7,
+          # console=ttyS0 — nada do que é testado muda.
+          ENTRY="extracted/boot/syslinux/archiso_sys-linux.cfg"
+          APPEND_ISO=$(grep -m1 '^APPEND ' "$ENTRY" | sed 's/^APPEND //')
+          if [ -z "$APPEND_ISO" ]; then echo "✖ APPEND não encontrado em $ENTRY"; exit 1; fi
+          echo "── cmdline REAL da ISO (default, BORE):"
+          echo "   $APPEND_ISO"
+          APPEND_GATE=$(printf '%s' "$APPEND_ISO" \
+            | sed -e 's/quiet splash //' -e 's/loglevel=[0-9]*/loglevel=7/')
+          APPEND_GATE="$APPEND_GATE console=ttyS0,115200 systemd.log_target=console systemd.log_level=info systemd.show_status=yes"
+          echo "── cmdline do gate (real + serial):"
+          echo "   $APPEND_GATE"
           qemu-system-x86_64 \
             -machine q35 -cpu max -smp 2 -m 3072 \
-            -kernel "$K" -initrd "$I" \
-            -append "archisosearchuuid=$IUUID archisobasedir=arch loglevel=7 udev.log_level=3 vt.global_cursor_default=0 cow_spacesize=5G copytoram=n nvme_load=yes lsm=landlock,lockdown,yama,integrity,apparmor,bpf console=ttyS0,115200 systemd.log_target=console systemd.log_level=info systemd.show_status=yes" \
+            -kernel "extracted/arch/boot/x86_64/vmlinuz-linux-cachyos-bore" \
+            -initrd "extracted/arch/boot/x86_64/initramfs-linux-cachyos-bore.img" \
+            -append "$APPEND_GATE" \
             -cdrom "$PWD/iso-out/$ISO" \
             -nographic -no-reboot -nic user \
             > serial-verify.log 2>&1 &
           Q=$!
-          # até ~55 min (TCG é lento; round 2 completou em ~14 min de userspace)
+          # até ~55 min (TCG é lento; com o fix [6.2] a fase final chega em
+          # ~5min local — janela folgada; o loop também sai no emergente)
           for i in $(seq 1 660); do
             grep -q 'Startup finished' serial-verify.log 2>/dev/null && break
             grep -q 'rootfs ~]#' serial-verify.log 2>/dev/null && break
@@ -197,6 +214,11 @@ jobs:
           chk $? "sem shell de emergência do initramfs" "initramfs caiu em shell de emergência"
           ! grep -qE 'code=203/EXEC|Unable to locate executable' serial-verify.log
           chk $? "binários Elite executáveis (sem 203/EXEC — fix [9b] verificado)" "203/EXEC no live: binário 0644 no squashfs"
+          # regressão do [6.2]: a entrada REAL da ISO TEM que carregar os
+          # timeouts 90s — é o que o usuário boota (a #43 falhou o boot
+          # exatamente por testar uma cmdline sem o fix)
+          grep -q 'systemd.default_timeout_start_sec=90' extracted/boot/syslinux/archiso_sys-linux.cfg
+          chk $? "cmdline real da ISO com timeout 90s ([6.2] presente)" "ISO sem timeout 90s no cmdline — fix [6.2] REGREDIU"
           # informativos (não derrubam o gate — headless QEMU nem sempre
           # mostra a sessão gráfica subindo)
           echo "── informativos ──"
