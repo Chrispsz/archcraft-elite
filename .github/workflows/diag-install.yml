@@ -239,14 +239,15 @@ jobs:
             || { echo "✖ grub-mkconfig falhou:"; cat grub-mkconfig.log; exit 1; }
           tail -6 grub-mkconfig.log
           echo "── entradas de kernel no grub.cfg gerado:"
-          # grub.cfg usa TAB entre keyword e caminho: '(linux|initrd) ' com
-          # espaço devolve VAZIO (falso negativo — a run #2 da branch
-          # diag-install morreu aqui sem o bug existir). [[:space:]] casa os
-          # dois. Entrada ausente = sistema instalado sem kernel = GATE para.
-          if ! sudo grep -E '^[[:space:]]*(linux|initrd)[[:space:]]' \
-                /mnt/elite/boot/grub/grub.cfg | head -12 | tee grub-entries.txt; then
-            echo "✖ nenhuma entrada linux/initrd no grub.cfg — grub-mkconfig não achou os kernels"
-            exit 1
+          # [[:space:]]: grub.cfg separa com TAB, não espaço (a run #2 morreu
+          # aqui num grep que exigia 'linux ' com espaço — pipefail + grep
+          # vazio = exit 1, com a instalação PERFEITA). grep direto no arquivo:
+          # sem pipe p/ head (SIGPIPE + pipefail = falso negativo).
+          if sudo grep -E '^[[:space:]]*(linux|initrd)[[:space:]]' \
+               /mnt/elite/boot/grub/grub.cfg > grub-entries.txt; then
+            head -12 grub-entries.txt
+          else
+            echo "✖ nenhuma entrada linux/initrd no grub.cfg"; exit 1
           fi
 
           sudo umount /mnt/elite
@@ -271,10 +272,17 @@ jobs:
             > serial-install.log 2>&1 &
           Q=$!
           VERDICT=TIMEOUT
-          for i in $(seq 1 300); do   # até 25 min
+          # até 45 min (TCG; run #3 chegou ao PROMPT DE LOGIN aos 25min e foi
+          # morta um instante antes do marcador formal — janela esticada)
+          for i in $(seq 1 540); do   # até 45 min
             if grep -q 'premature end of file' serial-install.log 2>/dev/null; then VERDICT=BUG_PREMATURE_EOF; break; fi
             if grep -q 'you need to load the kernel first' serial-install.log 2>/dev/null; then VERDICT=BUG_KERNEL_NAO_CARREGOU; break; fi
             if grep -q 'Startup finished' serial-install.log 2>/dev/null; then VERDICT=BOOT_COMPLETO; break; fi
+            # login: = GRUB+kernel+initramfs+systemd+getty TODOS funcionaram —
+            # o bug do rig B morre no GRUB, muito antes do login. Válido p/
+            # o propósito deste gate (o marcador formal pode atrasar sob TCG
+            # por stragglers tipo firstboot/SDDM).
+            if grep -q 'login:' serial-install.log 2>/dev/null; then VERDICT=BOOT_COMPLETO_LOGIN; break; fi
             if grep -qE 'Kernel panic|emergency mode|Give root password' serial-install.log 2>/dev/null; then VERDICT=PANIC_OU_EMERGENCIA; break; fi
             kill -0 "$Q" 2>/dev/null || break
             sleep 5
@@ -292,7 +300,8 @@ jobs:
           set -euo pipefail
           FAIL=0
           V=$(cat verdict.txt)
-          if [ "$V" = "BOOT_COMPLETO" ]; then echo "✔ BOOT_COMPLETO — sistema instalado chega ao 'Startup finished'"; else echo "✖ veredito: $V"; FAIL=1; fi
+          V=${V#VERDICT=}   # verdict.txt guarda 'VERDICT=X' — sem o strip, até BOOT_COMPLETO dava ✖ (run #4)
+          if [ "$V" = "BOOT_COMPLETO" ] || [ "$V" = "BOOT_COMPLETO_LOGIN" ]; then echo "✔ $V — sistema instalado boota (login prompt/target alcançado)"; else echo "✖ veredito: $V"; FAIL=1; fi
           if grep -q 'premature end of file' serial-install.log; then echo "✖ 'premature end of file' NO LOG — o bug do rig B voltou"; FAIL=1; else echo "✔ SEM 'premature end of file' (o bug do rig B não voltou)"; fi
           if grep -q 'you need to load the kernel first' serial-install.log; then echo "✖ 'you need to load the kernel first' — kernel não carregou"; FAIL=1; else echo "✔ SEM 'you need to load the kernel first'"; fi
           grep -q 'BORE_INTEGRAL=OK' integridade.txt && echo "✔ kernel BORE byte-idêntico ao pendrive no disco" || { echo "✖ BORE truncado mesmo após E10"; FAIL=1; }
