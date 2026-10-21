@@ -6,6 +6,13 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **v1.0.4 (main)** — coerência de snapshots: `btrfs-assistant` (stock) sai —
+  é GUI do **snapper**, que não vem na ISO (meia-ferramenta) e duplicaria a
+  estratégia do **Timeshift** (`craft-rollback` + `grub-btrfs`). Rota snapper
+  = opcional, documentada no cockpit dia-1. Acompanha o **cockpit v1.4.0**:
+  dia-1 alinhado à ISO (só o stack especializado — launchers, produção de
+  conteúdo, dev, ventoinha, Android; mangohud/gamemode/gamescope/pavucontrol/
+  polkit-gnome/file-roller/gparted/gcc já vêm de fábrica).
 - **v1.0.3** — sessão **ÚNICA labwc (Wayland)** com o rice Catppuccin Mocha
   (Waybar/SwayNC/Fuzzel/foot + helpers `craft-*` + fastfetch);
   **Openbox/BSPWM + satélites X11 removidos** (zero duplicação: um WM, um

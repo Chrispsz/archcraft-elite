@@ -250,6 +250,7 @@ inetutils
 wireless_tools
 libusb-compat
 simplescreenrecorder
+btrfs-assistant
 EOP
 
 # pacman.conf: [options] sem Architecture (a sed insere), com DownloadUser
