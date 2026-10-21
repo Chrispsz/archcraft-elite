@@ -73,6 +73,25 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
     alvo). Fixture do upstream sintético agora reproduz os 4 arquivos
     VERBATIM — a suíte rodaria verde sem ver o bug (o fixture antigo não
     os tinha).
+  - **FIX build #49 — ELITE-BUMP gerava pkgrel inválido** (forense: a ISO
+    nem chegou a ser construída; preflight abortou por design após 6
+    rounds com `libyuv`/`vid.stab` 404 nos 2 mirrors CachyOS — skew
+    ROTACIONA, não é o mesmo pacote da #47): o repack da baseline fazia
+    `newrel="${rel_quebrada}.1"` → pkgrel `1.1.1`/`3.1.1` com 3
+    componentes — **makepkg rejeita** (`pkgrel must be of the form
+    'integer[.integer]', not 1.1.1`, visto no log da #49) → caía no cp
+    clássico de baseline MAIS VELHA, que não satisfaz o resolve (pacman
+    prefere a versão quebrada anunciada) → rounds eternos → abort. O
+    ELITE-BUMP nunca tinha rodado de verdade (na #48 o mirror já estava
+    sadio — o caminho nem executou). Fix: `newrel = major da quebrada + 1`
+    (`1.1`→`2`, `3.1`→`4` — `vercmp('2','1.1')>0`, formato sempre
+    válido); guard p/ rel exótica (cp clássico honesto, sem aritmética
+    cega); log do gêmeo não mente mais o mirror ("us" fixo → host real).
+    Suíte: seção 3.L — a função REAL extraída por profundidade de chaves
+    (awk; o sed `^}$` cortava no `}` do package() do heredoc), roda em
+    `unshare -rm` + tmpfs em /var com mocks de vercmp/bsdtar/runuser e
+    um makepkg-mock que valida pkgrel com a MESMA regra do real — 14
+    peças cobrindo #47, #49, caminho clássico e rel exótica.
   - **Rice: dock AUTO-OCULTANTE + craft-pin (fixar apps)**: a dock pílula
     agora estilo COSMIC — `exclusive: false` (janelas usam a base da tela)
     + CSS `margin-bottom: -52px` com reveal no hover (cubic-bezier 0.38s,
@@ -85,12 +104,12 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
     sem a seção. Skel sai de fábrica com ZERO pins (launchers fixos do
     skel continuam nascendo na ISO). Limite documentado: wlr/taskbar não
     une pin+running (app fixado rodando = ícone extra no centro).
-  - **Suíte**: 460 → **699 peças, 0 falhas, GO** (700 quando a fase 5 de
-    release rodar pós-tag; contratos v1.1: pacotes,
+  - **Suíte**: 460 → **714 peças, 0 falhas, GO** (contratos v1.1: pacotes,
     menu de boot, E5a/E5b/E10/E11/E12, firstboot NV_PREBUILT/BBR on/off,
     brave-flags, mimeapps, yazi/helix, autostart sem applets GTK3,
     craft-pin, presets órfãos do kernel stock — fixture upstream agora
-    reproduz os arquivos estáticos do mkinitcpio.d/conf.d VERBATIM).
+    reproduz os arquivos estáticos do mkinitcpio.d/conf.d VERBATIM — e
+    ELITE-BUMP funcional com makepkg-mock validando pkgrel).
 
 - **v1.0.5 (branch fix/estabilidade-gates)** — **GATES DE VERDADE + FIRSTBOOT
   ANTI-BRICK** (auditoria completa das runs de Actions + logs de falha):

@@ -327,4 +327,135 @@ if pinjson "$DKT"; then ok "craft-pin: skel antigo sem marcador → auto-cura + 
 assert_grep "$DKT" 'PINS \(craft-pin\)' "craft-pin: marcador recriado automaticamente"
 assert_match "$(CP reload)" 'waybar não está rodando' "craft-pin: reload sem waybar é gracioso (rc 0)"
 
+# ── 3.L elite_inject_bumped (ELITE-BUMP — build #49: pkgrel 3 componentes) ─
+#  A função REAL do .ci/build.sh, extraída por fidelidade (como o extract.sh
+#  faz com o elite-tune), em unshare -rm com tmpfs em /var: as escritas em
+#  /var/cache/elite-local evaporam com o namespace. vercmp/bsdtar/runuser/
+#  makepkg são mockados na frente do PATH — o makepkg-mock valida o pkgrel
+#  com a MESMA regra do real ('integer[.integer]'): foi exatamente "pkgrel
+#  must be of the form 'integer[.integer]', not 1.1.1" que derrubou a
+#  build #49 (o repack falhava, caía no cp clássico que não satisfaz o
+#  resolve, 6 rounds quebrados, abort sem ISO).
+if [[ $EUID -eq 0 ]] || unshare -r true 2>/dev/null; then
+  # harness: função real + driver (tmpfs em /var como o ns-body faz).
+  # extração por PROFUNDIDADE DE CHAVES (awk): o sed /^}$/ cortaria no '}'
+  # do package() DENTRO do heredoc do PKGBUILD — função truncada = script
+  # quebrado (here-document delimited by end-of-file).
+  BUMPBIN="$WORK/bump-run.sh"
+  {
+    echo '#!/usr/bin/env bash'
+    echo 'say() { printf "%s\n" "$*"; }'
+    awk '/^elite_inject_bumped\(\)/{print; d=1; next}
+         d{print; o=gsub(/{/,"{"); c=gsub(/}/,"}"); d+=o-c; if(d<=0) exit}' \
+      "$REPO/.ci/build.sh"
+    printf '%s\n' \
+      'mount -t tmpfs tmpfs /var 2>/dev/null || true' \
+      'rm -rf /tmp/elite-bump' \
+      'mkdir -p /var/cache/elite-local' \
+      'elite_inject_bumped "$1" "$2"' \
+      'echo "RC=$?"' \
+      'ls -1 /var/cache/elite-local/ 2>/dev/null | sed "s/^/CACHE /"' \
+      'cat /tmp/elite-bump/*/PKGBUILD 2>/dev/null | sed "s/^/PKGBUILD /"' \
+      'rm -rf /tmp/elite-bump' \
+      'exit 0'
+  } > "$BUMPBIN"
+  chmod +x "$BUMPBIN"
+
+  # mocks: vercmp (semântica ver-rel p/ os casos), bsdtar (no-op), runuser
+  # (roda o -c payload) e makepkg (valida pkgrel como o real + "compila")
+  MB="$WORK/mocks-bump"; mkdir -p "$MB"
+  cat > "$MB/vercmp" <<'EOF'
+#!/usr/bin/env bash
+# mock vercmp — fiel p/ ver igual (decide no rel numérico) e ver diferente
+av=${1%-*}; arel=${1##*-}; bv=${2%-*}; brel=${2##*-}
+if [[ "$av" != "$bv" ]]; then [[ "$av" > "$bv" ]] && echo 1 || echo -1; exit 0; fi
+x=(${arel//./ }); y=(${brel//./ }); i=0
+while :; do
+  xv=${x[i]:-0}; yv=${y[i]:-0}
+  (( xv > yv )) && { echo 1; exit 0; }
+  (( xv < yv )) && { echo -1; exit 0; }
+  [[ -z ${x[i]:-} && -z ${y[i]:-} ]] && { echo 0; exit 0; }
+  i=$((i+1))
+done
+EOF
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$MB/bsdtar"
+  cat > "$MB/runuser" <<'EOF'
+#!/usr/bin/env bash
+cmd=""; prev=""
+for a in "$@"; do [[ "$prev" == "-c" ]] && cmd="$a"; prev="$a"; done
+exec bash -c "$cmd"
+EOF
+  cat > "$MB/makepkg" <<'EOF'
+#!/usr/bin/env bash
+# mock makepkg — valida o PKGBUILD como o real e "compila" o pacote
+name=$(sed -n 's/^pkgname=//p' PKGBUILD)
+ver=$(sed -n  's/^pkgver=//p'  PKGBUILD)
+rel=$(sed -n  's/^pkgrel=//p'  PKGBUILD)
+arch=$(sed -nE 's/^arch=\((.*)\)$/\1/p' PKGBUILD)
+if [[ ! "$rel" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+  echo "==> ERROR: pkgrel must be of the form 'integer[.integer]', not $rel." >&2
+  exit 1
+fi
+touch "$name-$ver-$rel-$arch.pkg.tar.zst"
+EOF
+  chmod +x "$MB"/*
+  run_bump() { PATH="$MB:$PATH" unshare -rm bash "$BUMPBIN" "$1" "$2"; }
+
+  # baseline dummy (o bsdtar é mockado; o cp lê o arquivo real)
+  BL="$WORK/bump-baseline"; mkdir -p "$BL"
+  touch "$BL/libyuv-r2921+644251f25-1-x86_64.pkg.tar.zst" \
+        "$BL/libcdio-paranoia-10.2+2.0.2-3-x86_64.pkg.tar.zst" \
+        "$BL/demo-2.0-2-x86_64.pkg.tar.zst"
+
+  # caso #49: libyuv 1.1 → bump DEVE gerar pkgrel 2 (não 1.1.1 — inválido)
+  out="$(run_bump "libyuv-r2921+644251f25-1.1-x86_64_v3.pkg.tar.zst" "$BL/libyuv-r2921+644251f25-1-x86_64.pkg.tar.zst")"
+  printf '%s\n' "$out" > "$WORK/bump49.out"
+  assert_match "$out" 'ELITE-BUMP libyuv r2921\+644251f25-1 → r2921\+644251f25-2' \
+    "bump #49: libyuv 1.1 → major+1 = 2 (makepkg-mock aceita; o 1.1.1 da build #49 morreria aqui)"
+  assert_match "$out" 'CACHE libyuv-r2921\+644251f25-2-x86_64\.pkg\.tar\.zst' \
+    "bump #49: pacote r2921+644251f25-2 no elite-local (vence o resolve contra 1.1)"
+  assert_grep "$WORK/bump49.out" '^PKGBUILD pkgrel=2$' "bump #49: pkgrel=2 no PKGBUILD (integer — formato makepkg)"
+  if grep -q 'not 1.1.1' <<<"$out"; then
+    fail "bump #49: regressão" "makepkg-mock rejeitou o pkgrel (3 componentes voltaram?)"
+  else
+    ok "bump #49: makepkg-mock VALIDOU o pkgrel (sem 'not 1.1.1')"
+  fi
+
+  # caso #47: libcdio-paranoia 3.1 → bump major+1 = 4 (não 3.1.1)
+  out="$(run_bump "libcdio-paranoia-10.2+2.0.2-3.1-x86_64_v3.pkg.tar.zst" "$BL/libcdio-paranoia-10.2+2.0.2-3-x86_64.pkg.tar.zst")"
+  printf '%s\n' "$out" > "$WORK/bump47.out"
+  assert_match "$out" 'CACHE libcdio-paranoia-10\.2\+2\.0\.2-4-x86_64\.pkg\.tar\.zst' \
+    "bump #47: libcdio-paranoia 3.1 → 4 no elite-local"
+  assert_grep "$WORK/bump47.out" '^PKGBUILD pkgrel=4$' "bump #47: pkgrel=4 (o 3.1.1 do design original era inválido)"
+
+  # vercmp do mock: 2 > 1.1 e 4 > 3.1 (a matemática que faz o resolve vencer)
+  v() { PATH="$MB:$PATH" vercmp "$1" "$2"; }
+  assert_eq "$(v 'r2921+644251f25-2' 'r2921+644251f25-1.1')" "1" "bump: vercmp(2, 1.1) = 1 (elite-local vence o resolve)"
+  assert_eq "$(v '10.2+2.0.2-4' '10.2+2.0.2-3.1')" "1" "bump: vercmp(4, 3.1) = 1"
+
+  # caminho clássico: baseline >= quebrada → ELITE-INJECT com cp puro
+  out="$(run_bump "demo-2.0-1.1-x86_64_v3.pkg.tar.zst" "$BL/demo-2.0-2-x86_64.pkg.tar.zst")"
+  assert_match "$out" 'ELITE-INJECT demo-2\.0-2-x86_64\.pkg\.tar\.zst' \
+    "bump clássico: baseline >= quebrada → injeção simples (cp)"
+  assert_match "$out" 'CACHE demo-2\.0-2-x86_64\.pkg\.tar\.zst' \
+    "bump clássico: arquivo do baseline intacto no elite-local"
+  if grep -q 'PKGBUILD' <<<"$out"; then
+    fail "bump clássico: sem repack" "PKGBUILD gerado no caminho clássico (não deveria)"
+  else
+    ok "bump clássico: nenhum PKGBUILD (repack só quando baseline é mais velha)"
+  fi
+
+  # rel fora do formato (defesa honesta) → cp clássico, sem crash
+  out="$(run_bump "demo-2.0-3+x1-x86_64_v3.pkg.tar.zst" "$BL/demo-2.0-2-x86_64.pkg.tar.zst")"
+  assert_match "$out" 'fora do formato' "bump: rel exótica → cp clássico honesto (sem aritmética cega)"
+else
+  skip "3.L elite_inject_bumped" "unshare -r indisponível (contratos estáticos abaixo valem)"
+fi
+
+# contratos estáticos (valem SEM unshare): major+1 no lugar do .1 de 3 componentes
+assert_grep "$REPO/.ci/build.sh" 'newrel=\$\(\( brmaj \+ 1 \)\)' \
+  "contrato bump: newrel = major da quebrada + 1 (build #49)"
+assert_nogrep "$REPO/.ci/build.sh" 'newrel="\$\{nb_verrel##\*-\}\.1"' \
+  "contrato bump: a forma '3.1→3.1.1' (pkgrel inválido, makepkg rejeita) não existe mais"
+
 phase_end
