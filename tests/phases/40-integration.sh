@@ -258,6 +258,19 @@ W="$P/airootfs/etc/systemd/system/multi-user.target.wants"
 CS="$P/airootfs/root/customize_airootfs.sh"
 assert_eq "$(grep -c '\[\[ -f /etc/skel/.config/sway/scripts/startup \]\]' "$CS")" "2" \
   "cadeia A: guarda sway ×2 (o fix do run #17 aplicado no customize)"
+# [8.6] guards da curadoria v1.0.3: openbox/bspwm/scripts/screenlayout
+# (o run da 2256d0a morreu no 'sed: can't read openbox/autostart' —
+# set -e do customize upstream + sessões extintas)
+assert_eq "$(grep -c '\[\[ -f /etc/skel/.config/openbox/autostart \]\]' "$CS")" "2" \
+  "curadoria: guarda openbox ×2 no customize (fix do run 2256d0a)"
+assert_eq "$(grep -c '\[\[ -f /etc/skel/.config/bspwm/bspwmrc \]\]' "$CS")" "2" \
+  "curadoria: guarda bspwm ×2 no customize"
+assert_grep "$CS" '\[\[ -d /usr/share/archcraft/scripts \]\]' \
+  "curadoria: guarda ln-s archcraft-scripts (pacote removido)"
+assert_grep "$CS" '\[\[ -f /etc/skel/\.screenlayout/my-layout\.sh \]\]' \
+  "curadoria: guarda chmod screenlayout (skeleton removido)"
+# customize resultante continua sintaticamente válido
+assert_rc0 "curadoria: customize com guards é bash -n válido" bash -n "$CS"
 assert_grep "$CS" 'ELITE_KEY=' "cadeia A: fragmento E0–E8 anexado ao customize"
 cmp -s "$P/airootfs/usr/local/bin/elite-tune" "$REPO/elite/airootfs/usr/local/bin/elite-tune" \
   && ok "cadeia A: elite-tune idêntico ao overlay (rsync sem corrupção)" \

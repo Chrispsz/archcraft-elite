@@ -283,6 +283,16 @@ sed -i -e '/## Welcome-App-Run-Once/Q' /etc/skel/.config/sway/scripts/startup
 cat >> "/etc/skel/.config/sway/scripts/startup" <<- EOL
 echo wayland
 EOL
+sed -i -e '/## Welcome-App-Run-Once/Q' /etc/skel/.config/openbox/autostart
+cat >> "/etc/skel/.config/openbox/autostart" <<- EOL
+echo openbox
+EOL
+sed -i -e '/## Welcome-App-Run-Once/Q' /etc/skel/.config/bspwm/bspwmrc
+cat >> "/etc/skel/.config/bspwm/bspwmrc" <<- EOL
+echo bspwm
+EOL
+ln -s /usr/share/archcraft/scripts/* /usr/local/bin/
+chmod +x /etc/skel/.screenlayout/my-layout.sh
 EOP
 
 # ── Calamares fixture (v1.0.3): arquivos REAIS do calamares-config /
