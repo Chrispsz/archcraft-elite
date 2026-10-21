@@ -473,5 +473,12 @@ assert_grep "$REPO/.ci/build.sh" 'newrel=\$\(\( brmaj \+ 1 \)\)' \
   "contrato bump: newrel = major da quebrada + 1 (build #49)"
 assert_nogrep "$REPO/.ci/build.sh" 'newrel="\$\{nb_verrel##\*-\}\.1"' \
   "contrato bump: a forma '3.1→3.1.1' (pkgrel inválido, makepkg rejeita) não existe mais"
+# contratos da forense #50: a baseline tem que SER o pacote-alvo, com nome real
+assert_grep "$REPO/.ci/build.sh" "awk -F/ -v pfx=\"\\\$base-\" 'index\(\\\$NF, pfx\) == 1'" \
+  "contrato bump: fu = URL do PRÓPRIO alvo (build #50: head -1 cego baixava a 1ª DEP — tzdata virou 'baseline' de libyuv)"
+assert_grep "$REPO/.ci/build.sh" '/tmp/elite-baseline/\$\{fu##\*/\}' \
+  "contrato bump: baseline baixada com o NOME REAL do pacote (versão preservada p/ o parse — 'elite-2' nunca mais)"
+assert_grep "$REPO/.ci/build.sh" 'options=\(!debug\)' \
+  "contrato bump: PKGBUILD do repack com options=(!debug) (sem -debug espúrio no elite-local)"
 
 phase_end

@@ -92,6 +92,23 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
     `unshare -rm` + tmpfs em /var com mocks de vercmp/bsdtar/runuser e
     um makepkg-mock que valida pkgrel com a MESMA regra do real — 14
     peças cobrindo #47, #49, caminho clássico e rel exótica.
+  - **FIX build #50 — a "baseline" era o pacote errado** (forense: o
+    ELITE-BUMP rodou de verdade pela 1ª vez e expôs 2 bugs latentes do
+    preflight): ① `pacman -Sp | head -1` pegava a URL da PRIMEIRA
+    DEPENDÊNCIA da transação (o local db vazio resolve tudo: tzdata,
+    glibc…) — a "baseline" de libyuv baixada era o pacote **tzdata
+    inteiro**; ② o download ia p/ `/tmp/elite-baseline.pkg.tar.zst`
+    (nome genérico) — o parse de versão da função lê `${basepkg##*/}`,
+    então o repack nascia `libyuv-elite-2` com **payload de tzdata** →
+    preflight "fechava" resolvendo p/ o elite-local furado → pacstrap
+    offline instalava → `exists in both 'tzdata' and 'libyuv'` →
+    abort nas 2 tentativas. Fixes: fu filtrado por PREFIXO do nome do
+    alvo (`awk -F/ index($NF, "<base>-")==1` — string fixa, nomes com
+    ponto/plus como vid.stab); download p/
+    `/tmp/elite-baseline/<nome-real>.pkg.tar.zst` (versão preservada
+    pro parse); `options=(!debug)` no PKGBUILD do repack (o makepkg do
+    container gerava um `-debug` espúrio no elite-local). +3 contratos
+    estáticos na suíte.
   - **Rice: dock AUTO-OCULTANTE + craft-pin (fixar apps)**: a dock pílula
     agora estilo COSMIC — `exclusive: false` (janelas usam a base da tela)
     + CSS `margin-bottom: -52px` com reveal no hover (cubic-bezier 0.38s,
@@ -104,7 +121,7 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
     sem a seção. Skel sai de fábrica com ZERO pins (launchers fixos do
     skel continuam nascendo na ISO). Limite documentado: wlr/taskbar não
     une pin+running (app fixado rodando = ícone extra no centro).
-  - **Suíte**: 460 → **714 peças, 0 falhas, GO** (contratos v1.1: pacotes,
+  - **Suíte**: 460 → **702 peças, 0 falhas, GO** (contratos v1.1: pacotes,
     menu de boot, E5a/E5b/E10/E11/E12, firstboot NV_PREBUILT/BBR on/off,
     brave-flags, mimeapps, yazi/helix, autostart sem applets GTK3,
     craft-pin, presets órfãos do kernel stock — fixture upstream agora

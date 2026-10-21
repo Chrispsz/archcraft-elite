@@ -270,6 +270,7 @@ pkgver=$bver
 pkgrel=$newrel
 pkgdesc="ELITE baseline override (mirror CachyOS com skew travado — ver CHANGES v1.1)"
 arch=($parch)
+options=(!debug)
 license=(unknown)
 package() {
     cp -a "\$srcdir/../payload/." "\$pkgdir"/
@@ -388,12 +389,26 @@ preflight() {
             fi
             fn=${u##*/}
             base=$(printf '%s' "$fn" | sed -E 's/-(any|x86_64(_v3)?)\.pkg\.tar\.zst$//' | rev | cut -d- -f3- | rev)
+            # fu = URL do PRÓPRIO pacote-alvo (NÃO da 1ª dependência!):
+            # o -Sp com local db vazio resolve a transação inteira — tzdata,
+            # glibc, gcc-libs… saem ANTES do alvo na lista; um head -1 cego
+            # baixava a DEP como 'baseline' e o repack nascia com payload
+            # alheio (build #50: libyuv-elite-2 com os arquivos da tzdata →
+            # conflito 'exists in both tzdata and libyuv' no pacstrap).
+            # awk -F/ com index($NF, "<base>-")==1: match por PREFIXO em
+            # string FIXA (sem regex — nomes com ponto/plus como vid.stab).
             fu=$(pacman --config /tmp/elite-arch-only.conf -b "$pfdb" -Sp --print-format '%l' --noconfirm "$base" 2>/dev/null \
-                 | grep -oE '^https?://[^ ]+\.pkg\.tar\.zst$' | head -1 || true)
+                 | grep -oE '^https?://[^ ]+\.pkg\.tar\.zst$' \
+                 | awk -F/ -v pfx="$base-" 'index($NF, pfx) == 1' | head -1 || true)
             if [[ -n "$fu" ]]; then
                 say "  $fn quebrado nos 2 mirrors → baseline Arch injetado no [elite-local]"
-                if curl -fsSL -o /tmp/elite-baseline.pkg.tar.zst "$fu"; then
-                    elite_inject_bumped "$fn" /tmp/elite-baseline.pkg.tar.zst && injected=1
+                # download com o NOME REAL do pacote: o elite_inject_bumped
+                # deriva a versão da baseline de ${basepkg##*/} — um nome
+                # genérico (/tmp/elite-baseline.pkg.tar.zst) entregaria
+                # 'elite-2' de versão (build #50) e o resolve nunca fecharia.
+                mkdir -p /tmp/elite-baseline
+                if curl -fsSL -o "/tmp/elite-baseline/${fu##*/}" "$fu"; then
+                    elite_inject_bumped "$fn" "/tmp/elite-baseline/${fu##*/}" && injected=1
                 fi
             else
                 say "  $fn quebrado e SEM baseline Arch — próximo round decide"
