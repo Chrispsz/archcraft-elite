@@ -13,6 +13,11 @@
 // margin-bottom negativa e a revela no :hover da faixa inferior (ver
 // style.dock.css — transição suave). Sem hover por alguns segundos ela
 // dessozinha de volta: auto-hide de verdade, zero clique perdido.
+//
+// FIXAR APPS (v1.1): os launchers fixos acima nascem no skel; os SEUS ficam
+// na seção PINS logo antes do fechamento do arquivo — gerencie com
+// `craft-pin add steam '' Steam steam green` / `craft-pin rm steam`
+// (o script mantém vírgulas, CSS e reload; edição manual é por sua conta).
 {
   "layer": "top",
   "position": "bottom",
@@ -99,4 +104,6 @@
     "tooltip-format": "Sessão",
     "on-click": "craft-power"
   }
+
+  // ── PINS (craft-pin) — apps fixados pelo usuário; use craft-pin add/rm
 }

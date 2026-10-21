@@ -53,6 +53,18 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
     dkms (E11) e o preset stock AUSENTE; [6b/8] roda o detector de vendor
     (QEMU: unknown = não-op seguro) + 4 contratos do per-rig; [7/8] só o
     initcpio do BORE; artifact gpu-detect.txt.
+  - **Rice: dock AUTO-OCULTANTE + craft-pin (fixar apps)**: a dock pílula
+    agora estilo COSMIC — `exclusive: false` (janelas usam a base da tela)
+    + CSS `margin-bottom: -52px` com reveal no hover (cubic-bezier 0.38s,
+    zoom de glyphs). **`craft-pin`**: fixar apps do usuário na dock sem
+    editar JSON à mão — `craft-pin add steam '' Steam steam green` insere
+    1 linha JSONC na seção `PINS` do config.dock + entrada no
+    `modules-left` + bloco CSS autocontido (mesmo DNA visual dos fixos);
+    vírgulas sempre corretas (parse JSON como juiz), backup `.bak.<ts>` +
+    `restore`, reload via SIGUSR2 (man 5 waybar), auto-cura de skel antigo
+    sem a seção. Skel sai de fábrica com ZERO pins (launchers fixos do
+    skel continuam nascendo na ISO). Limite documentado: wlr/taskbar não
+    une pin+running (app fixado rodando = ícone extra no centro).
   - **Suíte**: 460 → **638 peças, 0 falhas, GO** (contratos v1.1: pacotes,
     menu de boot, E5a/E5b/E10/E11/E12, firstboot NV_PREBUILT/BBR on/off,
     brave-flags, mimeapps, yazi/helix, autostart sem applets GTK3).
