@@ -15,7 +15,9 @@
 #    · pacman.conf     → repos CachyOS (cdn77+us) ANTES de [core]
 #    · entradas de boot→ menu limpo v1.1: AMD+NVIDIA+rescue, kernel BORE
 #                        ÚNICO, copy-to-RAM no default e na NVIDIA
-#    · mkinitcpio      → preset archiso do BORE (overlay) p/ o live
+#    · mkinitcpio      → preset archiso do BORE (overlay) p/ o live +
+#                        presets órfãos do kernel stock DELETADOS
+#                        (arquivos estáticos do profile upstream)
 #    · systemd         → remove wants de serviços debloatados
 #    · customize       → anexa fragmento elite (E0–E12)
 #    · profiledef      → ISO rebatizada archcraft-elite-<data>
@@ -319,6 +321,36 @@ for f in "$PROFILE/grub/grub.cfg" "$PROFILE/grub/loopback.cfg" \
     say "AVISO: $(basename "$f") ainda referencia o kernel stock — não existirá na ISO!"
   fi
 done
+
+# ── [6.3] Presets órfãos do kernel stock (v1.1) ─────────────────────
+#  O profile upstream entrega /etc/mkinitcpio.d/{linux,linux-nvidia}
+#  .preset como ARQUIVOS ESTÁTICOS do airootfs (não vêm de pacote): o
+#  mkarchcraftiso copia o airootfs do profile ANTES do pacstrap, e o hook
+#  90-mkinitcpio-install do fim da transação itera TODOS os presets de
+#  /etc/mkinitcpio.d. Com o kernel stock fora da lista de pacotes, eles
+#  viram órfãos com efeito duplo:
+#    · no BUILD: o hook morre em "Invalid option -k -- '/boot/vmlinuz-
+#      linux' must be readable" (erro tolerado pelo pacman — build segue
+#      com ruído no log; visto na build #48);
+#    · no PRODUTO: o arquivo entra no squashfs → unpackfs o copia pro
+#      sistema INSTALADO → contrato "kernel único BORE" quebrado (foi
+#      exatamente o que o gate verify-install derrubou na build #48:
+#      '✖ preset stock PRESENTE').
+#  O archiso-nvidia.conf do conf.d perde o único consumidor (o preset
+#  deletado) — sai junto. O archiso.conf FICA: é a config da 1ª geração
+#  do initramfs live do BORE (o E11 a recria e apaga o conf.d inteiro
+#  no final do customize).
+say "Kernel único: deletando presets órfãos do kernel stock do profile"
+for orphan in linux.preset linux-nvidia.preset; do
+  if [[ -f "$PROFILE/airootfs/etc/mkinitcpio.d/$orphan" ]]; then
+    rm -f "$PROFILE/airootfs/etc/mkinitcpio.d/$orphan"
+    say "  preset órfão removido: airootfs/etc/mkinitcpio.d/$orphan"
+  fi
+done
+if [[ -f "$PROFILE/airootfs/etc/mkinitcpio.conf.d/archiso-nvidia.conf" ]]; then
+  rm -f "$PROFILE/airootfs/etc/mkinitcpio.conf.d/archiso-nvidia.conf"
+  say "  conf órfão removido: airootfs/etc/mkinitcpio.conf.d/archiso-nvidia.conf"
+fi
 # ── [6.2] Timeouts de boot à prova de USB lento/emulador (v1.0.4) ──
 #  O cachyos-settings impõe DefaultTimeoutStartSec=15s via /usr/lib/
 #  systemd/system.conf.d/00-timeout.conf. Em boot a frio por USB lento

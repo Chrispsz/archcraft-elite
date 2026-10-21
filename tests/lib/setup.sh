@@ -355,6 +355,44 @@ BROWSER=firefox
 TERMINAL=alacritty
 EOP
 
+# ── presets/conf.d do kernel stock upstream VERBATIM (conferidos no repo
+#    oficial — build #48): são ARQUIVOS ESTÁTICOS do profile (não vêm de
+#    pacote). O overlay [6.3] v1.1 os DELETA (kernel único BORE); sem isso
+#    o hook mkinitcpio do build morre em 'vmlinuz-linux must be readable'
+#    e o órfão vai pro squashfs → sistema instalado (gate verify-install).
+mkdir -p "$P"/airootfs/etc/mkinitcpio.d "$P"/airootfs/etc/mkinitcpio.conf.d
+cat > "$P/airootfs/etc/mkinitcpio.d/linux.preset" <<'EOP'
+# mkinitcpio preset file for the 'linux' package on archiso
+
+PRESETS=('archiso')
+
+ALL_kver='/boot/vmlinuz-linux'
+archiso_config='/etc/mkinitcpio.conf.d/archiso.conf'
+
+archiso_image="/boot/initramfs-linux.img"
+EOP
+cat > "$P/airootfs/etc/mkinitcpio.d/linux-nvidia.preset" <<'EOP'
+# mkinitcpio preset file for the 'linux' package on archiso (nvidia)
+
+PRESETS=('nvidia')
+
+ALL_kver='/boot/vmlinuz-linux'
+nvidia_config='/etc/mkinitcpio.conf.d/archiso-nvidia.conf'
+
+nvidia_image="/boot/initramfs-linux-nvidia.img"
+EOP
+cat > "$P/airootfs/etc/mkinitcpio.conf.d/archiso.conf" <<'EOP'
+HOOKS=(base udev microcode plymouth modconf kms memdisk archiso archiso_loop_mnt block filesystems keyboard)
+COMPRESSION="xz"
+COMPRESSION_OPTIONS=(-9e)
+EOP
+cat > "$P/airootfs/etc/mkinitcpio.conf.d/archiso-nvidia.conf" <<'EOP'
+MODULES=(nvidia nvidia_modeset nvidia_uvm nvidia_drm)
+HOOKS=(base udev microcode plymouth modconf memdisk archiso archiso_loop_mnt block filesystems keyboard)
+COMPRESSION="xz"
+COMPRESSION_OPTIONS=(-9e)
+EOP
+
 # ── Calamares fixture (v1.0.3/v1.1): arquivos REAIS do calamares-config /
 # archcraft-install-scripts — o 40-integration executa o bloco E5 do
 # fragmento contra estes arquivos e confere a cirurgia labwc + E5a/E5b ──

@@ -53,6 +53,26 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
     dkms (E11) e o preset stock AUSENTE; [6b/8] roda o detector de vendor
     (QEMU: unknown = não-op seguro) + 4 contratos do per-rig; [7/8] só o
     initcpio do BORE; artifact gpu-detect.txt.
+  - **FIX build #48 — presets órfãos do kernel stock** (forense: a ISO
+    construiu, bootou no QEMU live, mas o gate `verify-install` derrubou
+    a release no pré-flight com `✖ preset stock PRESENTE`): o upstream
+    entrega `/etc/mkinitcpio.d/{linux,linux-nvidia}.preset` como
+    **arquivos estáticos do profile** (não vêm de pacote — o
+    mkarchcraftiso copia o airootfs ANTES do pacstrap e o hook
+    90-mkinitcpio-install itera TODOS os presets no fim da transação).
+    Com o kernel stock comentado, os arquivos viraram órfãos com efeito
+    duplo: no build o hook morre em `Invalid option -k -- '/boot/
+    vmlinuz-linux' must be readable` (erro tolerado — ruído no log) e o
+    órfão segue pro squashfs → unpackfs → **sistema instalado**. Novo
+    **[6.3] do apply-overlay** deleta `linux.preset`, `linux-nvidia
+    .preset` e `archiso-nvidia.conf` (perdeu o único consumidor) do
+    profile; `archiso.conf` fica (1ª geração do initramfs live do BORE;
+    o E11 o recria e apaga o conf.d inteiro no final). Gate ganhou os
+    contratos espelhados: nvidia-preset ausente + conf.d sem drops do
+    live (o drop-in archiso venceria o ALL_config do initcpio@elite no
+    alvo). Fixture do upstream sintético agora reproduz os 4 arquivos
+    VERBATIM — a suíte rodaria verde sem ver o bug (o fixture antigo não
+    os tinha).
   - **Rice: dock AUTO-OCULTANTE + craft-pin (fixar apps)**: a dock pílula
     agora estilo COSMIC — `exclusive: false` (janelas usam a base da tela)
     + CSS `margin-bottom: -52px` com reveal no hover (cubic-bezier 0.38s,
@@ -65,9 +85,11 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
     sem a seção. Skel sai de fábrica com ZERO pins (launchers fixos do
     skel continuam nascendo na ISO). Limite documentado: wlr/taskbar não
     une pin+running (app fixado rodando = ícone extra no centro).
-  - **Suíte**: 460 → **638 peças, 0 falhas, GO** (contratos v1.1: pacotes,
+  - **Suíte**: 460 → **700 peças, 0 falhas, GO** (contratos v1.1: pacotes,
     menu de boot, E5a/E5b/E10/E11/E12, firstboot NV_PREBUILT/BBR on/off,
-    brave-flags, mimeapps, yazi/helix, autostart sem applets GTK3).
+    brave-flags, mimeapps, yazi/helix, autostart sem applets GTK3,
+    craft-pin, presets órfãos do kernel stock — fixture upstream agora
+    reproduz os arquivos estáticos do mkinitcpio.d/conf.d VERBATIM).
 
 - **v1.0.5 (branch fix/estabilidade-gates)** — **GATES DE VERDADE + FIRSTBOOT
   ANTI-BRICK** (auditoria completa das runs de Actions + logs de falha):
