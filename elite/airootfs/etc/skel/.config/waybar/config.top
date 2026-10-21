@@ -125,7 +125,7 @@
 
   // Power — abre o menu de sessão (labnag; fallback fuzzel)
   "custom/power": {
-    "format": "⏻",
+    "format": "",
     "tooltip": false,
     "on-click": "craft-power"
   }

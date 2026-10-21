@@ -87,7 +87,7 @@
     "on-click": "craft-lock"
   },
   "custom/power": {
-    "format": "⏻",
+    "format": "",
     "tooltip-format": "Sessão",
     "on-click": "craft-power"
   }
