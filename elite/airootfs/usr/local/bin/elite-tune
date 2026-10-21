@@ -1,8 +1,21 @@
 #!/usr/bin/env bash
 # =====================================================================
-#  elite-tune v4.5 — Archcraft Elite Edition
+#  elite-tune v4.6 — Archcraft Elite Edition
 #  Elite A: Ryzen 7 5700X · RTX 5060 8GB · 16GB · B550M
 #  Elite B: veterano — detecção automática de GPU/CPU/disco
+#
+#  v4.6: · v1.1 MEGA PROMPT — a ISO embarca o nvidia-open-dkms PRÉ-COMPILADO
+#          contra o kernel BORE (E11): no rig NVIDIA o firstboot DETECTA os
+#          módulos já presentes e NÃO instala nada (1º boot 100% offline,
+#          marker na primeira passada); o caminho online vira só fallback
+#          p/ sistema não-ISO/desatualizado.
+#        · gpu_cleanup_foreign: rig AMD/Intel também remove o nvidia-open-dkms
+#          e os .ko pré-compilados de /usr/lib/modules/*/updates/dkms
+#          (v1.1: o dkms viaja na ISO p/ ambos os rigs — quem não é NVIDIA
+#          não carrega nem um byte de driver alheio no disco).
+#        · rede: BBR+fq (sysctl.d 99-elite-net + modules-load tcp_bbr) —
+#          firstboot CONFIRMA que o kernel oferece bbr; senão tira do
+#          sysctl.d (cubic fica) em vez de falhar silencioso.
 #
 #  v4.5: · firstboot NVIDIA sem rede não BRICA o driver: o nvidia-open-dkms
 #          é instalado ANTES de destronar o nvidia-open pré-compilado (a
@@ -149,14 +162,24 @@ ensure_cmdline_token() {
 gpu_cleanup_foreign() {
   local vendor=$1 np pkgs=()
   case "$vendor" in
-    amd)    for np in nvidia-open nvidia-utils nvidia-settings lib32-nvidia-utils vulkan-intel lib32-vulkan-intel; do pacman -Qq "$np" >/dev/null 2>&1 && pkgs+=("$np"); done ;;
-    intel)  for np in nvidia-open nvidia-utils nvidia-settings lib32-nvidia-utils vulkan-radeon lib32-vulkan-radeon; do pacman -Qq "$np" >/dev/null 2>&1 && pkgs+=("$np"); done ;;
+    amd)    for np in nvidia-open nvidia-open-dkms nvidia-utils nvidia-settings lib32-nvidia-utils vulkan-intel lib32-vulkan-intel; do pacman -Qq "$np" >/dev/null 2>&1 && pkgs+=("$np"); done ;;
+    intel)  for np in nvidia-open nvidia-open-dkms nvidia-utils nvidia-settings lib32-nvidia-utils vulkan-radeon lib32-vulkan-radeon; do pacman -Qq "$np" >/dev/null 2>&1 && pkgs+=("$np"); done ;;
     nvidia) for np in vulkan-radeon lib32-vulkan-radeon vulkan-intel lib32-vulkan-intel; do pacman -Qq "$np" >/dev/null 2>&1 && pkgs+=("$np"); done ;;
     *)      return 0 ;;
   esac
   (( ${#pkgs[@]} )) || { say "Auto-limpeza: nenhum pacote estranho ao hardware (já limpo)"; return 0; }
   say "Auto-limpeza: GPU $vendor → removendo stack do outro vendor (${pkgs[*]})"
   run pacman -Rns --noconfirm "${pkgs[@]}" || true
+  # v4.6: módulos dkms pré-compilados da ISO (não são pacman-owned — o dkms
+  # hook do build os compilou fora do controle de arquivo do pacman)
+  if [[ "$vendor" != "nvidia" ]]; then
+    local m found=0
+    for m in /usr/lib/modules/*/updates/dkms/nvidia*.ko*; do
+      [[ -e "$m" ]] || continue
+      (( DRY )) || rm -f "$m"; found=1
+    done
+    (( found )) && say "Auto-limpeza: .ko nvidia pré-compilados removidos de /usr/lib/modules/*/updates/dkms"
+  fi
   for np in "${pkgs[@]}"; do
     pacman -Qq "$np" >/dev/null 2>&1 && warn "restou '$np' (dependência?) — manual: pacman -Rns $np"
   done
@@ -299,19 +322,32 @@ if (( FIRSTBOOT )); then
   run pacman -Sy --noconfirm archlinux-keyring || true
 
   # 2. driver de vídeo
+  # v4.6: a ISO v1.1 embarca o nvidia-open-dkms PRÉ-COMPILADO contra o
+  # kernel BORE (E11) — módulos + userspace já estão no disco. Detectamos
+  # isto ANTES de qualquer pacman: rig NVIDIA da ISO = 1º boot 100%
+  # offline (nenhum download, marker na primeira passada).
+  NV_PREBUILT=0
+  if ls /usr/lib/modules/"$(uname -r)"/updates/dkms/nvidia.ko* >/dev/null 2>&1 \
+     && pacman -Qq nvidia-utils >/dev/null 2>&1; then
+    NV_PREBUILT=1
+  fi
   case "$VENDOR:$GEN" in
     nvidia:blackwell|nvidia:ada|nvidia:ampere|nvidia:turing)
-      say "NVIDIA $GEN → nvidia-open-dkms (dkms cobre o kernel BORE E o fallback do Arch)"
-      # v4.5: instalar ANTES de remover. A ordem antiga (-R → -S) deixava o
-      # rig sem driver NENHUM se o -S falhasse (ex.: sem rede no 1º boot) —
-      # e o marker 'done' sepultava o retry. Agora: -S vence → -R limpa o
-      # pré-compilado; -S falha → nvidia-open PRESERVADO e re-tenta amanhã.
-      if pacman_s nvidia-open-dkms nvidia-utils nvidia-settings lib32-nvidia-utils; then
-        run pacman -R --noconfirm nvidia-open 2>/dev/null || true
+      if (( NV_PREBUILT )); then
+        say "NVIDIA $GEN → driver dkms PRÉ-COMPILADO da ISO já presente p/ $(uname -r) — nada a instalar (offline OK)"
       else
-        RETRY_DRIVER=1
-        warn "nvidia-open-dkms não instalou (sem rede?) — nvidia-open PRESERVADO"
-        warn "elite-firstboot vai re-tentar no próximo boot (marker não escrito)"
+        say "NVIDIA $GEN → nvidia-open-dkms (kernel único BORE da v1.1)"
+        # v4.5: instalar ANTES de remover. A ordem antiga (-R → -S) deixava o
+        # rig sem driver NENHUM se o -S falhasse (ex.: sem rede no 1º boot) —
+        # e o marker 'done' sepultava o retry. Agora: -S vence → -R limpa o
+        # pré-compilado; -S falha → driver PRESERVADO e re-tenta amanhã.
+        if pacman_s nvidia-open-dkms nvidia-utils lib32-nvidia-utils; then
+          run pacman -R --noconfirm nvidia-open 2>/dev/null || true
+        else
+          RETRY_DRIVER=1
+          warn "nvidia-open-dkms não instalou (sem rede?) — driver atual PRESERVADO"
+          warn "elite-firstboot vai re-tentar no próximo boot (marker não escrito)"
+        fi
       fi
       ;;
     nvidia:pascal|nvidia:maxwell)
@@ -354,6 +390,18 @@ EOF
   #     (NVIDIA em AMD/Intel = ~500MB inertes; ICDs Vulkan alienígenas ~50MB)
   gpu_cleanup_foreign "$VENDOR"
 
+  # 2c. v4.6 — rede: BBR+fq ("internet rápida"): o sysctl.d da ISO pede bbr;
+  #     se ESTE kernel não oferece (improvável no BORE), remove as linhas
+  #     em vez de deixar o systemd-sysctl reclamando a cada boot.
+  if grep -qw bbr /proc/sys/net/ipv4/tcp_available_congestion_control 2>/dev/null; then
+    say "TCP: bbr + fq ativos (sysctl.d da ISO) — throughput em links de alta latência"
+  else
+    warn "bbr indisponível neste kernel — limpando sysctl.d/99-elite-net.conf (cubic fica)"
+    sed -i -E '/^net\.(core\.default_qdisc|ipv4\.tcp_congestion_control)/d' \
+      /etc/sysctl.d/99-elite-net.conf 2>/dev/null || true
+    rm -f /etc/modules-load.d/elite-bbr.conf 2>/dev/null || true
+  fi
+
   # 3. serviços de tuning
   run systemctl enable --now ananicy-cpp.service || true
   # sched-ext: unit própria scx-elite (bpfland). Trocar scheduler:
@@ -394,6 +442,8 @@ EOF
   #    boot o marker NÃO é escrito — a unit (ConditionPathExists=!done)
   #    re-tenta no boot seguinte até conseguir. É o comportamento de uma
   #    distro de verdade: nunca deixa o usuário num estado sem saída.
+  #    v4.6: com o driver pré-compilado da ISO o RETRY_DRIVER nunca arma
+  #    no rig NVIDIA — offline deixou de ser caso especial.
   if (( DRY )); then
     say "[dry] marker firstboot-done e self-disable apenas simulados"
   elif (( RETRY_DRIVER )); then
@@ -426,9 +476,9 @@ dossie
 
 confirm "Aplicar o Elite Tune neste hardware?" || exit 0
 
-# ── [1] CachyOS + kernel BORE (fallback 'linux' permanece) ─────────
+# ── [1] CachyOS + kernel BORE (kernel único da Elite v1.1) ─────────
 ensure_cachyos
-run pacman -S --needed --noconfirm "$KERNEL_PKG" "${KERNEL_PKG}-headers" linux-headers
+run pacman -S --needed --noconfirm "$KERNEL_PKG" "${KERNEL_PKG}-headers"
 run pacman -S --needed --noconfirm cachyos-settings cachyos-ananicy-rules ananicy-cpp scx-scheds scx-tools dmemcg-booster
 
 # ── [2] Daemons ─────────────────────────────────────────────────────
@@ -516,6 +566,23 @@ vm.page_lock_unfairness = 1
 vm.max_map_count = 2147483642
 kernel.sched_autogroup_enabled = 1
 EOF
+
+# v4.6 — "internet rápida": BBR+fq quando o kernel oferece (enxerto em
+# sistema qualquer: mesmo guard do firstboot; no BORE da ISO já vem assado
+# via /etc/sysctl.d/99-elite-net.conf + modules-load.d/elite-bbr.conf)
+if grep -qw bbr /proc/sys/net/ipv4/tcp_available_congestion_control 2>/dev/null; then
+  wfile /etc/sysctl.d/99-elite-net.conf <<'EOF'
+# ── ELITE: rede — BBR + fq (throughput em links de alta latência/perda)
+net.core.default_qdisc = fq
+net.ipv4.tcp_congestion_control = bbr
+EOF
+  wfile /etc/modules-load.d/elite-bbr.conf <<'EOF'
+# ── ELITE: garante o módulo BBR antes do systemd-sysctl (kernel =m)
+tcp_bbr
+EOF
+else
+  warn "kernel sem bbr — mantendo cubic (padrão do kernel)"
+fi
 run sysctl --system || true
 
 wfile /etc/udev/rules.d/60-io-elite.rules <<'EOF'

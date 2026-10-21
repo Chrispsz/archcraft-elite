@@ -25,14 +25,15 @@ CU() { with_mocks env CU_VENDOR="$1" bash "$WORK/extract.sh"; }
 fresh_state() { : > "$STATE/installed.txt"; : > "$STATE/pacman.log"; rm -f "$STATE/refuse"; }
 installed() { for p in "$@"; do echo "$p" >> "$STATE/installed.txt"; done; }
 
-# Setup B (amd) herdando o stack NVIDIA inteiro da ISO:
-fresh_state; installed nvidia-open nvidia-utils nvidia-settings lib32-nvidia-utils \
+# Setup B (amd) herdando o stack NVIDIA inteiro da ISO (v1.1: inclui o
+# nvidia-open-dkms pré-compilado — quem não é NVIDIA não carrega driver alheio):
+fresh_state; installed nvidia-open nvidia-open-dkms nvidia-utils nvidia-settings lib32-nvidia-utils \
   vulkan-intel lib32-vulkan-intel mesa steam linux-cachyos-bore
 out="$(CU amd)"
-assert_match "$out" 'Auto-limpeza: GPU amd → removendo stack do outro vendor \(nvidia-open nvidia-utils nvidia-settings lib32-nvidia-utils vulkan-intel lib32-vulkan-intel\)' \
-  "cleanup amd: anuncia os 6 pacotes do stack estranho"
-assert_grep "$STATE/pacman.log" '^pacman -Rns --noconfirm nvidia-open nvidia-utils nvidia-settings lib32-nvidia-utils vulkan-intel lib32-vulkan-intel$' \
-  "cleanup amd: remove EXATAMENTE os 6 da allowlist (ordem e conteúdo)"
+assert_match "$out" 'Auto-limpeza: GPU amd → removendo stack do outro vendor \(nvidia-open nvidia-open-dkms nvidia-utils nvidia-settings lib32-nvidia-utils vulkan-intel lib32-vulkan-intel\)' \
+  "cleanup amd: anuncia os 7 pacotes do stack estranho (v4.6: + nvidia-open-dkms)"
+assert_grep "$STATE/pacman.log" '^pacman -Rns --noconfirm nvidia-open nvidia-open-dkms nvidia-utils nvidia-settings lib32-nvidia-utils vulkan-intel lib32-vulkan-intel$' \
+  "cleanup amd: remove EXATAMENTE os 7 da allowlist (ordem e conteúdo)"
 grep -qxF nvidia-open "$STATE/installed.txt" \
   && fail "cleanup amd: pacotes saíram do estado" "nvidia-open ainda instalado" \
   || ok    "cleanup amd: stack NVIDIA saiu do estado (installed.txt)"
@@ -51,6 +52,15 @@ assert_match "$out" 'Auto-limpeza: GPU nvidia → removendo stack do outro vendo
 grep -qxF vulkan-radeon "$STATE/installed.txt" \
   && fail "cleanup nvidia: ICDs saíram do estado" "vulkan-radeon ainda instalado" \
   || ok    "cleanup nvidia: ICDs AMD/Intel saíram, mesa/nvidia ficaram"
+
+# v4.6: varredura dos .ko pré-compilados é CONTRATO de código (o dkms do
+# build os compilou fora do controle de arquivos do pacman; guarda DRY)
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-tune" \
+  'for m in /usr/lib/modules/\*/updates/dkms/nvidia\*\.ko\*; do' \
+  "cleanup (contrato v4.6): varre /usr/lib/modules/*/updates/dkms/nvidia*.ko*"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-tune" \
+  '\(\( DRY \)\) \|\| rm -f "\$m"' \
+  "cleanup (contrato v4.6): rm dos .ko respeita o DRY (dry é seco)"
 
 # rig já limpo → no-op barulhento
 fresh_state; installed mesa linux-cachyos-bore
@@ -108,6 +118,10 @@ fi
 assert_grep "$BY" 'cancel-in-progress: true' "contrato: build.yml — cancel-in-progress"
 assert_grep "$BY" "tags: \['v\*'\]" "contrato: build.yml — tag v* dispara release"
 assert_grep "$BY" 'paths-ignore:.*tests/\*\*' "contrato: build.yml — tests/** não recompila ISO"
+# v1.1: copy-to-RAM no boot default exige RAM de sobra no QEMU dos gates
+# (2.9GB de ISO + 5G de cow: -m 3072 morreria no boot; 7168 é o contrato)
+assert_grep "$BY" '-m 7168' "contrato v1.1: build.yml — QEMU do verify com 7168 MB (copytoram=y no default)"
+assert_grep "$REPO/scripts/qemu-boot-test.sh" '-m 7168' "contrato v1.1: qemu-boot-test.sh idem (7168 MB)"
 AY="$REPO/.github/workflows/agents.yml"
 assert_grep "$AY" 'deepseek' "contrato: agents.yml — deepseek presente"
 assert_grep "$AY" 'mimo' "contrato: agents.yml — mimo presente"
@@ -120,6 +134,21 @@ DI="$REPO/.github/workflows/diag-install.yml"
 assert_grep "$DI" 'workflow_call:' "contrato: diag-install.yml é workflow reutilizável (chamável como gate)"
 assert_grep "$DI" 'sudo unsquashfs' "contrato: unsquashfs com sudo (xattrs exigem root — run #1)"
 assert_grep "$DI" '\(linux\|initrd\)\[\[:space:\]\]' "contrato: grep de entradas do grub.cfg casa TAB ([[:space:]])"
+# v1.1: kernel único BORE — o pre-flight troca o check do linux.preset (E6b
+# aposentado) pelo check do dkms nvidia (E11); o [6b/8] roda o MESMO detector
+# de vendor do shellprocess_btrfs (unknown esperado no QEMU) e os 4 contratos
+# per-rig são greps no YAML que o Calamares real executa
+assert_grep "$DI" 'preset stock PRESENTE \(E6b foi aposentado' "contrato v1.1: diag-install rejeita o preset stock (E6b morto)"
+assert_grep "$DI" 'updates/dkms/nvidia' "contrato v1.1: diag-install confere o dkms nvidia pré-compilado (E11)"
+assert_grep "$DI" '0x10de\) ELITE_GPU=nvidia' "contrato v1.1: detector de vendor do E10 no gate (nvidia)"
+assert_grep "$DI" 'pacman -Rdd --noconfirm nvidia-open-dkms' "contrato v1.1: limpeza AMD do E10 no gate"
+assert_grep "$DI" 'gpu-detect\.txt' "contrato v1.1: artifact gpu-detect.txt (no lugar do mkinitcpio-stock.log)"
+assert_nogrep "$DI" 'mkinitcpio-stock\.log' "contrato v1.1: artifact do kernel stock sumiu do gate"
+
+# v1.1: estágio AUR do build — brave-bin/pwvucontrol nascem no [elite-local]
+assert_grep "$REPO/.ci/build.sh" 'aur_build brave-bin' "contrato v1.1: build.sh compila brave-bin do AUR → elite-local"
+assert_grep "$REPO/.ci/build.sh" 'aur_build pwvucontrol' "contrato v1.1: build.sh compila pwvucontrol do AUR → elite-local"
+assert_grep "$REPO/.ci/build.sh" 'base-devel sudo' "contrato v1.1: container prep ganha base-devel+sudo (makepkg do AUR)"
 
 # ── 3.E listas de pacotes (sanidade das duas caixas) ─────────────────
 PA="$REPO/elite/packages.add"; PR="$REPO/elite/packages.remove"

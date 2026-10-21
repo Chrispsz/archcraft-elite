@@ -54,7 +54,7 @@ Verificação em qualquer máquina: `/lib64/ld-linux-x86-64.so.2 --help | grep s
 | Camada | Componente | Origem |
 |---|---|---|
 | **Sessão (v1.0.3+)** | **labwc** (Wayland, única) + Waybar + SwayNC + Fuzzel + foot + swaybg/swaylock + grim/slurp + rice Catppuccin Mocha + helpers `craft-*` + fastfetch | Arch [extra] + este repo |
-| Kernel | `linux-cachyos-bore` + `linux` (fallback) | CachyOS v3 / Arch |
+| Kernel (v1.1) | `linux-cachyos-bore` **único** — o kernel stock do Arch saiu da ISO | CachyOS v3 |
 | Repositórios | `[cachyos-v3] [cachyos-core-v3] [cachyos-extra-v3]` antes de `[core]`, baseline `[cachyos]` para os pacotes exclusivos | CachyOS |
 | Scheduler | `scx-scheds` + `scx-tools` + unidade própria | sched-ext / Arch |
 | Prioridade dinâmica | `ananicy-cpp` + `cachyos-ananicy-rules` | CachyOS |
@@ -62,14 +62,48 @@ Verificação em qualquer máquina: `/lib64/ld-linux-x86-64.so.2 --help | grep s
 | VRAM/foreground | `dmemcg-booster` (tetos p/ segundo plano) + `fg-booster` (peso p/ app em foco, X11/XWayland) | CachyOS + este repo |
 | Gaming | `gamemode` `gamescope` `mangohud` (lib32 incluídos) `lact` `nvtop` `btop` | Arch / CachyOS |
 | Vulkan | `vulkan-radeon` `vulkan-intel` + pares lib32 (a ISO upstream do Archcraft não trazia) | Arch |
-| NVIDIA live | Entrada dedicada no menu de boot (kernel stock + `nvidia-open`, `nvidia-drm.modeset=1` — funciona no labwc) | Archcraft upstream |
+| NVIDIA (v1.1) | **`nvidia-open-dkms` pré-compilado contra o BORE no build** (E11): early-KMS no live E no sistema instalado, nos DOIS rigs, sem rede no primeiro boot | Arch [extra] + este repo |
+| Rede (v1.1) | **BBR + fq** (`sysctl.d` + `modules-load.d`) — throughput real em links de alta latência/perda | este repo |
 | Rollback | btrfs default no installer, `timeshift`, `grub-btrfs` | Arch |
 
 ## O que foi removido da ISO (debloat)
 
 Cerca de 170 pacotes e ~1,5 GB de payload: stack de impressão, cloud-init, guest tools de VM, VPN/modem enterprise, ferramentas de resgate pesadas, a edição Sway do Archcraft, **as sessões Openbox/BSPWM + satélites X11** (polybar/tint2/rofi/picom/plank…, v1.0.3), **3 dos 4 terminais** (fica o foot), **a música de exemplo/console** (mpd/ncmpcpp/mplayer — a barra mostra a SUA música via playerctl), fontes CJK e firmwares de servidor/NIC enterprise. A seleção completa, justificativa pacote a pacote e o comando de restauração de cada item está em [docs/CHANGES.md](docs/CHANGES.md). Tudo volta com um `pacman -S <pacote>`.
 
-Aparência: a sessão labwc nasce com o rice Catppuccin Mocha do projeto (tema de janela `OB-Catppuccin-Mocha` já embutido no Archcraft, wallpaper cor sólida Base `#1e1e2e`, Waybar/SwayNC/Fuzzel no mesmo tema). O resto do rice do Archcraft (temas GTK, ícones, cursores) permanece na ISO intacto.
+Aparência: a sessão labwc nasce com o rice Catppuccin Mocha do projeto (tema de janela via `themerc-override` próprio, Waybar/SwayNC/Fuzzel no mesmo tema). O resto do rice do Archcraft (temas GTK, ícones, cursores) permanece na ISO intacto.
+
+### App-stack moderna (v1.1 — diretriz do dono)
+
+A camada de aplicativos foi inteira trocada por equivalentes modernos e
+Wayland-native (Rust/GTK4), herdando o tema Catppuccin:
+
+| Categoria | Saiu (legado GTK3/X11) | Entrou (v1.1) |
+|---|---|---|
+| Navegador | firefox | **Brave** (`brave-bin`, flags Wayland/Vulkan no skel) |
+| Arquivos | thunar + file-roller | **yazi** (TUI Rust, preview Sixel no foot) + `7zip` |
+| Editor | mousepad + vim | **helix** (tema `catppuccin_mocha`) |
+| PDF | zathura | **papers** (GTK4/libadwaita) |
+| Áudio (GUI) | pavucontrol | **pwvucontrol** (GTK4/Rust) |
+| Bluetooth | blueman | **bluetui** (TUI Rust, W-S-b) |
+| Rede | nm-applet | **impala** (TUI Rust, W-n) |
+| Notificações | — | swaync (já era v1.0.3) |
+| GPU | — | LACT (já era v1.0.4) |
+
+`brave-bin` e `pwvucontrol` são construídos no build (estágio AUR → repo
+`[elite-local]`) e resolvidos **offline** pelo pacstrap selado, como
+qualquer pacote oficial.
+
+### Menu de boot (v1.1)
+
+Três entradas, kernel único BORE, as duas principais carregando o live
+inteiro na RAM (leitura sequencial — USB lento deixa de doer):
+
+1. **Archcraft Elite (AMD · Copy to RAM)** — default; `amdgpu.ppfeaturemask=0xffffffff` (destrava undervolt/OC no LACT; inerte em GPU NVIDIA)
+2. **Archcraft Elite (NVIDIA · Copy to RAM)** — early-KMS pelo dkms pré-compilado (`nvidia_drm.modeset=1 fbdev=1`)
+3. **Archcraft Elite (Nomodeset · rescue)** — sem copy-to-RAM, para máquina com pouca memória
+
+No rig AMD a instalação remove o stack NVIDIA inteiro (E10 + firstboot) —
+cada disco nasce com o driver do SEU hardware, sem pacote estranho.
 
 ## Download e verificação
 

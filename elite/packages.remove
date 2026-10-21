@@ -7,6 +7,41 @@
 #  Justificativa completa pacote a pacote: docs/CHANGES.md
 # =====================================================================
 
+## ── v1.1 · KERNEL ÚNICO BORE ──────────────────────────────────────────
+## O kernel stock do Arch sai: a entrada NVIDIA do live agora usa o dkms
+## pré-compilado contra o BORE (E11) — não existe mais razão p/ um 2º kernel
+## na ISO (fallback morto no GRUB, headers duplicados, ~120MB). O sistema
+## instalado nasce single-kernel BORE + dkms.
+linux
+linux-headers
+
+## ── v1.1 · NVIDIA: só o dkms BORE ──────────────────────────────────
+## nvidia-open (pré-compilado p/ o kernel stock) e nvidia-settings (GUI
+## legada — LACT cobre os dois vendors) saem. O userspace nvidia-utils
+## FICA no live (o dkms precisa E o rig NVIDIA usa no primeiro boot sem
+## rede); no rig AMD o E10/firstboot removem do sistema instalado.
+nvidia-open
+nvidia-settings
+
+## ── v1.1 · PURGA DO APP-LAYER LEGADO (MEGA PROMPT do dono) ──────────
+## Diretriz: stack 100% moderna e Wayland-native (Rust/GTK4). As contra-
+## partes entram via packages.add: brave-bin, yazi, papers, pwvucontrol,
+## bluetui, impala, helix. (xgps/xgpsspeed: GPS irrelevante p/ desktop —
+## não existem no upstream, entrando aqui como contrato documentado.)
+firefox
+thunar
+thunar-volman
+tumbler
+mousepad
+vim
+zathura
+zathura-pdf-poppler
+file-roller
+blueman
+pavucontrol
+xgps
+xgpsspeed
+
 ## WM Wayland — o SWAY do Archcraft sai (é outra stack); a sessão Wayland
 ## da Elite é o LABWC (packages.add), com rice Catppuccin Mocha próprio.
 ## Openbox/BSPWM ficam instalados como fallback (fg-booster é X11/EWMH).

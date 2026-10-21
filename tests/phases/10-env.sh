@@ -15,7 +15,14 @@ for f in \
   scripts/apply-overlay.sh \
   .ci/build.sh \
   .github/workflows/build.yml \
-  .github/workflows/agents.yml
+  .github/workflows/agents.yml \
+  elite/airootfs/etc/skel/.config/brave-flags.conf \
+  elite/airootfs/etc/skel/.config/yazi/yazi.toml \
+  elite/airootfs/etc/skel/.config/yazi/theme.toml \
+  elite/airootfs/etc/skel/.config/helix/config.toml \
+  elite/airootfs/etc/skel/.config/mimeapps.list \
+  elite/airootfs/etc/sysctl.d/99-elite-net.conf \
+  elite/airootfs/etc/modules-load.d/elite-bbr.conf
 do
   assert_file "$REPO/$f" "inventário: $f"
 done

@@ -1,9 +1,18 @@
 # shellcheck shell=bash
 # tests/lib/setup.sh — montagem da mesa do quebra-cabeça (sourced 1×, idempotente)
-# Produz: $WORK/mocks (pacman/lspci/nvidia-smi/systemctl/…), $WORK/extract.sh
+# Produz: $WORK/mocks (pacman/lspci/nvidia-smi/systemctl/…), $WORK/mocks-scoped
+# (ls/grep de cenário — transparentes fora do toggle), $WORK/extract.sh
 # (funções reais extraídas do elite-tune) e $WORK/upstream-src (clone-fixture
 # do Archcraft) + registro git insteadOf sob HOME isolado — o apply-overlay
 # roda SEM rede e SEM tocar na config global do usuário.
+#
+# v1.1: o fixture de boot é FIEL ao upstream real (entries 01–04 com options
+# completas, syslinux com 4 LABELs + APPEND, grub/loopback com cmdline
+# inteira) — clonado e conferido de archcraft-os/archcraft no dia da
+# adaptação; os seds/awks da seção [6] da v1.1 (copytoram, amdgpu.
+# ppfeaturemask, nvidia_drm.fbdev, remoção do OpenSource) casam nele de
+# verdade. Calamares ganhou unpackfs.conf + settings.conf (E5a/E5b) e o
+# airootfs ganhou /etc/environment upstream (E12).
 
 command -v git >/dev/null || { echo "ERRO: git necessário"; exit 1; }
 
@@ -92,13 +101,46 @@ exit 0
 EOF
 done
 
+# ── 1b. mocks-scoped (v1.1/v4.6) ────────────────────────────────────
+#  ls/grep transparentes que só interceptam as DUAS sondas de ambiente que
+#  o elite-tune v4.6 faz e que o sandbox não consegue simular de verdade:
+#   · ls /usr/lib/modules/<kver>/updates/dkms/nvidia.ko*  (NV_PREBUILT)
+#   · grep -qw bbr /proc/sys/net/.../tcp_available_...    (guard BBR)
+#  Toggle por env (ELITE_SCOPED_NVLS / ELITE_SCOPED_BBR) — sem toggle o
+#  binário real roda: o mock é invisível para todos os outros cenários.
+REAL_LS="$(command -v ls)"; REAL_GREP="$(command -v grep)"
+mk "$WORK/mocks-scoped/ls" <<EOF
+#!/usr/bin/env bash
+# mock ls — transparente EXCETO no glob do NV_PREBUILT do elite-tune v4.6.
+# ELITE_SCOPED_NVLS=1 → responde com um .ko de mentira: prova o caminho
+# "driver dkms PRÉ-COMPILADO da ISO" (1º boot offline do rig NVIDIA).
+if [[ "\${ELITE_SCOPED_NVLS:-}" == 1 && "\$1" == /usr/lib/modules/*/updates/dkms/nvidia.ko* ]]; then
+  echo "/usr/lib/modules/\$(uname -r)/updates/dkms/nvidia.ko.xz"
+  exit 0
+fi
+exec "$REAL_LS" "\$@"
+EOF
+
+mk "$WORK/mocks-scoped/grep" <<EOF
+#!/usr/bin/env bash
+# mock grep — transparente EXCETO no guard BBR do elite-tune v4.6.
+# ELITE_SCOPED_BBR=absent  → kernel SEM bbr (ramo da limpeza do sysctl.d)
+# ELITE_SCOPED_BBR=present → kernel COM bbr (ramo "bbr + fq ativos")
+if [[ -n "\${ELITE_SCOPED_BBR:-}" && "\${1:-}" == -qw && "\${2:-}" == bbr \\
+      && "\${3:-}" == /proc/sys/net/ipv4/tcp_available_congestion_control ]]; then
+  [[ "\${ELITE_SCOPED_BBR}" == present ]] && exit 0
+  exit 1
+fi
+exec "$REAL_GREP" "\$@"
+EOF
+
 : > "$STATE/installed.txt"
 
 # ── 2. extract.sh — funções REAIS do elite-tune (fidelidade, não cópia) ──
 T="$REPO/elite/airootfs/usr/local/bin/elite-tune"
 {
   echo '#!/usr/bin/env bash'
-  echo "G='[1;32m'; Y='[1;33m'; R='[1;31m'; B='[1m'; N='[0m'"
+  echo "G='[1;32m'; Y='[1;33m'; R='[1;31m'; B='[1m'; N='[0m'"
   echo 'DRY="${ECT_DRY:-0}"; YES=0'
   # funções de 1 linha (say/warn/err/run/backup) e blocos multi-linha (closes em ^})
   grep -E '^(say|warn|err|run|backup)\(\)' "$T"
@@ -144,18 +186,19 @@ file_permissions=(
 )
 EOP
 
-# packages: itens do packages.remove que EXISTEM upstream (cups, sway-free,
-# cjk, linux-firmware) + itens do packages.add já presentes (vulkan-radeon)
-# para provar dedupe — SEM grupos (xorg etc.) para manter o teste offline.
-# v1.0.3: alvos da sessão única labwc (openbox/bspwm/satélites/terminais/
-# música) também no fixture p/ provar o debloat + comentário inline.
-# v1.0.3 CURADORIA: alvos do "brabos 2026" (apps simples/nicho/legado +
-# os que FICAM e são assertados: thunar/gvfs/xdotool/qt6ct/firefox/
-# pavucontrol) — mesmos nomes do packages.x86_64 real do stock.
+# packages: itens do packages.remove que EXISTEM upstream (kernel stock,
+# nvidia-open/settings, firefox/thunar/tumbler/vim/blueman/pavucontrol,
+# cups, sway-free, cjk, linux-firmware) + itens do packages.add já
+# presentes (vulkan-radeon) para provar dedupe — SEM grupos (xorg etc.)
+# para manter o teste offline. v1.1: linux-headers/tumbler/vim/blueman
+# entraram (o packages.remove os referencia — comentados no resultado);
+# mousepad/zathura/file-roller/xgps/xgpsspeed NÃO existem upstream (o
+# remove os documenta como contrato; o overlay só avisa).
 # shellcheck disable=SC2016
 cat > "$P/packages.x86_64" <<'EOP'
 base
 linux
+linux-headers
 linux-firmware
 nvidia-open
 nvidia-utils
@@ -194,7 +237,6 @@ ranger
 ueberzug
 highlight
 mc
-archcraft-ranger
 archcraft-vim
 archcraft-scripts
 archcraft-neofetch
@@ -216,7 +258,10 @@ thunar-media-tags-plugin
 thunar
 thunar-archive-plugin
 thunar-volman
+tumbler
 pavucontrol
+blueman
+vim
 gvfs
 gvfs-mtp
 gvfs-smb
@@ -296,9 +341,23 @@ ln -s /usr/share/archcraft/scripts/* /usr/local/bin/
 chmod +x /etc/skel/.screenlayout/my-layout.sh
 EOP
 
-# ── Calamares fixture (v1.0.3): arquivos REAIS do calamares-config /
+# ── /etc/environment upstream VERBATIM (conferido no repo oficial):
+#    é o alvo dos seds do E12 (v1.1: helix/brave/foot; o restante preservado)
+cat > "$P/airootfs/etc/environment" <<'EOP'
+#
+# This file is parsed by pam_env module
+#
+# Syntax: simple "KEY=VAL" pairs on separate lines
+#
+QT_QPA_PLATFORMTHEME=qt6ct
+EDITOR=nano
+BROWSER=firefox
+TERMINAL=alacritty
+EOP
+
+# ── Calamares fixture (v1.0.3/v1.1): arquivos REAIS do calamares-config /
 # archcraft-install-scripts — o 40-integration executa o bloco E5 do
-# fragmento contra estes arquivos e confere a cirurgia labwc ──────────
+# fragmento contra estes arquivos e confere a cirurgia labwc + E5a/E5b ──
 cat > "$P/airootfs/etc/calamares/modules/packagechooser.conf" <<'EOP'
 ---
 mode: required
@@ -349,6 +408,61 @@ cat > "$P/airootfs/etc/calamares/modules/partition.conf" <<'EOP'
 defaultFileSystemType:  "ext4"
 EOP
 
+# unpackfs.conf upstream (v1.1: a entrada vmlinuz-linux stock que o E5a
+# substitui no lugar — kernel único BORE; initramfs/fallback seguem intactos)
+cat > "$P/airootfs/etc/calamares/modules/unpackfs.conf" <<'EOP'
+---
+unpack:
+    -   source: "/run/archiso/bootmnt/arch/boot/x86_64/initramfs-linux.img"
+        sourcefs: "file"
+        destination: "/boot/initramfs-linux.img"
+
+    -   source: "/run/archiso/bootmnt/arch/boot/x86_64/vmlinuz-linux"
+        sourcefs: "file"
+        destination: "/boot/vmlinuz-linux"
+
+    -   source: "/run/archiso/bootmnt/arch/boot/x86_64/initramfs-linux-fallback.img"
+        sourcefs: "file"
+        destination: "/boot/initramfs-linux-fallback.img"
+EOP
+
+# settings.conf upstream (v1.1: o E5b insere initcpio@elite depois do
+# shellprocess_btrfs e REMOVE o módulo stock '  - initcpio' — kernel único)
+cat > "$P/airootfs/etc/calamares/settings.conf" <<'EOP'
+---
+modules-search: [ local ]
+
+sequence:
+  - show:
+      - welcome
+      - locale
+      - keyboard
+      - partition
+      - users
+      - summary
+
+  - exec:
+      - partition
+      - mount
+      - unpackfs
+      - machineid
+      - fstab
+      - locale
+      - keyboard
+      - localecfg
+      - users
+      - displaymanager
+      - networkcfg
+      - hwclock
+      - services-systemd
+      - id:       shellprocess_btrfs
+        module:   shellprocess
+        config:   shellprocess_btrfs.conf
+  - initcpio
+      - grubcfg
+      - bootloader
+EOP
+
 cat > "$P/airootfs/usr/bin/chrooted_autologin.sh" <<'EOP'
 #!/bin/bash
 DM_FILE='/etc/sddm.conf'
@@ -377,59 +491,162 @@ ln -s /usr/lib/systemd/system/cups.service     "$P/airootfs/etc/systemd/system/m
 ln -s /usr/lib/systemd/system/vmtoolsd.service "$P/airootfs/etc/systemd/system/multi-user.target.wants/vmtoolsd.service"
 ln -s /usr/lib/systemd/system/sshd.service     "$P/airootfs/etc/systemd/system/multi-user.target.wants/sshd.service"
 
-# efiboot: 01 (default → BORE) e 03 (NVIDIA → fica no kernel stock)
+# ── efiboot (systemd-boot): 4 entradas VERBATIM upstream (options completas
+#    com copytoram=n/nvme_load=yes/lsm — os seds da v1.1 casam nelas) ──────
 cat > "$P/efiboot/loader/entries/01-archiso-linux.conf" <<'EOP'
 title   Boot Archcraft (%ARCH%, UEFI, Default)
-linux   /arch/boot/x86_64/vmlinuz-linux
-initrd  /arch/boot/x86_64/initramfs-linux.img
+sort-key 01
+linux    /%INSTALL_DIR%/boot/%ARCH%/vmlinuz-linux
+initrd   /%INSTALL_DIR%/boot/%ARCH%/initramfs-linux.img
+options  archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% quiet splash loglevel=3 udev.log_level=3 vt.global_cursor_default=0 cow_spacesize=5G copytoram=n nvme_load=yes lsm=landlock,lockdown,yama,integrity,apparmor,bpf
 EOP
-cat > "$P/efiboot/loader/entries/02-archiso-opensource.conf" <<'EOP'
+cat > "$P/efiboot/loader/entries/02-archiso-linux-open-source.conf" <<'EOP'
 title   Boot Archcraft (%ARCH%, UEFI, OpenSource)
-linux   /arch/boot/x86_64/vmlinuz-linux
-initrd  /arch/boot/x86_64/initramfs-linux.img
+sort-key 02
+linux    /%INSTALL_DIR%/boot/%ARCH%/vmlinuz-linux
+initrd   /%INSTALL_DIR%/boot/%ARCH%/initramfs-linux.img
+options  archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% quiet splash loglevel=3 udev.log_level=3 vt.global_cursor_default=0 cow_spacesize=5G copytoram=n module_blacklist=nvidia,nvidia_modeset,nvidia_uvm,nvidia_drm nouveau.modeset=1 radeon.modeset=1 i915.modeset=1 nvme_load=yes lsm=landlock,lockdown,yama,integrity,apparmor,bpf
 EOP
-cat > "$P/efiboot/loader/entries/03-archiso-nvidia.conf" <<'EOP'
-title   Boot Archcraft with the NVIDIA proprietary driver
-linux   /arch/boot/x86_64/vmlinuz-linux
-initrd  /arch/boot/x86_64/initramfs-linux.img
+cat > "$P/efiboot/loader/entries/03-archiso-linux-nvidia.conf" <<'EOP'
+title   Boot Archcraft (%ARCH%, UEFI, Nvidia)
+sort-key 03
+linux    /%INSTALL_DIR%/boot/%ARCH%/vmlinuz-linux
+initrd   /%INSTALL_DIR%/boot/%ARCH%/initramfs-linux-nvidia.img
+options  archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% quiet splash loglevel=3 udev.log_level=3 vt.global_cursor_default=0 cow_spacesize=5G copytoram=n nvidia nvidia-drm.modeset=1 nouveau.modeset=0 module_blacklist=nouveau radeon.modeset=1 i915.modeset=1 nvme_load=yes lsm=landlock,lockdown,yama,integrity,apparmor,bpf
+EOP
+cat > "$P/efiboot/loader/entries/04-archiso-linux-nomodeset.conf" <<'EOP'
+title   Boot Archcraft (%ARCH%, UEFI, Nomodeset)
+sort-key 04
+linux    /%INSTALL_DIR%/boot/%ARCH%/vmlinuz-linux
+initrd   /%INSTALL_DIR%/boot/%ARCH%/initramfs-linux.img
+options  archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% quiet splash loglevel=3 udev.log_level=3 vt.global_cursor_default=0 cow_spacesize=5G copytoram=n nomodeset module_blacklist=nvidia,nvidia_modeset,nvidia_uvm,nvidia_drm nouveau.modeset=0 radeon.modeset=0 i915.modeset=0 nvme_load=yes lsm=landlock,lockdown,yama,integrity,apparmor,bpf
 EOP
 
-# syslinux (BIOS): bloco default + bloco archnonfree (intocado)
+# ── syslinux (BIOS): VERBATIM upstream — 4 LABELs (arch/archfree/
+#    archnonfree/archnomodeset) com TEXT HELP e APPEND completos ──────────
 cat > "$P/syslinux/archiso_sys-linux.cfg" <<'EOP'
 DEFAULT archsys
+ONTIMEOUT archsys
+
 LABEL arch
-  MENU LABEL Boot Archcraft (%ARCH%, BIOS, Default)
-  LINUX /arch/boot/x86_64/vmlinuz-linux
-  INITRD /arch/boot/x86_64/initramfs-linux.img
+TEXT HELP
+Boot Archcraft install medium on BIOS.
+It allows you to install Archcraft or perform system maintenance.
+ENDTEXT
+MENU LABEL Boot Archcraft (%ARCH%, BIOS, Default)
+LINUX /%INSTALL_DIR%/boot/%ARCH%/vmlinuz-linux
+INITRD /%INSTALL_DIR%/boot/%ARCH%/initramfs-linux.img
+APPEND archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% quiet splash loglevel=3 udev.log_level=3 vt.global_cursor_default=0 cow_spacesize=5G copytoram=n nvme_load=yes lsm=landlock,lockdown,yama,integrity,apparmor,bpf
+
+# Open Source
+LABEL archfree
+TEXT HELP
+Boot Archcraft install medium on BIOS with open source drivers.
+It allows you to install Archcraft or perform system maintenance.
+ENDTEXT
+MENU LABEL Boot Archcraft (%ARCH%, BIOS, OpenSource)
+LINUX /%INSTALL_DIR%/boot/%ARCH%/vmlinuz-linux
+INITRD /%INSTALL_DIR%/boot/%ARCH%/initramfs-linux.img
+APPEND archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% quiet splash loglevel=3 udev.log_level=3 vt.global_cursor_default=0 cow_spacesize=5G copytoram=n module_blacklist=nvidia,nvidia_modeset,nvidia_uvm,nvidia_drm nouveau.modeset=1 radeon.modeset=1 i915.modeset=1 nvme_load=yes lsm=landlock,lockdown,yama,integrity,apparmor,bpf
+
+# NVIDIA Proprietary
 LABEL archnonfree
-  MENU LABEL Boot Archcraft (NVIDIA)
-  LINUX /arch/boot/x86_64/vmlinuz-linux
-  INITRD /arch/boot/x86_64/initramfs-linux.img
+TEXT HELP
+Boot Archcraft install medium on BIOS with proprietary nvidia drivers.
+It allows you to install Archcraft or perform system maintenance.
+ENDTEXT
+MENU LABEL Boot Archcraft (%ARCH%, BIOS, Nvidia)
+LINUX /%INSTALL_DIR%/boot/%ARCH%/vmlinuz-linux
+INITRD /%INSTALL_DIR%/boot/%ARCH%/initramfs-linux-nvidia.img
+APPEND archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% quiet splash loglevel=3 udev.log_level=3 vt.global_cursor_default=0 cow_spacesize=5G copytoram=n nvidia nvidia-drm.modeset=1 nouveau.modeset=0 module_blacklist=nouveau radeon.modeset=1 i915.modeset=1 nvme_load=yes lsm=landlock,lockdown,yama,integrity,apparmor,bpf
+
+# Nomodeset
+LABEL archnomodeset
+TEXT HELP
+Boot Archcraft install medium on BIOS with nomodeset.
+It allows you to install Archcraft or perform system maintenance.
+ENDTEXT
+MENU LABEL Boot Archcraft (%ARCH%, BIOS, Nomodeset)
+LINUX /%INSTALL_DIR%/boot/%ARCH%/vmlinuz-linux
+INITRD /%INSTALL_DIR%/boot/%ARCH%/initramfs-linux.img
+APPEND archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% quiet splash loglevel=3 udev.log_level=3 vt.global_cursor_default=0 cow_spacesize=5G copytoram=n nomodeset module_blacklist=nvidia,nvidia_modeset,nvidia_uvm,nvidia_drm nouveau.modeset=0 radeon.modeset=0 i915.modeset=0 nvme_load=yes lsm=landlock,lockdown,yama,integrity,apparmor,bpf
 EOP
 
-# grub: espelho FIEL do upstream (4 entradas, ids aspasados, initramfs-nvidia) —
-# default/opensource/nomodeset → BORE; archcraftpn (NVIDIA) → kernel stock
-upstream_grub() { cat <<'EOP'
+# ── grub/loopback: FIEL ao upstream (4 entradas com --id, cmdline inteira,
+#    set gfxpayload=keep; extras memtest/shutdown p/ provar que sobrevivem).
+#    O loopback difere do grub.cfg pela forma img_dev/img_loop (real) ─────
+cat > "$P/grub/grub.cfg" <<'EOP'
+default=archcraft
+timeout=10
+timeout_style=menu
+
 menuentry "Boot Archcraft (%ARCH%, ${archiso_platform}, Default)" --class archcraft --class arch --class gnu-linux --class gnu --class os --id 'archcraft' {
-    linux /%INSTALL_DIR%/boot/%ARCH%/vmlinuz-linux archisobasedir=%INSTALL_DIR% quiet splash
+    set gfxpayload=keep
+    linux /%INSTALL_DIR%/boot/%ARCH%/vmlinuz-linux archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% quiet splash loglevel=3 udev.log_level=3 vt.global_cursor_default=0 cow_spacesize=5G copytoram=n nvme_load=yes lsm=landlock,lockdown,yama,integrity,apparmor,bpf
     initrd /%INSTALL_DIR%/boot/%ARCH%/initramfs-linux.img
 }
+
 menuentry "Boot Archcraft (%ARCH%, ${archiso_platform}, OpenSource)" --class archcraft --class arch --class gnu-linux --class gnu --class os --id 'archcraftos' {
-    linux /%INSTALL_DIR%/boot/%ARCH%/vmlinuz-linux archisobasedir=%INSTALL_DIR% module_blacklist=nvidia
+    set gfxpayload=keep
+    linux /%INSTALL_DIR%/boot/%ARCH%/vmlinuz-linux archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% quiet splash loglevel=3 udev.log_level=3 vt.global_cursor_default=0 cow_spacesize=5G copytoram=n module_blacklist=nvidia,nvidia_modeset,nvidia_uvm,nvidia_drm nouveau.modeset=1 radeon.modeset=1 i915.modeset=1 nvme_load=yes lsm=landlock,lockdown,yama,integrity,apparmor,bpf
     initrd /%INSTALL_DIR%/boot/%ARCH%/initramfs-linux.img
 }
+
 menuentry "Boot Archcraft (%ARCH%, ${archiso_platform}, Nvidia)" --class archcraft --class arch --class gnu-linux --class gnu --class os --id 'archcraftpn' {
-    linux /%INSTALL_DIR%/boot/%ARCH%/vmlinuz-linux archisobasedir=%INSTALL_DIR% nvidia nvidia-drm.modeset=1 nouveau.modeset=0
+    set gfxpayload=keep
+    linux /%INSTALL_DIR%/boot/%ARCH%/vmlinuz-linux archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% quiet splash loglevel=3 udev.log_level=3 vt.global_cursor_default=0 cow_spacesize=5G copytoram=n nvidia nvidia-drm.modeset=1 nouveau.modeset=0 module_blacklist=nouveau radeon.modeset=1 i915.modeset=1 nvme_load=yes lsm=landlock,lockdown,yama,integrity,apparmor,bpf
     initrd /%INSTALL_DIR%/boot/%ARCH%/initramfs-linux-nvidia.img
 }
+
 menuentry "Boot Archcraft (%ARCH%, ${archiso_platform}, Nomodeset)" --class archcraft --class arch --class gnu-linux --class gnu --class os --id 'archcraftnm' {
-    linux /%INSTALL_DIR%/boot/%ARCH%/vmlinuz-linux archisobasedir=%INSTALL_DIR% nomodeset
+    set gfxpayload=keep
+    linux /%INSTALL_DIR%/boot/%ARCH%/vmlinuz-linux archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% quiet splash loglevel=3 udev.log_level=3 vt.global_cursor_default=0 cow_spacesize=5G copytoram=n nomodeset module_blacklist=nvidia,nvidia_modeset,nvidia_uvm,nvidia_drm nouveau.modeset=0 radeon.modeset=0 i915.modeset=0 nvme_load=yes lsm=landlock,lockdown,yama,integrity,apparmor,bpf
     initrd /%INSTALL_DIR%/boot/%ARCH%/initramfs-linux.img
 }
-EOP
+
+menuentry 'Run Memtest86+ (RAM test)' --class memtest86 --class memtest --class gnu --class tool {
+    set gfxpayload=800x600,1024x768
+    linux /boot/memtest86+/memtest.efi
 }
-upstream_grub > "$P/grub/grub.cfg"
-upstream_grub > "$P/grub/loopback.cfg"
+
+menuentry 'System shutdown' --class shutdown --class poweroff {
+    halt
+}
+EOP
+
+cat > "$P/grub/loopback.cfg" <<'EOP'
+# https://www.supergrubdisk.org/wiki/Loopback.cfg
+search --no-floppy --set=archiso_img_dev --file "${iso_path}"
+probe --set archiso_img_dev_uuid --fs-uuid "${archiso_img_dev}"
+
+menuentry "Boot Archcraft (%ARCH%, ${archiso_platform}, Default)" --class archcraft --class arch --class gnu-linux --class gnu --class os --id 'archcraft' {
+    set gfxpayload=keep
+    linux /%INSTALL_DIR%/boot/%ARCH%/vmlinuz-linux archisobasedir=%INSTALL_DIR% img_dev=UUID=${archiso_img_dev_uuid} img_loop="${iso_path}" quiet splash loglevel=3 udev.log_level=3 vt.global_cursor_default=0 cow_spacesize=5G copytoram=n nvme_load=yes lsm=landlock,lockdown,yama,integrity,apparmor,bpf
+    initrd /%INSTALL_DIR%/boot/%ARCH%/initramfs-linux.img
+}
+
+menuentry "Boot Archcraft (%ARCH%, ${archiso_platform}, OpenSource)" --class archcraft --class arch --class gnu-linux --class gnu --class os --id 'archcraftos' {
+    set gfxpayload=keep
+    linux /%INSTALL_DIR%/boot/%ARCH%/vmlinuz-linux archisobasedir=%INSTALL_DIR% img_dev=UUID=${archiso_img_dev_uuid} img_loop="${iso_path}" quiet splash loglevel=3 udev.log_level=3 vt.global_cursor_default=0 cow_spacesize=5G copytoram=n module_blacklist=nvidia,nvidia_modeset,nvidia_uvm,nvidia_drm nouveau.modeset=1 radeon.modeset=1 i915.modeset=1 nvme_load=yes lsm=landlock,lockdown,yama,integrity,apparmor,bpf
+    initrd /%INSTALL_DIR%/boot/%ARCH%/initramfs-linux.img
+}
+
+menuentry "Boot Archcraft (%ARCH%, ${archiso_platform}, Nvidia)" --class archcraft --class arch --class gnu-linux --class gnu --class os --id 'archcraftpn' {
+    set gfxpayload=keep
+    linux /%INSTALL_DIR%/boot/%ARCH%/vmlinuz-linux archisobasedir=%INSTALL_DIR% img_dev=UUID=${archiso_img_dev_uuid} img_loop="${iso_path}" quiet splash loglevel=3 udev.log_level=3 vt.global_cursor_default=0 cow_spacesize=5G copytoram=n nvidia nvidia-drm.modeset=1 nouveau.modeset=0 module_blacklist=nouveau radeon.modeset=1 i915.modeset=1 nvme_load=yes lsm=landlock,lockdown,yama,integrity,apparmor,bpf
+    initrd /%INSTALL_DIR%/boot/%ARCH%/initramfs-linux-nvidia.img
+}
+
+menuentry "Boot Archcraft (%ARCH%, ${archiso_platform}, Nomodeset)" --class archcraft --class arch --class gnu-linux --class gnu --class os --id 'archcraftnm' {
+    set gfxpayload=keep
+    linux /%INSTALL_DIR%/boot/%ARCH%/vmlinuz-linux archisobasedir=%INSTALL_DIR% img_dev=UUID=${archiso_img_dev_uuid} img_loop="${iso_path}" quiet splash loglevel=3 udev.log_level=3 vt.global_cursor_default=0 cow_spacesize=5G copytoram=n nomodeset module_blacklist=nvidia,nvidia_modeset,nvidia_uvm,nvidia_drm nouveau.modeset=0 radeon.modeset=0 i915.modeset=0 nvme_load=yes lsm=landlock,lockdown,yama,integrity,apparmor,bpf
+    initrd /%INSTALL_DIR%/boot/%ARCH%/initramfs-linux.img
+}
+
+menuentry 'System shutdown' --class shutdown --class poweroff {
+    halt
+}
+EOP
 
 git -C "$UP" init -q
 git -C "$UP" add -A

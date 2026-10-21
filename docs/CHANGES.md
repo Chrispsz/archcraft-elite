@@ -6,6 +6,57 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **v1.1 (branch feat/v1.1-modern-stack)** — **MEGA PROMPT: modernização,
+  purificação e dual-rig de verdade**:
+  - **App-stack 100% moderna e Wayland-native** (diretriz do dono):
+    firefox→`brave-bin` (flags Wayland/Vulkan/zero-copy no skel
+    `.config/brave-flags.conf`), thunar+file-roller→`yazi`+`7zip`,
+    mousepad+vim→`helix` (`catppuccin_mocha`), zathura→`papers`,
+    pavucontrol→`pwvucontrol`, blueman→`bluetui` (novo bind W-S-b),
+    nm-applet→`impala` (W-n). `brave-bin`/`pwvucontrol` via **estágio AUR
+    do build** (aur_build → [elite-local], 2 tentativas, fail-loud).
+    xgps/xgpsspeed registrados no remove (contrato; não existiam).
+  - **KERNEL ÚNICO**: `linux`/`linux-headers` saem da ISO. A entrada
+    NVIDIA do live usava o kernel stock (nvidia-open pré-compilado só
+    existia p/ ele) — substituída pelo **nvidia-open-dkms PRÉ-COMPILADO
+    contra o BORE**: o pacstrap instala, o hook do dkms compila, o **E11**
+    regenera o initramfs do live com hook kms (o hook 90-mkinitcpio-install
+    roda ANTES do hook dkms — ordem alfabética — a 1ª geração sairia sem
+    nvidia). Resultado: UMA initramfs dá early-KMS nos DOIS rigs (o módulo
+    do vendor ausente apenas não binda). O unpackfs leva módulo+fonte+
+    toolchain p/ o alvo: **kernel update no sistema instalado reconstrói
+    o driver sozinho, offline**. E5b remove o módulo initcpio stock da
+    sequência (kernel ausente = abort de instalação); E5a substitui a
+    entrada vmlinuz-linux do unpackfs pela do BORE; E6b aposentado.
+  - **Menu de boot limpo**: 3 entradas (AMD default · NVIDIA · nomodeset
+    rescue), TODAS no BORE, **copy-to-RAM no default e na NVIDIA** (o live
+    inteiro na RAM — leitura sequencial, USB lento voa; exige ≥8GB, rescue
+    fica copytoram=n p/ máquina pequena). Saem: OpenSource (02), a 05 Copy
+    to RAM (default agora É), e qualquer referência ao kernel stock
+    (guarda de sanidade no apply-overlay). QEMU dos gates: -m 7168.
+  - **Especialização por GPU NA INSTALAÇÃO** (E10 v1.1): detector de
+    vendor via /sys/class/drm (0x10de/0x1002) no shellprocess_btrfs —
+    AMD: remove nvidia-open-dkms+nvidia-utils+ módulos do ALVO +
+    MODULES=(amdgpu) + ppfeaturemask no GRUB; NVIDIA: MODULES=(nvidia*)
+    + modeset/fbdev no GRUB + modprobe.d. Cada rig nasce com o driver do
+    SEU hardware — zero contaminação cruzada.
+  - **elite-tune v4.6**: firstboot detecta o dkms pré-compilado
+    (NV_PREBUILT) → rig NVIDIA da ISO instala NADA no 1º boot (offline
+    total, marker de primeira passada); online vira fallback p/ sistema
+    não-ISO. gpu_cleanup_foreign varre também nvidia-open-dkms + .ko.
+    **BBR+fq** ("internet rápida"): sysctl.d 99-elite-net +
+    modules-load tcp_bbr, com guard no firstboot (kernel sem bbr →
+    remove as linhas em vez de reclamar no boot p/ sempre).
+  - **E12**: /etc/environment EDITOR=helix BROWSER=brave TERMINAL=foot
+    (o TERMINAL=alacritty era stale desde a v1.0.3).
+  - **diag-install (gate de install) v1.1**: pré-flight exige os .ko do
+    dkms (E11) e o preset stock AUSENTE; [6b/8] roda o detector de vendor
+    (QEMU: unknown = não-op seguro) + 4 contratos do per-rig; [7/8] só o
+    initcpio do BORE; artifact gpu-detect.txt.
+  - **Suíte**: 460 → **638 peças, 0 falhas, GO** (contratos v1.1: pacotes,
+    menu de boot, E5a/E5b/E10/E11/E12, firstboot NV_PREBUILT/BBR on/off,
+    brave-flags, mimeapps, yazi/helix, autostart sem applets GTK3).
+
 - **v1.0.5 (branch fix/estabilidade-gates)** — **GATES DE VERDADE + FIRSTBOOT
   ANTI-BRICK** (auditoria completa das runs de Actions + logs de falha):
   - **`diag-install` virou gate obrigatório de release** (`workflow_call` —

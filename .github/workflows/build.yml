@@ -192,7 +192,7 @@ jobs:
           echo "── cmdline do gate (real + serial):"
           echo "   $APPEND_GATE"
           qemu-system-x86_64 \
-            -machine q35 -cpu max -smp 2 -m 3072 \
+            -machine q35 -cpu max -smp 2 -m 7168 \
             -kernel "extracted/arch/boot/x86_64/vmlinuz-linux-cachyos-bore" \
             -initrd "extracted/arch/boot/x86_64/initramfs-linux-cachyos-bore.img" \
             -append "$APPEND_GATE" \
