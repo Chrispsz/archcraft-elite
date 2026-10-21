@@ -321,10 +321,33 @@ cat > "$P/mkarchcraftiso" <<'EOP'
 pacstrap -C "${work_dir}/${buildmode}.pacman.conf" -i -c -G -M "${airootfs_dir}"
 EOP
 
-# customize upstream com o bloco sway EXATO que a guarda [8.5] protege
+# customize upstream com o bloco sway EXATO que a guarda [8.5] protege.
+# v1.1 build #51: inclui VERBATIM também o bloco "Fix Initrd Generation
+# in Installed System" — o cat > /etc/mkinitcpio.d/linux.preset que
+# RESSUCITA o preset órfão dentro do chroot (o [6.3] do overlay só apaga
+# o arquivo estático do profile; este cat roda DEPOIS, no customize).
+# O E6 do fragmento Elite (anexado ao final) precisa matá-lo de novo.
 cat > "$P/airootfs/root/customize_airootfs.sh" <<'EOP'
 #!/usr/bin/env bash
 set -e -u
+cat > "/etc/mkinitcpio.d/linux.preset" <<- _EOF_
+        # mkinitcpio preset file for the 'linux' package
+
+        ALL_kver="/boot/vmlinuz-linux"
+        ALL_config="/etc/mkinitcpio.conf"
+
+        PRESETS=('default' 'fallback')
+
+        #default_config="/etc/mkinitcpio.conf"
+        default_image="/boot/initramfs-linux.img"
+        #default_options=""
+
+        #fallback_config="/etc/mkinitcpio.conf"
+        fallback_image="/boot/initramfs-linux-fallback.img"
+        fallback_options="-S autodetect"
+_EOF_
+rm -rf /etc/mkinitcpio.conf.d
+rm -rf /etc/mkinitcpio.d/linux-nvidia.preset
 sed -i -e '/## Welcome-App-Run-Once/Q' /etc/skel/.config/sway/scripts/startup
 cat >> "/etc/skel/.config/sway/scripts/startup" <<- EOL
 echo wayland
