@@ -635,6 +635,21 @@ W="$P/airootfs/etc/systemd/system/multi-user.target.wants"
   || fail "cadeia A: sobrevivente sshd.service" "link sumiu — padrão de delete largo demais"
 
 CS="$P/airootfs/root/customize_airootfs.sh"
+# v1.1 build #51: o customize upstream RESSUCITA o linux.preset (cat > no
+# bloco "Fix Initrd Generation in Installed System") DEPOIS que o [6.3] do
+# overlay apagou o arquivo estático do profile — o E6 do fragmento Elite
+# (anexado AO FINAL do customize) precisa matá-lo de novo dentro do chroot.
+assert_grep "$CS" 'cat > "/etc/mkinitcpio\.d/linux\.preset"' \
+  "fixture #51: bloco de regeneração upstream presente (a armadilha reproduzida)"
+assert_grep "$CS" '^rm -f /etc/mkinitcpio\.d/linux\.preset' \
+  "E6: preset stock ressuscitado é removido de novo (kernel único BORE)"
+CATLINE=$(grep -n 'cat > "/etc/mkinitcpio\.d/linux\.preset"' "$CS" | head -1 | cut -d: -f1)
+RMLINE=$(grep -n '^rm -f /etc/mkinitcpio\.d/linux\.preset' "$CS" | head -1 | cut -d: -f1)
+if [[ -n "${CATLINE:-}" && -n "${RMLINE:-}" && "$RMLINE" -gt "$CATLINE" ]]; then
+  ok "E6: o rm roda DEPOIS do cat upstream (fragmento anexado ao final — ordem certa)"
+else
+  fail "E6: ordem cat→rm" "rm do E6 não está depois do cat upstream (linha $RMLINE vs $CATLINE)"
+fi
 assert_eq "$(grep -c '\[\[ -f /etc/skel/.config/sway/scripts/startup \]\]' "$CS")" "2" \
   "cadeia A: guarda sway ×2 (o fix do run #17 aplicado no customize)"
 # [8.6] guards da curadoria v1.0.3: openbox/bspwm/scripts/screenlayout

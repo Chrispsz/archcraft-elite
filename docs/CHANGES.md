@@ -109,6 +109,19 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
     pro parse); `options=(!debug)` no PKGBUILD do repack (o makepkg do
     container gerava um `-debug` espúrio no elite-local). +3 contratos
     estáticos na suíte.
+  - **FIX build #51 — o preset órfão RESSUCITA no build** (forense: a ISO
+    construiu E o boot live passou no QEMU, mas o verify-install viu o
+    `linux.preset` de novo no squashfs): o `customize_airootfs.sh`
+    upstream tem um bloco "Fix Initrd Generation in Installed System"
+    que faz `cat > /etc/mkinitcpio.d/linux.preset`
+    **incondicionalmente dentro do chroot** — o [6.3] do overlay apaga
+    o arquivo ESTÁTICO do profile, mas este `cat` o recria na hora do
+    build (no upstream faz sentido: lá o kernel stock existe; aqui é
+    órfão). Como o fragmento Elite é ANEXADO ao final do customize, o
+    **E6 agora o remove de novo** (`rm -f /etc/mkinitcpio.d/linux
+    .preset`) — kernel único de verdade, nas DUAS camadas. Fixture
+    reproduz o bloco de regeneração VERBATIM + contratos de presença e
+    ORDEM (rm depois do cat). Suíte: 705 peças, 0 falhas, GO.
   - **Rice: dock AUTO-OCULTANTE + craft-pin (fixar apps)**: a dock pílula
     agora estilo COSMIC — `exclusive: false` (janelas usam a base da tela)
     + CSS `margin-bottom: -52px` com reveal no hover (cubic-bezier 0.38s,
@@ -121,7 +134,7 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
     sem a seção. Skel sai de fábrica com ZERO pins (launchers fixos do
     skel continuam nascendo na ISO). Limite documentado: wlr/taskbar não
     une pin+running (app fixado rodando = ícone extra no centro).
-  - **Suíte**: 460 → **702 peças, 0 falhas, GO** (contratos v1.1: pacotes,
+  - **Suíte**: 460 → **705 peças, 0 falhas, GO** (contratos v1.1: pacotes,
     menu de boot, E5a/E5b/E10/E11/E12, firstboot NV_PREBUILT/BBR on/off,
     brave-flags, mimeapps, yazi/helix, autostart sem applets GTK3,
     craft-pin, presets órfãos do kernel stock — fixture upstream agora

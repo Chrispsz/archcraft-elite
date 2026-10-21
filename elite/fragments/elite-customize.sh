@@ -279,6 +279,14 @@ default_image="/boot/initramfs-linux-cachyos-bore.img"
 fallback_image="/boot/initramfs-linux-cachyos-bore-fallback.img"
 fallback_options="-S autodetect"
 EOL
+## v1.1 (build #51): o bloco upstream "Fix Initrd Generation in Installed
+## System" que RODA ANTES deste fragmento recria o /etc/mkinitcpio.d/
+## linux.preset incondicionalmente (cat > heredoc no customize deles) —
+## o [6.3] do overlay apaga o arquivo ESTÁTICO do profile, mas este cat
+## o ressuscita DENTRO do chroot na hora do build. Kernel único: o órfão
+## morre aqui de novo (o gate verify-install das builds #48/#51 pega
+## exatamente isso no squashfs → sistema instalado).
+rm -f /etc/mkinitcpio.d/linux.preset
 
 ## [E7] post-install do Archcraft: tira da lista de serviços habilitados
 ##      os que a Elite debloatou (cups via cups-filters→avahi) — evita
