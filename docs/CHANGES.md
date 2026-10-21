@@ -13,6 +13,11 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
   dia-1 alinhado à ISO (só o stack especializado — launchers, produção de
   conteúdo, dev, ventoinha, Android; mangohud/gamemode/gamescope/pavucontrol/
   polkit-gnome/file-roller/gparted/gcc já vêm de fábrica).
+  **Entrada de boot "Copy to RAM"** nos 3 bootloaders (sdboot/syslinux/grub
+  + loopback do Ventoy): `copytoram=y` — em pendrive lento (USB 2.0/Ventoy)
+  o live padrão lê tudo do USB e serviços Type=notify escalam os timeouts;
+  com a entrada RAM o airootfs é copiado no início (leitura sequencial,
+  rápida) e o live voa. Requer ~8GB de RAM.
 - **v1.0.3** — sessão **ÚNICA labwc (Wayland)** com o rice Catppuccin Mocha
   (Waybar/SwayNC/Fuzzel/foot + helpers `craft-*` + fastfetch);
   **Openbox/BSPWM + satélites X11 removidos** (zero duplicação: um WM, um
