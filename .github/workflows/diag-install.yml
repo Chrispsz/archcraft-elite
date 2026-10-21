@@ -286,6 +286,7 @@ jobs:
           set -euo pipefail
           FAIL=0
           V=$(cat verdict.txt)
+          V=${V#VERDICT=}   # verdict.txt guarda 'VERDICT=X' — sem o strip, até BOOT_COMPLETO dava ✖ (run #4)
           if [ "$V" = "BOOT_COMPLETO" ] || [ "$V" = "BOOT_COMPLETO_LOGIN" ]; then echo "✔ $V — sistema instalado boota (login prompt/target alcançado)"; else echo "✖ veredito: $V"; FAIL=1; fi
           if grep -q 'premature end of file' serial-install.log; then echo "✖ 'premature end of file' NO LOG — o bug do rig B voltou"; FAIL=1; else echo "✔ SEM 'premature end of file' (o bug do rig B não voltou)"; fi
           if grep -q 'you need to load the kernel first' serial-install.log; then echo "✖ 'you need to load the kernel first' — kernel não carregou"; FAIL=1; else echo "✔ SEM 'you need to load the kernel first'"; fi
