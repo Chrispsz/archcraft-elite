@@ -291,6 +291,38 @@ for GF in "$PROFILE/grub/grub.cfg" "$PROFILE/grub/loopback.cfg"; do
   sed -i '0,/Boot Archcraft (%ARCH%, ${archiso_platform}, Default)/s//Boot Archcraft Elite (%ARCH%, ${archiso_platform}, BORE kernel)/' "$GF"
 done
 
+# ── [6.2] Timeouts de boot à prova de USB lento/emulador (v1.0.4) ──
+#  O cachyos-settings impõe DefaultTimeoutStartSec=15s via /usr/lib/
+#  systemd/system.conf.d/00-timeout.conf. Em boot a frio por USB lento
+#  (ou TCG), serviços Type=notify não ficam prontos em 15s → timeout →
+#  restart → loop → splash congela (causa-raiz do v1.0.2, diag-boot3).
+#  O drop-in /etc (00-elite-timeout.conf, 90s) cobre o sistema
+#  INSTALADO — mas no LIVE o PID-1, que nasceu no initramfs e atravessa
+#  o switch_root, NÃO reavalia drop-ins de /etc: os jobs seguem com o
+#  15s do /usr/lib (comprovado no serial: 'Resource Manager (4s / 15s)'
+#  nas builds v1.0.3 E v1.0.4). A linha de comando do kernel é a única
+#  precedência que sempre vence no live. A/B local (QEMU idêntico ao
+#  gate): SEM o param = nsresourced em restart-loop eterno + tmpfiles
+#  travado 28min + boot nunca completa (run #42); COM o param = 0
+#  falhas, tmpfiles ok, boot completo na fase final em ~5min.
+#  Idempotente (guard grep) e kernel-agnóstico (vale p/ BORE, stock e
+#  nvidia — robustez de boot, não recurso de kernel).
+ELITE_TMO="systemd.default_timeout_start_sec=90 systemd.default_timeout_stop_sec=90"
+for f in "$PROFILE"/efiboot/loader/entries/*.conf; do
+  [[ -f "$f" ]] || continue
+  grep -q 'systemd.default_timeout_start_sec=' "$f" || \
+    sed -i "/^options /s/\$/ $ELITE_TMO/" "$f"
+done
+if [[ -f "$SL" ]] && ! grep -q 'systemd.default_timeout_start_sec=' "$SL"; then
+  sed -i "/^APPEND /s/\$/ $ELITE_TMO/" "$SL"
+fi
+for GF in "$PROFILE/grub/grub.cfg" "$PROFILE/grub/loopback.cfg"; do
+  [[ -f "$GF" ]] || continue
+  grep -q 'systemd.default_timeout_start_sec=' "$GF" || \
+    sed -i "/^[[:space:]]*linux \//s/\$/ $ELITE_TMO/" "$GF"
+done
+say "Timeouts de boot 90s no cmdline de TODAS as entradas (fix live freeze)"
+
 # ── [7] systemd: remove wants de serviços debloatados ─────────────
 say "Removendo wants de serviços debloatados (cloud-init, vbox, vmware, hyperv, modemmanager, cups, pcscd)"
 SD="$PROFILE/airootfs/etc/systemd/system"
