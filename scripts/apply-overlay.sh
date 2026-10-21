@@ -271,7 +271,6 @@ sed -i 's|pacstrap -C "${work_dir}/${buildmode}.pacman.conf" -i -c -G -M|pacstra
 #  mente o que derrubou o run #17 no ÚLTIMO passo do build) e o 'cat >>'
 #  criaria um arquivo órfão no skel. A guarda [[ -f ]] preserva o com-
 #  portamento upstream quando a edição existe e vira no-op quando não.
-#  openbox/bspwm ficam intocados (edições presentes na Elite).
 say "Patch: guarda do bloco sway no customize_airootfs.sh (edição wayland debloatada)"
 CS="$PROFILE/airootfs/root/customize_airootfs.sh"
 # delimitador @ (o replacement contém '|| true' — '|' colidiria);
@@ -283,6 +282,32 @@ sed -i \
 if ! grep -q '\[\[ -f /etc/skel/.config/sway/scripts/startup \]\]' "$CS"; then
   say "AVISO: bloco sway não encontrado no customize (upstream mudou o padrão?) — conferir manualmente"
 fi
+
+# ── [8.6] customize: guards p/ sessões extintas + pacotes da curadoria ─
+#  v1.0.3 sessão ÚNICA labwc: openbox/bspwm/archcraft-scripts/
+#  archcraft-skeleton/archcraft-help saíram — e o customize upstream
+#  toca TODOS eles como se existissem (set -e derruba o build exata-
+#  mente no último passo: foi o que matou o run da 2256d0a no
+#  'sed: can't read /etc/skel/.config/openbox/autostart').
+#  Mesma técnica do [8.5]: [[ -f/-d ]] preserva upstream se o alvo
+#  voltar a existir; no-op quando não existe.
+say "Patch: guards openbox/bspwm/scripts/screenlayout no customize (curadoria v1.0.3)"
+sed -i \
+  -e "s@^sed -i -e '/## Welcome-App-Run-Once/Q' /etc/skel/\.config/openbox/autostart\$@[[ -f /etc/skel/.config/openbox/autostart ]] \&\& sed -i -e '/## Welcome-App-Run-Once/Q' /etc/skel/.config/openbox/autostart || true@" \
+  -e 's@^cat >> "/etc/skel/\.config/openbox/autostart" <<- EOL$@[[ -f /etc/skel/.config/openbox/autostart ]] \&\& cat >> "/etc/skel/.config/openbox/autostart" <<- EOL || true@' \
+  -e "s@^sed -i -e '/## Welcome-App-Run-Once/Q' /etc/skel/\.config/bspwm/bspwmrc\$@[[ -f /etc/skel/.config/bspwm/bspwmrc ]] \&\& sed -i -e '/## Welcome-App-Run-Once/Q' /etc/skel/.config/bspwm/bspwmrc || true@" \
+  -e 's@^cat >> "/etc/skel/\.config/bspwm/bspwmrc" <<- EOL$@[[ -f /etc/skel/.config/bspwm/bspwmrc ]] \&\& cat >> "/etc/skel/.config/bspwm/bspwmrc" <<- EOL || true@' \
+  -e "s@^ln -s /usr/share/archcraft/scripts/\* /usr/local/bin/\$@[[ -d /usr/share/archcraft/scripts ]] \&\& ln -s /usr/share/archcraft/scripts/* /usr/local/bin/ || true@" \
+  -e "s@^chmod +x /etc/skel/\.screenlayout/my-layout\.sh\$@[[ -f /etc/skel/.screenlayout/my-layout.sh ]] \&\& chmod +x /etc/skel/.screenlayout/my-layout.sh || true@" \
+  "$CS"
+# prova de que as 6 guards entraram (upstream pode mudar o texto → avisa)
+for alvo in \
+  '\[\[ -f /etc/skel/\.config/openbox/autostart \]\]' \
+  '\[\[ -f /etc/skel/\.config/bspwm/bspwmrc \]\]' \
+  '\[\[ -d /usr/share/archcraft/scripts \]\]' \
+  '\[\[ -f /etc/skel/\.screenlayout/my-layout\.sh \]\]'; do
+  grep -q "$alvo" "$CS" || say "AVISO: guard $alvo não aplicada (upstream mudou o padrão?) — conferir manualmente"
+done
 
 # ── [9] Fragmento elite no customize_airootfs.sh ───────────────────
 say "Anexando fragmento elite ao customize_airootfs.sh (E0–E8)"
