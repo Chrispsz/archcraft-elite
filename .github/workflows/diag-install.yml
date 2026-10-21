@@ -146,6 +146,13 @@ jobs:
           echo "✔ grub presente: $1"
           test -f rootfs/etc/mkinitcpio.d/linux-cachyos-bore.preset || { echo "✖ preset BORE (E6) ausente"; exit 1; }
           test ! -e rootfs/etc/mkinitcpio.d/linux.preset || { echo "✖ preset stock PRESENTE (E6b foi aposentado na v1.1)"; exit 1; }
+          test ! -e rootfs/etc/mkinitcpio.d/linux-nvidia.preset || { echo "✖ preset nvidia-stock PRESENTE (órfão do kernel stock — overlay [6.3] deveria ter deletado; pegou a build #48 junto com o linux.preset)"; exit 1; }
+          # conf.d do live: o E11 o apaga no fim do customize — se vazar pro
+          # squashfs, o drop-in archiso vence o ALL_config do initcpio@elite
+          # no alvo e o initramfs instalado nasce com hooks de live.
+          if sudo find rootfs/etc/mkinitcpio.conf.d -name '*.conf' -print -quit 2>/dev/null | grep -q .; then
+            echo "✖ /etc/mkinitcpio.conf.d com drops do live no squashfs (E11 deveria ter removido)"; exit 1
+          fi
           # v1.1: dkms nvidia pré-compilado (E11) viaja no airootfs — o QEMU
           # não tem GPU, mas os .ko provam que o build compilou contra o BORE
           KVER_AI=$(sudo ls rootfs/usr/lib/modules/ | grep -m1 cachyos-bore)

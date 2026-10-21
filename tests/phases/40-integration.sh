@@ -62,6 +62,24 @@ assert_grep "$PKG" '^nvidia-utils$' "v1.1: nvidia-utils FICA no live (userspace 
 assert_grep "$PKG" '^nvidia-open-dkms$' "v1.1: nvidia-open-dkms entra (pré-compilado contra o BORE — E11)"
 assert_grep "$PKG" '^linux-cachyos-bore-headers$' "v1.1: headers do BORE presentes (dkms reconstrói no alvo)"
 
+# ── v1.1 · PRESETS ÓRFÃOS DO KERNEL STOCK (build #48 — overlay [6.3]) ────
+#  linux.preset/linux-nvidia.preset são ARQUIVOS ESTÁTICOS do profile
+#  upstream (não pacotes): com o kernel stock comentado, ninguém os
+#  remove exceto o overlay. Sem o [6.3] o hook mkinitcpio do build morre
+#  em 'vmlinuz-linux must be readable' (tolerado) e o órfão segue pro
+#  squashfs → unpackfs → sistema instalado (o gate verify-install da
+#  build #48 derrubou a release exatamente nisso).
+assert_file "$P/airootfs/etc/mkinitcpio.d/linux-cachyos-bore.preset" \
+  "v1.1: preset BORE (overlay) presente no profile final"
+assert_nofile "$P/airootfs/etc/mkinitcpio.d/linux.preset" \
+  "v1.1 build#48: preset stock DELETADO do profile (arquivo estático upstream — kernel único)"
+assert_nofile "$P/airootfs/etc/mkinitcpio.d/linux-nvidia.preset" \
+  "v1.1 build#48: preset nvidia-stock DELETADO do profile (órfão do kernel stock)"
+assert_nofile "$P/airootfs/etc/mkinitcpio.conf.d/archiso-nvidia.conf" \
+  "v1.1 build#48: archiso-nvidia.conf DELETADO (perdeu o único consumidor — o preset deletado)"
+assert_file "$P/airootfs/etc/mkinitcpio.conf.d/archiso.conf" \
+  "v1.1: archiso.conf FICA (1ª geração do initramfs live do BORE — E11 o recria e limpa)"
+
 # ── v1.1 · PURGA DO APP-LAYER LEGADO (MEGA PROMPT — stack moderna) ─────
 for gone in firefox thunar thunar-volman tumbler vim blueman pavucontrol; do
   assert_grep "$PKG" "^#${gone} # ELITE-REMOVED$" "v1.1: ${gone} comentado (saiu da ISO)"
