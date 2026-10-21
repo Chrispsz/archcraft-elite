@@ -6,12 +6,20 @@
 //
 // Roda como 2ª instância do waybar (o autostart sobe esta e a config.top).
 // Sem módulo de tray aqui: o SNI watcher é único por sessão (fica no topo).
+//
+// v1.1: DOCK AUTO-OCULTANTE (diretriz do dono — "ícones fixos que auto
+// ocultam", estilo COSMIC/macOS). "exclusive": false → a dock não reserva
+// espaço na tela (janelas usam a base); o CSS esconde a pílula com
+// margin-bottom negativa e a revela no :hover da faixa inferior (ver
+// style.dock.css — transição suave). Sem hover por alguns segundos ela
+// dessozinha de volta: auto-hide de verdade, zero clique perdido.
 {
   "layer": "top",
   "position": "bottom",
   "height": 62,
+  "exclusive": false,
   "margin-top": 0,
-  "margin-bottom": 10,
+  "margin-bottom": 0,
   "margin-left": 12,
   "margin-right": 12,
   "spacing": 4,
@@ -50,17 +58,17 @@
   },
   "custom/files": {
     "format": "",
-    "tooltip-format": "Arquivos (Thunar)",
+    "tooltip-format": "Arquivos (yazi)",
     "on-click": "foot -e yazi"
   },
   "custom/web": {
     "format": "󰈹",
-    "tooltip-format": "Firefox",
+    "tooltip-format": "Navegador (Brave)",
     "on-click": "brave"
   },
   "custom/editor": {
     "format": "",
-    "tooltip-format": "Editor (Mousepad)",
+    "tooltip-format": "Editor (Helix)",
     "on-click": "foot -e helix"
   },
   "custom/shot": {
