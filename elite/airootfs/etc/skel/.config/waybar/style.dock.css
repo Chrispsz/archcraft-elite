@@ -1,0 +1,121 @@
+/* Archcraft ELITE · Waybar DOCK CSS — pílula flutuante estilo macOS · Catppuccin Mocha
+ * A janela (window#waybar) é transparente; o BOX interno recebe a pílula:
+ * fundo translúcido, borda sutil, cantos 20px, flutuando 10px acima da
+ * base (margin-bottom no config.dock). Ícones GRANDES — é um dock. */
+
+@define-color rosewater #f5e0dc;
+@define-color flamingo  #f2cdcd;
+@define-color pink      #f5c2e7;
+@define-color mauve     #cba6f7;
+@define-color red       #f38ba8;
+@define-color maroon    #eba0ac;
+@define-color peach     #fab387;
+@define-color yellow    #f9e2af;
+@define-color green     #a6e3a1;
+@define-color teal      #94e2d5;
+@define-color sky       #89dceb;
+@define-color sapphire  #74c7ec;
+@define-color blue      #89b4fa;
+@define-color lavender  #b4befe;
+@define-color text      #cdd6f4;
+@define-color subtext1  #bac2de;
+@define-color subtext0  #a6adc8;
+@define-color overlay2  #9399b2;
+@define-color overlay1  #7f849c;
+@define-color overlay0  #6c7086;
+@define-color surface2  #585b70;
+@define-color surface1  #45475a;
+@define-color surface0  #313244;
+@define-color base      #1e1e2e;
+@define-color mantle    #181825;
+@define-color crust     #11111b;
+
+* {
+  font-family: "JetBrainsMono Nerd Font", "Font Awesome 6 Free", sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  min-height: 0;
+}
+
+/* Janela transparente — a pílula é o box interno */
+window#waybar {
+  background: transparent;
+  border: none;
+  color: @text;
+}
+
+/* A pílula do dock */
+window#waybar > box {
+  background: alpha(@base, 0.78);
+  border: 1px solid alpha(@surface1, 0.7);
+  border-radius: 20px;
+  padding: 4px 10px;
+}
+
+/* ===== Botões launcher (glyphs grandes) ===== */
+#custom-drawer,
+#custom-term,
+#custom-files,
+#custom-web,
+#custom-editor,
+#custom-shot,
+#custom-lock,
+#custom-power {
+  font-size: 30px;
+  padding: 4px 10px;
+  border-radius: 14px;
+  color: @text;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+#custom-drawer { color: @lavender; }
+#custom-term   { color: @green; }
+#custom-files  { color: @yellow; }
+#custom-web    { color: @peach; }
+#custom-editor { color: @sky; }
+#custom-shot   { color: @teal; }
+#custom-lock   { color: @subtext0; }
+#custom-power  { color: @subtext0; font-size: 26px; }
+
+/* Hover estilo macOS: pílula + leve realce da cor do ícone */
+#custom-drawer:hover,
+#custom-term:hover,
+#custom-files:hover,
+#custom-web:hover,
+#custom-editor:hover,
+#custom-shot:hover,
+#custom-lock:hover {
+  background: alpha(@surface0, 0.95);
+}
+#custom-power:hover {
+  background: alpha(@red, 0.18);
+  color: @red;
+}
+
+/* ===== Janelas abertas (wlr/taskbar — ícones reais das apps) ===== */
+#taskbar {
+  padding: 0 6px;
+}
+
+#taskbar button {
+  padding: 2px 6px;
+  border-radius: 14px;
+  background: transparent;
+  border: none;
+  transition: background 0.15s ease;
+}
+
+#taskbar button:hover {
+  background: alpha(@surface0, 0.95);
+}
+
+/* Janela ativa: pílula mauve por trás do ícone (indicador estilo dock) */
+#taskbar button.active {
+  background: alpha(@mauve, 0.22);
+}
+
+/* Pontinho de estado embaixo do ícone (running/active) */
+#taskbar button.active image {
+  border-bottom: 3px solid @mauve;
+  border-radius: 2px;
+}

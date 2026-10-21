@@ -65,6 +65,14 @@ imv
 ## ── ELITE v1.0.3: fastfetch (o craft-hello usa quando existe) ─────────
 fastfetch
 
+## ── ELITE v1.0.4 · Desktop v2 (macOS-style, mouse-first) ──────────────
+## nwg-drawer: o "Launchpad" — grade de apps em tela cheia com busca,
+## categorias e barra de sessão (craft-drawer). wlroots-agnóstico.
+## papirus-icon-theme: ícones de apps p/ o dock (waybar wlr/taskbar),
+## Launchpad e GTK (settings.ini do skel aponta Papirus-Dark).
+nwg-drawer
+papirus-icon-theme
+
 ## ── ELITE v1.0.3 CURADORIA "BRABOS 2026" ──────────────────────────────
 ## Diretriz do dono: só o REALMENTE ÚTIL de fábrica (email, gravador de
 ## tela e apps nicho = cockpit pós-install). Substituições validadas na

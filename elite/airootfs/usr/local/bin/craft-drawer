@@ -1,0 +1,25 @@
+#!/bin/sh
+# craft-drawer — o "Launchpad" da Elite (nwg-drawer)
+# Grade de apps em tela cheia com busca e categorias + barra de sessão
+# (lock/logout/reboot/sleep/poweroff) na base. Mouse-first: um clique
+# abre, Esc/clique fora fecha (nativo do nwg-drawer).
+#
+# Flags (upstream nwg-piotr/nwg-drawer):
+#   -fm      gerenciador de arquivos (busca de arquivos do drawer)
+#   -term    terminal para .desktop de console
+#   -is/-c   tamanho do ícone / colunas
+#   -pb*     comandos da barra de power (cada botão só aparece com comando)
+set -eu
+
+exec nwg-drawer \
+  -fm thunar \
+  -term foot \
+  -is 64 \
+  -c 8 \
+  -spacing 16 \
+  -pblock 'craft-lock' \
+  -pbexit 'labwc --exit' \
+  -pbreboot 'systemctl reboot' \
+  -pbpoweroff 'systemctl poweroff' \
+  -pbsleep 'systemctl suspend' \
+  "$@"

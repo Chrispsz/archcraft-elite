@@ -88,11 +88,21 @@
     <item label="Reconfigure (W-S-r)">
       <action name="Reconfigure" />
     </item>
+    <item label="Aplicativos (Launchpad)">
+      <action name="Execute" command="craft-drawer" />
+    </item>
     <item label="Lock (W-l)">
       <action name="Execute" command="craft-lock" />
     </item>
-    <item label="Sessão (W-Escape)">
-      <action name="Execute" command="craft-logout" />
+    <item label="Sessão (menu gráfico)">
+      <action name="Execute" command="craft-power" />
+    </item>
+    <separator />
+    <item label="Reboot">
+      <action name="Execute" command="systemctl reboot" />
+    </item>
+    <item label="Desligar">
+      <action name="Execute" command="systemctl poweroff" />
     </item>
     <item label="Encerrar labwc">
       <action name="Exit" />
