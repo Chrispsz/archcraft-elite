@@ -141,6 +141,15 @@ assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'mousepad' "curadoria:
 assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'qalculate-gtk' "curadoria: qalculate no menu"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'nwg-look' "curadoria: nwg-look no menu"
 
+# ── v1.0.3: FIX do freeze em hardware real (diag-boot3 · Task 43) ─────
+# O DefaultTimeoutStartSec=15s do cachyos-settings derruba serviços
+# Type=notify em restart-loop eterno no boot a frio (resolved não fica
+# pronto em 15s → splash congela — o sintoma do rig B). Drop-in /etc/*
+# tem precedência sobre o /usr/lib/* do pacote.
+assert_file "$P/airootfs/etc/systemd/system.conf.d/00-elite-timeout.conf" "fix freeze: drop-in de timeout no airootfs"
+assert_grep "$P/airootfs/etc/systemd/system.conf.d/00-elite-timeout.conf" '^DefaultTimeoutStartSec=90s$' "fix freeze: start timeout 90s (vence o 15s do cachyos-settings)"
+assert_grep "$P/airootfs/etc/systemd/system.conf.d/00-elite-timeout.conf" '^DefaultTimeoutStopSec=90s$' "fix freeze: stop timeout 90s (o 10s do cachyos era igualmente perigoso no shutdown)"
+
 # ── v1.0.3: [9b] file_permissions — 12 caminhos 0:0:755 no profiledef ──
 PD="$P/profiledef.sh"
 for p in /usr/local/bin/elite-tune /usr/local/bin/elite-status /usr/local/bin/fg-booster \

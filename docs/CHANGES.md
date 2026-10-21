@@ -134,6 +134,32 @@ Restore total: `sudo pacman -S linux-firmware`.
 - **v1.0.3** `/etc/sddm.conf.d/kde_settings.conf` (overlay) — autologin `Session=labwc`
 - **v1.0.3** `/var/lib/sddm/state.conf` — greeter do sistema instalado pré-seleciona labwc
 
+## 🐛 Causa raiz do freeze em hardware real (diag-boot3 — fix v1.0.3)
+
+O sintoma do rig B ("a splash/progresso finaliza e congela", **ambas** as entradas
+de boot, via Ventoy) foi **reproduzido e explicado** no QEMU round 3 (teste E =
+caminho real do systemd-boot, `archisosearchuuid`):
+
+- O `cachyos-settings` instala `/usr/lib/systemd/system.conf.d/00-timeout.conf`
+  com **`DefaultTimeoutStartSec=15s`** (valor agressivo, pensado p/ sistema
+  instalado em SSD quente);
+- Em boot a frio via USB/Ventoy (IO lento), serviços **Type=notify** com
+  `Restart=` (ex.: `systemd-resolved`, `systemd-oomd`) não ficam prontos em
+  15s → `start operation timed out` → restart → timeout → **restart-loop
+  eterno** (contador 75+ no serial) → `multi-user`/`graphical` nunca
+  completam → `plymouth-quit` nunca roda → **splash congelada para sempre**;
+- Evidência A/B: com o mesmo airootfs, o round 2 (dispositivo direto, timing
+  mais folgado) mostrou `Started Network Name Resolution` e boot completo em
+  3min54s; o round 3 (caminho real, timing apertado) mostrou o resolved cair
+  no timeout-loop e o boot nunca terminar — a diferença entre "boota" e
+  "congela" é uma corrida de milissegundos contra o timeout de 15s.
+
+**Fix**: `elite/airootfs/etc/systemd/system.conf.d/00-elite-timeout.conf`
+(start/stop = **90s**, padrão vanilla do systemd). Drop-ins em `/etc` têm
+precedência sobre `/usr/lib` — o 15s do CachyOS fica neutralizado no live e
+no instalado. Quem quiser o 15s de volta: `sudo rm` o arquivo. O gate
+`verify` do CI (que boota o caminho REAL em QEMU) valida o fix em toda build.
+
 ## ⚠️ Requisito de CPU (v1.0.3 — documentado)
 
 **A ISO inteira exige x86-64-v3 (AVX2/FMA/BMI2)** — não é só o kernel BORE:
