@@ -94,7 +94,7 @@
     "format-disconnected": "󰖪",
     "tooltip-format-ethernet": "{ipaddr} via {ifname}",
     "tooltip-format-wifi": "{essid} ({signalStrength}%) · {ipaddr}",
-    "on-click": "nm-connection-editor"
+    "on-click": "foot -e impala"
   },
 
   // Volume (PipeWire) — clique muta, scroll ajusta, dir abre o mixer
@@ -102,12 +102,12 @@
     "format": "{volume}%",
     "format-muted": "󰖁 MUT",
     "on-click": "pactl set-sink-mute @DEFAULT_SINK@ toggle",
-    "on-click-right": "pavucontrol",
+    "on-click-right": "pwvucontrol",
     "scroll-step": 5,
     "tooltip-format": "{desc}"
   },
 
-  // Tray (blueman, nm-applet, udiskie…) — SÓ nesta instância (a 2ª waybar
+  // Tray (udiskie e o que o usuário subir — v1.1: sem applets GTK3) — SÓ nesta instância (a 2ª waybar
   // não pode ter tray: o SNI watcher é único por sessão)
   "tray": {
     "icon-size": 16,

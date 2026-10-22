@@ -1,8 +1,18 @@
-## ── ELITE: kernel CachyOS BORE (GCC/BORE — latência de desktop+game) ──
-## O 'linux' + 'linux-headers' do Arch PERMANECEM na ISO: fallback de boot no
-## GRUB, entrada NVIDIA do live (módulo pré-compilado) e alvo do dkms no firstboot.
+## ── ELITE v1.1: kernel CachyOS BORE — KERNEL ÚNICO ───────────────────
+## O 'linux'/'linux-headers' do Arch saem da ISO (packages.remove): com o
+## nvidia-open-dkms PRÉ-COMPILADO contra o BORE no build (E11), a entrada
+## NVIDIA do live não precisa mais do kernel stock — e o sistema instalado
+## nasce single-kernel, sem fallback morto entulhando o GRUB.
 linux-cachyos-bore
 linux-cachyos-bore-headers
+
+## ── ELITE v1.1: NVIDIA no kernel BORE (dual-rig offline) ──────────────
+## O pacstrap instala e o hook do dkms compila contra o BORE; o E11
+## regenera o initramfs do live com o hook kms → early-KMS no live E no
+## sistema instalado (o unpackfs leva módulos+fonte+toolchain inteiros:
+## kernel update no alvo reconstrói sozinho, sem rede). No rig AMD o
+## E10 remove o stack na instalação e o firstboot varre o resto.
+nvidia-open-dkms
 
 ## ── ELITE: tuning CachyOS (sysctl/udev/modprobe + boosters oficiais) ──
 cachyos-settings
@@ -101,18 +111,27 @@ starship
 tealdeer
 
 ## GUI de uso geral — best-in-class 2026, GTK3 (temável Catppuccin):
-## mousepad substitui geany (IDE-lite = nicho dev), zathura substitui
-## atril (legado MATE), qalculate substitui galculator (abandonado),
-## file-roller substitui xarchiver (bug DnD Wayland→Thunar), nwg-look
-## substitui xfce4-settings (theming X11), yazi substitui ranger+
-## ueberzug (python lento → rust com preview nativo)
-mousepad
-zathura
-zathura-pdf-poppler
+## v1.1 (diretriz do dono — MEGA PROMPT): app-layer 100% moderna e
+## Wayland-native. Sai o legado GTK3 herdado do upstream (mousepad,
+## zathura, file-roller, pavucontrol, blueman, thunar, firefox); entra:
+##   · papers (GTK4/libadwaita — leitor PDF, substitui zathura)
+##   · pwvucontrol (GTK4/Rust — mixer PipeWire, substitui pavucontrol;
+##     construído no build via estágio AUR → [elite-local])
+##   · bluetui (TUI Rust — Bluetooth, substitui blueman)
+##   · impala (TUI Rust — rede/iwd+NM, substitui nm-applet no dia-a-dia)
+##   · helix (Rust — editor modal, substitui mousepad+vim)
+##   · brave-bin (Chromium Wayland-native com flags da Elite — substitui
+##     firefox; construído no build via estágio AUR → [elite-local])
+##   · yazi (Rust — FM TUI; o Thunar GTK3 saiu — yazi é O gerenciador)
 qalculate-gtk
-file-roller
 nwg-look
 yazi
+papers
+pwvucontrol
+bluetui
+impala
+helix
+brave-bin
 
 ## Satélites oficiais do labwc (docs labwc.github.io/integration):
 ## idle→lock, automount USB, night light, clipboard history

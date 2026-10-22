@@ -6,12 +6,25 @@
 //
 // Roda como 2ª instância do waybar (o autostart sobe esta e a config.top).
 // Sem módulo de tray aqui: o SNI watcher é único por sessão (fica no topo).
+//
+// v1.1: DOCK AUTO-OCULTANTE (diretriz do dono — "ícones fixos que auto
+// ocultam", estilo COSMIC/macOS). "exclusive": false → a dock não reserva
+// espaço na tela (janelas usam a base); o CSS esconde a pílula com
+// margin-bottom negativa e a revela no :hover da faixa inferior (ver
+// style.dock.css — transição suave). Sem hover por alguns segundos ela
+// dessozinha de volta: auto-hide de verdade, zero clique perdido.
+//
+// FIXAR APPS (v1.1): os launchers fixos acima nascem no skel; os SEUS ficam
+// na seção PINS logo antes do fechamento do arquivo — gerencie com
+// `craft-pin add steam '' Steam steam green` / `craft-pin rm steam`
+// (o script mantém vírgulas, CSS e reload; edição manual é por sua conta).
 {
   "layer": "top",
   "position": "bottom",
   "height": 62,
+  "exclusive": false,
   "margin-top": 0,
-  "margin-bottom": 10,
+  "margin-bottom": 0,
   "margin-left": 12,
   "margin-right": 12,
   "spacing": 4,
@@ -50,18 +63,18 @@
   },
   "custom/files": {
     "format": "",
-    "tooltip-format": "Arquivos (Thunar)",
-    "on-click": "thunar"
+    "tooltip-format": "Arquivos (yazi)",
+    "on-click": "foot -e yazi"
   },
   "custom/web": {
     "format": "󰈹",
-    "tooltip-format": "Firefox",
-    "on-click": "firefox"
+    "tooltip-format": "Navegador (Brave)",
+    "on-click": "brave"
   },
   "custom/editor": {
     "format": "",
-    "tooltip-format": "Editor (Mousepad)",
-    "on-click": "mousepad"
+    "tooltip-format": "Editor (Helix)",
+    "on-click": "foot -e helix"
   },
   "custom/shot": {
     "format": "",
@@ -91,4 +104,6 @@
     "tooltip-format": "Sessão",
     "on-click": "craft-power"
   }
+
+  // ── PINS (craft-pin) — apps fixados pelo usuário; use craft-pin add/rm
 }

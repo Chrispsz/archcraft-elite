@@ -6,6 +6,194 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **v1.1 (branch feat/v1.1-modern-stack)** — **MEGA PROMPT: modernização,
+  purificação e dual-rig de verdade**:
+  - **App-stack 100% moderna e Wayland-native** (diretriz do dono):
+    firefox→`brave-bin` (flags Wayland/Vulkan/zero-copy no skel
+    `.config/brave-flags.conf`), thunar+file-roller→`yazi`+`7zip`,
+    mousepad+vim→`helix` (`catppuccin_mocha`), zathura→`papers`,
+    pavucontrol→`pwvucontrol`, blueman→`bluetui` (novo bind W-S-b),
+    nm-applet→`impala` (W-n). `brave-bin`/`pwvucontrol` via **estágio AUR
+    do build** (aur_build → [elite-local], 2 tentativas, fail-loud).
+    xgps/xgpsspeed registrados no remove (contrato; não existiam).
+  - **KERNEL ÚNICO**: `linux`/`linux-headers` saem da ISO. A entrada
+    NVIDIA do live usava o kernel stock (nvidia-open pré-compilado só
+    existia p/ ele) — substituída pelo **nvidia-open-dkms PRÉ-COMPILADO
+    contra o BORE**: o pacstrap instala, o hook do dkms compila, o **E11**
+    regenera o initramfs do live com hook kms (o hook 90-mkinitcpio-install
+    roda ANTES do hook dkms — ordem alfabética — a 1ª geração sairia sem
+    nvidia). Resultado: UMA initramfs dá early-KMS nos DOIS rigs (o módulo
+    do vendor ausente apenas não binda). O unpackfs leva módulo+fonte+
+    toolchain p/ o alvo: **kernel update no sistema instalado reconstrói
+    o driver sozinho, offline**. E5b remove o módulo initcpio stock da
+    sequência (kernel ausente = abort de instalação); E5a substitui a
+    entrada vmlinuz-linux do unpackfs pela do BORE; E6b aposentado.
+  - **Menu de boot limpo**: 3 entradas (AMD default · NVIDIA · nomodeset
+    rescue), TODAS no BORE, **copy-to-RAM no default e na NVIDIA** (o live
+    inteiro na RAM — leitura sequencial, USB lento voa; exige ≥8GB, rescue
+    fica copytoram=n p/ máquina pequena). Saem: OpenSource (02), a 05 Copy
+    to RAM (default agora É), e qualquer referência ao kernel stock
+    (guarda de sanidade no apply-overlay). QEMU dos gates: -m 7168.
+  - **Especialização por GPU NA INSTALAÇÃO** (E10 v1.1): detector de
+    vendor via /sys/class/drm (0x10de/0x1002) no shellprocess_btrfs —
+    AMD: remove nvidia-open-dkms+nvidia-utils+ módulos do ALVO +
+    MODULES=(amdgpu) + ppfeaturemask no GRUB; NVIDIA: MODULES=(nvidia*)
+    + modeset/fbdev no GRUB + modprobe.d. Cada rig nasce com o driver do
+    SEU hardware — zero contaminação cruzada.
+  - **elite-tune v4.6**: firstboot detecta o dkms pré-compilado
+    (NV_PREBUILT) → rig NVIDIA da ISO instala NADA no 1º boot (offline
+    total, marker de primeira passada); online vira fallback p/ sistema
+    não-ISO. gpu_cleanup_foreign varre também nvidia-open-dkms + .ko.
+    **BBR+fq** ("internet rápida"): sysctl.d 99-elite-net +
+    modules-load tcp_bbr, com guard no firstboot (kernel sem bbr →
+    remove as linhas em vez de reclamar no boot p/ sempre).
+  - **E12**: /etc/environment EDITOR=helix BROWSER=brave TERMINAL=foot
+    (o TERMINAL=alacritty era stale desde a v1.0.3).
+  - **diag-install (gate de install) v1.1**: pré-flight exige os .ko do
+    dkms (E11) e o preset stock AUSENTE; [6b/8] roda o detector de vendor
+    (QEMU: unknown = não-op seguro) + 4 contratos do per-rig; [7/8] só o
+    initcpio do BORE; artifact gpu-detect.txt.
+  - **FIX build #48 — presets órfãos do kernel stock** (forense: a ISO
+    construiu, bootou no QEMU live, mas o gate `verify-install` derrubou
+    a release no pré-flight com `✖ preset stock PRESENTE`): o upstream
+    entrega `/etc/mkinitcpio.d/{linux,linux-nvidia}.preset` como
+    **arquivos estáticos do profile** (não vêm de pacote — o
+    mkarchcraftiso copia o airootfs ANTES do pacstrap e o hook
+    90-mkinitcpio-install itera TODOS os presets no fim da transação).
+    Com o kernel stock comentado, os arquivos viraram órfãos com efeito
+    duplo: no build o hook morre em `Invalid option -k -- '/boot/
+    vmlinuz-linux' must be readable` (erro tolerado — ruído no log) e o
+    órfão segue pro squashfs → unpackfs → **sistema instalado**. Novo
+    **[6.3] do apply-overlay** deleta `linux.preset`, `linux-nvidia
+    .preset` e `archiso-nvidia.conf` (perdeu o único consumidor) do
+    profile; `archiso.conf` fica (1ª geração do initramfs live do BORE;
+    o E11 o recria e apaga o conf.d inteiro no final). Gate ganhou os
+    contratos espelhados: nvidia-preset ausente + conf.d sem drops do
+    live (o drop-in archiso venceria o ALL_config do initcpio@elite no
+    alvo). Fixture do upstream sintético agora reproduz os 4 arquivos
+    VERBATIM — a suíte rodaria verde sem ver o bug (o fixture antigo não
+    os tinha).
+  - **FIX build #49 — ELITE-BUMP gerava pkgrel inválido** (forense: a ISO
+    nem chegou a ser construída; preflight abortou por design após 6
+    rounds com `libyuv`/`vid.stab` 404 nos 2 mirrors CachyOS — skew
+    ROTACIONA, não é o mesmo pacote da #47): o repack da baseline fazia
+    `newrel="${rel_quebrada}.1"` → pkgrel `1.1.1`/`3.1.1` com 3
+    componentes — **makepkg rejeita** (`pkgrel must be of the form
+    'integer[.integer]', not 1.1.1`, visto no log da #49) → caía no cp
+    clássico de baseline MAIS VELHA, que não satisfaz o resolve (pacman
+    prefere a versão quebrada anunciada) → rounds eternos → abort. O
+    ELITE-BUMP nunca tinha rodado de verdade (na #48 o mirror já estava
+    sadio — o caminho nem executou). Fix: `newrel = major da quebrada + 1`
+    (`1.1`→`2`, `3.1`→`4` — `vercmp('2','1.1')>0`, formato sempre
+    válido); guard p/ rel exótica (cp clássico honesto, sem aritmética
+    cega); log do gêmeo não mente mais o mirror ("us" fixo → host real).
+    Suíte: seção 3.L — a função REAL extraída por profundidade de chaves
+    (awk; o sed `^}$` cortava no `}` do package() do heredoc), roda em
+    `unshare -rm` + tmpfs em /var com mocks de vercmp/bsdtar/runuser e
+    um makepkg-mock que valida pkgrel com a MESMA regra do real — 14
+    peças cobrindo #47, #49, caminho clássico e rel exótica.
+  - **FIX build #50 — a "baseline" era o pacote errado** (forense: o
+    ELITE-BUMP rodou de verdade pela 1ª vez e expôs 2 bugs latentes do
+    preflight): ① `pacman -Sp | head -1` pegava a URL da PRIMEIRA
+    DEPENDÊNCIA da transação (o local db vazio resolve tudo: tzdata,
+    glibc…) — a "baseline" de libyuv baixada era o pacote **tzdata
+    inteiro**; ② o download ia p/ `/tmp/elite-baseline.pkg.tar.zst`
+    (nome genérico) — o parse de versão da função lê `${basepkg##*/}`,
+    então o repack nascia `libyuv-elite-2` com **payload de tzdata** →
+    preflight "fechava" resolvendo p/ o elite-local furado → pacstrap
+    offline instalava → `exists in both 'tzdata' and 'libyuv'` →
+    abort nas 2 tentativas. Fixes: fu filtrado por PREFIXO do nome do
+    alvo (`awk -F/ index($NF, "<base>-")==1` — string fixa, nomes com
+    ponto/plus como vid.stab); download p/
+    `/tmp/elite-baseline/<nome-real>.pkg.tar.zst` (versão preservada
+    pro parse); `options=(!debug)` no PKGBUILD do repack (o makepkg do
+    container gerava um `-debug` espúrio no elite-local). +3 contratos
+    estáticos na suíte.
+  - **FIX build #51 — o preset órfão RESSUCITA no build** (forense: a ISO
+    construiu E o boot live passou no QEMU, mas o verify-install viu o
+    `linux.preset` de novo no squashfs): o `customize_airootfs.sh`
+    upstream tem um bloco "Fix Initrd Generation in Installed System"
+    que faz `cat > /etc/mkinitcpio.d/linux.preset`
+    **incondicionalmente dentro do chroot** — o [6.3] do overlay apaga
+    o arquivo ESTÁTICO do profile, mas este `cat` o recria na hora do
+    build (no upstream faz sentido: lá o kernel stock existe; aqui é
+    órfão). Como o fragmento Elite é ANEXADO ao final do customize, o
+    **E6 agora o remove de novo** (`rm -f /etc/mkinitcpio.d/linux
+    .preset`) — kernel único de verdade, nas DUAS camadas. Fixture
+    reproduz o bloco de regeneração VERBATIM + contratos de presença e
+    ORDEM (rm depois do cat). Suíte: 705 peças, 0 falhas, GO.
+  - **FIX build #52 — o GATE testava a ISO ERRADA (v1.0.4)** (forense
+    completa; a ISO v1.1 construiu, bootou no QEMU live [verify ✓] e o
+    E6 matou o preset — mas o verify-install reprovou DE NOVO): o log do
+    gate entregou a linha fatal — `→ run_id não informado; usando a mais
+    recente bem-sucedida: 39612464434` = **Build #45, a ISO v1.0.4**
+    (branch v1.0.4, sha 870eff0). O passo de download do diag-install
+    confiava em `GITHUB_EVENT_NAME == workflow_call`, que **nunca era
+    verdade**: a variável de ambiente padrão reflete o evento da RUN
+    (push/dispatch/tag), não o tipo de chamada do workflow —
+    `workflow_call` seta o CONTEXTO `github.event_name`, não o env. Com
+    o branch morto e o `workflow_call:` sem inputs declarados, o gate
+    caía no fallback "última bem-sucedida" desde a #48 — **5 builds
+    reprovadas por um gate que nunca viu a ISO v1.1**: o `linux.preset`
+    da v1.0.4 é legítimo (kernel duplo daquela era), então o contrato
+    kernel-único falhava eternamente num produto são. As forenses #48
+    ([6.3] presets estáticos) e #51 (E6 rm do ressuscitado) eram higiene
+    REAL do kernel-único — necessárias, mas o bloqueio era o gate cego.
+    Fix: `build.yml` passa `run_id: ${{ github.run_id }}` ao
+    `verify-install`; `workflow_call:` declara os inputs; o download vira
+    **tag > run_id > fallback consciente** (input explícito = fonte da
+    verdade, zero dependência de env de evento). +5 contratos na suíte
+    (run corrente passada, download pelo input, env de evento ausente do
+    diag-install, precedência tag>run_id, inputs declarados).
+  - **Rice: dock AUTO-OCULTANTE + craft-pin (fixar apps)**: a dock pílula
+    agora estilo COSMIC — `exclusive: false` (janelas usam a base da tela)
+    + CSS `margin-bottom: -52px` com reveal no hover (cubic-bezier 0.38s,
+    zoom de glyphs). **`craft-pin`**: fixar apps do usuário na dock sem
+    editar JSON à mão — `craft-pin add steam '' Steam steam green` insere
+    1 linha JSONC na seção `PINS` do config.dock + entrada no
+    `modules-left` + bloco CSS autocontido (mesmo DNA visual dos fixos);
+    vírgulas sempre corretas (parse JSON como juiz), backup `.bak.<ts>` +
+    `restore`, reload via SIGUSR2 (man 5 waybar), auto-cura de skel antigo
+    sem a seção. Skel sai de fábrica com ZERO pins (launchers fixos do
+    skel continuam nascendo na ISO). Limite documentado: wlr/taskbar não
+    une pin+running (app fixado rodando = ícone extra no centro).
+  - **Suíte**: 460 → **705 peças, 0 falhas, GO** (contratos v1.1: pacotes,
+    menu de boot, E5a/E5b/E10/E11/E12, firstboot NV_PREBUILT/BBR on/off,
+    brave-flags, mimeapps, yazi/helix, autostart sem applets GTK3,
+    craft-pin, presets órfãos do kernel stock — fixture upstream agora
+    reproduz os arquivos estáticos do mkinitcpio.d/conf.d VERBATIM — e
+    ELITE-BUMP funcional com makepkg-mock validando pkgrel).
+
+- **v1.0.5 (branch fix/estabilidade-gates)** — **GATES DE VERDADE + FIRSTBOOT
+  ANTI-BRICK** (auditoria completa das runs de Actions + logs de falha):
+  - **`diag-install` virou gate obrigatório de release** (`workflow_call` —
+    job `verify-install` no build.yml; release agora exige `needs:
+    [build, verify, verify-install]`). O teste de instalação existia mas era
+    manual: o bug do rig B teria sido pego ANTES da v1.0.x sair se já
+    estivesse na cadeia.
+  - **fix do falso negativo do gate de install**: o grep das entradas do
+    grub.cfg usava espaço literal (`'(linux|initrd) '`) — grub.cfg usa TAB;
+    devolvia vazio e a run morria com o passo verde de verdade (prova:
+    artifacts da run #2 da branch diag-install — `grub-mkconfig.log` com
+    "Found linux image", `grub-entries.txt` vazio). Agora `[[:space:]]`.
+  - **fix do gate de verify calado**: `set -e` + grep solto abortava o
+    script ANTES do `chk` imprimir o diagnóstico — as builds #42/#43
+    falharam sem uma linha de explicação. Agora `set +e` + `exit $FAIL`.
+  - **fix unsquashfs sem sudo** (merge da branch diag-install — xattrs
+    `security.capability` exigem root, exit 2 na run #1).
+  - **elite-tune v4.5 — firstboot NVIDIA anti-brick**: a ordem antiga era
+    `-R nvidia-open` → `-S nvidia-open-dkms`; sem rede no 1º boot o rig
+    ficava **sem driver NENHUM** e o marker `firstboot-done` (escrito
+    incondicionalmente) sepultava o retry. Agora: `-S` primeiro (`pacman_s`,
+    dry-aware), `-R` só após sucesso; sem rede → driver preservado, marker
+    não escrito, unit re-tenta no próximo boot, wall honesto ("pendente").
+    Novo cenário na suíte: Blackwell + pacman recusando tudo.
+  - **docs sincronizadas**: README (zram = min(RAM, 8GB), E0–E10, cadeia de
+    gates), SCRIPTS.md (v4.5, E8–E10), craft-bat (bind fantasma W-S-b).
+  - **scripts/qemu-boot-test.sh**: loop local rápido — boota a ISO com a
+    cmdline REAL extraída dela (KVM se disponível; ~1 min vs ~55 min de
+    TCG no CI) p/ iterar sem esperar runner.
+
 - **v1.0.4 (main)** — **FIX DO BOOT DO SISTEMA INSTALADO** (bug real do
   rig B: GRUB `premature end of file /boot/vmlinuz-linux-cachyos-bore` →
   `you need to load the kernel first`): o install do Archcraft é

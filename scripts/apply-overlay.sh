@@ -13,12 +13,13 @@
 #    · firmware        → meta linux-firmware → subpacotes (sem -nvidia/
 #                        -other/-mellanox/-nfp/-qcom/-qlogic/-liquidio)
 #    · pacman.conf     → repos CachyOS (cdn77+us) ANTES de [core]
-#    · entradas de boot→ kernel BORE em default/opensource/nomodeset
-#                        (a entrada NVIDIA fica no kernel stock: módulo
-#                        pré-compilado só existe p/ ele)
-#    · mkinitcpio      → preset archiso do BORE (overlay) p/ o live
+#    · entradas de boot→ menu limpo v1.1: AMD+NVIDIA+rescue, kernel BORE
+#                        ÚNICO, copy-to-RAM no default e na NVIDIA
+#    · mkinitcpio      → preset archiso do BORE (overlay) p/ o live +
+#                        presets órfãos do kernel stock DELETADOS
+#                        (arquivos estáticos do profile upstream)
 #    · systemd         → remove wants de serviços debloatados
-#    · customize       → anexa fragmento elite (E0–E7)
+#    · customize       → anexa fragmento elite (E0–E12)
 #    · profiledef      → ISO rebatizada archcraft-elite-<data>
 #
 #  Uso (CI ou local; precisa: git, rsync, curl):
@@ -204,93 +205,152 @@ if [[ $EUID -eq 0 && -x /usr/bin/pacman ]]; then
   done
 fi
 
-# ── [6] Entradas de boot → kernel BORE ─────────────────────────────
-#  default/opensource/nomodeset bootam o BORE (v3). A entrada NVIDIA
-#  continua no kernel stock (o nvidia-open pré-compilado só existe p/
-#  ele — e o initramfs-linux-nvidia.img é gerado pelo preset deles).
-say "Patch das entradas de boot → kernel $BORE (default/opensource/nomodeset)"
+# ── [6] Entradas de boot — menu LIMPO, kernel BORE único, copy-to-RAM ─
+#  v1.1 (diretriz do dono — MEGA PROMPT): "limpa aquelas entradas de boot
+#  deixando amd e a nvidia moderna apenas, ambos carregando já na ram".
+#  Com o nvidia-open-dkms pré-compilado contra o BORE (E11) e o hook kms
+#  no initramfs do live, UMA initramfs serve aos dois rigs (early-KMS:
+#  o módulo do vendor ausente apenas não binda). Menu final (3 entradas):
+#    01/default · AMD/auto · copytoram=y (o padrão que o usuário boota)
+#    03/nvidia  · NVIDIA moderna · copytoram=y (nvidia_drm.modeset+fbdev)
+#    04/rescue  · nomodeset · copytoram=n (máquina com pouca RAM)
+#  Saem do menu: 'OpenSource' (02 — redundante: nouveau não existe no
+#  Blackwell e o default já cobre AMD) e a antiga entrada '05 Copy to RAM'
+#  (o default AGORA copia p/ RAM). O kernel stock linux sai da ISO
+#  inteira (packages.remove) — não há mais entrada nenhuma nele.
+say "Menu de boot v1.1: AMD(auto)/NVIDIA/rescue — kernel $BORE único, copy-to-RAM"
 
-# ── [6.1] Entrada extra "Copy to RAM" (live rápido em USB lento) ───
-#  Padrão upstream: copytoram=n — o live lê TUDO do USB o tempo todo.
-#  Em pendrive lento (USB 2.0 / Ventoy) cada leitura aleatória custa
-#  caro e os serviços Type=notify podem escalar os timeouts (v1.0.2
-#  congelava nisso). Esta entrada copia o airootfs p/ RAM no início
-#  (leitura SEQUENCIAL — rápida até em USB 2.0) e o live voa. Requer
-#  ~8GB de RAM (2.9GB de ISO + 5G de cow). Nomes stock: os loops [6]
-#  abaixo convertem p/ BORE junto com as demais.
-say "Entrada de boot extra: Copy to RAM (copytoram=y)"
-
-cat > "$PROFILE/efiboot/loader/entries/05-archiso-linux-ram.conf" <<'RAM'
-title   Boot Archcraft Elite (%ARCH%, UEFI, Copy to RAM)
-sort-key 05
-linux   /%INSTALL_DIR%/boot/%ARCH%/vmlinuz-linux
-initrd  /%INSTALL_DIR%/boot/%ARCH%/initramfs-linux.img
-options archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% quiet splash loglevel=3 udev.log_level=3 vt.global_cursor_default=0 cow_spacesize=5G copytoram=y nvme_load=yes lsm=landlock,lockdown,yama,integrity,apparmor,bpf
-RAM
-
-SL="$PROFILE/syslinux/archiso_sys-linux.cfg"
-if [[ -f "$SL" ]]; then
-  cat >> "$SL" <<'RAM'
-
-# Copy to RAM
-LABEL archram
-TEXT HELP
-Boot Archcraft Elite with the airootfs copied to RAM (fast live session).
-It allows you to install Archcraft or perform system maintenance.
-ENDTEXT
-MENU LABEL Boot Archcraft Elite (%ARCH%, BIOS, Copy to RAM)
-LINUX /%INSTALL_DIR%/boot/%ARCH%/vmlinuz-linux
-INITRD /%INSTALL_DIR%/boot/%ARCH%/initramfs-linux.img
-APPEND archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% quiet splash loglevel=3 udev.log_level=3 vt.global_cursor_default=0 cow_spacesize=5G copytoram=y nvme_load=yes lsm=landlock,lockdown,yama,integrity,apparmor,bpf
-RAM
-fi
-
-for GF in "$PROFILE/grub/grub.cfg" "$PROFILE/grub/loopback.cfg"; do
-  [[ -f "$GF" ]] || continue
-  cat >> "$GF" <<'RAM'
-menuentry "Boot Archcraft Elite (%ARCH%, ${archiso_platform}, Copy to RAM)" --class archcraft --class arch --class gnu-linux --class gnu --class os --id 'archcraftram' {
-    set gfxpayload=keep
-    linux /%INSTALL_DIR%/boot/%ARCH%/vmlinuz-linux archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% quiet splash loglevel=3 udev.log_level=3 vt.global_cursor_default=0 cow_spacesize=5G copytoram=y nvme_load=yes lsm=landlock,lockdown,yama,integrity,apparmor,bpf
-    initrd /%INSTALL_DIR%/boot/%ARCH%/initramfs-linux.img
-}
-RAM
-done
-
-# efiboot: arquivos por entrada — pular a 03 (nvidia)
+# [6.1] efiboot (systemd-boot): 02 sai, 03 vira BORE+NVIDIA, 01/04 patch
+rm -f "$PROFILE/efiboot/loader/entries/02-archiso-linux-open-source.conf"
+rm -f "$PROFILE/efiboot/loader/entries/05-archiso-linux-ram.conf"
+# 03 — reescrita íntegra (conteúdo 100% Elite; sort-key mantém a ordem)
+NV03="$PROFILE/efiboot/loader/entries/03-archiso-linux-nvidia.conf"
+cat > "$NV03" <<'NVCONF'
+title   Boot Archcraft Elite (%ARCH%, UEFI, NVIDIA · Copy to RAM)
+sort-key 03
+linux    /%INSTALL_DIR%/boot/%ARCH%/vmlinuz-linux-cachyos-bore
+initrd   /%INSTALL_DIR%/boot/%ARCH%/initramfs-linux-cachyos-bore.img
+options  archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% quiet splash loglevel=3 udev.log_level=3 vt.global_cursor_default=0 cow_spacesize=5G copytoram=y nvidia_drm.modeset=1 nvidia_drm.fbdev=1 nouveau.modeset=0 module_blacklist=nouveau radeon.modeset=1 i915.modeset=1 nvme_load=yes lsm=landlock,lockdown,yama,integrity,apparmor,bpf
+NVCONF
+# 01/04: kernel BORE (todos os .conf restantes — não há mais exceção 03)
 for f in "$PROFILE"/efiboot/loader/entries/*.conf; do
   [[ -f "$f" ]] || continue
-  case "$(basename "$f")" in
-    03-*) continue ;; # NVIDIA: fica no kernel stock
-  esac
   sed -i -e "s|\bvmlinuz-linux\b|vmlinuz-$BORE|g" \
          -e "s|\binitramfs-linux\.img\b|$BORE_IMG|g" "$f"
 done
-sed -i 's|Boot Archcraft (%ARCH%, UEFI, Default)|Boot Archcraft Elite (%ARCH%, UEFI, BORE kernel)|' \
-  "$PROFILE/efiboot/loader/entries/01-archiso-linux.conf" 2>/dev/null || true
-
-# syslinux (BIOS): um arquivo, 4 entradas — pular o bloco archnonfree
-SL="$PROFILE/syslinux/archiso_sys-linux.cfg"
-if [[ -f "$SL" ]]; then
-  awk -v bore="vmlinuz-$BORE" -v img="$BORE_IMG" '
-    /^LABEL / { innv = ($2 == "archnonfree") }
-    !innv { gsub(/vmlinuz-linux/, bore); gsub(/initramfs-linux\.img/, img) }
-    { print }
-  ' "$SL" > "$SL.tmp" && mv "$SL.tmp" "$SL"
-  sed -i 's|Boot Archcraft (%ARCH%, BIOS, Default)|Boot Archcraft Elite (%ARCH%, BIOS, BORE kernel)|' "$SL"
+# 01 default: copytoram=y + particularidade AMD (ppfeaturemask destrava
+# undervolt/OC no LACT; em máquina NVIDIA o param é inerte — amdgpu não
+# carrega). Título diz o que a entrada É.
+E01="$PROFILE/efiboot/loader/entries/01-archiso-linux.conf"
+if [[ -f "$E01" ]]; then
+  sed -i -e 's|copytoram=n|copytoram=y|' \
+         -e 's|nvme_load=yes|nvme_load=yes amdgpu.ppfeaturemask=0xffffffff|' \
+         -e 's|Boot Archcraft (%ARCH%, UEFI, Default)|Boot Archcraft Elite (%ARCH%, UEFI, AMD · Copy to RAM)|' \
+         -e 's|Boot Archcraft Elite (%ARCH%, UEFI, BORE kernel)|Boot Archcraft Elite (%ARCH%, UEFI, AMD · Copy to RAM)|' "$E01"
 fi
 
-# grub (BIOS/loopback): pular o menuentry --id archcraftpn (nvidia)
+# [6.1b] syslinux (BIOS): um arquivo, blocos por LABEL — archfree sai,
+#        archnonfree vira BORE+NVIDIA, arch ganha copytoram+AMD
+SL="$PROFILE/syslinux/archiso_sys-linux.cfg"
+if [[ -f "$SL" ]]; then
+  awk '
+    /^LABEL / { lbl = $2; del = (lbl == "archfree"); nv = (lbl == "archnonfree") }
+    del { next }                                  # bloco OpenSource fora
+    nv && /^LINUX /  { $0 = "LINUX /%INSTALL_DIR%/boot/%ARCH%/vmlinuz-linux-cachyos-bore" }
+    nv && /^INITRD / { $0 = "INITRD /%INSTALL_DIR%/boot/%ARCH%/initramfs-linux-cachyos-bore.img" }
+    nv && /^APPEND / {
+      gsub(/copytoram=n/, "copytoram=y")
+      gsub(/nvidia nvidia-drm\.modeset=1/, "nvidia_drm.modeset=1 nvidia_drm.fbdev=1")
+    }
+    lbl == "arch" && /^APPEND / {
+      gsub(/copytoram=n/, "copytoram=y")
+      gsub(/nvme_load=yes/, "nvme_load=yes amdgpu.ppfeaturemask=0xffffffff")
+    }
+    { print }
+  ' "$SL" > "$SL.tmp" && mv "$SL.tmp" "$SL"
+  sed -i -e 's|Boot Archcraft (%ARCH%, BIOS, Nvidia)|Boot Archcraft Elite (%ARCH%, BIOS, NVIDIA · Copy to RAM)|' \
+         -e 's|Boot Archcraft Elite (%ARCH%, BIOS, BORE kernel)|Boot Archcraft Elite (%ARCH%, BIOS, AMD · Copy to RAM)|' \
+         -e 's|Boot Archcraft (%ARCH%, BIOS, Default)|Boot Archcraft Elite (%ARCH%, BIOS, AMD · Copy to RAM)|' "$SL"
+fi
+
+# [6.1c] grub (BIOS/loopback): bloco archcraftos sai; archcraftpn vira
+#        BORE+NVIDIA; archcraft ganha copytoram+AMD; archcraftnm fica rescue
 for GF in "$PROFILE/grub/grub.cfg" "$PROFILE/grub/loopback.cfg"; do
   [[ -f "$GF" ]] || continue
-  awk -v bore="vmlinuz-$BORE" -v img="$BORE_IMG" '
-    /menuentry .*--id .archcraftpn./ { skip = 1 }
-    skip && /^}/ { print; skip = 0; next }
-    !skip { gsub(/vmlinuz-linux/, bore); gsub(/initramfs-linux\.img/, img) }
+  awk -v img="$BORE_IMG" '
+    /menuentry .*--id / {
+      cur = ""
+      if ($0 ~ /--id .archcraftos./)    cur = "del"
+      if ($0 ~ /--id .archcraftpn./)    cur = "nv"
+      if ($0 ~ /--id .archcraft[^p]/)   cur = "def"
+      if ($0 ~ /--id .archcraftnm./)    cur = "nm"
+    }
+    cur == "del" && /^}/ { cur = ""; next }
+    cur == "del" { next }
+    cur == "nv" && /^    linux / {
+      gsub(/vmlinuz-linux/, "vmlinuz-linux-cachyos-bore")
+      gsub(/copytoram=n/, "copytoram=y")
+      gsub(/nvidia nvidia-drm\.modeset=1/, "nvidia_drm.modeset=1 nvidia_drm.fbdev=1")
+    }
+    cur == "nv" && /^    initrd / { gsub(/initramfs-linux-nvidia\.img/, img) }
+    cur == "def" && /^    linux / {
+      gsub(/vmlinuz-linux/, "vmlinuz-linux-cachyos-bore")
+      gsub(/copytoram=n/, "copytoram=y")
+      gsub(/nvme_load=yes/, "nvme_load=yes amdgpu.ppfeaturemask=0xffffffff")
+    }
+    cur == "def" && /^    initrd / { gsub(/initramfs-linux\.img/, img) }
+    cur == "nm" && /^    linux / { gsub(/vmlinuz-linux/, "vmlinuz-linux-cachyos-bore") }
+    cur == "nm" && /^    initrd / { gsub(/initramfs-linux\.img/, img) }
     { print }
   ' "$GF" > "$GF.tmp" && mv "$GF.tmp" "$GF"
-  sed -i '0,/Boot Archcraft (%ARCH%, ${archiso_platform}, Default)/s//Boot Archcraft Elite (%ARCH%, ${archiso_platform}, BORE kernel)/' "$GF"
+  sed -i -e 's|Boot Archcraft (%ARCH%, ${archiso_platform}, Nvidia)|Boot Archcraft Elite (%ARCH%, ${archiso_platform}, NVIDIA · Copy to RAM)|' \
+         -e 's|Boot Archcraft (%ARCH%, ${archiso_platform}, Default)|Boot Archcraft Elite (%ARCH%, ${archiso_platform}, AMD · Copy to RAM)|' \
+         -e 's|Boot Archcraft Elite (%ARCH%, ${archiso_platform}, BORE kernel)|Boot Archcraft Elite (%ARCH%, ${archiso_platform}, AMD · Copy to RAM)|' "$GF"
+  # prova: o bloco opensource foi consumido (padrão upstream mudou?)
+  grep -q -- "--id 'archcraftos'" "$GF" \
+    && say "AVISO: bloco archcraftos NÃO removido (padrão upstream mudou?) — conferir"
 done
 
+# guarda de sanidade: NENHUMA entrada pode ter sobrado apontando pro kernel
+# stock (ele não existe mais na ISO — boot de entrada órfã = kernel panic)
+for f in "$PROFILE/grub/grub.cfg" "$PROFILE/grub/loopback.cfg" \
+         "$PROFILE/syslinux/archiso_sys-linux.cfg" \
+         "$PROFILE"/efiboot/loader/entries/*.conf; do
+  [[ -f "$f" ]] || continue
+  if grep -qE 'vmlinuz-linux([^-]|$)' "$f"; then
+    say "AVISO: $(basename "$f") ainda referencia o kernel stock — não existirá na ISO!"
+  fi
+done
+
+# ── [6.3] Presets órfãos do kernel stock (v1.1) ─────────────────────
+#  O profile upstream entrega /etc/mkinitcpio.d/{linux,linux-nvidia}
+#  .preset como ARQUIVOS ESTÁTICOS do airootfs (não vêm de pacote): o
+#  mkarchcraftiso copia o airootfs do profile ANTES do pacstrap, e o hook
+#  90-mkinitcpio-install do fim da transação itera TODOS os presets de
+#  /etc/mkinitcpio.d. Com o kernel stock fora da lista de pacotes, eles
+#  viram órfãos com efeito duplo:
+#    · no BUILD: o hook morre em "Invalid option -k -- '/boot/vmlinuz-
+#      linux' must be readable" (erro tolerado pelo pacman — build segue
+#      com ruído no log; visto na build #48);
+#    · no PRODUTO: o arquivo entra no squashfs → unpackfs o copia pro
+#      sistema INSTALADO → contrato "kernel único BORE" quebrado (foi
+#      exatamente o que o gate verify-install derrubou na build #48:
+#      '✖ preset stock PRESENTE').
+#  O archiso-nvidia.conf do conf.d perde o único consumidor (o preset
+#  deletado) — sai junto. O archiso.conf FICA: é a config da 1ª geração
+#  do initramfs live do BORE (o E11 a recria e apaga o conf.d inteiro
+#  no final do customize).
+say "Kernel único: deletando presets órfãos do kernel stock do profile"
+for orphan in linux.preset linux-nvidia.preset; do
+  if [[ -f "$PROFILE/airootfs/etc/mkinitcpio.d/$orphan" ]]; then
+    rm -f "$PROFILE/airootfs/etc/mkinitcpio.d/$orphan"
+    say "  preset órfão removido: airootfs/etc/mkinitcpio.d/$orphan"
+  fi
+done
+if [[ -f "$PROFILE/airootfs/etc/mkinitcpio.conf.d/archiso-nvidia.conf" ]]; then
+  rm -f "$PROFILE/airootfs/etc/mkinitcpio.conf.d/archiso-nvidia.conf"
+  say "  conf órfão removido: airootfs/etc/mkinitcpio.conf.d/archiso-nvidia.conf"
+fi
 # ── [6.2] Timeouts de boot à prova de USB lento/emulador (v1.0.4) ──
 #  O cachyos-settings impõe DefaultTimeoutStartSec=15s via /usr/lib/
 #  systemd/system.conf.d/00-timeout.conf. Em boot a frio por USB lento
@@ -418,16 +478,16 @@ if grep -q '^file_permissions=(' "$PD"; then
            /usr/local/bin/craft-hello /usr/local/bin/craft-update /usr/local/bin/craft-clean \
            /usr/local/bin/craft-rollback /usr/local/bin/craft-lock /usr/local/bin/craft-logout \
            /usr/local/bin/craft-shot /usr/local/bin/craft-bat \
-           /usr/local/bin/craft-drawer /usr/local/bin/craft-power \
+           /usr/local/bin/craft-drawer /usr/local/bin/craft-power /usr/local/bin/craft-pin \
            /etc/skel/.config/labwc/autostart; do
     grep -qF "[\"$p\"]" "$PD" || sed -i "s|^file_permissions=(|file_permissions=(\n  [\"$p\"]=\"0:0:755\"|" "$PD"
   done
-  grep -A14 '^file_permissions=' "$PD"
+  grep -A15 '^file_permissions=' "$PD"
 else
   echo "AVISO: file_permissions não encontrado no profiledef — binários Elite ficarão 0644!" >&2
 fi
 
 say "Overlay aplicado com sucesso."
-echo -e "  ${B}kernel live:${N} $BORE nas entradas default/opensource/nomodeset"
-echo -e "  ${B}nvidia live:${N} entrada 'Nvidia' no kernel stock (módulo pré-compilado)"
+echo -e "  ${B}kernel live:${N} $BORE em TODAS as entradas (AMD default · NVIDIA dkms · rescue)"
+echo -e "  ${B}copy-to-RAM:${N} default e NVIDIA bootam com o live inteiro na RAM"
 echo -e "  ${B}build:${N} cd $PROFILE && ./mkarchcraftiso -v -w /mnt/iso-work -o out ."

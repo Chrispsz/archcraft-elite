@@ -4,9 +4,9 @@ Formato: **o quê faz / como rodar / como reverter / dependências**.
 
 ---
 
-## elite-tune (v4.2) — `/usr/local/bin/elite-tune`
+## elite-tune (v4.6) — `/usr/local/bin/elite-tune`
 
-**O quê:** detecção de hardware (ISA x86-64, GPU+geração, RAM/pentes/MHz, discos) e aplicação da camada Elite: repos CachyOS (chave F3B607488DB35A47 + keyring + mirrorlist via `pacman -U`, sem pacman fork), kernel BORE, daemons (ananicy, scx-elite, dmemcg, fg-booster, grub-btrfsd, lactd), boot params GRUB (quote-safe), driver NVIDIA por geração (Turing+ → `nvidia-open-dkms`; Maxwell/Pascal → orientação AUR `nvidia-580xx-dkms`), zram/sysctl/udev idempotentes, shader cache NVIDIA.
+**O quê:** detecção de hardware (ISA x86-64, GPU+geração, RAM/pentes/MHz, discos) e aplicação da camada Elite: repos CachyOS (chave F3B607488DB35A47 + keyring + mirrorlist via `pacman -U`, sem pacman fork), kernel BORE, daemons (ananicy, scx-elite, dmemcg, fg-booster, grub-btrfsd, lactd), boot params GRUB (quote-safe), driver NVIDIA por geração (Turing+ → `nvidia-open-dkms`; Maxwell/Pascal → orientação AUR `nvidia-580xx-dkms`), zram/sysctl/udev idempotentes, shader cache NVIDIA. **v4.5 — firstboot anti-brick:** a troca de driver NVIDIA é `-S` → `-R` (instala o dkms ANTES de remover o pré-compilado); sem rede no 1º boot o driver do live fica **preservado**, o marker `firstboot-done` **não** é escrito e a unit re-tenta no boot seguinte — o wall avisa "pendente" em vez de "REINICIE". **v4.6 — ISO v1.1:** detecta o dkms NVIDIA **pré-compilado** da ISO (módulos em `/usr/lib/modules/<kver>/updates/dkms` + nvidia-utils) → primeiro boot do rig NVIDIA instala NADA (offline total, marker na primeira passada; online vira fallback p/ sistema não-ISO); `gpu_cleanup_foreign` varre também nvidia-open-dkms e os .ko pré-compilados em rigs AMD/Intel; **guard BBR** — kernel sem bbr remove as linhas do `99-elite-net.conf` em vez de deixar sysctl morto reclamando; interativo instala só headers do BORE (kernel único).
 
 **Modos:**
 ```bash
@@ -48,7 +48,7 @@ elite-tune --status            # certificação (sem root) — alias: elite-stat
 
 ## apply-overlay.sh — `scripts/apply-overlay.sh` (repo)
 
-**O quê:** o "delta" inteiro. Clona o profile oficial do Archcraft, aplica o overlay `elite/airootfs`, mescla `packages.add`, comenta os de `packages.remove`, troca o firmware meta por subpacotes, insere os repos CachyOS (trio v3 + baseline) antes de `[core]`, patcha as entradas de boot (BORE em default/opensource/nomodeset; Nvidia fica no stock), adiciona a entrada "Copy to RAM" (`copytoram=y`, USB lento/Ventoy), injeta `systemd.default_timeout_start_sec=90 systemd.default_timeout_stop_sec=90` no cmdline de TODAS as entradas dos 3 bootloaders ([6.2] — no live o PID-1 vindo do initramfs não reavalia drop-ins de `/etc` após o switch_root; o cmdline é a única precedência que sempre vence), remove wants de serviços debloatados, patcha o mkarchcraftiso p/ pacstrap não-interativo, anexa o fragmento E0–E8 ao customize_airootfs, expande grupos em pacotes explícitos (CI), cria o mirrorlist do archcraft p/ o ambiente de build (root/CI) e rebatiza a ISO p/ `archcraft-elite-<data>`.
+**O quê:** o "delta" inteiro. Clona o profile oficial do Archcraft, aplica o overlay `elite/airootfs`, mescla `packages.add`, comenta os de `packages.remove`, troca o firmware meta por subpacotes, insere os repos CachyOS (trio v3 + baseline) antes de `[core]`, reescreve o **menu de boot v1.1** (3 entradas: AMD default · NVIDIA dkms · nomodeset rescue — TODAS no BORE, copy-to-RAM no default e na NVIDIA; OpenSource e a antiga 05 Copy-to-RAM saem; guarda de sanidade contra referência a kernel stock), injeta `systemd.default_timeout_start_sec=90 systemd.default_timeout_stop_sec=90` no cmdline de TODAS as entradas dos 3 bootloaders ([6.2] — no live o PID-1 vindo do initramfs não reavalia drop-ins de `/etc` após o switch_root; o cmdline é a única precedência que sempre vence), remove wants de serviços debloatados, patcha o mkarchcraftiso p/ pacstrap não-interativo, anexa o fragmento E0–E12 ao customize_airootfs, expande grupos em pacotes explícitos (CI), cria o mirrorlist do archcraft p/ o ambiente de build (root/CI) e rebatiza a ISO p/ `archcraft-elite-<data>`.
 
 **Como rodar:** `bash scripts/apply-overlay.sh` → saída em `elite-build/`.
 
@@ -58,9 +58,31 @@ elite-tune --status            # certificação (sem root) — alias: elite-stat
 
 ---
 
-## elite-customize.sh (fragmento E0–E7) — anexado ao customize_airootfs do upstream
+## craft-pin (v1.1) — `/usr/local/bin/craft-pin`
 
-**O quê:** roda DENTRO do airootfs no fim do build. E0: DNS do chroot. E1: chave CachyOS no keyring (vale p/ live e instalado — o gnupg é copiado pelo unpackfs). E2: keyring+mirrorlist v3 via `pacman -U` (fallback: mirrorlist escrito na mão). E3: pacman.conf do sistema reescrito limpo (archcraft → cachyos → core/extra/multilib). E4: `pacman -Sy` valida os 6 repos no chroot. E5: cirurgia no Calamares (unpackfs copia o vmlinuz BORE; instância `initcpio@elite`; packagechooser sem Sway; btrfs default). E6: preset do BORE vira default/fallback p/ o sistema instalado. E7: tira cups/avahi da lista de serviços do post-install do Archcraft.
+**O quê:** fixa (pin) apps do usuário na DOCK — os launchers fixos do skel (Launchpad, terminal, arquivos, navegador, editor, screenshot) nascem na ISO; os SEUS ficam na seção `PINS` do `config.dock`, gerenciada por este script. Um pin = 1 linha JSONC no config + 1 entrada no `modules-left` + 1 bloco CSS autocontido no `style.dock.css` com o mesmo DNA visual dos fixos (glyph 30px → zoom 34px no hover, realce surface, cor Catppuccin à escolha). As vírgulas do JSON ficam SEMPRE corretas (juiz: parse JSON a cada mutação); skel antigo sem a seção PINS é auto-curado; toda alteração grava `.bak.<ts>` dos dois arquivos e recarrega as barras via `SIGUSR2` (man 5 waybar: "By default reloads (resets) the bar" — config + estilo, sem reiniciar a sessão). Limite honesto vs macOS: app fixado rodando aparece como ícone extra no CENTRO (wlr/taskbar) — o waybar não une pin+running.
+
+```bash
+craft-pin list                                  # apps fixados
+craft-pin add steam   ''  Steam    steam     green
+craft-pin add discord ''  Discord  discord   mauve
+craft-pin add code    ''  VS Code  code      sky
+craft-pin rm steam                               # desfixa
+craft-pin reload                                 # recarrega as barras (SIGUSR2)
+craft-pin restore                                # desfaz a última alteração
+```
+
+**Como rodar:** `craft-pin <comando>` (sem root — edita `~/.config/waybar/`). GLYPH é um glifo Nerd Font (nerdfonts.com/cheat-sheet); NOME só `[a-z0-9-]`; COR é um nome Catppuccin do `style.dock.css` (padrão `mauve`).
+
+**Reverter:** `craft-pin rm <nome>` por pin, `craft-pin restore` para a última alteração, ou restaure os `.bak.<ts>` manualmente. Add/rm em qualquer ordem devolve os arquivos **byte a byte** ao estado de fábrica (garantido por teste).
+
+**Depende de:** bash, awk, sed, grep, waybar (opcional — sem waybar rodando, só avisa).
+
+---
+
+## elite-customize.sh (fragmento E0–E12) — anexado ao customize_airootfs do upstream
+
+**O quê:** roda DENTRO do airootfs no fim do build. E0: DNS do chroot. E1: chave CachyOS no keyring (vale p/ live e instalado — o gnupg é copiado pelo unpackfs). E2: keyring+mirrorlist v3 via `pacman -U` (fallback: mirrorlist escrito na mão). E3: pacman.conf do sistema reescrito limpo (archcraft → cachyos → core/extra/multilib). E4: `pacman -Sy` valida os 6 repos no chroot. E5: cirurgia no Calamares (unpackfs copia o vmlinuz BORE; instância `initcpio@elite`; packagechooser só labwc; btrfs default). E6/E6b: presets default/fallback do BORE **e** do kernel stock p/ o instalado. E7: tira cups/avahi da lista de serviços do post-install do Archcraft. E8: remove o repo de build `[elite-local]` da ISO. E9: limpa do skel configs de sessões extintas. **E10 (v1.0.4): recopia TODOS os vmlinuz-\*** do pendrive p/ `/boot` do alvo (o rsync→btrfs do unpackfs truncava arquivos grandes — causa-raiz do `premature end of file` no rig B) **e regenera o initramfs do BORE no alvo** com hooks de sistema.
 
 **Como rodar:** automático (mkarchcraftiso chama o customize_airootfs.sh no build).
 
