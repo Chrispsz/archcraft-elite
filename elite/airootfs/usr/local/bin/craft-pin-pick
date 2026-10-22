@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# craft-pin-pick — fixa um app na DOCK escolhendo numa lista (v1.4)
+# ─────────────────────────────────────────────────────────────────────────
+# Burn test do dono na v1.3 ao vivo: "tentei fixar alguma coisa nela e
+# não consigo — na verdade fica fixando ali na bandeja de aplicativos".
+# Causa-raiz: o clique-direito do nwg-drawer pinia no PRÓPRIO drawer
+# (pinned box dele — upstream), não na dock; e o craft-pin (que fixa na
+# dock de verdade) era CLI invisível. Este picker expõe o craft-pin no
+# fluxo mouse-first: clique-direito no desktop → "Fixar app na dock…"
+# → lista de apps instalados → botão pintado no DNA visual da dock.
+#
+# Glifos por app nascem de printf '\uXXXX' (fonte 100% ASCII — a v1.1
+# perdeu glifos literais por corrupção de encoding; aqui é impossível).
+# Apps fora do mapa ganham círculo neutro em mauve.
+set -euo pipefail
+
+DOCK="$HOME/.config/waybar/config.dock"
+command -v fuzzel >/dev/null 2>&1 || { echo "✖ fuzzel não encontrado" >&2; exit 1; }
+[ -f "$DOCK" ] || { echo "✖ config.dock não encontrado: $DOCK" >&2; exit 1; }
+
+# ── 1. Inventário: .desktop visíveis (overrides primeiro — XDG order) ──
+LIST="$(mktemp)"
+trap 'rm -f "$LIST"' EXIT
+: >"$LIST"
+seen=""
+for d in /usr/local/share/applications /usr/share/applications; do
+    [ -d "$d" ] || continue
+    for f in "$d"/*.desktop; do
+        [ -r "$f" ] || continue
+        base="$(basename "$f")"
+        case " $seen " in *" $base "*) continue ;; esac
+        seen="$seen $base"
+        grep -q '^NoDisplay=true' "$f" && continue
+        name="$(sed -n 's/^Name=//p' "$f" | head -1)"
+        [ -n "$name" ] || continue
+        printf '%s\t%s\n' "$name" "$base" >>"$LIST"
+    done
+done
+[ -s "$LIST" ] || { echo "✖ nenhum aplicativo encontrado" >&2; exit 1; }
+
+# ── 2. Escolha (fuzzel dmenu central — é um picker, não um dropdown) ──
+choice="$(cut -f1 "$LIST" | fuzzel --dmenu --lines=10 --width=32 \
+    --prompt='Fixar na dock  ' 2>/dev/null || true)"
+[ -n "$choice" ] || exit 0   # Esc: nada acontece
+
+base="$(awk -F'\t' -v n="$choice" '$1 == n {print $2; exit}' "$LIST")"
+[ -n "$base" ] || exit 0
+f="/usr/local/share/applications/$base"
+[ -r "$f" ] || f="/usr/share/applications/$base"
+
+# ── 3. Deriva os args do craft-pin a partir do .desktop ──────────────
+id="$(printf '%s' "$base" | sed 's/\.desktop$//' | tr '[:upper:]' '[:lower:]' \
+    | sed 's/[^a-z0-9-]/-/g; s/^-*//; s/-*$//; s/--*/-/g')"
+[ -n "$id" ] || id="app$$"
+
+exec_="$(sed -n 's/^Exec=//p' "$f" | head -1)"
+exec_="$(printf '%s' "$exec_" | sed 's/ %[a-zA-Z]//g' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+[ -n "$exec_" ] || exec_="$id"
+
+# glifo + cor: mapa dos apps da Elite (mesma semântica da dock fixa);
+# desconhecidos → círculo em mauve
+glyph='' cor='mauve'
+case "$id" in
+    brave*)              glyph=$(printf '\uf132'); cor='peach'   ;;
+    foot*)               glyph=$(printf '\uf120'); cor='green'   ;;
+    yazi*)               glyph=$(printf '\uf07b'); cor='yellow'  ;;
+    helix*)              glyph=$(printf '\uf121'); cor='sky'     ;;
+    mpv*)                glyph=$(printf '\uf03d'); cor='mauve'   ;;
+    imv*)                glyph=$(printf '\uf03e'); cor='lavender' ;;
+    btop*|nvtop*)        glyph=$(printf '\uf080'); cor='teal'    ;;
+    qalculate*)          glyph=$(printf '\uf1ec'); cor='yellow'  ;;
+    papers*)             glyph=$(printf '\uf1c1'); cor='lavender' ;;
+    *)                   glyph=$(printf '\uf111')               ;;
+esac
+
+# ── 4. Fixa (craft-pin valida tudo, pinta o CSS e recarrega a dock) ──
+if craft-pin add "$id" "$glyph" "$choice" "$exec_" "$cor"; then
+    if command -v notify-send >/dev/null 2>&1; then
+        notify-send -a craft-pin "Dock" \
+            "'$choice' fixado na dock (clique-direito no desktop → Fixar p/ mais)" || true
+    fi
+fi

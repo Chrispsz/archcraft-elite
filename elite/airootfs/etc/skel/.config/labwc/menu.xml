@@ -97,6 +97,11 @@
     <item label="Aplicativos (Launchpad)">
       <action name="Execute" command="craft-drawer" />
     </item>
+    <!-- v1.4: fixar apps na dock no fluxo mouse-first (burn test: o
+         clique-direito do drawer pinava no drawer, não na dock) -->
+    <item label="Fixar app na dock…">
+      <action name="Execute" command="craft-pin-pick" />
+    </item>
     <item label="Lock (W-l)">
       <action name="Execute" command="craft-lock" />
     </item>

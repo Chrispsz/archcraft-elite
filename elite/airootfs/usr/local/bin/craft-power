@@ -6,7 +6,24 @@
 # abaixo do botão ⏻ da waybar — fuzzel em modo dmenu (anchor=top-right),
 # tema Catppuccin Mocha do fuzzel.ini, Esc fecha sem fazer nada.
 # Fallback: labnag (o "nag bar" nativo do labwc) se o fuzzel faltar.
+#
+# v1.4 (burn test do dono na v1.3 ao vivo): TOGGLE — apertar ⏻ de novo
+# com o menu aberto agora FECHA o menu (antes: cada pressão empilhava
+# OUTRO fuzzel na frente do desktop e nada fechava — "esse tipo de erro
+# não pode existir"). Detecta a instância pelo prompt único 'Sessão'
+# (o craft-connect usa prompt 'Rede' — nunca colidem).
 set -eu
+
+# TOGGLE v1.4: menu de sessão aberto? fecha e sai (2ª pressão = fechar)
+if pgrep -f 'fuzzel.*--prompt=Sess' >/dev/null 2>&1; then
+    pkill -f 'fuzzel.*--prompt=Sess' 2>/dev/null || true
+    exit 0
+fi
+# fallback labnag aberto (t -t 86400)? também vira toggle
+if pgrep -x labnag >/dev/null 2>&1; then
+    pkill -x labnag 2>/dev/null || true
+    exit 0
+fi
 
 MENU='Travar tela
 Sair da sessão

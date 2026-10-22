@@ -1,0 +1,38 @@
+#!/bin/sh
+# craft-connect — central de CONECTIVIDADE da menu bar (v1.4)
+# ─────────────────────────────────────────────────────────────────────────
+# Diretriz do dono (burn test da v1.3 ao vivo): "um só ícone" — o módulo
+# network da waybar chama ESTE script no clique: cabo + Wi-Fi + Bluetooth
+# resolvidos de UM lugar (dropdown fuzzel ancorado no canto superior
+# direito, pendurado na menu bar como o de Sessão). Esc fecha; teclado
+# continua valendo: W-n (impala direto) e W-S-b (bluetui direto).
+#
+# v1.4: TOGGLE — 2ª chamada com o menu aberto apenas fecha (mesma cura
+# do craft-power; prompt único 'Rede' nunca colide com o 'Sessão').
+# Sem fuzzel: cai direto no impala (a rede é o caso padrão).
+set -eu
+
+# TOGGLE: central aberta? fecha e sai
+if pgrep -f 'fuzzel.*--prompt=Rede' >/dev/null 2>&1; then
+    pkill -f 'fuzzel.*--prompt=Rede' 2>/dev/null || true
+    exit 0
+fi
+
+MENU='Wi-Fi e Ethernet (impala)
+Bluetooth (bluetui)'
+
+if command -v fuzzel >/dev/null 2>&1; then
+    # mesmas âncoras do craft-power: pendurado no canto direito da menu
+    # bar (34px) — os dois dropdowns da barra nascem do mesmo lugar
+    choice="$(printf '%s\n' "$MENU" | fuzzel --dmenu \
+        --anchor=top-right --x-margin=10 --y-margin=44 \
+        --lines=2 --width=28 --prompt='Rede  ' 2>/dev/null || true)"
+else
+    exec foot -e impala
+fi
+
+case "$choice" in
+    'Wi-Fi e Ethernet (impala)') exec foot -e impala ;;
+    'Bluetooth (bluetui)')        exec foot -e bluetui ;;
+    *)                            exit 0 ;;
+esac

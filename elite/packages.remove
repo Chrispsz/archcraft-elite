@@ -25,8 +25,8 @@ nvidia-settings
 
 ## ── v1.1 · PURGA DO APP-LAYER LEGADO (MEGA PROMPT do dono) ──────────
 ## Diretriz: stack 100% moderna e Wayland-native (Rust/GTK4). As contra-
-## partes entram via packages.add: brave-bin, yazi, papers, pwvucontrol,
-## bluetui, impala, helix.
+## partes entram via packages.add: brave-origin (v1.4), yazi, papers,
+## pwvucontrol, bluetui, impala, helix.
 ## v1.2 (burn test do dono no rig B, evidência do squashfs): xgps/xgps-
 ## speed/gpsd APARECERAM no menu do live, e o Thunar TAMBÉM (apesar de
 ## removido!). Causa-raiz no pacman db da ISO: (1) gpsd é dependência DURA
