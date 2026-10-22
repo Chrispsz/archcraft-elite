@@ -31,7 +31,10 @@
 @define-color crust     #11111b;
 
 * {
-  font-family: "JetBrainsMono Nerd Font", "Font Awesome 6 Free", sans-serif;
+  /* v2.1: família REAL do archcraft-fonts 2.0 ("JetBrainsMono NF" — a
+   * "JetBrainsMono Nerd Font" do CSS antigo NÃO existe: glifos caíam no
+   * fallback do fontconfig). Symbols Nerd Font = rede de segurança. */
+  font-family: "JetBrainsMono NF", "Symbols Nerd Font", sans-serif;
   font-size: 13px;
   font-weight: 500;
   min-height: 0;
@@ -47,7 +50,6 @@ window#waybar {
 
 /* Módulos: padding horizontal generoso, hover com pílula (estilo item de
  * menu do macOS — hover suave em todo o alvo, não só no texto) */
-#custom-menu,
 #custom-power {
   padding: 0 14px;
   font-size: 15px;
@@ -83,7 +85,6 @@ window#waybar {
 
 /* Hover: pílula arredondada — feedback de clique em TUDO · :active:
  * pressed = superfície mais escura (matriz de estados completa) */
-#custom-menu:hover,
 #custom-power:hover,
 #wlr-window:hover,
 #mpris:hover,
@@ -98,7 +99,6 @@ window#waybar {
   transition: background 0.15s ease;
 }
 
-#custom-menu:active,
 #custom-power:active,
 #wlr-window:active,
 #mpris:active,
@@ -113,6 +113,16 @@ window#waybar {
 /* Café ativado = âmbar (estado visível) */
 #idle-inhibitor.activated {
   color: @peach;
+}
+
+/* Volume mudo = vermelho (v2.1: ícone só — o estado precisa gritar) */
+#pulseaudio.muted {
+  color: @red;
+}
+
+/* Rede caída = vermelho suave */
+#network.disconnected {
+  color: @red;
 }
 
 /* Power: vermelho no hover — destrutivo, sinaliza */

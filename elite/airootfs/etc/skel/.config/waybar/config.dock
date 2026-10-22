@@ -1,23 +1,20 @@
-// Archcraft ELITE · Waybar DOCK — barra flutuante estilo macOS (Catppuccin Mocha)
+// Archcraft ELITE · Waybar DOCK — pílula flutuante estilo macOS (Catppuccin Mocha)
 // ─────────────────────────────────────────────────────────────────────────
-// Desktop v2 (v1.0.4): o DOCK — pílula flutuante na base da tela com
-// apps fixos (launchers clicáveis) + janelas abertas (wlr/taskbar com
-// ícones reais das apps via Papirus) + lock/power. Tudo mouse-first.
+// Desktop v2.1: fixados + janelas abertas num SÓ grupo CENTRAL (modelo macOS
+// — diretriz do dono: "fixados no centro, abertos no centro"). A pílula é
+// auto-ocultante (v1.1): "exclusive": false + CSS margin-bottom negativa —
+// hover na faixa inferior revela com transição suave.
 //
-// Roda como 2ª instância do waybar (o autostart sobe esta e a config.top).
-// Sem módulo de tray aqui: o SNI watcher é único por sessão (fica no topo).
+// v2.1: sem lock/power na dock — a sessão mora na BARRA SUPERIOR (botão
+// ⏻ no canto direito → craft-power). Dock = lançar e alternar, só.
 //
-// v1.1: DOCK AUTO-OCULTANTE (diretriz do dono — "ícones fixos que auto
-// ocultam", estilo COSMIC/macOS). "exclusive": false → a dock não reserva
-// espaço na tela (janelas usam a base); o CSS esconde a pílula com
-// margin-bottom negativa e a revela no :hover da faixa inferior (ver
-// style.dock.css — transição suave). Sem hover por alguns segundos ela
-// dessozinha de volta: auto-hide de verdade, zero clique perdido.
+// GLIFOS: escritos como escapes JSON \uXXXX — à prova de corrupção de
+// encoding (v1.1 perdeu glifos literais: 7 de 8 botões invisíveis).
+// Verificados no cmap do Symbols Nerd Font (archcraft-fonts 2.0).
 //
-// FIXAR APPS (v1.1): os launchers fixos acima nascem no skel; os SEUS ficam
-// na seção PINS logo antes do fechamento do arquivo — gerencie com
-// `craft-pin add steam '' Steam steam green` / `craft-pin rm steam`
-// (o script mantém vírgulas, CSS e reload; edição manual é por sua conta).
+// FIXAR APPS: os launchers fixos acima nascem no skel; os SEUS ficam na
+// seção PINS — gerencie com `craft-pin add steam '' Steam steam green` /
+// `craft-pin rm steam` (insere ANTES do separador, junto aos fixos).
 {
   "layer": "top",
   "position": "bottom",
@@ -31,58 +28,65 @@
   "fixed-center": true,
   "reload_style_on_change": true,
 
-  // Esquerda: Launchpad (grade) + apps fixos
-  "modules-left": [
+  // Esquerda/direita: VAZIOS — o modelo macOS é um único bloco central
+  "modules-left": [],
+  "modules-right": [],
+
+  // Centro: Launchpad + apps fixos + separador + janelas abertas — um grupo
+  // (craft-pin insere os SEUS pins antes do "custom/sep")
+  "modules-center": [
     "custom/drawer",
     "custom/term",
     "custom/files",
     "custom/web",
     "custom/editor",
-    "custom/shot"
+    "custom/shot",
+    "custom/sep",
+    "wlr/taskbar"
   ],
-
-  // Centro: janelas abertas — ícones reais das apps (wlr-foreign-toplevel,
-  // nativo do labwc). Clique foca, meio fecha, direito minimiza.
-  "modules-center": ["wlr/taskbar"],
-
-  // Direita: lock + power
-  "modules-right": ["custom/lock", "custom/power"],
 
   // Launchpad — grade de apps com busca e categorias (nwg-drawer)
   "custom/drawer": {
-    "format": "",
+    "format": "\uf00b",
     "tooltip-format": "Aplicativos",
     "on-click": "craft-drawer"
   },
 
   // ── Apps fixos (mouse-first: um clique, um app) ──────────────────────
   "custom/term": {
-    "format": "",
+    "format": "\uf120",
     "tooltip-format": "Terminal (foot)",
     "on-click": "foot"
   },
   "custom/files": {
-    "format": "",
+    "format": "\uf07b",
     "tooltip-format": "Arquivos (yazi)",
     "on-click": "foot -e yazi"
   },
   "custom/web": {
-    "format": "󰈹",
-    "tooltip-format": "Navegador (Brave)",
+    "format": "\uf132",
+    "tooltip-format": "Brave (navegador padrão)",
     "on-click": "brave"
   },
   "custom/editor": {
-    "format": "",
+    "format": "\uf121",
     "tooltip-format": "Editor (Helix)",
     "on-click": "foot -e helix"
   },
   "custom/shot": {
-    "format": "",
+    "format": "\uf0c4",
     "tooltip-format": "Screenshot (região)",
     "on-click": "craft-shot"
   },
 
-  // Janelas abertas — ícones grandes estilo dock (Papirus via wlr/taskbar)
+  // Separador fixos │ abertos (1px via CSS — fronteira visual do modelo)
+  "custom/sep": {
+    "format": " ",
+    "tooltip": false
+  },
+
+  // Janelas abertas — ícones grandes estilo dock (Papirus via wlr/taskbar;
+  // app_id → .desktop → ícone). Clique foca, meio fecha, dir minimiza.
   "wlr/taskbar": {
     "format": "{icon}",
     "icon-size": 40,
@@ -91,18 +95,6 @@
     "on-click-middle": "close",
     "on-click-right": "minimize",
     "ignore-list": []
-  },
-
-  // Lock e power (fecha o círculo de sessão no dock)
-  "custom/lock": {
-    "format": "",
-    "tooltip-format": "Travar tela",
-    "on-click": "craft-lock"
-  },
-  "custom/power": {
-    "format": "",
-    "tooltip-format": "Sessão",
-    "on-click": "craft-power"
   }
 
   // ── PINS (craft-pin) — apps fixados pelo usuário; use craft-pin add/rm
