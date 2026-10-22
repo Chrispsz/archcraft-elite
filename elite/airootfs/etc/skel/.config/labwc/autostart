@@ -73,6 +73,15 @@ if command -v swayidle >/dev/null 2>&1; then
         before-sleep 'hyprlock' &
 fi
 
+# --- Keyring CachyOS (v1.5, camada 4): self-healing de runtime — os
+#     comandos LITERAIS da spec (init → populate → refresh de keyring)
+#     em background, idempotentes, sudo -n (nunca pede senha no escuro).
+#     As camadas 1-3 (build E2b + E10 no alvo + pacman-init do live) já
+#     curam o essencial; esta cobre skew futuro e liveuser no live.
+if [ -x /usr/local/bin/craft-fix-keys ]; then
+    /usr/local/bin/craft-fix-keys &
+fi
+
 # --- Clipboard: histórico persistente (cliphist — receita oficial do
 #     labwc; W-v abre o histórico no fuzzel)
 if command -v wl-paste >/dev/null 2>&1 && command -v cliphist >/dev/null 2>&1; then

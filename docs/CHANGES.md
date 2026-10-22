@@ -22,7 +22,9 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
     `pacman-key --populate archlinux cachyos` no chroot do build (vai pro
     squashfs → vai pro disco) + GATE DURO (cachyos.gpg ausente = fail no
     build, nunca no boot) + belt-and-suspenders no **[E10]** (populate no
-    arch-chroot do alvo na instalação).
+    arch-chroot do alvo na instalação) + **camada 4**: 
+    no autostart (comandos LITERAIS da spec, idempotentes, sudo -n,
+    background — self-healing de sessão p/ skew futuro).
   - **foot.ini — O TERMINAL PERDIA O RICE INTEIRO**: as seções
     `[shell]/[font]/[colors]/[dim]/[bright-bold]` NÃO EXISTEM no foot — o
     terminal logava "invalid section" e IGNORAVA tudo dentro: a fonte
