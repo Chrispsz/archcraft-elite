@@ -38,24 +38,48 @@ if ! pacman-key --list-keys "$ELITE_KEY" >/dev/null 2>&1; then
     pacman-key --lsign-key "$ELITE_KEY" || true
 fi
 
-## [E2] keyring + mirrorlist v3 oficiais — OFFLINE-FIRST. O .ci/build.sh
-##      baixa os dois (listing us → pin; download cdn77 → us) p/ o
-##      [elite-local], que é o PRIMEIRO repo do conf de build: o pacman -S
-##      resolve por file:// e o customize NÃO toca a rede (download aqui
-##      era a última fonte potencial de curl errors do chroot — skew de
-##      mirror não alcança mais esta fase). Camadas: [elite-local] →
-##      pacman -U (mirror) → mirrorlist manual (a chave já caiu via E1;
-##      o keyring empacotado é a forma canônica, atualizável pelo pacman).
+## [E2] keyring + mirrorlist v3 oficiais — OFFLINE-FIRST (v1.5.1 REAL).
+##      O .ci/build.sh baixa os dois (listing us → pin; download cdn77 →
+##      us) p/ o [elite-local], entregue DENTRO do chroot via overlay
+##      (build.sh: "file:// resolve relativo ao root ativo"). Escada:
+##      [elite-local] → pacman -U (mirror) → mirrorlist manual (a chave
+##      já caiu via E1; o keyring empacotado é a forma canônica,
+##      atualizável pelo pacman).
+##
+##      v1.5.1 — CURA do run #40/#41, com as DUAS causas provadas nos logs
+##      (a segunda presente DESDE a v1.4, onde falhava em silêncio e a ISO
+##      saía sem keyring — causa-raiz do "unknown trust" do burn test):
+##        (a) o /etc/pacman.conf DESTE momento é o do PACOTE pacman: o
+##            pacstrap -C NÃO copia o conf p/ o chroot (só -P faria) →
+##            SEM [elite-local] → o -S dava "target not found" em TODA
+##            run (v1.4 incluída) e caía no -U de rede sem ninguém ver;
+##        (b) o commit de QUALQUER install in-chroot morria no CheckSpace:
+##            o mtab lido pelo pacman (/etc/mtab → /proc/self/mounts do
+##            chroot) NÃO lista entrada "/" → "could not determine root
+##            mount point /" + "not enough free disk space" com 84G
+##            livres (fonte: diskspace.c/sync.c do pacman — check_diskspace
+##            é gated pelo CheckSpace e SÓ existe no caminho de install;
+##            -R/-Sy nunca passam por ele).
+##      Cura: conf efêmero = /etc/pacman.conf + [elite-local] (file://)
+##      SEM CheckSpace → -S offline determinístico (repo dentro do chroot)
+##      + commit sem a sonda de mtab. O conf do sistema fica intocado (E3
+##      o reescreve logo a seguir); o -U de rede segue como fallback.
 elite_latest() {
     curl -fsSL --max-time 30 "${ELITE_MIRROR}/repo/x86_64/cachyos/" 2>/dev/null \
         | grep -oE "$1-[0-9][^\"]*\.pkg\.tar\.zst" | sort -Vu | tail -1 || true
 }
-if ! pacman -S --noconfirm cachyos-keyring cachyos-v3-mirrorlist; then
+ELITE_PC_KR="$(mktemp)"
+{
+    cat /etc/pacman.conf
+    printf '\n[elite-local]\nSigLevel = Never\nServer = file:///var/cache/elite-local\n'
+} >"$ELITE_PC_KR"
+sed '/^[[:space:]]*CheckSpace[[:space:]]*$/d' "$ELITE_PC_KR" >"${ELITE_PC_KR}.nc"
+if ! pacman --config "${ELITE_PC_KR}.nc" -S --noconfirm cachyos-keyring cachyos-v3-mirrorlist; then
     ELITE_KEYRING_PKG="$(elite_latest cachyos-keyring)"
     [[ -n "$ELITE_KEYRING_PKG" ]] || ELITE_KEYRING_PKG="$ELITE_KEYRING_PINNED"
     ELITE_V3ML_PKG="$(elite_latest cachyos-v3-mirrorlist)"
     [[ -n "$ELITE_V3ML_PKG" ]] || ELITE_V3ML_PKG="$ELITE_V3ML_PINNED"
-    if ! pacman -U --noconfirm \
+    if ! pacman --config "${ELITE_PC_KR}.nc" -U --noconfirm \
             "${ELITE_MIRROR}/repo/x86_64/cachyos/${ELITE_KEYRING_PKG}" \
             "${ELITE_MIRROR}/repo/x86_64/cachyos/${ELITE_V3ML_PKG}"; then
         ## Fallback: escreve o mirrorlist na mão (a chave já caiu via E1)
@@ -63,6 +87,7 @@ if ! pacman -S --noconfirm cachyos-keyring cachyos-v3-mirrorlist; then
             "$ELITE_MIRROR" "$ELITE_MIRROR2" > /etc/pacman.d/cachyos-v3-mirrorlist
     fi
 fi
+rm -f "$ELITE_PC_KR" "${ELITE_PC_KR}.nc"
 
 ## [E2b] v1.5 — POPULAR o keyring do chroot (build/live/instalado).
 ##       Causa-raiz do "signature from CachyOS unknown trust" do burn
