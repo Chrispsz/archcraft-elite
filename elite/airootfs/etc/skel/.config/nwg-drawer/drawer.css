@@ -1,4 +1,4 @@
-/* Archcraft ELITE · nwg-drawer CSS — o "Launchpad" · AMOLED rice v1.3
+/* Archcraft ELITE · nwg-drawer CSS — o "Launchpad" · AMOLED rice v1.4
  * Seletores oficiais do upstream (drawer.css do repo nwg-piotr/nwg-drawer):
  * window, entry, button, image, #category-button, #pinned-box, #files-box,
  * #math-label. Lido de ~/.config/nwg-drawer/drawer.css.
@@ -8,7 +8,15 @@
  * (#status-label dentro de #status-line-wrapper — tools.go:429/main.go:725
  * do nwg-drawer 0.7.5, exatamente o da ISO). O dono mandou sumir: em vez de
  * fork, o par é MORTO por CSS (opacity 0 + font 1px + colapso de margem) —
- * reversível, sem custo de upstream, e o rodapé de poder segue no lugar. */
+ * reversível, sem custo de upstream, e o rodapé de poder segue no lugar.
+ *
+ * v1.4 · DRAWER LIMPO (burn test ao vivo, diretrizes do dono):
+ *   · -nocats no craft-drawer: a barra de CATEGORIAS nem nasce (flag
+ *     oficial do upstream) — os seletores #category-button abaixo ficam
+ *     DORMENTES (sem widget para casar): mantidos para o caso de alguém
+ *     rodar o nwg-drawer sem -nocats e ter o mesmo tema na hora
+ *   · flags -pb* REMOVIDAS do craft-drawer: a barra de sessão da base
+ *     não existe mais (a sessão mora na menu bar — craft-power) */
 
 @define-color crust    #000000;
 @define-color mantle   #050508;

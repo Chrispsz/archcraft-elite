@@ -6,6 +6,53 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **v1.4 (branch feat/v1.4-origin-polish)** — **BRAVE ORIGIN + ORGANIZAÇÃO
+  DO RICE** (burn test da v1.3 AO VIVO no rig do dono — 3 fotos + mensagem
+  de voz, 2026-10-22: *"invés do Brave ser o Brave Origin"*, *"a dock
+  sumiu"*, *"ícones sobrepostos, ui/UX não responsiva"*, *"remover as
+  categorias e os botões debaixo"*, *"um só ícone de conectividade"*,
+  *"esse tipo de erro não pode existir"*). Cada item abaixo responde a uma
+  diretrize literal do dono.
+  - **Navegador = BRAVE ORIGIN (pacote, não tema)**: o produto oficial
+    `brave-origin-*.zip` das releases da Brave (1ª classe: linux amd64/
+    arm64 + darwin; profile próprio `BraveSoftware/Brave-Origin`) substitui
+    o `brave-bin` do AUR. Empacotado no build com versão **PINADA 1.98.60**
+    + sha256 verificado (determinismo — o AUR nem é mais consultado p/
+    navegador). **Zero regressão**: launcher `/usr/bin/brave` lendo
+    `brave-flags.conf` (padrão chromium-flags), desktop
+    `brave-browser.desktop` (contrato do mimeapps.list do skel e do app_id
+    do taskbar — `StartupWMClass=brave-browser` confirmado NO BINÁRIO),
+    sandbox suid, ícones hicolor do `product_logo`. `Name=Brave Origin`.
+  - **Dock SEMPRE VISÍVEL** (a "dock sumiu" do burn test): o auto-hide
+    v1.1 (`margin-bottom: -52px` — sobrava um talho de 10px com metade dos
+    ícones CORTADOS na base: os "ícones sobrepostos") é EXTINTO. A pílula
+    flutua 8px acima da base, sempre (iOS/macOS); zoom hover 30→36px
+    (magnificação perceptível — "estilo iOS, aumentam quando passa").
+  - **Drawer LIMPO**: `-nocats` (flag oficial do upstream — a barra de
+    categorias nem nasce; "deixa o usuário criar o próprio sistema") e
+    flags `-pb*` extintas (a barra de sessão da base — travar/desligar/
+    reiniciar — não existe mais: sessão mora SÓ na menu bar).
+  - **ARCH no canto esquerdo da menu bar** (`custom/menu`, U+F303 em
+    MAUVE, clique = Launchpad): a instrução que os resets de sandbox tinham
+    apagado — a "maçã" do macOS da Elite.
+  - **Conectividade = UM ícone**: o módulo network abre o **craft-connect**
+    (novo): dropdown Redes→impala · Bluetooth→bluetui — cabo, Wi-Fi e
+    Bluetooth num só lugar. O café (idle inhibitor) fica INVISÍVEL quando
+    desativado (CSS v1.4) — fim dos "dois ícones de rede" do burn test.
+  - **Sessão com TOGGLE** (o bug do burn test: apertar ⏻ de novo empilhava
+    outro fuzzel na frente do desktop e nada fechava): `craft-power`
+    detecta o menu aberto (`--prompt=Sessão`) e a 2ª pressão FECHA.
+    Fallback labnag idem.
+  - **Fixar apps na dock, mouse-first** ("tentei fixar e não consigo"):
+    novo **craft-pin-pick** — clique-direito no desktop → "Fixar app na
+    dock…" → lista os .desktop instalados → pinta o botão no DNA visual da
+    dock (glyph+cor mapeados por app, `printf '\uXXXX'` à prova de
+    corrupção). O clique-direito do drawer segue pinando no PRÓPRIO drawer
+    (comportamento upstream), agora sem ambiguidade.
+  - **Suíte**: 857 peças GO (19 novos contratos v1.4; contratos v1.1/v2.1
+    superseded reescritos — auto-hide, power bar, impala-direto, logo
+    esquerdo — com a razão da troca documentada em cada).
+
 - **v1.3 (branch feat/v1.3-amoled-rice)** — **AMOLED RICE: preto REAL em
   toda superfície + rodapé do Launchpad extinto + logo do Arch na dock**
   (2ª rodada de diretrizes do dono: "rodapé do launcher", "preto puro

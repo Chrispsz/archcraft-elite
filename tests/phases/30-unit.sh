@@ -178,9 +178,39 @@ else
   fail "contrato fix #52: inputs do workflow_call" "bloco inputs não está depois de workflow_call (linha $WILINE vs $WCLINE)"
 fi
 
-# v1.1: estágio AUR do build — brave-bin/pwvucontrol nascem no [elite-local]
-assert_grep "$REPO/.ci/build.sh" 'aur_build brave-bin' "contrato v1.1: build.sh compila brave-bin do AUR → elite-local"
+# v1.1→v1.4: brave-origin (release oficial pinado) + pwvucontrol nascem no [elite-local]
+assert_grep "$REPO/.ci/build.sh" 'pkgname=brave-origin' "contrato v1.4: build.sh empacota brave-origin (release oficial) → elite-local"
+assert_grep "$REPO/.ci/build.sh" 'brave-origin-.*linux-amd64' "contrato v1.4: source do brave-origin = release oficial da Brave"
+assert_grep "$REPO/.ci/build.sh" '39a69cf12b5787f789d0a0b013f32253bddc9004d03e36c679a8daa61821b6e8' "contrato v1.4: sha256 do brave-origin PINADO no build"
 assert_grep "$REPO/.ci/build.sh" 'aur_build pwvucontrol' "contrato v1.1: build.sh compila pwvucontrol do AUR → elite-local"
+# v1.4 (lição da run #57: "install: cannot stat 'brave-origin.sh'"): os
+# sources LOCAIS precisam estar no source=() do PKGBUILD E os sha256
+# declarados têm que bater com os bytes REAIS dos heredocs — se alguém
+# editar o launcher/desktop sem recalcular, o makepkg falha no CI. Este
+# contrato quebra ANTES de gastar run.
+assert_grep "$REPO/.ci/build.sh" 'source=\(brave-origin\.sh' "contrato v1.4: brave-origin.sh declarado no source=() (makepkg o copia ao srcdir)"
+assert_grep "$REPO/.ci/build.sh" 'brave-browser\.desktop' "contrato v1.4: brave-browser.desktop declarado no source=()"
+if command -v python3 >/dev/null 2>&1; then
+  bo_hashes="$(python3 - "$REPO/.ci/build.sh" << 'PYEOF'
+import hashlib, sys
+raw = open(sys.argv[1], 'rb').read().decode('utf-8')
+for marker in ('EOSH', 'EODESK'):
+    key = f"<<'{marker}'\n"
+    start = raw.find(key) + len(key)
+    end = raw.find(f"\n{marker}\n", start)
+    if end < 0:
+        print(f"HEREDOC-AUSENTE-{marker}")
+        continue
+    print(hashlib.sha256(raw[start:end + 1].encode('utf-8')).hexdigest())
+PYEOF
+)"
+  h_sh="$(printf '%s\n' "$bo_hashes" | sed -n '1p')"
+  h_desk="$(printf '%s\n' "$bo_hashes" | sed -n '2p')"
+  assert_grep "$REPO/.ci/build.sh" "$h_sh" "contrato v1.4: sha256 do brave-origin.sh confere com o heredoc (anti-drift)"
+  assert_grep "$REPO/.ci/build.sh" "$h_desk" "contrato v1.4: sha256 do brave-browser.desktop confere com o heredoc (anti-drift)"
+else
+  skip "contrato v1.4: sha256 dos heredocs" "python3 indisponível"
+fi
 assert_grep "$REPO/.ci/build.sh" 'base-devel sudo' "contrato v1.1: container prep ganha base-devel+sudo (makepkg do AUR)"
 
 # ── 3.E listas de pacotes (sanidade das duas caixas) ─────────────────

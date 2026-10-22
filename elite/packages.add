@@ -120,8 +120,11 @@ tealdeer
 ##   · bluetui (TUI Rust — Bluetooth, substitui blueman)
 ##   · impala (TUI Rust — rede/iwd+NM, substitui nm-applet no dia-a-dia)
 ##   · helix (Rust — editor modal, substitui mousepad+vim)
-##   · brave-bin (Chromium Wayland-native com flags da Elite — substitui
-##     firefox; construído no build via estágio AUR → [elite-local])
+##   · brave-origin (v1.4, diretriz do dono: o navegador padrão passa a
+##     ser o BRAVE ORIGIN — release oficial brave-origin-*.zip da Brave,
+##     empacotado no build com versão pinada + sha256 → [elite-local];
+##     launcher /usr/bin/brave idêntico: flags Wayland/Vulkan da Elite
+##     no skel seguem valendo — substitui firefox e o brave-bin antigo)
 ##   · yazi (Rust — FM TUI; o Thunar GTK3 saiu — yazi é O gerenciador)
 qalculate-gtk
 nwg-look
@@ -131,7 +134,7 @@ pwvucontrol
 bluetui
 impala
 helix
-brave-bin
+brave-origin
 
 ## Satélites oficiais do labwc (docs labwc.github.io/integration):
 ## idle→lock, automount USB, night light, clipboard history

@@ -181,11 +181,14 @@ assert_grep "$TY" 'bash tests/run-tests\.sh' "contrato: tests.yml executa a suí
 assert_grep "$TY" 'shellcheck' "contrato: tests.yml instala o shellcheck (o gate de lint)"
 assert_grep "$TY" 'pull_request:' "contrato: tests.yml roda em PR (gate de merge)"
 
-# ── peças: dock auto-ocultante + pins do usuário (contratos do rice) ──
+# ── peças: dock SEMPRE VISÍVEL (v1.4) + pins do usuário (contratos do rice) ─
 DK="$REPO/elite/airootfs/etc/skel/.config/waybar/config.dock"
 DKCSS="$REPO/elite/airootfs/etc/skel/.config/waybar/style.dock.css"
-assert_grep "$DK" '"exclusive": false' "dock: exclusive false (auto-hide — janelas usam a base)"
-assert_grep "$DKCSS" 'margin-bottom: -52px' "dock: CSS esconde a pílula fora do hover (auto-ocultante)"
+assert_grep "$DK" '"exclusive": false' "dock: exclusive false (janelas usam a base — modelo macOS)"
+# v1.4 (burn test do dono: "a dock sumiu"): auto-hide MORTO — a pílula é
+# SEMPRE visível, flutuando 8px (config) sem margem negativa no CSS
+assert_grep "$DK" '"margin-bottom": 8' "dock: v1.4 flutua 8px SEMPRE (auto-hide extinto)"
+assert_nogrep "$DKCSS" 'margin-bottom: -' "dock: v1.4 sem margem negativa no CSS (o talho de ícones cortados era isso)"
 assert_grep "$DK" 'PINS \(craft-pin\)' "dock: seção PINS presente (craft-pin add/rm gerencia)"
 assert_grep "$DKCSS" 'Pins do usuário \(craft-pin\)' "dock: CSS tem a seção de pins documentada"
 pin_defs=$(grep -c '^  "custom/pin-' "$DK" || true)
