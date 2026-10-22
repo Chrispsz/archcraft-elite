@@ -1282,10 +1282,12 @@ if command -v python3 >/dev/null 2>&1; then
     read -r walres walblack walmean < <(python3 - "$WAL" << 'PYEOF'
 import sys
 from PIL import Image
-import numpy as np
-im = Image.open(sys.argv[1])
-arr = np.array(im.convert('L'))
-print(im.size[0], round((arr < 8).mean() * 100, 1), round(float(arr.mean()), 1))
+im = Image.open(sys.argv[1]).convert('L')
+h = im.histogram()  # 256 bins de luminância — sem numpy
+total = sum(h)
+black = sum(h[:8]) / total * 100
+mean = sum(i * c for i, c in enumerate(h)) / total
+print(im.size[0], round(black, 1), round(mean, 1))
 PYEOF
 )
     assert_eq "$walres" "3840" "v1.3: wallpaper 4K (3840px de largura)"
