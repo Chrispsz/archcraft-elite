@@ -53,7 +53,28 @@ on:
   # obrigatório de release — a ISO só vira release se o disco INSTALADO
   # bootar. É o teste que qualquer distro sética tem e este projeto não
   # tinha rodando em cadeia (o bug do rig B vive exatamente aqui).
+  # FIX #52: inputs DECLARADOS no workflow_call — o build.yml passa run_id
+  # (a run corrente dele) e o gate baixa o artifact DESTA build. O check
+  # antigo (variável de ambiente do evento == workflow_call) nunca era
+  # verdade: a variável de ambiente padrão reflete o evento da RUN
+  # (push/dispatch/tag), não o tipo de chamada do workflow —
+  # workflow_call seta o CONTEXTO github.event_name, não o env. As builds
+  # #48–#52 caíam no fallback "última bem-sucedida" e o gate testava a ISO
+  # v1.0.4 (run #45): o linux.preset dela é legítimo (kernel duplo daquela
+  # era) → reprovação eterna de um produto que nunca foi testado de
+  # verdade.
   workflow_call:
+    inputs:
+      run_id:
+        description: 'Run ID da build cujo artifact archcraft-elite-iso testar (o build.yml passa a run corrente)'
+        required: false
+        default: ''
+        type: string
+      tag:
+        description: 'OU release tag (ex: v1.0.4) — tem prioridade sobre run_id'
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read
@@ -73,23 +94,22 @@ jobs:
           mkfs.btrfs --version | head -1
           if [ -e /dev/kvm ]; then echo "KVM presente: $(ls -la /dev/kvm)"; else echo "KVM ausente — TCG (lento)"; fi
 
-      - name: Baixar ISO (artifact da build OU release tag)
+      - name: Baixar ISO (tag > run_id > última bem-sucedida)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RUN_ID: ${{ inputs.run_id }}
           TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
-          if [[ "${GITHUB_EVENT_NAME:-}" == "workflow_call" ]]; then
-            # gate do build.yml: artifact DESTA run corrente (a ISO que acabou
-            # de ser construída — não a última bem-sucedida, que pode ser antiga)
-            echo "→ workflow_call: artifact da run corrente $GITHUB_RUN_ID"
-            gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" \
-              --name archcraft-elite-iso --dir iso-out
-            ( cd iso-out && sha256sum -c sha256sums.txt --ignore-missing || true )
-            mv iso-out/*.iso elite.iso
-            rm -rf iso-out
-          elif [ -n "$TAG" ]; then
+          # FIX #52: a fonte da verdade é o INPUT explícito — nunca a
+          # variável de ambiente do evento da run (ela reflete o evento —
+          # push/dispatch/tag — e o branch 'workflow_call' antigo NUNCA
+          # executava: as builds #48–#52 baixavam o artifact da última run
+          # bem-sucedida = ISO v1.0.4, e o gate reprovava o linux.preset
+          # legítimo dela). Ordem: tag (release) > run_id (build específica
+          # — o gate passa a run corrente) > fallback consciente p/
+          # dispatch manual.
+          if [ -n "$TAG" ]; then
             echo "→ release $TAG"
             gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
               --pattern '*.part-*' --pattern 'sha256sums.txt' --clobber
@@ -98,16 +118,19 @@ jobs:
             grep ' archcraft-elite-.*\.iso$' sha256sums.txt \
               | sed 's/archcraft-elite-[^ ]*\.iso/elite.iso/' > check.txt
             sha256sum -c check.txt
+          elif [ -n "$RUN_ID" ]; then
+            echo "→ run_id $RUN_ID (input explícito — o gate testa ESTA build)"
+            gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" \
+              --name archcraft-elite-iso --dir iso-out
+            ( cd iso-out && sha256sum -c sha256sums.txt --ignore-missing || true )
+            mv iso-out/*.iso elite.iso
+            rm -rf iso-out
           else
-            RID="$RUN_ID"
-            if [ -z "$RID" ]; then
-              RID=$(gh run list --repo "$GITHUB_REPOSITORY" \
-                --workflow 'Build Elite ISO' --status success --limit 5 \
-                --json databaseId --jq '.[0].databaseId')
-              echo "→ run_id não informado; usando a mais recente bem-sucedida: $RID"
-            else
-              echo "→ run_id $RID"
-            fi
+            echo "→ sem run_id/tag: última build BEM-SUCEDIDA (dispatch manual — pode ser ISO ANTIGA)"
+            RID=$(gh run list --repo "$GITHUB_REPOSITORY" \
+              --workflow 'Build Elite ISO' --status success --limit 5 \
+              --json databaseId --jq '.[0].databaseId')
+            echo "  → run $RID"
             gh run download "$RID" --repo "$GITHUB_REPOSITORY" \
               --name archcraft-elite-iso --dir iso-out
             ( cd iso-out && sha256sum -c sha256sums.txt --ignore-missing || true )

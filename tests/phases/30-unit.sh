@@ -144,6 +144,39 @@ assert_grep "$DI" '0x10de\) ELITE_GPU=nvidia' "contrato v1.1: detector de vendor
 assert_grep "$DI" 'pacman -Rdd --noconfirm nvidia-open-dkms' "contrato v1.1: limpeza AMD do E10 no gate"
 assert_grep "$DI" 'gpu-detect\.txt' "contrato v1.1: artifact gpu-detect.txt (no lugar do mkinitcpio-stock.log)"
 assert_nogrep "$DI" 'mkinitcpio-stock\.log' "contrato v1.1: artifact do kernel stock sumiu do gate"
+# FIX #52 (forense das builds #48–#52): o gate verify-install baixava a ISO
+# da ÚLTIMA run bem-sucedida (v1.0.4, run #45) — o check antigo confiava em
+# GITHUB_EVENT_NAME == workflow_call, que nunca é verdade como env padrão (o
+# env reflete o evento da RUN: push/dispatch/tag; workflow_call seta o
+# CONTEXTO github.event_name, não o env). 5 builds reprovadas pelo
+# linux.preset legítimo da v1.0.4 (kernel duplo daquela era) — produto são,
+# gate cego. A fonte da verdade agora é o INPUT explícito.
+assert_grep "$BY" 'run_id: \$\{\{ github\.run_id \}\}' \
+  "contrato fix #52: build.yml passa a run corrente ao install-gate (a ISO testada é a desta build)"
+assert_grep "$DI" 'gh run download "\$RUN_ID"' \
+  "contrato fix #52: diag-install baixa o artifact do run_id explícito (input = fonte da verdade)"
+assert_nogrep "$DI" 'GITHUB_EVENT_NAME' \
+  "contrato fix #52: o env GITHUB_EVENT_NAME não decide mais a fonte da ISO (nunca era workflow_call)"
+# ordem de precedência documentada: tag (release manual) > run_id (gate) >
+# fallback consciente — o elif do RUN_ID vem DEPOIS do TAG
+TAGLINE=$(grep -n 'if \[ -n "\$TAG" \]' "$DI" | head -1 | cut -d: -f1)
+RIDLINE=$(grep -n 'elif \[ -n "\$RUN_ID" \]' "$DI" | head -1 | cut -d: -f1)
+if [[ -n "${TAGLINE:-}" && -n "${RIDLINE:-}" && "$RIDLINE" -gt "$TAGLINE" ]]; then
+  ok "contrato fix #52: precedência tag > run_id > fallback (dispatch manual por último)"
+else
+  fail "contrato fix #52: precedência tag > run_id" "elif do RUN_ID não está depois do TAG (linha $RIDLINE vs $TAGLINE)"
+fi
+# workflow_call declara os inputs — sem declaração o input não chega ao
+# workflow chamado (era o motivo do RUN_ID vazio nas builds #48–#52).
+# Cuidado: o 'inputs:' do workflow_dispatch vem ANTES no arquivo — o que
+# vale é o primeiro 'inputs:' DEPOIS da linha do workflow_call.
+WCLINE=$(grep -n '^  workflow_call:' "$DI" | head -1 | cut -d: -f1)
+WILINE=$(awk -v wc="${WCLINE:-0}" 'NR>wc && /^    inputs:/ {print NR; exit}' "$DI")
+if [[ -n "${WCLINE:-}" && -n "${WILINE:-}" && "$WILINE" -gt "$WCLINE" ]]; then
+  ok "contrato fix #52: workflow_call declara inputs (run_id chega ao workflow chamado)"
+else
+  fail "contrato fix #52: inputs do workflow_call" "bloco inputs não está depois de workflow_call (linha $WILINE vs $WCLINE)"
+fi
 
 # v1.1: estágio AUR do build — brave-bin/pwvucontrol nascem no [elite-local]
 assert_grep "$REPO/.ci/build.sh" 'aur_build brave-bin' "contrato v1.1: build.sh compila brave-bin do AUR → elite-local"
