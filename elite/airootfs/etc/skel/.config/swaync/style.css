@@ -1,6 +1,7 @@
-/* Archcraft Cockpit · SwayNC CSS — Catppuccin Mocha
- * Palette oficial: github.com/catppuccin/palette (mocha)
- * GTK CSS (clases do tema padrão do SwayNC). */
+/* Archcraft ELITE · SwayNC CSS — AMOLED rice v1.3
+ * Palette oficial: github.com/catppuccin/palette (mocha) — acentos intactos
+ * GTK CSS (clases do tema padrão do SwayNC).
+ * v1.3: escada de superfícies desce ao preto REAL (base 000000). */
 
 @define-color rosewater #f5e0dc;
 @define-color flamingo  #f2cdcd;
@@ -22,12 +23,12 @@
 @define-color overlay2  #9399b2;
 @define-color overlay1  #7f849c;
 @define-color overlay0  #6c7086;
-@define-color surface2  #585b70;
-@define-color surface1  #45475a;
-@define-color surface0  #313244;
-@define-color base      #1e1e2e;
-@define-color mantle    #181825;
-@define-color crust     #11111b;
+@define-color surface2  #2e2e3d;
+@define-color surface1  #22222e;
+@define-color surface0  #16161f;
+@define-color base      #0a0a12;
+@define-color mantle    #050508;
+@define-color crust     #000000;
 
 /* ===== Notificações flutuantes ===== */
 .notification-row {

@@ -162,8 +162,8 @@ assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'systemctl poweroff' "
 assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'systemctl reboot' "v1.0.4: menu raiz com Reboot"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'config.top' "v1.0.4: autostart sobe a menu bar"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'config.dock' "v1.0.4: autostart sobe o DOCK"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'wallpaper.jpg' "v1.0.4: wallpaper de imagem (não cor sólida)"
-assert_file "$P/airootfs/etc/skel/.config/labwc/wallpaper.jpg" "v1.0.4: wallpaper.jpg no skel"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'wallpaper\.png' "v1.0.4: wallpaper de imagem (não cor sólida)"
+assert_file "$P/airootfs/etc/skel/.config/labwc/wallpaper.png" "v1.0.4: wallpaper.png no skel"
 
 # ── v1.2 DESKTOP v2.1: burn test do dono (rig B) — a cura completa ──────
 # Forense da v1.1: 7 de 8 botões da dock com "format": "" (glifos perdidos
@@ -184,7 +184,7 @@ assert_grep "$CT" '"custom/power"' "v2.1: power visível no canto direito da bar
 assert_grep "$CT" '"format": "\\uf011"' "v2.1: glifo do power presente (FA power-off — BMP)"
 # Glifos: TODOS os launchers da dock com escape \uXXXX (a corrupção da v1.1
 # deixou 7 de 8 botões com format vazio — dock INVISÍVEL no rig do dono)
-for pair in 'drawer:\\uf00b' 'term:\\uf120' 'files:\\uf07b' 'web:\\uf132' 'editor:\\uf121' 'shot:\\uf0c4'; do
+for pair in 'drawer:\\uf303' 'term:\\uf120' 'files:\\uf07b' 'web:\\uf132' 'editor:\\uf121' 'shot:\\uf0c4'; do
   m=${pair%%:*}; g=${pair##*:}
   assert_grep "$CD" "\"format\": \"${g}\"," "v2.1: dock custom/$m com glifo (v1.1: format vazio!)"
 done
@@ -1191,5 +1191,130 @@ if out="$( cd "$RE" && HOME="$WORK/home" bash scripts/apply-overlay.sh 2>&1 )"; 
 else
   fail "cadeia G: 2ª montagem do overlay" "${out:0:200}"
 fi
+
+# ═══════════════════════════════════════════════════════════════════════════
+# v1.3 · AMOLED RICE — preto REAL em toda superfície + rodapé morto + foot
+# ═══════════════════════════════════════════════════════════════════════════
+ST="$P/airootfs/etc/skel/.config"
+WBT="$ST/waybar/style.top.css"; WBD="$ST/waybar/style.dock.css"
+DRW="$ST/nwg-drawer/drawer.css";  SWC="$ST/swaync/style.css"
+FZL="$ST/fuzzel/fuzzel.ini";       FTC="$ST/foot/foot.ini"
+THR="$ST/labwc/themerc-override";  AST="$ST/labwc/autostart"
+WAL="$ST/labwc/wallpaper.png"
+
+# ── Escada AMOLED idêntica nos 4 CSS (base do sistema = preto REAL) ────────
+for f in "$WBT" "$WBD" "$SWC" "$DRW"; do
+  fn=$(basename "$(dirname "$f")")/$(basename "$f")
+  assert_grep "$f" '^@define-color crust[[:space:]]*#000000' "v1.3: $fn crust = #000000 (preto REAL)"
+  assert_grep "$f" '^@define-color base[[:space:]]*#0a0a12' "v1.3: $fn base = #0a0a12"
+  assert_nogrep "$f" '#1e1e2e' "v1.3: $fn anti-regressão (base Catppuccin 1e1e2e extinta)"
+  assert_nogrep "$f" '#11111b' "v1.3: $fn anti-regressão (crust Catppuccin 11111b extinto)"
+done
+
+# ── Acentos Catppuccin INTACTOS (o colorido não escureceu) ─────────────────
+assert_grep "$WBD" '^@define-color mauve[[:space:]]*#cba6f7' "v1.3: mauve 3cba6f7 intacto (assinatura)"
+assert_grep "$WBD" '^@define-color peach[[:space:]]*#fab387' "v1.3: peach fab387 intacto (Brave)"
+
+# ── Cores SEMÂNTICAS de marca na dock (v1.3: identidade do dono) ───────────
+assert_grep "$WBD" '#custom-drawer[[:space:]]+\{ color: @mauve;' "v1.3: drawer (ARCH) em MAUVE — identidade"
+assert_grep "$WBD" '#custom-web[[:space:]]+\{ color: @peach;' "v1.3: web (BRAVE) em PEACH — cor de marca"
+
+# ── Glifo ARCH no drawer (pair atualizado acima: uf00b → uf303) ────────────
+assert_grep "$CD" '"format": "\\uf303"' "v1.3: dock custom/drawer com glifo ARCH U+F303"
+assert_nogrep "$CD" '\\uf00b' "v1.3: glifo grid genérico extinto do drawer"
+
+# ── Rodapé do nwg-drawer MORTO por CSS (sem fork do upstream) ──────────────
+assert_grep "$DRW" '#status-label' "v1.3: drawer.css mata #status-label (rodapé 'N entries')"
+assert_grep "$DRW" '#status-line-wrapper' "v1.3: drawer.css mata #status-line-wrapper"
+assert_grep "$DRW" '#status-label \{[[:space:]]*$' "v1.3: bloco #status-label declarado"
+if grep -A2 '#status-label {' "$DRW" | grep -q 'opacity: 0'; then
+  ok "v1.3: #status-label com opacity 0 (morto, reversível — sem fork)"
+else
+  fail "v1.3: #status-label opacity 0" "seletor sem morte efetiva"
+fi
+
+# ── fuzzel.ini: INI VÁLIDO + AMOLED (cabeçalho é contrato) ────────────────
+assert_grep "$FZL" '^\[main\]$' "v1.3: fuzzel.ini com seção [main] (cabeçalho presente)"
+assert_nogrep "$FZL" '^ain\]$' "v1.3: anti-regressão: cabeçalho de seção nunca 'ain]'"
+assert_grep "$FZL" '^background=000000f2$' "v1.3: fuzzel bg preto (véu f2)"
+assert_grep "$FZL" '^prompt=cba6f7ff$' "v1.3: fuzzel prompt MAUVE (era blue)"
+assert_grep "$FZL" '^border=cba6f7ff$' "v1.3: fuzzel borda MAUVE (era blue)"
+if command -v python3 >/dev/null 2>&1; then
+  if python3 -c "
+import configparser, sys
+cp = configparser.ConfigParser(strict=True)
+try:
+    cp.read('$FZL')
+    sys.exit(0 if 'main' in cp and 'colors' in cp else 1)
+except Exception:
+    sys.exit(2)
+" 2>/dev/null; then
+    ok "v1.3: fuzzel.ini parseia como INI válido (main + colors)"
+  else
+    fail "v1.3: fuzzel.ini parseia como INI válido" "configparser recusou o arquivo"
+  fi
+else
+  skip "v1.3: fuzzel.ini parse INI" "python3 indisponível"
+fi
+
+# ── foot.ini: o terminal virou superfície do rice ──────────────────────────
+assert_file "$FTC" "v1.3: foot.ini existe (terminal riceado — foot nunca teve config na ISO)"
+assert_grep "$FTC" '^background = 000000$' "v1.3: foot bg preto AMOLED"
+assert_grep "$FTC" '^selection-background = cba6f7$' "v1.3: foot seleção MAUVE"
+assert_grep "$FTC" 'family = JetBrainsMono NF' "v1.3: foot fonte REAL do archcraft-fonts 2.0"
+assert_grep "$FTC" '^regular5   = f5c2e7$' "v1.3: foot tabela Mocha regular5 pink"
+
+# ── themerc: titlebar ATIVA preta + assinatura mauve preservada ────────────
+assert_grep "$THR" 'window.active.title.bg.color: #000000' "v1.3: titlebar ativa PRETA (era 1e1e2e)"
+assert_grep "$THR" 'window.active.border.color: #cba6f7' "v1.3: borda ativa MAUVE intacta (assinatura)"
+assert_grep "$THR" 'menu.items.bg.color: #050508' "v1.3: menu em mantle AMOLED"
+assert_grep "$THR" 'osd.bg.color: #000000' "v1.3: OSD preto"
+assert_grep "$THR" 'window.active.button.iconify.pressed.image.color: #22222e' "v1.3: pressed na escada v1.3"
+assert_nogrep "$THR" ': #1e1e2e' "v1.3: themerc anti-regressão (nenhuma superfície 1e1e2e)"
+
+# ── autostart: fallback do swaybg desce ao preto ──────────────────────────
+assert_grep "$AST" "swaybg -m fill -c '#000000'" "v1.3: fallback swaybg preto AMOLED (era 1e1e2e)"
+
+# ── Wallpaper: PNG lossless e AMOLED DE VERDADE (bytes, não promessa) ────
+# JPEG não preserva preto exato (re-quantiza cada bloco 8x8: 0 px em 8,3M
+# no arquivo original). PNG + black-point: 62% dos pixels são (0,0,0) puros.
+assert_file "$WAL" "v1.3: wallpaper.png existe (4K real da internet, PNG lossless)"
+if command -v python3 >/dev/null 2>&1; then
+  if python3 -c 'from PIL import Image' 2>/dev/null; then
+    walout="$(python3 - "$WAL" << 'PYEOF'
+import sys
+from PIL import Image
+rgb = Image.open(sys.argv[1]).convert('RGB')
+total = rgb.size[0] * rgb.size[1]
+# Preto PURO = pixel (0,0,0) EXATO — contagem CONJUNTA, pixel a pixel.
+# histogram() por canal NÃO serve: no JPEG original o canal G marcava
+# 33.1% em zero sem NENHUM pixel preto (artefato de quantização JPEG) —
+# superestima. A contagem conjunta confere com numpy (62.22% neste arquivo).
+black = 100.0 * sum(1 for p in rgb.getdata() if p == (0, 0, 0)) / total
+hist = rgb.convert('L').histogram()
+mean = sum(i * c for i, c in enumerate(hist)) / sum(hist)
+print(rgb.size[0], round(black, 1), round(mean, 1))
+PYEOF
+)"
+    if [[ "$walout" =~ ^[0-9]+[[:space:]][0-9.]+[[:space:]][0-9.]+$ ]]; then
+      read -r walres walblack walmean <<<"$walout"
+      assert_eq "$walres" "3840" "v1.3: wallpaper 4K (3840px de largura — tem $walres)"
+      blackok=1; awk "BEGIN{exit !($walblack >= 40.0)}" || blackok=0
+      assert_eq "$blackok" "1" "v1.3: wallpaper ≥40% de preto PURO (0,0,0) — AMOLED real (tem $walblack%)"
+      meanok=1; awk "BEGIN{exit !($walmean <= 30.0)}" || meanok=0
+      assert_eq "$meanok" "1" "v1.3: luma média ≤30 (não cega de noite — tem $walmean)"
+    else
+      fail "v1.3: métricas do wallpaper" "saída do python3/PIL inesperada: '${walout:0:80}' (lição da run #34: nunca mais falha silenciosa com 'tem %')"
+    fi
+  else
+    fail "v1.3: métricas do wallpaper" "python3 presente sem PIL — instale python-pillow (o CI já traz)"
+  fi
+else
+  skip "v1.3: métricas do wallpaper" "python3 indisponível"
+fi
+
+# ── A corrosão NÃO alcançou os acentos globais (top bar) ───────────────────
+assert_grep "$WBT" '^@define-color red[[:space:]]*#f38ba8' "v1.3: red f38ba8 intacto (mudo/disconnected)"
+assert_grep "$WBT" '^@define-color green[[:space:]]*#a6e3a1' "v1.3: green a6e3a1 intacto"
 
 phase_end
