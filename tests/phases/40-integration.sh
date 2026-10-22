@@ -82,10 +82,16 @@ assert_nofile "$P/airootfs/etc/mkinitcpio.conf.d/archiso-nvidia.conf" \
 assert_file "$P/airootfs/etc/mkinitcpio.conf.d/archiso.conf" \
   "v1.1: archiso.conf FICA (1ª geração do initramfs live do BORE — E11 o recria e limpa)"
 
-# ── v1.1 · PURGA DO APP-LAYER LEGADO (MEGA PROMPT — stack moderna) ─────
-for gone in firefox thunar thunar-volman thunar-archive-plugin tumbler vim blueman pavucontrol; do
+# ── v1.1 · PURGA DO APP-LAYER LEGADO + v1.5 · BLOATWARE DA SPEC ────────
+for gone in firefox thunar-volman thunar-archive-plugin vim blueman pavucontrol; do
   assert_grep "$PKG" "^#${gone} # ELITE-REMOVED$" "v1.1: ${gone} comentado (saiu da ISO)"
   assert_nogrep "$PKG" "^${gone}$" "v1.1: ${gone} ativo sumiu"
+done
+# v1.5 (spec do dono): gufw/ufw são bloatware — firewall GUI não vem de
+# fábrica (nem o serviço ufw no boot — ver apply-overlay [7] + E14)
+for gone in gufw ufw; do
+  assert_grep "$PKG" "^#${gone} # ELITE-REMOVED$" "v1.5: ${gone} comentado (bloatware fora — spec)"
+  assert_nogrep "$PKG" "^${gone}$" "v1.5: ${gone} ativo sumiu"
 done
 # v1.2: o plugin era o elo que RESSUSCITAVA o thunar (e o xfce4-about no
 # rastro) como dependência — evidência do pacman db da ISO v1.1 real
@@ -93,9 +99,21 @@ assert_nogrep "$PKG" '^thunar-archive-plugin$' \
   "v1.2: thunar-archive-plugin ativo sumiu (depend do thunar — ressuscitava o purgado)"
 assert_nogrep "$PKG" '^(mousepad|zathura|zathura-pdf-poppler|file-roller|xgps|xgpsspeed)$' \
   "v1.1: mousepad/zathura/file-roller/xgps* não voltam por engano"
-for modern in brave-origin papers pwvucontrol bluetui impala helix; do
+for modern in brave-origin papers pwvucontrol bluetui impala; do
   assert_grep "$PKG" "^${modern}\$" "v1.1/v1.4: ${modern} no packages (app-stack moderna)"
 done
+# v1.5 (spec): Thunar VOLTOU como FM padrão (GUI + xdg-mime inode/directory)
+for back in thunar tumbler; do
+  assert_grep "$PKG" "^${back}$" "v1.5: ${back} ATIVO no packages (Thunar = FM padrão da spec)"
+  assert_nogrep "$PKG" "^#${back} # ELITE-REMOVED$" "v1.5: ${back} des-comentado (voltou da purga v1.1)"
+done
+# v1.5 (spec): bloatware fora — helix/yazi/nvtop/swaylock/wlsunset extintos
+for extinct in helix yazi nvtop swaylock wlsunset; do
+  assert_nogrep "$PKG" "^${extinct}$" "v1.5: ${extinct} ativo sumiu (bloatware da spec fora)"
+done
+# v1.5: o novo par idle/lock (hyprlock + wlopm — receita wiki labwc)
+assert_grep "$PKG" '^hyprlock$' "v1.5: hyprlock no packages (ext-session-lock-v1 no labwc)"
+assert_grep "$PKG" '^wlopm$' "v1.5: wlopm no packages (DPMS wlr-output-power-management)"
 assert_nogrep "$PKG" '^brave-bin$' "v1.4: brave-bin saiu (Brave ORIGIN oficial entra — diretriz do dono)"
 assert_grep "$PKG" '^qalculate-gtk$' "v1.1: qalculate-gtk fica (sobrevivente GTK3)"
 assert_grep "$PKG" '^nwg-look$' "v1.1: nwg-look fica (theming GTK — sobrevivente)"
@@ -135,7 +153,7 @@ assert_file "$P/airootfs/etc/skel/.config/fuzzel/fuzzel.ini" "v1.0.3: fuzzel con
 # Dock (waybar 2ª instância): launchers fixos + janelas abertas com ícones
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"wlr/taskbar"' "v1.0.4: dock tem taskbar (janelas abertas — wlr-foreign-toplevel nativo do labwc)"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"custom/drawer"' "v1.0.4: dock tem botão Launchpad"
-assert_grep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"custom/web"' "v1.0.4: dock tem launcher do navegador"
+assert_grep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"image#web"' "v1.0.4/v1.5: dock tem launcher do navegador (image#web — Brave fixado no centro)"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"icon-size": 40' "v1.0.4: ícones grandes no dock (estilo dock)"
 assert_nogrep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"tray"' "v1.0.4: dock SEM tray (SNI watcher único — tray fica na barra do topo)"
 # v1.1→v1.4: pins do usuário (craft-pin) — a seção PINS viaja na ISO
@@ -177,24 +195,42 @@ assert_file "$P/airootfs/etc/skel/.config/labwc/wallpaper.png" "v1.0.4: wallpape
 # instalador TRAVOU no rig do dono). v2.1 = a resposta caso a caso.
 CT="$P/airootfs/etc/skel/.config/waybar/config.top"
 CD="$P/airootfs/etc/skel/.config/waybar/config.dock"
-# Top bar: relógio no CENTRO, ARCH à esquerda (v1.4), áudio só ícone, power no canto
+# Top bar (v1.5): relógio no CENTRO, canto esquerdo LIMPO (ARCH saiu — spec),
+# áudio só ícone, power no canto direito
 assert_grep "$CT" '"modules-center": \["clock"\]' "v2.1: relógio no CENTRO da barra (diretriz do dono)"
-assert_grep "$CT" '"custom/menu"' "v1.4: ARCH no canto superior esquerdo (diretriz recuperada — a 'maçã' da Elite)"
-assert_grep "$CT" '"modules-left": \["custom/menu", "wlr/window"\]' "v1.4: esquerda = ARCH + nome do app focado (modelo maçã do macOS)"
+assert_grep "$CT" '"fixed-center": true' "v1.5: fixed-center (centro EXATO independente dos lados)"
+assert_nogrep "$CT" '"custom/menu"' "v1.5: lançador ARCH FORA do canto esquerdo (spec do dono — o Launchpad vive na dock)"
+assert_grep "$CT" '"modules-left": \["wlr/window"\]' "v1.5: esquerda = SÓ o nome do app focado (canto limpo)"
 assert_grep "$CT" '"format": "\{icon\}"' "v2.1: áudio em modo ícone"
 assert_nogrep "$CT" '"format": "\{volume\}' "v2.1: SEM porcentagem numérica no áudio (o '40%')"
 assert_grep "$CT" '"custom/power"' "v2.1: power visível no canto direito da barra"
 assert_grep "$CT" '"format": "\\uf011"' "v2.1: glifo do power presente (FA power-off — BMP)"
-# Glifos: TODOS os launchers da dock com escape \uXXXX (a corrupção da v1.1
-# deixou 7 de 8 botões com format vazio — dock INVISÍVEL no rig do dono)
-for pair in 'drawer:\\uf303' 'term:\\uf120' 'files:\\uf07b' 'web:\\uf132' 'editor:\\uf121' 'shot:\\uf0c4'; do
+# Glifos: os botões de GLIFO da dock (drawer/shot) com escape \uXXXX (a
+# corrupção da v1.1 deixou 7 de 8 botões com format vazio — dock INVISÍVEL
+# no rig do dono). v1.5: term/files/web viraram módulos image (ícone REAL)
+for pair in 'drawer:\\uf303' 'shot:\\uf0c4'; do
   m=${pair%%:*}; g=${pair##*:}
-  assert_grep "$CD" "\"format\": \"${g}\"," "v2.1: dock custom/$m com glifo (v1.1: format vazio!)"
+  assert_grep "$CD" "\"format\": \"${g}\"," "v2.1/v1.5: dock custom/$m com glifo (v1.1: format vazio!)"
 done
 assert_nogrep "$CD" '\\u[0-9a-fA-F]{5,}' "v2.1: nenhum escape de 5+ hex (SMP trap: parseia como 4-hex + dígito)"
 assert_nogrep "$CT" '\\u[0-9a-fA-F]{5,}' "v2.1: idem no config.top"
-assert_grep "$CD" '"format": "\\uf132"' "v2.1: Brave com glifo ESCUDO (U+F132) — não mais o Firefox (U+F0239)"
-assert_nogrep "$CD" '\\uf0239' "v2.1: glifo firefox extinto da dock"
+# v1.5: apps fixados por ÍCONE REAL (módulo image — o custom só ganha imagem
+# no master pós-0.15, PR #5069): path+size+on-click, tooltip na 2ª linha do exec
+for imgmod in term files web; do
+  assert_grep "$CD" "\"image#${imgmod}\"" "v1.5: dock image#${imgmod} (pin com ícone REAL — visível com app fechado)"
+done
+assert_grep "$CD" '"on-click": "brave"' "v1.5: Brave fixado no CENTRO da dock (image#web → navegador padrão)"
+assert_grep "$CD" '"on-click": "thunar"' "v1.5: Arquivos = Thunar (FM padrão da spec)"
+assert_grep "$CD" '"on-click": "foot"' "v1.5: Terminal fixado (foot)"
+assert_grep "$CD" 'pixmaps/elite/terminal.png' "v1.5: ícone do terminal = PNG do overlay (96px determinístico)"
+assert_grep "$CD" 'pixmaps/elite/files.png' "v1.5: ícone do Thunar = PNG do overlay"
+assert_grep "$CD" 'pixmaps/elite/web.png' "v1.5: ícone do Brave = PNG do overlay (logo OFICIAL product_logo)"
+assert_nogrep "$CD" '"custom/editor"' "v1.5: botão editor (helix) saiu da dock junto com o pacote"
+assert_nogrep "$CD" 'foot -e yazi|foot -e helix' "v1.5: nenhum launch de app extinto na dock"
+# CSS: seletor #image.<id> (fonte waybar: box_.set_name("image")+add_class(id))
+assert_grep "$P/airootfs/etc/skel/.config/waybar/style.dock.css" '#image\.term' "v1.5: CSS #image.term (seletor nome+classe do módulo image)"
+assert_grep "$P/airootfs/etc/skel/.config/waybar/style.dock.css" '#image\.web:hover' "v1.5: hover dos pins = pílula surface0 (pixbuf não escala por CSS)"
+assert_grep "$CD" '"size": 36' "v1.5: pins a 36px (dock de ícones grandes)"
 # Dock: grupo ÚNICO central (fixados + abertos), sem lock/power
 assert_grep "$CD" '"modules-center": \[' "v2.1: dock tem grupo central"
 assert_grep "$CD" '"custom/sep"' "v2.1: separador fixos│abertos no grupo central"
@@ -289,11 +325,10 @@ assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'impala' "v1.1: comen
 assert_grep "$PKG" '^qalculate-gtk$' "curadoria: qalculate (galculator saiu)"
 assert_nogrep "$PKG" '^galculator$' "curadoria: galculator saiu (qalculate entra)"
 assert_grep "$PKG" '^nwg-look$' "curadoria: nwg-look (xfce4-settings saiu)"
-assert_grep "$PKG" '^yazi$' "curadoria: yazi FM TUI rust (ranger saiu — e agora é O gerenciador)"
-# Satélites do labwc (docs oficiais: idle/automount/gamma/clipboard)
+# Satélites do labwc (docs oficiais: idle/automount/clipboard)
 assert_grep "$PKG" '^swayidle$' "curadoria: swayidle (idle→lock automático)"
 assert_grep "$PKG" '^udiskie$' "curadoria: udiskie (automount USB + notificação)"
-assert_grep "$PKG" '^wlsunset$' "curadoria: wlsunset (night light)"
+assert_nogrep "$PKG" '^wlsunset$' "v1.5: wlsunset SAIU dos satélites (night light não é imposição de fábrica)"
 assert_grep "$PKG" '^cliphist$' "curadoria: cliphist (clipboard history — W-v)"
 assert_grep "$PKG" '^libnotify$' "curadoria: libnotify (notify-send dos craft-*)"
 # CLI brabos (rust — os essenciais do cockpit nascem na ISO)
@@ -338,20 +373,51 @@ assert_file "$P/airootfs/etc/skel/.hushlogin" "curadoria: .hushlogin (1º login 
 # Autostart: os 4 satélites sobem sozinhos
 assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'udiskie' "curadoria: udiskie no autostart"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'swayidle' "curadoria: swayidle no autostart"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'wlsunset' "curadoria: wlsunset no autostart"
+assert_nogrep "$P/airootfs/etc/skel/.config/labwc/autostart" 'wlsunset' "v1.5: wlsunset FORA do autostart (causa-raiz do tom amarelado — spec)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'cliphist store' "curadoria: watcher cliphist no autostart"
+# v1.5: keyring CachyOS em 4 camadas (spec: init → populate → refresh)
+assert_grep "$P/airootfs/usr/local/bin/craft-fix-keys" 'pacman-key --populate archlinux cachyos' "v1.5: craft-fix-keys — comandos LITERAIS da spec (populate)"
+assert_grep "$P/airootfs/usr/local/bin/craft-fix-keys" 'pacman -Sy --noconfirm archlinux-keyring cachyos-keyring' "v1.5: craft-fix-keys — refresh dos keyring packages (spec)"
+assert_grep "$P/airootfs/usr/local/bin/craft-fix-keys" 'sudo -n' "v1.5: craft-fix-keys — sudo -n (nunca trava em background)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'craft-fix-keys' "v1.5: camada 4 no autostart (self-healing de sessão)"
+assert_grep "$REPO/elite/fragments/elite-customize.sh" 'E2b' "v1.5: camada 2 (E2b populate no build) presente"
+assert_grep "$REPO/elite/fragments/elite-customize.sh" 'cachyos.gpg ausente' "v1.5: gate duro do keyring (fail no build, nunca no boot)"
+assert_grep "$REPO/elite/fragments/elite-customize.sh" 'populate archlinux cachyos' "v1.5: populate no build E2b E no chroot do alvo E10"
+# v1.5.1: cura do run #40/#41 — E2 com conf efêmero (+elite-local offline, -CheckSpace)
+# Causas provadas nos logs: (a) pacstrap -C NÃO copia o conf p/ o chroot (só -P)
+# → /etc/pacman.conf do chroot = estoque do pacote pacman (CachyOS 7.1: CheckSpace
+# ON) SEM [elite-local] → -S "target not found"; (b) CheckSpace lê o mtab do
+# chroot (sem entrada "/") → "could not determine root mount point /" abortava
+# QUALQUER install in-chroot com 84G livres (falha SILENCIOSA na v1.4 = ISO sem
+# keyring = "unknown trust" do burn test; check_diskspace é gated pelo CheckSpace
+# e SÓ existe no caminho de install — sync.c; -R/-Sy nunca passam por ele).
+assert_grep "$REPO/elite/fragments/elite-customize.sh" 'ELITE_PC_KR="\$\(mktemp\)"' "v1.5.1: E2 gera conf efêmero (mktemp — nunca vira arquivo da ISO)"
+assert_grep "$REPO/elite/fragments/elite-customize.sh" 'printf .\\n\[elite-local\]\\nSigLevel = Never\\nServer = file:///var/cache/elite-local' "v1.5.1: E2 conf efêmero declara [elite-local] file:// (repo DENTRO do chroot — offline-first REAL)"
+assert_grep "$REPO/elite/fragments/elite-customize.sh" 'CheckSpace\[\[:space:\]\]\*\$/d' "v1.5.1: E2 remove CheckSpace do conf efêmero (desliga a sonda de mtab que matava o commit)"
+assert_grep "$REPO/elite/fragments/elite-customize.sh" 'pacman --config "\$\{ELITE_PC_KR\}\.nc" -S --noconfirm cachyos-keyring' "v1.5.1: -S do E2 usa o conf sem CheckSpace (run #40/#41 nunca mais)"
+assert_grep "$REPO/elite/fragments/elite-customize.sh" 'pacman --config "\$\{ELITE_PC_KR\}\.nc" -U --noconfirm' "v1.5.1: fallback -U do E2 também sem CheckSpace (a escada inteira imune)"
+assert_grep "$REPO/elite/fragments/elite-customize.sh" 'rm -f "\$ELITE_PC_KR" "\$\{ELITE_PC_KR\}\.nc"' "v1.5.1: confs efêmeros removidos no fim do E2 (sem lixo no chroot)"
+assert_nogrep "$REPO/elite/fragments/elite-customize.sh" '^pacman -S --noconfirm cachyos-keyring' "v1.5.1: NENHUM pacman in-chroot de install sem --config (o conf estoque tem CheckSpace)"
+assert_grep "$REPO/scripts/apply-overlay.sh" 'craft-fix-keys' "v1.5: [9b] registra craft-fix-keys 0755 (203/EXEC nunca mais)"
+# v1.5: idle/lock — hyprlock 10min + DPMS wlopm 15min (receita wiki labwc)
+assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" "timeout 600 'hyprlock'" "v1.5: idle 10min → hyprlock (spec: 10–15min)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" "timeout 900 'wlopm --off" "v1.5: idle 15min → DPMS off (wlopm — wlr-output-power-management)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" "resume 'wlopm --on" "v1.5: resume → DPMS on"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" "before-sleep 'hyprlock'" "v1.5: lock também no before-suspend"
+assert_nogrep "$P/airootfs/etc/skel/.config/labwc/autostart" 'swaylock -f|exec swaylock' "v1.5: invocação do swaylock EXTINTA do autostart (tela branca → hyprlock)"
 # W-v clipboard + menu com os apps novos
 assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'W-v' "curadoria: W-v = histórico de clipboard"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'cliphist decode' "curadoria: pipe cliphist→fuzzel→wl-copy"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'foot -e yazi' "v1.1: menu Arquivos = yazi no foot"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'foot -e helix' "v1.1: menu Editor = helix no foot"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'Arquivos \(Thunar\)' "v1.5: menu Arquivos = Thunar (FM padrão da spec)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'command="thunar"' "v1.5: menu abre thunar direto (GUI)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'foot -e nano' "v1.5: menu Editor = nano no foot (helix saiu)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'papers' "v1.1: menu Leitor de PDF = papers (GTK4)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'foot -e impala' "v1.1: menu Rede = impala no foot"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'foot -e bluetui' "v1.1: menu Bluetooth = bluetui no foot"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'pwvucontrol' "v1.1: menu Mixer = pwvucontrol"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'foot -e 7z' "v1.1: menu Arquivos compactados = 7z no foot"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'for b in brave librewolf' "v1.1: navegador do menu = brave em 1º"
-assert_nogrep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'thunar|mousepad|nmtui|pulsemixer|file-roller' "v1.1: menu sem vestígio do app-layer legado"
+assert_nogrep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'mousepad|nmtui|pulsemixer|file-roller|yazi|helix' "v1.1/v1.5: menu sem vestígio do app-layer legado/extinto"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'qalculate-gtk' "curadoria: qalculate no menu"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'nwg-look' "curadoria: nwg-look no menu"
 
@@ -371,37 +437,59 @@ assert_grep "$SKCFG/mimeapps.list" 'x-scheme-handler/http=brave-browser\.desktop
 assert_grep "$SKCFG/mimeapps.list" 'application/pdf=org\.gnome\.Papers\.desktop' "v1.1: PDF abre papers (GTK4)"
 assert_grep "$SKCFG/mimeapps.list" 'image/png=imv\.desktop' "v1.1: imagens abrem imv (Wayland-nativo)"
 assert_grep "$SKCFG/mimeapps.list" 'video/mp4=mpv\.desktop' "v1.1: vídeo abre mpv"
-# yazi: tema Catppuccin Mocha com accent mauve + openers modernos
-assert_file "$SKCFG/yazi/yazi.toml" "v1.1: yazi.toml no skel"
-assert_file "$SKCFG/yazi/theme.toml" "v1.1: theme.toml do yazi no skel"
-assert_grep "$SKCFG/yazi/theme.toml" '#cba6f7' "v1.1: tema yazi accent mauve #cba6f7 (assinatura do rice)"
-assert_grep "$SKCFG/yazi/yazi.toml" 'helix "\$@"' "v1.1: opener de texto do yazi = helix"
-assert_grep "$SKCFG/yazi/yazi.toml" 'mpv "\$@"' "v1.1: opener de mídia do yazi = mpv"
-assert_grep "$SKCFG/yazi/yazi.toml" 'xdg-open "\$@"' "v1.1: opener genérico do yazi = xdg-open"
-# helix: tema catppuccin_mocha + editor relativo
-assert_file "$SKCFG/helix/config.toml" "v1.1: config.toml do helix no skel"
-assert_grep "$SKCFG/helix/config.toml" '^theme = "catppuccin_mocha"$' "v1.1: helix no tema catppuccin_mocha"
-assert_grep "$SKCFG/helix/config.toml" 'line-number\s*=\s*"relative"' "v1.1: helix com line-number relativo (modal)"
+# v1.5: Thunar é o FM padrão (xdg-mime) — mimeapps declara o inode/directory
+assert_grep "$SKCFG/mimeapps.list" '^inode/directory=thunar\.desktop$' "v1.5: pasta abre Thunar (xdg-mime default da spec)"
+# v1.5: hyprlock — a tela de lock do rice (substitui o swaylock branco)
+HLK="$SKCFG/hypr/hyprlock.conf"
+assert_file "$HLK" "v1.5: hyprlock.conf no skel (lock estilizado)"
+assert_grep "$HLK" 'path = screenshot' "v1.5: fundo = screenshot da tela (wlr-screencopy do labwc)"
+assert_grep "$HLK" 'blur_passes = 3' "v1.5: blur alto no fundo"
+assert_grep "$HLK" 'brightness = 0\.35' "v1.5: dim (brightness 0.35 — véu escuro)"
+assert_grep "$HLK" 'text = \$TIME' "v1.5: relógio GRANDE (label \$TIME)"
+assert_grep "$HLK" 'font_size = 96' "v1.5: relógio 96pt (topo/centro)"
+assert_grep "$HLK" 'valign = top' "v1.5: relógio ancorado no TOPO (spec)"
+assert_grep "$HLK" 'text = \$USER' "v1.5: nome do usuário acima do campo (spec)"
+assert_grep "$HLK" 'pixmaps/elite/avatar\.png' "v1.5: avatar (image path absoluto determinístico)"
+assert_grep "$HLK" 'rounding = -1' "v1.5: avatar circular (rounding -1)"
+assert_grep "$HLK" 'border_color = rgba\(203, 166, 247' "v1.5: borda do avatar MAUVE (assinatura)"
+assert_grep "$HLK" 'placeholder_text = .*Digite a senha para desbloquear' "v1.5: placeholder da spec (campo sempre visível — fade_on_empty false)"
+assert_grep "$HLK" 'fail_text = .*Senha Incorreta' "v1.5: feedback de FALHA em texto (spec)"
+assert_grep "$HLK" 'check_text = .*Validando' "v1.5: feedback de VALIDAÇÃO em texto (spec)"
+assert_grep "$HLK" 'fail_color = rgba\(243, 139, 168' "v1.5: falha em VERMELHO Catppuccin (spec)"
+assert_grep "$HLK" 'dots_text_format = \*' "v1.5: asteriscos como feedback de digitação (spec)"
+assert_grep "$HLK" 'fade_on_empty = false' "v1.5: campo de senha fixo (não some vazio — spec)"
+assert_grep "$HLK" 'outline_thickness = 3' "v1.5: campo com borda estilizada (outline mauve)"
+assert_grep "$HLK" 'outer_color = rgba\(203, 166, 247' "v1.5: borda do campo MAUVE"
+assert_grep "$HLK" '\$font = JetBrainsMono NF' "v1.5: fonte do lock = a REAL do rice (definida em \$font)"
+# v1.5: avatar + ícones da dock = bytes do overlay (contrato de existência)
+for px in terminal files web avatar; do
+  assert_file "$P/airootfs/usr/share/pixmaps/elite/${px}.png" "v1.5: pixmaps/elite/${px}.png (bytes determinísticos no overlay)"
+done
+assert_file "$P/airootfs/etc/skel/.face.icon" "v1.5: ~/.face.icon no skel (avatar p/ login managers + personalização)"
+# v1.5: craft-lock roteia pro hyprlock
+assert_grep "$P/airootfs/usr/local/bin/craft-lock" 'exec hyprlock' "v1.5: craft-lock executa hyprlock (tela branca extinta)"
+assert_nogrep "$P/airootfs/usr/local/bin/craft-lock" 'command -v swaylock|exec swaylock' "v1.5: craft-lock sem INVOCAÇÃO de swaylock (só a história no comentário)"
+assert_nogrep "$P/airootfs/usr/local/bin/craft-logout" 'exec swaylock' "v1.5: craft-logout trava com hyprlock"
 # rc.xml: keybinds da stack nova
-assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'foot -e yazi' "v1.1: rc.xml W-f/W-e → yazi no foot"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" '<keybind key="W-f">' "v1.5: W-f existe (FM)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'command="thunar"' "v1.5: rc.xml W-f → thunar (FM padrão GUI)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'foot -e nano' "v1.5: rc.xml W-e → nano no foot (editor)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'foot -e impala' "v1.1: rc.xml W-n → impala no foot"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'foot -e bluetui' "v1.1: rc.xml W-S-b → bluetui no foot (o bind que o craft-bat citava)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'for b in brave librewolf' "v1.1: rc.xml navegador = brave em 1º (cadeia)"
-assert_nogrep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'thunar|nmtui|mousepad' "v1.1: rc.xml sem app legado nos binds"
+assert_nogrep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'command="(foot -e )?(yazi|helix|nvtop|nmtui|mousepad)' "v1.5: rc.xml sem COMANDO de app extinto nos binds"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'identifier="com\.github\.dominiksalvet\.pwvucontrol"' \
   "v1.1: windowRule do mixer aponta pwvucontrol (identificador novo)"
-# waybar dock: launchers convertidos
-assert_grep "$SKCFG/waybar/config.dock" '"on-click": "foot -e yazi"' "v1.1: dock abre yazi no foot (era thunar)"
+# waybar dock: launchers convertidos (v1.5: ícones reais)
 assert_grep "$SKCFG/waybar/config.dock" '"on-click": "brave"' "v1.1: dock abre brave (era firefox)"
-assert_grep "$SKCFG/waybar/config.dock" '"on-click": "foot -e helix"' "v1.1: dock abre helix no foot (era mousepad)"
 # overlay de REDE: sysctl BBR + módulo carregado antes do systemd-sysctl
 assert_file "$P/airootfs/etc/sysctl.d/99-elite-net.conf" "v1.1: /etc/sysctl.d/99-elite-net.conf na ISO (BBR assado)"
 assert_grep "$P/airootfs/etc/sysctl.d/99-elite-net.conf" '^net\.core\.default_qdisc = fq$' "v1.1: qdisc fq (BBR exige)"
 assert_grep "$P/airootfs/etc/sysctl.d/99-elite-net.conf" '^net\.ipv4\.tcp_congestion_control = bbr$' "v1.1: congestion control bbr"
 assert_file "$P/airootfs/etc/modules-load.d/elite-bbr.conf" "v1.1: modules-load.d/elite-bbr.conf na ISO"
 assert_grep "$P/airootfs/etc/modules-load.d/elite-bbr.conf" '^tcp_bbr$' "v1.1: módulo tcp_bbr carrega antes do sysctl"
-# craft-drawer: o Launchpad abre arquivos no yazi
-assert_grep "$P/airootfs/usr/local/bin/craft-drawer" '-fm "foot -e yazi"' "v1.1: craft-drawer -fm yazi no foot (era thunar)"
+# craft-drawer: o Launchpad abre arquivos no Thunar (FM padrão v1.5)
+assert_grep "$P/airootfs/usr/local/bin/craft-drawer" '-fm "thunar"' "v1.5: craft-drawer -fm thunar (era yazi no foot)"
 # build/CI v1.1→v1.4: estágio brave-origin (oficial) e AUR pwvucontrol
 assert_grep "$REPO/.ci/build.sh" 'pkgname=brave-origin' "v1.4: estágio brave-origin → /var/cache/elite-local (release oficial pinado)"
 assert_grep "$REPO/.ci/build.sh" 'aur_build pwvucontrol' "v1.1: estágio AUR — pwvucontrol → /var/cache/elite-local"
@@ -521,19 +609,20 @@ else
   fail "E9+E12: bloco skel+environment" "$(head -c 200 "$WORK/e912.err")"
 fi
 dead=0
-for d in openbox bspwm polybar tint2 rofi dunst alacritty kitty thunar zathura \
-         mousepad file-roller blueman pavucontrol; do
+for d in openbox bspwm polybar tint2 rofi dunst alacritty kitty zathura \
+         mousepad file-roller blueman pavucontrol yazi helix; do
   [[ -d "$SKEL/.config/$d" ]] && dead=$((dead+1))
 done
-assert_eq "$dead" "0" "E9: skel sem diretórios órfãos (v1.1: purga GTK3 varrida junto)"
+assert_eq "$dead" "0" "E9: skel sem diretórios órfãos (v1.1 purga GTK3 + v1.5 yazi/helix varridos)"
 assert_file "$SKEL/.config/labwc/rc.xml" "E9: configs labwc sobrevivem à limpeza"
-assert_file "$SKEL/.config/yazi/yazi.toml" "E9: configs yazi (Elite) sobrevivem à limpeza"
-# E12: os 3 seds no /etc/environment (upstream nano/firefox/alacritty → v1.1)
-assert_grep "$ENVF" '^EDITOR=helix$' "E12: EDITOR=helix (vim/mousepad saem — editor modal)"
+assert_file "$SKEL/.config/hypr/hyprlock.conf" "E9/v1.5: config do hyprlock sobrevive à limpeza"
+assert_file "$SKEL/.config/foot/foot.ini" "E9: config do foot sobrevive à limpeza"
+# E12: os 3 seds no /etc/environment (upstream nano/firefox/alacritty → v1.5)
+assert_grep "$ENVF" '^EDITOR=nano$' "E12/v1.5: EDITOR=nano (helix saiu — editor do terminal)"
 assert_grep "$ENVF" '^BROWSER=brave$' "E12: BROWSER=brave (firefox saiu)"
 assert_grep "$ENVF" '^TERMINAL=foot$' "E12: TERMINAL=foot (alacritty saiu na v1.0.3)"
 assert_grep "$ENVF" '^QT_QPA_PLATFORMTHEME=qt6ct$' "E12: o RESTO do environment upstream é preservado (sed no lugar)"
-assert_nogrep "$ENVF" 'nano|alacritty|firefox' "E12: nenhum valor legado sobrevive nas 3 chaves"
+assert_nogrep "$ENVF" 'alacritty|firefox|helix' "E12/v1.5: nenhum valor legado/extinto sobrevive nas 3 chaves"
 
 PC="$P/pacman.conf"
 assert_grep "$PC" '^\[elite-local\]' "cadeia A: repo [elite-local] injetado"
@@ -1222,7 +1311,7 @@ assert_grep "$WBD" '^@define-color peach[[:space:]]*#fab387' "v1.3: peach fab387
 
 # ── Cores SEMÂNTICAS de marca na dock (v1.3: identidade do dono) ───────────
 assert_grep "$WBD" '#custom-drawer[[:space:]]+\{ color: @mauve;' "v1.3: drawer (ARCH) em MAUVE — identidade"
-assert_grep "$WBD" '#custom-web[[:space:]]+\{ color: @peach;' "v1.3: web (BRAVE) em PEACH — cor de marca"
+assert_grep "$WBD" '@define-color peach[[:space:]]*#fab387' "v1.3/v1.5: peach fab387 intacto (paleta preservada — pin do Brave agora é ícone REAL)"
 
 # ── Glifo ARCH no drawer (pair atualizado acima: uf00b → uf303) ────────────
 assert_grep "$CD" '"format": "\\uf303"' "v1.3: dock custom/drawer com glifo ARCH U+F303"
@@ -1266,8 +1355,42 @@ fi
 assert_file "$FTC" "v1.3: foot.ini existe (terminal riceado — foot nunca teve config na ISO)"
 assert_grep "$FTC" '^background = 000000$' "v1.3: foot bg preto AMOLED"
 assert_grep "$FTC" '^selection-background = cba6f7$' "v1.3: foot seleção MAUVE"
-assert_grep "$FTC" 'family = JetBrainsMono NF' "v1.3: foot fonte REAL do archcraft-fonts 2.0"
+assert_grep "$FTC" 'font = JetBrainsMono NF:size=10.5' "v1.5: foot fonte REAL no [main] (formato fontconfig family:size)"
 assert_grep "$FTC" '^regular5   = f5c2e7$' "v1.3: foot tabela Mocha regular5 pink"
+# v1.5 (spec do dono - foot 1.28 do Arch): secoes invalidas EXTINTAS.
+# A v1.3 perdeu shell/font/colors/dim/bright-bold - o foot logava 'invalid
+# section' e IGNORAVA: a fonte Nerd, o shell de login e as 16 cores nunca
+# valeram. Schema real (codeberg.org/dnkl/foot - doc/foot.ini.5.scd):
+for badsec in '\[shell\]' '\[font\]' '\[colors\]' '\[dim\]' '\[bright-bold\]'; do
+  assert_nogrep "$FTC" "^${badsec}$" "v1.5: seção inválida ${badsec} extinta (foot 1.28 removeu [colors])"
+done
+assert_grep "$FTC" '^\[main\]$' "v1.5: [main] presente (shell/font vivem aqui)"
+assert_grep "$FTC" '^shell = /bin/sh -l$' "v1.5: shell de login no [main] (v1.3: preso na seção inválida)"
+assert_grep "$FTC" '^\[colors-dark\]$' "v1.5: [colors-dark] (a [colors] saiu no foot 1.28)"
+assert_grep "$FTC" '^cursor = 000000 cba6f7$' "v1.5: cursor mauve na seção certa (1.26 removeu cursor.color)"
+assert_grep "$FTC" '^dim0 = a6adc8$' "v1.5: dim0-7 DENTRO da colors-dark (a [dim] separada era inválida)"
+assert_nogrep "$FTC" '^0 = f5e0dc$' "v1.5: bloco bare 0-15 extinto (sobrescrevia a paleta com valores errados)"
+assert_nogrep "$FTC" 'max-shader-prompt' "v1.5: tweak.max-shader-prompt extinto (nunca existiu no foot)"
+assert_nogrep "$FTC" '^clipboard-(paste|copy) =' "v1.5: atalhos duplicados dos defaults removidos (Ctrl+Shift+v/c já são defaults)"
+assert_grep "$FTC" '^scrollback-up-page = Page_Up$' "v1.5: scroll Page_Up mantido (NÃO é default — override deliberado)"
+# parse REAL: python configparser aceita o arquivo inteiro
+if command -v python3 >/dev/null 2>&1; then
+  if python3 -c "
+import configparser, sys
+cp = configparser.ConfigParser(strict=True)
+try:
+    cp.read('$FTC')
+    sys.exit(0 if {'main','colors-dark','cursor','mouse','scrollback','bell','key-bindings'} <= set(cp.sections()) else 1)
+except Exception:
+    sys.exit(2)
+" 2>/dev/null; then
+    ok "v1.5: foot.ini parseia como INI válido (7 seções do schema real)"
+  else
+    fail "v1.5: foot.ini parseia como INI válido" "configparser recusou o arquivo"
+  fi
+else
+  skip "v1.5: foot.ini parse INI" "python3 indisponível"
+fi
 
 # ── themerc: titlebar ATIVA preta + assinatura mauve preservada ────────────
 assert_grep "$THR" 'window.active.title.bg.color: #000000' "v1.3: titlebar ativa PRETA (era 1e1e2e)"
@@ -1354,17 +1477,15 @@ assert_nogrep "$WBD" 'margin-bottom: -' "v1.4: auto-hide (margem negativa) EXTIN
 assert_grep "$WBD" 'font-size: 36px' "v1.4: zoom hover 36px (magnificação iOS perceptível)"
 assert_grep "$CKB" 'Brave Origin \(navegador padrão\)' "v1.4: tooltip da dock honesto com o produto (Brave Origin)"
 
-# ── Menu bar: ARCH no canto esquerdo (instrução perdida dos resets) ──────
-assert_grep "$CPT" '"modules-left": \["custom/menu", "wlr/window"\]' "v1.4: Arch é o PRIMEIRO do canto esquerdo (modelo maçã do macOS)"
-assert_grep "$CPT" '"custom/menu"' "v1.4: módulo custom/menu declarado"
-assert_grep "$CPT" '\\uf303' "v1.4: Arch U+F303 (mesma identidade do botão da dock)"
-assert_grep "$CPT" '"on-click": "craft-drawer"' "v1.4: clique no Arch abre o Launchpad"
-assert_grep "$WBT" '#custom-menu \{' "v1.4: estilo do Arch no CSS"
-if grep -A4 '#custom-menu {' "$WBT" | grep -q 'color: @mauve'; then
-  ok "v1.4: Arch em MAUVE (assinatura do rice)"
-else
-  fail "v1.4: Arch em MAUVE" "bloco #custom-menu sem color: @mauve"
-fi
+# v1.5 (spec do dono): lançador ARCH EXTINTO da menu bar — canto esquerdo
+# limpo (só o nome do app focado); o Launchpad vive na DOCK (custom/drawer)
+assert_nogrep "$CPT" '"custom/menu"' "v1.5: módulo custom/menu EXTINTO do config.top (spec)"
+assert_grep "$CPT" '"modules-left": \["wlr/window"\]' "v1.5: esquerda = só a janela focada (canto limpo — spec)"
+assert_grep "$CPT" '"fixed-center": true' "v1.5: clock no centro EXATO (fixed-center)"
+assert_grep "$CD" '\\uf303' "v1.5: ARCH U+F303 vive AGORA na dock (custom/drawer — Launchpad)"
+assert_grep "$CD" '"on-click": "craft-drawer"' "v1.5: clique no ARCH da dock abre o Launchpad"
+assert_nogrep "$WBT" '#custom-menu' "v1.5: CSS sem regra órfã do custom-menu"
+assert_grep "$WBD" '#custom-drawer \{ color: @mauve;' "v1.3/v1.5: drawer (ARCH) em MAUVE — identidade viva na dock"
 
 # ── Conectividade: UM ícone p/ cabo + Wi-Fi + Bluetooth ──────────────────
 assert_grep "$CPT" '"on-click": "craft-connect"' "v1.4: rede → central de conectividade (um só ícone — diretrize do dono)"

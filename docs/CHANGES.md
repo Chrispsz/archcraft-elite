@@ -6,6 +6,93 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **v1.5 (branch feat/v1.5-spec-fixes)** — **A ESPECIFICAÇÃO TÉCNICA DO
+  DONO, ITEM A ITEM** (spec v1.5: 9 frentes de falhas reportadas no burn
+  test da v1.4 — keyring CachyOS, foot.ini inválido, yazi quebrado,
+  Calamares, bloatware, top bar, dock com pins, tela de lock, tom
+  amarelado). Pesquisa de fontes primárias antes de cada decisão (diretriz
+  permanente do dono: "evitar erros interpretativos, trabalhar com
+  pesquisas e dados").
+  - **Keyrings CachyOS ("signature unknown trust") — CAUSA-RAIZ ACHADA**:
+    o live se auto-cura (o `pacman-init.service` do archiso/archcraft roda
+    `pacman-key --populate` SEM argumentos sobre tmpfs — popula TODOS os
+    keyrings instalados; o E2 instala o `cachyos-keyring`), mas o SISTEMA
+    INSTALADO copia via unpackfs o gnupg DO SQUASHFS — que só tinha a
+    chave MESTRA lsign'da pelo E1, não os PACKAGER keys. Cura: **[E2b]**
+    `pacman-key --populate archlinux cachyos` no chroot do build (vai pro
+    squashfs → vai pro disco) + GATE DURO (cachyos.gpg ausente = fail no
+    build, nunca no boot) + belt-and-suspenders no **[E10]** (populate no
+    arch-chroot do alvo na instalação) + **camada 4**: 
+    no autostart (comandos LITERAIS da spec, idempotentes, sudo -n,
+    background — self-healing de sessão p/ skew futuro).
+  - **foot.ini — O TERMINAL PERDIA O RICE INTEIRO**: as seções
+    `[shell]/[font]/[colors]/[dim]/[bright-bold]` NÃO EXISTEM no foot — o
+    terminal logava "invalid section" e IGNORAVA tudo dentro: a fonte
+    Nerd, o shell de login e as 16 cores Catppuccin **nunca valeram**.
+    Pior: o bloco bare `0=..15=` sobrescrevia a paleta com valores de
+    OUTRA tabela (0=f5e0dc: o "preto" renderizava rosado!). Reescrito no
+    schema REAL do foot 1.28 (codeberg.org/dnkl/foot · doc/foot.ini.5.scd):
+    `shell=`/`font=` em `[main]` (formato fontconfig), cores em
+    `[colors-dark]` (a `[colors]` foi REMOVIDA no foot 1.28), `dim0-7`
+    dentro da colors, `cursor =` na seção de cores (1.26 removeu
+    `cursor.color`), atalhos duplicados dos defaults removidos. Parse
+    validado por configparser no CI.
+  - **yazi.toml quebrado → yazi REMOVIDO** (spec item bloatware): o parse
+    error reportado deixa de existir junto com o pacote e o config.
+  - **Calamares**: `shellprocess@btrfs` MANTIDO — a spec manda remover "SE
+    não houver .conf em modules"; o `.conf` EXISTE ([E10] o reescreve com
+    o fix de boot btrfs v1.0.4 + GPU profile — é o cure do GRUB truncado).
+    `Icon=system-software-install` já era o nosso override
+    (`/usr/local/share/applications/calamares.desktop`, precedência XDG) —
+    contrado congelado.
+  - **Bloatware FORA**: `helix` (editor → nano: upstream base, W-e, EDITOR),
+    `yazi`, `nvtop` (btop cobre), `gufw`+`ufw` (pesquisa: o upstream
+    archcraft lista ambos E habilita `ufw.service` no boot — apply-overlay
+    [7] derruba o symlink do wants + E14 remove no chroot). **Thunar é O
+    FM padrão** (spec): volta do purge v1.1 + `tumbler` (thumbnails);
+    `inode/directory=thunar.desktop` no mimeapps, W-f, dock e craft-drawer
+    apontam pra ele. **gpsd/xgps/xgpsspeed: IMPOSSÍVEL remover** — o waybar
+    0.15.0-3 do [extra] tem dependência DURA de gpsd (archlinux.org/packages/
+    extra/x86_64/waybar: módulo GPS compilado desde 0.13.0, meson 'gps'
+    auto). Remover = dock/menu bar mortas. Continua oculto (NoDisplay) com
+    auto-remove futuro (E13). Documentado com fonte — decisão de dados,
+    não de gosto.
+  - **Top bar (spec)**: lançador ARCH do canto esquerdo REMOVIDO (ordem
+    direta da spec v1.5; o Launchpad segue na dock, 1º botão do grupo
+    central — o ARCH U+F303 vive lá). Esquerda = só o nome do app focado;
+    clock no centro exato (`fixed-center`); áudio/rede só ícone (sem %,
+    já era contrato v2.1 — agora congelado).
+  - **Dock com PINS de ÍCONE REAL (spec: "ícones visíveis no centro mesmo
+    com app fechado; Brave fixado no centro")**: os launchers term/files/web
+    viraram módulos `image` do waybar 0.15 (pesquisa: o custom module só
+    ganha `image-path`/`image-name` no master pós-0.15 — PR #5069). PNGs
+    96px do overlay em `/usr/share/pixmaps/elite/`: Papirus rasterizado
+    (terminal/files) + **logo OFICIAL do Brave Origin** (product_logo do
+    zip). Tooltip = 2ª linha do exec (man waybar-image). Hover = pílula
+    surface0 (pixbuf não escala por CSS — documentado). Botão editor saiu
+    junto com o helix.
+  - **Lock screen — A ESTRELA DA v1.5**: swaylock (tela BRANCA estática)
+    → **hyprlock** (pesquisa: roda no labwc via ext-session-lock-v1 —
+    labwc.github.io/integration + hyprlock #607/#211 + labwc #3672; cobre
+    11/11 itens da spec nativamente vs ~5/11 do swaylock-effects mortie,
+    abandonado desde 2023). `~/.config/hypr/hyprlock.conf`: fundo =
+    SCREENSHOT + blur 3 passes + dim (brightness .35) + noise; relógio 96pt
+    topo-centro + data; **avatar circular com borda mauve** (PNG próprio em
+    pixmaps/elite/ + `~/.face.icon` p/ login managers) + nome do usuário;
+    campo de senha SEMPRE visível com borda mauve, placeholder "Digite a
+    senha para desbloquear" em itálico mauve, **asteriscos** ao digitar,
+    "Validando…" âmbar (check), "Senha Incorreta" vermelho (fail). Idle:
+    swayidle 10min → hyprlock · 15min → **DPMS wlopm** (receita canônica da
+    wiki labwc; wlr-randr --off re-arranja views) · before-sleep → lock.
+    craft-lock/craft-logout roteiam pro hyprlock.
+  - **Tom amarelado — CAUSA-RAIZ CONFIRMADA EM CÓDIGO**: `wlsunset -t 4000
+    -T 6500` no autostart (filtro noturno SEM coordenadas → horário fixo
+    default → 4000K forte). wlsunset REMOVIDO do autostart E do packages
+    (a paleta Mocha já é fria/neutra; night light = escolha pós-install).
+  - Suíte: 863 → **927 peças GO** (64 contratos v1.5: hyprlock item a
+    item, foot.ini schema, pins image, Thunar FM, gufw/ufw fora, keyring
+    E2b, ARCH extinto da menu bar, wlsunset extinto).
+
 - **v1.4 (branch feat/v1.4-origin-polish)** — **BRAVE ORIGIN + ORGANIZAÇÃO
   DO RICE** (burn test da v1.3 AO VIVO no rig do dono — 3 fotos + mensagem
   de voz, 2026-10-22: *"invés do Brave ser o Brave Origin"*, *"a dock

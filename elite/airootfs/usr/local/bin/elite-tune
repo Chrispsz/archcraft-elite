@@ -281,7 +281,7 @@ if (( STATUS )); then
   echo "fg-boost.slice: $(wc -l < /sys/fs/cgroup/fg-boost.slice/cgroup.procs 2>/dev/null) pid(s) no slice turbinado"
   echo "firstboot:      $([[ -f /var/lib/elite/firstboot-done ]] && echo 'concluído' || echo 'pendente/não-ISO')"
   echo ""
-  echo "Verificações manuais: systemd-cgls /fg-boost.slice | nvtop | elite-tune --apps"
+  echo "Verificações manuais: systemd-cgls /fg-boost.slice | btop | elite-tune --apps"
   exit 0
 fi
 
@@ -614,7 +614,7 @@ run systemctl enable --now fg-boost.slice fg-booster.service || true
 
 # ── [7] Stack de jogo + ferramentas ─────────────────────────────────
 run pacman -S --needed --noconfirm gamemode lib32-gamemode gamescope \
-  mangohud lib32-mangohud grub-btrfs timeshift nvtop lact
+  mangohud lib32-mangohud grub-btrfs timeshift lact
 run systemctl enable --now lactd.service 2>/dev/null || true
 run systemctl enable --now grub-btrfsd.service 2>/dev/null || true
 

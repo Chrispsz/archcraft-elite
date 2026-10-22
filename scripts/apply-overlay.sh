@@ -384,11 +384,11 @@ done
 say "Timeouts de boot 90s no cmdline de TODAS as entradas (fix live freeze)"
 
 # ── [7] systemd: remove wants de serviços debloatados ─────────────
-say "Removendo wants de serviços debloatados (cloud-init, vbox, vmware, hyperv, modemmanager, cups, pcscd)"
+say "Removendo wants de serviços debloatados (cloud-init, vbox, vmware, hyperv, modemmanager, cups, pcscd, ufw)"
 SD="$PROFILE/airootfs/etc/systemd/system"
 find "$SD" -type l \( -name '*cloud-init*' -o -name '*ModemManager*' \
   -o -name 'vbox*' -o -name 'vmtools*' -o -name 'vmware*' -o -name 'hv_*' \
-  -o -name 'cups*' -o -name 'pcscd*' \) -delete 2>/dev/null || true
+  -o -name 'cups*' -o -name 'pcscd*' -o -name 'ufw*' \) -delete 2>/dev/null || true
 rm -rf "$SD/cloud-init.target.wants"
 
 # ── [8] mkarchcraftiso NÃO-INTERATIVO ──────────────────────────────
@@ -480,6 +480,7 @@ if grep -q '^file_permissions=(' "$PD"; then
            /usr/local/bin/craft-shot /usr/local/bin/craft-bat \
            /usr/local/bin/craft-drawer /usr/local/bin/craft-power /usr/local/bin/craft-pin \
            /usr/local/bin/craft-connect /usr/local/bin/craft-pin-pick \
+           /usr/local/bin/craft-fix-keys \
            /etc/skel/.config/labwc/autostart; do
     grep -qF "[\"$p\"]" "$PD" || sed -i "s|^file_permissions=(|file_permissions=(\n  [\"$p\"]=\"0:0:755\"|" "$PD"
   done

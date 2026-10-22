@@ -172,6 +172,9 @@ git config --global init.defaultBranch master
 
 P="$UP/archcraft"
 mkdir -p "$P"/{airootfs/root,airootfs/usr/local/bin,airootfs/etc/systemd/system/multi-user.target.wants,airootfs/etc/calamares/modules,airootfs/usr/bin,efiboot/loader/entries,syslinux,grub}
+# v1.5: ufw.service habilitado no upstream (pesquisa: profile airootfs
+# systemd wants) — o apply-overlay [7] tem que derrubar o symlink
+ln -s /usr/lib/systemd/system/ufw.service "$P/airootfs/etc/systemd/system/multi-user.target.wants/ufw.service"
 
 # profiledef (a sed do apply-overlay rebatiza a ISO) — file_permissions como
 # no upstream real (só os scripts próprios) p/ o [9b] injetar os Elite
@@ -259,6 +262,8 @@ thunar
 thunar-archive-plugin
 thunar-volman
 tumbler
+gufw
+ufw
 pavucontrol
 blueman
 vim

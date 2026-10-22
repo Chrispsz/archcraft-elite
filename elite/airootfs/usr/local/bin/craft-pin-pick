@@ -63,11 +63,10 @@ glyph='' cor='mauve'
 case "$id" in
     brave*)              glyph=$(printf '\uf132'); cor='peach'   ;;
     foot*)               glyph=$(printf '\uf120'); cor='green'   ;;
-    yazi*)               glyph=$(printf '\uf07b'); cor='yellow'  ;;
-    helix*)              glyph=$(printf '\uf121'); cor='sky'     ;;
+    thunar*)             glyph=$(printf '\uf07b'); cor='yellow'  ;;
     mpv*)                glyph=$(printf '\uf03d'); cor='mauve'   ;;
     imv*)                glyph=$(printf '\uf03e'); cor='lavender' ;;
-    btop*|nvtop*)        glyph=$(printf '\uf080'); cor='teal'    ;;
+    btop*)               glyph=$(printf '\uf080'); cor='teal'    ;;
     qalculate*)          glyph=$(printf '\uf1ec'); cor='yellow'  ;;
     papers*)             glyph=$(printf '\uf1c1'); cor='lavender' ;;
     *)                   glyph=$(printf '\uf111')               ;;
