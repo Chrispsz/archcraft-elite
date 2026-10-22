@@ -383,6 +383,21 @@ assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'craft-fix-keys' "v1.
 assert_grep "$REPO/elite/fragments/elite-customize.sh" 'E2b' "v1.5: camada 2 (E2b populate no build) presente"
 assert_grep "$REPO/elite/fragments/elite-customize.sh" 'cachyos.gpg ausente' "v1.5: gate duro do keyring (fail no build, nunca no boot)"
 assert_grep "$REPO/elite/fragments/elite-customize.sh" 'populate archlinux cachyos' "v1.5: populate no build E2b E no chroot do alvo E10"
+# v1.5.1: cura do run #40/#41 — E2 com conf efêmero (+elite-local offline, -CheckSpace)
+# Causas provadas nos logs: (a) pacstrap -C NÃO copia o conf p/ o chroot (só -P)
+# → /etc/pacman.conf do chroot = estoque do pacote pacman (CachyOS 7.1: CheckSpace
+# ON) SEM [elite-local] → -S "target not found"; (b) CheckSpace lê o mtab do
+# chroot (sem entrada "/") → "could not determine root mount point /" abortava
+# QUALQUER install in-chroot com 84G livres (falha SILENCIOSA na v1.4 = ISO sem
+# keyring = "unknown trust" do burn test; check_diskspace é gated pelo CheckSpace
+# e SÓ existe no caminho de install — sync.c; -R/-Sy nunca passam por ele).
+assert_grep "$REPO/elite/fragments/elite-customize.sh" 'ELITE_PC_KR="\$\(mktemp\)"' "v1.5.1: E2 gera conf efêmero (mktemp — nunca vira arquivo da ISO)"
+assert_grep "$REPO/elite/fragments/elite-customize.sh" 'printf .\\n\[elite-local\]\\nSigLevel = Never\\nServer = file:///var/cache/elite-local' "v1.5.1: E2 conf efêmero declara [elite-local] file:// (repo DENTRO do chroot — offline-first REAL)"
+assert_grep "$REPO/elite/fragments/elite-customize.sh" 'CheckSpace\[\[:space:\]\]\*\$/d' "v1.5.1: E2 remove CheckSpace do conf efêmero (desliga a sonda de mtab que matava o commit)"
+assert_grep "$REPO/elite/fragments/elite-customize.sh" 'pacman --config "\$\{ELITE_PC_KR\}\.nc" -S --noconfirm cachyos-keyring' "v1.5.1: -S do E2 usa o conf sem CheckSpace (run #40/#41 nunca mais)"
+assert_grep "$REPO/elite/fragments/elite-customize.sh" 'pacman --config "\$\{ELITE_PC_KR\}\.nc" -U --noconfirm' "v1.5.1: fallback -U do E2 também sem CheckSpace (a escada inteira imune)"
+assert_grep "$REPO/elite/fragments/elite-customize.sh" 'rm -f "\$ELITE_PC_KR" "\$\{ELITE_PC_KR\}\.nc"' "v1.5.1: confs efêmeros removidos no fim do E2 (sem lixo no chroot)"
+assert_nogrep "$REPO/elite/fragments/elite-customize.sh" '^pacman -S --noconfirm cachyos-keyring' "v1.5.1: NENHUM pacman in-chroot de install sem --config (o conf estoque tem CheckSpace)"
 assert_grep "$REPO/scripts/apply-overlay.sh" 'craft-fix-keys' "v1.5: [9b] registra craft-fix-keys 0755 (203/EXEC nunca mais)"
 # v1.5: idle/lock — hyprlock 10min + DPMS wlopm 15min (receita wiki labwc)
 assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" "timeout 600 'hyprlock'" "v1.5: idle 10min → hyprlock (spec: 10–15min)"
