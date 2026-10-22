@@ -5,6 +5,12 @@
 # overridden by creating a 'themerc-override' file in the configuration
 # directory"). Zero dependência de pacotes de tema Openbox — o rice é nosso.
 #
+# v1.3 · AMOLED rice: titlebar ATIVA desce ao preto REAL (#000000) — só a
+# borda mauve assina. Janelas parecem "carne" colorida (conteúdo Catppuccin)
+# pendurada num cabide preto. Menu/OSD em crust escurecido; pressed segue
+# a escada v1.3 (#22222e). Traffic lights e sombras intactos — já eram
+# os acertos do v1.0.4.
+#
 # Receita sintetizada dos melhores rices labwc públicos (hakuspace 272★,
 # Speyll, modern-labwc 143★, dux-shell 8.4k★ + themercs Catppuccin reais
 # codenamekt/zigshell/naravisuals + catppuccin/openbox oficial):
@@ -25,17 +31,17 @@ window.label.text.justify: center
 
 # ── Janela ATIVA: base + identidade mauve na borda ─────────────────────────
 window.active.border.color: #cba6f7
-window.active.title.bg.color: #1e1e2e
+window.active.title.bg.color: #000000
 window.active.label.text.color: #cdd6f4
-window.active.handle.bg.color: #1e1e2e
-window.active.grip.bg.color: #313244
+window.active.handle.bg.color: #000000
+window.active.grip.bg.color: #16161f
 
 # ── Janela INATIVA: recolhe pra mantle, texto discreto ─────────────────────
-window.inactive.border.color: #313244
-window.inactive.title.bg.color: #181825
+window.inactive.border.color: #16161f
+window.inactive.title.bg.color: #050508
 window.inactive.label.text.color: #6c7086
-window.inactive.handle.bg.color: #181825
-window.inactive.grip.bg.color: #313244
+window.inactive.handle.bg.color: #050508
+window.inactive.grip.bg.color: #16161f
 
 # ── Botões "traffic lights" (padrão catppuccin/openbox oficial) ────────────
 window.button.width: 28
@@ -50,13 +56,13 @@ window.active.button.close.unpressed.image.color: #f38ba8
 window.active.button.iconify.hover.image.color: #a6e3a1
 window.active.button.max.hover.image.color: #f9e2af
 window.active.button.close.hover.image.color: #f38ba8
-window.active.button.iconify.pressed.image.color: #313244
-window.active.button.max.pressed.image.color: #313244
-window.active.button.close.pressed.image.color: #313244
+window.active.button.iconify.pressed.image.color: #22222e
+window.active.button.max.pressed.image.color: #22222e
+window.active.button.close.pressed.image.color: #22222e
 
 window.inactive.button.unpressed.image.color: #6c7086
 window.inactive.button.hover.image.color: #a6adc8
-window.inactive.button.pressed.image.color: #313244
+window.inactive.button.pressed.image.color: #22222e
 
 # ── Sombras grandes e suaves (a receita premium do hakuspace) ──────────────
 window.active.shadow.size: 60
@@ -65,23 +71,23 @@ window.inactive.shadow.size: 40
 window.inactive.shadow.color: #00000040
 
 # ── Menu (raiz/cliente — coerência com waybar/swaync) ─────────────────────
-menu.items.bg.color: #1e1e2e
+menu.items.bg.color: #050508
 menu.items.text.color: #cdd6f4
-menu.items.active.bg.color: #45475a
+menu.items.active.bg.color: #22222e
 menu.items.active.text.color: #cdd6f4
 menu.items.padding.x: 6
 menu.items.padding.y: 4
 menu.border.width: 1
-menu.border.color: #313244
+menu.border.color: #16161f
 menu.separator.width: 1
-menu.separator.color: #313244
+menu.separator.color: #16161f
 menu.separator.padding.height: 4
 
 # ── OSD (volume/brilho) e window switcher ─────────────────────────────────
-osd.bg.color: #1e1e2e
+osd.bg.color: #000000
 osd.label.text.color: #cba6f7
 osd.border.width: 1
-osd.border.color: #45475a
+osd.border.color: #22222e
 osd.window-switcher.width: 600
 osd.window-switcher.padding: 12
 osd.window-switcher.item.padding.x: 12

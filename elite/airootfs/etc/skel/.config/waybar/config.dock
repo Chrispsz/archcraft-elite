@@ -45,9 +45,12 @@
     "wlr/taskbar"
   ],
 
-  // Launchpad — grade de apps com busca e categorias (nwg-drawer)
+  // Launchpad — grade de apps com busca e categorias (nwg-drawer).
+  // v1.3: glifo ARCH (U+F303, nf-linux-archlinux — presente no cmap do
+  // JetBrainsMono NF do archcraft-fonts 2.0). Era o grid U+F00b genérico;
+  // o dono pediu o logo do Arch no drawer — em mauve no CSS (marca do rice).
   "custom/drawer": {
-    "format": "\uf00b",
+    "format": "\uf303",
     "tooltip-format": "Aplicativos",
     "on-click": "craft-drawer"
   },

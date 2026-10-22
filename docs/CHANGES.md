@@ -6,6 +6,46 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **v1.3 (branch feat/v1.3-amoled-rice)** — **AMOLED RICE: preto REAL em
+  toda superfície + rodapé do Launchpad extinto + logo do Arch na dock**
+  (2ª rodada de diretrizes do dono: "rodapé do launcher", "preto puro
+  AMOLED", "logo do Arch no drawer"). O conceito: *"Mocha com o backlight
+  desligado"* — a escada de superfícies desce ao preto REAL `#000000`
+  (pixels desligados no painel OLED), acentos e textos Catppuccin intactos:
+  só o CHROME escurece, o colorido continua doce. GTK apps permanecem
+  Catppuccin Mocha por trás do chrome preto — *"macOS style"*: a janela
+  entrega a cor, o desktop entrega o preto.
+  - **Escada AMOLED** (nos 4 CSS + themerc + fuzzel + foot): `base`
+    `#000000` · `crust #050508` · `mantle #0a0a12` · `surface0 #16161f` ·
+    `surface1 #22222e` · `surface2 #2e2e3d` — anti-regressão por contrato
+    (qualquer `1e1e2e`/`11111b` de volta = falha).
+  - **Rodapé do nwg-drawer MORTO**: o upstream gera o "N entries (+M
+    hidden)" na base (`#status-label`/`#status-line-wrapper` — confirmado
+    no binário 0.7.5 do [extra]). Sem fork: o par é morto por CSS
+    (`opacity: 0` + `font-size: 1px` + colapso de margens) — reversível.
+  - **Logo do ARCH no drawer da dock**: glifo U+F303
+    (`nf-linux-archlinux`, presente no cmap do JetBrainsMono NF do
+    archcraft-fonts 2.0) em **MAUVE** — a identidade do rice. Brave segue
+    com o escudo U+F132 em **PEACH** — cor de marca. Cores SEMÂNTICAS por
+    contrato, não acidente.
+  - **Terminal riceado (NOVO `foot.ini`)**: o foot nunca teve config na ISO
+    (defaults embutidos) — agora é superfície do rice: bg `#000000`, 16
+    tons Mocha, cursor e seleção MAUVE, `pad 10x10`, JBM NF 10.5.
+  - **Wallpaper AMOLED de verdade (4K)**: wallpaper REAL da internet
+    (fractal de luz mauve/rosa sobre preto — 3840×2160, **37% de pixels
+    pretos puros**, faixa inferior ~63% preta onde a dock flutua),
+    substituindo o Catppuccin Mocha claro. Contratos medem os BYTES:
+    largura 3840, ≥25% preto puro, luma média ≤30. Fallback do swaybg
+    desce a `#000000`.
+  - **Contrato de INI válido no fuzzel**: o arquivo é PARSEADO de
+    verdade (configparser, seções `main`+`colors`) e o cabeçalho de
+    seção nunca pode regredir — um fuzzel que não parseia cai no visual
+    default e o rice morre no launcher.
+  - **+49 contratos** na suíte (774 → **823 peças**): escada idêntica
+    nos 4 CSS, acentos intactos, cores semânticas de marca, glifo Arch,
+    rodapé morto, foot.ini, wallpaper medido em BYTES (resolução, % preto
+    puro, luma), INI do fuzzel parseado, anti-regressões em toda linha.
+
 - **v1.2 (branch feat/desktop-v2.1)** — **BURN TEST DO DONO (rig B):
   forense completa da ISO v1.1 e a cura caso a caso**. O dono bootou a
   v1.1 no Elite B (5600+RX 7600) e reportou 4 screenshots + áudio. Cada

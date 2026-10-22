@@ -1,17 +1,42 @@
-/* Archcraft ELITE · nwg-drawer CSS — o "Launchpad" · Catppuccin Mocha
+/* Archcraft ELITE · nwg-drawer CSS — o "Launchpad" · AMOLED rice v1.3
  * Seletores oficiais do upstream (drawer.css do repo nwg-piotr/nwg-drawer):
  * window, entry, button, image, #category-button, #pinned-box, #files-box,
  * #math-label. Lido de ~/.config/nwg-drawer/drawer.css.
- * Tokens em @define-color (GTK CSS) — zero hex cru, mesma paleta do rice. */
+ * Tokens em @define-color (GTK CSS) — zero hex cru, mesma paleta do rice.
+ *
+ * v1.3 · RODAPÉ MORTO: o upstream gera na base o "N entries (+M hidden)"
+ * (#status-label dentro de #status-line-wrapper — tools.go:429/main.go:725
+ * do nwg-drawer 0.7.5, exatamente o da ISO). O dono mandou sumir: em vez de
+ * fork, o par é MORTO por CSS (opacity 0 + font 1px + colapso de margem) —
+ * reversível, sem custo de upstream, e o rodapé de poder segue no lugar. */
 
-@define-color crust    #11111b;
-@define-color mantle   #181825;
-@define-color base     #1e1e2e;
-@define-color surface0 #313244;
-@define-color surface1 #45475a;
+@define-color crust    #000000;
+@define-color mantle   #050508;
+@define-color base     #0a0a12;
+@define-color surface0 #16161f;
+@define-color surface1 #22222e;
 @define-color text     #cdd6f4;
 @define-color subtext0 #a6adc8;
 @define-color mauve    #cba6f7;
+
+/* ── v1.3: o rodapé de contagem do upstream MORRE (sem fork) ─────────── */
+#status-label {
+    opacity: 0;
+    font-size: 1px;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+}
+
+#status-line-wrapper {
+    opacity: 0;
+    font-size: 1px;
+    min-height: 0;
+    min-width: 0;
+    padding: 0;
+    margin: 0;
+    border: none;
+}
 
 window {
     background-color: alpha(@crust, 0.9);
