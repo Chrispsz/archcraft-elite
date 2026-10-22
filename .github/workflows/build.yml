@@ -76,9 +76,32 @@ jobs:
           retention-days: 30
           compression-level: 0
 
-  # ── Release: SÓ depois do gate de boot (needs verify) ─────────────
+  # ── GATE DE INSTALAÇÃO (v1.0.5): o disco INSTALADO tem que bootar ──────
+  # Reusa o diag-install.yml (workflow_call) — a cadeia Calamares fiel
+  # (unpackfs rsync→btrfs + E5a + E10 cp + initcpio@elite + GRUB) e o boot
+  # do disco instalado no QEMU. O verify acima só prova o LIVE; o bug do
+  # rig B (vmlinuz truncado em btrfs → 'premature end of file' no GRUB)
+  # era invisível para ele. Release sem install-boot verde = gambiarra.
+  verify-install:
+    needs: build
+    uses: ./.github/workflows/diag-install.yml
+    with:
+      # FIX #52 (forense: builds #48–#52): a ISO que este gate testa é a
+      # DESTA run — o artifact sobe no job build acima. Sem o input, o
+      # diag-install caía no fallback "última bem-sucedida" (ISO v1.0.4
+      # da run #45) e reprovava eternamente o linux.preset legítimo
+      # daquela era — 5 builds reprovadas por um gate cego. O input
+      # explícito é a fonte da verdade: GITHUB_EVENT_NAME (env) nunca
+      # vale 'workflow_call' — o env reflete o evento da run (push/
+      # dispatch/tag), não o tipo de chamada do workflow.
+      run_id: ${{ github.run_id }}
+    permissions:
+      contents: read
+      actions: read
+
+  # ── Release: SÓ depois dos gates (live-boot verify + install-boot) ──
   release:
-    needs: [build, verify]
+    needs: [build, verify, verify-install]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -179,7 +202,7 @@ jobs:
           echo "── cmdline do gate (real + serial):"
           echo "   $APPEND_GATE"
           qemu-system-x86_64 \
-            -machine q35 -cpu max -smp 2 -m 3072 \
+            -machine q35 -cpu max -smp 2 -m 7168 \
             -kernel "extracted/arch/boot/x86_64/vmlinuz-linux-cachyos-bore" \
             -initrd "extracted/arch/boot/x86_64/initramfs-linux-cachyos-bore.img" \
             -append "$APPEND_GATE" \
@@ -203,7 +226,11 @@ jobs:
 
       - name: GATE — veredito do boot
         run: |
-          set -e
+          # v1.0.5: set +e — o 'set -e' antigo matava o gate no PRIMEIRO grep
+          # sem match, ANTES do chk imprimir o diagnóstico (#42/#43: gate
+          # vermelho sem uma única linha de explicação no log). Cada grep
+          # alimenta o chk; o exit $FAIL no final decide a run.
+          set +e
           FAIL=0
           chk() { # $1=condição(0=ok) $2=mensagem-ok $3=mensagem-fail
             if [ "$1" -eq 0 ]; then echo "✔ $2"; else echo "✖ $3"; FAIL=1; fi

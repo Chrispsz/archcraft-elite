@@ -37,11 +37,20 @@
   min-height: 0;
 }
 
-/* Janela transparente — a pílula é o box interno */
+/* Janela transparente — a pílula é o box interno.
+ * v1.1 AUTO-HIDE: margin-bottom negativa desliza a dock p/ fora da tela
+ * (fica visível só a faixa de ~10px = zona de hover); :hover devolve a
+ * margem e a pílula flutua 8px acima da base. "exclusive": false no
+ * config faz as janelas usarem o espaço — comportamento COSMIC/macOS. */
 window#waybar {
   background: transparent;
   border: none;
   color: @text;
+  margin-bottom: -52px;
+  transition: margin-bottom 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+}
+window#waybar:hover {
+  margin-bottom: 8px;
 }
 
 /* A pílula do dock — alpha alto (0.85): contraste garantido sobre o
@@ -78,6 +87,19 @@ window#waybar > box {
 #custom-shot   { color: @teal; }
 #custom-lock   { color: @subtext0; }
 #custom-power  { color: @subtext0; font-size: 26px; }
+
+/* Zoom sutil no hover (macOS): o glyph cresce e a pílula absorve o delta */
+#custom-drawer, #custom-term, #custom-files, #custom-web,
+#custom-editor, #custom-shot {
+  transition: background 0.15s ease, color 0.15s ease,
+              font-size 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+#custom-drawer:hover { font-size: 34px; }
+#custom-term:hover   { font-size: 34px; }
+#custom-files:hover  { font-size: 34px; }
+#custom-web:hover    { font-size: 34px; }
+#custom-editor:hover { font-size: 34px; }
+#custom-shot:hover   { font-size: 34px; }
 
 /* Hover estilo macOS: pílula + leve realce da cor do ícone · :active
  * (pressed): superfície mais escura — matriz de estados completa */
@@ -140,3 +162,9 @@ window#waybar > box {
   border-bottom: 3px solid @mauve;
   border-radius: 2px;
 }
+
+/* ── Pins do usuário (craft-pin) ────────────────────────────────────────
+ * Apps fixados via `craft-pin add NOME GLYPH TOOLTIP COMANDO [COR]`:
+ * o script apoia aqui um bloco autocontido por app com o MESMO DNA visual
+ * dos launchers fixos (glyph 30px → zoom 34px no hover, realce surface).
+ * `craft-pin rm NOME` apaga o bloco inteiro — não edite à mão. */

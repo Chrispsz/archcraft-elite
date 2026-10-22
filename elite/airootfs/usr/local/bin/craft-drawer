@@ -5,14 +5,14 @@
 # abre, Esc/clique fora fecha (nativo do nwg-drawer).
 #
 # Flags (upstream nwg-piotr/nwg-drawer):
-#   -fm      gerenciador de arquivos (busca de arquivos do drawer)
+#   -fm      gerenciador de arquivos (busca de arquivos do drawer — yazi no foot)
 #   -term    terminal para .desktop de console
 #   -is/-c   tamanho do ícone / colunas
 #   -pb*     comandos da barra de power (cada botão só aparece com comando)
 set -eu
 
 exec nwg-drawer \
-  -fm thunar \
+  -fm "foot -e yazi" \
   -term foot \
   -is 64 \
   -c 8 \

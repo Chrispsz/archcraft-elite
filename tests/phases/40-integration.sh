@@ -17,6 +17,14 @@ else
   fail "overlay: roda limpo contra o fixture" "${out:0:300}"
 fi
 
+# v1.1: pacotes do packages.remove que NÃO existem upstream (mousepad/
+# zathura/file-roller vieram do add da v1.0.3; xgps/xgpsspeed nunca
+# existiram) → o overlay AVISA e segue (contrato documentado, não erro)
+assert_match "${out:-}" "aviso: 'xgps' não está na lista upstream — ignorado" \
+  "cadeia A: xgps inexistente upstream → aviso (não erro — contrato do remove)"
+assert_match "${out:-}" "aviso: 'mousepad' não está na lista upstream — ignorado" \
+  "cadeia A: ex-Elite mousepad (saiu do add) → aviso tolerado"
+
 P="$RE/elite-build/archcraft"   # profile transformado
 assert_file "$P/packages.x86_64" "cadeia A: elite-build/archcraft existe (profile detectado)"
 
@@ -43,6 +51,47 @@ assert_eq "$(grep -cx 'vulkan-radeon' "$PKG")" "1" "cadeia A: vulkan-radeon 1× 
 assert_eq "$(grep -cx 'vulkan-intel'  "$PKG")" "1" "cadeia A: vulkan-intel 1× (append do packages.add)"
 dups=$(sort "$PKG" | uniq -d | wc -l)
 assert_eq "$dups" "0" "cadeia A: packages.x86_64 sem nenhuma duplicata"
+
+# ── v1.1 · KERNEL ÚNICO BORE: linux/linux-headers/nvidia-open/settings ───
+assert_grep "$PKG" '^#linux # ELITE-REMOVED$' "v1.1: kernel stock linux comentado (kernel único BORE)"
+assert_grep "$PKG" '^#linux-headers # ELITE-REMOVED$' "v1.1: linux-headers stock comentado"
+assert_nogrep "$PKG" '^linux$' "v1.1: kernel stock ativo sumiu"
+assert_grep "$PKG" '^#nvidia-open # ELITE-REMOVED$' "v1.1: nvidia-open (pré-compilado p/ stock) comentado"
+assert_grep "$PKG" '^#nvidia-settings # ELITE-REMOVED$' "v1.1: nvidia-settings comentado (LACT cobre)"
+assert_grep "$PKG" '^nvidia-utils$' "v1.1: nvidia-utils FICA no live (userspace do dkms — upstream L169)"
+assert_grep "$PKG" '^nvidia-open-dkms$' "v1.1: nvidia-open-dkms entra (pré-compilado contra o BORE — E11)"
+assert_grep "$PKG" '^linux-cachyos-bore-headers$' "v1.1: headers do BORE presentes (dkms reconstrói no alvo)"
+
+# ── v1.1 · PRESETS ÓRFÃOS DO KERNEL STOCK (build #48 — overlay [6.3]) ────
+#  linux.preset/linux-nvidia.preset são ARQUIVOS ESTÁTICOS do profile
+#  upstream (não pacotes): com o kernel stock comentado, ninguém os
+#  remove exceto o overlay. Sem o [6.3] o hook mkinitcpio do build morre
+#  em 'vmlinuz-linux must be readable' (tolerado) e o órfão segue pro
+#  squashfs → unpackfs → sistema instalado (o gate verify-install da
+#  build #48 derrubou a release exatamente nisso).
+assert_file "$P/airootfs/etc/mkinitcpio.d/linux-cachyos-bore.preset" \
+  "v1.1: preset BORE (overlay) presente no profile final"
+assert_nofile "$P/airootfs/etc/mkinitcpio.d/linux.preset" \
+  "v1.1 build#48: preset stock DELETADO do profile (arquivo estático upstream — kernel único)"
+assert_nofile "$P/airootfs/etc/mkinitcpio.d/linux-nvidia.preset" \
+  "v1.1 build#48: preset nvidia-stock DELETADO do profile (órfão do kernel stock)"
+assert_nofile "$P/airootfs/etc/mkinitcpio.conf.d/archiso-nvidia.conf" \
+  "v1.1 build#48: archiso-nvidia.conf DELETADO (perdeu o único consumidor — o preset deletado)"
+assert_file "$P/airootfs/etc/mkinitcpio.conf.d/archiso.conf" \
+  "v1.1: archiso.conf FICA (1ª geração do initramfs live do BORE — E11 o recria e limpa)"
+
+# ── v1.1 · PURGA DO APP-LAYER LEGADO (MEGA PROMPT — stack moderna) ─────
+for gone in firefox thunar thunar-volman tumbler vim blueman pavucontrol; do
+  assert_grep "$PKG" "^#${gone} # ELITE-REMOVED$" "v1.1: ${gone} comentado (saiu da ISO)"
+  assert_nogrep "$PKG" "^${gone}$" "v1.1: ${gone} ativo sumiu"
+done
+assert_nogrep "$PKG" '^(mousepad|zathura|zathura-pdf-poppler|file-roller|xgps|xgpsspeed)$' \
+  "v1.1: mousepad/zathura/file-roller/xgps* não voltam por engano"
+for modern in brave-bin papers pwvucontrol bluetui impala helix; do
+  assert_grep "$PKG" "^${modern}\$" "v1.1: ${modern} no packages (app-stack moderna)"
+done
+assert_grep "$PKG" '^qalculate-gtk$' "v1.1: qalculate-gtk fica (sobrevivente GTK3)"
+assert_grep "$PKG" '^nwg-look$' "v1.1: nwg-look fica (theming GTK — sobrevivente)"
 
 # ── v1.0.3: sessão única labwc — debloat com comentário inline ─────────
 assert_grep "$PKG" '^#archcraft-openbox # ELITE-REMOVED$' "v1.0.3: archcraft-openbox debloatado (linha com comentário inline no .remove)"
@@ -82,10 +131,17 @@ assert_grep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"custom/drawer"' 
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"custom/web"' "v1.0.4: dock tem launcher do navegador"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"icon-size": 40' "v1.0.4: ícones grandes no dock (estilo dock)"
 assert_nogrep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"tray"' "v1.0.4: dock SEM tray (SNI watcher único — tray fica na barra do topo)"
-# Menu bar: tudo clicável (mouse-first — diretriz do dono)
-assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" 'nm-connection-editor' "v1.0.4: rede abre gerenciador GRÁFICO no clique (mouse-first)"
+# v1.1: auto-hide + pins do usuário (craft-pin) — a seção PINS viaja na ISO
+assert_grep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"exclusive": false' "v1.1: dock auto-ocultante (exclusive false — janelas usam a base)"
+assert_grep "$P/airootfs/etc/skel/.config/waybar/config.dock" 'PINS \(craft-pin\)' "v1.1: seção PINS no config.dock da ISO (fixar apps do usuário)"
+assert_grep "$P/airootfs/etc/skel/.config/waybar/style.dock.css" 'margin-bottom: -52px' "v1.1: CSS auto-ocultante (pílula some fora do hover)"
+assert_grep "$P/airootfs/etc/skel/.config/waybar/style.dock.css" 'Pins do usuário \(craft-pin\)' "v1.1: CSS com seção de pins (craft-pin add apoia os blocos aqui)"
+assert_grep "$P/airootfs/usr/local/bin/craft-pin" '#!/usr/bin/env bash' "v1.1: craft-pin embarcado (fixar/desfixar apps da dock)"
+# Menu bar: tudo clicável (mouse-first — diretriz do dono; v1.1: rede abre
+# impala no foot, volume abre pwvucontrol — zero applet/dialog GTK3 legado)
+assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" 'foot -e impala' "v1.1: rede abre impala no foot no clique (TUI rust)"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" 'swaync-client -t' "v1.0.4: relógio abre central de notificações no clique"
-assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" 'pavucontrol' "v1.0.4: volume abre mixer GRÁFICO no clique-direito"
+assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" 'pwvucontrol' "v1.1: volume abre pwvucontrol no clique-direito (GTK4/Rust)"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" 'craft-power' "v1.0.4: botão power na barra do topo"
 # Launchpad (nwg-drawer) + power gráfico (labnag) + ícones Papirus
 assert_grep "$PKG" '^nwg-drawer$' "v1.0.4: nwg-drawer no packages (o Launchpad)"
@@ -137,19 +193,21 @@ assert_grep "$REPO/elite/fragments/elite-customize.sh" 'kernel-copy-success' "v1
 assert_grep "$P/airootfs/etc/sddm.conf.d/kde_settings.conf" '^Session=labwc$' "v1.0.3: SDDM autologin Session=labwc"
 assert_grep "$P/airootfs/var/lib/sddm/state.conf" 'wayland-sessions/labwc\.desktop' "v1.0.3: greeter pré-seleciona labwc"
 assert_grep "$P/airootfs/etc/systemd/system/fg-booster.service" '^Slice=fg-boost\.slice$' "v1.0.3: fg-booster com Slice= (fix restart-loop)"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'blueman-applet' "v1.0.3: autostart sobe blueman-applet (fix bluetooth)"
+# v1.1: applets GTK3 do tray SAÍRAM (blueman/nm-applet) — bluetooth é bluetui
+# (W-S-b), rede é impala (W-n); nenhum daemon GTK3 de graça na sessão
+assert_nogrep "$P/airootfs/etc/skel/.config/labwc/autostart" '^[^#]*blueman-applet' "v1.1: autostart SEM blueman-applet (bluetui cobre — fora de comentário)"
+assert_nogrep "$P/airootfs/etc/skel/.config/labwc/autostart" '^[^#]*nm-applet' "v1.1: autostart SEM nm-applet (impala cobre — fora de comentário)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'bluetui' "v1.1: comentário do autostart menciona bluetui (contrato)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'impala' "v1.1: comentário do autostart menciona impala (contrato)"
 
-# ── v1.0.3 CURADORIA "brabos 2026": uso geral de fábrica ───────────────
-# GUI best-in-class (substituições validadas na pesquisa Task 42-a)
-assert_grep "$PKG" '^mousepad$' "curadoria: mousepad (editor GUI — geany saiu)"
-assert_grep "$PKG" '^zathura$' "curadoria: zathura (PDF — atril saiu)"
-assert_grep "$PKG" '^zathura-pdf-poppler$' "curadoria: backend poppler do zathura"
+# ── v1.0.3 CURADORIA "brabos 2026": uso geral de fábrica ───────────
+# v1.1 (MEGA PROMPT): a camada GUI legada/GTK3 foi purgada (mousepad,
+# zathura, file-roller, pavucontrol, thunar, firefox → remove); entram
+# papers/pwvucontrol/bluetui/impala/helix/brave-bin/yazi (assertados acima)
 assert_grep "$PKG" '^qalculate-gtk$' "curadoria: qalculate (galculator saiu)"
-assert_grep "$PKG" '^file-roller$' "curadoria: file-roller (xarchiver saiu)"
+assert_nogrep "$PKG" '^galculator$' "curadoria: galculator saiu (qalculate entra)"
 assert_grep "$PKG" '^nwg-look$' "curadoria: nwg-look (xfce4-settings saiu)"
-assert_grep "$PKG" '^yazi$' "curadoria: yazi FM TUI rust (ranger saiu)"
-assert_grep "$PKG" '^thunar$' "curadoria: thunar fica (O gerenciador de arquivos)"
-assert_grep "$PKG" '^pavucontrol$' "curadoria: pavucontrol fica (mixer GUI)"
+assert_grep "$PKG" '^yazi$' "curadoria: yazi FM TUI rust (ranger saiu — e agora é O gerenciador)"
 # Satélites do labwc (docs oficiais: idle/automount/gamma/clipboard)
 assert_grep "$PKG" '^swayidle$' "curadoria: swayidle (idle→lock automático)"
 assert_grep "$PKG" '^udiskie$' "curadoria: udiskie (automount USB + notificação)"
@@ -186,7 +244,7 @@ assert_grep "$PKG" '^gvfs$' "curadoria: gvfs fica (trash/mtp/smb)"
 assert_grep "$PKG" '^xdotool$' "curadoria: xdotool FICA (dep dura do fg-booster)"
 assert_grep "$PKG" '^qt6ct$' "curadoria: qt6ct fica (config de apps Qt futuros)"
 assert_nogrep "$PKG" '^qt5ct$' "curadoria: qt5ct saiu (zero apps Qt5)"
-assert_grep "$PKG" '^firefox$' "curadoria: firefox fica (default em toda distro 2026)"
+assert_nogrep "$PKG" '^firefox$' "v1.1: firefox saiu (brave-bin entra — Wayland-native)"
 # Skel próprio: .zshrc sem oh-my-zsh + .hushlogin (skeleton saiu)
 assert_file "$P/airootfs/etc/skel/.zshrc" "curadoria: .zshrc próprio da Elite (omz saiu)"
 assert_grep "$P/airootfs/etc/skel/.zshrc" 'starship init zsh' "curadoria: starship no prompt do .zshrc"
@@ -203,9 +261,71 @@ assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'cliphist store' "cur
 # W-v clipboard + menu com os apps novos
 assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'W-v' "curadoria: W-v = histórico de clipboard"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'cliphist decode' "curadoria: pipe cliphist→fuzzel→wl-copy"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'mousepad' "curadoria: mousepad no menu"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'foot -e yazi' "v1.1: menu Arquivos = yazi no foot"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'foot -e helix' "v1.1: menu Editor = helix no foot"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'papers' "v1.1: menu Leitor de PDF = papers (GTK4)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'foot -e impala' "v1.1: menu Rede = impala no foot"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'foot -e bluetui' "v1.1: menu Bluetooth = bluetui no foot"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'pwvucontrol' "v1.1: menu Mixer = pwvucontrol"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'foot -e 7z' "v1.1: menu Arquivos compactados = 7z no foot"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'for b in brave librewolf' "v1.1: navegador do menu = brave em 1º"
+assert_nogrep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'thunar|mousepad|nmtui|pulsemixer|file-roller' "v1.1: menu sem vestígio do app-layer legado"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'qalculate-gtk' "curadoria: qalculate no menu"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'nwg-look' "curadoria: nwg-look no menu"
+
+# ── v1.1 · APP-STACK MODERNA (MEGA PROMPT): skel novo por dentro ────────
+SKCFG="$P/airootfs/etc/skel/.config"
+# brave: flags Wayland + aceleração de GPU completa
+assert_file "$SKCFG/brave-flags.conf" "v1.1: brave-flags.conf no skel (lido pelo launcher do brave-bin)"
+assert_grep "$SKCFG/brave-flags.conf" '^--ozone-platform=wayland$' "v1.1: brave — janelas nativas do compositor (Ozone)"
+assert_grep "$SKCFG/brave-flags.conf" 'DefaultANGLEVulkan' "v1.1: brave — ANGLE sobre Vulkan"
+assert_grep "$SKCFG/brave-flags.conf" 'WaylandWindowDecorations' "v1.1: brave — decorações Wayland"
+assert_grep "$SKCFG/brave-flags.conf" '^--ignore-gpu-blocklist$' "v1.1: brave — sem blocklist de software rendering"
+assert_grep "$SKCFG/brave-flags.conf" 'VaapiVideoDecodeLinuxGL' "v1.1: brave — VA-API documentado (comentado p/ rigs)"
+# mimeapps: os apps padrão são os novos
+assert_file "$SKCFG/mimeapps.list" "v1.1: mimeapps.list no skel"
+assert_grep "$SKCFG/mimeapps.list" 'x-scheme-handler/https=brave-browser\.desktop' "v1.1: https abre brave"
+assert_grep "$SKCFG/mimeapps.list" 'x-scheme-handler/http=brave-browser\.desktop' "v1.1: http abre brave"
+assert_grep "$SKCFG/mimeapps.list" 'application/pdf=org\.gnome\.Papers\.desktop' "v1.1: PDF abre papers (GTK4)"
+assert_grep "$SKCFG/mimeapps.list" 'image/png=imv\.desktop' "v1.1: imagens abrem imv (Wayland-nativo)"
+assert_grep "$SKCFG/mimeapps.list" 'video/mp4=mpv\.desktop' "v1.1: vídeo abre mpv"
+# yazi: tema Catppuccin Mocha com accent mauve + openers modernos
+assert_file "$SKCFG/yazi/yazi.toml" "v1.1: yazi.toml no skel"
+assert_file "$SKCFG/yazi/theme.toml" "v1.1: theme.toml do yazi no skel"
+assert_grep "$SKCFG/yazi/theme.toml" '#cba6f7' "v1.1: tema yazi accent mauve #cba6f7 (assinatura do rice)"
+assert_grep "$SKCFG/yazi/yazi.toml" 'helix "\$@"' "v1.1: opener de texto do yazi = helix"
+assert_grep "$SKCFG/yazi/yazi.toml" 'mpv "\$@"' "v1.1: opener de mídia do yazi = mpv"
+assert_grep "$SKCFG/yazi/yazi.toml" 'xdg-open "\$@"' "v1.1: opener genérico do yazi = xdg-open"
+# helix: tema catppuccin_mocha + editor relativo
+assert_file "$SKCFG/helix/config.toml" "v1.1: config.toml do helix no skel"
+assert_grep "$SKCFG/helix/config.toml" '^theme = "catppuccin_mocha"$' "v1.1: helix no tema catppuccin_mocha"
+assert_grep "$SKCFG/helix/config.toml" 'line-number\s*=\s*"relative"' "v1.1: helix com line-number relativo (modal)"
+# rc.xml: keybinds da stack nova
+assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'foot -e yazi' "v1.1: rc.xml W-f/W-e → yazi no foot"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'foot -e impala' "v1.1: rc.xml W-n → impala no foot"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'foot -e bluetui' "v1.1: rc.xml W-S-b → bluetui no foot (o bind que o craft-bat citava)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'for b in brave librewolf' "v1.1: rc.xml navegador = brave em 1º (cadeia)"
+assert_nogrep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'thunar|nmtui|mousepad' "v1.1: rc.xml sem app legado nos binds"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'identifier="com\.github\.dominiksalvet\.pwvucontrol"' \
+  "v1.1: windowRule do mixer aponta pwvucontrol (identificador novo)"
+# waybar dock: launchers convertidos
+assert_grep "$SKCFG/waybar/config.dock" '"on-click": "foot -e yazi"' "v1.1: dock abre yazi no foot (era thunar)"
+assert_grep "$SKCFG/waybar/config.dock" '"on-click": "brave"' "v1.1: dock abre brave (era firefox)"
+assert_grep "$SKCFG/waybar/config.dock" '"on-click": "foot -e helix"' "v1.1: dock abre helix no foot (era mousepad)"
+# overlay de REDE: sysctl BBR + módulo carregado antes do systemd-sysctl
+assert_file "$P/airootfs/etc/sysctl.d/99-elite-net.conf" "v1.1: /etc/sysctl.d/99-elite-net.conf na ISO (BBR assado)"
+assert_grep "$P/airootfs/etc/sysctl.d/99-elite-net.conf" '^net\.core\.default_qdisc = fq$' "v1.1: qdisc fq (BBR exige)"
+assert_grep "$P/airootfs/etc/sysctl.d/99-elite-net.conf" '^net\.ipv4\.tcp_congestion_control = bbr$' "v1.1: congestion control bbr"
+assert_file "$P/airootfs/etc/modules-load.d/elite-bbr.conf" "v1.1: modules-load.d/elite-bbr.conf na ISO"
+assert_grep "$P/airootfs/etc/modules-load.d/elite-bbr.conf" '^tcp_bbr$' "v1.1: módulo tcp_bbr carrega antes do sysctl"
+# craft-drawer: o Launchpad abre arquivos no yazi
+assert_grep "$P/airootfs/usr/local/bin/craft-drawer" '-fm "foot -e yazi"' "v1.1: craft-drawer -fm yazi no foot (era thunar)"
+# build/CI v1.1: estágio AUR e RAM do QEMU (contratos de código)
+assert_grep "$REPO/.ci/build.sh" 'aur_build brave-bin' "v1.1: estágio AUR — brave-bin → /var/cache/elite-local"
+assert_grep "$REPO/.ci/build.sh" 'aur_build pwvucontrol' "v1.1: estágio AUR — pwvucontrol → /var/cache/elite-local"
+assert_grep "$REPO/.ci/build.sh" 'sudoers\.d/builder' "v1.1: sudoers descartável do builder (makepkg -s)"
+assert_grep "$REPO/.github/workflows/build.yml" '-m 7168' "v1.1: verify com QEMU de 7168 MB (copy-to-RAM)"
+assert_grep "$REPO/scripts/qemu-boot-test.sh" '-m 7168' "v1.1: qemu-boot-test com 7168 MB (idem local)"
 
 # ── v1.0.3: FIX do freeze em hardware real (diag-boot3 · Task 43) ─────
 # O DefaultTimeoutStartSec=15s do cachyos-settings derruba serviços
@@ -216,17 +336,17 @@ assert_file "$P/airootfs/etc/systemd/system.conf.d/00-elite-timeout.conf" "fix f
 assert_grep "$P/airootfs/etc/systemd/system.conf.d/00-elite-timeout.conf" '^DefaultTimeoutStartSec=90s$' "fix freeze: start timeout 90s (vence o 15s do cachyos-settings)"
 assert_grep "$P/airootfs/etc/systemd/system.conf.d/00-elite-timeout.conf" '^DefaultTimeoutStopSec=90s$' "fix freeze: stop timeout 90s (o 10s do cachyos era igualmente perigoso no shutdown)"
 
-# ── v1.0.3: [9b] file_permissions — 12 caminhos 0:0:755 no profiledef ──
+# ── v1.0.3→v1.1: [9b] file_permissions — 13 caminhos 0:0:755 no profiledef ─
 PD="$P/profiledef.sh"
 for p in /usr/local/bin/elite-tune /usr/local/bin/elite-status /usr/local/bin/fg-booster \
          /usr/local/bin/craft-hello /usr/local/bin/craft-update /usr/local/bin/craft-clean \
          /usr/local/bin/craft-rollback /usr/local/bin/craft-lock /usr/local/bin/craft-logout \
-         /usr/local/bin/craft-shot /usr/local/bin/craft-bat \
+         /usr/local/bin/craft-shot /usr/local/bin/craft-bat /usr/local/bin/craft-pin \
          /etc/skel/.config/labwc/autostart; do
   assert_grep "$PD" "\\[\"$p\"\\]=\"0:0:755\"" "v1.0.3 [9b]: 0755 p/ $p"
 done
 
-# ── v1.0.3: E5 (Calamares) e E9 (skel) EXECUTADOS de verdade ───────────
+# ── v1.0.3/v1.1: E5 (Calamares) e E9+E12 (skel/environment) EXECUTADOS ──
 # extrai os blocos do fragmento, aponta os caminhos pro profile de teste
 # e roda: a cirurgia labwc tem que produzir exatamente o esperado.
 FRAG="$REPO/elite/fragments/elite-customize.sh"
@@ -240,6 +360,23 @@ if bash "$WORK/e5-block.sh" 2>"$WORK/e5.err"; then
 else
   fail "E5: bloco Calamares executa limpo" "$(head -c 200 "$WORK/e5.err")"
 fi
+# E5a (v1.1): a entrada vmlinuz-linux do unpackfs VIROU BORE no lugar (sed,
+# não append — kernel único; fallback de append só sem a linha upstream)
+UFS="$CFX/modules/unpackfs.conf"
+assert_grep "$UFS" 'source: "/run/archiso/bootmnt/arch/boot/x86_64/vmlinuz-linux-cachyos-bore"' \
+  "E5a: source do unpackfs substituído no LUGAR (vmlinuz-linux → BORE)"
+assert_grep "$UFS" 'destination: "/boot/vmlinuz-linux-cachyos-bore"' \
+  "E5a: destination do unpackfs aponta o BORE"
+assert_nogrep "$UFS" 'vmlinuz-linux"' "E5a: nenhum vmlinuz-linux stock com aspa final (substituição total)"
+assert_grep "$UFS" 'destination: "/boot/initramfs-linux\.img"' "E5a: initramfs stock do upstream PRESERVADO (só o kernel é único)"
+# E5b (v1.1): initcpio@elite entra na sequência exec e o módulo stock SAI
+SET="$CFX/settings.conf"
+assert_grep "$SET" 'config:   initcpio_elite\.conf' "E5b: módulo initcpio@elite (com config própria) inserido"
+assert_grep "$SET" '^  - initcpio@elite$' "E5b: sequência exec ganha '  - initcpio@elite'"
+assert_nogrep "$SET" '^  - initcpio$' "E5b: módulo stock '  - initcpio' REMOVIDO (kernel único BORE)"
+assert_grep "$SET" 'config:   shellprocess_btrfs\.conf' "E5b: shellprocess_btrfs segue (E10 roda depois dele)"
+assert_file "$CFX/modules/initcpio_elite.conf" "E5b: initcpio_elite.conf criado"
+assert_grep "$CFX/modules/initcpio_elite.conf" '^kernel: linux-cachyos-bore$' "E5b: initcpio_elite aponta o kernel BORE"
 PCC="$CFX/modules/packagechooser.conf"
 assert_grep "$PCC" '^    - id: labwc$' "E5c: packagechooser tem o item labwc"
 assert_nogrep "$PCC" '- id: (openbox|bspwm|sway|everything)$' "E5c: itens openbox/bspwm/sway/everything fora"
@@ -253,23 +390,68 @@ assert_grep "$AI" "enable_autologin 'labwc'" "E5e: sessão configurada = labwc"
 assert_nogrep "$AI" "enable_autologin 'openbox'" "E5e: nenhum 'openbox' residual"
 assert_grep "$CFX/modules/partition.conf" 'defaultFileSystemType:  "btrfs"' "E5f: btrfs default no installer"
 
-# E9: cria skel sujo (dirs órfãos), roda o bloco, confere a limpeza
-for d in openbox bspwm polybar tint2 rofi dunst alacritty kitty; do
-  mkdir -p "$P/airootfs/etc/skel/.config/$d"
+# ── v1.1: E11 (dkms gate + regen do live) e E10 (per-rig) como contratos ──
+#  E11 roda DENTRO do chroot do build (ls/mkinitcpio reais) — aqui o contrato
+#  é o texto do fragmento, com o bloco isolado (o E10 também tem mkinitcpio)
+sed -n '/^## \[E11\]/,/^## \[E5\]/p' "$FRAG" > "$WORK/e11-block.txt"
+assert_grep "$WORK/e11-block.txt" 'updates/dkms/nvidia\.ko' \
+  "E11: gate duro — exige nvidia.ko* em /usr/lib/modules/*cachyos-bore*/updates/dkms"
+assert_grep "$WORK/e11-block.txt" 'ELITE-FAIL' "E11: falha do gate é ELITE-FAIL (build morre, não o boot)"
+assert_grep "$WORK/e11-block.txt" 'mkinitcpio -p linux-cachyos-bore' \
+  "E11: regenera o initramfs do live com o preset BORE (dentro do E11)"
+assert_grep "$WORK/e11-block.txt" 'HOOKS=\(base udev microcode plymouth modconf kms' \
+  "E11: conf.d/archiso.conf recriado com o hook kms (early-KMS nos 2 rigs)"
+assert_grep "$WORK/e11-block.txt" 'COMPRESSION_OPTIONS=\(-9e\)' "E11: compressão xz -9e (verbatim do upstream)"
+assert_grep "$WORK/e11-block.txt" 'rm -rf /etc/mkinitcpio\.conf\.d' \
+  "E11: conf.d é REMOVIDO depois (não pode ir pro alvo — vence o initcpio@elite)"
+sed -n '/^## \[E10\]/,$p' "$FRAG" > "$WORK/e10-block.txt"
+assert_grep "$WORK/e10-block.txt" '0x10de\) ELITE_GPU=nvidia' "E10: detector de vendor (0x10de → nvidia)"
+assert_grep "$WORK/e10-block.txt" '0x1002\) \[ "\$ELITE_GPU" != "nvidia" \] && ELITE_GPU=amd' \
+  "E10: detector de vendor (0x1002 → amd, nvidia vence)"
+assert_grep "$WORK/e10-block.txt" 'MODULES=\(amdgpu\)' "E10: rig AMD → MODULES=(amdgpu) no mkinitcpio do alvo"
+assert_grep "$WORK/e10-block.txt" 'MODULES=\(nvidia nvidia_modeset nvidia_uvm nvidia_drm\)' \
+  "E10: rig NVIDIA → MODULES=(nvidia …) no alvo"
+assert_grep "$WORK/e10-block.txt" 'pacman -Rdd --noconfirm nvidia-open-dkms nvidia-utils lib32-nvidia-utils' \
+  "E10: rig AMD limpa o stack NVIDIA inteiro do alvo (dkms incluído)"
+assert_grep "$WORK/e10-block.txt" 'nvidia_drm\.fbdev=1' "E10: GRUB do rig NVIDIA com modeset+fbdev"
+assert_grep "$WORK/e10-block.txt" 'amdgpu\.ppfeaturemask=0xffffffff' "E10: GRUB do rig AMD com ppfeaturemask"
+assert_grep "$WORK/e10-block.txt" 'NVreg_PreserveVideoMemoryAllocations=1' \
+  "E10: modprobe.d NVIDIA preserva VRAM em suspend"
+assert_grep "$WORK/e10-block.txt" 'rm -f "\$\{ROOT\}"/usr/lib/modules/\*/updates/dkms/nvidia\*\.ko\*' \
+  "E10: rig AMD varre os .ko dkms do alvo (nada de driver alheio no disco)"
+assert_grep "$WORK/e10-block.txt" 'for kv in /run/archiso/bootmnt/arch/boot/x86_64/vmlinuz-\*' \
+  "E10 (v1.0.4): recopia TODOS os vmlinuz-* do pendrive (fix btrfs truncado)"
+assert_grep "$WORK/e10-block.txt" 'arch-chroot "\$\{ROOT\}" mkinitcpio -p linux-cachyos-bore' \
+  "E10 (v1.0.4): regenera initramfs do BORE no alvo (DEPOIS do perfil de GPU)"
+
+# E9+E12 (v1.1): skel sujo (dirs órfãos da purga GTK3 incluso) + environment
+SKEL="$P/airootfs/etc/skel"
+ENVF="$P/airootfs/etc/environment"
+for d in openbox bspwm polybar tint2 rofi dunst alacritty kitty thunar zathura \
+         mousepad file-roller blueman pavucontrol; do
+  mkdir -p "$SKEL/.config/$d"
 done
-sed -n '/^## \[E9\]/,$p' "$FRAG" \
-  | sed "s|/etc/skel|$P/airootfs/etc/skel|g" > "$WORK/e9-block.sh"
-if bash "$WORK/e9-block.sh" 2>"$WORK/e9.err"; then
-  ok "E9: bloco de limpeza do skel executa limpo"
+sed -n '/^## \[E9\]/,/^## \[E10\]/p' "$FRAG" \
+  | sed -e "s|/etc/skel|$SKEL|g" -e "s|/etc/environment|$ENVF|g" > "$WORK/e912-block.sh"
+if bash "$WORK/e912-block.sh" 2>"$WORK/e912.err"; then
+  ok "E9+E12: bloco skel+environment executa limpo (redirecionado ao fixture)"
 else
-  fail "E9: bloco de limpeza do skel" "$(head -c 200 "$WORK/e9.err")"
+  fail "E9+E12: bloco skel+environment" "$(head -c 200 "$WORK/e912.err")"
 fi
 dead=0
-for d in openbox bspwm polybar tint2 rofi dunst alacritty kitty; do
-  [[ -d "$P/airootfs/etc/skel/.config/$d" ]] && dead=$((dead+1))
+for d in openbox bspwm polybar tint2 rofi dunst alacritty kitty thunar zathura \
+         mousepad file-roller blueman pavucontrol; do
+  [[ -d "$SKEL/.config/$d" ]] && dead=$((dead+1))
 done
-assert_eq "$dead" "0" "E9: skel sem diretórios órfãos de sessões removidas"
-assert_file "$P/airootfs/etc/skel/.config/labwc/rc.xml" "E9: configs labwc sobrevivem à limpeza"
+assert_eq "$dead" "0" "E9: skel sem diretórios órfãos (v1.1: purga GTK3 varrida junto)"
+assert_file "$SKEL/.config/labwc/rc.xml" "E9: configs labwc sobrevivem à limpeza"
+assert_file "$SKEL/.config/yazi/yazi.toml" "E9: configs yazi (Elite) sobrevivem à limpeza"
+# E12: os 3 seds no /etc/environment (upstream nano/firefox/alacritty → v1.1)
+assert_grep "$ENVF" '^EDITOR=helix$' "E12: EDITOR=helix (vim/mousepad saem — editor modal)"
+assert_grep "$ENVF" '^BROWSER=brave$' "E12: BROWSER=brave (firefox saiu)"
+assert_grep "$ENVF" '^TERMINAL=foot$' "E12: TERMINAL=foot (alacritty saiu na v1.0.3)"
+assert_grep "$ENVF" '^QT_QPA_PLATFORMTHEME=qt6ct$' "E12: o RESTO do environment upstream é preservado (sed no lugar)"
+assert_nogrep "$ENVF" 'nano|alacritty|firefox' "E12: nenhum valor legado sobrevive nas 3 chaves"
 
 PC="$P/pacman.conf"
 assert_grep "$PC" '^\[elite-local\]' "cadeia A: repo [elite-local] injetado"
@@ -287,60 +469,162 @@ assert_grep "$PC" '^XferCommand = /usr/bin/curl' "cadeia A: XferCommand resilien
 assert_grep "$PC" '^ParallelDownloads = 10$' "cadeia A: ParallelDownloads = 10"
 assert_nogrep "$PC" '^DownloadUser' "cadeia A: DownloadUser removido (o container não deixa)"
 
+# ── v1.1: MENU DE BOOT = 3 ENTRADAS, kernel BORE único, copy-to-RAM ────
+#   01/default AMD · copytoram=y · amdgpu.ppfeaturemask
+#   03/NVIDIA  · copytoram=y · nvidia_drm.modeset+fbdev (dkms pré-compilado)
+#   04/rescue  · copytoram=n · nomodeset
+# PENDÊNCIAS DE PRODUTO (bugs da cirurgia [6] v1.1, anotadas no worklog —
+# os "pins" abaixo travam o estado ATUAL para que o fix venha acompanhado
+# da atualização destas peças; NÃO são o contrato desejado do manifesto):
+#   p1: syslinux — blocos arch/archnomodeset seguem em vmlinuz-linux (o awk
+#       [6.1b] só reescreve LINUX/INITRD do archnonfree; o default BIOS boota
+#       um kernel que não existe mais na ISO — a própria guarda de sanidade
+#       do produto dispara o AVISO)
+#   p2: grub — o menuentry OpenSource (archcraftos) NÃO é removido (a cadeia
+#       de ifs do awk [6.1c] sobrescreve cur=del com cur=def via [^p])
+#   p3: efiboot — a entrada 03 ganha sufixo DUPLICADO (cat> com BORE e o loop
+#       converte de novo: vmlinuz-linux-cachyos-bore-cachyos-bore)
+
 E01="$P/efiboot/loader/entries/01-archiso-linux.conf"
-E02="$P/efiboot/loader/entries/02-archiso-opensource.conf"
-E03="$P/efiboot/loader/entries/03-archiso-nvidia.conf"
-assert_grep "$E01" 'vmlinuz-linux-cachyos-bore' "cadeia A: entrada default (UEFI) → kernel BORE"
-assert_grep "$E01" 'BORE kernel' "cadeia A: título default rebatizado Elite"
-assert_nogrep "$E01" 'initramfs-linux\.img' "cadeia A: initramfs default trocado (sem vestígio stock)"
-assert_grep "$E02" 'vmlinuz-linux-cachyos-bore' "cadeia A: entrada opensource (UEFI) → kernel BORE"
-assert_grep "$E03" 'vmlinuz-linux$' "cadeia A (A COROA): entrada NVIDIA permanece no kernel STOCK"
-assert_nogrep "$E03" 'cachyos-bore' "cadeia A: entrada NVIDIA intocada pelo BORE"
-
-SL="$P/syslinux/archiso_sys-linux.cfg"
-assert_eq "$(grep -c 'vmlinuz-linux-cachyos-bore' "$SL")" "2" "cadeia A: syslinux default+ram → BORE (2×)"
-assert_grep "$SL" 'LABEL archnonfree' "cadeia A: bloco archnonfree preservado"
-grep -A3 '^LABEL archnonfree' "$SL" | grep -q 'vmlinuz-linux$' \
-  && ok "cadeia A: archnonfree segue no kernel stock (BIOS)" \
-  || fail "cadeia A: archnonfree segue no kernel stock (BIOS)" "bloco foi reescrito"
-# v1.0.4: entrada Copy to RAM (live rápido em USB lento — Ventoy/USB 2.0)
-assert_grep "$SL" '^LABEL archram' "boot RAM: LABEL archram (BIOS) criado"
-assert_grep "$SL" 'copytoram=y' "boot RAM: copytoram=y no syslinux"
-grep -A6 '^LABEL archram' "$SL" | grep -q 'vmlinuz-linux-cachyos-bore' \
-  && ok "boot RAM: archram no kernel BORE (BIOS)" \
-  || fail "boot RAM: archram no kernel BORE (BIOS)" "bloco não convertido pelo loop [6]"
-
+E02="$P/efiboot/loader/entries/02-archiso-linux-open-source.conf"
+E03="$P/efiboot/loader/entries/03-archiso-linux-nvidia.conf"
+E04="$P/efiboot/loader/entries/04-archiso-linux-nomodeset.conf"
 E05="$P/efiboot/loader/entries/05-archiso-linux-ram.conf"
-assert_file "$E05" "boot RAM: entrada Copy to RAM (UEFI) criada"
-assert_grep "$E05" 'copytoram=y' "boot RAM: copytoram=y na entrada UEFI"
-assert_grep "$E05" 'vmlinuz-linux-cachyos-bore' "boot RAM: entrada UEFI no kernel BORE"
-assert_nogrep "$E05" 'locklock' "boot RAM: cmdline sem typo (landlock,lockdown)"
 
+# 01 default: AMD · Copy to RAM (BORE + copytoram=y + ppfeaturemask)
+assert_grep "$E01" 'vmlinuz-linux-cachyos-bore' "v1.1: entrada default (UEFI) → kernel BORE"
+assert_grep "$E01" 'initramfs-linux-cachyos-bore\.img' "v1.1: initramfs default → BORE"
+assert_nogrep "$E01" 'vmlinuz-linux([^-]|$)' "v1.1: default sem vestígio do kernel stock (mesmo guard do produto)"
+assert_grep "$E01" 'copytoram=y' "v1.1: default com copytoram=y (o live inteiro na RAM)"
+assert_grep "$E01" 'amdgpu\.ppfeaturemask=0xffffffff' "v1.1: default com ppfeaturemask AMD (undervolt/OC no LACT)"
+assert_grep "$E01" 'UEFI, AMD · Copy to RAM' "v1.1: título default = AMD · Copy to RAM"
+assert_grep "$E01" 'systemd\.default_timeout_start_sec=90' "v1.0.4: timeout 90s no cmdline do default"
+
+# 02 OpenSource: REMOVIDA do menu (redundante — nouveau não existe no Blackwell)
+assert_nofile "$E02" "v1.1: entrada OpenSource (UEFI) APAGADA — menu de 3"
+# 05 Copy to RAM: APAGADA (o default AGORA copia p/ RAM)
+assert_nofile "$E05" "v1.1: entrada 05 Copy to RAM (UEFI) apagada — default já é copy-to-RAM"
+
+# 03 NVIDIA: reescrita íntegra — BORE + dkms + modeset/fbdev + copytoram=y
+assert_grep "$E03" 'NVIDIA · Copy to RAM' "v1.1: título NVIDIA = · Copy to RAM"
+assert_grep "$E03" 'copytoram=y' "v1.1: entrada NVIDIA com copytoram=y"
+assert_grep "$E03" 'nvidia_drm\.modeset=1 nvidia_drm\.fbdev=1' "v1.1: NVIDIA com modeset+fbdev (Wayland)"
+assert_grep "$E03" 'module_blacklist=nouveau' "v1.1: NVIDIA com nouveau no blacklist"
+assert_grep "$E03" 'initramfs-linux-cachyos-bore\.img' "v1.1: initramfs NVIDIA = a MESMA do BORE (hook kms)"
+assert_grep "$E03" 'vmlinuz-linux-cachyos-bore-cachyos-bore' \
+  "PENDÊNCIA p3 (produto): 03 com sufixo DUPLICADO 'bore-cachyos-bore' (cat> + loop duplo) — fix deve deixar 1×"
+assert_grep "$E03" '^sort-key 03$' "v1.1: sort-key 03 preservado (ordem do menu)"
+
+# 04 rescue: nomodeset, copytoram=n (máquina com pouca RAM)
+assert_grep "$E04" 'vmlinuz-linux-cachyos-bore' "v1.1: entrada rescue (UEFI) → kernel BORE"
+assert_grep "$E04" 'initramfs-linux-cachyos-bore\.img' "v1.1: initramfs rescue → BORE"
+assert_grep "$E04" 'copytoram=n' "v1.1: rescue mantém copytoram=n (pouca RAM)"
+assert_grep "$E04" 'nomodeset' "v1.1: rescue com nomodeset"
+
+# syslinux (BIOS): archfree FORA; archnonfree BORE+NVIDIA; default AMD
+SL="$P/syslinux/archiso_sys-linux.cfg"
+assert_nogrep "$SL" '^LABEL archfree' "v1.1: syslinux — bloco OpenSource (archfree) REMOVIDO"
+assert_nogrep "$SL" '^LABEL archram' "v1.1: syslinux — LABEL archram (v1.0.4) não existe mais"
+grep -A9 '^LABEL archnonfree' "$SL" | grep -q 'vmlinuz-linux-cachyos-bore' \
+  && ok "v1.1: syslinux archnonfree → kernel BORE (dkms pré-compilado)" \
+  || fail "v1.1: syslinux archnonfree → kernel BORE" "bloco não convertido"
+grep -A9 '^LABEL archnonfree' "$SL" | grep -q 'initramfs-linux-cachyos-bore\.img' \
+  && ok "v1.1: syslinux archnonfree → initramfs BORE" \
+  || fail "v1.1: syslinux archnonfree → initramfs BORE" "initrd não convertido"
+grep -A9 '^LABEL archnonfree' "$SL" | grep -q 'nvidia_drm\.modeset=1 nvidia_drm\.fbdev=1' \
+  && ok "v1.1: syslinux archnonfree com modeset+fbdev" \
+  || fail "v1.1: syslinux archnonfree com modeset+fbdev" "params nvidia ausentes"
+grep -A9 '^LABEL archnonfree' "$SL" | grep -q 'copytoram=y' \
+  && ok "v1.1: syslinux archnonfree com copytoram=y" \
+  || fail "v1.1: syslinux archnonfree com copytoram=y" "copytoram=n sobrou"
+assert_grep "$SL" 'MENU LABEL Boot Archcraft Elite \(%ARCH%, BIOS, NVIDIA · Copy to RAM\)' \
+  "v1.1: syslinux título NVIDIA rebatizado"
+grep -A9 '^LABEL arch$' "$SL" | grep -q 'copytoram=y' \
+  && ok "v1.1: syslinux default (arch) com copytoram=y" \
+  || fail "v1.1: syslinux default com copytoram=y" "APPEND não patchado"
+grep -A9 '^LABEL arch$' "$SL" | grep -q 'amdgpu\.ppfeaturemask=0xffffffff' \
+  && ok "v1.1: syslinux default com ppfeaturemask AMD" \
+  || fail "v1.1: syslinux default com ppfeaturemask" "APPEND sem o param"
+assert_grep "$SL" 'MENU LABEL Boot Archcraft Elite \(%ARCH%, BIOS, AMD · Copy to RAM\)' \
+  "v1.1: syslinux título default = AMD · Copy to RAM"
+grep -A9 '^LABEL archnomodeset' "$SL" | grep -q 'copytoram=n' \
+  && ok "v1.1: syslinux rescue mantém copytoram=n" \
+  || fail "v1.1: syslinux rescue copytoram=n" "rescue virou copy-to-RAM?"
+# p1: blocos default/rescue AINDA no kernel stock (trava do estado atual —
+# o manifesto diz "NENHUMA entrada com vmlinuz-linux puro"; o guard do
+# próprio produto AVISA; fix do awk [6.1b] deve zerar esta contagem)
+assert_eq "$(grep -cE 'vmlinuz-linux$' "$SL")" "2" \
+  "PENDÊNCIA p1 (produto): 2 blocos syslinux (default+rescue) ainda em vmlinuz-linux — fix deve zerar"
+
+# grub (BIOS/loopback): archcraftpn BORE+NVIDIA; default AMD; rescue BORE
 GR="$P/grub/grub.cfg"
-assert_grep "$GR" "--id 'archcraftpn'" "cadeia A: menuentry NVIDIA (archcraftpn) preservado"
-# o bloco do pn precisa continuar em vmlinuz-linux + initramfs-linux-nvidia.img (stock)
-if grep -A4 -- "--id 'archcraftpn'" "$GR" | grep -q 'nvidia nvidia-drm.modeset=1'; then
-  ok "cadeia A: bloco NVIDIA segue no kernel stock (BIOS/loopback)"
+assert_grep "$GR" "--id 'archcraftpn'" "v1.1: menuentry NVIDIA (archcraftpn) presente"
+if grep -A4 -- "--id 'archcraftpn'" "$GR" | grep -q 'nvidia_drm\.modeset=1 nvidia_drm\.fbdev=1'; then
+  ok "v1.1: bloco NVIDIA com modeset+fbdev (kernel BORE + dkms)"
 else
-  fail "cadeia A: bloco NVIDIA segue no kernel stock (BIOS/loopback)" "params nvidia sumiram do bloco"
+  fail "v1.1: bloco NVIDIA com modeset+fbdev" "params nvidia ausentes"
 fi
-if grep -A4 -- "--id 'archcraftpn'" "$GR" | grep -q 'initramfs-linux-nvidia\.img'; then
-  ok "cadeia A: initramfs-nvidia.img exclusivo do stock preservado"
+if grep -A4 -- "--id 'archcraftpn'" "$GR" | grep -q 'vmlinuz-linux-cachyos-bore'; then
+  ok "v1.1: bloco NVIDIA no kernel BORE (era stock até a v1.0.4)"
 else
-  fail "cadeia A: initramfs-nvidia.img preservado" "linha ausente no bloco pn"
+  fail "v1.1: bloco NVIDIA no kernel BORE" "não convertido"
 fi
+assert_nogrep "$GR" 'initramfs-linux-nvidia\.img' "v1.1: initramfs-nvidia.img exclusivo do stock sumiu"
+if grep -A4 -- "--id 'archcraft'" "$GR" | grep -q 'copytoram=y'; then
+  ok "v1.1: bloco default com copytoram=y"
+else
+  fail "v1.1: bloco default com copytoram=y" "cmdline sem copy-to-RAM"
+fi
+if grep -A4 -- "--id 'archcraft'" "$GR" | grep -q 'amdgpu\.ppfeaturemask=0xffffffff'; then
+  ok "v1.1: bloco default com ppfeaturemask AMD"
+else
+  fail "v1.1: bloco default com ppfeaturemask" "param ausente"
+fi
+assert_grep "$GR" 'menuentry "Boot Archcraft Elite \(%ARCH%, \$\{archiso_platform\}, AMD · Copy to RAM\)"' \
+  "v1.1: título default (grub) = AMD · Copy to RAM"
+if grep -A4 -- "--id 'archcraftnm'" "$GR" | grep -q 'copytoram=n'; then
+  ok "v1.1: rescue (archcraftnm) mantém copytoram=n"
+else
+  fail "v1.1: rescue copytoram=n" "rescue virou copy-to-RAM?"
+fi
+if grep -A4 -- "--id 'archcraftnm'" "$GR" | grep -q 'vmlinuz-linux-cachyos-bore'; then
+  ok "v1.1: rescue no kernel BORE (conversão completa)"
+else
+  fail "v1.1: rescue no kernel BORE" "não convertido"
+fi
+assert_nogrep "$GR" "--id 'archcraftram'" "v1.1: menuentry RAM (v1.0.4) não existe mais"
+# p2: o menuentry OpenSource devia SAIR (manifesto) — o awk não consegue (del
+# sobrescrito por def); travado como estado atual: fix = peça vira nogrep
+assert_grep "$GR" "--id 'archcraftos'" \
+  "PENDÊNCIA p2 (produto): menuentry OpenSource AINDA presente (del→def no awk) — fix deve remover"
 assert_eq "$(grep -c 'vmlinuz-linux-cachyos-bore' "$GR")" "4" \
-  "cadeia A: default+opensource+nomodeset+ram → BORE (4×, NVIDIA fora)"
-assert_grep "$GR" "--id 'archcraftos'" "cadeia A: menuentry opensource presente"
-assert_grep "$GR" "--id 'archcraftnm'" "cadeia A: menuentry nomodeset presente"
-# v1.0.4: menuentry Copy to RAM — o loopback.cfg é o que o VENTOY usa!
-for GRF in "$GR" "$P/grub/loopback.cfg"; do
-  assert_grep "$GRF" "--id 'archcraftram'" "boot RAM: menuentry archcraftram presente"
-  assert_grep "$GRF" 'copytoram=y' "boot RAM: copytoram=y no cmdline"
-  grep -A2 -- "--id 'archcraftram'" "$GRF" | grep -q 'vmlinuz-linux-cachyos-bore' \
-    && ok "boot RAM: menuentry RAM no kernel BORE" \
-    || fail "boot RAM: menuentry RAM no kernel BORE" "não convertido"
-done
+  "v1.1: 4 blocos grub no BORE (def+os+nv+nm — p2 explica o 'os'; fix → 3)"
+# extras upstream (memtest/shutdown) intocados pela conversão
+if grep -A2 "class memtest" "$GR" | grep -q 'cachyos'; then
+  fail "v1.1: memtest intocado pela conversão" "ganhou kernel BORE por engano"
+else
+  ok "v1.1: memtest/shutdown sobrevivem sem conversão (awk escopo certo)"
+fi
+
+# loopback.cfg (VENTOY): mesma cirurgia — 4 blocos, NVIDIA BORE+fbdev
+LB="$P/grub/loopback.cfg"
+if grep -A4 -- "--id 'archcraftpn'" "$LB" | grep -q 'nvidia_drm\.fbdev=1'; then
+  ok "v1.1: loopback (Ventoy) NVIDIA com fbdev"
+else
+  fail "v1.1: loopback NVIDIA com fbdev" "params ausentes"
+fi
+if grep -A4 -- "--id 'archcraftpn'" "$LB" | grep -q 'vmlinuz-linux-cachyos-bore'; then
+  ok "v1.1: loopback NVIDIA no kernel BORE"
+else
+  fail "v1.1: loopback NVIDIA no kernel BORE" "não convertido"
+fi
+if grep -A4 -- "--id 'archcraft'" "$LB" | grep -q 'amdgpu\.ppfeaturemask'; then
+  ok "v1.1: loopback default com ppfeaturemask"
+else
+  fail "v1.1: loopback default com ppfeaturemask" "param ausente"
+fi
+assert_grep "$LB" "--id 'archcraftos'" \
+  "PENDÊNCIA p2 (produto): loopback OpenSource AINDA presente (idem grub.cfg)"
 
 W="$P/airootfs/etc/systemd/system/multi-user.target.wants"
 [[ ! -L "$W/cups.service" && ! -L "$W/vmtoolsd.service" ]] \
@@ -351,6 +635,21 @@ W="$P/airootfs/etc/systemd/system/multi-user.target.wants"
   || fail "cadeia A: sobrevivente sshd.service" "link sumiu — padrão de delete largo demais"
 
 CS="$P/airootfs/root/customize_airootfs.sh"
+# v1.1 build #51: o customize upstream RESSUCITA o linux.preset (cat > no
+# bloco "Fix Initrd Generation in Installed System") DEPOIS que o [6.3] do
+# overlay apagou o arquivo estático do profile — o E6 do fragmento Elite
+# (anexado AO FINAL do customize) precisa matá-lo de novo dentro do chroot.
+assert_grep "$CS" 'cat > "/etc/mkinitcpio\.d/linux\.preset"' \
+  "fixture #51: bloco de regeneração upstream presente (a armadilha reproduzida)"
+assert_grep "$CS" '^rm -f /etc/mkinitcpio\.d/linux\.preset' \
+  "E6: preset stock ressuscitado é removido de novo (kernel único BORE)"
+CATLINE=$(grep -n 'cat > "/etc/mkinitcpio\.d/linux\.preset"' "$CS" | head -1 | cut -d: -f1)
+RMLINE=$(grep -n '^rm -f /etc/mkinitcpio\.d/linux\.preset' "$CS" | head -1 | cut -d: -f1)
+if [[ -n "${CATLINE:-}" && -n "${RMLINE:-}" && "$RMLINE" -gt "$CATLINE" ]]; then
+  ok "E6: o rm roda DEPOIS do cat upstream (fragmento anexado ao final — ordem certa)"
+else
+  fail "E6: ordem cat→rm" "rm do E6 não está depois do cat upstream (linha $RMLINE vs $CATLINE)"
+fi
 assert_eq "$(grep -c '\[\[ -f /etc/skel/.config/sway/scripts/startup \]\]' "$CS")" "2" \
   "cadeia A: guarda sway ×2 (o fix do run #17 aplicado no customize)"
 # [8.6] guards da curadoria v1.0.3: openbox/bspwm/scripts/screenlayout
@@ -461,9 +760,9 @@ fi
 fbm1=0; [[ -f /var/lib/elite/firstboot-done ]] && fbm1=1
 assert_eq "$fbm1" "$fbm0" "cadeia C (Setup A): dry não cria/toca /var/lib/elite/firstboot-done"
 
-# Setup B (RX 7600) herdando o stack NVIDIA inteiro:
+# Setup B (RX 7600) herdando o stack NVIDIA inteiro (v1.1: com o dkms):
 : > "$STATE/installed.txt"; : > "$STATE/pacman.log"
-for p in nvidia-open nvidia-utils nvidia-settings lib32-nvidia-utils \
+for p in nvidia-open nvidia-open-dkms nvidia-utils nvidia-settings lib32-nvidia-utils \
          mesa steam linux-cachyos-bore; do
   echo "$p" >> "$STATE/installed.txt"
 done
@@ -471,7 +770,7 @@ if outB="$(firstboot LSPCI_FIXTURE="$TESTS_DIR/fixtures/lspci/rx-7600.txt" \
   bash "$TUNE" --firstboot --dry-run --yes 2>&1)"; then rcB=0; else rcB=$?; fi
 assert_eq "$rcB" "0" "cadeia C (Setup B): firstboot dry-run exit 0"
 assert_match "$outB" 'AMD → mesa/RADV' "cadeia C (Setup B): plano AMD certo (RADV assado = no-op)"
-assert_match "$outB" 'Auto-limpeza: GPU amd → removendo stack do outro vendor \(nvidia-open' "cadeia C (Setup B): ~500MB de NVIDIA inertes anunciados p/ sair"
+assert_match "$outB" 'Auto-limpeza: GPU amd → removendo stack do outro vendor \(nvidia-open nvidia-open-dkms' "cadeia C (Setup B): stack NVIDIA inteiro (dkms incluso) anunciado p/ sair"
 assert_match "$outB" '\[arquivo\] /etc/modprobe\.d/00-elite-amdgpu\.conf' "cadeia C (Setup B): ppfeaturemask planejado (undervolt/OC)"
 
 # GPU desconhecida: firstboot não morre, só avisa
@@ -517,8 +816,13 @@ else
   assert_eq "$rcP" "0" "cadeia D (Setup A): modo padrão dry exit 0"
   assert_match "$outP" 'DOSSIÊ DETECTADO' "cadeia D: dossiê abre a sessão"
   assert_match "$outP" 'gen=blackwell vendor=nvidia' "cadeia D: dossiê mostra o hardware certo"
-  assert_match "$outP" '\$ pacman -S --needed --noconfirm linux-cachyos-bore linux-cachyos-bore-headers linux-headers' \
-    "cadeia D: [1] kernel BORE no plano"
+  assert_match "$outP" '\$ pacman -S --needed --noconfirm linux-cachyos-bore linux-cachyos-bore-headers' \
+    "cadeia D: [1] kernel BORE no plano (kernel único)"
+  if grep -q ' linux-headers' <<<"$outP"; then
+    fail "cadeia D: [1] headers do kernel stock FORA do plano" "plano ainda instala linux-headers"
+  else
+    ok "cadeia D: [1] linux-headers stock fora do plano (v1.1: kernel único BORE)"
+  fi
   assert_match "$outP" '\$ pacman -S --needed --noconfirm cachyos-settings cachyos-ananicy-rules ananicy-cpp scx-scheds scx-tools dmemcg-booster' \
     "cadeia D: [1] stack CachyOS completo no plano"
   assert_match "$outP" '\[arquivo\] /etc/systemd/system/scx-elite\.service' "cadeia D: [2] unit scx planejada"
@@ -549,6 +853,26 @@ else
     bash "$TUNE" --dry-run --yes 2>&1 | sed 's/\x1b\[[0-9;]*m//g')"
   assert_match "$outP3" 'SINGLE-CHANNEL' "cadeia D (conselho): 1 pente de RAM → alerta de upgrade"
   assert_match "$outP3" 'DOCP/XMP' "cadeia D (conselho): RAM @ 2666MHz → aviso de BIOS"
+
+  # v4.6 — BBR determinístico: o mesmo guard do firstboot decide entre
+  # wfile 99-elite-net.conf+elite-bbr.conf (kernel com bbr) e warn (sem).
+  # O grep de /proc é mockado (mocks-scoped) — sem depender do kernel do host
+  if outBBRp="$(PATH="$WORK/mocks-scoped:$PATH" dryrun ELITE_SCOPED_BBR=present \
+      LSPCI_FIXTURE="$TESTS_DIR/fixtures/lspci/rtx-5060.txt" \
+      NVIDIA_SMI='NVIDIA GeForce RTX 5060')"; then rcBBRp=0; else rcBBRp=$?; fi
+  assert_eq "$rcBBRp" "0" "cadeia D (BBR on): dry exit 0 com kernel-bbr simulado"
+  assert_match "$outBBRp" '\[arquivo\] /etc/sysctl\.d/99-elite-net\.conf' "cadeia D (BBR on): [5] sysctl BBR+fq planejado (wfile)"
+  assert_match "$outBBRp" '\[arquivo\] /etc/modules-load\.d/elite-bbr\.conf' "cadeia D (BBR on): [5] modules-load tcp_bbr planejado (wfile)"
+  if outBBRa="$(PATH="$WORK/mocks-scoped:$PATH" dryrun ELITE_SCOPED_BBR=absent \
+      LSPCI_FIXTURE="$TESTS_DIR/fixtures/lspci/rtx-5060.txt" \
+      NVIDIA_SMI='NVIDIA GeForce RTX 5060')"; then rcBBRa=0; else rcBBRa=$?; fi
+  assert_eq "$rcBBRa" "0" "cadeia D (BBR off): dry exit 0 com kernel SEM bbr simulado"
+  assert_match "$outBBRa" 'kernel sem bbr — mantendo cubic' "cadeia D (BBR off): aviso em vez de sysctl morto"
+  if grep -q '99-elite-net' <<<"$outBBRa"; then
+    fail "cadeia D (BBR off): sysctl BBR NÃO é escrito" "plano trouxe 99-elite-net.conf"
+  else
+    ok "cadeia D (BBR off): nenhum 99-elite-net.conf no plano (guard fecha a porta)"
+  fi
 fi
 
 # ════════════════════════════════════════════════════════════════════
@@ -604,10 +928,17 @@ else
   fbreal() { # <cenario> <fixture> <smi> <refuse> [pkgs…] → evidência em $STATE/fb-real-<cenario>.log
     local scen=$1 fix=$2 smi=$3 refuse=$4
     shift 4
+    # cenários v4.6: mocks de cenário (ls NV_PREBUILT / grep BBR) por nome
+    local extra=()
+    case "$scen" in
+      nvpre)    extra=(MOCK_EXTRA="$WORK/mocks-scoped" ELITE_SCOPED_NVLS=1) ;;
+      bbrabs)   extra=(MOCK_EXTRA="$WORK/mocks-scoped" FB_BBR=1 ELITE_SCOPED_BBR=absent) ;;
+      bbrpres)  extra=(MOCK_EXTRA="$WORK/mocks-scoped" FB_BBR=1 ELITE_SCOPED_BBR=present) ;;
+    esac
     with_mocks "${ISOL[@]}" env NS_TMPFS="$NS_TMPFS" TUNE="$TUNE" \
       FB_LOG="$STATE/fb-real-$scen.log" \
       FB_FIXTURE="$fix" FB_SMI="$smi" FB_REFUSE="$refuse" FB_PKGS="$*" \
-      MOCK_DIR="$STATE" bash "$TESTS_DIR/lib/ns-body.sh"
+      MOCK_DIR="$STATE" ${extra[@]+"${extra[@]}"} bash "$TESTS_DIR/lib/ns-body.sh"
   }
   hostmod0=0; [[ -f /etc/modprobe.d/00-elite-nvidia.conf ]] && hostmod0=1
 
@@ -650,8 +981,8 @@ else
     "cadeia F (Setup A): marker firstboot-done criado"
   assert_grep "$STATE/pacman.log" 'pacman -R --noconfirm nvidia-open$' \
     "cadeia F (Setup A): nvidia-open pré-compilado removido (vai entrar o dkms)"
-  assert_grep "$STATE/pacman.log" 'pacman -S --needed --noconfirm nvidia-open-dkms nvidia-utils nvidia-settings lib32-nvidia-utils$' \
-    "cadeia F (Setup A): stack dkms instalado (mock log exato)"
+  assert_grep "$STATE/pacman.log" 'pacman -S --needed --noconfirm nvidia-open-dkms nvidia-utils lib32-nvidia-utils$' \
+    "cadeia F (Setup A): stack dkms instalado SEM nvidia-settings (v4.6 — LACT cobre)"
   assert_grep "$STATE/pacman.log" 'pacman -Rns --noconfirm vulkan-radeon' \
     "cadeia F (Setup A): ICDs alienígenas removidos na execução real"
   assert_grep "$STATE/systemctl.log" 'disable elite-firstboot' \
@@ -666,6 +997,69 @@ else
   assert_grep "$LP" 'tentando nvidia-dkms' "cadeia F (pascal): plano branch 580 anunciado"
   assert_grep "$LP" 'nvidia-dkms indisponível' "cadeia F (pascal): falha assumida (sem crash)"
   assert_grep "$LP" 'paru -S nvidia-580xx-dkms' "cadeia F (pascal): instrução AUR de resgate"
+
+  # cenário NVIDIA BLACKWELL SEM REDE (v4.5 — anti-brick do 1º boot offline):
+  # o -S do dkms falha → nvidia-open PRESERVADO (nunca removido antes do
+  # sucesso), marker NÃO escrito (a unit re-tenta no próximo boot) e sem
+  # self-disable. Era o risco real do Elite A: live OK, install OK, reboot
+  # sem cabo de rede → sem driver NENHUM e sem retry. Agora é contrato.
+  # (ns-body reseta pacman/systemctl/wall por cenário; o marker precisa de
+  #  limpeza manual só no modo container, que compartilha o /var real)
+  [[ $NS_TMPFS == 0 ]] && rm -f /var/lib/elite/firstboot-done
+  fbreal nvbw-net0 "$TESTS_DIR/fixtures/lspci/rtx-5060.txt" 'NVIDIA GeForce RTX 5060' 1 \
+    nvidia-open nvidia-utils mesa
+  LN="$STATE/fb-real-nvbw-net0.log"
+  assert_match "$(sed -n '/^RC=/p' "$LN")" '^RC=0$' "cadeia F (A sem rede): firstboot AINDA exit 0 (nunca trava)"
+  assert_grep "$LN" 'nvidia-open-dkms não instalou' "cadeia F (A sem rede): falha assumida com aviso"
+  assert_grep "$LN" 'driver atual PRESERVADO' "cadeia F (A sem rede): driver do live PRESERVADO (anti-brick)"
+  assert_grep "$STATE/pacman.log" 'pacman -S --needed --noconfirm nvidia-open-dkms nvidia-utils lib32-nvidia-utils$' \
+    "cadeia F (A sem rede): tentativa de dkms registrada (ordem -S→-R, sem nvidia-settings)"
+  assert_nogrep "$STATE/pacman.log" 'pacman -R --noconfirm nvidia-open$' \
+    "cadeia F (A sem rede): NUNCA removeu o nvidia-open (o -R só existe após -S vencer)"
+  assert_match "$(sed -n '/^=== MARKER/,+1p' "$LN" | tail -1)" '^no$' \
+    "cadeia F (A sem rede): marker NÃO escrito → re-tenta no próximo boot"
+  assert_nogrep "$STATE/systemctl.log" 'disable elite-firstboot' \
+    "cadeia F (A sem rede): unit NÃO auto-desativada (retry vivo)"
+  assert_grep "$STATE/wall.log" 'pendente' "cadeia F (A sem rede): wall honesto ('pendente', não 'REINICIE')"
+
+  # cenário v4.6 — NVIDIA com dkms PRÉ-COMPILADO da ISO (o coração da v1.1):
+  # o ls de /usr/lib/modules/$(uname -r)/updates/dkms/nvidia.ko* responde (mock
+  # de cenário) → firstboot NÃO instala NADA, marker na 1ª passada — 1º boot
+  # do rig A 100% offline (a razão de ser do E11)
+  [[ $NS_TMPFS == 0 ]] && rm -f /var/lib/elite/firstboot-done
+  fbreal nvpre "$TESTS_DIR/fixtures/lspci/rtx-5060.txt" 'NVIDIA GeForce RTX 5060' 0 \
+    nvidia-open-dkms nvidia-utils mesa steam
+  LPB="$STATE/fb-real-nvpre.log"
+  assert_match "$(sed -n '/^RC=/p' "$LPB")" '^RC=0$' "cadeia F (dkms pré-compilado): firstboot exit 0"
+  assert_grep "$LPB" 'driver dkms PRÉ-COMPILADO da ISO já presente' \
+    "cadeia F (dkms pré-compilado): caminho offline anunciado (nada a instalar)"
+  assert_grep "$LPB" 'nada a instalar \(offline OK\)' "cadeia F (dkms pré-compilado): offline OK explícito"
+  assert_nogrep "$STATE/pacman.log" 'pacman -S --needed --noconfirm nvidia-open-dkms' \
+    "cadeia F (dkms pré-compilado): NENHUMA instalação de driver (mock log limpo)"
+  assert_match "$(sed -n '/^=== MARKER/,+1p' "$LPB" | tail -1)" '^yes$' \
+    "cadeia F (dkms pré-compilado): marker escrito na 1ª passada (sem retry)"
+  assert_nogrep "$STATE/wall.log" 'pendente' "cadeia F (dkms pré-compilado): wall sem 'pendente' (nada ficou devendo)"
+
+  # cenário v4.6 — BBR guard: kernel SEM bbr → o sysctl.d da ISO é LIMPO (as
+  # linhas net.* somem e o modules-load morre) em vez de sysctl morto
+  fbreal bbrabs "$TESTS_DIR/fixtures/lspci/intel-igpu.txt" "" 0 mesa steam
+  LBBA="$STATE/fb-real-bbrabs.log"
+  assert_match "$(sed -n '/^RC=/p' "$LBBA")" '^RC=0$' "cadeia F (bbr off): firstboot exit 0"
+  assert_grep "$LBBA" 'bbr indisponível neste kernel' "cadeia F (bbr off): aviso de limpeza anunciado"
+  bbrnet=$(sed -n '/^=== BBRCFG/,/^=== BBRMOD/p' "$LBBA" | grep -c '^net\.')
+  assert_eq "$bbrnet" "0" "cadeia F (bbr off): linhas net.* REMOVIDAS do 99-elite-net.conf"
+  bbrmod=$(awk '/^=== BBRMOD/{getline; print; exit}' "$LBBA")
+  assert_eq "$bbrmod" "no" "cadeia F (bbr off): modules-load.d/elite-bbr.conf APAGADO"
+
+  # cenário v4.6 — BBR presente: a ISO entrega bbr+fq e o firstboot SÓ confirma
+  fbreal bbrpres "$TESTS_DIR/fixtures/lspci/intel-igpu.txt" "" 0 mesa steam
+  LBBP="$STATE/fb-real-bbrpres.log"
+  assert_match "$(sed -n '/^RC=/p' "$LBBP")" '^RC=0$' "cadeia F (bbr on): firstboot exit 0"
+  assert_grep "$LBBP" 'TCP: bbr \+ fq ativos' "cadeia F (bbr on): confirmação bbr+fq (sysctl.d da ISO vale)"
+  bbrnet2=$(sed -n '/^=== BBRCFG/,/^=== BBRMOD/p' "$LBBP" | grep -c '^net\.')
+  assert_eq "$bbrnet2" "2" "cadeia F (bbr on): fq + bbr INTACTOS no sysctl.d (nada limpo)"
+  bbrmod2=$(awk '/^=== BBRMOD/{getline; print; exit}' "$LBBP")
+  assert_eq "$bbrmod2" "yes" "cadeia F (bbr on): modules-load elite-bbr.conf preservado"
 
   # prova de isolamento (modo ns): o HOST não ganhou nenhum arquivo elite
   if [[ $NS_TMPFS == 1 ]]; then
@@ -693,6 +1087,11 @@ if (( can_ns )); then
   [[ -f "$STATE/fb-real-nvbw.log" ]] \
     && ok "anti-skip: cadeia F executou (firstboot real com evidência)" \
     || fail "anti-skip: cadeia F executou" "evidência ausente com root/ns disponível"
+  for ev in fb-real-nvpre.log fb-real-bbrabs.log fb-real-bbrpres.log; do
+    [[ -f "$STATE/$ev" ]] \
+      && ok "anti-skip: cenário v4.6 $ev rodou (evidência no estado)" \
+      || fail "anti-skip: cenário v4.6 $ev" "evidência ausente com root/ns disponível"
+  done
 fi
 
 # 4.G (determinismo): a segunda montagem do overlay é bit-a-bit igual à

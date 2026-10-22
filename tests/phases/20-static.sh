@@ -5,6 +5,7 @@ phase_start 2 "QUALIDADE ESTÁTICA — a tampa da caixa"
 
 SHELLS=(
   scripts/apply-overlay.sh
+  scripts/qemu-boot-test.sh
   .ci/build.sh
   elite/fragments/elite-customize.sh
   elite/airootfs/usr/local/bin/elite-tune
@@ -20,6 +21,7 @@ SHELLS=(
   elite/airootfs/usr/local/bin/craft-bat
   elite/airootfs/usr/local/bin/craft-drawer
   elite/airootfs/usr/local/bin/craft-power
+  elite/airootfs/usr/local/bin/craft-pin
   elite/airootfs/etc/skel/.config/labwc/autostart
   tests/run-tests.sh
   tests/lib/core.sh
@@ -48,8 +50,9 @@ else
   skip "shellcheck: gate do CI" "binário ausente neste ambiente — o job de lint no GitHub o executa"
 fi
 
-# peças: YAML válido (os 3 workflows)
-for y in build.yml agents.yml tests.yml; do
+# peças: YAML válido (os 4 workflows — diag-install entrou na lista v1.0.5:
+# virou workflow_call load-bearing, gate obrigatório do release)
+for y in build.yml diag-install.yml agents.yml tests.yml; do
   if [[ -f "$REPO/.github/workflows/$y" ]]; then
     python3 -c "import yaml,sys; yaml.safe_load(open(sys.argv[1]))" "$REPO/.github/workflows/$y" 2>/dev/null \
       && ok "yaml: $y parseia" \
@@ -74,8 +77,10 @@ for x in \
   elite/airootfs/usr/local/bin/craft-power \
   elite/airootfs/usr/local/bin/craft-shot \
   elite/airootfs/usr/local/bin/craft-bat \
+  elite/airootfs/usr/local/bin/craft-pin \
   elite/airootfs/etc/skel/.config/labwc/autostart \
-  scripts/apply-overlay.sh
+  scripts/apply-overlay.sh \
+  scripts/qemu-boot-test.sh
 do
   [[ -x "$REPO/$x" ]] && ok "exec: $x" || fail "exec: $x" "sem bit de execução"
 done
@@ -90,10 +95,10 @@ assert_eq "$crlf" "0" "higiene: 0 arquivos com CRLF"
 sheb=0
 for x in elite-tune fg-booster elite-status craft-hello craft-update craft-clean \
          craft-rollback craft-lock craft-logout craft-shot craft-bat \
-         craft-drawer craft-power; do
+         craft-drawer craft-power craft-pin; do
   head -1 "$REPO/elite/airootfs/usr/local/bin/$x" | grep -q '^#!' && sheb=$((sheb+1))
 done
-assert_eq "$sheb" "13" "higiene: shebang nos 13 binários do airootfs"
+assert_eq "$sheb" "14" "higiene: shebang nos 14 binários do airootfs"
 head -1 "$REPO/elite/airootfs/etc/skel/.config/labwc/autostart" | grep -q '^#!/bin/sh' \
   && ok "higiene: autostart do labwc é POSIX sh com shebang" \
   || fail "autostart do labwc" "shebang #!/bin/sh ausente"
@@ -175,5 +180,21 @@ assert_grep "$TY" 'container: archlinux:base-devel' "contrato: tests.yml roda no
 assert_grep "$TY" 'bash tests/run-tests\.sh' "contrato: tests.yml executa a suíte inteira"
 assert_grep "$TY" 'shellcheck' "contrato: tests.yml instala o shellcheck (o gate de lint)"
 assert_grep "$TY" 'pull_request:' "contrato: tests.yml roda em PR (gate de merge)"
+
+# ── peças: dock auto-ocultante + pins do usuário (contratos do rice) ──
+DK="$REPO/elite/airootfs/etc/skel/.config/waybar/config.dock"
+DKCSS="$REPO/elite/airootfs/etc/skel/.config/waybar/style.dock.css"
+assert_grep "$DK" '"exclusive": false' "dock: exclusive false (auto-hide — janelas usam a base)"
+assert_grep "$DKCSS" 'margin-bottom: -52px' "dock: CSS esconde a pílula fora do hover (auto-ocultante)"
+assert_grep "$DK" 'PINS \(craft-pin\)' "dock: seção PINS presente (craft-pin add/rm gerencia)"
+assert_grep "$DKCSS" 'Pins do usuário \(craft-pin\)' "dock: CSS tem a seção de pins documentada"
+pin_defs=$(grep -c '^  "custom/pin-' "$DK" || true)
+assert_eq "$pin_defs" "0" "dock: skel sai de fábrica com ZERO pins (usuário fixa os seus)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin" 'pkill -SIGUSR2' \
+  "craft-pin: reload via SIGUSR2 (man 5 waybar: recarrega config+estilo)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin" '\.bak\.' \
+  "craft-pin: toda mutação grava backup restaurável (craft-pin restore)"
+assert_grep "$REPO/scripts/apply-overlay.sh" 'craft-pin' \
+  "apply-overlay: craft-pin registrado no file_permissions (senão 203/EXEC no live)"
 
 phase_end

@@ -139,9 +139,53 @@ fi
 ## [E4] Refresh das DBs (valida que os 6 repos resolvem dentro do chroot)
 pacman -Sy --noconfirm || true
 
+## [E11] v1.1 — NVIDIA dkms pré-compilado: VERIFICA + regenera o initramfs do live
+##      ═════════════════════════════════════════════════════════════════
+##      O pacstrap instalou nvidia-open-dkms (packages.add) e o hook do
+##      dkms compilou os módulos contra o kernel BORE. Dois passos aqui:
+##       1. GATE DURO: os módulos nvidia TÊM que existir para o kver BORE —
+##          sem eles a entrada NVIDIA do live é um bootloader de mentira
+##          (fail no build, nunca no boot do rig A).
+##       2. REGEN do initramfs do live: o hook 90-mkinitcpio-install do
+##          pacstrap roda ANTES do hook do dkms na mesma transação (ordem
+##          alfabética: "90-..." < "dkms...") → a 1ª geração sai SEM
+##          nvidia. Regeneramos aqui com o conf archiso recriado (o
+##          customize upstream DELETOU /etc/mkinitcpio.conf.d antes deste
+##          fragmento rodar — recriamos verbatim e limpamos depois: o
+##          conf.d NÃO pode ir pro alvo, senão o drop-in archiso vence o
+##          ALL_config do initcpio@elite na instalação — armadilha que o
+##          E6b antigo documentava). Com o hook kms + módulos presentes,
+##          UMA initramfs dá early-KMS nos DOIS rigs (o módulo do vendor
+##          ausente apenas não binda — inerte).
+ELITE_KVER=""
+for _d in /usr/lib/modules/*cachyos-bore*; do
+    [[ -d "$_d" ]] || continue
+    ELITE_KVER="${_d##*/}"
+    break
+done
+if [[ -n "$ELITE_KVER" ]]; then
+    if ! ls /usr/lib/modules/"$ELITE_KVER"/updates/dkms/nvidia.ko* >/dev/null 2>&1; then
+        echo "ELITE-FAIL: dkms NÃO compilou o nvidia para '$ELITE_KVER' —" >&2
+        echo "  ver logs do pacstrap acima (headers ausentes? toolchain? fonte?)" >&2
+        exit 1
+    fi
+    echo "E11: módulos nvidia presentes p/ $ELITE_KVER — regenerando initramfs do live (kms)"
+    mkdir -p /etc/mkinitcpio.conf.d
+    cat > /etc/mkinitcpio.conf.d/archiso.conf <<'EOARC'
+HOOKS=(base udev microcode plymouth modconf kms memdisk archiso archiso_loop_mnt block filesystems keyboard)
+COMPRESSION="xz"
+COMPRESSION_OPTIONS=(-9e)
+EOARC
+    mkinitcpio -p linux-cachyos-bore
+    rm -rf /etc/mkinitcpio.conf.d
+else
+    echo "ELITE-FAIL: kernel BORE não encontrado em /usr/lib/modules" >&2
+    exit 1
+fi
+
 ## [E5] Cirurgia no Calamares (efeito na INSTALAÇÃO, no sistema alvo):
-##   a) unpackfs copia também o vmlinuz do BORE p/ /boot do instalado
-##      (upstream só copia o vmlinuz-linux — sem isto o BORE nunca bootaria)
+##   a) unpackfs: a entrada do vmlinuz-linux stock vira a do BORE
+##      (kernel único v1.1 — sem isto o alvo nasce sem kernel nenhum)
 ##   b) instância initcpio@elite gera o initramfs do BORE no alvo
 ##   c) packagechooser: sessão ÚNICA labwc (v1.0.3 — openbox/bspwm/sway fora
 ##      da ISO; a página "Desktop" apenas confirma o labwc)
@@ -150,20 +194,33 @@ pacman -Sy --noconfirm || true
 ##   f) btrfs como filesystem default (timeshift + grub-btrfs = rollback real)
 CC="/etc/calamares"
 if [[ -d "$CC" ]]; then
-    # a) unpackfs
-    if [[ -f "$CC/modules/unpackfs.conf" ]] && ! grep -q 'vmlinuz-linux-cachyos-bore' "$CC/modules/unpackfs.conf"; then
-        printf '%s\n' \
-            '    -   source: "/run/archiso/bootmnt/arch/boot/x86_64/vmlinuz-linux-cachyos-bore"' \
-            '        sourcefs: "file"' \
-            '        destination: "/boot/vmlinuz-linux-cachyos-bore"' \
-            >> "$CC/modules/unpackfs.conf"
+    # a) unpackfs: a entrada upstream copia o vmlinuz-linux (stock) — que
+    #    NÃO existe mais na ISO (kernel único BORE, v1.1). Substituímos a
+    #    entrada no lugar (mesma linha, kernel BORE); fallback: append.
+    if [[ -f "$CC/modules/unpackfs.conf" ]]; then
+        if grep -qF 'vmlinuz-linux"' "$CC/modules/unpackfs.conf" \
+           && ! grep -qF 'vmlinuz-linux-cachyos-bore' "$CC/modules/unpackfs.conf"; then
+            sed -i 's|vmlinuz-linux"|vmlinuz-linux-cachyos-bore"|g' "$CC/modules/unpackfs.conf"
+        elif ! grep -q 'vmlinuz-linux-cachyos-bore' "$CC/modules/unpackfs.conf"; then
+            printf '%s\n' \
+                '    -   source: "/run/archiso/bootmnt/arch/boot/x86_64/vmlinuz-linux-cachyos-bore"' \
+                '        sourcefs: "file"' \
+                '        destination: "/boot/vmlinuz-linux-cachyos-bore"' \
+                >> "$CC/modules/unpackfs.conf"
+        fi
     fi
-    # b) initcpio@elite
+    # b) initcpio@elite + REMOÇÃO do initcpio stock: o módulo upstream
+    #    regenera o initramfs do kernel 'linux' no alvo — kernel que não
+    #    existe mais (v1.1 single-kernel). Sem isto o Calamares ABORTA a
+    #    instalação no mkinitcpio de um kernel ausente.
     if [[ -f "$CC/settings.conf" ]] && ! grep -q 'initcpio@elite' "$CC/settings.conf"; then
         sed -i '/config:   shellprocess_btrfs.conf/s/$/\n- id:       elite\n  module:   initcpio\n  config:   initcpio_elite.conf/' "$CC/settings.conf"
         sed -i '/^  - initcpio$/s/$/\n  - initcpio@elite/' "$CC/settings.conf"
         printf '%s\n' '---' 'kernel: linux-cachyos-bore' 'be_unsafe: false' \
             > "$CC/modules/initcpio_elite.conf"
+    fi
+    if grep -q '^  - initcpio$' "$CC/settings.conf"; then
+        sed -i '/^  - initcpio$/d' "$CC/settings.conf"
     fi
     # c) packagechooser: itens openbox/bspwm/sway fora; everything vira labwc
     if [[ -f "$CC/modules/packagechooser.conf" ]]; then
@@ -207,8 +264,9 @@ if [[ -d "$CC" ]]; then
 fi
 
 ## [E6] Preset do BORE p/ o sistema INSTALADO (default/fallback). No live ele
-##      nasceu com hooks archiso (overlay); o initcpio@elite do E5b usa ESTE
-##      preset no alvo — espelha o que o upstream faz com o linux.preset.
+##      nasceu com hooks archiso (overlay + regen do E11); o initcpio@elite
+##      do E5b usa ESTE preset no alvo — kernel ÚNICO da Elite (v1.1: o
+##      linux.preset stock foi aposentado junto com o kernel stock).
 cat > /etc/mkinitcpio.d/linux-cachyos-bore.preset <<'EOL'
 # mkinitcpio preset file for the 'linux-cachyos-bore' package (Elite)
 ALL_kver="/boot/vmlinuz-linux-cachyos-bore"
@@ -221,29 +279,14 @@ default_image="/boot/initramfs-linux-cachyos-bore.img"
 fallback_image="/boot/initramfs-linux-cachyos-bore-fallback.img"
 fallback_options="-S autodetect"
 EOL
-
-## [E6b] linux.preset do KERNEL STOCK também vira default/fallback. O preset
-##       'archiso' do upstream aponta archiso_config p/ /etc/mkinitcpio.conf.d/
-##       archiso.conf — que o chrooted_post_install_nvidia.sh do Archcraft
-##       DELETA do alvo (junto com o conf.d inteiro) ANTES do módulo initcpio
-##       do Calamares. mkinitcpio -p linux morreria em “must be readable”
-##       (check_path r em arquivo inexistente — verificado no fonte 42.2) e o
-##       kernel stock ficaria sem initramfs no disco instalado — perdendo a
-##       entrada NVIDIA no alvo (o nvidia-open pré-compilado é só p/ ele).
-##       Live não muda: os initramfs da sessão live já foram gerados pelo hook
-##       90-mkinitcpio-install durante o pacstrap (antes deste customize).
-cat > /etc/mkinitcpio.d/linux.preset <<'EOL'
-# mkinitcpio preset file for the 'linux' package (Elite — installed system)
-ALL_kver="/boot/vmlinuz-linux"
-ALL_config="/etc/mkinitcpio.conf"
-
-PRESETS=('default' 'fallback')
-
-default_image="/boot/initramfs-linux.img"
-
-fallback_image="/boot/initramfs-linux-fallback.img"
-fallback_options="-S autodetect"
-EOL
+## v1.1 (build #51): o bloco upstream "Fix Initrd Generation in Installed
+## System" que RODA ANTES deste fragmento recria o /etc/mkinitcpio.d/
+## linux.preset incondicionalmente (cat > heredoc no customize deles) —
+## o [6.3] do overlay apaga o arquivo ESTÁTICO do profile, mas este cat
+## o ressuscita DENTRO do chroot na hora do build. Kernel único: o órfão
+## morre aqui de novo (o gate verify-install das builds #48/#51 pega
+## exatamente isso no squashfs → sistema instalado).
+rm -f /etc/mkinitcpio.d/linux.preset
 
 ## [E7] post-install do Archcraft: tira da lista de serviços habilitados
 ##      os que a Elite debloatou (cups via cups-filters→avahi) — evita
@@ -261,11 +304,24 @@ rm -rf /var/cache/elite-local
 ##      sessões/satélites que saíram (openbox, bspwm, polybar, tint2, rofi,
 ##      dunst, alacritty, kitty vieram do archcraft-skeleton). Sem isto o
 ##      home do liveuser nasce com diretórios mortos de apps que não existem.
-##      Os configs Elite (labwc/waybar/swaync/fuzzel) e os do que fica
-##      (Thunar, geany, ranger, qt5ct/qt6ct, Kvantum, neofetch) permanecem.
-for d in openbox bspwm polybar tint2 rofi dunst alacritty kitty; do
+##      Os configs Elite (labwc/waybar/swaync/fuzzel) permanecem; v1.1
+##      também varre os configs órfãos da purga GTK3 (thunar/zathura/
+##      mousepad/file-roller/blueman/pavucontrol vieram do skeleton).
+for d in openbox bspwm polybar tint2 rofi dunst alacritty kitty thunar zathura mousepad file-roller blueman pavucontrol; do
     rm -rf "/etc/skel/.config/$d"
 done
+
+## [E12] v1.1 — /etc/environment: app-layer moderna (MEGA PROMPT).
+##       O upstream seta EDITOR=nano / BROWSER=firefox / TERMINAL=alacritty
+##       (stale: alacritty saiu na v1.0.3, firefox sai na v1.1). Sed no lugar
+##       (drift-friendly: só as 3 chaves mudam, o resto do arquivo upstream
+##       é preservado — nunca overlay inteiro de arquivo alheio).
+ENVF="/etc/environment"
+if [[ -f "$ENVF" ]]; then
+    sed -i -e 's|^EDITOR=.*|EDITOR=helix|'   \
+           -e 's|^BROWSER=.*|BROWSER=brave|' \
+           -e 's|^TERMINAL=.*|TERMINAL=foot|' "$ENVF"
+fi
 
 ## [E10] FIX DO BOOT DO SISTEMA INSTALADO (v1.0.4 · bug reportado no rig B)
 ##      ══════════════════════════════════════════════════════════════════
@@ -303,9 +359,22 @@ if [[ -f /etc/calamares/modules/shellprocess_btrfs.conf ]]; then
 # SPDX-FileCopyrightText: no
 # SPDX-License-Identifier: CC0-1.0
 #
-# ELITE v1.0.4 — fix do boot instalado em btrfs (estende o workaround
-# upstream "fix BTRFS boot issue" para TODOS os kernels + regenera o
-# initramfs do kernel BORE com hooks de sistema). Ver elite-customize [E10].
+# ELITE v1.1 — fix do boot instalado em btrfs (v1.0.4: recopia TODOS os
+# vmlinuz + regenera o initramfs do BORE) + ESPECIALIZAÇÃO POR GPU NA
+# INSTALAÇÃO (v1.1, MEGA PROMPT: "sem influenciar um ao outro ou sujar,
+# principalmente na instalação"):
+#   · AMD     → remove o stack NVIDIA inteiro do alvo (dkms+utils+ módulos),
+#               MODULES=(amdgpu) + amdgpu.ppfeaturemask no GRUB → early-KMS
+#               limpo, zero pacote estranho no disco
+#   · NVIDIA  → MODULES=(nvidia nvidia_modeset nvidia_uvm nvidia_drm) +
+#               nvidia_drm.modeset=1 fbdev=1 no GRUB + modprobe.d (o driver
+#               dkms pré-compilado da ISO já está no alvo via unpackfs —
+#               belt-and-suspenders: o shellprocess@kms upstream também seda
+#               o MODULES quando o live usou o driver)
+#   · unknown → nenhum toque (VM/garanta neutra; o initcpiocfg decide)
+# Roda DEPOIS de unpackfs/packages (alvo completo) e ANTES de grubcfg/
+# bootloader (o GRUB gerado já nasce com os params certos). Ver
+# elite-customize [E10].
 ---
 dontChroot: true
 timeout: 9999
@@ -322,11 +391,47 @@ script:
           done
         fi
     - command: >
+        ELITE_GPU=unknown;
+        for v in /sys/class/drm/card*/device/vendor; do
+          [ -r "$v" ] || continue;
+          case "$(cat "$v" 2>/dev/null)" in
+            0x10de) ELITE_GPU=nvidia ;;
+            0x1002) [ "$ELITE_GPU" != "nvidia" ] && ELITE_GPU=amd ;;
+          esac;
+        done;
+        echo "ELITE: GPU do alvo = $ELITE_GPU";
+        if [ "$ELITE_GPU" = "amd" ]; then
+          arch-chroot "${ROOT}" pacman -Rdd --noconfirm nvidia-open-dkms nvidia-utils lib32-nvidia-utils 2>/dev/null || true;
+          rm -f "${ROOT}"/usr/lib/modules/*/updates/dkms/nvidia*.ko* 2>/dev/null || true;
+          sed -i 's|^MODULES=.*|MODULES=(amdgpu)|' "${ROOT}/etc/mkinitcpio.conf" 2>/dev/null || true;
+          printf '%s
+' '# ELITE: AMD - destrava undervolt/OC p/ LACT' 'options amdgpu ppfeaturemask=0xffffffff' > "${ROOT}/etc/modprobe.d/00-elite-amdgpu.conf";
+          if grep -q '^GRUB_CMDLINE_LINUX_DEFAULT=' "${ROOT}/etc/default/grub" 2>/dev/null; then
+            grep -q 'amdgpu.ppfeaturemask' "${ROOT}/etc/default/grub" ||
+              sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT=/s/"$/ amdgpu.ppfeaturemask=0xffffffff"/' "${ROOT}/etc/default/grub";
+          else
+            printf 'GRUB_CMDLINE_LINUX_DEFAULT="quiet amdgpu.ppfeaturemask=0xffffffff"
+' >> "${ROOT}/etc/default/grub";
+          fi
+        elif [ "$ELITE_GPU" = "nvidia" ]; then
+          grep -q '^MODULES=(nvidia' "${ROOT}/etc/mkinitcpio.conf" 2>/dev/null ||
+            sed -i 's|^MODULES=.*|MODULES=(nvidia nvidia_modeset nvidia_uvm nvidia_drm)|' "${ROOT}/etc/mkinitcpio.conf" 2>/dev/null || true;
+          printf '%s
+' '# ELITE: NVIDIA (modeset+fbdev p/ Wayland; VRAM preservada em suspend)' 'options nvidia-drm modeset=1 fbdev=1' 'options nvidia NVreg_PreserveVideoMemoryAllocations=1 NVreg_TemporaryFilePath=/var/tmp' > "${ROOT}/etc/modprobe.d/00-elite-nvidia.conf";
+          if grep -q '^GRUB_CMDLINE_LINUX_DEFAULT=' "${ROOT}/etc/default/grub" 2>/dev/null; then
+            grep -q 'nvidia_drm.fbdev' "${ROOT}/etc/default/grub" ||
+              sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT=/s/"$/ nvidia_drm.modeset=1 nvidia_drm.fbdev=1"/' "${ROOT}/etc/default/grub";
+          else
+            printf 'GRUB_CMDLINE_LINUX_DEFAULT="quiet nvidia_drm.modeset=1 nvidia_drm.fbdev=1"
+' >> "${ROOT}/etc/default/grub";
+          fi
+        fi
+    - command: >
         if [ -f "${ROOT}/boot/vmlinuz-linux-cachyos-bore" ] &&
            [ -x "${ROOT}/usr/bin/mkinitcpio" ]; then
           arch-chroot "${ROOT}" mkinitcpio -p linux-cachyos-bore || true
         fi
 i18n:
-     name: "Copying kernels + regenerating BORE initramfs (Elite btrfs boot fix)..."
+     name: "Elite: GPU profile + kernels + BORE initramfs (btrfs boot fix)..."
 EOSB
 fi
