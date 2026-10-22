@@ -177,9 +177,18 @@ provides=("brave=$pkgver" 'brave-browser')
 conflicts=(brave brave-bin)
 options=(!strip)
 _brave_zip="brave-origin-${pkgver}-linux-amd64.zip"
-source=("${_brave_zip}::https://github.com/brave/brave-browser/releases/download/v${pkgver}/brave-origin-${pkgver}-linux-amd64.zip")
+# brave-origin.sh + brave-browser.desktop: sources LOCAIS (heredocs acima)
+# — makepkg só copia p/ $srcdir o que está em source=() (a run #57 ensinou:
+# "install: cannot stat 'brave-origin.sh'"). Os sha256 abaixo são dos bytes
+# EXATOS dos heredocs — mudou o launcher/desktop ⇒ recalcule (padrão do
+# empacotamento upstream do brave, que também pinsha os próprios scripts).
+source=(brave-origin.sh
+        brave-browser.desktop
+        "${_brave_zip}::https://github.com/brave/brave-browser/releases/download/v${pkgver}/brave-origin-${pkgver}-linux-amd64.zip")
 noextract=("${_brave_zip}")
-sha256sums=('39a69cf12b5787f789d0a0b013f32253bddc9004d03e36c679a8daa61821b6e8')
+sha256sums=('ba01b127ffbedae6956b8e0f1565170cdecfbba9c19f3fcf76cbf7d6a566bea4'
+            '2187fb69be1ebfbc29f8dbd55d2c98d7b5a8b677f247258b43480b894cdac82b'
+            '39a69cf12b5787f789d0a0b013f32253bddc9004d03e36c679a8daa61821b6e8')
 
 prepare() {
     mkdir -p brave
