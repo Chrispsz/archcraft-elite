@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=xgpsspeed
+GenericName=GPS speedometer
+Exec=xgpsspeed
+Icon=utilities-terminal
+Categories=Science;Geoscience;
+NoDisplay=true

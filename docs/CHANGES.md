@@ -6,6 +6,83 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **v1.2 (branch feat/desktop-v2.1)** — **BURN TEST DO DONO (rig B):
+  forense completa da ISO v1.1 e a cura caso a caso**. O dono bootou a
+  v1.1 no Elite B (5600+RX 7600) e reportou 4 screenshots + áudio. Cada
+  sintoma virou causa-raiz, fix e contrato:
+  - **Calamares TRAVOU no rig** ("The following modules could not be
+    loaded: shellprocess@btrfs"): o heredoc EOSB do elite-customize
+    reescreve o `shellprocess_btrfs.conf` — e 4 `printf` tinham o `\n`
+    partido em quebra de linha REAL (a continuação caía na **coluna 0**,
+    terminando o block scalar `>` do YAML no meio do comando → parse
+    error → módulo recusado). O CI nunca viu: o gate verify-install
+    **simula** os passos do Calamares com rsync/cp/mkinitcpio e só
+    **grepa** padrões no .conf — nunca o parseia. Fix: printfs em linha
+    única com `\n` literal (heredoc citado preserva o backslash). Gates
+    novos: suíte extrai o heredoc EXATO e o parseia com PyYAML (+sh -n em
+    cada command); o verify-install ganhou a etapa [1b/8] que parseia
+    TODOS os /etc/calamares/*.conf como YAML e resolve instâncias da
+    sequência. Bug introduzido no commit do MEGA PROMPT (v1.0.4 limpa).
+  - **Dock INVISÍVEL**: 7 de 8 botões com `"format": ""` VAZIO (glifos
+    perdidos na escrita dos configs) — o dono viu "uma pílula com um
+    ícone só". E esse ícone era o **glifo do FIREFOX (U+F0239) no botão
+    do BRAVE** ("achei ruim, o ícone do Firefox sendo que o navegador é
+    Brave"). Fix radical: TODOS os glifos como **escapes JSON `\uXXXX`**
+    (ASCII puro, à prova de corrupção de encoding) — todos verificados no
+    cmap do Symbols Nerd Font / JetBrainsMono NF (archcraft-fonts 2.0).
+    Brave agora com o **escudo U+F132** (a marca do Brave). Sem escapes
+    de 5+ hex (SMP trap: `\uf0200` parseia como U+F020+dígito).
+  - **CSS pedindo família inexistente**: "JetBrainsMono Nerd Font" não
+    existe no archcraft-fonts 2.0 (a real: **"JetBrainsMono NF"**) —
+    glifos só renderizavam por fallback do fontconfig. Corrigido nos 2
+    CSS do waybar + fuzzel.ini (que também pedia weight=medium — só há
+    Regular/Bold/Italic).
+  - **Desktop v2.1 (as diretrizes do dono, uma a uma)**: relógio no
+    CENTRO; logo do canto esquerdo REMOVIDO (launcher = botão grade da
+    dock); áudio SÓ ÍCONE (o "40%" ia embora — mudo fica vermelho via
+    CSS .muted); **lock/power saem da dock** → botão ⏻ no canto direito
+    da barra abre o **craft-power v2: dropdown fuzzel --dmenu ancorado
+    top-right** (Travar/Sair/Suspender/Reiniciar/Desligar; fallback
+    labnag preservado); dock = **um grupo central único** (Launchpad +
+    fixados + separador 1px + janelas abertas — modelo macOS), sem nada
+    nas laterais; craft-pin insere os pins do usuário **antes do
+    separador** (junto aos fixos).
+  - **Menu de apps limpo**: overrides .desktop em
+    `/usr/local/share/applications` (precedência XDG, sobrevive a
+    updates): `foot-client`/`foot-server` NoDisplay (fim da triplicação
+    Foot), `foot` com Icon=utilities-terminal (fim do placeholder roxo
+    na taskbar — Papirus pode não ter foot.svg), `xgps`/`xgpsspeed`
+    NoDisplay (GPS num desktop gaming?), `abif` (instalador CLI)
+    NoDisplay, e **`calamares` com Icon=system-software-install** — o
+    "Install Archcraft" tinha Icon=archcraft-green (quebrado → o
+    placeholder que o dono viu na dock).
+  - **gpsd/xgps/xgpsspeed**: evidência do pacman db da ISO v1.1 (squashfs
+    extraído e conferido, hash bit-a-bit): **gpsd é dependência DURA do
+    waybar 0.15** (módulo gps compilado — remover à força mataria a libgps
+    e a barra não abriria). Cura: overrides NoDisplay de xgps/xgpsspeed
+    (o pacote fica p/ satisfazer o waybar, as entradas somem do menu);
+    E13 tenta `pacman -Rns` em build — falha segura hoje, cobre o dia em
+    que o waybar largar a dep; packages.remove lista gpsd (defensivo).
+  - **Thunar TINHA voltado**: o thunar-archive-plugin ficou ATIVO na
+    lista upstream e RESSUSCITOU o thunar como dependência (o dono viu
+    "Thunar File Manager" no menu — junto vieram libxfce4ui e
+    xfce4-about "About Xfce"!). Fix: thunar-archive-plugin entra no
+    packages.remove — thunar, libxfce4ui e xfce4-about saem inteiros.
+  - **footclient.desktop**: o arquivo real chama `footclient` (sem
+    hífen) — override renomeado (o dobro do menu: Foot/Foot Client/
+    Foot Server viram UM).
+  - **Fonte da forense**: a própria ISO v1.1 do release (2.9GB baixada,
+    sha256 confere: f6c8aba9…) — airootfs.sfs extraído com pycdlib +
+    unsquashfs 4.6.1 (deb extraído sem root); pacman db lido
+    (1091 pacotes, reverse-deps cruzados); pacotes do repo Archcraft
+    abertos (archcraft-fonts 2.0 — cmaps inspecionados com fontTools;
+    calamares 3.4.2 — sem schema p/ shellprocess, o parse YAML é o
+    gate; calamares-config 5.0 — settings.conf/instances íntegros: o
+    bug era NOSSO heredoc); + screenshots do dono analisados por VLM e
+    mockup HTML 1:1 (fontes reais, paleta exata, wallpaper da ISO)
+    iterado até aprovação visual. O YAML quebrado foi confirmado
+    VERBATIM no shellprocess_btrfs.conf da ISO real.
+
 - **v1.1 (branch feat/v1.1-modern-stack)** — **MEGA PROMPT: modernização,
   purificação e dual-rig de verdade**:
   - **App-stack 100% moderna e Wayland-native** (diretriz do dono):

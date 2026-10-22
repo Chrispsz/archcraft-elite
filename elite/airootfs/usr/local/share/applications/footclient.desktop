@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Exec=footclient
+Icon=utilities-terminal
+Terminal=false
+Categories=System;TerminalEmulator;
+
+Name=Foot Client
+GenericName=Terminal
+Comment=A wayland native terminal emulator (client)
+NoDisplay=true
