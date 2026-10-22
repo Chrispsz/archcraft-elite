@@ -1278,25 +1278,26 @@ assert_grep "$AST" "swaybg -m fill -c '#000000'" "v1.3: fallback swaybg preto AM
 # ── Wallpaper: existe, é JPEG e é AMOLED de verdade (bytes, não promessa) ──
 assert_file "$WAL" "v1.3: wallpaper.jpg existe (4K da internet)"
 if command -v python3 >/dev/null 2>&1; then
-  read -r walres walblack walmean < <(python3 - "$WAL" << 'PYEOF'
+  if python3 -c 'from PIL import Image' 2>/dev/null; then
+    read -r walres walblack walmean < <(python3 - "$WAL" << 'PYEOF'
 import sys
-try:
-    from PIL import Image
-    import numpy as np
-    im = Image.open(sys.argv[1])
-    arr = np.array(im.convert('L'))
-    print(im.size[0], round((arr < 8).mean() * 100, 1), round(float(arr.mean()), 1))
-except Exception:
-    print(0, 0.0, 0.0)
+from PIL import Image
+import numpy as np
+im = Image.open(sys.argv[1])
+arr = np.array(im.convert('L'))
+print(im.size[0], round((arr < 8).mean() * 100, 1), round(float(arr.mean()), 1))
 PYEOF
 )
-  assert_eq "$walres" "3840" "v1.3: wallpaper 4K (3840px de largura)"
-  blackok=1; awk "BEGIN{exit !($walblack >= 25.0)}" || blackok=0
-  assert_eq "$blackok" "1" "v1.3: wallpaper ≥25% de preto puro (AMOLED real — tem $walblack%)"
-  meanok=1; awk "BEGIN{exit !($walmean <= 30.0)}" || meanok=0
-  assert_eq "$meanok" "1" "v1.3: luma média ≤30 (não cega de noite — $walmean)"
+    assert_eq "$walres" "3840" "v1.3: wallpaper 4K (3840px de largura)"
+    blackok=1; awk "BEGIN{exit !($walblack >= 25.0)}" || blackok=0
+    assert_eq "$blackok" "1" "v1.3: wallpaper ≥25% de preto puro (AMOLED real — tem $walblack%)"
+    meanok=1; awk "BEGIN{exit !($walmean <= 30.0)}" || meanok=0
+    assert_eq "$meanok" "1" "v1.3: luma média ≤30 (não cega de noite — $walmean)"
+  else
+    fail "v1.3: métricas do wallpaper" "python3 presente sem PIL — instale python-pillow (o CI já traz)"
+  fi
 else
-  skip "v1.3: métricas do wallpaper" "python3/PIL indisponível"
+  skip "v1.3: métricas do wallpaper" "python3 indisponível"
 fi
 
 # ── A corrosão NÃO alcançou os acentos globais (top bar) ───────────────────
