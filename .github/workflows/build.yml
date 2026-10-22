@@ -85,6 +85,16 @@ jobs:
   verify-install:
     needs: build
     uses: ./.github/workflows/diag-install.yml
+    with:
+      # FIX #52 (forense: builds #48–#52): a ISO que este gate testa é a
+      # DESTA run — o artifact sobe no job build acima. Sem o input, o
+      # diag-install caía no fallback "última bem-sucedida" (ISO v1.0.4
+      # da run #45) e reprovava eternamente o linux.preset legítimo
+      # daquela era — 5 builds reprovadas por um gate cego. O input
+      # explícito é a fonte da verdade: GITHUB_EVENT_NAME (env) nunca
+      # vale 'workflow_call' — o env reflete o evento da run (push/
+      # dispatch/tag), não o tipo de chamada do workflow.
+      run_id: ${{ github.run_id }}
     permissions:
       contents: read
       actions: read

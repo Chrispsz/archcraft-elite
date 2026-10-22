@@ -122,6 +122,29 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
     .preset`) — kernel único de verdade, nas DUAS camadas. Fixture
     reproduz o bloco de regeneração VERBATIM + contratos de presença e
     ORDEM (rm depois do cat). Suíte: 705 peças, 0 falhas, GO.
+  - **FIX build #52 — o GATE testava a ISO ERRADA (v1.0.4)** (forense
+    completa; a ISO v1.1 construiu, bootou no QEMU live [verify ✓] e o
+    E6 matou o preset — mas o verify-install reprovou DE NOVO): o log do
+    gate entregou a linha fatal — `→ run_id não informado; usando a mais
+    recente bem-sucedida: 39612464434` = **Build #45, a ISO v1.0.4**
+    (branch v1.0.4, sha 870eff0). O passo de download do diag-install
+    confiava em `GITHUB_EVENT_NAME == workflow_call`, que **nunca era
+    verdade**: a variável de ambiente padrão reflete o evento da RUN
+    (push/dispatch/tag), não o tipo de chamada do workflow —
+    `workflow_call` seta o CONTEXTO `github.event_name`, não o env. Com
+    o branch morto e o `workflow_call:` sem inputs declarados, o gate
+    caía no fallback "última bem-sucedida" desde a #48 — **5 builds
+    reprovadas por um gate que nunca viu a ISO v1.1**: o `linux.preset`
+    da v1.0.4 é legítimo (kernel duplo daquela era), então o contrato
+    kernel-único falhava eternamente num produto são. As forenses #48
+    ([6.3] presets estáticos) e #51 (E6 rm do ressuscitado) eram higiene
+    REAL do kernel-único — necessárias, mas o bloqueio era o gate cego.
+    Fix: `build.yml` passa `run_id: ${{ github.run_id }}` ao
+    `verify-install`; `workflow_call:` declara os inputs; o download vira
+    **tag > run_id > fallback consciente** (input explícito = fonte da
+    verdade, zero dependência de env de evento). +5 contratos na suíte
+    (run corrente passada, download pelo input, env de evento ausente do
+    diag-install, precedência tag>run_id, inputs declarados).
   - **Rice: dock AUTO-OCULTANTE + craft-pin (fixar apps)**: a dock pílula
     agora estilo COSMIC — `exclusive: false` (janelas usam a base da tela)
     + CSS `margin-bottom: -52px` com reveal no hover (cubic-bezier 0.38s,
