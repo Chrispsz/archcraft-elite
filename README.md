@@ -80,7 +80,7 @@ Wayland-native (Rust/GTK4), herdando o tema Catppuccin:
 
 | Categoria | Saiu (legado GTK3/X11) | Entrou (v1.1) |
 |---|---|---|
-| Navegador | firefox | **Brave** (`brave-bin`, flags Wayland/Vulkan no skel) |
+| Navegador | firefox | **Brave Origin** (`brave-origin`, release oficial da Brave com versão pinada; flags Wayland/Vulkan no skel — v1.4) |
 | Arquivos | thunar + file-roller | **yazi** (TUI Rust, preview Sixel no foot) + `7zip` |
 | Editor | mousepad + vim | **helix** (tema `catppuccin_mocha`) |
 | PDF | zathura | **papers** (GTK4/libadwaita) |
@@ -90,9 +90,10 @@ Wayland-native (Rust/GTK4), herdando o tema Catppuccin:
 | Notificações | — | swaync (já era v1.0.3) |
 | GPU | — | LACT (já era v1.0.4) |
 
-`brave-bin` e `pwvucontrol` são construídos no build (estágio AUR → repo
-`[elite-local]`) e resolvidos **offline** pelo pacstrap selado, como
-qualquer pacote oficial.
+`brave-origin` (release oficial da Brave, versão pinada 1.98.60 + sha256
+verificado — diretriz do dono no burn test da v1.3) e `pwvucontrol`
+(construído do AUR) são empacotados no build → repo `[elite-local]` e
+resolvidos **offline** pelo pacstrap selado, como qualquer pacote oficial.
 
 ### Menu de boot (v1.1)
 

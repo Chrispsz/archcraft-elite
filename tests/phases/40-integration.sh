@@ -93,9 +93,10 @@ assert_nogrep "$PKG" '^thunar-archive-plugin$' \
   "v1.2: thunar-archive-plugin ativo sumiu (depend do thunar — ressuscitava o purgado)"
 assert_nogrep "$PKG" '^(mousepad|zathura|zathura-pdf-poppler|file-roller|xgps|xgpsspeed)$' \
   "v1.1: mousepad/zathura/file-roller/xgps* não voltam por engano"
-for modern in brave-bin papers pwvucontrol bluetui impala helix; do
-  assert_grep "$PKG" "^${modern}\$" "v1.1: ${modern} no packages (app-stack moderna)"
+for modern in brave-origin papers pwvucontrol bluetui impala helix; do
+  assert_grep "$PKG" "^${modern}\$" "v1.1/v1.4: ${modern} no packages (app-stack moderna)"
 done
+assert_nogrep "$PKG" '^brave-bin$' "v1.4: brave-bin saiu (Brave ORIGIN oficial entra — diretriz do dono)"
 assert_grep "$PKG" '^qalculate-gtk$' "v1.1: qalculate-gtk fica (sobrevivente GTK3)"
 assert_grep "$PKG" '^nwg-look$' "v1.1: nwg-look fica (theming GTK — sobrevivente)"
 
@@ -137,15 +138,15 @@ assert_grep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"custom/drawer"' 
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"custom/web"' "v1.0.4: dock tem launcher do navegador"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"icon-size": 40' "v1.0.4: ícones grandes no dock (estilo dock)"
 assert_nogrep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"tray"' "v1.0.4: dock SEM tray (SNI watcher único — tray fica na barra do topo)"
-# v1.1: auto-hide + pins do usuário (craft-pin) — a seção PINS viaja na ISO
-assert_grep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"exclusive": false' "v1.1: dock auto-ocultante (exclusive false — janelas usam a base)"
+# v1.1→v1.4: pins do usuário (craft-pin) — a seção PINS viaja na ISO
+assert_grep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"exclusive": false' "v1.1: dock exclusive false (janelas usam a base — modelo macOS)"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.dock" 'PINS \(craft-pin\)' "v1.1: seção PINS no config.dock da ISO (fixar apps do usuário)"
-assert_grep "$P/airootfs/etc/skel/.config/waybar/style.dock.css" 'margin-bottom: -52px' "v1.1: CSS auto-ocultante (pílula some fora do hover)"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/style.dock.css" 'Pins do usuário \(craft-pin\)' "v1.1: CSS com seção de pins (craft-pin add apoia os blocos aqui)"
 assert_grep "$P/airootfs/usr/local/bin/craft-pin" '#!/usr/bin/env bash' "v1.1: craft-pin embarcado (fixar/desfixar apps da dock)"
-# Menu bar: tudo clicável (mouse-first — diretriz do dono; v1.1: rede abre
-# impala no foot, volume abre pwvucontrol — zero applet/dialog GTK3 legado)
-assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" 'foot -e impala' "v1.1: rede abre impala no foot no clique (TUI rust)"
+# Menu bar: tudo clicável (mouse-first — diretriz do dono; v1.4: rede abre
+# a CENTRAL craft-connect — cabo+Wi-Fi+Bluetooth num só ícone; volume abre
+# pwvucontrol — zero applet/dialog GTK3 legado)
+assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" '"on-click": "craft-connect"' "v1.4: rede abre a central de conectividade no clique (craft-connect)"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" 'swaync-client -t' "v1.0.4: relógio abre central de notificações no clique"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" 'pwvucontrol' "v1.1: volume abre pwvucontrol no clique-direito (GTK4/Rust)"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" 'craft-power' "v1.0.4: botão power na barra do topo"
@@ -153,8 +154,10 @@ assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" 'craft-power' "v1.0
 assert_grep "$PKG" '^nwg-drawer$' "v1.0.4: nwg-drawer no packages (o Launchpad)"
 assert_grep "$PKG" '^papirus-icon-theme$' "v1.0.4: papirus-icon-theme no packages (ícones de apps)"
 assert_file "$P/airootfs/etc/skel/.config/nwg-drawer/drawer.css" "v1.0.4: CSS do Launchpad (Catppuccin) no skel"
-assert_file "$P/airootfs/usr/local/bin/craft-drawer" "v1.0.4: craft-drawer (Launchpad + barra de sessão)"
-assert_grep "$P/airootfs/usr/local/bin/craft-drawer" 'pbexit' "v1.0.4: Launchpad com barra de sessão (power bar)"
+assert_file "$P/airootfs/usr/local/bin/craft-drawer" "v1.0.4: craft-drawer (o Launchpad)"
+# v1.4: barra de sessão do Launchpad EXTINTA (burn test: dono mandou tirar
+# os botões travar/desligar/reiniciar da base — sessão mora SÓ na menu bar)
+assert_nogrep "$P/airootfs/usr/local/bin/craft-drawer" 'pbexit' "v1.4: Launchpad SEM barra de sessão (power bar extinta)"
 assert_file "$P/airootfs/usr/local/bin/craft-power" "v1.0.4: craft-power (menu de sessão mouse-first)"
 assert_grep "$P/airootfs/usr/local/bin/craft-power" 'labnag' "v1.0.4: power via labnag (nag bar nativo do labwc)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'craft-drawer' "v1.0.4: W-d abre o Launchpad"
@@ -174,10 +177,10 @@ assert_file "$P/airootfs/etc/skel/.config/labwc/wallpaper.png" "v1.0.4: wallpape
 # instalador TRAVOU no rig do dono). v2.1 = a resposta caso a caso.
 CT="$P/airootfs/etc/skel/.config/waybar/config.top"
 CD="$P/airootfs/etc/skel/.config/waybar/config.dock"
-# Top bar: relógio no CENTRO, sem logo à esquerda, áudio só ícone, power no canto
+# Top bar: relógio no CENTRO, ARCH à esquerda (v1.4), áudio só ícone, power no canto
 assert_grep "$CT" '"modules-center": \["clock"\]' "v2.1: relógio no CENTRO da barra (diretriz do dono)"
-assert_nogrep "$CT" '"custom/menu"' "v2.1: logo do canto superior esquerdo REMOVIDO (diretriz)"
-assert_grep "$CT" '"modules-left": \["wlr/window"\]' "v2.1: esquerda = nome do app focado (modelo macOS)"
+assert_grep "$CT" '"custom/menu"' "v1.4: ARCH no canto superior esquerdo (diretriz recuperada — a 'maçã' da Elite)"
+assert_grep "$CT" '"modules-left": \["custom/menu", "wlr/window"\]' "v1.4: esquerda = ARCH + nome do app focado (modelo maçã do macOS)"
 assert_grep "$CT" '"format": "\{icon\}"' "v2.1: áudio em modo ícone"
 assert_nogrep "$CT" '"format": "\{volume\}' "v2.1: SEM porcentagem numérica no áudio (o '40%')"
 assert_grep "$CT" '"custom/power"' "v2.1: power visível no canto direito da barra"
@@ -239,6 +242,8 @@ assert_file "$P/airootfs/etc/skel/.config/gtk-3.0/settings.ini" "v1.0.4: setting
 assert_grep "$P/airootfs/etc/skel/.config/gtk-3.0/settings.ini" 'Papirus-Dark' "v1.0.4: GTK usa Papirus-Dark (ícones de apps)"
 assert_grep "$P/airootfs/etc/skel/.config/gtk-4.0/settings.ini" 'Papirus-Dark' "v1.0.4: GTK4 espelha o Papirus-Dark"
 assert_grep "$REPO/scripts/apply-overlay.sh" 'craft-drawer' "v1.0.4: craft-drawer no file_permissions (0755 no live)"
+assert_grep "$REPO/scripts/apply-overlay.sh" 'craft-connect' "v1.4: craft-connect no file_permissions (0755 no live — senão 203/EXEC)"
+assert_grep "$REPO/scripts/apply-overlay.sh" 'craft-pin-pick' "v1.4: craft-pin-pick no file_permissions (0755 no live — senão 203/EXEC)"
 
 # ── v1.0.4 RICE PRÓPRIO: themerc-override (fim do tema fantasma) ────────
 assert_file "$P/airootfs/etc/skel/.config/labwc/themerc-override" "v1.0.4: themerc-override no skel (rice próprio — zero dependência de tema OB)"
@@ -280,7 +285,7 @@ assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'impala' "v1.1: comen
 # ── v1.0.3 CURADORIA "brabos 2026": uso geral de fábrica ───────────
 # v1.1 (MEGA PROMPT): a camada GUI legada/GTK3 foi purgada (mousepad,
 # zathura, file-roller, pavucontrol, thunar, firefox → remove); entram
-# papers/pwvucontrol/bluetui/impala/helix/brave-bin/yazi (assertados acima)
+# papers/pwvucontrol/bluetui/impala/helix/brave-origin/yazi (assertados acima)
 assert_grep "$PKG" '^qalculate-gtk$' "curadoria: qalculate (galculator saiu)"
 assert_nogrep "$PKG" '^galculator$' "curadoria: galculator saiu (qalculate entra)"
 assert_grep "$PKG" '^nwg-look$' "curadoria: nwg-look (xfce4-settings saiu)"
@@ -321,7 +326,7 @@ assert_grep "$PKG" '^gvfs$' "curadoria: gvfs fica (trash/mtp/smb)"
 assert_grep "$PKG" '^xdotool$' "curadoria: xdotool FICA (dep dura do fg-booster)"
 assert_grep "$PKG" '^qt6ct$' "curadoria: qt6ct fica (config de apps Qt futuros)"
 assert_nogrep "$PKG" '^qt5ct$' "curadoria: qt5ct saiu (zero apps Qt5)"
-assert_nogrep "$PKG" '^firefox$' "v1.1: firefox saiu (brave-bin entra — Wayland-native)"
+assert_nogrep "$PKG" '^firefox$' "v1.1: firefox saiu (brave-origin entra — Wayland-native)"
 # Skel próprio: .zshrc sem oh-my-zsh + .hushlogin (skeleton saiu)
 assert_file "$P/airootfs/etc/skel/.zshrc" "curadoria: .zshrc próprio da Elite (omz saiu)"
 assert_grep "$P/airootfs/etc/skel/.zshrc" 'starship init zsh' "curadoria: starship no prompt do .zshrc"
@@ -353,7 +358,7 @@ assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'nwg-look' "curadoria:
 # ── v1.1 · APP-STACK MODERNA (MEGA PROMPT): skel novo por dentro ────────
 SKCFG="$P/airootfs/etc/skel/.config"
 # brave: flags Wayland + aceleração de GPU completa
-assert_file "$SKCFG/brave-flags.conf" "v1.1: brave-flags.conf no skel (lido pelo launcher do brave-bin)"
+assert_file "$SKCFG/brave-flags.conf" "v1.1: brave-flags.conf no skel (lido pelo launcher do brave-origin — padrão chromium-flags)"
 assert_grep "$SKCFG/brave-flags.conf" '^--ozone-platform=wayland$' "v1.1: brave — janelas nativas do compositor (Ozone)"
 assert_grep "$SKCFG/brave-flags.conf" 'DefaultANGLEVulkan' "v1.1: brave — ANGLE sobre Vulkan"
 assert_grep "$SKCFG/brave-flags.conf" 'WaylandWindowDecorations' "v1.1: brave — decorações Wayland"
@@ -397,8 +402,8 @@ assert_file "$P/airootfs/etc/modules-load.d/elite-bbr.conf" "v1.1: modules-load.
 assert_grep "$P/airootfs/etc/modules-load.d/elite-bbr.conf" '^tcp_bbr$' "v1.1: módulo tcp_bbr carrega antes do sysctl"
 # craft-drawer: o Launchpad abre arquivos no yazi
 assert_grep "$P/airootfs/usr/local/bin/craft-drawer" '-fm "foot -e yazi"' "v1.1: craft-drawer -fm yazi no foot (era thunar)"
-# build/CI v1.1: estágio AUR e RAM do QEMU (contratos de código)
-assert_grep "$REPO/.ci/build.sh" 'aur_build brave-bin' "v1.1: estágio AUR — brave-bin → /var/cache/elite-local"
+# build/CI v1.1→v1.4: estágio brave-origin (oficial) e AUR pwvucontrol
+assert_grep "$REPO/.ci/build.sh" 'pkgname=brave-origin' "v1.4: estágio brave-origin → /var/cache/elite-local (release oficial pinado)"
 assert_grep "$REPO/.ci/build.sh" 'aur_build pwvucontrol' "v1.1: estágio AUR — pwvucontrol → /var/cache/elite-local"
 assert_grep "$REPO/.ci/build.sh" 'sudoers\.d/builder' "v1.1: sudoers descartável do builder (makepkg -s)"
 assert_grep "$REPO/.github/workflows/build.yml" '-m 7168' "v1.1: verify com QEMU de 7168 MB (copy-to-RAM)"
@@ -1316,5 +1321,66 @@ fi
 # ── A corrosão NÃO alcançou os acentos globais (top bar) ───────────────────
 assert_grep "$WBT" '^@define-color red[[:space:]]*#f38ba8' "v1.3: red f38ba8 intacto (mudo/disconnected)"
 assert_grep "$WBT" '^@define-color green[[:space:]]*#a6e3a1' "v1.3: green a6e3a1 intacto"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# v1.4 · BRAVE ORIGIN + ORGANIZAÇÃO DO RICE (burn test da v1.3 AO VIVO)
+# Evidência: fotos do rig do dono (desktop/launcher/menu de sessão) +
+# mensagem de voz 2026-10-22. Cada peça abaixo = uma diretrize dele.
+# ═══════════════════════════════════════════════════════════════════════════
+CDR="$P/airootfs/usr/local/bin/craft-drawer"
+CPW="$P/airootfs/usr/local/bin/craft-power"
+CCT="$P/airootfs/usr/local/bin/craft-connect"
+CPP="$P/airootfs/usr/local/bin/craft-pin-pick"
+CPT="$ST/waybar/config.top"; CKB="$ST/waybar/config.dock"
+MXML="$ST/labwc/menu.xml"
+
+# ── Brave ORIGIN: o PRODUTO troca, o contrato do rice intacto ────────────
+assert_grep "$REPO/.ci/build.sh" 'pkgname=brave-origin' "v1.4: build empacota brave-origin (release oficial da Brave)"
+assert_grep "$REPO/.ci/build.sh" 'brave-origin\.sh .\$pkgdir/usr/bin/brave' "v1.4: launcher /usr/bin/brave (comando não muda — zero regressão)"
+assert_grep "$REPO/.ci/build.sh" 'applications/brave-browser\.desktop' "v1.4: desktop 'brave-browser.desktop' (contrato do mimeapps/taskbar)"
+assert_grep "$REPO/.ci/build.sh" 'chrome-sandbox' "v1.4: sandbox suid 4755 (padrão upstream)"
+assert_grep "$REPO/.ci/build.sh" '39a69cf12b5787f789d0a0b013f32253bddc9004d03e36c679a8daa61821b6e8' "v1.4: sha256 do brave-origin PINADO (determinismo)"
+assert_nogrep "$REPO/.ci/build.sh" 'aur_build brave-bin' "v1.4: AUR brave-bin extinto (fonte = GitHub Releases, nem toca o AUR)"
+assert_grep "$REPO/.ci/build.sh" 'Name=Brave Origin' "v1.4: desktop exibe o produto certo (Brave Origin)"
+assert_grep "$REPO/.ci/build.sh" 'StartupWMClass=brave-browser' "v1.4: app_id casado com o taskbar (verificado no binário)"
+
+# ── Drawer LIMPO: sem categorias, sem barra de sessão ────────────────────
+assert_grep "$CDR" '-nocats' "v1.4: craft-drawer com -nocats (categorias nem nascem — flag oficial do upstream)"
+assert_nogrep "$CDR" '-pb(lock|exit|reboot|poweroff|sleep)' "v1.4: flags -pb* extintas (sessão mora SÓ na menu bar — diretriz do burn test)"
+
+# ── Dock SEMPRE VISÍVEL (a 'dock sumiu' do burn test) ────────────────────
+assert_grep "$CKB" '"margin-bottom": 8' "v1.4: dock flutua 8px SEMPRE (config — iOS/macOS)"
+assert_nogrep "$WBD" 'margin-bottom: -' "v1.4: auto-hide (margem negativa) EXTINTO do CSS — o talho de ícones cortados na base era isso"
+assert_grep "$WBD" 'font-size: 36px' "v1.4: zoom hover 36px (magnificação iOS perceptível)"
+assert_grep "$CKB" 'Brave Origin \(navegador padrão\)' "v1.4: tooltip da dock honesto com o produto (Brave Origin)"
+
+# ── Menu bar: ARCH no canto esquerdo (instrução perdida dos resets) ──────
+assert_grep "$CPT" '"modules-left": \["custom/menu", "wlr/window"\]' "v1.4: Arch é o PRIMEIRO do canto esquerdo (modelo maçã do macOS)"
+assert_grep "$CPT" '"custom/menu"' "v1.4: módulo custom/menu declarado"
+assert_grep "$CPT" '\\uf303' "v1.4: Arch U+F303 (mesma identidade do botão da dock)"
+assert_grep "$CPT" '"on-click": "craft-drawer"' "v1.4: clique no Arch abre o Launchpad"
+assert_grep "$WBT" '#custom-menu \{' "v1.4: estilo do Arch no CSS"
+if grep -A4 '#custom-menu {' "$WBT" | grep -q 'color: @mauve'; then
+  ok "v1.4: Arch em MAUVE (assinatura do rice)"
+else
+  fail "v1.4: Arch em MAUVE" "bloco #custom-menu sem color: @mauve"
+fi
+
+# ── Conectividade: UM ícone p/ cabo + Wi-Fi + Bluetooth ──────────────────
+assert_grep "$CPT" '"on-click": "craft-connect"' "v1.4: rede → central de conectividade (um só ícone — diretrize do dono)"
+assert_file "$CCT" "v1.4: craft-connect existe"
+assert_grep "$CCT" 'foot -e impala' "v1.4: central abre impala (Wi-Fi/Ethernet)"
+assert_grep "$CCT" 'foot -e bluetui' "v1.4: central abre bluetui (Bluetooth)"
+assert_grep "$CCT" '--prompt=Rede' "v1.4: prompt 'Rede' (nunca colide com o toggle do 'Sessão')"
+assert_grep "$WBT" '#idle-inhibitor\.deactivated' "v1.4: café colapsa quando desativado (fim dos 'dois ícones de rede')"
+
+# ── Sessão com TOGGLE (bug do burn test: menu empilhava, não fechava) ────
+assert_grep "$CPW" "fuzzel.*--prompt=Sess" "v1.4: craft-power detecta o menu aberto (toggle)"
+assert_grep "$CPW" 'pkill -x labnag' "v1.4: fallback labnag também vira toggle"
+
+# ── Fixar na dock: mouse-first, descobrível ──────────────────────────────
+assert_file "$CPP" "v1.4: craft-pin-pick existe (fixar sem CLI — burn test: 'tentei fixar e não consigo')"
+assert_grep "$MXML" 'craft-pin-pick' "v1.4: root menu do desktop expõe 'Fixar app na dock…'"
+assert_grep "$CPP" 'craft-pin add' "v1.4: picker delega no craft-pin (mesma maquinaria validada)"
 
 phase_end

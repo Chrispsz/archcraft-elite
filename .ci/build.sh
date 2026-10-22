@@ -142,14 +142,139 @@ elite_fetch "${ML_LATEST:-cachyos-v3-mirrorlist-27-1-any.pkg.tar.zst}" \
     || echo "  (aviso: cachyos-v3-mirrorlist fora do ar nos 2 mirrors — E2 usará fallback de rede)"
 
 
-# ── v1.1: estágio AUR → [elite-local] ─────────────────────────────────
-#  brave-bin e pwvucontrol não existem nos repos oficiais ( conferido
-#  via archlinux.org/packages/search). O build clona o AUR, compila como
-#  usuário descartável e os pacotes entram no repo file:// — o pacstrap
-#  selado os resolve OFFLINE como qualquer outro. Falha de CDN/AUR após
+# ── v1.4: BRAVE ORIGIN (release oficial) → [elite-local] ─────────────
+#  Diretriz do dono (burn test da v1.3 AO VIVO no rig dele, 2026-10-22):
+#  o navegador padrão da Elite passa a ser o BRAVE ORIGIN — o build
+#  oficial brave-origin-*.zip das releases da Brave (produto de primeira
+#  classe: linux amd64/arm64 + darwin; profile próprio
+#  BraveSoftware/Brave-Origin; verificado no binário: app_id continua
+#  "brave-browser"). Empacotado AQUI (mesmo padrão dos stubs acima) em
+#  vez de clonar o AUR: versão PINADA em 1.98.60 (determinismo —
+#  filosofia Elite), sha256 do source verificado pelo makepkg, e o
+#  empacotamento espelha o brave-bin upstream: launcher /usr/bin/brave
+#  lendo brave-flags.conf (padrão chromium-flags.conf), /opt, sandbox
+#  suid, ícones hicolor do product_logo e desktop 'brave-browser.desktop'
+#  — nome exigido pelo mimeapps.list do skel e pelo app_id do taskbar.
+#  BROWSER=brave, W-w/W-b, dock e menu raiz seguem abrindo o MESMO
+#  comando 'brave' — zero regressão no rice; o que muda é o PRODUTO.
+#  makepkg --nodeps: pacote binário; as deps (gtk3 nss alsa-lib…) são
+#  resolvidas pelo pacstrap no airootfs, não precisam existir no
+#  container de build.
+say "Estágio Brave ORIGIN 1.98.60 (release oficial) → /var/cache/elite-local/"
+mkdir -p /tmp/elite-src/brave-origin
+cat > /tmp/elite-src/brave-origin/PKGBUILD <<'EOPKGBUILD'
+pkgname=brave-origin
+pkgver=1.98.60
+pkgrel=1
+pkgdesc='Brave Origin — navegador que bloqueia ads e trackers por padrão (release oficial brave-origin)'
+arch=(x86_64)
+url=https://github.com/brave/brave-browser
+license=(MPL2 BSD custom:chromium)
+depends=(alsa-lib gtk3 libxss nss ttf-font)
+optdepends=('cups: suporte a impressão'
+            'libnotify: notificações nativas')
+provides=("brave=$pkgver" 'brave-browser')
+conflicts=(brave brave-bin)
+options=(!strip)
+_brave_zip="brave-origin-${pkgver}-linux-amd64.zip"
+source=("${_brave_zip}::https://github.com/brave/brave-browser/releases/download/v${pkgver}/brave-origin-${pkgver}-linux-amd64.zip")
+noextract=("${_brave_zip}")
+sha256sums=('39a69cf12b5787f789d0a0b013f32253bddc9004d03e36c679a8daa61821b6e8')
+
+prepare() {
+    mkdir -p brave
+    bsdtar -xf "$_brave_zip" -C brave
+    chmod +x brave/brave
+}
+
+package() {
+    install -dm0755 "$pkgdir/opt"
+    cp -a brave "$pkgdir/opt/brave-origin"
+    # sandbox suid (padrão do empacotamento upstream do brave)
+    chmod 4755 "$pkgdir/opt/brave-origin/chrome-sandbox"
+
+    install -Dm0755 brave-origin.sh "$pkgdir/usr/bin/brave"
+    # nome 'brave-browser.desktop' é CONTRATO: mimeapps.list do skel e o
+    # app_id "brave-browser" do taskbar da waybar resolvem por ele
+    install -Dm0644 brave-browser.desktop "$pkgdir/usr/share/applications/brave-browser.desktop"
+    install -Dm0644 brave/LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+    pushd "$pkgdir/usr/" >/dev/null
+    for size in 16 24 32 48 64 128 256; do
+        install -Dm0644 "$pkgdir/opt/brave-origin/product_logo_${size}.png" \
+            "share/icons/hicolor/${size}x${size}/apps/brave-desktop.png"
+    done
+    popd >/dev/null
+}
+EOPKGBUILD
+cat > /tmp/elite-src/brave-origin/brave-origin.sh <<'EOSH'
+#!/usr/bin/env bash
+# brave-origin launcher — padrão chromium-flags.conf (idêntico ao brave-bin
+# upstream: lê $XDG_CONFIG_HOME/brave-flags.conf; a Elite entrega o arquivo
+# no skel com flags Wayland/Vulkan/VA-API)
+XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-"${HOME}/.config"}"
+CONF_FILE="${XDG_CONFIG_HOME}/brave-flags.conf"
+if
+        test -f "${CONF_FILE}"
+then
+        mapfile -t CONF_LIST < "${CONF_FILE}"
+fi
+for CONF_LINE in "${CONF_LIST[@]}"
+do
+        if ! [[
+                "${CONF_LINE}" =~ ^[[:space:]]*(#|$)
+        ]]
+        then
+                FLAG_LIST+=("${CONF_LINE}")
+        fi
+done
+export CHROME_VERSION_EXTRA='stable'
+exec /opt/brave-origin/brave "${FLAG_LIST[@]}" "${@}"
+EOSH
+cat > /tmp/elite-src/brave-origin/brave-browser.desktop <<'EODESK'
+[Desktop Entry]
+Version=1.0
+Name=Brave Origin
+GenericName=Web Browser
+Comment=Access the Internet
+StartupNotify=true
+StartupWMClass=brave-browser
+TryExec=brave
+Exec=brave %U
+Terminal=false
+Icon=brave-desktop
+Type=Application
+Categories=Network;WebBrowser;
+MimeType=application/pdf;application/rdf+xml;application/rss+xml;application/xhtml+xml;application/xhtml_xml;application/xml;image/gif;image/jpeg;image/png;image/webp;text/html;text/xml;x-scheme-handler/http;x-scheme-handler/https;
+Actions=new-window;new-private-window;
+
+[Desktop Action new-window]
+Name=New Window
+Exec=brave
+
+[Desktop Action new-private-window]
+Name=New Incognito Window
+Exec=brave --incognito
+EODESK
+# makepkg se recusa a rodar como root — builder descartável (já existe p/ stubs)
+chown -R builder /tmp/elite-src/brave-origin
+if runuser -l builder -c "cd /tmp/elite-src/brave-origin && makepkg -f --noconfirm --nodeps"; then
+    cp /tmp/elite-src/brave-origin/*.pkg.tar.zst /var/cache/elite-local/
+    say "  ok: brave-origin 1.98.60 (Brave ORIGIN oficial, sha256 verificado)"
+else
+    echo "ELITE-FAIL: makepkg do brave-origin (fonte/CDN fora?) — sem retry: fonte é GitHub Releases da Brave" >&2
+    exit 1
+fi
+
+# ── v1.1: estágio AUR → [elite-local] (pwvucontrol) ──────────────────
+#  pwvucontrol não existe nos repos oficiais ( conferido via
+#  archlinux.org/packages/search). O build clona o AUR, compila como
+#  usuário descartável e o pacote entra no repo file:// — o pacstrap
+#  selado o resolve OFFLINE como qualquer outro. Falha de CDN/AUR após
 #  2 tentativas = abort com diagnóstico (mesma filosofia do preflight:
 #  fail loud no build, nunca no boot).
-say "Estágio AUR: brave-bin + pwvucontrol → /var/cache/elite-local/"
+#  v1.4: brave-bin SAIU daqui — o navegador agora é o brave-origin do
+#  estágio anterior (release oficial pinado; o AUR nem é consultado).
+say "Estágio AUR: pwvucontrol → /var/cache/elite-local/"
 mkdir -p /tmp/elite-src/aur
 # makepkg -s (syncdeps) instala deps de build via sudo — regra descartável
 printf 'builder ALL=(ALL) NOPASSWD: ALL\n' > /etc/sudoers.d/builder
@@ -176,7 +301,6 @@ aur_build() { # $1 = nome do pacote AUR
     echo "ELITE-FAIL: não foi possível construir '$pkg' (AUR/CDN fora?) — 2 tentativas" >&2
     return 1
 }
-aur_build brave-bin     || exit 1
 aur_build pwvucontrol  || exit 1
 rm -f /etc/sudoers.d/builder
 
@@ -416,14 +540,12 @@ preflight() {
         done
         if (( injected )); then
             
-# ── v1.1: estágio AUR → [elite-local] ─────────────────────────────────
-#  brave-bin e pwvucontrol não existem nos repos oficiais ( conferido
-#  via archlinux.org/packages/search). O build clona o AUR, compila como
-#  usuário descartável e os pacotes entram no repo file:// — o pacstrap
-#  selado os resolve OFFLINE como qualquer outro. Falha de CDN/AUR após
-#  2 tentativas = abort com diagnóstico (mesma filosofia do preflight:
-#  fail loud no build, nunca no boot).
-say "Estágio AUR: brave-bin + pwvucontrol → /var/cache/elite-local/"
+# v1.1→v1.4: re-sobe o repo [elite-local] quando o preflight injeta
+#  baselines do Arch. pwvucontrol: re-clona o AUR (fonte viva).
+#  brave-origin NÃO recompila aqui: o pkg.tar.zst do estágio principal
+#  (release oficial pinado 1.98.60) segue em /var/cache/elite-local — o
+#  repo-add abaixo o re-registra junto com os baselines injetados.
+say "Estágio AUR (preflight): pwvucontrol → /var/cache/elite-local/"
 mkdir -p /tmp/elite-src/aur
 # makepkg -s (syncdeps) instala deps de build via sudo — regra descartável
 printf 'builder ALL=(ALL) NOPASSWD: ALL\n' > /etc/sudoers.d/builder
@@ -450,7 +572,9 @@ aur_build() { # $1 = nome do pacote AUR
     echo "ELITE-FAIL: não foi possível construir '$pkg' (AUR/CDN fora?) — 2 tentativas" >&2
     return 1
 }
-aur_build brave-bin     || exit 1
+# v1.4: brave-origin já está no cache do estágio principal — só conferir
+ls /var/cache/elite-local/brave-origin-*.pkg.tar.zst >/dev/null 2>&1 \
+    || { echo "ELITE-FAIL: brave-origin ausente do [elite-local] (estágio principal)" >&2; exit 1; }
 aur_build pwvucontrol  || exit 1
 rm -f /etc/sudoers.d/builder
 

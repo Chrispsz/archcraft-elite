@@ -57,6 +57,15 @@ window#waybar {
 
 /* Módulos: padding horizontal generoso, hover com pílula (estilo item de
  * menu do macOS — hover suave em todo o alvo, não só no texto) */
+
+/* v1.4: ARCH no canto esquerdo — a "maçã" da Elite (mesma identidade
+ * do botão da dock: U+F303 em MAUVE; clique abre o Launchpad) */
+#custom-menu {
+  padding: 0 14px;
+  font-size: 15px;
+  color: @mauve;
+}
+
 #custom-power {
   padding: 0 14px;
   font-size: 15px;
@@ -80,6 +89,19 @@ window#waybar {
   padding: 0 10px;
 }
 
+/* v1.4: café INVISÍVEL quando desativado — burn test do dono: dois
+ * ícones "de conectividade" lado a lado confundiam (um mostrava o cabo,
+ * "o outro ativava e desativava"). O toggle agora é silencioso: só
+ * existe no bar quando ESTÁ ativo (âmbar, abaixo) — desligado não
+ * ocupa pixel algum (fonte 0 + transparente + sem padding). */
+#idle-inhibitor.deactivated {
+  font-size: 0;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  color: transparent;
+}
+
 #tray {
   padding: 0 8px;
 }
@@ -92,6 +114,7 @@ window#waybar {
 
 /* Hover: pílula arredondada — feedback de clique em TUDO · :active:
  * pressed = superfície mais escura (matriz de estados completa) */
+#custom-menu:hover,
 #custom-power:hover,
 #wlr-window:hover,
 #mpris:hover,
@@ -106,6 +129,7 @@ window#waybar {
   transition: background 0.15s ease;
 }
 
+#custom-menu:active,
 #custom-power:active,
 #wlr-window:active,
 #mpris:active,
@@ -117,7 +141,8 @@ window#waybar {
   border-radius: 8px;
 }
 
-/* Café ativado = âmbar (estado visível) */
+/* Café ativado = âmbar (estado visível) — v1.4: este é o ÚNICO estado
+ * visível do café (desativado = colapsado, ver acima) */
 #idle-inhibitor.activated {
   color: @peach;
 }
