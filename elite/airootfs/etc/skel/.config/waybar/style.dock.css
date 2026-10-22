@@ -31,7 +31,8 @@
 @define-color crust     #11111b;
 
 * {
-  font-family: "JetBrainsMono Nerd Font", "Font Awesome 6 Free", sans-serif;
+  /* v2.1: família REAL do archcraft-fonts 2.0 — ver style.top.css */
+  font-family: "JetBrainsMono NF", "Symbols Nerd Font", sans-serif;
   font-size: 13px;
   font-weight: 500;
   min-height: 0;
@@ -69,9 +70,7 @@ window#waybar > box {
 #custom-files,
 #custom-web,
 #custom-editor,
-#custom-shot,
-#custom-lock,
-#custom-power {
+#custom-shot {
   font-size: 30px;
   padding: 4px 10px;
   border-radius: 14px;
@@ -82,11 +81,21 @@ window#waybar > box {
 #custom-drawer { color: @lavender; }
 #custom-term   { color: @green; }
 #custom-files  { color: @yellow; }
-#custom-web    { color: @peach; }
+#custom-web    { color: @mauve; }   /* v2.1: escudo do Brave no acento Mauve */
 #custom-editor { color: @sky; }
 #custom-shot   { color: @teal; }
-#custom-lock   { color: @subtext0; }
-#custom-power  { color: @subtext0; font-size: 26px; }
+
+/* Separador fixos │ abertos (v2.1): 1px vertical — fronteira do modelo
+ * macOS (à esquerda: o que SEMPRE está; à direita: o que está ABERTO) */
+#custom-sep {
+  min-width: 1px;
+  max-width: 1px;
+  width: 1px;
+  padding: 0;
+  margin: 0 6px;
+  color: transparent;
+  background: alpha(@surface1, 0.8);
+}
 
 /* Zoom sutil no hover (macOS): o glyph cresce e a pílula absorve o delta */
 #custom-drawer, #custom-term, #custom-files, #custom-web,
@@ -108,8 +117,7 @@ window#waybar > box {
 #custom-files:hover,
 #custom-web:hover,
 #custom-editor:hover,
-#custom-shot:hover,
-#custom-lock:hover {
+#custom-shot:hover {
   background: alpha(@surface0, 0.95);
 }
 #custom-drawer:active,
@@ -117,16 +125,8 @@ window#waybar > box {
 #custom-files:active,
 #custom-web:active,
 #custom-editor:active,
-#custom-shot:active,
-#custom-lock:active {
+#custom-shot:active {
   background: alpha(@surface2, 0.95);
-}
-#custom-power:hover {
-  background: alpha(@red, 0.18);
-  color: @red;
-}
-#custom-power:active {
-  background: alpha(@red, 0.28);
 }
 
 /* ===== Janelas abertas (wlr/taskbar — ícones reais das apps) ===== */

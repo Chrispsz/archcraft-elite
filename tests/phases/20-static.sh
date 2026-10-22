@@ -197,4 +197,79 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin" '\.bak\.' \
 assert_grep "$REPO/scripts/apply-overlay.sh" 'craft-pin' \
   "apply-overlay: craft-pin registrado no file_permissions (senão 203/EXEC no live)"
 
+# ── peças: Calamares — o heredoc EOSB parseia como YAML (a lição da v1.1) ──
+# A ISO v1.1 entregou "shellprocess@btrfs could not be loaded" no rig do
+# dono: 4 printfs do heredoc tinham \n REAL partido em coluna 0 → o block
+# scalar `>` do YAML terminava no meio do comando → parse error. O gate só
+# grepaVA padrões — nunca parseou. Este contrato EXTRAI o heredoc EXATO do
+# elite-customize.sh e o parseia com o PyYAML (presente no container CI).
+ECF="$REPO/elite/fragments/elite-customize.sh"
+if python3 -c 'import yaml' 2>/dev/null; then
+  heredoc_yaml=$(python3 - "$ECF" <<'PYCHK' && echo OK || echo FAIL
+import sys, re, yaml
+src = open(sys.argv[1]).read()
+m = re.search(r"<<'EOSB'\n(.*?)\nEOSB\n", src, re.S)
+if not m: sys.exit(1)
+try:
+    data = yaml.safe_load(m.group(1))
+    assert isinstance(data, dict) and 'script' in data and data['script']
+    # cada command é string não-vazia e é SHELL válido (sh -n)
+    import subprocess
+    for e in data['script']:
+        cmd = e['command'] if isinstance(e, dict) else e
+        assert isinstance(cmd, str) and cmd.strip()
+        t = cmd.replace('${ROOT}', '/mnt').replace('$ROOT', '/mnt') \
+              .replace('${USER}', 'u').replace('${LANG}', 'C')
+        r = subprocess.run(['sh', '-n', '-c', t], capture_output=True)
+        assert r.returncode == 0, r.stderr.decode()[:120]
+    sys.exit(0)
+except Exception:
+    sys.exit(1)
+PYCHK
+)
+  assert_eq "$heredoc_yaml" "OK" "Calamares: heredoc EOSB = YAML válido + commands shell-ok (o gate cego da v1.1)"
+
+  # o validador do gate [1b/8] (mesmo código no CI e aqui) precisa PROVAR
+  # que pega o bug da v1.1: root sintético com o YAML quebrado → exit 1;
+  # com o YAML são → exit 0. Sem isto o gate pode ser um no-op sorridente.
+  VROOT="$WORK/cal-valid"
+  mkdir -p "$VROOT/etc/calamares/modules"
+  cat > "$VROOT/etc/calamares/settings.conf" <<'EOSET'
+instances:
+- id:       btrfs
+  module:   shellprocess
+  config:   shellprocess_btrfs.conf
+sequence:
+- exec:
+  - shellprocess@btrfs
+EOSET
+  # YAML VÁLIDO (o fix v1.2: printf numa linha, \n literal)
+  printf '%s\n' '---' 'script:' '    - command: >' '        printf '"'"'%%s\\n'"'"' x > /f' > \
+    "$VROOT/etc/calamares/modules/shellprocess_btrfs.conf"
+  if python3 "$REPO/.ci/validate-calamares.py" "$VROOT" >/dev/null 2>&1; then
+    ok "gate [1b/8]: validador APPROVA YAML são (fix v1.2)"
+  else
+    fail "gate [1b/8]: validador APPROVA YAML são" "validador rejeitou um conf válido (falso positivo)"
+  fi
+  # YAML QUEBRADO (a corrupção da v1.1: continuação em coluna 0)
+  printf '%s\n' '---' 'script:' '    - command: >' '        printf '"'"'%%s'"'"'' \
+    "' '# ELITE" > "$VROOT/etc/calamares/modules/shellprocess_btrfs.conf"
+  if python3 "$REPO/.ci/validate-calamares.py" "$VROOT" >/dev/null 2>&1; then
+    fail "gate [1b/8]: validador PEGA o YAML quebrado da v1.1" "conf corrompido passou no gate (no-op sorridente!)"
+  else
+    ok "gate [1b/8]: validador PEGA o YAML quebrado da v1.1 (a corrupção da v1.1)"
+  fi
+else
+  ok "(skip local: sem PyYAML — o container CI o instala; contrato roda lá)"
+fi
+assert_file "$REPO/.ci/validate-calamares.py" "gate [1b/8]: validador vive no repo (.ci/)"
+assert_grep "$REPO/.github/workflows/diag-install.yml" 'validate-calamares.py' \
+  "gate [1b/8]: workflow chama o validador do repo (um caminho só)"
+# forma tripa-seca: nenhuma linha "printf '%s" solta (a assinatura da corrupção)
+if grep -qE "printf '%s\$" "$ECF"; then
+  fail "Calamares: sem printf partido em coluna 0" "linha printf %s sem fechamento mata o YAML (v1.1)"
+else
+  ok "Calamares: nenhum printf com string aberta em coluna 0 (a corrupção da v1.1)"
+fi
+
 phase_end
