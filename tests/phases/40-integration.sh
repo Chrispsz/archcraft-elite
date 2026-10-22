@@ -375,6 +375,15 @@ assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'udiskie' "curadoria:
 assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'swayidle' "curadoria: swayidle no autostart"
 assert_nogrep "$P/airootfs/etc/skel/.config/labwc/autostart" 'wlsunset' "v1.5: wlsunset FORA do autostart (causa-raiz do tom amarelado — spec)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'cliphist store' "curadoria: watcher cliphist no autostart"
+# v1.5: keyring CachyOS em 4 camadas (spec: init → populate → refresh)
+assert_grep "$P/airootfs/usr/local/bin/craft-fix-keys" 'pacman-key --populate archlinux cachyos' "v1.5: craft-fix-keys — comandos LITERAIS da spec (populate)"
+assert_grep "$P/airootfs/usr/local/bin/craft-fix-keys" 'pacman -Sy --noconfirm archlinux-keyring cachyos-keyring' "v1.5: craft-fix-keys — refresh dos keyring packages (spec)"
+assert_grep "$P/airootfs/usr/local/bin/craft-fix-keys" 'sudo -n' "v1.5: craft-fix-keys — sudo -n (nunca trava em background)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'craft-fix-keys' "v1.5: camada 4 no autostart (self-healing de sessão)"
+assert_grep "$REPO/elite/fragments/elite-customize.sh" 'E2b' "v1.5: camada 2 (E2b populate no build) presente"
+assert_grep "$REPO/elite/fragments/elite-customize.sh" 'cachyos.gpg ausente' "v1.5: gate duro do keyring (fail no build, nunca no boot)"
+assert_grep "$REPO/elite/fragments/elite-customize.sh" 'populate archlinux cachyos' "v1.5: populate no build E2b E no chroot do alvo E10"
+assert_grep "$REPO/scripts/apply-overlay.sh" 'craft-fix-keys' "v1.5: [9b] registra craft-fix-keys 0755 (203/EXEC nunca mais)"
 # v1.5: idle/lock — hyprlock 10min + DPMS wlopm 15min (receita wiki labwc)
 assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" "timeout 600 'hyprlock'" "v1.5: idle 10min → hyprlock (spec: 10–15min)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" "timeout 900 'wlopm --off" "v1.5: idle 15min → DPMS off (wlopm — wlr-output-power-management)"

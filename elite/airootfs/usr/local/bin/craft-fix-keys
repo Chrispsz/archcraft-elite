@@ -1,0 +1,34 @@
+#!/bin/sh
+# craft-fix-keys — cura o keyring CachyOS (v1.5 · NOVO)
+# ─────────────────────────────────────────────────────────────────────────
+# ESPECIFICAÇÃO DO DONO: "pacman/yay falha com 'signature from CachyOS
+# <admin@cachyos.org> is unknown trust' e banco PGP inválido". Comandos
+# da própria spec (idempotentes — a ordem importa: init ANTES de populate):
+#
+#   pacman-key --init
+#   pacman-key --populate archlinux cachyos
+#   pacman -Sy --noconfirm cachyos-keyring archlinux-keyring
+#
+# Camadas da cura na v1.5 (esta é a ÚLTIMA, self-healing de runtime):
+#   1. BUILD: cachyos-keyring virou PACOTE da ISO (packages.add) — o
+#      scriptlet do pacote popula o keyring dentro do chroot;
+#   2. BUILD: elite-customize [E2b] roda init+populate explícito;
+#   3. INSTALAÇÃO: o shellprocess@btrfs (E10) repete o populate no
+#      arch-chroot do ALVO — o sistema instalado nasce curado;
+#   4. SESSÃO: este script (autostart, background) — cobre liveuser no
+#      live e qualquer skew futuro de keyring no sistema instalado.
+#
+# Requer root (sudo): no liveuser é NOPASSWD; no sistema instalado, sem
+# terminal pra senha o sudo falha em silêncio — as camadas 1-3 já curaram
+# o essencial; aqui é belt-and-suspenders. Nunca bloqueia a sessão.
+if [ "$(id -u)" -eq 0 ]; then
+    SUDO=''
+else
+    command -v sudo >/dev/null 2>&1 || exit 0
+    SUDO='sudo -n'   # -n: nunca trava pedindo senha em background
+fi
+
+$SUDO pacman-key --init >/dev/null 2>&1 || true
+$SUDO pacman-key --populate archlinux cachyos >/dev/null 2>&1 || true
+$SUDO pacman -Sy --noconfirm archlinux-keyring cachyos-keyring >/dev/null 2>&1 || true
+exit 0
