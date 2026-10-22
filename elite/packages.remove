@@ -27,15 +27,18 @@ nvidia-settings
 ## Diretriz: stack 100% moderna e Wayland-native (Rust/GTK4). As contra-
 ## partes entram via packages.add: brave-bin, yazi, papers, pwvucontrol,
 ## bluetui, impala, helix.
-## v1.2 (burn test do dono no rig B): xgps/xgpsspeed/gpsd APARECERAM no
-## menu do live — GPS é irrelevante p/ desktop gaming. gpsd (pai dos
-## xgps*) não vem do packages.x86_64 (nem upstream nem nosso) — deve
-## entrar como dependência transitiva de algo da closure; listar aqui
-## + overrides NoDisplay em /usr/local/share/applications garante as
-## DUAS camadas: se for direto, sai da ISO; se for dep, fica oculto.
+## v1.2 (burn test do dono no rig B, evidência do squashfs): xgps/xgps-
+## speed/gpsd APARECERAM no menu do live, e o Thunar TAMBÉM (apesar de
+## removido!). Causa-raiz no pacman db da ISO: (1) gpsd é dependência DURA
+## do waybar 0.15 (módulo gps compilado — remover à força quebraria a
+## barra: a cura são os overrides NoDisplay de xgps/xgpsspeed); (2) o
+## thunar-archive-plugin ficou ATIVO na lista e RESSUSCITOU o thunar como
+## dependência (+ libxfce4ui/xfce4-about no rastro). Plugin fora = thunar,
+## libxfce4ui e xfce4-about saem inteiros da ISO.
 firefox
 thunar
 thunar-volman
+thunar-archive-plugin
 tumbler
 mousepad
 vim
