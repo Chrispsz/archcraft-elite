@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
-# craft-lock — bloqueia a tela (swaylock → loginctl → erro claro)
+# craft-lock — bloqueia a tela (hyprlock → loginctl → erro claro)
+# v1.5: o locker da Elite é o hyprlock (~/.config/hypr/hyprlock.conf —
+# screenshot + blur + dim + relógio + avatar + campo estilizado). Roda
+# no labwc via ext-session-lock-v1 (protocolo nativo — labwc.github.io/
+# integration). O swaylock (tela branca estática do burn test) saiu.
 set -euo pipefail
-if command -v swaylock >/dev/null 2>&1; then
-  exec swaylock
+if command -v hyprlock >/dev/null 2>&1; then
+  exec hyprlock
 fi
 if command -v loginctl >/dev/null 2>&1; then
   exec loginctl lock-session
 fi
-echo "✖ instale o locker: sudo pacman -S swaylock" >&2
+echo "✖ instale o locker: sudo pacman -S hyprlock" >&2
 exit 1

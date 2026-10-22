@@ -25,21 +25,27 @@ nvidia-settings
 
 ## ── v1.1 · PURGA DO APP-LAYER LEGADO (MEGA PROMPT do dono) ──────────
 ## Diretriz: stack 100% moderna e Wayland-native (Rust/GTK4). As contra-
-## partes entram via packages.add: brave-origin (v1.4), yazi, papers,
-## pwvucontrol, bluetui, impala, helix.
+## partes entram via packages.add: brave-origin (v1.4), papers,
+## pwvucontrol, bluetui, impala.
 ## v1.2 (burn test do dono no rig B, evidência do squashfs): xgps/xgps-
-## speed/gpsd APARECERAM no menu do live, e o Thunar TAMBÉM (apesar de
-## removido!). Causa-raiz no pacman db da ISO: (1) gpsd é dependência DURA
-## do waybar 0.15 (módulo gps compilado — remover à força quebraria a
-## barra: a cura são os overrides NoDisplay de xgps/xgpsspeed); (2) o
-## thunar-archive-plugin ficou ATIVO na lista e RESSUSCITOU o thunar como
-## dependência (+ libxfce4ui/xfce4-about no rastro). Plugin fora = thunar,
-## libxfce4ui e xfce4-about saem inteiros da ISO.
+## speed/gpsd APARECERAM no menu do live. Causa-raiz no pacman db da ISO:
+## gpsd é dependência DURA do waybar 0.15 (módulo gps compilado — remover
+## à força quebraria a barra: a cura são os overrides NoDisplay de
+## xgps/xgpsspeed). PESQUISA v1.5 (archlinux.org/packages/extra/x86_64/
+## waybar): a dependência SEGUE dura no waybar 0.15.0-3 (módulo GPS
+## compilado desde o 0.13.0) → gpsd fica oculto (NoDisplay), e o E13
+## continua tentando o -Rns no build para o dia em que upstream soltar.
+## v1.5 (spec do dono): THUNAR VOLTOU — é o FM padrão (GUI + xdg-mime
+## inode/directory). thunar/tumbler SAEM desta lista; o thunar-volman e o
+## thunar-archive-plugin seguem fora (automount = udiskie, que já roda;
+## plugin de arquivo ressuscitaria deps de tema Xfce). gufw/ufw ENTRAM
+## (bloatware do upstream: a firewall GUI vinha de fábrica com o serviço
+## ufw ENABLED no boot — ver apply-overlay.sh [7] e E14).
 firefox
-thunar
 thunar-volman
 thunar-archive-plugin
-tumbler
+gufw
+ufw
 mousepad
 vim
 zathura
@@ -216,20 +222,20 @@ geany                  # IDE-lite; mousepad cobre o editor simples
 geany-plugins
 archcraft-config-geany # config do geany (sai com ele)
 meld                   # diff GUI (dev tool)
-catfish                # busca de arquivos (fd/fzf/yazi cobrem)
+catfish                # busca de arquivos (fd/fzf cobrem)
 viewnior               # duplicado do imv (Wayland-nativo, já na Elite)
-atril                  # PDF legado MATE; zathura entra
+atril                  # PDF legado MATE; papers entra
 galculator             # abandonado; qalculate-gtk entra
-xarchiver              # bug DnD Wayland→Thunar; file-roller entra
+xarchiver              # bug DnD Wayland; 7zip (CLI) cobre
 yad                    # dialogs: nenhum script Elite usa
 pastel                 # cores CLI (nicho dev)
 xcolor                 # color picker X11
 xmlstarlet             # XML CLI (nicho dev)
-trash-cli              # gio trash cobre (gvfs fica)
-ranger                 # FM TUI python lento; yazi (rust) entra
+trash-cli              # gio trash cobre (Thunar usa o mesmo gio)
+ranger                 # FM TUI python lento; Thunar (GUI) é o padrão v1.5
 ueberzug               # hack de preview do ranger
 highlight              # syntax p/ preview do ranger
-mc                     # FM TUI duplicado (yazi fica)
+mc                     # FM TUI duplicado (Thunar fica)
 archcraft-ranger       # config ranger (sai com ele)
 archcraft-vim          # .vimrc do criador (vim fica puro)
 archcraft-scripts      # "arcs" do criador; os craft-* da Elite cobrem

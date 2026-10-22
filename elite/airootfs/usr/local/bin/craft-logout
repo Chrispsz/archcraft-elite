@@ -6,7 +6,7 @@ choice="$(printf 'lock\nlogout\nreboot\nshutdown' \
   | fuzzel --dmenu --prompt 'sessão: ' 2>/dev/null)" || exit 0
 case "$choice" in
   lock)
-    if command -v swaylock >/dev/null 2>&1; then exec swaylock
+    if command -v hyprlock >/dev/null 2>&1; then exec hyprlock
     elif command -v loginctl >/dev/null 2>&1; then exec loginctl lock-session
     fi ;;
   logout)

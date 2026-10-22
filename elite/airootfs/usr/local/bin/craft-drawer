@@ -15,14 +15,15 @@
 #     um modelo, zero duplicação
 #
 # Flags (upstream nwg-piotr/nwg-drawer):
-#   -fm       gerenciador de arquivos (busca de arquivos do drawer — yazi no foot)
+#   -fm       gerenciador de arquivos (busca de arquivos do drawer —
+#             Thunar, o FM padrão da v1.5: xdg-mime inode/directory)
 #   -term     terminal para .desktop de console
 #   -is/-c    tamanho do ícone / colunas
 #   -nocats   desliga a barra de categorias (v1.4)
 set -eu
 
 exec nwg-drawer \
-  -fm "foot -e yazi" \
+  -fm "thunar" \
   -term foot \
   -is 64 \
   -c 8 \

@@ -1,24 +1,30 @@
 // Archcraft ELITE · Waybar DOCK — pílula flutuante estilo macOS (Catppuccin Mocha)
 // ─────────────────────────────────────────────────────────────────────────
-// Desktop v2.1: fixados + janelas abertas num SÓ grupo CENTRAL (modelo macOS
+// Desktop v2.2: fixados + janelas abertas num SÓ grupo CENTRAL (modelo macOS
 // — diretriz do dono: "fixados no centro, abertos no centro").
 //
-// v1.4 (burn test da v1.3 ao vivo, diretrizes do dono):
-//   · SEMPRE VISÍVEL: o auto-hide (margin-bottom negativa, v1.1) SAIU —
-//     "a dock sumiu": com exclusive:false + -52px de CSS sobrava só um
-//     talho de 10px de ícones CORTADOS na base da tela ("ícones
-//     sobrepostos"). iOS/macOS: dock é permanente — a pílula flutua 8px
-//     acima da base e o zoom no hover continua (CSS)
-//   · Fixar apps: clique-direito no desktop → "Fixar app na dock…"
-//     (craft-pin-pick — o caminho mouse-first; CLI segue craft-pin)
+// v1.5 (spec do dono — "dock funcional com pinned apps, ícones visíveis
+// no centro mesmo com o app fechado; Brave fixado no centro"):
+//   · apps fixados agora são ÍCONES REAIS (módulo image do waybar 0.15:
+//     path+size+on-click — o custom module só ganha imagem no master
+//     pós-0.15, PR #5069). PNGs 96px do overlay em /usr/share/pixmaps/
+//     elite/: Papirus rasterizado (terminal/files) + logo OFICIAL do
+//     Brave Origin (product_logo do brave-origin) — bytes determinís-
+//     ticos, contrato sha256 no CI, zero dependência de tema ícone.
+//   · BRAVE fixado no CENTRO do grupo: o botão image#web é o navegador
+//     padrão (mimeapps.list x-scheme-handler/http → brave-browser)
+//   · editor (Helix) saiu da dock junto com o pacote (spec: bloatware);
+//     nano vive no terminal (W-e)
+//   · tooltip = 2ª linha do exec do módulo image (man waybar-image:
+//     "$path\n$tooltip") — o mesmo modelo macOS de hover com nome
 //
-// GLIFOS: escritos como escapes JSON \uXXXX — à prova de corrupção de
+// GLIFOS (drawer/shot): escapes JSON \uXXXX — à prova de corrupção de
 // encoding (v1.1 perdeu glifos literais: 7 de 8 botões invisíveis).
 // Verificados no cmap do Symbols Nerd Font (archcraft-fonts 2.0).
 //
-// FIXAR APPS: os launchers fixos acima nascem no skel; os SEUS ficam na
-// seção PINS — gerencie com `craft-pin add steam '' Steam steam green` /
-// `craft-pin rm steam` (insere ANTES do separador, junto aos fixos).
+// FIXAR APPS (glyph, route do usuário): clique-direito no desktop →
+// "Fixar app na dock…" (craft-pin-pick) ou `craft-pin add NOME GLYPH
+// TOOLTIP COMANDO [cor]` — insere ANTES do separador, junto aos fixos.
 {
   "layer": "top",
   "position": "bottom",
@@ -38,50 +44,50 @@
   "modules-left": [],
   "modules-right": [],
 
-  // Centro: Launchpad + apps fixos + separador + janelas abertas — um grupo
-  // (craft-pin insere os SEUS pins antes do "custom/sep")
+  // Centro: Launchpad + apps fixados (ícones reais) + separador +
+  // janelas abertas — um grupo (craft-pin insere os SEUS pins antes
+  // do "custom/sep")
   "modules-center": [
     "custom/drawer",
-    "custom/term",
-    "custom/files",
-    "custom/web",
-    "custom/editor",
+    "image#term",
+    "image#files",
+    "image#web",
     "custom/shot",
     "custom/sep",
     "wlr/taskbar"
   ],
 
-  // Launchpad — grade de apps com busca e categorias (nwg-drawer).
-  // v1.3: glifo ARCH (U+F303, nf-linux-archlinux — presente no cmap do
-  // JetBrainsMono NF do archcraft-fonts 2.0). Era o grid U+F00b genérico;
-  // o dono pediu o logo do Arch no drawer — em mauve no CSS (marca do rice).
+  // Launchpad — grade de apps com busca (nwg-drawer). Glifo ARCH
+  // (U+F303, nf-linux-archlinux) em MAUVE no CSS — marca do rice; é
+  // também o herdeiro do botão que saiu da menu bar (spec v1.5).
   "custom/drawer": {
     "format": "\uf303",
     "tooltip-format": "Aplicativos",
     "on-click": "craft-drawer"
   },
 
-  // ── Apps fixos (mouse-first: um clique, um app) ──────────────────────
-  "custom/term": {
-    "format": "\uf120",
-    "tooltip-format": "Terminal (foot)",
+  // ── Apps fixados — ÍCONES REAIS (v1.5) ──────────────────────────────
+  // Pin de fábrica: visível no centro MESMO COM O APP FECHADO (é o
+  // módulo image, não o taskbar). Sem interval → render única, zero
+  // polling. O exec devolve 2 linhas: path do PNG + tooltip (label de
+  // hover no idioma do rice).
+  "image#term": {
+    "exec": "echo /usr/share/pixmaps/elite/terminal.png; echo 'Terminal (foot)'",
+    "size": 36,
     "on-click": "foot"
   },
-  "custom/files": {
-    "format": "\uf07b",
-    "tooltip-format": "Arquivos (yazi)",
-    "on-click": "foot -e yazi"
+  "image#files": {
+    "exec": "echo /usr/share/pixmaps/elite/files.png; echo 'Arquivos (Thunar)'",
+    "size": 36,
+    "on-click": "thunar"
   },
-  "custom/web": {
-    "format": "\uf132",
-    "tooltip-format": "Brave Origin (navegador padrão)",
+  "image#web": {
+    "exec": "echo /usr/share/pixmaps/elite/web.png; echo 'Brave Origin (navegador padrão)'",
+    "size": 36,
     "on-click": "brave"
   },
-  "custom/editor": {
-    "format": "\uf121",
-    "tooltip-format": "Editor (Helix)",
-    "on-click": "foot -e helix"
-  },
+
+  // Screenshot — ação (não app): segue glifo com zoom no hover
   "custom/shot": {
     "format": "\uf0c4",
     "tooltip-format": "Screenshot (região)",

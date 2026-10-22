@@ -42,11 +42,11 @@
     <item label="Navegador">
       <action name="Execute" command="sh -c 'for b in brave librewolf chromium thorium-browser qutebrowser; do command -v &quot;$b&quot; &gt;/dev/null &amp;&amp; exec &quot;$b&quot;; done; exec xdg-open https://archlinux.org'" />
     </item>
-    <item label="Arquivos (yazi)">
-      <action name="Execute" command="foot -e yazi" />
+    <item label="Arquivos (Thunar)">
+      <action name="Execute" command="thunar" />
     </item>
-    <item label="Editor (helix)">
-      <action name="Execute" command="foot -e helix" />
+    <item label="Editor (nano)">
+      <action name="Execute" command="foot -e nano" />
     </item>
     <item label="Leitor de PDF (papers)">
       <action name="Execute" command="papers" />
