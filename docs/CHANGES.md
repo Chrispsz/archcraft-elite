@@ -31,17 +31,24 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
   - **Terminal riceado (NOVO `foot.ini`)**: o foot nunca teve config na ISO
     (defaults embutidos) — agora é superfície do rice: bg `#000000`, 16
     tons Mocha, cursor e seleção MAUVE, `pad 10x10`, JBM NF 10.5.
-  - **Wallpaper AMOLED de verdade (4K)**: wallpaper REAL da internet
-    (fractal de luz mauve/rosa sobre preto — 3840×2160, **37% de pixels
-    pretos puros**, faixa inferior ~63% preta onde a dock flutua),
-    substituindo o Catppuccin Mocha claro. Contratos medem os BYTES:
-    largura 3840, ≥25% preto puro, luma média ≤30. Fallback do swaybg
-    desce a `#000000`.
+  - **Wallpaper AMOLED de verdade (4K, PNG lossless)**: wallpaper REAL da
+    internet (fractal de luz mauve/rosa — 3840×2160) pós-processado para
+    o conceito: black-point por luminância com ombro (K=10/S=64, croma
+    preservado — o glow L≥64 fica byte-idêntico) e **PNG lossless**, pois
+    JPEG re-quantiza cada bloco 8×8 e não entrega preto exato (0 px em
+    8,3M no arquivo original). Resultado: **62% dos pixels são `(0,0,0)`
+    EXATOS** — fisicamente desligados no painel (conferido por 2 métodos
+    independentes: numpy e contagem PIL, 62.22% ambos) — e a dock flutua
+    sobre preto de verdade. Contratos medem os BYTES: largura 3840,
+    **≥40% de preto PURO contado pixel a pixel** (histogram por canal
+    superestima — 33,1% de G==0 sem um único preto no arquivo original),
+    luma média ≤30. Fallback do swaybg desce a `#000000`.
   - **Contrato de INI válido no fuzzel**: o arquivo é PARSEADO de
     verdade (configparser, seções `main`+`colors`) e o cabeçalho de
     seção nunca pode regredir — um fuzzel que não parseia cai no visual
     default e o rice morre no launcher.
-  - **+49 contratos** na suíte (774 → **823 peças**): escada idêntica
+  - **+64 contratos** na suíte (774 → **838 peças**, GO local com fase 5
+    completa): escada idêntica
     nos 4 CSS, acentos intactos, cores semânticas de marca, glifo Arch,
     rodapé morto, foot.ini, wallpaper medido em BYTES (resolução, % preto
     puro, luma), INI do fuzzel parseado, anti-regressões em toda linha.

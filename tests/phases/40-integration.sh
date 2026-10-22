@@ -162,8 +162,8 @@ assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'systemctl poweroff' "
 assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'systemctl reboot' "v1.0.4: menu raiz com Reboot"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'config.top' "v1.0.4: autostart sobe a menu bar"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'config.dock' "v1.0.4: autostart sobe o DOCK"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'wallpaper.jpg' "v1.0.4: wallpaper de imagem (não cor sólida)"
-assert_file "$P/airootfs/etc/skel/.config/labwc/wallpaper.jpg" "v1.0.4: wallpaper.jpg no skel"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'wallpaper\.png' "v1.0.4: wallpaper de imagem (não cor sólida)"
+assert_file "$P/airootfs/etc/skel/.config/labwc/wallpaper.png" "v1.0.4: wallpaper.png no skel"
 
 # ── v1.2 DESKTOP v2.1: burn test do dono (rig B) — a cura completa ──────
 # Forense da v1.1: 7 de 8 botões da dock com "format": "" (glifos perdidos
@@ -1200,7 +1200,7 @@ WBT="$ST/waybar/style.top.css"; WBD="$ST/waybar/style.dock.css"
 DRW="$ST/nwg-drawer/drawer.css";  SWC="$ST/swaync/style.css"
 FZL="$ST/fuzzel/fuzzel.ini";       FTC="$ST/foot/foot.ini"
 THR="$ST/labwc/themerc-override";  AST="$ST/labwc/autostart"
-WAL="$ST/labwc/wallpaper.jpg"
+WAL="$ST/labwc/wallpaper.png"
 
 # ── Escada AMOLED idêntica nos 4 CSS (base do sistema = preto REAL) ────────
 for f in "$WBT" "$WBD" "$SWC" "$DRW"; do
@@ -1275,26 +1275,37 @@ assert_nogrep "$THR" ': #1e1e2e' "v1.3: themerc anti-regressão (nenhuma superf�
 # ── autostart: fallback do swaybg desce ao preto ──────────────────────────
 assert_grep "$AST" "swaybg -m fill -c '#000000'" "v1.3: fallback swaybg preto AMOLED (era 1e1e2e)"
 
-# ── Wallpaper: existe, é JPEG e é AMOLED de verdade (bytes, não promessa) ──
-assert_file "$WAL" "v1.3: wallpaper.jpg existe (4K da internet)"
+# ── Wallpaper: PNG lossless e AMOLED DE VERDADE (bytes, não promessa) ────
+# JPEG não preserva preto exato (re-quantiza cada bloco 8x8: 0 px em 8,3M
+# no arquivo original). PNG + black-point: 62% dos pixels são (0,0,0) puros.
+assert_file "$WAL" "v1.3: wallpaper.png existe (4K real da internet, PNG lossless)"
 if command -v python3 >/dev/null 2>&1; then
   if python3 -c 'from PIL import Image' 2>/dev/null; then
-    read -r walres walblack walmean < <(python3 - "$WAL" << 'PYEOF'
+    walout="$(python3 - "$WAL" << 'PYEOF'
 import sys
 from PIL import Image
-im = Image.open(sys.argv[1]).convert('L')
-h = im.histogram()  # 256 bins de luminância — sem numpy
-total = sum(h)
-black = sum(h[:8]) / total * 100
-mean = sum(i * c for i, c in enumerate(h)) / total
-print(im.size[0], round(black, 1), round(mean, 1))
+rgb = Image.open(sys.argv[1]).convert('RGB')
+total = rgb.size[0] * rgb.size[1]
+# Preto PURO = pixel (0,0,0) EXATO — contagem CONJUNTA, pixel a pixel.
+# histogram() por canal NÃO serve: no JPEG original o canal G marcava
+# 33.1% em zero sem NENHUM pixel preto (artefato de quantização JPEG) —
+# superestima. A contagem conjunta confere com numpy (62.22% neste arquivo).
+black = 100.0 * sum(1 for p in rgb.getdata() if p == (0, 0, 0)) / total
+hist = rgb.convert('L').histogram()
+mean = sum(i * c for i, c in enumerate(hist)) / sum(hist)
+print(rgb.size[0], round(black, 1), round(mean, 1))
 PYEOF
-)
-    assert_eq "$walres" "3840" "v1.3: wallpaper 4K (3840px de largura)"
-    blackok=1; awk "BEGIN{exit !($walblack >= 25.0)}" || blackok=0
-    assert_eq "$blackok" "1" "v1.3: wallpaper ≥25% de preto puro (AMOLED real — tem $walblack%)"
-    meanok=1; awk "BEGIN{exit !($walmean <= 30.0)}" || meanok=0
-    assert_eq "$meanok" "1" "v1.3: luma média ≤30 (não cega de noite — $walmean)"
+)"
+    if [[ "$walout" =~ ^[0-9]+[[:space:]][0-9.]+[[:space:]][0-9.]+$ ]]; then
+      read -r walres walblack walmean <<<"$walout"
+      assert_eq "$walres" "3840" "v1.3: wallpaper 4K (3840px de largura — tem $walres)"
+      blackok=1; awk "BEGIN{exit !($walblack >= 40.0)}" || blackok=0
+      assert_eq "$blackok" "1" "v1.3: wallpaper ≥40% de preto PURO (0,0,0) — AMOLED real (tem $walblack%)"
+      meanok=1; awk "BEGIN{exit !($walmean <= 30.0)}" || meanok=0
+      assert_eq "$meanok" "1" "v1.3: luma média ≤30 (não cega de noite — tem $walmean)"
+    else
+      fail "v1.3: métricas do wallpaper" "saída do python3/PIL inesperada: '${walout:0:80}' (lição da run #34: nunca mais falha silenciosa com 'tem %')"
+    fi
   else
     fail "v1.3: métricas do wallpaper" "python3 presente sem PIL — instale python-pillow (o CI já traz)"
   fi
