@@ -384,11 +384,11 @@ done
 say "Timeouts de boot 90s no cmdline de TODAS as entradas (fix live freeze)"
 
 # ── [7] systemd: remove wants de serviços debloatados ─────────────
-say "Removendo wants de serviços debloatados (cloud-init, vbox, vmware, hyperv, modemmanager, cups, pcscd)"
+say "Removendo wants de serviços debloatados (cloud-init, vbox, vmware, hyperv, modemmanager, cups, pcscd, ufw)"
 SD="$PROFILE/airootfs/etc/systemd/system"
 find "$SD" -type l \( -name '*cloud-init*' -o -name '*ModemManager*' \
   -o -name 'vbox*' -o -name 'vmtools*' -o -name 'vmware*' -o -name 'hv_*' \
-  -o -name 'cups*' -o -name 'pcscd*' \) -delete 2>/dev/null || true
+  -o -name 'cups*' -o -name 'pcscd*' -o -name 'ufw*' \) -delete 2>/dev/null || true
 rm -rf "$SD/cloud-init.target.wants"
 
 # ── [8] mkarchcraftiso NÃO-INTERATIVO ──────────────────────────────

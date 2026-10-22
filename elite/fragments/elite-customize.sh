@@ -64,6 +64,29 @@ if ! pacman -S --noconfirm cachyos-keyring cachyos-v3-mirrorlist; then
     fi
 fi
 
+## [E2b] v1.5 — POPULAR o keyring do chroot (build/live/instalado).
+##       Causa-raiz do "signature from CachyOS unknown trust" do burn
+##       test: o E1 fazia recv+lsign da chave MESTRA (F3B6…) apenas — o
+##       gnupg do airootfs nascia com UMA chave confiável, e os pacotes
+##       do repo CachyOS vêm assinados pelos PACKAGER keys do keyring
+##       completo. No LIVE isso é auto-curado (pacman-init.service do
+##       archiso/archcraft roda `pacman-key --populate` SEM argumentos
+##       sobre um tmpfs — popula TODOS os keyrings em
+##       /usr/share/pacman/keyrings/, e o cachyos-keyring instalado
+##       pelo E2 deposita os seus lá). Mas o SISTEMA INSTALADO copia o
+##       gnupg DO SQUASHFS via unpackfs — e só a população AQUI coloca
+##       as chaves CachyOS no disco do alvo. Belt-and-suspenders: o E10
+##       re-popula no chroot do alvo na instalação.
+##       GATE DURO: sem /usr/share/pacman/keyrings/cachyos.gpg o live
+##       também quebraria (populate sem argumentos só popula o que
+##       existe) — falha AQUI, no build, nunca no boot (filosofia Elite).
+if [[ ! -f /usr/share/pacman/keyrings/cachyos.gpg ]]; then
+    echo "ELITE-FAIL: cachyos-keyring não instalado (cachyos.gpg ausente) —" >&2
+    echo "  o populate do live (pacman-init) E do instalado dependem dele" >&2
+    exit 1
+fi
+pacman-key --populate archlinux cachyos || true
+
 ## [E3] pacman.conf do SISTEMA: reescrito canônico e limpo (o customize do
 ##      Archcraft duplica [core]/[extra] no fim; aqui fica sem duplicatas).
 ##      Ordem: archcraft > cachyos(v2) > cachyos-v3 trio > core/extra/multilib
@@ -307,7 +330,7 @@ rm -rf /var/cache/elite-local
 ##      Os configs Elite (labwc/waybar/swaync/fuzzel) permanecem; v1.1
 ##      também varre os configs órfãos da purga GTK3 (thunar/zathura/
 ##      mousepad/file-roller/blueman/pavucontrol vieram do skeleton).
-for d in openbox bspwm polybar tint2 rofi dunst alacritty kitty thunar zathura mousepad file-roller blueman pavucontrol; do
+for d in openbox bspwm polybar tint2 rofi dunst alacritty kitty zathura mousepad file-roller blueman pavucontrol yazi helix; do
     rm -rf "/etc/skel/.config/$d"
 done
 
@@ -318,7 +341,7 @@ done
 ##       é preservado — nunca overlay inteiro de arquivo alheio).
 ENVF="/etc/environment"
 if [[ -f "$ENVF" ]]; then
-    sed -i -e 's|^EDITOR=.*|EDITOR=helix|'   \
+    sed -i -e 's|^EDITOR=.*|EDITOR=nano|'   \
            -e 's|^BROWSER=.*|BROWSER=brave|' \
            -e 's|^TERMINAL=.*|TERMINAL=foot|' "$ENVF"
 fi
@@ -331,11 +354,29 @@ fi
 ##       se o waybar um dia deixar de depender, o gpsd some sozinho. A
 ##       cura REAL hoje: overrides NoDisplay p/ xgps/xgpsspeed no overlay
 ##       (/usr/local/share/applications — precedência XDG).
+##       v1.5 — pesquisa de fontes primárias confirma a dependência:
+##       archlinux.org/packages/extra/x86_64/waybar (0.15.0-3, "Dependencies
+##       (47)" inclui gpsd; módulo GPS compilado desde o waybar 0.13.0,
+##       meson 'gps' feature auto). Remover o gpsd = dock/menu bar mortas.
 if command -v pacman >/dev/null 2>&1; then
     if pacman -Qq gpsd >/dev/null 2>&1; then
         pacman -Rns --noconfirm gpsd 2>/dev/null \
             || echo "ELITE E13: gpsd é dependência do waybar (libgps) — fica; xgps/xgpsspeed ocultos via NoDisplay" >&2
     fi
+fi
+
+## [E14] v1.5 — gufw/ufw FORA (spec do dono: bloatware). O upstream
+##       archcraft lista ufw+gufw no packages.x86_64 E habilita
+##       ufw.service no boot (multi-user.target.wants/ufw.service).
+##       O apply-overlay [7] já derruba o symlink do wants no PROFILE;
+##       este bloco varre o que porventura existir no chroot final e
+##       remove os pacotes com seus órfãos (se algum outro pacote os
+##       puxar de volta, a remoção falha segura e o NoDisplay do gufw
+##       — overlay — esconde o atalho).
+rm -f /etc/systemd/system/multi-user.target.wants/ufw.service
+if command -v pacman >/dev/null 2>&1; then
+    pacman -Rns --noconfirm gufw ufw 2>/dev/null \
+        || echo "ELITE E14: gufw/ufw não removíveis (dependência?) — serviço derrubado, atalho oculto via NoDisplay" >&2
 fi
 
 ## [E10] FIX DO BOOT DO SISTEMA INSTALADO (v1.0.4 · bug reportado no rig B)
@@ -441,6 +482,15 @@ script:
         if [ -f "${ROOT}/boot/vmlinuz-linux-cachyos-bore" ] &&
            [ -x "${ROOT}/usr/bin/mkinitcpio" ]; then
           arch-chroot "${ROOT}" mkinitcpio -p linux-cachyos-bore || true
+        fi
+    - command: >
+        if [ -x "${ROOT}/usr/bin/pacman-key" ] &&
+           [ -f "${ROOT}/usr/share/pacman/keyrings/cachyos.gpg" ]; then
+          arch-chroot "${ROOT}" pacman-key --init || true;
+          arch-chroot "${ROOT}" pacman-key --populate archlinux cachyos || true;
+          echo "ELITE: keyring archlinux+cachyos populado no alvo";
+        else
+          echo "ELITE: keyring do alvo já coberto pelo unpackfs (gnupg do build E2b)";
         fi
 i18n:
      name: "Elite: GPU profile + kernels + BORE initramfs (btrfs boot fix)..."

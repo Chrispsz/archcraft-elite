@@ -58,13 +58,8 @@ window#waybar {
 /* Módulos: padding horizontal generoso, hover com pílula (estilo item de
  * menu do macOS — hover suave em todo o alvo, não só no texto) */
 
-/* v1.4: ARCH no canto esquerdo — a "maçã" da Elite (mesma identidade
- * do botão da dock: U+F303 em MAUVE; clique abre o Launchpad) */
-#custom-menu {
-  padding: 0 14px;
-  font-size: 15px;
-  color: @mauve;
-}
+/* v1.5: o lançador ARCH do canto esquerdo SAIU (spec do dono) — o
+ * Launchpad segue na DOCK (1º botão do grupo central). */
 
 #custom-power {
   padding: 0 14px;
@@ -114,7 +109,6 @@ window#waybar {
 
 /* Hover: pílula arredondada — feedback de clique em TUDO · :active:
  * pressed = superfície mais escura (matriz de estados completa) */
-#custom-menu:hover,
 #custom-power:hover,
 #wlr-window:hover,
 #mpris:hover,
@@ -129,7 +123,6 @@ window#waybar {
   transition: background 0.15s ease;
 }
 
-#custom-menu:active,
 #custom-power:active,
 #wlr-window:active,
 #mpris:active,

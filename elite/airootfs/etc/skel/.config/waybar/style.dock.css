@@ -69,10 +69,6 @@ window#waybar > box {
 
 /* ===== Botões launcher (glyphs grandes) ===== */
 #custom-drawer,
-#custom-term,
-#custom-files,
-#custom-web,
-#custom-editor,
 #custom-shot {
   font-size: 30px;
   padding: 4px 10px;
@@ -81,12 +77,34 @@ window#waybar > box {
   transition: background 0.15s ease, color 0.15s ease;
 }
 
-#custom-drawer { color: @mauve; }    /* v1.3: ARCH em mauve — identidade do rice */
-#custom-term   { color: @green; }
-#custom-files  { color: @yellow; }
-#custom-web    { color: @peach; }    /* v1.3: Brave em peach — cor de marca */
-#custom-editor { color: @sky; }
+#custom-drawer { color: @mauve; }    /* ARCH em mauve — identidade do rice */
 #custom-shot   { color: @teal; }
+
+/* ===== Apps fixados — ÍCONES REAIS (v1.5) ============================
+ * Módulo image do waybar (fonte: src/modules/image.cpp — box_.set_name
+ * ("image") + add_class(id) → seletor #image.<id>). 36px renderizados do
+ * PNG 96px do overlay (Papirus + logo oficial Brave). O pixbuf não escala
+ * por CSS — o feedback de hover é a PÍLULA de destaque (mesma matriz de
+ * estados dos botões de glifo; o zoom de fonte segue valendo pros glyphs). */
+#image.term,
+#image.files,
+#image.web {
+  padding: 3px 9px;
+  border-radius: 14px;
+  transition: background 0.15s ease;
+}
+
+#image.term:hover,
+#image.files:hover,
+#image.web:hover {
+  background: alpha(@surface0, 0.95);
+}
+
+#image.term:active,
+#image.files:active,
+#image.web:active {
+  background: alpha(@surface2, 0.95);
+}
 
 /* Separador fixos │ abertos (v2.1): 1px vertical — fronteira do modelo
  * macOS (à esquerda: o que SEMPRE está; à direita: o que está ABERTO) */
@@ -102,34 +120,22 @@ window#waybar > box {
 
 /* Zoom no hover estilo iOS (v1.4: 30→36 — mais perceptível com a dock
  * sempre visível; os vizinhos acomodam o crescimento, o DNA do efeito
- * "magnificação" de dock que o dono pediu) */
-#custom-drawer, #custom-term, #custom-files, #custom-web,
-#custom-editor, #custom-shot {
+ * "magnificação" de dock que o dono pediu) — só nos botões de GLIFO
+ * (os de ícone real têm pílula de hover: pixbuf não escala por CSS) */
+#custom-drawer, #custom-shot {
   transition: background 0.15s ease, color 0.15s ease,
               font-size 0.18s cubic-bezier(0.22, 1, 0.36, 1);
 }
 #custom-drawer:hover { font-size: 36px; }
-#custom-term:hover   { font-size: 36px; }
-#custom-files:hover  { font-size: 36px; }
-#custom-web:hover    { font-size: 36px; }
-#custom-editor:hover { font-size: 36px; }
 #custom-shot:hover   { font-size: 36px; }
 
 /* Hover estilo macOS: pílula + leve realce da cor do ícone · :active
  * (pressed): superfície mais escura — matriz de estados completa */
 #custom-drawer:hover,
-#custom-term:hover,
-#custom-files:hover,
-#custom-web:hover,
-#custom-editor:hover,
 #custom-shot:hover {
   background: alpha(@surface0, 0.95);
 }
 #custom-drawer:active,
-#custom-term:active,
-#custom-files:active,
-#custom-web:active,
-#custom-editor:active,
 #custom-shot:active {
   background: alpha(@surface2, 0.95);
 }

@@ -1,14 +1,13 @@
 // Archcraft ELITE · Waybar TOP — "Menu Bar" estilo macOS (Catppuccin Mocha)
 // ─────────────────────────────────────────────────────────────────────────
-// Desktop v2.1: relógio no CENTRO (diretriz do dono), power no canto DIREITO
-// abrindo o menu de sessão (craft-power: dropdown fuzzel ancorado), áudio
-// só ícone (sem "40%" numérico). Esquerda = nome do app (janela focada) —
-// o modelo macOS. Tudo clicável (mouse-first).
+// Desktop v2.3 (v1.5): canto esquerdo LIMPO (o lançador ARCH saiu — ordem
+// direta da spec v1.5; o Launchpad segue na DOCK, 1º botão do grupo
+// central). Relógio no CENTRO EXATO (fixed-center + modules-center),
+// power no canto direito abrindo o menu de sessão (craft-power), áudio/
+// rede só ícone (sem %). Esquerda = nome do app (janela focada) — o
+// modelo macOS. Tudo clicável (mouse-first).
 //
 // v1.4 (burn test da v1.3 AO VIVO no rig do dono, 2026-10-22):
-//   · ARCH no canto ESQUERDO (custom/menu): a instrução que os resets de
-//     sandbox tinham apagado — a "maçã" do macOS da Elite, em mauve;
-//     clique abre o Launchpad (craft-drawer)
 //   · REDE: um só ícone p/ TUDO (cabo + Wi-Fi + Bluetooth) — clique abre
 //     o craft-connect (central de conectividade); o café toggle só
 //     aparece no bar quando ATIVO (CSS v1.4 — burn test: dois ícones
@@ -26,19 +25,9 @@
   "fixed-center": true,
   "reload_style_on_change": true,
 
-  // Esquerda: ARCH (o "logo do sistema" no canto — v1.4) + nome do app
-  // focado (wlr-foreign-toplevel, nativo do labwc). Sem janelas → só o
-  // Arch no canto, zero sujeira.
-  "modules-left": ["custom/menu", "wlr/window"],
-
-  // ARCH no canto esquerdo (v1.4 — a instrução perdida dos resets).
-  // Modelo macOS: onde mora a maçã, mora o Arch — em MAUVE (identidade
-  // do rice, mesma cor do botão da dock). Clique = Launchpad.
-  "custom/menu": {
-    "format": "\uf303",
-    "tooltip-format": "Aplicativos",
-    "on-click": "craft-drawer"
-  },
+  // Esquerda (v1.5): SÓ o nome do app focado (wlr-foreign-toplevel,
+  // nativo do labwc). Sem janelas → canto esquerdo limpo, zero sujeira.
+  "modules-left": ["wlr/window"],
 
   // Centro: o relógio (v2.1 — diretriz do dono)
   "modules-center": ["clock"],
