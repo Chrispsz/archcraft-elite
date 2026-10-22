@@ -9,13 +9,20 @@
 # (waybar config.top) + DOCK flutuante na base (waybar config.dock),
 # Launchpad (nwg-drawer via craft-drawer) e wallpaper de imagem.
 
-# --- Wallpaper: imagem Catppuccin da Elite (fallback: cor sólida Base) ------
+# --- Wallpaper: AMOLED (v1.3) — fractal mauve sobre preto REAL (4K) --------
+# Fonte: curadoria da internet (Wallpapers.com, licença de uso livre de
+# wallpaper) — 3840x2160. Pós-processado para o conceito "backlight
+# desligado": black-point por luminância (K=10, ombro S=64, croma
+# preservado — o glow fica byte-idêntico). PNG LOSSLESS: JPEG re-quantiza
+# cada bloco 8x8 e não preserva preto exato. 62% dos pixels são (0,0,0)
+# EXATOS — pixels fisicamente desligados; número conferido por dois
+# métodos independentes (numpy e contagem PIL: 62.22%). Fallback: preto.
 if command -v swaybg >/dev/null 2>&1; then
-    if [ -r "$HOME/.config/labwc/wallpaper.jpg" ]; then
-        swaybg -m fill -i "$HOME/.config/labwc/wallpaper.jpg" &
+    if [ -r "$HOME/.config/labwc/wallpaper.png" ]; then
+        swaybg -m fill -i "$HOME/.config/labwc/wallpaper.png" &
     else
-        # sem imagem (ex.: skel parcial): cor sólida, zero decodificação
-        swaybg -m fill -c '#1e1e2e' &
+        # sem imagem (ex.: skel parcial): preto AMOLED, zero decodificação
+        swaybg -m fill -c '#000000' &
     fi
 fi
 

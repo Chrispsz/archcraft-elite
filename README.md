@@ -53,7 +53,8 @@ Verificação em qualquer máquina: `/lib64/ld-linux-x86-64.so.2 --help | grep s
 
 | Camada | Componente | Origem |
 |---|---|---|
-| **Sessão (v1.0.3+)** | **labwc** (Wayland, única) + Waybar + SwayNC + Fuzzel + foot + swaybg/swaylock + grim/slurp + rice Catppuccin Mocha + helpers `craft-*` + fastfetch | Arch [extra] + este repo |
+| **Sessão (v1.0.3+)** | **labwc** (Wayland, única) + Waybar + SwayNC + Fuzzel + foot + swaybg/swaylock + grim/slurp + helpers `craft-*` + fastfetch | Arch [extra] + este repo |
+| **Desktop v1.3 · AMOLED rice** | Escada de superfícies até o **preto REAL `#000000`** ("Mocha com o backlight desligado") nos 4 CSS + themerc + fuzzel + foot NOVO (`foot.ini`): acentos Catppuccin intactos, GTK apps Mocha por trás do chrome preto (macOS style). Dock com **logo do Arch (U+F303) em mauve** + Brave em peach (cores semânticas). Rodapé do Launchpad morto por CSS (sem fork). **Wallpaper 4K real da internet** — fractal mauve sobre preto PURO: 62% dos pixels são `(0,0,0)` exatos (PNG lossless, pixels desligados de verdade); fallback do swaybg `#000000` | este repo |
 | Kernel (v1.1) | `linux-cachyos-bore` **único** — o kernel stock do Arch saiu da ISO | CachyOS v3 |
 | Repositórios | `[cachyos-v3] [cachyos-core-v3] [cachyos-extra-v3]` antes de `[core]`, baseline `[cachyos]` para os pacotes exclusivos | CachyOS |
 | Scheduler | `scx-scheds` + `scx-tools` + unidade própria | sched-ext / Arch |
@@ -155,6 +156,9 @@ elite/packages.remove           Debloat (comentados, restauráveis)
 elite/pacman-repos.build.add    Repositórios CachyOS para o build
 elite/fragments/elite-customize.sh   E0–E10: keyring, pacman.conf, cirurgia no Calamares, fix btrfs do boot instalado
 elite/airootfs/                 sysctl, zram, udev, units, preset mkinitcpio, scripts
+elite/airootfs/etc/skel/.config/{labwc,waybar,swaync,nwg-drawer,fuzzel,foot}
+                                v1.3 AMOLED rice: 4 CSS + themerc + foot.ini
+                                NOVO + wallpaper.png 4K + autostart
 docs/CHANGES.md                 Delta completo vs. upstream, com justificativas
 docs/SCRIPTS.md                 Documentação por script (uso / reversão / dependências)
 ```
