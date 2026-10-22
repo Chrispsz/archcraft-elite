@@ -1,14 +1,24 @@
 #!/bin/sh
 # craft-drawer — o "Launchpad" da Elite (nwg-drawer)
-# Grade de apps em tela cheia com busca e categorias + barra de sessão
-# (lock/logout/reboot/sleep/poweroff) na base. Mouse-first: um clique
-# abre, Esc/clique fora fecha (nativo do nwg-drawer).
+# Grade de apps em tela cheia com busca. Mouse-first: um clique abre,
+# Esc/clique fora fecha (nativo do nwg-drawer).
+#
+# v1.4 (burn test da v1.3 ao vivo, diretrizes do dono):
+#   · SEM categorias (-nocats): a faixa de tabs ia contra a organização —
+#     o usuário organiza o próprio sistema; a grade fica só apps + busca
+#     (o -nocats é flag oficial do upstream: main.go:578/735 — a barra de
+#     categorias nem nasce, sem CSS gambiarra)
+#   · SEM barra de sessão na base: os botões travar/sair/suspender/
+#     reiniciar/desligar saem (as flags -pb* nem são passadas — sem
+#     comando, o upstream não cria a barra: main.go:661). A sessão mora
+#     SÓ na menu bar (⏻ no canto direito → craft-power) — um lugar,
+#     um modelo, zero duplicação
 #
 # Flags (upstream nwg-piotr/nwg-drawer):
-#   -fm      gerenciador de arquivos (busca de arquivos do drawer — yazi no foot)
-#   -term    terminal para .desktop de console
-#   -is/-c   tamanho do ícone / colunas
-#   -pb*     comandos da barra de power (cada botão só aparece com comando)
+#   -fm       gerenciador de arquivos (busca de arquivos do drawer — yazi no foot)
+#   -term     terminal para .desktop de console
+#   -is/-c    tamanho do ícone / colunas
+#   -nocats   desliga a barra de categorias (v1.4)
 set -eu
 
 exec nwg-drawer \
@@ -17,9 +27,5 @@ exec nwg-drawer \
   -is 64 \
   -c 8 \
   -spacing 16 \
-  -pblock 'craft-lock' \
-  -pbexit 'labwc --exit' \
-  -pbreboot 'systemctl reboot' \
-  -pbpoweroff 'systemctl poweroff' \
-  -pbsleep 'systemctl suspend' \
+  -nocats \
   "$@"

@@ -1,12 +1,16 @@
 // Archcraft ELITE · Waybar DOCK — pílula flutuante estilo macOS (Catppuccin Mocha)
 // ─────────────────────────────────────────────────────────────────────────
 // Desktop v2.1: fixados + janelas abertas num SÓ grupo CENTRAL (modelo macOS
-// — diretriz do dono: "fixados no centro, abertos no centro"). A pílula é
-// auto-ocultante (v1.1): "exclusive": false + CSS margin-bottom negativa —
-// hover na faixa inferior revela com transição suave.
+// — diretriz do dono: "fixados no centro, abertos no centro").
 //
-// v2.1: sem lock/power na dock — a sessão mora na BARRA SUPERIOR (botão
-// ⏻ no canto direito → craft-power). Dock = lançar e alternar, só.
+// v1.4 (burn test da v1.3 ao vivo, diretrizes do dono):
+//   · SEMPRE VISÍVEL: o auto-hide (margin-bottom negativa, v1.1) SAIU —
+//     "a dock sumiu": com exclusive:false + -52px de CSS sobrava só um
+//     talho de 10px de ícones CORTADOS na base da tela ("ícones
+//     sobrepostos"). iOS/macOS: dock é permanente — a pílula flutua 8px
+//     acima da base e o zoom no hover continua (CSS)
+//   · Fixar apps: clique-direito no desktop → "Fixar app na dock…"
+//     (craft-pin-pick — o caminho mouse-first; CLI segue craft-pin)
 //
 // GLIFOS: escritos como escapes JSON \uXXXX — à prova de corrupção de
 // encoding (v1.1 perdeu glifos literais: 7 de 8 botões invisíveis).
@@ -21,7 +25,9 @@
   "height": 62,
   "exclusive": false,
   "margin-top": 0,
-  "margin-bottom": 0,
+  // v1.4: 8px SEMPRE (a pílula flutua visível — auto-hide morto; o CSS
+  // só cuida do visual da pílula e do zoom no hover)
+  "margin-bottom": 8,
   "margin-left": 12,
   "margin-right": 12,
   "spacing": 4,
@@ -68,7 +74,7 @@
   },
   "custom/web": {
     "format": "\uf132",
-    "tooltip-format": "Brave (navegador padrão)",
+    "tooltip-format": "Brave Origin (navegador padrão)",
     "on-click": "brave"
   },
   "custom/editor": {

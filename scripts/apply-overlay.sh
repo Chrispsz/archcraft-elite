@@ -479,6 +479,7 @@ if grep -q '^file_permissions=(' "$PD"; then
            /usr/local/bin/craft-rollback /usr/local/bin/craft-lock /usr/local/bin/craft-logout \
            /usr/local/bin/craft-shot /usr/local/bin/craft-bat \
            /usr/local/bin/craft-drawer /usr/local/bin/craft-power /usr/local/bin/craft-pin \
+           /usr/local/bin/craft-connect /usr/local/bin/craft-pin-pick \
            /etc/skel/.config/labwc/autostart; do
     grep -qF "[\"$p\"]" "$PD" || sed -i "s|^file_permissions=(|file_permissions=(\n  [\"$p\"]=\"0:0:755\"|" "$PD"
   done

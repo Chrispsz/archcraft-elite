@@ -178,8 +178,10 @@ else
   fail "contrato fix #52: inputs do workflow_call" "bloco inputs não está depois de workflow_call (linha $WILINE vs $WCLINE)"
 fi
 
-# v1.1: estágio AUR do build — brave-bin/pwvucontrol nascem no [elite-local]
-assert_grep "$REPO/.ci/build.sh" 'aur_build brave-bin' "contrato v1.1: build.sh compila brave-bin do AUR → elite-local"
+# v1.1→v1.4: brave-origin (release oficial pinado) + pwvucontrol nascem no [elite-local]
+assert_grep "$REPO/.ci/build.sh" 'pkgname=brave-origin' "contrato v1.4: build.sh empacota brave-origin (release oficial) → elite-local"
+assert_grep "$REPO/.ci/build.sh" 'brave-origin-.*linux-amd64' "contrato v1.4: source do brave-origin = release oficial da Brave"
+assert_grep "$REPO/.ci/build.sh" '39a69cf12b5787f789d0a0b013f32253bddc9004d03e36c679a8daa61821b6e8' "contrato v1.4: sha256 do brave-origin PINADO no build"
 assert_grep "$REPO/.ci/build.sh" 'aur_build pwvucontrol' "contrato v1.1: build.sh compila pwvucontrol do AUR → elite-local"
 assert_grep "$REPO/.ci/build.sh" 'base-devel sudo' "contrato v1.1: container prep ganha base-devel+sudo (makepkg do AUR)"
 
