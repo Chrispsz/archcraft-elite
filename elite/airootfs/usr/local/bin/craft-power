@@ -1,28 +1,58 @@
 #!/bin/sh
-# craft-power — menu de sessão MOUSE-FIRST (Desktop v2 · v1.0.4)
-# Barra de botões no topo (labnag, o "nag bar" nativo do labwc — zero
-# dependências novas): Lock · Logout · Reboot · Desligar · Cancelar.
-# Sem labnag no PATH cai no craft-logout clássico (fuzzel --dmenu).
+# craft-power — menu de sessão MOUSE-FIRST (Desktop v2.1)
+# ─────────────────────────────────────────────────────────────────────────
+# v2.1 (diretriz do dono: "menu que fica na barra superior no canto
+# direito"): dropdown vertical ANCORADO no canto superior direito, logo
+# abaixo do botão ⏻ da waybar — fuzzel em modo dmenu (anchor=top-right),
+# tema Catppuccin Mocha do fuzzel.ini, Esc fecha sem fazer nada.
+# Fallback: labnag (o "nag bar" nativo do labwc) se o fuzzel faltar.
 set -eu
 
-if command -v labnag >/dev/null 2>&1; then
-  exec labnag \
-    -t 86400 \
-    -e top \
-    -y overlay \
-    -k none \
-    -m 'Sessão' \
-    --background-color 1e1e2eee \
-    --text-color cdd6f4ff \
-    --button-background-color 313244ff \
-    --button-text-color cdd6f4ff \
-    --button-border-color 45475aff \
-    --border-bottom-color cba6f7ff \
-    -Z 'Lock' 'craft-lock' \
-    -Z 'Logout' 'labwc --exit' \
-    -Z 'Reboot' 'systemctl reboot' \
-    -Z 'Desligar' 'systemctl poweroff' \
-    -Z 'Cancelar' 'true'
+MENU='Travar tela
+Sair da sessão
+Suspender
+Reiniciar
+Desligar'
+
+if command -v fuzzel >/dev/null 2>&1; then
+    # anchor top-right + margens: colado no canto, 44px abaixo do topo
+    # (a menu bar tem 34px — o dropdown nasce "pendurado" nela);
+    # --lines 5 = altura exata das opções, sem lista vazia.
+    # (stdin do printf; </dev/null no fuzzel só se ele não levesse pipe —
+    # dmenu lê stdin, então o pipe é a fonte; sem redirect conflitante.)
+    choice="$(printf '%s\n' "$MENU" | fuzzel --dmenu \
+        --anchor=top-right --x-margin=10 --y-margin=44 \
+        --lines=5 --width=22 --prompt='Sessão  ' 2>/dev/null || true)"
+else
+    # fallback: labnag — barra de botões no topo (Lock · Logout · Reboot …)
+    if command -v labnag >/dev/null 2>&1; then
+        exec labnag \
+            -t 86400 \
+            -e top \
+            -y overlay \
+            -k none \
+            -m 'Sessão' \
+            --background-color 1e1e2eee \
+            --text-color cdd6f4ff \
+            --button-background-color 313244ff \
+            --button-text-color cdd6f4ff \
+            --button-border-color 45475aff \
+            --border-bottom-color cba6f7ff \
+            -Z 'Lock' 'craft-lock' \
+            -Z 'Logout' 'labwc --exit' \
+            -Z 'Suspend' 'systemctl suspend' \
+            -Z 'Reboot' 'systemctl reboot' \
+            -Z 'Desligar' 'systemctl poweroff' \
+            -Z 'Cancelar' 'true'
+    fi
+    choice=''   # sem fuzzel nem labnag: sai limpo (W-x/craft-logout no rc.xml)
 fi
 
-exec craft-logout
+case "$choice" in
+    'Travar tela')    exec craft-lock ;;
+    'Sair da sessão') labwc --exit ;;
+    'Suspender')      systemctl suspend ;;
+    'Reiniciar')      systemctl reboot ;;
+    'Desligar')       systemctl poweroff ;;
+    *)                exit 0 ;;   # Esc/vazio: menu fecha e NADA acontece
+esac

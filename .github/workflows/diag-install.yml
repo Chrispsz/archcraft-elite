@@ -85,11 +85,22 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 100
     steps:
+      # v1.2: o gate [1b/8] usa .ci/validate-calamares.py do repo (o MESMO
+      # validador da suíte local — um caminho só). Shallow: só este arquivo.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
       - name: Ferramentas (QEMU, 7z, btrfs-progs, arch-install-scripts)
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq qemu-system-x86 p7zip-full btrfs-progs \
             arch-install-scripts rsync squashfs-tools >/dev/null
+          # v1.2: PyYAML p/ o gate [1b/8] — o Calamares real PARSEIA os .conf;
+          # YAML inválido = "module could not be loaded" no rig do dono (v1.1)
+          python3 -c 'import yaml' 2>/dev/null \
+            || sudo apt-get install -y -qq python3-yaml >/dev/null
+          python3 -c 'import yaml; print("PyYAML", yaml.__version__)'
           qemu-system-x86_64 --version | head -1
           mkfs.btrfs --version | head -1
           if [ -e /dev/kvm ]; then echo "KVM presente: $(ls -la /dev/kvm)"; else echo "KVM ausente — TCG (lento)"; fi
@@ -186,6 +197,15 @@ jobs:
             echo "✖ E11: módulos nvidia AUSENTES no airootfs (entrada NVIDIA do live = mentira)"; exit 1
           fi
           echo "✔ pré-flight ok (mkinitcpio, arch-chroot, grub, preset E6, dkms E11)"
+
+          echo "── [1b/8] Calamares: TODOS os .conf parseiam como YAML (o gate cego da v1.1)"
+          # v1.2: o gate da v1.1 só GREPAVA padrões no shellprocess_btrfs.conf —
+          # nunca o parseou como o Calamares real faz. YAML inválido = módulo
+          # "could not be loaded" no rig do dono (shellprocess@btrfs, ISO v1.1:
+          # printfs com \n partido em coluna 0 matavam o block scalar).
+          # O validador vive no repo (.ci/validate-calamares.py) — o MESMO
+          # código roda na suíte local (20-static), um caminho só.
+          python3 "$GITHUB_WORKSPACE/.ci/validate-calamares.py" rootfs || exit 1
 
           echo "── [2/8] disco: MBR + partição btrfs única (Calamares erase-disk, BIOS)"
           truncate -s 14G elite-disk.img

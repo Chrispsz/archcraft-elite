@@ -1,46 +1,41 @@
 // Archcraft ELITE · Waybar TOP — "Menu Bar" estilo macOS (Catppuccin Mocha)
 // ─────────────────────────────────────────────────────────────────────────
-// Desktop v2 (v1.0.4): barra de MENU full-width no topo — o modelo é o
-// menu bar do macOS: identidade à esquerda, nome do app (janela focada),
-// status + relógio à direita. Tudo CLICÁVEL (mouse-first — diretriz do
-// dono: "não sou muito de atalho").
+// Desktop v2.1: relógio no CENTRO (diretriz do dono), sem logo no canto
+// esquerdo (o launcher mora na dock — botão grade), power no canto DIREITO
+// abrindo o menu de sessão (craft-power: dropdown fuzzel ancorado), áudio
+// só ícone (sem "40%" numérico). Esquerda = nome do app (janela focada) —
+// o modelo macOS. Tudo clicável (mouse-first).
 //
-// Sintaxe validada contra a wiki oficial do Waybar — JSONC com comentários.
-// A 2ª instância (dock) fica em config.dock; o autostart sobe as duas.
+// GLIFOS: escritos como escapes JSON \uXXXX — à prova de corrupção de
+// encoding (v1.1 perdeu glifos literais: botões invisíveis na dock).
+// Todos os codepoints verificados no cmap do Symbols Nerd Font
+// (archcraft-fonts 2.0). Família de fonte REAL: "JetBrainsMono NF".
 {
   "layer": "top",
   "position": "top",
   "height": 34,
   "spacing": 4,
-  "fixed-center": false,
+  "fixed-center": true,
   "reload_style_on_change": true,
 
-  // Esquerda: "Apple menu" (logo → Launchpad/nwg-drawer) + janela focada
-  "modules-left": ["custom/menu", "wlr/window"],
+  // Esquerda: nome do app focado (wlr-foreign-toplevel, nativo do labwc).
+  // Sem janelas → canto vazio, zero sujeira.
+  "modules-left": ["wlr/window"],
 
-  // Centro: vazio — o modelo macOS não usa centro
-  "modules-center": [],
+  // Centro: o relógio (v2.1 — diretriz do dono)
+  "modules-center": ["clock"],
 
-  // Direita: música → status → tray → relógio → power (modelo macOS)
+  // Direita: música → café → rede → áudio → tray → sessão
   "modules-right": [
     "mpris",
     "idle_inhibitor",
     "network",
     "pulseaudio",
     "tray",
-    "clock",
     "custom/power"
   ],
 
-  // Logo — o "menu Apple" da Elite: abre o Launchpad (nwg-drawer)
-  "custom/menu": {
-    "format": " 󰣇",
-    "tooltip": false,
-    "on-click": "craft-drawer"
-  },
-
-  // Janela focada — o "nome do app" do menu bar (wlr-foreign-toplevel,
-  // protocolo nativo do labwc via wlroots)
+  // Janela focada — o "nome do app" do menu bar
   "wlr/window": {
     "format": "{}",
     "max-length": 42,
@@ -52,81 +47,84 @@
   // VOCÊ tocar aparece aqui. Com nada tocando o módulo some sozinho.
   // Clique: esq = play/pause, meio = próxima, dir = anterior.
   "mpris": {
-    "format": " {player_icon} {dynamic}",
-    "format-paused": " {status_icon} {dynamic}",
-    "format-stopped": " {status_icon}",
+    "format": " \uf001 {dynamic}",
+    "format-paused": " \uf04c {dynamic}",
+    "format-stopped": "\uf04d",
     "format-empty": "",
     "player-icons": {
-      "default": "",
-      "firefox": "",
-      "librewolf": "",
-      "chromium": "",
-      "brave": "",
-      "thorium-browser": "",
-      "mpv": "",
-      "spotify": ""
+      "default": "\uf001"
     },
     "status-icons": {
-      "playing": "",
-      "paused": "",
-      "stopped": ""
+      "playing": "\uf04b",
+      "paused": "\uf04c",
+      "stopped": "\uf04d"
     },
     "ignored-players": ["playerctld"],
     "dynamic-len": 40,
     "interval": 10
   },
 
-  // Café: inibir idle (útil em vídeos/jogos) — vira "toggle" na barra
+  // Café: inibir idle (útil em vídeos/jogos) — toggle discreto; ativado
+  // fica âmbar via CSS (#idle-inhibitor.activated)
   "idle_inhibitor": {
     "format": "{icon}",
     "format-icons": {
-      "activated": "",
-      "deactivated": ""
+      "activated": "\uf0f4",
+      "deactivated": "\uf0f4"
     }
   },
 
-  // Rede — clique abre o gerenciador GRÁFICO de conexões (mouse-first)
+  // Rede — SÓ ÍCONE (essid/ip vivem no tooltip; clique abre o impala).
+  // v2.1: ícones FA BMP — escapes \uXXXX legíveis, sem surrogate pairs
+  // (network-wired = ethernet; unlink = sem conexão)
   "network": {
-    "format": "{ifname}",
-    "format-ethernet": "󰈀",
-    "format-wifi": " {essid}",
-    "format-linked": "󰈀 {ifname}",
-    "format-disconnected": "󰖪",
-    "tooltip-format-ethernet": "{ipaddr} via {ifname}",
+    "format": "{icon}",
+    "format-ethernet": "\uf6ff",
+    "format-wifi": "\uf1eb",
+    "format-linked": "\uf6ff",
+    "format-disconnected": "\uf127",
+    "tooltip-format-ethernet": "{ifname} · {ipaddr}",
     "tooltip-format-wifi": "{essid} ({signalStrength}%) · {ipaddr}",
     "on-click": "foot -e impala"
   },
 
-  // Volume (PipeWire) — clique muta, scroll ajusta, dir abre o mixer
+  // Volume (PipeWire) — SÓ ÍCONE (v2.1: sem porcentagem numérica — diretriz
+  // do dono; o valor exato mora no tooltip). Clique muta, scroll ajusta,
+  // dir abre o mixer. Mudo = ícone vermelho via CSS (.muted).
   "pulseaudio": {
-    "format": "{volume}%",
-    "format-muted": "󰖁 MUT",
+    "format": "{icon}",
+    "format-muted": "\uf026",
+    "format-icons": {
+      "default": ["\uf027", "\uf028"]
+    },
     "on-click": "pactl set-sink-mute @DEFAULT_SINK@ toggle",
     "on-click-right": "pwvucontrol",
     "scroll-step": 5,
-    "tooltip-format": "{desc}"
+    "tooltip-format": "{volume}% · {desc}"
   },
 
-  // Tray (udiskie e o que o usuário subir — v1.1: sem applets GTK3) — SÓ nesta instância (a 2ª waybar
+  // Tray (udiskie e o que o usuário subir) — SÓ nesta instância (a 2ª waybar
   // não pode ter tray: o SNI watcher é único por sessão)
   "tray": {
     "icon-size": 16,
     "spacing": 8
   },
 
-  // Relógio estilo macOS — clique abre a central de notificações (SwayNC)
+  // Relógio no CENTRO (v2.1) — clique abre a central de notificações (SwayNC)
   "clock": {
-    "format": " {:%a %d %b  %H:%M}",
-    "format-alt": " {:%H:%M}",
+    "format": "{:%a %d %b  %H:%M}",
+    "format-alt": "{:%H:%M}",
     "tooltip-format": "<tt>{calendar}</tt>",
     "on-click": "swaync-client -t",
     "interval": 60
   },
 
-  // Power — abre o menu de sessão (labnag; fallback fuzzel)
+  // Sessão — canto direito: menu dropdown (travar/sair/suspender/reiniciar/
+  // desligar — craft-power v2, fuzzel ancorado top-right). Ícone: FA
+  // power-off (BMP — o md-power U+F0425 seria surrogate pair)
   "custom/power": {
-    "format": "",
-    "tooltip": false,
+    "format": "\uf011",
+    "tooltip-format": "Sessão",
     "on-click": "craft-power"
   }
 }

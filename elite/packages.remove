@@ -26,8 +26,13 @@ nvidia-settings
 ## ── v1.1 · PURGA DO APP-LAYER LEGADO (MEGA PROMPT do dono) ──────────
 ## Diretriz: stack 100% moderna e Wayland-native (Rust/GTK4). As contra-
 ## partes entram via packages.add: brave-bin, yazi, papers, pwvucontrol,
-## bluetui, impala, helix. (xgps/xgpsspeed: GPS irrelevante p/ desktop —
-## não existem no upstream, entrando aqui como contrato documentado.)
+## bluetui, impala, helix.
+## v1.2 (burn test do dono no rig B): xgps/xgpsspeed/gpsd APARECERAM no
+## menu do live — GPS é irrelevante p/ desktop gaming. gpsd (pai dos
+## xgps*) não vem do packages.x86_64 (nem upstream nem nosso) — deve
+## entrar como dependência transitiva de algo da closure; listar aqui
+## + overrides NoDisplay em /usr/local/share/applications garante as
+## DUAS camadas: se for direto, sai da ISO; se for dep, fica oculto.
 firefox
 thunar
 thunar-volman
@@ -39,6 +44,7 @@ zathura-pdf-poppler
 file-roller
 blueman
 pavucontrol
+gpsd
 xgps
 xgpsspeed
 

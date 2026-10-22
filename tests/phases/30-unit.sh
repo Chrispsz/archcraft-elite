@@ -311,10 +311,11 @@ pin_reset
 assert_match "$(CP list)" 'nenhum app fixado' "craft-pin: list em fábrica → nenhum app"
 CP add steam $'\uf1b6' Steam steam green >/dev/null
 if pinjson "$DKT"; then ok "craft-pin: 1º pin → config.dock parseia como JSON (vírgulas certas)"; else fail "craft-pin: JSON" "config.dock quebrou após o 1º add"; fi
-assert_grep "$DKT" '^    "custom/shot",$' "craft-pin: modules-left — shot ganha vírgula, pin entra depois"
-assert_grep "$DKT" '^    "custom/pin-steam"$' "craft-pin: pin é o último elemento do array (sem vírgula)"
+assert_grep "$DKT" '^    "custom/shot",$' "craft-pin: v2.1 — pin entra depois dos fixos (shot mantém vírgula)"
+assert_grep "$DKT" '^    "custom/pin-steam",$' "craft-pin: v2.1 — pin sai COM vírgula (o custom/sep vem depois)"
+assert_grep "$DKT" '^    "custom/sep",$' "craft-pin: v2.1 — separador segue presente entre pins e taskbar"
 assert_grep "$DKT" '^  "custom/pin-steam": \{ "format": ' "craft-pin: linha do módulo na seção PINS"
-assert_grep "$DKT" '^  \},$' "craft-pin: bloco power fecha com vírgula antes da seção PINS"
+assert_grep "$DKT" '^  \},$' "craft-pin: bloco anterior à seção PINS fecha com vírgula (1º pin)"
 assert_grep "$CST" '^#custom-pin-steam \{$' "craft-pin: bloco CSS criado"
 assert_grep "$CST" '^  color: @green;$' "craft-pin: cor escolhida aplicada no CSS"
 assert_match "$(CP add discord $'\uf392' Discord discord mauve 2>&1)" 'discord.* fixado' \

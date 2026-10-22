@@ -24,6 +24,8 @@ assert_match "${out:-}" "aviso: 'xgps' não está na lista upstream — ignorado
   "cadeia A: xgps inexistente upstream → aviso (não erro — contrato do remove)"
 assert_match "${out:-}" "aviso: 'mousepad' não está na lista upstream — ignorado" \
   "cadeia A: ex-Elite mousepad (saiu do add) → aviso tolerado"
+assert_match "${out:-}" "aviso: 'gpsd' não está na lista upstream — ignorado" \
+  "cadeia A: gpsd (dep transitiva) → aviso tolerado (a remoção REAL é o E13 no build)"
 
 P="$RE/elite-build/archcraft"   # profile transformado
 assert_file "$P/packages.x86_64" "cadeia A: elite-build/archcraft existe (profile detectado)"
@@ -158,6 +160,76 @@ assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'config.top' "v1.0.4:
 assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'config.dock' "v1.0.4: autostart sobe o DOCK"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'wallpaper.jpg' "v1.0.4: wallpaper de imagem (não cor sólida)"
 assert_file "$P/airootfs/etc/skel/.config/labwc/wallpaper.jpg" "v1.0.4: wallpaper.jpg no skel"
+
+# ── v1.2 DESKTOP v2.1: burn test do dono (rig B) — a cura completa ──────
+# Forense da v1.1: 7 de 8 botões da dock com "format": "" (glifos perdidos
+# na escrita — dock INVISÍVEL), botão do Brave com o glifo FIREFOX (U+F0239),
+# CSS pedindo família "JetBrainsMono Nerd Font" (não existe no archcraft-fonts
+# 2.0 — real: "JetBrainsMono NF"), e 4 printfs do heredoc do Calamares com \n
+# literal → YAML inválido → "shellprocess@btrfs could not be loaded" (o
+# instalador TRAVOU no rig do dono). v2.1 = a resposta caso a caso.
+CT="$P/airootfs/etc/skel/.config/waybar/config.top"
+CD="$P/airootfs/etc/skel/.config/waybar/config.dock"
+# Top bar: relógio no CENTRO, sem logo à esquerda, áudio só ícone, power no canto
+assert_grep "$CT" '"modules-center": \["clock"\]' "v2.1: relógio no CENTRO da barra (diretriz do dono)"
+assert_nogrep "$CT" '"custom/menu"' "v2.1: logo do canto superior esquerdo REMOVIDO (diretriz)"
+assert_grep "$CT" '"modules-left": \["wlr/window"\]' "v2.1: esquerda = nome do app focado (modelo macOS)"
+assert_grep "$CT" '"format": "\{icon\}"' "v2.1: áudio em modo ícone"
+assert_nogrep "$CT" '"format": "\{volume\}' "v2.1: SEM porcentagem numérica no áudio (o '40%')"
+assert_grep "$CT" '"custom/power"' "v2.1: power visível no canto direito da barra"
+assert_grep "$CT" '"format": "\\uf011"' "v2.1: glifo do power presente (FA power-off — BMP)"
+# Glifos: TODOS os launchers da dock com escape \uXXXX (a corrupção da v1.1
+# deixou 7 de 8 botões com format vazio — dock INVISÍVEL no rig do dono)
+for pair in 'drawer:\\uf00b' 'term:\\uf120' 'files:\\uf07b' 'web:\\uf132' 'editor:\\uf121' 'shot:\\uf0c4'; do
+  m=${pair%%:*}; g=${pair##*:}
+  assert_grep "$CD" "\"format\": \"${g}\"," "v2.1: dock custom/$m com glifo (v1.1: format vazio!)"
+done
+assert_nogrep "$CD" '\\u[0-9a-fA-F]{5,}' "v2.1: nenhum escape de 5+ hex (SMP trap: parseia como 4-hex + dígito)"
+assert_nogrep "$CT" '\\u[0-9a-fA-F]{5,}' "v2.1: idem no config.top"
+assert_grep "$CD" '"format": "\\uf132"' "v2.1: Brave com glifo ESCUDO (U+F132) — não mais o Firefox (U+F0239)"
+assert_nogrep "$CD" '\\uf0239' "v2.1: glifo firefox extinto da dock"
+# Dock: grupo ÚNICO central (fixados + abertos), sem lock/power
+assert_grep "$CD" '"modules-center": \[' "v2.1: dock tem grupo central"
+assert_grep "$CD" '"custom/sep"' "v2.1: separador fixos│abertos no grupo central"
+assert_grep "$CD" '"modules-left": \[\]' "v2.1: dock sem módulos à esquerda (bloco único central)"
+assert_grep "$CD" '"modules-right": \[\]' "v2.1: dock sem módulos à direita (sessão mora no topo)"
+assert_nogrep "$CD" '"custom/lock"' "v2.1: dock SEM lock (menu de sessão na barra superior)"
+assert_nogrep "$CD" '"custom/power"' "v2.1: dock SEM power (menu de sessão na barra superior)"
+# Fontes: família REAL do archcraft-fonts 2.0
+assert_grep "$P/airootfs/etc/skel/.config/waybar/style.top.css" 'JetBrainsMono NF' "v2.1: CSS top com a família REAL (JetBrainsMono NF)"
+assert_grep "$P/airootfs/etc/skel/.config/waybar/style.dock.css" 'JetBrainsMono NF' "v2.1: CSS dock com a família REAL"
+assert_nogrep "$P/airootfs/etc/skel/.config/waybar/style.top.css" 'font-family: "?JetBrainsMono Nerd Font' "v2.1: família inexistente fora do font-family do CSS top (comentários citam o nome antigo de propósito)"
+assert_nogrep "$P/airootfs/etc/skel/.config/waybar/style.dock.css" 'font-family: "?JetBrainsMono Nerd Font' "v2.1: família inexistente fora do font-family do CSS dock"
+assert_grep "$P/airootfs/etc/skel/.config/fuzzel/fuzzel.ini" 'font=JetBrainsMono NF' "v2.1: fuzzel com a família REAL"
+assert_nogrep "$P/airootfs/etc/skel/.config/fuzzel/fuzzel.ini" 'font=JetBrainsMono Nerd Font' "v2.1: fuzzel sem a família inexistente na diretiva font="
+assert_grep "$P/airootfs/etc/skel/.config/waybar/style.dock.css" '#custom-sep' "v2.1: CSS do separador (1px fixos│abertos)"
+assert_grep "$P/airootfs/etc/skel/.config/waybar/style.top.css" '#pulseaudio.muted' "v2.1: mudo = vermelho (áudio ícone precisa gritar estado)"
+# craft-power v2: dropdown fuzzel ancorado no canto superior direito
+assert_grep "$P/airootfs/usr/local/bin/craft-power" '--anchor=top-right' "v2.1: menu de sessão ancorado no canto direito (fuzzel)"
+assert_grep "$P/airootfs/usr/local/bin/craft-power" 'fuzzel --dmenu' "v2.1: sessão via fuzzel dmenu (dropdown)"
+assert_grep "$P/airootfs/usr/local/bin/craft-power" 'Travar tela' "v2.1: opção Travar no menu de sessão"
+assert_grep "$P/airootfs/usr/local/bin/craft-power" 'Suspender' "v2.1: opção Suspender no menu de sessão"
+assert_grep "$P/airootfs/usr/local/bin/craft-power" 'labnag' "v2.1: fallback labnag preservado (sem fuzzel)"
+# Calamares: o YAML do shellprocess_btrfs TEM que parsear (o gate cego da v1.1)
+assert_nogrep "$REPO/elite/fragments/elite-customize.sh" "printf '%s$" "v1.2: nenhum printf com \\n partido em coluna 0 (mata o YAML do Calamares)"
+assert_grep "$REPO/elite/fragments/elite-customize.sh" "printf '%s\\\\n'" "v1.2: printfs do heredoc com \\n literal (uma linha)"
+# Overrides .desktop (menu limpo + ícone do instalador + foot dedupe)
+APPS="$P/airootfs/usr/local/share/applications"
+assert_file "$APPS/calamares.desktop" "v1.2: override do .desktop do instalador (XDG precedence)"
+assert_grep "$APPS/calamares.desktop" 'Icon=system-software-install' "v1.2: ícone do instalador existente no Papirus (era archcraft-green → placeholder)"
+assert_grep "$APPS/calamares.desktop" '^TryExec=calamares$' "v1.2: override preserva o TryExec do instalador"
+assert_file "$APPS/abif.desktop" "v1.2: override do instalador CLI"
+assert_grep "$APPS/abif.desktop" 'NoDisplay=true' "v1.2: instalador CLI fora do menu (2º instalador = sujeira)"
+assert_file "$APPS/foot.desktop" "v1.2: override do .desktop do foot"
+assert_grep "$APPS/foot.desktop" 'Icon=utilities-terminal' "v1.2: foot com ícone garantido no Papirus (taskbar sem placeholder)"
+assert_grep "$APPS/foot-client.desktop" 'NoDisplay=true' "v1.2: foot-client fora do menu (triplicação Foot)"
+assert_grep "$APPS/foot-server.desktop" 'NoDisplay=true' "v1.2: foot-server fora do menu (triplicação Foot)"
+assert_grep "$APPS/xgps.desktop" 'NoDisplay=true' "v1.2: xgps fora do menu (GPS num desktop gaming?)"
+assert_grep "$APPS/xgpsspeed.desktop" 'NoDisplay=true' "v1.2: xgpsspeed fora do menu"
+assert_grep "$REPO/elite/packages.remove" '^gpsd$' "v1.2: gpsd listado no debloat (defensivo — é dep transitiva)"
+assert_grep "$REPO/elite/fragments/elite-customize.sh" 'pacman -Rns --noconfirm gpsd' "v1.2: E13 remove gpsd em tempo de build (se não for dep real)"
+# craft-pin v2.1: pins no grupo central, antes do separador
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin" 'modules-center' "v2.1: craft-pin insere no modules-center (junto aos fixos)"
 assert_file "$P/airootfs/etc/skel/.config/gtk-3.0/settings.ini" "v1.0.4: settings.ini GTK3 no skel"
 assert_grep "$P/airootfs/etc/skel/.config/gtk-3.0/settings.ini" 'Papirus-Dark' "v1.0.4: GTK usa Papirus-Dark (ícones de apps)"
 assert_grep "$P/airootfs/etc/skel/.config/gtk-4.0/settings.ini" 'Papirus-Dark' "v1.0.4: GTK4 espelha o Papirus-Dark"

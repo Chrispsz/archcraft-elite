@@ -323,6 +323,20 @@ if [[ -f "$ENVF" ]]; then
            -e 's|^TERMINAL=.*|TERMINAL=foot|' "$ENVF"
 fi
 
+## [E13] v1.2 — limpeza de dependências transitivas inúteis (burn test do
+##       dono no rig B: xgps/xgpsspeed apareceram no menu do live). O gpsd
+##       NÃO vem do packages.x86_64 (nem upstream nem nosso) — é dep que
+##       algo da closure puxa. Remoção em TEMPO DE BUILD (aqui, dentro do
+##       chroot): se nada depender dele de verdade, sai da ISO inteira;
+##       se algo depender, -Rns falha e os overrides NoDisplay em
+##       /usr/local/share/applications (overlay) escondem as entradas.
+if command -v pacman >/dev/null 2>&1; then
+    if pacman -Qq gpsd >/dev/null 2>&1; then
+        pacman -Rns --noconfirm gpsd 2>/dev/null || \
+            echo "ELITE E13: gpsd é dep de outro pacote — entradas ocultas via NoDisplay" >&2
+    fi
+fi
+
 ## [E10] FIX DO BOOT DO SISTEMA INSTALADO (v1.0.4 · bug reportado no rig B)
 ##      ══════════════════════════════════════════════════════════════════
 ##      SINTOMA (GRUB, pós-instalação em btrfs):
@@ -404,26 +418,22 @@ script:
           arch-chroot "${ROOT}" pacman -Rdd --noconfirm nvidia-open-dkms nvidia-utils lib32-nvidia-utils 2>/dev/null || true;
           rm -f "${ROOT}"/usr/lib/modules/*/updates/dkms/nvidia*.ko* 2>/dev/null || true;
           sed -i 's|^MODULES=.*|MODULES=(amdgpu)|' "${ROOT}/etc/mkinitcpio.conf" 2>/dev/null || true;
-          printf '%s
-' '# ELITE: AMD - destrava undervolt/OC p/ LACT' 'options amdgpu ppfeaturemask=0xffffffff' > "${ROOT}/etc/modprobe.d/00-elite-amdgpu.conf";
+          printf '%s\n' '# ELITE: AMD - destrava undervolt/OC p/ LACT' 'options amdgpu ppfeaturemask=0xffffffff' > "${ROOT}/etc/modprobe.d/00-elite-amdgpu.conf";
           if grep -q '^GRUB_CMDLINE_LINUX_DEFAULT=' "${ROOT}/etc/default/grub" 2>/dev/null; then
             grep -q 'amdgpu.ppfeaturemask' "${ROOT}/etc/default/grub" ||
               sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT=/s/"$/ amdgpu.ppfeaturemask=0xffffffff"/' "${ROOT}/etc/default/grub";
           else
-            printf 'GRUB_CMDLINE_LINUX_DEFAULT="quiet amdgpu.ppfeaturemask=0xffffffff"
-' >> "${ROOT}/etc/default/grub";
+            printf 'GRUB_CMDLINE_LINUX_DEFAULT="quiet amdgpu.ppfeaturemask=0xffffffff"\n' >> "${ROOT}/etc/default/grub";
           fi
         elif [ "$ELITE_GPU" = "nvidia" ]; then
           grep -q '^MODULES=(nvidia' "${ROOT}/etc/mkinitcpio.conf" 2>/dev/null ||
             sed -i 's|^MODULES=.*|MODULES=(nvidia nvidia_modeset nvidia_uvm nvidia_drm)|' "${ROOT}/etc/mkinitcpio.conf" 2>/dev/null || true;
-          printf '%s
-' '# ELITE: NVIDIA (modeset+fbdev p/ Wayland; VRAM preservada em suspend)' 'options nvidia-drm modeset=1 fbdev=1' 'options nvidia NVreg_PreserveVideoMemoryAllocations=1 NVreg_TemporaryFilePath=/var/tmp' > "${ROOT}/etc/modprobe.d/00-elite-nvidia.conf";
+          printf '%s\n' '# ELITE: NVIDIA (modeset+fbdev p/ Wayland; VRAM preservada em suspend)' 'options nvidia-drm modeset=1 fbdev=1' 'options nvidia NVreg_PreserveVideoMemoryAllocations=1 NVreg_TemporaryFilePath=/var/tmp' > "${ROOT}/etc/modprobe.d/00-elite-nvidia.conf";
           if grep -q '^GRUB_CMDLINE_LINUX_DEFAULT=' "${ROOT}/etc/default/grub" 2>/dev/null; then
             grep -q 'nvidia_drm.fbdev' "${ROOT}/etc/default/grub" ||
               sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT=/s/"$/ nvidia_drm.modeset=1 nvidia_drm.fbdev=1"/' "${ROOT}/etc/default/grub";
           else
-            printf 'GRUB_CMDLINE_LINUX_DEFAULT="quiet nvidia_drm.modeset=1 nvidia_drm.fbdev=1"
-' >> "${ROOT}/etc/default/grub";
+            printf 'GRUB_CMDLINE_LINUX_DEFAULT="quiet nvidia_drm.modeset=1 nvidia_drm.fbdev=1"\n' >> "${ROOT}/etc/default/grub";
           fi
         fi
     - command: >
