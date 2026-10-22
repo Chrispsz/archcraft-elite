@@ -57,18 +57,29 @@ if command -v udiskie >/dev/null 2>&1; then
     udiskie --automount --notify --no-tray &
 fi
 
-# --- Idle: trava a tela após 10 min de inatividade e antes de suspender
-#     (swayidle + swaylock — par oficial do ecossistema labwc)
+# --- Idle + lock (v1.5): hyprlock aos 10 min, DPMS (wlopm) aos 15,
+#     lock também no before-sleep. Receita canônica da wiki do labwc
+#     (labwc.github.io/integration §7: swayidle + wlopm — o wlr-randr
+#     --off re-arranja views; wlopm é o cliente do protocolo
+#     wlr-output-power-management-v1, que o labwc implementa).
+#     O lock agora é o hyprlock (~/.config/hypr/hyprlock.conf): screenshot
+#     + blur + dim + relógio + avatar + campo estilizado — a tela branca
+#     estática do swaylock saiu de cena (fix do burn test).
 if command -v swayidle >/dev/null 2>&1; then
     swayidle -w \
-        timeout 600 'swaylock -f' \
-        before-sleep 'swaylock -f' &
+        timeout 600 'hyprlock' \
+        timeout 900 'wlopm --off "*"' \
+        resume 'wlopm --on "*"' \
+        before-sleep 'hyprlock' &
 fi
 
-# --- Night light: gamma quente à noite (wlsunset; para horários reais
-#     do SEU local adicione -l <lat> -L <lon>)
-if command -v wlsunset >/dev/null 2>&1; then
-    wlsunset -t 4000 -T 6500 &
+# --- Keyring CachyOS (v1.5, camada 4): self-healing de runtime — os
+#     comandos LITERAIS da spec (init → populate → refresh de keyring)
+#     em background, idempotentes, sudo -n (nunca pede senha no escuro).
+#     As camadas 1-3 (build E2b + E10 no alvo + pacman-init do live) já
+#     curam o essencial; esta cobre skew futuro e liveuser no live.
+if [ -x /usr/local/bin/craft-fix-keys ]; then
+    /usr/local/bin/craft-fix-keys &
 fi
 
 # --- Clipboard: histórico persistente (cliphist — receita oficial do

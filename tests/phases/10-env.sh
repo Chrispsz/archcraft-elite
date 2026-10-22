@@ -8,6 +8,7 @@ for f in \
   elite/airootfs/usr/local/bin/elite-tune \
   elite/airootfs/usr/local/bin/fg-booster \
   elite/airootfs/usr/local/bin/elite-status \
+  elite/airootfs/usr/local/bin/craft-fix-keys \
   elite/fragments/elite-customize.sh \
   elite/packages.add \
   elite/packages.remove \
@@ -17,9 +18,12 @@ for f in \
   .github/workflows/build.yml \
   .github/workflows/agents.yml \
   elite/airootfs/etc/skel/.config/brave-flags.conf \
-  elite/airootfs/etc/skel/.config/yazi/yazi.toml \
-  elite/airootfs/etc/skel/.config/yazi/theme.toml \
-  elite/airootfs/etc/skel/.config/helix/config.toml \
+  elite/airootfs/etc/skel/.config/hypr/hyprlock.conf \
+  elite/airootfs/etc/skel/.face.icon \
+  elite/airootfs/usr/share/pixmaps/elite/terminal.png \
+  elite/airootfs/usr/share/pixmaps/elite/files.png \
+  elite/airootfs/usr/share/pixmaps/elite/web.png \
+  elite/airootfs/usr/share/pixmaps/elite/avatar.png \
   elite/airootfs/etc/skel/.config/mimeapps.list \
   elite/airootfs/etc/sysctl.d/99-elite-net.conf \
   elite/airootfs/etc/modules-load.d/elite-bbr.conf

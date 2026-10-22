@@ -1,5 +1,9 @@
 [Default Applications]
 # v1.1: stack moderna — Brave (Wayland-native), papers (GTK4), imv
+# v1.5: Thunar = FM padrão (spec do dono: xdg-mime default thunar.desktop
+#       inode/directory — o equivalente persistente do comando, entregue
+#       no skel; yazi saiu da ISO)
+inode/directory=thunar.desktop
 x-scheme-handler/http=brave-browser.desktop
 x-scheme-handler/https=brave-browser.desktop
 x-scheme-handler/chrome=brave-browser.desktop

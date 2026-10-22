@@ -23,6 +23,8 @@ scx-tools
 dmemcg-booster
 
 ## ── ELITE: stack de gaming (Vulkan incluso — o upstream NÃO traz!) ──
+## v1.5: nvtop SAIU (spec do dono — bloatware; btop cobre a visão
+## geral de sistema/processos/GPU básica no terminal)
 gamemode
 lib32-gamemode
 gamescope
@@ -33,7 +35,6 @@ vulkan-intel
 lib32-vulkan-radeon
 lib32-vulkan-intel
 lib32-mesa
-nvtop
 btop
 lact
 
@@ -48,19 +49,24 @@ pciutils
 7zip
 
 ## ── ELITE: sessão labwc (Wayland) — o desktop default da ISO ──────────
-## O Openbox/BSPWM do Archcraft continuam instalados como fallback (SDDM
-## lista todas as sessões), mas o live autologa e o sistema instalado
-## iniciam na sessão labwc com o rice Catppuccin Mocha do projeto.
 ## Deps dos keybinds do rc.xml embutido: playerctl (mídia), brightnessctl
 ## (notebooks), pulsemixer (W-a), pactl (libpipe, volume), craft-shot
-## (grim+slurp+wl-clipboard), craft-lock (swaylock).
+## (grim+slurp+wl-clipboard), craft-lock (hyprlock).
+## v1.5 (spec do dono — lock/idle reformulado):
+##   · swaylock SAIU (tela branca estática) → hyprlock: ext-session-lock-v1
+##     no labwc (labwc.github.io/integration; hyprlock #607/#211), com o
+##     rice completo em ~/.config/hypr/hyprlock.conf (screenshot+blur+dim,
+##     relógio, avatar, campo com feedback Validando/Senha Incorreta)
+##   · wlopm: cliente do wlr-output-power-management-v1 (DPMS da idle —
+##     receita canônica da wiki do labwc; wlr-randr --off re-arranja views)
 labwc
 waybar
 swaync
 fuzzel
 foot
 swaybg
-swaylock
+hyprlock
+wlopm
 wl-clipboard
 grim
 slurp
@@ -71,6 +77,8 @@ polkit-gnome
 xdg-desktop-portal-wlr
 mpv
 imv
+thunar
+tumbler
 
 ## ── ELITE v1.0.3: fastfetch (o craft-hello usa quando existe) ─────────
 fastfetch
@@ -119,28 +127,33 @@ tealdeer
 ##     construído no build via estágio AUR → [elite-local])
 ##   · bluetui (TUI Rust — Bluetooth, substitui blueman)
 ##   · impala (TUI Rust — rede/iwd+NM, substitui nm-applet no dia-a-dia)
-##   · helix (Rust — editor modal, substitui mousepad+vim)
 ##   · brave-origin (v1.4, diretriz do dono: o navegador padrão passa a
 ##     ser o BRAVE ORIGIN — release oficial brave-origin-*.zip da Brave,
 ##     empacotado no build com versão pinada + sha256 → [elite-local];
 ##     launcher /usr/bin/brave idêntico: flags Wayland/Vulkan da Elite
 ##     no skel seguem valendo — substitui firefox e o brave-bin antigo)
-##   · yazi (Rust — FM TUI; o Thunar GTK3 saiu — yazi é O gerenciador)
+## v1.5 (spec do dono — bloatware FORA): helix e yazi saem da ISO.
+##   Editor: nano (upstream, já na base) — W-e/EDITOR apontam pra ele.
+##   Arquivos: THUNAR volta a ser O gerenciador (GUI, padrão xdg-mime
+##   inode/directory=thunar.desktop + W-f + dock) com tumbler para
+##   thumbnails; listado acima na seção da sessão labwc.
 qalculate-gtk
 nwg-look
-yazi
 papers
 pwvucontrol
 bluetui
 impala
-helix
 brave-origin
 
 ## Satélites oficiais do labwc (docs labwc.github.io/integration):
-## idle→lock, automount USB, night light, clipboard history
+## idle→lock, automount USB, clipboard history.
+## v1.5: wlsunset SAIU (spec do dono — tom amarelado no burn test: o
+## filtro noturno a 4000K rodava SEM coordenadas → horário fixo default;
+## paleta Mocha já é fria/neutra por natureza — nenhuma camada de cor
+## por cima do wallpaper). Night light é escolha pós-install (pacman -S
+## wlsunset), não imposição de fábrica.
 swayidle
 udiskie
-wlsunset
 cliphist
 
 ## Infra de notificação (craft-shot/craft-bat usam notify-send; o dunst
