@@ -83,10 +83,14 @@ assert_file "$P/airootfs/etc/mkinitcpio.conf.d/archiso.conf" \
   "v1.1: archiso.conf FICA (1ª geração do initramfs live do BORE — E11 o recria e limpa)"
 
 # ── v1.1 · PURGA DO APP-LAYER LEGADO (MEGA PROMPT — stack moderna) ─────
-for gone in firefox thunar thunar-volman tumbler vim blueman pavucontrol; do
+for gone in firefox thunar thunar-volman thunar-archive-plugin tumbler vim blueman pavucontrol; do
   assert_grep "$PKG" "^#${gone} # ELITE-REMOVED$" "v1.1: ${gone} comentado (saiu da ISO)"
   assert_nogrep "$PKG" "^${gone}$" "v1.1: ${gone} ativo sumiu"
 done
+# v1.2: o plugin era o elo que RESSUSCITAVA o thunar (e o xfce4-about no
+# rastro) como dependência — evidência do pacman db da ISO v1.1 real
+assert_nogrep "$PKG" '^thunar-archive-plugin$' \
+  "v1.2: thunar-archive-plugin ativo sumiu (depend do thunar — ressuscitava o purgado)"
 assert_nogrep "$PKG" '^(mousepad|zathura|zathura-pdf-poppler|file-roller|xgps|xgpsspeed)$' \
   "v1.1: mousepad/zathura/file-roller/xgps* não voltam por engano"
 for modern in brave-bin papers pwvucontrol bluetui impala helix; do
@@ -222,12 +226,13 @@ assert_file "$APPS/abif.desktop" "v1.2: override do instalador CLI"
 assert_grep "$APPS/abif.desktop" 'NoDisplay=true' "v1.2: instalador CLI fora do menu (2º instalador = sujeira)"
 assert_file "$APPS/foot.desktop" "v1.2: override do .desktop do foot"
 assert_grep "$APPS/foot.desktop" 'Icon=utilities-terminal' "v1.2: foot com ícone garantido no Papirus (taskbar sem placeholder)"
-assert_grep "$APPS/foot-client.desktop" 'NoDisplay=true' "v1.2: foot-client fora do menu (triplicação Foot)"
+assert_grep "$APPS/footclient.desktop" 'NoDisplay=true' "v1.2: foot-client fora do menu (triplicação Foot — nome REAL do arquivo: footclient.desktop)"
 assert_grep "$APPS/foot-server.desktop" 'NoDisplay=true' "v1.2: foot-server fora do menu (triplicação Foot)"
 assert_grep "$APPS/xgps.desktop" 'NoDisplay=true' "v1.2: xgps fora do menu (GPS num desktop gaming?)"
 assert_grep "$APPS/xgpsspeed.desktop" 'NoDisplay=true' "v1.2: xgpsspeed fora do menu"
-assert_grep "$REPO/elite/packages.remove" '^gpsd$' "v1.2: gpsd listado no debloat (defensivo — é dep transitiva)"
-assert_grep "$REPO/elite/fragments/elite-customize.sh" 'pacman -Rns --noconfirm gpsd' "v1.2: E13 remove gpsd em tempo de build (se não for dep real)"
+assert_grep "$REPO/elite/packages.remove" '^gpsd$' "v1.2: gpsd listado no debloat (depend DURA do waybar — NoDisplay é a cura real)"
+assert_grep "$REPO/elite/packages.remove" '^thunar-archive-plugin$' "v1.2: thunar-archive-plugin removido (era o elo que RESSUSCITAVA o thunar como dep — evidência do pacman db da v1.1)"
+assert_grep "$REPO/elite/fragments/elite-customize.sh" 'pacman -Rns --noconfirm gpsd' "v1.2: E13 tenta remover gpsd em build (falha segura — depend do waybar)"
 # craft-pin v2.1: pins no grupo central, antes do separador
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin" 'modules-center' "v2.1: craft-pin insere no modules-center (junto aos fixos)"
 assert_file "$P/airootfs/etc/skel/.config/gtk-3.0/settings.ini" "v1.0.4: settings.ini GTK3 no skel"

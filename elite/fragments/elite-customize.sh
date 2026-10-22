@@ -323,17 +323,18 @@ if [[ -f "$ENVF" ]]; then
            -e 's|^TERMINAL=.*|TERMINAL=foot|' "$ENVF"
 fi
 
-## [E13] v1.2 — limpeza de dependências transitivas inúteis (burn test do
-##       dono no rig B: xgps/xgpsspeed apareceram no menu do live). O gpsd
-##       NÃO vem do packages.x86_64 (nem upstream nem nosso) — é dep que
-##       algo da closure puxa. Remoção em TEMPO DE BUILD (aqui, dentro do
-##       chroot): se nada depender dele de verdade, sai da ISO inteira;
-##       se algo depender, -Rns falha e os overrides NoDisplay em
-##       /usr/local/share/applications (overlay) escondem as entradas.
+## [E13] v1.2 — gpsd no live (burn test do dono: xgps/xgpsspeed no menu).
+##       EVIDÊNCIA do pacman db da ISO v1.1: gpsd é dependência DURA do
+##       waybar 0.15 (módulo gps compilado; remover com -Rdd mataria a
+##       libgps e a barra NÃO abriria). A TENTATIVA -Rns abaixo falha
+##       segura (transação inválida, nada é removido) e cobre o futuro:
+##       se o waybar um dia deixar de depender, o gpsd some sozinho. A
+##       cura REAL hoje: overrides NoDisplay p/ xgps/xgpsspeed no overlay
+##       (/usr/local/share/applications — precedência XDG).
 if command -v pacman >/dev/null 2>&1; then
     if pacman -Qq gpsd >/dev/null 2>&1; then
-        pacman -Rns --noconfirm gpsd 2>/dev/null || \
-            echo "ELITE E13: gpsd é dep de outro pacote — entradas ocultas via NoDisplay" >&2
+        pacman -Rns --noconfirm gpsd 2>/dev/null \
+            || echo "ELITE E13: gpsd é dependência do waybar (libgps) — fica; xgps/xgpsspeed ocultos via NoDisplay" >&2
     fi
 fi
 

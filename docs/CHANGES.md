@@ -56,18 +56,32 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
     NoDisplay, e **`calamares` com Icon=system-software-install** — o
     "Install Archcraft" tinha Icon=archcraft-green (quebrado → o
     placeholder que o dono viu na dock).
-  - **gpsd/xgps/xgpsspeed**: gpsd NÃO vem do packages.x86_64 — é
-    dependência transitiva que a closure puxa. E13 novo no
-    elite-customize: `pacman -Rns gpsd` EM TEMPO DE BUILD (se não for
-    dep real, sai da ISO inteira; se for, os NoDisplay escondem);
-    packages.remove também o lista (defensivo, com aviso documentado).
-  - **Fonte da forense**: pacotes reais do repo Archcraft baixados e
+  - **gpsd/xgps/xgpsspeed**: evidência do pacman db da ISO v1.1 (squashfs
+    extraído e conferido, hash bit-a-bit): **gpsd é dependência DURA do
+    waybar 0.15** (módulo gps compilado — remover à força mataria a libgps
+    e a barra não abriria). Cura: overrides NoDisplay de xgps/xgpsspeed
+    (o pacote fica p/ satisfazer o waybar, as entradas somem do menu);
+    E13 tenta `pacman -Rns` em build — falha segura hoje, cobre o dia em
+    que o waybar largar a dep; packages.remove lista gpsd (defensivo).
+  - **Thunar TINHA voltado**: o thunar-archive-plugin ficou ATIVO na
+    lista upstream e RESSUSCITOU o thunar como dependência (o dono viu
+    "Thunar File Manager" no menu — junto vieram libxfce4ui e
+    xfce4-about "About Xfce"!). Fix: thunar-archive-plugin entra no
+    packages.remove — thunar, libxfce4ui e xfce4-about saem inteiros.
+  - **footclient.desktop**: o arquivo real chama `footclient` (sem
+    hífen) — override renomeado (o dobro do menu: Foot/Foot Client/
+    Foot Server viram UM).
+  - **Fonte da forense**: a própria ISO v1.1 do release (2.9GB baixada,
+    sha256 confere: f6c8aba9…) — airootfs.sfs extraído com pycdlib +
+    unsquashfs 4.6.1 (deb extraído sem root); pacman db lido
+    (1091 pacotes, reverse-deps cruzados); pacotes do repo Archcraft
     abertos (archcraft-fonts 2.0 — cmaps inspecionados com fontTools;
     calamares 3.4.2 — sem schema p/ shellprocess, o parse YAML é o
     gate; calamares-config 5.0 — settings.conf/instances íntegros: o
-    bug era NOSSO heredoc), + screenshots do dono analisados por VLM e
+    bug era NOSSO heredoc); + screenshots do dono analisados por VLM e
     mockup HTML 1:1 (fontes reais, paleta exata, wallpaper da ISO)
-    iterado até aprovação visual.
+    iterado até aprovação visual. O YAML quebrado foi confirmado
+    VERBATIM no shellprocess_btrfs.conf da ISO real.
 
 - **v1.1 (branch feat/v1.1-modern-stack)** — **MEGA PROMPT: modernização,
   purificação e dual-rig de verdade**:
