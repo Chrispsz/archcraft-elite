@@ -78,7 +78,9 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
     2 CSS não podem ter NENHUMA propriedade GTK4-only (`icon-size`,
     `max-width`, `max-height`) — a suíte caça a classe, não os 2 nomes —
     + os equivalentes válidos contratados. A main (#78) caiu com a MESMA
-    assinatura (só o icon-size lá) — cherry-pick da cura depois do verde.
+    assinatura dupla (BARS_EXITS=53 — a main carrega os DOIS erros: o
+    separador também é dela) — cherry-pick da cura feito: main agora tem
+    a v1.7.2 com os mesmos 6 contratos (1138 peças · GO).
 
 - **v1.7.1 (local, ainda sem release) — "a sessão que o CI nunca viu" +
   wallpaper da internet (burn test da v1.7.0, fotos do dono 23/out)**:
