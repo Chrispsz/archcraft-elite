@@ -101,7 +101,14 @@ fi
 
 # --- Clipboard: histórico persistente (cliphist — receita oficial do
 #     labwc; W-v abre o histórico no fuzzel)
+#     v1.6.2 — PODA antes do watcher (camada 1 da receita do README
+#     upstream: "cliphist wipe -older-than 720h from a timer"): o DB
+#     cresceria sem limite (screenshots inteiros em base64). SÍNCRONA e
+#     proposital: milissegundos com o DB podado; estritamente antes do
+#     watcher, sem disputa de lock. Camada 2: cliphist-prune.timer do
+#     user manager (diário — uptimes longos).
 if command -v wl-paste >/dev/null 2>&1 && command -v cliphist >/dev/null 2>&1; then
+    cliphist wipe -older-than 720h 2>/dev/null
     wl-paste --watch cliphist store &
 fi
 

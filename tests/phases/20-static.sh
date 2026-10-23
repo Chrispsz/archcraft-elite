@@ -133,32 +133,38 @@ head -1 "$REPO/elite/airootfs/etc/skel/.config/labwc/autostart" | grep -q '^#!/b
 
 # ── peças: units systemd embarcadas (parse INI de verdade — typo não passa) ──
 U="$REPO/elite/airootfs/etc/systemd/system"
-uout=$(python3 - "$U" 2>&1 <<'PYEOF' || true
-import configparser, sys
-u = sys.argv[1]
+UU="$REPO/elite/airootfs/etc/skel/.config/systemd/user"
+uout=$(python3 - "$U" "$UU" 2>&1 <<'PYEOF' || true
+import configparser, os, sys
+u, uu = sys.argv[1], sys.argv[2]
 cases = {
   'scx-elite.service':      {'Unit', 'Service', 'Install'},
   'fg-booster.service':     {'Unit', 'Service', 'Install'},
   'elite-firstboot.service': {'Unit', 'Service', 'Install'},
   'fg-boost.slice':         {'Unit', 'Slice', 'Install'},
+  # v1.6.2 — user units do skel (poda do cliphist): service puxado pelo
+  # timer NÃO tem (nem precisa de) [Install]; timer tem [Timer]+[Install]
+  'cliphist-prune.service': {'Unit', 'Service'},
+  'cliphist-prune.timer':   {'Unit', 'Timer', 'Install'},
 }
 # strict=False: systemd PERMITE chaves repetidas (ConditionPathExists=
 # acumula condições) — o parse aqui checa sintaxe e seções, não política
 # de duplicatas (que é legítima em units)
 for f, want in cases.items():
+    path = f'{u}/{f}' if os.path.exists(f'{u}/{f}') else f'{uu}/{f}'
     cp = configparser.ConfigParser(strict=False)
     try:
-        cp.read(f'{u}/{f}')
+        cp.read(path, encoding='utf-8')
         got = set(cp.sections())
         missing = want - got
         if missing:
             raise AssertionError(f'{f}: sem seção(ões) {missing}')
     except Exception as e:
         print(f'FALHOU: {e}'); sys.exit(1)
-print('OK 4')
+print('OK 6')
 PYEOF
 )
-assert_eq "$uout" "OK 4" "systemd: 4 units parseiam (INI válido) com Unit+Service|Slice+Install"
+assert_eq "$uout" "OK 6" "systemd: 6 units parseiam (4 de sistema + 2 user v1.6.2 — INI válido, seções completas)"
 
 for f in scx-elite.service fg-booster.service elite-firstboot.service; do
   assert_grep "$U/$f" '^ExecStart=/' "systemd: $f ExecStart com caminho absoluto"
