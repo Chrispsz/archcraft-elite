@@ -227,6 +227,25 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin" '\.bak\.' \
 assert_grep "$REPO/scripts/apply-overlay.sh" 'craft-pin' \
   "apply-overlay: craft-pin registrado no file_permissions (senão 203/EXEC no live)"
 
+# ── peças v1.8: CSS GTK3-STRICT — a classe "subiu só o wallpaper" NOMEADA ──
+# O waybar 0.15 trata propriedade CSS inválida como FATAL (exit 1 no parse):
+# 'icon-size' (style.top.css, entrou na v1.6) e 'max-width' (style.dock.css,
+# dock v3) eram GTK4-only e matavam as 2 barras em LOOP ETERNO no boot.
+# Flagrante do probe no CI (run #79, tag v1.8.0): WAYBAR_COUNT=2 era pgrep
+# pegando as instâncias NO MEIO da espiral de morte (~1,5s de vida a cada
+# ciclo de 5s do craft-bars) — BARS_EXITS=32, "SAIU exit=1" ×2 com
+# "not a valid property name". A main (#78) caiu com a MESMA assinatura.
+# A intermitência entre boots do dono = builds de dias diferentes puxaram
+# waybar 0.14 (erro=warning ignorável) vs 0.15 (erro=fatal) dos repos
+# rolling. A suíte caça a CLASSE (propriedades GTK4-only), não só os 2 nomes.
+TOPCSS="$REPO/elite/airootfs/etc/skel/.config/waybar/style.top.css"
+assert_nogrep "$TOPCSS" '^[[:space:]]*icon-size:' "css top: sem propriedade GTK4 de tamanho de ícone (FATAL no waybar 0.15 — run #79)"
+assert_nogrep "$TOPCSS" '^[[:space:]]*max-(width|height):' "css top: sem propriedades GTK4 de largura/altura máxima (a classe inteira)"
+assert_nogrep "$DKCSS" '^[[:space:]]*max-(width|height):' "css dock: sem propriedades GTK4 de largura/altura máxima (FATAL no waybar 0.15 — run #79)"
+assert_nogrep "$DKCSS" '^[[:space:]]*icon-size:' "css dock: sem propriedade GTK4 de tamanho de ícone (a classe inteira)"
+assert_grep "$TOPCSS" '\-gtk-icon-transform: scale' "css top: ícone do tray 18px via -gtk-icon-transform (GTK3-válido — intenção da v1.6 mantida)"
+assert_grep "$DKCSS" 'width: 1px' "css dock: separador │ segue 1px (min-width+width; a 3ª propriedade era redundância fatal)"
+
 # ── peças: Calamares — o heredoc EOSB parseia como YAML (a lição da v1.1) ──
 # A ISO v1.1 entregou "shellprocess@btrfs could not be loaded" no rig do
 # dono: 4 printfs do heredoc tinham \n REAL partido em coluna 0 → o block
