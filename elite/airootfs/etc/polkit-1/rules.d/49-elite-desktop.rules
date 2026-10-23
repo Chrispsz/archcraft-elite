@@ -1,0 +1,43 @@
+// Archcraft ELITE v1.6 — UX de desktop sem prompts de senha para ações
+// comuns do usuário local ATIVO (o padrão Ubuntu/Fedora).
+//
+// CONTEXTO (a pergunta do dono no burn test v1.5: "o que é isso de keyring
+// que alguns programas pedem a senha?"): prompts de senha em desktop vêm
+// de dois lugares distintos —
+//   1. POLKIT (este arquivo): autorização p/ ações do sistema. As rules
+//      upstream do Archcraft já cobrem udisks2 (montar USB) e Rede (grupo
+//      network); o que FALTAVA era o trio liga/desliga/reiniciar com
+//      múltiplas sessões, fuso horário e rede p/ o usuário ativo SEM
+//      grupo extra (a rule upstream exige grupo "network").
+//   2. GNOME-KEYRING (o "chaveiro"): guarda senhas de Wi-Fi/navegador.
+//      No login COM senha, o PAM do sddm já desbloqueia junto (linhas
+//      pam_gnome_keyring upstream). No live/autologin, o autostart da
+//      Elite cria o chaveiro com senha VAZIA (bootstrap documentado) —
+//      apps nunca pedem. Segurança intacta: nada aqui é wildcard.
+polkit.addRule(function(action, subject) {
+    var power = [
+        "org.freedesktop.login1.power-off",
+        "org.freedesktop.login1.power-off-multiple-sessions",
+        "org.freedesktop.login1.reboot",
+        "org.freedesktop.login1.reboot-multiple-sessions",
+        "org.freedesktop.login1.suspend",
+        "org.freedesktop.login1.hibernate",
+        "org.freedesktop.login1.hibernate-multiple-sessions"
+    ];
+    if (power.indexOf(action.id) >= 0 && subject.local && subject.active) {
+        return polkit.Result.YES;
+    }
+    // Fuso horário/NTP (applets de relógio; timedatectl)
+    if (action.id.indexOf("org.freedesktop.timedated1.") == 0
+        && subject.local && subject.active) {
+        return polkit.Result.YES;
+    }
+    // Rede p/ o usuário ativo (Wi-Fi on/off, editar conexões próprias) —
+    // sem exigir o grupo "network" da rule upstream. Exceção deliberada:
+    // modificar configuração GLOBAL do sistema segue pedindo admin.
+    if (action.id.indexOf("org.freedesktop.NetworkManager.") == 0
+        && subject.local && subject.active
+        && action.id != "org.freedesktop.NetworkManager.settings.modify.global-system") {
+        return polkit.Result.YES;
+    }
+});

@@ -25,21 +25,24 @@ if pgrep -x labnag >/dev/null 2>&1; then
     exit 0
 fi
 
-MENU='Travar tela
-Sair da sessão
-Suspender
-Reiniciar
-Desligar'
-
 if command -v fuzzel >/dev/null 2>&1; then
     # anchor top-right + margens: colado no canto, 44px abaixo do topo
     # (a menu bar tem 34px — o dropdown nasce "pendurado" nela);
     # --lines 5 = altura exata das opções, sem lista vazia.
-    # (stdin do printf; </dev/null no fuzzel só se ele não levesse pipe —
-    # dmenu lê stdin, então o pipe é a fonte; sem redirect conflitante.)
-    choice="$(printf '%s\n' "$MENU" | fuzzel --dmenu \
+    # v1.6: ÍCONES nas entradas (protocolo dmenu: NUL + "icon" + US + path
+    # — verificado no squashfs: os 5 SVGs existem em Papirus/24x24/actions;
+    # o fuzzel devolve só o texto antes do NUL, o case segue intacto). O
+    # printf vai DIRETO no pipe: variável shell descarta bytes NUL — pipeline
+    # direto é a única forma correta de levar o marcador até o fuzzel.
+    choice="$(printf '%s\0icon\x1f%s\n' \
+        'Travar tela'    /usr/share/icons/Papirus/24x24/actions/system-lock-screen.svg \
+        'Sair da sessão' /usr/share/icons/Papirus/24x24/actions/system-log-out.svg \
+        'Suspender'      /usr/share/icons/Papirus/24x24/actions/system-suspend.svg \
+        'Reiniciar'      /usr/share/icons/Papirus/24x24/actions/system-reboot.svg \
+        'Desligar'       /usr/share/icons/Papirus/24x24/actions/system-shutdown.svg \
+        | fuzzel --dmenu \
         --anchor=top-right --x-margin=10 --y-margin=44 \
-        --lines=5 --width=22 --prompt='Sessão  ' 2>/dev/null || true)"
+        --lines=5 --width=26 --prompt='Sessão  ' 2>/dev/null || true)"
 else
     # fallback: labnag — barra de botões no topo (Lock · Logout · Reboot …)
     if command -v labnag >/dev/null 2>&1; then

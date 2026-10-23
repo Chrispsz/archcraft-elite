@@ -82,6 +82,22 @@ if [ -x /usr/local/bin/craft-fix-keys ]; then
     /usr/local/bin/craft-fix-keys &
 fi
 
+# --- Keyring GNOME (v1.6 — a resposta ao "programas pedem a senha do
+#     keyring"): o chaveiro (gnome-keyring) guarda senhas de Wi-Fi e
+#     navegador via libsecret. No login COM senha o PAM do sddm já
+#     desbloqueia junto (linhas pam_gnome_keyring do upstream). No
+#     live/autologin não há senha — este bootstrap cria o chaveiro com
+#     senha VAZIA (gnome-keyring-daemon --unlock lê a senha do stdin;
+#     sem chaveiro, ele CRIA) — os apps (Brave, Wi-Fi, etc) param de
+#     pedir "desbloquear chaveiro". Uma vez só: o marcador é o próprio
+#     arquivo do chaveiro. No sistema INSTALADO com login por senha,
+#     o arquivo já existe e o PAM cuida — este bloco é no-op.
+if command -v gnome-keyring-daemon >/dev/null 2>&1; then
+    if [ ! -e "$HOME/.local/share/keyrings/login.keyring" ]; then
+        ( printf '' | gnome-keyring-daemon --unlock >/dev/null 2>&1 ) &
+    fi
+fi
+
 # --- Clipboard: histórico persistente (cliphist — receita oficial do
 #     labwc; W-v abre o histórico no fuzzel)
 if command -v wl-paste >/dev/null 2>&1 && command -v cliphist >/dev/null 2>&1; then

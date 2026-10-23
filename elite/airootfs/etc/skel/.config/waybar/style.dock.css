@@ -80,31 +80,35 @@ window#waybar > box {
 #custom-drawer { color: @mauve; }    /* ARCH em mauve — identidade do rice */
 #custom-shot   { color: @teal; }
 
-/* ===== Apps fixados — ÍCONES REAIS (v1.5) ============================
- * Módulo image do waybar (fonte: src/modules/image.cpp — box_.set_name
- * ("image") + add_class(id) → seletor #image.<id>). 36px renderizados do
- * PNG 96px do overlay (Papirus + logo oficial Brave). O pixbuf não escala
- * por CSS — o feedback de hover é a PÍLULA de destaque (mesma matriz de
- * estados dos botões de glifo; o zoom de fonte segue valendo pros glyphs). */
-#image.term,
-#image.files,
-#image.web {
+/* ===== Apps fixados — GLIFOS (v1.6, fix waybar#5051) ==================
+ * O modelo v1.4 de volta: módulos custom com glifo Nerd Font 30px e
+ * zoom p/ 36px no hover (a "magnificação" da dock — transition .18s
+ * ease no font-size; a pílula de destaque completa o feedback macOS). */
+#custom-term,
+#custom-files,
+#custom-web {
+  font-size: 30px;
   padding: 3px 9px;
   border-radius: 14px;
-  transition: background 0.15s ease;
+  color: @text;
+  transition: font-size 0.18s ease, background 0.15s ease, color 0.15s ease;
 }
 
-#image.term:hover,
-#image.files:hover,
-#image.web:hover {
+#custom-term:hover,
+#custom-files:hover,
+#custom-web:hover {
+  font-size: 36px;
   background: alpha(@surface0, 0.95);
 }
 
-#image.term:active,
-#image.files:active,
-#image.web:active {
+#custom-term:active,
+#custom-files:active,
+#custom-web:active {
   background: alpha(@surface2, 0.95);
 }
+
+/* Brave = navegador padrão: brand PEACH (a cor da marca dele) */
+#custom-web { color: @peach; }
 
 /* Separador fixos │ abertos (v2.1): 1px vertical — fronteira do modelo
  * macOS (à esquerda: o que SEMPRE está; à direita: o que está ABERTO) */

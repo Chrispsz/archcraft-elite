@@ -20,9 +20,6 @@ for f in \
   elite/airootfs/etc/skel/.config/brave-flags.conf \
   elite/airootfs/etc/skel/.config/hypr/hyprlock.conf \
   elite/airootfs/etc/skel/.face.icon \
-  elite/airootfs/usr/share/pixmaps/elite/terminal.png \
-  elite/airootfs/usr/share/pixmaps/elite/files.png \
-  elite/airootfs/usr/share/pixmaps/elite/web.png \
   elite/airootfs/usr/share/pixmaps/elite/avatar.png \
   elite/airootfs/etc/skel/.config/mimeapps.list \
   elite/airootfs/etc/sysctl.d/99-elite-net.conf \
