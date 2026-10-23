@@ -24,9 +24,23 @@ elite-tune --status            # certificação (sem root) — alias: elite-stat
 
 ---
 
+## log-forensics.sh (v1.5.2) — `scripts/log-forensics.sh` (repo, gate do CI)
+
+**O quê:** forense determinística do log de build — a metade "máquina" da diretriz do dono ("os agentes devem analisar os logs minuciosamente; erros não podem passar como normal"; a metade semântica são deepseek/mimo do relay-agents). Varre o log inteiro atrás de padrões FATAIS que já passaram em silêncio na história do projeto (cada um é bug real: `target not found`, `could not determine root mount point`, `not enough free disk space`, `is unknown trust`, `signature from … is invalid`, `No space left on device`…) e dá run VERMELHA. Benignos são benignos POR ESCRITO (grub-editenv em chroot, journal-nocow, downloader com recuperação de baseline libyuv…); condicionais têm fronteira (downloader SEM recuperação = fatal; `command failed` fora de contexto grub = fatal).
+
+**Como rodar:** o CI roda em toda build (`build.yml`: `tee build-output.log` + step de forense). Manual: `bash scripts/log-forensics.sh <log>`.
+
+**Validação de campo:** log real da v1.5 (run 39864937531) → exit 0; log real da v1.4 (run 39804335535, build verde e releaseada) → exit 1 com 5 classes fatais — o gate teria barrado a ISO sem keyring ANTES do burn test.
+
+**Reverter:** remover o step do build.yml (a suíte reprova — contrato v1.5.2).
+
+**Depende de:** bash, grep, sed (nada além do POSIX-ish do runner).
+
+---
+
 ## fg-booster (v4.1.1) — `/usr/local/bin/fg-booster` (unit `fg-booster.service`)
 
-**O quê:** a cada segundo, identifica a janela em foco (xdotool, EWMH — Openbox/BSPWM ok) e promove a árvore de processos dela para `fg-boost.slice` (CPUWeight/IOWeight 900, **sem teto de VRAM** — os tetos são do dmemcg-booster). Ao perder o foco, devolve cada processo ao **cgroup leaf de origem** (registrado no momento da promoção; escrita em leaf é sempre permitida pelo cgroup v2 — o bug da v4.0, que devolvia p/ um slice interno e era rejeitado, morreu). PIDs mortos são limpos do mapa a cada 30 polls.
+**O quê:** a cada segundo, identifica a janela em foco (xdotool, EWMH — Openbox/BSPWM ok) e promove a árvore de processos dela para `fg-boost.slice` (CPUWeight/IOWeight 900, **sem teto de VRAM** — os tetos são do dmemcg-booster). Ao perder o foco, devolve cada processo ao **cgroup leaf de origem** (registrado no momento da promoção; escrita em leaf é sempre permitida pelo cgroup v2 — o bug da v4.0, que devolvia p/ um slice interno e era rejeitado, morreu). PIDs mortos são limpos do mapa a cada 30 polls. **v4.1.1 (v1.5.2):** guards de ambiente (xdotool/slice ausentes) saem **0** — no-op limpo — em vez de `exit 1`; a unit ganha `StartLimitIntervalSec=120`/`StartLimitBurst=3`. Forense: o debloat v4.2 varreu o xdotool do packages.add e o `exit 1` + `RestartSec=5` (que nunca atinge o start-limit default) crash-loopou o serviço em TODA boot v1.0→v1.5, no live E no instalado — 17 `Failed with result` no serial do gate verify da v1.5, invisível porque nenhum gate varria units falhadas (v1.5.2 fecha isso também).
 
 **Como rodar:** já vem habilitado (`graphical.target.wants`). Manual: `sudo systemctl enable --now fg-booster`.
 
@@ -34,7 +48,7 @@ elite-tune --status            # certificação (sem root) — alias: elite-stat
 
 **Reverter:** `sudo systemctl disable --now fg-booster`.
 
-**Depende de:** xdotool, cgroup v2, X11 com WM EWMH (não serve p/ Wayland).
+**Depende de:** xdotool (contrato de BUILD no CI — v1.5.2), cgroup v2, X11 com WM EWMH (não serve p/ Wayland).
 
 ---
 

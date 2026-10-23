@@ -6,6 +6,7 @@ phase_start 2 "QUALIDADE ESTÁTICA — a tampa da caixa"
 SHELLS=(
   scripts/apply-overlay.sh
   scripts/qemu-boot-test.sh
+  scripts/log-forensics.sh
   .ci/build.sh
   elite/fragments/elite-customize.sh
   elite/airootfs/usr/local/bin/elite-tune
@@ -50,9 +51,10 @@ else
   skip "shellcheck: gate do CI" "binário ausente neste ambiente — o job de lint no GitHub o executa"
 fi
 
-# peças: YAML válido (os 4 workflows — diag-install entrou na lista v1.0.5:
-# virou workflow_call load-bearing, gate obrigatório do release)
-for y in build.yml diag-install.yml agents.yml tests.yml; do
+# peças: YAML válido (os 5 workflows — v1.5.2: diag-install renomeado p/
+# verify-install [nomenclatura de debug não vive em pipeline de produção]
+# e publish-artifact entrou na lista: é load-bearing no release manual)
+for y in build.yml verify-install.yml agents.yml tests.yml publish-artifact.yml; do
   if [[ -f "$REPO/.github/workflows/$y" ]]; then
     python3 -c "import yaml,sys; yaml.safe_load(open(sys.argv[1]))" "$REPO/.github/workflows/$y" 2>/dev/null \
       && ok "yaml: $y parseia" \
@@ -61,6 +63,32 @@ for y in build.yml diag-install.yml agents.yml tests.yml; do
     fail "yaml: $y" "workflow ausente"
   fi
 done
+
+# peças v1.5.2: workflows de DEBUG mortos removidos — diag-boot/2/3 eram
+# remanescentes de sessões de forense (evidência preservada em docs/CHANGES.md
+# e no git log); diag-install virou verify-install.yml. Sujeira zero na pipeline.
+for gone in diag-boot.yml diag-boot2.yml diag-boot3.yml diag-install.yml; do
+  assert_nofile "$REPO/.github/workflows/$gone" "v1.5.2: $gone removido (debug não vive na pipeline)"
+done
+
+# peças v1.5.2: o gate de forense de log — existe, executa e carrega a
+# história do projeto como especificação (cada padrão FATAL foi bug REAL
+# numa build verde; a v1.4 saiu sem keyring com 5 deles ESCRITOS no log)
+LF="$REPO/scripts/log-forensics.sh"
+assert_file "$LF" "v1.5.2: scripts/log-forensics.sh existe (gate de forense)"
+[[ -x "$LF" ]] && ok "v1.5.2: log-forensics.sh executável" || fail "v1.5.2: log-forensics.sh executável" "bit de execução ausente"
+for pat in 'target not found' 'could not determine root mount point' 'not enough free disk space' 'is unknown trust' 'signature from .* is invalid' 'No space left on device'; do
+  assert_grep "$LF" "$pat" "v1.5.2: forense caça '$pat' (bug real da história)"
+done
+assert_grep "$LF" 'grub-editenv: error: failed to get canonical path' "v1.5.2: forense documenta o benigno grub-editenv (chroot sem /boot/grub)"
+assert_grep "$LF" 'ELITE-BUMP\|baseline Arch injetado' "v1.5.2: forense reconhece recuperação de baseline (libyuv)"
+assert_grep "$LF" 'exit 1' "v1.5.2: forense sai 1 em achado fatal"
+
+# peça v1.5.2: xdotool no packages.add — o debloat v4.2 o varreu e o
+# fg-booster crash-loopou em TODA boot v1.0→v1.5 (17 'Failed with result'
+# no serial da v1.5; causa-raiz: guard exit 1 + RestartSec=5 que nunca
+# atinge o start-limit default). Presença do pacote = contrato de BUILD.
+assert_grep "$REPO/elite/packages.add" '^xdotool$' "v1.5.2: xdotool em packages.add (fg-booster — debloat v4.2 o varreu)"
 
 # peças: bits executáveis onde o runtime exige
 for x in \
@@ -266,7 +294,7 @@ else
   ok "(skip local: sem PyYAML — o container CI o instala; contrato roda lá)"
 fi
 assert_file "$REPO/.ci/validate-calamares.py" "gate [1b/8]: validador vive no repo (.ci/)"
-assert_grep "$REPO/.github/workflows/diag-install.yml" 'validate-calamares.py' \
+assert_grep "$REPO/.github/workflows/verify-install.yml" 'validate-calamares.py' \
   "gate [1b/8]: workflow chama o validador do repo (um caminho só)"
 # forma tripa-seca: nenhuma linha "printf '%s" solta (a assinatura da corrupção)
 if grep -qE "printf '%s\$" "$ECF"; then

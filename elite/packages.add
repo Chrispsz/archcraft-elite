@@ -82,6 +82,9 @@ tumbler
 
 ## ── ELITE v1.0.3: fastfetch (o craft-hello usa quando existe) ─────────
 fastfetch
+## ── ELITE v1.5.2: xdotool (fg-booster exige — o debloat v4.2 o varreu e
+##    a unit crash-loopou em silêncio em TODA boot v1.0→v1.5; contrato CI) ─
+xdotool
 
 ## ── ELITE v1.0.4 · Desktop v2 (macOS-style, mouse-first) ──────────────
 ## nwg-drawer: o "Launchpad" — grade de apps em tela cheia com busca,

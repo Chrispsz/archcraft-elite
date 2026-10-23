@@ -1,4 +1,4 @@
-name: Diag Install (QEMU)
+name: Verify Install (QEMU)
 
 # ════════════════════════════════════════════════════════════════════
 # TESTE DE INSTALAÇÃO DE VERDADE — "o live boota, mas e o install?"
@@ -373,6 +373,16 @@ jobs:
           if [ "$V" = "BOOT_COMPLETO" ] || [ "$V" = "BOOT_COMPLETO_LOGIN" ]; then echo "✔ $V — sistema instalado boota (login prompt/target alcançado)"; else echo "✖ veredito: $V"; FAIL=1; fi
           if grep -q 'premature end of file' serial-install.log; then echo "✖ 'premature end of file' NO LOG — o bug do rig B voltou"; FAIL=1; else echo "✔ SEM 'premature end of file' (o bug do rig B não voltou)"; fi
           if grep -q 'you need to load the kernel first' serial-install.log; then echo "✖ 'you need to load the kernel first' — kernel não carregou"; FAIL=1; else echo "✔ SEM 'you need to load the kernel first'"; fi
+          # v1.5.2: nenhuma unidade pode terminar em failed no disco instalado
+          # (mesma regra do gate do live — o fg-booster crash-loopava em TODA
+          # boot v1.0→v1.5 e nenhum gate enxergava; exceção benigna = POR
+          # ESCRITO, nunca silêncio)
+          if grep -q 'Failed with result' serial-install.log; then
+            echo "✖ unidade(s) em failed no instalado: $(sed 's/\x1b\[[0-9;]*m//g' serial-install.log | grep -oE '[a-zA-Z0-9@._-]+\.service: Failed with result' | sort -u | tr '\n' ' ')"
+            FAIL=1
+          else
+            echo "✔ nenhuma unidade systemd em failed no instalado (v1.5.2)"
+          fi
           grep -q 'BORE_INTEGRAL=OK' integridade.txt && echo "✔ kernel BORE byte-idêntico ao pendrive no disco" || { echo "✖ BORE truncado mesmo após E10"; FAIL=1; }
           grep -q "vmlinuz-linux-cachyos-bore $(cat bore-size.txt)" sizes-depois-e10.txt && echo "✔ BORE com tamanho integral no disco" || echo "⚠ conferir sizes-depois-e10.txt"
           grep -q 'cachyos-bore' grub-entries.txt && echo "✔ entrada BORE presente no grub.cfg" || { echo "✖ entrada BORE AUSENTE no grub.cfg — instalado sem kernel (v1.1: único é o BORE)"; FAIL=1; }
@@ -390,7 +400,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: diag-install-logs
+          name: verify-install-logs
           path: |
             serial-install.log
             verdict.txt

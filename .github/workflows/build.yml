@@ -59,14 +59,27 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Construir ISO (container Arch privilegiado)
+        # v1.5.2: o log da build é EVIDÊNCIA — capturado (tee) e auditado
+        # (log-forensics.sh) no passo seguinte. pipefail: quem quebra a
+        # pipe é o docker, não o tee. Forense validada contra a história:
+        # o log da v1.4 (verde, releaseada) tem 5 classes fatais literais
+        # — este gate as teria barrado ANTES do burn test do dono.
         run: |
+          set -o pipefail
           docker run --rm --privileged \
             -v "$PWD":/work \
             -v /mnt:/mnt \
             -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
             -w /work \
             archlinux:base-devel \
-            bash .ci/build.sh
+            bash .ci/build.sh 2>&1 | tee build-output.log
+
+      - name: Forense do log de build (v1.5.2 — erro silencioso = run vermelha)
+        # Diretriz do dono pós-v1.5: "esses erros não podem passar ou ser
+        # tratados como algo normal". A v1.4 saiu sem cachyos-keyring com
+        # os erros ESCRITOS no log e ninguém varreu. Este gate transforma
+        # padrão fatal conhecido em falha alta — ANTES do release.
+        run: bash scripts/log-forensics.sh build-output.log
 
       - name: Upload artefato (ISO inteira, sempre)
         uses: actions/upload-artifact@v4
@@ -76,19 +89,21 @@ jobs:
           retention-days: 30
           compression-level: 0
 
-  # ── GATE DE INSTALAÇÃO (v1.0.5): o disco INSTALADO tem que bootar ──────
-  # Reusa o diag-install.yml (workflow_call) — a cadeia Calamares fiel
+  # ── Gate de instalação (v1.0.5): o disco INSTALADO tem que bootar ──────
+  # Reusa o verify-install.yml (workflow_call) — a cadeia Calamares fiel
   # (unpackfs rsync→btrfs + E5a + E10 cp + initcpio@elite + GRUB) e o boot
   # do disco instalado no QEMU. O verify acima só prova o LIVE; o bug do
   # rig B (vmlinuz truncado em btrfs → 'premature end of file' no GRUB)
   # era invisível para ele. Release sem install-boot verde = gambiarra.
+  # (v1.5.2: diag-install.yml renomeado p/ verify-install.yml — nomenclatura
+  # de debug não vive em pipeline de produção; mesmo conteúdo, novo nome.)
   verify-install:
     needs: build
-    uses: ./.github/workflows/diag-install.yml
+    uses: ./.github/workflows/verify-install.yml
     with:
       # FIX #52 (forense: builds #48–#52): a ISO que este gate testa é a
       # DESTA run — o artifact sobe no job build acima. Sem o input, o
-      # diag-install caía no fallback "última bem-sucedida" (ISO v1.0.4
+      # verify-install (ex-diag-install) caía no fallback "última bem-sucedida" (ISO v1.0.4
       # da run #45) e reprovava eternamente o linux.preset legítimo
       # daquela era — 5 builds reprovadas por um gate cego. O input
       # explícito é a fonte da verdade: GITHUB_EVENT_NAME (env) nunca
@@ -246,6 +261,18 @@ jobs:
           # exatamente por testar uma cmdline sem o fix)
           grep -q 'systemd.default_timeout_start_sec=90' extracted/boot/syslinux/archiso_sys-linux.cfg
           chk $? "cmdline real da ISO com timeout 90s ([6.2] presente)" "ISO sem timeout 90s no cmdline — fix [6.2] REGREDIU"
+          # v1.5.2: NENHUMA unidade pode terminar em failed no live. O
+          # fg-booster crash-loopou em TODA boot v1.0→v1.5 (debloat v4.2
+          # varreu o xdotool; 17 'Failed with result' no serial completo
+          # da v1.5) e 'Startup finished' não enxerga units falhadas.
+          # Alguma unidade falha só no QEMU? Então se documenta AQUI, com
+          # exceção explícita e prova — nunca silenciosamente (a regra da
+          # forense de log vale aqui também: benigno é benigno POR ESCRITO).
+          units=$(sed 's/\x1b\[[0-9;]*m//g' serial-verify.log \
+            | grep -oE "[a-zA-Z0-9@._-]+\\.service: Failed with result" \
+            | sort -u | tr '\n' ' ')
+          ! grep -q 'Failed with result' serial-verify.log
+          chk $? "nenhuma unidade systemd em failed no live (v1.5.2 — crash-loop caçado)" "unidade(s) em failed: ${units:-?}"
           # informativos (não derrubam o gate — headless QEMU nem sempre
           # mostra a sessão gráfica subindo)
           echo "── informativos ──"
@@ -267,8 +294,19 @@ jobs:
   # Diretriz do dono: usar os outros modelos para obter relatórios/logs
   # e ajudar o desenvolvimento. O agents.yml roda NO RUNNER (relay Token
   # Harbor) e publica o relatório na branch agent-reports.
+  #
+  # v1.5.2 — CIRURGIA NO RELAY: este job existia desde a v1.1 e NUNCA
+  # despachou nada — o 'gh workflow run' sem --repo caía em "fatal: not
+  # a git repository" (job sem checkout, sem .git) e o if/else ENGOLIA
+  # a falha em silêncio: 0 auditorias desde 20/out, os 8 relatórios da
+  # branch agent-reports eram todos de execuções locais.
+  # Agora: (a) --repo explícito; (b) dispatch falhou = job VERMELHO
+  # (infra quebrada é erro, não detalhe); (c) needs+always — os agentes
+  # auditam o log COMPLETO (gates incluídos) e auditam também runs que
+  # FALHARAM (é quando a auditoria mais vale; antes só via verde).
   relay-agents:
-    needs: build
+    needs: [build, verify, verify-install]
+    if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -276,14 +314,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TASK="Audite a run de build do Archcraft Elite (log completo dos jobs lint/build/verify). Procure: (1) warnings/anomalias no pacstrap e no customize (E0-E9); (2) pacotes que falharam ou ficaram órfãos; (3) regressões vs build anterior; (4) riscos na sessão labwc (deps faltando, units quebradas). Seja específico: cite linhas do log."
+          set -euo pipefail
+          TASK="Audite a run de build do Archcraft Elite (log completo dos jobs lint/build/verify/verify-install). Procure: (1) warnings/anomalias no pacstrap e no customize (E0-E9); (2) pacotes que falharam ou ficaram órfãos; (3) regressões vs build anterior; (4) riscos na sessão labwc (deps faltando, units quebradas); (5) unidades systemd em crash-loop — varra 'Failed with result' e 'restart counter' (a v1.5.2 pegou o fg-booster assim: 17 falhas em silêncio porque o debloat v4.2 varreu o xdotool); (6) erros de hook do pacman fora de contexto grub. Seja específico: cite linhas do log."
           for AGENT in deepseek mimo; do
-            if gh workflow run agents.yml \
-                 -f "agent=$AGENT" \
-                 -f "task=$TASK" \
-                 -f "context=ci:$GITHUB_RUN_ID"; then
-              echo "✔ dispatch $AGENT OK"
-            else
-              echo "✖ dispatch $AGENT falhou (não derruba a build)"
-            fi
+            # --repo: sem checkout não há .git — o gh não resolve o repo
+            # sozinho (causa-raiz do relay morto desde a v1.1)
+            gh workflow run agents.yml \
+              --repo "$GITHUB_REPOSITORY" \
+              -f "agent=$AGENT" \
+              -f "task=$TASK" \
+              -f "context=ci:$GITHUB_RUN_ID"
+            echo "✔ dispatch $AGENT OK"
           done
