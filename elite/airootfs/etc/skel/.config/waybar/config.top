@@ -27,21 +27,20 @@
   "fixed-center": true,
   "reload_style_on_change": true,
 
-  // Esquerda (v1.6): ARCH (Launchpad — o pedido de volta do dono) + nome
-  // do app focado (wlr-foreign-toplevel, nativo do labwc).
-  "modules-left": ["custom/drawer", "wlr/window"],
+  // Esquerda (v1.8 — SPEC DO DONO): ARCH (Launchpad) + print + redes/bt
+  // + sessão + nome do app focado (wlr-foreign-toplevel, nativo do labwc).
+  "modules-left": ["custom/drawer", "custom/shot", "network", "custom/power", "wlr/window"],
 
   // Centro: o relógio (v2.1 — diretriz do dono)
   "modules-center": ["clock"],
 
-  // Direita: música → café → rede → áudio → tray → sessão
+  // Direita (v1.8): música → café → volume → tray — o status que não
+  // virou botão (rede e sessão subiram pro cluster esquerdo da spec)
   "modules-right": [
     "mpris",
     "idle_inhibitor",
-    "network",
     "pulseaudio",
-    "tray",
-    "custom/power"
+    "tray"
   ],
 
   // Janela focada — o "nome do app" do menu bar
@@ -52,12 +51,21 @@
     "tooltip": false
   },
 
-  // Launchpad — o ARCH no canto esquerdo (v1.6: de volta por ordem do
-  // dono no burn test; modelo menu-bar macOS: marca à esquerda = apps)
+  // Launchpad — o ARCH no canto esquerdo (modelo menu-bar macOS: marca à
+  // esquerda abre os apps)
   "custom/drawer": {
     "format": "\uf303",
     "tooltip-format": "Aplicativos",
     "on-click": "craft-drawer"
+  },
+
+  // Print (v1.8 — botão útil nº 1 da spec do dono): screenshot de região
+  // (slurp seleciona, grim captura → clipboard + arquivo — craft-shot).
+  // Mesmo glifo e mesmo DNA visual do botão da dock.
+  "custom/shot": {
+    "format": "\uf0c4",
+    "tooltip-format": "Screenshot (região)",
+    "on-click": "craft-shot"
   },
 
   // Música do USUÁRIO (MPRIS) — YouTube no navegador, Spotify, mpv: o que
@@ -142,9 +150,10 @@
     "interval": 60
   },
 
-  // Sessão — canto direito: menu dropdown (travar/sair/suspender/reiniciar/
-  // desligar — craft-power v2, fuzzel ancorado top-right). Ícone: FA
-  // power-off (BMP — o md-power U+F0425 seria surrogate pair)
+  // Sessão — CLUSTER ESQUERDO (v1.8): liga/desliga/reset ao alcance do
+  // clique único da spec do dono. Menu dropdown (travar/sair/suspender/
+  // reiniciar/desligar — craft-power v2, fuzzel ancorado). Ícone: FA
+  // power-off.
   "custom/power": {
     "format": "\uf011",
     "tooltip-format": "Sessão",

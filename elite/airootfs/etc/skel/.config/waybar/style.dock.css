@@ -178,7 +178,22 @@ window#waybar > box {
   border-radius: 2px;
 }
 
-/* ── Pins do usuário (craft-pin) ────────────────────────────────────────
+/* ===== Indicador de ABERTO no pin (v1.8 — o "ponto" do macOS) ==========
+ * A SPEC DO DONO: "indicador de programa fixado que está aberto". O
+ * craft-pin-status devolve class="running" (1 pgrep/pin a cada 3s) e a
+ * barra-indicador acende SOB o ícone: inset shadow (zero shift de
+ * layout, zero briga com o radius da pílula de hover), 3px, cor de texto
+ * uniforme como no macOS — e some sozinha quando o app fecha (o json
+ * volta a class="idle"). Seletor de classe pega pins de fábrica E os do
+ * craft-pin sem editar CSS à mão. */
+#custom-term.running,
+#custom-files.running,
+#custom-web.running,
+.running {
+  box-shadow: inset 0 -3px 0 alpha(@text, 0.85);
+}
+
+/* ── Pins do usuário (craft-pin) ────────────────────────────────────────────
  * Apps fixados via clique-direito no desktop → "Fixar app na dock…"
  * (craft-pin-pick, v1.4) ou `craft-pin add NOME GLYPH TOOLTIP COMANDO
  * [COR]`: o script apoia aqui um bloco autocontido por app com o MESMO
