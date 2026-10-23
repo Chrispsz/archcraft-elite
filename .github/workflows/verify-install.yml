@@ -348,12 +348,19 @@ jobs:
           done
           echo "ELITE_GPU=$ELITE_GPU (QEMU: esperado unknown)"
           echo "ELITE_GPU=$ELITE_GPU" | tee gpu-detect.txt
-          # contrato do per-rig no YAML que o Calamares real executa:
+          # contrato do per-rig no SCRIPT que o Calamares real executa
+          # (v1.7: a lógica saiu do YAML inline — que o Calamares mata
+          # expandindo $ de shell — e vive no elite-install-stage, chamado
+          # com ${ROOT}; o conf agora é 1 comando só)
           for pat in '0x10de) ELITE_GPU=nvidia' 'MODULES=(amdgpu)' 'nvidia_drm.fbdev=1' 'pacman -Rdd --noconfirm nvidia-open-dkms'; do
-            sudo grep -qF "$pat" rootfs/etc/calamares/modules/shellprocess_btrfs.conf \
-              && echo "✔ per-rig no shellprocess_btrfs: $pat" \
-              || { echo "✖ per-rig AUSENTE no shellprocess_btrfs: $pat"; exit 1; }
+            sudo grep -qF "$pat" rootfs/usr/local/bin/elite-install-stage \
+              && echo "✔ per-rig no elite-install-stage: $pat" \
+              || { echo "✖ per-rig AUSENTE no elite-install-stage: $pat"; exit 1; }
           done
+          # e o conf do Calamares tem que ser a chamada de 1 comando:
+          sudo grep -qF '/usr/local/bin/elite-install-stage ${ROOT}' rootfs/etc/calamares/modules/shellprocess_btrfs.conf \
+            && echo "✔ shellprocess_btrfs = elite-install-stage \${ROOT} (1 comando)" \
+            || { echo "✖ shellprocess_btrfs não delega ao elite-install-stage"; exit 1; }
 
           echo "── [7/8] initcpio@elite: initramfs do kernel ÚNICO (BORE) NO ALVO"
           sudo arch-chroot /mnt/elite mkinitcpio -p linux-cachyos-bore > mkinitcpio-bore.log 2>&1 \
