@@ -51,6 +51,7 @@ assert_grep "$PKG" '^#linux-firmware # ELITE-REMOVED' "cadeia A: meta linux-firm
 assert_grep "$PKG" '^linux-firmware-amd$' "cadeia A: subpacote firmware amd presente"
 assert_eq "$(grep -cx 'vulkan-radeon' "$PKG")" "1" "cadeia A: vulkan-radeon 1× (dedupe — add não duplica)"
 assert_eq "$(grep -cx 'vulkan-intel'  "$PKG")" "1" "cadeia A: vulkan-intel 1× (append do packages.add)"
+assert_grep "$PKG" '^xdotool$' "cadeia v1.5.2: xdotool propaga do packages.add p/ packages.x86_64 (fg-booster exige — o debloat v4.2 o varreu e a unit crash-loopou em silêncio por 5 versões)"
 dups=$(sort "$PKG" | uniq -d | wc -l)
 assert_eq "$dups" "0" "cadeia A: packages.x86_64 sem nenhuma duplicata"
 

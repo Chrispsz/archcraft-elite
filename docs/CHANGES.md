@@ -6,6 +6,76 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **v1.5.2 (main, pós-v1.5) — LIMPEZA PROFUNDA + OS TRÊS BURACOS SISTÊMICOS
+  FECHADOS** (diretriz do dono: "os agentes do repositório devem analisar
+  justamente os logs minuciosamente; esses erros não podem passar ou ser
+  tratados como algo normal"). Forense feita com FONTES PRIMÁRIAS: logs
+  completos (zip de jobs + artifacts de serial) das runs v1.5
+  (39864937531) e v1.4 (39804335535), API do GitHub e arqueologia git.
+  - **(a) Build verde com erro silencioso — GATE DE FORENSE DE LOG**
+    (`scripts/log-forensics.sh`, novo): o log da v1.4 (VERDE, releaseada)
+    contém **5 classes fatais literais** — `target not found:
+    cachyos-keyring` ×2, `could not determine root mount point /`,
+    `not enough free disk space` ×2, `signature from "CachyOS" is
+    invalid` ×2, `failed to synchronize all databases` — e a ISO saiu sem
+    o keyring (causa-raiz do burn test). O gate roda em TODA build
+    (`build.yml`: `tee build-output.log` + step de forense) e transforma
+    padrão fatal em run vermelha ANTES do release. Validado contra a
+    história real: log v1.5 → exit 0 (12 benignos auditados); log v1.4 →
+    exit 1 (5 fatais). Whitelist de benignos DOCUMENTADA (grub-editenv em
+    chroot, mtab journal-nocow, downloader com recuperação de baseline
+    libyuv/ELITE-BUMP…), condicionais com fronteira (downloader sem
+    recuperação = fatal; `command failed` fora de contexto grub = fatal).
+  - **(b) Relay dos agentes MORTO desde a v1.1 — CAUSA-RAIZ ACHADA NO
+    LOG**: o job `relay-agents` nunca despachou nada — `gh workflow run`
+    sem `--repo` num job SEM checkout caía em `fatal: not a git
+    repository` e o `if/else` abafava ("não derruba a build"). Zero runs
+    de `agents.yml` na história; os 8 relatórios da branch
+    `agent-reports` eram todos de execuções locais de 20/out. Cura:
+    `--repo "$GITHUB_REPOSITORY"` explícito; dispatch falhou = job
+    VERMELHO (`set -euo pipefail`); `needs: [build, verify,
+    verify-install]` + `if: always()` — os agentes agora auditam o log
+    COMPLETO e auditam TAMBÉM runs que falharam (é quando auditoria mais
+    vale). O TASK deles ganhou o item "varra 'Failed with result' e
+    'restart counter'".
+  - **(c) fg-booster crash-loopando em TODA boot v1.0→v1.5** (17
+    `Failed with result` no serial COMPLETO do gate verify da v1.5 —
+    invisível porque o gate só olhava `Startup finished`): arqueologia
+    git: v4.1 (69dfda1) criou o booster com `xdotool` no packages.add;
+    o debloat da v4.2 (9410a32) VARREU o xdotool; o guard `command -v
+    xdotool || exit 1` + `Restart=on-failure` + `RestartSec=5`
+    (espaçamento que NUNCA atinge o start-limit default de 5-em-10s) =
+    loop infinito silencioso no live E no instalado. Cura em 3 camadas:
+    (1) **xdotool VOLTA ao packages.add** (presença = contrato de BUILD
+    no CI); (2) guards de runtime saem **0** — no-op limpo (ambiente ≠
+    defeito); (3) unit ganha `StartLimitIntervalSec=120` +
+    `StartLimitBurst=3` (exit≠0 nunca mais vira loop infinito).
+  - **Gates de boot endurecidos (live E instalado)**: `Failed with
+    result` no serial = gate VERMELHO. Exceção benigna só POR ESCRITO
+    com prova — a mesma regra da forense de log (benigno é benigno
+    documentado, nunca silêncio).
+  - **Limpeza do GitHub (ordem do dono: "as builds anteriores não
+    importam pois não funcionam bem")**: releases v1.0.4/v1.1/v1.2/v1.3/
+    v1.4 DELETADAS (≈15 GB de assets quebrados — a v1.4 sem keyring à
+    venda como "estável"), tags v1.0.4–v1.4 deletadas (remoto e local),
+    branches `feat/v1.5-iso-spec`/`feat/v1.5-spec-fixes` (merged/stale)
+    deletadas. Ficam: release **v1.5** (a boa), tag v1.5, branches
+    `main` + `agent-reports` (saída dos agentes).
+  - **Limpeza estrutural**: workflows de debug mortos `diag-boot.yml`/
+    `diag-boot2.yml`/`diag-boot3.yml` REMOVIDOS (evidência histórica
+    preservada aqui e no git log); `diag-install.yml` renomeado p/
+    **`verify-install.yml`** (nomenclatura de debug não vive em pipeline
+    de produção — mesmo conteúdo, novo nome, artifact renomeado idem);
+    `publish-artifact.yml` entrou no contrato de YAML-válido (era o 5º
+    workflow sem contrato); `build-output.log` no .gitignore.
+  - **Contratos novos na suíte** (~35 peças): forense estática (padrões
+    fatais + whitelist documentada) e FUNCIONAL (5 fixtures: benigno
+    v1.5-real → 0; fatais v1.4-real → 1; downloader sem cura → 1; hook
+    fora de grub → 1; unknown trust → 1); relay (--repo, always,
+    set -euo, abafador extinto); gates de units; fg-booster 3 camadas;
+    xdotool (packages.add + propagação na cadeia); workflows mortos
+    ausentes; 5 YAMLs válidos.
+
 - **v1.5 (branch feat/v1.5-spec-fixes)** — **A ESPECIFICAÇÃO TÉCNICA DO
   DONO, ITEM A ITEM** (spec v1.5: 9 frentes de falhas reportadas no burn
   test da v1.4 — keyring CachyOS, foot.ini inválido, yazi quebrado,

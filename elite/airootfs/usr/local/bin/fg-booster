@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =====================================================================
-#  fg-booster v4.1 — o "plasma-foreground-booster" (CachyOS) para X11
+#  fg-booster v4.1.1 — o "plasma-foreground-booster" (CachyOS) para X11
 #  genérico (Openbox/BSPWM do Archcraft).
 #
 #  Sessão labwc (default da Elite v1.0.3+): este booster atua apenas em
@@ -8,6 +8,19 @@
 #  ~/.Xauthority; sem Xauthority ele fica em no-op silencioso — sem erro,
 #  sem crash-loop (guarda `[[ -f $XA ]] || continue`). Jogo em foco segue
 #  garantido por gamemoderun/mangohud em qualquer sessão.
+#
+#  v4.1.1 (ISO v1.5.2) — FORENSE DO BUG CRÔNICO: o debloat v4.2 varreu o
+#  xdotool do packages.add, o guard abaixo morria em exit 1 e a unit
+#  (Restart=on-failure + RestartSec=5 — espaçamento que NUNCA atinge o
+#  start-limit default de 5-em-10s) crash-loopou em TODA boot de v1.0 a
+#  v1.5, no live E no instalado (17 'Failed with result' no serial do
+#  gate verify da v1.5; nenhuma build viu — nenhum gate varria units em
+#  failed). Cura em 3 camadas: (1) xdotool VOLTA ao packages.add
+#  (contrato de build no CI); (2) guards de runtime agora saem 0 — no-op
+#  limpo, a unit fica "inactive (dead)" em vez de lixo no journal;
+#  (3) a unit ganha StartLimitBurst (teto de restart — exit≠0 em guarda
+#  NUNCA mais vira loop infinito). Presença do pacote é contrato de
+#  BUILD, não de runtime: ambiente sem a ferramenta não é bug.
 #
 #  O que faz:
 #    · App em foco  → árvore de processos promovida para fg-boost.slice
@@ -34,8 +47,12 @@ last=""
 tick=0
 declare -A ORIG   # pid-raiz → cgroup leaf de origem
 
-command -v xdotool >/dev/null 2>&1 || { echo "fg-booster: xdotool ausente"; exit 1; }
-[[ -d "$CG/fg-boost.slice" ]] || { echo "fg-booster: fg-boost.slice não existe (systemctl start fg-boost.slice)"; exit 1; }
+# v4.1.1: guards de AMBIENTE saem 0 (no-op limpo) — nunca 1. Ausência de
+# ferramenta/slice é condição de ambiente, não defeito de runtime; a
+# presença do xdotool é contrato de BUILD (tests/phases/20-static: grep
+# em packages.add). Sem isto: crash-loop silencioso (v4.2→v1.5 inteiras).
+command -v xdotool >/dev/null 2>&1 || { echo "fg-booster: xdotool ausente — no-op (contrato de build garante o pacote)"; exit 0; }
+[[ -d "$CG/fg-boost.slice" ]] || { echo "fg-booster: fg-boost.slice ausente — no-op (Slice= da unit cria; fora de systemd não há cgroup)"; exit 0; }
 
 # árvore de processos (filhos, netos...)
 tree() {

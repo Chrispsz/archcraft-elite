@@ -149,19 +149,25 @@ Este repositório é um *overlay delta*: a cada build ele clona o profile oficia
 ## Estrutura
 
 ```
-.github/workflows/build.yml     CI: lint + build + release
-.ci/build.sh                    Lógica de build dentro do container Arch
-scripts/apply-overlay.sh        O delta: clona o upstream e aplica a camada Elite
-elite/packages.add              Pacotes adicionais
-elite/packages.remove           Debloat (comentados, restauráveis)
-elite/pacman-repos.build.add    Repositórios CachyOS para o build
+.github/workflows/build.yml          CI: lint → build (+forense de log) → verify (live) → verify-install (disco) → release
+.github/workflows/verify-install.yml Gate de instalação (QEMU, workflow_call — ex-diag-install)
+.github/workflows/agents.yml         Relay dos agentes deepseek/mimo (auditoria de logs pós-build)
+.github/workflows/publish-artifact.yml  Release manual do artefato de um run
+.github/workflows/tests.yml          Suíte de contratos (peças em cadeia)
+.ci/build.sh                         Lógica de build dentro do container Arch
+scripts/apply-overlay.sh             O delta: clona o upstream e aplica a camada Elite
+scripts/log-forensics.sh             Gate de forense do log de build (erro silencioso = run vermelha)
+elite/packages.add                   Pacotes adicionais
+elite/packages.remove                Debloat (comentados, restauráveis)
+elite/pacman-repos.build.add         Repositórios CachyOS para o build
 elite/fragments/elite-customize.sh   E0–E10: keyring, pacman.conf, cirurgia no Calamares, fix btrfs do boot instalado
-elite/airootfs/                 sysctl, zram, udev, units, preset mkinitcpio, scripts
+elite/airootfs/                      sysctl, zram, udev, units, preset mkinitcpio, scripts
 elite/airootfs/etc/skel/.config/{labwc,waybar,swaync,nwg-drawer,fuzzel,foot}
-                                v1.3 AMOLED rice: 4 CSS + themerc + foot.ini
-                                NOVO + wallpaper.png 4K + autostart
-docs/CHANGES.md                 Delta completo vs. upstream, com justificativas
-docs/SCRIPTS.md                 Documentação por script (uso / reversão / dependências)
+                                     v1.3 AMOLED rice: 4 CSS + themerc + foot.ini
+                                     NOVO + wallpaper.png 4K + autostart
+agents/                              Equipe de IA (deepseek = Builder, mimo = Auditor; Token Harbor)
+docs/CHANGES.md                      Delta completo vs. upstream, com justificativas
+docs/SCRIPTS.md                      Documentação por script (uso / reversão / dependências)
 ```
 
 ## Créditos
