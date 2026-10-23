@@ -34,19 +34,56 @@ if [ -z "$ROOT" ] || [ ! -d "$ROOT" ]; then
     exit 1
 fi
 
-# ── 1. btrfs: recopia os vmlinuz do live p/ o /boot do alvo ────────────────
+# ── 1. btrfs: recopia VERIFICADA dos vmlinuz do live p/ o /boot do alvo ────
 # O rsync do unpackfs chegava truncado em btrfs (rig B: 'premature end of
-# file' no GRUB). Fonte = o bootmnt do live; com copytoram o launch.sh
-# reescreve o unpackfs.conf, e aqui o glob cobre ambos os casos.
+# file' no GRUB — v1.0.3). A v1.7.0 recopiava com `cp -f ... &&` e o EXIT
+# CODE ERA IGNORADO: qualquer falha de cópia no rig (disco cheio, OOM killer
+# durante o install, erro btrfs) deixava o TRUNCADO do rsync no lugar, a
+# instalação "terminava feliz" e o boot morria no GRUB — recorrência
+# fotografada em 23/out (IMG_20261023_180301). O gate do CI não via porque
+# rodava cp PRÓPRIO em vez de ESTE script (divergência morta no verify-
+# install [6/8] junto). v1.8 — cópia com PROVA, falha ALTA:
+#     tmp → tamanho → cmp byte-a-byte → promoção atômica (mv) → sync →
+#     re-cmp no arquivo promovido → marcador. QUALQUER desvio = exit 1 =
+# o Calamares mostra "Installation Failed" COM o motivo no log. Boot
+# truncado calado deixou de existir como desfecho possível.
 if [ "$(findmnt -n -o FSTYPE "$ROOT")" = "btrfs" ]; then
+    copied=0
     for kv in /run/archiso/bootmnt/arch/boot/x86_64/vmlinuz-*; do
         [ -e "$kv" ] || continue
         kbase="$(basename "$kv")"
-        if [ -f "${ROOT}/boot/${kbase}" ]; then
-            cp -f "$kv" "${ROOT}/boot/${kbase}" &&
-                touch "${ROOT}/boot/.kernel-copy-success"
+        src_size="$(stat -c%s "$kv")" || {
+            echo "ELITE: ERRO — fonte do kernel $kv ilegível" >&2
+            exit 1
+        }
+        tmp="${ROOT}/boot/.elite-${kbase}.tmp"
+        rm -f "$tmp"
+        echo "ELITE: recopiando ${kbase} (${src_size} bytes) com verificação byte-a-byte…"
+        if ! cp -f "$kv" "$tmp"; then
+            echo "ELITE: ERRO — cp de ${kbase} falhou (disco cheio? $(df -h "$ROOT/boot" 2>/dev/null | tail -1))" >&2
+            rm -f "$tmp"
+            exit 1
         fi
+        dst_size="$(stat -c%s "$tmp" 2>/dev/null || echo 0)"
+        if [ "$dst_size" != "$src_size" ] || ! cmp -s "$kv" "$tmp"; then
+            echo "ELITE: ERRO — cópia de ${kbase} truncada/corrompida (fonte ${src_size} B, destino ${dst_size} B)" >&2
+            rm -f "$tmp"
+            exit 1
+        fi
+        mv -f "$tmp" "${ROOT}/boot/${kbase}"
+        sync || true
+        if ! cmp -s "$kv" "${ROOT}/boot/${kbase}"; then
+            echo "ELITE: ERRO — ${kbase} difere da fonte APÓS a promoção no alvo (btrfs)" >&2
+            exit 1
+        fi
+        copied=$((copied + 1))
+        echo "ELITE: ${kbase} VERIFICADO byte-a-byte no alvo ($(stat -c%s "${ROOT}/boot/${kbase}") bytes)"
     done
+    if [ "$copied" -eq 0 ]; then
+        echo "ELITE: ERRO — nenhum vmlinuz em /run/archiso/bootmnt (copytoram?) — impossível garantir /boot íntegro" >&2
+        exit 1
+    fi
+    touch "${ROOT}/boot/.kernel-copy-success" || true
 fi
 
 # ── 2. GPU do alvo: especialização AMD / NVIDIA / neutro ──────────────────

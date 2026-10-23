@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# ═══════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · craft-pin-status (v1.8) — estado do pin p/ a dock
+# ═══════════════════════════════════════════════════════════════════════════
+# Chamado PELO WAYBAR (config.dock: módulos custom dos pins, return-type
+# json, interval 3). Converte "o app está rodando?" no contrato visual do
+# modelo macOS que o dono pediu: o JSON devolve class="running" e o CSS
+# acende a barra-indicador sob o ícone do pin (style.dock.css .running).
+#
+# uso (1 linha por pin no config.dock):
+#   craft-pin-status PROCNAME GLIFO TOOLTIP
+#   ex.: craft-pin-status foot <glifo> 'Terminal (foot)'
+#
+# LIMITES POR CONSTRUÇÃO (o contrato anti-leak da v1.6.2 virou NARROW, não
+# morto): 1 pgrep por pin a cada 3s — SEM rede, SEM curl/jq, saída de
+# tamanho fixo (um objeto JSON de 3 campos). A suíte recusa qualquer "exec"
+# na dock que não seja ESTE script.
+#
+# Nota pgrep -x: casa o nome EXATO do processo (comm, 15 chars) — foot,
+# thunar, brave, steam, discord, code = os casos reais da dock. Apps cujo
+# binário tem nome diferente do comando do pin: o dono ajusta o PROCNAME
+# via craft-pin (o add deriva do 1º word do comando, como o macOS deriva
+# do bundle).
+# ═══════════════════════════════════════════════════════════════════════════
+set -u
+proc="${1:-}"
+glyph="${2:-}"
+tip="${3:-}"
+[ -n "$proc" ] || { printf '{"text":"%s","class":"idle","tooltip":""}\n' "$glyph"; exit 0; }
+
+if pgrep -x "$proc" >/dev/null 2>&1; then
+    cls="running"
+else
+    cls="idle"
+fi
+
+# escape mínimo de JSON no tooltip (craft-pin já proíbe aspas/quebras; isto
+# é cinto E suspensório — o waybar parseia JSON estrito)
+tip=${tip//\\/\\\\}
+tip=${tip//\"/\\\"}
+
+printf '{"text":"%s","class":"%s","tooltip":"%s"}\n' "$glyph" "$cls" "$tip"
+exit 0

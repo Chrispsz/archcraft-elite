@@ -31,9 +31,18 @@
 # Reload = SIGUSR2 (man 5 waybar: "By default reloads (resets) the bar" —
 # recarrega config E estilo nas 2 instâncias; o CSS também é vigiado pelo
 # inotify via reload_style_on_change). Sem waybar rodando, só avisa.
-# Limite honesto vs macOS: app fixado rodando aparece como ícone extra no
-# CENTRO (taskbar), sem pontinho embaixo do pin — o wlr/taskbar do waybar
-# não une os dois conceitos.
+#
+# INDICADOR DE ABERTO (v1.8 — a spec do dono: "indicador de programa fixado
+# que está aberto"): TODO pin (de fábrica e do usuário) é um módulo custom
+# com return-type json alimentado pelo craft-pin-status (1 pgrep a cada 3s
+# — sem rede; o contrato anti-exec da v1.6.2 virou NARROW: só é permitido
+# exec = craft-pin-status). class="running" acende a barra sob o ícone
+# (style.dock.css .running). O PROCNAME do pgrep = 1º word do COMANDO —
+# para apps cujo binário difere do comando, informe o comando do binário.
+# Limite honesto restante vs macOS: o clique no pin abre nova instância
+# (o waybar 0.15 não expõe ativação externa de toplevel e não há wlrctl
+# no Arch) — o FOCO de janelas abertas segue no taskbar da direita (clique
+# foca, meio fecha, dir minimiza), como em qualquer OS.
 set -euo pipefail
 
 DOCK="$HOME/.config/waybar/config.dock"
@@ -137,7 +146,8 @@ list_pins() {
   while IFS= read -r linha; do
     count=$((count + 1))
     nome="$(printf '%s' "$linha" | sed -E 's#^[[:space:]]*"custom/pin-([a-z0-9-]+)".*#\1#')"
-    tip="$(printf '%s'  "$linha" | sed -E 's#.*"tooltip-format": "(([^"\\]|\\.)*)".*#\1#')"
+    # v1.8: tooltip mora dentro do exec (craft-pin-status PROC GLIFO 'TIP')
+    tip="$(printf '%s'  "$linha" | sed -n "s#.*craft-pin-status [^']* [^']* '\([^']*\)'.*#\1#p")"
     cmd="$(printf '%s' "$linha" | sed -E 's#.*"on-click": "(([^"\\]|\\.)*)".*#\1#')"
     tip=${tip//\\\"/\"}; tip=${tip//\\\\/\\}
     cmd=${cmd//\\\"/\"}; cmd=${cmd//\\\\/\\}
@@ -157,6 +167,10 @@ add_pin() { # nome glyph tooltip cmd [cor]
       die "argumentos não podem ter tab/quebra de linha"
     fi
   done
+  # v1.8: o tooltip viaja DENTRO do exec (craft-pin-status PROC GLIFO
+  # 'TOOLTIP') — apóstrofo quebraria o sh -c que o waybar executa
+  case "$tooltip" in *"'"*) die "TOOLTIP não pode ter apóstrofo (o exec do indicador usa aspas simples)" ;; esac
+  local proc=${cmd%% *}   # PROCNAME do pgrep = 1º word do comando
   if grep -q "\"custom/pin-$nome\"" "$DOCK"; then
     die "'$nome' já está fixado — craft-pin rm $nome primeiro"
   fi
@@ -171,7 +185,9 @@ add_pin() { # nome glyph tooltip cmd [cor]
   # nos DOIS lugares (valores via ENVIRON: -v do awk processa escapes e
   # comeria o \" do JSON)
   local tmp="$DOCK.tmp"
-  PINLINE="  \"custom/pin-$nome\": { \"format\": \"$glyph\", \"tooltip-format\": \"$tooltip\", \"on-click\": \"$cmd\" }" \
+  # v1.8: pin = módulo json do craft-pin-status (indicador de aberto) —
+  # 1 LINHA SÓ (o sanity_config e o rm_pin contam com isso)
+  PINLINE="  \"custom/pin-$nome\": { \"exec\": \"craft-pin-status $proc $glyph '$tooltip'\", \"return-type\": \"json\", \"interval\": 3, \"on-click\": \"$cmd\" }" \
   MODLINE="    \"custom/pin-$nome\"," \
   awk '
     { lines[NR] = $0 }
@@ -239,7 +255,7 @@ EOF
 
   sanity_config || { rollback; die "config.dock ficou inconsistente — restaurado o backup (.bak)"; }
   reload
-  echo "✔ '$nome' fixado na dock (craft-pin rm $nome para tirar)"
+  echo "✔ '$nome' fixado na dock COM indicador de aberto (craft-pin rm $nome para tirar)"
 }
 
 rm_pin() { # nome

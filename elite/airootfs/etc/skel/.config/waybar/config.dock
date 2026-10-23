@@ -1,28 +1,32 @@
 // Archcraft ELITE · Waybar DOCK — pílula flutuante estilo macOS (Catppuccin Mocha)
 // ─────────────────────────────────────────────────────────────────────────
-// Desktop v2.2: fixados + janelas abertas num SÓ grupo CENTRAL (modelo macOS
-// — diretriz do dono: "fixados no centro, abertos no centro").
+// Desktop v3 (v1.8 — a SPEC DO DONO): dock centralizada estilo macOS/COSMIC,
+// "bem bonita, organizada e arredondada", com os principais programas
+// fixados de fábrica, fixar/desfixar pelo usuário (craft-pin) e — NOVO —
+// INDICADOR DE PROGRAMA ABERTO no pin (o ponto do macOS):
+//   · cada pin é um módulo custom com `return-type: json` alimentado pelo
+//     craft-pin-status: 1 pgrep por pin a cada 3s (sem rede, sem jq — a
+//     classe de leak da v1.6.2 segue extinta por contrato NARROW:
+//     só é permitido exec = craft-pin-status).
+//   · o JSON devolve class="running" quando o app está de pé → o CSS
+//     acende a barra-indicador sob o ícone (style.dock.css .running).
+//   · janelas abertas (fixadas ou não) continuam no wlr/taskbar à direita
+//     do separador — clique foca, meio fecha, dir minimiza. O waybar 0.15
+//     não expõe ativação de toplevel externa (sem wlrctl no Arch), então o
+//     clique no pin abre nova instância — limitação documentada, o foco
+//     das janelas abertas é pelo taskbar (o que qualquer OS faz).
 //
-// v1.6 (fix do burn test v1.5 — FORENSE COM FONTE PRIMÁRIA): os pins eram
-//   módulos `image#` (ícones PNG) — o waybar 0.15.0 tem o bug upstream
-//   Alexays/Waybar#5051: com 3+ instâncias do módulo image o processo
-//   CRASHA em silêncio no startup (race: update antes do widget ser
-//   realizado → create_surface_from_pixbuf com janela nula → abort;
-//   correção existe SÓ no master, em nenhum release). Nossa dock tinha
-//   EXATAMENTE 3 (term/files/web) → no rig do dono a dock NUNCA subiu
-//   (a barra de cima, sem image, subia normal) e os pins do craft-pin
-//   "sumiam" — iam pra uma dock morta. Volta dos módulos custom com
-//   GLIFO Nerd Font (o modelo v1.4, que o dono viu funcionando AO VIVO
-//   no burn test v1.4): zero pixbuf, zero race, robusto por construção.
-//   O zoom macOS no hover continua (30px → 36px, transição .18s no CSS).
+// v1.6 (mantido — FORENSE COM FONTE PRIMÁRIA): pins são módulos custom com
+//   GLIFO Nerd Font — o waybar 0.15.0 crasha em silêncio com 3+ módulos
+//   image (Alexays/Waybar#5051, fix só no master). Zero pixbuf, zero race.
 //
 // GLIFOS (drawer/shot/pins): escapes JSON \uXXXX — à prova de corrupção de
 // encoding (v1.1 perdeu glifos literais: 7 de 8 botões invisíveis).
 // Verificados no cmap do Symbols Nerd Font (archcraft-fonts 2.0).
 //
-// FIXAR APPS (glyph, route do usuário): clique-direito no desktop →
-// "Fixar app na dock…" (craft-pin-pick) ou `craft-pin add NOME GLYPH
-// TOOLTIP COMANDO [cor]` — insere ANTES do separador, junto aos fixos.
+// FIXAR APPS: clique-direito no desktop → "Fixar app na dock…"
+// (craft-pin-pick) ou `craft-pin add NOME GLYPH TOOLTIP COMANDO [cor]` —
+// insere ANTES do separador, junto aos fixos, com indicador de aberto.
 {
   "layer": "top",
   "position": "bottom",
@@ -64,24 +68,26 @@
     "on-click": "craft-drawer"
   },
 
-  // ── Apps fixados — ÍCONES REAIS (v1.5) ──────────────────────────────
-  // Pin de fábrica: visível no centro MESMO COM O APP FECHADO (é o
-  // módulo image, não o taskbar). Sem interval → render única, zero
-  // polling. O exec devolve 2 linhas: path do PNG + tooltip (label de
-  // hover no idioma do rice).
+  // ── Apps fixados de fábrica — INDICADOR DE ABERTO (v1.8) ───────────
+  // O exec devolve JSON {text, class, tooltip} do craft-pin-status:
+  // class="running" acende o ponto macOS no CSS; tooltip = label de
+  // hover no idioma do rice. Polling limitado: 1 pgrep a cada 3s.
   "custom/term": {
-    "format": "\uf489",
-    "tooltip-format": "Terminal (foot)",
+    "exec": "craft-pin-status foot \uf489 'Terminal (foot)'",
+    "return-type": "json",
+    "interval": 3,
     "on-click": "foot"
   },
   "custom/files": {
-    "format": "\uf07c",
-    "tooltip-format": "Arquivos (Thunar)",
+    "exec": "craft-pin-status thunar \uf07c 'Arquivos (Thunar)'",
+    "return-type": "json",
+    "interval": 3,
     "on-click": "thunar"
   },
   "custom/web": {
-    "format": "\uf292",
-    "tooltip-format": "Brave Origin (navegador padrão)",
+    "exec": "craft-pin-status brave \uf292 'Brave Origin (navegador padrão)'",
+    "return-type": "json",
+    "interval": 3,
     "on-click": "brave"
   },
 
@@ -110,5 +116,5 @@
     "ignore-list": []
   }
 
-  // ── PINS (craft-pin) — apps fixados pelo usuário; use craft-pin add/rm
+  // ── PINS (craft-pin) — apps do usuário, com indicador de aberto; craft-pin add/rm
 }

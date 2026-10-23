@@ -317,21 +317,41 @@ jobs:
           echo "── tamanhos APÓS o rsync (ANTES do E10 — era aqui o bug do rig B):"
           sudo stat -c '   %n %s' /mnt/elite/boot/vmlinuz-* | tee sizes-antes-e10.txt
 
-          echo "── [6/8] E10 comando 1: cp -f de TODOS os vmlinuz-* (fonte íntegra)"
-          for kv in pd/arch/boot/x86_64/vmlinuz-*; do
-            kbase=$(basename "$kv")
-            if sudo test -f "/mnt/elite/boot/$kbase"; then
-              sudo cp -f "$kv" "/mnt/elite/boot/$kbase"
-              sudo touch "/mnt/elite/boot/.kernel-copy-success"
-            fi
-          done
-          echo "── tamanhos APÓS o E10 (cp):"
+          echo "── [6/8] v1.8: elite-install-stage REAL — o MESMO script que o rig roda"
+          # LIÇÃO DA RECORRÊNCIA (23/out, IMG_20261023_180301): este gate
+          # rodava um cp PRÓPRIO aqui dentro, enquanto o rig executava o
+          # elite-install-stage — cujo cp tinha o exit code ignorado. Gate
+          # verde ⇄ rig com kernel truncado. FIM DA DIVERGÊNCIA: o gate
+          # executa o ARQUIVO REAL do rootfs da ISO contra o alvo btrfs,
+          # com o "pendrive" bind-montado no caminho EXATO do live
+          # (/run/archiso/bootmnt). O script v1.8 é auto-verificante
+          # (tmp → size → cmp → mv → re-cmp → exit 1 em qualquer desvio),
+          # então falha de cópia aqui = Installation Failed no rig, e o
+          # gate grita ANTES da ISO nascer.
+          sudo mkdir -p /run/archiso/bootmnt
+          sudo mount --bind "$PWD/pd" /run/archiso/bootmnt
+          # PIPESTATUS: 'cmd | tee' mascara o exit code do cmd (status do
+          # pipeline = tee) — o rc REAL do stage é checado explicitamente
+          sudo rootfs/usr/local/bin/elite-install-stage /mnt/elite 2>&1 | tee elite-install-stage.log
+          STAGE_RC=${PIPESTATUS[0]}
+          sudo umount /run/archiso/bootmnt
+          [ "$STAGE_RC" -eq 0 ] || {
+            echo "✖ elite-install-stage rc=$STAGE_RC — o rig veria 'Installation Failed' com o motivo no log:"
+            tail -30 elite-install-stage.log
+            exit 1
+          }
+          sudo test -f /mnt/elite/boot/.kernel-copy-success \
+            || { echo "✖ marcador .kernel-copy-success ausente — stage não concluiu a cópia verificada"; exit 1; }
+          echo "── tamanhos APÓS o stage (cópia verificada):"
           sudo stat -c '   %n %s' /mnt/elite/boot/vmlinuz-* | tee sizes-depois-e10.txt
+          # prova INDEPENDENTE (além da verificação interna do script):
           if sudo cmp -s pd/arch/boot/x86_64/vmlinuz-linux-cachyos-bore /mnt/elite/boot/vmlinuz-linux-cachyos-bore; then
             echo "BORE_INTEGRAL=OK" | tee integridade.txt
           else
             echo "BORE_INTEGRAL=TRUNCADO/BUG" | tee integridade.txt
           fi
+          grep -q 'BORE_INTEGRAL=OK' integridade.txt \
+            || { echo "✖ BORE truncado no alvo mesmo com o stage verificado — INADMISSÍVEL"; exit 1; }
           # v1.1: kernel único — não existe mais vmlinuz-linux p/ conferir
           cat integridade.txt
           echo "── [6b/8] E10 v1.1: especialização por GPU (detector de vendor)"

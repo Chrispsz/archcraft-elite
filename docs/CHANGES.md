@@ -6,6 +6,61 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **v1.8 (branch v2 — "refaz o quebrado, mantém o que funciona"): o BOOT
+  com PROVA + o desktop da SPEC do dono** (burn test v1.7.0, fotos
+  23/out — GRUB "premature end of file" no sistema instalado):
+  - **(A) A RECORRÊNCIA DO BOOT, CAUSA-RAIZ REAL**: o elite-install-stage
+    recopiava os kernels com `cp -f … &&` — **exit code ignorado**. Qualquer
+    falha de cópia no rig (disco cheio, OOM killer durante o install, erro
+    btrfs) deixava o **kernel truncado do rsync no lugar**, a instalação
+    "terminava feliz" e o GRUB morria — exatamente a foto
+    IMG_20261023_180301. E o gate do CI nunca viu porque **rodava cp
+    PRÓPRIO** no passo [6/8] em vez do script real — divergência gate⇄rig
+    (gate verde ⇄ rig morto). **CURA 1**: o stage agora é AUTO-VERIFICANTE —
+    cópia em arquivo temporário → conferência de tamanho → `cmp`
+    byte-a-byte → promoção atômica (mv) → sync → **re-`cmp` no arquivo
+    promovido** → marcador; QUALQUER desvio = `exit 1` = o Calamares mostra
+    "Installation Failed" COM o motivo (df no log). **CURA 2**: o gate [6/8]
+    EXECUTA o `elite-install-stage` REAL do rootfs da ISO contra o alvo
+    btrfs, com o "pendrive" bind-montado no caminho exato do live
+    (`/run/archiso/bootmnt`), rc checado via PIPESTATUS + prova
+    independente de integridade (BORE truncado = CI vermelho).
+  - **(B) DESKTOP v3 — a SPEC DO DONO, letra por letra**: canto superior
+    esquerdo = **ARCH → menu de aplicativos** (como o Archcraft tem) +
+    **botões úteis na sequência**: print (craft-shot região), **wi-fi/
+    redes/conectividade num geral** (cabo+Wi-Fi+Bluetooth → craft-connect)
+    e **liga/desliga/reset** (craft-power); **relógio no CENTRO EXATO**;
+    direita só o status que sobra (música quando tocando, café invisível
+    desligado, volume, tray). O que já funcionava NÃO foi mexido: glifos
+    JSON-escape (v1.1), um-só-ícone-de-rede (v1.4), mpris auto-hide (v1.0.3),
+    tray íntegro (v1.6), clock craft→swaync (v1.0.4).
+  - **(C) DOCK v3 — macOS/COSMIC de verdade**: pins de fábrica (Launchpad,
+    Terminal, Arquivos, Navegador, Screenshot) agora têm **INDICADOR DE
+    PROGRAMA ABERTO** — o "pontinho" do macOS: cada pin é módulo custom
+    `return-type: json` alimentado pelo **craft-pin-status** (1 `pgrep -x`
+    por pin a cada 3s — SEM rede/jq; o contrato anti-exec da v1.6.2 virou
+    NARROW: único exec permitido na dock = craft-pin-status, qualquer outro
+    = CI vermelho). `class="running"` acende a barra 3px na base do ícone
+    (CSS inset shadow — zero shift de layout); `craft-pin add/rm` gera pins
+    com indicador automaticamente (e valida apóstrofo no tooltip). Janelas
+    abertas (fixadas ou não) seguem no taskbar à direita do separador —
+    clique foca, meio fecha, dir minimiza. Limite honesto documentado: o
+    waybar 0.15 não expõe ativação externa de toplevel (e não há wlrctl no
+    Arch), então o clique no pin abre nova instância — o FOCO das janelas
+    é pelo taskbar. Zoom de hover macOS mantido (30→36px, .18s bezier).
+  - **(D) WALLPAPER**: mantido o da curadoria internet da v1.7.1 (Unsplash,
+    ondas de seda roxo/preto, 4K JPEG 0,43 MB — IPS-friendly, sha256
+    contratado). O dono rejeitou gerados por IA — política permanente agora.
+  - **(E) Branch e limpeza**: branch **v2** criada a partir do main
+    (levando TUDO que funciona: instalador v1.7, lock v1.7, menu v1.7,
+    probe v1.7.1, wallpaper internet). Limpeza de artifacts/releases
+    ANTIGOS no GitHub exige PAT (reenviar) — comandos prontos no relatório;
+    nada do que funciona é apagado até a v2 passar no burn test.
+  - **(F) Suíte**: contratos novos para o cluster esquerdo, pins-json,
+    craft-pin-status, CSS .running, PINLINE do craft-pin, verificação do
+    kernel no stage (cmp/re-cmp/tmp + nogrep do cp cego) e gate executando
+    o script real. Executada localmente: GO.
+
 - **v1.7.1 (local, ainda sem release) — "a sessão que o CI nunca viu" +
   wallpaper da internet (burn test da v1.7.0, fotos do dono 23/out)**:
   o dono bootou a v1.7.0 e o desktop subiu DE NOVO só com o wallpaper

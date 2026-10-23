@@ -201,10 +201,10 @@ CD="$P/airootfs/etc/skel/.config/waybar/config.dock"
 assert_grep "$CT" '"modules-center": \["clock"\]' "v2.1: relógio no CENTRO da barra (diretriz do dono)"
 assert_grep "$CT" '"fixed-center": true' "v1.5: fixed-center (centro EXATO independente dos lados)"
 assert_nogrep "$CT" '"custom/menu"' "v1.5: lançador ARCH FORA do canto esquerdo (spec do dono — o Launchpad vive na dock)"
-assert_grep "$CT" '"modules-left": \["custom/drawer", "wlr/window"\]' "v1.6: ARCH à esquerda + nome do app focado (o pedido de volta do dono)"
+assert_grep "$CT" '"modules-left": \["custom/drawer", "custom/shot", "network", "custom/power", "wlr/window"\]' "v1.8: cluster esquerdo da spec do dono (arch+print+redes+sessão+janela)"
 assert_grep "$CT" '"format": "\{icon\}"' "v2.1: áudio em modo ícone"
 assert_nogrep "$CT" '"format": "\{volume\}' "v2.1: SEM porcentagem numérica no áudio (o '40%')"
-assert_grep "$CT" '"custom/power"' "v2.1: power visível no canto direito da barra"
+assert_grep "$CT" '"custom/power"' "v1.8: botão de sessão presente (agora no CLUSTER ESQUERDO — spec do dono)"
 assert_grep "$CT" '"format": "\\uf011"' "v2.1: glifo do power presente (FA power-off — BMP)"
 # Glifos: os botões de GLIFO da dock (drawer/shot) com escape \uXXXX (a
 # corrupção da v1.1 deixou 7 de 8 botões com format vazio — dock INVISÍVEL
@@ -219,10 +219,12 @@ assert_nogrep "$CT" '\\u[0-9a-fA-F]{5,}' "v2.1: idem no config.top"
 # 0.15.0 crasha em silêncio com 3+ módulos image: issue upstream
 # Alexays/Waybar#5051, race de realization; fix só no master). O modelo
 # v1.4 (glifo) é o robusto — zero pixbuf, zero race.
-for pinmod in 'term:\\uf489' 'files:\\uf07c' 'web:\\uf292'; do
-  m=${pinmod%%:*}; g=${pinmod##*:}
+# v1.8: o glifo mora no exec (craft-pin-status PROC GLIFO 'TOOLTIP') — o
+# pin ganhou o indicador de aberto sem perder o escape anti-corrupção.
+for pinmod in 'term:foot:\\uf489' 'files:thunar:\\uf07c' 'web:brave:\\uf292'; do
+  m=${pinmod%%:*}; rest=${pinmod#*:}; proc=${rest%%:*}; g=${rest##*:}
   assert_grep "$CD" "\"custom/${m}\"" "v1.6: dock custom/${m} (pin por glifo — fix waybar #5051)"
-  assert_grep "$CD" "\"format\": \"${g}\"" "v1.6: glifo do pin ${m} (escape \\uXXXX)"
+  assert_grep "$CD" "craft-pin-status ${proc} ${g}" "v1.8: pin ${m} vigia ${proc} com glifo ${g} (escape \\uXXXX)"
 done
 assert_nogrep "$CD" '"image#' "v1.6: NENHUM módulo image na dock (3+ = crash silencioso — waybar #5051)"
 assert_grep "$CD" '"on-click": "brave"' "v1.5/v1.6: Brave fixado no CENTRO da dock (custom/web → navegador padrão)"
@@ -445,7 +447,17 @@ assert_file "$P/airootfs/etc/skel/.config/systemd/user/timers.target.wants/cliph
 # waybar é script polling; as duas barras da Elite são 100% módulos nativos
 # (apenas 2 intervals: mpris 10s, clock 60s). Contrato de não-regressão:
 assert_nogrep "$P/airootfs/etc/skel/.config/waybar/config.top" '"exec"' "v1.6.2: menu bar SEM módulo exec (zero script polling — classe de leak extinta por contrato)"
-assert_nogrep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"exec"' "v1.6.2: dock SEM módulo exec (idem — os pins são format estático)"
+# v1.8 — NARROW: a spec do dono (indicador de aberto no pin) exige estado;
+# o único exec permitido na dock é o craft-pin-status (1 pgrep por pin a
+# cada 3s — sem rede, sem jq, saída de tamanho fixo). Qualquer outro exec
+# regressa a classe de leak da v1.6.2 → contrato quebra.
+dockexecs="$(grep -o '\"exec\"[^,]*' "$P/airootfs/etc/skel/.config/waybar/config.dock" || true)"
+[[ -n "$dockexecs" ]] || fail "v1.8: dock usa craft-pin-status nos pins" "nenhum exec encontrado (pins sem indicador?)"
+badexec=0
+while IFS= read -r dline; do
+  [[ "$dline" == *craft-pin-status* ]] || badexec=$((badexec+1))
+done <<< "$dockexecs"
+assert_eq "$badexec" "0" "v1.8: TODO exec da dock é craft-pin-status (anti-leak narrow — $badexec estranho(s))"
 # v1.5: keyring CachyOS em 4 camadas (spec: init → populate → refresh)
 assert_grep "$P/airootfs/usr/local/bin/craft-fix-keys" 'pacman-key --populate archlinux cachyos' "v1.5: craft-fix-keys — comandos LITERAIS da spec (populate)"
 assert_grep "$P/airootfs/usr/local/bin/craft-fix-keys" 'pacman -Sy --noconfirm archlinux-keyring cachyos-keyring' "v1.5: craft-fix-keys — refresh dos keyring packages (spec)"
@@ -1595,7 +1607,7 @@ assert_grep "$CKB" 'Brave Origin \(navegador padrão\)' "v1.4: tooltip da dock h
 # v1.5 (spec do dono): lançador ARCH EXTINTO da menu bar — canto esquerdo
 # limpo (só o nome do app focado); o Launchpad vive na DOCK (custom/drawer)
 assert_nogrep "$CPT" '"custom/menu"' "v1.5: módulo custom/menu EXTINTO do config.top (spec)"
-assert_grep "$CPT" '"modules-left": \["custom/drawer", "wlr/window"\]' "v1.6: ARCH à esquerda + janela focada (pedido de volta do dono)"
+assert_grep "$CPT" '"modules-left": \["custom/drawer", "custom/shot", "network", "custom/power", "wlr/window"\]' "v1.8: cluster esquerdo da spec do dono (arch+print+redes+sessão+janela)"
 assert_grep "$CPT" '"fixed-center": true' "v1.5: clock no centro EXATO (fixed-center)"
 assert_grep "$CD" '\\uf303' "v1.5: ARCH U+F303 vive AGORA na dock (custom/drawer — Launchpad)"
 assert_grep "$CD" '"on-click": "craft-drawer"' "v1.5: clique no ARCH da dock abre o Launchpad"
@@ -1712,6 +1724,59 @@ assert_grep "$REPO/scripts/qemu-boot-test.sh" 'ELITE_PROBE_END' "v1.7.1: gate lo
 assert_grep "$REPO/scripts/qemu-boot-test.sh" 'WAYBAR_COUNT' "v1.7.1: gate local cobra as 2 barras vivas"
 assert_grep "$REPO/.github/workflows/build.yml" 'ELITE_PROBE_END' "v1.7.1: gate do CI espera o bloco do probe"
 assert_grep "$REPO/.github/workflows/build.yml" 'WAYBAR_COUNT' "v1.7.1: gate do CI cobra as 2 barras vivas"
+
+# ── DESKTOP v3 (v1.8 — branch v2, a SPEC DO DONO no burn test da v1.7.0): ─
+#    "canto superior esquerdo o ícone do archlinux... relógio centralizado,
+#    no superior esquerdo botões úteis como print, wi-fi/redes/conectividade
+#    (engloba bluetooth), botão liga/desliga/reset... dock estilo macOS/
+#    cosmic centralizada com os principais programas fixados, fixar/
+#    desfixar, animação no hover e indicador de programa fixado que está
+#    aberto; programa aberto mesmo não fixado vai pra lá em uso".
+CTP8="$P/airootfs/etc/skel/.config/waybar/config.top"
+CDB8="$P/airootfs/etc/skel/.config/waybar/config.dock"
+CPS="$P/airootfs/usr/local/bin/craft-pin-status"
+assert_grep "$CTP8" '"custom/shot"' "v1.8: botão PRINT no topo (spec: 'botões úteis como print')"
+assert_grep "$CTP8" '"on-click": "craft-shot"' "v1.8: print dispara o craft-shot (região → clipboard+arquivo)"
+assert_grep "$CTP8" '"format": "\\uf0c4"' "v1.8: glifo do print no topo (mesmo DNA da dock)"
+assert_grep "$CTP8" '"on-click": "craft-connect"' "v1.8: wi-fi/redes/bt = 1 botão → central (spec: 'conectividade num geral')"
+assert_grep "$CTP8" '"on-click": "craft-power"' "v1.8: liga/desliga/reset = botão de sessão no cluster esquerdo"
+assert_grep "$CDB8" '"return-type": "json"' "v1.8: pins com módulo json (indicador de aberto)"
+assert_grep "$CDB8" '"interval": 3' "v1.8: polling do indicador em 3s (barato e vivo)"
+assert_grep "$CDB8" 'craft-pin-status foot' "v1.8: pin do Terminal vigia o foot"
+assert_grep "$CDB8" 'craft-pin-status brave' "v1.8: pin do navegador vigia o brave"
+assert_grep "$CDB8" 'craft-pin-status thunar' "v1.8: pin de Arquivos vigia o thunar"
+assert_file "$CPS" "v1.8: craft-pin-status existe (o JSON do indicador)"
+assert_grep "$CPS" 'pgrep -x' "v1.8: detecção de aberto = pgrep exato (sem rede, sem jq)"
+assert_grep "$CPS" 'cls="running"' "v1.8: JSON devolve class=running (o ponto acende)"
+assert_grep "$CPS" 'exit 0' "v1.8: craft-pin-status NUNCA falha (módulo json tolerante)"
+# craft-pin gera pins JÁ COM indicador + valida apóstrofo no tooltip
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin" 'craft-pin-status \$proc' \
+  "v1.8: craft-pin add gera pin com indicador (PINLINE json)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin" "TOOLTIP não pode ter apóstrofo" \
+  "v1.8: craft-pin valida tooltip (apóstrofo quebraria o exec)"
+assert_grep "$P/airootfs/etc/skel/.config/waybar/style.dock.css" '\.running' \
+  "v1.8: CSS tem o seletor .running (o ponto do pin)"
+assert_grep "$P/airootfs/etc/skel/.config/waybar/style.dock.css" 'inset 0 -3px' \
+  "v1.8: indicador = barra 3px na base (sem shift de layout)"
+
+# ── BOOT COM PROVA (v1.8 — a RECORRÊNCIA do 'premature end of file'): ────
+#    a v1.7.0 recopiava o kernel com `cp -f ... &&` (exit IGNORADO): falha
+#    de cópia no rig = kernel truncado + instalação "feliz" + GRUB morto
+#    (foto IMG_20261023_180301). O gate do CI rodava cp PRÓPRIO — divergência
+#    gate⇄rig. Cura: script auto-verificante + gate executa o SCRIPT REAL.
+STG="$REPO/elite/airootfs/usr/local/bin/elite-install-stage"
+assert_grep "$STG" 'cmp -s "\$kv" "\$tmp"' "v1.8: cópia do kernel verificada byte-a-byte ANTES da promoção"
+assert_grep "$STG" 'cmp -s "\$kv" "\${ROOT}/boot/\${kbase}"' "v1.8: re-verificação APÓS a promoção (prova final no alvo)"
+assert_grep "$STG" 'dst_size.*!=.*src_size' "v1.8: tamanho conferido fonte⇄destino (truncamento pega na hora)"
+assert_grep "$STG" 'rm -f "\$tmp"' "v1.8: tmp removido nos caminhos de erro (nada de lixo em /boot)"
+assert_nogrep "$STG" 'cp -f "\$kv" "\${ROOT}/boot/\${kbase}" &&' \
+  "v1.8: o cp cego antigo (exit ignorado) EXTINTO do stage"
+VI8="$REPO/.github/workflows/verify-install.yml"
+assert_grep "$VI8" 'rootfs/usr/local/bin/elite-install-stage /mnt/elite' \
+  "v1.8: gate de install EXECUTA o script real (fim da divergência gate⇄rig)"
+assert_grep "$VI8" 'mount --bind' "v1.8: gate bind-monta o pendrive no caminho exato do live"
+assert_grep "$VI8" 'PIPESTATUS' "v1.8: rc REAL do stage checado (tee não mascara falha)"
+assert_grep "$VI8" 'BORE truncado no alvo' "v1.8: BORE truncado no alvo = gate VERMELHO (não só informativo)"
 
 # ── Menu raiz SEM fantasmas (v1.6.3): burn test do dono — 'os programas ──
 #    que deveriam abrir não abrem'. Regra com contrato: todo Execute
