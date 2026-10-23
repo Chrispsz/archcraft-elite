@@ -60,6 +60,25 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
     craft-pin-status, CSS .running, PINLINE do craft-pin, verificação do
     kernel no stage (cmp/re-cmp/tmp + nogrep do cp cego) e gate executando
     o script real. Executada localmente: GO.
+  - **(G) A CLASSE "SUBIU SÓ O WALLPAPER" NOMEADA E MORTA (run #79 do CI,
+    flagrante em flagra pelo probe da v1.7.1)**: a primeira build da tag
+    v1.8.0 subiu VERMELHA no verify — o gate da sessão viu BARS_EXITS=32:
+    o waybar 0.15 trata propriedade CSS inválida como FATAL (exit 1 no
+    parse) e o rice carregava DUAS: `icon-size` (style.top.css §tray,
+    entrou na v1.6 — GTK4-only) e `max-width` (style.dock.css §separador,
+    dock v3 — GTK4-only). Resultado: as 2 barras morriam em LOOP ETERNO
+    no boot (cada instância vivia ~1,5s de cada ciclo de 5s do
+    craft-bars; o WAYBAR_COUNT=2 do probe era pgrep no meio da espiral).
+    É EXATAMENTE o que o dono via no rig desde a v1.6.x — e a
+    "intermitência" era o repositório rolling: builds de dias diferentes
+    puxaram waybar 0.14 (erro = warning ignorável) vs 0.15 (erro =
+    fatal). **CURA**: `icon-size` → `-gtk-icon-transform: scale(0.75)`
+    (GTK3-válido, 24→18px, intenção mantida); `max-width` removido
+    (min-width+width já pinam o 1px do separador). **CONTRATOS** (6): os
+    2 CSS não podem ter NENHUMA propriedade GTK4-only (`icon-size`,
+    `max-width`, `max-height`) — a suíte caça a classe, não os 2 nomes —
+    + os equivalentes válidos contratados. A main (#78) caiu com a MESMA
+    assinatura (só o icon-size lá) — cherry-pick da cura depois do verde.
 
 - **v1.7.1 (local, ainda sem release) — "a sessão que o CI nunca viu" +
   wallpaper da internet (burn test da v1.7.0, fotos do dono 23/out)**:

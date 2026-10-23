@@ -105,10 +105,16 @@ window#waybar {
 /* v1.6 — tray íntegro: itens SNI herdam a cor do texto (ícones simbólicos
  * GTK renderizam com "color"; sem isto, itens com ícone simbólico podem
  * aparecer como bloco claro sem contorno em alguns temas — o glitch que o
- * dono fotografou no burn test v1.5). Ícone 18px: legível sem gritar. */
+ * dono fotografou no burn test v1.5). Ícone 18px: legível sem gritar.
+ * v1.8 — CURA DA CLASSE "SUBIU SÓ O WALLPAPER": a propriedade GTK4 de
+ * tamanho de ícone que morava aqui era FATAL no waybar 0.15 (CSS estrito:
+ * propriedade desconhecida = exit 1 no parse). As 2 barras morreram em
+ * loop ETERNO no boot desde a v1.6 (run #79 do CI em flagrante:
+ * BARS_EXITS=32, "SAIU exit=1" ×2). -gtk-icon-transform é GTK3-válido
+ * e mantém a intenção: 24px nativo → 18px. */
 #tray > .tray > image {
   color: @text;
-  icon-size: 18px; /* fallback: a maioria dos SNI usa o tamanho do ícone embutido */
+  -gtk-icon-transform: scale(0.75);
   padding: 0 2px;
 }
 
