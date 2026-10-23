@@ -105,6 +105,11 @@
     <item label="Lock (W-l)" icon="/usr/share/icons/Papirus/24x24/actions/system-lock-screen.svg">
       <action name="Execute" command="craft-lock" />
     </item>
+    <!-- v1.6.1: "consigo controlar em quanto tempo o Pc entra em idle?"
+         (dono) — presets no fuzzel, efeito imediato, sem relogin -->
+    <item label="Tempo para travar a tela…" icon="/usr/share/icons/Papirus/24x24/actions/system-lock-screen.svg">
+      <action name="Execute" command="craft-idle" />
+    </item>
     <item label="Sessão (menu gráfico)" icon="/usr/share/icons/Papirus/24x24/actions/system-shutdown.svg">
       <action name="Execute" command="craft-power" />
     </item>

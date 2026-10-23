@@ -1,0 +1,46 @@
+/* Archcraft ELITE · CSD traffic lights — GTK3 (v1.6.1)
+ * ─────────────────────────────────────────────────────────────────────────
+ * POR QUÊ (pesquisa de fonte primária): apps com headerbar (CSD) não
+ * recebem a titlebar do labwc — o gdkwindow-wayland.c do GTK3 pede
+ * modo CLIENT para janelas com headerbar (protocolo kwin server-
+ * decoration) e o GTK4 nem implementa protocolo de decoração
+ * (gdksurface-wayland.c: zero binds). O labwc-config(5) avisa: "it is
+ * not always possible to turn off client side decorations".
+ * Estes botões são o ÚLTIMO trecho de janela fora do SSD — e seguem o
+ * MESMO visual dos PNGs do tema Archcraft-Elite: círculo colorido
+ * sempre visível, glifo escuro no hover, cinza quando inativo
+ * (backdrop). Assim Brave, Thunar, foot, Qt… (SSD do labwc) E qualquer
+ * app GTK com headerbar que o usuário instalar (CSD) mostram o mesmo
+ * trio mac — sem o buraco "todo o sistema tinha botões menos X".
+ * Carregado DEPOIS do tema Catppuccin (user css) → prevalece.
+ */
+
+.titlebutton {
+  min-width: 20px;
+  min-height: 20px;
+  padding: 0;
+  margin: 0 2px;
+  border: none;
+  border-radius: 9999px;
+  box-shadow: none;
+  background-image: none;
+  color: transparent;               /* glifo some no repouso — mac style */
+}
+
+.titlebutton.close    { background-color: #ff5f57; }
+.titlebutton.minimize { background-color: #febc2e; }
+.titlebutton.maximize { background-color: #28c840; }
+
+/* hover/active: o glifo acende escuro (mesmo tom dos PNGs do labwc) */
+.titlebutton.close:hover, .titlebutton.close:active          { color: #4d0000; }
+.titlebutton.minimize:hover, .titlebutton.minimize:active    { color: #4d3400; }
+.titlebutton.maximize:hover, .titlebutton.maximize:active    { color: #0a3d10; }
+
+/* janela INATIVA: círculos cinza (o #5b5b60 dos PNGs inativos do labwc) */
+.titlebutton:backdrop, .titlebutton:backdrop:hover {
+  background-color: #5b5b60;
+  color: transparent;
+}
+
+/* headerbar: sem sombra própria nos cantos dos botões (círculo limpo) */
+headerbar .titlebutton { outline: none; }

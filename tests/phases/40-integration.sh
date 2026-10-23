@@ -424,7 +424,7 @@ assert_nogrep "$P/airootfs/etc/skel/.zshrc" 'oh-my-zsh|ZSH_THEME' "curadoria: .z
 assert_file "$P/airootfs/etc/skel/.hushlogin" "curadoria: .hushlogin (1º login limpo, skeleton saiu)"
 # Autostart: os 4 satélites sobem sozinhos
 assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'udiskie' "curadoria: udiskie no autostart"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'swayidle' "curadoria: swayidle no autostart"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'craft-idle start' "curadoria: idle sobe no login (craft-idle → swayidle por baixo — v1.6.1)"
 assert_nogrep "$P/airootfs/etc/skel/.config/labwc/autostart" 'wlsunset' "v1.5: wlsunset FORA do autostart (causa-raiz do tom amarelado — spec)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'cliphist store' "curadoria: watcher cliphist no autostart"
 # v1.5: keyring CachyOS em 4 camadas (spec: init → populate → refresh)
@@ -451,11 +451,14 @@ assert_grep "$REPO/elite/fragments/elite-customize.sh" 'pacman --config "\$\{ELI
 assert_grep "$REPO/elite/fragments/elite-customize.sh" 'rm -f "\$ELITE_PC_KR" "\$\{ELITE_PC_KR\}\.nc"' "v1.5.1: confs efêmeros removidos no fim do E2 (sem lixo no chroot)"
 assert_nogrep "$REPO/elite/fragments/elite-customize.sh" '^pacman -S --noconfirm cachyos-keyring' "v1.5.1: NENHUM pacman in-chroot de install sem --config (o conf estoque tem CheckSpace)"
 assert_grep "$REPO/scripts/apply-overlay.sh" 'craft-fix-keys' "v1.5: [9b] registra craft-fix-keys 0755 (203/EXEC nunca mais)"
-# v1.5: idle/lock — hyprlock 10min + DPMS wlopm 15min (receita wiki labwc)
-assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" "timeout 600 'hyprlock'" "v1.5: idle 10min → hyprlock (spec: 10–15min)"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" "timeout 900 'wlopm --off" "v1.5: idle 15min → DPMS off (wlopm — wlr-output-power-management)"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" "resume 'wlopm --on" "v1.5: resume → DPMS on"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" "before-sleep 'hyprlock'" "v1.5: lock também no before-suspend"
+# v1.6.1: idle/lock AJUSTÁVEL PELO USUÁRIO ("em quanto tempo o Pc entra
+# em idle?" — dono): a receita swayidle INTEIRA (lock no timeout do conf
+# + DPMS wlopm + resume + before-sleep) vive no craft-idle; o autostart
+# só delega. Tempos no ~/.config/elite/idle.conf (defaults 10/15 — os da
+# spec v1.5 viraram DEFAULT, não hardcode). Contratos completos adiante
+# (bloco v1.6.1 · craft-idle).
+assert_grep "$P/airootfs/usr/local/bin/craft-idle" "timeout [$]\(\(LOCK_MIN \* 60\)\) 'hyprlock'" "v1.6.1: lock no timeout do CONF (spec 10min vira default editável)"
+assert_grep "$P/airootfs/usr/local/bin/craft-idle" "timeout [$]\(\(OFF_MIN \* 60\)\) 'wlopm --off" "v1.6.1: DPMS no timeout do CONF (tela APAGA — idle real, não tela fixa)"
 assert_nogrep "$P/airootfs/etc/skel/.config/labwc/autostart" 'swaylock -f|exec swaylock' "v1.5: invocação do swaylock EXTINTA do autostart (tela branca → hyprlock)"
 # W-v clipboard + menu com os apps novos
 assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'W-v' "curadoria: W-v = histórico de clipboard"
@@ -1550,6 +1553,47 @@ assert_grep "$CCT" '--prompt=Rede' "v1.4: prompt 'Rede' (nunca colide com o togg
 assert_grep "$CCT" "pgrep -f 'fuzzel.*--prompt=Rede'" "v1.6.1: craft-connect detecta o menu aberto (toggle — 2ª chamada fecha, mesma cura do 'Sessão')"
 assert_grep "$CCT" "pkill -f 'fuzzel.*--prompt=Rede'" "v1.6.1: toggle da central de rede MATA a instância (regressão do 'menu empilhava' morta por contrato)"
 assert_grep "$WBT" '#idle-inhibitor\.deactivated' "v1.4: café colapsa quando desativado (fim dos 'dois ícones de rede')"
+
+# ── Gaveta com TOGGLE (v1.6.1): "abrir E fechar" (pedido do dono) ────────
+assert_grep "$CDR" 'pgrep -x nwg-drawer' "v1.6.1: craft-drawer detecta a gaveta aberta (2º clique no ARCH fecha)"
+assert_grep "$CDR" 'pkill -x nwg-drawer' "v1.6.1: toggle da gaveta MATA a instância (modelo craft-power/craft-connect — nunca empilha)"
+
+# ── Idle AJUSTÁVEL (v1.6.1): "em quanto tempo o Pc entra em idle?" ───────
+CID="$P/airootfs/usr/local/bin/craft-idle"
+IDLECONF="$ST/elite/idle.conf"
+AUTX="$ST/labwc/autostart"
+assert_file "$CID" "v1.6.1: craft-idle existe (central de idle do dono)"
+assert_file "$IDLECONF" "v1.6.1: idle.conf no skel (defaults documentados no arquivo)"
+assert_grep "$IDLECONF" '^LOCK_MIN=10' "v1.6.1: default = trava aos 10min"
+assert_grep "$IDLECONF" '^OFF_MIN=15' "v1.6.1: default = tela APAGA aos 15min (idle real, não tela fixa)"
+assert_grep "$CID" "before-sleep 'hyprlock'" "v1.6.1: lock antes do suspend PRESERVADO no craft-idle"
+assert_grep "$CID" 'resume .wlopm --on' "v1.6.1: resume → DPMS on (tela acorda JÁ no lock)"
+assert_grep "$CID" 'Nunca' "v1.6.1: preset 'Nunca' (LOCK_MIN=0 → sem daemon, W-l manual)"
+assert_grep "$CID" 'setsid craft-idle start' "v1.6.1: trocar o tempo reinicia o daemon NA HORA (sem relogin)"
+assert_nogrep "$AUTX" 'timeout 600' "v1.6.1: hardcode 600s MORTO no autostart (o conf manda)"
+assert_grep "$MXML" 'Tempo para travar a tela' "v1.6.1: menu do desktop expõe o ajuste de idle (mouse-first)"
+assert_grep "$MXML" 'craft-idle' "v1.6.1: item do menu chama o craft-idle"
+assert_grep "$REPO/scripts/apply-overlay.sh" 'craft-idle' "v1.6.1: craft-idle no file_permissions (0755 no live — senão 203/EXEC)"
+
+# ── CSD coeso (v1.6.1): traffic lights TAMBÉM nos apps que desenham a ────
+#    própria barra (GTK3 headerbar / GTK4 — pesquisa de fonte primária:
+#    GTK3 pede CLIENT p/ headerbar; GTK4 não implementa protocolo de
+#    decoração → CSD sempre; labwc-config(5): CSD nem sempre desligável).
+#    O trio segue os PNGs do tema labwc: círculo colorido, glifo no hover,
+#    cinza #5b5b60 inativo. Vale p/ QUALQUER app GTK que o usuário instalar.
+G3="$ST/gtk-3.0/gtk.css"; G4="$ST/gtk-4.0/gtk.css"
+assert_file "$G3" "v1.6.1: gtk.css GTK3 no skel (CSD traffic lights)"
+assert_file "$G4" "v1.6.1: gtk.css GTK4 no skel (CSD traffic lights)"
+assert_grep "$G3" '\.titlebutton\.close[[:space:]]*\{[[:space:]]*background-color: #ff5f57' "v1.6.1: GTK3 CSD close = círculo #ff5f57 (idem PNG labwc)"
+assert_grep "$G3" '\.titlebutton\.minimize[[:space:]]*\{[[:space:]]*background-color: #febc2e' "v1.6.1: GTK3 CSD minimize = #febc2e"
+assert_grep "$G3" '\.titlebutton\.maximize[[:space:]]*\{[[:space:]]*background-color: #28c840' "v1.6.1: GTK3 CSD maximize = #28c840"
+assert_grep "$G3" ':backdrop' "v1.6.1: GTK3 CSD inativo = cinza (backdrop)"
+assert_grep "$G4" 'windowcontrols button\.close[[:space:]]*\{[[:space:]]*background-color: #ff5f57' "v1.6.1: GTK4 windowcontrols close = #ff5f57"
+assert_grep "$G4" 'windowcontrols button\.minimize[[:space:]]*\{[[:space:]]*background-color: #febc2e' "v1.6.1: GTK4 minimize = #febc2e"
+assert_grep "$G4" 'windowcontrols button\.maximize[[:space:]]*\{[[:space:]]*background-color: #28c840' "v1.6.1: GTK4 maximize = #28c840"
+assert_grep "$G4" ':backdrop' "v1.6.1: GTK4 inativo = cinza (backdrop)"
+assert_grep "$G4" 'windowcontrols > separator' "v1.6.1: GTK4 separador dos controles oculto (trio colado — mac)"
+
 
 # ── Sessão com TOGGLE (bug do burn test: menu empilhava, não fechava) ────
 assert_grep "$CPW" "fuzzel.*--prompt=Sess" "v1.4: craft-power detecta o menu aberto (toggle)"

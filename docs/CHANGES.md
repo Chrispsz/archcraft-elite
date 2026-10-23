@@ -6,6 +6,48 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **v1.6.1 (main) — AS 3 FRENTES DO QUESTIONAMENTO DO DONO** ("o botão
+  do arch abre e fecha a gaveta? os botões mac valem para TODOS os
+  programas, inclusive os que eu instalar? consigo controlar o tempo
+  de idle?") — tudo verificado em código + pesquisa de fonte primária,
+  e os 3 buracos fechados com contrato:
+  - **(A) GAVETA COM TOGGLE**: o ARCH no canto esquerdo ABRIA o
+    Launchpad, mas o 2º clique não FECHAVA (craft-drawer sem toggle —
+    o modelo craft-power/craft-connect não tinha chegado nele). Cura:
+    `pgrep/pkill -x nwg-drawer` — 2ª chamada fecha. Contratado.
+  - **(B) BOTÕES mac EM TODO O SISTEMA — a cobertura provada por
+    fonte primária**: labwc-config(5) oficial (fetch do master):
+    `<decoration>server` (já setado no rc.xml) vale para janelas
+    xdg-shell; Chromium/Brave IMPLEMENTA xdg-decoration
+    (`ui/ozone/…/xdg_toplevel.cc`: `zxdg_decoration_manager_v1` +
+    `MODE_SERVER_SIDE` — o Brave recebe a titlebar SSD do labwc);
+    GTK3 pede modo SERVER para janelas normais (gdkwindow-wayland.c,
+    protocolo kwin server-decoration que o wlroots atende); XWayland
+    é decorado pelo WM. **O buraco restante**: apps CSD — GTK3 com
+    headerbar pede CLIENT, e o GTK4 NÃO implementa protocolo de
+    decoração NENHUM (gdksurface-wayland.c: zero binds — CSD sempre;
+    o próprio labwc-config(5) avisa: "not always possible to turn off
+    client side decorations"). É exatamente onde nascia o "todo o
+    sistema tinha botões menos X". **Cura**: `gtk.css` do usuário
+    (GTK3 `.titlebutton` + GTK4 `windowcontrols`) pinta o MESMO trio
+    traffic-light dos PNGs do labwc (círculo colorido sempre visível,
+    glifo escuro no hover, cinza `#5b5b60` no backdrop) — vale para
+    QUALQUER app GTK que o usuário instalar depois. Limite honesto
+    documentado: app que desenha botões fora do toolkit GTK (não-GTK,
+    CSD caseiro) está fora do alcance de qualquer compositor.
+  - **(C) IDLE AJUSTÁVEL — "em quanto tempo o Pc entra em idle?"**:
+    tempos saem do hardcode (600/900s) e vão para
+    `~/.config/elite/idle.conf`; novo `craft-idle` (menu de presets no
+    fuzzel — 2/5/10/15/30/60min ou "Nunca"; mostra o valor atual no
+    prompt; fallback de terminal sem fuzzel) escreve o conf e
+    REINICIA o daemon NA HORA (sem relogin); item "Tempo para travar
+    a tela…" no menu raiz (mouse-first). A receita swayidle INTEIRA
+    (lock + DPMS wlopm + resume + before-sleep) vive num lugar só
+    (craft-idle start — o autostart só delega). Fluxo preservado e
+    explicado no conf: X min → hyprlock; X+5 → tela APAGA (DPMS
+    real); input → acorda JÁ no lock; suspend → lock antes.
+  - Suíte: 1010 → 1035 contratos · 0 falhas · GO.
+
 - **v1.6 (main) — A ISO INSTALÁVEL: o burn test v1.5 virado do avesso**
   (forense com fonte primária: log Calamares do dono via termbin [9z69],
   foto do rig analisada por VLM em 3 níveis de zoom, ISO v1.5 baixada do
