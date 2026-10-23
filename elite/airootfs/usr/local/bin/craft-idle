@@ -1,0 +1,106 @@
+#!/bin/sh
+# craft-idle — central de IDLE da Elite (v1.6.1)
+# ─────────────────────────────────────────────────────────────────────────
+# Diretriz do dono: "consigo controlar em quanto tempo o Pc entra em
+# idle?" — antes os tempos eram HARDCODED no autostart (10 min lock /
+# 15 min apagar). Agora vivem em ~/.config/elite/idle.conf e este script
+# é a interface: presets no fuzzel (mesma família do craft-power/
+# craft-connect), escrita no conf e REINÍCIO IMEDIATO do daemon —
+# trocar o tempo vale NA HORA, sem relogin.
+#
+# FLUXO do idle (o "qualquer idle" que o dono descreveu):
+#   X min de inatividade → hyprlock trava a tela (relógio+avatar+senha)
+#   X+5 min             → wlopm APAGA a tela (DPMS de verdade — o PC
+#                         não fica "ligado numa tela fixa": a tela
+#                         desliga; mexer o mouse acorda JÁ NO LOCK)
+#   suspender           → before-sleep trava ANTES (acorda no lock)
+#
+# Uso:
+#   craft-idle           menu de presets (mouse-first — item do menu do
+#                        desktop: "Tempo para travar a tela…")
+#   craft-idle start     sobe o daemon com os valores do conf (o
+#                        autostart chama isto — única definição da
+#                        receita swayidle, zero duplicação)
+#   craft-idle status    mostra os valores vigentes
+set -eu
+
+CONF_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/elite"
+CONF="$CONF_DIR/idle.conf"
+
+# Defaults da ISO (10 min lock · 15 min apagar) — o conf sobrescreve
+LOCK_MIN=10
+OFF_MIN=15
+[ -r "$CONF" ] && . "$CONF"
+
+# ── start: a receita inteira do swayidle num lugar só ────────────────────
+start_daemon() {
+    pkill -x swayidle 2>/dev/null || true
+    if [ "${LOCK_MIN:-0}" -eq 0 ]; then
+        exit 0   # "Nunca": sem daemon — travar é manual (W-l / menu)
+    fi
+    exec swayidle -w \
+        timeout $((LOCK_MIN * 60)) 'hyprlock' \
+        timeout $((OFF_MIN * 60)) 'wlopm --off "*"' \
+        resume 'wlopm --on "*"' \
+        before-sleep 'hyprlock'
+}
+
+case "${1:-}" in
+    start)  start_daemon ;;
+    status)
+        if [ "${LOCK_MIN:-0}" -eq 0 ]; then
+            echo "idle: nunca (travar é manual — W-l)"
+        else
+            echo "idle: trava aos ${LOCK_MIN}min · tela apaga aos ${OFF_MIN}min"
+        fi
+        exit 0
+        ;;
+esac
+
+# ── menu de presets (fuzzel · mesma âncora da família craft-*) ───────────
+CUR="${LOCK_MIN}min"
+[ "${LOCK_MIN:-0}" -eq 0 ] && CUR='nunca'
+
+MENU='2 minutos
+5 minutos
+10 minutos (padrão)
+15 minutos
+30 minutos
+1 hora
+Nunca — só manual (W-l)'
+
+if command -v fuzzel >/dev/null 2>&1; then
+    choice="$(printf '%s\n' "$MENU" | fuzzel --dmenu \
+        --anchor=top-right --x-margin=10 --y-margin=44 \
+        --lines=7 --width=30 --prompt="Idle: ${CUR}  " 2>/dev/null || true)"
+else
+    # sem fuzzel: prompt de terminal (foot -e) — não trava o ajuste
+    printf 'Idle — minutos até travar (atual: %s; vazio = cancela): ' "$CUR"
+    read -r mins
+    case "$mins" in
+        ''|*[!0-9]*) exit 0 ;;
+        0)  choice='Nunca — só manual (W-l)' ;;
+        *)  LOCK_MIN="$mins"; OFF_MIN=$((mins + 5))
+            mkdir -p "$CONF_DIR"
+            printf 'LOCK_MIN=%s\nOFF_MIN=%s\n' "$LOCK_MIN" "$OFF_MIN" > "$CONF"
+            setsid craft-idle start >/dev/null 2>&1 &
+            exit 0 ;;
+    esac
+fi
+
+case "$choice" in
+    '2 minutos')               LOCK_MIN=2;  OFF_MIN=7  ;;
+    '5 minutos')               LOCK_MIN=5;  OFF_MIN=10 ;;
+    '10 minutos (padrão)')     LOCK_MIN=10; OFF_MIN=15 ;;
+    '15 minutos')              LOCK_MIN=15; OFF_MIN=20 ;;
+    '30 minutos')              LOCK_MIN=30; OFF_MIN=35 ;;
+    '1 hora')                  LOCK_MIN=60; OFF_MIN=65 ;;
+    'Nunca — só manual (W-l)') LOCK_MIN=0;  OFF_MIN=0  ;;
+    *)                         exit 0 ;;   # Esc: nada acontece
+esac
+
+# persiste e reinicia o daemon JÁ (efeito imediato, sem relogin)
+mkdir -p "$CONF_DIR"
+printf 'LOCK_MIN=%s\nOFF_MIN=%s\n' "$LOCK_MIN" "$OFF_MIN" > "$CONF"
+setsid craft-idle start >/dev/null 2>&1 &
+exit 0

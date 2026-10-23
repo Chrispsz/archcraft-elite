@@ -14,6 +14,12 @@
 #     SÓ na menu bar (⏻ no canto direito → craft-power) — um lugar,
 #     um modelo, zero duplicação
 #
+# v1.6.1 (pedido do dono: "abrir E fechar"): TOGGLE — 2ª chamada com a
+#   gaveta aberta apenas FECHA (mesma cura do craft-power/craft-connect:
+#   o botão nunca empilha, sempre alterna). O nwg-drawer não tem modo
+#   daemon — a instância aberta É o processo; detectar por nome exato
+#   (pgrep -x) e matar (pkill -x) é o toggle inteiro.
+#
 # Flags (upstream nwg-piotr/nwg-drawer):
 #   -fm       gerenciador de arquivos (busca de arquivos do drawer —
 #             Thunar, o FM padrão da v1.5: xdg-mime inode/directory)
@@ -21,6 +27,12 @@
 #   -is/-c    tamanho do ícone / colunas
 #   -nocats   desliga a barra de categorias (v1.4)
 set -eu
+
+# TOGGLE: gaveta aberta? fecha e sai
+if pgrep -x nwg-drawer >/dev/null 2>&1; then
+    pkill -x nwg-drawer 2>/dev/null || true
+    exit 0
+fi
 
 exec nwg-drawer \
   -fm "thunar" \

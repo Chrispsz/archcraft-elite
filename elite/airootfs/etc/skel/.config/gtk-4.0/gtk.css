@@ -1,0 +1,43 @@
+/* Archcraft ELITE · CSD traffic lights — GTK4 (v1.6.1)
+ * ─────────────────────────────────────────────────────────────────────────
+ * O GTK4 SEMPRE desenha os próprios botões (CSD — nenhum protocolo de
+ * decoração no gdk/wayland; fonte: gdksurface-wayland.c). Este css
+ * pinta os windowcontrols com o MESMO trio mac do tema labwc: círculo
+ * colorido sempre visível, glifo escuro no hover, cinza quando a
+ * janela perde o foco (backdrop). Vale para QUALQUER app GTK4 que o
+ * usuário instalar — o css vive no ~/.config/gtk-4.0/ herdado do skel.
+ */
+
+windowcontrols button {
+  min-width: 20px;
+  min-height: 20px;
+  padding: 0;
+  margin: 0 2px;
+  border: none;
+  border-radius: 9999px;
+  box-shadow: none;
+  color: transparent;               /* glifo some no repouso — mac style */
+}
+
+windowcontrols button.close    { background-color: #ff5f57; }
+windowcontrols button.minimize { background-color: #febc2e; }
+windowcontrols button.maximize { background-color: #28c840; }
+
+/* hover/active: glifo escuro (os tons dos PNGs do labwc) */
+windowcontrols button.close:hover, windowcontrols button.close:active          { color: rgba(0,0,0,0.60); }
+windowcontrols button.minimize:hover, windowcontrols button.minimize:active    { color: rgba(0,0,0,0.60); }
+windowcontrols button.maximize:hover, windowcontrols button.maximize:active    { color: rgba(0,0,0,0.60); }
+
+/* janela INATIVA: círculos cinza (o #5b5b60 dos PNGs inativos do labwc) */
+windowcontrols:backdrop button,
+windowcontrols:backdrop button:hover {
+  background-color: #5b5b60;
+  color: transparent;
+}
+
+/* separador entre controles (default Adwaita): fora — trio colado */
+windowcontrols > separator {
+  background: transparent;
+  min-width: 0;
+  margin: 0;
+}
