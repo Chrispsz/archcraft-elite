@@ -232,6 +232,10 @@ jobs:
           printf '#!/bin/sh\ncase "$1" in -r) echo %s;; *) uname "$@";; esac\n' "$KVER" > /tmp/fakebin/uname
           chmod +x /tmp/fakebin/uname
           cp rootfs/etc/calamares/modules/unpackfs.conf /tmp/cal-copytoram/modules/
+          # o if do launch.sh exige /run/archiso/copytoram (o modo de boot da
+          # Elite) — no runner ele não existe: cria o diretório p/ o bloco
+          # rodar LITERALMENTE como roda no live do dono
+          sudo mkdir -p /run/archiso/copytoram
           ( cd /tmp/cal-copytoram && PATH=/tmp/fakebin:$PATH DIR=/tmp/cal-copytoram bash "$LS" >/dev/null 2>&1 ) || true
           # belt-and-suspenders: se o bloco não reescreveu (upstream mudou o if),
           # aplica os seds à mão com os padrões LIDOS do launch.sh
