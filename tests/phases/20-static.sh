@@ -3,39 +3,29 @@
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/core.sh"
 phase_start 2 "QUALIDADE ESTÁTICA — a tampa da caixa"
 
+# v1.6.2 — lista GLOB-DRIVEN ANCORADA EM $REPO (idêntica ao job lint do
+# build.yml): a enumeração manual estava DESATUALIZADA desde a v1.4
+# (craft-connect, craft-fix-keys, craft-pin-pick — e o craft-idle novo —
+# fora dela; o CI pega tudo pelo glob craft-*, a suíte local não via
+# NADA disso: era a brecha por onde o SC1090 passou). Anchored-glob =
+# mesma semântica do CI, imune ao cwd, nunca mais des sincroniza.
+shopt -s nullglob
 SHELLS=(
-  scripts/apply-overlay.sh
-  scripts/qemu-boot-test.sh
-  scripts/log-forensics.sh
-  .ci/build.sh
-  elite/fragments/elite-customize.sh
-  elite/airootfs/usr/local/bin/elite-tune
-  elite/airootfs/usr/local/bin/fg-booster
-  elite/airootfs/usr/local/bin/elite-status
-  elite/airootfs/usr/local/bin/craft-hello
-  elite/airootfs/usr/local/bin/craft-update
-  elite/airootfs/usr/local/bin/craft-clean
-  elite/airootfs/usr/local/bin/craft-rollback
-  elite/airootfs/usr/local/bin/craft-lock
-  elite/airootfs/usr/local/bin/craft-logout
-  elite/airootfs/usr/local/bin/craft-shot
-  elite/airootfs/usr/local/bin/craft-bat
-  elite/airootfs/usr/local/bin/craft-drawer
-  elite/airootfs/usr/local/bin/craft-power
-  elite/airootfs/usr/local/bin/craft-pin
-  elite/airootfs/etc/skel/.config/labwc/autostart
-  tests/run-tests.sh
-  tests/lib/core.sh
-  tests/lib/setup.sh
-  tests/lib/ns-body.sh
-  tests/phases/10-env.sh tests/phases/20-static.sh tests/phases/30-unit.sh
-  tests/phases/40-integration.sh tests/phases/50-release.sh tests/phases/60-verdict.sh
+  "$REPO"/scripts/*.sh
+  "$REPO"/.ci/*.sh
+  "$REPO"/elite/fragments/*.sh
+  "$REPO"/elite/airootfs/usr/local/bin/*
+  "$REPO"/elite/airootfs/etc/skel/.config/labwc/autostart
+  "$REPO"/tests/run-tests.sh
+  "$REPO"/tests/lib/*.sh
+  "$REPO"/tests/phases/*.sh
 )
+shopt -u nullglob
 
 # peças: sintaxe — bash -n em tudo (a suíte testa a si mesma: peças 7-12)
 bashn=0; bashfail=0
 for s in "${SHELLS[@]}"; do
-  if bash -n "$REPO/$s" 2>/dev/null; then bashn=$((bashn+1)); else bashfail=$((bashfail+1)); echo "    sintaxe ruim: $s" >&2; fi
+  if bash -n "$s" 2>/dev/null; then bashn=$((bashn+1)); else bashfail=$((bashfail+1)); echo "    sintaxe ruim: $s" >&2; fi
 done
 assert_eq "$bashfail" "0" "bash -n: $bashn/${#SHELLS[@]} scripts parseiam (repo + a própria suíte)"
 
@@ -43,10 +33,10 @@ assert_eq "$bashfail" "0" "bash -n: $bashn/${#SHELLS[@]} scripts parseiam (repo 
 if command -v shellcheck >/dev/null 2>&1; then
   sc_log="$WORK/shellcheck.log"; : > "$sc_log"
   for s in "${SHELLS[@]}"; do
-    shellcheck -S warning -x "$REPO/$s" >> "$sc_log" 2>&1 || true
+    shellcheck -S warning -x "$s" >> "$sc_log" 2>&1 || true
   done
   # o lint cobre também os mocks/extract gerados (padrão de qualidade da suíte)
-  assert_eq "$(wc -l < "$sc_log")" "0" "shellcheck: 0 avisos em ${#SHELLS[@]} scripts (gate do CI)"
+  assert_eq "$(wc -l < "$sc_log")" "0" "shellcheck: 0 avisos em ${#SHELLS[@]} scripts (gate do CI — mesma lista do build.yml, glob-driven)"
 else
   skip "shellcheck: gate do CI" "binário ausente neste ambiente — o job de lint no GitHub o executa"
 fi
@@ -90,27 +80,18 @@ assert_grep "$LF" 'exit 1' "v1.5.2: forense sai 1 em achado fatal"
 # atinge o start-limit default). Presença do pacote = contrato de BUILD.
 assert_grep "$REPO/elite/packages.add" '^xdotool$' "v1.5.2: xdotool em packages.add (fg-booster — debloat v4.2 o varreu)"
 
-# peças: bits executáveis onde o runtime exige
-for x in \
-  elite/airootfs/usr/local/bin/elite-tune \
-  elite/airootfs/usr/local/bin/fg-booster \
-  elite/airootfs/usr/local/bin/elite-status \
-  elite/airootfs/usr/local/bin/craft-hello \
-  elite/airootfs/usr/local/bin/craft-update \
-  elite/airootfs/usr/local/bin/craft-clean \
-  elite/airootfs/usr/local/bin/craft-rollback \
-  elite/airootfs/usr/local/bin/craft-lock \
-  elite/airootfs/usr/local/bin/craft-logout \
-  elite/airootfs/usr/local/bin/craft-drawer \
-  elite/airootfs/usr/local/bin/craft-power \
-  elite/airootfs/usr/local/bin/craft-shot \
-  elite/airootfs/usr/local/bin/craft-bat \
-  elite/airootfs/usr/local/bin/craft-pin \
-  elite/airootfs/etc/skel/.config/labwc/autostart \
-  scripts/apply-overlay.sh \
-  scripts/qemu-boot-test.sh
-do
-  [[ -x "$REPO/$x" ]] && ok "exec: $x" || fail "exec: $x" "sem bit de execução"
+# peças: bits executáveis onde o runtime exige — GLOB-DRIVEN (v1.6.2:
+# a lista manual tinha o mesmo buraco da SHELLS — craft-connect/fix-keys/
+# pin-pick/idle fora dela; o craft-idle nasceu 100644 no git e ninguém viu)
+shopt -s nullglob
+EXECBINS=(
+  "$REPO"/elite/airootfs/usr/local/bin/*
+  "$REPO"/elite/airootfs/etc/skel/.config/labwc/autostart
+  "$REPO"/scripts/*.sh
+)
+shopt -u nullglob
+for x in "${EXECBINS[@]}"; do
+  [[ -x "$x" ]] && ok "exec: ${x#"$REPO"/}" || fail "exec: ${x#"$REPO"/}" "sem bit de execução"
 done
 
 # peças: higiene — sem CRLF, shebang presente
@@ -120,16 +101,21 @@ for s in "${SHELLS[@]}" "$REPO"/.github/workflows/*.yml; do
 done
 assert_eq "$crlf" "0" "higiene: 0 arquivos com CRLF"
 
+# v1.6.2 — contagem DINÂMICA (era "14" hardcoded, já eram 17): o shebang
+# é exigido em TODO binário que existir, não numa foto antiga do diretório
+bins=( "$REPO"/elite/airootfs/usr/local/bin/* )
 sheb=0
-for x in elite-tune fg-booster elite-status craft-hello craft-update craft-clean \
-         craft-rollback craft-lock craft-logout craft-shot craft-bat \
-         craft-drawer craft-power craft-pin; do
-  head -1 "$REPO/elite/airootfs/usr/local/bin/$x" | grep -q '^#!' && sheb=$((sheb+1))
+for x in "${bins[@]}"; do
+  head -1 "$x" | grep -q '^#!' && sheb=$((sheb+1))
 done
-assert_eq "$sheb" "14" "higiene: shebang nos 14 binários do airootfs"
+assert_eq "$sheb" "${#bins[@]}" "higiene: shebang em TODOS os ${#bins[@]} binários do airootfs (contagem dinâmica)"
 head -1 "$REPO/elite/airootfs/etc/skel/.config/labwc/autostart" | grep -q '^#!/bin/sh' \
   && ok "higiene: autostart do labwc é POSIX sh com shebang" \
   || fail "autostart do labwc" "shebang #!/bin/sh ausente"
+
+# (v1.6.2 — o gate de lint acima — loop sobre a SHELLS agora GLOB-driven —
+#  É o mesmo conjunto do job lint do build.yml; o SC1090 do craft-idle
+#  passava pela suíte porque a lista manual estava desatualizada)
 
 # ── peças: units systemd embarcadas (parse INI de verdade — typo não passa) ──
 U="$REPO/elite/airootfs/etc/systemd/system"

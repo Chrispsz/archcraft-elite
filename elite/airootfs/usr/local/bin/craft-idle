@@ -30,6 +30,8 @@ CONF="$CONF_DIR/idle.conf"
 # Defaults da ISO (10 min lock · 15 min apagar) — o conf sobrescreve
 LOCK_MIN=10
 OFF_MIN=15
+# shellcheck disable=SC1090  # caminho dinâmico POR DESIGN: é o conf do
+# usuário (~/.config/elite/idle.conf) — o ajuste sem relogin da v1.6.1
 [ -r "$CONF" ] && . "$CONF"
 
 # ── start: a receita inteira do swayidle num lugar só ────────────────────
