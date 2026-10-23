@@ -9,19 +9,21 @@
 # (waybar config.top) + DOCK flutuante na base (waybar config.dock),
 # Launchpad (nwg-drawer via craft-drawer) e wallpaper de imagem.
 
-# --- Wallpaper: v1.7 — FRACTAL LUMINOSO (gerado para o ELITE) -------------
-#     Conceito novo (pedido do dono: "qualidade máxima e melhor em
-#     monitores IPS"): flor de fractal em fitas de luz violeta/mauve
-#     sobre fundo plum PROFUNDO — sem preto esmagado (0% de pixels
-#     (0,0,0): no IPS o preto puro vira cinza morto; o floor elevado
-#     (p1≈13/255) parece intencional em QUALQUER painel). 3840x2160
-#     (upscale Lanczos de 2048x1152 nativo) + UnsharpMask leve + grão
-#     fino determinístico (±2 níveis) que mata o banding de gradiente
-#     no IPS. PNG lossless, gerado por IA PARA o projeto (sem licença
-#     de terceiros — a curadoria "internet" da v1.3 saiu de cena).
-#     Fallback: preto.
+# --- Wallpaper: v1.7.1 — CURADORIA DA INTERNET (decisão do dono) ----------
+#     "Eu queria um wallpaper da internet mesmo, esses gerados são muito
+#     ruim" — o experimento IA da v1.7 saiu de cena. Fonte: Unsplash
+#     (licença Unsplash — uso livre, sem atribuição obrigatória),
+#     abstrato 3D de ondas de seda roxo/preto. Nativo 3000x1688 →
+#     3840x2160 (Lanczos + UnsharpMask leve), JPEG q93 = 0.43 MB (o PNG
+#     de 10.7 MB da v1.7 engordava a ISO ~19 MB no squashfs). Métricas
+#     medidas e contratos na suíte: 0.24% de preto puro (não esmaga o
+#     IPS), luma média 32.6 (dark premium), strip do topo luma 5.7 <<
+#     média (a menu bar assenta em zona escura — texto branco legível).
+#     Fallback: wallpaper.png (legado/custom do usuário) → preto.
 if command -v swaybg >/dev/null 2>&1; then
-    if [ -r "$HOME/.config/labwc/wallpaper.png" ]; then
+    if [ -r "$HOME/.config/labwc/wallpaper.jpg" ]; then
+        swaybg -m fill -i "$HOME/.config/labwc/wallpaper.jpg" &
+    elif [ -r "$HOME/.config/labwc/wallpaper.png" ]; then
         swaybg -m fill -i "$HOME/.config/labwc/wallpaper.png" &
     else
         # sem imagem (ex.: skel parcial): preto AMOLED, zero decodificação
@@ -36,7 +38,19 @@ fi
 #     vigia as duas barras, reinicia em ≤5s e guarda o stderr em
 #     ~/.cache/elite/bars.log (teto 1 MiB) — fim da sessão muda, e se o
 #     waybar morrer de novo o log traz a mensagem EXATA dele.
-if command -v waybar >/dev/null 2>&1 && [ -x /usr/local/bin/craft-bars ]; then
+#     v1.7.1 — FIM DO SILÊNCIO DO GUARD: se o binário do waybar não
+#     existir no squashfs ou o craft-bars estiver sem +x, o guard abaixo
+#     falhava SEM NENHUM rastro (a classe "subiu só o wallpaper" que
+#     atravessou v1.6.2→v1.7.0). Agora TUDO que decide as barras deixa
+#     rastro no MESMO bars.log do supervisor.
+BARLOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/bars.log"
+if ! command -v waybar >/dev/null 2>&1; then
+    mkdir -p "${BARLOG%/*}" 2>/dev/null
+    printf '[%s] AUTOSTART: binário waybar AUSENTE no sistema — barras NÃO sobem (guard)\n' "$(date '+%F %T')" >>"$BARLOG" 2>/dev/null
+elif [ ! -x /usr/local/bin/craft-bars ]; then
+    mkdir -p "${BARLOG%/*}" 2>/dev/null
+    printf '[%s] AUTOSTART: craft-bars ausente/sem bit de execução — barras NÃO sobem (guard)\n' "$(date '+%F %T')" >>"$BARLOG" 2>/dev/null
+else
     craft-bars &
 fi
 

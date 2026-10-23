@@ -6,6 +6,54 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **v1.7.1 (local, ainda sem release) — "a sessão que o CI nunca viu" +
+  wallpaper da internet (burn test da v1.7.0, fotos do dono 23/out)**:
+  o dono bootou a v1.7.0 e o desktop subiu DE NOVO só com o wallpaper
+  (sem menu bar, sem dock) — a MESMA classe da v1.6.2. As 5 fotos de
+  hoje provaram o resto: o instalador da v1.7 FUNCIONA (8%, "Filling
+  up filesystems" — a classe do `${kv}` morreu de verdade) e o lock
+  está são; o que morre é a SESSÃO. Curas, com contrato:
+  - **(A) O GATE DO CI ENTRA NA SESSÃO GRÁFICA**: o verify boota a ISO
+    e parava no LOGIN — a classe "barras mortas" era invisível por
+    construção. Agora o **`elite-session-probe.service`** (system,
+    WantedBy=graphical.target, ExecStartPre sleep 60) roda
+    **`elite-session-probe`** 60s após o target: colhe
+    WAYBAR_COUNT/SWAYNC_COUNT/BARS_EXITS/BARS_RESTARTS, os processos
+    waybar vivos, o tail do bars.log de todos os usuários, memória e
+    versões — e imprime um bloco MARCADO (ELITE_PROBE_BEGIN/END) no
+    console (= serial no QEMU) e no journal. O **build.yml (verify)**
+    e o **qemu-boot-test.sh** esperam o bloco e COBRAM:
+    `WAYBAR_COUNT ≥ 2` e `BARS_EXITS = 0` — sessão de pé sem as duas
+    barras = CI VERMELHO ANTES da ISO. Probe ausente (QEMU headless
+    sem sessão) = informativo honesto, sem falso vermelho. Inofensivo
+    no rig real: one-shot, sem escrita, exit 0 sempre (nunca vira
+    unidade failed — o gate "nenhuma unidade em failed" não mente).
+  - **(B) FIM DO SILÊNCIO DO GUARD**: o guard do autostart
+    (`command -v waybar && [ -x craft-bars ]`) falhava SEM NENHUM
+    rastro — waybar ausente no squashfs ou craft-bars 0644 = zero
+    barras e zero evidência. Agora cada ramo do guard escreve no
+    MESMO `~/.cache/elite/bars.log` do supervisor (com hora), e o
+    **craft-bars registra o EXIT CODE de cada morte** (`waybar %s
+    SAIU exit=%d` — 0 = morte limpa, ≠0 = crash, 137 = OOM killer):
+    a "morte calada" deixou de existir como categoria.
+  - **(C) WALLPAPER: volta a curadoria da INTERNET** (dono: "eu queria
+    um wallpaper da internet mesmo, esses gerados são muito ruim"). O
+    fractal IA da v1.7 saiu; entra abstrato 3D REAL da internet
+    (Unsplash, licença de uso livre): ondas de seda roxo/preto,
+    3000×1688 nativo → 3840×2160 (Lanczos + UnsharpMask), **JPEG q93 =
+    0.43 MB** (o PNG 10.7 MB custava +19 MB de ISO — higiene volta com
+    contrato de teto 2 MiB). Métricas medidas: 0.24% de (0,0,0) (o
+    cuidado IPS da v1.7 sobrevive), luma média 32.6, topo luma 5.7 <<
+    média (menu bar assenta em zona escura). Contratos: sha256
+    anti-tamper do arquivo + mime real + largura 4K + faixas de luma.
+    Fallback em cadeia: wallpaper.jpg → wallpaper.png (custom do
+    usuário) → preto. Curadoria alternativa (3 candidatos avaliados e
+    rejeitados/backup) guardada fora da ISO.
+  - **(D) Suíte**: contratos novos para TODAS as camadas acima (probe
+    + service + symlink do wants + guard logging + exit code +
+    apply-overlay 0755 + gates greppando o bloco) e wallpaper
+    re-ancorado. Executada localmente: GO.
+
 - **v1.7 (main) — "não aceito nada além da perfeição": o pacote completo
   do burn test da v1.6.2 + os pedidos de UX do dono** (fotos e relato,
   out/2026). v1.6.3 nunca foi releaseada — todo o seu conteúdo entra

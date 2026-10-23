@@ -33,7 +33,16 @@ ensure() {
     # $1=nome  $2=config  $3=css
     if ! pgrep -f "waybar -c $2" >/dev/null 2>&1; then
         printf '[%s] waybar %s FORA — reiniciando\n' "$(date '+%F %T')" "$1" >>"$LOG"
-        waybar -c "$2" -s "$3" >>"$LOG" 2>&1 &
+        # v1.7.1 — EXIT CODE COMO EVIDÊNCIA: a v1.6.3 capturava o stderr,
+        # mas morte LIMPA (exit 0) ou sinal não escrevem stderr nenhum —
+        # "morreu calada" continuava possível. Agora TODA saída do waybar
+        # deixa linha com hora e exit code (0 = morte limpa; ≠0 = crash;
+        # 137 = OOM killer — o gate do CI grepa BARS_EXITS no probe).
+        (
+            waybar -c "$2" -s "$3" >>"$LOG" 2>&1
+            st=$?
+            printf '[%s] waybar %s SAIU exit=%d\n' "$(date '+%F %T')" "$1" "$st" >>"$LOG"
+        ) &
     fi
 }
 

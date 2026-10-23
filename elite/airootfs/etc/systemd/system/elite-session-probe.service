@@ -1,0 +1,22 @@
+[Unit]
+Description=Elite session probe — evidência da sessão gráfica p/ o gate de CI
+Documentation=man:elite-session-probe(8)
+# POR QUÊ EXISTE: o gate do CI parava no LOGIN e nunca via a sessão — a
+# classe "barras mortas" (v1.6.2→v1.7.0) atravessou 3 releases invisível.
+# Este unit dispara o probe 60s após o graphical.target, quando o SDDM
+# autologin + labwc + autostart (craft-bars, swaync) já subiram e estabilizaram.
+After=graphical.target
+
+[Service]
+Type=oneshot
+TimeoutStartSec=180
+# 60s: janela de estabilização. O waybar que vai morrer por condição de
+# arranque (race/recurso) já morreu e já foi reiniciado pelo craft-bars
+# (loop de 5s) — o probe enxerga o estado REAL, não o instantâneo do spawn.
+ExecStartPre=/bin/sleep 60
+ExecStart=/usr/local/bin/elite-session-probe
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=graphical.target
