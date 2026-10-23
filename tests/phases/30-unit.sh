@@ -100,11 +100,11 @@ BY="$REPO/.github/workflows/build.yml"
 # build, release, verify — runner image é superfície de risco p/ o build
 # privilegiado, o release e o QEMU do gate); relay-agents (só dispatch da
 # API) fica no ubuntu-latest; verify-install (v1.0.5) é workflow_call — o
-# runs-on mora no diag-install.yml reutilizado, também 24.04
+# runs-on mora no verify-install.yml (ex-diag-install) reutilizado, também 24.04
 assert_eq "$(grep -c 'runs-on: ubuntu-24.04' "$BY")" "4" "contrato: build.yml — 4 jobs pinados em ubuntu-24.04 (lint/build/release/verify)"
 assert_grep "$BY" 'needs: \[build, verify, verify-install\]' "contrato: release SÓ depois do gate de boot E do gate de instalação (v1.0.5)"
 assert_grep "$BY" 'verify-install:' "contrato: job verify-install presente (install-gate no pipeline)"
-assert_grep "$BY" 'uses: \./\.github/workflows/diag-install\.yml' "contrato: install-gate reusa o diag-install.yml (workflow_call — zero duplicação)"
+assert_grep "$BY" 'uses: \./\.github/workflows/verify-install\.yml' "contrato: install-gate reusa o verify-install.yml (workflow_call — zero duplicação)"
 assert_grep "$BY" "code=203/EXEC" "contrato: gate verifica 203/EXEC (binários executáveis no live)"
 assert_grep "$BY" 'gh workflow run agents\.yml' "contrato: relay dispara mimo/deepseek pós-build"
 assert_grep "$BY" 'split -b 1900M -d "\$ISO" "\$\{ISO\}\.part-"' "contrato: split com prefixo aspasado"
@@ -130,16 +130,16 @@ assert_grep "$AY" 'actions: read' "contrato: agents.yml — permissão de ler ru
 # grub.cfg casa TAB (o '(linux|initrd) ' com espaço da v1.0.4 devolvia vazio
 # = falso negativo; a run #2 da branch diag-install morreu nisso sem o
 # bug existir) e o unsquashfs roda com sudo (xattrs security.capability)
-DI="$REPO/.github/workflows/diag-install.yml"
-assert_grep "$DI" 'workflow_call:' "contrato: diag-install.yml é workflow reutilizável (chamável como gate)"
+DI="$REPO/.github/workflows/verify-install.yml"
+assert_grep "$DI" 'workflow_call:' "contrato: verify-install.yml (ex-diag-install) é workflow reutilizável (chamável como gate)"
 assert_grep "$DI" 'sudo unsquashfs' "contrato: unsquashfs com sudo (xattrs exigem root — run #1)"
 assert_grep "$DI" '\(linux\|initrd\)\[\[:space:\]\]' "contrato: grep de entradas do grub.cfg casa TAB ([[:space:]])"
 # v1.1: kernel único BORE — o pre-flight troca o check do linux.preset (E6b
 # aposentado) pelo check do dkms nvidia (E11); o [6b/8] roda o MESMO detector
 # de vendor do shellprocess_btrfs (unknown esperado no QEMU) e os 4 contratos
 # per-rig são greps no YAML que o Calamares real executa
-assert_grep "$DI" 'preset stock PRESENTE \(E6b foi aposentado' "contrato v1.1: diag-install rejeita o preset stock (E6b morto)"
-assert_grep "$DI" 'updates/dkms/nvidia' "contrato v1.1: diag-install confere o dkms nvidia pré-compilado (E11)"
+assert_grep "$DI" 'preset stock PRESENTE \(E6b foi aposentado' "contrato v1.1: verify-install rejeita o preset stock (E6b morto)"
+assert_grep "$DI" 'updates/dkms/nvidia' "contrato v1.1: verify-install confere o dkms nvidia pré-compilado (E11)"
 assert_grep "$DI" '0x10de\) ELITE_GPU=nvidia' "contrato v1.1: detector de vendor do E10 no gate (nvidia)"
 assert_grep "$DI" 'pacman -Rdd --noconfirm nvidia-open-dkms' "contrato v1.1: limpeza AMD do E10 no gate"
 assert_grep "$DI" 'gpu-detect\.txt' "contrato v1.1: artifact gpu-detect.txt (no lugar do mkinitcpio-stock.log)"
@@ -154,7 +154,7 @@ assert_nogrep "$DI" 'mkinitcpio-stock\.log' "contrato v1.1: artifact do kernel s
 assert_grep "$BY" 'run_id: \$\{\{ github\.run_id \}\}' \
   "contrato fix #52: build.yml passa a run corrente ao install-gate (a ISO testada é a desta build)"
 assert_grep "$DI" 'gh run download "\$RUN_ID"' \
-  "contrato fix #52: diag-install baixa o artifact do run_id explícito (input = fonte da verdade)"
+  "contrato fix #52: verify-install baixa o artifact do run_id explícito (input = fonte da verdade)"
 assert_nogrep "$DI" 'GITHUB_EVENT_NAME' \
   "contrato fix #52: o env GITHUB_EVENT_NAME não decide mais a fonte da ISO (nunca era workflow_call)"
 # ordem de precedência documentada: tag (release manual) > run_id (gate) >
@@ -544,5 +544,136 @@ assert_grep "$REPO/.ci/build.sh" '/tmp/elite-baseline/\$\{fu##\*/\}' \
   "contrato bump: baseline baixada com o NOME REAL do pacote (versão preservada p/ o parse — 'elite-2' nunca mais)"
 assert_grep "$REPO/.ci/build.sh" 'options=\(!debug\)' \
   "contrato bump: PKGBUILD do repack com options=(!debug) (sem -debug espúrio no elite-local)"
+
+# ════════════════════════════════════════════════════════════════════
+# v1.5.2 — LIMPEZA + RELAY DOS AGENTES + FORENSE DE LOG + UNITS FALHADAS
+# Diretriz do dono pós-v1.5: "os agentes do repositório devem analisar
+# justamente os logs minuciosamente; esses erros não podem passar ou ser
+# tratados como algo normal". Três buracos sistêmicos fechados de uma vez:
+#   (a) build VERDE com erro silencioso no log — a v1.4 saiu sem
+#       cachyos-keyring com 5 classes fatais ESCRITAS no log;
+#   (b) relay-agents engolia o dispatch quebrado — gh sem --repo caía em
+#       "fatal: not a git repository" e o if/else abafava: ZERO auditorias
+#       desde 20/out;
+#   (c) units em crash-loop passavam pelo gate de boot — fg-booster
+#       falhava 17× no serial da v1.5 (debloat v4.2 varreu o xdotool) e
+#       'Startup finished' não enxerga units falhadas.
+# ════════════════════════════════════════════════════════════════════
+
+# (a) forense de log plugada na build: captura (tee) + gate
+assert_grep "$BY" 'set -o pipefail' "contrato v1.5.2: build com pipefail (docker quebra a pipe, não o tee)"
+assert_grep "$BY" 'bash \.ci/build\.sh 2>&1 \| tee build-output\.log' \
+  "contrato v1.5.2: log da build capturado em build-output.log (evidência, não ruído)"
+assert_grep "$BY" 'scripts/log-forensics\.sh build-output\.log' \
+  "contrato v1.5.2: gate de forense roda no job de build (erro silencioso = run vermelha)"
+
+# (b) relay dos agentes: --repo explícito + falha alta + audita TAMBÉM runs que falharam
+RELAY_SECTION=$(sed -n '/^  relay-agents:/,$p' "$BY")
+assert_match "$RELAY_SECTION" 'needs: \[build, verify, verify-install\]' \
+  "contrato v1.5.2: relay audita o log COMPLETO (depois de todos os gates)"
+assert_match "$RELAY_SECTION" 'if: always\(\)' \
+  "contrato v1.5.2: relay dispara MESMO com gates vermelhos (auditoria é mais valiosa na falha)"
+assert_match "$RELAY_SECTION" '--repo "\$GITHUB_REPOSITORY"' \
+  "contrato v1.5.2: dispatch com --repo explícito (gh sem .git = fatal: causa-raiz do relay morto desde a v1.1)"
+assert_match "$RELAY_SECTION" 'set -euo pipefail' \
+  "contrato v1.5.2: dispatch falhou = job VERMELHO (o 'não derruba a build' engolia infra quebrada em silêncio)"
+assert_nogrep "$BY" 'não derruba a build' \
+  "contrato v1.5.2: o abafador 'não derruba a build' não existe mais no build.yml"
+
+# (c) gates de boot caçam units em failed (live E instalado)
+assert_grep "$BY" "Failed with result" \
+  "contrato v1.5.2: gate do live varre 'Failed with result' (crash-loop caçado)"
+assert_grep "$DI" "Failed with result" \
+  "contrato v1.5.2: gate do instalado varra 'Failed with result' idem"
+
+# fg-booster — a cura da causa-raiz em 3 camadas
+FB="$REPO/elite/airootfs/usr/local/bin/fg-booster"
+FBU="$REPO/elite/airootfs/etc/systemd/system/fg-booster.service"
+assert_grep "$FB" 'xdotool ausente.*exit 0' \
+  "contrato v1.5.2: guard xdotool sai 0 (no-op limpo — nunca mais crash-loop)"
+assert_nogrep "$FB" 'xdotool ausente.*exit 1' \
+  "contrato v1.5.2: guard xdotool NÃO sai 1 (o exit 1 + RestartSec=5 = loop infinito silencioso)"
+assert_grep "$FB" 'fg-boost\.slice ausente.*exit 0' \
+  "contrato v1.5.2: guard do slice sai 0 idem (condição de ambiente ≠ defeito de runtime)"
+assert_grep "$FBU" 'StartLimitIntervalSec=120' \
+  "contrato v1.5.2: unit com janela de start-limit (2min)"
+assert_grep "$FBU" 'StartLimitBurst=3' \
+  "contrato v1.5.2: unit com teto de restart (3 tentativas — exit≠0 nunca mais vira loop infinito)"
+
+# ── 3.M forense de log — teste FUNCIONAL com fixtures (o gate é código,
+# código se testa de verdade: benigno passa, fatal barra, condicional
+# discrimina; a validação de campo foi contra os logs REAIS das runs
+# 39864937531 [v1.5 → limpo] e 39804335535 [v1.4 → 5 fatais]) ─────────
+LF="$REPO/scripts/log-forensics.sh"
+FW="$WORK/forense"; rm -rf "$FW"; mkdir -p "$FW"
+
+# fixture 1: benigno completo (a assinatura do log REAL da v1.5)
+cat > "$FW/benign.log" <<'EOF'
+==> Construindo repo local [elite-local]
+Warning: Problem (retrying all errors). Retrying in 3 seconds.
+curl: (22) The requested URL returned error: 404
+error: failed to commit transaction (error invoking external downloader)
+==>   libyuv quebrado nos 2 mirrors → baseline Arch injetado no [elite-local]
+==>   ELITE-BUMP libyuv r2921+644251f25-1 → r2921+644251f25-2
+/usr/bin/grub-editenv: error: failed to get canonical path of `//boot/grub'.
+/usr/sbin/grub-mkconfig: line 271: /boot/grub/grub.cfg.new: No such file or directory
+error: command failed to execute correctly
+/usr/lib/tmpfiles.d/journal-nocow.conf:26: Failed to resolve specifier: uninitialized /etc/ detected, skipping.
+gpg: Note: third-party key signatures using the SHA1 algorithm are rejected
+Error while writing index for `/usr/bin/pwvucontrol': No debugging symbols
+==> WARNING: Skipping verification of source file PGP signatures.
+==> WARNING: Possibly missing firmware for module: 'ast'
+==> WARNING: /mnt/iso-work/x86_64/airootfs is not a mountpoint. This may have undesirable side effects.
+Cannot start unit with --now when systemd is not running, ignoring.
+Wrap blueprint-compiler.wrap type git not found: blueprint-compiler
+==> Done! customize_airootfs.sh run successfully.
+EOF
+if bash "$LF" "$FW/benign.log" >/dev/null 2>&1; then
+  ok "forense funcional: log benigno (assinatura da v1.5 real) → exit 0"
+else
+  fail "forense funcional: log benigno" "scanner reprovou log limpo (falso positivo!)"
+fi
+
+# fixture 2: os 5 fatais REAIS da v1.4 (log da run 39804335535, build verde)
+cat > "$FW/fatal-v14.log" <<'EOF'
+==> E2: instalando keyring
+error: target not found: cachyos-keyring
+error: target not found: cachyos-v3-mirrorlist
+error: could not determine root mount point /
+error: not enough free disk space
+error: failed to commit transaction (not enough free disk space)
+error: cachyos-extra-v3: signature from "CachyOS <admin@cachyos.org>" is invalid
+error: failed to synchronize all databases (unexpected error)
+E11: módulos nvidia presentes — regenerando initramfs
+EOF
+if bash "$LF" "$FW/fatal-v14.log" >/dev/null 2>&1; then
+  fail "forense funcional: log da v1.4 (5 fatais reais)" "scanner APROVOU o log que queimou o burn test (falso negativo!)"
+else
+  ok "forense funcional: log da v1.4 → exit 1 (os 5 fatais da história, barrados)"
+fi
+
+# fixture 3: downloader SEM recuperação (mirror quebrado sem baseline)
+printf '%s\n' 'error: failed to commit transaction (error invoking external downloader)' > "$FW/dl-sem-cura.log"
+if bash "$LF" "$FW/dl-sem-cura.log" >/dev/null 2>&1; then
+  fail "forense funcional: downloader sem recuperação" "404 de mirror sem baseline passou (deveria ser fatal)"
+else
+  ok "forense funcional: downloader sem recuperação → exit 1 (fatal sem a cura no log)"
+fi
+
+# fixture 4: 'command failed' FORA de contexto grub (hook abortado real)
+printf '%s\n' 'installing some-package...' 'error: command failed to execute correctly' > "$FW/hook-solto.log"
+if bash "$LF" "$FW/hook-solto.log" >/dev/null 2>&1; then
+  fail "forense funcional: hook fora de contexto grub" "hook abortado sem grub por perto passou (deveria ser fatal)"
+else
+  ok "forense funcional: hook fora de contexto grub → exit 1 (a whitelist tem fronteira)"
+fi
+
+# fixture 5: keyring silencioso (a assinatura da dor do dono)
+printf '%s\n' 'error: cachyos-keyring: signature from "CachyOS" is unknown trust' > "$FW/keyring.log"
+if bash "$LF" "$FW/keyring.log" >/dev/null 2>&1; then
+  fail "forense funcional: unknown trust" "a assinatura do burn test do dono passou (deveria ser fatal)"
+else
+  ok "forense funcional: 'is unknown trust' → exit 1 (a dor do burn test, caçada)"
+fi
 
 phase_end
