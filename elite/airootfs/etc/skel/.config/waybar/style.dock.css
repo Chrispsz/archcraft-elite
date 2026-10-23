@@ -112,12 +112,16 @@ window#waybar > box {
 
 /* Separador fixos │ abertos (v2.1): 1px vertical — fronteira do modelo
  * macOS (à esquerda: o que SEMPRE está; à direita: o que está ABERTO)
- * v1.8 — a propriedade GTK4 de largura máxima SAIU: inexistente no GTK3
- * e FATAL no waybar 0.15 (CSS estrito = exit 1 no parse; run #79 do CI:
- * dock "SAIU exit=1" no boot). min-width + width já pinam o 1px. */
+ * v1.8 — as propriedades de largura GTK4 SAIURAM ('max-width' condenada
+ * na run #79 do CI, 'width' na #80): INEXISTENTES no GTK3 CSS — e o
+ * waybar 0.15 trata propriedade desconhecida como FATAL (exit 1 no
+ * parse). O parser aborta no PRIMEIRO erro de cada arquivo — cada boot
+ * revelou só o próximo erro. CURA DEFINITIVA: min-width é o piso (válido
+ * — parseou limpo na #80 antes do erro da linha seguinte) e font-size:1px
+ * encolhe o glifo (o módulo é um espaço " ") → 1px exato, sem glifo. */
 #custom-sep {
   min-width: 1px;
-  width: 1px;
+  font-size: 1px;
   padding: 0;
   margin: 0 6px;
   color: transparent;
