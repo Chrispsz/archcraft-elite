@@ -36,27 +36,27 @@
 
   <!-- root-menu (W-space / W-Menu / clique no desktop) -->
   <menu id="root-menu">
-    <item label="Terminal (foot)">
+    <item label="Terminal (foot)" icon="/usr/share/icons/Papirus/48x48/apps/utilities-terminal.svg">
       <action name="Execute" command="foot" />
     </item>
-    <item label="Navegador">
+    <item label="Navegador" icon="/usr/share/icons/Papirus/48x48/apps/web-browser.svg">
       <action name="Execute" command="sh -c 'for b in brave librewolf chromium thorium-browser qutebrowser; do command -v &quot;$b&quot; &gt;/dev/null &amp;&amp; exec &quot;$b&quot;; done; exec xdg-open https://archlinux.org'" />
     </item>
-    <item label="Arquivos (Thunar)">
+    <item label="Arquivos (Thunar)" icon="/usr/share/icons/Papirus/48x48/apps/system-file-manager.svg">
       <action name="Execute" command="thunar" />
     </item>
-    <item label="Editor (nano)">
+    <item label="Editor (nano)" icon="/usr/share/icons/Papirus/48x48/apps/text-editor.svg">
       <action name="Execute" command="foot -e nano" />
     </item>
     <item label="Leitor de PDF (papers)">
       <action name="Execute" command="papers" />
     </item>
-    <item label="Calculadora (qalculate)">
+    <item label="Calculadora (qalculate)" icon="/usr/share/icons/Papirus/48x48/apps/qalculate.svg">
       <action name="Execute" command="qalculate-gtk" />
     </item>
     <separator />
     <!-- Applications (categorias do criador, versão enxuta do Cockpit) -->
-    <menu id="cockpit-menu" label="Cockpit">
+    <menu id="cockpit-menu" label="Cockpit" icon="/usr/share/icons/Papirus/48x48/apps/preferences-system.svg">
       <item label="craft-hello · overview">
         <action name="Execute" command="craft-hello" />
       </item>
@@ -70,7 +70,7 @@
         <action name="Execute" command="foot -e sudo craft-rollback" />
       </item>
       <separator />
-      <item label="Monitor (btop)">
+      <item label="Monitor (btop)" icon="/usr/share/icons/Papirus/48x48/apps/btop.svg">
         <action name="Execute" command="foot -e btop" />
       </item>
       <item label="Mixer (pwvucontrol)">
@@ -79,13 +79,13 @@
       <item label="Rede (impala)">
         <action name="Execute" command="foot -e impala" />
       </item>
-      <item label="Bluetooth (bluetui)">
+      <item label="Bluetooth (bluetui)" icon="/usr/share/icons/Papirus/48x48/apps/blueman.svg">
         <action name="Execute" command="foot -e bluetui" />
       </item>
-      <item label="Aparência GTK (nwg-look)">
+      <item label="Aparência GTK (nwg-look)" icon="/usr/share/icons/Papirus/48x48/apps/nwg-look.svg">
         <action name="Execute" command="nwg-look" />
       </item>
-      <item label="Arquivos compactados (7z)">
+      <item label="Arquivos compactados (7z)" icon="/usr/share/icons/Papirus/48x48/apps/7zip.svg">
         <action name="Execute" command="foot -e 7z" />
       </item>
     </menu>
@@ -94,7 +94,7 @@
     <item label="Reconfigure (W-S-r)">
       <action name="Reconfigure" />
     </item>
-    <item label="Aplicativos (Launchpad)">
+    <item label="Aplicativos (Launchpad)" icon="/usr/share/icons/Papirus/48x48/apps/preferences-desktop.svg">
       <action name="Execute" command="craft-drawer" />
     </item>
     <!-- v1.4: fixar apps na dock no fluxo mouse-first (burn test: o
@@ -102,17 +102,17 @@
     <item label="Fixar app na dock…">
       <action name="Execute" command="craft-pin-pick" />
     </item>
-    <item label="Lock (W-l)">
+    <item label="Lock (W-l)" icon="/usr/share/icons/Papirus/24x24/actions/system-lock-screen.svg">
       <action name="Execute" command="craft-lock" />
     </item>
-    <item label="Sessão (menu gráfico)">
+    <item label="Sessão (menu gráfico)" icon="/usr/share/icons/Papirus/24x24/actions/system-shutdown.svg">
       <action name="Execute" command="craft-power" />
     </item>
     <separator />
-    <item label="Reboot">
+    <item label="Reboot" icon="/usr/share/icons/Papirus/24x24/actions/system-reboot.svg">
       <action name="Execute" command="systemctl reboot" />
     </item>
-    <item label="Desligar">
+    <item label="Desligar" icon="/usr/share/icons/Papirus/24x24/actions/system-shutdown.svg">
       <action name="Execute" command="systemctl poweroff" />
     </item>
     <item label="Encerrar labwc">

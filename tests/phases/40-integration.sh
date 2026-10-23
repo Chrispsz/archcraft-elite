@@ -154,7 +154,7 @@ assert_file "$P/airootfs/etc/skel/.config/fuzzel/fuzzel.ini" "v1.0.3: fuzzel con
 # Dock (waybar 2ª instância): launchers fixos + janelas abertas com ícones
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"wlr/taskbar"' "v1.0.4: dock tem taskbar (janelas abertas — wlr-foreign-toplevel nativo do labwc)"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"custom/drawer"' "v1.0.4: dock tem botão Launchpad"
-assert_grep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"image#web"' "v1.0.4/v1.5: dock tem launcher do navegador (image#web — Brave fixado no centro)"
+assert_grep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"custom/web"' "v1.0.4/v1.6: dock tem launcher do navegador (custom/web — Brave fixado no centro, fix waybar #5051)"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"icon-size": 40' "v1.0.4: ícones grandes no dock (estilo dock)"
 assert_nogrep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"tray"' "v1.0.4: dock SEM tray (SNI watcher único — tray fica na barra do topo)"
 # v1.1→v1.4: pins do usuário (craft-pin) — a seção PINS viaja na ISO
@@ -201,7 +201,7 @@ CD="$P/airootfs/etc/skel/.config/waybar/config.dock"
 assert_grep "$CT" '"modules-center": \["clock"\]' "v2.1: relógio no CENTRO da barra (diretriz do dono)"
 assert_grep "$CT" '"fixed-center": true' "v1.5: fixed-center (centro EXATO independente dos lados)"
 assert_nogrep "$CT" '"custom/menu"' "v1.5: lançador ARCH FORA do canto esquerdo (spec do dono — o Launchpad vive na dock)"
-assert_grep "$CT" '"modules-left": \["wlr/window"\]' "v1.5: esquerda = SÓ o nome do app focado (canto limpo)"
+assert_grep "$CT" '"modules-left": \["custom/drawer", "wlr/window"\]' "v1.6: ARCH à esquerda + nome do app focado (o pedido de volta do dono)"
 assert_grep "$CT" '"format": "\{icon\}"' "v2.1: áudio em modo ícone"
 assert_nogrep "$CT" '"format": "\{volume\}' "v2.1: SEM porcentagem numérica no áudio (o '40%')"
 assert_grep "$CT" '"custom/power"' "v2.1: power visível no canto direito da barra"
@@ -215,23 +215,27 @@ for pair in 'drawer:\\uf303' 'shot:\\uf0c4'; do
 done
 assert_nogrep "$CD" '\\u[0-9a-fA-F]{5,}' "v2.1: nenhum escape de 5+ hex (SMP trap: parseia como 4-hex + dígito)"
 assert_nogrep "$CT" '\\u[0-9a-fA-F]{5,}' "v2.1: idem no config.top"
-# v1.5: apps fixados por ÍCONE REAL (módulo image — o custom só ganha imagem
-# no master pós-0.15, PR #5069): path+size+on-click, tooltip na 2ª linha do exec
-for imgmod in term files web; do
-  assert_grep "$CD" "\"image#${imgmod}\"" "v1.5: dock image#${imgmod} (pin com ícone REAL — visível com app fechado)"
+# v1.6: apps fixados por GLIFO Nerd Font (fix do burn test v1.5 — o waybar
+# 0.15.0 crasha em silêncio com 3+ módulos image: issue upstream
+# Alexays/Waybar#5051, race de realization; fix só no master). O modelo
+# v1.4 (glifo) é o robusto — zero pixbuf, zero race.
+for pinmod in 'term:\\uf489' 'files:\\uf07c' 'web:\\uf292'; do
+  m=${pinmod%%:*}; g=${pinmod##*:}
+  assert_grep "$CD" "\"custom/${m}\"" "v1.6: dock custom/${m} (pin por glifo — fix waybar #5051)"
+  assert_grep "$CD" "\"format\": \"${g}\"" "v1.6: glifo do pin ${m} (escape \\uXXXX)"
 done
-assert_grep "$CD" '"on-click": "brave"' "v1.5: Brave fixado no CENTRO da dock (image#web → navegador padrão)"
+assert_nogrep "$CD" '"image#' "v1.6: NENHUM módulo image na dock (3+ = crash silencioso — waybar #5051)"
+assert_grep "$CD" '"on-click": "brave"' "v1.5/v1.6: Brave fixado no CENTRO da dock (custom/web → navegador padrão)"
 assert_grep "$CD" '"on-click": "thunar"' "v1.5: Arquivos = Thunar (FM padrão da spec)"
 assert_grep "$CD" '"on-click": "foot"' "v1.5: Terminal fixado (foot)"
-assert_grep "$CD" 'pixmaps/elite/terminal.png' "v1.5: ícone do terminal = PNG do overlay (96px determinístico)"
-assert_grep "$CD" 'pixmaps/elite/files.png' "v1.5: ícone do Thunar = PNG do overlay"
-assert_grep "$CD" 'pixmaps/elite/web.png' "v1.5: ícone do Brave = PNG do overlay (logo OFICIAL product_logo)"
+assert_nogrep "$CD" 'pixmaps/elite' "v1.6: dock sem PNGs de pixmaps (glifos — os image# saíram junto)"
 assert_nogrep "$CD" '"custom/editor"' "v1.5: botão editor (helix) saiu da dock junto com o pacote"
 assert_nogrep "$CD" 'foot -e yazi|foot -e helix' "v1.5: nenhum launch de app extinto na dock"
-# CSS: seletor #image.<id> (fonte waybar: box_.set_name("image")+add_class(id))
-assert_grep "$P/airootfs/etc/skel/.config/waybar/style.dock.css" '#image\.term' "v1.5: CSS #image.term (seletor nome+classe do módulo image)"
-assert_grep "$P/airootfs/etc/skel/.config/waybar/style.dock.css" '#image\.web:hover' "v1.5: hover dos pins = pílula surface0 (pixbuf não escala por CSS)"
-assert_grep "$CD" '"size": 36' "v1.5: pins a 36px (dock de ícones grandes)"
+# CSS v1.6: seletor #custom-<id> + zoom 30→36px no hover (a "magnificação")
+assert_grep "$P/airootfs/etc/skel/.config/waybar/style.dock.css" '#custom-term' "v1.6: CSS #custom-term (glifo 30px)"
+assert_grep "$P/airootfs/etc/skel/.config/waybar/style.dock.css" '#custom-web:hover' "v1.6: hover do Brave = zoom 36px + pílula surface0"
+assert_grep "$P/airootfs/etc/skel/.config/waybar/style.dock.css" 'font-size: 30px' "v1.6: pins a 30px de base (zoom p/ 36 no hover)"
+assert_grep "$P/airootfs/etc/skel/.config/waybar/style.dock.css" '#custom-web { color: @peach; }' "v1.6: Brave em PEACH (cor da marca) mesmo com glifo"
 # Dock: grupo ÚNICO central (fixados + abertos), sem lock/power
 assert_grep "$CD" '"modules-center": \[' "v2.1: dock tem grupo central"
 assert_grep "$CD" '"custom/sep"' "v2.1: separador fixos│abertos no grupo central"
@@ -285,9 +289,56 @@ assert_grep "$REPO/scripts/apply-overlay.sh" 'craft-pin-pick' "v1.4: craft-pin-p
 # ── v1.0.4 RICE PRÓPRIO: themerc-override (fim do tema fantasma) ────────
 assert_file "$P/airootfs/etc/skel/.config/labwc/themerc-override" "v1.0.4: themerc-override no skel (rice próprio — zero dependência de tema OB)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/themerc-override" 'window.active.border.color: #cba6f7' "v1.0.4: borda de janela ativa MAUVE (assinatura do rice)"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/themerc-override" '#a6e3a1' "v1.0.4: traffic lights — iconify green"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/themerc-override" '#f9e2af' "v1.0.4: traffic lights — max yellow"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/themerc-override" '#f38ba8' "v1.0.4: traffic lights — close red"
+# v1.6: traffic lights com as cores REAIS do macOS (o mapeamento anterior
+# tinha iconify=verde/max=amarelo — INVERTIDO vs macOS; o dono pediu "estilo
+# macos": iconify=amarelo #febc2e, max=verde #28c840, close=vermelho #ff5f57).
+# Os círculos agora são PNGs do tema Archcraft-Elite (fallback XBM segue).
+assert_grep "$P/airootfs/etc/skel/.config/labwc/themerc-override" '#febc2e' "v1.6: traffic light — iconify AMARELO (correção do macOS)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/themerc-override" '#28c840' "v1.6: traffic light — max VERDE (correção do macOS)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/themerc-override" '#ff5f57' "v1.6: traffic light — close VERMELHO (correção do macOS)"
+
+# ════════════════════════════════════════════════════════════════════
+# v1.6 — BURN TEST v1.5 DO DONO: instalador curado + botões mac + keyring
+# Forense com fonte primária (log termbin do Calamares + ISO extraída +
+# código upstream): o launch.sh do Archcraft reescreve o unpackfs.conf no
+# copytoram com padrão que casa como PREFIXO do kernel BORE → source
+# inexistente → "Configuração incorreta do unpackfs" no rig real.
+# ════════════════════════════════════════════════════════════════════
+ECF="$REPO/elite/fragments/elite-customize.sh"
+VIY="$REPO/.github/workflows/verify-install.yml"
+# E5a2: o patch do launch.sh (a cura do instalador)
+assert_grep "$ECF" 'boot/x86_64/vmlinuz-linux-cachyos-bore' "v1.6: E5a2 alinha o padrão do launch.sh ao kernel BORE (fix do unpackfs)"
+assert_grep "$ECF" 'x86_64/vmlinuz-linux-cachyos-bore\|/usr/lib/modules' "v1.6: E5a2 mira o replacement canônico (/usr/lib/modules/$KERNEL/vmlinuz)"
+assert_grep "$ECF" 'E5a2: launch.sh' "v1.6: E5a2 loga a aplicação (auditável no log da build)"
+# GATE copytoram no verify-install (o gate que faltava — a v1.5 passou nos
+# gates e quebrou no rig: ninguém simulava o rewrite do launch.sh)
+assert_grep "$VIY" 'launch-copytoram.sh' "v1.6: gate extrai o bloco copytoram do launch.sh real"
+assert_grep "$VIY" 'fakebin/uname' "v1.6: gate com uname FALSO (kver da ISO, não o do runner)"
+assert_grep "$VIY" 'regressão v1.5 morta' "v1.6: gate valida TODOS os sources do conf reescrito"
+assert_grep "$VIY" 'vmlinuz-linux-cachyos-bore\|/usr/lib/modules' "v1.6: gate rejeita launch.sh sem o padrão BORE"
+# Botões macOS: tema com PNGs + layout à direita (posição windows)
+TH="$P/airootfs/usr/share/themes/Archcraft-Elite/labwc"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" '<name>Archcraft-Elite</name>' "v1.6: rc.xml aponta pro tema Elite (assets de botões)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" '<layout>icon:iconify,max,close</layout>' "v1.6: botões à DIREITA em ordem Windows (estilo mac, posição windows)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" '<showIcons>yes</showIcons>' "v1.6: menu raiz com ícones (labwc 0.8.3+)"
+for png in close-active iconify-active max-active close_hover-active iconify_hover-active max_hover-active close-inactive max_toggled-active; do
+  assert_file "$TH/${png}.png" "v1.6: asset ${png}.png no tema (traffic lights mac)"
+done
+assert_grep "$P/airootfs/etc/skel/.config/labwc/themerc-override" 'window.button.width: 24' "v1.6: célula do botão 24px (círculo 12px mac)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/themerc-override" 'window.button.hover.bg.color: #00000000' "v1.6: overlay de hover OFF (o glifo mora no PNG)"
+# Menu com ícones (Papirus verificado no squashfs da v1.5)
+assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'icon="/usr/share/icons/Papirus/48x48/apps/utilities-terminal.svg"' "v1.6: item Terminal com ícone Papirus"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'icon="/usr/share/icons/Papirus/24x24/actions/system-shutdown.svg"' "v1.6: itens de sessão com ícone (actions)"
+# craft-power com ícones no dmenu (protocolo NUL+icon+US — pipe direto)
+assert_grep "$P/airootfs/usr/local/bin/craft-power" 'printf .%s.0icon' "v1.6: craft-power com protocolo de ícones do dmenu (NUL+icon+US)"
+assert_grep "$P/airootfs/usr/local/bin/craft-power" 'system-lock-screen.svg' "v1.6: ícone de travar no menu de sessão"
+# Keyring/polkit (a pergunta do dono — "o que é keyring que pede senha?")
+assert_file "$P/airootfs/etc/polkit-1/rules.d/49-elite-desktop.rules" "v1.6: rule polkit Elite (UX desktop sem senha p/ ações comuns)"
+assert_grep "$P/airootfs/etc/polkit-1/rules.d/49-elite-desktop.rules" 'org.freedesktop.login1.power-off' "v1.6: power-off sem senha p/ usuário ativo local"
+assert_grep "$P/airootfs/etc/polkit-1/rules.d/49-elite-desktop.rules" 'modify.global-system' "v1.6: exceção deliberada — config global segue pedindo admin (sem wildcard)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'gnome-keyring-daemon --unlock' "v1.6: bootstrap do chaveiro vazio no live/autologin (fim dos prompts)"
+# tray hardening (o bloco cinza do burn test)
+assert_grep "$P/airootfs/etc/skel/.config/waybar/style.top.css" '#tray > .tray > image' "v1.6: CSS de itens SNI da tray (cor + tamanho explícitos)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/themerc-override" 'window.active.shadow.size: 60' "v1.0.4: sombras grandes (receita hakuspace)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/themerc-override" 'osd.label.text.color: #cba6f7' "v1.0.4: OSD mauve (coerência com o acento)"
 assert_nogrep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'OB-Catppuccin-Mocha' "v1.0.4: tema FANTASMA OB-Catppuccin-Mocha removido do rc.xml (nunca existiu — causa do 'cru')"
@@ -462,9 +513,11 @@ assert_grep "$HLK" 'fade_on_empty = false' "v1.5: campo de senha fixo (não some
 assert_grep "$HLK" 'outline_thickness = 3' "v1.5: campo com borda estilizada (outline mauve)"
 assert_grep "$HLK" 'outer_color = rgba\(203, 166, 247' "v1.5: borda do campo MAUVE"
 assert_grep "$HLK" '\$font = JetBrainsMono NF' "v1.5: fonte do lock = a REAL do rice (definida em \$font)"
-# v1.5: avatar + ícones da dock = bytes do overlay (contrato de existência)
-for px in terminal files web avatar; do
-  assert_file "$P/airootfs/usr/share/pixmaps/elite/${px}.png" "v1.5: pixmaps/elite/${px}.png (bytes determinísticos no overlay)"
+# v1.6: avatar segue no overlay (hyprlock); os PNGs de dock (terminal/files/
+# web) saíram JUNTO com os módulos image# (fix waybar #5051) — glifos mandam
+assert_file "$P/airootfs/usr/share/pixmaps/elite/avatar.png" "v1.6: pixmaps/elite/avatar.png (hyprlock usa)"
+for gone in terminal files web; do
+  assert_nofile "$P/airootfs/usr/share/pixmaps/elite/${gone}.png" "v1.6: pixmaps/elite/${gone}.png REMOVIDO (image# extinto — limpeza)"
 done
 assert_file "$P/airootfs/etc/skel/.face.icon" "v1.5: ~/.face.icon no skel (avatar p/ login managers + personalização)"
 # v1.5: craft-lock roteia pro hyprlock
@@ -1481,7 +1534,7 @@ assert_grep "$CKB" 'Brave Origin \(navegador padrão\)' "v1.4: tooltip da dock h
 # v1.5 (spec do dono): lançador ARCH EXTINTO da menu bar — canto esquerdo
 # limpo (só o nome do app focado); o Launchpad vive na DOCK (custom/drawer)
 assert_nogrep "$CPT" '"custom/menu"' "v1.5: módulo custom/menu EXTINTO do config.top (spec)"
-assert_grep "$CPT" '"modules-left": \["wlr/window"\]' "v1.5: esquerda = só a janela focada (canto limpo — spec)"
+assert_grep "$CPT" '"modules-left": \["custom/drawer", "wlr/window"\]' "v1.6: ARCH à esquerda + janela focada (pedido de volta do dono)"
 assert_grep "$CPT" '"fixed-center": true' "v1.5: clock no centro EXATO (fixed-center)"
 assert_grep "$CD" '\\uf303' "v1.5: ARCH U+F303 vive AGORA na dock (custom/drawer — Launchpad)"
 assert_grep "$CD" '"on-click": "craft-drawer"' "v1.5: clique no ARCH da dock abre o Launchpad"

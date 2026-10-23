@@ -8,8 +8,12 @@
 # v1.3 · AMOLED rice: titlebar ATIVA desce ao preto REAL (#000000) — só a
 # borda mauve assina. Janelas parecem "carne" colorida (conteúdo Catppuccin)
 # pendurada num cabide preto. Menu/OSD em crust escurecido; pressed segue
-# a escada v1.3 (#22222e). Traffic lights e sombras intactos — já eram
-# os acertos do v1.0.4.
+# a escada v1.3 (#22222e). Sombras intactas — acertos do v1.0.4.
+#
+# v1.6 · BOTÕES MACOS TRAFFIC-LIGHT: círculos close #ff5f57 / iconify
+# #febc2e / max #28c840 como PNGs do tema Archcraft-Elite (gerados com
+# supersampling, hover com glifo). Layout rc.xml: icon:iconify,max,close
+# = ícone à esquerda + botões à DIREITA — "estilo mac, posição windows".
 #
 # Receita sintetizada dos melhores rices labwc públicos (hakuspace 272★,
 # Speyll, modern-labwc 143★, dux-shell 8.4k★ + themercs Catppuccin reais
@@ -43,24 +47,31 @@ window.inactive.label.text.color: #6c7086
 window.inactive.handle.bg.color: #050508
 window.inactive.grip.bg.color: #16161f
 
-# ── Botões "traffic lights" (padrão catppuccin/openbox oficial) ────────────
-window.button.width: 28
-window.button.height: 22
-window.button.spacing: 0
-window.button.hover.bg.color: #ffffff26
-window.button.hover.bg.corner-radius: 4
+# ── Botões "traffic lights" macOS à DIREITA (v1.6 — pedido do dono) ───────
+# Os PNGs vivem no TEMA /usr/share/themes/Archcraft-Elite/labwc/ (rc.xml
+# <theme><name>); este override cuida da GEOMETRIA. Círculos 12px em célula
+# 24px (proporção macOS); spacing 2 = o trio lê como um grupo. O hover tem
+# glifo NO PRÓPRIO PNG (×/−/⤢ escuros) — o overlay genérico do labwc fica
+# INVISÍVEL (alpha 00) pra não brigar com o visual mac. Cores: close #ff5f57
+# · iconify #febc2e · max #28c840 · inativo #5b5b60 (as .image.color abaixo
+# só tingem XBM — PNG ignora por design; ficam como fallback documentado).
+window.button.width: 24
+window.button.height: 24
+window.button.spacing: 2
+window.button.hover.bg.color: #00000000
+window.button.hover.bg.corner-radius: 12
 
-window.active.button.iconify.unpressed.image.color: #a6e3a1
-window.active.button.max.unpressed.image.color: #f9e2af
-window.active.button.close.unpressed.image.color: #f38ba8
-window.active.button.iconify.hover.image.color: #a6e3a1
-window.active.button.max.hover.image.color: #f9e2af
-window.active.button.close.hover.image.color: #f38ba8
+window.active.button.iconify.unpressed.image.color: #febc2e
+window.active.button.max.unpressed.image.color: #28c840
+window.active.button.close.unpressed.image.color: #ff5f57
+window.active.button.iconify.hover.image.color: #febc2e
+window.active.button.max.hover.image.color: #28c840
+window.active.button.close.hover.image.color: #ff5f57
 window.active.button.iconify.pressed.image.color: #22222e
 window.active.button.max.pressed.image.color: #22222e
 window.active.button.close.pressed.image.color: #22222e
 
-window.inactive.button.unpressed.image.color: #6c7086
+window.inactive.button.unpressed.image.color: #5b5b60
 window.inactive.button.hover.image.color: #a6adc8
 window.inactive.button.pressed.image.color: #22222e
 

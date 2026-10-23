@@ -6,6 +6,85 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **v1.6 (main) — A ISO INSTALÁVEL: o burn test v1.5 virado do avesso**
+  (forense com fonte primária: log Calamares do dono via termbin [9z69],
+  foto do rig analisada por VLM em 3 níveis de zoom, ISO v1.5 baixada do
+  release [sha256 conferido — a ISO estava ÍNTEGRA], squashfs extraído e
+  inspecionado, código-fonte do Archcraft upstream e do Calamares 3.4.2).
+  - **(A) INSTALADOR — CAUSA-RAIZ PROVADA E CURADA (o bug que impedia a
+    instalação no rig do dono)**: com Copy to RAM (default da Elite em
+    TODAS as entradas de boot), o `launch.sh` do Archcraft REESCREVE o
+    `unpackfs.conf` com `sed "s|…/x86_64/vmlinuz-linux|/usr/lib/modules/
+    $KERNEL/vmlinuz|g"`. O padrão `vmlinuz-linux` casa como PREFIXO do
+    nosso kernel renomeado (`vmlinuz-linux-cachyos-bore`) e deixa o
+    sufixo órfão → source `/usr/lib/modules/7.3.0-2-cachyos-bore/
+    vmlinuz-cachyos-bore` — arquivo INEXISTENTE (o real é `vmlinuz`,
+    sem sufixo — verificado no squashfs) → Calamares aborta em
+    "Configuração incorreta do unpackfs". O conf dentro da ISO estava
+    CORRETO; o gate `verify-install` nunca pegou porque reproduz o
+    Calamares manualmente — não roda o `launch.sh`. **Cura [E5a2]**:
+    o customize alinha o padrão do sed do launch.sh ao kernel BORE
+    (`boot/x86_64/vmlinuz-linux-cachyos-bore`); **Gate novo [1c/8]** no
+    verify-install: extrai o bloco copytoram do launch.sh REAL da ISO,
+    roda com `uname` FALSO (kver da ISO), e valida TODOS os sources do
+    conf reescrito — a regressão v1.5 está morta por contrato.
+  - **(B) DOCK — o bug upstream do waybar #5051, provado por eliminação**:
+    a dock v1.5 usava 3 módulos `image#` (ícones PNG) como pins; o waybar
+    0.15.0 crasha EM SILÊNCIO no startup com 3+ instâncias do módulo
+    image (race: update antes da realization do widget → pixbuf com
+    janela nula → abort; fix existe SÓ no master — issue
+    Alexays/Waybar#5051, commit 0729823). A barra superior (sem image)
+    subia; a dock NUNCA subiu no rig — e os pins do craft-pin "sumiam"
+    (iam pra uma dock morta; o dono só via os apps na grade do
+    Launchpad). **Cura**: pins voltam a módulos `custom/` com glifo Nerd
+    Font (o modelo v1.4, que o dono viu funcionar AO VIVO) — zero
+    pixbuf, zero race; zoom 30→36px + pílula no hover; Brave central em
+    peach. PNGs órfãos de pixmaps removidos (avatar fica — hyprlock).
+  - **(C) ARCH de volta ao canto esquerdo** (burn test: o dono reportou
+    "o ícone do Arch no canto superior esquerdo não foi carregado" —
+    ausência vista como FALTA; a spec v1.5 que o removeu é revertida
+    pela evidência). `custom/drawer` + `wlr/window` no modules-left — o
+    modelo menu-bar macOS: marca à esquerda abre o Launchpad.
+  - **(D) BOTÕES DE JANELA macOS TRAFFIC-LIGHT à direita** ("estilo
+    macos, posicionamento windows padrão" — o pedido do dono): tema
+    `Archcraft-Elite` com 14 PNGs gerados por supersampling (círculos
+    12px em célula 24px): close `#ff5f57`, iconify `#febc2e`, max
+    `#28c840` — cores REAIS do macOS (o mapeamento anterior tinha
+    iconify=verde/max=amarelo, invertido vs macOS); hover com glifo
+    (×/−/⤢) no próprio PNG; inativo cinza `#5b5b60`; `max_toggled` com
+    símbolo de restaurar. Layout `icon:iconify,max,close` = ícone à
+    esquerda + botões à DIREITA em ordem Windows. Overlay de hover do
+    labwc desligado (alpha 00) — o glifo mora no PNG.
+  - **(E) KEYRING/POLKIT — a pergunta do dono respondida com código**:
+    "o que é isso de keyring que alguns programas pedem a senha?" —
+    duas metades: (1) **polkit** (ações de sistema): rule nova
+    `49-elite-desktop.rules` no padrão Ubuntu/Fedora — power/reboot/
+    suspend (incl. multiple-sessions), timedated e NetworkManager sem
+    senha para o usuário local ATIVO, com exceção explícita para
+    `modify.global-system` (nada de wildcard — as rules upstream de
+    udisks/NM continuam valendo); (2) **gnome-keyring** (o "chaveiro"):
+    no login com senha o PAM do sddm já desbloqueia (upstream); no
+    live/autologin, bootstrap no autostart cria o chaveiro com senha
+    VAZIA (`gnome-keyring-daemon --unlock` lê do stdin; sem chaveiro,
+    CRIA) — Brave/Wi-Fi param de pedir "desbloquear chaveiro".
+  - **(F) RICE "outro nível" (o "tá muito seco")**: menu raiz com
+    ÍCONES (`<showIcons>` + 15 itens com paths absolutos Papirus —
+    verificados no squashfs da v1.5); menu de sessão do craft-power com
+    ícones (protocolo dmenu NUL+icon+US, printf direto no pipe —
+    variável shell descarta bytes NUL); tray da menu bar endurecida
+    (itens SNI com cor/tamanho explícitos — o bloco cinza do burn
+    test). Sombras 60/40, cornerRadius 12, Alt-Tab com miniaturas e
+    snapping overlay mauve já estavam (v1.0.4) — agora com botões mac.
+  - **Fixes de hygiene**: `actions/checkout@v5` no verify-install (o
+    rename da v1.5.2 carregou um v4 — achado do agente deepseek na 1ª
+    auditoria REAL da história, run #63); agentes deepseek+mimo
+    auditaram a build de validação da v1.5.2 e publicaram 2 relatórios
+    na branch agent-reports (primeiros desde 20/out).
+  - **Suíte**: 1010 peças, 0 falhas (+29 contratos v1.6: E5a2, gate
+    copytoram com uname falso, tema com 9+ assets, layout de botões,
+    showIcons, ícones do menu/craft-power, rule polkit, bootstrap do
+    chaveiro, glifos da dock, ARCH de volta, PNGs removidos).
+
 - **v1.5.2 (main, pós-v1.5) — LIMPEZA PROFUNDA + OS TRÊS BURACOS SISTÊMICOS
   FECHADOS** (diretriz do dono: "os agentes do repositório devem analisar
   justamente os logs minuciosamente; esses erros não podem passar ou ser

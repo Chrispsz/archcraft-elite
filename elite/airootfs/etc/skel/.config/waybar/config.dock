@@ -3,22 +3,20 @@
 // Desktop v2.2: fixados + janelas abertas num SÓ grupo CENTRAL (modelo macOS
 // — diretriz do dono: "fixados no centro, abertos no centro").
 //
-// v1.5 (spec do dono — "dock funcional com pinned apps, ícones visíveis
-// no centro mesmo com o app fechado; Brave fixado no centro"):
-//   · apps fixados agora são ÍCONES REAIS (módulo image do waybar 0.15:
-//     path+size+on-click — o custom module só ganha imagem no master
-//     pós-0.15, PR #5069). PNGs 96px do overlay em /usr/share/pixmaps/
-//     elite/: Papirus rasterizado (terminal/files) + logo OFICIAL do
-//     Brave Origin (product_logo do brave-origin) — bytes determinís-
-//     ticos, contrato sha256 no CI, zero dependência de tema ícone.
-//   · BRAVE fixado no CENTRO do grupo: o botão image#web é o navegador
-//     padrão (mimeapps.list x-scheme-handler/http → brave-browser)
-//   · editor (Helix) saiu da dock junto com o pacote (spec: bloatware);
-//     nano vive no terminal (W-e)
-//   · tooltip = 2ª linha do exec do módulo image (man waybar-image:
-//     "$path\n$tooltip") — o mesmo modelo macOS de hover com nome
+// v1.6 (fix do burn test v1.5 — FORENSE COM FONTE PRIMÁRIA): os pins eram
+//   módulos `image#` (ícones PNG) — o waybar 0.15.0 tem o bug upstream
+//   Alexays/Waybar#5051: com 3+ instâncias do módulo image o processo
+//   CRASHA em silêncio no startup (race: update antes do widget ser
+//   realizado → create_surface_from_pixbuf com janela nula → abort;
+//   correção existe SÓ no master, em nenhum release). Nossa dock tinha
+//   EXATAMENTE 3 (term/files/web) → no rig do dono a dock NUNCA subiu
+//   (a barra de cima, sem image, subia normal) e os pins do craft-pin
+//   "sumiam" — iam pra uma dock morta. Volta dos módulos custom com
+//   GLIFO Nerd Font (o modelo v1.4, que o dono viu funcionando AO VIVO
+//   no burn test v1.4): zero pixbuf, zero race, robusto por construção.
+//   O zoom macOS no hover continua (30px → 36px, transição .18s no CSS).
 //
-// GLIFOS (drawer/shot): escapes JSON \uXXXX — à prova de corrupção de
+// GLIFOS (drawer/shot/pins): escapes JSON \uXXXX — à prova de corrupção de
 // encoding (v1.1 perdeu glifos literais: 7 de 8 botões invisíveis).
 // Verificados no cmap do Symbols Nerd Font (archcraft-fonts 2.0).
 //
@@ -44,14 +42,14 @@
   "modules-left": [],
   "modules-right": [],
 
-  // Centro: Launchpad + apps fixados (ícones reais) + separador +
+  // Centro: Launchpad + apps fixados (GLIFOS — v1.6) + separador +
   // janelas abertas — um grupo (craft-pin insere os SEUS pins antes
-  // do "custom/sep")
+  // do "custom/sep"). BRAVE é o 3º de 5 pins = CENTRO EXATO da dock.
   "modules-center": [
     "custom/drawer",
-    "image#term",
-    "image#files",
-    "image#web",
+    "custom/term",
+    "custom/files",
+    "custom/web",
     "custom/shot",
     "custom/sep",
     "wlr/taskbar"
@@ -71,19 +69,19 @@
   // módulo image, não o taskbar). Sem interval → render única, zero
   // polling. O exec devolve 2 linhas: path do PNG + tooltip (label de
   // hover no idioma do rice).
-  "image#term": {
-    "exec": "echo /usr/share/pixmaps/elite/terminal.png; echo 'Terminal (foot)'",
-    "size": 36,
+  "custom/term": {
+    "format": "\uf489",
+    "tooltip-format": "Terminal (foot)",
     "on-click": "foot"
   },
-  "image#files": {
-    "exec": "echo /usr/share/pixmaps/elite/files.png; echo 'Arquivos (Thunar)'",
-    "size": 36,
+  "custom/files": {
+    "format": "\uf07c",
+    "tooltip-format": "Arquivos (Thunar)",
     "on-click": "thunar"
   },
-  "image#web": {
-    "exec": "echo /usr/share/pixmaps/elite/web.png; echo 'Brave Origin (navegador padrão)'",
-    "size": 36,
+  "custom/web": {
+    "format": "\uf292",
+    "tooltip-format": "Brave Origin (navegador padrão)",
     "on-click": "brave"
   },
 
