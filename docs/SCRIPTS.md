@@ -111,3 +111,15 @@ craft-pin restore                                # desfaz a última alteração
 **Como rodar:** automático. Manual: `sudo systemctl start elite-firstboot`.
 
 **Reverter:** `sudo systemctl disable elite-firstboot` + remover o marker p/ reexecutar: `sudo rm /var/lib/elite/firstboot-done`.
+
+---
+
+## craft-power (v2.1 + ícones v1.6) — `/usr/local/bin/craft-power`
+
+**O quê:** menu de sessão dropdown ancorado top-right (fuzzel --dmenu, 44px abaixo da menu bar) com toggle por pressão (2º ⏻ fecha — fix do burn test v1.4). **v1.6:** entradas com ÍCONES Papirus via protocolo dmenu (`NUL + "icon" + US + path`): `printf '%s\0icon\x1f%s\n' <label> <path> | fuzzel --dmenu` — o printf vai DIRETO no pipe (variável shell descarta bytes NUL; pipeline é obrigatório). Ícones verificados no squashfs: `/usr/share/icons/Papirus/24x24/actions/system-{lock-screen,log-out,suspend,reboot,shutdown}.svg`. Fallback labnag intacto.
+
+**Como rodar:** botão ⏻ da barra (custom/power) ou menu raiz.
+
+**Reverter:** remover os argumentos de ícone do printf (o protocolo é opcional por linha).
+
+**Depende de:** fuzzel (dmenu), Papirus, systemctl (ações via polkit — ver `49-elite-desktop.rules`).
