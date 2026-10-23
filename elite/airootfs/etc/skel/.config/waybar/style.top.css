@@ -99,6 +99,29 @@ window#waybar {
 
 #tray {
   padding: 0 8px;
+  min-width: 0;
+}
+
+/* v1.6 — tray íntegro: itens SNI herdam a cor do texto (ícones simbólicos
+ * GTK renderizam com "color"; sem isto, itens com ícone simbólico podem
+ * aparecer como bloco claro sem contorno em alguns temas — o glitch que o
+ * dono fotografou no burn test v1.5). Ícone 18px: legível sem gritar. */
+#tray > .tray > image {
+  color: @text;
+  icon-size: 18px; /* fallback: a maioria dos SNI usa o tamanho do ícone embutido */
+  padding: 0 2px;
+}
+
+/* ARCH (Launchpad) — v1.6: de volta ao canto esquerdo, em MAUVE
+ * (identidade do rice — mesmo glifo da dock, mesmo vermelho-mauve) */
+#custom-drawer {
+  padding: 0 12px 0 14px;
+  color: @mauve;
+  font-size: 15px;
+}
+#custom-drawer:hover {
+  background: alpha(@surface0, 0.95);
+  border-radius: 8px;
 }
 
 #clock {
@@ -111,6 +134,7 @@ window#waybar {
  * pressed = superfície mais escura (matriz de estados completa) */
 #custom-power:hover,
 #wlr-window:hover,
+#custom-drawer:hover,
 #mpris:hover,
 #idle-inhibitor:hover,
 #network:hover,

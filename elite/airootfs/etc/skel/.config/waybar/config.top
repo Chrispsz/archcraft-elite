@@ -1,11 +1,13 @@
 // Archcraft ELITE · Waybar TOP — "Menu Bar" estilo macOS (Catppuccin Mocha)
 // ─────────────────────────────────────────────────────────────────────────
-// Desktop v2.3 (v1.5): canto esquerdo LIMPO (o lançador ARCH saiu — ordem
-// direta da spec v1.5; o Launchpad segue na DOCK, 1º botão do grupo
-// central). Relógio no CENTRO EXATO (fixed-center + modules-center),
-// power no canto direito abrindo o menu de sessão (craft-power), áudio/
-// rede só ícone (sem %). Esquerda = nome do app (janela focada) — o
-// modelo macOS. Tudo clicável (mouse-first).
+// Desktop v2.4 (v1.6 — burn test v1.5): o ARCH VOLTA ao canto esquerdo
+// (ordem do dono: "o ícone do Arch no canto superior esquerdo não foi
+// carregado" — visto como FALTA, não como limpeza; a spec v1.5 que o
+// removeu foi revertida pela evidência do rig). Ele abre o Launchpad
+// (craft-drawer) — o modelo menu-bar macOS: maçã à esquerda = apps.
+// Relógio no CENTRO EXATO (mantido), power à direita, áudio/rede só
+// ícone (sem %). wlr/window segue, AGORA ao lado do ARCH: nome do app
+// focado — o modelo macOS completo.
 //
 // v1.4 (burn test da v1.3 AO VIVO no rig do dono, 2026-10-22):
 //   · REDE: um só ícone p/ TUDO (cabo + Wi-Fi + Bluetooth) — clique abre
@@ -25,9 +27,9 @@
   "fixed-center": true,
   "reload_style_on_change": true,
 
-  // Esquerda (v1.5): SÓ o nome do app focado (wlr-foreign-toplevel,
-  // nativo do labwc). Sem janelas → canto esquerdo limpo, zero sujeira.
-  "modules-left": ["wlr/window"],
+  // Esquerda (v1.6): ARCH (Launchpad — o pedido de volta do dono) + nome
+  // do app focado (wlr-foreign-toplevel, nativo do labwc).
+  "modules-left": ["custom/drawer", "wlr/window"],
 
   // Centro: o relógio (v2.1 — diretriz do dono)
   "modules-center": ["clock"],
@@ -48,6 +50,14 @@
     "max-length": 42,
     "truncate": true,
     "tooltip": false
+  },
+
+  // Launchpad — o ARCH no canto esquerdo (v1.6: de volta por ordem do
+  // dono no burn test; modelo menu-bar macOS: marca à esquerda = apps)
+  "custom/drawer": {
+    "format": "\uf303",
+    "tooltip-format": "Aplicativos",
+    "on-click": "craft-drawer"
   },
 
   // Música do USUÁRIO (MPRIS) — YouTube no navegador, Spotify, mpv: o que
