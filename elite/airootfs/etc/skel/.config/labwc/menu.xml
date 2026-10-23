@@ -1,27 +1,29 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Archcraft Cockpit · labwc menu.xml — PERFIL ELITE (v1.2)
+  Archcraft Cockpit · labwc menu.xml — PERFIL ELITE (v1.7)
   ══════════════════════════════════════════════════════════════════════════
-  Estrutura derivada do menu do criador do Archcraft (Aditya Shakya):
-  no Archcraft Openbox o menu é gerado dinamicamente por obmenu-generator
-  (schema.pl com as categorias Applications/Settings/System) — o labwc lê
-  apenas menu.xml ESTÁTICO, então este arquivo reproduz a hierarquia dele
-  com os apps que o Cockpit instala/archcraft já traz.
-  Fonte: archcraft-openbox/files/obmenu-generator/schema.pl
-  Sintaxe: labwc docs/menu.xml + labwc-menu(5) (formato openbox_menu)
+  v1.7 — CURADORIA DO DONO ("deixa só os importantes", "sem muita
+  complexidade"): SAÍRAM os itens de ferramentas do antigo submenu
+  Cockpit (todos CONTINUAM instalados e vivem no Launchpad, que busca e
+  categoriza), a lista de janelas que o botão direito abria (o dock é o
+  comutador de janelas), o item de reconfiguração do compositor
+  (ferramenta de dev) e o item de encerrar a sessão do compositor
+  (mis-click perigoso; o menu de sessão já tem sair).
+    · FICARAM: os apps do dia-1 + as 2 ações de sistema que o dono
+      elegeu (Atualizar · Limpeza) + Launchpad/Fixar + lock/idle/sessão
+      + Reboot/Desligar. 15 itens, TODOS com ícone.
+  ESTRUTURA herdada do menu do criador do Archcraft (obmenu-generator;
+  o labwc lê menu.xml ESTÁTICO). Sintaxe: labwc docs/menu.xml +
+  labwc-menu(5) (formato openbox_menu).
 
-  v1.6.3 — CURADORIA COM PROVA (burn test do dono: itens que não abriam e
-  itens sem ícone). Duas regras, cada uma com contrato CI:
+  DUAS REGRAS COM CONTRATO CI (v1.6.3, mantidas):
     1. TODO Execute command=X tem binário REAL na ISO (packages.add ∪
        /usr/local/bin ∪ allowlist base) — o debloat não quebra item em
-       silêncio. craft-hello agora abre em foot (fastfetch solto no menu
-       escrevia no stdout do labwc — invisível; "overview" que não abre).
+       silêncio.
     2. TODO item tem icon= e o caminho está no fixture Papirus real
        (tests/fixtures/menu-icons-papirus.txt — lista de arquivos do
-       papirus-icon-theme, conferida na API do Arch em out/2026).
-  Ícones de AÇÃO (pin/view-refresh/log-out) só existem no Papirus até
-  24x24 — itens de APP usam 48x48, itens de ação usam 24x24 (mesmo
-  padrão dos itens de Lock/Sessão que já renderizavam).
+       papirus-icon-theme, conferida na API do Arch E no squashfs
+       embarcado, out/2026). Ícones de AÇÃO só existem até 24x24.
 -->
 <openbox_menu>
 
@@ -47,16 +49,16 @@
     </item>
   </menu>
 
-  <!-- root-menu (W-space / W-Menu / clique no desktop) -->
+  <!-- root-menu (botão direito no desktop — v1.7) -->
   <menu id="root-menu">
-    <item label="Terminal (foot)" icon="/usr/share/icons/Papirus/48x48/apps/utilities-terminal.svg">
-      <action name="Execute" command="foot" />
-    </item>
     <item label="Navegador" icon="/usr/share/icons/Papirus/48x48/apps/web-browser.svg">
       <action name="Execute" command="sh -c 'for b in brave librewolf chromium thorium-browser qutebrowser; do command -v &quot;$b&quot; &gt;/dev/null &amp;&amp; exec &quot;$b&quot;; done; exec xdg-open https://archlinux.org'" />
     </item>
     <item label="Arquivos (Thunar)" icon="/usr/share/icons/Papirus/48x48/apps/system-file-manager.svg">
       <action name="Execute" command="thunar" />
+    </item>
+    <item label="Terminal (foot)" icon="/usr/share/icons/Papirus/48x48/apps/utilities-terminal.svg">
+      <action name="Execute" command="foot" />
     </item>
     <item label="Editor (nano)" icon="/usr/share/icons/Papirus/48x48/apps/text-editor.svg">
       <action name="Execute" command="foot -e nano" />
@@ -68,45 +70,13 @@
       <action name="Execute" command="qalculate-gtk" />
     </item>
     <separator />
-    <!-- Applications (categorias do criador, versão enxuta do Cockpit) -->
-    <menu id="cockpit-menu" label="Cockpit" icon="/usr/share/icons/Papirus/48x48/apps/preferences-system.svg">
-      <item label="craft-hello · overview" icon="/usr/share/icons/Papirus/48x48/apps/utilities-terminal.svg">
-        <action name="Execute" command="foot -e craft-hello" />
-      </item>
-      <item label="craft-update · atualizar sistema" icon="/usr/share/icons/Papirus/48x48/apps/system-software-update.svg">
-        <action name="Execute" command="foot -e craft-update" />
-      </item>
-      <item label="craft-clean · limpeza" icon="/usr/share/icons/Papirus/48x48/apps/bleachbit.svg">
-        <action name="Execute" command="foot -e craft-clean" />
-      </item>
-      <item label="craft-rollback · restaurar backups" icon="/usr/share/icons/Papirus/48x48/apps/timeshift.svg">
-        <action name="Execute" command="foot -e sudo craft-rollback" />
-      </item>
-      <separator />
-      <item label="Monitor (btop)" icon="/usr/share/icons/Papirus/48x48/apps/btop.svg">
-        <action name="Execute" command="foot -e btop" />
-      </item>
-      <item label="Mixer (pwvucontrol)" icon="/usr/share/icons/Papirus/48x48/apps/multimedia-volume-control.svg">
-        <action name="Execute" command="pwvucontrol" />
-      </item>
-      <item label="Rede (impala)" icon="/usr/share/icons/Papirus/48x48/devices/network-wireless.svg">
-        <action name="Execute" command="foot -e impala" />
-      </item>
-      <item label="Bluetooth (bluetui)" icon="/usr/share/icons/Papirus/48x48/apps/blueman.svg">
-        <action name="Execute" command="foot -e bluetui" />
-      </item>
-      <item label="Aparência GTK (nwg-look)" icon="/usr/share/icons/Papirus/48x48/apps/nwg-look.svg">
-        <action name="Execute" command="nwg-look" />
-      </item>
-      <item label="Arquivos compactados (7z)" icon="/usr/share/icons/Papirus/48x48/apps/7zip.svg">
-        <action name="Execute" command="foot -e 7z" />
-      </item>
-    </menu>
-    <menu id="client-list-combined-menu" label="Janelas..." icon="/usr/share/icons/Papirus/48x48/apps/preferences-system-windows.svg" />
-    <separator />
-    <item label="Reconfigure (W-S-r)" icon="/usr/share/icons/Papirus/24x24/actions/view-refresh.svg">
-      <action name="Reconfigure" />
+    <item label="Atualizar sistema" icon="/usr/share/icons/Papirus/48x48/apps/system-software-update.svg">
+      <action name="Execute" command="foot -e craft-update" />
     </item>
+    <item label="Limpeza do sistema" icon="/usr/share/icons/Papirus/48x48/apps/bleachbit.svg">
+      <action name="Execute" command="foot -e craft-clean" />
+    </item>
+    <separator />
     <item label="Aplicativos (Launchpad)" icon="/usr/share/icons/Papirus/48x48/apps/preferences-desktop.svg">
       <action name="Execute" command="craft-drawer" />
     </item>
@@ -115,6 +85,7 @@
     <item label="Fixar app na dock…" icon="/usr/share/icons/Papirus/24x24/actions/pin.svg">
       <action name="Execute" command="craft-pin-pick" />
     </item>
+    <separator />
     <item label="Lock (W-l)" icon="/usr/share/icons/Papirus/24x24/actions/system-lock-screen.svg">
       <action name="Execute" command="craft-lock" />
     </item>
@@ -132,9 +103,6 @@
     </item>
     <item label="Desligar" icon="/usr/share/icons/Papirus/24x24/actions/system-shutdown.svg">
       <action name="Execute" command="systemctl poweroff" />
-    </item>
-    <item label="Encerrar labwc" icon="/usr/share/icons/Papirus/24x24/actions/system-log-out.svg">
-      <action name="Exit" />
     </item>
   </menu>
 

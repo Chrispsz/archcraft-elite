@@ -91,6 +91,19 @@
       <size>9</size>
       <weight>normal</weight>
     </font>
+    <!-- v1.7 — ÍCONES DO MENU VISÍVEIS (pedido do dono): no labwc o
+         tamanho do ícone de menu É a altura da fonte do item —
+         src/menu/menu.c: #define ICON_SIZE (menu_item_height - 2 *
+         menu_items_padding_y) e src/theme.c: menu_item_height =
+         font_height(font_menuitem) + 2 * padding_y → o padding CANCELA e
+         sobra a fonte. Default 10px = ícones de ~14px (a foto do dono).
+         Fonte 12 = itens ~27px e ícones ~17px, com Papirus escalando os
+         48x48 sem serrilhado (libsfdo). -->
+    <font place="MenuItem">
+      <name>JetBrains Mono</name>
+      <size>12</size>
+      <weight>normal</weight>
+    </font>
   </theme>
 
   <!-- Menu com ÍCONES (v1.6 — labwc 0.8.3+): os itens do menu.xml carregam
@@ -369,12 +382,15 @@
   <mouse>
     <default/>
     <context name="Root">
-      <!-- Clique no desktop → menu raiz (estilo Archcraft) -->
-      <mousebind button="Left" action="Press">
-        <action name="ShowMenu" menu="root-menu" />
-      </mousebind>
+      <!-- v1.7 (decisão do dono: "tira essa mudança de ambiente com o
+           botão direito… eu acho feio"): o botão direito agora abre o
+           MENU RAIZ (curado, todo iconizado) — o padrão universal.
+           A lista de janelas do botão direito saiu (o dock já é o
+           comutador de janelas) e o clique ESQUERDO no desktop ficou
+           limpo (nada de menu acidental). SCROLL no desktop segue
+           trocando de workspace (o gesto que o dono prefere). -->
       <mousebind button="Right" action="Press">
-        <action name="ShowMenu" menu="client-list-combined-menu" />
+        <action name="ShowMenu" menu="root-menu" />
       </mousebind>
       <mousebind direction="Up" action="Scroll">
         <action name="GoToDesktop" to="left" wrap="yes" />

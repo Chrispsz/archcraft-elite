@@ -86,7 +86,7 @@ menu.items.bg.color: #050508
 menu.items.text.color: #cdd6f4
 menu.items.active.bg.color: #22222e
 menu.items.active.text.color: #cdd6f4
-menu.items.padding.x: 6
+menu.items.padding.x: 8
 menu.items.padding.y: 4
 menu.border.width: 1
 menu.border.color: #16161f
