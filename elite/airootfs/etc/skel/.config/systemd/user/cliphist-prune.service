@@ -1,0 +1,20 @@
+[Unit]
+# Archcraft ELITE v1.6.2 — poda do histórico do clipboard (receita upstream)
+# ─────────────────────────────────────────────────────────────────────────
+# Problema (auditoria de memória/dispo do dono): o DB do cliphist
+# (~/.cache/cliphist/history) cresce SEM LIMITE — cada screenshot de região
+# (craft-shot area → wl-copy) entra INTEIRO em base64 no histórico; meses
+# de uso = dezenas de MB e o menu W-v arrastando.
+# Cura = a receita LITERAL do README do cliphist (sentriz/cliphist):
+#   "Run this from a timer to delete entries older than 30 days:
+#    cliphist wipe -older-than 720h"
+# O próprio `wipe` já COMPACTA o DB (changelog 0.7.0: "compact db after
+# wiping") — o arquivo encolhe de verdade, não só mascara.
+# Camada 2 de 2: este timer cobre uptimes LONGOS (semanas sem relogin).
+# A camada 1 (linha no autostart do labwc) cobre o login — ver
+# ~/.config/labwc/autostart · bloco "Clipboard: PODA".
+Description=cliphist: expira histórico do clipboard com mais de 30 dias
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/cliphist wipe -older-than 720h

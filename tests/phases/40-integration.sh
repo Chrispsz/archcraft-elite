@@ -427,6 +427,23 @@ assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'udiskie' "curadoria:
 assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'craft-idle start' "curadoria: idle sobe no login (craft-idle → swayidle por baixo — v1.6.1)"
 assert_nogrep "$P/airootfs/etc/skel/.config/labwc/autostart" 'wlsunset' "v1.5: wlsunset FORA do autostart (causa-raiz do tom amarelado — spec)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'cliphist store' "curadoria: watcher cliphist no autostart"
+# v1.6.2: cliphist PODADO — o DB cresceria SEM LIMITE (craft-shot area →
+# wl-copy → PNG inteiro em base64 no histórico; meses = dezenas de MB).
+# Cura = receita LITERAL do README upstream (sentriz/cliphist): "Run this
+# from a timer to delete entries older than 30 days: cliphist wipe
+# -older-than 720h". Duas camadas (o mesmo padrão das 4 camadas do keyring):
+assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'cliphist wipe -older-than 720h' "v1.6.2: camada 1 — poda no login (live/sessão sem user manager; antes do watcher, síncrona)"
+assert_file "$P/airootfs/etc/skel/.config/systemd/user/cliphist-prune.service" "v1.6.2: serviço de poda existe (cliphist-prune.service)"
+assert_grep "$P/airootfs/etc/skel/.config/systemd/user/cliphist-prune.service" 'ExecStart=/usr/bin/cliphist wipe -older-than 720h' "v1.6.2: ExecStart = comando literal do README (30 dias · wipe compacta o DB)"
+assert_file "$P/airootfs/etc/skel/.config/systemd/user/cliphist-prune.timer" "v1.6.2: timer da poda existe (cliphist-prune.timer)"
+assert_grep "$P/airootfs/etc/skel/.config/systemd/user/cliphist-prune.timer" 'OnCalendar=daily' "v1.6.2: camada 2 — poda diária (uptimes longos, semanas sem relogin)"
+assert_grep "$P/airootfs/etc/skel/.config/systemd/user/cliphist-prune.timer" 'Persistent=true' "v1.6.2: Persistent — compensa os dias desligado (roda ao ligar)"
+assert_file "$P/airootfs/etc/skel/.config/systemd/user/timers.target.wants/cliphist-prune.timer" "v1.6.2: timer HABILITADO no skel (symlink em timers.target.wants — useradd -m preserva)"
+# v1.6.2: waybar SEM módulos exec — a classe clássica de leak/CPU-burn do
+# waybar é script polling; as duas barras da Elite são 100% módulos nativos
+# (apenas 2 intervals: mpris 10s, clock 60s). Contrato de não-regressão:
+assert_nogrep "$P/airootfs/etc/skel/.config/waybar/config.top" '"exec"' "v1.6.2: menu bar SEM módulo exec (zero script polling — classe de leak extinta por contrato)"
+assert_nogrep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"exec"' "v1.6.2: dock SEM módulo exec (idem — os pins são format estático)"
 # v1.5: keyring CachyOS em 4 camadas (spec: init → populate → refresh)
 assert_grep "$P/airootfs/usr/local/bin/craft-fix-keys" 'pacman-key --populate archlinux cachyos' "v1.5: craft-fix-keys — comandos LITERAIS da spec (populate)"
 assert_grep "$P/airootfs/usr/local/bin/craft-fix-keys" 'pacman -Sy --noconfirm archlinux-keyring cachyos-keyring' "v1.5: craft-fix-keys — refresh dos keyring packages (spec)"

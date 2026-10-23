@@ -6,6 +6,55 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **v1.6.2 (main) — A AUDITORIA DE "PERFEITO, OTIMIZADO, LIMPO E SEM
+  MEMORY LEAK?"** (questionamento do dono antes da build final): auditoria
+  item a item em código + fonte primária; **um buraco real encontrado e
+  curado com a receita do próprio upstream**:
+  - **(A) O ÚNICO crescimento sem limite do sistema: o histórico do
+    clipboard**. O `craft-shot area` faz `wl-copy` do PNG → o watcher
+    `wl-paste --watch cliphist store` grava o screenshot INTEIRO em
+    base64 no DB (`~/.cache/cliphist/history`) — sem poda, meses de uso
+    = dezenas de MB e o menu W-v arrastando. **Cura = a receita LITERAL
+    do README do cliphist** (sentriz/cliphist, verificado no clone da
+    fonte 0.7.0): "Run this from a timer to delete entries older than
+    30 days: cliphist wipe -older-than 720h" — e o `wipe` já COMPACTA o
+    DB (changelog 0.7.0: "compact db after wiping"). Duas camadas (o
+    padrão das 4 camadas do keyring): camada 1 — poda síncrona no login
+    (autostart, antes do watcher, cobre live/sessão sem user manager);
+    camada 2 — `cliphist-prune.timer` do user manager (diário,
+    `Persistent=true`, habilitado no skel via `timers.target.wants` —
+    cobre uptimes de semanas sem relogin).
+  - **(B) MEMÓRIA/ESTABILIDADE — o que a auditoria PROVOU que já estava
+    são**: waybar com **zero módulos `exec`** (as duas barras são 100%
+    módulos nativos; apenas 2 intervals: mpris 10s, clock 60s — a classe
+    clássica de leak/CPU-burn do waybar é script polling, que aqui não
+    existe; agora é contrato de não-regressão); o crash da dock
+    (waybar#5051, módulos `image`) extinto desde v1.6 por construção
+    (glyphs); **nenhum processo residente criado pelos botões** — o
+    modelo toggle da família craft-* (power/connect/drawer/idle) é
+    sempre one-shot ou kill-before-start: `craft-idle start` faz
+    `pkill -x swayidle` ANTES do `exec` (daemon único, sem empilhar);
+    nwg-drawer/fuzzel/impala/bluetui morrem no fechar; hyprlock só
+    existe durante o lock; swayidle ~2MB; o cardápio de daemons
+    permanentes da sessão é enxuto e cada um tem por quê (NM, wpa_supp,
+    bluez, swaync, udiskie, swaybg, 2×waybar, swayidle, cliphist watcher,
+    polkit, keyring).
+  - **(C) REDE — a prova anti-travamento**: applets GTK (nm-applet/
+    blueman) fora desde v1.1 (zero daemon GTK de graça); **ModemManager
+    REMOVIDO da ISO** (pacote + wants — o daemon de polling serial que
+    faz CPU-twitch); VPN plugins fora; cloud-init/vbox/vmware/hyperv/
+    cups/pcscd/ufw: wants removidos no build ([7] do apply-overlay) —
+    10+ serviços que nada fazem num PC físico não sobem; `iwd`/
+    `dhcpcd` instalam da base mas **ficam inertes** (serviços não
+    habilitados — zero RAM, o NM+wpa_supplicant é o stack ativo);
+    BBR+fq ativo com auto-cura (firstboot confirma e degrada para cubic
+    se o kernel não oferecer); toggle na central de rede contratado
+    (2ª chamada fecha — menu nunca empilha). Bônus achado na auditoria:
+    o SwayNC (clique no relógio) já tem **toggle de rádio Wi-Fi/BT**
+    (`nmcli radio` / `bluetoothctl power`) — o "liga/desliga" existe
+    fora do impala também.
+  - Suíte: 1035 → **1044 contratos** · 0 falhas · GO.
+
 - **v1.6.1 (main) — AS 3 FRENTES DO QUESTIONAMENTO DO DONO** ("o botão
   do arch abre e fecha a gaveta? os botões mac valem para TODOS os
   programas, inclusive os que eu instalar? consigo controlar o tempo
