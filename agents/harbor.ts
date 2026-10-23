@@ -93,6 +93,17 @@ export async function harborChat(opts: {
     } catch (e: unknown) {
       clearTimeout(timer);
       const msg = e instanceof Error ? e.message : String(e);
+      // v1.8 — ERRO DE REDE TAMBÉM REPETE: o ECONNRESET matou o relay #41
+      // (socket fechado pelo endpoint free aos 60s, depois do request vivo)
+      // e o catch re-throwava sem nenhuma 2ª chance — só 429/5xx repetiam.
+      // Mesma política do loop HTTP: backoff e tenta de novo até 3×.
+      if (attempt < 3) {
+        console.error(
+          `[harbor] rede falhou (tentativa ${attempt}/3): ${msg} — repetindo com backoff`,
+        );
+        await sleep(attempt * 5000);
+        continue;
+      }
       throw new HarborError(
         `falha de rede ao contatar ${url}: ${msg}`,
         "TIMEOUT",
