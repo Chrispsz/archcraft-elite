@@ -111,10 +111,12 @@ window#waybar > box {
 #custom-web { color: @peach; }
 
 /* Separador fixos │ abertos (v2.1): 1px vertical — fronteira do modelo
- * macOS (à esquerda: o que SEMPRE está; à direita: o que está ABERTO) */
+ * macOS (à esquerda: o que SEMPRE está; à direita: o que está ABERTO)
+ * v1.8 — a propriedade GTK4 de largura máxima SAIU: inexistente no GTK3
+ * e FATAL no waybar 0.15 (CSS estrito = exit 1 no parse; run #79 do CI:
+ * dock "SAIU exit=1" no boot). min-width + width já pinam o 1px. */
 #custom-sep {
   min-width: 1px;
-  max-width: 1px;
   width: 1px;
   padding: 0;
   margin: 0 6px;
