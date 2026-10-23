@@ -8,19 +8,24 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 - **v1.7.2 (local, ainda sem release) — a cura da classe "subiu só o
   wallpaper" portada da v1.8**: o waybar **0.15** trata propriedade CSS
-  inválida como **FATAL** (exit 1 no parse) e o rice carregava DUAS:
-  `icon-size` (style.top.css §tray, entrou na v1.6 — GTK4-only) e
-  `max-width` (style.dock.css §separador — GTK4-only). As 2 barras
-  morriam em LOOP ETERNO no boot — EXATAMENTE o que o dono via no rig
-  desde a v1.6.x. Flagrante no CI: run #79 (tag v1.8.0) BARS_EXITS=32 e
-  run #78 (main) BARS_EXITS=53, ambas com "not a valid property name" +
-  "SAIU exit=1" ×2. A "intermitência" entre boots do dono era o
-  repositório rolling: builds de dias diferentes puxaram waybar 0.14
-  (erro = warning ignorável) vs 0.15 (erro = fatal). **CURA**:
-  `icon-size` → `-gtk-icon-transform: scale(0.75)` (GTK3-válido, 24→18px,
-  intenção mantida); `max-width` removido (min-width+width já pinam o
-  1px do separador). **+6 contratos** caçam a classe inteira (nenhuma
-  propriedade GTK4-only nos 2 CSS + equivalentes válidos contratados).
+  inválida como **FATAL** (exit 1 no parse) e o rice carregava TRÊS
+  propriedades GTK4-only: `icon-size` (style.top.css §tray, entrou na
+  v1.6), `max-width` (style.dock.css §separador) e `width` (mesma regra,
+  linha seguinte). As 2 barras morriam em LOOP ETERNO no boot —
+  EXATAMENTE o que o dono via no rig desde a v1.6.x. Flagrante no CI:
+  run #79 (tag v1.8.0) BARS_EXITS=32, run #80 (com as 2 primeiras curas)
+  BARS_EXITS=18, run #78 (main) BARS_EXITS=53 — todas com "not a valid
+  property name" + "SAIU exit=1". A "intermitência" entre boots do dono
+  era o repositório rolling: builds de dias diferentes puxaram waybar
+  0.14 (erro = warning ignorável) vs 0.15 (erro = fatal). **A CAÇADA EM
+  2 BOOTS**: o parser do GTK aborta no PRIMEIRO erro de cada arquivo —
+  cada boot revela só o próximo erro. **CURA DEFINITIVA**: `icon-size` →
+  `-gtk-icon-transform: scale(0.75)` (GTK3-válido — PROVA positiva: o
+  topo passou a #80 inteira com ZERO mortes; 24→18px, intenção mantida);
+  separador → `font-size: 1px` + `min-width: 1px` (glifo encolhido +
+  piso = 1px exato). **+9 contratos** caçam a classe inteira (nenhuma
+  propriedade GTK4-only ou width/height crus nos 2 CSS + equivalentes
+  válidos contratados com a prova de cada um).
 
 - **v1.7.1 (local, ainda sem release) — "a sessão que o CI nunca viu" +
   wallpaper da internet (burn test da v1.7.0, fotos do dono 23/out)**:

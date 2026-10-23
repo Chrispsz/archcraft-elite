@@ -228,23 +228,27 @@ assert_grep "$REPO/scripts/apply-overlay.sh" 'craft-pin' \
   "apply-overlay: craft-pin registrado no file_permissions (senão 203/EXEC no live)"
 
 # ── peças v1.8: CSS GTK3-STRICT — a classe "subiu só o wallpaper" NOMEADA ──
-# O waybar 0.15 trata propriedade CSS inválida como FATAL (exit 1 no parse):
-# 'icon-size' (style.top.css, entrou na v1.6) e 'max-width' (style.dock.css,
-# dock v3) eram GTK4-only e matavam as 2 barras em LOOP ETERNO no boot.
-# Flagrante do probe no CI (run #79, tag v1.8.0): WAYBAR_COUNT=2 era pgrep
-# pegando as instâncias NO MEIO da espiral de morte (~1,5s de vida a cada
-# ciclo de 5s do craft-bars) — BARS_EXITS=32, "SAIU exit=1" ×2 com
-# "not a valid property name". A main (#78) caiu com a MESMA assinatura.
+# O waybar 0.15 trata propriedade CSS inválida como FATAL (exit 1 no parse).
+# TRÊS propriedades GTK4-only foram condenadas EM DOIS BOOTS de CI: o parser
+# aborta no PRIMEIRO erro de cada arquivo — run #79 revelou 'icon-size'
+# (style.top.css, v1.6) e 'max-width' (style.dock.css, dock v3); curadas as
+# duas, a run #80 revelou 'width' na linha seguinte do mesmo bloco. Cada
+# boot só mostra o próximo erro — por isso a suíte caça a CLASSE inteira
+# (propriedades GTK4-only + width/height crus) e não os nomes avulsos.
+# Flagrante #79: BARS_EXITS=32 (pgrep pegando as instâncias NO MEIO da
+# espiral de morte ~1,5s/ciclo de 5s do craft-bars). #78 (main): 53.
 # A intermitência entre boots do dono = builds de dias diferentes puxaram
-# waybar 0.14 (erro=warning ignorável) vs 0.15 (erro=fatal) dos repos
-# rolling. A suíte caça a CLASSE (propriedades GTK4-only), não só os 2 nomes.
+# waybar 0.14 (erro=warning ignorável) vs 0.15 (erro=fatal) dos repos rolling.
 TOPCSS="$REPO/elite/airootfs/etc/skel/.config/waybar/style.top.css"
 assert_nogrep "$TOPCSS" '^[[:space:]]*icon-size:' "css top: sem propriedade GTK4 de tamanho de ícone (FATAL no waybar 0.15 — run #79)"
 assert_nogrep "$TOPCSS" '^[[:space:]]*max-(width|height):' "css top: sem propriedades GTK4 de largura/altura máxima (a classe inteira)"
 assert_nogrep "$DKCSS" '^[[:space:]]*max-(width|height):' "css dock: sem propriedades GTK4 de largura/altura máxima (FATAL no waybar 0.15 — run #79)"
 assert_nogrep "$DKCSS" '^[[:space:]]*icon-size:' "css dock: sem propriedade GTK4 de tamanho de ícone (a classe inteira)"
-assert_grep "$TOPCSS" '\-gtk-icon-transform: scale' "css top: ícone do tray 18px via -gtk-icon-transform (GTK3-válido — intenção da v1.6 mantida)"
-assert_grep "$DKCSS" 'width: 1px' "css dock: separador │ segue 1px (min-width+width; a 3ª propriedade era redundância fatal)"
+assert_nogrep "$TOPCSS" '^[[:space:]]*(width|height):' "css top: sem largura/altura cruas (GTK4-only — condenadas na run #80)"
+assert_nogrep "$DKCSS" '^[[:space:]]*(width|height):' "css dock: sem largura/altura cruas (FATAL no waybar 0.15 — run #80: width:120)"
+assert_grep "$TOPCSS" '\-gtk-icon-transform: scale' "css top: ícone do tray 18px via -gtk-icon-transform (GTK3-válido — PROVA positiva: topo 100% limpo na #80)"
+assert_grep "$DKCSS" 'min-width: 1px' "css dock: separador │ pisa em 1px (min-width — parseou limpo na #80)"
+assert_grep "$DKCSS" 'font-size: 1px' "css dock: glifo do separador encolhido (font-size:1px — o módulo é um espaço; com min-width dá o 1px exato)"
 
 # ── peças: Calamares — o heredoc EOSB parseia como YAML (a lição da v1.1) ──
 # A ISO v1.1 entregou "shellprocess@btrfs could not be loaded" no rig do
