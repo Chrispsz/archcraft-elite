@@ -71,7 +71,18 @@ for _ in $(seq 1 720); do          # até 60 min no pior caso TCG
   kill -0 "$Q" 2>/dev/null || break
   sleep 5
 done
-sleep 20                            # logs pós-target (sessão/autologin)
+# v1.7.1 — PROBE DA SESSÃO GRÁFICA: o gate antigo parava no LOGIN e nunca
+# viu a sessão (a classe "barras mortas" atravessou v1.6.2→v1.7.0 invisível).
+# O elite-session-probe.service roda 60s pós-graphical.target e imprime o
+# estado REAL da sessão no console (= serial aqui). Espera o bloco marcado.
+if [ "$VERDICT" = "BOOT_COMPLETO" ]; then
+  for _ in $(seq 1 48); do         # até +240s pela sessão (autologin→labwc→probe)
+    grep -q 'ELITE_PROBE_END' "$SERIAL" 2>/dev/null && break
+    kill -0 "$Q" 2>/dev/null || break
+    sleep 5
+  done
+fi
+sleep 5                            # logs finais (flush do probe)
 kill "$Q" 2>/dev/null; wait "$Q" 2>/dev/null
 
 echo "════════ ÚLTIMAS 30 LINHAS DO SERIAL (cópia em $SERIAL — apaga com o EXIT trap) ════════"
@@ -90,6 +101,24 @@ chk $? "sem shell de emergência" "initramfs caiu em shell de emergência"
 chk $? "binários Elite executáveis (sem 203/EXEC)" "203/EXEC no live: binário 0644 no squashfs"
 grep -q 'systemd.default_timeout_start_sec=90' "$ENTRY"
 chk $? "cmdline real com timeout 90s ([6.2] presente)" "ISO SEM timeout 90s no cmdline — fix [6.2] regrediu"
+
+# v1.7.1 — GATE DA SESSÃO: o que o dono vê NÃO é o login, é a sessão. Se o
+# probe chegou, as 2 barras waybar têm que estar VIVAS e SEM nenhuma morte
+# registrada (BARS_EXITS conta os 'SAIU exit=' do craft-bars — cada morte do
+# waybar deixa linha com hora+exit code). Se o probe NÃO chegou (QEMU headless
+# sem sessão), informativo — o gate não cobra o que não pode ver.
+if grep -q 'ELITE_PROBE_END' "$SERIAL" 2>/dev/null; then
+  echo "── bloco do probe da sessão:"
+  sed -n '/ELITE_PROBE_BEGIN/,/ELITE_PROBE_END/p' "$SERIAL" | sed 's/^/   /'
+  WC="$(sed 's/\x1b\[[0-9;]*m//g' "$SERIAL" | grep -oE 'WAYBAR_COUNT=[0-9]+' | head -1 | cut -d= -f2)"
+  BE="$(sed 's/\x1b\[[0-9;]*m//g' "$SERIAL" | grep -oE 'BARS_EXITS=[0-9]+' | head -1 | cut -d= -f2)"
+  [ -n "$WC" ] && [ "$WC" -ge 2 ] 2>/dev/null
+  chk $? "sessão gráfica VIVA com as 2 barras waybar (probe: ${WC:-0}/2)" "PROBLEMA REAL DE SESSÃO: ${WC:-0}/2 barras vivas — classe 'subiu só o wallpaper' (ver BARS| acima)"
+  [ -n "$BE" ] && [ "$BE" -eq 0 ] 2>/dev/null
+  chk $? "waybar sem NENHUMA morte na sessão (BARS_EXITS=${BE:-?})" "waybar morreu ${BE:-?}× na sessão — crash/race/OOM (exit code no BARS| acima)"
+else
+  echo "· informativo: probe da sessão NÃO chegou (QEMU sem sessão gráfica?) — gate não cobra o que não vê"
+fi
 
 echo "── veredito: $VERDICT (serial completo: /tmp/elite-serial.log)"
 exit "$FAIL"

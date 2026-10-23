@@ -1,0 +1,76 @@
+#!/bin/sh
+# ═══════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · elite-session-probe (v1.7.1) — evidência da SESSÃO GRÁFICA
+# ═══════════════════════════════════════════════════════════════════════════
+# POR QUÊ: o gate do CI (verify/QEMU) boota a ISO e para no LOGIN — nunca
+# viu a sessão gráfica. As duas barras waybar morreram caladas no rig do
+# dono por 3 releases seguidas (v1.6.2 → v1.7.0: "iniciou sem aparecer nada
+# além do wallpaper") e o CI nunca pôde gritar, porque o sintoma nasce DEPOIS
+# do ponto onde o gate olhava.
+#
+# CURA: este probe roda 60s após o graphical.target (ver
+# elite-session-probe.service), colhe o ESTADO REAL da sessão (barras vivas,
+# mortes registradas no bars.log, memória, versões) e imprime um bloco
+# MARCADO no console — no QEMU do gate o console é o serial, que o gate
+# grepa (ELITE_PROBE_BEGIN/END, WAYBAR_COUNT, BARS_EXITS). No stdout vai a
+# mesma carga (→ journal do systemd, forense pós-mortem em rigs reais).
+#
+# Inofensivo por construção: one-shot, sem escrita em disco, exit 0 SEMPRE
+# (uma unidade failed aqui viraria falso negativo do gate "nenhuma unidade
+# em failed" — o probe é observador, nunca parte do sistema).
+# ═══════════════════════════════════════════════════════════════════════════
+
+say() {
+    printf '%s\n' "$1"
+    # console (serial no QEMU do gate; tty texto no rig — invisível sob X/WL)
+    if [ -w /dev/console ]; then
+        printf '%s\n' "$1" >/dev/console 2>/dev/null
+    fi
+    return 0
+}
+
+# contador à prova de dupla impressão (pgrep -c imprime "0" E sai 1 — o
+# `|| echo 0` clássico duplicaria a linha no command substitution)
+count() {
+    c="$(pgrep -c "$1" 2>/dev/null)"
+    [ -n "$c" ] || c=0
+    printf '%s' "$c"
+}
+
+wb_list="$(pgrep -a waybar 2>/dev/null | tr '\n' ';' | sed 's/;$//')"
+wb_count="$(count waybar)"
+sn_count="$(count swaync)"
+
+# barras.log de TODOS os usuários (live=liveuser; instalado=dono do login)
+restarts=0
+exits=0
+logf=""
+for f in /root/.cache/elite/bars.log /home/*/.cache/elite/bars.log; do
+    [ -f "$f" ] || continue
+    r="$(grep -c 'FORA — reiniciando' "$f" 2>/dev/null)"
+    [ -n "$r" ] || r=0
+    e="$(grep -c 'SAIU exit=' "$f" 2>/dev/null)"
+    [ -n "$e" ] || e=0
+    restarts=$((restarts + r))
+    exits=$((exits + e))
+    logf="$f"
+done
+
+say "ELITE_PROBE_BEGIN"
+say "WAYBAR_COUNT=$wb_count"
+say "SWAYNC_COUNT=$sn_count"
+say "BARS_RESTARTS=$restarts"
+say "BARS_EXITS=$exits"
+say "WAYBAR_PROCS=$wb_list"
+say "BARS_LOG=$logf"
+if [ -n "$logf" ]; then
+    tail -12 "$logf" 2>/dev/null | while IFS= read -r line; do
+        say "BARS| $line"
+    done
+fi
+mem="$(free -m 2>/dev/null | awk 'NR==2 {printf "%s/%sMB", $3, $2}')"
+say "MEM=$mem"
+say "WAYBAR_VER=$(waybar --version 2>/dev/null | head -1)"
+say "LABWC_VER=$(labwc --version 2>/dev/null | head -1)"
+say "ELITE_PROBE_END"
+exit 0

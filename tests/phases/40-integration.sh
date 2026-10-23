@@ -184,8 +184,8 @@ assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'systemctl poweroff' "
 assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'systemctl reboot' "v1.0.4: menu raiz com Reboot"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'config.top' "v1.0.4: autostart sobe a menu bar"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'config.dock' "v1.0.4: autostart sobe o DOCK"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'wallpaper\.png' "v1.0.4: wallpaper de imagem (não cor sólida)"
-assert_file "$P/airootfs/etc/skel/.config/labwc/wallpaper.png" "v1.0.4: wallpaper.png no skel"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'wallpaper\.jpg' "v1.7.1: wallpaper de imagem (curadoria internet — não cor sólida)"
+assert_file "$P/airootfs/etc/skel/.config/labwc/wallpaper.jpg" "v1.7.1: wallpaper.jpg no skel (curadoria da internet — o dono rejeitou o gerado por IA)"
 
 # ── v1.2 DESKTOP v2.1: burn test do dono (rig B) — a cura completa ──────
 # Forense da v1.1: 7 de 8 botões da dock com "format": "" (glifos perdidos
@@ -1383,7 +1383,7 @@ WBT="$ST/waybar/style.top.css"; WBD="$ST/waybar/style.dock.css"
 DRW="$ST/nwg-drawer/drawer.css";  SWC="$ST/swaync/style.css"
 FZL="$ST/fuzzel/fuzzel.ini";       FTC="$ST/foot/foot.ini"
 THR="$ST/labwc/themerc-override";  AST="$ST/labwc/autostart"
-WAL="$ST/labwc/wallpaper.png"
+WAL="$ST/labwc/wallpaper.jpg"
 
 # ── Escada AMOLED idêntica nos 4 CSS (base do sistema = preto REAL) ────────
 for f in "$WBT" "$WBD" "$SWC" "$DRW"; do
@@ -1492,14 +1492,25 @@ assert_nogrep "$THR" ': #1e1e2e' "v1.3: themerc anti-regressão (nenhuma superf�
 # ── autostart: fallback do swaybg desce ao preto ──────────────────────────
 assert_grep "$AST" "swaybg -m fill -c '#000000'" "v1.3: fallback swaybg preto AMOLED (era 1e1e2e)"
 
-# ── Wallpaper: v1.7 — FRACTAL LUMINOSO p/ IPS (métricas, não promessa) ───
-# Conceito novo do dono ("qualidade máxima e melhor em monitores IPS"):
-# gerado por IA PARA o projeto (sem licença de terceiros), 3840x2160
-# (upscale Lanczos) + grão fino anti-banding. MÉTRICAS do conceito IPS:
-# NENHUM pixel (0,0,0) esmagado (no IPS preto puro = cinza morto — o
-# floor elevado é intencional), luma média escura (não cega de noite) e
-# o strip do topo (atrás da menu bar) mais escuro que a média.
-assert_file "$WAL" "v1.7: wallpaper.png existe (fractal luminoso gerado, PNG lossless)"
+# ── Wallpaper: v1.7.1 — CURADORIA DA INTERNET (métricas, não promessa) ──
+# O experimento IA da v1.7 saiu de cena (dono: "eu queria um wallpaper da
+# internet mesmo, esses gerados são muito ruim"). Novo padrão: abstrato
+# real da internet (Unsplash — licença de uso livre), ondas de seda
+# roxo/preto, 3000x1688 nativo → 3840x2160 Lanczos + UnsharpMask, JPEG q93
+# (0.43 MB — o PNG de 10.7 MB da v1.7 engordava a ISO ~19 MB). Métricas
+# medidas do arquivo implantado: 0.24% de (0,0,0) (não esmaga o IPS),
+# luma média 32.6 (dark premium que não cega), strip do topo luma 5.7 <<
+# média (a menu bar assenta em zona escura). IDENTIDADE do arquivo
+# travada por sha256 (anti-tamper) + teto de tamanho (lição do +19 MB).
+assert_file "$WAL" "v1.7.1: wallpaper.jpg existe (curadoria internet, JPEG 4K)"
+walsha="$(sha256sum "$WAL" | cut -d' ' -f1)"
+assert_eq "$walsha" "f9ec90ad83909822cb74747a9f664f89de785a38c9120b00eec04c1ee8627b25" \
+  "v1.7.1: wallpaper.jpg é o arquivo curado (sha256 anti-tamper — trocou = contrato quebra)"
+walsize="$(stat -c%s "$WAL")"
+sizeok=1; awk "BEGIN{exit !($walsize <= 2097152)}" || sizeok=0
+assert_eq "$sizeok" "1" "v1.7.1: wallpaper ≤2 MiB (higiene de ISO — o PNG 10.7 MB custou +19 MB; tem $walsize B)"
+waltype="$(file -b --mime-type "$WAL" 2>/dev/null)"
+assert_eq "$waltype" "image/jpeg" "v1.7.1: wallpaper é JPEG real (extensão honesta — tem '$waltype')"
 if command -v python3 >/dev/null 2>&1; then
   if python3 -c 'from PIL import Image' 2>/dev/null; then
     walout="$(python3 - "$WAL" << 'PYEOF'
@@ -1527,24 +1538,22 @@ print(rgb.size[0], round(black, 2), round(mean, 1), p1, round(tmean, 1))
 PYEOF
 )"
     if [[ "$walout" =~ ^[0-9]+[[:space:]][0-9.]+[[:space:]][0-9.]+[[:space:]][0-9.]+[[:space:]][0-9.]+$ ]]; then
-      read -r walres walblack walmean walp1 waltop <<<"$walout"
-      assert_eq "$walres" "3840" "v1.7: wallpaper 4K (3840px de largura — tem $walres)"
+      read -r walres walblack walmean _ waltop <<<"$walout"
+      assert_eq "$walres" "3840" "v1.7.1: wallpaper 4K (3840px de largura — tem $walres)"
       blackok=1; awk "BEGIN{exit !($walblack <= 5.0)}" || blackok=0
-      assert_eq "$blackok" "1" "v1.7: wallpaper SEM preto esmagado (≤5% de (0,0,0) — conceito IPS; tem $walblack%)"
+      assert_eq "$blackok" "1" "v1.7.1: wallpaper SEM preto esmagado (≤5% de (0,0,0) — conceito IPS mantido; tem $walblack%)"
       meanok=1; awk "BEGIN{exit !($walmean >= 15.0 && $walmean <= 60.0)}" || meanok=0
-      assert_eq "$meanok" "1" "v1.7: luma média 15-60 (dark premium que não cega — tem $walmean)"
-      p1ok=1; awk "BEGIN{exit !($walp1 >= 8.0)}" || p1ok=0
-      assert_eq "$p1ok" "1" "v1.7: floor elevado (p1 ≥8 — sem crush no IPS; tem $walp1)"
+      assert_eq "$meanok" "1" "v1.7.1: luma média 15-60 (dark premium que não cega — tem $walmean)"
       topok=1; awk "BEGIN{exit !($waltop <= $walmean)}" || topok=0
-      assert_eq "$topok" "1" "v1.7: strip do topo mais escuro que a média (a menu bar assenta — tem $waltop vs $walmean)"
+      assert_eq "$topok" "1" "v1.7.1: strip do topo mais escuro que a média (a menu bar assenta — tem $waltop vs $walmean)"
     else
-      fail "v1.7: métricas do wallpaper" "saída do python3/PIL inesperada: '${walout:0:80}' (lição da run #34: nunca mais falha silenciosa com 'tem %')"
+      fail "v1.7.1: métricas do wallpaper" "saída do python3/PIL inesperada: '${walout:0:80}' (lição da run #34: nunca mais falha silenciosa com 'tem %')"
     fi
   else
-    fail "v1.7: métricas do wallpaper" "python3 presente sem PIL — instale python-pillow (o CI já traz)"
+    fail "v1.7.1: métricas do wallpaper" "python3 presente sem PIL — instale python-pillow (o CI já traz)"
   fi
 else
-  skip "v1.7: métricas do wallpaper" "python3 indisponível"
+  skip "v1.7.1: métricas do wallpaper" "python3 indisponível"
 fi
 
 # ── A corrosão NÃO alcançou os acentos globais (top bar) ───────────────────
@@ -1668,6 +1677,41 @@ assert_grep "$CBR" '1048576' "v1.6.3: bars.log com teto 1 MiB (sem crescimento i
 assert_grep "$CBR" 'waybar -c [$]2' "v1.6.3: stderr do waybar capturado no log (forense do próximo incidente)"
 assert_grep "$CBR" 'pgrep -f' "v1.6.3: respawn por pgrep (não empilha instância)"
 assert_grep "$REPO/scripts/apply-overlay.sh" 'craft-bars' "v1.6.3: craft-bars no file_permissions (0755 no live — senão 203/EXEC)"
+
+# ── SESSÃO OBSERVÁVEL (v1.7.1): a classe "subiu só o wallpaper" ──────────
+#    atravessou v1.6.2→v1.7.0 porque o gate do CI parava no LOGIN e o
+#    guard do autostart falhava calado. Cura em 4 camadas, TODAS
+#    contratadas: (1) guard do autostart loga no bars.log; (2) craft-bars
+#    registra exit code de cada morte; (3) elite-session-probe colhe o
+#    estado real da sessão 60s pós-graphical.target e imprime no console;
+#    (4) o gate do CI (build.yml + qemu-boot-test.sh) grepa o bloco e
+#    cobra WAYBAR_COUNT≥2 e BARS_EXITS=0.
+AUTX2="$P/airootfs/etc/skel/.config/labwc/autostart"
+PROBE="$P/airootfs/usr/local/bin/elite-session-probe"
+PSVC="$P/airootfs/etc/systemd/system/elite-session-probe.service"
+assert_file "$PROBE" "v1.7.1: elite-session-probe existe (evidência da sessão gráfica)"
+assert_grep "$PROBE" 'ELITE_PROBE_BEGIN' "v1.7.1: probe abre bloco marcado (gate grepa o serial)"
+assert_grep "$PROBE" 'ELITE_PROBE_END' "v1.7.1: probe fecha bloco marcado (fim determinístico)"
+assert_grep "$PROBE" 'WAYBAR_COUNT=' "v1.7.1: probe reporta WAYBAR_COUNT (2 barras vivas)"
+assert_grep "$PROBE" 'BARS_EXITS=' "v1.7.1: probe reporta BARS_EXITS (mortes do waybar)"
+assert_grep "$PROBE" '/dev/console' "v1.7.1: probe escreve no console (serial no QEMU)"
+assert_file "$PSVC" "v1.7.1: elite-session-probe.service existe"
+assert_grep "$PSVC" 'ExecStart=/usr/local/bin/elite-session-probe' "v1.7.1: service aponta o probe real"
+assert_grep "$PSVC" 'WantedBy=graphical.target' "v1.7.1: service ligado ao graphical.target"
+assert_grep "$PSVC" 'After=graphical.target' "v1.7.1: service roda DEPOIS do target (não briga com o boot)"
+if [ -L "$P/airootfs/etc/systemd/system/graphical.target.wants/elite-session-probe.service" ]; then
+  ok "v1.7.1: probe habilitado no graphical.target.wants (symlink)"
+else
+  fail "v1.7.1: probe habilitado no graphical.target.wants (symlink)" "unidade existe mas NÃO está habilitada — o probe nunca rodaria"
+fi
+assert_grep "$AUTX2" 'binário waybar AUSENTE' "v1.7.1: guard loga waybar ausente no bars.log (fim do silêncio)"
+assert_grep "$AUTX2" 'craft-bars ausente/sem bit de execução' "v1.7.1: guard loga craft-bars quebrado no bars.log"
+assert_grep "$CBR" 'SAIU exit=' "v1.7.1: craft-bars registra exit code de cada morte do waybar"
+assert_grep "$REPO/scripts/apply-overlay.sh" 'elite-session-probe' "v1.7.1: probe no file_permissions (0755 — sem isso o service morre 203/EXEC)"
+assert_grep "$REPO/scripts/qemu-boot-test.sh" 'ELITE_PROBE_END' "v1.7.1: gate local espera o bloco do probe"
+assert_grep "$REPO/scripts/qemu-boot-test.sh" 'WAYBAR_COUNT' "v1.7.1: gate local cobra as 2 barras vivas"
+assert_grep "$REPO/.github/workflows/build.yml" 'ELITE_PROBE_END' "v1.7.1: gate do CI espera o bloco do probe"
+assert_grep "$REPO/.github/workflows/build.yml" 'WAYBAR_COUNT' "v1.7.1: gate do CI cobra as 2 barras vivas"
 
 # ── Menu raiz SEM fantasmas (v1.6.3): burn test do dono — 'os programas ──
 #    que deveriam abrir não abrem'. Regra com contrato: todo Execute
