@@ -6,7 +6,54 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
-- **v1.6.2 (main) — A AUDITORIA DE "PERFEITO, OTIMIZADO, LIMPO E SEM
+- **v1.6.3 (main) — O BURN TEST DA v1.6.2: "iniciou sem aparecer nada além
+  do wallpaper" + "programas que deveriam abrir não abrem + ícones"** (foto
+  e relato do dono, out/2026). Causa-raiz por evidência + duas curas
+  estruturais com contrato:
+  - **(A) Barras SUPERVISIONADAS — craft-bars (novo)**: a sessão subiu só
+    com wallpaper — as duas instâncias do waybar morreram caladas SEM
+    deixar stderr (o labwc não redireciona o autostart) e o gate de boot
+    do CI é serial e para no LOGIN — nunca vê a sessão gráfica (por isso
+    passou verde). Cura em 2 frentes: (1) **supervisão** — o craft-bars
+    vigia as duas barras por pgrep e reinicia em ≤5s (loop com sleep, ~0%
+    CPU, ~1 MB: barra que morrer VOLTA — a classe "boot mudo" está morta
+    por construção); (2) **forense** — o stderr do waybar agora vai para
+    `~/.cache/elite/bars.log` com teto de 1 MiB (diretriz v1.6.2: nada
+    cresce sem limite) — se voltar a acontecer, o log traz a mensagem
+    EXATA (`cat ~/.cache/elite/bars.log`). O autostart não sobe waybar
+    direto (contrato: delega ao craft-bars).
+  - **(B) Menu raiz curado com prova — fim dos "programas que não abrem"**.
+    Achados do burn test, um a um: o item **"craft-hello · overview"
+    executava o fastfetch SEM terminal** (escrevia no stdout do labwc —
+    invisível; agora abre em `foot -e craft-hello`); **"Editor (nano)" e
+    "Arquivos compactados (7z)" estavam íntegros** (nano vem do base
+    upstream — linha 76 do packages.x86_64; `7zip` está no packages.add
+    da Elite — os dois abrem); **"Navegador" íntegro** (brave-origin +
+    launcher /usr/bin/brave). **Contrato novo (o debloat nunca mais
+    quebra item em silêncio)**: todo `Execute command=X` do menu.xml
+    precisa de binário REAL na ISO — packages.add ∪ /usr/local/bin ∪
+    allowlist base com proveniência (sh/systemctl/xdg-open).
+  - **(C) Ícones: todo item do root-menu tem icon=, e o caminho é um
+    arquivo REAL do tema**. A foto mostrava itens sem ícone — eram os sem
+    atributo `icon=` no XML (papers, Fixar app, Reconfigure, Janelas,
+    Encerrar labwc + 6 do submenu Cockpit). Todos receberam ícone; os
+    14 que já renderizavam foram conferidos um a um na lista de arquivos
+    do papirus-icon-theme (API do Arch, 103.433 SVGs) — **zero caminho
+    fantasma**. Nota de tamanho: ícones de AÇÃO (pin/refresh/log-out) só
+    existem no Papirus até 24x24; app usa 48x48. Fixture bidirecional
+    (`tests/fixtures/menu-icons-papirus.txt` + contratos): ícone fora do
+    tema real ou fixture órfão = CI vermelho. "Vale a pena ter esse
+    menu?" — SIM: custa zero RAM fechado (o labwc desenha sob demanda) e
+    foi ELE que manteve a sessão utilizável no burn test (Terminal,
+    Lock, Sessão funcionando sem barras); agora está 100% auditado.
+  - **(D) Correção honesta de registro (v1.6.2)**: o relatório anterior
+    citava o EasyEffects como maior consumidor de RAM em standby —
+    **ele NÃO está na ISO** (saíra na curadoria; o bloco do autostart é
+    guardado por `command -v` e nunca executa — zero RAM, código vivo
+    apenas se o usuário instalar: `pacman -S easyeffects` e o autostart
+    volta a subir o serviço sozinho). O campeão de standby residente é
+    o trio waybar×2 + swaync (~60-90 MB somados) — todos com por quê.
+- **v1.6.2 — A AUDITORIA DE "PERFEITO, OTIMIZADO, LIMPO E SEM
   MEMORY LEAK?"** (questionamento do dono antes da build final): auditoria
   item a item em código + fonte primária; **um buraco real encontrado e
   curado com a receita do próprio upstream**:

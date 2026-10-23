@@ -27,13 +27,14 @@ if command -v swaybg >/dev/null 2>&1; then
 fi
 
 # --- Barras (Desktop v2): menu bar no TOPO + DOCK na base ------------------
-#     2 instâncias do waybar: o tray (SNI watcher é único por sessão) fica
-#     SÓ na de cima; o dock tem launchers fixos + janelas abertas.
-if command -v waybar >/dev/null 2>&1; then
-    waybar -c "$HOME/.config/waybar/config.top" \
-           -s "$HOME/.config/waybar/style.top.css" &
-    waybar -c "$HOME/.config/waybar/config.dock" \
-           -s "$HOME/.config/waybar/style.dock.css" &
+#     v1.6.3 — SUPERVISÃO (burn test da v1.6.2: a sessão subiu SÓ com o
+#     wallpaper — as duas instâncias morreram caladas, sem deixar stderr;
+#     o gate do CI para no LOGIN, nunca vê a sessão gráfica). O craft-bars
+#     vigia as duas barras, reinicia em ≤5s e guarda o stderr em
+#     ~/.cache/elite/bars.log (teto 1 MiB) — fim da sessão muda, e se o
+#     waybar morrer de novo o log traz a mensagem EXATA dele.
+if command -v waybar >/dev/null 2>&1 && [ -x /usr/local/bin/craft-bars ]; then
+    craft-bars &
 fi
 
 # --- Central de notificações (SwayNC) — toggle no relógio da barra ---------

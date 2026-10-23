@@ -1621,4 +1621,71 @@ assert_file "$CPP" "v1.4: craft-pin-pick existe (fixar sem CLI — burn test: 't
 assert_grep "$MXML" 'craft-pin-pick' "v1.4: root menu do desktop expõe 'Fixar app na dock…'"
 assert_grep "$CPP" 'craft-pin add' "v1.4: picker delega no craft-pin (mesma maquinaria validada)"
 
+# ── Barras SUPERVISIONADAS (v1.6.3): burn test da v1.6.2 subiu SÓ com ────
+#    wallpaper — waybar morreu calado, sem stderr, e o gate do CI (serial)
+#    para no login: nunca vê a sessão gráfica. Cura: craft-bars vigia as
+#    duas instâncias (respawn ≤5s) + stderr em ~/.cache/elite/bars.log
+#    (teto 1 MiB — diretriz v1.6.2 de crescimento limitado).
+CBR="$P/airootfs/usr/local/bin/craft-bars"
+assert_file "$CBR" "v1.6.3: craft-bars existe (supervisor das duas barras)"
+assert_grep "$AUTX" 'craft-bars &' "v1.6.3: autostart delega as barras ao craft-bars"
+assert_nogrep "$AUTX" 'waybar -c' "v1.6.3: autostart NÃO sobe waybar direto (supervisão única — respawn garantido)"
+assert_grep "$CBR" 'config\.top' "v1.6.3: supervisor vigia a barra de cima"
+assert_grep "$CBR" 'config\.dock' "v1.6.3: supervisor vigia o dock"
+assert_grep "$CBR" '1048576' "v1.6.3: bars.log com teto 1 MiB (sem crescimento ilimitado)"
+assert_grep "$CBR" 'waybar -c [$]2' "v1.6.3: stderr do waybar capturado no log (forense do próximo incidente)"
+assert_grep "$CBR" 'pgrep -f' "v1.6.3: respawn por pgrep (não empilha instância)"
+assert_grep "$REPO/scripts/apply-overlay.sh" 'craft-bars' "v1.6.3: craft-bars no file_permissions (0755 no live — senão 203/EXEC)"
+
+# ── Menu raiz SEM fantasmas (v1.6.3): burn test do dono — 'os programas ──
+#    que deveriam abrir não abrem'. Regra com contrato: todo Execute
+#    command=X tem binário REAL na ISO — packages.add ∪ /usr/local/bin ∪
+#    allowlist base (sh: runner dos compostos; systemctl: systemd; xdg-open:
+#    xdg-utils — os três vêm do base/pacstrap, fora do packages.add).
+MADD="$REPO/elite/packages.add"
+menu_allow=" sh systemctl xdg-open "
+menu_ghost=0
+while IFS= read -r mcmd; do
+  [ -z "$mcmd" ] && continue
+  mbin=${mcmd%% *}
+  case "$menu_allow" in *" $mbin "*) continue ;; esac
+  if grep -qx "$mbin" "$MADD" 2>/dev/null || [ -x "$P/airootfs/usr/local/bin/$mbin" ]; then
+    ok "v1.6.3: item de menu '$mbin' existe na ISO (packages.add ∪ usr/local/bin)"
+  else
+    menu_ghost=1
+    fail "v1.6.3: item de menu '$mbin' existe na ISO (packages.add ∪ usr/local/bin)" "comando órfão no menu.xml: $mcmd"
+  fi
+done < <(sed -n 's/.*action name="Execute" command="\([^"]*\)".*/\1/p' "$MXML")
+# e o craft-hello abre em TERMINAL (fastfetch solto escrevia no stdout do
+# labwc — invisível: o 'overview' que não abre, do burn test do dono)
+assert_grep "$MXML" 'command="foot -e craft-hello"' "v1.6.3: craft-hello abre em foot (overview visível — era executado sem terminal)"
+
+# ── Ícones do menu = arquivos REAIS do Papirus (v1.6.3): a foto do dono ──
+#    mostrou itens sem ícone (XML sem icon=). Agora TODO item tem ícone e
+#    o caminho existe no papirus-icon-theme REAL (fixture bidirecional
+#    gerado da API do Arch — header do fixture tem a proveniência).
+MICON="$TESTS_DIR/fixtures/menu-icons-papirus.txt"
+assert_file "$MICON" "v1.6.3: fixture Papirus existe (lista de arquivos do tema real)"
+icon_missing=0
+while IFS= read -r mic; do
+  [ -z "$mic" ] && continue
+  if grep -qxF "$mic" "$MICON"; then
+    ok "v1.6.3: ícone no tema real — ${mic##*/}"
+  else
+    icon_missing=1
+    fail "v1.6.3: ícone no tema real — ${mic##*/}" "caminho fora do fixture Papirus: $mic"
+  fi
+done < <(sed -n 's/.*icon="\([^"]*\)".*/\1/p' "$MXML" | sort -u)
+while IFS= read -r fic; do
+  case "$fic" in \#*|"") continue ;; esac
+  grep -qF "icon=\"$fic\"" "$MXML" || fail "v1.6.3: fixture Papirus sem órfãos" "linha não usada no menu.xml: $fic"
+done <"$MICON"
+# nenhum item VISÍVEL sem icon= (a exceção documentada: nenhuma — até o
+# builtin 'Janelas...' recebeu ícone; itens de ação interna do client-menu
+# (Minimizar/Fechar…) não são do root-menu e ficam fora do contrato.
+# O root-menu é o ÚLTIMO bloco do arquivo — o range vai até o EOF para
+# atravessar o </menu> aninhado do submenu Cockpit).
+root_no_icon=$(sed -n '/id="root-menu"/,$p' "$MXML" | grep '<item label=' | grep -cv 'icon=' || true)
+assert_eq "$root_no_icon" "0" "v1.6.3: zero itens do root-menu sem icon= (a foto do dono não se repete)"
+
 phase_end

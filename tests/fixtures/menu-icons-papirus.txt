@@ -1,0 +1,37 @@
+# tests/fixtures/menu-icons-papirus.txt
+# ═══════════════════════════════════════════════════════════════════════════
+# Ícones do menu raiz (labwc menu.xml) — caminhos que EXISTEM no tema real.
+# Fonte: lista completa de arquivos do pacote papirus-icon-theme (o que a
+# ISO instala — elite/packages.add), obtida na API do Arch Linux
+# (archlinux.org/packages/extra/any/papirus-icon-theme/files/json/,
+# 103.433 entradas de .svg, conferido em out/2026).
+# Contrato (tests/phases/40-integration.sh): todo icon="..." do menu.xml
+# tem que estar AQUI, e toda linha daqui tem que estar em uso no menu.xml —
+# bidirecional, sem ícone fantasma e sem fixture órfão.
+# NOTA DE TAMANHO: ícones de AÇÃO (pin/view-refresh/log-out/lock/shutdown)
+# só existem no Papirus até 24x24; ícones de APP existem em 48x48.
+# ═══════════════════════════════════════════════════════════════════════════
+/usr/share/icons/Papirus/48x48/apps/utilities-terminal.svg
+/usr/share/icons/Papirus/48x48/apps/web-browser.svg
+/usr/share/icons/Papirus/48x48/apps/system-file-manager.svg
+/usr/share/icons/Papirus/48x48/apps/text-editor.svg
+/usr/share/icons/Papirus/48x48/mimetypes/application-pdf.svg
+/usr/share/icons/Papirus/48x48/apps/qalculate.svg
+/usr/share/icons/Papirus/48x48/apps/preferences-system.svg
+/usr/share/icons/Papirus/48x48/apps/system-software-update.svg
+/usr/share/icons/Papirus/48x48/apps/bleachbit.svg
+/usr/share/icons/Papirus/48x48/apps/timeshift.svg
+/usr/share/icons/Papirus/48x48/apps/btop.svg
+/usr/share/icons/Papirus/48x48/apps/multimedia-volume-control.svg
+/usr/share/icons/Papirus/48x48/devices/network-wireless.svg
+/usr/share/icons/Papirus/48x48/apps/blueman.svg
+/usr/share/icons/Papirus/48x48/apps/nwg-look.svg
+/usr/share/icons/Papirus/48x48/apps/7zip.svg
+/usr/share/icons/Papirus/48x48/apps/preferences-system-windows.svg
+/usr/share/icons/Papirus/48x48/apps/preferences-desktop.svg
+/usr/share/icons/Papirus/24x24/actions/view-refresh.svg
+/usr/share/icons/Papirus/24x24/actions/pin.svg
+/usr/share/icons/Papirus/24x24/actions/system-lock-screen.svg
+/usr/share/icons/Papirus/24x24/actions/system-log-out.svg
+/usr/share/icons/Papirus/24x24/actions/system-shutdown.svg
+/usr/share/icons/Papirus/24x24/actions/system-reboot.svg
