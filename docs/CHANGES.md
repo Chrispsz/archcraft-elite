@@ -868,3 +868,23 @@ Triagem de uma análise externa do repo — 3 alegações, 2 procedentes
   archcraft 190/190 HEADs = 200. Os 2× 404 do #16 eram janela transitória
   de propagação (02:19–02:28 UTC), já curada — a sonda+baseline é o
   remédio permanente p/ quando a janela reabrir.
+
+## 🔬 Anomalia aberta (v1.5.2): o trigger `on.push` nunca disparou
+
+Investigação empírica durante a validação da v1.5.2: **zero runs de evento
+`push` em toda a história do repositório** (20 runs = 4 `pull_request` + 16
+`workflow_dispatch`) — nem as 3 merges anteriores (que usavam `[skip ci]`,
+o que criaria runs "skipped" visíveis), nem pushes diretos. Teste empírico
+real (commit f7f8331, push direto em main, arquivo NÃO-ignorado
+`scripts/log-forensics.sh`, sem `[skip ci]`): **nenhuma run criada**, zero
+check-runs no commit, após 2+ minutos. Verificado: bloco `on:` byte-a-byte
+válido (`od -c`), workflows `active` na API, Actions `enabled` com
+`allowed_actions: all`, repo público (minutos infinitos), não-fork, branch
+`main` sem proteção. O evento `pull_request` funciona normalmente (é ele
+que roda a suíte nos PRs) e `workflow_dispatch` idem.
+
+**Impacto operacional: nenhum** — o fluxo do projeto sempre foi dispatch
+consciente pós-merge (as 16 builds da história), e permanece assim.
+**Pendência:** testar trigger com outro ator/token, ou um workflow canário
+minimal, se a automação de push passar a valer a pena. Nada de silêncio:
+documentado aqui com o teste que o comprova.
