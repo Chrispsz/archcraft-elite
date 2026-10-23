@@ -87,7 +87,7 @@ jobs:
     steps:
       # v1.2: o gate [1b/8] usa .ci/validate-calamares.py do repo (o MESMO
       # validador da suíte local — um caminho só). Shallow: só este arquivo.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 1
 
@@ -206,6 +206,68 @@ jobs:
           # O validador vive no repo (.ci/validate-calamares.py) — o MESMO
           # código roda na suíte local (20-static), um caminho só.
           python3 "$GITHUB_WORKSPACE/.ci/validate-calamares.py" rootfs || exit 1
+
+          echo "── [1c/8] copytoram × unpackfs: o launch.sh REESCREVE o conf no live"
+          # v1.6 — O GATE QUE FALTAVA (forense do burn test v1.5 do dono):
+          # a ISO era ÍNTEGRA (sha256 conferido), o unpackfs.conf estava
+          # CORRETO dentro do squashfs — mas o launch.sh do Archcraft, ao
+          # detectar copytoram (default da Elite), reescreve o conf com um
+          # sed cujo padrão 'vmlinuz-linux' casa como PREFIXO do kernel
+          # BORE renomeado → source aponta pro path INEXISTENTE
+          # /usr/lib/modules/<kver>/vmlinuz-cachyos-bore → Calamares aborta
+          # em "Configuração incorreta do unpackfs" no rig real. Este gate
+          # roda o if do launch.sh LITERALMENTE (os mesmos seds, com o
+          # KERNEL real da ISO) sobre uma CÓPIA do conf extraído do
+          # squashfs e valida CADA source resultante.
+          LS=/tmp/launch-copytoram.sh
+          sed -n '/# Check if booted/,/^fi$/p' rootfs/etc/calamares/launch.sh > "$LS" || true
+          grep -q 'copytoram' "$LS" || { echo '✖ launch.sh sem bloco copytoram (upstream mudou?)'; exit 1; }
+          # uname FALSO: o launch.sh calcula KERNEL=`uname -r` — no runner isso
+          # daria o kernel do UBUNTU, não o da ISO. Um uname falso no PATH
+          # devolve o kver real da ISO (do rootfs extraído) e o bloco roda
+          # LITERALMENTE como roda no live do dono (mesmos seds, mesmo kernel).
+          KVER=$(ls rootfs/usr/lib/modules | grep -v '^build$' | head -1)
+          echo "── kernel da ISO (vira o 'uname -r' do launch.sh): $KVER"
+          mkdir -p /tmp/fakebin /tmp/cal-copytoram/modules
+          printf '#!/bin/sh\ncase "$1" in -r) echo %s;; *) uname "$@";; esac\n' "$KVER" > /tmp/fakebin/uname
+          chmod +x /tmp/fakebin/uname
+          cp rootfs/etc/calamares/modules/unpackfs.conf /tmp/cal-copytoram/modules/
+          ( cd /tmp/cal-copytoram && PATH=/tmp/fakebin:$PATH DIR=/tmp/cal-copytoram bash "$LS" >/dev/null 2>&1 ) || true
+          # belt-and-suspenders: se o bloco não reescreveu (upstream mudou o if),
+          # aplica os seds à mão com os padrões LIDOS do launch.sh
+          if ! grep -q '/run/archiso/copytoram/' /tmp/cal-copytoram/modules/unpackfs.conf; then
+            echo "⚠ bloco copytoram não reescreveu — aplicando seds à mão (padrões do launch.sh)"
+            KSEDF=$(grep -oE "s\|/run/archiso/bootmnt/arch/boot/x86_64/[^|]+\|/usr/lib/modules/[$]KERNEL/vmlinuz\|g" rootfs/etc/calamares/launch.sh | head -1)
+            [ -n "$KSEDF" ] || { echo '✖ launch.sh: sed do kernel não encontrado (padrão upstream mudou)'; exit 1; }
+            KPAT=${KSEDF#s|}; KPAT=${KPAT%%|/usr/lib*}
+            sed -i -e 's|/run/archiso/bootmnt/arch/x86_64/airootfs.sfs|/run/archiso/copytoram/airootfs.sfs|g' \
+                   -e "s|$KPAT|/usr/lib/modules/$KVER/vmlinuz|g" \
+                   /tmp/cal-copytoram/modules/unpackfs.conf
+          fi
+          echo "── conf APÓS o copytoram (o que o Calamares do dono leria):"
+          grep -E '^\s+-\s+source:|^\s+sourcefs:|^\s+destination:' /tmp/cal-copytoram/modules/unpackfs.conf
+          # valida CADA source do conf reescrito
+          FAIL=0
+          while IFS= read -r src; do
+            src=${src#\"}; src=${src%\"}
+            case "$src" in
+              /run/archiso/copytoram/*)
+                base=${src#/run/archiso/copytoram/}
+                [ -f "pd/arch/x86_64/$base" ] || { echo "✖ copytoram: $src sem correspondente no ISO (pd/arch/x86_64/$base)"; FAIL=1; }
+                ;;
+              /usr/lib/modules/*)
+                [ -f "rootfs$src" ] || { echo "✖ copytoram: $src NÃO existe no live rootfs (era exatamente o bug do burn test v1.5)"; FAIL=1; }
+                ;;
+              /run/archiso/bootmnt/*)
+                echo "✖ copytoram: $src NÃO foi reescrito — o padrão do launch.sh não casou!"; FAIL=1
+                ;;
+              *) : ;;
+            esac
+          done < <(grep -oE 'source: "[^"]+"' /tmp/cal-copytoram/modules/unpackfs.conf | sed 's/source: "//;s/"$//')
+          # o padrão do launch.sh tem que casar com o kernel da Elite — o bug da v1.5
+          grep -q 'vmlinuz-linux-cachyos-bore|/usr/lib/modules' rootfs/etc/calamares/launch.sh \
+            || { echo "✖ launch.sh SEM o padrão alinhado ao BORE (E5a2 não rodou na build!)"; FAIL=1; }
+          [ "$FAIL" -eq 0 ] && echo "✔ copytoram: todos os sources do conf reescrito existem (regressão v1.5 morta)" || exit 1
 
           echo "── [2/8] disco: MBR + partição btrfs única (Calamares erase-disk, BIOS)"
           truncate -s 14G elite-disk.img

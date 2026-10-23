@@ -257,6 +257,26 @@ if [[ -d "$CC" ]]; then
                 >> "$CC/modules/unpackfs.conf"
         fi
     fi
+    # a2) launch.sh × copytoram — A CAUSA-RAIZ DO BURN TEST v1.5 (provada
+    #     com fonte primária): o launch.sh do Archcraft, ao detectar
+    #     /run/archiso/copytoram, REESCREVE o unpackfs.conf com
+    #       sed "s|…/x86_64/vmlinuz-linux|/usr/lib/modules/$KERNEL/vmlinuz|g"
+    #     O padrão 'vmlinuz-linux' casa como PREFIXO do nosso kernel
+    #     renomeado e deixa o sufixo órfão → source vira
+    #     "/usr/lib/modules/<kver>/vmlinuz-cachyos-bore" — arquivo que NÃO
+    #     existe (o real é 'vmlinuz', sem sufixo, no mesmo diretório).
+    #     Resultado no rig do dono: "Configuração incorreta do unpackfs"
+    #     (log termbin 9z69; ISO íntegra — sha256 conferido; conf correto
+    #     DENTRO do squashfs). Alinhamos o padrão do sed do launch.sh com
+    #     o kernel único BORE; o replacement segue apontando pro arquivo
+    #     REAL ('vmlinuz', sem sufixo — localização canônica do pacote
+    #     de kernel, verificada no squashfs da v1.5).
+    if [[ -f "$CC/launch.sh" ]] && grep -q 'x86_64/vmlinuz-linux|/usr/lib/modules' "$CC/launch.sh"; then
+        sed -i 's#boot/x86_64/vmlinuz-linux|#boot/x86_64/vmlinuz-linux-cachyos-bore|#' "$CC/launch.sh"
+        echo "==> E5a2: launch.sh (copytoram) alinhado ao kernel BORE (fix do burn test v1.5)"
+    elif [[ -f "$CC/launch.sh" ]] && ! grep -q 'x86_64/vmlinuz-linux-cachyos-bore|/usr/lib/modules' "$CC/launch.sh"; then
+        echo "==> E5a2 AVISO: padrão do launch.sh mudou no upstream — conferir copytoram×BORE" >&2
+    fi
     # b) initcpio@elite + REMOÇÃO do initcpio stock: o módulo upstream
     #    regenera o initramfs do kernel 'linux' no alvo — kernel que não
     #    existe mais (v1.1 single-kernel). Sem isto o Calamares ABORTA a

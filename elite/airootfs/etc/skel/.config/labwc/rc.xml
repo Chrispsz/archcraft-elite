@@ -62,11 +62,16 @@
   </placement>
 
   <theme>
-    <!-- RICE PRÓPRIO (v1.0.4): TODO o visual vive em themerc-override —
+    <!-- RICE PRÓPRIO (v1.0.4): TODO o visual de CORES vive em themerc-override —
          labwc-theme(5): "themerc-override in the configuration directory"
-         sobrescreve qualquer tema. O <name> só é fallback se o override
-         sumir. Traffic-lights Mocha, borda ativa mauve, sombras 60/40. -->
-    <name>default</name>
+         sobrescreve qualquer tema. <name> aponta pro tema com os ASSETS:
+         v1.6 — /usr/share/themes/Archcraft-Elite/labwc/ carrega os botões
+         "traffic lights" macOS (PNGs 24px: vermelho fecha, amarelo
+         minimiza, verde maximiza; hover com glifo; cinza inativo) — o
+         pedido do dono: "estilo macos, posicionamento windows padrão"
+         (layout icon:iconify,max,close = ícone à esquerda, botões à
+         direita — a ordem Windows que o dedo já conhece). -->
+    <name>Archcraft-Elite</name>
     <cornerRadius>12</cornerRadius>
     <keepBorder>yes</keepBorder>
     <dropShadows>yes</dropShadows>
@@ -87,6 +92,14 @@
       <weight>normal</weight>
     </font>
   </theme>
+
+  <!-- Menu com ÍCONES (v1.6 — labwc 0.8.3+): os itens do menu.xml carregam
+       icon="/caminho/absoluto" (Papirus, empacotado na ISO — verificado no
+       squashfs). "showIcons" liga a coluna; paths absolutos dispensam a
+       resolução por nome (libsfdo) — determinístico em qualquer build. -->
+  <menu>
+    <showIcons>yes</showIcons>
+  </menu>
 
   <!-- Alt+Tab com preview e miniaturas -->
   <windowSwitcher preview="yes" outlines="yes" unshade="yes">
