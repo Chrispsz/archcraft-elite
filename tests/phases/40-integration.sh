@@ -1547,6 +1547,8 @@ assert_file "$CCT" "v1.4: craft-connect existe"
 assert_grep "$CCT" 'foot -e impala' "v1.4: central abre impala (Wi-Fi/Ethernet)"
 assert_grep "$CCT" 'foot -e bluetui' "v1.4: central abre bluetui (Bluetooth)"
 assert_grep "$CCT" '--prompt=Rede' "v1.4: prompt 'Rede' (nunca colide com o toggle do 'Sessão')"
+assert_grep "$CCT" "pgrep -f 'fuzzel.*--prompt=Rede'" "v1.6.1: craft-connect detecta o menu aberto (toggle — 2ª chamada fecha, mesma cura do 'Sessão')"
+assert_grep "$CCT" "pkill -f 'fuzzel.*--prompt=Rede'" "v1.6.1: toggle da central de rede MATA a instância (regressão do 'menu empilhava' morta por contrato)"
 assert_grep "$WBT" '#idle-inhibitor\.deactivated' "v1.4: café colapsa quando desativado (fim dos 'dois ícones de rede')"
 
 # ── Sessão com TOGGLE (bug do burn test: menu empilhava, não fechava) ────
