@@ -36,7 +36,14 @@ if command -v shellcheck >/dev/null 2>&1; then
     shellcheck -S warning -x "$s" >> "$sc_log" 2>&1 || true
   done
   # o lint cobre também os mocks/extract gerados (padrão de qualidade da suíte)
-  assert_eq "$(wc -l < "$sc_log")" "0" "shellcheck: 0 avisos em ${#SHELLS[@]} scripts (gate do CI — mesma lista do build.yml, glob-driven)"
+  # v0.11 imprime 4 linhas por aviso — na falha, o log INTEIRO vira detalhe
+  # da peça (o CI mostra o diagnóstico, não só a contagem)
+  sc_lines=$(wc -l < "$sc_log")
+  if [[ "$sc_lines" == "0" ]]; then
+    ok "shellcheck: 0 avisos em ${#SHELLS[@]} scripts (gate do CI — mesma lista do build.yml, glob-driven)"
+  else
+    fail "shellcheck: 0 avisos em ${#SHELLS[@]} scripts (gate do CI — mesma lista do build.yml, glob-driven)" "$(head -c 700 "$sc_log")"
+  fi
 else
   skip "shellcheck: gate do CI" "binário ausente neste ambiente — o job de lint no GitHub o executa"
 fi

@@ -9,14 +9,17 @@
 # (waybar config.top) + DOCK flutuante na base (waybar config.dock),
 # Launchpad (nwg-drawer via craft-drawer) e wallpaper de imagem.
 
-# --- Wallpaper: AMOLED (v1.3) — fractal mauve sobre preto REAL (4K) --------
-# Fonte: curadoria da internet (Wallpapers.com, licença de uso livre de
-# wallpaper) — 3840x2160. Pós-processado para o conceito "backlight
-# desligado": black-point por luminância (K=10, ombro S=64, croma
-# preservado — o glow fica byte-idêntico). PNG LOSSLESS: JPEG re-quantiza
-# cada bloco 8x8 e não preserva preto exato. 62% dos pixels são (0,0,0)
-# EXATOS — pixels fisicamente desligados; número conferido por dois
-# métodos independentes (numpy e contagem PIL: 62.22%). Fallback: preto.
+# --- Wallpaper: v1.7 — FRACTAL LUMINOSO (gerado para o ELITE) -------------
+#     Conceito novo (pedido do dono: "qualidade máxima e melhor em
+#     monitores IPS"): flor de fractal em fitas de luz violeta/mauve
+#     sobre fundo plum PROFUNDO — sem preto esmagado (0% de pixels
+#     (0,0,0): no IPS o preto puro vira cinza morto; o floor elevado
+#     (p1≈13/255) parece intencional em QUALQUER painel). 3840x2160
+#     (upscale Lanczos de 2048x1152 nativo) + UnsharpMask leve + grão
+#     fino determinístico (±2 níveis) que mata o banding de gradiente
+#     no IPS. PNG lossless, gerado por IA PARA o projeto (sem licença
+#     de terceiros — a curadoria "internet" da v1.3 saiu de cena).
+#     Fallback: preto.
 if command -v swaybg >/dev/null 2>&1; then
     if [ -r "$HOME/.config/labwc/wallpaper.png" ]; then
         swaybg -m fill -i "$HOME/.config/labwc/wallpaper.png" &

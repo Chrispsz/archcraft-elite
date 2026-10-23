@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+# ═══════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · elite-install-stage — especialização do alvo na INSTALAÇÃO
+# (chamado pelo Calamares: modules/shellprocess_btrfs.conf → 1 comando só)
+# ═══════════════════════════════════════════════════════════════════════════
+# POR QUÊ EXISTE COMO ARQUIVO (v1.7 — o bug do instalador do burn test):
+# o Calamares EXPANDE todo `$var`/`${var}` de um `command:` inline contra
+# ROOT/USER/LANG + global storage ANTES de rodar o shell (shellprocess_kms.conf
+# header, doc oficial: "It is not possible to get an un-escaped $ in the shell
+# command — either the command will fail because of undefined variables…").
+# O script antigo usava variáveis DE SHELL (${kv}/${kbase}/$v/$ELITE_GPU)
+# dentro do YAML → "The commands use variables that are not defined.
+# Missing variables are: kv,kbase,kv,kbase,v,v." → Installation Failed na
+# máquina real. O gate do CI não via porque reproduz a cadeia FORA do
+# Calamares. Dentro de um ARQUIVO .sh a semântica é de shell de verdade —
+# e o contrato da suíte varre os .conf do Calamares caçando `$` desconhecido
+# para esta classe nunca mais voltar (tests/phases/40-integration.sh).
+#
+# USO: elite-install-stage ${ROOT}   (o Calamares expande ${ROOT}; $1 = alvo)
+# Executa no LIVE (dontChroot: true) e especializa o ALVO:
+#   1. btrfs → recopia TODOS os vmlinuz do pendrive p/ /boot (o unpackfs
+#      rsync chegava truncado em btrfs — bug do rig B, v1.0.4)
+#   2. GPU   → AMD remove o stack NVIDIA inteiro do alvo (MODULES=amdgpu +
+#              ppfeaturemask no GRUB) · NVIDIA fixa MODULES + modeset/fbdev
+#              + modprobe.d · unknown não toca em nada (VM)
+#   3. initramfs BORE regenerado no alvo (mkinitcpio -p linux-cachyos-bore)
+#   4. keyring archlinux+cachyos populado no alvo (belt-and-suspenders)
+# Roda DEPOIS de unpackfs/packages e ANTES de grubcfg/bootloader (settings.conf).
+# ═══════════════════════════════════════════════════════════════════════════
+set -u
+ROOT="${1:-}"
+if [ -z "$ROOT" ] || [ ! -d "$ROOT" ]; then
+    echo "ELITE: elite-install-stage precisa do ROOT do alvo (uso: elite-install-stage <mountpoint>)" >&2
+    exit 1
+fi
+
+# ── 1. btrfs: recopia os vmlinuz do live p/ o /boot do alvo ────────────────
+# O rsync do unpackfs chegava truncado em btrfs (rig B: 'premature end of
+# file' no GRUB). Fonte = o bootmnt do live; com copytoram o launch.sh
+# reescreve o unpackfs.conf, e aqui o glob cobre ambos os casos.
+if [ "$(findmnt -n -o FSTYPE "$ROOT")" = "btrfs" ]; then
+    for kv in /run/archiso/bootmnt/arch/boot/x86_64/vmlinuz-*; do
+        [ -e "$kv" ] || continue
+        kbase="$(basename "$kv")"
+        if [ -f "${ROOT}/boot/${kbase}" ]; then
+            cp -f "$kv" "${ROOT}/boot/${kbase}" &&
+                touch "${ROOT}/boot/.kernel-copy-success"
+        fi
+    done
+fi
+
+# ── 2. GPU do alvo: especialização AMD / NVIDIA / neutro ──────────────────
+ELITE_GPU=unknown
+for v in /sys/class/drm/card*/device/vendor; do
+    [ -r "$v" ] || continue
+    case "$(cat "$v" 2>/dev/null)" in
+        0x10de) ELITE_GPU=nvidia ;;
+        0x1002) [ "$ELITE_GPU" != "nvidia" ] && ELITE_GPU=amd ;;
+    esac
+done
+echo "ELITE: GPU do alvo = $ELITE_GPU"
+
+if [ "$ELITE_GPU" = "amd" ]; then
+    arch-chroot "$ROOT" pacman -Rdd --noconfirm nvidia-open-dkms nvidia-utils lib32-nvidia-utils 2>/dev/null || true
+    rm -f "${ROOT}"/usr/lib/modules/*/updates/dkms/nvidia*.ko* 2>/dev/null || true
+    sed -i 's|^MODULES=.*|MODULES=(amdgpu)|' "${ROOT}/etc/mkinitcpio.conf" 2>/dev/null || true
+    printf '%s\n' '# ELITE: AMD - destrava undervolt/OC p/ LACT' 'options amdgpu ppfeaturemask=0xffffffff' > "${ROOT}/etc/modprobe.d/00-elite-amdgpu.conf"
+    if grep -q '^GRUB_CMDLINE_LINUX_DEFAULT=' "${ROOT}/etc/default/grub" 2>/dev/null; then
+        grep -q 'amdgpu.ppfeaturemask' "${ROOT}/etc/default/grub" ||
+            sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT=/s/"$/ amdgpu.ppfeaturemask=0xffffffff"/' "${ROOT}/etc/default/grub"
+    else
+        printf 'GRUB_CMDLINE_LINUX_DEFAULT="quiet amdgpu.ppfeaturemask=0xffffffff"\n' >> "${ROOT}/etc/default/grub"
+    fi
+elif [ "$ELITE_GPU" = "nvidia" ]; then
+    grep -q '^MODULES=(nvidia' "${ROOT}/etc/mkinitcpio.conf" 2>/dev/null ||
+        sed -i 's|^MODULES=.*|MODULES=(nvidia nvidia_modeset nvidia_uvm nvidia_drm)|' "${ROOT}/etc/mkinitcpio.conf" 2>/dev/null || true
+    printf '%s\n' '# ELITE: NVIDIA (modeset+fbdev p/ Wayland; VRAM preservada em suspend)' 'options nvidia-drm modeset=1 fbdev=1' 'options nvidia NVreg_PreserveVideoMemoryAllocations=1 NVreg_TemporaryFilePath=/var/tmp' > "${ROOT}/etc/modprobe.d/00-elite-nvidia.conf"
+    if grep -q '^GRUB_CMDLINE_LINUX_DEFAULT=' "${ROOT}/etc/default/grub" 2>/dev/null; then
+        grep -q 'nvidia_drm.fbdev' "${ROOT}/etc/default/grub" ||
+            sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT=/s/"$/ nvidia_drm.modeset=1 nvidia_drm.fbdev=1"/' "${ROOT}/etc/default/grub"
+    else
+        printf 'GRUB_CMDLINE_LINUX_DEFAULT="quiet nvidia_drm.modeset=1 nvidia_drm.fbdev=1"\n' >> "${ROOT}/etc/default/grub"
+    fi
+fi
+
+# ── 3. initramfs do BORE regenerado NO alvo (o initcpio@elite roda antes, ──
+#    no live context via initcpio_elite.conf — este aqui é o belt-and-
+#    suspenders: se o kernel já está em /boot, garante o initramfs dele)
+if [ -f "${ROOT}/boot/vmlinuz-linux-cachyos-bore" ] &&
+    [ -x "${ROOT}/usr/bin/mkinitcpio" ]; then
+    arch-chroot "$ROOT" mkinitcpio -p linux-cachyos-bore || true
+fi
+
+# ── 4. keyring do alvo (archlinux+cachyos) — cobre skew de build; o E2b ────
+#    do build e o unpackfs (gnupg) já cobrem o essencial
+if [ -x "${ROOT}/usr/bin/pacman-key" ] &&
+    [ -f "${ROOT}/usr/share/pacman/keyrings/cachyos.gpg" ]; then
+    arch-chroot "$ROOT" pacman-key --init || true
+    arch-chroot "$ROOT" pacman-key --populate archlinux cachyos || true
+    echo "ELITE: keyring archlinux+cachyos populado no alvo"
+else
+    echo "ELITE: keyring do alvo já coberto pelo unpackfs (gnupg do build E2b)"
+fi

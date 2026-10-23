@@ -357,8 +357,10 @@ assert_grep "$P/airootfs/etc/skel/.config/gtk-4.0/settings.ini" 'gtk-theme-name=
 # pós-install em btrfs. O workaround upstream só recopia o kernel STOCK; o
 # E10 estende pra TODOS os vmlinuz-* + regenera o initramfs do BORE no alvo.
 assert_grep "$REPO/elite/fragments/elite-customize.sh" 'shellprocess_btrfs.conf' "v1.0.4: E10 patcha o shellprocess_btrfs do Calamares"
-assert_grep "$REPO/elite/fragments/elite-customize.sh" 'for kv in /run/archiso/bootmnt/arch/boot/x86_64/vmlinuz-\*' "v1.0.4: E10 recopia TODOS os vmlinuz-* do pendrive (não só o stock)"
-assert_grep "$REPO/elite/fragments/elite-customize.sh" 'arch-chroot "\${ROOT}" mkinitcpio -p linux-cachyos-bore' "v1.0.4: E10 regenera initramfs do BORE no alvo (hooks de sistema, não do live)"
+STG="$REPO/elite/airootfs/usr/local/bin/elite-install-stage"
+assert_file "$STG" "v1.7: elite-install-stage existe (a lógica E10 saiu do YAML — classe 'Missing variables' morta)"
+assert_grep "$STG" 'for kv in /run/archiso/bootmnt/arch/boot/x86_64/vmlinuz-\*' "v1.0.4: E10 (agora elite-install-stage) recopia TODOS os vmlinuz-* do pendrive"
+assert_grep "$STG" 'arch-chroot "[$]ROOT" mkinitcpio -p linux-cachyos-bore' "v1.0.4: E10 regenera initramfs do BORE no alvo (hooks de sistema, não do live)"
 assert_grep "$REPO/elite/fragments/elite-customize.sh" 'kernel-copy-success' "v1.0.4: E10 preserva o marcador do upstream"
 assert_grep "$P/airootfs/etc/sddm.conf.d/kde_settings.conf" '^Session=labwc$' "v1.0.3: SDDM autologin Session=labwc"
 assert_grep "$P/airootfs/var/lib/sddm/state.conf" 'wayland-sessions/labwc\.desktop' "v1.0.3: greeter pré-seleciona labwc"
@@ -484,14 +486,23 @@ assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'Arquivos \(Thunar\)' 
 assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'command="thunar"' "v1.5: menu abre thunar direto (GUI)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'foot -e nano' "v1.5: menu Editor = nano no foot (helix saiu)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'papers' "v1.1: menu Leitor de PDF = papers (GTK4)"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'foot -e impala' "v1.1: menu Rede = impala no foot"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'foot -e bluetui' "v1.1: menu Bluetooth = bluetui no foot"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'pwvucontrol' "v1.1: menu Mixer = pwvucontrol"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'foot -e 7z' "v1.1: menu Arquivos compactados = 7z no foot"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'for b in brave librewolf' "v1.1: navegador do menu = brave em 1º"
+# v1.7 (dono: "deixa só os importantes", "sem muita complexidade"): as
+# ferramentas de sistema saíram DO MENU — continuam INSTALADAS e vivem no
+# Launchpad (nwg-drawer busca + categoriza); o dock é o comutador de
+# janelas; Reconfigure/Encerrar eram ruído/perigo.
+assert_nogrep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'foot -e impala' "v1.7: impala saiu do menu (fica no craft-connect e no Launchpad)"
+assert_nogrep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'foot -e bluetui' "v1.7: bluetui saiu do menu (W-S-b e Launchpad)"
+assert_nogrep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'pwvucontrol' "v1.7: pwvucontrol saiu do menu (Launchpad)"
+assert_nogrep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'foot -e 7z' "v1.7: 7z saiu do menu (Launchpad)"
+assert_nogrep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'nwg-look' "v1.7: nwg-look saiu do menu (Launchpad)"
+assert_nogrep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'craft-hello|craft-rollback|foot -e btop' "v1.7: submenu Cockpit extinto do menu (ferramentas continuam no Launchpad)"
+assert_nogrep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'cockpit-menu|Janelas\.\.\.|Reconfigure|Encerrar labwc' "v1.7: Janelas/Reconfigure/Encerrar saíram (decisão do dono)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'Atualizar sistema' "v1.7: menu = Atualizar sistema (o 'importante' eleito pelo dono)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'command="foot -e craft-update"' "v1.7: Atualizar abre craft-update no foot"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'Limpeza do sistema' "v1.7: menu = Limpeza do sistema (pacman cache + órfãos — o 'se for bom' é)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'command="foot -e craft-clean"' "v1.7: Limpeza abre craft-clean no foot"
 assert_nogrep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'mousepad|nmtui|pulsemixer|file-roller|yazi|helix' "v1.1/v1.5: menu sem vestígio do app-layer legado/extinto"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'qalculate-gtk' "curadoria: qalculate no menu"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'nwg-look' "curadoria: nwg-look no menu"
 
 # ── v1.1 · APP-STACK MODERNA (MEGA PROMPT): skel novo por dentro ────────
 SKCFG="$P/airootfs/etc/skel/.config"
@@ -521,9 +532,10 @@ assert_grep "$HLK" 'text = \$TIME' "v1.5: relógio GRANDE (label \$TIME)"
 assert_grep "$HLK" 'font_size = 96' "v1.5: relógio 96pt (topo/centro)"
 assert_grep "$HLK" 'valign = top' "v1.5: relógio ancorado no TOPO (spec)"
 assert_grep "$HLK" 'text = \$USER' "v1.5: nome do usuário acima do campo (spec)"
-assert_grep "$HLK" 'pixmaps/elite/avatar\.png' "v1.5: avatar (image path absoluto determinístico)"
-assert_grep "$HLK" 'rounding = -1' "v1.5: avatar circular (rounding -1)"
-assert_grep "$HLK" 'border_color = rgba\(203, 166, 247' "v1.5: borda do avatar MAUVE (assinatura)"
+# v1.7: o avatar 'A' saiu do lock (a pergunta literal do dono no burn test)
+assert_nogrep "$HLK" 'pixmaps/elite/avatar' "v1.7: lock SEM avatar (o 'A' do burn test saiu — decisão do dono)"
+assert_nogrep "$HLK" 'rounding = -1' "v1.7: sem o círculo do avatar (só o campo tem rounding)"
+assert_grep "$HLK" 'outer_color = rgba\(203, 166, 247' "v1.5→v1.7: borda MAUVE agora no CAMPO (a assinatura do rice)"
 assert_grep "$HLK" 'placeholder_text = .*Digite a senha para desbloquear' "v1.5: placeholder da spec (campo sempre visível — fade_on_empty false)"
 assert_grep "$HLK" 'fail_text = .*Senha Incorreta' "v1.5: feedback de FALHA em texto (spec)"
 assert_grep "$HLK" 'check_text = .*Validando' "v1.5: feedback de VALIDAÇÃO em texto (spec)"
@@ -648,7 +660,10 @@ assert_grep "$WORK/e11-block.txt" 'HOOKS=\(base udev microcode plymouth modconf 
 assert_grep "$WORK/e11-block.txt" 'COMPRESSION_OPTIONS=\(-9e\)' "E11: compressão xz -9e (verbatim do upstream)"
 assert_grep "$WORK/e11-block.txt" 'rm -rf /etc/mkinitcpio\.conf\.d' \
   "E11: conf.d é REMOVIDO depois (não pode ir pro alvo — vence o initcpio@elite)"
-sed -n '/^## \[E10\]/,$p' "$FRAG" > "$WORK/e10-block.txt"
+# v1.7: a lógica E10 agora vive no elite-install-stage (arquivo real — o
+# Calamares chama com ${ROOT}; variável de shell em YAML inline matava o
+# instalador). O bloco de asserts abaixo aponta pro SCRIPT.
+cp "$REPO/elite/airootfs/usr/local/bin/elite-install-stage" "$WORK/e10-block.txt"
 assert_grep "$WORK/e10-block.txt" '0x10de\) ELITE_GPU=nvidia' "E10: detector de vendor (0x10de → nvidia)"
 assert_grep "$WORK/e10-block.txt" '0x1002\) \[ "\$ELITE_GPU" != "nvidia" \] && ELITE_GPU=amd' \
   "E10: detector de vendor (0x1002 → amd, nvidia vence)"
@@ -665,7 +680,7 @@ assert_grep "$WORK/e10-block.txt" 'rm -f "\$\{ROOT\}"/usr/lib/modules/\*/updates
   "E10: rig AMD varre os .ko dkms do alvo (nada de driver alheio no disco)"
 assert_grep "$WORK/e10-block.txt" 'for kv in /run/archiso/bootmnt/arch/boot/x86_64/vmlinuz-\*' \
   "E10 (v1.0.4): recopia TODOS os vmlinuz-* do pendrive (fix btrfs truncado)"
-assert_grep "$WORK/e10-block.txt" 'arch-chroot "\$\{ROOT\}" mkinitcpio -p linux-cachyos-bore' \
+assert_grep "$WORK/e10-block.txt" 'arch-chroot "[$]ROOT" mkinitcpio -p linux-cachyos-bore' \
   "E10 (v1.0.4): regenera initramfs do BORE no alvo (DEPOIS do perfil de GPU)"
 
 # E9+E12 (v1.1): skel sujo (dirs órfãos da purga GTK3 incluso) + environment
@@ -1477,10 +1492,14 @@ assert_nogrep "$THR" ': #1e1e2e' "v1.3: themerc anti-regressão (nenhuma superf�
 # ── autostart: fallback do swaybg desce ao preto ──────────────────────────
 assert_grep "$AST" "swaybg -m fill -c '#000000'" "v1.3: fallback swaybg preto AMOLED (era 1e1e2e)"
 
-# ── Wallpaper: PNG lossless e AMOLED DE VERDADE (bytes, não promessa) ────
-# JPEG não preserva preto exato (re-quantiza cada bloco 8x8: 0 px em 8,3M
-# no arquivo original). PNG + black-point: 62% dos pixels são (0,0,0) puros.
-assert_file "$WAL" "v1.3: wallpaper.png existe (4K real da internet, PNG lossless)"
+# ── Wallpaper: v1.7 — FRACTAL LUMINOSO p/ IPS (métricas, não promessa) ───
+# Conceito novo do dono ("qualidade máxima e melhor em monitores IPS"):
+# gerado por IA PARA o projeto (sem licença de terceiros), 3840x2160
+# (upscale Lanczos) + grão fino anti-banding. MÉTRICAS do conceito IPS:
+# NENHUM pixel (0,0,0) esmagado (no IPS preto puro = cinza morto — o
+# floor elevado é intencional), luma média escura (não cega de noite) e
+# o strip do topo (atrás da menu bar) mais escuro que a média.
+assert_file "$WAL" "v1.7: wallpaper.png existe (fractal luminoso gerado, PNG lossless)"
 if command -v python3 >/dev/null 2>&1; then
   if python3 -c 'from PIL import Image' 2>/dev/null; then
     walout="$(python3 - "$WAL" << 'PYEOF'
@@ -1488,31 +1507,44 @@ import sys
 from PIL import Image
 rgb = Image.open(sys.argv[1]).convert('RGB')
 total = rgb.size[0] * rgb.size[1]
-# Preto PURO = pixel (0,0,0) EXATO — contagem CONJUNTA, pixel a pixel.
-# histogram() por canal NÃO serve: no JPEG original o canal G marcava
-# 33.1% em zero sem NENHUM pixel preto (artefato de quantização JPEG) —
-# superestima. A contagem conjunta confere com numpy (62.22% neste arquivo).
+# sem numpy: histograma de L dá média/p1 (cumulativa); preto puro = contagem
+# conjunta pixel a pixel (a lição v1.3 do artefato JPEG vale pra sempre)
 black = 100.0 * sum(1 for p in rgb.getdata() if p == (0, 0, 0)) / total
-hist = rgb.convert('L').histogram()
-mean = sum(i * c for i, c in enumerate(hist)) / sum(hist)
-print(rgb.size[0], round(black, 1), round(mean, 1))
+h = rgb.convert('L').histogram()
+n = sum(h)
+mean = sum(i * c for i, c in enumerate(h)) / n
+c1 = 0
+p1 = 0
+for i, c in enumerate(h):
+    c1 += c
+    if c1 >= 0.01 * n:
+        p1 = i
+        break
+top = rgb.crop((0, 0, rgb.size[0], 80)).convert('L').histogram()
+tn = sum(top)
+tmean = sum(i * c for i, c in enumerate(top)) / tn
+print(rgb.size[0], round(black, 2), round(mean, 1), p1, round(tmean, 1))
 PYEOF
 )"
-    if [[ "$walout" =~ ^[0-9]+[[:space:]][0-9.]+[[:space:]][0-9.]+$ ]]; then
-      read -r walres walblack walmean <<<"$walout"
-      assert_eq "$walres" "3840" "v1.3: wallpaper 4K (3840px de largura — tem $walres)"
-      blackok=1; awk "BEGIN{exit !($walblack >= 40.0)}" || blackok=0
-      assert_eq "$blackok" "1" "v1.3: wallpaper ≥40% de preto PURO (0,0,0) — AMOLED real (tem $walblack%)"
-      meanok=1; awk "BEGIN{exit !($walmean <= 30.0)}" || meanok=0
-      assert_eq "$meanok" "1" "v1.3: luma média ≤30 (não cega de noite — tem $walmean)"
+    if [[ "$walout" =~ ^[0-9]+[[:space:]][0-9.]+[[:space:]][0-9.]+[[:space:]][0-9.]+[[:space:]][0-9.]+$ ]]; then
+      read -r walres walblack walmean walp1 waltop <<<"$walout"
+      assert_eq "$walres" "3840" "v1.7: wallpaper 4K (3840px de largura — tem $walres)"
+      blackok=1; awk "BEGIN{exit !($walblack <= 5.0)}" || blackok=0
+      assert_eq "$blackok" "1" "v1.7: wallpaper SEM preto esmagado (≤5% de (0,0,0) — conceito IPS; tem $walblack%)"
+      meanok=1; awk "BEGIN{exit !($walmean >= 15.0 && $walmean <= 60.0)}" || meanok=0
+      assert_eq "$meanok" "1" "v1.7: luma média 15-60 (dark premium que não cega — tem $walmean)"
+      p1ok=1; awk "BEGIN{exit !($walp1 >= 8.0)}" || p1ok=0
+      assert_eq "$p1ok" "1" "v1.7: floor elevado (p1 ≥8 — sem crush no IPS; tem $walp1)"
+      topok=1; awk "BEGIN{exit !($waltop <= $walmean)}" || topok=0
+      assert_eq "$topok" "1" "v1.7: strip do topo mais escuro que a média (a menu bar assenta — tem $waltop vs $walmean)"
     else
-      fail "v1.3: métricas do wallpaper" "saída do python3/PIL inesperada: '${walout:0:80}' (lição da run #34: nunca mais falha silenciosa com 'tem %')"
+      fail "v1.7: métricas do wallpaper" "saída do python3/PIL inesperada: '${walout:0:80}' (lição da run #34: nunca mais falha silenciosa com 'tem %')"
     fi
   else
-    fail "v1.3: métricas do wallpaper" "python3 presente sem PIL — instale python-pillow (o CI já traz)"
+    fail "v1.7: métricas do wallpaper" "python3 presente sem PIL — instale python-pillow (o CI já traz)"
   fi
 else
-  skip "v1.3: métricas do wallpaper" "python3 indisponível"
+  skip "v1.7: métricas do wallpaper" "python3 indisponível"
 fi
 
 # ── A corrosão NÃO alcançou os acentos globais (top bar) ───────────────────
@@ -1644,7 +1676,6 @@ assert_grep "$REPO/scripts/apply-overlay.sh" 'craft-bars' "v1.6.3: craft-bars no
 #    xdg-utils — os três vêm do base/pacstrap, fora do packages.add).
 MADD="$REPO/elite/packages.add"
 menu_allow=" sh systemctl xdg-open "
-menu_ghost=0
 while IFS= read -r mcmd; do
   [ -z "$mcmd" ] && continue
   mbin=${mcmd%% *}
@@ -1652,40 +1683,81 @@ while IFS= read -r mcmd; do
   if grep -qx "$mbin" "$MADD" 2>/dev/null || [ -x "$P/airootfs/usr/local/bin/$mbin" ]; then
     ok "v1.6.3: item de menu '$mbin' existe na ISO (packages.add ∪ usr/local/bin)"
   else
-    menu_ghost=1
     fail "v1.6.3: item de menu '$mbin' existe na ISO (packages.add ∪ usr/local/bin)" "comando órfão no menu.xml: $mcmd"
   fi
 done < <(sed -n 's/.*action name="Execute" command="\([^"]*\)".*/\1/p' "$MXML")
-# e o craft-hello abre em TERMINAL (fastfetch solto escrevia no stdout do
-# labwc — invisível: o 'overview' que não abre, do burn test do dono)
-assert_grep "$MXML" 'command="foot -e craft-hello"' "v1.6.3: craft-hello abre em foot (overview visível — era executado sem terminal)"
+# v1.7: craft-hello saiu DO MENU (o Launchpad cobre o overview) — o binário
+# segue instalado para CLI; o contrato do foot -e craft-hello (v1.6.3) deu
+# lugar ao nogrep da curadoria acima.
+assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'for b in brave librewolf' "v1.1: navegador do menu = brave em 1º"
 
-# ── Ícones do menu = arquivos REAIS do Papirus (v1.6.3): a foto do dono ──
-#    mostrou itens sem ícone (XML sem icon=). Agora TODO item tem ícone e
-#    o caminho existe no papirus-icon-theme REAL (fixture bidirecional
-#    gerado da API do Arch — header do fixture tem a proveniência).
+# ── Ícones do menu = arquivos REAIS do Papirus (v1.6.3, mantido v1.7): ───
+#    TODO item tem icon= e o caminho existe no papirus-icon-theme REAL
+#    (fixture bidirecional — API do Arch + squashfs embarcado; o header
+#    do fixture tem a proveniência).
 MICON="$TESTS_DIR/fixtures/menu-icons-papirus.txt"
-assert_file "$MICON" "v1.6.3: fixture Papirus existe (lista de arquivos do tema real)"
-icon_missing=0
+assert_file "$MICON" "v1.7: fixture Papirus existe (lista de arquivos do tema real)"
 while IFS= read -r mic; do
   [ -z "$mic" ] && continue
   if grep -qxF "$mic" "$MICON"; then
-    ok "v1.6.3: ícone no tema real — ${mic##*/}"
+    ok "v1.7: ícone no tema real — ${mic##*/}"
   else
-    icon_missing=1
-    fail "v1.6.3: ícone no tema real — ${mic##*/}" "caminho fora do fixture Papirus: $mic"
+    fail "v1.7: ícone no tema real — ${mic##*/}" "caminho fora do fixture Papirus: $mic"
   fi
 done < <(sed -n 's/.*icon="\([^"]*\)".*/\1/p' "$MXML" | sort -u)
 while IFS= read -r fic; do
   case "$fic" in \#*|"") continue ;; esac
-  grep -qF "icon=\"$fic\"" "$MXML" || fail "v1.6.3: fixture Papirus sem órfãos" "linha não usada no menu.xml: $fic"
+  grep -qF "icon=\"$fic\"" "$MXML" || fail "v1.7: fixture Papirus sem órfãos" "linha não usada no menu.xml: $fic"
 done <"$MICON"
-# nenhum item VISÍVEL sem icon= (a exceção documentada: nenhuma — até o
-# builtin 'Janelas...' recebeu ícone; itens de ação interna do client-menu
-# (Minimizar/Fechar…) não são do root-menu e ficam fora do contrato.
-# O root-menu é o ÚLTIMO bloco do arquivo — o range vai até o EOF para
-# atravessar o </menu> aninhado do submenu Cockpit).
+# nenhum item do root-menu sem icon= (o root-menu é o ÚLTIMO bloco do
+# arquivo — o range vai até o EOF; itens do client-menu não são do root)
 root_no_icon=$(sed -n '/id="root-menu"/,$p' "$MXML" | grep '<item label=' | grep -cv 'icon=' || true)
-assert_eq "$root_no_icon" "0" "v1.6.3: zero itens do root-menu sem icon= (a foto do dono não se repete)"
+assert_eq "$root_no_icon" "0" "v1.7: zero itens do root-menu sem icon= (a foto do dono não se repete)"
+
+# ── MENU VISÍVEL (v1.7 — pedido "ícone nas coisas e principalmente ───────
+#    visíveis"): no labwc o tamanho do ícone É a altura da fonte do item
+#    (src/menu/menu.c: ICON_SIZE = menu_item_height - 2*padding_y;
+#    src/theme.c: menu_item_height = font_height + 2*padding_y — o padding
+#    cancela). A fonte do MenuItem no rc.xml manda no tamanho do ícone.
+RCX="$P/airootfs/etc/skel/.config/labwc/rc.xml"
+assert_grep "$RCX" 'place="MenuItem"' "v1.7: fonte do MenuItem definida no rc.xml (o dial do tamanho dos ícones)"
+assert_grep "$RCX" '<size>12</size>' "v1.7: fonte do menu 12px → itens ~27px, ícones ~17px (era ~14px)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/themerc-override" 'menu.items.padding.x: 8' "v1.7: padding.x do menu 8px (respiro ícone↔texto — themerc-override)"
+
+# ── BOTÃO DIREITO (v1.7 — "tira essa mudança de ambiente… eu acho feio"): ─
+#    direita = menu raiz curado; a lista de janelas morreu (dock comuta);
+#    clique esquerdo no desktop ficou limpo; scroll segue trocando área.
+assert_nogrep "$RCX" 'client-list-combined-menu' "v1.7: a lista de janelas do botão direito EXTINTA (dock é o comutador)"
+assert_nogrep "$RCX" 'button="Left" action="Press"' "v1.7: clique esquerdo no desktop sem menu (zero menu acidental)"
+assert_grep "$RCX" 'ShowMenu" menu="root-menu' "v1.7: botão direito abre o menu raiz (padrão universal)"
+assert_grep "$RCX" 'GoToDesktop' "v1.7: scroll no desktop segue trocando de workspace (o gesto que o dono prefere)"
+
+# ── LOCK SCREEN SÃO (v1.7 — as 3 fotos do burn test): markup cru fora, ───
+#    avatar 'A' fora, relógio fora da borda (light bar).
+HYP="$P/airootfs/etc/skel/.config/hypr/hyprlock.conf"
+assert_nogrep "$HYP" '<span' "v1.7: hyprlock SEM markup cru (placeholder não parseia Pango — cor é propriedade)"
+assert_nogrep "$HYP" 'avatar\.png' "v1.7: hyprlock SEM o avatar 'A' (decisão do dono)"
+assert_grep "$HYP" 'Digite a senha para desbloquear' "v1.7: placeholder em texto plano (o literal do dono)"
+assert_grep "$HYP" 'position = 0, 300' "v1.7: relógio a 300px do topo (terço superior, longe da light bar)"
+
+# ── INSTALADOR À PROVA DE $ (v1.7 — a classe do "Installation Failed — ───
+#    Missing variables are: kv,kbase,…"): o Calamares expande TODO $ de
+#    command: inline contra ROOT/USER/LANG + global storage ANTES do shell
+#    (doc no header do shellprocess_kms.conf); variável de shell em YAML =
+#    morte na máquina real, invisível pro gate manual do CI. Contrato: nos
+#    heredocs de .conf do Calamares do elite-customize, só a allowlist do
+#    Calamares (ROOT/USER/LANG = shellprocess; LOCALE = packages.conf;
+#    SERIAL/RANDOM/PHRASE = bootloader.conf) pode aparecer.
+ECF="$REPO/elite/fragments/elite-customize.sh"
+assert_grep "$ECF" 'command: "/usr/local/bin/elite-install-stage [$][{]ROOT[}]"' "v1.7: shellprocess@btrfs = 1 comando só (elite-install-stage \${ROOT})"
+assert_grep "$REPO/scripts/apply-overlay.sh" 'elite-install-stage' "v1.7: elite-install-stage no file_permissions (0755 no live — senão 203/EXEC)"
+CALAW=" ROOT USER LANG LOCALE SERIAL RANDOM PHRASE "
+cal_bad=""
+while IFS= read -r calvar; do
+  case "$CALAW" in *" $calvar "*) continue ;; esac
+  cal_bad="$cal_bad $calvar"
+done < <(awk "/cat > \\/etc\\/calamares.*<<'EOSB'/{f=1;next} /^EOSB$/{f=0} f && /^[[:space:]]*#/{next} f" "$ECF" \
+         | grep -oE '\$\{?[A-Za-z_]+\}?' | tr -d '${}' | sort -u)
+assert_eq "$cal_bad" "" "v1.7: heredocs do Calamares sem \$ de shell (allowlist-only — a classe 'Missing variables' morta por contrato)"
 
 phase_end

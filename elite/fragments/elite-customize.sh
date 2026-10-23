@@ -460,83 +460,31 @@ if [[ -f /etc/calamares/modules/shellprocess_btrfs.conf ]]; then
 # SPDX-FileCopyrightText: no
 # SPDX-License-Identifier: CC0-1.0
 #
-# ELITE v1.1 — fix do boot instalado em btrfs (v1.0.4: recopia TODOS os
+# ELITE v1.1→v1.7 — fix do boot instalado em btrfs (recopia TODOS os
 # vmlinuz + regenera o initramfs do BORE) + ESPECIALIZAÇÃO POR GPU NA
-# INSTALAÇÃO (v1.1, MEGA PROMPT: "sem influenciar um ao outro ou sujar,
-# principalmente na instalação"):
-#   · AMD     → remove o stack NVIDIA inteiro do alvo (dkms+utils+ módulos),
-#               MODULES=(amdgpu) + amdgpu.ppfeaturemask no GRUB → early-KMS
-#               limpo, zero pacote estranho no disco
-#   · NVIDIA  → MODULES=(nvidia nvidia_modeset nvidia_uvm nvidia_drm) +
-#               nvidia_drm.modeset=1 fbdev=1 no GRUB + modprobe.d (o driver
-#               dkms pré-compilado da ISO já está no alvo via unpackfs —
-#               belt-and-suspenders: o shellprocess@kms upstream também seda
-#               o MODULES quando o live usou o driver)
-#   · unknown → nenhum toque (VM/garanta neutra; o initcpiocfg decide)
-# Roda DEPOIS de unpackfs/packages (alvo completo) e ANTES de grubcfg/
-# bootloader (o GRUB gerado já nasce com os params certos). Ver
-# elite-customize [E10].
+# INSTALAÇÃO (AMD remove NVIDIA do alvo · NVIDIA modeset/fbdev · unknown
+# não toca).
+#
+# v1.7 — A CLASSE DO BUG DO INSTALADOR MORTA POR CONTRATO: o Calamares
+#   expande TODO $var/${var} de um `command:` inline contra ROOT/USER/LANG
+#   + global storage ANTES de rodar o shell (doc oficial no header do
+#   shellprocess_kms.conf: "It is not possible to get an un-escaped $ in
+#   the shell command — either the command will fail because of undefined
+#   variables, or you get a shell-escaped \$"). O YAML antigo usava
+#   variáveis DE SHELL (${kv}/${kbase}/$v/$ELITE_GPU) → na máquina real:
+#   "Could not run command. The commands use variables that are not
+#   defined. Missing variables are: kv,kbase,kv,kbase,v,v." → Installation
+#   Failed. O gate do CI não via porque reproduz a cadeia FORA do
+#   Calamares. Toda a lógica agora vive no elite-install-stage (arquivo
+#   real = semântica de shell de verdade, shellcheck+bash -n na suíte) e
+#   o contrato da suíte varre os heredocs de .conf do Calamares com uma
+#   allowlist de $ (tests/phases/40-integration.sh) — a classe não volta.
 ---
 dontChroot: true
 timeout: 9999
 verbose: false
 script:
-    - command: >
-        if [ "$(findmnt -n -o FSTYPE "${ROOT}")" = "btrfs" ]; then
-          for kv in /run/archiso/bootmnt/arch/boot/x86_64/vmlinuz-*; do
-            kbase="$(basename "${kv}")"
-            if [ -f "${ROOT}/boot/${kbase}" ]; then
-              cp -f "${kv}" "${ROOT}/boot/${kbase}" &&
-              touch "${ROOT}/boot/.kernel-copy-success"
-            fi
-          done
-        fi
-    - command: >
-        ELITE_GPU=unknown;
-        for v in /sys/class/drm/card*/device/vendor; do
-          [ -r "$v" ] || continue;
-          case "$(cat "$v" 2>/dev/null)" in
-            0x10de) ELITE_GPU=nvidia ;;
-            0x1002) [ "$ELITE_GPU" != "nvidia" ] && ELITE_GPU=amd ;;
-          esac;
-        done;
-        echo "ELITE: GPU do alvo = $ELITE_GPU";
-        if [ "$ELITE_GPU" = "amd" ]; then
-          arch-chroot "${ROOT}" pacman -Rdd --noconfirm nvidia-open-dkms nvidia-utils lib32-nvidia-utils 2>/dev/null || true;
-          rm -f "${ROOT}"/usr/lib/modules/*/updates/dkms/nvidia*.ko* 2>/dev/null || true;
-          sed -i 's|^MODULES=.*|MODULES=(amdgpu)|' "${ROOT}/etc/mkinitcpio.conf" 2>/dev/null || true;
-          printf '%s\n' '# ELITE: AMD - destrava undervolt/OC p/ LACT' 'options amdgpu ppfeaturemask=0xffffffff' > "${ROOT}/etc/modprobe.d/00-elite-amdgpu.conf";
-          if grep -q '^GRUB_CMDLINE_LINUX_DEFAULT=' "${ROOT}/etc/default/grub" 2>/dev/null; then
-            grep -q 'amdgpu.ppfeaturemask' "${ROOT}/etc/default/grub" ||
-              sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT=/s/"$/ amdgpu.ppfeaturemask=0xffffffff"/' "${ROOT}/etc/default/grub";
-          else
-            printf 'GRUB_CMDLINE_LINUX_DEFAULT="quiet amdgpu.ppfeaturemask=0xffffffff"\n' >> "${ROOT}/etc/default/grub";
-          fi
-        elif [ "$ELITE_GPU" = "nvidia" ]; then
-          grep -q '^MODULES=(nvidia' "${ROOT}/etc/mkinitcpio.conf" 2>/dev/null ||
-            sed -i 's|^MODULES=.*|MODULES=(nvidia nvidia_modeset nvidia_uvm nvidia_drm)|' "${ROOT}/etc/mkinitcpio.conf" 2>/dev/null || true;
-          printf '%s\n' '# ELITE: NVIDIA (modeset+fbdev p/ Wayland; VRAM preservada em suspend)' 'options nvidia-drm modeset=1 fbdev=1' 'options nvidia NVreg_PreserveVideoMemoryAllocations=1 NVreg_TemporaryFilePath=/var/tmp' > "${ROOT}/etc/modprobe.d/00-elite-nvidia.conf";
-          if grep -q '^GRUB_CMDLINE_LINUX_DEFAULT=' "${ROOT}/etc/default/grub" 2>/dev/null; then
-            grep -q 'nvidia_drm.fbdev' "${ROOT}/etc/default/grub" ||
-              sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT=/s/"$/ nvidia_drm.modeset=1 nvidia_drm.fbdev=1"/' "${ROOT}/etc/default/grub";
-          else
-            printf 'GRUB_CMDLINE_LINUX_DEFAULT="quiet nvidia_drm.modeset=1 nvidia_drm.fbdev=1"\n' >> "${ROOT}/etc/default/grub";
-          fi
-        fi
-    - command: >
-        if [ -f "${ROOT}/boot/vmlinuz-linux-cachyos-bore" ] &&
-           [ -x "${ROOT}/usr/bin/mkinitcpio" ]; then
-          arch-chroot "${ROOT}" mkinitcpio -p linux-cachyos-bore || true
-        fi
-    - command: >
-        if [ -x "${ROOT}/usr/bin/pacman-key" ] &&
-           [ -f "${ROOT}/usr/share/pacman/keyrings/cachyos.gpg" ]; then
-          arch-chroot "${ROOT}" pacman-key --init || true;
-          arch-chroot "${ROOT}" pacman-key --populate archlinux cachyos || true;
-          echo "ELITE: keyring archlinux+cachyos populado no alvo";
-        else
-          echo "ELITE: keyring do alvo já coberto pelo unpackfs (gnupg do build E2b)";
-        fi
+    - command: "/usr/local/bin/elite-install-stage ${ROOT}"
 i18n:
      name: "Elite: GPU profile + kernels + BORE initramfs (btrfs boot fix)..."
 EOSB

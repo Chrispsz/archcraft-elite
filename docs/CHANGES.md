@@ -6,53 +6,100 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
-- **v1.6.3 (main) — O BURN TEST DA v1.6.2: "iniciou sem aparecer nada além
-  do wallpaper" + "programas que deveriam abrir não abrem + ícones"** (foto
-  e relato do dono, out/2026). Causa-raiz por evidência + duas curas
-  estruturais com contrato:
-  - **(A) Barras SUPERVISIONADAS — craft-bars (novo)**: a sessão subiu só
+- **v1.7 (main) — "não aceito nada além da perfeição": o pacote completo
+  do burn test da v1.6.2 + os pedidos de UX do dono** (fotos e relato,
+  out/2026). v1.6.3 nunca foi releaseada — todo o seu conteúdo entra
+  aqui, junto com as curas novas:
+  - **(A) O INSTALADOR (a cura mais importante — "o instalador está
+    quebrado")**: a máquina real falhava com **"Could not run command.
+    The commands use variables that are not defined. Missing variables
+    are: kv,kbase,kv,kbase,v,v."** — CAUSA-RAIZ PROVADA com o doc do
+    PRÓPRIO Calamares (header do shellprocess_kms.conf, embarcado):
+    *"It is not possible to get an un-escaped $ in the shell command
+    (either the command will fail because of undefined variables…)"* —
+    o Calamares expande TODO `$var`/`${var}` de um `command:` inline
+    contra ROOT/USER/LANG + global storage ANTES de rodar o shell. O
+    `shellprocess_btrfs.conf` da Elite (v1.1) usava variáveis DE SHELL
+    (`${kv}`, `${kbase}`, `$v`, `$ELITE_GPU`) dentro do YAML → morte na
+    primeira instalação real. O bug dormiu 6 versões: o v1.5 morria
+    antes (unpackfs) e o gate do CI **reproduz a cadeia FORA do
+    Calamares** (define as variáveis à mão) — às cegas para a classe.
+    **CURA**: a lógica inteira (recópia btrfs dos vmlinuz +
+    especialização por GPU AMD/NVIDIA + initramfs do BORE + keyring do
+    alvo) agora vive no **`elite-install-stage`** — um script real
+    (semântica de shell de verdade, shellcheck+bash -n na suíte) que o
+    Calamares chama com `/usr/local/bin/elite-install-stage ${ROOT}`.
+    **CONTRATO NOVO**: scanner varre os heredocs de .conf do Calamares
+    e só aceita a allowlist do Calamares (ROOT/USER/LANG = shellprocess;
+    LOCALE = packages; SERIAL/RANDOM/PHRASE = bootloader) — qualquer `$`
+    de shell no YAML = CI vermelho. A classe está extinta.
+  - **(B) Barras SUPERVISIONADAS — craft-bars (novo)**: a sessão subiu só
     com wallpaper — as duas instâncias do waybar morreram caladas SEM
     deixar stderr (o labwc não redireciona o autostart) e o gate de boot
     do CI é serial e para no LOGIN — nunca vê a sessão gráfica (por isso
     passou verde). Cura em 2 frentes: (1) **supervisão** — o craft-bars
-    vigia as duas barras por pgrep e reinicia em ≤5s (loop com sleep, ~0%
-    CPU, ~1 MB: barra que morrer VOLTA — a classe "boot mudo" está morta
-    por construção); (2) **forense** — o stderr do waybar agora vai para
-    `~/.cache/elite/bars.log` com teto de 1 MiB (diretriz v1.6.2: nada
-    cresce sem limite) — se voltar a acontecer, o log traz a mensagem
-    EXATA (`cat ~/.cache/elite/bars.log`). O autostart não sobe waybar
-    direto (contrato: delega ao craft-bars).
-  - **(B) Menu raiz curado com prova — fim dos "programas que não abrem"**.
-    Achados do burn test, um a um: o item **"craft-hello · overview"
-    executava o fastfetch SEM terminal** (escrevia no stdout do labwc —
-    invisível; agora abre em `foot -e craft-hello`); **"Editor (nano)" e
-    "Arquivos compactados (7z)" estavam íntegros** (nano vem do base
-    upstream — linha 76 do packages.x86_64; `7zip` está no packages.add
-    da Elite — os dois abrem); **"Navegador" íntegro** (brave-origin +
-    launcher /usr/bin/brave). **Contrato novo (o debloat nunca mais
-    quebra item em silêncio)**: todo `Execute command=X` do menu.xml
-    precisa de binário REAL na ISO — packages.add ∪ /usr/local/bin ∪
-    allowlist base com proveniência (sh/systemctl/xdg-open).
-  - **(C) Ícones: todo item do root-menu tem icon=, e o caminho é um
-    arquivo REAL do tema**. A foto mostrava itens sem ícone — eram os sem
-    atributo `icon=` no XML (papers, Fixar app, Reconfigure, Janelas,
-    Encerrar labwc + 6 do submenu Cockpit). Todos receberam ícone; os
-    14 que já renderizavam foram conferidos um a um na lista de arquivos
-    do papirus-icon-theme (API do Arch, 103.433 SVGs) — **zero caminho
-    fantasma**. Nota de tamanho: ícones de AÇÃO (pin/refresh/log-out) só
-    existem no Papirus até 24x24; app usa 48x48. Fixture bidirecional
-    (`tests/fixtures/menu-icons-papirus.txt` + contratos): ícone fora do
-    tema real ou fixture órfão = CI vermelho. "Vale a pena ter esse
-    menu?" — SIM: custa zero RAM fechado (o labwc desenha sob demanda) e
-    foi ELE que manteve a sessão utilizável no burn test (Terminal,
-    Lock, Sessão funcionando sem barras); agora está 100% auditado.
-  - **(D) Correção honesta de registro (v1.6.2)**: o relatório anterior
+    vigia as duas barras por pgrep e reinicia em ≤5s (loop com sleep,
+    ~0% CPU, ~1 MB: barra que morrer VOLTA — a classe "boot mudo" está
+    morta por construção); (2) **forense** — o stderr do waybar agora vai
+    para `~/.cache/elite/bars.log` com teto de 1 MiB (diretriz v1.6.2:
+    nada cresce sem limite) — se voltar a acontecer, o log traz a
+    mensagem EXATA (`cat ~/.cache/elite/bars.log`). O autostart não sobe
+    waybar direto (contrato: delega ao craft-bars).
+  - **(C) Menu raiz curado — "deixa só os importantes", "sem muita
+    complexidade"**: 15 itens, todos com ícone provado. **Saíram** (por
+    decisão do dono): as ferramentas do antigo submenu Cockpit (todas
+    CONTINUAM instaladas — vivem no Launchpad, que busca e categoriza:
+    a resposta honesta para "pastas de programas"), a lista de janelas
+    que o botão direito abria, o item de reconfiguração do compositor
+    (ferramenta de dev) e o de encerrar a sessão do compositor (mis-click
+    perigoso). **Ficaram**: apps do dia-1 (Navegador, Arquivos, Terminal,
+    Editor, PDF, Calculadora — todos PROVADOS no rootfs embarcado:
+    nano vem do base linha 76; brave-origin, papers, qalculate, thunar
+    instalados) + Atualizar/Limpeza (os eleitos) + Launchpad/Fixar +
+    Lock/Tempo/Sessão + Reboot/Desligar. **Contratos**: todo Execute =
+    binário real na ISO; fixture bidirecional de ícones; zero item sem
+    icon=.
+  - **(D) Ícones VISÍVEIS ("coloca ícone nas coisas e principalmente
+    visíveis")**: no labwc o tamanho do ícone de menu É a altura da fonte
+    do item — fonte do MenuItem era 10 (ícones ~14px, a foto do dono);
+    agora **12** (itens ~27px, ícones ~17px) + padding.x 8. Fonte
+    primária: src/menu/menu.c `ICON_SIZE = menu_item_height -
+    2*padding_y` e src/theme.c `menu_item_height = font_height +
+    2*padding_y` — o padding cancela; a fonte manda.
+  - **(E) Botão direito decidido ("decide pra mim")**: **direita = menu
+    raiz curado** (padrão universal); a lista de janelas do botão
+    direito EXTINTA (o dock é o comutador de janelas); clique esquerdo
+    no desktop ficou limpo (zero menu acidental); **scroll segue
+    trocando de workspace** (o gesto que o dono prefere). Contratos nos
+    4 comportamentos.
+  - **(F) Tela de lock (as 3 fotos do burn test)**: (1) a marcação Pango
+    aparecia LITERAL no placeholder — o hyprlock NÃO parseia markup no
+    placeholder (o example.conf oficial usa texto plano) →
+    placeholder/fail/check agora em TEXTO PLANO (as cores já são
+    propriedade própria: check_color/fail_color/font_color); (2) o
+    avatar "A" (logo do Archcraft) saiu — lock minimalista: fundo
+    desfocado + relógio + data + usuário + campo; (3) relógio saiu da
+    borda (colidia com a light bar do monitor) → 300px do topo, data a
+    440 — terço superior com respiro em qualquer resolução.
+  - **(G) Wallpaper novo — "qualidade máxima e melhor em monitores IPS"**:
+    conceito trocado. O v1.3 era AMOLED (62% de preto puro — no IPS preto
+    puro vira cinza morto). O novo é **fractal luminoso GERADO por IA
+    para o projeto** (zero licença de terceiros): flor de fractal em
+    fitas violeta/mauve sobre plum profundo, 3840×2160 (upscale Lanczos
+    de 2048×1152 nativo) + UnsharpMask leve + grão fino determinístico
+    (±2 níveis) contra banding. **Métricas com contrato**: 0.00% de
+    pixels (0,0,0) (≤5%), luma média 36.7 (15-60 — dark premium), floor
+    p1=13 (≥8 — sem crush), strip do topo 22.5 ≤ média (a menu bar
+    assenta).
+  - **(H) Correção honesta de registro (v1.6.2)**: o relatório anterior
     citava o EasyEffects como maior consumidor de RAM em standby —
-    **ele NÃO está na ISO** (saíra na curadoria; o bloco do autostart é
-    guardado por `command -v` e nunca executa — zero RAM, código vivo
-    apenas se o usuário instalar: `pacman -S easyeffects` e o autostart
-    volta a subir o serviço sozinho). O campeão de standby residente é
-    o trio waybar×2 + swaync (~60-90 MB somados) — todos com por quê.
+    **ele NÃO está na ISO** (prova: pacman db do rootfs embarcado; saíra
+    na curadoria; o bloco do autostart é guardado por `command -v` e
+    nunca executa — zero RAM, vivo se o usuário instalar:
+    `pacman -S easyeffects` e o autostart sobe o serviço sozinho). O
+    campeão de standby residente é o trio waybar×2 + swaync (~60-90 MB
+    somados) — todos com por quê.
+
 - **v1.6.2 — A AUDITORIA DE "PERFEITO, OTIMIZADO, LIMPO E SEM
   MEMORY LEAK?"** (questionamento do dono antes da build final): auditoria
   item a item em código + fonte primária; **um buraco real encontrado e
