@@ -9,6 +9,19 @@
   com os apps que o Cockpit instala/archcraft já traz.
   Fonte: archcraft-openbox/files/obmenu-generator/schema.pl
   Sintaxe: labwc docs/menu.xml + labwc-menu(5) (formato openbox_menu)
+
+  v1.6.3 — CURADORIA COM PROVA (burn test do dono: itens que não abriam e
+  itens sem ícone). Duas regras, cada uma com contrato CI:
+    1. TODO Execute command=X tem binário REAL na ISO (packages.add ∪
+       /usr/local/bin ∪ allowlist base) — o debloat não quebra item em
+       silêncio. craft-hello agora abre em foot (fastfetch solto no menu
+       escrevia no stdout do labwc — invisível; "overview" que não abre).
+    2. TODO item tem icon= e o caminho está no fixture Papirus real
+       (tests/fixtures/menu-icons-papirus.txt — lista de arquivos do
+       papirus-icon-theme, conferida na API do Arch em out/2026).
+  Ícones de AÇÃO (pin/view-refresh/log-out) só existem no Papirus até
+  24x24 — itens de APP usam 48x48, itens de ação usam 24x24 (mesmo
+  padrão dos itens de Lock/Sessão que já renderizavam).
 -->
 <openbox_menu>
 
@@ -48,7 +61,7 @@
     <item label="Editor (nano)" icon="/usr/share/icons/Papirus/48x48/apps/text-editor.svg">
       <action name="Execute" command="foot -e nano" />
     </item>
-    <item label="Leitor de PDF (papers)">
+    <item label="Leitor de PDF (papers)" icon="/usr/share/icons/Papirus/48x48/mimetypes/application-pdf.svg">
       <action name="Execute" command="papers" />
     </item>
     <item label="Calculadora (qalculate)" icon="/usr/share/icons/Papirus/48x48/apps/qalculate.svg">
@@ -57,26 +70,26 @@
     <separator />
     <!-- Applications (categorias do criador, versão enxuta do Cockpit) -->
     <menu id="cockpit-menu" label="Cockpit" icon="/usr/share/icons/Papirus/48x48/apps/preferences-system.svg">
-      <item label="craft-hello · overview">
-        <action name="Execute" command="craft-hello" />
+      <item label="craft-hello · overview" icon="/usr/share/icons/Papirus/48x48/apps/utilities-terminal.svg">
+        <action name="Execute" command="foot -e craft-hello" />
       </item>
-      <item label="craft-update · atualizar sistema">
+      <item label="craft-update · atualizar sistema" icon="/usr/share/icons/Papirus/48x48/apps/system-software-update.svg">
         <action name="Execute" command="foot -e craft-update" />
       </item>
-      <item label="craft-clean · limpeza">
+      <item label="craft-clean · limpeza" icon="/usr/share/icons/Papirus/48x48/apps/bleachbit.svg">
         <action name="Execute" command="foot -e craft-clean" />
       </item>
-      <item label="craft-rollback · restaurar backups">
+      <item label="craft-rollback · restaurar backups" icon="/usr/share/icons/Papirus/48x48/apps/timeshift.svg">
         <action name="Execute" command="foot -e sudo craft-rollback" />
       </item>
       <separator />
       <item label="Monitor (btop)" icon="/usr/share/icons/Papirus/48x48/apps/btop.svg">
         <action name="Execute" command="foot -e btop" />
       </item>
-      <item label="Mixer (pwvucontrol)">
+      <item label="Mixer (pwvucontrol)" icon="/usr/share/icons/Papirus/48x48/apps/multimedia-volume-control.svg">
         <action name="Execute" command="pwvucontrol" />
       </item>
-      <item label="Rede (impala)">
+      <item label="Rede (impala)" icon="/usr/share/icons/Papirus/48x48/devices/network-wireless.svg">
         <action name="Execute" command="foot -e impala" />
       </item>
       <item label="Bluetooth (bluetui)" icon="/usr/share/icons/Papirus/48x48/apps/blueman.svg">
@@ -89,9 +102,9 @@
         <action name="Execute" command="foot -e 7z" />
       </item>
     </menu>
-    <menu id="client-list-combined-menu" label="Janelas..." />
+    <menu id="client-list-combined-menu" label="Janelas..." icon="/usr/share/icons/Papirus/48x48/apps/preferences-system-windows.svg" />
     <separator />
-    <item label="Reconfigure (W-S-r)">
+    <item label="Reconfigure (W-S-r)" icon="/usr/share/icons/Papirus/24x24/actions/view-refresh.svg">
       <action name="Reconfigure" />
     </item>
     <item label="Aplicativos (Launchpad)" icon="/usr/share/icons/Papirus/48x48/apps/preferences-desktop.svg">
@@ -99,7 +112,7 @@
     </item>
     <!-- v1.4: fixar apps na dock no fluxo mouse-first (burn test: o
          clique-direito do drawer pinava no drawer, não na dock) -->
-    <item label="Fixar app na dock…">
+    <item label="Fixar app na dock…" icon="/usr/share/icons/Papirus/24x24/actions/pin.svg">
       <action name="Execute" command="craft-pin-pick" />
     </item>
     <item label="Lock (W-l)" icon="/usr/share/icons/Papirus/24x24/actions/system-lock-screen.svg">
@@ -120,7 +133,7 @@
     <item label="Desligar" icon="/usr/share/icons/Papirus/24x24/actions/system-shutdown.svg">
       <action name="Execute" command="systemctl poweroff" />
     </item>
-    <item label="Encerrar labwc">
+    <item label="Encerrar labwc" icon="/usr/share/icons/Papirus/24x24/actions/system-log-out.svg">
       <action name="Exit" />
     </item>
   </menu>

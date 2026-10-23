@@ -1,0 +1,44 @@
+#!/bin/sh
+# ═══════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · craft-bars (v1.6.3) — supervisor das duas barras waybar
+# ═══════════════════════════════════════════════════════════════════════════
+# POR QUÊ (burn test da v1.6.2, out/2026): o dono bootou e a sessão subiu
+# SÓ com o wallpaper — as duas instâncias do waybar morreram caladas, sem
+# deixar stderr em lugar nenhum (o labwc não redireciona o autostart e o
+# gate de boot do CI para no LOGIN — nunca abre a sessão gráfica para ver).
+#
+# CURA EM 2 FRENTES:
+#   1. SUPERVISÃO — barra que morrer volta em ≤5s (loop com sleep; o sh
+#      dormindo custa ~1 MB e ~0% CPU — o seguro da UI que o dono exige
+#      "completamente estável");
+#   2. FORENSE — o stderr do waybar vai para ~/.cache/elite/bars.log
+#      (teto de 1 MiB — sem crescimento ilimitado, diretriz v1.6.2).
+#      Se morrer de novo, o log tem a mensagem EXATA do waybar — fim do
+#      "iniciou sem aparecer nada" sem explicação.
+#
+# NOTA: o "FORA — reiniciando" no início do log é o arranque normal
+# (nenhuma barra existe ainda no primeiro loop); restarts em série com
+# mensagem do waybar entre eles = problema real, agora com evidência.
+# ═══════════════════════════════════════════════════════════════════════════
+LOG_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/elite"
+mkdir -p "$LOG_DIR" 2>/dev/null
+LOG="$LOG_DIR/bars.log"
+
+# Teto de 1 MiB (bytes): estourou, zera — evidência recente vale mais.
+if [ -f "$LOG" ] && [ "$(wc -c <"$LOG" 2>/dev/null || echo 0)" -gt 1048576 ]; then
+    : >"$LOG"
+fi
+
+ensure() {
+    # $1=nome  $2=config  $3=css
+    if ! pgrep -f "waybar -c $2" >/dev/null 2>&1; then
+        printf '[%s] waybar %s FORA — reiniciando\n' "$(date '+%F %T')" "$1" >>"$LOG"
+        waybar -c "$2" -s "$3" >>"$LOG" 2>&1 &
+    fi
+}
+
+while :; do
+    ensure top  "$HOME/.config/waybar/config.top"  "$HOME/.config/waybar/style.top.css"
+    ensure dock "$HOME/.config/waybar/config.dock" "$HOME/.config/waybar/style.dock.css"
+    sleep 5
+done
