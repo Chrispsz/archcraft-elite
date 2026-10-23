@@ -156,12 +156,20 @@ jobs:
           set -euo pipefail
           7z x -y elite.iso -opd/ 'arch/x86_64/airootfs.sfs' \
             'arch/boot/x86_64/vmlinuz-*' >/dev/null
+          # inventário do pendrive ANTES do consumo: o [1/8] apaga o sfs p/
+          # liberar 2.8GB — o gate copytoram [1c/8] valida os sources do
+          # conf reescrito contra ESTA lista (nomes PLANOS — o archiso no
+          # copytoram expõe /run/archiso/copytoram/<basename>)
+          { echo 'airootfs.sfs'; \
+            ( cd pd/arch/boot/x86_64 && ls vmlinuz-* ) 2>/dev/null || true; \
+          } > iso-pendrive.list
           rm -f elite.iso   # libera 3.4GB — não precisamos mais da ISO
           echo "═══ kernels no pendrive (fonte íntegra) ═══"
           stat -c '%n %s' pd/arch/boot/x86_64/vmlinuz-*
           stat -c '%s' pd/arch/boot/x86_64/vmlinuz-linux-cachyos-bore > bore-size.txt
           echo "BORE no pendrive: $(cat bore-size.txt) bytes"
           stat -c '%n %s' pd/arch/x86_64/airootfs.sfs
+          echo "── inventário (iso-pendrive.list):"; cat iso-pendrive.list
 
       - name: Instalacao fiel (unpackfs + E5a + E10 + initcpio + GRUB)
         run: |
@@ -222,6 +230,10 @@ jobs:
           LS=/tmp/launch-copytoram.sh
           sed -n '/# Check if booted/,/^fi$/p' rootfs/etc/calamares/launch.sh > "$LS" || true
           grep -q 'copytoram' "$LS" || { echo '✖ launch.sh sem bloco copytoram (upstream mudou?)'; exit 1; }
+          # o bloco redefine DIR= internamente (ignora o env) — reescreve a
+          # linha p/ apontar na CÓPIA; assim o if roda LITERALMENTE (mesmos
+          # seds do live) sem tocar no /etc do runner
+          sed -i 's|^DIR=.*|DIR=/tmp/cal-copytoram|' "$LS"
           # uname FALSO: o launch.sh calcula KERNEL=`uname -r` — no runner isso
           # daria o kernel do UBUNTU, não o da ISO. Um uname falso no PATH
           # devolve o kver real da ISO (do rootfs extraído) e o bloco roda
@@ -250,14 +262,18 @@ jobs:
           fi
           echo "── conf APÓS o copytoram (o que o Calamares do dono leria):"
           grep -E '^\s+-\s+source:|^\s+sourcefs:|^\s+destination:' /tmp/cal-copytoram/modules/unpackfs.conf
-          # valida CADA source do conf reescrito
+          # valida CADA source do conf reescrito. Nota: o airootfs.sfs foi
+          # consumido pelo [1/8] (rm -f p/ liberar 2.8GB) — a correspondência
+          # com o pendrive vive em iso-pendrive.list (gravada no passo de
+          # extração, ANTES do consumo)
           FAIL=0
           while IFS= read -r src; do
             src=${src#\"}; src=${src%\"}
             case "$src" in
               /run/archiso/copytoram/*)
                 base=${src#/run/archiso/copytoram/}
-                [ -f "pd/arch/x86_64/$base" ] || { echo "✖ copytoram: $src sem correspondente no ISO (pd/arch/x86_64/$base)"; FAIL=1; }
+                grep -qx "$base" iso-pendrive.list \
+                  || { echo "✖ copytoram: $src sem correspondente no ISO ($base fora do pendrive)"; FAIL=1; }
                 ;;
               /usr/lib/modules/*)
                 [ -f "rootfs$src" ] || { echo "✖ copytoram: $src NÃO existe no live rootfs (era exatamente o bug do burn test v1.5)"; FAIL=1; }
