@@ -208,14 +208,25 @@ assert_grep "$TY" 'bash tests/run-tests\.sh' "contrato: tests.yml executa a suí
 assert_grep "$TY" 'shellcheck' "contrato: tests.yml instala o shellcheck (o gate de lint)"
 assert_grep "$TY" 'pull_request:' "contrato: tests.yml roda em PR (gate de merge)"
 
-# ── peças: dock SEMPRE VISÍVEL (v1.4) + pins do usuário (contratos do rice) ─
+# ── peças: dock v1.9 — AUTOHIDE PADRÃO (M3.5) + pins do usuário ───────────
+# v1.4 tinha a dock SEMPRE visível ("a dock sumiu" era bug de talho cortado).
+# v1.9 — spec M3.5 do dono: autohide é PADRÃO DE FÁBRICA, implementado de
+# verdade: modo "peek" (config gerado em tmpfs a partir do config ATUAL do
+# usuário — margin-bottom -48 = tira de 6px; TODOS os on-click viram
+# "craft-dock-autohide show" — clique na tira revela, sem abrir app por
+# engano), W-S-d alterna, craft-bars religa no modo vigente em ≤5s.
 DK="$REPO/elite/airootfs/etc/skel/.config/waybar/config.dock"
 DKCSS="$REPO/elite/airootfs/etc/skel/.config/waybar/style.dock.css"
 assert_grep "$DK" '"exclusive": false' "dock: exclusive false (janelas usam a base — modelo macOS)"
-# v1.4 (burn test do dono: "a dock sumiu"): auto-hide MORTO — a pílula é
-# SEMPRE visível, flutuando 8px (config) sem margem negativa no CSS
-assert_grep "$DK" '"margin-bottom": 8' "dock: v1.4 flutua 8px SEMPRE (auto-hide extinto)"
-assert_nogrep "$DKCSS" 'margin-bottom: -' "dock: v1.4 sem margem negativa no CSS (o talho de ícones cortados era isso)"
+assert_grep "$DK" '"margin-bottom": 8' "dock: modo SHOWN flutua 8px (o modo PADRÃO peek é o config.dock.peek gerado em runtime)"
+assert_nogrep "$DKCSS" 'margin-bottom: -' "dock: sem margem negativa no CSS (a margem negativa mora no config peek gerado — o talho v1.1 era outra classe)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-config" 'config\.dock\.peek' "autohide: craft-dock-config devolve o config peek (tmpfs, sempre sincronizado com os pins)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-config" '"margin-bottom": -48' "autohide: peek esconde 48px (54 da dock − tira de 6px)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-config" 'craft-dock-autohide show' "autohide: QUALQUER clique na tira REVELA (on-click sobreposto — sem misclick de app)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-autohide" 'toggle' "autohide: toggle existe (W-S-d)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-autohide" 'pkill -f .waybar -c' "autohide: reinício REAL da instância da dock na troca de modo (pkill da instância)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bars" 'craft-dock-config' "autohide: craft-bars sobe a dock no MODO vigente (supervisor integrado)"
+assert_grep "$REPO/tests/fixtures/menu-icons-papirus.txt" '.' "fixture Papirus presente (contrato de ícones do menu — v1.6.3 segue)"
 assert_grep "$DK" 'PINS \(craft-pin\)' "dock: seção PINS presente (craft-pin add/rm gerencia)"
 assert_grep "$DKCSS" 'Pins do usuário \(craft-pin\)' "dock: CSS tem a seção de pins documentada"
 pin_defs=$(grep -c '^  "custom/pin-' "$DK" || true)
@@ -487,3 +498,62 @@ assert d["browser"]["custom_chrome_frame"] is False
 PYEOF
 
 phase_end
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# v1.9 — SPEC ESTRUTURAL DO DONO (out/2026): as 5 frentes, contrato a contrato
+# ═══════════════════════════════════════════════════════════════════════════
+
+# ── M1.1: fase final de boot — hash + regen + flush (o "premature end of
+#    file /@/boot/vmlinuz-linux" do rig não passa mais: kernel selado por
+#    sha256 fonte==alvo, mkinitcpio -P COMPLETO com gate duro, grub-mkconfig
+#    no stage, sync de disco) ──
+INST="$REPO/elite/airootfs/usr/local/bin/elite-install-stage"
+assert_grep "$INST" 'sha256sum' "M1.1: verificação por HASH (sha256) do kernel no chroot final"
+assert_grep "$INST" 'mkinitcpio -P' "M1.1: re-geração COMPLETA do mkinitcpio (todos os presets — não só o bore)"
+assert_grep "$INST" 'grub-mkconfig' "M1.1: grub-mkconfig re-gerado no próprio stage (belt-and-suspenders do módulo bootloader)"
+assert_grep "$INST" 'menuentry' "M1.1: grub.cfg validado (menuentry + vmlinuz presentes — sem menu vazio)"
+assert_grep "$INST" 'sync -f' "M1.1: flush completo do disco (sync + sync -f no /boot do alvo)"
+assert_nogrep "$INST" 'mkinitcpio -p linux-cachyos-bore' "M1.1: o regen NARROW do bore morreu (agora é mkinitcpio -P completo com gate duro — sem || true)"
+
+# ── M1.2: Calamares transparente — log ao vivo + persistente ──
+CALLOG="$REPO/elite/airootfs/usr/local/bin/calamares-elite-log"
+CALD="$REPO/elite/airootfs/usr/local/share/applications/calamares.desktop"
+assert_grep "$CALD" 'calamares-elite-log' "M1.2: calamares.desktop lança o wrapper de log (Exec=)"
+assert_grep "$CALLOG" 'tail -n 30 -F' "M1.2: terminal de logs EM TEMPO REAL (foot + tail -F do session.log)"
+assert_grep "$CALLOG" '/var/log/calamares\.log' "M1.2: log completo persistido em /var/log/calamares.log"
+assert_grep "$CALLOG" '/etc/calamares/launch.sh' "M1.2: launch.sh upstream curado segue intocado (E5a2)"
+
+# ── M2: top bar — geometria (Y centrado, tray com respiro, linha morta) ──
+TOPCSS="$REPO/elite/airootfs/etc/skel/.config/waybar/style.top.css"
+assert_nogrep "$TOPCSS" 'border-bottom' "M2.3: a linha fantasma sob a barra está MORTA (border-bottom removido do window#waybar)"
+assert_grep "$TOPCSS" 'padding-top: 2px' "M2.1: padding vertical SIMÉTRICO no painel (topo == base — ícone não encosta no teto)"
+assert_grep "$TOPCSS" 'padding-bottom: 2px' "M2.1: padding-bottom presente (par do padding-top)"
+assert_grep "$TOPCSS" 'padding: 0 14px 0 8px' "M2.2: tray com 14px de respiro à direita (entre os 12-16px do spec)"
+
+# ── M3: dock — centralização, escala fixa, ícones reais, launcher único ──
+assert_grep "$DKCSS" 'min-height: 48px' "M3.1: bounding box PADRONIZADO nos botões da taskbar (48px — ícone centralizado)"
+assert_nogrep "$DKCSS" 'border-bottom: 3px' "M3.1: o indicador .active NÃO usa border-bottom (empurrava o ícone p/ cima — box-shadow inset, zero shift)"
+assert_nogrep "$DKCSS" 'font-size 0\.18s' "M3.1: SEM zoom por font-size (a transição mudava a caixa e desalinhava o glifo no hover — escala fixa)"
+assert_grep "$DKCSS" 'font-size: 30px' "M3.2: escala FIXA dos glifos (30px — sem exceção, sem estado de zoom)"
+assert_grep "$REPO/elite/airootfs/usr/local/share/applications/lact.desktop" 'Icon=/usr/share/pixmaps/elite/lact\.png' "M3.3: LACT com Icon= absoluto (ícone real, não genérico)"
+assert_grep "$REPO/elite/airootfs/usr/local/share/applications/btop.desktop" 'Icon=/usr/share/pixmaps/elite/btop\.png' "M3.3: btop com Icon= absoluto"
+assert_grep "$REPO/elite/airootfs/usr/local/share/applications/mpv.desktop" 'Icon=/usr/share/pixmaps/elite/mpv\.png' "M3.3: mpv com Icon= absoluto"
+assert_grep "$REPO/elite/airootfs/usr/local/share/applications/calamares.desktop" 'Icon=/usr/share/pixmaps/elite/elite-install\.png' "M3.3: Instalador Archcraft com Icon= absoluto"
+for iconf in lact btop mpv elite-install; do
+  assert_file "$REPO/elite/airootfs/usr/share/pixmaps/elite/$iconf.png" "M3.3: ativo de ícone real no pacote ($iconf.png — o Icon= resolve SEMPRE)"
+done
+
+# ── M4: tecla Super = menu de aplicativos ──
+RCX="$REPO/elite/airootfs/etc/skel/.config/labwc/rc.xml"
+assert_grep "$RCX" 'key="Super_L"' "M4.1: tecla SUPER mapeada (só pressionada → Launchpad)"
+assert_grep "$RCX" 'key="W-S-d"' "M3.5: W-S-d alterna a dock (autohide toggle)"
+
+# ── M5: wallpaper vetorial flat (sem poeira) — arquivo selado no 40-int ──
+assert_file "$REPO/elite/airootfs/etc/skel/.config/labwc/wallpaper.png" "M5.1: wallpaper.png (PNG lossless — o JPEG com ruído saiu de cena)"
+assert_nogrep "$REPO/elite/airootfs/etc/skel/.config/labwc/autostart" 'wallpaper\.jpg.*first' "M5.1: autostart NÃO prefere mais o jpg (PNG primeiro)"
+
+# ── file_permissions: os 3 binários novos precisam de 0755 (203/EXEC) ──
+for nb in craft-dock-config craft-dock-autohide calamares-elite-log; do
+  assert_grep "$REPO/scripts/apply-overlay.sh" "/usr/local/bin/$nb" "apply-overlay: $nb registrado no file_permissions (senão 203/EXEC no live)"
+done

@@ -46,8 +46,14 @@ ensure() {
     fi
 }
 
+# v1.9 — spec M3.5 do dono: a dock segue o MODO da sessão (PADRÃO de
+# fábrica = peek/autohide, tira de 6px; o craft-dock-config devolve o
+# config vigente — peek gerado em tmpfs a partir do config ATUAL do
+# usuário, com os pins do craft-pin inclusive). O craft-dock-autohide
+# alterna (W-S-d / clique na tira) matando a instância — este loop
+# religa no modo novo em ≤5s.
 while :; do
     ensure top  "$HOME/.config/waybar/config.top"  "$HOME/.config/waybar/style.top.css"
-    ensure dock "$HOME/.config/waybar/config.dock" "$HOME/.config/waybar/style.dock.css"
+    ensure dock "$(/usr/local/bin/craft-dock-config)" "$HOME/.config/waybar/style.dock.css"
     sleep 5
 done

@@ -1,0 +1,35 @@
+#!/bin/sh
+# ═══════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · craft-dock-config (v1.9 — spec M3.5 do dono: AUTOHIDE)
+# ═══════════════════════════════════════════════════════════════════════════
+# Devolve o config do waybar-dock conforme o MODO da sessão:
+#   · peek  (PADRÃO de fábrica) → $XDG_RUNTIME_DIR/config.dock.peek
+#     (gerado do config.dock ATUAL do usuário a cada sessão: dock 48px
+#     fora da tela, tira de 6px na base; TODOS os on-click viram "show" —
+#     qualquer clique na tira REVELA, sem disparar app por engano)
+#   · shown → ~/.config/waybar/config.dock (a pílula flutuando 8px)
+# GERADO EM RUNTIME (tmpfs, 1× por sessão) = nunca desatualiza do
+# config.dock que o craft-pin edita. O toggle é o craft-dock-autohide.
+# ═══════════════════════════════════════════════════════════════════════════
+MODE_FILE="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/elite-dock-mode"
+RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+SRC="$HOME/.config/waybar/config.dock"
+PEEK="$RUNTIME_DIR/config.dock.peek"
+mode="$(cat "$MODE_FILE" 2>/dev/null || echo peek)"
+
+ensure_peek() {
+    # Regenera a versão recolhida do config ATUAL do usuário (tmpfs)
+    if [ ! -f "$PEEK" ] || [ "$SRC" -nt "$PEEK" ]; then
+        sed -e 's/"margin-bottom": 8/"margin-bottom": -48/' \
+            -e 's/"on-click": "[^"]*"/"on-click": "craft-dock-autohide show"/g' \
+            "$SRC" > "$PEEK" 2>/dev/null || { echo "$SRC"; return; }
+        chmod 644 "$PEEK" 2>/dev/null || true
+    fi
+    echo "$PEEK"
+}
+
+if [ "$mode" = "shown" ]; then
+    echo "$SRC"
+else
+    ensure_peek
+fi

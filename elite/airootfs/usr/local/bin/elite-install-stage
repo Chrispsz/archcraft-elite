@@ -23,7 +23,7 @@
 #   2. GPU   → AMD remove o stack NVIDIA inteiro do alvo (MODULES=amdgpu +
 #              ppfeaturemask no GRUB) · NVIDIA fixa MODULES + modeset/fbdev
 #              + modprobe.d · unknown não toca em nada (VM)
-#   3. initramfs BORE regenerado no alvo (mkinitcpio -p linux-cachyos-bore)
+#   3. initramfs regenerado NO alvo (v1.9 M1.1: mkinitcpio -P completo —
 #   4. keyring archlinux+cachyos populado no alvo (belt-and-suspenders)
 # Roda DEPOIS de unpackfs/packages e ANTES de grubcfg/bootloader (settings.conf).
 # ═══════════════════════════════════════════════════════════════════════════
@@ -181,13 +181,105 @@ elif [ "$ELITE_GPU" = "nvidia" ]; then
     fi
 fi
 
-# ── 3. initramfs do BORE regenerado NO alvo (o initcpio@elite roda antes, ──
-#    no live context via initcpio_elite.conf — este aqui é o belt-and-
-#    suspenders: se o kernel já está em /boot, garante o initramfs dele)
-if [ -f "${ROOT}/boot/vmlinuz-linux-cachyos-bore" ] &&
-    [ -x "${ROOT}/usr/bin/mkinitcpio" ]; then
-    arch-chroot "$ROOT" mkinitcpio -p linux-cachyos-bore || true
+# ── 3. FASE FINAL DE BOOT (v1.9 — spec M1.1 do dono, prematurity EOF) ──────
+# O rig do dono fotografou o GRUB do disco INSTALADO gritando
+#   "premature end of file /@/boot/vmlinuz-linux" + "you need to load the
+#   kernel first" (@ = subvolume btrfs). O v1.8.2 já recopia os vmlinuz
+#   byte-a-byte (cmp), mas o spec v1.9 exige o CASTELO INTEIRO:
+#   hash por sha256 no chroot final + re-geração COMPLETA de mkinitcpio
+#   (todos os presets) + grub-mkconfig NO próprio stage + flush de disco.
+# Tudo aqui é GATE DURO: falha = "Installation Failed" com o MOTIVO no log
+# (nada de ISO/instalação que bootia no QEMU e morria no rig real).
+echo "ELITE: [M1.1] fase final de boot — hash + regen + flush (spec v1.9)"
+
+# 3a. Flush TOTAL do disco antes de qualquer decisão (sync bloqueia até
+#     as páginas sujas da cópia dos kernels serem gravadas de verdade).
+sync
+sync -f "${ROOT}/boot" 2>/dev/null || sync
+echo "ELITE: [M1.1] flush do /boot do alvo completo (sync+sync -f)"
+
+# 3b. Hash de integridade dos vmlinuz no CHROOT FINAL (spec literal).
+#     Com fonte disponível: sha256 fonte == alvo (re-verificação TARDIA —
+#     pega corrupção que só aparece DEPOIS da cópia inicial). Sem fonte
+#     (copytoram sem ISO montável): MZ + tamanho + hash registrado como
+#     trilha de auditoria no log do Calamares.
+khash_fail=0
+if [ -n "$KERNEL_SRC" ]; then
+    for kv in "${ROOT}"/boot/vmlinuz-*; do
+        [ -f "$kv" ] || continue
+        kbase="$(basename "$kv")"
+        [ -e "$KERNEL_SRC/$kbase" ] || continue
+        h_src="$(sha256sum "$KERNEL_SRC/$kbase" | awk '{print $1}')"
+        h_dst="$(sha256sum "$kv" | awk '{print $1}')"
+        if [ "$h_src" != "$h_dst" ]; then
+            echo "ELITE: [M1.1] ERRO FATAL — sha256 de $kbase DIVERGE no alvo" >&2
+            echo "  fonte:  $h_src" >&2
+            echo "  alvo:   $h_dst" >&2
+            khash_fail=$((khash_fail + 1))
+        else
+            echo "ELITE: [M1.1] sha256 OK — ${kbase} ${h_src:0:16}… (fonte == alvo)"
+        fi
+    done
+else
+    for t in "${ROOT}"/boot/vmlinuz-*; do
+        [ -f "$t" ] || continue
+        sz="$(stat -c%s "$t" 2>/dev/null || echo 0)"
+        if [ "$sz" -ge 5242880 ] && [ "$(head -c2 "$t" 2>/dev/null)" = "MZ" ]; then
+            echo "ELITE: [M1.1] sha256 (auditoria, sem fonte p/ comparar) — $(basename "$t") $(sha256sum "$t" | awk '{print $1}' | cut -c1-16)…"
+        fi
+    done
 fi
+if [ "$khash_fail" -gt 0 ]; then
+    echo "ELITE: [M1.1] ERRO — kernel truncado/corrompido no alvo (GRUB daria 'premature end of file'); abortando com motivo" >&2
+    exit 1
+fi
+
+# 3c. mkinitcpio COMPLETO no alvo (todos os presets — spec: "re-geração
+#     completa"), agora com GATE DURO: saída ≠0 ou initramfs ausente/vazio
+#     = instalação reprovada (o || true antigo ENGOLIA initramfs quebrado).
+if [ -x "${ROOT}/usr/bin/mkinitcpio" ] && ls "${ROOT}"/etc/mkinitcpio.d/*.preset >/dev/null 2>&1; then
+    echo "ELITE: [M1.1] mkinitcpio -P (re-geração completa de TODOS os presets)"
+    if ! arch-chroot "$ROOT" mkinitcpio -P; then
+        echo "ELITE: [M1.1] ERRO — mkinitcpio -P falhou no alvo; abortando" >&2
+        exit 1
+    fi
+    for iv in "${ROOT}"/boot/initramfs-*.img; do
+        [ -f "$iv" ] || continue
+        isz="$(stat -c%s "$iv" 2>/dev/null || echo 0)"
+        if [ "$isz" -lt 1048576 ]; then
+            echo "ELITE: [M1.1] ERRO — $(basename "$iv") suspeito (${isz} B < 1 MiB); abortando" >&2
+            exit 1
+        fi
+    done
+    echo "ELITE: [M1.1] initramfs regenerado e sãos (≥1 MiB cada) no alvo"
+fi
+
+# 3d. grub-mkconfig NO stage (spec: "re-geração completa do grub-mkconfig
+#     antes do término do processo") — belt-and-suspenders do módulo
+#     bootloader do Calamares: se o módulo falhar calado, o menu JÁ EXISTE.
+GRUBDIR="${ROOT}/boot/grub"
+if [ -f "${ROOT}/boot/vmlinuz-linux-cachyos-bore" ] &&
+    [ -x "${ROOT}/usr/bin/grub-mkconfig" ]; then
+    mkdir -p "$GRUBDIR"
+    echo "ELITE: [M1.1] grub-mkconfig no alvo (re-geração completa do menu)"
+    if arch-chroot "$ROOT" grub-mkconfig -o /boot/grub/grub.cfg; then
+        if [ -s "${ROOT}/boot/grub/grub.cfg" ] &&
+            grep -q 'menuentry' "${ROOT}/boot/grub/grub.cfg" &&
+            grep -q 'vmlinuz' "${ROOT}/boot/grub/grub.cfg"; then
+            echo "ELITE: [M1.1] grub.cfg regenerado com entradas reais de kernel"
+        else
+            echo "ELITE: [M1.1] ERRO — grub.cfg sem menuentry/vmlinuz; abortando" >&2
+            exit 1
+        fi
+    else
+        echo "ELITE: [M1.1] AVISO — grub-mkconfig falhou no stage (o módulo bootloader do Calamares roda na sequência; se ele também falhar, instalação reprovada)"
+    fi
+fi
+
+# 3e. Flush final de TUDO que tocou o disco (spec: "garantir flush completo")
+sync
+sync -f "${ROOT}/boot" 2>/dev/null || sync
+echo "ELITE: [M1.1] flush final completo — boot do alvo selado por hash"
 
 # ── 4. keyring do alvo (archlinux+cachyos) — cobre skew de build; o E2b ────
 #    do build e o unpackfs (gnupg) já cobrem o essencial

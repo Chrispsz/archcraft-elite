@@ -6,6 +6,58 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **v1.9 — "a spec estrutural: boot selado por hash + geometria da UI +
+  autohide de fábrica + Super + wallpaper sem poeira"** (spec v1.9 do
+  dono, 5 módulos obrigatórios, out/2026):
+  - **(M1.1) BOOT SELADO — o "premature end of file /@/boot/vmlinuz-linux"
+    morre por CASTELO**: além da recópia byte-a-byte v1.8.2, a fase final
+    do `elite-install-stage` agora faz (a) **flush total** (`sync` +
+    `sync -f /boot`) antes e depois de tudo; (b) **verificação por
+    sha256 fonte==alvo** de CADA vmlinuz no chroot final (re-checagem
+    tardia — pega corrupção que só aparece depois da cópia; hash
+    registrado no log como trilha de auditoria); (c) **mkinitcpio -P**
+    (TODOS os presets, não só o bore) com GATE DURO — saída ≠0 ou
+    initramfs <1 MiB reprova a instalação (o `|| true` que engolia
+    initramfs quebrado está morto); (d) **grub-mkconfig re-gerado no
+    próprio stage** e validado (menuentry + vmlinuz presentes).
+  - **(M1.2) CALAMARES TRANSPARENTE**: o `.desktop` da Elite lança o
+    `calamares-elite-log` — um **foot com `tail -F` do session.log abre
+    ANTES do instalador** (log ao vivo, fim do botão de debug escondido)
+    e no fim o log completo vai para **/var/log/calamares.log** do
+    instalador E é copiado para o **/var/log do sistema instalado**
+    (auditoria pós-boot). O launch.sh upstream segue intocado.
+  - **(M2) TOP BAR**: **linha fantasma morta** — a "linha horizontal solta"
+    sob a barra ERA o `border-bottom: 1px` (removido); **padding vertical
+    simétrico** (2px/2px + altura 34→36) centraliza os ícones no eixo Y
+    (nada esmagado contra o teto); **tray com 14px de respiro** à direita
+    (estava colado na borda); **ARCH permanece lançador EXCLUSIVO** do
+    canto superior esquerdo.
+  - **(M3) DOCK**: **(3.1) hover CENTRALIZADO** — o desalinho tinha 2
+    causas, ambas mortas: o zoom por `font-size` (mudava a caixa no hover)
+    e o `border-bottom: 3px` do indicador `.active` (empurrava o ícone p/
+    cima). Agora: bounding box único (`min-height/min-width 48px`),
+    padding simétrico, `box-shadow inset` no indicador (zero shift);
+    **(3.2) escala FIXA 36px** (taskbar) e glifos 30px fixos, sem estado
+    de zoom; **(3.3) ícones reais** p/ Instalador/LACT/btop/mpv: PNGs flat
+    em `/usr/share/pixmaps/elite/` + overrides `.desktop` com `Icon=`
+    ABSOLUTO (resolução à prova de tema incompleto) + `StartupWMClass`
+    (btop ganhou `--app-id=btop` p/ casar no taskbar); **(3.4) Launchpad
+    saiu da dock** — botão Arch EXCLUSIVO da barra superior; **(3.5)
+    AUTOHIDE PADRÃO de fábrica**: modo *peek* com tira de 6px na base
+    (config gerado em tmpfs a partir do config ATUAL do usuário — pins do
+    craft-pin inclusive — com TODOS os on-click virando "show": clique na
+    tira revela, sem abrir app por engano), **W-S-d alterna**, craft-bars
+    religa no modo vigente em ≤5s, notify-send confirma o estado.
+  - **(M4) TECLA SUPER**: Super sozinha abre o Launchpad (o mesmo menu de
+    apps do botão Arch — convenção GNOME/Windows).
+  - **(M5) WALLPAPER SEM POEIRA**: o JPEG da v1.7.1 tinha ruído/granulação
+    de compressão ("impressão de poeira"). Novo padrão: arte **vetorial
+    flat** (fundo preto AMOLED, cristas low-poly na escada de superfícies
+    do rice, lua com aro mauve) em **PNG lossless 4K** — zero artefato de
+    compressão POSSÍVEL. Contratos novos: **paleta ≤16 cores** (a métrica
+    anti-poeira — foto/compressão tem milhares), **céu 100% flat** (1 cor
+    por patch amostrado), preto ≥40%, sha256 anti-tamper.
+
 - **v1.8.2 — "o install que não morre no copytoram + os flagrantes do
   áudio/fotos do dono"** (burn test v1.8.1: 2 tentativas de instalação
   mortas no job 36 — termbin `iy38` — e 6 áudios + 12 fotos registrando

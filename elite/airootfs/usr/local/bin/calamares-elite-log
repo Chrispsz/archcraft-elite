@@ -1,0 +1,52 @@
+#!/bin/sh
+# ═══════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · calamares-elite-log (v1.9 — spec M1.2 do dono)
+# ═══════════════════════════════════════════════════════════════════════════
+# "Habilitar a exibição em tempo real do terminal de logs na interface do
+#  Calamares e garantir a gravação contínua do arquivo de log completo em
+#  /var/log/calamares.log dentro do ambiente instalado para auditoria."
+#
+# 3 frentes:
+#   1. TERMINAL DE LOGS EM TEMPO REAL — um foot anexado (tail -F) ao
+#      session.log abre ANTES do instalador subir: cada linha que o
+#      Calamares escreve aparece ao vivo (fim do botão de debug escondido).
+#   2. LOG PERSISTENTE — no fim (qualquer que seja o resultado) o log
+#      completo vai para /var/log/calamares.log do AMBIENTE DO INSTALADOR
+#      e é COPIADO para o /var/log do SISTEMA INSTALADO (auditoria pós-boot,
+#      exatamente o que o spec M1.2 pede).
+#   3. LAUNCHER OFICIAL — o calamares.desktop da Elite aponta para ESTE
+#      script; o launch.sh upstream permanece intocado (curado na v1.6).
+# ═══════════════════════════════════════════════════════════════════════════
+SESSION="${XDG_CACHE_HOME:-$HOME/.cache}/calamares/session.log"
+[ -d "$(dirname "$SESSION")" ] || mkdir -p "$(dirname "$SESSION")"
+
+# (1) terminal de logs em tempo real (foot existe na ISO por contrato)
+TAILPID=""
+if command -v foot >/dev/null 2>&1 && [ -n "$WAYLAND_DISPLAY" ]; then
+    foot --title="Calamares · log ao vivo" -e tail -n 30 -F "$SESSION" \
+        >/dev/null 2>&1 &
+    TAILPID=$!
+fi
+
+# (2) instalador upstream curado (E5a2 — intocado)
+/etc/calamares/launch.sh
+RC=$?
+
+# (2b) log completo → /var/log do ambiente do instalador…
+if [ -f "$SESSION" ]; then
+    mkdir -p /var/log
+    cp -f "$SESSION" /var/log/calamares.log 2>/dev/null || true
+    chmod 644 /var/log/calamares.log 2>/dev/null || true
+    echo "ELITE: log do Calamares persistido em /var/log/calamares.log (instalador)"
+fi
+# …e copiado para o /var/log do SISTEMA INSTALADO (auditoria dentro do alvo)
+for tgt in /mnt/elite /mnt; do
+    if [ -d "$tgt/var/log" ] && [ -f "$tgt/etc/os-release" ]; then
+        cp -f /var/log/calamares.log "$tgt/var/log/calamares.log" 2>/dev/null || true
+        echo "ELITE: log do Calamares persistido em $tgt/var/log/calamares.log (alvo)"
+        break
+    fi
+done
+
+[ -n "$TAILPID" ] && kill "$TAILPID" 2>/dev/null
+exit "$RC"

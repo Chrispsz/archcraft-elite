@@ -68,16 +68,23 @@ window#waybar > box {
 }
 
 /* ===== Botões launcher (glyphs grandes) ===== */
-#custom-drawer,
+/* v1.9 — spec M3.1/M3.2 do dono: bounding box PADRONIZADO e CENTRALIZADO.
+ * O desalinho (ícone deslocado p/ topo/esquerda dentro do caixilho) tinha
+ * DUAS causas: o zoom por font-size (27→32px mudava a caixa no hover) e o
+ * padding assimétrico. Cura: font-size FIXO 30px (escala única da dock),
+ * min-height igual p/ todos os botões e padding simétrico — o glifo fica
+ * CENTRADO no eixo X e Y dentro da pílula, sempre, com a pílula do hover
+ * do MESMO tamanho do botão (zero shift de layout). */
 #custom-shot {
-  font-size: 27px;
-  padding: 4px 10px;
+  font-size: 30px;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 2px 10px;
   border-radius: 14px;
   color: @text;
   transition: background 0.15s ease, color 0.15s ease;
 }
 
-#custom-drawer { color: @mauve; }    /* ARCH em mauve — identidade do rice */
 #custom-shot   { color: @teal; }
 
 /* ===== Apps fixados — GLIFOS (v1.6, fix waybar#5051) ==================
@@ -87,17 +94,18 @@ window#waybar > box {
 #custom-term,
 #custom-files,
 #custom-web {
-  font-size: 27px;
-  padding: 3px 9px;
+  font-size: 30px;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 2px 10px;
   border-radius: 14px;
   color: @text;
-  transition: font-size 0.18s ease, background 0.15s ease, color 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 #custom-term:hover,
 #custom-files:hover,
 #custom-web:hover {
-  font-size: 32px;
   background: alpha(@surface0, 0.95);
 }
 
@@ -128,24 +136,13 @@ window#waybar > box {
   background: alpha(@surface0, 0.9);
 }
 
-/* Zoom no hover estilo iOS (v1.4: 30→36 — mais perceptível com a dock
- * sempre visível; os vizinhos acomodam o crescimento, o DNA do efeito
- * "magnificação" de dock que o dono pediu) — só nos botões de GLIFO
- * (os de ícone real têm pílula de hover: pixbuf não escala por CSS) */
-#custom-drawer, #custom-shot {
-  transition: background 0.15s ease, color 0.15s ease,
-              font-size 0.18s cubic-bezier(0.22, 1, 0.36, 1);
-}
-#custom-drawer:hover { font-size: 32px; }
-#custom-shot:hover   { font-size: 32px; }
-
-/* Hover estilo macOS: pílula + leve realce da cor do ícone · :active
- * (pressed): superfície mais escura — matriz de estados completa */
-#custom-drawer:hover,
+/* v1.9 — spec M3.1: SEM zoom (a magnificação mudava a caixa no hover e
+ * desalinhava o glifo dentro do caixilho). Hover estilo macOS: pílula +
+ * leve realce da cor do ícone · :active (pressed): superfície mais escura
+ * — matriz de estados completa, tamanho CONSTANTE em todos os estados. */
 #custom-shot:hover {
   background: alpha(@surface0, 0.95);
 }
-#custom-drawer:active,
 #custom-shot:active {
   background: alpha(@surface2, 0.95);
 }
@@ -155,8 +152,16 @@ window#waybar > box {
   padding: 0 6px;
 }
 
+/* v1.9 — spec M3.1 do dono: o caixilho de hover/destaque CENTRALIZA o
+ * ícone. Causas do desalinho, todas mortas: (a) o padding vertical 2px
+ * somado ao border-bottom de 3px do estado .active EMPURRAVA o ícone p/
+ * cima; (b) sem min-height, cada botão tinha caixa própria. Agora: caixa
+ * única 48px, padding simétrico, ícone 36px centrado (GTK centra o filho
+ * do botão com padding zero vertical — sem briga de baseline). */
 #taskbar button {
-  padding: 2px 6px;
+  padding: 0 6px;
+  min-height: 48px;
+  min-width: 48px;
   border-radius: 14px;
   background: transparent;
   border: none;
@@ -178,9 +183,12 @@ window#waybar > box {
   transition: background 0.15s ease-in-out;
 }
 
-/* Pontinho de estado embaixo do ícone (running/active) */
+/* Pontinho de estado embaixo do ícone (running/active) — v1.9 (M3.1):
+ * o border-bottom de 3px no image EMPURRAVA o ícone p/ cima dentro da
+ * pílula (era o desalinho em Y que o dono fotografou). Cura: inset
+ * shadow (zero shift de layout — a mesma receita dos pins .running). */
 #taskbar button.active image {
-  border-bottom: 3px solid @mauve;
+  box-shadow: inset 0 -3px 0 @mauve;
   border-radius: 2px;
 }
 
