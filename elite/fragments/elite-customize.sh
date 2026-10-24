@@ -564,11 +564,15 @@ fi
 ##      comando cobre os dois. Guard: sem o unit (pacote mudou), avisa e
 ##      segue — o LACT continua abrindo em modo leitura, como hoje.
 if [[ -f /usr/lib/systemd/system/lactd.service ]]; then
-    systemctl enable lactd.service 2>/dev/null || true
+    # ln -sf DIRETO (o que o systemctl enable faz): o build roda em
+    # container SEM PID 1 — o systemctl pode recusar verbs, o ln nunca.
+    mkdir -p /etc/systemd/system/multi-user.target.wants
+    ln -sf /usr/lib/systemd/system/lactd.service \
+        /etc/systemd/system/multi-user.target.wants/lactd.service
     if [[ -e /etc/systemd/system/multi-user.target.wants/lactd.service ]]; then
         echo "E17: lactd habilitado (LACT abre com controle total, sem Service Setup)"
     else
-        echo "ELITE-FAIL: systemctl enable lactd não criou o wants (systemd mudou?)" >&2
+        echo "ELITE-FAIL: symlink do wants do lactd não criado (fs somente-leitura?)" >&2
         exit 1
     fi
 else

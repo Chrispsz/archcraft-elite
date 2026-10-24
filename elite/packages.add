@@ -159,7 +159,9 @@ brave-origin
 ##                    (pareamento/áudio em janela GTK) + blueman-adapters
 ## Custo: ~2 MB + ~5 MB instalados; zero daemons novos (o NM e o
 ## bluetooth.service JÁ rodam — os applets são clientes leves).
-nm-applet
+## NOTA: o pacote Arch chama-se network-manager-applet (nm-applet é o
+## binário — a v1.8.2 quebrou o preflight com "target not found").
+network-manager-applet
 blueman
 
 ## Satélites oficiais do labwc (docs labwc.github.io/integration):
