@@ -85,23 +85,9 @@ window#waybar {
   color: @mauve;
 }
 
-#idle-inhibitor,
 #network,
 #pulseaudio {
   padding: 0 10px;
-}
-
-/* v1.4: café INVISÍVEL quando desativado — burn test do dono: dois
- * ícones "de conectividade" lado a lado confundiam (um mostrava o cabo,
- * "o outro ativava e desativava"). O toggle agora é silencioso: só
- * existe no bar quando ESTÁ ativo (âmbar, abaixo) — desligado não
- * ocupa pixel algum (fonte 0 + transparente + sem padding). */
-#idle-inhibitor.deactivated {
-  font-size: 0;
-  min-width: 0;
-  padding: 0;
-  margin: 0;
-  color: transparent;
 }
 
 #tray {
@@ -152,7 +138,6 @@ window#waybar {
 #wlr-window:hover,
 #custom-drawer:hover,
 #mpris:hover,
-#idle-inhibitor:hover,
 #network:hover,
 #pulseaudio:hover,
 #tray:hover,
@@ -166,18 +151,11 @@ window#waybar {
 #custom-power:active,
 #wlr-window:active,
 #mpris:active,
-#idle-inhibitor:active,
 #network:active,
 #pulseaudio:active,
 #clock:active {
   background: alpha(@surface2, 0.95);
   border-radius: 8px;
-}
-
-/* Café ativado = âmbar (estado visível) — v1.4: este é o ÚNICO estado
- * visível do café (desativado = colapsado, ver acima) */
-#idle-inhibitor.activated {
-  color: @peach;
 }
 
 /* Volume mudo = vermelho (v2.1: ícone só — o estado precisa gritar) */

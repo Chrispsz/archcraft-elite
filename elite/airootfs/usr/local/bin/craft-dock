@@ -1,0 +1,15 @@
+#!/bin/sh
+# ═══════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · craft-dock (v2.0) — CLI da dock nativa (craft-dock-gui)
+# ═══════════════════════════════════════════════════════════════════════════
+# craft-dock toggle   → sobe/desce a dock (W-S-d; SIGUSR1 no processo GUI)
+# craft-dock reload   → re-lê os pins (SIGUSR2 — usado pelo craft-pin)
+# Sem argumentos      → toggle (mesma convenção do nwg-dock: re-exec alterna)
+# A dock em si é o craft-dock-gui (GTK3 + layer-shell, supervisionado pelo
+# craft-bars). O autohide por hotspot é nativo do GUI.
+# ═══════════════════════════════════════════════════════════════════════════
+case "${1:-toggle}" in
+    toggle) pkill -USR1 -f 'craft-dock-gui' 2>/dev/null || true ;;
+    reload) pkill -USR2 -f 'craft-dock-gui' 2>/dev/null || true ;;
+    *) echo "uso: craft-dock [toggle|reload]" >&2; exit 2 ;;
+esac

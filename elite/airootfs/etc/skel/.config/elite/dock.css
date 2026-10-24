@@ -1,0 +1,38 @@
+/* Archcraft ELITE · dock.css (v2.0) — a pílula da dock nativa
+ * (craft-dock-gui) no AMOLED rice v1.3 — a mesma escada de superfícies
+ * da waybar (Mocha com o backlight desligado). GTK3 CSS de verdade:
+ * alpha(), border-radius, box-shadow inset — sem o modo estrito do
+ * waybar 0.15, e sem NENHUMA propriedade inventada. */
+#dockwindow { background: transparent; }
+#hotspot { background: transparent; }
+
+/* A pílula: fundo translúcido escuro, borda sutil, cantos 20px — o
+ * visual da dock antiga, agora abraçando o conteúdo (largura natural,
+ * centrada na base: a dock "horizontalmente menor e centralizada"). */
+#dockbox {
+  background: alpha(#050508, 0.88);
+  border: 1px solid alpha(#16161f, 0.8);
+  border-radius: 20px;
+  padding: 4px 10px;
+}
+
+/* Botões: ícone REAL do tema (Papirus-Dark via .desktop), caixa única
+ * 44px, padding simétrico — o ícone fica CENTRADO no eixo X e Y
+ * (spec M3.1 do dono — nada de caixilho desalinhado). */
+#dockbox button {
+  padding: 2px 8px;
+  min-height: 44px;
+  min-width: 44px;
+  border-radius: 14px;
+  background: transparent;
+  border: none;
+  transition: background 0.15s ease;
+}
+#dockbox button:hover { background: alpha(#16161f, 0.95); }
+#dockbox button:active { background: alpha(#2e2e3d, 0.95); }
+
+/* Indicador de aberto (o ponto do macOS): inset shadow sob o ícone —
+ * zero shift de layout, zero desalinhamento (a cura do M3.1 v1.9). */
+#dockbox button.running {
+  box-shadow: inset 0 -3px 0 alpha(#cba6f7, 0.9);
+}

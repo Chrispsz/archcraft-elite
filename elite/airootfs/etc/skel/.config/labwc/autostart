@@ -67,19 +67,14 @@ if [ -x /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 ]; then
     /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 &
 fi
 
-# --- Bluetooth/Rede (v1.1→v1.8.2): os applets GTK3 saíram na v1.1 e a
-#     conectividade virou TUI (impala/bluetui); no burn test da v1.8.1 o
-#     dono voltou atrás com razão ("eu não sei utilizar esses programas
-#     que são terminal… quero mais bonito e mais fácil no dia a dia").
-#     v1.8.2: os APPLETS GUI voltam à TRAY (waybar tray já existe p/ o
-#     udiskie): nm-applet (rede — o NM e o bluetooth.service JÁ rodam;
-#     os applets são clientes leves, zero daemon novo).
-if command -v nm-applet >/dev/null 2>&1; then
-    nm-applet &
-fi
-if command -v blueman-applet >/dev/null 2>&1; then
-    blueman-applet &
-fi
+# --- Bluetooth/Rede (v2.0): os APPLETS saem do autostart de vez (áudio
+#     do dono: "um ícone antigo… e um de Bluetooth. Ambos ficaram meio
+#     quebrados" — os ícones SNI legados destoam do rice e duplicam o
+#     botão de rede). A conectividade tem UM ponto de entrada: o
+#     craft-connect na barra (diretriz v1.4: "um só ícone p/ tudo"),
+#     abrindo as GUIs completas (nm-connection-editor/blueman-manager,
+#     W-n/W-S-b). Os applets continuam INSTALADOS — quem quiser, sobe à
+#     mão; de fábrica, o tray fica só com o que o dono usa (udiskie).
 
 # --- USB: automount + notificação (udiskie — daemon próprio; o
 #     thunar-volman só age com o Thunar aberto)

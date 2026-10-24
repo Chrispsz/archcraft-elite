@@ -184,10 +184,10 @@
     <keybind key="Super_L">
       <action name="Execute" command="craft-drawer" />
     </keybind>
-    <!-- v1.9 — spec M3.5 do dono: W-S-d alterna a dock (autohide é o
-         PADRÃO de fábrica; revelar = W-S-d ou clique na tira da base). -->
+    <!-- v2.0 — dock NATIVA (craft-dock-gui): autohide POR HOTSPOT nativo
+         (tira de 4px na base); W-S-d alterna manualmente (SIGUSR1). -->
     <keybind key="W-S-d">
-      <action name="Execute" command="craft-dock-autohide toggle" />
+      <action name="Execute" command="craft-dock toggle" />
     </keybind>
     <keybind key="C-A-space">
       <action name="Execute" command="fuzzel" />
@@ -218,7 +218,7 @@
       <action name="Execute" command="blueman-manager" />
     </keybind>
     <keybind key="W-s">
-      <action name="Execute" command="foot --app-id=btop -e btop" />
+      <action name="Execute" command="foot -e btop" />
     </keybind>
     <keybind key="W-a">
       <action name="Execute" command="foot -e pulsemixer" />

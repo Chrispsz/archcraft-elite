@@ -6,6 +6,48 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **v2.0 — "a dock de verdade + a barra na convenção dos rices"**
+  (áudios do dono, out/2026 — fim das gambiarras, com evidência):
+  - **(A) DOCK NATIVA (craft-dock-gui)** — a era waybar-dock acabou com
+    EVIDÊNCIA: waybar 0.15 crasha com 3+ módulos image (Waybar#5051 —
+    pins de ícone real impossíveis), os glifos Nerd Font entregaram
+    "botões mal recortados… nada é o ícone real", e o nwg-dock morre no
+    labwc (log.Fatal sem sway IPC — lido no fonte). A dock agora é um
+    programa GTK3 PRÓPRIO no protocolo wlr-layer-shell (o mesmo
+    mecanismo do nwg-dock, SEM a dependência do sway IPC):
+    **ícones REAIS do tema** via Gio.DesktopAppInfo (Papirus-Dark),
+    **autohide POR HOTSPOT** nativo (tira de 4px que revela ao passar o
+    mouse — a cura definitiva do "auto-ocultar"), pílula CENTRADA que
+    abraça o conteúdo (o "horizontalmente menor" do áudio — não a altura),
+    indicador de aberto in-process (pgrep por binário, 3s), SIGUSR1
+    toggle (W-S-d) e SIGUSR2 reload. Runtime: python + python-gobject +
+    gtk-layer-shell. Supervisão craft-bars ≤5s mantida.
+  - **(B) PINS = .desktop REAL** — dock-pins (1 ID por linha;
+    fábrica: foot/thunar/brave). craft-pin v2: resolve fuzzy por
+    nome/id/exec (precedência XDG), .bak.last de um nível com restore
+    que consome, reload por sinal. **craft-pin-status EXTINTO** (nada
+    executa JSON por pin — a classe narrow v1.8 virou arquitetura).
+  - **(C) BARRA SUPERIOR NA CONVENÇÃO DOS RICES** (áudio: "repara como
+    que são feitos os rices"): ESQUERDA = ARCH (lançador) + app focado;
+    CENTRO = relógio; DIREITA = shot, volume, rede, tray, sessão — o
+    cluster esquerdo que misturava status com lançador está desfeito;
+    o café (idle_inhibitor) saiu ("botão estranho"); nm-applet/
+    blueman-applet saíram do autostart (ícones SNI antigos/quebrados —
+    um ponto só de conectividade: craft-connect/W-n/W-S-b).
+  - **(D) ÍCONES: SISTEMA NATURAL** — os overrides Icon= custom e os
+    PNGs desenhados à mão saíram ("deixe o ícone ser tratado como o
+    sistema já é"); Papirus-Dark permanece como tema (completo/moderno).
+  - **(E) WALLPAPER = ARTE OFICIAL DA FAMÍLIA** — o minimal-27.png do
+    pacote archcraft-backgrounds-minimal 1.0-6 (GPL3): PNG lossless
+    4053×2280, fundo flat escuro (zero poeira por construção), violeta
+    casando com o Mauve. Nada de IA, nada desenhado — "trazer de outras
+    distros/temas", na letra.
+  - **(F) CALAMARES LOGS EM TEMPO REAL NA CI** — o verify-install
+    transmite os logs do processo de instalação ao vivo (a meta-instrução
+    do áudio: "pra VOCÊ pegar nos testes logs do Calamares em tempo
+    real"); o M1.2 (v1.9) cobre o rig do dono (tail -F ao vivo +
+    /var/log/calamares.log no instalador e no alvo).
+
 - **v1.9 — "a spec estrutural: boot selado por hash + geometria da UI +
   autohide de fábrica + Super + wallpaper sem poeira"** (spec v1.9 do
   dono, 5 módulos obrigatórios, out/2026):

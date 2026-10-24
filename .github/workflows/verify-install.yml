@@ -332,7 +332,13 @@ jobs:
           sudo mount --bind "$PWD/pd" /run/archiso/bootmnt
           # PIPESTATUS: 'cmd | tee' mascara o exit code do cmd (status do
           # pipeline = tee) — o rc REAL do stage é checado explicitamente
-          sudo rootfs/usr/local/bin/elite-install-stage /mnt/elite 2>&1 | tee elite-install-stage.log
+          # v2.0 — LOGS EM TEMPO REAL (meta-instrução do áudio do dono:
+          # "pra você pegar nos testes logs do instalador em tempo real"):
+          # o tee abaixo STREAMA linha a linha para o console da Actions
+          # (o log da run é o "terminal ao vivo" da instalação) E grava o
+          # arquivo completo p/ auditoria dos agentes + o filtro destacado
+          # mostra cada marcador ELITE na hora (linha a linha, sem buffer).
+          sudo rootfs/usr/local/bin/elite-install-stage /mnt/elite 2>&1 | stdbuf -oL -eL tee elite-install-stage.log | grep --line-buffered -E 'ELITE|ERRO|error|premature|truncad' || true
           STAGE_RC=${PIPESTATUS[0]}
           sudo umount /run/archiso/bootmnt
           [ "$STAGE_RC" -eq 0 ] || {
@@ -342,6 +348,7 @@ jobs:
           }
           sudo test -f /mnt/elite/boot/.kernel-copy-success \
             || { echo "✖ marcador .kernel-copy-success ausente — stage não concluiu a cópia verificada"; exit 1; }
+          echo "── log completo do instalador (auditoria): $(wc -l < elite-install-stage.log) linhas — as ELITE acima foram o AO VIVO"
           echo "── tamanhos APÓS o stage (cópia verificada):"
           sudo stat -c '   %n %s' /mnt/elite/boot/vmlinuz-* | tee sizes-depois-e10.txt
           # prova INDEPENDENTE (além da verificação interna do script):

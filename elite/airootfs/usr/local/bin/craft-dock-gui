@@ -1,0 +1,319 @@
+#!/usr/bin/python3
+# ═══════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · craft-dock-gui (v2.0 — "a dock de verdade")
+# ═══════════════════════════════════════════════════════════════════════════
+# POR QUÊ EXISTE (feedback do dono, out/2026): a dock de waybar com pins de
+# GLIFO Nerd Font entregou "botões mal recortados, mal encaixados" e "nada é
+# o ícone real". Os caminhos conhecidos morreram COM EVIDÊNCIA:
+#   · waybar 0.15 crasha com 3+ módulos image (Alexays/Waybar#5051 — pins de
+#     ícone real IMPOSSÍVEIS no waybar; forense v1.6);
+#   · nwg-dock log.Fatal sem sway IPC (tools.go/main.go — morto no labwc).
+# CURA ESTRUTURAL: dock GTK3 NATIVA no protocolo wlr-layer-shell (o mesmo
+# mecanismo do nwg-dock, SEM a dependência do sway IPC — funciona em
+# qualquer compositor wlroots, labwc incluso), com:
+#   1. ÍCONES REAIS — os pins são IDs de .desktop resolvidos via
+#      Gio.DesktopAppInfo: ícone vem do TEMA (Papirus-Dark), nome e exec
+#      vêm do .desktop. Zero glifo, zero desenho custom, zero override —
+#      "deixe o ícone ser tratado como o sistema já é" (dono).
+#   2. AUTOHIDE NATIVO POR HOTSPOT — superfície invisível de 4px na base
+#      (o mecanismo "-d" do nwg-dock): ponteiro entra na tira → dock sobe;
+#      sai ou clica → dock desce. W-S-d alterna (SIGUSR1).
+#   3. ABRAÇA O CONTEÚDO — a janela é full-width transparente e a pílula é
+#      CENTRADA com largura natural (dock "horizontalmente menor e
+#      centralizada" — o pedido literal do áudio).
+#   4. INDICADOR DE ABERTO — ponto sob o ícone (classe .running) via pgrep
+#      por binário, 1× a cada 3s, IN-PROCESS (um único processo, sem
+#      exec-json por pin — a classe de leak da v1.6.2 segue extinta).
+#   5. RELOAD — SIGUSR2 re-lê o arquivo de pins (craft-pin add/rm).
+# PINS: ~/.config/elite/dock-pins — 1 ID de .desktop por linha
+# (ex.: "foot.desktop"). Gerido pelo craft-pin; skel de fábrica: 3 apps.
+# ═══════════════════════════════════════════════════════════════════════════
+import os
+import re
+import shlex
+import signal
+import subprocess
+import sys
+
+import gi
+
+gi.require_version("Gtk", "3.0")
+gi.require_version("GtkLayerShell", "0.1")
+from gi.repository import GLib, Gio, Gtk, Gdk, GtkLayerShell  # noqa: E402
+
+PINS_FILE = os.path.join(
+    GLib.get_user_config_dir(), "elite", "dock-pins"
+)
+CSS_FILE = os.path.join(GLib.get_user_config_dir(), "elite", "dock.css")
+LOG = os.path.join(GLib.get_user_home_dir(), ".cache", "elite", "dock.log")
+
+ICON_SIZE = 36          # spec M3.2: escala fixa de fábrica
+MARGIN_BOTTOM = 6       # pílula flutuando 6px acima da base (modo auto)
+HOTSPOT_H = 4           # tira invisível que revela a dock (hotspot)
+HIDE_DELAY_MS = 400     # saiu da dock → desce depois deste atraso
+
+
+def log(msg):
+    try:
+        os.makedirs(os.path.dirname(LOG), exist_ok=True)
+        with open(LOG, "a") as fh:
+            fh.write(msg + "\n")
+    except OSError:
+        pass
+
+
+def read_pins():
+    """Lê o arquivo de pins → lista de DesktopAppInfo válidos."""
+    pins = []
+    try:
+        with open(PINS_FILE) as fh:
+            for line in fh:
+                appid = line.strip()
+                if not appid or appid.startswith("#"):
+                    continue
+                info = Gio.DesktopAppInfo.new(appid)
+                if info is None:
+                    log(f"pin ignorado (desktop inexistente): {appid}")
+                    continue
+                pins.append(info)
+    except FileNotFoundError:
+        log(f"arquivo de pins ausente: {PINS_FILE}")
+    return pins
+
+
+def exec_of(info):
+    """Exec do .desktop sem os códigos de campo (%f %U …)."""
+    raw = info.get_commandline() or ""
+    raw = re.sub(r"\s%[a-zA-Z]", "", raw).strip()
+    return raw
+
+
+def binary_of(info):
+    """Primeiro binário do Exec — alvo do pgrep do indicador."""
+    raw = exec_of(info)
+    if not raw:
+        return ""
+    try:
+        first = shlex.split(raw)[0]
+    except ValueError:
+        first = raw.split()[0] if raw.split() else ""
+    return os.path.basename(first)
+
+
+class Dock:
+    def __init__(self):
+        self.shown = False
+        self.hide_source = None
+        self.buttons = []  # (button, binary)
+
+        self.win = Gtk.Window()
+        self.win.set_name("dockwindow")
+        GtkLayerShell.init_for_window(self.win)
+        GtkLayerShell.set_layer(self.win, GtkLayerShell.Layer.OVERLAY)
+        for edge in (GtkLayerShell.Edge.BOTTOM, GtkLayerShell.Edge.LEFT,
+                     GtkLayerShell.Edge.RIGHT):
+            GtkLayerShell.set_anchor(self.win, edge, True)
+        GtkLayerShell.set_exclusive_zone(self.win, -1)
+        GtkLayerShell.set_margin(self.win, GtkLayerShell.Edge.BOTTOM,
+                                 MARGIN_BOTTOM)
+
+        outer = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        outer.set_halign(Gtk.Align.CENTER)
+        outer.set_valign(Gtk.Align.START)
+        self.pill = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
+        self.pill.set_name("dockbox")
+        outer.pack_start(self.pill, False, False, 0)
+        self.win.add(outer)
+
+        self.rebuild()
+
+        # hotspot: tira invisível de 4px — revela a dock quando o ponteiro
+        # encosta na base (o "-d" do nwg-dock, portável via layer-shell)
+        self.hot = Gtk.Window()
+        self.hot.set_name("hotspot")
+        GtkLayerShell.init_for_window(self.hot)
+        GtkLayerShell.set_layer(self.hot, GtkLayerShell.Layer.TOP)
+        for edge in (GtkLayerShell.Edge.BOTTOM, GtkLayerShell.Edge.LEFT,
+                     GtkLayerShell.Edge.RIGHT):
+            GtkLayerShell.set_anchor(self.hot, edge, True)
+        GtkLayerShell.set_exclusive_zone(self.hot, -1)
+        self.hot.set_default_size(1, HOTSPOT_H)
+        strip = Gtk.Box()
+        strip.set_size_request(1, HOTSPOT_H)
+        self.hot.add(strip)
+        motion = Gtk.EventControllerMotion.new(self.hot)
+        motion.connect("enter", self._hotspot_enter)
+        motion.connect("leave", lambda *_: None)
+
+        motion_win = Gtk.EventControllerMotion.new(self.win)
+        motion_win.connect("leave", self._dock_leave)
+        motion_win.connect("enter", self._dock_enter)
+
+        self.load_css()
+        self.win.show_all()
+        self.win.hide()
+        self.hot.show_all()
+        self.shown = False
+
+        GLib.timeout_add(3000, self.poll_running)
+        GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGUSR1,
+                             self.toggle)
+        GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGUSR2,
+                             self.rebuild)
+
+    # ── CSS ──────────────────────────────────────────────────────────────
+    def load_css(self):
+        css = b""
+        try:
+            with open(CSS_FILE, "rb") as fh:
+                css = fh.read()
+        except FileNotFoundError:
+            log(f"CSS ausente ({CSS_FILE}) — usando fallback embutido")
+            css = DEFAULT_CSS
+        prov = Gtk.CssProvider()
+        try:
+            prov.load_from_data(css)
+            Gtk.StyleContext.add_provider_for_screen(
+                Gdk.Screen.get_default(), prov,
+                Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        except GLib.Error as exc:
+            log(f"CSS inválido — o fallback embutido entra no lugar: {exc}")
+            prov = Gtk.CssProvider()
+            prov.load_from_data(DEFAULT_CSS)
+            Gtk.StyleContext.add_provider_for_screen(
+                Gdk.Screen.get_default(), prov,
+                Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
+    # ── pins ─────────────────────────────────────────────────────────────
+    def rebuild(self, *_):
+        for child in self.pill.get_children():
+            self.pill.remove(child)
+        self.buttons = []
+        for info in read_pins():
+            btn = Gtk.Button.new()
+            btn.set_relief(Gtk.ReliefStyle.NONE)
+            icon = info.get_icon()
+            img = Gtk.Image()
+            if icon is not None:
+                img.set_from_gicon(icon, Gtk.IconSize.DIALOG)
+            else:
+                img.set_from_icon_name("application-x-executable",
+                                       Gtk.IconSize.DIALOG)
+            img.set_pixel_size(ICON_SIZE)
+            btn.add(img)
+            btn.set_tooltip_text(info.get_display_name() or "")
+            cmd = exec_of(info)
+            if cmd:
+                btn.connect("clicked", self._launch, cmd)
+            btn.set_name("dockbtn")
+            self.pill.pack_start(btn, False, False, 0)
+            self.buttons.append((btn, binary_of(info)))
+        self.pill.show_all()
+        self.poll_running()
+        return False
+
+    def _launch(self, _btn, cmd):
+        try:
+            subprocess.Popen(cmd, shell=True,
+                             stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL,
+                             start_new_session=True)
+            log(f"lançado: {cmd}")
+        except OSError as exc:
+            log(f"falha ao lançar {cmd}: {exc}")
+        self.hide_now()
+
+    # ── indicador de aberto (pgrep in-process) ───────────────────────────
+    def poll_running(self):
+        for btn, binary in self.buttons:
+            ctx = btn.get_style_context()
+            running = False
+            if binary:
+                try:
+                    running = subprocess.run(
+                        ["pgrep", "-x", binary],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL).returncode == 0
+                except OSError:
+                    running = False
+            if running:
+                ctx.add_class("running")
+            else:
+                ctx.remove_class("running")
+        return True
+
+    # ── autohide (hotspot + atraso de saída) ─────────────────────────────
+    def _hotspot_enter(self, *_):
+        if self.hide_source is not None:
+            GLib.source_remove(self.hide_source)
+            self.hide_source = None
+        if not self.shown:
+            self.win.show_all()
+            self.shown = True
+        return False
+
+    def _dock_enter(self, *_):
+        if self.hide_source is not None:
+            GLib.source_remove(self.hide_source)
+            self.hide_source = None
+        return False
+
+    def _dock_leave(self, *_):
+        if self.hide_source is not None:
+            GLib.source_remove(self.hide_source)
+        self.hide_source = GLib.timeout_add(HIDE_DELAY_MS, self.hide_now)
+        return False
+
+    def hide_now(self, *_):
+        if self.shown:
+            self.win.hide()
+            self.shown = False
+        self.hide_source = None
+        return False
+
+    def toggle(self, *_):
+        if self.shown:
+            self.hide_now()
+        else:
+            self.win.show_all()
+            self.shown = True
+        return False
+
+
+DEFAULT_CSS = b"""
+#dockwindow { background: transparent; }
+#hotspot { background: transparent; }
+#dockbox {
+  background: rgba(5, 5, 8, 0.88);
+  border: 1px solid rgba(22, 22, 31, 0.8);
+  border-radius: 20px;
+  padding: 4px 10px;
+}
+#dockbox button {
+  padding: 2px 8px;
+  min-height: 44px;
+  min-width: 44px;
+  border-radius: 14px;
+  background: transparent;
+  border: none;
+}
+#dockbox button:hover { background: rgba(22, 22, 31, 0.95); }
+#dockbox button.running { box-shadow: inset 0 -3px 0 rgba(203, 166, 247, 0.9); }
+"""
+
+
+def main():
+    if not os.environ.get("WAYLAND_DISPLAY"):
+        log("sem WAYLAND_DISPLAY — saindo (a dock só vive na sessão)")
+        return 0
+    try:
+        Dock()
+    except Exception as exc:  # noqa: BLE001 — o log é a evidência do boot
+        log(f"FATAL: {exc}")
+        raise
+    GLib.MainLoop().run()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
