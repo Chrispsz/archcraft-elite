@@ -106,7 +106,7 @@ assert_grep "$BY" 'needs: \[build, verify, verify-install\]' "contrato: release 
 assert_grep "$BY" 'verify-install:' "contrato: job verify-install presente (install-gate no pipeline)"
 assert_grep "$BY" 'uses: \./\.github/workflows/verify-install\.yml' "contrato: install-gate reusa o verify-install.yml (workflow_call — zero duplicação)"
 assert_grep "$BY" "code=203/EXEC" "contrato: gate verifica 203/EXEC (binários executáveis no live)"
-assert_grep "$BY" 'gh workflow run agents\.yml' "contrato: relay dispara mimo/deepseek pós-build"
+assert_nogrep "$BY" 'gh workflow run agents\.yml' "contrato v2.1: a build NÃO dispatcha agentes (auditoria sob demanda — agents.yml manual; cota free respeitada)"
 assert_grep "$BY" 'split -b 1900M -d "\$ISO" "\$\{ISO\}\.part-"' "contrato: split com prefixo aspasado"
 assert_grep "$BY" 'sha256sum -- "\$\{ISO\}\.part-"\* >> sha256sums\.txt' "contrato: hashes das PARTES ANEXADOS (>>)"
 pat_q=$(printf '%s' "grep -E 'part|" "\${ISO}\$' sha256sums.txt")
