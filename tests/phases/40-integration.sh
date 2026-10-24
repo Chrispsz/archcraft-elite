@@ -206,7 +206,6 @@ assert_file "$P/airootfs/etc/skel/.config/labwc/wallpaper.png" "v2.0 M5.1: wallp
 # literal → YAML inválido → "shellprocess@btrfs could not be loaded" (o
 # instalador TRAVOU no rig do dono). v2.1 = a resposta caso a caso.
 CT="$P/airootfs/etc/skel/.config/waybar/config.top"
-DGUI="$P/airootfs/usr/local/bin/craft-dock-gui"
 # Top bar (v1.5): relógio no CENTRO, canto esquerdo LIMPO (ARCH saiu — spec),
 # áudio só ícone, power no canto direito
 assert_grep "$CT" '"modules-center": \["clock"\]' "v2.1: relógio no CENTRO da barra (diretriz do dono)"
@@ -1549,8 +1548,8 @@ for bx, by in regions:
 print(rgb.size[0], round(black, 2), round(mean, 1), worst)
 PYEOF
 )"
+    read -r walres _ walmean walsky <<<"$walout"
     if [[ "$walout" =~ ^[0-9]+[[:space:]][0-9.]+[[:space:]][0-9.]+[[:space:]][0-9.]+$ ]]; then
-      read -r walres walblack walmean walsky <<<"$walout"
       widthok=1; awk "BEGIN{exit !($walres >= 2560)}" || widthok=0
       assert_eq "$widthok" "1" "v2.0 M5.1: wallpaper de alta definição (≥2560px de largura — o minimal-27 nativo tem 4053px; tem $walres)"
       meanok=1; awk "BEGIN{exit !($walmean <= 60.0)}" || meanok=0
@@ -1741,7 +1740,6 @@ assert_grep "$REPO/.github/workflows/build.yml" 'WAYBAR_COUNT' "v1.7.1: gate do 
 #    desfixar, animação no hover e indicador de programa fixado que está
 #    aberto; programa aberto mesmo não fixado vai pra lá em uso".
 CTP8="$P/airootfs/etc/skel/.config/waybar/config.top"
-CDB8="$P/airootfs/etc/skel/.config/waybar/config.dock"
 CPS="$P/airootfs/usr/local/bin/craft-pin-status"
 # v2.1 (declutter do dono: “tá um pouco cheio”): o print SAIU da barra —
 # a spec v1.8 pedia “botões úteis como print”, mas a diretriz nova vence:
