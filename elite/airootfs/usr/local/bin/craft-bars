@@ -46,14 +46,19 @@ ensure() {
     fi
 }
 
-# v1.9 — spec M3.5 do dono: a dock segue o MODO da sessão (PADRÃO de
-# fábrica = peek/autohide, tira de 6px; o craft-dock-config devolve o
-# config vigente — peek gerado em tmpfs a partir do config ATUAL do
-# usuário, com os pins do craft-pin inclusive). O craft-dock-autohide
-# alterna (W-S-d / clique na tira) matando a instância — este loop
-# religa no modo novo em ≤5s.
+# v2.0 — a dock é o craft-dock-gui (GTK3 nativa + layer-shell): ícones
+# REAIS via .desktop (Gio), autohide POR HOTSPOT nativo, pílula centrada
+# que abraça o conteúdo. Supervisão igual: morreu, volta em ≤5s com o
+# stderr no bars.log (a evidência que a v1.6.3 instituiu).
 while :; do
     ensure top  "$HOME/.config/waybar/config.top"  "$HOME/.config/waybar/style.top.css"
-    ensure dock "$(/usr/local/bin/craft-dock-config)" "$HOME/.config/waybar/style.dock.css"
+    if ! pgrep -f 'craft-dock-gui' >/dev/null 2>&1; then
+        printf '[%s] dock craft-dock-gui FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
+        (
+            /usr/local/bin/craft-dock-gui >>"$LOG" 2>&1
+            st=$?
+            printf '[%s] dock craft-dock-gui SAIU exit=%d\n' "$(date '+%F %T')" "$st" >>"$LOG"
+        ) &
+    fi
     sleep 5
 done

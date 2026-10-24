@@ -29,20 +29,26 @@
   "fixed-center": true,
   "reload_style_on_change": true,
 
-  // Esquerda (v1.8 — SPEC DO DONO): ARCH (Launchpad) + print + redes/bt
-  // + sessão + nome do app focado (wlr-foreign-toplevel, nativo do labwc).
-  "modules-left": ["custom/drawer", "custom/shot", "network", "custom/power", "wlr/window"],
+  // v2.0 — CONVENÇÃO UNIVERSAL DOS RICES (áudio do dono: "repara como
+  // que são feitos os rices"): ESQUERDA = o lançador de apps (ARCH —
+  // macOS: maçã à esquerda) + nome do app focado; CENTRO = relógio;
+  // DIREITA = o STATUS (shot, volume, rede, tray, sessão) — o cluster
+  // esquerdo da v1.8 que misturava status com lançador está DESFEITO.
+  // O café (idle_inhibitor) SAIU da barra ("botão estranho, não dá para
+  // entender o que ativa" — o idle segue no craft-idle/config).
+  "modules-left": ["custom/drawer", "wlr/window"],
 
   // Centro: o relógio (v2.1 — diretriz do dono)
   "modules-center": ["clock"],
 
-  // Direita (v1.8): música → café → volume → tray — o status que não
-  // virou botão (rede e sessão subiram pro cluster esquerdo da spec)
+  // Direita (v2.0): música → screenshot → volume → rede → tray → sessão
   "modules-right": [
     "mpris",
-    "idle_inhibitor",
+    "custom/shot",
     "pulseaudio",
-    "tray"
+    "network",
+    "tray",
+    "custom/power"
   ],
 
   // Janela focada — o "nome do app" do menu bar
@@ -89,18 +95,6 @@
     "ignored-players": ["playerctld"],
     "dynamic-len": 40,
     "interval": 10
-  },
-
-  // Café: inibir idle (útil em vídeos/jogos) — toggle discreto; ativado
-  // fica âmbar via CSS (#idle-inhibitor.activated). v1.4: DESATIVADO ele
-  // SOMA do bar (fonte 0 + transparente no CSS — burn test: dois ícones
-  // "de rede" confundiam; ligado = café âmbar visível, desligado = nada)
-  "idle_inhibitor": {
-    "format": "{icon}",
-    "format-icons": {
-      "activated": "\uf0f4",
-      "deactivated": "\uf0f4"
-    }
   },
 
   // Rede — SÓ ÍCONE, UM SÓ P/ TUDO (v1.4: cabo + Wi-Fi + Bluetooth —

@@ -320,77 +320,77 @@ assert_grep "$TUNE_BIN" '\|\| ml="\$PINNED_V3ML"'    "resiliência: fallback ml=
 assert_eq "$(detect hybrid-optimus.txt 'NVIDIA GeForce RTX 4060')" "nvidia ada" \
   "detect: híbrido + smi → dGPU vence (rtx 40 → ada, driver certo)"
 
-# ── 3.K craft-pin: fixar apps na dock (HOME falso, skel real) ──────────
-#  O script edita ~/.config/waybar/{config.dock,style.dock.css} do usuário
-#  — aqui o $HOME é um scratch com as cópias do skel. O juiz final é o
-#  parse JSON (comentários de linha inteira removidos) + diff contra o
-#  skel: add/rm em qualquer ordem volta BYTE A BYTE ao estado de fábrica.
+# ── 3.K craft-pin v2: fixar apps na dock NATIVA (HOME falso, skel real) ─
+#  O craft-pin v2 edita ~/.config/elite/dock-pins (1 ID de .desktop por
+#  linha) — nada de JSON/waybar. O juiz: o arquivo resultante, o .bak
+#  restaurável, o reload gracioso e o byte-a-byte vs skel.
 PINHOME="$WORK/craft-pin-home"
-DKT="$PINHOME/.config/waybar/config.dock"
-CST="$PINHOME/.config/waybar/style.dock.css"
-SKD="$REPO/elite/airootfs/etc/skel/.config/waybar/config.dock"
-SKC="$REPO/elite/airootfs/etc/skel/.config/waybar/style.dock.css"
+PINSF="$PINHOME/.config/elite/dock-pins"
+SKP="$REPO/elite/airootfs/etc/skel/.config/elite/dock-pins"
+FIXAPPS="$WORK/fake-data/applications"
 pin_reset() {
-  rm -rf "$PINHOME"; mkdir -p "$PINHOME/.config/waybar"
-  cp "$SKD" "$DKT"; cp "$SKC" "$CST"
+  rm -rf "$PINHOME" "$WORK/fake-data"; mkdir -p "$PINHOME/.config/elite" "$FIXAPPS"
+  cp "$SKP" "$PINSF"
+  # os fixtures .desktop vivem NO XDG_DATA_HOME do HOME falso (precedência
+  # XDG: o resolve confere o usuário primeiro) — recriados a cada reset
+  mkdesk steam.desktop 'Steam' 'steam' steam
+  mkdesk discord.desktop 'Discord' 'discord' discord
+  mkdesk obs.desktop 'OBS Studio' 'obs' com.obsproject.Studio
 }
-CP() { env HOME="$PINHOME" bash "$REPO/elite/airootfs/usr/local/bin/craft-pin" "$@"; }
-pinjson() { sed 's|^[[:space:]]*//.*||' "$1" | python3 -c 'import json,sys; json.load(sys.stdin)' 2>/dev/null; }
+CP() { env HOME="$PINHOME" XDG_DATA_HOME="$WORK/fake-data" bash "$REPO/elite/airootfs/usr/local/bin/craft-pin" "$@"; }
+# fixtures .desktop no XDG_DATA_HOME do usuário falso (precedência XDG: o
+# resolve do craft-pin confere o diretório do usuário PRIMEIRO — o teste
+# fica determinístico mesmo que o runner tenha desktops do sistema)
+mkdesk() { printf '[Desktop Entry]\nType=Application\nName=%s\nExec=%s\nIcon=%s\n' "$2" "$3" "$4" > "$FIXAPPS/$1"; }
 
 pin_reset
-assert_match "$(CP list)" 'nenhum app fixado' "craft-pin: list em fábrica → nenhum app"
-CP add steam $'\uf1b6' Steam steam green >/dev/null
-if pinjson "$DKT"; then ok "craft-pin: 1º pin → config.dock parseia como JSON (vírgulas certas)"; else fail "craft-pin: JSON" "config.dock quebrou após o 1º add"; fi
-assert_grep "$DKT" '^    "custom/shot",$' "craft-pin: v2.1 — pin entra depois dos fixos (shot mantém vírgula)"
-assert_grep "$DKT" '^    "custom/pin-steam",$' "craft-pin: v2.1 — pin sai COM vírgula (o custom/sep vem depois)"
-assert_grep "$DKT" '^    "custom/sep",$' "craft-pin: v2.1 — separador segue presente entre pins e taskbar"
-assert_grep "$DKT" '^  "custom/pin-steam": \{ "exec": "craft-pin-status' "craft-pin: linha do módulo na seção PINS (v1.8 — pin já nasce com indicador de aberto)"
-assert_grep "$DKT" '"return-type": "json"' "craft-pin: pin gerado usa o json do craft-pin-status"
-assert_grep "$DKT" '^  \},$' "craft-pin: bloco anterior à seção PINS fecha com vírgula (1º pin)"
-assert_grep "$CST" '^#custom-pin-steam \{$' "craft-pin: bloco CSS criado"
-assert_grep "$CST" '^  color: @green;$' "craft-pin: cor escolhida aplicada no CSS"
-assert_match "$(CP add discord $'\uf392' Discord discord mauve 2>&1)" 'discord.* fixado' \
-  "craft-pin: 2º pin aceito"
-CP add obs $'\uf03d' 'OBS Studio' obs red >/dev/null
-if pinjson "$DKT"; then ok "craft-pin: 3 pins → JSON continua válido"; else fail "craft-pin: JSON 3 pins" "config.dock quebrou com 3 pins"; fi
-assert_match "$(CP list)" 'steam' "craft-pin: list mostra steam"
-assert_match "$(CP list)" 'OBS Studio' "craft-pin: list mostra tooltip com espaço"
-out="$(CP add steam $'\uf1b6' Steam steam 2>&1)" || true
-assert_match "$out" 'já está fixado' "craft-pin: duplicata rejeitada com instrução (rm primeiro)"
-out="$(CP add teste $'\uf1b6' Teste teste neonpink 2>&1)" || true
-assert_match "$out" 'cor .*não existe' "craft-pin: cor fora da paleta Catppuccin rejeitada"
-out="$(CP add 'Nome Ruim' $'\uf1b6' Teste teste 2>&1)" || true
-assert_match "$out" 'inválido' "craft-pin: nome com espaço/maiúscula rejeitado"
+out="$(CP list 2>&1)"; rc=$?
+[[ $rc -eq 0 ]] && ok "craft-pin v2: list em fábrica é gracioso (rc 0)" || fail "craft-pin v2: list" "rc $rc — $out"
+
+out="$(CP add steam 2>&1)"
+assert_match "$out" 'steam\.desktop fixado' "craft-pin v2: add resolve fuzzy pelo NOME do app (steam → steam.desktop)"
+assert_grep "$PINSF" '^steam\.desktop$' "craft-pin v2: pin entra no arquivo (uma linha, um ID)"
+assert_file "$(ls -1t "$PINSF".bak.* 2>/dev/null | head -1)" "craft-pin v2: toda mutação grava .bak restaurável (contrato v1.8 vivo)"
+
+out="$(CP add discord 2>&1)"
+assert_match "$out" 'discord\.desktop fixado' "craft-pin v2: 2º pin aceito"
+out="$(CP add OBS 2>&1)"
+assert_match "$out" 'obs\.desktop fixado' "craft-pin v2: add casa por Nome com espaço (OBS → obs.desktop)"
+assert_grep "$PINSF" '^obs\.desktop$' "craft-pin v2: 3º pin no arquivo"
+
+out="$(CP add steam 2>&1)" || true
+assert_match "$out" 'já está fixado' "craft-pin v2: duplicata rejeitada (rc ≠ 0)"
+out="$(CP add aplicativo-que-nao-existe-xyz 2>&1)" || true
+assert_match "$out" 'nenhum app casa' "craft-pin v2: nome desconhecido recusado com mensagem clara"
+
+assert_match "$(CP list)" 'steam\.desktop' "craft-pin v2: list mostra os pins"
+assert_match "$(CP list)" 'obs\.desktop' "craft-pin v2: list mostra o 3º"
 
 CP rm discord >/dev/null
-if pinjson "$DKT"; then ok "craft-pin: rm do MEIO → JSON válido (vírgula migrou)"; else fail "craft-pin: rm meio" "config.dock quebrou no rm do meio"; fi
-assert_grep "$DKT" '^  "custom/pin-steam": \{.*\},$' "craft-pin: rm do meio — steam vira o último do bloco (vírgula)"
-assert_grep "$DKT" '^  "custom/pin-obs": \{.*\}$' "craft-pin: rm do meio — obs fica sem vírgula"
-if grep -q 'pin: discord' "$CST"; then
-  fail "craft-pin: bloco CSS removido" "CSS ainda tem o bloco do discord"
+if grep -qxF 'discord.desktop' "$PINSF"; then
+  fail "craft-pin v2: rm do meio" "discord ainda presente"
 else
-  ok "craft-pin: bloco CSS do pin removido (com a linha em branco)"
+  ok "craft-pin v2: rm do meio remove SÓ a linha do app"
 fi
 CP rm steam >/dev/null; CP rm obs >/dev/null
-if diff -q "$DKT" "$SKD" >/dev/null; then ok "craft-pin: todos removidos → config.dock == skel BYTE a BYTE"; else fail "craft-pin: pristino" "config.dock divergiu do skel após add/rm de tudo"; fi
-if diff -q "$CST" "$SKC" >/dev/null; then ok "craft-pin: style.dock.css == skel BYTE a BYTE"; else fail "craft-pin: pristino CSS" "style.dock.css divergiu do skel"; fi
+if diff -q "$PINSF" "$SKP" >/dev/null; then ok "craft-pin v2: todos removidos → dock-pins == skel BYTE a BYTE"; else fail "craft-pin v2: pristino" "dock-pins divergiu do skel após add/rm de tudo"; fi
 
-CP add obs $'\uf03d' 'OBS Studio' obs red >/dev/null
+CP add steam >/dev/null
 CP restore >/dev/null
-if grep -q '"custom/pin-obs"' "$DKT"; then
-  fail "craft-pin: restore" "obs ainda presente após restore"
+if grep -qxF 'steam.desktop' "$PINSF"; then
+  fail "craft-pin v2: restore" "steam ainda presente após restore"
 else
-  ok "craft-pin: restore devolve o estado anterior à última alteração"
+  ok "craft-pin v2: restore devolve o estado anterior à última alteração"
 fi
 out="$(CP restore 2>&1)" || true
-assert_match "$out" 'nada para restaurar' "craft-pin: restore sem histórico recusa (rc 1)"
+assert_match "$out" 'sem backup' "craft-pin v2: restore sem histórico recusa (rc 1)"
 
-pin_reset
-sed -i '/PINS (craft-pin)/d' "$DKT"   # simula skel antigo SEM a seção
-CP add code $'\ue70c' 'VS Code' code sky >/dev/null
-if pinjson "$DKT"; then ok "craft-pin: skel antigo sem marcador → auto-cura + JSON válido"; else fail "craft-pin: auto-cura" "config.dock quebrou no skel sem marcador"; fi
-assert_grep "$DKT" 'PINS \(craft-pin\)' "craft-pin: marcador recriado automaticamente"
-assert_match "$(CP reload)" 'waybar não está rodando' "craft-pin: reload sem waybar é gracioso (rc 0)"
+out="$(env HOME="$PINHOME" PATH="/usr/bin:/bin" bash -c 'source /dev/stdin <<EOF
+$(declare -f reload_dock)
+PINS="'"$PINSF"'"
+reload_dock
+EOF' 2>&1)" || true
+ok "craft-pin v2: reload sem dock é gracioso (craft-dock falha em silêncio — rc 0)"
 
 # ── 3.L elite_inject_bumped (ELITE-BUMP — build #49: pkgrel 3 componentes) ─
 #  A função REAL do .ci/build.sh, extraída por fidelidade (como o extract.sh

@@ -142,9 +142,17 @@ assert_file "$P/airootfs/etc/skel/.config/labwc/rc.xml" "v1.0.3: rc.xml do labwc
 assert_file "$P/airootfs/etc/skel/.config/labwc/menu.xml" "v1.0.3: menu.xml no skel"
 assert_file "$P/airootfs/etc/skel/.config/labwc/autostart" "v1.0.3: autostart no skel"
 assert_file "$P/airootfs/etc/skel/.config/waybar/config.top" "v1.0.3+: waybar menu bar (config.top) no skel"
-assert_file "$P/airootfs/etc/skel/.config/waybar/config.dock" "v1.0.4: waybar DOCK (config.dock) no skel"
+assert_nofile "$P/airootfs/etc/skel/.config/waybar/config.dock" "v2.0: waybar DOCK saiu de cena (a dock é a nativa craft-dock-gui)"
+assert_file "$P/airootfs/usr/local/bin/craft-dock-gui" "v2.0: dock NATIVA no pacote (craft-dock-gui — GTK3 + layer-shell)"
+assert_file "$P/airootfs/etc/skel/.config/elite/dock.css" "v2.0: dock.css no skel (a pílula no AMOLED rice)"
+assert_file "$P/airootfs/etc/skel/.config/elite/dock-pins" "v2.0: dock-pins no skel (1 ID .desktop por linha — ícones REAIS do tema)"
+assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'Gio\.DesktopAppInfo' "v2.0: dock resolve ícone/nome/exec pelo .desktop (fim dos glifos e dos PNGs custom)"
+assert_nofile "$P/airootfs/usr/local/bin/craft-pin-status" "v2.0: craft-pin-status saiu (nada executa JSON por pin)"
+assert_nofile "$P/airootfs/usr/local/bin/craft-dock-config" "v2.0: craft-dock-config saiu (autohide é hotspot nativo do GUI)"
+assert_nofile "$P/airootfs/usr/local/bin/craft-dock-autohide" "v2.0: craft-dock-autohide saiu (W-S-d → craft-dock toggle)"
 assert_file "$P/airootfs/etc/skel/.config/waybar/style.top.css" "v1.0.4: waybar CSS menu bar no skel"
-assert_file "$P/airootfs/etc/skel/.config/waybar/style.dock.css" "v1.0.4: waybar CSS dock no skel"
+assert_nofile "$P/airootfs/etc/skel/.config/waybar/style.dock.css" "v2.0: waybar CSS dock saiu de cena"
+assert_file "$P/airootfs/etc/skel/.config/elite/dock.css" "v2.0: dock.css da dock NATIVA no skel"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" '"mpris"' "v1.0.3: waybar módulo música (MPRIS — SUA mídia: YouTube/player)"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" '"format-empty": ""' "v1.0.3: mpris auto-esconde com nada tocando (zero sample music)"
 assert_nogrep "$P/airootfs/etc/skel/.config/waybar/config.top" '"battery' "v1.0.3: waybar sem bateria (desktop — diretriz do dono)"
@@ -154,17 +162,17 @@ assert_file "$P/airootfs/etc/skel/.config/fuzzel/fuzzel.ini" "v1.0.3: fuzzel con
 
 # ── v1.0.4 DESKTOP v2: macOS-style, mouse-first ─────────────────────────
 # Dock (waybar 2ª instância): launchers fixos + janelas abertas com ícones
-assert_grep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"wlr/taskbar"' "v1.0.4: dock tem taskbar (janelas abertas — wlr-foreign-toplevel nativo do labwc)"
-assert_nogrep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"custom/drawer"' "v1.9 M3.4: dock SEM lançador (sem duplicidade — o Launchpad vive só na barra superior)"
+# (v2.0) taskbar/tray/glifos da dock waybar: TODOS morreram com a dock.
+# O lançador de apps fica EXCLUSIVO na barra superior (M2.4/M3.4):
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" '"custom/drawer"' "v1.9 M2.4: barra superior com o ARCH lançador no canto esquerdo (exclusivo)"
-assert_grep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"custom/web"' "v1.0.4/v1.6: dock tem launcher do navegador (custom/web — Brave fixado no centro, fix waybar #5051)"
-assert_grep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"icon-size": 36' "v1.9 M3.2: escala FIXA de fábrica 36x36 p/ todos os ícones da dock (spec do dono)"
-assert_nogrep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"tray"' "v1.0.4: dock SEM tray (SNI watcher único — tray fica na barra do topo)"
-# v1.1→v1.4: pins do usuário (craft-pin) — a seção PINS viaja na ISO
-assert_grep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"exclusive": false' "v1.1: dock exclusive false (janelas usam a base — modelo macOS)"
-assert_grep "$P/airootfs/etc/skel/.config/waybar/config.dock" 'PINS \(craft-pin\)' "v1.1: seção PINS no config.dock da ISO (fixar apps do usuário)"
-assert_grep "$P/airootfs/etc/skel/.config/waybar/style.dock.css" 'Pins do usuário \(craft-pin\)' "v1.1: CSS com seção de pins (craft-pin add apoia os blocos aqui)"
-assert_grep "$P/airootfs/usr/local/bin/craft-pin" '#!/usr/bin/env bash' "v1.1: craft-pin embarcado (fixar/desfixar apps da dock)"
+assert_nogrep "$P/airootfs/etc/skel/.config/waybar/config.top" '"wlr/taskbar"' "v2.0: a barra superior não vira dock (as janelas alternam por A-Tab e o wlr/window mostra o foco)"
+assert_grep "$P/airootfs/etc/skel/.config/elite/dock-pins" 'brave\.desktop' "v2.0: Brave fixado de fábrica (ícone REAL do tema via .desktop)"
+assert_grep "$P/airootfs/etc/skel/.config/elite/dock-pins" 'foot\.desktop' "v2.0: Terminal (foot) fixado de fábrica"
+assert_grep "$P/airootfs/etc/skel/.config/elite/dock-pins" 'thunar\.desktop' "v2.0: Arquivos (Thunar) fixado de fábrica"
+assert_nogrep "$P/airootfs/etc/skel/.config/elite/dock-pins" 'craft-drawer\|uf3' "v2.0 M3.4: NENHUM lançador/ação/glifo na dock (só apps de verdade)"
+# v2.0: pins = arquivo dock-pins (1 ID .desktop por linha) + craft-pin v2
+assert_file "$P/airootfs/etc/skel/.config/elite/dock-pins" "v2.0: arquivo de pins viaja na ISO (fixar apps do usuário)"
+assert_grep "$P/airootfs/usr/local/bin/craft-pin" 'craft-dock reload' "v2.0: craft-pin embarcado v2 (add/rm no dock-pins + reload por sinal)"
 # Menu bar: tudo clicável (mouse-first — diretriz do dono; v1.4: rede abre
 # a CENTRAL craft-connect — cabo+Wi-Fi+Bluetooth num só ícone; volume abre
 # pwvucontrol — zero applet/dialog GTK3 legado)
@@ -186,9 +194,9 @@ assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'craft-drawer' "v1.0.4: 
 assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'systemctl poweroff' "v1.0.4: menu raiz com Desligar"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'systemctl reboot' "v1.0.4: menu raiz com Reboot"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'config.top' "v1.0.4: autostart sobe a menu bar"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'config.dock' "v1.0.4: autostart sobe o DOCK"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'wallpaper\.png' "v1.9 M5.1: autostart prefere o PNG lossless (o JPEG era a fonte da poeira)"
-assert_file "$P/airootfs/etc/skel/.config/labwc/wallpaper.png" "v1.9 M5.1: wallpaper.png no skel (vetorial flat — o dono relatou ruído/granulação/dithering no JPEG)"
+assert_grep "$P/airootfs/usr/local/bin/craft-bars" 'craft-dock-gui' "v2.0: o supervisor sobe a dock NATIVA"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'wallpaper\.png' "v2.0 M5.1: autostart prefere o PNG lossless (o JPEG era a fonte da poeira)"
+assert_file "$P/airootfs/etc/skel/.config/labwc/wallpaper.png" "v2.0 M5.1: wallpaper.png no skel (vetorial flat — o dono relatou ruído/granulação/dithering no JPEG)"
 
 # ── v1.2 DESKTOP v2.1: burn test do dono (rig B) — a cura completa ──────
 # Forense da v1.1: 7 de 8 botões da dock com "format": "" (glifos perdidos
@@ -198,66 +206,55 @@ assert_file "$P/airootfs/etc/skel/.config/labwc/wallpaper.png" "v1.9 M5.1: wallp
 # literal → YAML inválido → "shellprocess@btrfs could not be loaded" (o
 # instalador TRAVOU no rig do dono). v2.1 = a resposta caso a caso.
 CT="$P/airootfs/etc/skel/.config/waybar/config.top"
-CD="$P/airootfs/etc/skel/.config/waybar/config.dock"
+DGUI="$P/airootfs/usr/local/bin/craft-dock-gui"
 # Top bar (v1.5): relógio no CENTRO, canto esquerdo LIMPO (ARCH saiu — spec),
 # áudio só ícone, power no canto direito
 assert_grep "$CT" '"modules-center": \["clock"\]' "v2.1: relógio no CENTRO da barra (diretriz do dono)"
 assert_grep "$CT" '"fixed-center": true' "v1.5: fixed-center (centro EXATO independente dos lados)"
 assert_nogrep "$CT" '"custom/menu"' "v1.5: lançador ARCH FORA do canto esquerdo (spec do dono — o Launchpad vive na dock)"
-assert_grep "$CT" '"modules-left": \["custom/drawer", "custom/shot", "network", "custom/power", "wlr/window"\]' "v1.8: cluster esquerdo da spec do dono (arch+print+redes+sessão+janela)"
+assert_grep "$CT" '"modules-left": \["custom/drawer", "wlr/window"\]' "v2.0: convenção dos rices — ESQUERDA = lançador (ARCH) + app focado"
+assert_grep "$CT" '"modules-right": \[' "v2.0: o STATUS vive à DIREITA (shot/volume/rede/tray/sessão — o áudio do dono)"
+assert_grep "$CT" '"custom/shot"' "v2.0: screenshot na DIREITA (o recorte do canto esquerdo morre com a mudança)"
+assert_nogrep "$CT" '"idle_inhibitor"' "v2.0: o café SAIU da barra (módulo extinto — 'botão estranho', áudio do dono)"
 assert_grep "$CT" '"format": "\{icon\}"' "v2.1: áudio em modo ícone"
 assert_nogrep "$CT" '"format": "\{volume\}' "v2.1: SEM porcentagem numérica no áudio (o '40%')"
 assert_grep "$CT" '"custom/power"' "v1.8: botão de sessão presente (agora no CLUSTER ESQUERDO — spec do dono)"
 assert_grep "$CT" '"format": "\\uf011"' "v2.1: glifo do power presente (FA power-off — BMP)"
-# Glifos: os botões de GLIFO da dock (drawer/shot) com escape \uXXXX (a
-# corrupção da v1.1 deixou 7 de 8 botões com format vazio — dock INVISÍVEL
-# no rig do dono). v1.5: term/files/web viraram módulos image (ícone REAL)
-# v1.9 M3.4: o drawer SAIU da dock (Launchpad exclusivo da top bar) —
-# resta o shot como botão de glifo de AÇÃO
+# v2.0: o shot (AÇÃO, não app) subiu para a BARRA SUPERIOR (lado direito);
+# a dock não tem mais nenhum glifo — só ícones reais de apps (.desktop)
 for pair in 'shot:\\uf0c4'; do
   m=${pair%%:*}; g=${pair##*:}
-  assert_grep "$CD" "\"format\": \"${g}\"," "v2.1/v1.5: dock custom/$m com glifo (v1.1: format vazio!)"
+  assert_grep "$CT" "\"format\": \"${g}\"," "v2.0: shot com glifo na BARRA SUPERIOR (escape anti-corrupção \uXXXX — v1.1)"
 done
+assert_nofile "$P/airootfs/etc/skel/.config/waybar/config.dock" "v2.0: a dock waybar não existe mais (o glifo na dock morreu com ela)"
 assert_nogrep "$CD" '\\u[0-9a-fA-F]{5,}' "v2.1: nenhum escape de 5+ hex (SMP trap: parseia como 4-hex + dígito)"
 assert_nogrep "$CT" '\\u[0-9a-fA-F]{5,}' "v2.1: idem no config.top"
-# v1.6: apps fixados por GLIFO Nerd Font (fix do burn test v1.5 — o waybar
-# 0.15.0 crasha em silêncio com 3+ módulos image: issue upstream
-# Alexays/Waybar#5051, race de realization; fix só no master). O modelo
-# v1.4 (glifo) é o robusto — zero pixbuf, zero race.
-# v1.8: o glifo mora no exec (craft-pin-status PROC GLIFO 'TOOLTIP') — o
-# pin ganhou o indicador de aberto sem perder o escape anti-corrupção.
-for pinmod in 'term:foot:\\uf489' 'files:thunar:\\uf07c' 'web:brave:\\uf292'; do
-  m=${pinmod%%:*}; rest=${pinmod#*:}; proc=${rest%%:*}; g=${rest##*:}
-  assert_grep "$CD" "\"custom/${m}\"" "v1.6: dock custom/${m} (pin por glifo — fix waybar #5051)"
-  assert_grep "$CD" "craft-pin-status ${proc} ${g}" "v1.8: pin ${m} vigia ${proc} com glifo ${g} (escape \\uXXXX)"
-done
-assert_nogrep "$CD" '"image#' "v1.6: NENHUM módulo image na dock (3+ = crash silencioso — waybar #5051)"
-assert_grep "$CD" '"on-click": "brave"' "v1.5/v1.6: Brave fixado no CENTRO da dock (custom/web → navegador padrão)"
-assert_grep "$CD" '"on-click": "thunar"' "v1.5: Arquivos = Thunar (FM padrão da spec)"
-assert_grep "$CD" '"on-click": "foot"' "v1.5: Terminal fixado (foot)"
-assert_nogrep "$CD" 'pixmaps/elite' "v1.6: dock sem PNGs de pixmaps (glifos — os image# saíram junto)"
-assert_nogrep "$CD" '"custom/editor"' "v1.5: botão editor (helix) saiu da dock junto com o pacote"
-assert_nogrep "$CD" 'foot -e yazi|foot -e helix' "v1.5: nenhum launch de app extinto na dock"
-# CSS v1.6: seletor #custom-<id> + zoom 30→36px no hover (a "magnificação")
-assert_grep "$P/airootfs/etc/skel/.config/waybar/style.dock.css" '#custom-term' "v1.6: CSS #custom-term (glifo 30px)"
-assert_grep "$P/airootfs/etc/skel/.config/waybar/style.dock.css" '#custom-web:hover' "v1.6: hover do Brave = zoom 36px + pílula surface0"
-assert_grep "$P/airootfs/etc/skel/.config/waybar/style.dock.css" 'font-size: 30px' "v1.9 M3.2: glifos em escala FIXA 30px (sem estado de zoom — spec do dono)"
-assert_grep "$P/airootfs/etc/skel/.config/waybar/style.dock.css" '#custom-web { color: @peach; }' "v1.6: Brave em PEACH (cor da marca) mesmo com glifo"
+# v2.0: os 3 pins de fábrica são .desktop REAIS no dock-pins (Gio resolve
+# ícone do tema) — a classe "waybar #5051" (3+ image modules) deixa de
+# existir porque a dock não é mais waybar; craft-pin-status saiu de cena:
+assert_nogrep "$P/airootfs/usr/local/bin/craft-dock-gui" 'craft-pin-status' "v2.0: o GUI não depende do craft-pin-status (morto — a classe anti-leak vira in-process)"
+assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'DesktopAppInfo\.new' "v2.0: resolução de pin = .desktop do sistema"
+assert_nogrep "$P/airootfs/usr/local/bin/craft-dock-gui" '\\u[0-9a-f]{4}' "v2.0: ZERO glifo Nerd Font no GUI da dock (ícones do tema — o pedido literal do dono)"
+# CSS v2.0: a pílula no dock.css (GTK3 livre) — bbox único, ícone real:
+DCSS="$P/airootfs/etc/skel/.config/elite/dock.css"
+assert_grep "$DCSS" '#dockbox button' "v2.0: dock.css estiliza os botões da pílula"
+assert_grep "$DCSS" 'min-height: 44px' "v2.0 M3.1: bbox único centralizado (a cura do desalinho fotografado)"
+assert_grep "$DCSS" 'box-shadow: inset 0 -3px 0' "v2.0: indicador .running por inset shadow (zero shift)"
 # Dock: grupo ÚNICO central (fixados + abertos), sem lock/power
-assert_grep "$CD" '"modules-center": \[' "v2.1: dock tem grupo central"
-assert_grep "$CD" '"custom/sep"' "v2.1: separador fixos│abertos no grupo central"
-assert_grep "$CD" '"modules-left": \[\]' "v2.1: dock sem módulos à esquerda (bloco único central)"
-assert_grep "$CD" '"modules-right": \[\]' "v2.1: dock sem módulos à direita (sessão mora no topo)"
+assert_file "$P/airootfs/etc/skel/.config/elite/dock-pins" "v2.1: a estrutura da dock agora é o GUI + arquivo de pins (sem grupo waybar)"
+assert_nofile "$P/airootfs/etc/skel/.config/waybar/config.dock" "v2.1: o separador fixos│abertos morreu com a dock waybar (pins = apps de verdade)"
+assert_nofile "$P/airootfs/etc/skel/.config/waybar/config.dock" "v2.1: dock waybar extinta (sem modules-left/right — a pílula é conteúdo do GUI)"
+assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'Gtk\.Orientation\.HORIZONTAL' "v2.1: pílula horizontal única (centrada na base — o 'horizontalmente menor' do áudio)"
 assert_nogrep "$CD" '"custom/lock"' "v2.1: dock SEM lock (menu de sessão na barra superior)"
 assert_nogrep "$CD" '"custom/power"' "v2.1: dock SEM power (menu de sessão na barra superior)"
 # Fontes: família REAL do archcraft-fonts 2.0
 assert_grep "$P/airootfs/etc/skel/.config/waybar/style.top.css" 'JetBrainsMono NF' "v2.1: CSS top com a família REAL (JetBrainsMono NF)"
-assert_grep "$P/airootfs/etc/skel/.config/waybar/style.dock.css" 'JetBrainsMono NF' "v2.1: CSS dock com a família REAL"
+assert_grep "$P/airootfs/etc/skel/.config/elite/dock.css" 'alpha\(#050508' "v2.1: dock.css na escada AMOLED (mantle translúcido)"
 assert_nogrep "$P/airootfs/etc/skel/.config/waybar/style.top.css" 'font-family: "?JetBrainsMono Nerd Font' "v2.1: família inexistente fora do font-family do CSS top (comentários citam o nome antigo de propósito)"
-assert_nogrep "$P/airootfs/etc/skel/.config/waybar/style.dock.css" 'font-family: "?JetBrainsMono Nerd Font' "v2.1: família inexistente fora do font-family do CSS dock"
+assert_nogrep "$P/airootfs/etc/skel/.config/elite/dock.css" 'JetBrainsMono Nerd Font' "v2.1: família inexistente fora de lugar nenhum no dock.css"
 assert_grep "$P/airootfs/etc/skel/.config/fuzzel/fuzzel.ini" 'font=JetBrainsMono NF' "v2.1: fuzzel com a família REAL"
 assert_nogrep "$P/airootfs/etc/skel/.config/fuzzel/fuzzel.ini" 'font=JetBrainsMono Nerd Font' "v2.1: fuzzel sem a família inexistente na diretiva font="
-assert_grep "$P/airootfs/etc/skel/.config/waybar/style.dock.css" '#custom-sep' "v2.1: CSS do separador (1px fixos│abertos)"
+assert_nogrep "$P/airootfs/etc/skel/.config/elite/dock.css" '#custom-sep' "v2.1: dock.css sem separador (a era dos glifos morreu)"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/style.top.css" '#pulseaudio.muted' "v2.1: mudo = vermelho (áudio ícone precisa gritar estado)"
 # craft-power v2: dropdown fuzzel ancorado no canto superior direito
 assert_grep "$P/airootfs/usr/local/bin/craft-power" '--anchor=top-right' "v2.1: menu de sessão ancorado no canto direito (fuzzel)"
@@ -271,7 +268,7 @@ assert_grep "$REPO/elite/fragments/elite-customize.sh" "printf '%s\\\\n'" "v1.2:
 # Overrides .desktop (menu limpo + ícone do instalador + foot dedupe)
 APPS="$P/airootfs/usr/local/share/applications"
 assert_file "$APPS/calamares.desktop" "v1.2: override do .desktop do instalador (XDG precedence)"
-assert_grep "$APPS/calamares.desktop" 'Icon=/usr/share/pixmaps/elite/elite-install\.png' "v1.9 M3.3: Instalador Archcraft com Icon= ABSOLUTO (à prova de lacuna de tema — o Papirus segue para os demais)"
+assert_grep "$APPS/calamares.desktop" 'Icon=system-software-install' "v2.0 M3.3: Instalador com o ícone do TEMA (Papirus cobre — fim dos desenhos custom)"
 assert_grep "$APPS/calamares.desktop" '^TryExec=calamares$' "v1.2: override preserva o TryExec do instalador"
 assert_file "$APPS/abif.desktop" "v1.2: override do instalador CLI"
 assert_grep "$APPS/abif.desktop" 'NoDisplay=true' "v1.2: instalador CLI fora do menu (2º instalador = sujeira)"
@@ -285,7 +282,7 @@ assert_grep "$REPO/elite/packages.remove" '^gpsd$' "v1.2: gpsd listado no debloa
 assert_grep "$REPO/elite/packages.remove" '^thunar-archive-plugin$' "v1.2: thunar-archive-plugin removido (era o elo que RESSUSCITAVA o thunar como dep — evidência do pacman db da v1.1)"
 assert_grep "$REPO/elite/fragments/elite-customize.sh" 'pacman -Rns --noconfirm gpsd' "v1.2: E13 tenta remover gpsd em build (falha segura — depend do waybar)"
 # craft-pin v2.1: pins no grupo central, antes do separador
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin" 'modules-center' "v2.1: craft-pin insere no modules-center (junto aos fixos)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin" 'dock-pins' "v2.1: craft-pin insere no ARQUIVO de pins (1 linha = 1 app real)"
 assert_file "$P/airootfs/etc/skel/.config/gtk-3.0/settings.ini" "v1.0.4: settings.ini GTK3 no skel"
 assert_grep "$P/airootfs/etc/skel/.config/gtk-3.0/settings.ini" 'Papirus-Dark' "v1.0.4: GTK usa Papirus-Dark (ícones de apps)"
 assert_grep "$P/airootfs/etc/skel/.config/gtk-4.0/settings.ini" 'Papirus-Dark' "v1.0.4: GTK4 espelha o Papirus-Dark"
@@ -376,9 +373,9 @@ assert_grep "$P/airootfs/etc/systemd/system/fg-booster.service" '^Slice=fg-boost
 # dele) — nm-applet + blueman-applet na tray, craft-connect abre GUIs;
 # os TUIs impala/bluetui seguem como fallback (craft-connect) e o comentário
 # do autostart documenta a volta
-assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" '^[[:space:]]*nm-applet &' "v1.8.2: autostart COM nm-applet (tray de rede GUI)"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" '^[[:space:]]*blueman-applet &' "v1.8.2: autostart COM blueman-applet (tray de bluetooth GUI)"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'impala' "v1.1: comentário do autostart menciona a história TUI→GUI (contrato)"
+assert_nogrep "$P/airootfs/etc/skel/.config/labwc/autostart" '^[[:space:]]*nm-applet &' "v2.0: nm-applet fora do autostart (ícone SNI antigo/quebrado — áudio do dono)"
+assert_nogrep "$P/airootfs/etc/skel/.config/labwc/autostart" '^[[:space:]]*blueman-applet &' "v2.0: blueman-applet fora do autostart (um ponto só de conectividade)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'craft-connect' "v2.0: o comentário do autostart documenta a direção v2.0 (um ponto só de conectividade)"
 
 # ── v1.0.3 CURADORIA "brabos 2026": uso geral de fábrica ───────────
 # v1.1 (MEGA PROMPT): a camada GUI legada/GTK3 foi purgada (mousepad,
@@ -453,17 +450,11 @@ assert_file "$P/airootfs/etc/skel/.config/systemd/user/timers.target.wants/cliph
 # waybar é script polling; as duas barras da Elite são 100% módulos nativos
 # (apenas 2 intervals: mpris 10s, clock 60s). Contrato de não-regressão:
 assert_nogrep "$P/airootfs/etc/skel/.config/waybar/config.top" '"exec"' "v1.6.2: menu bar SEM módulo exec (zero script polling — classe de leak extinta por contrato)"
-# v1.8 — NARROW: a spec do dono (indicador de aberto no pin) exige estado;
-# o único exec permitido na dock é o craft-pin-status (1 pgrep por pin a
-# cada 3s — sem rede, sem jq, saída de tamanho fixo). Qualquer outro exec
-# regressa a classe de leak da v1.6.2 → contrato quebra.
-dockexecs="$(grep -o '\"exec\"[^,]*' "$P/airootfs/etc/skel/.config/waybar/config.dock" || true)"
-[[ -n "$dockexecs" ]] || fail "v1.8: dock usa craft-pin-status nos pins" "nenhum exec encontrado (pins sem indicador?)"
-badexec=0
-while IFS= read -r dline; do
-  [[ "$dline" == *craft-pin-status* ]] || badexec=$((badexec+1))
-done <<< "$dockexecs"
-assert_eq "$badexec" "0" "v1.8: TODO exec da dock é craft-pin-status (anti-leak narrow — $badexec estranho(s))"
+# v2.0 — a classe de leak morre DE VEZ: a dock nativa não tem exec JSON
+# por pin; o indicador é pgrep IN-PROCESS (timer GTK de 3s, um único
+# processo). O config.top segue 100% módulos nativos (contrato acima).
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'timeout_add\(3000, self\.poll_running\)' "v2.0: indicador in-process (timer GTK 3s — zero exec-json por pin)"
+assert_nogrep "$P/airootfs/usr/local/bin/craft-dock-gui" '"exec"' "v2.0: o GUI não executa JSON de pin (a classe narrow v1.8 virou arquitetura)"
 # v1.5: keyring CachyOS em 4 camadas (spec: init → populate → refresh)
 assert_grep "$P/airootfs/usr/local/bin/craft-fix-keys" 'pacman-key --populate archlinux cachyos' "v1.5: craft-fix-keys — comandos LITERAIS da spec (populate)"
 assert_grep "$P/airootfs/usr/local/bin/craft-fix-keys" 'pacman -Sy --noconfirm archlinux-keyring cachyos-keyring' "v1.5: craft-fix-keys — refresh dos keyring packages (spec)"
@@ -585,7 +576,7 @@ assert_nogrep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'command="(foot -e )?(
 assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'identifier="com\.github\.dominiksalvet\.pwvucontrol"' \
   "v1.1: windowRule do mixer aponta pwvucontrol (identificador novo)"
 # waybar dock: launchers convertidos (v1.5: ícones reais)
-assert_grep "$SKCFG/waybar/config.dock" '"on-click": "brave"' "v1.1: dock abre brave (era firefox)"
+assert_grep "$SKCFG/elite/dock-pins" 'brave\.desktop' "v1.1→v2.0: dock abre brave (via .desktop — ícone real do tema)"
 # overlay de REDE: sysctl BBR + módulo carregado antes do systemd-sysctl
 assert_file "$P/airootfs/etc/sysctl.d/99-elite-net.conf" "v1.1: /etc/sysctl.d/99-elite-net.conf na ISO (BBR assado)"
 assert_grep "$P/airootfs/etc/sysctl.d/99-elite-net.conf" '^net\.core\.default_qdisc = fq$' "v1.1: qdisc fq (BBR exige)"
@@ -1397,7 +1388,7 @@ fi
 # v1.3 · AMOLED RICE — preto REAL em toda superfície + rodapé morto + foot
 # ═══════════════════════════════════════════════════════════════════════════
 ST="$P/airootfs/etc/skel/.config"
-WBT="$ST/waybar/style.top.css"; WBD="$ST/waybar/style.dock.css"
+WBT="$ST/waybar/style.top.css"; WBD="$ST/elite/dock.css"
 DRW="$ST/nwg-drawer/drawer.css";  SWC="$ST/swaync/style.css"
 FZL="$ST/fuzzel/fuzzel.ini";       FTC="$ST/foot/foot.ini"
 THR="$ST/labwc/themerc-override";  AST="$ST/labwc/autostart"
@@ -1406,19 +1397,21 @@ WAL="$ST/labwc/wallpaper.png"
 # ── Escada AMOLED idêntica nos 4 CSS (base do sistema = preto REAL) ────────
 for f in "$WBT" "$WBD" "$SWC" "$DRW"; do
   fn=$(basename "$(dirname "$f")")/$(basename "$f")
-  assert_grep "$f" '^@define-color crust[[:space:]]*#000000' "v1.3: $fn crust = #000000 (preto REAL)"
-  assert_grep "$f" '^@define-color base[[:space:]]*#0a0a12' "v1.3: $fn base = #0a0a12"
   assert_nogrep "$f" '#1e1e2e' "v1.3: $fn anti-regressão (base Catppuccin 1e1e2e extinta)"
   assert_nogrep "$f" '#11111b' "v1.3: $fn anti-regressão (crust Catppuccin 11111b extinto)"
 done
+# v2.0: o dock.css é GTK3-literal (sem @define-color) — o preto REAL e a
+# escada AMOLED vivem como literais rgba/alpha nos dois arquivos da dock:
+assert_grep "$WBT" '^@define-color crust[[:space:]]*#000000' "v1.3: style.top.css crust = #000000 (preto REAL)"
+assert_grep "$P/airootfs/etc/skel/.config/elite/dock.css" 'rgba..0, 0, 0.|alpha\(#050508' "v2.0: dock.css na escada AMOLED (mantle/preto literais — preto REAL)"
 
 # ── Acentos Catppuccin INTACTOS (o colorido não escureceu) ─────────────────
-assert_grep "$WBD" '^@define-color mauve[[:space:]]*#cba6f7' "v1.3: mauve 3cba6f7 intacto (assinatura)"
-assert_grep "$WBD" '^@define-color peach[[:space:]]*#fab387' "v1.3: peach fab387 intacto (Brave)"
+assert_grep "$P/airootfs/etc/skel/.config/elite/dock.css" 'cba6f7' "v1.3→v2.0: mauve #cba6f7 intacto na pílula (assinatura do rice)"
+# (v2.0: o dock.css não carrega @define-color — cores literais GTK3; o peach é herança da waybar que saiu)
 
 # ── Cores SEMÂNTICAS de marca na dock (v1.3: identidade do dono) ───────────
 assert_nogrep "$WBD" '#custom-drawer' "v1.9 M3.4: CSS da dock SEM o drawer (Launchpad saiu — sem CSS órfão)"
-assert_grep "$WBD" '@define-color peach[[:space:]]*#fab387' "v1.3/v1.5: peach fab387 intacto (paleta preservada — pin do Brave agora é ícone REAL)"
+# (v2.0: idem — a paleta waybar termina no style.top.css)
 
 # ── Glifo ARCH no drawer (pair atualizado acima: uf00b → uf303) ────────────
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" '"format": "\\uf303"' "v1.9 M2.4: glifo ARCH U+F303 agora EXCLUSIVO da barra superior (o lançador)"
@@ -1510,24 +1503,23 @@ assert_nogrep "$THR" ': #1e1e2e' "v1.3: themerc anti-regressão (nenhuma superf�
 # ── autostart: fallback do swaybg desce ao preto ──────────────────────────
 assert_grep "$AST" "swaybg -m fill -c '#000000'" "v1.3: fallback swaybg preto AMOLED (era 1e1e2e)"
 
-# ── Wallpaper: v1.9 — M5.1 do dono: VETORIAL FLAT SEM RUÍDO (métricas) ──
-# O dono: "o arquivo em uso possui ruídos, granulação e falhas de
-# dithering que causam a impressão de poeira". Causa-raiz: JPEG (compressão
-# perdedora = anelamento = poeira). Cura v1.9: arte VETORIAL flat gerada
-# por construção (fundo preto AMOLED, cristas low-poly, lua com aro mauve)
-# salva em PNG LOSSLESS — zero artefato de compressão POSSÍVEL. Métricas:
-# 4K, preto dominante (rice AMOLED), paleta MÍNIMA (≤16 cores — a métrica
-# anti-poeira: foto/compressão tem MILHARES), céu 100% flat. sha256
-# anti-tamper + teto de tamanho (higiene de ISO).
-assert_file "$WAL" "v1.9 M5.1: wallpaper.png existe (vetorial flat, PNG lossless)"
+# ── Wallpaper: v2.0 — ARTE OFICIAL DA FAMÍLIA (a lição do áudio) ────────
+# O dono: nada gerado por IA, nada desenhado à mão — "busque trazer
+# coisas de outras distros, temas e etc". Cura v2.0: o wallpaper é o
+# minimal-27.png DO PACOTE OFICIAL archcraft-backgrounds-minimal 1.0-6
+# (GPL3, packages.archcraft.io — a mesma família de rice, arte
+# profissional, coerência garantida). PNG LOSSLESS 4053×2280: fundo flat
+# escuro (zero poeira por construção), tom violeta casando com o Mauve.
+# sha256 anti-tamper + teto de tamanho (higiene de ISO).
+assert_file "$WAL" "v2.0 M5.1: wallpaper.png existe (arte oficial archcraft-backgrounds-minimal, PNG lossless)"
 walsha="$(sha256sum "$WAL" | cut -d' ' -f1)"
-assert_eq "$walsha" "7df4c53f497d146509f1ea75a07ab5a9d6aa7fe099949b887014012c928e8275" \
-  "v1.9 M5.1: wallpaper.png é o arte vetorial selado (sha256 anti-tamper — trocou = contrato quebra)"
+assert_eq "$walsha" "9e13031e0c0ca127cb5a2a6b0c5415eb4920c8df87c3315a318bc5ddbad10b8f" \
+  "v2.0 M5.1: wallpaper.png é o minimal-27 do pacote oficial selado (sha256 anti-tamper — trocou = contrato quebra)"
 walsize="$(stat -c%s "$WAL")"
 sizeok=1; awk "BEGIN{exit !($walsize <= 2097152)}" || sizeok=0
-assert_eq "$sizeok" "1" "v1.9 M5.1: wallpaper ≤2 MiB (higiene de ISO — tem $walsize B)"
+assert_eq "$sizeok" "1" "v2.0 M5.1: wallpaper ≤2 MiB (higiene de ISO — tem $walsize B)"
 waltype="$(file -b --mime-type "$WAL" 2>/dev/null)"
-assert_eq "$waltype" "image/png" "v1.9 M5.1: wallpaper é PNG real (lossless — extensão honesta; tem '$waltype')"
+assert_eq "$waltype" "image/png" "v2.0 M5.1: wallpaper é PNG real (lossless — extensão honesta; tem '$waltype')"
 if command -v python3 >/dev/null 2>&1; then
   if python3 -c 'from PIL import Image' 2>/dev/null; then
     walout="$(python3 - "$WAL" << 'PYEOF'
@@ -1543,39 +1535,38 @@ n = sum(h)
 mean = sum(i * c for i, c in enumerate(h)) / n
 # v1.9: paleta distinta (anti-poeira) + flatness do céu (patches 64x64 no
 # terço superior com passo 4 — arte flat tem 1 cor por patch; ruído tem N)
-cols = len(rgb.getcolors(maxcolors=100000) or [])
 import random
 rnd = random.Random(99)
 worst = 0
 px = rgb.load()
-for _ in range(24):
-    bx = rnd.randint(0, rgb.size[0] - 64)
-    by = rnd.randint(0, min(900, rgb.size[1] - 64))
+W, H = rgb.size
+# patches no FUNDO aberto do minimal-27 (cristas ficam no terço inferior;
+# a ilustração central ocupa o miolo) — os 4 quadrantes das bordas
+regions = [(0, 0), (W - 64, 0), (0, 300), (W - 64, 300),
+           (0, H // 2), (W - 64, H // 2)]
+for bx, by in regions:
     worst = max(worst, len({px[bx + i, by + j]
                             for i in range(0, 64, 4)
                             for j in range(0, 64, 4)}))
-print(rgb.size[0], round(black, 2), round(mean, 1), cols, worst)
+print(rgb.size[0], round(black, 2), round(mean, 1), worst)
 PYEOF
 )"
-    if [[ "$walout" =~ ^[0-9]+[[:space:]][0-9.]+[[:space:]][0-9.]+[[:space:]][0-9.]+[[:space:]][0-9.]+$ ]]; then
-      read -r walres walblack walmean walcols walsky <<<"$walout"
-      assert_eq "$walres" "3840" "v1.9 M5.1: wallpaper 4K (3840px de largura — tem $walres)"
-      blackok=1; awk "BEGIN{exit !($walblack >= 40.0)}" || blackok=0
-      assert_eq "$blackok" "1" "v1.9 M5.1: preto dominante ≥40% (rice AMOLED — o arte é flat; tem $walblack%)"
-      meanok=1; awk "BEGIN{exit !($walmean <= 40.0)}" || meanok=0
-      assert_eq "$meanok" "1" "v1.9 M5.1: luma média ≤40 (dark que não cega — tem $walmean)"
-      colsok=1; awk "BEGIN{exit !($walcols <= 16)}" || colsok=0
-      assert_eq "$colsok" "1" "v1.9 M5.1: paleta MÍNIMA ≤16 cores (MÉTRICA ANTI-POEIRA — ruído/dithering de foto/compressão teria milhares; tem $walcols)"
+    if [[ "$walout" =~ ^[0-9]+[[:space:]][0-9.]+[[:space:]][0-9.]+[[:space:]][0-9.]+$ ]]; then
+      read -r walres walblack walmean walsky <<<"$walout"
+      widthok=1; awk "BEGIN{exit !($walres >= 2560)}" || widthok=0
+      assert_eq "$widthok" "1" "v2.0 M5.1: wallpaper de alta definição (≥2560px de largura — o minimal-27 nativo tem 4053px; tem $walres)"
+      meanok=1; awk "BEGIN{exit !($walmean <= 60.0)}" || meanok=0
+      assert_eq "$meanok" "1" "v2.0 M5.1: luma média ≤60 (dark que não cega — o minimal-27 tem ~35; tem $walmean)"
       skyok=1; awk "BEGIN{exit !($walsky == 1)}" || skyok=0
-      assert_eq "$skyok" "1" "v1.9 M5.1: céu 100% FLAT (patches amostrados com 1 única cor — zero granulação; tem $walsky cor)"
+      assert_eq "$skyok" "1" "v2.0 M5.1: FUNDO FLAT medido (patches no campo aberto com 1 única cor — PNG lossless não tem poeira; tem $walsky cor)"
     else
-      fail "v1.9 M5.1: métricas do wallpaper" "saída do python3/PIL inesperada: '${walout:0:80}' (lição da run #34: nunca mais falha silenciosa com 'tem %')"
+      fail "v2.0 M5.1: métricas do wallpaper" "saída do python3/PIL inesperada: '${walout:0:80}' (lição da run #34: nunca mais falha silenciosa com 'tem %')"
     fi
   else
-    fail "v1.9 M5.1: métricas do wallpaper" "python3 presente sem PIL — instale python-pillow (o CI já traz)"
+    fail "v2.0 M5.1: métricas do wallpaper" "python3 presente sem PIL — instale python-pillow (o CI já traz)"
   fi
 else
-  skip "v1.9 M5.1: métricas do wallpaper" "python3 indisponível"
+  skip "v2.0 M5.1: métricas do wallpaper" "python3 indisponível"
 fi
 
 # ── A corrosão NÃO alcançou os acentos globais (top bar) ───────────────────
@@ -1591,7 +1582,7 @@ CDR="$P/airootfs/usr/local/bin/craft-drawer"
 CPW="$P/airootfs/usr/local/bin/craft-power"
 CCT="$P/airootfs/usr/local/bin/craft-connect"
 CPP="$P/airootfs/usr/local/bin/craft-pin-pick"
-CPT="$ST/waybar/config.top"; CKB="$ST/waybar/config.dock"
+CPT="$ST/waybar/config.top"
 MXML="$ST/labwc/menu.xml"
 
 # ── Brave ORIGIN: o PRODUTO troca, o contrato do rice intacto ────────────
@@ -1609,15 +1600,15 @@ assert_grep "$CDR" '-nocats' "v1.4: craft-drawer com -nocats (categorias nem nas
 assert_nogrep "$CDR" '-pb(lock|exit|reboot|poweroff|sleep)' "v1.4: flags -pb* extintas (sessão mora SÓ na menu bar — diretriz do burn test)"
 
 # ── Dock SEMPRE VISÍVEL (a 'dock sumiu' do burn test) ────────────────────
-assert_grep "$CKB" '"margin-bottom": 8' "v1.4: dock flutua 8px SEMPRE (config — iOS/macOS)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'MARGIN_BOTTOM = 6' "v2.0: pílula flutuando 6px acima da base (modo auto do hotspot)"
 assert_nogrep "$WBD" 'margin-bottom: -' "v1.4: auto-hide (margem negativa) EXTINTO do CSS — o talho de ícones cortados na base era isso"
 assert_nogrep "$WBD" 'font-size: 32px' "v1.9 M3.1: SEM estado de zoom no hover (font-size constante — a caixa não muda de tamanho)"
-assert_grep "$CKB" 'Brave Origin \(navegador padrão\)' "v1.4: tooltip da dock honesto com o produto (Brave Origin)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'get_display_name' "v2.0: tooltip honesto = o NOME do .desktop (Brave Origin — do próprio sistema)"
 
 # v1.5 (spec do dono): lançador ARCH EXTINTO da menu bar — canto esquerdo
 # limpo (só o nome do app focado); o Launchpad vive na TOP BAR (v1.9 M3.4)
 assert_nogrep "$CPT" '"custom/menu"' "v1.5: módulo custom/menu EXTINTO do config.top (spec)"
-assert_grep "$CPT" '"modules-left": \["custom/drawer", "custom/shot", "network", "custom/power", "wlr/window"\]' "v1.8: cluster esquerdo da spec do dono (arch+print+redes+sessão+janela)"
+assert_grep "$CPT" '"modules-left": \["custom/drawer", "wlr/window"\]' "v2.0: cluster esquerdo = ARCH + app focado (convenção dos rices)"
 assert_grep "$CPT" '"fixed-center": true' "v1.5: clock no centro EXATO (fixed-center)"
 assert_nogrep "$CD" '\\uf303' "v1.9 M3.4: ARCH U+F303 NÃO vive mais na dock (exclusivo da top bar)"
 assert_nogrep "$CD" '"on-click": "craft-drawer"' "v1.9 M3.4: nenhum on-click de Launchpad na dock (sem duplicidade de lançador)"
@@ -1632,7 +1623,7 @@ assert_grep "$CCT" 'foot -e bluetui' "v1.4: central abre bluetui (Bluetooth)"
 assert_grep "$CCT" '--prompt=Rede' "v1.4: prompt 'Rede' (nunca colide com o toggle do 'Sessão')"
 assert_grep "$CCT" "pgrep -f 'fuzzel.*--prompt=Rede'" "v1.6.1: craft-connect detecta o menu aberto (toggle — 2ª chamada fecha, mesma cura do 'Sessão')"
 assert_grep "$CCT" "pkill -f 'fuzzel.*--prompt=Rede'" "v1.6.1: toggle da central de rede MATA a instância (regressão do 'menu empilhava' morta por contrato)"
-assert_grep "$WBT" '#idle-inhibitor\.deactivated' "v1.4: café colapsa quando desativado (fim dos 'dois ícones de rede')"
+assert_nogrep "$WBT" 'idle-inhibitor' "v2.0: o café saiu da barra E do CSS (botão estranho — áudio do dono)"
 
 # ── Gaveta com TOGGLE (v1.6.1): "abrir E fechar" (pedido do dono) ────────
 assert_grep "$CDR" 'pgrep -x nwg-drawer' "v1.6.1: craft-drawer detecta a gaveta aberta (2º clique no ARCH fecha)"
@@ -1695,7 +1686,7 @@ assert_file "$CBR" "v1.6.3: craft-bars existe (supervisor das duas barras)"
 assert_grep "$AUTX" 'craft-bars &' "v1.6.3: autostart delega as barras ao craft-bars"
 assert_nogrep "$AUTX" 'waybar -c' "v1.6.3: autostart NÃO sobe waybar direto (supervisão única — respawn garantido)"
 assert_grep "$CBR" 'config\.top' "v1.6.3: supervisor vigia a barra de cima"
-assert_grep "$CBR" 'craft-dock-config' "v1.6.3→v1.9: supervisor vigia a dock (config via craft-dock-config — modo peek/shown)"
+assert_grep "$CBR" 'craft-dock-gui' "v2.0: supervisor vigia a dock NATIVA (≤5s, mesma garantia da v1.6.3)"
 assert_grep "$CBR" '1048576' "v1.6.3: bars.log com teto 1 MiB (sem crescimento ilimitado)"
 assert_grep "$CBR" 'waybar -c [$]2' "v1.6.3: stderr do waybar capturado no log (forense do próximo incidente)"
 assert_grep "$CBR" 'pgrep -f' "v1.6.3: respawn por pgrep (não empilha instância)"
@@ -1751,24 +1742,17 @@ assert_grep "$CTP8" '"on-click": "craft-shot"' "v1.8: print dispara o craft-shot
 assert_grep "$CTP8" '"format": "\\uf0c4"' "v1.8: glifo do print no topo (mesmo DNA da dock)"
 assert_grep "$CTP8" '"on-click": "craft-connect"' "v1.8: wi-fi/redes/bt = 1 botão → central (spec: 'conectividade num geral')"
 assert_grep "$CTP8" '"on-click": "craft-power"' "v1.8: liga/desliga/reset = botão de sessão no cluster esquerdo"
-assert_grep "$CDB8" '"return-type": "json"' "v1.8: pins com módulo json (indicador de aberto)"
-assert_grep "$CDB8" '"interval": 3' "v1.8: polling do indicador em 3s (barato e vivo)"
-assert_grep "$CDB8" 'craft-pin-status foot' "v1.8: pin do Terminal vigia o foot"
-assert_grep "$CDB8" 'craft-pin-status brave' "v1.8: pin do navegador vigia o brave"
-assert_grep "$CDB8" 'craft-pin-status thunar' "v1.8: pin de Arquivos vigia o thunar"
-assert_file "$CPS" "v1.8: craft-pin-status existe (o JSON do indicador)"
-assert_grep "$CPS" 'pgrep -x' "v1.8: detecção de aberto = pgrep exato (sem rede, sem jq)"
-assert_grep "$CPS" 'cls="running"' "v1.8: JSON devolve class=running (o ponto acende)"
-assert_grep "$CPS" 'exit 0' "v1.8: craft-pin-status NUNCA falha (módulo json tolerante)"
-# craft-pin gera pins JÁ COM indicador + valida apóstrofo no tooltip
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin" 'craft-pin-status \$proc' \
-  "v1.8: craft-pin add gera pin com indicador (PINLINE json)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin" "TOOLTIP não pode ter apóstrofo" \
-  "v1.8: craft-pin valida tooltip (apóstrofo quebraria o exec)"
-assert_grep "$P/airootfs/etc/skel/.config/waybar/style.dock.css" '\.running' \
-  "v1.8: CSS tem o seletor .running (o ponto do pin)"
-assert_grep "$P/airootfs/etc/skel/.config/waybar/style.dock.css" 'inset 0 -3px' \
-  "v1.8: indicador = barra 3px na base (sem shift de layout)"
+# v2.0: pins = IDs .desktop no dock-pins; indicador = pgrep in-process;
+# craft-pin-status está EXTINTO (o GUI é o único consumidor de estado):
+assert_nofile "$CPS" "v2.0: craft-pin-status EXTINTO (o indicador mora no GUI)"
+assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'pgrep' "v2.0: detecção de aberto = pgrep (sem rede, sem jq — mesma dieta)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'add_class..running' "v2.0: o ponto acende via classe .running no GUI"
+assert_grep "$P/airootfs/usr/local/bin/craft-pin" 'craft-dock reload' \
+  "v2.0: craft-pin recarrega a dock por sinal (fim da era waybar)"
+assert_grep "$P/airootfs/etc/skel/.config/elite/dock.css" '\.running' \
+  "v2.0: dock.css tem o seletor .running (o ponto do pin)"
+assert_grep "$P/airootfs/etc/skel/.config/elite/dock.css" 'inset 0 -3px' \
+  "v2.0: indicador = barra 3px na base (sem shift de layout)"
 
 # ── BOOT COM PROVA (v1.8 — a RECORRÊNCIA do 'premature end of file'): ────
 #    a v1.7.0 recopiava o kernel com `cp -f ... &&` (exit IGNORADO): falha

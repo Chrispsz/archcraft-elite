@@ -87,6 +87,19 @@ fastfetch
 xdotool
 
 ## ── ELITE v1.0.4 · Desktop v2 (macOS-style, mouse-first) ──────────────
+## RUNTIME DA DOCK NATIVA (v2.0 — craft-dock-gui): a dock da Elite é um
+## programa GTK3 próprio no protocolo wlr-layer-shell (o mesmo mecanismo
+## do nwg-dock, sem a dependência do sway IPC — funciona no labwc).
+##   · python + python-gobject — o GUI é um único script PyGObject
+##     (mantível no repo, sem toolchain Go no build)
+##   · gtk-layer-shell — o protocolo (dep do nwg-drawer, aqui explícito)
+## Os ícones dos pins vêm do TEMA via Gio.DesktopAppInfo (Papirus-Dark)
+## — zero glifo Nerd Font, zero imagem custom: "deixe o ícone ser
+## tratado como o sistema já é" (dono, out/2026).
+python
+python-gobject
+gtk-layer-shell
+
 ## nwg-drawer: o "Launchpad" — grade de apps em tela cheia com busca,
 ## categorias e barra de sessão (craft-drawer). wlroots-agnóstico.
 ## papirus-icon-theme: ícones de apps p/ o dock (waybar wlr/taskbar),

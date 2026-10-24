@@ -73,7 +73,7 @@ case "$id" in
 esac
 
 # ── 4. Fixa (craft-pin valida tudo, pinta o CSS e recarrega a dock) ──
-if craft-pin add "$id" "$glyph" "$choice" "$exec_" "$cor"; then
+if craft-pin add "$id"; then
     if command -v notify-send >/dev/null 2>&1; then
         notify-send -a craft-pin "Dock" \
             "'$choice' fixado na dock (clique-direito no desktop → Fixar p/ mais)" || true
