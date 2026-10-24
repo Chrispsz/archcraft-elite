@@ -13,3 +13,4 @@ elite/airootfs/var/cache/
 agents/.env
 agents/out/
 tests/image
+.ci-cache/

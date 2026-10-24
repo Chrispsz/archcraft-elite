@@ -213,19 +213,17 @@ assert_grep "$CT" '"modules-center": \["clock"\]' "v2.1: relógio no CENTRO da b
 assert_grep "$CT" '"fixed-center": true' "v1.5: fixed-center (centro EXATO independente dos lados)"
 assert_nogrep "$CT" '"custom/menu"' "v1.5: lançador ARCH FORA do canto esquerdo (spec do dono — o Launchpad vive na dock)"
 assert_grep "$CT" '"modules-left": \["custom/drawer", "wlr/window"\]' "v2.0: convenção dos rices — ESQUERDA = lançador (ARCH) + app focado"
-assert_grep "$CT" '"modules-right": \[' "v2.0: o STATUS vive à DIREITA (shot/volume/rede/tray/sessão — o áudio do dono)"
-assert_grep "$CT" '"custom/shot"' "v2.0: screenshot na DIREITA (o recorte do canto esquerdo morre com a mudança)"
+assert_grep "$CT" '"modules-right": \[' "v2.1: o STATUS vive à DIREITA (volume/rede/tray/sessão — declutter do dono)"
+assert_nogrep "$CT" '"custom/shot"' "v2.1: botão screenshot SAIU da barra (declutter do dono — a função vive em W-P/W-S-P; AÇÃO sem assento fixo)"
 assert_nogrep "$CT" '"idle_inhibitor"' "v2.0: o café SAIU da barra (módulo extinto — 'botão estranho', áudio do dono)"
 assert_grep "$CT" '"format": "\{icon\}"' "v2.1: áudio em modo ícone"
 assert_nogrep "$CT" '"format": "\{volume\}' "v2.1: SEM porcentagem numérica no áudio (o '40%')"
 assert_grep "$CT" '"custom/power"' "v1.8: botão de sessão presente (agora no CLUSTER ESQUERDO — spec do dono)"
 assert_grep "$CT" '"format": "\\uf011"' "v2.1: glifo do power presente (FA power-off — BMP)"
-# v2.0: o shot (AÇÃO, não app) subiu para a BARRA SUPERIOR (lado direito);
-# a dock não tem mais nenhum glifo — só ícones reais de apps (.desktop)
-for pair in 'shot:\\uf0c4'; do
-  m=${pair%%:*}; g=${pair##*:}
-  assert_grep "$CT" "\"format\": \"${g}\"," "v2.0: shot com glifo na BARRA SUPERIOR (escape anti-corrupção \uXXXX — v1.1)"
-done
+# v2.1: o shot SAIU da barra (declutter do dono) — o glifo U+F0C4 não
+# pode mais aparecer no config.top; a dock segue sem nenhum glifo —
+# só ícones reais de apps (.desktop)
+assert_nogrep "$CT" '\\uf0c4' "v2.1: glifo do shot EXTINTO da barra superior (módulo removido — declutter)"
 assert_nofile "$P/airootfs/etc/skel/.config/waybar/config.dock" "v2.0: a dock waybar não existe mais (o glifo na dock morreu com ela)"
 assert_nogrep "$CD" '\\u[0-9a-fA-F]{5,}' "v2.1: nenhum escape de 5+ hex (SMP trap: parseia como 4-hex + dígito)"
 assert_nogrep "$CT" '\\u[0-9a-fA-F]{5,}' "v2.1: idem no config.top"
@@ -1745,9 +1743,12 @@ assert_grep "$REPO/.github/workflows/build.yml" 'WAYBAR_COUNT' "v1.7.1: gate do 
 CTP8="$P/airootfs/etc/skel/.config/waybar/config.top"
 CDB8="$P/airootfs/etc/skel/.config/waybar/config.dock"
 CPS="$P/airootfs/usr/local/bin/craft-pin-status"
-assert_grep "$CTP8" '"custom/shot"' "v1.8: botão PRINT no topo (spec: 'botões úteis como print')"
-assert_grep "$CTP8" '"on-click": "craft-shot"' "v1.8: print dispara o craft-shot (região → clipboard+arquivo)"
-assert_grep "$CTP8" '"format": "\\uf0c4"' "v1.8: glifo do print no topo (mesmo DNA da dock)"
+# v2.1 (declutter do dono: “tá um pouco cheio”): o print SAIU da barra —
+# a spec v1.8 pedia “botões úteis como print”, mas a diretriz nova vence:
+# a função segue em W-P/W-S-P e a barra fica no essencial.
+assert_nogrep "$CTP8" '"custom/shot"' "v2.1: print SAIU da barra (spec v1.8 evoluída — declutter do dono; W-P/W-S-P cobrem)"
+assert_nogrep "$CTP8" '"on-click": "craft-shot"' "v2.1: nenhum on-click de shot no topo (o craft-shot segue no rc.xml)"
+assert_nogrep "$CTP8" '"format": "\\uf0c4"' "v2.1: glifo do print extinto do topo"
 assert_grep "$CTP8" '"on-click": "craft-connect"' "v1.8: wi-fi/redes/bt = 1 botão → central (spec: 'conectividade num geral')"
 assert_grep "$CTP8" '"on-click": "craft-power"' "v1.8: liga/desliga/reset = botão de sessão no cluster esquerdo"
 # v2.0: pins = IDs .desktop no dock-pins; indicador = pgrep in-process;

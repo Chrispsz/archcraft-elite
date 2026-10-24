@@ -8,18 +8,22 @@ on:
         required: false
         default: ''
   push:
-    # v2.0.1 — 'branches: ain]' era YAML CORROMPIDO (93c582e: um sed comeu
-    # o '[m' de [main]; builds de branch disparavam por fallback do
-    # GitHub, sem filtro nenhum — run #85 (push→v1.8.2) é o flagrante).
-    # ['**'] = mesmo comportamento, agora EXPLÍCITO e válido: branch +
-    # tag → build. O paths-ignore mantém docs/testes fora do runner.
-    branches: ['**']
+    # v2.1 — REORG: ISO só nasce de TAG (evento de release) ou de dispatch
+    # manual. Push de branch roda a suíte de contratos (tests.yml, ~2 min)
+    # — não mais uma ISO inteira idêntica: a ['**'] antiga construía ISO
+    # até para push de docs (as runs #68-#71 em sequência são o flagrante).
+    # O paths-ignore mantém docs/testes fora do runner nas tags.
     tags: ['v*']
     paths-ignore: ['**.md', 'docs/**', 'tests/**']
 
+# v2.1 — menor privilégio: o workflow inteiro só lê; ÚNICO job com
+# escrita é o release (publica a release). O relay-agents foi REMOVIDO
+# do pipeline: dispatchava deepseek+mimo EM TODA build — inclusive em
+# runs canceladas (a #91 cancelada queimou 2 dispatches) — até esgotar
+# a cota free do Token Harbor (HTTP 429 em massa). Auditoria de IA agora
+# é sob demanda: agents.yml manual, protocolo em docs/AGENTS.md.
 permissions:
-  contents: write
-  actions: write # dispatch do agents.yml (relay mimo/deepseek pós-build)
+  contents: read
 
 concurrency:
   group: build-elite-${{ github.ref }}
@@ -70,16 +74,36 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Restaurar cache de pacotes (pacman + [elite-local])
+        # v2.1 — os ~2 GB de pacotes baixados a cada run (preparo do
+        # container + preflight, ~8 min medidos) agora persistem. Chave =
+        # hash da lista de pacotes: mudou a lista, cache novo (com
+        # restore-keys para aproveitar o que servir). Os .db NUNCA são
+        # cacheados (lição #17: db velho = mirror skew) — o preflight
+        # re-sincroniza os dbs a cada run como sempre fez.
+        uses: actions/cache@v4
+        with:
+          path: .ci-cache
+          key: elite-pkgs-v1-${{ hashFiles('elite/packages.add', 'elite/packages.remove', 'elite/pacman-repos.build.add') }}
+          restore-keys: |
+            elite-pkgs-v1-
+
       - name: Construir ISO (container Arch privilegiado)
         # v1.5.2: o log da build é EVIDÊNCIA — capturado (tee) e auditado
         # (log-forensics.sh) no passo seguinte. pipefail: quem quebra a
         # pipe é o docker, não o tee. Forense validada contra a história:
         # o log da v1.4 (verde, releaseada) tem 5 classes fatais literais
         # — este gate as teria barrado ANTES do burn test do dono.
+        # v2.1: .ci-cache/{pacman,elite-local} montados no container —
+        # cache quente = −6 a −12 min por build.
         run: |
           set -o pipefail
+          mkdir -p .ci-cache/pacman .ci-cache/elite-local
+          chmod 777 .ci-cache/pacman .ci-cache/elite-local
           docker run --rm --privileged \
             -v "$PWD":/work \
+            -v "$PWD/.ci-cache/pacman":/var/cache/pacman/pkg \
+            -v "$PWD/.ci-cache/elite-local":/var/cache/elite-local \
             -v /mnt:/mnt \
             -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
             -w /work \
@@ -144,6 +168,9 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    # v2.1 — único job com escrita no workflow (menor privilégio)
+    permissions:
+      contents: write
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
@@ -257,7 +284,10 @@ jobs:
           cd iso-out
           ISO=$(ls *.iso)
           echo "ISO=$ISO" >> "$GITHUB_ENV"
-          sha256sum -c sha256sums.txt --ignore-missing || true
+          # v2.1 — GATE DURO: divergiu do sha256 selado = run vermelha.
+          # (Antes o || true ENGOLIA a checagem: ISO truncada seguia para
+          # boot e podia passar — exatamente a classe v1.8.0.)
+          sha256sum -c sha256sums.txt --ignore-missing
           7z x -y "$ISO" -o../extracted/ 'arch/boot/x86_64/vmlinuz-linux-cachyos-bore' 'arch/boot/x86_64/initramfs-linux-cachyos-bore.img' 'boot/syslinux/archiso_sys-linux.cfg' >/dev/null
           cd ../extracted
           ls -la arch/boot/x86_64/
@@ -312,7 +342,7 @@ jobs:
             kill -0 $Q 2>/dev/null || break
             sleep 5
           done
-          sleep 5                          # flush final do probe
+          sleep 15                         # v2.1: flush 5→15s — unidade que falha logo após o probe entra no veredito
           kill $Q 2>/dev/null; wait $Q 2>/dev/null
           echo "════════ ÚLTIMAS 40 LINHAS DO SERIAL ════════"
           tail -40 serial-verify.log
@@ -367,7 +397,16 @@ jobs:
             [ -n "$BE" ] && [ "$BE" -eq 0 ] 2>/dev/null
             chk $? "waybar sem NENHUMA morte na sessão (BARS_EXITS=${BE:-?})" "waybar morreu ${BE:-?}× na sessão — crash/race/OOM (exit code no BARS| acima)"
           else
-            echo "· informativo: probe da sessão NÃO chegou (QEMU sem sessão gráfica?) — gate não cobra o que não vê"
+            # v2.1 — FIM DO VERDE-FAKE: com KVM disponível (o runner tem,
+            # confirmado nos logs), a sessão gráfica TEM que subir e o
+            # probe TEM que chegar ao serial. Sem KVM (TCG lento), segue
+            # informativo — o gate não cobra o que não consegue ver.
+            if [ -e /dev/kvm ]; then
+              echo "✖ probe da sessão NÃO chegou COM KVM DISPONÍVEL — sessão gráfica devia ter subido (classe 'subiu só o wallpaper')"
+              FAIL=1
+            else
+              echo "· informativo: probe da sessão NÃO chegou (sem /dev/kvm — TCG) — gate não cobra o que não vê"
+            fi
           fi
           # informativos (não derrubam o gate — headless QEMU nem sempre
           # mostra a sessão gráfica subindo)
@@ -386,39 +425,9 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-  # ── Relay dos agentes (mimo + deepseek): auditoria pós-build ──────
-  # Diretriz do dono: usar os outros modelos para obter relatórios/logs
-  # e ajudar o desenvolvimento. O agents.yml roda NO RUNNER (relay Token
-  # Harbor) e publica o relatório na branch agent-reports.
-  #
-  # v1.5.2 — CIRURGIA NO RELAY: este job existia desde a v1.1 e NUNCA
-  # despachou nada — o 'gh workflow run' sem --repo caía em "fatal: not
-  # a git repository" (job sem checkout, sem .git) e o if/else ENGOLIA
-  # a falha em silêncio: 0 auditorias desde 20/out, os 8 relatórios da
-  # branch agent-reports eram todos de execuções locais.
-  # Agora: (a) --repo explícito; (b) dispatch falhou = job VERMELHO
-  # (infra quebrada é erro, não detalhe); (c) needs+always — os agentes
-  # auditam o log COMPLETO (gates incluídos) e auditam também runs que
-  # FALHARAM (é quando a auditoria mais vale; antes só via verde).
-  relay-agents:
-    needs: [build, verify, verify-install]
-    if: always()
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Dispatch auditoria (deepseek + mimo, contexto = esta run)
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          TASK="Audite a run de build do Archcraft Elite (log completo dos jobs lint/build/verify/verify-install). Procure: (1) warnings/anomalias no pacstrap e no customize (E0-E9); (2) pacotes que falharam ou ficaram órfãos; (3) regressões vs build anterior; (4) riscos na sessão labwc (deps faltando, units quebradas); (5) unidades systemd em crash-loop — varra 'Failed with result' e 'restart counter' (a v1.5.2 pegou o fg-booster assim: 17 falhas em silêncio porque o debloat v4.2 varreu o xdotool); (6) erros de hook do pacman fora de contexto grub. Seja específico: cite linhas do log."
-          for AGENT in deepseek mimo; do
-            # --repo: sem checkout não há .git — o gh não resolve o repo
-            # sozinho (causa-raiz do relay morto desde a v1.1)
-            gh workflow run agents.yml \
-              --repo "$GITHUB_REPOSITORY" \
-              -f "agent=$AGENT" \
-              -f "task=$TASK" \
-              -f "context=ci:$GITHUB_RUN_ID"
-            echo "✔ dispatch $AGENT OK"
-          done
+  # ── Auditoria de IA (deepseek + mimo): SOB DEMANDA (v2.1) ─────────
+  # O relay automático pós-build foi removido: queimava a cota free do
+  # Token Harbor em toda build (inclusive cancelada) até o 429 geral.
+  # Dispatch manual quando quiser auditar uma run:
+  #   gh workflow run agents.yml -f agent=deepseek -f task="..." -f context=ci:<run_id>
+  # Protocolo de consenso (3 IAs): docs/AGENTS.md

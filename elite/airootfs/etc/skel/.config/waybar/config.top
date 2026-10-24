@@ -41,10 +41,14 @@
   // Centro: o relógio (v2.1 — diretriz do dono)
   "modules-center": ["clock"],
 
-  // Direita (v2.0): música → screenshot → volume → rede → tray → sessão
+  // Direita (v2.1 — declutter pedido pelo dono: “tem uns interessantes
+  // mas tá um pouco cheio”): screenshot SAIU da barra (a função segue
+  // viva em W-P / W-S-P — rc.xml; AÇÃO não precisa de assento fixo), a
+  // música só ocupa a barra QUANDO há algo tocando (format-empty ""),
+  // e o status permanente fica no essencial:
+  // volume → rede → tray → sessão.
   "modules-right": [
     "mpris",
-    "custom/shot",
     "pulseaudio",
     "network",
     "tray",
@@ -67,15 +71,8 @@
     "on-click": "craft-drawer"
   },
 
-  // Print (v1.8 — botão útil nº 1 da spec do dono): screenshot de região
-  // (slurp seleciona, grim captura → clipboard + arquivo — craft-shot).
-  // Mesmo glifo e mesmo DNA visual do botão da dock.
-  "custom/shot": {
-    "format": "\uf0c4",
-    "tooltip-format": "Screenshot (região)",
-    "on-click": "craft-shot"
-  },
-
+  // (v2.1 — o botão custom/shot foi REMOVIDO da barra, pedido do dono.
+  // O craft-shot segue acessível: W-P (região) e W-S-P (tela inteira).)
   // Música do USUÁRIO (MPRIS) — YouTube no navegador, Spotify, mpv: o que
   // VOCÊ tocar aparece aqui. Com nada tocando o módulo some sozinho.
   // Clique: esq = play/pause, meio = próxima, dir = anterior.
