@@ -17,7 +17,7 @@ on:
     paths-ignore: ['**.md', 'docs/**', 'tests/**']
 
 # v2.1 — menor privilégio: o workflow inteiro só lê; ÚNICO job com
-# escrita é o release (publica a release). O relay-agents foi REMOVIDO
+# escrita é o release (publica a release). O job de relay automático foi REMOVIDO
 # do pipeline: dispatchava deepseek+mimo EM TODA build — inclusive em
 # runs canceladas (a #91 cancelada queimou 2 dispatches) — até esgotar
 # a cota free do Token Harbor (HTTP 429 em massa). Auditoria de IA agora
@@ -429,5 +429,5 @@ jobs:
   # O relay automático pós-build foi removido: queimava a cota free do
   # Token Harbor em toda build (inclusive cancelada) até o 429 geral.
   # Dispatch manual quando quiser auditar uma run:
-  #   gh workflow run agents.yml -f agent=deepseek -f task="..." -f context=ci:<run_id>
+  #   dispatch manual (UI ou API) conforme docs/AGENTS.md — contexto ci:<run_id>
   # Protocolo de consenso (3 IAs): docs/AGENTS.md
