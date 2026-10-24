@@ -1,6 +1,6 @@
 #!/bin/sh
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · elite-session-probe (v1.7.1) — evidência da SESSÃO GRÁFICA
+# Archcraft ELITE · elite-session-probe (v2.1.1) — evidência da SESSÃO GRÁFICA
 # ═══════════════════════════════════════════════════════════════════════════
 # POR QUÊ: o gate do CI (verify/QEMU) boota a ISO e para no LOGIN — nunca
 # viu a sessão gráfica. As duas barras waybar morreram caladas no rig do
@@ -12,8 +12,13 @@
 # elite-session-probe.service), colhe o ESTADO REAL da sessão (barras vivas,
 # mortes registradas no bars.log, memória, versões) e imprime um bloco
 # MARCADO no console — no QEMU do gate o console é o serial, que o gate
-# grepa (ELITE_PROBE_BEGIN/END, WAYBAR_COUNT, BARS_EXITS). No stdout vai a
-# mesma carga (→ journal do systemd, forense pós-mortem em rigs reais).
+# grepa (ELITE_PROBE_BEGIN/END, WAYBAR_COUNT, DOCK_COUNT, BARS_EXITS). No
+# stdout vai a mesma carga (→ journal do systemd, forense pós-mortem).
+#
+# v2.1.1 (run #93): a sessão v2.0 é waybar top + dock NATIVA (craft-dock-gui,
+# GTK) — o probe só contava waybar e o gate cobrava "2 waybars" (contrato da
+# era waybar-dock, defasado). Agora DOCK_COUNT entra no bloco; o comm do
+# script Python é "python3" (shebang), então a contagem é por cmdline (-f).
 #
 # Inofensivo por construção: one-shot, sem escrita em disco, exit 0 SEMPRE
 # (uma unidade failed aqui viraria falso negativo do gate "nenhuma unidade
@@ -40,6 +45,10 @@ count() {
 wb_list="$(pgrep -a waybar 2>/dev/null | tr '\n' ';' | sed 's/;$//')"
 wb_count="$(count waybar)"
 sn_count="$(count swaync)"
+# v2.1.1: dock GTK contada por cmdline (comm = "python3" — pgrep -c puro
+# nunca acharia). Padrão do count(): sem '|| echo 0' (duplicaria a linha).
+dk_count="$(pgrep -fc 'craft-dock-gui' 2>/dev/null)"
+[ -n "$dk_count" ] || dk_count=0
 
 # barras.log de TODOS os usuários (live=liveuser; instalado=dono do login)
 restarts=0
@@ -58,6 +67,7 @@ done
 
 say "ELITE_PROBE_BEGIN"
 say "WAYBAR_COUNT=$wb_count"
+say "DOCK_COUNT=$dk_count"
 say "SWAYNC_COUNT=$sn_count"
 say "BARS_RESTARTS=$restarts"
 say "BARS_EXITS=$exits"
