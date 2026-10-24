@@ -325,4 +325,54 @@ else
   ok "Calamares: nenhum printf com string aberta em coluna 0 (a corrupção da v1.1)"
 fi
 
+# ── v1.8.1 — TERMINAL DO THUNAR (o bug do dono: "não encontrasse ou não
+#    tivesse fallback"). Fonte primária exo 4.20 exo-execute.c:
+#    find_fallback_application = (1) ~/.config/xfce4/helpers.rc →
+#    g_find_program_in_path(valor) [binário!]; (2) xfce4-terminal.desktop
+#    (debloatou); (3) "Could not find fallback TerminalEmulator
+#    application". O arquivo é FLAT: o exo PREPENSA "[Default]\n" antes de
+#    parsear (data = g_strconcat("[Default]\n", contents)) — um cabeçalho
+#    no arquivo seria GRUPO DUPLICADO, e o valor tem de ser NOME DE
+#    BINÁRIO no PATH (foot existe — é o terminal do rice, E12).
+HELPERS="$REPO/elite/airootfs/etc/skel/.config/xfce4/helpers.rc"
+assert_file "$HELPERS" "terminal: helpers.rc existe no skel (o elo que o exo consulta 1º)"
+assert_grep "$HELPERS" '^TerminalEmulator=foot$' "terminal: TerminalEmulator=foot (binário resolvido via g_find_program_in_path)"
+assert_nogrep "$HELPERS" '\[Default\]' "terminal: arquivo FLAT — cabeçalho de grupo NUNCA (o exo o prepensa; duplicado = parse errado)"
+assert_nogrep "$HELPERS" 'kitty|alacritty|xfce4-terminal|urxvt|termite' "terminal: nenhum terminal debloatado referenciado (a classe do dono)"
+assert_grep "$ECF" "TERMINAL=.*foot" "terminal: E12 /etc/environment coerente (TERMINAL=foot — a mesma verdade em 2 lugares)"
+# o único valor que o exo resolve na ISO é um binário que o debloat deixou:
+assert_grep "$REPO/elite/packages.remove" 'xfce4-terminal' \
+  "terminal: debloat documentado — xfce4-terminal fora (o fallback morto que gerava o erro)"
+
+# ── v1.8.1 — DEBLOAT SISTÊMICO (E15/E16 do fragmento) ────────────────
+assert_grep "$ECF" '\[E15\]' "debloat sistêmico: E15 presente (locale/man/doc no chroot)"
+assert_grep "$ECF" 'locale-gen' "debloat sistêmico: locale-gen regenera o archive com a lista podada"
+assert_grep "$ECF" 'pt_BR\.UTF-8' "debloat sistêmico: pt_BR gerado (dono pt-BR; LANG segue o upstream — rice intacto)"
+assert_grep "$ECF" 'ELITE-FAIL.*locale|locale.*ELITE-FAIL' "debloat sistêmico: locale falho = build falha (nunca boot)"
+assert_grep "$ECF" 'en_US\.utf8' "debloat sistêmico: verificação pós-locale-gen (auto-cura antes do fail)"
+assert_nogrep "$ECF" 'rm -rf /usr/share/licenses' "debloat sistêmico: licenças INTACTAS (compliance legal — a poda não encosta)"
+assert_grep "$ECF" 'l10n' "debloat sistêmico: prune de locale preserva l10n/ e en*/pt* (flags de exceção no find)"
+assert_grep "$ECF" '\[E16\]' "debloat sistêmico: E16 presente (variantes Papirus mortas)"
+assert_grep "$ECF" 'Papirus-Dark' "debloat sistêmico: E16 mantém Papirus-Dark (GTK/fuzzel do rice)"
+assert_grep "$ECF" 'ELITE-FAIL: Papirus' "debloat sistêmico: gate duro do E16 — variantes vivas ausentes = build falha"
+MENUX="$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml"
+assert_grep "$MENUX" '/usr/share/icons/Papirus/' "debloat sistêmico: menu usa a variante Papirus viva (contrato do fixture)"
+assert_nogrep "$MENUX" 'ePapirus|Papirus-Light' "debloat sistêmico: NENHUM config referencia variante podada (ePapirus/Papirus-Light)"
+assert_nogrep "$REPO/elite/airootfs/etc/skel/.config/fuzzel/fuzzel.ini" 'ePapirus|Papirus-Light' \
+  "debloat sistêmico: fuzzel na variante viva (Papirus-Dark)"
+# journald cap — o teto que protege RAM (live) e disco (instalado)
+JCAP="$REPO/elite/airootfs/etc/systemd/journald.conf.d/99-elite-cap.conf"
+assert_file "$JCAP" "journal: drop-in de teto existe (journald.conf.d vence qualquer journald.conf upstream)"
+assert_grep "$JCAP" '^SystemMaxUse=100M$' "journal: SystemMaxUse=100M (instalado — disco sem crescimento sem fim)"
+assert_grep "$JCAP" '^RuntimeMaxUse=64M$' "journal: RuntimeMaxUse=64M (live em RAM — memória protegida)"
+
+# ── v1.8.1 — RELEASE com 2 gates de integridade (a classe v1.8.0
+#    truncada: asset 1.55 GiB de 2.77 — PVD mentia contra o blob) ──────
+BYML="$REPO/.github/workflows/build.yml"
+assert_grep "$BYML" 'sha256sum -c sha256sums\.txt' "release: GATE 1 pré-upload (artifact vs sha256sums selado pelo build.sh)"
+assert_grep "$BYML" 'gh release download' "release: GATE 2 pós-upload (re-download do blob do GitHub)"
+assert_grep "$BYML" 'sha256sum -c \.\./sha256sums\.txt --ignore-missing' "release: GATE 2 verifica os bytes publicados (--ignore-missing: split)"
+assert_grep "$BYML" 'body_path: out/body\.md' "release: tabela de integridade no CORPO da release (dono vê tamanhos antes de baixar)"
+assert_grep "$BYML" 'GH_TOKEN: \$\{\{ github\.token \}\}' "release: GATE 2 autenticado (gh release download precisa do token do workflow)"
+
 phase_end
