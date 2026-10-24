@@ -133,7 +133,7 @@ jobs:
             echo "→ run_id $RUN_ID (input explícito — o gate testa ESTA build)"
             gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" \
               --name archcraft-elite-iso --dir iso-out
-            ( cd iso-out && sha256sum -c sha256sums.txt --ignore-missing || true )
+            ( cd iso-out && sha256sum -c sha256sums.txt --ignore-missing )  # v2.1: gate DURO (sem || true)
             mv iso-out/*.iso elite.iso
             rm -rf iso-out
           else
@@ -144,7 +144,7 @@ jobs:
             echo "  → run $RID"
             gh run download "$RID" --repo "$GITHUB_REPOSITORY" \
               --name archcraft-elite-iso --dir iso-out
-            ( cd iso-out && sha256sum -c sha256sums.txt --ignore-missing || true )
+            ( cd iso-out && sha256sum -c sha256sums.txt --ignore-missing )  # v2.1: gate DURO (sem || true)
             mv iso-out/*.iso elite.iso
             rm -rf iso-out
           fi

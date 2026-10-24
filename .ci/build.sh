@@ -161,6 +161,14 @@ elite_fetch "${ML_LATEST:-cachyos-v3-mirrorlist-27-1-any.pkg.tar.zst}" \
 #  resolvidas pelo pacstrap no airootfs, não precisam existir no
 #  container de build.
 say "Estágio Brave ORIGIN 1.98.60 (release oficial) → /var/cache/elite-local/"
+# v2.1 — cache do Actions persiste /var/cache/elite-local entre runs
+#  (build.yml monta .ci-cache/elite-local no container): pkg.tar.zst
+#  presente = bits cujos sources passaram no sha256 da run que o
+#  construiu. Cache miss = download/rebuild (comportamento original).
+if ls /var/cache/elite-local/brave-origin-*.pkg.tar.zst >/dev/null 2>&1; then
+    say "  cache hit: $(ls /var/cache/elite-local/brave-origin-*.pkg.tar.zst | head -1 | xargs -n1 basename) — download/rebuild pulados"
+    sha256sum /var/cache/elite-local/brave-origin-*.pkg.tar.zst
+else
 mkdir -p /tmp/elite-src/brave-origin
 cat > /tmp/elite-src/brave-origin/PKGBUILD <<'EOPKGBUILD'
 pkgname=brave-origin
@@ -273,6 +281,7 @@ else
     echo "ELITE-FAIL: makepkg do brave-origin (fonte/CDN fora?) — sem retry: fonte é GitHub Releases da Brave" >&2
     exit 1
 fi
+fi  # v2.1 — fim do guard de cache do estágio brave-origin
 
 # ── v1.1: estágio AUR → [elite-local] (pwvucontrol) ──────────────────
 #  pwvucontrol não existe nos repos oficiais ( conferido via
@@ -284,7 +293,21 @@ fi
 #  v1.4: brave-bin SAIU daqui — o navegador agora é o brave-origin do
 #  estágio anterior (release oficial pinado; o AUR nem é consultado).
 say "Estágio AUR: pwvucontrol → /var/cache/elite-local/"
-mkdir -p /tmp/elite-src/aur
+# v2.1 — evidência de proveniência do AUR (supply-chain): HEAD commit e
+#  pkgver vão para o log de TODA run que consulta a fonte; cache hit
+#  (pkg persistido pelo Actions) pula o rebuild por completo.
+if ls /var/cache/elite-local/pwvucontrol-*.pkg.tar.zst >/dev/null 2>&1; then
+    say "  cache hit: $(ls /var/cache/elite-local/pwvucontrol-*.pkg.tar.zst | head -1 | xargs -n1 basename) — rebuild pulado"
+    sha256sum /var/cache/elite-local/pwvucontrol-*.pkg.tar.zst
+else
+    if git clone --depth=1 --quiet https://aur.archlinux.org/pwvucontrol.git /tmp/elite-src/aur/pwvucontrol-probe 2>/dev/null; then
+        say "  AUR HEAD: $(git -C /tmp/elite-src/aur/pwvucontrol-probe rev-parse HEAD)"
+        say "  AUR pkgver: $(grep -m1 '^pkgver=' /tmp/elite-src/aur/pwvucontrol-probe/PKGBUILD | cut -d= -f2)"
+    else
+        say "  (probe de evidência do AUR falhou — o aur_build abaixo registra a falha real, se houver)"
+    fi
+    mkdir -p /tmp/elite-src/aur
+fi
 # makepkg -s (syncdeps) instala deps de build via sudo — regra descartável
 printf 'builder ALL=(ALL) NOPASSWD: ALL\n' > /etc/sudoers.d/builder
 chmod 440 /etc/sudoers.d/builder
@@ -310,7 +333,9 @@ aur_build() { # $1 = nome do pacote AUR
     echo "ELITE-FAIL: não foi possível construir '$pkg' (AUR/CDN fora?) — 2 tentativas" >&2
     return 1
 }
-aur_build pwvucontrol  || exit 1
+if ! ls /var/cache/elite-local/pwvucontrol-*.pkg.tar.zst >/dev/null 2>&1; then
+    aur_build pwvucontrol  || exit 1
+fi
 rm -f /etc/sudoers.d/builder
 
 repo-add --quiet /var/cache/elite-local/elite-local.db.tar.gz /var/cache/elite-local/*.pkg.tar.zst
@@ -549,43 +574,16 @@ preflight() {
         done
         if (( injected )); then
             
-# v1.1→v1.4: re-sobe o repo [elite-local] quando o preflight injeta
-#  baselines do Arch. pwvucontrol: re-clona o AUR (fonte viva).
-#  brave-origin NÃO recompila aqui: o pkg.tar.zst do estágio principal
-#  (release oficial pinado 1.98.60) segue em /var/cache/elite-local — o
-#  repo-add abaixo o re-registra junto com os baselines injetados.
-say "Estágio AUR (preflight): pwvucontrol → /var/cache/elite-local/"
-mkdir -p /tmp/elite-src/aur
-# makepkg -s (syncdeps) instala deps de build via sudo — regra descartável
-printf 'builder ALL=(ALL) NOPASSWD: ALL\n' > /etc/sudoers.d/builder
-chmod 440 /etc/sudoers.d/builder
-aur_build() { # $1 = nome do pacote AUR
-    local pkg=$1 try
-    for try in 1 2; do
-        rm -rf "/tmp/elite-src/aur/$pkg"
-        if git clone --depth=1 --quiet "https://aur.archlinux.org/${pkg}.git" "/tmp/elite-src/aur/$pkg"; then
-            chown -R builder "/tmp/elite-src/aur/$pkg"
-            # --skippgpcheck: PKGBUILDs de bin sem assinatura PGP própria;
-            #  sha256 do source continua verificado pelo makepkg
-            if runuser -l builder -c "cd /tmp/elite-src/aur/$pkg && makepkg -sf --noconfirm --skippgpcheck" \
-               && cp /tmp/elite-src/aur/$pkg/*.pkg.tar.zst /var/cache/elite-local/; then
-                say "  ok: $pkg (tentativa $try)"
-                return 0
-            fi
-            say "  makepkg falhou p/ $pkg (tentativa $try) — últimos logs:"
-            tail -15 "/tmp/elite-src/aur/$pkg"/*.log 2>/dev/null || true
-        else
-            say "  git clone do AUR falhou p/ $pkg (tentativa $try)"
-        fi
-    done
-    echo "ELITE-FAIL: não foi possível construir '$pkg' (AUR/CDN fora?) — 2 tentativas" >&2
-    return 1
-}
-# v1.4: brave-origin já está no cache do estágio principal — só conferir
+# v2.1 — REORG: o bloco AUR duplicado que re-clonava e recompilava o
+#  pwvucontrol aqui (~60 linhas copiadas do estágio principal, +4 min
+#  quando disparava) foi REMOVIDO. Os pkg.tar.zst de pwvucontrol e
+#  brave-origin JÁ estão em /var/cache/elite-local (estágio principal;
+#  persistidos entre runs pelo cache do Actions) — o repo-add abaixo
+#  re-registra tudo junto com os baselines injetados.
+ls /var/cache/elite-local/pwvucontrol-*.pkg.tar.zst >/dev/null 2>&1 \
+    || { echo "ELITE-FAIL: pwvucontrol ausente do [elite-local] (estágio principal)" >&2; exit 1; }
 ls /var/cache/elite-local/brave-origin-*.pkg.tar.zst >/dev/null 2>&1 \
     || { echo "ELITE-FAIL: brave-origin ausente do [elite-local] (estágio principal)" >&2; exit 1; }
-aur_build pwvucontrol  || exit 1
-rm -f /etc/sudoers.d/builder
 
 repo-add --quiet /var/cache/elite-local/elite-local.db.tar.gz /var/cache/elite-local/*.pkg.tar.zst
             cp /var/cache/elite-local/* /work/elite-build/profile/airootfs/var/cache/elite-local/

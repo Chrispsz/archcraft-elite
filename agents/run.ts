@@ -104,6 +104,38 @@ try {
 } catch (e) {
   const msg = e instanceof Error ? e.message : String(e);
   console.error(`[elite-agents] FALHA: ${msg}`);
+  // v2.1 — relatório de FALHA escrito ANTES do exit: os artifacts
+  // agent-*-0 MB eram a cara da auditoria fake (o upload if:always()
+  // subia agents/out/ só com o tee do stderr). Agora toda falha tem
+  // prova assinada — ausência de auditoria nunca mais passa por
+  // auditoria silenciosa.
+  const failReport = [
+    "---",
+    `agent: ${agent.id} (${agent.name})`,
+    `model: ${agent.model}`,
+    `task: ${task.replace(/\n/g, " ")}`,
+    `context: ${contextLabel}`,
+    `generated_at: ${new Date().toISOString()}`,
+    "status: FALHA — nenhuma resposta do modelo",
+    "---",
+    "",
+    "# RELATÓRIO DE FALHA",
+    "",
+    "A chamada ao modelo não produziu resposta.",
+    "",
+    "**Erro:**",
+    "```",
+    msg,
+    "```",
+    "",
+    "Se o erro é cota (HTTP 429 do Token Harbor), re-disparar após o",
+    "reset do período free — protocolo e comando de dispatch em",
+    "docs/AGENTS.md.",
+    "",
+  ].join("\n");
+  mkdirSync(join(import.meta.dir, "out"), { recursive: true });
+  writeFileSync(join(import.meta.dir, "out", "report.md"), failReport);
+  console.error(`[elite-agents] relatório de FALHA salvo: agents/out/report.md`);
   process.exit(1);
 }
 

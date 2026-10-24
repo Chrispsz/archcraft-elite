@@ -7,7 +7,10 @@ name: Test Suite
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    # v2.1 — a suíte rápida (~1.4 min) roda em TODA branch: push de
+    # branch = contratos; só TAG constrói ISO (build.yml). Cada push é
+    # auditado pelo que custa segundos, não por uma ISO de 40 min.
+    branches: ['**']
     paths:
       - 'elite/**'
       - 'scripts/**'

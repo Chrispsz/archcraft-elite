@@ -133,3 +133,20 @@ jobs:
           generate_release_notes: true
           files: |
             out/*
+
+      # v2.1 — GATE 2 (o mesmo do build.yml): re-download do que o GitHub
+      # guardou; divergiu = run vermelha. A classe "release truncada"
+      # (v1.8.0) fica fechada nos DOIS caminhos de publicação.
+      - name: GATE 2 — verificação PÓS-upload (re-download do que o GitHub guardou)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd out
+          mkdir downloaded
+          gh release download "${{ inputs.tag }}" --repo "$GITHUB_REPOSITORY" --dir downloaded --clobber
+          cd downloaded
+          ls -lh --si
+          # ISO inteira só existe como asset no modo single; no split ela
+          # é reconstruída das partes — --ignore-missing verifica O QUE
+          # EXISTE; qualquer byte divergente = run vermelha
+          sha256sum -c ../sha256sums.txt --ignore-missing
