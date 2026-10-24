@@ -68,7 +68,10 @@ fi
 assert_grep "$REPO/.github/workflows/build.yml" "grep -q '\^#!\.\*python'" "v2.0.1: lint do CI pula script Python (SC1071 — run #88)"
 assert_grep "$REPO/tests/phases/20-static.sh" "grep -q '\^#!\.\*python'" "v2.0.1: a SUÍTE também pula Python no shellcheck (mesma regra do lint)"
 assert_nogrep "$REPO/.github/workflows/build.yml" "^\s*branches: ain\]" "v2.0.1: gatilho 'branches: ain]' (YAML corrompido) EXTINTO (linha de config, não comentário)"
-assert_grep "$REPO/.github/workflows/build.yml" "branches: \['\*\*'\]" "v2.0.1: gatilho push válido ['**'] (branch+tag → build, explícito)"
+# v2.1 — REORG do gatilho: ISO é evento de RELEASE (tag v* ou dispatch);
+# push de branch roda a suíte rápida (tests.yml), não uma ISO idêntica.
+assert_grep "$REPO/.github/workflows/build.yml" "tags: \['v\*'\]" "v2.1: build da ISO disparada por TAG v* (evento de release — fim das ISOs idênticas por push de branch)"
+assert_grep "$REPO/.github/workflows/tests.yml" "branches: \['\*\*'\]" "v2.1: suíte de contratos roda em TODA branch (push auditado em ~1.4 min, não em 40 min de ISO)"
 
 # peças: YAML válido (os 5 workflows — v1.5.2: diag-install renomeado p/
 # verify-install [nomenclatura de debug não vive em pipeline de produção]
@@ -453,7 +456,7 @@ G4="$REPO/elite/airootfs/etc/skel/.config/gtk-4.0/gtk.css"
 assert_grep "$G4" 'windowcontrols > button > image' \
   "gtk4: o círculo interno do Adwaita é neutralizado no image do button"
 assert_grep "$G4" 'windowcontrols > button:hover > image' \
-  "gtk4: veneno do `> image` cobre HOVER (estado que o Adwaita pinta)"
+  "gtk4: veneno do '> image' cobre HOVER (estado que o Adwaita pinta)"
 assert_grep "$G4" 'windowcontrols > button\.close' \
   "gtk4: trio pintado com especificidade ≥ Adwaita (> button.close)"
 assert_grep "$G4" 'background-image: none' \

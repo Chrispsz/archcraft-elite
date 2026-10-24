@@ -568,16 +568,18 @@ assert_grep "$BY" 'bash \.ci/build\.sh 2>&1 \| tee build-output\.log' \
 assert_grep "$BY" 'scripts/log-forensics\.sh build-output\.log' \
   "contrato v1.5.2: gate de forense roda no job de build (erro silencioso = run vermelha)"
 
-# (b) relay dos agentes: --repo explícito + falha alta + audita TAMBÉM runs que falharam
-RELAY_SECTION=$(sed -n '/^  relay-agents:/,$p' "$BY")
-assert_match "$RELAY_SECTION" 'needs: \[build, verify, verify-install\]' \
-  "contrato v1.5.2: relay audita o log COMPLETO (depois de todos os gates)"
-assert_match "$RELAY_SECTION" 'if: always\(\)' \
-  "contrato v1.5.2: relay dispara MESMO com gates vermelhos (auditoria é mais valiosa na falha)"
-assert_match "$RELAY_SECTION" '--repo "\$GITHUB_REPOSITORY"' \
-  "contrato v1.5.2: dispatch com --repo explícito (gh sem .git = fatal: causa-raiz do relay morto desde a v1.1)"
-assert_match "$RELAY_SECTION" 'set -euo pipefail' \
-  "contrato v1.5.2: dispatch falhou = job VERMELHO (o 'não derruba a build' engolia infra quebrada em silêncio)"
+# (b) v2.1 — auditoria por IA é SOB DEMANDA: o relay automático saiu do
+# build (queimava a cota free do Token Harbor em toda build — inclusive
+# cancelada — até o 429 em massa). A auditoria agora vive no agents.yml
+# manual, com relatório de FALHA assinado (fim dos artifacts 0 MB).
+assert_nogrep "$BY" 'relay-agents' \
+  "contrato v2.1: NENHUM job de relay automático no build (cota do Token Harbor respeitada)"
+assert_nogrep "$BY" 'gh workflow run agents\.yml' \
+  "contrato v2.1: a build não dispatcha agentes (auditoria é sob demanda — docs/AGENTS.md)"
+assert_grep "$REPO/.github/workflows/agents.yml" 'workflow_dispatch' \
+  "contrato v2.1: auditoria de IA sob demanda (agents.yml manual — deepseek/mimo com contexto ci:<run_id>)"
+assert_grep "$REPO/agents/run.ts" 'RELATÓRIO DE FALHA' \
+  "contrato v2.1: falha do agente gera relatório ASSINADO antes do exit (artifacts 0 MB extintos)"
 assert_nogrep "$BY" 'não derruba a build' \
   "contrato v1.5.2: o abafador 'não derruba a build' não existe mais no build.yml"
 
