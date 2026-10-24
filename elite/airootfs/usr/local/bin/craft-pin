@@ -45,10 +45,13 @@ resolve() {
         for f in "$d"/*.desktop; do
             [ -f "$f" ] || continue
             id="$(basename "$f")"
+            # v2.0.1 — ID casado SEM case (Brave.desktop casa com "brave…"),
+            # mas o que volta é o ID REAL do arquivo: Gio.DesktopAppInfo.new()
+            # é case-sensitive e o ID minúsculo viraria pin ignorado.
+            id_l="$(printf '%s' "$id" | tr '[:upper:]' '[:lower:]')"
             name="$(grep -m1 '^Name=' "$f" | cut -d= -f2- | tr '[:upper:]' '[:lower:]')"
             exec_="$(grep -m1 '^Exec=' "$f" | cut -d= -f2- | tr '[:upper:]' '[:lower:]')"
-            case "$id" in "$q"*) echo "$id"; return 0 ;; esac
-            case "$id" in "${q}.desktop") echo "$id"; return 0 ;; esac
+            case "$id_l" in "$q"*) echo "$id"; return 0 ;; esac
             case "$name" in "$q") echo "$id"; return 0 ;; esac
             case "$exec_" in *"$q"*) echo "$id"; return 0 ;; esac
         done

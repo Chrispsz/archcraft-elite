@@ -8,7 +8,12 @@ on:
         required: false
         default: ''
   push:
-    branches: [main]
+    # v2.0.1 — 'branches: ain]' era YAML CORROMPIDO (93c582e: um sed comeu
+    # o '[m' de [main]; builds de branch disparavam por fallback do
+    # GitHub, sem filtro nenhum — run #85 (push→v1.8.2) é o flagrante).
+    # ['**'] = mesmo comportamento, agora EXPLÍCITO e válido: branch +
+    # tag → build. O paths-ignore mantém docs/testes fora do runner.
+    branches: ['**']
     tags: ['v*']
     paths-ignore: ['**.md', 'docs/**', 'tests/**']
 
@@ -36,15 +41,22 @@ jobs:
       - name: shellcheck (gate — warning ou acima; infos são intencionais e documentadas)
         run: |
           shopt -s globstar
-          shellcheck -S warning -x \
-            scripts/*.sh \
-            .ci/*.sh \
-            elite/fragments/*.sh \
-            elite/airootfs/usr/local/bin/elite-tune \
-            elite/airootfs/usr/local/bin/fg-booster \
-            elite/airootfs/usr/local/bin/elite-status \
-            elite/airootfs/usr/local/bin/craft-* \
-            elite/airootfs/etc/skel/.config/labwc/autostart
+          # v2.0.1 — run #88 em flagrante: o glob craft-* pegou o
+          # craft-dock-gui, que é PYTHON (#!/usr/bin/python3) — shellcheck
+          # só aceita sh/bash/dash/ksh (SC1071 = erro). O gate varre a
+          # lista e PULA qualquer shebang python: novos scripts Python no
+          # bin/ não quebram o lint, e nada sai da cobertura shell.
+          rc=0
+          for f in scripts/*.sh .ci/*.sh elite/fragments/*.sh \
+                   elite/airootfs/usr/local/bin/elite-tune \
+                   elite/airootfs/usr/local/bin/fg-booster \
+                   elite/airootfs/usr/local/bin/elite-status \
+                   elite/airootfs/usr/local/bin/craft-* \
+                   elite/airootfs/etc/skel/.config/labwc/autostart; do
+            head -n1 "$f" | grep -q '^#!.*python' && continue
+            shellcheck -S warning -x "$f" || rc=1
+          done
+          exit $rc
       - name: shfmt (informativo — não bloqueia)
         run: shfmt -d scripts/*.sh .ci/*.sh elite/fragments/*.sh || true
 
