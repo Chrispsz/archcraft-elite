@@ -115,17 +115,38 @@ jobs:
       actions: read
 
   # ── Release: SÓ depois dos gates (live-boot verify + install-boot) ──
+  # v1.8.1 — A CLASSE "RELEASE TRUNCADA" MORTA POR CONTRATO: a v1.8.0
+  # subiu TRUNCADA (1.55 GiB de 2.77 GiB — blob flaky no download do
+  # artifact no release job da #82) e ninguém viu: o split <2 GiB celebrou
+  # o truncamento como "compressão zstd nova" e o Ventoy do dono recusou
+  # a ISO (PVD declarava 2,77 GiB). Três barreiras agora:
+  #   GATE 1 (pré-upload): o artifact tem de casar com o sha256sums.txt
+  #     que o build.sh sela DENTRO dele — download de artifact corrompido
+  #     = run vermelha ANTES de qualquer upload.
+  #   GATE 2 (pós-upload): re-download do ASSET publicado + sha256sum -c —
+  #     o blob do GitHub é a única verdade do dono; mismatch = run vermelha
+  #     (e sem asset quebrado no ar: a release já nasceu verificada).
+  #   EVIDÊNCIA no corpo: tabela sha256 + tamanhos visíveis na release.
   release:
     needs: [build, verify, verify-install]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - name: Baixar artefato da ISO (desta build)
         uses: actions/download-artifact@v4
         with:
           name: archcraft-elite-iso
           path: out
+
+      - name: GATE 1 — integridade do artifact (sha256sums selado pelo build.sh)
+        run: |
+          cd out
+          ls -lh --si
+          echo "── GATE 1: artifact vs sha256sums.txt (iso + sumas na MESMA caixa)"
+          sha256sum -c sha256sums.txt
 
       # ── Release: asset único ≤ 2 GiB; senão, partes de 1.9 GB ─────
       - name: Preparar assets de release (split se > 2 GiB)
@@ -154,12 +175,48 @@ jobs:
             ls -lh --si
           fi
 
+      # Corpo da release: a tabela de integridade VISÍVEL (na v1.8.0 o
+      # PVD dizia 2,77 GiB e o asset tinha 1,55 — na tabela isso salta
+      # aos olhos antes de qualquer download).
+      - name: Corpo da release (tabela de integridade)
+        run: |
+          cd out
+          {
+            echo "### Integridade (verificada no upload — confira após baixar)"
+            echo ""
+            echo '```'
+            cat sha256sums.txt
+            echo '```'
+            echo ""
+            if ls *.part-* >/dev/null 2>&1; then
+              echo "**ISO dividida** (> 2 GiB): baixe **todas** as \`.part-*\` na mesma pasta e junte com \`cat <ISO>.part-* > <ISO>\` — passo a passo em \`JUNTAR-ISO.md\`."
+            else
+              echo "**ISO única** (≤ 2 GiB) — direto no Ventoy/Rufus."
+            fi
+          } > body.md
+
       - name: Release (push de tag v*)
         uses: softprops/action-gh-release@v2
         with:
           files: |
             out/*
+          body_path: out/body.md
           generate_release_notes: true
+
+      - name: GATE 2 — verificação PÓS-upload (re-download do que o GitHub guardou)
+        run: |
+          cd out
+          TAG="${GITHUB_REF#refs/tags/}"
+          echo "── GATE 2: re-baixando os assets de '$TAG' — o blob do GitHub tem de ser a ISO selada"
+          rm -f body.md JUNTAR-ISO.md
+          mkdir downloaded
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir downloaded --clobber
+          cd downloaded
+          ls -lh --si
+          # a ISO inteira (nome original) só existe como asset no modo
+          # single; no split ela é reconstruída das partes --ignore-missing
+          # verifica O QUE EXISTE: qualquer byte divergente = run vermelha
+          sha256sum -c ../sha256sums.txt --ignore-missing
 
   # ── Verificação pós-build: a ISO recém-nascida BOOTA? (gate QEMU) ─
   # Diretriz do dono do projeto: "você testando, você dando o boot" —

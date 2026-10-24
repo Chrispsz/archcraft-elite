@@ -6,6 +6,52 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **v1.8.1 — "a ISO que o Ventoy aceita + o terminal que abre + o debloat
+  sistêmico"** (burn test v1.8.0 do dono: Ventoy recusou a ISO — foto
+  IMG_20261023_234603 — e o "Abrir terminal aqui" do Thunar morreu):
+  - **(A) A v1.8.0 ERA TRUNCADA — a "compressão zstd nova" era um buraco**:
+    matemática sobre a foto do dono (2 números = PVD × asset): o PVD
+    interno da ISO declarava **2.969.681.920 B (2,77 GiB)** e o asset
+    publicado tinha **1.669.742.510 B (56,2%)**. O release job da #82
+    baixou o artifact truncado (a MESMA run cujo verify flagrou blob
+    flaky), fez upload sem verificar, e o split <2 GiB celebrou o
+    truncamento como leveza. O Ventoy recusou na hora — corretamente.
+    **CURA EM 3 CAMADAS**: GATE 1 pré-upload (`sha256sum -c` do artifact
+    vs o sha256sums.txt que o build.sh sela DENTRO dele); GATE 2
+    pós-upload (re-download do asset publicado + `sha256sum -c
+    --ignore-missing` — o blob do GitHub tem de ser a ISO selada);
+    **contrato PVD na suíte** (range-request de 33 KiB → parse do
+    descriptor ISO9660 → tamanho declarado == bytes publicados — matemática,
+    não confiança; pega até truncamento que passe nos hashes). O corpo da
+    release agora traz a tabela de integridade.
+  - **(B) TERMINAL DO THUNAR — a cura no elo certo**: a mensagem do dono é
+    o string do fonte (`exo-execute.c`: "Could not find fallback
+    TerminalEmulator application"). Fonte primária exo 4.20 lida: a cadeia
+    é (1) `xfce4-mime-helper` (não existe na ISO), (2)
+    **`~/.config/xfce4/helpers.rc`** → `g_find_program_in_path(valor)`,
+    (3) `xfce4-terminal.desktop` — **deletado pelo debloat** → erro. CURA:
+    `elite/airootfs/etc/skel/.config/xfce4/helpers.rc` com
+    `TerminalEmulator=foot` — arquivo FLAT (o exo PREPENSA o cabeçalho
+    `[Default]` antes de parsear — duplicado quebraria) e valor = NOME DE
+    BINÁRIO. `g_spawn_async(working_directory)` → o foot abre NA PASTA.
+  - **(C) DEBLOAT SISTÊMICO (pedido: "pra ir além, não só em pacotes")** —
+    só o provadamente inerte, com gate duro (falha no build, nunca no
+    boot): **E15** pod `/usr/share/locale` fora de pt*/en* (locale.alias e
+    l10n/ ficam), `locale.gen` → exatamente `en_US.UTF-8` + `pt_BR.UTF-8`
+    com re-gen do archive (dono pt-BR ganha a locale de fábrica; LANG não
+    muda — rice intacto; auto-cura se locale-gen falhar), e
+    man/info/doc/gtk-doc fora (**licenças ficam** — compliance; páginas
+    voltam reinstalando o pacote). **E16**: papirus-icon-theme embarca 6
+    variantes (~100-160 MB cada); o rice usa **Papirus** (menu labwc) e
+    **Papirus-Dark** (GTK/fuzzel) — as outras 4 (Papirus-Light, ePapirus×3)
+    saem, com gate duro das 2 vivas. **journald com teto** (drop-in:
+    SystemMaxUse=100M / RuntimeMaxUse=64M — disco do instalado e RAM do
+    live protegidos, rotação só). O que NÃO foi tocado de propósito:
+    kernel/firmware (hardware), toolchain+headers (dkms do NVIDIA no
+    update do kernel), hicolor (fallback de ícones), toolchain de build.
+  - **(D) SWEEP anti-debloat**: grep de todos os binários removidos no
+    skel + usr/local/bin — a ferida do terminal era a ÚNICA viva (só um
+    comentário histórico no rc.xml:14). +25 contratos novos na suíte.
 - **v1.8 (branch v2 — "refaz o quebrado, mantém o que funciona"): o BOOT
   com PROVA + o desktop da SPEC do dono** (burn test v1.7.0, fotos
   23/out — GRUB "premature end of file" no sistema instalado):

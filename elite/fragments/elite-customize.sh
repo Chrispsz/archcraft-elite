@@ -489,3 +489,67 @@ i18n:
      name: "Elite: GPU profile + kernels + BORE initramfs (btrfs boot fix)..."
 EOSB
 fi
+
+## [E15] v1.8.1 — DEBLOAT SISTÊMICO (conteúdo morto, não pacotes).
+##      Pedido do dono ("debloat pra ir além, não só em pacotes"). As 4
+##      podas abaixo são provadamente inertes em runtime:
+##        a) /usr/share/locale fora de pt*/en* — a sessão do dono roda
+##           pt/en; todo o resto é tradução de app morta no disco.
+##           locale.alias (arquivo) e l10n/ (dados por-país) ficam.
+##        b) locale.gen → EXATAMENTE en_US.UTF-8 + pt_BR.UTF-8 e re-gen:
+##           o archive de locales (locale-archive) nasce do locale.gen
+##           corrente — podar a lista e regenerar encolhe o arquivo de
+##           ~100-200 MB (todas as locales) para ~1-2 MB. O dono ganha
+##           pt_BR disponível de fábrica (LANG continua o do upstream —
+##           o rice não muda). AUTO-CURA: se o locale-gen falhar, o
+##           locale.gen upstream volta e re-gen; ELITE-FAIL se ainda
+##           assim faltar locale (falha no build, nunca no boot).
+##        c) man/info/doc/gtk-doc fora — nenhum binário lê isso em
+##           runtime; licenças (/usr/share/licenses) FICAM (compliance).
+##           Páginas voltam reinstalando o pacote (pacman -S <pkg>).
+##        d) journald cap = drop-in estático 99-elite-cap.conf (overlay).
+if [[ -f /etc/locale.gen ]]; then
+    { grep -hE '^#?[[:space:]]*en_US\.UTF-8' /etc/locale.gen | head -1
+      grep -hE '^#?[[:space:]]*pt_BR\.UTF-8' /etc/locale.gen | head -1
+    } | sed 's/^#[[:space:]]*//' > /etc/locale.gen.elite
+    if [[ $(grep -c '.' /etc/locale.gen.elite) -eq 2 ]]; then
+        cp /etc/locale.gen /etc/locale.gen.upstream
+        mv /etc/locale.gen.elite /etc/locale.gen
+        locale-gen >/dev/null 2>&1 || true
+        if ! locale -a 2>/dev/null | grep -qi 'en_US.utf8' \
+           || ! locale -a 2>/dev/null | grep -qi 'pt_BR.utf8'; then
+            echo "E15: locale-gen falhou com a lista podada — restaurando locale.gen upstream" >&2
+            mv /etc/locale.gen.upstream /etc/locale.gen
+            locale-gen >/dev/null 2>&1 || true
+            locale -a 2>/dev/null | grep -qi 'en_US.utf8' \
+                || { echo "ELITE-FAIL: locale ausente após auto-cura do E15 (locale-gen quebrado)" >&2; exit 1; }
+        fi
+        rm -f /etc/locale.gen.upstream
+        echo "E15: locales = en_US.UTF-8 + pt_BR.UTF-8 (archive regenerado)"
+    else
+        rm -f /etc/locale.gen.elite
+        echo "E15 AVISO: locale.gen sem as 2 entradas padrão — intocado (upstream mudou?)" >&2
+    fi
+fi
+find /usr/share/locale -mindepth 1 -maxdepth 1 -type d \
+    ! -name 'en*' ! -name 'pt*' ! -name 'l10n' -exec rm -rf {} + 2>/dev/null || true
+rm -rf /usr/share/man /usr/share/info /usr/share/doc /usr/share/gtk-doc 2>/dev/null || true
+echo "E15: locale/man/info/doc/gtk-doc podados (licenses intactas)"
+
+## [E16] v1.8.1 — PAPIRUS: só as 2 variantes que o rice referencia.
+##      O pacote embarca 6 variantes (~100-160 MB cada descompactado);
+##      o rice usa Papirus (menu labwc — menu.xml:54+) e Papirus-Dark
+##      (GTK settings.ini do skel + fuzzel.ini). As outras 4 são peso
+##      morto no squashfs. GATE DURO: as 2 vivas precisam existir após
+##      a poda (config errada ou pacote mudando o layout = build falha,
+##      nunca boot sem ícone).
+for _pv in Papirus-Light ePapirus ePapirus-Dark ePapirus-Light; do
+    rm -rf "/usr/share/icons/$_pv" 2>/dev/null || true
+done
+if [[ -d /usr/share/icons/Papirus && -d /usr/share/icons/Papirus-Dark ]]; then
+    echo "E16: variantes Papirus podadas — restaram Papirus + Papirus-Dark (as do rice)"
+else
+    echo "ELITE-FAIL: Papirus/Papirus-Dark ausentes após poda E16 (pacote mudou?)" >&2
+    exit 1
+fi
+
