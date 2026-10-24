@@ -220,8 +220,8 @@ assert_grep "$DK" 'PINS \(craft-pin\)' "dock: seção PINS presente (craft-pin a
 assert_grep "$DKCSS" 'Pins do usuário \(craft-pin\)' "dock: CSS tem a seção de pins documentada"
 pin_defs=$(grep -c '^  "custom/pin-' "$DK" || true)
 assert_eq "$pin_defs" "0" "dock: skel sai de fábrica com ZERO pins (usuário fixa os seus)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin" 'pkill -SIGUSR2' \
-  "craft-pin: reload via SIGUSR2 (man 5 waybar: recarrega config+estilo)"
+assert_nogrep "$REPO/elite/airootfs/usr/local/bin/craft-pin" 'pkill -SIGUSR2' \
+  "craft-pin: reload SEM SIGUSR2 (waybar 0.15: o sinal recarrega só CSS — config novo nunca entrava; v1.8.2 reinicia o waybar)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin" '\.bak\.' \
   "craft-pin: toda mutação grava backup restaurável (craft-pin restore)"
 assert_grep "$REPO/scripts/apply-overlay.sh" 'craft-pin' \
@@ -374,5 +374,116 @@ assert_grep "$BYML" 'gh release download' "release: GATE 2 pós-upload (re-downl
 assert_grep "$BYML" 'sha256sum -c \.\./sha256sums\.txt --ignore-missing' "release: GATE 2 verifica os bytes publicados (--ignore-missing: split)"
 assert_grep "$BYML" 'body_path: out/body\.md' "release: tabela de integridade no CORPO da release (dono vê tamanhos antes de baixar)"
 assert_grep "$BYML" 'GH_TOKEN: \$\{\{ github\.token \}\}' "release: GATE 2 autenticado (gh release download precisa do token do workflow)"
+
+# ── v1.8.2 — A CLASSE DO TERMBIN iy38 + os flagrantes do áudio/fotos
+#    do dono (24/out): install morto no copytoram, botão gigante GTK4,
+#    pins invisíveis na dock, menus que não se fecham, TUI onde o dono
+#    quer GUI, LACT pedindo Service Setup ──────────────────────────────
+
+# C1 — fonte de kernel em CASCATA (bootmnt → /boot do live → backing do
+#      loop): com copytoram=y (padrão da ISO) o bootmnt é DESMONTADO e a
+#      v1.8.1 morria no job 36 ("nenhum vmlinuz em /run/archiso/bootmnt").
+EIS="$REPO/elite/airootfs/usr/local/bin/elite-install-stage"
+assert_grep "$EIS" 'for cand in /run/archiso/bootmnt/arch/boot/x86_64 /boot' \
+  "install-stage: cascata A+B (bootmnt e o /boot do live) declarada"
+assert_grep "$EIS" 'losetup -n -o BACK-FILE' \
+  "install-stage: cascata C (backing do loop do airootfs — ISO/sfs do copytoram)"
+assert_grep "$EIS" 'mount -o loop,ro "\$backfile"' \
+  "install-stage: cascata C monta o backing read-only"
+assert_nogrep "$EIS" 'ERRO — nenhum vmlinuz' \
+  "install-stage: o hard-fail de copytoram da v1.8.1 NÃO é mais desfecho possível"
+assert_grep "$EIS" 'vmlinuz são\(s\) do unpackfs — seguindo' \
+  "install-stage: alvo com kernel são do unpackfs SEGUE com aviso (não morre)"
+assert_grep "$EIS" '"MZ"' \
+  "install-stage: sanidade do kernel do alvo = tamanho + assinatura bzImage"
+assert_grep "$EIS" 'cmp -s "\$kv" "\$tmp"' \
+  "install-stage: a PROVA da v1.8 (cmp byte-a-byte) fica intacta"
+
+# H1 — GTK4: o círculo do Adwaita é o `> image` DENTRO do button (fonte:
+#      libadwaita _header-bar.scss); pintar o button sem matar o image =
+#      botão gigante (flagrante: LACT/Papers/pwvucontrol, 24/out).
+G4="$REPO/elite/airootfs/etc/skel/.config/gtk-4.0/gtk.css"
+assert_grep "$G4" 'windowcontrols > button > image' \
+  "gtk4: o círculo interno do Adwaita é neutralizado no image do button"
+assert_grep "$G4" 'windowcontrols > button:hover > image' \
+  "gtk4: veneno do `> image` cobre HOVER (estado que o Adwaita pinta)"
+assert_grep "$G4" 'windowcontrols > button\.close' \
+  "gtk4: trio pintado com especificidade ≥ Adwaita (> button.close)"
+assert_grep "$G4" 'background-image: none' \
+  "gtk4: background-image morto (glyph SVG do Adwaita não vaza)"
+# o css GTK4 inteiro tem que parsear limpo: classe de erro waybar (v1.7.2)
+# e GTK compartilham a leitura — propriedade desconhecida aborta o arquivo
+if [[ -f "$G4" ]]; then
+  python3 - "$G4" <<'PYEOF' && ok "gtk4: css sem chaves desbalanceadas (estrutura íntegra)" || fail "gtk4: css sem chaves desbalanceadas" "recontar {} no arquivo"
+import sys
+s = open(sys.argv[1]).read()
+assert s.count('{') == s.count('}'), f"{s.count('{')} abre vs {s.count('}')} fecha"
+PYEOF
+fi
+
+# H2a — craft-pin-status com bit de execução: sem 0755 o exec do waybar
+#      morre em Permission denied e os 3 pins de fábrica NASCEM INVISÍVEIS
+#      (dock com só 2 ícones — flagrante do dono, IMG_20261024_114720).
+AO="$REPO/scripts/apply-overlay.sh"
+assert_grep "$AO" '/usr/local/bin/craft-pin-status' \
+  "apply-overlay: craft-pin-status na lista file_permissions (0755 — pins visíveis)"
+
+# H2b — reload do craft-pin: SIGUSR2 no waybar 0.15 recarrega SÓ CSS
+#      ("fixou, mas a dock não atualizou" — áudio do dono). Reload real =
+#      reiniciar o waybar (craft-bars devolve em ≤5s lendo o config novo).
+#      (o contrato nogrep 'pkill -SIGUSR2' já existe na peça da dock — 223)
+CPIN="$REPO/elite/airootfs/usr/local/bin/craft-pin"
+assert_grep "$CPIN" 'pkill -x waybar' \
+  "craft-pin: reload reinicia o waybar (config novo entra; supervisor devolve)"
+
+# H3 — cross-dismiss: abrir Sessão fecha Rede e vice-versa (nunca 2
+#      dropdowns empilhados — áudio do dono, 24/out e 21/out)
+CPOW="$REPO/elite/airootfs/usr/local/bin/craft-power"
+CCON="$REPO/elite/airootfs/usr/local/bin/craft-connect"
+assert_grep "$CPOW" "pkill -f 'fuzzel\.\*--prompt=Rede'" \
+  "craft-power: cross-dismiss — abrir Sessão fecha o menu de Rede"
+assert_grep "$CCON" "pkill -f 'fuzzel\.\*--prompt=Sess'" \
+  "craft-connect: cross-dismiss — abrir Rede fecha o menu de Sessão"
+
+# H4 — conectividade GUI (dono: "impala e bluetui eu não sei utilizar…
+#      quero mais bonito e mais fácil"): nm-applet + blueman de volta,
+#      craft-connect abre nm-connection-editor/blueman-manager, applets
+#      na sessão, TUIs só como fallback
+assert_grep "$REPO/elite/packages.add" '^nm-applet$' \
+  "packages.add: nm-applet de volta (GUI de rede no dia a dia)"
+assert_grep "$REPO/elite/packages.add" '^blueman$' \
+  "packages.add: blueman de volta (GUI de bluetooth no dia a dia)"
+assert_grep "$CCON" 'nm-connection-editor' \
+  "craft-connect: menu abre GUI de rede (TUI impala só como fallback)"
+assert_grep "$CCON" 'blueman-manager' \
+  "craft-connect: menu abre GUI de bluetooth (TUI bluetui só como fallback)"
+RCXML="$REPO/elite/airootfs/etc/skel/.config/labwc/rc.xml"
+assert_grep "$RCXML" 'command="nm-connection-editor"' \
+  "rc.xml: W-n abre GUI de rede (era impala TUI)"
+assert_grep "$RCXML" 'command="blueman-manager"' \
+  "rc.xml: W-S-b abre GUI de bluetooth (era bluetui TUI)"
+AUTO="$REPO/elite/airootfs/etc/skel/.config/labwc/autostart"
+assert_grep "$AUTO" 'nm-applet &' \
+  "autostart: nm-applet na tray (ícone de rede sempre à mão)"
+assert_grep "$AUTO" 'blueman-applet &' \
+  "autostart: blueman-applet na tray (bluetooth à mão)"
+
+# H5 — LACT com daemon de fábrica (flagrante: "Service Status: inactive")
+assert_grep "$ECF" '\[E17\]' \
+  "customize: E17 presente (lactd habilitado no build)"
+assert_grep "$ECF" 'systemctl enable lactd\.service' \
+  "customize: E17 habilita o lactd (LACT abre com controle total)"
+assert_grep "$ECF" 'ELITE-FAIL: systemctl enable lactd' \
+  "customize: E17 com gate duro (wants ausente = build falha)"
+
+# M3 — Brave com titlebar GTK (os botões mac do rice aplicam no Chromium;
+#      flagrante: Brave com X padrão — áudio do dono, 24/out)
+BLS="$REPO/elite/airootfs/etc/skel/.config/BraveSoftware/Brave-Browser/Local State"
+assert_file "$BLS" "brave: Local State preseedado no skel"
+python3 - "$BLS" <<'PYEOF' && ok "brave: Local State é JSON válido com custom_chrome_frame=false" || fail "brave: Local State" "JSON inválido ou pref ausente"
+import json, sys
+d = json.load(open(sys.argv[1]))
+assert d["browser"]["custom_chrome_frame"] is False
+PYEOF
 
 phase_end

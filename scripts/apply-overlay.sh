@@ -480,6 +480,7 @@ if grep -q '^file_permissions=(' "$PD"; then
            /usr/local/bin/craft-shot /usr/local/bin/craft-bat \
            /usr/local/bin/craft-drawer /usr/local/bin/craft-power /usr/local/bin/craft-pin \
            /usr/local/bin/craft-connect /usr/local/bin/craft-pin-pick \
+           /usr/local/bin/craft-pin-status \
            /usr/local/bin/craft-fix-keys /usr/local/bin/craft-idle \
            /usr/local/bin/craft-bars /usr/local/bin/elite-install-stage \
            /usr/local/bin/elite-session-probe \

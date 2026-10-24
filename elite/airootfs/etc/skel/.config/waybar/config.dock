@@ -30,7 +30,7 @@
 {
   "layer": "top",
   "position": "bottom",
-  "height": 62,
+  "height": 54,
   "exclusive": false,
   "margin-top": 0,
   // v1.4: 8px SEMPRE (a pílula flutua visível — auto-hide morto; o CSS
@@ -108,7 +108,7 @@
   // app_id → .desktop → ícone). Clique foca, meio fecha, dir minimiza.
   "wlr/taskbar": {
     "format": "{icon}",
-    "icon-size": 40,
+    "icon-size": 34,
     "tooltip-format": "{title}",
     "on-click": "activate",
     "on-click-middle": "close",

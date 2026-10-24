@@ -24,6 +24,10 @@ if pgrep -x labnag >/dev/null 2>&1; then
     pkill -x labnag 2>/dev/null || true
     exit 0
 fi
+# v1.8.2 — CROSS-DISMISS (pedido do dono: "abro o menu de rede, clico no
+# desligar, o de rede tem que SAIR da tela"): abrir Sessão fecha o menu
+# de Rede — nunca dois dropdowns empilhados na frente do desktop.
+pkill -f 'fuzzel.*--prompt=Rede' 2>/dev/null || true
 
 if command -v fuzzel >/dev/null 2>&1; then
     # anchor top-right + margens: colado no canto, 44px abaixo do topo

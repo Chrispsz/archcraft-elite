@@ -553,3 +553,24 @@ else
     exit 1
 fi
 
+
+## [E17] v1.8.2 — LACT: o daemon habilitado DE FÁBRICA.
+##      Burn test da v1.8.1 (fotos do dono IMG_20261024_115839 + áudio):
+##      abrir o LACT mostrava "Service Setup · Service Status: inactive" —
+##      o app instava o usuário a configurar serviço à mão. O ppfeaturemask
+##      do amdgpu (E10/elite-install-stage) já destrava undervolt/OC; o que
+##      faltava era o lactd subindo. Habilitar no BUILD = o symlink nasce
+##      no /etc do airootfs → o LIVE e o INSTALADO (unpackfs) herdam — um
+##      comando cobre os dois. Guard: sem o unit (pacote mudou), avisa e
+##      segue — o LACT continua abrindo em modo leitura, como hoje.
+if [[ -f /usr/lib/systemd/system/lactd.service ]]; then
+    systemctl enable lactd.service 2>/dev/null || true
+    if [[ -e /etc/systemd/system/multi-user.target.wants/lactd.service ]]; then
+        echo "E17: lactd habilitado (LACT abre com controle total, sem Service Setup)"
+    else
+        echo "ELITE-FAIL: systemctl enable lactd não criou o wants (systemd mudou?)" >&2
+        exit 1
+    fi
+else
+    echo "E17 AVISO: lactd.service ausente — LACT segue em modo leitura (pacote mudou?)"
+fi
