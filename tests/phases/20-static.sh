@@ -41,6 +41,10 @@ fi
 if command -v shellcheck >/dev/null 2>&1; then
   sc_log="$WORK/shellcheck.log"; : > "$sc_log"
   for s in "${SHELLS[@]}"; do
+    # v2.0.1 — craft-dock-gui é PYTHON (#!/usr/bin/python3): shellcheck só
+    # aceita sh/bash/dash/ksh (SC1071) — MESMA regra do gate de lint do
+    # build.yml (run #88 em flagrante: lint morreu no GUI Python).
+    head -n1 "$s" | grep -q '^#!.*python' && continue
     shellcheck -S warning -x "$s" >> "$sc_log" 2>&1 || true
   done
   # o lint cobre também os mocks/extract gerados (padrão de qualidade da suíte)
@@ -55,6 +59,16 @@ if command -v shellcheck >/dev/null 2>&1; then
 else
   skip "shellcheck: gate do CI" "binário ausente neste ambiente — o job de lint no GitHub o executa"
 fi
+
+# peça v2.0.1: o gate de lint (build.yml) e esta suíte compartilham a regra
+# python — craft-dock-gui é PyGObject e shellcheck só aceita shells (SC1071;
+# run #88 do CI em flagrante: lint morto antes do build). E o gatilho push
+# do build.yml é YAML VÁLIDO (o 'branches: ain]' corrompido da 93c582e morre
+# — builds de branch disparavam por fallback sem filtro do GitHub).
+assert_grep "$REPO/.github/workflows/build.yml" "grep -q '\^#!\.\*python'" "v2.0.1: lint do CI pula script Python (SC1071 — run #88)"
+assert_grep "$REPO/tests/phases/20-static.sh" "grep -q '\^#!\.\*python'" "v2.0.1: a SUÍTE também pula Python no shellcheck (mesma regra do lint)"
+assert_nogrep "$REPO/.github/workflows/build.yml" "^\s*branches: ain\]" "v2.0.1: gatilho 'branches: ain]' (YAML corrompido) EXTINTO (linha de config, não comentário)"
+assert_grep "$REPO/.github/workflows/build.yml" "branches: \['\*\*'\]" "v2.0.1: gatilho push válido ['**'] (branch+tag → build, explícito)"
 
 # peças: YAML válido (os 5 workflows — v1.5.2: diag-install renomeado p/
 # verify-install [nomenclatura de debug não vive em pipeline de produção]

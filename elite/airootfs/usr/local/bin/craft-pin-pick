@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# craft-pin-pick — fixa um app na DOCK escolhendo numa lista (v1.4)
+# craft-pin-pick — fixa um app na DOCK escolhendo numa lista (v2.0)
 # ─────────────────────────────────────────────────────────────────────────
 # Burn test do dono na v1.3 ao vivo: "tentei fixar alguma coisa nela e
 # não consigo — na verdade fica fixando ali na bandeja de aplicativos".
@@ -7,16 +7,19 @@
 # (pinned box dele — upstream), não na dock; e o craft-pin (que fixa na
 # dock de verdade) era CLI invisível. Este picker expõe o craft-pin no
 # fluxo mouse-first: clique-direito no desktop → "Fixar app na dock…"
-# → lista de apps instalados → botão pintado no DNA visual da dock.
+# → lista de apps instalados → craft-pin fixa o .desktop na dock nativa.
 #
-# Glifos por app nascem de printf '\uXXXX' (fonte 100% ASCII — a v1.1
-# perdeu glifos literais por corrupção de encoding; aqui é impossível).
-# Apps fora do mapa ganham círculo neutro em mauve.
+# v2.0 — DOCK NATIVA (craft-dock-gui): este picker estava PRESO à dock
+# waybar extinta — exigia ~/.config/waybar/config.dock (apagado na v2.0)
+# e morria com "✖ config.dock não encontrado"; o mapa glifo/cor era
+# consumido por ninguém (ícones Nerd Font morreram com a dock waybar —
+# o ícone REAL agora vem do tema via Gio.DesktopAppInfo, resolvido pela
+# própria dock). O picker só entrega o .desktop ao craft-pin, que
+# valida, faz backup, grava e recarrega a dock (SIGUSR2).
 set -euo pipefail
 
-DOCK="$HOME/.config/waybar/config.dock"
 command -v fuzzel >/dev/null 2>&1 || { echo "✖ fuzzel não encontrado" >&2; exit 1; }
-[ -f "$DOCK" ] || { echo "✖ config.dock não encontrado: $DOCK" >&2; exit 1; }
+command -v craft-pin >/dev/null 2>&1 || { echo "✖ craft-pin não encontrado" >&2; exit 1; }
 
 # ── 1. Inventário: .desktop visíveis (overrides primeiro — XDG order) ──
 LIST="$(mktemp)"
@@ -45,35 +48,10 @@ choice="$(cut -f1 "$LIST" | fuzzel --dmenu --lines=10 --width=32 \
 
 base="$(awk -F'\t' -v n="$choice" '$1 == n {print $2; exit}' "$LIST")"
 [ -n "$base" ] || exit 0
-f="/usr/local/share/applications/$base"
-[ -r "$f" ] || f="/usr/share/applications/$base"
 
-# ── 3. Deriva os args do craft-pin a partir do .desktop ──────────────
-id="$(printf '%s' "$base" | sed 's/\.desktop$//' | tr '[:upper:]' '[:lower:]' \
-    | sed 's/[^a-z0-9-]/-/g; s/^-*//; s/-*$//; s/--*/-/g')"
-[ -n "$id" ] || id="app$$"
-
-exec_="$(sed -n 's/^Exec=//p' "$f" | head -1)"
-exec_="$(printf '%s' "$exec_" | sed 's/ %[a-zA-Z]//g' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
-[ -n "$exec_" ] || exec_="$id"
-
-# glifo + cor: mapa dos apps da Elite (mesma semântica da dock fixa);
-# desconhecidos → círculo em mauve
-glyph='' cor='mauve'
-case "$id" in
-    brave*)              glyph=$(printf '\uf132'); cor='peach'   ;;
-    foot*)               glyph=$(printf '\uf120'); cor='green'   ;;
-    thunar*)             glyph=$(printf '\uf07b'); cor='yellow'  ;;
-    mpv*)                glyph=$(printf '\uf03d'); cor='mauve'   ;;
-    imv*)                glyph=$(printf '\uf03e'); cor='lavender' ;;
-    btop*)               glyph=$(printf '\uf080'); cor='teal'    ;;
-    qalculate*)          glyph=$(printf '\uf1ec'); cor='yellow'  ;;
-    papers*)             glyph=$(printf '\uf1c1'); cor='lavender' ;;
-    *)                   glyph=$(printf '\uf111')               ;;
-esac
-
-# ── 4. Fixa (craft-pin valida tudo, pinta o CSS e recarrega a dock) ──
-if craft-pin add "$id"; then
+# ── 3. Fixa o ID .desktop REAL (Gio.DesktopAppInfo.new() é case-sensitive:
+#       nada de slug minúsculo — o ID exato é o que a dock consome) ──────
+if craft-pin add "$base"; then
     if command -v notify-send >/dev/null 2>&1; then
         notify-send -a craft-pin "Dock" \
             "'$choice' fixado na dock (clique-direito no desktop → Fixar p/ mais)" || true

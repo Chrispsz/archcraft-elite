@@ -1675,6 +1675,14 @@ assert_grep "$CPW" 'pkill -x labnag' "v1.4: fallback labnag também vira toggle"
 assert_file "$CPP" "v1.4: craft-pin-pick existe (fixar sem CLI — burn test: 'tentei fixar e não consigo')"
 assert_grep "$MXML" 'craft-pin-pick' "v1.4: root menu do desktop expõe 'Fixar app na dock…'"
 assert_grep "$CPP" 'craft-pin add' "v1.4: picker delega no craft-pin (mesma maquinaria validada)"
+# v2.0.1: o picker acordou para a dock NATIVA — o config.dock (extinto na
+# v2.0) era pré-requisito e matava o picker ("✖ config.dock não
+# encontrado"); glifo Nerd Font morreu com a dock waybar; o ID entregue
+# ao craft-pin é o .desktop REAL (Gio.DesktopAppInfo é case-sensitive).
+assert_nogrep "$CPP" 'config\.dock' "v2.0.1: picker NÃO exige o config.dock extinto (dock = craft-dock-gui)"
+assert_nogrep "$CPP" 'glyph' "v2.0.1: mapa de glifo/cor extinto do picker (ícone real via tema/Gio)"
+assert_grep "$CPP" 'craft-pin add "\$base"' "v2.0.1: picker fixa o ID .desktop REAL (case-sensitive — sem slug)"
+assert_nogrep "$CPP" "SC2034|glyph=''" "v2.0.1: zero variável morta no picker (shellcheck warning é gate)"
 
 # ── Barras SUPERVISIONADAS (v1.6.3): burn test da v1.6.2 subiu SÓ com ────
 #    wallpaper — waybar morreu calado, sem stderr, e o gate do CI (serial)
