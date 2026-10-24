@@ -45,7 +45,7 @@ PINS_FILE = os.path.join(
     GLib.get_user_config_dir(), "elite", "dock-pins"
 )
 CSS_FILE = os.path.join(GLib.get_user_config_dir(), "elite", "dock.css")
-LOG = os.path.join(GLib.get_user_home_dir(), ".cache", "elite", "dock.log")
+LOG = os.path.join(GLib.get_user_cache_dir(), "elite", "dock.log")
 
 ICON_SIZE = 36          # spec M3.2: escala fixa de fábrica
 MARGIN_BOTTOM = 6       # pílula flutuando 6px acima da base (modo auto)

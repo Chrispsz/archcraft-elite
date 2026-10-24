@@ -1755,6 +1755,11 @@ assert_grep "$CTP8" '"on-click": "craft-power"' "v1.8: liga/desliga/reset = bot�
 # craft-pin-status está EXTINTO (o GUI é o único consumidor de estado):
 assert_nofile "$CPS" "v2.0: craft-pin-status EXTINTO (o indicador mora no GUI)"
 assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'pgrep' "v2.0: detecção de aberto = pgrep (sem rede, sem jq — mesma dieta)"
+# v2.1 — REGRESSÃO DA RUN #92: GLib.get_user_home_dir() NÃO EXISTE em
+# PyGObject (AttributeError → dock crash-loopava 20× no boot; o gate da
+# sessão pegou). A API para o .cache é get_user_cache_dir() (XDG).
+assert_nogrep "$P/airootfs/usr/local/bin/craft-dock-gui" 'get_user_home_dir' "v2.1: API inexistente GLib.get_user_home_dir BANIDA do dock (run #92: AttributeError → crash-loop 20×)"
+assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'get_user_cache_dir' "v2.1: log da dock via GLib.get_user_cache_dir (XDG_CACHE_HOME correto)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'add_class..running' "v2.0: o ponto acende via classe .running no GUI"
 assert_grep "$P/airootfs/usr/local/bin/craft-pin" 'craft-dock reload' \
   "v2.0: craft-pin recarrega a dock por sinal (fim da era waybar)"
