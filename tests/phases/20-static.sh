@@ -449,8 +449,8 @@ assert_grep "$CCON" "pkill -f 'fuzzel\.\*--prompt=Sess'" \
 #      quero mais bonito e mais fácil"): nm-applet + blueman de volta,
 #      craft-connect abre nm-connection-editor/blueman-manager, applets
 #      na sessão, TUIs só como fallback
-assert_grep "$REPO/elite/packages.add" '^nm-applet$' \
-  "packages.add: nm-applet de volta (GUI de rede no dia a dia)"
+assert_grep "$REPO/elite/packages.add" '^network-manager-applet$' \
+  "packages.add: network-manager-applet de volta (GUI de rede no dia a dia — nm-applet é o binário)"
 assert_grep "$REPO/elite/packages.add" '^blueman$' \
   "packages.add: blueman de volta (GUI de bluetooth no dia a dia)"
 assert_grep "$CCON" 'nm-connection-editor' \
@@ -471,9 +471,9 @@ assert_grep "$AUTO" 'blueman-applet &' \
 # H5 — LACT com daemon de fábrica (flagrante: "Service Status: inactive")
 assert_grep "$ECF" '\[E17\]' \
   "customize: E17 presente (lactd habilitado no build)"
-assert_grep "$ECF" 'systemctl enable lactd\.service' \
-  "customize: E17 habilita o lactd (LACT abre com controle total)"
-assert_grep "$ECF" 'ELITE-FAIL: systemctl enable lactd' \
+assert_grep "$ECF" 'ln -sf /usr/lib/systemd/system/lactd\.service' \
+  "customize: E17 habilita o lactd via symlink direto (container sem PID 1 — systemctl não é confiável no build)"
+assert_grep "$ECF" 'ELITE-FAIL: symlink do wants do lactd' \
   "customize: E17 com gate duro (wants ausente = build falha)"
 
 # M3 — Brave com titlebar GTK (os botões mac do rice aplicam no Chromium;
