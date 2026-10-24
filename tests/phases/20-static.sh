@@ -254,6 +254,11 @@ assert_grep "$GUI" 'hotspot' "v2.0: autohide POR HOTSPOT nativo (tira que revela
 assert_grep "$GUI" 'SIGUSR1' "v2.0: toggle via sinal (W-S-d → craft-dock)"
 assert_grep "$GUI" 'SIGUSR2' "v2.0: reload de pins via sinal (craft-pin add/rm)"
 assert_grep "$GUI" 'pgrep' "v2.0: indicador de aberto (classe .running — o ponto do macOS)"
+# v2.1.1 (run #93): PyGObject lança TypeError ("constructor returned NULL")
+# em construtor não-nullable — o guard `if info is None` sozinho NUNCA roda.
+# read_pins tem que capturar TypeError: pin ruim é ignorado com log, a dock
+# não morre (a #93 crash-loopou 15× sem isso).
+assert_grep "$GUI" 'except TypeError' "v2.1.1: read_pins captura TypeError do PyGObject (pin inválido ignorado — a #93 crash-loopou 15× sem isso)"
 assert_file "$DKCSS" "v2.0: dock.css no skel (GTK3 CSS da pílula)"
 assert_grep "$DKCSS" 'min-height: 44px' "v2.0 M3.1: bounding box único nos botões (ícone CENTRADO no caixilho — a cura do desalinho)"
 assert_nogrep "$DKCSS" 'font-size' "v2.0 M3.1: dock.css não escala glifo (não existe mais glifo — só ícone real)"
@@ -262,7 +267,11 @@ pin_lines=$(grep -cv '^#\|^$' "$PINSKEL" 2>/dev/null || echo 0)
 assert_eq "$pin_lines" "3" "v2.0: fábrica = 3 pins de apps reais (foot/thunar/brave — SEM lançador e SEM ação na dock: M2.4/M3.4)"
 assert_grep "$PINSKEL" 'foot\.desktop' "v2.0: pin Terminal (foot)"
 assert_grep "$PINSKEL" 'thunar\.desktop' "v2.0: pin Arquivos (thunar)"
-assert_grep "$PINSKEL" 'brave\.desktop' "v2.0: pin Brave Origin"
+# v2.1.1 (run #93): o brave-origin instala 'brave-browser.desktop' (contrato
+# do build.sh); o pin 'brave.desktop' não resolve → DesktopAppInfo.new NULL →
+# PyGObject lança TypeError → dock crash-loopou 15× e derrubou o verify.
+assert_grep "$PINSKEL" 'brave-browser\.desktop' "v2.1.1: pin Brave = ID REAL do pacote (brave-browser.desktop — 'brave.desktop' crash-loopou a dock na #93)"
+assert_nogrep "$PINSKEL" 'brave\.desktop' "v2.1.1: ID inexistente banido do pins (o .desktop do Brave é brave-browser.desktop)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock" 'USR1' "v2.0: craft-dock toggle via SIGUSR1 (W-S-d)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock" 'USR2' "v2.0: craft-dock reload via SIGUSR2 (craft-pin)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bars" 'craft-dock-gui' "v2.0: craft-bars supervisiona a dock NATIVA (mesma garantia ≤5s da v1.6.3)"

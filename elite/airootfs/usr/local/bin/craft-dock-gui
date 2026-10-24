@@ -1,6 +1,8 @@
 #!/usr/bin/python3
 # ═══════════════════════════════════════════════════════════════════════════
 # Archcraft ELITE · craft-dock-gui (v2.0 — "a dock de verdade")
+# v2.1.1: read_pins à prova de TypeError (pin inválido é ignorado com log —
+# nunca mais crash-loop; run #93 como evidência).
 # ═══════════════════════════════════════════════════════════════════════════
 # POR QUÊ EXISTE (feedback do dono, out/2026): a dock de waybar com pins de
 # GLIFO Nerd Font entregou "botões mal recortados, mal encaixados" e "nada é
@@ -71,7 +73,15 @@ def read_pins():
                 appid = line.strip()
                 if not appid or appid.startswith("#"):
                     continue
-                info = Gio.DesktopAppInfo.new(appid)
+                # v2.1.1 (run #93): o PyGObject LANÇA TypeError ("constructor
+                # returned NULL") em construtor não-nullable — o None JAMAIS
+                # chega ao `if info is None`. Pin inválido é ignorado com log;
+                # um pin ruim NUNCA derruba a dock (na #93 o 'brave.desktop'
+                # inexistente crash-loopou 15× e derrubou o verify).
+                try:
+                    info = Gio.DesktopAppInfo.new(appid)
+                except TypeError:
+                    info = None
                 if info is None:
                     log(f"pin ignorado (desktop inexistente): {appid}")
                     continue

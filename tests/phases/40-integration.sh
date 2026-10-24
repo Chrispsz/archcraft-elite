@@ -166,7 +166,10 @@ assert_file "$P/airootfs/etc/skel/.config/fuzzel/fuzzel.ini" "v1.0.3: fuzzel con
 # O lançador de apps fica EXCLUSIVO na barra superior (M2.4/M3.4):
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" '"custom/drawer"' "v1.9 M2.4: barra superior com o ARCH lançador no canto esquerdo (exclusivo)"
 assert_nogrep "$P/airootfs/etc/skel/.config/waybar/config.top" '"wlr/taskbar"' "v2.0: a barra superior não vira dock (as janelas alternam por A-Tab e o wlr/window mostra o foco)"
-assert_grep "$P/airootfs/etc/skel/.config/elite/dock-pins" 'brave\.desktop' "v2.0: Brave fixado de fábrica (ícone REAL do tema via .desktop)"
+# v2.1.1 (run #93): o ID do pin tem que ser o .desktop REAL do pacote
+# (brave-origin instala brave-browser.desktop) — 'brave.desktop' não existe.
+assert_grep "$P/airootfs/etc/skel/.config/elite/dock-pins" 'brave-browser\.desktop' "v2.1.1: Brave fixado com o ID REAL (brave-browser.desktop — 'brave.desktop' crash-loopou a dock na #93)"
+assert_nogrep "$P/airootfs/etc/skel/.config/elite/dock-pins" 'brave\.desktop' "v2.1.1: NENHUM pin com ID que não resolve (banido após a #93)"
 assert_grep "$P/airootfs/etc/skel/.config/elite/dock-pins" 'foot\.desktop' "v2.0: Terminal (foot) fixado de fábrica"
 assert_grep "$P/airootfs/etc/skel/.config/elite/dock-pins" 'thunar\.desktop' "v2.0: Arquivos (Thunar) fixado de fábrica"
 assert_nogrep "$P/airootfs/etc/skel/.config/elite/dock-pins" 'craft-drawer\|uf3' "v2.0 M3.4: NENHUM lançador/ação/glifo na dock (só apps de verdade)"
@@ -573,7 +576,7 @@ assert_nogrep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'command="(foot -e )?(
 assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'identifier="com\.github\.dominiksalvet\.pwvucontrol"' \
   "v1.1: windowRule do mixer aponta pwvucontrol (identificador novo)"
 # waybar dock: launchers convertidos (v1.5: ícones reais)
-assert_grep "$SKCFG/elite/dock-pins" 'brave\.desktop' "v1.1→v2.0: dock abre brave (via .desktop — ícone real do tema)"
+assert_grep "$SKCFG/elite/dock-pins" 'brave-browser\.desktop' "v1.1→v2.1.1: dock abre brave (ID REAL do pacote — 'brave.desktop' não existe e crash-loopou na #93)"
 # overlay de REDE: sysctl BBR + módulo carregado antes do systemd-sysctl
 assert_file "$P/airootfs/etc/sysctl.d/99-elite-net.conf" "v1.1: /etc/sysctl.d/99-elite-net.conf na ISO (BBR assado)"
 assert_grep "$P/airootfs/etc/sysctl.d/99-elite-net.conf" '^net\.core\.default_qdisc = fq$' "v1.1: qdisc fq (BBR exige)"
@@ -1704,15 +1707,18 @@ assert_grep "$REPO/scripts/apply-overlay.sh" 'craft-bars' "v1.6.3: craft-bars no
 #    registra exit code de cada morte; (3) elite-session-probe colhe o
 #    estado real da sessão 60s pós-graphical.target e imprime no console;
 #    (4) o gate do CI (build.yml + qemu-boot-test.sh) grepa o bloco e
-#    cobra WAYBAR_COUNT≥2 e BARS_EXITS=0.
+#    cobra WAYBAR_COUNT≥1 + DOCK_COUNT≥1 e BARS_EXITS=0 (v2.1.1 — a sessão
+#    v2.0 é 1 waybar + dock GTK; o "-ge 2" da era waybar-dock era defasado e
+#    a #93 flagrou: 1/2 com a dock crash-loopando por pin inexistente).
 AUTX2="$P/airootfs/etc/skel/.config/labwc/autostart"
 PROBE="$P/airootfs/usr/local/bin/elite-session-probe"
 PSVC="$P/airootfs/etc/systemd/system/elite-session-probe.service"
 assert_file "$PROBE" "v1.7.1: elite-session-probe existe (evidência da sessão gráfica)"
 assert_grep "$PROBE" 'ELITE_PROBE_BEGIN' "v1.7.1: probe abre bloco marcado (gate grepa o serial)"
 assert_grep "$PROBE" 'ELITE_PROBE_END' "v1.7.1: probe fecha bloco marcado (fim determinístico)"
-assert_grep "$PROBE" 'WAYBAR_COUNT=' "v1.7.1: probe reporta WAYBAR_COUNT (2 barras vivas)"
-assert_grep "$PROBE" 'BARS_EXITS=' "v1.7.1: probe reporta BARS_EXITS (mortes do waybar)"
+assert_grep "$PROBE" 'WAYBAR_COUNT=' "v1.7.1: probe reporta WAYBAR_COUNT (waybar top vivo)"
+assert_grep "$PROBE" 'DOCK_COUNT=' "v2.1.1: probe reporta DOCK_COUNT (dock GTK faz parte da sessão — a #93 provou: dock morta = sessão incompleta)"
+assert_grep "$PROBE" 'BARS_EXITS=' "v1.7.1: probe reporta BARS_EXITS (mortes de barra — waybar/dock)"
 assert_grep "$PROBE" '/dev/console' "v1.7.1: probe escreve no console (serial no QEMU)"
 assert_file "$PSVC" "v1.7.1: elite-session-probe.service existe"
 assert_grep "$PSVC" 'ExecStart=/usr/local/bin/elite-session-probe' "v1.7.1: service aponta o probe real"
@@ -1728,9 +1734,11 @@ assert_grep "$AUTX2" 'craft-bars ausente/sem bit de execução' "v1.7.1: guard l
 assert_grep "$CBR" 'SAIU exit=' "v1.7.1: craft-bars registra exit code de cada morte do waybar"
 assert_grep "$REPO/scripts/apply-overlay.sh" 'elite-session-probe' "v1.7.1: probe no file_permissions (0755 — sem isso o service morre 203/EXEC)"
 assert_grep "$REPO/scripts/qemu-boot-test.sh" 'ELITE_PROBE_END' "v1.7.1: gate local espera o bloco do probe"
-assert_grep "$REPO/scripts/qemu-boot-test.sh" 'WAYBAR_COUNT' "v1.7.1: gate local cobra as 2 barras vivas"
+assert_grep "$REPO/scripts/qemu-boot-test.sh" 'WAYBAR_COUNT' "v1.7.1: gate local cobra o waybar vivo"
+assert_grep "$REPO/scripts/qemu-boot-test.sh" 'DOCK_COUNT' "v2.1.1: gate local cobra a dock viva (sessão v2.0 = waybar + dock GTK)"
 assert_grep "$REPO/.github/workflows/build.yml" 'ELITE_PROBE_END' "v1.7.1: gate do CI espera o bloco do probe"
-assert_grep "$REPO/.github/workflows/build.yml" 'WAYBAR_COUNT' "v1.7.1: gate do CI cobra as 2 barras vivas"
+assert_grep "$REPO/.github/workflows/build.yml" 'WAYBAR_COUNT' "v1.7.1: gate do CI cobra o waybar vivo"
+assert_grep "$REPO/.github/workflows/build.yml" 'DOCK_COUNT' "v2.1.1: gate do CI cobra a dock viva (sessão v2.0 = waybar + dock GTK)"
 
 # ── DESKTOP v3 (v1.8 — branch v2, a SPEC DO DONO no burn test da v1.7.0): ─
 #    "canto superior esquerdo o ícone do archlinux... relógio centralizado,

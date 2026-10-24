@@ -102,20 +102,26 @@ chk $? "binários Elite executáveis (sem 203/EXEC)" "203/EXEC no live: binário
 grep -q 'systemd.default_timeout_start_sec=90' "$ENTRY"
 chk $? "cmdline real com timeout 90s ([6.2] presente)" "ISO SEM timeout 90s no cmdline — fix [6.2] regrediu"
 
-# v1.7.1 — GATE DA SESSÃO: o que o dono vê NÃO é o login, é a sessão. Se o
-# probe chegou, as 2 barras waybar têm que estar VIVAS e SEM nenhuma morte
-# registrada (BARS_EXITS conta os 'SAIU exit=' do craft-bars — cada morte do
-# waybar deixa linha com hora+exit code). Se o probe NÃO chegou (QEMU headless
-# sem sessão), informativo — o gate não cobra o que não pode ver.
+# v1.7.1 — GATE DA SESSÃO: o que o dono vê NÃO é o login, é a sessão. Desde
+# a v2.0 a sessão é waybar top + dock NATIVA (craft-dock-gui, GTK) — o probe
+# reporta WAYBAR_COUNT e DOCK_COUNT, e o gate cobra os dois ≥1 e zero mortes
+# (BARS_EXITS conta os 'SAIU exit=' do craft-bars — cada morte deixa linha
+# com hora+exit code). O "-ge 2" da era waybar-dock era contrato defasado: a
+# #93 flagrou 1/2 com a dock crash-loopando por pin inexistente. Se o probe
+# NÃO chegou (QEMU headless sem sessão), informativo — o gate não cobra o
+# que não pode ver.
 if grep -q 'ELITE_PROBE_END' "$SERIAL" 2>/dev/null; then
   echo "── bloco do probe da sessão:"
   sed -n '/ELITE_PROBE_BEGIN/,/ELITE_PROBE_END/p' "$SERIAL" | sed 's/^/   /'
   WC="$(sed 's/\x1b\[[0-9;]*m//g' "$SERIAL" | grep -oE 'WAYBAR_COUNT=[0-9]+' | head -1 | cut -d= -f2)"
+  DK="$(sed 's/\x1b\[[0-9;]*m//g' "$SERIAL" | grep -oE 'DOCK_COUNT=[0-9]+' | head -1 | cut -d= -f2)"
   BE="$(sed 's/\x1b\[[0-9;]*m//g' "$SERIAL" | grep -oE 'BARS_EXITS=[0-9]+' | head -1 | cut -d= -f2)"
-  [ -n "$WC" ] && [ "$WC" -ge 2 ] 2>/dev/null
-  chk $? "sessão gráfica VIVA com as 2 barras waybar (probe: ${WC:-0}/2)" "PROBLEMA REAL DE SESSÃO: ${WC:-0}/2 barras vivas — classe 'subiu só o wallpaper' (ver BARS| acima)"
+  [ -n "$WC" ] && [ "$WC" -ge 1 ] 2>/dev/null
+  chk $? "sessão gráfica VIVA: waybar top vivo (probe: WAYBAR_COUNT=${WC:-0})" "PROBLEMA REAL DE SESSÃO: waybar top não está vivo (${WC:-0}) — classe 'subiu só o wallpaper' (ver BARS| acima)"
+  [ -n "$DK" ] && [ "$DK" -ge 1 ] 2>/dev/null
+  chk $? "sessão gráfica VIVA: dock nativa viva (probe: DOCK_COUNT=${DK:-0})" "PROBLEMA REAL DE SESSÃO: dock craft-dock-gui NÃO está viva (${DK:-0}) — pin quebrado/crash (ver BARS| acima)"
   [ -n "$BE" ] && [ "$BE" -eq 0 ] 2>/dev/null
-  chk $? "waybar sem NENHUMA morte na sessão (BARS_EXITS=${BE:-?})" "waybar morreu ${BE:-?}× na sessão — crash/race/OOM (exit code no BARS| acima)"
+  chk $? "barras sem NENHUMA morte na sessão (BARS_EXITS=${BE:-?})" "barra(s) morreram ${BE:-?}× na sessão — crash/race/pin quebrado (exit code no BARS| acima)"
 else
   echo "· informativo: probe da sessão NÃO chegou (QEMU sem sessão gráfica?) — gate não cobra o que não vê"
 fi
