@@ -51,8 +51,15 @@
 window#waybar {
   background: alpha(@crust, 0.94);
   border: none;
-  border-bottom: 1px solid alpha(@surface1, 0.6);
+  /* v1.9 — spec M2.3 do dono: a "linha horizontal solta" sob a barra ERA
+   * a borda fina de 1px na base do painel que morava aqui (flagrante do
+   * rig, out/2026). Morta: barra colada ao teto sem nenhuma linha. */
   color: @text;
+  /* v1.9 — spec M2.1: centralização vertical ESTRITA no eixo Y — padding
+   * simétrico (topo == base) no painel: nenhum ícone toca o limite físico
+   * do monitor. GTK3-válido (padding, não min-height cru). */
+  padding-top: 2px;
+  padding-bottom: 2px;
 }
 
 /* Módulos: padding horizontal generoso, hover com pílula (estilo item de
@@ -98,7 +105,10 @@ window#waybar {
 }
 
 #tray {
-  padding: 0 8px;
+  /* v1.9 — spec M2.2 do dono: o tray COLADO na borda direita do monitor
+   * ganha respiro de 14px (entre 12-16px do spec) à direita. */
+  padding: 0 14px 0 8px;
+  margin-right: 2px;
   min-width: 0;
 }
 

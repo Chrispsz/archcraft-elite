@@ -21,10 +21,13 @@
 #     média (a menu bar assenta em zona escura — texto branco legível).
 #     Fallback: wallpaper.png (legado/custom do usuário) → preto.
 if command -v swaybg >/dev/null 2>&1; then
-    if [ -r "$HOME/.config/labwc/wallpaper.jpg" ]; then
-        swaybg -m fill -i "$HOME/.config/labwc/wallpaper.jpg" &
-    elif [ -r "$HOME/.config/labwc/wallpaper.png" ]; then
+    # v1.9 — spec M5.1 do dono: o wallpaper JPEG tinha ruído/granulação de
+    # compressão ("impressão de poeira"). PADRÃO novo: PNG lossless VETORIAL
+    # (flat por construção — zero artefato de compressão, 4K, AMOLED).
+    if [ -r "$HOME/.config/labwc/wallpaper.png" ]; then
         swaybg -m fill -i "$HOME/.config/labwc/wallpaper.png" &
+    elif [ -r "$HOME/.config/labwc/wallpaper.jpg" ]; then
+        swaybg -m fill -i "$HOME/.config/labwc/wallpaper.jpg" &
     else
         # sem imagem (ex.: skel parcial): preto AMOLED, zero decodificação
         swaybg -m fill -c '#000000' &

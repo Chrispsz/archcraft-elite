@@ -1,0 +1,58 @@
+#!/bin/sh
+# ═══════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · craft-dock-autohide (v1.9 — spec M3.5: autohide PADRÃO)
+# ═══════════════════════════════════════════════════════════════════════════
+# PADRÃO DE FÁBRICA: dock RECOLHIDA (tira de 6px na base da tela — p/
+# otimizar a área útil; qualquer clique na tira ou W-S-d revela).
+#
+# Uso: craft-dock-autohide [show|hide|toggle]
+#   show    → pílula flutuante visível (margin-bottom 8)
+#   hide    → recolhida (margin-bottom -48: 54px da dock − 6px de tira)
+#   toggle  → alterna o estado atual (W-S-d)
+#
+# MECÂNICA: troca o MODO ($XDG_RUNTIME_DIR/elite-dock-mode), mata a
+# instância do waybar-dock e sobe a nova com o config do modo (o
+# craft-dock-config gera a versão recolhida do config ATUAL do usuário —
+# pins do craft-pin inclusive). O craft-bars continua SUPERVISOR: se
+# qualquer instância morrer, volta em ≤5s no modo vigente.
+# ═══════════════════════════════════════════════════════════════════════════
+RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+MODE_FILE="$RUNTIME_DIR/elite-dock-mode"
+LOG_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/elite"
+mkdir -p "$RUNTIME_DIR" "$LOG_DIR" 2>/dev/null
+
+
+[ -f "$HOME/.config/waybar/config.dock" ] || exit 0
+
+cur="$(cat "$MODE_FILE" 2>/dev/null || echo peek)"
+case "${1:-toggle}" in
+    show)   mode="shown" ;;
+    hide)   mode="peek" ;;
+    toggle) if [ "$cur" = "shown" ]; then mode="peek"; else mode="shown"; fi ;;
+    *) echo "uso: craft-dock-autohide [show|hide|toggle]" >&2; exit 2 ;;
+esac
+printf '%s' "$mode" > "$MODE_FILE"
+
+# regen da versão recolhida (com os pins ATUAIS) quando indo p/ peek
+if [ "$mode" = "peek" ]; then
+    /usr/local/bin/craft-dock-config >/dev/null 2>&1
+fi
+
+# reinício REAL da instância da dock (o waybar 0.15 não re-lê config em
+# runtime — a troca de modo exige processo novo; o craft-bars vigia)
+pkill -f 'waybar -c .*config\.dock' 2>/dev/null || true
+sleep 0.4
+cfg="$(/usr/local/bin/craft-dock-config)"
+(
+    waybar -c "$cfg" -s "$HOME/.config/waybar/style.dock.css" \
+        >>"$LOG_DIR/bars.log" 2>&1
+) &
+
+if command -v notify-send >/dev/null 2>&1; then
+    if [ "$mode" = "shown" ]; then
+        notify-send -a "Elite" "Dock visível" "W-S-d ou clique fora recolhe de novo" 2>/dev/null || true
+    else
+        notify-send -a "Elite" "Dock recolhida" "Clique na tira da base ou W-S-d p/ revelar" 2>/dev/null || true
+    fi
+fi
+exit 0

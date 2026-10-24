@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=LACT
+GenericName=GPU Control
+Keywords=gpu;overclock;undervolt;fan;
+Exec=lact
+Icon=/usr/share/pixmaps/elite/lact.png
+Terminal=false
+StartupNotify=true
+StartupWMClass=LACT
+Categories=System;HardwareSettings;

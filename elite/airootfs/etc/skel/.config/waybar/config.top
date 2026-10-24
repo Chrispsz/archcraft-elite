@@ -22,7 +22,9 @@
 {
   "layer": "top",
   "position": "top",
-  "height": 34,
+  // v1.9 — spec M2.1 do dono: 34→36px — 2px de padding simétrico no CSS
+  // centralizam os ícones no eixo Y (nenhum ícone esmagado contra o teto)
+  "height": 36,
   "spacing": 4,
   "fixed-center": true,
   "reload_style_on_change": true,

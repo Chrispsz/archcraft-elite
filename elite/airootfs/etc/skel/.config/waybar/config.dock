@@ -46,11 +46,12 @@
   "modules-left": [],
   "modules-right": [],
 
-  // Centro: Launchpad + apps fixados (GLIFOS — v1.6) + separador +
-  // janelas abertas — um grupo (craft-pin insere os SEUS pins antes
-  // do "custom/sep"). BRAVE é o 3º de 5 pins = CENTRO EXATO da dock.
+  // Centro: apps fixados (GLIFOS — v1.6) + separador + janelas abertas —
+  // um grupo (craft-pin insere os SEUS pins antes do "custom/sep").
+  // v1.9 — spec M3.4 do dono: o Launchpad (custom/drawer) SAIU da dock —
+  // o botão Arch vive EXCLUSIVAMENTE na barra superior (M2.4), sem
+  // duplicidade de lançador.
   "modules-center": [
-    "custom/drawer",
     "custom/term",
     "custom/files",
     "custom/web",
@@ -58,15 +59,6 @@
     "custom/sep",
     "wlr/taskbar"
   ],
-
-  // Launchpad — grade de apps com busca (nwg-drawer). Glifo ARCH
-  // (U+F303, nf-linux-archlinux) em MAUVE no CSS — marca do rice; é
-  // também o herdeiro do botão que saiu da menu bar (spec v1.5).
-  "custom/drawer": {
-    "format": "\uf303",
-    "tooltip-format": "Aplicativos",
-    "on-click": "craft-drawer"
-  },
 
   // ── Apps fixados de fábrica — INDICADOR DE ABERTO (v1.8) ───────────
   // O exec devolve JSON {text, class, tooltip} do craft-pin-status:
@@ -108,7 +100,9 @@
   // app_id → .desktop → ícone). Clique foca, meio fecha, dir minimiza.
   "wlr/taskbar": {
     "format": "{icon}",
-    "icon-size": 34,
+    // v1.9 — spec M3.2: escala FIXA de fábrica = 36x36 (todo ícone da
+    // dock, fixado ou janela aberta, no mesmo tamanho — sem exceção)
+    "icon-size": 36,
     "tooltip-format": "{title}",
     "on-click": "activate",
     "on-click-middle": "close",
