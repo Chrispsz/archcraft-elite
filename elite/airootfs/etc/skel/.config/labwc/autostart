@@ -64,10 +64,19 @@ if [ -x /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 ]; then
     /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 &
 fi
 
-# --- Bluetooth/Rede (v1.1): os applets GTK3 (blueman, nm-applet) saíram —
-#     pareamento = bluetui (W-b no rc.xml), rede = impala (W-n) ou o módulo
-#     network da waybar (clique abre o nmtui no foot). Zero daemon GTK3
-#     rodando de graça na sessão; o bluetooth.service segue habilitado.
+# --- Bluetooth/Rede (v1.1→v1.8.2): os applets GTK3 saíram na v1.1 e a
+#     conectividade virou TUI (impala/bluetui); no burn test da v1.8.1 o
+#     dono voltou atrás com razão ("eu não sei utilizar esses programas
+#     que são terminal… quero mais bonito e mais fácil no dia a dia").
+#     v1.8.2: os APPLETS GUI voltam à TRAY (waybar tray já existe p/ o
+#     udiskie): nm-applet (rede — o NM e o bluetooth.service JÁ rodam;
+#     os applets são clientes leves, zero daemon novo).
+if command -v nm-applet >/dev/null 2>&1; then
+    nm-applet &
+fi
+if command -v blueman-applet >/dev/null 2>&1; then
+    blueman-applet &
+fi
 
 # --- USB: automount + notificação (udiskie — daemon próprio; o
 #     thunar-volman só age com o Thunar aberto)

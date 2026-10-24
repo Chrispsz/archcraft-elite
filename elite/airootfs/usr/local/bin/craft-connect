@@ -17,9 +17,20 @@ if pgrep -f 'fuzzel.*--prompt=Rede' >/dev/null 2>&1; then
     pkill -f 'fuzzel.*--prompt=Rede' 2>/dev/null || true
     exit 0
 fi
+# v1.8.2 — CROSS-DISMISS: abrir a central de Rede FECHA o menu de Sessão
+# (a mesma cura do craft-power, no sentido oposto — dois dropdowns nunca
+# ficam na tela ao mesmo tempo).
+pkill -f 'fuzzel.*--prompt=Sess' 2>/dev/null || true
 
-MENU='Wi-Fi e Ethernet (impala)
-Bluetooth (bluetui)'
+# v1.8.2 — GUI (áudio do dono, 24/out: "impala e bluetui… eu não sei
+# utilizar esses programas que são terminal, quero gerenciadores que
+# funcionem melhor com a interface, mais bonito e mais fácil"): o menu
+# abre os GERENCIADORES GRÁFICOS (nm-connection-editor para rede com
+# Wi-Fi/Ethernet/VPN em árvore; blueman-manager para Bluetooth com
+# pareamento em janela). Os TUIs Rust continuam como fallback no foot
+# (e W-n/W-S-b agora apontam para os GUIs — rc.xml).
+MENU='Wi-Fi e Ethernet (configurações)
+Bluetooth (dispositivos)'
 
 if command -v fuzzel >/dev/null 2>&1; then
     # mesmas âncoras do craft-power: pendurado no canto direito da menu
@@ -32,7 +43,15 @@ else
 fi
 
 case "$choice" in
-    'Wi-Fi e Ethernet (impala)') exec foot -e impala ;;
-    'Bluetooth (bluetui)')        exec foot -e bluetui ;;
+    'Wi-Fi e Ethernet (configurações)')
+        if command -v nm-connection-editor >/dev/null 2>&1; then
+            exec nm-connection-editor
+        fi
+        exec foot -e impala ;;
+    'Bluetooth (dispositivos)')
+        if command -v blueman-manager >/dev/null 2>&1; then
+            exec blueman-manager
+        fi
+        exec foot -e bluetui ;;
     *)                            exit 0 ;;
 esac

@@ -34,54 +34,115 @@ if [ -z "$ROOT" ] || [ ! -d "$ROOT" ]; then
     exit 1
 fi
 
-# ── 1. btrfs: recopia VERIFICADA dos vmlinuz do live p/ o /boot do alvo ────
+# ── 1. btrfs: recopia VERIFICADA dos vmlinuz p/ o /boot do alvo ────────────
 # O rsync do unpackfs chegava truncado em btrfs (rig B: 'premature end of
 # file' no GRUB — v1.0.3). A v1.7.0 recopiava com `cp -f ... &&` e o EXIT
 # CODE ERA IGNORADO: qualquer falha de cópia no rig (disco cheio, OOM killer
 # durante o install, erro btrfs) deixava o TRUNCADO do rsync no lugar, a
 # instalação "terminava feliz" e o boot morria no GRUB — recorrência
-# fotografada em 23/out (IMG_20261023_180301). O gate do CI não via porque
-# rodava cp PRÓPRIO em vez de ESTE script (divergência morta no verify-
-# install [6/8] junto). v1.8 — cópia com PROVA, falha ALTA:
-#     tmp → tamanho → cmp byte-a-byte → promoção atômica (mv) → sync →
-#     re-cmp no arquivo promovido → marcador. QUALQUER desvio = exit 1 =
-# o Calamares mostra "Installation Failed" COM o motivo no log. Boot
-# truncado calado deixou de existir como desfecho possível.
+# fotografada em 23/out (IMG_20261023_180301). A v1.8 fez a cópia com PROVA
+# (tmp → tamanho → cmp → mv atômico → re-cmp) MAS deixou a fonte presa ao
+# bootmnt: com copytoram=y (o PADRÃO da ISO — apply-overlay.sh [8]) o
+# archiso DESMONTA o bootmnt depois de copiar o conteúdo p/ a RAM, e TODO
+# install real morria no job 36 com "nenhum vmlinuz em /run/archiso/bootmnt
+# (copytoram?)" — flagrante do dono em 24/out: 2 tentativas (termbin iy38,
+# 11:56 e 12:01 do log; ISO v1.8.1 via Ventoy, nvme XrayDisk 512G).
+#
+# v1.8.2 — FONTE EM CASCATA (3 candidatos, o 1º que tiver vmlinuz-* vence):
+#   A. /run/archiso/bootmnt/arch/boot/x86_64   (boot com copytoram=n/rescue)
+#   B. /boot do PRÓPRIO live — o squashfs airootfs carrega /boot/vmlinuz-*
+#      (o build nunca purgou; não há rm de /boot no apply-overlay) e É o
+#      root em uso: sobrevive ao copytoram por definição
+#   C. backing do loop do airootfs (o copytoram guarda ISO/sfs no tmpfs):
+#      losetup -o BACK-FILE no loop0 → monta ro → procura em arch/boot/… e
+#      em /boot (cobre ISO inteira e sfs solto)
+# A PROVA da cópia (v1.8) fica INTACTA. Falha ALTA só quando é fatal DE
+# VERDADE: sem fonte E sem kernel no /boot do alvo. Se a fonte sumiu mas o
+# unpackfs entregou kernels sãos no alvo (≥5 MB, bzImage 'MZ'), a instalação
+# SEGUE com aviso — "falhar alto" não pode transformar um alvo bootável em
+# Installation Failed (a lição do termbin iy38).
 if [ "$(findmnt -n -o FSTYPE "$ROOT")" = "btrfs" ]; then
-    copied=0
-    for kv in /run/archiso/bootmnt/arch/boot/x86_64/vmlinuz-*; do
-        [ -e "$kv" ] || continue
-        kbase="$(basename "$kv")"
-        src_size="$(stat -c%s "$kv")" || {
-            echo "ELITE: ERRO — fonte do kernel $kv ilegível" >&2
-            exit 1
-        }
-        tmp="${ROOT}/boot/.elite-${kbase}.tmp"
-        rm -f "$tmp"
-        echo "ELITE: recopiando ${kbase} (${src_size} bytes) com verificação byte-a-byte…"
-        if ! cp -f "$kv" "$tmp"; then
-            echo "ELITE: ERRO — cp de ${kbase} falhou (disco cheio? $(df -h "$ROOT/boot" 2>/dev/null | tail -1))" >&2
-            rm -f "$tmp"
-            exit 1
+    KERNEL_SRC=""
+    for cand in /run/archiso/bootmnt/arch/boot/x86_64 /boot; do
+        if compgen -G "${cand}/vmlinuz-*" >/dev/null 2>&1; then
+            KERNEL_SRC="$cand"
+            break
         fi
-        dst_size="$(stat -c%s "$tmp" 2>/dev/null || echo 0)"
-        if [ "$dst_size" != "$src_size" ] || ! cmp -s "$kv" "$tmp"; then
-            echo "ELITE: ERRO — cópia de ${kbase} truncada/corrompida (fonte ${src_size} B, destino ${dst_size} B)" >&2
-            rm -f "$tmp"
-            exit 1
-        fi
-        mv -f "$tmp" "${ROOT}/boot/${kbase}"
-        sync || true
-        if ! cmp -s "$kv" "${ROOT}/boot/${kbase}"; then
-            echo "ELITE: ERRO — ${kbase} difere da fonte APÓS a promoção no alvo (btrfs)" >&2
-            exit 1
-        fi
-        copied=$((copied + 1))
-        echo "ELITE: ${kbase} VERIFICADO byte-a-byte no alvo ($(stat -c%s "${ROOT}/boot/${kbase}") bytes)"
     done
+    if [ -z "$KERNEL_SRC" ]; then
+        # Candidato C: o backing do loop do airootfs (tmpfs do copytoram,
+        # ISO de loop do Ventoy — o que existir). Monta ro e cobre os dois
+        # layouts (ISO = arch/boot/x86_64 · sfs = boot/).
+        loopdev="$(findmnt -n -o SOURCE /run/archiso/airootfs 2>/dev/null || true)"
+        backfile="$(losetup -n -o BACK-FILE "$loopdev" 2>/dev/null || true)"
+        if [ -n "$backfile" ] && [ -f "$backfile" ]; then
+            isomnt="/tmp/.elite-iso-src"
+            rm -rf "$isomnt"; mkdir -p "$isomnt"
+            if mount -o loop,ro "$backfile" "$isomnt" 2>/dev/null; then
+                if   compgen -G "${isomnt}/arch/boot/x86_64/vmlinuz-*" >/dev/null 2>&1; then
+                    KERNEL_SRC="${isomnt}/arch/boot/x86_64"
+                elif compgen -G "${isomnt}/boot/vmlinuz-*" >/dev/null 2>&1; then
+                    KERNEL_SRC="${isomnt}/boot"
+                else
+                    umount "$isomnt" 2>/dev/null || true
+                fi
+            fi
+        fi
+    fi
+    echo "ELITE: fonte dos kernels = ${KERNEL_SRC:-NENHUMA (copytoram sem ISO montável)}"
+    copied=0
+    if [ -n "$KERNEL_SRC" ]; then
+        for kv in "$KERNEL_SRC"/vmlinuz-*; do
+            [ -e "$kv" ] || continue
+            kbase="$(basename "$kv")"
+            src_size="$(stat -c%s "$kv")" || {
+                echo "ELITE: ERRO — fonte do kernel $kv ilegível" >&2
+                exit 1
+            }
+            tmp="${ROOT}/boot/.elite-${kbase}.tmp"
+            rm -f "$tmp"
+            echo "ELITE: recopiando ${kbase} (${src_size} bytes) com verificação byte-a-byte…"
+            if ! cp -f "$kv" "$tmp"; then
+                echo "ELITE: ERRO — cp de ${kbase} falhou (disco cheio? $(df -h "$ROOT/boot" 2>/dev/null | tail -1))" >&2
+                rm -f "$tmp"
+                exit 1
+            fi
+            dst_size="$(stat -c%s "$tmp" 2>/dev/null || echo 0)"
+            if [ "$dst_size" != "$src_size" ] || ! cmp -s "$kv" "$tmp"; then
+                echo "ELITE: ERRO — cópia de ${kbase} truncada/corrompida (fonte ${src_size} B, destino ${dst_size} B)" >&2
+                rm -f "$tmp"
+                exit 1
+            fi
+            mv -f "$tmp" "${ROOT}/boot/${kbase}"
+            sync || true
+            if ! cmp -s "$kv" "${ROOT}/boot/${kbase}"; then
+                echo "ELITE: ERRO — ${kbase} difere da fonte APÓS a promoção no alvo (btrfs)" >&2
+                exit 1
+            fi
+            copied=$((copied + 1))
+            echo "ELITE: ${kbase} VERIFICADO byte-a-byte no alvo ($(stat -c%s "${ROOT}/boot/${kbase}") bytes)"
+        done
+    fi
     if [ "$copied" -eq 0 ]; then
-        echo "ELITE: ERRO — nenhum vmlinuz em /run/archiso/bootmnt (copytoram?) — impossível garantir /boot íntegro" >&2
-        exit 1
+        # Sem fonte útil. O alvo tem kernel são (unpackfs)? segue com aviso;
+        # sanidade: ≥5 MB e assinatura bzImage ('MZ' — todos os vmlinuz do
+        # Arch têm EFI stub). Sem kernel no alvo: aí sim exit 1 (GRUB não
+        # teria o que bootar — falha real, e o log agora DIZ isso).
+        sane=0
+        for t in "${ROOT}"/boot/vmlinuz-*; do
+            [ -f "$t" ] || continue
+            sz="$(stat -c%s "$t" 2>/dev/null || echo 0)"
+            if [ "$sz" -ge 5242880 ] && [ "$(head -c2 "$t" 2>/dev/null)" = "MZ" ]; then
+                sane=$((sane + 1))
+            fi
+        done
+        if [ "$sane" -gt 0 ]; then
+            echo "ELITE: AVISO — fonte de kernel indisponível (copytoram), mas o /boot do alvo tem ${sane} vmlinuz são(s) do unpackfs — seguindo"
+            echo "ELITE: $(ls -l "${ROOT}"/boot/vmlinuz-* 2>/dev/null | awk '{print $NF, $5"B"}' | tr '\n' ' ')"
+        else
+            echo "ELITE: ERRO — sem fonte de kernel (copytoram?) E sem vmlinuz são no /boot do alvo — o sistema não bootaria; abortando com motivo" >&2
+            exit 1
+        fi
     fi
     touch "${ROOT}/boot/.kernel-copy-success" || true
 fi

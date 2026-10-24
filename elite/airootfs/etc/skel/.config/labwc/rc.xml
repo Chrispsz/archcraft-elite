@@ -19,7 +19,7 @@
     · W-q e W-c → fechar (o criador usa ambos) · A-F4 · W-i / A-F5 → minimizar
     · W-m / A-F10 → maximizar · A-F11 → fullscreen (fullscreen do criador!)
     · W-←/→/↑/↓ → snap em metades (mesma semântica do snap MoveResizeTo dele)
-    · W-n → rede (impala) · W-S-b → bluetooth (bluetui)
+    · W-n → rede (nm-connection-editor, GUI) · W-S-b → bluetooth (blueman-manager, GUI)
     · W-x → menu de sessão (criador: rofi-powermenu; aqui: craft-logout)
     · C-A-Delete → sessão (criador: Exit com prompt; aqui: menu craft-logout)
     · C-S-R → Reconfigure (alias do W-S-r)
@@ -198,13 +198,13 @@
     <keybind key="W-e">
       <action name="Execute" command="foot -e nano" />
     </keybind>
-    <!-- Rede (W-n · impala, TUI rust v1.1) · monitor (W-s) · mixer (W-a) -->
+    <!-- Rede (W-n · GUI v1.8.2 — áudio do dono: TUI não é pra ele) -->
     <keybind key="W-n">
-      <action name="Execute" command="foot -e impala" />
+      <action name="Execute" command="nm-connection-editor" />
     </keybind>
-    <!-- Bluetooth (W-S-b · bluetui — o applet GTK3 saiu na v1.1) -->
+    <!-- Bluetooth (W-S-b · GUI v1.8.2 — blueman-manager) -->
     <keybind key="W-S-b">
-      <action name="Execute" command="foot -e bluetui" />
+      <action name="Execute" command="blueman-manager" />
     </keybind>
     <keybind key="W-s">
       <action name="Execute" command="foot -e btop" />

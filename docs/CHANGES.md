@@ -6,6 +6,56 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **v1.8.2 — "o install que não morre no copytoram + os flagrantes do
+  áudio/fotos do dono"** (burn test v1.8.1: 2 tentativas de instalação
+  mortas no job 36 — termbin `iy38` — e 6 áudios + 12 fotos registrando
+  o uso real):
+  - **(A) INSTALL QUE MORRIA COM copytoram=y (o padrão da ISO)** — o
+    `elite-install-stage` da v1.8 mantinha a fonte do kernel presa ao
+    `/run/archiso/bootmnt`, mas com copytoram o archiso **desmonta o
+    bootmnt** depois de copiar o conteúdo para a RAM: TODA instalação
+    real (Ventoy ou USB normal) caía no `exit 1` "nenhum vmlinuz em
+    /run/archiso/bootmnt (copytoram?)" — exatamente o "Installation
+    Failed / External command finished with errors" sem explicação que o
+    dono fotografou. **CURA — fonte em CASCATA**: (A) bootmnt (boot
+    copytoram=n/rescue) → (B) `/boot` do PRÓPRIO live (o squashfs
+    airootfs carrega `/boot/vmlinuz-*` e é o root em uso — sobrevive ao
+    copytoram por definição) → (C) backing do loop do airootfs via
+    `losetup -o BACK-FILE` + `mount -o loop,ro` (cobre ISO inteira e sfs
+    solto). A PROVA byte-a-byte da v1.8 fica intacta; a falha alta agora
+    é só quando é REAL (sem fonte E sem kernel são no `/boot` do alvo —
+    e o log diz o motivo). Alvo com kernel são do unpackfs segue com
+    aviso em vez de morrer.
+  - **(B) BOTÃO GIGANTE GTK4 (LACT/Papers/pwvucontrol com um círculo
+    vermelho enorme)** — fonte primária libadwaita: o círculo é o
+    `> image` DENTRO do button; o css da v1.6.1 pintava o button e
+    perdia na especificidade do tamanho. CURA: neutraliza o `> image`
+    (bg/padding/glyph em todos os estados) e pinta o trio no
+    `windowcontrols > button.*` com especificidade igual à do tema
+    (user css carrega depois — empate é do usuário).
+  - **(C) DOCK COM OS 3 PINS INVISÍVEIS** — `craft-pin-status` não estava
+    na lista `file_permissions` do apply-overlay: subia 0644, o exec do
+    waybar morria em Permission denied e a dock nascia com só 2 ícones
+    (flagrante IMG_20261024_114720). Entrou na lista (0755). E o reload
+    do `craft-pin` trocou SIGUSR2 (que no waybar 0.15 recarrega SÓ o
+    CSS — "fixou, mas a dock não atualizou") pelo reinício real do
+    waybar: o craft-bars devolve as duas barras em ≤5s já lendo o config
+    novo. Dock menor (62→54px, glifos 30→27, zoom 36→32, ícones do
+    taskbar 40→34) — o "menor e mais perto do meio" do áudio.
+  - **(D) CONECTIVIDADE GUI (áudio: "impala e bluetui… eu não sei
+    utilizar esses programas que são terminal… quero mais bonito e mais
+    fácil")** — `nm-applet` + `blueman` voltam (tray + GUIs completas);
+    `craft-connect` abre `nm-connection-editor`/`blueman-manager` (os
+    TUIs Rust ficam como fallback power-user); W-n/W-S-b apontam para as
+    GUIs. **Menus cross-dismiss**: abrir Sessão fecha Rede e vice-versa
+    (nunca dois dropdowns empilhados — áudio 21 e 24/out).
+  - **(E) LACT com daemon de fábrica (E17)** — "Service Status: inactive"
+    virou história: `systemctl enable lactd.service` no build nasce no
+    /etc do airootfs e LIVE + INSTALADO herdam; gate duro se o unit
+    sumir. **BRAVE com titlebar GTK**: `Local State` preseedado
+    (`custom_chrome_frame: false`) — os botões mac do rice aplicam ao
+    Chromium também.
+
 - **v1.8.1 — "a ISO que o Ventoy aceita + o terminal que abre + o debloat
   sistêmico"** (burn test v1.8.0 do dono: Ventoy recusou a ISO — foto
   IMG_20261023_234603 — e o "Abrir terminal aqui" do Thunar morreu):

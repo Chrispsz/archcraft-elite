@@ -84,7 +84,9 @@ assert_file "$P/airootfs/etc/mkinitcpio.conf.d/archiso.conf" \
   "v1.1: archiso.conf FICA (1ª geração do initramfs live do BORE — E11 o recria e limpa)"
 
 # ── v1.1 · PURGA DO APP-LAYER LEGADO + v1.5 · BLOATWARE DA SPEC ────────
-for gone in firefox thunar-volman thunar-archive-plugin vim blueman pavucontrol; do
+# v1.8.2: blueman SAIU desta lista — VOLTOU (GUI de bluetooth que o dono
+# pediu no áudio 24/out; a esquizofrenia add∩remove tem contrato na fase 2)
+for gone in firefox thunar-volman thunar-archive-plugin vim pavucontrol; do
   assert_grep "$PKG" "^#${gone} # ELITE-REMOVED$" "v1.1: ${gone} comentado (saiu da ISO)"
   assert_nogrep "$PKG" "^${gone}$" "v1.1: ${gone} ativo sumiu"
 done
@@ -155,7 +157,7 @@ assert_file "$P/airootfs/etc/skel/.config/fuzzel/fuzzel.ini" "v1.0.3: fuzzel con
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"wlr/taskbar"' "v1.0.4: dock tem taskbar (janelas abertas — wlr-foreign-toplevel nativo do labwc)"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"custom/drawer"' "v1.0.4: dock tem botão Launchpad"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"custom/web"' "v1.0.4/v1.6: dock tem launcher do navegador (custom/web — Brave fixado no centro, fix waybar #5051)"
-assert_grep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"icon-size": 40' "v1.0.4: ícones grandes no dock (estilo dock)"
+assert_grep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"icon-size": 34' "v1.8.2: dock menor — ícones do taskbar 34px (era 40; pedido do áudio)"
 assert_nogrep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"tray"' "v1.0.4: dock SEM tray (SNI watcher único — tray fica na barra do topo)"
 # v1.1→v1.4: pins do usuário (craft-pin) — a seção PINS viaja na ISO
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.dock" '"exclusive": false' "v1.1: dock exclusive false (janelas usam a base — modelo macOS)"
@@ -236,7 +238,7 @@ assert_nogrep "$CD" 'foot -e yazi|foot -e helix' "v1.5: nenhum launch de app ext
 # CSS v1.6: seletor #custom-<id> + zoom 30→36px no hover (a "magnificação")
 assert_grep "$P/airootfs/etc/skel/.config/waybar/style.dock.css" '#custom-term' "v1.6: CSS #custom-term (glifo 30px)"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/style.dock.css" '#custom-web:hover' "v1.6: hover do Brave = zoom 36px + pílula surface0"
-assert_grep "$P/airootfs/etc/skel/.config/waybar/style.dock.css" 'font-size: 30px' "v1.6: pins a 30px de base (zoom p/ 36 no hover)"
+assert_grep "$P/airootfs/etc/skel/.config/waybar/style.dock.css" 'font-size: 27px' "v1.8.2: pins a 27px de base (zoom p/ 32 no hover — dock menor do áudio)"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/style.dock.css" '#custom-web { color: @peach; }' "v1.6: Brave em PEACH (cor da marca) mesmo com glifo"
 # Dock: grupo ÚNICO central (fixados + abertos), sem lock/power
 assert_grep "$CD" '"modules-center": \[' "v2.1: dock tem grupo central"
@@ -361,18 +363,19 @@ assert_grep "$P/airootfs/etc/skel/.config/gtk-4.0/settings.ini" 'gtk-theme-name=
 assert_grep "$REPO/elite/fragments/elite-customize.sh" 'shellprocess_btrfs.conf' "v1.0.4: E10 patcha o shellprocess_btrfs do Calamares"
 STG="$REPO/elite/airootfs/usr/local/bin/elite-install-stage"
 assert_file "$STG" "v1.7: elite-install-stage existe (a lógica E10 saiu do YAML — classe 'Missing variables' morta)"
-assert_grep "$STG" 'for kv in /run/archiso/bootmnt/arch/boot/x86_64/vmlinuz-\*' "v1.0.4: E10 (agora elite-install-stage) recopia TODOS os vmlinuz-* do pendrive"
+assert_grep "$STG" 'for kv in "\$KERNEL_SRC"/vmlinuz-\*' "v1.8.2: elite-install-stage copia da FONTE EM CASCATA (KERNEL_SRC — bootmnt é desmontado com copytoram=y)"
 assert_grep "$STG" 'arch-chroot "[$]ROOT" mkinitcpio -p linux-cachyos-bore' "v1.0.4: E10 regenera initramfs do BORE no alvo (hooks de sistema, não do live)"
 assert_grep "$REPO/elite/fragments/elite-customize.sh" 'kernel-copy-success' "v1.0.4: E10 preserva o marcador do upstream"
 assert_grep "$P/airootfs/etc/sddm.conf.d/kde_settings.conf" '^Session=labwc$' "v1.0.3: SDDM autologin Session=labwc"
 assert_grep "$P/airootfs/var/lib/sddm/state.conf" 'wayland-sessions/labwc\.desktop' "v1.0.3: greeter pré-seleciona labwc"
 assert_grep "$P/airootfs/etc/systemd/system/fg-booster.service" '^Slice=fg-boost\.slice$' "v1.0.3: fg-booster com Slice= (fix restart-loop)"
-# v1.1: applets GTK3 do tray SAÍRAM (blueman/nm-applet) — bluetooth é bluetui
-# (W-S-b), rede é impala (W-n); nenhum daemon GTK3 de graça na sessão
-assert_nogrep "$P/airootfs/etc/skel/.config/labwc/autostart" '^[^#]*blueman-applet' "v1.1: autostart SEM blueman-applet (bluetui cobre — fora de comentário)"
-assert_nogrep "$P/airootfs/etc/skel/.config/labwc/autostart" '^[^#]*nm-applet' "v1.1: autostart SEM nm-applet (impala cobre — fora de comentário)"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'bluetui' "v1.1: comentário do autostart menciona bluetui (contrato)"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'impala' "v1.1: comentário do autostart menciona impala (contrato)"
+# v1.8.2: os APPLETS GUI VOLTARAM (áudio do dono: TUI não é o dia-a-dia
+# dele) — nm-applet + blueman-applet na tray, craft-connect abre GUIs;
+# os TUIs impala/bluetui seguem como fallback (craft-connect) e o comentário
+# do autostart documenta a volta
+assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" '^[[:space:]]*nm-applet &' "v1.8.2: autostart COM nm-applet (tray de rede GUI)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" '^[[:space:]]*blueman-applet &' "v1.8.2: autostart COM blueman-applet (tray de bluetooth GUI)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'impala' "v1.1: comentário do autostart menciona a história TUI→GUI (contrato)"
 
 # ── v1.0.3 CURADORIA "brabos 2026": uso geral de fábrica ───────────
 # v1.1 (MEGA PROMPT): a camada GUI legada/GTK3 foi purgada (mousepad,
@@ -572,8 +575,8 @@ assert_nogrep "$P/airootfs/usr/local/bin/craft-logout" 'exec swaylock' "v1.5: cr
 assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" '<keybind key="W-f">' "v1.5: W-f existe (FM)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'command="thunar"' "v1.5: rc.xml W-f → thunar (FM padrão GUI)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'foot -e nano' "v1.5: rc.xml W-e → nano no foot (editor)"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'foot -e impala' "v1.1: rc.xml W-n → impala no foot"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'foot -e bluetui' "v1.1: rc.xml W-S-b → bluetui no foot (o bind que o craft-bat citava)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'nm-connection-editor' "v1.8.2: rc.xml W-n → nm-connection-editor (GUI — era impala TUI)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'blueman-manager' "v1.8.2: rc.xml W-S-b → blueman-manager (GUI — era bluetui TUI)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'for b in brave librewolf' "v1.1: rc.xml navegador = brave em 1º (cadeia)"
 assert_nogrep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'command="(foot -e )?(yazi|helix|nvtop|nmtui|mousepad)' "v1.5: rc.xml sem COMANDO de app extinto nos binds"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'identifier="com\.github\.dominiksalvet\.pwvucontrol"' \
@@ -690,8 +693,8 @@ assert_grep "$WORK/e10-block.txt" 'NVreg_PreserveVideoMemoryAllocations=1' \
   "E10: modprobe.d NVIDIA preserva VRAM em suspend"
 assert_grep "$WORK/e10-block.txt" 'rm -f "\$\{ROOT\}"/usr/lib/modules/\*/updates/dkms/nvidia\*\.ko\*' \
   "E10: rig AMD varre os .ko dkms do alvo (nada de driver alheio no disco)"
-assert_grep "$WORK/e10-block.txt" 'for kv in /run/archiso/bootmnt/arch/boot/x86_64/vmlinuz-\*' \
-  "E10 (v1.0.4): recopia TODOS os vmlinuz-* do pendrive (fix btrfs truncado)"
+assert_grep "$WORK/e10-block.txt" 'for kv in "\$KERNEL_SRC"/vmlinuz-\*' \
+  "E10/v1.8.2: recopia da FONTE EM CASCATA (KERNEL_SRC — sobrevive ao copytoram)"
 assert_grep "$WORK/e10-block.txt" 'arch-chroot "[$]ROOT" mkinitcpio -p linux-cachyos-bore' \
   "E10 (v1.0.4): regenera initramfs do BORE no alvo (DEPOIS do perfil de GPU)"
 
@@ -1601,7 +1604,7 @@ assert_nogrep "$CDR" '-pb(lock|exit|reboot|poweroff|sleep)' "v1.4: flags -pb* ex
 # ── Dock SEMPRE VISÍVEL (a 'dock sumiu' do burn test) ────────────────────
 assert_grep "$CKB" '"margin-bottom": 8' "v1.4: dock flutua 8px SEMPRE (config — iOS/macOS)"
 assert_nogrep "$WBD" 'margin-bottom: -' "v1.4: auto-hide (margem negativa) EXTINTO do CSS — o talho de ícones cortados na base era isso"
-assert_grep "$WBD" 'font-size: 36px' "v1.4: zoom hover 36px (magnificação iOS perceptível)"
+assert_grep "$WBD" 'font-size: 32px' "v1.8.2: zoom hover 32px (dock menor do áudio — era 36)"
 assert_grep "$CKB" 'Brave Origin \(navegador padrão\)' "v1.4: tooltip da dock honesto com o produto (Brave Origin)"
 
 # v1.5 (spec do dono): lançador ARCH EXTINTO da menu bar — canto esquerdo
@@ -1658,9 +1661,10 @@ assert_grep "$G3" '\.titlebutton\.close[[:space:]]*\{[[:space:]]*background-colo
 assert_grep "$G3" '\.titlebutton\.minimize[[:space:]]*\{[[:space:]]*background-color: #febc2e' "v1.6.1: GTK3 CSD minimize = #febc2e"
 assert_grep "$G3" '\.titlebutton\.maximize[[:space:]]*\{[[:space:]]*background-color: #28c840' "v1.6.1: GTK3 CSD maximize = #28c840"
 assert_grep "$G3" ':backdrop' "v1.6.1: GTK3 CSD inativo = cinza (backdrop)"
-assert_grep "$G4" 'windowcontrols button\.close[[:space:]]*\{[[:space:]]*background-color: #ff5f57' "v1.6.1: GTK4 windowcontrols close = #ff5f57"
-assert_grep "$G4" 'windowcontrols button\.minimize[[:space:]]*\{[[:space:]]*background-color: #febc2e' "v1.6.1: GTK4 minimize = #febc2e"
-assert_grep "$G4" 'windowcontrols button\.maximize[[:space:]]*\{[[:space:]]*background-color: #28c840' "v1.6.1: GTK4 maximize = #28c840"
+assert_grep "$G4" 'windowcontrols > button\.close[[:space:]]*\{[[:space:]]*background-color: #ff5f57' "v1.8.2: GTK4 close = #ff5f57 no par que o Adwaita usa (> button.close)"
+assert_grep "$G4" 'windowcontrols > button\.minimize[[:space:]]*\{[[:space:]]*background-color: #febc2e' "v1.8.2: GTK4 minimize = #febc2e (> button.minimize)"
+assert_grep "$G4" 'windowcontrols > button\.maximize[[:space:]]*\{[[:space:]]*background-color: #28c840' "v1.8.2: GTK4 maximize = #28c840 (> button.maximize)"
+assert_grep "$G4" 'windowcontrols > button > image' "v1.8.2: o círculo INTERNO do Adwaita é neutralizado (a cura do botão gigante)"
 assert_grep "$G4" ':backdrop' "v1.6.1: GTK4 inativo = cinza (backdrop)"
 assert_grep "$G4" 'windowcontrols > separator' "v1.6.1: GTK4 separador dos controles oculto (trio colado — mac)"
 

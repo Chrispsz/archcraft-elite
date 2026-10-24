@@ -51,7 +51,9 @@ vim
 zathura
 zathura-pdf-poppler
 file-roller
-blueman
+## blueman VOLTOU na v1.8.2 (GUI de bluetooth que o dono pediu — áudio
+## 24/out; os TUIs não são pra ele) — packages.add o traz de volta; a
+## linha saiu daqui para não haver esquizofrenia add∩remove.
 pavucontrol
 gpsd
 xgps

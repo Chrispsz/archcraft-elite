@@ -148,6 +148,20 @@ bluetui
 impala
 brave-origin
 
+## v1.8.2 — CONECTIVIDADE GUI (áudio do dono, 24/out: "impala e bluetui…
+## eu não sei utilizar esses programas que são terminal… quero mais bonito,
+## mais organizado e mais fácil de usar no dia a dia"). Os TUIs Rust ficam
+## (power users, fallback do craft-connect), mas o DIA A DIA vira GUI:
+##   · nm-applet    — ícone de rede na tray (waybar tray) + menu de redes;
+##                    o nm-connection-editor abre a árvore completa de
+##                    conexões (Wi-Fi/Ethernet/VPN) em janela GTK
+##   · blueman      — applet de Bluetooth na tray + blueman-manager
+##                    (pareamento/áudio em janela GTK) + blueman-adapters
+## Custo: ~2 MB + ~5 MB instalados; zero daemons novos (o NM e o
+## bluetooth.service JÁ rodam — os applets são clientes leves).
+nm-applet
+blueman
+
 ## Satélites oficiais do labwc (docs labwc.github.io/integration):
 ## idle→lock, automount USB, clipboard history.
 ## v1.5: wlsunset SAIU (spec do dono — tom amarelado no burn test: o

@@ -28,9 +28,9 @@
 #        yellow green teal sky sapphire blue lavender pink flamingo
 #        rosewater …); padrão mauve
 #
-# Reload = SIGUSR2 (man 5 waybar: "By default reloads (resets) the bar" —
-# recarrega config E estilo nas 2 instâncias; o CSS também é vigiado pelo
-# inotify via reload_style_on_change). Sem waybar rodando, só avisa.
+# Reload (v1.8.2) = reinício do waybar (o SIGUSR2 do waybar 0.15 só
+# recarrega CSS — o config novo nunca entrava); o craft-bars devolve as
+# duas barras em ≤5s já com os pins. Sem waybar rodando, só avisa.
 #
 # INDICADOR DE ABERTO (v1.8 — a spec do dono: "indicador de programa fixado
 # que está aberto"): TODO pin (de fábrica e do usuário) é um módulo custom
@@ -102,9 +102,14 @@ rollback() { # restaura o último backup (estado ANTES da alteração atual)
 }
 
 reload() {
+  # v1.8.2 — RELOAD DE VERDADE (flagrante do dono: "fixou, mas a dock não
+  # atualizou"). O SIGUSR2 no waybar 0.15 recarrega SÓ O CSS (man 5 waybar:
+  # "Reload the waybar css style") — o NOVO módulo do pin nunca entrava até
+  # a sessão reiniciar. Curar = reiniciar o waybar inteiro: o craft-bars
+  # (supervisor) relança as 2 instâncias em ≤5s JÁ LENDO o config novo.
   if pgrep -x waybar >/dev/null 2>&1; then
-    pkill -SIGUSR2 -x waybar || true
-    echo "→ dock recarregada (SIGUSR2: config + estilo, sem reiniciar a sessão)"
+    pkill -x waybar || true
+    echo "→ dock recarregada (waybar reiniciado — o craft-bars devolve as 2 barras em ≤5s com o config novo)"
   else
     echo "→ waybar não está rodando; os pins aparecem ao entrar na sessão"
   fi
@@ -236,7 +241,7 @@ add_pin() { # nome glyph tooltip cmd [cor]
 
 /* pin: $nome (craft-pin) */
 #custom-pin-$nome {
-  font-size: 30px;
+  font-size: 27px;
   padding: 4px 10px;
   border-radius: 14px;
   color: @$cor;
@@ -244,7 +249,7 @@ add_pin() { # nome glyph tooltip cmd [cor]
               font-size 0.18s cubic-bezier(0.22, 1, 0.36, 1);
 }
 #custom-pin-$nome:hover {
-  font-size: 34px;
+  font-size: 32px;
   background: alpha(@surface0, 0.95);
 }
 #custom-pin-$nome:active {
