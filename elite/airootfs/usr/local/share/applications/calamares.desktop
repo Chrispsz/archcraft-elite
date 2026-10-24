@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Install Archcraft
+GenericName=System Installer
+Keywords=calamares;system;installer;
+TryExec=calamares
+Exec=/usr/local/bin/calamares-elite-log
+Comment=Archcraft System Installer
+Icon=system-software-install
+Terminal=false
+StartupNotify=true
+StartupWMClass=calamares
+Categories=Qt;System;
+X-AppStream-Ignore=true

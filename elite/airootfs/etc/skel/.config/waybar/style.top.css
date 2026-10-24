@@ -1,0 +1,178 @@
+/* Archcraft ELITE · Waybar TOP CSS — "Menu Bar" estilo macOS · AMOLED rice v1.3
+ * Full-width no topo, altura fina, fundo translúcido escuro — o visual do
+ * menu bar do macOS. Palette oficial: github.com/catppuccin/palette (mocha).
+ * GTK CSS: @define-color + alpha(@cor, fator) suportados pelo Waybar.
+ *
+ * v1.3 AMOLED — "Mocha com o backlight desligado": a escada de superfícies
+ * desce até o preto REAL (#000000) — pixels desligados no painel OLED.
+ * Acentos e textos Catppuccin intactos (só o CHROME escurece, o colorido
+ * continua doce). GTK apps permanecem Catppuccin Mocha por trás do chrome
+ * preto — "macOS style": a janela entrega a cor, o desktop entrega o preto.
+ * Anti-regressão: a base Catppuccin original → 000000 (cada superfície seguiu a escada). */
+
+@define-color rosewater #f5e0dc;
+@define-color flamingo  #f2cdcd;
+@define-color pink      #f5c2e7;
+@define-color mauve     #cba6f7;
+@define-color red       #f38ba8;
+@define-color maroon    #eba0ac;
+@define-color peach     #fab387;
+@define-color yellow    #f9e2af;
+@define-color green     #a6e3a1;
+@define-color teal      #94e2d5;
+@define-color sky       #89dceb;
+@define-color sapphire  #74c7ec;
+@define-color blue      #89b4fa;
+@define-color lavender  #b4befe;
+@define-color text      #cdd6f4;
+@define-color subtext1  #bac2de;
+@define-color subtext0  #a6adc8;
+@define-color overlay2  #9399b2;
+@define-color overlay1  #7f849c;
+@define-color overlay0  #6c7086;
+@define-color surface2  #2e2e3d;
+@define-color surface1  #22222e;
+@define-color surface0  #16161f;
+@define-color base      #0a0a12;
+@define-color mantle    #050508;
+@define-color crust     #000000;
+
+* {
+  /* v2.1: família REAL do archcraft-fonts 2.0 ("JetBrainsMono NF" — a
+   * "JetBrainsMono Nerd Font" do CSS antigo NÃO existe: glifos caíam no
+   * fallback do fontconfig). Symbols Nerd Font = rede de segurança. */
+  font-family: "JetBrainsMono NF", "Symbols Nerd Font", sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  min-height: 0;
+}
+
+/* ===== Menu bar: faixa full-width, fina, translúcida ===== */
+window#waybar {
+  background: alpha(@crust, 0.94);
+  border: none;
+  /* v1.9 — spec M2.3 do dono: a "linha horizontal solta" sob a barra ERA
+   * a borda fina de 1px na base do painel que morava aqui (flagrante do
+   * rig, out/2026). Morta: barra colada ao teto sem nenhuma linha. */
+  color: @text;
+  /* v1.9 — spec M2.1: centralização vertical ESTRITA no eixo Y — padding
+   * simétrico (topo == base) no painel: nenhum ícone toca o limite físico
+   * do monitor. GTK3-válido (padding, não min-height cru). */
+  padding-top: 2px;
+  padding-bottom: 2px;
+}
+
+/* Módulos: padding horizontal generoso, hover com pílula (estilo item de
+ * menu do macOS — hover suave em todo o alvo, não só no texto) */
+
+/* v1.5: o lançador ARCH do canto esquerdo SAIU (spec do dono) — o
+ * Launchpad segue na DOCK (1º botão do grupo central). */
+
+#custom-power {
+  padding: 0 14px;
+  font-size: 15px;
+  border-radius: 0;
+}
+
+#wlr-window {
+  padding: 0 10px;
+  color: @subtext1;
+  font-weight: 600;
+}
+
+#mpris {
+  padding: 0 10px;
+  color: @mauve;
+}
+
+#network,
+#pulseaudio {
+  padding: 0 10px;
+}
+
+#tray {
+  /* v1.9 — spec M2.2 do dono: o tray COLADO na borda direita do monitor
+   * ganha respiro de 14px (entre 12-16px do spec) à direita. */
+  padding: 0 14px 0 8px;
+  margin-right: 2px;
+  min-width: 0;
+}
+
+/* v1.6 — tray íntegro: itens SNI herdam a cor do texto (ícones simbólicos
+ * GTK renderizam com "color"; sem isto, itens com ícone simbólico podem
+ * aparecer como bloco claro sem contorno em alguns temas — o glitch que o
+ * dono fotografou no burn test v1.5). Ícone 18px: legível sem gritar.
+ * v1.8 — CURA DA CLASSE "SUBIU SÓ O WALLPAPER": a propriedade GTK4 de
+ * tamanho de ícone que morava aqui era FATAL no waybar 0.15 (CSS estrito:
+ * propriedade desconhecida = exit 1 no parse). As 2 barras morreram em
+ * loop ETERNO no boot desde a v1.6 (run #79 do CI em flagrante:
+ * BARS_EXITS=32, "SAIU exit=1" ×2). -gtk-icon-transform é GTK3-válido
+ * e mantém a intenção: 24px nativo → 18px. */
+#tray > .tray > image {
+  color: @text;
+  -gtk-icon-transform: scale(0.75);
+  padding: 0 2px;
+}
+
+/* ARCH (Launchpad) — v1.6: de volta ao canto esquerdo, em MAUVE
+ * (identidade do rice — mesmo glifo da dock, mesmo vermelho-mauve) */
+#custom-drawer {
+  padding: 0 12px 0 14px;
+  color: @mauve;
+  font-size: 15px;
+}
+#custom-drawer:hover {
+  background: alpha(@surface0, 0.95);
+  border-radius: 8px;
+}
+
+#clock {
+  padding: 0 12px;
+  color: @text;
+  font-weight: 600;
+}
+
+/* Hover: pílula arredondada — feedback de clique em TUDO · :active:
+ * pressed = superfície mais escura (matriz de estados completa) */
+#custom-power:hover,
+#wlr-window:hover,
+#custom-drawer:hover,
+#mpris:hover,
+#network:hover,
+#pulseaudio:hover,
+#tray:hover,
+#clock:hover,
+#tray > .tray > image:hover {
+  background: alpha(@surface0, 0.95);
+  border-radius: 8px;
+  transition: background 0.15s ease;
+}
+
+#custom-power:active,
+#wlr-window:active,
+#mpris:active,
+#network:active,
+#pulseaudio:active,
+#clock:active {
+  background: alpha(@surface2, 0.95);
+  border-radius: 8px;
+}
+
+/* Volume mudo = vermelho (v2.1: ícone só — o estado precisa gritar) */
+#pulseaudio.muted {
+  color: @red;
+}
+
+/* Rede caída = vermelho suave */
+#network.disconnected {
+  color: @red;
+}
+
+/* Power: vermelho no hover — destrutivo, sinaliza */
+#custom-power {
+  color: @subtext0;
+}
+#custom-power:hover {
+  background: alpha(@red, 0.18);
+  color: @red;
+}

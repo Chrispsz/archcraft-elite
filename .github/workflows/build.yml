@@ -1,0 +1,439 @@
+name: Build Elite ISO
+
+on:
+  workflow_dispatch:
+    inputs:
+      notes:
+        description: 'Notas da build (opcional)'
+        required: false
+        default: ''
+  push:
+    # v2.1 — REORG: ISO só nasce de TAG (evento de release) ou de dispatch
+    # manual. Push de branch roda a suíte de contratos (tests.yml, ~2 min)
+    # — não mais uma ISO inteira idêntica: a ['**'] antiga construía ISO
+    # até para push de docs (as runs #68-#71 em sequência são o flagrante).
+    # O paths-ignore mantém docs/testes fora do runner nas tags.
+    tags: ['v*']
+    paths-ignore: ['**.md', 'docs/**', 'tests/**']
+
+# v2.1 — menor privilégio: o workflow inteiro só lê; ÚNICO job com
+# escrita é o release (publica a release). O job de relay automático foi REMOVIDO
+# do pipeline: dispatchava deepseek+mimo EM TODA build — inclusive em
+# runs canceladas (a #91 cancelada queimou 2 dispatches) — até esgotar
+# a cota free do Token Harbor (HTTP 429 em massa). Auditoria de IA agora
+# é sob demanda: agents.yml manual, protocolo em docs/AGENTS.md.
+permissions:
+  contents: read
+
+concurrency:
+  group: build-elite-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Qualidade: shellcheck como gate + shfmt informativo ──────────
+  lint:
+    # FIXO em 24.04: o label ubuntu-latest migrou p/ Ubuntu 26 em out/2026 —
+    # runner image é superfície de risco p/ o build privilegiado (docker run
+    # --privileged); pin = build reproduzível, migração avaliada com calma.
+    runs-on: ubuntu-24.04
+    container: archlinux:base-devel
+    steps:
+      - name: Preparar container
+        run: pacman -Sy --noconfirm --needed git shellcheck shfmt
+      # v5 = Node 24 nativo (v4 alvo Node 20: warning de deprecação em todo run)
+      - uses: actions/checkout@v5
+      - name: shellcheck (gate — warning ou acima; infos são intencionais e documentadas)
+        run: |
+          shopt -s globstar
+          # v2.0.1 — run #88 em flagrante: o glob craft-* pegou o
+          # craft-dock-gui, que é PYTHON (#!/usr/bin/python3) — shellcheck
+          # só aceita sh/bash/dash/ksh (SC1071 = erro). O gate varre a
+          # lista e PULA qualquer shebang python: novos scripts Python no
+          # bin/ não quebram o lint, e nada sai da cobertura shell.
+          rc=0
+          for f in scripts/*.sh .ci/*.sh elite/fragments/*.sh \
+                   elite/airootfs/usr/local/bin/elite-tune \
+                   elite/airootfs/usr/local/bin/fg-booster \
+                   elite/airootfs/usr/local/bin/elite-status \
+                   elite/airootfs/usr/local/bin/craft-* \
+                   elite/airootfs/etc/skel/.config/labwc/autostart; do
+            head -n1 "$f" | grep -q '^#!.*python' && continue
+            shellcheck -S warning -x "$f" || rc=1
+          done
+          exit $rc
+      - name: shfmt (informativo — não bloqueia)
+        run: shfmt -d scripts/*.sh .ci/*.sh elite/fragments/*.sh || true
+
+  # ── Build da ISO (container Arch PRIVILEGIADO via docker run) ────
+  # jobs.container: não tem permissão de mount (pacstrap monta /proc
+  # no chroot) — por isso o docker run --privileged a partir do runner.
+  build:
+    needs: lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Restaurar cache de pacotes (pacman + [elite-local])
+        # v2.1 — os ~2 GB de pacotes baixados a cada run (preparo do
+        # container + preflight, ~8 min medidos) agora persistem. Chave =
+        # hash da lista de pacotes: mudou a lista, cache novo (com
+        # restore-keys para aproveitar o que servir). Os .db NUNCA são
+        # cacheados (lição #17: db velho = mirror skew) — o preflight
+        # re-sincroniza os dbs a cada run como sempre fez.
+        uses: actions/cache@v4
+        with:
+          path: .ci-cache
+          key: elite-pkgs-v1-${{ hashFiles('elite/packages.add', 'elite/packages.remove', 'elite/pacman-repos.build.add') }}
+          restore-keys: |
+            elite-pkgs-v1-
+
+      - name: Construir ISO (container Arch privilegiado)
+        # v1.5.2: o log da build é EVIDÊNCIA — capturado (tee) e auditado
+        # (log-forensics.sh) no passo seguinte. pipefail: quem quebra a
+        # pipe é o docker, não o tee. Forense validada contra a história:
+        # o log da v1.4 (verde, releaseada) tem 5 classes fatais literais
+        # — este gate as teria barrado ANTES do burn test do dono.
+        # v2.1: .ci-cache/{pacman,elite-local} montados no container —
+        # cache quente = −6 a −12 min por build.
+        run: |
+          set -o pipefail
+          mkdir -p .ci-cache/pacman .ci-cache/elite-local
+          chmod 777 .ci-cache/pacman .ci-cache/elite-local
+          docker run --rm --privileged \
+            -v "$PWD":/work \
+            -v "$PWD/.ci-cache/pacman":/var/cache/pacman/pkg \
+            -v "$PWD/.ci-cache/elite-local":/var/cache/elite-local \
+            -v /mnt:/mnt \
+            -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
+            -w /work \
+            archlinux:base-devel \
+            bash .ci/build.sh 2>&1 | tee build-output.log
+
+      - name: Forense do log de build (v1.5.2 — erro silencioso = run vermelha)
+        # Diretriz do dono pós-v1.5: "esses erros não podem passar ou ser
+        # tratados como algo normal". A v1.4 saiu sem cachyos-keyring com
+        # os erros ESCRITOS no log e ninguém varreu. Este gate transforma
+        # padrão fatal conhecido em falha alta — ANTES do release.
+        run: bash scripts/log-forensics.sh build-output.log
+
+      - name: Upload artefato (ISO inteira, sempre)
+        uses: actions/upload-artifact@v4
+        with:
+          name: archcraft-elite-iso
+          path: out/*
+          retention-days: 30
+          compression-level: 0
+
+  # ── Gate de instalação (v1.0.5): o disco INSTALADO tem que bootar ──────
+  # Reusa o verify-install.yml (workflow_call) — a cadeia Calamares fiel
+  # (unpackfs rsync→btrfs + E5a + E10 cp + initcpio@elite + GRUB) e o boot
+  # do disco instalado no QEMU. O verify acima só prova o LIVE; o bug do
+  # rig B (vmlinuz truncado em btrfs → 'premature end of file' no GRUB)
+  # era invisível para ele. Release sem install-boot verde = gambiarra.
+  # (v1.5.2: diag-install.yml renomeado p/ verify-install.yml — nomenclatura
+  # de debug não vive em pipeline de produção; mesmo conteúdo, novo nome.)
+  verify-install:
+    needs: build
+    uses: ./.github/workflows/verify-install.yml
+    with:
+      # FIX #52 (forense: builds #48–#52): a ISO que este gate testa é a
+      # DESTA run — o artifact sobe no job build acima. Sem o input, o
+      # verify-install (ex-diag-install) caía no fallback "última bem-sucedida" (ISO v1.0.4
+      # da run #45) e reprovava eternamente o linux.preset legítimo
+      # daquela era — 5 builds reprovadas por um gate cego. O input
+      # explícito é a fonte da verdade: GITHUB_EVENT_NAME (env) nunca
+      # vale 'workflow_call' — o env reflete o evento da run (push/
+      # dispatch/tag), não o tipo de chamada do workflow.
+      run_id: ${{ github.run_id }}
+    permissions:
+      contents: read
+      actions: read
+
+  # ── Release: SÓ depois dos gates (live-boot verify + install-boot) ──
+  # v1.8.1 — A CLASSE "RELEASE TRUNCADA" MORTA POR CONTRATO: a v1.8.0
+  # subiu TRUNCADA (1.55 GiB de 2.77 GiB — blob flaky no download do
+  # artifact no release job da #82) e ninguém viu: o split <2 GiB celebrou
+  # o truncamento como "compressão zstd nova" e o Ventoy do dono recusou
+  # a ISO (PVD declarava 2,77 GiB). Três barreiras agora:
+  #   GATE 1 (pré-upload): o artifact tem de casar com o sha256sums.txt
+  #     que o build.sh sela DENTRO dele — download de artifact corrompido
+  #     = run vermelha ANTES de qualquer upload.
+  #   GATE 2 (pós-upload): re-download do ASSET publicado + sha256sum -c —
+  #     o blob do GitHub é a única verdade do dono; mismatch = run vermelha
+  #     (e sem asset quebrado no ar: a release já nasceu verificada).
+  #   EVIDÊNCIA no corpo: tabela sha256 + tamanhos visíveis na release.
+  release:
+    needs: [build, verify, verify-install]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    # v2.1 — único job com escrita no workflow (menor privilégio)
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Baixar artefato da ISO (desta build)
+        uses: actions/download-artifact@v4
+        with:
+          name: archcraft-elite-iso
+          path: out
+
+      - name: GATE 1 — integridade do artifact (sha256sums selado pelo build.sh)
+        run: |
+          cd out
+          ls -lh --si
+          echo "── GATE 1: artifact vs sha256sums.txt (iso + sumas na MESMA caixa)"
+          sha256sum -c sha256sums.txt
+
+      # ── Release: asset único ≤ 2 GiB; senão, partes de 1.9 GB ─────
+      - name: Preparar assets de release (split se > 2 GiB)
+        run: |
+          cd out
+          ISO=$(ls *.iso)
+          SZ=$(stat -c%s "$ISO")
+          LIMIT=2147483648
+          if [ "$SZ" -le "$LIMIT" ]; then
+            echo "ISO única ($SZ bytes ≤ 2GiB) — asset único."
+          else
+            echo "ISO $SZ bytes > 2GiB — dividindo em partes de 1.9GB."
+            split -b 1900M -d "$ISO" "${ISO}.part-"
+            rm -f "$ISO"
+            printf '%s\n' \
+              "# ISO dividida (limite de 2 GiB por arquivo do GitHub)" \
+              "" \
+              "Baixe **todas** as partes \`${ISO}.part-*\` na mesma pasta e junte:" \
+              "" \
+              "    cat ${ISO}.part-* > ${ISO}" \
+              "" \
+              "Confira a integridade: \`sha256sum -c <(grep -E 'part|${ISO}$' sha256sums.txt)\`" \
+              "(sha256sums.txt traz a ISO inteira E as partes)." \
+              > JUNTAR-ISO.md
+            sha256sum -- "${ISO}.part-"* >> sha256sums.txt
+            ls -lh --si
+          fi
+
+      # Corpo da release: a tabela de integridade VISÍVEL (na v1.8.0 o
+      # PVD dizia 2,77 GiB e o asset tinha 1,55 — na tabela isso salta
+      # aos olhos antes de qualquer download).
+      - name: Corpo da release (tabela de integridade)
+        run: |
+          cd out
+          {
+            echo "### Integridade (verificada no upload — confira após baixar)"
+            echo ""
+            echo '```'
+            cat sha256sums.txt
+            echo '```'
+            echo ""
+            if ls *.part-* >/dev/null 2>&1; then
+              echo "**ISO dividida** (> 2 GiB): baixe **todas** as \`.part-*\` na mesma pasta e junte com \`cat <ISO>.part-* > <ISO>\` — passo a passo em \`JUNTAR-ISO.md\`."
+            else
+              echo "**ISO única** (≤ 2 GiB) — direto no Ventoy/Rufus."
+            fi
+          } > body.md
+
+      - name: Release (push de tag v*)
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            out/*
+          body_path: out/body.md
+          generate_release_notes: true
+
+      - name: GATE 2 — verificação PÓS-upload (re-download do que o GitHub guardou)
+        run: |
+          cd out
+          TAG="${GITHUB_REF#refs/tags/}"
+          echo "── GATE 2: re-baixando os assets de '$TAG' — o blob do GitHub tem de ser a ISO selada"
+          rm -f body.md JUNTAR-ISO.md
+          mkdir downloaded
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir downloaded --clobber
+          cd downloaded
+          ls -lh --si
+          # a ISO inteira (nome original) só existe como asset no modo
+          # single; no split ela é reconstruída das partes --ignore-missing
+          # verifica O QUE EXISTE: qualquer byte divergente = run vermelha
+          sha256sum -c ../sha256sums.txt --ignore-missing
+
+  # ── Verificação pós-build: a ISO recém-nascida BOOTA? (gate QEMU) ─
+  # Diretriz do dono do projeto: "você testando, você dando o boot" —
+  # toda build passa pelo boot serial no QEMU ANTES de ser considerada
+  # boa. GATE duro: Startup finished + sem shell de emergência + sem
+  # 203/EXEC (binários executáveis no squashfs).
+  verify:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - name: Instalar QEMU + 7zip
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qemu-system-x86 p7zip-full >/dev/null
+          qemu-system-x86_64 --version | head -1
+
+      - name: Baixar artefato da ISO (desta build)
+        uses: actions/download-artifact@v4
+        with:
+          name: archcraft-elite-iso
+          path: iso-out
+
+      - name: Extrair kernel/initrd + UUID do marcador
+        run: |
+          cd iso-out
+          ISO=$(ls *.iso)
+          echo "ISO=$ISO" >> "$GITHUB_ENV"
+          # v2.1 — GATE DURO: divergiu do sha256 selado = run vermelha.
+          # (Antes o || true ENGOLIA a checagem: ISO truncada seguia para
+          # boot e podia passar — exatamente a classe v1.8.0.)
+          sha256sum -c sha256sums.txt --ignore-missing
+          7z x -y "$ISO" -o../extracted/ 'arch/boot/x86_64/vmlinuz-linux-cachyos-bore' 'arch/boot/x86_64/initramfs-linux-cachyos-bore.img' 'boot/syslinux/archiso_sys-linux.cfg' >/dev/null
+          cd ../extracted
+          ls -la arch/boot/x86_64/
+          echo "── entrada default do syslinux (cmdline que o usuário boota):"
+          grep -m1 '^APPEND ' boot/syslinux/archiso_sys-linux.cfg || { echo '✖ APPEND ausente'; exit 1; }
+
+      - name: Boot serial no QEMU (kernel BORE, CMDLINE REAL da ISO)
+        run: |
+          set +e
+          # LIÇÃO DA #43: o gate NÃO pode inventar a própria cmdline. A #43
+          # falhou porque o -append hardcoded não tinha o fix [6.2]
+          # (timeouts 90s) — bootava com os 15s do cachyos-settings e o
+          # nsresourced entrava em loop (153 falhas). O usuário real boota
+          # pela entrada do syslinux/grub, QUE TEM o fix. Então o gate extrai
+          # a cmdline REAL da entrada default (label 'arch', kernel BORE) e
+          # só ajusta observabilidade p/ serial: sem quiet/splash, loglevel=7,
+          # console=ttyS0 — nada do que é testado muda.
+          ENTRY="extracted/boot/syslinux/archiso_sys-linux.cfg"
+          APPEND_ISO=$(grep -m1 '^APPEND ' "$ENTRY" | sed 's/^APPEND //')
+          if [ -z "$APPEND_ISO" ]; then echo "✖ APPEND não encontrado em $ENTRY"; exit 1; fi
+          echo "── cmdline REAL da ISO (default, BORE):"
+          echo "   $APPEND_ISO"
+          APPEND_GATE=$(printf '%s' "$APPEND_ISO" \
+            | sed -e 's/quiet splash //' -e 's/loglevel=[0-9]*/loglevel=7/')
+          APPEND_GATE="$APPEND_GATE console=ttyS0,115200 systemd.log_target=console systemd.log_level=info systemd.show_status=yes"
+          echo "── cmdline do gate (real + serial):"
+          echo "   $APPEND_GATE"
+          qemu-system-x86_64 \
+            -machine q35 -cpu max -smp 2 -m 7168 \
+            -kernel "extracted/arch/boot/x86_64/vmlinuz-linux-cachyos-bore" \
+            -initrd "extracted/arch/boot/x86_64/initramfs-linux-cachyos-bore.img" \
+            -append "$APPEND_GATE" \
+            -cdrom "$PWD/iso-out/$ISO" \
+            -nographic -no-reboot -nic user \
+            > serial-verify.log 2>&1 &
+          Q=$!
+          # até ~55 min (TCG é lento; com o fix [6.2] a fase final chega em
+          # ~5min local — janela folgada; o loop também sai no emergente)
+          for i in $(seq 1 660); do
+            grep -q 'Startup finished' serial-verify.log 2>/dev/null && break
+            grep -q 'rootfs ~]#' serial-verify.log 2>/dev/null && break
+            kill -0 $Q 2>/dev/null || break
+            sleep 5
+          done
+          # v1.7.1 — PROBE DA SESSÃO GRÁFICA: o gate antigo parava no LOGIN
+          # e nunca viu a sessão (a classe "barras mortas" atravessou
+          # v1.6.2→v1.7.0 invisível). O elite-session-probe.service roda 60s
+          # pós-graphical.target e imprime o estado REAL da sessão no console
+          # (= serial). Espera o bloco marcado antes de encerrar o QEMU.
+          for i in $(seq 1 48); do
+            grep -q 'ELITE_PROBE_END' serial-verify.log 2>/dev/null && break
+            kill -0 $Q 2>/dev/null || break
+            sleep 5
+          done
+          sleep 15                         # v2.1: flush 5→15s — unidade que falha logo após o probe entra no veredito
+          kill $Q 2>/dev/null; wait $Q 2>/dev/null
+          echo "════════ ÚLTIMAS 40 LINHAS DO SERIAL ════════"
+          tail -40 serial-verify.log
+
+      - name: GATE — veredito do boot
+        run: |
+          # v1.0.5: set +e — o 'set -e' antigo matava o gate no PRIMEIRO grep
+          # sem match, ANTES do chk imprimir o diagnóstico (#42/#43: gate
+          # vermelho sem uma única linha de explicação no log). Cada grep
+          # alimenta o chk; o exit $FAIL no final decide a run.
+          set +e
+          FAIL=0
+          chk() { # $1=condição(0=ok) $2=mensagem-ok $3=mensagem-fail
+            if [ "$1" -eq 0 ]; then echo "✔ $2"; else echo "✖ $3"; FAIL=1; fi
+          }
+          grep -q 'Startup finished' serial-verify.log
+          chk $? "boot COMPLETO (Startup finished)" "boot NÃO completou (sem Startup finished)"
+          ! grep -q 'rootfs ~]#' serial-verify.log
+          chk $? "sem shell de emergência do initramfs" "initramfs caiu em shell de emergência"
+          ! grep -qE 'code=203/EXEC|Unable to locate executable' serial-verify.log
+          chk $? "binários Elite executáveis (sem 203/EXEC — fix [9b] verificado)" "203/EXEC no live: binário 0644 no squashfs"
+          # regressão do [6.2]: a entrada REAL da ISO TEM que carregar os
+          # timeouts 90s — é o que o usuário boota (a #43 falhou o boot
+          # exatamente por testar uma cmdline sem o fix)
+          grep -q 'systemd.default_timeout_start_sec=90' extracted/boot/syslinux/archiso_sys-linux.cfg
+          chk $? "cmdline real da ISO com timeout 90s ([6.2] presente)" "ISO sem timeout 90s no cmdline — fix [6.2] REGREDIU"
+          # v1.5.2: NENHUMA unidade pode terminar em failed no live. O
+          # fg-booster crash-loopou em TODA boot v1.0→v1.5 (debloat v4.2
+          # varreu o xdotool; 17 'Failed with result' no serial completo
+          # da v1.5) e 'Startup finished' não enxerga units falhadas.
+          # Alguma unidade falha só no QEMU? Então se documenta AQUI, com
+          # exceção explícita e prova — nunca silenciosamente (a regra da
+          # forense de log vale aqui também: benigno é benigno POR ESCRITO).
+          units=$(sed 's/\x1b\[[0-9;]*m//g' serial-verify.log \
+            | grep -oE "[a-zA-Z0-9@._-]+\\.service: Failed with result" \
+            | sort -u | tr '\n' ' ')
+          ! grep -q 'Failed with result' serial-verify.log
+          chk $? "nenhuma unidade systemd em failed no live (v1.5.2 — crash-loop caçado)" "unidade(s) em failed: ${units:-?}"
+          # v1.7.1 — GATE DA SESSÃO GRÁFICA: o que o dono vê NÃO é o login, é
+          # a sessão. Desde a v2.0 a sessão é waybar top + dock NATIVA
+          # (craft-dock-gui, GTK) — o "-ge 2" herdado da era waybar-dock era
+          # um contrato defasado que a #93 flagrou (1/2 com a dock
+          # crash-loopando por pin inexistente: 'brave.desktop' vs o
+          # 'brave-browser.desktop' REAL do pacote). Agora: waybar ≥1 E
+          # dock ≥1 E zero mortes (BARS_EXITS = 'SAIU exit=' do craft-bars).
+          # Se o probe não chegou (QEMU headless sem sessão), informativo — o
+          # gate não cobra o que não pode ver (mesma honestidade do bloco acima).
+          if grep -q 'ELITE_PROBE_END' serial-verify.log; then
+            echo "── bloco do probe da sessão:"
+            sed -n '/ELITE_PROBE_BEGIN/,/ELITE_PROBE_END/p' serial-verify.log | sed 's/^/   /'
+            WC="$(sed 's/\x1b\[[0-9;]*m//g' serial-verify.log | grep -oE 'WAYBAR_COUNT=[0-9]+' | head -1 | cut -d= -f2)"
+            DK="$(sed 's/\x1b\[[0-9;]*m//g' serial-verify.log | grep -oE 'DOCK_COUNT=[0-9]+' | head -1 | cut -d= -f2)"
+            BE="$(sed 's/\x1b\[[0-9;]*m//g' serial-verify.log | grep -oE 'BARS_EXITS=[0-9]+' | head -1 | cut -d= -f2)"
+            [ -n "$WC" ] && [ "$WC" -ge 1 ] 2>/dev/null
+            chk $? "sessão gráfica VIVA: waybar top vivo (probe: WAYBAR_COUNT=${WC:-0})" "PROBLEMA REAL DE SESSÃO: waybar top não está vivo (${WC:-0}) — classe 'subiu só o wallpaper' que o dono viu (ver BARS| acima)"
+            [ -n "$DK" ] && [ "$DK" -ge 1 ] 2>/dev/null
+            chk $? "sessão gráfica VIVA: dock nativa viva (probe: DOCK_COUNT=${DK:-0})" "PROBLEMA REAL DE SESSÃO: dock craft-dock-gui NÃO está viva (${DK:-0}) — pin quebrado/crash (ver BARS| acima; na #93 crash-loopou 15× com 'brave.desktop' inexistente)"
+            [ -n "$BE" ] && [ "$BE" -eq 0 ] 2>/dev/null
+            chk $? "barras sem NENHUMA morte na sessão (BARS_EXITS=${BE:-?})" "barra(s) morreram ${BE:-?}× na sessão — crash/race/pin quebrado (exit code no BARS| acima)"
+          else
+            # v2.1 — FIM DO VERDE-FAKE: com KVM disponível (o runner tem,
+            # confirmado nos logs), a sessão gráfica TEM que subir e o
+            # probe TEM que chegar ao serial. Sem KVM (TCG lento), segue
+            # informativo — o gate não cobra o que não consegue ver.
+            if [ -e /dev/kvm ]; then
+              echo "✖ probe da sessão NÃO chegou COM KVM DISPONÍVEL — sessão gráfica devia ter subido (classe 'subiu só o wallpaper')"
+              FAIL=1
+            else
+              echo "· informativo: probe da sessão NÃO chegou (sem /dev/kvm — TCG) — gate não cobra o que não vê"
+            fi
+          fi
+          # informativos (não derrubam o gate — headless QEMU nem sempre
+          # mostra a sessão gráfica subindo)
+          echo "── informativos ──"
+          grep -qE 'sddm' serial-verify.log && echo "· sddm presente no log" || echo "· (sddm: sem menção no serial — normal em headless)"
+          grep -qiE 'labwc' serial-verify.log && echo "· labwc mencionado no log" || echo "· (labwc: sem menção no serial)"
+          grep -qE 'fg-booster' serial-verify.log && echo "· fg-booster no log" || echo "· (fg-booster: sem menção)"
+          exit $FAIL
+
+      - name: Upload serial log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-boot-serial
+          path: serial-verify.log
+          if-no-files-found: warn
+          retention-days: 14
+
+  # ── Auditoria de IA (deepseek + mimo): SOB DEMANDA (v2.1) ─────────
+  # O relay automático pós-build foi removido: queimava a cota free do
+  # Token Harbor em toda build (inclusive cancelada) até o 429 geral.
+  # Dispatch manual quando quiser auditar uma run:
+  #   dispatch manual (UI ou API) conforme docs/AGENTS.md — contexto ci:<run_id>
+  # Protocolo de consenso (3 IAs): docs/AGENTS.md

@@ -1,0 +1,44 @@
+#!/bin/sh
+# craft-drawer — o "Launchpad" da Elite (nwg-drawer)
+# Grade de apps em tela cheia com busca. Mouse-first: um clique abre,
+# Esc/clique fora fecha (nativo do nwg-drawer).
+#
+# v1.4 (burn test da v1.3 ao vivo, diretrizes do dono):
+#   · SEM categorias (-nocats): a faixa de tabs ia contra a organização —
+#     o usuário organiza o próprio sistema; a grade fica só apps + busca
+#     (o -nocats é flag oficial do upstream: main.go:578/735 — a barra de
+#     categorias nem nasce, sem CSS gambiarra)
+#   · SEM barra de sessão na base: os botões travar/sair/suspender/
+#     reiniciar/desligar saem (as flags -pb* nem são passadas — sem
+#     comando, o upstream não cria a barra: main.go:661). A sessão mora
+#     SÓ na menu bar (⏻ no canto direito → craft-power) — um lugar,
+#     um modelo, zero duplicação
+#
+# v1.6.1 (pedido do dono: "abrir E fechar"): TOGGLE — 2ª chamada com a
+#   gaveta aberta apenas FECHA (mesma cura do craft-power/craft-connect:
+#   o botão nunca empilha, sempre alterna). O nwg-drawer não tem modo
+#   daemon — a instância aberta É o processo; detectar por nome exato
+#   (pgrep -x) e matar (pkill -x) é o toggle inteiro.
+#
+# Flags (upstream nwg-piotr/nwg-drawer):
+#   -fm       gerenciador de arquivos (busca de arquivos do drawer —
+#             Thunar, o FM padrão da v1.5: xdg-mime inode/directory)
+#   -term     terminal para .desktop de console
+#   -is/-c    tamanho do ícone / colunas
+#   -nocats   desliga a barra de categorias (v1.4)
+set -eu
+
+# TOGGLE: gaveta aberta? fecha e sai
+if pgrep -x nwg-drawer >/dev/null 2>&1; then
+    pkill -x nwg-drawer 2>/dev/null || true
+    exit 0
+fi
+
+exec nwg-drawer \
+  -fm "thunar" \
+  -term foot \
+  -is 64 \
+  -c 8 \
+  -spacing 16 \
+  -nocats \
+  "$@"

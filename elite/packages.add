@@ -1,0 +1,198 @@
+## ── ELITE v1.1: kernel CachyOS BORE — KERNEL ÚNICO ───────────────────
+## O 'linux'/'linux-headers' do Arch saem da ISO (packages.remove): com o
+## nvidia-open-dkms PRÉ-COMPILADO contra o BORE no build (E11), a entrada
+## NVIDIA do live não precisa mais do kernel stock — e o sistema instalado
+## nasce single-kernel, sem fallback morto entulhando o GRUB.
+linux-cachyos-bore
+linux-cachyos-bore-headers
+
+## ── ELITE v1.1: NVIDIA no kernel BORE (dual-rig offline) ──────────────
+## O pacstrap instala e o hook do dkms compila contra o BORE; o E11
+## regenera o initramfs do live com o hook kms → early-KMS no live E no
+## sistema instalado (o unpackfs leva módulos+fonte+toolchain inteiros:
+## kernel update no alvo reconstrói sozinho, sem rede). No rig AMD o
+## E10 remove o stack na instalação e o firstboot varre o resto.
+nvidia-open-dkms
+
+## ── ELITE: tuning CachyOS (sysctl/udev/modprobe + boosters oficiais) ──
+cachyos-settings
+cachyos-ananicy-rules
+ananicy-cpp
+scx-scheds
+scx-tools
+dmemcg-booster
+
+## ── ELITE: stack de gaming (Vulkan incluso — o upstream NÃO traz!) ──
+## v1.5: nvtop SAIU (spec do dono — bloatware; btop cobre a visão
+## geral de sistema/processos/GPU básica no terminal)
+gamemode
+lib32-gamemode
+gamescope
+mangohud
+lib32-mangohud
+vulkan-radeon
+vulkan-intel
+lib32-vulkan-radeon
+lib32-vulkan-intel
+lib32-mesa
+btop
+lact
+
+## ── ELITE: infra de rollback + diagnóstico ──
+grub-btrfs
+timeshift
+pciutils
+
+## ── ELITE: substituições (upstream desatualizado) ──
+## p7zip virou pacote virtual de '7zip' — nome explícito evita prompt
+## de provider no pacstrap (build não-interativo)
+7zip
+
+## ── ELITE: sessão labwc (Wayland) — o desktop default da ISO ──────────
+## Deps dos keybinds do rc.xml embutido: playerctl (mídia), brightnessctl
+## (notebooks), pulsemixer (W-a), pactl (libpipe, volume), craft-shot
+## (grim+slurp+wl-clipboard), craft-lock (hyprlock).
+## v1.5 (spec do dono — lock/idle reformulado):
+##   · swaylock SAIU (tela branca estática) → hyprlock: ext-session-lock-v1
+##     no labwc (labwc.github.io/integration; hyprlock #607/#211), com o
+##     rice completo em ~/.config/hypr/hyprlock.conf (screenshot+blur+dim,
+##     relógio, avatar, campo com feedback Validando/Senha Incorreta)
+##   · wlopm: cliente do wlr-output-power-management-v1 (DPMS da idle —
+##     receita canônica da wiki do labwc; wlr-randr --off re-arranja views)
+labwc
+waybar
+swaync
+fuzzel
+foot
+swaybg
+hyprlock
+wlopm
+wl-clipboard
+grim
+slurp
+playerctl
+brightnessctl
+pulsemixer
+polkit-gnome
+xdg-desktop-portal-wlr
+mpv
+imv
+thunar
+tumbler
+
+## ── ELITE v1.0.3: fastfetch (o craft-hello usa quando existe) ─────────
+fastfetch
+## ── ELITE v1.5.2: xdotool (fg-booster exige — o debloat v4.2 o varreu e
+##    a unit crash-loopou em silêncio em TODA boot v1.0→v1.5; contrato CI) ─
+xdotool
+
+## ── ELITE v1.0.4 · Desktop v2 (macOS-style, mouse-first) ──────────────
+## RUNTIME DA DOCK NATIVA (v2.0 — craft-dock-gui): a dock da Elite é um
+## programa GTK3 próprio no protocolo wlr-layer-shell (o mesmo mecanismo
+## do nwg-dock, sem a dependência do sway IPC — funciona no labwc).
+##   · python + python-gobject — o GUI é um único script PyGObject
+##     (mantível no repo, sem toolchain Go no build)
+##   · gtk-layer-shell — o protocolo (dep do nwg-drawer, aqui explícito)
+## Os ícones dos pins vêm do TEMA via Gio.DesktopAppInfo (Papirus-Dark)
+## — zero glifo Nerd Font, zero imagem custom: "deixe o ícone ser
+## tratado como o sistema já é" (dono, out/2026).
+python
+python-gobject
+gtk-layer-shell
+
+## nwg-drawer: o "Launchpad" — grade de apps em tela cheia com busca,
+## categorias e barra de sessão (craft-drawer). wlroots-agnóstico.
+## papirus-icon-theme: ícones de apps p/ o dock (waybar wlr/taskbar),
+## Launchpad e GTK (settings.ini do skel aponta Papirus-Dark).
+## catppuccin-gtk-theme-mocha: tema GTK oficial Catppuccin (repo [archcraft])
+## — variantes Standard-<accent>-Dark; o skel usa a Mauve (= acento do rice:
+## fuzzel/swaync/dock/borda de janela). gtk-engine-murrine: engine exigida.
+## archcraft-cursor-bibata: cursor Bibata — o cursor dos melhores rices.
+nwg-drawer
+papirus-icon-theme
+catppuccin-gtk-theme-mocha
+gtk-engine-murrine
+archcraft-cursor-bibata
+
+## ── ELITE v1.0.3 CURADORIA "BRABOS 2026" ──────────────────────────────
+## Diretriz do dono: só o REALMENTE ÚTIL de fábrica (email, gravador de
+## tela e apps nicho = cockpit pós-install). Substituições validadas na
+## pesquisa 2026 (Task 42-a) e contra os dbs REAIS do build (cachyos-v3
+## + extra Arch — todos os nomes conferidos, out/2026).
+
+## CLI modernos (rust — os "essenciais" do cockpit agora nascem na ISO;
+## o W-f do rc.xml já usava eza no fallback)
+ripgrep
+fd
+fzf
+eza
+bat
+zoxide
+dust
+procs
+sd
+starship
+tealdeer
+
+## GUI de uso geral — best-in-class 2026, GTK3 (temável Catppuccin):
+## v1.1 (diretriz do dono — MEGA PROMPT): app-layer 100% moderna e
+## Wayland-native. Sai o legado GTK3 herdado do upstream (mousepad,
+## zathura, file-roller, pavucontrol, blueman, thunar, firefox); entra:
+##   · papers (GTK4/libadwaita — leitor PDF, substitui zathura)
+##   · pwvucontrol (GTK4/Rust — mixer PipeWire, substitui pavucontrol;
+##     construído no build via estágio AUR → [elite-local])
+##   · bluetui (TUI Rust — Bluetooth, substitui blueman)
+##   · impala (TUI Rust — rede/iwd+NM, substitui nm-applet no dia-a-dia)
+##   · brave-origin (v1.4, diretriz do dono: o navegador padrão passa a
+##     ser o BRAVE ORIGIN — release oficial brave-origin-*.zip da Brave,
+##     empacotado no build com versão pinada + sha256 → [elite-local];
+##     launcher /usr/bin/brave idêntico: flags Wayland/Vulkan da Elite
+##     no skel seguem valendo — substitui firefox e o brave-bin antigo)
+## v1.5 (spec do dono — bloatware FORA): helix e yazi saem da ISO.
+##   Editor: nano (upstream, já na base) — W-e/EDITOR apontam pra ele.
+##   Arquivos: THUNAR volta a ser O gerenciador (GUI, padrão xdg-mime
+##   inode/directory=thunar.desktop + W-f + dock) com tumbler para
+##   thumbnails; listado acima na seção da sessão labwc.
+qalculate-gtk
+nwg-look
+papers
+pwvucontrol
+bluetui
+impala
+brave-origin
+
+## v1.8.2 — CONECTIVIDADE GUI (áudio do dono, 24/out: "impala e bluetui…
+## eu não sei utilizar esses programas que são terminal… quero mais bonito,
+## mais organizado e mais fácil de usar no dia a dia"). Os TUIs Rust ficam
+## (power users, fallback do craft-connect), mas o DIA A DIA vira GUI:
+##   · nm-applet    — ícone de rede na tray (waybar tray) + menu de redes;
+##                    o nm-connection-editor abre a árvore completa de
+##                    conexões (Wi-Fi/Ethernet/VPN) em janela GTK
+##   · blueman      — applet de Bluetooth na tray + blueman-manager
+##                    (pareamento/áudio em janela GTK) + blueman-adapters
+## Custo: ~2 MB + ~5 MB instalados; zero daemons novos (o NM e o
+## bluetooth.service JÁ rodam — os applets são clientes leves).
+## NOTA: o pacote Arch chama-se network-manager-applet (nm-applet é o
+## binário — a v1.8.2 quebrou o preflight com "target not found").
+network-manager-applet
+blueman
+
+## Satélites oficiais do labwc (docs labwc.github.io/integration):
+## idle→lock, automount USB, clipboard history.
+## v1.5: wlsunset SAIU (spec do dono — tom amarelado no burn test: o
+## filtro noturno a 4000K rodava SEM coordenadas → horário fixo default;
+## paleta Mocha já é fria/neutra por natureza — nenhuma camada de cor
+## por cima do wallpaper). Night light é escolha pós-install (pacman -S
+## wlsunset), não imposição de fábrica.
+swayidle
+udiskie
+cliphist
+
+## Infra de notificação (craft-shot/craft-bat usam notify-send; o dunst
+## removido era quem trazia libnotify por transição)
+libnotify
+
+## zsh brabo: plugins standalone substituem o oh-my-zsh inteiro (7.3MB
+## de framework) — skel .zshrc próprio + starship (prompt rust)
+zsh-autosuggestions
+zsh-syntax-highlighting

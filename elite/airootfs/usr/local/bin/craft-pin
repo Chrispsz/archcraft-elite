@@ -1,0 +1,106 @@
+#!/bin/sh
+# ═══════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · craft-pin (v2.0) — fixa apps na DOCK nativa
+# ═══════════════════════════════════════════════════════════════════════════
+# v2.0: os pins são IDs de .desktop reais (uma linha por app) no arquivo
+# ~/.config/elite/dock-pins. O craft-dock-gui resolve ÍCONE/NOME/EXEC pelo
+# próprio sistema (Gio.DesktopAppInfo) — fim dos glifos Nerd Font e das
+# imagens custom: "deixe o ícone ser tratado como o sistema já é" (dono).
+# Reload = SIGUSR2 na dock (re-lê o arquivo; sem reiniciar processo).
+# TODA mutação grava .bak restaurável (craft-pin restore) — contrato v1.8.
+#
+# Uso: craft-pin add <nome|desktop-id>   fixa (resolve fuzzy)
+#      craft-pin rm <nome|desktop-id>    desfixa (resolve fuzzy)
+#      craft-pin list                    lista pins resolvidos
+#      craft-pin restore                 volta o .bak mais recente
+#      craft-pin reload                  re-lê pins na dock
+# ═══════════════════════════════════════════════════════════════════════════
+PINS_DIR="$HOME/.config/elite"
+PINS="$PINS_DIR/dock-pins"
+DESKTOP_DIRS="${XDG_DATA_HOME:-$HOME/.local/share}/applications /usr/local/share/applications /usr/share/applications"
+
+ensure_file() {
+    mkdir -p "$PINS_DIR" 2>/dev/null
+    [ -f "$PINS" ] || { printf '# pins da dock — 1 ID de .desktop por linha\n' > "$PINS"; }
+}
+
+# Undo de UM nível (semântica v1): a última alteração sempre deixa o
+# estado anterior em dock-pins.bak.last (sobrescrito a cada mutação);
+# o restore consome. Pilha infinita era histórico — o dono quer desfazer
+# o último clique, não navegar o passado.
+backup() {
+    [ -f "$PINS" ] && cp -f "$PINS" "$PINS.bak.last" 2>/dev/null
+}
+
+reload_dock() {
+    /usr/local/bin/craft-dock reload 2>/dev/null || true
+}
+
+# resolve um nome fuzzy → o PRIMEIRO .desktop cujo id/Name/Exec casa
+# (precedência XDG: o diretório do USUÁRIO vence os do sistema)
+resolve() {
+    q="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')"
+    for d in $DESKTOP_DIRS; do
+        [ -d "$d" ] || continue
+        for f in "$d"/*.desktop; do
+            [ -f "$f" ] || continue
+            id="$(basename "$f")"
+            # v2.0.1 — ID casado SEM case (Brave.desktop casa com "brave…"),
+            # mas o que volta é o ID REAL do arquivo: Gio.DesktopAppInfo.new()
+            # é case-sensitive e o ID minúsculo viraria pin ignorado.
+            id_l="$(printf '%s' "$id" | tr '[:upper:]' '[:lower:]')"
+            name="$(grep -m1 '^Name=' "$f" | cut -d= -f2- | tr '[:upper:]' '[:lower:]')"
+            exec_="$(grep -m1 '^Exec=' "$f" | cut -d= -f2- | tr '[:upper:]' '[:lower:]')"
+            case "$id_l" in "$q"*) echo "$id"; return 0 ;; esac
+            case "$name" in "$q") echo "$id"; return 0 ;; esac
+            case "$exec_" in *"$q"*) echo "$id"; return 0 ;; esac
+        done
+    done
+    return 1
+}
+
+case "${1:-}" in
+    add)
+        [ -n "${2:-}" ] || { echo "uso: craft-pin add <nome|desktop-id>" >&2; exit 2; }
+        id="$(resolve "$2")" || {
+            echo "craft-pin: nenhum app casa com '$2'" >&2; exit 1; }
+        ensure_file
+        if grep -qxF "$id" "$PINS" 2>/dev/null; then
+            echo "craft-pin: $id já está fixado"; exit 0
+        fi
+        backup
+        printf '%s\n' "$id" >> "$PINS"
+        echo "craft-pin: $id fixado na dock"
+        reload_dock
+        ;;
+    rm)
+        [ -n "${2:-}" ] || { echo "uso: craft-pin rm <nome|desktop-id>" >&2; exit 2; }
+        id="$(resolve "$2")" || id="$2"
+        [ -f "$PINS" ] || exit 0
+        grep -qxF "$id" "$PINS" || {
+            echo "craft-pin: $id não está na dock"; exit 1; }
+        backup
+        grep -vxF "$id" "$PINS" > "$PINS.tmp" && mv -f "$PINS.tmp" "$PINS"
+        echo "craft-pin: $id removido da dock"
+        reload_dock
+        ;;
+    list)
+        [ -f "$PINS" ] || exit 0
+        grep -v '^#' "$PINS" | grep -v '^$'
+        ;;
+    restore)
+        [ -f "$PINS.bak.last" ] || {
+            echo "craft-pin: sem backup para restaurar" >&2; exit 1; }
+        cp -f "$PINS.bak.last" "$PINS"
+        rm -f "$PINS.bak.last"
+        echo "craft-pin: estado anterior restaurado"
+        reload_dock
+        ;;
+    reload)
+        reload_dock
+        ;;
+    *)
+        sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'
+        exit 2
+        ;;
+esac

@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# craft-pin-pick — fixa um app na DOCK escolhendo numa lista (v2.0)
+# ─────────────────────────────────────────────────────────────────────────
+# Burn test do dono na v1.3 ao vivo: "tentei fixar alguma coisa nela e
+# não consigo — na verdade fica fixando ali na bandeja de aplicativos".
+# Causa-raiz: o clique-direito do nwg-drawer pinia no PRÓPRIO drawer
+# (pinned box dele — upstream), não na dock; e o craft-pin (que fixa na
+# dock de verdade) era CLI invisível. Este picker expõe o craft-pin no
+# fluxo mouse-first: clique-direito no desktop → "Fixar app na dock…"
+# → lista de apps instalados → craft-pin fixa o .desktop na dock nativa.
+#
+# v2.0 — DOCK NATIVA (craft-dock-gui): este picker estava PRESO à dock
+# waybar extinta — exigia o .conf da dock waybar (apagado na v2.0) e
+# morria com "✖ arquivo não encontrado"; o mapa glifo/cor era
+# consumido por ninguém (ícones Nerd Font morreram com a dock waybar —
+# o ícone REAL agora vem do tema via Gio.DesktopAppInfo, resolvido pela
+# própria dock). O picker só entrega o .desktop ao craft-pin, que
+# valida, faz backup, grava e recarrega a dock (SIGUSR2).
+set -euo pipefail
+
+command -v fuzzel >/dev/null 2>&1 || { echo "✖ fuzzel não encontrado" >&2; exit 1; }
+command -v craft-pin >/dev/null 2>&1 || { echo "✖ craft-pin não encontrado" >&2; exit 1; }
+
+# ── 1. Inventário: .desktop visíveis (overrides primeiro — XDG order) ──
+LIST="$(mktemp)"
+trap 'rm -f "$LIST"' EXIT
+: >"$LIST"
+seen=""
+for d in /usr/local/share/applications /usr/share/applications; do
+    [ -d "$d" ] || continue
+    for f in "$d"/*.desktop; do
+        [ -r "$f" ] || continue
+        base="$(basename "$f")"
+        case " $seen " in *" $base "*) continue ;; esac
+        seen="$seen $base"
+        grep -q '^NoDisplay=true' "$f" && continue
+        name="$(sed -n 's/^Name=//p' "$f" | head -1)"
+        [ -n "$name" ] || continue
+        printf '%s\t%s\n' "$name" "$base" >>"$LIST"
+    done
+done
+[ -s "$LIST" ] || { echo "✖ nenhum aplicativo encontrado" >&2; exit 1; }
+
+# ── 2. Escolha (fuzzel dmenu central — é um picker, não um dropdown) ──
+choice="$(cut -f1 "$LIST" | fuzzel --dmenu --lines=10 --width=32 \
+    --prompt='Fixar na dock  ' 2>/dev/null || true)"
+[ -n "$choice" ] || exit 0   # Esc: nada acontece
+
+base="$(awk -F'\t' -v n="$choice" '$1 == n {print $2; exit}' "$LIST")"
+[ -n "$base" ] || exit 0
+
+# ── 3. Fixa o ID .desktop REAL (Gio.DesktopAppInfo.new() é case-sensitive:
+#       nada de slug minúsculo — o ID exato é o que a dock consome) ──────
+if craft-pin add "$base"; then
+    if command -v notify-send >/dev/null 2>&1; then
+        notify-send -a craft-pin "Dock" \
+            "'$choice' fixado na dock (clique-direito no desktop → Fixar p/ mais)" || true
+    fi
+fi

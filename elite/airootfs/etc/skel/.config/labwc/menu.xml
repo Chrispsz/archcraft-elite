@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Archcraft Cockpit · labwc menu.xml — PERFIL ELITE (v1.7)
+  ══════════════════════════════════════════════════════════════════════════
+  v1.7 — CURADORIA DO DONO ("deixa só os importantes", "sem muita
+  complexidade"): SAÍRAM os itens de ferramentas do antigo submenu
+  Cockpit (todos CONTINUAM instalados e vivem no Launchpad, que busca e
+  categoriza), a lista de janelas que o botão direito abria (o dock é o
+  comutador de janelas), o item de reconfiguração do compositor
+  (ferramenta de dev) e o item de encerrar a sessão do compositor
+  (mis-click perigoso; o menu de sessão já tem sair).
+    · FICARAM: os apps do dia-1 + as 2 ações de sistema que o dono
+      elegeu (Atualizar · Limpeza) + Launchpad/Fixar + lock/idle/sessão
+      + Reboot/Desligar. 15 itens, TODOS com ícone.
+  ESTRUTURA herdada do menu do criador do Archcraft (obmenu-generator;
+  o labwc lê menu.xml ESTÁTICO). Sintaxe: labwc docs/menu.xml +
+  labwc-menu(5) (formato openbox_menu).
+
+  DUAS REGRAS COM CONTRATO CI (v1.6.3, mantidas):
+    1. TODO Execute command=X tem binário REAL na ISO (packages.add ∪
+       /usr/local/bin ∪ allowlist base) — o debloat não quebra item em
+       silêncio.
+    2. TODO item tem icon= e o caminho está no fixture Papirus real
+       (tests/fixtures/menu-icons-papirus.txt — lista de arquivos do
+       papirus-icon-theme, conferida na API do Arch E no squashfs
+       embarcado, out/2026). Ícones de AÇÃO só existem até 24x24.
+-->
+<openbox_menu>
+
+  <!-- Menu da janela (botão direito na titlebar / A-Space) -->
+  <menu id="client-menu">
+    <item label="Minimizar">
+      <action name="Iconify" />
+    </item>
+    <item label="Maximizar">
+      <action name="ToggleMaximize" />
+    </item>
+    <item label="Fullscreen">
+      <action name="ToggleFullscreen" />
+    </item>
+    <item label="Decorações">
+      <action name="ToggleDecorations" />
+    </item>
+    <item label="Sempre no topo">
+      <action name="ToggleAlwaysOnTop" />
+    </item>
+    <item label="Fechar">
+      <action name="Close" />
+    </item>
+  </menu>
+
+  <!-- root-menu (botão direito no desktop — v1.7) -->
+  <menu id="root-menu">
+    <item label="Navegador" icon="/usr/share/icons/Papirus/48x48/apps/web-browser.svg">
+      <action name="Execute" command="sh -c 'for b in brave librewolf chromium thorium-browser qutebrowser; do command -v &quot;$b&quot; &gt;/dev/null &amp;&amp; exec &quot;$b&quot;; done; exec xdg-open https://archlinux.org'" />
+    </item>
+    <item label="Arquivos (Thunar)" icon="/usr/share/icons/Papirus/48x48/apps/system-file-manager.svg">
+      <action name="Execute" command="thunar" />
+    </item>
+    <item label="Terminal (foot)" icon="/usr/share/icons/Papirus/48x48/apps/utilities-terminal.svg">
+      <action name="Execute" command="foot" />
+    </item>
+    <item label="Editor (nano)" icon="/usr/share/icons/Papirus/48x48/apps/text-editor.svg">
+      <action name="Execute" command="foot -e nano" />
+    </item>
+    <item label="Leitor de PDF (papers)" icon="/usr/share/icons/Papirus/48x48/mimetypes/application-pdf.svg">
+      <action name="Execute" command="papers" />
+    </item>
+    <item label="Calculadora (qalculate)" icon="/usr/share/icons/Papirus/48x48/apps/qalculate.svg">
+      <action name="Execute" command="qalculate-gtk" />
+    </item>
+    <separator />
+    <item label="Atualizar sistema" icon="/usr/share/icons/Papirus/48x48/apps/system-software-update.svg">
+      <action name="Execute" command="foot -e craft-update" />
+    </item>
+    <item label="Limpeza do sistema" icon="/usr/share/icons/Papirus/48x48/apps/bleachbit.svg">
+      <action name="Execute" command="foot -e craft-clean" />
+    </item>
+    <separator />
+    <item label="Aplicativos (Launchpad)" icon="/usr/share/icons/Papirus/48x48/apps/preferences-desktop.svg">
+      <action name="Execute" command="craft-drawer" />
+    </item>
+    <!-- v1.4: fixar apps na dock no fluxo mouse-first (burn test: o
+         clique-direito do drawer pinava no drawer, não na dock) -->
+    <item label="Fixar app na dock…" icon="/usr/share/icons/Papirus/24x24/actions/pin.svg">
+      <action name="Execute" command="craft-pin-pick" />
+    </item>
+    <separator />
+    <item label="Lock (W-l)" icon="/usr/share/icons/Papirus/24x24/actions/system-lock-screen.svg">
+      <action name="Execute" command="craft-lock" />
+    </item>
+    <!-- v1.6.1: "consigo controlar em quanto tempo o Pc entra em idle?"
+         (dono) — presets no fuzzel, efeito imediato, sem relogin -->
+    <item label="Tempo para travar a tela…" icon="/usr/share/icons/Papirus/24x24/actions/system-lock-screen.svg">
+      <action name="Execute" command="craft-idle" />
+    </item>
+    <item label="Sessão (menu gráfico)" icon="/usr/share/icons/Papirus/24x24/actions/system-shutdown.svg">
+      <action name="Execute" command="craft-power" />
+    </item>
+    <separator />
+    <item label="Reboot" icon="/usr/share/icons/Papirus/24x24/actions/system-reboot.svg">
+      <action name="Execute" command="systemctl reboot" />
+    </item>
+    <item label="Desligar" icon="/usr/share/icons/Papirus/24x24/actions/system-shutdown.svg">
+      <action name="Execute" command="systemctl poweroff" />
+    </item>
+  </menu>
+
+</openbox_menu>
