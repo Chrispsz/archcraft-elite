@@ -10,8 +10,8 @@
 # → lista de apps instalados → craft-pin fixa o .desktop na dock nativa.
 #
 # v2.0 — DOCK NATIVA (craft-dock-gui): este picker estava PRESO à dock
-# waybar extinta — exigia ~/.config/waybar/config.dock (apagado na v2.0)
-# e morria com "✖ config.dock não encontrado"; o mapa glifo/cor era
+# waybar extinta — exigia o .conf da dock waybar (apagado na v2.0) e
+# morria com "✖ arquivo não encontrado"; o mapa glifo/cor era
 # consumido por ninguém (ícones Nerd Font morreram com a dock waybar —
 # o ícone REAL agora vem do tema via Gio.DesktopAppInfo, resolvido pela
 # própria dock). O picker só entrega o .desktop ao craft-pin, que
