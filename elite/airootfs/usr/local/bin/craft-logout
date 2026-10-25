@@ -24,7 +24,7 @@ errf="$(mktemp)"
 trap 'rm -f "$errf"' EXIT
 ec=0
 choice="$(printf 'lock\nlogout\nreboot\nshutdown' \
-  | fuzzel --dmenu --prompt 'sessão: ' 2>"$errf")" || ec=$?
+  | fuzzel --dmenu --anchor=center --prompt 'sessão: ' 2>"$errf")" || ec=$?
 if [ "$ec" -eq 143 ]; then
     # v2.3.5 — SIGTERM = fechado de fora (toggle/cross-dismiss) —
     # benigno: sem notify crítico falso (o print do dono).
