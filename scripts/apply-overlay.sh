@@ -193,7 +193,13 @@ if [[ $EUID -eq 0 && -x /usr/bin/pacman ]]; then
   say "Sincronizando dbs do profile p/ expandir grupos (melhor esforço)"
   pacman -Sy --noconfirm --config "$PC" >/dev/null 2>&1 || true
   for g in xorg archcraft-cursors archcraft-icons archcraft-themes archcraft-wallpapers; do
-    grep -qxF "$g" "$PROFILE/packages.x86_64" || continue
+    # v2.3: match EXATO de linha (grep -qx) — o antigo -qxF (substring)
+    # casava com a PRÓPRIA linha comentada pelo packages.remove
+    # ("#archcraft-icons # ELITE-REMOVED") e expandia o grupo mesmo
+    # debloatado: 24 temas de ícones (incl. outro Papirus), 30 temas GTK,
+    # 15 cursores e o grupo xorg inteiro voltavam pela porta dos fundos.
+    # Grupo comentado = grupo morto: nenhum membro volta.
+    grep -qx "$g" "$PROFILE/packages.x86_64" || continue
     members=$(pacman --config "$PC" -Sgq "$g" 2>/dev/null | sort -u) || members=""
     if [[ -n "$members" ]]; then
       say "Grupo '$g' → $(wc -l <<< "$members") pacote(s) explícito(s)"

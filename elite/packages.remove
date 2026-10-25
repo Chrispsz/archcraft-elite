@@ -303,3 +303,70 @@ archcraft-config-qt    # config do qt5ct/kvantum (sai com eles)
 ## meia-ferramenta + duplicação de estratégia de snapshot. Quem quiser a rota
 ## snapper, o cockpit dia-1 documenta os 3 pacotes (README "Dia 1").
 btrfs-assistant
+
+## ── v2.3 · AUDITORIA MINUCIOSA — o teto da limpeza (diretriz do dono:
+##    "limpeza do que for inútil ou duplicado, foco no 64-bit, vá até o
+##    teto que não quebre e que vale a pena") — achados na auditoria do
+##    packages.x86_64 REAL do upstream (356 linhas → 184 ativas) + DB do
+##    repo [archcraft] baixado e os grupos expandidos um a um ──────────
+
+## GRUPOS do upstream = a porta dos fundos: no CI (root) o apply-overlay
+## expande cada grupo nos MEMBROS REAIS (pacman -Sgq). O packages.remove
+## comentava a linha do grupo, mas a expansão lia a própria linha
+## comentada e trazia TUDO de volta — o fix [5.2] (grep -qx ancorado)
+## fecha isso; a partir daqui, comentar o grupo É remover os membros.
+##   · archcraft-icons  = 24 temas de ícones, INCLUSIVE outro Papirus
+##     (archcraft-icons-papirus) — a v2.2 tirou o Papirus do add e o
+##     upstream o trazia por aqui. Zero tema de ícones (diretriz do dono).
+archcraft-icons
+##   · archcraft-cursors = 15 cursores; ficam Bibata (rice, packages.add)
+##     e Qogirr (greeter SDDM — CursorTheme=Qogirr no kde_settings.conf)
+archcraft-cursors
+##   · archcraft-themes  = 30 temas GTK; o rice usa o Catppuccin Mauve
+##     explícito (packages.add). Temas que "não abrange tudo" — fora.
+archcraft-themes
+##   · archcraft-wallpapers = os backgrounds do upstream; a Elite tem o
+##     wallpaper.png próprio (M5) e o autostart é PNG-first
+archcraft-wallpapers
+##   · xorg = o GRUPO inteiro (server + xinit + apps X de sessão morta).
+##     A sessão é labwc (Wayland); o xorg-server volta EXPLÍCITO no add
+##     só para o greeter do SDDM (DisplayServer X11 no conf) e o Xwayland
+##     segue vivo como dependência do gtk4 (apps X11 continuam abrindo).
+xorg
+
+## DDX Xorg mortos: Xwayland não usa driver DDX (glamor do compositor) e
+## o greeter usa o modesetting EMBUTIDO no xorg-server — 6 drivers à toa
+xf86-video-amdgpu
+xf86-video-ati
+xf86-video-intel
+xf86-video-nouveau
+xf86-video-vesa
+xf86-video-fbdev
+xorg-xinput
+
+## Stack GStreamer INTEIRA: quem toca mídia aqui é o mpv (libmpv/ffmpeg
+## próprio), o Brave (bundled) e o qt6-multimedia-ffmpeg (backend ffmpeg
+## do Calamares/SDDM) — nenhum consome GStreamer
+gstreamer
+gst-libav
+gst-plugins-good
+gst-plugins-ugly
+gst-plugins-bad
+gst-plugin-pipewire
+
+## Rede: NM faz DHCP interno e usa wpa_supplicant como backend wi-fi —
+## o dhcpcd (2º DHCP) e o iwd (2º backend) são duplicação de daemon
+dhcpcd
+iwd
+
+## Resíduos/dualezas sem função na Elite
+xdotool            # upstream trazia! dep do fg-booster extinto (v2.2) — agora banido nos DOIS lados
+boost              # headers de dev no live; o boost-libs runtime viria por dep se algo pedisse
+man-db             # o E15 já poda /usr/share/man do disco — manter o pacote é peso duplo
+man-pages          # idem
+memtest86+         # memtest no menu do GRUB — nicho de resgate (restore: pacman -S)
+memtest86+-efi     # idem
+apparmor           # userspace inerte sem LSM habilitado no kernel
+linux-firmware-marvell # firmware nicho, fora da curadoria de firmware (v1.1)
+rxvt-unicode-terminfo  # terminal removido, terminfo órfã
+archcraft-openbox-themes # temas OB de sessões mortas (o rice tem themerc-override próprio)

@@ -120,6 +120,38 @@ done
 for extinct in helix yazi nvtop swaylock wlsunset; do
   assert_nogrep "$PKG" "^${extinct}$" "v1.5: ${extinct} ativo sumiu (bloatware da spec fora)"
 done
+# ── v2.3 · AUDITORIA MINUCIOSA (o teto da limpeza — diretriz do dono) ──
+# Grupos do upstream = a porta dos fundos: no CI a expansão [5.2] trazia
+# os MEMBROS REAIS mesmo com a linha do grupo comentada (grep -qxF
+# substring casava com o próprio comentário). O fix -qx fecha o buraco;
+# estes 4 grupos eram 71 pacotes de tema (24 ícones INCLUSIVE outro
+# Papirus + 30 temas GTK + 15 cursores + 2 wallpapers):
+for gonegrp in archcraft-icons archcraft-cursors archcraft-themes archcraft-wallpapers xorg; do
+  assert_grep "$PKG" "^#${gonegrp} # ELITE-REMOVED$" "v2.3: grupo ${gonegrp} COMENTADO (expansão [5.2] ancorada não traz mais os membros)"
+done
+# DDX mortos (Xwayland não usa DDX; greeter usa modesetting embutido)
+for gone in xf86-video-amdgpu xf86-video-ati xf86-video-intel xf86-video-nouveau xf86-video-vesa xf86-video-fbdev xorg-xinput; do
+  assert_grep "$PKG" "^#${gone} # ELITE-REMOVED$" "v2.3: ${gone} comentado (DDX/input X mortos numa sessão Wayland)"
+done
+# GStreamer inteiro fora (mpv/Brave/qt6-multimedia-ffmpeg não consomem)
+for gone in gstreamer gst-libav gst-plugins-good gst-plugins-ugly gst-plugins-bad gst-plugin-pipewire; do
+  assert_grep "$PKG" "^#${gone} # ELITE-REMOVED$" "v2.3: ${gone} comentado (stack GStreamer sem consumidor)"
+done
+# Rede sem duplicação (NM: DHCP interno + wpa_supplicant)
+for gone in dhcpcd iwd; do
+  assert_grep "$PKG" "^#${gone} # ELITE-REMOVED$" "v2.3: ${gone} comentado (duplicação de daemon de rede)"
+done
+# Resíduos/dualezas (memtest86+ com o + ESCAPADO — em ERE '+' é quantificador)
+for gone in xdotool boost man-db man-pages apparmor linux-firmware-marvell rxvt-unicode-terminfo archcraft-openbox-themes; do
+  assert_grep "$PKG" "^#${gone} # ELITE-REMOVED$" "v2.3: ${gone} comentado (auditoria: inútil/duplicado)"
+done
+assert_grep "$PKG" '^#memtest86\+ # ELITE-REMOVED$' "v2.3: memtest86+ comentado (auditoria: nicho de resgate)"
+assert_grep "$PKG" '^#memtest86\+-efi # ELITE-REMOVED$' "v2.3: memtest86+-efi comentado idem"
+assert_nogrep "$PKG" '^xdotool$' "v2.3: xdotool ATIVO sumiu do upstream (o v2.2 bania só o add — o upstream o trazia!)"
+# Reposições cirúrgicas do que os grupos entregavam de útil
+assert_grep "$PKG" '^xorg-server$' "v2.3: xorg-server EXPLÍCITO (greeter SDDM em X11 — DisplayServer não é wayland no conf)"
+assert_grep "$PKG" '^archcraft-cursor-qogirr$' "v2.3: cursor Qogirr explícito (CursorTheme do greeter — o grupo que o trazia saiu)"
+assert_grep "$REPO/scripts/apply-overlay.sh" 'grep -qx "\$g"' "v2.3: expansão de grupos com match EXATO de linha (o -qxF substring lia a própria linha comentada — a porta dos fundos dos grupos)"
 # v1.5: o novo par idle/lock (hyprlock + wlopm — receita wiki labwc)
 assert_grep "$PKG" '^hyprlock$' "v1.5: hyprlock no packages (ext-session-lock-v1 no labwc)"
 assert_grep "$PKG" '^wlopm$' "v1.5: wlopm no packages (DPMS wlr-output-power-management)"
