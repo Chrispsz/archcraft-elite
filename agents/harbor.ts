@@ -24,7 +24,6 @@ export class HarborError extends Error {
     public readonly kind:
       | "REGION_BLOCKED"
       | "AUTH"
-      | "RATE_LIMIT"
       | "HTTP"
       | "TIMEOUT"
       | "EMPTY",
