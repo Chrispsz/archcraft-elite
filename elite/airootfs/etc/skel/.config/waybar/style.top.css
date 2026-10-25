@@ -90,6 +90,15 @@ window#waybar {
   padding: 0 10px;
 }
 
+/* Microfone (v2.3.6) — o par do volume: mesma caixa, mesma gramática de
+ * estado. O alias pulseaudio#mic vira o seletor #pulseaudio.mic. */
+#pulseaudio.mic {
+  padding: 0 10px;
+}
+#pulseaudio.mic.source-muted {
+  color: @red;
+}
+
 /* v2.3.6 — o CSS do tray saiu junto com o módulo (o único inquilino era o
  * nm-applet, cujo ícone SNI bitmap quebrava a família tipográfica da
  * barra — o "feio PC" do print do dono). O conector Wi-Fi é texto no

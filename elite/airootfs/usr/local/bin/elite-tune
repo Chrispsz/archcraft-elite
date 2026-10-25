@@ -219,8 +219,10 @@ discover_latest() {
 ensure_cachyos() {
   say "CachyOS: chave + keyring + mirrorlist + repos (pacman stock preservado)"
   if ! cachyos_key_present; then
-    run pacman-key --recv-keys "$CACHYOS_KEY" --keyserver keyserver.ubuntu.com
-    run pacman-key --lsign-key "$CACHYOS_KEY"
+    # timeout 90: keyserver lento/indisponível NUNCA pendura a unit
+    # (o rig flagrou 'activating' por 17min — TimeoutStartSec=1800)
+    run timeout 90 pacman-key --recv-keys "$CACHYOS_KEY" --keyserver keyserver.ubuntu.com || true
+    run pacman-key --lsign-key "$CACHYOS_KEY" || true
   else
     say "chave $CACHYOS_KEY já importada"
   fi
@@ -339,8 +341,21 @@ if (( FIRSTBOOT )); then
     err "CPU não reporta x86-64-v3 — esta ISO é v3 (legal instruction pode falhar). Considere a ISO padrão do Archcraft."
   RETRY_DRIVER=0   # 1 = driver pendente → NÃO marca done; re-tenta no próximo boot
 
-  # 1. keyring fresco (ISO pode ter meses)
+  # 1. keyring fresco no INSTALADO (ISO pode ter meses E o keyring embutido
+  #    é um pacote datado — o rig v2.3.5 flagrou: 'a chave 882DCFE… é
+  #    desconhecida' + unit 'activating' por 17min no journal). A ORDEM
+  #    mata o ovo-e-galinha: chaves ANTES de qualquer -Sy — db de repo
+  #    assinado por chave desconhecida faz o -Sy INTEIRO falhar (prova no
+  #    dump do rig; o ensure_cachyos puxa o keyring FRESCO direto do
+  #    mirror, sem depender de db assinado).
+  run pacman-key --init || true
+  run pacman-key --populate archlinux cachyos || true
+  if ! cachyos_key_present; then
+    run timeout 90 pacman-key --recv-keys "$CACHYOS_KEY" --keyserver keyserver.ubuntu.com || true
+    run pacman-key --lsign-key "$CACHYOS_KEY" || true
+  fi
   run pacman -Sy --noconfirm archlinux-keyring || true
+  run ensure_cachyos || true
 
   # 2. driver de vídeo
   # v4.6: a ISO v1.1 embarca o nvidia-open-dkms PRÉ-COMPILADO contra o
@@ -456,6 +471,16 @@ EOF
   # é o BORE do kernel (nenhum scheduler userspace por cima) e o boost de
   # jogo sob demanda é o gamemode. scx-elite/dmemcg/fg-booster extintos.
   run systemctl enable --now ananicy-cpp.service || true
+  # snapshots: o grub-btrfsd vigia /.snapshots — sem o subvolume a unit
+  # nasce FAILED ('No directory found at /.snapshots' — o rig flagrou no
+  # dump: active=failed). O snapper cria o subvolume junto com a config
+  # (idempotente); sem snapper, subvolume nu já faz a unit subir sadia.
+  if command -v snapper >/dev/null 2>&1; then
+    snapper --no-dbus list-configs >/dev/null 2>&1 || \
+      run snapper --no-dbus -c root create-config / || true
+  elif mount | grep -q ' on / btrfs'; then
+    [ -d /.snapshots ] || run btrfs subvolume create /.snapshots || true
+  fi
   run systemctl enable --now grub-btrfsd.service 2>/dev/null || true
   run systemctl enable --now lactd.service 2>/dev/null || true
 
@@ -598,7 +623,7 @@ fi
 run sysctl --system || true
 
 wfile /etc/udev/rules.d/60-io-elite.rules <<'EOF'
-ACTION=="add|change", KERNEL=="nvme[0-9]*", ATTR{queue/scheduler}="none"
+ACTION=="add|change", KERNEL=="nvme[0-9]n[0-9]*", ATTR{queue/scheduler}="none"
 ACTION=="add|change", KERNEL=="sd[a-z]*|mmcblk[0-9]*", ATTR{queue/rotational}=="0", ATTR{queue/scheduler}="none"
 ACTION=="add|change", KERNEL=="sd[a-z]*|mmcblk[0-9]*", ATTR{queue/rotational}=="1", ATTR{queue/scheduler}="bfq"
 EOF
@@ -608,7 +633,13 @@ run udevadm control --reload || true
 # v4.7: a seção antiga [6] (fg-booster + xdotool + fg-boost.slice) foi
 # EXTINTA na fusão dos boosters — o boost de jogo é o gamemode abaixo.
 run pacman -S --needed --noconfirm gamemode lib32-gamemode gamescope \
-  mangohud lib32-mangohud grub-btrfs timeshift lact
+  mangohud lib32-mangohud grub-btrfs snapper lact
+# snapshots no fluxo manual também: sem /.snapshots a unit nasce FAILED
+# (o rig flagrou — mesmo bloco do firstboot, idempotente)
+if command -v snapper >/dev/null 2>&1; then
+  snapper --no-dbus list-configs >/dev/null 2>&1 || \
+    run snapper --no-dbus -c root create-config / || true
+fi
 run systemctl enable --now lactd.service 2>/dev/null || true
 run systemctl enable --now grub-btrfsd.service 2>/dev/null || true
 

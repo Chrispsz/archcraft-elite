@@ -29,9 +29,12 @@ OUT="${HOME}/elite-dump-${STAMP}.txt"
 CACHE="${XDG_CACHE_HOME:-$HOME/.cache}"
 
 # cada bloco: "$ <comando>" + saída + tail (evidência recente vale mais)
+# tr -d '\0': journal/systemd cospem NUL — no upload o $( ) do termbin
+# gritava 'byte nulo ignorado' (o rig flagrou na linha 144). NUL morre na
+# FONTE: o arquivo do dump nasce limpo.
 r() { # r <comando> [linhas]
     printf '\n$ %s\n' "$1"
-    bash -c "$1" 2>&1 | tail -n "${2:-40}"
+    bash -c "$1" 2>&1 | tr -d '\0' | tail -n "${2:-40}"
 }
 
 {

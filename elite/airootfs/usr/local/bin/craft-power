@@ -71,9 +71,10 @@ if command -v fuzzel >/dev/null 2>&1; then
         'Suspender' \
         'Reiniciar' \
         'Desligar' \
+        'Tempo de idle…' \
         | fuzzel --dmenu \
         --anchor=top-right --x-margin=10 --y-margin=44 \
-        --lines=5 --width=26 --prompt='Sessão  ' 2>"$errf")" || ec=$?
+        --lines=6 --width=26 --prompt='Sessão  ' 2>"$errf")" || ec=$?
     if [ "$ec" -eq 143 ]; then
         # v2.3.5 — SIGTERM = fechado de fora (toggle/cross-dismiss) —
         # benigno: sem notify crítico falso (o print do dono).
@@ -128,5 +129,10 @@ case "$choice" in
     'Suspender')      systemctl suspend ;;
     'Reiniciar')      systemctl reboot ;;
     'Desligar')       systemctl poweroff ;;
+    # v2.3.6 — descoberta do idle: o dono perguntou 'tem como controlar o
+    # tempo de idle facilmente?' — o craft-idle JÁ fazia, mas morava só no
+    # menu do desktop. Agora o Sessão carrega (as ações de energia e o
+    # controle do idle na mesma porta — UX de um só lugar).
+    'Tempo de idle…') exec craft-idle ;;
     *)                exit 0 ;;   # Esc/vazio: menu fecha e NADA acontece
 esac
