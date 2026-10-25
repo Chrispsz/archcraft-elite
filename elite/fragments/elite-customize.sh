@@ -665,3 +665,28 @@ EOQML
         echo "E19c: show.qml mínimo escrito (branding.desc ausente — upstream mudou o layout?)"
     fi
 fi
+
+
+## [E20] v2.3.5 — FIM DA PALESTRA DO SUDO (print do dono, out/2026: o
+##      "Presumimos que você recebeu as instruções de sempre do
+##      administrador local…" no primeiro sudo de cada boot/TTY é ruído,
+##      não segurança — o dono pediu limpo: "eu não quero isso"). O
+##      `Defaults !lecture` mata a lição sem tocar no resto do sudoers.
+##      Validado com visudo -cf (arquivo ruim NUNCA entra no sudoers.d —
+##      um sudoers quebrado derruba TODA a elevação do sistema).
+if [[ -d /etc/sudoers.d ]] && ! grep -qs '!lecture' /etc/sudoers.d/*; then
+    printf '%s\n' '# ELITE E20: sem a palestra do sudo (ruído, não segurança)' \
+        'Defaults !lecture' > /etc/sudoers.d/99-elite-lecture
+    chmod 0440 /etc/sudoers.d/99-elite-lecture
+    if command -v visudo >/dev/null 2>&1; then
+        if visudo -cf /etc/sudoers.d/99-elite-lecture >/dev/null 2>&1; then
+            echo "E20: palestra do sudo desligada (Defaults !lecture — visudo OK)"
+        else
+            echo "ELITE-FAIL: sudoers.d/99-elite-lecture inválido (visudo)" >&2
+            rm -f /etc/sudoers.d/99-elite-lecture
+            exit 1
+        fi
+    else
+        echo "E20: Defaults !lecture escrito (visudo ausente no chroot — conferir no build)"
+    fi
+fi

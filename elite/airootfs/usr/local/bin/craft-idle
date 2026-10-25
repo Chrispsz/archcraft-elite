@@ -40,9 +40,11 @@ mlog() {
 CONF_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/elite"
 CONF="$CONF_DIR/idle.conf"
 
-# Defaults da ISO (10 min lock · 15 min apagar) — o conf sobrescreve
+# Defaults da ISO (10 min lock · 15 min apagar · suspend off) — o conf sobrescreve
 LOCK_MIN=10
 OFF_MIN=15
+SUSPEND_MIN=0   # v2.3.5: auto-suspende APÓS X min de inatividade (0 = off;
+                # opt-in — mudança de comportamento nunca é silenciosa)
 # shellcheck disable=SC1090  # caminho dinâmico POR DESIGN: é o conf do
 # usuário (~/.config/elite/idle.conf) — o ajuste sem relogin da v1.6.1
 [ -r "$CONF" ] && . "$CONF"
@@ -52,6 +54,16 @@ start_daemon() {
     pkill -x swayidle 2>/dev/null || true
     if [ "${LOCK_MIN:-0}" -eq 0 ]; then
         exit 0   # "Nunca": sem daemon — travar é manual (W-l / menu)
+    fi
+    # v2.3.5 — SUSPEND_MIN > 0 = auto-suspender depois de X min de idle
+    # (o padrão das outras distros; o antes-sleep já trava — acorda no lock).
+    if [ "${SUSPEND_MIN:-0}" -gt 0 ]; then
+        exec swayidle -w \
+            timeout $((LOCK_MIN * 60)) 'hyprlock' \
+            timeout $((OFF_MIN * 60)) 'wlopm --off "*"' \
+            resume 'wlopm --on "*"' \
+            timeout $((SUSPEND_MIN * 60)) 'systemctl suspend' \
+            before-sleep 'hyprlock'
     fi
     exec swayidle -w \
         timeout $((LOCK_MIN * 60)) 'hyprlock' \
@@ -66,7 +78,7 @@ case "${1:-}" in
         if [ "${LOCK_MIN:-0}" -eq 0 ]; then
             echo "idle: nunca (travar é manual — W-l)"
         else
-            echo "idle: trava aos ${LOCK_MIN}min · tela apaga aos ${OFF_MIN}min"
+            echo "idle: trava aos ${LOCK_MIN}min · tela apaga aos ${OFF_MIN}min · suspend: ${SUSPEND_MIN:-0}"
         fi
         exit 0
         ;;
@@ -92,6 +104,13 @@ if command -v fuzzel >/dev/null 2>&1; then
     choice="$(printf '%s\n' "$MENU" | fuzzel --dmenu \
         --anchor=top-right --x-margin=10 --y-margin=44 \
         --lines=7 --width=30 --prompt="Idle: ${CUR}  " 2>"$errf")" || ec=$?
+    if [ "$ec" -eq 143 ]; then
+        # v2.3.5 — SIGTERM = fechado de fora (toggle/cross-dismiss) —
+        # benigno: sem alarme falso (o print do dono).
+        mlog "Idle: fechado de fora (SIGTERM — toggle/cross-dismiss) — benigno"
+        rm -f "$errf"
+        exit 0
+    fi
     if [ "$ec" -ne 0 ]; then
         mlog "Idle: FUZZEL FALHOU exit=$ec — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
     fi

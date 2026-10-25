@@ -547,10 +547,12 @@ assert_grep "$RCXML" 'command="nm-connection-editor"' \
 assert_grep "$RCXML" 'command="blueman-manager"' \
   "rc.xml: W-S-b abre GUI de bluetooth (era bluetui TUI)"
 AUTO="$REPO/elite/airootfs/etc/skel/.config/labwc/autostart"
-assert_nogrep "$AUTO" 'nm-applet &' \
-  "v2.0: nm-applet FORA do autostart (ícone SNI antigo/quebrado — áudio do dono; a GUI continua no craft-connect)"
+# v2.3.5 — nm-applet VOLTOU (a contra-evidência do rig: o editor não
+# conecta; o fluxo do usuário comum é o ícone de rede da tray).
+assert_grep "$AUTO" 'nm-applet &' \
+  "v2.3.5: nm-applet de VOLTA ao autostart (o conector Wi-Fi de verdade — o relato 'como conector numa rede wi-fi assim?' venceu a estética v2.0)"
 assert_nogrep "$AUTO" 'blueman-applet &' \
-  "v2.0: blueman-applet FORA do autostart (mesma classe — um ponto só de conectividade)"
+  "v2.0: blueman-applet FORA do autostart (mesma classe — o blueman-manager do craft-connect cobre)"
 
 # H5 — LACT com daemon de fábrica (flagrante: "Service Status: inactive")
 assert_grep "$ECF" '\[E17\]' \
@@ -643,8 +645,8 @@ assert_file "$REPO/elite/airootfs/etc/skel/.config/labwc/wallpaper.png" "M5.1: w
 assert_nogrep "$REPO/elite/airootfs/etc/skel/.config/labwc/autostart" 'wallpaper\.jpg.*first' "M5.1: autostart NÃO prefere mais o jpg (PNG primeiro)"
 
 # ── file_permissions: os binários novos precisam de 0755 (203/EXEC) ──
-# v2.0: dock · v2.3.4: craft-bgapps (o botão de 2º plano)
-for nb in craft-dock craft-dock-gui calamares-elite-log craft-bgapps; do
+# v2.0: dock · v2.3.4: craft-bgapps · v2.3.5: craft-dump
+for nb in craft-dock craft-dock-gui calamares-elite-log craft-bgapps craft-dump; do
   assert_grep "$REPO/scripts/apply-overlay.sh" "/usr/local/bin/$nb" "apply-overlay: $nb registrado no file_permissions (senão 203/EXEC no live)"
 done
 
