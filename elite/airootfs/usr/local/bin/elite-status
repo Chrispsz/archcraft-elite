@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# elite-status — atalho para a certificação (elite-tune --status)
+exec /usr/local/bin/elite-tune --status "$@"

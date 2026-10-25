@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=xgps
+GenericName=GPS client
+Exec=xgps
+Icon=utilities-terminal
+Categories=Science;Geoscience;
+NoDisplay=true

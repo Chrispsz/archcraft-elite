@@ -1,0 +1,17 @@
+[Unit]
+# Archcraft ELITE v1.6.2 — agenda diária da poda do cliphist
+# Habilitado no skel: timers.target.wants/cliphist-prune.timer (symlink) —
+# o user manager do systemd sobe ele sozinho no primeiro login (live E
+# sistema instalado: useradd -m copia o skel preservando symlinks).
+Description=cliphist: poda diária do histórico do clipboard
+
+[Timer]
+# Diário: mesmo sessão aberta por semanas, a poda roda (OnCalendar).
+OnCalendar=daily
+# Compensa dias em que a máquina ficou desligada (roda logo ao ligar).
+Persistent=true
+# Sanidade: nunca empilha execuções (a anterior ainda rodando → pula).
+Unit=cliphist-prune.service
+
+[Install]
+WantedBy=timers.target

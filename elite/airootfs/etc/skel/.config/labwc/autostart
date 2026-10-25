@@ -1,0 +1,145 @@
+#!/bin/sh
+# Archcraft ELITE ISO · labwc autostart — sessão ÚNICA do live e do sistema
+# instalado (v1.0.3+): openbox/bspwm foram removidos da ISO. Idêntico ao
+# autostart do zip Cockpit: quem instala a ISO já nasce no mesmo ambiente
+# de quem rodou o zip.
+# Executado no início da sessão LABWC — termine comandos com & para não bloquear.
+#
+# Desktop v2 (v1.0.4) — estilo macOS, mouse-first: menu bar no topo
+# (waybar config.top) + DOCK flutuante na base (waybar config.dock),
+# Launchpad (nwg-drawer via craft-drawer) e wallpaper de imagem.
+
+# --- Wallpaper: v1.7.1 — CURADORIA DA INTERNET (decisão do dono) ----------
+#     "Eu queria um wallpaper da internet mesmo, esses gerados são muito
+#     ruim" — o experimento IA da v1.7 saiu de cena. Fonte: Unsplash
+#     (licença Unsplash — uso livre, sem atribuição obrigatória),
+#     abstrato 3D de ondas de seda roxo/preto. Nativo 3000x1688 →
+#     3840x2160 (Lanczos + UnsharpMask leve), JPEG q93 = 0.43 MB (o PNG
+#     de 10.7 MB da v1.7 engordava a ISO ~19 MB no squashfs). Métricas
+#     medidas e contratos na suíte: 0.24% de preto puro (não esmaga o
+#     IPS), luma média 32.6 (dark premium), strip do topo luma 5.7 <<
+#     média (a menu bar assenta em zona escura — texto branco legível).
+#     Fallback: wallpaper.png (legado/custom do usuário) → preto.
+if command -v swaybg >/dev/null 2>&1; then
+    # v1.9 — spec M5.1 do dono: o wallpaper JPEG tinha ruído/granulação de
+    # compressão ("impressão de poeira"). PADRÃO novo: PNG lossless VETORIAL
+    # (flat por construção — zero artefato de compressão, 4K, AMOLED).
+    if [ -r "$HOME/.config/labwc/wallpaper.png" ]; then
+        swaybg -m fill -i "$HOME/.config/labwc/wallpaper.png" &
+    elif [ -r "$HOME/.config/labwc/wallpaper.jpg" ]; then
+        swaybg -m fill -i "$HOME/.config/labwc/wallpaper.jpg" &
+    else
+        # sem imagem (ex.: skel parcial): preto AMOLED, zero decodificação
+        swaybg -m fill -c '#000000' &
+    fi
+fi
+
+# --- Barras (Desktop v2): menu bar no TOPO + DOCK na base ------------------
+#     v1.6.3 — SUPERVISÃO (burn test da v1.6.2: a sessão subiu SÓ com o
+#     wallpaper — as duas instâncias morreram caladas, sem deixar stderr;
+#     o gate do CI para no LOGIN, nunca vê a sessão gráfica). O craft-bars
+#     vigia as duas barras, reinicia em ≤5s e guarda o stderr em
+#     ~/.cache/elite/bars.log (teto 1 MiB) — fim da sessão muda, e se o
+#     waybar morrer de novo o log traz a mensagem EXATA dele.
+#     v1.7.1 — FIM DO SILÊNCIO DO GUARD: se o binário do waybar não
+#     existir no squashfs ou o craft-bars estiver sem +x, o guard abaixo
+#     falhava SEM NENHUM rastro (a classe "subiu só o wallpaper" que
+#     atravessou v1.6.2→v1.7.0). Agora TUDO que decide as barras deixa
+#     rastro no MESMO bars.log do supervisor.
+BARLOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/bars.log"
+if ! command -v waybar >/dev/null 2>&1; then
+    mkdir -p "${BARLOG%/*}" 2>/dev/null
+    printf '[%s] AUTOSTART: binário waybar AUSENTE no sistema — barras NÃO sobem (guard)\n' "$(date '+%F %T')" >>"$BARLOG" 2>/dev/null
+elif [ ! -x /usr/local/bin/craft-bars ]; then
+    mkdir -p "${BARLOG%/*}" 2>/dev/null
+    printf '[%s] AUTOSTART: craft-bars ausente/sem bit de execução — barras NÃO sobem (guard)\n' "$(date '+%F %T')" >>"$BARLOG" 2>/dev/null
+else
+    craft-bars &
+fi
+
+# --- Central de notificações (SwayNC) — toggle no relógio da barra ---------
+swaync &
+
+# --- Diálogo de senha gráfico (polkit) — o Archcraft só sobe agente na sessão
+#     Openbox dele; na sessão LABWC é este arquivo que sobe o agente
+#     (necessário p/ gparted, coolercontrol, btrfs-assistant no dia-1)
+if [ -x /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 ]; then
+    /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 &
+fi
+
+# --- Bluetooth/Rede (v2.0): os APPLETS saem do autostart de vez (áudio
+#     do dono: "um ícone antigo… e um de Bluetooth. Ambos ficaram meio
+#     quebrados" — os ícones SNI legados destoam do rice e duplicam o
+#     botão de rede). A conectividade tem UM ponto de entrada: o
+#     craft-connect na barra (diretriz v1.4: "um só ícone p/ tudo"),
+#     abrindo as GUIs completas (nm-connection-editor/blueman-manager,
+#     W-n/W-S-b). Os applets continuam INSTALADOS — quem quiser, sobe à
+#     mão; de fábrica, o tray fica só com o que o dono usa (udiskie).
+
+# --- USB: automount + notificação (udiskie — daemon próprio; o
+#     thunar-volman só age com o Thunar aberto)
+if command -v udiskie >/dev/null 2>&1; then
+    udiskie --automount --notify --no-tray &
+fi
+
+# --- Idle + lock (v1.6.1): TEMPOS AJUSTÁVEIS PELO USUÁRIO — "consigo
+#     controlar em quanto tempo o Pc entra em idle?" (dono). Defaults
+#     no ~/.config/elite/idle.conf (10 min lock · 15 min apagar); o
+#     menu do desktop → "Tempo para travar a tela…" (craft-idle) troca
+#     e reinicia o daemon NA HORA, sem relogin. Receita canônica da
+#     wiki do labwc (labwc.github.io/integration §7: swayidle + wlopm —
+#     o wlr-randr --off re-arranha views; wlopm é o cliente do protocolo
+#     wlr-output-power-management-v1, que o labwc implementa).
+#     O lock é o hyprlock (~/.config/hypr/hyprlock.conf): screenshot +
+#     blur + dim + relógio + avatar + campo estilizado. FLUXO: X min →
+#     lock; X+5 → tela APAGA (DPMS real — o PC não fica ligado numa
+#     tela fixa); input → acorda JÁ no lock; before-sleep → lock no
+#     suspender. "Nunca" (LOCK_MIN=0) = sem daemon (W-l manual).
+if command -v craft-idle >/dev/null 2>&1; then
+    craft-idle start &
+fi
+
+# --- Keyring CachyOS (v1.5, camada 4): self-healing de runtime — os
+#     comandos LITERAIS da spec (init → populate → refresh de keyring)
+#     em background, idempotentes, sudo -n (nunca pede senha no escuro).
+#     As camadas 1-3 (build E2b + E10 no alvo + pacman-init do live) já
+#     curam o essencial; esta cobre skew futuro e liveuser no live.
+if [ -x /usr/local/bin/craft-fix-keys ]; then
+    /usr/local/bin/craft-fix-keys &
+fi
+
+# --- Keyring GNOME (v1.6 — a resposta ao "programas pedem a senha do
+#     keyring"): o chaveiro (gnome-keyring) guarda senhas de Wi-Fi e
+#     navegador via libsecret. No login COM senha o PAM do sddm já
+#     desbloqueia junto (linhas pam_gnome_keyring do upstream). No
+#     live/autologin não há senha — este bootstrap cria o chaveiro com
+#     senha VAZIA (gnome-keyring-daemon --unlock lê a senha do stdin;
+#     sem chaveiro, ele CRIA) — os apps (Brave, Wi-Fi, etc) param de
+#     pedir "desbloquear chaveiro". Uma vez só: o marcador é o próprio
+#     arquivo do chaveiro. No sistema INSTALADO com login por senha,
+#     o arquivo já existe e o PAM cuida — este bloco é no-op.
+if command -v gnome-keyring-daemon >/dev/null 2>&1; then
+    if [ ! -e "$HOME/.local/share/keyrings/login.keyring" ]; then
+        ( printf '' | gnome-keyring-daemon --unlock >/dev/null 2>&1 ) &
+    fi
+fi
+
+# --- Clipboard: histórico persistente (cliphist — receita oficial do
+#     labwc; W-v abre o histórico no fuzzel)
+#     v1.6.2 — PODA antes do watcher (camada 1 da receita do README
+#     upstream: "cliphist wipe -older-than 720h from a timer"): o DB
+#     cresceria sem limite (screenshots inteiros em base64). SÍNCRONA e
+#     proposital: milissegundos com o DB podado; estritamente antes do
+#     watcher, sem disputa de lock. Camada 2: cliphist-prune.timer do
+#     user manager (diário — uptimes longos).
+if command -v wl-paste >/dev/null 2>&1 && command -v cliphist >/dev/null 2>&1; then
+    cliphist wipe -older-than 720h 2>/dev/null
+    wl-paste --watch cliphist store &
+fi
+
+# --- EasyEffects em modo serviço (DSP do microfone): sobe no login pronto para
+#     OBS/Discord. O preset (ex.: RNNoise na entrada) é criado 1× no app e
+#     carrega sozinho nas sessões seguintes (dia-1 · v1.2.2)
+if command -v easyeffects >/dev/null 2>&1; then
+    easyeffects --gapplication-service &
+fi

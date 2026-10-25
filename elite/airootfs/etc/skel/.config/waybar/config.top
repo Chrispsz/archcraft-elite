@@ -1,0 +1,155 @@
+// Archcraft ELITE · Waybar TOP — "Menu Bar" estilo macOS (Catppuccin Mocha)
+// ─────────────────────────────────────────────────────────────────────────
+// Desktop v2.4 (v1.6 — burn test v1.5): o ARCH VOLTA ao canto esquerdo
+// (ordem do dono: "o ícone do Arch no canto superior esquerdo não foi
+// carregado" — visto como FALTA, não como limpeza; a spec v1.5 que o
+// removeu foi revertida pela evidência do rig). Ele abre o Launchpad
+// (craft-drawer) — o modelo menu-bar macOS: maçã à esquerda = apps.
+// Relógio no CENTRO EXATO (mantido), power à direita, áudio/rede só
+// ícone (sem %). wlr/window segue, AGORA ao lado do ARCH: nome do app
+// focado — o modelo macOS completo.
+//
+// v1.4 (burn test da v1.3 AO VIVO no rig do dono, 2026-10-22):
+//   · REDE: um só ícone p/ TUDO (cabo + Wi-Fi + Bluetooth) — clique abre
+//     o craft-connect (central de conectividade); o café toggle só
+//     aparece no bar quando ATIVO (CSS v1.4 — burn test: dois ícones
+//     "de rede" confundiam, "um só ícone" é a diretriz)
+//
+// GLIFOS: escritos como escapes JSON \uXXXX — à prova de corrupção de
+// encoding (v1.1 perdeu glifos literais: botões invisíveis na dock).
+// Todos os codepoints verificados no cmap do Symbols Nerd Font
+// (archcraft-fonts 2.0). Família de fonte REAL: "JetBrainsMono NF".
+{
+  "layer": "top",
+  "position": "top",
+  // v1.9 — spec M2.1 do dono: 34→36px — 2px de padding simétrico no CSS
+  // centralizam os ícones no eixo Y (nenhum ícone esmagado contra o teto)
+  "height": 36,
+  "spacing": 4,
+  "fixed-center": true,
+  "reload_style_on_change": true,
+
+  // v2.0 — CONVENÇÃO UNIVERSAL DOS RICES (áudio do dono: "repara como
+  // que são feitos os rices"): ESQUERDA = o lançador de apps (ARCH —
+  // macOS: maçã à esquerda) + nome do app focado; CENTRO = relógio;
+  // DIREITA = o STATUS (shot, volume, rede, tray, sessão) — o cluster
+  // esquerdo da v1.8 que misturava status com lançador está DESFEITO.
+  // O café (idle_inhibitor) SAIU da barra ("botão estranho, não dá para
+  // entender o que ativa" — o idle segue no craft-idle/config).
+  "modules-left": ["custom/drawer", "wlr/window"],
+
+  // Centro: o relógio (v2.1 — diretriz do dono)
+  "modules-center": ["clock"],
+
+  // Direita (v2.1 — declutter pedido pelo dono: “tem uns interessantes
+  // mas tá um pouco cheio”): screenshot SAIU da barra (a função segue
+  // viva em W-P / W-S-P — rc.xml; AÇÃO não precisa de assento fixo), a
+  // música só ocupa a barra QUANDO há algo tocando (format-empty ""),
+  // e o status permanente fica no essencial:
+  // volume → rede → tray → sessão.
+  "modules-right": [
+    "mpris",
+    "pulseaudio",
+    "network",
+    "tray",
+    "custom/power"
+  ],
+
+  // Janela focada — o "nome do app" do menu bar
+  "wlr/window": {
+    "format": "{}",
+    "max-length": 42,
+    "truncate": true,
+    "tooltip": false
+  },
+
+  // Launchpad — o ARCH no canto esquerdo (modelo menu-bar macOS: marca à
+  // esquerda abre os apps)
+  "custom/drawer": {
+    "format": "\uf303",
+    "tooltip-format": "Aplicativos",
+    "on-click": "craft-drawer"
+  },
+
+  // (v2.1 — o botão custom/shot foi REMOVIDO da barra, pedido do dono.
+  // O craft-shot segue acessível: W-P (região) e W-S-P (tela inteira).)
+  // Música do USUÁRIO (MPRIS) — YouTube no navegador, Spotify, mpv: o que
+  // VOCÊ tocar aparece aqui. Com nada tocando o módulo some sozinho.
+  // Clique: esq = play/pause, meio = próxima, dir = anterior.
+  "mpris": {
+    "format": " \uf001 {dynamic}",
+    "format-paused": " \uf04c {dynamic}",
+    "format-stopped": "\uf04d",
+    "format-empty": "",
+    "player-icons": {
+      "default": "\uf001"
+    },
+    "status-icons": {
+      "playing": "\uf04b",
+      "paused": "\uf04c",
+      "stopped": "\uf04d"
+    },
+    "ignored-players": ["playerctld"],
+    "dynamic-len": 40,
+    "interval": 10
+  },
+
+  // Rede — SÓ ÍCONE, UM SÓ P/ TUDO (v1.4: cabo + Wi-Fi + Bluetooth —
+  // diretriz do dono do burn test: "um só ícone, conectividade é 1").
+  // O estado vive no ícone (ethernet/wifi/desconectado — tooltips com
+  // essid/ip); clique abre a CENTRAL (craft-connect: Redes→impala,
+  // Bluetooth→bluetui). Teclado segue: W-n (impala), W-S-b (bluetui).
+  // v2.1: ícones FA BMP — escapes \uXXXX legíveis, sem surrogate pairs
+  // (network-wired = ethernet; unlink = sem conexão)
+  "network": {
+    "format": "{icon}",
+    "format-ethernet": "\uf6ff",
+    "format-wifi": "\uf1eb",
+    "format-linked": "\uf6ff",
+    "format-disconnected": "\uf127",
+    "tooltip-format-ethernet": "{ifname} · {ipaddr}",
+    "tooltip-format-wifi": "{essid} ({signalStrength}%) · {ipaddr}",
+    "on-click": "craft-connect"
+  },
+
+  // Volume (PipeWire) — SÓ ÍCONE (v2.1: sem porcentagem numérica — diretriz
+  // do dono; o valor exato mora no tooltip). Clique muta, scroll ajusta,
+  // dir abre o mixer. Mudo = ícone vermelho via CSS (.muted).
+  "pulseaudio": {
+    "format": "{icon}",
+    "format-muted": "\uf026",
+    "format-icons": {
+      "default": ["\uf027", "\uf028"]
+    },
+    "on-click": "pactl set-sink-mute @DEFAULT_SINK@ toggle",
+    "on-click-right": "pwvucontrol",
+    "scroll-step": 5,
+    "tooltip-format": "{volume}% · {desc}"
+  },
+
+  // Tray (udiskie e o que o usuário subir) — SÓ nesta instância (a 2ª waybar
+  // não pode ter tray: o SNI watcher é único por sessão)
+  "tray": {
+    "icon-size": 16,
+    "spacing": 8
+  },
+
+  // Relógio no CENTRO (v2.1) — clique abre a central de notificações (SwayNC)
+  "clock": {
+    "format": "{:%a %d %b  %H:%M}",
+    "format-alt": "{:%H:%M}",
+    "tooltip-format": "<tt>{calendar}</tt>",
+    "on-click": "swaync-client -t",
+    "interval": 60
+  },
+
+  // Sessão — CLUSTER ESQUERDO (v1.8): liga/desliga/reset ao alcance do
+  // clique único da spec do dono. Menu dropdown (travar/sair/suspender/
+  // reiniciar/desligar — craft-power v2, fuzzel ancorado). Ícone: FA
+  // power-off.
+  "custom/power": {
+    "format": "\uf011",
+    "tooltip-format": "Sessão",
+    "on-click": "craft-power"
+  }
+}

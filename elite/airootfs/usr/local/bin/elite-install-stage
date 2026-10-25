@@ -1,0 +1,293 @@
+#!/usr/bin/env bash
+# ═══════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · elite-install-stage — especialização do alvo na INSTALAÇÃO
+# (chamado pelo Calamares: modules/shellprocess_btrfs.conf → 1 comando só)
+# ═══════════════════════════════════════════════════════════════════════════
+# POR QUÊ EXISTE COMO ARQUIVO (v1.7 — o bug do instalador do burn test):
+# o Calamares EXPANDE todo `$var`/`${var}` de um `command:` inline contra
+# ROOT/USER/LANG + global storage ANTES de rodar o shell (shellprocess_kms.conf
+# header, doc oficial: "It is not possible to get an un-escaped $ in the shell
+# command — either the command will fail because of undefined variables…").
+# O script antigo usava variáveis DE SHELL (${kv}/${kbase}/$v/$ELITE_GPU)
+# dentro do YAML → "The commands use variables that are not defined.
+# Missing variables are: kv,kbase,kv,kbase,v,v." → Installation Failed na
+# máquina real. O gate do CI não via porque reproduz a cadeia FORA do
+# Calamares. Dentro de um ARQUIVO .sh a semântica é de shell de verdade —
+# e o contrato da suíte varre os .conf do Calamares caçando `$` desconhecido
+# para esta classe nunca mais voltar (tests/phases/40-integration.sh).
+#
+# USO: elite-install-stage ${ROOT}   (o Calamares expande ${ROOT}; $1 = alvo)
+# Executa no LIVE (dontChroot: true) e especializa o ALVO:
+#   1. btrfs → recopia TODOS os vmlinuz do pendrive p/ /boot (o unpackfs
+#      rsync chegava truncado em btrfs — bug do rig B, v1.0.4)
+#   2. GPU   → AMD remove o stack NVIDIA inteiro do alvo (MODULES=amdgpu +
+#              ppfeaturemask no GRUB) · NVIDIA fixa MODULES + modeset/fbdev
+#              + modprobe.d · unknown não toca em nada (VM)
+#   3. initramfs regenerado NO alvo (v1.9 M1.1: mkinitcpio -P completo —
+#   4. keyring archlinux+cachyos populado no alvo (belt-and-suspenders)
+# Roda DEPOIS de unpackfs/packages e ANTES de grubcfg/bootloader (settings.conf).
+# ═══════════════════════════════════════════════════════════════════════════
+set -u
+ROOT="${1:-}"
+if [ -z "$ROOT" ] || [ ! -d "$ROOT" ]; then
+    echo "ELITE: elite-install-stage precisa do ROOT do alvo (uso: elite-install-stage <mountpoint>)" >&2
+    exit 1
+fi
+
+# ── 1. btrfs: recopia VERIFICADA dos vmlinuz p/ o /boot do alvo ────────────
+# O rsync do unpackfs chegava truncado em btrfs (rig B: 'premature end of
+# file' no GRUB — v1.0.3). A v1.7.0 recopiava com `cp -f ... &&` e o EXIT
+# CODE ERA IGNORADO: qualquer falha de cópia no rig (disco cheio, OOM killer
+# durante o install, erro btrfs) deixava o TRUNCADO do rsync no lugar, a
+# instalação "terminava feliz" e o boot morria no GRUB — recorrência
+# fotografada em 23/out (IMG_20261023_180301). A v1.8 fez a cópia com PROVA
+# (tmp → tamanho → cmp → mv atômico → re-cmp) MAS deixou a fonte presa ao
+# bootmnt: com copytoram=y (o PADRÃO da ISO — apply-overlay.sh [8]) o
+# archiso DESMONTA o bootmnt depois de copiar o conteúdo p/ a RAM, e TODO
+# install real morria no job 36 com "nenhum vmlinuz em /run/archiso/bootmnt
+# (copytoram?)" — flagrante do dono em 24/out: 2 tentativas (termbin iy38,
+# 11:56 e 12:01 do log; ISO v1.8.1 via Ventoy, nvme XrayDisk 512G).
+#
+# v1.8.2 — FONTE EM CASCATA (3 candidatos, o 1º que tiver vmlinuz-* vence):
+#   A. /run/archiso/bootmnt/arch/boot/x86_64   (boot com copytoram=n/rescue)
+#   B. /boot do PRÓPRIO live — o squashfs airootfs carrega /boot/vmlinuz-*
+#      (o build nunca purgou; não há rm de /boot no apply-overlay) e É o
+#      root em uso: sobrevive ao copytoram por definição
+#   C. backing do loop do airootfs (o copytoram guarda ISO/sfs no tmpfs):
+#      losetup -o BACK-FILE no loop0 → monta ro → procura em arch/boot/… e
+#      em /boot (cobre ISO inteira e sfs solto)
+# A PROVA da cópia (v1.8) fica INTACTA. Falha ALTA só quando é fatal DE
+# VERDADE: sem fonte E sem kernel no /boot do alvo. Se a fonte sumiu mas o
+# unpackfs entregou kernels sãos no alvo (≥5 MB, bzImage 'MZ'), a instalação
+# SEGUE com aviso — "falhar alto" não pode transformar um alvo bootável em
+# Installation Failed (a lição do termbin iy38).
+if [ "$(findmnt -n -o FSTYPE "$ROOT")" = "btrfs" ]; then
+    KERNEL_SRC=""
+    for cand in /run/archiso/bootmnt/arch/boot/x86_64 /boot; do
+        if compgen -G "${cand}/vmlinuz-*" >/dev/null 2>&1; then
+            KERNEL_SRC="$cand"
+            break
+        fi
+    done
+    if [ -z "$KERNEL_SRC" ]; then
+        # Candidato C: o backing do loop do airootfs (tmpfs do copytoram,
+        # ISO de loop do Ventoy — o que existir). Monta ro e cobre os dois
+        # layouts (ISO = arch/boot/x86_64 · sfs = boot/).
+        loopdev="$(findmnt -n -o SOURCE /run/archiso/airootfs 2>/dev/null || true)"
+        backfile="$(losetup -n -o BACK-FILE "$loopdev" 2>/dev/null || true)"
+        if [ -n "$backfile" ] && [ -f "$backfile" ]; then
+            isomnt="/tmp/.elite-iso-src"
+            rm -rf "$isomnt"; mkdir -p "$isomnt"
+            if mount -o loop,ro "$backfile" "$isomnt" 2>/dev/null; then
+                if   compgen -G "${isomnt}/arch/boot/x86_64/vmlinuz-*" >/dev/null 2>&1; then
+                    KERNEL_SRC="${isomnt}/arch/boot/x86_64"
+                elif compgen -G "${isomnt}/boot/vmlinuz-*" >/dev/null 2>&1; then
+                    KERNEL_SRC="${isomnt}/boot"
+                else
+                    umount "$isomnt" 2>/dev/null || true
+                fi
+            fi
+        fi
+    fi
+    echo "ELITE: fonte dos kernels = ${KERNEL_SRC:-NENHUMA (copytoram sem ISO montável)}"
+    copied=0
+    if [ -n "$KERNEL_SRC" ]; then
+        for kv in "$KERNEL_SRC"/vmlinuz-*; do
+            [ -e "$kv" ] || continue
+            kbase="$(basename "$kv")"
+            src_size="$(stat -c%s "$kv")" || {
+                echo "ELITE: ERRO — fonte do kernel $kv ilegível" >&2
+                exit 1
+            }
+            tmp="${ROOT}/boot/.elite-${kbase}.tmp"
+            rm -f "$tmp"
+            echo "ELITE: recopiando ${kbase} (${src_size} bytes) com verificação byte-a-byte…"
+            if ! cp -f "$kv" "$tmp"; then
+                echo "ELITE: ERRO — cp de ${kbase} falhou (disco cheio? $(df -h "$ROOT/boot" 2>/dev/null | tail -1))" >&2
+                rm -f "$tmp"
+                exit 1
+            fi
+            dst_size="$(stat -c%s "$tmp" 2>/dev/null || echo 0)"
+            if [ "$dst_size" != "$src_size" ] || ! cmp -s "$kv" "$tmp"; then
+                echo "ELITE: ERRO — cópia de ${kbase} truncada/corrompida (fonte ${src_size} B, destino ${dst_size} B)" >&2
+                rm -f "$tmp"
+                exit 1
+            fi
+            mv -f "$tmp" "${ROOT}/boot/${kbase}"
+            sync || true
+            if ! cmp -s "$kv" "${ROOT}/boot/${kbase}"; then
+                echo "ELITE: ERRO — ${kbase} difere da fonte APÓS a promoção no alvo (btrfs)" >&2
+                exit 1
+            fi
+            copied=$((copied + 1))
+            echo "ELITE: ${kbase} VERIFICADO byte-a-byte no alvo ($(stat -c%s "${ROOT}/boot/${kbase}") bytes)"
+        done
+    fi
+    if [ "$copied" -eq 0 ]; then
+        # Sem fonte útil. O alvo tem kernel são (unpackfs)? segue com aviso;
+        # sanidade: ≥5 MB e assinatura bzImage ('MZ' — todos os vmlinuz do
+        # Arch têm EFI stub). Sem kernel no alvo: aí sim exit 1 (GRUB não
+        # teria o que bootar — falha real, e o log agora DIZ isso).
+        sane=0
+        for t in "${ROOT}"/boot/vmlinuz-*; do
+            [ -f "$t" ] || continue
+            sz="$(stat -c%s "$t" 2>/dev/null || echo 0)"
+            if [ "$sz" -ge 5242880 ] && [ "$(head -c2 "$t" 2>/dev/null)" = "MZ" ]; then
+                sane=$((sane + 1))
+            fi
+        done
+        if [ "$sane" -gt 0 ]; then
+            echo "ELITE: AVISO — fonte de kernel indisponível (copytoram), mas o /boot do alvo tem ${sane} vmlinuz são(s) do unpackfs — seguindo"
+            echo "ELITE: $(ls -l "${ROOT}"/boot/vmlinuz-* 2>/dev/null | awk '{print $NF, $5"B"}' | tr '\n' ' ')"
+        else
+            echo "ELITE: ERRO — sem fonte de kernel (copytoram?) E sem vmlinuz são no /boot do alvo — o sistema não bootaria; abortando com motivo" >&2
+            exit 1
+        fi
+    fi
+    touch "${ROOT}/boot/.kernel-copy-success" || true
+fi
+
+# ── 2. GPU do alvo: especialização AMD / NVIDIA / neutro ──────────────────
+ELITE_GPU=unknown
+for v in /sys/class/drm/card*/device/vendor; do
+    [ -r "$v" ] || continue
+    case "$(cat "$v" 2>/dev/null)" in
+        0x10de) ELITE_GPU=nvidia ;;
+        0x1002) [ "$ELITE_GPU" != "nvidia" ] && ELITE_GPU=amd ;;
+    esac
+done
+echo "ELITE: GPU do alvo = $ELITE_GPU"
+
+if [ "$ELITE_GPU" = "amd" ]; then
+    arch-chroot "$ROOT" pacman -Rdd --noconfirm nvidia-open-dkms nvidia-utils lib32-nvidia-utils 2>/dev/null || true
+    rm -f "${ROOT}"/usr/lib/modules/*/updates/dkms/nvidia*.ko* 2>/dev/null || true
+    sed -i 's|^MODULES=.*|MODULES=(amdgpu)|' "${ROOT}/etc/mkinitcpio.conf" 2>/dev/null || true
+    printf '%s\n' '# ELITE: AMD - destrava undervolt/OC p/ LACT' 'options amdgpu ppfeaturemask=0xffffffff' > "${ROOT}/etc/modprobe.d/00-elite-amdgpu.conf"
+    if grep -q '^GRUB_CMDLINE_LINUX_DEFAULT=' "${ROOT}/etc/default/grub" 2>/dev/null; then
+        grep -q 'amdgpu.ppfeaturemask' "${ROOT}/etc/default/grub" ||
+            sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT=/s/"$/ amdgpu.ppfeaturemask=0xffffffff"/' "${ROOT}/etc/default/grub"
+    else
+        printf 'GRUB_CMDLINE_LINUX_DEFAULT="quiet amdgpu.ppfeaturemask=0xffffffff"\n' >> "${ROOT}/etc/default/grub"
+    fi
+elif [ "$ELITE_GPU" = "nvidia" ]; then
+    grep -q '^MODULES=(nvidia' "${ROOT}/etc/mkinitcpio.conf" 2>/dev/null ||
+        sed -i 's|^MODULES=.*|MODULES=(nvidia nvidia_modeset nvidia_uvm nvidia_drm)|' "${ROOT}/etc/mkinitcpio.conf" 2>/dev/null || true
+    printf '%s\n' '# ELITE: NVIDIA (modeset+fbdev p/ Wayland; VRAM preservada em suspend)' 'options nvidia-drm modeset=1 fbdev=1' 'options nvidia NVreg_PreserveVideoMemoryAllocations=1 NVreg_TemporaryFilePath=/var/tmp' > "${ROOT}/etc/modprobe.d/00-elite-nvidia.conf"
+    if grep -q '^GRUB_CMDLINE_LINUX_DEFAULT=' "${ROOT}/etc/default/grub" 2>/dev/null; then
+        grep -q 'nvidia_drm.fbdev' "${ROOT}/etc/default/grub" ||
+            sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT=/s/"$/ nvidia_drm.modeset=1 nvidia_drm.fbdev=1"/' "${ROOT}/etc/default/grub"
+    else
+        printf 'GRUB_CMDLINE_LINUX_DEFAULT="quiet nvidia_drm.modeset=1 nvidia_drm.fbdev=1"\n' >> "${ROOT}/etc/default/grub"
+    fi
+fi
+
+# ── 3. FASE FINAL DE BOOT (v1.9 — spec M1.1 do dono, prematurity EOF) ──────
+# O rig do dono fotografou o GRUB do disco INSTALADO gritando
+#   "premature end of file /@/boot/vmlinuz-linux" + "you need to load the
+#   kernel first" (@ = subvolume btrfs). O v1.8.2 já recopia os vmlinuz
+#   byte-a-byte (cmp), mas o spec v1.9 exige o CASTELO INTEIRO:
+#   hash por sha256 no chroot final + re-geração COMPLETA de mkinitcpio
+#   (todos os presets) + grub-mkconfig NO próprio stage + flush de disco.
+# Tudo aqui é GATE DURO: falha = "Installation Failed" com o MOTIVO no log
+# (nada de ISO/instalação que bootia no QEMU e morria no rig real).
+echo "ELITE: [M1.1] fase final de boot — hash + regen + flush (spec v1.9)"
+
+# 3a. Flush TOTAL do disco antes de qualquer decisão (sync bloqueia até
+#     as páginas sujas da cópia dos kernels serem gravadas de verdade).
+sync
+sync -f "${ROOT}/boot" 2>/dev/null || sync
+echo "ELITE: [M1.1] flush do /boot do alvo completo (sync+sync -f)"
+
+# 3b. Hash de integridade dos vmlinuz no CHROOT FINAL (spec literal).
+#     Com fonte disponível: sha256 fonte == alvo (re-verificação TARDIA —
+#     pega corrupção que só aparece DEPOIS da cópia inicial). Sem fonte
+#     (copytoram sem ISO montável): MZ + tamanho + hash registrado como
+#     trilha de auditoria no log do Calamares.
+khash_fail=0
+if [ -n "$KERNEL_SRC" ]; then
+    for kv in "${ROOT}"/boot/vmlinuz-*; do
+        [ -f "$kv" ] || continue
+        kbase="$(basename "$kv")"
+        [ -e "$KERNEL_SRC/$kbase" ] || continue
+        h_src="$(sha256sum "$KERNEL_SRC/$kbase" | awk '{print $1}')"
+        h_dst="$(sha256sum "$kv" | awk '{print $1}')"
+        if [ "$h_src" != "$h_dst" ]; then
+            echo "ELITE: [M1.1] ERRO FATAL — sha256 de $kbase DIVERGE no alvo" >&2
+            echo "  fonte:  $h_src" >&2
+            echo "  alvo:   $h_dst" >&2
+            khash_fail=$((khash_fail + 1))
+        else
+            echo "ELITE: [M1.1] sha256 OK — ${kbase} ${h_src:0:16}… (fonte == alvo)"
+        fi
+    done
+else
+    for t in "${ROOT}"/boot/vmlinuz-*; do
+        [ -f "$t" ] || continue
+        sz="$(stat -c%s "$t" 2>/dev/null || echo 0)"
+        if [ "$sz" -ge 5242880 ] && [ "$(head -c2 "$t" 2>/dev/null)" = "MZ" ]; then
+            echo "ELITE: [M1.1] sha256 (auditoria, sem fonte p/ comparar) — $(basename "$t") $(sha256sum "$t" | awk '{print $1}' | cut -c1-16)…"
+        fi
+    done
+fi
+if [ "$khash_fail" -gt 0 ]; then
+    echo "ELITE: [M1.1] ERRO — kernel truncado/corrompido no alvo (GRUB daria 'premature end of file'); abortando com motivo" >&2
+    exit 1
+fi
+
+# 3c. mkinitcpio COMPLETO no alvo (todos os presets — spec: "re-geração
+#     completa"), agora com GATE DURO: saída ≠0 ou initramfs ausente/vazio
+#     = instalação reprovada (o || true antigo ENGOLIA initramfs quebrado).
+if [ -x "${ROOT}/usr/bin/mkinitcpio" ] && ls "${ROOT}"/etc/mkinitcpio.d/*.preset >/dev/null 2>&1; then
+    echo "ELITE: [M1.1] mkinitcpio -P (re-geração completa de TODOS os presets)"
+    if ! arch-chroot "$ROOT" mkinitcpio -P; then
+        echo "ELITE: [M1.1] ERRO — mkinitcpio -P falhou no alvo; abortando" >&2
+        exit 1
+    fi
+    for iv in "${ROOT}"/boot/initramfs-*.img; do
+        [ -f "$iv" ] || continue
+        isz="$(stat -c%s "$iv" 2>/dev/null || echo 0)"
+        if [ "$isz" -lt 1048576 ]; then
+            echo "ELITE: [M1.1] ERRO — $(basename "$iv") suspeito (${isz} B < 1 MiB); abortando" >&2
+            exit 1
+        fi
+    done
+    echo "ELITE: [M1.1] initramfs regenerado e sãos (≥1 MiB cada) no alvo"
+fi
+
+# 3d. grub-mkconfig NO stage (spec: "re-geração completa do grub-mkconfig
+#     antes do término do processo") — belt-and-suspenders do módulo
+#     bootloader do Calamares: se o módulo falhar calado, o menu JÁ EXISTE.
+GRUBDIR="${ROOT}/boot/grub"
+if [ -f "${ROOT}/boot/vmlinuz-linux-cachyos-bore" ] &&
+    [ -x "${ROOT}/usr/bin/grub-mkconfig" ]; then
+    mkdir -p "$GRUBDIR"
+    echo "ELITE: [M1.1] grub-mkconfig no alvo (re-geração completa do menu)"
+    if arch-chroot "$ROOT" grub-mkconfig -o /boot/grub/grub.cfg; then
+        if [ -s "${ROOT}/boot/grub/grub.cfg" ] &&
+            grep -q 'menuentry' "${ROOT}/boot/grub/grub.cfg" &&
+            grep -q 'vmlinuz' "${ROOT}/boot/grub/grub.cfg"; then
+            echo "ELITE: [M1.1] grub.cfg regenerado com entradas reais de kernel"
+        else
+            echo "ELITE: [M1.1] ERRO — grub.cfg sem menuentry/vmlinuz; abortando" >&2
+            exit 1
+        fi
+    else
+        echo "ELITE: [M1.1] AVISO — grub-mkconfig falhou no stage (o módulo bootloader do Calamares roda na sequência; se ele também falhar, instalação reprovada)"
+    fi
+fi
+
+# 3e. Flush final de TUDO que tocou o disco (spec: "garantir flush completo")
+sync
+sync -f "${ROOT}/boot" 2>/dev/null || sync
+echo "ELITE: [M1.1] flush final completo — boot do alvo selado por hash"
+
+# ── 4. keyring do alvo (archlinux+cachyos) — cobre skew de build; o E2b ────
+#    do build e o unpackfs (gnupg) já cobrem o essencial
+if [ -x "${ROOT}/usr/bin/pacman-key" ] &&
+    [ -f "${ROOT}/usr/share/pacman/keyrings/cachyos.gpg" ]; then
+    arch-chroot "$ROOT" pacman-key --init || true
+    arch-chroot "$ROOT" pacman-key --populate archlinux cachyos || true
+    echo "ELITE: keyring archlinux+cachyos populado no alvo"
+else
+    echo "ELITE: keyring do alvo já coberto pelo unpackfs (gnupg do build E2b)"
+fi

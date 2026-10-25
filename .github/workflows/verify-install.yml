@@ -1,0 +1,533 @@
+name: Verify Install (QEMU)
+
+# ════════════════════════════════════════════════════════════════════
+# TESTE DE INSTALAÇÃO DE VERDADE — "o live boota, mas e o install?"
+#
+# Bug que este teste caça (reportado no rig B, ISO v1.0.x):
+#   error: kern/verifiers.c:grub_verifiers_open:156:
+#          premature end of file /@/boot/vmlinuz-linux-cachyos-bore.
+#   error: loader/i386/linux.c:grub_cmd_initrd:1082:
+#          you need to load the kernel first.
+#
+# COMO: reproduz no runner (root) a CADEIA EXATA do Calamares/Archcraft
+# para o sistema instalado — sem GUI:
+#   1. unpackfs entrada 1  → rsync do conteúdo do airootfs p/ btrfs @
+#   2. unpackfs E5a        → rsync dos vmlinuz-* do "pendrive" p/ /boot
+#                           (v1.1: entrada única = vmlinuz-linux-cachyos-bore)
+#      (é aqui que o bug vivia: cópia rsync→btrfs chegava truncada)
+#   3. E10 comando 1       → cp -f de TODOS os vmlinuz-* (fonte íntegra)
+#   4. initcpio@elite      → mkinitcpio -p linux-cachyos-bore NO ALVO
+#                           (v1.1: initcpio stock REMOVIDO da sequência —
+#                            kernel único BORE; módulo stock quebraria)
+#   5. grubcfg/bootloader  → grub-install + grub-mkconfig no alvo
+# Depois BOOTA o disco instalado no QEMU (BIOS/MBR + serial) e olha:
+#   ✖ 'premature end of file'          = o bug do rig B voltou
+#   ✖ 'you need to load the kernel…'   = kernel não carregou
+#   ✔ 'Startup finished'               = sistema instalado boota COMPLETO
+#
+# Desvios intencionais (test-only, documentados):
+#   · GRUB serial + console=ttyS0 + GRUB_TIMEOUT=1  → ver o boot headless
+#   · GRUB_CMDLINE_LINUX=rootflags=subvol=@         → belt & suspenders
+#   · imagem initramfs DEFAULT regenerada com -S autodetect: o autodetect
+#     amostra o hardware da MÁQUINA onde roda (aqui, o runner Azure) —
+#     no install real amostra o rig do usuário. Sem isto o initramfs
+#     nasceria sem os drivers de disco do QEMU (falso negativo).
+#   · sem fstab/users/locale (não afetam o carregamento do kernel —
+#     que é exatamente onde o bug do rig B vivia)
+# ════════════════════════════════════════════════════════════════════
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'Run ID da build (artifact archcraft-elite-iso). Vazio = mais recente bem-sucedida'
+        required: false
+        default: ''
+        type: string
+      tag:
+        description: 'OU release tag (ex: v1.0.4) — tem prioridade sobre run_id'
+        required: false
+        default: ''
+        type: string
+  # v1.0.5: chamado pelo build.yml (job verify-install) como GATE
+  # obrigatório de release — a ISO só vira release se o disco INSTALADO
+  # bootar. É o teste que qualquer distro sética tem e este projeto não
+  # tinha rodando em cadeia (o bug do rig B vive exatamente aqui).
+  # FIX #52: inputs DECLARADOS no workflow_call — o build.yml passa run_id
+  # (a run corrente dele) e o gate baixa o artifact DESTA build. O check
+  # antigo (variável de ambiente do evento == workflow_call) nunca era
+  # verdade: a variável de ambiente padrão reflete o evento da RUN
+  # (push/dispatch/tag), não o tipo de chamada do workflow —
+  # workflow_call seta o CONTEXTO github.event_name, não o env. As builds
+  # #48–#52 caíam no fallback "última bem-sucedida" e o gate testava a ISO
+  # v1.0.4 (run #45): o linux.preset dela é legítimo (kernel duplo daquela
+  # era) → reprovação eterna de um produto que nunca foi testado de
+  # verdade.
+  workflow_call:
+    inputs:
+      run_id:
+        description: 'Run ID da build cujo artifact archcraft-elite-iso testar (o build.yml passa a run corrente)'
+        required: false
+        default: ''
+        type: string
+      tag:
+        description: 'OU release tag (ex: v1.0.4) — tem prioridade sobre run_id'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  install-boot-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
+    steps:
+      # v1.2: o gate [1b/8] usa .ci/validate-calamares.py do repo (o MESMO
+      # validador da suíte local — um caminho só). Shallow: só este arquivo.
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: Ferramentas (QEMU, 7z, btrfs-progs, arch-install-scripts)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qemu-system-x86 p7zip-full btrfs-progs \
+            arch-install-scripts rsync squashfs-tools >/dev/null
+          # v1.2: PyYAML p/ o gate [1b/8] — o Calamares real PARSEIA os .conf;
+          # YAML inválido = "module could not be loaded" no rig do dono (v1.1)
+          python3 -c 'import yaml' 2>/dev/null \
+            || sudo apt-get install -y -qq python3-yaml >/dev/null
+          python3 -c 'import yaml; print("PyYAML", yaml.__version__)'
+          qemu-system-x86_64 --version | head -1
+          mkfs.btrfs --version | head -1
+          if [ -e /dev/kvm ]; then echo "KVM presente: $(ls -la /dev/kvm)"; else echo "KVM ausente — TCG (lento)"; fi
+
+      - name: Baixar ISO (tag > run_id > última bem-sucedida)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ inputs.run_id }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          # FIX #52: a fonte da verdade é o INPUT explícito — nunca a
+          # variável de ambiente do evento da run (ela reflete o evento —
+          # push/dispatch/tag — e o branch 'workflow_call' antigo NUNCA
+          # executava: as builds #48–#52 baixavam o artifact da última run
+          # bem-sucedida = ISO v1.0.4, e o gate reprovava o linux.preset
+          # legítimo dela). Ordem: tag (release) > run_id (build específica
+          # — o gate passa a run corrente) > fallback consciente p/
+          # dispatch manual.
+          if [ -n "$TAG" ]; then
+            echo "→ release $TAG"
+            gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
+              --pattern '*.part-*' --pattern 'sha256sums.txt' --clobber
+            cat archcraft-elite-*.iso.part-* > elite.iso
+            rm -f archcraft-elite-*.iso.part-*
+            grep ' archcraft-elite-.*\.iso$' sha256sums.txt \
+              | sed 's/archcraft-elite-[^ ]*\.iso/elite.iso/' > check.txt
+            sha256sum -c check.txt
+          elif [ -n "$RUN_ID" ]; then
+            echo "→ run_id $RUN_ID (input explícito — o gate testa ESTA build)"
+            gh run download "$RUN_ID" --repo "$GITHUB_REPOSITORY" \
+              --name archcraft-elite-iso --dir iso-out
+            ( cd iso-out && sha256sum -c sha256sums.txt --ignore-missing )  # v2.1: gate DURO (sem || true)
+            mv iso-out/*.iso elite.iso
+            rm -rf iso-out
+          else
+            echo "→ sem run_id/tag: última build BEM-SUCEDIDA (dispatch manual — pode ser ISO ANTIGA)"
+            RID=$(gh run list --repo "$GITHUB_REPOSITORY" \
+              --workflow 'Build Elite ISO' --status success --limit 5 \
+              --json databaseId --jq '.[0].databaseId')
+            echo "  → run $RID"
+            gh run download "$RID" --repo "$GITHUB_REPOSITORY" \
+              --name archcraft-elite-iso --dir iso-out
+            ( cd iso-out && sha256sum -c sha256sums.txt --ignore-missing )  # v2.1: gate DURO (sem || true)
+            mv iso-out/*.iso elite.iso
+            rm -rf iso-out
+          fi
+          ls -la elite.iso
+          df -h . | tail -1
+
+      - name: Extrai airootfs.sfs + kernels do "pendrive"
+        run: |
+          set -euo pipefail
+          7z x -y elite.iso -opd/ 'arch/x86_64/airootfs.sfs' \
+            'arch/boot/x86_64/vmlinuz-*' >/dev/null
+          # inventário do pendrive ANTES do consumo: o [1/8] apaga o sfs p/
+          # liberar 2.8GB — o gate copytoram [1c/8] valida os sources do
+          # conf reescrito contra ESTA lista (nomes PLANOS — o archiso no
+          # copytoram expõe /run/archiso/copytoram/<basename>)
+          { echo 'airootfs.sfs'; \
+            ( cd pd/arch/boot/x86_64 && ls vmlinuz-* ) 2>/dev/null || true; \
+          } > iso-pendrive.list
+          rm -f elite.iso   # libera 3.4GB — não precisamos mais da ISO
+          echo "═══ kernels no pendrive (fonte íntegra) ═══"
+          stat -c '%n %s' pd/arch/boot/x86_64/vmlinuz-*
+          stat -c '%s' pd/arch/boot/x86_64/vmlinuz-linux-cachyos-bore > bore-size.txt
+          echo "BORE no pendrive: $(cat bore-size.txt) bytes"
+          stat -c '%n %s' pd/arch/x86_64/airootfs.sfs
+          echo "── inventário (iso-pendrive.list):"; cat iso-pendrive.list
+
+      - name: Instalacao fiel (unpackfs + E5a + E10 + initcpio + GRUB)
+        run: |
+          set -euo pipefail
+          echo "── [1/8] unpackfs entrada 1: airootfs.sfs → rootfs/ (o que o Calamares desempacota)"
+          # sudo: fiel ao Calamares (que roda como root) E necessário —
+          # sem root o unsquashfs morre nos xattrs security.capability
+          # (write_xattr ... you're not superuser! → exit 2, run #1)
+          sudo unsquashfs -no-progress -d rootfs pd/arch/x86_64/airootfs.sfs >/dev/null
+          rm -f pd/arch/x86_64/airootfs.sfs   # libera 2.8GB
+          # pré-flight: as peças que o install precisa existem no alvo
+          test -x rootfs/usr/bin/mkinitcpio  || { echo "✖ mkinitcpio ausente no airootfs"; exit 1; }
+          test -x rootfs/usr/bin/arch-chroot || { echo "✖ arch-chroot ausente"; exit 1; }
+          set -- rootfs/var/lib/pacman/local/grub-*/
+          [ -d "$1" ] || { echo "✖ grub ausente no pacman db do airootfs"; exit 1; }
+          echo "✔ grub presente: $1"
+          test -f rootfs/etc/mkinitcpio.d/linux-cachyos-bore.preset || { echo "✖ preset BORE (E6) ausente"; exit 1; }
+          test ! -e rootfs/etc/mkinitcpio.d/linux.preset || { echo "✖ preset stock PRESENTE (E6b foi aposentado na v1.1)"; exit 1; }
+          test ! -e rootfs/etc/mkinitcpio.d/linux-nvidia.preset || { echo "✖ preset nvidia-stock PRESENTE (órfão do kernel stock — overlay [6.3] deveria ter deletado; pegou a build #48 junto com o linux.preset)"; exit 1; }
+          # conf.d do live: o E11 o apaga no fim do customize — se vazar pro
+          # squashfs, o drop-in archiso vence o ALL_config do initcpio@elite
+          # no alvo e o initramfs instalado nasce com hooks de live.
+          if sudo find rootfs/etc/mkinitcpio.conf.d -name '*.conf' -print -quit 2>/dev/null | grep -q .; then
+            echo "✖ /etc/mkinitcpio.conf.d com drops do live no squashfs (E11 deveria ter removido)"; exit 1
+          fi
+          # v1.1: dkms nvidia pré-compilado (E11) viaja no airootfs — o QEMU
+          # não tem GPU, mas os .ko provam que o build compilou contra o BORE
+          KVER_AI=$(sudo ls rootfs/usr/lib/modules/ | grep -m1 cachyos-bore)
+          [ -n "$KVER_AI" ] || { echo "✖ kernel BORE ausente no airootfs"; exit 1; }
+          if sudo ls "rootfs/usr/lib/modules/$KVER_AI/updates/dkms/nvidia.ko"* >/dev/null 2>&1; then
+            echo "✔ dkms nvidia pré-compilado presente p/ $KVER_AI (E11)"
+          else
+            echo "✖ E11: módulos nvidia AUSENTES no airootfs (entrada NVIDIA do live = mentira)"; exit 1
+          fi
+          echo "✔ pré-flight ok (mkinitcpio, arch-chroot, grub, preset E6, dkms E11)"
+
+          echo "── [1b/8] Calamares: TODOS os .conf parseiam como YAML (o gate cego da v1.1)"
+          # v1.2: o gate da v1.1 só GREPAVA padrões no shellprocess_btrfs.conf —
+          # nunca o parseou como o Calamares real faz. YAML inválido = módulo
+          # "could not be loaded" no rig do dono (shellprocess@btrfs, ISO v1.1:
+          # printfs com \n partido em coluna 0 matavam o block scalar).
+          # O validador vive no repo (.ci/validate-calamares.py) — o MESMO
+          # código roda na suíte local (20-static), um caminho só.
+          python3 "$GITHUB_WORKSPACE/.ci/validate-calamares.py" rootfs || exit 1
+
+          echo "── [1c/8] copytoram × unpackfs: o launch.sh REESCREVE o conf no live"
+          # v1.6 — O GATE QUE FALTAVA (forense do burn test v1.5 do dono):
+          # a ISO era ÍNTEGRA (sha256 conferido), o unpackfs.conf estava
+          # CORRETO dentro do squashfs — mas o launch.sh do Archcraft, ao
+          # detectar copytoram (default da Elite), reescreve o conf com um
+          # sed cujo padrão 'vmlinuz-linux' casa como PREFIXO do kernel
+          # BORE renomeado → source aponta pro path INEXISTENTE
+          # /usr/lib/modules/<kver>/vmlinuz-cachyos-bore → Calamares aborta
+          # em "Configuração incorreta do unpackfs" no rig real. Este gate
+          # roda o if do launch.sh LITERALMENTE (os mesmos seds, com o
+          # KERNEL real da ISO) sobre uma CÓPIA do conf extraído do
+          # squashfs e valida CADA source resultante.
+          LS=/tmp/launch-copytoram.sh
+          sed -n '/# Check if booted/,/^fi$/p' rootfs/etc/calamares/launch.sh > "$LS" || true
+          grep -q 'copytoram' "$LS" || { echo '✖ launch.sh sem bloco copytoram (upstream mudou?)'; exit 1; }
+          # o bloco redefine DIR= internamente (ignora o env) — reescreve a
+          # linha p/ apontar na CÓPIA; assim o if roda LITERALMENTE (mesmos
+          # seds do live) sem tocar no /etc do runner
+          sed -i 's|^DIR=.*|DIR=/tmp/cal-copytoram|' "$LS"
+          # uname FALSO: o launch.sh calcula KERNEL=`uname -r` — no runner isso
+          # daria o kernel do UBUNTU, não o da ISO. Um uname falso no PATH
+          # devolve o kver real da ISO (do rootfs extraído) e o bloco roda
+          # LITERALMENTE como roda no live do dono (mesmos seds, mesmo kernel).
+          KVER=$(ls rootfs/usr/lib/modules | grep -v '^build$' | head -1)
+          echo "── kernel da ISO (vira o 'uname -r' do launch.sh): $KVER"
+          mkdir -p /tmp/fakebin /tmp/cal-copytoram/modules
+          printf '#!/bin/sh\ncase "$1" in -r) echo %s;; *) uname "$@";; esac\n' "$KVER" > /tmp/fakebin/uname
+          chmod +x /tmp/fakebin/uname
+          cp rootfs/etc/calamares/modules/unpackfs.conf /tmp/cal-copytoram/modules/
+          # o if do launch.sh exige /run/archiso/copytoram (o modo de boot da
+          # Elite) — no runner ele não existe: cria o diretório p/ o bloco
+          # rodar LITERALMENTE como roda no live do dono
+          sudo mkdir -p /run/archiso/copytoram
+          ( cd /tmp/cal-copytoram && PATH=/tmp/fakebin:$PATH DIR=/tmp/cal-copytoram bash "$LS" >/dev/null 2>&1 ) || true
+          # belt-and-suspenders: se o bloco não reescreveu (upstream mudou o if),
+          # aplica os seds à mão com os padrões LIDOS do launch.sh
+          if ! grep -q '/run/archiso/copytoram/' /tmp/cal-copytoram/modules/unpackfs.conf; then
+            echo "⚠ bloco copytoram não reescreveu — aplicando seds à mão (padrões do launch.sh)"
+            KSEDF=$(grep -oE "s\|/run/archiso/bootmnt/arch/boot/x86_64/[^|]+\|/usr/lib/modules/[$]KERNEL/vmlinuz\|g" rootfs/etc/calamares/launch.sh | head -1)
+            [ -n "$KSEDF" ] || { echo '✖ launch.sh: sed do kernel não encontrado (padrão upstream mudou)'; exit 1; }
+            KPAT=${KSEDF#s|}; KPAT=${KPAT%%|/usr/lib*}
+            sed -i -e 's|/run/archiso/bootmnt/arch/x86_64/airootfs.sfs|/run/archiso/copytoram/airootfs.sfs|g' \
+                   -e "s|$KPAT|/usr/lib/modules/$KVER/vmlinuz|g" \
+                   /tmp/cal-copytoram/modules/unpackfs.conf
+          fi
+          echo "── conf APÓS o copytoram (o que o Calamares do dono leria):"
+          grep -E '^\s+-\s+source:|^\s+sourcefs:|^\s+destination:' /tmp/cal-copytoram/modules/unpackfs.conf
+          # valida CADA source do conf reescrito. Nota: o airootfs.sfs foi
+          # consumido pelo [1/8] (rm -f p/ liberar 2.8GB) — a correspondência
+          # com o pendrive vive em iso-pendrive.list (gravada no passo de
+          # extração, ANTES do consumo)
+          FAIL=0
+          while IFS= read -r src; do
+            src=${src#\"}; src=${src%\"}
+            case "$src" in
+              /run/archiso/copytoram/*)
+                base=${src#/run/archiso/copytoram/}
+                grep -qx "$base" iso-pendrive.list \
+                  || { echo "✖ copytoram: $src sem correspondente no ISO ($base fora do pendrive)"; FAIL=1; }
+                ;;
+              /usr/lib/modules/*)
+                [ -f "rootfs$src" ] || { echo "✖ copytoram: $src NÃO existe no live rootfs (era exatamente o bug do burn test v1.5)"; FAIL=1; }
+                ;;
+              /run/archiso/bootmnt/*)
+                echo "✖ copytoram: $src NÃO foi reescrito — o padrão do launch.sh não casou!"; FAIL=1
+                ;;
+              *) : ;;
+            esac
+          done < <(grep -oE 'source: "[^"]+"' /tmp/cal-copytoram/modules/unpackfs.conf | sed 's/source: "//;s/"$//')
+          # o padrão do launch.sh tem que casar com o kernel da Elite — o bug da v1.5
+          grep -q 'vmlinuz-linux-cachyos-bore|/usr/lib/modules' rootfs/etc/calamares/launch.sh \
+            || { echo "✖ launch.sh SEM o padrão alinhado ao BORE (E5a2 não rodou na build!)"; FAIL=1; }
+          [ "$FAIL" -eq 0 ] && echo "✔ copytoram: todos os sources do conf reescrito existem (regressão v1.5 morta)" || exit 1
+
+          echo "── [2/8] disco: MBR + partição btrfs única (Calamares erase-disk, BIOS)"
+          truncate -s 14G elite-disk.img
+          LOOP=$(sudo losetup -fP --show "$PWD/elite-disk.img")
+          echo "LOOP=$LOOP" >> "$GITHUB_ENV"
+          sudo sfdisk --quiet "$LOOP" <<EOF
+          label: dos
+          start=2048, type=83, bootable
+          EOF
+          sudo mkfs.btrfs -L elite-root "${LOOP}p1" >/dev/null
+
+          echo "── [3/8] subvolume @ montado como raiz (layout do Calamares)"
+          sudo mkdir -p /mnt/fsroot /mnt/elite
+          sudo mount "${LOOP}p1" /mnt/fsroot
+          sudo btrfs subvolume create /mnt/fsroot/@
+          sudo umount /mnt/fsroot
+          sudo mount -o subvol=@ "${LOOP}p1" /mnt/elite
+
+          echo "── [4/8] unpackfs: rsync airootfs → alvo (a cópia que truncava no btrfs)"
+          sudo rsync -aHAX --numeric-ids --info=stats1 rootfs/ /mnt/elite/ | tail -6
+
+          echo "── [5/8] unpackfs E5a: rsync dos kernels do pendrive → /boot"
+          sudo mkdir -p /mnt/elite/boot
+          for kv in pd/arch/boot/x86_64/vmlinuz-*; do
+            sudo rsync -a "$kv" /mnt/elite/boot/
+          done
+          echo "── tamanhos APÓS o rsync (ANTES do E10 — era aqui o bug do rig B):"
+          sudo stat -c '   %n %s' /mnt/elite/boot/vmlinuz-* | tee sizes-antes-e10.txt
+
+          echo "── [6/8] v1.8: elite-install-stage REAL — o MESMO script que o rig roda"
+          # LIÇÃO DA RECORRÊNCIA (23/out, IMG_20261023_180301): este gate
+          # rodava um cp PRÓPRIO aqui dentro, enquanto o rig executava o
+          # elite-install-stage — cujo cp tinha o exit code ignorado. Gate
+          # verde ⇄ rig com kernel truncado. FIM DA DIVERGÊNCIA: o gate
+          # executa o ARQUIVO REAL do rootfs da ISO contra o alvo btrfs,
+          # com o "pendrive" bind-montado no caminho EXATO do live
+          # (/run/archiso/bootmnt). O script v1.8 é auto-verificante
+          # (tmp → size → cmp → mv → re-cmp → exit 1 em qualquer desvio),
+          # então falha de cópia aqui = Installation Failed no rig, e o
+          # gate grita ANTES da ISO nascer.
+          sudo mkdir -p /run/archiso/bootmnt
+          sudo mount --bind "$PWD/pd" /run/archiso/bootmnt
+          # PIPESTATUS: 'cmd | tee' mascara o exit code do cmd (status do
+          # pipeline = tee) — o rc REAL do stage é checado explicitamente
+          # v2.0 — LOGS EM TEMPO REAL (meta-instrução do áudio do dono:
+          # "pra você pegar nos testes logs do instalador em tempo real"):
+          # o tee abaixo STREAMA linha a linha para o console da Actions
+          # (o log da run é o "terminal ao vivo" da instalação) E grava o
+          # arquivo completo p/ auditoria dos agentes + o filtro destacado
+          # mostra cada marcador ELITE na hora (linha a linha, sem buffer).
+          sudo rootfs/usr/local/bin/elite-install-stage /mnt/elite 2>&1 | stdbuf -oL -eL tee elite-install-stage.log | grep --line-buffered -E 'ELITE|ERRO|error|premature|truncad' || true
+          STAGE_RC=${PIPESTATUS[0]}
+          sudo umount /run/archiso/bootmnt
+          [ "$STAGE_RC" -eq 0 ] || {
+            echo "✖ elite-install-stage rc=$STAGE_RC — o rig veria 'Installation Failed' com o motivo no log:"
+            tail -30 elite-install-stage.log
+            exit 1
+          }
+          sudo test -f /mnt/elite/boot/.kernel-copy-success \
+            || { echo "✖ marcador .kernel-copy-success ausente — stage não concluiu a cópia verificada"; exit 1; }
+          echo "── log completo do instalador (auditoria): $(wc -l < elite-install-stage.log) linhas — as ELITE acima foram o AO VIVO"
+          echo "── tamanhos APÓS o stage (cópia verificada):"
+          sudo stat -c '   %n %s' /mnt/elite/boot/vmlinuz-* | tee sizes-depois-e10.txt
+          # prova INDEPENDENTE (além da verificação interna do script):
+          if sudo cmp -s pd/arch/boot/x86_64/vmlinuz-linux-cachyos-bore /mnt/elite/boot/vmlinuz-linux-cachyos-bore; then
+            echo "BORE_INTEGRAL=OK" | tee integridade.txt
+          else
+            echo "BORE_INTEGRAL=TRUNCADO/BUG" | tee integridade.txt
+          fi
+          grep -q 'BORE_INTEGRAL=OK' integridade.txt \
+            || { echo "✖ BORE truncado no alvo mesmo com o stage verificado — INADMISSÍVEL"; exit 1; }
+          # v1.1: kernel único — não existe mais vmlinuz-linux p/ conferir
+          cat integridade.txt
+          echo "── [6b/8] E10 v1.1: especialização por GPU (detector de vendor)"
+          # Roda o MESMO detector do shellprocess_btrfs.conf: no runner sem
+          # DRM o esperado é 'unknown' (nenhum branch toca no alvo) — prova
+          # que o loop não explode e o default é não-op seguro
+          ELITE_GPU=unknown
+          for v in /sys/class/drm/card*/device/vendor; do
+            [ -r "$v" ] || continue
+            case "$(cat "$v" 2>/dev/null)" in
+              0x10de) ELITE_GPU=nvidia ;;
+              0x1002) [ "$ELITE_GPU" != "nvidia" ] && ELITE_GPU=amd ;;
+            esac
+          done
+          echo "ELITE_GPU=$ELITE_GPU (QEMU: esperado unknown)"
+          echo "ELITE_GPU=$ELITE_GPU" | tee gpu-detect.txt
+          # contrato do per-rig no SCRIPT que o Calamares real executa
+          # (v1.7: a lógica saiu do YAML inline — que o Calamares mata
+          # expandindo $ de shell — e vive no elite-install-stage, chamado
+          # com ${ROOT}; o conf agora é 1 comando só)
+          for pat in '0x10de) ELITE_GPU=nvidia' 'MODULES=(amdgpu)' 'nvidia_drm.fbdev=1' 'pacman -Rdd --noconfirm nvidia-open-dkms'; do
+            sudo grep -qF "$pat" rootfs/usr/local/bin/elite-install-stage \
+              && echo "✔ per-rig no elite-install-stage: $pat" \
+              || { echo "✖ per-rig AUSENTE no elite-install-stage: $pat"; exit 1; }
+          done
+          # e o conf do Calamares tem que ser a chamada de 1 comando:
+          sudo grep -qF '/usr/local/bin/elite-install-stage ${ROOT}' rootfs/etc/calamares/modules/shellprocess_btrfs.conf \
+            && echo "✔ shellprocess_btrfs = elite-install-stage \${ROOT} (1 comando)" \
+            || { echo "✖ shellprocess_btrfs não delega ao elite-install-stage"; exit 1; }
+
+          echo "── [7/8] initcpio@elite: initramfs do kernel ÚNICO (BORE) NO ALVO"
+          sudo arch-chroot /mnt/elite mkinitcpio -p linux-cachyos-bore > mkinitcpio-bore.log 2>&1 \
+            || { echo "✖ mkinitcpio BORE falhou:"; tail -40 mkinitcpio-bore.log; exit 1; }
+          tail -6 mkinitcpio-bore.log
+          # test-only: regenera a imagem DEFAULT sem autodetect (ver header)
+          KVER_BORE=$(sudo arch-chroot /mnt/elite sh -c 'ls /usr/lib/modules | grep -m1 cachyos')
+          echo "kernel único no alvo: BORE=$KVER_BORE"
+          sudo arch-chroot /mnt/elite mkinitcpio -S autodetect \
+            -g /boot/initramfs-linux-cachyos-bore.img -k "$KVER_BORE" \
+            >> mkinitcpio-bore.log 2>&1 \
+            || { echo "✖ regen BORE (sem autodetect) falhou:"; tail -40 mkinitcpio-bore.log; exit 1; }
+          echo "── /boot final do alvo (v1.1: só BORE — stock saiu da ISO):"
+          sudo stat -c '   %n %s' /mnt/elite/boot/* | tee boot-final.txt
+
+          echo "── [8/8] grubcfg + bootloader: grub-install + grub-mkconfig (serial test-only)"
+          sudo sed -i \
+            -e 's|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT="console=ttyS0,115200 quiet loglevel=3"|' \
+            -e 's|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX="rootflags=subvol=@"|' \
+            -e 's|^GRUB_TIMEOUT=.*|GRUB_TIMEOUT=1|' \
+            -e 's|^GRUB_DEFAULT=.*|GRUB_DEFAULT=0|' \
+            -e 's|^GRUB_DISABLE_OS_PROBER=.*|GRUB_DISABLE_OS_PROBER=true|' \
+            -e 's|^GRUB_SAVEDEFAULT=.*|#GRUB_SAVEDEFAULT=true|' \
+            /mnt/elite/etc/default/grub
+          printf '%s\n' 'GRUB_TERMINAL="console serial"' \
+            'GRUB_SERIAL_COMMAND="serial --unit=0 --speed=115200"' \
+            | sudo tee -a /mnt/elite/etc/default/grub >/dev/null
+          sudo arch-chroot /mnt/elite grub-install --target=i386-pc --recheck "$LOOP" \
+            > grub-install.log 2>&1 \
+            || { echo "✖ grub-install falhou:"; cat grub-install.log; exit 1; }
+          tail -3 grub-install.log
+          sudo arch-chroot /mnt/elite grub-mkconfig -o /boot/grub/grub.cfg \
+            > grub-mkconfig.log 2>&1 \
+            || { echo "✖ grub-mkconfig falhou:"; cat grub-mkconfig.log; exit 1; }
+          tail -6 grub-mkconfig.log
+          echo "── entradas de kernel no grub.cfg gerado:"
+          # [[:space:]]: grub.cfg separa com TAB, não espaço (a run #2 morreu
+          # aqui num grep que exigia 'linux ' com espaço — pipefail + grep
+          # vazio = exit 1, com a instalação PERFEITA). grep direto no arquivo:
+          # sem pipe p/ head (SIGPIPE + pipefail = falso negativo).
+          if sudo grep -E '^[[:space:]]*(linux|initrd)[[:space:]]' \
+               /mnt/elite/boot/grub/grub.cfg > grub-entries.txt; then
+            head -12 grub-entries.txt
+          else
+            echo "✖ nenhuma entrada linux/initrd no grub.cfg"; exit 1
+          fi
+
+          sudo umount /mnt/elite
+          sudo losetup -d "$LOOP"
+          echo "✔ instalação montada. Disco pronto para o boot test."
+          df -h . | tail -1
+
+      - name: Boot test — o disco INSTALADO boota? (o bug apareceria AQUI)
+        run: |
+          set +e
+          KVM=""
+          if [ -e /dev/kvm ]; then
+            sudo chmod 666 /dev/kvm 2>/dev/null
+            [ -w /dev/kvm ] && KVM="-enable-kvm -cpu host"
+          fi
+          [ -z "$KVM" ] && KVM="-cpu max"
+          echo "QEMU flags: $KVM"
+          qemu-system-x86_64 \
+            -machine q35 -smp 2 -m 3072 $KVM \
+            -drive file="$PWD/elite-disk.img",format=raw \
+            -nographic -no-reboot -nic user \
+            > serial-install.log 2>&1 &
+          Q=$!
+          VERDICT=TIMEOUT
+          # até 45 min (TCG; run #3 chegou ao PROMPT DE LOGIN aos 25min e foi
+          # morta um instante antes do marcador formal — janela esticada)
+          for i in $(seq 1 540); do   # até 45 min
+            if grep -q 'premature end of file' serial-install.log 2>/dev/null; then VERDICT=BUG_PREMATURE_EOF; break; fi
+            if grep -q 'you need to load the kernel first' serial-install.log 2>/dev/null; then VERDICT=BUG_KERNEL_NAO_CARREGOU; break; fi
+            if grep -q 'Startup finished' serial-install.log 2>/dev/null; then VERDICT=BOOT_COMPLETO; break; fi
+            # login: = GRUB+kernel+initramfs+systemd+getty TODOS funcionaram —
+            # o bug do rig B morre no GRUB, muito antes do login. Válido p/
+            # o propósito deste gate (o marcador formal pode atrasar sob TCG
+            # por stragglers tipo firstboot/SDDM).
+            if grep -q 'login:' serial-install.log 2>/dev/null; then VERDICT=BOOT_COMPLETO_LOGIN; break; fi
+            if grep -qE 'Kernel panic|emergency mode|Give root password' serial-install.log 2>/dev/null; then VERDICT=PANIC_OU_EMERGENCIA; break; fi
+            kill -0 "$Q" 2>/dev/null || break
+            sleep 5
+          done
+          sleep 15   # um pouco mais de log pós-veredito
+          kill "$Q" 2>/dev/null; wait "$Q" 2>/dev/null
+          echo "VERDICT=$VERDICT" | tee verdict.txt
+          echo "── kernel que boota (primeira linha 'Linux version' do serial):"
+          grep -m1 'Linux version' serial-install.log || echo "(nenhuma — kernel não chegou a rodar)"
+          echo "════════ ÚLTIMAS 60 LINHAS DO SERIAL (disco instalado) ════════"
+          tail -60 serial-install.log
+
+      - name: GATE — boot do sistema instalado
+        run: |
+          set -euo pipefail
+          FAIL=0
+          V=$(cat verdict.txt)
+          V=${V#VERDICT=}   # verdict.txt guarda 'VERDICT=X' — sem o strip, até BOOT_COMPLETO dava ✖ (run #4)
+          if [ "$V" = "BOOT_COMPLETO" ] || [ "$V" = "BOOT_COMPLETO_LOGIN" ]; then echo "✔ $V — sistema instalado boota (login prompt/target alcançado)"; else echo "✖ veredito: $V"; FAIL=1; fi
+          if grep -q 'premature end of file' serial-install.log; then echo "✖ 'premature end of file' NO LOG — o bug do rig B voltou"; FAIL=1; else echo "✔ SEM 'premature end of file' (o bug do rig B não voltou)"; fi
+          if grep -q 'you need to load the kernel first' serial-install.log; then echo "✖ 'you need to load the kernel first' — kernel não carregou"; FAIL=1; else echo "✔ SEM 'you need to load the kernel first'"; fi
+          # v1.5.2: nenhuma unidade pode terminar em failed no disco instalado
+          # (mesma regra do gate do live — o fg-booster crash-loopava em TODA
+          # boot v1.0→v1.5 e nenhum gate enxergava; exceção benigna = POR
+          # ESCRITO, nunca silêncio)
+          if grep -q 'Failed with result' serial-install.log; then
+            echo "✖ unidade(s) em failed no instalado: $(sed 's/\x1b\[[0-9;]*m//g' serial-install.log | grep -oE '[a-zA-Z0-9@._-]+\.service: Failed with result' | sort -u | tr '\n' ' ')"
+            FAIL=1
+          else
+            echo "✔ nenhuma unidade systemd em failed no instalado (v1.5.2)"
+          fi
+          grep -q 'BORE_INTEGRAL=OK' integridade.txt && echo "✔ kernel BORE byte-idêntico ao pendrive no disco" || { echo "✖ BORE truncado mesmo após E10"; FAIL=1; }
+          grep -q "vmlinuz-linux-cachyos-bore $(cat bore-size.txt)" sizes-depois-e10.txt && echo "✔ BORE com tamanho integral no disco" || echo "⚠ conferir sizes-depois-e10.txt"
+          grep -q 'cachyos-bore' grub-entries.txt && echo "✔ entrada BORE presente no grub.cfg" || { echo "✖ entrada BORE AUSENTE no grub.cfg — instalado sem kernel (v1.1: único é o BORE)"; FAIL=1; }
+          grep -q 'ELITE_GPU=unknown' gpu-detect.txt && echo "✔ detector de GPU do E10: unknown no QEMU (não-op seguro)" || { echo "⚠ detector de GPU resolveu diferente no QEMU — ver gpu-detect.txt"; }
+          exit $FAIL
+
+      - name: Cleanup loop devices
+        if: always()
+        run: |
+          sudo umount -R /mnt/elite 2>/dev/null || true
+          sudo umount /mnt/fsroot 2>/dev/null || true
+          sudo losetup -D || true
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-install-logs
+          path: |
+            serial-install.log
+            verdict.txt
+            integridade.txt
+            sizes-antes-e10.txt
+            sizes-depois-e10.txt
+            boot-final.txt
+            grub-entries.txt
+            grub-install.log
+            grub-mkconfig.log
+            mkinitcpio-bore.log
+            gpu-detect.txt
+          if-no-files-found: warn
+          retention-days: 14

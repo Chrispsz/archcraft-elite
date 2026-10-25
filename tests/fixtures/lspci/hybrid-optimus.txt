@@ -1,0 +1,2 @@
+00:02.0 VGA compatible controller: Intel Corporation UHD Graphics (rev 05)
+01:00.0 3D controller: NVIDIA Corporation GA107M [GeForce RTX 3050 Mobile / Max-Q] (rev a1)
