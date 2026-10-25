@@ -6,6 +6,30 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **v2.3.6 — o rig falou de novo: o conector é TEXTO, os menus não mentem
+  mais (nem no ESC), e o roxo saiu da dock** (prints/relatos instalando a
+  v2.3.5, out/2026):
+  - **FIM DO FALSO "ERRO 1" NOS MENUS** — ESC no fuzzel devolve exit 1 com
+    stderr vazio e o script gritava "Menu falhou" crítico em fechamento
+    NORMAL (relato do dono no menu de Rede). Os 6 menus tratam
+    1-sem-stderr como fechado pelo usuário (benigno, log sem alarme);
+    crash real (stderr com texto) segue gritando. Bônus: o `rm -f` do
+    tmpfile nos caminhos benignos do pin-pick/logout.
+  - **O CONECTOR WI-FI É TEXTO — FIM DO "ÍCONE FEIO DE PC"** — nm-applet e
+    tray morreram: o ícone SNI de ethernet é bitmap de tema de ícones,
+    fora da família Nerd Font da barra ("ícones inconsistentes e
+    espaçados"). 'Wi-Fi: conectar à rede…' no craft-connect lista as redes
+    do entorno (nmcli, mais forte primeiro), pede senha em campo oculto
+    (`fuzzel --password`) e conecta — o fluxo do applet, sem applet, zero
+    pacote novo. O EDITOR saiu do menu (edição avançada segue no W-n); o
+    prompt 'Senha' entrou na lei do cross-dismiss.
+  - **INDICADOR DA DOCK NEUTRO** — o underline lavanda do Mocha leu como
+    "efeito roxo estranho" no rig: destaque por luz (o text da barra), não
+    por cor (dock.css + fallback embutido do craft-dock-gui).
+  - **Comentário do rc.xml honestificado** — ainda descrevia o
+    hotspot/tira de 4px mortos na v2.3.4; agora documenta o W-S-d que
+    funciona até em tela cheia.
+
 - **v2.3.5 — o rig falou: curas cirúrgicas dos usos básicos + o dump do
   dono** (prints/relatos instalando a v2.3.2, out/2026):
   - **FALSA FALHA DOS MENUS MORRE** — o cross-dismiss/toggle mata o fuzzel

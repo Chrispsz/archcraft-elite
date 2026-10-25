@@ -32,7 +32,7 @@
   // v2.0 — CONVENÇÃO UNIVERSAL DOS RICES (áudio do dono: "repara como
   // que são feitos os rices"): ESQUERDA = o lançador de apps (ARCH —
   // macOS: maçã à esquerda) + nome do app focado; CENTRO = relógio;
-  // DIREITA = o STATUS (shot, volume, rede, tray, sessão) — o cluster
+  // DIREITA = o STATUS (volume, rede, 2º plano quando há, sessão) — o cluster
   // esquerdo da v1.8 que misturava status com lançador está DESFEITO.
   // O café (idle_inhibitor) SAIU da barra ("botão estranho, não dá para
   // entender o que ativa" — o idle segue no craft-idle/config).
@@ -47,13 +47,16 @@
   // música só ocupa a barra QUANDO há algo tocando (format-empty ""),
   // o botão de apps em 2º plano só existe QUANDO há o que encerrar,
   // e o status permanente fica no essencial:
-  // volume → rede → 2º plano (quando há) → tray → sessão.
+  // volume → rede → 2º plano (quando há) → sessão.
+  // (v2.3.6 — a tray SAIU: o único inquilino era o nm-applet, cujo ícone
+  // SNI é bitmap de tema de ícones — fora da família de glifos Nerd Font
+  // dos demais módulos, "inconsistentes e espaçados" no print do dono.
+  // O conector Wi-Fi agora é TEXTO dentro do craft-connect.)
   "modules-right": [
     "mpris",
     "pulseaudio",
     "network",
     "custom/bgapps",
-    "tray",
     "custom/power"
   ],
 
@@ -140,13 +143,6 @@
     "interval": 10,
     "on-click": "craft-bgapps menu",
     "tooltip": true
-  },
-
-  // Tray (udiskie e o que o usuário subir) — SÓ nesta instância (a 2ª waybar
-  // não pode ter tray: o SNI watcher é único por sessão)
-  "tray": {
-    "icon-size": 16,
-    "spacing": 8
   },
 
   // Relógio no CENTRO (v2.1) — clique abre a central de notificações (SwayNC)

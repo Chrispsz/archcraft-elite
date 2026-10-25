@@ -333,7 +333,7 @@ assert_nogrep "$DKCSS" '^[[:space:]]*max-(width|height):' "css dock: sem proprie
 assert_nogrep "$DKCSS" '^[[:space:]]*icon-size:' "css dock: sem propriedade GTK4 de tamanho de ícone (a classe inteira)"
 assert_nogrep "$TOPCSS" '^[[:space:]]*(width|height):' "css top: sem largura/altura cruas (GTK4-only — condenadas na run #80)"
 assert_nogrep "$DKCSS" '^[[:space:]]*(width|height):' "css dock: sem largura/altura cruas (FATAL no waybar 0.15 — run #80: width:120)"
-assert_grep "$TOPCSS" '\-gtk-icon-transform: scale' "css top: ícone do tray 18px via -gtk-icon-transform (GTK3-válido — PROVA positiva: topo 100% limpo na #80)"
+assert_nogrep "$TOPCSS" '#tray' "v2.3.6: zero CSS órfão de tray (o módulo e o nm-applet morreram — o conector é texto no craft-connect)"
 # (v2.0: os contratos do separador do waybar-dock saíram — o separador
 # morreu junto com a dock waybar; o dock.css é GTK3 livre do modo estrito)
 
@@ -526,33 +526,47 @@ CPOW="$REPO/elite/airootfs/usr/local/bin/craft-power"
 CCON="$REPO/elite/airootfs/usr/local/bin/craft-connect"
 assert_grep "$CPOW" "pkill -f 'fuzzel\.\*--prompt=Rede'" \
   "craft-power: cross-dismiss — abrir Sessão fecha o menu de Rede"
-assert_grep "$CCON" "pkill -f 'fuzzel\.\*--prompt=Sess'" \
-  "craft-connect: cross-dismiss — abrir Rede fecha o menu de Sessão"
+assert_grep "$CCON" "pkill -f 'fuzzel\.\*--prompt=\(Sess\|Encer\|Senha\)'" \
+  "craft-connect: cross-dismiss — abrir Rede fecha Sessão/Encerrar/Senha (a lei inteira)"
 
-# H4 — conectividade GUI (dono: "impala e bluetui eu não sei utilizar…
-#      quero mais bonito e mais fácil"): nm-applet + blueman de volta,
-#      craft-connect abre nm-connection-editor/blueman-manager, applets
-#      na sessão, TUIs só como fallback
+# H4 — conectividade (v2.3.6 — o rig falou de novo: "remove esse ícone
+#      feio de Pc… coloca a função… como texto escrito nela"): o conector
+#      Wi-Fi é o PICKER do próprio craft-connect (fuzzel+nmcli, texto
+#      puro, senha oculta); nm-applet/tray morreram (ícone SNI bitmap
+#      fora da família tipográfica da barra); o editor de conexões segue
+#      instalado SÓ para edição avançada (W-n) — fora do menu de rede.
 assert_grep "$REPO/elite/packages.add" '^network-manager-applet$' \
-  "packages.add: network-manager-applet de volta (GUI de rede no dia a dia — nm-applet é o binário)"
+  "packages.add: network-manager-applet presente (o editor de conexões do W-n é dele — edição avançada, não o conector)"
 assert_grep "$REPO/elite/packages.add" '^blueman$' \
-  "packages.add: blueman de volta (GUI de bluetooth no dia a dia)"
-assert_grep "$CCON" 'nm-connection-editor' \
-  "craft-connect: menu abre GUI de rede (TUI impala só como fallback)"
+  "packages.add: blueman presente (GUI de bluetooth)"
+assert_grep "$CCON" 'Wi-Fi: conectar à rede' \
+  "craft-connect: o CONECTOR é texto no menu (diretriz do dono: 'como texto escrito nela')"
+assert_grep "$CCON" 'nmcli device wifi connect' \
+  "craft-connect: o picker conecta de verdade (nmcli — o fluxo do antigo applet, sem applet)"
+assert_nogrep "$CCON" 'nm-connection-editor' \
+  "v2.3.6: o EDITOR saiu do menu de rede (editar ≠ conectar; edição avançada vive no W-n)"
 assert_grep "$CCON" 'blueman-manager' \
   "craft-connect: menu abre GUI de bluetooth (TUI bluetui só como fallback)"
 RCXML="$REPO/elite/airootfs/etc/skel/.config/labwc/rc.xml"
 assert_grep "$RCXML" 'command="nm-connection-editor"' \
-  "rc.xml: W-n abre GUI de rede (era impala TUI)"
+  "rc.xml: W-n abre o editor de conexões (função avançada fora do menu de 2 itens)"
 assert_grep "$RCXML" 'command="blueman-manager"' \
   "rc.xml: W-S-b abre GUI de bluetooth (era bluetui TUI)"
 AUTO="$REPO/elite/airootfs/etc/skel/.config/labwc/autostart"
-# v2.3.5 — nm-applet VOLTOU (a contra-evidência do rig: o editor não
-# conecta; o fluxo do usuário comum é o ícone de rede da tray).
-assert_grep "$AUTO" 'nm-applet &' \
-  "v2.3.5: nm-applet de VOLTA ao autostart (o conector Wi-Fi de verdade — o relato 'como conector numa rede wi-fi assim?' venceu a estética v2.0)"
+assert_nogrep "$AUTO" 'nm-applet &' \
+  "v2.3.6: nm-applet FORA do autostart — a história completa: v2.0 estética → v2.3.5 função (voltou) → v2.3.6 substituição (o conector virou texto no craft-connect; o ícone SNI bitmap desandava a barra)"
 assert_nogrep "$AUTO" 'blueman-applet &' \
   "v2.0: blueman-applet FORA do autostart (mesma classe — o blueman-manager do craft-connect cobre)"
+# v2.3.6 — a lei do fechamento: ESC (exit 1 com stderr vazio) é benigno em
+# TODOS os 6 menus — fechar menu NUNCA é erro (o rig flagrou "erro 1" no
+# fechamento normal da Rede; mesma classe do 143 da v2.3.5).
+for m in craft-power craft-connect craft-bgapps craft-pin-pick craft-logout craft-idle; do
+  assert_grep "$REPO/elite/airootfs/usr/local/bin/$m" 'fechado pelo usuário \(ESC\)' \
+    "v2.3.6: $m — ESC é fechamento benigno (fim do falso 'erro 1')"
+done
+CTOP="$REPO/elite/airootfs/etc/skel/.config/waybar/config.top"
+assert_nogrep "$CTOP" '"tray"' \
+  "v2.3.6: módulo tray FORA da topbar (nada a exibir — udiskie roda --no-tray; o conector é texto no craft-connect)"
 
 # H5 — LACT com daemon de fábrica (flagrante: "Service Status: inactive")
 assert_grep "$ECF" '\[E17\]' \
@@ -621,7 +635,7 @@ TOPCSS="$REPO/elite/airootfs/etc/skel/.config/waybar/style.top.css"
 assert_nogrep "$TOPCSS" 'border-bottom' "M2.3: a linha fantasma sob a barra está MORTA (border-bottom removido do window#waybar)"
 assert_grep "$TOPCSS" 'padding-top: 2px' "M2.1: padding vertical SIMÉTRICO no painel (topo == base — ícone não encosta no teto)"
 assert_grep "$TOPCSS" 'padding-bottom: 2px' "M2.1: padding-bottom presente (par do padding-top)"
-assert_grep "$TOPCSS" 'padding: 0 14px 0 8px' "M2.2: tray com 14px de respiro à direita (entre os 12-16px do spec)"
+assert_grep "$TOPCSS" 'padding: 0 14px' "M2.2: respiro de 14px na borda direita da barra (o último módulo — power — herda o spec do extinto tray)"
 
 # ── M3: dock — centralização, escala fixa, ícones reais, launcher único ──
 # M3.1/M3.2/M3.3 (v2.0): o desalinho e os ícones quebrados tinham UMA causa

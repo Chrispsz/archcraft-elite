@@ -284,7 +284,7 @@ DEFAULT_CSS = b"""
   border: none;
 }
 #dockbox button:hover { background: rgba(22, 22, 31, 0.95); }
-#dockbox button.running { box-shadow: inset 0 -3px 0 rgba(203, 166, 247, 0.9); }
+#dockbox button.running { box-shadow: inset 0 -3px 0 rgba(205, 214, 244, 0.8); }
 """
 
 

@@ -2,7 +2,10 @@
  * (craft-dock-gui) no AMOLED rice v1.3 — a mesma escada de superfícies
  * da waybar (Mocha com o backlight desligado). GTK3 CSS de verdade:
  * alpha(), border-radius, box-shadow inset — sem o modo estrito do
- * waybar 0.15, e sem NENHUMA propriedade inventada. */
+ * waybar 0.15, e sem NENHUMA propriedade inventada.
+ * v2.3.6 — o indicador de aberto é NEUTRO (texto da barra): o roxo-
+ * lavanda do Mocha leu como "efeito estranho" no rig do dono — destaque
+ * por luz, não por cor. */
 #dockwindow { background: transparent; }
 
 /* A pílula: fundo translúcido escuro, borda sutil, cantos 20px — o
@@ -31,7 +34,8 @@
 #dockbox button:active { background: alpha(#2e2e3d, 0.95); }
 
 /* Indicador de aberto (o ponto do macOS): inset shadow sob o ícone —
- * zero shift de layout, zero desalinhamento (a cura do M3.1 v1.9). */
+ * zero shift de layout, zero desalinhamento (a cura do M3.1 v1.9).
+ * v2.3.6: tom NEUTRO (o text da barra) — o roxo leu estranho no rig. */
 #dockbox button.running {
-  box-shadow: inset 0 -3px 0 alpha(#cba6f7, 0.9);
+  box-shadow: inset 0 -3px 0 alpha(#cdd6f4, 0.8);
 }

@@ -135,6 +135,8 @@ menu() {
     # pelo mesmo plano).
     pkill -f 'fuzzel.*--prompt=Sess' 2>/dev/null || true
     pkill -f 'fuzzel.*--prompt=Rede' 2>/dev/null || true
+    # v2.3.6 — o prompt de senha do picker Wi-Fi entra na lei do cross-dismiss
+    pkill -f 'fuzzel.*--prompt=Senha' 2>/dev/null || true
 
     entries="$(list_entries)"
     if [ -z "$entries" ]; then
@@ -153,6 +155,13 @@ menu() {
         # v2.3.5 — SIGTERM = fechado de fora (toggle/cross-dismiss) —
         # benigno: sem notify crítico falso (o print do dono).
         mlog "Processos: fechado de fora (SIGTERM — toggle/cross-dismiss) — benigno"
+        rm -f "$errf"
+        exit 0
+    fi
+    if [ "$ec" -eq 1 ] && [ ! -s "$errf" ]; then
+        # v2.3.6 — ESC = fechado pelo usuário (stderr vazio ≠ crash) —
+        # benigno: fechar NUNCA é erro (mesma classe do 143).
+        mlog "Processos: fechado pelo usuário (ESC) — benigno"
         rm -f "$errf"
         exit 0
     fi

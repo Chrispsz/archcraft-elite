@@ -67,20 +67,18 @@ if [ -x /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 ]; then
     /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 &
 fi
 
-# --- Bluetooth/Rede (v2.0 → v2.3.5 — a história, com as duas evidências):
-#     v2.0 tirou os applets do autostart (áudio do dono: "um ícone antigo…
-#     e um de Bluetooth. Ambos ficaram meio quebrados") — e a conectividade
-#     ficou no craft-connect. O rig v2.3.2 trouxe a CONTRA-EVIDÊNCIA:
-#     "cliquei em wi-fi e ethernet e apareceu um menu pra criar/remover
-#     conexões manualmente — como conector numa rede wi-fi assim?" O
-#     nm-connection-editor EDITA, não CONECTA; o fluxo do usuário comum é
-#     o ícone de rede da TRAY (nm-applet): clique → redes do entorno →
-#     senha → conectado. FUNÇÃO vence estética: o nm-applet volta ao
-#     autostart (o craft-connect segue como central para edição/GUIs —
-#     W-n/W-S-b). O blueman-manager segue no craft-connect para Bluetooth.
-if command -v nm-applet >/dev/null 2>&1; then
-    nm-applet &
-fi
+# --- Rede/Bluetooth (v2.0 → v2.3.5 → v2.3.6 — a história, com as 3 evidências):
+#     v2.0 tirou os applets (estética: "um ícone antigo… e um de Bluetooth.
+#     Ambos ficaram meio quebrados"). O rig v2.3.2 provou o custo: o editor
+#     EDITA, não CONECTA → v2.3.5 devolveu o nm-applet como conector. O rig
+#     v2.3.5 provou o custo DO remédio: o ícone SNI de ethernet é bitmap de
+#     tema de ícones — desanda a família tipográfica da barra ("os ícones
+#     estão inconsistentes visualmente e espaçados"; o dono: "remove esse
+#     ícone feio de Pc… coloca a função… como texto escrito nela"). A cura
+#     final não é estética nem função — é as duas juntas: O CONECTOR É O
+#     PRÓPRIO craft-connect EM TEXTO ('Wi-Fi: conectar à rede…' → redes do
+#     entorno → senha oculta → conectado, tudo fuzzel+nmcli). Nada sobe na
+#     tray (udiskie roda --no-tray); edição avançada continua no W-n.
 
 # --- USB: automount + notificação (udiskie — daemon próprio; o
 #     thunar-volman só age com o Thunar aberto)
