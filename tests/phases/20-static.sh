@@ -262,8 +262,9 @@ assert_grep "$TY" 'pull_request:' "contrato: tests.yml roda em PR (gate de merge
 # entregaram "botões mal recortados… nada é o ícone real" (dono), e o
 # nwg-dock log.Fatal sem sway IPC (morto no labwc). A v2.0 é uma dock
 # GTK3 NATIVA (craft-dock-gui) no protocolo wlr-layer-shell: ícones REAIS
-# do tema via Gio.DesktopAppInfo, autohide POR HOTSPOT (o mecanismo "-d"
-# do nwg-dock, portável), pílula centrada que abraça o conteúdo.
+# do tema via Gio.DesktopAppInfo, e desde a v2.3.4 SEMPRE VISÍVEL (o
+# autohide por hotspot morreu na prática — escondia e não voltava),
+# pílula centrada que abraça o conteúdo.
 GUI="$REPO/elite/airootfs/usr/local/bin/craft-dock-gui"
 DKCSS="$REPO/elite/airootfs/etc/skel/.config/elite/dock.css"
 PINSKEL="$REPO/elite/airootfs/etc/skel/.config/elite/dock-pins"
@@ -273,8 +274,10 @@ assert_file "$GUI" "v2.0: a dock nativa existe (craft-dock-gui)"
 assert_grep "$GUI" 'GtkLayerShell' "v2.0: dock no protocolo wlr-layer-shell (labwc-compatible por construção)"
 assert_grep "$GUI" 'Gio\.DesktopAppInfo' "v2.0: pins resolvidos por .desktop REAL — ícone/nome/exec do sistema (fim dos glifos)"
 assert_grep "$GUI" 'set_pixel_size\(ICON_SIZE\)' "v2.0: escala FIXA 36px (spec M3.2 — ícone de tema, não glifo)"
-assert_grep "$GUI" 'hotspot' "v2.0: autohide POR HOTSPOT nativo (tira que revela — o mecanismo -d do nwg-dock)"
-assert_grep "$GUI" 'SIGUSR1' "v2.0: toggle via sinal (W-S-d → craft-dock)"
+assert_grep "$GUI" 'GtkLayerShell\.Layer\.BOTTOM' "v2.3.4: layer BOTTOM — tela cheia/gaveta cobrem a dock sozinhas (semântica do protocolo, zero polling)"
+assert_grep "$GUI" 'auto_exclusive_zone_enable' "v2.3.4: zona exclusiva — maximizadas respeitam a faixa (o 'como as outras distros' do dono)"
+assert_nogrep "$GUI" 'hotspot|HOTSPOT|teaser|SHOW_AT_START|_startup_hide|HIDE_DELAY|hide_now' "v2.3.4: ZERO resquício de autohide (escondeu e não voltou no rig do dono — extinto de verdade)"
+assert_grep "$GUI" 'SIGUSR1' "v2.0: toggle via sinal (W-S-d → craft-dock) — esconder é ESCOLHA, nunca decisão da dock"
 assert_grep "$GUI" 'SIGUSR2' "v2.0: reload de pins via sinal (craft-pin add/rm)"
 assert_grep "$GUI" 'pgrep' "v2.0: indicador de aberto (classe .running — o ponto do macOS)"
 # v2.1.1 (run #93): PyGObject lança TypeError ("constructor returned NULL")
@@ -567,8 +570,6 @@ d = json.load(open(sys.argv[1]))
 assert d["browser"]["custom_chrome_frame"] is False
 PYEOF
 
-phase_end
-
 
 # ═══════════════════════════════════════════════════════════════════════════
 # v1.9 — SPEC ESTRUTURAL DO DONO (out/2026): as 5 frentes, contrato a contrato
@@ -592,15 +593,15 @@ assert_nogrep "$INST" 'mkinitcpio -p linux-cachyos-bore' "M1.1: o regen NARROW d
 #    do UNPACKFS (a cópia que trunca em btrfs real — E10 v1.0.4). A fonte
 #    D (kernel EM EXECUÇÃO do live) fecha o buraco; a auditoria deixa de
 #    ser cega; o /boot nasce nodatacow; o menu só tem o kernel ÚNICO. ──
-assert_grep "$INST" '/usr/lib/modules/${live_kver}/vmlinuz' \
+assert_grep "$INST" '/usr/lib/modules/\$\{live_kver\}/vmlinuz' \
   "M1.10: fonte D = o kernel EM EXECUÇÃO no live (à prova de copytoram — fecha a cascata A→B→C→D)"
 assert_grep "$INST" 'cp -f --sparse=never' \
   "M1.10: escrita SEM sparse (a classe de truncamento em btrfs comprimido é escrita sparse)"
 assert_grep "$INST" 'for attempt in 1 2' \
   "M1.10: retry antes de falhar alto (não morre na 1ª divergência de cópia)"
-assert_grep "$INST" 'chattr +C "${ROOT}/boot"' \
+assert_grep "$INST" 'chattr \+C "\$\{ROOT\}/boot"' \
   "M1.10: /boot do alvo nodatacow — arquivos de boot nascem sem zstd/CoW (GRUB lê extents crus)"
-assert_grep "$INST" "grep -Ev '^vmlinuz-linux-cachyos-bore\$'" \
+assert_grep "$INST" "grep -Ev '\\^vmlinuz-linux-cachyos-bore\\\$'" \
   "M1.10: gate do menu — grub.cfg só pode referenciar o kernel ÚNICO (vmlinuz órfão reprova a instalação)"
 assert_grep "$INST" 'initramfs-linux-cachyos-bore-fallback' \
   "M1.10: presença do fallback verificada (a principal + a reserva, nada além)"
@@ -635,13 +636,16 @@ assert_nofile "$REPO/elite/airootfs/usr/share/pixmaps/elite/mpv.png" "M3.3 v2.0:
 # ── M4: tecla Super = menu de aplicativos ──
 RCX="$REPO/elite/airootfs/etc/skel/.config/labwc/rc.xml"
 assert_grep "$RCX" 'key="Super_L"' "M4.1: tecla SUPER mapeada (só pressionada → Launchpad)"
-assert_grep "$RCX" 'key="W-S-d"' "M3.5: W-S-d alterna a dock (autohide toggle)"
+assert_grep "$RCX" 'key="W-S-d"' "M3.5: W-S-d alterna a dock (mostrar/esconder — escolha do usuário; a dock é sempre visível)"
 
 # ── M5: wallpaper vetorial flat (sem poeira) — arquivo selado no 40-int ──
 assert_file "$REPO/elite/airootfs/etc/skel/.config/labwc/wallpaper.png" "M5.1: wallpaper.png (PNG lossless — o JPEG com ruído saiu de cena)"
 assert_nogrep "$REPO/elite/airootfs/etc/skel/.config/labwc/autostart" 'wallpaper\.jpg.*first' "M5.1: autostart NÃO prefere mais o jpg (PNG primeiro)"
 
-# ── file_permissions: os 3 binários novos precisam de 0755 (203/EXEC) ──
-for nb in craft-dock craft-dock-gui calamares-elite-log; do
+# ── file_permissions: os binários novos precisam de 0755 (203/EXEC) ──
+# v2.0: dock · v2.3.4: craft-bgapps (o botão de 2º plano)
+for nb in craft-dock craft-dock-gui calamares-elite-log craft-bgapps; do
   assert_grep "$REPO/scripts/apply-overlay.sh" "/usr/local/bin/$nb" "apply-overlay: $nb registrado no file_permissions (senão 203/EXEC no live)"
 done
+
+phase_end

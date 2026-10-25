@@ -45,12 +45,14 @@
   // mas tá um pouco cheio”): screenshot SAIU da barra (a função segue
   // viva em W-P / W-S-P — rc.xml; AÇÃO não precisa de assento fixo), a
   // música só ocupa a barra QUANDO há algo tocando (format-empty ""),
+  // o botão de apps em 2º plano só existe QUANDO há o que encerrar,
   // e o status permanente fica no essencial:
-  // volume → rede → tray → sessão.
+  // volume → rede → 2º plano (quando há) → tray → sessão.
   "modules-right": [
     "mpris",
     "pulseaudio",
     "network",
+    "custom/bgapps",
     "tray",
     "custom/power"
   ],
@@ -125,6 +127,19 @@
     "on-click-right": "pwvucontrol",
     "scroll-step": 5,
     "tooltip-format": "{volume}% · {desc}"
+  },
+
+  // Apps em 2º plano (v2.3.4 — pedido do dono: "um botão tray na topbar
+  // para encerrar programas que estão executando em segundo plano e seja
+  // do usuário caso queira"). Só ocupa a barra QUANDO há processo do
+  // usuário fora da casca da sessão (texto vazio = some); clique abre o
+  // menu fuzzel — a casca (compositor/barras/áudio/dbus…) nunca aparece.
+  "custom/bgapps": {
+    "exec": "craft-bgapps status",
+    "return-type": "json",
+    "interval": 10,
+    "on-click": "craft-bgapps menu",
+    "tooltip": true
   },
 
   // Tray (udiskie e o que o usuário subir) — SÓ nesta instância (a 2ª waybar

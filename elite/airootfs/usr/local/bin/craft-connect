@@ -35,6 +35,8 @@ fi
 # (a mesma cura do craft-power, no sentido oposto — dois dropdowns nunca
 # ficam na tela ao mesmo tempo).
 pkill -f 'fuzzel.*--prompt=Sess' 2>/dev/null || true
+# v2.3.4 — o menu de processos (craft-bgapps) entra na mesma lei.
+pkill -f 'fuzzel.*--prompt=Encer' 2>/dev/null || true
 
 # v1.8.2 — GUI (áudio do dono, 24/out: "impala e bluetui… eu não sei
 # utilizar esses programas que são terminal, quero gerenciadores que

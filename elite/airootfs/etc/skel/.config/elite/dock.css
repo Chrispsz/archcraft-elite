@@ -4,7 +4,6 @@
  * alpha(), border-radius, box-shadow inset — sem o modo estrito do
  * waybar 0.15, e sem NENHUMA propriedade inventada. */
 #dockwindow { background: transparent; }
-#hotspot { background: transparent; }
 
 /* A pílula: fundo translúcido escuro, borda sutil, cantos 20px — o
  * visual da dock antiga, agora abraçando o conteúdo (largura natural,

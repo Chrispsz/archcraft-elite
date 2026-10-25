@@ -1,0 +1,183 @@
+#!/bin/sh
+# ═══════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · craft-bgapps (v1.0 — o botão dos 2º planos, v2.3.4)
+# ═══════════════════════════════════════════════════════════════════════════
+# Pedido do dono (out/2026, ao instalar a v2.3.3): "um botão tray na topbar
+# para encerrar programas que estão executando em segundo plano e seja do
+# usuário caso queira, tipo para interromper o easyeffects, algum launcher
+# ou algo assim".
+#
+# 2 verbos:
+#   craft-bgapps status → JSON p/ o módulo custom/bgapps da waybar. Sem
+#                         candidato, texto vazio = o botão SOME da barra.
+#   craft-bgapps menu   → fuzzel dmenu com os processos DO USUÁRIO vivos;
+#                         o escolhido recebe SIGTERM + notificação.
+#
+# MODELO SEM LISTA INVENTADA (diretriz "sem premissa"): nada aqui supõe qual
+# app o usuário tem — a varredura é o /proc real do próprio UID. O que
+# existe de fábrica é só a CASCA da sessão, protegida de listagem e morte:
+# compositor, barras, dock, wallpaper, áudio, dbus, systemd, portals,
+# polkit, keyring e o servidor do terminal — matar isso não é "encerrar um
+# app", é quebrar o desktop. Tudo o mais que estiver vivo e for do usuário
+# (swaync, udiskie, o watcher do cliphist, o swayidle do craft-idle,
+# easyeffects/nm-applet/blueman se o usuário subir) APARECE — a escolha é
+# dele, no clique.
+#
+# v2.3.1 — mesma lei dos 5 menus: toggle na 2ª chamada, cross-dismiss,
+# stderr capturado, falha LOGADA no menus.log e AVISO NA TELA. O menu de
+# processos nunca morre calado.
+# ═══════════════════════════════════════════════════════════════════════════
+set -eu
+
+MLOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/menus.log"
+mlog() {
+    mkdir -p "${MLOG%/*}" 2>/dev/null
+    # teto de 256 KiB (mesma política do bars.log — evidência recente vale mais)
+    if [ -f "$MLOG" ] && [ "$(wc -c <"$MLOG" 2>/dev/null || echo 0)" -gt 262144 ]; then
+        : >"$MLOG"
+    fi
+    printf '[%s] %s\n' "$(date '+%F %T')" "$1" >>"$MLOG" 2>/dev/null
+    return 0
+}
+
+# ── a CASCA da sessão (nunca listada, nunca morta) ──────────────────────────
+# ps -o comm= corta em 15 caracteres — os nomes abaixo JÁ são os truncados
+# (polkit-gnome-authentication-agent-1 → "polkit-gnome-au", etc.). O próprio
+# craft-bgapps roda como "sh" (shebang) — coberto pela entrada sh.
+PROTECTED='
+labwc
+waybar
+craft-bars
+craft-dock-gui
+craft-drawer
+fuzzel
+swaybg
+pipewire
+pipewire-pulse
+wireplumber
+dbus-broker
+dbus-broker-lau
+dbus-daemon
+systemd
+sd-pam
+foot
+foot-server
+xdg-desktop-por
+xdg-desktop-porc
+gvfsd
+gvfsd-fuse
+polkit-gnome-au
+gnome-keyring-d
+sh
+bash
+zsh
+'
+is_protected() {
+    printf '%s\n' "$PROTECTED" | grep -qxF "$1"
+}
+
+# nomes de exibição — o comm nu é criptico; sem mapeamento, o comm segue
+display_name() {
+    case "$1" in
+        swaync)         echo "swaync — central de notificações" ;;
+        udiskie)        echo "udiskie — automount de USB" ;;
+        wl-paste)       echo "wl-paste — histórico de clipboard (cliphist)" ;;
+        swayidle)       echo "swayidle — idle/lock da tela" ;;
+        easyeffects)    echo "EasyEffects — áudio" ;;
+        nm-applet)      echo "nm-applet — rede (tray)" ;;
+        blueman-applet) echo "blueman — Bluetooth (tray)" ;;
+        *)              echo "$1" ;;
+    esac
+}
+
+# ── varredura: comms ÚNICOS do usuário, fora da casca ───────────────────────
+list_bgapps() {
+    ps -u "$(id -u)" -o comm= 2>/dev/null | sort -u | while IFS= read -r c; do
+        [ -n "$c" ] || continue
+        is_protected "$c" && continue
+        printf '%s\n' "$c"
+    done
+}
+
+# "nome (pid N)" para cada pid vivo de cada candidato — o formato que o
+# menu exibe e de onde o pid volta (última coisa depois de "pid ")
+list_entries() {
+    list_bgapps | while IFS= read -r c; do
+        pgrep -u "$(id -u)" -x "$c" 2>/dev/null | while IFS= read -r pid; do
+            printf '%s (pid %s)\n' "$(display_name "$c")" "$pid"
+        done
+    done
+}
+
+status() {
+    entries="$(list_entries)"
+    if [ -z "$entries" ]; then
+        printf '{"text":"","class":"","tooltip":""}\n'
+        return 0
+    fi
+    count="$(printf '%s\n' "$entries" | grep -c '(pid ')"
+    names="$(printf '%s\n' "$entries" | sed 's/^/ • /; s/ (pid [0-9]*)$//')"
+    # glifo como escape JSON \uXXXX (lição v1.1: ASCII puro, à prova de
+    # encoding — waybar decodifica o escape ao renderizar)
+    printf '{"text":"\\uf085 %s","class":"bgapps-on","tooltip":"Em segundo plano (%s):\\n%s\\nClique para escolher o que encerrar."}\n' \
+        "$count" "$count" "$names"
+}
+
+menu() {
+    # TOGGLE (v1.4, mesma cura da família): 2ª chamada com o menu aberto
+    # apenas fecha — o botão nunca empilha fuzzel.
+    if pgrep -f 'fuzzel.*--prompt=Encer' >/dev/null 2>&1; then
+        pkill -f 'fuzzel.*--prompt=Encer' 2>/dev/null || true
+        exit 0
+    fi
+    # CROSS-DISMISS (v1.8.2): dois dropdowns nunca ficam na tela ao mesmo
+    # tempo — abrir o de processos fecha os da barra (os deles fecham este
+    # pelo mesmo plano).
+    pkill -f 'fuzzel.*--prompt=Sess' 2>/dev/null || true
+    pkill -f 'fuzzel.*--prompt=Rede' 2>/dev/null || true
+
+    entries="$(list_entries)"
+    if [ -z "$entries" ]; then
+        # corrida benigna: o botão estava na barra e o app saiu sozinho
+        mlog "Processos: nada vivo para encerrar — saindo"
+        exit 0
+    fi
+
+    mlog "Processos: abrindo (fuzzel dmenu)"
+    errf="$(mktemp)"
+    ec=0
+    choice="$(printf '%s\n' "$entries" | fuzzel --dmenu \
+        --anchor=top-right --x-margin=10 --y-margin=44 \
+        --lines=8 --width=34 --prompt='Encerrar  ' 2>"$errf")" || ec=$?
+    if [ "$ec" -ne 0 ]; then
+        mlog "Processos: FUZZEL FALHOU exit=$ec — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
+        command -v notify-send >/dev/null 2>&1 && \
+            notify-send -a 'Elite' -u critical 'Menu de processos falhou' \
+                "fuzzel exit=$ec — detalhe em ~/.cache/elite/menus.log" || true
+    fi
+    rm -f "$errf"
+
+    [ -n "$choice" ] || exit 0   # Esc: nada acontece
+    pid="${choice##*pid }"
+    case "$pid" in
+        ''|*[!0-9]*) mlog "Processos: escolha sem pid válido — '$choice'"; exit 0 ;;
+    esac
+    name="${choice%% (pid*}"
+    if kill -TERM "$pid" 2>/dev/null; then
+        mlog "Processos: SIGTERM enviado — $name (pid $pid)"
+        command -v notify-send >/dev/null 2>&1 && \
+            notify-send -a 'Elite' 'Encerrado' \
+                "$name (pid $pid) recebeu o sinal de término." || true
+    else
+        mlog "Processos: kill falhou — $name (pid $pid) (saiu sozinho?)"
+        command -v notify-send >/dev/null 2>&1 && \
+            notify-send -a 'Elite' -u critical 'Não encerrou' \
+                "$name (pid $pid) — o processo pode ter saído sozinho." || true
+    fi
+}
+
+case "${1:-}" in
+    status) status ;;
+    menu)   menu ;;
+    *) printf 'uso: craft-bgapps [status|menu]\n' >&2; exit 2 ;;
+esac

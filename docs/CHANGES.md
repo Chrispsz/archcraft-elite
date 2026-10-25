@@ -6,6 +6,40 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **v2.3.4 — a dock que não some + o fim do instalador no instalado + o
+  botão dos 2º planos** (relato do dono instalando a v2.3.3, out/2026):
+  - **DOCK SEMPRE VISÍVEL** — o autohide por hotspot morreu NA PRÁTICA:
+    "a dock ficou bem legal, mas ela sumiu e não apareceu mais". A cura é
+    a semântica do protocolo, sem polling nem heurística: layer BOTTOM
+    (tela cheia e a gaveta cobrem a dock sozinhas — e ela volta quando
+    acabam) + zona exclusiva automática (maximizadas/tileadas respeitam a
+    faixa — o comportamento dash-to-dock/plank/painel do KDE). Hotspot,
+    teaser de 4s e hide-on-leave EXTINTOS do GUI e do CSS; a superfície
+    agora TEM o tamanho da pílula (ancorada só na base — nada de faixa
+    full-width comendo clique) e o float de 6px mora dentro dela (a zona
+    exclusiva cobre o conjunto). W-S-d continua: esconder é ESCOLHA do
+    usuário, nunca decisão automática.
+  - **INSTALADOR SAI DO SISTEMA INSTALADO** — o unpackfs copia o root do
+    live inteiro: o Calamares, o atalho "Instalar o Archcraft" do
+    Launchpad e os scripts de instalação chegavam ao disco e ficavam para
+    sempre ("O sistema instalou mas ficou o botão instalar archcraft
+    ainda no menu de aplicativos, remova completamente"). Passo 2d do
+    elite-firstboot (exclusivo do INSTALADO — ConditionPathExists
+    !/run/archiso, o live não é tocado): `pacman -Rns calamares` (guard
+    -Qq, best-effort) + remoção do calamares.desktop, calamares-elite-log,
+    elite-install-stage e /etc/calamares. Idempotente e seco no --dry-run.
+  - **CRAFT-BGAPPS (o botão dos 2º planos)** — "um botão tray na topbar
+    para encerrar programas que estão executando em segundo plano e seja
+    do usuário caso queira, tipo para interromper o easyeffects, algum
+    launcher ou algo assim": módulo `custom/bgapps` na waybar que SÓ
+    aparece quando há processo do usuário fora da casca da sessão; clique
+    abre fuzzel dmenu com "nome (pid)"; escolha = SIGTERM + notificação.
+    Varredura /proc real do UID (ps -u) — sem lista inventada de apps; a
+    casca (compositor, barras, dock, wallpaper, áudio, dbus, systemd,
+    portals, polkit, keyring, foot-server) é protegida de listagem/morte.
+    Toggle na 2ª chamada, cross-dismiss com Sessão/Rede (mesma lei v1.4/
+    v1.8.2 dos menus), stderr capturado + menus.log + notify (lei v2.3.1).
+
 - **v2.0 — "a dock de verdade + a barra na convenção dos rices"**
   (áudios do dono, out/2026 — fim das gambiarras, com evidência):
   - **(A) DOCK NATIVA (craft-dock-gui)** — a era waybar-dock acabou com
