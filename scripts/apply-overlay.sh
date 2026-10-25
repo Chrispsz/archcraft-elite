@@ -491,6 +491,7 @@ if grep -q '^file_permissions=(' "$PD"; then
            /usr/local/bin/craft-bars /usr/local/bin/elite-install-stage \
            /usr/local/bin/elite-session-probe \
            /usr/local/bin/craft-dock /usr/local/bin/craft-dock-gui \
+           /usr/local/bin/craft-bgapps \
            /usr/local/bin/calamares-elite-log \
            /etc/skel/.config/labwc/autostart; do
     grep -qF "[\"$p\"]" "$PD" || sed -i "s|^file_permissions=(|file_permissions=(\n  [\"$p\"]=\"0:0:755\"|" "$PD"

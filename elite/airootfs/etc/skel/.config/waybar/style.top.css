@@ -176,3 +176,23 @@ window#waybar {
   background: alpha(@red, 0.18);
   color: @red;
 }
+
+/* Apps em 2º plano (v2.3.4): só ocupa a barra QUANDO há o que encerrar
+ * (texto vazio = módulo some). Acento PÊSSEGO = atenção sem pânico — a
+ * ação é destrutiva, mas a escolha e a confirmação são do usuário
+ * (a própria seleção no menu fuzzel é o segundo passo). */
+#custom-bgapps {
+  padding: 0 10px;
+  color: @subtext0;
+}
+#custom-bgapps.bgapps-on {
+  color: @peach;
+}
+#custom-bgapps:hover {
+  background: alpha(@surface0, 0.95);
+  border-radius: 8px;
+}
+#custom-bgapps:active {
+  background: alpha(@surface2, 0.95);
+  border-radius: 8px;
+}

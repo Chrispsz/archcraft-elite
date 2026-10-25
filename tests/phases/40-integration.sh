@@ -185,7 +185,7 @@ assert_file "$P/airootfs/etc/skel/.config/elite/dock.css" "v2.0: dock.css no ske
 assert_file "$P/airootfs/etc/skel/.config/elite/dock-pins" "v2.0: dock-pins no skel (1 ID .desktop por linha — ícones REAIS do tema)"
 assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'Gio\.DesktopAppInfo' "v2.0: dock resolve ícone/nome/exec pelo .desktop (fim dos glifos e dos PNGs custom)"
 assert_nofile "$P/airootfs/usr/local/bin/craft-pin-status" "v2.0: craft-pin-status saiu (nada executa JSON por pin)"
-assert_nofile "$P/airootfs/usr/local/bin/craft-dock-config" "v2.0: craft-dock-config saiu (autohide é hotspot nativo do GUI)"
+assert_nofile "$P/airootfs/usr/local/bin/craft-dock-config" "v2.0: craft-dock-config saiu (o autohide foi EXTINTO na v2.3.4 — a dock é sempre visível)"
 assert_nofile "$P/airootfs/usr/local/bin/craft-dock-autohide" "v2.0: craft-dock-autohide saiu (W-S-d → craft-dock toggle)"
 assert_file "$P/airootfs/etc/skel/.config/waybar/style.top.css" "v1.0.4: waybar CSS menu bar no skel"
 assert_nofile "$P/airootfs/etc/skel/.config/waybar/style.dock.css" "v2.0: waybar CSS dock saiu de cena"
@@ -481,10 +481,16 @@ assert_file "$P/airootfs/etc/skel/.config/systemd/user/cliphist-prune.timer" "v1
 assert_grep "$P/airootfs/etc/skel/.config/systemd/user/cliphist-prune.timer" 'OnCalendar=daily' "v1.6.2: camada 2 — poda diária (uptimes longos, semanas sem relogin)"
 assert_grep "$P/airootfs/etc/skel/.config/systemd/user/cliphist-prune.timer" 'Persistent=true' "v1.6.2: Persistent — compensa os dias desligado (roda ao ligar)"
 assert_file "$P/airootfs/etc/skel/.config/systemd/user/timers.target.wants/cliphist-prune.timer" "v1.6.2: timer HABILITADO no skel (symlink em timers.target.wants — useradd -m preserva)"
-# v1.6.2: waybar SEM módulos exec — a classe clássica de leak/CPU-burn do
-# waybar é script polling; as duas barras da Elite são 100% módulos nativos
-# (apenas 2 intervals: mpris 10s, clock 60s). Contrato de não-regressão:
-assert_nogrep "$P/airootfs/etc/skel/.config/waybar/config.top" '"exec"' "v1.6.2: menu bar SEM módulo exec (zero script polling — classe de leak extinta por contrato)"
+# v1.6.2 — a classe clássica de leak/CPU-burn do waybar é script polling
+# sem freio; as barras nasceram 100% módulos nativos (2 intervals: mpris
+# 10s, clock 60s). v2.3.4 — UMA exceção CONTRACTUAL, barata e delimitada,
+# para o botão de 2º plano do dono: o craft-bgapps é um ps do UID a cada
+# 10s (3 processos curtos por tick — custo menor que o D-Bus do mpris).
+# A não-regressão vira PRECISA: NENHUM outro exec além do bgapps (o
+# custom/exec genérico da era do leak segue extinto).
+assert_nogrep "$P/airootfs/etc/skel/.config/waybar/config.top" '"custom/exec"' "v1.6.2: o módulo custom/exec genérico (a classe do leak) segue EXTINTO — a única exceção contratada é o bgapps"
+assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" '"exec": "craft-bgapps status"' "v2.3.4: o ÚNICO exec da menu bar é o poller delimitado do craft-bgapps (ps do UID a cada 10s)"
+assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" '"return-type": "json"' "v2.3.4: o botão de 2º plano responde JSON (classe/texto — texto vazio = some da barra)"
 # v2.0 — a classe de leak morre DE VEZ: a dock nativa não tem exec JSON
 # por pin; o indicador é pgrep IN-PROCESS (timer GTK de 3s, um único
 # processo). O config.top segue 100% módulos nativos (contrato acima).
@@ -1063,6 +1069,8 @@ else
 fi
 fbm1=0; [[ -f /var/lib/elite/firstboot-done ]] && fbm1=1
 assert_eq "$fbm1" "$fbm0" "cadeia C (Setup A): dry não cria/toca /var/lib/elite/firstboot-done"
+assert_match "$outA" 'Instalador: calamares não está no disco' "cadeia C (Setup A): passo 2d no plano (mock sem calamares — o -Qq consultou e respeitou)"
+assert_match "$outA" '\[dry\] remoção dos arquivos do instalador simulada' "cadeia C (Setup A): dry NÃO remove arquivo do instalador (só anuncia)"
 
 # Setup B (RX 7600) herdando o stack NVIDIA inteiro (v1.1: com o dkms):
 : > "$STATE/installed.txt"; : > "$STATE/pacman.log"
@@ -1084,6 +1092,18 @@ if outU="$(firstboot LSPCI_FIXTURE="$TESTS_DIR/fixtures/lspci/matrox-unknown.txt
 assert_eq "$rcU" "0" "cadeia C (exótica): Matrox → exit 0 (nunca trava o firstboot)"
 assert_match "$outU" 'GPU não identificada' "cadeia C (exótica): aviso explícito de GPU desconhecida"
 fi
+
+# ── v2.3.4 — O INSTALADOR SAI DO SISTEMA INSTALADO (contratos de código) ──
+# O unpackfs copia o root do LIVE inteiro: Calamares + atalho + wrappers
+# chegavam ao disco e ficavam para sempre ("ficou o botão instalar
+# archcraft ainda no menu de aplicativos", dono). O passo 2d do firstboot
+# é EXCLUSIVO do instalado (o live precisa do Calamares).
+assert_grep "$TUNE" 'pacman -Rns --noconfirm calamares' "v2.3.4: pacote do Calamares sai do instalado (mídia de instalação ≠ sistema)"
+assert_grep "$TUNE" 'rm -f /usr/local/share/applications/calamares\.desktop' "v2.3.4: o atalho 'Instalar o Archcraft' sai do Launchpad do instalado (o sintoma que o dono vê)"
+assert_grep "$TUNE" '/usr/local/bin/calamares-elite-log' "v2.3.4: wrapper de log do instalador sai do instalado (só vive no live)"
+assert_grep "$TUNE" '/usr/local/bin/elite-install-stage' "v2.3.4: stage de instalação sai do instalado (não há 2ª instalação)"
+assert_grep "$TUNE" 'rm -rf /etc/calamares' "v2.3.4: /etc/calamares sai do instalado (config de mídia, não de sistema)"
+assert_grep "$P/airootfs/etc/systemd/system/elite-firstboot.service" 'ConditionPathExists=!/run/archiso' "v2.3.4: a remoção do instalador é exclusiva do INSTALADO (o live NUNCA roda o firstboot)"
 
 # modo --status (uso diário): certifica sem alterar nada
 outS="$(with_mocks env LSPCI_FIXTURE="$TESTS_DIR/fixtures/lspci/rtx-5060.txt" \
@@ -1502,7 +1522,7 @@ fi
 # fuzzel e falhavam com stderr no /dev/null — morte calada, zero rastro.
 # Contrato: TODOS logam em ~/.cache/elite/menus.log (helper mlog) e o
 # fuzzel call captura o stderr (crash vira linha de log + notify).
-for menu in craft-power craft-connect craft-pin-pick craft-idle craft-logout; do
+for menu in craft-power craft-connect craft-pin-pick craft-idle craft-logout craft-bgapps; do
   assert_grep "$P/airootfs/usr/local/bin/$menu" 'menus\.log' "v2.3.1: $menu loga falhas em menus.log (fim do silêncio — rig: 'os menus morreram')"
   # positivos (mais robustos que nogrep: o 2>/dev/null do pkill do toggle é legítimo)
   assert_grep "$P/airootfs/usr/local/bin/$menu" '2>"\$errf"' "v2.3.1: $menu captura o stderr do fuzzel (mktemp errf — crash deixa rastro)"
@@ -1510,15 +1530,40 @@ for menu in craft-power craft-connect craft-pin-pick craft-idle craft-logout; do
 done
 assert_grep "$P/airootfs/usr/local/bin/craft-pin-pick" 'command -v fuzzel >/dev/null 2>&1 \|\|' "v2.3.1: craft-pin-pick com guard de fuzzel (morria calado na linha 21)"
 
-# ── v2.3.1 — DESCOBRIBILIDADE DA DOCK ("ficou sem dock") ──────────────────
-# A dock nasce escondida POR DESIGN, mas com hotspot de 4px numa tela 4K
-# escura é indetectável — o dono bootou a v2.1.1 e reportou ausência.
-# Contratos: hotspot 10px + teaser de arranque (visível 4s em todo login)
-# + startup logado no dock.log (evidência de boot pra forense do rig).
-assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'HOTSPOT_H = 10' "v2.3.1: hotspot da dock com 10px (4px era inencontrável no rig — 'ficou sem dock')"
-assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'SHOW_AT_START_S = 4' "v2.3.1: dock nasce VISÍVEL por 4s em todo login (teaser de descoberta)"
-assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'dock iniciada' "v2.3.1: dock loga o arranque no dock.log (pins · hotspot · teaser — evidência de boot)"
-assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" '_startup_hide' "v2.3.1: teaser recolhe a dock ao fim dos 4s (autohide padrão assume)"
+# ── v2.3.4 — DOCK SEMPRE VISÍVEL (o fim do autohide) ──────────────────────────
+# O autohide morreu NA PRÁTICA: o dono instalou a v2.3.x e a dock escondeu
+# no fim do teaser e o hotspot nunca mais a devolveu ("ela sumiu e não
+# apareceu mais" / "tira esse auto hide da dock, funcionando como funciona
+# as outras distros"). Cura = semântica do protocolo: layer BOTTOM (tela
+# cheia e gaveta cobrem sozinhas) + zona exclusiva (maximizadas respeitam
+# a faixa) — zero polling, zero heurística, zero estado para corromper.
+assert_nogrep "$P/airootfs/usr/local/bin/craft-dock-gui" 'hotspot|HOTSPOT|teaser|SHOW_AT_START|_startup_hide|HIDE_DELAY|hide_now' "v2.3.4: nenhum resquício do autohide no GUI (hotspot/teaser/hide-on-leave extintos)"
+assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'GtkLayerShell\.Layer\.BOTTOM' "v2.3.4: dock na layer BOTTOM — some SÓ sob tela cheia/gaveta (o 'sumiu e não apareceu mais' é estruturalmente impossível: não há estado de autohide)"
+assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'auto_exclusive_zone_enable' "v2.3.4: zona exclusiva = comportamento das outras distros (maximizada/tileada respeita a faixa)"
+assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'dock iniciada' "v2.3.4: arranque logado no dock.log (evidência de boot p/ forense do rig)"
+assert_grep "$P/airootfs/etc/skel/.config/elite/dock.css" '#dockbox' "v2.3.4: dock.css segue estilizando a pílula (sem regra órfã do hotspot)"
+assert_nogrep "$P/airootfs/etc/skel/.config/elite/dock.css" 'hotspot' "v2.3.4: dock.css sem o seletor #hotspot (morto junto com o autohide)"
+
+# ── v2.3.4 — CRAFT-BGAPPS (o botão dos 2º planos, pedido do dono) ─────────
+# "Um botão tray na topbar para encerrar programas que estão executando em
+# segundo plano e seja do usuário caso queira" (easyeffects etc.).
+# SEM LISTA INVENTADA: varredura /proc real do UID; a casca da sessão é a
+# única coisa protegida. Mesma lei dos menus: toggle, cross-dismiss,
+# stderr capturado, falha logada + notify.
+BGA="$P/airootfs/usr/local/bin/craft-bgapps"
+assert_file "$BGA" "v2.3.4: craft-bgapps existe (encerrar apps de 2º plano — escolha do usuário)"
+assert_grep "$BGA" 'ps -u "\$\(id -u\)"' "v2.3.4: varredura /proc real do UID (sem premissa de app — nada de lista inventada)"
+assert_grep "$BGA" 'is_protected' "v2.3.4: casca da sessão protegida (labwc/waybar/áudio/dbus/portais nunca aparecem no menu)"
+assert_grep "$BGA" 'kill -TERM "\$pid"' "v2.3.4: término SIGTERM no escolhido (nunca KILL às cegas)"
+assert_grep "$BGA" 'command -v notify-send' "v2.3.4: confirmação na tela (o dono vê o que foi encerrado)"
+assert_grep "$BGA" 'FUZZEL FALHOU' "v2.3.4: menu de processos segue a lei dos menus (falha logada, nunca calada)"
+assert_grep "$BGA" 'prompt=Encer' "v2.3.4: prompt único 'Encerrar' (toggle próprio + cross-dismiss sem colisão)"
+assert_nogrep "$BGA" 'pacman' "v2.3.4: craft-bgapps NÃO toca no sistema de pacotes (encerrar processo ≠ desinstalar)"
+assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" '"custom/bgapps"' "v2.3.4: módulo custom/bgapps na top bar (o botão 'tray' pedido pelo dono)"
+assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" '"craft-bgapps menu"' "v2.3.4: clique no botão abre o menu de processos"
+assert_grep "$P/airootfs/etc/skel/.config/waybar/style.top.css" '#custom-bgapps' "v2.3.4: CSS do botão no rice (pêssego quando há o que encerrar)"
+assert_grep "$P/airootfs/usr/local/bin/craft-power" 'prompt=Encer' "v2.3.4: craft-power fecha o menu de processos (cross-dismiss na lei v1.8.2)"
+assert_grep "$P/airootfs/usr/local/bin/craft-connect" 'prompt=Encer' "v2.3.4: craft-connect fecha o menu de processos (cross-dismiss na lei v1.8.2)"
 
 # ── v2.3.1 — PROBE COBRE MENUS (o gate via enxergar o que o rig vê) ───────
 assert_grep "$P/airootfs/usr/local/bin/elite-session-probe" 'FUZZEL_BIN=' "v2.3.1: probe colhe FUZZEL_BIN (binário dos 5 menus)"
@@ -1675,7 +1720,7 @@ assert_grep "$CDR" '-nocats' "v1.4: craft-drawer com -nocats (categorias nem nas
 assert_nogrep "$CDR" '-pb(lock|exit|reboot|poweroff|sleep)' "v1.4: flags -pb* extintas (sessão mora SÓ na menu bar — diretriz do burn test)"
 
 # ── Dock SEMPRE VISÍVEL (a 'dock sumiu' do burn test) ────────────────────
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'MARGIN_BOTTOM = 6' "v2.0: pílula flutuando 6px acima da base (modo auto do hotspot)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'PILL_FLOAT = 6' "v2.3.4: pílula flutuando 6px acima da base (gap DENTRO da superfície — a zona exclusiva cobre o conjunto)"
 assert_nogrep "$WBD" 'margin-bottom: -' "v1.4: auto-hide (margem negativa) EXTINTO do CSS — o talho de ícones cortados na base era isso"
 assert_nogrep "$WBD" 'font-size: 32px' "v1.9 M3.1: SEM estado de zoom no hover (font-size constante — a caixa não muda de tamanho)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'get_display_name' "v2.0: tooltip honesto = o NOME do .desktop (Brave Origin — do próprio sistema)"

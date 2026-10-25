@@ -66,17 +66,20 @@ o driver do próprio hardware.
 |---|---|
 | Kernel | `linux-cachyos-bore` x86-64-v3 (único; rollback via snapshot btrfs no GRUB) |
 | Sessão | labwc (Wayland, única) + waybar + swaync + fuzzel + foot + nwg-drawer |
-| Dock | `craft-dock-gui` — GTK3 + wlr-layer-shell, ícones reais do tema, autohide por hotspot |
-| Scheduler | `scx-scheds` (bpfland) + `ananicy-cpp` com regras CachyOS |
+| Dock | `craft-dock-gui` — GTK3 + wlr-layer-shell, ícones reais do tema, SEMPRE visível: some só sob tela cheia/gaveta (layer BOTTOM + zona exclusiva — como as outras distros) |
+| Top bar | menu bar estilo macOS — app focado, relógio, volume/rede/tray/sessão + botão de apps em 2º plano (`craft-bgapps`, some quando não há nada a encerrar) |
+| Scheduler | `ananicy-cpp` com regras CachyOS — o scheduler é o BORE do kernel (scx userspace saiu na v2.2) |
 | Tuning | `cachyos-settings`, zram zstd, sysctl/udev próprios, BBR + fq |
-| Gaming | gamemode, gamescope, mangohud, Vulkan RADV/Intel (+ lib32), LACT, btop |
+| Gaming | gamemode, gamescope, mangohud, Vulkan RADV/Intel (lib32 sobe on-demand no firstboot), LACT, btop |
 | GPU | NVIDIA open pré-compilado no build (rig A) / RADV (rig B) |
 | Arquivos | Thunar + tumbler (GUI), craft-connect para rede/bluetooth |
 | Navegador | Brave Origin (release oficial, versão e sha256 fixados no build) |
 | Rollback | btrfs + timeshift + grub-btrfs (snapshot no menu do GRUB) |
 
-Debloat: ~170 pacotes do upstream removidos (impressão, cloud-init, sessões
-Openbox/BSPWM/X11, terminais extras, fontes CJK…). Lista completa, pacote a
+Debloat do upstream no teto do que não quebra o sistema (impressão,
+cloud-init, sessões Openbox/BSPWM/X11, terminais extras, fontes CJK…,
+e o teto extra da v2.3.0: temas de ícones/GTK/cursors, wallpapers,
+xorg, GStreamer, DDX). Lista completa, pacote a
 pacote, com justificativa e comando de restauração: [docs/CHANGES.md](docs/CHANGES.md).
 
 ## Teclas principais
@@ -91,7 +94,7 @@ pacote, com justificativa e comando de restauração: [docs/CHANGES.md](docs/CHA
 | `W-a` | Mixer de áudio |
 | `W-p` / `W-Shift-p` | Screenshot (região / tela inteira) |
 | `W-l` | Tela de bloqueio (hyprlock) |
-| `W-Shift-d` | Dock: fixar/soltar (autohide é o padrão) |
+| `W-Shift-d` | Dock: mostrar/esconder (a dock é SEMPRE visível — esconder é escolha do usuário, v2.3.4) |
 | `Alt-Tab` | Alternar janelas |
 
 Menu bar: lançador + app focado à esquerda, relógio no centro exato,
