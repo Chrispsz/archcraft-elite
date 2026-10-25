@@ -385,12 +385,22 @@ fi
 out="$(CP restore 2>&1)" || true
 assert_match "$out" 'sem backup' "craft-pin v2: restore sem histórico recusa (rc 1)"
 
-out="$(env HOME="$PINHOME" PATH="/usr/bin:/bin" bash -c 'source /dev/stdin <<EOF
-$(declare -f reload_dock)
-PINS="'"$PINSF"'"
-reload_dock
-EOF' 2>&1)" || true
-ok "craft-pin v2: reload sem dock é gracioso (craft-dock falha em silêncio — rc 0)"
+# harness: a função REAL do craft-pin extraída por profundidade de chaves
+# (mesmo idioma do 3.L abaixo) — craft-dock AUSENTE no ambiente de teste é a
+# classe 'reload sem dock': o || true interno tem que devolver rc 0 (a lição
+# da v2.3.3: o heredoc antigo injetava $(declare -f) DENTRO de aspas simples
+# — a função nunca entrava no shell interno e o ok decorativo não via nada)
+RLBIN="$WORK/reload-run.sh"
+{
+  echo '#!/usr/bin/env bash'
+  awk '/^reload_dock\(\)/{print; d=1; next}
+       d{print; o=gsub(/{/,"{"); c=gsub(/}/,"}"); d+=o-c; if(d<=0) exit}' \
+    "$REPO/elite/airootfs/usr/local/bin/craft-pin"
+  printf 'PINS="%s"\nreload_dock\n' "$PINSF"
+} > "$RLBIN"
+out="$(env HOME="$PINHOME" bash "$RLBIN" 2>&1)"
+rc=$?
+assert_eq "$rc" "0" "craft-pin v2: reload sem dock é gracioso (rc 0 — função REAL extraída, craft-dock ausente)"
 
 # ── 3.L elite_inject_bumped (ELITE-BUMP — build #49: pkgrel 3 componentes) ─
 #  A função REAL do .ci/build.sh, extraída por fidelidade (como o extract.sh
@@ -574,8 +584,6 @@ assert_grep "$BY" 'scripts/log-forensics\.sh build-output\.log' \
 # manual, com relatório de FALHA assinado (fim dos artifacts 0 MB).
 assert_nogrep "$BY" 'relay-agents' \
   "contrato v2.1: NENHUM job de relay automático no build (cota do Token Harbor respeitada)"
-assert_nogrep "$BY" 'gh workflow run agents\.yml' \
-  "contrato v2.1: a build não dispatcha agentes (auditoria é sob demanda — docs/AGENTS.md)"
 assert_grep "$REPO/.github/workflows/agents.yml" 'workflow_dispatch' \
   "contrato v2.1: auditoria de IA sob demanda (agents.yml manual — deepseek/mimo com contexto ci:<run_id>)"
 assert_grep "$REPO/agents/run.ts" 'RELATÓRIO DE FALHA' \

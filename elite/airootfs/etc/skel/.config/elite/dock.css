@@ -16,7 +16,7 @@
   padding: 4px 10px;
 }
 
-/* Botões: ícone REAL do tema (Papirus-Dark via .desktop), caixa única
+/* Botões: ícone REAL do app (hicolor via .desktop — fallback do GTK), caixa única
  * 44px, padding simétrico — o ícone fica CENTRADO no eixo X e Y
  * (spec M3.1 do dono — nada de caixilho desalinhado). */
 #dockbox button {

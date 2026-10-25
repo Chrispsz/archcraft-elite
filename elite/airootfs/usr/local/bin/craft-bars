@@ -1,6 +1,6 @@
 #!/bin/sh
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · craft-bars (v1.6.3) — supervisor das duas barras waybar
+# Archcraft ELITE · craft-bars — supervisor da barra waybar (top) + dock GTK
 # ═══════════════════════════════════════════════════════════════════════════
 # POR QUÊ (burn test da v1.6.2, out/2026): o dono bootou e a sessão subiu
 # SÓ com o wallpaper — as duas instâncias do waybar morreram caladas, sem
