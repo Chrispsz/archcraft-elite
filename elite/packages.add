@@ -53,6 +53,12 @@ pciutils
 ## de provider no pacstrap (build não-interativo)
 7zip
 
+## ── ELITE v2.3.2: 'which' — o binário que o post_install upstream USA ──
+## O chrooted_post_install.sh e o grubcfg do Calamares chamam `which` — e a
+## ISO não o trazia ("which: command not found" em TODA instalação, log
+## 25/out). Core, ~20 KB; custo zero, ruído do instalador morto junto.
+which
+
 ## ── ELITE: sessão labwc (Wayland) — o desktop default da ISO ──────────
 ## Deps dos keybinds do rc.xml embutido: playerctl (mídia), brightnessctl
 ## (notebooks), pulsemixer (W-a), pactl (libpipe, volume), craft-shot

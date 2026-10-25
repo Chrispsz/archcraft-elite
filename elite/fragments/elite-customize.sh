@@ -580,3 +580,88 @@ if [[ -f /usr/lib/systemd/system/lactd.service ]]; then
 else
     echo "E17 AVISO: lactd.service ausente — LACT segue em modo leitura (pacote mudou?)"
 fi
+
+
+## [E18] v2.3.2 — HIGIENE DO post_install UPSTREAM (log do Calamares do
+##      dono, 25/out — três ruídos que se repetem EM TODA instalação):
+##   a) "Failed to enable unit: Unit ufw.service does not exist" — o
+##      script upstream habilita ufw, mas o ufw SAIU da ISO (E14, spec do
+##      dono). Mesma cura do E7 (cups/avahi): some da lista de units.
+##   b) "error: target not found: nvidia-open" — o caminho "sem NVIDIA"
+##      tenta remover o pacote 'nvidia-open' (nome pré-compilado do
+##      kernel stock, packages.remove v1.1); o real da Elite é
+##      nvidia-open-dkms. Nome trocado = a transação -Rns inteira volta
+##      a remover de primeira (e o log fica limpo).
+##   c) "which: command not found" (chrooted_post_install.sh:315 e o
+##      grubcfg do Calamares: `which dracut/plymouth` → exit 127) — a
+##      ISO não traz o binário `which`; entrou no packages.add (core,
+##      ~20 KB — dependência de fato dos scripts do upstream).
+ELITE_PIS="/usr/bin/chrooted_post_install.sh"
+ELITE_PIL="/usr/bin/post_install.sh"
+for _pis in "$ELITE_PIS" "$ELITE_PIL"; do
+    [[ -f "$_pis" ]] || continue
+    if grep -q "'ufw.service'" "$_pis"; then
+        sed -i "s/'ufw.service'//g" "$_pis"
+        echo "E18a: ufw.service fora da lista de units do post_install ($(basename "$_pis")) — o pacote saiu no E14"
+    fi
+    if grep -qE 'nvidia-open([^-a-zA-Z0-9_]|$)' "$_pis"; then
+        sed -i -E 's/nvidia-open([^-a-zA-Z0-9_]|$)/nvidia-open-dkms\1/g' "$_pis"
+        echo "E18b: nvidia-open → nvidia-open-dkms no post_install ($(basename "$_pis")) — nome real do pacote"
+    fi
+done
+
+
+## [E19] v2.3.2 — POLIMENTO DO CALAMARES (warnings/banner do log 25/out):
+##   a) partition.conf: *defaultPartitionTableType* unset gera warning a
+##      cada install. A lista ["gpt","msdos"] REPRODUZ EXATAMENTE o
+##      comportamento automático atual (GPT em UEFI, msdos em BIOS) —
+##      zero mudança de comportamento, warning morto.
+##   b) users.conf: 'nonempty: true' é IGNORADO na 3.4 (o Calamares avisa;
+##      pede minLength: 1 — semântica idêntica, warning morto).
+##   c) branding: o slideshow default gira "Next slide" a cada 5s durante
+##      a instalação inteira (CPU + spam de log — diretriz do dono:
+##      debloat dos banners). Slide ÚNICO estático, zero dependências
+##      além do QtQuick, nas cores do rice (Catppuccin Mocha).
+if [[ -f "$CC/modules/partition.conf" ]] && ! grep -q '^defaultPartitionTableType:' "$CC/modules/partition.conf"; then
+    printf '\n# ELITE E19a: explícito e idêntico ao automático (GPT em UEFI, msdos em BIOS)\ndefaultPartitionTableType: [ "gpt", "msdos" ]\n' >> "$CC/modules/partition.conf"
+    echo "E19a: defaultPartitionTableType explícito (gpt/msdos) — warning morto"
+fi
+if [[ -f "$CC/modules/users.conf" ]] && grep -q 'nonempty: true' "$CC/modules/users.conf" \
+    && ! grep -q 'minLength:' "$CC/modules/users.conf"; then
+    sed -i 's/nonempty: true/minLength: 1/' "$CC/modules/users.conf"
+    echo "E19b: users.conf nonempty → minLength: 1 (semântica idêntica na 3.4)"
+fi
+if [[ -d "$CC/branding/archcraft" ]]; then
+    # slide único (sem $ no corpo — heredoc quoted; QML sem dependência de
+    # calamares.slideshow: carrega com qualquer slideshowAPI)
+    cat > "$CC/branding/archcraft/show.qml" <<'EOQML'
+// ELITE E19c: banner único estático (o slideshow default girava "Next
+// slide" a cada 5s durante a instalação — CPU e spam de log à toa).
+import QtQuick 2.15;
+Rectangle {
+    id: root
+    color: "#1e1e2e"
+    Text {
+        anchors.centerIn: parent
+        color: "#cdd6f4"
+        font.pixelSize: 26
+        text: qsTr("Archcraft Elite — instalando o sistema…")
+    }
+}
+EOQML
+    if [[ -f "$CC/branding/archcraft/branding.desc" ]]; then
+        if grep -q '^slideshow:' "$CC/branding/archcraft/branding.desc"; then
+            sed -i 's|^slideshow:.*|slideshow: "show.qml"|' "$CC/branding/archcraft/branding.desc"
+        else
+            sed -i '/^slideshowAPI:/i slideshow: "show.qml"' "$CC/branding/archcraft/branding.desc"
+        fi
+        if python3 -c 'import yaml,sys; yaml.safe_load(open(sys.argv[1]))' \
+            "$CC/branding/archcraft/branding.desc" 2>/dev/null; then
+            echo "E19c: slideshow do Calamares = banner único estático (branding.desc YAML válido)"
+        else
+            echo "E19c AVISO: branding.desc não parseou como YAML (pyyaml ausente ou mudou?) — conferir no build" >&2
+        fi
+    else
+        echo "E19c: show.qml mínimo escrito (branding.desc ausente — upstream mudou o layout?)"
+    fi
+fi
