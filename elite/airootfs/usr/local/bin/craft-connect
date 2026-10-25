@@ -1,21 +1,29 @@
 #!/bin/sh
-# craft-connect — central de CONECTIVIDADE da menu bar (v3 — o conector de texto)
+# craft-connect — central de CONECTIVIDADE da menu bar (v4 — o menu que CHAMA o serviço)
 # ─────────────────────────────────────────────────────────────────────────
+# v4 (v2.3.7 — o dono USOU o picker no live e decretou a direção, 25/10):
+#   · "um menu serve pra chamar o serviço… evitando criar submenus e
+#     coisas que podem quebrar" — o picker fuzzel+nmcli da v3 conectou
+#     3× COM SENHA CORRETA e falhou (menus.log 23:14: FALHA NILDOMAR-2G,
+#     Natalya Dias ×2). Desenhar submenu próprio = desenhar a falha junto.
+#   · "assim como o bluetooth faz: eu clicar no bluetooth ele abre o
+#     gerenciador" — o verbo Wi-Fi agora abre o GERENCIADOR DO SISTEMA
+#     (nm-connection-editor — o mesmo que o W-n já chamava; fallback
+#     nmtui, ferramenta do próprio NetworkManager). Zero lógica nossa no
+#     caminho da conexão: conectar, esquecer, priorizar, criar VPN — é
+#     o trabalho do gerenciador, não de um dropdown desenhado.
+#   · o picker, o prompt 'Senha' e o parse de SSID/signal MORREM AQUI —
+#     menos superfície, menos modo de falhar (a lição inteira da v3).
 # v3 (v2.3.6 — relato do dono com prints do rig v2.3.5):
 #   · "remove esse ícone feio de Pc" — o applet da tray MORREU: o ícone SNI
 #     de ethernet é bitmap de tema de ícones, quebra a família tipográfica
 #     da barra (todo o resto é glifo Nerd Font) e vive mal alinhado. A
 #     tray saiu junto: nada mais a exibir (udiskie roda --no-tray).
 #   · "tira isso de editar conexão da tela de rede" — o EDITOR saiu do
-#     menu. A função continua instalada: o W-n (rc.xml) abre o editor de
-#     conexões — função avançada não precisa de assento num menu de 2 itens.
-#   · "coloca a função que chama esse network… como texto escrito nela" —
-#     O CONECTOR AGORA É O PRÓPRIO MENU, EM TEXTO: 'Wi-Fi: conectar à
-#     rede…' lista as redes do entorno (nmcli), pede senha em campo oculto
-#     (fuzzel --password) e conecta — o fluxo do antigo applet, sem applet.
-#     Zero pacote novo; a mesma gramática dos 6 menus da Elite.
+#     menu (volta a ser O MENU INTEIRO na v4, pelo mesmo dono).
 # Histórico: v1.4 toggle · v1.8.2 GUIs no lugar dos TUIs · v2.3.1 fim do
-#            silêncio · v2.3.5 rótulo honesto · v2.3.6 o conector é o menu.
+#            silêncio · v2.3.6 o conector é o menu · v2.3.7 o menu chama
+#            o serviço (fim do picker desenhado).
 # ─────────────────────────────────────────────────────────────────────────
 set -eu
 
@@ -29,111 +37,30 @@ mlog() {
     return 0
 }
 
-# TOGGLE: central ou picker abertos? fecha e sai
-if pgrep -f 'fuzzel.*--prompt=(Rede|Wi-Fi)' >/dev/null 2>&1; then
-    pkill -f 'fuzzel.*--prompt=(Rede|Wi-Fi)' 2>/dev/null || true
+# TOGGLE: central aberta? fecha e sai
+# v2.3.7 — o prompt 'Wi-Fi' era do picker (morto); o toggle só cuida da Rede
+if pgrep -f 'fuzzel.*--prompt=Rede' >/dev/null 2>&1; then
+    pkill -f 'fuzzel.*--prompt=Rede' 2>/dev/null || true
     exit 0
 fi
 # v1.8.2 — CROSS-DISMISS: dois dropdowns nunca coexistem.
-# v2.3.6 — 'Senha' entra na lei (prompt do picker também morre de fora).
-pkill -f 'fuzzel.*--prompt=(Sess|Encer|Senha)' 2>/dev/null || true
+# v2.3.7 — 'Senha' sai da lei (o prompt morreu com o picker)
+pkill -f 'fuzzel.*--prompt=(Sess|Encer)' 2>/dev/null || true
 
-wifi_pick() {
-    # Redes do entorno: 'SSID · sinal% (aberta|senha)' — mais forte primeiro,
-    # 1 linha por SSID (varredura traz 1 por BSSID). O nmcli -t escapa ':'
-    # interno como '\:' → protegido com \x01 antes de fatiar; SSID que
-    # CONTENHA o sufixo ' · N% (senha)' é a única colisão possível —
-    # aceita e documentada (impossível é nada).
-    raw="$(nmcli --terse --fields SSID,SIGNAL,SECURITY device wifi list --rescan yes 2>/dev/null)" || {
-        mlog "Wi-Fi: nmcli list falhou (sem adaptador ou desligado)"
-        command -v notify-send >/dev/null 2>&1 && \
-            notify-send -a 'Elite' 'Wi-Fi' \
-                'Sem adaptador Wi-Fi (ou desligado) — cabo segue ativo.' || true
-        return 0
-    }
-    list="$(printf '%s\n' "$raw" \
-        | sed 's/\\:/\x01/g' \
-        | sort -t: -k2,2 -nr \
-        | awk -F: '!seen[$1]++ && length($1) > 0 { printf "%s · %s%% (%s)\n", $1, $2, ($3 == "" ? "aberta" : "senha") }' \
-        | sed 's/\x01/:/g')"
-    if [ -z "$list" ]; then
-        mlog "Wi-Fi: nenhuma rede no entorno"
-        command -v notify-send >/dev/null 2>&1 && \
-            notify-send -a 'Elite' 'Wi-Fi' 'Nenhuma rede encontrada no entorno.' || true
-        return 0
-    fi
-    ec=0
-    errf="$(mktemp)"
-    choice="$(printf '%s\n' "$list" | fuzzel --dmenu \
-        --anchor=top-right --x-margin=10 --y-margin=44 \
-        --lines=8 --width=34 --prompt='Wi-Fi  ' 2>"$errf")" || ec=$?
-    if [ "$ec" -ne 0 ]; then
-        if [ "$ec" -eq 1 ] && [ ! -s "$errf" ]; then
-            # v2.3.6 — ESC = fechado pelo usuário (stderr vazio ≠ crash)
-            mlog "Wi-Fi: picker fechado pelo usuário — benigno"
-        else
-            mlog "Wi-Fi: FUZZEL FALHOU exit=$ec — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
-            command -v notify-send >/dev/null 2>&1 && \
-                notify-send -a 'Elite' -u critical 'Picker Wi-Fi falhou' \
-                    "fuzzel exit=$ec — detalhe em ~/.cache/elite/menus.log" || true
-        fi
-        rm -f "$errf"
-        return 0
-    fi
-    rm -f "$errf"
-    ssid="$(printf '%s' "$choice" | sed 's/ · [0-9][0-9]*% .*//')"
-    pass=""
-    case "$choice" in
-        *'(senha)'*)
-            ec=0
-            errf="$(mktemp)"
-            pass="$(fuzzel --dmenu --password \
-                --anchor=top-right --x-margin=10 --y-margin=44 \
-                --width=34 --prompt='Senha  ' </dev/null 2>"$errf")" || ec=$?
-            if [ "$ec" -ne 0 ]; then
-                if [ "$ec" -eq 1 ] && [ ! -s "$errf" ]; then
-                    mlog "Wi-Fi: senha cancelada — benigno"
-                else
-                    mlog "Wi-Fi: prompt de senha falhou exit=$ec"
-                fi
-                rm -f "$errf"
-                return 0
-            fi
-            rm -f "$errf" ;;
-    esac
-    mlog "Wi-Fi: conectando a $ssid"
-    ok=0
-    if [ -n "$pass" ]; then
-        nmcli device wifi connect -- "$ssid" password "$pass" >/dev/null 2>&1 && ok=1
-    else
-        nmcli device wifi connect -- "$ssid" >/dev/null 2>&1 && ok=1
-    fi
-    if [ "$ok" -eq 1 ]; then
-        mlog "Wi-Fi: conectado a $ssid"
-        command -v notify-send >/dev/null 2>&1 && \
-            notify-send -a 'Elite' 'Wi-Fi' "Conectado: $ssid" || true
-    else
-        mlog "Wi-Fi: FALHA ao conectar a $ssid (senha/sinal — tenta de novo)"
-        command -v notify-send >/dev/null 2>&1 && \
-            notify-send -a 'Elite' -u critical 'Wi-Fi' \
-                "Não conectou em $ssid — senha ou sinal fraco. Tente de novo." || true
-    fi
-    return 0
-}
-
-MENU='Wi-Fi: conectar à rede…
+MENU='Wi-Fi: gerenciar conexões…
 Bluetooth: dispositivos'
 
 if command -v fuzzel >/dev/null 2>&1; then
-    # mesmas âncoras do craft-power: pendurado no canto direito da menu
-    # bar (36px) — os dois dropdowns da barra nascem do mesmo lugar
+    # v2.3.7 — menus CENTRALIZADOS (dono: "centralizar neles no meio" —
+    # os dropdowns nascem no centro da tela, como nos sistemas que ele
+    # citou como referência; sem margens de canto)
     # v2.3.1: stderr CAPTURADO — crash do fuzzel vira log + notify, nunca
     # morte calada (a denúncia do rig: "os menus morreram").
     mlog "Rede: abrindo (fuzzel)"
     errf="$(mktemp)"
     ec=0
     choice="$(printf '%s\n' "$MENU" | fuzzel --dmenu \
-        --anchor=top-right --x-margin=10 --y-margin=44 \
+        --anchor=center \
         --lines=2 --width=28 --prompt='Rede  ' 2>"$errf")" || ec=$?
     if [ "$ec" -eq 143 ]; then
         # v2.3.5 — SIGTERM = fechado de fora (toggle/cross-dismiss)
@@ -142,8 +69,11 @@ if command -v fuzzel >/dev/null 2>&1; then
         exit 0
     fi
     if [ "$ec" -eq 1 ] && [ ! -s "$errf" ]; then
-        # v2.3.6 — ESC = fechado pelo usuário (o rig flagrou "erro 1" no
-        # fechamento normal; mesma classe do 143 — fechar NUNCA é erro)
+        # v2.3.6 — ESC = fechado pelo usuário (stderr vazio ≠ crash — e com
+        # o fuzzel.ini em #, o stderr fica VAZIO de verdade: o ';' da v1.3
+        # sujava o stderr de TODA abertura e ESC virava alarme crítico falso,
+        # o que o dono reviu ao vivo: "o menu de processos falhou, o mesmo
+        # erro 1 que vem acontecendo nos demais")
         mlog "Rede: fechado pelo usuário (ESC) — benigno"
         rm -f "$errf"
         exit 0
@@ -161,7 +91,14 @@ else
 fi
 
 case "$choice" in
-    'Wi-Fi: conectar à rede…')    wifi_pick ;;
+    'Wi-Fi: gerenciar conexões…')
+        # v2.3.7 — o MENU CHAMA O SERVIÇO (a diretriz do dono): o
+        # gerenciador do sistema cuida de conectar/esquecer/priorizar/VPN.
+        mlog "Rede: chamando o gerenciador de conexões do sistema"
+        if command -v nm-connection-editor >/dev/null 2>&1; then
+            exec nm-connection-editor
+        fi
+        exec foot -e nmtui ;;
     'Bluetooth: dispositivos')
         if command -v blueman-manager >/dev/null 2>&1; then
             exec blueman-manager
