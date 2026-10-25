@@ -47,14 +47,18 @@
   // música só ocupa a barra QUANDO há algo tocando (format-empty ""),
   // o botão de apps em 2º plano só existe QUANDO há o que encerrar,
   // e o status permanente fica no essencial:
-  // volume → rede → 2º plano (quando há) → sessão.
+  // volume → MIC → rede → 2º plano (quando há) → sessão.
   // (v2.3.6 — a tray SAIU: o único inquilino era o nm-applet, cujo ícone
   // SNI é bitmap de tema de ícones — fora da família de glifos Nerd Font
   // dos demais módulos, "inconsistentes e espaçados" no print do dono.
   // O conector Wi-Fi agora é TEXTO dentro do craft-connect.)
+  // (v2.3.6 — o MIC ganhou assento: "o de Mic é tão importante quanto o
+  // de áudio" — clique muta o microfone, direito abre o pwvucontrol igual
+  // ao do som; muto = vermelho, mesma gramática do volume.)
   "modules-right": [
     "mpris",
     "pulseaudio",
+    "pulseaudio#mic",
     "network",
     "custom/bgapps",
     "custom/power"
@@ -119,7 +123,9 @@
 
   // Volume (PipeWire) — SÓ ÍCONE (v2.1: sem porcentagem numérica — diretriz
   // do dono; o valor exato mora no tooltip). Clique muta, scroll ajusta,
-  // dir abre o mixer. Mudo = ícone vermelho via CSS (.muted).
+  // dir abre o GERENCIADOR (pwvucontrol: mic, som, dispositivos — v2.3.6:
+  // o tooltip ENSINA o direito, que era descoberta escondida). Muto =
+  // vermelho via CSS (.muted).
   "pulseaudio": {
     "format": "{icon}",
     "format-muted": "\uf026",
@@ -129,7 +135,21 @@
     "on-click": "pactl set-sink-mute @DEFAULT_SINK@ toggle",
     "on-click-right": "pwvucontrol",
     "scroll-step": 5,
-    "tooltip-format": "{volume}% · {desc}"
+    "tooltip-format": "{volume}% · {desc} — clique: mudo · direito: gerenciar"
+  },
+
+  // Microfone (v2.3.6 — paridade pedida pelo dono: "o de Mic é tão
+  // importante quanto o de áudio"). A MESMA gramática do volume: clique
+  // muta/desmuta o @DEFAULT_SOURCE@, direito abre o pwvucontrol, muto =
+  // vermelho (.source-muted no CSS). O waybar mostra o estado da fonte via
+  // format-source/format-source-muted — zero script, sistema nativo.
+  "pulseaudio#mic": {
+    "format": "{format_source}",
+    "format-source": "\uf130",
+    "format-source-muted": "\uf131",
+    "on-click": "pactl set-source-mute @DEFAULT_SOURCE@ toggle",
+    "on-click-right": "pwvucontrol",
+    "tooltip-format": "Microfone — clique: mudo · direito: gerenciar"
   },
 
   // Apps em 2º plano (v2.3.4 — pedido do dono: "um botão tray na topbar

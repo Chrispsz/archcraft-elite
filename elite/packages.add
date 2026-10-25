@@ -45,7 +45,13 @@ lact
 
 ## ── ELITE: infra de rollback + diagnóstico ──
 grub-btrfs
-timeshift
+## v2.3.6 — o rig flagrou: grub-btrfsd FAILED ('No directory found at
+## /.snapshots') e o timeshift NUNCA foi configurado (promessa pela
+## metade). O par canônico do grub-btrfs é o snapper (vigia /.snapshots
+## por padrão): o snapper cria config+subvolume no firstboot e o
+## craft-rollback v2 cria/restaura snapshots de verdade. timeshift SAI
+## (um rei só — debloat).
+snapper
 pciutils
 
 ## ── ELITE: substituições (upstream desatualizado) ──

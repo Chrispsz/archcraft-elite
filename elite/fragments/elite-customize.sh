@@ -240,7 +240,7 @@ fi
 ##      da ISO; a página "Desktop" apenas confirma o labwc)
 ##   d) autologin contextual: única escolha possível = labwc
 ##   e) chrooted_autologin.sh: branch --labwc (herda o slot do --everything)
-##   f) btrfs como filesystem default (timeshift + grub-btrfs = rollback real)
+##   f) btrfs como filesystem default (snapper + grub-btrfs = rollback real — v2.3.6: o rig provou que timeshift era promessa pela metade)
 CC="/etc/calamares"
 if [[ -d "$CC" ]]; then
     # a) unpackfs: a entrada upstream copia o vmlinuz-linux (stock) — que
