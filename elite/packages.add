@@ -14,27 +14,32 @@ linux-cachyos-bore-headers
 ## E10 remove o stack na instalação e o firstboot varre o resto.
 nvidia-open-dkms
 
-## ── ELITE: tuning CachyOS (sysctl/udev/modprobe + boosters oficiais) ──
+## ── ELITE: tuning CachyOS (sysctl/udev/modprobe + booster oficial) ───
+## v2.2 (leveza radical — fusão 4→1): o scheduling é do KERNEL (BORE,
+## custo zero em userspace) e o nice engine é o ananicy-cpp (regras
+## oficiais CachyOS) — o ÚNICO daemon de boost do sistema. Saíram as
+## camadas que lutavam entre si: scx-scheds/scx-tools (scheduler em
+## userspace que SOBRESCREVE o BORE), dmemcg-booster (teto de memória
+## por cgroup) e o fg-booster próprio (poll com xdotool — o xdotool
+## saiu junto). Boost sob demanda de jogo = gamemode (já na ISO).
 cachyos-settings
 cachyos-ananicy-rules
 ananicy-cpp
-scx-scheds
-scx-tools
-dmemcg-booster
 
 ## ── ELITE: stack de gaming (Vulkan incluso — o upstream NÃO traz!) ──
 ## v1.5: nvtop SAIU (spec do dono — bloatware; btop cobre a visão
 ## geral de sistema/processos/GPU básica no terminal)
+## v2.2 (leveza radical): a ISO é 64-bit PURO — o stack lib32 inteiro
+## (mesa/vulkan/gamemode/mangohud; centenas de MB instalados que o live
+## NUNCA usa: não há Steam nem app 32-bit na ISO) saiu de fábrica. No
+## sistema INSTALADO o elite-firstboot/elite-tune recoloca o lib32 do SEU
+## vendor on-demand (mesma cadeia de sempre — agora a única fonte) e o
+## [multilib] segue no pacman.conf que a ISO entrega (E3).
 gamemode
-lib32-gamemode
 gamescope
 mangohud
-lib32-mangohud
 vulkan-radeon
 vulkan-intel
-lib32-vulkan-radeon
-lib32-vulkan-intel
-lib32-mesa
 btop
 lact
 
@@ -81,10 +86,10 @@ thunar
 tumbler
 
 ## ── ELITE v1.0.3: fastfetch (o craft-hello usa quando existe) ─────────
+## v2.2: o xdotool da v1.5.2 SAIU — era dep exclusiva do fg-booster,
+## extinto na fusão dos boosters (o crash-loop v1.0→v1.5 que ele causou
+## segue contado nos contratos de regressão da suíte).
 fastfetch
-## ── ELITE v1.5.2: xdotool (fg-booster exige — o debloat v4.2 o varreu e
-##    a unit crash-loopou em silêncio em TODA boot v1.0→v1.5; contrato CI) ─
-xdotool
 
 ## ── ELITE v1.0.4 · Desktop v2 (macOS-style, mouse-first) ──────────────
 ## RUNTIME DA DOCK NATIVA (v2.0 — craft-dock-gui): a dock da Elite é um
@@ -93,23 +98,24 @@ xdotool
 ##   · python + python-gobject — o GUI é um único script PyGObject
 ##     (mantível no repo, sem toolchain Go no build)
 ##   · gtk-layer-shell — o protocolo (dep do nwg-drawer, aqui explícito)
-## Os ícones dos pins vêm do TEMA via Gio.DesktopAppInfo (Papirus-Dark)
-## — zero glifo Nerd Font, zero imagem custom: "deixe o ícone ser
-## tratado como o sistema já é" (dono, out/2026).
+## v2.2 (leveza radical, diretriz do dono): SEM tema de ícones — o Papirus
+## saiu da ISO. Cada app usa o PRÓPRIO ícone (hicolor: brave, foot, thunar,
+## papers, qalculate…) e o GTK cai no fallback base que JÁ vem como dep
+## dura de gtk3/gtk4 (adwaita-icon-theme, <1 MB instalado — verificado na
+## API do Arch, out/2026). Zero pacote novo somado.
 python
 python-gobject
 gtk-layer-shell
 
 ## nwg-drawer: o "Launchpad" — grade de apps em tela cheia com busca,
 ## categorias e barra de sessão (craft-drawer). wlroots-agnóstico.
-## papirus-icon-theme: ícones de apps p/ o dock (waybar wlr/taskbar),
-## Launchpad e GTK (settings.ini do skel aponta Papirus-Dark).
 ## catppuccin-gtk-theme-mocha: tema GTK oficial Catppuccin (repo [archcraft])
 ## — variantes Standard-<accent>-Dark; o skel usa a Mauve (= acento do rice:
 ## fuzzel/swaync/dock/borda de janela). gtk-engine-murrine: engine exigida.
+##   v2.2: este é o "tema do sistema em si" que o dono mantém — theming de
+##   apps individuais não entra (não abrange tudo — diretriz do dono).
 ## archcraft-cursor-bibata: cursor Bibata — o cursor dos melhores rices.
 nwg-drawer
-papirus-icon-theme
 catppuccin-gtk-theme-mocha
 gtk-engine-murrine
 archcraft-cursor-bibata

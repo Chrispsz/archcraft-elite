@@ -7,7 +7,9 @@ Keywords=calamares;system;installer;
 TryExec=calamares
 Exec=/usr/local/bin/calamares-elite-log
 Comment=Archcraft System Installer
-Icon=system-software-install
+# v2.2: Icon=calamares — o ícone do PRÓPRIO pacote (hicolor do calamares);
+# sem tema de ícones na ISO, ícone de tema não é garantia.
+Icon=calamares
 Terminal=false
 StartupNotify=true
 StartupWMClass=calamares

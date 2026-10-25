@@ -464,17 +464,18 @@ sed -i -e 's|iso_name="archcraft"|iso_name="archcraft-elite"|' \
 # ── [9b] Permissões exec dos binários Elite (fix diag-boot2: 203/EXEC)
 #  O mkarchcraftiso copia o airootfs custom com `cp --no-preserve=mode`
 #  (mkarchcraftiso:318) → TODO arquivo custom vira 0644 no squashfs. Sem
-#  entrada em file_permissions, /usr/local/bin/{elite-tune,elite-status,
-#  fg-booster} ficam não-executáveis no live: elite-firstboot.service e
-#  fg-booster.service morrem com 203/EXEC (comprovado no boot QEMU do
-#  diag-boot2, tests A/B, "Unable to locate executable: Permission denied").
+#  entrada em file_permissions, /usr/local/bin/{elite-tune,elite-status}
+#  ficam não-executáveis no live: elite-firstboot.service morre com
+#  203/EXEC (comprovado no boot QEMU do diag-boot2, tests A/B, "Unable
+#  to locate executable: Permission denied"). [v2.2: o fg-booster saiu da
+#  lista e do sistema — fusão dos boosters 4→1]
 #  O upstream só registra os PRÓPRIOS scripts (choose-mirror, xflock4).
 #  v1.0.3: + craft-* (keybinds do rc.xml labwc) + autostart do labwc
 #  (o skel→home do mkarchcraftiso preserva o modo → liveuser herda 0755).
 say "Registrando 0755 dos binários Elite no file_permissions do profiledef"
 PD="$PROFILE/profiledef.sh"
 if grep -q '^file_permissions=(' "$PD"; then
-  for p in /usr/local/bin/elite-tune /usr/local/bin/elite-status /usr/local/bin/fg-booster \
+  for p in /usr/local/bin/elite-tune /usr/local/bin/elite-status \
            /usr/local/bin/craft-hello /usr/local/bin/craft-update /usr/local/bin/craft-clean \
            /usr/local/bin/craft-rollback /usr/local/bin/craft-lock /usr/local/bin/craft-logout \
            /usr/local/bin/craft-shot /usr/local/bin/craft-bat \

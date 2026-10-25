@@ -14,7 +14,8 @@
 # mecanismo do nwg-dock, SEM a dependência do sway IPC — funciona em
 # qualquer compositor wlroots, labwc incluso), com:
 #   1. ÍCONES REAIS — os pins são IDs de .desktop resolvidos via
-#      Gio.DesktopAppInfo: ícone vem do TEMA (Papirus-Dark), nome e exec
+#      Gio.DesktopAppInfo: ícone vem do fallback base do GTK (v2.2: sem
+#      tema de ícones — o app traz o próprio no hicolor), nome e exec
 #      vêm do .desktop. Zero glifo, zero desenho custom, zero override —
 #      "deixe o ícone ser tratado como o sistema já é" (dono).
 #   2. AUTOHIDE NATIVO POR HOTSPOT — superfície invisível de 4px na base

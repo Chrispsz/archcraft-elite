@@ -51,7 +51,13 @@ assert_grep "$PKG" '^#linux-firmware # ELITE-REMOVED' "cadeia A: meta linux-firm
 assert_grep "$PKG" '^linux-firmware-amd$' "cadeia A: subpacote firmware amd presente"
 assert_eq "$(grep -cx 'vulkan-radeon' "$PKG")" "1" "cadeia A: vulkan-radeon 1× (dedupe — add não duplica)"
 assert_eq "$(grep -cx 'vulkan-intel'  "$PKG")" "1" "cadeia A: vulkan-intel 1× (append do packages.add)"
-assert_grep "$PKG" '^xdotool$' "cadeia v1.5.2: xdotool propaga do packages.add p/ packages.x86_64 (fg-booster exige — o debloat v4.2 o varreu e a unit crash-loopou em silêncio por 5 versões)"
+# ── v2.2 · LEVEZA RADICAL: ISO 64-bit PURO (lib32 vira on-demand do instalado)
+# A cadeia de lib32 do firstboot/elite-tune (vendor do rig) continua contratada
+# nos testes de unidade/cadeia — o que saiu é o EMPACOTAMENTO de fábrica.
+for p in lib32-mesa lib32-vulkan-radeon lib32-vulkan-intel lib32-gamemode lib32-mangohud; do
+  assert_nogrep "$PKG" "^${p}$" "v2.2: ${p} FORA da ISO (64-bit puro — firstboot/elite-tune recolocam o lib32 do vendor no instalado)"
+done
+assert_nogrep "$PKG" '^xdotool$' "v2.2: xdotool FORA do packages.x86_64 (dep exclusiva do fg-booster extinto — fusão dos boosters; o crash-loop v1.0→v1.5 não pode renascer)"
 dups=$(sort "$PKG" | uniq -d | wc -l)
 assert_eq "$dups" "0" "cadeia A: packages.x86_64 sem nenhuma duplicata"
 
@@ -183,9 +189,9 @@ assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" '"on-click": "craft
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" 'swaync-client -t' "v1.0.4: relógio abre central de notificações no clique"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" 'pwvucontrol' "v1.1: volume abre pwvucontrol no clique-direito (GTK4/Rust)"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" 'craft-power' "v1.0.4: botão power na barra do topo"
-# Launchpad (nwg-drawer) + power gráfico (labnag) + ícones Papirus
+# Launchpad (nwg-drawer) + power gráfico (labnag) + SEM tema de ícones (v2.2)
 assert_grep "$PKG" '^nwg-drawer$' "v1.0.4: nwg-drawer no packages (o Launchpad)"
-assert_grep "$PKG" '^papirus-icon-theme$' "v1.0.4: papirus-icon-theme no packages (ícones de apps)"
+assert_nogrep "$PKG" '^papirus-icon-theme$' "v2.2: papirus-icon-theme FORA da ISO (leveza radical — diretriz do dono: cada app usa o próprio ícone, fallback base = Adwaita, dep de gtk3/gtk4)"
 assert_file "$P/airootfs/etc/skel/.config/nwg-drawer/drawer.css" "v1.0.4: CSS do Launchpad (Catppuccin) no skel"
 assert_file "$P/airootfs/usr/local/bin/craft-drawer" "v1.0.4: craft-drawer (o Launchpad)"
 # v1.4: barra de sessão do Launchpad EXTINTA (burn test: dono mandou tirar
@@ -268,12 +274,12 @@ assert_grep "$REPO/elite/fragments/elite-customize.sh" "printf '%s\\\\n'" "v1.2:
 # Overrides .desktop (menu limpo + ícone do instalador + foot dedupe)
 APPS="$P/airootfs/usr/local/share/applications"
 assert_file "$APPS/calamares.desktop" "v1.2: override do .desktop do instalador (XDG precedence)"
-assert_grep "$APPS/calamares.desktop" 'Icon=system-software-install' "v2.0 M3.3: Instalador com o ícone do TEMA (Papirus cobre — fim dos desenhos custom)"
+assert_grep "$APPS/calamares.desktop" 'Icon=calamares' "v2.2 M3.3: Instalador com o ícone do PRÓPRIO pacote (calamares embarca hicolor — sem tema de ícones na ISO)"
 assert_grep "$APPS/calamares.desktop" '^TryExec=calamares$' "v1.2: override preserva o TryExec do instalador"
 assert_file "$APPS/abif.desktop" "v1.2: override do instalador CLI"
 assert_grep "$APPS/abif.desktop" 'NoDisplay=true' "v1.2: instalador CLI fora do menu (2º instalador = sujeira)"
 assert_file "$APPS/foot.desktop" "v1.2: override do .desktop do foot"
-assert_grep "$APPS/foot.desktop" 'Icon=utilities-terminal' "v1.2: foot com ícone garantido no Papirus (taskbar sem placeholder)"
+assert_grep "$APPS/foot.desktop" 'Icon=foot' "v2.2: foot com o ícone do PRÓPRIO pacote (hicolor do foot — taskbar/Launchpad sem placeholder)"
 assert_grep "$APPS/footclient.desktop" 'NoDisplay=true' "v1.2: foot-client fora do menu (triplicação Foot — nome REAL do arquivo: footclient.desktop)"
 assert_grep "$APPS/foot-server.desktop" 'NoDisplay=true' "v1.2: foot-server fora do menu (triplicação Foot)"
 assert_grep "$APPS/xgps.desktop" 'NoDisplay=true' "v1.2: xgps fora do menu (GPS num desktop gaming?)"
@@ -284,8 +290,8 @@ assert_grep "$REPO/elite/fragments/elite-customize.sh" 'pacman -Rns --noconfirm 
 # craft-pin v2.1: pins no grupo central, antes do separador
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin" 'dock-pins' "v2.1: craft-pin insere no ARQUIVO de pins (1 linha = 1 app real)"
 assert_file "$P/airootfs/etc/skel/.config/gtk-3.0/settings.ini" "v1.0.4: settings.ini GTK3 no skel"
-assert_grep "$P/airootfs/etc/skel/.config/gtk-3.0/settings.ini" 'Papirus-Dark' "v1.0.4: GTK usa Papirus-Dark (ícones de apps)"
-assert_grep "$P/airootfs/etc/skel/.config/gtk-4.0/settings.ini" 'Papirus-Dark' "v1.0.4: GTK4 espelha o Papirus-Dark"
+assert_nogrep "$P/airootfs/etc/skel/.config/gtk-3.0/settings.ini" 'Papirus|gtk-icon-theme-name' "v2.2: GTK3 SEM tema de ícones (fallback base Adwaita — dep dura de gtk3/gtk4, <1 MB)"
+assert_nogrep "$P/airootfs/etc/skel/.config/gtk-4.0/settings.ini" 'Papirus|gtk-icon-theme-name' "v2.2: GTK4 espelha a ausência de tema de ícones"
 assert_grep "$REPO/scripts/apply-overlay.sh" 'craft-drawer' "v1.0.4: craft-drawer no file_permissions (0755 no live)"
 assert_grep "$REPO/scripts/apply-overlay.sh" 'craft-connect' "v1.4: craft-connect no file_permissions (0755 no live — senão 203/EXEC)"
 assert_grep "$REPO/scripts/apply-overlay.sh" 'craft-pin-pick' "v1.4: craft-pin-pick no file_permissions (0755 no live — senão 203/EXEC)"
@@ -324,18 +330,17 @@ assert_grep "$VIY" 'vmlinuz-linux-cachyos-bore\|/usr/lib/modules' "v1.6: gate re
 TH="$P/airootfs/usr/share/themes/Archcraft-Elite/labwc"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" '<name>Archcraft-Elite</name>' "v1.6: rc.xml aponta pro tema Elite (assets de botões)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" '<layout>icon:iconify,max,close</layout>' "v1.6: botões à DIREITA em ordem Windows (estilo mac, posição windows)"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" '<showIcons>yes</showIcons>' "v1.6: menu raiz com ícones (labwc 0.8.3+)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" '<showIcons>no</showIcons>' "v2.2: menu raiz SEM coluna de ícones (showIcons no — texto puro, sem tema de ícones)"
 for png in close-active iconify-active max-active close_hover-active iconify_hover-active max_hover-active close-inactive max_toggled-active; do
   assert_file "$TH/${png}.png" "v1.6: asset ${png}.png no tema (traffic lights mac)"
 done
 assert_grep "$P/airootfs/etc/skel/.config/labwc/themerc-override" 'window.button.width: 24' "v1.6: célula do botão 24px (círculo 12px mac)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/themerc-override" 'window.button.hover.bg.color: #00000000' "v1.6: overlay de hover OFF (o glifo mora no PNG)"
-# Menu com ícones (Papirus verificado no squashfs da v1.5)
-assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'icon="/usr/share/icons/Papirus/48x48/apps/utilities-terminal.svg"' "v1.6: item Terminal com ícone Papirus"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'icon="/usr/share/icons/Papirus/24x24/actions/system-shutdown.svg"' "v1.6: itens de sessão com ícone (actions)"
-# craft-power com ícones no dmenu (protocolo NUL+icon+US — pipe direto)
-assert_grep "$P/airootfs/usr/local/bin/craft-power" 'printf .%s.0icon' "v1.6: craft-power com protocolo de ícones do dmenu (NUL+icon+US)"
-assert_grep "$P/airootfs/usr/local/bin/craft-power" 'system-lock-screen.svg' "v1.6: ícone de travar no menu de sessão"
+# Menu TEXTO PURO (v2.2 — o papirus-icon-theme saiu da ISO; o menu e o
+# craft-power perderam os icon= — nenhum caminho de tema de ícones sobra)
+assert_nogrep "$P/airootfs/etc/skel/.config/labwc/menu.xml" '<item label=[^>]* icon=' "v2.2: menu.xml sem NENHUM atributo de ícone em item (texto puro — sem tema de ícones)"
+assert_nogrep "$P/airootfs/usr/local/bin/craft-power" 'printf .%s.0icon' "v2.2: craft-power SEM protocolo de ícones do dmenu (NUL+icon+US extinto com o Papirus)"
+assert_nogrep "$P/airootfs/usr/local/bin/craft-power" 'Papirus|\.svg' "v2.2: craft-power sem NENHUM path de ícone (entradas texto puro)"
 # Keyring/polkit (a pergunta do dono — "o que é keyring que pede senha?")
 assert_file "$P/airootfs/etc/polkit-1/rules.d/49-elite-desktop.rules" "v1.6: rule polkit Elite (UX desktop sem senha p/ ações comuns)"
 assert_grep "$P/airootfs/etc/polkit-1/rules.d/49-elite-desktop.rules" 'org.freedesktop.login1.power-off' "v1.6: power-off sem senha p/ usuário ativo local"
@@ -368,7 +373,7 @@ assert_grep "$STG" 'arch-chroot "[$]ROOT" mkinitcpio -P' "v1.9 M1.1: re-geraçã
 assert_grep "$REPO/elite/fragments/elite-customize.sh" 'kernel-copy-success' "v1.0.4: E10 preserva o marcador do upstream"
 assert_grep "$P/airootfs/etc/sddm.conf.d/kde_settings.conf" '^Session=labwc$' "v1.0.3: SDDM autologin Session=labwc"
 assert_grep "$P/airootfs/var/lib/sddm/state.conf" 'wayland-sessions/labwc\.desktop' "v1.0.3: greeter pré-seleciona labwc"
-assert_grep "$P/airootfs/etc/systemd/system/fg-booster.service" '^Slice=fg-boost\.slice$' "v1.0.3: fg-booster com Slice= (fix restart-loop)"
+assert_nofile "$P/airootfs/etc/systemd/system/fg-booster.service" "v2.2: fg-booster.service EXTINTA do airootfs (fusão dos boosters — ananicy-cpp é o único daemon; ver contratos v2.2 na 20-static)"
 # v1.8.2: os APPLETS GUI VOLTARAM (áudio do dono: TUI não é o dia-a-dia
 # dele) — nm-applet + blueman-applet na tray, craft-connect abre GUIs;
 # os TUIs impala/bluetui seguem como fallback (craft-connect) e o comentário
@@ -417,7 +422,7 @@ assert_nogrep "$PKG" '^xfce4-settings$' "curadoria: xfce4-settings saiu (nwg-loo
 assert_nogrep "$PKG" '^xfce4-power-manager$' "curadoria: power manager saiu (swayidle entra)"
 assert_nogrep "$PKG" '^gvfs-afc$' "curadoria: iPhone mount saiu (gvfs+mtp+smb ficam)"
 assert_grep "$PKG" '^gvfs$' "curadoria: gvfs fica (trash/mtp/smb)"
-assert_grep "$PKG" '^xdotool$' "curadoria: xdotool FICA (dep dura do fg-booster)"
+assert_nogrep "$PKG" '^xdotool$' "v2.2: xdotool banido da curadoria (era dep do fg-booster — extinto)"
 assert_grep "$PKG" '^qt6ct$' "curadoria: qt6ct fica (config de apps Qt futuros)"
 assert_nogrep "$PKG" '^qt5ct$' "curadoria: qt5ct saiu (zero apps Qt5)"
 assert_nogrep "$PKG" '^firefox$' "v1.1: firefox saiu (brave-origin entra — Wayland-native)"
@@ -603,7 +608,7 @@ assert_grep "$P/airootfs/etc/systemd/system.conf.d/00-elite-timeout.conf" '^Defa
 
 # ── v1.0.3→v1.1: [9b] file_permissions — 13 caminhos 0:0:755 no profiledef ─
 PD="$P/profiledef.sh"
-for p in /usr/local/bin/elite-tune /usr/local/bin/elite-status /usr/local/bin/fg-booster \
+for p in /usr/local/bin/elite-tune /usr/local/bin/elite-status \
          /usr/local/bin/craft-hello /usr/local/bin/craft-update /usr/local/bin/craft-clean \
          /usr/local/bin/craft-rollback /usr/local/bin/craft-lock /usr/local/bin/craft-logout \
          /usr/local/bin/craft-shot /usr/local/bin/craft-bat /usr/local/bin/craft-pin \
@@ -1012,13 +1017,13 @@ assert_eq "$rcA" "0" "cadeia C (Setup A): firstboot dry-run exit 0"
 assert_match "$outA" 'NVIDIA blackwell → nvidia-open-dkms' "cadeia C (Setup A): plano do driver certo p/ Blackwell"
 assert_match "$outA" 'Auto-limpeza: GPU nvidia → removendo stack do outro vendor' "cadeia C (Setup A): auto-limpeza anunciada"
 assert_match "$outA" '\[arquivo\] /etc/modprobe\.d/00-elite-nvidia\.conf' "cadeia C (Setup A): modeset/VRAM planejados (wfile)"
-assert_match "$outA" '\$ systemctl enable --now scx-elite\.service' "cadeia C (Setup A): serviços ecoados, não executados (dry)"
+assert_match "$outA" '\$ systemctl enable --now ananicy-cpp\.service' "cadeia C (Setup A): serviço único ecoado, não executado (dry — v2.2: ananicy-cpp é o único daemon de boost)"
 assert_match "$outA" 'FIRSTBOOT CONCLUÍDO' "cadeia C (Setup A): chegou ao fim sem abortar"
 grep -q -- '-Rns' "$STATE/pacman.log" \
   && fail "cadeia C (Setup A): dry-run NÃO executa remoção" "log trouxe -Rns" \
   || ok "cadeia C (Setup A): dry-run não executou -Rns (só -Qq consultou)"
 assert_nofile "/etc/modprobe.d/00-elite-nvidia.conf" "cadeia C (Setup A): nada escrito em /etc (dry é seco)"
-assert_nofile "/etc/systemd/system/scx-elite.service" "cadeia C (Setup A): unit não criada fora do dry"
+assert_nofile "/etc/systemd/system/scx-elite.service" "cadeia C (Setup A): nenhuma unit de booster criada fora do dry (v2.2: scx-elite extinta — nada a criar)"
 # regressão v4.4: dry não cria marker nem transmite wall (o aviso "REINICIE"
 # numa SIMULAÇÃO seria mentira broadcastada para todos os ttys do usuário)
 if [[ -s "$STATE/wall.log" ]]; then
@@ -1055,11 +1060,11 @@ outS="$(with_mocks env LSPCI_FIXTURE="$TESTS_DIR/fixtures/lspci/rtx-5060.txt" \
   NVIDIA_SMI='NVIDIA GeForce RTX 5060' \
   bash "$TUNE" --status 2>&1)"; rcS=$?
 assert_eq "$rcS" "0" "cadeia C (uso): --status exit 0"
-assert_match "$outS" 'scx-elite' "cadeia C (uso): --status lista os serviços elite"
+assert_match "$outS" 'ananicy-cpp' "cadeia C (uso): --status lista o booster único (v2.2 — scx/fg/dmemcg saíram da certificação)"
 
 # ════════════════════════════════════════════════════════════════════
 # 4.D MODO PADRÃO INTERATIVO (o enxerto em qualquer Arch) — dry de ponta
-#     a ponta: dossiê, plano de cada seção [1]-[8] e o contrato "dry é
+#     a ponta: dossiê, plano de cada seção [1]-[7] e o contrato "dry é
 #     seco" auditado em /etc (nenhum .bak, nenhum arquivo novo)
 # ════════════════════════════════════════════════════════════════════
 dryrun() { # env… → elite-tune --dry-run --yes, ANSI-stripado, rc preservado
@@ -1092,9 +1097,13 @@ else
   else
     ok "cadeia D: [1] linux-headers stock fora do plano (v1.1: kernel único BORE)"
   fi
-  assert_match "$outP" '\$ pacman -S --needed --noconfirm cachyos-settings cachyos-ananicy-rules ananicy-cpp scx-scheds scx-tools dmemcg-booster' \
-    "cadeia D: [1] stack CachyOS completo no plano"
-  assert_match "$outP" '\[arquivo\] /etc/systemd/system/scx-elite\.service' "cadeia D: [2] unit scx planejada"
+  assert_match "$outP" '\$ pacman -S --needed --noconfirm cachyos-settings cachyos-ananicy-rules ananicy-cpp' \
+    "cadeia D: [1] stack CachyOS no plano (v2.2: booster único — sem scx/dmemcg)"
+  if grep -q 'scx-scheds\|scx-tools\|dmemcg-booster' <<<"$outP"; then
+    fail "cadeia D: [1] boosters extintos FORA do plano" "o plano ainda menciona scx-scheds/scx-tools/dmemcg-booster"
+  else
+    ok "cadeia D: [1] scx-scheds/scx-tools/dmemcg-booster fora do plano (fusão 4→1)"
+  fi
   assert_match "$outP" '\$ grub-mkconfig -o /boot/grub/grub\.cfg' "cadeia D: [3] grub-mkconfig no plano"
   assert_match "$outP" 'NVIDIA blackwell → nvidia-open-dkms' "cadeia D: [4] driver certo p/ Blackwell"
   assert_match "$outP" '\[arquivo\] /etc/modprobe\.d/00-elite-nvidia\.conf' "cadeia D: [4] modprobe modeset/VRAM planejado"
@@ -1102,10 +1111,13 @@ else
   assert_match "$outP" '\[arquivo\] /etc/systemd/zram-generator\.conf' "cadeia D: [5] zram planejado"
   assert_match "$outP" '\[arquivo\] /etc/sysctl\.d/99-elite\.conf' "cadeia D: [5] sysctl de gaming planejado"
   assert_match "$outP" '\[arquivo\] /etc/udev/rules\.d/60-io-elite\.rules' "cadeia D: [5] udev I/O planejado"
-  assert_match "$outP" 'fg-booster: binário não encontrado' "cadeia D: [6] graft fora da ISO avisa (fg-booster)"
-  assert_match "$outP" '\[arquivo\] /etc/systemd/system/fg-boost\.slice' "cadeia D: [6] slice turbinado planejado"
+  if grep -q 'fg-booster\|fg-boost' <<<"$outP"; then
+    fail "cadeia D: [6] fg-booster EXTINTO ainda no plano" "a seção [6] antiga sobreviveu à fusão"
+  else
+    ok "cadeia D: [6] fg-booster/xdotool/slice fora do plano (v2.2: boost de jogo = gamemode)"
+  fi
   assert_match "$outP" '\$ pacman -S --needed --noconfirm gamemode lib32-gamemode gamescope' \
-    "cadeia D: [7] stack de jogo no plano"
+    "cadeia D: [6] stack de jogo no plano"
   assert_match "$outP" 'CONCLUÍDO. Reboot' "cadeia D: chegou ao fim"
   baks1=$(ls /etc/*.bak.* 2>/dev/null | wc -l)
   assert_eq "$baks1" "$baks0" "cadeia D: dry NÃO cria .bak em /etc (backup guardado — v4.4)"
@@ -1245,7 +1257,11 @@ else
   else
     ok "cadeia F (Setup A): CPU não-AMD → sem amd_pstate (decisão certa)"
   fi
-  assert_grep "$LA" 'ExecStart=/usr/bin/scx_bpfland' "cadeia F (Setup A): unit scx-elite escrita (bpfland)"
+  if grep -q 'ExecStart=/usr/bin/scx_bpfland' "$LA"; then
+    fail "cadeia F (Setup A): unit scx-elite NÃO deve ser escrita" "o firstboot ainda cria a scx-elite (v2.2: EXTINTA)"
+  else
+    ok "cadeia F (Setup A): nenhuma unit scx escrita (scheduler = BORE do kernel — v2.2)"
+  fi
   assert_match "$(sed -n '/^=== MARKER/,+1p' "$LA" | tail -1)" '^yes$' \
     "cadeia F (Setup A): marker firstboot-done criado"
   assert_grep "$STATE/pacman.log" 'pacman -R --noconfirm nvidia-open$' \
@@ -1815,38 +1831,21 @@ done < <(sed -n 's/.*action name="Execute" command="\([^"]*\)".*/\1/p' "$MXML")
 # lugar ao nogrep da curadoria acima.
 assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'for b in brave librewolf' "v1.1: navegador do menu = brave em 1º"
 
-# ── Ícones do menu = arquivos REAIS do Papirus (v1.6.3, mantido v1.7): ───
-#    TODO item tem icon= e o caminho existe no papirus-icon-theme REAL
-#    (fixture bidirecional — API do Arch + squashfs embarcado; o header
-#    do fixture tem a proveniência).
-MICON="$TESTS_DIR/fixtures/menu-icons-papirus.txt"
-assert_file "$MICON" "v1.7: fixture Papirus existe (lista de arquivos do tema real)"
-while IFS= read -r mic; do
-  [ -z "$mic" ] && continue
-  if grep -qxF "$mic" "$MICON"; then
-    ok "v1.7: ícone no tema real — ${mic##*/}"
-  else
-    fail "v1.7: ícone no tema real — ${mic##*/}" "caminho fora do fixture Papirus: $mic"
-  fi
-done < <(sed -n 's/.*icon="\([^"]*\)".*/\1/p' "$MXML" | sort -u)
-while IFS= read -r fic; do
-  case "$fic" in \#*|"") continue ;; esac
-  grep -qF "icon=\"$fic\"" "$MXML" || fail "v1.7: fixture Papirus sem órfãos" "linha não usada no menu.xml: $fic"
-done <"$MICON"
-# nenhum item do root-menu sem icon= (o root-menu é o ÚLTIMO bloco do
-# arquivo — o range vai até o EOF; itens do client-menu não são do root)
-root_no_icon=$(sed -n '/id="root-menu"/,$p' "$MXML" | grep '<item label=' | grep -cv 'icon=' || true)
-assert_eq "$root_no_icon" "0" "v1.7: zero itens do root-menu sem icon= (a foto do dono não se repete)"
+# ── v2.2 — MENU TEXTO PURO (o fixture menu-icons-papirus.txt foi EXTINTO):
+#    nenhum item carrega icon= e o tema não existe mais na ISO. A regra 1
+#    do header do menu.xml (binário REAL em command=X) segue valendo; a
+#    regra 2 virou "zero ícones de tema" (diretriz do dono, leveza radical).
+root_no_icon=$(sed -n '/id="root-menu"/,$p' "$MXML" | grep '<item label=' | grep -c 'icon=' || true)
+assert_eq "$root_no_icon" "0" "v2.2: zero itens com icon= no root-menu (texto puro — sem tema de ícones)"
 
-# ── MENU VISÍVEL (v1.7 — pedido "ícone nas coisas e principalmente ───────
-#    visíveis"): no labwc o tamanho do ícone É a altura da fonte do item
-#    (src/menu/menu.c: ICON_SIZE = menu_item_height - 2*padding_y;
-#    src/theme.c: menu_item_height = font_height + 2*padding_y — o padding
-#    cancela). A fonte do MenuItem no rc.xml manda no tamanho do ícone.
+# ── MENU VISÍVEL (v1.7 → v2.2): a fonte do MenuItem manda na altura dos
+#    itens (src/theme.c: menu_item_height = font_height + 2*padding_y — o
+#    padding cancela). v2.2: sem coluna de ícones, a altura do item É o
+#    texto — a mesma regra tipográfica segue valendo sozinha.
 RCX="$P/airootfs/etc/skel/.config/labwc/rc.xml"
-assert_grep "$RCX" 'place="MenuItem"' "v1.7: fonte do MenuItem definida no rc.xml (o dial do tamanho dos ícones)"
-assert_grep "$RCX" '<size>12</size>' "v1.7: fonte do menu 12px → itens ~27px, ícones ~17px (era ~14px)"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/themerc-override" 'menu.items.padding.x: 8' "v1.7: padding.x do menu 8px (respiro ícone↔texto — themerc-override)"
+assert_grep "$RCX" 'place="MenuItem"' "v1.7: fonte do MenuItem definida no rc.xml (o dial da altura dos itens)"
+assert_grep "$RCX" '<size>12</size>' "v1.7: fonte do menu 12px → itens ~27px (v2.2: texto puro, sem coluna de ícones)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/themerc-override" 'menu.items.padding.x: 8' "v1.7: padding.x do menu 8px (respiro do texto — themerc-override)"
 
 # ── BOTÃO DIREITO (v1.7 — "tira essa mudança de ambiente… eu acho feio"): ─
 #    direita = menu raiz curado; a lista de janelas morreu (dock comuta);

@@ -156,7 +156,8 @@ Include = /etc/pacman.d/cachyos-v3-mirrorlist
 [cachyos-extra-v3]
 Include = /etc/pacman.d/cachyos-v3-mirrorlist
 
-# v2 (baseline): keyring, cachyos-settings, dmemcg-booster, rules (exclusivos)
+# v2 (baseline): keyring, cachyos-settings, rules (exclusivos)
+# [v2.2: o dmemcg-booster saiu da ISO na fusão dos boosters]
 [cachyos]
 Server = https://us.cachyos.org/repo/x86_64/cachyos
 Server = https://cdn77.cachyos.org/repo/x86_64/cachyos
@@ -536,22 +537,23 @@ find /usr/share/locale -mindepth 1 -maxdepth 1 -type d \
 rm -rf /usr/share/man /usr/share/info /usr/share/doc /usr/share/gtk-doc 2>/dev/null || true
 echo "E15: locale/man/info/doc/gtk-doc podados (licenses intactas)"
 
-## [E16] v1.8.1 — PAPIRUS: só as 2 variantes que o rice referencia.
-##      O pacote embarca 6 variantes (~100-160 MB cada descompactado);
-##      o rice usa Papirus (menu labwc — menu.xml:54+) e Papirus-Dark
-##      (GTK settings.ini do skel + fuzzel.ini). As outras 4 são peso
-##      morto no squashfs. GATE DURO: as 2 vivas precisam existir após
-##      a poda (config errada ou pacote mudando o layout = build falha,
-##      nunca boot sem ícone).
-for _pv in Papirus-Light ePapirus ePapirus-Dark ePapirus-Light; do
-    rm -rf "/usr/share/icons/$_pv" 2>/dev/null || true
+## [E16] v2.2 — SEM TEMA DE ÍCONES (leveza radical, diretriz do dono).
+##      O pacote de ícones Papirus SAIU do packages.add — não há nada a podar.
+##      O antigo E16 (v1.8.1) podava as 4 variantes mortas desse tema e
+##      falhava a build sem as 2 vivas; hoje o único tema de
+##      ícones do sistema é o fallback base (Adwaita — dep dura de
+##      gtk3/gtk4, <1 MB) e cada app traz o próprio ícone no hicolor.
+##      Guarda INFORMATIVA (nomes de tema variam entre versões de pacote —
+##      o contrato de ausência vive na suíte, onde é exato): qualquer dir
+##      fora da base (Adwaita*/Bibata*/hicolor) é avisado no log.
+for _iv in /usr/share/icons/*; do
+    [[ -d "$_iv" ]] || continue
+    case "$(basename "$_iv")" in
+        Adwaita*|Bibata*|hicolor|locolor) ;;
+        *) echo "E16 AVISO: tema de ícones não-base detectado: $(basename "$_iv") (o pacote mudou?)" >&2 ;;
+    esac
 done
-if [[ -d /usr/share/icons/Papirus && -d /usr/share/icons/Papirus-Dark ]]; then
-    echo "E16: variantes Papirus podadas — restaram Papirus + Papirus-Dark (as do rice)"
-else
-    echo "ELITE-FAIL: Papirus/Papirus-Dark ausentes após poda E16 (pacote mudou?)" >&2
-    exit 1
-fi
+echo "E16: sem tema de ícones de terceiros — fallback base (Adwaita/hicolor) cobre"
 
 
 ## [E17] v1.8.2 — LACT: o daemon habilitado DE FÁBRICA.

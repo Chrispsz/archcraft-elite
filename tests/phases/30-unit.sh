@@ -589,19 +589,17 @@ assert_grep "$BY" "Failed with result" \
 assert_grep "$DI" "Failed with result" \
   "contrato v1.5.2: gate do instalado varra 'Failed with result' idem"
 
-# fg-booster — a cura da causa-raiz em 3 camadas
+# fg-booster — v2.2: EXTINTO na fusão dos boosters. A história v1.5.2
+# (crash-loop 17× do xdotool varrido) virou REGRA PERMANENTE: nenhum
+# unit/binário/pacote daquela cadeia pode voltar, e a cura da causa-raiz
+# (units extintas + teto de restart onde ainda existe unit) segue.
 FB="$REPO/elite/airootfs/usr/local/bin/fg-booster"
 FBU="$REPO/elite/airootfs/etc/systemd/system/fg-booster.service"
-assert_grep "$FB" 'xdotool ausente.*exit 0' \
-  "contrato v1.5.2: guard xdotool sai 0 (no-op limpo — nunca mais crash-loop)"
-assert_nogrep "$FB" 'xdotool ausente.*exit 1' \
-  "contrato v1.5.2: guard xdotool NÃO sai 1 (o exit 1 + RestartSec=5 = loop infinito silencioso)"
-assert_grep "$FB" 'fg-boost\.slice ausente.*exit 0' \
-  "contrato v1.5.2: guard do slice sai 0 idem (condição de ambiente ≠ defeito de runtime)"
-assert_grep "$FBU" 'StartLimitIntervalSec=120' \
-  "contrato v1.5.2: unit com janela de start-limit (2min)"
-assert_grep "$FBU" 'StartLimitBurst=3' \
-  "contrato v1.5.2: unit com teto de restart (3 tentativas — exit≠0 nunca mais vira loop infinito)"
+assert_nofile "$FB" "contrato v2.2: binário fg-booster EXTINTO (fusão dos boosters — ananicy-cpp é o único daemon)"
+assert_nofile "$FBU" "contrato v2.2: unit fg-booster.service EXTINTA idem"
+assert_nofile "$REPO/elite/airootfs/etc/systemd/system/fg-boost.slice" "contrato v2.2: fg-boost.slice EXTINTO idem"
+assert_nogrep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'StartLimitIntervalSec=120.*fg|fg-booster.service$' \
+  "contrato v2.2: elite-tune sem habilitação do fg-booster (o padrão anti-crash-loop segue nos contratos de gate)"
 
 # ── 3.M forense de log — teste FUNCIONAL com fixtures (o gate é código,
 # código se testa de verdade: benigno passa, fatal barra, condicional

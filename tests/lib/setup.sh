@@ -272,7 +272,6 @@ gvfs-mtp
 gvfs-smb
 gvfs-afc
 gvfs-gphoto2
-xdotool
 qt5ct
 qt6ct
 kvantum
