@@ -67,7 +67,8 @@ o driver do próprio hardware.
 | Kernel | `linux-cachyos-bore` x86-64-v3 (único; rollback via snapshot btrfs no GRUB) |
 | Sessão | labwc (Wayland, única) + waybar + swaync + fuzzel + foot + nwg-drawer |
 | Dock | `craft-dock-gui` — GTK3 + wlr-layer-shell, ícones reais do tema, SEMPRE visível: some só sob tela cheia/gaveta (layer BOTTOM + zona exclusiva — como as outras distros) |
-| Top bar | menu bar estilo macOS — app focado, relógio, volume/rede/tray/sessão + botão de apps em 2º plano (`craft-bgapps`, some quando não há nada a encerrar) |
+| Top bar | menu bar estilo macOS — app focado, relógio, volume/rede/tray/sessão + botão de apps em 2º plano (`craft-bgapps`, some quando não há nada a encerrar); conector Wi-Fi na tray (`nm-applet`) |
+| Diagnóstico | `craft-dump` — o "btop completão": hardware, pacotes, serviços, caça ao despertar, logs da Elite e caches num arquivo (com `--upload` p/ URL curta) |
 | Scheduler | `ananicy-cpp` com regras CachyOS — o scheduler é o BORE do kernel (scx userspace saiu na v2.2) |
 | Tuning | `cachyos-settings`, zram zstd, sysctl/udev próprios, BBR + fq |
 | Gaming | gamemode, gamescope, mangohud, Vulkan RADV/Intel (lib32 sobe on-demand no firstboot), LACT, btop |

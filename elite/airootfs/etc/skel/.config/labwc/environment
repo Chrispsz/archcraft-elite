@@ -1,0 +1,15 @@
+# Archcraft ELITE · ambiente da sessão labwc (v2.3.5)
+# ─────────────────────────────────────────────────────────────────────────
+# v2.3.5 — ÍCONES DE FLATPAK (relato do dono: "instalei o Sober e ficou
+# sem ícone"): os .desktop e ícones de flatpaks de sistema vivem em
+# /var/lib/flatpak/exports/share — que NÃO está no XDG_DATA_DIRS padrão
+# da sessão labwc (nem o perfil.d do flatpak roda fora de login-shell).
+# Sem isso, o Launchpad e o fuzzel acham o app mas caem no ícone genérico.
+#
+# Valor LITERAL (sem expansão — a semântica do environment(5) não depende
+# de shell): /usr/local/share na frente (precedência dos overrides Elite)
+# + a export de flatpak do sistema. Flatpak só-do-usuário
+# (~/.local/share/flatpak) é caso raro e documentado: roda
+# `export XDG_DATA_DIRS="$XDG_DATA_DIRS:$HOME/.local/share/flatpak/exports/share"`
+# no shell antes de abrir o Launchpad, ou instale com --system.
+XDG_DATA_DIRS=/usr/local/share:/usr/share:/var/lib/flatpak/exports/share

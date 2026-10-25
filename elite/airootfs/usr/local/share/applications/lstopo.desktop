@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=lstopo
+GenericName=Hardware locality
+Exec=lstopo
+Icon=lstopo
+Categories=System;
+NoDisplay=true

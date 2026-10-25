@@ -1,0 +1,151 @@
+#!/usr/bin/env bash
+# ═══════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · craft-dump (v1.0 — o "btop completão", v2.3.5)
+# ═══════════════════════════════════════════════════════════════════════════
+# Pedido do dono (out/2026): "como puxo tudo que está rodando como se fosse
+# um btop completão pra gente ter um diagnóstico da RAM, pacotes, uso, CPU
+# e etc… puxar todos os caches do elite" — o dump ÚNICO que reúne:
+#
+#   hardware (CPU/RAM/GPU/discos/zram) · kernel & tuning · serviços Elite ·
+#   SUSPEND/ACPI (a caça ao despertar) · journal de erros do boot ·
+#   sessão (processos, barras, dock) · os 3 logs da Elite (bars/menus/dock)
+#   · log do firstboot · log do Calamares · PACOTES (explicit/órfãos/foreign/
+#   flatpak/repos) · caches e uso de disco.
+#
+# Uso:
+#   craft-dump            → gera ~/elite-dump-<data>.txt e mostra o caminho
+#   craft-dump --upload   → idem + sobe no termbin.com e imprime a URL curta
+#                           (via /dev/tcp do bash — sem depender de nc)
+#
+# Somente leitura (nada é modificado). Logs são TAILADOS (evidência recente
+# vale mais — mesma política do bars.log). Para o journal COMPLETO rode com
+# sudo; como usuário comum, o que o grupo adm/journal permite já cobre o
+# essencial.
+# ═══════════════════════════════════════════════════════════════════════════
+set -u
+
+STAMP="$(date +%Y%m%d-%H%M)"
+OUT="${HOME}/elite-dump-${STAMP}.txt"
+CACHE="${XDG_CACHE_HOME:-$HOME/.cache}"
+
+# cada bloco: "$ <comando>" + saída + tail (evidência recente vale mais)
+r() { # r <comando> [linhas]
+    printf '\n$ %s\n' "$1"
+    bash -c "$1" 2>&1 | tail -n "${2:-40}"
+}
+
+{
+    printf '══════════ ELITE DUMP — diagnóstico completo ══════════\n'
+    printf 'gerado: %s · usuário: %s · host: %s\n' \
+        "$(date)" "$(id -un)" "$(hostname 2>/dev/null || echo '?')"
+
+    printf '\n══════════ IDENTIDADE ══════════\n'
+    r "grep PRETTY /etc/os-release" 2
+    r "uname -a" 2
+    r "uptime" 2
+
+    printf '\n══════════ HARDWARE — CPU/RAM/GPU/DISCO ══════════\n'
+    r "lscpu | grep -E 'Model name|^CPU\(s\)|Thread|MHz|Socket|L3'" 8
+    r "free -h" 5
+    r "lspci | grep -Ei 'vga|3d|network|ethernet'" 8
+    if command -v nvidia-smi >/dev/null 2>&1; then
+        r "nvidia-smi --query-gpu=name,driver_version,memory.total,temperature.gpu --format=csv,noheader" 4
+    fi
+    r "lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINT" 20
+    r "df -h / /home /boot /boot/grub 2>/dev/null | sort -u" 10
+    r "zramctl 2>/dev/null" 5
+    r "swapon --show 2>/dev/null" 4
+
+    printf '\n══════════ KERNEL & TUNING ══════════\n'
+    r "cat /proc/cmdline" 2
+    r "cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_driver 2>/dev/null" 2
+    r "sysctl vm.swappiness vm.vfs_cache_pressure kernel.sched_autogroup_enabled 2>/dev/null" 4
+    r "cat /sys/kernel/mm/transparent_hugepage/enabled 2>/dev/null" 2
+    r "sysctl net.ipv4.tcp_congestion_control net.core.default_qdisc 2>/dev/null" 3
+
+    printf '\n══════════ SERVIÇOS ELITE ══════════\n'
+    for s in ananicy-cpp lactd grub-btrfsd elite-firstboot; do
+        printf '%-16s active=%-10s enabled=%s\n' "$s" \
+            "$(systemctl is-active "$s" 2>/dev/null || echo '?')" \
+            "$(systemctl is-enabled "$s" 2>/dev/null || echo '?')"
+    done
+    printf 'firstboot-done: %s\n' \
+        "$([ -f /var/lib/elite/firstboot-done ] && echo sim || echo 'não (pende/re-tenta)')"
+
+    printf '\n══════════ SUSPEND/ACPI — A CAÇA AO DESPERTAR ══════════\n'
+    printf '(despertar imediato após suspender = dispositivo/BIOS — as linhas\n'
+    printf ' abaixo mostram QUEM acordou e QUANDO)\n'
+    r "journalctl -b -u systemd-suspend --no-pager 2>/dev/null | tail -40" 45
+    r "cat /proc/acpi/wakeup 2>/dev/null" 25
+    r "journalctl -b --no-pager 2>/dev/null | grep -iE 'wake(ing|up)?|resume|suspending' | tail -25" 30
+    r "grep -E '^[#]?Handle(Suspend|Power|Lid)' /etc/systemd/logind.conf 2>/dev/null" 6
+
+    printf '\n══════════ JOURNAL — ERROS DESTE BOOT ══════════\n'
+    r "journalctl -b -p err --no-pager 2>/dev/null | tail -50" 55
+
+    printf '\n══════════ SESSÃO — PROCESSOS/BARRAS/DOCK ══════════\n'
+    r "ps -u \"$(id -u)\" -o pid,pcpu,pmem,comm --sort=-pcpu | head -25" 30
+    r "pgrep -a labwc | head -3" 4
+    r "pgrep -c waybar 2>/dev/null && pgrep -c craft-dock-gui 2>/dev/null" 4
+    if [ -f "$CACHE/elite/bars.log" ]; then
+        r "grep -c 'SAIU exit' $CACHE/elite/bars.log 2>/dev/null" 2
+    fi
+
+    printf '\n══════════ LOGS DA ELITE (evidência recente) ══════════\n'
+    for f in "$CACHE/elite/bars.log" "$CACHE/elite/menus.log" \
+             "$CACHE/elite/dock.log"; do
+        if [ -f "$f" ]; then
+            printf '\n── tail %s\n' "$f"
+            tail -n 150 "$f"
+        else
+            printf '\n── (ausente: %s)\n' "$f"
+        fi
+    done
+    for f in /var/log/elite-firstboot.log /var/log/calamares.log \
+             "$CACHE/calamares/session.log"; do
+        if [ -f "$f" ]; then
+            printf '\n── tail %s\n' "$f"
+            tail -n 120 "$f"
+        fi
+    done
+
+    printf '\n══════════ PACOTES ══════════\n'
+    r "pacman -Qq | wc -l" 2
+    r "pacman -Qe" 400
+    r "pacman -Qtdq || echo '(nenhum órfão)'" 40
+    r "pacman -Qm || echo '(nenhum foreign)'" 40
+    if command -v flatpak >/dev/null 2>&1; then
+        r "flatpak list --columns=application,version,origin 2>/dev/null" 40
+    else
+        printf '(flatpak não instalado)\n'
+    fi
+    r "grep -E '^\[[a-z]' /etc/pacman.conf" 12
+    r "du -sh /var/cache/pacman/pkg 2>/dev/null" 2
+
+    printf '\n══════════ CACHES & DISCO ══════════\n'
+    r "du -sh $CACHE/elite $CACHE/calamares 2>/dev/null" 4
+    r "du -sh $HOME/.cache/* 2>/dev/null | sort -rh | head -12" 14
+    r "journalctl --disk-usage 2>/dev/null" 2
+
+    printf '\n══════════ FIM DO DUMP ══════════\n'
+    printf 'envie este arquivo (ou a URL do --upload) para a análise.\n'
+} > "$OUT" 2>&1
+
+LINES="$(wc -l <"$OUT")"
+printf 'dump pronto: %s (%s linhas)\n' "$OUT" "$LINES"
+
+if [ "${1:-}" = "--upload" ]; then
+    # termbin via /dev/tcp do bash — sem nc (a ISO não o carrega)
+    url="$(bash -c '
+        exec 3<>/dev/tcp/termbin.com/9999 || exit 1
+        cat "'"$OUT"'" >&3
+        head -c 200 <&3 2>/dev/null
+        exec 3>&- 3<&-
+    ' 2>/dev/null | tr -d '\n')"
+    if [ -n "$url" ]; then
+        printf 'URL curta: %s\n' "$url"
+    else
+        printf 'upload falhou (rede/termbin) — o arquivo continua em: %s\n' "$OUT"
+        exit 1
+    fi
+fi

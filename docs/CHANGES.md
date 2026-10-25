@@ -6,6 +6,39 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **v2.3.5 — o rig falou: curas cirúrgicas dos usos básicos + o dump do
+  dono** (prints/relatos instalando a v2.3.2, out/2026):
+  - **FALSA FALHA DOS MENUS MORRE** — o cross-dismiss/toggle mata o fuzzel
+    com SIGTERM (exit 143) e o script original gritava "Menu de Sessão
+    falhou" em notificação crítica EM TODO fechamento por fora (o print do
+    dono: "fuzzel exit=143"). Os 6 menus agora tratam 143 como fechamento
+    benigno (log sem alarme) — crash real segue gritando com stderr+log.
+  - **FIM DA PALESTRA DO SUDO (E20)** — "Presumimos que você recebeu as
+    instruções de sempre…" saiu da sessão (`Defaults !lecture` no
+    sudoers.d, validado com `visudo -cf` — sudoers ruim nunca entra).
+  - **lstopo/"Hardware locality" FORA do Launchpad** — é a GUI do hwloc
+    (dependência de terceiros), não app do dono: override NoDisplay,
+    o padrão xgps.
+  - **FLATPAK COM ÍCONE** — o XDG_DATA_DIRS da sessão (labwc environment,
+    valor literal sem expansão) ganha as exportações de flatpak de sistema
+    — o Sober sem ícone era isso. Vale no próximo login.
+  - **O CONECTOR WI-FI DE VOLTA** — nm-applet no autostart: função vence
+    estética (o nm-connection-editor EDITA, não CONECTA — "como conector
+    numa rede wi-fi assim?"). craft-connect com rótulo honesto ("editar
+    conexões"); os toggles WiFi/BT do painel de notificações já eram reais
+    (nmcli/bluetoothctl) — agora contratados.
+  - **AUTO-SUSPEND OPT-IN** — SUSPEND_MIN no idle.conf (0 = off de
+    fábrica: a ISO não muda comportamento às escondidas); o craft-idle
+    suspende de verdade quando ligado, com lock ANTES de dormir. O
+    despertar imediato do rig é caçado pelo craft-dump (journal do
+    suspend + /proc/acpi/wakeup — dispositivo vs BIOS).
+  - **CRAFT-DUMP (o "btop completão")** — hardware, kernel/tuning,
+    serviços Elite, caça ao despertar, journal de erros do boot, sessão
+    (processos/barras/dock), os 3 logs da Elite + firstboot + Calamares,
+    pacotes (explícitos/órfãos/foreign/flatpak/repos) e caches — num
+    único arquivo, com `--upload` que devolve URL curta (termbin via
+    /dev/tcp do bash, sem nc).
+
 - **v2.3.4 — a dock que não some + o fim do instalador no instalado + o
   botão dos 2º planos** (relato do dono instalando a v2.3.3, out/2026):
   - **DOCK SEMPRE VISÍVEL** — o autohide por hotspot morreu NA PRÁTICA:

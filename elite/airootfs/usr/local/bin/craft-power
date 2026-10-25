@@ -72,6 +72,13 @@ if command -v fuzzel >/dev/null 2>&1; then
         | fuzzel --dmenu \
         --anchor=top-right --x-margin=10 --y-margin=44 \
         --lines=5 --width=26 --prompt='Sessão  ' 2>"$errf")" || ec=$?
+    if [ "$ec" -eq 143 ]; then
+        # v2.3.5 — SIGTERM = fechado de fora (toggle/cross-dismiss) —
+        # benigno: sem notify crítico falso (o print do dono).
+        mlog "Sessão: fechado de fora (SIGTERM — toggle/cross-dismiss) — benigno"
+        rm -f "$errf"
+        exit 0
+    fi
     if [ "$ec" -ne 0 ]; then
         mlog "Sessão: FUZZEL FALHOU exit=$ec — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
         command -v notify-send >/dev/null 2>&1 && \
