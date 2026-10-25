@@ -61,7 +61,36 @@ fi
 # unpackfs entregou kernels sãos no alvo (≥5 MB, bzImage 'MZ'), a instalação
 # SEGUE com aviso — "falhar alto" não pode transformar um alvo bootável em
 # Installation Failed (a lição do termbin iy38).
+#
+# v1.10 — A RECORRÊNCIA FOTOGRAFADA EM 25/OUT (IMG_20261025_004850: GRUB
+#   'premature end of file /@/boot/vmlinuz-linux-cachyos-bore' + 'you need
+#   to load the kernel first' DEPOIS de uma instalação que terminou feliz):
+#   com copytoram=y a cascata A→B→C cai TODA — o bootmnt não existe (RAM),
+#   o /boot do airootfs foi slimado pelo upstream e o backing do loop é o
+#   .sfs (sem vmlinuz em /boot). O alvo então 'seguia' com o vmlinuz do
+#   UNPACKFS — a cópia rsync→btrfs que o E10 v1.0.4 já documentou TRUNCAR
+#   em disco real (o sanity MZ+≥5 MB não enxerga truncamento, e o hash do
+#   M1.1 ficava 'sem fonte p/ comparar' = auditoria cega). O fix:
+#   D. O KERNEL EM EXECUÇÃO DO PRÓPRIO LIVE (/usr/lib/modules/<kver>/
+#      vmlinuz — o arquivo REAL do pacote, o MESMO que bootou o live;
+#      disponível em 100% dos cenários, copytoram ou não). Entra na MESMA
+#      prova byte-a-byte (tmp → tamanho → cmp → mv atômico → re-cmp) e no
+#      hash fonte==alvo do M1.1 — a auditoria deixa de ser cega.
+#   + cp --sparse=never na escrita (a classe de truncamento está ligada a
+#      escrita sparse em btrfs comprimido) + 1 retry antes de falhar alto.
+#   + chattr +C no /boot do alvo: NOVOS arquivos de boot nascem nodatacow
+#      (sem zstd, sem CoW) — GRUB lê extents crus; mata a variável
+#      'GRUB × btrfs comprimido' no mesmo golpe (btrfs-only, || true).
+#   + gate do MENU (diretriz do dono: 'limpa as opções de kernel e entrada
+#      e deixa a principal totalmente funcional'): grub.cfg só pode
+#      referenciar o kernel ÚNICO da Elite — vmlinuz órfão no menu =
+#      instalação reprovada com motivo no log.
 if [ "$(findmnt -n -o FSTYPE "$ROOT")" = "btrfs" ]; then
+    # belt & suspenders de FS: NOVOS arquivos em /boot nascem nodatacow
+    # (sem compressão zstd, sem checksum CoW) — o GRUB lê extents crus.
+    # Inofensivo fora do btrfs; afeta só o que for CRIADO a partir daqui
+    # (tmp da cópia verificada + initramfs regenerado pelo mkinitcpio).
+    chattr +C "${ROOT}/boot" 2>/dev/null || true
     KERNEL_SRC=""
     for cand in /run/archiso/bootmnt/arch/boot/x86_64 /boot; do
         if compgen -G "${cand}/vmlinuz-*" >/dev/null 2>&1; then
@@ -89,7 +118,40 @@ if [ "$(findmnt -n -o FSTYPE "$ROOT")" = "btrfs" ]; then
             fi
         fi
     fi
-    echo "ELITE: fonte dos kernels = ${KERNEL_SRC:-NENHUMA (copytoram sem ISO montável)}"
+    if [ -z "$KERNEL_SRC" ]; then
+        # D. O KERNEL EM EXECUÇÃO NO LIVE (v1.10): /usr/lib/modules/<kver>/
+        #    vmlinuz é o arquivo REAL do pacote — o MESMO bytes que bootou
+        #    o live agora. Sobrevive ao copytoram POR DEFINIÇÃO (a árvore
+        #    de módulos está no squashfs em uso; só o /boot pode ter sido
+        #    slimado). Fecha a cascata: nunca mais 'fonte NENHUMA' enquanto
+        #    o live roda o kernel que o alvo precisa. O estágio tmpfs usa
+        #    o NOME de kernel que o alvo JÁ TEM (contrato kernel único —
+        #    nunca CRIA uma 2ª entrada) e desce na MESMA prova da cascata.
+        live_kver="$(uname -r)"
+        live_vm="/usr/lib/modules/${live_kver}/vmlinuz"
+        if [ -f "$live_vm" ]; then
+            derived="vmlinuz-$(printf '%s' "$live_kver" | sed -E 's/^[0-9][0-9.]*-[0-9]+-/linux-/')"
+            kname="$derived"
+            if ! compgen -G "${ROOT}/boot/${derived}" >/dev/null 2>&1; then
+                onlyk="$(find "${ROOT}/boot" -maxdepth 1 -name 'vmlinuz-*' -print -quit 2>/dev/null)"
+                if [ -n "$onlyk" ]; then
+                    kname="$(basename "$onlyk")"
+                    echo "ELITE: fonte D — nome derivado (${derived}) ausente no alvo; usando o kernel único presente (${kname})"
+                fi
+            fi
+            stage_dir="/tmp/.elite-kernel-src-$$"
+            rm -rf "$stage_dir"
+            mkdir -p "$stage_dir"
+            if cp --sparse=never "$live_vm" "${stage_dir}/${kname}" 2>/dev/null ||
+                cp -f "$live_vm" "${stage_dir}/${kname}"; then
+                KERNEL_SRC="$stage_dir"
+                echo "ELITE: fonte D — kernel EM EXECUÇÃO do live (${live_vm} → ${kname})"
+            else
+                rm -rf "$stage_dir"
+            fi
+        fi
+    fi
+    echo "ELITE: fonte dos kernels = ${KERNEL_SRC:-NENHUMA (copytoram sem ISO montável e sem kernel do live — auditando o unpackfs)}"
     copied=0
     if [ -n "$KERNEL_SRC" ]; then
         for kv in "$KERNEL_SRC"/vmlinuz-*; do
@@ -100,16 +162,26 @@ if [ "$(findmnt -n -o FSTYPE "$ROOT")" = "btrfs" ]; then
                 exit 1
             }
             tmp="${ROOT}/boot/.elite-${kbase}.tmp"
-            rm -f "$tmp"
             echo "ELITE: recopiando ${kbase} (${src_size} bytes) com verificação byte-a-byte…"
-            if ! cp -f "$kv" "$tmp"; then
-                echo "ELITE: ERRO — cp de ${kbase} falhou (disco cheio? $(df -h "$ROOT/boot" 2>/dev/null | tail -1))" >&2
+            # v1.10: escrita --sparse=never (a classe de truncamento em
+            # btrfs comprimido está ligada a escrita sparse) + 1 retry —
+            # só falha alto DEPOIS de 2 tentativas provadas ruins.
+            okcopy=0
+            for attempt in 1 2; do
                 rm -f "$tmp"
-                exit 1
-            fi
-            dst_size="$(stat -c%s "$tmp" 2>/dev/null || echo 0)"
-            if [ "$dst_size" != "$src_size" ] || ! cmp -s "$kv" "$tmp"; then
-                echo "ELITE: ERRO — cópia de ${kbase} truncada/corrompida (fonte ${src_size} B, destino ${dst_size} B)" >&2
+                if ! cp -f --sparse=never "$kv" "$tmp"; then
+                    echo "ELITE: cp de ${kbase} falhou na tentativa ${attempt} (disco cheio? $(df -h "$ROOT/boot" 2>/dev/null | tail -1))" >&2
+                    continue
+                fi
+                dst_size="$(stat -c%s "$tmp" 2>/dev/null || echo 0)"
+                if [ "$dst_size" = "$src_size" ] && cmp -s "$kv" "$tmp"; then
+                    okcopy=1
+                    break
+                fi
+                echo "ELITE: tentativa ${attempt} de ${kbase} divergiu (fonte ${src_size} B, destino ${dst_size} B) — recopiando"
+            done
+            if [ "$okcopy" -ne 1 ]; then
+                echo "ELITE: ERRO — cópia de ${kbase} truncada/corrompida após 2 tentativas (fonte ${src_size} B); abortando com motivo" >&2
                 rm -f "$tmp"
                 exit 1
             fi
@@ -267,6 +339,23 @@ if [ -f "${ROOT}/boot/vmlinuz-linux-cachyos-bore" ] &&
             grep -q 'menuentry' "${ROOT}/boot/grub/grub.cfg" &&
             grep -q 'vmlinuz' "${ROOT}/boot/grub/grub.cfg"; then
             echo "ELITE: [M1.1] grub.cfg regenerado com entradas reais de kernel"
+            # 3d-clean (v1.10 — diretriz do dono: 'limpa as opções de kernel
+            # e entrada e deixa a principal totalmente funcional'). Contrato
+            # KERNEL ÚNICO: nenhum vmlinuz-* no menu além do BORE — kernel
+            # órfão no grub.cfg = entrada morta/poluição → instalação
+            # reprovada com motivo (gate duro, mesma escola do M1.1).
+            orphans="$(grep -v '^[[:space:]]*#' "${ROOT}/boot/grub/grub.cfg" \
+                | grep -Eo 'vmlinuz-[A-Za-z0-9._-]+' \
+                | sort -u \
+                | grep -Ev '^vmlinuz-linux-cachyos-bore$' || true)"
+            if [ -n "$orphans" ]; then
+                echo "ELITE: [M1.1] ERRO — grub.cfg referencia kernel órfão (fora do contrato kernel único): $orphans — abortando" >&2
+                exit 1
+            fi
+            echo "ELITE: [M1.1] grub.cfg limpo — kernel único (vmlinuz-linux-cachyos-bore) é a entrada principal"
+            if ! grep -q 'initramfs-linux-cachyos-bore-fallback' "${ROOT}/boot/grub/grub.cfg"; then
+                echo "ELITE: [M1.1] AVISO — entrada fallback ausente no grub.cfg (o menu segue funcional com a principal)"
+            fi
         else
             echo "ELITE: [M1.1] ERRO — grub.cfg sem menuentry/vmlinuz; abortando" >&2
             exit 1

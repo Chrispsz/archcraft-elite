@@ -1859,7 +1859,7 @@ assert_grep "$P/airootfs/etc/skel/.config/elite/dock.css" 'inset 0 -3px' \
 STG="$REPO/elite/airootfs/usr/local/bin/elite-install-stage"
 assert_grep "$STG" 'cmp -s "\$kv" "\$tmp"' "v1.8: cópia do kernel verificada byte-a-byte ANTES da promoção"
 assert_grep "$STG" 'cmp -s "\$kv" "\${ROOT}/boot/\${kbase}"' "v1.8: re-verificação APÓS a promoção (prova final no alvo)"
-assert_grep "$STG" 'dst_size.*!=.*src_size' "v1.8: tamanho conferido fonte⇄destino (truncamento pega na hora)"
+assert_grep "$STG" '"\$dst_size" = "\$src_size"' "v1.10: tamanho conferido fonte⇄destino — só promove com IGUALDADE provada (v1.10: retry ×2 antes de falhar alto)"
 assert_grep "$STG" 'rm -f "\$tmp"' "v1.8: tmp removido nos caminhos de erro (nada de lixo em /boot)"
 assert_nogrep "$STG" 'cp -f "\$kv" "\${ROOT}/boot/\${kbase}" &&' \
   "v1.8: o cp cego antigo (exit ignorado) EXTINTO do stage"
@@ -1943,5 +1943,27 @@ while IFS= read -r calvar; do
 done < <(awk "/cat > \\/etc\\/calamares.*<<'EOSB'/{f=1;next} /^EOSB$/{f=0} f && /^[[:space:]]*#/{next} f" "$ECF" \
          | grep -oE '\$\{?[A-Za-z_]+\}?' | tr -d '${}' | sort -u)
 assert_eq "$cal_bad" "" "v1.7: heredocs do Calamares sem \$ de shell (allowlist-only — a classe 'Missing variables' morta por contrato)"
+
+# ── v2.3.2 — E18/E19: log do Calamares 25/out (rig do dono) ──
+#   a) ufw.service habilitado pelo post_install upstream com o pacote JÁ
+#      fora da ISO (E14) → "Unit ufw.service does not exist" em toda
+#      instalação; b) pacman -Rns nvidia-open (nome que não existe — o
+#      real é nvidia-open-dkms) → transação inteira morre; c) `which`
+#      ausente da ISO → "command not found" no post_install e no grubcfg;
+#   d) slideshow default girando "Next slide" a cada 5s (banner debloat).
+assert_grep "$ECF" "s/'ufw\.service'//g" \
+  "E18a: ufw.service sai da lista de units do post_install (pacote saiu no E14 — unit não existe mais)"
+assert_grep "$ECF" 'nvidia-open-dkms\\1/g' \
+  "E18b: nvidia-open → nvidia-open-dkms no post_install (nome real — a transação -Rns volta a funcionar)"
+assert_grep "$REPO/elite/packages.add" '^which$' \
+  "E18c: `which` na ISO (post_install:315 e grubcfg chamam which — 'command not found' em toda instalação)"
+assert_grep "$ECF" 'defaultPartitionTableType: \[ "gpt", "msdos" \]' \
+  "E19a: defaultPartitionTableType explícito — reproduz o automático (GPT/UEFI, msdos/BIOS) e mata o warning"
+assert_grep "$ECF" 's/nonempty: true/minLength: 1/' \
+  "E19b: users.conf nonempty → minLength: 1 (a 3.4 ignora nonempty — warning morto)"
+assert_grep "$ECF" "slideshow: \"show.qml\"" \
+  "E19c: branding aponta pro banner único estático (fim do loop 'Next slide' a cada 5s)"
+assert_grep "$ECF" 'show.qml' \
+  "E19c: show.qml mínimo existe no customize (slide estático, sem dependência de calamares.slideshow)"
 
 phase_end
