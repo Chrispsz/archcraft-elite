@@ -16,14 +16,30 @@
 # o ícone REAL agora vem do tema via Gio.DesktopAppInfo, resolvido pela
 # própria dock). O picker só entrega o .desktop ao craft-pin, que
 # valida, faz backup, grava e recarrega a dock (SIGUSR2).
+#
+# v2.3.1 — FIM DO SILÊNCIO: o picker era o MAIOR silencioso da família
+# (morria na linha do command -v sem JAMAIS aparecer para o usuário — a
+# denúncia do rig: "fixar app na dock não abre menu"). Agora open/falha
+# deixam linha em ~/.cache/elite/menus.log e crash do fuzzel avisa na tela.
 set -euo pipefail
 
-command -v fuzzel >/dev/null 2>&1 || { echo "✖ fuzzel não encontrado" >&2; exit 1; }
-command -v craft-pin >/dev/null 2>&1 || { echo "✖ craft-pin não encontrado" >&2; exit 1; }
+MLOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/menus.log"
+mlog() {
+    mkdir -p "${MLOG%/*}" 2>/dev/null
+    if [ -f "$MLOG" ] && [ "$(wc -c <"$MLOG" 2>/dev/null || echo 0)" -gt 262144 ]; then
+        : >"$MLOG"
+    fi
+    printf '[%s] %s\n' "$(date '+%F %T')" "$1" >>"$MLOG" 2>/dev/null
+    return 0
+}
+
+command -v fuzzel >/dev/null 2>&1 || { mlog "Fixar: fuzzel AUSENTE — picker morreu antes de abrir"; notify-send -a 'Elite' -u critical 'Fixar na dock falhou' "fuzzel ausente — detalhe em ~/.cache/elite/menus.log" 2>/dev/null || true; exit 1; }
+command -v craft-pin >/dev/null 2>&1 || { mlog "Fixar: craft-pin AUSENTE"; exit 1; }
 
 # ── 1. Inventário: .desktop visíveis (overrides primeiro — XDG order) ──
 LIST="$(mktemp)"
-trap 'rm -f "$LIST"' EXIT
+errf="$(mktemp)"
+trap 'rm -f "$LIST" "$errf"' EXIT
 : >"$LIST"
 seen=""
 for d in /usr/local/share/applications /usr/share/applications; do
@@ -42,8 +58,18 @@ done
 [ -s "$LIST" ] || { echo "✖ nenhum aplicativo encontrado" >&2; exit 1; }
 
 # ── 2. Escolha (fuzzel dmenu central — é um picker, não um dropdown) ──
+# v2.3.1: stderr CAPTURADO — crash vira log + notify (nunca morte calada)
+mlog "Fixar: abrindo picker (fuzzel, $(grep -c . "$LIST") apps)"
+ec=0
 choice="$(cut -f1 "$LIST" | fuzzel --dmenu --lines=10 --width=32 \
-    --prompt='Fixar na dock  ' 2>/dev/null || true)"
+    --prompt='Fixar na dock  ' 2>"$errf")" || ec=$?
+if [ "$ec" -ne 0 ]; then
+    mlog "Fixar: FUZZEL FALHOU exit=$ec — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
+    command -v notify-send >/dev/null 2>&1 && \
+        notify-send -a 'Elite' -u critical 'Fixar na dock falhou' \
+            "fuzzel exit=$ec — detalhe em ~/.cache/elite/menus.log" || true
+    exit 1
+fi
 [ -n "$choice" ] || exit 0   # Esc: nada acontece
 
 base="$(awk -F'\t' -v n="$choice" '$1 == n {print $2; exit}' "$LIST")"
