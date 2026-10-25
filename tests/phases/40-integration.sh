@@ -408,10 +408,36 @@ assert_nofile "$P/airootfs/etc/systemd/system/fg-booster.service" "v2.2: fg-boos
 # v1.8.2: os APPLETS GUI VOLTARAM (áudio do dono: TUI não é o dia-a-dia
 # dele) — nm-applet + blueman-applet na tray, craft-connect abre GUIs;
 # os TUIs impala/bluetui seguem como fallback (craft-connect) e o comentário
-# do autostart documenta a volta
-assert_nogrep "$P/airootfs/etc/skel/.config/labwc/autostart" '^[[:space:]]*nm-applet &' "v2.0: nm-applet fora do autostart (ícone SNI antigo/quebrado — áudio do dono)"
-assert_nogrep "$P/airootfs/etc/skel/.config/labwc/autostart" '^[[:space:]]*blueman-applet &' "v2.0: blueman-applet fora do autostart (um ponto só de conectividade)"
+# do autostart documenta a direção v2.0
+# v2.3.5 — RETORNO DO nm-applet COM EVIDÊNCIA (a v2.0 o tirou por estética
+# dos ícones SNI; o rig v2.3.2 provou o custo: sem conector para o usuário
+# comum — o nm-connection-editor EDITA, não CONECTA). blueman-applet segue
+# fora (o blueman-manager do craft-connect cobre o pareamento em janela).
+assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" '^[[:space:]]*nm-applet &' "v2.3.5: nm-applet VOLTOU ao autostart — o conector de verdade (relato do dono: 'como conector numa rede wi-fi assim?')"
+assert_nogrep "$P/airootfs/etc/skel/.config/labwc/autostart" '^[[:space:]]*blueman-applet &' "v2.0: blueman-applet fora do autostart (o blueman-manager do craft-connect cobre — mesma decisão)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'craft-connect' "v2.0: o comentário do autostart documenta a direção v2.0 (um ponto só de conectividade)"
+
+# ── v2.3.5 — AS CURAS DO RIG v2.3.2 (prints e relatos do dono) ──────────
+assert_grep "$P/airootfs/usr/local/bin/craft-connect" 'Wi-Fi e Ethernet \(editar conexões\)' "v2.3.5: rótulo honesto no craft-connect — o item abre o EDITOR (editar ≠ conectar; o conector é o nm-applet na tray)"
+assert_grep "$P/airootfs/usr/local/share/applications/lstopo.desktop" 'NoDisplay=true' "v2.3.5: lstopo (hardware locality) fora do Launchpad — override NoDisplay, o padrão xgps"
+assert_grep "$P/airootfs/usr/local/share/applications/lstopo-no-graphics.desktop" 'NoDisplay=true' "v2.3.5: lstopo-no-graphics também oculto (mesma classe — dep de terceiros não é app do dono)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/environment" 'XDG_DATA_DIRS=.*flatpak/exports/share' "v2.3.5: flatpak exports no XDG_DATA_DIRS da sessão (o Sober sem ícone é isso — literal, sem depender de expansão)"
+assert_grep "$REPO/elite/fragments/elite-customize.sh" 'Defaults !lecture' "v2.3.5: E20 mata a palestra do sudo (o print 'Presumimos que você recebeu…' é ruído, não segurança)"
+assert_grep "$REPO/elite/fragments/elite-customize.sh" 'visudo -cf' "v2.3.5: E20 valida o sudoers com visudo antes de aceitar (sudoers quebrado derruba TODA a elevação)"
+assert_grep "$P/airootfs/etc/skel/.config/elite/idle.conf" 'SUSPEND_MIN=0' "v2.3.5: auto-suspend é OPT-IN no idle.conf (0 = off — a ISO não muda comportamento às escondidas)"
+assert_grep "$P/airootfs/usr/local/bin/craft-idle" 'systemctl suspend' "v2.3.5: craft-idle suspende de verdade quando SUSPEND_MIN > 0 (o before-sleep trava antes — acorda no lock)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'nm-applet &' "v2.3.5: o conector Wi-Fi está na sessão sem guard quebrado (command -v)"
+
+# craft-dump — o 'btop completão' (pedido do dono: RAM, pacotes, CPU, uso,
+# caches e os logs da Elite num arquivo único que ele pode me mandar)
+DUMP="$P/airootfs/usr/local/bin/craft-dump"
+assert_file "$DUMP" "v2.3.5: craft-dump existe (o diagnóstico completo do dono)"
+assert_grep "$DUMP" '/dev/tcp/termbin\.com/9999' "v2.3.5: --upload via /dev/tcp (termbin sem nc — a ISO não o carrega)"
+assert_grep "$DUMP" 'journalctl -b -u systemd-suspend' "v2.3.5: o dump caça o despertar (journal do suspend — o 'acordou sozinho' do dono)"
+assert_grep "$DUMP" '/proc/acpi/wakeup' "v2.3.5: tabela ACPI wakeup no dump (quem acorda o rig: dispositivo vs BIOS)"
+assert_grep "$DUMP" 'pacman -Qe' "v2.3.5: pacotes explícitos no dump (a coletânea audita o que existe de verdade)"
+assert_grep "$DUMP" 'tail -n 150' "v2.3.5: logs tailados no dump (evidência recente — sem arquivo gigante)"
+assert_grep "$REPO/scripts/apply-overlay.sh" '/usr/local/bin/craft-dump' "v2.3.5: craft-dump no file_permissions (senão 203/EXEC no live — a lição diag-boot2)"
 
 # ── v1.0.3 CURADORIA "brabos 2026": uso geral de fábrica ───────────
 # v1.1 (MEGA PROMPT): a camada GUI legada/GTK3 foi purgada (mousepad,
@@ -1527,6 +1553,7 @@ for menu in craft-power craft-connect craft-pin-pick craft-idle craft-logout cra
   # positivos (mais robustos que nogrep: o 2>/dev/null do pkill do toggle é legítimo)
   assert_grep "$P/airootfs/usr/local/bin/$menu" '2>"\$errf"' "v2.3.1: $menu captura o stderr do fuzzel (mktemp errf — crash deixa rastro)"
   assert_grep "$P/airootfs/usr/local/bin/$menu" 'FUZZEL FALHOU' "v2.3.1: $menu tem caminho de erro de fuzzel LOGADO (exit != 0 nunca é calado)"
+  assert_grep "$P/airootfs/usr/local/bin/$menu" 'eq 143' "v2.3.5: $menu trata SIGTERM do toggle/cross-dismiss como fechamento benigno (o falso 'fuzzel exit=143' crítico do print do dono morreu)"
 done
 assert_grep "$P/airootfs/usr/local/bin/craft-pin-pick" 'command -v fuzzel >/dev/null 2>&1 \|\|' "v2.3.1: craft-pin-pick com guard de fuzzel (morria calado na linha 21)"
 

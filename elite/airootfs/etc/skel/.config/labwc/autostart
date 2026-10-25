@@ -67,14 +67,20 @@ if [ -x /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 ]; then
     /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 &
 fi
 
-# --- Bluetooth/Rede (v2.0): os APPLETS saem do autostart de vez (áudio
-#     do dono: "um ícone antigo… e um de Bluetooth. Ambos ficaram meio
-#     quebrados" — os ícones SNI legados destoam do rice e duplicam o
-#     botão de rede). A conectividade tem UM ponto de entrada: o
-#     craft-connect na barra (diretriz v1.4: "um só ícone p/ tudo"),
-#     abrindo as GUIs completas (nm-connection-editor/blueman-manager,
-#     W-n/W-S-b). Os applets continuam INSTALADOS — quem quiser, sobe à
-#     mão; de fábrica, o tray fica só com o que o dono usa (udiskie).
+# --- Bluetooth/Rede (v2.0 → v2.3.5 — a história, com as duas evidências):
+#     v2.0 tirou os applets do autostart (áudio do dono: "um ícone antigo…
+#     e um de Bluetooth. Ambos ficaram meio quebrados") — e a conectividade
+#     ficou no craft-connect. O rig v2.3.2 trouxe a CONTRA-EVIDÊNCIA:
+#     "cliquei em wi-fi e ethernet e apareceu um menu pra criar/remover
+#     conexões manualmente — como conector numa rede wi-fi assim?" O
+#     nm-connection-editor EDITA, não CONECTA; o fluxo do usuário comum é
+#     o ícone de rede da TRAY (nm-applet): clique → redes do entorno →
+#     senha → conectado. FUNÇÃO vence estética: o nm-applet volta ao
+#     autostart (o craft-connect segue como central para edição/GUIs —
+#     W-n/W-S-b). O blueman-manager segue no craft-connect para Bluetooth.
+if command -v nm-applet >/dev/null 2>&1; then
+    nm-applet &
+fi
 
 # --- USB: automount + notificação (udiskie — daemon próprio; o
 #     thunar-volman só age com o Thunar aberto)

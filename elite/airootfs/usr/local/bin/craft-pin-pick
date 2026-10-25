@@ -63,6 +63,12 @@ mlog "Fixar: abrindo picker (fuzzel, $(grep -c . "$LIST") apps)"
 ec=0
 choice="$(cut -f1 "$LIST" | fuzzel --dmenu --lines=10 --width=32 \
     --prompt='Fixar na dock  ' 2>"$errf")" || ec=$?
+if [ "$ec" -eq 143 ]; then
+    # v2.3.5 — SIGTERM = fechado de fora (toggle/cross-dismiss) —
+    # benigno: sem notify crítico falso (o print do dono).
+    mlog "Fixar: fechado de fora (SIGTERM — toggle/cross-dismiss) — benigno"
+    exit 0
+fi
 if [ "$ec" -ne 0 ]; then
     mlog "Fixar: FUZZEL FALHOU exit=$ec — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
     command -v notify-send >/dev/null 2>&1 && \

@@ -45,7 +45,15 @@ pkill -f 'fuzzel.*--prompt=Encer' 2>/dev/null || true
 # Wi-Fi/Ethernet/VPN em árvore; blueman-manager para Bluetooth com
 # pareamento em janela). Os TUIs Rust continuam como fallback no foot
 # (e W-n/W-S-b agora apontam para os GUIs — rc.xml).
-MENU='Wi-Fi e Ethernet (configurações)
+#
+# v2.3.5 — HONESTIDADE DE RÓTULO (relato do dono: "cliquei em wi-fi e
+# ethernet e apareceu um menu pra criar ou remover as conexões
+# manualmente, aí é complicado né como conector numa rede wi-fi assim"):
+# o nm-connection-editor EDITA conexões, não CONECTA. O fluxo canônico de
+# conectar é o ícone de rede da TRAY (nm-applet, de volta ao autostart —
+# clique → redes do entorno → senha → conectado). O item abaixo é
+# edição; o rótulo agora diz o que ele faz.
+MENU='Wi-Fi e Ethernet (editar conexões)
 Bluetooth (dispositivos)'
 
 if command -v fuzzel >/dev/null 2>&1; then
@@ -59,6 +67,13 @@ if command -v fuzzel >/dev/null 2>&1; then
     choice="$(printf '%s\n' "$MENU" | fuzzel --dmenu \
         --anchor=top-right --x-margin=10 --y-margin=44 \
         --lines=2 --width=28 --prompt='Rede  ' 2>"$errf")" || ec=$?
+    if [ "$ec" -eq 143 ]; then
+        # v2.3.5 — SIGTERM = fechado de fora (toggle/cross-dismiss) —
+        # benigno: sem notify crítico falso (o print do dono).
+        mlog "Rede: fechado de fora (SIGTERM — toggle/cross-dismiss) — benigno"
+        rm -f "$errf"
+        exit 0
+    fi
     if [ "$ec" -ne 0 ]; then
         mlog "Rede: FUZZEL FALHOU exit=$ec — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
         command -v notify-send >/dev/null 2>&1 && \
@@ -72,7 +87,7 @@ else
 fi
 
 case "$choice" in
-    'Wi-Fi e Ethernet (configurações)')
+    'Wi-Fi e Ethernet (editar conexões)')
         if command -v nm-connection-editor >/dev/null 2>&1; then
             exec nm-connection-editor
         fi
