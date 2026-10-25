@@ -586,6 +586,25 @@ assert_grep "$INST" 'menuentry' "M1.1: grub.cfg validado (menuentry + vmlinuz pr
 assert_grep "$INST" 'sync -f' "M1.1: flush completo do disco (sync + sync -f no /boot do alvo)"
 assert_nogrep "$INST" 'mkinitcpio -p linux-cachyos-bore' "M1.1: o regen NARROW do bore morreu (agora é mkinitcpio -P completo com gate duro — sem || true)"
 
+# ── M1.10: a recorrência 25/out (IMG_20261025_004850 — GRUB 'premature
+#    end of file /@/boot/vmlinuz-linux-cachyos-bore' após install feliz):
+#    com copytoram a cascata A→B→C cai TODA e o alvo seguia com o vmlinuz
+#    do UNPACKFS (a cópia que trunca em btrfs real — E10 v1.0.4). A fonte
+#    D (kernel EM EXECUÇÃO do live) fecha o buraco; a auditoria deixa de
+#    ser cega; o /boot nasce nodatacow; o menu só tem o kernel ÚNICO. ──
+assert_grep "$INST" '/usr/lib/modules/${live_kver}/vmlinuz' \
+  "M1.10: fonte D = o kernel EM EXECUÇÃO no live (à prova de copytoram — fecha a cascata A→B→C→D)"
+assert_grep "$INST" 'cp -f --sparse=never' \
+  "M1.10: escrita SEM sparse (a classe de truncamento em btrfs comprimido é escrita sparse)"
+assert_grep "$INST" 'for attempt in 1 2' \
+  "M1.10: retry antes de falhar alto (não morre na 1ª divergência de cópia)"
+assert_grep "$INST" 'chattr +C "${ROOT}/boot"' \
+  "M1.10: /boot do alvo nodatacow — arquivos de boot nascem sem zstd/CoW (GRUB lê extents crus)"
+assert_grep "$INST" "grep -Ev '^vmlinuz-linux-cachyos-bore\$'" \
+  "M1.10: gate do menu — grub.cfg só pode referenciar o kernel ÚNICO (vmlinuz órfão reprova a instalação)"
+assert_grep "$INST" 'initramfs-linux-cachyos-bore-fallback' \
+  "M1.10: presença do fallback verificada (a principal + a reserva, nada além)"
+
 # ── M1.2: Calamares transparente — log ao vivo + persistente ──
 CALLOG="$REPO/elite/airootfs/usr/local/bin/calamares-elite-log"
 CALD="$REPO/elite/airootfs/usr/local/share/applications/calamares.desktop"
