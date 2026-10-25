@@ -433,8 +433,10 @@ assert_nogrep "$P/airootfs/etc/skel/.config/waybar/config.top" '"tray"' "v2.3.6:
 DUMP="$P/airootfs/usr/local/bin/craft-dump"
 assert_file "$DUMP" "v2.3.5: craft-dump existe (o diagnóstico completo do dono)"
 assert_grep "$DUMP" '/dev/tcp/termbin\.com/9999' "v2.3.5: --upload via /dev/tcp (termbin sem nc — a ISO não o carrega)"
-assert_grep "$DUMP" 'journalctl -b -u systemd-suspend' "v2.3.5: o dump caça o despertar (journal do suspend — o 'acordou sozinho' do dono)"
+assert_grep "$DUMP" 'journalctl -u systemd-suspend' "v2.3.7: o dump caça o despertar em TODOS os boots (-b só via o atual — o plano do dono: dias ligado e o dump no fim; o 'acordou sozinho' de anteontem precisa aparecer)"
 assert_grep "$DUMP" "tr -d '\\\\0'" "v2.3.6: NUL morre na fonte do dump (o rig flagrou 'byte nulo ignorado' no upload — journal cospem NUL)"
+assert_grep "$DUMP" "grep -iE 'wake" "v2.3.7: varredura wake/resume também cross-boot (a caça ao despertar não termina no reboot)"
+assert_grep "$P/airootfs/etc/systemd/journald.conf.d/99-elite-cap.conf" '^Storage=persistent' "v2.3.7: journal PERSISTENTE (Storage=auto + sem /var/log/journal = volátil — cada reboot apagava a história que o dump conta; a raiz do plano 'só craft-dump --upload')"
 
 # ── v2.3.6 — O DUMP DO RIG (740 linhas): 4 curas de release + UX ─────────
 TUN="$REPO/elite/airootfs/usr/local/bin/elite-tune"

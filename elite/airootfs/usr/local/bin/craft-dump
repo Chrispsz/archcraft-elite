@@ -78,9 +78,9 @@ r() { # r <comando> [linhas]
     printf '\n══════════ SUSPEND/ACPI — A CAÇA AO DESPERTAR ══════════\n'
     printf '(despertar imediato após suspender = dispositivo/BIOS — as linhas\n'
     printf ' abaixo mostram QUEM acordou e QUANDO)\n'
-    r "journalctl -b -u systemd-suspend --no-pager 2>/dev/null | tail -40" 45
+    r "journalctl -u systemd-suspend --no-pager 2>/dev/null | tail -40" 45
     r "cat /proc/acpi/wakeup 2>/dev/null" 25
-    r "journalctl -b --no-pager 2>/dev/null | grep -iE 'wake(ing|up)?|resume|suspending' | tail -25" 30
+    r "journalctl --no-pager 2>/dev/null | grep -iE 'wake(ing|up)?|resume|suspending' | tail -25" 30
     r "grep -E '^[#]?Handle(Suspend|Power|Lid)' /etc/systemd/logind.conf 2>/dev/null" 6
 
     printf '\n══════════ JOURNAL — ERROS DESTE BOOT ══════════\n'
