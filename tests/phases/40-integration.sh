@@ -1499,6 +1499,35 @@ else
   skip "v1.3: fuzzel.ini parse INI" "python3 indisponível"
 fi
 
+# ── v2.3.1 — FIM DO SILÊNCIO DOS MENUS (denúncia do rig: "os menus ────────
+# morreram e não funcionam"): os 5 dropdowns da família craft-* vivem no
+# fuzzel e falhavam com stderr no /dev/null — morte calada, zero rastro.
+# Contrato: TODOS logam em ~/.cache/elite/menus.log (helper mlog) e o
+# fuzzel call captura o stderr (crash vira linha de log + notify).
+for menu in craft-power craft-connect craft-pin-pick craft-idle craft-logout; do
+  assert_grep "$P/airootfs/usr/local/bin/$menu" 'menus\.log' "v2.3.1: $menu loga falhas em menus.log (fim do silêncio — rig: 'os menus morreram')"
+  # positivos (mais robustos que nogrep: o 2>/dev/null do pkill do toggle é legítimo)
+  assert_grep "$P/airootfs/usr/local/bin/$menu" '2>"\$errf"' "v2.3.1: $menu captura o stderr do fuzzel (mktemp errf — crash deixa rastro)"
+  assert_grep "$P/airootfs/usr/local/bin/$menu" 'FUZZEL FALHOU' "v2.3.1: $menu tem caminho de erro de fuzzel LOGADO (exit != 0 nunca é calado)"
+done
+assert_grep "$P/airootfs/usr/local/bin/craft-pin-pick" 'command -v fuzzel >/dev/null 2>&1 \|\|' "v2.3.1: craft-pin-pick com guard de fuzzel (morria calado na linha 21)"
+
+# ── v2.3.1 — DESCOBRIBILIDADE DA DOCK ("ficou sem dock") ──────────────────
+# A dock nasce escondida POR DESIGN, mas com hotspot de 4px numa tela 4K
+# escura é indetectável — o dono bootou a v2.1.1 e reportou ausência.
+# Contratos: hotspot 10px + teaser de arranque (visível 4s em todo login)
+# + startup logado no dock.log (evidência de boot pra forense do rig).
+assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'HOTSPOT_H = 10' "v2.3.1: hotspot da dock com 10px (4px era inencontrável no rig — 'ficou sem dock')"
+assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'SHOW_AT_START_S = 4' "v2.3.1: dock nasce VISÍVEL por 4s em todo login (teaser de descoberta)"
+assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'dock iniciada' "v2.3.1: dock loga o arranque no dock.log (pins · hotspot · teaser — evidência de boot)"
+assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" '_startup_hide' "v2.3.1: teaser recolhe a dock ao fim dos 4s (autohide padrão assume)"
+
+# ── v2.3.1 — PROBE COBRE MENUS (o gate via enxergar o que o rig vê) ───────
+assert_grep "$P/airootfs/usr/local/bin/elite-session-probe" 'FUZZEL_BIN=' "v2.3.1: probe colhe FUZZEL_BIN (binário dos 5 menus)"
+assert_grep "$P/airootfs/usr/local/bin/elite-session-probe" 'FUZZEL_INI=' "v2.3.1: probe parseia o fuzzel.ini do usuário (config corrompida = menus mortos)"
+assert_grep "$P/airootfs/usr/local/bin/elite-session-probe" 'MENUS\|' "v2.3.1: probe taila o menus.log no bloco do serial (falha de menu chega no gate)"
+assert_grep "$P/airootfs/usr/local/bin/elite-session-probe" 'DOCK\|' "v2.3.1: probe taila o dock.log no bloco do serial (arranque da dock chega no gate)"
+
 # ── foot.ini: o terminal virou superfície do rice ──────────────────────────
 assert_file "$FTC" "v1.3: foot.ini existe (terminal riceado — foot nunca teve config na ISO)"
 assert_grep "$FTC" '^background = 000000$' "v1.3: foot bg preto AMOLED"

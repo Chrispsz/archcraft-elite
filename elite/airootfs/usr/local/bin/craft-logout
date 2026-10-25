@@ -1,9 +1,38 @@
 #!/usr/bin/env bash
 # craft-logout — menu de sessão (fuzzel --dmenu; Esc cancela)
 # opções: lock · logout (labwc) · reboot · shutdown
+#
+# v2.3.1 — FIM DO SILÊNCIO (família craft-*): este não tinha NEM guard de
+# fuzzel — crash era `|| exit 0` calado. Agora: guard + log em
+# ~/.cache/elite/menus.log + notify na tela (padrão dos 5 menus).
 set -euo pipefail
+
+MLOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/menus.log"
+mlog() {
+    mkdir -p "${MLOG%/*}" 2>/dev/null
+    if [ -f "$MLOG" ] && [ "$(wc -c <"$MLOG" 2>/dev/null || echo 0)" -gt 262144 ]; then
+        : >"$MLOG"
+    fi
+    printf '[%s] %s\n' "$(date '+%F %T')" "$1" >>"$MLOG" 2>/dev/null
+    return 0
+}
+
+command -v fuzzel >/dev/null 2>&1 || { mlog "Logout: fuzzel AUSENTE"; exit 1; }
+
+mlog "Logout: abrindo (fuzzel)"
+errf="$(mktemp)"
+trap 'rm -f "$errf"' EXIT
+ec=0
 choice="$(printf 'lock\nlogout\nreboot\nshutdown' \
-  | fuzzel --dmenu --prompt 'sessão: ' 2>/dev/null)" || exit 0
+  | fuzzel --dmenu --prompt 'sessão: ' 2>"$errf")" || ec=$?
+if [ "$ec" -ne 0 ]; then
+    mlog "Logout: FUZZEL FALHOU exit=$ec — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
+    command -v notify-send >/dev/null 2>&1 && \
+        notify-send -a 'Elite' -u critical 'Menu de sessão falhou' \
+            "fuzzel exit=$ec — detalhe em ~/.cache/elite/menus.log" || true
+    exit 1
+fi
+[ -n "$choice" ] || exit 0
 case "$choice" in
   lock)
     if command -v hyprlock >/dev/null 2>&1; then exec hyprlock

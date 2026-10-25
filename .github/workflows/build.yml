@@ -51,9 +51,14 @@ jobs:
           # lista e PULA qualquer shebang python: novos scripts Python no
           # bin/ não quebram o lint, e nada sai da cobertura shell.
           rc=0
+          # v2.3.1 — a lista é ENUMERADA DO DISCO (não hardcoded): o
+          # 'fg-booster' fixo aqui derrubou as builds #95 E #96 inteiras
+          # (o binário foi deletado na v2.2 — a lista continuou cobrando;
+          # 'head: cannot open ... fg-booster' = lint vermelho antes do
+          # build nem começar). Elite-tune + craft-* + autostart cobrem os
+          # shell; os python (craft-dock-gui) são pulados pelo shebang.
           for f in scripts/*.sh .ci/*.sh elite/fragments/*.sh \
                    elite/airootfs/usr/local/bin/elite-tune \
-                   elite/airootfs/usr/local/bin/fg-booster \
                    elite/airootfs/usr/local/bin/elite-status \
                    elite/airootfs/usr/local/bin/craft-* \
                    elite/airootfs/etc/skel/.config/labwc/autostart; do
@@ -402,6 +407,19 @@ jobs:
             chk $? "sessão gráfica VIVA: dock nativa viva (probe: DOCK_COUNT=${DK:-0})" "PROBLEMA REAL DE SESSÃO: dock craft-dock-gui NÃO está viva (${DK:-0}) — pin quebrado/crash (ver BARS| acima; na #93 crash-loopou 15× com 'brave.desktop' inexistente)"
             [ -n "$BE" ] && [ "$BE" -eq 0 ] 2>/dev/null
             chk $? "barras sem NENHUMA morte na sessão (BARS_EXITS=${BE:-?})" "barra(s) morreram ${BE:-?}× na sessão — crash/race/pin quebrado (exit code no BARS| acima)"
+            # v2.3.1 — MENUS: os 5 dropdowns da família craft-* (Sessão,
+            # Rede, Fixar, Idle, Logout) vivem no fuzzel e morriam calados
+            # (rig do dono: "os menus morreram"). O probe agora colhe
+            # binário + parse real do fuzzel.ini do usuário — config
+            # corrompida ou binário ausente = TODOS os menus mortos.
+            FB="$(sed 's/\x1b\[[0-9;]*m//g' serial-verify.log | grep -oE 'FUZZEL_BIN=[^ ]+' | head -1 | cut -d= -f2)"
+            FI="$(sed 's/\x1b\[[0-9;]*m//g' serial-verify.log | grep -oE 'FUZZEL_INI=[A-Za-z()]+' | head -1 | cut -d= -f2)"
+            [ -n "$FB" ] && [ "$FB" != "AUSENTE" ]
+            chk $? "menus VIVOS: fuzzel presente na sessão (FUZZEL_BIN=${FB:-?})" "PROBLEMA REAL: fuzzel AUSENTE — os 5 menus da família craft-* morrem calados"
+            # vazio = probe não reportou (regressão do probe); BAD* = INI inválido — ambos falham
+            if [ -z "$FI" ] || [ "${FI#BAD}" != "$FI" ]; then FI_BAD=1; else FI_BAD=0; fi
+            [ "$FI_BAD" -eq 0 ]
+            chk $? "menus VIVOS: fuzzel.ini parseia como INI válido (FUZZEL_INI=${FI:-?})" "PROBLEMA REAL: fuzzel.ini INVÁLIDO/ausente no probe (${FI:-?}) — todos os menus morrem antes de desenhar (classe 'os menus morreram')"
           else
             # v2.1 — FIM DO VERDE-FAKE: com KVM disponível (o runner tem,
             # confirmado nos logs), a sessão gráfica TEM que subir e o

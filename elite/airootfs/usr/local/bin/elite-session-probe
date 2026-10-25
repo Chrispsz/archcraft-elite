@@ -82,5 +82,51 @@ mem="$(free -m 2>/dev/null | awk 'NR==2 {printf "%s/%sMB", $3, $2}')"
 say "MEM=$mem"
 say "WAYBAR_VER=$(waybar --version 2>/dev/null | head -1)"
 say "LABWC_VER=$(labwc --version 2>/dev/null | head -1)"
+
+# ── v2.3.1 — MENUS: a família craft-* (Sessão/Rede/Fixar/Idle/Logout) ────
+# vive no fuzzel e morria CALADA (a denúncia do rig na v2.1.1: "os menus
+# morreram e não funcionam" — o stderr ia pro /dev/null). Evidência que o
+# probe consegue colher sem abrir janela nenhuma:
+#   FUZZEL_BIN/FUZZEL_VER — binário presente e executável;
+#   FUZZEL_INI           — o fuzzel.ini DO USUÁRIO parseado de verdade
+#                          (configparser strict; seção principal+cores é
+#                          contrato — config corrompida = todos os 5 menus
+#                          mortos antes de desenhar);
+#   MENUS|/DOCK|         — caudas dos logs de runtime (vazio = nada
+#                          falhou; falha de menu agora É logada).
+say "FUZZEL_BIN=$(command -v fuzzel 2>/dev/null || echo AUSENTE)"
+say "FUZZEL_VER=$(fuzzel --version 2>/dev/null | head -1)"
+ini_ok="skip"
+if command -v python3 >/dev/null 2>&1; then
+    for f in /root/.config/fuzzel/fuzzel.ini /home/*/.config/fuzzel/fuzzel.ini; do
+        [ -f "$f" ] || continue
+        if PYTHONDONTWRITEBYTECODE=1 python3 - "$f" <<'PY' 2>/dev/null
+import configparser, sys
+cp = configparser.ConfigParser(strict=True)
+cp.read(sys.argv[1])
+assert {'main', 'colors', 'border'} <= set(cp.sections())
+PY
+        then
+            ini_ok="OK"
+        else
+            ini_ok="BAD($f)"
+        fi
+        break
+    done
+fi
+say "FUZZEL_INI=$ini_ok"
+for f in /root/.cache/elite/menus.log /home/*/.cache/elite/menus.log; do
+    [ -f "$f" ] || continue
+    tail -8 "$f" 2>/dev/null | while IFS= read -r line; do
+        say "MENUS| $line"
+    done
+done
+for f in /root/.cache/elite/dock.log /home/*/.cache/elite/dock.log; do
+    [ -f "$f" ] || continue
+    tail -8 "$f" 2>/dev/null | while IFS= read -r line; do
+        say "DOCK| $line"
+    done
+done
+
 say "ELITE_PROBE_END"
 exit 0
