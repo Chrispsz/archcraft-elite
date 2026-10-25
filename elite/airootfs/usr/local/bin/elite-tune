@@ -1,8 +1,16 @@
 #!/usr/bin/env bash
 # =====================================================================
-#  elite-tune v4.7 — Archcraft Elite Edition
+#  elite-tune v4.8 — Archcraft Elite Edition
 #  Elite A: Ryzen 7 5700X · RTX 5060 8GB · 16GB · B550M
 #  Elite B: veterano — detecção automática de GPU/CPU/disco
+#
+#  v4.8 (v2.3.4 — FIM DO INSTALADOR NO INSTALADO): o unpackfs copia o root
+#        do LIVE inteiro p/ o disco — o Calamares e o atalho "Instalar o
+#        Archcraft" chegavam ao sistema instalado e ficavam para sempre
+#        ("ficou o botão instalar archcraft ainda no menu de aplicativos",
+#        dono). Passo 2d do firstboot (exclusivo do INSTALADO — o live
+#        precisa do Calamares): pacote + atalho + wrappers + /etc/calamares
+#        fora. Idempotente e best-effort.
 #
 #  v4.7 (v2.2 — FUSÃO DOS BOOSTERS 4→1, diretriz do dono — leveza radical):
 #        · ananicy-cpp é o ÚNICO daemon de boost: regras oficiais CachyOS
@@ -413,6 +421,34 @@ EOF
     sed -i -E '/^net\.(core\.default_qdisc|ipv4\.tcp_congestion_control)/d' \
       /etc/sysctl.d/99-elite-net.conf 2>/dev/null || true
     rm -f /etc/modules-load.d/elite-bbr.conf 2>/dev/null || true
+  fi
+
+  # 2d. v4.8 (v2.3.4) — REMOÇÃO DO INSTALADOR: mídia de instalação não é
+  #     sistema. O unpackfs copia o root do LIVE inteiro p/ o disco — o
+  #     Calamares, o atalho "Instalar o Archcraft" do Launchpad e os
+  #     scripts de instalação CHEGAVAM ao sistema instalado e ficavam
+  #     para sempre (relato do dono, out/2026). O live NÃO é tocado:
+  #     esta etapa só existe no elite-firstboot (ConditionPathExists
+  #     !/run/archiso — a unit). Idempotente (pacman -Qq decide),
+  #     best-effort no pacman (falhou → os arquivos saem igual: o
+  #     sintoma que o dono vê é o atalho no menu) e seco no --dry-run
+  #     (só anuncia — "dry é seco", v4.4).
+  if pacman -Qq calamares >/dev/null 2>&1; then
+    say "Instalador: removendo calamares do sistema instalado (mídia ≠ sistema)"
+    run pacman -Rns --noconfirm calamares || true
+    if pacman -Qq calamares >/dev/null 2>&1; then
+      warn "calamares restou (dependência?) — os atalhos saem abaixo do mesmo jeito"
+    fi
+  else
+    say "Instalador: calamares não está no disco (nada a remover)"
+  fi
+  if (( DRY )); then
+    say "[dry] remoção dos arquivos do instalador simulada (atalho · wrapper de log · stage · /etc/calamares)"
+  else
+    rm -f /usr/local/share/applications/calamares.desktop \
+          /usr/local/bin/calamares-elite-log \
+          /usr/local/bin/elite-install-stage
+    rm -rf /etc/calamares
   fi
 
   # 3. serviços de tuning

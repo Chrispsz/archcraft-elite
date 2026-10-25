@@ -3,6 +3,8 @@
 # Archcraft ELITE · craft-dock-gui (v2.0 — "a dock de verdade")
 # v2.1.1: read_pins à prova de TypeError (pin inválido é ignorado com log —
 # nunca mais crash-loop; run #93 como evidência).
+# v2.3.4: FIM DO AUTOHIDE — a dock é SEMPRE VISÍVEL (diretriz do dono:
+# "funcionando como funciona as outras distros").
 # ═══════════════════════════════════════════════════════════════════════════
 # POR QUÊ EXISTE (feedback do dono, out/2026): a dock de waybar com pins de
 # GLIFO Nerd Font entregou "botões mal recortados, mal encaixados" e "nada é
@@ -18,14 +20,25 @@
 #      tema de ícones — o app traz o próprio no hicolor), nome e exec
 #      vêm do .desktop. Zero glifo, zero desenho custom, zero override —
 #      "deixe o ícone ser tratado como o sistema já é" (dono).
-#   2. AUTOHIDE NATIVO POR HOTSPOT — superfície invisível de 10px na base
-#      (o mecanismo "-d" do nwg-dock): ponteiro entra na tira → dock sobe;
-#      sai ou clica → dock desce. W-S-d alterna (SIGUSR1). v2.3.1: a dock
-#      nasce VISÍVEL por 4s em todo login (descobribilidade — o dono não
-#      achava a dock escondida: "ficou sem dock").
-#   3. ABRAÇA O CONTEÚDO — a janela é full-width transparente e a pílula é
-#      CENTRADA com largura natural (dock "horizontalmente menor e
-#      centralizada" — o pedido literal do áudio).
+#   2. SEMPRE VISÍVEL (v2.3.4) — o auto-esconder por tira invisível
+#      (v2.0→v2.3.3) morreu NA PRÁTICA: o dono instalou a v2.3.x e a dock
+#      escondeu no fim do mostrinho de 4s e a tira na base nunca mais a
+#      devolveu ("ela sumiu e não apareceu mais"). A cura é a SEMÂNTICA DO
+#      PRÓPRIO PROTOCOLO — zero polling, zero heurística, zero estado para
+#      corromper:
+#        · layer BOTTOM: janelas em TELA CHEIA (e a gaveta de apps,
+#          fullscreen) renderizam acima da dock — ela some sozinha e
+#          volta quando a tela cheia acaba;
+#        · zona exclusiva automática: janelas maximizadas/tileadas
+#          RESPEITAM a faixa da dock (o comportamento dash-to-dock,
+#          plank e do painel do KDE);
+#        · W-S-d continua alternando (SIGUSR1) — esconder é ESCOLHA do
+#          usuário, nunca decisão automática da dock.
+#   3. PÍLULA CENTRADA — superfície ancorada SÓ na base (a layer-shell
+#      centra no eixo não-ancorado): a janela TEM o tamanho da pílula —
+#      nada de faixa invisível full-width comendo clique — e flutua
+#      PILL_FLOAT px acima da base, com o gap DENTRO da superfície
+#      (a zona exclusiva cobre o conjunto inteiro).
 #   4. INDICADOR DE ABERTO — ponto sob o ícone (classe .running) via pgrep
 #      por binário, 1× a cada 3s, IN-PROCESS (um único processo, sem
 #      exec-json por pin — a classe de leak da v1.6.2 segue extinta).
@@ -52,18 +65,11 @@ PINS_FILE = os.path.join(
 CSS_FILE = os.path.join(GLib.get_user_config_dir(), "elite", "dock.css")
 LOG = os.path.join(GLib.get_user_cache_dir(), "elite", "dock.log")
 
-ICON_SIZE = 36          # spec M3.2: escala fixa de fábrica
-MARGIN_BOTTOM = 6       # pílula flutuando 6px acima da base (modo auto)
-# v2.3.1 — rig do dono (v2.1.1): "ficou sem dock". A dock estava VIVA
-# (processo contado pelo probe, zero exits no bars.log) porém INVISÍVEL:
-# nasce escondida e o hotspot era uma tira de 4px — indetectável numa
-# tela 4K escura. Duas curas: (1) hotspot 4→10px (ainda invisível,
-# mas pegável — o nwg-dock usa faixa semelhante); (2) a dock nasce
-# VISÍVEL por SHOW_AT_START_S segundos em todo login — o usuário VÊ
-# onde ela vive antes do autohide assumir.
-HOTSPOT_H = 10          # tira invisível que revela a dock (hotspot)
-SHOW_AT_START_S = 4     # dock visível nos primeiros segundos da sessão
-HIDE_DELAY_MS = 400     # saiu da dock → desce depois deste atraso
+ICON_SIZE = 36   # spec M3.2: escala fixa de fábrica
+# v2.3.4 — o float da pílula mora DENTRO da superfície (margem GTK no
+# widget, não margem layer-shell): a zona exclusiva cobre pílula + vão —
+# a janela maximizada nunca invade nem o vão transparente.
+PILL_FLOAT = 6
 
 
 def log(msg):
@@ -129,83 +135,42 @@ def binary_of(info):
 
 class Dock:
     def __init__(self):
-        self.shown = False
-        self.hide_source = None
+        self.shown = True  # v2.3.4: nasce visível e fica — esconder é escolha (W-S-d)
         self.buttons = []  # (button, binary)
 
         self.win = Gtk.Window()
         self.win.set_name("dockwindow")
         GtkLayerShell.init_for_window(self.win)
-        GtkLayerShell.set_layer(self.win, GtkLayerShell.Layer.OVERLAY)
-        for edge in (GtkLayerShell.Edge.BOTTOM, GtkLayerShell.Edge.LEFT,
-                     GtkLayerShell.Edge.RIGHT):
-            GtkLayerShell.set_anchor(self.win, edge, True)
-        GtkLayerShell.set_exclusive_zone(self.win, -1)
-        GtkLayerShell.set_margin(self.win, GtkLayerShell.Edge.BOTTOM,
-                                 MARGIN_BOTTOM)
+        # layer BOTTOM — o coração do v2.3.4: janelas normais ficam ACIMA da
+        # camada background/bottom (a dock não as cobre), e a tela cheia de
+        # qualquer app cobre a dock. O "esconder em tela cheia" é a ordem de
+        # renderização do protocolo — não existe código para falhar.
+        GtkLayerShell.set_layer(self.win, GtkLayerShell.Layer.BOTTOM)
+        # Ancorada SÓ na base: a layer-shell centra no eixo não-ancorado —
+        # a superfície TEM o tamanho da pílula (nada de faixa invisível
+        # full-width comendo clique ao lado dela).
+        GtkLayerShell.set_anchor(self.win, GtkLayerShell.Edge.BOTTOM, True)
+        # Zona exclusiva automática: maximizadas/tileadas respeitam a faixa
+        # da dock ("como funciona as outras distros" — diretriz do dono).
+        GtkLayerShell.auto_exclusive_zone_enable(self.win)
 
-        outer = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        outer.set_halign(Gtk.Align.CENTER)
-        outer.set_valign(Gtk.Align.START)
         self.pill = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
         self.pill.set_name("dockbox")
-        outer.pack_start(self.pill, False, False, 0)
-        self.win.add(outer)
+        self.pill.set_margin_bottom(PILL_FLOAT)
+        self.win.add(self.pill)
 
         self.rebuild()
 
-        # hotspot: tira invisível de 10px — revela a dock quando o ponteiro
-        # encosta na base (o "-d" do nwg-dock, portável via layer-shell)
-        self.hot = Gtk.Window()
-        self.hot.set_name("hotspot")
-        GtkLayerShell.init_for_window(self.hot)
-        GtkLayerShell.set_layer(self.hot, GtkLayerShell.Layer.TOP)
-        for edge in (GtkLayerShell.Edge.BOTTOM, GtkLayerShell.Edge.LEFT,
-                     GtkLayerShell.Edge.RIGHT):
-            GtkLayerShell.set_anchor(self.hot, edge, True)
-        GtkLayerShell.set_exclusive_zone(self.hot, -1)
-        self.hot.set_default_size(1, HOTSPOT_H)
-        strip = Gtk.Box()
-        strip.set_size_request(1, HOTSPOT_H)
-        self.hot.add(strip)
-        motion = Gtk.EventControllerMotion.new(self.hot)
-        motion.connect("enter", self._hotspot_enter)
-        motion.connect("leave", lambda *_: None)
-
-        motion_win = Gtk.EventControllerMotion.new(self.win)
-        motion_win.connect("leave", self._dock_leave)
-        motion_win.connect("enter", self._dock_enter)
-
         self.load_css()
         self.win.show_all()
-        self.win.hide()
-        self.hot.show_all()
-        self.shown = False
+        log(f"dock iniciada: {len(self.buttons)} pin(s) · "
+            f"sempre visível (layer BOTTOM — some só sob tela cheia/gaveta)")
 
         GLib.timeout_add(3000, self.poll_running)
         GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGUSR1,
                              self.toggle)
         GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGUSR2,
                              self.rebuild)
-
-        # v2.3.1 — DESCOBRIBILIDADE: todo login MOSTRA a dock por 4s
-        # (o dono booto a v2.1.1, não achou a dock — "ficou sem dock" —
-        # porque nascer escondida + hotspot de 4px não ensina NADA).
-        # Depois do teaser, o autohide padrão assume.
-        self.win.show_all()
-        self.shown = True
-        log(f"dock iniciada: {len(self.buttons)} pin(s) · "
-            f"hotspot {HOTSPOT_H}px · visível {SHOW_AT_START_S}s (descoberta)")
-        GLib.timeout_add_seconds(SHOW_AT_START_S, self._startup_hide)
-
-    def _startup_hide(self, *_):
-        """Fim do teaser de arranque: recolhe SÓ se o usuário não estiver
-        com o ponteiro sobre a dock (hover cancela via hide_source)."""
-        if self.shown:
-            self.win.hide()
-            self.shown = False
-            log("dock recolhida (fim do teaser de arranque — hotspot na base)")
-        return False
 
     # ── CSS ──────────────────────────────────────────────────────────────
     def load_css(self):
@@ -267,7 +232,6 @@ class Dock:
             log(f"lançado: {cmd}")
         except OSError as exc:
             log(f"falha ao lançar {cmd}: {exc}")
-        self.hide_now()
 
     # ── indicador de aberto (pgrep in-process) ───────────────────────────
     def poll_running(self):
@@ -288,39 +252,13 @@ class Dock:
                 ctx.remove_class("running")
         return True
 
-    # ── autohide (hotspot + atraso de saída) ─────────────────────────────
-    def _hotspot_enter(self, *_):
-        if self.hide_source is not None:
-            GLib.source_remove(self.hide_source)
-            self.hide_source = None
-        if not self.shown:
-            self.win.show_all()
-            self.shown = True
-            log("hotspot: dock revelada")
-        return False
-
-    def _dock_enter(self, *_):
-        if self.hide_source is not None:
-            GLib.source_remove(self.hide_source)
-            self.hide_source = None
-        return False
-
-    def _dock_leave(self, *_):
-        if self.hide_source is not None:
-            GLib.source_remove(self.hide_source)
-        self.hide_source = GLib.timeout_add(HIDE_DELAY_MS, self.hide_now)
-        return False
-
-    def hide_now(self, *_):
+    def toggle(self, *_):
+        # v2.3.4: esconder é ESCOLHA do usuário (W-S-d) — nunca decisão
+        # automática. Escondida, a zona exclusiva vai embora junto (a
+        # superfície desmapeada libera a faixa — comportamento padrão).
         if self.shown:
             self.win.hide()
             self.shown = False
-        self.hide_source = None
-        return False
-
-    def toggle(self, *_):
-        if self.shown:
-            self.hide_now()
             log("toggle: dock escondida (W-S-d)")
         else:
             self.win.show_all()
@@ -331,7 +269,6 @@ class Dock:
 
 DEFAULT_CSS = b"""
 #dockwindow { background: transparent; }
-#hotspot { background: transparent; }
 #dockbox {
   background: rgba(5, 5, 8, 0.88);
   border: 1px solid rgba(22, 22, 31, 0.8);

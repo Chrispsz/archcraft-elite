@@ -6,7 +6,9 @@
 # craft-dock reload   → re-lê os pins (SIGUSR2 — usado pelo craft-pin)
 # Sem argumentos      → toggle (mesma convenção do nwg-dock: re-exec alterna)
 # A dock em si é o craft-dock-gui (GTK3 + layer-shell, supervisionado pelo
-# craft-bars). O autohide por hotspot é nativo do GUI.
+# craft-bars). SEMPRE VISÍVEL (v2.3.4 — o autohide por hotspot morreu na
+# prática: escondia e não voltava): layer BOTTOM — some só sob tela cheia
+# e gaveta; esconder à mão é o toggle acima, escolha do usuário.
 # ═══════════════════════════════════════════════════════════════════════════
 case "${1:-toggle}" in
     toggle) pkill -USR1 -f 'craft-dock-gui' 2>/dev/null || true ;;
