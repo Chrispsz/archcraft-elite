@@ -181,15 +181,11 @@ PYEOF
 )
 assert_eq "$uout" "OK 3" "systemd: 3 units parseiam (1 de sistema + 2 user v1.6.2 — INI válido, seções completas; v2.2: as 3 units de booster EXTINTAS sairam da contagem)"
 
-for f in elite-firstboot.service; do
-  assert_grep "$U/$f" '^ExecStart=/' "systemd: $f ExecStart com caminho absoluto"
-done
+assert_grep "$U/elite-firstboot.service" '^ExecStart=/' "systemd: elite-firstboot.service ExecStart com caminho absoluto"
 
-for l in multi-user.target.wants/elite-firstboot.service; do
-  [[ -L "$U/$l" ]] \
-    && ok "systemd: symlink $l (unit habilitada de fábrica)" \
-    || fail "systemd: symlink $l" "não é symlink"
-done
+[[ -L "$U/multi-user.target.wants/elite-firstboot.service" ]] \
+  && ok "systemd: symlink elite-firstboot.service (unit habilitada de fábrica)" \
+  || fail "systemd: symlink multi-user.target.wants/elite-firstboot.service" "não é symlink"
 
 # ── v2.2 — FUSÃO DOS BOOSTERS 4→1: nada do exército extinto sobra ─────
 # (scx-elite/bpfland + fg-booster/xdotool + dmemcg: 3 camadas que

@@ -185,11 +185,17 @@ blueman
 
 ## Satélites oficiais do labwc (docs labwc.github.io/integration):
 ## idle→lock, automount USB, clipboard history.
-## v1.5: wlsunset SAIU (spec do dono — tom amarelado no burn test: o
-## filtro noturno a 4000K rodava SEM coordenadas → horário fixo default;
-## paleta Mocha já é fria/neutra por natureza — nenhuma camada de cor
-## por cima do wallpaper). Night light é escolha pós-install (pacman -S
-## wlsunset), não imposição de fábrica.
+## v2.3 (auditoria minuciosa): reposição cirúrgica do que os GRUPOS do
+## upstream traziam de graça e a limpeza cortou:
+##   · xorg-server — o greeter do SDDM roda em X11 (o conf não define
+##     DisplayServer=wayland); driver = modesetting EMBUTIDO (os DDX
+##     xf86-video-* saíram). Xwayland segue vivo via dep do gtk4 — apps
+##     X11 continuam funcionando dentro do labwc.
+##   · archcraft-cursor-qogirr — CursorTheme=Qogirr do greeter (vinha do
+##     grupo archcraft-cursors, que saiu inteiro; o Bibata do rice já era
+##     explícito aqui).
+xorg-server
+archcraft-cursor-qogirr
 swayidle
 udiskie
 cliphist
