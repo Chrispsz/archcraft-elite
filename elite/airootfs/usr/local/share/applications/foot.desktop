@@ -1,7 +1,9 @@
 [Desktop Entry]
 Type=Application
 Exec=foot
-Icon=utilities-terminal
+# v2.2: Icon=foot — o ícone do PRÓPRIO pacote (hicolor do foot);
+# sem tema de ícones na ISO, ícone de tema não é garantia.
+Icon=foot
 Terminal=false
 Categories=System;TerminalEmulator;
 Keywords=shell;prompt;command;commandline;command line;command-line;terminal;emulator;

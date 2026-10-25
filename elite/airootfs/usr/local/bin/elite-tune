@@ -1,8 +1,22 @@
 #!/usr/bin/env bash
 # =====================================================================
-#  elite-tune v4.6 — Archcraft Elite Edition
+#  elite-tune v4.7 — Archcraft Elite Edition
 #  Elite A: Ryzen 7 5700X · RTX 5060 8GB · 16GB · B550M
 #  Elite B: veterano — detecção automática de GPU/CPU/disco
+#
+#  v4.7 (v2.2 — FUSÃO DOS BOOSTERS 4→1, diretriz do dono — leveza radical):
+#        · ananicy-cpp é o ÚNICO daemon de boost: regras oficiais CachyOS
+#          (cachyos-ananicy-rules) aplicando nice/ionice por processo.
+#        · o scheduler é o BORE do KERNEL — scx-scheds/scx-tools e a unit
+#          scx-elite (bpfland userspace) saíram: um scheduler userspace
+#          SOBRESCREVE o BORE; dois escalonadores = luta de autoridade e
+#          ~15 MB de RAM para decisão duplicada.
+#        · dmemcg-booster e o fg-booster próprio (poll xdotool + slice)
+#          saíram — o xdotool saiu junto. Boost de jogo = gamemode
+#          (on-demand, o que o mecanismo de cgroup tentava fazer pior).
+#        · lib32 da ISO virou ON-DEMAND: este modo (--firstboot/graft)
+#          segue recolocando o stack do vendor (mesmos comandos de
+#          sempre) — a ISO nasce 64-bit puro.
 #
 #  v4.6: · v1.1 MEGA PROMPT — a ISO embarca o nvidia-open-dkms PRÉ-COMPILADO
 #          contra o kernel BORE (E11): no rig NVIDIA o firstboot DETECTA os
@@ -37,9 +51,10 @@
 #          como AMD. Pegado pela suíte de testes (tests/, peça nv-device-bare
 #          + matrox); mesmo bug já corrigido no archcraft-cachyos-elite.
 #
-#  v4.2: · scx-elite.service própria (bpfland) — 'scx.service' não existe em
-#          pacote nenhum (scx-scheds = binários; scx-tools = scx_loader)
-#        · dmemcg-booster-SYSTEM.service (nome real da unit)
+#  v4.2: · scx-elite.service própria (bpfland) [v4.7: EXTINTA — a fusão
+#          dos boosters acabou com o sched-ext userspace; o scheduler da
+#          Elite é o BORE do kernel, custo zero em userspace]
+#        · dmemcg-booster-SYSTEM.service (nome real da unit) [v4.7: idem]
 #        · Vulkan stack AMD/Intel idempotente no firstboot
 #        · mirror us.cachyos.org (mirror.cachyos.org desativado no mirrorlist
 #          oficial) · repos inseridos antes de [core], não antes do [archcraft]
@@ -55,7 +70,6 @@
 #    · Chave GPG CachyOS: F3B607488DB35A47 (keyserver.ubuntu.com)
 #    · BORE = linux-cachyos-bore | linux-cachyos = EEVDF+ThinLTO
 #    · Repos: [cachyos](v2) + [cachyos-v3|core-v3|extra-v3]
-#    · scx-scheds → pacote "scx-tools"; VRAM mgmt → dmemcg-booster
 # =====================================================================
 set -uo pipefail
 G='\033[1;32m'; Y='\033[1;33m'; R='\033[1;31m'; B='\033[1m'; N='\033[0m'
@@ -267,7 +281,7 @@ if (( STATUS )); then
   printf '%-22s %s\n' "THP:" "$(cat /sys/kernel/mm/transparent_hugepage/enabled 2>/dev/null)"
   printf '%-22s %s\n' "repos cachyos:" "$(grep -oE '^\[cachyos[^]]*\]' $PACMAN_CONF 2>/dev/null | tr '\n' ' ')"
   echo ""
-  for s in scx-elite ananicy-cpp fg-booster dmemcg-booster-system grub-btrfsd lactd elite-firstboot; do
+  for s in ananicy-cpp grub-btrfsd lactd elite-firstboot; do
     printf 'service %-15s %s\n' "$s" "$(systemctl is-active $s.service 2>/dev/null || echo inactive)"
   done
   echo ""
@@ -278,10 +292,9 @@ if (( STATUS )); then
     echo "GPU: ${GPULINE:-$(lspci 2>/dev/null | grep -Ei 'vga|3d' | head -1)}"
   fi
   echo ""
-  echo "fg-boost.slice: $(wc -l < /sys/fs/cgroup/fg-boost.slice/cgroup.procs 2>/dev/null) pid(s) no slice turbinado"
   echo "firstboot:      $([[ -f /var/lib/elite/firstboot-done ]] && echo 'concluído' || echo 'pendente/não-ISO')"
   echo ""
-  echo "Verificações manuais: systemd-cgls /fg-boost.slice | btop | elite-tune --apps"
+  echo "Verificações manuais: btop | elite-tune --apps"
   exit 0
 fi
 
@@ -403,30 +416,10 @@ EOF
   fi
 
   # 3. serviços de tuning
+  # v4.7 (fusão 4→1): ananicy-cpp é o ÚNICO daemon de boost. O scheduler
+  # é o BORE do kernel (nenhum scheduler userspace por cima) e o boost de
+  # jogo sob demanda é o gamemode. scx-elite/dmemcg/fg-booster extintos.
   run systemctl enable --now ananicy-cpp.service || true
-  # sched-ext: unit própria scx-elite (bpfland). Trocar scheduler:
-  #   sudo systemctl edit scx-elite  →  ExecStart=/usr/bin/scx_lavd
-  if [[ ! -f /etc/systemd/system/scx-elite.service ]]; then
-    wfile /etc/systemd/system/scx-elite.service <<'EOF'
-[Unit]
-Description=Elite: sched-ext bpfland (games first)
-After=multi-user.target
-
-[Service]
-Type=simple
-ExecStart=/usr/bin/scx_bpfland
-Restart=on-failure
-RestartSec=3
-
-[Install]
-WantedBy=multi-user.target
-EOF
-    run systemctl daemon-reload
-  fi
-  run systemctl enable --now scx-elite.service || warn "scx-elite: falhou (kernel sem sched-ext?)"
-  run systemctl enable --now dmemcg-booster-system.service 2>/dev/null \
-    || warn "dmemcg-booster-system: unit não encontrada (pacman -Ql dmemcg-booster | grep service)"
-  run systemctl enable --now fg-boost.slice fg-booster.service || true
   run systemctl enable --now grub-btrfsd.service 2>/dev/null || true
   run systemctl enable --now lactd.service 2>/dev/null || true
 
@@ -479,29 +472,12 @@ confirm "Aplicar o Elite Tune neste hardware?" || exit 0
 # ── [1] CachyOS + kernel BORE (kernel único da Elite v1.1) ─────────
 ensure_cachyos
 run pacman -S --needed --noconfirm "$KERNEL_PKG" "${KERNEL_PKG}-headers"
-run pacman -S --needed --noconfirm cachyos-settings cachyos-ananicy-rules ananicy-cpp scx-scheds scx-tools dmemcg-booster
+run pacman -S --needed --noconfirm cachyos-settings cachyos-ananicy-rules ananicy-cpp
 
 # ── [2] Daemons ─────────────────────────────────────────────────────
+# v4.7: um daemon só — ananicy-cpp (o scheduler é o BORE do kernel;
+# scx-elite/dmemcg/fg-booster extintos na fusão dos boosters)
 run systemctl enable --now ananicy-cpp.service || true
-if [[ ! -f /etc/systemd/system/scx-elite.service ]]; then
-  wfile /etc/systemd/system/scx-elite.service <<'EOF'
-[Unit]
-Description=Elite: sched-ext bpfland (games first)
-After=multi-user.target
-
-[Service]
-Type=simple
-ExecStart=/usr/bin/scx_bpfland
-Restart=on-failure
-RestartSec=3
-
-[Install]
-WantedBy=multi-user.target
-EOF
-  run systemctl daemon-reload
-fi
-run systemctl enable --now scx-elite.service || true
-run systemctl enable --now dmemcg-booster-system.service 2>/dev/null || true
 
 # ── [3] Boot params ────────────────────────────────────────────────
 (( CPU_AMD )) && ensure_cmdline_token /etc/default/grub amd_pstate=active
@@ -592,33 +568,15 @@ ACTION=="add|change", KERNEL=="sd[a-z]*|mmcblk[0-9]*", ATTR{queue/rotational}=="
 EOF
 run udevadm control --reload || true
 
-# ── [6] fg-booster (nosso foreground-booster X11) ──────────────────
-run pacman -S --needed --noconfirm xdotool
-if [[ ! -x /usr/local/bin/fg-booster ]]; then
-  say "fg-booster: binário não encontrado — na ISO Elite ele já vem assado."
-  warn "instalação manual: copie fg-booster+units do repo archcraft-elite"
-fi
-wfile /etc/systemd/system/fg-boost.slice <<'EOF'
-[Unit]
-Description=Elite: slice turbinado para o app em foco
-
-[Slice]
-CPUWeight=900
-IOWeight=900
-
-[Install]
-WantedBy=multi-user.target
-EOF
-run systemctl daemon-reload
-run systemctl enable --now fg-boost.slice fg-booster.service || true
-
-# ── [7] Stack de jogo + ferramentas ─────────────────────────────────
+# ── [6] Stack de jogo + ferramentas ─────────────────────────────────
+# v4.7: a seção antiga [6] (fg-booster + xdotool + fg-boost.slice) foi
+# EXTINTA na fusão dos boosters — o boost de jogo é o gamemode abaixo.
 run pacman -S --needed --noconfirm gamemode lib32-gamemode gamescope \
   mangohud lib32-mangohud grub-btrfs timeshift lact
 run systemctl enable --now lactd.service 2>/dev/null || true
 run systemctl enable --now grub-btrfsd.service 2>/dev/null || true
 
-# ── [8] Shader cache NVIDIA ─────────────────────────────────────────
+# ── [7] Shader cache NVIDIA ─────────────────────────────────────────
 if [[ "$VENDOR" == "nvidia" ]]; then
   backup /etc/environment
   for v in __GL_SHADER_DISK_CACHE_SKIP_CLEANUP=1 __GL_SHADER_DISK_CACHE_SIZE=1073741824; do

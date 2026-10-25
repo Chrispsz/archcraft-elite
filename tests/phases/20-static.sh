@@ -106,11 +106,10 @@ assert_grep "$LF" 'grub-editenv: error: failed to get canonical path' "v1.5.2: f
 assert_grep "$LF" 'ELITE-BUMP\|baseline Arch injetado' "v1.5.2: forense reconhece recuperação de baseline (libyuv)"
 assert_grep "$LF" 'exit 1' "v1.5.2: forense sai 1 em achado fatal"
 
-# peça v1.5.2: xdotool no packages.add — o debloat v4.2 o varreu e o
-# fg-booster crash-loopou em TODA boot v1.0→v1.5 (17 'Failed with result'
-# no serial da v1.5; causa-raiz: guard exit 1 + RestartSec=5 que nunca
-# atinge o start-limit default). Presença do pacote = contrato de BUILD.
-assert_grep "$REPO/elite/packages.add" '^xdotool$' "v1.5.2: xdotool em packages.add (fg-booster — debloat v4.2 o varreu)"
+# peça v1.5.2 → v2.2: o xdotool SAIU — era dep exclusiva do fg-booster,
+# extinto na fusão dos boosters (o crash-loop v1.0→v1.5 segue contado
+# como REGRA na suíte 30-unit; a presença do pacote é agora BANIDA).
+assert_nogrep "$REPO/elite/packages.add" '^xdotool$' "v2.2: xdotool FORA da ISO (dep exclusiva do fg-booster extinto — fusão dos boosters)"
 
 # peças: bits executáveis onde o runtime exige — GLOB-DRIVEN (v1.6.2:
 # a lista manual tinha o mesmo buraco da SHELLS — craft-connect/fix-keys/
@@ -156,12 +155,10 @@ uout=$(python3 - "$U" "$UU" 2>&1 <<'PYEOF' || true
 import configparser, os, sys
 u, uu = sys.argv[1], sys.argv[2]
 cases = {
-  'scx-elite.service':      {'Unit', 'Service', 'Install'},
-  'fg-booster.service':     {'Unit', 'Service', 'Install'},
   'elite-firstboot.service': {'Unit', 'Service', 'Install'},
-  'fg-boost.slice':         {'Unit', 'Slice', 'Install'},
   # v1.6.2 — user units do skel (poda do cliphist): service puxado pelo
   # timer NÃO tem (nem precisa de) [Install]; timer tem [Timer]+[Install]
+  # v2.2 — scx-elite/fg-booster/fg-boost.slice EXTINTOS (fusão dos boosters)
   'cliphist-prune.service': {'Unit', 'Service'},
   'cliphist-prune.timer':   {'Unit', 'Timer', 'Install'},
 }
@@ -179,23 +176,45 @@ for f, want in cases.items():
             raise AssertionError(f'{f}: sem seção(ões) {missing}')
     except Exception as e:
         print(f'FALHOU: {e}'); sys.exit(1)
-print('OK 6')
+print('OK 3')
 PYEOF
 )
-assert_eq "$uout" "OK 6" "systemd: 6 units parseiam (4 de sistema + 2 user v1.6.2 — INI válido, seções completas)"
+assert_eq "$uout" "OK 3" "systemd: 3 units parseiam (1 de sistema + 2 user v1.6.2 — INI válido, seções completas; v2.2: as 3 units de booster EXTINTAS sairam da contagem)"
 
-for f in scx-elite.service fg-booster.service elite-firstboot.service; do
+for f in elite-firstboot.service; do
   assert_grep "$U/$f" '^ExecStart=/' "systemd: $f ExecStart com caminho absoluto"
 done
 
-for l in multi-user.target.wants/elite-firstboot.service \
-         multi-user.target.wants/scx-elite.service \
-         multi-user.target.wants/dmemcg-booster-system.service \
-         graphical.target.wants/fg-booster.service; do
+for l in multi-user.target.wants/elite-firstboot.service; do
   [[ -L "$U/$l" ]] \
     && ok "systemd: symlink $l (unit habilitada de fábrica)" \
     || fail "systemd: symlink $l" "não é symlink"
 done
+
+# ── v2.2 — FUSÃO DOS BOOSTERS 4→1: nada do exército extinto sobra ─────
+# (scx-elite/bpfland + fg-booster/xdotool + dmemcg: 3 camadas que
+# brigavam com o BORE do kernel e com o ananicy-cpp — a 4ª, ananicy-cpp,
+# é a única que fica, contratada abaixo)
+for gone in "$U/scx-elite.service" "$U/fg-booster.service" "$U/fg-boost.slice" \
+            "$REPO/elite/airootfs/usr/local/bin/fg-booster" \
+            "$U/multi-user.target.wants/scx-elite.service" \
+            "$U/multi-user.target.wants/dmemcg-booster-system.service" \
+            "$U/graphical.target.wants/fg-booster.service"; do
+  assert_nofile "$gone" "v2.2: fusão dos boosters — $(basename "$gone") EXTINTO do airootfs"
+done
+for p in '^scx-scheds$' '^scx-tools$' '^dmemcg-booster$' '^xdotool$'; do
+  assert_nogrep "$REPO/elite/packages.add" "$p" "v2.2: fusão dos boosters — pacote ${p#^} banido do packages.add"
+done
+for keep in '^cachyos-settings$' '^cachyos-ananicy-rules$' '^ananicy-cpp$'; do
+  assert_grep "$REPO/elite/packages.add" "$keep" "v2.2: booster único — $(echo "$keep" | tr -d '^$') permanece no packages.add"
+done
+# elite-tune: o histórico no header menciona os extintos (é história) — o
+# contrato caça os usos OPERACIONAIS (comandos), que não podem mais existir:
+assert_nogrep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'enable --now scx-elite' "v2.2: elite-tune não habilita mais a scx-elite (scheduler = BORE do kernel)"
+assert_nogrep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'enable --now fg-boost|enable --now fg-booster' "v2.2: elite-tune não habilita mais o fg-booster/slice (extintos)"
+assert_nogrep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'enable --now dmemcg-booster' "v2.2: elite-tune não habilita mais o dmemcg (extinto)"
+assert_nogrep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'noconfirm xdotool|noconfirm cachyos-settings cachyos-ananicy-rules ananicy-cpp scx-scheds' "v2.2: elite-tune não instala mais xdotool/scx/dmemcg (fusão 4→1: só cachyos-settings + rules + ananicy-cpp)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'pacman -S --needed --noconfirm cachyos-settings cachyos-ananicy-rules ananicy-cpp$' "v2.2: elite-tune [1] instala exatamente o booster único (fim da linha em ananicy-cpp)"
 
 # ── peças: preset mkinitcpio do BORE (o initramfs do live) ─────────────
 PR="$REPO/elite/airootfs/etc/mkinitcpio.d/linux-cachyos-bore.preset"
@@ -278,7 +297,9 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bars" 'craft-dock-gui' "v2
 assert_grep "$REPO/elite/packages.add" '^python$' "v2.0: runtime python na ISO (o GUI da dock)"
 assert_grep "$REPO/elite/packages.add" '^python-gobject$' "v2.0: PyGObject na ISO (GTK3 do GUI)"
 assert_grep "$REPO/elite/packages.add" '^gtk-layer-shell$' "v2.0: gtk-layer-shell na ISO (o protocolo da dock)"
-assert_grep "$REPO/tests/fixtures/menu-icons-papirus.txt" '.' "fixture Papirus presente (contrato de ícones do menu — v1.6.3 segue)"
+# v2.2: o fixture menu-icons-papirus.txt foi EXTINTO junto com o tema —
+# o contrato de menu agora é "texto puro" (bloco de menu na 40-int).
+assert_nofile "$REPO/tests/fixtures/menu-icons-papirus.txt" "v2.2: fixture Papirus extinto (tema de ícones saiu da ISO — diretriz do dono)"
 assert_nogrep "$REPO/elite/airootfs/usr/local/bin/craft-pin" 'pkill -SIGUSR2' \
   "craft-pin: reload SEM SIGUSR2 (waybar 0.15: o sinal recarrega só CSS — config novo nunca entrava; v1.8.2 reinicia o waybar)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin" '\.bak\.' \
@@ -411,14 +432,13 @@ assert_grep "$ECF" 'ELITE-FAIL.*locale|locale.*ELITE-FAIL' "debloat sistêmico: 
 assert_grep "$ECF" 'en_US\.utf8' "debloat sistêmico: verificação pós-locale-gen (auto-cura antes do fail)"
 assert_nogrep "$ECF" 'rm -rf /usr/share/licenses' "debloat sistêmico: licenças INTACTAS (compliance legal — a poda não encosta)"
 assert_grep "$ECF" 'l10n' "debloat sistêmico: prune de locale preserva l10n/ e en*/pt* (flags de exceção no find)"
-assert_grep "$ECF" '\[E16\]' "debloat sistêmico: E16 presente (variantes Papirus mortas)"
-assert_grep "$ECF" 'Papirus-Dark' "debloat sistêmico: E16 mantém Papirus-Dark (GTK/fuzzel do rice)"
-assert_grep "$ECF" 'ELITE-FAIL: Papirus' "debloat sistêmico: gate duro do E16 — variantes vivas ausentes = build falha"
+assert_grep "$ECF" '\[E16\]' "debloat sistêmico: E16 presente (v2.2 — guarda sem-tema-de-ícones)"
+assert_nogrep "$ECF" 'papirus-icon-theme|Papirus-Dark|ELITE-FAIL: Papirus' "debloat sistêmico: NENHUM resquício de gate do Papirus no customize (tema saiu — diretriz do dono)"
 MENUX="$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml"
-assert_grep "$MENUX" '/usr/share/icons/Papirus/' "debloat sistêmico: menu usa a variante Papirus viva (contrato do fixture)"
-assert_nogrep "$MENUX" 'ePapirus|Papirus-Light' "debloat sistêmico: NENHUM config referencia variante podada (ePapirus/Papirus-Light)"
-assert_nogrep "$REPO/elite/airootfs/etc/skel/.config/fuzzel/fuzzel.ini" 'ePapirus|Papirus-Light' \
-  "debloat sistêmico: fuzzel na variante viva (Papirus-Dark)"
+assert_nogrep "$MENUX" '<item label=[^>]* icon=' "debloat sistêmico: menu.xml é TEXTO PURO (nenhum item com atributo de ícone — sem tema de ícones na ISO)"
+assert_nogrep "$REPO/elite/airootfs/etc/skel/.config/fuzzel/fuzzel.ini" 'Papirus|icon-theme' "debloat sistêmico: fuzzel sem icon-theme (fallback base do GTK)"
+assert_nogrep "$REPO/elite/airootfs/etc/skel/.config/gtk-3.0/settings.ini" 'Papirus|gtk-icon-theme-name' "debloat sistêmico: GTK3 sem referência a tema de ícones (fallback Adwaita, dep de gtk3)"
+assert_nogrep "$REPO/elite/airootfs/etc/skel/.config/gtk-4.0/settings.ini" 'Papirus|gtk-icon-theme-name' "debloat sistêmico: GTK4 espelha a ausência"
 # journald cap — o teto que protege RAM (live) e disco (instalado)
 JCAP="$REPO/elite/airootfs/etc/systemd/journald.conf.d/99-elite-cap.conf"
 assert_file "$JCAP" "journal: drop-in de teto existe (journald.conf.d vence qualquer journald.conf upstream)"
@@ -580,10 +600,10 @@ assert_grep "$TOPCSS" 'padding: 0 14px 0 8px' "M2.2: tray com 14px de respiro à
 # ── M3: dock — centralização, escala fixa, ícones reais, launcher único ──
 # M3.1/M3.2/M3.3 (v2.0): o desalinho e os ícones quebrados tinham UMA causa
 # estrutural — a dock waybar com glifos/imagens. A dock nativa mata a classe:
-# ícones vêm do tema (Papirus-Dark) via .desktop, caixa única 44px no dock.css
-# (contratos no bloco da dock v2.0). Os overrides Icon= custom e os PNGs
-# desenhados à mão saíram — "deixe o ícone ser tratado como o sistema já é":
-assert_grep "$REPO/elite/airootfs/usr/local/share/applications/calamares.desktop" 'Icon=system-software-install' "M3.3 v2.0: Instalador com o ícone do TEMA (Papirus cobre — sem desenho custom)"
+# v2.2: ícones vêm do PRÓPRIO app (hicolor) + fallback base Adwaita; caixa
+# única 44px no dock.css (contratos no bloco da dock v2.0). Sem tema de
+# ícones, o override do instalador aponta o ícone do PRÓPRIO pacote:
+assert_grep "$REPO/elite/airootfs/usr/local/share/applications/calamares.desktop" 'Icon=calamares' "M3.3 v2.2: Instalador com o ícone do PRÓPRIO pacote (sem tema de ícones, ícone de tema não é garantia)"
 assert_nofile "$REPO/elite/airootfs/usr/local/share/applications/lact.desktop" "M3.3 v2.0: override lact.desktop saiu (o .desktop upstream do app é a fonte)"
 assert_nofile "$REPO/elite/airootfs/usr/local/share/applications/mpv.desktop" "M3.3 v2.0: override mpv.desktop saiu"
 assert_nofile "$REPO/elite/airootfs/usr/share/pixmaps/elite/lact.png" "M3.3 v2.0: PNG desenhado à mão saiu do pacote (lact)"

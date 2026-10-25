@@ -11,19 +11,18 @@
   (mis-click perigoso; o menu de sessão já tem sair).
     · FICARAM: os apps do dia-1 + as 2 ações de sistema que o dono
       elegeu (Atualizar · Limpeza) + Launchpad/Fixar + lock/idle/sessão
-      + Reboot/Desligar. 15 itens, TODOS com ícone.
+      + Reboot/Desligar. 15 itens, texto puro (v2.2: sem tema de ícones).
   ESTRUTURA herdada do menu do criador do Archcraft (obmenu-generator;
   o labwc lê menu.xml ESTÁTICO). Sintaxe: labwc docs/menu.xml +
   labwc-menu(5) (formato openbox_menu).
 
-  DUAS REGRAS COM CONTRATO CI (v1.6.3, mantidas):
+  DUAS REGRAS COM CONTRATO CI (v1.6.3 — a 2ª substituída na v2.2):
     1. TODO Execute command=X tem binário REAL na ISO (packages.add ∪
        /usr/local/bin ∪ allowlist base) — o debloat não quebra item em
        silêncio.
-    2. TODO item tem icon= e o caminho está no fixture Papirus real
-       (tests/fixtures/menu-icons-papirus.txt — lista de arquivos do
-       papirus-icon-theme, conferida na API do Arch E no squashfs
-       embarcado, out/2026). Ícones de AÇÃO só existem até 24x24.
+    2. (v2.2, diretriz do dono — leveza radical) NENHUM item carrega
+       atributo de ícone: o tema de ícones saiu da ISO e o menu é TEXTO
+       PURO — nenhum caminho de tema pode voltar a este arquivo.
 -->
 <openbox_menu>
 
@@ -51,57 +50,57 @@
 
   <!-- root-menu (botão direito no desktop — v1.7) -->
   <menu id="root-menu">
-    <item label="Navegador" icon="/usr/share/icons/Papirus/48x48/apps/web-browser.svg">
+    <item label="Navegador">
       <action name="Execute" command="sh -c 'for b in brave librewolf chromium thorium-browser qutebrowser; do command -v &quot;$b&quot; &gt;/dev/null &amp;&amp; exec &quot;$b&quot;; done; exec xdg-open https://archlinux.org'" />
     </item>
-    <item label="Arquivos (Thunar)" icon="/usr/share/icons/Papirus/48x48/apps/system-file-manager.svg">
+    <item label="Arquivos (Thunar)">
       <action name="Execute" command="thunar" />
     </item>
-    <item label="Terminal (foot)" icon="/usr/share/icons/Papirus/48x48/apps/utilities-terminal.svg">
+    <item label="Terminal (foot)">
       <action name="Execute" command="foot" />
     </item>
-    <item label="Editor (nano)" icon="/usr/share/icons/Papirus/48x48/apps/text-editor.svg">
+    <item label="Editor (nano)">
       <action name="Execute" command="foot -e nano" />
     </item>
-    <item label="Leitor de PDF (papers)" icon="/usr/share/icons/Papirus/48x48/mimetypes/application-pdf.svg">
+    <item label="Leitor de PDF (papers)">
       <action name="Execute" command="papers" />
     </item>
-    <item label="Calculadora (qalculate)" icon="/usr/share/icons/Papirus/48x48/apps/qalculate.svg">
+    <item label="Calculadora (qalculate)">
       <action name="Execute" command="qalculate-gtk" />
     </item>
     <separator />
-    <item label="Atualizar sistema" icon="/usr/share/icons/Papirus/48x48/apps/system-software-update.svg">
+    <item label="Atualizar sistema">
       <action name="Execute" command="foot -e craft-update" />
     </item>
-    <item label="Limpeza do sistema" icon="/usr/share/icons/Papirus/48x48/apps/bleachbit.svg">
+    <item label="Limpeza do sistema">
       <action name="Execute" command="foot -e craft-clean" />
     </item>
     <separator />
-    <item label="Aplicativos (Launchpad)" icon="/usr/share/icons/Papirus/48x48/apps/preferences-desktop.svg">
+    <item label="Aplicativos (Launchpad)">
       <action name="Execute" command="craft-drawer" />
     </item>
     <!-- v1.4: fixar apps na dock no fluxo mouse-first (burn test: o
          clique-direito do drawer pinava no drawer, não na dock) -->
-    <item label="Fixar app na dock…" icon="/usr/share/icons/Papirus/24x24/actions/pin.svg">
+    <item label="Fixar app na dock…">
       <action name="Execute" command="craft-pin-pick" />
     </item>
     <separator />
-    <item label="Lock (W-l)" icon="/usr/share/icons/Papirus/24x24/actions/system-lock-screen.svg">
+    <item label="Lock (W-l)">
       <action name="Execute" command="craft-lock" />
     </item>
     <!-- v1.6.1: "consigo controlar em quanto tempo o Pc entra em idle?"
          (dono) — presets no fuzzel, efeito imediato, sem relogin -->
-    <item label="Tempo para travar a tela…" icon="/usr/share/icons/Papirus/24x24/actions/system-lock-screen.svg">
+    <item label="Tempo para travar a tela…">
       <action name="Execute" command="craft-idle" />
     </item>
-    <item label="Sessão (menu gráfico)" icon="/usr/share/icons/Papirus/24x24/actions/system-shutdown.svg">
+    <item label="Sessão (menu gráfico)">
       <action name="Execute" command="craft-power" />
     </item>
     <separator />
-    <item label="Reboot" icon="/usr/share/icons/Papirus/24x24/actions/system-reboot.svg">
+    <item label="Reboot">
       <action name="Execute" command="systemctl reboot" />
     </item>
-    <item label="Desligar" icon="/usr/share/icons/Papirus/24x24/actions/system-shutdown.svg">
+    <item label="Desligar">
       <action name="Execute" command="systemctl poweroff" />
     </item>
   </menu>

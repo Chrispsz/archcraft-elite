@@ -6,7 +6,6 @@ phase_start 1 "A MESA — ambiente e inventário"
 # peças: arquivos vivos do repo
 for f in \
   elite/airootfs/usr/local/bin/elite-tune \
-  elite/airootfs/usr/local/bin/fg-booster \
   elite/airootfs/usr/local/bin/elite-status \
   elite/airootfs/usr/local/bin/craft-fix-keys \
   elite/fragments/elite-customize.sh \

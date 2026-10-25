@@ -96,9 +96,9 @@
          src/menu/menu.c: #define ICON_SIZE (menu_item_height - 2 *
          menu_items_padding_y) e src/theme.c: menu_item_height =
          font_height(font_menuitem) + 2 * padding_y → o padding CANCELA e
-         sobra a fonte. Default 10px = ícones de ~14px (a foto do dono).
-         Fonte 12 = itens ~27px e ícones ~17px, com Papirus escalando os
-         48x48 sem serrilhado (libsfdo). -->
+         sobra a fonte. Default 10px = itens de ~14px (a foto do dono).
+         Fonte 12 = itens ~27px (v2.2: sem coluna de ícones — o texto
+         manda sozinho). -->
     <font place="MenuItem">
       <name>JetBrains Mono</name>
       <size>12</size>
@@ -106,12 +106,12 @@
     </font>
   </theme>
 
-  <!-- Menu com ÍCONES (v1.6 — labwc 0.8.3+): os itens do menu.xml carregam
-       icon="/caminho/absoluto" (Papirus, empacotado na ISO — verificado no
-       squashfs). "showIcons" liga a coluna; paths absolutos dispensam a
-       resolução por nome (libsfdo) — determinístico em qualquer build. -->
+  <!-- Menu SEM ícones (v2.2 — diretriz do dono, leveza radical): o
+       papirus-icon-theme saiu da ISO e o menu.xml é texto puro — a coluna
+       de ícones fica desligada ("showIcons no"). A fonte MenuItem segue
+       mandando na altura dos itens. -->
   <menu>
-    <showIcons>yes</showIcons>
+    <showIcons>no</showIcons>
   </menu>
 
   <!-- Alt+Tab com preview e miniaturas -->
