@@ -1,0 +1,209 @@
+#!/usr/bin/env python3
+# ═══════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · craft-menu (v1.0 — o menu NATIVO de escolha, v2.3.8)
+# ═══════════════════════════════════════════════════════════════════════════
+# O dono olhou os dropdowns de fuzzel e decretou (live 25/10 + correção):
+#   · "eu queria centralizar é o nome do menu e remover a barra que fica,
+#     tipo 'Rede |'" — a linha de DIGITAÇÃO (prompt + cursor) não tem
+#     função num menu de escolha: é ruído visual herdado do dmenu.
+#   · "menus mais bem desenhados, mais funcionais… na experiência de uso"
+#
+# A FORMA INTELIGENTE: fuzzel é uma CAIXA DE BUSCA — ótimo onde digitar é
+# o ponto (launcher W-Space, Fixar na dock, descrição do snapshot) e
+# errado onde se ESCOLHE. Os menus de escolha da Elite usam esta GUI
+# nativa (a mesma família GTK+layer-shell PROVADA da dock):
+#
+#   · SEM linha de digitação — nenhum campo de texto: título CENTRADO + itens
+#     centrados, a bolinha de design do rice (menu.css)
+#   · a JANELA nasce CENTRADA na tela (layer-shell sem âncoras = centro)
+#   · TECLADO: ↑/↓ navega com destaque, Enter escolhe, Esc fecha
+#   · CLIQUE: pílula de hover, escolhe no click (mouse-first como a dock)
+#   · LISTA LONGA: rola (max ~7 itens visíveis — menu Encerrar)
+#
+# A LEI DOS MENUS, AGORA ESTRUTURAL (um lugar só, não 7 cópias):
+#   · TOGGLE: outra instância com o MESMO título viva? morre → exit 2
+#     (a 2ª chamada FECHA — "esse tipo de erro não pode existir", v1.4)
+#   · CROSS-DISMISS: instância de OUTRO título viva? morre → dois
+#     dropdowns nunca coexistem (v1.8.2)
+#   · o chamador vê 143 (a instância morta pelo de fora), 1 (ESC/foco
+#     perdido — stderr VAZIO: benigno) ou 2 (toggle) — a mesma gramática
+#     dos 6 menus, agora com um único dono.
+#
+# Uso: craft-menu --title=TÍTULO item1 [item2 …]
+#   stdout: o item escolhido · exit 0
+#   exit 1: ESC/clique fora (stderr vazio) · exit 2: toggle
+# ═══════════════════════════════════════════════════════════════════════════
+import os
+import re
+import signal
+import subprocess
+import sys
+
+import gi
+gi.require_version("Gtk", "3.0")
+gi.require_version("GtkLayerShell", "0.1")
+from gi.repository import Gdk, Gtk
+import GtkLayerShell
+
+# ── argv: --title=TÍTULO + itens ────────────────────────────────────────────
+title = "Menu"
+items = []
+for a in sys.argv[1:]:
+    if a.startswith("--title="):
+        title = a[len("--title="):]
+    else:
+        items.append(a)
+if not items:
+    sys.exit(0)
+
+
+def die_other_menus():
+    """A LEI (toggle + cross-dismiss) — estrutural, um lugar só."""
+    same = False
+    try:
+        out = subprocess.run(
+            ["pgrep", "-a", "-f", "craft-menu --title="],
+            capture_output=True, text=True,
+        ).stdout
+    except Exception:
+        return False
+    for line in out.splitlines():
+        pid_s, _, cmd = line.partition(" ")
+        try:
+            pid = int(pid_s.strip())
+        except ValueError:
+            continue
+        if pid == os.getpid():
+            continue
+        m = re.search(r"--title=([^ ]+)", cmd)
+        if m is None:
+            continue
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except OSError:
+            pass
+        if m.group(1) == title:
+            same = True
+    return same
+
+
+if die_other_menus():
+    sys.exit(2)  # toggle: a 2ª chamada apenas FECHOU o menu do mesmo título
+
+CHOICE = None
+
+win = Gtk.Window()
+win.set_decorated(False)
+win.set_resizable(False)
+GtkLayerShell.init_for_window(win)
+GtkLayerShell.set_layer(win, GtkLayerShell.Layer.OVERLAY)
+# SEM âncoras = o layer-shell CENTRA a superfície nos dois eixos (spec
+# wlr-layer-shell: âncora não posta → centrada) — o "no meio da tela"
+# do dono, nativo. Margem 0, exclusive zone ignorado (não empurra barra).
+GtkLayerShell.set_exclusive_zone(win, -1)
+GtkLayerShell.set_keyboard_mode(win, GtkLayerShell.KeyboardMode.ON_DEMAND)
+try:  # abre no monitor do ponteiro (onde está a atenção do dono)
+    disp = Gdk.Display.get_default()
+    seat = disp.get_default_seat()
+    _, px, py = seat.get_pointer().get_position()
+    GtkLayerShell.set_monitor(win, disp.get_monitor_at_point(px, py))
+except Exception:
+    pass
+
+box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+box.get_style_context().add_class("menu-box")
+
+ttl = Gtk.Label(label=title)
+ttl.set_justify(Gtk.Justification.CENTER)
+ttl.get_style_context().add_class("menu-title")
+box.pack_start(ttl, False, False, 4)
+
+item_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+buttons = []
+kb = {"i": 0}
+
+
+def paint_focus():
+    for j, b in enumerate(buttons):
+        ctx = b.get_style_context()
+        if j == kb["i"]:
+            ctx.add_class("kb-focus")
+        else:
+            ctx.remove_class("kb-focus")
+
+
+def choose(btn):
+    global CHOICE
+    CHOICE = btn.get_label()
+    Gtk.main_quit()
+
+
+for it in items:
+    b = Gtk.Button(label=it)
+    b.set_relief(Gtk.ReliefStyle.NONE)
+    b.set_hexpand(True)
+    b.get_style_context().add_class("menu-item")
+    b.connect("clicked", choose)
+    item_box.pack_start(b, False, False, 0)
+    buttons.append(b)
+
+if len(items) > 7:  # lista longa (Encerrar) — rola, nunca some da tela
+    sc = Gtk.ScrolledWindow()
+    sc.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+    sc.set_max_content_height(340)
+    sc.set_propagate_natural_height(True)
+    sc.add(item_box)
+    box.pack_start(sc, False, False, 0)
+else:
+    box.pack_start(item_box, False, False, 0)
+
+win.add(box)
+
+
+def on_focus_out(_w, _ev):
+    Gtk.main_quit()  # foco perdido = clique fora — fechar é escolha (exit 1)
+    return False
+
+
+win.connect("focus-out-event", on_focus_out)
+
+
+def on_key(_w, ev):
+    kv = ev.keyval
+    if kv == Gdk.KEY_Escape:
+        Gtk.main_quit()
+        return True
+    if kv in (Gdk.KEY_Up, Gdk.KEY_Down):
+        d = -1 if kv == Gdk.KEY_Up else 1
+        kb["i"] = (kb["i"] + d) % len(buttons)
+        paint_focus()
+        return True
+    if kv in (Gdk.KEY_Return, Gdk.KEY_KP_Enter, Gdk.KEY_space):
+        buttons[kb["i"]].clicked()
+        return True
+    return False
+
+
+win.connect("key-press-event", on_key)
+
+# o rice (menu.css) — o mesmo vocabulário visual da dock.css
+try:
+    css = Gtk.CssProvider()
+    css.load_from_path(os.path.expanduser("~/.config/elite/menu.css"))
+    Gtk.StyleContext.add_provider_for_screen(
+        Gdk.Screen.get_default(), css, Gtk.StyleContext.PROVIDER_PRIORITY_APPLICATION
+    )
+except Exception:
+    pass
+
+paint_focus()
+win.show_all()
+try:
+    Gtk.main()
+except KeyboardInterrupt:
+    pass
+
+if CHOICE is not None:
+    print(CHOICE)
+    sys.exit(0)
+sys.exit(1)  # ESC / foco perdido — fechar NUNCA é erro (stderr nasce vazio)

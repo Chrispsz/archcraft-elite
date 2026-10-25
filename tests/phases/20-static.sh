@@ -524,10 +524,11 @@ assert_grep "$CPIN" 'craft-dock reload' \
 #      dropdowns empilhados — áudio do dono, 24/out e 21/out)
 CPOW="$REPO/elite/airootfs/usr/local/bin/craft-power"
 CCON="$REPO/elite/airootfs/usr/local/bin/craft-connect"
-assert_grep "$CPOW" "pkill -f 'fuzzel\.\*--prompt=Rede'" \
-  "craft-power: cross-dismiss — abrir Sessão fecha o menu de Rede"
-assert_grep "$CCON" "pkill -f 'fuzzel\.\*--prompt=\(Sess\|Encer\)'" \
-  "craft-connect: cross-dismiss — abrir Rede fecha Sessão/Encerrar (a lei inteira; 'Senha' morreu com o picker v2.3.7)"
+CMEN="$REPO/elite/airootfs/usr/local/bin/craft-menu"
+assert_grep "$CMEN" 'die_other_menus' \
+  "a lei dos menus é ESTRUTURAL (craft-menu v2.3.8: abrir Sessão FECHA Rede/Encerrar — toggle e cross-dismiss num lugar só)"
+assert_nogrep "$CCON" "pkill -f 'fuzzel" \
+  "craft-connect sem pkill de irmão (a era das cópias da lei morreu com o craft-menu)"
 
 # H4 — conectividade (v2.3.7 — o dono USOU o picker no live e decretou:
 #      "um menu serve pra chamar o serviço… evitando criar submenus e

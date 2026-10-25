@@ -492,6 +492,7 @@ if grep -q '^file_permissions=(' "$PD"; then
            /usr/local/bin/elite-session-probe \
            /usr/local/bin/craft-dock /usr/local/bin/craft-dock-gui \
            /usr/local/bin/craft-bgapps \
+           /usr/local/bin/craft-menu \
            /usr/local/bin/craft-dump \
            /usr/local/bin/calamares-elite-log \
            /etc/skel/.config/labwc/autostart; do

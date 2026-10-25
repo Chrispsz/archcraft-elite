@@ -47,13 +47,11 @@ snap_list() {
         }'
 }
 
-mlog "Rollback: abrindo (fuzzel)"
+mlog "Rollback: abrindo (craft-menu)"
 errf="$(mktemp)"
 ec=0
-choice="$(printf '%s\n' 'Criar snapshot agora' 'Restaurar snapshot…' \
-    | fuzzel --dmenu \
-        --anchor=center \
-        --lines=2 --width=30 --prompt='Rollback  ' 2>"$errf")" || ec=$?
+choice="$(craft-menu --title='Rollback' 'Criar snapshot agora' 'Restaurar snapshot…' \
+    2>"$errf")" || ec=$?
 if [ "$ec" -eq 143 ]; then
     mlog "Rollback: fechado de fora (SIGTERM — toggle/cross-dismiss) — benigno"
     rm -f "$errf"
@@ -66,7 +64,7 @@ if [ "$ec" -eq 1 ] && [ ! -s "$errf" ]; then
 fi
 if [ "$ec" -ne 0 ]; then
     mlog "Rollback: FUZZEL FALHOU exit=$ec — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
-    note -u critical 'Menu de Rollback falhou' "fuzzel exit=$ec — detalhe em ~/.cache/elite/menus.log"
+    note -u critical 'Menu de Rollback falhou' "craft-menu exit=$ec — detalhe em ~/.cache/elite/menus.log"
 fi
 rm -f "$errf"
 
@@ -103,9 +101,8 @@ case "$choice" in
         fi
         ec=0
         errf="$(mktemp)"
-        pick="$(printf '%s\n' "$list" | fuzzel --dmenu \
-            --anchor=center \
-            --lines=8 --width=40 --prompt='Restaurar  ' 2>"$errf")" || ec=$?
+        pick="$(craft-menu --title='Restaurar' $(printf '%s\n' "$list" | awk '{printf "\"%s\" ", $0}') \
+            2>"$errf")" || ec=$?
         if [ "$ec" -ne 0 ]; then
             [ "$ec" -eq 1 ] && [ ! -s "$errf" ] \
                 && mlog "Rollback: restauração cancelada — benigno" \
@@ -117,9 +114,8 @@ case "$choice" in
         snap="$(printf '%s' "$pick" | cut -d' ' -f1)"
         ec=0
         errf="$(mktemp)"
-        ok="$(printf '%s\n' 'Cancelar' 'CONFIRMAR — o sistema volta a este snapshot' \
-            | fuzzel --dmenu --anchor=center \
-                --lines=2 --width=40 --prompt='Confirmar  ' 2>"$errf")" || ec=$?
+        ok="$(craft-menu --title='Confirmar' 'Cancelar' 'CONFIRMAR — o sistema volta a este snapshot' \
+            2>"$errf")" || ec=$?
         rm -f "$errf"
         if [ "$ec" -ne 0 ] || [ "$ok" != 'CONFIRMAR — o sistema volta a este snapshot' ]; then
             mlog "Rollback: restauração do snapshot $snap não confirmada — benigno"

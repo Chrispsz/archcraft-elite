@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
-# craft-logout — menu de sessão (fuzzel --dmenu; Esc cancela)
+# craft-logout — menu de sessão (craft-menu nativo; Esc cancela)
 # opções: lock · logout (labwc) · reboot · shutdown
 #
-# v2.3.1 — FIM DO SILÊNCIO (família craft-*): este não tinha NEM guard de
-# fuzzel — crash era `|| exit 0` calado. Agora: guard + log em
-# ~/.cache/elite/menus.log + notify na tela (padrão dos 5 menus).
+# v2.3.8 — a era do menu NATIVO (o dono: "remover a barra que fica, tipo
+# 'Rede |'"): craft-menu — título centrado, itens centrados, zero linha
+# de digitação. A lei (toggle/cross-dismiss) é estrutural no craft-menu.
+#
+# v2.3.1 — FIM DO SILÊNCIO (família craft-*): crash calado nunca mais —
+# log em ~/.cache/elite/menus.log + notify na tela (padrão dos menus).
 set -euo pipefail
 
 MLOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/menus.log"
@@ -17,45 +20,44 @@ mlog() {
     return 0
 }
 
-command -v fuzzel >/dev/null 2>&1 || { mlog "Logout: fuzzel AUSENTE"; exit 1; }
+command -v craft-menu >/dev/null 2>&1 || { mlog "Logout: craft-menu AUSENTE"; exit 1; }
 
-mlog "Logout: abrindo (fuzzel)"
+mlog "Logout: abrindo (craft-menu)"
 errf="$(mktemp)"
 trap 'rm -f "$errf"' EXIT
 ec=0
-choice="$(printf 'lock\nlogout\nreboot\nshutdown' \
-  | fuzzel --dmenu --anchor=center --prompt 'sessão: ' 2>"$errf")" || ec=$?
+choice="$(craft-menu --title='Sair' \
+    'Travar tela' 'Sair da sessão' 'Reiniciar' 'Desligar' \
+    2>"$errf")" || ec=$?
 if [ "$ec" -eq 143 ]; then
-    # v2.3.5 — SIGTERM = fechado de fora (toggle/cross-dismiss) —
-    # benigno: sem notify crítico falso (o print do dono).
-    mlog "Logout: fechado de fora (SIGTERM — toggle/cross-dismiss) — benigno"
-    rm -f "$errf"
+    mlog "Logout: fechado de fora (SIGTERM — cross-dismiss) — benigno"
+    exit 0
+fi
+if [ "$ec" -eq 2 ]; then
+    mlog "Logout: toggle — 2ª chamada fechou o menu — benigno"
     exit 0
 fi
 if [ "$ec" -eq 1 ] && [ ! -s "$errf" ]; then
-    # v2.3.6 — ESC = fechado pelo usuário (stderr vazio ≠ crash) —
-    # benigno: fechar NUNCA é erro (mesma classe do 143).
     mlog "Logout: fechado pelo usuário (ESC) — benigno"
-    rm -f "$errf"
     exit 0
 fi
 if [ "$ec" -ne 0 ]; then
-    mlog "Logout: FUZZEL FALHOU exit=$ec — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
+    mlog "Logout: MENU FALHOU exit=$ec — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
     command -v notify-send >/dev/null 2>&1 && \
         notify-send -a 'Elite' -u critical 'Menu de sessão falhou' \
-            "fuzzel exit=$ec — detalhe em ~/.cache/elite/menus.log" || true
+            "craft-menu exit=$ec — detalhe em ~/.cache/elite/menus.log" || true
     exit 1
 fi
 [ -n "$choice" ] || exit 0
 case "$choice" in
-  lock)
+  'Travar tela')
     if command -v hyprlock >/dev/null 2>&1; then exec hyprlock
     elif command -v loginctl >/dev/null 2>&1; then exec loginctl lock-session
     fi ;;
-  logout)
+  'Sair da sessão')
     if command -v labwc >/dev/null 2>&1; then exec labwc --exit; fi
     echo "labwc não encontrado (não é uma sessão labwc?)" >&2 ;;
-  reboot)    exec systemctl reboot ;;
-  shutdown)  exec systemctl poweroff ;;
+  'Reiniciar')  exec systemctl reboot ;;
+  'Desligar')   exec systemctl poweroff ;;
   *) exit 0 ;;
 esac

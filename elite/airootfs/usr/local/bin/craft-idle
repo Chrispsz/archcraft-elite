@@ -96,32 +96,54 @@ MENU='2 minutos
 1 hora
 Nunca — só manual (W-l)'
 
-if command -v fuzzel >/dev/null 2>&1; then
-    # v2.3.1: stderr CAPTURADO — crash do fuzzel vira log (nunca calado)
-    mlog "Idle: abrindo (fuzzel)"
+if command -v craft-menu >/dev/null 2>&1; then
+    # v2.3.8 — o menu NATIVO (título centrado, sem linha de digitação —
+    # o dono: "remover a barra que fica"); o valor ATUAL vira marca no
+    # item ('— atual'), não texto de prompt.
+    case "$CUR" in
+        0)  CUR_ITEM='Nunca — só manual (W-l)' ;;
+        2)  CUR_ITEM='2 minutos' ;;
+        5)  CUR_ITEM='5 minutos' ;;
+        10) CUR_ITEM='10 minutos (padrão)' ;;
+        15) CUR_ITEM='15 minutos' ;;
+        30) CUR_ITEM='30 minutos' ;;
+        60) CUR_ITEM='1 hora' ;;
+        *)  CUR_ITEM='' ;;
+    esac
+    MENU="2 minutos
+5 minutos
+10 minutos (padrão)
+15 minutos
+30 minutos
+1 hora
+Nunca — só manual (W-l)"
+    [ -n "$CUR_ITEM" ] && MENU="$(printf '%s\n' "$MENU" | sed "s|^${CUR_ITEM}$|${CUR_ITEM} ← atual|")"
+    mlog "Idle: abrindo (craft-menu)"
     errf="$(mktemp)"
     ec=0
-    choice="$(printf '%s\n' "$MENU" | fuzzel --dmenu \
-        --anchor=center \
-        --lines=7 --width=30 --prompt="Idle: ${CUR}  " 2>"$errf")" || ec=$?
+    choice="$(craft-menu --title='Idle' \
+        $(printf '%s\n' "$MENU" | awk '{printf "\"%s\" ", $0}') \
+        2>"$errf")" || ec=$?
     if [ "$ec" -eq 143 ]; then
-        # v2.3.5 — SIGTERM = fechado de fora (toggle/cross-dismiss) —
-        # benigno: sem alarme falso (o print do dono).
-        mlog "Idle: fechado de fora (SIGTERM — toggle/cross-dismiss) — benigno"
+        mlog "Idle: fechado de fora (SIGTERM — cross-dismiss) — benigno"
+        rm -f "$errf"
+        exit 0
+    fi
+    if [ "$ec" -eq 2 ]; then
+        mlog "Idle: toggle — 2ª chamada fechou o menu — benigno"
         rm -f "$errf"
         exit 0
     fi
     if [ "$ec" -eq 1 ] && [ ! -s "$errf" ]; then
-        # v2.3.6 — ESC = fechado pelo usuário (stderr vazio ≠ crash) —
-        # benigno: fechar NUNCA é erro (mesma classe do 143).
         mlog "Idle: fechado pelo usuário (ESC) — benigno"
         rm -f "$errf"
         exit 0
     fi
     if [ "$ec" -ne 0 ]; then
-        mlog "Idle: FUZZEL FALHOU exit=$ec — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
+        mlog "Idle: MENU FALHOU exit=$ec — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
     fi
     rm -f "$errf"
+    choice="$(printf '%s' "$choice" | sed 's/ ← atual$//')"
 else
     mlog "Idle: fuzzel AUSENTE — fallback terminal"
     # sem fuzzel: prompt de terminal (foot -e) — não trava o ajuste

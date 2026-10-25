@@ -1,0 +1,53 @@
+/* Archcraft ELITE · menu.css (v1.0 — o rice dos menus NATIVOS, v2.3.8)
+ * ─────────────────────────────────────────────────────────────────────
+ * O dono: "remover a barra que fica, tipo 'Rede |'… centralizar o nome
+ * do menu… realmente mais bonita". Este é o CSS do craft-menu — a mesma
+ * escada de superfícies da dock.css (GTK3 de verdade: alpha(),
+ * border-radius — zero propriedade inventada). NENHUM Gtk.Entry existe
+ * no craft-menu: a linha de digitação era ruído herdado do dmenu.
+ * Tudo CENTRADO: título e itens, no meio da tela. */
+.menu-window { background: transparent; }
+
+/* A pílula: a mesma anatomia da dock — AMOLED com véu, borda sutil,
+ * canto 16px. min-width dá presença sem virar caixão vazio. */
+.menu-box {
+  background: alpha(#050508, 0.92);
+  border: 1px solid alpha(#cba6f7, 0.35);
+  border-radius: 16px;
+  padding: 8px 10px;
+  min-width: 320px;
+}
+
+/* O nome do menu: CENTRADO, mauve (assinatura do rice), discreto —
+ * cabeçalho, não botão. */
+.menu-title {
+  color: #cba6f7;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 4px 10px 8px 10px;
+  letter-spacing: 1px;
+}
+
+/* Os itens: CENTRADOS (o pedido literal), caixa alta o bastante pro
+ * clique (44px — o mesmo bbox da dock), texto do tema. */
+.menu-item {
+  color: #cdd6f4;
+  background: transparent;
+  border-radius: 10px;
+  padding: 0 14px;
+  min-height: 44px;
+  font-size: 13px;
+}
+.menu-item > label { min-width: 280px; }
+
+/* Hover e navegação por teclado: a MESMA pílula (mouse-first com
+ * paridade total de teclado — quem usa ↑/↓ vê exatamente o que o
+ * mouse vê). Escolha ativa = surface mais clara (:active). */
+.menu-item:hover,
+.menu-item.kb-focus {
+  background: alpha(#16161f, 0.95);
+  color: #f5c2e7;
+}
+.menu-item:active {
+  background: alpha(#2e2e3d, 0.95);
+}
