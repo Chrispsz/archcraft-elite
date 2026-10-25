@@ -434,6 +434,26 @@ DUMP="$P/airootfs/usr/local/bin/craft-dump"
 assert_file "$DUMP" "v2.3.5: craft-dump existe (o diagnóstico completo do dono)"
 assert_grep "$DUMP" '/dev/tcp/termbin\.com/9999' "v2.3.5: --upload via /dev/tcp (termbin sem nc — a ISO não o carrega)"
 assert_grep "$DUMP" 'journalctl -b -u systemd-suspend' "v2.3.5: o dump caça o despertar (journal do suspend — o 'acordou sozinho' do dono)"
+assert_grep "$DUMP" "tr -d '\\\\0'" "v2.3.6: NUL morre na fonte do dump (o rig flagrou 'byte nulo ignorado' no upload — journal cospem NUL)"
+
+# ── v2.3.6 — O DUMP DO RIG (740 linhas): 4 curas de release + UX ─────────
+TUN="$REPO/elite/airootfs/usr/local/bin/elite-tune"
+assert_grep "$TUN" 'pacman-key --populate archlinux cachyos' "v2.3.6: firstboot popula as chaves ANTES do primeiro -Sy (db assinado por chave desconhecida falha INTEIRO — o rig flagrou: firstboot nunca completava)"
+assert_grep "$TUN" 'timeout 90 pacman-key --recv-keys' "v2.3.6: recv-keys com timeout 90 (keyserver lento pendurou a unit 17min em 'activating' — o rig flagrou)"
+assert_grep "$TUN" 'ensure_cachyos \|\| true' "v2.3.6: firstboot puxa o keyring FRESCO do mirror (o pacote datado 2024 é a raiz do 'chave desconhecida')"
+assert_grep "$TUN" 'snapper --no-dbus -c root create-config' "v2.3.6: firstboot cria a config do snapper (grub-btrfsd nasce FAILED sem /.snapshots — o rig flagrou active=failed)"
+assert_grep "$P/airootfs/etc/udev/rules.d/60-io-elite.rules" 'nvme\[0-9\]n\[0-9\]\*' "v2.3.6: regra NVMe casa só o bloco inteiro (partição sem queue/scheduler = ruído 'could not chase' — o rig flagrou)"
+assert_grep "$P/airootfs/etc/skel/.config/fuzzel/fuzzel.ini" 'keyboard-focus=on-demand' "v2.3.6: fuzzel solta o grab (clique fora FECHA o menu — o rig flagrou menu preso na tela)"
+assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" 'pulseaudio#mic' "v2.3.6: microfone com assento na barra (paridade pedida pelo dono — clique muta o mic, direito gerencia)"
+assert_grep "$P/airootfs/usr/local/bin/craft-power" 'Tempo de idle' "v2.3.6: controle do idle no menu Sessão (energia + idle na mesma porta — o dono perguntou 'tem como controlar facilmente?')"
+
+# craft-rollback v2 — o rollback que de fato funciona (o rig provou que o
+# timeshift NUNCA foi configurado; o par canônico do grub-btrfs é snapper)
+CRB="$P/airootfs/usr/local/bin/craft-rollback"
+assert_grep "$CRB" 'snapper --no-dbus -c root create --description' "v2.3.6: craft-rollback CRIA snapshot (a ação que o timeshift nunca teve wiring para fazer)"
+assert_grep "$CRB" 'snapper --no-dbus -c root rollback' "v2.3.6: craft-rollback RESTAURA snapshot (rollback real — o reboot finaliza e o grub-btrfsd regenera o GRUB)"
+assert_grep "$CRB" 'pkexec' "v2.3.6: elevação por ação via pkexec (GUI como root no Wayland morre com o env vazio — o menu roda como usuário)"
+assert_grep "$CRB" 'fechado pelo usuário \(ESC\)' "v2.3.6: rollback segue a lei dos menus (ESC/143 benignos, stderr capturado)"
 assert_grep "$DUMP" '/proc/acpi/wakeup' "v2.3.5: tabela ACPI wakeup no dump (quem acorda o rig: dispositivo vs BIOS)"
 assert_grep "$DUMP" 'pacman -Qe' "v2.3.5: pacotes explícitos no dump (a coletânea audita o que existe de verdade)"
 assert_grep "$DUMP" 'tail -n 150' "v2.3.5: logs tailados no dump (evidência recente — sem arquivo gigante)"
@@ -469,8 +489,11 @@ assert_nogrep "$PKG" '^htop$' "curadoria: htop saiu (btop fica)"
 assert_nogrep "$PKG" '^ncdu$' "curadoria: ncdu saiu (dust entra)"
 assert_nogrep "$PKG" '^simplescreenrecorder$' "curadoria: gravador X11 saiu (diretriz do dono)"
 assert_nogrep "$PKG" '^btrfs-assistant$' "v1.0.4: btrfs-assistant saiu (GUI de snapper sem snapper = meia-ferramenta)"
-assert_grep "$PKG" '^timeshift$' "v1.0.4: timeshift fica (ÚNICA estratégia de snapshot — craft-rollback/grub-btrfs)"
-assert_nogrep "$PKG" '^snapper$' "v1.0.4: snapper fora da ISO (rota alternativa = cockpit dia-1)"
+# v2.3.6 — a evidência virou a decisão: timeshift JAMAIS foi configurado
+# (sem config, sem snapshot — promessa pela metade) e o grub-btrfsd vigia
+# /.snapshots, o diretório do SNAPPER (o par canônico do grub-btrfs).
+assert_nogrep "$PKG" '^timeshift$' "v2.3.6: timeshift SAIU (nunca configurado — o rig provou; um rei só na estratégia de snapshot)"
+assert_grep "$PKG" '^snapper$' "v2.3.6: snapper na ISO (o rig flagrou grub-btrfsd FAILED sem /.snapshots — o rollback precisava de quem cria o subvolume; a rota 'cockpit' da v1.0.4 nunca existiu de fato)"
 assert_nogrep "$PKG" '^archcraft-omz$' "curadoria: oh-my-zsh saiu (plugins+starship)"
 assert_nogrep "$PKG" '^archcraft-skeleton$' "curadoria: skel órfão do stock saiu (skel Elite é o dono)"
 assert_nogrep "$PKG" '^archcraft-welcome$' "curadoria: welcome do stock saiu (craft-hello cobre)"

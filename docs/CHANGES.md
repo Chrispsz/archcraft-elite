@@ -29,6 +29,40 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
   - **Comentário do rc.xml honestificado** — ainda descrevia o
     hotspot/tira de 4px mortos na v2.3.4; agora documenta o W-S-d que
     funciona até em tela cheia.
+  - **O DUMP DO RIG (740 linhas) flagrou 4 bugs reais de release — curados:**
+    - **FIRSTBOOT NUNCA COMPLETAVA** — `sudo: a password is required` para
+      `pacman-key` no INSTALADO (design herdado do live, onde sudo é
+      NOPASSWD) + `-Sy` ANTES das chaves (db assinado por chave
+      desconhecida falha inteiro) + `--recv-keys` sem timeout (unit
+      'activating' por 17min). Agora: `pacman-key --init/populate` → chave
+      CachyOS (recv com timeout 90) → `-Sy` → `ensure_cachyos` (keyring
+      FRESCO direto do mirror — o pacote datado 2024 morre).
+    - **ROLLBACK QUEBRADO** — `grub-btrfsd: failed`, "No directory found
+      at /.snapshots": o timeshift JAMAIS foi configurado (sem config, sem
+      snapshot — a promessa era pela metade) e ninguém criava o subvolume
+      que a unidade vigia. Um rei só: **timeshift sai**, `snapper` entra
+      (o par canônico do grub-btrfs) — o firstboot cria config+subvolume
+      e o **craft-rollback v2** agora CRIA e RESTAURA snapshots de
+      verdade (menu fuzzel, `snapper rollback`, pkexec por ação, reboot
+      finaliza).
+    - **RUÍDO DO UDEV** — a regra NVMe casava PARTIÇÃO (`nvme0n1p1` sem
+      queue/scheduler): 'Could not chase sysfs attribute' ×4 a cada boot.
+      O `n` obrigatório (nvme[0-9]n[0-9]*) casa só o dispositivo de bloco.
+    - **NUL NO UPLOAD DO DUMP** — "byte nulo ignorado" na linha 144
+      (journal cospem NUL): `tr -d '\0'` na fonte — o dump nasce limpo.
+  - **MENUS FECHAM AO CLICAR FORA** — fuzzel `keyboard-focus=on-demand`: o
+    grab exclusive engolia o clique fora e o menu ficava preso; agora o
+    clique fora devolve o foco e o menu fecha (exit-on-focus-loss, default
+    do próprio fuzzel). Vale para TODOS os 6 menus + o picker.
+  - **MIC COM ASSENTO NA BARRA** — paridade pedida ("o de Mic é tão
+    importante quanto o de áudio"): `pulseaudio#mic` nativo do waybar —
+    clique muta o microfone (`pactl set-source-mute`), direito abre o
+    pwvucontrol igual ao do som, muto = vermelho. Tooltip do som agora
+    ENSINA o clique-direito (gerenciar era descoberta escondida).
+  - **IDLE NO MENU SESSÃO** — "tem como controlar o tempo de idle
+    facilmente?": o craft-idle JÁ fazia, mas morava só no menu do desktop;
+    'Tempo de idle…' agora carrega no Sessão (energia + idle na mesma
+    porta).
 
 - **v2.3.5 — o rig falou: curas cirúrgicas dos usos básicos + o dump do
   dono** (prints/relatos instalando a v2.3.2, out/2026):
