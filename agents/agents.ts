@@ -22,9 +22,11 @@ const PROJECT = `
   o upstream archcraft-os/archcraft @ master, sobrepõe a camada elite/ via
   scripts/apply-overlay.sh e constrói a ISO com mkarchcraftiso dentro de um
   container Arch Linux PRIVILEGIADO (docker run --privileged).
-- Dois rigs-alvo, uma ISO: Elite A (Ryzen 7 5700X + RTX 5060 → kernel stock +
-  nvidia-open, initramfs-linux-nvidia.img no live) e Elite B (Ryzen 5 5600 +
-  GPU AMD → linux-cachyos-bore x86-64-v3 dos repos CachyOS, RADV/mesa).
+- Dois rigs-alvo, UMA ISO, kernel ÚNICO: linux-cachyos-bore x86-64-v3 (repos
+  CachyOS) é o único kernel da ISO — a era de 2 kernels (stock + nvidia-open
+  "Elite A" vs BORE "Elite B") foi aposentada na v1.1 (preset stock/nvidia
+  deletado; o verify-install REPROVA preset órfão). NVIDIA do rig A (RTX 5060)
+  roda nvidia-open-dkms NO BORE; rig B (Ryzen 5 5600, AMD) roda RADV/mesa.
 - Repos pacman no conf de build (elite/pacman-repos.build.add):
   [archcraft] (upstream, topo) → trio v3 CachyOS ([cachyos-v3],
   [cachyos-core-v3], [cachyos-extra-v3], ANTES do baseline [cachyos] para o

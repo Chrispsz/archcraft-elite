@@ -6,7 +6,7 @@
 #  devem analisar justamente os logs minuciosamente; esses erros não
 #  podem passar ou serem tratados como algo normal". Este gate é a
 #  metade DETERMINÍSTICA da diretriz (a metade semântica são os agentes
-#  deepseek/mimo do job relay-agents): varre o log inteiro da build e
+#  deepseek/mimo do agents.yml, sob demanda): varre o log inteiro da build e
 #  transforma padrão de erro conhecido em run VERMELHA — ANTES do
 #  release, não no burn test do dono.
 #
@@ -176,5 +176,3 @@ if (( FATAL )); then
 fi
 echo "Veredito: ✔ log limpo — nenhum padrão fatal; benignos auditados acima."
 exit 0
-
-# v1.5.2 nota: commit de teste do trigger de push (run de validação despachada manualmente — ver worklog Task 30)

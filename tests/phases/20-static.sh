@@ -397,7 +397,7 @@ EOSET
     ok "gate [1b/8]: validador PEGA o YAML quebrado da v1.1 (a corrupção da v1.1)"
   fi
 else
-  ok "(skip local: sem PyYAML — o container CI o instala; contrato roda lá)"
+  skip "gate [1b/8]: validador PEGA o YAML quebrado da v1.1" "sem PyYAML local — o container CI o instala e roda o contrato"
 fi
 assert_file "$REPO/.ci/validate-calamares.py" "gate [1b/8]: validador vive no repo (.ci/)"
 assert_grep "$REPO/.github/workflows/verify-install.yml" 'validate-calamares.py' \

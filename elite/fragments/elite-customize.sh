@@ -538,7 +538,7 @@ rm -rf /usr/share/man /usr/share/info /usr/share/doc /usr/share/gtk-doc 2>/dev/n
 echo "E15: locale/man/info/doc/gtk-doc podados (licenses intactas)"
 
 ## [E16] v2.2 — SEM TEMA DE ÍCONES (leveza radical, diretriz do dono).
-##      O pacote de ícones Papirus SAIU do packages.add — não há nada a podar.
+##      O tema de ícones do upstream SAIU do packages.add — não há nada a podar.
 ##      O antigo E16 (v1.8.1) podava as 4 variantes mortas desse tema e
 ##      falhava a build sem as 2 vivas; hoje o único tema de
 ##      ícones do sistema é o fallback base (Adwaita — dep dura de

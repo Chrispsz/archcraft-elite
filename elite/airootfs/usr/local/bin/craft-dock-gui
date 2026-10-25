@@ -154,7 +154,7 @@ class Dock:
 
         self.rebuild()
 
-        # hotspot: tira invisível de 4px — revela a dock quando o ponteiro
+        # hotspot: tira invisível de 10px — revela a dock quando o ponteiro
         # encosta na base (o "-d" do nwg-dock, portável via layer-shell)
         self.hot = Gtk.Window()
         self.hot.set_name("hotspot")

@@ -57,7 +57,7 @@ assert_eq "$(grep -cx 'vulkan-intel'  "$PKG")" "1" "cadeia A: vulkan-intel 1× (
 for p in lib32-mesa lib32-vulkan-radeon lib32-vulkan-intel lib32-gamemode lib32-mangohud; do
   assert_nogrep "$PKG" "^${p}$" "v2.2: ${p} FORA da ISO (64-bit puro — firstboot/elite-tune recolocam o lib32 do vendor no instalado)"
 done
-assert_nogrep "$PKG" '^xdotool$' "v2.2: xdotool FORA do packages.x86_64 (dep exclusiva do fg-booster extinto — fusão dos boosters; o crash-loop v1.0→v1.5 não pode renascer)"
+assert_nogrep "$PKG" '^xdotool$' "v2.2: xdotool FORA do packages.x86_64 (dep exclusiva do fg-booster extinto — fusão dos boosters; o crash-loop v1.0→v1.5 não pode renascer; o upstream também o trazia — banido nos DOIS lados)"
 dups=$(sort "$PKG" | uniq -d | wc -l)
 assert_eq "$dups" "0" "cadeia A: packages.x86_64 sem nenhuma duplicata"
 
@@ -147,7 +147,6 @@ for gone in xdotool boost man-db man-pages apparmor linux-firmware-marvell rxvt-
 done
 assert_grep "$PKG" '^#memtest86\+ # ELITE-REMOVED$' "v2.3: memtest86+ comentado (auditoria: nicho de resgate)"
 assert_grep "$PKG" '^#memtest86\+-efi # ELITE-REMOVED$' "v2.3: memtest86+-efi comentado idem"
-assert_nogrep "$PKG" '^xdotool$' "v2.3: xdotool ATIVO sumiu do upstream (o v2.2 bania só o add — o upstream o trazia!)"
 # Reposições cirúrgicas do que os grupos entregavam de útil
 assert_grep "$PKG" '^xorg-server$' "v2.3: xorg-server EXPLÍCITO (greeter SDDM em X11 — DisplayServer não é wayland no conf)"
 assert_grep "$PKG" '^archcraft-cursor-qogirr$' "v2.3: cursor Qogirr explícito (CursorTheme do greeter — o grupo que o trazia saiu)"
@@ -265,7 +264,7 @@ assert_grep "$CT" '"format": "\\uf011"' "v2.1: glifo do power presente (FA power
 # só ícones reais de apps (.desktop)
 assert_nogrep "$CT" '\\uf0c4' "v2.1: glifo do shot EXTINTO da barra superior (módulo removido — declutter)"
 assert_nofile "$P/airootfs/etc/skel/.config/waybar/config.dock" "v2.0: a dock waybar não existe mais (o glifo na dock morreu com ela)"
-assert_nogrep "$CD" '\\u[0-9a-fA-F]{5,}' "v2.1: nenhum escape de 5+ hex (SMP trap: parseia como 4-hex + dígito)"
+assert_nogrep "$P/airootfs/etc/skel/.config/elite/dock.css" '\\u[0-9a-fA-F]{5,}' "v2.1: nenhum escape de 5+ hex no CSS da dock (SMP trap: parseia como 4-hex + dígito)"
 assert_nogrep "$CT" '\\u[0-9a-fA-F]{5,}' "v2.1: idem no config.top"
 # v2.0: os 3 pins de fábrica são .desktop REAIS no dock-pins (Gio resolve
 # ícone do tema) — a classe "waybar #5051" (3+ image modules) deixa de
@@ -283,8 +282,8 @@ assert_file "$P/airootfs/etc/skel/.config/elite/dock-pins" "v2.1: a estrutura da
 assert_nofile "$P/airootfs/etc/skel/.config/waybar/config.dock" "v2.1: o separador fixos│abertos morreu com a dock waybar (pins = apps de verdade)"
 assert_nofile "$P/airootfs/etc/skel/.config/waybar/config.dock" "v2.1: dock waybar extinta (sem modules-left/right — a pílula é conteúdo do GUI)"
 assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'Gtk\.Orientation\.HORIZONTAL' "v2.1: pílula horizontal única (centrada na base — o 'horizontalmente menor' do áudio)"
-assert_nogrep "$CD" '"custom/lock"' "v2.1: dock SEM lock (menu de sessão na barra superior)"
-assert_nogrep "$CD" '"custom/power"' "v2.1: dock SEM power (menu de sessão na barra superior)"
+assert_nogrep "$P/airootfs/usr/local/bin/craft-dock-gui" '"custom/lock"' "v2.1: dock SEM lock (menu de sessão na barra superior — GUI da dock)"
+assert_nogrep "$P/airootfs/usr/local/bin/craft-dock-gui" '"custom/power"' "v2.1: dock SEM power (menu de sessão na barra superior — GUI da dock)"
 # Fontes: família REAL do archcraft-fonts 2.0
 assert_grep "$P/airootfs/etc/skel/.config/waybar/style.top.css" 'JetBrainsMono NF' "v2.1: CSS top com a família REAL (JetBrainsMono NF)"
 assert_grep "$P/airootfs/etc/skel/.config/elite/dock.css" 'alpha\(#050508' "v2.1: dock.css na escada AMOLED (mantle translúcido)"
@@ -454,7 +453,6 @@ assert_nogrep "$PKG" '^xfce4-settings$' "curadoria: xfce4-settings saiu (nwg-loo
 assert_nogrep "$PKG" '^xfce4-power-manager$' "curadoria: power manager saiu (swayidle entra)"
 assert_nogrep "$PKG" '^gvfs-afc$' "curadoria: iPhone mount saiu (gvfs+mtp+smb ficam)"
 assert_grep "$PKG" '^gvfs$' "curadoria: gvfs fica (trash/mtp/smb)"
-assert_nogrep "$PKG" '^xdotool$' "v2.2: xdotool banido da curadoria (era dep do fg-booster — extinto)"
 assert_grep "$PKG" '^qt6ct$' "curadoria: qt6ct fica (config de apps Qt futuros)"
 assert_nogrep "$PKG" '^qt5ct$' "curadoria: qt5ct saiu (zero apps Qt5)"
 assert_nogrep "$PKG" '^firefox$' "v1.1: firefox saiu (brave-origin entra — Wayland-native)"
@@ -578,7 +576,8 @@ assert_grep "$HLK" 'text = \$TIME' "v1.5: relógio GRANDE (label \$TIME)"
 assert_grep "$HLK" 'font_size = 96' "v1.5: relógio 96pt (topo/centro)"
 assert_grep "$HLK" 'valign = top' "v1.5: relógio ancorado no TOPO (spec)"
 assert_grep "$HLK" 'text = \$USER' "v1.5: nome do usuário acima do campo (spec)"
-# v1.7: o avatar 'A' saiu do lock (a pergunta literal do dono no burn test)
+# v1.7: o avatar 'A' saiu do lock (a pergunta literal do dono no burn test) —
+# e o PNG órfão saiu do overlay na v2.3.3 (hyprlock não o usa desde a v1.7)
 assert_nogrep "$HLK" 'pixmaps/elite/avatar' "v1.7: lock SEM avatar (o 'A' do burn test saiu — decisão do dono)"
 assert_nogrep "$HLK" 'rounding = -1' "v1.7: sem o círculo do avatar (só o campo tem rounding)"
 assert_grep "$HLK" 'outer_color = rgba\(203, 166, 247' "v1.5→v1.7: borda MAUVE agora no CAMPO (a assinatura do rice)"
@@ -591,11 +590,10 @@ assert_grep "$HLK" 'fade_on_empty = false' "v1.5: campo de senha fixo (não some
 assert_grep "$HLK" 'outline_thickness = 3' "v1.5: campo com borda estilizada (outline mauve)"
 assert_grep "$HLK" 'outer_color = rgba\(203, 166, 247' "v1.5: borda do campo MAUVE"
 assert_grep "$HLK" '\$font = JetBrainsMono NF' "v1.5: fonte do lock = a REAL do rice (definida em \$font)"
-# v1.6: avatar segue no overlay (hyprlock); os PNGs de dock (terminal/files/
-# web) saíram JUNTO com os módulos image# (fix waybar #5051) — glifos mandam
-assert_file "$P/airootfs/usr/share/pixmaps/elite/avatar.png" "v1.6: pixmaps/elite/avatar.png (hyprlock usa)"
-for gone in terminal files web; do
-  assert_nofile "$P/airootfs/usr/share/pixmaps/elite/${gone}.png" "v1.6: pixmaps/elite/${gone}.png REMOVIDO (image# extinto — limpeza)"
+# v1.6: os PNGs de dock (terminal/files/web) saíram JUNTO com os módulos
+# image# (fix waybar #5051) — glifos mandam; o avatar.png órfão saiu na v2.3.3
+for gone in terminal files web avatar; do
+  assert_nofile "$P/airootfs/usr/share/pixmaps/elite/${gone}.png" "v1.6→v2.3.3: pixmaps/elite/${gone}.png REMOVIDO (sem consumidor)"
 done
 assert_file "$P/airootfs/etc/skel/.face.icon" "v1.5: ~/.face.icon no skel (avatar p/ login managers + personalização)"
 # v1.5: craft-lock roteia pro hyprlock
@@ -612,8 +610,8 @@ assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'for b in brave librewol
 assert_nogrep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'command="(foot -e )?(yazi|helix|nvtop|nmtui|mousepad)' "v1.5: rc.xml sem COMANDO de app extinto nos binds"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'identifier="com\.github\.dominiksalvet\.pwvucontrol"' \
   "v1.1: windowRule do mixer aponta pwvucontrol (identificador novo)"
-# waybar dock: launchers convertidos (v1.5: ícones reais)
-assert_grep "$SKCFG/elite/dock-pins" 'brave-browser\.desktop' "v1.1→v2.1.1: dock abre brave (ID REAL do pacote — 'brave.desktop' não existe e crash-loopou na #93)"
+# waybar dock: launchers convertidos (v1.5: ícones reais) — o ID REAL do
+# brave já é contratado acima (v2.1.1, lição da #93)
 # overlay de REDE: sysctl BBR + módulo carregado antes do systemd-sysctl
 assert_file "$P/airootfs/etc/sysctl.d/99-elite-net.conf" "v1.1: /etc/sysctl.d/99-elite-net.conf na ISO (BBR assado)"
 assert_grep "$P/airootfs/etc/sysctl.d/99-elite-net.conf" '^net\.core\.default_qdisc = fq$' "v1.1: qdisc fq (BBR exige)"
@@ -1463,7 +1461,7 @@ assert_nogrep "$WBD" '#custom-drawer' "v1.9 M3.4: CSS da dock SEM o drawer (Laun
 
 # ── Glifo ARCH no drawer (pair atualizado acima: uf00b → uf303) ────────────
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" '"format": "\\uf303"' "v1.9 M2.4: glifo ARCH U+F303 agora EXCLUSIVO da barra superior (o lançador)"
-assert_nogrep "$CD" '\\uf00b' "v1.3: glifo grid genérico extinto do drawer"
+assert_nogrep "$P/airootfs/etc/skel/.config/elite/dock.css" '\\uf00b' "v1.3: glifo grid genérico extinto (CSS da dock)"
 
 # ── Rodapé do nwg-drawer MORTO por CSS (sem fork do upstream) ──────────────
 assert_grep "$DRW" '#status-label' "v1.3: drawer.css mata #status-label (rodapé 'N entries')"
@@ -1687,8 +1685,8 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'get_display_nam
 assert_nogrep "$CPT" '"custom/menu"' "v1.5: módulo custom/menu EXTINTO do config.top (spec)"
 assert_grep "$CPT" '"modules-left": \["custom/drawer", "wlr/window"\]' "v2.0: cluster esquerdo = ARCH + app focado (convenção dos rices)"
 assert_grep "$CPT" '"fixed-center": true' "v1.5: clock no centro EXATO (fixed-center)"
-assert_nogrep "$CD" '\\uf303' "v1.9 M3.4: ARCH U+F303 NÃO vive mais na dock (exclusivo da top bar)"
-assert_nogrep "$CD" '"on-click": "craft-drawer"' "v1.9 M3.4: nenhum on-click de Launchpad na dock (sem duplicidade de lançador)"
+assert_nogrep "$P/airootfs/etc/skel/.config/elite/dock.css" '\\uf303' "v1.9 M3.4: ARCH U+F303 NÃO vive na dock (exclusivo da top bar — CSS da dock)"
+assert_nogrep "$P/airootfs/usr/local/bin/craft-dock-gui" '"on-click": "craft-drawer"' "v1.9 M3.4: nenhum on-click de Launchpad na dock (GUI — sem duplicidade de lançador)"
 assert_nogrep "$WBT" '#custom-menu' "v1.5: CSS sem regra órfã do custom-menu"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/style.top.css" '#custom-drawer \{' "v1.9 M2.4: identidade mauve do ARCH viva na BARRA SUPERIOR (lançador exclusivo)"
 

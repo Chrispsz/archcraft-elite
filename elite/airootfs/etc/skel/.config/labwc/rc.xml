@@ -278,10 +278,6 @@
     <keybind key="W-S-f">
       <action name="ToggleDecorations" />
     </keybind>
-    <!-- Show desktop (W-d do criador → aqui W-S-d, pois W-d é o fuzzel) -->
-    <keybind key="W-S-d">
-      <action name="ToggleShowDesktop" />
-    </keybind>
     <!-- Snap em metades/terços — mesma semântica do snap do criador (W-setas) -->
     <keybind key="W-Left">
       <action name="SnapToEdge" direction="left" combine="yes" />

@@ -2,11 +2,6 @@ name: Build Elite ISO
 
 on:
   workflow_dispatch:
-    inputs:
-      notes:
-        description: 'Notas da build (opcional)'
-        required: false
-        default: ''
   push:
     # v2.1 — REORG: ISO só nasce de TAG (evento de release) ou de dispatch
     # manual. Push de branch roda a suíte de contratos (tests.yml, ~2 min)
@@ -432,12 +427,10 @@ jobs:
               echo "· informativo: probe da sessão NÃO chegou (sem /dev/kvm — TCG) — gate não cobra o que não vê"
             fi
           fi
-          # informativos (não derrubam o gate — headless QEMU nem sempre
-          # mostra a sessão gráfica subindo)
+          # informativos (o gate não cobra o que não vê — headless QEMU
+          # nem sempre mostra a sessão gráfica subindo)
           echo "── informativos ──"
-          grep -qE 'sddm' serial-verify.log && echo "· sddm presente no log" || echo "· (sddm: sem menção no serial — normal em headless)"
           grep -qiE 'labwc' serial-verify.log && echo "· labwc mencionado no log" || echo "· (labwc: sem menção no serial)"
-          grep -qE 'fg-booster' serial-verify.log && echo "· fg-booster no log" || echo "· (fg-booster: sem menção)"
           exit $FAIL
 
       - name: Upload serial log
