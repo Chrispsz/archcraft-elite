@@ -184,8 +184,10 @@
     <keybind key="Super_L">
       <action name="Execute" command="craft-drawer" />
     </keybind>
-    <!-- v2.0 — dock NATIVA (craft-dock-gui): autohide POR HOTSPOT nativo
-         (tira de 4px na base); W-S-d alterna manualmente (SIGUSR1). -->
+    <!-- v2.0/v2.3.4 — dock NATIVA (craft-dock-gui): SEMPRE VISÍVEL (layer
+         BOTTOM + zona exclusiva — o hotspot/tira de 4px da v2.0 morreu no
+         rig); W-S-d alterna manualmente (SIGUSR1) e FUNCIONA EM TELA CHEIA
+         (keybind do compositor não depende do estado da janela). -->
     <keybind key="W-S-d">
       <action name="Execute" command="craft-dock toggle" />
     </keybind>

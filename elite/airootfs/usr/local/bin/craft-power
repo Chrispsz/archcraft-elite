@@ -49,6 +49,8 @@ fi
 pkill -f 'fuzzel.*--prompt=Rede' 2>/dev/null || true
 # v2.3.4 — o menu de processos (craft-bgapps) entra na mesma lei.
 pkill -f 'fuzzel.*--prompt=Encer' 2>/dev/null || true
+# v2.3.6 — o prompt de senha do picker Wi-Fi entra na lei do cross-dismiss
+pkill -f 'fuzzel.*--prompt=Senha' 2>/dev/null || true
 
 if command -v fuzzel >/dev/null 2>&1; then
     # anchor top-right + margens: colado no canto, 44px abaixo do topo
@@ -76,6 +78,14 @@ if command -v fuzzel >/dev/null 2>&1; then
         # v2.3.5 — SIGTERM = fechado de fora (toggle/cross-dismiss) —
         # benigno: sem notify crítico falso (o print do dono).
         mlog "Sessão: fechado de fora (SIGTERM — toggle/cross-dismiss) — benigno"
+        rm -f "$errf"
+        exit 0
+    fi
+    if [ "$ec" -eq 1 ] && [ ! -s "$errf" ]; then
+        # v2.3.6 — ESC = fechado pelo usuário (stderr vazio ≠ crash) —
+        # benigno: fechar NUNCA é erro (o rig flagrou "erro 1" no fechamento
+        # normal da Rede; mesma classe do 143).
+        mlog "Sessão: fechado pelo usuário (ESC) — benigno"
         rm -f "$errf"
         exit 0
     fi

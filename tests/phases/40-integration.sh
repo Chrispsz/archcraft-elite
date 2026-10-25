@@ -378,7 +378,7 @@ assert_grep "$P/airootfs/etc/polkit-1/rules.d/49-elite-desktop.rules" 'org.freed
 assert_grep "$P/airootfs/etc/polkit-1/rules.d/49-elite-desktop.rules" 'modify.global-system' "v1.6: exceção deliberada — config global segue pedindo admin (sem wildcard)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'gnome-keyring-daemon --unlock' "v1.6: bootstrap do chaveiro vazio no live/autologin (fim dos prompts)"
 # tray hardening (o bloco cinza do burn test)
-assert_grep "$P/airootfs/etc/skel/.config/waybar/style.top.css" '#tray > .tray > image' "v1.6: CSS de itens SNI da tray (cor + tamanho explícitos)"
+assert_nogrep "$P/airootfs/etc/skel/.config/waybar/style.top.css" '#tray' "v2.3.6: zero CSS de tray SNI (o módulo e o nm-applet morreram — o conector é texto no craft-connect)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/themerc-override" 'window.active.shadow.size: 60' "v1.0.4: sombras grandes (receita hakuspace)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/themerc-override" 'osd.label.text.color: #cba6f7' "v1.0.4: OSD mauve (coerência com o acento)"
 assert_nogrep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'OB-Catppuccin-Mocha' "v1.0.4: tema FANTASMA OB-Catppuccin-Mocha removido do rc.xml (nunca existiu — causa do 'cru')"
@@ -405,20 +405,20 @@ assert_grep "$REPO/elite/fragments/elite-customize.sh" 'kernel-copy-success' "v1
 assert_grep "$P/airootfs/etc/sddm.conf.d/kde_settings.conf" '^Session=labwc$' "v1.0.3: SDDM autologin Session=labwc"
 assert_grep "$P/airootfs/var/lib/sddm/state.conf" 'wayland-sessions/labwc\.desktop' "v1.0.3: greeter pré-seleciona labwc"
 assert_nofile "$P/airootfs/etc/systemd/system/fg-booster.service" "v2.2: fg-booster.service EXTINTA do airootfs (fusão dos boosters — ananicy-cpp é o único daemon; ver contratos v2.2 na 20-static)"
-# v1.8.2: os APPLETS GUI VOLTARAM (áudio do dono: TUI não é o dia-a-dia
-# dele) — nm-applet + blueman-applet na tray, craft-connect abre GUIs;
-# os TUIs impala/bluetui seguem como fallback (craft-connect) e o comentário
-# do autostart documenta a direção v2.0
-# v2.3.5 — RETORNO DO nm-applet COM EVIDÊNCIA (a v2.0 o tirou por estética
-# dos ícones SNI; o rig v2.3.2 provou o custo: sem conector para o usuário
-# comum — o nm-connection-editor EDITA, não CONECTA). blueman-applet segue
-# fora (o blueman-manager do craft-connect cobre o pareamento em janela).
-assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" '^[[:space:]]*nm-applet &' "v2.3.5: nm-applet VOLTOU ao autostart — o conector de verdade (relato do dono: 'como conector numa rede wi-fi assim?')"
+# v2.3.6 — FIM DO nm-applet COM EVIDÊNCIA DUPLA: o rig v2.3.2 provou o
+# custo da estética (sem conector) e o rig v2.3.5 provou o custo DO
+# remédio — o ícone SNI de ethernet é bitmap de tema de ícones, fora da
+# família de glifos da barra ("inconsistentes e espaçados" + "remove esse
+# ícone feio de Pc"). O conector agora é TEXTO no craft-connect
+# ('Wi-Fi: conectar à rede…' → picker fuzzel+nmcli, senha oculta).
+assert_nogrep "$P/airootfs/etc/skel/.config/labwc/autostart" '^[[:space:]]*nm-applet &' "v2.3.6: nm-applet FORA do autostart — o conector é o picker de texto do craft-connect (o feio PC da tray morreu)"
 assert_nogrep "$P/airootfs/etc/skel/.config/labwc/autostart" '^[[:space:]]*blueman-applet &' "v2.0: blueman-applet fora do autostart (o blueman-manager do craft-connect cobre — mesma decisão)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'craft-connect' "v2.0: o comentário do autostart documenta a direção v2.0 (um ponto só de conectividade)"
 
 # ── v2.3.5 — AS CURAS DO RIG v2.3.2 (prints e relatos do dono) ──────────
-assert_grep "$P/airootfs/usr/local/bin/craft-connect" 'Wi-Fi e Ethernet \(editar conexões\)' "v2.3.5: rótulo honesto no craft-connect — o item abre o EDITOR (editar ≠ conectar; o conector é o nm-applet na tray)"
+assert_grep "$P/airootfs/usr/local/bin/craft-connect" 'Wi-Fi: conectar à rede' "v2.3.6: o conector é TEXTO no menu de rede (diretriz do dono: 'como texto escrito nela')"
+assert_grep "$P/airootfs/usr/local/bin/craft-connect" 'nmcli device wifi connect' "v2.3.6: o picker conecta de verdade (nmcli — o fluxo do antigo applet, sem applet)"
+assert_nogrep "$P/airootfs/usr/local/bin/craft-connect" 'nm-connection-editor' "v2.3.6: o EDITOR saiu do menu de rede (editar ≠ conectar; edição avançada no W-n)"
 assert_grep "$P/airootfs/usr/local/share/applications/lstopo.desktop" 'NoDisplay=true' "v2.3.5: lstopo (hardware locality) fora do Launchpad — override NoDisplay, o padrão xgps"
 assert_grep "$P/airootfs/usr/local/share/applications/lstopo-no-graphics.desktop" 'NoDisplay=true' "v2.3.5: lstopo-no-graphics também oculto (mesma classe — dep de terceiros não é app do dono)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/environment" 'XDG_DATA_DIRS=.*flatpak/exports/share' "v2.3.5: flatpak exports no XDG_DATA_DIRS da sessão (o Sober sem ícone é isso — literal, sem depender de expansão)"
@@ -426,7 +426,7 @@ assert_grep "$REPO/elite/fragments/elite-customize.sh" 'Defaults !lecture' "v2.3
 assert_grep "$REPO/elite/fragments/elite-customize.sh" 'visudo -cf' "v2.3.5: E20 valida o sudoers com visudo antes de aceitar (sudoers quebrado derruba TODA a elevação)"
 assert_grep "$P/airootfs/etc/skel/.config/elite/idle.conf" 'SUSPEND_MIN=0' "v2.3.5: auto-suspend é OPT-IN no idle.conf (0 = off — a ISO não muda comportamento às escondidas)"
 assert_grep "$P/airootfs/usr/local/bin/craft-idle" 'systemctl suspend' "v2.3.5: craft-idle suspende de verdade quando SUSPEND_MIN > 0 (o before-sleep trava antes — acorda no lock)"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'nm-applet &' "v2.3.5: o conector Wi-Fi está na sessão sem guard quebrado (command -v)"
+assert_nogrep "$P/airootfs/etc/skel/.config/waybar/config.top" '"tray"' "v2.3.6: módulo tray FORA da topbar (nada a exibir — udiskie roda --no-tray; o ícone SNI bitmap não pertence à família de glifos)"
 
 # craft-dump — o 'btop completão' (pedido do dono: RAM, pacotes, CPU, uso,
 # caches e os logs da Elite num arquivo único que ele pode me mandar)
@@ -1498,7 +1498,7 @@ assert_grep "$WBT" '^@define-color crust[[:space:]]*#000000' "v1.3: style.top.cs
 assert_grep "$P/airootfs/etc/skel/.config/elite/dock.css" 'rgba..0, 0, 0.|alpha\(#050508' "v2.0: dock.css na escada AMOLED (mantle/preto literais — preto REAL)"
 
 # ── Acentos Catppuccin INTACTOS (o colorido não escureceu) ─────────────────
-assert_grep "$P/airootfs/etc/skel/.config/elite/dock.css" 'cba6f7' "v1.3→v2.0: mauve #cba6f7 intacto na pílula (assinatura do rice)"
+assert_grep "$P/airootfs/etc/skel/.config/elite/dock.css" 'cdd6f4' "v2.3.6: indicador da dock NEUTRO (o dono: 'efeito roxo estranho' — destaque por luz; o mauve segue vivo na barra/fuzzel/foot/themerc)"
 # (v2.0: o dock.css não carrega @define-color — cores literais GTK3; o peach é herança da waybar que saiu)
 
 # ── Cores SEMÂNTICAS de marca na dock (v1.3: identidade do dono) ───────────
@@ -1590,7 +1590,7 @@ assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" '"custom/bgapps"' "
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" '"craft-bgapps menu"' "v2.3.4: clique no botão abre o menu de processos"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/style.top.css" '#custom-bgapps' "v2.3.4: CSS do botão no rice (pêssego quando há o que encerrar)"
 assert_grep "$P/airootfs/usr/local/bin/craft-power" 'prompt=Encer' "v2.3.4: craft-power fecha o menu de processos (cross-dismiss na lei v1.8.2)"
-assert_grep "$P/airootfs/usr/local/bin/craft-connect" 'prompt=Encer' "v2.3.4: craft-connect fecha o menu de processos (cross-dismiss na lei v1.8.2)"
+assert_grep "$P/airootfs/usr/local/bin/craft-connect" 'prompt=\(Sess\|Encer\|Senha\)' "v2.3.6: craft-connect fecha Sessão/Encerrar/Senha (cross-dismiss na lei v1.8.2)"
 
 # ── v2.3.1 — PROBE COBRE MENUS (o gate via enxergar o que o rig vê) ───────
 assert_grep "$P/airootfs/usr/local/bin/elite-session-probe" 'FUZZEL_BIN=' "v2.3.1: probe colhe FUZZEL_BIN (binário dos 5 menus)"
@@ -1767,9 +1767,9 @@ assert_grep "$CPT" '"on-click": "craft-connect"' "v1.4: rede → central de cone
 assert_file "$CCT" "v1.4: craft-connect existe"
 assert_grep "$CCT" 'foot -e impala' "v1.4: central abre impala (Wi-Fi/Ethernet)"
 assert_grep "$CCT" 'foot -e bluetui' "v1.4: central abre bluetui (Bluetooth)"
-assert_grep "$CCT" '--prompt=Rede' "v1.4: prompt 'Rede' (nunca colide com o toggle do 'Sessão')"
-assert_grep "$CCT" "pgrep -f 'fuzzel.*--prompt=Rede'" "v1.6.1: craft-connect detecta o menu aberto (toggle — 2ª chamada fecha, mesma cura do 'Sessão')"
-assert_grep "$CCT" "pkill -f 'fuzzel.*--prompt=Rede'" "v1.6.1: toggle da central de rede MATA a instância (regressão do 'menu empilhava' morta por contrato)"
+assert_grep "$CCT" "--prompt='Rede" "v1.4: prompt 'Rede' (nunca colide com o toggle do 'Sessão')"
+assert_grep "$CCT" "pgrep -f 'fuzzel.*--prompt=\(Rede\|Wi-Fi\)'" "v2.3.6: toggle detecta a central OU o picker aberto (2ª chamada fecha — mesma cura do 'Sessão')"
+assert_grep "$CCT" "pkill -f 'fuzzel.*--prompt=\(Rede\|Wi-Fi\)'" "v1.6.1: toggle da central de rede MATA a instância (regressão do 'menu empilhava' morta por contrato)"
 assert_nogrep "$WBT" 'idle-inhibitor' "v2.0: o café saiu da barra E do CSS (botão estranho — áudio do dono)"
 
 # ── Gaveta com TOGGLE (v1.6.1): "abrir E fechar" (pedido do dono) ────────

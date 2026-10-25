@@ -111,6 +111,13 @@ if command -v fuzzel >/dev/null 2>&1; then
         rm -f "$errf"
         exit 0
     fi
+    if [ "$ec" -eq 1 ] && [ ! -s "$errf" ]; then
+        # v2.3.6 — ESC = fechado pelo usuário (stderr vazio ≠ crash) —
+        # benigno: fechar NUNCA é erro (mesma classe do 143).
+        mlog "Idle: fechado pelo usuário (ESC) — benigno"
+        rm -f "$errf"
+        exit 0
+    fi
     if [ "$ec" -ne 0 ]; then
         mlog "Idle: FUZZEL FALHOU exit=$ec — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
     fi
