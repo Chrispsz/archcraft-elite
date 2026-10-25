@@ -2,7 +2,7 @@
 
 Distribuição live/installer baseada no [Archcraft](https://github.com/archcraft-os/archcraft)
 com a camada de otimização do [CachyOS](https://cachyos.org) aplicada de
-fábrica: kernel `linux-cachyos-bore` (x86-64-v3), sched-ext, Vulkan de série,
+fábrica: kernel `linux-cachyos-bore` (x86-64-v3), Vulkan de série,
 filesystem btrfs com rollback e sessão única labwc (Wayland).
 
 É um *overlay delta*: cada build clona o profile oficial do Archcraft e aplica
@@ -184,8 +184,7 @@ docs/                                Documentação técnica (ver abaixo)
   sistema base é dele.
 - [CachyOS](https://cachyos.org) — kernel BORE, repositórios v3, settings e
   boosters.
-- Arch Linux, [sched-ext](https://github.com/sched-ext/scx), Valve
-  (gamemode/gamescope/Proton).
+- Arch Linux, Valve (gamemode/gamescope/Proton).
 
 MIT para os arquivos deste repositório ([LICENSE](LICENSE)). O profile do
 Archcraft clonado em tempo de build e os pacotes instalados mantêm as licenças
