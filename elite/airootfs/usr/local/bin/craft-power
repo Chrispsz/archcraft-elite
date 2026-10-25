@@ -1,25 +1,17 @@
 #!/bin/sh
 # craft-power — menu de sessão MOUSE-FIRST (Desktop v2.1)
 # ─────────────────────────────────────────────────────────────────────────
-# v2.1 (diretriz do dono: "menu que fica na barra superior no canto
-# direito"): dropdown vertical ANCORADO no canto superior direito, logo
-# abaixo do botão ⏻ da waybar — fuzzel em modo dmenu (anchor=center — v2.3.7: menus no meio da tela),
-# tema Catppuccin Mocha do fuzzel.ini, Esc fecha sem fazer nada.
-# Fallback: labnag (o "nag bar" nativo do labwc) se o fuzzel faltar.
-#
-# v1.4 (burn test do dono na v1.3 ao vivo): TOGGLE — apertar ⏻ de novo
-# com o menu aberto agora FECHA o menu (antes: cada pressão empilhava
-# OUTRO fuzzel na frente do desktop e nada fechava — "esse tipo de erro
-# não pode existir"). Detecta a instância pelo prompt único 'Sessão'
-# (o craft-connect usa prompt 'Rede' — nunca colidem).
-#
-# v2.3.1 — FIM DO SILÊNCIO (rig do dono, v2.1.1: "os menus morreram e não
-# funcionam"): fuzzel que não abre é morte CALADA (o stderr ia pro
-# /dev/null e o menu só não aparecia — sem um rastro sequer). Agora todo
-# open e toda falha deixa linha em ~/.cache/elite/menus.log e a falha
-# AINDA avisa na tela (notify-send). Log vazio = clique nunca chegou ao
-# script (problema de handler da waybar); "aberto" sem menu na tela =
-# fuzzel morreu DEPOIS de abrir (problema de render/protocolo).
+# v2.3.8 — A ERA DO MENU NATIVO (o dono corrigiu a leitura: "o que eu
+# queria centralizar é o nome do menu e remover a barra que fica, tipo
+# 'Rede |'"): a linha de digitação herdada do dmenu não tem função num menu de
+# escolha. O dropdown de Sessão agora é o craft-menu — GUI nativa GTK+
+# layer-shell (a família provada da dock): título CENTRADO, itens
+# centrados, ZERO linha de digitação, ↑/↓/Enter/Esc + clique. A lei dos
+# menus (toggle + cross-dismiss) virou ESTRUTURA dentro do craft-menu —
+# este script não mata irmão nenhum mais.
+# v2.1 — dropdown da barra superior (diretriz do dono). v1.4 — TOGGLE
+# ("esse tipo de erro não pode existir"). v2.3.1 — fim do silêncio
+# (todo open e toda falha deixam linha no menus.log + aviso na tela).
 set -eu
 
 MLOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/menus.log"
@@ -33,72 +25,54 @@ mlog() {
     return 0
 }
 
-# TOGGLE v1.4: menu de sessão aberto? fecha e sai (2ª pressão = fechar)
-if pgrep -f 'fuzzel.*--prompt=Sess' >/dev/null 2>&1; then
-    pkill -f 'fuzzel.*--prompt=Sess' 2>/dev/null || true
-    exit 0
-fi
 # fallback labnag aberto (t -t 86400)? também vira toggle
 if pgrep -x labnag >/dev/null 2>&1; then
     pkill -x labnag 2>/dev/null || true
     exit 0
 fi
-# v1.8.2 — CROSS-DISMISS (pedido do dono: "abro o menu de rede, clico no
-# desligar, o de rede tem que SAIR da tela"): abrir Sessão fecha o menu
-# de Rede — nunca dois dropdowns empilhados na frente do desktop.
-pkill -f 'fuzzel.*--prompt=Rede' 2>/dev/null || true
-# v2.3.4 — o menu de processos (craft-bgapps) entra na mesma lei.
-pkill -f 'fuzzel.*--prompt=Encer' 2>/dev/null || true
-# v2.3.6 — o prompt de senha do picker Wi-Fi entra na lei do cross-dismiss
-pkill -f 'fuzzel.*--prompt=Senha' 2>/dev/null || true
 
-if command -v fuzzel >/dev/null 2>&1; then
-    # anchor center (v2.3.7 — o dono: "centralizar neles no meio")
-    # (a menu bar tem 36px — o dropdown nasce "pendurado" nela);
-    # --lines 5 = altura exata das opções, sem lista vazia.
-    # v2.2 (leveza radical): entradas TEXTO PURO — o protocolo de ícones do
-    # dmenu (NUL + icon + US + path) morreu com o papirus-icon-theme; sem
-    # tema de ícones na ISO não existe path garantido, e o case de baixo
-    # sempre leu o texto antes do NUL — o fluxo segue idêntico.
-    # v2.3.1: stderr CAPTURADO (era /dev/null) — exit != 0 = crash do fuzzel
-    # (config/protocolo) → log + notify; Esc = exit 0 com choice vazio.
-    mlog "Sessão: abrindo (fuzzel)"
+if command -v craft-menu >/dev/null 2>&1; then
+    mlog "Sessão: abrindo (craft-menu)"
     errf="$(mktemp)"
     ec=0
-    choice="$(printf '%s\n' \
+    choice="$(craft-menu --title='Sessão' \
         'Travar tela' \
         'Sair da sessão' \
         'Suspender' \
         'Reiniciar' \
         'Desligar' \
         'Tempo de idle…' \
-        | fuzzel --dmenu \
-        --anchor=center \
-        --lines=6 --width=26 --prompt='Sessão  ' 2>"$errf")" || ec=$?
+        2>"$errf")" || ec=$?
     if [ "$ec" -eq 143 ]; then
-        # v2.3.5 — SIGTERM = fechado de fora (toggle/cross-dismiss) —
-        # benigno: sem notify crítico falso (o print do dono).
-        mlog "Sessão: fechado de fora (SIGTERM — toggle/cross-dismiss) — benigno"
+        # v2.3.5 — SIGTERM = fechado de fora (cross-dismiss: outro menu
+        # abriu) — benigno: sem notify crítico falso (o print do dono).
+        mlog "Sessão: fechado de fora (SIGTERM — cross-dismiss) — benigno"
+        rm -f "$errf"
+        exit 0
+    fi
+    if [ "$ec" -eq 2 ]; then
+        # v2.3.8 — TOGGLE estrutural: a 2ª chamada fechou a 1ª (a lei mora
+        # no craft-menu) — nada a mostrar.
+        mlog "Sessão: toggle — 2ª chamada fechou o menu — benigno"
         rm -f "$errf"
         exit 0
     fi
     if [ "$ec" -eq 1 ] && [ ! -s "$errf" ]; then
         # v2.3.6 — ESC = fechado pelo usuário (stderr vazio ≠ crash) —
-        # benigno: fechar NUNCA é erro (o rig flagrou "erro 1" no fechamento
-        # normal da Rede; mesma classe do 143).
+        # benigno: fechar NUNCA é erro (mesma classe do 143).
         mlog "Sessão: fechado pelo usuário (ESC) — benigno"
         rm -f "$errf"
         exit 0
     fi
     if [ "$ec" -ne 0 ]; then
-        mlog "Sessão: FUZZEL FALHOU exit=$ec — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
+        mlog "Sessão: MENU FALHOU exit=$ec — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
         command -v notify-send >/dev/null 2>&1 && \
             notify-send -a 'Elite' -u critical 'Menu de Sessão falhou' \
-                "fuzzel exit=$ec — detalhe em ~/.cache/elite/menus.log" || true
+                "craft-menu exit=$ec — detalhe em ~/.cache/elite/menus.log" || true
     fi
     rm -f "$errf"
 else
-    mlog "Sessão: fuzzel AUSENTE — fallback labnag"
+    mlog "Sessão: craft-menu AUSENTE — fallback labnag"
     # fallback: labnag — barra de botões no topo (Lock · Logout · Reboot …)
     if command -v labnag >/dev/null 2>&1; then
         exec labnag \
@@ -120,7 +94,7 @@ else
             -Z 'Desligar' 'systemctl poweroff' \
             -Z 'Cancelar' 'true'
     fi
-    choice=''   # sem fuzzel nem labnag: sai limpo (W-x/craft-logout no rc.xml)
+    choice=''   # sem craft-menu nem labnag: sai limpo (W-x/craft-logout no rc.xml)
 fi
 
 case "$choice" in
