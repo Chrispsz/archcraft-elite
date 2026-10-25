@@ -127,6 +127,7 @@ window#waybar {
 #custom-power:hover,
 #wlr-window:hover,
 #custom-drawer:hover,
+#custom-shot:hover,
 #mpris:hover,
 #network:hover,
 #pulseaudio:hover,
@@ -138,6 +139,7 @@ window#waybar {
 
 #custom-power:active,
 #wlr-window:active,
+#custom-shot:active,
 #mpris:active,
 #network:active,
 #pulseaudio:active,
@@ -146,8 +148,13 @@ window#waybar {
   border-radius: 8px;
 }
 
-/* Volume mudo = vermelho (v2.1: ícone só — o estado precisa gritar) */
-#pulseaudio.muted {
+/* v2.3.7 — o mute do VOLUME virava vermelho no MIC também: a classe
+ * .muted que o waybar adiciona por sink mutado cai em TODAS as instâncias
+ * pulseaudio (incluída a #mic) — o dono flagrou ao vivo: "mutando o áudio
+ * ele também tá mutando o microfone". :not(.mic) isola o grito: só o
+ * ícone do som fica vermelho com o sink mudo; o mic responde só ao
+ * .source-muted (linha acima). O mic do dono voltou a ter vontade própria. */
+#pulseaudio:not(.mic).muted {
   color: @red;
 }
 

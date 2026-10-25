@@ -526,25 +526,23 @@ CPOW="$REPO/elite/airootfs/usr/local/bin/craft-power"
 CCON="$REPO/elite/airootfs/usr/local/bin/craft-connect"
 assert_grep "$CPOW" "pkill -f 'fuzzel\.\*--prompt=Rede'" \
   "craft-power: cross-dismiss — abrir Sessão fecha o menu de Rede"
-assert_grep "$CCON" "pkill -f 'fuzzel\.\*--prompt=\(Sess\|Encer\|Senha\)'" \
-  "craft-connect: cross-dismiss — abrir Rede fecha Sessão/Encerrar/Senha (a lei inteira)"
+assert_grep "$CCON" "pkill -f 'fuzzel\.\*--prompt=\(Sess\|Encer\)'" \
+  "craft-connect: cross-dismiss — abrir Rede fecha Sessão/Encerrar (a lei inteira; 'Senha' morreu com o picker v2.3.7)"
 
-# H4 — conectividade (v2.3.6 — o rig falou de novo: "remove esse ícone
-#      feio de Pc… coloca a função… como texto escrito nela"): o conector
-#      Wi-Fi é o PICKER do próprio craft-connect (fuzzel+nmcli, texto
-#      puro, senha oculta); nm-applet/tray morreram (ícone SNI bitmap
-#      fora da família tipográfica da barra); o editor de conexões segue
-#      instalado SÓ para edição avançada (W-n) — fora do menu de rede.
+# H4 — conectividade (v2.3.7 — o dono USOU o picker no live e decretou:
+#      "um menu serve pra chamar o serviço… evitando criar submenus e
+#      coisas que podem quebrar"): o verbo Wi-Fi agora abre o GERENCIADOR
+#      DO SISTEMA (nm-connection-editor — como o Bluetooth abre o blueman);
+#      picker fuzel+nmcli e prompt de senha MORRERAM (3 connects com senha
+#      correta falharam no live 23:14); nm-applet/tray seguem extintos.
 assert_grep "$REPO/elite/packages.add" '^network-manager-applet$' \
-  "packages.add: network-manager-applet presente (o editor de conexões do W-n é dele — edição avançada, não o conector)"
+  "packages.add: network-manager-applet presente (o editor de conexões é dele — agora é O caminho do menu também)"
 assert_grep "$REPO/elite/packages.add" '^blueman$' \
   "packages.add: blueman presente (GUI de bluetooth)"
-assert_grep "$CCON" 'Wi-Fi: conectar à rede' \
-  "craft-connect: o CONECTOR é texto no menu (diretriz do dono: 'como texto escrito nela')"
-assert_grep "$CCON" 'nmcli device wifi connect' \
-  "craft-connect: o picker conecta de verdade (nmcli — o fluxo do antigo applet, sem applet)"
-assert_nogrep "$CCON" 'nm-connection-editor' \
-  "v2.3.6: o EDITOR saiu do menu de rede (editar ≠ conectar; edição avançada vive no W-n)"
+assert_grep "$CCON" 'Wi-Fi: gerenciar conexões' \
+  "craft-connect: o verbo Wi-Fi chama o gerenciador (a diretriz do dono no live)"
+assert_grep "$CCON" 'exec nm-connection-editor' \
+  "craft-connect: o gerenciador do SISTEMA cuida da conexão (zero lógica nossa no caminho)"
 assert_grep "$CCON" 'blueman-manager' \
   "craft-connect: menu abre GUI de bluetooth (TUI bluetui só como fallback)"
 RCXML="$REPO/elite/airootfs/etc/skel/.config/labwc/rc.xml"
@@ -554,7 +552,7 @@ assert_grep "$RCXML" 'command="blueman-manager"' \
   "rc.xml: W-S-b abre GUI de bluetooth (era bluetui TUI)"
 AUTO="$REPO/elite/airootfs/etc/skel/.config/labwc/autostart"
 assert_nogrep "$AUTO" 'nm-applet &' \
-  "v2.3.6: nm-applet FORA do autostart — a história completa: v2.0 estética → v2.3.5 função (voltou) → v2.3.6 substituição (o conector virou texto no craft-connect; o ícone SNI bitmap desandava a barra)"
+  "v2.3.6: nm-applet FORA do autostart — a história completa: v2.0 estética → v2.3.5 função (voltou) → v2.3.6 substituição → v2.3.7 o menu chama o gerenciador do sistema"
 assert_nogrep "$AUTO" 'blueman-applet &' \
   "v2.0: blueman-applet FORA do autostart (mesma classe — o blueman-manager do craft-connect cobre)"
 # v2.3.6 — a lei do fechamento: ESC (exit 1 com stderr vazio) é benigno em

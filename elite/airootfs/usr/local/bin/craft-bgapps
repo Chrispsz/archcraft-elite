@@ -44,6 +44,12 @@ mlog() {
 # ps -o comm= corta em 15 caracteres — os nomes abaixo JÁ são os truncados
 # (polkit-gnome-authentication-agent-1 → "polkit-gnome-au", etc.). O próprio
 # craft-bgapps roda como "sh" (shebang) — coberto pela entrada sh.
+# v2.3.7 — 3 novas entradas COM EVIDÊNCIA do live do dono (25/10, foto do
+# menu Encerrar): at-spi-bus-laun / at-spi2-regist (o barramento de
+# acessibilidade que TODO app GTK acorda) e bwrap (a caixa de areia dos
+# portals) nasceram com o sistema e apareciam como alvos de morte —
+# matá-los quebra o app que os criou. Mesma classe da casca: encanamento,
+# não aplicativo.
 PROTECTED='
 labwc
 waybar
@@ -68,6 +74,9 @@ gvfsd
 gvfsd-fuse
 polkit-gnome-au
 gnome-keyring-d
+at-spi-bus-laun
+at-spi2-regist
+bwrap
 sh
 bash
 zsh
@@ -116,9 +125,13 @@ status() {
         return 0
     fi
     count="$(printf '%s\n' "$entries" | grep -c '(pid ')"
-    names="$(printf '%s\n' "$entries" | sed 's/^/ • /; s/ (pid [0-9]*)$//')"
+    names="$(printf '%s\n' "$entries" | sed 's/^/ • /; s/ (pid [0-9]*)$//' | sed -z 's/\n/\\n/g')"
     # glifo como escape JSON \uXXXX (lição v1.1: ASCII puro, à prova de
     # encoding — waybar decodifica o escape ao renderizar)
+    # v2.3.7 — os \n dos nomes viram escape JSON (sed -z): newline CRUO
+    # dentro de string JSON é ILEGAL e o waybar cuspia 'Error parsing
+    # JSON · Line 1, Column 51' a cada 10s — o botão morreu no live do
+    # dono (bars.log 25/10). Zero newline cru: JSON nasce inteiro.
     printf '{"text":"\\uf085 %s","class":"bgapps-on","tooltip":"Em segundo plano (%s):\\n%s\\nClique para escolher o que encerrar."}\n' \
         "$count" "$count" "$names"
 }
@@ -149,7 +162,7 @@ menu() {
     errf="$(mktemp)"
     ec=0
     choice="$(printf '%s\n' "$entries" | fuzzel --dmenu \
-        --anchor=top-right --x-margin=10 --y-margin=44 \
+        --anchor=center \
         --lines=8 --width=34 --prompt='Encerrar  ' 2>"$errf")" || ec=$?
     if [ "$ec" -eq 143 ]; then
         # v2.3.5 — SIGTERM = fechado de fora (toggle/cross-dismiss) —

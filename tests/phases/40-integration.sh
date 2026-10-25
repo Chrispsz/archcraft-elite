@@ -253,7 +253,7 @@ assert_grep "$CT" '"fixed-center": true' "v1.5: fixed-center (centro EXATO indep
 assert_nogrep "$CT" '"custom/menu"' "v1.5: lançador ARCH FORA do canto esquerdo (spec do dono — o Launchpad vive na dock)"
 assert_grep "$CT" '"modules-left": \["custom/drawer", "wlr/window"\]' "v2.0: convenção dos rices — ESQUERDA = lançador (ARCH) + app focado"
 assert_grep "$CT" '"modules-right": \[' "v2.1: o STATUS vive à DIREITA (volume/rede/tray/sessão — declutter do dono)"
-assert_nogrep "$CT" '"custom/shot"' "v2.1: botão screenshot SAIU da barra (declutter do dono — a função vive em W-P/W-S-P; AÇÃO sem assento fixo)"
+assert_grep "$CT" '"custom/shot"' "v2.3.7: botão de print DE VOLTA na barra (áudio do dono: 'botão de print rápido que melhoraria a experiência' — a lei muda com o dono)"
 assert_nogrep "$CT" '"idle_inhibitor"' "v2.0: o café SAIU da barra (módulo extinto — 'botão estranho', áudio do dono)"
 assert_grep "$CT" '"format": "\{icon\}"' "v2.1: áudio em modo ícone"
 assert_nogrep "$CT" '"format": "\{volume\}' "v2.1: SEM porcentagem numérica no áudio (o '40%')"
@@ -276,7 +276,7 @@ assert_nogrep "$P/airootfs/usr/local/bin/craft-dock-gui" '\\u[0-9a-f]{4}' "v2.0:
 DCSS="$P/airootfs/etc/skel/.config/elite/dock.css"
 assert_grep "$DCSS" '#dockbox button' "v2.0: dock.css estiliza os botões da pílula"
 assert_grep "$DCSS" 'min-height: 44px' "v2.0 M3.1: bbox único centralizado (a cura do desalinho fotografado)"
-assert_grep "$DCSS" 'box-shadow: inset 0 -3px 0' "v2.0: indicador .running por inset shadow (zero shift)"
+assert_grep "$DCSS" 'background-size: 6px 3px' "v2.3.7: indicador .running = BOLINHA centrada (o dono: 'tira essa barrinha branca… selar só a bolinha abaixo' — a barra full-width morreu)"
 # Dock: grupo ÚNICO central (fixados + abertos), sem lock/power
 assert_file "$P/airootfs/etc/skel/.config/elite/dock-pins" "v2.1: a estrutura da dock agora é o GUI + arquivo de pins (sem grupo waybar)"
 assert_nofile "$P/airootfs/etc/skel/.config/waybar/config.dock" "v2.1: o separador fixos│abertos morreu com a dock waybar (pins = apps de verdade)"
@@ -292,9 +292,9 @@ assert_nogrep "$P/airootfs/etc/skel/.config/elite/dock.css" 'JetBrainsMono Nerd 
 assert_grep "$P/airootfs/etc/skel/.config/fuzzel/fuzzel.ini" 'font=JetBrainsMono NF' "v2.1: fuzzel com a família REAL"
 assert_nogrep "$P/airootfs/etc/skel/.config/fuzzel/fuzzel.ini" 'font=JetBrainsMono Nerd Font' "v2.1: fuzzel sem a família inexistente na diretiva font="
 assert_nogrep "$P/airootfs/etc/skel/.config/elite/dock.css" '#custom-sep' "v2.1: dock.css sem separador (a era dos glifos morreu)"
-assert_grep "$P/airootfs/etc/skel/.config/waybar/style.top.css" '#pulseaudio.muted' "v2.1: mudo = vermelho (áudio ícone precisa gritar estado)"
-# craft-power v2: dropdown fuzzel ancorado no canto superior direito
-assert_grep "$P/airootfs/usr/local/bin/craft-power" '--anchor=top-right' "v2.1: menu de sessão ancorado no canto direito (fuzzel)"
+assert_grep "$P/airootfs/etc/skel/.config/waybar/style.top.css" '#pulseaudio:not\(\.mic\)\.muted' "v2.3.7: mudo = vermelho SÓ no ícone do som (a classe .muted do sink vazava pra instância mic — o dono: 'mutando o áudio tá mutando o microfone junto')"
+# craft-power v2: dropdown fuzzel — v2.3.7: CENTRALIZADO (o dono: "centralizar neles no meio")
+assert_grep "$P/airootfs/usr/local/bin/craft-power" '--anchor=center' "v2.3.7: menu de sessão CENTRALIZADO (fuzzel — repaginação pedida no áudio do live)"
 assert_grep "$P/airootfs/usr/local/bin/craft-power" 'fuzzel --dmenu' "v2.1: sessão via fuzzel dmenu (dropdown)"
 assert_grep "$P/airootfs/usr/local/bin/craft-power" 'Travar tela' "v2.1: opção Travar no menu de sessão"
 assert_grep "$P/airootfs/usr/local/bin/craft-power" 'Suspender' "v2.1: opção Suspender no menu de sessão"
@@ -409,16 +409,21 @@ assert_nofile "$P/airootfs/etc/systemd/system/fg-booster.service" "v2.2: fg-boos
 # custo da estética (sem conector) e o rig v2.3.5 provou o custo DO
 # remédio — o ícone SNI de ethernet é bitmap de tema de ícones, fora da
 # família de glifos da barra ("inconsistentes e espaçados" + "remove esse
-# ícone feio de Pc"). O conector agora é TEXTO no craft-connect
-# ('Wi-Fi: conectar à rede…' → picker fuzzel+nmcli, senha oculta).
-assert_nogrep "$P/airootfs/etc/skel/.config/labwc/autostart" '^[[:space:]]*nm-applet &' "v2.3.6: nm-applet FORA do autostart — o conector é o picker de texto do craft-connect (o feio PC da tray morreu)"
+# ícone feio de Pc"). v2.3.7 — o conector é O MENU QUE CHAMA O SERVIÇO:
+# 'Wi-Fi: gerenciar conexões…' abre o nm-connection-editor (como o
+# Bluetooth abre o blueman — a diretriz do dono no live: "evitando criar
+# submenus e coisas que podem quebrar").
+assert_nogrep "$P/airootfs/etc/skel/.config/labwc/autostart" '^[[:space:]]*nm-applet &' "v2.3.6: nm-applet FORA do autostart — o conector é o menu que chama o gerenciador do sistema (o feio PC da tray morreu)"
 assert_nogrep "$P/airootfs/etc/skel/.config/labwc/autostart" '^[[:space:]]*blueman-applet &' "v2.0: blueman-applet fora do autostart (o blueman-manager do craft-connect cobre — mesma decisão)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'craft-connect' "v2.0: o comentário do autostart documenta a direção v2.0 (um ponto só de conectividade)"
 
 # ── v2.3.5 — AS CURAS DO RIG v2.3.2 (prints e relatos do dono) ──────────
-assert_grep "$P/airootfs/usr/local/bin/craft-connect" 'Wi-Fi: conectar à rede' "v2.3.6: o conector é TEXTO no menu de rede (diretriz do dono: 'como texto escrito nela')"
-assert_grep "$P/airootfs/usr/local/bin/craft-connect" 'nmcli device wifi connect' "v2.3.6: o picker conecta de verdade (nmcli — o fluxo do antigo applet, sem applet)"
-assert_nogrep "$P/airootfs/usr/local/bin/craft-connect" 'nm-connection-editor' "v2.3.6: o EDITOR saiu do menu de rede (editar ≠ conectar; edição avançada no W-n)"
+assert_grep "$P/airootfs/usr/local/bin/craft-connect" 'Wi-Fi: gerenciar conexões' "v2.3.7: o verbo Wi-Fi chama o GERENCIADOR (o dono no live: 'um menu serve pra chamar o serviço… evitando criar submenus e coisas que podem quebrar')"
+assert_grep "$P/airootfs/usr/local/bin/craft-connect" 'exec nm-connection-editor' "v2.3.7: o gerenciador do SISTEMA cuida da conexão (nm-connection-editor — o mesmo do W-n; 3 connects com senha correta falharam no picker desenhado)"
+assert_grep "$P/airootfs/usr/local/bin/craft-connect" 'nmtui' "v2.3.7: fallback nmtui (ferramenta do próprio NetworkManager — zero lógica nossa no caminho)"
+assert_nogrep "$P/airootfs/usr/local/bin/craft-connect" 'wifi_pick' "v2.3.7: o picker desenhado MORREU (senha oculta + parse de sinal + nmcli próprios = superfície de falha sem dono)"
+assert_nogrep "$P/airootfs/usr/local/bin/craft-connect" '--password' "v2.3.7: prompt de senha próprio morreu com o picker (a senha é trabalho do gerenciador)"
+assert_nogrep "$P/airootfs/usr/local/bin/craft-connect" 'nmcli device wifi connect' "v2.3.7: nmcli connect próprio saiu do caminho (a cura do dono pós-3 FALHAS no live 23:14)"
 assert_grep "$P/airootfs/usr/local/share/applications/lstopo.desktop" 'NoDisplay=true' "v2.3.5: lstopo (hardware locality) fora do Launchpad — override NoDisplay, o padrão xgps"
 assert_grep "$P/airootfs/usr/local/share/applications/lstopo-no-graphics.desktop" 'NoDisplay=true' "v2.3.5: lstopo-no-graphics também oculto (mesma classe — dep de terceiros não é app do dono)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/environment" 'XDG_DATA_DIRS=.*flatpak/exports/share' "v2.3.5: flatpak exports no XDG_DATA_DIRS da sessão (o Sober sem ícone é isso — literal, sem depender de expansão)"
@@ -1550,6 +1555,8 @@ assert_nogrep "$FZL" '^ain\]$' "v1.3: anti-regressão: cabeçalho de seção nun
 assert_grep "$FZL" '^background=000000f2$' "v1.3: fuzzel bg preto (véu f2)"
 assert_grep "$FZL" '^prompt=cba6f7ff$' "v1.3: fuzzel prompt MAUVE (era blue)"
 assert_grep "$FZL" '^border=cba6f7ff$' "v1.3: fuzzel borda MAUVE (era blue)"
+assert_nogrep "$FZL" '^;' "v2.3.7: ZERO comentário ';' no fuzzel.ini (o parser do fuzzel só honra '#' — o ';' virava ERRO no stderr de TODA abertura e ESC virava alarme crítico falso; rig do dono, live 25/10)"
+assert_grep "$FZL" '^# Archcraft ELITE' "v2.3.7: cabeçalho em '#' (mesma cura, lado positivo)"
 if command -v python3 >/dev/null 2>&1; then
   if python3 -c "
 import configparser, sys
@@ -1613,9 +1620,29 @@ assert_grep "$BGA" 'prompt=Encer' "v2.3.4: prompt único 'Encerrar' (toggle pró
 assert_nogrep "$BGA" 'pacman' "v2.3.4: craft-bgapps NÃO toca no sistema de pacotes (encerrar processo ≠ desinstalar)"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" '"custom/bgapps"' "v2.3.4: módulo custom/bgapps na top bar (o botão 'tray' pedido pelo dono)"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" '"craft-bgapps menu"' "v2.3.4: clique no botão abre o menu de processos"
+# v2.3.7 — O PRINCÍPIO DO DONO (áudio do live: "é TUDO o que o usuário não
+# espera"): o painel de notificações tinha WiFi/BT/reboot/poweroff
+# escondidos num buttons-grid — cada ação volta ao SEU lugar (rede →
+# módulo de rede; energia → menu Sessão) e o painel vira notificações.
+SNC="$P/airootfs/etc/skel/.config/swaync/config.json"
+assert_nogrep "$SNC" 'buttons-grid' "v2.3.7: toggles de rede/energia FORA do painel de notificações (o dono: 'algo escondido que o usuário não espera')"
+assert_grep "$SNC" '"widgets": \["title", "dnd", "notifications"\]' "v2.3.7: painel de notificações = notificações (título + não-perturbe + lista)"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/style.top.css" '#custom-bgapps' "v2.3.4: CSS do botão no rice (pêssego quando há o que encerrar)"
+BGA="$P/airootfs/usr/local/bin/craft-bgapps"
+assert_grep "$BGA" 'at-spi-bus-laun' "v2.3.7: at-spi na CASCA protegida (o dono no live: 'aparecendo alguns que iniciaram com o próprio sistema e pode ser perigoso encerrar' — foto do menu Encerrar)"
+assert_grep "$BGA" 'at-spi2-regist' "v2.3.7: at-spi2-registryd na casca (mesma evidência)"
+assert_grep "$BGA" '^bwrap$' "v2.3.7: bwrap na casca (a caixa de areia dos portals — matar quebra o app que a criou)"
+assert_grep "$BGA" 'sed -z' "v2.3.7: tooltip do status com newline ESCAPADO (JSON de 1 linha — o newline cru derrubava o parse do waybar a cada 10s, bars.log 'Column 51')"
 assert_grep "$P/airootfs/usr/local/bin/craft-power" 'prompt=Encer' "v2.3.4: craft-power fecha o menu de processos (cross-dismiss na lei v1.8.2)"
-assert_grep "$P/airootfs/usr/local/bin/craft-connect" 'prompt=\(Sess\|Encer\|Senha\)' "v2.3.6: craft-connect fecha Sessão/Encerrar/Senha (cross-dismiss na lei v1.8.2)"
+assert_grep "$P/airootfs/usr/local/bin/craft-connect" 'prompt=\(Sess\|Encer\)' "v2.3.7: craft-connect fecha Sessão/Encerrar (cross-dismiss na lei v1.8.2 — 'Senha' saiu da lei: o prompt morreu com o picker)"
+
+# v2.3.7 — REPAGINAÇÃO DOS MENUS (áudio do dono no live: "centralizar
+# neles no meio… trabalhando realmente mais bonita"): TODOS os dropdowns
+# da família nascem no CENTRO da tela — zero âncora de canto restante.
+for _m in craft-power craft-connect craft-bgapps craft-idle craft-logout craft-pin-pick craft-rollback; do
+    assert_grep "$P/airootfs/usr/local/bin/$_m" '--anchor=center' "v2.3.7: $_m CENTRALIZADO (o dono: menus no meio da tela)"
+    assert_nogrep "$P/airootfs/usr/local/bin/$_m" '--anchor=top-right' "v2.3.7: $_m sem âncora de canto (a era do dropdown pendurado no canto morreu)"
+done
 
 # ── v2.3.1 — PROBE COBRE MENUS (o gate via enxergar o que o rig vê) ───────
 assert_grep "$P/airootfs/usr/local/bin/elite-session-probe" 'FUZZEL_BIN=' "v2.3.1: probe colhe FUZZEL_BIN (binário dos 5 menus)"
@@ -1793,8 +1820,8 @@ assert_file "$CCT" "v1.4: craft-connect existe"
 assert_grep "$CCT" 'foot -e impala' "v1.4: central abre impala (Wi-Fi/Ethernet)"
 assert_grep "$CCT" 'foot -e bluetui' "v1.4: central abre bluetui (Bluetooth)"
 assert_grep "$CCT" "--prompt='Rede" "v1.4: prompt 'Rede' (nunca colide com o toggle do 'Sessão')"
-assert_grep "$CCT" "pgrep -f 'fuzzel.*--prompt=\(Rede\|Wi-Fi\)'" "v2.3.6: toggle detecta a central OU o picker aberto (2ª chamada fecha — mesma cura do 'Sessão')"
-assert_grep "$CCT" "pkill -f 'fuzzel.*--prompt=\(Rede\|Wi-Fi\)'" "v1.6.1: toggle da central de rede MATA a instância (regressão do 'menu empilhava' morta por contrato)"
+assert_grep "$CCT" "pgrep -f 'fuzzel.*--prompt=Rede'" "v2.3.7: toggle detecta a central aberta (2ª chamada fecha — o prompt 'Wi-Fi' saiu da detecção junto com o picker)"
+assert_grep "$CCT" "pkill -f 'fuzzel.*--prompt=Rede'" "v1.6.1: toggle da central de rede MATA a instância (regressão do 'menu empilhava' morta por contrato)"
 assert_nogrep "$WBT" 'idle-inhibitor' "v2.0: o café saiu da barra E do CSS (botão estranho — áudio do dono)"
 
 # ── Gaveta com TOGGLE (v1.6.1): "abrir E fechar" (pedido do dono) ────────
@@ -1922,10 +1949,10 @@ assert_grep "$REPO/.github/workflows/build.yml" 'DOCK_COUNT' "v2.1.1: gate do CI
 CTP8="$P/airootfs/etc/skel/.config/waybar/config.top"
 CPS="$P/airootfs/usr/local/bin/craft-pin-status"
 # v2.1 (declutter do dono: “tá um pouco cheio”): o print SAIU da barra —
-# a spec v1.8 pedia “botões úteis como print”, mas a diretriz nova vence:
-# a função segue em W-P/W-S-P e a barra fica no essencial.
-assert_nogrep "$CTP8" '"custom/shot"' "v2.1: print SAIU da barra (spec v1.8 evoluída — declutter do dono; W-P/W-S-P cobrem)"
-assert_nogrep "$CTP8" '"on-click": "craft-shot"' "v2.1: nenhum on-click de shot no topo (o craft-shot segue no rc.xml)"
+# v2.3.7: E VOLTOU pelo mesmo dono (áudio do live: "botão de print rápido
+# que melhoraria a experiência"). A lei muda com o dono, nos dois sentidos.
+assert_grep "$CTP8" '"custom/shot"' "v2.3.7: print DE VOLTA na barra (clique = região via slurp, direito = tela inteira)"
+assert_grep "$CTP8" '"on-click": "craft-shot area"' "v2.3.7: on-click de shot na barra (o verbo do craft-shot no assento)"
 assert_nogrep "$CTP8" '"format": "\\uf0c4"' "v2.1: glifo do print extinto do topo"
 assert_grep "$CTP8" '"on-click": "craft-connect"' "v1.8: wi-fi/redes/bt = 1 botão → central (spec: 'conectividade num geral')"
 assert_grep "$CTP8" '"on-click": "craft-power"' "v1.8: liga/desliga/reset = botão de sessão no cluster esquerdo"
@@ -1943,8 +1970,8 @@ assert_grep "$P/airootfs/usr/local/bin/craft-pin" 'craft-dock reload' \
   "v2.0: craft-pin recarrega a dock por sinal (fim da era waybar)"
 assert_grep "$P/airootfs/etc/skel/.config/elite/dock.css" '\.running' \
   "v2.0: dock.css tem o seletor .running (o ponto do pin)"
-assert_grep "$P/airootfs/etc/skel/.config/elite/dock.css" 'inset 0 -3px' \
-  "v2.0: indicador = barra 3px na base (sem shift de layout)"
+assert_grep "$P/airootfs/etc/skel/.config/elite/dock.css" 'background-position: center bottom' \
+  "v2.3.7: indicador = bolinha CENTRADA na base (a barrinha full-width morreu — o dono no live)"
 
 # ── BOOT COM PROVA (v1.8 — a RECORRÊNCIA do 'premature end of file'): ────
 #    a v1.7.0 recopiava o kernel com `cp -f ... &&` (exit IGNORADO): falha

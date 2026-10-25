@@ -3,7 +3,7 @@
 # ─────────────────────────────────────────────────────────────────────────
 # v2.1 (diretriz do dono: "menu que fica na barra superior no canto
 # direito"): dropdown vertical ANCORADO no canto superior direito, logo
-# abaixo do botão ⏻ da waybar — fuzzel em modo dmenu (anchor=top-right),
+# abaixo do botão ⏻ da waybar — fuzzel em modo dmenu (anchor=center — v2.3.7: menus no meio da tela),
 # tema Catppuccin Mocha do fuzzel.ini, Esc fecha sem fazer nada.
 # Fallback: labnag (o "nag bar" nativo do labwc) se o fuzzel faltar.
 #
@@ -53,7 +53,7 @@ pkill -f 'fuzzel.*--prompt=Encer' 2>/dev/null || true
 pkill -f 'fuzzel.*--prompt=Senha' 2>/dev/null || true
 
 if command -v fuzzel >/dev/null 2>&1; then
-    # anchor top-right + margens: colado no canto, 44px abaixo do topo
+    # anchor center (v2.3.7 — o dono: "centralizar neles no meio")
     # (a menu bar tem 36px — o dropdown nasce "pendurado" nela);
     # --lines 5 = altura exata das opções, sem lista vazia.
     # v2.2 (leveza radical): entradas TEXTO PURO — o protocolo de ícones do
@@ -73,7 +73,7 @@ if command -v fuzzel >/dev/null 2>&1; then
         'Desligar' \
         'Tempo de idle…' \
         | fuzzel --dmenu \
-        --anchor=top-right --x-margin=10 --y-margin=44 \
+        --anchor=center \
         --lines=6 --width=26 --prompt='Sessão  ' 2>"$errf")" || ec=$?
     if [ "$ec" -eq 143 ]; then
         # v2.3.5 — SIGTERM = fechado de fora (toggle/cross-dismiss) —

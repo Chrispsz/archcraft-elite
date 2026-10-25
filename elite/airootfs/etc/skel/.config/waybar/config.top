@@ -60,6 +60,7 @@
     "pulseaudio",
     "pulseaudio#mic",
     "network",
+    "custom/shot",
     "custom/bgapps",
     "custom/power"
   ],
@@ -81,7 +82,16 @@
   },
 
   // (v2.1 — o botão custom/shot foi REMOVIDO da barra, pedido do dono.
-  // O craft-shot segue acessível: W-P (região) e W-S-P (tela inteira).)
+  // v2.3.7 — ELE PEDIU DE VOLTA no áudio do live (25/10): "quem sabem
+  // também tem um botão de print rápido que melhoraria a experiência",
+  // apesar do atalho. Volta com os dois verbos do craft-shot: clique =
+  // região (slurp), direito = tela inteira. A lei muda com o dono.)
+  "custom/shot": {
+    "format": "\uf030",
+    "tooltip-format": "Print — clique: região · direito: tela inteira (W-P / W-S-P no teclado)",
+    "on-click": "craft-shot area",
+    "on-click-right": "craft-shot full"
+  },
   // Música do USUÁRIO (MPRIS) — YouTube no navegador, Spotify, mpv: o que
   // VOCÊ tocar aparece aqui. Com nada tocando o módulo some sozinho.
   // Clique: esq = play/pause, meio = próxima, dir = anterior.

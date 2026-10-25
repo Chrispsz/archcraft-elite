@@ -61,7 +61,7 @@ done
 # v2.3.1: stderr CAPTURADO — crash vira log + notify (nunca morte calada)
 mlog "Fixar: abrindo picker (fuzzel, $(grep -c . "$LIST") apps)"
 ec=0
-choice="$(cut -f1 "$LIST" | fuzzel --dmenu --lines=10 --width=32 \
+choice="$(cut -f1 "$LIST" | fuzzel --dmenu --anchor=center --lines=10 --width=32 \
     --prompt='Fixar na dock  ' 2>"$errf")" || ec=$?
 if [ "$ec" -eq 143 ]; then
     # v2.3.5 — SIGTERM = fechado de fora (toggle/cross-dismiss) —

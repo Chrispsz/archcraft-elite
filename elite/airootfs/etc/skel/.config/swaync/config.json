@@ -23,7 +23,7 @@
   "hide-on-action": true,
   "script-fail-notify": true,
   "text-empty": "Sem notificações",
-  "widgets": ["title", "dnd", "buttons-grid", "notifications"],
+  "widgets": ["title", "dnd", "notifications"],
   "widget-config": {
     "title": {
       "text": "Notificações",
@@ -32,31 +32,6 @@
     },
     "dnd": {
       "text": "Não Perturbe"
-    },
-    "buttons-grid": {
-      "buttons-per-row": 4,
-      "actions": [
-        {
-          "label": "WiFi",
-          "type": "toggle",
-          "command": "sh -c '[[ $SWAYNC_TOGGLE_STATE == true ]] && nmcli radio wifi on || nmcli radio wifi off'",
-          "update-command": "sh -c '[[ $(nmcli radio wifi) == \"enabled\" ]] && echo true || echo false'"
-        },
-        {
-          "label": "BT",
-          "type": "toggle",
-          "command": "sh -c '[[ $SWAYNC_TOGGLE_STATE == true ]] && bluetoothctl power on || bluetoothctl power off'",
-          "update-command": "sh -c 'bluetoothctl show | grep -q \"Powered: yes\" && echo true || echo false'"
-        },
-        {
-          "label": "󰜉",
-          "command": "systemctl reboot"
-        },
-        {
-          "label": "󰐥",
-          "command": "systemctl poweroff"
-        }
-      ]
     }
   }
 }

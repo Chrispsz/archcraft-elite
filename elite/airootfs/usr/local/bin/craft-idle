@@ -102,7 +102,7 @@ if command -v fuzzel >/dev/null 2>&1; then
     errf="$(mktemp)"
     ec=0
     choice="$(printf '%s\n' "$MENU" | fuzzel --dmenu \
-        --anchor=top-right --x-margin=10 --y-margin=44 \
+        --anchor=center \
         --lines=7 --width=30 --prompt="Idle: ${CUR}  " 2>"$errf")" || ec=$?
     if [ "$ec" -eq 143 ]; then
         # v2.3.5 — SIGTERM = fechado de fora (toggle/cross-dismiss) —

@@ -52,7 +52,7 @@ errf="$(mktemp)"
 ec=0
 choice="$(printf '%s\n' 'Criar snapshot agora' 'Restaurar snapshot…' \
     | fuzzel --dmenu \
-        --anchor=top-right --x-margin=10 --y-margin=44 \
+        --anchor=center \
         --lines=2 --width=30 --prompt='Rollback  ' 2>"$errf")" || ec=$?
 if [ "$ec" -eq 143 ]; then
     mlog "Rollback: fechado de fora (SIGTERM — toggle/cross-dismiss) — benigno"
@@ -75,7 +75,7 @@ case "$choice" in
         ec=0
         errf="$(mktemp)"
         desc="$(fuzzel --dmenu </dev/null \
-            --anchor=top-right --x-margin=10 --y-margin=44 \
+            --anchor=center \
             --lines=0 --width=30 --prompt='Descrição  ' 2>"$errf")" || ec=$?
         if [ "$ec" -ne 0 ]; then
             [ "$ec" -eq 1 ] && [ ! -s "$errf" ] \
@@ -104,7 +104,7 @@ case "$choice" in
         ec=0
         errf="$(mktemp)"
         pick="$(printf '%s\n' "$list" | fuzzel --dmenu \
-            --anchor=top-right --x-margin=10 --y-margin=44 \
+            --anchor=center \
             --lines=8 --width=40 --prompt='Restaurar  ' 2>"$errf")" || ec=$?
         if [ "$ec" -ne 0 ]; then
             [ "$ec" -eq 1 ] && [ ! -s "$errf" ] \
@@ -118,7 +118,7 @@ case "$choice" in
         ec=0
         errf="$(mktemp)"
         ok="$(printf '%s\n' 'Cancelar' 'CONFIRMAR — o sistema volta a este snapshot' \
-            | fuzzel --dmenu --anchor=top-right --x-margin=10 --y-margin=44 \
+            | fuzzel --dmenu --anchor=center \
                 --lines=2 --width=40 --prompt='Confirmar  ' 2>"$errf")" || ec=$?
         rm -f "$errf"
         if [ "$ec" -ne 0 ] || [ "$ok" != 'CONFIRMAR — o sistema volta a este snapshot' ]; then
