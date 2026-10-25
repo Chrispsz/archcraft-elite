@@ -137,19 +137,9 @@ status() {
 }
 
 menu() {
-    # TOGGLE (v1.4, mesma cura da família): 2ª chamada com o menu aberto
-    # apenas fecha — o botão nunca empilha fuzzel.
-    if pgrep -f 'fuzzel.*--prompt=Encer' >/dev/null 2>&1; then
-        pkill -f 'fuzzel.*--prompt=Encer' 2>/dev/null || true
-        exit 0
-    fi
-    # CROSS-DISMISS (v1.8.2): dois dropdowns nunca ficam na tela ao mesmo
-    # tempo — abrir o de processos fecha os da barra (os deles fecham este
-    # pelo mesmo plano).
-    pkill -f 'fuzzel.*--prompt=Sess' 2>/dev/null || true
-    pkill -f 'fuzzel.*--prompt=Rede' 2>/dev/null || true
-    # v2.3.6 — o prompt de senha do picker Wi-Fi entra na lei do cross-dismiss
-    pkill -f 'fuzzel.*--prompt=Senha' 2>/dev/null || true
+    # v2.3.8 — a lei (toggle + cross-dismiss) é ESTRUTURAL no craft-menu:
+    # este script não mata irmão nenhum mais (o menu nativo cuida — 2ª
+    # chamada do mesmo título fecha; abrir outro menu fecha este).
 
     entries="$(list_entries)"
     if [ -z "$entries" ]; then
@@ -158,16 +148,22 @@ menu() {
         exit 0
     fi
 
-    mlog "Processos: abrindo (fuzzel dmenu)"
+    mlog "Processos: abrindo (craft-menu)"
     errf="$(mktemp)"
     ec=0
-    choice="$(printf '%s\n' "$entries" | fuzzel --dmenu \
-        --anchor=center \
-        --lines=8 --width=34 --prompt='Encerrar  ' 2>"$errf")" || ec=$?
+    # mapfile: as entradas viram argumentos do craft-menu (sem pipe no meio)
+    eval "set -- $(printf '%s' "$entries" | awk '{printf "\"%s\" ", $0}')"
+    choice="$(craft-menu --title='Encerrar' "$@" 2>"$errf")" || ec=$?
     if [ "$ec" -eq 143 ]; then
-        # v2.3.5 — SIGTERM = fechado de fora (toggle/cross-dismiss) —
+        # v2.3.5 — SIGTERM = fechado de fora (cross-dismiss) —
         # benigno: sem notify crítico falso (o print do dono).
-        mlog "Processos: fechado de fora (SIGTERM — toggle/cross-dismiss) — benigno"
+        mlog "Processos: fechado de fora (SIGTERM — cross-dismiss) — benigno"
+        rm -f "$errf"
+        exit 0
+    fi
+    if [ "$ec" -eq 2 ]; then
+        # v2.3.8 — TOGGLE estrutural (a lei mora no craft-menu)
+        mlog "Processos: toggle — 2ª chamada fechou o menu — benigno"
         rm -f "$errf"
         exit 0
     fi
@@ -179,10 +175,10 @@ menu() {
         exit 0
     fi
     if [ "$ec" -ne 0 ]; then
-        mlog "Processos: FUZZEL FALHOU exit=$ec — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
+        mlog "Processos: MENU FALHOU exit=$ec — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
         command -v notify-send >/dev/null 2>&1 && \
             notify-send -a 'Elite' -u critical 'Menu de processos falhou' \
-                "fuzzel exit=$ec — detalhe em ~/.cache/elite/menus.log" || true
+                "craft-menu exit=$ec — detalhe em ~/.cache/elite/menus.log" || true
     fi
     rm -f "$errf"
 

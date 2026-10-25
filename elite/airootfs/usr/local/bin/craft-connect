@@ -37,56 +37,50 @@ mlog() {
     return 0
 }
 
-# TOGGLE: central aberta? fecha e sai
-# v2.3.7 — o prompt 'Wi-Fi' era do picker (morto); o toggle só cuida da Rede
-if pgrep -f 'fuzzel.*--prompt=Rede' >/dev/null 2>&1; then
-    pkill -f 'fuzzel.*--prompt=Rede' 2>/dev/null || true
-    exit 0
-fi
-# v1.8.2 — CROSS-DISMISS: dois dropdowns nunca coexistem.
-# v2.3.7 — 'Senha' sai da lei (o prompt morreu com o picker)
-pkill -f 'fuzzel.*--prompt=(Sess|Encer)' 2>/dev/null || true
+# TOGGLE/CROSS-DISMISS: a lei agora é ESTRUTURAL dentro do craft-menu
+# (v2.3.8) — 2ª chamada do mesmo título fecha; abrir um menu fecha o
+# outro. Este script não mata irmão nenhum mais.
 
-MENU='Wi-Fi: gerenciar conexões…
-Bluetooth: dispositivos'
-
-if command -v fuzzel >/dev/null 2>&1; then
-    # v2.3.7 — menus CENTRALIZADOS (dono: "centralizar neles no meio" —
-    # os dropdowns nascem no centro da tela, como nos sistemas que ele
-    # citou como referência; sem margens de canto)
-    # v2.3.1: stderr CAPTURADO — crash do fuzzel vira log + notify, nunca
-    # morte calada (a denúncia do rig: "os menus morreram").
-    mlog "Rede: abrindo (fuzzel)"
+if command -v craft-menu >/dev/null 2>&1; then
+    # v2.3.8 — o menu NATIVO: título centrado, itens centrados, ZERO linha
+    # de digitação (o dono: "remover a barra que fica, tipo 'Rede |'");
+    # a janela nasce centrada (layer-shell sem âncoras = centro, spec).
+    # v2.3.1: stderr CAPTURADO — falha vira log + notify, nunca morte calada
+    # (a denúncia do rig: "os menus morreram").
+    mlog "Rede: abrindo (craft-menu)"
     errf="$(mktemp)"
     ec=0
-    choice="$(printf '%s\n' "$MENU" | fuzzel --dmenu \
-        --anchor=center \
-        --lines=2 --width=28 --prompt='Rede  ' 2>"$errf")" || ec=$?
+    choice="$(craft-menu --title='Rede' \
+        'Wi-Fi: gerenciar conexões…' \
+        'Bluetooth: dispositivos' \
+        2>"$errf")" || ec=$?
     if [ "$ec" -eq 143 ]; then
-        # v2.3.5 — SIGTERM = fechado de fora (toggle/cross-dismiss)
-        mlog "Rede: fechado de fora (SIGTERM — toggle/cross-dismiss) — benigno"
+        # v2.3.5 — SIGTERM = fechado de fora (cross-dismiss: outro menu abriu)
+        mlog "Rede: fechado de fora (SIGTERM — cross-dismiss) — benigno"
+        rm -f "$errf"
+        exit 0
+    fi
+    if [ "$ec" -eq 2 ]; then
+        # v2.3.8 — TOGGLE estrutural (a lei mora no craft-menu)
+        mlog "Rede: toggle — 2ª chamada fechou o menu — benigno"
         rm -f "$errf"
         exit 0
     fi
     if [ "$ec" -eq 1 ] && [ ! -s "$errf" ]; then
-        # v2.3.6 — ESC = fechado pelo usuário (stderr vazio ≠ crash — e com
-        # o fuzzel.ini em #, o stderr fica VAZIO de verdade: o ';' da v1.3
-        # sujava o stderr de TODA abertura e ESC virava alarme crítico falso,
-        # o que o dono reviu ao vivo: "o menu de processos falhou, o mesmo
-        # erro 1 que vem acontecendo nos demais")
+        # v2.3.6 — ESC = fechado pelo usuário (stderr vazio ≠ crash)
         mlog "Rede: fechado pelo usuário (ESC) — benigno"
         rm -f "$errf"
         exit 0
     fi
     if [ "$ec" -ne 0 ]; then
-        mlog "Rede: FUZZEL FALHOU exit=$ec — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
+        mlog "Rede: MENU FALHOU exit=$ec — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
         command -v notify-send >/dev/null 2>&1 && \
             notify-send -a 'Elite' -u critical 'Menu de Rede falhou' \
-                "fuzzel exit=$ec — detalhe em ~/.cache/elite/menus.log" || true
+                "craft-menu exit=$ec — detalhe em ~/.cache/elite/menus.log" || true
     fi
     rm -f "$errf"
 else
-    mlog "Rede: fuzzel AUSENTE — fallback impala"
+    mlog "Rede: craft-menu AUSENTE — fallback impala"
     exec foot -e impala
 fi
 

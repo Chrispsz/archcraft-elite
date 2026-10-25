@@ -293,12 +293,15 @@ assert_grep "$P/airootfs/etc/skel/.config/fuzzel/fuzzel.ini" 'font=JetBrainsMono
 assert_nogrep "$P/airootfs/etc/skel/.config/fuzzel/fuzzel.ini" 'font=JetBrainsMono Nerd Font' "v2.1: fuzzel sem a família inexistente na diretiva font="
 assert_nogrep "$P/airootfs/etc/skel/.config/elite/dock.css" '#custom-sep' "v2.1: dock.css sem separador (a era dos glifos morreu)"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/style.top.css" '#pulseaudio:not\(\.mic\)\.muted' "v2.3.7: mudo = vermelho SÓ no ícone do som (a classe .muted do sink vazava pra instância mic — o dono: 'mutando o áudio tá mutando o microfone junto')"
-# craft-power v2: dropdown fuzzel — v2.3.7: CENTRALIZADO (o dono: "centralizar neles no meio")
-assert_grep "$P/airootfs/usr/local/bin/craft-power" '--anchor=center' "v2.3.7: menu de sessão CENTRALIZADO (fuzzel — repaginação pedida no áudio do live)"
-assert_grep "$P/airootfs/usr/local/bin/craft-power" 'fuzzel --dmenu' "v2.1: sessão via fuzzel dmenu (dropdown)"
+# craft-power v2 — v2.3.8: o menu NATIVO (o dono corrigiu: "o que eu
+# queria centralizar é o nome do menu e remover a barra que fica, tipo
+# 'Rede |'"): craft-menu — título centrado, itens centrados, ZERO linha
+# de digitação; a janela nasce no centro (layer-shell sem âncoras).
+assert_grep "$P/airootfs/usr/local/bin/craft-power" 'craft-menu --title=' "v2.3.8: Sessão no menu NATIVO (fim da era fuzzel nos menus de escolha)"
+assert_nogrep "$P/airootfs/usr/local/bin/craft-power" 'fuzzel' "v2.3.8: craft-power sem fuzzel nenhum (menu de escolha = craft-menu; o fallback labnag segue)"
 assert_grep "$P/airootfs/usr/local/bin/craft-power" 'Travar tela' "v2.1: opção Travar no menu de sessão"
 assert_grep "$P/airootfs/usr/local/bin/craft-power" 'Suspender' "v2.1: opção Suspender no menu de sessão"
-assert_grep "$P/airootfs/usr/local/bin/craft-power" 'labnag' "v2.1: fallback labnag preservado (sem fuzzel)"
+assert_grep "$P/airootfs/usr/local/bin/craft-power" 'labnag' "v2.1: fallback labnag preservado (sem craft-menu)"
 # Calamares: o YAML do shellprocess_btrfs TEM que parsear (o gate cego da v1.1)
 assert_nogrep "$REPO/elite/fragments/elite-customize.sh" "printf '%s$" "v1.2: nenhum printf com \\n partido em coluna 0 (mata o YAML do Calamares)"
 assert_grep "$REPO/elite/fragments/elite-customize.sh" "printf '%s\\\\n'" "v1.2: printfs do heredoc com \\n literal (uma linha)"
@@ -1584,7 +1587,7 @@ for menu in craft-power craft-connect craft-pin-pick craft-idle craft-logout cra
   assert_grep "$P/airootfs/usr/local/bin/$menu" 'menus\.log' "v2.3.1: $menu loga falhas em menus.log (fim do silêncio — rig: 'os menus morreram')"
   # positivos (mais robustos que nogrep: o 2>/dev/null do pkill do toggle é legítimo)
   assert_grep "$P/airootfs/usr/local/bin/$menu" '2>"\$errf"' "v2.3.1: $menu captura o stderr do fuzzel (mktemp errf — crash deixa rastro)"
-  assert_grep "$P/airootfs/usr/local/bin/$menu" 'FUZZEL FALHOU' "v2.3.1: $menu tem caminho de erro de fuzzel LOGADO (exit != 0 nunca é calado)"
+  assert_grep "$P/airootfs/usr/local/bin/$menu" 'FALHOU' "v2.3.1: $menu tem caminho de erro LOGADO (exit != 0 nunca é calado — MENU FALHOU na era craft-menu, FUZZEL FALHOU onde o fuzzel segue)"
   assert_grep "$P/airootfs/usr/local/bin/$menu" 'eq 143' "v2.3.5: $menu trata SIGTERM do toggle/cross-dismiss como fechamento benigno (o falso 'fuzzel exit=143' crítico do print do dono morreu)"
 done
 assert_grep "$P/airootfs/usr/local/bin/craft-pin-pick" 'command -v fuzzel >/dev/null 2>&1 \|\|' "v2.3.1: craft-pin-pick com guard de fuzzel (morria calado na linha 21)"
@@ -1615,8 +1618,8 @@ assert_grep "$BGA" 'ps -u "\$\(id -u\)"' "v2.3.4: varredura /proc real do UID (s
 assert_grep "$BGA" 'is_protected' "v2.3.4: casca da sessão protegida (labwc/waybar/áudio/dbus/portais nunca aparecem no menu)"
 assert_grep "$BGA" 'kill -TERM "\$pid"' "v2.3.4: término SIGTERM no escolhido (nunca KILL às cegas)"
 assert_grep "$BGA" 'command -v notify-send' "v2.3.4: confirmação na tela (o dono vê o que foi encerrado)"
-assert_grep "$BGA" 'FUZZEL FALHOU' "v2.3.4: menu de processos segue a lei dos menus (falha logada, nunca calada)"
-assert_grep "$BGA" 'prompt=Encer' "v2.3.4: prompt único 'Encerrar' (toggle próprio + cross-dismiss sem colisão)"
+assert_grep "$BGA" 'MENU FALHOU' "v2.3.4: menu de processos segue a lei dos menus (falha logada, nunca calada)"
+assert_grep "$BGA" 'craft-menu --title=' "v2.3.8: Encerrar no menu NATIVO (a lei toggle/cross-dismiss é do craft-menu — zero pkill de irmão no script)"
 assert_nogrep "$BGA" 'pacman' "v2.3.4: craft-bgapps NÃO toca no sistema de pacotes (encerrar processo ≠ desinstalar)"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" '"custom/bgapps"' "v2.3.4: módulo custom/bgapps na top bar (o botão 'tray' pedido pelo dono)"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" '"craft-bgapps menu"' "v2.3.4: clique no botão abre o menu de processos"
@@ -1633,16 +1636,32 @@ assert_grep "$BGA" 'at-spi-bus-laun' "v2.3.7: at-spi na CASCA protegida (o dono 
 assert_grep "$BGA" 'at-spi2-regist' "v2.3.7: at-spi2-registryd na casca (mesma evidência)"
 assert_grep "$BGA" '^bwrap$' "v2.3.7: bwrap na casca (a caixa de areia dos portals — matar quebra o app que a criou)"
 assert_grep "$BGA" 'sed -z' "v2.3.7: tooltip do status com newline ESCAPADO (JSON de 1 linha — o newline cru derrubava o parse do waybar a cada 10s, bars.log 'Column 51')"
-assert_grep "$P/airootfs/usr/local/bin/craft-power" 'prompt=Encer' "v2.3.4: craft-power fecha o menu de processos (cross-dismiss na lei v1.8.2)"
-assert_grep "$P/airootfs/usr/local/bin/craft-connect" 'prompt=\(Sess\|Encer\)' "v2.3.7: craft-connect fecha Sessão/Encerrar (cross-dismiss na lei v1.8.2 — 'Senha' saiu da lei: o prompt morreu com o picker)"
+assert_grep "$P/airootfs/usr/local/bin/craft-power" 'craft-menu --title=' "v2.3.8: craft-power no menu nativo (sem pkill de irmão — a lei é do craft-menu)"
+assert_grep "$P/airootfs/usr/local/bin/craft-connect" 'craft-menu --title=' "v2.3.8: craft-connect no menu nativo (sem pkill de irmão — a lei é do craft-menu)"
 
 # v2.3.7 — REPAGINAÇÃO DOS MENUS (áudio do dono no live: "centralizar
 # neles no meio… trabalhando realmente mais bonita"): TODOS os dropdowns
 # da família nascem no CENTRO da tela — zero âncora de canto restante.
-for _m in craft-power craft-connect craft-bgapps craft-idle craft-logout craft-pin-pick craft-rollback; do
-    assert_grep "$P/airootfs/usr/local/bin/$_m" '--anchor=center' "v2.3.7: $_m CENTRALIZADO (o dono: menus no meio da tela)"
-    assert_nogrep "$P/airootfs/usr/local/bin/$_m" '--anchor=top-right' "v2.3.7: $_m sem âncora de canto (a era do dropdown pendurado no canto morreu)"
+# v2.3.8 — A ERA DO MENU NATIVO (o dono corrigiu a leitura: "o que eu
+# queria centralizar é o nome do menu e remover a barra que fica, tipo
+# 'Rede |'"): os menus de ESCOLHA são craft-menu — GUI GTK+layer-shell
+# (a família provada da dock): título CENTRADO, itens centrados, ZERO
+# Gtk.Entry, janela no centro (layer-shell sem âncoras). Onde se DIGITA,
+# fuzzel fica (launcher W-Space, Fixar na dock, descrição do snapshot).
+CMN="$P/airootfs/usr/local/bin/craft-menu"
+assert_file "$CMN" "v2.3.8: craft-menu existe (o dropdown nativo da Elite)"
+assert_nogrep "$CMN" 'Gtk.Entry' "v2.3.8: ZERO linha de digitação no menu nativo (a barra 'Rede |' morreu — o pedido literal do dono)"
+assert_grep "$CMN" 'KeyboardMode.ON_DEMAND' "v2.3.8: clique fora FECHA o menu (a gramática do fuzzel on-demand v2.3.6, agora nativa)"
+assert_grep "$CMN" 'Gdk.KEY_Up' "v2.3.8: teclado de primeira classe (↑/↓ navega, Enter escolhe — paridade com o mouse)"
+assert_grep "$CMN" 'die_other_menus' "v2.3.8: A LEI dos menus é ESTRUTURAL (toggle + cross-dismiss moram no craft-menu — fim das 7 cópias de pkill)"
+assert_file "$P/airootfs/etc/skel/.config/elite/menu.css" "v2.3.8: o rice dos menus nativos (a escada de superfícies da dock)"
+assert_grep "$P/airootfs/etc/skel/.config/elite/menu.css" 'menu-title' "v2.3.8: título do menu estilizado e CENTRADO (o pedido literal do dono)"
+assert_grep "$P/airootfs/etc/skel/.config/elite/menu.css" 'menu-item:hover' "v2.3.8: pílula de hover nos itens (feedback de clique em TUDO — a lei do rice)"
+for _m in craft-power craft-connect craft-bgapps craft-logout craft-idle; do
+    assert_grep "$P/airootfs/usr/local/bin/$_m" 'craft-menu --title=' "v2.3.8: $_m no menu NATIVO (fim da era fuzzel nos menus de escolha)"
 done
+assert_grep "$P/airootfs/usr/local/bin/craft-rollback" 'craft-menu --title=.Rollback' "v2.3.8: rollback no menu nativo (picker + confirmar; a descrição fica no fuzzel — onde se DIGITA)"
+assert_grep "$P/airootfs/usr/local/bin/craft-pin-pick" 'fuzzel' "v2.3.8: Fixar fica no fuzzel (buscar entre apps é BUSCA — a linha de digitação ali é função, não ruído)"
 
 # ── v2.3.1 — PROBE COBRE MENUS (o gate via enxergar o que o rig vê) ───────
 assert_grep "$P/airootfs/usr/local/bin/elite-session-probe" 'FUZZEL_BIN=' "v2.3.1: probe colhe FUZZEL_BIN (binário dos 5 menus)"
@@ -1819,9 +1838,9 @@ assert_grep "$CPT" '"on-click": "craft-connect"' "v1.4: rede → central de cone
 assert_file "$CCT" "v1.4: craft-connect existe"
 assert_grep "$CCT" 'foot -e impala' "v1.4: central abre impala (Wi-Fi/Ethernet)"
 assert_grep "$CCT" 'foot -e bluetui' "v1.4: central abre bluetui (Bluetooth)"
-assert_grep "$CCT" "--prompt='Rede" "v1.4: prompt 'Rede' (nunca colide com o toggle do 'Sessão')"
-assert_grep "$CCT" "pgrep -f 'fuzzel.*--prompt=Rede'" "v2.3.7: toggle detecta a central aberta (2ª chamada fecha — o prompt 'Wi-Fi' saiu da detecção junto com o picker)"
-assert_grep "$CCT" "pkill -f 'fuzzel.*--prompt=Rede'" "v1.6.1: toggle da central de rede MATA a instância (regressão do 'menu empilhava' morta por contrato)"
+assert_grep "$CCT" "--title='Rede'" "v2.3.8: o menu de Rede tem título próprio (sem colisão com 'Sessão' — a lei do craft-menu distingue por título)"
+assert_grep "$CCT" "craft-menu --title='Rede'" "v2.3.8: Rede no menu NATIVO (toggle/cross-dismiss estruturais — 2ª chamada fecha, outro menu fecha este)"
+assert_nogrep "$CCT" "pkill" "v2.3.8: craft-connect não mata irmão nenhum (a lei mora no craft-menu — um lugar só)"
 assert_nogrep "$WBT" 'idle-inhibitor' "v2.0: o café saiu da barra E do CSS (botão estranho — áudio do dono)"
 
 # ── Gaveta com TOGGLE (v1.6.1): "abrir E fechar" (pedido do dono) ────────
@@ -1867,7 +1886,7 @@ assert_grep "$G4" 'windowcontrols > separator' "v1.6.1: GTK4 separador dos contr
 
 
 # ── Sessão com TOGGLE (bug do burn test: menu empilhava, não fechava) ────
-assert_grep "$CPW" "fuzzel.*--prompt=Sess" "v1.4: craft-power detecta o menu aberto (toggle)"
+assert_grep "$CPW" "craft-menu --title='Sessão'" "v1.4→v2.3.8: o toggle da Sessão agora é estrutural no craft-menu (a 2ª chamada fecha — 'esse tipo de erro não pode existir')"
 assert_grep "$CPW" 'pkill -x labnag' "v1.4: fallback labnag também vira toggle"
 
 # ── Fixar na dock: mouse-first, descobrível ──────────────────────────────
