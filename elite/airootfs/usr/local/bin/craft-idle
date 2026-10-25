@@ -22,7 +22,20 @@
 #                        autostart chama isto — única definição da
 #                        receita swayidle, zero duplicação)
 #   craft-idle status    mostra os valores vigentes
+#
+# v2.3.1 — FIM DO SILÊNCIO (família craft-*): open/falha do fuzzel deixam
+# linha em ~/.cache/elite/menus.log — crash nunca mais é morte calada.
 set -eu
+
+MLOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/menus.log"
+mlog() {
+    mkdir -p "${MLOG%/*}" 2>/dev/null
+    if [ -f "$MLOG" ] && [ "$(wc -c <"$MLOG" 2>/dev/null || echo 0)" -gt 262144 ]; then
+        : >"$MLOG"
+    fi
+    printf '[%s] %s\n' "$(date '+%F %T')" "$1" >>"$MLOG" 2>/dev/null
+    return 0
+}
 
 CONF_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/elite"
 CONF="$CONF_DIR/idle.conf"
@@ -72,10 +85,19 @@ MENU='2 minutos
 Nunca — só manual (W-l)'
 
 if command -v fuzzel >/dev/null 2>&1; then
+    # v2.3.1: stderr CAPTURADO — crash do fuzzel vira log (nunca calado)
+    mlog "Idle: abrindo (fuzzel)"
+    errf="$(mktemp)"
+    ec=0
     choice="$(printf '%s\n' "$MENU" | fuzzel --dmenu \
         --anchor=top-right --x-margin=10 --y-margin=44 \
-        --lines=7 --width=30 --prompt="Idle: ${CUR}  " 2>/dev/null || true)"
+        --lines=7 --width=30 --prompt="Idle: ${CUR}  " 2>"$errf")" || ec=$?
+    if [ "$ec" -ne 0 ]; then
+        mlog "Idle: FUZZEL FALHOU exit=$ec — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
+    fi
+    rm -f "$errf"
 else
+    mlog "Idle: fuzzel AUSENTE — fallback terminal"
     # sem fuzzel: prompt de terminal (foot -e) — não trava o ajuste
     printf 'Idle — minutos até travar (atual: %s; vazio = cancela): ' "$CUR"
     read -r mins

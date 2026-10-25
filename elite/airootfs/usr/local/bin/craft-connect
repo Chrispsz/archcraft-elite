@@ -10,7 +10,21 @@
 # v1.4: TOGGLE — 2ª chamada com o menu aberto apenas fecha (mesma cura
 # do craft-power; prompt único 'Rede' nunca colide com o 'Sessão').
 # Sem fuzzel: cai direto no impala (a rede é o caso padrão).
+#
+# v2.3.1 — FIM DO SILÊNCIO (mesma cura da família): open/falha deixam linha
+# em ~/.cache/elite/menus.log e falha de fuzzel avisa na tela (notify-send).
+# "Rede: abrindo" sem menu na tela = fuzzel morreu depois de abrir.
 set -eu
+
+MLOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/menus.log"
+mlog() {
+    mkdir -p "${MLOG%/*}" 2>/dev/null
+    if [ -f "$MLOG" ] && [ "$(wc -c <"$MLOG" 2>/dev/null || echo 0)" -gt 262144 ]; then
+        : >"$MLOG"
+    fi
+    printf '[%s] %s\n' "$(date '+%F %T')" "$1" >>"$MLOG" 2>/dev/null
+    return 0
+}
 
 # TOGGLE: central aberta? fecha e sai
 if pgrep -f 'fuzzel.*--prompt=Rede' >/dev/null 2>&1; then
@@ -34,11 +48,24 @@ Bluetooth (dispositivos)'
 
 if command -v fuzzel >/dev/null 2>&1; then
     # mesmas âncoras do craft-power: pendurado no canto direito da menu
-    # bar (34px) — os dois dropdowns da barra nascem do mesmo lugar
+    # bar (36px) — os dois dropdowns da barra nascem do mesmo lugar
+    # v2.3.1: stderr CAPTURADO — crash do fuzzel vira log + notify, nunca
+    # morte calada (a denúncia do rig: "os menus morreram").
+    mlog "Rede: abrindo (fuzzel)"
+    errf="$(mktemp)"
+    ec=0
     choice="$(printf '%s\n' "$MENU" | fuzzel --dmenu \
         --anchor=top-right --x-margin=10 --y-margin=44 \
-        --lines=2 --width=28 --prompt='Rede  ' 2>/dev/null || true)"
+        --lines=2 --width=28 --prompt='Rede  ' 2>"$errf")" || ec=$?
+    if [ "$ec" -ne 0 ]; then
+        mlog "Rede: FUZZEL FALHOU exit=$ec — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
+        command -v notify-send >/dev/null 2>&1 && \
+            notify-send -a 'Elite' -u critical 'Menu de Rede falhou' \
+                "fuzzel exit=$ec — detalhe em ~/.cache/elite/menus.log" || true
+    fi
+    rm -f "$errf"
 else
+    mlog "Rede: fuzzel AUSENTE — fallback impala"
     exec foot -e impala
 fi
 

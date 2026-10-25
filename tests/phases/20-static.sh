@@ -72,6 +72,14 @@ assert_nogrep "$REPO/.github/workflows/build.yml" "^\s*branches: ain\]" "v2.0.1:
 # push de branch roda a suíte rápida (tests.yml), não uma ISO idêntica.
 assert_grep "$REPO/.github/workflows/build.yml" "tags: \['v\*'\]" "v2.1: build da ISO disparada por TAG v* (evento de release — fim das ISOs idênticas por push de branch)"
 assert_grep "$REPO/.github/workflows/tests.yml" "branches: \['\*\*'\]" "v2.1: suíte de contratos roda em TODA branch (push auditado em ~1.4 min, não em 40 min de ISO)"
+# v2.3.1 — a lista de lint NÃO referencia binário extinto: o 'fg-booster'
+# hardcoded no for do lint derrubou as builds #95 E #96 inteiras (o arquivo
+# saiu na v2.2 e a lista continuou cobrando — lint vermelho ANTES do build).
+assert_nogrep "$REPO/.github/workflows/build.yml" "^\s*elite/airootfs/usr/local/bin/fg-booster" "v2.3.1: lista de lint sem binário extinto (fg-booster derrubou #95/#96 — 'head: cannot open')"
+# v2.3.1 — o gate da sessão cobre MENUS (fuzzel presente + INI parseável):
+# os 5 dropdowns craft-* morriam calados e o gate nunca olhou pra eles.
+assert_grep "$REPO/.github/workflows/build.yml" "FUZZEL_BIN" "v2.3.1: gate da sessão cobre fuzzel presente (menus da família craft-*)"
+assert_grep "$REPO/.github/workflows/build.yml" "FUZZEL_INI" "v2.3.1: gate da sessão cobre fuzzel.ini parseável (config corrompida = todos os menus mortos)"
 
 # peças: YAML válido (os 5 workflows — v1.5.2: diag-install renomeado p/
 # verify-install [nomenclatura de debug não vive em pipeline de produção]

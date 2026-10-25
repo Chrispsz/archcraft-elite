@@ -18,9 +18,11 @@
 #      tema de ícones — o app traz o próprio no hicolor), nome e exec
 #      vêm do .desktop. Zero glifo, zero desenho custom, zero override —
 #      "deixe o ícone ser tratado como o sistema já é" (dono).
-#   2. AUTOHIDE NATIVO POR HOTSPOT — superfície invisível de 4px na base
+#   2. AUTOHIDE NATIVO POR HOTSPOT — superfície invisível de 10px na base
 #      (o mecanismo "-d" do nwg-dock): ponteiro entra na tira → dock sobe;
-#      sai ou clica → dock desce. W-S-d alterna (SIGUSR1).
+#      sai ou clica → dock desce. W-S-d alterna (SIGUSR1). v2.3.1: a dock
+#      nasce VISÍVEL por 4s em todo login (descobribilidade — o dono não
+#      achava a dock escondida: "ficou sem dock").
 #   3. ABRAÇA O CONTEÚDO — a janela é full-width transparente e a pílula é
 #      CENTRADA com largura natural (dock "horizontalmente menor e
 #      centralizada" — o pedido literal do áudio).
@@ -52,13 +54,27 @@ LOG = os.path.join(GLib.get_user_cache_dir(), "elite", "dock.log")
 
 ICON_SIZE = 36          # spec M3.2: escala fixa de fábrica
 MARGIN_BOTTOM = 6       # pílula flutuando 6px acima da base (modo auto)
-HOTSPOT_H = 4           # tira invisível que revela a dock (hotspot)
+# v2.3.1 — rig do dono (v2.1.1): "ficou sem dock". A dock estava VIVA
+# (processo contado pelo probe, zero exits no bars.log) porém INVISÍVEL:
+# nasce escondida e o hotspot era uma tira de 4px — indetectável numa
+# tela 4K escura. Duas curas: (1) hotspot 4→10px (ainda invisível,
+# mas pegável — o nwg-dock usa faixa semelhante); (2) a dock nasce
+# VISÍVEL por SHOW_AT_START_S segundos em todo login — o usuário VÊ
+# onde ela vive antes do autohide assumir.
+HOTSPOT_H = 10          # tira invisível que revela a dock (hotspot)
+SHOW_AT_START_S = 4     # dock visível nos primeiros segundos da sessão
 HIDE_DELAY_MS = 400     # saiu da dock → desce depois deste atraso
 
 
 def log(msg):
     try:
         os.makedirs(os.path.dirname(LOG), exist_ok=True)
+        try:
+            # teto de 1 MiB (mesma política do bars.log — evidência recente vale mais)
+            if os.path.getsize(LOG) > 1_048_576:
+                os.truncate(LOG, 0)
+        except OSError:
+            pass
         with open(LOG, "a") as fh:
             fh.write(msg + "\n")
     except OSError:
@@ -172,6 +188,25 @@ class Dock:
         GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGUSR2,
                              self.rebuild)
 
+        # v2.3.1 — DESCOBRIBILIDADE: todo login MOSTRA a dock por 4s
+        # (o dono booto a v2.1.1, não achou a dock — "ficou sem dock" —
+        # porque nascer escondida + hotspot de 4px não ensina NADA).
+        # Depois do teaser, o autohide padrão assume.
+        self.win.show_all()
+        self.shown = True
+        log(f"dock iniciada: {len(self.buttons)} pin(s) · "
+            f"hotspot {HOTSPOT_H}px · visível {SHOW_AT_START_S}s (descoberta)")
+        GLib.timeout_add_seconds(SHOW_AT_START_S, self._startup_hide)
+
+    def _startup_hide(self, *_):
+        """Fim do teaser de arranque: recolhe SÓ se o usuário não estiver
+        com o ponteiro sobre a dock (hover cancela via hide_source)."""
+        if self.shown:
+            self.win.hide()
+            self.shown = False
+            log("dock recolhida (fim do teaser de arranque — hotspot na base)")
+        return False
+
     # ── CSS ──────────────────────────────────────────────────────────────
     def load_css(self):
         css = b""
@@ -261,6 +296,7 @@ class Dock:
         if not self.shown:
             self.win.show_all()
             self.shown = True
+            log("hotspot: dock revelada")
         return False
 
     def _dock_enter(self, *_):
@@ -285,9 +321,11 @@ class Dock:
     def toggle(self, *_):
         if self.shown:
             self.hide_now()
+            log("toggle: dock escondida (W-S-d)")
         else:
             self.win.show_all()
             self.shown = True
+            log("toggle: dock visível (W-S-d)")
         return False
 
 
@@ -315,6 +353,8 @@ DEFAULT_CSS = b"""
 
 def main():
     if not os.environ.get("WAYLAND_DISPLAY"):
+        # v2.3.1: essa morte também fica LOUD no bars.log — o craft-bars
+        # registra o exit=0 e o probe conta BARS_EXITS (nada calado)
         log("sem WAYLAND_DISPLAY — saindo (a dock só vive na sessão)")
         return 0
     try:

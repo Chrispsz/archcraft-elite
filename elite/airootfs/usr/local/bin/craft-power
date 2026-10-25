@@ -12,7 +12,26 @@
 # OUTRO fuzzel na frente do desktop e nada fechava — "esse tipo de erro
 # não pode existir"). Detecta a instância pelo prompt único 'Sessão'
 # (o craft-connect usa prompt 'Rede' — nunca colidem).
+#
+# v2.3.1 — FIM DO SILÊNCIO (rig do dono, v2.1.1: "os menus morreram e não
+# funcionam"): fuzzel que não abre é morte CALADA (o stderr ia pro
+# /dev/null e o menu só não aparecia — sem um rastro sequer). Agora todo
+# open e toda falha deixa linha em ~/.cache/elite/menus.log e a falha
+# AINDA avisa na tela (notify-send). Log vazio = clique nunca chegou ao
+# script (problema de handler da waybar); "aberto" sem menu na tela =
+# fuzzel morreu DEPOIS de abrir (problema de render/protocolo).
 set -eu
+
+MLOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/menus.log"
+mlog() {
+    mkdir -p "${MLOG%/*}" 2>/dev/null
+    # teto de 256 KiB (mesma política do bars.log — evidência recente vale mais)
+    if [ -f "$MLOG" ] && [ "$(wc -c <"$MLOG" 2>/dev/null || echo 0)" -gt 262144 ]; then
+        : >"$MLOG"
+    fi
+    printf '[%s] %s\n' "$(date '+%F %T')" "$1" >>"$MLOG" 2>/dev/null
+    return 0
+}
 
 # TOGGLE v1.4: menu de sessão aberto? fecha e sai (2ª pressão = fechar)
 if pgrep -f 'fuzzel.*--prompt=Sess' >/dev/null 2>&1; then
@@ -31,12 +50,17 @@ pkill -f 'fuzzel.*--prompt=Rede' 2>/dev/null || true
 
 if command -v fuzzel >/dev/null 2>&1; then
     # anchor top-right + margens: colado no canto, 44px abaixo do topo
-    # (a menu bar tem 34px — o dropdown nasce "pendurado" nela);
+    # (a menu bar tem 36px — o dropdown nasce "pendurado" nela);
     # --lines 5 = altura exata das opções, sem lista vazia.
     # v2.2 (leveza radical): entradas TEXTO PURO — o protocolo de ícones do
     # dmenu (NUL + icon + US + path) morreu com o papirus-icon-theme; sem
     # tema de ícones na ISO não existe path garantido, e o case de baixo
     # sempre leu o texto antes do NUL — o fluxo segue idêntico.
+    # v2.3.1: stderr CAPTURADO (era /dev/null) — exit != 0 = crash do fuzzel
+    # (config/protocolo) → log + notify; Esc = exit 0 com choice vazio.
+    mlog "Sessão: abrindo (fuzzel)"
+    errf="$(mktemp)"
+    ec=0
     choice="$(printf '%s\n' \
         'Travar tela' \
         'Sair da sessão' \
@@ -45,8 +69,16 @@ if command -v fuzzel >/dev/null 2>&1; then
         'Desligar' \
         | fuzzel --dmenu \
         --anchor=top-right --x-margin=10 --y-margin=44 \
-        --lines=5 --width=26 --prompt='Sessão  ' 2>/dev/null || true)"
+        --lines=5 --width=26 --prompt='Sessão  ' 2>"$errf")" || ec=$?
+    if [ "$ec" -ne 0 ]; then
+        mlog "Sessão: FUZZEL FALHOU exit=$ec — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
+        command -v notify-send >/dev/null 2>&1 && \
+            notify-send -a 'Elite' -u critical 'Menu de Sessão falhou' \
+                "fuzzel exit=$ec — detalhe em ~/.cache/elite/menus.log" || true
+    fi
+    rm -f "$errf"
 else
+    mlog "Sessão: fuzzel AUSENTE — fallback labnag"
     # fallback: labnag — barra de botões no topo (Lock · Logout · Reboot …)
     if command -v labnag >/dev/null 2>&1; then
         exec labnag \
