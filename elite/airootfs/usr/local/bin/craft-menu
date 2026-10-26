@@ -1,37 +1,45 @@
 #!/usr/bin/env python3
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · craft-menu (v1.0 — o menu NATIVO de escolha, v2.3.8)
+# Archcraft ELITE · craft-menu (v2.0 — A GAIOLA, v2.3.11)
 # ═══════════════════════════════════════════════════════════════════════════
-# O dono olhou os dropdowns de fuzzel e decretou (live 25/10 + correção):
-#   · "eu queria centralizar é o nome do menu e remover a barra que fica,
-#     tipo 'Rede |'" — a linha de DIGITAÇÃO (prompt + cursor) não tem
-#     função num menu de escolha: é ruído visual herdado do dmenu.
-#   · "menus mais bem desenhados, mais funcionais… na experiência de uso"
+# O dono no rig: "os menus sequer abriam". Ele tinha razão — e a v1 nunca
+# ia abrir com confiança, porque a VIDA do menu dependia do teclado:
 #
-# A FORMA INTELIGENTE: fuzzel é uma CAIXA DE BUSCA — ótimo onde digitar é
-# o ponto (launcher W-Space, Fixar na dock, descrição do snapshot) e
-# errado onde se ESCOLHE. Os menus de escolha da Elite usam esta GUI
-# nativa (a mesma família GTK+layer-shell PROVADA da dock):
+#   v1: janela solta (sem âncoras) + KeyboardMode.ON_DEMAND +
+#       focus-out-event → quit. Se o compositor entrega e revoga o foco
+#       na mesma carrada do mapa (a corrida real do labwc), o menu morre
+#       ANTES do primeiro frame — o dono clicava e nada aparecia.
 #
-#   · SEM linha de digitação — nenhum campo de texto: título CENTRADO + itens
-#     centrados, a bolinha de design do rice (menu.css)
-#   · a JANELA nasce CENTRADA na tela (layer-shell sem âncoras = centro)
-#   · TECLADO: ↑/↓ navega com destaque, Enter escolhe, Esc fecha
-#   · CLIQUE: pílula de hover, escolhe no click (mouse-first como a dock)
-#   · LISTA LONGA: rola (max ~7 itens visíveis — menu Encerrar)
+# A FÓRMULA v2 (o padrão dos overlays modal que funcionam — wlogout,
+# gtklock, o próprio fuzzel): o menu não depende de foco pra EXISTIR.
 #
-# A LEI DOS MENUS, AGORA ESTRUTURAL (um lugar só, não 7 cópias):
-#   · TOGGLE: outra instância com o MESMO título viva? morre → exit 2
-#     (a 2ª chamada FECHA — "esse tipo de erro não pode existir", v1.4)
-#   · CROSS-DISMISS: instância de OUTRO título viva? morre → dois
-#     dropdowns nunca coexistem (v1.8.2)
-#   · o chamador vê 143 (a instância morta pelo de fora), 1 (ESC/foco
-#     perdido — stderr VAZIO: benigno) ou 2 (toggle) — a mesma gramática
-#     dos 6 menus, agora com um único dono.
+#   1. A GAIOLA — a superfície é a TELA INTEIRA (4 âncoras), layer
+#      OVERLAY, véu translúcido. Modal de verdade: nada por baixo
+#      recebe clique enquanto está aberta.
+#   2. A PÍLULA — o menu (menu-box) morta no centro da gaiola
+#      (halign/valign CENTER + expand/fill — o idioma GTK do centro).
+#   3. FECHAMENTO QUE NÃO PODE FALHAR:
+#        · clique FORA de um item = clique na gaiola → fecha (o GtkWindow
+#          recebe o press; o item button tem janela própria e CONSOME o
+#          press — a hierarquia de eventos do GTK decide, sem heurística);
+#        · ESC → fecha (teclado EXCLUSIVE: o menu TEM o teclado, sempre);
+#        · escolher um item → fecha;
+#        · 2ª chamada do mesmo título → toggle (a LEI, mora aqui);
+#        · abrir OUTRO menu → cross-dismiss (a LEI, mora aqui).
+#      ZERO focus-out-event: a classe do "menu que morre ao mapear" está
+#      EXTINTA por construção — não existe código para falhar.
+#   4. TECLADO EXCLUSIVE — ↑/↓ navegam com a mesma pílula do mouse,
+#      Enter escolhe, Esc fecha. Modal: enquanto aberto, o teclado é do
+#      menu (como em qualquer launcher).
 #
-# Uso: craft-menu --title=TÍTULO item1 [item2 …]
+# A GRAMÁTICA DE SAÍDA (contrato com os 7 chamadores — intocado):
 #   stdout: o item escolhido · exit 0
-#   exit 1: ESC/clique fora (stderr vazio) · exit 2: toggle
+#   exit 1: fechado sem escolha (ESC / clique fora / gaiola) — stderr vazio
+#   exit 2: toggle (a 2ª chamada fechou o menu do mesmo título)
+#   143:    morto por SIGTERM (cross-dismiss — outro menu abriu)
+#
+# Uso: craft-menu --title=TÍTULO item1 [item2 …]   (ou itens por STDIN —
+# a interface dmenu: 1 linha = 1 item, listas dinâmicas sem eval)
 # ═══════════════════════════════════════════════════════════════════════════
 import os
 import re
@@ -97,12 +105,8 @@ if die_other_menus():
 
 CHOICE = None
 
-# v2.3.10 — QUIT ONCE: o Gtk.main_quit() duplo é a fonte do stderr sujo
-# que transformava todo fechamento benigno em "falha": ESC (ou escolha)
-# encerra o loop, o destroy da janela dispara focus-out, e o SEGUNDO
-# main_quit cospe 'Gtk-CRITICAL **: ... main_loops != NULL' no stderr —
-# os chamadores viam exit=1 COM stderr e gritavam FALHOU (a pilha de
-# notificações eternas da foto do dono). O guard garante UM quit.
+# QUIT ONCE — o guard do main_quit único (item clicado + ESC na mesma
+# carrada, ou dois caminhos de fechamento em cadeia: um quit, só um).
 quitting = {"v": False}
 
 
@@ -111,16 +115,26 @@ def quit_once():
         quitting["v"] = True
         Gtk.main_quit()
 
+
+# ═════════════════════════════ A GAIOLA ═════════════════════════════════════
 win = Gtk.Window()
 win.set_decorated(False)
-win.set_resizable(False)
+# a classe é o que o CSS casa (set_name casaria #menu-window — seletor
+# ERRADO para .menu-window): a gaiola pinta o véu do menu.css.
+win.get_style_context().add_class("menu-window")
 GtkLayerShell.init_for_window(win)
 GtkLayerShell.set_layer(win, GtkLayerShell.Layer.OVERLAY)
-# SEM âncoras = o layer-shell CENTRA a superfície nos dois eixos (spec
-# wlr-layer-shell: âncora não posta → centrada) — o "no meio da tela"
-# do dono, nativo. Margem 0, exclusive zone ignorado (não empurra barra).
+# 4 ÂNCORAS = a superfície É a tela (o véu modal do launcher). O menu não
+# é mais uma janelinha flutuante disputando foco: é o próprio overlay.
+for edge in (GtkLayerShell.Edge.TOP, GtkLayerShell.Edge.BOTTOM,
+             GtkLayerShell.Edge.LEFT, GtkLayerShell.Edge.RIGHT):
+    GtkLayerShell.set_anchor(win, edge, True)
+# exclusive zone -1: o véu NÃO empurra barra/dock — só cobre visualmente.
 GtkLayerShell.set_exclusive_zone(win, -1)
-GtkLayerShell.set_keyboard_mode(win, GtkLayerShell.KeyboardMode.ON_DEMAND)
+# TECLADO EXCLUSIVE: enquanto o menu vive, o teclado É dele — ESC e
+# ↑/↓/Enter funcionam SEM depender de corrida de foco (a cura real do
+# "sequer abre": a existência do menu nunca mais dependerá de foco).
+GtkLayerShell.set_keyboard_mode(win, GtkLayerShell.KeyboardMode.EXCLUSIVE)
 try:  # abre no monitor do ponteiro (onde está a atenção do dono)
     disp = Gdk.Display.get_default()
     seat = disp.get_default_seat()
@@ -129,15 +143,22 @@ try:  # abre no monitor do ponteiro (onde está a atenção do dono)
 except Exception:
     pass
 
+# A PÍLULA: filha de um SLOT que enche a gaiola inteira. pack_start com
+# expand=True + fill=False dá à pílula o slot inteiro SEM esticá-la — e
+# halign/valign CENTER a sentam no meio dos DOIS eixos (o idioma GTK3 do
+# centro; a janela sozinha não honra align do filho — o slot resolve).
+slot = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+win.add(slot)
+
 box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
 box.get_style_context().add_class("menu-box")
+box.set_halign(Gtk.Align.CENTER)
+box.set_valign(Gtk.Align.CENTER)
+slot.pack_start(box, True, False, 0)
 
 ttl = Gtk.Label(label=title)
 ttl.set_justify(Gtk.Justification.CENTER)
-# v2.3.9 — o título CENTRADO de verdade: justify só age no texto interno
-# (multi-linha); um label de largura natural com halign FILL (default)
-# ocupa a fatia toda a partir da ESQUERDA. Num GtkBox vertical a largura
-# é o eixo CRUZADO — e o GTK3 respeita halign nele: halign=CENTER dá ao
+# o título CENTRADO: justify age no texto interno; halign CENTER dá ao
 # label a largura natural, morta no meio da pílula.
 ttl.set_halign(Gtk.Align.CENTER)
 ttl.get_style_context().add_class("menu-title")
@@ -168,6 +189,12 @@ for it in items:
     b.set_relief(Gtk.ReliefStyle.NONE)
     b.set_hexpand(True)
     b.get_style_context().add_class("menu-item")
+    # o TEXTO do item morto no centro: o label herda min-width do CSS e
+    # xalign 0.5 centra o texto DENTRO dele (justify sozinho não centra
+    # linha única — lição da v2.3.9, agora nos itens também).
+    _lbl = b.get_child()
+    _lbl.set_justify(Gtk.Justification.CENTER)
+    _lbl.set_xalign(0.5)
     b.connect("clicked", choose)
     item_box.pack_start(b, False, False, 0)
     buttons.append(b)
@@ -182,15 +209,23 @@ if len(items) > 7:  # lista longa (Encerrar) — rola, nunca some da tela
 else:
     box.pack_start(item_box, False, False, 0)
 
-win.add(box)
+# ── fechamento que não pode falhar ──────────────────────────────────────────
+# O GtkWindow TEM GdkWindow próprio: QUALQUER press não consumido por um
+# item chega aqui. A decisão é GEOMÉTRICA (à prova de internals do GTK):
+# press DENTRO da alocação da pílula → quem decide é o item/button
+# (return False = não fechamos por cima do clique); press FORA (véu) →
+# fecha. Sem foco, sem corrida, sem heurística.
+def on_press(_w, ev):
+    if ev.type != Gdk.EventType.BUTTON_PRESS:
+        return False
+    a = box.get_allocation()
+    if a.x <= ev.x < a.x + a.width and a.y <= ev.y < a.y + a.height:
+        return False
+    quit_once()
+    return True
 
 
-def on_focus_out(_w, _ev):
-    quit_once()  # foco perdido = clique fora — fechar é escolha (exit 1)
-    return False
-
-
-win.connect("focus-out-event", on_focus_out)
+win.connect("button-press-event", on_press)
 
 
 def on_key(_w, ev):
@@ -231,4 +266,4 @@ except KeyboardInterrupt:
 if CHOICE is not None:
     print(CHOICE)
     sys.exit(0)
-sys.exit(1)  # ESC / foco perdido — fechar NUNCA é erro (stderr nasce vazio)
+sys.exit(1)  # ESC / clique fora — fechar NUNCA é erro (stderr nasce vazio)

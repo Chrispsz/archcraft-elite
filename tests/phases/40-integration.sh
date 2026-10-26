@@ -310,6 +310,18 @@ assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'padding: 4px' "v2.3.9: f
 assert_grep "$P/airootfs/etc/skel/.config/elite/menu.css" 'border-radius: 12px' "v2.3.9: menu-item no raio 12 da lei (era 10 — dock e menu na MESMA escada de 44px)"
 assert_grep "$P/airootfs/usr/local/bin/craft-menu" 'set_halign\(Gtk\.Align\.CENTER\)' "v2.3.9: título do menu CENTRADO de verdade (halign no eixo cruzado — justify sozinho não centra label de largura natural)"
 assert_grep "$P/airootfs/usr/local/bin/craft-menu" 'quit_once' "v2.3.10: craft-menu com guard de main_quit ÚNICO (o ESC/dispatch de focus-out disparava um SEGUNDO main_quit e o Gtk-CRITICAL ia pro stderr — o chamador lia 'exit=1 COM stderr' e gritava FALHOU)"
+# v2.3.11 — A GAIOLA (o dono: "os menus sequer abriam… reescreve do zero
+# de forma inteligente"). A v1 dependia de FOCO pra viver (janela solta +
+# ON_DEMAND + focus-out-event → quit): a corrida de foco no mapa matava o
+# menu antes do primeiro frame. A v2 é MODAL de verdade — o padrão dos
+# overlays que funcionam (wlogout/gtklock/fuzzel):
+CMN="$P/airootfs/usr/local/bin/craft-menu"
+assert_nogrep "$CMN" 'connect\("focus-out-event"' "v2.3.11: ZERO handler de focus-out no craft-menu (a classe do 'menu que morre ao mapear' extinta POR CONSTRUÇÃO — não existe código para falhar; o cabeçalho cita a história de propósito)"
+assert_grep "$CMN" 'KeyboardMode\.EXCLUSIVE' "v2.3.11: teclado EXCLUSIVE (ESC e ↑/↓/Enter garantidos — a vida do menu nunca mais depende de corrida de foco)"
+assert_grep "$CMN" 'Edge\.TOP' "v2.3.11: a GAIOLA — 4 âncoras, a superfície É a tela (véu modal do launcher; nada por baixo recebe clique)"
+assert_grep "$CMN" 'button-press-event' "v2.3.11: clique fora = fechar por GEOMETRIA (press fora da alocação da pílula fecha; dentro, o item decide — à prova de internals do GTK)"
+assert_grep "$CMN" 'set_xalign\(0\.5\)' "v2.3.11: TEXTO dos itens morto no centro (xalign no label — justify sozinho não centra linha única)"
+assert_grep "$P/airootfs/etc/skel/.config/elite/menu.css" 'alpha\(#000000, 0\.35\)' "v2.3.11: véu modal da gaiola no menu.css (o fundo escurece — o menu flutua sobre ele, a mesma linguagem do fuzzel/swaync)"
 WTCSS="$P/airootfs/etc/skel/.config/waybar/style.top.css"
 assert_nogrep "$WTCSS" '#custom-shot' "v2.3.10: zero regra do print no CSS da barra (o módulo saiu do config.top — regra órfã nenhuma sobrevive)"
 assert_nogrep "$WTCSS" 'padding: 0 12px 0 14px' "v2.3.9: ARCH do drawer com padding SIMÉTRICO (a declaração 0 12px 0 14px nascia 1px fora do centro da própria pílula)"
