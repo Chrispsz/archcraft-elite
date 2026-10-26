@@ -6,6 +6,57 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **v2.6.0 — A LEI DOS MENUS DA BARRA: clique direito, menu sob o botão,
+  lista pura, toggle de verdade — e a rede que CONECTA** (o dono, prints
+  do rig 26/out: "no menu de rede eu não consigo desligar/ligar minhas
+  conexões seja cabo, wi-fi e etc nem me conectar a redes… esses menus
+  centralizados não seria melhor ficar onde ela for aberta? tirar esse
+  risco | que fica na frente… com o botão esquerdo do mouse remove o menu
+  que aparece com o click e deixa só no click direito mesmo… clico nos
+  botões da topbar novamente eles não fecham ou um não anula o outro…
+  o encerrar continua pegando serviços do sistema que inclusive não
+  encerram… no suspender meu pc até tenta mas rapidamente liga e fica
+  como se eu só tivesse clicado em travar tela… solucione tudo de uma
+  vez por todas"):
+  - **CRAFT-MENU v4 — O MOTOR ANCORA E TOGGLA**: `--hide-prompt` mata a
+    linha de digitação inteira (sem 'Sessão:', 'Encerrar:', sem o "|") e
+    `--minimal-lines` encolhe a janela ao tamanho da lista — menu = LISTA
+    PURA; `--anchor top-right` + `--x-margin` POR SLOT (`--at=power/
+    bgapps/network/drawer`) faz o menu nascer SOB O BOTÃO (a barra de
+    36px empurra pelo exclusive zone; submenus herdam o lugar do pai); e
+    o toggle/cross-dismiss virou DETERMINISMO — pid do fuzzel gravado em
+    `$XDG_RUNTIME_DIR/elite-menus.<uid>`: 2ª chamada do MESMO título
+    fecha (exit 2), título diferente anula e abre (143) — a física de
+    foco que o rig DESMENTIU saiu do caminho. Degradão gracioso via
+    probe `fuzzel --help`; e `id -u` no lugar de `$UID` (dash não tem
+    UID — morria rc=2 que o chamador lia como "toggle benigno": menu que
+    nunca abre e morre sorrateiro; flagrado no smoke test).
+  - **SÓ CLIQUE DIREITO** — network, custom/bgapps e custom/power ficam
+    MUDOS no clique esquerdo ("remove o menu que aparece com o click e
+    deixa só no click direito mesmo"); o ARCH do lançador segue no
+    esquerdo (modelo macOS); tooltips ensinam o direito.
+  - **CRAFT-CONNECT v5 — O MENU QUE CONTROLA A REDE**: ligar/desligar
+    CABO por dispositivo, ligar/desligar WI-FI, CONECTAR em redes (lista
+    ao vivo com sinal e 🔒; salva sobe pelo nome com a senha do cofre do
+    NM; aberta conecta direta; nova protegida pede a senha no menu),
+    reconectar/desligar CONEXÕES SALVAS, o Bluetooth que o dono aprovou
+    e o editor para a criação manual — tudo `nmcli`, o cli do próprio
+    NetworkManager (o bug do picker v3 morreu de vez: linha→SSID via
+    MAPA escrito pelo mesmo awk que desenha a lista). Cada ação reabre o
+    menu com o estado novo.
+  - **CRAFT-BGAPPS v4 — SÓ PROGRAMA DO DONO**: o comm é normalizado
+    antes da casca (o sd-pam se apresenta como "(sd-pam)" — com
+    parênteses — e o padrão `sd-pam*` deixava o serviço vazar; foto do
+    rig), a casca ganhou `dconf*`/`gvfs*`/`Xwayland*`, e CANDIDATO SEM
+    DISPLAY NUNCA É PROGRAMA (assinatura de serviço no
+    `/proc/PID/environ`). Encerrar DE VERDADE: SIGTERM, 2s, SIGKILL em
+    quem aguentou.
+  - **SESSÃO MINIMALISTA + SUSPENDER DE VERDADE**: 'Travar tela' saiu do
+    menu (o dono: "é necessária essa opção?" — o lock é PARTE do
+    suspender e segue no W-l); o Suspender trava PRIMEIRO (acorda no
+    wallpaper borrado) e suspende com `systemctl suspend -i` — os
+    inibidores de sono de apps (navegador/players) eram a morte calada
+    do "tenta e volta".
 - **v2.5.0 — A AUDITORIA TRIPLA: lock só com wallpaper + o fim da dock
   surda** (o dono: "só o wallpaper com Blur e não mostrar as janelas… faz
   3 auditorias e onde ficar confuso refaz… até ter certeza que está

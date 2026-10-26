@@ -1,40 +1,47 @@
 #!/bin/sh
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · craft-menu (v3.0 — O MOTOR QUE JÁ ABRIA, v2.4.0)
+# Archcraft ELITE · craft-menu (v4.0 — O MOTOR QUE ABRE, AGORA ANCORA E
+# TOGGLA DE VERDADE, v2.6.0)
 # ═══════════════════════════════════════════════════════════════════════════
-# A HONESTIDADE PRIMEIRO: o motor GTK do menu (v2.3.8 nativo → v2.3.11
-# "gaiola") NUNCA abriu no rig do dono — o dono clicava e nada aparecia,
-# duas reescritas, dois funerais. A v3 troca o motor pelo ÚNICO com prova
-# de vida na máquina real: o FUZZEL — o launcher e o menu de Sessão
-# sempre abriram, filtraram e fecharam nele, e a cura v2.3.6
-# (keyboard-focus=on-demand) provou o clique-fora-fecha NO RIG do dono.
+# A v3 provou o motor (o fuzzel é o ÚNICO que abriu no rig do dono — a era
+# GTK morreu duas vezes). Os prints do rig de 26/out apontaram as 3 cicatrizes
+# que restavam, e a v4 cura as três SEM TROCAR O MOTOR:
 #
-# POR QUE ESTA CLASSE DE FALHA ESTÁ EXTINTA POR CONSTRUÇÃO:
-#   · ZERO GTK, ZERO layer-shell, ZERO corrida de foco para EXISTIR — o
-#     compositor mapeia o layer do fuzzel sem depender de nada (a v1
-#     morria ANTES do 1º frame; isso aqui não tem esse código);
-#   · toggle e cross-dismiss viraram FÍSICA, não código: só existe um
-#     teclado — abrir outro menu rouba o foco e o anterior FECHA SOZINHO
-#     (exit-on-focus-loss=yes, agora CONTRATO explícito no fuzzel.ini;
-#     o 2º clique no botão fecha — o que o burn test v1.4 do Sessão já
-#     provou na prática);
-#   · ESC = exit 1 com stderr vazio (a lei v2.3.6/v2.3.10 intacta:
-#     fechar NUNCA é falha — o fuzzel cala no ESC desde o fix dos ';').
+#   1. "tirar esse risco | que fica na frente" (e o nome 'Sessão:', 'Encerrar:')
+#      — a linha de digitação MORRE: --hide-prompt esconde a linha inteira
+#      (prompt + cursor); digitar ainda filtra, às escondidas. Menu = LISTA
+#      PURA. --minimal-lines encolhe a janela para o nº de itens (nada de
+#      caixa alta com 10 linhas para 6 itens).
 #
-# A GRAMÁTICA DE SAÍDA (contrato com os 7 chamadores — intocado):
+#   2. "esses menus centralizados — não seria melhor ficar onde ela for aberta?"
+#      — --anchor top-right + --x-margin calibrado POR BOTÃO: o menu nasce
+#      SOB O BOTÃO que o chamou (a barra de 36px tem exclusive zone; o
+#      wlroots empurra a layer para baixo da barra sozinho — o y-margin 6
+#      é só o respiro). Submenus herdam o slot do pai (o menu de Wi-Fi
+#      abre onde o de Rede abriu).
+#
+#   3. "clico de novo e não fecha / um menu não anula o outro" — o toggle e
+#      o cross-dismiss deixam de depender da física do foco (que o rig
+#      DESMENTIU: exit-on-focus-loss não derrubou o fuzzel quando o clique
+#      ia para a waybar) e viram DETERMINISMO: o pid do fuzzel vivo fica
+#      gravado em $XDG_RUNTIME_DIR/elite-menus.<uid>. 2ª chamada do MESMO
+#      título → mata e sai 2 (toggle). Título diferente → mata e abre o
+#      novo (cross-dismiss). Sem corrida de foco, sem aposta: pid é pid.
+#
+# A GRAMÁTICA DE SAÍDA (contrato com os 6 chamadores — INTACTA da v3):
 #   stdout: o item escolhido · exit 0
-#   exit 1: fechado sem escolha (ESC / clique fora / foco perdido) — stderr vazio
-#   exit 2: (aposentado) o toggle virou física do compositor — os
-#           chamadores tratam 2 como benigno e o ramo fica dormente
-#   143:    morto por SIGTERM (cross-dismiss)
-#   outros: falha REAL — o stderr segue vivo até o chamador (log + aviso
-#           que SOME).
+#   exit 1: fechado sem escolha (ESC / clique fora) — stderr vazio
+#   exit 2: TOGGLE — a 2ª chamada do mesmo título fechou o menu (AGORA é
+#           real; na v3 era dormente por confiança na física)
+#   143:    morto por SIGTERM (cross-dismiss: outro menu abriu)
+#   outros: falha REAL — o stderr do fuzzel segue vivo até o chamador
+#           (log + aviso que SOME).
 #
-# O TÍTULO: vive no prompt do fuzzel — contexto + filtro por digitação
-# (começar a digitar já navega a lista). O preço honesto de abrir SEMPRE.
-#
-# Uso: craft-menu --title=TÍTULO item1 [item2 …]   (ou itens por STDIN —
-# a interface dmenu: 1 linha = 1 item, listas dinâmicas sem eval)
+# Uso: craft-menu --title=TÍTULO [--at=SLOT] [--ask=PROMPT] item1 [item2 …]
+#      (ou itens por STDIN — a interface dmenu: 1 linha = 1 item)
+#   --title=  identidade do menu no toggle (NÃO é exibido — a lista fala)
+#   --at=     slot de âncora: power | bgapps | network | drawer | center
+#   --ask=    modo entrada (ex.: senha): prompt visível, sem hide-prompt
 # ═══════════════════════════════════════════════════════════════════════════
 set -u
 
@@ -44,30 +51,108 @@ command -v fuzzel >/dev/null 2>&1 || {
 }
 
 title="Menu"
+at=""
+ask=""
 list=""
-sep=""
+sep="
+"
 for a in "$@"; do
     case "$a" in
         --title=*) title="${a#--title=}" ;;
+        --at=*)    at="${a#--at=}" ;;
+        --ask=*)   ask="${a#--ask=}" ;;
         *)
             list="$list$sep$a"
-            sep="
-"
             ;;
     esac
 done
 # itens alternativos por STDIN (a interface dmenu — listas DINÂMICAS
-# como os processos vivos e os snapshots passam por pipe, sem eval e
-# sem word-splitting no chamador: shellcheck limpo por construção)
+# como os processos vivos e as redes Wi-Fi passam por pipe, sem eval e
+# sem word-splitting no chamador)
 if [ -z "$list" ] && [ ! -t 0 ]; then
     list="$(cat)"
 fi
-# linhas vazias fora (a v2 as descartava; o contrato é o mesmo)
 list="$(printf '%s\n' "$list" | sed '/^[[:space:]]*$/d')"
-[ -n "$list" ] || exit 0
+# no modo --ask a lista pode ser vazia (o prompt É o menu); nos menus de
+# escolha, lista vazia = nada a mostrar
+[ -n "$list" ] || [ -n "$ask" ] || exit 0
 
-choice="$(printf '%s\n' "$list" | fuzzel --dmenu --prompt "$title: ")"
+# ── A LEI DOS MENUS, determinística (o foco mentiu, o pid não mente) ────────
+# (id -u, NUNCA a variavel UID do bash: o dash do shebang não a tem — e sob set -u o script
+# morria com rc=2, que o chamador lê como "toggle benigno": menu que nunca
+# abre e morre SORRATEIRO. O smoke test flagrou; o bug inteiro morreu aqui)
+ST="${XDG_RUNTIME_DIR:-/tmp}/elite-menus.$(id -u 2>/dev/null || echo 0)"
+if [ -f "$ST" ]; then
+    opid=""
+    otitle=""
+    read -r opid otitle <"$ST" 2>/dev/null || true
+    if [ -n "${opid:-}" ] && kill -0 "$opid" 2>/dev/null \
+       && [ "$(ps -o comm= -p "$opid" 2>/dev/null || true)" = "fuzzel" ]; then
+        if [ "$otitle" = "$title" ]; then
+            # TOGGLE: o 2º clique no MESMO botão fecha o menu
+            kill "$opid" 2>/dev/null
+            rm -f "$ST"
+            exit 2
+        fi
+        # CROSS-DISMISS: abrir outro menu anula o que estava aberto
+        kill "$opid" 2>/dev/null
+    fi
+    rm -f "$ST"
+fi
+
+# ── O SLOT DE ÂNCORA (o menu fica onde ela for aberta) ──────────────────────
+# Calibração da topbar (config.top + style.top.css): altura 36px, spacing 4,
+# padding 0 12px por módulo, fonte 13px (power/drawer 15px). O cluster
+# direito, da borda para dentro: power (~33px) · bgapps (~47px c/ 1 dígito)
+# · network (~32px). O x-margin posiciona a borda DIREITA do menu no centro
+# do botão. Ajuste fino do rig = mudar o número aqui (fonte/tema mudou? aqui).
+xm=0
+ym=0
+case "$at" in
+    power)   xm=16 ;;
+    bgapps)  xm=60 ;;
+    network) xm=104 ;;
+    drawer)  xm=16 ;;
+esac
+
+# ── A INVOCACÃO (flags primeiro, âncora depois, tudo por argv — sem eval) ───
+# Cinto de segurança: se o fuzzel da máquina for VELHO demais para as curas
+# v4 (--hide-prompt/anchor chegaram junto na era 1.10+), degrada GRACIOSO
+# para o menu clássico com prompt — menu que abre e funciona vale mais que
+# flag nova que mata. O rig roda o fuzzel corrente (ISO 2026.10), o ramo é
+# para o imprevisto.
+set -- --dmenu
+if [ -n "$ask" ]; then
+    # modo entrada: prompt visível (a linha existe por causa do que se digita)
+    set -- "$@" --prompt "$ask: "
+elif fuzzel --help 2>&1 | grep -q -- '--hide-prompt'; then
+    # menu de escolha: LISTA PURA — sem nome, sem barra de digitação,
+    # janela do tamanho da lista
+    set -- "$@" --hide-prompt --minimal-lines
+else
+    set -- "$@" --prompt "$title: "
+fi
+case "$at" in
+    power|bgapps|network)
+        if fuzzel --help 2>&1 | grep -q -- '--anchor'; then
+            set -- "$@" --anchor top-right --x-margin "$xm" --y-margin "$ym"
+        fi ;;
+    drawer)
+        if fuzzel --help 2>&1 | grep -q -- '--anchor'; then
+            set -- "$@" --anchor top-left --x-margin "$xm" --y-margin "$ym"
+        fi ;;
+    center)
+        if fuzzel --help 2>&1 | grep -q -- '--anchor'; then
+            set -- "$@" --anchor center
+        fi ;;
+    *)
+        # sem slot: herda o anchor do fuzzel.ini (launcher) — compat
+        ;;
+esac
+
+choice="$(printf '%s\n' "$list" | fuzzel "$@" & p=$!; printf '%s %s\n' "$p" "$title" >"$ST"; wait "$p")"
 rc=$?
+rm -f "$ST"
 [ -n "$choice" ] || exit "$rc"
 printf '%s\n' "$choice"
 exit 0

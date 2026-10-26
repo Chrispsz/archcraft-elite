@@ -1,6 +1,6 @@
 #!/bin/sh
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · craft-bgapps (v3.0 — UM processo por PROGRAMA, v2.4.0)
+# Archcraft ELITE · craft-bgapps (v4.0 — SÓ PROGRAMA DO DONO, v2.6.0)
 # ═══════════════════════════════════════════════════════════════════════════
 # Pedido ORIGINAL (out/2026, ao instalar a v2.3.3): "um botão tray na
 # topbar para encerrar programas que estão executando em segundo plano".
@@ -31,9 +31,26 @@
 #     válido — o botão nunca some por erro de leitura (só por não ter
 #     programa de verdade, que é a regra).
 #
+# A LEI v2.6.0 (o dono, prints do rig 26/out: "continua pegando serviços
+# do sistema que inclusive não encerram — (sd-pam), dconf-service,
+# gvfs-udisks2-vo, gvfs-mtp-volume"):
+#   · o comm de kernel-vênia era o BURACO: o sd-pam se apresenta como
+#     "(sd-pam)" — COM PARÊNTESES — e o padrão sd-pam* não casava; o
+#     dconf e os monitores gvfs-* (cortados pelo ps em 15 chars) idem.
+#     O comm agora é NORMALIZADO (parênteses fora) e a casca ganhou
+#     dconf* · gvfs* (cobre gvfsd E gvfs-*) · Xwayland* · hyprlock/idle ·
+#     labnag*;
+#   · cinto: CANDIDATO SEM DISPLAY NUNCA É PROGRAMA — o /proc/PID/environ
+#     sem WAYLAND_DISPLAY/DISPLAY é assinatura de serviço de fundo (o
+#     Brave, o Files e o Terminal conversam com o compositor; o sd-pam,
+#     o dconf e o gvfs, nunca);
+#   · ENCERRAR de VERDADE: SIGTERM, espera 2s, e quem aguentou ganha
+#     SIGKILL — o dono não clica duas vezes no mesmo botão por teimosia
+#     do processo.
+#
 # Verbos: status → JSON do módulo custom/bgapps (vazio = botão some);
 #         menu   → craft-menu com "nome (pid N)"; o escolhido recebe
-#                  SIGTERM + notificação que SOME.
+#                  SIGTERM (+SIGKILL teimoso) + notificação que SOME.
 # ═══════════════════════════════════════════════════════════════════════════
 set -eu
 
@@ -59,10 +76,13 @@ is_protected() {
         labwc*|waybar*|craft-*|elite-*|labnag*|swaybg*|fuzzel*|nwg-*|kanshi*|wlsunset*)
             return 0 ;;
         # lock/idle/notificações/clipboard/automount — serviço, não app
-        swaylock*|swayidle*|swaync*|cliphist*|wl-copy*|wl-paste*|udiskie*|playerctld*|mpd*|mako*|dunst*)
+        swaylock*|swayidle*|swaync*|cliphist*|wl-copy*|wl-paste*|udiskie*|playerctld*|mpd*|mako*|dunst*|hyprlock*|hypridle*|hyprpaper*)
             return 0 ;;
         # áudio · dbus · systemd · portals · keyring · acessibilidade · sandbox
-        pipewire*|wireplumber*|dbus*|systemd*|sd-pam*|at-spi*|xdg-*|gvfsd*|polkit*|gnome-keyring*|bwrap*|flatpak*|gjs*)
+        # v2.6.0 — dconf* (o serviço de config do rig) · gvfs* (cobre gvfsd
+        #          E os monitores gvfs-udisks2-vo/gvfs-mtp-volume, cortados
+        #          pelo ps em 15 chars) · Xwayland* (o servidor, não os apps)
+        pipewire*|wireplumber*|dbus*|systemd*|sd-pam*|dconf*|gvfs*|at-spi*|xdg-*|polkit*|gnome-keyring*|bwrap*|flatpak*|gjs*|Xwayland*)
             return 0 ;;
         # terminal da sessão (a janela fecha por ela mesma, não daqui)
         foot*)
@@ -89,7 +109,23 @@ list_main_entries() {
     clean=""
     while read -r pid ppid comm; do
         [ -n "${comm:-}" ] || continue
+        # v2.6.0 — o comm normalizado: o sd-pam se apresenta como "(sd-pam)"
+        # (com parênteses — assinatura do systemd) e escapava do padrão
+        # sd-pam*; os parênteses SAEM antes do casamento
+        case "$comm" in
+            \(*\)) comm="${comm#\(}"; comm="${comm%\)}" ;;
+        esac
         is_protected "$comm" && continue
+        # v2.6.0 — cinto: CANDIDATO SEM DISPLAY NUNCA É PROGRAMA. O
+        # /proc/PID/environ sem WAYLAND_DISPLAY/DISPLAY é serviço de fundo
+        # (dconf, gvfs, sd-pam conversam por D-Bus; o Brave, o Files e o
+        # Terminal conversam com o compositor). Falso-positivo na lista
+        # doía mais que falso-negativo: serviço NUNCA entra.
+        if [ -r "/proc/$pid/environ" ] && \
+           ! tr '\0' '\n' <"/proc/$pid/environ" 2>/dev/null | \
+             grep -q -e '^WAYLAND_DISPLAY=' -e '^DISPLAY='; then
+            continue
+        fi
         # cintura de segurança: filho da render-pipeline (Chromium e
         # derivados — Brave/Chrome/Edge/Electron) nunca é principal,
         # nem quando o pai morreu e o init o adotou
@@ -150,7 +186,7 @@ menu() {
     errf="$(mktemp)"
     ec=0
     # stdin = a interface dmenu do craft-menu (listas dinâmicas sem eval)
-    choice="$(printf '%s\n' "$entries" | craft-menu --title='Encerrar' 2>"$errf")" || ec=$?
+    choice="$(printf '%s\n' "$entries" | craft-menu --title='Encerrar' --at=bgapps 2>"$errf")" || ec=$?
     if [ "$ec" -eq 143 ]; then
         # SIGTERM = fechado de fora (cross-dismiss) — benigno.
         mlog "Processos: fechado de fora (SIGTERM — cross-dismiss) — benigno"
@@ -194,6 +230,17 @@ menu() {
     name="${choice%% (pid*}"
     if kill -TERM "$pid" 2>/dev/null; then
         mlog "Processos: SIGTERM enviado — $name (pid $pid)"
+        # v2.6.0 — o encerrar de VERDADE: 2s de paciência (o app salva
+        # estado no TERM); quem aguentou ganha SIGKILL. O dono clica UMA vez.
+        i=0
+        while [ "$i" -lt 8 ] && kill -0 "$pid" 2>/dev/null; do
+            sleep 0.25
+            i=$((i + 1))
+        done
+        if kill -0 "$pid" 2>/dev/null; then
+            kill -KILL "$pid" 2>/dev/null
+            mlog "Processos: SIGKILL — $name (pid $pid) ignorou o TERM"
+        fi
         command -v notify-send >/dev/null 2>&1 && \
             timeout 5 notify-send -a 'Elite' -u normal -t 4000 'Encerrado' \
                 "$name (pid $pid) recebeu o sinal de término." || true

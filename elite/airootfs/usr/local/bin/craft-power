@@ -1,20 +1,25 @@
 #!/bin/sh
 # craft-power — menu de sessão MOUSE-FIRST (Desktop v2.1)
 # ─────────────────────────────────────────────────────────────────────────
+# v2.6.0 — O SESSÃO que o dono aprovou, sem o peso que ele apontou:
+#   · "é necessária essa opção de travar tela?" — NÃO: o menu fica
+#     minimalista e o item de travar a tela sai (o lock segue vivo no W-l
+#     e passa a ser PARTE do suspender — acordou, a tela está travada);
+#   · "o suspender tenta mas rapidamente liga e fica como se eu só
+#     tivesse clicado em travar tela" — a causa: o systemctl suspend SEM
+#     -i morre calado quando um app (navegador/players) segura inibidor
+#     de sono — o lock fica e o PC nunca desliga os olhos. Agora: trava
+#     PRIMEIRO (hyprlock sobe antes de dormir) e suspende com -i
+#     (inibidores IGNORADOS — quem pede delay de sono não manda no dono);
+#   · menus com âncora no BOTÃO do power (--at=power — craft-menu v4).
 # v2.4.0 — O MOTOR QUE JÁ ABRIA: o craft-menu v3 voltou ao motor do
 # launcher (a era GTK+layer-shell do menu saiu de cena — nunca abriu no
-# rig do dono, nem a nativa nem a gaiola). O dropdown de Sessão tem de
-# novo a prova de vida na máquina real. Gramática 0/1/143 intocada; a
-# lei (ESC benigno, cross-dismiss, toggle por foco) segue valendo.
-# v2.3.8 — a era do menu NATIVO (o dono corrigiu a leitura: "o que eu
-# queria centralizar é o nome do menu e remover a barra que fica, tipo
-# 'Rede |'"): a linha de digitação herdada do dmenu não tem função num menu de
-# escolha. O dropdown de Sessão passou a ser o craft-menu — e a lei dos
-# menus (toggle + cross-dismiss) virou estrutura dele —
-# este script não mata irmão nenhum mais.
-# v2.1 — dropdown da barra superior (diretriz do dono). v1.4 — TOGGLE
-# ("esse tipo de erro não pode existir"). v2.3.1 — fim do silêncio
-# (todo open e toda falha deixam linha no menus.log + aviso na tela).
+# rig do dono, nem a nativa nem a gaiola). Gramática 0/1/143 intocada.
+# v2.3.8 — "o que eu queria centralizar é o nome do menu e remover a barra
+# que fica, tipo 'Rede |'" — agora a v4 cura de vez (lista pura, sem
+# linha de digitação). v2.1 dropdown · v1.4 TOGGLE · v2.3.1 fim do
+# silêncio.
+# ─────────────────────────────────────────────────────────────────────────
 set -eu
 
 MLOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/menus.log"
@@ -38,8 +43,7 @@ if command -v craft-menu >/dev/null 2>&1; then
     mlog "Sessão: abrindo (craft-menu)"
     errf="$(mktemp)"
     ec=0
-    choice="$(craft-menu --title='Sessão' \
-        'Travar tela' \
+    choice="$(craft-menu --title='Sessão' --at=power \
         'Sair da sessão' \
         'Suspender' \
         'Reiniciar' \
@@ -112,9 +116,23 @@ else
 fi
 
 case "$choice" in
-    'Travar tela')    exec craft-lock ;;
     'Sair da sessão') labwc --exit ;;
-    'Suspender')      systemctl suspend ;;
+    'Suspender')
+        # v2.6.0 — trava PRIMEIRO (acordou = tela travada, só o wallpaper
+        # borrado) e suspende IGNORANDO inibidores: o -i é a cura do
+        # "tenta mas rapidamente liga" (o inibidor de sono de app matava
+        # o suspend calado e sobrava só o lock). O 0.6s dá tempo do
+        # hyprlock mapear antes de a tela apagar.
+        ( craft-lock >/dev/null 2>&1 & )
+        sleep 0.6
+        if ! systemctl suspend -i >/dev/null 2>&1; then
+            mlog "Sessão: suspend falhou mesmo com -i — avisando"
+            command -v notify-send >/dev/null 2>&1 && \
+                timeout 5 notify-send -a 'Elite' -u normal -t 8000 \
+                    'Suspender falhou' \
+                    'O sistema recusou a suspensão — journal: ~/.cache/elite/menus.log' || true
+        fi
+        exit 0 ;;
     'Reiniciar')      systemctl reboot ;;
     'Desligar')       systemctl poweroff ;;
     # v2.3.6 — descoberta do idle: o dono perguntou 'tem como controlar o
