@@ -14,7 +14,7 @@ Python (shebang python) são pulados explicitamente (v2.0.1 — o craft-dock-gui
 
 ## Suíte de contratos (tests.yml)
 
-**Prova:** ~1.497 asserções em 5 fases (o número cresce a cada versão —
+**Prova:** ~1.529 asserções em 5 fases (o número cresce a cada versão —
 cada cura do dono vira contrato que impede a regressão) — sintaxe, YAML,
 units, overlay REAL
 contra fixture hermética, ciclo split→hash→reassemble, determinismo
