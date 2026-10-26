@@ -29,11 +29,13 @@
 }
 
 /* Os itens: CENTRADOS (o pedido literal), caixa alta o bastante pro
- * clique (44px — o mesmo bbox da dock), texto do tema. */
+ * clique (44px — o mesmo bbox da dock), texto do tema. Raio 12px = a
+ * LEI DA PÍLULA v2.3.9: hover em alvo de 44px tem raio 12 na distro
+ * inteira (dock.css e menu.css, a mesma escada). */
 .menu-item {
   color: #cdd6f4;
   background: transparent;
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 0 14px;
   min-height: 44px;
   font-size: 13px;

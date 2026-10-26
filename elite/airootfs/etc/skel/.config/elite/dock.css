@@ -5,7 +5,15 @@
  * waybar 0.15, e sem NENHUMA propriedade inventada.
  * v2.3.6 — o indicador de aberto é NEUTRO (texto da barra): o roxo-
  * lavanda do Mocha leu como "efeito estranho" no rig do dono — destaque
- * por luz, não por cor. */
+ * por luz, não por cor.
+ * v2.3.9 — A LEI DA PÍLULA (diretriz do dono: "ficar atento aos espaços,
+ * desenhos, tamanho e consistência — tudo padronizado"): o hover abraça
+ * o ícone com o MESMO respiro nos 4 lados. Antes: padding 2px 8px com
+ * ícone 36px = pílula 52×44 (8px nas laterais, 4px em cima/embaixo — o
+ * destaque do mouse "não parecia bem centrado"). Agora: padding 4px =
+ * 36+8 = 44 nos DOIS eixos — pílula QUADRADA 44×44, ícone morto no
+ * centro. Raio 12px = o padrão das pílulas de hover em alvos de 44px
+ * (dock e menu, a mesma escada). */
 #dockwindow { background: transparent; }
 
 /* A pílula: fundo translúcido escuro, borda sutil, cantos 20px — o
@@ -19,13 +27,14 @@
 }
 
 /* Botões: ícone REAL do app (hicolor via .desktop — fallback do GTK), caixa única
- * 44px, padding simétrico — o ícone fica CENTRADO no eixo X e Y
- * (spec M3.1 do dono — nada de caixilho desalinhado). */
+ * 44px — padding 4px NOS 4 LADOS: ícone 36 + 8 = 44 nos dois eixos, a
+ * pílula de hover nasce QUADRADA e o ícone mora no centro exato
+ * (spec M3.1 + lei da pílula v2.3.9). */
 #dockbox button {
-  padding: 2px 8px;
+  padding: 4px;
   min-height: 44px;
   min-width: 44px;
-  border-radius: 14px;
+  border-radius: 12px;
   background: transparent;
   border: none;
   transition: background 0.15s ease;
