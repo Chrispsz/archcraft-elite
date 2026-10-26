@@ -55,12 +55,14 @@
   // (v2.3.6 — o MIC ganhou assento: "o de Mic é tão importante quanto o
   // de áudio" — clique muta o microfone, direito abre o pwvucontrol igual
   // ao do som; muto = vermelho, mesma gramática do volume.)
+  // (v2.3.10 — o print SAIU da barra: "não gostei do botão de print
+  // melhor remover" — o craft-shot segue vivo nos atalhos W-P e W-S-P,
+  // que cobrem os dois verbos sem ocupar assento na barra.)
   "modules-right": [
     "mpris",
     "pulseaudio",
     "pulseaudio#mic",
     "network",
-    "custom/shot",
     "custom/bgapps",
     "custom/power"
   ],
@@ -81,17 +83,10 @@
     "on-click": "craft-drawer"
   },
 
-  // (v2.1 — o botão custom/shot foi REMOVIDO da barra, pedido do dono.
-  // v2.3.7 — ELE PEDIU DE VOLTA no áudio do live (25/10): "quem sabem
-  // também tem um botão de print rápido que melhoraria a experiência",
-  // apesar do atalho. Volta com os dois verbos do craft-shot: clique =
-  // região (slurp), direito = tela inteira. A lei muda com o dono.)
-  "custom/shot": {
-    "format": "\uf030",
-    "tooltip-format": "Print — clique: região · direito: tela inteira (W-P / W-S-P no teclado)",
-    "on-click": "craft-shot area",
-    "on-click-right": "craft-shot full"
-  },
+  // (v2.3.7 — o botão custom/shot voltou à barra a pedido do dono.
+  // v2.3.10 — E SAIU DE NOVO: "não gostei do botão de print melhor
+  // remover". O módulo morre aqui; o craft-shot segue vivo e os verbos
+  // continuam no teclado: W-P = região, W-S-P = tela inteira.)
   // Música do USUÁRIO (MPRIS) — YouTube no navegador, Spotify, mpv: o que
   // VOCÊ tocar aparece aqui. Com nada tocando o módulo some sozinho.
   // Clique: esq = play/pause, meio = próxima, dir = anterior.
@@ -164,9 +159,10 @@
 
   // Apps em 2º plano (v2.3.4 — pedido do dono: "um botão tray na topbar
   // para encerrar programas que estão executando em segundo plano e seja
-  // do usuário caso queira"). Só ocupa a barra QUANDO há processo do
-  // usuário fora da casca da sessão (texto vazio = some); clique abre o
-  // menu fuzzel — a casca (compositor/barras/áudio/dbus…) nunca aparece.
+  // do usuário caso queira"). Só ocupa a barra QUANDO há PROGRAMA do
+  // usuário fora da casca da sessão (texto vazio = some; a v2.3.10
+  // expurgou o encanamento da lista — nada de at-spi/xdg/gvfsd/craft-*);
+  // clique abre o menu nativo craft-menu.
   "custom/bgapps": {
     "exec": "craft-bgapps status",
     "return-type": "json",

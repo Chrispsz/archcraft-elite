@@ -33,7 +33,7 @@ mlog() {
     return 0
 }
 
-command -v fuzzel >/dev/null 2>&1 || { mlog "Fixar: fuzzel AUSENTE — picker morreu antes de abrir"; notify-send -a 'Elite' -u critical 'Fixar na dock falhou' "fuzzel ausente — detalhe em ~/.cache/elite/menus.log" 2>/dev/null || true; exit 1; }
+command -v fuzzel >/dev/null 2>&1 || { mlog "Fixar: fuzzel AUSENTE — picker morreu antes de abrir"; timeout 5 notify-send -a 'Elite' -u normal -t 8000 'Fixar na dock falhou' "fuzzel ausente — detalhe em ~/.cache/elite/menus.log" 2>/dev/null || true; exit 1; }
 command -v craft-pin >/dev/null 2>&1 || { mlog "Fixar: craft-pin AUSENTE"; exit 1; }
 
 # ── 1. Inventário: .desktop visíveis (overrides primeiro — XDG order) ──
@@ -80,7 +80,7 @@ fi
 if [ "$ec" -ne 0 ]; then
     mlog "Fixar: FUZZEL FALHOU exit=$ec — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
     command -v notify-send >/dev/null 2>&1 && \
-        notify-send -a 'Elite' -u critical 'Fixar na dock falhou' \
+        timeout 5 notify-send -a 'Elite' -u normal -t 8000 'Fixar na dock falhou' \
             "fuzzel exit=$ec — detalhe em ~/.cache/elite/menus.log" || true
     exit 1
 fi

@@ -131,29 +131,26 @@ window#waybar {
 }
 
 /* Apps em 2º plano (v2.3.4): só ocupa a barra QUANDO há o que encerrar
- * (texto vazio = módulo some). Acento PÊSSEGO = atenção sem pânico — a
- * ação é destrutiva, mas a escolha e a confirmação são do usuário
- * (a própria seleção no menu fuzzel é o segundo passo). */
+ * (texto vazio = módulo some). v2.3.10 — BRANCO: o dono pediu o lado
+ * direito branco com o power roxo — o pêssego era grito decorativo;
+ * a presença do botão JÁ é o sinal (e a lista agora só traz programa
+ * de verdade, nunca encanamento da sessão). */
 #custom-bgapps {
   padding: 0 12px;
   color: @subtext0;
 }
 #custom-bgapps.bgapps-on {
-  color: @peach;
+  color: @text;
 }
 
-/* Print (v2.3.7) — TINHA regra de hover mas NÃO tinha regra base: a
- * pílula nascia colada no glifo (padding zero). v2.3.9: caixa idêntica
- * aos irmãos (a mesma 0 12px). */
-#custom-shot {
-  padding: 0 12px;
-}
+/* v2.3.10 — o print SAIU da barra ("não gostei do botão de print melhor
+ * remover"): nenhuma regra do módulo extinto mora mais neste arquivo —
+ * os verbos vivem nos atalhos W-P / W-S-P. */
 
 /* O clickability é a LEI do hover: toda a família clicável compartilha a
  * mesma transição na base (ida E volta animadas). */
 #custom-power,
 #custom-drawer,
-#custom-shot,
 #network,
 #pulseaudio,
 #custom-bgapps,
@@ -167,7 +164,6 @@ window#waybar {
  * widget) — a pílula é uma só. */
 #custom-power:hover,
 #custom-drawer:hover,
-#custom-shot:hover,
 #network:hover,
 #pulseaudio:hover,
 #custom-bgapps:hover,
@@ -178,7 +174,6 @@ window#waybar {
 
 #custom-power:active,
 #custom-drawer:active,
-#custom-shot:active,
 #network:active,
 #pulseaudio:active,
 #custom-bgapps:active,
@@ -202,10 +197,12 @@ window#waybar {
   color: @red;
 }
 
-/* Power: vermelho no hover — destrutivo, sinaliza (depois do grupo: a
- * cascata pinta o fundo por cima da pílula padrão) */
+/* Power: MAUVE (v2.3.10 — o dono: "o botão de desligar deixar roxo como
+ * o ícone do arch pra ficar consistente com o lado esquerdo; o resto
+ * pode ser branco mesmo"). O ARCH à esquerda e o power à direita fecham
+ * a barra com a MESMA assinatura; os demais módulos ficam no texto. */
 #custom-power {
-  color: @subtext0;
+  color: @mauve;
 }
 #custom-power:hover {
   background: alpha(@red, 0.18);
