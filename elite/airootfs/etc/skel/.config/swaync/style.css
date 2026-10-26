@@ -66,7 +66,7 @@
 }
 
 .image {
-  border-radius: 10px;
+  border-radius: 12px;  /* v2.3.9: a lei da pílula (era 10px) */
 }
 
 .summary {
@@ -88,7 +88,7 @@
 .notification-action {
   background: @surface0;
   color: @text;
-  border-radius: 10px;
+  border-radius: 12px;  /* v2.3.9: a lei da pílula (era 10px) */
   margin: 4px;
 }
 
@@ -112,7 +112,8 @@
   background: alpha(@crust, 0.25);
 }
 
-/* Título + botão "Limpar" */
+/* Título + botão "Limpar" — raio 12px: a LEI DA PÍLULA v2.3.9 (botões
+ * com o mesmo raio da dock e do craft-menu, na distro inteira) */
 .widget-title {
   color: @text;
   font-size: 15px;
@@ -123,7 +124,7 @@
 .widget-title > button {
   background: @surface0;
   color: @red;
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 4px 12px;
   font-weight: 600;
 }

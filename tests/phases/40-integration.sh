@@ -293,6 +293,30 @@ assert_grep "$P/airootfs/etc/skel/.config/fuzzel/fuzzel.ini" 'font=JetBrainsMono
 assert_nogrep "$P/airootfs/etc/skel/.config/fuzzel/fuzzel.ini" 'font=JetBrainsMono Nerd Font' "v2.1: fuzzel sem a família inexistente na diretiva font="
 assert_nogrep "$P/airootfs/etc/skel/.config/elite/dock.css" '#custom-sep' "v2.1: dock.css sem separador (a era dos glifos morreu)"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/style.top.css" '#pulseaudio:not\(\.mic\)\.muted' "v2.3.7: mudo = vermelho SÓ no ícone do som (a classe .muted do sink vazava pra instância mic — o dono: 'mutando o áudio tá mutando o microfone junto')"
+# v2.3.9 — A LEI DA PÍLULA (o dono sobre o hover: "não parece bem
+# centralizado naquele contraste que o mouse cria… ficar atento aos
+# espaços, desenhos, tamanho e a consistência visual como um todo"):
+#   · o hover abraça o alvo com o MESMO respiro nos 4 lados (dock:
+#     ícone 36 + padding 4 = pílula QUADRADA 44×44 — o 2px 8px velho
+#     nascia 52×44, 8px nas laterais e 4px em cima/embaixo);
+#   · pílula de 44px = raio 12px, na distro inteira (dock + menu + swaync);
+#   · hover SÓ existe onde existe clique (affordance honesta);
+#   · transição na regra BASE (ida E volta animadas).
+assert_grep "$DCSS" 'padding: 4px;' "v2.3.9: dock.css padding 4px NOS 4 LADOS (pílula 44×44 quadrada — o hover abraça o ícone por igual)"
+assert_nogrep "$DCSS" 'padding: 2px 8px' "v2.3.9: dock.css sem o padding assimétrico extinto (2px 8px = pílula 52×44, o 'não parece centrado' do dono)"
+assert_grep "$DCSS" 'border-radius: 12px' "v2.3.9: pílula de 44px com raio 12 (a lei dock+menu)"
+assert_nogrep "$DCSS" 'border-radius: 14px' "v2.3.9: dock.css sem raio fora da lei (o 14px morreu)"
+assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'padding: 4px' "v2.3.9: fallback embutido da dock espelha a lei da pílula"
+assert_grep "$P/airootfs/etc/skel/.config/elite/menu.css" 'border-radius: 12px' "v2.3.9: menu-item no raio 12 da lei (era 10 — dock e menu na MESMA escada de 44px)"
+assert_grep "$P/airootfs/usr/local/bin/craft-menu" 'set_halign\(Gtk\.Align\.CENTER\)' "v2.3.9: título do menu CENTRADO de verdade (halign no eixo cruzado — justify sozinho não centra label de largura natural)"
+WTCSS="$P/airootfs/etc/skel/.config/waybar/style.top.css"
+assert_grep "$WTCSS" '^#custom-shot \{' "v2.3.9: print COM regra base (tinha :hover sem base — a pílula nascia colada no glifo, padding zero)"
+assert_nogrep "$WTCSS" 'padding: 0 12px 0 14px' "v2.3.9: ARCH do drawer com padding SIMÉTRICO (a declaração 0 12px 0 14px nascia 1px fora do centro da própria pílula)"
+assert_nogrep "$WTCSS" '#mpris:hover' "v2.3.9: hover SÓ em clicável (mpris é vitrine — a pílula que sugere clique sem clique é mentira de affordance)"
+assert_nogrep "$WTCSS" '#wlr-window:hover' "v2.3.9: hover SÓ em clicável (wlr-window é vitrine)"
+assert_grep "$WTCSS" 'transition: background 0\.15s ease, color 0\.15s ease' "v2.3.9: transição na BASE (dentro do :hover só a ida animava — a volta era seca)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/themerc-override" 'menu\.items\.active\.bg\.color: #16161f' "v2.3.9: hover do menu labwc = surface0 (era surface2 — o tom de PRESSIONADO na escada)"
+assert_nogrep "$P/airootfs/etc/skel/.config/swaync/style.css" 'border-radius: 10px' "v2.3.9: swaync inteiro no raio 12 (a lei da pílula — nenhum 10px sobrevive)"
 # craft-power v2 — v2.3.8: o menu NATIVO (o dono corrigiu: "o que eu
 # queria centralizar é o nome do menu e remover a barra que fica, tipo
 # 'Rede |'"): craft-menu — título centrado, itens centrados, ZERO linha

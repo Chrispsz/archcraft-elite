@@ -276,10 +276,10 @@ DEFAULT_CSS = b"""
   padding: 4px 10px;
 }
 #dockbox button {
-  padding: 2px 8px;
+  padding: 4px;
   min-height: 44px;
   min-width: 44px;
-  border-radius: 14px;
+  border-radius: 12px;
   background: transparent;
   border: none;
 }

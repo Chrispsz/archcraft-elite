@@ -120,6 +120,12 @@ box.get_style_context().add_class("menu-box")
 
 ttl = Gtk.Label(label=title)
 ttl.set_justify(Gtk.Justification.CENTER)
+# v2.3.9 — o título CENTRADO de verdade: justify só age no texto interno
+# (multi-linha); um label de largura natural com halign FILL (default)
+# ocupa a fatia toda a partir da ESQUERDA. Num GtkBox vertical a largura
+# é o eixo CRUZADO — e o GTK3 respeita halign nele: halign=CENTER dá ao
+# label a largura natural, morta no meio da pílula.
+ttl.set_halign(Gtk.Align.CENTER)
 ttl.get_style_context().add_class("menu-title")
 box.pack_start(ttl, False, False, 4)
 

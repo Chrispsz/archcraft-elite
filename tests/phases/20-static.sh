@@ -633,7 +633,7 @@ TOPCSS="$REPO/elite/airootfs/etc/skel/.config/waybar/style.top.css"
 assert_nogrep "$TOPCSS" 'border-bottom' "M2.3: a linha fantasma sob a barra está MORTA (border-bottom removido do window#waybar)"
 assert_grep "$TOPCSS" 'padding-top: 2px' "M2.1: padding vertical SIMÉTRICO no painel (topo == base — ícone não encosta no teto)"
 assert_grep "$TOPCSS" 'padding-bottom: 2px' "M2.1: padding-bottom presente (par do padding-top)"
-assert_grep "$TOPCSS" 'padding: 0 14px' "M2.2: respiro de 14px na borda direita da barra (o último módulo — power — herda o spec do extinto tray)"
+assert_grep "$TOPCSS" 'padding: 0 12px' "M2.2→v2.3.9: UM padding para toda a barra (0 12px — o 14px exclusivo do power era a assimetria que o dono flagrou no hover: 'espaços, tamanho, consistência — tudo padronizado')"
 
 # ── M3: dock — centralização, escala fixa, ícones reais, launcher único ──
 # M3.1/M3.2/M3.3 (v2.0): o desalinho e os ícones quebrados tinham UMA causa
