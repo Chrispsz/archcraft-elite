@@ -1,269 +1,73 @@
-#!/usr/bin/env python3
+#!/bin/sh
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · craft-menu (v2.0 — A GAIOLA, v2.3.11)
+# Archcraft ELITE · craft-menu (v3.0 — O MOTOR QUE JÁ ABRIA, v2.4.0)
 # ═══════════════════════════════════════════════════════════════════════════
-# O dono no rig: "os menus sequer abriam". Ele tinha razão — e a v1 nunca
-# ia abrir com confiança, porque a VIDA do menu dependia do teclado:
+# A HONESTIDADE PRIMEIRO: o motor GTK do menu (v2.3.8 nativo → v2.3.11
+# "gaiola") NUNCA abriu no rig do dono — o dono clicava e nada aparecia,
+# duas reescritas, dois funerais. A v3 troca o motor pelo ÚNICO com prova
+# de vida na máquina real: o FUZZEL — o launcher e o menu de Sessão
+# sempre abriram, filtraram e fecharam nele, e a cura v2.3.6
+# (keyboard-focus=on-demand) provou o clique-fora-fecha NO RIG do dono.
 #
-#   v1: janela solta (sem âncoras) + KeyboardMode.ON_DEMAND +
-#       focus-out-event → quit. Se o compositor entrega e revoga o foco
-#       na mesma carrada do mapa (a corrida real do labwc), o menu morre
-#       ANTES do primeiro frame — o dono clicava e nada aparecia.
-#
-# A FÓRMULA v2 (o padrão dos overlays modal que funcionam — wlogout,
-# gtklock, o próprio fuzzel): o menu não depende de foco pra EXISTIR.
-#
-#   1. A GAIOLA — a superfície é a TELA INTEIRA (4 âncoras), layer
-#      OVERLAY, véu translúcido. Modal de verdade: nada por baixo
-#      recebe clique enquanto está aberta.
-#   2. A PÍLULA — o menu (menu-box) morta no centro da gaiola
-#      (halign/valign CENTER + expand/fill — o idioma GTK do centro).
-#   3. FECHAMENTO QUE NÃO PODE FALHAR:
-#        · clique FORA de um item = clique na gaiola → fecha (o GtkWindow
-#          recebe o press; o item button tem janela própria e CONSOME o
-#          press — a hierarquia de eventos do GTK decide, sem heurística);
-#        · ESC → fecha (teclado EXCLUSIVE: o menu TEM o teclado, sempre);
-#        · escolher um item → fecha;
-#        · 2ª chamada do mesmo título → toggle (a LEI, mora aqui);
-#        · abrir OUTRO menu → cross-dismiss (a LEI, mora aqui).
-#      ZERO focus-out-event: a classe do "menu que morre ao mapear" está
-#      EXTINTA por construção — não existe código para falhar.
-#   4. TECLADO EXCLUSIVE — ↑/↓ navegam com a mesma pílula do mouse,
-#      Enter escolhe, Esc fecha. Modal: enquanto aberto, o teclado é do
-#      menu (como em qualquer launcher).
+# POR QUE ESTA CLASSE DE FALHA ESTÁ EXTINTA POR CONSTRUÇÃO:
+#   · ZERO GTK, ZERO layer-shell, ZERO corrida de foco para EXISTIR — o
+#     compositor mapeia o layer do fuzzel sem depender de nada (a v1
+#     morria ANTES do 1º frame; isso aqui não tem esse código);
+#   · toggle e cross-dismiss viraram FÍSICA, não código: só existe um
+#     teclado — abrir outro menu rouba o foco e o anterior FECHA SOZINHO
+#     (exit-on-focus-loss=yes, agora CONTRATO explícito no fuzzel.ini;
+#     o 2º clique no botão fecha — o que o burn test v1.4 do Sessão já
+#     provou na prática);
+#   · ESC = exit 1 com stderr vazio (a lei v2.3.6/v2.3.10 intacta:
+#     fechar NUNCA é falha — o fuzzel cala no ESC desde o fix dos ';').
 #
 # A GRAMÁTICA DE SAÍDA (contrato com os 7 chamadores — intocado):
 #   stdout: o item escolhido · exit 0
-#   exit 1: fechado sem escolha (ESC / clique fora / gaiola) — stderr vazio
-#   exit 2: toggle (a 2ª chamada fechou o menu do mesmo título)
-#   143:    morto por SIGTERM (cross-dismiss — outro menu abriu)
+#   exit 1: fechado sem escolha (ESC / clique fora / foco perdido) — stderr vazio
+#   exit 2: (aposentado) o toggle virou física do compositor — os
+#           chamadores tratam 2 como benigno e o ramo fica dormente
+#   143:    morto por SIGTERM (cross-dismiss)
+#   outros: falha REAL — o stderr segue vivo até o chamador (log + aviso
+#           que SOME).
+#
+# O TÍTULO: vive no prompt do fuzzel — contexto + filtro por digitação
+# (começar a digitar já navega a lista). O preço honesto de abrir SEMPRE.
 #
 # Uso: craft-menu --title=TÍTULO item1 [item2 …]   (ou itens por STDIN —
 # a interface dmenu: 1 linha = 1 item, listas dinâmicas sem eval)
 # ═══════════════════════════════════════════════════════════════════════════
-import os
-import re
-import signal
-import subprocess
-import sys
+set -u
 
-import gi
-gi.require_version("Gtk", "3.0")
-gi.require_version("GtkLayerShell", "0.1")
-from gi.repository import Gdk, Gtk
-import GtkLayerShell
+command -v fuzzel >/dev/null 2>&1 || {
+    printf 'craft-menu: fuzzel ausente (pacote fuzzel)\n' >&2
+    exit 127
+}
 
-# ── argv: --title=TÍTULO + itens ────────────────────────────────────────────
-title = "Menu"
-items = []
-for a in sys.argv[1:]:
-    if a.startswith("--title="):
-        title = a[len("--title="):]
-    else:
-        items.append(a)
+title="Menu"
+list=""
+sep=""
+for a in "$@"; do
+    case "$a" in
+        --title=*) title="${a#--title=}" ;;
+        *)
+            list="$list$sep$a"
+            sep="
+"
+            ;;
+    esac
+done
 # itens alternativos por STDIN (a interface dmenu — listas DINÂMICAS
 # como os processos vivos e os snapshots passam por pipe, sem eval e
 # sem word-splitting no chamador: shellcheck limpo por construção)
-if not items and not sys.stdin.isatty():
-    items = [l for l in sys.stdin.read().splitlines() if l.strip()]
-if not items:
-    sys.exit(0)
+if [ -z "$list" ] && [ ! -t 0 ]; then
+    list="$(cat)"
+fi
+# linhas vazias fora (a v2 as descartava; o contrato é o mesmo)
+list="$(printf '%s\n' "$list" | sed '/^[[:space:]]*$/d')"
+[ -n "$list" ] || exit 0
 
-
-def die_other_menus():
-    """A LEI (toggle + cross-dismiss) — estrutural, um lugar só."""
-    same = False
-    try:
-        out = subprocess.run(
-            ["pgrep", "-a", "-f", "craft-menu --title="],
-            capture_output=True, text=True,
-        ).stdout
-    except Exception:
-        return False
-    for line in out.splitlines():
-        pid_s, _, cmd = line.partition(" ")
-        try:
-            pid = int(pid_s.strip())
-        except ValueError:
-            continue
-        if pid == os.getpid():
-            continue
-        m = re.search(r"--title=([^ ]+)", cmd)
-        if m is None:
-            continue
-        try:
-            os.kill(pid, signal.SIGTERM)
-        except OSError:
-            pass
-        if m.group(1) == title:
-            same = True
-    return same
-
-
-if die_other_menus():
-    sys.exit(2)  # toggle: a 2ª chamada apenas FECHOU o menu do mesmo título
-
-CHOICE = None
-
-# QUIT ONCE — o guard do main_quit único (item clicado + ESC na mesma
-# carrada, ou dois caminhos de fechamento em cadeia: um quit, só um).
-quitting = {"v": False}
-
-
-def quit_once():
-    if not quitting["v"]:
-        quitting["v"] = True
-        Gtk.main_quit()
-
-
-# ═════════════════════════════ A GAIOLA ═════════════════════════════════════
-win = Gtk.Window()
-win.set_decorated(False)
-# a classe é o que o CSS casa (set_name casaria #menu-window — seletor
-# ERRADO para .menu-window): a gaiola pinta o véu do menu.css.
-win.get_style_context().add_class("menu-window")
-GtkLayerShell.init_for_window(win)
-GtkLayerShell.set_layer(win, GtkLayerShell.Layer.OVERLAY)
-# 4 ÂNCORAS = a superfície É a tela (o véu modal do launcher). O menu não
-# é mais uma janelinha flutuante disputando foco: é o próprio overlay.
-for edge in (GtkLayerShell.Edge.TOP, GtkLayerShell.Edge.BOTTOM,
-             GtkLayerShell.Edge.LEFT, GtkLayerShell.Edge.RIGHT):
-    GtkLayerShell.set_anchor(win, edge, True)
-# exclusive zone -1: o véu NÃO empurra barra/dock — só cobre visualmente.
-GtkLayerShell.set_exclusive_zone(win, -1)
-# TECLADO EXCLUSIVE: enquanto o menu vive, o teclado É dele — ESC e
-# ↑/↓/Enter funcionam SEM depender de corrida de foco (a cura real do
-# "sequer abre": a existência do menu nunca mais dependerá de foco).
-GtkLayerShell.set_keyboard_mode(win, GtkLayerShell.KeyboardMode.EXCLUSIVE)
-try:  # abre no monitor do ponteiro (onde está a atenção do dono)
-    disp = Gdk.Display.get_default()
-    seat = disp.get_default_seat()
-    _, px, py = seat.get_pointer().get_position()
-    GtkLayerShell.set_monitor(win, disp.get_monitor_at_point(px, py))
-except Exception:
-    pass
-
-# A PÍLULA: filha de um SLOT que enche a gaiola inteira. pack_start com
-# expand=True + fill=False dá à pílula o slot inteiro SEM esticá-la — e
-# halign/valign CENTER a sentam no meio dos DOIS eixos (o idioma GTK3 do
-# centro; a janela sozinha não honra align do filho — o slot resolve).
-slot = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-win.add(slot)
-
-box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-box.get_style_context().add_class("menu-box")
-box.set_halign(Gtk.Align.CENTER)
-box.set_valign(Gtk.Align.CENTER)
-slot.pack_start(box, True, False, 0)
-
-ttl = Gtk.Label(label=title)
-ttl.set_justify(Gtk.Justification.CENTER)
-# o título CENTRADO: justify age no texto interno; halign CENTER dá ao
-# label a largura natural, morta no meio da pílula.
-ttl.set_halign(Gtk.Align.CENTER)
-ttl.get_style_context().add_class("menu-title")
-box.pack_start(ttl, False, False, 4)
-
-item_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-buttons = []
-kb = {"i": 0}
-
-
-def paint_focus():
-    for j, b in enumerate(buttons):
-        ctx = b.get_style_context()
-        if j == kb["i"]:
-            ctx.add_class("kb-focus")
-        else:
-            ctx.remove_class("kb-focus")
-
-
-def choose(btn):
-    global CHOICE
-    CHOICE = btn.get_label()
-    quit_once()
-
-
-for it in items:
-    b = Gtk.Button(label=it)
-    b.set_relief(Gtk.ReliefStyle.NONE)
-    b.set_hexpand(True)
-    b.get_style_context().add_class("menu-item")
-    # o TEXTO do item morto no centro: o label herda min-width do CSS e
-    # xalign 0.5 centra o texto DENTRO dele (justify sozinho não centra
-    # linha única — lição da v2.3.9, agora nos itens também).
-    _lbl = b.get_child()
-    _lbl.set_justify(Gtk.Justification.CENTER)
-    _lbl.set_xalign(0.5)
-    b.connect("clicked", choose)
-    item_box.pack_start(b, False, False, 0)
-    buttons.append(b)
-
-if len(items) > 7:  # lista longa (Encerrar) — rola, nunca some da tela
-    sc = Gtk.ScrolledWindow()
-    sc.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-    sc.set_max_content_height(340)
-    sc.set_propagate_natural_height(True)
-    sc.add(item_box)
-    box.pack_start(sc, False, False, 0)
-else:
-    box.pack_start(item_box, False, False, 0)
-
-# ── fechamento que não pode falhar ──────────────────────────────────────────
-# O GtkWindow TEM GdkWindow próprio: QUALQUER press não consumido por um
-# item chega aqui. A decisão é GEOMÉTRICA (à prova de internals do GTK):
-# press DENTRO da alocação da pílula → quem decide é o item/button
-# (return False = não fechamos por cima do clique); press FORA (véu) →
-# fecha. Sem foco, sem corrida, sem heurística.
-def on_press(_w, ev):
-    if ev.type != Gdk.EventType.BUTTON_PRESS:
-        return False
-    a = box.get_allocation()
-    if a.x <= ev.x < a.x + a.width and a.y <= ev.y < a.y + a.height:
-        return False
-    quit_once()
-    return True
-
-
-win.connect("button-press-event", on_press)
-
-
-def on_key(_w, ev):
-    kv = ev.keyval
-    if kv == Gdk.KEY_Escape:
-        quit_once()
-        return True
-    if kv in (Gdk.KEY_Up, Gdk.KEY_Down):
-        d = -1 if kv == Gdk.KEY_Up else 1
-        kb["i"] = (kb["i"] + d) % len(buttons)
-        paint_focus()
-        return True
-    if kv in (Gdk.KEY_Return, Gdk.KEY_KP_Enter, Gdk.KEY_space):
-        buttons[kb["i"]].clicked()
-        return True
-    return False
-
-
-win.connect("key-press-event", on_key)
-
-# o rice (menu.css) — o mesmo vocabulário visual da dock.css
-try:
-    css = Gtk.CssProvider()
-    css.load_from_path(os.path.expanduser("~/.config/elite/menu.css"))
-    Gtk.StyleContext.add_provider_for_screen(
-        Gdk.Screen.get_default(), css, Gtk.StyleContext.PROVIDER_PRIORITY_APPLICATION
-    )
-except Exception:
-    pass
-
-paint_focus()
-win.show_all()
-try:
-    Gtk.main()
-except KeyboardInterrupt:
-    pass
-
-if CHOICE is not None:
-    print(CHOICE)
-    sys.exit(0)
-sys.exit(1)  # ESC / clique fora — fechar NUNCA é erro (stderr nasce vazio)
+choice="$(printf '%s\n' "$list" | fuzzel --dmenu --prompt "$title: ")"
+rc=$?
+[ -n "$choice" ] || exit "$rc"
+printf '%s\n' "$choice"
+exit 0

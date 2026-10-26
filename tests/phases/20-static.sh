@@ -524,8 +524,8 @@ assert_grep "$CPIN" 'craft-dock reload' \
 #      dropdowns empilhados — áudio do dono, 24/out e 21/out)
 CCON="$REPO/elite/airootfs/usr/local/bin/craft-connect"
 CMEN="$REPO/elite/airootfs/usr/local/bin/craft-menu"
-assert_grep "$CMEN" 'die_other_menus' \
-  "a lei dos menus é ESTRUTURAL (craft-menu v2.3.8: abrir Sessão FECHA Rede/Encerrar — toggle e cross-dismiss num lugar só)"
+assert_grep "$CMEN" 'fuzzel --dmenu' \
+  "a lei dos menus é do MOTOR (craft-menu v3 = fuzzel: só existe um teclado — abrir outro menu rouba o foco e o anterior FECHA; toggle/cross-dismiss por física)"
 assert_nogrep "$CCON" "pkill -f 'fuzzel" \
   "craft-connect sem pkill de irmão (a era das cópias da lei morreu com o craft-menu)"
 
