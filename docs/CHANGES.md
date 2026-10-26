@@ -6,6 +6,130 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **v2.3.12 — a auditoria de garantia: o manual conta a história inteira e
+  o mpris deixa de fingir** (auditoria topbar + manual + UI/UX, out/2026):
+  - **O MANUAL ESTAVA 5 VERSÕES ATRASADO** — este CHANGES parava na
+    v2.3.6: a v2.3.7 (os 6 crimes do live), a v2.3.8 (a era do menu
+    nativo), a v2.3.9 (a Lei da Pílula), a v2.3.10 (notificações +
+    bgapps + print fora + power mauve) e a v2.3.11 (a Gaiola) não
+    existiam para quem lê os docs — as 5 entradas abaixo entraram agora,
+    escritas dos commits. O VERIFICATION citava ~1.235 asserções (a
+    suíte real passou de 1.477) e o SCRIPTS não documentava craft-menu,
+    craft-bgapps nem craft-shot — exatamente os 3 scripts que mais
+    mudaram nas últimas 3 versões.
+  - **O MPRIS FINGIA** — o comentário do config prometia "Clique: esq =
+    play/pause, meio = próxima, dir = anterior" e NENHUM on-click
+    existia: clicar na música não fazia NADA (a v2.3.9 até excluiu o
+    módulo do hover por ele não ser clicável — a pílula era honesta, o
+    comentário não). Agora os cliques são reais (playerctl — já era dep
+    dos keybinds de mídia do rc.xml) e o hover voltou por merecimento: a
+    lei pinta quem de fato clica.
+  - **BRANCO, como o dono pediu** — "o resto pode ser branco mesmo": o
+    mpris era MAUVE no lado direito; a assinatura roxa fica com o ARCH
+    (esquerda) e o power (direita) — o resto é texto.
+
+- **v2.3.11 — craft-menu v2.0 A GAIOLA — o menu modal à prova de foco**
+  (o rig: "os menus sequer abriam — reescreve do zero de forma
+  completamente mais inteligente"):
+  - ADMISSÃO: a v1 morria ANTES do 1º frame na máquina real — janela
+    solta + teclado ON_DEMAND + focus-out→quit = corrida de foco no
+    mapa (o labwc entrega e revoga o foco na mesma carrada) — o dono
+    clicava e nada aparecia (as fotos da v2.3.10 eram o TOOLTIP, não o
+    menu aberto).
+  - REESCRITA DO ZERO com a fórmula dos overlays que funcionam em
+    produção (wlogout, gtklock, o próprio fuzzel): a GAIOLA — a
+    superfície é a TELA INTEIRA (4 âncoras, layer OVERLAY, véu 35%), a
+    pílula do menu morta no centro dos 2 eixos, teclado EXCLUSIVE
+    (ESC/↑/↓/Enter garantidos) e 5 caminhos de fechamento SEM depender
+    de foco: clique fora por GEOMETRIA (alocação da pílula), ESC,
+    escolha, toggle (2ª chamada do mesmo título) e cross-dismiss (abrir
+    outro menu). ZERO focus-out-event: a classe do "menu que morre ao
+    mapear" está extinta POR CONSTRUÇÃO — não existe código para
+    falhar.
+  - Interface argv/stdin intocada (a era dmenu continua); +7 contratos.
+    A tag v2.3.10 foi movida para este commit e a build re-disparada
+    (a ISO que nascia carregava o menu quebrado — cancelada antes de
+    publicar).
+
+- **v2.3.10 — fim das notificações eternas + bgapps só com PROGRAMA**
+  (2 fotos do live 25/10: "essas notificações não somem… essa função dos
+  processos é ruim… não gostei do botão de print melhor remover… o botão
+  de desligar deixar roxo como o ícone do arch… o resto pode ser branco
+  mesmo"):
+  - **NOTIFICAÇÕES QUE NUNCA SUMIAM** — exit 1 COM stderr virava
+    "FALHOU" nos 7 chamadores de menu; o GTK cospe Gtk-CRITICAL benigno
+    no destroy (main_quit duplo: ESC → focus-out → 2º quit) e o toast
+    nascia CRÍTICO — e o timeout-critical do swaync era 0 = ETERNO.
+    Cura tripla: craft-menu com guard quit_once (stderr nasce limpo);
+    os 7 chamadores tratam exit 1 SEM stderr como fechado pelo usuário
+    (benigno SEMPRE — fechar NUNCA é falha; crash real com stderr
+    continua gritando); swaync com timeouts 8/4/12s (nada é eterno).
+  - **PROCESSOS SÓ DE VERDADE** — a lista exata da casca deixava vazar
+    os comm truncados a 15 chars (at-spi2-registr, xdg-document-po,
+    gvfsd-metadata) e o próprio craft-bgapps (7× na foto do dono).
+    Cura: casca POR PREFIXO (at-spi*, xdg-*, gvfsd*, bwrap*, swaync/
+    swayidle/udiskie/cliphist/wl-*, craft-*/elite-*, shells) + varredura
+    do /proc REAL do UID: TODO programa de verdade aparece — nativo,
+    flatpak, AppImage, interpretado — e o encanamento da sessão nunca.
+  - **PRINT FORA DA BARRA** (3ª e definitiva) — o craft-shot segue vivo
+    nos atalhos W-P (região) e W-S-P (tela inteira), que cobrem os dois
+    verbos sem assento fixo na barra.
+  - **POWER MAUVE, DIREITA BRANCA** — o ARCH à esquerda e o power à
+    direita fecham a barra com a MESMA assinatura roxa; o pêssego do
+    bgapps morreu (grito decorativo — a presença do botão já é o
+    sinal) e o resto do lado direito é texto.
+
+- **v2.3.9 — A LEI DA PÍLULA — hover centralizado e padronizado na
+  distro inteira** (o dono: "quando coloca sobre alguns ícones… não
+  parecem bem centralizados naquele contraste que o mouse cria… fique
+  atento aos espaços, desenhos, tamanho e à consistência visual como um
+  todo pra ficar tudo padronizado, bem desenhado e alinhado"):
+  - A LEI: o hover é a MESMA pílula em toda a distro — o mesmo respiro
+    nos 4 lados do alvo; alvo 44px = raio 12px (dock e menus GTK);
+    hover SÓ onde clica (affordance honesta); transition na regra BASE
+    (ida E volta animam); hover = surface0, pressed = surface2 (os
+    degraus certos da escada Mocha).
+  - 6 defeitos curados com evidência: dock 52×44 (o glifo nascia fora
+    do centro da própria pílula), drawer assimétrico (0 12px 0 14px),
+    shot sem regra base, 3 paddings misturados na barra (10/12/14),
+    hover em módulo que não clica, título do craft-menu colado à
+    esquerda (justify não centra linha única — halign CENTER sim), e o
+    hover do menu labwc no degrau errado + swaync com raio 10px órfão.
+
+- **v2.3.8 — A ERA DO MENU NATIVO — nasce o craft-menu** (o dono
+  corrigiu a leitura: "o que eu queria centralizar é o nome do menu e
+  remover a barra que fica, tipo Rede |"):
+  - O menu deixa de ser texto no fuzzel e vira janela GTK própria:
+    título centrado, itens com pílula, e é NELE que passa a morar a LEI
+    do toggle (2ª chamada fecha) e do cross-dismiss (abrir outro fecha
+    o primeiro).
+  - Interface dmenu POR STDIN: listas DINÂMICAS passam por pipe
+    (processos vivos, snapshots) — sem eval, sem word-splitting, à
+    prova de injeção: linha = um item. Chamadores migrados: bgapps,
+    idle, rollback-Restaurar.
+  - Bit de execução gravado no índice git (o CI flagrou: o filesystem
+    local mascara 777) e CPOW órfão removido da suíte (o gate cobre os
+    próprios tests).
+
+- **v2.3.7 — o live do dono falou em 3 áudios, 3 logs e 4 fotos — e o
+  princípio é UM: "é tudo o que o usuário não espera"**:
+  - OS 6 CRIMES curados: falso alarme crítico no ESC (fuzzel.ini com
+    comentários ';' — o parser só honra '#'); botão de 2º plano morto
+    em silêncio (newline cru no JSON do tooltip — o waybar recusava o
+    módulo inteiro); alvos de morte que não são apps (at-spi/bwrap na
+    lista de SIGTERM); picker de Wi-Fi morto (o verbo agora abre o
+    gerenciador do SISTEMA — nm-connection-editor/nmtui; picker,
+    prompt e parse próprios extintos); mutar o som mutava o mic junto
+    (:not(.mic) isola o grito); WiFi/BT/power escondidos num
+    buttons-grid dentro do painel de notificações (painel =
+    notificações; rede no módulo de rede, energia no Sessão).
+  - MEMÓRIA PARA O DUMP ("craft-dump --upload quero puxar só com esse"):
+    journal PERSISTENTE (Storage=persistent — a história sobrevive ao
+    reboot) e o dump varre TODOS os boots (o "acordou sozinho" de dias
+    atrás agora aparece).
+  - O botão de print VOLTOU à barra a pedido do dono (depois sai de vez
+    na v2.3.10 — a história é essa).
+
 - **v2.3.6 — o rig falou de novo: o conector é TEXTO, os menus não mentem
   mais (nem no ESC), e o roxo saiu da dock** (prints/relatos instalando a
   v2.3.5, out/2026):
