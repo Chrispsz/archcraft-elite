@@ -101,8 +101,7 @@ case "$choice" in
         fi
         ec=0
         errf="$(mktemp)"
-        pick="$(craft-menu --title='Restaurar' $(printf '%s\n' "$list" | awk '{printf "\"%s\" ", $0}') \
-            2>"$errf")" || ec=$?
+        pick="$(printf '%s\n' "$list" | craft-menu --title='Restaurar' 2>"$errf")" || ec=$?
         if [ "$ec" -ne 0 ]; then
             [ "$ec" -eq 1 ] && [ ! -s "$errf" ] \
                 && mlog "Rollback: restauração cancelada — benigno" \

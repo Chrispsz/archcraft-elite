@@ -151,9 +151,8 @@ menu() {
     mlog "Processos: abrindo (craft-menu)"
     errf="$(mktemp)"
     ec=0
-    # mapfile: as entradas viram argumentos do craft-menu (sem pipe no meio)
-    eval "set -- $(printf '%s' "$entries" | awk '{printf "\"%s\" ", $0}')"
-    choice="$(craft-menu --title='Encerrar' "$@" 2>"$errf")" || ec=$?
+    # stdin = a interface dmenu do craft-menu (listas dinâmicas sem eval)
+    choice="$(printf '%s\n' "$entries" | craft-menu --title='Encerrar' 2>"$errf")" || ec=$?
     if [ "$ec" -eq 143 ]; then
         # v2.3.5 — SIGTERM = fechado de fora (cross-dismiss) —
         # benigno: sem notify crítico falso (o print do dono).

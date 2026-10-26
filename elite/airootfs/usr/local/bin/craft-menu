@@ -53,6 +53,11 @@ for a in sys.argv[1:]:
         title = a[len("--title="):]
     else:
         items.append(a)
+# itens alternativos por STDIN (a interface dmenu — listas DINÂMICAS
+# como os processos vivos e os snapshots passam por pipe, sem eval e
+# sem word-splitting no chamador: shellcheck limpo por construção)
+if not items and not sys.stdin.isatty():
+    items = [l for l in sys.stdin.read().splitlines() if l.strip()]
 if not items:
     sys.exit(0)
 
