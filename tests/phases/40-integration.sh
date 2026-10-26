@@ -216,7 +216,7 @@ assert_grep "$P/airootfs/usr/local/bin/craft-pin" 'craft-dock reload' "v2.0: cra
 # Menu bar: tudo clicável (mouse-first — diretriz do dono; v1.4: rede abre
 # a CENTRAL craft-connect — cabo+Wi-Fi+Bluetooth num só ícone; volume abre
 # pwvucontrol — zero applet/dialog GTK3 legado)
-assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" '"on-click-right": "craft-connect"' "v1.4→v2.6.0: rede abre a central de conectividade NO CLIQUE DIREITO (craft-connect — a lei dos menus da barra)"
+assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" '"on-click": "craft-connect"' "v1.4→v2.7.0: rede abre a central de conectividade NO CLIQUE ESQUERDO (craft-connect — a lei reescrita pelo uso)"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" 'swaync-client -t' "v1.0.4: relógio abre central de notificações no clique"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" 'pwvucontrol' "v1.1: volume abre pwvucontrol no clique-direito (GTK4/Rust)"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" 'craft-power' "v1.0.4: botão power na barra do topo"
@@ -369,18 +369,27 @@ assert_grep "$P/airootfs/usr/local/bin/craft-lock" 'wallpaper\.png' "v2.5.0: cra
 #     em \$XDG_RUNTIME_DIR, não mais física de foco que o rig desmentiu.
 # ═══════════════════════════════════════════════════════════════════════
 CPTOP="$P/airootfs/etc/skel/.config/waybar/config.top"
-assert_grep "$CPTOP" '"on-click-right": "craft-connect"' "v2.6.0: Rede abre no clique DIREITO (a lei dos menus da barra)"
-assert_nogrep "$CPTOP" '"on-click": "craft-connect"' "v2.6.0: o clique ESQUERDO da Rede é MUDO (o dono: 'remove o menu que aparece com o click')"
-assert_grep "$CPTOP" '"on-click-right": "craft-bgapps menu"' "v2.6.0: Encerrar abre no clique DIREITO"
-assert_nogrep "$CPTOP" '"on-click": "craft-bgapps menu"' "v2.6.0: o clique ESQUERDO do Encerrar é mudo"
-assert_grep "$CPTOP" '"on-click-right": "craft-power"' "v2.6.0: Sessão abre no clique DIREITO"
-assert_nogrep "$CPTOP" '"on-click": "craft-power"' "v2.6.0: o clique ESQUERDO do power é mudo"
+# v2.7.0 — A LEI DOS DOIS BOTÕES (o dono: "a topbar era pra funcionar com
+# click esquerdo e não direito e na home ao contrário"): INTERFACE clica
+# com o ESQUERDO; o direito fica para o DESKTOP. E clique fora do menu SÓ
+# fecha (a gaiola da dock v2.7.0 — nada vaza pro desktop).
+assert_grep "$CPTOP" '"on-click": "craft-connect"' "v2.7.0: Rede abre no clique ESQUERDO (a lei reescrita pelo uso — interface clica com o esquerdo)"
+assert_nogrep "$CPTOP" '"on-click-right": "craft-connect"' "v2.7.0: o clique DIREITO da Rede é MUDO (o dono: 'a topbar era pra funcionar com click esquerdo e não direito')"
+assert_grep "$CPTOP" '"on-click": "craft-bgapps menu"' "v2.7.0: Encerrar abre no clique ESQUERDO"
+assert_nogrep "$CPTOP" '"on-click-right": "craft-bgapps menu"' "v2.7.0: o clique DIREITO do Encerrar é mudo"
+assert_grep "$CPTOP" '"on-click": "craft-power"' "v2.7.0: Sessão abre no clique ESQUERDO"
+assert_nogrep "$CPTOP" '"on-click-right": "craft-power"' "v2.7.0: o clique DIREITO do power é mudo"
 assert_grep "$CPTOP" '"on-click": "craft-drawer"' "v2.6.0: o ARCH segue no clique ESQUERDO (lançador de apps, não menu — o modelo macOS)"
-assert_grep "$CPTOP" 'clique direito' "v2.6.0: os tooltips ENSINAM o clique direito (a descoberta não pode morar escondida)"
+assert_grep "$CPTOP" '— clique:' "v2.7.0: os tooltips ENSINAM o clique esquerdo (a descoberta não pode morar escondida)"
 CMN="$P/airootfs/usr/local/bin/craft-menu"
 assert_grep "$CMN" '--minimal-lines' "v2.6.0: a janela do menu é do TAMANHO da lista (nada de caixa alta com 10 linhas para 6 itens)"
 assert_grep "$CMN" '--ask=' "v2.6.0: modo entrada (senha de Wi-Fi) — o prompt visível é a exceção honesta; rede salva nunca pergunta"
-assert_grep "$CMN" 'rm -f "\$ST"' "v2.6.0: o state do toggle é limpo em TODO fechamento (sem pid zombie virando toggle fantasma)"
+assert_grep "$CMN" 'trap .rm -f "\$ST" "\$ACK"' "v2.7.0: trap EXIT limpa o state do toggle E o ack da gaiola em TODO fechamento (sem pid zombie, sem gaiola órfã)"
+assert_grep "$CMN" 'kill -RTMIN "\$dkid"' "v2.7.0: a gaiola é PEDIDA à dock por SIGRTMIN (zero fork no caminho do menu — o pid mora em elite-dock.<uid>)"
+assert_grep "$CMN" 'elite-cage\.' "v2.7.0: handshake por arquivo (ack da gaiola em ≤300ms — sem ack o menu abre IGUAL, degradação graciosa)"
+assert_grep "$CMN" 'sleep 0.01' "v2.7.0: o prazo do ack é 30×10ms (o menu NUNCA fica preso esperando a dock)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'mousebind button="Right" action="Press"' "v2.7.0: o DESKTOP abre o menu-raiz no clique DIREITO (o único botão de menu do desktop)"
+assert_nogrep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'button="Left"' "v2.7.0: o clique ESQUERDO do desktop é MUDO por lei (nada de menu acidental — 'na home ao contrário')"
 for _at in craft-power craft-logout craft-idle craft-rollback; do
     assert_grep "$P/airootfs/usr/local/bin/$_at" '--at=power' "v2.6.0: $_at nasce sob o botão do power (a família de sessão âncora no mesmo assento — submenus herdam o lugar do pai)"
 done
@@ -1975,7 +1984,7 @@ assert_nogrep "$WBT" '#custom-menu' "v1.5: CSS sem regra órfã do custom-menu"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/style.top.css" '#custom-drawer \{' "v1.9 M2.4: identidade mauve do ARCH viva na BARRA SUPERIOR (lançador exclusivo)"
 
 # ── Conectividade: UM ícone p/ cabo + Wi-Fi + Bluetooth ──────────────────
-assert_grep "$CPT" '"on-click-right": "craft-connect"' "v1.4→v2.6.0: rede → central de conectividade no clique DIREITO (um só ícone — diretrize do dono; a lei dos menus da barra v2.6.0)"
+assert_grep "$CPT" '"on-click": "craft-connect"' "v1.4→v2.7.0: rede → central de conectividade no clique ESQUERDO (um só ícone — diretriz do dono; a lei reescrita pelo uso v2.7.0)"
 assert_file "$CCT" "v1.4: craft-connect existe"
 assert_grep "$CCT" 'foot -e impala' "v1.4: central abre impala (Wi-Fi/Ethernet)"
 assert_grep "$CCT" 'foot -e bluetui' "v1.4: central abre bluetui (Bluetooth)"
@@ -2115,12 +2124,57 @@ CPS="$P/airootfs/usr/local/bin/craft-pin-status"
 assert_nogrep "$CTP8" '"custom/shot"' "v2.3.10: print fora da barra pela 3ª vez é a definitiva (o dono fechou a questão)"
 assert_file "$P/airootfs/usr/local/bin/craft-shot" "v2.3.10: o craft-shot segue VIVO (o botão saiu, os atalhos W-P/W-S-P não)"
 assert_nogrep "$CTP8" '"format": "\\uf0c4"' "v2.1: glifo do print extinto do topo"
-assert_grep "$CTP8" '"on-click-right": "craft-connect"' "v1.8→v2.6.0: wi-fi/redes/bt = 1 botão → central (spec: 'conectividade num geral'); o clique virou DIREITO (a lei dos menus da barra)"
-assert_grep "$CTP8" '"on-click-right": "craft-power"' "v1.8→v2.6.0: botão de sessão = menu no clique DIREITO (a lei dos menus da barra)"
+assert_grep "$CTP8" '"on-click": "craft-connect"' "v1.8→v2.7.0: wi-fi/redes/bt = 1 botão → central (spec: 'conectividade num geral'); o clique virou ESQUERDO (a lei reescrita pelo uso)"
+assert_grep "$CTP8" '"on-click": "craft-power"' "v1.8→v2.7.0: botão de sessão = menu no clique ESQUERDO (a lei reescrita pelo uso)"
 # v2.0: pins = IDs .desktop no dock-pins; indicador = pgrep in-process;
 # craft-pin-status está EXTINTO (o GUI é o único consumidor de estado):
 assert_nofile "$CPS" "v2.0: craft-pin-status EXTINTO (o indicador mora no GUI)"
 assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'pgrep' "v2.0: detecção de aberto = pgrep (sem rede, sem jq — mesma dieta)"
+
+# ═══════════════════════════════════════════════════════════════════════
+# ── v2.7.0 — A DOCK COM DOIS VERBOS + A GAIOLA + o foco que não duplica ──
+# O dono: "clicar num programa já aberto ele deve ir para a tarefa aberta
+# invés de abrir outra pois vi que isso acontece com alguns programas, se
+# o usuário quiser abrir outra rapidamente ele pode fazer clicando no
+# ícone com o botão direito… tratamento diferente de como funciona o click
+# esquerdo e o direito do mouse faz o sistema ser mais responsivo".
+DOCK="$REPO/elite/airootfs/usr/local/bin/craft-dock-gui"
+assert_grep "$DOCK" 'button-press-event' "v2.7.0: a dock DISTINGUE o botão do mouse (esquerdo = focar/abrir, direito = outra instância)"
+assert_grep "$DOCK" 'ev.button == 3' "v2.7.0: DIREITO = abrir OUTRA instância, sempre ('se o usuário quiser abrir outra rapidamente ele pode fazer clicando no ícone com o botão direito')"
+assert_grep "$DOCK" '_focus_or_launch' "v2.7.0: ESQUERDO = FOCAR a janela do programa que já roda ('deve ir para a tarefa aberta invés de abrir outra')"
+assert_grep "$DOCK" 'wlrctl' "v2.7.0: o foco fala wlr-foreign-toplevel via wlrctl (labwc fala — ferramenta mínima, zero daemon)"
+assert_grep "$DOCK" 'app_id:' "v2.7.0: o foco casa por app_id (a identidade Wayland da janela)"
+assert_grep "$DOCK" 'StartupWMClass' "v2.7.0: candidatos de app_id do .desktop (hint → StartupWMClass → binário → stem — a adivinhação tem ordem)"
+assert_grep "$DOCK" 'in self.running' "v2.7.0: FOCAR só quando o programa RODA (pílula do poll) — não rodando abre DIRETO, sem subprocesso no caminho comum (instantâneo)"
+assert_grep "$DOCK" 'parts\[1\]' "v2.7.0: hint EXPLÍCITO de app_id na 2ª coluna do dock-pins (o caso exótico tipo org.xfce.Thunar tem saída sem código novo)"
+assert_grep "$P/airootfs/etc/skel/.config/elite/dock-pins" 'org\.xfce\.Thunar' "v2.7.0: o pin de fábrica do Thunar NASCE com o hint (o app_id de app GTK não se adivinha do binário)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin" '\$1 != id' "v2.7.0: craft-pin rm é CONSCIENTE da coluna (o hint de app_id não quebra o rm — era grep de linha exata)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin" '\$1 == id' "v2.7.0: craft-pin add/rm detectam pin por ID na 1ª coluna (dedup sem duplicar pin com hint)"
+assert_grep "$DOCK" 'cage_request' "v2.7.0: a gaiola mora NA DOCK (processo GTK quente desde o boot — mapear é instantâneo, sem fork por menu)"
+assert_grep "$DOCK" 'SIGRTMIN' "v2.7.0: o pedido da gaiola chega por SIGRTMIN (evento, não poll — zero custo em idle)"
+assert_grep "$DOCK" 'KeyboardMode.NONE' "v2.7.0: a gaiola NUNCA pega teclado (o ESC segue no fuzzel — a gaiola é só rede de cliques)"
+assert_grep "$DOCK" 'input_shape_combine_region' "v2.7.0: a região de entrada da gaiola é a tela MENOS a barra (o 2º clique no MESMO botão chega na waybar — o toggle por pid é intacto)"
+assert_grep "$DOCK" 'os\.kill\(pid, signal\.SIGTERM\)' "v2.7.0: o clique na gaiola mata o fuzzel pelo pid do state (o desktop NEM VÊ o clique — fechar NUNCA abre o menu da home)"
+assert_grep "$DOCK" 'GLib.SOURCE_CONTINUE' "v2.7.0: as callbacks de sinal da dock NUNCA morrem (lição v2.5.0 — a dock surda não volta)"
+assert_grep "$REPO/elite/packages.add" '^wlrctl$' "v2.7.0: wlrctl na ISO (o mecanismo de foco da dock — pacote mínimo do extra)"
+
+# ── v2.7.0 — craft-connect v6: RÁPIDO de verdade + salvas que se gerem ───
+# O dono: "o menu de redes não ficou tão responsivo e rápido apesar de
+# finalmente funcionar… buscar redes por exemplo demora um pouco" + "no
+# mínimo seria interessante conseguir excluir rede diretamente da tela de
+# conexões salvas ou até mesmo editar a senha… deixar a parte de editor
+# para editar as redes invés de criar um menu só pra isso".
+assert_nogrep "$CCT" 'rescan yes' "v2.7.0: --rescan yes EXTINTO (BLOQUEAVA 2–8s na abertura — a lentidão flagrada: 'buscar redes por exemplo demora um pouco')"
+assert_grep "$CCT" 'rescan no' "v2.7.0: a lista abre do CACHE do NetworkManager (--rescan no — INSTANTÂNEA; a varredura nova roda em fundo)"
+assert_grep "$CCT" 'bg_rescan' "v2.7.0: varredura de FUNDO fogo-e-esquece (o cache fica fresco sem o menu esperar NUNCA)"
+assert_grep "$CCT" 'LAST_SCAN' "v2.7.0: o Atualizar espera o RELÓGIO do dispositivo (a prova da varredura NOVA — comparar listas falha quando o fundo já varreu)"
+assert_grep "$CCT" 'nmcli radio wifi >\"\$T2\" 2>/dev/null &' "v2.7.0: status e rádio consultados em PARALELO (2 viagens de D-Bus em série custavam o dobro — 'eficiência máxima')"
+assert_grep "$CCT" 'connection modify' "v2.7.0: ALTERAR SENHA da salva direto no menu (o cofre do NM é a fonte — o dono: 'até mesmo editar a senha')"
+assert_grep "$CCT" '802-11-wireless-security\.psk' "v2.7.0: a senha muda no CAMPO CERTO do perfil (psk do wireless — ethernet não tem verbo de senha)"
+assert_grep "$CCT" 'connection delete' "v2.7.0: ESQUECER rede salva direto da tela de conexões ('conseguir excluir rede diretamente da tela de conexões salvas')"
+assert_grep "$CCT" 'Sim, esquecer' "v2.7.0: esquecer TEM confirmação (apagar rede salva não pode ser acidente)"
+assert_grep "$CCT" 'known_manage' "v2.7.0: o pick da salva abre os VERBOS dela, estado-aware (Conectar/Desconectar · senha · esquecer — SEM menu separado de gestão: 'deixar a parte de editor para editar as redes')"
+assert_grep "$CCT" 'elite-net\.\$UN\.dev' "v2.7.0: os rasps do nmcli paralelo têm nome fixo com uid (sobrescritos a cada abertura, no trap EXIT — sem mktemp para esquecer)"
 # v2.1 — REGRESSÃO DA RUN #92: GLib.get_user_home_dir() NÃO EXISTE em
 # PyGObject (AttributeError → dock crash-loopava 20× no boot; o gate da
 # sessão pegou). A API para o .cache é get_user_cache_dir() (XDG).
