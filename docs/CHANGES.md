@@ -40,13 +40,20 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
     NEM VÊ o clique. Sem dock/sem ack: menu abre igual (degradação
     graciosa). `trap EXIT` limpa state + ack em TODO fechamento.
   - **A DOCK COM DOIS VERBOS** — ESQUERDO num pin: programa rodando →
-    FOCAR a janela (`wlrctl window focus app_id:…` — wlr-foreign-toplevel;
-    wlrctl entrou na ISO); não rodando → abrir DIRETO (zero subprocesso no
-    caminho comum). DIREITO: abrir OUTRA instância, sempre. A adivinhação
-    do app_id: hint explícito (2ª coluna do dock-pins) → StartupWMClass →
-    binário → stem; o pin de fábrica do Thunar nasce com o hint
-    `org.xfce.Thunar` (app_id de app GTK não se adivinha do binário); o
-    craft-pin add/rm viraram conscientes da coluna.
+    FOCAR a janela (`wlrctl window focus app_id:…` — wlr-foreign-toplevel);
+    não rodando → abrir DIRETO (zero subprocesso no caminho comum). DIREITO:
+    abrir OUTRA instância, sempre. A adivinhação do app_id: hint explícito
+    (2ª coluna do dock-pins) → StartupWMClass → binário → stem; o pin de
+    fábrica do Thunar nasce com o hint `org.xfce.Thunar` (app_id de app GTK
+    não se adivinha do binário); o craft-pin add/rm viraram conscientes da
+    coluna. **O WLRCTL é FONTE VENDADA**: a build #110 morreu com 'target
+    not found: wlrctl' — o pacote NUNCA esteve em repo oficial nenhum (a
+    suposição errada foi pega pelo gate, como manda a casa) e o upstream
+    (sourcehut) estava em 502 no dia da cura — a fonte inteira vive agora
+    em `vendor/wlrctl-0.2.2.tar.gz` (snapshot do mirror público @ 5872fa6a,
+    código revisado: foco = alias de activate, app_id EXATO por strcmp,
+    exit 1 sem match) com sha256 pinado no PKGBUILD do build — zero rede,
+    zero fé, o gate do verify-install cobra o pacote.
   - **CRAFT-CONNECT v6 — INSTANTÂNEA E QUE SE EDITA**: a lista de redes
     abre do CACHE do NM (`--rescan no` — a varredura bloqueante da era v5
     travava 2–8s; era a lentidão flagrada); varredura nova roda EM FUNDO
@@ -58,12 +65,15 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
     **Alterar senha…** (`nmcli connection modify … psk` + up para provar
     a senha nova AGORA) · **Esquecer…** (delete COM confirmação). O editor
     gráfico fica para a CRIAÇÃO manual (definição do próprio dono).
-  - Suíte: contratos v2.6 quebrados atualizados + ~30 contratos NOVOS
+  - Suíte: contratos v2.6 quebrados atualizados + ~35 contratos NOVOS
     v2.7.0 (lei dos dois botões, gaiola, dois verbos da dock, hint de
-    app_id, cache/paralelo/LAST_SCAN, verbos de senha/esquecer) — 1.563
-    peças · 0 falhas · GO. Smoke funcional ponta-a-ponta com nmcli/craft-
-    menu stubs: 16 ok · 0 falhas (cache, senha, esquecer+confirmação,
-    espera pelo relógio, handshake sem dock, trap do state).
+    app_id, cache/paralelo/LAST_SCAN, verbos de senha/esquecer, fonte
+    vendada do wlrctl com sha pinado) — 1.586 peças · 0 falhas · GO.
+    Smoke funcional ponta-a-ponta com nmcli/craft- menu stubs: 16 ok ·
+    0 falhas (cache, senha, esquecer+confirmação, espera pelo relógio,
+    handshake sem dock, trap do state). E a cicatriz honesta: a build
+    #110 FALHOU no gate ('target not found: wlrctl') e a cura foi a
+    fonte vendada — o gate fazendo o trabalho dele.
 
 - **v2.6.0 — A LEI DOS MENUS DA BARRA: clique direito, menu sob o botão,
   lista pura, toggle de verdade — e a rede que CONECTA** (o dono, prints

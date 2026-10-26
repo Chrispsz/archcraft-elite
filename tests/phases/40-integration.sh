@@ -2156,7 +2156,20 @@ assert_grep "$DOCK" 'KeyboardMode.NONE' "v2.7.0: a gaiola NUNCA pega teclado (o 
 assert_grep "$DOCK" 'input_shape_combine_region' "v2.7.0: a região de entrada da gaiola é a tela MENOS a barra (o 2º clique no MESMO botão chega na waybar — o toggle por pid é intacto)"
 assert_grep "$DOCK" 'os\.kill\(pid, signal\.SIGTERM\)' "v2.7.0: o clique na gaiola mata o fuzzel pelo pid do state (o desktop NEM VÊ o clique — fechar NUNCA abre o menu da home)"
 assert_grep "$DOCK" 'GLib.SOURCE_CONTINUE' "v2.7.0: as callbacks de sinal da dock NUNCA morrem (lição v2.5.0 — a dock surda não volta)"
-assert_grep "$REPO/elite/packages.add" '^wlrctl$' "v2.7.0: wlrctl na ISO (o mecanismo de foco da dock — pacote mínimo do extra)"
+assert_grep "$REPO/elite/packages.add" '^wlrctl$' "v2.7.0: wlrctl na ISO (o mecanismo de foco da dock — compilado no build, não existe em repo oficial nenhum)"
+
+# v2.7.0 — WLRCTL FONTE VENDADA (a build #110 provou o que acontece sem
+# prova: 'target not found: wlrctl' — o pacote NUNCA esteve em repo
+# oficial; o upstream é sourcehut e estava em 502 no dia da cura). A
+# fonte inteira vive no repo, sha256 pinado, e o build empacota com o
+# mesmo padrão makepkg do pywal/brave-origin.
+assert_file "$REPO/vendor/wlrctl-0.2.2.tar.gz" "v2.7.0: a fonte do wlrctl está VENDADA no repo (zero rede no build — o upstream sourcehut estava em 502; mirror público 5872fa6a, revisado)"
+WLRSHA=$(sha256sum "$REPO/vendor/wlrctl-0.2.2.tar.gz" 2>/dev/null | cut -d' ' -f1)
+assert_eq "${WLRSHA:-none}" "4022de02f987a659eac3f910c355c8efca60d0b759e3100456e7fb80c530b9ce" "v2.7.0: o sha256 da fonte vendada do wlrctl é EXATAMENTE o pinado no PKGBUILD (mudou o tarball, o makepkg PARA — determinismo)"
+assert_grep "$REPO/.ci/build.sh" 'pkgname=wlrctl' "v2.7.0: o build empacota o wlrctl (PKGBUILD makepkg — mesmo padrão do python-pywal/brave-origin)"
+assert_grep "$REPO/.ci/build.sh" 'wlrctl-0\.2\.2\.tar\.gz' "v2.7.0: o PKGBUILD consome a fonte VENDADA (source local do checkout, zero download)"
+assert_grep "$REPO/.ci/build.sh" '4022de02f987a659' "v2.7.0: o sha256 da fonte vendada está pinado no build.sh"
+assert_grep "$REPO/.ci/build.sh" 'wlrctl ausente do \[elite-local\]' "v2.7.0: o gate do verify-install COBRA o pacote wlrctl (a classe do 'target not found' da #110 não repete)"
 
 # ── v2.7.0 — craft-connect v6: RÁPIDO de verdade + salvas que se gerem ───
 # O dono: "o menu de redes não ficou tão responsivo e rápido apesar de
