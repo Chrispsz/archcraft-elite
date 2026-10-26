@@ -57,17 +57,27 @@ if command -v craft-menu >/dev/null 2>&1; then
         rm -f "$errf"
         exit 0
     fi
-    if [ "$ec" -eq 1 ] && [ ! -s "$errf" ]; then
-        # v2.3.6 — ESC = fechado pelo usuário (stderr vazio ≠ crash) —
-        # benigno: fechar NUNCA é erro (mesma classe do 143).
-        mlog "Sessão: fechado pelo usuário (ESC) — benigno"
+    if [ "$ec" -eq 1 ]; then
+        # v2.3.10 — fechar NUNCA é erro (ESC/clique fora), COM OU SEM
+        # stderr: o GTK emite warnings benignos no destroy (o gate velho
+        # '! -s "$errf"' transformava TODO fechamento normal em FALHOU
+        # com toast crítico ETERNO — a pilha de notificações da foto do
+        # dono). stderr vai pro log, nunca pra tela.
+        if [ -s "$errf" ]; then
+            mlog "Sessão: fechado pelo usuário (ESC) — benigno — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
+        else
+            mlog "Sessão: fechado pelo usuário (ESC) — benigno"
+        fi
         rm -f "$errf"
         exit 0
     fi
     if [ "$ec" -ne 0 ]; then
         mlog "Sessão: MENU FALHOU exit=$ec — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
+        # v2.3.10 — falha REAL avisa e SOME: -u normal + -t 8000 +
+        # timeout 5 (daemon preso nunca prende o chamador).
         command -v notify-send >/dev/null 2>&1 && \
-            notify-send -a 'Elite' -u critical 'Menu de Sessão falhou' \
+            timeout 5 notify-send -a 'Elite' -u normal -t 8000 \
+                'Menu de Sessão falhou' \
                 "craft-menu exit=$ec — detalhe em ~/.cache/elite/menus.log" || true
     fi
     rm -f "$errf"

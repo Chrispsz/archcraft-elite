@@ -132,8 +132,15 @@ Nunca — só manual (W-l)"
         rm -f "$errf"
         exit 0
     fi
-    if [ "$ec" -eq 1 ] && [ ! -s "$errf" ]; then
-        mlog "Idle: fechado pelo usuário (ESC) — benigno"
+    if [ "$ec" -eq 1 ]; then
+        # v2.3.10 — fechar NUNCA é erro, COM OU SEM stderr (o gate velho
+        # '! -s "$errf"' gritava FALHOU em fechamento normal — a pilha de
+        # notificações eternas da foto do dono). stderr vai pro log.
+        if [ -s "$errf" ]; then
+            mlog "Idle: fechado pelo usuário (ESC) — benigno — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
+        else
+            mlog "Idle: fechado pelo usuário (ESC) — benigno"
+        fi
         rm -f "$errf"
         exit 0
     fi

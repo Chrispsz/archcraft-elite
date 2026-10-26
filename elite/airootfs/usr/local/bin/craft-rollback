@@ -28,7 +28,7 @@ mlog() {
     printf '[%s] %s\n' "$(date '+%F %T')" "$1" >>"$MLOG" 2>/dev/null
     return 0
 }
-note() { command -v notify-send >/dev/null 2>&1 && notify-send -a 'Elite' "$@" || true; }
+note() { command -v notify-send >/dev/null 2>&1 && timeout 5 notify-send -a 'Elite' "$@" || true; }
 
 command -v snapper >/dev/null 2>&1 || {
     mlog "Rollback: snapper AUSENTE"
@@ -57,14 +57,23 @@ if [ "$ec" -eq 143 ]; then
     rm -f "$errf"
     exit 0
 fi
-if [ "$ec" -eq 1 ] && [ ! -s "$errf" ]; then
-    mlog "Rollback: fechado pelo usuário (ESC) — benigno"
+if [ "$ec" -eq 1 ]; then
+    # v2.3.10 — fechar NUNCA é erro, COM OU SEM stderr (o gate velho
+    # '! -s "$errf"' gritava FALHOU em fechamento normal — a pilha de
+    # notificações eternas da foto do dono). stderr vai pro log.
+    if [ -s "$errf" ]; then
+        mlog "Rollback: fechado pelo usuário (ESC) — benigno — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
+    else
+        mlog "Rollback: fechado pelo usuário (ESC) — benigno"
+    fi
     rm -f "$errf"
     exit 0
 fi
 if [ "$ec" -ne 0 ]; then
-    mlog "Rollback: FUZZEL FALHOU exit=$ec — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
-    note -u critical 'Menu de Rollback falhou' "craft-menu exit=$ec — detalhe em ~/.cache/elite/menus.log"
+    mlog "Rollback: MENU FALHOU exit=$ec — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
+    # v2.3.10 — falha REAL avisa e SOME (-u normal + timeout 5; o rótulo
+    # era 'FUZZEL FALHOU' — a era do fuzzel acabou no menu de escolha).
+    note -u normal -t 8000 'Menu de Rollback falhou' "craft-menu exit=$ec — detalhe em ~/.cache/elite/menus.log"
 fi
 rm -f "$errf"
 
@@ -89,7 +98,7 @@ case "$choice" in
             note 'Rollback' "Snapshot criado: $desc"
         else
             mlog "Rollback: FALHA ao criar snapshot (pkexec/snapper)"
-            note -u critical 'Rollback' 'Não deu para criar o snapshot — senha ou snapper sem config.'
+            note -u normal -t 8000 'Rollback' 'Não deu para criar o snapshot — senha ou snapper sem config.'
         fi
         ;;
     'Restaurar snapshot…')
@@ -123,10 +132,10 @@ case "$choice" in
         mlog "Rollback: restaurando snapshot $snap"
         if pkexec snapper --no-dbus -c root rollback "$snap" >/dev/null 2>&1; then
             mlog "Rollback: restaurado para $snap (reboot pendente)"
-            note -u critical 'Rollback' "Sistema restaurado ao snapshot $snap — REINICIE para finalizar."
+            note -u normal -t 12000 'Rollback' "Sistema restaurado ao snapshot $snap — REINICIE para finalizar."
         else
             mlog "Rollback: FALHA ao restaurar snapshot $snap (pkexec/snapper)"
-            note -u critical 'Rollback' 'Não deu para restaurar — senha ou snapshot inválido.'
+            note -u normal -t 8000 'Rollback' 'Não deu para restaurar — senha ou snapshot inválido.'
         fi
         ;;
     *)  exit 0 ;;
