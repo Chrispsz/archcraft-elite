@@ -45,6 +45,7 @@ if command -v craft-menu >/dev/null 2>&1; then
         'Reiniciar' \
         'Desligar' \
         'Tempo de idle…' \
+        'Rollback do sistema…' \
         2>"$errf")" || ec=$?
     if [ "$ec" -eq 143 ]; then
         # v2.3.5 — SIGTERM = fechado de fora (cross-dismiss: outro menu
@@ -121,5 +122,9 @@ case "$choice" in
     # menu do desktop. Agora o Sessão carrega (as ações de energia e o
     # controle do idle na mesma porta — UX de um só lugar).
     'Tempo de idle…') exec craft-idle ;;
+    # v2.5.0 — o craft-rollback ganha PORTA DE ENTRADA (o menu completo de
+    # snapshots v2.3.6 não tinha NENHUM chamador — órfão de UX flagrado
+    # pelo audit 24-a; a porta natural é a do sistema: Sessão).
+    'Rollback do sistema…') exec craft-rollback ;;
     *)                exit 0 ;;   # Esc/vazio: menu fecha e NADA acontece
 esac

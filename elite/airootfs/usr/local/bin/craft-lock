@@ -1,11 +1,39 @@
 #!/usr/bin/env bash
 # craft-lock — bloqueia a tela (hyprlock → loginctl → erro claro)
+# v2.0 (v2.5.0): o FUNDO do lock = o MESMO wallpaper do desktop — o dono:
+#   "ele deve ficar só o wallpaper com Blur e não mostrar as janelas
+#   abertas e etc como o PC estava antes de ir pra tela de bloqueio/idle".
+#   Este script resolve o arquivo (png→jpg, a MESMA prioridade do swaybg
+#   no autostart) e escreve o conf efêmero do hyprlock com o path certo:
+#     · png vence jpg (mesma regra do autostart);
+#     · sem nenhum: path vazio → o color do bloco background assume
+#       (preto AMOLED — o mesmo fallback do autostart).
+#   O arquivo mora no XDG_RUNTIME_DIR com nome FIXO: sobrescrito a cada
+#   lock, zero acumulação (sem mktemp — o exec não roda trap de cleanup).
 # v1.5: o locker da Elite é o hyprlock (~/.config/hypr/hyprlock.conf —
-# screenshot + blur + dim + relógio + avatar + campo estilizado). Roda
-# no labwc via ext-session-lock-v1 (protocolo nativo — labwc.github.io/
-# integration). O swaylock (tela branca estática do burn test) saiu.
+#   wallpaper + blur + dim + relógio + campo estilizado). Roda no labwc
+#   via ext-session-lock-v1 (protocolo nativo). O swaylock (tela branca
+#   estática do burn test) saiu.
 set -euo pipefail
 if command -v hyprlock >/dev/null 2>&1; then
+  src="$HOME/.config/hypr/hyprlock.conf"
+  if [ -r "$src" ]; then
+    bg="$HOME/.config/labwc/wallpaper.png"
+    [ -r "$bg" ] || bg="$HOME/.config/labwc/wallpaper.jpg"
+    conf="${XDG_RUNTIME_DIR:-/tmp}/elite-hyprlock.conf"
+    if [ -r "$bg" ]; then
+      # v2.5.0-fix: a linha path é INDENTADA no conf (bloco background) —
+      # o ^path puro era no-op silencioso (o teste dos 3 cenários flagrou).
+      # v2.5.0 (N1a, audit 24-r): $bg escapado p/ sed — HOME com | & \
+      # morria o sed (set -e) e o lock morria sem fallback.
+      bg_esc=$(printf '%s' "$bg" | sed 's/[&|\\]/\\&/g')
+      sed "s|^[[:space:]]*path = .*|    path = $bg_esc|" "$src" > "$conf"
+    else
+      # sem wallpaper: path vazio → o color do bloco assume (preto)
+      sed 's|^[[:space:]]*path = .*|    path =|' "$src" > "$conf"
+    fi
+    exec hyprlock -c "$conf"
+  fi
   exec hyprlock
 fi
 if command -v loginctl >/dev/null 2>&1; then

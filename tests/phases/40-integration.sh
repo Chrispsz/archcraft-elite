@@ -334,6 +334,25 @@ assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" '"on-click-right": 
 assert_grep "$WTCSS" 'transition: background 0\.15s ease, color 0\.15s ease' "v2.3.9: transição na BASE (dentro do :hover só a ida animava — a volta era seca)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/themerc-override" 'menu\.items\.active\.bg\.color: #16161f' "v2.3.9: hover do menu labwc = surface0 (era surface2 — o tom de PRESSIONADO na escada)"
 assert_nogrep "$P/airootfs/etc/skel/.config/swaync/style.css" 'border-radius: 10px' "v2.3.9: swaync inteiro no raio 12 (a lei da pílula — nenhum 10px sobrevive)"
+
+# ── v2.5.0 — A AUDITORIA TRIPLA (o dono: "faz 3 auditorias… limpo,
+# otimizado, eficiente, funcional e SEM LEAK") — 3 agentes forenses
+# (sujeira · eficiência · leaks) varreram o repo inteiro; 12 achados
+# curados. Os contratos abaixo trancam as curas estruturais.
+DOCKGUI="$P/airootfs/usr/local/bin/craft-dock-gui"
+assert_grep "$DOCKGUI" 'GLib\.SOURCE_CONTINUE' "v2.5.0: handlers SIGUSR1/SIGUSR2 CONTINUAM a source (return False = G_SOURCE_REMOVE — a dock ficava SURDA após a 1ª dispatch: pins congelados e W-S-d mortos pelo resto da sessão; audit 24-c, o achado ALTO)"
+assert_grep "$DOCKGUI" 'except \(OSError, UnicodeDecodeError\)' "v2.5.0: read_pins tolera QUALQUER erro de leitura (PermissionError/UnicodeDecode derrubava a source do sinal pelo mesmo caminho do return False — a dock surda via caminho de erro)"
+assert_grep "$DOCKGUI" '"pgrep", "-x", pats' "v2.5.0: UM pgrep por tick com alternância (era 1 POR PIN a cada 3s — 3 forks + 3 varreduras de /proc no factory, escalava com os pins; N→1; audit 24-b)"
+assert_grep "$P/airootfs/usr/local/bin/craft-bars" 'cap_log' "v2.5.0: o teto de 1 MiB do bars.log roda POR CICLO (o cap só no arranque deixava o crash-loop crescer ~1,7MB/h; audit 24-b/24-c)"
+assert_grep "$P/airootfs/usr/local/bin/craft-logout" 'rm -f "\$errf"   # v2\.5\.0' "v2.5.0: errf removido ANTES de todo exec (o trap EXIT não roda através de exec — um mktemp órfão por escolha de menu; audit 24-c)"
+assert_grep "$P/airootfs/usr/local/bin/craft-idle" 'case "\$\{LOCK_MIN:-0\}" in' "v2.5.0: a marca '← atual' compara LOCK_MIN (o CUR='10min' NUNCA casava com os números do case — código morto: o dono nunca viu o preset marcado; audit 24-c)"
+assert_grep "$P/airootfs/usr/local/bin/craft-pin" 'mv -f "\$PINS\.tmp"' "v2.5.0: mv INCONDICIONAL no rm (o && mv pulava quando grep -v saía 1 — tmp órfão + 'removido' mentiroso; audit 24-c)"
+assert_grep "$P/airootfs/usr/local/bin/craft-fix-keys" 'keyring-refresh\.stamp' "v2.5.0: guard de 24h (pacman -Sy completo a TODO login: gpg + 10–20MB de rede — as camadas 1–3 já curam; belt roda 1×/dia; audit 24-b)"
+assert_grep "$P/airootfs/usr/local/bin/craft-power" 'Rollback do sistema' "v2.5.0: o craft-rollback ganha PORTA DE ENTRADA no Sessão (menu de snapshots completo sem NENHUM chamador — órfão de UX; audit 24-a)"
+assert_nogrep "$P/airootfs/etc/skel/.config/hypr/hyprlock.conf" 'path = screenshot' "v2.5.0: o fundo do lock NÃO é mais screenshot (o dono: 'só o wallpaper com Blur e não mostrar as janelas abertas como o PC estava')"
+assert_grep "$P/airootfs/etc/skel/.config/hypr/hyprlock.conf" 'path = ~/\.config/labwc/wallpaper\.png' "v2.5.0: o fundo do lock é O WALLPAPER do desktop com blur (a identidade, sem as janelas; brightness .70 — o wallpaper dark premium em .35 era sopa preta)"
+assert_grep "$P/airootfs/usr/local/bin/craft-lock" 'wallpaper\.png' "v2.5.0: craft-lock resolve o fundo (png→jpg, a MESMA cadeia do swaybg; sem nenhum: color preto AMOLED — conf efêmero de nome fixo, zero acumulação)"
+
 # v2.3.10 — A LEI DAS SAÍDAS E DAS NOTIFICAÇÕES (fotos do dono, live
 # 25/10: pilha de 'Menu de Rede falhou craft-menu exit=1' que NUNCA
 # sumia). As duas causas, ambas curadas:
@@ -653,7 +672,7 @@ assert_grep "$REPO/scripts/apply-overlay.sh" 'craft-fix-keys' "v1.5: [9b] regist
 # só delega. Tempos no ~/.config/elite/idle.conf (defaults 10/15 — os da
 # spec v1.5 viraram DEFAULT, não hardcode). Contratos completos adiante
 # (bloco v1.6.1 · craft-idle).
-assert_grep "$P/airootfs/usr/local/bin/craft-idle" "timeout [$]\(\(LOCK_MIN \* 60\)\) 'hyprlock'" "v1.6.1: lock no timeout do CONF (spec 10min vira default editável)"
+assert_grep "$P/airootfs/usr/local/bin/craft-idle" "timeout [$]\(\(LOCK_MIN \* 60\)\) 'craft-lock'" "v2.5.0 (N4): lock no timeout passa pelo CRAFT-LOCK (o resolvedor de wallpaper — chamar hyprlock direto ignorava a cadeia png→jpg; o CONF segue sendo o default editável da v1.6.1)"
 assert_grep "$P/airootfs/usr/local/bin/craft-idle" "timeout [$]\(\(OFF_MIN \* 60\)\) 'wlopm --off" "v1.6.1: DPMS no timeout do CONF (tela APAGA — idle real, não tela fixa)"
 assert_nogrep "$P/airootfs/etc/skel/.config/labwc/autostart" 'swaylock -f|exec swaylock' "v1.5: invocação do swaylock EXTINTA do autostart (tela branca → hyprlock)"
 # W-v clipboard + menu com os apps novos
@@ -702,9 +721,9 @@ assert_grep "$SKCFG/mimeapps.list" '^inode/directory=thunar\.desktop$' "v1.5: pa
 # v1.5: hyprlock — a tela de lock do rice (substitui o swaylock branco)
 HLK="$SKCFG/hypr/hyprlock.conf"
 assert_file "$HLK" "v1.5: hyprlock.conf no skel (lock estilizado)"
-assert_grep "$HLK" 'path = screenshot' "v1.5: fundo = screenshot da tela (wlr-screencopy do labwc)"
+assert_nogrep "$HLK" 'path = screenshot' "v2.5.0: o fundo NUNCA mais é screenshot (o dono reverteu a própria spec v1.5: 'só o wallpaper com Blur e não mostrar as janelas abertas como o PC estava' — a foto da tela revelava o que estava aberto)"
 assert_grep "$HLK" 'blur_passes = 3' "v1.5: blur alto no fundo"
-assert_grep "$HLK" 'brightness = 0\.35' "v1.5: dim (brightness 0.35 — véu escuro)"
+assert_grep "$HLK" 'brightness = 0\.70' "v2.5.0: dim calibrado para o WALLPAPER (era 0.35 para o screenshot — o wallpaper dark premium luma 32.6 em .35 era sopa preta; .70 mostra o blur com contraste do relógio)"
 assert_grep "$HLK" 'text = \$TIME' "v1.5: relógio GRANDE (label \$TIME)"
 assert_grep "$HLK" 'font_size = 96' "v1.5: relógio 96pt (topo/centro)"
 assert_grep "$HLK" 'valign = top' "v1.5: relógio ancorado no TOPO (spec)"
@@ -1925,7 +1944,7 @@ assert_file "$CID" "v1.6.1: craft-idle existe (central de idle do dono)"
 assert_file "$IDLECONF" "v1.6.1: idle.conf no skel (defaults documentados no arquivo)"
 assert_grep "$IDLECONF" '^LOCK_MIN=10' "v1.6.1: default = trava aos 10min"
 assert_grep "$IDLECONF" '^OFF_MIN=15' "v1.6.1: default = tela APAGA aos 15min (idle real, não tela fixa)"
-assert_grep "$CID" "before-sleep 'hyprlock'" "v1.6.1: lock antes do suspend PRESERVADO no craft-idle"
+assert_grep "$CID" "before-sleep 'craft-lock'" "v2.5.0 (N4): lock antes do suspend PRESERVADO — agora via craft-lock (acorda no lock com o wallpaper certo)"
 assert_grep "$CID" 'resume .wlopm --on' "v1.6.1: resume → DPMS on (tela acorda JÁ no lock)"
 assert_grep "$CID" 'Nunca' "v1.6.1: preset 'Nunca' (LOCK_MIN=0 → sem daemon, W-l manual)"
 assert_grep "$CID" 'setsid craft-idle start' "v1.6.1: trocar o tempo reinicia o daemon NA HORA (sem relogin)"

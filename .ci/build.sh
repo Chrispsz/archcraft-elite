@@ -146,8 +146,9 @@ elite_fetch "${ML_LATEST:-cachyos-v3-mirrorlist-27-1-any.pkg.tar.zst}" \
 #  Diretriz do dono (burn test da v1.3 AO VIVO no rig dele, 2026-10-22):
 #  o navegador padrão da Elite passa a ser o BRAVE ORIGIN — o build
 #  oficial brave-origin-*.zip das releases da Brave (produto de primeira
-#  classe: linux amd64/arm64 + darwin; profile próprio
-#  BraveSoftware/Brave-Origin; verificado no binário: app_id continua
+#  classe: linux amd64/arm64 + darwin; o PROFILE do usuário segue o do
+#  Brave de sempre: BraveSoftware/Brave-Browser — o preseed de
+#  custom_chrome_frame mora lá; verificado no binário: app_id continua
 #  "brave-browser"). Empacotado AQUI (mesmo padrão dos stubs acima) em
 #  vez de clonar o AUR: versão PINADA em 1.98.60 (determinismo —
 #  filosofia Elite), sha256 do source verificado pelo makepkg, e o

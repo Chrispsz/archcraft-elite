@@ -6,6 +6,48 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **v2.5.0 — A AUDITORIA TRIPLA: lock só com wallpaper + o fim da dock
+  surda** (o dono: "só o wallpaper com Blur e não mostrar as janelas… faz
+  3 auditorias e onde ficar confuso refaz… até ter certeza que está
+  limpo, otimizado, eficiente e principalmente funcional e sem leak"):
+  - **O LOCK NÃO REVELA MAIS O QUE ESTAVA ABERTO** — o fundo do hyprlock
+    era `path = screenshot` (foto da TELA, janelas incluídas, borrada).
+    Agora: O WALLPAPER do desktop com blur (png→jpg, a MESMA cadeia do
+    swaybg; sem nenhum: preto AMOLED) — o craft-lock resolve o arquivo
+    num conf efêmero de nome fixo (zero acumulação), e o idle/logout
+    passam a travar POR ELE (o hyprlock direto ignorava a cadeia). Dim
+    recalibrado 0.35→0.70 (o wallpaper dark premium em .35 era sopa
+    preta). 3 cenários provados em teste + HOME hostil (com `&|`) provado.
+  - **O ACHADO ALTO: A DOCK FICAVA SURDA** — os handlers SIGUSR1/SIGUSR2
+    do craft-dock-gui retornavam `False` = G_SOURCE_REMOVE: a source do
+    sinal morria na 1ª dispatch e `craft-pin add/rm` (reload) + o W-S-d
+    ficavam MORTOS pelo resto da sessão — silencioso, porque a dock
+    seguia viva e o supervisor nunca reiniciava. Cura: `SOURCE_CONTINUE`.
+    `read_pins` também só capturava FileNotFoundError (mesma morte via
+    caminho de erro) — agora `OSError, UnicodeDecodeError`.
+  - **LEAKS/RECURSOS curados** (3 agentes forenses varreram o repo
+    inteiro; 12 achados + 4 resíduos da re-auditoria, todos curados):
+    bars.log sem teto DURANTE o loop (crash-loop ≈1,7MB/h — cap agora por
+    ciclo); 1 pgrep POR PIN a cada 3s na dock (N→1 com alternância +
+    re.escape); `pacman -Sy` completo a TODO login no craft-fix-keys
+    (guard 24h com stamp clampado contra RTC morto); errf órfão nos exec
+    do craft-logout (o trap EXIT não roda através de exec); sed do lock
+    à prova de HOME com `&|`; marca "← atual" do idle que NUNCA casava
+    (código morto desde sempre); mv condicional do craft-pin que pulava
+    a remoção do último pin.
+  - **SUJEIRA curada** — SCRIPTS.md ensinava o craft-pin da era morta
+    (config.dock/modules-left) e documentava o fg-booster EXTINTO como
+    instalado (agora: história documentada, não fantasma); craft-bat
+    ganhou seção (era invisível); o symlink firstboot.wants agora é
+    relativo (dangling no repo); comentário do build.sh sobre o profile
+    do Brave corrigido; **craft-rollback ganhou porta de entrada** (menu
+    completo de snapshots sem NENHUM chamador — órfão de UX: entrou no
+    menu Sessão).
+  - **O RITUAL PROVOU 2 VEZES**: o teste dos 3 cenários do lock flagrou o
+    sed `^path` cego à indentação (no-op silencioso) ANTES do commit; a
+    re-auditoria (rodada 3) confirmou as 10 correções e achou 4 resíduos
+    (todos curados na hora). Suíte: 1492·0·GO.
+
 - **v2.4.0 — O MOTOR QUE JÁ ABRIA + UM PROCESSO POR PROGRAMA** (o rig
   falou de novo: "quando clico nos botões nem abre menu nenhum… aquele
   de segundo plano abre um preview e não o menu… abri o Brave e abriu 11

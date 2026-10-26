@@ -21,6 +21,24 @@
 # Requer root (sudo): no liveuser é NOPASSWD; no sistema instalado, sem
 # terminal pra senha o sudo falha em silêncio — as camadas 1-3 já curaram
 # o essencial; aqui é belt-and-suspenders. Nunca bloqueia a sessão.
+#
+# v2.5.0 — GUARD de 24h: a cura completa custa gpg + download de TODOS os
+# sync DBs (10–20MB de rede + I/O) a CADA login (o audit 24-b flagrou).
+# Belt-and-suspenders roda 1× ao dia, não a cada sessão; o stamp mora no
+# state do usuário (sobe limpo no live).
+STAMP="${XDG_STATE_HOME:-$HOME/.local/state}/elite/keyring-refresh.stamp"
+now=$(date +%s)
+last=$(cat "$STAMP" 2>/dev/null || echo 0)
+case "$last" in
+    ''|*[!0-9]*) last=0 ;;
+esac
+# v2.5.0 (N3, audit 24-r): stamp no FUTURO (clock skew/RTC morto)
+# suprimiria o guard para sempre — clamp.
+[ "$last" -gt "$now" ] && last=0
+if [ $((now - last)) -lt 86400 ]; then
+    exit 0
+fi
+
 if [ "$(id -u)" -eq 0 ]; then
     SUDO=''
 else
@@ -31,4 +49,6 @@ fi
 $SUDO pacman-key --init >/dev/null 2>&1 || true
 $SUDO pacman-key --populate archlinux cachyos >/dev/null 2>&1 || true
 $SUDO pacman -Sy --noconfirm archlinux-keyring cachyos-keyring >/dev/null 2>&1 || true
+mkdir -p "${STAMP%/*}" 2>/dev/null || true
+date +%s > "$STAMP" 2>/dev/null || true
 exit 0

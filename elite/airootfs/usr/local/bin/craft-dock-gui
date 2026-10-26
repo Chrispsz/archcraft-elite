@@ -109,8 +109,13 @@ def read_pins():
                     log(f"pin ignorado (desktop inexistente): {appid}")
                     continue
                 pins.append(info)
-    except FileNotFoundError:
-        log(f"arquivo de pins ausente: {PINS_FILE}")
+    except (OSError, UnicodeDecodeError) as exc:
+        # v2.5.0 — era só FileNotFoundError: PermissionError/UnicodeDecode
+        # no dock-pins subiam pela callback do SIGUSR2, o PyGObject
+        # removia a source do sinal e a dock ficava SURDA (mesmo efeito
+        # do return False — o audit 24-c flagrou). Pin/arquivo ruim =
+        # log + ignora; a dock segue viva e OUVINDO.
+        log(f"arquivo de pins ilegível ({type(exc).__name__}): {PINS_FILE}")
     return pins
 
 
@@ -221,7 +226,11 @@ class Dock:
             self.buttons.append((btn, binary_of(info)))
         self.pill.show_all()
         self.poll_running()
-        return False
+        # v2.5.0 — GLib.SOURCE_CONTINUE: callback de sinal que retorna False
+        # é G_SOURCE_REMOVE — a source morria na 1ª dispatch e a dock
+        # ficava SURDA (reload de pins e W-S-d mortos pelo resto da
+        # sessão; o audit 24-c flagrou o mecanismo exato).
+        return GLib.SOURCE_CONTINUE
 
     def _launch(self, _btn, cmd):
         try:
@@ -233,20 +242,35 @@ class Dock:
         except OSError as exc:
             log(f"falha ao lançar {cmd}: {exc}")
 
-    # ── indicador de aberto (pgrep in-process) ───────────────────────────
+    # ── indicador de aberto (1 pgrep por tick — v2.5.0) ─────────────────
+    # v2.5.0 — era 1 pgrep POR PIN a cada 3s (3 forks + 3 varreduras de
+    # /proc no factory; escala com os pins do usuário). Agora: UM pgrep
+    # com alternância (-x aceita ERE — provado no procps-ng 4.x) e a
+    # identificação por /proc/<pid>/comm (leitura direta, sem fork).
     def poll_running(self):
+        running = set()
+        # v2.5.0 (N2, audit 24-r): re.escape — uma ERE inválida de UM
+        # binário (ex.: '(' no nome) devolvia rc=2 do pgrep e apagava
+        # TODAS as pílulas; o escape isola o pin ruim.
+        pats = "|".join(dict.fromkeys(re.escape(b) for _, b in self.buttons if b))
+        if pats:
+            try:
+                out = subprocess.run(
+                    ["pgrep", "-x", pats],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL,
+                    text=True).stdout or ""
+            except OSError:
+                out = ""
+            for pid in out.split():
+                try:
+                    with open(f"/proc/{pid}/comm") as fh:
+                        running.add(fh.read().strip())
+                except OSError:
+                    pass
         for btn, binary in self.buttons:
             ctx = btn.get_style_context()
-            running = False
-            if binary:
-                try:
-                    running = subprocess.run(
-                        ["pgrep", "-x", binary],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL).returncode == 0
-                except OSError:
-                    running = False
-            if running:
+            if binary and binary in running:
                 ctx.add_class("running")
             else:
                 ctx.remove_class("running")
@@ -264,7 +288,7 @@ class Dock:
             self.win.show_all()
             self.shown = True
             log("toggle: dock visível (W-S-d)")
-        return False
+        return GLib.SOURCE_CONTINUE
 
 
 DEFAULT_CSS = b"""
