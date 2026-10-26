@@ -216,7 +216,7 @@ assert_grep "$P/airootfs/usr/local/bin/craft-pin" 'craft-dock reload' "v2.0: cra
 # Menu bar: tudo clicável (mouse-first — diretriz do dono; v1.4: rede abre
 # a CENTRAL craft-connect — cabo+Wi-Fi+Bluetooth num só ícone; volume abre
 # pwvucontrol — zero applet/dialog GTK3 legado)
-assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" '"on-click": "craft-connect"' "v1.4: rede abre a central de conectividade no clique (craft-connect)"
+assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" '"on-click-right": "craft-connect"' "v1.4→v2.6.0: rede abre a central de conectividade NO CLIQUE DIREITO (craft-connect — a lei dos menus da barra)"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" 'swaync-client -t' "v1.0.4: relógio abre central de notificações no clique"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" 'pwvucontrol' "v1.1: volume abre pwvucontrol no clique-direito (GTK4/Rust)"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" 'craft-power' "v1.0.4: botão power na barra do topo"
@@ -309,6 +309,7 @@ assert_nogrep "$DCSS" 'border-radius: 14px' "v2.3.9: dock.css sem raio fora da l
 assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'padding: 4px' "v2.3.9: fallback embutido da dock espelha a lei da pílula"
 assert_nogrep "$P/airootfs/usr/local/bin/craft-menu" 'notify-send' "v2.4.0: o menu não notifica NADA (fechar é físico — a classe do toast falso do motor GTK extinta junto)"
 assert_grep "$P/airootfs/usr/local/bin/craft-menu" '\|\| exit' "v2.4.0: ESC = exit com o código do motor (1 = fechado sem escolha, stderr vazio — a lei v2.3.6/2.3.10 intocada: fechar NUNCA é falha)"
+assert_grep "$P/airootfs/usr/local/bin/craft-menu" 'set -- --dmenu' "v2.6.0: o motor segue o fuzzel --dmenu (argv construído por set -- — sem eval, sem word-splitting de flags)"
 # v2.3.11 — A GAIOLA (o dono: "os menus sequer abriam… reescreve do zero
 # de forma inteligente"). A v1 dependia de FOCO pra viver (janela solta +
 # ON_DEMAND + focus-out-event → quit): a corrida de foco no mapa matava o
@@ -320,7 +321,7 @@ CMN="$P/airootfs/usr/local/bin/craft-menu"
 assert_nogrep "$CMN" 'import gi' "v2.4.0: a era GTK no menu EXTINTA (nenhum import gi — o motor que nunca abriu no rig saiu de cena; duas reescritas, dois funerais)"
 assert_nogrep "$CMN" 'GtkLayerShell' "v2.4.0: zero layer-shell no menu (a gaiola morreu por construção — nenhuma corrida de foco para existir)"
 assert_nogrep "$CMN" 'Gtk\|Gdk' "v2.4.0: menu é POSIX sh puro (nenhum toolkit para falhar antes do 1º frame)"
-assert_grep "$CMN" 'fuzzel --dmenu' "v2.4.0: o motor do menu é o FUZZEL — a prova de vida do rig (launcher e Sessão sempre abriram)"
+assert_grep "$CMN" 'fuzzel "\$@"' "v2.4.0: o motor do menu é o FUZZEL — a prova de vida do rig (launcher e Sessão sempre abriram)"
 assert_grep "$CMN" '--title=' "v2.4.0: interface intocada (--title= + argv/stdin — os 7 chamadores não mudam uma linha)"
 assert_grep "$P/airootfs/etc/skel/.config/fuzzel/fuzzel.ini" 'exit-on-focus-loss=yes' "v2.4.0: a lei do fechar EXPLÍCITA no fuzzel.ini (perder o foco FECHA — toggle/cross-dismiss por física; o 2º clique fecha como no burn test v1.4)"
 WTCSS="$P/airootfs/etc/skel/.config/waybar/style.top.css"
@@ -352,6 +353,46 @@ assert_grep "$P/airootfs/usr/local/bin/craft-power" 'Rollback do sistema' "v2.5.
 assert_nogrep "$P/airootfs/etc/skel/.config/hypr/hyprlock.conf" 'path = screenshot' "v2.5.0: o fundo do lock NÃO é mais screenshot (o dono: 'só o wallpaper com Blur e não mostrar as janelas abertas como o PC estava')"
 assert_grep "$P/airootfs/etc/skel/.config/hypr/hyprlock.conf" 'path = ~/\.config/labwc/wallpaper\.png' "v2.5.0: o fundo do lock é O WALLPAPER do desktop com blur (a identidade, sem as janelas; brightness .70 — o wallpaper dark premium em .35 era sopa preta)"
 assert_grep "$P/airootfs/usr/local/bin/craft-lock" 'wallpaper\.png' "v2.5.0: craft-lock resolve o fundo (png→jpg, a MESMA cadeia do swaybg; sem nenhum: color preto AMOLED — conf efêmero de nome fixo, zero acumulação)"
+
+# ═══════════════════════════════════════════════════════════════════════
+# ── v2.6.0 — A LEI DOS MENUS DA BARRA (prints do rig 26/out — o dono
+# apontou 7 cicatrizes e decretou: "solucione tudo de uma vez por todas"):
+#   · clique ESQUERDO mudo nos menus da barra — SÓ o direito abre
+#     ("com o botão esquerdo do mouse remove o menu que aparece com o
+#     click e deixa só no click direito mesmo");
+#   · o menu nasce SOB O BOTÃO ("não seria melhor ficar onde ela for
+#     aberta?") — anchor top-right + x-margin por slot no craft-menu v4;
+#   · LISTA PURA ("tirar esse risco | que fica na frente" + o nome
+#     'Sessão:'/'Encerrar:') — --hide-prompt no craft-menu v4;
+#   · toggle e cross-dismiss DETERMINÍSTICOS ("clico nos botões da topbar
+#     novamente eles não fecham... um não anula o outro") — pid do fuzzel
+#     em \$XDG_RUNTIME_DIR, não mais física de foco que o rig desmentiu.
+# ═══════════════════════════════════════════════════════════════════════
+CPTOP="$P/airootfs/etc/skel/.config/waybar/config.top"
+assert_grep "$CPTOP" '"on-click-right": "craft-connect"' "v2.6.0: Rede abre no clique DIREITO (a lei dos menus da barra)"
+assert_nogrep "$CPTOP" '"on-click": "craft-connect"' "v2.6.0: o clique ESQUERDO da Rede é MUDO (o dono: 'remove o menu que aparece com o click')"
+assert_grep "$CPTOP" '"on-click-right": "craft-bgapps menu"' "v2.6.0: Encerrar abre no clique DIREITO"
+assert_nogrep "$CPTOP" '"on-click": "craft-bgapps menu"' "v2.6.0: o clique ESQUERDO do Encerrar é mudo"
+assert_grep "$CPTOP" '"on-click-right": "craft-power"' "v2.6.0: Sessão abre no clique DIREITO"
+assert_nogrep "$CPTOP" '"on-click": "craft-power"' "v2.6.0: o clique ESQUERDO do power é mudo"
+assert_grep "$CPTOP" '"on-click": "craft-drawer"' "v2.6.0: o ARCH segue no clique ESQUERDO (lançador de apps, não menu — o modelo macOS)"
+assert_grep "$CPTOP" 'clique direito' "v2.6.0: os tooltips ENSINAM o clique direito (a descoberta não pode morar escondida)"
+CMN="$P/airootfs/usr/local/bin/craft-menu"
+assert_grep "$CMN" '--minimal-lines' "v2.6.0: a janela do menu é do TAMANHO da lista (nada de caixa alta com 10 linhas para 6 itens)"
+assert_grep "$CMN" '--ask=' "v2.6.0: modo entrada (senha de Wi-Fi) — o prompt visível é a exceção honesta; rede salva nunca pergunta"
+assert_grep "$CMN" 'rm -f "\$ST"' "v2.6.0: o state do toggle é limpo em TODO fechamento (sem pid zombie virando toggle fantasma)"
+for _at in craft-power craft-logout craft-idle craft-rollback; do
+    assert_grep "$P/airootfs/usr/local/bin/$_at" '--at=power' "v2.6.0: $_at nasce sob o botão do power (a família de sessão âncora no mesmo assento — submenus herdam o lugar do pai)"
+done
+assert_grep "$P/airootfs/usr/local/bin/craft-bgapps" '--at=bgapps' "v2.6.0: Encerrar nasce sob o PRÓPRIO botão"
+assert_grep "$P/airootfs/usr/local/bin/craft-connect" '--at=network' "v2.6.0: Rede nasce sob o botão de rede"
+BGA="$P/airootfs/usr/local/bin/craft-bgapps"
+assert_grep "$BGA" 'comm#\\\(' "v2.6.0: o comm é NORMALIZADO antes da casca (o sd-pam se apresenta como '(sd-pam)' — com parênteses — e o padrão sd-pam* deixava o serviço vazar; foto do rig)"
+assert_grep "$BGA" 'dconf\*' "v2.6.0: dconf-service na casca (o dono: 'continua pegando serviços do sistema que inclusive não encerram')"
+assert_grep "$BGA" 'gvfs\*' "v2.6.0: gvfs* na casca (cobre gvfsd E os monitores gvfs-udisks2-vo/gvfs-mtp-volume cortados em 15 chars — foto do rig)"
+assert_grep "$BGA" 'Xwayland\*' "v2.6.0: o SERVIDOR Xwayland na casca (os apps X dele seguem aparecendo)"
+assert_grep "$BGA" 'WAYLAND_DISPLAY=' "v2.6.0: CANDIDATO SEM DISPLAY NUNCA É PROGRAMA (assinatura de serviço de fundo no /proc/PID/environ — o Brave e o Files conversam com o compositor; sd-pam/dconf/gvfs, nunca)"
+assert_grep "$BGA" 'kill -KILL' "v2.6.0: encerrar DE VERDADE (SIGTERM, 2s, SIGKILL em quem aguentou — o dono clica UMA vez)"
 
 # v2.3.10 — A LEI DAS SAÍDAS E DAS NOTIFICAÇÕES (fotos do dono, live
 # 25/10: pilha de 'Menu de Rede falhou craft-menu exit=1' que NUNCA
@@ -386,7 +427,10 @@ assert_nogrep "$P/airootfs/etc/skel/.config/waybar/style.top.css" 'color: @peach
 # de digitação; a janela nasce no centro (layer-shell sem âncoras).
 assert_grep "$P/airootfs/usr/local/bin/craft-power" 'craft-menu --title=' "v2.3.8: Sessão no menu NATIVO (fim da era fuzzel nos menus de escolha)"
 assert_nogrep "$P/airootfs/usr/local/bin/craft-power" 'fuzzel' "v2.3.8: craft-power sem fuzzel nenhum (menu de escolha = craft-menu; o fallback labnag segue)"
-assert_grep "$P/airootfs/usr/local/bin/craft-power" 'Travar tela' "v2.1: opção Travar no menu de sessão"
+assert_nogrep "$P/airootfs/usr/local/bin/craft-power" "'Travar tela'" "v2.6.0: 'Travar tela' SAIU do menu (o dono: 'é necessária essa opção?' — não: o lock é PARTE do suspender e segue no W-l; o literal some do MENU e do case)"
+assert_grep "$P/airootfs/usr/local/bin/craft-power" 'systemctl suspend -i' "v2.6.0: o suspend IGNORA inibidores (o 'tenta mas rapidamente liga e fica como se eu só tivesse clicado em travar tela' do rig = inibidor de app matando o systemctl suspend calado)"
+assert_grep "$P/airootfs/usr/local/bin/craft-power" 'craft-lock' "v2.6.0: o suspender trava PRIMEIRO (acordou = tela travada, só o wallpaper borrado)"
+assert_grep "$P/airootfs/usr/local/bin/craft-power" '--at=power' "v2.6.0: o Sessão nasce SOB O BOTÃO do power (âncora do craft-menu v4)"
 assert_grep "$P/airootfs/usr/local/bin/craft-power" 'Suspender' "v2.1: opção Suspender no menu de sessão"
 assert_grep "$P/airootfs/usr/local/bin/craft-power" 'labnag' "v2.1: fallback labnag preservado (sem craft-menu)"
 # Calamares: o YAML do shellprocess_btrfs TEM que parsear (o gate cego da v1.1)
@@ -507,13 +551,15 @@ assert_nogrep "$P/airootfs/etc/skel/.config/labwc/autostart" '^[[:space:]]*nm-ap
 assert_nogrep "$P/airootfs/etc/skel/.config/labwc/autostart" '^[[:space:]]*blueman-applet &' "v2.0: blueman-applet fora do autostart (o blueman-manager do craft-connect cobre — mesma decisão)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'craft-connect' "v2.0: o comentário do autostart documenta a direção v2.0 (um ponto só de conectividade)"
 
-# ── v2.3.5 — AS CURAS DO RIG v2.3.2 (prints e relatos do dono) ──────────
-assert_grep "$P/airootfs/usr/local/bin/craft-connect" 'Wi-Fi: gerenciar conexões' "v2.3.7: o verbo Wi-Fi chama o GERENCIADOR (o dono no live: 'um menu serve pra chamar o serviço… evitando criar submenus e coisas que podem quebrar')"
-assert_grep "$P/airootfs/usr/local/bin/craft-connect" 'exec nm-connection-editor' "v2.3.7: o gerenciador do SISTEMA cuida da conexão (nm-connection-editor — o mesmo do W-n; 3 connects com senha correta falharam no picker desenhado)"
+# ── v2.3.5 → v2.6.0 — AS CURAS DO RIG v2.3.2, a direção v2.3.7 e a
+# REVERSÃO ASSUMIDA v2.6.0 (o dono: "não consigo me conectar a redes"):
+# o picker v3 falhou por PARSE (senha correta, conexão errada — menus.log
+# 23:14); a v5 devolve o nmcli ao caminho com o MAPA linha→valor — o que
+# o NM entregou é o que volta ao NM.
+assert_grep "$P/airootfs/usr/local/bin/craft-connect" 'exec nm-connection-editor' "v2.3.7→v2.6.0: o gerenciador do SISTEMA segue no menu (a CRIAÇÃO manual mora lá — definição do próprio dono)"
 assert_grep "$P/airootfs/usr/local/bin/craft-connect" 'nmtui' "v2.3.7: fallback nmtui (ferramenta do próprio NetworkManager — zero lógica nossa no caminho)"
 assert_nogrep "$P/airootfs/usr/local/bin/craft-connect" 'wifi_pick' "v2.3.7: o picker desenhado MORREU (senha oculta + parse de sinal + nmcli próprios = superfície de falha sem dono)"
-assert_nogrep "$P/airootfs/usr/local/bin/craft-connect" '--password' "v2.3.7: prompt de senha próprio morreu com o picker (a senha é trabalho do gerenciador)"
-assert_nogrep "$P/airootfs/usr/local/bin/craft-connect" 'nmcli device wifi connect' "v2.3.7: nmcli connect próprio saiu do caminho (a cura do dono pós-3 FALHAS no live 23:14)"
+assert_nogrep "$P/airootfs/usr/local/bin/craft-connect" '--password' "v2.3.7→v2.6.0: NENHUMA flag --password nossa (o prompt é o craft-menu --ask; a senha vai como argumento do VERBO do nmcli)"
 assert_grep "$P/airootfs/usr/local/share/applications/lstopo.desktop" 'NoDisplay=true' "v2.3.5: lstopo (hardware locality) fora do Launchpad — override NoDisplay, o padrão xgps"
 assert_grep "$P/airootfs/usr/local/share/applications/lstopo-no-graphics.desktop" 'NoDisplay=true' "v2.3.5: lstopo-no-graphics também oculto (mesma classe — dep de terceiros não é app do dono)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/environment" 'XDG_DATA_DIRS=.*flatpak/exports/share' "v2.3.5: flatpak exports no XDG_DATA_DIRS da sessão (o Sober sem ícone é isso — literal, sem depender de expansão)"
@@ -1670,13 +1716,19 @@ fi
 # fuzzel e falhavam com stderr no /dev/null — morte calada, zero rastro.
 # Contrato: TODOS logam em ~/.cache/elite/menus.log (helper mlog) e o
 # fuzzel call captura o stderr (crash vira linha de log + notify).
-for menu in craft-power craft-connect craft-pin-pick craft-idle craft-logout craft-bgapps; do
+for menu in craft-power craft-pin-pick craft-idle craft-logout craft-bgapps; do
   assert_grep "$P/airootfs/usr/local/bin/$menu" 'menus\.log' "v2.3.1: $menu loga falhas em menus.log (fim do silêncio — rig: 'os menus morreram')"
   # positivos (mais robustos que nogrep: o 2>/dev/null do pkill do toggle é legítimo)
   assert_grep "$P/airootfs/usr/local/bin/$menu" '2>"\$errf"' "v2.3.1: $menu captura o stderr do fuzzel (mktemp errf — crash deixa rastro)"
   assert_grep "$P/airootfs/usr/local/bin/$menu" 'FALHOU' "v2.3.1: $menu tem caminho de erro LOGADO (exit != 0 nunca é calado — MENU FALHOU na era craft-menu, FUZZEL FALHOU onde o fuzzel segue)"
   assert_grep "$P/airootfs/usr/local/bin/$menu" 'eq 143' "v2.3.5: $menu trata SIGTERM do toggle/cross-dismiss como fechamento benigno (o falso 'fuzzel exit=143' crítico do print do dono morreu)"
 done
+# v2.6.0 — o craft-connect v5 fala a MESMA gramática, pela voz do
+# open_menu/benign_close (errf capturado · MENU FALHOU · 1|2|143 benignos)
+assert_grep "$P/airootfs/usr/local/bin/craft-connect" 'menus\.log' "v2.3.1: craft-connect loga falhas em menus.log (fim do silêncio)"
+assert_grep "$P/airootfs/usr/local/bin/craft-connect" '2>"\$errf"' "v2.3.1: craft-connect captura o stderr do craft-menu (mktemp errf)"
+assert_grep "$P/airootfs/usr/local/bin/craft-connect" 'MENU FALHOU' "v2.3.1: craft-connect tem caminho de erro LOGADO"
+assert_grep "$P/airootfs/usr/local/bin/craft-connect" '1|2|143)' "v2.6.0: craft-connect trata os fechamentos benignos na gramática do craft-menu v4 (ESC 1 · toggle 2 · cross-dismiss 143)"
 assert_grep "$P/airootfs/usr/local/bin/craft-pin-pick" 'command -v fuzzel >/dev/null 2>&1 \|\|' "v2.3.1: craft-pin-pick com guard de fuzzel (morria calado na linha 21)"
 
 # ── v2.3.4 — DOCK SEMPRE VISÍVEL (o fim do autohide) ──────────────────────────
@@ -1725,13 +1777,13 @@ BGA="$P/airootfs/usr/local/bin/craft-bgapps"
 # craft-bgapps 7×). O dono: "processos do sistema não deveriam aparecer").
 assert_grep "$BGA" 'at-spi\*' "v2.3.10: at-spi (acessibilidade que TODO app GTK acorda) na casca POR PREFIXO (sobrevive ao corte de 15 chars do comm)"
 assert_grep "$BGA" 'xdg-\*' "v2.3.10: xdg-* (portais) na casca por prefixo — o xdg-document-po vazava na lista exata"
-assert_grep "$BGA" 'gvfsd\*' "v2.3.10: gvfsd* (inclui gvfsd-metadata, que vazava) na casca por prefixo"
+assert_grep "$BGA" 'gvfs\*' "v2.3.10→v2.6.0: gvfs* na casca por prefixo (cobre gvfsd E os monitores gvfs-udisks2-vo/gvfs-mtp-volume cortados em 15 chars — gvfsd-metadata vazava na lista exata da v2.3.7)"
 assert_grep "$BGA" 'craft-\*' "v2.3.10: a própria ferramenta (craft-*) NUNCA se lista — 7 cópias na foto do dono"
 assert_grep "$BGA" 'bwrap\*' "v2.3.10: bwrap (a caixa de areia dos portals) na casca por prefixo"
 assert_nogrep "$BGA" 'display_name' "v2.3.10: descrições de encanamento extintas (o tooltip lista o nome do PROGRAMA, nada mais)"
 assert_nogrep "$BGA" 'sed -z' "v2.4.0: o tooltip é 1 linha por NATUREZA (descrição curta — a leitura v2.3.7 do escape do newline aposenta o sed -z junto com o preview)"
 assert_grep "$P/airootfs/usr/local/bin/craft-power" 'craft-menu --title=' "v2.3.8: craft-power no menu nativo (sem pkill de irmão — a lei é do craft-menu)"
-assert_grep "$P/airootfs/usr/local/bin/craft-connect" 'craft-menu --title=' "v2.3.8: craft-connect no menu nativo (sem pkill de irmão — a lei é do craft-menu)"
+assert_grep "$P/airootfs/usr/local/bin/craft-connect" 'open_menu --title=' "v2.6.0: craft-connect no menu nativo via open_menu (a lei toggle/cross-dismiss é do craft-menu — zero pkill de irmão no script)"
 
 # v2.3.7 — REPAGINAÇÃO DOS MENUS (áudio do dono no live: "centralizar
 # neles no meio… trabalhando realmente mais bonita"): TODOS os dropdowns
@@ -1746,7 +1798,7 @@ assert_file "$CMN" "v2.3.8: craft-menu existe (o dropdown da Elite)"
 assert_nogrep "$CMN" 'Gtk.Entry' "v2.4.0: ZERO linha de digitação inventada pelo menu (a barra 'Rede |' morreu; o prompt do fuzzel é FUNÇÃO — filtrar a lista)"
 assert_grep "$CMN" 'set -u' "v2.4.0: motor POSIX sh puro (a classe 'morre antes do 1º frame' extinta — não existe toolkit para falhar)"
 assert_grep "$CMN" 'craft-menu --title=TÍTULO' "v2.4.0: a gramática documentada no cabeçalho (os 7 chamadores não mudam uma linha)"
-for _m in craft-power craft-connect craft-bgapps craft-logout craft-idle; do
+for _m in craft-power craft-bgapps craft-logout craft-idle; do
     assert_grep "$P/airootfs/usr/local/bin/$_m" 'craft-menu --title=' "v2.3.8: $_m no menu NATIVO (fim da era fuzzel nos menus de escolha)"
 done
 assert_grep "$P/airootfs/usr/local/bin/craft-rollback" 'craft-menu --title=.Rollback' "v2.3.8: rollback no menu nativo (picker + confirmar; a descrição fica no fuzzel — onde se DIGITA)"
@@ -1923,12 +1975,12 @@ assert_nogrep "$WBT" '#custom-menu' "v1.5: CSS sem regra órfã do custom-menu"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/style.top.css" '#custom-drawer \{' "v1.9 M2.4: identidade mauve do ARCH viva na BARRA SUPERIOR (lançador exclusivo)"
 
 # ── Conectividade: UM ícone p/ cabo + Wi-Fi + Bluetooth ──────────────────
-assert_grep "$CPT" '"on-click": "craft-connect"' "v1.4: rede → central de conectividade (um só ícone — diretrize do dono)"
+assert_grep "$CPT" '"on-click-right": "craft-connect"' "v1.4→v2.6.0: rede → central de conectividade no clique DIREITO (um só ícone — diretrize do dono; a lei dos menus da barra v2.6.0)"
 assert_file "$CCT" "v1.4: craft-connect existe"
 assert_grep "$CCT" 'foot -e impala' "v1.4: central abre impala (Wi-Fi/Ethernet)"
 assert_grep "$CCT" 'foot -e bluetui' "v1.4: central abre bluetui (Bluetooth)"
 assert_grep "$CCT" "--title='Rede'" "v2.3.8: o menu de Rede tem título próprio (sem colisão com 'Sessão' — a lei do craft-menu distingue por título)"
-assert_grep "$CCT" "craft-menu --title='Rede'" "v2.3.8: Rede no menu NATIVO (toggle/cross-dismiss estruturais — 2ª chamada fecha, outro menu fecha este)"
+assert_grep "$CCT" "open_menu --title='Rede' --at=network" "v2.6.0: Rede no menu NATIVO com âncora NO BOTÃO (toggle/cross-dismiss determinísticos no craft-menu v4 — 2ª chamada fecha, outro menu fecha este)"
 assert_nogrep "$CCT" "pkill" "v2.3.8: craft-connect não mata irmão nenhum (a lei mora no craft-menu — um lugar só)"
 assert_nogrep "$WBT" 'idle-inhibitor' "v2.0: o café saiu da barra E do CSS (botão estranho — áudio do dono)"
 
@@ -2063,8 +2115,8 @@ CPS="$P/airootfs/usr/local/bin/craft-pin-status"
 assert_nogrep "$CTP8" '"custom/shot"' "v2.3.10: print fora da barra pela 3ª vez é a definitiva (o dono fechou a questão)"
 assert_file "$P/airootfs/usr/local/bin/craft-shot" "v2.3.10: o craft-shot segue VIVO (o botão saiu, os atalhos W-P/W-S-P não)"
 assert_nogrep "$CTP8" '"format": "\\uf0c4"' "v2.1: glifo do print extinto do topo"
-assert_grep "$CTP8" '"on-click": "craft-connect"' "v1.8: wi-fi/redes/bt = 1 botão → central (spec: 'conectividade num geral')"
-assert_grep "$CTP8" '"on-click": "craft-power"' "v1.8: liga/desliga/reset = botão de sessão no cluster esquerdo"
+assert_grep "$CTP8" '"on-click-right": "craft-connect"' "v1.8→v2.6.0: wi-fi/redes/bt = 1 botão → central (spec: 'conectividade num geral'); o clique virou DIREITO (a lei dos menus da barra)"
+assert_grep "$CTP8" '"on-click-right": "craft-power"' "v1.8→v2.6.0: botão de sessão = menu no clique DIREITO (a lei dos menus da barra)"
 # v2.0: pins = IDs .desktop no dock-pins; indicador = pgrep in-process;
 # craft-pin-status está EXTINTO (o GUI é o único consumidor de estado):
 assert_nofile "$CPS" "v2.0: craft-pin-status EXTINTO (o indicador mora no GUI)"

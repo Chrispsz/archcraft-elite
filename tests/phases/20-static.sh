@@ -524,27 +524,60 @@ assert_grep "$CPIN" 'craft-dock reload' \
 #      dropdowns empilhados — áudio do dono, 24/out e 21/out)
 CCON="$REPO/elite/airootfs/usr/local/bin/craft-connect"
 CMEN="$REPO/elite/airootfs/usr/local/bin/craft-menu"
-assert_grep "$CMEN" 'fuzzel --dmenu' \
-  "a lei dos menus é do MOTOR (craft-menu v3 = fuzzel: só existe um teclado — abrir outro menu rouba o foco e o anterior FECHA; toggle/cross-dismiss por física)"
+# H3 v2.6.0 — a lei dos menus VIROU DETERMINISMO (os prints do rig 26/out
+# desmentiram a física: "clico de novo e não fecha, um não anula o outro").
+# O craft-menu v4 grava o pid do fuzzel vivo; 2ª chamada do MESMO título
+# mata e sai 2 (toggle); título diferente mata e abre (cross-dismiss).
+assert_grep "$CMEN" 'elite-menus\.' \
+  "v2.6.0: a lei dos menus é DETERMINÍSTICA (pid do fuzzel em \$XDG_RUNTIME_DIR — toggle e cross-dismiss por pid, não por física de foco que o rig desmentiu)"
+assert_grep "$CMEN" 'exit 2' \
+  "v2.6.0: TOGGLE = a 2ª chamada do mesmo título fecha (rc 2 — a gramática 0/1/2/143 intacta para os chamadores)"
+assert_grep "$CMEN" '--hide-prompt' \
+  "v2.6.0: menu = LISTA PURA (o dono: 'tirar esse risco | que fica na frente' + o nome 'Sessão:'/'Encerrar:' — a linha de digitação inteira some; digitar ainda filtra)"
+assert_grep "$CMEN" '--anchor top-right' \
+  "v2.6.0: o menu nasce SOB O BOTÃO (o dono: 'não seria melhor ficar onde ela for aberta?' — anchor top-right + x-margin calibrado por slot; a barra de 36px empurra pelo exclusive zone)"
+assert_grep "$CMEN" 'fuzzel --help' \
+  "v2.6.0: degradação graciosa (fuzzel velho demais para as curas? o menu clássico com prompt abre em vez de morrer)"
+assert_nogrep "$CMEN" '\$UID' \
+  "v2.6.0: id -u, NUNCA \$UID (dash não tem UID — sob set -u o script morria rc=2, que o chamador lê como toggle benigno: menu que nunca abre e morre sorrateiro; flagrado no smoke test)"
 assert_nogrep "$CCON" "pkill -f 'fuzzel" \
-  "craft-connect sem pkill de irmão (a era das cópias da lei morreu com o craft-menu)"
+  "craft-connect sem pkill de irmão (a lei mora no craft-menu — um lugar só)"
 
-# H4 — conectividade (v2.3.7 — o dono USOU o picker no live e decretou:
-#      "um menu serve pra chamar o serviço… evitando criar submenus e
-#      coisas que podem quebrar"): o verbo Wi-Fi agora abre o GERENCIADOR
-#      DO SISTEMA (nm-connection-editor — como o Bluetooth abre o blueman);
-#      picker fuzel+nmcli e prompt de senha MORRERAM (3 connects com senha
-#      correta falharam no live 23:14); nm-applet/tray seguem extintos.
+# H4 — conectividade v2.6.0 (o dono, prints do rig: "no menu de rede eu
+#      não consigo desligar/ligar minhas conexões seja cabo, wi-fi e etc
+#      nem me conectar a redes; isso é pra criação de rede manual"): o
+#      menu volta a CONTROLAR o NetworkManager via nmcli (o cli do
+#      próprio serviço — cada verbo é UM comando dele). O editor
+#      (nm-connection-editor) segue, agora como UM item: a CRIAÇÃO
+#      manual mora lá, como o dono mesmo definiu. O bug do picker v3
+#      morreu de vez: linha→SSID/segredo via MAPA escrito pelo mesmo awk
+#      que desenha a lista — o valor devolvido ao NM é o que o NM deu.
 assert_grep "$REPO/elite/packages.add" '^network-manager-applet$' \
-  "packages.add: network-manager-applet presente (o editor de conexões é dele — agora é O caminho do menu também)"
+  "packages.add: network-manager-applet presente (o editor de conexões é dele — item do menu)"
 assert_grep "$REPO/elite/packages.add" '^blueman$' \
   "packages.add: blueman presente (GUI de bluetooth)"
-assert_grep "$CCON" 'Wi-Fi: gerenciar conexões' \
-  "craft-connect: o verbo Wi-Fi chama o gerenciador (a diretriz do dono no live)"
+assert_grep "$CCON" 'nmcli radio wifi' \
+  "craft-connect v5: Wi-Fi liga/desliga pelo rádio do NetworkManager (o dono: 'não consigo desligar/ligar... wi-fi')"
+assert_grep "$CCON" 'nmcli device connect' \
+  "craft-connect v5: cabo liga por dispositivo (nmcli device connect — 'desligar/ligar minhas conexões seja cabo')"
+assert_grep "$CCON" 'nmcli device disconnect' \
+  "craft-connect v5: cabo desliga por dispositivo"
+assert_grep "$CCON" 'nmcli device wifi connect' \
+  "craft-connect v5: CONECTAR em rede volta ao caminho (a reversão ASSUMIDA: o dono pediu conectar no menu — o bug do picker v3 era o parse; agora linha→SSID via MAPA do próprio awk)"
+assert_grep "$CCON" 'nmcli connection up' \
+  "craft-connect v5: conexões salvas religam pelo nome (senha do cofre do NM, sem prompt)"
+assert_grep "$CCON" 'nmcli connection down' \
+  "craft-connect v5: conexão ativa desliga (● = ativa na lista)"
+assert_grep "$CCON" '--ask=' \
+  "craft-connect v5: rede nova protegida pede a senha no menu (o prompt visível é a exceção honesta; rede salva nunca pergunta)"
+assert_grep "$CCON" 'elite-net\.' \
+  "craft-connect v5: o MAPA linha→valor (o que o NM entregou é o que volta ao NM — nunca parse de tela)"
 assert_grep "$CCON" 'exec nm-connection-editor' \
-  "craft-connect: o gerenciador do SISTEMA cuida da conexão (zero lógica nossa no caminho)"
+  "craft-connect v5: o editor do SISTEMA segue (a criação manual mora lá — definição do próprio dono)"
 assert_grep "$CCON" 'blueman-manager' \
-  "craft-connect: menu abre GUI de bluetooth (TUI bluetui só como fallback)"
+  "craft-connect v5: o verbo Bluetooth que o dono APROVOU segue (GUI, TUI só fallback)"
+assert_grep "$CCON" '--at=network' \
+  "craft-connect v5: o menu nasce SOB O BOTÃO de rede (âncora do craft-menu v4)"
 RCXML="$REPO/elite/airootfs/etc/skel/.config/labwc/rc.xml"
 assert_grep "$RCXML" 'command="nm-connection-editor"' \
   "rc.xml: W-n abre o editor de conexões (função avançada fora do menu de 2 itens)"

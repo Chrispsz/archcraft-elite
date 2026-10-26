@@ -104,52 +104,82 @@ craft-pin restore                 # desfaz a última alteração
 
 ---
 
-## craft-power (v2.1 → motor v2.4.0) — `/usr/local/bin/craft-power`
+## craft-power (v2.6.0) — `/usr/local/bin/craft-power`
 
-**O quê:** menu de sessão do botão ⏻ da barra com toggle por pressão (2º ⏻ fecha — "esse tipo de erro não pode existir"). v2.3.8: passou ao craft-menu (o menu da casa — fim do dropdown ancorado próprio). v2.4.0: o motor do craft-menu é o fuzzel — a escolha nasce no motor com prova de vida no rig. Entradas: Travar tela · Sair da sessão · Suspender · Reiniciar · Desligar · Tempo de idle…. Fallback labnag preservado (e o labnag aberto também vira toggle). Toda abertura e toda falha deixam linha no `menus.log`.
+**O quê:** menu de sessão do botão ⏻ da barra, MINIMALISTA como o dono pediu — entradas: Sair da sessão · Suspender · Reiniciar · Desligar · Tempo de idle… · Rollback do sistema…. **'Travar tela' saiu do menu** (o dono: "é necessária essa opção?" — não: o lock é PARTE do suspender e segue vivo no W-l). **O SUSPENDER DE VERDADE** (o dono: "tenta mas rapidamente liga e fica como se eu só tivesse clicado em travar tela"): trava PRIMEIRO (craft-lock — acorda no wallpaper borrado) e suspende com `systemctl suspend -i` — inibidores de sono de apps (navegador/players) IGNORADOS, que era a morte calada do suspend antigo. Fallback labnag preservado (e o labnag aberto também vira toggle). O menu nasce SOB O BOTÃO (--at=power). Toda abertura e toda falha deixam linha no `menus.log`.
 
-**Como rodar:** botão ⏻ da barra (custom/power) ou menu raiz.
+**Como rodar:** clique DIREITO no botão ⏻ da barra (custom/power) — a lei dos menus da barra v2.6.0: o clique esquerdo é mudo; só o direito abre.
 
 **Reverter:** n/a — o motor é o fuzzel do sistema; as entradas moram neste script.
 
-**Depende de:** craft-menu (fuzzel), systemctl (ações via polkit — ver `49-elite-desktop.rules`).
+**Depende de:** craft-menu (fuzzel), craft-lock, systemctl (ações via polkit — ver `49-elite-desktop.rules`).
 
 ---
 
-## craft-menu (v3.0 — O MOTOR QUE JÁ ABRIA) — `/usr/local/bin/craft-menu`
+## craft-menu (v4.0 — O MOTOR QUE ABRE, ANCORA E TOGGLA DE VERDADE) — `/usr/local/bin/craft-menu`
 
-**O quê:** o menu da distro — v3 = `fuzzel --dmenu` em POSIX sh puro. A era GTK (v2.3.8 nativa → v2.3.11 "gaiola") **nunca abriu no rig real**: duas reescritas, dois funerais — a v1 morria antes do 1º frame (corrida de foco no mapa) e a gaiola também não nasceu na máquina do dono. A v3 usa o ÚNICO motor com prova de vida no rig: o fuzzel — o launcher e o menu de Sessão sempre abriram, filtraram e fecharam nele (a cura v2.3.6 do clique-fora foi provada NA MÁQUINA). Zero GTK, zero layer-shell, zero corrida de foco para EXISTIR: a classe "morre antes do 1º frame" está extinta por construção — não existe mais toolkit para falhar. A lei dos menus virou FÍSICA: só existe um teclado — abrir outro menu rouba o foco e o anterior FECHA SOZINHO (`exit-on-focus-loss=yes`, contrato no fuzzel.ini); o 2º clique no botão fecha (burn test v1.4 do Sessão provou).
+**O quê:** o menu da distro — `fuzzel --dmenu` em POSIX sh puro (a era GTK nunca abriu no rig: duas reescritas, dois funerais — história na v3). As TRÊS CURAS v2.6.0 (prints do rig 26/out, o dono: "solucione tudo de uma vez por todas"):
+
+1. **LISTA PURA** — `--hide-prompt` mata a linha de digitação inteira: sem o nome ('Sessão:', 'Encerrar:'), sem o "risco |" que ficava na frente ("tirar esse risco"). Digitar ainda filtra, às escondidas; `--minimal-lines` encolhe a janela para o tamanho da lista.
+2. **ANCORA NO BOTÃO** — `--anchor top-right` + `--x-margin` calibrado POR SLOT (`--at=power|bgapps|network|drawer`): o menu nasce SOB O BOTÃO que o chamou ("não seria melhor ficar onde ela for aberta?"), não no centro da tela. A barra de 36px empurra a layer pelo exclusive zone; submenus herdam o slot do pai.
+3. **LEI DETERMINÍSTICA** — o toggle e o cross-dismiss deixaram de depender da física do foco (que o rig DESMENTIU: "clico de novo e não fecha, um não anula o outro"): o pid do fuzzel vivo fica em `$XDG_RUNTIME_DIR/elite-menus.<uid>`; 2ª chamada do MESMO título mata e sai 2 (toggle); título diferente mata e abre o novo (cross-dismiss). Probe `fuzzel --help` degrada graciosamente em fuzzel velho. E `id -u`, NUNCA a variável UID do bash (dash não a tem — sob `set -u` era morte rc=2 silenciosa que o chamador lia como toggle benigno; flagrado no smoke test).
 
 ```bash
-craft-menu --title='Sessão' 'Travar tela' 'Sair da sessão' 'Suspender'   # argv
-printf '%s
-' 'brave (pid 123)' | craft-menu --title='Encerrar'          # stdin (listas dinâmicas)
+craft-menu --title='Sessão' --at=power 'Sair da sessão' 'Suspender'   # argv
+printf '%s\n' 'brave (pid 123)' | craft-menu --title='Encerrar' --at=bgapps   # stdin
+craft-menu --title='Senha Wi-Fi' --at=network --ask='Senha' </dev/null   # modo entrada
 ```
 
-**Gramática de saída (contrato com os 7 chamadores — intocada):** escolha no stdout · exit 0 · fechado sem escolha (ESC / clique fora / foco perdido) = **exit 1 com stderr vazio** (fechar NUNCA é falha) · **143** = morto por SIGTERM (cross-dismiss) · outros = falha REAL (stderr vivo para o chamador logar + avisar e SOME). O título vive no prompt do fuzzel: contexto + filtro por digitação.
+**Gramática de saída (contrato com os 6 chamadores — intocada):** escolha no stdout · exit 0 · fechado sem escolha (ESC / clique fora) = **exit 1** (fechar NUNCA é falha) · **exit 2** = TOGGLE real (a 2ª chamada do mesmo título fechou) · **143** = morto por SIGTERM (cross-dismiss) · outros = falha REAL (stderr vivo para o chamador logar + avisar e SOME).
 
-**Como rodar:** pelos módulos que abrem menu — Sessão (craft-power), Encerrar (craft-bgapps), idle (craft-idle), rollback (craft-rollback), sair (craft-logout), rede (craft-connect).
+**Como rodar:** pelos módulos que abrem menu — Sessão (craft-power), Encerrar (craft-bgapps), idle (craft-idle), rollback (craft-rollback), sair (craft-logout), rede (craft-connect). TODOS por clique DIREITO (a lei dos menus da barra v2.6.0).
 
-**Depende de:** fuzzel (dmenu), sh. O rice do menu morto (menu.css) foi aposentado.
+**Depende de:** fuzzel ≥ 1.10 (anchor/hide-prompt — a ISO carrega o corrente), sh. O rice do menu morto (menu.css) foi aposentado.
 
 ---
 
 
-## craft-bgapps (v3.0 — UM processo por PROGRAMA) — `/usr/local/bin/craft-bgapps`
+## craft-bgapps (v4.0 — SÓ PROGRAMA DO DONO) — `/usr/local/bin/craft-bgapps`
 
-**O quê:** o botão de apps em 2º plano da menu bar (módulo `custom/bgapps`) — só ocupa a barra QUANDO há programa do usuário fora da casca da sessão (texto vazio = some). A LEI v2.3.10 (fica): o que é da SESSÃO nunca aparece (compositor, barras, áudio, dbus, portals, keyring, idle, notificações, clipboard, automount, acessibilidade, systemd/sd e os craft-*/elite-*), e TODO programa de verdade aparece — nativo, flatpak (o processo real dentro do sandbox tem o próprio nome), AppImage, interpretado — varredura do `/proc`/ps REAL do UID, casamento POR PREFIXO (o ps corta o comm em 15 caracteres). A LEI v2.4.0 (o dono: "abri o Brave e abriu 11 serviços… só no processo principal"): **UM PROCESSO POR PROGRAMA** — entra no menu o PRINCIPAL de cada árvore (o candidato cujo PAI não é outro candidato); renderers/gpu/utility do Chromium e derivados, zygotes, crashpad e o app dentro do sandbox do flatpak são a sombra do programa, NUNCA entrada; cintura de segurança: cmdline com ` --type=` nunca é principal, nem órfã adotada pelo init. O tooltip é DESCRIÇÃO curta (a gramática dos outros módulos) — o preview da lista morreu ("não precisa de preview apenas uma descrição… ao clicar que abre o menu"). Status à prova de bala: qualquer falha interna ainda emite JSON válido (o botão só some sem programa de verdade).
+**O quê:** o botão de apps em 2º plano da menu bar (módulo `custom/bgapps`) — só ocupa a barra QUANDO há programa do usuário fora da casca da sessão (texto vazio = some). A LEI v2.3.10 (fica): o que é da SESSÃO nunca aparece, e TODO programa de verdade aparece — varredura do `/proc`/ps REAL do UID, casamento POR PREFIXO (o ps corta o comm em 15 caracteres). A LEI v2.4.0: **UM PROCESSO POR PROGRAMA** — o PRINCIPAL de cada árvore; renderers do Chromium são a sombra, NUNCA entrada; tooltip = DESCRIÇÃO curta. A LEI v2.6.0 (o dono, foto do rig: "continua pegando serviços do sistema que inclusive não encerram — (sd-pam), dconf-service, gvfs-udisks2-vo, gvfs-mtp-volume"):
+
+- **comm NORMALIZADO** — o sd-pam se apresenta como `(sd-pam)` (com parênteses!) e escapava do padrão `sd-pam*`; os parênteses saem antes do casamento. A casca ganhou `dconf*`, `gvfs*` (cobre gvfsd E os monitores gvfs-*), `Xwayland*`, `hyprlock/hypridle/hyprpaper`, `labnag*`;
+- **CANDIDATO SEM DISPLAY NUNCA É PROGRAMA** — `/proc/PID/environ` sem `WAYLAND_DISPLAY=`/`DISPLAY=` é assinatura de serviço de fundo (o Brave e o Files conversam com o compositor; sd-pam/dconf/gvfs, nunca);
+- **ENCERRAR DE VERDADE** — SIGTERM, 2s de paciência, SIGKILL em quem aguentou (o dono clica UMA vez);
+- **ÃNCORA** — o menu nasce sob o PRÓPRIO botão (--at=bgapps) e abre SÓ no clique DIREITO.
 
 ```bash
 craft-bgapps status   # JSON do módulo waybar (vazio = botão some)
-craft-bgapps menu     # craft-menu com "nome (pid N)"; o escolhido recebe SIGTERM
+craft-bgapps menu     # clique DIREITO: craft-menu com "nome (pid N)"
 ```
 
-**Como rodar:** automático (o waybar executa `status` a cada 10s; clique abre o `menu`). Encerramento = SIGTERM + notificação que SOME.
+**Como rodar:** automático (o waybar executa `status` a cada 10s; clique DIREITO abre o `menu`).
 
 **Depende de:** sh, ps, /proc; craft-menu para o menu.
 
 ---
 
+## craft-connect (v5.0 — A CENTRAL QUE CONTROLA O NetworkManager) — `/usr/local/bin/craft-connect`
+
+**O quê:** o menu do ícone de rede da barra — e agora ele CONTROLA a rede, não só chama o gerenciador (o dono, prints do rig: "no menu de rede eu não consigo desligar/ligar minhas conexões seja cabo, wi-fi e etc nem me conectar a redes; isso é pra criação de rede manual"). O `nmcli` (o cli do PRÓPRIO NetworkManager) é a fonte única de verdade — cada verbo é UM comando do serviço:
+- **Cabo**: Ligar/Desligar por dispositivo (`nmcli device connect/disconnect` — estados ao vivo no menu);
+- **Wi-Fi**: liga/desliga o rádio (`nmcli radio wifi`);
+- **REDES WI-FI**: lista ao vivo com sinal e 🔒 (rescan a cada abertura; ● = conectada); rede salva sobe pelo nome (senha do cofre do NM, sem prompt); rede aberta conecta direta; rede nova protegida pede a senha no menu (`craft-menu --ask` — prompt visível, a exceção honesta);
+- **CONEXÕES SALVAS**: religar/desligar (`nmcli connection up/down`, ● = ativa);
+- **Bluetooth: dispositivos…** — o verbo que o dono APROVOU segue (blueman-manager, bluetui de fallback);
+- **Editor de conexões…** — a CRIAÇÃO manual mora no nm-connection-editor (definição do próprio dono para o editor).
+
+O bug do picker v3 (conectou 3× com senha correta e falhou — menus.log 23:14) morreu de vez: o par linha→SSID/segredo vive num MAPA escrito pelo MESMO awk que desenha a lista (`$XDG_RUNTIME_DIR/elite-net.<uid>.map`) — o valor devolvido ao NM é o que o NM entregou, nunca parse de tela. Cada ação reabre o menu com o estado NOVO. O menu nasce SOB O BOTÃO de rede (--at=network) e abre SÓ no clique DIREITO.
+
+```bash
+craft-connect   # clique DIREITO no ícone de rede: cabo on/off, Wi-Fi on/off, conectar redes
+```
+
+**Como rodar:** clique DIREITO no módulo `network` da barra. Teclado segue: W-n (editor), W-S-b (bluetui).
+
+**Depende de:** nmcli (NetworkManager), craft-menu; nm-connection-editor (editor), blueman-manager/bluetui (Bluetooth), foot+impala como fallback TUI.
+
+---
 
 ## craft-shot (v1.x) — `/usr/local/bin/craft-shot`
 

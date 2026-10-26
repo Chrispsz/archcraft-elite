@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # craft-logout — menu de sessão (craft-menu; Esc cancela)
-# opções: lock · logout (labwc) · reboot · shutdown
+# opções: logout (labwc) · reboot · shutdown
+#
+# v2.6.0 — minimalista como o Sessão: 'Travar tela' sai do menu (o lock
+# segue no W-l e é PARTE do suspender) e o menu nasce sob o BOTÃO do
+# power (--at=power — craft-menu v4; a tecla W-x também o chama — o
+# anchor top-right é o assento natural da família de sessão).
 #
 # v2.4.0 — O MOTOR QUE JÁ ABRIA: o craft-menu v3 é fuzzel --dmenu (a era
 # GTK do menu saiu de cena — nunca abriu no rig; o Sessão volta ao motor
@@ -30,8 +35,8 @@ mlog "Logout: abrindo (craft-menu)"
 errf="$(mktemp)"
 trap 'rm -f "$errf"' EXIT
 ec=0
-choice="$(craft-menu --title='Sair' \
-    'Travar tela' 'Sair da sessão' 'Reiniciar' 'Desligar' \
+choice="$(craft-menu --title='Sair' --at=power \
+    'Sair da sessão' 'Reiniciar' 'Desligar' \
     2>"$errf")" || ec=$?
 if [ "$ec" -eq 143 ]; then
     mlog "Logout: fechado de fora (SIGTERM — cross-dismiss) — benigno"
@@ -63,11 +68,6 @@ if [ "$ec" -ne 0 ]; then
 fi
 [ -n "$choice" ] || exit 0
 case "$choice" in
-  'Travar tela')
-    rm -f "$errf"   # v2.5.0: o trap EXIT não roda através de exec
-    if command -v craft-lock >/dev/null 2>&1; then exec craft-lock
-    elif command -v loginctl >/dev/null 2>&1; then exec loginctl lock-session
-    fi ;;
   'Sair da sessão')
     rm -f "$errf"   # v2.5.0: idem
     if command -v labwc >/dev/null 2>&1; then exec labwc --exit; fi

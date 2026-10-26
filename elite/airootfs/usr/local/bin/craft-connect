@@ -1,31 +1,32 @@
 #!/bin/sh
-# craft-connect — central de CONECTIVIDADE da menu bar (v4 — o menu que CHAMA o serviço)
+# craft-connect — CENTRAL DE REDE que CONTROLA o NetworkManager (v5)
 # ─────────────────────────────────────────────────────────────────────────
-# v4 (v2.3.7 — o dono USOU o picker no live e decretou a direção, 25/10):
-#   · "um menu serve pra chamar o serviço… evitando criar submenus e
-#     coisas que podem quebrar" — o picker fuzzel+nmcli da v3 conectou
-#     3× COM SENHA CORRETA e falhou (menus.log 23:14: FALHA NILDOMAR-2G,
-#     Natalya Dias ×2). Desenhar submenu próprio = desenhar a falha junto.
-#   · "assim como o bluetooth faz: eu clicar no bluetooth ele abre o
-#     gerenciador" — o verbo Wi-Fi agora abre o GERENCIADOR DO SISTEMA
-#     (nm-connection-editor — o mesmo que o W-n já chamava; fallback
-#     nmtui, ferramenta do próprio NetworkManager). Zero lógica nossa no
-#     caminho da conexão: conectar, esquecer, priorizar, criar VPN — é
-#     o trabalho do gerenciador, não de um dropdown desenhado.
-#   · o picker, o prompt 'Senha' e o parse de SSID/signal MORREM AQUI —
-#     menos superfície, menos modo de falhar (a lição inteira da v3).
-# v3 (v2.3.6 — relato do dono com prints do rig v2.3.5):
-#   · "remove esse ícone feio de Pc" — o applet da tray MORREU: o ícone SNI
-#     de ethernet é bitmap de tema de ícones, quebra a família tipográfica
-#     da barra (todo o resto é glifo Nerd Font) e vive mal alinhado. A
-#     tray saiu junto: nada mais a exibir (udiskie roda --no-tray).
-#   · "tira isso de editar conexão da tela de rede" — o EDITOR saiu do
-#     menu (volta a ser O MENU INTEIRO na v4, pelo mesmo dono).
-# Histórico: v1.4 toggle · v1.8.2 GUIs no lugar dos TUIs · v2.3.1 fim do
-#            silêncio · v2.3.6 o conector é o menu · v2.3.7 o menu chama
-#            o serviço (fim do picker desenhado).
+# v5 (v2.6.0 — o dono, prints do rig 26/out: "no menu de rede eu não
+# consigo desligar/ligar minhas conexões seja cabo, wi-fi e etc nem me
+# conectar a redes; isso é pra criação de rede manual"): o menu volta a
+# ser O CONTROLE, com o nmcli (o cli do PRÓPRIO NetworkManager) como
+# fonte única de verdade — cada verbo é UM comando do serviço, zero
+# lógica de rede nossa:
+#   · Ligar/Desligar CABO por dispositivo (nmcli device connect/disconnect);
+#   · Ligar/Desligar WI-FI (nmcli radio wifi);
+#   · CONECTAR em rede: lista ao vivo com sinal e 🔒, rede salva sobe
+#     pelo nome (senha do cofre do NM, sem prompt), rede aberta conecta
+#     direta, rede nova protegida pede a senha no menu;
+#   · CONEXÕES SALVAS: reconectar/desconectar (● = ativa);
+#   · o EDITOR (nm-connection-editor) continua — a CRIAÇÃO manual mora
+#     lá, como o dono mesmo definiu ("isso é pra criação de rede manual").
+# O bug do picker v3 (v2.3.6) morreu de vez: o par linha→SSID/segredo é
+# guardado num MAPA escrito pelo MESMO awk que desenha a lista — o valor
+# devolvido ao NM é o que o NM entregou, nunca um parse de tela.
+# Os menus abrem SOB O BOTÃO de rede (--at=network — craft-menu v4) e a
+# lei dos fechamentos (ESC 1 · toggle 2 · cross-dismiss 143) é a do
+# craft-menu, intacta.
+# v4 (v2.3.7 — o dono USOU o picker no live e decretou a direção): menu
+# chamava o gerenciador. v3 (v2.3.6): picker conectou 3× COM SENHA e
+# falhou (menus.log 23:14). v1.4 toggle · v1.8.2 GUIs · v2.3.1 fim do
+# silêncio · v2.3.6 o conector é o menu · v2.3.7 o menu chama o serviço.
 # ─────────────────────────────────────────────────────────────────────────
-set -eu
+set -u
 
 MLOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/menus.log"
 mlog() {
@@ -37,78 +38,323 @@ mlog() {
     return 0
 }
 
-# TOGGLE/CROSS-DISMISS: a lei agora é ESTRUTURAL dentro do craft-menu
-# (v2.3.8) — 2ª chamada do mesmo título fecha; abrir um menu fecha o
-# outro. Este script não mata irmão nenhum mais.
+note() {
+    # aviso que SOME (urgência normal + timeout — o v2.3.10: crítico eterno
+    # nunca mais)
+    if command -v notify-send >/dev/null 2>&1; then
+        timeout 5 notify-send -a 'Elite' "$@" >/dev/null 2>&1 || true
+    fi
+    return 0
+}
 
-if command -v craft-menu >/dev/null 2>&1; then
-    # v2.3.8 — o menu NATIVO: título centrado, itens centrados, ZERO linha
-    # de digitação (o dono: "remover a barra que fica, tipo 'Rede |'");
-    # a janela nasce centrada (layer-shell sem âncoras = centro, spec).
-    # v2.3.1: stderr CAPTURADO — falha vira log + notify, nunca morte calada
-    # (a denúncia do rig: "os menus morreram").
-    mlog "Rede: abrindo (craft-menu)"
+# MAPA linha→valor (escrito pelo MESMO awk que desenha a lista; rm em TODO
+# ponto de saída + trap — e rm ANTES de qualquer exec, lição 24-c).
+# id -u e não a variavel UID do bash (dash não a tem; sob set -u seria morte silenciosa)
+MAP="${XDG_RUNTIME_DIR:-/tmp}/elite-net.$(id -u 2>/dev/null || echo 0).map"
+trap 'rm -f "$MAP"' EXIT
+: >"$MAP"
+
+_c=""
+_rc=0
+open_menu() {
+    # craft-menu com stderr capturado (falha vira log + aviso, nunca morte
+    # calada — a lei v2.3.1)
     errf="$(mktemp)"
-    ec=0
-    choice="$(craft-menu --title='Rede' \
-        'Wi-Fi: gerenciar conexões…' \
-        'Bluetooth: dispositivos' \
-        2>"$errf")" || ec=$?
-    if [ "$ec" -eq 143 ]; then
-        # v2.3.5 — SIGTERM = fechado de fora (cross-dismiss: outro menu abriu)
-        mlog "Rede: fechado de fora (SIGTERM — cross-dismiss) — benigno"
-        rm -f "$errf"
-        exit 0
-    fi
-    if [ "$ec" -eq 2 ]; then
-        # v2.3.8 — TOGGLE estrutural (a lei mora no craft-menu)
-        mlog "Rede: toggle — 2ª chamada fechou o menu — benigno"
-        rm -f "$errf"
-        exit 0
-    fi
-    if [ "$ec" -eq 1 ]; then
-        # v2.3.10 — fechar NUNCA é erro (ESC/clique fora), COM OU SEM
-        # stderr: o GTK emite warnings benignos no destroy (o gate velho
-        # '! -s "$errf"' transformava TODO fechamento normal em FALHOU
-        # com toast crítico ETERNO — a pilha de notificações da foto do
-        # dono). stderr vai pro log, nunca pra tela.
-        if [ -s "$errf" ]; then
-            mlog "Rede: fechado pelo usuário (ESC) — benigno — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
-        else
-            mlog "Rede: fechado pelo usuário (ESC) — benigno"
-        fi
-        rm -f "$errf"
-        exit 0
-    fi
-    if [ "$ec" -ne 0 ]; then
-        mlog "Rede: MENU FALHOU exit=$ec — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
-        # v2.3.10 — falha REAL avisa e SOME: -u normal (o critical nunca
-        # expira na swaync) + -t 8000 + timeout 5 (daemon preso nunca
-        # prende o chamador).
-        command -v notify-send >/dev/null 2>&1 && \
-            timeout 5 notify-send -a 'Elite' -u normal -t 8000 \
-                'Menu de Rede falhou' \
-                "craft-menu exit=$ec — detalhe em ~/.cache/elite/menus.log" || true
+    _rc=0
+    _c="$(craft-menu "$@" 2>"$errf")" || _rc=$?
+    if [ "$_rc" -ne 0 ] && [ -s "$errf" ]; then
+        mlog "Rede: craft-menu rc=$_rc — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
     fi
     rm -f "$errf"
-else
+    return 0
+}
+
+benign_close() {
+    # fechamento SEM escolha NUNCA é erro (ESC 1 · toggle 2 · cross-dismiss 143)
+    case "$1" in
+        1|2|143) mlog "Rede: fechado pelo usuário (ESC)/toggle/cross-dismiss (rc=$1) — benigno"; return 0 ;;
+    esac
+    return 1
+}
+
+menu_fail() {
+    mlog "Rede: MENU FALHOU rc=$1"
+    note -u normal -t 8000 'Menu de Rede falhou' \
+        "craft-menu exit=$1 — detalhe em ~/.cache/elite/menus.log"
+}
+
+# ── as LINHAS do menu principal (estado ao vivo do NetworkManager) ─────────
+main_rows() {
+    rows=""
+    eth="$(nmcli -t -f DEVICE,TYPE,STATE device status 2>/dev/null \
+        | awk -F: '$2=="ethernet" && $1!="" && $1!="--" {print $1 "\t" $3}' || true)"
+    if [ -n "$eth" ]; then
+        while read -r d s; do
+            [ -n "${d:-}" ] || continue
+            case "${s:-}" in
+                connected)
+                    rows="${rows}Desligar cabo ($d)
+" ;;
+                disconnected)
+                    rows="${rows}Ligar cabo ($d)
+" ;;
+                *)
+                    # unmanaged/unavailable (sem cabo na porta) — informativa
+                    rows="${rows}Cabo: indisponível ($d)
+" ;;
+            esac
+        done <<EOF
+$eth
+EOF
+    fi
+    wifi="$(nmcli radio wifi 2>/dev/null || true)"
+    case "$wifi" in
+        enabled)
+            rows="${rows}Wi-Fi: desligar
+Redes Wi-Fi…
+" ;;
+        disabled)
+            rows="${rows}Wi-Fi: ligar
+" ;;
+    esac
+    rows="${rows}Conexões salvas…
+Bluetooth: dispositivos…
+Editor de conexões…"
+    printf '%s\n' "$rows"
+}
+
+# ── CONECTAR em rede Wi-Fi ──────────────────────────────────────────────────
+wifi_connect() {
+    ssid="$1"
+    sec="$2"
+    # rede já salva? sobe pelo NOME — a senha vem do cofre do NM, sem prompt
+    if nmcli -g NAME connection show 2>/dev/null | grep -Fxq -- "$ssid"; then
+        mlog "Rede: conexão salva '$ssid' — nmcli connection up"
+        if nmcli connection up "$ssid" >/dev/null 2>&1; then
+            note -t 4000 'Wi-Fi' "Conectado: $ssid"
+        else
+            note -u normal -t 8000 'Wi-Fi' \
+                "Falhou ao conectar em $ssid — rede fora de alcance? Tente de novo."
+        fi
+        return 0
+    fi
+    # rede aberta: direto
+    if [ -z "$sec" ]; then
+        mlog "Rede: rede aberta '$ssid' — conexão direta"
+        if nmcli device wifi connect "$ssid" >/dev/null 2>&1; then
+            note -t 4000 'Wi-Fi' "Conectado: $ssid"
+        else
+            note -u normal -t 8000 'Wi-Fi' "Falhou ao conectar em $ssid."
+        fi
+        return 0
+    fi
+    # rede nova protegida: o menu pede a senha (prompt visível no fuzzel;
+    # a rede salva na próxima vez não pergunta mais)
+    mlog "Rede: rede nova protegida '$ssid' — pedindo senha"
+    open_menu --title='Senha Wi-Fi' --at=network --ask='Senha' </dev/null
+    if [ "$_rc" -ne 0 ]; then
+        if benign_close "$_rc"; then return 0; fi
+        menu_fail "$_rc"
+        return 0
+    fi
+    pass="$_c"
+    [ -n "$pass" ] || return 0
+    if nmcli device wifi connect "$ssid" password "$pass" >/dev/null 2>&1; then
+        note -t 4000 'Wi-Fi' "Conectado: $ssid"
+    else
+        note -u normal -t 8000 'Wi-Fi' \
+            "Não conectou em $ssid — senha recusada ou rede fora de alcance."
+    fi
+    return 0
+}
+
+# ── as REDES WI-FI ao vivo ──────────────────────────────────────────────────
+wifi_menu() {
+    while :; do
+        : >"$MAP"
+        raw="$(nmcli -g IN-USE,SSID,SIGNAL,SECURITY device wifi list --rescan yes 2>/dev/null || true)"
+        printf '%s\n' "$raw" | awk -F: '
+            {
+                use = $1; ssid = $2; sig = $3; sec = $4
+                gsub(/\\:/, ":", ssid)
+                gsub(/\\:/, ":", sec)
+                if (ssid == "") next          # rede oculta: não conecta da lista
+                row = sprintf("%s%s (%s%%)%s", (use == "*") ? "● " : "   ", \
+                              ssid, sig, (sec != "") ? "  🔒" : "")
+                print row "\t" ssid "\t" sec
+            }' >"$MAP"
+        if [ ! -s "$MAP" ]; then
+            note -t 4000 'Rede' 'Nenhuma rede Wi-Fi encontrada.'
+            return 0
+        fi
+        rows="$( { cut -f1 "$MAP"; printf 'Atualizar…'; } )"
+        open_menu --title='Wi-Fi' --at=network <<EOF
+$rows
+EOF
+        if [ "$_rc" -eq 0 ]; then
+            [ -n "$_c" ] || return 0
+        else
+            if benign_close "$_rc"; then return 0; fi
+            menu_fail "$_rc"
+            return 0
+        fi
+        case "$_c" in
+            'Atualizar…') continue ;;
+            *)
+                ssid="$(awk -F'\t' -v r="$_c" '$1 == r { print $2; exit }' "$MAP")"
+                sec="$(awk -F'\t' -v r="$_c" '$1 == r { print $3; exit }' "$MAP")"
+                [ -n "$ssid" ] || return 0
+                wifi_connect "$ssid" "$sec"
+                return 0
+                ;;
+        esac
+    done
+}
+
+# ── as CONEXÕES SALVAS (reconectar / desconectar) ───────────────────────────
+known_menu() {
+    : >"$MAP"
+    nmcli -g NAME,TYPE,DEVICE connection show 2>/dev/null | awk -F: '
+        $2 == "802-3-ethernet" || $2 == "802-11-wireless" {
+            name = $1; dev = $3
+            gsub(/\\:/, ":", name)
+            mark = (dev != "" && dev != "--") ? "● " : "   "
+            print mark name "\t" name
+        }' >"$MAP"
+    if [ ! -s "$MAP" ]; then
+        note -t 4000 'Rede' 'Nenhuma conexão salva.'
+        return 0
+    fi
+    rows="$(cut -f1 "$MAP")"
+    open_menu --title='Conexões' --at=network <<EOF
+$rows
+EOF
+    if [ "$_rc" -eq 0 ]; then
+        [ -n "$_c" ] || return 0
+    else
+        if benign_close "$_rc"; then return 0; fi
+        menu_fail "$_rc"
+        return 0
+    fi
+    name="$(awk -F'\t' -v r="$_c" '$1 == r { print $2; exit }' "$MAP")"
+    [ -n "$name" ] || return 0
+    case "$_c" in
+        '● '*)
+            mlog "Rede: desligando conexão '$name'"
+            if nmcli connection down "$name" >/dev/null 2>&1; then
+                note -t 4000 'Rede' "Desconectado: $name"
+            else
+                note -u normal -t 8000 'Rede' "Falhou ao desligar $name."
+            fi
+            ;;
+        *)
+            mlog "Rede: ligando conexão '$name'"
+            if nmcli connection up "$name" >/dev/null 2>&1; then
+                note -t 4000 'Rede' "Conectado: $name"
+            else
+                note -u normal -t 8000 'Rede' \
+                    "Falhou ao conectar em $name — cabo fora? Wi-Fi desligado?"
+            fi
+            ;;
+    esac
+    return 0
+}
+
+# ── guardas de ausência (o fallback honesto das eras antigas) ───────────────
+if ! command -v nmcli >/dev/null 2>&1; then
+    mlog "Rede: nmcli AUSENTE — fallback impala"
+    exec foot -e impala
+fi
+if ! command -v craft-menu >/dev/null 2>&1; then
     mlog "Rede: craft-menu AUSENTE — fallback impala"
     exec foot -e impala
 fi
 
-case "$choice" in
-    'Wi-Fi: gerenciar conexões…')
-        # v2.3.7 — o MENU CHAMA O SERVIÇO (a diretriz do dono): o
-        # gerenciador do sistema cuida de conectar/esquecer/priorizar/VPN.
-        mlog "Rede: chamando o gerenciador de conexões do sistema"
-        if command -v nm-connection-editor >/dev/null 2>&1; then
-            exec nm-connection-editor
-        fi
-        exec foot -e nmtui ;;
-    'Bluetooth: dispositivos')
-        if command -v blueman-manager >/dev/null 2>&1; then
-            exec blueman-manager
-        fi
-        exec foot -e bluetui ;;
-    *)                            exit 0 ;;
-esac
+# ── o LOOP principal: cada ação reabre o menu com o estado NOVO ─────────────
+# (o menu entra por HEREDOC, nunca por pipeline: função em pipeline roda
+# em subshell e perde _c/_rc — e o heredoc expande $rows numa passada só,
+# então SSID com $/`/espaço chega INTEIRO ao craft-menu)
+mlog "Rede: abrindo central (craft-menu v4, âncora no botão)"
+while :; do
+    rows="$(main_rows)"
+    open_menu --title='Rede' --at=network <<EOF
+$rows
+EOF
+    if [ "$_rc" -eq 0 ]; then
+        [ -n "$_c" ] || exit 0
+    else
+        if benign_close "$_rc"; then exit 0; fi
+        menu_fail "$_rc"
+        exit 0
+    fi
+    case "$_c" in
+        'Wi-Fi: ligar')
+            mlog "Rede: rádio Wi-Fi ON"
+            if nmcli radio wifi on >/dev/null 2>&1; then
+                note -t 3000 'Rede' 'Wi-Fi ligado.'
+            else
+                note -u normal -t 8000 'Rede' 'Falhou ao ligar o Wi-Fi.'
+            fi
+            continue ;;
+        'Wi-Fi: desligar')
+            mlog "Rede: rádio Wi-Fi OFF"
+            if nmcli radio wifi off >/dev/null 2>&1; then
+                note -t 3000 'Rede' 'Wi-Fi desligado.'
+            else
+                note -u normal -t 8000 'Rede' 'Falhou ao desligar o Wi-Fi.'
+            fi
+            continue ;;
+        'Ligar cabo ('*)
+            d="${_c#Ligar cabo (}"
+            d="${d%)}"
+            mlog "Rede: ligar cabo ($d)"
+            if nmcli device connect "$d" >/dev/null 2>&1; then
+                note -t 3000 'Rede' "Cabo conectado ($d)."
+            else
+                note -u normal -t 8000 'Rede' "Falhou ao ligar o cabo ($d)."
+            fi
+            continue ;;
+        'Desligar cabo ('*)
+            d="${_c#Desligar cabo (}"
+            d="${d%)}"
+            mlog "Rede: desligar cabo ($d)"
+            if nmcli device disconnect "$d" >/dev/null 2>&1; then
+                note -t 3000 'Rede' "Cabo desligado ($d)."
+            else
+                note -u normal -t 8000 'Rede' "Falhou ao desligar o cabo ($d)."
+            fi
+            continue ;;
+        'Cabo: indisponível ('*)
+            # linha informativa (sem cabo na porta) — nada a fazer, o menu
+            # reabre com o mesmo estado
+            continue ;;
+        'Redes Wi-Fi…')
+            wifi_menu
+            continue ;;
+        'Conexões salvas…')
+            known_menu
+            continue ;;
+        'Bluetooth: dispositivos…')
+            # v2.6.0 — o verbo que o dono APROVOU no rig ("o de bluetooth é
+            # legal e funcional") segue: blueman-manager (GUI) com o
+            # bluetui de fallback
+            mlog "Rede: abrindo o gerenciador Bluetooth"
+            rm -f "$MAP"
+            if command -v blueman-manager >/dev/null 2>&1; then
+                exec blueman-manager
+            fi
+            exec foot -e bluetui ;;
+        'Editor de conexões…')
+            # a CRIAÇÃO manual de redes mora no gerenciador gráfico do
+            # sistema (a definição do próprio dono para o editor)
+            mlog "Rede: abrindo o editor de conexões do sistema"
+            rm -f "$MAP"
+            if command -v nm-connection-editor >/dev/null 2>&1; then
+                exec nm-connection-editor
+            fi
+            exec foot -e nmtui ;;
+        *)
+            rm -f "$MAP"
+            exit 0 ;;
+    esac
+done

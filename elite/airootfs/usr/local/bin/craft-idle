@@ -127,7 +127,7 @@ Nunca — só manual (W-l)"
     mlog "Idle: abrindo (craft-menu)"
     errf="$(mktemp)"
     ec=0
-    choice="$(printf '%s\n' "$MENU" | craft-menu --title='Idle' 2>"$errf")" || ec=$?
+    choice="$(printf '%s\n' "$MENU" | craft-menu --title='Idle' --at=power 2>"$errf")" || ec=$?
     if [ "$ec" -eq 143 ]; then
         mlog "Idle: fechado de fora (SIGTERM — cross-dismiss) — benigno"
         rm -f "$errf"

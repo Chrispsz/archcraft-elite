@@ -120,8 +120,15 @@
   // Rede — SÓ ÍCONE, UM SÓ P/ TUDO (v1.4: cabo + Wi-Fi + Bluetooth —
   // diretriz do dono do burn test: "um só ícone, conectividade é 1").
   // O estado vive no ícone (ethernet/wifi/desconectado — tooltips com
-  // essid/ip); clique abre a CENTRAL (craft-connect: Redes→impala,
-  // Bluetooth→bluetui). Teclado segue: W-n (impala), W-S-b (bluetui).
+  // essid/ip).
+  // v2.6.0 — A LEI DOS MENUS DA BARRA (o dono, prints do rig: "com o
+  // botão esquerdo do mouse remove o menu que aparece com o click e
+  // deixa só no click direito mesmo"): os três menus da barra abrem SÓ
+  // no clique DIREITO — o esquerdo é mudo. E o menu agora CONTROLA o
+  // NetworkManager (craft-connect v5): ligar/desligar cabo e Wi-Fi,
+  // conectar em redes (senha quando precisa), conexões salvas — e nasce
+  // SOB O BOTÃO (âncora do craft-menu v4), não no centro da tela.
+  // Teclado segue: W-n (impala), W-S-b (bluetui).
   // v2.1: ícones FA BMP — escapes \uXXXX legíveis, sem surrogate pairs
   // (network-wired = ethernet; unlink = sem conexão)
   "network": {
@@ -130,9 +137,9 @@
     "format-wifi": "\uf1eb",
     "format-linked": "\uf6ff",
     "format-disconnected": "\uf127",
-    "tooltip-format-ethernet": "{ifname} · {ipaddr}",
-    "tooltip-format-wifi": "{essid} ({signalStrength}%) · {ipaddr}",
-    "on-click": "craft-connect"
+    "tooltip-format-ethernet": "{ifname} · {ipaddr} — clique direito: ligar/desligar cabo, conectar redes",
+    "tooltip-format-wifi": "{essid} ({signalStrength}%) · {ipaddr} — clique direito: ligar/desligar Wi-Fi, conectar redes",
+    "on-click-right": "craft-connect"
   },
 
   // Volume (PipeWire) — SÓ ÍCONE (v2.1: sem porcentagem numérica — diretriz
@@ -169,14 +176,16 @@
   // Apps em 2º plano (v2.3.4 — pedido do dono: "um botão tray na topbar
   // para encerrar programas que estão executando em segundo plano e seja
   // do usuário caso queira"). Só ocupa a barra QUANDO há PROGRAMA do
-  // usuário fora da casca da sessão (texto vazio = some; a v2.3.10
-  // expurgou o encanamento da lista — nada de at-spi/xdg/gvfsd/craft-*);
-  // clique abre o menu nativo craft-menu.
+  // usuário fora da casca da sessão (texto vazio = some).
+  // v2.6.0 — clique DIREITO abre o menu (a lei dos menus da barra; o
+  // esquerdo é mudo), e a lista agora é SÓ programa do dono: o comm de
+  // "(sd-pam)"/dconf/gvfs-* escapava da casca v2.4.0 e serviço não
+  // encerra (craft-bgapps v4). Menu nasce sob o botão (âncora v4).
   "custom/bgapps": {
     "exec": "craft-bgapps status",
     "return-type": "json",
     "interval": 10,
-    "on-click": "craft-bgapps menu",
+    "on-click-right": "craft-bgapps menu",
     "tooltip": true
   },
 
@@ -189,13 +198,17 @@
     "interval": 60
   },
 
-  // Sessão — CLUSTER ESQUERDO (v1.8): liga/desliga/reset ao alcance do
-  // clique único da spec do dono. Menu dropdown (travar/sair/suspender/
-  // reiniciar/desligar — craft-power v2, fuzzel ancorado). Ícone: FA
-  // power-off.
+  // Sessão — o dropdown do power (craft-power: suspender/reiniciar/
+  // desligar/sair/rollback/idle — v2.6.0: SEM 'Travar tela' (o lock é
+  // PARTE do suspender e segue no W-l) e o suspend IGNORA inibidores
+  // (systemctl suspend -i — o "tenta e volta" do rig era inibidor de
+  // app matando o sono calado).
+  // v2.6.0 — a lei dos menus da barra: abre SÓ no clique DIREITO, e o
+  // menu nasce SOB O BOTÃO (âncora do craft-menu v4, não no centro).
+  // Ícone: FA power-off.
   "custom/power": {
     "format": "\uf011",
-    "tooltip-format": "Sessão",
-    "on-click": "craft-power"
+    "tooltip-format": "Sessão — clique direito: suspender, desligar, sair",
+    "on-click-right": "craft-power"
   }
 }
