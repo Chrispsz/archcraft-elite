@@ -522,7 +522,6 @@ assert_grep "$CPIN" 'craft-dock reload' \
 
 # H3 — cross-dismiss: abrir Sessão fecha Rede e vice-versa (nunca 2
 #      dropdowns empilhados — áudio do dono, 24/out e 21/out)
-CPOW="$REPO/elite/airootfs/usr/local/bin/craft-power"
 CCON="$REPO/elite/airootfs/usr/local/bin/craft-connect"
 CMEN="$REPO/elite/airootfs/usr/local/bin/craft-menu"
 assert_grep "$CMEN" 'die_other_menus' \
