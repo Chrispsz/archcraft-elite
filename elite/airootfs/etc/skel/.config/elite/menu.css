@@ -1,12 +1,15 @@
-/* Archcraft ELITE · menu.css (v1.0 — o rice dos menus NATIVOS, v2.3.8)
+/* Archcraft ELITE · menu.css (v2.0 — a era da GAIOLA, v2.3.11)
  * ─────────────────────────────────────────────────────────────────────
- * O dono: "remover a barra que fica, tipo 'Rede |'… centralizar o nome
- * do menu… realmente mais bonita". Este é o CSS do craft-menu — a mesma
- * escada de superfícies da dock.css (GTK3 de verdade: alpha(),
- * border-radius — zero propriedade inventada). NENHUM Gtk.Entry existe
- * no craft-menu: a linha de digitação era ruído herdado do dmenu.
- * Tudo CENTRADO: título e itens, no meio da tela. */
-.menu-window { background: transparent; }
+ * O dono: "os menus sequer abriam… reescreve do zero de forma
+ * inteligente". A v2 do craft-menu é MODAL de verdade: a superfície É a
+ * tela inteira (a gaiola), com este véu escurecendo o fundo — o menu
+ * mora numa pílula centrada sobre o véu (a mesma anatomia da dock).
+ * Fórmula do rice: hover = surface0 · pressed = surface2 · pílula de
+ * 44px = raio 12 · título mauve · itens centrados · zero linha de
+ * digitação. */
+.menu-window {
+  background: alpha(#000000, 0.35);
+}
 
 /* A pílula: a mesma anatomia da dock — AMOLED com véu, borda sutil,
  * canto 16px. min-width dá presença sem virar caixão vazio. */
