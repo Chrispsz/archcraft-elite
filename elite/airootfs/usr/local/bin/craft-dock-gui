@@ -1,10 +1,23 @@
 #!/usr/bin/python3
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · craft-dock-gui (v2.0 — "a dock de verdade")
+# Archcraft ELITE · craft-dock-gui (v2.7 — "a dock de verdade" + A GAIOLA)
 # v2.1.1: read_pins à prova de TypeError (pin inválido é ignorado com log —
-# nunca mais crash-loop; run #93 como evidência).
+#         nunca mais crash-loop; run #93 como evidência).
 # v2.3.4: FIM DO AUTOHIDE — a dock é SEMPRE VISÍVEL (diretriz do dono:
-# "funcionando como funciona as outras distros").
+#         "funcionando como funciona as outras distros").
+# v2.7.0: DOIS VERBOS NO CLIQUE (o dono: "clicar num programa já aberto deve
+#         ir para a tarefa aberta invés de abrir outra… se o usuário quiser
+#         abrir outra rapidamente ele pode fazer clicando com o botão
+#         direito") + A GAIOLA (o clique fora do menu só FECHA):
+#   · ESQUERDO num pin: se o programa ESTÁ rodando (pílula), FOCAR a janela
+#     dele (wlrctl, protocolo wlr-foreign-toplevel — labwc fala); se NÃO
+#     está, abrir — direto, sem subprocesso no caminho comum (instantâneo);
+#   · DIREITO num pin: abrir OUTRA instância, sempre (o verbo rápido do
+#     dono para "quero outro agora");
+#   · GAIOLA: o craft-menu pede (SIGRTMIN) e a dock mapeia uma superfície
+#     INVISÍVEL que engole todo clique fora do menu aberto e da barra, mata
+#     o fuzzel pelo pid do state e se desarma sozinha — o desktop NEM VÊ o
+#     clique ("fechar um menu clicando fora" nunca mais abre o menu-raiz).
 # ═══════════════════════════════════════════════════════════════════════════
 # POR QUÊ EXISTE (feedback do dono, out/2026): a dock de waybar com pins de
 # GLIFO Nerd Font entregou "botões mal recortados, mal encaixados" e "nada é
@@ -46,9 +59,11 @@
 # PINS: ~/.config/elite/dock-pins — 1 ID de .desktop por linha
 # (ex.: "foot.desktop"). Gerido pelo craft-pin; skel de fábrica: 3 apps.
 # ═══════════════════════════════════════════════════════════════════════════
+import atexit
 import os
 import re
 import shlex
+import shutil
 import signal
 import subprocess
 import sys
@@ -71,6 +86,16 @@ ICON_SIZE = 36   # spec M3.2: escala fixa de fábrica
 # a janela maximizada nunca invade nem o vão transparente.
 PILL_FLOAT = 6
 
+# v2.7.0 — a GAIOLA e o FOCO:
+BAR_H = 36  # a topbar (config.top height=36): a gaiola NÃO cobre a barra
+# (o 2º clique no MESMO botão da barra tem que chegar — o toggle por pid)
+RT = os.environ.get("XDG_RUNTIME_DIR") or "/tmp"
+DK_FILE = os.path.join(RT, f"elite-dock.{os.getuid()}")     # pid da dock
+ST_MENU = os.path.join(RT, f"elite-menus.{os.getuid()}")    # pid do fuzzel
+ACK_FILE = os.path.join(RT, f"elite-cage.{os.getuid()}")    # ack do handshake
+WLRCTL = shutil.which("wlrctl")  # foco de janela (wlr-foreign-toplevel)
+CAGE_CSS = b"#cagewindow { background: transparent; }\n"
+
 
 def log(msg):
     try:
@@ -88,14 +113,22 @@ def log(msg):
 
 
 def read_pins():
-    """Lê o arquivo de pins → lista de DesktopAppInfo válidos."""
+    """Lê o arquivo de pins → lista de (DesktopAppInfo, app_id_hint).
+
+    v2.7.0: a linha pode ter uma 2ª coluna — o app_id EXPLÍCITO para o
+    foco (wlrctl) quando o app se apresenta com um id que nem o
+    StartupWMClass nem o binário adivinham (ex. GTK: 'thunar.desktop
+    org.xfce.Thunar'). A 1ª coluna continua sendo o ID do .desktop.
+    """
     pins = []
     try:
         with open(PINS_FILE) as fh:
             for line in fh:
-                appid = line.strip()
-                if not appid or appid.startswith("#"):
+                parts = line.strip().split()
+                if not parts or parts[0].startswith("#"):
                     continue
+                appid = parts[0]
+                hint = parts[1] if len(parts) > 1 else ""
                 # v2.1.1 (run #93): o PyGObject LANÇA TypeError ("constructor
                 # returned NULL") em construtor não-nullable — o None JAMAIS
                 # chega ao `if info is None`. Pin inválido é ignorado com log;
@@ -108,7 +141,7 @@ def read_pins():
                 if info is None:
                     log(f"pin ignorado (desktop inexistente): {appid}")
                     continue
-                pins.append(info)
+                pins.append((info, hint))
     except (OSError, UnicodeDecodeError) as exc:
         # v2.5.0 — era só FileNotFoundError: PermissionError/UnicodeDecode
         # no dock-pins subiam pela callback do SIGUSR2, o PyGObject
@@ -142,6 +175,9 @@ class Dock:
     def __init__(self):
         self.shown = True  # v2.3.4: nasce visível e fica — esconder é escolha (W-S-d)
         self.buttons = []  # (button, binary)
+        self.running = set()      # comms vivos (o poll alimenta; o clique lê)
+        self.cage = None          # a gaiola nasce PREGUIÇOSA (no 1º pedido)
+        self.cage_shown = False
 
         self.win = Gtk.Window()
         self.win.set_name("dockwindow")
@@ -176,6 +212,18 @@ class Dock:
                              self.toggle)
         GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGUSR2,
                              self.rebuild)
+        # v2.7.0 — o telefonema da GAIOLA (craft-menu pede a rede de cliques
+        # por SIGRTMIN) — e a dock se anuncia para os chamadores (pid em
+        # elite-dock.<uid>); a limpeza no fim é atexit (morte limpa não
+        # deixa pid fantasma apontando para processo morto).
+        GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGRTMIN,
+                             self.cage_request)
+        try:
+            with open(DK_FILE, "w") as fh:
+                fh.write(f"{os.getpid()}\n")
+        except OSError:
+            pass  # sem pid-file = craft-menu segue sem gaiola (degrada gracioso)
+        atexit.register(self._forget_pid)
 
     # ── CSS ──────────────────────────────────────────────────────────────
     def load_css(self):
@@ -205,7 +253,7 @@ class Dock:
         for child in self.pill.get_children():
             self.pill.remove(child)
         self.buttons = []
-        for info in read_pins():
+        for info, hint in read_pins():
             btn = Gtk.Button.new()
             btn.set_relief(Gtk.ReliefStyle.NONE)
             icon = info.get_icon()
@@ -217,10 +265,25 @@ class Dock:
                                        Gtk.IconSize.DIALOG)
             img.set_pixel_size(ICON_SIZE)
             btn.add(img)
-            btn.set_tooltip_text(info.get_display_name() or "")
+            # v2.7.0 — o tooltip ENSINA os dois verbos (a descoberta não
+            # mora escondida — mesma gramática dos tooltips da topbar)
+            name = info.get_display_name() or ""
+            if WLRCTL:
+                btn.set_tooltip_text(
+                    f"{name} — esquerdo: focar/abrir · direito: nova janela")
+            else:
+                btn.set_tooltip_text(f"{name} — clique: abrir")
             cmd = exec_of(info)
+            did = info.get_id() or ""
             if cmd:
-                btn.connect("clicked", self._launch, cmd)
+                # v2.7.0 — button-press-event distingue ESQUERDO (focar se
+                # roda, senão abrir) de DIREITO (abrir OUTRA instância,
+                # sempre). O return True consome o evento (o "clicked" não
+                # refira — zero duplo lançamento); o "clicked" segue ligado
+                # para teclado (Espaço/Enter = esquerdo).
+                btn.connect("button-press-event", self._press,
+                            info, hint, did, cmd)
+                btn.connect("clicked", self._clicked, info, hint, did, cmd)
             btn.set_name("dockbtn")
             self.pill.pack_start(btn, False, False, 0)
             self.buttons.append((btn, binary_of(info)))
@@ -231,6 +294,66 @@ class Dock:
         # ficava SURDA (reload de pins e W-S-d mortos pelo resto da
         # sessão; o audit 24-c flagrou o mecanismo exato).
         return GLib.SOURCE_CONTINUE
+
+    # ── os DOIS VERBOS do clique (v2.7.0) ────────────────────────────────
+    def _press(self, btn, ev, info, hint, did, cmd):
+        if ev.button == 3:
+            self._launch(btn, cmd)              # direito: OUTRA instância
+            return True                          # consumido — sem "clicked"
+        if ev.button == 1:
+            self._focus_or_launch(info, hint, did, cmd)  # esquerdo
+            return True
+        return False  # meio/outros: GtkButton decide (clicked = esquerdo)
+
+    def _clicked(self, _btn, info, hint, did, cmd):
+        # teclado (Espaço/Enter) = o mesmo verbo do esquerdo
+        self._focus_or_launch(info, hint, did, cmd)
+
+    def _focus_candidates(self, info, hint, did):
+        # ordem de adivinha: hint explícito → StartupWMClass → binário →
+        # stem do desktop-id; dedup preservando a ordem
+        cands = []
+        if hint:
+            cands.append(hint)
+        try:
+            wmc = info.get_string("StartupWMClass") or ""
+        except Exception:  # noqa: BLE001 — .desktop exótico não derruba a dock
+            wmc = ""
+        if wmc:
+            cands.append(wmc)
+        b = binary_of(info)
+        if b:
+            cands.append(b)
+        stem = did[:-8] if did.endswith(".desktop") else did
+        if stem:
+            cands.append(stem)
+        return list(dict.fromkeys(c for c in cands if c))
+
+    def _focus_or_launch(self, info, hint, did, cmd):
+        b = binary_of(info)
+        # NÃO rodando: abrir DIRETO (zero subprocesso no caminho comum —
+        # o clique responde na hora; "responderem instantâneos" — dono).
+        if not (WLRCTL and b and b in self.running):
+            self._launch(None, cmd)
+            return
+        # rodando: FOCAR (wlrctl fala wlr-foreign-toplevel; labwc fala).
+        # rc=0 = janela focada; rc≠0 = ninguém casou → tenta o próximo
+        # candidato; TODOS falharam → abre (nunca pior que a era v2.6 —
+        # e com o hint 'desktop-id app_id' o caso exótico tem saída).
+        for c in self._focus_candidates(info, hint, did):
+            try:
+                r = subprocess.run(
+                    [WLRCTL, "window", "focus", f"app_id:{c}"],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                    timeout=2)
+            except subprocess.TimeoutExpired:
+                break  # wlrctl preso: não repete o transtorno — abre
+            except OSError:
+                break
+            if r.returncode == 0:
+                log(f"foco: {c} (app_id)")
+                return
+        self._launch(None, cmd)
 
     def _launch(self, _btn, cmd):
         try:
@@ -268,6 +391,7 @@ class Dock:
                         running.add(fh.read().strip())
                 except OSError:
                     pass
+        self.running = running  # v2.7.0: o clique lê isto (focar vs abrir)
         for btn, binary in self.buttons:
             ctx = btn.get_style_context()
             if binary and binary in running:
@@ -275,6 +399,116 @@ class Dock:
             else:
                 ctx.remove_class("running")
         return True
+
+    # ── A GAIOLA (v2.7.0 — o clique fora do menu SÓ fecha) ───────────
+    # Superfície INVISÍVEL, layer TOP, tela inteira, teclado NONE — e a
+    # região de ENTRADA é a tela MENOS a faixa da barra (o 2º clique no
+    # MESMO botão da barra chega na waybar: o toggle por pid é intacto).
+    # Qualquer clique que ela engole mata o fuzzel pelo pid do state
+    # (elite-menus.<uid>) — o desktop NEM VÊ o clique, então fechar um
+    # menu com clique fora NUNCA abre o menu-raiz. Ela se desarma sozinha
+    # vigiando o state (some quando o craft-menu sai — trap EXIT dele).
+    # Preguiçosa: não existe até o 1º menu abrir; some com ele.
+    def cage_request(self, *_):
+        # SIGRTMIN do craft-menu. SOURCE_CONTINUE sempre (lição v2.5.0:
+        # retornar False seria G_SOURCE_REMOVE = dock SURDA de novo).
+        self._cage_ensure()
+        if not self.cage_shown:
+            self.cage.show_all()
+            self._cage_input_region()
+            self.cage_shown = True
+            GLib.timeout_add(200, self._cage_poll)
+            log("gaiola armada (clique fora só fecha)")
+        try:
+            with open(ACK_FILE, "w") as fh:
+                fh.write("1\n")
+        except OSError:
+            pass  # sem ack = craft-menu segue sem gaiola (prazo de 300ms)
+        return GLib.SOURCE_CONTINUE
+
+    def _cage_ensure(self):
+        if self.cage is not None:
+            return
+        win = Gtk.Window()
+        win.set_name("cagewindow")
+        GtkLayerShell.init_for_window(win)
+        GtkLayerShell.set_layer(win, GtkLayerShell.Layer.TOP)
+        for edge in (GtkLayerShell.Edge.TOP, GtkLayerShell.Edge.BOTTOM,
+                     GtkLayerShell.Edge.LEFT, GtkLayerShell.Edge.RIGHT):
+            GtkLayerShell.set_anchor(win, edge, True)
+        # teclado NUNCA é da gaiola (o fuzzel tem exclusive; a gaiola é só
+        # rede de cliques — sem steal de foco, o ESC segue no menu)
+        GtkLayerShell.set_keyboard_mode(win, GtkLayerShell.KeyboardMode.NONE)
+        vis = Gdk.Screen.get_default().get_rgba_visual()
+        if vis is not None:
+            win.set_visual(vis)
+        win.set_app_paintable(True)
+        prov = Gtk.CssProvider()
+        prov.load_from_data(CAGE_CSS)  # transparente — INVISÍVEL de verdade
+        Gtk.StyleContext.add_provider_for_screen(
+            Gdk.Screen.get_default(), prov,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        win.connect("button-press-event", self._cage_click)
+        self.cage = win
+
+    def _cage_input_region(self):
+        gdkwin = self.cage.get_window()
+        if gdkwin is None:
+            return
+        scr = Gdk.Screen.get_default()
+        w = scr.get_width()
+        h = scr.get_height()
+        full = Gdk.Region()
+        full.union_with_rect(Gdk.Rectangle(x=0, y=0, width=w, height=h))
+        bar = Gdk.Region()
+        bar.union_with_rect(Gdk.Rectangle(x=0, y=0, width=w, height=BAR_H))
+        full.subtract(bar)  # a barra FICA de fora — toggle/cross-dismiss ok
+        gdkwin.input_shape_combine_region(full, 0, 0)
+
+    def _menu_pid(self):
+        try:
+            with open(ST_MENU) as fh:
+                first = fh.readline().split()
+            pid = int(first[0])
+            return pid if pid > 0 else None
+        except (OSError, ValueError, IndexError):
+            return None
+
+    def _cage_click(self, _win, _ev):
+        # QUALQUER botão: fechar o menu e nada mais — o clique morre aqui
+        pid = self._menu_pid()
+        if pid is not None:
+            try:
+                os.kill(pid, signal.SIGTERM)
+            except OSError:
+                pass
+        self._cage_hide()
+        return True  # consumido — o desktop nem vê
+
+    def _cage_hide(self):
+        if self.cage is not None and self.cage_shown:
+            self.cage.hide()
+        self.cage_shown = False
+
+    def _cage_poll(self):
+        if not self.cage_shown:
+            return GLib.SOURCE_REMOVE
+        pid = self._menu_pid()
+        if pid is None:
+            self._cage_hide()  # craft-menu saiu (trap EXIT) — desarma
+            return GLib.SOURCE_REMOVE
+        try:
+            os.kill(pid, 0)
+        except OSError:
+            self._cage_hide()  # fuzzel morto sem state limpo — desarma
+            return GLib.SOURCE_REMOVE
+        return GLib.SOURCE_CONTINUE
+
+    def _forget_pid(self):
+        try:
+            os.remove(DK_FILE)
+        except OSError:
+            pass
 
     def toggle(self, *_):
         # v2.3.4: esconder é ESCOLHA do usuário (W-S-d) — nunca decisão

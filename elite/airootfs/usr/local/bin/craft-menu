@@ -1,7 +1,6 @@
 #!/bin/sh
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · craft-menu (v4.0 — O MOTOR QUE ABRE, AGORA ANCORA E
-# TOGGLA DE VERDADE, v2.6.0)
+# Archcraft ELITE · craft-menu (v4.1 — O MOTOR + A GAIOLA, v2.7.0)
 # ═══════════════════════════════════════════════════════════════════════════
 # A v3 provou o motor (o fuzzel é o ÚNICO que abriu no rig do dono — a era
 # GTK morreu duas vezes). Os prints do rig de 26/out apontaram as 3 cicatrizes
@@ -27,6 +26,12 @@
 #      gravado em $XDG_RUNTIME_DIR/elite-menus.<uid>. 2ª chamada do MESMO
 #      título → mata e sai 2 (toggle). Título diferente → mata e abre o
 #      novo (cross-dismiss). Sem corrida de foco, sem aposta: pid é pid.
+#
+#   v4.1 — A GAIOLA: "quando eu quiser fechar um menu clicando fora não vai
+#   abrir o menu da home" — o clique de fora não vaza MAIS: a dock (GTK quente
+#   desde o boot) mapeia uma rede de cliques invisível e mata o fuzzel pelo
+#   pid; o desktop nem vê o clique (handshake SIGRTMIN → ack, acima). E o
+#   trap EXIT garante state limpo em TODO fechamento.
 #
 # A GRAMÁTICA DE SAÍDA (contrato com os 6 chamadores — INTACTA da v3):
 #   stdout: o item escolhido · exit 0
@@ -82,6 +87,14 @@ list="$(printf '%s\n' "$list" | sed '/^[[:space:]]*$/d')"
 # morria com rc=2, que o chamador lê como "toggle benigno": menu que nunca
 # abre e morre SORRATEIRO. O smoke test flagrou; o bug inteiro morreu aqui)
 ST="${XDG_RUNTIME_DIR:-/tmp}/elite-menus.$(id -u 2>/dev/null || echo 0)"
+DK="${XDG_RUNTIME_DIR:-/tmp}/elite-dock.$(id -u 2>/dev/null || echo 0)"
+ACK="${XDG_RUNTIME_DIR:-/tmp}/elite-cage.$(id -u 2>/dev/null || echo 0)"
+# v2.7.0 — limpeza GARANTIDA: todo fechamento (normal, toggle, cross,
+# SIGTERM, morte por set -u) remove o state do toggle E o ack da gaiola —
+# sem pid zombie virando toggle fantasma e sem gaiola órfã esperando um
+# menu que já morreu (a gaiola da dock também vigia o ST e se desarma
+# sozinha; o trap é o cinto, a vigia é o suspenso).
+trap 'rm -f "$ST" "$ACK" 2>/dev/null' EXIT
 if [ -f "$ST" ]; then
     opid=""
     otitle=""
@@ -149,6 +162,38 @@ case "$at" in
         # sem slot: herda o anchor do fuzzel.ini (launcher) — compat
         ;;
 esac
+
+# ── A GAIOLA (v2.7.0 — o clique fora SÓ fecha, sem vazar pro desktop) ───────
+# A física de sempre (exit-on-focus-loss) ENTREGA o clique de fora ao que
+# estiver embaixo: no desktop, o clique de fechar virava menu-raiz (a queixa
+# do dono: "quando eu quiser fechar um menu clicando fora não vai abrir o
+# menu da home"). A cura: a DOCK (processo GTK quente, vivo desde o boot) é
+# pedida por SIGRTMIN e mapeia uma superfície INVISÍVEL que engole TODO
+# clique fora do menu aberto e da barra — e mata o fuzzel pelo pid do state.
+# O desktop NEM VÊ o clique (a gaiola é da era v2.3.11 reencarnada SEM os
+# defeitos dela: não é janela modal de foco — é só uma rede de cliques, e
+# quem fecha é o DETERMINISMO do pid, não física de foco).
+# Handshake por arquivo, sem fork: SIGRTMIN na dock (pid em elite-dock.<uid>)
+# → ack (elite-cage.<uid>) em ≤300ms → SÓ ENTÃO o fuzzel nasce (e ele é
+# layer OVERLAY: sempre acima da gaiola — o clique nele é dele). Sem dock,
+# sem ack no prazo ou sem SIGRTMIN: sem gaiola, o menu abre IGUAL (o ESC e
+# o toggle por pid seguem universais — degradação graciosa, nunca prisão).
+if [ -f "$DK" ]; then
+    dkid="$(head -n1 "$DK" 2>/dev/null || true)"
+    case "${dkid:-}" in
+        ''|*[!0-9]*) ;;    # pid não numérico/corrompido: segue sem gaiola
+        *)
+            rm -f "$ACK"
+            if kill -RTMIN "$dkid" 2>/dev/null; then
+                i=0
+                while [ "$i" -lt 30 ]; do    # ≤300ms (30×10ms) — o prazo do ack
+                    [ -f "$ACK" ] && break
+                    sleep 0.01
+                    i=$((i+1))
+                done
+            fi ;;
+    esac
+fi
 
 choice="$(printf '%s\n' "$list" | fuzzel "$@" & p=$!; printf '%s %s\n' "$p" "$title" >"$ST"; wait "$p")"
 rc=$?

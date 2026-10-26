@@ -6,6 +6,65 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **v2.7.0 — A LEI DOS DOIS BOTÕES: esquerdo na barra, direito no desktop,
+  clique fora que só fecha, dock que foca em vez de duplicar — e a rede
+  instantânea que se edita no próprio lugar** (o dono, rig: "o menu de
+  redes não ficou tão responsivo e rápido apesar de finalmente funcionar…
+  é melhor realmente deixar a parte de editor para editar as redes invés
+  de criar um menu só pra isso, mas no mínimo seria interessante conseguir
+  excluir rede diretamente da tela de conexões salvas ou até mesmo editar
+  a senha… quando Clico com o botão direito ou esquerdo na tela abre o
+  menu da distro ok, mas isso só deveria acontecer ao clicar com o botão
+  direito, e o que você fez foi isso mesmo só que na topbar as a topbar
+  era pra funcionar com click esquerdo e não direito e na home ao
+  contrário… quando eu quiser fechar um menu clicando fora não vai abrir
+  o menu da home sabe… já aproveita para trabalhar na eficiência máxima
+  de todos esses botões menus para responderem instantâneos pois e de
+  buscar redes por exemplo demora um pouco… já na dock quando Clico em um
+  programa já aberto ele deve ir para a tarefa aberta invés de abrir outra
+  pois vi que isso acontece com alguns programas, se o usuário quiser
+  abrir outra rapidamente ele pode fazer clicando no ícone com o botão
+  direito"):
+  - **A LEI DOS DOIS BOTÕES** — a divisão é geográfica: TOPBAR (interface)
+    clica com o ESQUERDO — Rede, Encerrar e Sessão abrem no clique
+    esquerdo, o 2º clique no MESMO botão fecha (toggle por pid) e o
+    direito é mudo; DESKTOP clica com o DIREITO — o menu-raiz é do clique
+    direito e o esquerdo é MUDO por lei (rc.xml). Tooltips ensinam o novo
+    verbo ("— clique: …").
+  - **A GAIOLA (craft-dock-gui v2.7 + craft-menu v4.1)** — "fechar um menu
+    clicando fora" nunca mais abre o menu da home: o craft-menu pede a
+    gaiola à DOCK por SIGRTMIN (pid em `elite-dock.<uid>`; ack em ≤300ms)
+    e a dock mapeia uma superfície INVISÍVEL (layer TOP, teclado NONE,
+    transparente) cuja região de entrada é a tela MENOS a faixa da barra —
+    todo clique fora do menu mata o fuzzel pelo pid do state e o desktop
+    NEM VÊ o clique. Sem dock/sem ack: menu abre igual (degradação
+    graciosa). `trap EXIT` limpa state + ack em TODO fechamento.
+  - **A DOCK COM DOIS VERBOS** — ESQUERDO num pin: programa rodando →
+    FOCAR a janela (`wlrctl window focus app_id:…` — wlr-foreign-toplevel;
+    wlrctl entrou na ISO); não rodando → abrir DIRETO (zero subprocesso no
+    caminho comum). DIREITO: abrir OUTRA instância, sempre. A adivinhação
+    do app_id: hint explícito (2ª coluna do dock-pins) → StartupWMClass →
+    binário → stem; o pin de fábrica do Thunar nasce com o hint
+    `org.xfce.Thunar` (app_id de app GTK não se adivinha do binário); o
+    craft-pin add/rm viraram conscientes da coluna.
+  - **CRAFT-CONNECT v6 — INSTANTÂNEA E QUE SE EDITA**: a lista de redes
+    abre do CACHE do NM (`--rescan no` — a varredura bloqueante da era v5
+    travava 2–8s; era a lentidão flagrada); varredura nova roda EM FUNDO
+    (fogo-e-esquece) e o "Atualizar…" explícito espera a PROVA da varredura
+    nova pelo relógio do dispositivo (`LAST_SCAN` — comparar listas falha
+    quando o fundo já varreu); status e rádio consultados em PARALELO.
+    CONEXÕES SALVAS se gerem no próprio lugar, SEM menu separado de
+    gestão: o pick abre os verbos da conexão — Conectar/Desconectar ·
+    **Alterar senha…** (`nmcli connection modify … psk` + up para provar
+    a senha nova AGORA) · **Esquecer…** (delete COM confirmação). O editor
+    gráfico fica para a CRIAÇÃO manual (definição do próprio dono).
+  - Suíte: contratos v2.6 quebrados atualizados + ~30 contratos NOVOS
+    v2.7.0 (lei dos dois botões, gaiola, dois verbos da dock, hint de
+    app_id, cache/paralelo/LAST_SCAN, verbos de senha/esquecer) — 1.563
+    peças · 0 falhas · GO. Smoke funcional ponta-a-ponta com nmcli/craft-
+    menu stubs: 16 ok · 0 falhas (cache, senha, esquecer+confirmação,
+    espera pelo relógio, handshake sem dock, trap do state).
+
 - **v2.6.0 — A LEI DOS MENUS DA BARRA: clique direito, menu sob o botão,
   lista pura, toggle de verdade — e a rede que CONECTA** (o dono, prints
   do rig 26/out: "no menu de rede eu não consigo desligar/ligar minhas

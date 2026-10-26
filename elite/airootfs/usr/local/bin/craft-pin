@@ -65,7 +65,11 @@ case "${1:-}" in
         id="$(resolve "$2")" || {
             echo "craft-pin: nenhum app casa com '$2'" >&2; exit 1; }
         ensure_file
-        if grep -qxF "$id" "$PINS" 2>/dev/null; then
+        # v2.7.0 — dedup CONSCIENTE da coluna: a linha pode ter um 2º campo
+        # (hint de app_id para o foco da dock — ex. 'thunar.desktop
+        # org.xfce.Thunar'); comparar a linha INTEIRA (grep -qxF) nunca
+        # via casar, e o pin seria duplicado
+        if awk -v id="$id" '$1 == id { f=1 } END { exit !f }' "$PINS" 2>/dev/null; then
             echo "craft-pin: $id já está fixado"; exit 0
         fi
         backup
@@ -77,13 +81,13 @@ case "${1:-}" in
         [ -n "${2:-}" ] || { echo "uso: craft-pin rm <nome|desktop-id>" >&2; exit 2; }
         id="$(resolve "$2")" || id="$2"
         [ -f "$PINS" ] || exit 0
-        grep -qxF "$id" "$PINS" || {
+        awk -v id="$id" '$1 == id { f=1 } END { exit !f }' "$PINS" || {
             echo "craft-pin: $id não está na dock"; exit 1; }
         backup
-        # v2.5.0 — mv INCONDICIONAL: grep -v sem match sai 1 e o `&& mv`
-        # pulava — $PINS.tmp órfão + "removido" impresso sem remover
-        # (audit 24-c; nome fixo, não acumula, mas a mensagem mentia).
-        grep -vxF "$id" "$PINS" > "$PINS.tmp" || true
+        # v2.5.0 — mv INCONDICIONAL + v2.7.0 — awk CONSCIENTE da coluna:
+        # rm por $1 (o ID), nunca pela linha inteira — o hint sobrevive ao
+        # grep -vxF que exigia linha exata e deixaria órfão
+        awk -v id="$id" '$1 != id' "$PINS" > "$PINS.tmp"
         mv -f "$PINS.tmp" "$PINS"
         echo "craft-pin: $id removido da dock"
         reload_dock
