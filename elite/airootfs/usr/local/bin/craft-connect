@@ -1,23 +1,31 @@
 #!/bin/sh
-# craft-connect — CENTRAL DE REDE que CONTROLA o NetworkManager (v5)
+# craft-connect — CENTRAL DE REDE que CONTROLA o NetworkManager (v6)
 # ─────────────────────────────────────────────────────────────────────────
-# v5 (v2.6.0 — o dono, prints do rig 26/out: "no menu de rede eu não
-# consigo desligar/ligar minhas conexões seja cabo, wi-fi e etc nem me
-# conectar a redes; isso é pra criação de rede manual"): o menu volta a
-# ser O CONTROLE, com o nmcli (o cli do PRÓPRIO NetworkManager) como
-# fonte única de verdade — cada verbo é UM comando do serviço, zero
-# lógica de rede nossa:
-#   · Ligar/Desligar CABO por dispositivo (nmcli device connect/disconnect);
-#   · Ligar/Desligar WI-FI (nmcli radio wifi);
-#   · CONECTAR em rede: lista ao vivo com sinal e 🔒, rede salva sobe
-#     pelo nome (senha do cofre do NM, sem prompt), rede aberta conecta
-#     direta, rede nova protegida pede a senha no menu;
-#   · CONEXÕES SALVAS: reconectar/desconectar (● = ativa);
-#   · o EDITOR (nm-connection-editor) continua — a CRIAÇÃO manual mora
-#     lá, como o dono mesmo definiu ("isso é pra criação de rede manual").
-# O bug do picker v3 (v2.3.6) morreu de vez: o par linha→SSID/segredo é
-# guardado num MAPA escrito pelo MESMO awk que desenha a lista — o valor
-# devolvido ao NM é o que o NM entregou, nunca um parse de tela.
+# v6 (v2.7.0 — o dono, rig: "o menu de redes não ficou tão responsivo e
+# rápido apesar de finalmente funcionar… buscar redes por exemplo demora
+# um pouco" + "conseguir excluir rede diretamente da tela de conexões
+# salvas ou até mesmo editar a senha… deixar a parte de editor para
+# editar as redes invés de criar um menu só pra isso"):
+#   · RÁPIDO DE VERDADE: a lista de redes abre do CACHE do NetworkManager
+#     (--rescan no — instantâneo; a varredura BLOQUEANTE da era v5
+#     travava a abertura por 2–8s — a lentidão que o dono flagrou). A
+#     varredura nova roda EM PARALELO (fogo-e-esquece na abertura da
+#     central) e o verbo EXPLÍCITO "Atualizar…" varre e espera — o custo
+#     dos segundos é só quem pediu;
+#   · status de dispositivos e rádio consultados em PARALELO (wait) — a
+#     central responde na hora;
+#   · CONEXÕES SALVAS se GEREM no próprio lugar, SEM menu separado de
+#     gestão: o pick da conexão abre os verbos DELA (estado-aware):
+#     Conectar/Desconectar · Alterar senha… (Wi-Fi, --ask) · Esquecer…
+#     (com confirmação — apagar rede salva não pode ser acidente);
+#   · o EDITOR (nm-connection-editor) fica para o que o dono definiu:
+#     a CRIAÇÃO manual mora lá.
+# v5 (v2.6.0): o menu volta a ser O CONTROLE, com o nmcli (o cli do
+# PRÓPRIO NetworkManager) como fonte única de verdade — cada verbo é UM
+# comando do serviço, zero lógica de rede nossa. O bug do picker v3
+# (v2.3.6) morreu de vez: o par linha→SSID/segredo é guardado num MAPA
+# escrito pelo MESMO awk que desenha a lista — o valor devolvido ao NM é
+# o que o NM entregou, nunca um parse de tela.
 # Os menus abrem SOB O BOTÃO de rede (--at=network — craft-menu v4) e a
 # lei dos fechamentos (ESC 1 · toggle 2 · cross-dismiss 143) é a do
 # craft-menu, intacta.
@@ -49,9 +57,14 @@ note() {
 
 # MAPA linha→valor (escrito pelo MESMO awk que desenha a lista; rm em TODO
 # ponto de saída + trap — e rm ANTES de qualquer exec, lição 24-c).
+# T1/T2 — os rasps do nmcli PARALELO do main_rows (nomes fixos com uid:
+# sobrescritos a cada abertura, sem mktemp para esquecer no trap).
 # id -u e não a variavel UID do bash (dash não a tem; sob set -u seria morte silenciosa)
-MAP="${XDG_RUNTIME_DIR:-/tmp}/elite-net.$(id -u 2>/dev/null || echo 0).map"
-trap 'rm -f "$MAP"' EXIT
+UN="$(id -u 2>/dev/null || echo 0)"
+MAP="${XDG_RUNTIME_DIR:-/tmp}/elite-net.$UN.map"
+T1="${XDG_RUNTIME_DIR:-/tmp}/elite-net.$UN.dev"
+T2="${XDG_RUNTIME_DIR:-/tmp}/elite-net.$UN.radio"
+trap 'rm -f "$MAP" "$T1" "$T2"' EXIT
 : >"$MAP"
 
 _c=""
@@ -86,8 +99,12 @@ menu_fail() {
 # ── as LINHAS do menu principal (estado ao vivo do NetworkManager) ─────────
 main_rows() {
     rows=""
-    eth="$(nmcli -t -f DEVICE,TYPE,STATE device status 2>/dev/null \
-        | awk -F: '$2=="ethernet" && $1!="" && $1!="--" {print $1 "\t" $3}' || true)"
+    # v6 — PARALELO: status de dispositivos e rádio ao MESMO tempo (em
+    # série eram 2 viagens de D-Bus seguidas; o menu responde instantâneo)
+    nmcli -t -f DEVICE,TYPE,STATE device status >"$T1" 2>/dev/null &
+    nmcli radio wifi >"$T2" 2>/dev/null &
+    wait
+    eth="$(awk -F: '$2=="ethernet" && $1!="" && $1!="--" {print $1 "\t" $3}' "$T1" 2>/dev/null || true)"
     if [ -n "$eth" ]; then
         while read -r d s; do
             [ -n "${d:-}" ] || continue
@@ -107,7 +124,7 @@ main_rows() {
 $eth
 EOF
     fi
-    wifi="$(nmcli radio wifi 2>/dev/null || true)"
+    wifi="$(cat "$T2" 2>/dev/null || true)"
     case "$wifi" in
         enabled)
             rows="${rows}Wi-Fi: desligar
@@ -121,6 +138,41 @@ Redes Wi-Fi…
 Bluetooth: dispositivos…
 Editor de conexões…"
     printf '%s\n' "$rows"
+}
+
+# ── varredura de FUNDO (fogo-e-esquece — o cache fica fresco sozinho) ──────
+bg_rescan() {
+    # a varredura NUNCA segura o menu: dispara, some, e o NM atualiza o
+    # cache dele — a próxima lista abre já com rede nova (o --rescan no
+    # da lista é instantâneo por isso mesmo)
+    ( nmcli device wifi rescan >/dev/null 2>&1 & ) 2>/dev/null
+    return 0
+}
+
+# ── varredura EXPLÍCITA (o verbo Atualizar — varre e ESPERA a NOVA) ─────────
+wifi_rescan() {
+    mlog "Rede: varredura explícita (Atualizar)"
+    # A PROVA da varredura nova é o RELÓGIO do dispositivo (LAST_SCAN),
+    # não a lista: a varredura de FUNDO já atualizou o cache sozinha, e
+    # comparar listas não distingue "varreu agora" de "varreu antes" —
+    # o relógio da varredura não mente. Sem relógio (NM velho/dispositivo
+    # sumido): sem espera honesta — a lista volta do cache do jeito que
+    # está (nunca presa).
+    ndev="$(nmcli -t -f DEVICE,TYPE device status 2>/dev/null \
+        | awk -F: '$2=="wifi" {print $1; exit}')"
+    old=""
+    [ -n "$ndev" ] && old="$(nmcli -g LAST_SCAN device show "$ndev" 2>/dev/null || true)"
+    nmcli device wifi rescan >/dev/null 2>&1 || true
+    i=0
+    while [ "$i" -lt 16 ]; do
+        sleep 0.5
+        [ -n "$ndev" ] || break
+        new="$(nmcli -g LAST_SCAN device show "$ndev" 2>/dev/null || true)"
+        [ -n "$new" ] || break
+        [ "$new" != "$old" ] && break
+        i=$((i+1))
+    done
+    return 0
 }
 
 # ── CONECTAR em rede Wi-Fi ──────────────────────────────────────────────────
@@ -172,7 +224,11 @@ wifi_connect() {
 wifi_menu() {
     while :; do
         : >"$MAP"
-        raw="$(nmcli -g IN-USE,SSID,SIGNAL,SECURITY device wifi list --rescan yes 2>/dev/null || true)"
+        # v6 — --rescan no: o CACHE do NM, SEM varrer (a era v5 varria
+        # DENTRO do open e BLOQUEAVA 2–8s na abertura — a lentidão que o
+        # dono flagrou). A varredura de fundo engatilhada na central deixa
+        # o cache fresco; "Atualizar…" varre e espera EXPLICITAMENTE.
+        raw="$(nmcli -g IN-USE,SSID,SIGNAL,SECURITY device wifi list --rescan no 2>/dev/null || true)"
         printf '%s\n' "$raw" | awk -F: '
             {
                 use = $1; ssid = $2; sig = $3; sec = $4
@@ -184,10 +240,13 @@ wifi_menu() {
                 print row "\t" ssid "\t" sec
             }' >"$MAP"
         if [ ! -s "$MAP" ]; then
-            note -t 4000 'Rede' 'Nenhuma rede Wi-Fi encontrada.'
-            return 0
+            # cache vazio (1º boot / rádio recém-ligado): o menu NÃO morre —
+            # avisa e oferece a varredura DE VERDADE (que espera o resultado)
+            note -t 4000 'Rede' 'Sem redes no cache — atualizando…'
+            rows='Atualizar…'
+        else
+            rows="$( { cut -f1 "$MAP"; printf 'Atualizar…'; } )"
         fi
-        rows="$( { cut -f1 "$MAP"; printf 'Atualizar…'; } )"
         open_menu --title='Wi-Fi' --at=network <<EOF
 $rows
 EOF
@@ -199,7 +258,7 @@ EOF
             return 0
         fi
         case "$_c" in
-            'Atualizar…') continue ;;
+            'Atualizar…') wifi_rescan; continue ;;
             *)
                 ssid="$(awk -F'\t' -v r="$_c" '$1 == r { print $2; exit }' "$MAP")"
                 sec="$(awk -F'\t' -v r="$_c" '$1 == r { print $3; exit }' "$MAP")"
@@ -216,10 +275,10 @@ known_menu() {
     : >"$MAP"
     nmcli -g NAME,TYPE,DEVICE connection show 2>/dev/null | awk -F: '
         $2 == "802-3-ethernet" || $2 == "802-11-wireless" {
-            name = $1; dev = $3
+            name = $1; type = $2; dev = $3
             gsub(/\\:/, ":", name)
             mark = (dev != "" && dev != "--") ? "● " : "   "
-            print mark name "\t" name
+            print mark name "\t" name "\t" type
         }' >"$MAP"
     if [ ! -s "$MAP" ]; then
         note -t 4000 'Rede' 'Nenhuma conexão salva.'
@@ -238,24 +297,111 @@ EOF
     fi
     name="$(awk -F'\t' -v r="$_c" '$1 == r { print $2; exit }' "$MAP")"
     [ -n "$name" ] || return 0
+    ctype="$(awk -F'\t' -v r="$_c" '$1 == r { print $3; exit }' "$MAP")"
+    known_manage "$name" "$ctype" "$_c"
+    return 0
+}
+
+# ── VERBOS de uma conexão salva (o pick abre os verbos DELA — v6) ─────────
+known_password() {
+    # a senha edita DENTRO do menu (nmcli connection modify — o cofre do
+    # NM é a fonte); conecta em seguida para provar a senha nova AGORA
+    name="$1"
+    mlog "Rede: alterando a senha de '$name'"
+    open_menu --title='Senha' --at=network --ask='Nova senha' </dev/null
+    if [ "$_rc" -ne 0 ]; then
+        if benign_close "$_rc"; then return 0; fi
+        menu_fail "$_rc"
+        return 0
+    fi
+    pass="$_c"
+    [ -n "$pass" ] || return 0
+    if nmcli connection modify "$name" 802-11-wireless-security.psk "$pass" >/dev/null 2>&1; then
+        if nmcli connection up "$name" >/dev/null 2>&1; then
+            note -t 4000 'Rede' "Senha atualizada — conectado: $name"
+        else
+            note -u normal -t 8000 'Rede' \
+                "Senha atualizada em $name — não conectou (rede fora de alcance?)."
+        fi
+    else
+        note -u normal -t 8000 'Rede' \
+            "Não deu para alterar a senha de $name (rede corporativa/VPN?)."
+    fi
+    return 0
+}
+
+known_forget() {
+    # DESTRUTIVO: um passo de confirmação — o fuzzel filtra por digitação,
+    # o mispick é raro, mas apagar rede salva não pode ser acidente
+    name="$1"
+    mlog "Rede: esquecer '$name'? (confirmação)"
+    open_menu --title='Esquecer' --at=network <<EOF
+Sim, esquecer $name
+Cancelar
+EOF
+    if [ "$_rc" -ne 0 ]; then
+        if benign_close "$_rc"; then return 0; fi
+        menu_fail "$_rc"
+        return 0
+    fi
+    # if e não case: SSID com glifo glob (* ?) viraria padrão de case —
+    # comparação literal não mente
+    if [ "$_c" = "Sim, esquecer $name" ]; then
+        if nmcli connection delete "$name" >/dev/null 2>&1; then
+            note -t 4000 'Rede' "Esquecida: $name"
+        else
+            note -u normal -t 8000 'Rede' "Falhou ao esquecer $name."
+        fi
+    fi
+    return 0
+}
+
+known_manage() {
+    # o pick da conexão salva abre os verbos DELA (estado-aware) — a tela
+    # de conexões salvas se gerencia sozinha, SEM menu separado de gestão
+    name="$1"
+    ctype="$2"
+    row="$3"
+    case "$row" in
+        '● '*) acts='Desconectar' ;;
+        *)     acts='Conectar' ;;
+    esac
+    if [ "$ctype" = "802-11-wireless" ]; then
+        acts="${acts}
+Alterar senha…"
+    fi
+    acts="${acts}
+Esquecer…"
+    open_menu --title='Conexões' --at=network <<EOF
+$acts
+EOF
+    if [ "$_rc" -eq 0 ]; then
+        [ -n "$_c" ] || return 0
+    else
+        if benign_close "$_rc"; then return 0; fi
+        menu_fail "$_rc"
+        return 0
+    fi
     case "$_c" in
-        '● '*)
-            mlog "Rede: desligando conexão '$name'"
-            if nmcli connection down "$name" >/dev/null 2>&1; then
-                note -t 4000 'Rede' "Desconectado: $name"
-            else
-                note -u normal -t 8000 'Rede' "Falhou ao desligar $name."
-            fi
-            ;;
-        *)
+        Conectar)
             mlog "Rede: ligando conexão '$name'"
             if nmcli connection up "$name" >/dev/null 2>&1; then
                 note -t 4000 'Rede' "Conectado: $name"
             else
                 note -u normal -t 8000 'Rede' \
                     "Falhou ao conectar em $name — cabo fora? Wi-Fi desligado?"
-            fi
-            ;;
+            fi ;;
+        Desconectar)
+            mlog "Rede: desligando conexão '$name'"
+            if nmcli connection down "$name" >/dev/null 2>&1; then
+                note -t 4000 'Rede' "Desconectado: $name"
+            else
+                note -u normal -t 8000 'Rede' "Falhou ao desligar $name."
+            fi ;;
+        'Alterar senha…')
+            known_password "$name" ;;
+        'Esquecer…')
+            known_forget "$name" ;;
     esac
     return 0
 }
@@ -275,6 +421,10 @@ fi
 # em subshell e perde _c/_rc — e o heredoc expande $rows numa passada só,
 # então SSID com $/`/espaço chega INTEIRO ao craft-menu)
 mlog "Rede: abrindo central (craft-menu v4, âncora no botão)"
+# v6 — a varredura de FUNDO dispara na ABERTURA: enquanto o usuário olha o
+# menu principal, o cache do NM já está sendo atualizado (a lista de redes
+# abre instantânea do cache, e fresca)
+bg_rescan
 while :; do
     rows="$(main_rows)"
     open_menu --title='Rede' --at=network <<EOF
@@ -329,6 +479,9 @@ EOF
             # reabre com o mesmo estado
             continue ;;
         'Redes Wi-Fi…')
+            # v6 — re-engatilha a varredura de fundo por via das dúvidas (o
+            # usuário pode ter ficado no menu principal); a lista NÃO espera
+            bg_rescan
             wifi_menu
             continue ;;
         'Conexões salvas…')

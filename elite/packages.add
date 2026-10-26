@@ -84,6 +84,11 @@ foot
 swaybg
 hyprlock
 wlopm
+## v2.7.0 — foco de janela pela dock (o dono: "clicar num programa já
+## aberto deve ir para a tarefa aberta invés de abrir outra"): o wlrctl
+## fala wlr-foreign-toplevel (labwc fala) — wlrctl window focus app_id:…
+## é TODO o mecanismo de foco (ferramenta mínima, zero daemon)
+wlrctl
 wl-clipboard
 grim
 slurp

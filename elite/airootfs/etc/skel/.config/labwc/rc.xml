@@ -391,13 +391,20 @@
   <mouse>
     <default/>
     <context name="Root">
-      <!-- v1.7 (decisão do dono: "tira essa mudança de ambiente com o
-           botão direito… eu acho feio"): o botão direito agora abre o
-           MENU RAIZ (curado, todo iconizado) — o padrão universal.
-           A lista de janelas do botão direito saiu (o dock já é o
-           comutador de janelas) e o clique ESQUERDO no desktop ficou
-           limpo (nada de menu acidental). SCROLL no desktop segue
-           trocando de workspace (o gesto que o dono prefere). -->
+      <!-- v2.7.0 — A LEI DOS DOIS BOTÕES (o dono, rig: "a topbar era pra
+           funcionar com click esquerdo e não direito e na home ao
+           contrário"): a DIVISÃO é geográfica —
+             · TOPBAR (interface): clique ESQUERDO abre/fecha os menus;
+             · DESKTOP (aqui): clique DIREITO abre o MENU RAIZ — é o único
+               botão que abre menu no desktop, e o ESQUERDO é MUDO por lei
+               (nada de menu acidental, nada de menu ao fechar outro).
+           O fechar-por-clique-fora não vaza: a GAIOLA da dock
+           (craft-dock-gui v2.7, engatilhada pelo craft-menu) engole o
+           clique fora do menu aberto e só fecha — o desktop nem vê o
+           clique (por isso o Right abaixo não disputa com o dismiss).
+           A lista de janelas do botão direito saiu na v1.7 (o dock já é
+           o comutador de janelas). SCROLL no desktop segue trocando de
+           workspace (o gesto que o dono prefere). -->
       <mousebind button="Right" action="Press">
         <action name="ShowMenu" menu="root-menu" />
       </mousebind>

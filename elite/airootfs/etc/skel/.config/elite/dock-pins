@@ -1,7 +1,11 @@
 # pins da dock — 1 ID de .desktop por linha (craft-pin add/rm gere)
+# v2.7.0: a linha pode ter uma 2ª coluna — o app_id EXPLÍCITO que a dock
+# usa para FOCAR a janela (wlrctl window focus app_id:…). Só vale a pena
+# quando o app se apresenta com um id que nem o StartupWMClass nem o
+# binário adivinham (ex.: apps GTK: o Thunar se apresenta org.xfce.Thunar).
 # v2.1.1 (run #93): o brave-origin instala 'brave-browser.desktop' (contrato
 # do build.sh) — pin com ID que não resolve NUNCA mais vai a file: o
 # DesktopAppInfo.new devolve NULL e o PyGObject lança TypeError.
 foot.desktop
-thunar.desktop
+thunar.desktop org.xfce.Thunar
 brave-browser.desktop
