@@ -307,21 +307,22 @@ assert_nogrep "$DCSS" 'padding: 2px 8px' "v2.3.9: dock.css sem o padding assimé
 assert_grep "$DCSS" 'border-radius: 12px' "v2.3.9: pílula de 44px com raio 12 (a lei dock+menu)"
 assert_nogrep "$DCSS" 'border-radius: 14px' "v2.3.9: dock.css sem raio fora da lei (o 14px morreu)"
 assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'padding: 4px' "v2.3.9: fallback embutido da dock espelha a lei da pílula"
-assert_grep "$P/airootfs/etc/skel/.config/elite/menu.css" 'border-radius: 12px' "v2.3.9: menu-item no raio 12 da lei (era 10 — dock e menu na MESMA escada de 44px)"
-assert_grep "$P/airootfs/usr/local/bin/craft-menu" 'set_halign\(Gtk\.Align\.CENTER\)' "v2.3.9: título do menu CENTRADO de verdade (halign no eixo cruzado — justify sozinho não centra label de largura natural)"
-assert_grep "$P/airootfs/usr/local/bin/craft-menu" 'quit_once' "v2.3.10: craft-menu com guard de main_quit ÚNICO (o ESC/dispatch de focus-out disparava um SEGUNDO main_quit e o Gtk-CRITICAL ia pro stderr — o chamador lia 'exit=1 COM stderr' e gritava FALHOU)"
+assert_nogrep "$P/airootfs/usr/local/bin/craft-menu" 'notify-send' "v2.4.0: o menu não notifica NADA (fechar é físico — a classe do toast falso do motor GTK extinta junto)"
+assert_grep "$P/airootfs/usr/local/bin/craft-menu" '\|\| exit' "v2.4.0: ESC = exit com o código do motor (1 = fechado sem escolha, stderr vazio — a lei v2.3.6/2.3.10 intocada: fechar NUNCA é falha)"
 # v2.3.11 — A GAIOLA (o dono: "os menus sequer abriam… reescreve do zero
 # de forma inteligente"). A v1 dependia de FOCO pra viver (janela solta +
 # ON_DEMAND + focus-out-event → quit): a corrida de foco no mapa matava o
-# menu antes do primeiro frame. A v2 é MODAL de verdade — o padrão dos
-# overlays que funcionam (wlogout/gtklock/fuzzel):
+# menu antes do primeiro frame — DUAS VEZES (a nativa v2.3.8 e a gaiola
+# v2.3.11). A v3 troca o MOTOR pelo único com prova de vida no rig: o
+# fuzzel (o launcher e o Sessão sempre abriram nele — e a cura v2.3.6 do
+# clique-fora foi provada NA MÁQUINA do dono).
 CMN="$P/airootfs/usr/local/bin/craft-menu"
-assert_nogrep "$CMN" 'connect\("focus-out-event"' "v2.3.11: ZERO handler de focus-out no craft-menu (a classe do 'menu que morre ao mapear' extinta POR CONSTRUÇÃO — não existe código para falhar; o cabeçalho cita a história de propósito)"
-assert_grep "$CMN" 'KeyboardMode\.EXCLUSIVE' "v2.3.11: teclado EXCLUSIVE (ESC e ↑/↓/Enter garantidos — a vida do menu nunca mais depende de corrida de foco)"
-assert_grep "$CMN" 'Edge\.TOP' "v2.3.11: a GAIOLA — 4 âncoras, a superfície É a tela (véu modal do launcher; nada por baixo recebe clique)"
-assert_grep "$CMN" 'button-press-event' "v2.3.11: clique fora = fechar por GEOMETRIA (press fora da alocação da pílula fecha; dentro, o item decide — à prova de internals do GTK)"
-assert_grep "$CMN" 'set_xalign\(0\.5\)' "v2.3.11: TEXTO dos itens morto no centro (xalign no label — justify sozinho não centra linha única)"
-assert_grep "$P/airootfs/etc/skel/.config/elite/menu.css" 'alpha\(#000000, 0\.35\)' "v2.3.11: véu modal da gaiola no menu.css (o fundo escurece — o menu flutua sobre ele, a mesma linguagem do fuzzel/swaync)"
+assert_nogrep "$CMN" 'import gi' "v2.4.0: a era GTK no menu EXTINTA (nenhum import gi — o motor que nunca abriu no rig saiu de cena; duas reescritas, dois funerais)"
+assert_nogrep "$CMN" 'GtkLayerShell' "v2.4.0: zero layer-shell no menu (a gaiola morreu por construção — nenhuma corrida de foco para existir)"
+assert_nogrep "$CMN" 'Gtk\|Gdk' "v2.4.0: menu é POSIX sh puro (nenhum toolkit para falhar antes do 1º frame)"
+assert_grep "$CMN" 'fuzzel --dmenu' "v2.4.0: o motor do menu é o FUZZEL — a prova de vida do rig (launcher e Sessão sempre abriram)"
+assert_grep "$CMN" '--title=' "v2.4.0: interface intocada (--title= + argv/stdin — os 7 chamadores não mudam uma linha)"
+assert_grep "$P/airootfs/etc/skel/.config/fuzzel/fuzzel.ini" 'exit-on-focus-loss=yes' "v2.4.0: a lei do fechar EXPLÍCITA no fuzzel.ini (perder o foco FECHA — toggle/cross-dismiss por física; o 2º clique fecha como no burn test v1.4)"
 WTCSS="$P/airootfs/etc/skel/.config/waybar/style.top.css"
 assert_nogrep "$WTCSS" '#custom-shot' "v2.3.10: zero regra do print no CSS da barra (o módulo saiu do config.top — regra órfã nenhuma sobrevive)"
 assert_nogrep "$WTCSS" 'padding: 0 12px 0 14px' "v2.3.9: ARCH do drawer com padding SIMÉTRICO (a declaração 0 12px 0 14px nascia 1px fora do centro da própria pílula)"
@@ -351,6 +352,12 @@ for _m10 in craft-power craft-connect craft-bgapps craft-logout craft-idle; do
 done
 assert_grep "$P/airootfs/usr/local/bin/craft-connect" 'timeout 5 notify-send' "v2.3.10: notify com timeout 5 (daemon preso nunca prende o chamador — a classe dos craft-bgapps acumulados morre)"
 assert_grep "$P/airootfs/usr/local/bin/craft-bgapps" 'timeout 5 notify-send' "v2.3.10: craft-bgapps idem (mesma gramática)"
+BGA="$P/airootfs/usr/local/bin/craft-bgapps"
+assert_grep "$BGA" 'survivors=' "v2.4.0: UM processo por PROGRAMA — o PRINCIPAL da árvore (o dono: 'abri o Brave e abriu 11 serviços no preview')"
+assert_grep "$BGA" ' --type=' "v2.4.0: cintura de segurança Chromium (renderer/gpu/utility nunca é principal — nem órfã adotada pelo init)"
+assert_nogrep "$BGA" ' • ' "v2.4.0: o PREVIEW da lista no tooltip MORREU ('não precisa de preview apenas uma descrição assim como outro')"
+assert_grep "$BGA" 'clique: escolher o que encerrar' "v2.4.0: tooltip = DESCRIÇÃO curta que ensina o clique (a gramática dos outros módulos)"
+assert_grep "$BGA" 'status || printf' "v2.4.0: status à prova de bala (QUALQUER falha interna ainda emite JSON válido — o botão nunca some por erro de leitura)"
 assert_grep "$P/airootfs/etc/skel/.config/swaync/config.json" '"timeout-critical": 12' "v2.3.10: swaync expira ATÉ critical (era 0 = eterno — a pilha da foto do dono)"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/style.top.css" 'color: @mauve' "v2.3.10: power MAUVE (o dono: 'roxo como o ícone do arch pra ficar consistente com o lado esquerdo')"
 assert_nogrep "$P/airootfs/etc/skel/.config/waybar/style.top.css" 'color: @peach' "v2.3.10: lado direito BRANCO (o pêssego do bgapps era grito decorativo — 'o resto pode ser branco mesmo')"
@@ -1675,7 +1682,7 @@ assert_nogrep "$P/airootfs/etc/skel/.config/elite/dock.css" 'hotspot' "v2.3.4: d
 # stderr capturado, falha logada + notify.
 BGA="$P/airootfs/usr/local/bin/craft-bgapps"
 assert_file "$BGA" "v2.3.4: craft-bgapps existe (encerrar apps de 2º plano — escolha do usuário)"
-assert_grep "$BGA" 'ps -u "\$\(id -u\)"' "v2.3.4: varredura /proc real do UID (sem premissa de app — nada de lista inventada)"
+assert_grep "$BGA" 'ps -u "\$uid"' "v2.3.4: varredura /proc real do UID (sem premissa de app — nada de lista inventada)"
 assert_grep "$BGA" 'is_protected' "v2.3.4: casca da sessão protegida (labwc/waybar/áudio/dbus/portais nunca aparecem no menu)"
 assert_grep "$BGA" 'kill -TERM "\$pid"' "v2.3.4: término SIGTERM no escolhido (nunca KILL às cegas)"
 assert_grep "$BGA" 'command -v notify-send' "v2.3.4: confirmação na tela (o dono vê o que foi encerrado)"
@@ -1703,7 +1710,7 @@ assert_grep "$BGA" 'gvfsd\*' "v2.3.10: gvfsd* (inclui gvfsd-metadata, que vazava
 assert_grep "$BGA" 'craft-\*' "v2.3.10: a própria ferramenta (craft-*) NUNCA se lista — 7 cópias na foto do dono"
 assert_grep "$BGA" 'bwrap\*' "v2.3.10: bwrap (a caixa de areia dos portals) na casca por prefixo"
 assert_nogrep "$BGA" 'display_name' "v2.3.10: descrições de encanamento extintas (o tooltip lista o nome do PROGRAMA, nada mais)"
-assert_grep "$BGA" 'sed -z' "v2.3.7: tooltip do status com newline ESCAPADO (JSON de 1 linha — o newline cru derrubava o parse do waybar a cada 10s, bars.log 'Column 51')"
+assert_nogrep "$BGA" 'sed -z' "v2.4.0: o tooltip é 1 linha por NATUREZA (descrição curta — a leitura v2.3.7 do escape do newline aposenta o sed -z junto com o preview)"
 assert_grep "$P/airootfs/usr/local/bin/craft-power" 'craft-menu --title=' "v2.3.8: craft-power no menu nativo (sem pkill de irmão — a lei é do craft-menu)"
 assert_grep "$P/airootfs/usr/local/bin/craft-connect" 'craft-menu --title=' "v2.3.8: craft-connect no menu nativo (sem pkill de irmão — a lei é do craft-menu)"
 
@@ -1712,19 +1719,14 @@ assert_grep "$P/airootfs/usr/local/bin/craft-connect" 'craft-menu --title=' "v2.
 # da família nascem no CENTRO da tela — zero âncora de canto restante.
 # v2.3.8 — A ERA DO MENU NATIVO (o dono corrigiu a leitura: "o que eu
 # queria centralizar é o nome do menu e remover a barra que fica, tipo
-# 'Rede |'"): os menus de ESCOLHA são craft-menu — GUI GTK+layer-shell
-# (a família provada da dock): título CENTRADO, itens centrados, ZERO
-# Gtk.Entry, janela no centro (layer-shell sem âncoras). Onde se DIGITA,
-# fuzzel fica (launcher W-Space, Fixar na dock, descrição do snapshot).
+# 'Rede |'"): os menus de ESCOLHA são craft-menu. v2.4.0: o MOTOR é o
+# fuzzel (a era GTK+layer-shell nunca abriu no rig — duas reescritas,
+# dois funerais); onde se DIGITA, fuzzel sempre ficou.
 CMN="$P/airootfs/usr/local/bin/craft-menu"
-assert_file "$CMN" "v2.3.8: craft-menu existe (o dropdown nativo da Elite)"
-assert_nogrep "$CMN" 'Gtk.Entry' "v2.3.8: ZERO linha de digitação no menu nativo (a barra 'Rede |' morreu — o pedido literal do dono)"
-assert_grep "$CMN" 'KeyboardMode.ON_DEMAND' "v2.3.8: clique fora FECHA o menu (a gramática do fuzzel on-demand v2.3.6, agora nativa)"
-assert_grep "$CMN" 'Gdk.KEY_Up' "v2.3.8: teclado de primeira classe (↑/↓ navega, Enter escolhe — paridade com o mouse)"
-assert_grep "$CMN" 'die_other_menus' "v2.3.8: A LEI dos menus é ESTRUTURAL (toggle + cross-dismiss moram no craft-menu — fim das 7 cópias de pkill)"
-assert_file "$P/airootfs/etc/skel/.config/elite/menu.css" "v2.3.8: o rice dos menus nativos (a escada de superfícies da dock)"
-assert_grep "$P/airootfs/etc/skel/.config/elite/menu.css" 'menu-title' "v2.3.8: título do menu estilizado e CENTRADO (o pedido literal do dono)"
-assert_grep "$P/airootfs/etc/skel/.config/elite/menu.css" 'menu-item:hover' "v2.3.8: pílula de hover nos itens (feedback de clique em TUDO — a lei do rice)"
+assert_file "$CMN" "v2.3.8: craft-menu existe (o dropdown da Elite)"
+assert_nogrep "$CMN" 'Gtk.Entry' "v2.4.0: ZERO linha de digitação inventada pelo menu (a barra 'Rede |' morreu; o prompt do fuzzel é FUNÇÃO — filtrar a lista)"
+assert_grep "$CMN" 'set -u' "v2.4.0: motor POSIX sh puro (a classe 'morre antes do 1º frame' extinta — não existe toolkit para falhar)"
+assert_grep "$CMN" 'craft-menu --title=TÍTULO' "v2.4.0: a gramática documentada no cabeçalho (os 7 chamadores não mudam uma linha)"
 for _m in craft-power craft-connect craft-bgapps craft-logout craft-idle; do
     assert_grep "$P/airootfs/usr/local/bin/$_m" 'craft-menu --title=' "v2.3.8: $_m no menu NATIVO (fim da era fuzzel nos menus de escolha)"
 done

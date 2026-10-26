@@ -114,49 +114,52 @@ craft-pin restore                                # desfaz a última alteração
 
 ---
 
-## craft-power (v2.1 + ícones v1.6) — `/usr/local/bin/craft-power`
+## craft-power (v2.1 → motor v2.4.0) — `/usr/local/bin/craft-power`
 
-**O quê:** menu de sessão dropdown ancorado top-right (fuzzel --dmenu, 44px abaixo da menu bar) com toggle por pressão (2º ⏻ fecha — fix do burn test v1.4). **v1.6:** entradas com ÍCONES Papirus via protocolo dmenu (`NUL + "icon" + US + path`): `printf '%s\0icon\x1f%s\n' <label> <path> | fuzzel --dmenu` — o printf vai DIRETO no pipe (variável shell descarta bytes NUL; pipeline é obrigatório). Ícones verificados no squashfs: `/usr/share/icons/Papirus/24x24/actions/system-{lock-screen,log-out,suspend,reboot,shutdown}.svg`. Fallback labnag intacto.
+**O quê:** menu de sessão do botão ⏻ da barra com toggle por pressão (2º ⏻ fecha — "esse tipo de erro não pode existir"). v2.3.8: passou ao craft-menu (o menu da casa — fim do dropdown ancorado próprio). v2.4.0: o motor do craft-menu é o fuzzel — a escolha nasce no motor com prova de vida no rig. Entradas: Travar tela · Sair da sessão · Suspender · Reiniciar · Desligar · Tempo de idle…. Fallback labnag preservado (e o labnag aberto também vira toggle). Toda abertura e toda falha deixam linha no `menus.log`.
 
 **Como rodar:** botão ⏻ da barra (custom/power) ou menu raiz.
 
-**Reverter:** remover os argumentos de ícone do printf (o protocolo é opcional por linha).
+**Reverter:** n/a — o motor é o fuzzel do sistema; as entradas moram neste script.
 
-**Depende de:** fuzzel (dmenu), Papirus, systemctl (ações via polkit — ver `49-elite-desktop.rules`).
+**Depende de:** craft-menu (fuzzel), systemctl (ações via polkit — ver `49-elite-desktop.rules`).
 
 ---
 
-## craft-menu (v2.0 — A GAIOLA) — `/usr/local/bin/craft-menu`
+## craft-menu (v3.0 — O MOTOR QUE JÁ ABRIA) — `/usr/local/bin/craft-menu`
 
-**O quê:** o menu NATIVO da distro — janela GTK própria (a era fuzzel --dmenu acabou nos menus comuns) com a arquitetura de overlay MODAL dos que funcionam em produção (wlogout, gtklock, fuzzel): a **GAIOLA** — a superfície é a TELA INTEIRA (4 âncoras, layer OVERLAY) com véu translúcido 35%, e a pílula do menu morta no centro dos 2 eixos. Teclado EXCLUSIVE (ESC/↑/↓/Enter garantidos — a vida do menu nunca depende de corrida de foco; a v1 morria ANTES do 1º frame no rig real por focus-out→quit durante o mapa). 5 caminhos de fechamento SEM depender de foco: clique fora por GEOMETRIA (press fora da alocação da pílula), ESC, escolha, toggle (2ª chamada do mesmo título fecha) e cross-dismiss (abrir outro menu fecha o primeiro). ZERO `focus-out-event` no código — a classe do "menu que morre ao mapear" está extinta por construção.
+**O quê:** o menu da distro — v3 = `fuzzel --dmenu` em POSIX sh puro. A era GTK (v2.3.8 nativa → v2.3.11 "gaiola") **nunca abriu no rig real**: duas reescritas, dois funerais — a v1 morria antes do 1º frame (corrida de foco no mapa) e a gaiola também não nasceu na máquina do dono. A v3 usa o ÚNICO motor com prova de vida no rig: o fuzzel — o launcher e o menu de Sessão sempre abriram, filtraram e fecharam nele (a cura v2.3.6 do clique-fora foi provada NA MÁQUINA). Zero GTK, zero layer-shell, zero corrida de foco para EXISTIR: a classe "morre antes do 1º frame" está extinta por construção — não existe mais toolkit para falhar. A lei dos menus virou FÍSICA: só existe um teclado — abrir outro menu rouba o foco e o anterior FECHA SOZINHO (`exit-on-focus-loss=yes`, contrato no fuzzel.ini); o 2º clique no botão fecha (burn test v1.4 do Sessão provou).
 
 ```bash
-craft-menu "Título" Item1 Item2 Item3    # lista estática (argv)
-printf 'Item1\nItem2\n' | craft-menu "Título"   # lista DINÂMICA (stdin — à prova de injeção: linha = um item)
+craft-menu --title='Sessão' 'Travar tela' 'Sair da sessão' 'Suspender'   # argv
+printf '%s
+' 'brave (pid 123)' | craft-menu --title='Encerrar'          # stdin (listas dinâmicas)
 ```
 
-**Saída:** o item escolhido vai ao stdout (exit 0). Fechado pelo usuário (ESC/clique fora) = exit 1 SEM stderr — os chamadores tratam como benigno (fechar NUNCA é falha; crash real tem stderr e continua gritando no `~/.cache/elite/menus.log`).
+**Gramática de saída (contrato com os 7 chamadores — intocada):** escolha no stdout · exit 0 · fechado sem escolha (ESC / clique fora / foco perdido) = **exit 1 com stderr vazio** (fechar NUNCA é falha) · **143** = morto por SIGTERM (cross-dismiss) · outros = falha REAL (stderr vivo para o chamador logar + avisar e SOME). O título vive no prompt do fuzzel: contexto + filtro por digitação.
 
-**Como rodar:** pelos módulos que abrem menu — botão de apps em 2º plano (craft-bgapps), idle (craft-idle), rollback (craft-rollback), sessão (craft-logout), conectividade (craft-connect).
+**Como rodar:** pelos módulos que abrem menu — Sessão (craft-power), Encerrar (craft-bgapps), idle (craft-idle), rollback (craft-rollback), sair (craft-logout), rede (craft-connect).
 
-**Depende de:** python3 + PyGObject (GTK3), o véu mora no `~/.config/elite/menu.css`.
+**Depende de:** fuzzel (dmenu), sh. O rice do menu morto (menu.css) foi aposentado.
 
 ---
 
-## craft-bgapps (v2.0 — só PROGRAMA de verdade) — `/usr/local/bin/craft-bgapps`
 
-**O quê:** o botão de apps em 2º plano da menu bar (módulo `custom/bgapps`) — só ocupa a barra QUANDO há programa do usuário fora da casca da sessão (texto vazio = some). A LEI (v2.3.10): o que é da SESSÃO nunca aparece — compositor, barras, áudio, dbus, portals, keyring, idle, notificações, clipboard, automount, acessibilidade, systemd/sd e os próprios craft-*/elite-* (matar isso não é "encerrar um app", é quebrar o desktop) — e TODO PROGRAMA de verdade aparece: nativo, flatpak (o processo real dentro do sandbox tem o próprio nome), AppImage (o binário montado), interpretado. A varredura é o `/proc` REAL do UID, sem lista inventada; o casamento é POR PREFIXO (`case`), porque o `ps` corta o comm em 15 caracteres e a lista exata da v2.3.7 deixava vazar exatamente os truncados (at-spi2-registr, xdg-document-po, gvfsd-metadata).
+## craft-bgapps (v3.0 — UM processo por PROGRAMA) — `/usr/local/bin/craft-bgapps`
+
+**O quê:** o botão de apps em 2º plano da menu bar (módulo `custom/bgapps`) — só ocupa a barra QUANDO há programa do usuário fora da casca da sessão (texto vazio = some). A LEI v2.3.10 (fica): o que é da SESSÃO nunca aparece (compositor, barras, áudio, dbus, portals, keyring, idle, notificações, clipboard, automount, acessibilidade, systemd/sd e os craft-*/elite-*), e TODO programa de verdade aparece — nativo, flatpak (o processo real dentro do sandbox tem o próprio nome), AppImage, interpretado — varredura do `/proc`/ps REAL do UID, casamento POR PREFIXO (o ps corta o comm em 15 caracteres). A LEI v2.4.0 (o dono: "abri o Brave e abriu 11 serviços… só no processo principal"): **UM PROCESSO POR PROGRAMA** — entra no menu o PRINCIPAL de cada árvore (o candidato cujo PAI não é outro candidato); renderers/gpu/utility do Chromium e derivados, zygotes, crashpad e o app dentro do sandbox do flatpak são a sombra do programa, NUNCA entrada; cintura de segurança: cmdline com ` --type=` nunca é principal, nem órfã adotada pelo init. O tooltip é DESCRIÇÃO curta (a gramática dos outros módulos) — o preview da lista morreu ("não precisa de preview apenas uma descrição… ao clicar que abre o menu"). Status à prova de bala: qualquer falha interna ainda emite JSON válido (o botão só some sem programa de verdade).
 
 ```bash
 craft-bgapps status   # JSON do módulo waybar (vazio = botão some)
 craft-bgapps menu     # craft-menu com "nome (pid N)"; o escolhido recebe SIGTERM
 ```
 
-**Como rodar:** automático (o waybar executa `status` a cada 10s; clique abre o `menu`). Encerramento = SIGTERM + notificação que SOME (toast `-u normal`, nunca crítico).
+**Como rodar:** automático (o waybar executa `status` a cada 10s; clique abre o `menu`). Encerramento = SIGTERM + notificação que SOME.
 
 **Depende de:** sh, ps, /proc; craft-menu para o menu.
 
 ---
+
 
 ## craft-shot (v1.x) — `/usr/local/bin/craft-shot`
 

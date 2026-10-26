@@ -6,6 +6,43 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **v2.4.0 — O MOTOR QUE JÁ ABRIA + UM PROCESSO POR PROGRAMA** (o rig
+  falou de novo: "quando clico nos botões nem abre menu nenhum… aquele
+  de segundo plano abre um preview e não o menu… abri o Brave e abriu 11
+  serviços… as vezes some também… se não conseguir compactar, pode
+  remover o menu… estuda as extensões do gnome"):
+  - **A HONESTIDADE QUE FALTAVA: o motor GTK do menu NUNCA abriu no rig**
+    — a nativa (v2.3.8) e a gaiola (v2.3.11) morreram da mesma classe de
+    falha na MÁQUINA REAL: duas reescritas, dois funerais. A v3 troca o
+    MOTOR pelo único com prova de vida no rig: o FUZZEL — o launcher e o
+    menu de Sessão sempre abriram, filtraram e fecharam nele (a cura
+    v2.3.6 do clique-fora foi provada NA MÁQUINA do dono). craft-menu v3
+    = POSIX sh puro, zero GTK, zero layer-shell, zero corrida de foco:
+    a classe "morre antes do 1º frame" está EXTINTA por construção — não
+    existe mais toolkit para falhar.
+  - **A LEI DOS MENUS VIROU FÍSICA** — só existe um teclado: abrir outro
+    menu rouba o foco e o anterior FECHA SOZINHO (exit-on-focus-loss=yes,
+    agora CONTRATO escrito no fuzzel.ini); o 2º clique no botão fecha —
+    o que o burn test v1.4 do Sessão já tinha provado. Gramática de
+    saída 0/1/143 intocada: os 7 chamadores não mudaram uma linha. O
+    título vive no prompt (contexto + filtro por digitação).
+  - **BGAPPS v3: UM PROCESSO POR PROGRAMA** — "abri o Brave e abriu 11
+    serviços" morre: entra no menu o PRINCIPAL de cada árvore (o
+    candidato cujo PAI não é outro candidato) — renderers/gpu/utility do
+    Chromium e derivados, zygotes, crashpad e o app dentro do sandbox do
+    flatpak são a sombra do programa, NUNCA entrada. Cintura de
+    segurança: cmdline com " --type=" nunca é principal — nem órfã
+    adotada pelo init. Prova local: 5 processos numa árvore fake
+    (app + 2 renderers + 1 filho limpo + 1 órfão) → 1 entrada.
+  - **O PREVIEW MORREU** — o tooltip vira DESCRIÇÃO curta, a gramática
+    dos outros módulos ("não precisa de preview apenas uma descrição
+    assim como outro e ao clicar que abre o menu"): "N programa(s) em 2º
+    plano — clique: escolher o que encerrar".
+  - **O BOTÃO QUE SOME À TOA** — status à prova de bala: QUALQUER falha
+    interna ainda emite JSON válido (o módulo só some quando NÃO há
+    programa de verdade — que é a regra, não o bug).
+  - menu.css aposentado junto (o rice do menu que nunca abriu).
+
 - **v2.3.12 — a auditoria de garantia: o manual conta a história inteira e
   o mpris deixa de fingir** (auditoria topbar + manual + UI/UX, out/2026):
   - **O MANUAL ESTAVA 5 VERSÕES ATRASADO** — este CHANGES parava na

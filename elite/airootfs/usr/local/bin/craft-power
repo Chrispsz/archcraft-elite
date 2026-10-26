@@ -1,13 +1,16 @@
 #!/bin/sh
 # craft-power — menu de sessão MOUSE-FIRST (Desktop v2.1)
 # ─────────────────────────────────────────────────────────────────────────
-# v2.3.8 — A ERA DO MENU NATIVO (o dono corrigiu a leitura: "o que eu
+# v2.4.0 — O MOTOR QUE JÁ ABRIA: o craft-menu v3 voltou ao motor do
+# launcher (a era GTK+layer-shell do menu saiu de cena — nunca abriu no
+# rig do dono, nem a nativa nem a gaiola). O dropdown de Sessão tem de
+# novo a prova de vida na máquina real. Gramática 0/1/143 intocada; a
+# lei (ESC benigno, cross-dismiss, toggle por foco) segue valendo.
+# v2.3.8 — a era do menu NATIVO (o dono corrigiu a leitura: "o que eu
 # queria centralizar é o nome do menu e remover a barra que fica, tipo
 # 'Rede |'"): a linha de digitação herdada do dmenu não tem função num menu de
-# escolha. O dropdown de Sessão agora é o craft-menu — GUI nativa GTK+
-# layer-shell (a família provada da dock): título CENTRADO, itens
-# centrados, ZERO linha de digitação, ↑/↓/Enter/Esc + clique. A lei dos
-# menus (toggle + cross-dismiss) virou ESTRUTURA dentro do craft-menu —
+# escolha. O dropdown de Sessão passou a ser o craft-menu — e a lei dos
+# menus (toggle + cross-dismiss) virou estrutura dele —
 # este script não mata irmão nenhum mais.
 # v2.1 — dropdown da barra superior (diretriz do dono). v1.4 — TOGGLE
 # ("esse tipo de erro não pode existir"). v2.3.1 — fim do silêncio

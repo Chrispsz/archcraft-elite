@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
-# craft-logout — menu de sessão (craft-menu nativo; Esc cancela)
+# craft-logout — menu de sessão (craft-menu; Esc cancela)
 # opções: lock · logout (labwc) · reboot · shutdown
 #
+# v2.4.0 — O MOTOR QUE JÁ ABRIA: o craft-menu v3 é fuzzel --dmenu (a era
+# GTK do menu saiu de cena — nunca abriu no rig; o Sessão volta ao motor
+# que sempre abriu). A gramática de saída (0/1/143) é intocada e a lei
+# (ESC benigno, toggle/cross-dismiss por foco) segue valendo.
+#
 # v2.3.8 — a era do menu NATIVO (o dono: "remover a barra que fica, tipo
-# 'Rede |'"): craft-menu — título centrado, itens centrados, zero linha
-# de digitação. A lei (toggle/cross-dismiss) é estrutural no craft-menu.
+# 'Rede |'"): craft-menu. A lei (toggle/cross-dismiss) é da gramática.
 #
 # v2.3.1 — FIM DO SILÊNCIO (família craft-*): crash calado nunca mais —
 # log em ~/.cache/elite/menus.log + notify na tela (padrão dos menus).
