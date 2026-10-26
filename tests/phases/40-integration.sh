@@ -253,7 +253,7 @@ assert_grep "$CT" '"fixed-center": true' "v1.5: fixed-center (centro EXATO indep
 assert_nogrep "$CT" '"custom/menu"' "v1.5: lançador ARCH FORA do canto esquerdo (spec do dono — o Launchpad vive na dock)"
 assert_grep "$CT" '"modules-left": \["custom/drawer", "wlr/window"\]' "v2.0: convenção dos rices — ESQUERDA = lançador (ARCH) + app focado"
 assert_grep "$CT" '"modules-right": \[' "v2.1: o STATUS vive à DIREITA (volume/rede/tray/sessão — declutter do dono)"
-assert_grep "$CT" '"custom/shot"' "v2.3.7: botão de print DE VOLTA na barra (áudio do dono: 'botão de print rápido que melhoraria a experiência' — a lei muda com o dono)"
+assert_nogrep "$CT" '"custom/shot"' "v2.3.10: print FORA da barra ('não gostei do botão de print melhor remover' — os verbos vivem em W-P/W-S-P; entrou na v2.3.7, saiu na v2.3.10, a lei muda com o dono)"
 assert_nogrep "$CT" '"idle_inhibitor"' "v2.0: o café SAIU da barra (módulo extinto — 'botão estranho', áudio do dono)"
 assert_grep "$CT" '"format": "\{icon\}"' "v2.1: áudio em modo ícone"
 assert_nogrep "$CT" '"format": "\{volume\}' "v2.1: SEM porcentagem numérica no áudio (o '40%')"
@@ -309,14 +309,36 @@ assert_nogrep "$DCSS" 'border-radius: 14px' "v2.3.9: dock.css sem raio fora da l
 assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'padding: 4px' "v2.3.9: fallback embutido da dock espelha a lei da pílula"
 assert_grep "$P/airootfs/etc/skel/.config/elite/menu.css" 'border-radius: 12px' "v2.3.9: menu-item no raio 12 da lei (era 10 — dock e menu na MESMA escada de 44px)"
 assert_grep "$P/airootfs/usr/local/bin/craft-menu" 'set_halign\(Gtk\.Align\.CENTER\)' "v2.3.9: título do menu CENTRADO de verdade (halign no eixo cruzado — justify sozinho não centra label de largura natural)"
+assert_grep "$P/airootfs/usr/local/bin/craft-menu" 'quit_once' "v2.3.10: craft-menu com guard de main_quit ÚNICO (o ESC/dispatch de focus-out disparava um SEGUNDO main_quit e o Gtk-CRITICAL ia pro stderr — o chamador lia 'exit=1 COM stderr' e gritava FALHOU)"
 WTCSS="$P/airootfs/etc/skel/.config/waybar/style.top.css"
-assert_grep "$WTCSS" '^#custom-shot \{' "v2.3.9: print COM regra base (tinha :hover sem base — a pílula nascia colada no glifo, padding zero)"
+assert_nogrep "$WTCSS" '#custom-shot' "v2.3.10: zero regra do print no CSS da barra (o módulo saiu do config.top — regra órfã nenhuma sobrevive)"
 assert_nogrep "$WTCSS" 'padding: 0 12px 0 14px' "v2.3.9: ARCH do drawer com padding SIMÉTRICO (a declaração 0 12px 0 14px nascia 1px fora do centro da própria pílula)"
 assert_nogrep "$WTCSS" '#mpris:hover' "v2.3.9: hover SÓ em clicável (mpris é vitrine — a pílula que sugere clique sem clique é mentira de affordance)"
 assert_nogrep "$WTCSS" '#wlr-window:hover' "v2.3.9: hover SÓ em clicável (wlr-window é vitrine)"
 assert_grep "$WTCSS" 'transition: background 0\.15s ease, color 0\.15s ease' "v2.3.9: transição na BASE (dentro do :hover só a ida animava — a volta era seca)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/themerc-override" 'menu\.items\.active\.bg\.color: #16161f' "v2.3.9: hover do menu labwc = surface0 (era surface2 — o tom de PRESSIONADO na escada)"
 assert_nogrep "$P/airootfs/etc/skel/.config/swaync/style.css" 'border-radius: 10px' "v2.3.9: swaync inteiro no raio 12 (a lei da pílula — nenhum 10px sobrevive)"
+# v2.3.10 — A LEI DAS SAÍDAS E DAS NOTIFICAÇÕES (fotos do dono, live
+# 25/10: pilha de 'Menu de Rede falhou craft-menu exit=1' que NUNCA
+# sumia). As duas causas, ambas curadas:
+#   (1) o gate 'eq 1 ] && [ ! -s "$errf"' tratava exit=1 COM stderr como
+#       falha — mas o GTK emite warning benigno no destroy (main_quit
+#       duplo); TODO fechamento normal virava FALHOU;
+#   (2) os FALHOU iam com -u critical e a swaync tinha
+#       timeout-critical: 0 — eterno por design.
+# A cura tripla: exit 1 = benigno SEMPRE (stderr só no log) · falha real
+# = -u normal + -t + timeout 5 no notify-send · swaync expira TUDO.
+for _m10 in craft-power craft-connect craft-bgapps craft-logout craft-idle craft-rollback craft-pin-pick; do
+  assert_nogrep "$P/airootfs/usr/local/bin/$_m10" 'u critical' "v2.3.10: $_m10 sem toast ETERNO nenhum (urgencia critical extinta — a pílula de falha avisa e some)"
+done
+for _m10 in craft-power craft-connect craft-bgapps craft-logout craft-idle; do
+  assert_nogrep "$P/airootfs/usr/local/bin/$_m10" 'eq 1 ] && .\[ ! -s ' "v2.3.10: $_m10 sem o gate '! -s stderr' no exit 1 do craft-menu (fechamento benigno COM OU SEM stderr — o warning de destroy do GTK não é falha; nos prompts de FUZZEL de digitação o gate fica, que lá o exit 1 limpo É o cancelamento)"
+done
+assert_grep "$P/airootfs/usr/local/bin/craft-connect" 'timeout 5 notify-send' "v2.3.10: notify com timeout 5 (daemon preso nunca prende o chamador — a classe dos craft-bgapps acumulados morre)"
+assert_grep "$P/airootfs/usr/local/bin/craft-bgapps" 'timeout 5 notify-send' "v2.3.10: craft-bgapps idem (mesma gramática)"
+assert_grep "$P/airootfs/etc/skel/.config/swaync/config.json" '"timeout-critical": 12' "v2.3.10: swaync expira ATÉ critical (era 0 = eterno — a pilha da foto do dono)"
+assert_grep "$P/airootfs/etc/skel/.config/waybar/style.top.css" 'color: @mauve' "v2.3.10: power MAUVE (o dono: 'roxo como o ícone do arch pra ficar consistente com o lado esquerdo')"
+assert_nogrep "$P/airootfs/etc/skel/.config/waybar/style.top.css" 'color: @peach' "v2.3.10: lado direito BRANCO (o pêssego do bgapps era grito decorativo — 'o resto pode ser branco mesmo')"
 # craft-power v2 — v2.3.8: o menu NATIVO (o dono corrigiu: "o que eu
 # queria centralizar é o nome do menu e remover a barra que fica, tipo
 # 'Rede |'"): craft-menu — título centrado, itens centrados, ZERO linha
@@ -1654,11 +1676,18 @@ assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" '"craft-bgapps menu
 SNC="$P/airootfs/etc/skel/.config/swaync/config.json"
 assert_nogrep "$SNC" 'buttons-grid' "v2.3.7: toggles de rede/energia FORA do painel de notificações (o dono: 'algo escondido que o usuário não espera')"
 assert_grep "$SNC" '"widgets": \["title", "dnd", "notifications"\]' "v2.3.7: painel de notificações = notificações (título + não-perturbe + lista)"
-assert_grep "$P/airootfs/etc/skel/.config/waybar/style.top.css" '#custom-bgapps' "v2.3.4: CSS do botão no rice (pêssego quando há o que encerrar)"
+assert_grep "$P/airootfs/etc/skel/.config/waybar/style.top.css" '#custom-bgapps' "v2.3.4→v2.3.10: CSS do botão no rice (BRANCO quando há o que encerrar — o dono: lado direito branco com o power roxo)"
 BGA="$P/airootfs/usr/local/bin/craft-bgapps"
-assert_grep "$BGA" 'at-spi-bus-laun' "v2.3.7: at-spi na CASCA protegida (o dono no live: 'aparecendo alguns que iniciaram com o próprio sistema e pode ser perigoso encerrar' — foto do menu Encerrar)"
-assert_grep "$BGA" 'at-spi2-regist' "v2.3.7: at-spi2-registryd na casca (mesma evidência)"
-assert_grep "$BGA" '^bwrap$' "v2.3.7: bwrap na casca (a caixa de areia dos portals — matar quebra o app que a criou)"
+# v2.3.10 — a casca POR PREFIXO (o ps corta o comm em 15 caracteres e a
+# lista exata da v2.3.7 deixava vazar exatamente os truncados — foto do
+# tooltip: at-spi2-registr, xdg-document-po, gvfsd-metadata e o próprio
+# craft-bgapps 7×). O dono: "processos do sistema não deveriam aparecer").
+assert_grep "$BGA" 'at-spi\*' "v2.3.10: at-spi (acessibilidade que TODO app GTK acorda) na casca POR PREFIXO (sobrevive ao corte de 15 chars do comm)"
+assert_grep "$BGA" 'xdg-\*' "v2.3.10: xdg-* (portais) na casca por prefixo — o xdg-document-po vazava na lista exata"
+assert_grep "$BGA" 'gvfsd\*' "v2.3.10: gvfsd* (inclui gvfsd-metadata, que vazava) na casca por prefixo"
+assert_grep "$BGA" 'craft-\*' "v2.3.10: a própria ferramenta (craft-*) NUNCA se lista — 7 cópias na foto do dono"
+assert_grep "$BGA" 'bwrap\*' "v2.3.10: bwrap (a caixa de areia dos portals) na casca por prefixo"
+assert_nogrep "$BGA" 'display_name' "v2.3.10: descrições de encanamento extintas (o tooltip lista o nome do PROGRAMA, nada mais)"
 assert_grep "$BGA" 'sed -z' "v2.3.7: tooltip do status com newline ESCAPADO (JSON de 1 linha — o newline cru derrubava o parse do waybar a cada 10s, bars.log 'Column 51')"
 assert_grep "$P/airootfs/usr/local/bin/craft-power" 'craft-menu --title=' "v2.3.8: craft-power no menu nativo (sem pkill de irmão — a lei é do craft-menu)"
 assert_grep "$P/airootfs/usr/local/bin/craft-connect" 'craft-menu --title=' "v2.3.8: craft-connect no menu nativo (sem pkill de irmão — a lei é do craft-menu)"
@@ -1992,10 +2021,11 @@ assert_grep "$REPO/.github/workflows/build.yml" 'DOCK_COUNT' "v2.1.1: gate do CI
 CTP8="$P/airootfs/etc/skel/.config/waybar/config.top"
 CPS="$P/airootfs/usr/local/bin/craft-pin-status"
 # v2.1 (declutter do dono: “tá um pouco cheio”): o print SAIU da barra —
-# v2.3.7: E VOLTOU pelo mesmo dono (áudio do live: "botão de print rápido
-# que melhoraria a experiência"). A lei muda com o dono, nos dois sentidos.
-assert_grep "$CTP8" '"custom/shot"' "v2.3.7: print DE VOLTA na barra (clique = região via slurp, direito = tela inteira)"
-assert_grep "$CTP8" '"on-click": "craft-shot area"' "v2.3.7: on-click de shot na barra (o verbo do craft-shot no assento)"
+# v2.3.7: voltou pelo mesmo dono — v2.3.10: SAIU DE NOVO ("não gostei do
+# botão de print melhor remover"). A lei muda com o dono, nos três
+# sentidos; os verbos ficam nos atalhos W-P / W-S-P e o craft-shot vivo.
+assert_nogrep "$CTP8" '"custom/shot"' "v2.3.10: print fora da barra pela 3ª vez é a definitiva (o dono fechou a questão)"
+assert_file "$P/airootfs/usr/local/bin/craft-shot" "v2.3.10: o craft-shot segue VIVO (o botão saiu, os atalhos W-P/W-S-P não)"
 assert_nogrep "$CTP8" '"format": "\\uf0c4"' "v2.1: glifo do print extinto do topo"
 assert_grep "$CTP8" '"on-click": "craft-connect"' "v1.8: wi-fi/redes/bt = 1 botão → central (spec: 'conectividade num geral')"
 assert_grep "$CTP8" '"on-click": "craft-power"' "v1.8: liga/desliga/reset = botão de sessão no cluster esquerdo"

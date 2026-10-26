@@ -1,31 +1,32 @@
 #!/bin/sh
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · craft-bgapps (v1.0 — o botão dos 2º planos, v2.3.4)
+# Archcraft ELITE · craft-bgapps (v2.0 — só PROGRAMA de verdade, v2.3.10)
 # ═══════════════════════════════════════════════════════════════════════════
-# Pedido do dono (out/2026, ao instalar a v2.3.3): "um botão tray na topbar
-# para encerrar programas que estão executando em segundo plano e seja do
-# usuário caso queira, tipo para interromper o easyeffects, algum launcher
-# ou algo assim".
+# Pedido ORIGINAL (out/2026, ao instalar a v2.3.3): "um botão tray na
+# topbar para encerrar programas que estão executando em segundo plano".
 #
-# 2 verbos:
-#   craft-bgapps status → JSON p/ o módulo custom/bgapps da waybar. Sem
-#                         candidato, texto vazio = o botão SOME da barra.
-#   craft-bgapps menu   → fuzzel dmenu com os processos DO USUÁRIO vivos;
-#                         o escolhido recebe SIGTERM + notificação.
+# A CORREÇÃO DO DONO (live 25/10, foto do tooltip: 17 "apps" que eram
+# encanamento da sessão + o próprio craft-bgapps 7×): "essa função dos
+# processos é ruim… esses processos do sistema não deveriam aparecer e
+# também deve pegar todo tipo de programa, appimage, flatpak e etc".
 #
-# MODELO SEM LISTA INVENTADA (diretriz "sem premissa"): nada aqui supõe qual
-# app o usuário tem — a varredura é o /proc real do próprio UID. O que
-# existe de fábrica é só a CASCA da sessão, protegida de listagem e morte:
-# compositor, barras, dock, wallpaper, áudio, dbus, systemd, portals,
-# polkit, keyring e o servidor do terminal — matar isso não é "encerrar um
-# app", é quebrar o desktop. Tudo o mais que estiver vivo e for do usuário
-# (swaync, udiskie, o watcher do cliphist, o swayidle do craft-idle,
-# easyeffects/nm-applet/blueman se o usuário subir) APARECE — a escolha é
-# dele, no clique.
+# A LEI NOVA (v2.3.10):
+#   · o que é da SESSÃO nunca aparece — compositor, barras, áudio, dbus,
+#     portals, keyring, idle, notificações, clipboard, automount,
+#     acessibilidade, systemd/sd, os craft-* (a própria ferramenta);
+#     matar isso não é "encerrar um app", é quebrar o desktop;
+#   · TODO PROGRAMA de verdade aparece — nativo, flatpak (o processo
+#     real dentro do sandbox tem o próprio nome), AppImage (o binário
+#     montado), interpretado — a varredura é o /proc real do UID, sem
+#     lista inventada;
+#   · casamento POR PREFIXO (case), não por lista exata: o ps corta o
+#     comm em 15 caracteres (at-spi2-registr, xdg-document-po,
+#     gvfsd-metadata) e a lista exata da v2.3.7 deixava vazar exatamente
+#     esses.
 #
-# v2.3.1 — mesma lei dos 5 menus: toggle na 2ª chamada, cross-dismiss,
-# stderr capturado, falha LOGADA no menus.log e AVISO NA TELA. O menu de
-# processos nunca morre calado.
+# Verbos: status → JSON do módulo custom/bgapps (vazio = botão some);
+#         menu   → craft-menu com "nome (pid N)"; o escolhido recebe
+#                  SIGTERM + notificação que SOME (v2.3.10: -u normal).
 # ═══════════════════════════════════════════════════════════════════════════
 set -eu
 
@@ -40,63 +41,31 @@ mlog() {
     return 0
 }
 
-# ── a CASCA da sessão (nunca listada, nunca morta) ──────────────────────────
-# ps -o comm= corta em 15 caracteres — os nomes abaixo JÁ são os truncados
-# (polkit-gnome-authentication-agent-1 → "polkit-gnome-au", etc.). O próprio
-# craft-bgapps roda como "sh" (shebang) — coberto pela entrada sh.
-# v2.3.7 — 3 novas entradas COM EVIDÊNCIA do live do dono (25/10, foto do
-# menu Encerrar): at-spi-bus-laun / at-spi2-regist (o barramento de
-# acessibilidade que TODO app GTK acorda) e bwrap (a caixa de areia dos
-# portals) nasceram com o sistema e apareciam como alvos de morte —
-# matá-los quebra o app que os criou. Mesma classe da casca: encanamento,
-# não aplicativo.
-PROTECTED='
-labwc
-waybar
-craft-bars
-craft-dock-gui
-craft-drawer
-fuzzel
-swaybg
-pipewire
-pipewire-pulse
-wireplumber
-dbus-broker
-dbus-broker-lau
-dbus-daemon
-systemd
-sd-pam
-foot
-foot-server
-xdg-desktop-por
-xdg-desktop-porc
-gvfsd
-gvfsd-fuse
-polkit-gnome-au
-gnome-keyring-d
-at-spi-bus-laun
-at-spi2-regist
-bwrap
-sh
-bash
-zsh
-'
+# ── a CASCA da sessão (nunca listada, nunca morta) — POR PREFIXO ────────────
+# ps -o comm= corta em 15 caracteres — o case casa o PREFIXO que sobrevive
+# ao corte: at-spi2-registr, xdg-document-po e gvfsd-metadata vazavam na
+# lista exata da v2.3.7 (foto do dono). O próprio craft-bgapps roda como
+# craft-* — coberto pelo prefixo craft- (7 cópias na foto; o poller de
+# 10s da waybar + os menus abertos se acumulavam e entravam na lista).
 is_protected() {
-    printf '%s\n' "$PROTECTED" | grep -qxF "$1"
-}
-
-# nomes de exibição — o comm nu é criptico; sem mapeamento, o comm segue
-display_name() {
     case "$1" in
-        swaync)         echo "swaync — central de notificações" ;;
-        udiskie)        echo "udiskie — automount de USB" ;;
-        wl-paste)       echo "wl-paste — histórico de clipboard (cliphist)" ;;
-        swayidle)       echo "swayidle — idle/lock da tela" ;;
-        easyeffects)    echo "EasyEffects — áudio" ;;
-        nm-applet)      echo "nm-applet — rede (tray)" ;;
-        blueman-applet) echo "blueman — Bluetooth (tray)" ;;
-        *)              echo "$1" ;;
+        # compositor · barras · ferramentas da casa
+        labwc*|waybar*|craft-*|elite-*|labnag*|swaybg*|fuzzel*|nwg-*|kanshi*|wlsunset*)
+            return 0 ;;
+        # lock/idle/notificações/clipboard/automount — serviço, não app
+        swaylock*|swayidle*|swaync*|cliphist*|wl-copy*|wl-paste*|udiskie*|playerctld*|mpd*|mako*|dunst*)
+            return 0 ;;
+        # áudio · dbus · systemd · portals · keyring · acessibilidade
+        pipewire*|wireplumber*|dbus*|systemd*|sd-pam*|at-spi*|xdg-*|gvfsd*|polkit*|gnome-keyring*|bwrap*|flatpak-*|gjs*)
+            return 0 ;;
+        # terminal da sessão (a janela fecha por ela mesma, não daqui)
+        foot*)
+            return 0 ;;
+        # interpretadores e pipe-fitting: ruído de pipeline, nunca "programa"
+        sh|bash|zsh|fish|dash|ksh|sleep|sudo|doas|tee|cat|tail|head|grep|sed|awk|cut|sort|uniq|wc|xargs|env|nohup|setsid|timeout|watch|ps|pgrep|pkill|kill|date|mkdir|rm|mv|cp|ln|chmod|chown|tr|find|basename|dirname|readlink|stat|true|false|which|mktemp)
+            return 0 ;;
     esac
+    return 1
 }
 
 # ── varredura: comms ÚNICOS do usuário, fora da casca ───────────────────────
@@ -113,7 +82,7 @@ list_bgapps() {
 list_entries() {
     list_bgapps | while IFS= read -r c; do
         pgrep -u "$(id -u)" -x "$c" 2>/dev/null | while IFS= read -r pid; do
-            printf '%s (pid %s)\n' "$(display_name "$c")" "$pid"
+            printf '%s (pid %s)\n' "$c" "$pid"
         done
     done
 }
@@ -166,17 +135,26 @@ menu() {
         rm -f "$errf"
         exit 0
     fi
-    if [ "$ec" -eq 1 ] && [ ! -s "$errf" ]; then
-        # v2.3.6 — ESC = fechado pelo usuário (stderr vazio ≠ crash) —
-        # benigno: fechar NUNCA é erro (mesma classe do 143).
-        mlog "Processos: fechado pelo usuário (ESC) — benigno"
+    if [ "$ec" -eq 1 ]; then
+        # v2.3.10 — fechar NUNCA é erro, COM OU SEM stderr (o gate velho
+        # '! -s "$errf"' gritava FALHOU em fechamento normal — a pilha de
+        # notificações eternas da foto do dono). stderr vai pro log.
+        if [ -s "$errf" ]; then
+            mlog "Processos: fechado pelo usuário (ESC) — benigno — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
+        else
+            mlog "Processos: fechado pelo usuário (ESC) — benigno"
+        fi
         rm -f "$errf"
         exit 0
     fi
     if [ "$ec" -ne 0 ]; then
         mlog "Processos: MENU FALHOU exit=$ec — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
+        # v2.3.10 — falha REAL avisa e SOME (urgência normal + timeout 5 —
+        # o toast eterno da urgência critical é a pilha da foto do dono,
+        # e um daemon preso nunca prende o chamador).
         command -v notify-send >/dev/null 2>&1 && \
-            notify-send -a 'Elite' -u critical 'Menu de processos falhou' \
+            timeout 5 notify-send -a 'Elite' -u normal -t 8000 \
+                'Menu de processos falhou' \
                 "craft-menu exit=$ec — detalhe em ~/.cache/elite/menus.log" || true
     fi
     rm -f "$errf"
@@ -190,12 +168,12 @@ menu() {
     if kill -TERM "$pid" 2>/dev/null; then
         mlog "Processos: SIGTERM enviado — $name (pid $pid)"
         command -v notify-send >/dev/null 2>&1 && \
-            notify-send -a 'Elite' 'Encerrado' \
+            timeout 5 notify-send -a 'Elite' -u normal -t 4000 'Encerrado' \
                 "$name (pid $pid) recebeu o sinal de término." || true
     else
         mlog "Processos: kill falhou — $name (pid $pid) (saiu sozinho?)"
         command -v notify-send >/dev/null 2>&1 && \
-            notify-send -a 'Elite' -u critical 'Não encerrou' \
+            timeout 5 notify-send -a 'Elite' -u normal -t 8000 'Não encerrou' \
                 "$name (pid $pid) — o processo pode ter saído sozinho." || true
     fi
 }

@@ -97,6 +97,20 @@ if die_other_menus():
 
 CHOICE = None
 
+# v2.3.10 — QUIT ONCE: o Gtk.main_quit() duplo é a fonte do stderr sujo
+# que transformava todo fechamento benigno em "falha": ESC (ou escolha)
+# encerra o loop, o destroy da janela dispara focus-out, e o SEGUNDO
+# main_quit cospe 'Gtk-CRITICAL **: ... main_loops != NULL' no stderr —
+# os chamadores viam exit=1 COM stderr e gritavam FALHOU (a pilha de
+# notificações eternas da foto do dono). O guard garante UM quit.
+quitting = {"v": False}
+
+
+def quit_once():
+    if not quitting["v"]:
+        quitting["v"] = True
+        Gtk.main_quit()
+
 win = Gtk.Window()
 win.set_decorated(False)
 win.set_resizable(False)
@@ -146,7 +160,7 @@ def paint_focus():
 def choose(btn):
     global CHOICE
     CHOICE = btn.get_label()
-    Gtk.main_quit()
+    quit_once()
 
 
 for it in items:
@@ -172,7 +186,7 @@ win.add(box)
 
 
 def on_focus_out(_w, _ev):
-    Gtk.main_quit()  # foco perdido = clique fora — fechar é escolha (exit 1)
+    quit_once()  # foco perdido = clique fora — fechar é escolha (exit 1)
     return False
 
 
@@ -182,7 +196,7 @@ win.connect("focus-out-event", on_focus_out)
 def on_key(_w, ev):
     kv = ev.keyval
     if kv == Gdk.KEY_Escape:
-        Gtk.main_quit()
+        quit_once()
         return True
     if kv in (Gdk.KEY_Up, Gdk.KEY_Down):
         d = -1 if kv == Gdk.KEY_Up else 1

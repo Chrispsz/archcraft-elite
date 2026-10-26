@@ -37,14 +37,23 @@ if [ "$ec" -eq 2 ]; then
     mlog "Logout: toggle — 2ª chamada fechou o menu — benigno"
     exit 0
 fi
-if [ "$ec" -eq 1 ] && [ ! -s "$errf" ]; then
-    mlog "Logout: fechado pelo usuário (ESC) — benigno"
+if [ "$ec" -eq 1 ]; then
+    # v2.3.10 — fechar NUNCA é erro, COM OU SEM stderr (o gate velho
+    # '! -s "$errf"' gritava FALHOU em fechamento normal — a pilha de
+    # notificações eternas da foto do dono). stderr vai pro log.
+    if [ -s "$errf" ]; then
+        mlog "Logout: fechado pelo usuário (ESC) — benigno — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
+    else
+        mlog "Logout: fechado pelo usuário (ESC) — benigno"
+    fi
     exit 0
 fi
 if [ "$ec" -ne 0 ]; then
     mlog "Logout: MENU FALHOU exit=$ec — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
+    # v2.3.10 — falha REAL avisa e SOME (-u normal + timeout 5).
     command -v notify-send >/dev/null 2>&1 && \
-        notify-send -a 'Elite' -u critical 'Menu de sessão falhou' \
+        timeout 5 notify-send -a 'Elite' -u normal -t 8000 \
+            'Menu de sessão falhou' \
             "craft-menu exit=$ec — detalhe em ~/.cache/elite/menus.log" || true
     exit 1
 fi
