@@ -19,7 +19,8 @@ sed -i 's/^#ParallelDownloads/ParallelDownloads/; s/^#Color/Color/' /etc/pacman.
 pacman -Syu --noconfirm --needed \
     git rsync curl archiso xorriso mtools dosfstools \
     e2fsprogs squashfs-tools openssl arch-install-scripts \
-    base-devel sudo
+    base-devel sudo \
+    meson ninja wayland wayland-protocols libxkbcommon
 
 say "Importando chave CachyOS (ambiente de build)"
 # a imagem archlinux não traz chave secreta no keyring — init primeiro
@@ -40,7 +41,7 @@ say "Construindo repo local [elite-local] (python-pywal real + stub qt5-virtualk
 # existe no host E dentro do chroot do pacstrap (mesmo caminho).
 pacman -S --needed --noconfirm python >/dev/null
 mkdir -p /var/cache/elite-local
-rm -rf /tmp/elite-src && mkdir -p /tmp/elite-src/python-pywal /tmp/elite-src/qt5-virtualkeyboard
+rm -rf /tmp/elite-src && mkdir -p /tmp/elite-src/python-pywal /tmp/elite-src/qt5-virtualkeyboard /tmp/elite-src/wlrctl
 
 cd /tmp/elite-src/python-pywal
 # PIN de commit (R6 do auditor mimo): a URL branch-driven (refs/heads/master)
@@ -95,10 +96,52 @@ package() {
 }
 EOPKGBUILD
 
+# ── v2.7.0: WLRCTL (o foco da dock) — FONTE VENDADA, sha256 PINADO ────
+#  O wlrctl (wlr-foreign-toplevel — o mecanismo que faz a dock FOCAR a
+#  janela do programa que já roda) NUNCA esteve nos repos oficiais do
+#  Arch (a build #110 provou: 'target not found: wlrctl' — a suposição
+#  errada foi pega pelo gate, como manda a casa). O upstream mora no
+#  sourcehut (git.sr.ht/~brocellous/wlrctl), que está fora do ar em
+#  502 no dia da cura — então a FONTE INTEIRA vem vendada no repo
+#  (vendor/wlrctl-0.2.2.tar.gz): snapshot do mirror público
+#  ralphptorres/wlrctl @ commit 5872fa6a42b90f08b89cb61f81a12d3886cf382d
+#  (v0.2.2 + 3 commits de texto de --help; version no meson.build =
+#  0.2.2, código revisado: foco = alias de activate, app_id casa EXATO
+#  por strcmp, e exit 1 quando nenhuma janela casa — o contrato que a
+#  dock usa para tentar o próximo candidato). Zero rede no build: o
+#  tarball vem do próprio checkout (/work/vendor) e o sha256 abaixo
+#  é dos bytes EXATOS do arquivo vendado — mudou o tarball, o makepkg
+#  PARA (determinismo — filosofia Elite). Deps de runtime: wayland
+#  (já vai na ISO pelo labwc) + libxkbcommon.
+cp /work/vendor/wlrctl-0.2.2.tar.gz /tmp/elite-src/wlrctl/
+cat > /tmp/elite-src/wlrctl/PKGBUILD <<'EOPKGBUILD'
+pkgname=wlrctl
+pkgver=0.2.2
+pkgrel=1
+pkgdesc='Controle de extensões wlroots — foco de janelas via wlr-foreign-toplevel (a dock da Elite foca o programa que já roda)'
+arch=(x86_64)
+url=https://git.sr.ht/~brocellous/wlrctl
+license=(MIT)
+depends=(wayland libxkbcommon)
+makedepends=(meson wayland-protocols)
+source=("wlrctl-0.2.2.tar.gz")
+sha256sums=('4022de02f987a659eac3f910c355c8efca60d0b759e3100456e7fb80c530b9ce')
+build() {
+    cd wlrctl-*/
+    meson setup build -Dwerror=false -Dman-pages=disabled
+    meson compile -C build
+}
+package() {
+    cd wlrctl-*/
+    DESTDIR="$pkgdir" meson install --no-rebuild -C build
+    install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+}
+EOPKGBUILD
+
 # makepkg se recusa a rodar como root — usuário builder descartável
 useradd -m builder 2>/dev/null || true
 chown -R builder /tmp/elite-src
-for pkgdir in python-pywal qt5-virtualkeyboard; do
+for pkgdir in python-pywal qt5-virtualkeyboard wlrctl; do
     (cd "/tmp/elite-src/$pkgdir" && runuser -l builder -c "cd /tmp/elite-src/$pkgdir && makepkg -f --noconfirm") \
         || { echo "FALHA ao construir $pkgdir"; exit 1; }
     cp "/tmp/elite-src/$pkgdir/"*.pkg.tar.zst /var/cache/elite-local/
@@ -585,6 +628,11 @@ ls /var/cache/elite-local/pwvucontrol-*.pkg.tar.zst >/dev/null 2>&1 \
     || { echo "ELITE-FAIL: pwvucontrol ausente do [elite-local] (estágio principal)" >&2; exit 1; }
 ls /var/cache/elite-local/brave-origin-*.pkg.tar.zst >/dev/null 2>&1 \
     || { echo "ELITE-FAIL: brave-origin ausente do [elite-local] (estágio principal)" >&2; exit 1; }
+# v2.7.0 — o foco da dock: a fonte vendada do wlrctl tem que ter virado
+# pacote no estágio principal (a build #110 morreu com 'target not found:
+# wlrctl' — o pacote não existia em repo nenhum; agora nasce AQUI)
+ls /var/cache/elite-local/wlrctl-*.pkg.tar.zst >/dev/null 2>&1 \
+    || { echo "ELITE-FAIL: wlrctl ausente do [elite-local] (estágio principal — fonte vendada não compilou?)" >&2; exit 1; }
 
 repo-add --quiet /var/cache/elite-local/elite-local.db.tar.gz /var/cache/elite-local/*.pkg.tar.zst
             cp /var/cache/elite-local/* /work/elite-build/profile/airootfs/var/cache/elite-local/

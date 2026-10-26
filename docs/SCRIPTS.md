@@ -198,7 +198,7 @@ craft-dock toggle   # W-S-d: esconder/mostrar (SIGUSR1)
 craft-dock reload   # craft-pin: re-lê os pins (SIGUSR2)
 ```
 
-**Depende de:** python3 + PyGObject (Gtk 3, GtkLayerShell), wlrctl (foco — sem ele o esquerdo só abre), pgrep.
+**Depende de:** python3 + PyGObject (Gtk 3, GtkLayerShell), wlrctl (foco — compilado no build a partir da FONTE VENDADA em `vendor/wlrctl-0.2.2.tar.gz`, sha256 pinado; sem ele o esquerdo só abre), pgrep.
 
 ---
 
