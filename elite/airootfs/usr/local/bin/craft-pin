@@ -80,7 +80,11 @@ case "${1:-}" in
         grep -qxF "$id" "$PINS" || {
             echo "craft-pin: $id não está na dock"; exit 1; }
         backup
-        grep -vxF "$id" "$PINS" > "$PINS.tmp" && mv -f "$PINS.tmp" "$PINS"
+        # v2.5.0 — mv INCONDICIONAL: grep -v sem match sai 1 e o `&& mv`
+        # pulava — $PINS.tmp órfão + "removido" impresso sem remover
+        # (audit 24-c; nome fixo, não acumula, mas a mensagem mentia).
+        grep -vxF "$id" "$PINS" > "$PINS.tmp" || true
+        mv -f "$PINS.tmp" "$PINS"
         echo "craft-pin: $id removido da dock"
         reload_dock
         ;;

@@ -38,23 +38,15 @@ elite-tune --status            # certificação (sem root) — alias: elite-stat
 
 ---
 
-## fg-booster (v4.1.1) — `/usr/local/bin/fg-booster` (unit `fg-booster.service`)
+## fg-booster — EXTINTO (v2.2)
 
-**O quê:** a cada segundo, identifica a janela em foco (xdotool, EWMH — Openbox/BSPWM ok) e promove a árvore de processos dela para `fg-boost.slice` (CPUWeight/IOWeight 900, **sem teto de VRAM** — os tetos são do dmemcg-booster). Ao perder o foco, devolve cada processo ao **cgroup leaf de origem** (registrado no momento da promoção; escrita em leaf é sempre permitida pelo cgroup v2 — o bug da v4.0, que devolvia p/ um slice interno e era rejeitado, morreu). PIDs mortos são limpos do mapa a cada 30 polls. **v4.1.1 (v1.5.2):** guards de ambiente (xdotool/slice ausentes) saem **0** — no-op limpo — em vez de `exit 1`; a unit ganha `StartLimitIntervalSec=120`/`StartLimitBurst=3`. Forense: o debloat v4.2 varreu o xdotool do packages.add e o `exit 1` + `RestartSec=5` (que nunca atinge o start-limit default) crash-loopou o serviço em TODA boot v1.0→v1.5, no live E no instalado — 17 `Failed with result` no serial do gate verify da v1.5, invisível porque nenhum gate varria units falhadas (v1.5.2 fecha isso também).
-
-**Como rodar:** já vem habilitado (`graphical.target.wants`). Manual: `sudo systemctl enable --now fg-booster`.
-
-**Validar:** `systemd-cgls /fg-boost.slice` — o app focado aparece no slice e some ao perder o foco. `elite-tune --status` mostra quantos PIDs estão no slice.
-
-**Reverter:** `sudo systemctl disable --now fg-booster`.
-
-**Depende de:** xdotool (contrato de BUILD no CI — v1.5.2), cgroup v2, X11 com WM EWMH (não serve p/ Wayland).
+**Estado:** o script, a unit e o xdotool saíram da ISO na v2.2 (fusão dos boosters no elite-tune; o Wayland não tem xdotool/EWMH — o fg-boost por janela focada era herança X11). A extinção é CONTRATO (assert_nofile do binário + da unit no CI). O boost real de first-party vive no elite-tune (dmemcg/fg slices sem depender de janela focada). Seção mantida aqui só para contar a história — quem procurar o fg-booster no instalado encontra a verdade, não um fantasma.
 
 ---
 
 ## elite-status — `/usr/local/bin/elite-status`
 
-**O quê:** alias de `elite-tune --status` (kernel, driver cpufreq, cmdline, zram, THP, repos, estado dos serviços Elite, GPU/BAR1, contador do fg-boost.slice).
+**O quê:** alias de `elite-tune --status` (kernel, driver cpufreq, cmdline, zram, THP, repos, estado dos serviços Elite, GPU/BAR1).
 
 **Como rodar:** `elite-status` (sem root).
 
@@ -72,25 +64,23 @@ elite-tune --status            # certificação (sem root) — alias: elite-stat
 
 ---
 
-## craft-pin (v1.1) — `/usr/local/bin/craft-pin`
+## craft-pin (v2.0) — `/usr/local/bin/craft-pin`
 
-**O quê:** fixa (pin) apps do usuário na DOCK — os launchers fixos do skel (Launchpad, terminal, arquivos, navegador, editor, screenshot) nascem na ISO; os SEUS ficam na seção `PINS` do `config.dock`, gerenciada por este script. Um pin = 1 linha JSONC no config + 1 entrada no `modules-left` + 1 bloco CSS autocontido no `style.dock.css` com o mesmo DNA visual dos fixos (glyph 30px → zoom 34px no hover, realce surface, cor Catppuccin à escolha). As vírgulas do JSON ficam SEMPRE corretas (juiz: parse JSON a cada mutação); skel antigo sem a seção PINS é auto-curado; toda alteração grava `.bak.<ts>` dos dois arquivos e recarrega as barras via `SIGUSR2` (man 5 waybar: "By default reloads (resets) the bar" — config + estilo, sem reiniciar a sessão). Limite honesto vs macOS: app fixado rodando aparece como ícone extra no CENTRO (wlr/taskbar) — o waybar não une pin+running.
+**O quê:** fixa (pin) apps na DOCK GTK (craft-dock-gui) — os launchers fixos de fábrica (Launchpad, terminal, arquivos, navegador, editor) nascem no `~/.config/elite/dock-pins` (um ID de .desktop por linha); os SEUS entram via este script. O craft-dock-gui lê o arquivo no boot e a cada reload (`craft-dock reload` = SIGUSR2 no daemon — o GUI re-lê os pins e reconstrói a pílula, SEM re-parsear o CSS). O indicador de "aberto" (pílula `running`) acompanha: 1 pgrep com alternância por tick de 3s (v2.5.0 — era 1 por pin).
 
 ```bash
-craft-pin list                                  # apps fixados
-craft-pin add steam   ''  Steam    steam     green
-craft-pin add discord ''  Discord  discord   mauve
-craft-pin add code    ''  VS Code  code      sky
-craft-pin rm steam                               # desfixa
-craft-pin reload                                 # recarrega as barras (SIGUSR2)
-craft-pin restore                                # desfaz a última alteração
+craft-pin list                    # apps fixados
+craft-pin add steam               # fixa pelo ID desktop (resolve pelo nome)
+craft-pin rm steam                # desfixa
+craft-pin reload                  # re-lê os pins (SIGUSR2 na dock)
+craft-pin restore                 # desfaz a última alteração
 ```
 
-**Como rodar:** `craft-pin <comando>` (sem root — edita `~/.config/waybar/`). GLYPH é um glifo Nerd Font (nerdfonts.com/cheat-sheet); NOME só `[a-z0-9-]`; COR é um nome Catppuccin do `style.dock.css` (padrão `mauve`).
+**Como rodar:** `craft-pin <comando>` (sem root — edita `~/.config/elite/dock-pins`).
 
-**Reverter:** `craft-pin rm <nome>` por pin, `craft-pin restore` para a última alteração, ou restaure os `.bak.<ts>` manualmente. Add/rm em qualquer ordem devolve os arquivos **byte a byte** ao estado de fábrica (garantido por teste).
+**Reverter:** `craft-pin rm <nome>`, `craft-pin restore`, ou restaure o `.bak.last`.
 
-**Depende de:** bash, awk, sed, grep, waybar (opcional — sem waybar rodando, só avisa).
+**Depende de:** sh, craft-dock-gui (a dock GTK — NÃO o waybar; a era config.dock/style.dock.css morreu com a waybar-dock v1.x e é proibida por contrato).
 
 ---
 
@@ -173,3 +163,15 @@ craft-shot full   # tela inteira → arquivo
 **Como rodar:** atalhos W-P (região) e W-Shift-P (tela inteira) do rc.xml. O botão de print da barra nasceu (v2.3.7) e morreu (v2.3.10, "melhor remover") — os verbos vivem no teclado, sem assento fixo na barra.
 
 **Depende de:** grim, slurp (área), wl-clipboard, notify-send (opcional).
+
+---
+
+## craft-bat — `/usr/local/bin/craft-bat`
+
+**O quê:** relatório de bateria no terminal (nível, estado, saúde, tempo estimado) — a CLI de bolso para o dono checar a bateria sem abrir nada. Sem launcher/keybind por design: é ferramenta de terminal (o dono perguntou o comando, ganhou o script).
+
+```bash
+craft-bat
+```
+
+**Depende de:** sh, /sys/class/power_supply.

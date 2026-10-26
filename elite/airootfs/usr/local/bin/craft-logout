@@ -64,13 +64,19 @@ fi
 [ -n "$choice" ] || exit 0
 case "$choice" in
   'Travar tela')
-    if command -v hyprlock >/dev/null 2>&1; then exec hyprlock
+    rm -f "$errf"   # v2.5.0: o trap EXIT não roda através de exec
+    if command -v craft-lock >/dev/null 2>&1; then exec craft-lock
     elif command -v loginctl >/dev/null 2>&1; then exec loginctl lock-session
     fi ;;
   'Sair da sessão')
+    rm -f "$errf"   # v2.5.0: idem
     if command -v labwc >/dev/null 2>&1; then exec labwc --exit; fi
     echo "labwc não encontrado (não é uma sessão labwc?)" >&2 ;;
-  'Reiniciar')  exec systemctl reboot ;;
-  'Desligar')   exec systemctl poweroff ;;
+  'Reiniciar')
+    rm -f "$errf"   # v2.5.0: idem
+    exec systemctl reboot ;;
+  'Desligar')
+    rm -f "$errf"   # v2.5.0: idem
+    exec systemctl poweroff ;;
   *) exit 0 ;;
 esac

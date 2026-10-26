@@ -24,10 +24,16 @@ LOG_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/elite"
 mkdir -p "$LOG_DIR" 2>/dev/null
 LOG="$LOG_DIR/bars.log"
 
-# Teto de 1 MiB (bytes): estourou, zera — evidência recente vale mais.
-if [ -f "$LOG" ] && [ "$(wc -c <"$LOG" 2>/dev/null || echo 0)" -gt 1048576 ]; then
-    : >"$LOG"
-fi
+# Teto de 1 MiB (bytes): estoura, zera — evidência recente vale mais.
+# v2.5.0 — virou FUNÇÃO chamada DENTRO do loop: o cap só no arranque
+# deixava o crash-loop crescer sem freio (2 linhas + stderr do waybar
+# por ciclo de 5s ≈ 1,7MB/h — o audit 24-b flagrou).
+cap_log() {
+    if [ -f "$LOG" ] && [ "$(wc -c <"$LOG" 2>/dev/null || echo 0)" -gt 1048576 ]; then
+        : >"$LOG"
+    fi
+}
+cap_log
 
 ensure() {
     # $1=nome  $2=config  $3=css
@@ -54,6 +60,7 @@ ensure() {
 # Supervisão igual: morreu, volta em ≤5s com o stderr no bars.log (a
 # evidência que a v1.6.3 instituiu).
 while :; do
+    cap_log   # v2.5.0 — o teto é POR CICLO, não só no arranque
     ensure top  "$HOME/.config/waybar/config.top"  "$HOME/.config/waybar/style.top.css"
     if ! pgrep -f 'craft-dock-gui' >/dev/null 2>&1; then
         printf '[%s] dock craft-dock-gui FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
