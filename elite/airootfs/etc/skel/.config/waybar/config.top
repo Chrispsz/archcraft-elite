@@ -90,6 +90,12 @@
   // Música do USUÁRIO (MPRIS) — YouTube no navegador, Spotify, mpv: o que
   // VOCÊ tocar aparece aqui. Com nada tocando o módulo some sozinho.
   // Clique: esq = play/pause, meio = próxima, dir = anterior.
+  // (v2.3.12 — os cliques VIRARAM REALIDADE: o comentário do v1 prometia
+  // o que o config não tinha — clicar não fazia nada. playerctl já era
+  // dep dos keybinds de mídia do rc.xml; o módulo ganhou a pílula de
+  // hover por merecimento, porque a LEI pinta quem de fato clica. E
+  // BRANCO: "o resto pode ser branco mesmo" — a assinatura mauve é do
+  // ARCH à esquerda e do power à direita.)
   "mpris": {
     "format": " \uf001 {dynamic}",
     "format-paused": " \uf04c {dynamic}",
@@ -105,7 +111,10 @@
     },
     "ignored-players": ["playerctld"],
     "dynamic-len": 40,
-    "interval": 10
+    "interval": 10,
+    "on-click": "playerctl play-pause",
+    "on-click-middle": "playerctl next",
+    "on-click-right": "playerctl previous"
   },
 
   // Rede — SÓ ÍCONE, UM SÓ P/ TUDO (v1.4: cabo + Wi-Fi + Bluetooth —

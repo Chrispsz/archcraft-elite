@@ -123,3 +123,50 @@ craft-pin restore                                # desfaz a última alteração
 **Reverter:** remover os argumentos de ícone do printf (o protocolo é opcional por linha).
 
 **Depende de:** fuzzel (dmenu), Papirus, systemctl (ações via polkit — ver `49-elite-desktop.rules`).
+
+---
+
+## craft-menu (v2.0 — A GAIOLA) — `/usr/local/bin/craft-menu`
+
+**O quê:** o menu NATIVO da distro — janela GTK própria (a era fuzzel --dmenu acabou nos menus comuns) com a arquitetura de overlay MODAL dos que funcionam em produção (wlogout, gtklock, fuzzel): a **GAIOLA** — a superfície é a TELA INTEIRA (4 âncoras, layer OVERLAY) com véu translúcido 35%, e a pílula do menu morta no centro dos 2 eixos. Teclado EXCLUSIVE (ESC/↑/↓/Enter garantidos — a vida do menu nunca depende de corrida de foco; a v1 morria ANTES do 1º frame no rig real por focus-out→quit durante o mapa). 5 caminhos de fechamento SEM depender de foco: clique fora por GEOMETRIA (press fora da alocação da pílula), ESC, escolha, toggle (2ª chamada do mesmo título fecha) e cross-dismiss (abrir outro menu fecha o primeiro). ZERO `focus-out-event` no código — a classe do "menu que morre ao mapear" está extinta por construção.
+
+```bash
+craft-menu "Título" Item1 Item2 Item3    # lista estática (argv)
+printf 'Item1\nItem2\n' | craft-menu "Título"   # lista DINÂMICA (stdin — à prova de injeção: linha = um item)
+```
+
+**Saída:** o item escolhido vai ao stdout (exit 0). Fechado pelo usuário (ESC/clique fora) = exit 1 SEM stderr — os chamadores tratam como benigno (fechar NUNCA é falha; crash real tem stderr e continua gritando no `~/.cache/elite/menus.log`).
+
+**Como rodar:** pelos módulos que abrem menu — botão de apps em 2º plano (craft-bgapps), idle (craft-idle), rollback (craft-rollback), sessão (craft-logout), conectividade (craft-connect).
+
+**Depende de:** python3 + PyGObject (GTK3), o véu mora no `~/.config/elite/menu.css`.
+
+---
+
+## craft-bgapps (v2.0 — só PROGRAMA de verdade) — `/usr/local/bin/craft-bgapps`
+
+**O quê:** o botão de apps em 2º plano da menu bar (módulo `custom/bgapps`) — só ocupa a barra QUANDO há programa do usuário fora da casca da sessão (texto vazio = some). A LEI (v2.3.10): o que é da SESSÃO nunca aparece — compositor, barras, áudio, dbus, portals, keyring, idle, notificações, clipboard, automount, acessibilidade, systemd/sd e os próprios craft-*/elite-* (matar isso não é "encerrar um app", é quebrar o desktop) — e TODO PROGRAMA de verdade aparece: nativo, flatpak (o processo real dentro do sandbox tem o próprio nome), AppImage (o binário montado), interpretado. A varredura é o `/proc` REAL do UID, sem lista inventada; o casamento é POR PREFIXO (`case`), porque o `ps` corta o comm em 15 caracteres e a lista exata da v2.3.7 deixava vazar exatamente os truncados (at-spi2-registr, xdg-document-po, gvfsd-metadata).
+
+```bash
+craft-bgapps status   # JSON do módulo waybar (vazio = botão some)
+craft-bgapps menu     # craft-menu com "nome (pid N)"; o escolhido recebe SIGTERM
+```
+
+**Como rodar:** automático (o waybar executa `status` a cada 10s; clique abre o `menu`). Encerramento = SIGTERM + notificação que SOME (toast `-u normal`, nunca crítico).
+
+**Depende de:** sh, ps, /proc; craft-menu para o menu.
+
+---
+
+## craft-shot (v1.x) — `/usr/local/bin/craft-shot`
+
+**O quê:** screenshots defensivos (grim + slurp + wl-copy). `area` = região selecionada com o mouse → clipboard + arquivo; `full` = tela cheia → arquivo. O arquivo nasce em `~/Pictures/shot-YYYYmmdd-HHMMSS.png`. Cancelar o slurp = silêncio (fechar a seleção não é erro — nenhum toast de falha).
+
+```bash
+craft-shot area   # região → clipboard + arquivo
+craft-shot full   # tela inteira → arquivo
+```
+
+**Como rodar:** atalhos W-P (região) e W-Shift-P (tela inteira) do rc.xml. O botão de print da barra nasceu (v2.3.7) e morreu (v2.3.10, "melhor remover") — os verbos vivem no teclado, sem assento fixo na barra.
+
+**Depende de:** grim, slurp (área), wl-clipboard, notify-send (opcional).

@@ -70,9 +70,11 @@ window#waybar {
  *   · UM padding: 0 12px em TODO módulo (antes: 10/12/14 misturados — e
  *     o ARCH do drawer com 0 12px 0 14px, assimétrico: o glifo nascia
  *     1px fora do centro da própria pílula de hover);
- *   · hover SÓ em módulo CLICÁVEL (mpris e wlr-window são vitrine, não
- *     botão — a pílula que sugere clique sem clique existe é mentira de
- *     affordance);
+ *   · hover SÓ em módulo CLICÁVEL (wlr-window é vitrine, não botão —
+ *     a pílula que sugere clique sem clique existe é mentira de
+ *     affordance; o mpris era vitrine e VIROU botão na v2.3.12 —
+ *     ganhou os cliques do playerctl e ganhou a pílula por
+ *     merecimento);
  *   · transition na regra BASE (dentro do :hover só anima a ida — a
  *     volta era seca). */
 
@@ -91,9 +93,13 @@ window#waybar {
   font-weight: 600;
 }
 
+/* v2.3.12 — mpris é BOTÃO de verdade (playerctl: esq play/pause, meio
+ * próxima, dir anterior — o que o comentário do config SEMPRE prometeu)
+ * e BRANCO como o resto do lado direito ("o resto pode ser branco
+ * mesmo"): a assinatura mauve fica com o ARCH (esquerda) e o power
+ * (direita) — o resto é texto. */
 #mpris {
   padding: 0 12px;
-  color: @mauve;
 }
 
 #network,
@@ -151,6 +157,7 @@ window#waybar {
  * mesma transição na base (ida E volta animadas). */
 #custom-power,
 #custom-drawer,
+#mpris,
 #network,
 #pulseaudio,
 #custom-bgapps,
@@ -164,6 +171,7 @@ window#waybar {
  * widget) — a pílula é uma só. */
 #custom-power:hover,
 #custom-drawer:hover,
+#mpris:hover,
 #network:hover,
 #pulseaudio:hover,
 #custom-bgapps:hover,
@@ -174,6 +182,7 @@ window#waybar {
 
 #custom-power:active,
 #custom-drawer:active,
+#mpris:active,
 #network:active,
 #pulseaudio:active,
 #custom-bgapps:active,
