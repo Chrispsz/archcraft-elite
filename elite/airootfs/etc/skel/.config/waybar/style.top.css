@@ -63,37 +63,48 @@ window#waybar {
 }
 
 /* Módulos: padding horizontal generoso, hover com pílula (estilo item de
- * menu do macOS — hover suave em todo o alvo, não só no texto) */
+ * menu do macOS — hover suave em todo o alvo, não só no texto)
+ *
+ * v2.3.9 — A LEI DA PÍLULA (diretriz do dono: "espaços, desenhos,
+ * tamanho e consistência — tudo padronizado e alinhado"):
+ *   · UM padding: 0 12px em TODO módulo (antes: 10/12/14 misturados — e
+ *     o ARCH do drawer com 0 12px 0 14px, assimétrico: o glifo nascia
+ *     1px fora do centro da própria pílula de hover);
+ *   · hover SÓ em módulo CLICÁVEL (mpris e wlr-window são vitrine, não
+ *     botão — a pílula que sugere clique sem clique existe é mentira de
+ *     affordance);
+ *   · transition na regra BASE (dentro do :hover só anima a ida — a
+ *     volta era seca). */
 
 /* v1.5: o lançador ARCH do canto esquerdo SAIU (spec do dono) — o
  * Launchpad segue na DOCK (1º botão do grupo central). */
 
 #custom-power {
-  padding: 0 14px;
+  padding: 0 12px;
   font-size: 15px;
   border-radius: 0;
 }
 
 #wlr-window {
-  padding: 0 10px;
+  padding: 0 12px;
   color: @subtext1;
   font-weight: 600;
 }
 
 #mpris {
-  padding: 0 10px;
+  padding: 0 12px;
   color: @mauve;
 }
 
 #network,
 #pulseaudio {
-  padding: 0 10px;
+  padding: 0 12px;
 }
 
 /* Microfone (v2.3.6) — o par do volume: mesma caixa, mesma gramática de
  * estado. O alias pulseaudio#mic vira o seletor #pulseaudio.mic. */
 #pulseaudio.mic {
-  padding: 0 10px;
+  padding: 0 12px;
 }
 #pulseaudio.mic.source-muted {
   color: @red;
@@ -105,15 +116,12 @@ window#waybar {
  * craft-connect. */
 
 /* ARCH (Launchpad) — v1.6: de volta ao canto esquerdo, em MAUVE
- * (identidade do rice — mesmo glifo da dock, mesmo vermelho-mauve) */
+ * (identidade do rice — mesmo glifo da dock, mesmo vermelho-mauve).
+ * v2.3.9: padding SIMÉTRICO 0 12px (era 0 12px 0 14px — o desalinho). */
 #custom-drawer {
-  padding: 0 12px 0 14px;
+  padding: 0 12px;
   color: @mauve;
   font-size: 15px;
-}
-#custom-drawer:hover {
-  background: alpha(@surface0, 0.95);
-  border-radius: 8px;
 }
 
 #clock {
@@ -122,27 +130,58 @@ window#waybar {
   font-weight: 600;
 }
 
-/* Hover: pílula arredondada — feedback de clique em TUDO · :active:
- * pressed = superfície mais escura (matriz de estados completa) */
+/* Apps em 2º plano (v2.3.4): só ocupa a barra QUANDO há o que encerrar
+ * (texto vazio = módulo some). Acento PÊSSEGO = atenção sem pânico — a
+ * ação é destrutiva, mas a escolha e a confirmação são do usuário
+ * (a própria seleção no menu fuzzel é o segundo passo). */
+#custom-bgapps {
+  padding: 0 12px;
+  color: @subtext0;
+}
+#custom-bgapps.bgapps-on {
+  color: @peach;
+}
+
+/* Print (v2.3.7) — TINHA regra de hover mas NÃO tinha regra base: a
+ * pílula nascia colada no glifo (padding zero). v2.3.9: caixa idêntica
+ * aos irmãos (a mesma 0 12px). */
+#custom-shot {
+  padding: 0 12px;
+}
+
+/* O clickability é a LEI do hover: toda a família clicável compartilha a
+ * mesma transição na base (ida E volta animadas). */
+#custom-power,
+#custom-drawer,
+#custom-shot,
+#network,
+#pulseaudio,
+#custom-bgapps,
+#clock {
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+/* Hover: pílula arredondada — feedback de clique em TUDO que clica.
+ * :active: pressed = superfície mais escura (matriz de estados completa).
+ * #pulseaudio:hover cobre a instância .mic também (mesmo nome de
+ * widget) — a pílula é uma só. */
 #custom-power:hover,
-#wlr-window:hover,
 #custom-drawer:hover,
 #custom-shot:hover,
-#mpris:hover,
 #network:hover,
 #pulseaudio:hover,
+#custom-bgapps:hover,
 #clock:hover {
   background: alpha(@surface0, 0.95);
   border-radius: 8px;
-  transition: background 0.15s ease;
 }
 
 #custom-power:active,
-#wlr-window:active,
+#custom-drawer:active,
 #custom-shot:active,
-#mpris:active,
 #network:active,
 #pulseaudio:active,
+#custom-bgapps:active,
 #clock:active {
   background: alpha(@surface2, 0.95);
   border-radius: 8px;
@@ -163,31 +202,12 @@ window#waybar {
   color: @red;
 }
 
-/* Power: vermelho no hover — destrutivo, sinaliza */
+/* Power: vermelho no hover — destrutivo, sinaliza (depois do grupo: a
+ * cascata pinta o fundo por cima da pílula padrão) */
 #custom-power {
   color: @subtext0;
 }
 #custom-power:hover {
   background: alpha(@red, 0.18);
   color: @red;
-}
-
-/* Apps em 2º plano (v2.3.4): só ocupa a barra QUANDO há o que encerrar
- * (texto vazio = módulo some). Acento PÊSSEGO = atenção sem pânico — a
- * ação é destrutiva, mas a escolha e a confirmação são do usuário
- * (a própria seleção no menu fuzzel é o segundo passo). */
-#custom-bgapps {
-  padding: 0 10px;
-  color: @subtext0;
-}
-#custom-bgapps.bgapps-on {
-  color: @peach;
-}
-#custom-bgapps:hover {
-  background: alpha(@surface0, 0.95);
-  border-radius: 8px;
-}
-#custom-bgapps:active {
-  background: alpha(@surface2, 0.95);
-  border-radius: 8px;
 }
