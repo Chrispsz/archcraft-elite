@@ -119,9 +119,13 @@ assert_grep "$LF" 'exit 1' "v1.5.2: forense sai 1 em achado fatal"
 # como REGRA na suíte 30-unit; a presença do pacote é agora BANIDA).
 assert_nogrep "$REPO/elite/packages.add" '^xdotool$' "v2.2: xdotool FORA da ISO (dep exclusiva do fg-booster extinto — fusão dos boosters)"
 
-# peças: bits executáveis onde o runtime exige — GLOB-DRIVEN (v1.6.2:
-# a lista manual tinha o mesmo buraco da SHELLS — craft-connect/fix-keys/
-# pin-pick/idle fora dela; o craft-idle nasceu 100644 no git e ninguém viu)
+# peças: bits executáveis onde o runtime exige — INDEX-DRIVEN (v2.9.1:
+# o [[ -x ]] olhava o FILESYSTEM e neste sandbox tudo nasce rwxrwxrwx —
+# a peça passava local e o CI reprovou: o craft-menu-dismiss nasceu
+# 100644 no INDEX e foi isso que o checkout do CI e o squashfs da ISO
+# herdaram (0644 → 203/EXEC no live, classe provada com elite-tune).
+# O que o CI e a ISO veem é o MODO DO INDEX — é ele que a peça audita;
+# filesystem vira reserva só para caminho não-rastreado)
 shopt -s nullglob
 EXECBINS=(
   "$REPO"/elite/airootfs/usr/local/bin/*
@@ -130,7 +134,14 @@ EXECBINS=(
 )
 shopt -u nullglob
 for x in "${EXECBINS[@]}"; do
-  [[ -x "$x" ]] && ok "exec: ${x#"$REPO"/}" || fail "exec: ${x#"$REPO"/}" "sem bit de execução"
+  rel="${x#"$REPO"/}"
+  mode="$(git -C "$REPO" ls-files -s -- "$rel" 2>/dev/null | awk '{print $1; exit}')"
+  if [[ -n "$mode" ]]; then
+    [[ "$mode" == "100755" ]] && ok "exec: $rel" \
+      || fail "exec: $rel" "modo do index é $mode — checkout do CI e squashfs herdam 0644 → 203/EXEC no live (curar com git update-index --chmod=+x)"
+  else
+    [[ -x "$x" ]] && ok "exec: $rel" || fail "exec: $rel" "sem bit de execução"
+  fi
 done
 
 # peças: higiene — sem CRLF, shebang presente
@@ -689,10 +700,16 @@ assert_grep "$RCX" 'key="W-S-d"' "M3.5: W-S-d alterna a dock (mostrar/esconder �
 assert_file "$REPO/elite/airootfs/etc/skel/.config/labwc/wallpaper.png" "M5.1: wallpaper.png (PNG lossless — o JPEG com ruído saiu de cena)"
 assert_nogrep "$REPO/elite/airootfs/etc/skel/.config/labwc/autostart" 'wallpaper\.jpg.*first' "M5.1: autostart NÃO prefere mais o jpg (PNG primeiro)"
 
-# ── file_permissions: os binários novos precisam de 0755 (203/EXEC) ──
+# ── file_permissions: TODO binário do overlay precisa de 0755 (203/EXEC) ──
 # v2.0: dock · v2.3.4: craft-bgapps · v2.3.5: craft-dump
-for nb in craft-dock craft-dock-gui calamares-elite-log craft-bgapps craft-dump; do
-  assert_grep "$REPO/scripts/apply-overlay.sh" "/usr/local/bin/$nb" "apply-overlay: $nb registrado no file_permissions (senão 203/EXEC no live)"
+# v2.9.1: a lista manual tinha o MESMO buraco que a exec teve na v1.6.2 —
+# o craft-menu-dismiss nasceu fora dela E fora do apply-overlay, e a ISO
+# herdou 0644 (a suíte não viu porque a peça olhava o filesystem local).
+# GLOB-DRIVEN: cada script do airootfs/usr/local/bin tem de estar
+# registrado no apply-overlay — binário novo sem entrada reprova AQUI.
+for nb in "$REPO"/elite/airootfs/usr/local/bin/*; do
+  b="$(basename "$nb")"
+  assert_grep "$REPO/scripts/apply-overlay.sh" "/usr/local/bin/$b" "apply-overlay: $b registrado no file_permissions (senão 203/EXEC no live)"
 done
 
 phase_end
