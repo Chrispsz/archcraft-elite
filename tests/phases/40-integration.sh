@@ -347,7 +347,13 @@ assert_nogrep "$P/airootfs/etc/skel/.config/swaync/style.css" 'border-radius: 10
 DOCKGUI="$P/airootfs/usr/local/bin/craft-dock-gui"
 assert_grep "$DOCKGUI" 'GLib\.SOURCE_CONTINUE' "v2.5.0: handlers SIGUSR1/SIGUSR2 CONTINUAM a source (return False = G_SOURCE_REMOVE — a dock ficava SURDA após a 1ª dispatch: pins congelados e W-S-d mortos pelo resto da sessão; audit 24-c, o achado ALTO)"
 assert_grep "$DOCKGUI" 'except \(OSError, UnicodeDecodeError\)' "v2.5.0: read_pins tolera QUALQUER erro de leitura (PermissionError/UnicodeDecode derrubava a source do sinal pelo mesmo caminho do return False — a dock surda via caminho de erro)"
-assert_grep "$DOCKGUI" '"pgrep", "-x", pats' "v2.5.0: UM pgrep por tick com alternância (era 1 POR PIN a cada 3s — 3 forks + 3 varreduras de /proc no factory, escalava com os pins; N→1; audit 24-b)"
+# v2.10.0 — o fork do scan morreu: a leitura DIRETA de /proc/<pid>/comm (uid do
+# usuário) N leituras sem NENHUM fork, sem ERE para escapar (o escape que o
+# audit 24-b flagrou é impossível por construção) e o MESMO scan alimenta
+# pins e dinâmicos. O contrato do pgrep v2.5.0 vira PROIBIÇÃO.
+assert_nogrep "$DOCKGUI" '"pgrep"' "v2.10: ZERO fork por tick no poll (a varredura /proc substituiu o pgrep — sem fork, sem ERE, pins e dinâmicos no MESMO scan)"
+assert_grep "$DOCKGUI" '_scan_user_comms' "v2.10: o scan direto de /proc existe (uid do usuário + comm — um só lugar onde 'aberto' existe)"
+assert_grep "$DOCKGUI" 'os\.stat\(f"/proc/\{pid\}"\)\.st_uid' "v2.10: o scan FILTRA por uid (comms de root/sistema não viram botão)"
 assert_grep "$P/airootfs/usr/local/bin/craft-bars" 'cap_log' "v2.5.0: o teto de 1 MiB do bars.log roda POR CICLO (o cap só no arranque deixava o crash-loop crescer ~1,7MB/h; audit 24-b/24-c)"
 assert_grep "$P/airootfs/usr/local/bin/craft-logout" 'rm -f "\$errf"   # v2\.5\.0' "v2.5.0: errf removido ANTES de todo exec (o trap EXIT não roda através de exec — um mktemp órfão por escolha de menu; audit 24-c)"
 assert_grep "$P/airootfs/usr/local/bin/craft-idle" 'case "\$\{LOCK_MIN:-0\}" in' "v2.5.0: a marca '← atual' compara LOCK_MIN (o CUR='10min' NUNCA casava com os números do case — código morto: o dono nunca viu o preset marcado; audit 24-c)"
@@ -2210,6 +2216,29 @@ assert_nogrep "$DOCK" 'elite-dock\\.|elite-cage\\.' "v2.9.0: dock não escreve p
 assert_grep "$DOCK" 'Layer\.BOTTOM' "v2.7.0: a dock segue no layer BOTTOM (a semântica que faz ela sumir sob tela cheia é do PROTOCOLO)"
 assert_grep "$DOCK" 'GLib.SOURCE_CONTINUE' "v2.7.0: as callbacks de sinal da dock NUNCA morrem (lição v2.5.0 — a dock surda não volta)"
 assert_grep "$REPO/elite/packages.add" '^wlrctl$' "v2.7.0: wlrctl na ISO (o mecanismo de foco da dock — compilado no build, não existe em repo oficial nenhum)"
+
+# v2.10.0 — A DOCK AUTO-ADAPTÁVEL (rig do dono desmentindo a v2.9.1: "quando
+# clico com o botão esquerdo no Brave ele abre como se fosse uma nova sessão
+# … se eu minimizo programas não consigo voltar… quando abro um programa que
+# não está fixado ele não vai pra dock… a dock deve ser auto adaptável e
+# funcionar como funciona uma dock em qualquer sistema"):
+#   1. o matching do wlrctl é EXATO e case-sensitive — o bridge X11 do
+#      wlroots expõe a WM_CLASS com a capitalização do app ("Brave-browser")
+#      e os candidatos nasciam minúsculos → NENHUM casava → o fallback abria
+#      outra instância (foot funcionava por ser minúsculo igual ao binário).
+assert_grep "$DOCK" 'def case_variants' "v2.10: as 3 formas canônicas de cada candidato existem (original/minúscula/Título — a cura do case-sensitive que abria nova sessão)"
+assert_grep "$DOCK" 'for v in case_variants\(c\)' "v2.10: TODO candidato vai nas 3 formas (hint, StartupWMClass, binário e stem — para TODOS os apps, não só os bem-comportados)"
+assert_grep "$DOCK" '"focus", "title"' "v2.10: último recurso por TÍTULO com o nome do app (alguns apps expõem o nome no título e não no app_id)"
+assert_grep "$DOCK" 'x\.lower\(\) == b\.lower\(\)' "v2.10: o 'está rodando?' é case-insensitive (o comm do /proc pode ter capitalização própria)"
+#   2. apps abertos SEM pin aparecem após um fio e somem ao fechar — a dock
+#      auto-adaptável; NADA se fixa sozinho (o direito no dinâmico fixa).
+assert_grep "$DOCK" 'def _sync_dynamic' "v2.10: a seção dinâmica existe (app aberto sem pin ganha botão — a dock como a de qualquer sistema)"
+assert_grep "$DOCK" 'get_nodisplay\(\) or app\.get_is_hidden\(\)' "v2.10: NoDisplay/Hidden NUNCA viram botão dinâmico (a lei E21 da gaveta vale na dock)"
+assert_grep "$DOCK" 'did in self\.pin_ids' "v2.10: dinâmico é DEDUP contra os pins (app fixado nunca aparece duas vezes)"
+assert_grep "$DOCK" 'self\._pin_add\(did\)' "v2.10: direito no dinâmico FIXA (craft-pin add — o mesmo verbo do sempre, com .bak e reload SIGUSR2)"
+assert_grep "$DOCK" '"close", "app_id"' "v2.10: o MEIO fecha a janela (WM_DELETE gracioso — o app confirma se tiver o que salvar)"
+assert_grep "$DOCK" 'set\(current\) == set\(self\.dyn\)' "v2.10: diff por desktop-id — nada toca no GTK se nada mudou (zero flicker no tick de 3s)"
+assert_grep "$DOCK" 'dynsep' "v2.10: o fio que separa fixados de dinâmicos tem nome no CSS (estilizável no dock.css do usuário)"
 
 # v2.7.0 — WLRCTL FONTE VENDADA (a build #110 provou o que acontece sem
 # prova: 'target not found: wlrctl' — o pacote NUNCA esteve em repo

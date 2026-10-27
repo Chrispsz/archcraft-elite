@@ -55,3 +55,13 @@
   background-position: center bottom;
   background-repeat: no-repeat;
 }
+
+/* v2.10.0 — o FIO dos dinâmicos: separa os fixados dos apps abertos que
+ * não são pin (a dock auto-adaptável). Fio 1px vertical, tom neutro do
+ * overlay0 na metade da força — presente sem competir com os ícones.
+ * Some sozinho quando não há dinâmicos (a dock volta a ser só os pins). */
+#dockbox separator {
+  min-width: 1px;
+  margin: 8px 7px;
+  background: alpha(#6c7086, 0.45);
+}

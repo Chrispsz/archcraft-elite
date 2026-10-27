@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · craft-dock-gui (v2.9 — "a dock PURA")
+# Archcraft ELITE · craft-dock-gui (v2.10 — "a dock AUTO-ADAPTÁVEL")
 # v2.1.1: read_pins à prova de TypeError (pin inválido é ignorado com log —
 #         nunca mais crash-loop; run #93 como evidência).
 # v2.3.4: FIM DO AUTOHIDE — a dock é SEMPRE VISÍVEL (diretriz do dono:
@@ -8,33 +8,37 @@
 # v2.7.0: DOIS VERBOS NO CLIQUE (o dono: "clicar num programa já aberto deve
 #         ir para a tarefa aberta invés de abrir outra… se o usuário quiser
 #         abrir outra rapidamente ele pode fazer clicando com o botão
-#         direito"):
-#   · ESQUERDO num pin: se o programa ESTÁ rodando (pílula), FOCAR a janela
-#     dele (wlrctl, protocolo wlr-foreign-toplevel — labwc fala); se NÃO
-#     está, abrir — direto, sem subprocesso no caminho comum (instantâneo);
-#   · DIREITO num pin: abrir OUTRA instância, sempre (o verbo rápido do
-#     dono para "quero outro agora").
-# v2.9.0 — A GAIOLA MORREU (o rig do dono desmentiu a v2.8.0 NA CARNE:
-#         "matou o uso do mouse no sistema… só topbar e dock funcionam";
-#         e a dock "continua fazendo tipo um refresh" ao mexer nos menus).
-#         A perícia do código achou o crime COM PROVA:
-#           1. o campo da gaiola era setado DEPOIS da chamada que aplicava
-#              a região de entrada — a chamada lia o campo (ainda vazio) e
-#              RETORNAVA sem aplicar nada: a gaiola nascia com a região
-#              DEFAULT (TODA a superfície) — nunca "vazia";
-#           2. o desarmar re-aplicava a região por UNIÃO — a rede só
-#              crescia: UMA gaiola invisível full-screen no layer TOP
-#              engolindo o clique de TODA janela (Calamares incluso — por
-#              isso nem instalar dava) e do próprio desktop;
-#           3. o "refresh" da dock ao abrir menu era a mesma família:
-#              superfície extra no TOP + troca de região de entrada +
-#              reinício do supervisor quando algo morria no caminho.
-#         A CURA é estrutural: A DOCK VOLTA A SER SÓ A DOCK — uma
-#         superfície (a pílula), ZERO superfícies auxiliares, ZERO input
-#         regions, ZERO telefone de menus. O clique fora do menu virou LEI
-#         DO COMPOSITOR (rc.xml §Root: esquerdo/direito executam
-#         craft-menu-dismiss — o dismiss não precisa de rede nenhuma).
-#         O que a dock não tem, ela não quebra.
+#         direito"): esquerdo foca/abre · direito abre OUTRA instância.
+# v2.9.0 — A GAIOLA MORREU: a dock é SÓ a pílula (zero superfícies auxiliares,
+#         zero input regions — o que não existe não come clique).
+# v2.10.0 — A DOCK APRENDE A VER AS JANELAS (o rig do dono desmentiu a v2.9.1):
+#   1. FOCO QUE VIRA "NOVA SESSÃO" MORRE — o matching do wlrctl é EXATO e
+#      case-sensitive: o bridge X11 do wlroots expõe a WM_CLASS com a
+#      capitalização do app ("Brave-browser") e os candidatos nasciam
+#      minúsculos → NENHUM casava → o fallback abria outra instância (o foot
+#      funcionava porque "foot" é minúsculo e idêntico ao binário). CURA: os
+#      candidatos agora vão em 3 formas canônicas (original/minúscula/Título)
+#      e há um último recurso por TÍTULO com o nome do app — para TODOS os
+#      apps, não só para os de app_id bem-comportado.
+#   2. A DOCK MOSTRA O QUE ESTÁ ABERTO (o dono: "quando abro um programa que
+#      não está fixado na dock ele não vai pra dock… a dock deve ser auto
+#      adaptável e funcionar como funciona uma dock em qualquer sistema") —
+#      apps rodando SEM pin ganham botão dinâmico (ícone/nome do .desktop
+#      resolvido pelo sistema), separados dos pins por um fio vertical.
+#      Ao fechar, eles somem sozinhos até restar só o fixado. NADA se fixa
+#      sozinho; o direito num dinâmico FIXA (craft-pin add — o mesmo verbo
+#      do sempre, com .bak e reload SIGUSR2).
+#   3. MEIO FECHA (convencional das docks) — wlrctl window close, gracioso
+#      (WM_DELETE: o app confirma se tiver o que salvar).
+#   4. O poll cresceu e SIMPLIFICOU: a varredura direta de /proc (uid do
+#      usuário, leitura de comm) substitui o fork de pgrep a cada tick —
+#      N processos = N reads sem fork, e o MESMO scan alimenta pins e
+#      dinâmicos (um só lugar onde "aberto" existe).
+#   Limitação HONESTA (documentada, não escondida): o matching é POR APP
+#   (comm/.desktop), não por janela — o protocolo wlr-foreign-toplevel não
+#   tem listagem via CLI (o wlrctl só casar). Duas janelas do mesmo app = um
+#   botão; o foco vai para a que o compositor escolher. Multi-janela com
+#   ciclo por janela exige falar o protocolo direto — v2.11 se o rig pedir.
 # POR QUÊ EXISTE (feedback do dono, out/2026): a dock de waybar com pins de
 # GLIFO Nerd Font entregou "botões mal recortados, mal encaixados" e "nada é
 # o ícone real". Os caminhos conhecidos morreram COM EVIDÊNCIA:
@@ -44,33 +48,17 @@
 # CURA ESTRUTURAL: dock GTK3 NATIVA no protocolo wlr-layer-shell (o mesmo
 # mecanismo do nwg-dock, SEM a dependência do sway IPC — funciona em
 # qualquer compositor wlroots, labwc incluso), com:
-#   1. ÍCONES REAIS — os pins são IDs de .desktop resolvidos via
+#   1. ÍCONES REAIS — pins são IDs de .desktop resolvidos via
 #      Gio.DesktopAppInfo: ícone vem do fallback base do GTK (v2.2: sem
 #      tema de ícones — o app traz o próprio no hicolor), nome e exec
-#      vêm do .desktop. Zero glifo, zero desenho custom, zero override —
-#      "deixe o ícone ser tratado como o sistema já é" (dono).
-#   2. SEMPRE VISÍVEL (v2.3.4) — o auto-esconder por tira invisível
-#      (v2.0→v2.3.3) morreu NA PRÁTICA: o dono instalou a v2.3.x e a dock
-#      escondeu no fim do mostrinho de 4s e a tira na base nunca mais a
-#      devolveu ("ela sumiu e não apareceu mais"). A cura é a SEMÂNTICA DO
-#      PRÓPRIO PROTOCOLO — zero polling, zero heurística, zero estado para
-#      corromper:
-#        · layer BOTTOM: janelas em TELA CHEIA (e a gaveta de apps,
-#          fullscreen) renderizam acima da dock — ela some sozinha e
-#          volta quando a tela cheia acaba;
-#        · zona exclusiva automática: janelas maximizadas/tileadas
-#          RESPEITAM a faixa da dock (o comportamento dash-to-dock,
-#          plank e do painel do KDE);
-#        · W-S-d continua alternando (SIGUSR1) — esconder é ESCOLHA do
-#          usuário, nunca decisão automática da dock.
-#   3. PÍLULA CENTRADA — superfície ancorada SÓ na base (a layer-shell
-#      centra no eixo não-ancorado): a janela TEM o tamanho da pílula —
-#      nada de faixa invisível full-width comendo clique — e flutua
-#      PILL_FLOAT px acima da base, com o gap DENTRO da superfície
-#      (a zona exclusiva cobre o conjunto inteiro).
-#   4. INDICADOR DE ABERTO — ponto sob o ícone (classe .running) via pgrep
-#      por binário, 1× a cada 3s, IN-PROCESS (um único processo, sem
-#      exec-json por pin — a classe de leak da v1.6.2 segue extinta).
+#      vêm do .desktop. Zero glifo, zero desenho custom, zero override.
+#   2. SEMPRE VISÍVEL (v2.3.4) — layer BOTTOM: janelas em TELA CHEIA
+#      renderizam acima da dock; zona exclusiva automática: maximizadas/
+#      tileadas RESPEITAM a faixa; W-S-d alterna (SIGUSR1) — esconder é
+#      ESCOLHA do usuário, nunca decisão automática da dock.
+#   3. PÍLULA CENTRADA — ancorada SÓ na base, superfície com o tamanho da
+#      pílula (nada de faixa invisível full-width comendo clique).
+#   4. INDICADOR DE ABERTO — ponto sob o ícone (classe .running), in-process.
 #   5. RELOAD — SIGUSR2 re-lê o arquivo de pins (craft-pin add/rm).
 # PINS: ~/.config/elite/dock-pins — 1 ID de .desktop por linha
 # (ex.: "foot.desktop"). Gerido pelo craft-pin; skel de fábrica: 3 apps.
@@ -101,7 +89,7 @@ ICON_SIZE = 36   # spec M3.2: escala fixa de fábrica
 # a janela maximizada nunca invade nem o vão transparente.
 PILL_FLOAT = 6
 
-WLRCTL = shutil.which("wlrctl")  # foco de janela (wlr-foreign-toplevel)
+WLRCTL = shutil.which("wlrctl")  # foco/fecho de janela (wlr-foreign-toplevel)
 
 
 def log(msg):
@@ -117,6 +105,20 @@ def log(msg):
             fh.write(msg + "\n")
     except OSError:
         pass
+
+
+def case_variants(c):
+    """v2.10: as 3 formas canônicas de um candidato — o match do wlrctl é
+    exato e o bridge X11 do wlroots expõe a WM_CLASS COM a capitalização do
+    app ("Brave-browser"): enviar só o minúsculo é adivinhar errado de
+    fábrica. Dedup preservando a ordem."""
+    seen = set()
+    out = []
+    for v in (c, (c or "").lower(), (c or "").title()):
+        if v and v not in seen:
+            seen.add(v)
+            out.append(v)
+    return out
 
 
 def read_pins():
@@ -160,14 +162,14 @@ def read_pins():
 
 
 def exec_of(info):
-    """Exec do .desktop sem os códigos de campo (%f %U …)."""
+    """Commandline do .desktop sem os códigos de campo (%f %U …)."""
     raw = info.get_commandline() or ""
     raw = re.sub(r"\s%[a-zA-Z]", "", raw).strip()
     return raw
 
 
 def binary_of(info):
-    """Primeiro binário do Exec — alvo do pgrep do indicador."""
+    """Primeiro binário do commandline do .desktop."""
     raw = exec_of(info)
     if not raw:
         return ""
@@ -181,8 +183,12 @@ def binary_of(info):
 class Dock:
     def __init__(self):
         self.shown = True  # v2.3.4: nasce visível e fica — esconder é escolha (W-S-d)
-        self.buttons = []  # (button, binary)
-        self.running = set()      # comms vivos (o poll alimenta; o clique lê)
+        self.buttons = []  # pins: (button, binary)
+        self.running = set()      # comms vivos do usuário (o poll alimenta)
+        self.pin_ids = set()      # desktop-ids fixados (dedup dos dinâmicos)
+        self.dyn = {}             # dinâmicos: did → (button, comm, info, cmd)
+        self.sep = None           # fio vertical pins | dinâmicos
+        self._dindex = None       # cache: chave lower → DesktopAppInfo
 
         self.win = Gtk.Window()
         self.win.set_name("dockwindow")
@@ -210,7 +216,8 @@ class Dock:
         self.load_css()
         self.win.show_all()
         log(f"dock iniciada: {len(self.buttons)} pin(s) · "
-            f"sempre visível (layer BOTTOM — some só sob tela cheia/gaveta)")
+            f"sempre visível (layer BOTTOM — some só sob tela cheia/gaveta) · "
+            f"dinâmicos ON (apps abertos sem pin aparecem após o fio)")
 
         GLib.timeout_add(3000, self.poll_running)
         GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGUSR1,
@@ -245,45 +252,62 @@ class Dock:
                 Gdk.Screen.get_default(), prov,
                 Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
+    # ── índice de .desktops (v2.10 — para os dinâmicos) ─────────────────
+    def _desktop_index(self):
+        """Cache: chave lower → DesktopAppInfo. Uma varredura por sessão
+        (Gio.AppInfo.get_all), casando StartupWMClass e o binário do
+        commandline. NoDisplay/Hidden NUNCA entram (a gaveta limpa do E21 é
+        a mesma lei aqui: xarchiver/papers/nm-connection-editor rodando não
+        viram botão — são helpers, não apps de dock)."""
+        if self._dindex is None:
+            idx = {}
+            try:
+                apps = Gio.AppInfo.get_all()
+            except Exception as exc:  # noqa: BLE001 — index vazio ≠ dock morta
+                log(f"get_all falhou ({type(exc).__name__}) — sem dinâmicos")
+                apps = []
+            for app in apps:
+                if not isinstance(app, Gio.DesktopAppInfo):
+                    continue
+                try:
+                    if app.get_nodisplay() or app.get_is_hidden():
+                        continue
+                except Exception:  # noqa: BLE001 — .desktop exótico não derruba
+                    continue
+                did = app.get_id() or ""
+                if not did:
+                    continue
+                try:
+                    wmc = app.get_string("StartupWMClass") or ""
+                except Exception:  # noqa: BLE001
+                    wmc = ""
+                b = binary_of(app)
+                for k in dict.fromkeys(x for x in (wmc.lower(), b.lower()) if x):
+                    idx.setdefault(k, app)
+            self._dindex = idx
+            log(f"índice de .desktops: {len(idx)} chave(s) resolvíveis")
+        return self._dindex
+
+    def _resolve_desktop(self, comm):
+        """comm do /proc → DesktopAppInfo do app (ou None: não é 'programa'
+        no sentido da dock — daemons/shells sem .desktop não viram botão)."""
+        return self._desktop_index().get((comm or "").lower())
+
     # ── pins ─────────────────────────────────────────────────────────────
     def rebuild(self, *_):
         for child in self.pill.get_children():
             self.pill.remove(child)
         self.buttons = []
+        self.dyn = {}
+        self.sep = None
+        self.pin_ids = set()
         for info, hint in read_pins():
-            btn = Gtk.Button.new()
-            btn.set_relief(Gtk.ReliefStyle.NONE)
-            icon = info.get_icon()
-            img = Gtk.Image()
-            if icon is not None:
-                img.set_from_gicon(icon, Gtk.IconSize.DIALOG)
-            else:
-                img.set_from_icon_name("application-x-executable",
-                                       Gtk.IconSize.DIALOG)
-            img.set_pixel_size(ICON_SIZE)
-            btn.add(img)
-            # v2.7.0 — o tooltip ENSINA os dois verbos (a descoberta não
-            # mora escondida — mesma gramática dos tooltips da topbar)
-            name = info.get_display_name() or ""
-            if WLRCTL:
-                btn.set_tooltip_text(
-                    f"{name} — esquerdo: focar/abrir · direito: nova janela")
-            else:
-                btn.set_tooltip_text(f"{name} — clique: abrir")
-            cmd = exec_of(info)
-            did = info.get_id() or ""
-            if cmd:
-                # v2.7.0 — button-press-event distingue ESQUERDO (focar se
-                # roda, senão abrir) de DIREITO (abrir OUTRA instância,
-                # sempre). O return True consome o evento (o "clicked" não
-                # refira — zero duplo lançamento); o "clicked" segue ligado
-                # para teclado (Espaço/Enter = esquerdo).
-                btn.connect("button-press-event", self._press,
-                            info, hint, did, cmd)
-                btn.connect("clicked", self._clicked, info, hint, did, cmd)
-            btn.set_name("dockbtn")
+            btn = self._make_button(info, hint, dynamic=False)
             self.pill.pack_start(btn, False, False, 0)
             self.buttons.append((btn, binary_of(info)))
+            did = info.get_id() or ""
+            if did:
+                self.pin_ids.add(did)
         self.pill.show_all()
         self.poll_running()
         # v2.5.0 — GLib.SOURCE_CONTINUE: callback de sinal que retorna False
@@ -292,15 +316,59 @@ class Dock:
         # sessão; o audit 24-c flagrou o mecanismo exato).
         return GLib.SOURCE_CONTINUE
 
-    # ── os DOIS VERBOS do clique (v2.7.0) ────────────────────────────────
-    def _press(self, btn, ev, info, hint, did, cmd):
+    def _make_button(self, info, hint, dynamic=False):
+        btn = Gtk.Button.new()
+        btn.set_relief(Gtk.ReliefStyle.NONE)
+        icon = info.get_icon()
+        img = Gtk.Image()
+        if icon is not None:
+            img.set_from_gicon(icon, Gtk.IconSize.DIALOG)
+        else:
+            img.set_from_icon_name("application-x-executable",
+                                   Gtk.IconSize.DIALOG)
+        img.set_pixel_size(ICON_SIZE)
+        btn.add(img)
+        # o tooltip ENSINA os verbos (a descoberta não mora escondida —
+        # mesma gramática dos tooltips da topbar)
+        name = info.get_display_name() or ""
+        did = info.get_id() or ""
+        cmd = exec_of(info)
+        if dynamic:
+            btn.set_tooltip_text(
+                f"{name} — esquerdo: focar/abrir · direito: fixar na dock · "
+                f"meio: fechar janela")
+        elif WLRCTL:
+            btn.set_tooltip_text(
+                f"{name} — esquerdo: focar/abrir · direito: nova janela")
+        else:
+            btn.set_tooltip_text(f"{name} — clique: abrir")
+        if cmd:
+            # button-press-event distingue ESQUERDO/DIREITO/MEIO; o return
+            # True consome o evento (o "clicked" não refira — zero duplo
+            # lançamento); o "clicked" segue ligado para teclado.
+            btn.connect("button-press-event", self._press,
+                        info, hint, did, cmd, dynamic)
+            btn.connect("clicked", self._clicked, info, hint, did, cmd)
+        btn.set_name("dockbtn")
+        return btn
+
+    # ── os VERBOS do clique (v2.7 + v2.10) ───────────────────────────────
+    def _press(self, btn, ev, info, hint, did, cmd, dynamic=False):
         if ev.button == 3:
-            self._launch(btn, cmd)              # direito: OUTRA instância
-            return True                          # consumido — sem "clicked"
+            if dynamic:
+                self._pin_add(did)                  # direito no dinâmico: FIXAR
+            else:
+                self._launch(btn, cmd)              # direito no pin: OUTRA instância
+            return True                              # consumido — sem "clicked"
+        if ev.button == 2:
+            if WLRCTL:
+                self._close_windows(info, hint, did)  # meio: fechar (gracioso)
+                return True
+            return False
         if ev.button == 1:
             self._focus_or_launch(info, hint, did, cmd)  # esquerdo
             return True
-        return False  # meio/outros: GtkButton decide (clicked = esquerdo)
+        return False  # outros: GtkButton decide (clicked = esquerdo)
 
     def _clicked(self, _btn, info, hint, did, cmd):
         # teclado (Espaço/Enter) = o mesmo verbo do esquerdo
@@ -326,31 +394,81 @@ class Dock:
             cands.append(stem)
         return list(dict.fromkeys(c for c in cands if c))
 
+    def _wlrctl(self, verb, key, value):
+        """Uma chamada ao wlrctl; rc=0 = o compositor casou e executou."""
+        if not WLRCTL:
+            return False
+        try:
+            r = subprocess.run(
+                [WLRCTL, "window", verb, f"{key}:{value}"],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                timeout=1)
+        except subprocess.TimeoutExpired:
+            return False
+        except OSError:
+            return False
+        return r.returncode == 0
+
     def _focus_or_launch(self, info, hint, did, cmd):
         b = binary_of(info)
         # NÃO rodando: abrir DIRETO (zero subprocesso no caminho comum —
-        # o clique responde na hora; "responderem instantâneos" — dono).
-        if not (WLRCTL and b and b in self.running):
+        # o clique responde na hora). O check é case-insensitive: o comm
+        # do /proc pode ter capitalização própria ("Thunar").
+        alive = any((x.lower() == b.lower()) for x in self.running) if b else False
+        if not (WLRCTL and alive):
             self._launch(None, cmd)
             return
-        # rodando: FOCAR (wlrctl fala wlr-foreign-toplevel; labwc fala).
-        # rc=0 = janela focada; rc≠0 = ninguém casou → tenta o próximo
-        # candidato; TODOS falharam → abre (nunca pior que a era v2.6 —
-        # e com o hint 'desktop-id app_id' o caso exótico tem saída).
+        # rodando: FOCAR. Para cada candidato, 3 formas canônicas de app_id
+        # (a cura v2.10 do case-sensitive que abria nova sessão no Brave);
+        # por último, o TÍTULO com o nome do app (alguns apps expõem o nome
+        # no título e não no app_id). rc=0 vence; TODOS falharam → abre
+        # (nunca pior que a era v2.6).
         for c in self._focus_candidates(info, hint, did):
-            try:
-                r = subprocess.run(
-                    [WLRCTL, "window", "focus", f"app_id:{c}"],
-                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                    timeout=2)
-            except subprocess.TimeoutExpired:
-                break  # wlrctl preso: não repete o transtorno — abre
-            except OSError:
-                break
-            if r.returncode == 0:
-                log(f"foco: {c} (app_id)")
-                return
+            for v in case_variants(c):
+                if self._wlrctl("focus", "app_id", v):
+                    log(f"foco: app_id:{v}")
+                    return
+        name = (info.get_display_name() or "").strip()
+        if name:
+            for v in case_variants(name):
+                if self._wlrctl("focus", "title", v):
+                    log(f"foco: title:{v}")
+                    return
+        log(f"foco sem match ({', '.join(self._focus_candidates(info, hint, did))}) — abrindo")
         self._launch(None, cmd)
+
+    def _close_windows(self, info, hint, did):
+        """v2.10: o verbo do MEIO — fechar (WM_DELETE gracioso; o app
+        confirma se tiver o que salvar)."""
+        closed = False
+        for c in self._focus_candidates(info, hint, did):
+            for v in case_variants(c):
+                if self._wlrctl("close", "app_id", v):
+                    log(f"fechado: app_id:{v}")
+                    closed = True
+                    break
+            if closed:
+                break
+        if not closed:
+            log("fechar sem match — nada encerrado")
+
+    def _pin_add(self, did):
+        """v2.10: direito num DINÂMICO fixa o app (o mesmo craft-pin de
+        sempre: fuzzy resolve, .bak e reload SIGUSR2 — a dock re-lê sozinha)."""
+        if not did:
+            return
+        try:
+            r = subprocess.run(
+                ["/usr/local/bin/craft-pin", "add", did],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                timeout=10)
+        except (subprocess.TimeoutExpired, OSError) as exc:
+            log(f"craft-pin add falhou ({type(exc).__name__}): {did}")
+            return
+        if r.returncode == 0:
+            log(f"fixado via craft-pin: {did}")
+        else:
+            log(f"craft-pin add rc={r.returncode}: {did}")
 
     def _launch(self, _btn, cmd):
         try:
@@ -362,40 +480,90 @@ class Dock:
         except OSError as exc:
             log(f"falha ao lançar {cmd}: {exc}")
 
-    # ── indicador de aberto (1 pgrep por tick — v2.5.0) ─────────────────
-    # v2.5.0 — era 1 pgrep POR PIN a cada 3s (3 forks + 3 varreduras de
-    # /proc no factory; escala com os pins do usuário). Agora: UM pgrep
-    # com alternância (-x aceita ERE — provado no procps-ng 4.x) e a
-    # identificação por /proc/<pid>/comm (leitura direta, sem fork).
-    def poll_running(self):
-        running = set()
-        # v2.5.0 (N2, audit 24-r): re.escape — uma ERE inválida de UM
-        # binário (ex.: '(' no nome) devolvia rc=2 do pgrep e apagava
-        # TODAS as pílulas; o escape isola o pin ruim.
-        pats = "|".join(dict.fromkeys(re.escape(b) for _, b in self.buttons if b))
-        if pats:
+    # ── o poll (v2.10 — /proc direto, pins + dinâmicos no MESMO scan) ────
+    # v2.5.0 — o indicador nasceu com 1 fork POR PIN a cada 3s; virou UM
+    # pgrep com alternância ERE (audit 24-b). v2.10 — o fork inteiro morreu:
+    # a leitura DIRETA de /proc/<pid>/comm (uid do usuário) N leituras sem
+    # NENHUM fork, sem ERE para escapar, e o MESMO scan alimenta os botões
+    # dinâmicos (um só lugar onde "aberto" existe).
+    def _scan_user_comms(self):
+        uid = os.getuid()
+        comms = set()
+        try:
+            pids = os.listdir("/proc")
+        except OSError:
+            return comms
+        for pid in pids:
+            if not pid.isdigit():
+                continue
             try:
-                out = subprocess.run(
-                    ["pgrep", "-x", pats],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.DEVNULL,
-                    text=True).stdout or ""
+                if os.stat(f"/proc/{pid}").st_uid != uid:
+                    continue
+                with open(f"/proc/{pid}/comm") as fh:
+                    c = fh.read().strip()
+                if c:
+                    comms.add(c)
             except OSError:
-                out = ""
-            for pid in out.split():
-                try:
-                    with open(f"/proc/{pid}/comm") as fh:
-                        running.add(fh.read().strip())
-                except OSError:
-                    pass
-        self.running = running  # v2.7.0: o clique lê isto (focar vs abrir)
+                continue
+        return comms
+
+    def poll_running(self):
+        self.running = self._scan_user_comms()
         for btn, binary in self.buttons:
             ctx = btn.get_style_context()
-            if binary and binary in running:
+            if binary and any(x.lower() == binary.lower()
+                              for x in self.running):
                 ctx.add_class("running")
             else:
                 ctx.remove_class("running")
+        self._sync_dynamic()
         return True
+
+    # ── dinâmicos (v2.10 — a dock auto-adaptável) ───────────────────────
+    def _sync_dynamic(self):
+        """Apps rodando SEM pin e COM .desktop → botão após o fio. Ao fechar,
+        o botão some sozinho (até restar só o fixado). Diff por desktop-id:
+        nada toca no GTK se nada mudou (zero flicker no tick de 3s)."""
+        current = {}
+        for comm in self.running:
+            info = self._resolve_desktop(comm)
+            if info is None:
+                continue
+            did = info.get_id() or ""
+            if not did or did in self.pin_ids or did in current:
+                continue
+            cmd = exec_of(info)
+            if not cmd:
+                continue
+            current[did] = (info, comm)
+        if set(current) == set(self.dyn):
+            return
+        dead = set(self.dyn) - set(current)
+        for did in sorted(dead):
+            btn = self.dyn[did][0]
+            btn.destroy()
+            del self.dyn[did]
+            log(f"dinâmico saiu: {did}")
+        fresh = set(current) - set(self.dyn)
+        for did in sorted(fresh):
+            info, comm = current[did]
+            btn = self._make_button(info, "", dynamic=True)
+            self.pill.pack_start(btn, False, False, 0)
+            self.dyn[did] = (btn, comm, info, exec_of(info))
+            log(f"dinâmico entrou: {did} (comm {comm})")
+        # o fio só existe quando há os dois lados
+        if self.dyn and self.buttons and self.sep is None:
+            self.sep = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
+            self.sep.set_name("dynsep")
+            self.sep.set_margin_top(8)
+            self.sep.set_margin_bottom(8)
+            self.pill.pack_start(self.sep, False, False, 0)
+            self.pill.reorder_child(self.sep, len(self.buttons))
+        elif (not self.dyn or not self.buttons) and self.sep is not None:
+            self.sep.destroy()
+            self.sep = None
+        if self.dyn or fresh or dead:
+            self.pill.show_all()
 
     def toggle(self, *_):
         # v2.3.4: esconder é ESCOLHA do usuário (W-S-d) — nunca decisão
@@ -430,6 +598,11 @@ DEFAULT_CSS = b"""
 }
 #dockbox button:hover { background: rgba(22, 22, 31, 0.95); }
 #dockbox button.running { box-shadow: inset 0 -3px 0 rgba(205, 214, 244, 0.8); }
+#dockbox separator {
+  min-width: 1px;
+  margin: 8px 7px;
+  background: rgba(108, 112, 134, 0.45);
+}
 """
 
 
