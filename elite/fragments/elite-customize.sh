@@ -690,3 +690,37 @@ if [[ -d /etc/sudoers.d ]] && ! grep -qs '!lecture' /etc/sudoers.d/*; then
         echo "E20: Defaults !lecture escrito (visudo ausente no chroot — conferir no build)"
     fi
 fi
+
+
+## [E21] v2.9.0 — A GAVETA LIMPA (pedido do dono, rig v2.8.0: "oculta esses
+##      programas como xarchiver, gtk settings e etc que não precisa ficar
+##      na gaveta de aplicativos pois tem um acesso melhor de alguma forma
+##      ou são extensões, tipo o programa de documentos abrir pelo
+##      explorador de arquivos"). Helpers/extensões/demos saem DA GAVETA
+##      sem morrer: NoDisplay=true esconde do drawer (nwg-drawer respeita)
+##      e de TODOS os menus de aplicativo, mas Exec/Icon/MimeType ficam
+##      INTACTOS — abrir um .7z no Thunar, um PDF pelo explorador ou o
+##      editor avançado de rede (W-n) segue funcionando IGUAL. É BUILD-TIME
+##      (o customize roda no chroot após o pacstrap): o sed insere a chave
+##      DENTRO do grupo [Desktop Entry] (appending no fim do arquivo cairia
+##      num grupo [Desktop Action …] e seria ignorado). Idempotente (grep).
+if [[ -d /usr/share/applications ]]; then
+    _elite_hidden=0
+    for _dd in \
+        /usr/share/applications/xarchiver.desktop \
+        /usr/share/applications/thunar-bulk-rename.desktop \
+        /usr/share/applications/papers.desktop \
+        /usr/share/applications/nm-connection-editor.desktop \
+        /usr/share/applications/gtk3-demo.desktop \
+        /usr/share/applications/gtk3-widget-factory.desktop \
+        /usr/share/applications/gtk3-icon-browser.desktop; do
+        [[ -f "$_dd" ]] || continue
+        grep -qs '^NoDisplay=true' "$_dd" && continue
+        sed -i '/^\[Desktop Entry\]/a NoDisplay=true' "$_dd"
+        _elite_hidden=$((_elite_hidden + 1))
+        echo "E21: oculto da gaveta (NoDisplay): $_dd"
+    done
+    echo "E21: gaveta limpa — $_elite_hidden helper(s)/demo(s) fora da grade de apps"
+else
+    echo "E21 AVISO: /usr/share/applications ausente no chroot — gaveta NÃO limpa" >&2
+fi

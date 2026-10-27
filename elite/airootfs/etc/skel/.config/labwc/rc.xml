@@ -398,32 +398,39 @@
              · DESKTOP (aqui): clique DIREITO abre o MENU RAIZ — é o único
                botão que abre menu no desktop, e o ESQUERDO é MUDO por lei
                (nada de menu acidental, nada de menu ao fechar outro).
-           O fechar-por-clique-fora não vaza: a GAIOLA da dock
-           (craft-dock-gui v2.7, engatilhada pelo craft-menu) engole o
-           clique fora do menu aberto e só fecha — o desktop nem vê o
-           clique (por isso o Right abaixo não disputa com o dismiss).
            A lista de janelas do botão direito saiu na v1.7 (o dock já é
            o comutador de janelas). SCROLL no desktop segue trocando de
            workspace (o gesto que o dono prefere). -->
-      <!-- v2.8.0 — A PROVA do rig do dono (foto 27/out: menu-raiz aberto):
-           o default do labwc (docs/rc.xml.all §Root) traz Left E Middle →
-           ShowMenu root-menu — e o <default/> deste arquivo importa esses
-           binds ANTES do contexto abaixo. Definir só o Right NÃO remove o
-           herdado: o labwc soma binds e substitui apenas o mesmo par
-           button+event. O ESQUERDO continuou abrindo o menu (o dono:
-           "com o click esquerdo do mouse esse menu está abrindo").
-           A cura é a documentada em labwc-actions(5): <action name="None" />
-           como ÚNICA ação de um bind LIMPA o bind anterior — os três
-           botões são declarados e só o DIREITO sobrevive com menu.
-           Clique-esquerdo no desktop agora é MUDO de verdade (e o médio
-           também — mesma tabela do default). -->
+      <!-- v2.9.0 — A LEI DO DISMISS NO COMPOSITOR (a gaiola morreu): o
+           rig do dono desmentiu a v2.8.0 NA CARNE ("matou o uso do mouse
+           no sistema… só topbar e dock funcionam" — nem o Calamares
+           recebia clique). A perícia provou o bug: a gaiola da dock
+           nascia com input region CHEIA (self.cage setado DEPOIS do
+           _cage_set_region — a chamada de boot não aplicava nada) e a
+           região só crescia — uma rede invisível engolindo o clique de
+           TODA janela. A cura é ESTRUTURAL: ZERO superfícies novas. O
+           clique fora do menu é entregue pelo labwc ao DESKTOP (este
+           contexto), e AQUI vira lei:
+             · ESQUERDO → craft-menu-dismiss: fecha o menu aberto e NÃO
+               abre nada (o "fechar clicando fora" do dono, sem vazar
+               pro menu-raiz). Sem menu aberto o script é um no-op de
+               ~1ms — o esquerdo continua MUDO na prática (a lei v2.7).
+               O Execute AQUI também CONSOME o clique (bind casado), o
+               default herdado do labwc fica sem vez;
+             · MÉDIO → None (limpa o ShowMenu do default — v2.8);
+             · DIREITO → dismiss + ShowMenu: fecha o menu aberto e abre
+               o menu-raiz NO LUGAR (substituição limpa — nunca dois
+               menus empilhados). Sem menu, é o direito de sempre.
+           SCROLL no desktop segue trocando de workspace (o gesto que
+           o dono prefere). -->
       <mousebind button="Left" action="Press">
-        <action name="None" />
+        <action name="Execute" command="craft-menu-dismiss" />
       </mousebind>
       <mousebind button="Middle" action="Press">
         <action name="None" />
       </mousebind>
       <mousebind button="Right" action="Press">
+        <action name="Execute" command="craft-menu-dismiss" />
         <action name="ShowMenu" menu="root-menu" />
       </mousebind>
       <mousebind direction="Up" action="Scroll">

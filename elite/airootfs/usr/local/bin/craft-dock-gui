@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · craft-dock-gui (v2.7 — "a dock de verdade" + A GAIOLA)
+# Archcraft ELITE · craft-dock-gui (v2.9 — "a dock PURA")
 # v2.1.1: read_pins à prova de TypeError (pin inválido é ignorado com log —
 #         nunca mais crash-loop; run #93 como evidência).
 # v2.3.4: FIM DO AUTOHIDE — a dock é SEMPRE VISÍVEL (diretriz do dono:
@@ -8,24 +8,33 @@
 # v2.7.0: DOIS VERBOS NO CLIQUE (o dono: "clicar num programa já aberto deve
 #         ir para a tarefa aberta invés de abrir outra… se o usuário quiser
 #         abrir outra rapidamente ele pode fazer clicando com o botão
-#         direito") + A GAIOLA (o clique fora do menu só FECHA):
+#         direito"):
 #   · ESQUERDO num pin: se o programa ESTÁ rodando (pílula), FOCAR a janela
 #     dele (wlrctl, protocolo wlr-foreign-toplevel — labwc fala); se NÃO
 #     está, abrir — direto, sem subprocesso no caminho comum (instantâneo);
 #   · DIREITO num pin: abrir OUTRA instância, sempre (o verbo rápido do
-#     dono para "quero outro agora");
-#   · GAIOLA (v2.8.0 — PERSISTENTE): o craft-menu pede (SIGRTMIN) e a gaiola
-#     ARMA a rede de cliques trocando APENAS a input region (a superfície
-#     é mapeada 1× no boot, transparente e INERTE — input VAZIA = o clique
-#     atravessa). A v2.7 mapeava/desmapeava a superfície full-screen A CADA
-#     menu: cada map/unmap re-arranja as layers no compositor e a dock
-#     (BOTTOM) levava configure/redesenho no caminho — "a dock meio que
-#     some e aparece como se estivesse atualizada" (dono, rig v2.7.0).
-#     Trocar input region é um commit de wl_surface: zero geometria, a
-#     dock não é tocada. Mata o fuzzel pelo pid do state e se desarma
-#     sozinha — o desktop NEM VÊ o clique ("fechar um menu clicando fora"
-#     nunca mais abre o menu-raiz).
-# ═══════════════════════════════════════════════════════════════════════════
+#     dono para "quero outro agora").
+# v2.9.0 — A GAIOLA MORREU (o rig do dono desmentiu a v2.8.0 NA CARNE:
+#         "matou o uso do mouse no sistema… só topbar e dock funcionam";
+#         e a dock "continua fazendo tipo um refresh" ao mexer nos menus).
+#         A perícia do código achou o crime COM PROVA:
+#           1. o campo da gaiola era setado DEPOIS da chamada que aplicava
+#              a região de entrada — a chamada lia o campo (ainda vazio) e
+#              RETORNAVA sem aplicar nada: a gaiola nascia com a região
+#              DEFAULT (TODA a superfície) — nunca "vazia";
+#           2. o desarmar re-aplicava a região por UNIÃO — a rede só
+#              crescia: UMA gaiola invisível full-screen no layer TOP
+#              engolindo o clique de TODA janela (Calamares incluso — por
+#              isso nem instalar dava) e do próprio desktop;
+#           3. o "refresh" da dock ao abrir menu era a mesma família:
+#              superfície extra no TOP + troca de região de entrada +
+#              reinício do supervisor quando algo morria no caminho.
+#         A CURA é estrutural: A DOCK VOLTA A SER SÓ A DOCK — uma
+#         superfície (a pílula), ZERO superfícies auxiliares, ZERO input
+#         regions, ZERO telefone de menus. O clique fora do menu virou LEI
+#         DO COMPOSITOR (rc.xml §Root: esquerdo/direito executam
+#         craft-menu-dismiss — o dismiss não precisa de rede nenhuma).
+#         O que a dock não tem, ela não quebra.
 # POR QUÊ EXISTE (feedback do dono, out/2026): a dock de waybar com pins de
 # GLIFO Nerd Font entregou "botões mal recortados, mal encaixados" e "nada é
 # o ícone real". Os caminhos conhecidos morreram COM EVIDÊNCIA:
@@ -66,7 +75,6 @@
 # PINS: ~/.config/elite/dock-pins — 1 ID de .desktop por linha
 # (ex.: "foot.desktop"). Gerido pelo craft-pin; skel de fábrica: 3 apps.
 # ═══════════════════════════════════════════════════════════════════════════
-import atexit
 import os
 import re
 import shlex
@@ -93,15 +101,7 @@ ICON_SIZE = 36   # spec M3.2: escala fixa de fábrica
 # a janela maximizada nunca invade nem o vão transparente.
 PILL_FLOAT = 6
 
-# v2.7.0 — a GAIOLA e o FOCO:
-BAR_H = 36  # a topbar (config.top height=36): a gaiola NÃO cobre a barra
-# (o 2º clique no MESMO botão da barra tem que chegar — o toggle por pid)
-RT = os.environ.get("XDG_RUNTIME_DIR") or "/tmp"
-DK_FILE = os.path.join(RT, f"elite-dock.{os.getuid()}")     # pid da dock
-ST_MENU = os.path.join(RT, f"elite-menus.{os.getuid()}")    # pid do fuzzel
-ACK_FILE = os.path.join(RT, f"elite-cage.{os.getuid()}")    # ack do handshake
 WLRCTL = shutil.which("wlrctl")  # foco de janela (wlr-foreign-toplevel)
-CAGE_CSS = b"#cagewindow { background: transparent; }\n"
 
 
 def log(msg):
@@ -183,9 +183,6 @@ class Dock:
         self.shown = True  # v2.3.4: nasce visível e fica — esconder é escolha (W-S-d)
         self.buttons = []  # (button, binary)
         self.running = set()      # comms vivos (o poll alimenta; o clique lê)
-        self.cage = None          # a gaiola nasce no BOOT (v2.8.0 — persistente)
-        self.cage_armed = False   # input region armada? (tela menos barra)
-        self.cage_polling = False # um ÚNICO loop de vigia por vez
 
         self.win = Gtk.Window()
         self.win.set_name("dockwindow")
@@ -214,28 +211,16 @@ class Dock:
         self.win.show_all()
         log(f"dock iniciada: {len(self.buttons)} pin(s) · "
             f"sempre visível (layer BOTTOM — some só sob tela cheia/gaveta)")
-        # v2.8.0 — a gaiola PERSISTENTE nasce junto: mapeada 1×, transparente
-        # e INERTE (input VAZIA). A transparência real é provada pela foto do
-        # dono (wallpaper visível ao redor do menu com a gaiola armada).
-        self._cage_setup()
 
         GLib.timeout_add(3000, self.poll_running)
         GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGUSR1,
                              self.toggle)
         GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGUSR2,
                              self.rebuild)
-        # v2.7.0 — o telefonema da GAIOLA (craft-menu pede a rede de cliques
-        # por SIGRTMIN) — e a dock se anuncia para os chamadores (pid em
-        # elite-dock.<uid>); a limpeza no fim é atexit (morte limpa não
-        # deixa pid fantasma apontando para processo morto).
-        GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGRTMIN,
-                             self.cage_request)
-        try:
-            with open(DK_FILE, "w") as fh:
-                fh.write(f"{os.getpid()}\n")
-        except OSError:
-            pass  # sem pid-file = craft-menu segue sem gaiola (degrada gracioso)
-        atexit.register(self._forget_pid)
+        # v2.9.0 — SEM superfície auxiliar, SEM pid-file, SEM telefone:
+        # a dock não recebe pedidos de ninguém. O dismiss de menu é lei do
+        # rc.xml (craft-menu-dismiss) — a dock nem fica sabendo que um
+        # menu abriu.
 
     # ── CSS ──────────────────────────────────────────────────────────────
     def load_css(self):
@@ -411,137 +396,6 @@ class Dock:
             else:
                 ctx.remove_class("running")
         return True
-
-    # ── A GAIOLA (v2.7.0 → v2.8.0 — PERSISTENTE, o pisca-pisca morreu) ──
-    # Superfície INVISÍVEL, layer TOP, tela inteira, teclado NONE — mapeada
-    # UMA vez no boot e nunca mais tocada. O armar/desarmar troca APENAS a
-    # input region (um commit de wl_surface — zero map/unmap, zero re-arranjo
-    # de layers: a dock BOTTOM não leva configure nem redesenho):
-    #   · DESARMADA (boot, menu fechado): input region VAZIA — o clique
-    #     atravessa como se a gaiola não existisse;
-    #   · ARMADA (menu aberto): tela MENOS a faixa da barra (o 2º clique no
-    #     MESMO botão da barra chega na waybar: o toggle por pid é intacto).
-    # Qualquer clique engolido com a gaiola armada mata o fuzzel pelo pid do
-    # state (elite-menus.<uid>) — o desktop NEM VÊ o clique, então fechar um
-    # menu com clique fora NUNCA abre o menu-raiz. Ela se desarma sozinha
-    # vigiando o state (o craft-menu remove no trap EXIT).
-    def _cage_setup(self):
-        if self.cage is not None:
-            return
-        win = Gtk.Window()
-        win.set_name("cagewindow")
-        GtkLayerShell.init_for_window(win)
-        GtkLayerShell.set_layer(win, GtkLayerShell.Layer.TOP)
-        for edge in (GtkLayerShell.Edge.TOP, GtkLayerShell.Edge.BOTTOM,
-                     GtkLayerShell.Edge.LEFT, GtkLayerShell.Edge.RIGHT):
-            GtkLayerShell.set_anchor(win, edge, True)
-        # teclado NUNCA é da gaiola (o fuzzel tem exclusive; a gaiola é só
-        # rede de cliques — sem steal de foco, o ESC segue no menu)
-        GtkLayerShell.set_keyboard_mode(win, GtkLayerShell.KeyboardMode.NONE)
-        vis = Gdk.Screen.get_default().get_rgba_visual()
-        if vis is not None:
-            win.set_visual(vis)
-        win.set_app_paintable(True)
-        prov = Gtk.CssProvider()
-        prov.load_from_data(CAGE_CSS)  # transparente — INVISÍVEL de verdade
-        Gtk.StyleContext.add_provider_for_screen(
-            Gdk.Screen.get_default(), prov,
-            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
-        win.connect("button-press-event", self._cage_click)
-        win.show_all()
-        self._cage_set_region(False)  # VAZIA — inerte até o 1º menu
-        self.cage = win
-        log("gaiola persistente no ar (input vazia — arma com o menu)")
-
-    def _cage_set_region(self, armed):
-        """Arma (tela menos barra) ou desarma (VAZIA) a rede de cliques.
-        Trocar a input region NÃO mexe em geometria de layer: nenhum
-        configure na dock, nenhum pisca-pisca (o defeito da v2.7)."""
-        gdkwin = self.cage.get_window() if self.cage is not None else None
-        if gdkwin is None:
-            return
-        region = Gdk.Region()
-        if armed:
-            scr = Gdk.Screen.get_default()
-            w = scr.get_width()
-            h = scr.get_height()
-            region.union_with_rect(Gdk.Rectangle(x=0, y=0, width=w, height=h))
-            bar = Gdk.Region()
-            bar.union_with_rect(Gdk.Rectangle(x=0, y=0, width=w, height=BAR_H))
-            region.subtract(bar)  # a barra FICA de fora — toggle/cross ok
-        gdkwin.input_shape_combine_region(region, 0, 0)
-
-    def cage_request(self, *_):
-        # SIGRTMIN do craft-menu. SOURCE_CONTINUE sempre (lição v2.5.0:
-        # retornar False seria G_SOURCE_REMOVE = dock SURDA de novo).
-        if self.cage is None:
-            self._cage_setup()
-        self._cage_set_region(True)   # (re)arma — idempotente e barato
-        self.cage_armed = True
-        log("gaiola armada (clique fora só fecha)")
-        if not self.cage_polling:
-            self.cage_polling = True
-            GLib.timeout_add(200, self._cage_poll)
-        try:
-            with open(ACK_FILE, "w") as fh:
-                fh.write("1\n")
-        except OSError:
-            pass  # sem ack = craft-menu segue sem gaiola (prazo de 300ms)
-        return GLib.SOURCE_CONTINUE
-
-    def _menu_pid(self):
-        try:
-            with open(ST_MENU) as fh:
-                first = fh.readline().split()
-            pid = int(first[0])
-            return pid if pid > 0 else None
-        except (OSError, ValueError, IndexError):
-            return None
-
-    def _cage_click(self, _win, _ev):
-        # QUALQUER botão: fechar o menu e nada mais — o clique morre aqui.
-        # (só dispara com a gaiola ARMADA: desarmada, a input region VAZIA
-        # nunca entrega clique a esta janela)
-        pid = self._menu_pid()
-        if pid is not None:
-            try:
-                os.kill(pid, signal.SIGTERM)
-            except OSError:
-                pass
-        self._cage_disarm()
-        return True  # consumido — o desktop nem vê
-
-    def _cage_disarm(self):
-        # desarma AGORA: input region VAZIA — o clique volta a atravessar.
-        # A gaiola PERSISTE mapeada (nada de unmap: o pisca-pisca era isso).
-        if self.cage is not None:
-            self._cage_set_region(False)
-        self.cage_armed = False
-
-    def _cage_poll(self):
-        if not self.cage_armed:
-            self.cage_polling = False
-            return GLib.SOURCE_REMOVE
-        pid = self._menu_pid()
-        dead = pid is None
-        if not dead:
-            try:
-                os.kill(pid, 0)
-            except OSError:
-                dead = True
-        if dead:
-            # craft-menu saiu (trap EXIT) ou o fuzzel morreu sem state —
-            # desarma e encerra o vigia (um novo menu reengatilha tudo)
-            self._cage_disarm()
-            self.cage_polling = False
-            return GLib.SOURCE_REMOVE
-        return GLib.SOURCE_CONTINUE
-
-    def _forget_pid(self):
-        try:
-            os.remove(DK_FILE)
-        except OSError:
-            pass
 
     def toggle(self, *_):
         # v2.3.4: esconder é ESCOLHA do usuário (W-S-d) — nunca decisão

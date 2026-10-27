@@ -133,8 +133,29 @@ case "$choice" in
                     'O sistema recusou a suspensão — journal: ~/.cache/elite/menus.log' || true
         fi
         exit 0 ;;
-    'Reiniciar')      systemctl reboot ;;
-    'Desligar')       systemctl poweroff ;;
+    'Reiniciar')
+        # v2.9.0 — FIM DO SILÊNCIO (o dono, rig v2.8.0: "o click no menu de
+        # encerrar não está encerrando as tarefas"): a causa raiz foi a
+        # gaiola da v2.8 engolindo o clique (até o diálogo do polkit ficava
+        # intocável) — morta na v2.9. A cinta que fica: se o systemctl
+        # RECUSAR por qualquer motivo (polkit, inibidor, logind), o erro
+        # NUNCA morre calado — log + toast crítico na tela.
+        if ! systemctl reboot 2>>"$MLOG"; then
+            mlog "Sessão: reboot RECUSADO pelo sistema — detalhe no fim do log"
+            command -v notify-send >/dev/null 2>&1 && \
+                timeout 5 notify-send -a 'Elite' -u normal -t 8000 \
+                    'Reiniciar falhou' \
+                    'O sistema recusou o reboot — detalhe em ~/.cache/elite/menus.log' || true
+        fi ;;
+    'Desligar')
+        # v2.9.0 — mesma cinta do Reiniciar (falha NUNCA é silêncio).
+        if ! systemctl poweroff 2>>"$MLOG"; then
+            mlog "Sessão: poweroff RECUSADO pelo sistema — detalhe no fim do log"
+            command -v notify-send >/dev/null 2>&1 && \
+                timeout 5 notify-send -a 'Elite' -u normal -t 8000 \
+                    'Desligar falhou' \
+                    'O sistema recusou o desligamento — detalhe em ~/.cache/elite/menus.log' || true
+        fi ;;
     # v2.3.6 — descoberta do idle: o dono perguntou 'tem como controlar o
     # tempo de idle facilmente?' — o craft-idle JÁ fazia, mas morava só no
     # menu do desktop. Agora o Sessão carrega (as ações de energia e o

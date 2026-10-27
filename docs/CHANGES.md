@@ -6,6 +6,56 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **v2.9.0 — A GAIOLA MORREU (com prova), O ENCERRAR ENCERRA, A GAVETA FICA
+  LIMPA** (rig v2.8.0, o dono: "matou o uso do mouse no sistema… eu não tô
+  conseguindo sequer instalar o sistema pois o click do mouse não está
+  funcionando direito, tá basicamente funcionando só na topbar e dock fora
+  isso nada funciona click" · "a dock continua com o problema que falei de
+  fazer tipo um refrash quando mexo nos menus" · "porque o meu click no menu
+  de encerrar não está encerrando as tarefas?" · "oculta esses programas
+  como xarchiver, gtk settings e etc que não precisa ficar na gaveta de
+  aplicativos… ou são extensões, tipo o programa de documentos abrir pelo
+  explorador de arquivos"):
+  - **A GAIOLA MORREU — E A CLASSE DE BUG DELA É IMPOSSÍVEL POR CONSTRUÇÃO**
+    — a perícia do código provou o crime: o campo da gaiola era setado
+    DEPOIS da chamada que aplicava a região de entrada (a chamada lia o
+    campo ainda vazio e RETORNAVA sem aplicar nada) → a gaiola nascia com
+    a região de entrada DEFAULT (TODA a superfície) e o desarmar
+    re-aplicava por UNIÃO (a rede só crescia) → UMA superfície invisível
+    full-screen no layer TOP engolindo o clique de TODA janela — Calamares
+    incluso (por isso nem instalar dava). CURA ESTRUTURAL: a dock volta a
+    ser SÓ a pílula dela (layer BOTTOM) — zero superfícies auxiliares,
+    zero regiões de entrada, zero telefone de menus. O clique fora de menu
+    virou LEI DO COMPOSITOR: o rc.xml §Root executa `craft-menu-dismiss`
+    (novo, ~40 linhas) no esquerdo (FECHA e não abre nada — sem menu é
+    no-op de ~1ms: o esquerdo segue MUDO na prática) e no direito (FECHA e
+    abre o menu-raiz NO LUGAR — nunca dois menus empilhados). O craft-menu
+    perdeu o handshake (SIGRTMIN/ack/espera de 300ms): o menu nasce no
+    frame em que é chamado. O "refresh" da dock ao abrir menu era a mesma
+    família (superfície extra + troca de região + reinício do supervisor) —
+    também morre aqui. Contratos de AUSÊNCIA provam: nenhum método, nenhum
+    constante, nenhum layer TOP na dock.
+  - **O ENCERRAR ENCERRA (e se o sistema recusar, o erro NUNCA é silêncio)**
+    — o silêncio da v2.8 era a gaiola engolindo o clique (até o diálogo do
+    polkit ficava intocável). Com o clique curado, a cinta que fica: se o
+    `systemctl reboot`/`poweroff` RECUSAR por qualquer motivo (polkit,
+    inibidor, logind), o craft-power loga e levanta toast normal na tela
+    com o porquê (lei v2.3.10 mantida: toast que AVISA e SOME — nada de
+    critical eterno). As regras polkit locais (`49-elite-desktop.rules`)
+    já autorizavam power-off/reboot/suspend para o usuário local ativo.
+  - **A GAVETA FICA LIMPA (E21)** — helpers/extensões/demos saem da grade
+    de aplicativos SEM morrer: `NoDisplay=true` inserido pelo build (o
+    customize do chroot) DENTRO do grupo `[Desktop Entry]` (appending cego
+    no fim cairia num grupo de action e seria ignorado) — Exec/Icon/
+    MimeType intactos. Fora da gaveta: **xarchiver** (o 7zip vive nos
+    verbos do Thunar — "Criar pacote…"/"Extrair aqui"), **thunar-bulk-
+    rename** (F2 do Thunar), **papers** (documentos abrem pelo explorador
+    de arquivos), **nm-connection-editor** (o W-n e o menu Rede são a
+    porta), **gtk3-demo / gtk3-widget-factory / gtk3-icon-browser** (demos
+    de desenvolvedor do GTK). Idempotente por contrato.
+  - Suíte: **1601 peças · 0 falhas · GO** (baseline v2.8: 1588 — +13
+    líquidos: parse do Root prova o VERBO de cada botão, ausências da
+    gaiola, o dismiss, o E21 e os caminhos de falha do sessão).
 - **v2.8.0 — A FOTO DO DONO FEZ LEI** (fotos do rig 27/out + diretrizes:
   "com o click esquerdo do mouse esse menu está abrindo" · "esse menu de
   senha está meio ruim, muito longo pra colocar a senha dava pra ser bem

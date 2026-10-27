@@ -116,14 +116,14 @@ craft-pin restore                 # desfaz a última alteração
 
 ---
 
-## craft-menu (v4.1 — O MOTOR QUE ABRE, ANCORA, TOGGLA E ENGAIOLA) — `/usr/local/bin/craft-menu`
+## craft-menu (v4.2 — O MOTOR QUE ABRE, ANCORA E TOGGLA) — `/usr/local/bin/craft-menu`
 
 **O quê:** o menu da distro — `fuzzel --dmenu` em POSIX sh puro (a era GTK nunca abriu no rig: duas reescritas, dois funerais — história na v3). As TRÊS CURAS v2.6.0 (prints do rig 26/out, o dono: "solucione tudo de uma vez por todas"):
 
 1. **LISTA PURA** — `--hide-prompt` mata a linha de digitação inteira: sem o nome ('Sessão:', 'Encerrar:'), sem o "risco |" que ficava na frente ("tirar esse risco"). Digitar ainda filtra, às escondidas; `--minimal-lines` encolhe a janela para o tamanho da lista.
 2. **ANCORA NO BOTÃO** — `--anchor top-right` + `--x-margin` calibrado POR SLOT (`--at=power|bgapps|network|drawer`): o menu nasce SOB O BOTÃO que o chamou ("não seria melhor ficar onde ela for aberta?"), não no centro da tela. A barra de 36px empurra a layer pelo exclusive zone; submenus herdam o slot do pai.
 3. **LEI DETERMINÍSTICA** — o toggle e o cross-dismiss deixaram de depender da física do foco (que o rig DESMENTIU: "clico de novo e não fecha, um não anula o outro"): o pid do fuzzel vivo fica em `$XDG_RUNTIME_DIR/elite-menus.<uid>`; 2ª chamada do MESMO título mata e sai 2 (toggle); título diferente mata e abre o novo (cross-dismiss). Probe `fuzzel --help` degrada graciosamente em fuzzel velho. E `id -u`, NUNCA a variável UID do bash (dash não a tem — sob `set -u` era morte rc=2 silenciosa que o chamador lia como toggle benigno; flagrado no smoke test).
-4. **A GAIOLA (v4.1/v2.7.0)** — "quando eu quiser fechar um menu clicando fora não vai abrir o menu da home": o clique de fora não vaza MAIS. A dock (processo GTK quente desde o boot) é pedida por SIGRTMIN (pid em `elite-dock.<uid>`) e mapeia uma superfície INVISÍVEL que engole todo clique fora do menu aberto e da barra e mata o fuzzel pelo pid do state — o desktop NEM VÊ o clique. Handshake por arquivo (ack em `elite-cage.<uid>`, prazo 30×10ms = 300ms): sem ack o menu abre IGUAL (degradação graciosa — o ESC e o toggle por pid são universais). E o `trap EXIT` limpa o state do toggle e o ack em TODO fechamento (sem pid zombie, sem gaiola órfã).
+4. **O DISMISS É LEI DO COMPOSITOR (v4.2/v2.9.0 — a gaiola morreu)** — o clique fora do menu é entregue pelo labwc ao DESKTOP e o rc.xml executa `craft-menu-dismiss` nele: esquerdo FECHA e não abre nada (o "fechar clicando fora" do dono, sem vazar pro menu-raiz); direito FECHA e abre o menu-raiz NO LUGAR. Sem menu aberto, o dismiss é um no-op de ~1ms (o esquerdo do desktop segue MUDO na prática). ESTE SCRIPT não fala mais com a dock: sem pedido, sem ack, sem espera — o menu nasce no frame em que é chamado. E o `trap EXIT` limpa o state do toggle em TODO fechamento (sem pid zombie).
 
 ```bash
 craft-menu --title='Sessão' --at=power 'Sair da sessão' 'Suspender'   # argv
@@ -185,12 +185,12 @@ craft-connect   # clique ESQUERDO no ícone de rede: cabo on/off, Wi-Fi on/off, 
 
 ---
 
-## craft-dock-gui (v2.7 — DOIS VERBOS NO CLIQUE + A GAIOLA) — `/usr/local/bin/craft-dock-gui`
+## craft-dock-gui (v2.9 — DOIS VERBOS NO CLIQUE, A DOCK PURA) — `/usr/local/bin/craft-dock-gui`
 
 **O quê:** a dock GTK nativa (layer BOTTOM, sempre visível, zona exclusiva, pílula de ícones reais via Gio.DesktopAppInfo — história v2.0/v2.3.4 no cabeçalho do script). **v2.7.0 (o dono: "clicar num programa já aberto ele deve ir para a tarefa aberta invés de abrir outra pois vi que isso acontece com alguns programas, se o usuário quiser abrir outra rapidamente ele pode fazer clicando no ícone com o botão direito")**:
 - **ESQUERDO num pin** — se o programa ESTÁ rodando (pílula), FOCAR a janela dele (`wlrctl window focus app_id:…` — wlr-foreign-toplevel, que o labwc fala); se NÃO está, abrir. Não rodando = abrir DIRETO (zero subprocesso no caminho comum — instantâneo). A adivinhação do app_id segue ordem: hint explícito (2ª coluna do dock-pins) → StartupWMClass → binário → stem do desktop-id; TODOS falharam → abre (nunca pior que antes);
 - **DIREITO num pin** — abrir OUTRA instância, sempre (o verbo rápido para "quero outro agora");
-- **A GAIOLA** — o craft-menu pede por SIGRTMIN (pid da dock em `$XDG_RUNTIME_DIR/elite-dock.<uid>`) e a dock mapeia uma superfície INVISÍVEL (layer TOP, tela inteira, teclado NONE, transparente) cuja região de ENTRADA é a tela MENOS a faixa da barra: todo clique fora do menu aberto mata o fuzzel pelo pid do state e some — o desktop NEM VÊ o clique ("fechar um menu clicando fora" nunca mais abre o menu-raiz). Ela se desarma sozinha vigiando o state (some com o menu) e nasce PREGUIÇOSA (não existe até o 1º menu);
+- **A DOCK PURA (v2.9.0 — a gaiola morreu com prova)** — o rig do dono desmentiu a v2.8 NA CARNE ("matou o uso do mouse no sistema — só topbar e dock funcionam"): a gaiola nascia com a região de entrada CHEIA (o campo era setado DEPOIS da chamada que a aplicava — a chamada não aplicava nada) e a região só crescia por união — uma rede invisível engolindo o clique de TODA janela (Calamares incluso). CURA ESTRUTURAL: ZERO superfícies auxiliares — a dock é SÓ a pílula dela (layer BOTTOM); o clique fora de menu é lei do rc.xml (craft-menu-dismiss). O que a dock não tem, ela não quebra;
 - **Tooltip honesto** — com wlrctl: "esquerdo: focar/abrir · direito: nova janela"; sem: "clique: abrir".
 
 ```bash
