@@ -1,38 +1,34 @@
 #!/bin/sh
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · calamares-elite-log (v1.9 — spec M1.2 do dono)
+# Archcraft ELITE · calamares-elite-log (v2.0 — A LEI DO LOG SILENCIOSO)
 # ═══════════════════════════════════════════════════════════════════════════
-# "Habilitar a exibição em tempo real do terminal de logs na interface do
-#  Calamares e garantir a gravação contínua do arquivo de log completo em
-#  /var/log/calamares.log dentro do ambiente instalado para auditoria."
+# Histórico: a v1.9 cumpria o spec M1.2 original exibindo o log do instalador
+# numa janela de terminal que se abria SOZINHA antes do instalador subir. O
+# dono aposentou isso na v2.9.2 ("Log calamaris não precisa mais abrir um
+# terminal só pra aparecer logs") — sujeira visual da mesma família do
+# debloat: nada aparece sem pedido. AUDITORIA v2.9.2: este era o ÚNICO spawn
+# de terminal/janela iniciado pelo sistema em toda a ISO — todos os outros
+# (W-Return/C-A-t, monitor de processos, mixer, TUIs de fallback do
+# craft-connect) são resposta a pedido do usuário.
 #
-# 3 frentes:
-#   1. TERMINAL DE LOGS EM TEMPO REAL — um foot anexado (tail -F) ao
-#      session.log abre ANTES do instalador subir: cada linha que o
-#      Calamares escreve aparece ao vivo (fim do botão de debug escondido).
-#   2. LOG PERSISTENTE — no fim (qualquer que seja o resultado) o log
+# 2 frentes (a lei agora):
+#   1. LOG PERSISTENTE — no fim (qualquer que seja o resultado) o log
 #      completo vai para /var/log/calamares.log do AMBIENTE DO INSTALADOR
 #      e é COPIADO para o /var/log do SISTEMA INSTALADO (auditoria pós-boot,
-#      exatamente o que o spec M1.2 pede).
-#   3. LAUNCHER OFICIAL — o calamares.desktop da Elite aponta para ESTE
+#      exatamente o que o spec M1.2 pede). Log é ARQUIVO para AUDITORIA —
+#      não é janela para interromper. O session.log do Calamares continua
+#      nascendo em ~/.cache/calamares/ (nativo do instalador).
+#   2. LAUNCHER OFICIAL — o calamares.desktop da Elite aponta para ESTE
 #      script; o launch.sh upstream permanece intocado (curado na v1.6).
 # ═══════════════════════════════════════════════════════════════════════════
 SESSION="${XDG_CACHE_HOME:-$HOME/.cache}/calamares/session.log"
 [ -d "$(dirname "$SESSION")" ] || mkdir -p "$(dirname "$SESSION")"
 
-# (1) terminal de logs em tempo real (foot existe na ISO por contrato)
-TAILPID=""
-if command -v foot >/dev/null 2>&1 && [ -n "$WAYLAND_DISPLAY" ]; then
-    foot --title="Calamares · log ao vivo" -e tail -n 30 -F "$SESSION" \
-        >/dev/null 2>&1 &
-    TAILPID=$!
-fi
-
-# (2) instalador upstream curado (E5a2 — intocado)
+# (1) instalador upstream curado (E5a2 — intocado)
 /etc/calamares/launch.sh
 RC=$?
 
-# (2b) log completo → /var/log do ambiente do instalador…
+# (1b) log completo → /var/log do ambiente do instalador…
 if [ -f "$SESSION" ]; then
     mkdir -p /var/log
     cp -f "$SESSION" /var/log/calamares.log 2>/dev/null || true
@@ -48,5 +44,4 @@ for tgt in /mnt/elite /mnt; do
     fi
 done
 
-[ -n "$TAILPID" ] && kill "$TAILPID" 2>/dev/null
 exit "$RC"
