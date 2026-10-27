@@ -47,6 +47,12 @@
 #   --title=  identidade do menu no toggle (NÃO é exibido — a lista fala)
 #   --at=     slot de âncora: power | bgapps | network | drawer | center
 #   --ask=    modo entrada (ex.: senha): prompt visível, sem hide-prompt
+#             v2.8.0 — COMPACTO por lei: --minimal-lines + --lines 1 (a foto
+#             do dono mostrou a janela de senha herdsando o lines=10 do
+#             launcher: 10 linhas de caixa para digitar UMA senha) e SEM
+#             entrada fantasma: lista vazia entra no fuzzel VAZIA de
+#             verdade (o printf '%s\n' de string vazia entrega UMA LINHA
+#             — uma entrada vazia selecionada, o retângulo claro da foto)
 # ═══════════════════════════════════════════════════════════════════════════
 set -u
 
@@ -138,6 +144,13 @@ set -- --dmenu
 if [ -n "$ask" ]; then
     # modo entrada: prompt visível (a linha existe por causa do que se digita)
     set -- "$@" --prompt "$ask: "
+    if fuzzel --help 2>&1 | grep -q -- '--minimal-lines'; then
+        # v2.8.0 — a janela da SENHA encolhe para o conteúdo: nada de
+        # herdar o lines=10 do launcher (a foto do dono: caixa alta com
+        # 90% de espaço morto para digitar uma senha). --lines 1 é o
+        # teto duro mesmo que o shrink não chegue.
+        set -- "$@" --minimal-lines --lines 1
+    fi
 elif fuzzel --help 2>&1 | grep -q -- '--hide-prompt'; then
     # menu de escolha: LISTA PURA — sem nome, sem barra de digitação,
     # janela do tamanho da lista
@@ -195,7 +208,15 @@ if [ -f "$DK" ]; then
     esac
 fi
 
-choice="$(printf '%s\n' "$list" | fuzzel "$@" & p=$!; printf '%s %s\n' "$p" "$title" >"$ST"; wait "$p")"
+if [ -n "$list" ]; then
+    choice="$(printf '%s\n' "$list" | fuzzel "$@" & p=$!; printf '%s %s\n' "$p" "$title" >"$ST"; wait "$p")"
+else
+    # v2.8.0 — lista vazia (o modo --ask): STDIN VAZIO DE VERDADE. O
+    # printf '%s\n' de string vazia imprime UMA LINHA — o fuzzel a via
+    # como uma ENTRADA FANTASMA vazia e selecionada (o retângulo claro
+    # da foto do dono). </dev/null não entrega linha nenhuma.
+    choice="$(fuzzel "$@" </dev/null & p=$!; printf '%s %s\n' "$p" "$title" >"$ST"; wait "$p")"
+fi
 rc=$?
 rm -f "$ST"
 [ -n "$choice" ] || exit "$rc"
