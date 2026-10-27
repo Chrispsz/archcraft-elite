@@ -22,8 +22,14 @@
 #     Fallback: wallpaper.png (legado/custom do usuário) → preto.
 if command -v swaybg >/dev/null 2>&1; then
     # v1.9 — spec M5.1 do dono: o wallpaper JPEG tinha ruído/granulação de
-    # compressão ("impressão de poeira"). PADRÃO novo: PNG lossless VETORIAL
-    # (flat por construção — zero artefato de compressão, 4K, AMOLED).
+    # compressão ("impressão de poeira"). PADRÃO: PNG lossless.
+    # v2.8.0 — a curadoria da INTERNET volta (pedido do dono: "esse
+    # wallpaper dá pra arrumar melhor na internet… mais vivo em IPS, de
+    # forma minimalista, sem destrair ou machucar a visão"): ondas de seda
+    # roxo/violeta da Unsplash (triada por VLM entre 3 candidatas), PNG
+    # lossless 2812×1582 com blur 0.4px no fonte — a poeira não volta
+    # (luma 30.1, 0% preto puro, gradiente medido suave — contratos na
+    # suíte). O lock (craft-lock/hyprlock) bebe do MESMO arquivo.
     if [ -r "$HOME/.config/labwc/wallpaper.png" ]; then
         swaybg -m fill -i "$HOME/.config/labwc/wallpaper.png" &
     elif [ -r "$HOME/.config/labwc/wallpaper.jpg" ]; then
