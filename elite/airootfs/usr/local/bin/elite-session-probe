@@ -49,6 +49,26 @@ sn_count="$(count swaync)"
 # nunca acharia). Padrão do count(): sem '|| echo 0' (duplicaria a linha).
 dk_count="$(pgrep -fc 'craft-dock-gui' 2>/dev/null)"
 [ -n "$dk_count" ] || dk_count=0
+# v2.10.1: o daemon wlr-foreign-toplevel (a dock COMUTADORA) — vivo E
+# FALANDO (a prova é o PING no socket da sessão, não só o processo)
+tp_count="$(pgrep -fc 'craft-toplevel' 2>/dev/null)"
+[ -n "$tp_count" ] || tp_count=0
+tp_sock="DEAD"
+for s in /run/user/*/elite/toplevel.sock; do
+    [ -S "$s" ] || continue
+    if PYTHONDONTWRITEBYTECODE=1 python3 - "$s" <<'PY' 2>/dev/null
+import socket, sys
+c = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+c.settimeout(2)
+c.connect(sys.argv[1])
+c.sendall(b"PING\n")
+assert c.recv(64).startswith(b"PONG")
+PY
+    then
+        tp_sock="OK"
+        break
+    fi
+done
 
 # barras.log de TODOS os usuários (live=liveuser; instalado=dono do login)
 restarts=0
@@ -68,6 +88,8 @@ done
 say "ELITE_PROBE_BEGIN"
 say "WAYBAR_COUNT=$wb_count"
 say "DOCK_COUNT=$dk_count"
+say "TOPLEVEL_COUNT=$tp_count"
+say "TOPLEVEL_SOCKET=$tp_sock"
 say "SWAYNC_COUNT=$sn_count"
 say "BARS_RESTARTS=$restarts"
 say "BARS_EXITS=$exits"

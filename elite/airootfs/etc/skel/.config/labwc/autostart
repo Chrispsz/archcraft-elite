@@ -40,6 +40,16 @@ if command -v swaybg >/dev/null 2>&1; then
     fi
 fi
 
+# --- Janelas: daemon wlr-foreign-toplevel (v2.10.1 — a dock COMUTADORA) ---
+#     O craft-toplevel fala o protocolo DIRETO com o labwc (janelas por id +
+#     anel MRU do alt-tab) e serve a dock num socket da sessão. Antes do
+#     craft-bars (que o supervisiona): a dock reconnecta sozinha no 1º tick,
+#     mas nascer com o socket pronto é a ordem certa. Sem WAYLAND_DISPLAY o
+#     daemon sai 0 por conta própria (a supervisão assume depois do boot).
+if command -v craft-toplevel >/dev/null 2>&1; then
+    craft-toplevel &
+fi
+
 # --- Barras (Desktop v2): menu bar no TOPO + DOCK na base ------------------
 #     v1.6.3 — SUPERVISÃO (burn test da v1.6.2: a sessão subiu SÓ com o
 #     wallpaper — as duas instâncias morreram caladas, sem deixar stderr;

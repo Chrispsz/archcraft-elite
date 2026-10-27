@@ -125,8 +125,17 @@ n=$(count 'error invoking external downloader')
 if (( n > 0 )); then
   if grep -qE 'ELITE-BUMP|baseline Arch injetado' "$LOG"; then
     report_benign "downloader falhou E baseline injetada depois (libyuv — mirrors CachyOS quebrados, fallback do build.sh)" "$n"
+  elif grep -q 'Preflight: cache completo' "$LOG"; then
+    # v2.11 — run #116: janela de 404 transitória (propagação do mirror
+    # archcraft). O preflight v3 tem DOIS caminhos de cura: baseline p/ URL
+    # realmente quebrada e re-sync p/ transiente (a sonda HEAD não achou URL
+    # quebrada → round seguinte fechou o cache). O gate só reconhecia o 1º —
+    # falso positivo que reprovou uma ISO que se curou sozinha. Recuperação
+    # honesta = o cache FECHOU (se o round 3 também tivesse falhado, o
+    # build.sh aborta e NEM CHEGA ao forense — este ramo não mascara nada).
+    report_benign "downloader falhou E o preflight re-sincronizou e fechou o cache depois (janela de 404 transitória — run #116)" "$n"
   else
-    report_fatal "downloader falhou SEM recuperação de baseline no log" "$n"
+    report_fatal "downloader falhou SEM recuperação (nem baseline nem cache fechado depois)" "$n"
   fi
 fi
 

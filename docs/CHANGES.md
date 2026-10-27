@@ -6,6 +6,61 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **v2.10.1 — A DOCK COMUTADORA** (o dono, ao pedir a v2.10 com navegação
+  entre janelas: "a dock tendo meio que essa funcionalidade de alt tab
+  perfeitamente pra navegar entre os programas abertos e etc ou até mesmo
+  um atalho pra isso clicável na dock, pensa na melhor forma de fazer isso
+  para que o dock não precise de preview dos aplicativos… o nosso é mais
+  minimalista, produtivo, e com ui/UX extremamente bem pensada"):
+  - **O PROTOCOLO DIRETO** — a limitação honesta da v2.10.0 ("por janela
+    exige falar o protocolo direto") MORREU: o **craft-toplevel**, pacote
+    novo compilado da fonte vendada do próprio repo (`vendor/craft-
+    toplevel.c`, ~700 linhas de C, sha256 pinado, revisão independente
+    3-a com 1 CRÍTICO corrigido — a compactação de janelas mortas movia
+    structs apontadas pelo dispatcher; agora vive no heap, ponteiro
+    estável), fala `zwlr_foreign_toplevel_management_v1` DIRETO com o
+    labwc e serve a sessão num socket UNIX (`XDG_RUNTIME_DIR/elite/
+    toplevel.sock`): LIST (janelas com flags, rank MRU, app_id, título),
+    ACT (unset_minimized + activate **por id** — a restauração de
+    minimizada é COMANDO DO PROTOCOLO, a "hipótese forte" da v2.10 virou
+    lei), CLOSE e CYCLE (a próxima do **anel MRU** — o alt-tab de
+    verdade). Dependência ÚNICA: libwayland-client (já ia na ISO).
+  - **CLIQUE ESQUERDO = JANELA EXATA** — 1 janela: foca/restaura; N
+    janelas: cicla ENTRE ELAS (a memória é de quem clicou); 0: abre.
+    Fim da adivinhação de capitalização: o app_id do snapshot casa os
+    candidatos case-insensitive (e o título como último recurso).
+  - **O COMUTADOR CLICÁVEL (o atalho pedido)** — botão no FIM da pílula,
+    existe SÓ com ≥2 janelas, **SEM preview e SEM miniatura** (minimalista
+    como o dono manda): o ícone dele é o ÍCONE DO APP de destino — o
+    clique anuncia onde vai cair — e o verbo é CYCLE; cliques seguidos
+    caminham pelo anel inteiro. Some sozinho quando resta 1 janela.
+  - **MEIO fecha por ID** (a janela focada do app; wlrctl no fallback).
+  - **A LEI DO FALLBACK** — daemon ausente/morto = snapshot vazio e TODO
+    verbo cai no caminho v2.10 (wlrtl case-variants / launch): a dock
+    NUNCA fica pior por causa da cura. Conexão PERSISTENTE (zero fork por
+    tick — o /proc scan dos indicadores segue à parte). O daemon é
+    SUPERVISIONADO pelo craft-bars (restart ≤5s + stderr no bars.log;
+    2ª instância é no-op: probe de socket vivo + flock de arranque) e
+    nasce no autostart antes do supervisor.
+  - **TECLADO × MOUSE, cada um no que é melhor** (a resposta à pergunta):
+    A-Tab/A-S-Tab do compositor CONTINUAM (ciclo com OSD); a dock comuta
+    por clique com o destino ANUNCIADO pelo ícone. Sem preview não é
+    limitação — é o design (o preview está onde o mouse já está: no
+    ícone do app).
+  - **PROVA NO LIVE (gates novos)** — o probe da sessão agora reporta
+    TOPLEVEL_COUNT e TOPLEVEL_SOCKET (PING real no socket), e o gate do
+    verify cobra: daemon ≥1 E socket falando (processo sozinho não
+    basta). 31 contratos novos trancam o protocolo (opcodes do XML
+    oficial, dispatcher_data, new_id via .o, flock, heap), a esteira
+    (PKGBUILD + sha256 pinado + packages.add), a dock (fallback lei,
+    comutador, ciclo) e a sessão.
+  - **O FORENSE APRENDEU O 2º CAMINHO DE CURA** (run #116: janela de 404
+    transitória do mirror; o preflight re-sincronizou e fechou o cache, o
+    forense não reconhecia a cura e matou uma ISO boa): "downloader
+    falhou E o preflight fechou o cache depois" = benigno. O gate continua
+    FATAL para downloader sem cura nenhuma (a lição v1.4 de pé).
+  - Suíte: **1671 peças · 0 falhas · GO** (baseline 1640 — +31 líquidos)
+
 - **v2.10.0 — A DOCK AUTO-ADAPTÁVEL** (rig do dono: "quando clico com o
   botão esquerdo no Brave ele abre como se fosse uma nova sessão… se eu
   minimizo programas não consigo voltar onde estava… quando abro um programa
