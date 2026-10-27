@@ -56,6 +56,30 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
   - Suíte: **1601 peças · 0 falhas · GO** (baseline v2.8: 1588 — +13
     líquidos: parse do Root prova o VERBO de cada botão, ausências da
     gaiola, o dismiss, o E21 e os caminhos de falha do sessão).
+- **v2.9.1 — O CI DESMENTIU A SUÍTE LOCAL (e a suíte aprendeu a não
+  mentir mais)** (Test Suite do main @ 4bddb1b: NO-GO — "peça defeituosa:
+  exec: elite/airootfs/usr/local/bin/craft-menu-dismiss"):
+  - **O CRIME**: o `craft-menu-dismiss` nasceu **100644 no INDEX do git**.
+    O disco deste sandbox entrega `rwxrwxrwx` para todo arquivo — a peça
+    `exec:` olhava o FILESYSTEM (`[[ -x ]]`) e era **viciada aqui**: passava
+    local e reprovava no CI. O que o checkout do CI e o squashfs da ISO
+    herdam é o MODO DO INDEX = 0644 → no live o script do dismiss nasceria
+    não-executável (**203/EXEC** — a classe já provada com o elite-tune no
+    diag-boot2) e a lei do compositor do rc.xml chamaria um binário morto.
+    A cadeia da suíte parou na 1ª falha — a auditoria completa do index
+    provou que era o ÚNICO binário quebrado (o mesmo buraco do craft-idle
+    na v1.6.2, repetido).
+  - **A CURA EM TRÊS CAMADAS**: (1) `git update-index --chmod=+x` — o modo
+    real; (2) `craft-menu-dismiss` registrado no **file_permissions** do
+    apply-overlay (a cinta antifalha projetada contra 203/EXEC — o diff
+    bin×lista tinha exatamente 1 buraco, agora zero); (3) os DOIS gates
+    viram à prova de lista manual: a peça `exec:` audita o **MODO DO
+    INDEX** (o que CI e ISO veem de verdade; filesystem vira reserva só
+    para caminho não-rastreado) e o loop do file_permissions virou
+    **GLOB-DRIVEN** sobre `airootfs/usr/local/bin/*` — binário novo sem
+    entrada reprova na suíte, não na mão do dono.
+  - Suíte: **1623 peças · 0 falhas · GO** (baseline v2.9: 1601 — +22
+    líquidos: o glob do file_permissions audita os 27 binários, não 5).
 - **v2.8.0 — A FOTO DO DONO FEZ LEI** (fotos do rig 27/out + diretrizes:
   "com o click esquerdo do mouse esse menu está abrindo" · "esse menu de
   senha está meio ruim, muito longo pra colocar a senha dava pra ser bem
