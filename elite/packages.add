@@ -237,3 +237,9 @@ libnotify
 ## de framework) — skel .zshrc próprio + starship (prompt rust)
 zsh-autosuggestions
 zsh-syntax-highlighting
+
+## v2.10.1 — o daemon wlr-foreign-toplevel (a dock COMUTADORA): o dono
+## pediu a dock com alt-tab perfeito e atalho clicável; o wlrctl não lista
+## janelas — este daemon fala o protocolo DIRETO (fonte vendada no repo,
+## sha256 pinado, compilado no [elite-local])
+craft-toplevel

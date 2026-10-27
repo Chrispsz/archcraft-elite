@@ -115,11 +115,17 @@ if grep -q 'ELITE_PROBE_END' "$SERIAL" 2>/dev/null; then
   sed -n '/ELITE_PROBE_BEGIN/,/ELITE_PROBE_END/p' "$SERIAL" | sed 's/^/   /'
   WC="$(sed 's/\x1b\[[0-9;]*m//g' "$SERIAL" | grep -oE 'WAYBAR_COUNT=[0-9]+' | head -1 | cut -d= -f2)"
   DK="$(sed 's/\x1b\[[0-9;]*m//g' "$SERIAL" | grep -oE 'DOCK_COUNT=[0-9]+' | head -1 | cut -d= -f2)"
+  TP="$(sed 's/\x1b\[[0-9;]*m//g' "$SERIAL" | grep -oE 'TOPLEVEL_COUNT=[0-9]+' | head -1 | cut -d= -f2)"
+  TS="$(sed 's/\x1b\[[0-9;]*m//g' "$SERIAL" | grep -oE 'TOPLEVEL_SOCKET=[A-Z]+' | head -1 | cut -d= -f2)"
   BE="$(sed 's/\x1b\[[0-9;]*m//g' "$SERIAL" | grep -oE 'BARS_EXITS=[0-9]+' | head -1 | cut -d= -f2)"
   [ -n "$WC" ] && [ "$WC" -ge 1 ] 2>/dev/null
   chk $? "sessão gráfica VIVA: waybar top vivo (probe: WAYBAR_COUNT=${WC:-0})" "PROBLEMA REAL DE SESSÃO: waybar top não está vivo (${WC:-0}) — classe 'subiu só o wallpaper' (ver BARS| acima)"
   [ -n "$DK" ] && [ "$DK" -ge 1 ] 2>/dev/null
   chk $? "sessão gráfica VIVA: dock nativa viva (probe: DOCK_COUNT=${DK:-0})" "PROBLEMA REAL DE SESSÃO: dock craft-dock-gui NÃO está viva (${DK:-0}) — pin quebrado/crash (ver BARS| acima)"
+  [ -n "$TP" ] && [ "$TP" -ge 1 ] 2>/dev/null
+  chk $? "sessão gráfica VIVA: daemon das janelas vivo (probe: TOPLEVEL_COUNT=${TP:-0})" "PROBLEMA REAL DE SESSÃO: craft-toplevel NÃO está vivo (${TP:-0}) — a dock comutadora fica no fallback v2.10 (ver BARS| acima)"
+  [ "$TS" = "OK" ] 2>/dev/null
+  chk $? "daemon das janelas FALANDO no socket da sessão (probe: TOPLEVEL_SOCKET=${TS:-AUSENTE})" "craft-toplevel vivo mas socket SEM PING (${TS:-AUSENTE}) — a dock comutadora não tem janelas reais (ver BARS| acima)"
   [ -n "$BE" ] && [ "$BE" -eq 0 ] 2>/dev/null
   chk $? "barras sem NENHUMA morte na sessão (BARS_EXITS=${BE:-?})" "barra(s) morreram ${BE:-?}× na sessão — crash/race/pin quebrado (exit code no BARS| acima)"
 else
