@@ -712,4 +712,15 @@ for nb in "$REPO"/elite/airootfs/usr/local/bin/*; do
   assert_grep "$REPO/scripts/apply-overlay.sh" "/usr/local/bin/$b" "apply-overlay: $b registrado no file_permissions (senão 203/EXEC no live)"
 done
 
+# ── pacman-init: retry honesto (v2.9.1) ──
+# o oneshot do upstream morre SEM retry: na build v2.9.1 o pacman-key
+# tropeçou 1× no live do CI (exit 1 · 30s CPU · 91s wall) com a sessão
+# perfeita em volta e o gate v1.5.2 reprovou uma ISO boa — flake sob a
+# carga do runner (verify + verify-install, 2× QEMU em paralelo). O
+# drop-in dá 3 tentativas em 300s: flake se cura sozinho; keyring
+# quebrado de verdade falha as 3 e o gate segue reprovando.
+assert_file "$REPO/elite/airootfs/etc/systemd/system/pacman-init.service.d/10-elite-retry.conf" "pacman-init: drop-in de retry existe (oneshot upstream nasceu sem fôlego)"
+assert_grep "$REPO/elite/airootfs/etc/systemd/system/pacman-init.service.d/10-elite-retry.conf" 'Restart=on-failure' "pacman-init: retry on-failure (falha real segue reprovando o gate v1.5.2)"
+assert_grep "$REPO/elite/airootfs/etc/systemd/system/pacman-init.service.d/10-elite-retry.conf" 'StartLimitBurst=3' "pacman-init: 3 tentativas com limite (não é loop eterno)"
+
 phase_end
