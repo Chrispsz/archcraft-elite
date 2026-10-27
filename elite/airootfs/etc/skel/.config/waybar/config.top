@@ -131,7 +131,8 @@
   // cabo e Wi-Fi, conectar em redes (senha quando precisa), conexões
   // salvas que se gerem (senha/esquecer) — e nasce SOB O BOTÃO (âncora
   // do craft-menu v4), não no centro da tela. Clique fora do menu só
-  // FECHA (a gaiola da dock engole o clique — nada vaza pro desktop).
+  // FECHA (lei do rc.xml v2.9: craft-menu-dismiss — nada vaza pro
+  // desktop; a gaiola da dock morreu, com prova, na v2.9.0).
   // Teclado segue: W-n (impala), W-S-b (bluetui).
   // v2.1: ícones FA BMP — escapes \uXXXX legíveis, sem surrogate pairs
   // (network-wired = ethernet; unlink = sem conexão)

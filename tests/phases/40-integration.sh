@@ -388,10 +388,14 @@ assert_grep "$CPTOP" '— clique:' "v2.7.0: os tooltips ENSINAM o clique esquerd
 CMN="$P/airootfs/usr/local/bin/craft-menu"
 assert_grep "$CMN" '--minimal-lines' "v2.6.0: a janela do menu é do TAMANHO da lista (nada de caixa alta com 10 linhas para 6 itens)"
 assert_grep "$CMN" '--ask=' "v2.6.0: modo entrada (senha de Wi-Fi) — o prompt visível é a exceção honesta; rede salva nunca pergunta"
-assert_grep "$CMN" 'trap .rm -f "\$ST" "\$ACK"' "v2.7.0: trap EXIT limpa o state do toggle E o ack da gaiola em TODO fechamento (sem pid zombie, sem gaiola órfã)"
-assert_grep "$CMN" 'kill -RTMIN "\$dkid"' "v2.7.0: a gaiola é PEDIDA à dock por SIGRTMIN (zero fork no caminho do menu — o pid mora em elite-dock.<uid>)"
-assert_grep "$CMN" 'elite-cage\.' "v2.7.0: handshake por arquivo (ack da gaiola em ≤300ms — sem ack o menu abre IGUAL, degradação graciosa)"
-assert_grep "$CMN" 'sleep 0.01' "v2.7.0: o prazo do ack é 30×10ms (o menu NUNCA fica preso esperando a dock)"
+# v2.9.0 — O HANDSHAKE DA GAIOLA MORREU JUNTO: sem SIGRTMIN, sem ack, sem
+# espera — o menu nasce NO FRAME em que é chamado (feedback instantâneo do
+# dono, agora literal). O dismiss é lei do rc.xml: craft-menu-dismiss.
+assert_grep "$CMN" 'trap .rm -f "\$ST" 2>/dev/null.' "v2.9.0: trap EXIT limpa o state do toggle em TODO fechamento (a gaiola não existe mais — não há ack para limpar)"
+assert_nogrep "$CMN" 'SIGRTMIN|elite-cage|elite-dock|kill -RTMIN|sleep 0\\.01' "v2.9.0: craft-menu NÃO fala com a dock — sem handshake, sem espera de 300ms (a espera morreu com a gaiola)"
+assert_grep "$P/airootfs/usr/local/bin/craft-menu-dismiss" 'comm' "v2.9.0: o dismiss só mata processo com comm EXATAMENTE 'fuzzel' (pid reciclado de outro programa NUNCA morre — mesma lei do toggle)"
+assert_grep "$P/airootfs/usr/local/bin/craft-menu-dismiss" '\[ -f "\$ST" \] || exit 0' "v2.9.0: dismiss sem menu aberto é no-op imediato (um stat no state — o clique esquerdo do desktop segue MUDO na prática)"
+assert_file "$P/airootfs/usr/local/bin/craft-menu-dismiss" "v2.9.0: craft-menu-dismiss existe (a lei do clique-fora mora num script de ~40 linhas, não numa superfície)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'mousebind button="Right" action="Press"' "v2.7.0: o DESKTOP abre o menu-raiz no clique DIREITO (o único botão de menu do desktop)"
 # v2.7.0 → v2.8.0 — a lei evoluiu de FORMA: na v2.7 o esquerdo era mudo
 # por OMISSÃO (nenhum bind Left no arquivo — mas o DEFAULT do labwc tinha
@@ -399,7 +403,8 @@ assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'mousebind button="Right
 # a foto do dono de 27/out flagrou). A v2.8 declara o Left COM None (a
 # ação que LIMPA o bind herdado — labwc-actions(5)). O verbo real é
 # provado pelo parse XML no bloco v2.8.0 (LEFT_NONE).
-assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'button="Left" action="Press">' "v2.8.0: o esquerdo é bind EXPLÍCITO (declarar era a única forma de limpar o default do labwc que o vazava)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'button="Left" action="Press">' "v2.9.0: o esquerdo do desktop é bind EXPLÍCITO (agora com a lei do dismiss — o default do labwc segue sem vez)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'command="craft-menu-dismiss"' "v2.9.0: o clique fora do menu é lei do rc.xml (esquerdo fecha e não abre nada; direito fecha e abre o menu-raiz no lugar)"
 for _at in craft-power craft-logout craft-idle craft-rollback; do
     assert_grep "$P/airootfs/usr/local/bin/$_at" '--at=power' "v2.6.0: $_at nasce sob o botão do power (a família de sessão âncora no mesmo assento — submenus herdam o lugar do pai)"
 done
@@ -584,6 +589,27 @@ assert_grep "$P/airootfs/usr/local/share/applications/lstopo-no-graphics.desktop
 assert_grep "$P/airootfs/etc/skel/.config/labwc/environment" 'XDG_DATA_DIRS=.*flatpak/exports/share' "v2.3.5: flatpak exports no XDG_DATA_DIRS da sessão (o Sober sem ícone é isso — literal, sem depender de expansão)"
 assert_grep "$REPO/elite/fragments/elite-customize.sh" 'Defaults !lecture' "v2.3.5: E20 mata a palestra do sudo (o print 'Presumimos que você recebeu…' é ruído, não segurança)"
 assert_grep "$REPO/elite/fragments/elite-customize.sh" 'visudo -cf' "v2.3.5: E20 valida o sudoers com visudo antes de aceitar (sudoers quebrado derruba TODA a elevação)"
+
+# ── v2.9.0 — E21: A GAVETA LIMPA (o dono: "oculta esses programas como
+#    xarchiver, gtk settings e etc… são extensões… o programa de documentos
+#    abrir pelo explorador de arquivos"). Helpers/extensões/demos saem da
+#    grade de apps SEM morrer (NoDisplay=true INSERIDO no grupo [Desktop
+#    Entry] em build-time — Exec/Icon/MimeType intactos: o .7z do Thunar,
+#    o PDF pelo explorador e o W-n seguem funcionando IGUAL).
+for _hid in xarchiver thunar-bulk-rename papers nm-connection-editor gtk3-demo gtk3-widget-factory gtk3-icon-browser; do
+    assert_grep "$ECF" "/usr/share/applications/$_hid.desktop" "v2.9.0: E21 oculta da gaveta: $_hid (helper/extensão/demo — o acesso melhor é o caminho oficial)"
+done
+assert_grep "$ECF" "a NoDisplay=true" "v2.9.0: E21 insere NoDisplay pelo sed (append do sed — a chave NASCE no grupo [Desktop Entry]; appending cego no fim do arquivo cairia num [Desktop Action] e seria ignorado)"
+assert_grep "$ECF" "grep -qs '\\^NoDisplay=true'" "v2.9.0: E21 é idempotente (NoDisplay pré-existente nunca é duplicado)"
+
+# ── v2.9.0 — O ENCERRAR ENCERRA (e se o sistema RECUSAR, o erro NUNCA é
+#    silêncio: log + toast crítico). O silêncio da v2.8 era a gaiola
+#    engolindo o clique (até o diálogo do polkit ficava intocável).
+PWR="$P/airootfs/usr/local/bin/craft-power"
+assert_grep "$PWR" 'if ! systemctl reboot 2>>"\$MLOG"; then' "v2.9.0: Reiniciar com caminho de FALHA explícito (rc≠0 do systemctl não morre calado)"
+assert_grep "$PWR" 'if ! systemctl poweroff 2>>"\$MLOG"; then' "v2.9.0: Desligar com caminho de FALHA explícito (o 'encerrar não encerra' do rig nunca mais é mudo)"
+assert_grep "$PWR" "'Reiniciar falhou'" "v2.9.0: falha de reboot avisa NA TELA (toast crítico — o dono vê o porquê)"
+assert_grep "$PWR" "'Desligar falhou'" "v2.9.0: falha de poweroff avisa NA TELA"
 assert_grep "$P/airootfs/etc/skel/.config/elite/idle.conf" 'SUSPEND_MIN=0' "v2.3.5: auto-suspend é OPT-IN no idle.conf (0 = off — a ISO não muda comportamento às escondidas)"
 assert_grep "$P/airootfs/usr/local/bin/craft-idle" 'systemctl suspend' "v2.3.5: craft-idle suspende de verdade quando SUSPEND_MIN > 0 (o before-sleep trava antes — acorda no lock)"
 assert_nogrep "$P/airootfs/etc/skel/.config/waybar/config.top" '"tray"' "v2.3.6: módulo tray FORA da topbar (nada a exibir — udiskie roda --no-tray; o ícone SNI bitmap não pertence à família de glifos)"
@@ -2172,11 +2198,16 @@ assert_grep "$DOCK" 'parts\[1\]' "v2.7.0: hint EXPLÍCITO de app_id na 2ª colun
 assert_grep "$P/airootfs/etc/skel/.config/elite/dock-pins" 'org\.xfce\.Thunar' "v2.7.0: o pin de fábrica do Thunar NASCE com o hint (o app_id de app GTK não se adivinha do binário)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin" '\$1 != id' "v2.7.0: craft-pin rm é CONSCIENTE da coluna (o hint de app_id não quebra o rm — era grep de linha exata)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin" '\$1 == id' "v2.7.0: craft-pin add/rm detectam pin por ID na 1ª coluna (dedup sem duplicar pin com hint)"
-assert_grep "$DOCK" 'cage_request' "v2.7.0: a gaiola mora NA DOCK (processo GTK quente desde o boot — mapear é instantâneo, sem fork por menu)"
-assert_grep "$DOCK" 'SIGRTMIN' "v2.7.0: o pedido da gaiola chega por SIGRTMIN (evento, não poll — zero custo em idle)"
-assert_grep "$DOCK" 'KeyboardMode.NONE' "v2.7.0: a gaiola NUNCA pega teclado (o ESC segue no fuzzel — a gaiola é só rede de cliques)"
-assert_grep "$DOCK" 'input_shape_combine_region' "v2.7.0: a região de entrada da gaiola é a tela MENOS a barra (o 2º clique no MESMO botão chega na waybar — o toggle por pid é intacto)"
-assert_grep "$DOCK" 'os\.kill\(pid, signal\.SIGTERM\)' "v2.7.0: o clique na gaiola mata o fuzzel pelo pid do state (o desktop NEM VÊ o clique — fechar NUNCA abre o menu da home)"
+# v2.9.0 — A GAIOLA MORREU (rig do dono: "matou o uso do mouse no sistema
+# — só topbar e dock funcionam"; a perícia provou: self.cage setado DEPOIS
+# do _cage_set_region = input region nascia CHEIA e só crescia — rede
+# invisível engolindo o clique de TODA janela, Calamares incluso). A lei
+# nova é de AUSÊNCIA: a dock não tem superfície auxiliar NENHUMA — o que
+# ela não tem, ela não quebra. O dismiss é lei do rc.xml (craft-menu-dismiss).
+assert_nogrep "$DOCK" 'self\.cage|_cage_|cage_request|cagewindow|CAGE_CSS|ACK_FILE' "v2.9.0: ZERO código de gaiola na dock (a rede de cliques engoliu o mouse do sistema inteiro — classe de bug extinta por construção)"
+assert_nogrep "$DOCK" 'SIGRTMIN|input_shape_combine_region|Gdk\\.Region|KeyboardMode' "v2.9.0: dock sem superfície auxiliar — sem input region, sem layer extra, sem telefone de menus (o refresh da dock ao abrir menu era essa família)"
+assert_nogrep "$DOCK" 'elite-dock\\.|elite-cage\\.' "v2.9.0: dock não escreve pid-file nem ack (nenhum consumidor — o craft-menu-dismiss lê SÓ o state do craft-menu)"
+assert_grep "$DOCK" 'Layer\.BOTTOM' "v2.7.0: a dock segue no layer BOTTOM (a semântica que faz ela sumir sob tela cheia é do PROTOCOLO)"
 assert_grep "$DOCK" 'GLib.SOURCE_CONTINUE' "v2.7.0: as callbacks de sinal da dock NUNCA morrem (lição v2.5.0 — a dock surda não volta)"
 assert_grep "$REPO/elite/packages.add" '^wlrctl$' "v2.7.0: wlrctl na ISO (o mecanismo de foco da dock — compilado no build, não existe em repo oficial nenhum)"
 
@@ -2217,12 +2248,15 @@ assert_grep "$CCT" 'elite-net\.\$UN\.dev' "v2.7.0: os rasps do nmcli paralelo t�
 # chega no explorador e wallpaper que merecia cura na internet.
 # ═══════════════════════════════════════════════════════════════════════════
 RCX="$P/airootfs/etc/skel/.config/labwc/rc.xml"
-# A PROVA: o default do labwc (docs/rc.xml.all §Root) traz Left E Middle →
-# ShowMenu root-menu, e o <default/> importa tudo — definir só o Right não
-# remove o herdado (labwc soma binds; substitui só o MESMO par button+event).
-# A cura é a documentada em labwc-actions(5): <action name="None" /> como
-# única ação de um bind LIMPA o bind anterior.
-assert_grep "$RCX" 'button="Left" action="Press"' "v2.8.0: o ESQUERDO do desktop é declarado (o default do labwc já o trazia — sem declarar, não há o que limpar)"
+# v2.9.0 — A PROVA DO ROOT PARSEADO: o default do labwc (docs/rc.xml.all
+# §Root) traz Left E Middle → ShowMenu root-menu e o <default/> importa
+# tudo — binds explícitos para os TRÊS botões no MESMO contexto são a
+# única forma de vencer o default (labwc soma binds; substitui só o par
+# button+event). v2.8 provou a forma (None limpa o herdado); v2.9 provou
+# o VERBO: o esquerdo/direito executam craft-menu-dismiss — o clique fora
+# do menu fecha o menu NO COMPOSITOR, sem superfície nenhuma no caminho
+# (a gaiola da v2.8 engoliu o mouse do sistema inteiro — morta com prova).
+assert_grep "$RCX" 'button="Left" action="Press"' "v2.9.0: o ESQUERDO do desktop é declarado no contexto Root (o default do labwc traz ShowMenu nele — sem declarar, não há o que vencer)"
 # contrato COMPORTAMENTAL: o XML parseado prova o VERBO de cada botão no
 # Root (grep de linha não lê a estrutura aninhada mousebind→action)
 if command -v python3 >/dev/null 2>&1; then
@@ -2236,35 +2270,33 @@ for ctx in tree.iter('context'):
         continue
     for mb in ctx.findall('mousebind'):
         key = f"{mb.get('button')}:{mb.get('action')}"
-        verbs[key] = [a.get('name') for a in mb.iter('action')]
-print('LEFT_NONE' if verbs.get('Left:Press') == ['None'] else 'LEFT_BAD', 
-      'MID_NONE' if verbs.get('Middle:Press') == ['None'] else 'MID_BAD',
-      'RIGHT_MENU' if verbs.get('Right:Press') == ['ShowMenu'] else 'RIGHT_BAD')
+        verbs[key] = [(a.get('name'), a.get('command')) for a in mb.iter('action')]
+l = verbs.get('Left:Press', [])
+m = verbs.get('Middle:Press', [])
+r = verbs.get('Right:Press', [])
+print('LEFT_DISMISS' if l == [('Execute', 'craft-menu-dismiss')] else 'LEFT_BAD',
+      'MID_NONE' if m == [('None', None)] else 'MID_BAD',
+      'RIGHT_DISMISS_MENU' if len(r) == 2 and r[0] == ('Execute', 'craft-menu-dismiss') and r[1][0] == 'ShowMenu' else 'RIGHT_BAD')
 PYEOF
 )"
-  assert_eq "$(echo "$rootverdict" | awk '{print $1}')" "LEFT_NONE" "v2.8.0: XML parseado — clique ESQUERDO no desktop = None (o menu raiz NUNCA abre no esquerdo — a foto do dono)"
-  assert_eq "$(echo "$rootverdict" | awk '{print $2}')" "MID_NONE" "v2.8.0: XML parseado — clique MÉDIO no desktop = None (mesma tabela do default do labwc)"
-  assert_eq "$(echo "$rootverdict" | awk '{print $3}')" "RIGHT_MENU" "v2.8.0: XML parseado — clique DIREITO no desktop = ShowMenu root-menu (o único botão de menu)"
+  assert_eq "$(echo "$rootverdict" | awk '{print $1}')" "LEFT_DISMISS" "v2.9.0: XML parseado — clique ESQUERDO no desktop = craft-menu-dismiss (fecha o menu aberto e NÃO abre nada; sem menu, no-op — o esquerdo segue MUDO na prática)"
+  assert_eq "$(echo "$rootverdict" | awk '{print $2}')" "MID_NONE" "v2.9.0: XML parseado — clique MÉDIO no desktop = None (o ShowMenu do default fica sem vez)"
+  assert_eq "$(echo "$rootverdict" | awk '{print $3}')" "RIGHT_DISMISS_MENU" "v2.9.0: XML parseado — clique DIREITO = dismiss + ShowMenu root-menu (fecha o menu aberto e abre o menu-raiz NO LUGAR — nunca dois menus empilhados)"
 else
-  skip "v2.8.0: parse do rc.xml" "python3 indisponível"
+  skip "v2.9.0: parse do rc.xml" "python3 indisponível"
 fi
-assert_grep "$RCX" '<action name="None" />' "v2.8.0: a ação None LIMPA binds herdados (labwc-actions(5): 'clear an earlier defined binding')"
-assert_grep "$RCX" 'button="Middle" action="Press"' "v2.8.0: o MÉDIO do desktop também é declarado (mesma tabela do default — mutado junto)"
+assert_grep "$RCX" '<action name="None" />' "v2.9.0: a ação None segue no Root (o médio — a forma documentada de limpar bind herdado)"
+assert_grep "$RCX" 'button="Middle" action="Press"' "v2.9.0: o MÉDIO do desktop também é declarado (mesma tabela do default — mutado junto)"
 assert_grep "$RCX" 'button="Right" action="Press"' "v2.7.0: o DIREITO segue com o menu-raiz (a lei dos dois botões intacta)"
-# ordem relativa: o None do Left/Middle vem ANTES do Right (o arquivo declara
-# os três no MESMO contexto Root — a leitura é a prova de que não há menu
-# esquerdo escondido em outro contexto)
 # craft-menu: a SENHA compacta e sem entrada fantasma
 assert_grep "$P/airootfs/usr/local/bin/craft-menu" '--minimal-lines --lines 1' "v2.8.0: o modo --ask encolhe a janela de senha (a foto: 10 linhas de caixa para digitar UMA senha — o lines=10 do launcher não vaza mais)"
-assert_grep "$P/airootfs/usr/local/bin/craft-menu" 'fuzzel "\$@" </dev/null' "v2.8.0: lista vazia entra no fuzzel VAZIA de verdade (printf '%s\\n' de string vazia imprime UMA LINHA = entrada fantasma selecionada — o retângulo claro da foto)"
+assert_grep "$P/airootfs/usr/local/bin/craft-menu" 'fuzzel "\$@" </dev/null' "v2.8.0: lista vazia entra no fuzzel VAZIA de verdade (printf '%s\n' de string vazia imprime UMA LINHA = entrada fantasma selecionada — o retângulo claro da foto)"
 assert_grep "$P/airootfs/usr/local/bin/craft-connect" "--ask='Senha'" "v2.8.0: o fluxo Wi-Fi segue pedindo a senha pelo craft-menu (o prompt compacto alcança o caminho real do dono)"
-# craft-dock-gui: a GAIOLA PERSISTENTE — o pisca-pisca da dock morre
-assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" '_cage_setup' "v2.8.0: a gaiola tem setup ÚNICO (nasce no boot)"
-assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'self\._cage_setup\(\)' "v2.8.0: a gaiola é erguida no __init__ da dock (mapeada 1×, nunca mais tocada)"
-assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" '_cage_set_region' "v2.8.0: armar/desarmar = trocar APENAS a input region (um commit de wl_surface — zero map/unmap, zero re-arranjo de layers: a dock BOTTOM não leva configure)"
-assert_nogrep "$P/airootfs/usr/local/bin/craft-dock-gui" 'self\.cage\.hide\(\)' "v2.8.0: NENHUM cage.hide() (o unmap por menu era o pisca-pisca: 'a dock meio que some e aparece como se estivesse atualizada' — o dono)"
-assert_nogrep "$P/airootfs/usr/local/bin/craft-dock-gui" '_cage_ensure|_cage_input_region\b' "v2.8.0: os métodos da era v2.7 do map/unmap estão EXTINTOS"
-assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'Gdk\.Region\(\)' "v2.8.0: desarmada = input region VAZIA (o clique atravessa como se a gaiola não existisse)"
+# craft-dock-gui: A DOCK PURA (v2.9.0 — a gaiola EXTINTA com prova)
+assert_nogrep "$P/airootfs/usr/local/bin/craft-dock-gui" '_cage_setup|_cage_set_region|cage_request|_cage_click|_cage_disarm|_cage_poll|_menu_pid|_forget_pid' "v2.9.0: TODOS os métodos da gaiola EXTINTOS do dock (a v2.8 nasceu com input region cheia e só crescia — o mouse do sistema morreu nisso)"
+assert_nogrep "$P/airootfs/usr/local/bin/craft-dock-gui" 'atexit|DK_FILE|ST_MENU|ACK_FILE|CAGE_CSS|BAR_H' "v2.9.0: constantes da era da gaiola EXTINTAS (pid-file, ack, css da gaiola, altura da barra — nenhum consumidor sobrou)"
+assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'self\.win = Gtk\.Window\(\)' "v2.9.0: a dock tem UMA janela (a pílula) — zero superfícies auxiliares (o que não existe não come clique nem pisca)"
+assert_nogrep "$P/airootfs/usr/local/bin/craft-dock-gui" 'GtkLayerShell\.Layer\.TOP' "v2.9.0: a dock NÃO ergue nada no layer TOP (só a pílula no BOTTOM — o TOP é da waybar e dos menus do fuzzel)"
 # mimeapps: os archives abrem no xarchiver
 assert_grep "$P/airootfs/etc/skel/.config/mimeapps.list" 'application/x-7z-compressed=xarchiver\.desktop' "v2.8.0: 7z abre no xarchiver (o dono clicou duas vezes num .7z e o sistema sabia o que fazer)"
 assert_grep "$P/airootfs/etc/skel/.config/mimeapps.list" 'application/zip=xarchiver\.desktop' "v2.8.0: zip abre no xarchiver"
