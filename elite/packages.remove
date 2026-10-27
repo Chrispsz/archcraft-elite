@@ -36,14 +36,20 @@ nvidia-settings
 ## compilado desde o 0.13.0) → gpsd fica oculto (NoDisplay), e o E13
 ## continua tentando o -Rns no build para o dia em que upstream soltar.
 ## v1.5 (spec do dono): THUNAR VOLTOU — é o FM padrão (GUI + xdg-mime
-## inode/directory). thunar/tumbler SAEM desta lista; o thunar-volman e o
-## thunar-archive-plugin seguem fora (automount = udiskie, que já roda;
-## plugin de arquivo ressuscitaria deps de tema Xfce). gufw/ufw ENTRAM
-## (bloatware do upstream: a firewall GUI vinha de fábrica com o serviço
-## ufw ENABLED no boot — ver apply-overlay.sh [7] e E14).
+## inode/directory). thunar/tumbler SAEM desta lista; o thunar-volman
+## segue fora (automount = udiskie, que já roda).
+## v2.8.0: o thunar-archive-plugin TAMBÉM saiu daqui — o dono pediu
+## compactar/descompactar TUDO no explorador ("o sistema e explorador de
+## arquivos tem 7zip implementado pra conseguir descompactar e compactar
+## tudo") e a integração vive nele + xarchiver (packages.add; o backend
+## é o 7zip que já está na ISO). O receio v1.2 de "deps de tema Xfce" não
+## se realizou: os dois são GTK3 sem tema de ícones (a API do Arch
+## confirma os arquivos — xarchiver.tap + thunarx-3/*.so).
+## gufw/ufw ENTRAM (bloatware do upstream: a firewall GUI vinha de
+## fábrica com o serviço ufw ENABLED no boot — ver apply-overlay.sh [7]
+## e E14).
 firefox
 thunar-volman
-thunar-archive-plugin
 gufw
 ufw
 mousepad
@@ -228,7 +234,10 @@ catfish                # busca de arquivos (fd/fzf cobrem)
 viewnior               # duplicado do imv (Wayland-nativo, já na Elite)
 atril                  # PDF legado MATE; papers entra
 galculator             # abandonado; qalculate-gtk entra
-xarchiver              # bug DnD Wayland; 7zip (CLI) cobre
+## xarchiver VOLTOU na v2.8.0 (packages.add): o dono pediu o verbo de
+## compactar/descompactar no Thunar e ele é o gerenciador GTK3 mais leve
+## para o 7zip executar (o bug DnD Wayland da era v1.0 não afeta os
+## verbos do plugin nem a janela standalone do gerenciador)
 yad                    # dialogs: nenhum script Elite usa
 pastel                 # cores CLI (nicho dev)
 xcolor                 # color picker X11

@@ -92,7 +92,7 @@ assert_file "$P/airootfs/etc/mkinitcpio.conf.d/archiso.conf" \
 # ── v1.1 · PURGA DO APP-LAYER LEGADO + v1.5 · BLOATWARE DA SPEC ────────
 # v1.8.2: blueman SAIU desta lista — VOLTOU (GUI de bluetooth que o dono
 # pediu no áudio 24/out; a esquizofrenia add∩remove tem contrato na fase 2)
-for gone in firefox thunar-volman thunar-archive-plugin vim pavucontrol; do
+for gone in firefox thunar-volman vim pavucontrol; do
   assert_grep "$PKG" "^#${gone} # ELITE-REMOVED$" "v1.1: ${gone} comentado (saiu da ISO)"
   assert_nogrep "$PKG" "^${gone}$" "v1.1: ${gone} ativo sumiu"
 done
@@ -102,10 +102,14 @@ for gone in gufw ufw; do
   assert_grep "$PKG" "^#${gone} # ELITE-REMOVED$" "v1.5: ${gone} comentado (bloatware fora — spec)"
   assert_nogrep "$PKG" "^${gone}$" "v1.5: ${gone} ativo sumiu"
 done
-# v1.2: o plugin era o elo que RESSUSCITAVA o thunar (e o xfce4-about no
-# rastro) como dependência — evidência do pacman db da ISO v1.1 real
-assert_nogrep "$PKG" '^thunar-archive-plugin$' \
-  "v1.2: thunar-archive-plugin ativo sumiu (depend do thunar — ressuscitava o purgado)"
+# v2.8.0: o plugin VOLTOU (pedido do dono: compactar/descompactar TUDO no
+# Thunar) — o receio v1.2 de ressuscitar deps de tema Xfce não existe:
+# plugin + xarchiver são GTK3 puros, e o backend é o 7zip que já está na
+# ISO. A integração é provada na API do Arch (xarchiver.tap + *.so).
+assert_grep "$PKG" '^thunar-archive-plugin$' \
+  "v2.8.0: thunar-archive-plugin ATIVO (os verbos Criar pacote/Extrair aqui do Thunar — pedido do dono)"
+assert_nogrep "$PKG" '^#thunar-archive-plugin # ELITE-REMOVED$' \
+  "v2.8.0: thunar-archive-plugin des-comentado da purga v1.1 (saiu do packages.remove)"
 assert_nogrep "$PKG" '^(mousepad|zathura|zathura-pdf-poppler|file-roller|xgps|xgpsspeed)$' \
   "v1.1: mousepad/zathura/file-roller/xgps* não voltam por engano"
 for modern in brave-origin papers pwvucontrol bluetui impala; do
@@ -389,7 +393,13 @@ assert_grep "$CMN" 'kill -RTMIN "\$dkid"' "v2.7.0: a gaiola é PEDIDA à dock po
 assert_grep "$CMN" 'elite-cage\.' "v2.7.0: handshake por arquivo (ack da gaiola em ≤300ms — sem ack o menu abre IGUAL, degradação graciosa)"
 assert_grep "$CMN" 'sleep 0.01' "v2.7.0: o prazo do ack é 30×10ms (o menu NUNCA fica preso esperando a dock)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'mousebind button="Right" action="Press"' "v2.7.0: o DESKTOP abre o menu-raiz no clique DIREITO (o único botão de menu do desktop)"
-assert_nogrep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'button="Left"' "v2.7.0: o clique ESQUERDO do desktop é MUDO por lei (nada de menu acidental — 'na home ao contrário')"
+# v2.7.0 → v2.8.0 — a lei evoluiu de FORMA: na v2.7 o esquerdo era mudo
+# por OMISSÃO (nenhum bind Left no arquivo — mas o DEFAULT do labwc tinha
+# ShowMenu no Left do Root e o <default/> o importava: o menu abria igual,
+# a foto do dono de 27/out flagrou). A v2.8 declara o Left COM None (a
+# ação que LIMPA o bind herdado — labwc-actions(5)). O verbo real é
+# provado pelo parse XML no bloco v2.8.0 (LEFT_NONE).
+assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'button="Left" action="Press">' "v2.8.0: o esquerdo é bind EXPLÍCITO (declarar era a única forma de limpar o default do labwc que o vazava)"
 for _at in craft-power craft-logout craft-idle craft-rollback; do
     assert_grep "$P/airootfs/usr/local/bin/$_at" '--at=power' "v2.6.0: $_at nasce sob o botão do power (a família de sessão âncora no mesmo assento — submenus herdam o lugar do pai)"
 done
@@ -459,7 +469,7 @@ assert_grep "$APPS/foot-server.desktop" 'NoDisplay=true' "v1.2: foot-server fora
 assert_grep "$APPS/xgps.desktop" 'NoDisplay=true' "v1.2: xgps fora do menu (GPS num desktop gaming?)"
 assert_grep "$APPS/xgpsspeed.desktop" 'NoDisplay=true' "v1.2: xgpsspeed fora do menu"
 assert_grep "$REPO/elite/packages.remove" '^gpsd$' "v1.2: gpsd listado no debloat (depend DURA do waybar — NoDisplay é a cura real)"
-assert_grep "$REPO/elite/packages.remove" '^thunar-archive-plugin$' "v1.2: thunar-archive-plugin removido (era o elo que RESSUSCITAVA o thunar como dep — evidência do pacman db da v1.1)"
+assert_nogrep "$REPO/elite/packages.remove" '^thunar-archive-plugin$' "v2.8.0: o plugin saiu do packages.remove (o add o traz — a esquizofrenia add∩remove não volta)"
 assert_grep "$REPO/elite/fragments/elite-customize.sh" 'pacman -Rns --noconfirm gpsd' "v1.2: E13 tenta remover gpsd em build (falha segura — depend do waybar)"
 # craft-pin v2.1: pins no grupo central, antes do separador
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin" 'dock-pins' "v2.1: craft-pin insere no ARQUIVO de pins (1 linha = 1 app real)"
@@ -634,7 +644,7 @@ assert_grep "$PKG" '^zsh-syntax-highlighting$' "curadoria: plugin zsh syntax-hig
 assert_nogrep "$PKG" '^geany$' "curadoria: geany saiu (mousepad entra)"
 assert_nogrep "$PKG" '^atril$' "curadoria: atril saiu (zathura entra)"
 assert_nogrep "$PKG" '^galculator$' "curadoria: galculator saiu (qalculate entra)"
-assert_nogrep "$PKG" '^xarchiver$' "curadoria: xarchiver saiu (file-roller entra)"
+assert_grep "$PKG" '^xarchiver$' "v2.8.0: xarchiver na ISO (o gerenciador GTK3 mais leve p/ o 7zip executar — pedido do dono: compactar/descompactar tudo)"
 assert_nogrep "$PKG" '^ranger$' "curadoria: ranger saiu (yazi entra)"
 assert_nogrep "$PKG" '^mc$' "curadoria: mc saiu (yazi fica)"
 assert_nogrep "$PKG" '^htop$' "curadoria: htop saiu (btop fica)"
@@ -1871,18 +1881,23 @@ assert_nogrep "$THR" ': #1e1e2e' "v1.3: themerc anti-regressão (nenhuma superf�
 # ── autostart: fallback do swaybg desce ao preto ──────────────────────────
 assert_grep "$AST" "swaybg -m fill -c '#000000'" "v1.3: fallback swaybg preto AMOLED (era 1e1e2e)"
 
-# ── Wallpaper: v2.0 — ARTE OFICIAL DA FAMÍLIA (a lição do áudio) ────────
-# O dono: nada gerado por IA, nada desenhado à mão — "busque trazer
-# coisas de outras distros, temas e etc". Cura v2.0: o wallpaper é o
-# minimal-27.png DO PACOTE OFICIAL archcraft-backgrounds-minimal 1.0-6
-# (GPL3, packages.archcraft.io — a mesma família de rice, arte
-# profissional, coerência garantida). PNG LOSSLESS 4053×2280: fundo flat
-# escuro (zero poeira por construção), tom violeta casando com o Mauve.
-# sha256 anti-tamper + teto de tamanho (higiene de ISO).
-assert_file "$WAL" "v2.0 M5.1: wallpaper.png existe (arte oficial archcraft-backgrounds-minimal, PNG lossless)"
+# ── Wallpaper: v2.8.0 — A CURADORIA DA INTERNET, VOLTA (pedido do dono) ──
+# O dono: "esse wallpaper dá pra arrumar melhor na internet né e que fiquem
+# extremamente perfeitos e talvez até mais vivos em IPS mas de forma
+# minimalista e sem distrair ou machucar a visão". Cura v2.8: ondas de
+# seda roxo/violeta da UNSPLASH (licença Unsplash — uso livre; a MESMA
+# fonte/estética da v1.7.1 que o dono escolheu) — triada por VLM entre 3
+# candidatas (10/10 suavidade, topo uniformemente escuro p/ barra branca,
+# harmonia Catppuccin Mocha). PNG LOSSLESS 2812×1582 (16:9 nativo, sem
+# upscale inventado): blur 0.4px mata o ringing do JPEG fonte — a poeira
+# da era v1.7.1 não volta (a cura v2.0 se mantém). Medido: luma 30.1
+# (dark premium), 0.00% preto puro (não esmaga o IPS), delta mediano de
+# gradiente 0.70 (suavidade — o grão diria >8). sha256 anti-tamper +
+# teto de tamanho (higiene de ISO).
+assert_file "$WAL" "v2.8.0 M5.1: wallpaper.png existe (ondas de seda Unsplash, PNG lossless)"
 walsha="$(sha256sum "$WAL" | cut -d' ' -f1)"
-assert_eq "$walsha" "9e13031e0c0ca127cb5a2a6b0c5415eb4920c8df87c3315a318bc5ddbad10b8f" \
-  "v2.0 M5.1: wallpaper.png é o minimal-27 do pacote oficial selado (sha256 anti-tamper — trocou = contrato quebra)"
+assert_eq "$walsha" "41ee1f42716032d18a61f1a2cc318fb9576132a273eb289d4b7ba15bd29abf7d" \
+  "v2.8.0 M5.1: wallpaper.png é a arte selada v2.8 (sha256 anti-tamper — trocou = contrato quebra)"
 walsize="$(stat -c%s "$WAL")"
 sizeok=1; awk "BEGIN{exit !($walsize <= 2097152)}" || sizeok=0
 assert_eq "$sizeok" "1" "v2.0 M5.1: wallpaper ≤2 MiB (higiene de ISO — tem $walsize B)"
@@ -1895,46 +1910,53 @@ import sys
 from PIL import Image
 rgb = Image.open(sys.argv[1]).convert('RGB')
 total = rgb.size[0] * rgb.size[1]
-# sem numpy: histograma de L dá média/p1 (cumulativa); preto puro = contagem
-# conjunta pixel a pixel (a lição v1.3 do artefato JPEG vale pra sempre)
+# preto puro = contagem conjunta pixel a pixel (a lição v1.3 do artefato
+# JPEG vale pra sempre: 0% = o IPS não esmaga)
 black = 100.0 * sum(1 for p in rgb.getdata() if p == (0, 0, 0)) / total
 h = rgb.convert('L').histogram()
 n = sum(h)
 mean = sum(i * c for i, c in enumerate(h)) / n
-# v1.9: paleta distinta (anti-poeira) + flatness do céu (patches 64x64 no
-# terço superior com passo 4 — arte flat tem 1 cor por patch; ruído tem N)
-import random
-rnd = random.Random(99)
-worst = 0
-px = rgb.load()
+# v2.8.0 — SUAVIDADE MEDIDA (o novo padrão do fundo flat do minimal-27):
+# delta médio entre pixels vizinhos horizontais (soma RGB) em grade 8×8
+# de patches 64×64. Gradiente suave: mediana ~0.7, pior patch ~9 (borda
+# de onda, conteúdo legítimo). Grão/dithering (a poeira v1.7.1): mediana
+# acima de 8 e pior patch fora da régua.
 W, H = rgb.size
-# patches no FUNDO aberto do minimal-27 (cristas ficam no terço inferior;
-# a ilustração central ocupa o miolo) — os 4 quadrantes das bordas
-regions = [(0, 0), (W - 64, 0), (0, 300), (W - 64, 300),
-           (0, H // 2), (W - 64, H // 2)]
-for bx, by in regions:
-    worst = max(worst, len({px[bx + i, by + j]
-                            for i in range(0, 64, 4)
-                            for j in range(0, 64, 4)}))
-print(rgb.size[0], round(black, 2), round(mean, 1), worst)
+px = rgb.load()
+deltas = []
+for gy in range(8):
+    for gx in range(8):
+        bx = gx * (W - 72) // 7
+        by = gy * (H - 72) // 7
+        d = [abs(px[bx+i,by+j][0]-px[bx+i+1,by+j][0])
+             + abs(px[bx+i,by+j][1]-px[bx+i+1,by+j][1])
+             + abs(px[bx+i,by+j][2]-px[bx+i+1,by+j][2])
+             for i in range(0, 60, 4) for j in range(0, 64, 4)]
+        deltas.append(sum(d) / len(d))
+deltas.sort()
+n_d = len(deltas)
+print(rgb.size[0], round(black, 2), round(mean, 1),
+      round(deltas[n_d // 2], 2), round(deltas[-1], 2))
 PYEOF
 )"
-    read -r walres _ walmean walsky <<<"$walout"
-    if [[ "$walout" =~ ^[0-9]+[[:space:]][0-9.]+[[:space:]][0-9.]+[[:space:]][0-9.]+$ ]]; then
+    read -r walres _ walmean walsmooth walworst <<<"$walout"
+    if [[ "$walout" =~ ^[0-9]+[[:space:]][0-9.]+[[:space:]][0-9.]+[[:space:]][0-9.]+[[:space:]][0-9.]+$ ]]; then
       widthok=1; awk "BEGIN{exit !($walres >= 2560)}" || widthok=0
-      assert_eq "$widthok" "1" "v2.0 M5.1: wallpaper de alta definição (≥2560px de largura — o minimal-27 nativo tem 4053px; tem $walres)"
+      assert_eq "$widthok" "1" "v2.8.0 M5.1: wallpaper de alta definição (≥2560px de largura — a arte nativa tem 2812px; tem $walres)"
       meanok=1; awk "BEGIN{exit !($walmean <= 60.0)}" || meanok=0
-      assert_eq "$meanok" "1" "v2.0 M5.1: luma média ≤60 (dark que não cega — o minimal-27 tem ~35; tem $walmean)"
-      skyok=1; awk "BEGIN{exit !($walsky == 1)}" || skyok=0
-      assert_eq "$skyok" "1" "v2.0 M5.1: FUNDO FLAT medido (patches no campo aberto com 1 única cor — PNG lossless não tem poeira; tem $walsky cor)"
+      assert_eq "$meanok" "1" "v2.0 M5.1: luma média ≤60 (dark que não cega — a arte v2.8 tem 30.1; tem $walmean)"
+      smoothok=1; awk "BEGIN{exit !($walsmooth <= 4.0)}" || smoothok=0
+      assert_eq "$smoothok" "1" "v2.8.0 M5.1: GRADIENTE SUAVE medido (delta mediano ≤4 — grão/dithering diria >8; tem $walsmooth)"
+      worstok=1; awk "BEGIN{exit !($walworst <= 12.0)}" || worstok=0
+      assert_eq "$worstok" "1" "v2.8.0 M5.1: sem grão no pior patch (delta ≤12 — a borda de onda legítima tem ~9; tem $walworst)"
     else
-      fail "v2.0 M5.1: métricas do wallpaper" "saída do python3/PIL inesperada: '${walout:0:80}' (lição da run #34: nunca mais falha silenciosa com 'tem %')"
+      fail "v2.8.0 M5.1: métricas do wallpaper" "saída do python3/PIL inesperada: '${walout:0:80}' (lição da run #34: nunca mais falha silenciosa com 'tem %')"
     fi
   else
-    fail "v2.0 M5.1: métricas do wallpaper" "python3 presente sem PIL — instale python-pillow (o CI já traz)"
+    fail "v2.8.0 M5.1: métricas do wallpaper" "python3 presente sem PIL — instale python-pillow (o CI já traz)"
   fi
 else
-  skip "v2.0 M5.1: métricas do wallpaper" "python3 indisponível"
+  skip "v2.8.0 M5.1: métricas do wallpaper" "python3 indisponível"
 fi
 
 # ── A corrosão NÃO alcançou os acentos globais (top bar) ───────────────────
@@ -2188,6 +2210,67 @@ assert_grep "$CCT" 'connection delete' "v2.7.0: ESQUECER rede salva direto da te
 assert_grep "$CCT" 'Sim, esquecer' "v2.7.0: esquecer TEM confirmação (apagar rede salva não pode ser acidente)"
 assert_grep "$CCT" 'known_manage' "v2.7.0: o pick da salva abre os VERBOS dela, estado-aware (Conectar/Desconectar · senha · esquecer — SEM menu separado de gestão: 'deixar a parte de editor para editar as redes')"
 assert_grep "$CCT" 'elite-net\.\$UN\.dev' "v2.7.0: os rasps do nmcli paralelo têm nome fixo com uid (sobrescritos a cada abertura, no trap EXIT — sem mktemp para esquecer)"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# v2.8.0 — A FOTO DO DONO FEZ LEI: menu do desktop que abria no ESQUERDO,
+# janela de senha gigante, dock que pisca quando o menu abre, 7zip que não
+# chega no explorador e wallpaper que merecia cura na internet.
+# ═══════════════════════════════════════════════════════════════════════════
+RCX="$P/airootfs/etc/skel/.config/labwc/rc.xml"
+# A PROVA: o default do labwc (docs/rc.xml.all §Root) traz Left E Middle →
+# ShowMenu root-menu, e o <default/> importa tudo — definir só o Right não
+# remove o herdado (labwc soma binds; substitui só o MESMO par button+event).
+# A cura é a documentada em labwc-actions(5): <action name="None" /> como
+# única ação de um bind LIMPA o bind anterior.
+assert_grep "$RCX" 'button="Left" action="Press"' "v2.8.0: o ESQUERDO do desktop é declarado (o default do labwc já o trazia — sem declarar, não há o que limpar)"
+# contrato COMPORTAMENTAL: o XML parseado prova o VERBO de cada botão no
+# Root (grep de linha não lê a estrutura aninhada mousebind→action)
+if command -v python3 >/dev/null 2>&1; then
+  rootverdict="$(python3 - "$RCX" << 'PYEOF'
+import sys
+import xml.etree.ElementTree as ET
+tree = ET.parse(sys.argv[1])
+verbs = {}
+for ctx in tree.iter('context'):
+    if ctx.get('name') != 'Root':
+        continue
+    for mb in ctx.findall('mousebind'):
+        key = f"{mb.get('button')}:{mb.get('action')}"
+        verbs[key] = [a.get('name') for a in mb.iter('action')]
+print('LEFT_NONE' if verbs.get('Left:Press') == ['None'] else 'LEFT_BAD', 
+      'MID_NONE' if verbs.get('Middle:Press') == ['None'] else 'MID_BAD',
+      'RIGHT_MENU' if verbs.get('Right:Press') == ['ShowMenu'] else 'RIGHT_BAD')
+PYEOF
+)"
+  assert_eq "$(echo "$rootverdict" | awk '{print $1}')" "LEFT_NONE" "v2.8.0: XML parseado — clique ESQUERDO no desktop = None (o menu raiz NUNCA abre no esquerdo — a foto do dono)"
+  assert_eq "$(echo "$rootverdict" | awk '{print $2}')" "MID_NONE" "v2.8.0: XML parseado — clique MÉDIO no desktop = None (mesma tabela do default do labwc)"
+  assert_eq "$(echo "$rootverdict" | awk '{print $3}')" "RIGHT_MENU" "v2.8.0: XML parseado — clique DIREITO no desktop = ShowMenu root-menu (o único botão de menu)"
+else
+  skip "v2.8.0: parse do rc.xml" "python3 indisponível"
+fi
+assert_grep "$RCX" '<action name="None" />' "v2.8.0: a ação None LIMPA binds herdados (labwc-actions(5): 'clear an earlier defined binding')"
+assert_grep "$RCX" 'button="Middle" action="Press"' "v2.8.0: o MÉDIO do desktop também é declarado (mesma tabela do default — mutado junto)"
+assert_grep "$RCX" 'button="Right" action="Press"' "v2.7.0: o DIREITO segue com o menu-raiz (a lei dos dois botões intacta)"
+# ordem relativa: o None do Left/Middle vem ANTES do Right (o arquivo declara
+# os três no MESMO contexto Root — a leitura é a prova de que não há menu
+# esquerdo escondido em outro contexto)
+# craft-menu: a SENHA compacta e sem entrada fantasma
+assert_grep "$P/airootfs/usr/local/bin/craft-menu" '--minimal-lines --lines 1' "v2.8.0: o modo --ask encolhe a janela de senha (a foto: 10 linhas de caixa para digitar UMA senha — o lines=10 do launcher não vaza mais)"
+assert_grep "$P/airootfs/usr/local/bin/craft-menu" 'fuzzel "\$@" </dev/null' "v2.8.0: lista vazia entra no fuzzel VAZIA de verdade (printf '%s\\n' de string vazia imprime UMA LINHA = entrada fantasma selecionada — o retângulo claro da foto)"
+assert_grep "$P/airootfs/usr/local/bin/craft-connect" "--ask='Senha'" "v2.8.0: o fluxo Wi-Fi segue pedindo a senha pelo craft-menu (o prompt compacto alcança o caminho real do dono)"
+# craft-dock-gui: a GAIOLA PERSISTENTE — o pisca-pisca da dock morre
+assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" '_cage_setup' "v2.8.0: a gaiola tem setup ÚNICO (nasce no boot)"
+assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'self\._cage_setup\(\)' "v2.8.0: a gaiola é erguida no __init__ da dock (mapeada 1×, nunca mais tocada)"
+assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" '_cage_set_region' "v2.8.0: armar/desarmar = trocar APENAS a input region (um commit de wl_surface — zero map/unmap, zero re-arranjo de layers: a dock BOTTOM não leva configure)"
+assert_nogrep "$P/airootfs/usr/local/bin/craft-dock-gui" 'self\.cage\.hide\(\)' "v2.8.0: NENHUM cage.hide() (o unmap por menu era o pisca-pisca: 'a dock meio que some e aparece como se estivesse atualizada' — o dono)"
+assert_nogrep "$P/airootfs/usr/local/bin/craft-dock-gui" '_cage_ensure|_cage_input_region\b' "v2.8.0: os métodos da era v2.7 do map/unmap estão EXTINTOS"
+assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'Gdk\.Region\(\)' "v2.8.0: desarmada = input region VAZIA (o clique atravessa como se a gaiola não existisse)"
+# mimeapps: os archives abrem no xarchiver
+assert_grep "$P/airootfs/etc/skel/.config/mimeapps.list" 'application/x-7z-compressed=xarchiver\.desktop' "v2.8.0: 7z abre no xarchiver (o dono clicou duas vezes num .7z e o sistema sabia o que fazer)"
+assert_grep "$P/airootfs/etc/skel/.config/mimeapps.list" 'application/zip=xarchiver\.desktop' "v2.8.0: zip abre no xarchiver"
+assert_grep "$REPO/elite/packages.add" '^thunar-archive-plugin$' "v2.8.0: thunar-archive-plugin no add (verbos do menu de contexto do Thunar)"
+assert_grep "$REPO/elite/packages.add" '^xarchiver$' "v2.8.0: xarchiver no add (a GUI do 7zip — 1,9 MB, a mais leve da categoria)"
+
 # v2.1 — REGRESSÃO DA RUN #92: GLib.get_user_home_dir() NÃO EXISTE em
 # PyGObject (AttributeError → dock crash-loopava 20× no boot; o gate da
 # sessão pegou). A API para o .cache é get_user_cache_dir() (XDG).
@@ -2262,7 +2345,12 @@ assert_grep "$P/airootfs/etc/skel/.config/labwc/themerc-override" 'menu.items.pa
 #    direita = menu raiz curado; a lista de janelas morreu (dock comuta);
 #    clique esquerdo no desktop ficou limpo; scroll segue trocando área.
 assert_nogrep "$RCX" 'client-list-combined-menu' "v1.7: a lista de janelas do botão direito EXTINTA (dock é o comutador)"
-assert_nogrep "$RCX" 'button="Left" action="Press"' "v1.7: clique esquerdo no desktop sem menu (zero menu acidental)"
+# v2.8.0 — o Left virou bind EXPLÍCITO com None (limpa o default do labwc
+# que trazia ShowMenu no esquerdo — a v1.7 só não o declarava e o default
+# vazava). A prova COMPORTAMENTAL é o parse XML do bloco v2.8.0 acima
+# (LEFT_NONE / MID_NONE / RIGHT_MENU) — grep de linha não distingue um
+# mousebind Left de None de um Left de ShowMenu (a tag é idêntica); a
+# intenção v1.7 ("zero menu acidental") vive agora no parse.
 assert_grep "$RCX" 'ShowMenu" menu="root-menu' "v1.7: botão direito abre o menu raiz (padrão universal)"
 assert_grep "$RCX" 'GoToDesktop' "v1.7: scroll no desktop segue trocando de workspace (o gesto que o dono prefere)"
 

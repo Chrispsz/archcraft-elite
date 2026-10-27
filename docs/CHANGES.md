@@ -6,6 +6,55 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **v2.8.0 — A FOTO DO DONO FEZ LEI** (fotos do rig 27/out + diretrizes:
+  "com o click esquerdo do mouse esse menu está abrindo" · "esse menu de
+  senha está meio ruim, muito longo pra colocar a senha dava pra ser bem
+  menor" · "o sistema e explorador de arquivos tem 7zip implementado pra
+  conseguir descompactar e compactar tudo" · "esse wallpaper dá pra arrumar
+  melhor na internet… mais vivo em IPS, minimalista, sem destrair ou
+  machucar a visão" · "quando abro o menu da topbar a dock meio que some e
+  aparece como se estivesse atualizado"):
+  - **O ESQUERDO DO DESKTOP É MUDO DE VERDADE** — o default do labwc
+    (docs/rc.xml.all §Root) traz Left E Middle → ShowMenu root-menu e o
+    `<default/>` importa tudo; definir só o Right NÃO remove o herdado
+    (o labwc soma binds e substitui apenas o MESMO par button+event).
+    A cura é a documentada em labwc-actions(5): `<action name="None" />`
+    como única ação de um bind limpa o bind anterior. Agora o rc.xml
+    declara os TRÊS botões do Root: esquerdo e médio = None, direito =
+    menu-raiz. Contrato COMPORTAMENTAL novo: a suíte PARSEIA o XML e
+    prova o verbo de cada botão.
+  - **A JANELA DE SENHA ENCOLHEU** — o modo `--ask` do craft-menu herda o
+    `lines=10` do launcher (a foto: caixa alta com 90% de espaço morto)
+    e recebia UMA LINHA VAZIA como entrada (o `printf '%s\n' ""` imprime
+    uma linha — a entrada fantasma selecionada da foto). Cura: `--minimal-lines
+    --lines 1` no modo ask (com probe de suporte e degradação graciosa) e
+    stdin VAZIO de verdade (`</dev/null`) quando a lista é vazia.
+  - **A GAIOLA FICOU PERSISTENTE — o pisca-pisca da dock morreu** — a
+    v2.7 mapeava e desmapeava uma superfície full-screen (layer TOP) a
+    CADA menu: cada map/unmap re-arranja as layers no compositor e a dock
+    (BOTTOM) levava configure/redesenho no caminho. A v2.8 ergue a gaiola
+    UMA vez no boot (transparente e inerte — input region VAZIA, o clique
+    atravessa) e armar/desarmar troca APENAS a input region (um commit de
+    wl_surface — zero geometria de layer muda, a dock não é tocada).
+    Contrato: NENHUM `cage.hide()` no código.
+  - **7ZIP CHEGOU AO EXPLORADOR** — o CLI já estava na ISO; a mão no
+    Thunar entra agora: `thunar-archive-plugin` (verbos "Criar
+    pacote…"/"Extrair aqui" no menu de contexto) + `xarchiver` (a GUI
+    GTK3 mais leve da categoria, 1,9 MB — o file-roller da purga v1.1
+    não volta). Integração provada na API do Arch (xarchiver.tap +
+    thunarx-3/*.so). `packages.remove` e os contratos v1.1/v1.2 que
+    proibiam o par foram realinhados (eram artefatos da era pré-v1.5,
+    quando nem o Thunar existia na ISO). mimeapps.list: 7z/zip/tar/gz/
+    xz/zst/bz2/rar abrem no xarchiver.
+  - **WALLPAPER NOVO, CURADO NA INTERNET** — ondas de seda roxo/violeta
+    da Unsplash (licença livre; a MESMA fonte/estética da v1.7.1 que o
+    dono escolheu), triada por VLM entre 3 candidatas (suavidade 10/10,
+    topo uniformemente escuro p/ barra branca, harmonia Catppuccin
+    Mocha). PNG lossless 2812×1582 (16:9 nativo, sem upscale), blur 0.4px
+    no fonte mata o ringing do JPEG — a poeira da era v1.7.1 não volta.
+    Medido: luma 30.1, 0.00% preto puro (não esmaga o IPS), delta mediano
+    de gradiente 0.70 (contratos novos: suavidade mediana ≤4, pior patch
+    ≤12, sha256 anti-tamper atualizado).
 - **v2.7.0 — A LEI DOS DOIS BOTÕES: esquerdo na barra, direito no desktop,
   clique fora que só fecha, dock que foca em vez de duplicar — e a rede
   instantânea que se edita no próprio lugar** (o dono, rig: "o menu de

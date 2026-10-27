@@ -101,6 +101,18 @@ mpv
 imv
 thunar
 tumbler
+## v2.8.0 — ARQUIVOS: compactar/descompactar TUDO no explorador (dono:
+## "o sistema e explorador de arquivos tem 7zip implementado pra conseguir
+## descompactar e compactar tudo" — o 7zip CLI já está na ISO, faltava a
+## mão no Thunar). thunar-archive-plugin = os verbos "Criar pacote…"/
+## "Extrair aqui" no menu de contexto; xarchiver = o gerenciador GTK3 que
+## os executa (1,9 MB instalado — o mais leve da categoria; o file-roller
+## saiu na v1.1 e não volta). Backend: o 7zip da linha de cima — 7z, zip,
+## tar.*, gz, xz, zst, bz2, cab e extração de rar. Integracao provada na
+## API do Arch: o xarchiver traz usr/lib/xfce4/thunar-archive-plugin/
+## xarchiver.tap — o plugin o encontra sem configuração.
+thunar-archive-plugin
+xarchiver
 
 ## ── ELITE v1.0.3: fastfetch (o craft-hello usa quando existe) ─────────
 ## v2.2: o xdotool da v1.5.2 SAIU — era dep exclusiva do fg-booster,
