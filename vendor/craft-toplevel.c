@@ -547,10 +547,13 @@ int main(void)
                 strerror(errno));
         return 1;
     }
+    /* get_registry pela API REAL da biblioteca — a build #117 ensinou com
+     * o rig: marshal manual do get_registry com opcode 0 mandou um SYNC
+     * (0=sync, 1=get_registry), o callback@2 do compositor chegou como
+     * "message too short" no meu pseudo-registry e o daemon saiu honesto
+     * (25 exits no bars.log — o gate travou o release, como manda a casa) */
     struct wl_proxy *reg =
-        wl_proxy_marshal_constructor((struct wl_proxy *)disp,
-                                     0 /* WL_DISPLAY_GET_REGISTRY */,
-                                     &wl_registry_interface, NULL);
+        (struct wl_proxy *)wl_display_get_registry(disp);
     if (!reg) {
         fprintf(stderr, "craft-toplevel: registry falhou\n");
         return 1;

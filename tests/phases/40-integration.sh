@@ -2500,6 +2500,10 @@ assert_grep "$CT" 'connect\(probe, \(struct sockaddr \*\)&sa, sizeof\(sa\)\) == 
   "v2.10.1: 2ª instância detecta socket VIVO antes de qualquer unlink (restart nunca rouba)"
 assert_grep "$CT" 'flock\(lk, LOCK_EX \| LOCK_NB\)' \
   "v2.10.1: fechadura flock para a corrida de arranque (revisão 3-a)"
+assert_grep "$CT" 'wl_display_get_registry' \
+  "v2.10.2: get_registry pela API REAL da lib (a #117 ensinou no rig: opcode 0 do display é SYNC — o marshal manual virou callback@2 'message too short' e 25 exits)"
+assert_nogrep "$CT" 'wl_proxy_marshal_constructor\(\(struct wl_proxy \*\)disp' \
+  "v2.10.2: NUNCA marshal manual de request no display (sync=0/get_registry=1 — a classe da #117 extinta)"
 assert_grep "$CT" 'sweep_dead' \
   "v2.10.1: varredura pós-dispatch destrói proxy fora do callback"
 assert_grep "$CT" 'static Tl \*wins\[MAX_WIN\]' \
@@ -2512,7 +2516,7 @@ assert_nogrep "$CT" 'static Tl wins\[MAX_WIN\]' \
 # ── esteira: o pacote nasce no [elite-local] com fonte pinada ──
 assert_grep "$BLD" "pkgname=craft-toplevel" \
   "v2.10.1: PKGBUILD do craft-toplevel na esteira do [elite-local] (a mesma do wlrctl)"
-assert_grep "$BLD" "fc8b3bcfe6b1690e1c239e474f707dd379265835512cf09ad581969c24830a2b" \
+assert_grep "$BLD" "3044d5e5704ff9e7a1c83c506bb79b12e1b07b8b786e8203c3b9fe009c1a160a" \
   "v2.10.1: sha256 da fonte PINADO no PKGBUILD (determinismo — mudou 1 byte, makepkg PARA)"
 assert_grep "$BLD" 'for pkgdir in python-pywal qt5-virtualkeyboard wlrctl craft-toplevel; do' \
   "v2.10.1: craft-toplevel na fila do makepkg (4º pacote)"

@@ -6,6 +6,24 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **v2.10.2 — A CURA DA #117** (a v2.10.1 NUNCA publicou: o gate do verify
+  pegou o daemon morrendo em loop no live e travou o release — o sistema
+  funcionando como projetado):
+  - **O QUE O GATE VIU**: TOPLEVEL_COUNT=0 · TOPLEVEL_SOCKET=DEAD ·
+    BARS_EXITS=25 — o craft-toplevel nascia e morria a cada ciclo do
+    supervisor (5s), com o stderr honesto no bars.log:
+    `message too short, object (2), message global(usu)`.
+  - **CAUSA-RAIZ**: o marshal MANUAL do `get_registry` usava o opcode 0 do
+    wl_display — que é o **SYNC** (get_registry é o 1). O compositor criou
+    um callback no id 2; meu cliente o tratava como registry; o
+    `done(serial)` de 4 bytes chegava "too short" para o `global(usu)`.
+    Nenhum global foi anunciado → sem manager → saída honesta exit 1.
+  - **CURA**: `wl_display_get_registry()` da PRÓPRIA biblioteca (a função
+    real existe desde sempre) + 2 contratos que proíbem marshal manual de
+    request no display. O stderr honesto + supervisor + gate fizeram o
+    trabalho de perícia sem uma linha extra de código de depuração.
+  - Suíte: **1673 peças · 0 falhas · GO** (+2 contratos da lição)
+
 - **v2.10.1 — A DOCK COMUTADORA** (o dono, ao pedir a v2.10 com navegação
   entre janelas: "a dock tendo meio que essa funcionalidade de alt tab
   perfeitamente pra navegar entre os programas abertos e etc ou até mesmo
