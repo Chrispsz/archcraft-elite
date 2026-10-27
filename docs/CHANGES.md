@@ -6,6 +6,37 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **v2.9.2 — A LEI DO LOG SILENCIOSO (e a auditoria da sujeira inteira)**
+  (dono: "Log calamaris não precisa mais abrir um terminal só pra aparecer
+  logs… o que mais de sujo como isso ficou no sistema?"):
+  - **O TERMINAL DE LOG DO CALAMARES MORREU** — a v1.9 cumpria o spec M1.2
+    original abrindo um foot anexado (`tail -F`) ao session.log ANTES do
+    instalador subir; um terminal que se abre SOZINHO é sujeira visual da
+    mesma família do debloat: nada aparece sem pedido. O `calamares-elite-log`
+    v2.0 mantém as duas frentes que valiam: o log completo persiste em
+    **/var/log/calamares.log** do instalador E é copiado para o **/var/log do
+    sistema instalado** (auditoria pós-boot) — log é ARQUIVO para auditoria,
+    não janela para interromper. O launch.sh upstream segue intocado (E5a2).
+  - **AUDITORIA DA SUJEIRA (a resposta ao "o que mais?")** — varredura de
+    TODA a ISO atrás da mesma família (janela/terminal/processo visível que
+    o sistema inicia sem pedido): (1) spawns de terminal — o do Calamares
+    era o ÚNICO iniciado pelo sistema; todos os outros (W-Return/C-A-t foot,
+    btop, pulsemixer, nano, TUIs de fallback do craft-connect) são resposta
+    a pedido do usuário; (2) autostart do skel — só daemons headless
+    (swaybg, craft-bars, swaync, polkit-gnome, udiskie --no-tray, craft-idle,
+    craft-fix-keys, gnome-keyring, cliphist) — nada abre janela; (3) units
+    de boot — elite-firstboot e elite-session-probe escrevem em
+    /var/log e journal, zero aparição; (4) /etc/xdg/autostart — o upstream
+    não entrega nada e nenhum pacote do rice spawna janela no boot;
+    (5) Calamares NÃO auto-abre no live (o dono chama quando quer);
+    (6) notificações existentes são FEEDBACK de ação (lei v2.3.10 "avisa e
+    some") — nenhuma é iniciativa espontânea sem valor. Contratos novos
+    provam a AUSÊNCIA (nogrep de foot/tail no wrapper) e a permanência da
+    persistência.
+  - Suíte: **1627 peças · 0 falhas · GO** (baseline v2.9.1: 1626 — +1
+    líquido: o contrato que MANDAVA o terminal virou 2 proibições — foot e
+    tail — na conta do bloco M1.2).
+
 - **v2.9.0 — A GAIOLA MORREU (com prova), O ENCERRAR ENCERRA, A GAVETA FICA
   LIMPA** (rig v2.8.0, o dono: "matou o uso do mouse no sistema… eu não tô
   conseguindo sequer instalar o sistema pois o click do mouse não está

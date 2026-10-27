@@ -664,11 +664,16 @@ assert_grep "$INST" "grep -Ev '\\^vmlinuz-linux-cachyos-bore\\\$'" \
 assert_grep "$INST" 'initramfs-linux-cachyos-bore-fallback' \
   "M1.10: presença do fallback verificada (a principal + a reserva, nada além)"
 
-# ── M1.2: Calamares transparente — log ao vivo + persistente ──
+# ── M1.2: Calamares transparente — log SILENCIOSO + persistente ──
+# v2.9.2: o dono aposentou o terminal de log ao vivo ("Log calamaris não
+# precisa mais abrir um terminal só pra aparecer logs") — um foot que se
+# abre SOZINHO antes do instalador é sujeira visual. Log é ARQUIVO para
+# auditoria (/var/log/calamares.log), não janela para interromper.
 CALLOG="$REPO/elite/airootfs/usr/local/bin/calamares-elite-log"
 CALD="$REPO/elite/airootfs/usr/local/share/applications/calamares.desktop"
 assert_grep "$CALD" 'calamares-elite-log' "M1.2: calamares.desktop lança o wrapper de log (Exec=)"
-assert_grep "$CALLOG" 'tail -n 30 -F' "M1.2: terminal de logs EM TEMPO REAL (foot + tail -F do session.log)"
+assert_nogrep "$CALLOG" 'foot' "M1.2 v2.9.2: NENHUM terminal se abre sozinho (o log ao vivo morreu — nada aparece sem pedido)"
+assert_nogrep "$CALLOG" 'tail' "M1.2 v2.9.2: wrapper não tails log em janela (auditoria é por arquivo)"
 assert_grep "$CALLOG" '/var/log/calamares\.log' "M1.2: log completo persistido em /var/log/calamares.log"
 assert_grep "$CALLOG" '/etc/calamares/launch.sh' "M1.2: launch.sh upstream curado segue intocado (E5a2)"
 
