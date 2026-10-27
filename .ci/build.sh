@@ -138,10 +138,42 @@ package() {
 }
 EOPKGBUILD
 
+# ── v2.10.1: CRAFT-TOPLEVEL (o alt-tab da dock) — FONTE NO PRÓPRIO REPO ──
+#  O dono pediu a v2.10 com "a dock tendo essa funcionalidade de alt tab
+#  perfeitamente pra navegar entre os programas abertos… ou até mesmo um
+#  atalho pra isso clicável na dock". O wlrctl não lista janelas (limitação
+#  honesta da v2.10.0) — a cura é o protocolo DIRETO: este daemon fala
+#  zwlr_foreign_toplevel_management_v1 com o labwc e serve LIST/ACT/CLOSE/
+#  CYCLE num socket UNIX da sessão. A fonte vem do REPO (vendor/), com o
+#  sha256 PINADO como manda a casa — mudou 1 byte, o makepkg PARA.
+#  Deps: só libwayland-client (os headers que o HOST usa para compilar o
+#  wlrctl servem — a esteira é a mesma, 4º pacote da fila).
+mkdir -p /tmp/elite-src/craft-toplevel
+cp /work/vendor/craft-toplevel.c /tmp/elite-src/craft-toplevel/
+cat > /tmp/elite-src/craft-toplevel/PKGBUILD <<'EOPKGBUILD'
+pkgname=craft-toplevel
+pkgver=1.0
+pkgrel=1
+pkgdesc='Daemon wlr-foreign-toplevel da Elite — janelas por id (LIST/ACT/CLOSE/CYCLE + anel MRU) para a dock comutar de verdade'
+arch=(x86_64)
+url=https://github.com/Chrispsz/archcraft-elite
+license=(GPL3)
+depends=(wayland)
+source=("craft-toplevel.c")
+sha256sums=('fc8b3bcfe6b1690e1c239e474f707dd379265835512cf09ad581969c24830a2b')
+build() {
+    gcc -O2 -Wall -Wextra -s -o craft-toplevel craft-toplevel.c -lwayland-client
+}
+package() {
+    install -Dm755 craft-toplevel "${pkgdir}/usr/local/bin/craft-toplevel"
+    install -Dm644 craft-toplevel.c "${pkgdir}/usr/local/share/elite/src/craft-toplevel.c"
+}
+EOPKGBUILD
+
 # makepkg se recusa a rodar como root — usuário builder descartável
 useradd -m builder 2>/dev/null || true
 chown -R builder /tmp/elite-src
-for pkgdir in python-pywal qt5-virtualkeyboard wlrctl; do
+for pkgdir in python-pywal qt5-virtualkeyboard wlrctl craft-toplevel; do
     (cd "/tmp/elite-src/$pkgdir" && runuser -l builder -c "cd /tmp/elite-src/$pkgdir && makepkg -f --noconfirm") \
         || { echo "FALHA ao construir $pkgdir"; exit 1; }
     cp "/tmp/elite-src/$pkgdir/"*.pkg.tar.zst /var/cache/elite-local/

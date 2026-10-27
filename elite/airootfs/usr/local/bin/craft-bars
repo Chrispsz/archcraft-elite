@@ -59,6 +59,11 @@ ensure() {
 # zona exclusiva = some SÓ sob tela cheia/gaveta, zero polling.
 # Supervisão igual: morreu, volta em ≤5s com o stderr no bars.log (a
 # evidência que a v1.6.3 instituiu).
+# v2.10.1 — o craft-toplevel (o daemon wlr-foreign-toplevel que dá à dock
+# as janelas por id e o anel MRU do comutador) ganha a MESMA supervisão:
+# morrer calado nunca mais (a lição do burn test v1.6.2 vale pra toda a
+# sessão, não só para as barras). Segunda instância é no-op (o daemon
+# detecta o socket vivo e sai 0 — o restart nunca rouba nada).
 while :; do
     cap_log   # v2.5.0 — o teto é POR CICLO, não só no arranque
     ensure top  "$HOME/.config/waybar/config.top"  "$HOME/.config/waybar/style.top.css"
@@ -68,6 +73,14 @@ while :; do
             /usr/local/bin/craft-dock-gui >>"$LOG" 2>&1
             st=$?
             printf '[%s] dock craft-dock-gui SAIU exit=%d\n' "$(date '+%F %T')" "$st" >>"$LOG"
+        ) &
+    fi
+    if ! pgrep -f 'craft-toplevel' >/dev/null 2>&1; then
+        printf '[%s] toplevel craft-toplevel FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
+        (
+            /usr/local/bin/craft-toplevel >>"$LOG" 2>&1
+            st=$?
+            printf '[%s] toplevel craft-toplevel SAIU exit=%d\n' "$(date '+%F %T')" "$st" >>"$LOG"
         ) &
     fi
     sleep 5

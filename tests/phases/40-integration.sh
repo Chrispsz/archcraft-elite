@@ -2465,4 +2465,88 @@ assert_grep "$ECF" "slideshow: \"show.qml\"" \
 assert_grep "$ECF" 'show.qml' \
   "E19c: show.qml mínimo existe no customize (slide estático, sem dependência de calamares.slideshow)"
 
+# ══ v2.10.1 — A DOCK COMUTADORA (o dono: "a dock tendo meio que essa
+#    funcionalidade de alt tab perfeitamente pra navegar entre os programas
+#    abertos e etc ou até mesmo um atalho pra isso clicável na dock… sem
+#    preview") — o protocolo DIRETO (craft-toplevel) substitui a limitação
+#    honesta da v2.10.0. Contratos em 4 frentes: daemon, esteira, dock,
+#    sessão. ══
+CT="$REPO/vendor/craft-toplevel.c"
+DOCK="$REPO/elite/airootfs/usr/local/bin/craft-dock-gui"
+BLD="$REPO/.ci/build.sh"
+PAK="$REPO/elite/packages.add"
+BRS="$REPO/elite/airootfs/usr/local/bin/craft-bars"
+AST="$REPO/elite/airootfs/etc/skel/.config/labwc/autostart"
+PRB="$REPO/elite/airootfs/usr/local/bin/elite-session-probe"
+
+# ── daemon: os OPCODES do XML oficial (memória não é contrato — texto é) ──
+assert_grep "$CT" 'zwlr_foreign_toplevel_management_v1' \
+  "v2.10.1: daemon fala o protocolo pelo NOME (o erro de compositor sem o global é honesto)"
+assert_grep "$CT" '\{ "activate", "o", NULL \}' \
+  "v2.10.1: activate é opcode 4 com SEAT ('o' — o XML oficial exige wl_seat; sem seat não há foco)"
+assert_grep "$CT" 'TL_UNSET_MINIMIZED\);' \
+  "v2.10.1: unset_minimized (3) vem ANTES do activate (a restauração de minimizada é COMANDO, não hipótese)"
+assert_grep "$CT" 'wl_proxy_marshal\(t->proxy, TL_ACTIVATE, seat_proxy\)' \
+  "v2.10.1: activate leva o seat_proxy (o arg 'o' do XML)"
+assert_grep "$CT" '"%s/toplevel\.sock", dir' \
+  "v2.10.1: socket da sessão é elite/toplevel.sock (XDG_RUNTIME_DIR)"
+assert_grep "$CT" 'wl_proxy_add_dispatcher\(t->proxy, tl_dispatcher, t, NULL\)' \
+  "v2.10.1: dispatcher_data = a JANELA (1º parâmetro do dispatcher — a pegadinha da API libwayland, provada pelo gcc)"
+assert_grep "$CT" 'args\[0\]\.o' \
+  "v2.10.1: new_id em EVENTO chega em .o (proxy criado pelo demarshal — .n leria 32 bits do ponteiro)"
+assert_grep "$CT" 'mgr_evt_types\[\] = \{ &tl_iface, NULL \}' \
+  "v2.10.1: types é ARRAY (wl_message.types = interface** — o index do arg casa o index do array)"
+assert_grep "$CT" 'connect\(probe, \(struct sockaddr \*\)&sa, sizeof\(sa\)\) == 0' \
+  "v2.10.1: 2ª instância detecta socket VIVO antes de qualquer unlink (restart nunca rouba)"
+assert_grep "$CT" 'flock\(lk, LOCK_EX \| LOCK_NB\)' \
+  "v2.10.1: fechadura flock para a corrida de arranque (revisão 3-a)"
+assert_grep "$CT" 'sweep_dead' \
+  "v2.10.1: varredura pós-dispatch destrói proxy fora do callback"
+assert_grep "$CT" 'static Tl \*wins\[MAX_WIN\]' \
+  "v2.10.1: wins é array de PONTEIROS (o Tl vive no heap e nunca muda de endereço — o CRÍTICO da revisão 3-a)"
+assert_grep "$CT" 'Tl \*t = calloc\(1, sizeof\(\*t\)\)' \
+  "v2.10.1: Tl nasce no heap (dispatcher_data e mru[] permanecem válidos para sempre)"
+assert_nogrep "$CT" 'static Tl wins\[MAX_WIN\]' \
+  "v2.10.1: o array de STRUCTS está EXTINTO (mover struct = estado fantasma: a classe do CRÍTICO 3-a)"
+
+# ── esteira: o pacote nasce no [elite-local] com fonte pinada ──
+assert_grep "$BLD" "pkgname=craft-toplevel" \
+  "v2.10.1: PKGBUILD do craft-toplevel na esteira do [elite-local] (a mesma do wlrctl)"
+assert_grep "$BLD" "fc8b3bcfe6b1690e1c239e474f707dd379265835512cf09ad581969c24830a2b" \
+  "v2.10.1: sha256 da fonte PINADO no PKGBUILD (determinismo — mudou 1 byte, makepkg PARA)"
+assert_grep "$BLD" 'for pkgdir in python-pywal qt5-virtualkeyboard wlrctl craft-toplevel; do' \
+  "v2.10.1: craft-toplevel na fila do makepkg (4º pacote)"
+assert_grep "$PAK" '^craft-toplevel$' \
+  "v2.10.1: craft-toplevel entra no pacstrap (packages.add)"
+
+# ── dock: o protocolo direto com fallback LEI ──
+assert_grep "$DOCK" 'TOPOS = os.path.join\(GLib.get_user_runtime_dir\(\), "elite", "toplevel.sock"\)' \
+  "v2.10.1: dock fala o MESMO socket do daemon"
+assert_grep "$DOCK" 'def _tl_act' \
+  "v2.10.1: foco/restauro POR ID (fim da adivinhação de capitalização do wlrctl)"
+assert_grep "$DOCK" 'def _app_cycle_next' \
+  "v2.10.1: ciclo ENTRE janelas do app (o alt-tab dentro do botão — ring por id)"
+assert_grep "$DOCK" 'def _switch_click' \
+  "v2.10.1: o COMUTADOR clicável existe (o atalho pedido pelo dono)"
+assert_grep "$DOCK" 'self\._tl_cmd\("CYCLE"\)' \
+  "v2.10.1: o verbo do comutador é CYCLE (o anel MRU do daemon — sem preview, sem miniatura)"
+assert_grep "$DOCK" 'len\(self.windows\) < 2' \
+  "v2.10.1: comutador existe SÓ com ≥2 janelas (zero poluição — minimalista)"
+assert_grep "$DOCK" 'if not \(WLRCTL and alive\):' \
+  "v2.10.1: o fallback v2.10 (wlrctl/launch) CONTINUA atrás do protocolo (daemon morto não piora a dock)"
+assert_grep "$DOCK" 'def _sync_switcher' \
+  "v2.10.1: o comutador sincroniza no MESMO tick do poll (sem fork novo — conexão persistente)"
+assert_grep "$DOCK" 'import socket' \
+  "v2.10.1: socket UNIX no stdlib (zero dependência nova na ISO)"
+
+# ── sessão: supervisão, arranque e PROVA no live ──
+assert_grep "$BRS" "pgrep -f 'craft-toplevel'" \
+  "v2.10.1: craft-bars supervisiona o daemon (morrer calado nunca mais)"
+assert_grep "$AST" 'craft-toplevel &' \
+  "v2.10.1: o daemon nasce no autostart (antes do craft-bars — socket pronto)"
+assert_grep "$PRB" 'TOPLEVEL_COUNT' \
+  "v2.10.1: o probe reporta o daemon (o gate do QEMU cobra)"
+assert_grep "$PRB" 'b"PING' \
+  "v2.10.1: a prova é o PING no socket (vivo E falando — processo sozinho não basta)"
+
 phase_end

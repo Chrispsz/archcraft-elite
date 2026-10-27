@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · craft-dock-gui (v2.10 — "a dock AUTO-ADAPTÁVEL")
+# Archcraft ELITE · craft-dock-gui (v2.10.1 — "a dock COMUTADORA")
 # v2.1.1: read_pins à prova de TypeError (pin inválido é ignorado com log —
 #         nunca mais crash-loop; run #93 como evidência).
 # v2.3.4: FIM DO AUTOHIDE — a dock é SEMPRE VISÍVEL (diretriz do dono:
@@ -39,6 +39,30 @@
 #   tem listagem via CLI (o wlrctl só casar). Duas janelas do mesmo app = um
 #   botão; o foco vai para a que o compositor escolher. Multi-janela com
 #   ciclo por janela exige falar o protocolo direto — v2.11 se o rig pedir.
+# v2.10.1 — A DOCK COMUTADORA (o dono pediu a v2.10 "com a dock tendo meio
+#   que essa funcionalidade de alt tab perfeitamente pra navegar entre os
+#   programas abertos e etc ou até mesmo um atalho pra isso clicável na
+#   dock… sem preview"): a limitação de cima MORREU — o craft-toplevel
+#   (pacote novo, ~680 linhas de C, fonte em vendor/craft-toplevel.c) fala
+#   o zwlr-foreign-toplevel DIRETO com o labwc e serve a sessão num socket:
+#   1. CLIQUE ESQUERDO = janela EXATA: 1 janela → foca/restaura (ACT por
+#      id: unset_minimized + activate — restauração POR COMANDO do
+#      protocolo, a "hipótese forte" da v2.10 virou lei); N janelas →
+#      cicla ENTRE ELAS (ring por id, a memória é de quem clicou);
+#      0 → abre (como sempre). Fim da adivinhação de capitalização.
+#   2. COMUTADOR CLICÁVEL (o atalho pedido): botão no FIM da pílula,
+#      existe SÓ com ≥2 janelas, SEM preview e SEM miniatura — o ícone
+#      dele é o ÍCONE DO APP de destino (o clique anuncia onde cai) e o
+#      verbo é CYCLE: a próxima do anel MRU do daemon (o exato A-Tab,
+#      em clique; cliques seguidos caminham pelo anel).
+#   3. MEIO fecha a janela POR ID (a focada do app; wlrctl no fallback).
+#   4. LEI DO FALLBACK: daemon ausente/morto = snapshot vazio e TODO verbo
+#      cai no caminho v2.10 (wlrctl case-variants / launch) — a dock NUNCA
+#      fica pior que a versão anterior por causa da cura. A conexão é
+#      PERSISTENTE (zero fork por tick; o /proc scan dos indicadores segue).
+#   5. A-Tab/A-S-Tab do compositor CONTINUAM (teclado cicla janelas com
+#      OSD) — dock comuta por clique, teclado comanda ciclo; cada um no
+#      que é melhor (a resposta à pergunta do dono).
 # POR QUÊ EXISTE (feedback do dono, out/2026): a dock de waybar com pins de
 # GLIFO Nerd Font entregou "botões mal recortados, mal encaixados" e "nada é
 # o ícone real". Os caminhos conhecidos morreram COM EVIDÊNCIA:
@@ -68,6 +92,7 @@ import re
 import shlex
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 
@@ -90,6 +115,15 @@ ICON_SIZE = 36   # spec M3.2: escala fixa de fábrica
 PILL_FLOAT = 6
 
 WLRCTL = shutil.which("wlrctl")  # foco/fecho de janela (wlr-foreign-toplevel)
+
+# v2.10.1 — JANELAS REAIS: o craft-toplevel (pacote próprio, fonte em
+# vendor/craft-toplevel.c) fala o protocolo zwlr_foreign_toplevel DIRETO
+# com o labwc e serve a sessão neste socket, linha a linha. É o que dá ao
+# clique o id EXATO da janela (foco/restauro/ciclo/fecho sem adivinhar
+# capitalização) e o anel MRU do alt-tab para o comutador clicável.
+TOPOS = os.path.join(GLib.get_user_runtime_dir(), "elite", "toplevel.sock")
+F_ACTIVATED = 4   # flag do daemon (state activated do protocolo)
+F_MINIMIZED = 2   # (1=maximized · 2=minimized · 4=activated · 8=fullscreen)
 
 
 def log(msg):
@@ -189,6 +223,16 @@ class Dock:
         self.dyn = {}             # dinâmicos: did → (button, comm, info, cmd)
         self.sep = None           # fio vertical pins | dinâmicos
         self._dindex = None       # cache: chave lower → DesktopAppInfo
+
+        # v2.10.1 — janelas REAIS (o protocolo direto via craft-toplevel):
+        # snapshot por tick (LIST), conexão persistente (zero fork), estado
+        # para o ciclo por app e o comutador clicável (alt-tab da dock)
+        self._sock = None          # conexão com o daemon (persistente)
+        self.windows = {}          # id → (flags, rank, app_id, title)
+        self.focused = 0           # id da janela focada (0 = nenhuma)
+        self._last_act = {}        # app → última janela que NÓS focamos
+        self.switch_btn = None     # o comutador clicável (≥2 janelas)
+        self._switch_icon_key = None
 
         self.win = Gtk.Window()
         self.win.set_name("dockwindow")
@@ -301,6 +345,9 @@ class Dock:
         self.dyn = {}
         self.sep = None
         self.pin_ids = set()
+        # o comutador morreu junto (o poll o recria sozinho — v2.10.1)
+        self.switch_btn = None
+        self._switch_icon_key = None
         for info, hint in read_pins():
             btn = self._make_button(info, hint, dynamic=False)
             self.pill.pack_start(btn, False, False, 0)
@@ -352,7 +399,198 @@ class Dock:
         btn.set_name("dockbtn")
         return btn
 
-    # ── os VERBOS do clique (v2.7 + v2.10) ───────────────────────────────
+    # ── o protocolo direto (v2.10.1 — craft-toplevel, linha a linha) ────
+    def _tl_connect(self):
+        """Conexão PERSISTENTE com o daemon: aberta uma vez, serve N ticks
+        sem fork nenhum (a varredura /proc dos indicadores continua à parte).
+        Morreu? reconnecta no próximo tick — a dock NUNCA depende dele."""
+        if self._sock is not None:
+            return self._sock
+        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        try:
+            s.settimeout(1)
+            s.connect(TOPOS)
+        except OSError:
+            try:
+                s.close()
+            except OSError:
+                pass
+            return None
+        self._sock = s
+        log("craft-toplevel: conectado (janelas reais ON)")
+        return s
+
+    def _tl_close(self):
+        if self._sock is not None:
+            try:
+                self._sock.close()
+            except OSError:
+                pass
+            self._sock = None
+
+    def _tl_cmd(self, cmd):
+        """Um pedido linha-a-linha; resposta = linhas até OK*/ERR* (e PONG).
+        Daemon morto/EPIPE → None — e TODO devolvedor de None tem fallback
+        v2.10 logo atrás (wlrctl/launch): a cura nunca quebra o básico."""
+        s = self._tl_connect()
+        if s is None:
+            return None
+        try:
+            s.sendall((cmd + "\n").encode())
+            buf = b""
+            while True:
+                chunk = s.recv(4096)
+                if not chunk:
+                    raise OSError("daemon fechou")
+                buf += chunk
+                lines = buf.split(b"\n")
+                if lines[-1] != b"":
+                    continue  # resposta parcial — LIST grande segue chegando
+                out = [l.decode("utf-8", "replace") for l in lines[:-1]]
+                if out and (out[-1].startswith(("OK", "ERR", "PONG"))):
+                    return out
+        except (OSError, UnicodeDecodeError):
+            self._tl_close()
+            return None
+
+    def _tl_list(self):
+        """LIST → ({id: (flags, rank, app_id, title)}, focused_id) ou None.
+        rank = recência do daemon (0 = topo do MRU — a semântica do alt-tab)."""
+        out = self._tl_cmd("LIST")
+        if out is None:
+            return None
+        wins = {}
+        focused = 0
+        for line in out:
+            if line.startswith("W|"):
+                parts = line.split("|", 5)
+                if len(parts) == 6:
+                    try:
+                        wid, flags, rank = (int(parts[1]), int(parts[2]),
+                                            int(parts[3]))
+                    except ValueError:
+                        continue
+                    wins[wid] = (flags, rank, parts[4], parts[5])
+            elif line.startswith("OK|"):
+                try:
+                    focused = int(line[3:])
+                except ValueError:
+                    focused = 0
+        return (wins, focused)
+
+    def _tl_act(self, wid):
+        """Foco/restauro POR ID: unset_minimized + activate no daemon — a
+        restauração de minimizada é COMANDO DO PROTOCOLO, não hipótese."""
+        out = self._tl_cmd(f"ACT {wid}")
+        return bool(out) and out[-1].startswith("OK")
+
+    def _tl_close_win(self, wid):
+        out = self._tl_cmd(f"CLOSE {wid}")
+        return bool(out) and out[-1].startswith("OK")
+
+    def _windows_of(self, info, hint, did):
+        """Janelas REAIS do app no snapshot: app_id casa os candidatos
+        (case-insensitive — o fim da adivinhação de capitalização do
+        wlrctl) ou o título contém o nome de exibição (último recurso)."""
+        cands = {c.lower() for c in self._focus_candidates(info, hint, did)}
+        name = (info.get_display_name() or "").strip().lower()
+        out = []
+        for wid, (_fl, _rk, app_id, title) in self.windows.items():
+            a = (app_id or "").lower()
+            t = (title or "").lower()
+            if a in cands or (name and name in t):
+                out.append(wid)
+        return sorted(out)
+
+    def _app_cycle_next(self, wids, key):
+        """A próxima janela DO APP depois da última que NÓS focamos (ring por
+        id); sem memória, a focada de verdade; sem focada, a mais recente
+        (menor rank = topo do MRU do daemon)."""
+        last = self._last_act.get(key)
+        if last in wids:
+            i = wids.index(last)
+            return wids[(i + 1) % len(wids)]
+        fw = [w for w in wids if self.windows[w][0] & F_ACTIVATED]
+        if fw:
+            return fw[0]
+        return min(wids, key=lambda w: self.windows[w][1])
+
+    # ── o COMUTADOR clicável (v2.10.1 — o alt-tab do dono na dock) ───────
+    def _switch_target(self):
+        """Onde o próximo clique do comutador VAI cair: a janela seguinte no
+        anel MRU do daemon depois da focada (o exato A-Tab, em clique).
+        Sem focada, a mais recente. → (id, app_id, title) ou None."""
+        if len(self.windows) < 2:
+            return None
+        ranks = {w: v[1] for w, v in self.windows.items()}
+        f_rank = ranks.get(self.focused, -1)
+        targets = [w for w in self.windows if ranks[w] > f_rank]
+        if targets:
+            wid = min(targets, key=lambda w: ranks[w])
+        else:
+            # a focada é o topo do MRU: alvo = a segunda do anel
+            wid = sorted(self.windows, key=lambda w: ranks[w])[1]
+        _fl, _rk, app_id, title = self.windows[wid]
+        return (wid, app_id, title)
+
+    def _sync_switcher(self):
+        """O botão comutador existe SÓ com ≥2 janelas e daemon vivo (zero
+        poluição — minimalista). Ícone = o ÍCONE do app de DESTINO: o clique
+        anuncia para onde vai, SEM preview e SEM miniatura nenhuma."""
+        tgt = self._switch_target()
+        if tgt is None:
+            if self.switch_btn is not None:
+                self.pill.remove(self.switch_btn)
+                self.switch_btn.destroy()
+                self.switch_btn = None
+                self._switch_icon_key = None
+                self.pill.show_all()
+            return
+        _wid, app_id, title = tgt
+        if self.switch_btn is None:
+            self.switch_btn = Gtk.Button.new()
+            self.switch_btn.set_relief(Gtk.ReliefStyle.NONE)
+            self.switch_btn.set_name("switchbtn")
+            img = Gtk.Image()
+            img.set_pixel_size(ICON_SIZE)
+            self.switch_btn.add(img)
+            self.switch_btn.connect("button-press-event", self._switch_press)
+            self.switch_btn.connect("clicked", self._switch_click)
+            self.pill.pack_start(self.switch_btn, False, False, 0)
+            self.pill.reorder_child(self.switch_btn, -1)
+            self.pill.show_all()
+            log("comutador entrou (≥2 janelas)")
+        key = app_id or title
+        if key != self._switch_icon_key:
+            self._switch_icon_key = key
+            img = self.switch_btn.get_child()
+            info = self._desktop_index().get((app_id or "").lower())
+            icon = info.get_icon() if info is not None else None
+            if icon is not None:
+                img.set_from_gicon(icon, Gtk.IconSize.DIALOG)
+            else:
+                img.set_from_icon_name("preferences-system-windows",
+                                       Gtk.IconSize.DIALOG)
+            name = (info.get_display_name() if info is not None else None) \
+                or title or app_id or "janela"
+            self.switch_btn.set_tooltip_text(
+                f"Alternar janelas — próxima: {name}")
+            self.pill.show_all()
+
+    def _switch_press(self, _btn, ev):
+        # esquerdo segue para o "clicked" (mesmo verbo); direito/meio: nada
+        return ev.button != 1
+
+    def _switch_click(self, _btn):
+        out = self._tl_cmd("CYCLE")
+        if out is not None and out[-1].startswith("OK"):
+            parts = out[-1].split("|", 3)
+            if len(parts) == 4:
+                log(f"comutador: → {parts[2]} ({parts[3]})")
+        else:
+            log("comutador: daemon indisponível — nada alternado")
+
+    # ── os VERBOS do clique (v2.7 + v2.10 + v2.10.1) ─────────────────────
     def _press(self, btn, ev, info, hint, did, cmd, dynamic=False):
         if ev.button == 3:
             if dynamic:
@@ -361,6 +599,16 @@ class Dock:
                 self._launch(btn, cmd)              # direito no pin: OUTRA instância
             return True                              # consumido — sem "clicked"
         if ev.button == 2:
+            # v2.10.1 — o meio fecha a janela POR ID (a focada do app, ou a
+            # primeira); sem snapshot/daemon, o wlrctl da v2.10 assume.
+            if self.windows:
+                wids = self._windows_of(info, hint, did)
+                if wids:
+                    fw = [w for w in wids
+                          if self.windows[w][0] & F_ACTIVATED]
+                    if self._tl_close_win((fw or wids)[0]):
+                        log(f"fechado por id {(fw or wids)[0]}")
+                        return True
             if WLRCTL:
                 self._close_windows(info, hint, did)  # meio: fechar (gracioso)
                 return True
@@ -415,6 +663,24 @@ class Dock:
         # o clique responde na hora). O check é case-insensitive: o comm
         # do /proc pode ter capitalização própria ("Thunar").
         alive = any((x.lower() == b.lower()) for x in self.running) if b else False
+        # v2.10.1 — CAMINHO DO PROTOCOLO (janelas reais por id): 1 janela =
+        # foca/restaura; N janelas = cicla ENTRE ELAS (o alt-tab do dono,
+        # dentro do botão do app); ACT falhou/janela sumiu = fallback abaixo.
+        if self.windows:
+            wids = self._windows_of(info, hint, did)
+            if wids:
+                key = did or b
+                if len(wids) == 1:
+                    if self._tl_act(wids[0]):
+                        self._last_act[key] = wids[0]
+                        log(f"foco por id {wids[0]}")
+                        return
+                else:
+                    nxt = self._app_cycle_next(wids, key)
+                    if nxt is not None and self._tl_act(nxt):
+                        self._last_act[key] = nxt
+                        log(f"ciclo do app: id {nxt} ({len(wids)} janelas)")
+                        return
         if not (WLRCTL and alive):
             self._launch(None, cmd)
             return
@@ -517,6 +783,15 @@ class Dock:
             else:
                 ctx.remove_class("running")
         self._sync_dynamic()
+        # v2.10.1 — snapshot de janelas reais + comutador (um só tick):
+        # daemon morto = janelas vazias (fallbacks assumem) e comutador fora
+        snap = self._tl_list()
+        if snap is None:
+            self.windows = {}
+            self.focused = 0
+        else:
+            self.windows, self.focused = snap
+        self._sync_switcher()
         return True
 
     # ── dinâmicos (v2.10 — a dock auto-adaptável) ───────────────────────
@@ -562,6 +837,10 @@ class Dock:
         elif (not self.dyn or not self.buttons) and self.sep is not None:
             self.sep.destroy()
             self.sep = None
+        # v2.10.1 — o comutador é SEMPRE o último da pílula (os dinâmicos
+        # entram com pack_start no fim — reorder devolve a ordem)
+        if self.switch_btn is not None:
+            self.pill.reorder_child(self.switch_btn, -1)
         if self.dyn or fresh or dead:
             self.pill.show_all()
 
