@@ -6,6 +6,49 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **v2.10.0 — A DOCK AUTO-ADAPTÁVEL** (rig do dono: "quando clico com o
+  botão esquerdo no Brave ele abre como se fosse uma nova sessão… se eu
+  minimizo programas não consigo voltar onde estava… quando abro um programa
+  que não está fixado ele não vai pra dock… a dock deve ser auto adaptável e
+  funcionar como funciona uma dock em qualquer sistema"):
+  - **O FOCO QUE VIRAVA "NOVA SESSÃO" MORRE** — perícia: o matching do
+    wlrctl é EXATO e case-sensitive; o bridge X11 do wlroots expõe a
+    WM_CLASS com a capitalização do app ("Brave-browser") e os candidatos
+    nasciam minúsculos → NENHUM casava → o fallback abria outra instância
+    (o foot funcionava por ser minúsculo idêntico ao binário — o dono:
+    "o foot funciona mas não é consistente"). CURA: TODO candidato
+    (hint → StartupWMClass → binário → stem) vai em 3 formas canônicas
+    (original/minúscula/Título) e o último recurso é por TÍTULO com o nome
+    do app — para TODOS os apps. O "está rodando?" do clique também virou
+    case-insensitive (o comm do /proc pode ter capitalização própria).
+  - **APPS ABERTOS SEM PIN ENTRAM NA DOCK** (a parte que faltava para ser
+    uma dock de verdade): app rodando sem pin e COM .desktop ganha botão
+    dinâmico (ícone/nome resolvidos pelo sistema) após um FIO vertical;
+    ao fechar, os dinâmicos somem sozinhos até restar só o fixado. NADA se
+    fixa sozinho; o DIREITO num dinâmico FIXA (craft-pin add — .bak e
+    reload SIGUSR2 de sempre). NoDisplay/Hidden NUNCA viram botão (a lei
+    E21 da gaveta vale na dock). Dedup por desktop-id: fixado nunca
+    duplica. Diff a cada tick: nada toca no GTK se nada mudou (zero
+    flicker).
+  - **O MEIO FECHA** (convencional das docks): wlrctl window close —
+    WM_DELETE gracioso, o app confirma se tiver o que salvar.
+  - **O POLL SIMPLIFICOU E CRESCOU**: a varredura direta de /proc (uid do
+    usuário + comm) substitui o fork do pgrep a cada tick — N leituras sem
+    NENHUM fork, sem ERE para escapar (a classe do audit 24-b é impossível
+    por construção) e o MESMO scan alimenta pins e dinâmicos.
+  - **Limitação HONESTA**: o matching é POR APP (comm/.desktop), não por
+    janela — o wlr-foreign-toplevel não tem listagem via CLI (o wlrctl só
+    casar). Duas janelas do mesmo app = um botão; se o rig reportar a
+    necessidade de ciclo por janela, a v2.11 fala o protocolo direto.
+    E a restauração de MINIMIZADA pelo activate é hipótese forte (a spec
+    recomenda; o labwc decide) — validar no rig.
+  - Página local do projeto APOSENTADA a pedido do dono ("pode apagar nossa
+    página local aqui para não tomar tempo editando") — a prova real mora
+    no CI e nos releases; o tempo vai para a distro, não para o espelho.
+  - Suíte: **1640 peças · 0 falhas · GO** (baseline v2.9.2: 1627 — +13
+    líquidos: 11 contratos da dock auto-adaptável + realinhamento do
+    pgrep→/proc [o v2.5.0 vira proibição] + o scan por uid).
+
 - **v2.9.2 — A LEI DO LOG SILENCIOSO (e a auditoria da sujeira inteira)**
   (dono: "Log calamaris não precisa mais abrir um terminal só pra aparecer
   logs… o que mais de sujo como isso ficou no sistema?"):
