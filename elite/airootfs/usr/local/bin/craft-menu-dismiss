@@ -1,0 +1,51 @@
+#!/bin/sh
+# ═══════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · craft-menu-dismiss (v1.0 — A LEI DO DISMISS, v2.9.0)
+# ═══════════════════════════════════════════════════════════════════════════
+# O QUE É: o fechamento de menu por clique fora, como LEI DO COMPOSITOR.
+#
+# HISTÓRIA (por que este script existe):
+#   · v2.3.11 — a "gaiola" era uma janela GTK modal (nunca abriu no rig).
+#   · v2.7.0/v2.8.0 — a gaiola virou superfície layer-shell da dock com
+#     input region trocável. O rig do dono DESMENTIU com a carne: "matou o
+#     uso do mouse no sistema… só topbar e dock funcionam" — a perícia do
+#     código provou o bug (self.cage setado DEPOIS do _cage_set_region —
+#     a região de input nascia CHEIA e só crescia: uma rede invisível
+#     engolindo o clique de TODA janela, Calamares incluso).
+#   · v2.9.0 — ZERO superfícies novas. O labwc entrega o clique fora ao
+#     DESKTOP (contexto Root do rc.xml), e o rc.xml o executa AQUI:
+#       · ESQUERDO no desktop: mata o menu aberto e NÃO abre nada (o
+#         "fechar clicando fora" do dono — sem vazar pro menu-raiz);
+#       · DIREITO no desktop: mata o menu aberto e abre o menu-raiz
+#         (substituição limpa — o desktop segue com o direito de sempre).
+#     Se NENHUM menu está aberto, este script é um no-op de ~1ms
+#     (um stat() no state) — o clique esquerdo do desktop continua MUDO
+#     na prática, como o dono quer desde a v2.7.
+#
+# GARANTIAS (a classe de bug que matou a gaiola é impossível aqui):
+#   · nenhuma superfície, nenhuma input region, nenhuma geometria;
+#   · só mata processo cujo comm é EXATAMENTE "fuzzel" (nunca um pid
+#     reciclado de outro programa — mesma lei do toggle do craft-menu);
+#   · estado é do craft-menu: o kill interrompe o wait() lá e o trap
+#     EXIT do craft-menu limpa o state; o rm aqui é cinto e suspendrio.
+# ═══════════════════════════════════════════════════════════════════════════
+set -u
+
+ST="${XDG_RUNTIME_DIR:-/tmp}/elite-menus.$(id -u 2>/dev/null || echo 0)"
+
+# sem state = sem menu aberto = no-op imediato (o caminho comum)
+[ -f "$ST" ] || exit 0
+
+pid=""
+read -r pid _ <"$ST" 2>/dev/null || true
+case "${pid:-}" in
+    ''|*[!0-9]*) exit 0 ;;   # state corrompido: não mata NADA
+esac
+[ "$pid" -gt 1 ] 2>/dev/null || exit 0
+
+# a lei do toggle do craft-menu: pid é pid, comm é a prova
+[ "$(ps -o comm= -p "$pid" 2>/dev/null || true)" = "fuzzel" ] || exit 0
+
+kill "$pid" 2>/dev/null || true
+rm -f "$ST" 2>/dev/null || true
+exit 0
