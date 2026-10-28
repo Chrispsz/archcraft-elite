@@ -6,7 +6,7 @@ Formato: **o quê faz / como rodar / como reverter / dependências**.
 
 ## elite-tune (v4.6) — `/usr/local/bin/elite-tune`
 
-**O quê:** detecção de hardware (ISA x86-64, GPU+geração, RAM/pentes/MHz, discos) e aplicação da camada Elite: repos CachyOS (chave F3B607488DB35A47 + keyring + mirrorlist via `pacman -U`, sem pacman fork), kernel BORE, daemons (ananicy, scx-elite, dmemcg, fg-booster, grub-btrfsd, lactd), boot params GRUB (quote-safe), driver NVIDIA por geração (Turing+ → `nvidia-open-dkms`; Maxwell/Pascal → orientação AUR `nvidia-580xx-dkms`), zram/sysctl/udev idempotentes, shader cache NVIDIA. **v4.5 — firstboot anti-brick:** a troca de driver NVIDIA é `-S` → `-R` (instala o dkms ANTES de remover o pré-compilado); sem rede no 1º boot o driver do live fica **preservado**, o marker `firstboot-done` **não** é escrito e a unit re-tenta no boot seguinte — o wall avisa "pendente" em vez de "REINICIE". **v4.6 — ISO v1.1:** detecta o dkms NVIDIA **pré-compilado** da ISO (módulos em `/usr/lib/modules/<kver>/updates/dkms` + nvidia-utils) → primeiro boot do rig NVIDIA instala NADA (offline total, marker na primeira passada; online vira fallback p/ sistema não-ISO); `gpu_cleanup_foreign` varre também nvidia-open-dkms e os .ko pré-compilados em rigs AMD/Intel; **guard BBR** — kernel sem bbr remove as linhas do `99-elite-net.conf` em vez de deixar sysctl morto reclamando; interativo instala só headers do BORE (kernel único).
+**O quê:** detecção de hardware (ISA x86-64, GPU+geração, RAM/pentes/MHz, discos) e aplicação da camada Elite: repos CachyOS (chave F3B607488DB35A47 + keyring + mirrorlist via `pacman -U`, sem pacman fork), kernel BORE, daemons (ananicy-cpp, lactd, grub-btrfsd — SÓ raiz btrfs desde v2.10.5; scx-elite/dmemcg/fg-booster extintos v2.2), boot params GRUB (quote-safe), driver NVIDIA por geração (Turing+ → `nvidia-open-dkms`; Maxwell/Pascal → orientação AUR `nvidia-580xx-dkms`), zram/sysctl/udev idempotentes, shader cache NVIDIA. **v4.5 — firstboot anti-brick:** a troca de driver NVIDIA é `-S` → `-R` (instala o dkms ANTES de remover o pré-compilado); sem rede no 1º boot o driver do live fica **preservado**, o marker `firstboot-done` **não** é escrito e a unit re-tenta no boot seguinte — o wall avisa "pendente" em vez de "REINICIE". **v4.6 — ISO v1.1:** detecta o dkms NVIDIA **pré-compilado** da ISO (módulos em `/usr/lib/modules/<kver>/updates/dkms` + nvidia-utils) → primeiro boot do rig NVIDIA instala NADA (offline total, marker na primeira passada; online vira fallback p/ sistema não-ISO); `gpu_cleanup_foreign` varre também nvidia-open-dkms e os .ko pré-compilados em rigs AMD/Intel; **guard BBR** — kernel sem bbr remove as linhas do `99-elite-net.conf` em vez de deixar sysctl morto reclamando; interativo instala só headers do BORE (kernel único).
 
 **Modos:**
 ```bash
@@ -219,7 +219,7 @@ craft-shot full   # tela inteira → arquivo
 
 ## craft-bat — `/usr/local/bin/craft-bat`
 
-**O quê:** relatório de bateria no terminal (nível, estado, saúde, tempo estimado) — a CLI de bolso para o dono checar a bateria sem abrir nada. Sem launcher/keybind por design: é ferramenta de terminal (o dono perguntou o comando, ganhou o script).
+**O quê:** relatório de bateria (nível + estado) em notificação — a CLI de bolso para o dono checar a bateria sem abrir nada. **v2.10.5:** leitura direta de /sys/class/power_supply (upower saiu da equação — não estava na ISO e o antigo `set -e` matava o script calado em máquina sem bateria); o clique no módulo de bateria da waybar chama este script.
 
 ```bash
 craft-bat

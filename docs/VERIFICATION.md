@@ -42,11 +42,16 @@ não inventa cmdline):
    fix [6.2] é reprovação automática).
 5. **Zero unidades systemd em failed** (`Failed with result` — a classe do
    `fg-booster` crash-loopado em silêncio v1.0→v1.5).
-6. **Sessão gráfica viva**: o `elite-session-probe.service` imprime
-   `WAYBAR_COUNT` e `BARS_EXITS` no serial — as 2 barras waybar têm que
-   estar vivas e sem nenhuma morte. **v2.1: com KVM disponível no runner,
-   o probe é OBRIGATÓRIO** — sem ele a run é vermelha (fim da classe
-   "verde sem nunca ter visto a sessão gráfica").
+6. **Sessão gráfica viva**: o `elite-session-probe.service` imprime no
+   serial e o gate cobra TODOS os tokens (v2.10.5 — o doc dizia só
+   WAYBAR_COUNT/BARS_EXITS e mentia por omissão):
+   `WAYBAR_COUNT` (≥1) · `DOCK_COUNT` (≥1) · `TOPLEVEL_COUNT` (≥1, o
+   daemon das janelas vivo) · `TOPLEVEL_SOCKET=OK` (PING real no socket)
+   · `BARS_EXITS=0` (nenhuma morte) · fuzzel binário + INI parseável.
+   **v2.1: com KVM disponível no runner, o probe é OBRIGATÓRIO** — sem
+   ele a run é vermelha (fim da classe "verde sem nunca ter visto a
+   sessão gráfica"). **v2.10.5: o QEMU do verify usa KVM quando o runner
+   tem** — a cobrança e a máquina agora falam a mesma moeda.
 
 **Não prova:** máquina física do usuário (GPU real, firmware, periféricos);
 comportamento pós-kill do QEMU (janela de ~15 s pós-probe).

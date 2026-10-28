@@ -45,9 +45,17 @@ LOCK_MIN=10
 OFF_MIN=15
 SUSPEND_MIN=0   # v2.3.5: auto-suspende APÓS X min de inatividade (0 = off;
                 # opt-in — mudança de comportamento nunca é silenciosa)
-# shellcheck disable=SC1090  # caminho dinâmico POR DESIGN: é o conf do
+# shellcheck disable=SC2016  # caminho dinâmico POR DESIGN: é o conf do
 # usuário (~/.config/elite/idle.conf) — o ajuste sem relogin da v1.6.1
 [ -r "$CONF" ] && . "$CONF"
+
+# v2.10.5 — CONFIANÇA NO CONFINO, MAS PROVA DO VALOR: conf editado à mão
+# com lixo ('LOCK_MIN=10min', linha vazia) não pode matar o daemon calado
+# sob o set -eu (o -eq do start_daemon morreria antes do primeiro timeout).
+# Valor ruim = padrão de fábrica, e o conf continua lá pra o usuário ver.
+case "${LOCK_MIN:-}"    in ''|*[!0-9]*) LOCK_MIN=10    ;; esac
+case "${OFF_MIN:-}"     in ''|*[!0-9]*) OFF_MIN=15     ;; esac
+case "${SUSPEND_MIN:-}" in ''|*[!0-9]*) SUSPEND_MIN=0  ;; esac
 
 # ── start: a receita inteira do swayidle num lugar só ────────────────────
 start_daemon() {
@@ -152,6 +160,12 @@ Nunca — só manual (W-l)"
     fi
     if [ "$ec" -ne 0 ]; then
         mlog "Idle: MENU FALHOU exit=$ec — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
+        # v2.10.5 — FIM DO ÚLTIMO LOG-ONLY: todo irmão (power/rollback/
+        # connect) avisa na central; o idle era o único que falhava calado
+        # para quem está na tela.
+        command -v notify-send >/dev/null 2>&1 && \
+            timeout 5 notify-send -a 'Elite' -u normal -t 6000 'Idle' \
+                "Menu do idle falhou (exit=$ec) — log: ~/.cache/elite/menus.log" || true
     fi
     rm -f "$errf"
     choice="$(printf '%s' "$choice" | sed 's/ ← atual$//')"
@@ -159,16 +173,16 @@ else
     mlog "Idle: fuzzel AUSENTE — fallback terminal"
     # sem fuzzel: prompt de terminal (foot -e) — não trava o ajuste
     printf 'Idle — minutos até travar (atual: %s; vazio = cancela): ' "$CUR"
-    read -r mins
-    case "$mins" in
-        ''|*[!0-9]*) exit 0 ;;
-        0)  choice='Nunca — só manual (W-l)' ;;
-        *)  LOCK_MIN="$mins"; OFF_MIN=$((mins + 5))
-            mkdir -p "$CONF_DIR"
-            printf 'LOCK_MIN=%s\nOFF_MIN=%s\n' "$LOCK_MIN" "$OFF_MIN" > "$CONF"
-            setsid craft-idle start >/dev/null 2>&1 &
-            exit 0 ;;
-    esac
+    read -r mins || mins=''   # v2.10.5: EOF/set -e não mata calado — vazio = cancela
+        case "$mins" in
+            ''|*[!0-9]*) exit 0 ;;
+            0)  choice='Nunca — só manual (W-l)' ;;
+            *)  LOCK_MIN="$mins"; OFF_MIN=$((mins + 5))
+                mkdir -p "$CONF_DIR"
+                printf 'LOCK_MIN=%s\nOFF_MIN=%s\nSUSPEND_MIN=%s\n' "$LOCK_MIN" "$OFF_MIN" "${SUSPEND_MIN:-0}" > "$CONF"
+                setsid craft-idle start >/dev/null 2>&1 &
+                exit 0 ;;
+        esac
 fi
 
 case "$choice" in
@@ -183,7 +197,10 @@ case "$choice" in
 esac
 
 # persiste e reinicia o daemon JÁ (efeito imediato, sem relogin)
+# v2.10.5 — SUSPEND_MIN VIAJA NO REESCRITO: o menu regravava SÓ lock/off
+# e o suspend opt-in do usuário MORRIA na primeira troca de tempo de lock
+# (mudança de comportamento silenciosa — a lei proíbe).
 mkdir -p "$CONF_DIR"
-printf 'LOCK_MIN=%s\nOFF_MIN=%s\n' "$LOCK_MIN" "$OFF_MIN" > "$CONF"
+printf 'LOCK_MIN=%s\nOFF_MIN=%s\nSUSPEND_MIN=%s\n' "$LOCK_MIN" "$OFF_MIN" "${SUSPEND_MIN:-0}" > "$CONF"
 setsid craft-idle start >/dev/null 2>&1 &
 exit 0

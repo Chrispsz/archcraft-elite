@@ -10,7 +10,12 @@ on:
     # v2.1 — a suíte rápida (~1.4 min) roda em TODA branch: push de
     # branch = contratos; só TAG constrói ISO (build.yml). Cada push é
     # auditado pelo que custa segundos, não por uma ISO de 40 min.
+    # v2.10.5 — TAG TAMBÉM AUDITA: push de tag v* roda a suíte no commit
+    # apontado (a auditoria provou que tag nunca tocava a suíte — a lei
+    # 'só publica com suíte verde' agora tem DUAS provas: esta E o job
+    # suite do build.yml, que é GATE needs do release).
     branches: ['**']
+    tags: ['v*']
     paths:
       - 'elite/**'
       - 'scripts/**'

@@ -101,7 +101,7 @@ vpnc
 networkmanager-openconnect
 networkmanager-pptp
 networkmanager-vpnc
-network-manager-sstp
+networkmanager-sstp
 networkmanager-strongswan
 b43-fwcutter
 broadcom-wl

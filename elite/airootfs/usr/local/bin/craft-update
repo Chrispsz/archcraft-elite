@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
-# craft-update — atualiza repos oficiais + AUR (paru) em um comando
+# craft-update — atualiza os repos oficiais em um comando
+# v2.10.5 — o cabeçalho prometia AUR (paru): o paru NÃO está na ISO e o
+# 'if command -v paru' virava silêncio (atualizar o que não existe é
+# honesto; prometer e calar não). Se um dia o paru entrar na ISO, o
+# bloco abaixo já está pronto.
 set -euo pipefail
 sudo pacman -Syu
 if command -v paru >/dev/null 2>&1; then

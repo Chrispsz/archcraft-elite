@@ -62,6 +62,7 @@
     "mpris",
     "pulseaudio",
     "pulseaudio#mic",
+    "battery",
     "network",
     "custom/bgapps",
     "custom/power"
@@ -115,6 +116,21 @@
     "on-click": "playerctl play-pause",
     "on-click-middle": "playerctl next",
     "on-click-right": "playerctl previous"
+  },
+
+  // Bateria (v2.10.5 — o notebook ENTROU na barra: a auditoria de
+  // simulações provou que a única superfície de carga da distro era o
+  // craft-bat no terminal). SÓ ÍCONE+% no padrão da barra; o clique
+  // dá o resumo falado (craft-bat — status/tempo via /sys).
+  // Sem bateria (desktop/VM) o módulo não renderiza nada.
+  "battery": {
+    "format": "{capacity}% {icon}",
+    "format-charging": "{capacity}% \uf0e7",
+    "format-plugged": "{capacity}% \uf1e6",
+    "format-icons": ["\uf244", "\uf243", "\uf242", "\uf241", "\uf240"],
+    "states": { "warning": 25, "critical": 10 },
+    "interval": 30,
+    "on-click": "craft-bat"
   },
 
   // Rede — SÓ ÍCONE, UM SÓ P/ TUDO (v1.4: cabo + Wi-Fi + Bluetooth —

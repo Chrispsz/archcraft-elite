@@ -6,6 +6,64 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **v2.10.5 — A AUDITORIA QUE CRUZOU A ILHA** (o dono pediu: "faz várias
+  simulações de uso e olha como o código reage — quero validação real que
+  a distro é bem pensada e estável, tudo da melhor forma"). 5 personas
+  percorreram os ~7.000 linhas de código (sessão, teclado, energia,
+  manutenção, instalação, CI); 40+ achados períciados um a um; as curas
+  que sobreviveram à prova:
+  - **O TERMINAL FALAVA OUTRA LÍNGUA**: foot.ini `shell = /bin/sh -l`
+    abria bash-POSIX SEM o .zshrc — starship, autosuggestion, aliases:
+    tudo morto, silenciosamente, no terminal principal da distro. O
+    shell é o zsh (`/usr/bin/zsh -l`).
+  - **A CONTRADIÇÃO OPTIMUS**: install-stage decide GPU por
+    /sys/class/drm (vê o dGPU → MODULES=(nvidia …)) e o tune decide pela
+    1ª linha lspci (híbrido → intel → REMOVE o nvidia) — o MODULES
+    órfão matava o PRÓXIMO `mkinitcpio -P` ("module not found") e o
+    boot ia pro emergency shell. gpu_cleanup_foreign agora RECONCILIA
+    o initramfs + apaga modprobe.d/00-elite-nvidia.conf órfão.
+  - **A BATERIA QUE RESPONDE**: craft-bat morria CALADO em máquina sem
+    bateria (set -e + grep rc=1 — a mensagem amigável era código morto,
+    provado em sandbox); upower nem estava na ISO. Reescrito em
+    /sys/class/power_supply puro + módulo battery na waybar (clique =
+    resumo) — o notebook entrou na interface.
+  - **A SUÍTE NUNCA VIA UMA TAG**: push de v* não disparava a suíte e o
+    publish-artifact publicava a ISO de QUALQUER run (verify vermelho?
+    tanto faz). Agora: job `suite` é GATE `needs` do release, tests.yml
+    ouve tags, e o publish GATEia a conclusão do run de origem.
+  - **O FORENSE APRENDEU A CURA DO #116 INTEIRA**: "failed to
+    synchronize" de round transiente (que o preflight cura com
+    "cache completo") era FATAL incondicional — falso positivo da
+    mesma janela do #116. Condicional com a mesma prova do downloader;
+    sem cura segue FATAL. E o makepkg do AUR não mais mancha o log com
+    o ruído da tentativa 1 ("target not found" curado na 2).
+  - **O MENU QUE PRECISA DE SENHA**: rede salva com senha trocada
+    mascarava "rede fora de alcance" e a senha NUNCA era pedida de
+    novo — o stderr do nmcli agora é diagnóstico: credencial recusada
+    apaga o perfil e PERGUNTA (léxico EN+pt).
+  - **O SUSPEND OPT-IN QUE MORRIA NO MENU**: trocar o tempo de lock
+    pelo menu regravava idle.conf SEM SUSPEND_MIN — suspendia nunca
+    mais, silenciosamente. Viaja no reescrito (2 caminhos) + valores
+    lixo no conf não matam o daemon + falha de menu ganha notify.
+  - **O SUPERVISOR SEM IDENTIDADE**: craft-bars sem flock = 2
+    supervisores após relogin apertado (barra duplicada); a corrida
+    fork/exec do toplevel logava "SAIU exit=0" e o BARS_EXITS derrubava
+    o gate do QEMU numa sessão SAUDÁVEL. flock + veredito por prova.
+  - **AS VERDADES PEQUENAS**: veredito sem as 5 fases na mesa = NO-GO
+    (fase morta não deixa linha); swaync com guarda (o aviso universal
+    era o único daemon sem supervisionar/protect); udev nvme parava de
+    escovar partições (TEST!=partition); Keysym do screenshot em
+    minúscula (W-p/W-S-p, fim da ambiguidade região×tela do keysym 'P');
+    fonte dos títulos é a REAL (JetBrainsMono NF — "JetBrains Mono"
+    com espaço caía no fallback); foot/waybar/rc.xml falam a mesma
+    família; --anchor probado no pin-pick/rollback (a lei "flag nova
+    que mata"); Hidden e Name[pt_BR] entram no picker; can-suspend
+    ANTES do lock (toast que ninguém via); selo do fix-keys só com
+    cura feita; raiz ext4 não mais nasce com grub-btrfsd FAILED;
+    libpulse explícito; image-visibility com valor de enum; nome do
+    pacote sstp correto; zshconfig aponta pro editor que existe;
+    KVM real no verify; journald/README/VERIFICATION/BUILDING/
+    SCRIPTS concordam com o código.
 - **v2.10.3 — O MENU DAS JANELAS** (o veredito do dono sobre a comutadora
   da v2.10.1/2, ponto a ponto):
   - **"eu esperava algo como o menu do alt+tab… não consigo escolher para

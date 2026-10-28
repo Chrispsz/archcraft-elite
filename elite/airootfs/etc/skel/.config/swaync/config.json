@@ -14,7 +14,7 @@
   "timeout-critical": 12,
   "transition-time": 200,
   "keyboard-shortcuts": true,
-  "image-visibility": 80,
+  "image-visibility": "when-there's-a-tray-icon",
   "notification-2fa-action": true,
   "notification-grouping": true,
   "notification-icon-size": 64,

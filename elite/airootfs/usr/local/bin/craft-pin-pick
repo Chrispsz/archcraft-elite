@@ -36,6 +36,12 @@ mlog() {
 command -v fuzzel >/dev/null 2>&1 || { mlog "Fixar: fuzzel AUSENTE — picker morreu antes de abrir"; timeout 5 notify-send -a 'Elite' -u normal -t 8000 'Fixar na dock falhou' "fuzzel ausente — detalhe em ~/.cache/elite/menus.log" 2>/dev/null || true; exit 1; }
 command -v craft-pin >/dev/null 2>&1 || { mlog "Fixar: craft-pin AUSENTE"; exit 1; }
 
+# v2.10.5 — A FLAG É PROBADA ANTES DE USAR (lei do craft-menu: 'flag nova
+# que mata'): --anchor sem probe matava o picker inteiro em fuzzel velho
+# ('unrecognized option' → 'Fixar na dock falhou' na cara do usuário).
+ANCHOR=''
+fuzzel --help 2>&1 | grep -q -- '--anchor' && ANCHOR='--anchor=center'
+
 # ── 1. Inventário: .desktop visíveis (overrides primeiro — XDG order) ──
 LIST="$(mktemp)"
 errf="$(mktemp)"
@@ -50,7 +56,11 @@ for d in /usr/local/share/applications /usr/share/applications; do
         case " $seen " in *" $base "*) continue ;; esac
         seen="$seen $base"
         grep -q '^NoDisplay=true' "$f" && continue
-        name="$(sed -n 's/^Name=//p' "$f" | head -1)"
+        grep -q '^Hidden=true' "$f" && continue   # v2.10.5: Hidden também esconde (a lei XDG é dupla)
+        # v2.10.5 — o NOME É O DA GENTE: Name[pt_BR] vem antes do genérico
+        # (app só-localizado não sumia mais do picker da distro pt-BR)
+        name="$(sed -n 's/^Name\[pt_BR\]=//p' "$f" | head -1)"
+        [ -n "$name" ] || name="$(sed -n 's/^Name=//p' "$f" | head -1)"
         [ -n "$name" ] || continue
         printf '%s\t%s\n' "$name" "$base" >>"$LIST"
     done
@@ -61,7 +71,7 @@ done
 # v2.3.1: stderr CAPTURADO — crash vira log + notify (nunca morte calada)
 mlog "Fixar: abrindo picker (fuzzel, $(grep -c . "$LIST") apps)"
 ec=0
-choice="$(cut -f1 "$LIST" | fuzzel --dmenu --anchor=center --lines=10 --width=32 \
+choice="$(cut -f1 "$LIST" | fuzzel --dmenu $ANCHOR --lines=10 --width=32 \
     --prompt='Fixar na dock  ' 2>"$errf")" || ec=$?
 if [ "$ec" -eq 143 ]; then
     # v2.3.5 — SIGTERM = fechado de fora (toggle/cross-dismiss) —

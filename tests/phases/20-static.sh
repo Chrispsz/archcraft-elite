@@ -728,4 +728,85 @@ assert_file "$REPO/elite/airootfs/etc/systemd/system/pacman-init.service.d/10-el
 assert_grep "$REPO/elite/airootfs/etc/systemd/system/pacman-init.service.d/10-elite-retry.conf" 'Restart=on-failure' "pacman-init: retry on-failure (falha real segue reprovando o gate v1.5.2)"
 assert_grep "$REPO/elite/airootfs/etc/systemd/system/pacman-init.service.d/10-elite-retry.conf" 'StartLimitBurst=3' "pacman-init: 3 tentativas com limite (não é loop eterno)"
 
+
+# ── v2.10.5 — A AUDITORIA DE SIMULAÇÕES: as leis que nasceram dela ─────
+# (5 personas percorreram todo o código; cada cura que sobreviveu à
+# perícia vira CONTRATO — a classe inteira morre, não só o sintoma)
+SK="$REPO/elite/airootfs/etc/skel"
+RCX="$SK/.config/labwc/rc.xml"
+
+# A. o terminal fala a língua da distro: foot abre o ZSH (o .zshrc é o
+#    dono do shell — '/bin/sh -l' escondia starship/aliases do usuário)
+assert_nogrep "$SK/.config/foot/foot.ini" 'shell = /bin/sh' "v2.10.5: foot NUNCA mais abre POSIX sh (o .zshrc inteiro morria calado)"
+assert_grep "$SK/.config/foot/foot.ini" 'shell = /usr/bin/zsh -l' "v2.10.5: foot abre o zsh de login (starship/autosuggestion/aliases vivos)"
+
+# B. a fonte dos títulos é a REAL (mesma lei da waybar/fuzzel/foot):
+assert_nogrep "$RCX" '<name>JetBrains Mono</name>' "v2.10.5: rc.xml não usa a família fantasma 'JetBrains Mono' (fontconfig caía no fallback genérico)"
+assert_grep "$RCX" '<name>JetBrainsMono NF</name>' "v2.10.5: títulos do labwc na família REAL do archcraft-fonts 2.0"
+
+# C. screenshot com keysym sem ambiguidade (README e rc.xml na mesma língua):
+assert_grep "$RCX" 'key="W-p"' "v2.10.5: região em W-p (keysym minúsculo — o 'P' maiúsculo implícita Shift)"
+assert_grep "$RCX" 'key="W-S-p"' "v2.10.5: tela inteira em W-S-p"
+assert_nogrep "$RCX" '<keybind key="W-P"|<keybind key="W-S-P"' "v2.10.5: nenhum bind de screenshot com keysym maiúsculo (dois binds no mesmo combo)"
+
+# D. o editor existe (mousepad saiu da ISO; o alias não aponta pro fantasma):
+assert_nogrep "$SK/.zshrc" "mousepad ~" "v2.10.5: .zshrc não invoca pacote removido (mousepad saiu no debloat)"
+assert_grep "$SK/.zshrc" "alias zshconfig='nano ~/.zshrc'" "v2.10.5: zshconfig aponta pro editor da distro (nano)"
+
+# E. a flag é probada antes de usar (lei do craft-menu — classe 'flag nova que mata'):
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin-pick" "grep -q -- '--anchor'" "v2.10.5: pin-pick prova --anchor (fuzzel velho não mata o picker)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-rollback" "grep -q -- '--anchor'" "v2.10.5: rollback prova --anchor (mesma lei)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin-pick" 'Hidden=true' "v2.10.5: picker respeita Hidden (a lei XDG é dupla)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin-pick" 'pt_BR' "v2.10.5: picker fala o nome da gente (Name[pt_BR] antes do genérico)"
+
+# F. bateria: /sys puro (upower saiu da equação — e a mensagem amigável é alcançável):
+assert_nogrep "$REPO/elite/airootfs/usr/local/bin/craft-bat" 'command -v upower' "v2.10.5: craft-bat sem upower (dep que não estava na ISO)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bat" '/sys/class/power_supply' "v2.10.5: craft-bat lê o kernel direto (o código concorda com o docs)"
+assert_grep "$SK/.config/waybar/config.top" '"battery"' "v2.10.5: o notebook tem assento na barra (módulo battery — clique dá o resumo)"
+
+# G. o conf do idle sobrevive ao menu (suspend opt-in não morre no rewrite):
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-idle" 'SUSPEND_MIN=%s' "v2.10.5: idle.conf regravado COM o suspend do usuário (os dois caminhos)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-idle" 'LOCK_MIN:-.*\*\[!0-9\]\*\) LOCK_MIN=10' "v2.10.5: valor lixo no conf não mata o daemon (sanidade antes do -eq)"
+
+# H. a senha recusada é PERGUNTADA de novo (classe 'fora de alcance' mentirosa):
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-connect" 'connection delete' "v2.10.5: perfil com senha recusada morre e o fluxo PERGUNTA (léxico EN+pt do stderr)"
+
+# I. supervisão: singleton + corrida do fork com veredito por prova:
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bars" 'flock -n 9' "v2.10.5: craft-bars é singleton (2 supervisores = barra duplicada no relogin)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bars" '2ª instância saiu 0' "v2.10.5: corrida fork/exec não é óbito (BARS_EXITS não mente no gate do QEMU)"
+assert_grep "$SK/.config/labwc/autostart" 'command -v swaync' "v2.10.5: até a central de avisos nasce com guarda (fim do último spawn nu)"
+
+# J. udev: a regra só cospe no disco inteiro:
+assert_grep "$REPO/elite/airootfs/etc/udev/rules.d/60-io-elite.rules" 'TEST!="partition"' "v2.10.5: scheduler de NVMe não tenta escrever em partição (o '*' engolia o p1)"
+
+# K. enum de verdade no swaync (número mágico 80 não é valor de image-visibility):
+assert_nogrep "$SK/.config/swaync/config.json" '"image-visibility": 80' "v2.10.5: image-visibility não é número mágico (o schema é enum — chave ignorada era ruído)"
+assert_grep "$SK/.config/swaync/config.json" "when-there's-a-tray-icon" "v2.10.5: image-visibility com valor de enum válido"
+
+# L. pacotes: a dependência jurada existe de facto:
+assert_grep "$REPO/elite/packages.add" '^libpulse$' "v2.10.5: libpulse explícito (pactl/volumes + módulo pulseaudio da waybar)"
+assert_grep "$REPO/elite/packages.remove" '^networkmanager-sstp$' "v2.10.5: nome REAL do pacote sstp (o 'network-manager-sstp' era no-op silencioso)"
+assert_nogrep "$REPO/elite/packages.remove" '^network-manager-sstp$' "v2.10.5: o nome errado saiu da lista"
+
+# M. GPU: a limpeza reconcilia o initramfs (a contradição Optimus morre):
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'MODULES=\(nvidia' "v2.10.5: tune reconcilia MODULES do install-stage (híbrido não morre no próximo mkinitcpio)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-tune" "00-elite-nvidia.conf" "v2.10.5: options órfãs do nvidia saem junto"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-tune" "raiz não é btrfs" "v2.10.5: ext4 não nasce com grub-btrfsd FAILED (snapshots são lei do btrfs)"
+
+# N. CI: a suíte é GATE de release e o publish tem GATE de origem:
+assert_grep "$REPO/.github/workflows/build.yml" 'needs: \[build, verify, verify-install, suite\]' "v2.10.5: release exige a suíte (push de tag nunca mais publica sem contratos)"
+assert_grep "$REPO/.github/workflows/build.yml" 'gate de release' "v2.10.5: o job suite existe no build.yml"
+assert_grep "$REPO/.github/workflows/tests.yml" "tags: \['v\*'\]" "v2.10.5: a suíte também audita tags (dupla prova da lei)"
+assert_grep "$REPO/.github/workflows/publish-artifact.yml" 'PUBLICAÇÃO NEGADA' "v2.10.5: publish-artifact GATEia o run de origem (ISO de run vermelho não vira release)"
+assert_grep "$REPO/.ci/build.sh" 'try\$\{try\}\.log' "v2.10.5: makepkg do AUR não mancha o log com ruído de tentativa curada ('target not found' da 1ª vaia é capturado)"
+
+# O. veredito não celebra fase morta:
+assert_grep "$REPO/tests/phases/60-verdict.sh" 'SEM LINHA no summary' "v2.10.5: fase que morre antes do phase_end é NO-GO (GO com 4/5 peças extinto)"
+
+# P. can-suspend ANTES do lock (toast que ninguém via extinto):
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-power" 'loginctl can-suspend' "v2.10.5: hardware sem suspend é avisado NA SESSÃO (nada é travado)"
+
+# Q. o selo do fix-keys só come com a cura feita:
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-fix-keys" 'keyring não atualizado' "v2.10.5: sem rede não escreve selo de 24h (o script não mente)"
+
 phase_end

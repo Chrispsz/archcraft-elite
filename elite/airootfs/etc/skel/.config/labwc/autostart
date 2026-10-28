@@ -74,7 +74,12 @@ else
 fi
 
 # --- Central de notificações (SwayNC) — toggle no relógio da barra ---------
-swaync &
+# v2.10.5 — MESMA LEI DOS VIZINHOS (fim do último spawn sem guarda): o
+# swaync é a única superfície de TODOS os avisos de erro dos craft-*,
+# morrer calado contrariava a doutrina do próprio arquivo.
+if command -v swaync >/dev/null 2>&1; then
+    swaync &
+fi
 
 # --- Diálogo de senha gráfico (polkit) — o Archcraft só sobe agente na sessão
 #     Openbox dele; na sessão LABWC é este arquivo que sobe o agente

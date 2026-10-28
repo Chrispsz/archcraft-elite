@@ -95,6 +95,10 @@ slurp
 playerctl
 brightnessctl
 pulsemixer
+# v2.10.5 — libpulse EXPLÍCITO: o pactl dos volumes XF86Audio e o módulo
+# pulseaudio/pulseaudio#mic da waybar precisam da lib — dependia de cadeia
+# transitive que ninguém jurava (auditado na auditoria de simulações)
+libpulse
 polkit-gnome
 xdg-desktop-portal-wlr
 mpv

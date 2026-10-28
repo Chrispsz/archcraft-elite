@@ -182,13 +182,29 @@ wifi_connect() {
     # rede já salva? sobe pelo NOME — a senha vem do cofre do NM, sem prompt
     if nmcli -g NAME connection show 2>/dev/null | grep -Fxq -- "$ssid"; then
         mlog "Rede: conexão salva '$ssid' — nmcli connection up"
-        if nmcli connection up "$ssid" >/dev/null 2>&1; then
+        # v2.10.5 — o stderr do nmcli É O DIAGNÓSTICO (antes: >/dev/null
+        # 2>&1 escondia a causa e o aviso jurava 'fora de alcance' até para
+        # senha recusada — e a senha NUNCA era pedida de novo).
+        err="$(nmcli connection up "$ssid" 2>&1 1>/dev/null)"
+        if [ -z "$err" ]; then
             note -t 4000 'Wi-Fi' "Conectado: $ssid"
-        else
-            note -u normal -t 8000 'Wi-Fi' \
-                "Falhou ao conectar em $ssid — rede fora de alcance? Tente de novo."
+            return 0
         fi
-        return 0
+        mlog "Rede: '$ssid' falhou — stderr: $(printf '%s' "$err" | head -c 200 | tr '\n' ';')"
+        case "$err" in
+            # credencial recusada (NM fala inglês OU português — os dois
+            # léxicos entram: secrets/segredos, auth/autent, senha/password)
+            *ecret*|*egredo*|*auth*|*utent*|*802-11*|*enha*|*assword*)
+                mlog "Rede: credencial de '$ssid' recusada — perfil apagado, pedindo senha de novo"
+                note -u normal -t 6000 'Wi-Fi' "Senha de $ssid recusada — tenta de novo."
+                nmcli connection delete "$ssid" >/dev/null 2>&1 || true
+                wifi_connect "$ssid" "$sec"   # perfil morto → cai no ramo 'rede nova' e PERGUNTA
+                return 0 ;;
+            *)
+                note -u normal -t 8000 'Wi-Fi' \
+                    "Falhou ao conectar em $ssid — rede fora de alcance? Tente de novo."
+                return 0 ;;
+        esac
     fi
     # rede aberta: direto
     if [ -z "$sec" ]; then
@@ -492,7 +508,7 @@ EOF
             # legal e funcional") segue: blueman-manager (GUI) com o
             # bluetui de fallback
             mlog "Rede: abrindo o gerenciador Bluetooth"
-            rm -f "$MAP"
+            rm -f "$MAP" "$T1" "$T2"   # v2.10.5: exec pula o trap — limpa na mão
             if command -v blueman-manager >/dev/null 2>&1; then
                 exec blueman-manager
             fi
@@ -501,7 +517,7 @@ EOF
             # a CRIAÇÃO manual de redes mora no gerenciador gráfico do
             # sistema (a definição do próprio dono para o editor)
             mlog "Rede: abrindo o editor de conexões do sistema"
-            rm -f "$MAP"
+            rm -f "$MAP" "$T1" "$T2"   # v2.10.5: exec pula o trap — limpa na mão
             if command -v nm-connection-editor >/dev/null 2>&1; then
                 exec nm-connection-editor
             fi

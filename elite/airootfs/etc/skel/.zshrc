@@ -71,4 +71,6 @@ alias gp='git push'
 
 # sistema
 alias update='sudo pacman -Syu'
-alias zshconfig='mousepad ~/.zshrc'
+# v2.10.5 — mousepad SAIU da ISO (packages.remove) — o atalho apontava
+# pra um editor que não existe; o editor da distro é o nano (W-e).
+alias zshconfig='nano ~/.zshrc'

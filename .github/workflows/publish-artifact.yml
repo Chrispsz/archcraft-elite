@@ -46,6 +46,30 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
+      # ── v2.10.5 — GATE DE ORIGEM ─────────────────────────────────────
+      # A auditoria de simulações provou: este utilitário publicava a ISO
+      # de QUALQUER run informado — inclusive um cujo verify/verify-install
+      # FALHARAM (a ISO é upada no job build antes dos gates rodarem).
+      # A lei de agora: o run de origem tem que estar INTEIRO e VERDE.
+      - name: GATE — o run de origem tem que estar verde (build+verify+verify-install)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          API="repos/${{ github.repository }}/actions/runs/${{ inputs.run_id }}"
+          conc="$(gh api "$API" --jq '.conclusion')"
+          echo "run ${{ inputs.run_id }}: conclusion=${conc:-nenhum}"
+          [ "$conc" = "success" ] || {
+            echo "✖ PUBLICAÇÃO NEGADA — o run de origem NÃO está verde ('${conc:-inexistente}')."
+            echo "  A ISO de um run doente não vira release (a lei do gate: só bits provados no ar)."
+            exit 1
+          }
+          echo "── jobs do run de origem (auditados):"
+          gh api "$API/jobs" --paginate --jq '.jobs[] | "  \(.name)=\(.conclusion)"'
+          BAD="$(gh api "$API/jobs" --paginate --jq '.jobs[] | select(.conclusion != "success" and .conclusion != "skipped") | .name')"
+          [ -z "$BAD" ] || { echo "✖ jobs não-verdes: $BAD"; exit 1; }
+          echo "✔ run de origem íntegro — todos os gates (boot, sessão, instalação) passaram nele"
+
       - name: Baixar artefato archcraft-elite-iso (run ${{ inputs.run_id }})
         uses: actions/download-artifact@v4
         with:

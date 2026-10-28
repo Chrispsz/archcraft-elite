@@ -64,6 +64,25 @@ jobs:
       - name: shfmt (informativo — não bloqueia)
         run: shfmt -d scripts/*.sh .ci/*.sh elite/fragments/*.sh || true
 
+  # ── v2.10.5 — SUÍTE COMO GATE DE RELEASE ────────────────────────
+  # A auditoria de simulações provou: push de TAG não disparava a suíte
+  # (tests.yml só ouvia branch) — a lei 'só publica com suíte verde' não
+  # tinha dentes na linha do release. Agora tem: o release exige ESTE job
+  # (needs), que roda o quebra-cabeça inteiro no commit da tag.
+  suite:
+    name: Suíte de contratos (gate de release)
+    runs-on: ubuntu-24.04
+    container: archlinux:base-devel
+    timeout-minutes: 15
+    steps:
+      - name: Preparar container (mesa, ferramentas)
+        run: |
+          pacman-key --init
+          pacman -Sy --noconfirm --needed git rsync shellcheck python-yaml python-pillow shfmt bun
+      - uses: actions/checkout@v5
+      - name: Montar o quebra-cabeça (5 fases + veredito)
+        run: bash tests/run-tests.sh
+
   # ── Build da ISO (container Arch PRIVILEGIADO via docker run) ────
   # jobs.container: não tem permissão de mount (pacstrap monta /proc
   # no chroot) — por isso o docker run --privileged a partir do runner.
@@ -164,7 +183,7 @@ jobs:
   #     (e sem asset quebrado no ar: a release já nasceu verificada).
   #   EVIDÊNCIA no corpo: tabela sha256 + tamanhos visíveis na release.
   release:
-    needs: [build, verify, verify-install]
+    needs: [build, verify, verify-install, suite]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -315,8 +334,14 @@ jobs:
           APPEND_GATE="$APPEND_GATE console=ttyS0,115200 systemd.log_target=console systemd.log_level=info systemd.show_status=yes"
           echo "── cmdline do gate (real + serial):"
           echo "   $APPEND_GATE"
+          # v2.10.5 — KVM QUANDO EXISTE: o gate cobrava 'sessão não chegou
+          # COM KVM DISPONÍVEL' mas bootava em TCG — a cobrança e a máquina
+          # discordavam. Agora o QEMU usa KVM quando o runner tem (e a
+          # cobrança fica honesta: mesma moeda dos dois lados).
+          KVM=""
+          if [ -e /dev/kvm ] && [ -w /dev/kvm ]; then KVM="-enable-kvm -cpu host"; echo "── KVM disponível: boot acelerado"; fi
           qemu-system-x86_64 \
-            -machine q35 -cpu max -smp 2 -m 7168 \
+            -machine q35 $KVM -smp 2 -m 7168 \
             -kernel "extracted/arch/boot/x86_64/vmlinuz-linux-cachyos-bore" \
             -initrd "extracted/arch/boot/x86_64/initramfs-linux-cachyos-bore.img" \
             -append "$APPEND_GATE" \

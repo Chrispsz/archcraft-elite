@@ -126,8 +126,10 @@ r() { # r <comando> [linhas]
     r "du -sh /var/cache/pacman/pkg 2>/dev/null" 2
 
     printf '\n══════════ CACHES & DISCO ══════════\n'
-    r "du -sh $CACHE/elite $CACHE/calamares 2>/dev/null" 4
-    r "du -sh $HOME/.cache/* 2>/dev/null | sort -rh | head -12" 14
+    # v2.10.5: caminho citado DENTRO do payload — caminho com espaço não
+    # quebra o du (o $r vai inteiro pro bash -c)
+    r "du -sh '$CACHE/elite' '$CACHE/calamares' 2>/dev/null" 4
+    r "du -sh '$HOME/.cache'/* 2>/dev/null | sort -rh | head -12" 14
     r "journalctl --disk-usage 2>/dev/null" 2
 
     printf '\n══════════ FIM DO DUMP ══════════\n'

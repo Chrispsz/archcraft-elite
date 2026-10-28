@@ -118,6 +118,18 @@ fi
 case "$choice" in
     'Sair da sessão') labwc --exit ;;
     'Suspender')
+        # v2.10.5 — CAN-SUSPEND ANTES DO LOCK: o toast 'Suspender falhou'
+        # nascia DEPOIS do hyprlock (avisar atrás da tela travada = avisar
+        # pra ninguém). Se o logind diz que este hardware NÃO suspende,
+        # avisa na sessão VIVA e nada é travado.
+        if [ "$(loginctl can-suspend 2>/dev/null)" != "yes" ]; then
+            mlog "Sessão: loginctl can-suspend ≠ yes — suspend indisponível, sessão preservada"
+            command -v notify-send >/dev/null 2>&1 && \
+                timeout 5 notify-send -a 'Elite' -u normal -t 8000 \
+                    'Suspender indisponível' \
+                    'Este sistema não oferece suspensão — nada foi travado.' || true
+            exit 0
+        fi
         # v2.6.0 — trava PRIMEIRO (acordou = tela travada, só o wallpaper
         # borrado) e suspende IGNORANDO inibidores: o -i é a cura do
         # "tenta mas rapidamente liga" (o inibidor de sono de app matava

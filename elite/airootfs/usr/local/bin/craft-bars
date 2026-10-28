@@ -24,6 +24,17 @@ LOG_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/elite"
 mkdir -p "$LOG_DIR" 2>/dev/null
 LOG="$LOG_DIR/bars.log"
 
+# v2.10.5 — SINGLETON (a mesma lei do flock do craft-toplevel): se um
+# labwc morre e o logind demora a colher a sessão velha, um craft-bars
+# ÓRFÃO sobrevive ao relogin — dois supervisores = barra duplicada e
+# dois loops escrevendo no mesmo bars.log. Segunda instância é no-op:
+# quem não segura o lock sai 0 SEM tocar em nada.
+if command -v flock >/dev/null 2>&1; then
+    mkdir -p "${XDG_RUNTIME_DIR:-/tmp}/elite" 2>/dev/null
+    exec 9>"${XDG_RUNTIME_DIR:-/tmp}/elite/bars.lock"
+    flock -n 9 || exit 0
+fi
+
 # Teto de 1 MiB (bytes): estoura, zera — evidência recente vale mais.
 # v2.5.0 — virou FUNÇÃO chamada DENTRO do loop: o cap só no arranque
 # deixava o crash-loop crescer sem freio (2 linhas + stderr do waybar
@@ -80,7 +91,18 @@ while :; do
         (
             /usr/local/bin/craft-toplevel >>"$LOG" 2>&1
             st=$?
-            printf '[%s] toplevel craft-toplevel SAIU exit=%d\n' "$(date '+%F %T')" "$st" >>"$LOG"
+            # v2.10.5 — A CORRIDA DO FORK: o autostart lança o daemon e o
+            # 1º pgrep deste loop pode chegar ANTES do exec completar →
+            # spawn duplicado → o novo perde o flock do socket e sai 0.
+            # Isso NÃO é morte: logar 'SAIU exit=0' inchava o BARS_EXITS
+            # e derrubava o gate do QEMU numa sessão SAUDÁVEL (a perícia
+            # da auditoria de simulações v2.10.5). Veredito por prova:
+            # exit 0 + outro daemon vivo = corrida, não óbito.
+            if [ "$st" -eq 0 ] && pgrep -f 'craft-toplevel' >/dev/null 2>&1; then
+                printf '[%s] toplevel 2ª instância saiu 0 (flock já segurado) — benigno\n' "$(date '+%F %T')" >>"$LOG"
+            else
+                printf '[%s] toplevel craft-toplevel SAIU exit=%d\n' "$(date '+%F %T')" "$st" >>"$LOG"
+            fi
         ) &
     fi
     sleep 5

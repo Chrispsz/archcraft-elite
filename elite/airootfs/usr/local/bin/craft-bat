@@ -1,19 +1,36 @@
 #!/usr/bin/env bash
-# craft-bat — resumo da bateria em notificação (notebooks — chame do terminal/launcher)
-set -euo pipefail
-if ! command -v upower >/dev/null 2>&1; then
-  echo "✖ upower ausente: sudo pacman -S upower" >&2
-  exit 1
+# craft-bat — resumo da bateria em notificação (notebooks — chame do
+# terminal/launcher ou do clique no módulo de bateria da waybar)
+#
+# v2.10.5 — A BATERIA QUE RESPONDE (auditoria de simulações, persona
+# "notebook na bateria"):
+#   1. O 'set -euo pipefail' + 'grep -m1' MATAVA o script CALADO quando
+#      não há bateria: o grep rc=1 dentro de $() disparava o set -e
+#      ANTES da linha da mensagem amigável — a mensagem era código morto
+#      (provado em sandbox: zero saída, exit 1).
+#   2. UPOWER SAIU DA EQUAÇÃO: /sys/class/power_supply é kernel puro —
+#      sem dependência, sem daemon, sem o 'upower ausente' (o upower não
+#      estava na ISO e o docs/SCRIPTS.md jurava /sys — agora o código
+#      concorda com o contrato).
+set -u
+bat=""
+for d in /sys/class/power_supply/BAT*; do
+    [ -d "$d" ] && bat="$d" && break
+done
+if [ -z "$bat" ]; then
+    echo "✖ nenhuma bateria encontrada (é um notebook?)" >&2
+    exit 1
 fi
-dev="$(upower -e | grep -m1 '^/org/freedesktop/UPower/devices/battery_BAT')"
-[[ -n "$dev" ]] || { echo "✖ nenhuma bateria encontrada (é um notebook?)" >&2; exit 1; }
-info="$(upower -i "$dev")"
-pct="$(awk -F': *' '/percentage:/{print $2; exit}' <<<"$info")"
-state="$(awk -F': *' '/state:/{print $2; exit}' <<<"$info")"
-left="$(awk -F': *' '/time to (full|empty):/{print $2; exit}' <<<"$info")"
-msg="🔋 ${pct:-?} · ${state:-?}${left:+ · $left}"
+pct="$(cat "$bat/capacity" 2>/dev/null || echo '?')"
+st="$(cat "$bat/status" 2>/dev/null || echo '?')"
+case "$st" in
+    Charging|Full)  icon="⚡" ;;
+    Discharging)    icon="🔋" ;;
+    *)              icon="🔋" ;;
+esac
+msg="$icon ${pct}% · $st"
 if command -v notify-send >/dev/null 2>&1; then
-  notify-send -t 4000 "Bateria" "$msg"
+    notify-send -t 4000 "Bateria" "$msg"
 else
-  echo "$msg"
+    echo "$msg"
 fi
