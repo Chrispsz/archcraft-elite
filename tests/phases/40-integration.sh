@@ -2235,7 +2235,12 @@ assert_grep "$REPO/elite/packages.add" '^wlrctl$' "v2.7.0: wlrctl na ISO (o meca
 assert_grep "$DOCK" 'def case_variants' "v2.10: as 3 formas canônicas de cada candidato existem (original/minúscula/Título — a cura do case-sensitive que abria nova sessão)"
 assert_grep "$DOCK" 'for v in case_variants\(c\)' "v2.10: TODO candidato vai nas 3 formas (hint, StartupWMClass, binário e stem — para TODOS os apps, não só os bem-comportados)"
 assert_grep "$DOCK" '"focus", "title"' "v2.10: último recurso por TÍTULO com o nome do app (alguns apps expõem o nome no título e não no app_id)"
-assert_grep "$DOCK" 'x\.lower\(\) == b\.lower\(\)' "v2.10: o 'está rodando?' é case-insensitive (o comm do /proc pode ter capitalização própria)"
+# v2.10.4 — o casamento EXATO puro ('x.lower() == b.lower()') morreu: lia
+# 'brave' ≠ 'brave-browser-stable' como "não rodando" e lançava DOIS. O
+# 'está rodando?' continua case-insensitive — agora pelo critério do
+# _windows_of (v2.10.3): exato OU contenção ≥4 chars, nos DOIS caminhos
+# (daemon vivo = janela; daemon morto = _fallback_alive).
+assert_grep "$DOCK" 'c == xl or \(len\(xl\) >= 4 and xl in c\)' "v2.10→v2.10.4: o 'está rodando?' é case-insensitive E por contenção (o exato puro lia 'brave' ≠ 'brave-browser-stable' como não-rodando e lançava DOIS — a cura v2.10.3 do matching, agora no fallback também)"
 #   2. apps abertos SEM pin aparecem após um fio e somem ao fechar — a dock
 #      auto-adaptável; NADA se fixa sozinho (o direito no dinâmico fixa).
 assert_grep "$DOCK" 'def _sync_dynamic' "v2.10: a seção dinâmica existe (app aberto sem pin ganha botão — a dock como a de qualquer sistema)"
@@ -2578,6 +2583,16 @@ assert_grep "$DOCK" 'def _sync_switcher' \
   "v2.10.1: o comutador sincroniza no MESMO tick do poll (sem fork novo — conexão persistente)"
 assert_grep "$DOCK" 'import socket' \
   "v2.10.1: socket UNIX no stdlib (zero dependência nova na ISO)"
+
+# ── v2.10.4 — a lei universal do menu + o fallback que vê o Brave ──
+assert_grep "$DOCK" '_menu_focus0 = self\.focused' \
+  "v2.10.4: o clique FORA fecha o menu das janelas — a linha de base é o foco na hora em que o menu nasceu (a lei v2.9.0 do dono, agora na dock; sem superfície nova, sem input region)"
+assert_grep "$DOCK" '_menu_rebase = True' \
+  "v2.10.4: o ✕ ganha 1 graça — a mudança de foco que o PRÓPRIO fecho causa não fecha o menu (fechar várias de uma vez continua uso real)"
+assert_grep "$DOCK" 'def _fallback_alive' \
+  "v2.10.4: o FALLBACK (daemon morto) usa o MESMO casamento do _windows_of — comm 'brave' ≠ binário 'brave-browser-stable' não é mais 'não rodando' (o clique não lança DOIS)"
+assert_nogrep "$DOCK" "any\(\(x\.lower\(\) == b\.lower\(\)\) for x in self\.running\)" \
+  "v2.10.4: o casamento EXATO puro morreu no fallback (a mesma classe do bug v2.10.0 do Brave — curada nos DOIS caminhos)"
 
 # ── sessão: supervisão, arranque e PROVA no live ──
 assert_grep "$BRS" "pgrep -f 'craft-toplevel'" \

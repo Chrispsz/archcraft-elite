@@ -1,6 +1,23 @@
 #!/usr/bin/python3
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · craft-dock-gui (v2.10.3 — "a dock MENU DAS JANELAS")
+# Archcraft ELITE · craft-dock-gui (v2.10.4 — "o menu que OBEDECE ao clique")
+# v2.10.4 — A LEI UNIVERSAL DO MENU + O FALLBACK QUE VÊ O BRAVE:
+#   1. O CLIQUE FORA FECHA o menu das janelas — o dono já sentenciou a lei
+#      na v2.9.0 ("fechar menu ao clicar fora") e TODO menu do mundo
+#      obedece; o MENU das janelas era o único que ficava aberto depois do
+#      clique em outra janela/ícone/desktop. A cura NÃO cria superfície
+#      NEM input region (a gaiola morta de pé): a VERDADE do tick basta —
+#      o foco que sai do lugar onde o menu nasceu é escolha feita em
+#      outro lugar, e o menu some. O ✕ renova a linha de base uma vez
+#      (fechar várias de uma vez continua uso real).
+#   2. O FALLBACK (daemon morto) usa o MESMO critério de casamento do
+#      _windows_of (v2.10.3): o casamento EXATO puro mordeu de novo —
+#      comm 'brave' ≠ binário 'brave-browser-stable' = 'não rodando' de
+#      fábrica → com o daemon morto, o clique no Brave lançava DOIS e o
+#      indicador ficava apagado. Contenção ≥4 chars nos dois sentidos:
+#      falso positivo é SEGURO (wlrctl falha → lança no fim), falso
+#      negativo é o bug.
+# v2.10.3 — "a dock MENU DAS JANELAS"
 # v2.1.1: read_pins à prova de TypeError (pin inválido é ignorado com log —
 #         nunca mais crash-loop; run #93 como evidência).
 # v2.3.4: FIM DO AUTOHIDE — a dock é SEMPRE VISÍVEL (diretriz do dono:
@@ -273,6 +290,10 @@ class Dock:
         self.menubox = None        # o MENU das janelas (v2.10.3)
         self.menu_open = False
         self._menu_sig = None      # assinatura da última renderização
+        # v2.10.4 — a linha de base do "clique fora": o foco NA HORA em que
+        # o menu abriu; o tick compara e decide (lei universal do menu)
+        self._menu_focus0 = None
+        self._menu_rebase = False  # um ✕ próprio acabou de fechar (1 graça)
         self._rows_box = None
         self._children = []        # Popen rastreados (a ceifa dos zumbis)
 
@@ -415,6 +436,8 @@ class Dock:
         self.switch_btn = None
         self.menu_open = False
         self._menu_sig = None
+        self._menu_focus0 = None
+        self._menu_rebase = False
         if self.menubox is not None:
             self.menubox.hide()
         for info, hint in read_pins():
@@ -631,8 +654,24 @@ class Dock:
 
     def _menu_sync(self):
         """O menu só se redesenha quando a VERDADE mudou (janelas, ordem
-        MRU ou foco) — diff por assinatura: zero flicker no tick."""
+        MRU ou foco) — diff por assinatura: zero flicker no tick.
+        v2.10.4 — A LEI UNIVERSAL DO MENU mora aqui: o foco que saiu do
+        lugar onde o menu nasceu é o clique fora (outra janela, alt-tab,
+        ícone da dock, desktop) — e o menu some. Sem superfície nova, sem
+        input region, sem sinal: a mesma verdade que desenha as linhas
+        decide o fechamento (a gaiola morta de pé)."""
         if not self.menu_open:
+            return
+        if self._menu_rebase:
+            # o ✕ ACABOU de fechar: a 1ª verdade que chega rebasa — a
+            # mudança de foco que vier junto é consequência do fecho MEU,
+            # não escolha do usuário (fechar várias de uma vez é uso real;
+            # a PRÓXIMA mudança de foco já é do usuário e fecha).
+            self._menu_rebase = False
+            self._menu_focus0 = self.focused
+        if (self._menu_focus0 is not None
+                and self.focused != self._menu_focus0):
+            self._menu_collapse()
             return
         sig = (tuple(sorted(
             (w, self.windows[w][1], self.windows[w][3])
@@ -705,6 +744,11 @@ class Dock:
         self._menu_rebuild()
         self.menubox.show_all()
         self.menu_open = True
+        # v2.10.4 — a linha de base do clique-fora nasce AQUI: o foco no
+        # instante em que o menu abriu. Qualquer foco diferente no tick =
+        # o usuário foi embora = menu fecha (lei universal do menu).
+        self._menu_focus0 = self.focused
+        self._menu_rebase = False
         log(f"menu das janelas aberto ({len(self.windows)} janelas)")
 
     def _menu_collapse(self):
@@ -712,6 +756,8 @@ class Dock:
         minimalista). O ✕ NÃO colapsa: fechar várias de uma vez é uso real."""
         self.menu_open = False
         self._menu_sig = None
+        self._menu_focus0 = None
+        self._menu_rebase = False
         if self.menubox is not None:
             self.menubox.hide()
 
@@ -731,6 +777,10 @@ class Dock:
             if len(self.windows) < 2:
                 self._menu_collapse()
             else:
+                # v2.10.4 — o fecho é MEU: a próxima mudança de foco que
+                # chegar é consequência dele (o labwc foca outra janela),
+                # não escolha do usuário — 1 graça do clique-fora.
+                self._menu_rebase = True
                 self._menu_sig = None
                 self._menu_rebuild()
 
@@ -823,9 +873,10 @@ class Dock:
             return
         # daemon morto — LEI DO FALLBACK v2.10 INTACTA: o wlrctl com as 3
         # formas canônicas e o launch; a dock nunca fica pior por causa
-        # da cura. O check é case-insensitive: o comm do /proc pode ter
-        # capitalização própria ("Thunar").
-        alive = any((x.lower() == b.lower()) for x in self.running) if b else False
+        # da cura. O check é o MESMO casamento do _windows_of (v2.10.4 —
+        # o exato puro lia 'brave' ≠ 'brave-browser-stable' como não-
+        # rodando e lançava DOIS).
+        alive = self._fallback_alive(info, hint, did)
         if not (WLRCTL and alive):
             self._launch(None, cmd)
             return
@@ -964,8 +1015,9 @@ class Dock:
             if self.tl_alive:
                 on = self._app_has_window(info, hint, did)
             else:
-                on = bool(binary) and any(x.lower() == binary.lower()
-                                          for x in self.running)
+                # v2.10.4 — o mesmo casamento do _windows_of (o exato
+                # puro deixava o Brave com o indicador apagado no fallback)
+                on = self._fallback_alive(info, hint, did)
             if on:
                 ctx.add_class("running")
             else:
@@ -980,6 +1032,26 @@ class Dock:
         REAL do snapshot. Processo em 2º plano sem janela não acende
         indicador — o dono fechou o programa, o marcador morre JUNTO."""
         return bool(self._windows_of(info, hint, did))
+
+    def _fallback_alive(self, info, hint, did):
+        """v2.10.4 — o 'está rodando?' do FALLBACK (daemon morto) usa o
+        MESMO critério de casamento do _windows_of (v2.10.3): exato OU
+        contenção ≥4 chars nos dois sentidos entre candidatos e comms.
+        O casamento EXATO puro mordeu de novo: o comm do Brave é 'brave'
+        e o binário do .desktop é 'brave-browser-stable' — 'não rodando'
+        de fábrica → com o daemon morto o clique lançava DOIS e o
+        indicador ficava apagado. Falso positivo é SEGURO (wlrctl falha
+        → lança no fim); falso negativo é o bug (duplica a janela)."""
+        cands = [c.lower() for c in self._focus_candidates(info, hint, did)]
+        if not cands:
+            return False
+        for x in self.running:
+            xl = (x or "").lower()
+            for c in cands:
+                if c == xl or (len(xl) >= 4 and xl in c) \
+                        or (len(c) >= 4 and c in xl):
+                    return True
+        return False
 
     # ── dinâmicos (v2.10 — a dock auto-adaptável) ───────────────────────
     def _sync_dynamic(self):
