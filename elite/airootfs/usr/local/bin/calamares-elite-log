@@ -35,8 +35,14 @@ if [ -f "$SESSION" ]; then
     chmod 644 /var/log/calamares.log 2>/dev/null || true
     echo "ELITE: log do Calamares persistido em /var/log/calamares.log (instalador)"
 fi
-# …e copiado para o /var/log do SISTEMA INSTALADO (auditoria dentro do alvo)
-for tgt in /mnt/elite /mnt; do
+# …e copiado para o /var/log do SISTEMA INSTALADO (auditoria dentro do alvo).
+# v2.10.6 — O ALVO REAL (achado D4 da Rodada 2): o mountPoint do Calamares
+# é um mkdtemp 'calamares-root-*' (mount/main.py upstream) — os caminhos
+# /mnt/elite e /mnt eram CÓDIGO MORTO (nunca existiram). A cópia de verdade
+# para o disco instalado é o preservefiles UPSTREAM (log → /var/log/
+# Calamares.log no alvo) — a promessa v2.0 se cumpre por esse mecanismo;
+# o glob abaixo é a cópia best-effort QUANDO o alvo ainda existe no disco.
+for tgt in /mnt/elite /mnt /tmp/calamares-root-*/; do
     if [ -d "$tgt/var/log" ] && [ -f "$tgt/etc/os-release" ]; then
         cp -f /var/log/calamares.log "$tgt/var/log/calamares.log" 2>/dev/null || true
         echo "ELITE: log do Calamares persistido em $tgt/var/log/calamares.log (alvo)"

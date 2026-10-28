@@ -192,6 +192,16 @@ wifi_connect() {
         fi
         mlog "Rede: '$ssid' falhou — stderr: $(printf '%s' "$err" | head -c 200 | tr '\n' ';')"
         case "$err" in
+            # v2.10.6 — RECUSA DE AUTORIZAÇÃO ≠ SENHA ERRADA: 'Not authorized
+            # to control networking' (polkit) casava '*auth*' do léxico de
+            # credencial e o perfil BOM era APAGADO — a rede só voltava
+            # re-digitando senha. Autorização negada NÃO apaga nada; o aviso
+            # diz o que é (a Rodada 2 da auditoria provou o falso positivo).
+            *uthoriz*|*ermission*)
+                mlog "Rede: '$ssid' bloqueado por AUTORIZAÇÃO (polkit/permissão) — perfil PRESERVADO"
+                note -u normal -t 8000 'Wi-Fi' \
+                    "Sem permissão para controlar a rede agora ($ssid) — perfil mantido."
+                return 0 ;;
             # credencial recusada (NM fala inglês OU português — os dois
             # léxicos entram: secrets/segredos, auth/autent, senha/password)
             *ecret*|*egredo*|*auth*|*utent*|*802-11*|*enha*|*assword*)

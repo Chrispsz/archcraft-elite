@@ -10,8 +10,11 @@
 # prática: escondia e não voltava): layer BOTTOM — some só sob tela cheia
 # e gaveta; esconder à mão é o toggle acima, escolha do usuário.
 # ═══════════════════════════════════════════════════════════════════════════
+# v2.10.6 — padrão ANCORADO: 'pkill -f' casa substring do cmdline — o
+# toggle podia mandar USR1 para um EDITOR com o fonte aberto ('vim …/
+# craft-dock-gui' — sinal default = terminate). A âncora pega só a dock
 case "${1:-toggle}" in
-    toggle) pkill -USR1 -f 'craft-dock-gui' 2>/dev/null || true ;;
-    reload) pkill -USR2 -f 'craft-dock-gui' 2>/dev/null || true ;;
+    toggle) pkill -USR1 -f '^/usr/bin/python3 /usr/local/bin/craft-dock-gui$' 2>/dev/null || true ;;
+    reload) pkill -USR2 -f '^/usr/bin/python3 /usr/local/bin/craft-dock-gui$' 2>/dev/null || true ;;
     *) echo "uso: craft-dock [toggle|reload]" >&2; exit 2 ;;
 esac

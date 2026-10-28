@@ -209,6 +209,28 @@ def case_variants(c):
     return out
 
 
+def _near_match(a, c):
+    """v2.10.6 — contenção ≥4 chars COM FRONTEIRA (a lei v2.10.3 apertada):
+    'brave' ⊂ 'brave-browser' casa (o '-' é fronteira — o Brave continua
+    visto), mas 'foot' ⊂ 'footclient' NÃO casa mais (letra colada = outro
+    app). A Rodada 2 da auditoria provou o custo do falso positivo: o MEIO
+    no pin do foot encerrava janelas do footclient (e o fallback wlrctl,
+    que casa por strcmp exato, mudava de mão e abria outro). Fronteira = o
+    caractere colado na ocorrência não é letra/número; vale nos DOIS
+    sentidos como antes."""
+    if len(c) < 4 or len(a) < 4:
+        return False
+    for x, y in ((c, a), (a, c)):
+        i = y.find(x)
+        while i != -1:
+            before = y[i - 1] if i > 0 else ""
+            after = y[i + len(x)] if i + len(x) < len(y) else ""
+            if not before.isalnum() and not after.isalnum():
+                return True
+            i = y.find(x, i + 1)
+    return False
+
+
 def read_pins():
     """Lê o arquivo de pins → lista de (DesktopAppInfo, app_id_hint).
 
@@ -421,8 +443,26 @@ class Dock:
 
     def _resolve_desktop(self, comm):
         """comm do /proc → DesktopAppInfo do app (ou None: não é 'programa'
-        no sentido da dock — daemons/shells sem .desktop não viram botão)."""
-        return self._desktop_index().get((comm or "").lower())
+        no sentido da dock — daemons/shells sem .desktop não viram botão).
+        v2.10.6 — o casamento da era v2.10.3 chega AQUI: exato → stem →
+        contenção com fronteira. O comm do Brave é 'brave' e as chaves do
+        índice são 'brave-browser'/'brave-browser-stable' — o exato puro
+        deixava o app rodando SEM botão dinâmico (a lei da auto-adaptação
+        falhava no app mais comum do desktop)."""
+        c = (comm or "").lower()
+        if not c:
+            return None
+        idx = self._desktop_index()
+        info = idx.get(c)
+        if info is not None:
+            return info
+        info = idx.get(c.rsplit(".", 1)[-1])   # stem: org.xfce.Thunar → thunar
+        if info is not None:
+            return info
+        for k, app in idx.items():             # contenção com fronteira (≥4)
+            if _near_match(c, k):
+                return app
+        return None
 
     # ── pins ─────────────────────────────────────────────────────────────
     def rebuild(self, *_):
@@ -596,9 +636,11 @@ class Dock:
             # do último ponto ("org.xfce.Thunar" → "thunar") e a contenção
             # nos dois sentidos (candidato ≥4 chars) — janelas que o match
             # antigo não via deixavam o fecho e o intercâmbio cegos.
+            # v2.10.6 — a contenção ganhou FRONTEIRA (_near_match): sem ela
+            # o pin do foot enxergava (e o MEIO encerrava) janelas do
+            # footclient — falso positivo com custo real no fecho.
             stem = a.rsplit(".", 1)[-1] if a else ""
-            near = any(len(c) >= 4 and len(a) >= 4
-                       and (c in a or a in c) for c in cands)
+            near = any(_near_match(a, c) for c in cands)
             if (a in cands or (stem and stem in cands) or near
                     or (name and name in t)):
                 out.append(wid)
@@ -869,13 +911,29 @@ class Dock:
                         self._last_act[key] = nxt
                         log(f"ciclo do app: id {nxt} ({len(wids)} janelas)")
                         return
+                # v2.10.6 — A MORTE NO MEIO DO CLIQUE: o ACT falhou e a
+                # conexão MORREU (sock=None — o _tl_cmd fecha e zera). O
+                # snapshot era velho e a janela pode estar VIVA no
+                # compositor: cair direto no _launch abria DOIS. A lei do
+                # fallback manda degradar: wlrctl tenta focar; só abre se
+                # TODAS as formas falharem. ERR honesto (janela morta de
+                # verdade, sock vivo) segue para o _launch — o tick
+                # refresca o snapshot.
+                if self._sock is None:
+                    self._fallback_focus(info, hint, did, cmd)
+                    return
             self._launch(None, cmd)
             return
-        # daemon morto — LEI DO FALLBACK v2.10 INTACTA: o wlrctl com as 3
-        # formas canônicas e o launch; a dock nunca fica pior por causa
-        # da cura. O check é o MESMO casamento do _windows_of (v2.10.4 —
-        # o exato puro lia 'brave' ≠ 'brave-browser-stable' como não-
-        # rodando e lançava DOIS).
+        # daemon morto — LEI DO FALLBACK v2.10 INTACTA (o caminho inteiro
+        # vive em _fallback_focus desde a v2.10.6; a morte no meio do
+        # clique degrada PARA CÁ em vez de lançar duplicado).
+        self._fallback_focus(info, hint, did, cmd)
+
+    def _fallback_focus(self, info, hint, did, cmd):
+        """LEI DO FALLBACK v2.10 INTACTA: o wlrctl com as 3 formas canônicas
+        e o launch; a dock nunca fica pior por causa da cura. O check é o
+        MESMO casamento do _windows_of (v2.10.4 — o exato puro lia 'brave'
+        ≠ 'brave-browser-stable' como não-rodando e lançava DOIS)."""
         alive = self._fallback_alive(info, hint, did)
         if not (WLRCTL and alive):
             self._launch(None, cmd)
@@ -1048,8 +1106,10 @@ class Dock:
         for x in self.running:
             xl = (x or "").lower()
             for c in cands:
-                if c == xl or (len(xl) >= 4 and xl in c) \
-                        or (len(c) >= 4 and c in xl):
+                # v2.10.6 — MESMA lei do _windows_of: exato OU contenção
+                # ≥4 com FRONTEIRA (_near_match) — o fallback não vê o que
+                # o daemon vivo não vê (foot ≠ footclient nos dois mundos).
+                if c == xl or _near_match(xl, c):
                     return True
         return False
 

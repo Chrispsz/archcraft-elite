@@ -169,6 +169,16 @@
     <repeatRate>30</repeatRate>
     <repeatDelay>330</repeatDelay>
 
+    <!-- v2.10.6 — DETERMINISMO DO W-Tab (achado Q27 da Rodada 2): o
+         <default/> do labwc pode trazer W-Tab → a LISTA de janelas que a
+         v1.7 aposentou, de volta pela porta dos fundos — por teclado.
+         O menu das janelas mora na DOCK (clique, v2.10.3); por teclado o
+         ciclista é o A-Tab/A-S-Tab do compositor. Bind explícito =
+         nenhum default volta sem licença. -->
+    <keybind key="W-Tab">
+      <action name="None" />
+    </keybind>
+
     <!-- ===== Aplicativos (convenções do criador + núcleo do projeto) ===== -->
     <!-- Terminal: W-Return (criador) e C-A-t (criador) → foot -->
     <keybind key="W-Return">
