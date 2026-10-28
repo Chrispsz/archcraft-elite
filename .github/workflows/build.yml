@@ -39,8 +39,12 @@ jobs:
       - uses: actions/checkout@v5
         # v2.10.6 — o token NÃO dorme no .git/config: o checkout entra num
         # container --privileged (pacstrap monta /proc) — credencial
-        # persistida lá era vetor (achado D2 da Rodada 2).
-        persist-credentials: false
+        # persistida lá era vetor (achado D2 da Rodada 2). O persist-
+        # credentials é INPUT do checkout (with:); solto no step é
+        # 'unexpected key' e o GitHub reprova o workflow inteiro (a run
+        # #123 pegou a classe — schema do Actions só o GitHub valida).
+        with:
+          persist-credentials: false
       - name: shellcheck (gate — warning ou acima; infos são intencionais e documentadas)
         run: |
           shopt -s globstar
@@ -86,8 +90,12 @@ jobs:
       - uses: actions/checkout@v5
         # v2.10.6 — o token NÃO dorme no .git/config: o checkout entra num
         # container --privileged (pacstrap monta /proc) — credencial
-        # persistida lá era vetor (achado D2 da Rodada 2).
-        persist-credentials: false
+        # persistida lá era vetor (achado D2 da Rodada 2). O persist-
+        # credentials é INPUT do checkout (with:); solto no step é
+        # 'unexpected key' e o GitHub reprova o workflow inteiro (a run
+        # #123 pegou a classe — schema do Actions só o GitHub valida).
+        with:
+          persist-credentials: false
       - name: Montar o quebra-cabeça (5 fases + veredito)
         run: bash tests/run-tests.sh
 
@@ -102,8 +110,12 @@ jobs:
       - uses: actions/checkout@v5
         # v2.10.6 — o token NÃO dorme no .git/config: o checkout entra num
         # container --privileged (pacstrap monta /proc) — credencial
-        # persistida lá era vetor (achado D2 da Rodada 2).
-        persist-credentials: false
+        # persistida lá era vetor (achado D2 da Rodada 2). O persist-
+        # credentials é INPUT do checkout (with:); solto no step é
+        # 'unexpected key' e o GitHub reprova o workflow inteiro (a run
+        # #123 pegou a classe — schema do Actions só o GitHub valida).
+        with:
+          persist-credentials: false
 
       - name: Restaurar cache de pacotes (pacman + [elite-local])
         # v2.1 — os ~2 GB de pacotes baixados a cada run (preparo do
