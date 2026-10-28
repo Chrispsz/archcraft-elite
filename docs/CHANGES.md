@@ -6,6 +6,48 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **v2.10.3 — O MENU DAS JANELAS** (o veredito do dono sobre a comutadora
+  da v2.10.1/2, ponto a ponto):
+  - **"eu esperava algo como o menu do alt+tab… não consigo escolher para
+    qual programa quero voltar ou encerrar"** — o ciclo cego morreu: o
+    comutador agora ABRE O MENU das janelas. Cada janela é uma linha
+    (ícone do app + título, na ordem MRU do daemon — a semântica do
+    alt-tab), o clique na linha foca/restaura a ESCOLHIDA e o ✕ da linha
+    encerra AQUELA janela. Escolher é sair do menu. SEM preview, SEM
+    miniatura — a linha é o OSD do alt-tab, agora clicável. O menu mora
+    NA MESMA superfície da pílula (zero superfície nova, zero input
+    fantasma), nasce invisível, cresce para cima e some na escolha.
+  - **"o ícone fica mudando para o ícone dos programas, achei isso muito
+    ruim"** — o botão não é mais ninguém: ícone FIXO
+    (`preferences-system-windows`); quem carrega ícone de app é a LINHA,
+    dentro do menu.
+  - **"fecho um programa da dock e aquele marcador de aberto está
+    continuando"** — a doença real: todo app lançado pela dock é filho
+    DELA; saído sem colheita virava ZUMBI com `/proc/<pid>/comm` vivo e
+    o scan lia o morto. Cura dupla: ceifa por `waitpid` não-bloqueante a
+    cada tick (`_reap_children`) + o critério do "aberto" virou a
+    JANELA REAL do daemon (processo em 2º plano sem janela não acende
+    indicador, não segura botão dinâmico e não vira "focar" — é abrir).
+  - **"a parte de programas em segundo plano não funciona, clico na
+    tarefa e ela não encerra"** — craft-bgapps v4.1: a escolha era
+    `Nome (pid N)` e o corte `${choice##*pid }` deixava o `)` no fim — o
+    guard `*[!0-9]*` rejeitava TODA escolha ("escolha sem pid válido" no
+    menus.log) e o kill NUNCA partia. O pid agora é só dígito
+    (`tr -cd '0-9'`), com prova funcional na suíte. E a dock empatou o
+    verbo: o MEIO no botão do app ENCERRA O PROGRAMA (todas as janelas
+    recebem o WM_DELETE gracioso).
+  - **MATCHING que faltava** — app_id composto casa por STEM
+    (`org.xfce.Thunar` → `thunar`) e por contenção (≥4 chars, dois
+    sentidos): janelas que o casamento antigo não via deixavam o fecho e
+    o intercâmbio cegos.
+  - **Leis intactas**: fallback v2.10 (daemon morto = /proc + wlrctl),
+    A-Tab/A-S-Tab do compositor, a escada de raio 20–12px da lei v2.3.9,
+    `font-size` banido do dock.css. O daemon `craft-toplevel` NÃO mudou
+    (sha256 do PKGBUILD intacto — o CYCLE segue na API do socket; a dock
+    é que não o usa mais: escolher venceu adivinhar).
+  - Suíte: **1690 peças · 0 falhas · GO** (baseline 1673 — +17 líquidos:
+    o contrato do CYCLE reescrito, 16 novos)
+
 - **v2.10.2 — A CURA DA #117** (a v2.10.1 NUNCA publicou: o gate do verify
   pegou o daemon morrendo em loop no live e travou o release — o sistema
   funcionando como projetado):
