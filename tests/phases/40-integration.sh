@@ -666,6 +666,24 @@ assert_grep "$DUMP" 'pacman -Qe' "v2.3.5: pacotes explícitos no dump (a coletâ
 assert_grep "$DUMP" 'tail -n 150' "v2.3.5: logs tailados no dump (evidência recente — sem arquivo gigante)"
 assert_grep "$REPO/scripts/apply-overlay.sh" '/usr/local/bin/craft-dump' "v2.3.5: craft-dump no file_permissions (senão 203/EXEC no live — a lição diag-boot2)"
 
+# ── v2.10.6 — O DUMP v2.0: o rig fala COMPLETO (o dono instala a 10.6,
+# manda o log, e a perícia já sabe o estado do sistema antes de perguntar) ──
+assert_grep "$DUMP" 'elite-session-probe' "v2.10.6: o dump ABRE com o veredito do probe (a sessão descrevendo a si mesma antes de qualquer detalhe)"
+assert_grep "$DUMP" 'systemctl --failed' "v2.10.6: units falhados no veredito (a 1ª pergunta de qualquer perícia de boot)"
+assert_grep "$DUMP" 'toplevel.sock' "v2.10.6: a TABELA REAL de janelas do daemon (W|id|flags|rank|app_id|título — a mesma verdade que a dock vê; o teste do btop chega com prova)"
+assert_grep "$DUMP" 'dock-pins' "v2.10.6: os pins no dump (fixado ≠ dinâmico — o matching da dock auditável à distância)"
+assert_grep "$DUMP" 'lspci -k' "v2.10.6: driver EM USO da GPU no dump (a cura D5 do híbrido com prova: nvidia bound ou não)"
+assert_grep "$DUMP" 'findmnt /' "v2.10.6: findmnt / no dump (lição D1: o idioma do mount decide btrfs — mount|grep nunca casou)"
+assert_grep "$DUMP" 'journalctl --list-boots' "v2.10.6: história de boots no dump (o 'acordou sozinho de anteontem' tem lugar cross-boot)"
+assert_grep "$DUMP" 'thermal_zone' "v2.10.6: temperaturas sem lm_sensors (sysfs do kernel — throttle não se esconde)"
+assert_grep "$DUMP" 'wlr-randr' "v2.10.6: layout REAL de monitores (posição/scale/modo atual — multi-monitor deixa de ser adivinhação)"
+assert_grep "$PKG" '^wlr-randr$' "v2.10.6: wlr-randr na ISO (o dump mostra o layout real; a receita canônica do labwc já o citava)"
+assert_grep "$DUMP" 'nmcli' "v2.10.6: estado da rede no dump (a cura B2 'Not authorized' agora tem evidência no papel)"
+assert_grep "$DUMP" 'wpctl' "v2.10.6: áudio no dump (sink/fonte default — a reclamação de som chega com nome e volume)"
+assert_grep "$DUMP" 'idle.conf' "v2.10.6: o idle.conf do dono viaja no dump (a caça ao despertar começa pela config escolhida)"
+assert_grep "$DUMP" 'XKB' "v2.10.6: o ABNT2 (Z2) com prova no dump (XKB_DEFAULT_LAYOUT chegou à sessão ou não)"
+assert_grep "$DUMP" 'timeout 15' "v2.10.6: o --upload tem timeout (rede morta devolve o terminal em 15s, não nunca)"
+
 # ── v1.0.3 CURADORIA "brabos 2026": uso geral de fábrica ───────────
 # v1.1 (MEGA PROMPT): a camada GUI legada/GTK3 foi purgada (mousepad,
 # zathura, file-roller, pavucontrol, thunar, firefox → remove); entram

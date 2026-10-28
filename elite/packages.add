@@ -84,6 +84,10 @@ foot
 swaybg
 hyprlock
 wlopm
+## v2.10.6 — o dump v2.0 mostra o layout REAL de monitores (posição/scale/
+## modo ATUAL de cada saída); a receita canônica do labwc já o citava —
+## a ferramenta agora viaja na ISO
+wlr-randr
 ## v2.7.0 — foco de janela pela dock (o dono: "clicar num programa já
 ## aberto deve ir para a tarefa aberta invés de abrir outra"): o wlrctl
 ## fala wlr-foreign-toplevel (labwc fala) — wlrctl window focus app_id:…
