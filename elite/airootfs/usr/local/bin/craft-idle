@@ -45,7 +45,7 @@ LOCK_MIN=10
 OFF_MIN=15
 SUSPEND_MIN=0   # v2.3.5: auto-suspende APÓS X min de inatividade (0 = off;
                 # opt-in — mudança de comportamento nunca é silenciosa)
-# shellcheck disable=SC2016  # caminho dinâmico POR DESIGN: é o conf do
+# shellcheck disable=SC1090  # caminho dinâmico POR DESIGN: é o conf do
 # usuário (~/.config/elite/idle.conf) — o ajuste sem relogin da v1.6.1
 [ -r "$CONF" ] && . "$CONF"
 
