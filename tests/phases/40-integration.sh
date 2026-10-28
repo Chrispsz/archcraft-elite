@@ -422,6 +422,12 @@ assert_grep "$BGA" 'dconf\*' "v2.6.0: dconf-service na casca (o dono: 'continua 
 assert_grep "$BGA" 'gvfs\*' "v2.6.0: gvfs* na casca (cobre gvfsd E os monitores gvfs-udisks2-vo/gvfs-mtp-volume cortados em 15 chars — foto do rig)"
 assert_grep "$BGA" 'Xwayland\*' "v2.6.0: o SERVIDOR Xwayland na casca (os apps X dele seguem aparecendo)"
 assert_grep "$BGA" 'WAYLAND_DISPLAY=' "v2.6.0: CANDIDATO SEM DISPLAY NUNCA É PROGRAMA (assinatura de serviço de fundo no /proc/PID/environ — o Brave e o Files conversam com o compositor; sd-pam/dconf/gvfs, nunca)"
+assert_grep "$BGA" "tr -cd '0-9'" \
+  "v2.10.3: o pid sai SÓ DÍGITO — o ##*pid deixava o ')' de 'Nome (pid N)' e o guard *[!0-9]* rejeitava TODA escolha: o kill NUNCA partia ('clico na tarefa e ela não encerra' — relato do dono)"
+# v2.10.3 — a prova FUNCIONAL da cura: a MESMA extração rodando de verdade
+_pidproof="$(choice='Brave (pid 4242)'; pid="${choice##*pid }"; printf '%s' "$pid" | tr -cd '0-9')"
+assert_eq "$_pidproof" "4242" \
+  "v2.10.3: a extração do pid roda DE VERDADE — 'Brave (pid 4242)' → '4242' (o parêntese não sobrevive)"
 assert_grep "$BGA" 'kill -KILL' "v2.6.0: encerrar DE VERDADE (SIGTERM, 2s, SIGKILL em quem aguentou — o dono clica UMA vez)"
 
 # v2.3.10 — A LEI DAS SAÍDAS E DAS NOTIFICAÇÕES (fotos do dono, live
@@ -2531,9 +2537,39 @@ assert_grep "$DOCK" 'def _tl_act' \
 assert_grep "$DOCK" 'def _app_cycle_next' \
   "v2.10.1: ciclo ENTRE janelas do app (o alt-tab dentro do botão — ring por id)"
 assert_grep "$DOCK" 'def _switch_click' \
-  "v2.10.1: o COMUTADOR clicável existe (o atalho pedido pelo dono)"
-assert_grep "$DOCK" 'self\._tl_cmd\("CYCLE"\)' \
-  "v2.10.1: o verbo do comutador é CYCLE (o anel MRU do daemon — sem preview, sem miniatura)"
+  "v2.10.3: o COMUTADOR clicável existe — o clique ABRE O MENU das janelas (o dono: 'eu esperava algo como o menu do alt+tab')"
+assert_nogrep "$DOCK" '"CYCLE"' \
+  "v2.10.3: o ciclo CEGO morre na dock — adivinhar o próximo não é escolher (o menu substitui o CYCLE; o daemon o mantém, a dock não o usa)"
+assert_grep "$DOCK" '_SWITCH_ICON = "preferences-system-windows"' \
+  "v2.10.3: ícone do comutador é FIXO (o dono: 'o ícone fica mudando para o ícone dos programas, achei isso muito ruim')"
+assert_grep "$DOCK" 'def _menu_rebuild' \
+  "v2.10.3: o MENU lista as janelas — ícone + título, ordem MRU do daemon, SEM preview e SEM miniatura"
+assert_grep "$DOCK" 'def _row_focus' \
+  "v2.10.3: o clique na linha foca a JANELA ESCOLHIDA (fim do 'não consigo escolher para qual programa quero voltar')"
+assert_grep "$DOCK" 'def _row_close' \
+  "v2.10.3: o ✕ da linha encerra AQUELA janela (fim do 'não consigo escolher… ou encerrar')"
+assert_grep "$DOCK" 'def _menu_collapse' \
+  "v2.10.3: escolher é SAIR do menu — a dock volta a ser a pílula (minimalista)"
+assert_grep "$DOCK" 'set_no_show_all' \
+  "v2.10.3: o menu mora na MESMA superfície e nasce invisível (zero input fantasma — a gaiola morta de pé)"
+assert_grep "$DOCK" 'set_max_content_height' \
+  "v2.10.3: teto de altura com scroll — N janelas não esticam a dock"
+assert_grep "$DOCK" 'def _reap_children' \
+  "v2.10.3: A CEIFA DOS ZUMBIS — app lançado pela dock saía sem colheita e o /proc/comm do morto mantinha o indicador 'continuando' (relato do dono)"
+assert_grep "$DOCK" 'self\._children\.append' \
+  "v2.10.3: todo lançamento é rastreado para a ceifa (Popen sem referência nunca é colhido)"
+assert_grep "$DOCK" 'def _app_has_window' \
+  "v2.10.3: com daemon vivo, o indicador é a JANELA REAL (processo em 2º plano sem janela não acende — fecho = marcador morto)"
+assert_grep "$DOCK" 'def _close_app_windows' \
+  "v2.10.3: o meio ENCERRA O PROGRAMA (todas as janelas do app — 'clico na tarefa e ela não encerra')"
+assert_grep "$DOCK" 'stem = a\.rsplit\("\.", 1\)\[-1\]' \
+  "v2.10.3: app_id composto casa por STEM ('org.xfce.Thunar' → 'thunar') + contenção — janelas que o match antigo não via"
+assert_grep "$DOCK" 'if self\.tl_alive and not self\._windows_of' \
+  "v2.10.3: dinâmico SEM janela real some (o processo teimoso de 2º plano não segura botão)"
+assert_grep "$DOCK" '#dockmenu' \
+  "v2.10.3: o menu tem CSS embutido (o fallback do dock.css ausente é completo)"
+assert_grep "$REPO/elite/airootfs/etc/skel/.config/elite/dock.css" '#dockmenu' \
+  "v2.10.3: o menu das janelas tem CSS no tema da pílula (a mesma escada Mocha do dock.css)"
 assert_grep "$DOCK" 'len\(self.windows\) < 2' \
   "v2.10.1: comutador existe SÓ com ≥2 janelas (zero poluição — minimalista)"
 assert_grep "$DOCK" 'if not \(WLRCTL and alive\):' \

@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · craft-dock-gui (v2.10.1 — "a dock COMUTADORA")
+# Archcraft ELITE · craft-dock-gui (v2.10.3 — "a dock MENU DAS JANELAS")
 # v2.1.1: read_pins à prova de TypeError (pin inválido é ignorado com log —
 #         nunca mais crash-loop; run #93 como evidência).
 # v2.3.4: FIM DO AUTOHIDE — a dock é SEMPRE VISÍVEL (diretriz do dono:
@@ -63,6 +63,37 @@
 #   5. A-Tab/A-S-Tab do compositor CONTINUAM (teclado cicla janelas com
 #      OSD) — dock comuta por clique, teclado comanda ciclo; cada um no
 #      que é melhor (a resposta à pergunta do dono).
+# v2.10.3 — O MENU DAS JANELAS (o veredito do dono sobre a comutadora):
+#   "eu esperava algo como o menu do alt+tab… não consigo escolher para
+#   qual programa quero voltar ou encerrar… o ícone fica mudando para o
+#   ícone dos programas, achei isso muito ruim… fecho um programa da dock
+#   e aquele marcador de aberto está continuando… a parte de programas em
+#   segundo plano não funciona, clico na tarefa e ela não encerra".
+#   Cura ponto a ponto:
+#   1. O COMUTADOR VIROU MENU — o clique abre o MENU das janelas: cada
+#      janela é uma linha (ícone do app + título, ordem MRU do daemon —
+#      a semântica do alt-tab), o clique na linha foca/restaura a
+#      ESCOLHIDA e o ✕ da linha encerra AQUELA janela. Escolher é SAIR
+#      do menu. SEM preview, SEM miniatura — a linha é o OSD do alt-tab,
+#      agora clicável.
+#   2. ÍCONE FIXO — o botão não é ninguém: ícone neutro constante
+#      (_SWITCH_ICON); quem carrega ícone de app é a LINHA, dentro do
+#      menu. O botão que virava os ícones dos apps morreu.
+#   3. O INDICADOR É A JANELA — com o daemon vivo, "aberto" = janela
+#      real do snapshot (processo em 2º plano SEM janela não acende).
+#      E a doença REAL do marcador que não morria: todo app lançado
+#      pela dock é filho DELA — saído sem colheita vira ZUMBI com
+#      /proc/<pid>/comm vivo, e o scan lia o morto. CURA: ceifa por
+#      waitpid (poll não-bloqueante) a cada tick + a janela como
+#      critério do "aberto".
+#   4. O MEIO ENCERRA O PROGRAMA — todas as janelas do app recebem o
+#      WM_DELETE (gracioso); o wlrctl segue no fallback.
+#   5. O MATCHING cresceu — app_id composto casa por STEM
+#      ("org.xfce.Thunar" → "thunar") e por contenção (≥4 chars, dois
+#      sentidos): janelas que o casamento antigo não via deixavam o
+#      fecho e o intercâmbio cegos.
+#   6. LEI DO FALLBACK INTACTA — daemon morto = /proc + wlrctl da v2.10,
+#      a dock nunca fica pior por causa da cura.
 # POR QUÊ EXISTE (feedback do dono, out/2026): a dock de waybar com pins de
 # GLIFO Nerd Font entregou "botões mal recortados, mal encaixados" e "nada é
 # o ícone real". Os caminhos conhecidos morreram COM EVIDÊNCIA:
@@ -100,7 +131,7 @@ import gi
 
 gi.require_version("Gtk", "3.0")
 gi.require_version("GtkLayerShell", "0.1")
-from gi.repository import GLib, Gio, Gtk, Gdk, GtkLayerShell  # noqa: E402
+from gi.repository import GLib, Gio, Gtk, Gdk, GtkLayerShell, Pango  # noqa: E402
 
 PINS_FILE = os.path.join(
     GLib.get_user_config_dir(), "elite", "dock-pins"
@@ -124,6 +155,12 @@ WLRCTL = shutil.which("wlrctl")  # foco/fecho de janela (wlr-foreign-toplevel)
 TOPOS = os.path.join(GLib.get_user_runtime_dir(), "elite", "toplevel.sock")
 F_ACTIVATED = 4   # flag do daemon (state activated do protocolo)
 F_MINIMIZED = 2   # (1=maximized · 2=minimized · 4=activated · 8=fullscreen)
+
+# v2.10.3 — o comutador tem ÍCONE FIXO (o veredito do dono: "o ícone fica
+# mudando para o ícone dos programas, achei isso muito ruim"). O botão
+# não é ninguém — é o MENU das janelas; quem carrega ícone de app é a
+# LINHA de cada janela, dentro do menu.
+_SWITCH_ICON = "preferences-system-windows"
 
 
 def log(msg):
@@ -231,8 +268,13 @@ class Dock:
         self.windows = {}          # id → (flags, rank, app_id, title)
         self.focused = 0           # id da janela focada (0 = nenhuma)
         self._last_act = {}        # app → última janela que NÓS focamos
+        self.tl_alive = False      # o daemon falou no último tick?
         self.switch_btn = None     # o comutador clicável (≥2 janelas)
-        self._switch_icon_key = None
+        self.menubox = None        # o MENU das janelas (v2.10.3)
+        self.menu_open = False
+        self._menu_sig = None      # assinatura da última renderização
+        self._rows_box = None
+        self._children = []        # Popen rastreados (a ceifa dos zumbis)
 
         self.win = Gtk.Window()
         self.win.set_name("dockwindow")
@@ -253,7 +295,30 @@ class Dock:
         self.pill = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
         self.pill.set_name("dockbox")
         self.pill.set_margin_bottom(PILL_FLOAT)
-        self.win.add(self.pill)
+
+        # v2.10.3 — o MENU das janelas mora NA MESMA superfície (a lei da
+        # gaiola morta de pé: NENHUMA superfície nova, NENHUM input
+        # fantasma). Invisível por padrão (no_show_all — nenhum show_all
+        # o acende); a âncora é SÓ a base: quando abre, cresce para CIMA;
+        # quando a escolha é feita, some — a dock volta a ser a pílula.
+        self.menubox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.menubox.set_name("dockmenu")
+        self.menubox.set_no_show_all(True)
+        self._rows_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL,
+                                 spacing=2)
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_name("menuscroll")
+        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_max_content_height(312)
+        scroll.set_propagate_natural_height(True)
+        scroll.set_propagate_natural_width(True)
+        scroll.add(self._rows_box)
+        self.menubox.pack_start(scroll, True, True, 0)
+
+        self.root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.root.pack_start(self.menubox, False, False, 0)
+        self.root.pack_start(self.pill, False, False, 0)
+        self.win.add(self.root)
 
         self.rebuild()
 
@@ -261,7 +326,8 @@ class Dock:
         self.win.show_all()
         log(f"dock iniciada: {len(self.buttons)} pin(s) · "
             f"sempre visível (layer BOTTOM — some só sob tela cheia/gaveta) · "
-            f"dinâmicos ON (apps abertos sem pin aparecem após o fio)")
+            f"dinâmicos ON (apps abertos sem pin aparecem após o fio) · "
+            f"menu das janelas ON (v2.10.3)")
 
         GLib.timeout_add(3000, self.poll_running)
         GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGUSR1,
@@ -345,13 +411,17 @@ class Dock:
         self.dyn = {}
         self.sep = None
         self.pin_ids = set()
-        # o comutador morreu junto (o poll o recria sozinho — v2.10.1)
+        # o comutador e o MENU morrem juntos (o poll os recria — v2.10.3)
         self.switch_btn = None
-        self._switch_icon_key = None
+        self.menu_open = False
+        self._menu_sig = None
+        if self.menubox is not None:
+            self.menubox.hide()
         for info, hint in read_pins():
             btn = self._make_button(info, hint, dynamic=False)
             self.pill.pack_start(btn, False, False, 0)
-            self.buttons.append((btn, binary_of(info)))
+            self.buttons.append((btn, binary_of(info), info, hint,
+                                 info.get_id() or ""))
             did = info.get_id() or ""
             if did:
                 self.pin_ids.add(did)
@@ -383,10 +453,11 @@ class Dock:
         if dynamic:
             btn.set_tooltip_text(
                 f"{name} — esquerdo: focar/abrir · direito: fixar na dock · "
-                f"meio: fechar janela")
+                f"meio: encerrar programa")
         elif WLRCTL:
             btn.set_tooltip_text(
-                f"{name} — esquerdo: focar/abrir · direito: nova janela")
+                f"{name} — esquerdo: focar/abrir · direito: nova janela · "
+                f"meio: encerrar programa")
         else:
             btn.set_tooltip_text(f"{name} — clique: abrir")
         if cmd:
@@ -498,7 +569,15 @@ class Dock:
         for wid, (_fl, _rk, app_id, title) in self.windows.items():
             a = (app_id or "").lower()
             t = (title or "").lower()
-            if a in cands or (name and name in t):
+            # v2.10.3 — o app_id COMPOSTO entra no casamento: o stem depois
+            # do último ponto ("org.xfce.Thunar" → "thunar") e a contenção
+            # nos dois sentidos (candidato ≥4 chars) — janelas que o match
+            # antigo não via deixavam o fecho e o intercâmbio cegos.
+            stem = a.rsplit(".", 1)[-1] if a else ""
+            near = any(len(c) >= 4 and len(a) >= 4
+                       and (c in a or a in c) for c in cands)
+            if (a in cands or (stem and stem in cands) or near
+                    or (name and name in t)):
                 out.append(wid)
         return sorted(out)
 
@@ -515,80 +594,145 @@ class Dock:
             return fw[0]
         return min(wids, key=lambda w: self.windows[w][1])
 
-    # ── o COMUTADOR clicável (v2.10.1 — o alt-tab do dono na dock) ───────
-    def _switch_target(self):
-        """Onde o próximo clique do comutador VAI cair: a janela seguinte no
-        anel MRU do daemon depois da focada (o exato A-Tab, em clique).
-        Sem focada, a mais recente. → (id, app_id, title) ou None."""
-        if len(self.windows) < 2:
-            return None
-        ranks = {w: v[1] for w, v in self.windows.items()}
-        f_rank = ranks.get(self.focused, -1)
-        targets = [w for w in self.windows if ranks[w] > f_rank]
-        if targets:
-            wid = min(targets, key=lambda w: ranks[w])
-        else:
-            # a focada é o topo do MRU: alvo = a segunda do anel
-            wid = sorted(self.windows, key=lambda w: ranks[w])[1]
-        _fl, _rk, app_id, title = self.windows[wid]
-        return (wid, app_id, title)
-
+    # ── o COMUTADOR virou MENU (v2.10.3 — o veredito do dono) ───────────
+    # "eu esperava algo como o menu do alt+tab… não consigo escolher para
+    # qual programa quero voltar ou encerrar… o ícone fica mudando para o
+    # ícone dos programas". A cura: ÍCONE FIXO no botão e o clique abre o
+    # MENU das janelas — a linha foca a ESCOLHIDA, o ✕ encerra AQUELA.
     def _sync_switcher(self):
-        """O botão comutador existe SÓ com ≥2 janelas e daemon vivo (zero
-        poluição — minimalista). Ícone = o ÍCONE do app de DESTINO: o clique
-        anuncia para onde vai, SEM preview e SEM miniatura nenhuma."""
-        tgt = self._switch_target()
-        if tgt is None:
+        """O botão existe SÓ com ≥2 janelas e daemon vivo (zero poluição —
+        minimalista). ÍCONE FIXO: o botão não é ninguém, é o MENU; quem
+        carrega ícone de app é a LINHA, dentro do menu."""
+        if len(self.windows) < 2:
             if self.switch_btn is not None:
                 self.pill.remove(self.switch_btn)
                 self.switch_btn.destroy()
                 self.switch_btn = None
-                self._switch_icon_key = None
+                self._menu_collapse()
                 self.pill.show_all()
             return
-        _wid, app_id, title = tgt
         if self.switch_btn is None:
             self.switch_btn = Gtk.Button.new()
             self.switch_btn.set_relief(Gtk.ReliefStyle.NONE)
             self.switch_btn.set_name("switchbtn")
             img = Gtk.Image()
+            img.set_from_icon_name(_SWITCH_ICON, Gtk.IconSize.DIALOG)
             img.set_pixel_size(ICON_SIZE)
             self.switch_btn.add(img)
+            self.switch_btn.set_tooltip_text(
+                "Janelas abertas — clique: escolher a janela (menu)")
             self.switch_btn.connect("button-press-event", self._switch_press)
             self.switch_btn.connect("clicked", self._switch_click)
             self.pill.pack_start(self.switch_btn, False, False, 0)
             self.pill.reorder_child(self.switch_btn, -1)
             self.pill.show_all()
-            log("comutador entrou (≥2 janelas)")
-        key = app_id or title
-        if key != self._switch_icon_key:
-            self._switch_icon_key = key
-            img = self.switch_btn.get_child()
+            log("comutador entrou (≥2 janelas) — ícone fixo, clique = menu")
+        self._menu_sync()
+
+    def _menu_sync(self):
+        """O menu só se redesenha quando a VERDADE mudou (janelas, ordem
+        MRU ou foco) — diff por assinatura: zero flicker no tick."""
+        if not self.menu_open:
+            return
+        sig = (tuple(sorted(
+            (w, self.windows[w][1], self.windows[w][3])
+            for w in self.windows)), self.focused)
+        if sig == self._menu_sig:
+            return
+        self._menu_sig = sig
+        self._menu_rebuild()
+
+    def _menu_rebuild(self):
+        """Linhas = janelas na ordem do anel MRU (rank do daemon — a
+        semântica do alt-tab). Cada linha: ícone do app + título; o clique
+        foca a escolhida e o ✕ encerra aquela janela. Sem preview."""
+        for c in self._rows_box.get_children():
+            self._rows_box.remove(c)
+            c.destroy()
+        for wid in sorted(self.windows, key=lambda w: (self.windows[w][1], w)):
+            _fl, _rk, app_id, title = self.windows[wid]
             info = self._desktop_index().get((app_id or "").lower())
-            icon = info.get_icon() if info is not None else None
-            if icon is not None:
-                img.set_from_gicon(icon, Gtk.IconSize.DIALOG)
-            else:
-                img.set_from_icon_name("preferences-system-windows",
-                                       Gtk.IconSize.DIALOG)
+            if info is None and app_id:
+                info = self._desktop_index().get(app_id.rsplit(".", 1)[-1].lower())
             name = (info.get_display_name() if info is not None else None) \
                 or title or app_id or "janela"
-            self.switch_btn.set_tooltip_text(
-                f"Alternar janelas — próxima: {name}")
-            self.pill.show_all()
+            row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
+            btn = Gtk.Button.new()
+            btn.set_relief(Gtk.ReliefStyle.NONE)
+            btn.set_name("menurow")
+            inner = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            img = Gtk.Image()
+            icon = info.get_icon() if info is not None else None
+            if icon is not None:
+                img.set_from_gicon(icon, Gtk.IconSize.MENU)
+            else:
+                img.set_from_icon_name(_SWITCH_ICON, Gtk.IconSize.MENU)
+            img.set_pixel_size(22)
+            inner.pack_start(img, False, False, 0)
+            lab = Gtk.Label(label=title or name)
+            lab.set_ellipsize(Pango.EllipsizeMode.END)
+            lab.set_max_width_chars(34)
+            lab.set_xalign(0)
+            inner.pack_start(lab, True, True, 0)
+            btn.add(inner)
+            btn.set_tooltip_text(f"{name} — clique: ir para esta janela")
+            if wid == self.focused:
+                btn.get_style_context().add_class("focused")
+            btn.connect("clicked", self._row_focus, wid)
+            row.pack_start(btn, True, True, 0)
+            x = Gtk.Button.new()
+            x.set_relief(Gtk.ReliefStyle.NONE)
+            x.set_name("rowclose")
+            xi = Gtk.Image.new_from_icon_name("window-close-symbolic",
+                                              Gtk.IconSize.MENU)
+            xi.set_pixel_size(14)
+            x.add(xi)
+            x.set_tooltip_text(f"Encerrar: {name}")
+            x.connect("clicked", self._row_close, wid)
+            row.pack_start(x, False, False, 0)
+            self._rows_box.pack_start(row, False, False, 0)
+        self._rows_box.show_all()
 
     def _switch_press(self, _btn, ev):
-        # esquerdo segue para o "clicked" (mesmo verbo); direito/meio: nada
+        # esquerdo segue para o "clicked" (o toggle do menu); resto: nada
         return ev.button != 1
 
     def _switch_click(self, _btn):
-        out = self._tl_cmd("CYCLE")
-        if out is not None and out[-1].startswith("OK"):
-            parts = out[-1].split("|", 3)
-            if len(parts) == 4:
-                log(f"comutador: → {parts[2]} ({parts[3]})")
-        else:
-            log("comutador: daemon indisponível — nada alternado")
+        if self.menu_open:
+            self._menu_collapse()
+            return
+        self._menu_sig = None          # o clique pede a verdade AGORA
+        self._menu_rebuild()
+        self.menubox.show_all()
+        self.menu_open = True
+        log(f"menu das janelas aberto ({len(self.windows)} janelas)")
+
+    def _menu_collapse(self):
+        """Escolher é SAIR do menu (a dock volta a ser a pílula —
+        minimalista). O ✕ NÃO colapsa: fechar várias de uma vez é uso real."""
+        self.menu_open = False
+        self._menu_sig = None
+        if self.menubox is not None:
+            self.menubox.hide()
+
+    def _row_focus(self, _btn, wid):
+        """O clique na linha: foca/restaura a janela ESCOLHIDA (fim do
+        'não consigo escolher para qual programa quero voltar')."""
+        if self._tl_act(wid):
+            log(f"menu: foco por id {wid}")
+            self._menu_collapse()
+
+    def _row_close(self, _btn, wid):
+        """O ✕ da linha: encerra AQUELA janela (fim do 'não consigo
+        escolher… ou encerrar')."""
+        if self._tl_close_win(wid):
+            log(f"menu: fechado por id {wid}")
+            self.windows.pop(wid, None)  # verdade otimista — o tick confere
+            if len(self.windows) < 2:
+                self._menu_collapse()
+            else:
+                self._menu_sig = None
+                self._menu_rebuild()
 
     # ── os VERBOS do clique (v2.7 + v2.10 + v2.10.1) ─────────────────────
     def _press(self, btn, ev, info, hint, did, cmd, dynamic=False):
@@ -599,16 +743,13 @@ class Dock:
                 self._launch(btn, cmd)              # direito no pin: OUTRA instância
             return True                              # consumido — sem "clicked"
         if ev.button == 2:
-            # v2.10.1 — o meio fecha a janela POR ID (a focada do app, ou a
-            # primeira); sem snapshot/daemon, o wlrctl da v2.10 assume.
-            if self.windows:
+            # v2.10.3 — o meio ENCERRA O PROGRAMA: TODAS as janelas do app
+            # recebem o WM_DELETE gracioso (o dono: "clico na tarefa e ela
+            # não encerra"). Sem daemon, o wlrctl da v2.10 assume.
+            if self.tl_alive:
                 wids = self._windows_of(info, hint, did)
-                if wids:
-                    fw = [w for w in wids
-                          if self.windows[w][0] & F_ACTIVATED]
-                    if self._tl_close_win((fw or wids)[0]):
-                        log(f"fechado por id {(fw or wids)[0]}")
-                        return True
+                if wids and self._close_app_windows(wids):
+                    return True
             if WLRCTL:
                 self._close_windows(info, hint, did)  # meio: fechar (gracioso)
                 return True
@@ -659,14 +800,11 @@ class Dock:
 
     def _focus_or_launch(self, info, hint, did, cmd):
         b = binary_of(info)
-        # NÃO rodando: abrir DIRETO (zero subprocesso no caminho comum —
-        # o clique responde na hora). O check é case-insensitive: o comm
-        # do /proc pode ter capitalização própria ("Thunar").
-        alive = any((x.lower() == b.lower()) for x in self.running) if b else False
-        # v2.10.1 — CAMINHO DO PROTOCOLO (janelas reais por id): 1 janela =
-        # foca/restaura; N janelas = cicla ENTRE ELAS (o alt-tab do dono,
-        # dentro do botão do app); ACT falhou/janela sumiu = fallback abaixo.
-        if self.windows:
+        # v2.10.3 — DAEMON VIVO = a JANELA é a ÚNICA verdade: 1 janela →
+        # foca/restaura (ACT por id); N → cicla ENTRE ELAS (o alt-tab
+        # dentro do botão do app); 0 janela → abrir (processo em 2º plano
+        # sem janela NÃO é "aberto" — o mesmo critério do indicador).
+        if self.tl_alive:
             wids = self._windows_of(info, hint, did)
             if wids:
                 key = did or b
@@ -681,6 +819,13 @@ class Dock:
                         self._last_act[key] = nxt
                         log(f"ciclo do app: id {nxt} ({len(wids)} janelas)")
                         return
+            self._launch(None, cmd)
+            return
+        # daemon morto — LEI DO FALLBACK v2.10 INTACTA: o wlrctl com as 3
+        # formas canônicas e o launch; a dock nunca fica pior por causa
+        # da cura. O check é case-insensitive: o comm do /proc pode ter
+        # capitalização própria ("Thunar").
+        alive = any((x.lower() == b.lower()) for x in self.running) if b else False
         if not (WLRCTL and alive):
             self._launch(None, cmd)
             return
@@ -718,6 +863,17 @@ class Dock:
         if not closed:
             log("fechar sem match — nada encerrado")
 
+    def _close_app_windows(self, wids):
+        """v2.10.3 — encerrar O PROGRAMA de verdade: cada janela do app
+        recebe o CLOSE por id (gracioso — WM_DELETE; o app confirma se
+        tiver algo a salvar). Verdade: True se ALGUMA janela aceitou."""
+        ok = False
+        for w in wids:
+            if self._tl_close_win(w):
+                ok = True
+                log(f"encerrado por id {w}")
+        return ok
+
     def _pin_add(self, did):
         """v2.10: direito num DINÂMICO fixa o app (o mesmo craft-pin de
         sempre: fuzzy resolve, .bak e reload SIGUSR2 — a dock re-lê sozinha)."""
@@ -736,12 +892,28 @@ class Dock:
         else:
             log(f"craft-pin add rc={r.returncode}: {did}")
 
+    def _reap_children(self):
+        """v2.10.3 — A CEIFA DOS ZUMBIS: todo app lançado pela dock é filho
+        DELA; saído sem colheita vira zumbi com /proc/<pid>/comm VIVO — o
+        scan lia o morto e o indicador 'continuava' depois do fecho (o
+        relato exato do dono). poll() = waitpid WNOHANG: ceifa sem travar,
+        a cada tick."""
+        vivos = []
+        for p in self._children:
+            try:
+                if p.poll() is None:
+                    vivos.append(p)
+            except Exception:  # noqa: BLE001 — filho exótico nunca derruba
+                pass
+        self._children = vivos
+
     def _launch(self, _btn, cmd):
         try:
-            subprocess.Popen(cmd, shell=True,
-                             stdout=subprocess.DEVNULL,
-                             stderr=subprocess.DEVNULL,
-                             start_new_session=True)
+            p = subprocess.Popen(cmd, shell=True,
+                                 stdout=subprocess.DEVNULL,
+                                 stderr=subprocess.DEVNULL,
+                                 start_new_session=True)
+            self._children.append(p)   # rastreado: a ceifa do tick o colhe
             log(f"lançado: {cmd}")
         except OSError as exc:
             log(f"falha ao lançar {cmd}: {exc}")
@@ -774,25 +946,40 @@ class Dock:
         return comms
 
     def poll_running(self):
+        self._reap_children()          # a ceifa antes do scan (o zumbi sai)
         self.running = self._scan_user_comms()
-        for btn, binary in self.buttons:
-            ctx = btn.get_style_context()
-            if binary and any(x.lower() == binary.lower()
-                              for x in self.running):
-                ctx.add_class("running")
-            else:
-                ctx.remove_class("running")
-        self._sync_dynamic()
-        # v2.10.1 — snapshot de janelas reais + comutador (um só tick):
-        # daemon morto = janelas vazias (fallbacks assumem) e comutador fora
+        # v2.10.3 — a verdade do daemon PRIMEIRO: vivo = a JANELA é o
+        # critério do "aberto" (indicador, dinâmicos, verbo do clique);
+        # morto = o /proc assume (lei do fallback — nada muda).
         snap = self._tl_list()
         if snap is None:
             self.windows = {}
             self.focused = 0
+            self.tl_alive = False
         else:
             self.windows, self.focused = snap
+            self.tl_alive = True
+        for btn, binary, info, hint, did in self.buttons:
+            ctx = btn.get_style_context()
+            if self.tl_alive:
+                on = self._app_has_window(info, hint, did)
+            else:
+                on = bool(binary) and any(x.lower() == binary.lower()
+                                          for x in self.running)
+            if on:
+                ctx.add_class("running")
+            else:
+                ctx.remove_class("running")
+        self._sync_dynamic()
+        # snapshot de janelas reais + comutador/menu (um só tick)
         self._sync_switcher()
         return True
+
+    def _app_has_window(self, info, hint, did):
+        """v2.10.3 — o critério do 'aberto' com o daemon vivo: a JANELA
+        REAL do snapshot. Processo em 2º plano sem janela não acende
+        indicador — o dono fechou o programa, o marcador morre JUNTO."""
+        return bool(self._windows_of(info, hint, did))
 
     # ── dinâmicos (v2.10 — a dock auto-adaptável) ───────────────────────
     def _sync_dynamic(self):
@@ -809,6 +996,10 @@ class Dock:
                 continue
             cmd = exec_of(info)
             if not cmd:
+                continue
+            # v2.10.3 — daemon vivo: SEM janela real não é "aberto" (o
+            # processo teimoso que sobrevive ao fecho não segura botão)
+            if self.tl_alive and not self._windows_of(info, "", did):
                 continue
             current[did] = (info, comm)
         if set(current) == set(self.dyn):
@@ -849,6 +1040,7 @@ class Dock:
         # automática. Escondida, a zona exclusiva vai embora junto (a
         # superfície desmapeada libera a faixa — comportamento padrão).
         if self.shown:
+            self._menu_collapse()      # esconder a dock fecha o menu junto
             self.win.hide()
             self.shown = False
             log("toggle: dock escondida (W-S-d)")
@@ -881,6 +1073,42 @@ DEFAULT_CSS = b"""
   min-width: 1px;
   margin: 8px 7px;
   background: rgba(108, 112, 134, 0.45);
+}
+#dockmenu {
+  background: rgba(5, 5, 8, 0.92);
+  border: 1px solid rgba(22, 22, 31, 0.8);
+  border-radius: 20px;
+  padding: 4px 6px;
+  margin-bottom: 6px;
+}
+#dockmenu #menuscroll { background: transparent; }
+#dockmenu #menurow {
+  padding: 4px 8px;
+  min-height: 34px;
+  border-radius: 12px;
+  background: transparent;
+  border: none;
+}
+#dockmenu #menurow:hover { background: rgba(22, 22, 31, 0.95); }
+#dockmenu #menurow.focused { background: rgba(38, 38, 52, 0.95); }
+#dockmenu #menurow label {
+  color: #cdd6f4;
+  font-weight: normal;
+}
+#dockmenu #rowclose {
+  min-width: 26px;
+  min-height: 26px;
+  padding: 2px;
+  border-radius: 12px;
+  background: transparent;
+  border: none;
+}
+#dockmenu #rowclose:hover { background: rgba(64, 29, 41, 0.95); }
+#dockmenu scrollbar { background: transparent; }
+#dockmenu scrollbar slider {
+  background: rgba(108, 112, 134, 0.45);
+  border-radius: 3px;
+  min-width: 4px;
 }
 """
 
