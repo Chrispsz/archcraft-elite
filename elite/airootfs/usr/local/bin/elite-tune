@@ -532,7 +532,12 @@ EOF
   if [[ -f "$KB_CONF" ]] && ! grep -q '^XKB_DEFAULT_LAYOUT=' /etc/environment 2>/dev/null; then
     KBL=$(awk -F'"' '/XkbLayout/{print $4; exit}' "$KB_CONF" 2>/dev/null)
     KBV=$(awk -F'"' '/XkbVariant/{print $4; exit}' "$KB_CONF" 2>/dev/null)
-    if [[ -n "$KBL" && "$KBL" != "us" ]]; then
+    # v2.10.7 — o guard 'KBL != us' MATAVA o us-INTERNACIONAL: a variante
+    # 'intl' É o que precisa viajar (dead keys) e o layout 'us' puro não é
+    # o default da sessão labwc. O 1º rig-install da 10.6 flagrou (dump
+    # 0qmq: localectl 'us + intl' e /etc/environment SEM XKB — a sessão
+    # nasceu us() seca). Escreve se o layout ≠ us OU a variante existe.
+    if [[ -n "$KBL" && ( "$KBL" != "us" || -n "$KBV" ) ]]; then
       say "Teclado: XKB_DEFAULT_LAYOUT=$KBL${KBV:+ ($KBV)} → /etc/environment (a sessão labwc herda do Calamares)"
       if (( ! DRY )); then
         backup /etc/environment
@@ -561,8 +566,13 @@ EOF
   # rollback nascia morto em silêncio. O findmnt é o MESMO idioma do
   # elite-install-stage:88.
   if [[ "$(findmnt -n -o FSTYPE / 2>/dev/null)" == "btrfs" ]]; then
+    # v2.10.7 — o GUARD mentia (o 1º rig-install da 10.6 flagrou, dump 0qmq:
+    # snapper 0.13.2 instalado, ZERO configs, /.snapshots nunca nasceu,
+    # grub-btrfsd FAILED): 'snapper --no-dbus list-configs' SEM nenhuma
+    # config sai 0 e silencioso — o '|| create-config' nunca armava. A
+    # verdade é a SAÍDA, não o exit code: config 'root' listado = pronto.
     if command -v snapper >/dev/null 2>&1; then
-      snapper --no-dbus list-configs >/dev/null 2>&1 || \
+      snapper --no-dbus list-configs 2>/dev/null | grep -qw root || \
         run snapper --no-dbus -c root create-config / || true
     elif [ ! -d /.snapshots ]; then
       run btrfs subvolume create /.snapshots || true

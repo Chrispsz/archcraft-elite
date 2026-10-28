@@ -4,16 +4,28 @@ Documentation=https://wiki.cachyos.org
 # Só no sistema INSTALADO — na sessão live (/run/archiso existe) nunca roda
 ConditionPathExists=!/run/archiso
 ConditionPathExists=!/var/lib/elite/firstboot-done
-After=network-online.target
+# v2.10.7 — DEPOIS do desktop, nunca refém dele (o 1º rig-install da 10.6
+# provou o custo: WantedBy=multi-user.target segurou o graphical.target por
+# 30min 9s — pacman lento (mirror 404 + wifi Intel 7260 empane no meio) até
+# o TimeoutStartSec=1800 matar o serviço; 'systemd-analyze' do dump 0qmq:
+# 'graphical.target reached after 30min 9.462s'). O desktop sobe primeiro; o
+# tuning termina em background — o mesmo trabalho, sem refém.
+After=graphical.target network-online.target
 Wants=network-online.target
 
 [Service]
 Type=oneshot
 ExecStart=/usr/local/bin/elite-tune --firstboot
 TimeoutStartSec=1800
+# v2.10.7 — O EPÍLOGO É LEI: sucesso, falha OU timeout-kill registram o
+# resultado (no rig o serviço morreu aos 1800s e o log terminou no meio do
+# systemctl, sem contar história). ExecStopPost roda em TODOS os casos;
+# NÃO marca firstboot-done (a lei v4.5 do retry por rede/driver fica de pé
+# — sem rede o firstboot re-tenta no boot seguinte, agora sem travar nada).
+ExecStopPost=/bin/sh -c 'printf "\n[elite-firstboot] resultado: %s (exit=%s)\n" "${SERVICE_RESULT:-?}" "${EXIT_STATUS:-?}" >> /var/log/elite-firstboot.log'
 StandardOutput=append:/var/log/elite-firstboot.log
 StandardError=append:/var/log/elite-firstboot.log
 RemainAfterExit=yes
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=graphical.target
