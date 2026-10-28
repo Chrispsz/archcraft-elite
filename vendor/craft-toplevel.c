@@ -52,6 +52,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <sys/file.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -153,6 +154,35 @@ static struct wl_proxy *seat_proxy = NULL;
 static struct wl_display *disp = NULL;
 static int mgr_bound = 0;
 
+/* ── v2.10.7 — O ACK HONESTO (o rig 1º-install da 10.6 falou) ──────────
+ * 13× "menu das janelas aberto", 3× "foco por id", ACK em todos — e NADA
+ * na tela (dump termbin 0qmq). O 'OK' do daemon só prova que o REQUEST
+ * saiu bem-formado e flushado; NÃO prova que o compositor obedeceu. O
+ * elo sem prova (opcodes ✓ XML oficial, marshal ✓, flush ✓ no loop,
+ * labwc ✓ desktop_focus_view) agora cobra recibo: o state(activated) do
+ * alvo CONFIRMA; state de OUTRA janela ou timeout de 2s DENUNCIA. O
+ * veredito nasce em toplevel.log (mesmo dir do socket — tmpfs da sessão,
+ * nasce limpo a cada boot; o dump v2.0.1 o carrega) e no stderr. Nada
+ * muda no fio: replies idênticos, a dock não sente. */
+static uint32_t pending_act_id = 0;   /* 0 = nenhum ACT em julgamento   */
+static uint32_t pending_close_id = 0; /* 0 = nenhum CLOSE em julgamento */
+static time_t pending_deadline = 0;
+static char actlog_path[320] = "";
+
+static void actlog_write(const char *line)
+{
+    FILE *f;
+    if (actlog_path[0] == '\0') {
+        return;
+    }
+    f = fopen(actlog_path, "a");
+    if (!f) {
+        return;
+    }
+    fprintf(f, "[%ld] %s\n", (long)time(NULL), line);
+    fclose(f);
+}
+
 static void mru_promote(Tl *t)
 {
     int i, j;
@@ -237,11 +267,38 @@ static int tl_dispatcher(const void *data, void *target, uint32_t opcode,
             else if (*st == 2) { t->flags |= F_ACTIVATED; mru_promote(t); }
             else if (*st == 3) t->flags |= F_FULLSCREEN;
         }
+        /* v2.10.7 — a prova (ou a denúncia) do ACT pendente */
+        if (pending_act_id != 0 && (t->flags & F_ACTIVATED)) {
+            char ln[256];
+            if (t->id == pending_act_id) {
+                snprintf(ln, sizeof(ln),
+                         "ACT id %u CONFIRMADO — o compositor focou",
+                         t->id);
+            } else {
+                snprintf(ln, sizeof(ln),
+                         "ACT id %u SEM confirmação — o compositor focou id %u (%s)",
+                         pending_act_id, t->id, t->app_id);
+            }
+            actlog_write(ln);
+            fprintf(stderr, "craft-toplevel: %s\n", ln);
+            pending_act_id = 0;
+        }
         break;
     }
     case EVT_DONE:
         break;
     case EVT_CLOSED:
+        if (pending_close_id != 0 && t->id == pending_close_id) {
+            char ln[128];
+            snprintf(ln, sizeof(ln),
+                     "CLOSE id %u CONFIRMADO — o compositor fechou", t->id);
+            actlog_write(ln);
+            fprintf(stderr, "craft-toplevel: %s\n", ln);
+            pending_close_id = 0;
+        }
+        if (pending_act_id != 0 && t->id == pending_act_id) {
+            pending_act_id = 0; /* o alvo morreu: nada a julgar */
+        }
         t->dead = 1;
         mru_remove(t);
         break;
@@ -404,12 +461,21 @@ static Tl *focused_win(void)
 
 static void activate(Tl *t)
 {
+    char ln[256];
     /* a ordem É a lei: unset_minimized (3) ANTES do activate (4) —
      * restaurar-minimizada por comando do protocolo, não hipótese */
     wl_proxy_marshal(t->proxy, TL_UNSET_MINIMIZED);
     wl_proxy_marshal(t->proxy, TL_ACTIVATE, seat_proxy);
     t->flags &= ~(uint32_t)F_MINIMIZED; /* estado otimista coerente */
     mru_optimistic_focus(t);
+    /* v2.10.7 — o pedido de prova ao compositor */
+    pending_act_id = t->id;
+    pending_deadline = time(NULL) + 2;
+    snprintf(ln, sizeof(ln),
+             "ACT id %u enviado — aguardando state(activated): app_id=%s título=%.60s",
+             t->id, t->app_id, t->title);
+    actlog_write(ln);
+    fprintf(stderr, "craft-toplevel: %s\n", ln);
 }
 
 static void serve_list(Client *c)
@@ -477,7 +543,16 @@ static void handle_line(Client *c, char *ln)
     } else if (strncmp(ln, "CLOSE ", 6) == 0) {
         Tl *t = by_id((uint32_t)strtoul(ln + 6, NULL, 10));
         if (t) {
+            char alb[128];
             wl_proxy_marshal(t->proxy, TL_CLOSE);
+            /* v2.10.7 — o ACK honesto também no fecho */
+            pending_close_id = t->id;
+            pending_deadline = time(NULL) + 2;
+            snprintf(alb, sizeof(alb),
+                     "CLOSE id %u enviado — aguardando closed do compositor",
+                     t->id);
+            actlog_write(alb);
+            fprintf(stderr, "craft-toplevel: %s\n", alb);
             reply(c, "OK\n");
         } else {
             reply(c, "ERR|no-window\n");
@@ -581,6 +656,9 @@ int main(void)
         return 1;
     }
     mkdir(dir, 0700);
+    /* v2.10.7 — o log do ACK honesto mora junto do socket (o dir acabou de
+     * ser garantido; tmpfs da sessão — evidência recente, limpa no boot) */
+    snprintf(actlog_path, sizeof(actlog_path), "%s/toplevel.log", dir);
     static char path[300];
     snprintf(path, sizeof(path), "%s/toplevel.sock", dir);
 
@@ -645,7 +723,38 @@ int main(void)
                 n++;
             }
         }
-        int pr = poll(pfds, (nfds_t)n, -1);
+        /* v2.10.7 — o poll ganhou prazo: com ACT/CLOSE em julgamento o
+         * loop acorda no deadline (2s) para registrar o silêncio do
+         * compositor — sem isso o veredito só sairia no próximo evento. */
+        int timeout = -1;
+        if (pending_act_id != 0 || pending_close_id != 0) {
+            long left = (long)(pending_deadline - time(NULL));
+            timeout = left > 0 ? (int)(left * 1000) : 0;
+        }
+        int pr = poll(pfds, (nfds_t)n, timeout);
+        if (pr == 0) {
+            /* o silêncio do compositor É o veredito */
+            if (pending_act_id != 0) {
+                char ln[192];
+                snprintf(ln, sizeof(ln),
+                         "ACT id %u SEM confirmação do compositor (timeout 2s) "
+                         "— request saiu, foco não voltou",
+                         pending_act_id);
+                actlog_write(ln);
+                fprintf(stderr, "craft-toplevel: %s\n", ln);
+                pending_act_id = 0;
+            }
+            if (pending_close_id != 0) {
+                char ln[192];
+                snprintf(ln, sizeof(ln),
+                         "CLOSE id %u sem confirmação do compositor (timeout 2s)",
+                         pending_close_id);
+                actlog_write(ln);
+                fprintf(stderr, "craft-toplevel: %s\n", ln);
+                pending_close_id = 0;
+            }
+            continue;
+        }
         if (pr < 0) {
             if (errno == EINTR) {
                 continue; /* revents podem estar sujos — sem leitura */

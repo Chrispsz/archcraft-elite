@@ -1,13 +1,19 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · craft-dump (v2.0 — o "btop completão" polido, v2.10.6)
+# Archcraft ELITE · craft-dump (v2.0.1 — o "btop completão" polido, v2.10.6)
 # ═══════════════════════════════════════════════════════════════════════════
 # Pedido do dono (out/2026): "como puxo tudo que está rodando como se fosse
 # um btop completão pra gente ter um diagnóstico da RAM, pacotes, uso, CPU
 # e etc… puxar todos os caches do elite" — e v2.10.6: "deixa bem mais polido
 # esse log btop para que quando eu instalar a 10.6 e mandar o log, você já
 # saiba como está o sistema COMPLETAMENTE". O dump v2.0 ABRE com o veredito
-# (o sistema descrevendo a si mesmo) e só então o detalhe, seção a seção:
+# (o sistema descrevendo a si mesmo) e só então o detalhe, seção a seção.
+# v2.0.1 (o 1º rig-install da 10.6 falou — dump 0qmq — e o papel ganhou as
+# provas que faltavam): /sys/power/state (o veredito do suspend), journal
+# das units Elite falhadas, bluetoothctl (adaptador ausente ≠ serviço
+# morto), fuzzel.ini (a linha :35 corrompida), toplevel.log (o ACK honesto
+# do daemon), host via uname -n (o 'hostname' não existe em toda ISO) e o
+# NUL do termbin morto no capture (a linha 292 do rig gritou de novo).
 #
 #    0 · VEREDITO RÁPIDO — probe da sessão + units falhados + disco raiz
 #    1 · identidade (+ o ambiente de sessão: o dump nasceu dentro dela?)
@@ -58,7 +64,7 @@ r() { # r <comando> [linhas]
 {
     printf '══════════ ELITE DUMP v2.0 — diagnóstico completo ══════════\n'
     printf 'gerado: %s · usuário: %s · host: %s\n' \
-        "$(date)" "$(id -un)" "$(hostname 2>/dev/null || echo '?')"
+        "$(date)" "$(id -un)" "$(uname -n 2>/dev/null || echo '?')"
 
     printf '\n══════════ 0 · VEREDITO RÁPIDO ══════════\n'
     printf '(o sistema descrevendo a si mesmo — o detalhe mora nas seções 1-14)\n'
@@ -207,6 +213,11 @@ PY
     r "grep XKB /etc/environment 2>/dev/null || echo '(sem XKB_DEFAULT_LAYOUT em /etc/environment)'" 4
     r "localectl status 2>/dev/null" 6
     r "locale | grep -E 'LANG=|LC_CTYPE='" 3
+    # v2.10.7 — a linha 35 do rig ('ain].exit-on-focus-loss: yes — not a
+    # valid option') gritou em TODO menu aberto; a config viaja no papel
+    # para a perícia ver o arquivo de verdade, não o erro dele
+    printf '\n── fuzzel.ini (linhas 28-42 — o config que os menus comem)\n'
+    r "sed -n '28,42p' \"$HOME/.config/fuzzel/fuzzel.ini\" 2>/dev/null || echo '(sem fuzzel.ini)'" 16
 
     printf '\n══════════ 8 · REDE ══════════\n'
     # a cura B2 ('Not authorized' ≠ senha errada) com evidência no papel
@@ -214,6 +225,11 @@ PY
     r "nmcli -f NAME,TYPE,DEVICE,STATE con show --active 2>/dev/null" 12
     r "ip -brief addr 2>/dev/null" 10
     r "lspci -k | grep -EA3 'Network|Ethernet'" 10
+    # v2.10.7 — o gerenciador Bluetooth vazio do rig precisa de réu: o
+    # adaptador existe? (desktop sem BT = lista vazia CORRETA; serviço
+    # morto = outra história — a evidência decide)
+    r "bluetoothctl show 2>/dev/null || echo '(sem adaptador bluetooth — No default controller)'" 14
+    r "lsusb 2>/dev/null | head -10" 12
 
     printf '\n══════════ 9 · ÁUDIO ══════════\n'
     r "if command -v wpctl >/dev/null 2>&1; then wpctl status | head -30; else echo '(wpctl ausente)'; fi" 32
@@ -227,6 +243,13 @@ PY
     else
         printf '(ausente — craft-idle nos defaults)\n'
     fi
+    # v2.10.7 — O VEREDITO DO SUSPEND COM PROVA DO KERNEL: o menu disse
+    # 'loginctl can-suspend ≠ yes' no rig e o dump não tinha O QUE julgar
+    # (sem /sys/power/state não dá para saber se é BIOS ou kernel). Agora:
+    # os estados que o kernel oferece + a palavra do logind + o mem_sleep.
+    r "printf 'kernel: '; cat /sys/power/state 2>/dev/null || echo '(sem /sys/power/state)'" 4
+    r "printf 'mem_sleep: '; cat /sys/power/mem_sleep 2>/dev/null || echo '(sem mem_sleep)'" 4
+    r "loginctl can-suspend 2>/dev/null" 2
     r "journalctl -u systemd-suspend --no-pager 2>/dev/null | tail -40" 45
     r "cat /proc/acpi/wakeup 2>/dev/null" 25
     r "journalctl --no-pager 2>/dev/null | grep -iE 'wake(ing|up)?|resume|suspending' | tail -25" 30
@@ -234,6 +257,10 @@ PY
 
     printf '\n══════════ 11 · JOURNAL — ERROS DESTE BOOT ══════════\n'
     r "journalctl -b -p err --no-pager 2>/dev/null | tail -50" 55
+    # v2.10.7 — as units da Elite contam a própria história: o tail de -p
+    # err do rig deixou o erro do grub-btrfsd fora do dump (afogado entre
+    # fuzzel e iwlwifi); o journal DA UNIT é a prova direta
+    r "journalctl -b -u elite-firstboot -u grub-btrfsd --no-pager 2>/dev/null | tail -30" 35
 
     printf '\n══════════ 12 · LOGS DA ELITE (evidência recente) ══════════\n'
     for f in "$CACHE/elite/bars.log" "$CACHE/elite/menus.log" \
@@ -250,6 +277,15 @@ PY
         if [ -f "$f" ]; then
             printf '\n── tail %s\n' "$f"
             tail -n 120 "$f"
+        fi
+    done
+    # v2.10.7 — a fala do daemon toplevel: o ACK honesto do ACT/CLOSE
+    # (confirmação do compositor, denúncia de timeout — a caça ao
+    # 'menu abriu, foco saiu, nada aconteceu' do rig 1º-install)
+    for f in /run/user/*/elite/toplevel.log; do
+        if [ -f "$f" ]; then
+            printf '\n── tail %s (o ACK honesto do ACT/CLOSE)\n' "$f"
+            tail -n 80 "$f"
         fi
     done
 
@@ -289,7 +325,7 @@ if [ "${1:-}" = "--upload" ]; then
         cat "'"$OUT"'" >&3
         head -c 200 <&3 2>/dev/null
         exec 3>&- 3<&-
-    ' 2>/dev/null | tr -d '\n')"
+    ' 2>/dev/null | tr -d '\0\n')"
     if [ -n "$url" ]; then
         printf 'URL curta: %s\n' "$url"
     else
