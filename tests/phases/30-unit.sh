@@ -712,6 +712,32 @@ else
   ok "forense funcional: synchronize sem cura → exit 1 (a condicional não mascara doença)"
 fi
 
+# forense fixture 8: pacote corrompido no round 1 CURADO pelo re-download
+# (a 2ª build v2.10.5 provou em campo: checksum ruim de mirror, round 2
+# fechou o cache, ISO sã com sha256 — FATAL incondicional era falso positivo)
+cat > "$FW/corr-curado.log" <<'FIXLOG'
+==> Preflight round 1/3: -Syw de 235 alvos (só download; nada é instalado)
+:: File /var/cache/pacman/pkg/wlrctl-0.2.2-1-x86_64.pkg.tar.zst is corrupted (invalid or corrupted package (checksum)).
+error: failed to commit transaction (invalid or corrupted package)
+==> Preflight round 2/3: -Syw de 235 alvos (só download; nada é instalado)
+==> Preflight: cache completo — pacstrap offline dali em diante
+==> Done! customize_airootfs.sh run successfully.
+FIXLOG
+if bash "$LF" "$FW/corr-curado.log" >/dev/null 2>&1; then
+  ok "forense funcional: corrupção de download curada pelo re-download (cache completo) → exit 0"
+else
+  fail "forense funcional: corrupção curada" "build SÁDIO reprovado — a 2ª build v2.10.5 teria continuado reprovada"
+fi
+
+# forense fixture 9: corrupção SEM cura → segue FATAL (transação morta)
+printf '%s
+' 'error: failed to commit transaction (invalid or corrupted package)' > "$FW/corr-morto.log"
+if bash "$LF" "$FW/corr-morto.log" >/dev/null 2>&1; then
+  fail "forense funcional: corrupção sem recuperação" "transação abortada por corrupção sem cache fechado passou (deveria ser fatal)"
+else
+  ok "forense funcional: corrupção sem cura → exit 1 (a transação morta continua caçada)"
+fi
+
 # veredito: fase morta (linha ausente no summary) é NO-GO — o GO com
 # 4/5 peças morreu (fase morta não escreve linha e o veredito celebrava)
 VDW="$WORK/verdict-missing"; rm -rf "$VDW"; mkdir -p "$VDW"

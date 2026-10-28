@@ -29,8 +29,13 @@
 #    · "is unknown trust" /
 #      "signature is invalid"          v1.4: keyring ausente — E2/E3
 #                                      falharam EM SILÊNCIO
-#    · "invalid or corrupted package"  transação abortada por pacote
-#                                      corrompido no download
+#    · "invalid or corrupted package"  VEJO CONDICIONAL ABAIXO (v2.10.5:
+#                                      o preflight re-baixa e o round
+#                                      seguinte fecha o cache — a 2ª
+#                                      build v2.10.5 provou: 3 pacotes
+#                                      com checksum ruim no round 1,
+#                                      cache completo no round 2, ISO
+#                                      sã com sha256)
 #    · "conflicting dependencies"      transação abortada por conflito
 #    · "[Ff]ailed to install packages" pacstrap abortou (rootfs
 #                                      incompleto = ISO inútil)
@@ -117,7 +122,6 @@ not enough free disk space|disco cheio FALSO — mesma causa do mtab (v1.5.1; o 
 is unknown trust|assinatura sem confiança (a v1.4 saiu assim — burn test do dono pegou)
 signature from .* is invalid|assinatura inválida (E3 -Sy falhava EM SILÊNCIO na v1.4 — achado forense v1.5.2)
 is marginally trusted|assinatura marginalmente confiável (keyring incompleto)
-invalid or corrupted package|pacote corrompido no download → transação abortada
 conflicting dependencies|conflito de dependências → transação abortada
 [Ff]ailed to install packages|pacstrap abortou — rootfs incompleto (ISO inútil)
 No space left on device|disco REAL cheio (distinto do falso do mtab)
@@ -139,6 +143,24 @@ if (( n > 0 )); then
     report_benign "downloader falhou E o preflight re-sincronizou e fechou o cache depois (janela de 404 transitória — run #116)" "$n"
   else
     report_fatal "downloader falhou SEM recuperação (nem baseline nem cache fechado depois)" "$n"
+  fi
+fi
+
+# ── CONDICIONAL: 'invalid or corrupted package' com cura do preflight ──
+# v2.10.5 — A 2ª BUILD v2.10.5 PROVOU EM CAMPO: qt5-virtualkeyboard,
+# wlrctl e craft-toplevel saíram com checksum ruim no round 1 (download
+# parcial de mirror), o --noconfirm apagou e o round 2 fechou o cache —
+# ISO gerada com sha256 e o forense a reprovou (falso positivo). A cura
+# é a MESMA lei dos irmãos: recuperação honesta = o cache FECHOU depois.
+# Se o cache nunca fechou, o build aborta antes do forense (rounds
+# esgotados) — este ramo não mascara nada; e a transação do PACSTRAP
+# morta por corrupção segue coberta: sem 'cache completo' no log é FATAL.
+n=$(count 'invalid or corrupted package')
+if (( n > 0 )); then
+  if grep -q 'Preflight: cache completo' "$LOG"; then
+    report_benign "pacote corrompido no download E o preflight re-baixou e fechou o cache depois (checksum transitório de mirror)" "$n"
+  else
+    report_fatal "pacote corrompido SEM recuperação (transação abortada — sem 'Preflight: cache completo' depois)" "$n"
   fi
 fi
 
