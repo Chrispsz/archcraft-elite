@@ -2564,8 +2564,8 @@ assert_nogrep "$CT" 'static Tl wins\[MAX_WIN\]' \
 # ── esteira: o pacote nasce no [elite-local] com fonte pinada ──
 assert_grep "$BLD" "pkgname=craft-toplevel" \
   "v2.10.1: PKGBUILD do craft-toplevel na esteira do [elite-local] (a mesma do wlrctl)"
-assert_grep "$BLD" "3044d5e5704ff9e7a1c83c506bb79b12e1b07b8b786e8203c3b9fe009c1a160a" \
-  "v2.10.1: sha256 da fonte PINADO no PKGBUILD (determinismo — mudou 1 byte, makepkg PARA)"
+assert_grep "$BLD" "$(sha256sum "$REPO/vendor/craft-toplevel.c" | awk '{print $1}')" \
+  "v2.10.1: sha256 da fonte PINADO no PKGBUILD (determinismo — mudou 1 byte, makepkg PARA; o pin é o sha REAL da fonte, recalculado aqui — v2.10.7 atualizou o C com o ACK honesto)"
 assert_grep "$BLD" 'for pkgdir in python-pywal qt5-virtualkeyboard wlrctl craft-toplevel; do' \
   "v2.10.1: craft-toplevel na fila do makepkg (4º pacote)"
 assert_grep "$PAK" '^craft-toplevel$' \
@@ -2680,5 +2680,31 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-clean" "ans \|\| ans=''" \
   "v2.10.6: o EOF não mata o craft-clean calado (read com fallback — a lei do idle v2.10.5 no último irmão, achado B4)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/calamares-elite-log" 'calamares-root-\*' \
   "v2.10.6: o alvo REAL do Calamares (mkdtemp calamares-root-*) entra na cópia do log (os /mnt eram código morto — achado D4)"
+
+# ── v2.10.7 — O 1º RIG-INSTALL DA 10.6 FALOU (dump 0qmq) — curas de campo ──
+assert_grep "$REPO/elite/airootfs/etc/systemd/system/elite-firstboot.service" 'WantedBy=graphical.target' \
+  "v2.10.7: firstboot corre DEPOIS do desktop (WantedBy=multi-user segurou o graphical.target por 30min 9s no rig — pacman lento + TimeoutStartSec=1800 = boot de refém)"
+assert_grep "$REPO/elite/airootfs/etc/systemd/system/elite-firstboot.service" 'After=graphical.target' \
+  "v2.10.7: a ordem é DEPOIS do target (o mesmo trabalho, em background — o desktop nunca mais espera o tuning)"
+assert_grep "$REPO/elite/airootfs/etc/systemd/system/elite-firstboot.service" 'ExecStopPost' \
+  "v2.10.7: o epílogo é LEI (sucesso, falha OU timeout-kill registram o SERVICE_RESULT — o rig morreu aos 1800s sem contar história)"
+assert_grep "$TUNE" 'list-configs 2>/dev/null \| grep -qw root' \
+  "v2.10.7: o guard do snapper lê a SAÍDA ('list-configs' sem config sai 0 e silencioso — o '|| create' nunca armava: snapper instalado, ZERO configs, /.snapshots nunca nasceu, grub-btrfsd FAILED no rig)"
+assert_grep "$TUNE" '"\$KBL" != "us" \|\| -n "\$KBV"' \
+  "v2.10.7: us-international viaja (o guard antigo pulava KBL=us sem ver a VARIANTE — o rig nasceu us() seco com us+intl do Calamares)"
+assert_grep "$CT" 'CONFIRMADO' \
+  "v2.10.7: o ACK do ACT virou RECIBO (o state activated do alvo confirma — o 'foco por id' que só existia no papel ganha prova do compositor)"
+assert_grep "$CT" 'SEM confirmação' \
+  "v2.10.7: a denúncia existe nos dois lados (state alheio OU timeout 2s — o silêncio do compositor é veredito, toplevel.log carrega)"
+assert_grep "$DUMP" '/sys/power/state' \
+  "v2.10.7: o veredito do suspend tem prova do kernel (o menu disse can-suspend ≠ yes e o dump não tinha O QUE julgar — BIOS ou kernel?)"
+assert_grep "$DUMP" 'bluetoothctl show' \
+  "v2.10.7: o gerenciador Bluetooth vazio tem réu no papel (adaptador ausente ≠ serviço morto — a evidência decide)"
+assert_grep "$DUMP" 'journalctl -b -u elite-firstboot -u grub-btrfsd' \
+  "v2.10.7: as units falhadas contam a própria história (o -p err do rig afogou o erro do grub-btrfsd entre fuzzel e iwlwifi)"
+assert_grep "$DUMP" 'toplevel.log' \
+  "v2.10.7: o ACK honesto do daemon viaja no dump (a caça ao 'menu abriu, foco saiu, nada aconteceu' ganhou lugar fixo)"
+assert_grep "$DUMP" 'uname -n' \
+  "v2.10.7: o host do dump vem do uname (o 'hostname' não existe em toda ISO — o rig estampou 'host: ?')"
 
 phase_end

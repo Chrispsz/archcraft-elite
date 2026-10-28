@@ -6,6 +6,51 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **v2.10.7 — O 1º RIG-INSTALL FALOU (dump 0qmq) — as curas de campo**: a
+  10.6 foi instalada no rig do dono e o craft-dump v2.0 voltou falando
+  (o método v2.0.6 funcionou). Os achados com prova no papel e as curas:
+  - **O BOOT DE 30 MINUTOS (o achado pesado)**: o `elite-firstboot` rodava
+    `WantedBy=multi-user.target` e segurou o `graphical.target` por
+    **30min 9s** — pacman da stack lib32 lento (mirror cdn77 com 404 +
+    wifi Intel 7260 empane no meio) até o `TimeoutStartSec=1800` matar o
+    serviço. Agora o firstboot corre `After=WantedBy=graphical.target` —
+    o desktop sobe primeiro, o tuning termina em background (o mesmo
+    trabalho, sem refém).
+  - **O GUARD DO SNAPPER MENTIA**: `snapper --no-dbus list-configs` sem
+    nenhuma config sai **0 e silencioso** — o `|| create-config` nunca
+    armava (rig: snapper 0.13.2 instalado, ZERO configs, `/.snapshots`
+    nunca nasceu, `grub-btrfsd` FAILED — o rollback D1 ainda morto por
+    lógica, não por gate). A verdade é a SAÍDA: `list-configs | grep -qw
+    root` decide.
+  - **O Z2 PULAVA O US-INTERNACIONAL**: o guard `KBL != "us"` tratava
+    layout `us` como "default, nada a fazer" — mas a VARIANTE `intl` É o
+    que precisa viajar (dead keys). Rig: localectl `us + intl` e
+    `/etc/environment` SEM XKB — a sessão nasceu us() seca. Escreve se o
+    layout ≠ us **OU** a variante existe.
+  - **O ACK HONESTO DO DAEMON (craft-toplevel 1.0-2)**: o rig clicou o
+    comutador 13× ("menu das janelas aberto"), mandou foco 3× ("foco por
+    id"), recebeu ACK de tudo — e NADA na tela. O `OK` do daemon só prova
+    que o request saiu (opcodes ✓ contra o XML oficial do wlroots, marshal
+    ✓, flush ✓ no loop, labwc ✓ `desktop_focus_view(raise=true)` — o elo
+    sem prova é a obediência do compositor). O daemon agora COBRA recibo:
+    o `state(activated)` do alvo confirma; state de outra janela ou
+    timeout de 2s denuncia — veredito em `toplevel.log` (viaja no dump).
+  - **O DUMP v2.0.1 GANHOU AS PROVAS QUE FALTARAM**: `/sys/power/state` +
+    `mem_sleep` + `loginctl can-suspend` (o veredito do suspend com prova
+    do kernel — o menu disse "não" e o papel não tinha o que julgar),
+    journal das units Elite falhadas (`-u elite-firstboot -u grub-btrfsd`
+    — o `-p err` afogou o erro do grub-btrfsd), `bluetoothctl show` +
+    `lsusb` (lista vazia de BT precisa de réu), fuzzel.ini no papel (a
+    linha :35 `ain].exit-on-focus-loss` gritou em TODO menu), toplevel.log
+    e host via `uname -n` (o `hostname` não existe em toda ISO — o rig
+    estampou "host: ?"). O NUL do termbin morreu no capture (`tr -d
+    '\0\n'` — a linha 292 do rig gritou de novo).
+  - **O EPÍLOGO É LEI**: `ExecStopPost` na unit registra o
+    `SERVICE_RESULT` em sucesso, falha OU timeout-kill (no rig o serviço
+    morreu aos 1800s e o log terminou no meio do systemctl, sem história).
+    O marker v4.5 (retry por rede/driver) fica de pé.
+  - Suíte: 12 contratos novos na fase 4 provando cada cura.
+
 - **v2.10.6 — A RODADA 2: O DONO PEDIU "COM TODO O NOSSO CÓDIGO"** (a
   validação por simulação que nasceu na v2.10.5 virou MÉTODO: 4 domínios
   percorreram os ~12.700 linhas — sessão/dock, energia/manutenção,

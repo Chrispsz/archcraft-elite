@@ -153,14 +153,17 @@ cp /work/vendor/craft-toplevel.c /tmp/elite-src/craft-toplevel/
 cat > /tmp/elite-src/craft-toplevel/PKGBUILD <<'EOPKGBUILD'
 pkgname=craft-toplevel
 pkgver=1.0
-pkgrel=1
+# v2.10.7 — O ACK HONESTO: o rig 1º-install da 10.6 flagrou ACT com ACK e
+# sem foco na tela (dump 0qmq) — o daemon agora cobra a prova do compositor
+# (state activated confirma; state alheio/timeout 2s denuncia) em toplevel.log
+pkgrel=2
 pkgdesc='Daemon wlr-foreign-toplevel da Elite — janelas por id (LIST/ACT/CLOSE/CYCLE + anel MRU) para a dock comutar de verdade'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
 license=(GPL3)
 depends=(wayland)
 source=("craft-toplevel.c")
-sha256sums=('3044d5e5704ff9e7a1c83c506bb79b12e1b07b8b786e8203c3b9fe009c1a160a')
+sha256sums=('7df93e886e85698d15efb1ec9811a202cbb47328a65d14f97138fe80a183344d')
 build() {
     gcc -O2 -Wall -Wextra -s -o craft-toplevel craft-toplevel.c -lwayland-client
 }
