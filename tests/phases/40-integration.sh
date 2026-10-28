@@ -196,7 +196,14 @@ assert_nofile "$P/airootfs/etc/skel/.config/waybar/style.dock.css" "v2.0: waybar
 assert_file "$P/airootfs/etc/skel/.config/elite/dock.css" "v2.0: dock.css da dock NATIVA no skel"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" '"mpris"' "v1.0.3: waybar módulo música (MPRIS — SUA mídia: YouTube/player)"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" '"format-empty": ""' "v1.0.3: mpris auto-esconde com nada tocando (zero sample music)"
-assert_nogrep "$P/airootfs/etc/skel/.config/waybar/config.top" '"battery' "v1.0.3: waybar sem bateria (desktop — diretriz do dono)"
+# v2.10.5 — o contrato v1.0.3 ('desktop não tem bateria') foi REESCRITO
+# pela auditoria de simulações: o desktop continua SEM bateria na barra
+# (sem /sys/class/power_supply o módulo não renderiza NADA — a diretriz
+# visual do dono segue de pé), mas o NOTEBOOK era invisível na interface:
+# a única superfície de carga era o craft-bat no terminal. O módulo entra
+# — e o clique chama o craft-bat (o resumo falado).
+assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" '"battery"' "v2.10.5: módulo battery na barra (desktop não renderiza — notebook deixa de ser cego)"
+assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" '"on-click": "craft-bat"' "v2.10.5: clique na bateria dá o resumo (craft-bat via /sys)"
 assert_grep "$PKG" '^playerctl$' "v1.0.3: playerctl no packages (keybinds mídia + CLI)"
 assert_file "$P/airootfs/etc/skel/.config/swaync/config.json" "v1.0.3: swaync config no skel"
 assert_file "$P/airootfs/etc/skel/.config/fuzzel/fuzzel.ini" "v1.0.3: fuzzel config no skel"
@@ -1881,7 +1888,10 @@ for badsec in '\[shell\]' '\[font\]' '\[colors\]' '\[dim\]' '\[bright-bold\]'; d
   assert_nogrep "$FTC" "^${badsec}$" "v1.5: seção inválida ${badsec} extinta (foot 1.28 removeu [colors])"
 done
 assert_grep "$FTC" '^\[main\]$' "v1.5: [main] presente (shell/font vivem aqui)"
-assert_grep "$FTC" '^shell = /bin/sh -l$' "v1.5: shell de login no [main] (v1.3: preso na seção inválida)"
+# v2.10.5 — o contrato v1.5 consagrava '/bin/sh -l': a auditoria provou
+# que isso abria bash-POSIX SEM o .zshrc (starship/aliases mortos no
+# terminal principal). O shell da distro é o zsh de login.
+assert_grep "$FTC" '^shell = /usr/bin/zsh -l$' "v2.10.5: foot abre o ZSH de login (o comportamento antigo ERA o bug — o .zshrc inteiro morria)"
 assert_grep "$FTC" '^\[colors-dark\]$' "v1.5: [colors-dark] (a [colors] saiu no foot 1.28)"
 assert_grep "$FTC" '^cursor = 000000 cba6f7$' "v1.5: cursor mauve na seção certa (1.26 removeu cursor.color)"
 assert_grep "$FTC" '^dim0 = a6adc8$' "v1.5: dim0-7 DENTRO da colors-dark (a [dim] separada era inválida)"

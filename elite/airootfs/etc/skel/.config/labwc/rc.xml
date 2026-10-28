@@ -9,7 +9,7 @@
   então este arquivo porta as convenções do criador 1:1 onde o Wayland permite:
 
   Adotado do criador (archcraft-openbox rc.xml):
-    · Fonte JetBrains Mono 9 (ActiveWindow Bold / InactiveWindow Normal)
+    · Fonte JetBrainsMono NF 9 (ActiveWindow Bold / InactiveWindow Normal)
     · W-space → root-menu · C-A-space → launcher (no lugar do app-menu dele)
     · C-A-t → terminal (alias) · W-Return → terminal (foot no lugar de alacritty)
     · W-w → navegador (brave em 1º — Wayland-native, v1.1)
@@ -29,8 +29,10 @@
     · W-d → fuzzel (criador: ToggleShowDesktop → preservada em W-S-d)
     · 4 desktops, não 5 (W-1..4 cabe na fileira sem olhar; popupTime 800 p/
       feedback — o criador usa popupTime 0)
-    · Screenshots em W-P/W-S-P: o AULA F75 MAX (75%) NÃO tem tecla Print
-      (criador usa Print → ob-screenshot, que é X11)
+    · Screenshots em W-p/W-S-p (v2.10.5: keysym minúsculo — o keysym 'P'
+      maiúsculo implícita Shift e embaçava o verbo região×tela; o README
+      e o rc.xml agora dizem a mesma língua): o AULA F75 MAX (75%) NÃO tem
+      tecla Print (criador usa Print → ob-screenshot, que é X11)
     · labwc ganha de graça: <core><gap>, cornerRadius, dropShadows, snapping
       overlay — não existem no Openbox do criador
     · RICE PRÓPRIO (v1.0.4): themerc-override Catppuccin Mocha — traffic
@@ -80,14 +82,17 @@
       <layout>icon:iconify,max,close</layout>
       <showTitle>yes</showTitle>
     </titlebar>
-    <!-- Fonte do criador: JetBrains Mono 9 (pacote archcraft-fonts) -->
+    <!-- Fonte do criador: JetBrainsMono NF 9 (o nome REAL da família do
+         archcraft-fonts 2.0 — 'JetBrains Mono' com espaço é a família
+         upstream que NÃO vem na ISO; fontconfig cairia no fallback
+         genérico sem o rice. Mesma lei da waybar/fuzzel/foot). -->
     <font place="ActiveWindow">
-      <name>JetBrains Mono</name>
+      <name>JetBrainsMono NF</name>
       <size>9</size>
       <weight>bold</weight>
     </font>
     <font place="InactiveWindow">
-      <name>JetBrains Mono</name>
+      <name>JetBrainsMono NF</name>
       <size>9</size>
       <weight>normal</weight>
     </font>
@@ -100,7 +105,7 @@
          Fonte 12 = itens ~27px (v2.2: sem coluna de ícones — o texto
          manda sozinho). -->
     <font place="MenuItem">
-      <name>JetBrains Mono</name>
+      <name>JetBrainsMono NF</name>
       <size>12</size>
       <weight>normal</weight>
     </font>
@@ -235,11 +240,15 @@
       <action name="Execute" command="sh -c 'cliphist list | fuzzel --dmenu | cliphist decode | wl-copy'" />
     </keybind>
 
-    <!-- ===== Screenshot (F75 Max não tem Print → combos em P) ===== -->
-    <keybind key="W-P">
+    <!-- ===== Screenshot (F75 Max não tem Print → combos em p) =====
+         v2.10.5 — keysym MINÚSCULO: o keysym 'P' maiúsculo implícita
+         Shift (Super+p solto podia não casar) e os DOIS binds brilhavam
+         no mesmo Super+Shift+p — verbo 'região' podia perder. Em minús-
+         culas, W-p = região, W-S-p = tela inteira, SEM ambiguidade. -->
+    <keybind key="W-p">
       <action name="Execute" command="craft-shot area" />
     </keybind>
-    <keybind key="W-S-P">
+    <keybind key="W-S-p">
       <action name="Execute" command="craft-shot full" />
     </keybind>
 

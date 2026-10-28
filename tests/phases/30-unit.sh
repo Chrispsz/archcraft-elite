@@ -101,8 +101,8 @@ BY="$REPO/.github/workflows/build.yml"
 # privilegiado, o release e o QEMU do gate); relay-agents (só dispatch da
 # API) fica no ubuntu-latest; verify-install (v1.0.5) é workflow_call — o
 # runs-on mora no verify-install.yml (ex-diag-install) reutilizado, também 24.04
-assert_eq "$(grep -c 'runs-on: ubuntu-24.04' "$BY")" "4" "contrato: build.yml — 4 jobs pinados em ubuntu-24.04 (lint/build/release/verify)"
-assert_grep "$BY" 'needs: \[build, verify, verify-install\]' "contrato: release SÓ depois do gate de boot E do gate de instalação (v1.0.5)"
+assert_eq "$(grep -c 'runs-on: ubuntu-24.04' "$BY")" "5" "contrato: build.yml — 5 jobs pinados em ubuntu-24.04 (lint/build/release/verify/suite — v2.10.5 acrescenta o suite)"
+assert_grep "$BY" 'needs: \[build, verify, verify-install, suite\]' "contrato: release SÓ depois do gate de boot E do gate de instalação E da suíte (v1.0.5 + v2.10.5)"
 assert_grep "$BY" 'verify-install:' "contrato: job verify-install presente (install-gate no pipeline)"
 assert_grep "$BY" 'uses: \./\.github/workflows/verify-install\.yml' "contrato: install-gate reusa o verify-install.yml (workflow_call — zero duplicação)"
 assert_grep "$BY" "code=203/EXEC" "contrato: gate verifica 203/EXEC (binários executáveis no live)"
@@ -683,6 +683,66 @@ if bash "$LF" "$FW/keyring.log" >/dev/null 2>&1; then
   fail "forense funcional: unknown trust" "a assinatura do burn test do dono passou (deveria ser fatal)"
 else
   ok "forense funcional: 'is unknown trust' → exit 1 (a dor do burn test, caçada)"
+fi
+
+
+# ── 3.N v2.10.5 — AUDITORIA DE SIMULAÇÕES: as curas da ilha, provadas ──
+
+# forense fixture 6: 'failed to synchronize' CURADO pelo re-sync do
+# preflight (a classe #116 inteira — round transiente → cache fechou)
+cat > "$FW/sync-curado.log" <<'FIXLOG'
+Preflight round 1/3: -Syw de 900 alvos (só download; nada é instalado)
+error: failed to synchronize all databases (unexpected error)
+Preflight round 1: -Syw falhou — stderr do próprio -Syw (causa real; #19 escondeu isto aqui):
+Preflight: cache completo — pacstrap offline dali em diante
+==> Done! customize_airootfs.sh run successfully.
+FIXLOG
+if bash "$LF" "$FW/sync-curado.log" >/dev/null 2>&1; then
+  ok "forense funcional: synchronize curado pelo re-sync (janela #116) → exit 0"
+else
+  fail "forense funcional: synchronize curado" "build SÁDIO reprovado — o falso positivo da classe #116 continua vivo"
+fi
+
+# forense fixture 7: 'failed to synchronize' SEM cura → segue FATAL
+printf '%s
+' 'error: failed to synchronize all databases (unexpected error)' > "$FW/sync-morto.log"
+if bash "$LF" "$FW/sync-morto.log" >/dev/null 2>&1; then
+  fail "forense funcional: synchronize sem recuperação" "pacman -Sy morto sem 'cache completo' passou (deveria ser fatal)"
+else
+  ok "forense funcional: synchronize sem cura → exit 1 (a condicional não mascara doença)"
+fi
+
+# veredito: fase morta (linha ausente no summary) é NO-GO — o GO com
+# 4/5 peças morreu (fase morta não escreve linha e o veredito celebrava)
+VDW="$WORK/verdict-missing"; rm -rf "$VDW"; mkdir -p "$VDW"
+printf '1\tA MESA\t26\t0\t0\n2\tESTATICA\t284\t0\t0\n3\tUNIDADE\t144\t0\t0\n4\tCADEIA\t1240\t0\t0\n' > "$VDW/summary.txt"
+if ELITE_TESTS_WORK="$VDW" bash "$REPO/tests/phases/60-verdict.sh" >/dev/null 2>&1; then
+  fail "verdict: fase ausente é NO-GO" "summary sem a fase 50-release recebeu GO — a imagem incompleta passou por completa"
+else
+  ok "verdict: summary sem a fase 50-release → NO-GO (fase morta não celebra)"
+fi
+VDW2="$WORK/verdict-full"; rm -rf "$VDW2"; mkdir -p "$VDW2"
+for ph in 1 2 3 4 5; do
+  printf '%s\tfase\t10\t0\t0\n' "$ph" >> "$VDW2/summary.txt"
+done
+if ELITE_TESTS_WORK="$VDW2" bash "$REPO/tests/phases/60-verdict.sh" >/dev/null 2>&1; then
+  ok "verdict: 5 fases na mesa, zero falhas → GO (a lei não bloqueou o bom)"
+else
+  fail "verdict: 5 fases → GO" "veredito reprovou imagem completa — a lei apertou demais"
+fi
+
+# craft-bat: sem bateria = mensagem amigável ALCANÇÁVEL (o set -e+grep
+# matava calado — o código morto da era upower). Em máquina COM bateria
+# o teste cede (a prova pertence ao CI sem /sys/class/power_supply).
+if ls /sys/class/power_supply/BAT* >/dev/null 2>&1; then
+  skip "craft-bat: mensagem amigável sem bateria" "este host TEM bateria — a prova roda no CI"
+else
+  out="$(bash "$REPO/elite/airootfs/usr/local/bin/craft-bat" 2>&1)"; rc=$?
+  if [[ "$rc" -eq 1 ]] && grep -q 'nenhuma bateria encontrada' <<<"$out"; then
+    ok "craft-bat: sem bateria → mensagem amigável + exit 1 (o código morto respondeu)"
+  else
+    fail "craft-bat: sem bateria" "esperado exit 1 + mensagem; obtido rc=$rc out='$out'"
+  fi
 fi
 
 phase_end

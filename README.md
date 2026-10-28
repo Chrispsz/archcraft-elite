@@ -154,7 +154,7 @@ cd elite-build/profile && sudo ./mkarchcraftiso -v -w /tmp/iso-work -o out .
 
 ```
 .github/workflows/build.yml          CI: lint → build → verify → verify-install → release
-.github/workflows/tests.yml          Suíte de contratos (5 fases, roda em todo push)
+.github/workflows/tests.yml          Suíte de contratos (5 fases; roda em todo push que toca código — e a suíte é GATE do release via build.yml desde v2.10.5)
 .github/workflows/verify-install.yml Gate de instalação (QEMU, workflow_call)
 .github/workflows/agents.yml         Auditoria por IA sob demanda (Token Harbor)
 .github/workflows/publish-artifact.yml  Publicação manual de artifact como release

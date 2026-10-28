@@ -388,20 +388,28 @@ fi
 printf 'builder ALL=(ALL) NOPASSWD: ALL\n' > /etc/sudoers.d/builder
 chmod 440 /etc/sudoers.d/builder
 aur_build() { # $1 = nome do pacote AUR
-    local pkg=$1 try
+    local pkg=$1 try logf
     for try in 1 2; do
         rm -rf "/tmp/elite-src/aur/$pkg"
+        logf="/tmp/elite-src/${pkg}-try${try}.log"
         if git clone --depth=1 --quiet "https://aur.archlinux.org/${pkg}.git" "/tmp/elite-src/aur/$pkg"; then
             chown -R builder "/tmp/elite-src/aur/$pkg"
             # --skippgpcheck: PKGBUILDs de bin sem assinatura PGP própria;
             #  sha256 do source continua verificado pelo makepkg
-            if runuser -l builder -c "cd /tmp/elite-src/aur/$pkg && makepkg -sf --noconfirm --skippgpcheck" \
+            # v2.10.5 — A SAÍDA DA TENTATIVA VAI PRO ARQUIVO, NÃO PRO LOG
+            # PRINCIPAL: o 'target not found' da tentativa 1 manchava o log
+            # de um build que a tentativa 2 CURAVA — e o forense (que é
+            # CIÊNCIA desde a v1.4, onde 'target not found' foi o crime
+            # real) reprovava a ISO sã. A prova da cura é o makepkg ok +
+            # repo-add; na FALHA FINAL o log integral vai pro console
+            # (evidência completa) e o build morre honesto.
+            if runuser -l builder -c "cd /tmp/elite-src/aur/$pkg && makepkg -sf --noconfirm --skippgpcheck" >"$logf" 2>&1 \
                && cp /tmp/elite-src/aur/$pkg/*.pkg.tar.zst /var/cache/elite-local/; then
                 say "  ok: $pkg (tentativa $try)"
                 return 0
             fi
-            say "  makepkg falhou p/ $pkg (tentativa $try) — últimos logs:"
-            tail -15 "/tmp/elite-src/aur/$pkg"/*.log 2>/dev/null || true
+            say "  makepkg falhou p/ $pkg (tentativa $try) — tail do log (integral em $logf):"
+            tail -15 "$logf" 2>/dev/null || true
         else
             say "  git clone do AUR falhou p/ $pkg (tentativa $try)"
         fi
