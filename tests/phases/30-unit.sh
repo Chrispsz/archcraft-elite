@@ -738,6 +738,58 @@ else
   ok "forense funcional: corrupção sem cura → exit 1 (a transação morta continua caçada)"
 fi
 
+# v2.10.6 — AS 4 REGRAS FATAIS INCONDICIONAIS GANHAM FIXTURE + o ramo
+# downloader/'cache completo' exercitado (a Rodada 2 provou: 4 regras
+# FATAIS com ZERO fixtures nos dois sentidos — qualquer regex falso-
+# positivo novo derrubaria build sã sem a suíte perceber; a lição
+# #116/#122 exige ciência nas DUAS direções):
+# forense fixture 10: keyring marginal (FATAL incondicional — sem fixture até hoje)
+printf '%s
+' 'gpg: key CACHYOS: The key is marginally trusted' > "$FW/marginal.log"
+if bash "$LF" "$FW/marginal.log" >/dev/null 2>&1; then
+  fail "forense funcional: 'is marginally trusted'" "keyring marginal passou (deveria ser fatal — regra sem fixture era cega)"
+else
+  ok "forense funcional: 'is marginally trusted' → exit 1 (fatal incondicional agora com fixture)"
+fi
+# forense fixture 11: conflito de dependências (transação abortada)
+printf '%s
+' 'error: failed to prepare transaction (conflicting dependencies)' > "$FW/conflict.log"
+if bash "$LF" "$FW/conflict.log" >/dev/null 2>&1; then
+  fail "forense funcional: 'conflicting dependencies'" "conflito de dependências passou (deveria ser fatal — regra sem fixture era cega)"
+else
+  ok "forense funcional: 'conflicting dependencies' → exit 1 (fatal incondicional agora com fixture)"
+fi
+# forense fixture 12: pacstrap morto (a string literal do pacman no new root)
+printf '%s
+' 'error: failed to install packages to new root' > "$FW/pacstrap.log"
+if bash "$LF" "$FW/pacstrap.log" >/dev/null 2>&1; then
+  fail "forense funcional: 'failed to install packages'" "pacstrap morto passou (deveria ser fatal — a regra que caça o rootfs incompleto era cega)"
+else
+  ok "forense funcional: 'failed to install packages' → exit 1 (o rootfs incompleto fica caçado, agora com fixture)"
+fi
+# forense fixture 13: disco REAL cheio (distinto do falso do mtab)
+printf '%s
+' 'error: cannot write to /var/cache/pacman/pkg/x.pkg.tar.zst: No space left on device' > "$FW/diskfull.log"
+if bash "$LF" "$FW/diskfull.log" >/dev/null 2>&1; then
+  fail "forense funcional: 'No space left on device'" "disco real cheio passou (deveria ser fatal — regra sem fixture era cega)"
+else
+  ok "forense funcional: 'No space left on device' → exit 1 (o disco cheio REAL fica caçado, agora com fixture)"
+fi
+# forense fixture 14: downloader CURADO só pelo 'cache completo' (o ramo
+# v2.11 do condicional nunca tinha sido exercitado — só o do ELITE-BUMP tinha)
+cat > "$FW/dl-cache-curado.log" <<'FIXLOG'
+==> Preflight round 1/3: -Syw de 900 alvos (só download; nada é instalado)
+error: failed to commit transaction (error invoking external downloader)
+==> Preflight round 2/3: -Syw de 900 alvos (só download; nada é instalado)
+==> Preflight: cache completo — pacstrap offline dali em diante
+==> Done! customize_airootfs.sh run successfully.
+FIXLOG
+if bash "$LF" "$FW/dl-cache-curado.log" >/dev/null 2>&1; then
+  ok "forense funcional: downloader curado pelo re-sync (SEM baseline — o ramo 'cache completo' provado nos DOIS sentidos) → exit 0"
+else
+  fail "forense funcional: downloader curado por cache completo" "build SÁDIO reprovado — o ramo v2.11 do condicional continua sem ciência"
+fi
+
 # veredito: fase morta (linha ausente no summary) é NO-GO — o GO com
 # 4/5 peças morreu (fase morta não escreve linha e o veredito celebrava)
 VDW="$WORK/verdict-missing"; rm -rf "$VDW"; mkdir -p "$VDW"

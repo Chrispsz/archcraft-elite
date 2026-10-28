@@ -37,6 +37,10 @@ jobs:
         run: pacman -Sy --noconfirm --needed git shellcheck shfmt
       # v5 = Node 24 nativo (v4 alvo Node 20: warning de deprecação em todo run)
       - uses: actions/checkout@v5
+        # v2.10.6 — o token NÃO dorme no .git/config: o checkout entra num
+        # container --privileged (pacstrap monta /proc) — credencial
+        # persistida lá era vetor (achado D2 da Rodada 2).
+        persist-credentials: false
       - name: shellcheck (gate — warning ou acima; infos são intencionais e documentadas)
         run: |
           shopt -s globstar
@@ -80,6 +84,10 @@ jobs:
           pacman-key --init
           pacman -Sy --noconfirm --needed git rsync shellcheck python-yaml python-pillow shfmt bun
       - uses: actions/checkout@v5
+        # v2.10.6 — o token NÃO dorme no .git/config: o checkout entra num
+        # container --privileged (pacstrap monta /proc) — credencial
+        # persistida lá era vetor (achado D2 da Rodada 2).
+        persist-credentials: false
       - name: Montar o quebra-cabeça (5 fases + veredito)
         run: bash tests/run-tests.sh
 
@@ -92,6 +100,10 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v5
+        # v2.10.6 — o token NÃO dorme no .git/config: o checkout entra num
+        # container --privileged (pacstrap monta /proc) — credencial
+        # persistida lá era vetor (achado D2 da Rodada 2).
+        persist-credentials: false
 
       - name: Restaurar cache de pacotes (pacman + [elite-local])
         # v2.1 — os ~2 GB de pacotes baixados a cada run (preparo do
