@@ -7,7 +7,10 @@ sudo paccache -ruk1 2>/dev/null || true
 orphans="$(pacman -Qtdq 2>/dev/null || true)"
 if [[ -n "$orphans" ]]; then
   echo "==> órfãos:"; echo "$orphans" | sed 's/^/  /'
-  read -r -p "remover todos? [s/N] " ans
+  # v2.10.6 — EOF/set -e NÃO MATA CALADO (a lei do craft-idle v2.10.5
+  # chegando ao último irmão): rodar de script/pipe sem TTY matava o
+  # craft-clean no read ANTES do vacuum do journal — morte silenciosa.
+  read -r -p "remover todos? [s/N] " ans || ans=''
   [[ "${ans,,}" == "s" ]] && sudo pacman -Rns --noconfirm $orphans
 fi
 echo "==> journal: retendo 2 semanas"

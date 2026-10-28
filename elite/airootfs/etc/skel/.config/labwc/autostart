@@ -120,9 +120,14 @@ fi
 #     lock; X+5 → tela APAGA (DPMS real — o PC não fica ligado numa
 #     tela fixa); input → acorda JÁ no lock; before-sleep → lock no
 #     suspender. "Nunca" (LOCK_MIN=0) = sem daemon (W-l manual).
-if command -v craft-idle >/dev/null 2>&1; then
-    craft-idle start &
-fi
+#     v2.10.6 — O SPAWN SAIU DAQUI: quem lança (e RELANÇA — a morte
+#     calada do swayidle deixava lock/DPMS/suspend fora para sempre, o
+#     achado da Rodada 2 da auditoria) é o CRAFT-BARS, o supervisor da
+#     sessão (idle entra no loop de 5s com ausência intencional
+#     silenciosa quando "Nunca"). Um só lançador mata a corrida
+#     fork/exec: dois spawns próximos do idle se pkillariam (o
+#     pkill -x swayidle do começo do start) e o morto deixaria
+#     'SAIU exit=143' no gate do QEMU.
 
 # --- Keyring CachyOS (v1.5, camada 4): self-healing de runtime — os
 #     comandos LITERAIS da spec (init → populate → refresh de keyring)

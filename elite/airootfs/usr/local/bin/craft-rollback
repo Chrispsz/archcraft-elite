@@ -57,6 +57,14 @@ if [ "$ec" -eq 143 ]; then
     rm -f "$errf"
     exit 0
 fi
+# v2.10.6 — O 2 DO CRAFT-MENU É TOGGLE, NÃO FALHA (os irmãos power/idle/
+# connect tratam desde sempre; o rollback era o último que engolia — o
+# fechamento benigno da 2ª chamada virava toast falso de falha).
+if [ "$ec" -eq 2 ]; then
+    mlog "Rollback: toggle — 2ª chamada fechou o menu — benigno"
+    rm -f "$errf"
+    exit 0
+fi
 if [ "$ec" -eq 1 ]; then
     # v2.3.10 — fechar NUNCA é erro, COM OU SEM stderr (o gate velho
     # '! -s "$errf"' gritava FALHOU em fechamento normal — a pilha de
@@ -115,6 +123,16 @@ case "$choice" in
         ec=0
         errf="$(mktemp)"
         pick="$(printf '%s\n' "$list" | craft-menu --title='Restaurar' --at=power 2>"$errf")" || ec=$?
+        if [ "$ec" -eq 143 ]; then
+            mlog "Rollback: fechado de fora (SIGTERM — toggle/cross-dismiss) — benigno"
+            rm -f "$errf"
+            exit 0
+        fi
+        if [ "$ec" -eq 2 ]; then
+            mlog "Rollback: toggle — 2ª chamada fechou o picker — benigno"
+            rm -f "$errf"
+            exit 0
+        fi
         if [ "$ec" -ne 0 ]; then
             [ "$ec" -eq 1 ] && [ ! -s "$errf" ] \
                 && mlog "Rollback: restauração cancelada — benigno" \

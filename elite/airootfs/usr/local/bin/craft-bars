@@ -78,7 +78,7 @@ ensure() {
 while :; do
     cap_log   # v2.5.0 — o teto é POR CICLO, não só no arranque
     ensure top  "$HOME/.config/waybar/config.top"  "$HOME/.config/waybar/style.top.css"
-    if ! pgrep -f 'craft-dock-gui' >/dev/null 2>&1; then
+    if ! pgrep -f '^/usr/bin/python3 /usr/local/bin/craft-dock-gui$' >/dev/null 2>&1; then
         printf '[%s] dock craft-dock-gui FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
         (
             /usr/local/bin/craft-dock-gui >>"$LOG" 2>&1
@@ -86,7 +86,13 @@ while :; do
             printf '[%s] dock craft-dock-gui SAIU exit=%d\n' "$(date '+%F %T')" "$st" >>"$LOG"
         ) &
     fi
-    if ! pgrep -f 'craft-toplevel' >/dev/null 2>&1; then
+    # v2.10.6 — as ÂNCORAS: 'pgrep -f' casa SUBSTRING do cmdline — o dono
+    # com o fonte aberto no editor ('vim …/craft-toplevel.c') MASCARAVA a
+    # morte do daemon e a supervisão ficava cega enquanto o editor vivesse.
+    # O comm do toplevel É 'craft-toplevel' (binário C): -x é o casamento
+    # honesto; o comm da dock é 'python3' (shebang): -f com padrão ANCORA­DO
+    # (só a dock de verdade — editor com o arquivo aberto não engana mais).
+    if ! pgrep -x craft-toplevel >/dev/null 2>&1; then
         printf '[%s] toplevel craft-toplevel FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
         (
             /usr/local/bin/craft-toplevel >>"$LOG" 2>&1
@@ -98,12 +104,34 @@ while :; do
             # e derrubava o gate do QEMU numa sessão SAUDÁVEL (a perícia
             # da auditoria de simulações v2.10.5). Veredito por prova:
             # exit 0 + outro daemon vivo = corrida, não óbito.
-            if [ "$st" -eq 0 ] && pgrep -f 'craft-toplevel' >/dev/null 2>&1; then
+            if [ "$st" -eq 0 ] && pgrep -x craft-toplevel >/dev/null 2>&1; then
                 printf '[%s] toplevel 2ª instância saiu 0 (flock já segurado) — benigno\n' "$(date '+%F %T')" >>"$LOG"
             else
                 printf '[%s] toplevel craft-toplevel SAIU exit=%d\n' "$(date '+%F %T')" "$st" >>"$LOG"
             fi
         ) &
+    fi
+    # v2.10.6 — O IDLE ENTRA NA SUPERVISÃO (achado da Rodada 2): o
+    # craft-idle start era lançado UMA vez no autostart — morrendo calado,
+    # lock/DPMS/suspend ficavam fora PARA SEMPRE e ninguém avisa. Mesma
+    # cura da família: morreu, volta em ≤5s com o stderr no bars.log.
+    # LOCK_MIN=0 ("Nunca") é AUSÊNCIA INTENCIONAL — sem linha, sem spam
+    # (o clamp espelha o próprio craft-idle: valor lixo = padrão de
+    # fábrica). O spawn do autostart saiu: um só lançador (o supervisor)
+    # mata a corrida fork/exec da classe toplevel — dois 'craft-idle
+    # start' próximos se pkillariam (o pkill -x swayidle do começo do
+    # start) e o morto deixaria 'SAIU exit=143' no gate.
+    if ! pgrep -x swayidle >/dev/null 2>&1; then
+        lm="$(sed -n 's/^LOCK_MIN=//p' "$HOME/.config/elite/idle.conf" 2>/dev/null | head -1)"
+        case "${lm:-}" in ''|*[!0-9]*) lm=10 ;; esac
+        if [ "$lm" -gt 0 ] 2>/dev/null; then
+            printf '[%s] idle swayidle FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
+            (
+                /usr/local/bin/craft-idle start >>"$LOG" 2>&1
+                st=$?
+                printf '[%s] idle swayidle SAIU exit=%d\n' "$(date '+%F %T')" "$st" >>"$LOG"
+            ) &
+        fi
     fi
     sleep 5
 done

@@ -722,7 +722,8 @@ assert_nogrep "$P/airootfs/etc/skel/.zshrc" 'oh-my-zsh|ZSH_THEME' "curadoria: .z
 assert_file "$P/airootfs/etc/skel/.hushlogin" "curadoria: .hushlogin (1º login limpo, skeleton saiu)"
 # Autostart: os 4 satélites sobem sozinhos
 assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'udiskie' "curadoria: udiskie no autostart"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'craft-idle start' "curadoria: idle sobe no login (craft-idle → swayidle por baixo — v1.6.1)"
+assert_nogrep "$P/airootfs/etc/skel/.config/labwc/autostart" 'craft-idle start' \
+  "v2.10.6: o autostart NÃO lança o idle (um só lançador — o craft-bars; dois spawns próximos se pkillavam e deixavam 'SAIU exit=143' no gate)"
 assert_nogrep "$P/airootfs/etc/skel/.config/labwc/autostart" 'wlsunset' "v1.5: wlsunset FORA do autostart (causa-raiz do tom amarelado — spec)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'cliphist store' "curadoria: watcher cliphist no autostart"
 # v1.6.2: cliphist PODADO — o DB cresceria SEM LIMITE (craft-shot area →
@@ -1261,11 +1262,18 @@ joined=$(sha256sum "$CH/mini.bin" | cut -d' ' -f1)
 whole=$(grep ' mini.bin$' "$CH/sha256sums.txt" | cut -d' ' -f1)
 assert_eq "$joined" "$whole" "cadeia B: ISO remontada é bit-a-bit a original"
 # anti-tamper: 1 byte corrompido TEM que ser detectado
-printf 'X' | dd of="$CH/mini.bin.part-01" bs=1 seek=100 conv=notrunc 2>/dev/null
+# v2.10.6 — o tamper escreve o COMPLEMENTO do byte original: escrever 'X'
+# fixo era flake de ~1/256 (o byte em seek=100 já podia SER 'X' 0x58 —
+# provado 3/512 na Rodada 2 da auditoria: sha256sum -c passava, a peça
+# falhava e a suíte INTEIRA ia NO-GO num repo são). Complemento = mudança
+# matemática garantida.
+orig=$(od -An -tu1 -j100 -N1 "$CH/mini.bin.part-01" | tr -d ' \n')
+oct=$(printf '%03o' $(( (orig + 128) % 256 )))
+printf "\\$oct" | dd of="$CH/mini.bin.part-01" bs=1 seek=100 conv=notrunc 2>/dev/null
 if ( cd "$CH" && sha256sum -c <(grep -E 'part' sha256sums.txt) ) >/dev/null 2>&1; then
   fail "cadeia B: tamper detectado" "sha256sum -c passou com parte corrompida!"
 else
-  ok "cadeia B: 1 byte corrompido é rejeitado (a cadeia pega adulteração)"
+  ok "cadeia B: 1 byte corrompido é rejeitado (a cadeia pega adulteração — complemento à prova de flake)"
 fi
 
 # ════════════════════════════════════════════════════════════════════
@@ -2250,7 +2258,8 @@ assert_grep "$DOCK" '"focus", "title"' "v2.10: último recurso por TÍTULO com o
 # 'está rodando?' continua case-insensitive — agora pelo critério do
 # _windows_of (v2.10.3): exato OU contenção ≥4 chars, nos DOIS caminhos
 # (daemon vivo = janela; daemon morto = _fallback_alive).
-assert_grep "$DOCK" 'c == xl or \(len\(xl\) >= 4 and xl in c\)' "v2.10→v2.10.4: o 'está rodando?' é case-insensitive E por contenção (o exato puro lia 'brave' ≠ 'brave-browser-stable' como não-rodando e lançava DOIS — a cura v2.10.3 do matching, agora no fallback também)"
+assert_grep "$DOCK" 'c == xl or _near_match\(xl, c\)' "v2.10.6: o 'está rodando?' do fallback = exato OU contenção COM FRONTEIRA (_near_match) — o fallback não vê o que o daemon vivo não vê (foot ≠ footclient nos dois mundos)"
+assert_grep "$DOCK" 'def _near_match' "v2.10.6: a FRONTEIRA da contenção existe (brave ⊂ brave-browser casa pelo '-'; foot ⊂ footclient NÃO casa — o MEIO no pin do foot não encerra mais janelas do footclient, o falso positivo com custo real da Rodada 2)"
 #   2. apps abertos SEM pin aparecem após um fio e somem ao fechar — a dock
 #      auto-adaptável; NADA se fixa sozinho (o direito no dinâmico fixa).
 assert_grep "$DOCK" 'def _sync_dynamic' "v2.10: a seção dinâmica existe (app aberto sem pin ganha botão — a dock como a de qualquer sistema)"
@@ -2605,13 +2614,53 @@ assert_nogrep "$DOCK" "any\(\(x\.lower\(\) == b\.lower\(\)\) for x in self\.runn
   "v2.10.4: o casamento EXATO puro morreu no fallback (a mesma classe do bug v2.10.0 do Brave — curada nos DOIS caminhos)"
 
 # ── sessão: supervisão, arranque e PROVA no live ──
-assert_grep "$BRS" "pgrep -f 'craft-toplevel'" \
-  "v2.10.1: craft-bars supervisiona o daemon (morrer calado nunca mais)"
+assert_grep "$BRS" 'pgrep -x craft-toplevel' \
+  "v2.10.6: a supervisão do daemon casa o COMM real (-x) — 'pgrep -f craft-toplevel' somava o editor com o fonte aberto e mascarava a morte (supervisão cega, achado A3 da Rodada 2)"
+assert_nogrep "$BRS" "pgrep -f 'craft-toplevel'" \
+  "v2.10.6: o substring match do toplevel EXTINTO (a classe 'supervisão cega por substring' morre com contrato)"
 assert_grep "$AST" 'craft-toplevel &' \
   "v2.10.1: o daemon nasce no autostart (antes do craft-bars — socket pronto)"
 assert_grep "$PRB" 'TOPLEVEL_COUNT' \
   "v2.10.1: o probe reporta o daemon (o gate do QEMU cobra)"
 assert_grep "$PRB" 'b"PING' \
   "v2.10.1: a prova é o PING no socket (vivo E falando — processo sozinho não basta)"
+
+# ── v2.10.6 — RODADA 2 DA AUDITORIA: as curas com contrato ──────────────
+assert_grep "$BRS" 'craft-idle start' \
+  "v2.10.6: o idle entra na SUPERVISÃO do craft-bars (a morte calada do swayidle deixava lock/DPMS/suspend fora para sempre — achado B1 da Rodada 2)"
+assert_grep "$BRS" 'pgrep -x swayidle' \
+  "v2.10.6: a supervisão do idle casa o comm real (-x) e 'Nunca' (LOCK_MIN=0) é ausência intencional silenciosa — sem linha, sem spam"
+assert_grep "$DOCK" 'if self\._sock is None:' \
+  "v2.10.6: a MORTE NO MEIO DO CLIQUE degrada ao fallback (ACT falhou + conexão morta = a janela pode estar viva no compositor — lançar duplicado era o sintoma)"
+assert_grep "$DOCK" 'def _fallback_focus' \
+  "v2.10.6: o caminho do fallback vive num lugar só (_fallback_focus) — o daemon-morto e a morte-no-clique usam a MESMA lei v2.10"
+assert_grep "$DOCK" 'for k, app in idx\.items\(\)' \
+  "v2.10.6: o índice de .desktops casa por exato → stem → contenção com fronteira (comm 'brave' ↔ chave 'brave-browser' — o botão dinâmico do app mais comum do desktop não fica mais apagado)"
+assert_grep "$PRB" "pgrep -fc '\\^/usr/bin/python3 /usr/local/bin/craft-dock-gui\\\$'" \
+  "v2.10.6: a contagem da dock no probe é ANCORADA (editor com o fonte aberto não conta como dock — o falso positivo da Rodada 2)"
+assert_grep "$PRB" 'count craft-toplevel' \
+  "v2.10.6: a contagem do toplevel no probe é -x (o comm real — o substring morreu)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock" 'craft-dock-gui\$' \
+  "v2.10.6: o toggle/reload da dock é ANCORADO (USR1 num editor com o fonte aberto = terminate — a classe substring match extinta)"
+assert_grep "$TUNE" 'findmnt -n -o FSTYPE /' \
+  "v2.10.6: o gate do btrfs usa findmnt (o 'mount | grep on / btrfs' NUNCA casava — o rollback nascia morto em TODA instalação, achado D1 da Rodada 2)"
+assert_nogrep "$TUNE" "grep -q ' on / btrfs'" \
+  "v2.10.6: o gate morto 'on / btrfs' EXTINTO (a classe 'branch que nunca roda' morre com contrato)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-install-stage" 'GRUB_DISABLE_OS_PROBER' \
+  "v2.10.6: o knob do os-prober é descomentado no stage (GRUB 2.12+ vem desligado — o Windows/2º SO nunca entrava no menu, achado D2)"
+assert_grep "$P/airootfs/etc/polkit-1/rules.d/49-elite-desktop.rules" 'suspend-multiple-sessions' \
+  "v2.10.6: o polkit cobre a variante multiple-sessions do suspend (2ª sessão ativa não pede senha — achado D3)"
+assert_grep "$TUNE" '\[Autologin\]' \
+  "v2.10.6: o firstboot remove o [Autologin] herdado do live (User=liveuser não existe no instalado — comportamento indefinido do SDDM, achado Z1)"
+assert_grep "$TUNE" 'XKB_DEFAULT_LAYOUT' \
+  "v2.10.6: o teclado do Calamares chega à sessão labwc (XKB_DEFAULT_LAYOUT no /etc/environment — ABNT2 no desktop inteiro, achado Z2)"
+assert_grep "$CCT" '\*uthoriz\*\|\*ermission\*' \
+  "v2.10.6: recusa de AUTORIZAÇÃO ≠ senha errada ('Not authorized to control networking' não apaga mais o perfil bom — achado B2 da Rodada 2)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-rollback" '\-eq 2 \]' \
+  "v2.10.6: o 2 do craft-menu é TOGGLE no rollback (os irmãos power/idle/connect tratavam desde sempre — o falso toast de falha morre, achado B3)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-clean" "ans \|\| ans=''" \
+  "v2.10.6: o EOF não mata o craft-clean calado (read com fallback — a lei do idle v2.10.5 no último irmão, achado B4)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/calamares-elite-log" 'calamares-root-\*' \
+  "v2.10.6: o alvo REAL do Calamares (mkdtemp calamares-root-*) entra na cópia do log (os /mnt eram código morto — achado D4)"
 
 phase_end

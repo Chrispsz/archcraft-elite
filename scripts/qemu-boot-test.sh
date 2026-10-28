@@ -8,8 +8,9 @@
 #    · extrai a cmdline REAL da entrada default (syslinux) da ISO —
 #      a lição da build #43: nunca inventar cmdline própria
 #    · só ajusta observabilidade (sem quiet/splash, loglevel=7, serial)
-#    · veredito idêntico: Startup finished / sem shell de emergência /
-#      sem 203/EXEC / timeout 90s presente ([6.2])
+#    · veredito: mesmas classes do gate do CI (boot/emergência/203/timeout
+#      + sessão gráfica viva: waybar, dock, toplevel, socket, BARS_EXITS,
+#      fuzzel binário+INI — v2.10.6 alinhou o que o header prometia)
 #
 #  Uso:  scripts/qemu-boot-test.sh <caminho/para/archcraft-elite.iso>
 #  Requer: qemu-system-x86_64, 7z (p7zip-full), root NÃO necessário.
@@ -82,7 +83,10 @@ if [ "$VERDICT" = "BOOT_COMPLETO" ]; then
     sleep 5
   done
 fi
-sleep 5                            # logs finais (flush do probe)
+# v2.10.6 — a JANELA de flush é a MESMA do gate do CI (sleep 15 — o 5
+# local cortava o fim do bloco do probe em máquinas lentas e o veredito
+# lia tokens pela metade; o CI sempre dormiu 15).
+sleep 15                           # logs finais (flush do probe)
 kill "$Q" 2>/dev/null; wait "$Q" 2>/dev/null
 
 echo "════════ ÚLTIMAS 30 LINHAS DO SERIAL (cópia em $SERIAL — apaga com o EXIT trap) ════════"
@@ -118,6 +122,8 @@ if grep -q 'ELITE_PROBE_END' "$SERIAL" 2>/dev/null; then
   TP="$(sed 's/\x1b\[[0-9;]*m//g' "$SERIAL" | grep -oE 'TOPLEVEL_COUNT=[0-9]+' | head -1 | cut -d= -f2)"
   TS="$(sed 's/\x1b\[[0-9;]*m//g' "$SERIAL" | grep -oE 'TOPLEVEL_SOCKET=[A-Z]+' | head -1 | cut -d= -f2)"
   BE="$(sed 's/\x1b\[[0-9;]*m//g' "$SERIAL" | grep -oE 'BARS_EXITS=[0-9]+' | head -1 | cut -d= -f2)"
+  FB="$(sed 's/\x1b\[[0-9;]*m//g' "$SERIAL" | grep -oE 'FUZZEL_BIN=(.+)$' | head -1 | cut -d= -f2)"
+  FI="$(sed 's/\x1b\[[0-9;]*m//g' "$SERIAL" | grep -oE 'FUZZEL_INI=[A-Za-z()./ ]+' | head -1 | cut -d= -f2)"
   [ -n "$WC" ] && [ "$WC" -ge 1 ] 2>/dev/null
   chk $? "sessão gráfica VIVA: waybar top vivo (probe: WAYBAR_COUNT=${WC:-0})" "PROBLEMA REAL DE SESSÃO: waybar top não está vivo (${WC:-0}) — classe 'subiu só o wallpaper' (ver BARS| acima)"
   [ -n "$DK" ] && [ "$DK" -ge 1 ] 2>/dev/null
@@ -128,6 +134,12 @@ if grep -q 'ELITE_PROBE_END' "$SERIAL" 2>/dev/null; then
   chk $? "daemon das janelas FALANDO no socket da sessão (probe: TOPLEVEL_SOCKET=${TS:-AUSENTE})" "craft-toplevel vivo mas socket SEM PING (${TS:-AUSENTE}) — a dock comutadora não tem janelas reais (ver BARS| acima)"
   [ -n "$BE" ] && [ "$BE" -eq 0 ] 2>/dev/null
   chk $? "barras sem NENHUMA morte na sessão (BARS_EXITS=${BE:-?})" "barra(s) morreram ${BE:-?}× na sessão — crash/race/pin quebrado (exit code no BARS| acima)"
+  # v2.10.6 — os MENUS entram no gate local (o CI cobra desde a v2.3.1 —
+  # o header prometia 'veredito idêntico' e mentia por omissão)
+  [ -n "$FB" ] && [ "$FB" != "AUSENTE" ] 2>/dev/null
+  chk $? "menus da família craft vivos: fuzzel binário (probe: FUZZEL_BIN=${FB:-AUSENTE})" "fuzzel ausente no live — os 5 menus da sessão morreriam antes de desenhar"
+  [ "$FI" = "OK" ] 2>/dev/null
+  chk $? "fuzzel.ini parseável (probe: FUZZEL_INI=${FI:-AUSENTE})" "config corrompida: TODOS os menus morrem antes de desenhar (FUZZEL_INI=${FI:-?})"
 else
   echo "· informativo: probe da sessão NÃO chegou (QEMU sem sessão gráfica?) — gate não cobra o que não vê"
 fi

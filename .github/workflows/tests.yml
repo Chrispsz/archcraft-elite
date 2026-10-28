@@ -34,6 +34,11 @@ concurrency:
   group: tests-${{ github.ref }}
   cancel-in-progress: true
 
+# v2.10.6 — menor privilégio (a lei do build.yml: a suíte lê, nunca
+# escreve): o default GITHUB_TOKEN com write-all era excesso (achado D3).
+permissions:
+  contents: read
+
 jobs:
   puzzle:
     runs-on: ubuntu-24.04

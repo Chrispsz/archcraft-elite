@@ -133,6 +133,14 @@ detect_hw() {
   grep -q nvidia            <<< "$GLOW" && VENDOR=nvidia
   grep -qE '\b(amd|ati|radeon)\b' <<< "$GLOW" && VENDOR=amd
   grep -qE 'intel'          <<< "$GLOW" && VENDOR=intel
+  # v2.10.6 — HÍBRIDO (Optimus): VGA/3D intel|amd E nvidia na MESMA
+  # máquina — a 1ª linha (iGPU) manda no VENDOR (quem desenha), mas o
+  # dGPU EXISTE e o gpu_cleanup_foreign não pode removê-lo ($2=1).
+  HYBRID=0
+  GALL=$(lspci 2>/dev/null | grep -Ei 'vga|3d' | tr 'A-Z' 'a-z')
+  if grep -q nvidia <<< "$GALL" && grep -qE '\b(intel|amd|ati|radeon)\b' <<< "$GALL"; then
+    HYBRID=1
+  fi
   if command -v nvidia-smi >/dev/null 2>&1; then
     GLOW2=$(tr 'A-Z' 'a-z' <<< "$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | head -1)")
     [[ -n "$GLOW2" ]] && GLOW="$GLOW $GLOW2"
@@ -179,13 +187,18 @@ ensure_cmdline_token() {
 #               de userspace que nunca carrega em GPU AMD/Intel)
 #   nvidia    → ICDs Vulkan AMD/Intel (~50MB; o loader nunca os escolhe)
 # Mesa fica SEMPRE (llvmpipe do primeiro login, fallback de boot, GL).
+# v2.10.6 — HÍBRIDO (2º arg): notebook Optimus tem iGPU (quem desenha) E
+# dGPU (offload) — REMOVER o driver nvidia deixava a RTX/GTX INÚTIL para
+# sempre (a classe documentada no :206 virava doença real no híbrido).
+# Com $2=1 o stack NVIDIA fica (o install-stage já escreveu MODULES e o
+# modprobe.d coerentes); só os ICDs do TERCEIRO vendor saem.
 # Idempotente (pacman -Qq decide), auto-verificante (avisa o que restou)
 # e seguro no --dry-run (só o 'run' escreve).
 gpu_cleanup_foreign() {
-  local vendor=$1 np pkgs=()
+  local vendor=$1 hybrid=${2:-0} np pkgs=()
   case "$vendor" in
-    amd)    for np in nvidia-open nvidia-open-dkms nvidia-utils nvidia-settings lib32-nvidia-utils vulkan-intel lib32-vulkan-intel; do pacman -Qq "$np" >/dev/null 2>&1 && pkgs+=("$np"); done ;;
-    intel)  for np in nvidia-open nvidia-open-dkms nvidia-utils nvidia-settings lib32-nvidia-utils vulkan-radeon lib32-vulkan-radeon; do pacman -Qq "$np" >/dev/null 2>&1 && pkgs+=("$np"); done ;;
+    amd)    for np in nvidia-open nvidia-open-dkms nvidia-utils nvidia-settings lib32-nvidia-utils vulkan-intel lib32-vulkan-intel; do (( hybrid )) && [[ "$np" == *nvidia* ]] && continue; pacman -Qq "$np" >/dev/null 2>&1 && pkgs+=("$np"); done ;;
+    intel)  for np in nvidia-open nvidia-open-dkms nvidia-utils nvidia-settings lib32-nvidia-utils vulkan-radeon lib32-vulkan-radeon; do (( hybrid )) && [[ "$np" == *nvidia* ]] && continue; pacman -Qq "$np" >/dev/null 2>&1 && pkgs+=("$np"); done ;;
     nvidia) for np in vulkan-radeon lib32-vulkan-radeon vulkan-intel lib32-vulkan-intel; do pacman -Qq "$np" >/dev/null 2>&1 && pkgs+=("$np"); done ;;
     *)      return 0 ;;
   esac
@@ -194,7 +207,9 @@ gpu_cleanup_foreign() {
   run pacman -Rns --noconfirm "${pkgs[@]}" || true
   # v4.6: módulos dkms pré-compilados da ISO (não são pacman-owned — o dkms
   # hook do build os compilou fora do controle de arquivo do pacman)
-  if [[ "$vendor" != "nvidia" ]]; then
+  # v2.10.6 — no HÍBRIDO os .ko nvidia ficam (o driver é do hardware que
+  # está lá); o bloco de reconciliação abaixo só faz sentido SEM driver.
+  if [[ "$vendor" != "nvidia" && "$hybrid" != "1" ]]; then
     local m found=0
     for m in /usr/lib/modules/*/updates/dkms/nvidia*.ko*; do
       [[ -e "$m" ]] || continue
@@ -423,6 +438,15 @@ EOF
     intel:*)
       say "Intel → mesa/ANV (vulkan-intel assado na ISO Elite; --needed = no-op)"
       run pacman -S --needed --noconfirm mesa lib32-mesa vulkan-intel || true
+      # v2.10.6 — HÍBRIDO: userspace NVIDIA garantido (offload) — o
+      # install-stage já escreveu MODULES=(nvidia …) e o modprobe.d; o
+      # gpu_cleanup_foreign abaixo NÃO remove o driver (hybrid=1). Se o
+      # userspace faltar por qualquer razão, tenta instalar (sem rede →
+      # preservado, o aviso do prebuilt cobre).
+      if (( HYBRID )) && ! pacman -Qq nvidia-utils >/dev/null 2>&1; then
+        say "Híbrido (iGPU intel + dGPU nvidia) → nvidia-utils p/ offload (PRIME)"
+        run pacman -S --needed --noconfirm nvidia-utils lib32-nvidia-utils || true
+      fi
       ;;
     *)
       warn "GPU não identificada ($GPULINE) — nenhum driver extra instalado"
@@ -439,7 +463,11 @@ EOF
 
   # 2b. auto-limpeza: cada rig fica SÓ com os pacotes do SEU hardware
   #     (NVIDIA em AMD/Intel = ~500MB inertes; ICDs Vulkan alienígenas ~50MB)
-  gpu_cleanup_foreign "$VENDOR"
+  #     v2.10.6 — no HÍBRIDO o stack NVIDIA FICA (offload do dGPU).
+  gpu_cleanup_foreign "$VENDOR" "$HYBRID"
+  if (( HYBRID )); then
+    say "Híbrido detectado (iGPU $VENDOR + dGPU nvidia) — driver NVIDIA preservado p/ offload"
+  fi
 
   # 2c. v4.6 — rede: BBR+fq ("internet rápida"): o sysctl.d da ISO pede bbr;
   #     se ESTE kernel não oferece (improvável no BORE), remove as linhas
@@ -481,6 +509,39 @@ EOF
     rm -rf /etc/calamares
   fi
 
+  # 2e. v2.10.6 — O AUTOLOGIN DO LIVE NÃO ENTRA NO INSTALADO (achado Z1
+  #     da Rodada 2): o drop-in kde_settings.conf ([Autologin]
+  #     User=liveuser) sobrevive ao unpackfs e um usuário inexistente no
+  #     [Autologin] é comportamento indefinido do SDDM. O bloco sai; o
+  #     Theme/General ficam (a sessão labwc continua pré-selecionada).
+  SDDM_KDE=/etc/sddm.conf.d/kde_settings.conf
+  if [[ -f "$SDDM_KDE" ]] && grep -q '^\[Autologin\]' "$SDDM_KDE"; then
+    say "SDDM: removendo [Autologin] herdado do live (User=liveuser não existe no instalado)"
+    if (( ! DRY )); then
+      awk 'BEGIN{skip=0} /^\[Autologin\]/{skip=1; next} /^\[/{skip=0} skip==0{print}' \
+        "$SDDM_KDE" > "${SDDM_KDE}.new" && mv "${SDDM_KDE}.new" "$SDDM_KDE"
+    fi
+  fi
+
+  # 2f. v2.10.6 — O TECLADO DO CALAMARES CHEGA À SESSÃO (achado Z2): o
+  #     módulo keyboard escreve /etc/X11/xorg.conf.d/00-keyboard.conf —
+  #     o greeter e o TTY obedecem, mas a sessão labwc não lê X11 e
+  #     nascia us(). XKB_DEFAULT_LAYOUT no /etc/environment (pam_env
+  #     alimenta SDDM→labwc) fecha o vão (ABNT2 no desktop inteiro).
+  KB_CONF=/etc/X11/xorg.conf.d/00-keyboard.conf
+  if [[ -f "$KB_CONF" ]] && ! grep -q '^XKB_DEFAULT_LAYOUT=' /etc/environment 2>/dev/null; then
+    KBL=$(awk -F'"' '/XkbLayout/{print $4; exit}' "$KB_CONF" 2>/dev/null)
+    KBV=$(awk -F'"' '/XkbVariant/{print $4; exit}' "$KB_CONF" 2>/dev/null)
+    if [[ -n "$KBL" && "$KBL" != "us" ]]; then
+      say "Teclado: XKB_DEFAULT_LAYOUT=$KBL${KBV:+ ($KBV)} → /etc/environment (a sessão labwc herda do Calamares)"
+      if (( ! DRY )); then
+        backup /etc/environment
+        printf 'XKB_DEFAULT_LAYOUT=%s\n' "$KBL" >> /etc/environment
+        [[ -n "$KBV" ]] && printf 'XKB_DEFAULT_VARIANT=%s\n' "$KBV" >> /etc/environment
+      fi
+    fi
+  fi
+
   # 3. serviços de tuning
   # v4.7 (fusão 4→1): ananicy-cpp é o ÚNICO daemon de boost. O scheduler
   # é o BORE do kernel (nenhum scheduler userspace por cima) e o boost de
@@ -493,7 +554,13 @@ EOF
   # v2.10.5 — TUDO ISTO É LEI DO BTRFS: em raiz ext4 a unit era habilitada
   # do mesmo jeito e nascia FAILED pra sempre (systemctl --failed vermelho
   # em toda instalação ext4 — ruído que imita doença).
-  if mount | grep -q ' on / btrfs'; then
+  # v2.10.6 — O GATE ESTAVA MORTO (achado D1 da Rodada 2, provado):
+  # 'mount | grep -q " on / btrfs"' NUNCA casava — o util-linux imprime
+  # 'on / type btrfs' — e o branch inteiro (snapper, /.snapshots,
+  # grub-btrfsd) não rodava em NENHUMA instalação, btrfs inclusive: o
+  # rollback nascia morto em silêncio. O findmnt é o MESMO idioma do
+  # elite-install-stage:88.
+  if [[ "$(findmnt -n -o FSTYPE / 2>/dev/null)" == "btrfs" ]]; then
     if command -v snapper >/dev/null 2>&1; then
       snapper --no-dbus list-configs >/dev/null 2>&1 || \
         run snapper --no-dbus -c root create-config / || true
@@ -618,7 +685,7 @@ fi
 
 # ── [5] Memória + I/O (idempotente — na ISO já vêm assados) ───────
 # Auto-limpeza também no modo interativo (enxerto em sistema existente):
-gpu_cleanup_foreign "$VENDOR"
+gpu_cleanup_foreign "$VENDOR" "$HYBRID"
 ZMB=$(( MEM_GIB * 1024 )); (( ZMB > 8192 )) && ZMB=8192
 run pacman -S --needed --noconfirm zram-generator
 wfile /etc/systemd/zram-generator.conf <<EOF
@@ -670,12 +737,19 @@ run pacman -S --needed --noconfirm gamemode lib32-gamemode gamescope \
   mangohud lib32-mangohud grub-btrfs snapper lact
 # snapshots no fluxo manual também: sem /.snapshots a unit nasce FAILED
 # (o rig flagrou — mesmo bloco do firstboot, idempotente)
-if command -v snapper >/dev/null 2>&1; then
-  snapper --no-dbus list-configs >/dev/null 2>&1 || \
-    run snapper --no-dbus -c root create-config / || true
+# v2.10.6 — o MESMO GUARD do firstboot (achado D6): o modo interativo
+# habilitava grub-btrfsd sem condição de FS — em raiz ext4 nascia FAILED
+# pra sempre. findmnt decide, como no elite-install-stage:88.
+if [[ "$(findmnt -n -o FSTYPE / 2>/dev/null)" == "btrfs" ]]; then
+  if command -v snapper >/dev/null 2>&1; then
+    snapper --no-dbus list-configs >/dev/null 2>&1 || \
+      run snapper --no-dbus -c root create-config / || true
+  fi
+  run systemctl enable --now grub-btrfsd.service 2>/dev/null || true
+else
+  say "raiz não é btrfs — snapshots/grub-btrfsd ficam de fora (rollback é lei do btrfs)"
 fi
 run systemctl enable --now lactd.service 2>/dev/null || true
-run systemctl enable --now grub-btrfsd.service 2>/dev/null || true
 
 # ── [7] Shader cache NVIDIA ─────────────────────────────────────────
 if [[ "$VENDOR" == "nvidia" ]]; then

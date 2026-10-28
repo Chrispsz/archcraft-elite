@@ -333,6 +333,18 @@ GRUBDIR="${ROOT}/boot/grub"
 if [ -f "${ROOT}/boot/vmlinuz-linux-cachyos-bore" ] &&
     [ -x "${ROOT}/usr/bin/grub-mkconfig" ]; then
     mkdir -p "$GRUBDIR"
+    # v2.10.6 — DUAL-BOOT VISÍVEL (achado D2 da Rodada 2): o GRUB 2.12+
+    # desligou o os-prober por default ('#GRUB_DISABLE_OS_PROBER=false'
+    # comentado no /etc/default/grub do pacote) e NENHUM ator descomentava
+    # — o Windows/2º SO nunca aparecia no menu do disco instalado. O knob
+    # fica aqui: quem manda no menu é o stage (o valor persiste no alvo —
+    # o firstboot reusa). Sem a linha comentada (upstream mudou), nada
+    # toca: o sed é guardado e o os-prober segue o default do pacote.
+    if [ -f "${ROOT}/etc/default/grub" ] &&
+        grep -q '^#GRUB_DISABLE_OS_PROBER=false' "${ROOT}/etc/default/grub" 2>/dev/null; then
+        sed -i 's|^#GRUB_DISABLE_OS_PROBER=false|GRUB_DISABLE_OS_PROBER=false|' "${ROOT}/etc/default/grub"
+        echo "ELITE: os-prober habilitado (GRUB 2.12+ vem com o knob desligado — dual-boot entra no menu)"
+    fi
     echo "ELITE: [M1.1] grub-mkconfig no alvo (re-geração completa do menu)"
     if arch-chroot "$ROOT" grub-mkconfig -o /boot/grub/grub.cfg; then
         if [ -s "${ROOT}/boot/grub/grub.cfg" ] &&

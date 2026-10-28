@@ -21,6 +21,10 @@ polkit.addRule(function(action, subject) {
         "org.freedesktop.login1.reboot",
         "org.freedesktop.login1.reboot-multiple-sessions",
         "org.freedesktop.login1.suspend",
+        // v2.10.6 — a VARIANTE multiple-sessions do suspend faltava (as
+        // demais tinham): com uma 2ª sessão ativa o suspend do menu pedia
+        // senha (achado D3 da Rodada 2).
+        "org.freedesktop.login1.suspend-multiple-sessions",
         "org.freedesktop.login1.hibernate",
         "org.freedesktop.login1.hibernate-multiple-sessions"
     ];

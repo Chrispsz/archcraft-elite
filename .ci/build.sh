@@ -408,8 +408,15 @@ aur_build() { # $1 = nome do pacote AUR
                 say "  ok: $pkg (tentativa $try)"
                 return 0
             fi
-            say "  makepkg falhou p/ $pkg (tentativa $try) — tail do log (integral em $logf):"
-            tail -15 "$logf" 2>/dev/null || true
+            say "  makepkg falhou p/ $pkg (tentativa $try) — log integral em $logf"
+            # v2.10.6 — o tail da TENTATIVA 1 não vai mais pro log principal:
+            # o stderr do makepkg morto (ex. 'target not found' de CDN)
+            # manchava o log de um build que a tentativa 2 CURAVA e o
+            # forense (ciência desde a v1.4) reprovaria a ISO sã. O tail
+            # só sai na FALHA FINAL (tentativa 2), junto com o ELITE-FAIL.
+            if [ "$try" -eq 2 ]; then
+                tail -15 "$logf" 2>/dev/null || true
+            fi
         else
             say "  git clone do AUR falhou p/ $pkg (tentativa $try)"
         fi

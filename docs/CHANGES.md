@@ -6,6 +6,80 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **v2.10.6 — A RODADA 2: O DONO PEDIU "COM TODO O NOSSO CÓDIGO"** (a
+  validação por simulação que nasceu na v2.10.5 virou MÉTODO: 4 domínios
+  percorreram os ~12.700 linhas — sessão/dock, energia/manutenção,
+  instalação, CI/forense/suíte — 80 cenários, prova file:line para cada
+  veredito; as curas que sobreviveram à perícia):
+  - **O ANTI-TAMPER QUE REPROVAVA REPO SÃO (o bug funcional provado)**:
+    o tamper da cadeia B escrevia 'X' fixo sobre 1 byte aleatório — se o
+    byte JÁ fosse 'X' (0x58, ~1/256; flagrado 3/512 na própria auditoria),
+    o sha256 passava, a peça falhava e a suíte INTEIRA ia NO-GO. Agora o
+    tamper escreve o COMPLEMENTO do byte lido (mudança matemática
+    garantida).
+  - **O GATE DO BTRFS QUE NUNCA RODAVA**: 'mount | grep -q " on / btrfs"'
+    NUNCA casava (o util-linux imprime 'on / type btrfs') — snapper,
+    /.snapshots e grub-btrfsd não nasciam em NENHUMA instalação, btrfs
+    inclusive: o rollback morria em silêncio. findmnt decide (o mesmo
+    idioma do install-stage), nos DOIS caminhos (firstboot E interativo).
+  - **O OS-PROBER QUE NINGUÉM LIGAVA**: o GRUB 2.12+ desliga por default
+    ('#GRUB_DISABLE_OS_PROBER=false' comentado) e nada descomentava — o
+    Windows/2º SO nunca entrava no menu do disco instalado. O stage M1.1
+    liga o knob (valor persiste no alvo).
+  - **O HÍBRIDO QUE PERDIA A dGPU**: iGPU intel desenhava e o
+    gpu_cleanup_foreign REMOVIA o driver nvidia inteiro — a RTX/GTX do
+    Optimus ficava inútil. HYBRID=1 preserva o stack (offload/PRIME) e
+    reconcilia só o que é estranho de verdade; nvidia-utils garantido.
+  - **A MORTE NO MEIO DO CLIQUE**: ACT falhou + conexão morta = o clique
+    na janela VIVA lançava DUPLICADO (snapshot velho). Degrada ao fallback
+    (wlrctl tenta focar; só abre se TODAS as formas falharem) —
+    _fallback_focus é o lugar único da lei v2.10.
+  - **A FRONTEIRA DA CONTENÇÃO**: 'foot' ⊂ 'footclient' casava e o MEIO
+    no pin do foot encerrava janelas do footclient (o fallback wlrctl,
+    exato, mudava de mão e abria outro). _near_match: fronteira = o char
+    colado não é letra/número — brave⊂brave-browser segue, footclient
+    segue foot. A MESMA lei chega ao índice de .desktops: o botão dinâmico
+    do Brave (comm 'brave' ≠ chave 'brave-browser') nasce.
+  - **AS ÂNCORAS DA SUPERVISÃO**: 'pgrep -f craft-toplevel' somava o
+    EDITOR com o fonte aberto — supervisão cega e USR1 de toggle no vim.
+    toplevel/swayidle por comm (-x), dock por cmdline ANCORADA (bars,
+    probe e craft-dock).
+  - **O IDLE ENTRA NA SUPERVISÃO**: swayidle lançado UMA vez no autostart
+    morria calado e lock/DPMS/suspend ficavam fora para sempre. craft-bars
+    vigia (≤5s, ausência intencional silenciosa quando "Nunca"); o spawn
+    do autostart saiu (um só lançador — a corrida fork/exec que se
+    pkillava deixaria 'SAIU exit=143' no gate).
+  - **AUTORIZAÇÃO ≠ SENHA ERRADA**: 'Not authorized to control networking'
+    (polkit) casava '*auth*' e o perfil BOM era apagado. Ramo próprio SEM
+    delete + aviso honesto.
+  - **O 2 DO MENU É TOGGLE**: o rollback era o último irmão que tratava
+    ec=2 como falha (toast falso). E o craft-clean morria calado com EOF
+    no prompt (read || ans='').
+  - **O AUTOLOGIN DO LIVE NÃO ENTRA NO INSTALADO**: o drop-in com
+    User=liveuser sobrevivia ao unpackfs — o firstboot remove o bloco
+    [Autologin]. E o TECLADO DO CALAMARES chega à sessão: XKB_DEFAULT_
+    LAYOUT no /etc/environment (ABNT2 no desktop inteiro, não só no
+    greeter).
+  - **O POLKIT COMPLETO**: a variante suspend-multiple-sessions faltava
+    (as demais tinham) — suspend com 2ª sessão pedia senha.
+  - **O ALVO REAL DO LOG DO CALAMARES**: o mountPoint é um mkdtemp
+    'calamares-root-*' — /mnt era código morto; o glob entra e o doc diz
+    por que a promessa v2.0 se cumpre (preservefiles upstream).
+  - **W-Tab EXPLÍCITO**: o <default/> do labwc podia trazer de volta a
+    lista de janelas aposentada pela porta dos fundos — bind declarado
+    (None) e a lista mora só na dock.
+  - **O RUÍDO DO AUR**: o tail da tentativa 1 falhada não mancha mais o
+    log que a tentativa 2 cura (só a falha FINAL imprime).
+  - **A FORENSE COM CIÊNCIA COMPLETA**: 4 regras FATAIS incondicionais
+    ('is marginally trusted', 'conflicting dependencies', 'failed to
+    install packages', 'No space left on device') ganharam fixture —
+    até a Rodada 2 eram cegas nos dois sentidos — e o ramo downloader/
+    'cache completo' (SEM baseline) foi exercitado pela 1ª vez. qemu-boot-
+    test alinha o gate local ao CI (sleep 15 + FUZZEL_BIN/INI).
+  - **O TOKEN QUE DORMIA NO CONTAINER**: checkout com
+    persist-credentials: false (o .git entrava num container
+    --privileged) e tests.yml com permissions: contents: read.
+  - Suíte: contratos das curas + fixtures novas (o placar exato na run).
 - **v2.10.5 — A AUDITORIA QUE CRUZOU A ILHA** (o dono pediu: "faz várias
   simulações de uso e olha como o código reage — quero validação real que
   a distro é bem pensada e estável, tudo da melhor forma"). 5 personas
