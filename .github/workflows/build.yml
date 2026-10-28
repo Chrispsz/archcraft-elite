@@ -339,9 +339,17 @@ jobs:
           # discordavam. Agora o QEMU usa KVM quando o runner tem (e a
           # cobrança fica honesta: mesma moeda dos dois lados).
           KVM=""
-          if [ -e /dev/kvm ] && [ -w /dev/kvm ]; then KVM="-enable-kvm -cpu host"; echo "── KVM disponível: boot acelerado"; fi
+          if [ -e /dev/kvm ] && [ -w /dev/kvm ]; then KVM="-enable-kvm"; echo "── KVM disponível: boot acelerado"; fi
+          # v2.10.5b — A LIÇÃO DA PRIMEIRA TENTATIVA: '-cpu max' NUNCA sai
+          # da linha. O edit do KVM trocou '-machine q35 -cpu max' por
+          # '-machine q35 $KVM' e com TCG ($KVM vazio) o QEMU subiu com a
+          # CPU default (qemu64) — o kernel BORE (x86-64-v3) morreu no
+          # handoff, e com -no-reboot o triple-fault ENCERROU o QEMU em
+          # 20s (serial com só SeaBIOS no tail — a prova no log do verify
+          # da primeira build v2.10.5). '-cpu max' é válido em TCG E KVM;
+          # o $KVM só carrega o -enable-kvm.
           qemu-system-x86_64 \
-            -machine q35 $KVM -smp 2 -m 7168 \
+            -machine q35 -cpu max $KVM -smp 2 -m 7168 \
             -kernel "extracted/arch/boot/x86_64/vmlinuz-linux-cachyos-bore" \
             -initrd "extracted/arch/boot/x86_64/initramfs-linux-cachyos-bore.img" \
             -append "$APPEND_GATE" \
