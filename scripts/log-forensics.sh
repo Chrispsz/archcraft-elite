@@ -34,7 +34,11 @@
 #    · "conflicting dependencies"      transação abortada por conflito
 #    · "[Ff]ailed to install packages" pacstrap abortou (rootfs
 #                                      incompleto = ISO inútil)
-#    · "failed to synchronize"         pacman -Sy sem rede/lock no build
+#    · "failed to synchronize"         VEJO CONDICIONAL ABAIXO (v2.10.5:
+#                                      o re-sync do preflight imprime essa
+#                                      string num build SADIO — mesma
+#                                      janela do #116; FATAL incondicional
+#                                      era falso positivo)
 #    · "No space left on device"       disco REAL cheio (distinto do
 #                                      falso do mtab)
 #
@@ -116,7 +120,6 @@ is marginally trusted|assinatura marginalmente confiável (keyring incompleto)
 invalid or corrupted package|pacote corrompido no download → transação abortada
 conflicting dependencies|conflito de dependências → transação abortada
 [Ff]ailed to install packages|pacstrap abortou — rootfs incompleto (ISO inútil)
-failed to synchronize|pacman -Sy falhou no build (rede/lock)
 No space left on device|disco REAL cheio (distinto do falso do mtab)
 PATTERNS
 
@@ -139,7 +142,29 @@ if (( n > 0 )); then
   fi
 fi
 
+# ── CONDICIONAL: 'failed to synchronize' com cura do preflight ─────────
+# v2.10.5 — A MESMA LEI DO DOWNLOADER: o preflight v3 imprime o stderr do
+# round que falhou ('-Syw falhou — stderr do próprio -Syw') e o round
+# seguinte fecha o cache ('Preflight: cache completo'). Um 404 transiente
+# de DB sync num build SADIO continha a string fatal — falso positivo da
+# classe #116. A cura é honesta pelo mesmo argumento do downloader: se o
+# cache NUNCA fechou, o build.sh aborta no round 3 e NEM CHEGA ao forense
+# (e o pacstrap morto segue coberto por '[Ff]ailed to install packages').
+n=$(count 'failed to synchronize')
+if (( n > 0 )); then
+  if grep -q 'Preflight: cache completo' "$LOG"; then
+    report_benign "synchronize falhou E o preflight re-sincronizou e fechou o cache depois (transiente — janela do #116)" "$n"
+  else
+    report_fatal "pacman -Sy falhou SEM recuperação (rede/lock — sem 'Preflight: cache completo' depois)" "$n"
+  fi
+fi
+
 # ── CONDICIONAL: 'command failed' fora de contexto grub ───────────────
+# LIMITAÇÃO CONHECIDA (v2.10.5, auditoria): a janela de 3 linhas para trás
+# pode 'abençoar' uma falha não-grub que por acaso desça perto de menção
+# ao grub — falso negativo teórico. A janela NÃO foi apertada sem o log
+# real do #116 em mãos (o gate é ciência: regra nova sem prova quebra a
+# cura provada; as fixtures da suíte definem a verdade atual).
 n_total=$(count 'command failed to execute correctly')
 if (( n_total > 0 )); then
   n_grub=0

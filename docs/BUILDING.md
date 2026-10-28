@@ -8,8 +8,8 @@ diagnosticar uma run que quebrou. É o mapa operacional do
 
 | Evento | O que roda | Duração típica |
 |---|---|---|
-| Push em qualquer branch / PR | `tests.yml` — suíte de contratos (5 fases) | ~1.4 min |
-| Tag `v*` | `build.yml` completo: lint → build → verify → verify-install → release | ~25-35 min (com cache quente) |
+| Push em qualquer branch / PR que toque código | `tests.yml` — suíte de contratos (5 fases; filtro de caminhos — push só de docs não roda CI) | ~1.4 min |
+| Tag `v*` | `build.yml` completo: lint → build → verify → verify-install → **suite** → release (a suíte é GATE do release desde v2.10.5) | ~25-35 min (com cache quente) |
 | `workflow_dispatch` no build.yml | Mesmo pipeline, sem release (a menos que a ref seja uma tag) | idem |
 
 Regra: **ISO é evento de release**. Push de commit roda o que custa segundos,

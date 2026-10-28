@@ -3,6 +3,10 @@
 # v2.3.6 — 'nvme[0-9]*' casava PARTIÇÃO (nvme0n1p1) e namespace sem queue/
 # scheduler → 'Could not chase sysfs attribute' no journal do rig. O
 # scheduler vive só no dispositivo de bloco INTEIRO (nvme0n1): n obrigatório.
-ACTION=="add|change", KERNEL=="nvme[0-9]n[0-9]*", ATTR{queue/scheduler}="none"
+# v2.10.5 — o '*' final AINDA casava partição (fnmatch: nvme0n1p1 bate em
+# 'nvme[0-9]n[0-9]*' — o * engole o p1; auditado na auditoria de simulações).
+# TEST!=partition fecha a classe: partição TEM o atributo partition=,
+# namespace inteiro NÃO tem — a regra só cospe no disco inteiro.
+ACTION=="add|change", KERNEL=="nvme[0-9]n[0-9]*", TEST!="partition", ATTR{queue/scheduler}="none"
 ACTION=="add|change", KERNEL=="sd[a-z]*|mmcblk[0-9]*", ATTR{queue/rotational}=="0", ATTR{queue/scheduler}="none"
 ACTION=="add|change", KERNEL=="sd[a-z]*|mmcblk[0-9]*", ATTR{queue/rotational}=="1", ATTR{queue/scheduler}="bfq"

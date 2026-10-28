@@ -33,7 +33,21 @@ done
 printf '%s──────────────────────────────────────────────────────────────%s\n' "$C_DIM" "$C_RST"
 printf '  PEÇAS ENCAIXADAS: %d · falhas: %d · pulos: %d · bloqueadas: %d\n' "$tp" "$tf" "$ts" "$tb"
 
-if (( tf == 0 && tb == 0 )); then
+# v2.10.5 — A FASE QUE MORRE NÃO DEIXA LINHA: um kill/OOM na fase 5 não
+# escreve summary e o veredito dava GO com 4 das 5 peças (a imagem
+# incompleta passava por completa). A lei: GO só com AS CINCO fases na
+# mesa — linha ausente é morte, e morte é NO-GO.
+MISSING=0
+# (o phase_end grava o NUM da fase — 1..5; nomes só aparecem nas linhas
+# BLOQUEADA do runner — por isso a prova é numérica e com TAB)
+for ph in 1 2 3 4 5; do
+  if ! grep -q "^${ph}$(printf '\t')" "$WORK/summary.txt" 2>/dev/null; then
+    MISSING=1
+    printf '  %s✖ fase %s SEM LINHA no summary (morreu antes do phase_end?)%s\n' "$C_BAD" "$ph" "$C_RST"
+  fi
+done
+
+if (( tf == 0 && tb == 0 && MISSING == 0 )); then
   printf '  %sVEREDICTO: GO — imagem completa, tudo encaixou%s\n' "$C_OK" "$C_RST"
   exit 0
 else

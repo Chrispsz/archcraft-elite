@@ -48,7 +48,15 @@ fi
 
 $SUDO pacman-key --init >/dev/null 2>&1 || true
 $SUDO pacman-key --populate archlinux cachyos >/dev/null 2>&1 || true
-$SUDO pacman -Sy --noconfirm archlinux-keyring cachyos-keyring >/dev/null 2>&1 || true
-mkdir -p "${STAMP%/*}" 2>/dev/null || true
-date +%s > "$STAMP" 2>/dev/null || true
+# v2.10.5 — O SELO SÓ COME COM A CURA FEITA: o carimbo de 24h era
+# escrito MESMO quando o pacman -Sy falhava (sem rede) — o script
+# mentia 'curado' e não re-tentava por um dia inteiro. Sem rede, sem
+# selo: o próximo boot re-tenta (as camadas 1-3 do keyring seguem
+# cobrindo o dia-a-dia; isso é a 4ª camada).
+if $SUDO pacman -Sy --noconfirm archlinux-keyring cachyos-keyring >/dev/null 2>&1; then
+    mkdir -p "${STAMP%/*}" 2>/dev/null || true
+    date +%s > "$STAMP" 2>/dev/null || true
+else
+    echo "craft-fix-keys: keyring não atualizado (sem rede?) — re-tenta no próximo boot" >&2
+fi
 exit 0

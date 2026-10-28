@@ -201,6 +201,21 @@ gpu_cleanup_foreign() {
       (( DRY )) || rm -f "$m"; found=1
     done
     (( found )) && say "Auto-limpeza: .ko nvidia pré-compilados removidos de /usr/lib/modules/*/updates/dkms"
+    # v2.10.5 — RECONCILIAÇÃO DO INITRAMFS (a contradição Optimus, achada
+    # na auditoria de simulações): o elite-install-stage decide pela
+    # /sys/class/drm (vê o dGPU — em híbrido escreve MODULES=(nvidia …))
+    # e ESTE tune decide pela 1ª linha lspci (conservador: iGPU). Sair daqui
+    # com 'nvidia' no MODULES depois de REMOVER os .ko = o PRÓXIMO
+    # mkinitcpio -P (todo update de kernel) morre 'module not found' e o
+    # boot seguinte vai pro emergency shell. A contradição morre na fonte.
+    if [[ -f /etc/mkinitcpio.conf ]] && grep -q '^MODULES=(nvidia' /etc/mkinitcpio.conf; then
+      (( DRY )) || sed -i 's|^MODULES=(nvidia[^)]*)|MODULES=()|' /etc/mkinitcpio.conf
+      say "Auto-limpeza: MODULES=(nvidia …) saiu do initramfs (install-stage viu o dGPU; quem manda no driver é o tune — GPU $vendor)"
+    fi
+    if [[ -e /etc/modprobe.d/00-elite-nvidia.conf ]]; then
+      (( DRY )) || rm -f /etc/modprobe.d/00-elite-nvidia.conf
+      say "Auto-limpeza: /etc/modprobe.d/00-elite-nvidia.conf saiu (sem driver, options órfãs)"
+    fi
   fi
   for np in "${pkgs[@]}"; do
     pacman -Qq "$np" >/dev/null 2>&1 && warn "restou '$np' (dependência?) — manual: pacman -Rns $np"
@@ -475,13 +490,20 @@ EOF
   # nasce FAILED ('No directory found at /.snapshots' — o rig flagrou no
   # dump: active=failed). O snapper cria o subvolume junto com a config
   # (idempotente); sem snapper, subvolume nu já faz a unit subir sadia.
-  if command -v snapper >/dev/null 2>&1; then
-    snapper --no-dbus list-configs >/dev/null 2>&1 || \
-      run snapper --no-dbus -c root create-config / || true
-  elif mount | grep -q ' on / btrfs'; then
-    [ -d /.snapshots ] || run btrfs subvolume create /.snapshots || true
+  # v2.10.5 — TUDO ISTO É LEI DO BTRFS: em raiz ext4 a unit era habilitada
+  # do mesmo jeito e nascia FAILED pra sempre (systemctl --failed vermelho
+  # em toda instalação ext4 — ruído que imita doença).
+  if mount | grep -q ' on / btrfs'; then
+    if command -v snapper >/dev/null 2>&1; then
+      snapper --no-dbus list-configs >/dev/null 2>&1 || \
+        run snapper --no-dbus -c root create-config / || true
+    elif [ ! -d /.snapshots ]; then
+      run btrfs subvolume create /.snapshots || true
+    fi
+    run systemctl enable --now grub-btrfsd.service 2>/dev/null || true
+  else
+    say "raiz não é btrfs — snapshots/grub-btrfsd ficam de fora (rollback é lei do btrfs)"
   fi
-  run systemctl enable --now grub-btrfsd.service 2>/dev/null || true
   run systemctl enable --now lactd.service 2>/dev/null || true
 
   # 4. tokens de kernel (GRUB) — inserção à prova de aspas
@@ -513,6 +535,18 @@ EOF
       (( DRY )) || wall "ELITE: driver NVIDIA pendente (sem rede?). Conecte-se e reinicie — o firstboot re-tenta." 2>/dev/null || true
     else
       (( DRY )) || wall "ELITE: driver NVIDIA instalado. REINICIE para ativar (o atual usa o módulo antigo/nouveau)." 2>/dev/null || true
+      # v2.10.5 — O AVISO QUE NINGUÉM VIA: o wall escreve em TTY e a sessão
+      # do usuário é GRÁFICA (SDDM→labwc) — o dono do Optimus/nVIDIA nunca
+      # soube que tinha que reiniciar (achado da auditoria de simulações).
+      # O mesmo recado vai à central de notificações de cada sessão viva.
+      for ub in /run/user/*/bus; do
+        [[ -S "$ub" ]] || continue
+        uid=${ub#/run/user/}; uid=${uid%/bus}
+        (( DRY )) || sudo -n -u "#$uid" env DBUS_SESSION_BUS_ADDRESS="unix:path=$ub" \
+          notify-send -a 'Elite' -u critical \
+          'ELITE: driver NVIDIA instalado' \
+          'REINICIE para ativar (o sistema atual usa o módulo antigo/nouveau).' 2>/dev/null || true
+      done
     fi
   else
     (( DRY )) || wall "ELITE: primeiro boot concluído (serviços de tuning ativos). Reboot recomendado." 2>/dev/null || true

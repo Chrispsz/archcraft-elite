@@ -81,8 +81,12 @@ case "$choice" in
     'Criar snapshot agora')
         ec=0
         errf="$(mktemp)"
+        # v2.10.5 — A FLAG É PROBADA (lei do craft-menu/pin-pick: 'flag nova
+        # que mata'): --anchor sem probe matava o prompt em fuzzel velho.
+        ANCHOR=''
+        fuzzel --help 2>&1 | grep -q -- '--anchor' && ANCHOR='--anchor=center'
         desc="$(fuzzel --dmenu </dev/null \
-            --anchor=center \
+            $ANCHOR \
             --lines=0 --width=30 --prompt='Descrição  ' 2>"$errf")" || ec=$?
         if [ "$ec" -ne 0 ]; then
             [ "$ec" -eq 1 ] && [ ! -s "$errf" ] \
