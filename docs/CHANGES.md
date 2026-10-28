@@ -80,6 +80,17 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
     persist-credentials: false (o .git entrava num container
     --privileged) e tests.yml com permissions: contents: read.
   - Suíte: contratos das curas + fixtures novas (o placar exato na run).
+  - **O DUMP v2.0 — O RIG FALA COMPLETO**: o craft-dump ("btop completão")
+    ABRE com o VEREDITO RÁPIDO (probe da sessão + units falhados + disco
+    raiz) e ganhou a tabela REAL de janelas do daemon toplevel (o socket
+    que a dock fala: app_id/flags/rank MRU/título — o teste do btop chega
+    com prova), pins vs dinâmicos, driver EM USO da GPU (lspci -k — a cura
+    D5 com evidência), findmnt / (lição D1), história de boots,
+    temperaturas sem lm_sensors, layout real de monitores (wlr-randr entra
+    na ISO), rede (nmcli — a cura B2 com evidência), áudio (wpctl),
+    idle.conf (a escolha do dono viaja) e XKB (o ABNT2 com prova). O
+    --upload ganhou timeout (rede morta devolve o terminal em 15s) e a
+    contagem da dock no dump usa a âncora da Rodada 2 (o comm é python3).
 - **v2.10.5 — A AUDITORIA QUE CRUZOU A ILHA** (o dono pediu: "faz várias
   simulações de uso e olha como o código reage — quero validação real que
   a distro é bem pensada e estável, tudo da melhor forma"). 5 personas

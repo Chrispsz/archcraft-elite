@@ -1,21 +1,39 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · craft-dump (v1.0 — o "btop completão", v2.3.5)
+# Archcraft ELITE · craft-dump (v2.0 — o "btop completão" polido, v2.10.6)
 # ═══════════════════════════════════════════════════════════════════════════
 # Pedido do dono (out/2026): "como puxo tudo que está rodando como se fosse
 # um btop completão pra gente ter um diagnóstico da RAM, pacotes, uso, CPU
-# e etc… puxar todos os caches do elite" — o dump ÚNICO que reúne:
+# e etc… puxar todos os caches do elite" — e v2.10.6: "deixa bem mais polido
+# esse log btop para que quando eu instalar a 10.6 e mandar o log, você já
+# saiba como está o sistema COMPLETAMENTE". O dump v2.0 ABRE com o veredito
+# (o sistema descrevendo a si mesmo) e só então o detalhe, seção a seção:
 #
-#   hardware (CPU/RAM/GPU/discos/zram) · kernel & tuning · serviços Elite ·
-#   SUSPEND/ACPI (a caça ao despertar) · journal de erros do boot ·
-#   sessão (processos, barras, dock) · os 3 logs da Elite (bars/menus/dock)
-#   · log do firstboot · log do Calamares · PACOTES (explicit/órfãos/foreign/
-#   flatpak/repos) · caches e uso de disco.
+#    0 · VEREDITO RÁPIDO — probe da sessão + units falhados + disco raiz
+#    1 · identidade (+ o ambiente de sessão: o dump nasceu dentro dela?)
+#    2 · hardware — CPU/RAM/GPU com DRIVER EM USO/discos/zram/temperaturas
+#    3 · kernel & tuning
+#    4 · boot & rollback — história de boots, tempo, findmnt (lição D1),
+#        snapshots
+#    5 · serviços Elite + a VERSÃO dos pacotes craft/elite NO RIG (pacman)
+#    6 · sessão — processos, barras, supervisão, PINS e a TABELA REAL de
+#        janelas do daemon toplevel (o socket que a dock fala:
+#        W|id|flags|rank|app_id|título — o teste do btop chega com prova)
+#    7 · display & teclado — wlr-randr (posição/scale/modo ATUAL), XKB
+#        (o ABNT2 com prova), localectl
+#    8 · rede — nmcli (a cura B2 com evidência) + IPs + hardware de rede
+#    9 · áudio — sink/fonte default (wpctl)
+#   10 · suspend/ACPI — a caça ao despertar + idle.conf (a escolha do dono)
+#   11 · journal de erros deste boot
+#   12 · os 3 logs da Elite + firstboot + Calamares
+#   13 · pacotes (explicit/órfãos/foreign/flatpak/repos)
+#   14 · caches e uso de disco
 #
 # Uso:
 #   craft-dump            → gera ~/elite-dump-<data>.txt e mostra o caminho
 #   craft-dump --upload   → idem + sobe no termbin.com e imprime a URL curta
-#                           (via /dev/tcp do bash — sem depender de nc)
+#                           (via /dev/tcp do bash — sem depender de nc;
+#                           timeout 15 — rede morta devolve o terminal)
 #
 # Somente leitura (nada é modificado). Logs são TAILADOS (evidência recente
 # vale mais — mesma política do bars.log). Para o journal COMPLETO rode com
@@ -38,19 +56,38 @@ r() { # r <comando> [linhas]
 }
 
 {
-    printf '══════════ ELITE DUMP — diagnóstico completo ══════════\n'
+    printf '══════════ ELITE DUMP v2.0 — diagnóstico completo ══════════\n'
     printf 'gerado: %s · usuário: %s · host: %s\n' \
         "$(date)" "$(id -un)" "$(hostname 2>/dev/null || echo '?')"
 
-    printf '\n══════════ IDENTIDADE ══════════\n'
+    printf '\n══════════ 0 · VEREDITO RÁPIDO ══════════\n'
+    printf '(o sistema descrevendo a si mesmo — o detalhe mora nas seções 1-14)\n'
+    # v2.1.1: o probe é o veredito que a sessão faz de si (barras, dock,
+    # toplevel vivo E FALANDO — PING real no socket —, memória, versões)
+    if [ -x /usr/local/bin/elite-session-probe ]; then
+        r "/usr/local/bin/elite-session-probe" 100
+    else
+        printf '(probe ausente — sessão anterior à v2.1.1?)\n'
+    fi
+    # a 1ª pergunta de qualquer perícia de boot: o que está FAILED
+    r "systemctl --failed --no-pager --plain" 8
+    r "systemctl --user --failed --no-pager --plain" 8
+    r "df -h / | tail -1" 2
+
+    printf '\n══════════ 1 · IDENTIDADE ══════════\n'
     r "grep PRETTY /etc/os-release" 2
     r "uname -a" 2
     r "uptime" 2
+    # o dump nasceu DENTRO da sessão gráfica? (SSH/vty = variáveis vazias —
+    # e aí o wlr-randr da seção 7 decai para os conectores do kernel)
+    r "env | grep -E '^(XDG_SESSION_TYPE|WAYLAND_DISPLAY|XDG_RUNTIME_DIR|LANG|DESKTOP_SESSION)='" 6
 
-    printf '\n══════════ HARDWARE — CPU/RAM/GPU/DISCO ══════════\n'
+    printf '\n══════════ 2 · HARDWARE — CPU/RAM/GPU/DISCO/TEMPERATURA ══════════\n'
     r "lscpu | grep -E 'Model name|^CPU\(s\)|Thread|MHz|Socket|L3'" 8
     r "free -h" 5
-    r "lspci | grep -Ei 'vga|3d|network|ethernet'" 8
+    # v2.10.6: -k mostra o DRIVER EM USO (a cura D5 do híbrido com prova:
+    # nvidia bound ou não; nouveau vs nvidia; amdgpu presente ou ausente)
+    r "lspci -k | grep -EA3 'VGA|3D|Display'" 14
     if command -v nvidia-smi >/dev/null 2>&1; then
         r "nvidia-smi --query-gpu=name,driver_version,memory.total,temperature.gpu --format=csv,noheader" 4
     fi
@@ -58,15 +95,34 @@ r() { # r <comando> [linhas]
     r "df -h / /home /boot /boot/grub 2>/dev/null | sort -u" 10
     r "zramctl 2>/dev/null" 5
     r "swapon --show 2>/dev/null" 4
+    printf '\n── temperaturas (sysfs do kernel — sem precisar de lm_sensors; valor em m°C)\n'
+    for z in /sys/class/thermal/thermal_zone*; do
+        [ -d "$z" ] || continue
+        tz_type="$(cat "$z/type" 2>/dev/null)"
+        tz_temp="$(cat "$z/temp" 2>/dev/null)"
+        [ -n "$tz_type" ] && printf '%-28s %s\n' "$tz_type" "$tz_temp"
+    done
 
-    printf '\n══════════ KERNEL & TUNING ══════════\n'
+    printf '\n══════════ 3 · KERNEL & TUNING ══════════\n'
     r "cat /proc/cmdline" 2
     r "cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_driver 2>/dev/null" 2
     r "sysctl vm.swappiness vm.vfs_cache_pressure kernel.sched_autogroup_enabled 2>/dev/null" 4
     r "cat /sys/kernel/mm/transparent_hugepage/enabled 2>/dev/null" 2
     r "sysctl net.ipv4.tcp_congestion_control net.core.default_qdisc 2>/dev/null" 3
 
-    printf '\n══════════ SERVIÇOS ELITE ══════════\n'
+    printf '\n══════════ 4 · BOOT & ROLLBACK ══════════\n'
+    # v2.10.6: a história cross-boot (o 'acordou sozinho de anteontem'
+    # precisa de lugar no papel — a caça ao despertar não termina no reboot)
+    r "journalctl --list-boots --no-pager 2>/dev/null | tail -8" 10
+    r "systemd-analyze 2>/dev/null" 4
+    # lição D1: findmnt é a verdade do mount ('mount | grep " on / btrfs"'
+    # NUNCA casou) — o fstype/subvol daqui é o que o rollback cura usa
+    r "findmnt /" 6
+    r "findmnt /home 2>/dev/null" 4
+    r "ls -d /.snapshots 2>/dev/null && ls /.snapshots | tail -5 || echo '(sem /.snapshots)'" 7
+    r "timeshift --list 2>/dev/null | head -12" 12
+
+    printf '\n══════════ 5 · SERVIÇOS ELITE ══════════\n'
     for s in ananicy-cpp lactd grub-btrfsd elite-firstboot; do
         printf '%-16s active=%-10s enabled=%s\n' "$s" \
             "$(systemctl is-active "$s" 2>/dev/null || echo '?')" \
@@ -74,27 +130,112 @@ r() { # r <comando> [linhas]
     done
     printf 'firstboot-done: %s\n' \
         "$([ -f /var/lib/elite/firstboot-done ] && echo sim || echo 'não (pende/re-tenta)')"
+    # v2.10.6: a versão dos pacotes da Elite NO RIG — a prova de que o rig
+    # roda a 10.6 de verdade (não o que o papel promete; o que o pacman tem)
+    r "pacman -Q 2>/dev/null | grep -Ei 'craft|elite' || echo '(nenhum pacote craft/elite — anômalo)'" 12
 
-    printf '\n══════════ SUSPEND/ACPI — A CAÇA AO DESPERTAR ══════════\n'
+    printf '\n══════════ 6 · SESSÃO — PROCESSOS/BARRAS/DOCK/JANELAS ══════════\n'
+    r "ps -u \"$(id -u)\" -o pid,pcpu,pmem,comm --sort=-pcpu | head -25" 30
+    r "pgrep -a labwc | head -3" 4
+    # v2.10.6: contagem ANCORADA (o comm da dock é python3 — o pgrep -c puro
+    # nunca acharia; e '-f craft-dock-gui' solto somava editor com o fonte)
+    printf 'waybar=%s · dock_gui=%s (cmdline ancorada)\n' \
+        "$(pgrep -c waybar 2>/dev/null)" \
+        "$(pgrep -fc '^/usr/bin/python3 /usr/local/bin/craft-dock-gui$' 2>/dev/null)"
+    if [ -f "$CACHE/elite/bars.log" ]; then
+        r "grep -c 'SAIU exit' $CACHE/elite/bars.log 2>/dev/null" 2
+        printf '\n── supervisão: as últimas mortes/reinícios (o detalhe do count)\n'
+        grep -E 'SAIU exit=|FORA — reiniciando' "$CACHE/elite/bars.log" 2>/dev/null | tail -10
+    fi
+
+    printf '\n── pins da dock (~/.config/elite/dock-pins — fixado ≠ dinâmico)\n'
+    if [ -f "$HOME/.config/elite/dock-pins" ]; then
+        grep -v '^[[:space:]]*#' "$HOME/.config/elite/dock-pins" \
+            | grep -v '^[[:space:]]*$' || printf '(vazio)\n'
+    else
+        printf '(sem arquivo de pins)\n'
+    fi
+
+    # v2.10.6 — A TABELA REAL DE JANELAS: o MESMO socket que a dock fala
+    # (LIST do craft-toplevel). O teste do btop — ou qualquer reclamação de
+    # janela — chega com a prova do daemon: app_id, título, flags e a ordem
+    # MRU do alt-tab. Daemon morto = linha honesta aqui embaixo.
+    tp_done=""
+    for s in /run/user/*/elite/toplevel.sock; do
+        [ -S "$s" ] || continue
+        printf '\n── toplevel.sock: %s\n' "$s"
+        printf '   (W|id|flags|rank|app_id|título — flags: 1=max 2=min 4=ativa 8=fullscreen · rank 0 = mais recente)\n'
+        if PYTHONDONTWRITEBYTECODE=1 python3 - "$s" <<'PY'
+import socket, sys
+try:
+    c = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    c.settimeout(3)
+    c.connect(sys.argv[1])
+    c.sendall(b"LIST\n")
+    f = c.makefile("r", encoding="utf-8", errors="replace")
+    n = 0
+    while True:
+        ln = f.readline()
+        if not ln:
+            break
+        ln = ln.rstrip("\n")
+        print(ln)
+        if ln.startswith("W|"):
+            n += 1
+        if ln.startswith("OK|"):
+            break
+    print("janelas=%d" % n)
+except Exception as e:
+    print("(toplevel indisponível: %s)" % e)
+    sys.exit(3)
+PY
+        then
+            tp_done=1
+            break
+        fi
+    done
+    [ -n "$tp_done" ] || printf '(socket do toplevel não encontrado — daemon craft-toplevel morto? veja o probe na seção 0 e o bars.log na seção 12)\n'
+
+    printf '\n── processos da Elite (a sessão inteira, com args)\n'
+    r "ps -u \"$(id -u)\" -o pid,args | grep -E 'craft-|waybar|swayidle|swaync|fuzzel|labwc|hyprlock' | grep -v grep" 25
+
+    printf '\n══════════ 7 · DISPLAY & TECLADO ══════════\n'
+    # v2.10.6: wlr-randr NA ISO — posição/scale/MODO ATUAL de cada monitor.
+    # Fora da sessão (SSH/vty) decai para os conectores do kernel.
+    r "wlr-randr 2>/dev/null || { echo '(sem sessão wlr — conectores do kernel):'; grep -H . /sys/class/drm/card*-*/status 2>/dev/null; grep -H . /sys/class/drm/card*-*/modes 2>/dev/null | head -8; }" 30
+    # o ABNT2 (Z2) com prova: o XKB_DEFAULT_LAYOUT chegou à sessão ou não
+    r "grep XKB /etc/environment 2>/dev/null || echo '(sem XKB_DEFAULT_LAYOUT em /etc/environment)'" 4
+    r "localectl status 2>/dev/null" 6
+    r "locale | grep -E 'LANG=|LC_CTYPE='" 3
+
+    printf '\n══════════ 8 · REDE ══════════\n'
+    # a cura B2 ('Not authorized' ≠ senha errada) com evidência no papel
+    r "nmcli general status 2>/dev/null" 6
+    r "nmcli -f NAME,TYPE,DEVICE,STATE con show --active 2>/dev/null" 12
+    r "ip -brief addr 2>/dev/null" 10
+    r "lspci -k | grep -EA3 'Network|Ethernet'" 10
+
+    printf '\n══════════ 9 · ÁUDIO ══════════\n'
+    r "if command -v wpctl >/dev/null 2>&1; then wpctl status | head -30; else echo '(wpctl ausente)'; fi" 32
+
+    printf '\n══════════ 10 · SUSPEND/ACPI — A CAÇA AO DESPERTAR ══════════\n'
     printf '(despertar imediato após suspender = dispositivo/BIOS — as linhas\n'
     printf ' abaixo mostram QUEM acordou e QUANDO)\n'
+    printf '\n── idle.conf (a escolha do dono — o SUSPEND_MIN que viajou)\n'
+    if [ -f "$HOME/.config/elite/idle.conf" ]; then
+        cat "$HOME/.config/elite/idle.conf"
+    else
+        printf '(ausente — craft-idle nos defaults)\n'
+    fi
     r "journalctl -u systemd-suspend --no-pager 2>/dev/null | tail -40" 45
     r "cat /proc/acpi/wakeup 2>/dev/null" 25
     r "journalctl --no-pager 2>/dev/null | grep -iE 'wake(ing|up)?|resume|suspending' | tail -25" 30
     r "grep -E '^[#]?Handle(Suspend|Power|Lid)' /etc/systemd/logind.conf 2>/dev/null" 6
 
-    printf '\n══════════ JOURNAL — ERROS DESTE BOOT ══════════\n'
+    printf '\n══════════ 11 · JOURNAL — ERROS DESTE BOOT ══════════\n'
     r "journalctl -b -p err --no-pager 2>/dev/null | tail -50" 55
 
-    printf '\n══════════ SESSÃO — PROCESSOS/BARRAS/DOCK ══════════\n'
-    r "ps -u \"$(id -u)\" -o pid,pcpu,pmem,comm --sort=-pcpu | head -25" 30
-    r "pgrep -a labwc | head -3" 4
-    r "pgrep -c waybar 2>/dev/null && pgrep -c craft-dock-gui 2>/dev/null" 4
-    if [ -f "$CACHE/elite/bars.log" ]; then
-        r "grep -c 'SAIU exit' $CACHE/elite/bars.log 2>/dev/null" 2
-    fi
-
-    printf '\n══════════ LOGS DA ELITE (evidência recente) ══════════\n'
+    printf '\n══════════ 12 · LOGS DA ELITE (evidência recente) ══════════\n'
     for f in "$CACHE/elite/bars.log" "$CACHE/elite/menus.log" \
              "$CACHE/elite/dock.log"; do
         if [ -f "$f" ]; then
@@ -112,7 +253,7 @@ r() { # r <comando> [linhas]
         fi
     done
 
-    printf '\n══════════ PACOTES ══════════\n'
+    printf '\n══════════ 13 · PACOTES ══════════\n'
     r "pacman -Qq | wc -l" 2
     r "pacman -Qe" 400
     r "pacman -Qtdq || echo '(nenhum órfão)'" 40
@@ -125,14 +266,15 @@ r() { # r <comando> [linhas]
     r "grep -E '^\[[a-z]' /etc/pacman.conf" 12
     r "du -sh /var/cache/pacman/pkg 2>/dev/null" 2
 
-    printf '\n══════════ CACHES & DISCO ══════════\n'
+    printf '\n══════════ 14 · CACHES & DISCO ══════════\n'
     # v2.10.5: caminho citado DENTRO do payload — caminho com espaço não
     # quebra o du (o $r vai inteiro pro bash -c)
     r "du -sh '$CACHE/elite' '$CACHE/calamares' 2>/dev/null" 4
     r "du -sh '$HOME/.cache'/* 2>/dev/null | sort -rh | head -12" 14
     r "journalctl --disk-usage 2>/dev/null" 2
 
-    printf '\n══════════ FIM DO DUMP ══════════\n'
+    printf '\n══════════ FIM DO DUMP v2.0 ══════════\n'
+    printf 'a seção 0 é o resumo; as seções 1-14 são o detalhe.\n'
     printf 'envie este arquivo (ou a URL do --upload) para a análise.\n'
 } > "$OUT" 2>&1
 
@@ -140,8 +282,9 @@ LINES="$(wc -l <"$OUT")"
 printf 'dump pronto: %s (%s linhas)\n' "$OUT" "$LINES"
 
 if [ "${1:-}" = "--upload" ]; then
-    # termbin via /dev/tcp do bash — sem nc (a ISO não o carrega)
-    url="$(bash -c '
+    # termbin via /dev/tcp do bash — sem nc (a ISO não o carrega).
+    # v2.10.6: timeout 15 — rede morta devolve o terminal em 15s, não nunca.
+    url="$(timeout 15 bash -c '
         exec 3<>/dev/tcp/termbin.com/9999 || exit 1
         cat "'"$OUT"'" >&3
         head -c 200 <&3 2>/dev/null
