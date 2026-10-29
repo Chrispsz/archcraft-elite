@@ -1,0 +1,25 @@
+[Unit]
+# ═══════════════════════════════════════════════════════════════════════════
+# ELITE (v2.10.10) — E23: a 5ª camada da cura do keyring, agora como ROOT.
+# ═══════════════════════════════════════════════════════════════════════════
+# A doença no rig (dump d33o, journal 23:00:46): o craft-fix-keys da sessão
+# chama 'sudo -n' sem terminal — "a password is required" — e o keyring do
+# pacman NUNCA curou no sistema instalado ("o chaveiro não pode ser escrito"
+# + chaves CachyOS desconhecidas = pacman -Syu morto = sistema que não
+# atualiza = sistema que não PERMANECE na melhor versão).
+# Esta unit roda o MESMO craft-fix-keys como root — o script já é root-ready
+# (id -u 0 executa direto, sem sudo) e tem guard próprio de 24h (o selo só
+# é escrito com a cura FEITA; sem rede, sem selo, re-tenta).
+# LIÇÃO DO CICLO (a3dea28, dump d33o L403): aqui NÃO existe ordenação com
+# graphical/multi-user e NÃO existe .wants de boot target — a ativação é
+# EXCLUSIVA do timer (timers.target.wants), o caminho que não briga com a
+# transação de boot. Habilitação de fábrica == o único caminho de ativação.
+Description=ELITE: cura do keyring do pacman (root, sem sudo de sessão)
+Documentation=man:pacman-key(8)
+Wants=network-online.target
+After=network-online.target
+ConditionPathExists=/usr/local/bin/craft-fix-keys
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/craft-fix-keys
