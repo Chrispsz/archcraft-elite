@@ -151,8 +151,21 @@ import signal
 import socket
 import subprocess
 import sys
+import warnings
 
 import gi
+
+# v2.10.8 — bars.log LIMPO: o PyGObject marca Gio.DesktopAppInfo e
+# GLib.unix_signal_add como deprecados (o sucessor GioUnix/GLibUnix só
+# existe em gi recentes; trocar o tipo sob os pés do scan/isinstance
+# por uma classe irmã de outro namespace era risco sem recompensa).
+# O warning caía 4× por sessão no bars.log do rig (dump d33o) e sujava
+# a evidência da supervisão — filtrado na FONTE, comportamento intacto.
+try:
+    from gi import PyGIDeprecationWarning
+    warnings.filterwarnings("ignore", category=PyGIDeprecationWarning)
+except ImportError:
+    pass
 
 gi.require_version("Gtk", "3.0")
 gi.require_version("GtkLayerShell", "0.1")

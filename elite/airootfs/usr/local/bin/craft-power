@@ -118,12 +118,24 @@ fi
 case "$choice" in
     'Sair da sessão') labwc --exit ;;
     'Suspender')
-        # v2.10.5 — CAN-SUSPEND ANTES DO LOCK: o toast 'Suspender falhou'
-        # nascia DEPOIS do hyprlock (avisar atrás da tela travada = avisar
-        # pra ninguém). Se o logind diz que este hardware NÃO suspende,
-        # avisa na sessão VIVA e nada é travado.
-        if [ "$(loginctl can-suspend 2>/dev/null)" != "yes" ]; then
-            mlog "Sessão: loginctl can-suspend ≠ yes — suspend indisponível, sessão preservada"
+        # v2.10.8 — O GATE QUE JULGAVA POR UMA PALAVRA DO LOGIND: no rig o
+        # 'loginctl can-suspend' respondeu ≠ yes COM o kernel provando o
+        # contrário no papel (dump d33o: /sys/power/state = 'freeze mem
+        # disk', mem_sleep [deep] — e a 2>/dev/null do gate antigo engolia
+        # a diferença entre 'no', 'challenge' e ERRO de bus; o dono tem
+        # razão desde sempre: 'em outras distros entra normalmente').
+        # Verdade em DUAS INSTÂNCIAS agora: logind 'yes' = segue; logind
+        # calado/negativo MAS com 'mem' no kernel = TENTA (o systemctl
+        # suspend -i diz a verdade e o erro vira toast crítico — nenhum
+        # dos dois caminhos mente); nem logind nem kernel = recusa
+        # honesta, nada é travado. A prova da divergência fica no log.
+        can="$(loginctl can-suspend 2>/dev/null)"
+        kmem=""
+        grep -qw mem /sys/power/state 2>/dev/null && kmem=1
+        if [ "$can" != "yes" ]; then
+            mlog "Sessão: can-suspend='$can' (vazio = erro/sem bus) · kernel-mem=$([ -n "$kmem" ] && echo sim || echo não) — $([ -n "$kmem" ] && echo 'kernel sabe, tentando mesmo assim' || echo 'recusa honesta')"
+        fi
+        if [ "$can" != "yes" ] && [ -z "$kmem" ]; then
             command -v notify-send >/dev/null 2>&1 && \
                 timeout 5 notify-send -a 'Elite' -u normal -t 8000 \
                     'Suspender indisponível' \
