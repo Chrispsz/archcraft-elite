@@ -165,6 +165,19 @@ r() { # r <comando> [linhas]
     # v2.10.6: a versão dos pacotes da Elite NO RIG — a prova de que o rig
     # roda a 10.6 de verdade (não o que o papel promete; o que o pacman tem)
     r "pacman -Q 2>/dev/null | grep -Ei 'craft|elite' || echo '(nenhum pacote craft/elite — anômalo)'" 12
+    # v2.10.9 — A PERÍCIA DO CICLO (o rig julga a si mesmo): o d33o L403
+    # mostrou 'Found ordering cycle: elite-firstboot after graphical after
+    # multi-user' e o journal do firstboot NASCEU VAZIO — o systemd apagou
+    # o job calado (INFO) e o firstboot nunca rodou. O sandbox NÃO
+    # reproduziu o ciclo com as units do repo (Wants= de symlink é inerte
+    # para ordenação), então a aresta exata do rig ficou sem nome. Este
+    # bloco nomeia: a unit EFETIVA (com drop-ins), os symlinks de
+    # habilitação REAIS e o verify do próprio rig — se o ciclo existir,
+    # ele sai NOMEADO no papel, com a aresta culpada.
+    r "systemctl cat elite-firstboot.service 2>/dev/null | head -45" 30
+    r "for d in /etc/systemd/system/multi-user.target.wants /etc/systemd/system/graphical.target.wants; do echo \"── \$d\"; ls -l \"\$d\" 2>/dev/null | grep -v '^total' || echo '   (ausente)'; done" 10
+    r "for d in /etc/systemd/system/multi-user.target.d /usr/lib/systemd/system/multi-user.target.d /etc/systemd/system/graphical.target.d /usr/lib/systemd/system/graphical.target.d; do [ -d \"\$d\" ] && { echo \"── \$d (DROP-IN — réu da aresta)\"; ls -l \"\$d\"; cat \"\$d\"/*.conf 2>/dev/null; }; done; true" 15
+    r "systemd-analyze verify --recursive-errors=no multi-user.target graphical.target 2>&1 | grep -iE 'cycle|cyclic|firstboot' | head -10; echo '── fim do verify do rig (vazio = sem ciclo nomeável)'" 25
 
     printf '\n══════════ 6 · SESSÃO — PROCESSOS/BARRAS/DOCK/JANELAS ══════════\n'
     # v2.1 — os processos DA SESSÃO (d33o via sudo listou só o root: systemd,
