@@ -1,4 +1,7 @@
 {
+   "background_mode": {
+      "enabled": false
+   },
    "browser": {
       "custom_chrome_frame": false,
       "has_seen_welcome_page": true
