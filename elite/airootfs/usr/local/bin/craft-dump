@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · craft-dump (v2.3 — o "btop completão" polido, v2.10.6)
+# Archcraft ELITE · craft-dump (v2.4 — o "btop completão" que se atualiza)
 # ═══════════════════════════════════════════════════════════════════════════
 # Pedido do dono (out/2026): "como puxo tudo que está rodando como se fosse
 # um btop completão pra gente ter um diagnóstico da RAM, pacotes, uso, CPU
@@ -43,6 +43,16 @@
 # sem sudo sobre dump do root subia o ARQUIVO VELHO como se fosse novo —
 # agora nome com segundos + guard de escrita honesto (sem permissão =
 # recusa clara; NUNCA upload de papel que este run não escreveu).
+# v2.4 (o papel morreu NO RIG e a cura não podia custar reinstalação): o
+# a4h8 morreu na linha 341 — '$CACHE: variável não associada' (set -u) —
+# e as seções 13/14 NUNCA saíram no papel: o keyring (E23) segue sem
+# veredito. O réu: '$CACHE/calamares/session.log' no bloco dos logs —
+# typo de $UCACHE — e a doença VIAJOU: estava viva TAMBÉM no v2.3 deste
+# repo (linha 381). Extinta agora, com contrato na suíte. E o rig 10.9
+# não tinha como renovar a perícia sem reinstalar a ISO inteira: --update
+# puxa o craft-dump DA MAIN do repo (raw, sem credencial), valida com
+# bash -n antes de instalar, guarda o velho como .bak-<stamp> e imprime o
+# sha256 dos dois — a perícia nunca mais envelhece no rig.
 #
 #    0 · VEREDITO RÁPIDO — probe da sessão + units falhados + disco raiz
 #    1 · identidade (+ o ambiente de sessão: o dump nasceu dentro dela?)
@@ -70,6 +80,10 @@
 #   craft-dump --upload   → idem + sobe no termbin.com e imprime a URL curta
 #                           (via /dev/tcp do bash — sem depender de nc;
 #                           timeout 15 — rede morta devolve o terminal)
+#   craft-dump --update   → se atualiza da main do repo SEM reinstalar a
+#                           ISO (raw público; bash -n valida antes de
+#                           instalar; o velho vira .bak-<stamp>; sha256 no
+#                           terminal para conferência)
 #
 # Somente leitura (nada é modificado). Logs são TAILADOS (evidência recente
 # vale mais — mesma política do bars.log). Para o journal COMPLETO rode com
@@ -81,6 +95,61 @@ set -u
 # v2.3 — segundos no nome: dois runs no mesmo minuto colidiam no arquivo
 # (o a4h8 mostrou o rerun sem sudo batendo no dump root do sudo run)
 STAMP="$(date +%Y%m%d-%H%M%S)"
+
+# v2.4 — O DUMP QUE SE ATUALIZA (a doença do papel velho morre de vez):
+# o rig 10.9 morreu com craft-dump v2.1 ('$CACHE: variável não associada',
+# seções 13/14 perdidas) e NÃO tinha como envelhecer a perícia sem
+# reinstalar. O raw da main é público (sem credencial na máquina do dono),
+# o bash -n julga ANTES da instalação, o velho vira .bak e o sha256 fica
+# no terminal — atualização auditável em 1 comando.
+RAW_BASE="https://raw.githubusercontent.com/Chrispsz/archcraft-elite/main"
+if [ "${1:-}" = "--update" ]; then
+    SELF="$0"
+    if [ "$(id -u)" -ne 0 ]; then
+        printf 'craft-dump --update: precisa root — sudo craft-dump --update\n' >&2
+        exit 1
+    fi
+    TMP="$(mktemp /tmp/craft-dump.new.XXXXXX)"
+    fetched=""
+    if command -v curl >/dev/null 2>&1; then
+        curl -fsSL --max-time 30 "$RAW_BASE/elite/airootfs/usr/local/bin/craft-dump" -o "$TMP" && fetched=1
+    elif command -v wget >/dev/null 2>&1; then
+        wget -q -T 30 -O "$TMP" "$RAW_BASE/elite/airootfs/usr/local/bin/craft-dump" && fetched=1
+    else
+        printf 'craft-dump --update: nem curl nem wget no sistema — nada mudou\n' >&2
+        rm -f "$TMP"; exit 1
+    fi
+    if [ -z "$fetched" ]; then
+        printf 'craft-dump --update: download falhou (rede?) — o dump atual segue em pé\n' >&2
+        rm -f "$TMP"; exit 1
+    fi
+    if [ "$(sha256sum "$TMP" | cut -d' ' -f1)" = "$(sha256sum "$SELF" | cut -d' ' -f1)" ]; then
+        printf 'craft-dump --update: já é a versão da main (sha256 igual) — nada a fazer\n'
+        printf '  sha256: %s\n' "$(sha256sum "$SELF" | cut -d' ' -f1)"
+        rm -f "$TMP"; exit 0
+    fi
+    if ! bash -n "$TMP" 2>/dev/null; then
+        printf 'craft-dump --update: RECUSADO — o que chegou não compila (bash -n)\n' >&2
+        rm -f "$TMP"; exit 1
+    fi
+    if ! grep -q 'ELITE DUMP' "$TMP" || [ "$(wc -c <"$TMP")" -lt 10000 ]; then
+        printf 'craft-dump --update: RECUSADO — o que chegou não é o craft-dump (banner/tamanho)\n' >&2
+        rm -f "$TMP"; exit 1
+    fi
+    cp -p "$SELF" "${SELF}.bak-${STAMP}" 2>/dev/null || true
+    if ! cat "$TMP" > "$SELF"; then
+        printf 'craft-dump --update: falha ao escrever %s — o velho está em %s.bak-%s\n' "$SELF" "$SELF" "$STAMP" >&2
+        rm -f "$TMP"; exit 1
+    fi
+    chmod 755 "$SELF"
+    rm -f "$TMP"
+    printf 'craft-dump atualizado:\n'
+    printf '  antes: %s\n' "$(grep -m1 -o 'craft-dump (v[0-9.]*' "${SELF}.bak-${STAMP}" 2>/dev/null || echo '?')"
+    printf '  agora: %s\n' "$(grep -m1 -o 'craft-dump (v[0-9.]*' "$SELF" 2>/dev/null || echo '?')"
+    printf '  velho guardado em: %s.bak-%s\n' "$SELF" "$STAMP"
+    printf '  sha256 novo: %s\n' "$(sha256sum "$SELF" | cut -d' ' -f1)"
+    exit 0
+fi
 
 # v2.1 — O CONTEXTO DA SESSÃO (a cura do dump d33o): via sudo, o $HOME é
 # /root e as seções 6/7/9/10/12/14 liam o root. O usuário-alvo é o SUDO_USER
@@ -115,7 +184,7 @@ if ! : > "$OUT" 2>/dev/null; then
 fi
 
 {
-    printf '══════════ ELITE DUMP v2.3 — diagnóstico completo ══════════\n'
+    printf '══════════ ELITE DUMP v2.4 — diagnóstico completo ══════════\n'
     if [ "$(id -un)" != "$DUMP_USER" ]; then
         printf 'gerado: %s · usuário: %s → sessão de %s (uid %s) · host: %s\n' \
             "$(date)" "$(id -un)" "$DUMP_USER" "$DUMP_UID" "$(uname -n 2>/dev/null || echo '?')"
@@ -378,7 +447,7 @@ PY
         fi
     done
     for f in /var/log/elite-firstboot.log /var/log/calamares.log \
-             "$CACHE/calamares/session.log"; do
+             "$UCACHE/calamares/session.log"; do
         if [ -f "$f" ]; then
             printf '\n── tail %s\n' "$f"
             tail -n 120 "$f"
@@ -425,7 +494,7 @@ PY
     r "du -sh '$UHOME/.cache'/* 2>/dev/null | sort -rh | head -12" 14
     r "journalctl --disk-usage 2>/dev/null" 2
 
-    printf '\n══════════ FIM DO DUMP v2.3 ══════════\n'
+    printf '\n══════════ FIM DO DUMP v2.4 ══════════\n'
     printf 'a seção 0 é o resumo; as seções 1-14 são o detalhe.\n'
     printf 'envie este arquivo (ou a URL do --upload) para a análise.\n'
 } > "$OUT" 2>&1
