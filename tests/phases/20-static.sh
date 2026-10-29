@@ -251,7 +251,7 @@ assert_grep "$U/elite-keyring-fix.timer" '^WantedBy=timers.target$' "v2.10.10: [
 assert_grep "$U/elite-keyring-fix.timer" '^OnBootSec=120s$' "v2.10.10: timer dispara 2min pós-boot (a cura chega cedo, sem brigar com o boot)"
 assert_grep "$U/elite-keyring-fix.timer" '^OnUnitActiveSec=6h$' "v2.10.10: timer re-tenta de 6h em 6h (o guard de 24h do script decide o custo real)"
 # craft-dump v2.2: a etiqueta = conteúdo, e o keyring ganha as 3 provas
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2.3' "v2.10.11: craft-dump etiqueta v2.3 (a lei: etiqueta = conteúdo — v2.10.11 destrona a v2.2)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2.4' "v2.10.11: craft-dump etiqueta v2.4 (a lei: etiqueta = conteúdo — v2.10.11 destrona a v2.3)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'pubring.gpg' "v2.10.10: dump prova o pubring (a doença do d33o no papel)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'list-keys cachyos' "v2.10.10: dump prova as chaves CachyOS populadas"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'pacman lê o banco: OK' "v2.10.10: dump prova funcional do pacman (o -Syu vivo ou morto nomeado)"
@@ -283,12 +283,46 @@ SR="$REPO/elite/airootfs/usr/lib/systemd/system-sleep/elite-sleep-report"
   && ok "v2.10.11: hook elite-sleep-report presente e executável (perícia do sono no journal)" \
   || fail "v2.10.11: elite-sleep-report" "ausente ou sem +x — se o sono voltar curto, o dump não nomeia o suspeito restante"
 assert_grep "$SR" 'pre)' "v2.10.11: hook elite-sleep-report registra wake sources armadas ANTES de dormir"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2.3' "v2.10.11: craft-dump etiqueta v2.3 (etiqueta = conteúdo)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2.4' "v2.10.11: craft-dump etiqueta v2.4 (etiqueta = conteúdo)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'date \+%Y%m%d-%H%M%S' "v2.10.11: dump com segundos no STAMP (fim da colisão de dois runs no mesmo minuto — a doença do a4h8)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'if ! : > "\$OUT" 2>/dev/null; then' "v2.10.11: guard de escrita antes do papel (dump root-owned + rerun sem sudo = recusa clara)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" '90-elite-wake-guard.rules' "v2.10.11: dump prova a regra E24 no papel (seção 10)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'power/wakeup' "v2.10.11: dump prova o wakeup REAL dos controladores USB PCI (a cura julgada no próximo papel)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'elite-sleep-report' "v2.10.11: dump taila o relato do hook system-sleep (quem estava armado no momento de dormir)"
+
+# ── v2.10.11 — E25: A CURA VIVA (o rig se cura SEM reinstalar) ─────────
+# Prova: o a4h8 morreu na linha 341 ('CACHE: variável não associada',
+# set -u) — as seções 13/14 NUNCA saíram no papel e a E23 segue sem
+# veredito. O réu era o typo $CACHE (vs $UCACHE) no bloco dos logs — e a
+# doença VIAJOU: estava viva TAMBÉM no v2.3 do repo (linha 381). E o rig
+# 10.9 não tinha como renovar a perícia sem reinstalar a ISO. Cura: typo
+# extinto do código + craft-dump --update (raw público da main, bash -n
+# antes de instalar, .bak do velho, sha256 no terminal) + cura-viva.sh (o
+# one-liner do campo: as 4 peças E24+dump na máquina viva, regra udev
+# aplicada a quente, wake-guard off imediato, idle.conf do dono intocado).
+DUMP="$REPO/elite/airootfs/usr/local/bin/craft-dump"
+! grep -v '^[[:space:]]*#' "$DUMP" | grep -q '\$CACHE' \
+  && ok "v2.10.11: a doença do a4h8 EXTINTA do código (\$CACHE era typo do \$UCACHE — só vive na história do cabeçalho)" \
+  || fail "v2.10.11: \$CACHE vivo no código do craft-dump" "o papel voltaria a morrer no meio (seções 13/14 perdidas — a doença do a4h8)"
+assert_grep "$DUMP" '"--update"' "v2.10.11: craft-dump tem o caminho --update (a perícia se renova sem reinstalar)"
+assert_grep "$DUMP" 'raw.githubusercontent.com/Chrispsz/archcraft-elite/main' "v2.10.11: --update puxa da main via raw público (sem credencial na máquina do dono)"
+assert_grep "$DUMP" 'bash -n "\$TMP"' "v2.10.11: --update valida o que chegou com bash -n ANTES de instalar (nada entra quebrado)"
+assert_grep "$DUMP" '\.bak-\${STAMP}' "v2.10.11: --update guarda o velho como .bak-<stamp> (a volta é sempre possível)"
+assert_grep "$DUMP" 'sha256sum "\$SELF"' "v2.10.11: --update imprime o sha256 do instalado (auditável no terminal)"
+CV="$REPO/scripts/live/cura-viva.sh"
+[[ -f "$CV" ]] \
+  && ok "v2.10.11: cura-viva.sh presente (o one-liner do campo — rig 10.9/10.10 se cura sem reinstalar)" \
+  || fail "v2.10.11: scripts/live/cura-viva.sh" "ausente — o dono ficaria refém de reinstalar a ISO para ter dump completo + E24"
+[[ -x "$CV" ]] \
+  && ok "v2.10.11: cura-viva.sh executável (o modo executável via git update-index — a lição do E24-hotfix)" \
+  || fail "v2.10.11: cura-viva.sh sem +x no git" "core.fileMode=false engoliu o chmod local — a lição do E24-hotfix se repete"
+assert_grep "$CV" 'raw.githubusercontent.com/Chrispsz/archcraft-elite/main' "v2.10.11: cura-viva baixa da main via raw público (sem credencial na máquina do dono)"
+assert_grep "$CV" '90-elite-wake-guard.rules' "v2.10.11: cura-viva instala a regra E24 (a cura do despertar no rig velho)"
+assert_grep "$CV" 'elite-sleep-report' "v2.10.11: cura-viva instala o hook system-sleep (a perícia do sono no rig velho)"
+assert_grep "$CV" 'udevadm trigger' "v2.10.11: cura-viva aplica a regra a quente (a cura vale NA HORA, sem reboot)"
+assert_grep "$CV" 'craft-wake-guard off' "v2.10.11: cura-viva desarma o USB no fim (o mesmo gesto que a regra fará em todo boot)"
+assert_grep "$CV" 'idle.conf do dono (NÃO é tocado|não foi tocado)' "v2.10.11: cura-viva declara o limite (LOCK/OFF/SUSPEND_MIN do dono intocados — nada às escondidas)"
+assert_grep "$CV" 'bash -n' "v2.10.11: cura-viva prova cada peça com bash -n antes de instalar"
 
 # ── v2.2 — FUSÃO DOS BOOSTERS 4→1: nada do exército extinto sobra ─────
 # (scx-elite/bpfland + fg-booster/xdotool + dmemcg: 3 camadas que
