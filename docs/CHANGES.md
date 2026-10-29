@@ -6,6 +6,27 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **v2.10.8 — A DESPEDIDA DO VERBO (ordem do dono no 1º dia da 10.7)**: no
+  primeiro dia da 10.7 instalada, o dono sentenciou: **"o botão de janelas
+  abertas eu quero remover"**. A cadeia inteira do comutador/menu sai do
+  `craft-dock-gui` com cirurgia e contrato:
+  - **REMOVIDO**: o comutador clicável (v2.10.1), o MENU das janelas
+    (v2.10.3), as leis de clique-fora/graça do ✕ (v2.10.4), o estado, o
+    menubox da árvore GTK, o tick, o toggle e o CSS (`#dockmenu`/
+    `#menurow`/`#rowclose` do fallback embutido E do `dock.css` do dono —
+    que agora termina no fio dos dinâmicos). 239 linhas de código a menos
+    no arquivo (1265 → 1026).
+  - **FICA TUDO O QUE FUNCIONA**: pins · dinâmicos (a dock auto-adaptável)
+    · indicador de janela real (daemon LIST) · verbos da pílula (esquerdo
+    foca/cicla entre as janelas do app · meio encerra o programa · direito
+    pin/instância) · fallback wlrctl · ceifa de zumbis.
+  - **O ciclo de janelas é do TECLADO**: A-Tab/A-S-Tab do compositor (com
+    OSD) — cada um no que é melhor; a dock nunca fica pior por causa da
+    cura (a lei do fallback intacta).
+  - O daemon `craft-toplevel` continua (os indicadores e os verbos vivem
+    dele) — inclusive o recibo de foco da v2.10.7.
+  - Suíte: 7 leis novas da extinção (nogrep/grep honestos) — **1803 peças
+    · 0 falhas · GO**.
 - **v2.10.7 — O 1º RIG-INSTALL FALOU (dump 0qmq) — as curas de campo**: a
   10.6 foi instalada no rig do dono e o craft-dump v2.0 voltou falando
   (o método v2.0.6 funcionou). Os achados com prova no papel e as curas:

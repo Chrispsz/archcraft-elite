@@ -2578,24 +2578,23 @@ assert_grep "$DOCK" 'def _tl_act' \
   "v2.10.1: foco/restauro POR ID (fim da adivinhação de capitalização do wlrctl)"
 assert_grep "$DOCK" 'def _app_cycle_next' \
   "v2.10.1: ciclo ENTRE janelas do app (o alt-tab dentro do botão — ring por id)"
-assert_grep "$DOCK" 'def _switch_click' \
-  "v2.10.3: o COMUTADOR clicável existe — o clique ABRE O MENU das janelas (o dono: 'eu esperava algo como o menu do alt+tab')"
+# ── v2.10.8 — A DESPEDIDA DO VERBO: comutador/menu EXTINTOS (ordem do dono) ──
+assert_nogrep "$DOCK" 'def _switch_click|def _sync_switcher|def _menu_rebuild|def _menu_sync|def _menu_collapse|def _row_focus|def _row_close|def _switch_press' \
+  "v2.10.8: A CADEIA INTEIRA do comutador/menu EXTINTA do código (ordem do dono no 1º dia da 10.7: 'o botão de janelas abertas eu quero remover')"
+assert_nogrep "$DOCK" '_SWITCH_ICON = |switch_btn|self\.menubox|menu_open|_menu_sig|_menu_focus0|_menu_rebase|_rows_box' \
+  "v2.10.8: o ESTADO do comutador/menu EXTINTO (o que não existe não falha — a lei da gaiola de pé)"
+assert_nogrep "$DOCK" 'set_no_show_all|set_max_content_height' \
+  "v2.10.8: menubox/scroll saem da árvore GTK — a superfície É SÓ a pílula (zero superfícies auxiliares, a v2.9.0 restaurada por inteiro)"
+assert_nogrep "$DOCK" '#dockmenu|menurow|rowclose|menuscroll' \
+  "v2.10.8: o CSS do menu EXTINTO do fallback embutido (nenhum consumidor sobrou)"
+assert_nogrep "$REPO/elite/airootfs/etc/skel/.config/elite/dock.css" '#dockmenu|menurow|rowclose' \
+  "v2.10.8: o CSS do menu EXTINTO do tema do dono (dock.css termina no fio dos dinâmicos)"
+assert_nogrep "$DOCK" 'menu das janelas ON' \
+  "v2.10.8: o log de nascimento não anuncia mais o menu (o que não existe não se apresenta)"
+assert_grep "$DOCK" 'comutador/menu EXTINTOS' \
+  "v2.10.8: o log de nascimento é HONESTO sobre a extinção (o dono lê no bars.log o que a dock deixou de ser)"
 assert_nogrep "$DOCK" '"CYCLE"' \
-  "v2.10.3: o ciclo CEGO morre na dock — adivinhar o próximo não é escolher (o menu substitui o CYCLE; o daemon o mantém, a dock não o usa)"
-assert_grep "$DOCK" '_SWITCH_ICON = "preferences-system-windows"' \
-  "v2.10.3: ícone do comutador é FIXO (o dono: 'o ícone fica mudando para o ícone dos programas, achei isso muito ruim')"
-assert_grep "$DOCK" 'def _menu_rebuild' \
-  "v2.10.3: o MENU lista as janelas — ícone + título, ordem MRU do daemon, SEM preview e SEM miniatura"
-assert_grep "$DOCK" 'def _row_focus' \
-  "v2.10.3: o clique na linha foca a JANELA ESCOLHIDA (fim do 'não consigo escolher para qual programa quero voltar')"
-assert_grep "$DOCK" 'def _row_close' \
-  "v2.10.3: o ✕ da linha encerra AQUELA janela (fim do 'não consigo escolher… ou encerrar')"
-assert_grep "$DOCK" 'def _menu_collapse' \
-  "v2.10.3: escolher é SAIR do menu — a dock volta a ser a pílula (minimalista)"
-assert_grep "$DOCK" 'set_no_show_all' \
-  "v2.10.3: o menu mora na MESMA superfície e nasce invisível (zero input fantasma — a gaiola morta de pé)"
-assert_grep "$DOCK" 'set_max_content_height' \
-  "v2.10.3: teto de altura com scroll — N janelas não esticam a dock"
+  "v2.10.3→8: o ciclo CEGO segue morto na dock — adivinhar o próximo não é escolher; o anel MRU ficou para o ciclo DENTRO do botão do app (o daemon o mantém)"
 assert_grep "$DOCK" 'def _reap_children' \
   "v2.10.3: A CEIFA DOS ZUMBIS — app lançado pela dock saía sem colheita e o /proc/comm do morto mantinha o indicador 'continuando' (relato do dono)"
 assert_grep "$DOCK" 'self\._children\.append' \
@@ -2608,24 +2607,11 @@ assert_grep "$DOCK" 'stem = a\.rsplit\("\.", 1\)\[-1\]' \
   "v2.10.3: app_id composto casa por STEM ('org.xfce.Thunar' → 'thunar') + contenção — janelas que o match antigo não via"
 assert_grep "$DOCK" 'if self\.tl_alive and not self\._windows_of' \
   "v2.10.3: dinâmico SEM janela real some (o processo teimoso de 2º plano não segura botão)"
-assert_grep "$DOCK" '#dockmenu' \
-  "v2.10.3: o menu tem CSS embutido (o fallback do dock.css ausente é completo)"
-assert_grep "$REPO/elite/airootfs/etc/skel/.config/elite/dock.css" '#dockmenu' \
-  "v2.10.3: o menu das janelas tem CSS no tema da pílula (a mesma escada Mocha do dock.css)"
-assert_grep "$DOCK" 'len\(self.windows\) < 2' \
-  "v2.10.1: comutador existe SÓ com ≥2 janelas (zero poluição — minimalista)"
 assert_grep "$DOCK" 'if not \(WLRCTL and alive\):' \
   "v2.10.1: o fallback v2.10 (wlrctl/launch) CONTINUA atrás do protocolo (daemon morto não piora a dock)"
-assert_grep "$DOCK" 'def _sync_switcher' \
-  "v2.10.1: o comutador sincroniza no MESMO tick do poll (sem fork novo — conexão persistente)"
 assert_grep "$DOCK" 'import socket' \
   "v2.10.1: socket UNIX no stdlib (zero dependência nova na ISO)"
 
-# ── v2.10.4 — a lei universal do menu + o fallback que vê o Brave ──
-assert_grep "$DOCK" '_menu_focus0 = self\.focused' \
-  "v2.10.4: o clique FORA fecha o menu das janelas — a linha de base é o foco na hora em que o menu nasceu (a lei v2.9.0 do dono, agora na dock; sem superfície nova, sem input region)"
-assert_grep "$DOCK" '_menu_rebase = True' \
-  "v2.10.4: o ✕ ganha 1 graça — a mudança de foco que o PRÓPRIO fecho causa não fecha o menu (fechar várias de uma vez continua uso real)"
 assert_grep "$DOCK" 'def _fallback_alive' \
   "v2.10.4: o FALLBACK (daemon morto) usa o MESMO casamento do _windows_of — comm 'brave' ≠ binário 'brave-browser-stable' não é mais 'não rodando' (o clique não lança DOIS)"
 assert_nogrep "$DOCK" "any\(\(x\.lower\(\) == b\.lower\(\)\) for x in self\.running\)" \

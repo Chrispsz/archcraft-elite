@@ -1,6 +1,14 @@
 #!/usr/bin/python3
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · craft-dock-gui (v2.10.4 — "o menu que OBEDECE ao clique")
+# Archcraft ELITE · craft-dock-gui (v2.10.8 — o comutador/menu EXTINTOS)
+# v2.10.8 — A DESPEDIDA DO VERBO (ordem do dono no 1º dia da 10.7):
+#   "o botão de janelas abertas eu quero remover". REMOVIDO: o comutador
+#   clicável (v2.10.1) e o MENU das janelas (v2.10.3→v2.10.4) — a cadeia
+#   inteira sai junto (estado, menubox, CSS do menu, o tick e o toggle). FICAM: pins · dinâmicos · indicador de janela real
+#   (daemon LIST) · verbos da pílula (esquerdo foca/cicla · meio encerra
+#   o app · direito pin/instância) · fallback wlrctl. O ciclo de janelas
+#   é do TECLADO (A-Tab/A-S-Tab do compositor, com OSD) — cada um no que
+#   é melhor.
 # v2.10.4 — A LEI UNIVERSAL DO MENU + O FALLBACK QUE VÊ O BRAVE:
 #   1. O CLIQUE FORA FECHA o menu das janelas — o dono já sentenciou a lei
 #      na v2.9.0 ("fechar menu ao clicar fora") e TODO menu do mundo
@@ -168,18 +176,14 @@ WLRCTL = shutil.which("wlrctl")  # foco/fecho de janela (wlr-foreign-toplevel)
 # vendor/craft-toplevel.c) fala o protocolo zwlr_foreign_toplevel DIRETO
 # com o labwc e serve a sessão neste socket, linha a linha. É o que dá ao
 # clique o id EXATO da janela (foco/restauro/ciclo/fecho sem adivinhar
-# capitalização) e o anel MRU do alt-tab para o comutador clicável.
+# capitalização) e o anel MRU do alt-tab para os verbos da pílula
+# (v2.10.8: o comutador clicável saiu — o anel ficou para o ciclo
+# dentro do botão do app).
 TOPOS = os.path.join(GLib.get_user_runtime_dir(), "elite", "toplevel.sock")
 F_ACTIVATED = 4   # flag do daemon (state activated do protocolo)
 F_MINIMIZED = 2   # (1=maximized · 2=minimized · 4=activated · 8=fullscreen)
 
 # v2.10.3 — o comutador tem ÍCONE FIXO (o veredito do dono: "o ícone fica
-# mudando para o ícone dos programas, achei isso muito ruim"). O botão
-# não é ninguém — é o MENU das janelas; quem carrega ícone de app é a
-# LINHA de cada janela, dentro do menu.
-_SWITCH_ICON = "preferences-system-windows"
-
-
 def log(msg):
     try:
         os.makedirs(os.path.dirname(LOG), exist_ok=True)
@@ -301,22 +305,15 @@ class Dock:
         self._dindex = None       # cache: chave lower → DesktopAppInfo
 
         # v2.10.1 — janelas REAIS (o protocolo direto via craft-toplevel):
-        # snapshot por tick (LIST), conexão persistente (zero fork), estado
-        # para o ciclo por app e o comutador clicável (alt-tab da dock)
+        # snapshot por tick (LIST), conexão persistente (zero fork) —
+        # alimenta os indicadores e os verbos da pílula. v2.10.8: o
+        # comutador e o MENU saíram; o snapshot fica (indicadores
+        # honestos, foco/ciclo/fecho por janela real).
         self._sock = None          # conexão com o daemon (persistente)
         self.windows = {}          # id → (flags, rank, app_id, title)
         self.focused = 0           # id da janela focada (0 = nenhuma)
         self._last_act = {}        # app → última janela que NÓS focamos
         self.tl_alive = False      # o daemon falou no último tick?
-        self.switch_btn = None     # o comutador clicável (≥2 janelas)
-        self.menubox = None        # o MENU das janelas (v2.10.3)
-        self.menu_open = False
-        self._menu_sig = None      # assinatura da última renderização
-        # v2.10.4 — a linha de base do "clique fora": o foco NA HORA em que
-        # o menu abriu; o tick compara e decide (lei universal do menu)
-        self._menu_focus0 = None
-        self._menu_rebase = False  # um ✕ próprio acabou de fechar (1 graça)
-        self._rows_box = None
         self._children = []        # Popen rastreados (a ceifa dos zumbis)
 
         self.win = Gtk.Window()
@@ -339,27 +336,9 @@ class Dock:
         self.pill.set_name("dockbox")
         self.pill.set_margin_bottom(PILL_FLOAT)
 
-        # v2.10.3 — o MENU das janelas mora NA MESMA superfície (a lei da
-        # gaiola morta de pé: NENHUMA superfície nova, NENHUM input
-        # fantasma). Invisível por padrão (no_show_all — nenhum show_all
-        # o acende); a âncora é SÓ a base: quando abre, cresce para CIMA;
-        # quando a escolha é feita, some — a dock volta a ser a pílula.
-        self.menubox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        self.menubox.set_name("dockmenu")
-        self.menubox.set_no_show_all(True)
-        self._rows_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL,
-                                 spacing=2)
-        scroll = Gtk.ScrolledWindow()
-        scroll.set_name("menuscroll")
-        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        scroll.set_max_content_height(312)
-        scroll.set_propagate_natural_height(True)
-        scroll.set_propagate_natural_width(True)
-        scroll.add(self._rows_box)
-        self.menubox.pack_start(scroll, True, True, 0)
-
+        # v2.10.8 — a superfície É SÓ a pílula de novo (o menubox da
+        # v2.10.3 saiu da árvore inteira — o que não existe não falha).
         self.root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        self.root.pack_start(self.menubox, False, False, 0)
         self.root.pack_start(self.pill, False, False, 0)
         self.win.add(self.root)
 
@@ -370,7 +349,7 @@ class Dock:
         log(f"dock iniciada: {len(self.buttons)} pin(s) · "
             f"sempre visível (layer BOTTOM — some só sob tela cheia/gaveta) · "
             f"dinâmicos ON (apps abertos sem pin aparecem após o fio) · "
-            f"menu das janelas ON (v2.10.3)")
+            f"comutador/menu EXTINTOS (v2.10.8 — ordem do dono)")
 
         GLib.timeout_add(3000, self.poll_running)
         GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGUSR1,
@@ -472,14 +451,6 @@ class Dock:
         self.dyn = {}
         self.sep = None
         self.pin_ids = set()
-        # o comutador e o MENU morrem juntos (o poll os recria — v2.10.3)
-        self.switch_btn = None
-        self.menu_open = False
-        self._menu_sig = None
-        self._menu_focus0 = None
-        self._menu_rebase = False
-        if self.menubox is not None:
-            self.menubox.hide()
         for info, hint in read_pins():
             btn = self._make_button(info, hint, dynamic=False)
             self.pill.pack_start(btn, False, False, 0)
@@ -658,173 +629,6 @@ class Dock:
         if fw:
             return fw[0]
         return min(wids, key=lambda w: self.windows[w][1])
-
-    # ── o COMUTADOR virou MENU (v2.10.3 — o veredito do dono) ───────────
-    # "eu esperava algo como o menu do alt+tab… não consigo escolher para
-    # qual programa quero voltar ou encerrar… o ícone fica mudando para o
-    # ícone dos programas". A cura: ÍCONE FIXO no botão e o clique abre o
-    # MENU das janelas — a linha foca a ESCOLHIDA, o ✕ encerra AQUELA.
-    def _sync_switcher(self):
-        """O botão existe SÓ com ≥2 janelas e daemon vivo (zero poluição —
-        minimalista). ÍCONE FIXO: o botão não é ninguém, é o MENU; quem
-        carrega ícone de app é a LINHA, dentro do menu."""
-        if len(self.windows) < 2:
-            if self.switch_btn is not None:
-                self.pill.remove(self.switch_btn)
-                self.switch_btn.destroy()
-                self.switch_btn = None
-                self._menu_collapse()
-                self.pill.show_all()
-            return
-        if self.switch_btn is None:
-            self.switch_btn = Gtk.Button.new()
-            self.switch_btn.set_relief(Gtk.ReliefStyle.NONE)
-            self.switch_btn.set_name("switchbtn")
-            img = Gtk.Image()
-            img.set_from_icon_name(_SWITCH_ICON, Gtk.IconSize.DIALOG)
-            img.set_pixel_size(ICON_SIZE)
-            self.switch_btn.add(img)
-            self.switch_btn.set_tooltip_text(
-                "Janelas abertas — clique: escolher a janela (menu)")
-            self.switch_btn.connect("button-press-event", self._switch_press)
-            self.switch_btn.connect("clicked", self._switch_click)
-            self.pill.pack_start(self.switch_btn, False, False, 0)
-            self.pill.reorder_child(self.switch_btn, -1)
-            self.pill.show_all()
-            log("comutador entrou (≥2 janelas) — ícone fixo, clique = menu")
-        self._menu_sync()
-
-    def _menu_sync(self):
-        """O menu só se redesenha quando a VERDADE mudou (janelas, ordem
-        MRU ou foco) — diff por assinatura: zero flicker no tick.
-        v2.10.4 — A LEI UNIVERSAL DO MENU mora aqui: o foco que saiu do
-        lugar onde o menu nasceu é o clique fora (outra janela, alt-tab,
-        ícone da dock, desktop) — e o menu some. Sem superfície nova, sem
-        input region, sem sinal: a mesma verdade que desenha as linhas
-        decide o fechamento (a gaiola morta de pé)."""
-        if not self.menu_open:
-            return
-        if self._menu_rebase:
-            # o ✕ ACABOU de fechar: a 1ª verdade que chega rebasa — a
-            # mudança de foco que vier junto é consequência do fecho MEU,
-            # não escolha do usuário (fechar várias de uma vez é uso real;
-            # a PRÓXIMA mudança de foco já é do usuário e fecha).
-            self._menu_rebase = False
-            self._menu_focus0 = self.focused
-        if (self._menu_focus0 is not None
-                and self.focused != self._menu_focus0):
-            self._menu_collapse()
-            return
-        sig = (tuple(sorted(
-            (w, self.windows[w][1], self.windows[w][3])
-            for w in self.windows)), self.focused)
-        if sig == self._menu_sig:
-            return
-        self._menu_sig = sig
-        self._menu_rebuild()
-
-    def _menu_rebuild(self):
-        """Linhas = janelas na ordem do anel MRU (rank do daemon — a
-        semântica do alt-tab). Cada linha: ícone do app + título; o clique
-        foca a escolhida e o ✕ encerra aquela janela. Sem preview."""
-        for c in self._rows_box.get_children():
-            self._rows_box.remove(c)
-            c.destroy()
-        for wid in sorted(self.windows, key=lambda w: (self.windows[w][1], w)):
-            _fl, _rk, app_id, title = self.windows[wid]
-            info = self._desktop_index().get((app_id or "").lower())
-            if info is None and app_id:
-                info = self._desktop_index().get(app_id.rsplit(".", 1)[-1].lower())
-            name = (info.get_display_name() if info is not None else None) \
-                or title or app_id or "janela"
-            row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
-            btn = Gtk.Button.new()
-            btn.set_relief(Gtk.ReliefStyle.NONE)
-            btn.set_name("menurow")
-            inner = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-            img = Gtk.Image()
-            icon = info.get_icon() if info is not None else None
-            if icon is not None:
-                img.set_from_gicon(icon, Gtk.IconSize.MENU)
-            else:
-                img.set_from_icon_name(_SWITCH_ICON, Gtk.IconSize.MENU)
-            img.set_pixel_size(22)
-            inner.pack_start(img, False, False, 0)
-            lab = Gtk.Label(label=title or name)
-            lab.set_ellipsize(Pango.EllipsizeMode.END)
-            lab.set_max_width_chars(34)
-            lab.set_xalign(0)
-            inner.pack_start(lab, True, True, 0)
-            btn.add(inner)
-            btn.set_tooltip_text(f"{name} — clique: ir para esta janela")
-            if wid == self.focused:
-                btn.get_style_context().add_class("focused")
-            btn.connect("clicked", self._row_focus, wid)
-            row.pack_start(btn, True, True, 0)
-            x = Gtk.Button.new()
-            x.set_relief(Gtk.ReliefStyle.NONE)
-            x.set_name("rowclose")
-            xi = Gtk.Image.new_from_icon_name("window-close-symbolic",
-                                              Gtk.IconSize.MENU)
-            xi.set_pixel_size(14)
-            x.add(xi)
-            x.set_tooltip_text(f"Encerrar: {name}")
-            x.connect("clicked", self._row_close, wid)
-            row.pack_start(x, False, False, 0)
-            self._rows_box.pack_start(row, False, False, 0)
-        self._rows_box.show_all()
-
-    def _switch_press(self, _btn, ev):
-        # esquerdo segue para o "clicked" (o toggle do menu); resto: nada
-        return ev.button != 1
-
-    def _switch_click(self, _btn):
-        if self.menu_open:
-            self._menu_collapse()
-            return
-        self._menu_sig = None          # o clique pede a verdade AGORA
-        self._menu_rebuild()
-        self.menubox.show_all()
-        self.menu_open = True
-        # v2.10.4 — a linha de base do clique-fora nasce AQUI: o foco no
-        # instante em que o menu abriu. Qualquer foco diferente no tick =
-        # o usuário foi embora = menu fecha (lei universal do menu).
-        self._menu_focus0 = self.focused
-        self._menu_rebase = False
-        log(f"menu das janelas aberto ({len(self.windows)} janelas)")
-
-    def _menu_collapse(self):
-        """Escolher é SAIR do menu (a dock volta a ser a pílula —
-        minimalista). O ✕ NÃO colapsa: fechar várias de uma vez é uso real."""
-        self.menu_open = False
-        self._menu_sig = None
-        self._menu_focus0 = None
-        self._menu_rebase = False
-        if self.menubox is not None:
-            self.menubox.hide()
-
-    def _row_focus(self, _btn, wid):
-        """O clique na linha: foca/restaura a janela ESCOLHIDA (fim do
-        'não consigo escolher para qual programa quero voltar')."""
-        if self._tl_act(wid):
-            log(f"menu: foco por id {wid}")
-            self._menu_collapse()
-
-    def _row_close(self, _btn, wid):
-        """O ✕ da linha: encerra AQUELA janela (fim do 'não consigo
-        escolher… ou encerrar')."""
-        if self._tl_close_win(wid):
-            log(f"menu: fechado por id {wid}")
-            self.windows.pop(wid, None)  # verdade otimista — o tick confere
-            if len(self.windows) < 2:
-                self._menu_collapse()
-            else:
-                # v2.10.4 — o fecho é MEU: a próxima mudança de foco que
-                # chegar é consequência dele (o labwc foca outra janela),
-                # não escolha do usuário — 1 graça do clique-fora.
-                self._menu_rebase = True
-                self._menu_sig = None
-                self._menu_rebuild()
 
     # ── os VERBOS do clique (v2.7 + v2.10 + v2.10.1) ─────────────────────
     def _press(self, btn, ev, info, hint, did, cmd, dynamic=False):
@@ -1081,8 +885,6 @@ class Dock:
             else:
                 ctx.remove_class("running")
         self._sync_dynamic()
-        # snapshot de janelas reais + comutador/menu (um só tick)
-        self._sync_switcher()
         return True
 
     def _app_has_window(self, info, hint, did):
@@ -1160,10 +962,6 @@ class Dock:
         elif (not self.dyn or not self.buttons) and self.sep is not None:
             self.sep.destroy()
             self.sep = None
-        # v2.10.1 — o comutador é SEMPRE o último da pílula (os dinâmicos
-        # entram com pack_start no fim — reorder devolve a ordem)
-        if self.switch_btn is not None:
-            self.pill.reorder_child(self.switch_btn, -1)
         if self.dyn or fresh or dead:
             self.pill.show_all()
 
@@ -1172,7 +970,6 @@ class Dock:
         # automática. Escondida, a zona exclusiva vai embora junto (a
         # superfície desmapeada libera a faixa — comportamento padrão).
         if self.shown:
-            self._menu_collapse()      # esconder a dock fecha o menu junto
             self.win.hide()
             self.shown = False
             log("toggle: dock escondida (W-S-d)")
@@ -1205,42 +1002,6 @@ DEFAULT_CSS = b"""
   min-width: 1px;
   margin: 8px 7px;
   background: rgba(108, 112, 134, 0.45);
-}
-#dockmenu {
-  background: rgba(5, 5, 8, 0.92);
-  border: 1px solid rgba(22, 22, 31, 0.8);
-  border-radius: 20px;
-  padding: 4px 6px;
-  margin-bottom: 6px;
-}
-#dockmenu #menuscroll { background: transparent; }
-#dockmenu #menurow {
-  padding: 4px 8px;
-  min-height: 34px;
-  border-radius: 12px;
-  background: transparent;
-  border: none;
-}
-#dockmenu #menurow:hover { background: rgba(22, 22, 31, 0.95); }
-#dockmenu #menurow.focused { background: rgba(38, 38, 52, 0.95); }
-#dockmenu #menurow label {
-  color: #cdd6f4;
-  font-weight: normal;
-}
-#dockmenu #rowclose {
-  min-width: 26px;
-  min-height: 26px;
-  padding: 2px;
-  border-radius: 12px;
-  background: transparent;
-  border: none;
-}
-#dockmenu #rowclose:hover { background: rgba(64, 29, 41, 0.95); }
-#dockmenu scrollbar { background: transparent; }
-#dockmenu scrollbar slider {
-  background: rgba(108, 112, 134, 0.45);
-  border-radius: 3px;
-  min-width: 4px;
 }
 """
 
