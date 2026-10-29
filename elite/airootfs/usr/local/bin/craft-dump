@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · craft-dump (v2.2 — o "btop completão" polido, v2.10.6)
+# Archcraft ELITE · craft-dump (v2.3 — o "btop completão" polido, v2.10.6)
 # ═══════════════════════════════════════════════════════════════════════════
 # Pedido do dono (out/2026): "como puxo tudo que está rodando como se fosse
 # um btop completão pra gente ter um diagnóstico da RAM, pacotes, uso, CPU
@@ -33,6 +33,16 @@
 # 'a password is required' no journal 23:00:46). O dump agora dá as 3
 # provas do keyring (pubring, chaves populadas, pacman legível) — a cura
 # E23 (elite-keyring-fix.timer, root) é julgada no próximo papel.
+# v2.3 (o dono clicou Suspender no rig 10.9 e o dump a4h8 registrou a
+# doença): suspend 16:54:49 → retorno 16:54:54 (5s) — despertar imediato;
+# /proc/acpi/wakeup com 6 wake sources USB/PCIe armadas e o resume errando
+# no xHC do PTXH (0000:02:00.0). O dump agora julga a cura E24: wakeup REAL
+# dos controladores USB PCI (sysfs), a regra udev no papel e o relato do
+# hook elite-sleep-report no journal. E o upload mentiu uma última vez:
+# dois runs no MESMO minuto colidiam no nome (STAMP sem segundos) e um run
+# sem sudo sobre dump do root subia o ARQUIVO VELHO como se fosse novo —
+# agora nome com segundos + guard de escrita honesto (sem permissão =
+# recusa clara; NUNCA upload de papel que este run não escreveu).
 #
 #    0 · VEREDITO RÁPIDO — probe da sessão + units falhados + disco raiz
 #    1 · identidade (+ o ambiente de sessão: o dump nasceu dentro dela?)
@@ -68,7 +78,9 @@
 # ═══════════════════════════════════════════════════════════════════════════
 set -u
 
-STAMP="$(date +%Y%m%d-%H%M)"
+# v2.3 — segundos no nome: dois runs no mesmo minuto colidiam no arquivo
+# (o a4h8 mostrou o rerun sem sudo batendo no dump root do sudo run)
+STAMP="$(date +%Y%m%d-%H%M%S)"
 
 # v2.1 — O CONTEXTO DA SESSÃO (a cura do dump d33o): via sudo, o $HOME é
 # /root e as seções 6/7/9/10/12/14 liam o root. O usuário-alvo é o SUDO_USER
@@ -90,8 +102,20 @@ r() { # r <comando> [linhas]
     bash -c "$1" 2>&1 | tr -d '\0' | tail -n "${2:-40}"
 }
 
+# v2.3 — GUARD DE ESCRITA (a mentira do a4h8): dump root-owned do sudo run
+# + rerun sem sudo no MESMO minuto = bash 'Permissão negada' na abertura, o
+# papel continuava no terminal e o --upload subia o ARQUIVO VELHO como se
+# fosse novo. Recusa clara ANTES de qualquer coisa: upload só de papel
+# escrito por ESTE run.
+if ! : > "$OUT" 2>/dev/null; then
+    printf 'craft-dump: SEM PERMISSÃO de escrever %s\n' "$OUT" >&2
+    printf '  (um dump anterior foi gerado por outro usuário — root?)\n' >&2
+    printf '  rode com sudo ou apague o arquivo antigo: sudo rm -f %s\n' "$OUT" >&2
+    exit 1
+fi
+
 {
-    printf '══════════ ELITE DUMP v2.2 — diagnóstico completo ══════════\n'
+    printf '══════════ ELITE DUMP v2.3 — diagnóstico completo ══════════\n'
     if [ "$(id -un)" != "$DUMP_USER" ]; then
         printf 'gerado: %s · usuário: %s → sessão de %s (uid %s) · host: %s\n' \
             "$(date)" "$(id -un)" "$DUMP_USER" "$DUMP_UID" "$(uname -n 2>/dev/null || echo '?')"
@@ -321,6 +345,13 @@ PY
     # o /etc é a palavra final do drop-in)
     r "for f in /etc/systemd/sleep.conf /etc/systemd/sleep.conf.d/*.conf /usr/lib/systemd/sleep.conf.d/*.conf; do [ -f \"\$f\" ] && { echo '── \$f'; cat \"\$f\"; }; done; true" 30
     r "journalctl -u systemd-suspend --no-pager 2>/dev/null | tail -40" 45
+    # v2.3 — A CURA E24 NO PAPEL: wakeup REAL dos controladores USB PCI
+    # (a regra udev 90-elite-wake-guard os desarma no boot — dormir sem
+    # porta de volta do mouse/controlador), a regra presente e o relato
+    # do hook elite-sleep-report no journal do suspend.
+    r "ls -l /etc/udev/rules.d/90-elite-wake-guard.rules 2>/dev/null || echo '(regra E24 ausente — sistema anterior à 10.11)'" 4
+    r "for d in /sys/bus/pci/devices/*; do [ -f \"\$d/power/wakeup\" ] || continue; c=\$(cat \$d/class 2>/dev/null); case \$c in 0x0c03*|0x0c00*|0x0c01*|0x0c02*|0x0c04*|0x0c05*|0x0c06*|0x0c07*) printf '%s class=%s wakeup=%s\n' \"\${d##*/}\" \"\$c\" \"\$(cat \$d/power/wakeup)\";; esac; done; true" 12
+    r "journalctl -u systemd-suspend --no-pager 2>/dev/null | grep -E 'elite-sleep' | tail -10" 12
     r "cat /proc/acpi/wakeup 2>/dev/null" 25
     r "journalctl --no-pager 2>/dev/null | grep -iE 'wake(ing|up)?|resume|suspending' | tail -25" 30
     r "grep -E '^[#]?Handle(Suspend|Power|Lid)' /etc/systemd/logind.conf 2>/dev/null" 6
@@ -394,7 +425,7 @@ PY
     r "du -sh '$UHOME/.cache'/* 2>/dev/null | sort -rh | head -12" 14
     r "journalctl --disk-usage 2>/dev/null" 2
 
-    printf '\n══════════ FIM DO DUMP v2.1 ══════════\n'
+    printf '\n══════════ FIM DO DUMP v2.3 ══════════\n'
     printf 'a seção 0 é o resumo; as seções 1-14 são o detalhe.\n'
     printf 'envie este arquivo (ou a URL do --upload) para a análise.\n'
 } > "$OUT" 2>&1
