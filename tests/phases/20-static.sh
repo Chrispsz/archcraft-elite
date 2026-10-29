@@ -251,10 +251,44 @@ assert_grep "$U/elite-keyring-fix.timer" '^WantedBy=timers.target$' "v2.10.10: [
 assert_grep "$U/elite-keyring-fix.timer" '^OnBootSec=120s$' "v2.10.10: timer dispara 2min pós-boot (a cura chega cedo, sem brigar com o boot)"
 assert_grep "$U/elite-keyring-fix.timer" '^OnUnitActiveSec=6h$' "v2.10.10: timer re-tenta de 6h em 6h (o guard de 24h do script decide o custo real)"
 # craft-dump v2.2: a etiqueta = conteúdo, e o keyring ganha as 3 provas
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2.2' "v2.10.10: craft-dump etiqueta v2.2 (a lei: etiqueta = conteúdo)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2.3' "v2.10.11: craft-dump etiqueta v2.3 (a lei: etiqueta = conteúdo — v2.10.11 destrona a v2.2)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'pubring.gpg' "v2.10.10: dump prova o pubring (a doença do d33o no papel)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'list-keys cachyos' "v2.10.10: dump prova as chaves CachyOS populadas"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'pacman lê o banco: OK' "v2.10.10: dump prova funcional do pacman (o -Syu vivo ou morto nomeado)"
+
+# ── v2.10.11 — E24: A CURA DO DESPERTAR IMEDIATO ────────────────────────
+# Prova d33o (dump a4h8): suspend 16:54:49 → retorno 16:54:54 (5s) — o
+# dono clicou Suspender e viu "nada aconteceu". /proc/acpi/wakeup com 6
+# wake sources USB/PCIe armadas (GP12, GP13, XHC0, SWUS, SWDS, PTXH) e o
+# resume errando no xHC do PTXH (USBSTS 0x401, Reinit). O mem_sleep [deep]
+# prova S3 real — quem acorda é USB. Cura: regra udev desarma o wakeup de
+# TODO controlador USB PCI (class 0x0c03) no add — o PC dorme de verdade
+# e acorda pelo botão de power. Ferramenta manual + perícia + dump juiz.
+WG="$REPO/elite/airootfs/etc/udev/rules.d/90-elite-wake-guard.rules"
+[[ -f "$WG" ]] \
+  && ok "v2.10.11: regra udev 90-elite-wake-guard.rules presente (a cura do despertar no add/coldplug)" \
+  || fail "v2.10.11: 90-elite-wake-guard.rules" "ausente — o suspend volta a acordar sozinho (a doença do a4h8)"
+assert_grep "$WG" 'ACTION=="add"' "v2.10.11: regra E24 atua no add (coldplug cobre o boot, hotplug cobre o encaixe a quente)"
+assert_grep "$WG" 'SUBSYSTEM=="pci"' "v2.10.11: regra E24 mira dispositivos PCI"
+assert_grep "$WG" 'ATTR\{class\}=="0x0c03\*"' "v2.10.11: regra E24 desarma controladores USB (class 0x0c03) — cirúrgico, sem shotgun"
+assert_grep "$WG" 'ATTR\{power/wakeup\}="disabled"' "v2.10.11: regra E24 escreve wakeup=disabled (sem porta de volta do mouse/controlador)"
+[[ -x "$REPO/elite/airootfs/usr/local/bin/craft-wake-guard" ]] \
+  && ok "v2.10.11: craft-wake-guard presente e executável (status/off/on — o comando manual da cura)" \
+  || fail "v2.10.11: craft-wake-guard" "ausente ou sem +x — o dono fica sem perícia/ajuste manual"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-wake-guard" 'do_set disabled' "v2.10.11: craft-wake-guard off desarma USB (o mesmo gesto da regra udev)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-wake-guard" 'do_set enabled' "v2.10.11: craft-wake-guard on rearma USB (a porta de volta, assumindo o risco E24)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-wake-guard" 'cat /sys/power/mem_sleep' "v2.10.11: craft-wake-guard status mostra o modo real do hardware (deep vs s2idle)"
+SR="$REPO/elite/airootfs/usr/lib/systemd/system-sleep/elite-sleep-report"
+[[ -x "$SR" ]] \
+  && ok "v2.10.11: hook elite-sleep-report presente e executável (perícia do sono no journal)" \
+  || fail "v2.10.11: elite-sleep-report" "ausente ou sem +x — se o sono voltar curto, o dump não nomeia o suspeito restante"
+assert_grep "$SR" 'pre)' "v2.10.11: hook elite-sleep-report registra wake sources armadas ANTES de dormir"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2.3' "v2.10.11: craft-dump etiqueta v2.3 (etiqueta = conteúdo)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'date \+%Y%m%d-%H%M%S' "v2.10.11: dump com segundos no STAMP (fim da colisão de dois runs no mesmo minuto — a doença do a4h8)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'if ! : > "\$OUT" 2>/dev/null; then' "v2.10.11: guard de escrita antes do papel (dump root-owned + rerun sem sudo = recusa clara)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" '90-elite-wake-guard.rules' "v2.10.11: dump prova a regra E24 no papel (seção 10)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'power/wakeup' "v2.10.11: dump prova o wakeup REAL dos controladores USB PCI (a cura julgada no próximo papel)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'elite-sleep-report' "v2.10.11: dump taila o relato do hook system-sleep (quem estava armado no momento de dormir)"
 
 # ── v2.2 — FUSÃO DOS BOOSTERS 4→1: nada do exército extinto sobra ─────
 # (scx-elite/bpfland + fg-booster/xdotool + dmemcg: 3 camadas que

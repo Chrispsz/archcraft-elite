@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+# ═══════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · craft-wake-guard (E24 — a cura do despertar imediato)
+# ═══════════════════════════════════════════════════════════════════════════
+# Prova d33o (dump a4h8): suspend 16:54:49 → retorno 16:54:54 (5s). Seis
+# wake sources USB/PCIe armadas em /proc/acpi/wakeup; o resume errou no
+# xHC do PTXH (0000:02:00.0, USBSTS 0x401, Reinit). O kernel entrega S3
+# real (mem_sleep [deep]) — quem acorda é USB.
+#
+# A ISO cura no boot pela regra udev 90-elite-wake-guard.rules (class USB
+# 0x0c03 → power/wakeup=disabled). ESTE script é o comando manual para:
+#   · status  — quem está armado agora (ACPI + controladores USB PCI);
+#   · off     — desarmar USB agora (o mesmo que a regra udev faz no boot);
+#   · on      — REARMAR USB (para acordar por teclado/mouse USB — aceitando
+#               o risco do despertar sozinho que trouxe a E24).
+# Efeito da cura: o PC dorme de verdade; acordar = BOTÃO DE POWER.
+# ═══════════════════════════════════════════════════════════════════════════
+set -u
+
+PROG="${0##*/}"
+
+usb_pci() {
+    # controladores USB PCI (class 0x0c00–0x0c07 = USB) com wakeup exposto
+    for d in /sys/bus/pci/devices/*; do
+        [ -r "$d/power/wakeup" ] || continue
+        cls="$(cat "$d/class" 2>/dev/null)"; cls="${cls:-0x000000}"
+        case "$cls" in
+            0x0c03*|0x0c00*|0x0c01*|0x0c02*|0x0c04*|0x0c05*|0x0c06*|0x0c07*) echo "$d" ;;
+        esac
+    done
+}
+
+do_set() { # do_set <enabled|disabled>
+    local want="$1" dev n=0
+    for dev in $(usb_pci); do
+        if echo "$want" >"$dev/power/wakeup" 2>/dev/null; then
+            printf '  wakeup=%-9s %s\n' "$want" "${dev##*/}"
+            n=$((n + 1))
+        fi
+    done
+    [ "$n" -gt 0 ] || printf '  (nenhum controlador USB PCI expôs wakeup)\n'
+}
+
+status() {
+    printf '── /proc/acpi/wakeup (armadas = quem pode acordar o PC)\n'
+    grep -E '\*enabled' /proc/acpi/wakeup 2>/dev/null \
+        || printf '  (nenhuma armada — tudo desarmado)\n'
+    printf '── controladores USB PCI (class 0x0c0x)\n'
+    local dev cls
+    for dev in $(usb_pci); do
+        cls="$(cat "$dev/class" 2>/dev/null)"
+        printf '  %-12s class=%s wakeup=%s\n' "${dev##*/}" "$cls" \
+            "$(cat "$dev/power/wakeup" 2>/dev/null)"
+    done
+    printf '── mem_sleep (o modo que o hardware entrega)\n'
+    printf '  %s\n' "$(cat /sys/power/mem_sleep 2>/dev/null || echo '(sem mem_sleep)')"
+}
+
+case "${1:-status}" in
+    off)
+        [ "$(id -u)" -eq 0 ] || { printf '%s: desarmar precisa root (sudo %s off)\n' "$PROG" "$PROG" >&2; exit 1; }
+        printf 'Desarmando wakeup dos controladores USB (acordar = botão de power):\n'
+        do_set disabled
+        ;;
+    on)
+        [ "$(id -u)" -eq 0 ] || { printf '%s: rearmar precisa root (sudo %s on)\n' "$PROG" "$PROG" >&2; exit 1; }
+        printf 'REARMANDO wakeup dos controladores USB (atenção: é a porta de volta do despertar sozinho — E24):\n'
+        do_set enabled
+        ;;
+    status)
+        status
+        ;;
+    *)
+        printf 'uso: %s [status|off|on]\n' "$PROG" >&2
+        exit 2
+        ;;
+esac
