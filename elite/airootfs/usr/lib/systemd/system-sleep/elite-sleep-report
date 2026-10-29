@@ -1,0 +1,26 @@
+#!/bin/sh
+# ═══════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · elite-sleep-report (E24 — a perícia do sono no journal)
+# ═══════════════════════════════════════════════════════════════════════════
+# Hook do systemd-sleep (roda como root, stdout vai para o journal do
+# systemd-suspend.service). No 'pre' registra QUEM está armado para acordar
+# (a regra udev 90-elite-wake-guard.rules já desarmou os USB) — se o PC
+# ainda assim acordar sozinho, o próximo dump NOMEIA o suspeito restante
+# (bridge PCIe, NIC…) em vez de chutar. No 'post' marca o retorno.
+# O craft-dump v2.3 (seção 10) taila o systemd-suspend: prova do sono real
+# (duração) + wake sources no momento de dormir.
+# ═══════════════════════════════════════════════════════════════════════════
+case "${1:-}" in
+    pre)
+        echo "[elite-sleep] pré-sono: wake sources ARMADAS em /proc/acpi/wakeup:"
+        if grep -E '\*enabled' /proc/acpi/wakeup 2>/dev/null; then
+            echo "[elite-sleep] (USB já desarmado pela E24; o que sobrar acima é suspeito se o sono for curto)"
+        else
+            echo "[elite-sleep] nenhuma armada — dorme selado"
+        fi
+        ;;
+    post)
+        echo "[elite-sleep] retorno do sono registrado (craft-dump seção 10 julga a duração)"
+        ;;
+esac
+exit 0

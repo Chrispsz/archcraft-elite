@@ -1,0 +1,21 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · 90-elite-wake-guard.rules (E24 — A CURA DO DESPERTAR)
+# ═══════════════════════════════════════════════════════════════════════════
+# Prova d33o (dump a4h8, rig na 10.9 · journal do systemd-suspend):
+#   16:54:49 "Performing sleep operation 'suspend'"
+#   16:54:54 "System returned from sleep operation 'suspend'"
+# → 5 SEGUNDOS de sono. O usuário clicou Suspender e viu "nada aconteceu".
+# /proc/acpi/wakeup mostrava 6 wake sources USB/PCIe armadas (GP12, GP13,
+# XHC0, SWUS, SWDS, PTXH) e o resume registrou o sintoma:
+#   xhci_hcd 0000:02:00.0: xHC error in resume, USBSTS 0x401, Reinit
+# O hardware entrega S3 real (mem_sleep: s2idle [deep]) — o modo não é
+# doença; quem acorda o PC é DISPOSITIVO USB (sensor do mouse vibra, o
+# controlador gera PME). Cura cirúrgica: desarmar o wakeup de TODO
+# controlador USB PCI (class 0x0c03) no add — coldplug cobre o boot e
+# hotplug cobre o encaixe a quente. Efeito honesto e reversível: o PC
+# dorme de verdade e acorda pelo BOTÃO DE POWER (rearmar a quente:
+# craft-wake-guard on · ou echo <dev> > /proc/acpi/wakeup).
+# Juiz da cura: o próximo craft-dump (v2.3, seção 10) mostra wakeup=disabled
+# nos controladores USB e o journal do elite-sleep-report prova o sono.
+# ═══════════════════════════════════════════════════════════════════════════
+ACTION=="add", SUBSYSTEM=="pci", ATTR{class}=="0x0c03*", ATTR{power/wakeup}="disabled"
