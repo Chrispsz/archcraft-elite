@@ -1,0 +1,19 @@
+[Unit]
+# ═══════════════════════════════════════════════════════════════════════════
+# ELITE (v2.10.10) — o relógio da E23 (cura do keyring como root).
+# ═══════════════════════════════════════════════════════════════════════════
+# 2min após o boot e de 6h em 6h. O CUSTO ZERO é do script: guard de 24h
+# (selo só com cura feita) — sistema saudável = exit em milissegundos,
+# sem download, sem I/O; sistema doente/sem rede = re-tenta até curar.
+# O doente do rig (d33o) nunca curava porque o sudo de sessão morria em
+# silêncio; agora a cura é do systemd, root, sem depender de ninguém.
+Description=ELITE: re-tenta a cura do keyring (o serviço julga pelo guard de 24h)
+
+[Timer]
+OnBootSec=120s
+OnUnitActiveSec=6h
+AccuracySec=1min
+Unit=elite-keyring-fix.service
+
+[Install]
+WantedBy=timers.target

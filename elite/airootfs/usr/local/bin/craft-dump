@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · craft-dump (v2.1 — o "btop completão" polido, v2.10.6)
+# Archcraft ELITE · craft-dump (v2.2 — o "btop completão" polido, v2.10.6)
 # ═══════════════════════════════════════════════════════════════════════════
 # Pedido do dono (out/2026): "como puxo tudo que está rodando como se fosse
 # um btop completão pra gente ter um diagnóstico da RAM, pacotes, uso, CPU
@@ -26,6 +26,13 @@
 # (3) sleep.conf* /sys/power/disk/systemd-inhibit entram — a cadeia de
 # sono INTEIRA no papel (o menu recusou suspend com kernel provando
 # 'freeze mem disk' — o meio do caminho agora tem réu nomeado).
+# v2.2 (o MESMO d33o gritou de novo, na seção 13): "erro: o chaveiro não
+# pode ser escrito" + chaves CachyOS desconhecidas em TODAS as repos
+# cachyos — o keyring do pacman do sistema instalado morreu e o
+# craft-fix-keys de sessão não pôde curar (sudo -n sem terminal =
+# 'a password is required' no journal 23:00:46). O dump agora dá as 3
+# provas do keyring (pubring, chaves populadas, pacman legível) — a cura
+# E23 (elite-keyring-fix.timer, root) é julgada no próximo papel.
 #
 #    0 · VEREDITO RÁPIDO — probe da sessão + units falhados + disco raiz
 #    1 · identidade (+ o ambiente de sessão: o dump nasceu dentro dela?)
@@ -44,7 +51,8 @@
 #   10 · suspend/ACPI — a caça ao despertar + idle.conf (a escolha do dono)
 #   11 · journal de erros deste boot
 #   12 · os 3 logs da Elite + firstboot + Calamares
-#   13 · pacotes (explicit/órfãos/foreign/flatpak/repos)
+#   13 · pacotes (explicit/órfãos/foreign/flatpak/repos) + O KEYRING NO
+#        PAPEL (a doença do d33o — a cura E23 julgada no próximo dump)
 #   14 · caches e uso de disco
 #
 # Uso:
@@ -83,7 +91,7 @@ r() { # r <comando> [linhas]
 }
 
 {
-    printf '══════════ ELITE DUMP v2.1 — diagnóstico completo ══════════\n'
+    printf '══════════ ELITE DUMP v2.2 — diagnóstico completo ══════════\n'
     if [ "$(id -un)" != "$DUMP_USER" ]; then
         printf 'gerado: %s · usuário: %s → sessão de %s (uid %s) · host: %s\n' \
             "$(date)" "$(id -un)" "$DUMP_USER" "$DUMP_UID" "$(uname -n 2>/dev/null || echo '?')"
@@ -358,6 +366,17 @@ PY
     printf '\n══════════ 13 · PACOTES ══════════\n'
     r "pacman -Qq | wc -l" 2
     r "pacman -Qe" 400
+    # v2.2 — O KEYRING NO PAPEL (a doença que o d33o pegou no rig: journal
+    # 23:00:46 'a password is required' no sudo -n do craft-fix-keys →
+    # 'o chaveiro não pode ser escrito' + chaves CachyOS desconhecidas =
+    # pacman -Syu MORTO = sistema que não atualiza, não permanece na melhor
+    # versão). Três provas diretas: o pubring existe? as chaves
+    # archlinux+cachyos estão populadas? o pacman lê o próprio banco? A cura
+    # E23 (elite-keyring-fix.timer — root, sem sudo de sessão) é julgada
+    # AQUI no próximo dump do dono.
+    r "ls -l /etc/pacman.d/gnupg/pubring.gpg 2>/dev/null || echo '(pubring AUSENTE — keyring morto)'" 2
+    r "pacman-key --list-keys cachyos 2>&1 | head -6" 6
+    r "pacman -Qq >/dev/null 2>&1 && echo 'pacman lê o banco: OK' || echo 'pacman BLOQUEADO — keyring doente (ver erros acima)'" 2
     r "pacman -Qtdq || echo '(nenhum órfão)'" 40
     r "pacman -Qm || echo '(nenhum foreign)'" 40
     if command -v flatpak >/dev/null 2>&1; then
