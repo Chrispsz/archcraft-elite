@@ -202,9 +202,23 @@ assert_eq "$uout" "OK 3" "systemd: 3 units parseiam (1 de sistema + 2 user v1.6.
 
 assert_grep "$U/elite-firstboot.service" '^ExecStart=/' "systemd: elite-firstboot.service ExecStart com caminho absoluto"
 
-[[ -L "$U/multi-user.target.wants/elite-firstboot.service" ]] \
-  && ok "systemd: symlink elite-firstboot.service (unit habilitada de fábrica)" \
-  || fail "systemd: symlink multi-user.target.wants/elite-firstboot.service" "não é symlink"
+# ── v2.10.9 — A LEI DA COERÊNCIA DE HABILITAÇÃO ────────────────────────
+# O [Install] da unit diz WantedBy=graphical.target (cura v2.10.7), mas o
+# airootfs ainda a pré-habilitava em multi-user.target.wants — o rig (dump
+# d33o L403) provou o custo: systemd achou ordering cycle envolvendo
+# firstboot+graphical+multi-user e QUEBROU o ciclo apagando o job do
+# firstboot (journal -u elite-firstboot: 'No entries'; marker ausente;
+# service inactive) — o firstboot NUNCA rodou na 10.7 instalada, a cura Z2
+# do XKB nunca foi aplicada. O symlink multi-user era a única ponte
+# firstboot↔multi-user sob controle do repo — extinta. Habilitação de
+# fábrica agora = o [Install]: graphical.target.wants, e NUNCA mais em
+# multi-user.
+[[ -L "$U/graphical.target.wants/elite-firstboot.service" ]] \
+  && ok "v2.10.9: symlink elite-firstboot em graphical.target.wants (habilitação == [Install])" \
+  || fail "v2.10.9: symlink graphical.target.wants/elite-firstboot.service" "não é symlink — unit sem habilitação de fábrica"
+[[ ! -e "$U/multi-user.target.wants/elite-firstboot.service" ]] \
+  && ok "v2.10.9: elite-firstboot EXTINTA de multi-user.target.wants (a ponte do ciclo do rig d33o L403 morreu)" \
+  || fail "v2.10.9: multi-user.target.wants/elite-firstboot.service" "ainda existe — a ponte do ciclo sobreviveu"
 
 # ── v2.2 — FUSÃO DOS BOOSTERS 4→1: nada do exército extinto sobra ─────
 # (scx-elite/bpfland + fg-booster/xdotool + dmemcg: 3 camadas que

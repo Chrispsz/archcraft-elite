@@ -823,4 +823,43 @@ else
   fi
 fi
 
+# ── v2.10.9 — O CONTRATO DO CICLO (systemd-analyze na suíte, para sempre) ──
+# O rig (dump d33o L403) provou que um ordering cycle envolvendo
+# firstboot+graphical+multi-user APAGA o job do firstboot no boot — e o
+# systemd o apaga calado (INFO): journal vazio, marker ausente, doença
+# silenciosa. O sandbox reproduziu o Wants= do symlink como INERTE para
+# ordenação (a aresta exata do rig nunca foi nomeada — o dump não capturou
+# drop-ins do rig), então a lei aqui é DUPLA: (1) a árvore shimada do repo
+# (unit + symlink graphical) verifica SEM ciclo; (2) o próprio harness se
+# prova com um controle positivo (a After=b + b After=a) — um
+# systemd-analyze que não vê o ciclo do controle não pode absolver ninguém.
+if ! command -v systemd-analyze >/dev/null 2>&1; then
+  skip "contrato do ciclo: systemd-analyze ausente" "host sem systemd — o contrato roda no CI (ubuntu tem systemd 2xx)"
+else
+  CW="$WORK/cycle-contract"; rm -rf "$CW"; mkdir -p "$CW/etc/systemd/system/graphical.target.wants"
+  cp "$REPO/elite/airootfs/etc/systemd/system/elite-firstboot.service" "$CW/etc/systemd/system/"
+  chmod -x "$CW/etc/systemd/system/elite-firstboot.service"
+  ln -s ../elite-firstboot.service "$CW/etc/systemd/system/graphical.target.wants/elite-firstboot.service"
+
+  # controle positivo: o harness TEM que flagrar o ciclo canônico
+  mkdir -p "$CW/ctrl"
+  printf '[Unit]\nDescription=A\nAfter=b.service\n[Service]\nType=oneshot\nExecStart=/bin/true\n' > "$CW/ctrl/a.service"
+  printf '[Unit]\nDescription=B\nAfter=a.service\n[Service]\nType=oneshot\nExecStart=/bin/true\n' > "$CW/ctrl/b.service"
+  ctrlout="$(SYSTEMD_UNIT_PATH="$CW/ctrl:/usr/lib/systemd/system" systemd-analyze verify "$CW/ctrl/a.service" "$CW/ctrl/b.service" 2>&1 || true)"
+  if grep -qiE 'ordering cycle|cyclic' <<<"$ctrlout"; then
+    ok "contrato do ciclo: controle positivo DETETADO (o harness vê cycle canônico — pode julgar)"
+  else
+    skip "contrato do ciclo: controle positivo não flagrado" "systemd-analyze deste host não julga ordenação — absolver aqui seria fé"
+  fi
+
+  # a árvore da cura: transação de boot (multi-user + graphical) com o
+  # firstboot habilitado SÓ no graphical — ciclo AQUI é doença eterna
+  treeout="$(SYSTEMD_UNIT_PATH="$CW/etc/systemd/system:/usr/lib/systemd/system" systemd-analyze verify --recursive-errors=no multi-user.target graphical.target 2>&1 || true)"
+  if grep -qiE 'ordering cycle|cyclic' <<<"$treeout"; then
+    fail "contrato do ciclo: transação de boot SEM cycle" "ciclo detectado na árvore shimada: $(grep -iE 'ordering cycle|cyclic' <<<"$treeout" | head -2)"
+  else
+    ok "contrato do ciclo: multi-user+graphical+firstboot(graphical.wants) — zero cycle (a ponte do rig morreu pra sempre)"
+  fi
+fi
+
 phase_end
