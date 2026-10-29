@@ -40,11 +40,17 @@ mlog() {
 CONF_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/elite"
 CONF="$CONF_DIR/idle.conf"
 
-# Defaults da ISO (10 min lock · 15 min apagar · suspend off) — o conf sobrescreve
+# Defaults da ISO (10 min lock · 15 min apagar · 20 min suspender) — o conf sobrescreve
+# v2.10.8 — SUSPEND_MIN de fábrica 0 → 20: a 10.7 nascia com suspend OFF
+# ('a ISO não muda comportamento às escondidas') e o dono ficou com um PC
+# que NUNCA dormia — o dump d33o provou o kernel capaz ('freeze mem disk',
+# mem_sleep [deep]) e o idle.conf do skel ditando 'nunca'. O default agora
+# é o das outras distros (o que o dono pediu: 'consiga entrar em
+# idle/suspensão'); 0 continua valendo (off consciente, explícito).
 LOCK_MIN=10
 OFF_MIN=15
-SUSPEND_MIN=0   # v2.3.5: auto-suspende APÓS X min de inatividade (0 = off;
-                # opt-in — mudança de comportamento nunca é silenciosa)
+SUSPEND_MIN=20  # auto-suspende APÓS X min de inatividade (o before-sleep
+                # já travou — acorda no lock; 0 = off, escolha explícita)
 # shellcheck disable=SC1090  # caminho dinâmico POR DESIGN: é o conf do
 # usuário (~/.config/elite/idle.conf) — o ajuste sem relogin da v1.6.1
 [ -r "$CONF" ] && . "$CONF"
@@ -55,7 +61,7 @@ SUSPEND_MIN=0   # v2.3.5: auto-suspende APÓS X min de inatividade (0 = off;
 # Valor ruim = padrão de fábrica, e o conf continua lá pra o usuário ver.
 case "${LOCK_MIN:-}"    in ''|*[!0-9]*) LOCK_MIN=10    ;; esac
 case "${OFF_MIN:-}"     in ''|*[!0-9]*) OFF_MIN=15     ;; esac
-case "${SUSPEND_MIN:-}" in ''|*[!0-9]*) SUSPEND_MIN=0  ;; esac
+case "${SUSPEND_MIN:-}" in ''|*[!0-9]*) SUSPEND_MIN=20 ;; esac
 
 # ── start: a receita inteira do swayidle num lugar só ────────────────────
 start_daemon() {

@@ -262,7 +262,7 @@ CT="$P/airootfs/etc/skel/.config/waybar/config.top"
 assert_grep "$CT" '"modules-center": \["clock"\]' "v2.1: relógio no CENTRO da barra (diretriz do dono)"
 assert_grep "$CT" '"fixed-center": true' "v1.5: fixed-center (centro EXATO independente dos lados)"
 assert_nogrep "$CT" '"custom/menu"' "v1.5: lançador ARCH FORA do canto esquerdo (spec do dono — o Launchpad vive na dock)"
-assert_grep "$CT" '"modules-left": \["custom/drawer", "wlr/window"\]' "v2.0: convenção dos rices — ESQUERDA = lançador (ARCH) + app focado"
+assert_grep "$CT" '"modules-left": \["custom/drawer"\]' "v2.10.8: ESQUERDA = ARCH puro (o assento de janela focada saiu — o waybar 0.15 da ISO não tem mais o módulo, 'Unknown module' por boot no d33o; a convenção dos rices fica com o que o waybar TEM)"
 assert_grep "$CT" '"modules-right": \[' "v2.1: o STATUS vive à DIREITA (volume/rede/tray/sessão — declutter do dono)"
 assert_nogrep "$CT" '"custom/shot"' "v2.3.10: print FORA da barra ('não gostei do botão de print melhor remover' — os verbos vivem em W-P/W-S-P; entrou na v2.3.7, saiu na v2.3.10, a lei muda com o dono)"
 assert_nogrep "$CT" '"idle_inhibitor"' "v2.0: o café SAIU da barra (módulo extinto — 'botão estranho', áudio do dono)"
@@ -629,8 +629,17 @@ assert_grep "$PWR" 'if ! systemctl reboot 2>>"\$MLOG"; then' "v2.9.0: Reiniciar 
 assert_grep "$PWR" 'if ! systemctl poweroff 2>>"\$MLOG"; then' "v2.9.0: Desligar com caminho de FALHA explícito (o 'encerrar não encerra' do rig nunca mais é mudo)"
 assert_grep "$PWR" "'Reiniciar falhou'" "v2.9.0: falha de reboot avisa NA TELA (toast crítico — o dono vê o porquê)"
 assert_grep "$PWR" "'Desligar falhou'" "v2.9.0: falha de poweroff avisa NA TELA"
-assert_grep "$P/airootfs/etc/skel/.config/elite/idle.conf" 'SUSPEND_MIN=0' "v2.3.5: auto-suspend é OPT-IN no idle.conf (0 = off — a ISO não muda comportamento às escondidas)"
+assert_grep "$P/airootfs/etc/skel/.config/elite/idle.conf" 'SUSPEND_MIN=20' "v2.10.8: suspend de FÁBRICA (d33o: kernel 'freeze mem disk' + mem_sleep [deep] + conf ditando 0 = PC que NUNCA dorme — o default agora é o das outras distros; 0 segue valendo como off explícito)"
 assert_grep "$P/airootfs/usr/local/bin/craft-idle" 'systemctl suspend' "v2.3.5: craft-idle suspende de verdade quando SUSPEND_MIN > 0 (o before-sleep trava antes — acorda no lock)"
+assert_grep "$P/airootfs/usr/local/bin/craft-idle" 'SUSPEND_MIN=20' "v2.10.8: o default do SCRIPT acompanha o conf (conf com lixo = 20, não 0 — a fábrica é a mesma nos dois lugares)"
+assert_grep "$P/airootfs/etc/systemd/sleep.conf.d/90-elite.conf" '^AllowSuspend=yes' "v2.10.8: a ISO FIXA AllowSuspend=yes (réu possível do can-suspend ≠ yes do d33o era AllowSuspend=no herdado de config de base — agora a palavra final é nossa)"
+assert_grep "$P/airootfs/etc/systemd/sleep.conf.d/90-elite.conf" '^AllowHibernation=no' "v2.10.8: hibernar NUNCA (swap é zram sem resume= — dormir sem endereço de volta é promessa falsa; a honestidade vale para o sono também)"
+assert_rc0 "v2.10.8: Local State do skel é JSON válido com background_mode=false (o cluster do Brave: fechar janela ENCERRA — sem processo zumbi, sem toast de 2º plano, sem 'não aparece na lista')" python3 -c "import json,sys; d=json.load(open(sys.argv[1])); assert d['background_mode']['enabled'] is False, d" "$P/airootfs/etc/skel/.config/BraveSoftware/Brave-Browser/Local State"
+assert_nogrep "$P/airootfs/etc/skel/.config/waybar/config.top" 'wlr/window' "v2.10.8: wlr/window FORA (waybar 0.15 o removeu — 'Unknown module' a cada boot no d33o; anunciar assento que nunca renderiza é mentir na interface)"
+assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'PyGIDeprecationWarning' "v2.10.8: warning de gi filtrado NA FONTE (d33o: 4 linhas de ruído por sessão sujavam o bars.log — a evidência da supervisão fica limpa)"
+assert_grep "$P/airootfs/usr/local/bin/elite-session-probe" 'IDLE_COUNT=' "v2.10.8: o idle na PROVA do veredito (swayidle morto = réu nomeado do 'PC não entra em idle' — o d33o não tinha a linha)"
+assert_grep "$P/airootfs/usr/local/bin/elite-session-probe" 'CRAFTBARS_COUNT=' "v2.10.8: o supervisor do idle também conta (B1 sem prova era fé — agora é número)"
+assert_grep "$REPO/elite/fragments/elite-customize.sh" 'Archcraft Elite' "v2.10.8: identidade da distro no os-release (d33o: PRETTY_NAME='Archcraft' seco no instalado — a marca viaja pro disco pelo unpackfs)"
 assert_nogrep "$P/airootfs/etc/skel/.config/waybar/config.top" '"tray"' "v2.3.6: módulo tray FORA da topbar (nada a exibir — udiskie roda --no-tray; o ícone SNI bitmap não pertence à família de glifos)"
 
 # craft-dump — o 'btop completão' (pedido do dono: RAM, pacotes, CPU, uso,
@@ -645,6 +654,16 @@ assert_grep "$P/airootfs/etc/systemd/journald.conf.d/99-elite-cap.conf" '^Storag
 
 # ── v2.3.6 — O DUMP DO RIG (740 linhas): 4 curas de release + UX ─────────
 TUN="$REPO/elite/airootfs/usr/local/bin/elite-tune"
+# v2.10.8 — o suspend do dump d33o arbitrado: os contratos da cadeia INTEIRA
+assert_grep "$TUN" 'background_mode' "v2.10.8: firstboot patcha PERFIS EXISTENTES de Brave (o rig da 10.7 recebe a cura no próximo boot — o firstboot lá está pendente, d33o)"
+assert_grep "$DUMP" 'SUDO_USER' "v2.10.8: dump resolve o usuário da SESSÃO (d33o via sudo lia /root e disse '(sem arquivo de pins)'/'(sem fuzzel.ini)' num rig COM os dois)"
+assert_grep "$DUMP" 'XDG_RUNTIME_DIR=\$URUNTIME' "v2.10.8: dump bridgeia o runtime da sessão (wpctl/wlr-randr de root com XDG_RUNTIME_DIR do usuário — o d33o não viu PipeWire nem randr)"
+assert_nogrep "$DUMP" 'can-suspend 2>/dev/null' "v2.10.8: o can-suspend do dump NUNCA mais engole a prova (d33o: linha VAZIA onde devia estar o veredito do logind — stderr vai pro papel)"
+assert_grep "$DUMP" 'list-sessions' "v2.10.8: sessões do logind no papel (o can-suspend é respondido PARA o chamador — sessão não-active vira 'challenge' e o dump precisa mostrar isso)"
+assert_grep "$DUMP" 'sleep.conf.d' "v2.10.8: cadeia de sono INTEIRA no papel (sleep.conf + drop-ins — o réu AllowSuspend=no tem endereço)"
+assert_grep "$DUMP" '/sys/power/disk' "v2.10.8: o estado disk do kernel no papel (hibernate sem resume= = recusa honesta; a prova viaja)"
+assert_grep "$DUMP" 'systemd-inhibit' "v2.10.8: quem segura inibidor de sono AGORA (o 'tenta e volta' tinha réu anônimo — o -i do menu e o idle-inhibit do swayidle no papel)"
+assert_grep "$DUMP" 'FIM DO DUMP v2.1' "v2.10.8: versão do papel = conteúdo do papel (o d33o carregava v2.0 no título com v2.0.1 no corpo — a etiqueta não mente mais)"
 assert_grep "$TUN" 'pacman-key --populate archlinux cachyos' "v2.3.6: firstboot popula as chaves ANTES do primeiro -Sy (db assinado por chave desconhecida falha INTEIRO — o rig flagrou: firstboot nunca completava)"
 assert_grep "$TUN" 'timeout 90 pacman-key --recv-keys' "v2.3.6: recv-keys com timeout 90 (keyserver lento pendurou a unit 17min em 'activating' — o rig flagrou)"
 assert_grep "$TUN" 'ensure_cachyos \|\| true' "v2.3.6: firstboot puxa o keyring FRESCO do mirror (o pacote datado 2024 é a raiz do 'chave desconhecida')"
@@ -2072,7 +2091,7 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'get_display_nam
 # v1.5 (spec do dono): lançador ARCH EXTINTO da menu bar — canto esquerdo
 # limpo (só o nome do app focado); o Launchpad vive na TOP BAR (v1.9 M3.4)
 assert_nogrep "$CPT" '"custom/menu"' "v1.5: módulo custom/menu EXTINTO do config.top (spec)"
-assert_grep "$CPT" '"modules-left": \["custom/drawer", "wlr/window"\]' "v2.0: cluster esquerdo = ARCH + app focado (convenção dos rices)"
+assert_grep "$CPT" '"modules-left": \["custom/drawer"\]' "v2.10.8: cluster esquerdo = ARCH (o módulo de janela focada foi removido pelo waybar 0.15 — nunca renderizou, provado no d33o)"
 assert_grep "$CPT" '"fixed-center": true' "v1.5: clock no centro EXATO (fixed-center)"
 assert_nogrep "$P/airootfs/etc/skel/.config/elite/dock.css" '\\uf303' "v1.9 M3.4: ARCH U+F303 NÃO vive na dock (exclusivo da top bar — CSS da dock)"
 assert_nogrep "$P/airootfs/usr/local/bin/craft-dock-gui" '"on-click": "craft-drawer"' "v1.9 M3.4: nenhum on-click de Launchpad na dock (GUI — sem duplicidade de lançador)"

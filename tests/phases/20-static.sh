@@ -805,6 +805,11 @@ assert_grep "$REPO/tests/phases/60-verdict.sh" 'SEM LINHA no summary' "v2.10.5: 
 
 # P. can-suspend ANTES do lock (toast que ninguém via extinto):
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-power" 'loginctl can-suspend' "v2.10.5: hardware sem suspend é avisado NA SESSÃO (nada é travado)"
+# v2.10.8 — o gate em DUAS INSTÂNCIAS (o d33o arbitrou: kernel 'freeze mem
+# disk' + mem_sleep [deep] com can-suspend ≠ yes — o logind calado não nega
+# mais o que o kernel prova; nem logind nem kernel = recusa honesta mantida)
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-power" '/sys/power/state' "v2.10.8: a capacidade do KERNEL entra no gate (logind calado/negativo + mem presente = TENTA — o erro real vira toast, nunca silêncio)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-power" 'kernel-mem=' "v2.10.8: a divergência logind×kernel fica NO LOG (a prova da próxima perícia nasce no momento do clique)"
 
 # Q. o selo do fix-keys só come com a cura feita:
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-fix-keys" 'keyring não atualizado' "v2.10.5: sem rede não escreve selo de 24h (o script não mente)"

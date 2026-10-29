@@ -724,3 +724,19 @@ if [[ -d /usr/share/applications ]]; then
 else
     echo "E21 AVISO: /usr/share/applications ausente no chroot — gaveta NÃO limpa" >&2
 fi
+
+## [E22] v2.10.8 — A IDENTIDADE DA ELITE NO PAPEL (dump d33o: o instalado
+##      responde PRETTY_NAME="Archcraft" seco — o dono não vê a distro em
+##      lugar NENHUM, nem hostname de marca, e o forense julga 'sistema
+##      alheio'). O os-release do chroot é o do BASE Archcraft; aqui a
+##      marca entra (PRETTY_NAME + VARIANT) — o unpackfs copia o root
+##      inteiro, o INSTALADO herda a identidade. Sem número de versão no
+##      PRETTY_NAME: número muda por release e o papel não mente nem aqui.
+if [[ -f /usr/lib/os-release ]]; then
+    sed -i 's/^PRETTY_NAME=.*/PRETTY_NAME="Archcraft Elite"/' /usr/lib/os-release
+    grep -q '^VARIANT=' /usr/lib/os-release || \
+        printf 'VARIANT="Elite Edition"\nVARIANT_ID="elite"\n' >> /usr/lib/os-release
+    echo "E22: os-release marcado — $(grep PRETTY_NAME /usr/lib/os-release)"
+else
+    echo "E22 AVISO: /usr/lib/os-release ausente — identidade NÃO marcada" >&2
+fi

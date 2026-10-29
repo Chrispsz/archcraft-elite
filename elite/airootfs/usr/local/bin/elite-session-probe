@@ -45,6 +45,11 @@ count() {
 wb_list="$(pgrep -a waybar 2>/dev/null | tr '\n' ';' | sed 's/;$//')"
 wb_count="$(count waybar)"
 sn_count="$(count swaync)"
+# v2.10.8 — O IDLE NA PROVA (o dono: 'o PC não entra em idle' — o dump d33o
+# não tinha réu nomeado): swayidle é o daemon do lock/DPMS/suspend e o
+# craft-bars é o supervisor que o ressuscita (B1). Morto aqui = resposta.
+idle_count="$(count swayidle)"
+cb_count="$(count craft-bars)"
 # v2.1.1: dock GTK contada por cmdline (comm = "python3" — pgrep -c puro
 # nunca acharia). Padrão do count(): sem '|| echo 0' (duplicaria a linha).
 # v2.10.6 — padrão ANCORADO: '-f craft-dock-gui' casava substring — um
@@ -96,6 +101,8 @@ say "DOCK_COUNT=$dk_count"
 say "TOPLEVEL_COUNT=$tp_count"
 say "TOPLEVEL_SOCKET=$tp_sock"
 say "SWAYNC_COUNT=$sn_count"
+say "IDLE_COUNT=$idle_count"
+say "CRAFTBARS_COUNT=$cb_count"
 say "BARS_RESTARTS=$restarts"
 say "BARS_EXITS=$exits"
 say "WAYBAR_PROCS=$wb_list"

@@ -547,6 +547,63 @@ EOF
     fi
   fi
 
+  # 2g. v2.10.8 — O BRAVE QUE NÃO MORRE (o dono: "não consigo encerrar o
+  #     Brave... quando encerro um programa não precisa aparecer
+  #     notificação... ele não aparece na lista"): o default do Brave é
+  #     continuar rodando em 2º plano quando a última janela fecha
+  #     (background_mode.enabled interno) — o processo vive, a dock
+  #     (janela = a verdade) mostra NADA, o verbo do meio não acha
+  #     janela, e o Brave ainda cospe o toast "executando em segundo
+  #     plano" a cada fecho. O cluster inteiro do relato é UM ajuste:
+  #     background_mode.enabled=false. O skel da ISO já nasce curado; o
+  #     firstboot patcha PERFIS EXISTENTES (o rig que instalou a 10.7
+  #     recebe no próximo boot — firstboot ainda pendente lá, dump d33o).
+  #     Idempotente (a chave false não é reescrita), JSON de verdade
+  #     (python3 — sed em Local State é tiro no escuro), dono do arquivo
+  #     PRESERVADO (root escreve, uid/gid volta).
+  if (( ! DRY )); then
+    # v2.10.8.1 — o espaço em "Local State" É um caractere do nome: o glob
+    # sem escape é partido em DUAS palavras pelo word-splitting e o loop
+    # nunca acharia o arquivo (o patch morreria calado — a lei proíbe).
+    for bs in /home/*/.config/BraveSoftware/Brave-Browser/Local\ State; do
+      [[ -f "$bs" ]] || continue
+      rc=0
+      PYTHONDONTWRITEBYTECODE=1 python3 - "$bs" <<'PYBRAVE' 2>/dev/null || rc=$?
+import json, os, sys
+p = sys.argv[1]
+try:
+    with open(p, encoding="utf-8") as fh:
+        d = json.load(fh)
+except Exception:
+    raise SystemExit(3)          # perfil exótico/corrompido: sem tocar
+bm = d.get("background_mode")
+if isinstance(bm, dict) and bm.get("enabled") is False:
+    raise SystemExit(1)          # já curado — nada a fazer (idempotente)
+if not isinstance(bm, dict):
+    bm = {}
+bm["enabled"] = False
+d["background_mode"] = bm
+tmp = p + ".elite-tmp"
+with open(tmp, "w", encoding="utf-8") as fh:
+    json.dump(d, fh)
+os.replace(tmp, p)
+raise SystemExit(2)              # patch aplicado
+PYBRAVE
+      case "$rc" in
+        1) say "Brave: background_mode já é false em $bs — ok" ;;
+        2)
+          _u="$(stat -c '%U' "$bs" 2>/dev/null)"; _g="$(stat -c '%G' "$bs" 2>/dev/null)"
+          [[ -n "$_u" && "$_u" != "root" ]] && chown "$_u:$_g" "$bs" 2>/dev/null || true
+          say "Brave: background_mode.enabled=false em $bs — fechar janela ENCERRA o programa (sem toast de 2º plano)"
+          ;;
+        3) warn "Brave: Local State não parseável ($bs) — nenhum patch aplicado" ;;
+        *) warn "Brave: patch falhou em $bs (exit=$rc)" ;;
+      esac
+    done
+  else
+    say "[dry] Brave: patch de background_mode simulado (perfis /home/*)"
+  fi
+
   # 3. serviços de tuning
   # v4.7 (fusão 4→1): ananicy-cpp é o ÚNICO daemon de boost. O scheduler
   # é o BORE do kernel (nenhum scheduler userspace por cima) e o boost de

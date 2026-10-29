@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · craft-dump (v2.0.1 — o "btop completão" polido, v2.10.6)
+# Archcraft ELITE · craft-dump (v2.1 — o "btop completão" polido, v2.10.6)
 # ═══════════════════════════════════════════════════════════════════════════
 # Pedido do dono (out/2026): "como puxo tudo que está rodando como se fosse
 # um btop completão pra gente ter um diagnóstico da RAM, pacotes, uso, CPU
@@ -14,6 +14,18 @@
 # morto), fuzzel.ini (a linha :35 corrompida), toplevel.log (o ACK honesto
 # do daemon), host via uname -n (o 'hostname' não existe em toda ISO) e o
 # NUL do termbin morto no capture (a linha 292 do rig gritou de novo).
+# v2.1 (o dono mandou o dump d33o via 'sudo craft-dump' e o papel mentiu
+# em 3 vozes): (1) CONTEXTO — rodando via sudo, $HOME era /root e as
+# seções de sessão liam o root: '(sem arquivo de pins)', '(sem fuzzel.ini)'
+# e '(sem idle.conf)' num rig COM os três; agora o dump resolve o usuário
+# da SESSÃO (SUDO_USER → labwc) e lê o /home dele, com XDG_RUNTIME_DIR
+# bridge para wpctl/wlr-randr (o dump de root volta a ver o PipeWire e o
+# randr da sessão); (2) O can-suspend ENGOLEU A PROVA — o '2>/dev/null'
+# do rig d33o mostrou LINHA VAZIA onde devia estar o veredito do logind;
+# agora o stderr vai pro papel e as sessões do logind (Active/State) junto;
+# (3) sleep.conf* /sys/power/disk/systemd-inhibit entram — a cadeia de
+# sono INTEIRA no papel (o menu recusou suspend com kernel provando
+# 'freeze mem disk' — o meio do caminho agora tem réu nomeado).
 #
 #    0 · VEREDITO RÁPIDO — probe da sessão + units falhados + disco raiz
 #    1 · identidade (+ o ambiente de sessão: o dump nasceu dentro dela?)
@@ -49,8 +61,17 @@
 set -u
 
 STAMP="$(date +%Y%m%d-%H%M)"
-OUT="${HOME}/elite-dump-${STAMP}.txt"
-CACHE="${XDG_CACHE_HOME:-$HOME/.cache}"
+
+# v2.1 — O CONTEXTO DA SESSÃO (a cura do dump d33o): via sudo, o $HOME é
+# /root e as seções 6/7/9/10/12/14 liam o root. O usuário-alvo é o SUDO_USER
+# (quem chamou o sudo — a sessão gráfica); sem sudo, quem chama.
+DUMP_USER="${SUDO_USER:-$(id -un)}"
+DUMP_UID="$(id -u "$DUMP_USER" 2>/dev/null || id -u)"
+UHOME="$(getent passwd "$DUMP_USER" 2>/dev/null | cut -d: -f6)"
+[ -n "$UHOME" ] || UHOME="$HOME"
+URUNTIME="/run/user/$DUMP_UID"
+UCACHE="${UHOME}/.cache"
+OUT="${UHOME}/elite-dump-${STAMP}.txt"
 
 # cada bloco: "$ <comando>" + saída + tail (evidência recente vale mais)
 # tr -d '\0': journal/systemd cospem NUL — no upload o $( ) do termbin
@@ -62,9 +83,14 @@ r() { # r <comando> [linhas]
 }
 
 {
-    printf '══════════ ELITE DUMP v2.0 — diagnóstico completo ══════════\n'
-    printf 'gerado: %s · usuário: %s · host: %s\n' \
-        "$(date)" "$(id -un)" "$(uname -n 2>/dev/null || echo '?')"
+    printf '══════════ ELITE DUMP v2.1 — diagnóstico completo ══════════\n'
+    if [ "$(id -un)" != "$DUMP_USER" ]; then
+        printf 'gerado: %s · usuário: %s → sessão de %s (uid %s) · host: %s\n' \
+            "$(date)" "$(id -un)" "$DUMP_USER" "$DUMP_UID" "$(uname -n 2>/dev/null || echo '?')"
+    else
+        printf 'gerado: %s · usuário: %s · host: %s\n' \
+            "$(date)" "$(id -un)" "$(uname -n 2>/dev/null || echo '?')"
+    fi
 
     printf '\n══════════ 0 · VEREDITO RÁPIDO ══════════\n'
     printf '(o sistema descrevendo a si mesmo — o detalhe mora nas seções 1-14)\n'
@@ -120,7 +146,7 @@ r() { # r <comando> [linhas]
     # v2.10.6: a história cross-boot (o 'acordou sozinho de anteontem'
     # precisa de lugar no papel — a caça ao despertar não termina no reboot)
     r "journalctl --list-boots --no-pager 2>/dev/null | tail -8" 10
-    r "systemd-analyze 2>/dev/null" 4
+    r "systemd-analyze 2>&1" 4
     # lição D1: findmnt é a verdade do mount ('mount | grep " on / btrfs"'
     # NUNCA casou) — o fstype/subvol daqui é o que o rollback cura usa
     r "findmnt /" 6
@@ -141,22 +167,29 @@ r() { # r <comando> [linhas]
     r "pacman -Q 2>/dev/null | grep -Ei 'craft|elite' || echo '(nenhum pacote craft/elite — anômalo)'" 12
 
     printf '\n══════════ 6 · SESSÃO — PROCESSOS/BARRAS/DOCK/JANELAS ══════════\n'
-    r "ps -u \"$(id -u)\" -o pid,pcpu,pmem,comm --sort=-pcpu | head -25" 30
+    # v2.1 — os processos DA SESSÃO (d33o via sudo listou só o root: systemd,
+    # Xorg, NetworkManager — a dock e o swayidle do dono eram invisíveis)
+    r "ps -u $DUMP_UID -o pid,pcpu,pmem,comm --sort=-pcpu | head -25" 30
     r "pgrep -a labwc | head -3" 4
     # v2.10.6: contagem ANCORADA (o comm da dock é python3 — o pgrep -c puro
     # nunca acharia; e '-f craft-dock-gui' solto somava editor com o fonte)
     printf 'waybar=%s · dock_gui=%s (cmdline ancorada)\n' \
         "$(pgrep -c waybar 2>/dev/null)" \
-        "$(pgrep -fc '^/usr/bin/python3 /usr/local/bin/craft-dock-gui$' 2>/dev/null)"
-    if [ -f "$CACHE/elite/bars.log" ]; then
-        r "grep -c 'SAIU exit' $CACHE/elite/bars.log 2>/dev/null" 2
+        "$(pgrep -u "$DUMP_UID" -fc '^/usr/bin/python3 /usr/local/bin/craft-dock-gui$' 2>/dev/null)"
+    # v2.10.8 — o idle na prova: swayidle (lock/DPMS/suspend) e o supervisor
+    # (a reclamação 'o PC não entra em idle' precisa de réu nomeado)
+    printf 'swayidle=%s · craft-bars=%s\n' \
+        "$(pgrep -c swayidle 2>/dev/null)" \
+        "$(pgrep -c craft-bars 2>/dev/null)"
+    if [ -f "$UCACHE/elite/bars.log" ]; then
+        r "grep -c 'SAIU exit' $UCACHE/elite/bars.log 2>/dev/null" 2
         printf '\n── supervisão: as últimas mortes/reinícios (o detalhe do count)\n'
-        grep -E 'SAIU exit=|FORA — reiniciando' "$CACHE/elite/bars.log" 2>/dev/null | tail -10
+        grep -E 'SAIU exit=|FORA — reiniciando' "$UCACHE/elite/bars.log" 2>/dev/null | tail -10
     fi
 
     printf '\n── pins da dock (~/.config/elite/dock-pins — fixado ≠ dinâmico)\n'
-    if [ -f "$HOME/.config/elite/dock-pins" ]; then
-        grep -v '^[[:space:]]*#' "$HOME/.config/elite/dock-pins" \
+    if [ -f "$UHOME/.config/elite/dock-pins" ]; then
+        grep -v '^[[:space:]]*#' "$UHOME/.config/elite/dock-pins" \
             | grep -v '^[[:space:]]*$' || printf '(vazio)\n'
     else
         printf '(sem arquivo de pins)\n'
@@ -203,21 +236,25 @@ PY
     [ -n "$tp_done" ] || printf '(socket do toplevel não encontrado — daemon craft-toplevel morto? veja o probe na seção 0 e o bars.log na seção 12)\n'
 
     printf '\n── processos da Elite (a sessão inteira, com args)\n'
-    r "ps -u \"$(id -u)\" -o pid,args | grep -E 'craft-|waybar|swayidle|swaync|fuzzel|labwc|hyprlock' | grep -v grep" 25
+    r "ps -u $DUMP_UID -o pid,args | grep -E 'craft-|waybar|swayidle|swaync|fuzzel|labwc|hyprlock' | grep -v grep" 25
 
     printf '\n══════════ 7 · DISPLAY & TECLADO ══════════\n'
     # v2.10.6: wlr-randr NA ISO — posição/scale/MODO ATUAL de cada monitor.
-    # Fora da sessão (SSH/vty) decai para os conectores do kernel.
-    r "wlr-randr 2>/dev/null || { echo '(sem sessão wlr — conectores do kernel):'; grep -H . /sys/class/drm/card*-*/status 2>/dev/null; grep -H . /sys/class/drm/card*-*/modes 2>/dev/null | head -8; }" 30
+    # v2.1: via sudo, o bridge do runtime do usuário (XDG_RUNTIME_DIR da
+    # sessão) traz o randr REAL; sem sessão, decai p/ os conectores do kernel
+    r "for d in wayland-0 wayland-1 wayland-2; do if env XDG_RUNTIME_DIR=$URUNTIME WAYLAND_DISPLAY=\$d wlr-randr 2>/dev/null; then break; fi; done || { echo '(sem sessão wlr — conectores do kernel):'; grep -H . /sys/class/drm/card*-*/status 2>/dev/null; grep -H . /sys/class/drm/card*-*/modes 2>/dev/null | head -8; }" 30
     # o ABNT2 (Z2) com prova: o XKB_DEFAULT_LAYOUT chegou à sessão ou não
     r "grep XKB /etc/environment 2>/dev/null || echo '(sem XKB_DEFAULT_LAYOUT em /etc/environment)'" 4
+    # v2.1 — a prova DENTRO da sessão: o ambiente REAL do labwc (o
+    # /etc/environment pode estar certo e a sessão ter nascido antes dele)
+    r "for p in \$(pgrep -x labwc); do echo \"labwc pid \$p:\"; tr '\\0' '\\n' < /proc/\$p/environ 2>/dev/null | grep -E '^XKB' ; done; true" 8
     r "localectl status 2>/dev/null" 6
     r "locale | grep -E 'LANG=|LC_CTYPE='" 3
     # v2.10.7 — a linha 35 do rig ('ain].exit-on-focus-loss: yes — not a
     # valid option') gritou em TODO menu aberto; a config viaja no papel
     # para a perícia ver o arquivo de verdade, não o erro dele
     printf '\n── fuzzel.ini (linhas 28-42 — o config que os menus comem)\n'
-    r "sed -n '28,42p' \"$HOME/.config/fuzzel/fuzzel.ini\" 2>/dev/null || echo '(sem fuzzel.ini)'" 16
+    r "sed -n '28,42p' \"$UHOME/.config/fuzzel/fuzzel.ini\" 2>/dev/null || echo '(sem fuzzel.ini)'" 16
 
     printf '\n══════════ 8 · REDE ══════════\n'
     # a cura B2 ('Not authorized' ≠ senha errada) com evidência no papel
@@ -232,28 +269,44 @@ PY
     r "lsusb 2>/dev/null | head -10" 12
 
     printf '\n══════════ 9 · ÁUDIO ══════════\n'
-    r "if command -v wpctl >/dev/null 2>&1; then wpctl status | head -30; else echo '(wpctl ausente)'; fi" 32
+    # v2.1 — o bridge do runtime da sessão: o wpctl de root sem XDG_RUNTIME_DIR
+    # morre no 'Could not connect to PipeWire' (o d33o não viu o áudio do rig)
+    r "if command -v wpctl >/dev/null 2>&1; then env XDG_RUNTIME_DIR=$URUNTIME wpctl status | head -30; else echo '(wpctl ausente)'; fi" 32
 
     printf '\n══════════ 10 · SUSPEND/ACPI — A CAÇA AO DESPERTAR ══════════\n'
     printf '(despertar imediato após suspender = dispositivo/BIOS — as linhas\n'
     printf ' abaixo mostram QUEM acordou e QUANDO)\n'
     printf '\n── idle.conf (a escolha do dono — o SUSPEND_MIN que viajou)\n'
-    if [ -f "$HOME/.config/elite/idle.conf" ]; then
-        cat "$HOME/.config/elite/idle.conf"
+    if [ -f "$UHOME/.config/elite/idle.conf" ]; then
+        cat "$UHOME/.config/elite/idle.conf"
     else
-        printf '(ausente — craft-idle nos defaults)\n'
+        printf '(ausente — craft-idle nos defaults: lock 10 · apagar 15 · SUSPEND 20)\n'
     fi
     # v2.10.7 — O VEREDITO DO SUSPEND COM PROVA DO KERNEL: o menu disse
     # 'loginctl can-suspend ≠ yes' no rig e o dump não tinha O QUE julgar
     # (sem /sys/power/state não dá para saber se é BIOS ou kernel). Agora:
     # os estados que o kernel oferece + a palavra do logind + o mem_sleep.
+    # v2.1 — d33o gritou: 'loginctl can-suspend' com 2>/dev/null = LINHA
+    # VAZIA no papel (a prova do meio engolida). stderr vai pro papel agora.
     r "printf 'kernel: '; cat /sys/power/state 2>/dev/null || echo '(sem /sys/power/state)'" 4
     r "printf 'mem_sleep: '; cat /sys/power/mem_sleep 2>/dev/null || echo '(sem mem_sleep)'" 4
-    r "loginctl can-suspend 2>/dev/null" 2
+    r "printf 'disk: '; cat /sys/power/disk 2>/dev/null || echo '(sem /sys/power/disk)'" 4
+    r "loginctl can-suspend" 4
+    # v2.1 — as SESSÕES do logind (a pergunta que faltava: o can-suspend é
+    # respondido PARA o chamador — sessão não-active pode virar 'challenge')
+    r "for s in \$(loginctl list-sessions --no-legend 2>/dev/null | awk '{print \$1}'); do loginctl show-session \"\$s\" -p Id -p Name -p Active -p State -p Type -p Remote 2>/dev/null; done; true" 20
+    # v2.1 — a config de sono INTEIRA (AllowSuspend=no herdado de base é
+    # réu possível do '≠ yes' do rig; o /usr/lib é o que o pacote entrega,
+    # o /etc é a palavra final do drop-in)
+    r "for f in /etc/systemd/sleep.conf /etc/systemd/sleep.conf.d/*.conf /usr/lib/systemd/sleep.conf.d/*.conf; do [ -f \"\$f\" ] && { echo '── \$f'; cat \"\$f\"; }; done; true" 30
     r "journalctl -u systemd-suspend --no-pager 2>/dev/null | tail -40" 45
     r "cat /proc/acpi/wakeup 2>/dev/null" 25
     r "journalctl --no-pager 2>/dev/null | grep -iE 'wake(ing|up)?|resume|suspending' | tail -25" 30
     r "grep -E '^[#]?Handle(Suspend|Power|Lid)' /etc/systemd/logind.conf 2>/dev/null" 6
+    # v2.1 — quem segura inibidor de sono AGORA (o 'tenta e volta' do menu
+    # era app com delay inhibitor; o -i do craft-power ignora, o idle do
+    # swayidle respeita o idle-inhibit — os dois réus no papel)
+    r "systemd-inhibit --list 2>/dev/null | head -20" 22
 
     printf '\n══════════ 11 · JOURNAL — ERROS DESTE BOOT ══════════\n'
     r "journalctl -b -p err --no-pager 2>/dev/null | tail -50" 55
@@ -263,8 +316,8 @@ PY
     r "journalctl -b -u elite-firstboot -u grub-btrfsd --no-pager 2>/dev/null | tail -30" 35
 
     printf '\n══════════ 12 · LOGS DA ELITE (evidência recente) ══════════\n'
-    for f in "$CACHE/elite/bars.log" "$CACHE/elite/menus.log" \
-             "$CACHE/elite/dock.log"; do
+    for f in "$UCACHE/elite/bars.log" "$UCACHE/elite/menus.log" \
+             "$UCACHE/elite/dock.log"; do
         if [ -f "$f" ]; then
             printf '\n── tail %s\n' "$f"
             tail -n 150 "$f"
@@ -305,17 +358,22 @@ PY
     printf '\n══════════ 14 · CACHES & DISCO ══════════\n'
     # v2.10.5: caminho citado DENTRO do payload — caminho com espaço não
     # quebra o du (o $r vai inteiro pro bash -c)
-    r "du -sh '$CACHE/elite' '$CACHE/calamares' 2>/dev/null" 4
-    r "du -sh '$HOME/.cache'/* 2>/dev/null | sort -rh | head -12" 14
+    r "du -sh '$UCACHE/elite' '$UCACHE/calamares' 2>/dev/null" 4
+    r "du -sh '$UHOME/.cache'/* 2>/dev/null | sort -rh | head -12" 14
     r "journalctl --disk-usage 2>/dev/null" 2
 
-    printf '\n══════════ FIM DO DUMP v2.0 ══════════\n'
+    printf '\n══════════ FIM DO DUMP v2.1 ══════════\n'
     printf 'a seção 0 é o resumo; as seções 1-14 são o detalhe.\n'
     printf 'envie este arquivo (ou a URL do --upload) para a análise.\n'
 } > "$OUT" 2>&1
 
 LINES="$(wc -l <"$OUT")"
 printf 'dump pronto: %s (%s linhas)\n' "$OUT" "$LINES"
+# v2.1 — o arquivo nasce no /home da SESSÃO (não no /root do sudo) e o
+# dono dele volta a ser o dono (root escreveu por cima)
+if [ "$(id -un)" != "$DUMP_USER" ] && [ -f "$OUT" ]; then
+    chown "$DUMP_USER":"$(id -gn "$DUMP_USER" 2>/dev/null)" "$OUT" 2>/dev/null || true
+fi
 
 if [ "${1:-}" = "--upload" ]; then
     # termbin via /dev/tcp do bash — sem nc (a ISO não o carrega).
