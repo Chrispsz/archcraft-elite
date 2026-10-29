@@ -175,6 +175,12 @@ import configparser, os, sys
 u, uu = sys.argv[1], sys.argv[2]
 cases = {
   'elite-firstboot.service': {'Unit', 'Service', 'Install'},
+  # v2.10.10 — E23: a cura do keyring como ROOT. O SERVICE não tem
+  # [Install] (ativação EXCLUSIVA do timer — lição do ciclo a3dea28:
+  # nenhum .wants de boot target); o TIMER tem [Timer]+[Install] e mora
+  # em timers.target.wants (o caminho sem ciclo).
+  'elite-keyring-fix.service': {'Unit', 'Service'},
+  'elite-keyring-fix.timer':   {'Unit', 'Timer', 'Install'},
   # v1.6.2 — user units do skel (poda do cliphist): service puxado pelo
   # timer NÃO tem (nem precisa de) [Install]; timer tem [Timer]+[Install]
   # v2.2 — scx-elite/fg-booster/fg-boost.slice EXTINTOS (fusão dos boosters)
@@ -195,10 +201,10 @@ for f, want in cases.items():
             raise AssertionError(f'{f}: sem seção(ões) {missing}')
     except Exception as e:
         print(f'FALHOU: {e}'); sys.exit(1)
-print('OK 3')
+print('OK 5')
 PYEOF
 )
-assert_eq "$uout" "OK 3" "systemd: 3 units parseiam (1 de sistema + 2 user v1.6.2 — INI válido, seções completas; v2.2: as 3 units de booster EXTINTAS sairam da contagem)"
+assert_eq "$uout" "OK 5" "systemd: 5 units parseiam (3 de sistema + 2 user v1.6.2 — INI válido, seções completas; v2.10.10: + elite-keyring-fix service/timer)"
 
 assert_grep "$U/elite-firstboot.service" '^ExecStart=/' "systemd: elite-firstboot.service ExecStart com caminho absoluto"
 
@@ -219,6 +225,36 @@ assert_grep "$U/elite-firstboot.service" '^ExecStart=/' "systemd: elite-firstboo
 [[ ! -e "$U/multi-user.target.wants/elite-firstboot.service" ]] \
   && ok "v2.10.9: elite-firstboot EXTINTA de multi-user.target.wants (a ponte do ciclo do rig d33o L403 morreu)" \
   || fail "v2.10.9: multi-user.target.wants/elite-firstboot.service" "ainda existe — a ponte do ciclo sobreviveu"
+
+# ── v2.10.10 — E23: A CURA DO KEYRING COMO ROOT ────────────────────────
+# O MESMO d33o pegou a 2ª doença do firstboot-morto: o craft-fix-keys de
+# sessão chama 'sudo -n' sem terminal → "a password is required" (journal
+# 23:00:46) → o keyring do pacman NUNCA curou no instalado ("o chaveiro
+# não pode ser escrito" + chaves CachyOS desconhecidas = pacman -Syu
+# morto = sistema que não atualiza, não permanece na melhor versão).
+# A cura: elite-keyring-fix.service (root, oneshot — o script já é
+# root-ready: id -u 0 roda direto) puxado EXCLUSIVAMENTE pelo
+# elite-keyring-fix.timer em timers.target.wants — o caminho que não
+# briga com a transação de boot (nenhum .wants de graphical/multi-user).
+assert_grep "$U/elite-keyring-fix.service" '^ExecStart=/usr/local/bin/craft-fix-keys$' "v2.10.10: elite-keyring-fix.service ExecStart = craft-fix-keys (absoluto, root-ready)"
+grep -q '^\[Install\]' "$U/elite-keyring-fix.service" \
+  && fail "v2.10.10: elite-keyring-fix.service tem [Install]" "unit de timer não deve ter [Install] — ativação exclusiva pelo timer (lei da coerência)" \
+  || ok "v2.10.10: elite-keyring-fix.service SEM [Install] (ativação exclusiva do timer)"
+assert_grep "$U/elite-keyring-fix.service" '^After=network-online.target$' "v2.10.10: keyring-fix espera a rede (pacman -Sy precisa; sem rede = sem selo = re-tenta)"
+[[ -L "$U/timers.target.wants/elite-keyring-fix.timer" ]] \
+  && ok "v2.10.10: elite-keyring-fix.timer habilitado em timers.target.wants (o caminho sem ciclo)" \
+  || fail "v2.10.10: timers.target.wants/elite-keyring-fix.timer" "ausente — a cura E23 nunca dispararia no instalado"
+[[ ! -e "$U/graphical.target.wants/elite-keyring-fix.timer" && ! -e "$U/multi-user.target.wants/elite-keyring-fix.timer" ]] \
+  && ok "v2.10.10: keyring-fix EXTINTA de graphical/multi-user .wants (a aresta do ciclo nunca renasce)" \
+  || fail "v2.10.10: keyring-fix em .wants de boot target" "a lição do ciclo (d33o L403) proíbe .wants de boot target fora da lei da coerência"
+assert_grep "$U/elite-keyring-fix.timer" '^WantedBy=timers.target$' "v2.10.10: [Install] do timer = timers.target (coerência com o symlink de fábrica)"
+assert_grep "$U/elite-keyring-fix.timer" '^OnBootSec=120s$' "v2.10.10: timer dispara 2min pós-boot (a cura chega cedo, sem brigar com o boot)"
+assert_grep "$U/elite-keyring-fix.timer" '^OnUnitActiveSec=6h$' "v2.10.10: timer re-tenta de 6h em 6h (o guard de 24h do script decide o custo real)"
+# craft-dump v2.2: a etiqueta = conteúdo, e o keyring ganha as 3 provas
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2.2' "v2.10.10: craft-dump etiqueta v2.2 (a lei: etiqueta = conteúdo)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'pubring.gpg' "v2.10.10: dump prova o pubring (a doença do d33o no papel)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'list-keys cachyos' "v2.10.10: dump prova as chaves CachyOS populadas"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'pacman lê o banco: OK' "v2.10.10: dump prova funcional do pacman (o -Syu vivo ou morto nomeado)"
 
 # ── v2.2 — FUSÃO DOS BOOSTERS 4→1: nada do exército extinto sobra ─────
 # (scx-elite/bpfland + fg-booster/xdotool + dmemcg: 3 camadas que
