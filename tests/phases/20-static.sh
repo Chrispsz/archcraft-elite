@@ -251,7 +251,7 @@ assert_grep "$U/elite-keyring-fix.timer" '^WantedBy=timers.target$' "v2.10.10: [
 assert_grep "$U/elite-keyring-fix.timer" '^OnBootSec=120s$' "v2.10.10: timer dispara 2min pós-boot (a cura chega cedo, sem brigar com o boot)"
 assert_grep "$U/elite-keyring-fix.timer" '^OnUnitActiveSec=6h$' "v2.10.10: timer re-tenta de 6h em 6h (o guard de 24h do script decide o custo real)"
 # craft-dump v2.2: a etiqueta = conteúdo, e o keyring ganha as 3 provas
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2.4' "v2.10.11: craft-dump etiqueta v2.4 (a lei: etiqueta = conteúdo — v2.10.11 destrona a v2.3)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2.5' "v2.10.12: craft-dump etiqueta v2.5 (a lei: etiqueta = conteúdo — a v2.5 nomeia o fantasma e a E23)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'pubring.gpg' "v2.10.10: dump prova o pubring (a doença do d33o no papel)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'list-keys cachyos' "v2.10.10: dump prova as chaves CachyOS populadas"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'pacman lê o banco: OK' "v2.10.10: dump prova funcional do pacman (o -Syu vivo ou morto nomeado)"
@@ -283,7 +283,7 @@ SR="$REPO/elite/airootfs/usr/lib/systemd/system-sleep/elite-sleep-report"
   && ok "v2.10.11: hook elite-sleep-report presente e executável (perícia do sono no journal)" \
   || fail "v2.10.11: elite-sleep-report" "ausente ou sem +x — se o sono voltar curto, o dump não nomeia o suspeito restante"
 assert_grep "$SR" 'pre)' "v2.10.11: hook elite-sleep-report registra wake sources armadas ANTES de dormir"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2.4' "v2.10.11: craft-dump etiqueta v2.4 (etiqueta = conteúdo)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2.5' "v2.10.12: craft-dump etiqueta v2.5 (etiqueta = conteúdo)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'date \+%Y%m%d-%H%M%S' "v2.10.11: dump com segundos no STAMP (fim da colisão de dois runs no mesmo minuto — a doença do a4h8)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'if ! : > "\$OUT" 2>/dev/null; then' "v2.10.11: guard de escrita antes do papel (dump root-owned + rerun sem sudo = recusa clara)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" '90-elite-wake-guard.rules' "v2.10.11: dump prova a regra E24 no papel (seção 10)"
@@ -931,5 +931,57 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-power" 'kernel-mem=' "v2.1
 
 # Q. o selo do fix-keys só come com a cura feita:
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-fix-keys" 'keyring não atualizado' "v2.10.5: sem rede não escreve selo de 24h (o script não mente)"
+
+# R. E26 (v2.10.12) — AS NOVE CURAS DO PAPEL COMPLETO (dump nl3z + log 84wl):
+#    o primeiro papel COMPLETO da casa (v2.4, 1326 linhas, FIM presente)
+#    nomeou o que nenhuma simulação viu — cada cura com o seu contrato.
+# R1. O SUSPEND MORTO NO ESCURO (o réu da década): set -e + loginctl sem
+#     o verbo can-suspend ('Unknown command verb' no rig, systemd novo) =
+#     morte ANTES do lock/suspend/aviso — 'clico e nada acontece'.
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-power" 'can="\$\(loginctl can-suspend 2>/dev/null\)" || can=""' "v2.10.12: a atribuição sobrevive ao verbo ausente (set -eu matava o script no rig nl3z ANTES de qualquer ação — o || can='' torna o vazio caminho previsto)"
+assert_nogrep "$REPO/elite/airootfs/usr/local/bin/craft-power" 'can="\$\(loginctl can-suspend 2>/dev/null\)"$' "v2.10.12: a forma sem guarda EXTINTA (a linha nua sob set -e era a morte calada)"
+# R2. O -i QUE PEDIRIA SENHA: suspend-ignore-inhibit não estava na regra
+#     polkit (default upstream = auth_admin_keep) — a cura A reabriria a
+#     porta pro prompt de senha a cada suspender.
+assert_grep "$REPO/elite/airootfs/etc/polkit-1/rules.d/49-elite-desktop.rules" 'org.freedesktop.login1.suspend-ignore-inhibit' "v2.10.12: a variante ignore-inhibit é da família local+ativo=YES (o -i do craft-power não pode virar prompt de senha)"
+# R3. O FANTASMA DO INSTALADOR: cleanup remove o .desktop mas o CACHE do
+#     nwg-drawer desenha arquivo morto; abif.desktop era peso morto extra.
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'abif\.desktop' "v2.10.12: o cleanup arranca também o abif.desktop (peso morto do live que sobrevive ao unpackfs)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'cache\.db' "v2.10.12: o cache do nwg-drawer é purgado no cleanup (o 'instalador ficando nos aplicativos' era o drawer desenhando arquivo morto)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'FANTASMA: cache do drawer' "v2.10.12: o papel nomeia o fantasma (cache do drawer listando calamares) se ele voltar"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" "ls /usr/local/share/applications/" "v2.10.12: o papel lista os .desktop locais (o suspeito do menu do dono fica nomeado no papel)"
+# R4. O NOME ERRADO DO FUZZEL (já coberto no 40 — aqui o eco da suíte estática):
+assert_grep "$REPO/elite/airootfs/etc/skel/.config/fuzzel/fuzzel.ini" 'exit-on-keyboard-focus-loss=yes' "v2.10.12: a opção com o nome que o fuzzel conhece (o próprio comentário v2.4.0 citava o nome certo)"
+# R5. A LÓGICA DO IDLE HONESTA: etiquetas nomeiam o que fazem + o knob do
+#     suspender existe (o dono mudou 'tempo de tela' e a tela TRAVOU).
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-idle" 'Travar: 2 minutos' "v2.10.12: o menu diz TRAVAR (o '2 minutos' genérico fez o dono esperar suspend e ver lock)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-idle" 'Suspender: 20 min \(padrão\)' "v2.10.12: o knob do SUSPENDER existe no menu (SUSPEND_MIN=20 era fixo e invisível)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-idle" "'Suspender: Nunca')             SUSPEND_MIN=0" "v2.10.12: suspender 'Nunca' = 0 (o start v2.3.5 já suportava — agora é escolha do dono)"
+# R6. O CHAVEIRO GNOME QUE O PAM JAMAIS DESBLOQUEIA: bootstrap com senha
+#     vazia corria na frente no sistema COM senha (gkr-pam 'couldn't
+#     unlock' em todo login — journal 22:31:35 do nl3z).
+assert_grep "$REPO/elite/airootfs/etc/skel/.config/labwc/autostart" '/run/archiso.*login\.keyring|login\.keyring.*run/archiso|SÓ NO LIVE' "v2.10.12: o bootstrap do keyring vazio é do LIVE (no instalado o PAM cria com a senha do login)"
+# R7. O RUÍDO DO SUDO DE SESSÃO (journal 22:31:36 'a password is
+#     required'): a camada de sessão só age no live; no instalado quem
+#     cura é o serviço root (E23).
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-fix-keys" '"\$\(id -u\)" -ne 0.*run/archiso' "v2.10.12: a sessão instalada não tenta sudo no escuro (o elite-keyring-fix root é o curandeiro; o journal do rig fica limpo)"
+# R8. A CORRIDA DO /proc (bars.log ×4 'Processo inexistente'): redirect
+#     falha no shell do pipeline ANTES do 2>/dev/null do tr alcançar.
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bgapps" '\( tr .*/proc/.pid/environ.*\) 2>/dev/null' "v2.10.12: a corrida do processo morrendo engolida no subshell (o erro era do SHELL do redirect, não do tr)"
+# R9. A E23 GANHA CURANDEIRO VISÍVEL NO PAPEL (o nl3z não mostrou UM
+#     elite-keyring — o veredito da cura precisa ver quem cura):
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'elite-keyring-fix\.timer' "v2.10.12: a seção 5 mostra o timer da E23 (a cura estava invisível no papel)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2.5' "v2.10.12: o papel é v2.5 (etiqueta = conteúdo — o fantasma e o curandeiro entram juntos)"
+# R10. A CURA DE CAMPO DA E26 (a escola cura-viva: o rig velho se cura SEM reinstalar):
+CV2="$REPO/scripts/live/cura-e26.sh"
+[ -f "$CV2" ] || fail "v2.10.12: cura-e26.sh não existe" "o papel completo sem a cura de campo é metade da cura"
+assert_grep "$CV2" 'raw.githubusercontent.com/Chrispsz/archcraft-elite/main' "v2.10.12: cura-e26 baixa da main via raw público (sem credencial)"
+assert_grep "$CV2" 'bash -n' "v2.10.12: cura-e26 prova cada peça com bash -n antes de instalar"
+assert_grep "$CV2" '\|\| can=""' "v2.10.12: cura-e26 instala o craft-power com a guarda do set -e (a cura do suspend no campo)"
+assert_grep "$CV2" 'suspend-ignore-inhibit' "v2.10.12: cura-e26 instala a regra polkit da variante -i"
+assert_grep "$CV2" 'cache\.db' "v2.10.12: cura-e26 purga o cache do nwg-drawer (o fantasma morre no campo)"
+assert_grep "$CV2" 'keyrings.bak-e26' "v2.10.12: cura-e26 move o chaveiro vazio com .bak (o PAM recria com a senha do login)"
+assert_grep "$CV2" 'idle.conf do dono NÃO foi tocado' "v2.10.12: cura-e26 declara o limite (escolhas de idle intocadas)"
+assert_grep "$CV2" 'pkill -f .*craft-dock-gui\$' "v2.10.12: cura-e26 recicla a dock (o supervisor ressuscita com o código novo em ≤5s)"
 
 phase_end

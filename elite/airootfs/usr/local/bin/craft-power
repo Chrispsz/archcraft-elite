@@ -129,7 +129,15 @@ case "$choice" in
         # suspend -i diz a verdade e o erro vira toast crítico — nenhum
         # dos dois caminhos mente); nem logind nem kernel = recusa
         # honesta, nada é travado. A prova da divergência fica no log.
-        can="$(loginctl can-suspend 2>/dev/null)"
+        # v2.10.12 — O SET -E QUE MATAVA O SUSPEND NO ESCURO (dump nl3z,
+        # rig 10.12: 'Clico em suspender e nada acontece'): o loginctl do
+        # systemd novo NÃO TEM o verbo can-suspend ('Unknown command
+        # verb') → o comando falha → a ATRIBUIÇÃO falha → o set -eu
+        # executava o script ANTES do lock, do suspend e do aviso — morte
+        # calada total (sem mlog, sem toast, sem journal). O || can=''
+        # torna a atribuição à prova de verbo/bus: vazio = caminho já
+        # previsto (kernel-mem decide).
+        can="$(loginctl can-suspend 2>/dev/null)" || can=""
         kmem=""
         grep -qw mem /sys/power/state 2>/dev/null && kmem=1
         if [ "$can" != "yes" ]; then

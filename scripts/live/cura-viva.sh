@@ -17,7 +17,7 @@
 #   curl -fsSL https://raw.githubusercontent.com/Chrispsz/archcraft-elite/main/scripts/live/cura-viva.sh -o /tmp/cura-viva.sh && sudo bash /tmp/cura-viva.sh
 #
 # Peças instaladas (todas da main, na hora do run):
-#   /usr/local/bin/craft-dump                          (v2.4+ — perícia viva)
+#   /usr/local/bin/craft-dump                          (v2.5+ — perícia viva)
 #   /usr/local/bin/craft-wake-guard                    (E24 — status/off/on)
 #   /etc/udev/rules.d/90-elite-wake-guard.rules        (E24 — desarma USB no boot)
 #   /usr/lib/systemd/system-sleep/elite-sleep-report   (E24 — perícia do sono)

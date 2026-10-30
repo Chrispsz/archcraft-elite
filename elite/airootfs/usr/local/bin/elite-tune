@@ -504,9 +504,20 @@ EOF
     say "[dry] remoção dos arquivos do instalador simulada (atalho · wrapper de log · stage · /etc/calamares)"
   else
     rm -f /usr/local/share/applications/calamares.desktop \
+          /usr/local/share/applications/abif.desktop \
           /usr/local/bin/calamares-elite-log \
           /usr/local/bin/elite-install-stage
     rm -rf /etc/calamares
+    # v2.10.12 — O FANTASMA NO DRAWER (relato do dono na 10.12: 'o
+    # instalador tá ficando nos aplicativos depois de instalar'): o
+    # cleanup SEMPRE removeu o calamares.desktop (o log do firstboot
+    # prova: 'nada a remover' + rm rodando em silêncio) — o ícone que
+    # sobrevive é o CACHE do nwg-drawer (~/.cache/nwg-drawer/cache.db
+    # construído ANTES da remoção). Sem purge, o drawer desenha entrada
+    # de arquivo morto. O cache reconstrói sozinho na próxima abertura.
+    for cdb in /home/*/.cache/nwg-drawer/cache.db*; do
+      [ -e "$cdb" ] && rm -f "$cdb"
+    done 2>/dev/null || true
   fi
 
   # 2e. v2.10.6 — O AUTOLOGIN DO LIVE NÃO ENTRA NO INSTALADO (achado Z1

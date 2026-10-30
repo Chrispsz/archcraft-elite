@@ -105,13 +105,26 @@ esac
 CUR="${LOCK_MIN}min"
 [ "${LOCK_MIN:-0}" -eq 0 ] && CUR='nunca'
 
-MENU='2 minutos
-5 minutos
-10 minutos (padrão)
-15 minutos
-30 minutos
-1 hora
-Nunca — só manual (W-l)'
+# v2.10.12 — AS ETIQUETAS FALAVAM MEIO BAJO (relato do dono: 'mudei o
+# tempo de tela para 2 minutos e a tela bloqueou invés de suspender —
+# essa lógica está toda errada'): o menu dizia só '2 minutos' e era o
+# TEMPO DE TRAVAR (o lock vem primeiro — acorda já travado é a lei
+# v1.6.1) — e o SUSPENDER não tinha knob nenhum (SUSPEND_MIN=20 fixo de
+# fábrica, invisível). Agora cada item nomeia o que faz e o suspender é
+# escolha do dono no MESMO menu (SUSPEND_MIN=0 = nunca, suportado no
+# start desde a v2.3.5).
+MENU='Travar: 2 minutos
+Travar: 5 minutos
+Travar: 10 minutos (padrão)
+Travar: 15 minutos
+Travar: 30 minutos
+Travar: 1 hora
+Travar: Nunca (W-l manual)
+Suspender: 20 min (padrão)
+Suspender: 30 min
+Suspender: 45 min
+Suspender: 1 hora
+Suspender: Nunca'
 
 if command -v craft-menu >/dev/null 2>&1; then
     # v2.3.8 — o menu NATIVO (título centrado, sem linha de digitação —
@@ -121,22 +134,27 @@ if command -v craft-menu >/dev/null 2>&1; then
     # números do case — código morto desde sempre; o audit 24-c flagrou:
     # o dono nunca viu o preset atual marcado).
     case "${LOCK_MIN:-0}" in
-        0)  CUR_ITEM='Nunca — só manual (W-l)' ;;
-        2)  CUR_ITEM='2 minutos' ;;
-        5)  CUR_ITEM='5 minutos' ;;
-        10) CUR_ITEM='10 minutos (padrão)' ;;
-        15) CUR_ITEM='15 minutos' ;;
-        30) CUR_ITEM='30 minutos' ;;
-        60) CUR_ITEM='1 hora' ;;
+        0)  CUR_ITEM='Travar: Nunca (W-l manual)' ;;
+        2)  CUR_ITEM='Travar: 2 minutos' ;;
+        5)  CUR_ITEM='Travar: 5 minutos' ;;
+        10) CUR_ITEM='Travar: 10 minutos (padrão)' ;;
+        15) CUR_ITEM='Travar: 15 minutos' ;;
+        30) CUR_ITEM='Travar: 30 minutos' ;;
+        60) CUR_ITEM='Travar: 1 hora' ;;
         *)  CUR_ITEM='' ;;
     esac
-    MENU="2 minutos
-5 minutos
-10 minutos (padrão)
-15 minutos
-30 minutos
-1 hora
-Nunca — só manual (W-l)"
+    MENU="Travar: 2 minutos
+Travar: 5 minutos
+Travar: 10 minutos (padrão)
+Travar: 15 minutos
+Travar: 30 minutos
+Travar: 1 hora
+Travar: Nunca (W-l manual)
+Suspender: 20 min (padrão)
+Suspender: 30 min
+Suspender: 45 min
+Suspender: 1 hora
+Suspender: Nunca"
     [ -n "$CUR_ITEM" ] && MENU="$(printf '%s\n' "$MENU" | sed "s|^${CUR_ITEM}$|${CUR_ITEM} ← atual|")"
     mlog "Idle: abrindo (craft-menu)"
     errf="$(mktemp)"
@@ -192,14 +210,22 @@ else
 fi
 
 case "$choice" in
-    '2 minutos')               LOCK_MIN=2;  OFF_MIN=7  ;;
-    '5 minutos')               LOCK_MIN=5;  OFF_MIN=10 ;;
-    '10 minutos (padrão)')     LOCK_MIN=10; OFF_MIN=15 ;;
-    '15 minutos')              LOCK_MIN=15; OFF_MIN=20 ;;
-    '30 minutos')              LOCK_MIN=30; OFF_MIN=35 ;;
-    '1 hora')                  LOCK_MIN=60; OFF_MIN=65 ;;
-    'Nunca — só manual (W-l)') LOCK_MIN=0;  OFF_MIN=0  ;;
-    *)                         exit 0 ;;   # Esc: nada acontece
+    'Travar: 2 minutos')            LOCK_MIN=2;  OFF_MIN=7  ;;
+    'Travar: 5 minutos')            LOCK_MIN=5;  OFF_MIN=10 ;;
+    'Travar: 10 minutos (padrão)')  LOCK_MIN=10; OFF_MIN=15 ;;
+    'Travar: 15 minutos')           LOCK_MIN=15; OFF_MIN=20 ;;
+    'Travar: 30 minutos')           LOCK_MIN=30; OFF_MIN=35 ;;
+    'Travar: 1 hora')               LOCK_MIN=60; OFF_MIN=65 ;;
+    'Travar: Nunca (W-l manual)')   LOCK_MIN=0;  OFF_MIN=0  ;;
+    # v2.10.12 — o knob do SUSPENDER (escolha explícita; 0 = nunca). O
+    # lock/apagar ficam INTACTOS quando só o suspend muda (a leitura do
+    # conf lá em cima já carregou os valores atuais — nada se perde).
+    'Suspender: 20 min (padrão)')   SUSPEND_MIN=20 ;;
+    'Suspender: 30 min')            SUSPEND_MIN=30 ;;
+    'Suspender: 45 min')            SUSPEND_MIN=45 ;;
+    'Suspender: 1 hora')            SUSPEND_MIN=60 ;;
+    'Suspender: Nunca')             SUSPEND_MIN=0  ;;
+    *)                              exit 0 ;;   # Esc: nada acontece
 esac
 
 # persiste e reinicia o daemon JÁ (efeito imediato, sem relogin)
