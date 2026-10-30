@@ -112,6 +112,21 @@ if [[ ! -f /usr/share/pacman/keyrings/cachyos.gpg ]]; then
 fi
 pacman-key --populate archlinux cachyos || true
 
+## [E2b.1] v2.10.16 · E29 — O SELO DO ROOT NO NASCIMENTO: o build ACABOU
+##      de curar o keyring (populate acima) — semear agora o stamp de 24h
+##      do craft-fix-keys para o root significa: o timer 120s do
+##      elite-keyring-fix vira no-op instantâneo no LIVE (sem pacman-key
+##      de novo, sem pacman -Sy de rede, sem a transação cujo hook de
+##      daemon-reload reiniciou o pacman-init no meio do lock e matou a
+##      verify da v2.10.15 — run 41070218496, serial provado). Economia
+##      real por boot de live: ~2min24s de CPU + 10-20MB de rede que o
+##      live pagava para RE-curar o que nasceu curado. O unpackfs copia
+##      /root inteiro ao instalado: as primeiras 24h do rig também são
+##      poupadas (o E10 já populou no chroot do alvo); vencido o guard,
+##      o timer 6h retoma o trabalho legítimo — cura real segue real.
+mkdir -p /root/.local/state/elite 2>/dev/null || true
+date +%s > /root/.local/state/elite/keyring-refresh.stamp 2>/dev/null || true
+
 ## [E3] pacman.conf do SISTEMA: reescrito canônico e limpo (o customize do
 ##      Archcraft duplica [core]/[extra] no fim; aqui fica sem duplicatas).
 ##      Ordem: archcraft > cachyos(v2) > cachyos-v3 trio > core/extra/multilib

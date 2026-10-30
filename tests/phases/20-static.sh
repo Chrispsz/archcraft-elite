@@ -846,6 +846,20 @@ assert_file "$REPO/elite/airootfs/etc/systemd/system/pacman-init.service.d/10-el
 assert_grep "$REPO/elite/airootfs/etc/systemd/system/pacman-init.service.d/10-elite-retry.conf" 'Restart=on-failure' "pacman-init: retry on-failure (falha real segue reprovando o gate v1.5.2)"
 assert_grep "$REPO/elite/airootfs/etc/systemd/system/pacman-init.service.d/10-elite-retry.conf" 'StartLimitBurst=3' "pacman-init: 3 tentativas com limite (não é loop eterno)"
 
+# ── v2.10.16 · E29 — a classe do pacman-init morre de vez ──
+# run 41070218496 (verify da v2.10.15): o daemon-reload da transação do
+# keyring (elite-keyring-fix, root, sem selo no live) REINICIOU o
+# pacman-init no meio do lock do gnupg — 3 retries colidiram todas e o
+# StartLimit estourou. Cura em 2 camadas + selo que mata a transação
+# redundante no nascimento.
+assert_file "$REPO/elite/airootfs/usr/local/bin/craft-keyring-wait" "pacman-init: guarda do lock existe (restart espera a transação em vez de colidir)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-keyring-wait" '#!/bin/sh' "craft-keyring-wait: POSIX sh (ExecStartPre chama direto)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-keyring-wait" 'pacman-key' "craft-keyring-wait: espera pacman-key em voo (a janela de colisão real)"
+assert_grep "$REPO/elite/airootfs/etc/systemd/system/pacman-init.service.d/10-elite-retry.conf" 'ExecStartPre=/usr/local/bin/craft-keyring-wait' "pacman-init: ExecStartPre espera o lock (a cura da classe E29)"
+assert_grep "$REPO/elite/airootfs/etc/systemd/system/pacman-init.service.d/10-elite-retry.conf" 'StartLimitIntervalSec=600' "pacman-init: janela de retry 600s (vidas sobrevivem a populate longo)"
+assert_grep "$REPO/elite/fragments/elite-customize.sh" 'keyring-refresh.stamp' "keyring: selo do root semeado no build (live não re-cura o que nasceu curado — run 41070218496)"
+assert_grep "$REPO/scripts/apply-overlay.sh" '/usr/local/bin/craft-keyring-wait' "apply-overlay: craft-keyring-wait registrado no file_permissions (senão 203/EXEC no live)"
+
 
 # ── v2.10.5 — A AUDITORIA DE SIMULAÇÕES: as leis que nasceram dela ─────
 # (5 personas percorreram todo o código; cada cura que sobreviveu à
