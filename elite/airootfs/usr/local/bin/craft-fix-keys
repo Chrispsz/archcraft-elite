@@ -26,7 +26,22 @@
 # sync DBs (10–20MB de rede + I/O) a CADA login (o audit 24-b flagrou).
 # Belt-and-suspenders roda 1× ao dia, não a cada sessão; o stamp mora no
 # state do usuário (sobe limpo no live).
-STAMP="${XDG_STATE_HOME:-$HOME/.local/state}/elite/keyring-refresh.stamp"
+#
+# v2.10.16.1 · E29.1 — O CAMINHO DO SELO DO ROOT É ABSOLUTO (a prova do
+# run 41078548156: elite-keyring-fix consumiu 2min5s de CPU COM o selo
+# já semeado em /root/.local/state — o guard NUNCA o leu). A causa: o
+# serviço systemd (elite-keyring-fix, SEM User= e SEM Environment=HOME)
+# roda com $HOME NÃO-DEFINIDO — o "${XDG_STATE_HOME:-$HOME/...}" velho
+# resolvia para /.local/state (a RAIZ do filesystem) e o selo plantado
+# em /root era invisível para ele. Root agora tem caminho ÚNICO e
+# absoluto; usuário normal segue no seu state (o sudo -n do Arch reseta
+# HOME para o alvo — liveuser lê o próprio home). Sem gambiarra de
+# migração: o rig legado faz UMA cura e escreve o selo no caminho novo.
+if [ "$(id -u)" -eq 0 ]; then
+    STAMP="/root/.local/state/elite/keyring-refresh.stamp"
+else
+    STAMP="${XDG_STATE_HOME:-$HOME/.local/state}/elite/keyring-refresh.stamp"
+fi
 now=$(date +%s)
 last=$(cat "$STAMP" 2>/dev/null || echo 0)
 case "$last" in

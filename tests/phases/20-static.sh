@@ -860,6 +860,16 @@ assert_grep "$REPO/elite/airootfs/etc/systemd/system/pacman-init.service.d/10-el
 assert_grep "$REPO/elite/fragments/elite-customize.sh" 'keyring-refresh.stamp' "keyring: selo do root semeado no build (live não re-cura o que nasceu curado — run 41070218496)"
 assert_grep "$REPO/scripts/apply-overlay.sh" '/usr/local/bin/craft-keyring-wait' "apply-overlay: craft-keyring-wait registrado no file_permissions (senão 203/EXEC no live)"
 
+# ── v2.10.16.1 · E29.1 — as duas verdades que a 2ª verify vermelha expôs ──
+# run 41078548156: o selo em /root NUNCA foi lido (o serviço systemd roda
+# sem $HOME — o guard velho lia /.local/state) e a transação provou 4min46s
+# de wall (o teto de 240s do guarda não podia vencer a corrida). Cura:
+# caminho absoluto para root + selo no skel + teto 420s + guarda no timer.
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-fix-keys" 'STAMP="/root/.local/state/elite/keyring-refresh.stamp"' "craft-fix-keys: selo do root é caminho ABSOLUTO (serviço systemd roda sem \$HOME — run 41078548156)"
+assert_grep "$REPO/elite/fragments/elite-customize.sh" '/etc/skel/.local/state/elite' "keyring: selo também no skel (o home do liveuser nasce dele — camada de sessão também descansa no live)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-keyring-wait" '84' "craft-keyring-wait: teto 420s (> transação provada de 4min46s — o guard vence a corrida)"
+assert_grep "$REPO/elite/airootfs/etc/systemd/system/elite-keyring-fix.service" 'ExecStartPre=/usr/local/bin/craft-keyring-wait' "elite-keyring-fix: timer espera transação de sessão em voo (duas curas não colidem)"
+
 
 # ── v2.10.5 — A AUDITORIA DE SIMULAÇÕES: as leis que nasceram dela ─────
 # (5 personas percorreram todo o código; cada cura que sobreviveu à

@@ -114,18 +114,25 @@ pacman-key --populate archlinux cachyos || true
 
 ## [E2b.1] v2.10.16 · E29 — O SELO DO ROOT NO NASCIMENTO: o build ACABOU
 ##      de curar o keyring (populate acima) — semear agora o stamp de 24h
-##      do craft-fix-keys para o root significa: o timer 120s do
-##      elite-keyring-fix vira no-op instantâneo no LIVE (sem pacman-key
-##      de novo, sem pacman -Sy de rede, sem a transação cujo hook de
-##      daemon-reload reiniciou o pacman-init no meio do lock e matou a
-##      verify da v2.10.15 — run 41070218496, serial provado). Economia
-##      real por boot de live: ~2min24s de CPU + 10-20MB de rede que o
-##      live pagava para RE-curar o que nasceu curado. O unpackfs copia
-##      /root inteiro ao instalado: as primeiras 24h do rig também são
-##      poupadas (o E10 já populou no chroot do alvo); vencido o guard,
-##      o timer 6h retoma o trabalho legítimo — cura real segue real.
-mkdir -p /root/.local/state/elite 2>/dev/null || true
+##      do craft-fix-keys significa: NENHUMA transação de keyring no live
+##      (sem pacman-key de novo, sem pacman -Sy de rede, sem a transação
+##      cujo hook de daemon-reload reinicia o pacman-init no meio do lock
+##      — a doença que matou a verify da v2.10.15/16, runs 41070218496 e
+##      41078548156). Economia real por boot de live: ~2min5s de CPU +
+##      10-20MB de rede que o live pagava para RE-curar o que nasceu
+##      curado. Vencido o guard, os timers/autostart retomam o trabalho
+##      legítimo — cura real segue real.
+##      v2.10.16.1 · E29.1 — A VERDADE SOBRE A 1ª TENTATIVA: selo plantado
+##      SÓ em /root não valeu — o serviço systemd roda com $HOME não-
+##      definido e o guard velho lia /.local/state (prova: run 41078548156
+##      consumiu 2min5s CPU com o selo lá). Agora o craft-fix-keys resolve
+##      root por caminho ABSOLUTO (cura no script) e AQUI o selo nasce nos
+##      DOIS caminhos que o mundo lê: /root (serviço + root de sessão) e
+##      /etc/skel (o home do liveuser e de todo usuário novo nasce dele —
+##      o unpackfs copia /root ao instalado; o useradd -m copia o skel).
+mkdir -p /root/.local/state/elite /etc/skel/.local/state/elite 2>/dev/null || true
 date +%s > /root/.local/state/elite/keyring-refresh.stamp 2>/dev/null || true
+date +%s > /etc/skel/.local/state/elite/keyring-refresh.stamp 2>/dev/null || true
 
 ## [E3] pacman.conf do SISTEMA: reescrito canônico e limpo (o customize do
 ##      Archcraft duplica [core]/[extra] no fim; aqui fica sem duplicatas).
