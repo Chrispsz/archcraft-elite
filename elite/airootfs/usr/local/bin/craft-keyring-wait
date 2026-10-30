@@ -1,0 +1,33 @@
+#!/bin/sh
+# craft-keyring-wait — o guarda do lock do keyring (v2.10.16 · E29)
+# ─────────────────────────────────────────────────────────────────────────
+# A DOENÇA (run 41070218496, verify do live da v2.10.15 — serial provado):
+# o elite-keyring-fix.service (root, timer 120s) rodou `pacman -Sy
+# archlinux-keyring cachyos-keyring` num live que JÁ nasceu curado (o
+# populate do build [E2b] fez o trabalho; faltava o selo — [E2b.1]); a
+# transação disparou o hook do systemd ("Reload requested from client
+# PID 2160 ... unit elite-keyring-fix.service" no serial) e o
+# "Queuing reload/restart jobs for marked units" REINICIOU o pacman-init
+# (audit 1130 aos 456s) NO MEIO da transação. O `pacman-key --init` do
+# restart colidiu com o lock do gnupg segurado pelo próprio scriptlet do
+# keyring (populate = minutos de parede) — as 3 tentativas do drop-in
+# (RestartSec=10) colidiram TODAS dentro da mesma janela e o StartLimit
+# estourou: pacman-init FAILED → o gate v1.5.2 reprovou honestamente.
+#
+# A CURA DA CLASSE: o pacman-init, ao (re)iniciar, ESPERA (com teto)
+# qualquer pacman/pacman-key em voo — o restart cai FORA da janela de
+# colisão em vez de queimar as vidas dentro dela. Sem máscara de falha:
+# o teto expira → exit 0 → o pacman-key real julga; keyring quebrado de
+# verdade continua falhando como sempre falhou (gate segue valendo).
+#
+# POSIX sh por contrato (ExecStartPre chama direto, sem bash). Best-
+# effort: esgota o teto e sai — quem decide é o ExecStart. Caminho feliz
+# (boot normal): um pgrep, ~2ms — ninguém paga nada.
+
+i=0
+while [ "$i" -lt 48 ]; do          # teto honesto: 48 × 5s = 240s
+    pgrep -x pacman-key >/dev/null 2>&1 && { sleep 5; i=$((i + 1)); continue; }
+    pgrep -x pacman >/dev/null 2>&1 && { sleep 5; i=$((i + 1)); continue; }
+    break
+done
+exit 0
