@@ -149,7 +149,14 @@ fi
 #     arquivo do chaveiro. No sistema INSTALADO com login por senha,
 #     o arquivo já existe e o PAM cuida — este bloco é no-op.
 if command -v gnome-keyring-daemon >/dev/null 2>&1; then
-    if [ ! -e "$HOME/.local/share/keyrings/login.keyring" ]; then
+    # v2.10.12 — SÓ NO LIVE (dump nl3z, journal 22:31:35: 'gkr-pam:
+    # couldn't unlock the login keyring' — e o PAM voltaria a falhar EM
+    # TODO login): no sistema INSTALADO com senha, o chaveiro não existe
+    # no 1º login e o PAM o cria COM A SENHA DO LOGIN — o bootstrap com
+    # senha VAZIA corria na frente e criava o login.keyring vazio, que o
+    # PAM jamais desbloqueia (senha ≠ vazio) = mismatch perpétuo. No
+    # live/autologin (sem senha pra o PAM usar) ele continua a cura.
+    if [ -e /run/archiso ] && [ ! -e "$HOME/.local/share/keyrings/login.keyring" ]; then
         ( printf '' | gnome-keyring-daemon --unlock >/dev/null 2>&1 ) &
     fi
 fi
