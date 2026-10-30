@@ -495,6 +495,20 @@ assert_grep "$APPS/xgps.desktop" 'NoDisplay=true' "v1.2: xgps fora do menu (GPS 
 assert_grep "$APPS/xgpsspeed.desktop" 'NoDisplay=true' "v1.2: xgpsspeed fora do menu"
 assert_grep "$REPO/elite/packages.remove" '^gpsd$' "v1.2: gpsd listado no debloat (depend DURA do waybar — NoDisplay é a cura real)"
 assert_nogrep "$REPO/elite/packages.remove" '^thunar-archive-plugin$' "v2.8.0: o plugin saiu do packages.remove (o add o traz — a esquizofrenia add∩remove não volta)"
+# v2.10.14 — O DEBLOAT QUE O PAPEL PROVOU (dump nl3z do rig, seção 13):
+# timeshift 26.09.0-1.1 e network-manager-sstp 1.3.2-7.1 INSTALADOS no
+# rig. O timeshift era promessa v2.3.6 sem linha na lista; o sstp chegou
+# porque o remove vedava a GRAFIA ERRADA ('networkmanager-sstp') e o
+# apply-overlay remove por nome EXATO (o aviso 'não está na lista
+# upstream — ignorado' não bloqueia build). Ambas as grafias do sstp
+# ficam vedadas para a classe de nome não renascer.
+assert_grep "$REPO/elite/packages.remove" '^timeshift$' "v2.10.14: timeshift NO debloat (a promessa v2.3.6 executada — o rig instalado o carregava; snapper é o rei único do rollback)"
+assert_grep "$REPO/elite/packages.remove" '^network-manager-sstp$' "v2.10.14: a grafia REAL do upstream no debloat (rig provou: 'network-manager-sstp' instalado com o remove vedando só 'networkmanager-sstp' — nome errado = remoção silenciosa)"
+assert_grep "$REPO/elite/packages.remove" '^networkmanager-sstp$' "v2.10.14: a grafia antiga segue vedada (as duas formas do nome nunca mais passam)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'disable --now sshd' "v2.10.14: firstboot desliga o sshd herdado do archiso (dump nl3z: symlink multi-user.target.wants no INSTALADO — desktop não serve SSH de fábrica; pacote preservado)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-tune" '99-elite.conf' "v2.10.14: firstboot audita o sysctl (dump nl3z: rig em vm.swappiness=150 com a ISO pedindo 180 — arquivo garantido, reaplicado e conferido no kernel)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'grep -RH . /etc/sysctl.d/' "v2.10.14: dump lista os arquivos de sysctl.d (o papel v2.4 não nomeava o réu do swappiness — agora a seção 3 traz o diretório inteiro)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'pacman -Q timeshift network-manager-sstp networkmanager-sstp' "v2.10.14: os réus do debloat no papel (o próximo dump prova a cura: as três consultas devem vir vazias)"
 assert_grep "$REPO/elite/fragments/elite-customize.sh" 'pacman -Rns --noconfirm gpsd' "v1.2: E13 tenta remover gpsd em build (falha segura — depend do waybar)"
 # craft-pin v2.1: pins no grupo central, antes do separador
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin" 'dock-pins' "v2.1: craft-pin insere no ARQUIVO de pins (1 linha = 1 app real)"

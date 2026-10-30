@@ -239,7 +239,15 @@ fi
     printf '\n══════════ 3 · KERNEL & TUNING ══════════\n'
     r "cat /proc/cmdline" 2
     r "cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_driver 2>/dev/null" 2
-    r "sysctl vm.swappiness vm.vfs_cache_pressure kernel.sched_autogroup_enabled 2>/dev/null" 4
+    # v2.10.14 — AS CINCO CHAVES INTEIRAS + O RÉU NOMEADO: o nl3z mostrou
+    # vm.swappiness=150 no rig com a ISO entregando 180 — e o papel v2.4
+    # NÃO lista os arquivos de sysctl.d, então a causa (arquivo ausente vs
+    # arquivo que vence por ordem lexical) ficou SEM NOME. O dump passa a
+    # listar /etc/sysctl.d inteiro + as linhas vivas de cada conf + as 5
+    # chaves da lei da Elite — o próximo papel julga com o réu à vista.
+    r "sysctl vm.swappiness vm.vfs_cache_pressure vm.page_lock_unfairness vm.max_map_count kernel.sched_autogroup_enabled 2>/dev/null" 5
+    r "ls -l /etc/sysctl.d/ 2>/dev/null" 6
+    r "grep -RH . /etc/sysctl.d/ 2>/dev/null | grep -E 'swappiness|vfs_cache|map_count|page_lock|autogroup'" 8
     r "cat /sys/kernel/mm/transparent_hugepage/enabled 2>/dev/null" 2
     r "sysctl net.ipv4.tcp_congestion_control net.core.default_qdisc 2>/dev/null" 3
 
@@ -254,6 +262,15 @@ fi
     r "findmnt /home 2>/dev/null" 4
     r "ls -d /.snapshots 2>/dev/null && ls /.snapshots | tail -5 || echo '(sem /.snapshots)'" 7
     r "timeshift --list 2>/dev/null | head -12" 12
+    # v2.10.14 — OS RÉUS DO DEBLOAT NO PAPEL (o nl3z provou: timeshift
+    # 26.09.0-1.1 e network-manager-sstp 1.3.2-7.1 INSTALADOS no rig — o
+    # remove nunca os alcançou por nome/grafia). O próximo dump prova a
+    # cura: as três consultas devem responder 'não encontrado'.
+    r "pacman -Q timeshift network-manager-sstp networkmanager-sstp 2>&1 | head -6" 5
+    # v2.10.14 — O POLICIA DO SSH (o nl3z achou sshd ENABLED no instalado,
+    # herança do perfil live do archiso): após a cura 2h do firstboot,
+    # is-enabled deve responder disabled/... no INSTALADO.
+    r "systemctl is-enabled sshd.service 2>&1; systemctl is-active sshd.service 2>&1" 4
 
     printf '\n══════════ 5 · SERVIÇOS ELITE ══════════\n'
     # v2.5 — a E23 no papel: o serviço/timer que cura o keyring (root, 6h)

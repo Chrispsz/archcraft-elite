@@ -370,6 +370,17 @@ iwd
 
 ## Resíduos/dualezas sem função na Elite
 xdotool            # upstream trazia! dep do fg-booster extinto (v2.2) — agora banido nos DOIS lados
+## timeshift — v2.10.14: a promessa v2.3.6 EXECUTADA ('um rei só': snapper é
+## o rollback da Elite — craft-rollback + grub-btrfsd vigiam /.snapshots).
+## A linha nunca tinha entrado aqui e o rig INSTALADO carregava timeshift
+## 26.09.0-1.1 (dump nl3z seção 13).
+timeshift
+## network-manager-sstp — v2.10.14: A GRAFIA REAL DO UPSTREAM. O remove
+## sempre vedou 'networkmanager-sstp' e o apply-overlay remove por nome
+## EXATO — o aviso '(não está na lista upstream — ignorado)' passou em
+## todo build e o plugin SSTP chegou ao rig INSTALADO (dump nl3z seção
+## 13: network-manager-sstp 1.3.2-7.1). As duas grafias ficam vedadas.
+network-manager-sstp
 boost              # headers de dev no live; o boost-libs runtime viria por dep se algo pedisse
 man-db             # o E15 já poda /usr/share/man do disco — manter o pacote é peso duplo
 man-pages          # idem

@@ -903,8 +903,14 @@ assert_grep "$SK/.config/swaync/config.json" "when-there's-a-tray-icon" "v2.10.5
 
 # L. pacotes: a dependência jurada existe de facto:
 assert_grep "$REPO/elite/packages.add" '^libpulse$' "v2.10.5: libpulse explícito (pactl/volumes + módulo pulseaudio da waybar)"
-assert_grep "$REPO/elite/packages.remove" '^networkmanager-sstp$' "v2.10.5: nome REAL do pacote sstp (o 'network-manager-sstp' era no-op silencioso)"
-assert_nogrep "$REPO/elite/packages.remove" '^network-manager-sstp$' "v2.10.5: o nome errado saiu da lista"
+# v2.10.5 acreditava que 'networkmanager-sstp' era o nome REAL e baniu o
+# 'network-manager-sstp' como 'no-op silencioso'. O DUMP nl3z FALSIFICOU:
+# o rig INSTALADO carrega network-manager-sstp 1.3.2-7.1 (seção 13) — a
+# v2.10.5 trocou a grafia certa pela errada e o plugin cruzou TODOS os
+# builds desde então. v2.10.14: as DUAS grafias vedadas (a classe de
+# nome errado = remoção silenciosa não renasce em nenhuma direção).
+assert_grep "$REPO/elite/packages.remove" '^networkmanager-sstp$' "v2.10.14: a grafia v2.10.5 segue vedada (as duas formas do nome ficam na lista)"
+assert_grep "$REPO/elite/packages.remove" '^network-manager-sstp$' "v2.10.14: a grafia que o rig PROVOU real entra no debloat (a v2.10.5 a chamava de 'no-op silencioso' e o plugin chegou ao rig instalado — falsificado pelo papel)"
 
 # M. GPU: a limpeza reconcilia o initramfs (a contradição Optimus morre):
 assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'MODULES=\(nvidia' "v2.10.5: tune reconcilia MODULES do install-stage (híbrido não morre no próximo mkinitcpio)"

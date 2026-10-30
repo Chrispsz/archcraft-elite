@@ -1,0 +1,1326 @@
+══════════ ELITE DUMP v2.4 — diagnóstico completo ══════════
+gerado: qui 29 out 2026 22:37:34 -03 · usuário: root → sessão de chris (uid 1000) · host: archpc
+
+══════════ 0 · VEREDITO RÁPIDO ══════════
+(o sistema descrevendo a si mesmo — o detalhe mora nas seções 1-14)
+
+$ /usr/local/bin/elite-session-probe
+ELITE_PROBE_BEGIN
+WAYBAR_COUNT=1
+DOCK_COUNT=1
+TOPLEVEL_COUNT=1
+TOPLEVEL_SOCKET=OK
+SWAYNC_COUNT=1
+IDLE_COUNT=1
+CRAFTBARS_COUNT=3
+BARS_RESTARTS=3
+BARS_EXITS=1
+WAYBAR_PROCS=897 waybar -c /home/chris/.config/waybar/config.top -s /home/chris/.config/waybar/style.top.css
+BARS_LOG=/home/chris/.cache/elite/bars.log
+BARS| time="2026-10-29T22:32:54-03:00" level=info msg="/home/chris/.config/nwg-drawer/excluded-dirs file not found"
+BARS| time="2026-10-29T22:32:55-03:00" level=info msg="Preferring dark theme variants"
+BARS| time="2026-10-29T22:32:55-03:00" level=info msg="Using style from /home/chris/.config/nwg-drawer/drawer.css"
+BARS| time="2026-10-29T22:32:55-03:00" level=info msg="Setting GTK layer shell keyboard mode to default: exclusive"
+BARS| time="2026-10-29T22:32:55-03:00" level=info msg="Using XDG user dirs from /home/chris/.config/user-dirs.dirs"
+BARS| time="2026-10-29T22:32:55-03:00" level=info msg="UI created in 117 ms. Thank you for your patience."
+BARS| time="2026-10-29T22:32:55-03:00" level=info msg="SIGTERM received, bye bye"
+BARS| /usr/local/bin/craft-bgapps: linha 133: /proc/13298/environ: Processo inexistente
+BARS| /usr/local/bin/craft-bgapps: linha 133: /proc/13298/environ: Processo inexistente
+BARS| /usr/local/bin/craft-bgapps: linha 133: /proc/13298/environ: Processo inexistente
+BARS| /usr/local/bin/craft-bgapps: linha 133: /proc/13298/environ: Processo inexistente
+BARS| [2026-10-29 22:33:44] idle swayidle SAIU exit=0
+MEM=1462/31973MB
+WAYBAR_VER=Waybar v0.15.0
+LABWC_VER=labwc 0.20.2 (+xwayland +nls +rsvg +libsfdo) wlroots-0.20.2
+FUZZEL_BIN=/usr/bin/fuzzel
+FUZZEL_VER=fuzzel version: 1.15.0 +cairo +png +svg(resvg) -assertions
+FUZZEL_INI=OK
+MENUS| [2026-10-29 22:33:34] Rede: fechado pelo usuário (ESC)/toggle/cross-dismiss (rc=2) — benigno
+MENUS| [2026-10-29 22:33:34] Rede: craft-menu rc=143 — stderr:  err: config.c:1057: /home/chris/.config/fuzzel/fuzzel.ini:35: [main].exit-on-focus-loss: yes: not a valid option: exit-on-focus-loss;
+MENUS| [2026-10-29 22:33:34] Rede: fechado pelo usuário (ESC)/toggle/cross-dismiss (rc=143) — benigno
+MENUS| [2026-10-29 22:33:39] Sessão: abrindo (craft-menu)
+MENUS| [2026-10-29 22:33:42] Idle: abrindo (craft-menu)
+MENUS| [2026-10-29 22:33:44] Sessão: abrindo (craft-menu)
+MENUS| [2026-10-29 22:33:47] Sessão: abrindo (craft-menu)
+MENUS| [2026-10-29 22:33:49] Sessão: fechado de fora (SIGTERM — cross-dismiss) — benigno
+DOCK| dinâmico entrou: blueman-manager.desktop (comm blueman-manager)
+DOCK| dinâmico entrou: nwg-look.desktop (comm nwg-look)
+DOCK| dinâmico saiu: nwg-look.desktop
+DOCK| dinâmico saiu: blueman-manager.desktop
+DOCK| dinâmico saiu: network.cycles.wdisplays.desktop
+DOCK| lançado: foot
+DOCK| lançado: thunar
+DOCK| lançado: foot
+ELITE_PROBE_END
+
+$ systemctl --failed --no-pager --plain
+UNIT LOAD ACTIVE SUB DESCRIPTION
+
+0 loaded units listed.
+
+$ systemctl --user --failed --no-pager --plain
+Failed to connect to user scope bus via local transport: $DBUS_SESSION_BUS_ADDRESS and $XDG_RUNTIME_DIR not defined (consider using --machine=<user>@.host --user to connect to bus of other user)
+
+$ df -h / | tail -1
+/dev/nvme0n1p2  477G  3,4G  472G   1% /
+
+══════════ 1 · IDENTIDADE ══════════
+
+$ grep PRETTY /etc/os-release
+PRETTY_NAME="Archcraft"
+
+$ uname -a
+Linux archpc 7.3.0-2-cachyos-bore #1 SMP PREEMPT_DYNAMIC Thu, 22 Oct 2026 06:22:42 +0000 x86_64 GNU/Linux
+
+$ uptime
+ 22:37:35 up 6 min,  1 user,  load average: 0,16, 0,28, 0,16
+
+$ env | grep -E '^(XDG_SESSION_TYPE|WAYLAND_DISPLAY|XDG_RUNTIME_DIR|LANG|DESKTOP_SESSION)='
+LANG=pt_BR.UTF-8
+
+══════════ 2 · HARDWARE — CPU/RAM/GPU/DISCO/TEMPERATURA ══════════
+
+$ lscpu | grep -E 'Model name|^CPU\(s\)|Thread|MHz|Socket|L3'
+CPU(s):                                    12
+Thread(s) per núcleo:                      2
+CPU(s) MHz de escala:                      67%
+CPU MHz máx.:                              4470,5078
+CPU MHz mín.:                              565,5470
+cache de L3:                               32 MiB (1 instância)
+CPU(s) de nó0 NUMA:                        0-11
+
+$ free -h
+               total       usada       livre    compart.  buff/cache  disponível
+Mem.:           31Gi       1,4Gi        28Gi        17Mi       2,1Gi        29Gi
+Swap:          8,0Gi          0B       8,0Gi
+
+$ lspci -k | grep -EA3 'VGA|3D|Display'
+0a:00.0 VGA compatible controller: Advanced Micro Devices, Inc. [AMD/ATI] Navi 33 [Radeon RX 7600/7600 XT/7600M XT/7600S/7700S / PRO W7600] (rev cf)
+	Subsystem: XFX Limited Device 7601
+	Kernel driver in use: amdgpu
+	Kernel modules: amdgpu
+
+$ lsblk -o NAME,SIZE,TYPE,FSTYPE,MOUNTPOINT
+NAME          SIZE TYPE FSTYPE MOUNTPOINT
+sda         149,1G disk        
+├─sda1        149G part exfat  /run/media/chris/Ventoy
+└─sda2         32M part vfat   
+zram0           8G disk swap   [SWAP]
+nvme0n1     476,9G disk        
+├─nvme0n1p1   512M part vfat   /boot/efi
+└─nvme0n1p2 476,4G part btrfs  /var/log
+
+$ df -h / /home /boot /boot/grub 2>/dev/null | sort -u
+/dev/nvme0n1p2  477G  3,4G  472G   1% /
+/dev/nvme0n1p2  477G  3,4G  472G   1% /home
+Sist. Arq.      Tam. Usado Disp. Uso% Montado em
+
+$ zramctl 2>/dev/null
+NAME       ALGORITHM DISKSIZE DATA COMPR TOTAL STREAMS MOUNTPOINT
+/dev/zram0 zstd            8G   4K   64B   20K         [SWAP]
+
+$ swapon --show 2>/dev/null
+NAME       TYPE      SIZE USED PRIO
+/dev/zram0 partition   8G   0B  100
+
+── temperaturas (sysfs do kernel — sem precisar de lm_sensors; valor em m°C)
+
+══════════ 3 · KERNEL & TUNING ══════════
+
+$ cat /proc/cmdline
+BOOT_IMAGE=/@/boot/vmlinuz-linux-cachyos-bore root=UUID=7b324dc8-c4ed-445d-b9bb-173297d096fe rw rootflags=subvol=@ quiet splash loglevel=3 udev.log_level=3 vt.global_cursor_default=0 splash lsm=landlock,lockdown,yama,integrity,apparmor,bpf amdgpu.ppfeaturemask=0xffffffff
+
+$ cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_driver 2>/dev/null
+amd-pstate-epp
+
+$ sysctl vm.swappiness vm.vfs_cache_pressure kernel.sched_autogroup_enabled 2>/dev/null
+vm.swappiness = 150
+vm.vfs_cache_pressure = 50
+kernel.sched_autogroup_enabled = 1
+
+$ cat /sys/kernel/mm/transparent_hugepage/enabled 2>/dev/null
+[always] madvise never
+
+$ sysctl net.ipv4.tcp_congestion_control net.core.default_qdisc 2>/dev/null
+net.ipv4.tcp_congestion_control = bbr
+net.core.default_qdisc = fq
+
+══════════ 4 · BOOT & ROLLBACK ══════════
+
+$ journalctl --list-boots --no-pager 2>/dev/null | tail -8
+IDX BOOT ID                          FIRST ENTRY                 LAST ENTRY
+  0 8491ea22893b432ca8dc91bf004800fa Thu 2026-10-29 22:31:32 -03 Thu 2026-10-29 22:37:34 -03
+
+$ systemd-analyze 2>&1
+Startup finished in 12.033s (firmware) + 3.340s (loader) + 6.138s (kernel) + 1min 35.921s (userspace) = 1min 57.433s 
+graphical.target reached after 35.705s in userspace.
+
+$ findmnt /
+TARGET SOURCE             FSTYPE OPTIONS
+/      /dev/nvme0n1p2[/@] btrfs  rw,relatime,compress=zstd:1,ssd,discard=async,space_cache=v2,subvolid=256,subvol=/@
+
+$ findmnt /home 2>/dev/null
+TARGET SOURCE                 FSTYPE OPTIONS
+/home  /dev/nvme0n1p2[/@home] btrfs  rw,relatime,compress=zstd:1,ssd,discard=async,space_cache=v2,subvolid=257,subvol=/@home
+
+$ ls -d /.snapshots 2>/dev/null && ls /.snapshots | tail -5 || echo '(sem /.snapshots)'
+/.snapshots
+
+$ timeshift --list 2>/dev/null | head -12
+First run mode (config file not found)
+Selected default snapshot type: BTRFS
+Mounted '/dev/nvme0n1p2' (subvolid=0) at '/run/timeshift/15788/backup'
+Selected default snapshot device: /dev/nvme0n1p2
+Device : /dev/nvme0n1p2
+UUID   : 7b324dc8-c4ed-445d-b9bb-173297d096fe
+Path   : /run/timeshift/15788/backup
+Mode   : BTRFS
+Status : No snapshots on this device
+First snapshot requires: 0 B
+
+No snapshots found
+
+══════════ 5 · SERVIÇOS ELITE ══════════
+ananicy-cpp      active=active     enabled=enabled
+lactd            active=active     enabled=enabled
+grub-btrfsd      active=active     enabled=enabled
+elite-firstboot  active=active     enabled=disabled
+?
+firstboot-done: sim
+
+$ pacman -Q 2>/dev/null | grep -Ei 'craft|elite' || echo '(nenhum pacote craft/elite — anômalo)'
+archcraft-cursor-bibata 1.0-0
+archcraft-cursor-qogirr 1.0-6
+archcraft-fonts 2.0-0
+archcraft-grub-theme 1.0-7
+archcraft-hooks 2.0-3
+archcraft-hooks-extra 3.0-0
+archcraft-hooks-grub 1.0-1
+archcraft-hooks-zsh 1.0-2
+archcraft-mirrorlist 2.0-2
+archcraft-plymouth-theme 1.0-5
+archcraft-sddm-theme 2.0-0
+craft-toplevel 1.0-2
+
+$ systemctl cat elite-firstboot.service 2>/dev/null | head -45
+Description=Elite: first-boot (driver GPU + serviços + tokens GRUB) — auto-desativa
+Documentation=https://wiki.cachyos.org
+# Só no sistema INSTALADO — na sessão live (/run/archiso existe) nunca roda
+ConditionPathExists=!/run/archiso
+ConditionPathExists=!/var/lib/elite/firstboot-done
+# v2.10.7 — DEPOIS do desktop, nunca refém dele (o 1º rig-install da 10.6
+# provou o custo: WantedBy=multi-user.target segurou o graphical.target por
+# 30min 9s — pacman lento (mirror 404 + wifi Intel 7260 empane no meio) até
+# o TimeoutStartSec=1800 matar o serviço; 'systemd-analyze' do dump 0qmq:
+# 'graphical.target reached after 30min 9.462s'). O desktop sobe primeiro; o
+# tuning termina em background — o mesmo trabalho, sem refém.
+After=graphical.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/elite-tune --firstboot
+TimeoutStartSec=1800
+# v2.10.7 — O EPÍLOGO É LEI: sucesso, falha OU timeout-kill registram o
+# resultado (no rig o serviço morreu aos 1800s e o log terminou no meio do
+# systemctl, sem contar história). ExecStopPost roda em TODOS os casos;
+# NÃO marca firstboot-done (a lei v4.5 do retry por rede/driver fica de pé
+# — sem rede o firstboot re-tenta no boot seguinte, agora sem travar nada).
+ExecStopPost=/bin/sh -c 'printf "\n[elite-firstboot] resultado: %s (exit=%s)\n" "${SERVICE_RESULT:-?}" "${EXIT_STATUS:-?}" >> /var/log/elite-firstboot.log'
+StandardOutput=append:/var/log/elite-firstboot.log
+StandardError=append:/var/log/elite-firstboot.log
+RemainAfterExit=yes
+
+[Install]
+WantedBy=graphical.target
+
+$ for d in /etc/systemd/system/multi-user.target.wants /etc/systemd/system/graphical.target.wants; do echo "── $d"; ls -l "$d" 2>/dev/null | grep -v '^total' || echo '   (ausente)'; done
+lrwxrwxrwx 1 root root 37 29 out 19:09 lactd.service -> /usr/lib/systemd/system/lactd.service
+lrwxrwxrwx 1 root root 46 29 out 19:01 NetworkManager.service -> /usr/lib/systemd/system/NetworkManager.service
+lrwxrwxrwx 1 root root 22 29 out 19:01 pacman-init.service -> ../pacman-init.service
+lrwxrwxrwx 1 root root 40 29 out 19:09 remote-fs.target -> /usr/lib/systemd/system/remote-fs.target
+lrwxrwxrwx 1 root root 36 29 out 19:01 sshd.service -> /usr/lib/systemd/system/sshd.service
+lrwxrwxrwx 1 root root 44 29 out 19:09 systemd-oomd.service -> /usr/lib/systemd/system/systemd-oomd.service
+lrwxrwxrwx 1 root root 48 29 out 19:01 systemd-resolved.service -> /usr/lib/systemd/system/systemd-resolved.service
+lrwxrwxrwx 1 root root 46 29 out 19:01 wpa_supplicant.service -> /usr/lib/systemd/system/wpa_supplicant.service
+── /etc/systemd/system/graphical.target.wants
+lrwxrwxrwx 1 root root 30 29 out 18:59 elite-session-probe.service -> ../elite-session-probe.service
+
+$ for d in /etc/systemd/system/multi-user.target.d /usr/lib/systemd/system/multi-user.target.d /etc/systemd/system/graphical.target.d /usr/lib/systemd/system/graphical.target.d; do [ -d "$d" ] && { echo "── $d (DROP-IN — réu da aresta)"; ls -l "$d"; cat "$d"/*.conf 2>/dev/null; }; done; true
+
+$ systemd-analyze verify --recursive-errors=no multi-user.target graphical.target 2>&1 | grep -iE 'cycle|cyclic|firstboot' | head -10; echo '── fim do verify do rig (vazio = sem ciclo nomeável)'
+── fim do verify do rig (vazio = sem ciclo nomeável)
+
+══════════ 6 · SESSÃO — PROCESSOS/BARRAS/DOCK/JANELAS ══════════
+
+$ ps -u 1000 -o pid,pcpu,pmem,comm --sort=-pcpu | head -25
+    PID %CPU %MEM COMMAND
+    804  1.5  0.3 labwc
+  15461  0.5  0.0 zsh
+    858  0.1  0.4 swaync
+  15459  0.1  0.0 foot
+    897  0.1  0.1 waybar
+    918  0.1  0.2 craft-dock-gui
+   1032  0.0  0.0 wireplumber
+    860  0.0  0.1 udiskie
+    787  0.0  0.0 systemd
+   1115  0.0  0.0 gvfsd-metadata
+    803  0.0  0.0 dbus-broker
+    859  0.0  0.1 polkit-gnome-au
+    855  0.0  0.0 swaybg
+    857  0.0  0.0 craft-bars
+    934  0.0  0.0 xdg-desktop-por
+    998  0.0  0.0 xdg-desktop-por
+   1055  0.0  0.0 playerctld
+   1031  0.0  0.0 pipewire
+    797  0.0  0.0 gnome-keyring-d
+    981  0.0  0.0 xdg-document-po
+    872  0.0  0.0 gnome-keyring-d
+   9562  0.0  0.0 gvfs-mtp-volume
+   9554  0.0  0.0 gvfs-udisks2-vo
+   1074  0.0  0.0 pipewire-pulse
+
+$ pgrep -a labwc | head -3
+804 labwc
+waybar=1 · dock_gui=1 (cmdline ancorada)
+swayidle=1 · craft-bars=3
+
+$ grep -c 'SAIU exit' /home/chris/.cache/elite/bars.log 2>/dev/null
+1
+
+── supervisão: as últimas mortes/reinícios (o detalhe do count)
+[2026-10-29 22:31:36] waybar top FORA — reiniciando
+[2026-10-29 22:31:36] dock craft-dock-gui FORA — reiniciando
+[2026-10-29 22:31:36] idle swayidle FORA — reiniciando
+[2026-10-29 22:33:44] idle swayidle SAIU exit=0
+
+── pins da dock (~/.config/elite/dock-pins — fixado ≠ dinâmico)
+foot.desktop
+thunar.desktop org.xfce.Thunar
+brave-browser.desktop
+
+── toplevel.sock: /run/user/1000/elite/toplevel.sock
+   (W|id|flags|rank|app_id|título — flags: 1=max 2=min 4=ativa 8=fullscreen · rank 0 = mais recente)
+W|14|4|0|foot|foot
+OK|14
+janelas=1
+
+── processos da Elite (a sessão inteira, com args)
+
+$ ps -u 1000 -o pid,args | grep -E 'craft-|waybar|swayidle|swaync|fuzzel|labwc|hyprlock' | grep -v grep
+    804 labwc
+    855 swaybg -m fill -i /home/chris/.config/labwc/wallpaper.png
+    856 craft-toplevel
+    857 /bin/sh /usr/local/bin/craft-bars
+    858 swaync
+    895 /bin/sh /usr/local/bin/craft-bars
+    897 waybar -c /home/chris/.config/waybar/config.top -s /home/chris/.config/waybar/style.top.css
+    916 /bin/sh /usr/local/bin/craft-bars
+    918 /usr/bin/python3 /usr/local/bin/craft-dock-gui
+  14912 swayidle -w timeout 120 craft-lock timeout 420 wlopm --off "*" resume wlopm --on "*" timeout 1200 systemctl suspend before-sleep craft-lock
+
+══════════ 7 · DISPLAY & TECLADO ══════════
+
+$ for d in wayland-0 wayland-1 wayland-2; do if env XDG_RUNTIME_DIR=/run/user/1000 WAYLAND_DISPLAY=$d wlr-randr 2>/dev/null; then break; fi; done || { echo '(sem sessão wlr — conectores do kernel):'; grep -H . /sys/class/drm/card*-*/status 2>/dev/null; grep -H . /sys/class/drm/card*-*/modes 2>/dev/null | head -8; }
+    1024x768 px, 99.990997 Hz
+    1024x768 px, 75.028999 Hz
+    1024x768 px, 70.069000 Hz
+    1024x768 px, 60.004002 Hz
+    832x624 px, 74.551003 Hz
+    800x600 px, 119.932999 Hz
+    800x600 px, 99.862000 Hz
+    800x600 px, 75.000000 Hz
+    800x600 px, 72.188004 Hz
+    800x600 px, 60.317001 Hz
+    800x600 px, 56.250000 Hz
+    720x576 px, 50.000000 Hz
+    720x576 px, 50.000000 Hz
+    720x480 px, 60.000000 Hz
+    720x480 px, 60.000000 Hz
+    720x480 px, 59.939999 Hz
+    720x480 px, 59.939999 Hz
+    640x480 px, 119.803001 Hz
+    640x480 px, 99.824997 Hz
+    640x480 px, 75.000000 Hz
+    640x480 px, 72.808998 Hz
+    640x480 px, 66.667000 Hz
+    640x480 px, 60.000000 Hz
+    640x480 px, 59.939999 Hz
+    640x480 px, 59.939999 Hz
+    720x400 px, 70.082001 Hz
+  Position: 0,0
+  Transform: normal
+  Scale: 1.000000
+  Adaptive Sync: disabled
+
+$ grep XKB /etc/environment 2>/dev/null || echo '(sem XKB_DEFAULT_LAYOUT em /etc/environment)'
+XKB_DEFAULT_LAYOUT=us
+XKB_DEFAULT_VARIANT=intl
+
+$ for p in $(pgrep -x labwc); do echo "labwc pid $p:"; tr '\0' '\n' < /proc/$p/environ 2>/dev/null | grep -E '^XKB' ; done; true
+labwc pid 804:
+
+$ localectl status 2>/dev/null
+System Locale: LANG=pt_BR.UTF-8
+    VC Keymap: us-acentos
+   X11 Layout: us
+  X11 Variant: intl
+
+$ locale | grep -E 'LANG=|LC_CTYPE='
+LANG=pt_BR.UTF-8
+LC_CTYPE="pt_BR.UTF-8"
+
+── fuzzel.ini (linhas 28-42 — o config que os menus comem)
+
+$ sed -n '28,42p' "/home/chris/.config/fuzzel/fuzzel.ini" 2>/dev/null || echo '(sem fuzzel.ini)'
+# fecha sozinho (exit-on-keyboard-focus-loss, default yes). Teclado segue
+# entrando: o labwc foca a layer on-demand quando ela mapeia.
+keyboard-focus=on-demand
+# v2.4.0 — A LEI do fechar EXPLÍCITA: perder o foco FECHA. É a física que
+# virou a lei dos menus (toggle: o 2º clique no botão fecha; cross-dismiss:
+# abrir outro menu fecha o primeiro — o burn test v1.4 do Sessão provou).
+# O default já era yes; agora é CONTRATO escrito, à prova de drift.
+exit-on-focus-loss=yes
+
+[colors]
+# v1.3 AMOLED: base preta com véu de 2% (não 0% — o véu separa o popup do
+# wallpaper preto) · prompt/borda/seleção-match em MAUVE (assinatura do
+# rice — era blue default Catppuccin, o dono pediu identidade lilás)
+background=000000f2
+text=cdd6f4ff
+
+══════════ 8 · REDE ══════════
+
+$ nmcli general status 2>/dev/null
+STATE      CONNECTIVITY  WIFI-HW     WIFI        WWAN-HW   WWAN        METERED          
+conectado  completa      habilitado  habilitado  faltando  habilitado  não (adivinhado) 
+
+$ nmcli -f NAME,TYPE,DEVICE,STATE con show --active 2>/dev/null
+NAME               TYPE      DEVICE  STATE   
+Conexão cabeada 1  ethernet  enp7s0  ativado 
+Natalya Dias       wifi      wlan0   ativado 
+lo                 loopback  lo      ativado 
+
+$ ip -brief addr 2>/dev/null
+lo               UNKNOWN        127.0.0.1/8 ::1/128 
+enp7s0           UP             192.168.1.198/24 fd71:f6aa:f7ec::835/128 2804:bc8:200:3b80::835/128 2804:bc8:200:3b80:a6f5:4240:bc8a:b6fa/64 fd71:f6aa:f7ec:0:79f9:c487:d0a9:53e4/64 fe80::7cca:9ad4:33dc:473b/64 
+wlan0            UP             192.168.0.131/24 fe80::5ce8:a8bb:5140:326a/64 
+
+$ lspci -k | grep -EA3 'Network|Ethernet'
+05:00.0 Network controller: Intel Corporation Wireless 7260 (rev bb)
+	Subsystem: Intel Corporation Dual Band Wireless-AC 7260 [Wilkins Peak 2]
+	Kernel driver in use: iwlwifi
+	Kernel modules: iwlwifi
+07:00.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL8111/8168/8211/8411 PCI Express Gigabit Ethernet Controller (rev 15)
+	Subsystem: ASUSTeK Computer Inc. Onboard RTL8111H Ethernet
+	Kernel driver in use: r8169
+	Kernel modules: r8169
+08:00.0 PCI bridge: Advanced Micro Devices, Inc. [AMD/ATI] Navi 10 XL Upstream Port of PCI Express Switch (rev 12)
+
+$ bluetoothctl show 2>/dev/null || echo '(sem adaptador bluetooth — No default controller)'
+	UUID: Vendor specific           (03b80e5a-ede8-4b33-a751-6ce34ec4c700)
+	UUID: Handsfree                 (0000111e-0000-1000-8000-00805f9b34fb)
+	Modalias: usb:v1D6Bp0246d0557
+	Discovering: no
+	Roles: central
+	Roles: peripheral
+Advertising Features:
+	ActiveInstances: 0x00 (0)
+	SupportedInstances: 0x05 (5)
+	SupportedIncludes: tx-power
+	SupportedIncludes: appearance
+	SupportedIncludes: local-name
+	SupportedCapabilities.MaxAdvLen: 0x1f (31)
+	SupportedCapabilities.MaxScnRspLen: 0x1f (31)
+
+$ lsusb 2>/dev/null | head -10
+Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+Bus 001 Device 002: ID 0b05:19af ASUSTek Computer, Inc. AURA LED Controller
+Bus 001 Device 003: ID 05ac:024f Apple, Inc. Aluminium Keyboard (ANSI)
+Bus 001 Device 004: ID 8087:07dc Intel Corp. Bluetooth wireless interface
+Bus 001 Device 005: ID 249a:5c2f XCTECH Wireless-Receiver
+Bus 002 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub
+Bus 003 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+Bus 003 Device 002: ID 0c45:800a Microdia Vivitar Vivicam3350B
+Bus 003 Device 003: ID 3142:a010 MV-SILICON fifine Microphone
+Bus 004 Device 001: ID 1d6b:0003 Linux Foundation 3.0 root hub
+
+══════════ 9 · ÁUDIO ══════════
+
+$ if command -v wpctl >/dev/null 2>&1; then env XDG_RUNTIME_DIR=/run/user/1000 wpctl status | head -30; else echo '(wpctl ausente)'; fi
+PipeWire 'pipewire-0' [1.6.10, chris@archpc, cookie:2618515188]
+ └─ Clients:
+        32. xdg-desktop-portal                  [1.6.10, chris@archpc, pid:934]
+        33. WirePlumber                         [1.6.10, chris@archpc, pid:1032]
+        38. xdg-desktop-portal-wlr              [1.6.10, chris@archpc, pid:1044]
+        43. WirePlumber [client]                [1.6.10, chris@archpc, pid:1032]
+        44. pipewire                            [1.6.10, chris@archpc, pid:1074]
+        45. waybar                              [1.6.10, chris@archpc, pid:897]
+        46. waybar                              [1.6.10, chris@archpc, pid:897]
+        76. wpctl                               [1.6.10, root@archpc, pid:15987]
+
+Audio
+ ├─ Devices:
+ │      48. Navi 31 HDMI/DP Audio               [alsa]
+ │      49. fifine Microphone                   [alsa]
+ │      50. Starship/Matisse HD Audio Controller [alsa]
+ │  
+ ├─ Sinks:
+ │  *   47. fifine Microphone Estéreo analógico [vol: 0.40]
+ │      59. Starship/Matisse HD Audio Controller Estéreo analógico [vol: 0.40]
+ │      61. Navi 31 HDMI/DP Audio Digital Stereo (HDMI 4) [24G42HE] [vol: 0.40]
+ │  
+ ├─ Sources:
+ │      58. Starship/Matisse HD Audio Controller Estéreo analógico [vol: 1.00]
+ │  *   60. fifine Microphone Mono              [vol: 1.00]
+ │  
+ ├─ Filters:
+ │  
+ └─ Streams:
+
+
+══════════ 10 · SUSPEND/ACPI — A CAÇA AO DESPERTAR ══════════
+(despertar imediato após suspender = dispositivo/BIOS — as linhas
+ abaixo mostram QUEM acordou e QUANDO)
+
+── idle.conf (a escolha do dono — o SUSPEND_MIN que viajou)
+LOCK_MIN=2
+OFF_MIN=7
+SUSPEND_MIN=20
+
+$ printf 'kernel: '; cat /sys/power/state 2>/dev/null || echo '(sem /sys/power/state)'
+kernel: freeze mem disk
+
+$ printf 'mem_sleep: '; cat /sys/power/mem_sleep 2>/dev/null || echo '(sem mem_sleep)'
+mem_sleep: s2idle [deep]
+
+$ printf 'disk: '; cat /sys/power/disk 2>/dev/null || echo '(sem /sys/power/disk)'
+disk: [platform] shutdown reboot suspend test_resume
+
+$ loginctl can-suspend
+Unknown command verb 'can-suspend'.
+
+$ for s in $(loginctl list-sessions --no-legend 2>/dev/null | awk '{print $1}'); do loginctl show-session "$s" -p Id -p Name -p Active -p State -p Type -p Remote 2>/dev/null; done; true
+Id=1
+Name=chris
+Remote=no
+Type=wayland
+Active=yes
+State=active
+Id=2
+Name=chris
+Remote=no
+Type=unspecified
+Active=yes
+State=active
+
+$ for f in /etc/systemd/sleep.conf /etc/systemd/sleep.conf.d/*.conf /usr/lib/systemd/sleep.conf.d/*.conf; do [ -f "$f" ] && { echo '── $f'; cat "$f"; }; done; true
+# See systemd-sleep.conf(5) for details.
+
+[Sleep]
+#AllowSuspend=yes
+#AllowHibernation=yes
+#AllowSuspendThenHibernate=yes
+#AllowHybridSleep=yes
+#SuspendState=mem standby freeze
+#HibernateMode=platform shutdown
+#MemorySleepMode=
+#HibernateDelaySec=
+#HibernateOnACPower=yes
+#SuspendEstimationSec=60min
+── $f
+# ── ELITE v2.10.8 · política de sono explícita ────────────────────────────
+# O dump d33o (rig, 10.7 instalado) provou: o kernel oferece 'freeze mem
+# disk' e o mem_sleep default é [deep] — o hardware suspende de verdade.
+# O 'loginctl can-suspend' da sessão respondeu ≠ yes; uma causa possível é
+# AllowSuspend=no herdado de config de base (o dump v2.1 passa a coletar
+# sleep.conf* para a perícia ver). Aqui a ISO FIXA a palavra final:
+#
+#  · suspend  = SIM  (S3 real; antes-sleep trava a tela — acorda no lock);
+#  · hibernar = NUNCA — a ISO não escreve resume= no cmdline (o swap é
+#    zram, sem partição de troca persistente): dormir sem endereço de
+#    volta é promessa falsa — o que não pode acordar, não entra.
+[Sleep]
+AllowSuspend=yes
+AllowHibernation=no
+AllowSuspendThenHibernate=no
+AllowHybridSleep=no
+
+$ journalctl -u systemd-suspend --no-pager 2>/dev/null | tail -40
+-- No entries --
+
+$ ls -l /etc/udev/rules.d/90-elite-wake-guard.rules 2>/dev/null || echo '(regra E24 ausente — sistema anterior à 10.11)'
+-rw-r--r-- 1 root root 1950 29 out 18:59 /etc/udev/rules.d/90-elite-wake-guard.rules
+
+$ for d in /sys/bus/pci/devices/*; do [ -f "$d/power/wakeup" ] || continue; c=$(cat $d/class 2>/dev/null); case $c in 0x0c03*|0x0c00*|0x0c01*|0x0c02*|0x0c04*|0x0c05*|0x0c06*|0x0c07*) printf '%s class=%s wakeup=%s\n' "${d##*/}" "$c" "$(cat $d/power/wakeup)";; esac; done; true
+0000:02:00.0 class=0x0c0330 wakeup=disabled
+0000:0c:00.3 class=0x0c0330 wakeup=disabled
+
+$ journalctl -u systemd-suspend --no-pager 2>/dev/null | grep -E 'elite-sleep' | tail -10
+
+$ cat /proc/acpi/wakeup 2>/dev/null
+Device	S-state	  Status   Sysfs node
+GP12	  S4	*enabled   pci:0000:00:07.1
+GP13	  S4	*enabled   pci:0000:00:08.1
+XHC0	  S4	*disabled  pci:0000:0c:00.3
+GP30	  S4	*disabled
+GP31	  S4	*disabled
+PS2K	  S3	*disabled
+PS2M	  S3	*disabled
+X161	  S4	*disabled
+SWUS	  S4	*enabled   pci:0000:08:00.0
+SWDS	  S4	*enabled   pci:0000:09:00.0
+X162	  S4	*disabled
+PTXH	  S4	*disabled  pci:0000:02:00.0
+X1_2	  S4	*disabled  pci:0000:05:00.0
+RLAN	  S4	*disabled  pci:0000:07:00.0
+X1_1	  S4	*disabled
+
+$ journalctl --no-pager 2>/dev/null | grep -iE 'wake(ing|up)?|resume|suspending' | tail -25
+out 29 22:31:32 archpc kernel: rtc_cmos PNP0B00:00: RTC can wake from S4
+out 29 22:32:16 archpc blueman-applet[3792]: blueman-applet 22.32.16 WARNING  PluginManager:93 load_plugin: Failed to start plugin GameControllerWakelock: Only X11 platform is supported
+out 29 22:32:49 archpc blueman-applet[8940]: blueman-applet 22.32.49 WARNING  PluginManager:93 load_plugin: Failed to start plugin GameControllerWakelock: Only X11 platform is supported
+
+$ grep -E '^[#]?Handle(Suspend|Power|Lid)' /etc/systemd/logind.conf 2>/dev/null
+#HandlePowerKeyLongPress=ignore
+#HandleSuspendKey=suspend
+#HandleSuspendKeyLongPress=hibernate
+#HandleLidSwitch=suspend
+#HandleLidSwitchExternalPower=suspend
+#HandleLidSwitchDocked=ignore
+
+$ systemd-inhibit --list 2>/dev/null | head -20
+WHO            UID  USER  PID   COMM           WHAT  WHY                                       MODE
+NetworkManager 0    root  680   NetworkManager sleep NetworkManager needs to turn off networks delay
+UPower         0    root  6776  upowerd        sleep Pause device polling                      delay
+swayidle       1000 chris 14912 swayidle       sleep Swayidle is preventing sleep              delay
+
+3 inhibitors listed.
+
+══════════ 11 · JOURNAL — ERROS DESTE BOOT ══════════
+
+$ journalctl -b -p err --no-pager 2>/dev/null | tail -50
+out 29 22:31:32 archpc kernel: virt/tdx: TDX not supported by the host platform
+out 29 22:31:32 archpc kernel: usbhid 3-4:1.4: couldn't find an input interrupt endpoint
+out 29 22:31:32 archpc kernel: amdgpu: Overdrive is enabled, please disable it before reporting any bugs unrelated to overdrive.
+out 29 22:31:34 archpc wpa_supplicant[687]: wlan0: nl80211: kernel reports: multicast RX registrations are not supported
+out 29 22:31:34 archpc wpa_supplicant[687]: p2p-dev-wlan0: nl80211: kernel reports: multicast RX registrations are not supported
+out 29 22:31:35 archpc sddm-helper[782]: gkr-pam: couldn't unlock the login keyring.
+out 29 22:31:36 archpc sudo[887]:    chris : a password is required ; PWD=/home/chris ; USER=root ; COMMAND=/usr/bin/pacman-key --init
+out 29 22:31:36 archpc sudo[908]:    chris : a password is required ; PWD=/home/chris ; USER=root ; COMMAND=/usr/bin/pacman-key --populate archlinux cachyos
+out 29 22:31:36 archpc sudo[931]:    chris : a password is required ; PWD=/home/chris ; USER=root ; COMMAND=/usr/bin/pacman -Sy --noconfirm archlinux-keyring cachyos-keyring
+out 29 22:31:53 archpc fuzzel[1673]: config: /home/chris/.config/fuzzel/fuzzel.ini:35: [main].exit-on-focus-loss: yes: not a valid option: exit-on-focus-loss
+out 29 22:31:57 archpc fuzzel[1826]: config: /home/chris/.config/fuzzel/fuzzel.ini:35: [main].exit-on-focus-loss: yes: not a valid option: exit-on-focus-loss
+out 29 22:31:59 archpc fuzzel[1906]: config: /home/chris/.config/fuzzel/fuzzel.ini:35: [main].exit-on-focus-loss: yes: not a valid option: exit-on-focus-loss
+out 29 22:32:00 archpc fuzzel[1988]: config: /home/chris/.config/fuzzel/fuzzel.ini:35: [main].exit-on-focus-loss: yes: not a valid option: exit-on-focus-loss
+out 29 22:32:01 archpc fuzzel[2064]: config: /home/chris/.config/fuzzel/fuzzel.ini:35: [main].exit-on-focus-loss: yes: not a valid option: exit-on-focus-loss
+out 29 22:32:02 archpc wpa_supplicant[687]: wlan0: nl80211: kernel reports: multicast RX registrations are not supported
+out 29 22:32:02 archpc wpa_supplicant[687]: p2p-dev-wlan0: nl80211: kernel reports: multicast RX registrations are not supported
+out 29 22:32:02 archpc fuzzel[2146]: config: /home/chris/.config/fuzzel/fuzzel.ini:35: [main].exit-on-focus-loss: yes: not a valid option: exit-on-focus-loss
+out 29 22:32:03 archpc fuzzel[2208]: config: /home/chris/.config/fuzzel/fuzzel.ini:35: [main].exit-on-focus-loss: yes: not a valid option: exit-on-focus-loss
+out 29 22:32:04 archpc fuzzel[2340]: config: /home/chris/.config/fuzzel/fuzzel.ini:35: [main].exit-on-focus-loss: yes: not a valid option: exit-on-focus-loss
+out 29 22:32:09 archpc fuzzel[2827]: config: /home/chris/.config/fuzzel/fuzzel.ini:35: [main].exit-on-focus-loss: yes: not a valid option: exit-on-focus-loss
+out 29 22:32:10 archpc fuzzel[2949]: config: /home/chris/.config/fuzzel/fuzzel.ini:35: [main].exit-on-focus-loss: yes: not a valid option: exit-on-focus-loss
+out 29 22:32:12 archpc fuzzel[3024]: config: /home/chris/.config/fuzzel/fuzzel.ini:35: [main].exit-on-focus-loss: yes: not a valid option: exit-on-focus-loss
+out 29 22:32:14 archpc fuzzel[3124]: config: /home/chris/.config/fuzzel/fuzzel.ini:35: [main].exit-on-focus-loss: yes: not a valid option: exit-on-focus-loss
+out 29 22:32:14 archpc fuzzel[3327]: config: /home/chris/.config/fuzzel/fuzzel.ini:35: [main].exit-on-focus-loss: yes: not a valid option: exit-on-focus-loss
+out 29 22:32:18 archpc fuzzel[4418]: config: /home/chris/.config/fuzzel/fuzzel.ini:35: [main].exit-on-focus-loss: yes: not a valid option: exit-on-focus-loss
+out 29 22:32:20 archpc fuzzel[4477]: config: /home/chris/.config/fuzzel/fuzzel.ini:35: [main].exit-on-focus-loss: yes: not a valid option: exit-on-focus-loss
+out 29 22:32:22 archpc fuzzel[4537]: config: /home/chris/.config/fuzzel/fuzzel.ini:35: [main].exit-on-focus-loss: yes: not a valid option: exit-on-focus-loss
+out 29 22:32:32 archpc fuzzel[6280]: config: /home/chris/.config/fuzzel/fuzzel.ini:35: [main].exit-on-focus-loss: yes: not a valid option: exit-on-focus-loss
+out 29 22:32:33 archpc fuzzel[6410]: config: /home/chris/.config/fuzzel/fuzzel.ini:35: [main].exit-on-focus-loss: yes: not a valid option: exit-on-focus-loss
+out 29 22:32:58 archpc polkit-agent-helper-1[10428]: pam_unix(polkit-1:auth): conversation failed
+out 29 22:32:58 archpc polkit-agent-helper-1[10428]: pam_unix(polkit-1:auth): auth could not identify password for [chris]
+out 29 22:33:03 archpc fuzzel[12884]: config: /home/chris/.config/fuzzel/fuzzel.ini:35: [main].exit-on-focus-loss: yes: not a valid option: exit-on-focus-loss
+out 29 22:33:04 archpc fuzzel[12957]: config: /home/chris/.config/fuzzel/fuzzel.ini:35: [main].exit-on-focus-loss: yes: not a valid option: exit-on-focus-loss
+out 29 22:33:06 archpc fuzzel[13051]: config: /home/chris/.config/fuzzel/fuzzel.ini:35: [main].exit-on-focus-loss: yes: not a valid option: exit-on-focus-loss
+out 29 22:33:08 archpc fuzzel[13181]: config: /home/chris/.config/fuzzel/fuzzel.ini:35: [main].exit-on-focus-loss: yes: not a valid option: exit-on-focus-loss
+out 29 22:33:18 archpc fuzzel[14004]: config: /home/chris/.config/fuzzel/fuzzel.ini:35: [main].exit-on-focus-loss: yes: not a valid option: exit-on-focus-loss
+out 29 22:33:19 archpc fuzzel[14084]: config: /home/chris/.config/fuzzel/fuzzel.ini:35: [main].exit-on-focus-loss: yes: not a valid option: exit-on-focus-loss
+out 29 22:33:20 archpc fuzzel[14165]: config: /home/chris/.config/fuzzel/fuzzel.ini:35: [main].exit-on-focus-loss: yes: not a valid option: exit-on-focus-loss
+out 29 22:33:32 archpc fuzzel[14334]: config: /home/chris/.config/fuzzel/fuzzel.ini:35: [main].exit-on-focus-loss: yes: not a valid option: exit-on-focus-loss
+out 29 22:33:39 archpc fuzzel[14819]: config: /home/chris/.config/fuzzel/fuzzel.ini:35: [main].exit-on-focus-loss: yes: not a valid option: exit-on-focus-loss
+out 29 22:33:42 archpc fuzzel[14874]: config: /home/chris/.config/fuzzel/fuzzel.ini:35: [main].exit-on-focus-loss: yes: not a valid option: exit-on-focus-loss
+out 29 22:33:44 archpc fuzzel[14936]: config: /home/chris/.config/fuzzel/fuzzel.ini:35: [main].exit-on-focus-loss: yes: not a valid option: exit-on-focus-loss
+out 29 22:33:47 archpc fuzzel[14985]: config: /home/chris/.config/fuzzel/fuzzel.ini:35: [main].exit-on-focus-loss: yes: not a valid option: exit-on-focus-loss
+
+$ journalctl -b -u elite-firstboot -u grub-btrfsd --no-pager 2>/dev/null | tail -30
+out 29 22:32:28 archpc grub-btrfsd[5411]: 5408: Watching /.snapshots for new snapshots...
+out 29 22:32:29 archpc 05efi[5899]: debug: /dev/nvme0n1p1 partition type is c12a7328-f81f-11d2-ba4b-00a0c93ec93b
+out 29 22:32:30 archpc 05efi[5903]: debug: running subtest /usr/lib/os-probes/mounted/efi/10elilo
+out 29 22:32:30 archpc 05efi[5906]: debug: running subtest /usr/lib/os-probes/mounted/efi/20microsoft
+out 29 22:32:30 archpc 10freedos[5913]: debug: /dev/nvme0n1p1 is a FAT32 partition
+out 29 22:32:30 archpc 10qnx[5918]: debug: /dev/nvme0n1p1 is not a QNX4 partition: exiting
+out 29 22:32:30 archpc os-prober[5922]: debug: running /usr/lib/os-probes/mounted/20microsoft on mounted /dev/nvme0n1p1
+out 29 22:32:30 archpc 20microsoft[5924]: debug: Skipping legacy bootloaders on UEFI system
+out 29 22:32:30 archpc 83haiku[5940]: debug: /dev/nvme0n1p1 is not a BeFS partition: exiting
+out 29 22:32:30 archpc os-prober[5941]: debug: running /usr/lib/os-probes/mounted/90linux-distro on mounted /dev/nvme0n1p1
+out 29 22:32:30 archpc 10freedos[5978]: debug: /dev/sda1 is not a FAT partition: exiting
+out 29 22:32:30 archpc 10qnx[5981]: debug: /dev/sda1 is not a QNX4 partition: exiting
+out 29 22:32:30 archpc os-prober[5982]: debug: running /usr/lib/os-probes/mounted/20macosx on mounted /dev/sda1
+out 29 22:32:30 archpc os-prober[5985]: debug: running /usr/lib/os-probes/mounted/20microsoft on mounted /dev/sda1
+out 29 22:32:30 archpc 20microsoft[5987]: debug: Skipping legacy bootloaders on UEFI system
+out 29 22:32:30 archpc os-prober[5988]: debug: running /usr/lib/os-probes/mounted/30utility on mounted /dev/sda1
+out 29 22:32:30 archpc 30utility[5990]: debug: /dev/sda1 is not a FAT partition: exiting
+out 29 22:32:30 archpc os-prober[5991]: debug: running /usr/lib/os-probes/mounted/40lsb on mounted /dev/sda1
+out 29 22:32:30 archpc os-prober[6000]: debug: running /usr/lib/os-probes/mounted/90linux-distro on mounted /dev/sda1
+out 29 22:32:30 archpc os-prober[6010]: debug: running /usr/lib/os-probes/50mounted-tests on /dev/sda2
+out 29 22:32:30 archpc 05efi[6033]: debug: /dev/sda2 partition type is 0xef
+out 29 22:32:30 archpc 05efi[6037]: debug: running subtest /usr/lib/os-probes/mounted/efi/10elilo
+out 29 22:32:30 archpc 05efi[6040]: debug: running subtest /usr/lib/os-probes/mounted/efi/20microsoft
+out 29 22:32:30 archpc 50mounted-tests[6050]: debug: running subtest /usr/lib/os-probes/mounted/10qnx
+out 29 22:32:30 archpc 10qnx[6052]: debug: /dev/sda2 is not a QNX4 partition: exiting
+out 29 22:32:30 archpc 30utility[6061]: debug: /dev/sda2 is a FAT partition (mounted by GRUB)
+out 29 22:32:30 archpc 50mounted-tests[6068]: debug: running subtest /usr/lib/os-probes/mounted/70hurd
+out 29 22:32:30 archpc 50mounted-tests[6072]: debug: running subtest /usr/lib/os-probes/mounted/83haiku
+out 29 22:32:30 archpc 50mounted-tests[6075]: debug: running subtest /usr/lib/os-probes/mounted/90linux-distro
+out 29 22:32:30 archpc systemd[1]: Finished Elite: first-boot (driver GPU + serviços + tokens GRUB) — auto-desativa.
+
+══════════ 12 · LOGS DA ELITE (evidência recente) ══════════
+
+── tail /home/chris/.cache/elite/bars.log
+time="2026-10-29T22:31:51-03:00" level=info msg="SIGTERM received, bye bye"
+time="2026-10-29T22:32:36-03:00" level=info msg="term: foot"
+time="2026-10-29T22:32:36-03:00" level=info msg="lang: pt_BR"
+time="2026-10-29T22:32:36-03:00" level=info msg="Config dir: /home/chris/.config/nwg-drawer"
+time="2026-10-29T22:32:36-03:00" level=info msg="Data dir: /usr/share/nwg-drawer"
+time="2026-10-29T22:32:36-03:00" level=info msg="Found 1 pinned items"
+time="2026-10-29T22:32:36-03:00" level=info msg="Data dir: /usr/share/nwg-drawer"
+time="2026-10-29T22:32:36-03:00" level=info msg="Found 47 desktop files"
+time="2026-10-29T22:32:36-03:00" level=info msg="Skipped 5 duplicates; 27 .desktop entries hidden by \"NoDisplay=true\""
+time="2026-10-29T22:32:36-03:00" level=info msg="/home/chris/.config/nwg-drawer/preferred-apps.json file not found"
+time="2026-10-29T22:32:36-03:00" level=info msg="/home/chris/.config/nwg-drawer/excluded-dirs file not found"
+time="2026-10-29T22:32:36-03:00" level=info msg="Preferring dark theme variants"
+time="2026-10-29T22:32:36-03:00" level=info msg="Using style from /home/chris/.config/nwg-drawer/drawer.css"
+time="2026-10-29T22:32:36-03:00" level=info msg="Setting GTK layer shell keyboard mode to default: exclusive"
+time="2026-10-29T22:32:36-03:00" level=info msg="Using XDG user dirs from /home/chris/.config/user-dirs.dirs"
+time="2026-10-29T22:32:36-03:00" level=info msg="UI created in 107 ms. Thank you for your patience."
+time="2026-10-29T22:32:37-03:00" level=info msg="Executing command: \"/usr/bin/env\"; args: [\"-S\" \"brave\"]\n"
+time="2026-10-29T22:32:41-03:00" level=info msg="term: foot"
+time="2026-10-29T22:32:41-03:00" level=info msg="lang: pt_BR"
+time="2026-10-29T22:32:41-03:00" level=info msg="Config dir: /home/chris/.config/nwg-drawer"
+time="2026-10-29T22:32:41-03:00" level=info msg="Data dir: /usr/share/nwg-drawer"
+time="2026-10-29T22:32:41-03:00" level=info msg="Found 1 pinned items"
+time="2026-10-29T22:32:41-03:00" level=info msg="Data dir: /usr/share/nwg-drawer"
+time="2026-10-29T22:32:41-03:00" level=info msg="Found 47 desktop files"
+time="2026-10-29T22:32:41-03:00" level=info msg="Skipped 5 duplicates; 27 .desktop entries hidden by \"NoDisplay=true\""
+time="2026-10-29T22:32:41-03:00" level=info msg="/home/chris/.config/nwg-drawer/preferred-apps.json file not found"
+time="2026-10-29T22:32:41-03:00" level=info msg="/home/chris/.config/nwg-drawer/excluded-dirs file not found"
+time="2026-10-29T22:32:41-03:00" level=info msg="Preferring dark theme variants"
+time="2026-10-29T22:32:41-03:00" level=info msg="Using style from /home/chris/.config/nwg-drawer/drawer.css"
+time="2026-10-29T22:32:41-03:00" level=info msg="Setting GTK layer shell keyboard mode to default: exclusive"
+time="2026-10-29T22:32:41-03:00" level=info msg="Using XDG user dirs from /home/chris/.config/user-dirs.dirs"
+time="2026-10-29T22:32:41-03:00" level=info msg="UI created in 107 ms. Thank you for your patience."
+time="2026-10-29T22:32:42-03:00" level=info msg="Executing command: \"foot\"; args: [\"/usr/bin/env\" \"-S\" \"btop\"]\n"
+time="2026-10-29T22:32:44-03:00" level=info msg="term: foot"
+time="2026-10-29T22:32:44-03:00" level=info msg="lang: pt_BR"
+time="2026-10-29T22:32:44-03:00" level=info msg="Config dir: /home/chris/.config/nwg-drawer"
+time="2026-10-29T22:32:44-03:00" level=info msg="Data dir: /usr/share/nwg-drawer"
+time="2026-10-29T22:32:44-03:00" level=info msg="Found 1 pinned items"
+time="2026-10-29T22:32:44-03:00" level=info msg="Data dir: /usr/share/nwg-drawer"
+time="2026-10-29T22:32:44-03:00" level=info msg="Found 47 desktop files"
+time="2026-10-29T22:32:44-03:00" level=info msg="Skipped 5 duplicates; 27 .desktop entries hidden by \"NoDisplay=true\""
+time="2026-10-29T22:32:44-03:00" level=info msg="/home/chris/.config/nwg-drawer/preferred-apps.json file not found"
+time="2026-10-29T22:32:44-03:00" level=info msg="/home/chris/.config/nwg-drawer/excluded-dirs file not found"
+time="2026-10-29T22:32:44-03:00" level=info msg="Preferring dark theme variants"
+time="2026-10-29T22:32:44-03:00" level=info msg="Using style from /home/chris/.config/nwg-drawer/drawer.css"
+time="2026-10-29T22:32:44-03:00" level=info msg="Setting GTK layer shell keyboard mode to default: exclusive"
+time="2026-10-29T22:32:44-03:00" level=info msg="Using XDG user dirs from /home/chris/.config/user-dirs.dirs"
+time="2026-10-29T22:32:44-03:00" level=info msg="UI created in 105 ms. Thank you for your patience."
+time="2026-10-29T22:32:44-03:00" level=info msg="Executing command: \"/usr/bin/env\"; args: [\"-S\" \"wdisplays\"]\n"
+time="2026-10-29T22:32:45-03:00" level=info msg="term: foot"
+time="2026-10-29T22:32:45-03:00" level=info msg="lang: pt_BR"
+time="2026-10-29T22:32:45-03:00" level=info msg="Config dir: /home/chris/.config/nwg-drawer"
+time="2026-10-29T22:32:45-03:00" level=info msg="Data dir: /usr/share/nwg-drawer"
+time="2026-10-29T22:32:45-03:00" level=info msg="Found 1 pinned items"
+time="2026-10-29T22:32:45-03:00" level=info msg="Data dir: /usr/share/nwg-drawer"
+time="2026-10-29T22:32:45-03:00" level=info msg="Found 47 desktop files"
+time="2026-10-29T22:32:45-03:00" level=info msg="Skipped 5 duplicates; 27 .desktop entries hidden by \"NoDisplay=true\""
+time="2026-10-29T22:32:45-03:00" level=info msg="/home/chris/.config/nwg-drawer/preferred-apps.json file not found"
+time="2026-10-29T22:32:45-03:00" level=info msg="/home/chris/.config/nwg-drawer/excluded-dirs file not found"
+time="2026-10-29T22:32:45-03:00" level=info msg="Preferring dark theme variants"
+time="2026-10-29T22:32:45-03:00" level=info msg="Using style from /home/chris/.config/nwg-drawer/drawer.css"
+time="2026-10-29T22:32:45-03:00" level=info msg="Setting GTK layer shell keyboard mode to default: exclusive"
+time="2026-10-29T22:32:46-03:00" level=info msg="Using XDG user dirs from /home/chris/.config/user-dirs.dirs"
+time="2026-10-29T22:32:46-03:00" level=info msg="UI created in 106 ms. Thank you for your patience."
+time="2026-10-29T22:32:46-03:00" level=info msg="Executing command: \"/usr/bin/env\"; args: [\"-S\" \"foot\"]\n"
+time="2026-10-29T22:32:47-03:00" level=info msg="term: foot"
+time="2026-10-29T22:32:47-03:00" level=info msg="lang: pt_BR"
+time="2026-10-29T22:32:47-03:00" level=info msg="Config dir: /home/chris/.config/nwg-drawer"
+time="2026-10-29T22:32:47-03:00" level=info msg="Data dir: /usr/share/nwg-drawer"
+time="2026-10-29T22:32:47-03:00" level=info msg="Found 1 pinned items"
+time="2026-10-29T22:32:47-03:00" level=info msg="Data dir: /usr/share/nwg-drawer"
+time="2026-10-29T22:32:47-03:00" level=info msg="Found 47 desktop files"
+time="2026-10-29T22:32:47-03:00" level=info msg="Skipped 5 duplicates; 27 .desktop entries hidden by \"NoDisplay=true\""
+time="2026-10-29T22:32:47-03:00" level=info msg="/home/chris/.config/nwg-drawer/preferred-apps.json file not found"
+time="2026-10-29T22:32:47-03:00" level=info msg="/home/chris/.config/nwg-drawer/excluded-dirs file not found"
+time="2026-10-29T22:32:47-03:00" level=info msg="Preferring dark theme variants"
+time="2026-10-29T22:32:47-03:00" level=info msg="Using style from /home/chris/.config/nwg-drawer/drawer.css"
+time="2026-10-29T22:32:47-03:00" level=info msg="Setting GTK layer shell keyboard mode to default: exclusive"
+time="2026-10-29T22:32:47-03:00" level=info msg="Using XDG user dirs from /home/chris/.config/user-dirs.dirs"
+time="2026-10-29T22:32:47-03:00" level=info msg="UI created in 114 ms. Thank you for your patience."
+time="2026-10-29T22:32:48-03:00" level=info msg="Executing command: \"/usr/bin/env\"; args: [\"-S\" \"blueman-manager\"]\n"
+time="2026-10-29T22:32:49-03:00" level=info msg="term: foot"
+time="2026-10-29T22:32:49-03:00" level=info msg="lang: pt_BR"
+time="2026-10-29T22:32:49-03:00" level=info msg="Config dir: /home/chris/.config/nwg-drawer"
+time="2026-10-29T22:32:49-03:00" level=info msg="Data dir: /usr/share/nwg-drawer"
+time="2026-10-29T22:32:49-03:00" level=info msg="Found 1 pinned items"
+time="2026-10-29T22:32:49-03:00" level=info msg="Data dir: /usr/share/nwg-drawer"
+time="2026-10-29T22:32:49-03:00" level=info msg="Found 47 desktop files"
+time="2026-10-29T22:32:49-03:00" level=info msg="Skipped 5 duplicates; 27 .desktop entries hidden by \"NoDisplay=true\""
+time="2026-10-29T22:32:49-03:00" level=info msg="/home/chris/.config/nwg-drawer/preferred-apps.json file not found"
+time="2026-10-29T22:32:49-03:00" level=info msg="/home/chris/.config/nwg-drawer/excluded-dirs file not found"
+time="2026-10-29T22:32:49-03:00" level=info msg="Preferring dark theme variants"
+time="2026-10-29T22:32:49-03:00" level=info msg="Using style from /home/chris/.config/nwg-drawer/drawer.css"
+time="2026-10-29T22:32:49-03:00" level=info msg="Setting GTK layer shell keyboard mode to default: exclusive"
+time="2026-10-29T22:32:49-03:00" level=info msg="Using XDG user dirs from /home/chris/.config/user-dirs.dirs"
+time="2026-10-29T22:32:49-03:00" level=info msg="UI created in 110 ms. Thank you for your patience."
+time="2026-10-29T22:32:50-03:00" level=info msg="Executing command: \"/usr/bin/env\"; args: [\"-S\" \"thunar\"]\n"
+time="2026-10-29T22:32:51-03:00" level=info msg="term: foot"
+time="2026-10-29T22:32:51-03:00" level=info msg="lang: pt_BR"
+time="2026-10-29T22:32:51-03:00" level=info msg="Config dir: /home/chris/.config/nwg-drawer"
+time="2026-10-29T22:32:51-03:00" level=info msg="Data dir: /usr/share/nwg-drawer"
+time="2026-10-29T22:32:51-03:00" level=info msg="Found 1 pinned items"
+time="2026-10-29T22:32:51-03:00" level=info msg="Data dir: /usr/share/nwg-drawer"
+time="2026-10-29T22:32:51-03:00" level=info msg="Found 47 desktop files"
+time="2026-10-29T22:32:51-03:00" level=info msg="Skipped 5 duplicates; 27 .desktop entries hidden by \"NoDisplay=true\""
+time="2026-10-29T22:32:51-03:00" level=info msg="/home/chris/.config/nwg-drawer/preferred-apps.json file not found"
+time="2026-10-29T22:32:51-03:00" level=info msg="/home/chris/.config/nwg-drawer/excluded-dirs file not found"
+time="2026-10-29T22:32:51-03:00" level=info msg="Preferring dark theme variants"
+time="2026-10-29T22:32:51-03:00" level=info msg="Using style from /home/chris/.config/nwg-drawer/drawer.css"
+time="2026-10-29T22:32:51-03:00" level=info msg="Setting GTK layer shell keyboard mode to default: exclusive"
+time="2026-10-29T22:32:51-03:00" level=info msg="Using XDG user dirs from /home/chris/.config/user-dirs.dirs"
+time="2026-10-29T22:32:51-03:00" level=info msg="UI created in 109 ms. Thank you for your patience."
+time="2026-10-29T22:32:51-03:00" level=info msg="Executing command: \"/usr/bin/env\"; args: [\"-S\" \"/usr/bin/gparted\"]\n"
+time="2026-10-29T22:32:52-03:00" level=info msg="term: foot"
+time="2026-10-29T22:32:52-03:00" level=info msg="lang: pt_BR"
+time="2026-10-29T22:32:52-03:00" level=info msg="Config dir: /home/chris/.config/nwg-drawer"
+time="2026-10-29T22:32:52-03:00" level=info msg="Data dir: /usr/share/nwg-drawer"
+time="2026-10-29T22:32:52-03:00" level=info msg="Found 1 pinned items"
+time="2026-10-29T22:32:52-03:00" level=info msg="Data dir: /usr/share/nwg-drawer"
+time="2026-10-29T22:32:52-03:00" level=info msg="Found 47 desktop files"
+time="2026-10-29T22:32:52-03:00" level=info msg="Skipped 5 duplicates; 27 .desktop entries hidden by \"NoDisplay=true\""
+time="2026-10-29T22:32:52-03:00" level=info msg="/home/chris/.config/nwg-drawer/preferred-apps.json file not found"
+time="2026-10-29T22:32:52-03:00" level=info msg="/home/chris/.config/nwg-drawer/excluded-dirs file not found"
+time="2026-10-29T22:32:52-03:00" level=info msg="Preferring dark theme variants"
+time="2026-10-29T22:32:52-03:00" level=info msg="Using style from /home/chris/.config/nwg-drawer/drawer.css"
+time="2026-10-29T22:32:52-03:00" level=info msg="Setting GTK layer shell keyboard mode to default: exclusive"
+time="2026-10-29T22:32:52-03:00" level=info msg="Using XDG user dirs from /home/chris/.config/user-dirs.dirs"
+time="2026-10-29T22:32:52-03:00" level=info msg="UI created in 117 ms. Thank you for your patience."
+time="2026-10-29T22:32:53-03:00" level=info msg="Executing command: \"/usr/bin/env\"; args: [\"-S\" \"nwg-look\"]\n"
+time="2026-10-29T22:32:54-03:00" level=info msg="term: foot"
+time="2026-10-29T22:32:54-03:00" level=info msg="lang: pt_BR"
+time="2026-10-29T22:32:54-03:00" level=info msg="Config dir: /home/chris/.config/nwg-drawer"
+time="2026-10-29T22:32:54-03:00" level=info msg="Data dir: /usr/share/nwg-drawer"
+time="2026-10-29T22:32:54-03:00" level=info msg="Found 1 pinned items"
+time="2026-10-29T22:32:54-03:00" level=info msg="Data dir: /usr/share/nwg-drawer"
+time="2026-10-29T22:32:54-03:00" level=info msg="Found 47 desktop files"
+time="2026-10-29T22:32:54-03:00" level=info msg="Skipped 5 duplicates; 27 .desktop entries hidden by \"NoDisplay=true\""
+time="2026-10-29T22:32:54-03:00" level=info msg="/home/chris/.config/nwg-drawer/preferred-apps.json file not found"
+time="2026-10-29T22:32:54-03:00" level=info msg="/home/chris/.config/nwg-drawer/excluded-dirs file not found"
+time="2026-10-29T22:32:55-03:00" level=info msg="Preferring dark theme variants"
+time="2026-10-29T22:32:55-03:00" level=info msg="Using style from /home/chris/.config/nwg-drawer/drawer.css"
+time="2026-10-29T22:32:55-03:00" level=info msg="Setting GTK layer shell keyboard mode to default: exclusive"
+time="2026-10-29T22:32:55-03:00" level=info msg="Using XDG user dirs from /home/chris/.config/user-dirs.dirs"
+time="2026-10-29T22:32:55-03:00" level=info msg="UI created in 117 ms. Thank you for your patience."
+time="2026-10-29T22:32:55-03:00" level=info msg="SIGTERM received, bye bye"
+/usr/local/bin/craft-bgapps: linha 133: /proc/13298/environ: Processo inexistente
+/usr/local/bin/craft-bgapps: linha 133: /proc/13298/environ: Processo inexistente
+/usr/local/bin/craft-bgapps: linha 133: /proc/13298/environ: Processo inexistente
+/usr/local/bin/craft-bgapps: linha 133: /proc/13298/environ: Processo inexistente
+[2026-10-29 22:33:44] idle swayidle SAIU exit=0
+
+── tail /home/chris/.cache/elite/menus.log
+[2026-10-29 22:31:53] Rede: abrindo central (craft-menu v4, âncora no botão)
+[2026-10-29 22:31:57] Rede: abrindo central (craft-menu v4, âncora no botão)
+[2026-10-29 22:31:57] Rede: fechado pelo usuário (ESC)/toggle/cross-dismiss (rc=2) — benigno
+[2026-10-29 22:31:57] Rede: craft-menu rc=143 — stderr:  err: config.c:1057: /home/chris/.config/fuzzel/fuzzel.ini:35: [main].exit-on-focus-loss: yes: not a valid option: exit-on-focus-loss;
+[2026-10-29 22:31:57] Rede: fechado pelo usuário (ESC)/toggle/cross-dismiss (rc=143) — benigno
+[2026-10-29 22:31:57] Rede: abrindo central (craft-menu v4, âncora no botão)
+[2026-10-29 22:31:58] Rede: desligar cabo (enp7s0)
+[2026-10-29 22:31:59] Rede: ligar cabo (enp7s0)
+[2026-10-29 22:32:01] Rede: rádio Wi-Fi OFF
+[2026-10-29 22:32:01] Rede: rádio Wi-Fi ON
+[2026-10-29 22:32:04] Rede: varredura explícita (Atualizar)
+[2026-10-29 22:32:09] Rede: abrindo central (craft-menu v4, âncora no botão)
+[2026-10-29 22:32:09] Rede: craft-menu rc=143 — stderr:  err: config.c:1057: /home/chris/.config/fuzzel/fuzzel.ini:35: [main].exit-on-focus-loss: yes: not a valid option: exit-on-focus-loss;
+[2026-10-29 22:32:09] Rede: fechado pelo usuário (ESC)/toggle/cross-dismiss (rc=143) — benigno
+[2026-10-29 22:32:09] Rede: fechado pelo usuário (ESC)/toggle/cross-dismiss (rc=2) — benigno
+[2026-10-29 22:32:09] Rede: craft-menu rc=143 — stderr:  err: config.c:1057: /home/chris/.config/fuzzel/fuzzel.ini:35: [main].exit-on-focus-loss: yes: not a valid option: exit-on-focus-loss;
+[2026-10-29 22:32:09] Rede: fechado pelo usuário (ESC)/toggle/cross-dismiss (rc=143) — benigno
+[2026-10-29 22:32:10] Rede: abrindo central (craft-menu v4, âncora no botão)
+[2026-10-29 22:32:14] Rede: abrindo central (craft-menu v4, âncora no botão)
+[2026-10-29 22:32:14] Rede: craft-menu rc=143 — stderr:  err: config.c:1057: /home/chris/.config/fuzzel/fuzzel.ini:35: [main].exit-on-focus-loss: yes: not a valid option: exit-on-focus-loss;
+[2026-10-29 22:32:14] Rede: fechado pelo usuário (ESC)/toggle/cross-dismiss (rc=143) — benigno
+[2026-10-29 22:32:14] Rede: fechado pelo usuário (ESC)/toggle/cross-dismiss (rc=2) — benigno
+[2026-10-29 22:32:14] Rede: craft-menu rc=143 — stderr:  err: config.c:1057: /home/chris/.config/fuzzel/fuzzel.ini:35: [main].exit-on-focus-loss: yes: not a valid option: exit-on-focus-loss;
+[2026-10-29 22:32:14] Rede: fechado pelo usuário (ESC)/toggle/cross-dismiss (rc=143) — benigno
+[2026-10-29 22:32:14] Rede: abrindo central (craft-menu v4, âncora no botão)
+[2026-10-29 22:32:15] Rede: abrindo o gerenciador Bluetooth
+[2026-10-29 22:32:18] Rede: abrindo central (craft-menu v4, âncora no botão)
+[2026-10-29 22:32:22] Rede: rede nova protegida 'Natalya Dias' — pedindo senha
+[2026-10-29 22:32:32] Rede: abrindo central (craft-menu v4, âncora no botão)
+[2026-10-29 22:32:32] Rede: fechado pelo usuário (ESC)/toggle/cross-dismiss (rc=2) — benigno
+[2026-10-29 22:32:32] Rede: craft-menu rc=143 — stderr:  err: config.c:1057: /home/chris/.config/fuzzel/fuzzel.ini:35: [main].exit-on-focus-loss: yes: not a valid option: exit-on-focus-loss;
+[2026-10-29 22:32:32] Rede: fechado pelo usuário (ESC)/toggle/cross-dismiss (rc=143) — benigno
+[2026-10-29 22:32:33] Rede: abrindo central (craft-menu v4, âncora no botão)
+[2026-10-29 22:32:35] Rede: craft-menu rc=143 — stderr:  err: config.c:1057: /home/chris/.config/fuzzel/fuzzel.ini:35: [main].exit-on-focus-loss: yes: not a valid option: exit-on-focus-loss;
+[2026-10-29 22:32:35] Rede: fechado pelo usuário (ESC)/toggle/cross-dismiss (rc=143) — benigno
+[2026-10-29 22:33:03] Sessão: abrindo (craft-menu)
+[2026-10-29 22:33:04] Processos: abrindo (craft-menu)
+[2026-10-29 22:33:04] Sessão: fechado de fora (SIGTERM — cross-dismiss) — benigno
+[2026-10-29 22:33:05] Processos: SIGTERM enviado — tumblerd (pid 9852)
+[2026-10-29 22:33:06] Processos: abrindo (craft-menu)
+[2026-10-29 22:33:06] Processos: SIGTERM enviado — xfconfd (pid 9545)
+[2026-10-29 22:33:08] Sessão: abrindo (craft-menu)
+[2026-10-29 22:33:08] Sessão: fechado de fora (SIGTERM — cross-dismiss) — benigno
+[2026-10-29 22:33:18] Processos: abrindo (craft-menu)
+[2026-10-29 22:33:18] Processos: SIGTERM enviado — thunar (pid 13298)
+[2026-10-29 22:33:19] Processos: abrindo (craft-menu)
+[2026-10-29 22:33:20] Processos: SIGTERM enviado — xfconfd (pid 13302)
+[2026-10-29 22:33:20] Processos: abrindo (craft-menu)
+[2026-10-29 22:33:20] Processos: SIGKILL — thunar (pid 13298) ignorou o TERM
+[2026-10-29 22:33:21] Processos: SIGTERM enviado — tumblerd (pid 13581)
+[2026-10-29 22:33:30] Processos: nada vivo para encerrar — saindo
+[2026-10-29 22:33:32] Rede: abrindo central (craft-menu v4, âncora no botão)
+[2026-10-29 22:33:34] Rede: abrindo central (craft-menu v4, âncora no botão)
+[2026-10-29 22:33:34] Rede: fechado pelo usuário (ESC)/toggle/cross-dismiss (rc=2) — benigno
+[2026-10-29 22:33:34] Rede: craft-menu rc=143 — stderr:  err: config.c:1057: /home/chris/.config/fuzzel/fuzzel.ini:35: [main].exit-on-focus-loss: yes: not a valid option: exit-on-focus-loss;
+[2026-10-29 22:33:34] Rede: fechado pelo usuário (ESC)/toggle/cross-dismiss (rc=143) — benigno
+[2026-10-29 22:33:39] Sessão: abrindo (craft-menu)
+[2026-10-29 22:33:42] Idle: abrindo (craft-menu)
+[2026-10-29 22:33:44] Sessão: abrindo (craft-menu)
+[2026-10-29 22:33:47] Sessão: abrindo (craft-menu)
+[2026-10-29 22:33:49] Sessão: fechado de fora (SIGTERM — cross-dismiss) — benigno
+
+── tail /home/chris/.cache/elite/dock.log
+craft-toplevel: conectado (janelas reais ON)
+índice de .desktops: 17 chave(s) resolvíveis
+dock iniciada: 3 pin(s) · sempre visível (layer BOTTOM — some só sob tela cheia/gaveta) · dinâmicos ON (apps abertos sem pin aparecem após o fio) · comutador/menu EXTINTOS (v2.10.8 — ordem do dono)
+dinâmico entrou: network.cycles.wdisplays.desktop (comm wdisplays)
+dinâmico entrou: blueman-manager.desktop (comm blueman-manager)
+dinâmico entrou: nwg-look.desktop (comm nwg-look)
+dinâmico saiu: nwg-look.desktop
+dinâmico saiu: blueman-manager.desktop
+dinâmico saiu: network.cycles.wdisplays.desktop
+lançado: foot
+lançado: thunar
+lançado: foot
+
+── tail /var/log/elite-firstboot.log
+ lib32-libxshmfence-1.3.3-1-x86_64 sendo baixado...
+erro: falha ao obter o arquivo "lib32-gcc-libs-16.2.1+r23+gd564253eb6c8-3-x86_64_v3.pkg.tar.zst" de cdn77.cachyos.org : The requested URL returned error: 404
+erro: falha ao obter o arquivo "lib32-glibc-2.44+r50+g1848099f063e-3-x86_64_v3.pkg.tar.zst" de cdn77.cachyos.org : The requested URL returned error: 404
+verificando chaveiro...
+verificando integridade de pacotes...
+carregando arquivos do pacote...
+verificando conflitos de arquivos...
+verificando espaço em disco disponível...
+:: Processando alterações do pacote...
+instalando lib32-glibc...
+instalando lib32-expat...
+instalando lib32-gcc-libs...
+instalando lib32-zlib...
+instalando lib32-libpciaccess...
+instalando lib32-libdrm...
+instalando lib32-bzip2...
+instalando lib32-brotli...
+instalando lib32-e2fsprogs...
+instalando lib32-keyutils...
+instalando lib32-openssl...
+Dependências opcionais para lib32-openssl
+    ca-certificates [instalado]
+instalando lib32-libxcrypt...
+instalando lib32-libldap...
+instalando lib32-krb5...
+instalando lib32-libunistring...
+instalando lib32-libidn2...
+instalando lib32-libnghttp2...
+instalando lib32-libnghttp3...
+instalando lib32-gmp...
+instalando lib32-nettle...
+instalando lib32-libffi...
+instalando lib32-libtasn1...
+instalando lib32-p11-kit...
+instalando lib32-zstd...
+instalando lib32-gnutls...
+instalando lib32-libngtcp2...
+instalando lib32-libpsl...
+instalando lib32-libssh2...
+instalando lib32-curl...
+instalando lib32-json-c...
+instalando lib32-xz...
+instalando lib32-libelf...
+instalando lib32-libxdmcp...
+instalando lib32-libxau...
+instalando lib32-libxcb...
+instalando lib32-libx11...
+instalando lib32-libxext...
+instalando lib32-libglvnd...
+instalando lib32-libxshmfence...
+instalando lib32-libxxf86vm...
+instalando lib32-ncurses...
+instalando lib32-icu...
+instalando lib32-libxml2...
+instalando lib32-llvm-libs...
+instalando lib32-lm_sensors...
+instalando lib32-spirv-tools...
+instalando lib32-wayland...
+instalando lib32-mesa...
+Dependências opcionais para lib32-mesa
+    opengl-man-pages: for the OpenGL API man pages
+instalando lib32-libdisplay-info...
+instalando lib32-libgpg-error...
+instalando lib32-libgcrypt...
+instalando lib32-systemd...
+instalando lib32-vulkan-icd-loader...
+Dependências opcionais para lib32-vulkan-icd-loader
+    lib32-vulkan-driver: packaged vulkan driver [pendente]
+instalando lib32-vulkan-mesa-implicit-layers...
+instalando lib32-xcb-util-keysyms...
+instalando lib32-vulkan-radeon...
+Dependências opcionais para lib32-vulkan-radeon
+    lib32-vulkan-mesa-layers: additional vulkan layers
+:: Executando hooks pós-transação...
+(1/4) Configuring dynamic linker run-time bindings...
+(2/4) Creating 32bit iconv module configuration cache...
+(3/4) Arming ConditionNeedsUpdate...
+(4/4) Updating executables in /usr/bin...
+  [1m[arquivo][0m /etc/modprobe.d/00-elite-amdgpu.conf
+[1;32m==>[0m Auto-limpeza: GPU amd → removendo stack do outro vendor (vulkan-intel)
+  [1m$[0m pacman -Rns --noconfirm vulkan-intel
+verificando dependências...
+:: sdl3 requer opcionalmente vulkan-driver: vulkan renderer
+:: vulkan-icd-loader requer opcionalmente vulkan-driver: packaged vulkan driver
+
+Pacotes (1) vulkan-intel-3:26.2.5-1
+
+Tamanho total removido:  48,45 MiB
+
+:: Deseja remover estes pacotes? [S/n] 
+:: Processando alterações do pacote...
+removendo vulkan-intel...
+:: Executando hooks pós-transação...
+(1/1) Arming ConditionNeedsUpdate...
+[1;32m==>[0m TCP: bbr + fq ativos (sysctl.d da ISO) — throughput em links de alta latência
+[1;32m==>[0m Instalador: calamares não está no disco (nada a remover)
+[1;32m==>[0m SDDM: removendo [Autologin] herdado do live (User=liveuser não existe no instalado)
+[1;32m==>[0m Teclado: XKB_DEFAULT_LAYOUT=us (intl) → /etc/environment (a sessão labwc herda do Calamares)
+[1;32m==>[0m Brave: background_mode já é false em /home/chris/.config/BraveSoftware/Brave-Browser/Local State — ok
+  [1m$[0m systemctl enable --now ananicy-cpp.service
+  [1m$[0m snapper --no-dbus -c root create-config /
+  [1m$[0m systemctl enable --now grub-btrfsd.service
+  [1m$[0m systemctl enable --now lactd.service
+  [1m$[0m grub-mkconfig -o /boot/grub/grub.cfg
+Gerando o arquivo de configuração do grub...
+Tema encontrado: /usr/share/grub/themes/archcraft/theme.txt
+Imagem Linux encontrada: /boot/vmlinuz-linux-cachyos-bore
+Imagem initrd encontrada: /boot/initramfs-linux-cachyos-bore.img
+Found fallback initrd image(s) in /boot:  initramfs-linux-cachyos-bore-fallback.img
+Aviso: os-prober será executado para detectar outras partições de arranque.
+A sua saída será usada para detectar binários de arranque nessas partições e criar novas entradas.
+A adicionar entrada de menu para UEFI Firmware Settings ...
+Detecting snapshots ...
+No snapshots found.
+If you think an error has occurred, please file a bug report at "https://github.com/Antynea/grub-btrfs"
+Unmount /tmp/grub-btrfs.O1lVsvNFEb .. Success
+concluído
+  [1m$[0m systemctl disable elite-firstboot.service
+Removed '/etc/systemd/system/graphical.target.wants/elite-firstboot.service'.
+[1;32m==>[0m FIRSTBOOT CONCLUÍDO — log: /var/log/elite-firstboot.log
+
+══════════ 13 · PACOTES ══════════
+
+$ pacman -Qq | wc -l
+829
+
+$ pacman -Qe
+7zip 26.05-1.1
+acpi 1.8-2.1
+alsa-utils 1.2.16-1.1
+amd-ucode 1:20261019-1
+ananicy-cpp 1.2.0-1.1
+archcraft-cursor-bibata 1.0-0
+archcraft-cursor-qogirr 1.0-6
+archcraft-fonts 2.0-0
+archcraft-grub-theme 1.0-7
+archcraft-hooks 2.0-3
+archcraft-hooks-extra 3.0-0
+archcraft-hooks-grub 1.0-1
+archcraft-hooks-zsh 1.0-2
+archcraft-mirrorlist 2.0-2
+archcraft-plymouth-theme 1.0-5
+archcraft-sddm-theme 2.0-0
+autoconf 2.73-1
+automake 1.19-1
+base 3-3
+bat 0.26.1-3.1
+bison 3.8.2-8.1
+blueman 2.4.6-2.1
+bluetui 0.8.2-1.1
+bluez 5.87-2.1
+bluez-utils 5.87-2.1
+brave-origin 1.98.60-1
+brightnessctl 0.5.1-3
+btop 1.4.7-1.1
+btrfs-progs 7.3-1
+bzip2 1.0.8-6.1
+cachyos-ananicy-rules 1:1.1.49-1
+cachyos-keyring 20240331-1
+cachyos-settings 1:1.4.1-1
+cachyos-v3-mirrorlist 27-1
+catppuccin-gtk-theme-mocha 0.5.0-1
+cliphist 1:0.7.0-2.1
+craft-toplevel 1.0-2
+cryptsetup 2.8.8-1.1
+dbus-broker-units 37-3.1
+dialog 1:1.3_20260721-1.1
+diffutils 3.12-2.1
+dmidecode 3.7-1
+dosfstools 4.2-5.1
+downgrade 12.0.2-1
+dust 1.2.6-1.1
+e2fsprogs 1.47.4-1.1
+edk2-shell 202608-1
+efibootmgr 18-4.1
+ethtool 1:7.2-1.1
+exfatprogs 1.4.3-1.1
+eza 0.23.5-2.1
+f2fs-tools 1.17.0-1.1
+fakeroot 1:1.37.2-3.1
+fastfetch 2.70.0-1.1
+fatresize 1.1.0-2.1
+fd 10.5.0-3.1
+ffmpeg 2:9.0.2-2.1
+ffmpegthumbnailer 2.3.1-1.1
+flex 2.6.4-6.1
+foot 1.28.0-2.1
+foot-terminfo 1.28.0-2.1
+fuzzel 1.15.0-2.1
+fzf 0.74.5-1.1
+gamemode 1.8.2-3.1
+gamescope 3.17.0-1
+gcc 16.2.1+r23+gd564253eb6c8-3
+gnome-keyring 1:51.1-1.1
+gparted 1.8.1-2.1
+gptfdisk 1.0.10-2.1
+grim 1.5.0-2.1
+grub 2:2.14-1
+grub-btrfs 4.14-1
+gtk-engine-murrine 0.98.2-5
+gtk-layer-shell 0.10.1-1.1
+gvfs 1.62.0-3
+gvfs-mtp 1.62.0-3
+gvfs-smb 1.62.0-3
+gzip 1.15-1.1
+hdparm 9.65-3.1
+hyprlock 0.9.6-3.1
+impala 0.9.0-1.1
+imv 5.0.1-2.1
+inotify-tools 4.26.270-1.1
+iptables 1:1.8.13-1.1
+iw 6.17-1.1
+jasper 4.2.9-1.1
+jq 1.8.2-1.1
+labwc 0.20.2-1.1
+lact 0.10.1-1.1
+less 1:710-1.1
+lib32-mesa 3:26.2.5-1
+lib32-vulkan-radeon 3:26.2.5-1
+libavif 1.4.2-1.1
+libde265 1.1.3-1.1
+libdv 1.0.0-12.1
+libfido2 1.17.0-1.1
+libheif 1.23.7-1.1
+libmpeg2 0.5.1-11.1
+libnotify 0.8.9-1.1
+libpulse 17.0+r134+g77d25a1e6-1.1
+libtheora 1.2.0-1.1
+libvpx 1.17.0-1.1
+libwebp 1.6.0-2.1
+linux-cachyos-bore 7.3.0-2
+linux-cachyos-bore-headers 7.3.0-2
+linux-firmware-amd 1:20261019-1
+linux-firmware-amdgpu 1:20261019-1
+linux-firmware-atheros 1:20261019-1
+linux-firmware-broadcom 1:20261019-1
+linux-firmware-cirrus 1:20261019-1
+linux-firmware-intel 1:20261019-1
+linux-firmware-mediatek 1:20261019-1
+linux-firmware-radeon 1:20261019-1
+linux-firmware-realtek 1:20261019-1
+linux-firmware-ti 1:20261019-1
+linux-firmware-whence 1:20261019-1
+lsb-release 2.0.r55.a25a4fc-1
+lvm2 2.03.44-1.1
+lz4 1:1.10.0-3
+lzip 1.26-1.1
+make 4.4.1-3.1
+mangohud 0.8.4-1.1
+mdadm 4.6-2
+mesa 3:26.2.5-1
+mesa-utils 9.0.0-7.1
+mkinitcpio 42.2-1
+mpv 1:0.41.0-6.1
+mtools 1:4.0.49-1.1
+nano 9.2-1.1
+network-manager-applet 1.36.0-2.1
+network-manager-sstp 1.3.2-7.1
+networkmanager 1.58.1-2
+networkmanager-openvpn 1.12.5-2.1
+nm-connection-editor 1.36.0-2.1
+noto-fonts 1:2026.10.01-1
+noto-fonts-emoji 1:2.057-1
+ntfs-3g 2026.9.28-1.1
+nvme-cli 3.1-1
+nwg-drawer 0.7.5-1.1
+nwg-look 1.2.1-1.1
+openssh 10.6p1-2.1
+openvpn 2.7.8-1.1
+os-prober 1.85-1.1
+papers 51.1-1.1
+parted 3.8-1.1
+patch 2.8.1-1.1
+pciutils 3.15.0-1.1
+pipewire 1:1.6.10-1
+pipewire-alsa 1:1.6.10-1
+pipewire-jack 1:1.6.10-1
+pipewire-pulse 1:1.6.10-1
+pkgconf 3.0.10-1.1
+playerctl 2.4.1-5.1
+plymouth 26.134.222-2
+polkit 128-1.1
+polkit-gnome 0.105-12.1
+procs 0.14.12-1.1
+pulsemixer 1.5.1-8
+pv 1.12.0-1.1
+pwvucontrol 0.5.3-2
+python 3.14.8-1
+python-gobject 3.58.1-1
+qalculate-gtk 5.13.0-1.1
+qt6-multimedia-ffmpeg 6.12.0-1.1
+qt6ct 0.11-9.1
+reflector 2023-5
+ripgrep 15.2.0-1
+rsync 3.5.1-3.1
+schroedinger 1.0.11-7.2
+sd 1.1.0-1.1
+sddm 0.21.0-8
+slurp 1.5.0-2.1
+smartmontools 7.5-2.1
+snapper 0.13.2-1.1
+sof-firmware 2026.09.2-1
+squashfs-tools 4.7.5-1.1
+starship 1.27.0-1
+sudo 1.9.17.p2-6.1
+swaybg 1.2.2-1.1
+swayidle 1.9.1-1.1
+swaync 0.12.6-1.1
+systemd-resolvconf 262.1-1
+tcpdump 4.99.7-1.1
+tealdeer 1.9.1-1.1
+terminus-font 4.49.1-8
+thunar 4.20.10-1.1
+thunar-archive-plugin 0.6.0-1.1
+timeshift 26.09.0-1.1
+tmux 3.8-1.1
+tpm2-tools 5.8-1.1
+tpm2-tss 4.2.0-2.1
+tumbler 4.20.2-2.1
+udiskie 2.7.0-2
+udisks2 2.11.2-1.1
+unrar 1:7.3.2-1.1
+unzip 6.0-23.1
+usbutils 020-1.1
+vulkan-radeon 3:26.2.5-1
+waybar 0.15.0-3.1
+wdisplays 1.1.3-2.1
+which 2.25-1.1
+wireless-regdb 2026.09.03-1
+wireplumber 0.5.18-1.1
+wl-clipboard 1:2.3.0-1.1
+wlopm 1.0.0-3.1
+wlr-randr 0.5.0-1.1
+wlrctl 0.2.2-1
+wpa_supplicant 2:2.12-1.1
+x264 3:0.165.r3222.b35605a-2.1
+x265 4.3-1.1
+xarchiver 0.5.4.27-1.1
+xdg-desktop-portal-wlr 0.8.4-1.1
+xdg-user-dirs 0.20-1.1
+xdg-user-dirs-gtk 0.16-1.1
+xdg-utils 1.2.1-2
+xf86-input-libinput 1.5.0-1.2
+xfsprogs 7.2.1-1.1
+xorg-server 21.1.25-2.1
+xvidcore 1.3.7-4.1
+xz 5.8.3-1
+yay 13.0.1-1
+zip 3.0-14.1
+zoxide 0.10.0-1.1
+zsh 5.9.2-1.1
+zsh-autosuggestions 0.7.1-1
+zsh-syntax-highlighting 0.8.0-2
+zstd 1.5.7-4
+
+$ ls -l /etc/pacman.d/gnupg/pubring.gpg 2>/dev/null || echo '(pubring AUSENTE — keyring morto)'
+-rw-r--r-- 1 root root 1375392 29 out 22:32 /etc/pacman.d/gnupg/pubring.gpg
+
+$ pacman-key --list-keys cachyos 2>&1 | head -6
+pub   rsa3072 2021-08-10 [SC]
+      882DCFE48E2051D48E2562ABF3B607488DB35A47
+uid         [ completa ] CachyOS <admin@cachyos.org>
+
+
+$ pacman -Qq >/dev/null 2>&1 && echo 'pacman lê o banco: OK' || echo 'pacman BLOQUEADO — keyring doente (ver erros acima)'
+pacman lê o banco: OK
+
+$ pacman -Qtdq || echo '(nenhum órfão)'
+(nenhum órfão)
+
+$ pacman -Qm || echo '(nenhum foreign)'
+brave-origin 1.98.60-1
+craft-toplevel 1.0-2
+qt5-virtualkeyboard 5.15.16-1
+wlrctl 0.2.2-1
+(flatpak não instalado)
+
+$ grep -E '^\[[a-z]' /etc/pacman.conf
+[options]
+[archcraft]
+[cachyos-v3]
+[cachyos-core-v3]
+[cachyos-extra-v3]
+[cachyos]
+[core]
+[extra]
+[multilib]
+
+$ du -sh /var/cache/pacman/pkg 2>/dev/null
+106M	/var/cache/pacman/pkg
+
+══════════ 14 · CACHES & DISCO ══════════
+
+$ du -sh '/home/chris/.cache/elite' '/home/chris/.cache/calamares' 2>/dev/null
+32K	/home/chris/.cache/elite
+0	/home/chris/.cache/calamares
+
+$ du -sh '/home/chris/.cache'/* 2>/dev/null | sort -rh | head -12
+3,8M	/home/chris/.cache/BraveSoftware
+3,1M	/home/chris/.cache/mesa_shader_cache
+2,4M	/home/chris/.cache/radv_builtin_shaders
+52K	/home/chris/.cache/gtk-4.0
+32K	/home/chris/.cache/elite
+24K	/home/chris/.cache/cliphist
+4,0K	/home/chris/.cache/nwg-pin-cache
+4,0K	/home/chris/.cache/gtk-3.0
+0	/home/chris/.cache/starship
+0	/home/chris/.cache/glycin
+0	/home/chris/.cache/calamares
+
+$ journalctl --disk-usage 2>/dev/null
+Archived and active journals take up 8M in the file system.
+
+══════════ FIM DO DUMP v2.4 ══════════
+a seção 0 é o resumo; as seções 1-14 são o detalhe.
+envie este arquivo (ou a URL do --upload) para a análise.

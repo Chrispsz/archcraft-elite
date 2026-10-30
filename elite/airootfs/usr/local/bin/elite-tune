@@ -615,6 +615,61 @@ PYBRAVE
     say "[dry] Brave: patch de background_mode simulado (perfis /home/*)"
   fi
 
+  # 2h. v2.10.14 — O SSH QUE O ARCHISO DEIXA LIGADO (dump nl3z: symlink
+  #     multi-user.target.wants/sshd.service no INSTALADO): o perfil live
+  #     habilita sshd para a conveniência da mídia; o unpackfs copia o /etc
+  #     inteiro e o desktop nasce SERVINDO SSH sem ninguém pedir — daemon
+  #     ouvindo na rede = superfície de ataque + daemon que o dono não
+  #     escolheu (mesma escola do ufw: bloat sai). O PACOTE fica (quem
+  #     quiser o serviço: systemctl enable --now sshd). Só no INSTALADO
+  #     (esta etapa vive no firstboot, que nunca roda no live); idempotente.
+  if systemctl is-enabled sshd.service >/dev/null 2>&1; then
+    say "sshd: servidor SSH herdado do archiso — desligando (desktop não serve SSH de fábrica; pacote preservado)"
+    if (( ! DRY )); then
+      systemctl disable --now sshd.service 2>/dev/null || true
+    fi
+  else
+    say "sshd: já desligado (nada a fazer)"
+  fi
+
+  # 2i. v2.10.14 — A AUDITORIA DO SYSCTL (dump nl3z: o rig respondeu
+  #     vm.swappiness=150 com a ISO entregando 180 — o valor da Elite não
+  #     chegou ao kernel e o papel v2.4 não lista os arquivos para nomear
+  #     a causa: arquivo ausente no alvo OU arquivo que vence por ordem
+  #     lexical). A cura não aposta: GARANTE o arquivo da Elite em
+  #     /etc/sysctl.d, REAPLICA e CONFERE no kernel — o resultado vai ao
+  #     log; se seguir divergente, o aviso nomeia o réu (o dump v2.5
+  #     lista /etc/sysctl.d inteiro na seção 3 para o próximo papel).
+  if [[ ! -f /etc/sysctl.d/99-elite.conf ]]; then
+    say "sysctl: 99-elite.conf ausente no alvo — recriando (a lei da ISO)"
+    if (( ! DRY )); then
+      printf '%s\n' \
+        '# ── ELITE: sysctl de gaming (restaurado pelo elite-tune firstboot v2.10.14)' \
+        'vm.swappiness = 180' \
+        'vm.vfs_cache_pressure = 50' \
+        'vm.page_lock_unfairness = 1' \
+        'vm.max_map_count = 2147483642' \
+        'kernel.sched_autogroup_enabled = 1' \
+        > /etc/sysctl.d/99-elite.conf
+    fi
+  fi
+  want_sw=180
+  got_sw="$(sysctl -n vm.swappiness 2>/dev/null || true)"
+  if [[ "$got_sw" != "$want_sw" ]]; then
+    say "sysctl: kernel em vm.swappiness='${got_sw:-?}' (Elite pede $want_sw) — reaplicando sysctl.d"
+    if (( ! DRY )); then
+      systemctl restart systemd-sysctl.service 2>/dev/null || sysctl --system >/dev/null 2>&1 || true
+      got_sw="$(sysctl -n vm.swappiness 2>/dev/null || true)"
+    fi
+    if [[ "$got_sw" == "$want_sw" ]]; then
+      say "sysctl: vm.swappiness = $want_sw confirmado no kernel"
+    else
+      warn "sysctl: vm.swappiness segue '${got_sw:-?}' APÓS reaplicar — réu à vista no dump (seção 3 lista /etc/sysctl.d)"
+    fi
+  else
+    say "sysctl: vm.swappiness = $want_sw (kernel já na lei da Elite)"
+  fi
+
   # 3. serviços de tuning
   # v4.7 (fusão 4→1): ananicy-cpp é o ÚNICO daemon de boost. O scheduler
   # é o BORE do kernel (nenhum scheduler userspace por cima) e o boost de
