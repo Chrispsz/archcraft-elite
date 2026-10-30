@@ -66,6 +66,40 @@ command -v fuzzel >/dev/null 2>&1 || {
     exit 127
 }
 
+# ── v2.10.15 — A PROVA DE CAPACIDADE UMA VEZ SÓ (o delay que restava) ─
+# O motor fazia 'fuzzel --help' 2× POR ABERTURA de menu de escolha (probe
+# de --hide-prompt + --anchor; +1 no modo --ask) = 4 processos forkados
+# por menu só para descobrir o que NÃO muda entre um clique e outro —
+# latência pura em toda abertura (Sessão, Idle, Wi-Fi, drawer…), a
+# família do "menu com delay" que o dono relatou. A cura: UMA probe
+# grava as capacidades em ~/.cache/elite/fuzzel-flags, selada pelo stat
+# do binário (size:mtime — fuzzel atualizado = chave nova = re-probe
+# honesto, sem spawn extra de --version). Menu volta a abrir com ZERO
+# fork de prova: um stat + uma leitura de arquivo. Escrita ATÔMICA
+# (tmp → mv — a mesma escola do elite-install-stage: leitor nunca vê
+# arquivo pela metade). Cache podre = probe falha = menu clássico com
+# prompt: degradação segura, menu que abre vale mais que flag nova.
+CAPS_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/elite/fuzzel-flags"
+fzkey="$(stat -c '%s:%Y' "$(command -v fuzzel)" 2>/dev/null)"
+fz_caps() {
+    if [ -n "$fzkey" ] && [ -r "$CAPS_FILE" ] \
+        && [ "$(head -n1 "$CAPS_FILE" 2>/dev/null)" = "$fzkey" ]; then
+        sed -n '2,$p' "$CAPS_FILE"
+        return 0
+    fi
+    caps="$(fuzzel --help 2>&1)"
+    mkdir -p "${CAPS_FILE%/*}" 2>/dev/null
+    if [ -n "$fzkey" ]; then
+        tmpf="${CAPS_FILE}.$$.tmp"
+        if printf '%s\n%s\n' "$fzkey" "$caps" >"$tmpf" 2>/dev/null; then
+            mv -f "$tmpf" "$CAPS_FILE" 2>/dev/null
+        fi
+        rm -f "$tmpf" 2>/dev/null
+    fi
+    printf '%s\n' "$caps"
+}
+CAPS="$(fz_caps)"
+
 title="Menu"
 at=""
 ask=""
@@ -146,14 +180,14 @@ set -- --dmenu
 if [ -n "$ask" ]; then
     # modo entrada: prompt visível (a linha existe por causa do que se digita)
     set -- "$@" --prompt "$ask: "
-    if fuzzel --help 2>&1 | grep -q -- '--minimal-lines'; then
+    if printf '%s\n' "$CAPS" | grep -q -- '--minimal-lines'; then
         # v2.8.0 — a janela da SENHA encolhe para o conteúdo: nada de
         # herdar o lines=10 do launcher (a foto do dono: caixa alta com
         # 90% de espaço morto para digitar uma senha). --lines 1 é o
         # teto duro mesmo que o shrink não chegue.
         set -- "$@" --minimal-lines --lines 1
     fi
-elif fuzzel --help 2>&1 | grep -q -- '--hide-prompt'; then
+elif printf '%s\n' "$CAPS" | grep -q -- '--hide-prompt'; then
     # menu de escolha: LISTA PURA — sem nome, sem barra de digitação,
     # janela do tamanho da lista
     set -- "$@" --hide-prompt --minimal-lines
@@ -162,15 +196,15 @@ else
 fi
 case "$at" in
     power|bgapps|network)
-        if fuzzel --help 2>&1 | grep -q -- '--anchor'; then
+        if printf '%s\n' "$CAPS" | grep -q -- '--anchor'; then
             set -- "$@" --anchor top-right --x-margin "$xm" --y-margin "$ym"
         fi ;;
     drawer)
-        if fuzzel --help 2>&1 | grep -q -- '--anchor'; then
+        if printf '%s\n' "$CAPS" | grep -q -- '--anchor'; then
             set -- "$@" --anchor top-left --x-margin "$xm" --y-margin "$ym"
         fi ;;
     center)
-        if fuzzel --help 2>&1 | grep -q -- '--anchor'; then
+        if printf '%s\n' "$CAPS" | grep -q -- '--anchor'; then
             set -- "$@" --anchor center
         fi ;;
     *)
