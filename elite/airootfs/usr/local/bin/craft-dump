@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · craft-dump (v2.4 — o "btop completão" que se atualiza)
+# Archcraft ELITE · craft-dump (v2.5 — o "btop completão" que se atualiza)
 # ═══════════════════════════════════════════════════════════════════════════
 # Pedido do dono (out/2026): "como puxo tudo que está rodando como se fosse
 # um btop completão pra gente ter um diagnóstico da RAM, pacotes, uso, CPU
@@ -184,7 +184,7 @@ if ! : > "$OUT" 2>/dev/null; then
 fi
 
 {
-    printf '══════════ ELITE DUMP v2.4 — diagnóstico completo ══════════\n'
+    printf '══════════ ELITE DUMP v2.5 — diagnóstico completo ══════════\n'
     if [ "$(id -un)" != "$DUMP_USER" ]; then
         printf 'gerado: %s · usuário: %s → sessão de %s (uid %s) · host: %s\n' \
             "$(date)" "$(id -un)" "$DUMP_USER" "$DUMP_UID" "$(uname -n 2>/dev/null || echo '?')"
@@ -256,6 +256,15 @@ fi
     r "timeshift --list 2>/dev/null | head -12" 12
 
     printf '\n══════════ 5 · SERVIÇOS ELITE ══════════\n'
+    # v2.5 — a E23 no papel: o serviço/timer que cura o keyring (root, 6h)
+    # estava INVISÍVEL na seção 5 (o dump nl3z não mostrou NENHUM
+    # elite-keyring) — o veredito da cura precisa ver o curandeiro.
+    for s in elite-keyring-fix.timer elite-keyring-fix.service; do
+        printf '%-24s active=%-10s enabled=%s\n' "$s" \
+            "$(systemctl is-active "$s" 2>/dev/null || echo '?')" \
+            "$(systemctl is-enabled "$s" 2>/dev/null || echo '?')"
+    done
+    r "systemctl list-timers elite-keyring-fix.timer --no-pager 2>/dev/null | head -4" 5
     for s in ananicy-cpp lactd grub-btrfsd elite-firstboot; do
         printf '%-16s active=%-10s enabled=%s\n' "$s" \
             "$(systemctl is-active "$s" 2>/dev/null || echo '?')" \
@@ -479,6 +488,16 @@ PY
     r "pacman -Qq >/dev/null 2>&1 && echo 'pacman lê o banco: OK' || echo 'pacman BLOQUEADO — keyring doente (ver erros acima)'" 2
     r "pacman -Qtdq || echo '(nenhum órfão)'" 40
     r "pacman -Qm || echo '(nenhum foreign)'" 40
+    # v2.5 — O FANTASMA DO INSTALADOR (o dono na 10.12: 'o instalador tá
+    # ficando nos aplicativos depois de instalar'): o cleanup remove o
+    # calamares.desktop, mas o ícone que sobrevive pode ser o CACHE do
+    # nwg-drawer ou um .desktop em outro caminho — o papel passa a nomear
+    # TODOS os suspeitos (sistema, local, usuário, cache).
+    r "ls /usr/local/share/applications/ 2>/dev/null || echo '(dir ausente)'" 6
+    r "ls /usr/share/applications/ 2>/dev/null | grep -iE 'calamares|instal|abif' || echo '(nenhum instalador em /usr/share/applications)'" 3
+    r "ls '$UHOME/.local/share/applications/' 2>/dev/null | grep -iE 'calamares|instal|abif' || echo '(nenhum instalador no .local do usuário)'" 3
+    r "ls -la '$UHOME/.cache/nwg-drawer/' 2>/dev/null || echo '(sem cache do drawer)'" 3
+    r "grep -l 'calamares' '$UHOME/.cache/nwg-drawer/cache.db' 2>/dev/null && echo 'FANTASMA: cache do drawer ainda lista calamares' || echo '(cache do drawer sem calamares — ou cache inexistente)'" 2
     if command -v flatpak >/dev/null 2>&1; then
         r "flatpak list --columns=application,version,origin 2>/dev/null" 40
     else
@@ -494,7 +513,7 @@ PY
     r "du -sh '$UHOME/.cache'/* 2>/dev/null | sort -rh | head -12" 14
     r "journalctl --disk-usage 2>/dev/null" 2
 
-    printf '\n══════════ FIM DO DUMP v2.4 ══════════\n'
+    printf '\n══════════ FIM DO DUMP v2.5 ══════════\n'
     printf 'a seção 0 é o resumo; as seções 1-14 são o detalhe.\n'
     printf 'envie este arquivo (ou a URL do --upload) para a análise.\n'
 } > "$OUT" 2>&1

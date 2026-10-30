@@ -39,6 +39,16 @@ if [ $((now - last)) -lt 86400 ]; then
     exit 0
 fi
 
+# v2.10.12 — A CAMADA DE SESSÃO SÓ AGE NO LIVE (dump nl3z, journal
+# 22:31:36: sudo 'a password is required' no sistema instalado — o ruído
+# do journal a cada 24h): no liveuser o sudo é NOPASSWD e a cura faz
+# sentido; no instalado o sudo -n falha calado POR DESENHO e o trabalho
+# é do elite-keyring-fix.service (ROOT, timer 6h — a cura E23). Mesmo
+# binário no serviço: root passa direto (id -u 0), a sessão instalada sai.
+if [ "$(id -u)" -ne 0 ] && [ ! -e /run/archiso ]; then
+    exit 0
+fi
+
 if [ "$(id -u)" -eq 0 ]; then
     SUDO=''
 else

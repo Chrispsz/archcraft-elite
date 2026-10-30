@@ -25,6 +25,12 @@ polkit.addRule(function(action, subject) {
         // demais tinham): com uma 2ª sessão ativa o suspend do menu pedia
         // senha (achado D3 da Rodada 2).
         "org.freedesktop.login1.suspend-multiple-sessions",
+        // v2.10.12 — a VARIANTE ignore-inhibit faltava: o craft-power
+        // suspende com -i (a lei v2.6.0: 'quem pede delay de sono não
+        // manda no dono') e -i cai na ação suspend-ignore-inhibit, cujo
+        // default upstream é auth_admin_keep → PEDIRIA SENHA a cada
+        // suspender do menu. Mesma família da regra (local+ativo=YES).
+        "org.freedesktop.login1.suspend-ignore-inhibit",
         "org.freedesktop.login1.hibernate",
         "org.freedesktop.login1.hibernate-multiple-sessions"
     ];

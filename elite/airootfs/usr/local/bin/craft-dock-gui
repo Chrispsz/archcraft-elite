@@ -364,7 +364,13 @@ class Dock:
             f"dinâmicos ON (apps abertos sem pin aparecem após o fio) · "
             f"comutador/menu EXTINTOS (v2.10.8 — ordem do dono)")
 
-        GLib.timeout_add(3000, self.poll_running)
+        # v2.10.12 — TICK 1s (o dono: 'as coisas parecem ter um delay pra
+        # atualizar'): o tick de 3s atrasava indicadores e dinâmicos até
+        # 3s. O custo do tick é o /proc scan + leitura do socket (nada de
+        # fork) — 1s é de graça e o 'atualizar na hora' é a expectativa
+        # de um desktop. O diff-guard da _sync_dynamic garante zero
+        # redraw quando nada muda (a lei v2.10.0 fica de pé).
+        GLib.timeout_add(1000, self.poll_running)
         GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGUSR1,
                              self.toggle)
         GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGUSR2,

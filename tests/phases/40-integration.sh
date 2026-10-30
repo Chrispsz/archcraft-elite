@@ -334,7 +334,8 @@ assert_nogrep "$CMN" 'GtkLayerShell' "v2.4.0: zero layer-shell no menu (a gaiola
 assert_nogrep "$CMN" 'Gtk\|Gdk' "v2.4.0: menu é POSIX sh puro (nenhum toolkit para falhar antes do 1º frame)"
 assert_grep "$CMN" 'fuzzel "\$@"' "v2.4.0: o motor do menu é o FUZZEL — a prova de vida do rig (launcher e Sessão sempre abriram)"
 assert_grep "$CMN" '--title=' "v2.4.0: interface intocada (--title= + argv/stdin — os 7 chamadores não mudam uma linha)"
-assert_grep "$P/airootfs/etc/skel/.config/fuzzel/fuzzel.ini" 'exit-on-focus-loss=yes' "v2.4.0: a lei do fechar EXPLÍCITA no fuzzel.ini (perder o foco FECHA — toggle/cross-dismiss por física; o 2º clique fecha como no burn test v1.4)"
+assert_grep "$P/airootfs/etc/skel/.config/fuzzel/fuzzel.ini" 'exit-on-keyboard-focus-loss=yes' "v2.10.12: a lei do fechar EXPLÍCITA com o NOME CERTO da opção (dump nl3z: 'exit-on-focus-loss' não existe no fuzzel 1.15 — err em TODO abrir de menu; o próprio comentário da v2.4.0 sabia o nome)"
+assert_nogrep "$P/airootfs/etc/skel/.config/fuzzel/fuzzel.ini" '^exit-on-focus-loss=' "v2.10.12: o nome errado EXTINTO do fuzzel.ini (cada abertura de menu cuspiu err no rig 10.12)"
 WTCSS="$P/airootfs/etc/skel/.config/waybar/style.top.css"
 assert_nogrep "$WTCSS" '#custom-shot' "v2.3.10: zero regra do print no CSS da barra (o módulo saiu do config.top — regra órfã nenhuma sobrevive)"
 assert_nogrep "$WTCSS" 'padding: 0 12px 0 14px' "v2.3.9: ARCH do drawer com padding SIMÉTRICO (a declaração 0 12px 0 14px nascia 1px fora do centro da própria pílula)"
@@ -663,7 +664,7 @@ assert_grep "$DUMP" 'list-sessions' "v2.10.8: sessões do logind no papel (o can
 assert_grep "$DUMP" 'sleep.conf.d' "v2.10.8: cadeia de sono INTEIRA no papel (sleep.conf + drop-ins — o réu AllowSuspend=no tem endereço)"
 assert_grep "$DUMP" '/sys/power/disk' "v2.10.8: o estado disk do kernel no papel (hibernate sem resume= = recusa honesta; a prova viaja)"
 assert_grep "$DUMP" 'systemd-inhibit' "v2.10.8: quem segura inibidor de sono AGORA (o 'tenta e volta' tinha réu anônimo — o -i do menu e o idle-inhibit do swayidle no papel)"
-assert_grep "$DUMP" 'FIM DO DUMP v2.4' "v2.10.11: versão do papel = conteúdo do papel (o d33o carregava v2.0 no título com v2.0.1 no corpo — a etiqueta não mente mais; E24 destrona a v2.1 do rodapé)"
+assert_grep "$DUMP" 'FIM DO DUMP v2.5' "v2.10.12: versão do papel = conteúdo do papel (a v2.5 traz o fantasma do instalador e a E23 visível; a lei da etiqueta fica de pé)"
 assert_grep "$TUN" 'pacman-key --populate archlinux cachyos' "v2.3.6: firstboot popula as chaves ANTES do primeiro -Sy (db assinado por chave desconhecida falha INTEIRO — o rig flagrou: firstboot nunca completava)"
 assert_grep "$TUN" 'timeout 90 pacman-key --recv-keys' "v2.3.6: recv-keys com timeout 90 (keyserver lento pendurou a unit 17min em 'activating' — o rig flagrou)"
 assert_grep "$TUN" 'ensure_cachyos \|\| true' "v2.3.6: firstboot puxa o keyring FRESCO do mirror (o pacote datado 2024 é a raiz do 'chave desconhecida')"
@@ -788,7 +789,7 @@ assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" '"return-type": "js
 # v2.0 — a classe de leak morre DE VEZ: a dock nativa não tem exec JSON
 # por pin; o indicador é pgrep IN-PROCESS (timer GTK de 3s, um único
 # processo). O config.top segue 100% módulos nativos (contrato acima).
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'timeout_add\(3000, self\.poll_running\)' "v2.0: indicador in-process (timer GTK 3s — zero exec-json por pin)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'timeout_add\(1000, self\.poll_running\)' "v2.10.12: tick 1s (o dono: 'delay pra atualizar' — 3s atrasava indicadores/dinâmicos; o diff-guard mantém zero redraw quando nada muda)"
 assert_nogrep "$P/airootfs/usr/local/bin/craft-dock-gui" '"exec"' "v2.0: o GUI não executa JSON de pin (a classe narrow v1.8 virou arquitetura)"
 # v1.5: keyring CachyOS em 4 camadas (spec: init → populate → refresh)
 assert_grep "$P/airootfs/usr/local/bin/craft-fix-keys" 'pacman-key --populate archlinux cachyos' "v1.5: craft-fix-keys — comandos LITERAIS da spec (populate)"

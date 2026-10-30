@@ -129,8 +129,14 @@ list_main_entries() {
         # (dconf, gvfs, sd-pam conversam por D-Bus; o Brave, o Files e o
         # Terminal conversam com o compositor). Falso-positivo na lista
         # doía mais que falso-negativo: serviço NUNCA entra.
+        # v2.10.12 — A CORRIDA DO PROCESSO MORRENDO (dump nl3z, bars.log
+        # ×4: 'linha 133: /proc/13298/environ: Processo inexistente'): o
+        # -r passa e o arquivo some ANTES do redirect — o erro é do SHELL
+        # do pipeline (o 2>/dev/null do tr não o cobre). O subshell com
+        # stderr fechado engole o erro da corrida; sem environ legível =
+        # sem Wayland = service (a semântica de falha conservadora fica).
         if [ -r "/proc/$pid/environ" ] && \
-           ! tr '\0' '\n' <"/proc/$pid/environ" 2>/dev/null | \
+           ! ( tr '\0' '\n' <"/proc/$pid/environ" ) 2>/dev/null | \
              grep -q -e '^WAYLAND_DISPLAY=' -e '^DISPLAY='; then
             continue
         fi
