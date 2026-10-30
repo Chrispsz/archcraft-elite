@@ -22,4 +22,12 @@ ConditionPathExists=/usr/local/bin/craft-fix-keys
 
 [Service]
 Type=oneshot
+# v2.10.16.1 · E29.1 — ESPERAR ANTES DE CURAR: a camada de sessão
+# (craft-fix-keys no autostart do liveuser) pode estar no MEIO da própria
+# transação quando este timer dispara (login ~40s vs timer 120s) — duas
+# curas simultâneas disputam o MESMO lock do gnupg e o mesmo db.lck do
+# pacman. O guarda espera (teto 420s) qualquer pacman/pacman-key em voo:
+# transações se enfileiram em vez de colidir (e um pacman-init que o
+# daemon-reload marcou para reiniciar encontra o mesmo guarda).
+ExecStartPre=/usr/local/bin/craft-keyring-wait
 ExecStart=/usr/local/bin/craft-fix-keys

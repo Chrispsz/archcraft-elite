@@ -24,8 +24,13 @@
 # effort: esgota o teto e sai — quem decide é o ExecStart. Caminho feliz
 # (boot normal): um pgrep, ~2ms — ninguém paga nada.
 
+# v2.10.16.1 · E29.1 — O TETO MENTIA: 240s parecia generoso até o serial
+# do run 41078548156 mostrar a transação de keyring com 4min46s de wall —
+# o guard esgotava ANTES dela e o pacman-key reia dentro da janela de
+# colisão de novo. Teto agora 84 × 5s = 420s (> 5min provados). O custo
+# do caminho feliz continua ~2ms (um pgrep).
 i=0
-while [ "$i" -lt 48 ]; do          # teto honesto: 48 × 5s = 240s
+while [ "$i" -lt 84 ]; do          # teto honesto: 84 × 5s = 420s (> transação provada de 4min46s)
     pgrep -x pacman-key >/dev/null 2>&1 && { sleep 5; i=$((i + 1)); continue; }
     pgrep -x pacman >/dev/null 2>&1 && { sleep 5; i=$((i + 1)); continue; }
     break
