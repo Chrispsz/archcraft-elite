@@ -496,6 +496,7 @@ if grep -q '^file_permissions=(' "$PD"; then
            /usr/local/bin/craft-menu /usr/local/bin/craft-menu-dismiss \
            /usr/local/bin/craft-dump \
            /usr/local/bin/craft-wake-guard \
+           /usr/local/bin/craft-audio-route /usr/local/bin/elite-sweep \
            /usr/local/bin/calamares-elite-log \
            /usr/lib/systemd/system-sleep/elite-sleep-report \
            /etc/skel/.config/labwc/autostart; do

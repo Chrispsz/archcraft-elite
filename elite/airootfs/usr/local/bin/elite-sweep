@@ -1,0 +1,61 @@
+#!/bin/sh
+# ═══════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · elite-sweep — varredura PRÉ-LOGIN do instalador herdado
+# ═══════════════════════════════════════════════════════════════════════════
+# E30 (v2.10.18) — dump p6aw (rig do dono, 31/out 2026): o drawer do
+# primeiro login indexou o calamares.desktop às 16:12:16 (9s após o login)
+# e o dono CLICOU no "Install Archcraft" às 16:12:21 — o elite-firstboot
+# só removeria os atalhos às 16:14:4x, DEPOIS do graphical.target +
+# network-online (a lei v2.10.7: o desktop nunca é refém do firstboot).
+# A janela de corrida durou ~2min30s e o clique executou o wrapper morto.
+#
+# CURA: a varredura roda ANTES do display-manager (SDDM) — nenhum menu
+# enxerga atalho de instalador num sistema que já está instalado. O
+# elite-tune --firstboot continua como 2ª camada (ele remove o PACOTE
+# calamares inteiro; este sweep remove os ATALHOS órfãos mesmo sem rede).
+#
+# Regras: live (/run/archiso) NUNCA toca — o instalador é legítimo lá;
+# sistema com firstboot-done não roda de novo (idempotente de graça);
+# cada remoção nomeia o arquivo (o journal é a evidência).
+# ═══════════════════════════════════════════════════════════════════════════
+set -eu
+
+if [ -e /run/archiso ]; then
+    exit 0   # live: o instalador é o quebra-vento da ISO — intocado
+fi
+if [ -e /var/lib/elite/firstboot-done ]; then
+    exit 0   # firstboot concluiu: a varredura dele já cobriu (e este é 1×)
+fi
+
+removed=0
+for f in \
+    /usr/share/applications/calamares.desktop \
+    /usr/local/share/applications/calamares.desktop \
+    /usr/share/applications/abif.desktop \
+    /usr/local/share/applications/abif.desktop
+do
+    if [ -e "$f" ]; then
+        rm -f -- "$f"
+        removed=$((removed + 1))
+        echo "elite-sweep: atalho do instalador removido: $f"
+    fi
+done
+
+# o wrapper de log (o Exec do atalho) morre junto — clique sem alvo não
+# executa coisa nenhuma
+if [ -e /usr/local/bin/calamares-elite-log ]; then
+    rm -f -- /usr/local/bin/calamares-elite-log
+    echo "elite-sweep: wrapper removido: /usr/local/bin/calamares-elite-log"
+fi
+
+# cache do nwg-drawer que listou o fantasma: re-indexa limpo na 1ª abertura
+for c in /home/*/.cache/nwg-drawer/cache.db; do
+    [ -f "$c" ] || continue
+    if grep -aq calamares "$c" 2>/dev/null; then
+        rm -f -- "$c"
+        echo "elite-sweep: cache do drawer purgado (listava calamares): $c"
+    fi
+done
+
+echo "elite-sweep: concluído ($removed atalho(s) de instalador removidos)"
+exit 0

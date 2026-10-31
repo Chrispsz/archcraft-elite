@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · craft-dump (v2.5 — o "btop completão" que se atualiza)
+# Archcraft ELITE · craft-dump (v2.6 — o "btop completão" que se atualiza)
 # ═══════════════════════════════════════════════════════════════════════════
 # Pedido do dono (out/2026): "como puxo tudo que está rodando como se fosse
 # um btop completão pra gente ter um diagnóstico da RAM, pacotes, uso, CPU
@@ -184,7 +184,7 @@ if ! : > "$OUT" 2>/dev/null; then
 fi
 
 {
-    printf '══════════ ELITE DUMP v2.5 — diagnóstico completo ══════════\n'
+    printf '══════════ ELITE DUMP v2.6 — diagnóstico completo ══════════\n'
     if [ "$(id -un)" != "$DUMP_USER" ]; then
         printf 'gerado: %s · usuário: %s → sessão de %s (uid %s) · host: %s\n' \
             "$(date)" "$(id -un)" "$DUMP_USER" "$DUMP_UID" "$(uname -n 2>/dev/null || echo '?')"
@@ -411,7 +411,11 @@ PY
     printf '\n══════════ 9 · ÁUDIO ══════════\n'
     # v2.1 — o bridge do runtime da sessão: o wpctl de root sem XDG_RUNTIME_DIR
     # morre no 'Could not connect to PipeWire' (o d33o não viu o áudio do rig)
-    r "if command -v wpctl >/dev/null 2>&1; then env XDG_RUNTIME_DIR=$URUNTIME wpctl status | head -30; else echo '(wpctl ausente)'; fi" 32
+    # E30 (v2.10.18): SEM head — o `head -30` cortava EXATAMENTE a seção
+    # dos Sinks/Sources (o dump p6aw escondeu as fontes do rig e quase
+    # escondeu o sink fantasma do microfone: o réu do áudio mudo). O papel
+    # completo ou não é papel. O wpctl status inteiro é pequeno (~40 linhas).
+    r "if command -v wpctl >/dev/null 2>&1; then env XDG_RUNTIME_DIR=$URUNTIME wpctl status; else echo '(wpctl ausente)'; fi" 32
 
     printf '\n══════════ 10 · SUSPEND/ACPI — A CAÇA AO DESPERTAR ══════════\n'
     printf '(despertar imediato após suspender = dispositivo/BIOS — as linhas\n'
@@ -530,7 +534,7 @@ PY
     r "du -sh '$UHOME/.cache'/* 2>/dev/null | sort -rh | head -12" 14
     r "journalctl --disk-usage 2>/dev/null" 2
 
-    printf '\n══════════ FIM DO DUMP v2.5 ══════════\n'
+    printf '\n══════════ FIM DO DUMP v2.6 ══════════\n'
     printf 'a seção 0 é o resumo; as seções 1-14 são o detalhe.\n'
     printf 'envie este arquivo (ou a URL do --upload) para a análise.\n'
 } > "$OUT" 2>&1

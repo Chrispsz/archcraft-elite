@@ -1,0 +1,21 @@
+[Unit]
+# Archcraft ELITE v2.10.18 (E30) — varredura PRÉ-LOGIN do instalador herdado
+# Dump p6aw: o drawer do 1º login indexou o calamares.desktop às 16:12:16
+# e o dono clicou às 16:12:21 — o firstboot removeria só às 16:14:4x
+# (After=graphical+network-online, lei v2.10.7). A janela de corrida morre
+# AQUI: antes do SDDM, nenhum menu enxerga atalho de instalador.
+# O elite-tune --firstboot segue como 2ª camada (pacote inteiro + wrappers).
+Description=Elite: varredura pre-login de atalhos do instalador (calamares/abif)
+# live: o instalador é legítimo — nunca toca
+ConditionPathExists=!/run/archiso
+# firstboot concluído: a varredura dele já cobriu (idempotência de graça)
+ConditionPathExists=!/var/lib/elite/firstboot-done
+After=local-fs.target
+Before=display-manager.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/elite-sweep
+
+[Install]
+WantedBy=multi-user.target

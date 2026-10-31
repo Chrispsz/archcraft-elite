@@ -251,7 +251,7 @@ assert_grep "$U/elite-keyring-fix.timer" '^WantedBy=timers.target$' "v2.10.10: [
 assert_grep "$U/elite-keyring-fix.timer" '^OnBootSec=120s$' "v2.10.10: timer dispara 2min pós-boot (a cura chega cedo, sem brigar com o boot)"
 assert_grep "$U/elite-keyring-fix.timer" '^OnUnitActiveSec=6h$' "v2.10.10: timer re-tenta de 6h em 6h (o guard de 24h do script decide o custo real)"
 # craft-dump v2.2: a etiqueta = conteúdo, e o keyring ganha as 3 provas
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2.5' "v2.10.12: craft-dump etiqueta v2.5 (a lei: etiqueta = conteúdo — a v2.5 nomeia o fantasma e a E23)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2.6' "v2.10.18/E30: craft-dump etiqueta v2.6 (a lei: etiqueta = conteúdo — a v2.6 nomeia o fantasma, a E23 e o wpctl inteiro)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'pubring.gpg' "v2.10.10: dump prova o pubring (a doença do d33o no papel)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'list-keys cachyos' "v2.10.10: dump prova as chaves CachyOS populadas"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'pacman lê o banco: OK' "v2.10.10: dump prova funcional do pacman (o -Syu vivo ou morto nomeado)"
@@ -283,7 +283,7 @@ SR="$REPO/elite/airootfs/usr/lib/systemd/system-sleep/elite-sleep-report"
   && ok "v2.10.11: hook elite-sleep-report presente e executável (perícia do sono no journal)" \
   || fail "v2.10.11: elite-sleep-report" "ausente ou sem +x — se o sono voltar curto, o dump não nomeia o suspeito restante"
 assert_grep "$SR" 'pre)' "v2.10.11: hook elite-sleep-report registra wake sources armadas ANTES de dormir"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2.5' "v2.10.12: craft-dump etiqueta v2.5 (etiqueta = conteúdo)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2.6' "v2.10.18/E30: craft-dump etiqueta v2.6 (etiqueta = conteúdo — wpctl completo)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'date \+%Y%m%d-%H%M%S' "v2.10.11: dump com segundos no STAMP (fim da colisão de dois runs no mesmo minuto — a doença do a4h8)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'if ! : > "\$OUT" 2>/dev/null; then' "v2.10.11: guard de escrita antes do papel (dump root-owned + rerun sem sudo = recusa clara)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" '90-elite-wake-guard.rules' "v2.10.11: dump prova a regra E24 no papel (seção 10)"
@@ -1001,7 +1001,75 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bgapps" '\( tr .*/proc/.pi
 # R9. A E23 GANHA CURANDEIRO VISÍVEL NO PAPEL (o nl3z não mostrou UM
 #     elite-keyring — o veredito da cura precisa ver quem cura):
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'elite-keyring-fix\.timer' "v2.10.12: a seção 5 mostra o timer da E23 (a cura estava invisível no papel)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2.5' "v2.10.12: o papel é v2.5 (etiqueta = conteúdo — o fantasma e o curandeiro entram juntos)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2.6' "v2.10.18/E30: o papel é v2.6 (etiqueta = conteúdo — wpctl completo entra junto)"
+
+# ── v2.10.18 · E30 — o papel p6aw (1325 linhas) + as fotos do dono ─────────
+# O rig real provou o que o QEMU não vê: bell misterioso (wall do firstboot
+# às 16:14:45), som saindo pelo SINK FANTASMA do microfone USB (fifine),
+# DOIS swayidle vivos, hyprlock 'got yeeten' vivo com a sessão destravada,
+# 3 toasts 'Encerrado' (inclusive do próprio notify-send), wpctl cortado em
+# head -30 (o réu quase escapou do papel), player sem descobribilidade.
+
+# A. O BELL MISTERIOSO MORRE: nenhuma invocação de wall sobra no elite-tune
+#    (o broadcast de root@archpc às 16:14:45 = o MESMO segundo do 'Finished
+#    elite-firstboot' no journal do p6aw). NVIDIA segue com toast na sessão.
+assert_nogrep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'wall "' "E30: nenhum wall no elite-tune (o bell de terminal morre na origem — dump p6aw 16:14:45 = Finished elite-firstboot)"
+assert_grep  "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'notify-send -a .Elite. -u critical' "E30: NVIDIA mantém o aviso REAL na sessão gráfica (toast crítico, não TTY)"
+
+# B. ÁUDIO: o roteador existe, é event-driven e a classe proibida é dupla
+#    (pt+en — o sink do rig era 'fifine Microphone', inglês)
+assert_file  "$REPO/elite/airootfs/usr/local/bin/craft-audio-route" "E30: craft-audio-route existe (som saindo pelo microfone = sink fantasma provado no dump p6aw)"
+assert_grep  "$REPO/elite/airootfs/usr/local/bin/craft-audio-route" '#!/usr/bin/env python3' "E30: roteador é python3 (JSON do pactl parseado de verdade)"
+assert_grep  "$REPO/elite/airootfs/usr/local/bin/craft-audio-route" 'pactl., .subscribe.|"pactl", "subscribe"' "E30: roteador é EVENT-DRIVEN (pactl subscribe — zero polling)"
+assert_grep  "$REPO/elite/airootfs/usr/local/bin/craft-audio-route" '-f., .json' "E30: roteador lê pactl -f json (parse estrutural, não regex frágil)"
+assert_grep  "$REPO/elite/airootfs/usr/local/bin/craft-audio-route" 'microfone|microphone' "E30: classe proibida cobre pt+en (o réu p6aw era 'fifine Microphone')"
+assert_grep  "$REPO/elite/airootfs/usr/local/bin/craft-audio-route" 'set-default-sink' "E30: BT/USB novo assume o som (o pedido do dono: conectou, trocou)"
+assert_grep  "$REPO/elite/airootfs/usr/local/bin/craft-audio-route" 'set-sink-port' "E30: fone no MESMO sink muda a PORTA (jack com detecção)"
+assert_grep  "$REPO/elite/airootfs/usr/local/bin/craft-bars" 'craft-audio-route' "E30: roteador sob a supervisão da família (morreu, volta em ≤5s)"
+assert_nogrep "$REPO/elite/airootfs/etc/skel/.config/labwc/autostart" '^[[:space:]]*craft-audio-route[[:space:]]*&' "E30/v2.10.6: UM SÓ lançador (craft-bars) — a corrida fork/exec do idle não renasce"
+
+# C. LOCK/IDLE: as corridas do dump morrem
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-lock" 'pkill -x hyprlock' "E30: instância única do locker (o 'got yeeten'/pid 3666 fantasma do bars.log)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-idle" 'idle-start.lock' "E30: MUTEX do spawn do idle (DOIS swayidle vivos no p6aw: pid 937 + 21282)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-idle" '/proc/\\?\\\$lpid/comm|/proc/\$lpid/comm' "E30: o mutex distingue spawn em voo de daemon vivo (restart legítimo prossegue)"
+
+# D. NOTIFICAÇÕES: encerrar fica mudo; o encanamento sai da lista
+assert_nogrep "$REPO/elite/airootfs/usr/local/bin/craft-bgapps" "'Encerrado'" "E30: o toast 'Encerrado' morre (3 toasts na foto do dono — a janela sumindo É o feedback)"
+assert_grep  "$REPO/elite/airootfs/usr/local/bin/craft-bgapps" 'notify-send\*' "E30: notify-send sai da lista do killer (avisou a morte do próprio aviso — pid 11463/11464)"
+assert_grep  "$REPO/elite/airootfs/usr/local/bin/craft-bgapps" 'tumblerd\*' "E30: serviços dbus-ativados saem da lista (matar é inútil — renascem)"
+
+# E. PAPEL COMPLETO: wpctl sem o head que escondeu o réu
+assert_nogrep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'wpctl status \| head' "E30: o dump NUNCA mais corta o wpctl (o head -30 escondeu Sinks/Sources do p6aw)"
+
+# F. PLAYER: descobribilidade + segundos em tempo real (custo = leitura
+#    DBus interna, zero fork — a resposta honesta à pergunta do dono)
+assert_grep "$REPO/elite/airootfs/etc/skel/.config/waybar/config.top" '"interval": 1' "E30: mpris com segundos em tempo real (interval 1 = 1 leitura DBus interna/s, zero fork)"
+assert_grep "$REPO/elite/airootfs/etc/skel/.config/waybar/config.top" 'on-scroll-up' "E30: scroll troca faixa (passar/retroceder sem adivinhar botões)"
+assert_grep "$REPO/elite/airootfs/etc/skel/.config/waybar/config.top" 'tooltip-format' "E30: a barra DIZ os controles (o dono descobriu meio/dir por sorte)"
+
+# G. CAPTURA RÁPIDA no menu (pedido explícito do dono) — binário real na ISO
+assert_grep "$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml" 'Captura de tela' "E30: captura rápida no menu do desktop (o dono pediu botão)"
+assert_grep "$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml" 'command="craft-shot"' "E30: o item lança o craft-shot (contrato v1.6.3: binário real, modo região = default)"
+
+# H. BRAVE com os botões da casa: o flag que forçava CSD morre (SSD do labwc)
+assert_nogrep "$REPO/elite/airootfs/etc/skel/.config/brave-flags.conf" 'WaylandWindowDecorations' "E30: fim do CSD forçado (o labwc desenha SSD igual às outras janelas — os botões macOS do foot)"
+assert_grep  "$REPO/elite/airootfs/etc/skel/.config/brave-flags.conf" 'UseOzonePlatform' "E30: Wayland nativo do Brave preservado (só a decoração muda)"
+
+# I. O INSTALADOR MORRE ANTES DO LOGIN (o dono clicou no fantasma às 16:12:21;
+#    o firstboot removeria às 16:14:4x — a janela de corrida vira impossível)
+assert_file "$REPO/elite/airootfs/usr/local/bin/elite-sweep" "E30: elite-sweep existe (varredura pré-login dos atalhos de instalador)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-sweep" 'run/archiso' "E30: o sweep NUNCA toca no live (o instalador é legítimo lá)"
+assert_grep "$REPO/elite/airootfs/etc/systemd/system/elite-sweep.service" 'Before=display-manager.service' "E30: o sweep corre ANTES do SDDM (nenhum menu enxerga o fantasma)"
+assert_file "$REPO/elite/airootfs/etc/systemd/system/multi-user.target.wants/elite-sweep.service" "E30: sweep habilitado de fábrica (symlink = o que o systemctl enable faria)"
+
+# J. A CURA-VIVA E30 (o rig v2.10.17 do dono se cura SEM reinstalar — escola E25/E26)
+assert_grep "$REPO/scripts/live/cura-e30.sh" 'raw.githubusercontent.com/Chrispsz/archcraft-elite/main' "E30: cura baixa da main via raw público (sem credencial)"
+assert_grep "$REPO/scripts/live/cura-e30.sh" 'py_compile' "E30: a peça python é provada com py_compile (bash -n não julga python)"
+assert_grep "$REPO/scripts/live/cura-e30.sh" 'WaylandWindowDecorations' "E30: a cura remove o flag CSD do rig (o Brave ganha os botões da casa)"
+assert_grep "$REPO/scripts/live/cura-e30.sh" 'pkill -x swayidle' "E30: a cura mata os DOIS swayidle (o mutex renasce um)"
+assert_grep "$REPO/scripts/live/cura-e30.sh" 'run/user/' "E30: a cura resolve a sessão por /run/user (o sudo reseta HOME — lição E29.1)"
+assert_grep "$REPO/scripts/live/cura-e30.sh" 'NÃO é morto aqui' "E30: a cura declara o limite (matar o locker com a tela travada destravaria a sessão)"
+
 # R10. A CURA DE CAMPO DA E26 (a escola cura-viva: o rig velho se cura SEM reinstalar):
 CV2="$REPO/scripts/live/cura-e26.sh"
 [ -f "$CV2" ] || fail "v2.10.12: cura-e26.sh não existe" "o papel completo sem a cura de campo é metade da cura"

@@ -729,16 +729,27 @@ PYBRAVE
     run systemctl disable elite-firstboot.service || true
   fi
   say "FIRSTBOOT CONCLUÍDO — log: /var/log/elite-firstboot.log"
+  # E30 (v2.10.18) — O BELL MISTERIOSO MORRE (dump p6aw, foot do dono:
+  # 'Mensagem de broadcast de root@archpc (somewhere)' às 16:14:45 — o
+  # MESMO segundo do 'Finished elite-firstboot' no journal: era o `wall`
+  # da conclusão, tocando o bell de todo terminal aberto com uma mensagem
+  # que a sessão GRÁFICA nunca pediu). Os 3 `wall` saem de cena:
+  #   · conclusão (AMD/Intel/sem driver trocado): NENHUMA notificação —
+  #     o log basta (doutrina do dono: só o feedback necessário);
+  #   · NVIDIA pendente/instalado: toast CRÍTICO na sessão viva (a via
+  #     v2.10.5 que o dono de fato vê) — o wall não volta jamais.
   if [[ "$VENDOR" == "nvidia" ]]; then
     if (( RETRY_DRIVER )); then
       # honesto: não trocamos nada — pedir reboot seria mentira
-      (( DRY )) || wall "ELITE: driver NVIDIA pendente (sem rede?). Conecte-se e reinicie — o firstboot re-tenta." 2>/dev/null || true
+      for ub in /run/user/*/bus; do
+        [[ -S "$ub" ]] || continue
+        uid=${ub#/run/user/}; uid=${uid%/bus}
+        (( DRY )) || sudo -n -u "#$uid" env DBUS_SESSION_BUS_ADDRESS="unix:path=$ub" \
+          notify-send -a 'Elite' -u critical \
+          'ELITE: driver NVIDIA pendente' \
+          'Conecte-se à rede e reinicie — o firstboot re-tenta no próximo boot.' 2>/dev/null || true
+      done
     else
-      (( DRY )) || wall "ELITE: driver NVIDIA instalado. REINICIE para ativar (o atual usa o módulo antigo/nouveau)." 2>/dev/null || true
-      # v2.10.5 — O AVISO QUE NINGUÉM VIA: o wall escreve em TTY e a sessão
-      # do usuário é GRÁFICA (SDDM→labwc) — o dono do Optimus/nVIDIA nunca
-      # soube que tinha que reiniciar (achado da auditoria de simulações).
-      # O mesmo recado vai à central de notificações de cada sessão viva.
       for ub in /run/user/*/bus; do
         [[ -S "$ub" ]] || continue
         uid=${ub#/run/user/}; uid=${uid%/bus}
@@ -748,8 +759,6 @@ PYBRAVE
           'REINICIE para ativar (o sistema atual usa o módulo antigo/nouveau).' 2>/dev/null || true
       done
     fi
-  else
-    (( DRY )) || wall "ELITE: primeiro boot concluído (serviços de tuning ativos). Reboot recomendado." 2>/dev/null || true
   fi
   exit 0
 fi

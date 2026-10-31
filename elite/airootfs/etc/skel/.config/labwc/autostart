@@ -173,3 +173,13 @@ if command -v wl-paste >/dev/null 2>&1 && command -v cliphist >/dev/null 2>&1; t
     cliphist wipe -older-than 720h 2>/dev/null
     wl-paste --watch cliphist store &
 fi
+
+# --- Áudio: roteamento automático (E30 — v2.10.18) ---------------------------
+#     Dump p6aw: o default do rig era o SINK FANTASMA do microfone USB
+#     (fifine — o som "saía pelo microfone": silêncio real). O dono pediu
+#     a troca automática ao plugar fone/saída. QUEM LANÇA é o craft-bars
+#     (a lei v2.10.6: UM SÓ lançador mata a corrida fork/exec — o idle
+#     provou o custo de dois). O daemon é event-driven (pactl subscribe,
+#     zero polling): fone no jack muda a PORTA, BT/USB novo muda o
+#     DEFAULT, classe microfone JAMAIS é default, saída que some tem
+#     fallback honesto. Morre → volta em ≤5s pelo supervisor.
