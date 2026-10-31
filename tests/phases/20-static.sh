@@ -1107,4 +1107,53 @@ assert_grep "$REPO/.github/workflows/build.yml" 'Lei da Release Única Viva' "E3
 assert_grep "$REPO/.github/workflows/build.yml" 'cleanup-tag=false' "E31: a lei apaga RELEASE, nunca TAG (--cleanup-tag=false)"
 assert_grep "$REPO/.github/workflows/build.yml" 'notify-failure' "E31: falha de tag abre issue de diagnóstico (sinal durável para o dono e para o agente)"
 
+# M. E32 — "DEIXE TUDO ATUALIZÁVEL" (o dono: "a distro não pode ficar velha
+#    com o tempo, tudo deve funcionar e o código da nossa overlay deve ser
+#    de qualidade total"). O audit da Task 8 provou: brave-origin era o
+#    ÚNICO pacote congelado ([elite-local] só existia durante o build) e o
+#    snapper-cleanup.timer nunca foi habilitado (NUMBER_LIMIT letra morta).
+assert_grep "$REPO/elite/fragments/elite-customize.sh" '^\[elite-local\]' "E32: o pacman.conf do sistema entrega o repo da casa (o navegador saía congelado — o [elite-local] morria com o build)"
+assert_grep "$REPO/elite/fragments/elite-customize.sh" 'releases/latest/download' "E32: Server = release VIVA (a URL nunca apodrece — a lei garante que sempre há uma no ar)"
+assert_grep "$REPO/elite/fragments/elite-customize.sh" 'Server = file:///var/cache/elite-local' "E32: fallback file:// com o db de fábrica (o sync não fica vermelho sem rede)"
+assert_grep "$REPO/elite/fragments/elite-customize.sh" 'rm -f /var/cache/elite-local/\*\.pkg\.tar\.zst' "E32: o E8 preserva o DB (só os PKGs saem da ISO — o file:// continua resolvendo)"
+assert_nogrep "$REPO/elite/fragments/elite-customize.sh" 'rm -rf /var/cache/elite-local' "E32: o rm -rf inteiro não existe mais (ele apagaria o db preservado)"
+assert_grep "$REPO/.ci/build.sh" 'cp /var/cache/elite-local/elite-local.db.tar.gz /var/cache/elite-local/elite-local.db' "E32: o db nasce com o NOME que o pacman consulta (sem o cp, o file:// de nada serve)"
+assert_grep "$REPO/.ci/build.sh" 'usr/local/share/elite/VERSION' "E32: marker da casa escrito no build (craft-update compara com a release viva)"
+assert_grep "$REPO/.github/workflows/build.yml" 'ELITE_VERSION' "E32: a tag entra no build como marker (ref_type tag → ref_name; fallback git/dev)"
+assert_grep "$REPO/.github/workflows/build.yml" "'\.ci/build\.sh'" "E32: build.sh na chave do cache (bump do Brave sem isto = cache-hit do pkg VELHO para sempre)"
+assert_grep "$REPO/.github/workflows/build.yml" 'elite-local-pkgs' "E32: pkgs da casa viajam como artifact (build → release) com selo sha256"
+assert_grep "$REPO/.github/workflows/build.yml" 'GATE R' "E32: o selo é re-verificado no release job ANTES de subir (artifact corrompido = run vermelha)"
+assert_grep "$REPO/.github/workflows/build.yml" 'repo-add --quiet elite-local.db.tar.gz' "E32: db regenerado no release job (repo-add num container Arch efêmero — o ubuntu não tem repo-add)"
+assert_grep "$REPO/.github/workflows/build.yml" 'gh release upload' "E32: o repo da casa é publicado como ASSET da release viva (é para cá que o [elite-local] aponta)"
+assert_grep "$REPO/.github/workflows/build.yml" 'Atualização pelo terminal' "E32: o corpo da release DECLARA que tudo atualiza (transparência na página pública)"
+
+CU="$REPO/elite/airootfs/usr/local/bin/craft-update"
+assert_grep "$CU" 'sudo pacman -Syu' "E32: o coração segue sendo o -Syu (8 repos + [elite-local] numa transação só)"
+assert_grep "$CU" 'kbefore' "E32: kernel capturado ANTES da transação"
+assert_grep "$CU" 'kafter' "E32: kernel comparado DEPOIS (mudou = aviso de reboot EXATO — sem adivinhar formato de uname)"
+assert_grep "$CU" 'ELITE_VERSION_MARKER' "E32: marker com path injetável (a prova nunca escreve em /usr — escola DETECT_ONLY)"
+assert_grep "$CU" 'max-time 10' "E32: teto de tempo no curl (o aviso de defasagem nunca trava a atualização)"
+assert_grep "$CU" '\|\| true' "E32: falha de rede no aviso é SILÊNCIO (offline-safe: nunca é erro de atualização)"
+assert_grep "$CU" 'command -v paru' "E32: honestidade v2.10.5 mantida (paru só se existir — a promessa calada não voltou)"
+
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'snapper-cleanup.timer' "E32: o NUMBER_LIMIT volta a valer (sem o timer, snapshot manual acumula CoW para sempre)"
+NT2="$(grep -c 'systemctl enable --now snapper-cleanup.timer' "$REPO/elite/airootfs/usr/local/bin/elite-tune" || true)"
+assert_eq "$NT2" "2" "E32: o timer nos DOIS branches btrfs (firstboot E interativo — o espelho não fica para trás)"
+
+CB="$REPO/scripts/check-brave.sh"
+assert_file "$CB" "E32: o guardião do pin existe (sem ele o rebuild mensal reusaria a MESMA versão do Brave via cache)"
+assert_grep "$CB" 'pkgname=brave-origin' "E32: extração ESCOPADA na seção do Brave (o primeiro pkgver= do build.sh é do python-pywal — bug pego na prova real)"
+assert_grep "$CB" 'Authorization: Bearer' "E32: API autenticada quando há token (o rate limit de IP não engole o guardião)"
+assert_grep "$CB" 'nunca rebaixo' "E32: downgrade proibido (latest < pin = intocado)"
+assert_grep "$CB" 'brave-origin \$\{cur\}' "E32: TODAS as strings de versão mudam junto (o say 'ok: brave-origin x' era o fóssil esquecido)"
+
+CE32="$REPO/scripts/live/cura-e32.sh"
+assert_file "$CE32" "E32: cura de campo existe (o rig do dono solta o Brave SEM reinstalar)"
+assert_grep "$CE32" 'releases/latest/download' "E32: a cura anexa o [elite-local] ao pacman.conf do rig"
+assert_grep "$CE32" 'bash -n' "E32: prove_sh antes de instalar (escola cura-viva)"
+assert_grep "$CE32" 'prove_data' "E32: pacman.conf é DADO (marcador + não-vazio — não é shell)"
+assert_grep "$CE32" 'v2\.10\.19\+cura-e32' "E32: o rig DECLARA sua base (o craft-update compara com a release viva)"
+assert_grep "$CE32" 'snapper-cleanup.timer' "E32: a cura também fecha a lacuna do cleanup no rig"
+assert_grep "$CE32" 'LIMITES' "E32: limites honestos declarados (rank do repo anexado, ritmo mensal do Brave)"
+
 phase_end

@@ -183,7 +183,8 @@ fi
 # v1.1→v1.4: brave-origin (release oficial pinado) + pwvucontrol nascem no [elite-local]
 assert_grep "$REPO/.ci/build.sh" 'pkgname=brave-origin' "contrato v1.4: build.sh empacota brave-origin (release oficial) → elite-local"
 assert_grep "$REPO/.ci/build.sh" 'brave-origin-.*linux-amd64' "contrato v1.4: source do brave-origin = release oficial da Brave"
-assert_grep "$REPO/.ci/build.sh" '39a69cf12b5787f789d0a0b013f32253bddc9004d03e36c679a8daa61821b6e8' "contrato v1.4: sha256 do brave-origin PINADO no build"
+brsha="$(sed -n '/^pkgname=brave-origin$/,/^EOPKGBUILD$/p' "$REPO/.ci/build.sh" | grep -oE "'[0-9a-f]{64}'" | sed -n '3p' | tr -d "'")"
+assert_match "$brsha" '^[0-9a-f]{64}$' "contrato v1.4: sha256 do zip do brave-origin PINADO (64 hex na 3ª posição do source — o bump troca o VALOR, nunca a FORMA; cravar bytes aqui quebraria a suíte a cada bump)"
 assert_grep "$REPO/.ci/build.sh" 'aur_build pwvucontrol' "contrato v1.1: build.sh compila pwvucontrol do AUR → elite-local"
 # v1.4 (lição da run #57: "install: cannot stat 'brave-origin.sh'"): os
 # sources LOCAIS precisam estar no source=() do PKGBUILD E os sha256
@@ -862,6 +863,76 @@ else
   else
     ok "contrato do ciclo: multi-user+graphical+firstboot(graphical.wants) — zero cycle (a ponte do rig morreu pra sempre)"
   fi
+fi
+
+# ── 3.Z craft-update v2 (E32): reboot EXATO, ISO nova, offline-safe ─────
+# Cenas com mocks CENÁRICOS próprios (dir à parte — o pacman compartilhado
+# dos irmãos NÃO pode vazar para cá, nem o meu para eles):
+CU_BIN="$REPO/elite/airootfs/usr/local/bin/craft-update"
+mkdir -p "$WORK/mock-cu"
+cat > "$WORK/mock-cu/sudo" <<'EOF'
+#!/usr/bin/env bash
+exec "$@"
+EOF
+cat > "$WORK/mock-cu/pacman" <<'EOF'
+#!/usr/bin/env bash
+# mock pacman do craft-update: -Q lê $MOCK_DIR/kv; -Syu grava $NEW_KV
+ST="${MOCK_DIR:?}"; mkdir -p "$ST"; [ -f "$ST/kv" ] || printf '0.0.0-1\n' > "$ST/kv"
+case "$1" in
+  -Q)   printf 'linux-cachyos-bore %s\n' "$(cat "$ST/kv")" ;;
+  -Syu) printf '%s\n' "${NEW_KV:-0.0.0-1}" > "$ST/kv" ;;
+  *)    exit 0 ;;
+esac
+EOF
+cat > "$WORK/mock-cu/curl" <<'EOF'
+#!/usr/bin/env bash
+[[ -n "${CURL_FAIL:-}" ]] && exit 1
+printf '%s' "${CURL_JSON:-}"
+EOF
+chmod +x "$WORK/mock-cu/"*
+cu_reset() {
+    mkdir -p "$WORK/state-cu"
+    printf '1.0.0-1\n'    > "$WORK/state-cu/kv"
+    printf '%s\n' "${1:-v2.10.19}" > "$WORK/state-cu/vmark"
+}
+cu_run() { # envs como args; saída no stdout, rc no $?
+    (
+        export PATH="$WORK/mock-cu:$PATH"
+        export MOCK_DIR="$WORK/state-cu"
+        export ELITE_VERSION_MARKER="$WORK/state-cu/vmark"
+        export "$@"
+        bash "$CU_BIN"
+    )
+}
+cu_reset
+# o JSON do fixture é FIEL ao formato real da API: "tag_name" em linha
+# própria e INDENTADA (o sed do craft-update casa ^ *\"tag_name\" — um
+# JSON de uma linha com '{' na frente NUNCA casa, e não deveria)
+outA="$(cu_run NEW_KV=2.0.0-1 CURL_JSON=$'{\n  "url": "https://api.github.com/x",\n  "tag_name": "v2.10.20"\n}\n' 2>&1)"; rcA=$?
+assert_eq "$rcA" "0" "E32: craft-update termina 0 na cena kernel+ISO novas (avisos nunca viram erro)"
+assert_match "$outA" 'REINICIE' "E32: kernel 1.0.0-1 → 2.0.0-1 na transação = aviso de reboot (kbefore≠kafter — exato por construção)"
+assert_match "$outA" 'Elite v2\.10\.20 disponível' "E32: release viva ≠ marker = defasagem da casa DECLARADA (scripts/configs não são pacotes)"
+cu_reset "v2.10.19"
+outB="$(cu_run NEW_KV=1.0.0-1 CURL_JSON=$'{\n  "tag_name": "v2.10.19"\n}\n' 2>&1)"; rcB=$?
+assert_eq "$rcB" "0" "E32: termina 0 na cena nada-a-fazer"
+if grep -q 'REINICIE' <<<"$outB"; then
+  fail "E32: sem kernel novo = sem aviso de reboot" "cena idêntica gritou REINICIE (falso positivo)"
+else
+  ok "E32: sem kernel novo = SEM aviso de reboot (o aviso não é piua ocioso)"
+fi
+if grep -q 'disponível' <<<"$outB"; then
+  fail "E32: base em dia = sem aviso de ISO" "marker == release viva gritou 'disponível' (falso positivo)"
+else
+  ok "E32: base em dia = SEM aviso de ISO (silêncio é a voz de tudo certo)"
+fi
+cu_reset "v2.10.19"
+outC="$(cu_run CURL_FAIL=1 NEW_KV=1.0.0-1 2>&1)"; rcC=$?
+assert_eq "$rcC" "0" "E32: OFFLINE — curl morto NÃO derruba o craft-update (set -e sobrevive ao || true)"
+if grep -q 'disponível' <<<"$outC"; then
+  fail "E32: offline = zero aviso de versão" "curl morto e ainda assim avisou (nunca deveria)"
+else
+  ok "E32: offline = zero aviso de versão (falha de rede é silêncio, doutrina da casa)"
+
 fi
 
 phase_end

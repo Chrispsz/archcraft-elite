@@ -228,7 +228,7 @@ elite_fetch "${ML_LATEST:-cachyos-v3-mirrorlist-27-1-any.pkg.tar.zst}" \
 #  Brave de sempre: BraveSoftware/Brave-Browser — o preseed de
 #  custom_chrome_frame mora lá; verificado no binário: app_id continua
 #  "brave-browser"). Empacotado AQUI (mesmo padrão dos stubs acima) em
-#  vez de clonar o AUR: versão PINADA em 1.98.60 (determinismo —
+#  vez de clonar o AUR: versão PINADA (determinismo —
 #  filosofia Elite), sha256 do source verificado pelo makepkg, e o
 #  empacotamento espelha o brave-bin upstream: launcher /usr/bin/brave
 #  lendo brave-flags.conf (padrão chromium-flags.conf), /opt, sandbox
@@ -239,7 +239,7 @@ elite_fetch "${ML_LATEST:-cachyos-v3-mirrorlist-27-1-any.pkg.tar.zst}" \
 #  makepkg --nodeps: pacote binário; as deps (gtk3 nss alsa-lib…) são
 #  resolvidas pelo pacstrap no airootfs, não precisam existir no
 #  container de build.
-say "Estágio Brave ORIGIN 1.98.60 (release oficial) → /var/cache/elite-local/"
+say "Estágio Brave ORIGIN 1.98.63 (release oficial) → /var/cache/elite-local/"
 # v2.1 — cache do Actions persiste /var/cache/elite-local entre runs
 #  (build.yml monta .ci-cache/elite-local no container): pkg.tar.zst
 #  presente = bits cujos sources passaram no sha256 da run que o
@@ -251,7 +251,7 @@ else
 mkdir -p /tmp/elite-src/brave-origin
 cat > /tmp/elite-src/brave-origin/PKGBUILD <<'EOPKGBUILD'
 pkgname=brave-origin
-pkgver=1.98.60
+pkgver=1.98.63
 pkgrel=1
 pkgdesc='Brave Origin — navegador que bloqueia ads e trackers por padrão (release oficial brave-origin)'
 arch=(x86_64)
@@ -275,7 +275,7 @@ source=(brave-origin.sh
 noextract=("${_brave_zip}")
 sha256sums=('ba01b127ffbedae6956b8e0f1565170cdecfbba9c19f3fcf76cbf7d6a566bea4'
             '2187fb69be1ebfbc29f8dbd55d2c98d7b5a8b677f247258b43480b894cdac82b'
-            '39a69cf12b5787f789d0a0b013f32253bddc9004d03e36c679a8daa61821b6e8')
+            '7714b3c2bb3e92c14f8f8ab373e2d298ff941abe1d81589c21c5f9227ac07c0b')
 
 prepare() {
     mkdir -p brave
@@ -355,7 +355,7 @@ EODESK
 chown -R builder /tmp/elite-src/brave-origin
 if runuser -l builder -c "cd /tmp/elite-src/brave-origin && makepkg -f --noconfirm --nodeps"; then
     cp /tmp/elite-src/brave-origin/*.pkg.tar.zst /var/cache/elite-local/
-    say "  ok: brave-origin 1.98.60 (Brave ORIGIN oficial, sha256 verificado)"
+    say "  ok: brave-origin 1.98.63 (Brave ORIGIN oficial, sha256 verificado)"
 else
     echo "ELITE-FAIL: makepkg do brave-origin (fonte/CDN fora?) — sem retry: fonte é GitHub Releases da Brave" >&2
     exit 1
@@ -433,7 +433,25 @@ fi
 rm -f /etc/sudoers.d/builder
 
 repo-add --quiet /var/cache/elite-local/elite-local.db.tar.gz /var/cache/elite-local/*.pkg.tar.zst
+# E32 — pacman consulta <repo>.db SEM sufixo: o cp dá o nome que ele
+# procura (o file:// do conf do sistema e o sync do build resolvem; o db
+# viaja na ISO — o E8 do customize preserva exatamente estes 2 arquivos)
+cp /var/cache/elite-local/elite-local.db.tar.gz /var/cache/elite-local/elite-local.db
 ls -la /var/cache/elite-local/
+
+## E32 — marker da versão do código da casa: o craft-update compara com a
+## release viva e aponta ISO/cura quando defasa. ELITE_VERSION vem do
+## build.yml (= tag); fallback git/describe p/ build manual, 'dev' por fim.
+ELITE_VER="${ELITE_VERSION:-}"
+if [[ -z "$ELITE_VER" ]]; then
+    git config --global --add safe.directory /work 2>/dev/null || true
+    ELITE_VER="$(git -C /work describe --tags --exact-match HEAD 2>/dev/null \
+        || git -C /work rev-parse --short HEAD 2>/dev/null \
+        || echo dev)"
+fi
+mkdir -p elite/airootfs/usr/local/share/elite
+printf '%s\n' "$ELITE_VER" > elite/airootfs/usr/local/share/elite/VERSION
+say "Marker da casa: $(cat elite/airootfs/usr/local/share/elite/VERSION)"
 
 say "Aplicando overlay Elite sobre o profile Archcraft"
 cd /work

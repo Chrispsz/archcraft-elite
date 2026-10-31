@@ -1,12 +1,53 @@
 #!/usr/bin/env bash
-# craft-update — atualiza os repos oficiais em um comando
-# v2.10.5 — o cabeçalho prometia AUR (paru): o paru NÃO está na ISO e o
-# 'if command -v paru' virava silêncio (atualizar o que não existe é
-# honesto; prometer e calar não). Se um dia o paru entrar na ISO, o
-# bloco abaixo já está pronto.
+# craft-update — atualiza TUDO que a Elite entrega (v2 — E32)
+# ═══════════════════════════════════════════════════════════════════════════
+# v1 (v2.10.5): 'sudo pacman -Syu' + cabeçalho honesto (paru prometido não
+#   existe — o bloco fica pronto, mas calado enquanto paru não entra).
+# v2 (E32 — diretriz do dono: "deixe tudo atualizável, a distro não pode
+#   ficar velha"): o pacman.conf da Elite (E32) agora entrega o [elite-local]
+#   (brave-origin, pwvucontrol, craft-toplevel, wlrctl) com Server =
+#   releases/latest/download — o MESMO -Syu abaixo atualiza o navegador,
+#   que era o único pacote congelado. Este script soma duas verdades que o
+#   pacman não vê:
+#   · kernel novo na transação → aviso de reboot (comparando -Q antes/depois,
+#     sem adivinhar formato de uname — exato por construção);
+#   · código da casa (scripts/configs) não é pacote → o marker
+#     /usr/local/share/elite/VERSION (escrito no build) compara com a
+#     release viva e aponta ISO/cura quando defasa. Offline-safe: falha de
+#     rede aqui é silêncio (nunca é erro de atualização).
+# ═══════════════════════════════════════════════════════════════════════════
 set -euo pipefail
+
+KPKG=linux-cachyos-bore
+# marker de versão da casa — overridável para prova em sandbox (escola
+# craft-idle/DETECT_ONLY: path injetável, o teste nunca escreve em /usr)
+VMARK="${ELITE_VERSION_MARKER:-/usr/local/share/elite/VERSION}"
+
+# kernel ANTES da transação (o -Syu pode tocá-lo; vazio = pacote ausente)
+kbefore="$(pacman -Q "$KPKG" 2>/dev/null | awk '{print $2}' || true)"
+
 sudo pacman -Syu
+
 if command -v paru >/dev/null 2>&1; then
   echo "==> AUR (paru -Sua)"
   paru -Sua
+fi
+
+# kernel DEPOIS: mudou na transação = reboot aplica (aviso, nunca erro)
+kafter="$(pacman -Q "$KPKG" 2>/dev/null | awk '{print $2}' || true)"
+if [[ -n "$kafter" && "$kafter" != "$kbefore" ]]; then
+  echo "==> kernel atualizado (${kbefore:-ausente} → $kafter) — REINICIE para rodá-lo"
+fi
+
+# código da casa defasado? (curl com teto de tempo; falha = silêncio)
+if [[ -r "$VMARK" ]] && command -v curl >/dev/null 2>&1; then
+  inst="$(head -n1 "$VMARK" 2>/dev/null || true)"
+  latest="$(curl -fsSL --max-time 10 \
+      https://api.github.com/repos/Chrispsz/archcraft-elite/releases/latest 2>/dev/null \
+      | sed -n 's/^ *"tag_name": *"\([^"]*\)".*/\1/p' | head -n1 || true)"
+  if [[ -n "$latest" && "$latest" != "$inst" ]]; then
+    echo "==> Elite $latest disponível (base desta máquina: ${inst:-desconhecida})"
+    echo "    scripts/configs da casa viajam por ISO nova ou cura-viva:"
+    echo "    https://github.com/Chrispsz/archcraft-elite/releases/latest"
+  fi
 fi
