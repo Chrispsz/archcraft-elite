@@ -101,7 +101,9 @@ BY="$REPO/.github/workflows/build.yml"
 # privilegiado, o release e o QEMU do gate); relay-agents (só dispatch da
 # API) fica no ubuntu-latest; verify-install (v1.0.5) é workflow_call — o
 # runs-on mora no verify-install.yml (ex-diag-install) reutilizado, também 24.04
-assert_eq "$(grep -c 'runs-on: ubuntu-24.04' "$BY")" "5" "contrato: build.yml — 5 jobs pinados em ubuntu-24.04 (lint/build/release/verify/suite — v2.10.5 acrescenta o suite)"
+# E31 (v2.10.19): o suite (v2.10.5) e o notify-failure (issue de diagnóstico
+# de tag) entram na mesma disciplina de pino — 6 no total.
+assert_eq "$(grep -c 'runs-on: ubuntu-24.04' "$BY")" "6" "contrato: build.yml — 6 jobs pinados em ubuntu-24.04 (lint/build/release/verify/suite + notify-failure da E31 — a disciplina do pino é para todo job que importa)"
 assert_grep "$BY" 'needs: \[build, verify, verify-install, suite\]' "contrato: release SÓ depois do gate de boot E do gate de instalação E da suíte (v1.0.5 + v2.10.5)"
 assert_grep "$BY" 'verify-install:' "contrato: job verify-install presente (install-gate no pipeline)"
 assert_grep "$BY" 'uses: \./\.github/workflows/verify-install\.yml' "contrato: install-gate reusa o verify-install.yml (workflow_call — zero duplicação)"
