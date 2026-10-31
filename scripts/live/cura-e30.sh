@@ -80,6 +80,21 @@ prove_py() { # o roteador é python3 — a prova dele NÃO é bash -n
     done
 }
 
+# E31 — A PROVA DOS NÃO-SHELL (a mina da v2.10.18, achado da revisão
+# caractere a caractere): prove_sh rodava bash -n em config.top (JSONC)
+# e menu.xml (XML) — o '(' do comentário derruba o parser e a cura
+# ABORTAVA na mão do dono no passo 2/5 ('sintaxe quebrada'), depois de
+# instalar os binários e antes dos configs. Dados provam por MARCADOR +
+# arquivo não-vazio + a pós-checagem do install_piece; bash -n é só shell.
+prove_data() { # $1=arquivo NÃO-shell  $2...=marcadores
+    local f="$1"; shift
+    [ -s "$f" ] || die "arquivo vazio: $f"
+    local m
+    for m in "$@"; do
+        grep -q "$m" "$f" || die "marcador '$m' ausente em $f — origem errada? abortado"
+    done
+}
+
 install_piece() { # $1=origem  $2=destino  $3=modo  $4=marcador
     local dst="$2"
     if [ -e "$dst" ]; then
@@ -118,7 +133,7 @@ install_piece "$T/elite-tune"         /usr/local/bin/elite-tune         755 'O B
 # ── 2. Configs do USUÁRIO (barra · menu · brave-flags) — .bak ao lado ──────
 say "2/5 · CONFIGS DO USUÁRIO (mpris tempo real · captura no menu · SSD no Brave)"
 fetch "elite/airootfs/etc/skel/.config/waybar/config.top" "$T/config.top" || die "falha ao baixar config.top"
-prove_sh "$T/config.top" 'segundos em TEMPO REAL' '"interval": 1' 'on-scroll-up'
+prove_data "$T/config.top" 'segundos em TEMPO REAL' '"interval": 1' 'on-scroll-up'
 CT="$UHOME/.config/waybar/config.top"
 cp -a "$CT" "$CT.bak-$(date +%Y%m%d-%H%M%S)" 2>/dev/null || true
 install -m 644 "$T/config.top" "$CT"
@@ -128,7 +143,7 @@ sha256sum "$CT"
 ok "instalado: $CT (waybar recarrega o módulo sozinho no próximo tick)"
 
 fetch "elite/airootfs/etc/skel/.config/labwc/menu.xml" "$T/menu.xml" || die "falha ao baixar menu.xml"
-prove_sh "$T/menu.xml" 'Captura de tela'
+prove_data "$T/menu.xml" 'Captura de tela'
 MX="$UHOME/.config/labwc/menu.xml"
 cp -a "$MX" "$MX.bak-$(date +%Y%m%d-%H%M%S)" 2>/dev/null || true
 install -m 644 "$T/menu.xml" "$MX"

@@ -1082,4 +1082,29 @@ assert_grep "$CV2" 'keyrings.bak-e26' "v2.10.12: cura-e26 move o chaveiro vazio 
 assert_grep "$CV2" 'idle.conf do dono NÃO foi tocado' "v2.10.12: cura-e26 declara o limite (escolhas de idle intocadas)"
 assert_grep "$CV2" 'pkill -f .*craft-dock-gui\$' "v2.10.12: cura-e26 recicla a dock (o supervisor ressuscita com o código novo em ≤5s)"
 
+# K. E31 — O PT-BR COMPLETO + O SUSPEND DESTRAVADO (o dono: "mistura de
+#    inglês com ptbr… a data e o open terminal here" + "fica todo tempo
+#    ligado nela… nunca entra em idle como o modo suspender faz")
+assert_file "$REPO/elite/airootfs/etc/locale.conf" "E31: locale de FÁBRICA existe (a live nascia em locale C — 'Mon 31 Oct' no relógio e 'Open Terminal Here' no Thunar)"
+assert_grep "$REPO/elite/airootfs/etc/locale.conf" 'LANG=pt_BR\.UTF-8' "E31: LANG=pt_BR.UTF-8 de fábrica (o E15 já gerava o locale — a sessão agora USA)"
+assert_grep "$SK/.config/waybar/config.top" '"locale": "pt_BR\.UTF-8"' "E31: relógio com locale EXPLÍCITO (o strftime do waybar é do PROCESSO, não herda a sessão — 'seg 31 out' em toda superfície)"
+assert_grep "$SK/.config/foot/foot.ini" 'urgent = no' "E31: bell sem urgência (a janela do terminal não é mais marcada)"
+assert_grep "$SK/.config/foot/foot.ini" 'notify = no' "E31: bell sem toast (morto o wall E30, o que sobraria é BEL virando aviso — só o essencial)"
+assert_grep "$SK/.config/foot/foot.ini" 'O BELL FICA MUDO' "E31: a cura do bell está documentada no próprio arquivo (a história não se perde)"
+CE31="$REPO/scripts/live/cura-e31.sh"
+assert_file "$CE31" "E31: cura de campo existe (o rig do dono destrava o suspend SEM reinstalar)"
+assert_grep "$CE31" 'raw.githubusercontent.com/Chrispsz/archcraft-elite/main' "E31: cura baixa da main via raw público (sem credencial)"
+assert_grep "$CE31" 'bash -n' "E31: a cura prova os SHELL com bash -n antes de instalar"
+assert_grep "$CE31" 'prove_data' "E31: JSONC/INI são provados por MARCADOR (bash -n em config.top morreria na mão do dono — o '(' do comentário)"
+assert_grep "$CE31" 'SUSPEND_MIN=20' "E31: o suspend-via-idle destratado (o 0 era SELO do menu antigo, não escolha do dono)"
+assert_grep "$CE31" 'run/user/' "E31: cura resolve a sessão por /run/user (o sudo reseta HOME — lição E29.1)"
+assert_grep "$CE31" 'NÃO PODE APAGAR ANTES DO LOCK' "E31: a ordem do fluxo é lei (OFF_MIN ≥ LOCK_MIN garantido pela cura)"
+assert_grep "$CE31" 'limitação de hardware' "E31: a cura declara o limite (jack sem detecção é hardware)"
+assert_grep "$REPO/scripts/live/cura-e30.sh" 'prove_data' "E31: cura-e30 CORRIGIDA — config.top/menu.xml não são shell (o prove_sh da v2.10.18 abortava no passo 2/5 na mão do dono)"
+
+# L. E31 — CI COM DENTES (a build mensal automática: a lei e a falha nunca silenciosas)
+assert_grep "$REPO/.github/workflows/build.yml" 'Lei da Release Única Viva' "E31: a lei da release única virou STEP da CI (publicou a nova, apaga as outras)"
+assert_grep "$REPO/.github/workflows/build.yml" 'cleanup-tag=false' "E31: a lei apaga RELEASE, nunca TAG (--cleanup-tag=false)"
+assert_grep "$REPO/.github/workflows/build.yml" 'notify-failure' "E31: falha de tag abre issue de diagnóstico (sinal durável para o dono e para o agente)"
+
 phase_end

@@ -221,8 +221,14 @@
   },
 
   // Relógio no CENTRO (v2.1) — clique abre a central de notificações (SwayNC)
+  // E31 (v2.10.19) — A DATA FALAVA INGLÊS ("Mon 31 Oct"): o strftime do
+  // waybar roda no locale DO PROCESSO, não da sessão — locale EXPLÍCITO
+  // pt_BR.UTF-8, gerado de fábrica pelo E15 e default da sessão pelo
+  // locale.conf (E31). A data é "seg 31 out" na live E no instalado; o
+  // calendário do tooltip segue o mesmo locale.
   "clock": {
     "format": "{:%a %d %b  %H:%M}",
+    "locale": "pt_BR.UTF-8",
     "format-alt": "{:%H:%M}",
     "tooltip-format": "<tt>{calendar}</tt>",
     "on-click": "swaync-client -t",

@@ -6,6 +6,39 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **v2.10.19 — E31: O PT-BR COMPLETO E O SUSPEND DESTRAVADO** (o dono:
+  "mistura de inglês com ptbr… como a data e o open terminal here" +
+  "ele vai pra tela de bloqueio e fica todo tempo ligado nela… nunca entra
+  em idle como o modo suspender faz e já funciona"; e a diretriz: "o código
+  todo deve ser analisado de caractere a caractere"):
+  - **LOCALE DE FÁBRICA** — a ISO não tinha `/etc/locale.conf`: a sessão
+    LIVE nascia em locale C ("Mon 31 Oct" no relógio do waybar, "Open
+    Terminal Here" no Thunar). O pt_BR.UTF-8 JÁ era gerado de fábrica
+    (E15) — faltava a sessão USAR: `locale.conf` novo (LANG=pt_BR.UTF-8)
+    + locale EXPLÍCITO no módulo clock do waybar (o strftime é do
+    PROCESSO, não herda a sessão — "seg 31 out" em toda superfície). No
+    disco instalado o calamares segue dono do arquivo (idioma escolhido).
+  - **O SUSPEND-VIA-IDLE DESTRAVADO NO RIG** — o "lock eterno" tinha causa
+    provada: o conf do rig carregava `SUSPEND_MIN=0` SELO do menu antigo
+    (o printf do pré-v2.10.12 gravava `${SUSPEND_MIN:-0}` — escolha que
+    nunca foi do dono), somado aos dois swayidle do dump p6aw. Cura de
+    campo `scripts/live/cura-e31.sh` (escola cura-viva): conf normalizado
+    (0/ausente → 20, .bak + sha256), OFF_MIN ≥ LOCK_MIN garantido,
+    binários vigentes reinstalados, sessão reciclada — lock 10min → tela
+    apaga 15min → suspend 20min.
+  - **BELL MUDO DE VEZ** — foot `[bell]` urgent/notify → no: morto o wall
+    (E30), o que sobraria é BEL de programa/zsh virando toast. Terminal
+    não é fonte de avisos (doutrina "só o essencial").
+  - **A REVISÃO CARACTERE A CARACTERE PEGOU UMA MINA** — a cura-e30 da
+    v2.10.18 rodava `bash -n` em config.top (JSONC) e menu.xml (XML): o
+    '(' do comentário derruba o parser e a cura ABORTAVA na mão do dono
+    no passo 2/5 (depois dos binários, antes dos configs). Prova feita
+    aqui: ambos os arquivos falham o bash -n. Cura: `prove_data()` —
+    marcador + não-vazio para dados; bash -n é só para shell.
+  - **CI COM DENTES** — a Lei da Release Única Viva virou STEP do job
+    release (publicou a nova → apaga as outras; tag nunca —
+    `--cleanup-tag=false`); falha de tag abre ISSUE de diagnóstico
+    (`notify-failure`) — a build mensal automática tem sinal durável.
 - **v2.10.8 — A DESPEDIDA DO VERBO (ordem do dono no 1º dia da 10.7)**: no
   primeiro dia da 10.7 instalada, o dono sentenciou: **"o botão de janelas
   abertas eu quero remover"**. A cadeia inteira do comutador/menu sai do
