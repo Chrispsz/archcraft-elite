@@ -1,0 +1,256 @@
+#!/usr/bin/env python3
+# ═══════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · craft-audio-route — roteamento automático de áudio (E30)
+# ═══════════════════════════════════════════════════════════════════════════
+# O PEDIDO DO DONO (v2.10.17, dump p6aw): "quando conectasse um fone ou
+# alguma fonte de saída de áudio ele já mudasse automático" — e o achado
+# forense que deu urgência: o sink PADRÃO do rig era o "fifine Microphone
+# Estéreo analógico" (o microfone USB expõe um sink fantasma; o som
+# "saía pelo microfone" = silêncio real na caixa).
+#
+# O QUE ELE FAZ (event-driven — zero polling):
+#   1. NASCIMENTO: se o default é da classe proibida (microfone/fifine/
+#      webcam/"Monitor of"), conserta para o melhor remanescente;
+#   2. FONE no MESMO sink (jack com detecção): a PORTA ativa segue a
+#      disponibilidade — fone disponível → sai por ele; desconectado →
+#      volta para a porta de caixa (pactl set-sink-port);
+#   3. SINK NOVO de classe alvo (Bluetooth/USB/DAC de fone ou caixa) →
+#      o áudio vai para ele na hora (pactl set-default-sink);
+#   4. DEFAULT SUMIU (BT desconectou, USB saiu) → melhor remanescente
+#      (fone/headset/caixa > analógico > HDMI — HDMI por último porque
+#      monitor acordando não pode roubar o som; classe proibida nunca).
+#
+# O QUE ELE NÃO FAZ (as fronteiras honestas):
+#   · não briga com escolha MANUAL do dono — só age em nascimento de
+#     sink, desaparecimento do default e default inválido no arranque;
+#   · jack SEM detecção (availability 'unknown') não tem como o software
+#     saber — aí o W-a/pavucontrol mandam (limitação de hardware);
+#   · não toca em volume, não toca em fontes (microfones).
+#
+# EVIDÊNCIA no ~/.cache/elite/audio.log (teto 256 KiB) + toast discreto
+# em cada troca (o feedback necessário: som mudou de lugar SEM clique).
+# Supervisão: craft-bars (morreu, volta em ≤5s — a lei da família).
+# ═══════════════════════════════════════════════════════════════════════════
+import json
+import os
+import re
+import subprocess
+import time
+
+LOGDIR = os.path.join(
+    os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache")), "elite")
+LOG = os.path.join(LOGDIR, "audio.log")
+
+# classes: 'bad' (nunca default) · 'target' (ganha quando nasce) ·
+# 'ok' (analógico de verdade) · 'hdmi' (por último — monitor não rouba som)
+BAD_RE = re.compile(r"microfone|\bmic\b|fifine|webcam|c[âa]mera|monitor of", re.I)
+HDMI_RE = re.compile(r"hdmi|displayport", re.I)
+WIRE_RE = re.compile(r"headphone|headset|fone", re.I)
+GOOD_FF = ("headphone", "headset", "speaker", "hands-free")
+RANK = {"target": 0, "ok": 1, "hdmi": 2}
+
+
+def log(msg):
+    try:
+        os.makedirs(LOGDIR, exist_ok=True)
+        if os.path.exists(LOG) and os.path.getsize(LOG) > 262144:
+            open(LOG, "w").close()
+        with open(LOG, "a") as f:
+            f.write("[%s] %s\n" % (time.strftime("%F %T"), msg))
+    except Exception:
+        pass
+
+
+def notify(title, body):
+    try:
+        subprocess.Popen(
+            ["notify-send", "-a", "Elite", "-u", "low", "-t", "3000", title, body],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception:
+        pass
+
+
+def run(args, timeout=10):
+    return subprocess.run(args, capture_output=True, text=True,
+                          timeout=timeout).stdout
+
+
+def wait_audio():
+    # o pipewire-pulse da sessão pode nascer depois do autostart — espera
+    # sem teto (um sleep de 2s enquanto não há som é o custo do acerto)
+    while True:
+        try:
+            subprocess.run(["pactl", "info"], capture_output=True,
+                           timeout=10, check=True)
+            return
+        except Exception:
+            time.sleep(2)
+
+
+def list_sinks():
+    try:
+        data = json.loads(run(["pactl", "-f", "json", "list", "sinks"]))
+    except Exception:
+        return []
+    if isinstance(data, list):
+        return data
+    if isinstance(data, dict):
+        return list(data.values())
+    return []
+
+
+def default_sink():
+    try:
+        return run(["pactl", "get-default-sink"]).strip()
+    except Exception:
+        return ""
+
+
+def classify(sink):
+    props = sink.get("properties") or {}
+    desc = "%s %s" % (sink.get("description", ""), sink.get("name", ""))
+    ff = str(props.get("device.form_factor", "")).lower()
+    bus = str(props.get("device.bus", "")).lower()
+    prof = str(props.get("device.profile.name", "")).lower()
+    if BAD_RE.search(desc):
+        return "bad"
+    if ff in GOOD_FF or bus == "bluetooth":
+        return "target"
+    if "hdmi" in prof or HDMI_RE.search(desc):
+        return "hdmi"
+    return "ok"
+
+
+def ports_of(sink):
+    out = []
+    for p in sink.get("ports") or []:
+        out.append((str(p.get("name", "")), str(p.get("description", "")),
+                    str(p.get("availability", "")).lower()))
+    return out
+
+
+def choose(sinks):
+    cands = sorted((s for s in sinks if classify(s) != "bad"),
+                   key=lambda s: RANK.get(classify(s), 3))
+    return cands[0] if cands else None
+
+
+def switch_to(sink, reason):
+    name = sink.get("name", "")
+    if not name or name == default_sink():
+        return
+    try:
+        if subprocess.run(["pactl", "set-default-sink", name],
+                          capture_output=True, timeout=10).returncode == 0:
+            log("TROCA (%s) → %s" % (reason, sink.get("description", name)))
+            notify("Áudio", "Saída: %s" % sink.get("description", name))
+        else:
+            log("FALHA set-default-sink %s (%s)" % (name, reason))
+    except Exception as e:
+        log("FALHA set-default-sink %s: %s" % (name, e))
+
+
+def manage_ports(sink):
+    # fone no MESMO sink (jack com detecção): porta segue a disponibilidade
+    name = sink.get("name", "")
+    if not name:
+        return
+    ports = ports_of(sink)
+    if not ports:
+        return
+    active = str(sink.get("active_port") or "")
+    hp = [p for p in ports
+          if WIRE_RE.search(p[1]) or WIRE_RE.search(p[0])]
+    if not hp:
+        return
+    avail = [p for p in hp if p[2] == "yes"]
+    if avail and active != avail[0][0]:
+        try:
+            if subprocess.run(["pactl", "set-sink-port", name, avail[0][0]],
+                              capture_output=True, timeout=10).returncode == 0:
+                log("PORTA (%s) → %s" % (sink.get("description", ""),
+                                         avail[0][1] or avail[0][0]))
+                notify("Áudio", "Fone: %s" % (avail[0][1] or avail[0][0]))
+        except Exception as e:
+            log("FALHA set-sink-port %s: %s" % (name, e))
+    elif not avail and active and WIRE_RE.search(active):
+        # fone saiu e a porta ativa era a dele — volta pra 1ª disponível
+        other = [p for p in ports if p[2] == "yes"
+                 and not WIRE_RE.search(p[1]) and not WIRE_RE.search(p[0])]
+        if other:
+            try:
+                subprocess.run(["pactl", "set-sink-port", name, other[0][0]],
+                               capture_output=True, timeout=10)
+                log("PORTA (fone saiu) → %s" % (other[0][1] or other[0][0]))
+            except Exception as e:
+                log("FALHA set-sink-port (unplug) %s: %s" % (name, e))
+
+
+def evaluate(prev_names, trigger):
+    sinks = list_sinks()
+    if not sinks:
+        return prev_names
+    names = {s.get("name", "") for s in sinks}
+    dflt = default_sink()
+    d = next((s for s in sinks if s.get("name") == dflt), None)
+
+    # 1) o default sumiu (BT desconectou, USB saiu) → melhor remanescente
+    if d is None:
+        best = choose(sinks)
+        if best:
+            switch_to(best, "saída sumiu")
+        return names
+
+    manage_ports(d)   # o jack do sink atual segue a disponibilidade
+
+    # 2) sink NOVO de classe alvo (fone/BT/USB) → o som vai para ele
+    if trigger != "start":
+        arrived = names - prev_names
+        for s in sinks:
+            if s.get("name") in arrived and classify(s) == "target":
+                switch_to(s, "conectado")
+                return names
+
+    # 3) default na classe proibida (o sink-fantasma do microfone) → cura
+    if classify(d) == "bad":
+        best = choose(sinks)
+        if best and best.get("name") != dflt:
+            switch_to(best, "saída inválida")
+    return names
+
+
+def main():
+    log("daemon iniciado (pid %d)" % os.getpid())
+    wait_audio()
+    prev = evaluate(set(), "start")
+    while True:
+        try:
+            proc = subprocess.Popen(["pactl", "subscribe"],
+                                    stdout=subprocess.PIPE,
+                                    stderr=subprocess.DEVNULL, text=True)
+        except Exception as e:
+            log("pactl subscribe indisponível (%s) — retry em 5s" % e)
+            time.sleep(5)
+            continue
+        try:
+            for line in proc.stdout:
+                low = line.lower()
+                if "sink" not in low and "card" not in low and "server" not in low:
+                    continue
+                # debounce: a enxurrada de eventos do plug assenta primeiro
+                time.sleep(0.4)
+                prev = evaluate(prev, "event")
+        except Exception as e:
+            log("loop: %s" % e)
+        finally:
+            try:
+                proc.kill()
+            except Exception:
+                pass
+        # subscribe morreu (pipewire reiniciou) — recomeça, o estado volta
+        # a ser avaliado no primeiro evento útil
+        time.sleep(2)
+
+
+if __name__ == "__main__":
+    main()

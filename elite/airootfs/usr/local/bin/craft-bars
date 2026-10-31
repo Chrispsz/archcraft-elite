@@ -133,5 +133,22 @@ while :; do
             ) &
         fi
     fi
+    # E30 (v2.10.18) — O ROTEADOR DE ÁUDIO ENTRA NA SUPERVISÃO (dump p6aw:
+    # o som do rig saía pelo SINK FANTASMA do microfone USB — o dono pediu
+    # troca automática ao plugar fone/saída). Mesma lei da família: o
+    # daemon é event-driven (pactl subscribe, zero polling) e morrer
+    # calado deixaria a troca automática fora PARA SEMPRE. Saída 1 do
+    # spawn = pactl/binário ausente (sem pilha de áudio) — a condição
+    # abaixo não teria deixado nascer; morreu dentro = volta em ≤5s.
+    if command -v craft-audio-route >/dev/null 2>&1 && command -v pactl >/dev/null 2>&1; then
+        if ! pgrep -f '^/usr/bin/env python3 /usr/local/bin/craft-audio-route$|^python3 /usr/local/bin/craft-audio-route$' >/dev/null 2>&1; then
+            printf '[%s] audio craft-audio-route FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
+            (
+                /usr/local/bin/craft-audio-route >>"$LOG" 2>&1
+                st=$?
+                printf '[%s] audio craft-audio-route SAIU exit=%d\n' "$(date '+%F %T')" "$st" >>"$LOG"
+            ) &
+        fi
+    fi
     sleep 5
 done

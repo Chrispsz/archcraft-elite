@@ -94,13 +94,15 @@
   // continuam no teclado: W-P = região, W-S-P = tela inteira.)
   // Música do USUÁRIO (MPRIS) — YouTube no navegador, Spotify, mpv: o que
   // VOCÊ tocar aparece aqui. Com nada tocando o módulo some sozinho.
-  // Clique: esq = play/pause, meio = próxima, dir = anterior.
-  // (v2.3.12 — os cliques VIRARAM REALIDADE: o comentário do v1 prometia
-  // o que o config não tinha — clicar não fazia nada. playerctl já era
-  // dep dos keybinds de mídia do rc.xml; o módulo ganhou a pílula de
-  // hover por merecimento, porque a LEI pinta quem de fato clica. E
-  // BRANCO: "o resto pode ser branco mesmo" — a assinatura mauve é do
-  // ARCH à esquerda e do power à direita.)
+  // Clique: esq = play/pause · meio = próxima · dir = anterior (a "faixa
+  // reiniciando" é o previous honesto do MPRIS: no meio da música, voltar
+  // = recomeçar). RODAR A FAIXA: scroll ↑ próxima, ↓ anterior.
+  // E30 (v2.10.18) — segundos em TEMPO REAL: interval 10 → 1. O custo da
+  // pergunta do dono ("os segundos consumiriam mais?"): o módulo mpris é
+  // INTERNO do waybar — atualizar posição é ler UMA propriedade DBus por
+  // segundo DENTRO do processo que já roda (zero fork, zero spawn; os
+  // módulos de rede/pulseaudio da mesma barra já polinam no mesmo ritmo).
+  // Tooltip agora DIZ os controles (o dono descobriu o meio/dir por sorte).
   "mpris": {
     "format": " \uf001 {dynamic}",
     "format-paused": " \uf04c {dynamic}",
@@ -114,12 +116,15 @@
       "paused": "\uf04c",
       "stopped": "\uf04d"
     },
+    "tooltip-format": "esq: play/pause · meio/scroll↑: próxima · dir/scroll↓: anterior",
     "ignored-players": ["playerctld"],
     "dynamic-len": 40,
-    "interval": 10,
+    "interval": 1,
     "on-click": "playerctl play-pause",
     "on-click-middle": "playerctl next",
-    "on-click-right": "playerctl previous"
+    "on-click-right": "playerctl previous",
+    "on-scroll-up": "playerctl next",
+    "on-scroll-down": "playerctl previous"
   },
 
   // Bateria (v2.10.5 — o notebook ENTROU na barra: a auditoria de
