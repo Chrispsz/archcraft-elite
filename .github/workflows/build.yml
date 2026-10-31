@@ -127,7 +127,11 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .ci-cache
-          key: elite-pkgs-v1-${{ hashFiles('elite/packages.add', 'elite/packages.remove', 'elite/pacman-repos.build.add') }}
+          key: elite-pkgs-v1-${{ hashFiles('elite/packages.add', 'elite/packages.remove', 'elite/pacman-repos.build.add', '.ci/build.sh') }}
+          # E32: '.ci/build.sh' na chave — o bump do Brave (pin novo no
+          # PKGBUILD heredoc) TEM de invalidar o cache, senão o cache-hit
+          # devolve o pkg da versão VELHA para sempre (a chave velha só
+          # via as listas de pacotes, que não mudam no bump).
           restore-keys: |
             elite-pkgs-v1-
 
@@ -149,6 +153,9 @@ jobs:
             -v "$PWD/.ci-cache/elite-local":/var/cache/elite-local \
             -v /mnt:/mnt \
             -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
+            # E32 — marker da versão da casa (craft-update compara com a
+            # release viva): a tag corrente entra no build de primeira mão
+            -e ELITE_VERSION="${{ github.ref_type == 'tag' && github.ref_name || 'dev' }}" \
             -w /work \
             archlinux:base-devel \
             bash .ci/build.sh 2>&1 | tee build-output.log
@@ -166,6 +173,28 @@ jobs:
           name: archcraft-elite-iso
           path: out/*
           retention-days: 30
+          compression-level: 0
+
+      # ── E32 — O REPO DA CASA [elite-local] ──────────────────────────
+      # "Deixe tudo atualizável": os pkgs da casa (brave-origin, pwvucontrol,
+      # craft-toplevel, wlrctl + keyring/mirrorlist) viajam como artifact
+      # até o release job, que os publica como ASSETS da release viva — a
+      # URL 'releases/latest/download' do [elite-local] no pacman.conf
+      # (E32) resolve para cá. O selo sha256 segue no artifact e é
+      # re-verificado no release job ANTES de qualquer upload.
+      - name: Selo dos pacotes [elite-local] (sha256 viajando com eles)
+        run: |
+          cd .ci-cache/elite-local
+          ls -lh
+          sha256sum *.pkg.tar.zst > sha256sums.txt
+          cat sha256sums.txt
+
+      - name: Upload pacotes [elite-local] (fonte do repo da casa)
+        uses: actions/upload-artifact@v4
+        with:
+          name: elite-local-pkgs
+          path: .ci-cache/elite-local/*
+          retention-days: 7
           compression-level: 0
 
   # ── Gate de instalação (v1.0.5): o disco INSTALADO tem que bootar ──────
@@ -223,6 +252,13 @@ jobs:
           name: archcraft-elite-iso
           path: out
 
+      # E32 — os pkgs da casa chegam junto (fonte do [elite-local])
+      - name: Baixar pacotes [elite-local] (desta build)
+        uses: actions/download-artifact@v4
+        with:
+          name: elite-local-pkgs
+          path: elite-repo
+
       - name: GATE 1 — integridade do artifact (sha256sums selado pelo build.sh)
         run: |
           cd out
@@ -275,6 +311,8 @@ jobs:
             else
               echo "**ISO única** (≤ 2 GiB) — direto no Ventoy/Rufus."
             fi
+            echo ""
+            echo "**Atualização pelo terminal** (E32): os pacotes da casa (\`brave-origin\`, \`pwvucontrol\`, \`craft-toplevel\`, \`wlrctl\`) acompanham esta release como assets — são o repo \`[elite-local]\` que o \`pacman.conf\` da ISO consome; \`craft-update\` (= \`sudo pacman -Syu\`) atualiza TUDO, navegador incluso."
           } > body.md
 
       - name: Release (push de tag v*)
@@ -284,6 +322,27 @@ jobs:
             out/*
           body_path: out/body.md
           generate_release_notes: true
+
+      # ── E32 — O REPO DA CASA VIRA ASSET DA RELEASE VIVA ─────────────
+      # Publicada a release, os pkgs verificados sobem como assets e a URL
+      # 'releases/latest/download/<arquivo>' do [elite-local] passa a
+      # resolver para CÁ. O db é REGERADO aqui (repo-add): o selo cobre os
+      # pkgs; o db é derivado deles nesta mesma step (nada de selo velho).
+      - name: Repo [elite-local] → assets da release (pacman -Syu atualiza a casa)
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          cd elite-repo
+          echo "── GATE R: integridade dos pkgs da casa (selo do job build)"
+          sha256sum -c sha256sums.txt
+          echo "── gerando o db (repo-add num container Arch efêmero)"
+          docker run --rm -v "$PWD":/repo -w /repo archlinux:base-devel \
+            bash -c 'repo-add --quiet elite-local.db.tar.gz *.pkg.tar.zst && cp elite-local.db.tar.gz elite-local.db'
+          ls -lh
+          echo "── subindo como assets de $TAG"
+          gh release upload "$TAG" elite-local.db elite-local.db.tar.gz *.pkg.tar.zst \
+            --repo "$GITHUB_REPOSITORY" --clobber
+          echo "── assets pós-upload:"
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name'
 
       - name: GATE 2 — verificação PÓS-upload (re-download do que o GitHub guardou)
         run: |
