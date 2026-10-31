@@ -65,11 +65,48 @@ case "${SUSPEND_MIN:-}" in ''|*[!0-9]*) SUSPEND_MIN=20 ;; esac
 
 # ── start: a receita inteira do swayidle num lugar só ────────────────────
 start_daemon() {
+    # E30 (v2.10.18) — MUTEX DO SPAWN (dump p6aw: DOIS swayidle vivos no
+    # mesmo rig — pid 937 com o conf velho 10min e pid 21282 com o novo
+    # 15min: o pkill+exec sem exclusão mútua deixa dois spawners
+    # atravessarem — quem pkillou ANTES do outro exec não vê ninguém vivo
+    # e ambos sobram; o lock de 10min dispara junto com o de 15min).
+    # O lock mora no XDG_RUNTIME_DIR (morre com a sessão) e guarda o PID
+    # do spawn em curso — após o exec, o MESMO pid É o swayidle, e o
+    # /proc/$pid/comm distingue: 'sh' = spawn em voo (rival sai — o
+    # vencedor da corrida serve a sessão); 'swayidle' = daemon vivo
+    # (o rival é um RESTART legítimo, do menu do dono, e prossegue).
+    LK="${XDG_RUNTIME_DIR:-/tmp}/elite/idle-start.lock"
+    mkdir -p "${LK%/*}" 2>/dev/null || true
+    if [ -f "$LK" ]; then
+        lpid="$(cat "$LK" 2>/dev/null || true)"
+        case "$lpid" in
+            ''|*[!0-9]*)
+                rm -f "$LK" ;;                       # lixo no lock — reescreve
+            *)
+                if kill -0 "$lpid" 2>/dev/null; then
+                    lcomm=""
+                    [ -r "/proc/$lpid/comm" ] && lcomm="$(cat "/proc/$lpid/comm" 2>/dev/null || true)"
+                    if [ "$lcomm" != "swayidle" ]; then
+                        exit 0   # spawn em voo — não nasce daemon duplo
+                    fi
+                else
+                    rm -f "$LK"   # lock velho — o dono morreu
+                fi
+                ;;
+        esac
+    fi
+    echo $$ > "$LK"
     # v2.5.0 (N4, audit 24-r): o lock por idle passa pelo CRAFT-LOCK (o
     # resolvedor de wallpaper png→jpg) — chamar hyprlock direto ignorava
     # a cadeia e dava fundo errado para quem usa só jpg.
     pkill -x swayidle 2>/dev/null || true
+    i=0
+    while [ "$i" -lt 20 ] && pgrep -x swayidle >/dev/null 2>&1; do
+        sleep 0.1
+        i=$((i + 1))
+    done
     if [ "${LOCK_MIN:-0}" -eq 0 ]; then
+        rm -f "$LK"
         exit 0   # "Nunca": sem daemon — travar é manual (W-l / menu)
     fi
     # v2.3.5 — SUSPEND_MIN > 0 = auto-suspender depois de X min de idle

@@ -15,6 +15,19 @@
 #   via ext-session-lock-v1 (protocolo nativo). O swaylock (tela branca
 #   estática do burn test) saiu.
 set -euo pipefail
+# E30 (v2.10.18) — INSTÂNCIA ÚNICA (bars.log do dump p6aw: hyprlock
+# 'onLockFinished called. Seems we got yeeten. Is another lockscreen
+# running?' — dois caminhos do lock atravessaram [timeout do idle +
+# manual/suspend] e o perdedor ficou VIVO, pid 3666, mesmo com a sessão
+# destravada: um locker fantasma esperando para dar dor de cabeça).
+# pkill+espera+exec: SEMPRE exatamente um locker — o TERM no velho É o
+# fecho da corrida, e um lock pedido nunca vira no-op silencioso.
+pkill -x hyprlock 2>/dev/null || true
+i=0
+while [ "$i" -lt 10 ] && pgrep -x hyprlock >/dev/null 2>&1; do
+    sleep 0.1
+    i=$((i + 1))
+done
 if command -v hyprlock >/dev/null 2>&1; then
   src="$HOME/.config/hypr/hyprlock.conf"
   if [ -r "$src" ]; then

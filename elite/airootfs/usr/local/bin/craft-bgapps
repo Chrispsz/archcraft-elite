@@ -86,6 +86,14 @@ is_protected() {
         # lock/idle/notificações/clipboard/automount — serviço, não app
         swaylock*|swayidle*|swaync*|cliphist*|wl-copy*|wl-paste*|udiskie*|playerctld*|mpd*|mako*|dunst*|hyprlock*|hypridle*|hyprpaper*)
             return 0 ;;
+        # E30 (v2.10.18, dump p6aw): o dono matou 'notify-send' no menu e o
+        # killer AVISOU a morte do próprio aviso — recursão cômica e ruído.
+        # notify-send é um cliente efêmero (nasce, avisa, morre); tumblerd/
+        # xfconfd são serviços de sessão dbus-ativados — matar é inútil
+        # (renascem no próximo acesso; o dono matou os dois às 16:12). Saem
+        # da lista: o menu encerra PROGRAMAS, não encanamento da sessão.
+        notify-send*|tumblerd*|xfconfd*)
+            return 0 ;;
         # áudio · dbus · systemd · portals · keyring · acessibilidade · sandbox
         # v2.6.0 — dconf* (o serviço de config do rig) · gvfs* (cobre gvfsd
         #          E os monitores gvfs-udisks2-vo/gvfs-mtp-volume, cortados
@@ -259,14 +267,15 @@ menu() {
             kill -KILL "$pid" 2>/dev/null
             mlog "Processos: SIGKILL — $name (pid $pid) ignorou o TERM"
         fi
-        command -v notify-send >/dev/null 2>&1 && \
-            timeout 5 notify-send -a 'Elite' -u normal -t 4000 'Encerrado' \
-                "$name (pid $pid) recebeu o sinal de término." || true
+        # E30 (v2.10.18) — O ENCERRAR FICA MUDO (o dono: 'ao encerrar
+        # programas não precisa aparecer notificação'; a foto p6aw mostrou
+        # 3 toasts de encerrado empilhados — o feedback REAL de um programa
+        # encerrado é a janela sumir e o ícone sair da dock, não um toast
+        # que nasce e morre sozinho). O log fica (forense viva); o toast
+        # só em FALHA de verdade.
     else
         mlog "Processos: kill falhou — $name (pid $pid) (saiu sozinho?)"
-        command -v notify-send >/dev/null 2>&1 && \
-            timeout 5 notify-send -a 'Elite' -u normal -t 8000 'Não encerrou' \
-                "$name (pid $pid) — o processo pode ter saído sozinho." || true
+        # saiu sozinho = o objetivo do dono já aconteceu — silêncio também
     fi
 }
 

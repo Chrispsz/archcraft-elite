@@ -68,6 +68,12 @@
     <item label="Calculadora (qalculate)">
       <action name="Execute" command="qalculate-gtk" />
     </item>
+    <!-- E30 (v2.10.18): captura rápida no menu (pedido do dono — "botão de
+         captura de tela rápida"; o modo região é o default do craft-shot e
+         W-p segue vivo no teclado; tela inteira = W-S-p) -->
+    <item label="Captura de tela (região)">
+      <action name="Execute" command="craft-shot" />
+    </item>
     <separator />
     <item label="Atualizar sistema">
       <action name="Execute" command="foot -e craft-update" />

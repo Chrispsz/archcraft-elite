@@ -678,7 +678,7 @@ assert_grep "$DUMP" 'list-sessions' "v2.10.8: sessões do logind no papel (o can
 assert_grep "$DUMP" 'sleep.conf.d' "v2.10.8: cadeia de sono INTEIRA no papel (sleep.conf + drop-ins — o réu AllowSuspend=no tem endereço)"
 assert_grep "$DUMP" '/sys/power/disk' "v2.10.8: o estado disk do kernel no papel (hibernate sem resume= = recusa honesta; a prova viaja)"
 assert_grep "$DUMP" 'systemd-inhibit' "v2.10.8: quem segura inibidor de sono AGORA (o 'tenta e volta' tinha réu anônimo — o -i do menu e o idle-inhibit do swayidle no papel)"
-assert_grep "$DUMP" 'FIM DO DUMP v2.5' "v2.10.12: versão do papel = conteúdo do papel (a v2.5 traz o fantasma do instalador e a E23 visível; a lei da etiqueta fica de pé)"
+assert_grep "$DUMP" 'FIM DO DUMP v2.6' "v2.10.18/E30: versão do papel = conteúdo do papel (a v2.6 traz o wpctl inteiro — o head -30 que escondeu o réu do áudio morreu junto)"
 assert_grep "$TUN" 'pacman-key --populate archlinux cachyos' "v2.3.6: firstboot popula as chaves ANTES do primeiro -Sy (db assinado por chave desconhecida falha INTEIRO — o rig flagrou: firstboot nunca completava)"
 assert_grep "$TUN" 'timeout 90 pacman-key --recv-keys' "v2.3.6: recv-keys com timeout 90 (keyserver lento pendurou a unit 17min em 'activating' — o rig flagrou)"
 assert_grep "$TUN" 'ensure_cachyos \|\| true' "v2.3.6: firstboot puxa o keyring FRESCO do mirror (o pacote datado 2024 é a raiz do 'chave desconhecida')"
@@ -869,7 +869,7 @@ SKCFG="$P/airootfs/etc/skel/.config"
 assert_file "$SKCFG/brave-flags.conf" "v1.1: brave-flags.conf no skel (lido pelo launcher do brave-origin — padrão chromium-flags)"
 assert_grep "$SKCFG/brave-flags.conf" '^--ozone-platform=wayland$' "v1.1: brave — janelas nativas do compositor (Ozone)"
 assert_grep "$SKCFG/brave-flags.conf" 'DefaultANGLEVulkan' "v1.1: brave — ANGLE sobre Vulkan"
-assert_grep "$SKCFG/brave-flags.conf" 'WaylandWindowDecorations' "v1.1: brave — decorações Wayland"
+assert_nogrep "$SKCFG/brave-flags.conf" 'WaylandWindowDecorations' "E30: brave SEM CSD forçado (o labwc desenha SSD — os botões macOS da casa em TODAS as janelas, inclusive o navegador)"
 assert_grep "$SKCFG/brave-flags.conf" '^--ignore-gpu-blocklist$' "v1.1: brave — sem blocklist de software rendering"
 assert_grep "$SKCFG/brave-flags.conf" 'VaapiVideoDecodeLinuxGL' "v1.1: brave — VA-API documentado (comentado p/ rigs)"
 # mimeapps: os apps padrão são os novos
@@ -1638,7 +1638,7 @@ else
     "cadeia F (Setup A): ICDs alienígenas removidos na execução real"
   assert_grep "$STATE/systemctl.log" 'disable elite-firstboot' \
     "cadeia F (Setup A): unit firstboot auto-desativada"
-  assert_grep "$STATE/wall.log" 'wall ELITE:' "cadeia F (Setup A): wall transmitido (aviso real de reboot)"
+  assert_nogrep "$STATE/wall.log" '.' "cadeia F (Setup A): wall EXTINTO (E30 — o bell de terminal morre; o aviso NVIDIA vai como toast crítico na sessão + log)"
 
   # cenário PASCAL (rig veterano) COM pacman recusando nvidia-dkms:
   # o firstboot não pode morrer — o fallback AUR tem que aparecer
@@ -1671,7 +1671,7 @@ else
     "cadeia F (A sem rede): marker NÃO escrito → re-tenta no próximo boot"
   assert_nogrep "$STATE/systemctl.log" 'disable elite-firstboot' \
     "cadeia F (A sem rede): unit NÃO auto-desativada (retry vivo)"
-  assert_grep "$STATE/wall.log" 'pendente' "cadeia F (A sem rede): wall honesto ('pendente', não 'REINICIE')"
+  assert_nogrep "$STATE/wall.log" '.' "cadeia F (A sem rede): wall EXTINTO (E30 — o 'pendente' honesto vai pro log/toast, nunca mais pro TTY de todo mundo)"
 
   # cenário v4.6 — NVIDIA com dkms PRÉ-COMPILADO da ISO (o coração da v1.1):
   # o ls de /usr/lib/modules/$(uname -r)/updates/dkms/nvidia.ko* responde (mock
@@ -1689,7 +1689,7 @@ else
     "cadeia F (dkms pré-compilado): NENHUMA instalação de driver (mock log limpo)"
   assert_match "$(sed -n '/^=== MARKER/,+1p' "$LPB" | tail -1)" '^yes$' \
     "cadeia F (dkms pré-compilado): marker escrito na 1ª passada (sem retry)"
-  assert_nogrep "$STATE/wall.log" 'pendente' "cadeia F (dkms pré-compilado): wall sem 'pendente' (nada ficou devendo)"
+  assert_nogrep "$STATE/wall.log" '.' "cadeia F (dkms pré-compilado): NENHUMA transmissão no TTY (E30 — wall.log vazio é a lei em TODOS os cenários)"
 
   # cenário v4.6 — BBR guard: kernel SEM bbr → o sysctl.d da ISO é LIMPO (as
   # linhas net.* somem e o modules-load morre) em vez de sysctl morto
