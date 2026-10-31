@@ -163,6 +163,21 @@ grep -q '^Architecture' /tmp/elite-pc-options \
 SigLevel = Never
 Include = /etc/pacman.d/archcraft-mirrorlist
 
+# >>> ELITE (E32): os pacotes da casa atualizam pelo terminal TAMBÉM —
+# brave-origin (o navegador! era o único pacote congelado da distro),
+# pwvucontrol, craft-toplevel e wlrctl. A CI publica o repo como ASSETS
+# da release única viva; 'releases/latest/download' SEMPRE aponta para a
+# release que está no ar (lei: só uma vive — a URL nunca apodrece).
+# O file:// abaixo é o db nascido COM a ISO (o E8 preserva só o db):
+# sync nunca fica vermelho sem rede e no próprio build (o db de fábrica
+# resolve antes de a release existir). Antes de ambos: casa vence em caso
+# de empate (o wlrctl da ISO é o empacotamento da casa — consistência).
+[elite-local]
+SigLevel = Never
+Server = https://github.com/Chrispsz/archcraft-elite/releases/latest/download
+Server = file:///var/cache/elite-local
+# <<< ELITE
+
 # >>> ELITE: CachyOS — wiki.cachyos.org/features/optimized_repos
 # Ordem: trio v3 ANTES do baseline (kernel linux-cachyos-bore existe nos dois:
 # baseline 7.2.7 x86_64 vs v3 7.2.11 x86-64-v3 — pacman prefere o primeiro repo)
@@ -388,8 +403,11 @@ if [[ -f "$ELITE_PIS" ]]; then
 fi
 
 ## [E8] Remove o repo local [elite-local] da ISO (só é necessário durante
-##      o pacstrap; os pacotes instalados ficam, o repo não)
-rm -rf /var/cache/elite-local
+##      o build). E32: os PKGs grandes saem, o DB MINÚSCULO FICA — o
+##      [elite-local] do pacman.conf (E32) usa file:// como segundo Server;
+##      com o db presente, o sync resolve SEM rede e antes de a release
+##      publicar os assets (a URL GitHub é a fonte real de updates).
+rm -f /var/cache/elite-local/*.pkg.tar.zst
 
 ## [E9] Sessão única labwc (v1.0.3): remove do skel as configs órfãs das
 ##      sessões/satélites que saíram (openbox, bspwm, polybar, tint2, rofi,

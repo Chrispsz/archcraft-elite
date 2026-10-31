@@ -701,6 +701,11 @@ PYBRAVE
       run btrfs subvolume create /.snapshots || true
     fi
     run systemctl enable --now grub-btrfsd.service 2>/dev/null || true
+    # E32 — o dono aprovou: sem o timer de cleanup o NUMBER_LIMIT do config
+    # (50) nunca é aplicado e snapshots manuais acumulam CoW para sempre.
+    # O timer SÓ aplica os limites do config — não cria snapshot nenhum
+    # (a criação segue explícita, lei do rollback da casa).
+    run systemctl enable --now snapper-cleanup.timer 2>/dev/null || true
   else
     say "raiz não é btrfs — snapshots/grub-btrfsd ficam de fora (rollback é lei do btrfs)"
   fi
@@ -888,6 +893,9 @@ if [[ "$(findmnt -n -o FSTYPE / 2>/dev/null)" == "btrfs" ]]; then
       run snapper --no-dbus -c root create-config / || true
   fi
   run systemctl enable --now grub-btrfsd.service 2>/dev/null || true
+  # E32 — mesmo timer do firstboot (o bloco inteiro é espelho dele;
+  # ver a nota lá: cleanup só aplica limites, criação segue explícita)
+  run systemctl enable --now snapper-cleanup.timer 2>/dev/null || true
 else
   say "raiz não é btrfs — snapshots/grub-btrfsd ficam de fora (rollback é lei do btrfs)"
 fi
