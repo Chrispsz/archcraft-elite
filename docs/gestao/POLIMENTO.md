@@ -34,3 +34,6 @@ MÉTRICAS (o dono pediu quantidade de código): toda entrada carrega
 | 13 | fragments (elite-customize.sh) | o maior arquivo do build; heredocs |
 | 14 | CI (.ci/build.sh + workflows) | gates; pins; jobs |
 | 15 | suíte tests/ | contratos que certificam o sistema |
+
+## ESTADO INICIAL (antes da 1ª entrada)
+- próximo: área 1 da rotação (craft-dock-gui — o maior arquivo da casa, 1044 l).
