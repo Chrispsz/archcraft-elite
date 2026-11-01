@@ -147,14 +147,18 @@ jobs:
           set -o pipefail
           mkdir -p .ci-cache/pacman .ci-cache/elite-local
           chmod 777 .ci-cache/pacman .ci-cache/elite-local
+          # E32 — marker da versão da casa (craft-update compara com a
+          # release viva): a tag corrente entra no build de primeira mão.
+          # LIÇÃO DA RUN 41254337648: comentário NUNCA dentro das
+          # continuações '\' do comando — a linha '#' quebra a cadeia e o
+          # docker perde o argumento da imagem ('requires at least 1
+          # argument' antes de qualquer byte da ISO).
           docker run --rm --privileged \
             -v "$PWD":/work \
             -v "$PWD/.ci-cache/pacman":/var/cache/pacman/pkg \
             -v "$PWD/.ci-cache/elite-local":/var/cache/elite-local \
             -v /mnt:/mnt \
             -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
-            # E32 — marker da versão da casa (craft-update compara com a
-            # release viva): a tag corrente entra no build de primeira mão
             -e ELITE_VERSION="${{ github.ref_type == 'tag' && github.ref_name || 'dev' }}" \
             -w /work \
             archlinux:base-devel \
