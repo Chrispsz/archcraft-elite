@@ -1156,4 +1156,11 @@ assert_grep "$CE32" 'v2\.10\.19\+cura-e32' "E32: o rig DECLARA sua base (o craft
 assert_grep "$CE32" 'snapper-cleanup.timer' "E32: a cura também fecha a lacuna do cleanup no rig"
 assert_grep "$CE32" 'LIMITES' "E32: limites honestos declarados (rank do repo anexado, ritmo mensal do Brave)"
 
+# N. E32.3 — O E4 SEM MUTAÇÃO (a run 41256005824: o -Sy vivo do E4 substituiu
+#    dbs selados pelo pacstrap e a listagem do mkarchcraftiso leu 'signature
+#    invalid' — FATAL da forense nascido no validate, não no pacstrap)
+assert_grep "$REPO/elite/fragments/elite-customize.sh" 'dbpath /tmp/elite-e4-db' "E32.3: o E4 valida em dbpath DESCARTÁVEL (escola preflight v2.7 — prova os repos, substitui NADA)"
+assert_nogrep "$REPO/elite/fragments/elite-customize.sh" '^pacman -Sy --noconfirm \|\| true' "E32.3: o -Sy vivo descalço EXTINTO do customize (era o único passo que mutava os dbs do live depois do pacstrap)"
+assert_grep "$REPO/elite/fragments/elite-customize.sh" 'mkdir -p /tmp/elite-e4-db' "E32.3: o dbpath de prova nasce antes do pacman (pacman não cria dir raiz de db)"
+
 phase_end
