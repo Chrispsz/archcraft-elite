@@ -889,7 +889,12 @@ run pacman -S --needed --noconfirm gamemode lib32-gamemode gamescope \
 # pra sempre. findmnt decide, como no elite-install-stage:88.
 if [[ "$(findmnt -n -o FSTYPE / 2>/dev/null)" == "btrfs" ]]; then
   if command -v snapper >/dev/null 2>&1; then
-    snapper --no-dbus list-configs >/dev/null 2>&1 || \
+    # E33 — o MESMO guard por SAÍDA do firstboot (v2.10.7/D6): a verdade
+    # é a LISTA, não o exit code — 'list-configs' sai 0 até com ZERO
+    # configs, e o '|| create-config' antigo nunca armava aqui (o "mesmo
+    # guard" do comentário era o guard que o D6 já tinha matado no
+    # firstboot). Config 'root' listado = pronto; ausente = nasce.
+    snapper --no-dbus list-configs 2>/dev/null | grep -qw root || \
       run snapper --no-dbus -c root create-config / || true
   fi
   run systemctl enable --now grub-btrfsd.service 2>/dev/null || true
