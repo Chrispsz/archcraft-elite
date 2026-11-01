@@ -900,7 +900,10 @@ cu_run() { # envs como args; saída no stdout, rc no $?
         export PATH="$WORK/mock-cu:$PATH"
         export MOCK_DIR="$WORK/state-cu"
         export ELITE_VERSION_MARKER="$WORK/state-cu/vmark"
-        export "$@"
+        # SC2163: 'export "$@"' lê como exportar '@' — "${e?}" é a forma
+        # documentada p/ export dinâmico (o ? garante não-vazio de quebra)
+        local e
+        for e in "$@"; do export "${e?}"; done
         bash "$CU_BIN"
     )
 }
