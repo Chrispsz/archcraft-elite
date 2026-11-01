@@ -339,8 +339,10 @@ jobs:
           echo "── GATE R: integridade dos pkgs da casa (selo do job build)"
           sha256sum -c sha256sums.txt
           echo "── gerando o db (repo-add num container Arch efêmero)"
+          # o repo-add cria elite-local.db como SYMLINK — rm antes do cp
+          # (lição da run 41254942475: cp contra o próprio symlink = erro)
           docker run --rm -v "$PWD":/repo -w /repo archlinux:base-devel \
-            bash -c 'repo-add --quiet elite-local.db.tar.gz *.pkg.tar.zst && cp elite-local.db.tar.gz elite-local.db'
+            bash -c 'repo-add --quiet elite-local.db.tar.gz *.pkg.tar.zst && rm -f elite-local.db && cp elite-local.db.tar.gz elite-local.db'
           ls -lh
           echo "── subindo como assets de $TAG"
           gh release upload "$TAG" elite-local.db elite-local.db.tar.gz *.pkg.tar.zst \

@@ -433,10 +433,12 @@ fi
 rm -f /etc/sudoers.d/builder
 
 repo-add --quiet /var/cache/elite-local/elite-local.db.tar.gz /var/cache/elite-local/*.pkg.tar.zst
-# E32 — pacman consulta <repo>.db SEM sufixo: o cp dá o nome que ele
-# procura (o file:// do conf do sistema e o sync do build resolvem; o db
-# viaja na ISO — o E8 do customize preserva exatamente estes 2 arquivos)
-cp /var/cache/elite-local/elite-local.db.tar.gz /var/cache/elite-local/elite-local.db
+# E32 — pacman consulta <repo>.db SEM sufixo: o repo-add JÁ cria um SYMLINK
+# elite-local.db → elite-local.db.tar.gz (a run 41254942475 flagrou: cp
+# contra o próprio symlink = 'are the same file', exit 1 no set -e). O
+# rm -f antes do cp garante ARQUIVO REAL (o symlink não viaja bem no
+# artifact; o E8 preserva estes 2 arquivos na ISO p/ o file:// do conf)
+rm -f /var/cache/elite-local/elite-local.db && cp /var/cache/elite-local/elite-local.db.tar.gz /var/cache/elite-local/elite-local.db
 ls -la /var/cache/elite-local/
 
 ## E32 — marker da versão do código da casa: o craft-update compara com a
