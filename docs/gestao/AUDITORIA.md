@@ -18,3 +18,6 @@ Escopo diário:
    release única com assets do [elite-local], brave-origin no pin do dia).
 
 Formato: ver `PROTOCOL.md` (feito/prova/próximo).
+
+## ESTADO INICIAL (antes da 1ª entrada)
+- próximo: primeira auditoria pode rodar ANTES das irmãs terem entrado do dia — registre o estado real (diários vazios = crons recém-nascidas), nunca trate nascimento como buraco.
