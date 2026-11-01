@@ -1165,4 +1165,18 @@ assert_grep "$REPO/elite/fragments/elite-customize.sh" 'dbpath /tmp/elite-e4-db'
 assert_nogrep "$REPO/elite/fragments/elite-customize.sh" '^pacman -Sy --noconfirm \|\| true' "E32.3: o -Sy vivo descalço EXTINTO do customize (era o único passo que mutava os dbs do live depois do pacstrap)"
 assert_grep "$REPO/elite/fragments/elite-customize.sh" 'mkdir -p /tmp/elite-e4-db' "E32.3: o dbpath de prova nasce antes do pacman (pacman não cria dir raiz de db)"
 
+# O. E34 — GOVERNAÇÃO DIÁRIA (o dono: 'você trabalhando no repositório
+#    diariamente… anti reset sandbox… devidamente commitado') — o sistema
+#    de manutenção contínua (3 tarefas diárias + build mensal) vive NO REPO:
+#    a memória que sobrevive ao reset do sandbox é a que está commitada.
+for GF in PROTOCOL ATUALIZACOES POLIMENTO AUDITORIA; do
+  assert_file "$REPO/docs/gestao/$GF.md" "E34: docs/gestao/$GF.md existe (a memória anti-reset é commitada — sandbox é descartável)"
+done
+assert_grep "$REPO/docs/gestao/PROTOCOL.md" 'reset --hard origin/main' "E34: bootstrap anti-reset cravado (clone local é CACHE — o GitHub manda)"
+assert_grep "$REPO/docs/gestao/PROTOCOL.md" 'Suíte porteira' "E34: a lei do GO local antes de push está no protocolo (L2 — sem GO não sai commit)"
+assert_grep "$REPO/docs/gestao/PROTOCOL.md" 'Release Única Viva' "E34: a lei das releases governa os agentes também (L5 — tag imutável, uma viva)"
+assert_grep "$REPO/docs/gestao/PROTOCOL.md" 'NUNCA pusha tag' "E34: trabalho diário não pusha tag — a tag é exclusiva do ciclo mensal (L4)"
+assert_grep "$REPO/docs/gestao/POLIMENTO.md" 'comentário que mente' "E34: a classe E33 é o foco declarado do polimento (par comentário ↔ código)"
+assert_grep "$REPO/docs/gestao/AUDITORIA.md" 'releases/latest' "E34: a auditoria verifica a Lei na API autenticada (não na fé)"
+
 phase_end
