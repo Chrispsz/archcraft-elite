@@ -1139,6 +1139,8 @@ assert_grep "$CU" 'command -v paru' "E32: honestidade v2.10.5 mantida (paru só 
 assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'snapper-cleanup.timer' "E32: o NUMBER_LIMIT volta a valer (sem o timer, snapshot manual acumula CoW para sempre)"
 NT2="$(grep -c 'systemctl enable --now snapper-cleanup.timer' "$REPO/elite/airootfs/usr/local/bin/elite-tune" || true)"
 assert_eq "$NT2" "2" "E32: o timer nos DOIS branches btrfs (firstboot E interativo — o espelho não fica para trás)"
+NG="$(grep -c 'list-configs 2>/dev/null | grep -qw root' "$REPO/elite/airootfs/usr/local/bin/elite-tune" || true)"
+assert_eq "$NG" "2" "E33: guard do snapper por SAÍDA nos DOIS ramos (o interativo carregava o guard por exit code que o D6 já matou no firstboot — 'list-configs' sai 0 com ZERO configs e o '|| create' nunca armava)"
 
 CB="$REPO/scripts/check-brave.sh"
 assert_file "$CB" "E32: o guardião do pin existe (sem ele o rebuild mensal reusaria a MESMA versão do Brave via cache)"
