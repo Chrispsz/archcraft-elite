@@ -27,9 +27,14 @@ resultado da build mensal do dia.
 - **L1 · Bootstrap anti-reset**: repo local em
   `/home/z/my-project/upload/archcraft-elite-v22`. Se existir:
   `git fetch origin && git reset --hard origin/main && git clean -fd`
-  (o clone local é CACHE — o GitHub manda). Se NÃO existir: re-clonar com
-  o token do agendador (`git clone https://x-access-token:TOKEN@github.com/Chrispsz/archcraft-elite.git`).
-  Se nem o clone funcionar: relatório honesto de bloqueio — nunca inventar.
+  (o clone local é CACHE — o GitHub manda). Se NÃO existir: escada do
+  token — (1) `git remote get-url origin` do próprio repo (o remote
+  carrega o token); (2) `cat /home/z/.elite-token` (cópia `chmod 600`
+  mantida FORA do repo — sobrevive a reset parcial); (3) com o token,
+  re-clonar: `git clone https://Chrispsz:TOKEN@github.com/Chrispsz/archcraft-elite.git`.
+  Se NENHUMA via funcionar (reset total do sandbox): relatório honesto de
+  bloqueio ao dono — o token é reposto uma vez e os diários desta pasta
+  retomam o estado exato (é para isso que eles existem). Nunca inventar.
 - **L2 · Suíte porteira**: `bash tests/run-tests.sh` com GO local (0
   falhas) antes de QUALQUER push. Sem GO não sai commit.
 - **L3 · GitHub API sempre autenticada** (`-H "Authorization: Bearer $TOKEN"`).
