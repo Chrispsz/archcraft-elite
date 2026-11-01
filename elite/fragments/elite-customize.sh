@@ -222,8 +222,21 @@ if ! grep -qE '^Architecture = .*\bx86_64_v3\b' "$ELITE_PC"; then
     fi
 fi
 
-## [E4] Refresh das DBs (valida que os 6 repos resolvem dentro do chroot)
-pacman -Sy --noconfirm || true
+## [E4] Refresh das DBs (valida que os repos resolvem dentro do chroot)
+## E32.3 — SEM MUTAÇÃO (a run 41256005824 provou a doença): o -Sy ao vivo
+##      AQUI EM CIMA dos dbs que o pacstrap selou — a listagem do
+##      mkarchcraftiso leu 'signature invalid' num db que o E4 tinha
+##      acabado de baixar de mirror (cdn77 cronicamente desincronizado,
+##      runs #17/#19) e substituiu NO /var/lib/pacman/sync do live: o FATAL
+##      da forense nasceu aqui, não no pacstrap. A validação agora roda em
+##      dbpath DESCARTÁVEL — a mesma escola do preflight v2.7 ('local db
+##      vazio = visão do chroot'): prova que TODOS os repos resolvem,
+##      substitui NADA. A 404 do [elite-local] é ESPERADA no build da tag
+##      corrente (a release com os assets só existe DEPOIS do verde; a
+##      partir da build seguinte, 'releases/latest' serve o repo da
+##      release anterior e o sync fecha verde).
+mkdir -p /tmp/elite-e4-db
+pacman --dbpath /tmp/elite-e4-db -Sy --noconfirm || true
 
 ## [E11] v1.1 — NVIDIA dkms pré-compilado: VERIFICA + regenera o initramfs do live
 ##      ═════════════════════════════════════════════════════════════════
