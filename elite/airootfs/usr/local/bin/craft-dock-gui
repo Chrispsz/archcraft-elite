@@ -196,8 +196,12 @@ TOPOS = os.path.join(GLib.get_user_runtime_dir(), "elite", "toplevel.sock")
 F_ACTIVATED = 4   # flag do daemon (state activated do protocolo)
 F_MINIMIZED = 2   # (1=maximized · 2=minimized · 4=activated · 8=fullscreen)
 
-# v2.10.3 — o comutador tem ÍCONE FIXO (o veredito do dono: "o ícone fica
 def log(msg):
+    """Evidência append-only no dock.log (teto 1 MiB — recente vale mais):
+    log() NUNCA derruba a dock (OSError engolido de propósito). O fragmento
+    de comentário que morava aqui ("o comutador tem ÍCONE FIXO…") descrevia
+    o comutador que a v2.10.8 REMOVEU e pendia truncado sobre esta função
+    — saiu (classe E33: comentário que mente sobre o código debaixo)."""
     try:
         os.makedirs(os.path.dirname(LOG), exist_ok=True)
         try:
@@ -938,7 +942,8 @@ class Dock:
     def _sync_dynamic(self):
         """Apps rodando SEM pin e COM .desktop → botão após o fio. Ao fechar,
         o botão some sozinho (até restar só o fixado). Diff por desktop-id:
-        nada toca no GTK se nada mudou (zero flicker no tick de 3s)."""
+        nada toca no GTK se nada mudou (zero flicker no tick de 1s —
+        v2.10.12; o "3s" antigo aqui era o tick que já morreu)."""
         current = {}
         for comm in self.running:
             info = self._resolve_desktop(comm)

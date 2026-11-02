@@ -2320,7 +2320,7 @@ assert_grep "$DOCK" 'get_nodisplay\(\) or app\.get_is_hidden\(\)' "v2.10: NoDisp
 assert_grep "$DOCK" 'did in self\.pin_ids' "v2.10: dinâmico é DEDUP contra os pins (app fixado nunca aparece duas vezes)"
 assert_grep "$DOCK" 'self\._pin_add\(did\)' "v2.10: direito no dinâmico FIXA (craft-pin add — o mesmo verbo do sempre, com .bak e reload SIGUSR2)"
 assert_grep "$DOCK" '"close", "app_id"' "v2.10: o MEIO fecha a janela (WM_DELETE gracioso — o app confirma se tiver o que salvar)"
-assert_grep "$DOCK" 'set\(current\) == set\(self\.dyn\)' "v2.10: diff por desktop-id — nada toca no GTK se nada mudou (zero flicker no tick de 3s)"
+assert_grep "$DOCK" 'set\(current\) == set\(self\.dyn\)' "v2.10: diff por desktop-id — nada toca no GTK se nada mudou (zero flicker no tick de 1s — v2.10.12)"
 assert_grep "$DOCK" 'dynsep' "v2.10: o fio que separa fixados de dinâmicos tem nome no CSS (estilizável no dock.css do usuário)"
 
 # v2.7.0 — WLRCTL FONTE VENDADA (a build #110 provou o que acontece sem
