@@ -121,6 +121,18 @@ tumbler
 ## xarchiver.tap — o plugin o encontra sem configuração.
 thunar-archive-plugin
 xarchiver
+## v2.10.25-candidate (E35) — O VERBO "COMPRIMIR…" (dono, 02/nov com print
+## na mão: "estava tentando compactar todos esses arquivos em um só e não
+## consegui… o xarchiver não estou sabendo utilizar do meu jeito"): o
+## par da v2.8.0 entrega o item no menu, mas o fluxo de CRIAÇÃO do
+## xarchiver não é o que o usuário espera. O craft-compress é o verbo da
+## casa (seleção inteira → UM diálogo nome+formato → UM arquivo →
+## notificação; colisão pergunta, erro mostra a prova, cancelar não deixa
+## entulho) e o zenity é o diálogo GTK dele — ~1 MB instalado, gtk3 e
+## libnotify JÁ estão na ISO (custo real: o binário). O backend segue o
+## 7zip da v1.1: zip E 7z são nativos dele, tar.xz é do tar da base —
+## ZERO pacote de compressão novo.
+zenity
 
 ## ── ELITE v1.0.3: fastfetch (o craft-hello usa quando existe) ─────────
 ## v2.2: o xdotool da v1.5.2 SAIU — era dep exclusiva do fg-booster,

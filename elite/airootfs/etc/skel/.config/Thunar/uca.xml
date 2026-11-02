@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  uca.xml — ações customizadas do Thunar (User Configurable Actions)
+
+  E35 — O VERBO "COMPRIMIR…" DA ELITE (pedido do dono, 02/nov: "estava
+  tentando compactar todos esses arquivos em um só e não consegui"):
+  seleciona TUDO (arquivos e pastas, %F entrega a seleção inteira como
+  argumentos separados) → clique-direito → Comprimir… → um diálogo
+  (nome + formato) → UM arquivo ao lado da seleção → notificação.
+
+  O motor é o craft-compress (usr/local/bin) — o 7zip que JÁ está na ISO
+  fala zip e 7z, o tar fala tar.xz. O "Criar Arquivo…" do
+  thunar-archive-plugin/xarchiver segue no menu para quem quiser o
+  gerenciador; ESTE é o caminho que qualquer usuário espera.
+
+  Este arquivo mora no skel: todo usuário novo da Elite nasce com o verbo.
+  Edits do usuário pelo próprio Thunar caem em ~/.config/Thunar/uca.xml —
+  este aqui continua sendo a base de fábrica.
+-->
+<actions>
+  <action>
+    <icon>package-x-generic</icon>
+    <name>Comprimir…</name>
+    <submenu></submenu>
+    <unique-id>elite-craft-compress-1</unique-id>
+    <command>/usr/local/bin/craft-compress %F</command>
+    <description>Compactar os itens selecionados em um único arquivo (zip, 7z ou tar.xz)</description>
+    <patterns>*</patterns>
+    <directories/>
+    <audio-files/>
+    <image-files/>
+    <other-files/>
+    <text-files/>
+    <video-files/>
+  </action>
+</actions>
