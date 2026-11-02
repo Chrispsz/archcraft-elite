@@ -1478,14 +1478,14 @@ else
   assert_eq "$rcP" "0" "cadeia D (Setup A): modo padrão dry exit 0"
   assert_match "$outP" 'DOSSIÊ DETECTADO' "cadeia D: dossiê abre a sessão"
   assert_match "$outP" 'gen=blackwell vendor=nvidia' "cadeia D: dossiê mostra o hardware certo"
-  assert_match "$outP" '\$ pacman -S --needed --noconfirm linux-cachyos-bore linux-cachyos-bore-headers' \
-    "cadeia D: [1] kernel BORE no plano (kernel único)"
+  assert_match "$outP" 'pacman -S --needed --noconfirm linux-cachyos-bore linux-cachyos-bore-headers' \
+    "cadeia D: [1] kernel BORE no plano (kernel único) — E37: linha [dry] do pacman_s"
   if grep -q ' linux-headers' <<<"$outP"; then
     fail "cadeia D: [1] headers do kernel stock FORA do plano" "plano ainda instala linux-headers"
   else
     ok "cadeia D: [1] linux-headers stock fora do plano (v1.1: kernel único BORE)"
   fi
-  assert_match "$outP" '\$ pacman -S --needed --noconfirm cachyos-settings cachyos-ananicy-rules ananicy-cpp' \
+  assert_match "$outP" 'pacman -S --needed --noconfirm cachyos-settings cachyos-ananicy-rules ananicy-cpp' \
     "cadeia D: [1] stack CachyOS no plano (v2.2: booster único — sem scx/dmemcg)"
   if grep -q 'scx-scheds\|scx-tools\|dmemcg-booster' <<<"$outP"; then
     fail "cadeia D: [1] boosters extintos FORA do plano" "o plano ainda menciona scx-scheds/scx-tools/dmemcg-booster"
@@ -1504,8 +1504,8 @@ else
   else
     ok "cadeia D: [6] fg-booster/xdotool/slice fora do plano (v2.2: boost de jogo = gamemode)"
   fi
-  assert_match "$outP" '\$ pacman -S --needed --noconfirm gamemode lib32-gamemode gamescope' \
-    "cadeia D: [6] stack de jogo no plano"
+  assert_match "$outP" 'pacman -S --needed --noconfirm gamemode lib32-gamemode gamescope' \
+    "cadeia D: [6] stack de jogo no plano — E37: via pacman_s"
   assert_match "$outP" 'CONCLUÍDO. Reboot' "cadeia D: chegou ao fim"
   baks1=$(ls /etc/*.bak.* 2>/dev/null | wc -l)
   assert_eq "$baks1" "$baks0" "cadeia D: dry NÃO cria .bak em /etc (backup guardado — v4.4)"
