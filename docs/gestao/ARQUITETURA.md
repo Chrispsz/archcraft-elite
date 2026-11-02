@@ -348,9 +348,10 @@ Critério: impacto alto × esforço baixo × risco baixo, tudo provado pela port
 
 ## Plano de reestruturação (o que fica — ranqueado)
 
-1. **Fatorar os espelhos do elite-tune** em funções únicas (`apply_grub_tokens`, `ensure_btrfs_stack`,
-   `write_elite_sysctl`, `ensure_bbr`) chamadas pelos dois modos — a doença que já mordeu 1× e tem 4
-   pares vivos (área 2 declarada do POLIMENTO).
+1. ✅ **FEITO — E37**: os 4 pares gêmeos são hoje FUNÇÃO ÚNICA chamada pelos dois modos
+   (`apply_grub_tokens`, `write_elite_sysctl`, `ensure_bbr` iso|graft, `ensure_btrfs_stack`); o espelho
+   é cravado na suíte como contagem (def 1× / chamada 2× / zero cópia viva) e o epílogo do interativo
+   ficou honesto (nº 16 no mesmo commit).
 2. **Guards da suíte index-driven**: shebang e file_permissions lendo `git ls-files -s` (o guard de exec
    já faz) — fim do NO-GO local que o sandbox finge e o CI desmente.
 3. **Contratos de docs**: todo `craft-*/elite-*` citado no README existe em `usr/local/bin`; rollback
@@ -376,5 +377,5 @@ Critério: impacto alto × esforço baixo × risco baixo, tudo provado pela port
     hardcodes coordenados à mão.
 15. **Versionar as crons** (docs/gestao/CRONS.md + contrato E34) — a metade executante da gestão deixa
     de ser invisível ao repo.
-16. **Resumo de falhas no epílogo do elite-tune interativo** (pacman_s com rc real em vez de "CONCLUÍDO"
-    incondicional) — junto com a fatoração dos espelhos (1).
+16. ✅ **FEITO — E37**: pacman_s com rc real alimenta FAILURES; falha vira 'PENDÊNCIA: …' na hora e
+    'CONCLUÍDO COM N PENDÊNCIA(S)' no epílogo — o 'CONCLUÍDO' incondicional morreu.
