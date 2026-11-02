@@ -361,8 +361,13 @@ out="$(CP add OBS 2>&1)"
 assert_match "$out" 'obs\.desktop fixado' "craft-pin v2: add casa por Nome com espaço (OBS → obs.desktop)"
 assert_grep "$PINSF" '^obs\.desktop$' "craft-pin v2: 3º pin no arquivo"
 
-out="$(CP add steam 2>&1)" || true
+rc=0
+out="$(CP add steam 2>&1)" || rc=$?
 assert_match "$out" 'já está fixado' "craft-pin v2: duplicata rejeitada (rc ≠ 0)"
+# E36 — o contrato antigo JURAVA 'rc ≠ 0' e só lia stdout (o código saía 0
+# e a peça passava igual: a mentira era dupla). O rc agora é PROVADO —
+# e o picker com rc≠0 + mensagem 'já está fixado' dá toast honesto.
+assert_eq "$rc" "1" "E36: duplicata NÃO é sucesso (rc=1 PROVADO — o picker nunca mais notifica 'fixado' quando nada mudou)"
 out="$(CP add aplicativo-que-nao-existe-xyz 2>&1)" || true
 assert_match "$out" 'nenhum app casa' "craft-pin v2: nome desconhecido recusado com mensagem clara"
 
@@ -936,6 +941,27 @@ if grep -q 'disponível' <<<"$outC"; then
 else
   ok "E32: offline = zero aviso de versão (falha de rede é silêncio, doutrina da casa)"
 
+fi
+
+# ── E36 — a classe proibida do áudio EXECUTA (o contrato antigo só grepava
+# a PALAVRA — 'USB Microphone' em EN escapava do BAD_RE que só tinha
+# 'microfone' pt + a marca do rig: a reincidência exata da doença p6aw por
+# outro nome. Comportamento se prova EXECUTANDO o regex do arquivo real):
+if command -v python3 >/dev/null 2>&1; then
+  BAD_LINE="$(sed -n 's/^BAD_RE = //p' "$REPO/elite/airootfs/usr/local/bin/craft-audio-route")"
+  if [ -n "$BAD_LINE" ] && python3 -c "
+import re, sys
+bad = eval(sys.argv[1])
+caem = ['Fifine Microphone', 'USB Microphone', 'Microfone do painel', 'Monitor of Built-in Audio']
+nao_cai = 'Saída Analógica'
+sys.exit(0 if all(bad.search(p) for p in caem) and not bad.search(nao_cai) else 1)
+" "$BAD_LINE" 2>/dev/null; then
+    ok "E36: BAD_RE do áudio EXECUTA — microfone pt+EN e 'Monitor of' caem na classe proibida; saída analógica não"
+  else
+    fail "E36: BAD_RE do áudio executa" "o regex da classe proibida não pegou as provas (réu: 'USB Microphone' EN virava default)"
+  fi
+else
+  skip "E36: BAD_RE do áudio executa" "python3 ausente no runner"
 fi
 
 phase_end

@@ -52,8 +52,12 @@ PROFILE=$(dirname "$(find "$OUT" -maxdepth 3 -name profiledef.sh -print -quit)")
 say "Profile detectado: $PROFILE"
 
 # ── [3] Overlay airootfs (arquivos Elite vencem; nada deles é apagado)
+# E36 (audit de arquitetura — build Q10): o rsync sem exclude copiaria
+# __pycache__/*.pyc de runtime do MANTENEDOR para dentro da ISO — o E35
+# curou o SINTOMA (a peça file_permissions pegou o .pyc); aqui morre a
+# FONTE. Zero entulho de runtime na árvore entregue ao mkarchiso.
 say "Aplicando overlay airootfs/ (sysctl, zram, udev, units, scripts, preset BORE)"
-rsync -a elite/airootfs/ "$PROFILE/airootfs/"
+rsync -a --exclude='__pycache__' --exclude='*.pyc' elite/airootfs/ "$PROFILE/airootfs/"
 
 # ── [4] Pacotes: add + debloat + firmware cirúrgico ────────────────
 # Nota: as duas listas aceitam comentário inline ('pkg  # motivo') — o

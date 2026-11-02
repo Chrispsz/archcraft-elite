@@ -26,7 +26,9 @@
     · Teclas XF86 de volume/brilho/mídia (o criador também as usa)
 
   Desvios conscientes (documentados):
-    · W-d → fuzzel (criador: ToggleShowDesktop → preservada em W-S-d)
+    · W-d → Launchpad (nwg-drawer) · W-S-d → toggle da dock — a nota antiga
+      'fuzzel / ToggleShowDesktop preservada' descrevia a v1.2 (E33 curado
+      no E36: o código real nunca foi esse)
     · 4 desktops, não 5 (W-1..4 cabe na fileira sem olhar; popupTime 800 p/
       feedback — o criador usa popupTime 0)
     · Screenshots em W-p/W-S-p (v2.10.5: keysym minúsculo — o keysym 'P'

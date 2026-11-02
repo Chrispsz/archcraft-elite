@@ -101,9 +101,26 @@ base="$(awk -F'\t' -v n="$choice" '$1 == n {print $2; exit}' "$LIST")"
 
 # ── 3. Fixa o ID .desktop REAL (Gio.DesktopAppInfo.new() é case-sensitive:
 #       nada de slug minúsculo — o ID exato é o que a dock consome) ──────
-if craft-pin add "$base"; then
+# E36 — três desfechos com TRÊS toasts (antes: duplicata era rc 0 = toast
+# de sucesso falsa; falha real = silêncio — o leigo não sabia NADA):
+addout="$(craft-pin add "$base" 2>&1)"; addrc=$?
+if [ "$addrc" -eq 0 ]; then
     if command -v notify-send >/dev/null 2>&1; then
         notify-send -a craft-pin "Dock" \
             "'$choice' fixado na dock (clique-direito no desktop → Fixar p/ mais)" || true
+    fi
+elif printf '%s' "$addout" | grep -q 'já está fixado'; then
+    # E36 — a verdade no toast: "já estava" ≠ "fixado"
+    if command -v notify-send >/dev/null 2>&1; then
+        notify-send -a craft-pin "Dock" \
+            "'$choice' já estava na dock" || true
+    fi
+else
+    mlog "Fixar: craft-pin FALHOU rc=$addrc — $(printf '%s' "$addout" | head -c 200)"
+    if command -v notify-send >/dev/null 2>&1; then
+        # doutrina v2.3.10: pílula de falha avisa e SOME (-u normal + -t —
+        # urgência critical é eterna por design no swaync e foi extinta)
+        notify-send -a craft-pin -u normal -t 8000 "Fixar na dock falhou" \
+            "rc=$addrc — detalhe em ~/.cache/elite/menus.log" || true
     fi
 fi

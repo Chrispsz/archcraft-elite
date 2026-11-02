@@ -48,7 +48,10 @@ cap_log
 
 ensure() {
     # $1=nome  $2=config  $3=css
-    if ! pgrep -f "waybar -c $2" >/dev/null 2>&1; then
+    # E36 — âncora ^: 'pgrep -f' casa SUBSTRING — um editor com "waybar -c
+    # config.top" aberto mascarava a morte da barra (a mesma lição da dock
+    # e do toplevel na v2.10.6; aqui estava por vir).
+    if ! pgrep -f "^waybar -c $2" >/dev/null 2>&1; then
         printf '[%s] waybar %s FORA — reiniciando\n' "$(date '+%F %T')" "$1" >>"$LOG"
         # v1.7.1 — EXIT CODE COMO EVIDÊNCIA: a v1.6.3 capturava o stderr,
         # mas morte LIMPA (exit 0) ou sinal não escrevem stderr nenhum —
@@ -124,7 +127,14 @@ while :; do
     if ! pgrep -x swayidle >/dev/null 2>&1; then
         lm="$(sed -n 's/^LOCK_MIN=//p' "$HOME/.config/elite/idle.conf" 2>/dev/null | head -1)"
         case "${lm:-}" in ''|*[!0-9]*) lm=10 ;; esac
-        if [ "$lm" -gt 0 ] 2>/dev/null; then
+        # E36 (audit de arquitetura): o gate só olhava LOCK_MIN — a
+        # combinação Lock=Nunca + Suspender=20min nunca nascia (o menu
+        # gravava o conf, o daemon morria no exit 0 e NADA era dito).
+        # O clamp do sm espelha o próprio craft-idle (valor lixo = 20 de
+        # fábrica — o conf do skel).
+        sm="$(sed -n 's/^SUSPEND_MIN=//p' "$HOME/.config/elite/idle.conf" 2>/dev/null | head -1)"
+        case "${sm:-}" in ''|*[!0-9]*) sm=20 ;; esac
+        if [ "$lm" -gt 0 ] 2>/dev/null || [ "$sm" -gt 0 ] 2>/dev/null; then
             printf '[%s] idle swayidle FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
             (
                 /usr/local/bin/craft-idle start >>"$LOG" 2>&1
@@ -149,6 +159,37 @@ while :; do
                 printf '[%s] audio craft-audio-route SAIU exit=%d\n' "$(date '+%F %T')" "$st" >>"$LOG"
             ) &
         fi
+    fi
+    # E36 — FIM DOS ÓRFÃOS (audit de arquitetura, sessão Q2/Q8): o swaync é
+    # a superfície de TODOS os avisos de erro dos craft-*; o udiskie monta
+    # o USB; o agente polkit responde o pkexec — os três morriam CALADOS
+    # (nenhum relançamento, nenhum log, nenhum gate). Mesma lei da família:
+    # o autostart lança na 1ª vez; este ensure é a rede — pgrep vivo =
+    # nada acontece (idempotente, sem corrida fork/exec da classe idle).
+    if command -v swaync >/dev/null 2>&1 && ! pgrep -x swaync >/dev/null 2>&1; then
+        printf '[%s] swaync FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
+        (
+            swaync >>"$LOG" 2>&1
+            st=$?
+            printf '[%s] swaync SAIU exit=%d\n' "$(date '+%F %T')" "$st" >>"$LOG"
+        ) &
+    fi
+    if command -v udiskie >/dev/null 2>&1 && ! pgrep -x udiskie >/dev/null 2>&1; then
+        printf '[%s] udiskie FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
+        (
+            udiskie --automount --notify --no-tray >>"$LOG" 2>&1
+            st=$?
+            printf '[%s] udiskie SAIU exit=%d\n' "$(date '+%F %T')" "$st" >>"$LOG"
+        ) &
+    fi
+    POLKIT_BIN=/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1
+    if [ -x "$POLKIT_BIN" ] && ! pgrep -f "^$POLKIT_BIN\$" >/dev/null 2>&1; then
+        printf '[%s] polkit FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
+        (
+            "$POLKIT_BIN" >>"$LOG" 2>&1
+            st=$?
+            printf '[%s] polkit SAIU exit=%d\n' "$(date '+%F %T')" "$st" >>"$LOG"
+        ) &
     fi
     sleep 5
 done

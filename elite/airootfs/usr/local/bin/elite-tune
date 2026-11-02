@@ -776,17 +776,38 @@ dossie
 [[ -n "${MEMSPEED:-}" ]] && (( MEMSPEED < 3000 )) && warn "RAM @ ${MEMSPEED}MHz → ligue DOCP/XMP na BIOS"
 [[ "$ISA" == "v1" ]] && err "CPU pré-v2: use kernel linux/linux-lts do Arch (CachyOS exige v2+)"
 
+# E36 (audit de arquitetura — tune Q2, o achado ❌ mais perigoso): o err de
+# cima NÃO SAI (é só echo) e a seção [1] instalava o kernel x86_64_v3 MESMO
+# em CPU pré-v3 → SIGILL no boot seguinte — o 'avisa e mesmo assim instala'
+# viola a doutrina da própria casa ('nunca deixa o usuário num estado sem
+# saída', :723-726). O gate: PRV3=0 pula a seção [1] INTEIRA (repos v3 +
+# kernel) — o RESTO do tune (zram/sysctl/udev/daemons/grub) é independente
+# do kernel e segue. (A detecção produz v1/v3/v4 — 'v2' não existe; v1 =
+# pré-v3 de verdade. O firstboot roda SÓ no sistema que JÁ bootou a ISO v3,
+# então o gate é do enxerto interativo — o único caminho capaz de destruir.)
+PRV3=1
+case "$ISA" in v1) PRV3=0 ;; esac
+
 confirm "Aplicar o Elite Tune neste hardware?" || exit 0
 
 # ── [1] CachyOS + kernel BORE (kernel único da Elite v1.1) ─────────
-ensure_cachyos
-run pacman -S --needed --noconfirm "$KERNEL_PKG" "${KERNEL_PKG}-headers"
-run pacman -S --needed --noconfirm cachyos-settings cachyos-ananicy-rules ananicy-cpp
+if (( PRV3 )); then
+  ensure_cachyos
+  run pacman -S --needed --noconfirm "$KERNEL_PKG" "${KERNEL_PKG}-headers"
+  run pacman -S --needed --noconfirm cachyos-settings cachyos-ananicy-rules ananicy-cpp
+else
+  warn "SEÇÃO [1] PULADA — CPU $ISA não roda pacotes x86-64-v3 (SIGILL no boot)."
+  warn "O kernel atual do sistema permanece; zram/sysctl/daemon/grub seguem (seções 2+)."
+fi
 
 # ── [2] Daemons ─────────────────────────────────────────────────────
 # v4.7: um daemon só — ananicy-cpp (o scheduler é o BORE do kernel;
 # scx-elite/dmemcg/fg-booster extintos na fusão dos boosters)
-run systemctl enable --now ananicy-cpp.service || true
+# E36 — enable só quando o pacote pôde nascer (PRV3): habilitar serviço
+# de pacote que não instalou é falha engolida pelo || true.
+if (( PRV3 )); then
+  run systemctl enable --now ananicy-cpp.service || true
+fi
 
 # ── [3] Boot params ────────────────────────────────────────────────
 (( CPU_AMD )) && ensure_cmdline_token /etc/default/grub amd_pstate=active

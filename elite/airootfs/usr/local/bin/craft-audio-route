@@ -43,7 +43,10 @@ LOG = os.path.join(LOGDIR, "audio.log")
 
 # classes: 'bad' (nunca default) · 'target' (ganha quando nasce) ·
 # 'ok' (analógico de verdade) · 'hdmi' (por último — monitor não rouba som)
-BAD_RE = re.compile(r"microfone|\bmic\b|fifine|webcam|c[âa]mera|monitor of", re.I)
+# E36 — 'microphone' EN entra: o réu original era a MARCA (fifine) e um
+# 'USB Microphone' genérico escapava e podia virar default — a reincidência
+# exata da doença p6aw por outro nome (o ALSA/PipeWire nomeia em EN).
+BAD_RE = re.compile(r"microfone|microphone|\bmic\b|fifine|webcam|c[âa]mera|monitor of", re.I)
 HDMI_RE = re.compile(r"hdmi|displayport", re.I)
 WIRE_RE = re.compile(r"headphone|headset|fone", re.I)
 GOOD_FF = ("headphone", "headset", "speaker", "hands-free")

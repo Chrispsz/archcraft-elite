@@ -45,6 +45,11 @@ lact
 
 ## ── ELITE: infra de rollback + diagnóstico ──
 grub-btrfs
+## E36 (audit de arquitetura — instalação Q6): o install-stage liga o
+## os-prober no GRUB (achado D2: "Windows/2º SO nunca aparecia no menu")
+## mas o pacote NÃO estava na ISO — o knob era código morto e nem o
+## Windows entraria. ~200 KB; roda SÓ no grub-mkconfig do instalado.
+os-prober
 ## v2.3.6 — o rig flagrou: grub-btrfsd FAILED ('No directory found at
 ## /.snapshots') e o timeshift NUNCA foi configurado (promessa pela
 ## metade). O par canônico do grub-btrfs é o snapper (vigia /.snapshots
@@ -219,12 +224,17 @@ brave-origin
 ## v1.8.2 — CONECTIVIDADE GUI (áudio do dono, 24/out: "impala e bluetui…
 ## eu não sei utilizar esses programas que são terminal… quero mais bonito,
 ## mais organizado e mais fácil de usar no dia a dia"). Os TUIs Rust ficam
-## (power users, fallback do craft-connect), mas o DIA A DIA vira GUI:
-##   · nm-applet    — ícone de rede na tray (waybar tray) + menu de redes;
-##                    o nm-connection-editor abre a árvore completa de
-##                    conexões (Wi-Fi/Ethernet/VPN) em janela GTK
-##   · blueman      — applet de Bluetooth na tray + blueman-manager
-##                    (pareamento/áudio em janela GTK) + blueman-adapters
+## (power users, fallback do craft-connect), mas o DIA A DIA vira GUI.
+## E36 — HONESTIDADE (a nota antiga vendia 'ícone na tray (waybar tray)'
+## e a tray SAIU na v2.3.6 — E33): NENHUM applet é lançado por nada desde
+## então; os dois pacotes ficam como EDITORES/GERENCIADORES GUI chamados
+## pelo craft-connect e pelos atalhos do rc.xml:
+##   · nm-applet    — traz o nm-connection-editor (árvore completa de
+##                    conexões Wi-Fi/Ethernet/VPN em janela GTK): verbo
+##                    'Editor de conexões…' do craft-connect + W-n no rc.xml
+##   · blueman      — traz o blueman-manager (pareamento/áudio em janela
+##                    GTK): verbo 'Bluetooth: dispositivos…' do craft-connect
+##                    + W-S-b no rc.xml
 ## Custo: ~2 MB + ~5 MB instalados; zero daemons novos (o NM e o
 ## bluetooth.service JÁ rodam — os applets são clientes leves).
 ## NOTA: o pacote Arch chama-se network-manager-applet (nm-applet é o

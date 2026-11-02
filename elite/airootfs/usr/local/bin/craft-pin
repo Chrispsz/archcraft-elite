@@ -70,7 +70,11 @@ case "${1:-}" in
         # org.xfce.Thunar'); comparar a linha INTEIRA (grep -qxF) nunca
         # via casar, e o pin seria duplicado
         if awk -v id="$id" '$1 == id { f=1 } END { exit !f }' "$PINS" 2>/dev/null; then
-            echo "craft-pin: $id já está fixado"; exit 0
+            # E36 — duplicata NÃO é sucesso: rc 0 fazia o picker notificar
+            # "'$choice' fixado" MESMO quando nada mudou (confirmação falsa
+            # para o leigo) e o contrato da suíte jurava "rc ≠ 0" que o
+            # código não cumpria (E33 na própria casa). rc 1 = a verdade.
+            echo "craft-pin: $id já está fixado"; exit 1
         fi
         backup
         printf '%s\n' "$id" >> "$PINS"

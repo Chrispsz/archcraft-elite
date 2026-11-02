@@ -82,6 +82,20 @@ open_menu() {
     return 0
 }
 
+# E36 — SENHA MASCARADA (a mesma pergunta dos DOIS verbos de senha):
+# zenity --password (bolinhas na tela; zenity está na ISO desde o E35) com
+# fallback open_menu/fuzzel — a string '--ask=' sobrevive como o caminho de
+# emergência. Contrato: `zenity --password` em craft-connect.
+ask_pass() { # $1=título  $2=rótulo — imprime em $_c; $_rc=0 OK / ≠0 cancelou
+    if command -v zenity >/dev/null 2>&1; then
+        _rc=0
+        _c="$(zenity --password --title="$1" 2>/dev/null)" || _rc=$?
+    else
+        open_menu --title="$1" --at=network --ask="$2" </dev/null
+    fi
+    return 0
+}
+
 benign_close() {
     # fechamento SEM escolha NUNCA é erro (ESC 1 · toggle 2 · cross-dismiss 143)
     case "$1" in
@@ -134,9 +148,19 @@ Redes Wi-Fi…
             rows="${rows}Wi-Fi: ligar
 " ;;
     esac
-    rows="${rows}Conexões salvas…
+    # E36 — a linha de Bluetooth SÓ nasce com adaptador (a linha antiga
+    # era INCONDICIONAL: desktop sem BT abria o blueman-manager numa
+    # janela vazia — 'linha que diz o que não existe', a classe que a
+    # casa combate em todo o resto). /sys/class/bluetooth/hciN = o
+    # adaptador de verdade, sem depender de ferramenta de userland.
+    if [ -n "$(ls /sys/class/bluetooth 2>/dev/null)" ]; then
+        rows="${rows}Conexões salvas…
 Bluetooth: dispositivos…
 Editor de conexões…"
+    else
+        rows="${rows}Conexões salvas…
+Editor de conexões…"
+    fi
     printf '%s\n' "$rows"
 }
 
@@ -226,10 +250,10 @@ wifi_connect() {
         fi
         return 0
     fi
-    # rede nova protegida: o menu pede a senha (prompt visível no fuzzel;
-    # a rede salva na próxima vez não pergunta mais)
+    # rede nova protegida: a senha é pedida MASCARADA (ask_pass → zenity
+    # --password; E36) — a rede salva na próxima vez não pergunta mais
     mlog "Rede: rede nova protegida '$ssid' — pedindo senha"
-    open_menu --title='Senha Wi-Fi' --at=network --ask='Senha' </dev/null
+    ask_pass 'Senha Wi-Fi' 'Senha'
     if [ "$_rc" -ne 0 ]; then
         if benign_close "$_rc"; then return 0; fi
         menu_fail "$_rc"
@@ -334,7 +358,7 @@ known_password() {
     # NM é a fonte); conecta em seguida para provar a senha nova AGORA
     name="$1"
     mlog "Rede: alterando a senha de '$name'"
-    open_menu --title='Senha' --at=network --ask='Nova senha' </dev/null
+    ask_pass 'Senha' 'Nova senha'
     if [ "$_rc" -ne 0 ]; then
         if benign_close "$_rc"; then return 0; fi
         menu_fail "$_rc"
