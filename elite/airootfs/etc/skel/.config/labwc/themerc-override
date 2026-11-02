@@ -113,3 +113,11 @@ osd.window-switcher.item.active.border.color: #cba6f7
 # ── Snapping (preview de divisão da tela) ─────────────────────────────────
 snapping.overlay.edge.bg.color: #cba6f780
 snapping.overlay.region.bg.color: #cba6f780
+
+# ── Cursor (E36 — um sotaque só): o Bibata dos GTK agora é o do compositor
+# também (labwc-theme(5): cursor.theme/cursor.size). Antes: tema DEFAULT do
+# sistema aqui e Bibata nos apps — o ponteiro mudava de personalidade ao
+# cruzar a fronteira janela↔desktop. O XCURSOR_* do environment cobre os
+# clientes; este bloco cobre o labwc.
+cursor.theme: Bibata
+cursor.size: 24

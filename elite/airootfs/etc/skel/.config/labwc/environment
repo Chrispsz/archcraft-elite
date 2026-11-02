@@ -13,3 +13,13 @@
 # `export XDG_DATA_DIRS="$XDG_DATA_DIRS:$HOME/.local/share/flatpak/exports/share"`
 # no shell antes de abrir o Launchpad, ou instale com --system.
 XDG_DATA_DIRS=/usr/local/share:/usr/share:/var/lib/flatpak/exports/share
+
+# E36 (audit de arquitetura, sessão Q7 — o FIM DOS TRÊS SOTAQUES DO PONTEIRO):
+# Bibata nos apps GTK (settings.ini), Qogirr no greeter e tema DEFAULT no
+# compositor/foot/Qt — três personalidades num só boot. O Bibata já é o tema
+# da ISO (archcraft-cursor-bibata) e dos GTK: agora É o tema da SESSÃO inteira
+# (o XCURSOR_* cobre os clientes; o themerc-override crava o cursor.theme
+# para o próprio compositor). O greeter Qogirr é a face pública do SDDM —
+# decisão consciente de manter (o rice do greeter é outro domínio).
+XCURSOR_THEME=Bibata
+XCURSOR_SIZE=24

@@ -2,6 +2,59 @@
 
 Formato: **o quê faz / como rodar / como reverter / dependências**.
 
+## Índice completo (E36 — todo binário vivo tem linha aqui)
+
+O detalhado mora nas seções abaixo; o índice cobre TODOS os vivos (a promessa
+"uso de cada script" do README era falsa com ~15 seções para 41 peças — E36
+a tornou verdade: 32 bins + scripts de repo).
+
+| Peça | Papel em uma linha |
+|---|---|
+| `elite-tune` | tuning completo (kernel CachyOS/BORE, GPU, zram, sysctl, daemons) — `--firstboot` / interativo / `--apps` / `--status`; E36: gate ISA pré-v3 (não instala kernel v3 em CPU que não roda) |
+| `elite-status` | alias de `elite-tune --status` (3 linhas — a lógica num lugar só) |
+| `elite-install-stage` | pós-pacstrap do Calamares (GPU profile, kernels, BORE initramfs, btrfs, GRUB); E36: gate órfãos exclui o bloco 30_os-prober |
+| `elite-session-probe` | sonda da sessão gráfica (barras/dock/toplevel/socket) — o insumo do gate do CI e do `craft-dump` |
+| `elite-sweep` | varredura one-shot dos atalhos órfãos do instalador (pré-login) |
+| `calamares-elite-log` | wrapper do Calamares — log silencioso + cópia para /var/log |
+| `craft-audio-route` | roteamento automático de áudio (fone pluga, som troca; classe microfone EN+pt nunca é default) |
+| `craft-bars` | supervisor da sessão (waybar, dock, toplevel, idle, áudio, swaync, udiskie, polkit) + forense `bars.log` |
+| `craft-bat` | resumo de bateria via /sys (clique no módulo da barra) |
+| `craft-bgapps` | menu de apps em 2º plano (o botão que só existe quando há o que encerrar) |
+| `craft-clean` | manutenção: cache de pacman, órfãos, journal vacuum |
+| `craft-compress` | "Comprimir…" do Thunar — multi-seleção → UM arquivo (zip/7z/tar.xz) com zenity; E36: tar com `--` + warning rc=1 |
+| `craft-connect` | central de rede PT-BR (Wi-Fi, cabo, Bluetooth, salvas) sob o botão de rede; E36: senha mascarada (zenity) + linha de BT só com adaptador |
+| `craft-dock` | toggle/reload da dock via SIGUSR (âncora — não mata editor alheio) |
+| `craft-dock-gui` | a dock (GTK3 + layer-shell): pins .desktop, dinâmicos por app, fecho no meio; E36: fecho nunca casa por título + CSS de fallback espelhado |
+| `craft-drawer` | Launchpad (nwg-drawer) — W-d |
+| `craft-dump` | perícia completa em um arquivo (`--upload` = termbin PÚBLICO, avisado desde o E36) |
+| `craft-fix-keys` | cura do keyring pacman (sessão no live; no instalado o trabalho é do timer root) |
+| `craft-hello` | saudação do terminal (fastfetch + fallback próprio) |
+| `craft-idle` | daemon de idle (lock/DPMS/suspend conforme `idle.conf`) + menu de presets; E36: suspend entregue MESMO com Lock=Nunca + `-i` (inibidores ignorados) |
+| `craft-keyring-wait` | espera o pacman transacional (teto 420s) — ExecStartPre do pacman-init |
+| `craft-lock` | trava a sessão (hyprlock com o wallpaper resolvido) |
+| `craft-logout` | menu de sessão curto (W-Escape / W-x / C-A-Delete) |
+| `craft-menu` | o motor dmenu dos menus craft-* (fuzzel --dmenu + âncoras + log) |
+| `craft-menu-dismiss` | fecha qualquer menu/OSD aberto (lei de cross-dismiss) |
+| `craft-pin` | fixar/remover/listar pins da dock (`dock-pins` + .bak); E36: duplicata sai rc 1 |
+| `craft-pin-pick` | picker gráfico de apps para fixar (direito no desktop → Fixar); E36: toast honesto para duplicata/falha |
+| `craft-power` | menu Sessão completo (sair/suspender/reiniciar/desligar/idle/rollback) |
+| `craft-rollback` | snapshots snapper — criar/restaurar com polkit |
+| `craft-shot` | captura de tela (região/tela) — W-p / W-S-p |
+| `craft-update` | atualização do sistema (-Syu + aviso exato de kernel + drift da casa) — porta de entrada: menu raiz "Atualizar sistema" |
+| `craft-wake-guard` | status/off/on do wake-guard USB (suspende sem acordar sozinho) |
+
+**Scripts de repo:**
+
+| Script | Papel em uma linha |
+|---|---|
+| `scripts/apply-overlay.sh` | monta o profile archiso com a árvore `elite/` (idempotente, seds com guard) |
+| `scripts/check-brave.sh` | guard do pin do Brave (nunca rebaixa; atualiza pin+sha juntos) |
+| `scripts/log-forensics.sh` | forense determinística do log de build (padrões fatais que já passaram em silêncio) |
+| `scripts/qemu-boot-test.sh` | boot-test da ISO no QEMU com a cmdline REAL (probe da sessão viva) |
+| `scripts/live/cura-*.sh` | curas de campo para o rig instalado, sem reinstalar (padrão cura-viva) |
+| `.ci/build.sh` | o build da ISO (preflight offline, pacotes da casa, mkarchiso) |
+| `.ci/validate-calamares.py` | validador do config do Calamares (YAML + resolução de instâncias @id) |
+
 ---
 
 ## elite-tune (v4.6) — `/usr/local/bin/elite-tune`

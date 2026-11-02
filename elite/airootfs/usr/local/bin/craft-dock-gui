@@ -616,7 +616,7 @@ class Dock:
         out = self._tl_cmd(f"CLOSE {wid}")
         return bool(out) and out[-1].startswith("OK")
 
-    def _windows_of(self, info, hint, did):
+    def _windows_of(self, info, hint, did, strict=False):
         """Janelas REAIS do app no snapshot: app_id casa os candidatos
         (case-insensitive — o fim da adivinhação de capitalização do
         wlrctl) ou o título contém o nome de exibição (último recurso)."""
@@ -635,8 +635,14 @@ class Dock:
             # footclient — falso positivo com custo real no fecho.
             stem = a.rsplit(".", 1)[-1] if a else ""
             near = any(_near_match(a, c) for c in cands)
+            # E36 — o verbo DESTRUTIVO não casa por título: em strict=True
+            # (SÓ o fecho do meio) a cláusula do título sai — a aba "Arquivos
+            # do Windows" do Brave não recebe WM_DELETE porque CASA com o
+            # Thunar pt-BR. Falso positivo em foco é chato; em fecho é perda
+            # de dados (o comentário antigo 'falso positivo é SEGURO' só era
+            # verdade para os verbos lançar/focar).
             if (a in cands or (stem and stem in cands) or near
-                    or (name and name in t)):
+                    or (not strict and name and name in t)):
                 out.append(wid)
         return sorted(out)
 
@@ -666,7 +672,9 @@ class Dock:
             # recebem o WM_DELETE gracioso (o dono: "clico na tarefa e ela
             # não encerra"). Sem daemon, o wlrctl da v2.10 assume.
             if self.tl_alive:
-                wids = self._windows_of(info, hint, did)
+                # E36 — strict=True: o fecho exige casamento por app_id (o
+                # título nunca manda WM_DELETE — ver _windows_of)
+                wids = self._windows_of(info, hint, did, strict=True)
                 if wids and self._close_app_windows(wids):
                     return True
             if WLRCTL:
@@ -1019,9 +1027,20 @@ DEFAULT_CSS = b"""
   border-radius: 12px;
   background: transparent;
   border: none;
+  transition: background 0.15s ease;
 }
 #dockbox button:hover { background: rgba(22, 22, 31, 0.95); }
-#dockbox button.running { box-shadow: inset 0 -3px 0 rgba(205, 214, 244, 0.8); }
+#dockbox button:active { background: rgba(46, 46, 61, 0.95); }
+#dockbox button.running {
+  /* E36 - o fallback agora ESPELHA o skel (dock.css v2.3.7): a BOLINHA
+     6x3px centrada do dono - a barrinha box-shadow inset que ele rejeitou
+     morreu AQUI tambem (espelho E33: os dois CSS voltam a contar a mesma
+     historia; :active/transition acompanhando o skel). */
+  background-image: linear-gradient(rgba(205, 214, 244, 0.9), rgba(205, 214, 244, 0.9));
+  background-size: 6px 3px;
+  background-position: center bottom;
+  background-repeat: no-repeat;
+}
 #dockbox separator {
   min-width: 1px;
   margin: 8px 7px;

@@ -356,7 +356,16 @@ if [ -f "${ROOT}/boot/vmlinuz-linux-cachyos-bore" ] &&
             # KERNEL ÚNICO: nenhum vmlinuz-* no menu além do BORE — kernel
             # órfão no grub.cfg = entrada morta/poluição → instalação
             # reprovada com motivo (gate duro, mesma escola do M1.1).
-            orphans="$(grep -v '^[[:space:]]*#' "${ROOT}/boot/grub/grub.cfg" \
+            # E36 (audit de arquitetura — instalação Q6, a contradição ❌
+            # lógica): o bloco 30_os-prober do grub.cfg cita o vmlinuz dos
+            # OUTROS sistemas legítimos que o D2 prometeu mostrar (Windows/
+            # 2º Linux) — sem excluir o bloco, o os-prober gerava a
+            # menuentry e ESTE gate reprovava a instalação POR ELA: a
+            # promessa D2 e o gate brigavam no MESMO script. O bloco é
+            # delimitado pelos marcadores BEGIN/END oficiais do grub —
+            # FORA dele o contrato segue duro (vmlinuz órfão real = erro).
+            orphans="$(sed '/### BEGIN \/etc\/grub.d\/30_os-prober ###/,/### END \/etc\/grub.d\/30_os-prober ###/d' "${ROOT}/boot/grub/grub.cfg" \
+                | grep -v '^[[:space:]]*#' \
                 | grep -Eo 'vmlinuz-[A-Za-z0-9._-]+' \
                 | sort -u \
                 | grep -Ev '^vmlinuz-linux-cachyos-bore$' || true)"

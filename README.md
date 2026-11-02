@@ -75,7 +75,7 @@ o driver do próprio hardware.
 | GPU | NVIDIA open pré-compilado no build (rig A) / RADV (rig B) |
 | Arquivos | Thunar + tumbler (GUI), craft-connect para rede/bluetooth |
 | Navegador | Brave Origin (release oficial, versão e sha256 fixados no build) |
-| Rollback | btrfs + timeshift + grub-btrfs (snapshot no menu do GRUB) |
+| Rollback | btrfs + snapper + grub-btrfs + craft-rollback (snapshot no menu do GRUB; restauração GUI no menu Sessão — o timeshift saiu na v2.3.6: um rei só na estratégia de snapshot) |
 
 Debloat do upstream no teto do que não quebra o sistema (impressão,
 cloud-init, sessões Openbox/BSPWM/X11, terminais extras, fontes CJK…,
@@ -128,7 +128,7 @@ lint → build → verify → verify-install → release (GATE 1 + GATE 2)
   (`scripts/log-forensics.sh`) e erro silencioso derruba a run.
 - **verify** — boota a ISO no QEMU com a cmdline REAL da entrada default e
   exige: boot completo, zero shell de emergência, zero binário não-executável,
-  **zero unidade systemd em failed** e **sessão gráfica viva com as 2 barras**
+  **zero unidade systemd em failed** e **sessão gráfica viva com a barra e a dock**
   (probe obrigatório quando o runner tem KVM).
 - **verify-install** — reproduz a cadeia Calamares inteira (unpackfs → btrfs,
   hash do vmlinuz, mkinitcpio, GRUB) e boota o disco instalado no QEMU.

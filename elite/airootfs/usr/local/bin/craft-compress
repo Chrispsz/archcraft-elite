@@ -31,6 +31,12 @@ LOG="$LOG_DIR/compress.log"
 # também (a evidência se lê, não se decifra)
 log() {
     mkdir -p "$LOG_DIR"
+    # E36 — a lei do teto vale para TODA a família (bars 1 MiB, audio 256 KiB,
+    # menus 256 KiB): o compress.log nasceu append-only sem teto — a peça
+    # nova não pode nascer fora da lei. Teto 256 KiB, poda pela metade.
+    if [ -f "$LOG" ] && [ "$(wc -c <"$LOG" 2>/dev/null || echo 0)" -gt 262144 ]; then
+        tail -c 131072 "$LOG" > "$LOG.tmp" 2>/dev/null && mv -f "$LOG.tmp" "$LOG"
+    fi
     printf '%s %b\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >>"$LOG"
 }
 
@@ -110,8 +116,14 @@ logf=$(mktemp)
 rcf="$logf.rc"
 trap 'rm -f "$logf" "$rcf"' EXIT
 if [[ "$alvo" == *.tar.xz ]]; then
-    motor=(tar -cJvf "$alvo" "$@")
-    rc_ok=0                    # tar: só 0 é vitória
+    # E36 — SIMETRIA DO TAR (audit de arquitetura): tar rc=1 = 'file changed
+    # as we read it' (item escrito durante a compactação — cenário real de
+    # download/log) COM arquivo BOM criado: tratar como falha APAGAVA um
+    # tar.xz bom — a mesma lição do 7z rc=1 (E35) que não tinha sido
+    # espelhada aqui. E o `--` que o 7z já tinha: um arquivo começando com
+    # '-' era engolido como opção do tar. rc ≥ 2 = erro de verdade.
+    motor=(tar -cJvf "$alvo" -- "$@")
+    rc_ok=1
 else
     motor=(7z a -bd -bso0 -bsp0 -- "$alvo" "$@")
     rc_ok=1                    # 7z: 0 OU 1 (warning) = arquivo criado
@@ -150,8 +162,9 @@ if [[ "$rc" -gt "$rc_ok" ]]; then
 fi
 
 if [[ "$rc" == "1" ]]; then
-    # 7z WARNING: o arquivo NASCEU, mas houve item travado — a prova no log
-    log "AVISO 7z (rc=1): $(tail -3 "$logf" | tr '\n' ' ')"
+    # WARNING do motor: o arquivo NASCEU, mas houve item travado — a prova
+    # no log (7z = item não compactado; tar = 'file changed as we read it')
+    log "AVISO ${motor[0]} (rc=1): $(tail -3 "$logf" | tr '\n' ' ')"
 fi
 
 # ── vitória: notificação com o tamanho real (o usuário vê o resultado) ──
