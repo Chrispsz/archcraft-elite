@@ -742,6 +742,28 @@ assert_nogrep "$PKG" '^geany$' "curadoria: geany saiu (mousepad entra)"
 assert_nogrep "$PKG" '^atril$' "curadoria: atril saiu (zathura entra)"
 assert_nogrep "$PKG" '^galculator$' "curadoria: galculator saiu (qalculate entra)"
 assert_grep "$PKG" '^xarchiver$' "v2.8.0: xarchiver na ISO (o gerenciador GTK3 mais leve p/ o 7zip executar — pedido do dono: compactar/descompactar tudo)"
+# ═══════════════ E35 — O VERBO "COMPRIMIR…" DO EXPLORADOR ═══════════════
+# O dono PROVOU com print (02/nov): selecionou vários .iso, o único caminho
+# era o "Criar Arquivo…" do par v2.8.0 (xarchiver) e o fluxo do gerenciador
+# NÃO é o que o usuário espera ("compactar todos esses arquivos em um só…
+# e não consegui"). A cura é o verbo da CASA: craft-compress com UM diálogo
+# (nome+formato), a seleção INTEIRA em UM arquivo ao lado dela, colisão
+# perguntando, erro mostrando a prova, cancelamento sem entulho. O motor é
+# o 7zip que já estava na ISO desde a v1.1 (zip E 7z são DELE) + tar.xz do
+# tar da base — zero pacote de compressão novo; o único add é o zenity.
+CCOMP="$P/airootfs/usr/local/bin/craft-compress"
+UCA="$P/airootfs/etc/skel/.config/Thunar/uca.xml"
+assert_file "$CCOMP" "E35: o verbo Comprimir… existe (craft-compress — multi-seleção → UM arquivo)"
+assert_file "$UCA" "E35: o Thunar nasce com o verbo (uca.xml no skel — todo usuário novo da Elite)"
+assert_grep "$UCA" 'craft-compress %F' "E35: a ação chama o craft com %F (a seleção INTEIRA chega como argumentos — a cura exata do relato do dono)"
+assert_grep "$UCA" 'Comprimir…' "E35: o verbo em PT-BR no menu de contexto (produto ao dono)"
+assert_grep "$CCOMP" 'zenity --forms' "E35: UM diálogo nome+formato — não o fluxo do gerenciador (a lição do print)"
+assert_grep "$CCOMP" '7z a' "E35: o motor é o 7zip da v1.1 (zip E 7z sem pacote novo — o backend vira UI)"
+assert_grep "$CCOMP" 'rc_ok=1' "E35: 7z rc=1 (WARNING com arquivo CRIADO) é sucesso — tratar como falha apagaria arquivo bom (prova no comentário)"
+assert_grep "$CCOMP" 'já existe' "E35: colisão PERGUNTA antes de substituir (arquivo do usuário nunca morre calado)"
+assert_grep "$CCOMP" 'rm -f -- "\$alvo"' "E35: falha/cancelamento não deixa entulho (o parcial é apagado)"
+assert_grep "$CCOMP" 'die\(\) \{' "E35: erro com diálogo + log (nada calado — lei da casa)"
+assert_grep "$REPO/elite/packages.add" '^zenity$' "E35: o zenity é DEPENDÊNCIA DECLARADA (~1 MB; gtk3/libnotify já estavam na ISO — binário fantasma não existe na casa)"
 assert_nogrep "$PKG" '^ranger$' "curadoria: ranger saiu (yazi entra)"
 assert_nogrep "$PKG" '^mc$' "curadoria: mc saiu (yazi fica)"
 assert_nogrep "$PKG" '^htop$' "curadoria: htop saiu (btop fica)"
