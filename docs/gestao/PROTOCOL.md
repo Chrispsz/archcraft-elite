@@ -58,7 +58,7 @@ resultado da build mensal do dia.
   pin+sha juntos). Upstream sem checksum publicado = NÃO sobe; registra
   honestamente no diário o motivo. Pin errado = build vermelha (o makepkg
   da CI re-verifica — a porteira paga).
-- **L10 · O produto ao dono é PT-BR** (i18n da overlay) e a suíte contratá
+- **L10 · O produto ao dono é PT-BR** (i18n da overlay) e a suíte contrata
   isso — polimento que quebra PT-BR quebra a suíte.
 
 ## Formato do diário (todas as tarefas)

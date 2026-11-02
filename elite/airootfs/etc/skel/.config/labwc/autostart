@@ -74,11 +74,13 @@ else
 fi
 
 # --- Central de notificações (SwayNC) — toggle no relógio da barra ---------
-# v2.10.5 — MESMA LEI DOS VIZINHOS (fim do último spawn sem guarda): o
-# swaync é a única superfície de TODOS os avisos de erro dos craft-*,
-# morrer calado contrariava a doutrina do próprio arquivo.
+# v2.10.5 — a central é a superfície de TODOS os avisos de erro dos craft-*.
+# E36 — HONESTIDADE (o comentário antigo invocava 'a lei dos vizinhos' mas
+# o spawn era NU — E33): o stderr agora vai para o bars.log (com a forense
+# da casa) e o craft-bars RELANÇA se morrer em sessão (pgrep vivo = nada
+# acontece; um só lançador na 1ª vez, rede de segurança para sempre).
 if command -v swaync >/dev/null 2>&1; then
-    swaync &
+    swaync >>"${XDG_CACHE_HOME:-$HOME/.cache}/elite/bars.log" 2>&1 &
 fi
 
 # --- Diálogo de senha gráfico (polkit) — o Archcraft só sobe agente na sessão

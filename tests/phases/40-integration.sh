@@ -617,7 +617,7 @@ assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'craft-connect' "v2.0
 assert_grep "$P/airootfs/usr/local/bin/craft-connect" 'exec nm-connection-editor' "v2.3.7→v2.6.0: o gerenciador do SISTEMA segue no menu (a CRIAÇÃO manual mora lá — definição do próprio dono)"
 assert_grep "$P/airootfs/usr/local/bin/craft-connect" 'nmtui' "v2.3.7: fallback nmtui (ferramenta do próprio NetworkManager — zero lógica nossa no caminho)"
 assert_nogrep "$P/airootfs/usr/local/bin/craft-connect" 'wifi_pick' "v2.3.7: o picker desenhado MORREU (senha oculta + parse de sinal + nmcli próprios = superfície de falha sem dono)"
-assert_nogrep "$P/airootfs/usr/local/bin/craft-connect" '--password' "v2.3.7→v2.6.0: NENHUMA flag --password nossa (o prompt é o craft-menu --ask; a senha vai como argumento do VERBO do nmcli)"
+assert_nogrep "$P/airootfs/usr/local/bin/craft-connect" 'craft-menu --password' "v2.3.7→v2.6.0: NENHUMA flag --password NOSSA (o padrão v2.3.7 de flag própria morreu na v2.6; a senha vai como argumento do VERBO do nmcli) — E36: a máscara agora é do zenity UPSTREAM (--password, bolinhas na tela), não é flag nossa"
 assert_grep "$P/airootfs/usr/local/share/applications/lstopo.desktop" 'NoDisplay=true' "v2.3.5: lstopo (hardware locality) fora do Launchpad — override NoDisplay, o padrão xgps"
 assert_grep "$P/airootfs/usr/local/share/applications/lstopo-no-graphics.desktop" 'NoDisplay=true' "v2.3.5: lstopo-no-graphics também oculto (mesma classe — dep de terceiros não é app do dono)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/environment" 'XDG_DATA_DIRS=.*flatpak/exports/share' "v2.3.5: flatpak exports no XDG_DATA_DIRS da sessão (o Sober sem ícone é isso — literal, sem depender de expansão)"
@@ -2425,7 +2425,7 @@ assert_grep "$RCX" 'button="Right" action="Press"' "v2.7.0: o DIREITO segue com 
 # craft-menu: a SENHA compacta e sem entrada fantasma
 assert_grep "$P/airootfs/usr/local/bin/craft-menu" '--minimal-lines --lines 1' "v2.8.0: o modo --ask encolhe a janela de senha (a foto: 10 linhas de caixa para digitar UMA senha — o lines=10 do launcher não vaza mais)"
 assert_grep "$P/airootfs/usr/local/bin/craft-menu" 'fuzzel "\$@" </dev/null' "v2.8.0: lista vazia entra no fuzzel VAZIA de verdade (printf '%s\n' de string vazia imprime UMA LINHA = entrada fantasma selecionada — o retângulo claro da foto)"
-assert_grep "$P/airootfs/usr/local/bin/craft-connect" "--ask='Senha'" "v2.8.0: o fluxo Wi-Fi segue pedindo a senha pelo craft-menu (o prompt compacto alcança o caminho real do dono)"
+assert_grep "$P/airootfs/usr/local/bin/craft-connect" 'zenity --password' "v2.8.0→E36: o fluxo Wi-Fi pede a senha MASCARADA (zenity --password na frente — o fuzzel mostrava tudo enquanto se digitava; o craft-menu --ask segue vivo no ask_pass como fallback)"
 # craft-dock-gui: A DOCK PURA (v2.9.0 — a gaiola EXTINTA com prova)
 assert_nogrep "$P/airootfs/usr/local/bin/craft-dock-gui" '_cage_setup|_cage_set_region|cage_request|_cage_click|_cage_disarm|_cage_poll|_menu_pid|_forget_pid' "v2.9.0: TODOS os métodos da gaiola EXTINTOS do dock (a v2.8 nasceu com input region cheia e só crescia — o mouse do sistema morreu nisso)"
 assert_nogrep "$P/airootfs/usr/local/bin/craft-dock-gui" 'atexit|DK_FILE|ST_MENU|ACK_FILE|CAGE_CSS|BAR_H' "v2.9.0: constantes da era da gaiola EXTINTAS (pid-file, ack, css da gaiola, altura da barra — nenhum consumidor sobrou)"

@@ -195,6 +195,9 @@ fi
 
     printf '\n══════════ 0 · VEREDITO RÁPIDO ══════════\n'
     printf '(o sistema descrevendo a si mesmo — o detalhe mora nas seções 1-14)\n'
+    # E36 — honestidade de interface: o papel é de mantenedor, o dono é o
+    # CARTEIRO da perícia — e agora o papel DIZ isso (nenhuma linha dizia).
+    printf '(você não precisa ler as seções técnicas — o papel é para ENVIAR)\n'
     # v2.1.1: o probe é o veredito que a sessão faz de si (barras, dock,
     # toplevel vivo E FALANDO — PING real no socket —, memória, versões)
     if [ -x /usr/local/bin/elite-session-probe ]; then
@@ -550,6 +553,11 @@ fi
 if [ "${1:-}" = "--upload" ]; then
     # termbin via /dev/tcp do bash — sem nc (a ISO não o carrega).
     # v2.10.6: timeout 15 — rede morta devolve o terminal em 15s, não nunca.
+    # E36 — PRIVACIDADE NUNCA CALADA: o paste no termbin é PÚBLICO e o
+    # papel carrega SSIDs, IPs, MACs e a lista de pacotes — o dono manda
+    # SABENDO (a via mais fácil de enviar o diagnóstico não pode expor a
+    # rede doméstica em silêncio).
+    printf 'AVISO: o paste no termbin é PÚBLICO (o papel contém SSIDs, IPs, MACs, pacotes)\n' >&2
     url="$(timeout 15 bash -c '
         exec 3<>/dev/tcp/termbin.com/9999 || exit 1
         cat "'"$OUT"'" >&3

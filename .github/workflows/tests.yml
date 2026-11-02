@@ -21,6 +21,7 @@ on:
       - 'scripts/**'
       - '.ci/**'
       - 'tests/**'
+      - 'docs/**'
       - '.github/workflows/**'
   pull_request:
     paths:
@@ -28,6 +29,7 @@ on:
       - 'scripts/**'
       - '.ci/**'
       - 'tests/**'
+      - 'docs/**'
       - '.github/workflows/**'
 
 concurrency:

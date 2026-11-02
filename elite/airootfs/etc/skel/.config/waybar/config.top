@@ -50,7 +50,7 @@
 
   // Direita (v2.1 — declutter pedido pelo dono: “tem uns interessantes
   // mas tá um pouco cheio”): screenshot SAIU da barra (a função segue
-  // viva em W-P / W-S-P — rc.xml; AÇÃO não precisa de assento fixo), a
+  // viva em W-p / W-S-p — rc.xml; AÇÃO não precisa de assento fixo), a
   // música só ocupa a barra QUANDO há algo tocando (format-empty ""),
   // o botão de apps em 2º plano só existe QUANDO há o que encerrar,
   // e o status permanente fica no essencial:
@@ -63,7 +63,7 @@
   // de áudio" — clique muta o microfone, direito abre o pwvucontrol igual
   // ao do som; muto = vermelho, mesma gramática do volume.)
   // (v2.3.10 — o print SAIU da barra: "não gostei do botão de print
-  // melhor remover" — o craft-shot segue vivo nos atalhos W-P e W-S-P,
+  // melhor remover" — o craft-shot segue vivo nos atalhos W-p e W-S-p,
   // que cobrem os dois verbos sem ocupar assento na barra.)
   "modules-right": [
     "mpris",
@@ -91,7 +91,7 @@
   // (v2.3.7 — o botão custom/shot voltou à barra a pedido do dono.
   // v2.3.10 — E SAIU DE NOVO: "não gostei do botão de print melhor
   // remover". O módulo morre aqui; o craft-shot segue vivo e os verbos
-  // continuam no teclado: W-P = região, W-S-P = tela inteira.)
+  // continuam no teclado: W-p = região, W-S-p = tela inteira.)
   // Música do USUÁRIO (MPRIS) — YouTube no navegador, Spotify, mpv: o que
   // VOCÊ tocar aparece aqui. Com nada tocando o módulo some sozinho.
   // Clique: esq = play/pause · meio = próxima · dir = anterior (a "faixa
