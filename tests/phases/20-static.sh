@@ -347,7 +347,7 @@ assert_nogrep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'enable --now scx-
 assert_nogrep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'enable --now fg-boost|enable --now fg-booster' "v2.2: elite-tune não habilita mais o fg-booster/slice (extintos)"
 assert_nogrep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'enable --now dmemcg-booster' "v2.2: elite-tune não habilita mais o dmemcg (extinto)"
 assert_nogrep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'noconfirm xdotool|noconfirm cachyos-settings cachyos-ananicy-rules ananicy-cpp scx-scheds' "v2.2: elite-tune não instala mais xdotool/scx/dmemcg (fusão 4→1: só cachyos-settings + rules + ananicy-cpp)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'pacman -S --needed --noconfirm cachyos-settings cachyos-ananicy-rules ananicy-cpp$' "v2.2: elite-tune [1] instala exatamente o booster único (fim da linha em ananicy-cpp)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'pacman_s cachyos-settings cachyos-ananicy-rules ananicy-cpp' "v2.2: elite-tune [1] instala exatamente o booster único (fim da linha em ananicy-cpp) — E37: via pacman_s (rc real no epílogo)"
 
 # ── peças: preset mkinitcpio do BORE (o initramfs do live) ─────────────
 PR="$REPO/elite/airootfs/etc/mkinitcpio.d/linux-cachyos-bore.preset"
@@ -1138,9 +1138,9 @@ assert_grep "$CU" 'command -v paru' "E32: honestidade v2.10.5 mantida (paru só 
 
 assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'snapper-cleanup.timer' "E32: o NUMBER_LIMIT volta a valer (sem o timer, snapshot manual acumula CoW para sempre)"
 NT2="$(grep -c 'systemctl enable --now snapper-cleanup.timer' "$REPO/elite/airootfs/usr/local/bin/elite-tune" || true)"
-assert_eq "$NT2" "2" "E32: o timer nos DOIS branches btrfs (firstboot E interativo — o espelho não fica para trás)"
+assert_eq "$NT2" "1" "E32+E37: o timer vive em ensure_btrfs_stack (a função ÚNICA — os 2 ramos agora compartilham a linha)"
 NG="$(grep -c 'list-configs 2>/dev/null | grep -qw root' "$REPO/elite/airootfs/usr/local/bin/elite-tune" || true)"
-assert_eq "$NG" "2" "E33: guard do snapper por SAÍDA nos DOIS ramos (o interativo carregava o guard por exit code que o D6 já matou no firstboot — 'list-configs' sai 0 com ZERO configs e o '|| create' nunca armava)"
+assert_eq "$NG" "1" "E33+E37: o guard do snapper por SAÍDA vive em ensure_btrfs_stack (1 definição chamada PELOS DOIS modos — a doença do espelho morreu na estrutura)"
 
 CB="$REPO/scripts/check-brave.sh"
 assert_file "$CB" "E32: o guardião do pin existe (sem ele o rebuild mensal reusaria a MESMA versão do Brave via cache)"
@@ -1224,5 +1224,30 @@ assert_grep "$CALD" 'Name\[pt_BR\]=Instalar' "E36: a porta de entrada do instala
 assert_grep "$REPO/.github/workflows/tests.yml" "docs/\*\*" "E36: a porteira RODA quando docs/** muda (o ponto cego da proteção sobre os arquivos que protege morre)"
 assert_grep "$REPO/scripts/apply-overlay.sh" "exclude='__pycache__'" "E36: o rsync do [3] exclui __pycache__/*.pyc na FONTE (o E35 curou o sintoma no file_permissions — a ISO nunca mais vê entulho de runtime)"
 assert_grep "$REPO/docs/gestao/ARQUITETURA.md" '100 questionamentos' "E36: o documento da auditoria arquitetural existe (10 palavras-chave × 10 questionamentos com evidência)"
+
+# ── E37: FATORAÇÃO DOS ESPELHOS do elite-tune (plano ARQUITETURA nº1) ──
+# A doença do E33 (o interativo carregava o guard do snapper morto no
+# firstboot sob o comentário 'o MESMO GUARD') não pode renascer: função
+# ÚNICA chamada PELOS DOIS modos — espelho cravado como contagem (def 1×,
+# chamada 2×, zero cópia viva).
+CTUNE="$REPO/elite/airootfs/usr/local/bin/elite-tune"
+for fn in apply_grub_tokens write_elite_sysctl ensure_bbr ensure_btrfs_stack; do
+  ND="$(grep -c "^${fn}() {" "$CTUNE" || true)"
+  NC="$(grep -cE "^[[:space:]]*${fn}( |$)" "$CTUNE" || true)"
+  assert_eq "$ND" "1" "E37: ${fn} definida UMA vez (a fonte única da verdade)"
+  assert_eq "$NC" "2" "E37: ${fn} chamada PELOS DOIS modos (firstboot + interativo — o espelho é a chamada, não a cópia)"
+done
+assert_eq "$(grep -c 'ensure_cmdline_token /etc/default/grub nowatchdog' "$CTUNE" || true)" "1" \
+  "E37: o token nowatchdog não tem mais cópia espelhada (era 2 — a doença do E33 morreu na estrutura)"
+assert_eq "$(grep -c 'vm\.swappiness = 180' "$CTUNE" || true)" "1" \
+  "E37: a lei do sysctl vive em write_elite_sysctl (era 2 cópias que podiam divergir)"
+assert_eq "$(grep -c 'grub-mkconfig -o /boot/grub/grub\.cfg' "$CTUNE" || true)" "1" \
+  "E37: o grub-mkconfig vive em apply_grub_tokens (era 2 — o plano do kernel nascia em dois lugares)"
+# E37 + plano nº16: o epílogo do interativo conta a verdade
+assert_grep "$CTUNE" 'FAILURES=\(\)' "E37/n16: o epílogo tem memória de falha (FAILURES — o 'CONCLUÍDO' incondicional não tem memória)"
+assert_grep "$CTUNE" 'PENDÊNCIA: ' "E37/n16: cada falha de pacman_s é anunciada NA HORA (note_fail — a falha não espera o fim para existir)"
+assert_grep "$CTUNE" 'CONCLUÍDO COM' "E37/n16: o epílogo diz 'CONCLUÍDO COM pendências' quando algo falhou (o sucesso é a exceção declarada, não o default)"
+assert_grep "$CTUNE" 'echo -e .*N\} pacman -S --needed --noconfirm \$\*' \
+  "E37/n16: o pacman_s mantém a linha do plano no modo REAL (o rc real não custa o contrato visual '  $ pacman …')"
 
 phase_end

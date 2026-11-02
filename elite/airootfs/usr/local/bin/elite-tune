@@ -1,8 +1,25 @@
 #!/usr/bin/env bash
 # =====================================================================
-#  elite-tune v4.8 — Archcraft Elite Edition
+#  elite-tune v4.9 — Archcraft Elite Edition
 #  Elite A: Ryzen 7 5700X · RTX 5060 8GB · 16GB · B550M
 #  Elite B: veterano — detecção automática de GPU/CPU/disco
+#
+#  v4.9 (E37 — FATORAÇÃO DOS ESPELHOS, plano ARQUITETURA nº1 + nº16):
+#        · 4 pares gêmeos firstboot↔interativo viraram FUNÇÃO ÚNICA
+#          chamada pelos DOIS modos: apply_grub_tokens, write_elite_sysctl,
+#          ensure_bbr, ensure_btrfs_stack — a doença que o E33 flagrou (o
+#          interativo carregava o guard do snapper por exit code que o D6
+#          já matara no firstboot, sob o comentário 'o MESMO GUARD') não
+#          pode renascer: revisar um caminho É revisar o outro, e a suíte
+#          crava o espelho novo (def 1×, chamada 2×, zero cópia viva).
+#        · BBR no firstboot: a limpeza do sysctl agora respeita o --dry-run
+#          (dry é seco, v4.4 — o sed/rm rodavam até seco).
+#        · nº16: epílogo HONESTO no interativo — pacman_s com rc real
+#          alimenta FAILURES; falha vira 'PENDÊNCIA: …' na hora e
+#          'CONCLUÍDO COM N PENDÊNCIA(S)' no fim (o 'CONCLUÍDO'
+#          incondicional vendia como instalado o que o pacman não baixou).
+#          O eco do plano (  $ pacman …) passa a existir TAMBÉM no modo
+#          real do pacman_s — o rc real não pode custar a linha do plano.
 #
 #  v4.8 (v2.3.4 — FIM DO INSTALADOR NO INSTALADO): o unpackfs copia o root
 #        do LIVE inteiro p/ o disco — o Calamares e o atalho "Instalar o
@@ -84,8 +101,12 @@ G='\033[1;32m'; Y='\033[1;33m'; R='\033[1;31m'; B='\033[1m'; N='\033[0m'
 say()  { echo -e "${G}==>${N} $1"; }
 warn() { echo -e "${Y}!>${N} $1"; }
 err()  { echo -e "${R}X>${N} $1"; }
+note_fail() { # E37/n16: pendência anunciada NA HORA e no epílogo
+  FAILURES+=("$1"); warn "PENDÊNCIA: $1"
+}
 
 DRY=0; YES=0; FIRSTBOOT=0; APPS=0; STATUS=0
+FAILURES=()   # E37/n16: memória de pendências do modo interativo (epílogo honesto)
 for a in "$@"; do
   case $a in
     --dry-run)  DRY=1 ;;
@@ -112,7 +133,10 @@ pacman_s() { # pacman -S com código de retorno REAL (run() engole rc por design
   # v4.5: fluxos que DECIDEM algo (troca de driver) precisam do rc de
   # verdade. --dry-run: NÃO executa (dry é seco, v4.4) — simulado = OK,
   # o plano segue como se a rede existisse.
+  # v4.9/E37: o eco do plano existe TAMBÉM no modo real (contrato visual
+  # da casa — o rc real não pode custar a linha '  $ pacman …').
   if (( DRY )); then say "[dry] pacman -S --needed --noconfirm $* (simulado: OK)"; return 0; fi
+  echo -e "  ${B}\$${N} pacman -S --needed --noconfirm $*"
   pacman -S --needed --noconfirm "$@"
 }
 wfile() { # wfile <dest>  (heredoc via stdin)
@@ -236,6 +260,87 @@ gpu_cleanup_foreign() {
     pacman -Qq "$np" >/dev/null 2>&1 && warn "restou '$np' (dependência?) — manual: pacman -Rns $np"
   done
   return 0
+}
+
+# ── FATORAÇÃO DOS ESPELHOS (E37 — plano ARQUITETURA nº1) ─────────
+# firstboot e interativo carregavam 4 pares de código GÊMEO editados à
+# mão — a doença que o E33 flagrou (o interativo com o guard do snapper
+# por exit code que o D6 já matara no firstboot, sob o comentário 'o
+# MESMO GUARD'). Função ÚNICA chamada PELOS DOIS modos: revisar um
+# caminho É revisar o outro. A suíte crava o espelho novo: def 1×,
+# chamada 2×, zero cópia viva.
+
+apply_grub_tokens() { # tokens de kernel + grub-mkconfig ([4] firstboot / [3] interativo)
+  (( CPU_AMD )) && ensure_cmdline_token /etc/default/grub amd_pstate=active
+  ensure_cmdline_token /etc/default/grub nowatchdog
+  ensure_cmdline_token /etc/default/grub zswap.enabled=0
+  ensure_cmdline_token /etc/default/grub transparent_hugepage=always
+  run grub-mkconfig -o /boot/grub/grub.cfg
+}
+
+write_elite_sysctl() { # a lei do sysctl ([2i] firstboot quando ausente / [5] interativo)
+  wfile /etc/sysctl.d/99-elite.conf <<'EOF'
+# ── ELITE: sysctl de gaming
+vm.swappiness = 180
+vm.vfs_cache_pressure = 50
+vm.page_lock_unfairness = 1
+vm.max_map_count = 2147483642
+kernel.sched_autogroup_enabled = 1
+EOF
+}
+
+ensure_bbr() { # BBR+fq ([2c] firstboot / [5] interativo) — $1 = iso | graft
+  # iso: a ISO JÁ embarca 99-elite-net.conf + elite-bbr.conf — presente =
+  # confirma; ausente = LIMPA (o systemd-sysctl não pode reclamar a cada
+  # boot). graft: enxerto em sistema qualquer — presente = ESCREVE os
+  # arquivos; ausente = warn (cubic fica).
+  if grep -qw bbr /proc/sys/net/ipv4/tcp_available_congestion_control 2>/dev/null; then
+    if [[ "$1" == "graft" ]]; then
+      wfile /etc/sysctl.d/99-elite-net.conf <<'EOF'
+# ── ELITE: rede — BBR + fq (throughput em links de alta latência/perda)
+net.core.default_qdisc = fq
+net.ipv4.tcp_congestion_control = bbr
+EOF
+      wfile /etc/modules-load.d/elite-bbr.conf <<'EOF'
+# ── ELITE: garante o módulo BBR antes do systemd-sysctl (kernel =m)
+tcp_bbr
+EOF
+    else
+      say "TCP: bbr + fq ativos (sysctl.d da ISO) — throughput em links de alta latência"
+    fi
+  else
+    if [[ "$1" == "iso" ]]; then
+      warn "bbr indisponível neste kernel — limpando sysctl.d/99-elite-net.conf (cubic fica)"
+      # v4.9: a limpeza respeita o DRY (dry é seco, v4.4 — o sed/rm rodavam
+      # até seco; primeiroboot é unit, mas a promessa é da casa)
+      (( DRY )) || sed -i -E '/^net\.(core\.default_qdisc|ipv4\.tcp_congestion_control)/d' \
+        /etc/sysctl.d/99-elite-net.conf 2>/dev/null || true
+      (( DRY )) || rm -f /etc/modules-load.d/elite-bbr.conf 2>/dev/null || true
+    else
+      warn "kernel sem bbr — mantendo cubic (padrão do kernel)"
+    fi
+  fi
+}
+
+ensure_btrfs_stack() { # snapshots/grub-btrfsd/lactd-tail ([3] firstboot / [6] interativo)
+  # findmnt decide (o guard 'mount | grep on / btrfs' NUNCA casava — D1);
+  # guard do snapper por SAÍDA (list-configs sai 0 até com ZERO configs —
+  # D6/E33); timer cleanup só aplica limites (E32). Idempotente.
+  if [[ "$(findmnt -n -o FSTYPE / 2>/dev/null)" == "btrfs" ]]; then
+    if command -v snapper >/dev/null 2>&1; then
+      snapper --no-dbus list-configs 2>/dev/null | grep -qw root || \
+        run snapper --no-dbus -c root create-config / || true
+    elif [ ! -d /.snapshots ]; then
+      # fallback sem-snapper (legado do firstboot; no interativo é a rede
+      # de segurança se o [6] falhou offline): subvolume nu já deixa a
+      # grub-btrfsd subir sadia
+      run btrfs subvolume create /.snapshots || true
+    fi
+    run systemctl enable --now grub-btrfsd.service 2>/dev/null || true
+    run systemctl enable --now snapper-cleanup.timer 2>/dev/null || true
+  else
+    say "raiz não é btrfs — snapshots/grub-btrfsd ficam de fora (rollback é lei do btrfs)"
+  fi
 }
 
 # ── CachyOS: chave + keyring + mirrorlist + repos (padrão validado) ──
@@ -472,14 +577,9 @@ EOF
   # 2c. v4.6 — rede: BBR+fq ("internet rápida"): o sysctl.d da ISO pede bbr;
   #     se ESTE kernel não oferece (improvável no BORE), remove as linhas
   #     em vez de deixar o systemd-sysctl reclamando a cada boot.
-  if grep -qw bbr /proc/sys/net/ipv4/tcp_available_congestion_control 2>/dev/null; then
-    say "TCP: bbr + fq ativos (sysctl.d da ISO) — throughput em links de alta latência"
-  else
-    warn "bbr indisponível neste kernel — limpando sysctl.d/99-elite-net.conf (cubic fica)"
-    sed -i -E '/^net\.(core\.default_qdisc|ipv4\.tcp_congestion_control)/d' \
-      /etc/sysctl.d/99-elite-net.conf 2>/dev/null || true
-    rm -f /etc/modules-load.d/elite-bbr.conf 2>/dev/null || true
-  fi
+  #     E37: o par gêmeo vive em ensure_bbr — modo 'iso'. v4.9: a limpeza
+  #     respeita o DRY.
+  ensure_bbr iso
 
   # 2d. v4.8 (v2.3.4) — REMOÇÃO DO INSTALADOR: mídia de instalação não é
   #     sistema. O unpackfs copia o root do LIVE inteiro p/ o disco — o
@@ -642,16 +742,9 @@ PYBRAVE
   #     lista /etc/sysctl.d inteiro na seção 3 para o próximo papel).
   if [[ ! -f /etc/sysctl.d/99-elite.conf ]]; then
     say "sysctl: 99-elite.conf ausente no alvo — recriando (a lei da ISO)"
-    if (( ! DRY )); then
-      printf '%s\n' \
-        '# ── ELITE: sysctl de gaming (restaurado pelo elite-tune firstboot v2.10.14)' \
-        'vm.swappiness = 180' \
-        'vm.vfs_cache_pressure = 50' \
-        'vm.page_lock_unfairness = 1' \
-        'vm.max_map_count = 2147483642' \
-        'kernel.sched_autogroup_enabled = 1' \
-        > /etc/sysctl.d/99-elite.conf
-    fi
+    # E37: o conteúdo é lei ÚNICA (write_elite_sysctl) — a cópia local com
+    # o cabeçalho 'restaurado pelo firstboot' era o espelho que divergia
+    write_elite_sysctl
   fi
   want_sw=180
   got_sw="$(sysctl -n vm.swappiness 2>/dev/null || true)"
@@ -683,40 +776,15 @@ PYBRAVE
   # do mesmo jeito e nascia FAILED pra sempre (systemctl --failed vermelho
   # em toda instalação ext4 — ruído que imita doença).
   # v2.10.6 — O GATE ESTAVA MORTO (achado D1 da Rodada 2, provado):
-  # 'mount | grep -q " on / btrfs"' NUNCA casava — o util-linux imprime
-  # 'on / type btrfs' — e o branch inteiro (snapper, /.snapshots,
-  # grub-btrfsd) não rodava em NENHUMA instalação, btrfs inclusive: o
-  # rollback nascia morto em silêncio. O findmnt é o MESMO idioma do
-  # elite-install-stage:88.
-  if [[ "$(findmnt -n -o FSTYPE / 2>/dev/null)" == "btrfs" ]]; then
-    # v2.10.7 — o GUARD mentia (o 1º rig-install da 10.6 flagrou, dump 0qmq:
-    # snapper 0.13.2 instalado, ZERO configs, /.snapshots nunca nasceu,
-    # grub-btrfsd FAILED): 'snapper --no-dbus list-configs' SEM nenhuma
-    # config sai 0 e silencioso — o '|| create-config' nunca armava. A
-    # verdade é a SAÍDA, não o exit code: config 'root' listado = pronto.
-    if command -v snapper >/dev/null 2>&1; then
-      snapper --no-dbus list-configs 2>/dev/null | grep -qw root || \
-        run snapper --no-dbus -c root create-config / || true
-    elif [ ! -d /.snapshots ]; then
-      run btrfs subvolume create /.snapshots || true
-    fi
-    run systemctl enable --now grub-btrfsd.service 2>/dev/null || true
-    # E32 — o dono aprovou: sem o timer de cleanup o NUMBER_LIMIT do config
-    # (50) nunca é aplicado e snapshots manuais acumulam CoW para sempre.
-    # O timer SÓ aplica os limites do config — não cria snapshot nenhum
-    # (a criação segue explícita, lei do rollback da casa).
-    run systemctl enable --now snapper-cleanup.timer 2>/dev/null || true
-  else
-    say "raiz não é btrfs — snapshots/grub-btrfsd ficam de fora (rollback é lei do btrfs)"
-  fi
+  # 'mount | grep -q " on / btrfs"' NUNCA casava — a história completa da
+  # lei do btrfs (findmnt, guard por SAÍDA, timer E32) vive na FUNÇÃO.
+  # E37: ensure_btrfs_stack — o 'mesmo bloco do firstboot' deixou de ser
+  # promessa de comentário: é a MESMA FUNÇÃO.
+  ensure_btrfs_stack
   run systemctl enable --now lactd.service 2>/dev/null || true
 
-  # 4. tokens de kernel (GRUB) — inserção à prova de aspas
-  (( CPU_AMD )) && ensure_cmdline_token /etc/default/grub amd_pstate=active
-  ensure_cmdline_token /etc/default/grub nowatchdog
-  ensure_cmdline_token /etc/default/grub zswap.enabled=0
-  ensure_cmdline_token /etc/default/grub transparent_hugepage=always
-  run grub-mkconfig -o /boot/grub/grub.cfg
+  # 4. tokens de kernel (GRUB) — E37: apply_grub_tokens (o espelho morreu)
+  apply_grub_tokens
 
   # 5. self-disable + marker + aviso
   #    v4.5: marker/só-disable APENAS com driver garantido. Sem rede no 1º
@@ -793,8 +861,19 @@ confirm "Aplicar o Elite Tune neste hardware?" || exit 0
 # ── [1] CachyOS + kernel BORE (kernel único da Elite v1.1) ─────────
 if (( PRV3 )); then
   ensure_cachyos
-  run pacman -S --needed --noconfirm "$KERNEL_PKG" "${KERNEL_PKG}-headers"
-  run pacman -S --needed --noconfirm cachyos-settings cachyos-ananicy-rules ananicy-cpp
+  # E37/n16: pacman_s — o rc REAL alimenta o epílogo honesto (o
+  # 'CONCLUÍDO' incondicional vendia como instalado o kernel que o pacman
+  # não baixou — o usuário descobria no boot seguinte)
+  if pacman_s "$KERNEL_PKG" "${KERNEL_PKG}-headers"; then
+    :
+  else
+    note_fail "kernel $KERNEL_PKG + headers (sem rede/repos?) — o sistema segue no kernel atual"
+  fi
+  if pacman_s cachyos-settings cachyos-ananicy-rules ananicy-cpp; then
+    :
+  else
+    note_fail "booster único (cachyos-settings/cachyos-ananicy-rules/ananicy-cpp)"
+  fi
 else
   warn "SEÇÃO [1] PULADA — CPU $ISA não roda pacotes x86-64-v3 (SIGILL no boot)."
   warn "O kernel atual do sistema permanece; zram/sysctl/daemon/grub seguem (seções 2+)."
@@ -809,12 +888,8 @@ if (( PRV3 )); then
   run systemctl enable --now ananicy-cpp.service || true
 fi
 
-# ── [3] Boot params ────────────────────────────────────────────────
-(( CPU_AMD )) && ensure_cmdline_token /etc/default/grub amd_pstate=active
-ensure_cmdline_token /etc/default/grub nowatchdog
-ensure_cmdline_token /etc/default/grub zswap.enabled=0
-ensure_cmdline_token /etc/default/grub transparent_hugepage=always
-run grub-mkconfig -o /boot/grub/grub.cfg
+# ── [3] Boot params (E37: apply_grub_tokens — a função única) ─────
+apply_grub_tokens
 
 # ── [4] GPU ─────────────────────────────────────────────────────────
 if [[ "$VENDOR" == "nvidia" ]]; then
@@ -832,6 +907,7 @@ if [[ "$VENDOR" == "nvidia" ]]; then
     if (( DRY )); then
       echo "  \$ pacman -S --needed --noconfirm $DRIVER nvidia-utils nvidia-settings lib32-nvidia-utils"
     elif ! pacman -S --needed --noconfirm "$DRIVER" nvidia-utils nvidia-settings lib32-nvidia-utils; then
+      note_fail "driver NVIDIA ($DRIVER) — o sistema segue no driver presente"
       [[ "$GEN" == pascal || "$GEN" == maxwell ]] && \
         warn "Para $GEN: paru -S nvidia-580xx-dkms (AUR) e rode elite-tune de novo"
     fi
@@ -844,7 +920,8 @@ $( [[ "$GSPOPT" == "off" ]] && echo 'options nvidia NVreg_EnableGpuFirmware=0   
 EOF
   run systemctl enable nvidia-suspend.service nvidia-resume.service nvidia-hibernate.service nvidia-persistenced.service || true
 elif [[ "$VENDOR" == "amd" ]]; then
-  run pacman -S --needed --noconfirm mesa lib32-mesa vulkan-radeon lib32-vulkan-radeon radeontop
+  pacman_s mesa lib32-mesa vulkan-radeon lib32-vulkan-radeon radeontop \
+    || note_fail "stack AMD (mesa/vulkan-radeon/radeontop)"
   wfile /etc/modprobe.d/00-elite-amdgpu.conf <<'EOF'
 # ── ELITE: AMD — destrava undervolt/OC p/ LACT/CoreCtrl
 options amdgpu ppfeaturemask=0xffffffff
@@ -855,7 +932,7 @@ fi
 # Auto-limpeza também no modo interativo (enxerto em sistema existente):
 gpu_cleanup_foreign "$VENDOR" "$HYBRID"
 ZMB=$(( MEM_GIB * 1024 )); (( ZMB > 8192 )) && ZMB=8192
-run pacman -S --needed --noconfirm zram-generator
+pacman_s zram-generator || note_fail "zram-generator (swappiness 180 sem zram segue funcional)"
 wfile /etc/systemd/zram-generator.conf <<EOF
 [zram0]
 zram-size = ${ZMB}M
@@ -864,31 +941,12 @@ EOF
 run systemctl daemon-reload
 run systemctl start systemd-zram-setup@zram0.service || true
 
-wfile /etc/sysctl.d/99-elite.conf <<'EOF'
-# ── ELITE: sysctl de gaming
-vm.swappiness = 180
-vm.vfs_cache_pressure = 50
-vm.page_lock_unfairness = 1
-vm.max_map_count = 2147483642
-kernel.sched_autogroup_enabled = 1
-EOF
+write_elite_sysctl   # E37: a lei única (era cópia literal do bloco do firstboot)
 
 # v4.6 — "internet rápida": BBR+fq quando o kernel oferece (enxerto em
-# sistema qualquer: mesmo guard do firstboot; no BORE da ISO já vem assado
-# via /etc/sysctl.d/99-elite-net.conf + modules-load.d/elite-bbr.conf)
-if grep -qw bbr /proc/sys/net/ipv4/tcp_available_congestion_control 2>/dev/null; then
-  wfile /etc/sysctl.d/99-elite-net.conf <<'EOF'
-# ── ELITE: rede — BBR + fq (throughput em links de alta latência/perda)
-net.core.default_qdisc = fq
-net.ipv4.tcp_congestion_control = bbr
-EOF
-  wfile /etc/modules-load.d/elite-bbr.conf <<'EOF'
-# ── ELITE: garante o módulo BBR antes do systemd-sysctl (kernel =m)
-tcp_bbr
-EOF
-else
-  warn "kernel sem bbr — mantendo cubic (padrão do kernel)"
-fi
+# sistema qualquer; no BORE da ISO já vem assado via 99-elite-net.conf +
+# elite-bbr.conf). E37: o par gêmeo vive em ensure_bbr — modo 'graft'.
+ensure_bbr graft
 run sysctl --system || true
 
 wfile /etc/udev/rules.d/60-io-elite.rules <<'EOF'
@@ -901,30 +959,13 @@ run udevadm control --reload || true
 # ── [6] Stack de jogo + ferramentas ─────────────────────────────────
 # v4.7: a seção antiga [6] (fg-booster + xdotool + fg-boost.slice) foi
 # EXTINTA na fusão dos boosters — o boost de jogo é o gamemode abaixo.
-run pacman -S --needed --noconfirm gamemode lib32-gamemode gamescope \
-  mangohud lib32-mangohud grub-btrfs snapper lact
-# snapshots no fluxo manual também: sem /.snapshots a unit nasce FAILED
-# (o rig flagrou — mesmo bloco do firstboot, idempotente)
-# v2.10.6 — o MESMO GUARD do firstboot (achado D6): o modo interativo
-# habilitava grub-btrfsd sem condição de FS — em raiz ext4 nascia FAILED
-# pra sempre. findmnt decide, como no elite-install-stage:88.
-if [[ "$(findmnt -n -o FSTYPE / 2>/dev/null)" == "btrfs" ]]; then
-  if command -v snapper >/dev/null 2>&1; then
-    # E33 — o MESMO guard por SAÍDA do firstboot (v2.10.7/D6): a verdade
-    # é a LISTA, não o exit code — 'list-configs' sai 0 até com ZERO
-    # configs, e o '|| create-config' antigo nunca armava aqui (o "mesmo
-    # guard" do comentário era o guard que o D6 já tinha matado no
-    # firstboot). Config 'root' listado = pronto; ausente = nasce.
-    snapper --no-dbus list-configs 2>/dev/null | grep -qw root || \
-      run snapper --no-dbus -c root create-config / || true
-  fi
-  run systemctl enable --now grub-btrfsd.service 2>/dev/null || true
-  # E32 — mesmo timer do firstboot (o bloco inteiro é espelho dele;
-  # ver a nota lá: cleanup só aplica limites, criação segue explícita)
-  run systemctl enable --now snapper-cleanup.timer 2>/dev/null || true
-else
-  say "raiz não é btrfs — snapshots/grub-btrfsd ficam de fora (rollback é lei do btrfs)"
-fi
+pacman_s gamemode lib32-gamemode gamescope \
+  mangohud lib32-mangohud grub-btrfs snapper lact \
+  || note_fail "stack de jogo + btrfs + lact (pacman não completou — sem rede?)"
+# snapshots no fluxo manual também — E37: ensure_btrfs_stack, a lei ÚNICA
+# (findmnt decide; guard do snapper por SAÍDA — D6/E33; timer do E32).
+# O 'mesmo bloco do firstboot' deixou de ser promessa: é a MESMA FUNÇÃO.
+ensure_btrfs_stack
 run systemctl enable --now lactd.service 2>/dev/null || true
 
 # ── [7] Shader cache NVIDIA ─────────────────────────────────────────
@@ -935,5 +976,14 @@ if [[ "$VENDOR" == "nvidia" ]]; then
   done
 fi
 
-say "CONCLUÍDO. Reboot e depois: sudo elite-tune --status"
+# E37/n16 — epílogo HONESTO: o pacman_s alimentou FAILURES com rc real;
+# dizer 'CONCLUÍDO' sobre pendência era a mentira que o usuário só
+# descobria no boot seguinte (kernel que não veio, booster morto).
+if (( ${#FAILURES[@]} )); then
+  err "CONCLUÍDO COM ${#FAILURES[@]} PENDÊNCIA(S) — o resto do tune foi aplicado:"
+  for f in "${FAILURES[@]}"; do err "  · $f"; done
+  echo "Resolva (rede/repos) e rode elite-tune de novo — as seções são idempotentes."
+else
+  say "CONCLUÍDO. Reboot e depois: sudo elite-tune --status"
+fi
 echo "Apps opcionais: sudo elite-tune --apps"
