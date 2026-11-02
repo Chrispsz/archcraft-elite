@@ -1,0 +1,164 @@
+#!/usr/bin/env bash
+# ═══════════════════════════════════════════════════════════════════════════
+# craft-compress — O VERBO "COMPRIMIR…" DO EXPLORADOR (E35)
+# ───────────────────────────────────────────────────────────────────────────
+# E35 — o dono tentou compactar VÁRIOS arquivos em UM só pelo Thunar e não
+# conseguiu: o "Criar Arquivo…" (thunar-archive-plugin + xarchiver, v2.8.0)
+# abre o fluxo do xarchiver, que NÃO é o que o usuário espera (diálogo de
+# gerenciador, não de compactar a seleção). Cura: o verbo da CASA —
+# seleciona tudo → clique-direito → "Comprimir…" → UM diálogo (nome +
+# formato) → UM arquivo ao lado da seleção → notificação. O backend é o
+# 7zip que JÁ está na ISO desde a v1.1 (zip E 7z são nativos dele; o
+# tar.xz é do tar da base) — ZERO pacote de compressão novo. O xarchiver
+# FICA para abrir e extrair arquivos existentes (aí ele é bom); CRIAR é
+# trabalho do craft.
+#
+# NOTA 7z: exit 1 = WARNING (arquivo criado, algum item travado — ex.:
+# permissão) → SUCESSO com o aviso no log; exit ≥ 2 = falha de verdade.
+# Tratar 1 como falha apagaria um arquivo BOM — a suíte crava isso.
+#
+# uso:      craft-compress ARQUIVO… [ARQUIVO… DIR…]   (%F do uca.xml — a
+#           multi-seleção inteira chega como argumentos separados)
+# frontend: uca.xml do Thunar (skel) — "Comprimir…" no menu de contexto
+# ═══════════════════════════════════════════════════════════════════════════
+set -euo pipefail
+
+LOG_DIR="$HOME/.cache/elite"
+LOG="$LOG_DIR/compress.log"
+
+# evidência append-only (mesma política da dock — nada calado, nada falso)
+# %b: as mensagens de diálogo falam em \n (o zenity interpreta) — o log
+# também (a evidência se lê, não se decifra)
+log() {
+    mkdir -p "$LOG_DIR"
+    printf '%s %b\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >>"$LOG"
+}
+
+# ── o erro NUNCA é calado (lei da casa): diálogo para o usuário, log para a
+# evidência. Uso: die "título" "mensagem longa"
+die() {
+    log "FALHA: $1 — $2"
+    if command -v zenity >/dev/null 2>&1; then
+        zenity --error --title="$1" --text="$2" 2>/dev/null || true
+    fi
+    if command -v notify-send >/dev/null 2>&1; then
+        notify-send -u critical "$1" "$2" >/dev/null 2>&1 || true
+    fi
+    exit 1
+}
+
+# ── dependências: declaradas no packages.add, guardas aqui (o binário
+# fantasma não existe — quem chama fora do Thunar recebe o caminho de cura)
+for bin in zenity 7z tar; do
+    command -v "$bin" >/dev/null 2>&1 ||
+        die "craft-compress" "O programa '$bin' não está instalado.\nNo terminal: sudo pacman -S $bin"
+done
+
+# ── a seleção: o uca.xml manda %F (um argumento por item selecionado) ──
+if [[ $# -eq 0 ]]; then
+    die "craft-compress" "Nenhum arquivo selecionado.\nSelecione os itens no explorador e use Comprimir… de novo."
+fi
+N_ITENS=$#
+
+# destino = a pasta do 1º item (onde a seleção mora); tudo vira UM arquivo lá
+dest_dir="$(dirname -- "$1")"
+if [[ ! -w "$dest_dir" ]]; then
+    die "Sem permissão de escrita" "A pasta '$dest_dir' não aceita novos arquivos.\nComprima para uma pasta sua (ex.: Downloads)."
+fi
+
+# ── nome sugerido: 1 item = o nome dele; vários = "<pasta>-compactado" ──
+if [[ $N_ITENS -eq 1 ]]; then
+    sugestao="$(basename -- "$1")"
+else
+    sugestao="$(basename -- "$dest_dir")-compactado"
+fi
+
+# ── O DIÁLOGO ÚNICO: formato + nome, do jeito que o usuário espera ──
+form=$(zenity --forms --title="Comprimir" \
+    --text="Compactar $N_ITENS item(ns) em um único arquivo" \
+    --add-combo="Formato" \
+    --combo-values="zip (universal — abre em qualquer lugar)|7z (comprime mais)|tar.xz (nativo Linux)" \
+    --add-entry="Nome do arquivo (sem extensão)" \
+    --entry-text="$sugestao" \
+    --separator="|" 2>/dev/null) || exit 0   # Cancelar = mudou de ideia: sai calado, sem meia-work
+
+fmt="${form%%|*}"
+nome="${form#*|}"
+nome="${nome//\//-}"        # barra não é nome de arquivo
+nome="${nome//|/-}"         # nem separador do próprio formulário
+nome="${nome#"${nome%%[![:space:]]*}"}"   # trim à esquerda (SÓ trim — o
+nome="${nome%"${nome##*[![:space:]]}"}"   # resto do nome é do usuário)
+[[ -z "$nome" ]] && nome="$sugestao"      # apagou o campo? o sugerido salva
+
+case "$fmt" in
+    zip*)     alvo="$dest_dir/$nome.zip" ;;
+    7z*)      alvo="$dest_dir/$nome.7z" ;;
+    tar.xz*)  alvo="$dest_dir/$nome.tar.xz" ;;
+    *)        die "Comprimir" "Formato desconhecido: '$fmt'" ;;
+esac
+
+# ── colisão: o arquivo existente NUNCA morre sem pergunta ──
+if [[ -e "$alvo" ]]; then
+    zenity --question --title="Comprimir" \
+        --text="O arquivo '$(basename -- "$alvo")' já existe nesta pasta.\nSubstituir?" \
+        2>/dev/null || { log "cancelado: $(basename -- "$alvo") já existe (não substituído)"; exit 0; }
+    rm -f -- "$alvo"
+fi
+
+# ── o motor: 7z fala zip E 7z; tar.xz é do tar (xz é da base) ──
+logf=$(mktemp)
+rcf="$logf.rc"
+trap 'rm -f "$logf" "$rcf"' EXIT
+if [[ "$alvo" == *.tar.xz ]]; then
+    motor=(tar -cJvf "$alvo" "$@")
+    rc_ok=0                    # tar: só 0 é vitória
+else
+    motor=(7z a -bd -bso0 -bsp0 -- "$alvo" "$@")
+    rc_ok=1                    # 7z: 0 OU 1 (warning) = arquivo criado
+fi
+
+log "comprimir: $N_ITENS item(ns) → $(basename -- "$alvo")"
+( "${motor[@]}" >"$logf" 2>&1; echo $? >"$rcf" ) &
+bgpid=$!
+
+# janela de progresso: pulsa até o motor terminar; fechar = cancelar
+( while kill -0 "$bgpid" 2>/dev/null; do
+      echo "#Compactando $N_ITENS item(ns) em $(basename -- "$alvo")…"
+      sleep 0.3
+  done
+  echo 100 ) | zenity --progress --title="Comprimir" --pulsate --auto-close \
+      --text="Compactando…" 2>/dev/null &
+zpid=$!
+wait "$zpid" 2>/dev/null || true
+
+if kill -0 "$bgpid" 2>/dev/null; then
+    # a janela de progresso fechou antes do fim = o usuário cancelou
+    pkill -P "$bgpid" 2>/dev/null || true
+    kill "$bgpid" 2>/dev/null || true
+    wait "$bgpid" 2>/dev/null || true
+    rm -f -- "$alvo"
+    log "cancelado no meio: $(basename -- "$alvo") (parcial apagado)"
+    exit 0
+fi
+wait "$bgpid" 2>/dev/null || true
+rc="$(cat "$rcf" 2>/dev/null || echo 99)"
+
+if [[ "$rc" -gt "$rc_ok" ]]; then
+    rm -f -- "$alvo"    # parcial não fica entulhando a pasta
+    cauda=$(tail -5 "$logf" 2>/dev/null | tr '\n' ' ' | cut -c1-300)
+    die "Falhou ao compactar" "O '$(basename -- "$alvo")' não nasceu.\n$cauda\n\nO arquivo parcial foi apagado — tente de novo ou troque o formato."
+fi
+
+if [[ "$rc" == "1" ]]; then
+    # 7z WARNING: o arquivo NASCEU, mas houve item travado — a prova no log
+    log "AVISO 7z (rc=1): $(tail -3 "$logf" | tr '\n' ' ')"
+fi
+
+# ── vitória: notificação com o tamanho real (o usuário vê o resultado) ──
+tamanho=$(du -h -- "$alvo" | cut -f1)
+log "OK: $(basename -- "$alvo") ($tamanho, $N_ITENS itens)"
+if command -v notify-send >/dev/null 2>&1; then
+    notify-send -t 3000 "Compactado" \
+        "$(basename -- "$alvo") criado ($tamanho)" \
+        -i package-x-generic >/dev/null 2>&1 || true
+fi
