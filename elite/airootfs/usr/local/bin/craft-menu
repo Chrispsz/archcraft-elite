@@ -180,14 +180,17 @@ set -- --dmenu
 if [ -n "$ask" ]; then
     # modo entrada: prompt visível (a linha existe por causa do que se digita)
     set -- "$@" --prompt "$ask: "
-    if printf '%s\n' "$CAPS" | grep -q -- '--minimal-lines'; then
+# v2.10.26/E38 — os 5 greps de CAPS viraram teste de substring POSIX
+# (${CAPS#*X} != CAPS): abrir menu NÃO fork-a mais (eram 5 forks/abertura
+# — a probe --help já tinha sido curada na v2.10.15; os greps sobraram).
+if [ "${CAPS#*--minimal-lines}" != "$CAPS" ]; then
         # v2.8.0 — a janela da SENHA encolhe para o conteúdo: nada de
         # herdar o lines=10 do launcher (a foto do dono: caixa alta com
         # 90% de espaço morto para digitar uma senha). --lines 1 é o
         # teto duro mesmo que o shrink não chegue.
         set -- "$@" --minimal-lines --lines 1
     fi
-elif printf '%s\n' "$CAPS" | grep -q -- '--hide-prompt'; then
+elif [ "${CAPS#*--hide-prompt}" != "$CAPS" ]; then
     # menu de escolha: LISTA PURA — sem nome, sem barra de digitação,
     # janela do tamanho da lista
     set -- "$@" --hide-prompt --minimal-lines
@@ -196,15 +199,15 @@ else
 fi
 case "$at" in
     power|bgapps|network)
-        if printf '%s\n' "$CAPS" | grep -q -- '--anchor'; then
+        if [ "${CAPS#*--anchor}" != "$CAPS" ]; then
             set -- "$@" --anchor top-right --x-margin "$xm" --y-margin "$ym"
         fi ;;
     drawer)
-        if printf '%s\n' "$CAPS" | grep -q -- '--anchor'; then
+        if [ "${CAPS#*--anchor}" != "$CAPS" ]; then
             set -- "$@" --anchor top-left --x-margin "$xm" --y-margin "$ym"
         fi ;;
     center)
-        if printf '%s\n' "$CAPS" | grep -q -- '--anchor'; then
+        if [ "${CAPS#*--anchor}" != "$CAPS" ]; then
             set -- "$@" --anchor center
         fi ;;
     *)

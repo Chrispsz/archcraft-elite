@@ -356,9 +356,16 @@ assert_grep "$PR" '^archiso_image="/boot/initramfs-linux-cachyos-bore\.img"$' "p
 
 # ── peças: configs embarcadas (o tuning assado na ISO) ──────────────
 SC="$REPO/elite/airootfs/etc/sysctl.d/99-elite.conf"
-for k in 'vm\.swappiness' 'vm\.vfs_cache_pressure' 'vm\.max_map_count'; do
+for k in 'vm\.swappiness' 'vm\.vfs_cache_pressure' 'vm\.max_map_count' \
+         'vm\.page-cluster' 'vm\.watermark_boost_factor' 'vm\.watermark_scale_factor'; do
   assert_grep "$SC" "^${k} = " "sysctl: $k presente (gaming)"
 done
+# ── v2.10.26/E38 — EFICIÊNCIA: o repositório SteamOS/Fedora COMPLETO ────
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'vm\.page-cluster = 0' "E38: o espelho write_elite_sysctl carrega o trio zram (overlay e elite-tune NÃO divergem — a doença do swappiness 150×180 nunca mais)"
+PSV="$REPO/elite/airootfs/etc/modprobe.d/99-elite-powersave.conf"
+assert_grep "$PSV" 'snd_hda_intel power_save=1' "E38: áudio HDA dorme entre os sons (power_save=1 — default Fedora/Ubuntu; ~0,5-1W em idle)"
+assert_grep "$PSV" 'iwlwifi power_save=1' "E38: Wi-Fi Intel em powersave de firmware (audit E38: o knob NÃO existia em lugar nenhum)"
+assert_nogrep "$REPO/elite/airootfs/etc/skel/.config/waybar/config.top" '"interval": 10,' "E38: o bgapps não acorda a cada 10s (interval 30 — o maior fork-poll da sessão cai 3×; a reescrita awk fica no plano do EFICIENCIA.md)"
 UV="$REPO/elite/airootfs/etc/udev/rules.d/60-io-elite.rules"
 assert_grep "$UV" 'ATTR\{queue/scheduler\}="none"' "udev: scheduler none p/ NVMe/SSD"
 assert_grep "$UV" 'ATTR\{queue/scheduler\}="bfq"' "udev: bfq p/ HDD (rotacional)"

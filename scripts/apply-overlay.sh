@@ -235,12 +235,16 @@ rm -f "$PROFILE/efiboot/loader/entries/02-archiso-linux-open-source.conf"
 rm -f "$PROFILE/efiboot/loader/entries/05-archiso-linux-ram.conf"
 # 03 — reescrita íntegra (conteúdo 100% Elite; sort-key mantém a ordem)
 NV03="$PROFILE/efiboot/loader/entries/03-archiso-linux-nvidia.conf"
+# v2.10.26/E38 — nowatchdog (sem IRQ de watchdog) + zswap.enabled=0 (o zram
+# já é o nosso swap comprimido — zswap LIGADO seria dupla compressão). As
+# entradas do INSTALADO já tinham os tokens (GRUB do firstboot); o LIVE
+# ficava fora. Rescue (nm) fica vanilla de propósito.
 cat > "$NV03" <<'NVCONF'
 title   Boot Archcraft Elite (%ARCH%, UEFI, NVIDIA · Copy to RAM)
 sort-key 03
 linux    /%INSTALL_DIR%/boot/%ARCH%/vmlinuz-linux-cachyos-bore
 initrd   /%INSTALL_DIR%/boot/%ARCH%/initramfs-linux-cachyos-bore.img
-options  archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% quiet splash loglevel=3 udev.log_level=3 vt.global_cursor_default=0 cow_spacesize=5G copytoram=y nvidia_drm.modeset=1 nvidia_drm.fbdev=1 nouveau.modeset=0 module_blacklist=nouveau radeon.modeset=1 i915.modeset=1 nvme_load=yes lsm=landlock,lockdown,yama,integrity,apparmor,bpf
+options  archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% quiet splash loglevel=3 udev.log_level=3 vt.global_cursor_default=0 cow_spacesize=5G copytoram=y nvidia_drm.modeset=1 nvidia_drm.fbdev=1 nouveau.modeset=0 module_blacklist=nouveau radeon.modeset=1 i915.modeset=1 nvme_load=yes nowatchdog zswap.enabled=0 lsm=landlock,lockdown,yama,integrity,apparmor,bpf
 NVCONF
 # 01/04: kernel BORE (todos os .conf restantes — não há mais exceção 03)
 for f in "$PROFILE"/efiboot/loader/entries/*.conf; do
@@ -254,7 +258,7 @@ done
 E01="$PROFILE/efiboot/loader/entries/01-archiso-linux.conf"
 if [[ -f "$E01" ]]; then
   sed -i -e 's|copytoram=n|copytoram=y|' \
-         -e 's|nvme_load=yes|nvme_load=yes amdgpu.ppfeaturemask=0xffffffff|' \
+         -e 's|nvme_load=yes|nvme_load=yes nowatchdog zswap.enabled=0 amdgpu.ppfeaturemask=0xffffffff|' \
          -e 's|Boot Archcraft (%ARCH%, UEFI, Default)|Boot Archcraft Elite (%ARCH%, UEFI, AMD · Copy to RAM)|' \
          -e 's|Boot Archcraft Elite (%ARCH%, UEFI, BORE kernel)|Boot Archcraft Elite (%ARCH%, UEFI, AMD · Copy to RAM)|' "$E01"
 fi
@@ -271,10 +275,11 @@ if [[ -f "$SL" ]]; then
     nv && /^APPEND / {
       gsub(/copytoram=n/, "copytoram=y")
       gsub(/nvidia nvidia-drm\.modeset=1/, "nvidia_drm.modeset=1 nvidia_drm.fbdev=1")
+      gsub(/nvme_load=yes/, "nvme_load=yes nowatchdog zswap.enabled=0")
     }
     lbl == "arch" && /^APPEND / {
       gsub(/copytoram=n/, "copytoram=y")
-      gsub(/nvme_load=yes/, "nvme_load=yes amdgpu.ppfeaturemask=0xffffffff")
+      gsub(/nvme_load=yes/, "nvme_load=yes nowatchdog zswap.enabled=0 amdgpu.ppfeaturemask=0xffffffff")
     }
     { print }
   ' "$SL" > "$SL.tmp" && mv "$SL.tmp" "$SL"
@@ -301,12 +306,13 @@ for GF in "$PROFILE/grub/grub.cfg" "$PROFILE/grub/loopback.cfg"; do
       gsub(/vmlinuz-linux/, "vmlinuz-linux-cachyos-bore")
       gsub(/copytoram=n/, "copytoram=y")
       gsub(/nvidia nvidia-drm\.modeset=1/, "nvidia_drm.modeset=1 nvidia_drm.fbdev=1")
+      gsub(/nvme_load=yes/, "nvme_load=yes nowatchdog zswap.enabled=0")
     }
     cur == "nv" && /^    initrd / { gsub(/initramfs-linux-nvidia\.img/, img) }
     cur == "def" && /^    linux / {
       gsub(/vmlinuz-linux/, "vmlinuz-linux-cachyos-bore")
       gsub(/copytoram=n/, "copytoram=y")
-      gsub(/nvme_load=yes/, "nvme_load=yes amdgpu.ppfeaturemask=0xffffffff")
+      gsub(/nvme_load=yes/, "nvme_load=yes nowatchdog zswap.enabled=0 amdgpu.ppfeaturemask=0xffffffff")
     }
     cur == "def" && /^    initrd / { gsub(/initramfs-linux\.img/, img) }
     cur == "nm" && /^    linux / { gsub(/vmlinuz-linux/, "vmlinuz-linux-cachyos-bore") }

@@ -78,8 +78,14 @@ ensure() {
 # morrer calado nunca mais (a lição do burn test v1.6.2 vale pra toda a
 # sessão, não só para as barras). Segunda instância é no-op (o daemon
 # detecta o socket vivo e sai 0 — o restart nunca rouba nada).
+cyc=0
 while :; do
-    cap_log   # v2.5.0 — o teto é POR CICLO, não só no arranque
+    # v2.10.26/E38 — o teto segue NO LOOP, agora a cada 6 ciclos (30s): o
+    # fork do wc só em 1 de 6 (eram 17.280 forks/dia só para medir tamanho;
+    # agora ~2.880 — o crash-loop de ~1,7MB/h passa do teto de 1 MiB em
+    # ~35min de qualquer forma, o cap continua honesto).
+    cyc=$((cyc + 1))
+    [ $((cyc % 6)) -eq 0 ] && cap_log
     ensure top  "$HOME/.config/waybar/config.top"  "$HOME/.config/waybar/style.top.css"
     if ! pgrep -f '^/usr/bin/python3 /usr/local/bin/craft-dock-gui$' >/dev/null 2>&1; then
         printf '[%s] dock craft-dock-gui FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"

@@ -281,11 +281,16 @@ apply_grub_tokens() { # tokens de kernel + grub-mkconfig ([4] firstboot / [3] in
 write_elite_sysctl() { # a lei do sysctl ([2i] firstboot quando ausente / [5] interativo)
   wfile /etc/sysctl.d/99-elite.conf <<'EOF'
 # ── ELITE: sysctl de gaming
+# v2.10.26/E38 — o trio zram abaixo é o MESMO do 99-elite.conf da ISO
+# (o espelho não pode divergir — a doença do swappiness 150×180 nunca mais)
 vm.swappiness = 180
 vm.vfs_cache_pressure = 50
 vm.page_lock_unfairness = 1
 vm.max_map_count = 2147483642
 kernel.sched_autogroup_enabled = 1
+vm.page-cluster = 0
+vm.watermark_boost_factor = 0
+vm.watermark_scale_factor = 125
 EOF
 }
 

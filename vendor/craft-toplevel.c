@@ -24,6 +24,13 @@
  *   CLOSE <id>              → close (WM_DELETE gracioso, não kill)
  *   CYCLE                   → foca a PRÓXIMA janela no anel MRU depois da
  *                             focada — o Alt-Tab clicável, sem preview
+ *   EVT ON                  → OK|evt-on; daí em diante o daemon EMPURRA
+ *                             "EVT\n" a cada batch do compositor (DONE =
+ *                             commit de estado; CLOSED = janela sumiu).
+ *                             Opt-in: cliente velho NUNCA recebe linha não
+ *                             pedida — o canal de pedidos fica limpo
+ *                             (v2.10.26/E38: a dock o usa para acordar por
+ *                             evento em vez de poll de 1s).
  *
  * FLAGS: 1=maximized 2=minimized 4=activated 8=fullscreen.
  * ESTADO OTIMISTA: ACT/CYCLE movem a janela ao topo do MRU na hora (o
@@ -227,6 +234,11 @@ static void mru_optimistic_focus(Tl *t)
 }
 
 /* ── dispatcher das janelas (eventos do compositor) ──────────────────── */
+/* v2.10.26/E38 — liga-se quando o compositor mudou ALGO nas janelas. O
+ * flush acontece DEPOIS do wl_display_dispatch (uma linha EVT por batch,
+ * nunca por evento — coalescing de graça). */
+static int evt_dirty = 0;
+
 static int tl_dispatcher(const void *data, void *target, uint32_t opcode,
                          const struct wl_message *msg, union wl_argument *args)
 {
@@ -286,8 +298,10 @@ static int tl_dispatcher(const void *data, void *target, uint32_t opcode,
         break;
     }
     case EVT_DONE:
+        evt_dirty = 1;   /* v2.10.26/E38: estado commitado — a dock quer saber */
         break;
     case EVT_CLOSED:
+        evt_dirty = 1;   /* janela sumiu — a dock também */
         if (pending_close_id != 0 && t->id == pending_close_id) {
             char ln[128];
             snprintf(ln, sizeof(ln),
@@ -413,6 +427,7 @@ static int registry_dispatcher(const void *data, void *target,
 
 typedef struct {
     int fd;
+    int evt;   /* v2.10.26/E38: cliente pediu EVT ON (quer push de eventos) */
     size_t len;
     char buf[RBUF];
 } Client;
@@ -438,6 +453,20 @@ static void reply(Client *c, const char *s)
             return; /* EPIPE etc — o próximo poll limpa o cliente */
         }
         done += (size_t)w;
+    }
+}
+
+/* v2.10.26/E38 — EMPURRA o evento para quem pediu. Best-effort: reply()
+ * já corta cliente morto/travado (revisão 3-a) e o SIGPIPE é ignorado —
+ * nenhum cliente lento prende o daemon; quem caiu é coberto pelo tick de
+ * segurança da dock (5s). */
+static void notify_evt(void)
+{
+    int i;
+    for (i = 0; i < MAX_CLIENTS; i++) {
+        if (clients[i].fd >= 0 && clients[i].evt) {
+            reply(&clients[i], "EVT\n");
+        }
     }
 }
 
@@ -528,6 +557,12 @@ static void handle_line(Client *c, char *ln)
     }
     if (strncmp(ln, "PING", 4) == 0) {
         reply(c, "PONG\n");
+    } else if (strncmp(ln, "EVT ON", 6) == 0) {
+        /* v2.10.26/E38 — opt-in de eventos: daqui em diante este cliente
+         * recebe 'EVT' a cada batch. O canal de pedidos NUNCA recebe
+         * linha não pedida (a resposta é a confirmação do opt-in). */
+        c->evt = 1;
+        reply(c, "OK|evt-on\n");
     } else if (strncmp(ln, "LIST", 4) == 0) {
         serve_list(c);
     } else if (strncmp(ln, "CYCLE", 5) == 0) {
@@ -766,6 +801,13 @@ int main(void)
                 fprintf(stderr, "craft-toplevel: compositor perdeu a "
                                 "conexão — o supervisor reinicia\n");
                 return 1;
+            }
+            /* v2.10.26/E38 — o flush do push: UM EVT por batch (o dispatch
+             * entrega título/estado/done juntos; a dock recebe um acordar,
+             * não uma enxurrada). */
+            if (evt_dirty) {
+                evt_dirty = 0;
+                notify_evt();
             }
         }
         if (pfds[1].revents & POLLIN) {
