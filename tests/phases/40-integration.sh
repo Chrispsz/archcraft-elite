@@ -764,6 +764,34 @@ assert_grep "$CCOMP" 'já existe' "E35: colisão PERGUNTA antes de substituir (a
 assert_grep "$CCOMP" 'rm -f -- "\$alvo"' "E35: falha/cancelamento não deixa entulho (o parcial é apagado)"
 assert_grep "$CCOMP" 'die\(\) \{' "E35: erro com diálogo + log (nada calado — lei da casa)"
 assert_grep "$REPO/elite/packages.add" '^zenity$' "E35: o zenity é DEPENDÊNCIA DECLARADA (~1 MB; gtk3/libnotify já estavam na ISO — binário fantasma não existe na casa)"
+# ═══════════════════ E40 — O VERBO "ABRIR TERMINAL AQUI" ══════════════════
+# O dono PROVOU com print (03/nov): o clique-direito do Thunar não tem
+# terminal ("cadê o botão pra abrir o terminal?"). Raiz DUPLA provada no
+# fonte do Thunar 4.20.10: (1) o "Abrir terminal aqui" NÃO é built-in — é
+# a ÚNICA ação do uca.xml DE FÁBRICA, e o xfce_resource_lookup
+# ('Thunar/uca.xml', thunar-uca-model.c:278) pega o PRIMEIRO arquivo
+# (usuário > sistema, SEM merge) — o uca.xml do skel (E35) SOMBREIA o de
+# fábrica e o verbo some para todo usuário Elite; (2) o de fábrica seria
+# morto aqui de qualquer forma: o comando dele é 'exo-open …' e o exo não
+# está na ISO (thunar 4.18+ não depende dele). Cura em três mãos: o verbo
+# NASCE no skel (foot --working-directory %f — o %f chega shell-quoted,
+# xfce_g_string_append_quoted; -D confirmada no foot.1.scd), a ponte
+# exo-open cobre os caminhos INTERNOS do Thunar (thunar-file.c:1756 monta
+# 'exo-open --launch TerminalEmulator <cmd>' no 'executar no terminal') e
+# o handler x-scheme-handler/terminal responde "qual é o terminal da
+# casa" para o ecossistema (spec xdg-terminal-exec).
+EXO="$P/airootfs/usr/local/bin/exo-open"
+MIME="$P/airootfs/etc/skel/.config/mimeapps.list"
+assert_grep "$UCA" 'Abrir terminal aqui' "E40: o verbo PT-BR no menu de contexto (o botão que o dono pediu — nasce no uca.xml do skel)"
+assert_grep "$UCA" 'elite-open-terminal-1' "E40: unique-id próprio (a ação da casa não colide com a de fábrica nem com edits do usuário)"
+assert_grep "$UCA" 'foot --working-directory %f' "E40: abre o foot NA pasta (flag -D do foot 1.26+ no foot.1.scd:99; %f shell-quoted pelo Thunar — espaço não quebra)"
+grep -A10 'elite-open-terminal-1' "$UCA" | grep -q '<directories/>' \
+  && ok "E40: a ação cobre fundo-de-pasta E pasta-clicada (<directories/> — a semântica exata da ação de fábrica)" \
+  || fail "E40: a ação cobre fundo-de-pasta E pasta-clicada" "flag <directories/> ausente no bloco da ação"
+assert_file "$EXO" "E40: a ponte exo-open existe (o Thunar 4.20 chama o binário INTERNAMENTE — thunar-file.c:1756 — e o exo não está na ISO desde a v1.1)"
+assert_grep "$EXO" 'exec foot -e sh -c' "E40: 'executar no terminal' do Thunar roda o comando NO foot (não morre em silêncio)"
+assert_grep "$EXO" 'exec gio open' "E40: operandos sem --launch caem no gio open (glib é dep dura do gtk3/gtk4 — sempre presente; xdg-utils não é contrato)"
+assert_grep "$MIME" 'x-scheme-handler/terminal=foot.desktop' "E40: o handler de terminal programático (spec xdg-terminal-exec) aponta para o foot da Elite"
 assert_nogrep "$PKG" '^ranger$' "curadoria: ranger saiu (yazi entra)"
 assert_nogrep "$PKG" '^mc$' "curadoria: mc saiu (yazi fica)"
 assert_nogrep "$PKG" '^htop$' "curadoria: htop saiu (btop fica)"

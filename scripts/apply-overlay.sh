@@ -494,6 +494,7 @@ if grep -q '^file_permissions=(' "$PD"; then
   for p in /usr/local/bin/elite-tune /usr/local/bin/elite-status \
            /usr/local/bin/craft-hello /usr/local/bin/craft-update /usr/local/bin/craft-clean \
            /usr/local/bin/craft-compress \
+           /usr/local/bin/exo-open \
            /usr/local/bin/craft-rollback /usr/local/bin/craft-lock /usr/local/bin/craft-logout \
            /usr/local/bin/craft-shot /usr/local/bin/craft-bat \
            /usr/local/bin/craft-drawer /usr/local/bin/craft-power /usr/local/bin/craft-pin \

@@ -2,22 +2,48 @@
 <!--
   uca.xml — ações customizadas do Thunar (User Configurable Actions)
 
-  E35 — O VERBO "COMPRIMIR…" DA ELITE (pedido do dono, 02/nov: "estava
-  tentando compactar todos esses arquivos em um só e não consegui"):
-  seleciona TUDO (arquivos e pastas, %F entrega a seleção inteira como
-  argumentos separados) → clique-direito → Comprimir… → um diálogo
-  (nome + formato) → UM arquivo ao lado da seleção → notificação.
+  LEI DESTE ARQUIVO (E40 — a descoberta do print do dono, 03/nov): o Thunar
+  NÃO faz merge entre o uca.xml do usuário e o de FÁBRICA
+  (/etc/xdg/Thunar/uca.xml) — o xfce_resource_lookup('Thunar/uca.xml')
+  devolve o PRIMEIRO que existe (usuário > sistema). Quem define este
+  arquivo no skel define TODAS as ações do usuário: o de fábrica deixa de
+  existir. Foi exatamente assim que a Elite PERDEU o "Abrir terminal
+  aqui" (que só existia no de fábrica) quando o E35 entregou o
+  "Comprimir…" — e o de fábrica seria morto na Elite de qualquer jeito,
+  porque o comando dele é `exo-open …` e o exo NÃO está na ISO
+  (thunar 4.18+ não depende dele). Toda ação que a Elite quer no menu
+  nasce AQUI. Prova: thunar-uca-model.c:278-285 (4.20.10) + print do dono.
 
-  O motor é o craft-compress (usr/local/bin) — o 7zip que JÁ está na ISO
-  fala zip e 7z, o tar fala tar.xz. O "Criar Arquivo…" do
-  thunar-archive-plugin/xarchiver segue no menu para quem quiser o
-  gerenciador; ESTE é o caminho que qualquer usuário espera.
+  AÇÕES DA CASA (na ordem do menu):
+    1. "Abrir terminal aqui" (E40) — foot com working-directory %f, na
+       pasta de fundo ou na pasta clicada. O %f chega shell-quoted pelo
+       Thunar (xfce_g_string_append_quoted) — caminho com espaço não quebra.
+    2. "Comprimir…" (E35, pedido do dono, 02/nov: "estava tentando
+       compactar todos esses arquivos em um só e não consegui") —
+       seleciona TUDO (%F = a seleção inteira como argumentos separados)
+       → UM diálogo (nome + formato) → UM arquivo ao lado → notificação.
 
-  Este arquivo mora no skel: todo usuário novo da Elite nasce com o verbo.
-  Edits do usuário pelo próprio Thunar caem em ~/.config/Thunar/uca.xml —
-  este aqui continua sendo a base de fábrica.
+  O motor do Comprimir é o craft-compress (usr/local/bin) — o 7zip que JÁ
+  está na ISO fala zip e 7z, o tar fala tar.xz. O "Criar pacote…" do
+  thunar-archive-plugin/xarchiver segue no menu (plugin thunarx — INDEPENDE
+  deste arquivo) para quem quiser o gerenciador; ESTES são os caminhos que
+  qualquer usuário espera.
+
+  Este arquivo mora no skel: todo usuário novo da Elite nasce com os
+  verbos. Edits do usuário pelo próprio Thunar caem em
+  ~/.config/Thunar/uca.xml — este aqui continua sendo a base de fábrica.
 -->
 <actions>
+  <action>
+    <icon>utilities-terminal</icon>
+    <name>Abrir terminal aqui</name>
+    <submenu></submenu>
+    <unique-id>elite-open-terminal-1</unique-id>
+    <command>foot --working-directory %f</command>
+    <description>Abre o terminal (foot) na pasta atual ou na pasta clicada</description>
+    <patterns>*</patterns>
+    <directories/>
+  </action>
   <action>
     <icon>package-x-generic</icon>
     <name>Comprimir…</name>

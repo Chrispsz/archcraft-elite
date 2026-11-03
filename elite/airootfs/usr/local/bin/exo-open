@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# ═══════════════════════════════════════════════════════════════════════════
+# exo-open — PONTE DE COMPATIBILIDADE Xfce → ELITE (E40)
+# ───────────────────────────────────────────────────────────────────────────
+# O Thunar 4.20 fala com o exo-open INTERNAMENTE: ao "executar no terminal"
+# um arquivo, ele monta 'exo-open --launch TerminalEmulator <cmd>' e o roda
+# (thunar/thunar-file.c:1756 do 4.20.10), e o uca.xml de FÁBRICA dele também
+# nasce com exo-open. Mas o exo NÃO está na Elite — saiu com a modernização
+# v1.1 (o thunar 4.18+ não depende dele): esses caminhos morriam em
+# silêncio ("binário fantasma não existe na casa" — lei do E35).
+#
+# A ponte mapeia para o que a Elite TEM:
+#   --launch TerminalEmulator → foot  (com comando: foot -e sh -c "<cmd>")
+#   --launch WebBrowser       → brave (o launcher /usr/bin/brave da v1.4)
+#   --launch FileManager      → thunar
+#   --launch MailReader       → erro HONESTO (nada de falha calada — E33)
+#   operandos sem --launch    → gio open (glib é dep dura do gtk3/gtk4 —
+#                               sempre presente; xdg-utils NÃO é contrato)
+#   --working-directory DIR   → cd AQUI (o foot herda o cwd; o %f do
+#                               uca.xml já chega shell-quoted pelo Thunar)
+# ═══════════════════════════════════════════════════════════════════════════
+set -euo pipefail
+
+die() { printf 'exo-open: %s\n' "$1" >&2; exit 1; }
+
+kind=""
+workdir=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --launch)
+      [ $# -ge 2 ] || die "--launch exige o tipo (TerminalEmulator/WebBrowser/FileManager)"
+      kind="$2"; shift 2 ;;
+    --launch=*) kind="${1#*=}"; shift ;;
+    --working-directory)
+      [ $# -ge 2 ] || die "--working-directory exige o diretório"
+      workdir="$2"; shift 2 ;;
+    --working-directory=*) workdir="${1#*=}"; shift ;;
+    --) shift; break ;;
+    -*) shift ;;  # flag desconhecida do exo (ex.: --description): tolerar
+    *) break ;;
+  esac
+done
+
+if [ -n "$workdir" ]; then
+  cd -- "$workdir" 2>/dev/null || die "diretório inacessível: $workdir"
+fi
+
+case "$kind" in
+  TerminalEmulator)
+    if [ $# -eq 0 ]; then
+      exec foot
+    fi
+    # thunar-file.c:1756 chega AQUI com UM argumento já montado (o comando
+    # do arquivo, shell-quoted pelo próprio Thunar) — roda via sh -c.
+    exec foot -e sh -c "$*"
+    ;;
+  WebBrowser)
+    exec brave "$@"
+    ;;
+  FileManager)
+    exec thunar "$@"
+    ;;
+  MailReader)
+    die "a Elite não tem leitor de e-mail de fábrica — instale um pelo Launchpad (ou: sudo pacman -S <leitor>)"
+    ;;
+  "")
+    [ $# -eq 0 ] && die "nada para abrir (uso: exo-open [--launch TIPO] [--working-directory DIR] [ARQUIVO|URL…])"
+    exec gio open "$@"
+    ;;
+  *)
+    die "--launch '$kind' sem ponte (suportados: TerminalEmulator, WebBrowser, FileManager)"
+    ;;
+esac
