@@ -174,18 +174,10 @@ CUR="${LOCK_MIN}min"
 # fábrica, invisível). Agora cada item nomeia o que faz e o suspender é
 # escolha do dono no MESMO menu (SUSPEND_MIN=0 = nunca, suportado no
 # start desde a v2.3.5).
-MENU='Travar: 2 minutos
-Travar: 5 minutos
-Travar: 10 minutos (padrão)
-Travar: 15 minutos
-Travar: 30 minutos
-Travar: 1 hora
-Travar: Nunca (W-l manual)
-Suspender: 20 min (padrão)
-Suspender: 30 min
-Suspender: 45 min
-Suspender: 1 hora
-Suspender: Nunca'
+# v2.10.26/E38 — o MENU órfão saiu: era definido aqui e INCONDICIONALMENTE
+# sobrescrito dentro do if do craft-menu (o else terminal usa read/prompt,
+# nunca $MENU) — 12 linhas mortas que a suíte teria que carregar para
+# sempre. O MENU vivo é o de dentro do if (com a marca '← atual').
 
 if command -v craft-menu >/dev/null 2>&1; then
     # v2.3.8 — o menu NATIVO (título centrado, sem linha de digitação —

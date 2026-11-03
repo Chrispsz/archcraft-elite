@@ -194,7 +194,12 @@ WLRCTL = shutil.which("wlrctl")  # foco/fecho de janela (wlr-foreign-toplevel)
 # dentro do botão do app).
 TOPOS = os.path.join(GLib.get_user_runtime_dir(), "elite", "toplevel.sock")
 F_ACTIVATED = 4   # flag do daemon (state activated do protocolo)
-F_MINIMIZED = 2   # (1=maximized · 2=minimized · 4=activated · 8=fullscreen)
+#                 (mapa completo das flags do protocolo: 1=maximized ·
+#                  2=minimized · 4=activated · 8=fullscreen — v2.10.26/E38:
+#                  a constante da flag 2 foi REMOVIDA daqui: era definida e
+#                  NUNCA lida (o guarda da suíte crava a ausência do nome);
+#                  o mapa mora neste comentário, onde é verdade)
+_RCACHE_MISS = object()   # sentinel do _rcache (None é resposta VÁLIDA e cacheável)
 
 def log(msg):
     """Evidência append-only no dock.log (teto 1 MiB — recente vale mais):
@@ -320,6 +325,8 @@ class Dock:
         self.dyn = {}             # dinâmicos: did → (button, comm, info, cmd)
         self.sep = None           # fio vertical pins | dinâmicos
         self._dindex = None       # cache: chave lower → DesktopAppInfo
+        self._rcache = {}         # v2.10.26/E38: memoização de _resolve_desktop
+        self._last_running = None # set de comms da rodada anterior (invalida o _rcache)
 
         # v2.10.1 — janelas REAIS (o protocolo direto via craft-toplevel):
         # snapshot por tick (LIST), conexão persistente (zero fork) —
@@ -327,6 +334,7 @@ class Dock:
         # comutador e o MENU saíram; o snapshot fica (indicadores
         # honestos, foco/ciclo/fecho por janela real).
         self._sock = None          # conexão com o daemon (persistente)
+        self._evt_sock = None      # v2.10.26/E38: 2ª conexão — canal de EVENTOS (push)
         self.windows = {}          # id → (flags, rank, app_id, title)
         self.focused = 0           # id da janela focada (0 = nenhuma)
         self._last_act = {}        # app → última janela que NÓS focamos
@@ -370,11 +378,19 @@ class Dock:
 
         # v2.10.12 — TICK 1s (o dono: 'as coisas parecem ter um delay pra
         # atualizar'): o tick de 3s atrasava indicadores e dinâmicos até
-        # 3s. O custo do tick é o /proc scan + leitura do socket (nada de
-        # fork) — 1s é de graça e o 'atualizar na hora' é a expectativa
-        # de um desktop. O diff-guard da _sync_dynamic garante zero
-        # redraw quando nada muda (a lei v2.10.0 fica de pé).
-        GLib.timeout_add(1000, self.poll_running)
+        # 3s. O custo do tick era o /proc scan + leitura do socket (nada
+        # de fork) — mas 'de graça' era verdade só em forks: em wakeups o
+        # relógio de 1Hz acordava os DOIS processos ~172.800×/dia para
+        # reperguntar o MESMO LIST (audit E38).
+        # v2.10.26 — O PUSH ASSUMIU: a 2ª conexão (_tl_evt_open) recebe
+        # 'EVT' do daemon a cada mudança de janelas e a dock atualiza NA
+        # HORA (latência ~0 — melhor que o 1s que o dono exigiu). O tick
+        # cai para 5s de SEGURANÇA: scan /proc (que não tem evento no
+        # kernel), reconnect, ceifa de zumbis. O diff-guard da
+        # _sync_dynamic mantém zero redraw quando nada muda (lei v2.10.0).
+        # Daemon velho/sem EVT? O fallback continua inteiro (lei v2.10.3).
+        GLib.timeout_add(5000, self.poll_running)
+        self._tl_evt_open()
         GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGUSR1,
                              self.toggle)
         GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, signal.SIGUSR2,
@@ -454,17 +470,96 @@ class Dock:
         c = (comm or "").lower()
         if not c:
             return None
+        # v2.10.26/E38 — MEMOIZAÇÃO (positiva E negativa): o resultado só
+        # pode mudar quando o set de comms muda (invalidação no
+        # poll_running). Antes, comm sem match exato/stem varria o índice
+        # INTEIRO com _near_match A CADA TICK — com waybar/swaync/udiskie
+        # vivos, isso era a varredura 60×/min para sempre responder None.
+        hit = self._rcache.get(c, _RCACHE_MISS)
+        if hit is not _RCACHE_MISS:
+            return hit
         idx = self._desktop_index()
         info = idx.get(c)
-        if info is not None:
-            return info
-        info = idx.get(c.rsplit(".", 1)[-1])   # stem: org.xfce.Thunar → thunar
-        if info is not None:
-            return info
-        for k, app in idx.items():             # contenção com fronteira (≥4)
-            if _near_match(c, k):
-                return app
-        return None
+        if info is None:
+            info = idx.get(c.rsplit(".", 1)[-1])   # stem: org.xfce.Thunar → thunar
+        if info is None:
+            for k, app in idx.items():             # contenção com fronteira (≥4)
+                if _near_match(c, k):
+                    info = app
+                    break
+        self._rcache[c] = info
+        return info
+
+    # ── o canal de eventos (v2.10.26/E38 — o push do craft-toplevel) ─────
+    def _tl_evt_open(self):
+        """SEGUNDA conexão com o daemon, dedicada a EVENTOS: pede 'EVT ON'
+        e passa a receber 'EVT' a cada batch de mudanças de janelas. O
+        socket de pedidos (_sock) fica INTATO — opt-in no protocolo, cliente
+        velho nunca recebe linha não pedida. Morreu? poll_running tenta de
+        novo no próximo tick (sem fork — connect a socket ausente é µs).
+        Daemon sem EVT (binário velho)? Fecha e segue SÓ no tick — a lei
+        do fallback v2.10.3 nunca depende de recurso novo."""
+        if self._evt_sock is not None:
+            return
+        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        try:
+            s.settimeout(0.5)
+            s.connect(TOPOS)
+            s.sendall(b"EVT ON\n")
+            buf = s.recv(64)
+        except OSError:
+            try:
+                s.close()
+            except OSError:
+                pass
+            return
+        if not buf.startswith(b"OK"):
+            # daemon velho (sem EVT ON): fecha — o tick de 5s cobre
+            try:
+                s.close()
+            except OSError:
+                pass
+            return
+        s.setblocking(False)
+        self._evt_sock = s
+        GLib.io_add_watch(s.fileno(), GLib.PRIORITY_DEFAULT,
+                          GLib.IO_IN | GLib.IO_HUP, self._tl_evt)
+        log("craft-toplevel: eventos ON (push — o tick de 5s é rede de "
+            "segurança; o 'atualizar na hora' vem do evento)")
+
+    def _tl_evt(self, fd, cond):
+        """IO_IN = byte(s) do daemon: 'EVT' → refresh NA HORA (latência ~0 —
+        o dono pediu 'atualizar na hora', agora é acordado por evento, não
+        por relógio). IO_HUP/EOF = daemon caiu → fecha; o tick reconecta."""
+        sock = self._evt_sock
+        if sock is None:
+            return False
+        if cond & GLib.IO_HUP:
+            self._tl_evt_close()
+            return False
+        try:
+            data = sock.recv(4096)
+        except (BlockingIOError, InterruptedError):
+            return True
+        except OSError:
+            self._tl_evt_close()
+            return False
+        if not data:
+            self._tl_evt_close()
+            return False
+        if b"EVT" in data:
+            self.poll_running()
+        return True
+
+    def _tl_evt_close(self):
+        if self._evt_sock is not None:
+            try:
+                self._evt_sock.close()
+            except OSError:
+                pass
+            self._evt_sock = None
+            log("craft-toplevel: canal de eventos caiu — o tick de 5s "
+                "reconecta (fallback lei v2.10.3)")
 
     # ── pins ─────────────────────────────────────────────────────────────
     def rebuild(self, *_):
@@ -890,8 +985,18 @@ class Dock:
         return comms
 
     def poll_running(self):
+        # v2.10.26/E38 — o canal de eventos é (re)conectado aqui: nasceu
+        # morto (daemon ainda não subiu) ou morreu em sessão → tentativa
+        # por tick, sem fork (connect a socket ausente custa µs).
+        self._tl_evt_open()
         self._reap_children()          # a ceifa antes do scan (o zumbi sai)
-        self.running = self._scan_user_comms()
+        comms = self._scan_user_comms()
+        # v2.10.26/E38 — invalidação do _rcache: a resolução comm→desktop
+        # só pode mudar quando o SET de comms muda (app abriu/fechou).
+        if comms != self._last_running:
+            self._rcache.clear()
+            self._last_running = comms
+        self.running = comms
         # v2.10.3 — a verdade do daemon PRIMEIRO: vivo = a JANELA é o
         # critério do "aberto" (indicador, dinâmicos, verbo do clique);
         # morto = o /proc assume (lei do fallback — nada muda).
@@ -950,7 +1055,7 @@ class Dock:
     def _sync_dynamic(self):
         """Apps rodando SEM pin e COM .desktop → botão após o fio. Ao fechar,
         o botão some sozinho (até restar só o fixado). Diff por desktop-id:
-        nada toca no GTK se nada mudou (zero flicker no tick de 1s —
+        nada toca no GTK se nada mudou (zero flicker por refresh —
         v2.10.12; o "3s" antigo aqui era o tick que já morreu)."""
         current = {}
         for comm in self.running:

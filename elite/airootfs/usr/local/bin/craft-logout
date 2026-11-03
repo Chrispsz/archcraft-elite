@@ -10,7 +10,9 @@
 # v2.4.0 — O MOTOR QUE JÁ ABRIA: o craft-menu v3 é fuzzel --dmenu (a era
 # GTK do menu saiu de cena — nunca abriu no rig; o Sessão volta ao motor
 # que sempre abriu). A gramática de saída (0/1/143) é intocada e a lei
-# (ESC benigno, toggle/cross-dismiss por foco) segue valendo.
+# (ESC benigno; toggle/cross-dismiss POR PID — o determinismo do
+# craft-menu desmentiu a física do foco; v2.10.26/E38: o comentário antigo
+# dizia 'por foco' e mentia) segue valendo.
 #
 # v2.3.8 — a era do menu NATIVO (o dono: "remover a barra que fica, tipo
 # 'Rede |'"): craft-menu. A lei (toggle/cross-dismiss) é da gramática.

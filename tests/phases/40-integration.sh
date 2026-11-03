@@ -362,7 +362,7 @@ assert_grep "$DOCKGUI" 'except \(OSError, UnicodeDecodeError\)' "v2.5.0: read_pi
 assert_nogrep "$DOCKGUI" '"pgrep"' "v2.10: ZERO fork por tick no poll (a varredura /proc substituiu o pgrep — sem fork, sem ERE, pins e dinâmicos no MESMO scan)"
 assert_grep "$DOCKGUI" '_scan_user_comms' "v2.10: o scan direto de /proc existe (uid do usuário + comm — um só lugar onde 'aberto' existe)"
 assert_grep "$DOCKGUI" 'os\.stat\(f"/proc/\{pid\}"\)\.st_uid' "v2.10: o scan FILTRA por uid (comms de root/sistema não viram botão)"
-assert_grep "$P/airootfs/usr/local/bin/craft-bars" 'cap_log' "v2.5.0: o teto de 1 MiB do bars.log roda POR CICLO (o cap só no arranque deixava o crash-loop crescer ~1,7MB/h; audit 24-b/24-c)"
+assert_grep "$P/airootfs/usr/local/bin/craft-bars" 'cap_log' "v2.5.0→v2.10.26/E38: o teto de 1 MiB do bars.log segue NO LOOP (agora a cada 6 ciclos — o fork do wc só em 1 de 6; o crash-loop de ~1,7MB/h passa do teto em ~35min igual; audit 24-b/24-c + E38)"
 assert_grep "$P/airootfs/usr/local/bin/craft-logout" 'rm -f "\$errf"   # v2\.5\.0' "v2.5.0: errf removido ANTES de todo exec (o trap EXIT não roda através de exec — um mktemp órfão por escolha de menu; audit 24-c)"
 assert_grep "$P/airootfs/usr/local/bin/craft-idle" 'case "\$\{LOCK_MIN:-0\}" in' "v2.5.0: a marca '← atual' compara LOCK_MIN (o CUR='10min' NUNCA casava com os números do case — código morto: o dono nunca viu o preset marcado; audit 24-c)"
 assert_grep "$P/airootfs/usr/local/bin/craft-pin" 'mv -f "\$PINS\.tmp"' "v2.5.0: mv INCONDICIONAL no rm (o && mv pulava quando grep -v saía 1 — tmp órfão + 'removido' mentiroso; audit 24-c)"
@@ -820,12 +820,24 @@ assert_file "$P/airootfs/etc/skel/.config/systemd/user/timers.target.wants/cliph
 # A não-regressão vira PRECISA: NENHUM outro exec além do bgapps (o
 # custom/exec genérico da era do leak segue extinto).
 assert_nogrep "$P/airootfs/etc/skel/.config/waybar/config.top" '"custom/exec"' "v1.6.2: o módulo custom/exec genérico (a classe do leak) segue EXTINTO — a única exceção contratada é o bgapps"
-assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" '"exec": "craft-bgapps status"' "v2.3.4: o ÚNICO exec da menu bar é o poller delimitado do craft-bgapps (ps do UID a cada 10s)"
+assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" '"exec": "craft-bgapps status"' "v2.3.4→v2.10.26/E38: o ÚNICO exec da menu bar é o poller delimitado do craft-bgapps (ps do UID a cada 30s — era 10s; o maior fork-poll da sessão cai 3×)"
 assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" '"return-type": "json"' "v2.3.4: o botão de 2º plano responde JSON (classe/texto — texto vazio = some da barra)"
 # v2.0 — a classe de leak morre DE VEZ: a dock nativa não tem exec JSON
 # por pin; o indicador é pgrep IN-PROCESS (timer GTK de 3s, um único
 # processo). O config.top segue 100% módulos nativos (contrato acima).
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'timeout_add\(1000, self\.poll_running\)' "v2.10.12: tick 1s (o dono: 'delay pra atualizar' — 3s atrasava indicadores/dinâmicos; o diff-guard mantém zero redraw quando nada muda)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'timeout_add\(5000, self\.poll_running\)' "v2.10.12→v2.10.26/E38: tick 5s de SEGURANÇA (o dono: 'delay pra atualizar' — a resposta à era 1s é o PUSH EVT do daemon: atualização por EVENTO, latência ~0, ~172.800 wakeups/dia extintos; o diff-guard mantém zero redraw quando nada muda)"
+# ── v2.10.26/E38 — O PUSH DA DOCK: o daemon fala, a dock escuta ─────────
+# (caminho COMPLETO: a variável $DOCK só nasce na seção da dock, :2309)
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'def _tl_evt_open' "v2.10.26/E38: 2ª conexão dedicada a eventos (EVT ON = opt-in — o socket de pedidos segue limpo, cliente velho nunca recebe linha não pedida)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'GLib\.io_add_watch' "v2.10.26/E38: a dock acorda por EVENTO (IO_IN) — não por relógio; HUP = fallback da lei v2.10.3"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'self\._rcache' "v2.10.26/E38: memoização da resolução comm→desktop (o loop quente do _near_match morreu — invalidada quando o set de comms muda)"
+assert_nogrep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'F_MINIMIZED' "v2.10.26/E38: constante morta saiu (definida e NUNCA lida — o mapa de flags vive no comentário do F_ACTIVATED)"
+assert_grep "$REPO/vendor/craft-toplevel.c" 'EVT ON' "v2.10.26/E38: o daemon aceita o opt-in de eventos (protocolo documentado no cabeçalho)"
+assert_grep "$REPO/vendor/craft-toplevel.c" 'notify_evt' "v2.10.26/E38: o push existe no daemon (EVT por batch pós-dispatch — coalescing de graça)"
+assert_grep "$REPO/vendor/craft-toplevel.c" 'evt_dirty' "v2.10.26/E38: o flag do batch — UM EVT por dispatch, nunca por evento individual"
+assert_grep "$P/airootfs/usr/local/bin/craft-bars" 'cyc % 6' "v2.10.26/E38: cap_log a cada 6 ciclos (o fork do wc só em 1 de 6 — o teto de 1 MiB segue honesto no loop)"
+assert_nogrep "$P/airootfs/usr/local/bin/craft-menu" 'grep -q -- ' "v2.10.26/E38: os 5 greps de CAPS viraram teste POSIX de substring — abrir menu NÃO fork-a mais"
+assert_grep "$P/airootfs/usr/local/bin/craft-keyring-wait" "pgrep -x 'pacman|pacman-key'" "v2.10.26/E38: UM pgrep com alternância ERE no guarda (eram 2 forks por 5s)"
 assert_nogrep "$P/airootfs/usr/local/bin/craft-dock-gui" '"exec"' "v2.0: o GUI não executa JSON de pin (a classe narrow v1.8 virou arquitetura)"
 # v1.5: keyring CachyOS em 4 camadas (spec: init → populate → refresh)
 assert_grep "$P/airootfs/usr/local/bin/craft-fix-keys" 'pacman-key --populate archlinux cachyos' "v1.5: craft-fix-keys — comandos LITERAIS da spec (populate)"
@@ -1138,6 +1150,10 @@ assert_grep "$E01" 'initramfs-linux-cachyos-bore\.img' "v1.1: initramfs default 
 assert_nogrep "$E01" 'vmlinuz-linux([^-]|$)' "v1.1: default sem vestígio do kernel stock (mesmo guard do produto)"
 assert_grep "$E01" 'copytoram=y' "v1.1: default com copytoram=y (o live inteiro na RAM)"
 assert_grep "$E01" 'amdgpu\.ppfeaturemask=0xffffffff' "v1.1: default com ppfeaturemask AMD (undervolt/OC no LACT)"
+# v2.10.26/E38 — o LIVE agora carrega os tokens do INSTALADO (a 1ª vez que
+# as entradas do live têm os mesmos tokens do GRUB do firstboot)
+assert_grep "$E01" 'nowatchdog zswap\.enabled=0' "E38: a entrada AMD do live carrega nowatchdog + zswap off (o INSTALADO já tinha via GRUB do firstboot — o live ficava fora)"
+assert_grep "$E03" 'nowatchdog zswap\.enabled=0' "E38: a entrada NVIDIA do live carrega os mesmos tokens (E38)"
 assert_grep "$E01" 'UEFI, AMD · Copy to RAM' "v1.1: título default = AMD · Copy to RAM"
 assert_grep "$E01" 'systemd\.default_timeout_start_sec=90' "v1.0.4: timeout 90s no cmdline do default"
 
@@ -2342,7 +2358,7 @@ assert_grep "$DOCK" 'get_nodisplay\(\) or app\.get_is_hidden\(\)' "v2.10: NoDisp
 assert_grep "$DOCK" 'did in self\.pin_ids' "v2.10: dinâmico é DEDUP contra os pins (app fixado nunca aparece duas vezes)"
 assert_grep "$DOCK" 'self\._pin_add\(did\)' "v2.10: direito no dinâmico FIXA (craft-pin add — o mesmo verbo do sempre, com .bak e reload SIGUSR2)"
 assert_grep "$DOCK" '"close", "app_id"' "v2.10: o MEIO fecha a janela (WM_DELETE gracioso — o app confirma se tiver o que salvar)"
-assert_grep "$DOCK" 'set\(current\) == set\(self\.dyn\)' "v2.10: diff por desktop-id — nada toca no GTK se nada mudou (zero flicker no tick de 1s — v2.10.12)"
+assert_grep "$DOCK" 'set\(current\) == set\(self\.dyn\)' "v2.10: diff por desktop-id — nada toca no GTK se nada mudou (zero flicker por refresh — v2.10.12; desde a v2.10.26/E38 o refresh é por EVENTO com tick de 5s)"
 assert_grep "$DOCK" 'dynsep' "v2.10: o fio que separa fixados de dinâmicos tem nome no CSS (estilizável no dock.css do usuário)"
 
 # v2.7.0 — WLRCTL FONTE VENDADA (a build #110 provou o que acontece sem
