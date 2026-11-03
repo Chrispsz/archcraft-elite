@@ -101,12 +101,29 @@ for gone in diag-boot.yml diag-boot2.yml diag-boot3.yml diag-install.yml; do
   assert_nofile "$REPO/.github/workflows/$gone" "v1.5.2: $gone removido (debug não vive na pipeline)"
 done
 
+# v2.10.26/E39 — ASSERT DE MODO 100755 LENDO O INDEX (o item nº 2 do plano
+# do ARQUITETURA.md): o [[ -x ]] lê o FILESYSTEM e neste sandbox tudo nasce
+# rwxrwxrwx — o guard passa local de graça e é o checkout do CI + o squashfs
+# da ISO que herdam o modo do index (a classe do E35.1, que curou o loop
+# geral e deixou 4 guardas soltos). O que o CI e a ISO veem é o modo do
+# index — é ele que se audita; o filesystem nunca mais decide aqui.
+# $1 = caminho relativo ao repo · $2 = nome da peça · $3 = consequência
+index_exec() {
+  local mode
+  mode="$(git -C "$REPO" ls-files -s -- "$1" 2>/dev/null | awk '{print $1; exit}')"
+  if [[ "$mode" == "100755" ]]; then
+    ok "$2"
+  else
+    fail "$2" "${3:-modo do index é ${mode:-AUSENTE} — checkout do CI e squashfs herdam 0644 → 203/EXEC no live (curar com git update-index --chmod=+x)}"
+  fi
+}
+
 # peças v1.5.2: o gate de forense de log — existe, executa e carrega a
 # história do projeto como especificação (cada padrão FATAL foi bug REAL
 # numa build verde; a v1.4 saiu sem keyring com 5 deles ESCRITOS no log)
 LF="$REPO/scripts/log-forensics.sh"
 assert_file "$LF" "v1.5.2: scripts/log-forensics.sh existe (gate de forense)"
-[[ -x "$LF" ]] && ok "v1.5.2: log-forensics.sh executável" || fail "v1.5.2: log-forensics.sh executável" "bit de execução ausente"
+index_exec "scripts/log-forensics.sh" "v1.5.2: log-forensics.sh executável (modo 100755 do index — v2.10.26/E39)" "bit de execução ausente no index — o CI e a ISO herdam 0644"
 for pat in 'target not found' 'could not determine root mount point' 'not enough free disk space' 'is unknown trust' 'signature from .* is invalid' 'No space left on device'; do
   assert_grep "$LF" "$pat" "v1.5.2: forense caça '$pat' (bug real da história)"
 done
@@ -272,16 +289,16 @@ assert_grep "$WG" 'ACTION=="add"' "v2.10.11: regra E24 atua no add (coldplug cob
 assert_grep "$WG" 'SUBSYSTEM=="pci"' "v2.10.11: regra E24 mira dispositivos PCI"
 assert_grep "$WG" 'ATTR\{class\}=="0x0c03\*"' "v2.10.11: regra E24 desarma controladores USB (class 0x0c03) — cirúrgico, sem shotgun"
 assert_grep "$WG" 'ATTR\{power/wakeup\}="disabled"' "v2.10.11: regra E24 escreve wakeup=disabled (sem porta de volta do mouse/controlador)"
-[[ -x "$REPO/elite/airootfs/usr/local/bin/craft-wake-guard" ]] \
-  && ok "v2.10.11: craft-wake-guard presente e executável (status/off/on — o comando manual da cura)" \
-  || fail "v2.10.11: craft-wake-guard" "ausente ou sem +x — o dono fica sem perícia/ajuste manual"
+index_exec "elite/airootfs/usr/local/bin/craft-wake-guard" \
+  "v2.10.11: craft-wake-guard presente e executável (status/off/on — o comando manual da cura; modo 100755 do index — v2.10.26/E39)" \
+  "ausente ou sem +x no index — o dono fica sem perícia/ajuste manual"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-wake-guard" 'do_set disabled' "v2.10.11: craft-wake-guard off desarma USB (o mesmo gesto da regra udev)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-wake-guard" 'do_set enabled' "v2.10.11: craft-wake-guard on rearma USB (a porta de volta, assumindo o risco E24)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-wake-guard" 'cat /sys/power/mem_sleep' "v2.10.11: craft-wake-guard status mostra o modo real do hardware (deep vs s2idle)"
 SR="$REPO/elite/airootfs/usr/lib/systemd/system-sleep/elite-sleep-report"
-[[ -x "$SR" ]] \
-  && ok "v2.10.11: hook elite-sleep-report presente e executável (perícia do sono no journal)" \
-  || fail "v2.10.11: elite-sleep-report" "ausente ou sem +x — se o sono voltar curto, o dump não nomeia o suspeito restante"
+index_exec "elite/airootfs/usr/lib/systemd/system-sleep/elite-sleep-report" \
+  "v2.10.11: hook elite-sleep-report presente e executável (perícia do sono no journal; modo 100755 do index — v2.10.26/E39)" \
+  "ausente ou sem +x no index — se o sono voltar curto, o dump não nomeia o suspeito restante"
 assert_grep "$SR" 'pre)' "v2.10.11: hook elite-sleep-report registra wake sources armadas ANTES de dormir"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2.6' "v2.10.18/E30: craft-dump etiqueta v2.6 (etiqueta = conteúdo — wpctl completo)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'date \+%Y%m%d-%H%M%S' "v2.10.11: dump com segundos no STAMP (fim da colisão de dois runs no mesmo minuto — a doença do a4h8)"
@@ -313,9 +330,13 @@ CV="$REPO/scripts/live/cura-viva.sh"
 [[ -f "$CV" ]] \
   && ok "v2.10.11: cura-viva.sh presente (o one-liner do campo — rig 10.9/10.10 se cura sem reinstalar)" \
   || fail "v2.10.11: scripts/live/cura-viva.sh" "ausente — o dono ficaria refém de reinstalar a ISO para ter dump completo + E24"
-[[ -x "$CV" ]] \
-  && ok "v2.10.11: cura-viva.sh executável (o modo executável via git update-index — a lição do E24-hotfix)" \
-  || fail "v2.10.11: cura-viva.sh sem +x no git" "core.fileMode=false engoliu o chmod local — a lição do E24-hotfix se repete"
+# v2.10.26/E39 — a peça JURAVA o modo do git (a mensagem citava update-index
+# e core.fileMode) mas o [[ -x ]] lia o filesystem — mentia igual aos outros
+# 3: neste sandbox 777 passava de graça, e o réu real (modo do index) nunca
+# era auditado. Agora lê o index como jura.
+index_exec "scripts/live/cura-viva.sh" \
+  "v2.10.11: cura-viva.sh executável (o modo executável via git update-index — a lição do E24-hotfix; modo 100755 do index — v2.10.26/E39)" \
+  "core.fileMode=false engoliu o chmod local e o index ficou 0644 — a lição do E24-hotfix se repete"
 assert_grep "$CV" 'raw.githubusercontent.com/Chrispsz/archcraft-elite/main' "v2.10.11: cura-viva baixa da main via raw público (sem credencial na máquina do dono)"
 assert_grep "$CV" '90-elite-wake-guard.rules' "v2.10.11: cura-viva instala a regra E24 (a cura do despertar no rig velho)"
 assert_grep "$CV" 'elite-sleep-report' "v2.10.11: cura-viva instala o hook system-sleep (a perícia do sono no rig velho)"
