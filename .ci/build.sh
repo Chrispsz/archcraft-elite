@@ -163,7 +163,7 @@ url=https://github.com/Chrispsz/archcraft-elite
 license=(GPL3)
 depends=(wayland)
 source=("craft-toplevel.c")
-sha256sums=('7df93e886e85698d15efb1ec9811a202cbb47328a65d14f97138fe80a183344d')
+sha256sums=('24d537866c1bc81881dc5f6e69a64b10447ae2de6270f18a6c8d0cf54f81b7be')
 build() {
     gcc -O2 -Wall -Wextra -s -o craft-toplevel craft-toplevel.c -lwayland-client
 }

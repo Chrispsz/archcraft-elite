@@ -216,8 +216,10 @@ menu() {
         exit 0
     fi
     if [ "$ec" -eq 2 ]; then
-        # toggle (aposentado na v2.4.0 — virou física do compositor; o
-        # ramo fica dormente por compatibilidade da gramática).
+        # toggle — VIVO e determinístico: o 2º clique no MESMO título faz
+        # o craft-menu matar o fuzzel PELO PID gravado e sair 2 (lei do
+        # pid desde a v4 — o rig DESMENTIU a 'física do compositor'; o
+        # comentário antigo dizia 'ramo dormente' e mentia — E38/E33).
         mlog "Processos: toggle — 2ª chamada fechou o menu — benigno"
         rm -f "$errf"
         exit 0

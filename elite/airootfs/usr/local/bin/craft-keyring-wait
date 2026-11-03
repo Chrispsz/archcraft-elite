@@ -31,8 +31,10 @@
 # do caminho feliz continua ~2ms (um pgrep).
 i=0
 while [ "$i" -lt 84 ]; do          # teto honesto: 84 × 5s = 420s (> transação provada de 4min46s)
-    pgrep -x pacman-key >/dev/null 2>&1 && { sleep 5; i=$((i + 1)); continue; }
-    pgrep -x pacman >/dev/null 2>&1 && { sleep 5; i=$((i + 1)); continue; }
+    # v2.10.26/E38 — UM pgrep com alternância ERE (eram DOIS forks por 5s:
+    # pacman-key e pacman vigiados numa chamada só — caminho feliz segue
+    # ~2ms, e o teto de 420s continua intocado).
+    pgrep -x 'pacman|pacman-key' >/dev/null 2>&1 && { sleep 5; i=$((i + 1)); continue; }
     break
 done
 exit 0
