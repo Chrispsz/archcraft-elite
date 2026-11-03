@@ -30,3 +30,8 @@ application/gzip=xarchiver.desktop
 application/x-tar=xarchiver.desktop
 application/vnd.rar=xarchiver.desktop
 application/x-rar-compressed=xarchiver.desktop
+# E40 — terminal programático (spec xdg-terminal-exec): qualquer app que
+# peça "um terminal" (handler x-scheme-handler/terminal) resolve para o
+# foot da Elite — mesmo mecanismo que o Thunar/xdg usariam; sem esta
+# linha não existe resposta canônica para "qual é o terminal da casa?"
+x-scheme-handler/terminal=foot.desktop
