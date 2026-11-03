@@ -51,6 +51,19 @@ jobs:
           pacman-key --init
           pacman -Sy --noconfirm --needed git rsync shellcheck python-yaml python-pillow shfmt bun
       - uses: actions/checkout@v5
+      # v2.10.26/E39 — GIT VIVO NO PASSO DA SUÍTE: o set-safe-directory do
+      # checkout é config GLOBAL TEMPORÁRIA (env GIT_CONFIG_GLOBAL do passo
+      # dele — morre junto). No passo seguinte o git do container volta a
+      # RECUSAR o repo (dubious ownership) e `git ls-files -s` sai VAZIO —
+      # os guards index-driven (E35.1 e E39) liam o index de mentira: no CI
+      # sempre caíram no fallback do filesystem (prova: a peça do incidente
+      # 716ee1e reclamou 'sem bit de execução' — frase do ramo FALLBACK, não
+      # do ramo do index). A peça nova do E39 sem fallback expôs a ficção
+      # (4 falhas com mode vazio no run 41643776977). Aqui o safe.directory
+      # é escrito no config PERMANENTE do container — o passo da suíte lê o
+      # index de verdade, que é o que o checkout e o squashfs herdam.
+      - name: git confia no workspace (o safe.directory do checkout é temporário)
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: Montar o quebra-cabeça (5 fases + veredito)
         run: bash tests/run-tests.sh
       - name: shfmt (informativo — não bloqueia)

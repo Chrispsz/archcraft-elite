@@ -336,7 +336,7 @@ CV="$REPO/scripts/live/cura-viva.sh"
 # era auditado. Agora lê o index como jura.
 index_exec "scripts/live/cura-viva.sh" \
   "v2.10.11: cura-viva.sh executável (o modo executável via git update-index — a lição do E24-hotfix; modo 100755 do index — v2.10.26/E39)" \
-  "core.fileMode=false engoliu o chmod local e o index ficou 0644 — a lição do E24-hotfix se repete"
+  "index sem 100755 para o cura-viva (0644 no index OU git não operou no repo — cf. safe.directory) — a lição do E24-hotfix se repete"
 assert_grep "$CV" 'raw.githubusercontent.com/Chrispsz/archcraft-elite/main' "v2.10.11: cura-viva baixa da main via raw público (sem credencial na máquina do dono)"
 assert_grep "$CV" '90-elite-wake-guard.rules' "v2.10.11: cura-viva instala a regra E24 (a cura do despertar no rig velho)"
 assert_grep "$CV" 'elite-sleep-report' "v2.10.11: cura-viva instala o hook system-sleep (a perícia do sono no rig velho)"
