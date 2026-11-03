@@ -96,6 +96,17 @@ jobs:
         # #123 pegou a classe — schema do Actions só o GitHub valida).
         with:
           persist-credentials: false
+      # v2.10.27 — A SEGUNDA PORTA (o run 41694485151 morreu AQUI): este job
+      # roda a MESMA suíte do tests.yml e herdava o MESMO git desconfiado —
+      # o set-safe-directory do checkout@v5 é config global TEMPORÁRIA (morre
+      # com o passo dele); no passo da suíte o git do container RECUSA o repo
+      # (dubious ownership), `git ls-files -s` sai VAZIO e o guard
+      # index-driven do E39 — sem fallback desde a v2.10.26 — tombou com mode
+      # vazio nas MESMAS 4 peças do run 41643776977. A cura E39 foi só ao
+      # tests.yml; o portão do build ficou doente. Cura idêntica, escrita no
+      # config PERMANENTE do container ANTES da suíte.
+      - name: git confia no workspace (a cura E39 chega à segunda porta)
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: Montar o quebra-cabeça (5 fases + veredito)
         run: bash tests/run-tests.sh
 
