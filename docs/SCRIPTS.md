@@ -41,7 +41,7 @@ a tornou verdade: 32 bins + scripts de repo).
 | `craft-power` | menu Sessão completo (sair/suspender/reiniciar/desligar/idle) — E46: o rollback saiu do menu (a porta dele é a entrada de snapshot no GRUB; ordem do dono) |
 | `craft-rollback` | snapshots snapper — criar/restaurar com polkit |
 | `craft-shot` | captura de tela (região/tela) — W-p / W-S-p |
-| `craft-update` | atualização do sistema — v4 (E46): o -Syu INSTALA o veículo (`elite-craft craft-toplevel` como alvos explícitos) e liga a cadência; `--canal` = dose DIÁRIA da casa (11:30±40min, offline-safe); `--sistema` = dose SEMANAL com snapshot PRE/POST do snapper (sáb 10:00±2h); porta de entrada: menu raiz "Atualizar sistema" |
+| `craft-update` | atualização do sistema — v4 (E46): o -Syu INSTALA o veículo (`elite-craft craft-toplevel` como alvos explícitos) e liga a cadência; `--canal` = dose DIÁRIA da casa (11:30±40min, offline-safe); `--sistema` = dose SEMANAL com snapshot PRE/POST do snapper (sáb 10:00±2h); v4.1 (E48): elite-craft mudou na transação = o swayidle da SESSÃO VIVA é reiniciado (o supervisor craft-bars ressuscita com a receita nova — idle/suspensão valem SEM relogin; pkill condicionado ao supervisor vivo); porta de entrada: menu raiz "Atualizar sistema" |
 | `craft-wake-guard` | status/off/on do wake-guard USB (suspende sem acordar sozinho) |
 | `exo-open` | ponte de compatibilidade Xfce→Elite (E40): o Thunar 4.20 chama exo-open POR DENTRO — mapeia `--launch` para foot/brave/thunar, operandos para `gio open`; MailReader = erro honesto |
 
@@ -195,7 +195,7 @@ craft-menu --title='Senha Wi-Fi' --at=network --ask='Senha' </dev/null   # modo 
 ---
 
 
-## craft-bgapps (v4.0 — SÓ PROGRAMA DO DONO) — `/usr/local/bin/craft-bgapps`
+## craft-bgapps (v4.2 — SÓ PROGRAMA DO DONO) — `/usr/local/bin/craft-bgapps`
 
 **O quê:** o botão de apps em 2º plano da menu bar (módulo `custom/bgapps`) — só ocupa a barra QUANDO há programa do usuário fora da casca da sessão (texto vazio = some). A LEI v2.3.10 (fica): o que é da SESSÃO nunca aparece, e TODO programa de verdade aparece — varredura do `/proc`/ps REAL do UID, casamento POR PREFIXO (o ps corta o comm em 15 caracteres). A LEI v2.4.0: **UM PROCESSO POR PROGRAMA** — o PRINCIPAL de cada árvore; renderers do Chromium são a sombra, NUNCA entrada; tooltip = DESCRIÇÃO curta. A LEI v2.6.0 (o dono, foto do rig: "continua pegando serviços do sistema que inclusive não encerram — (sd-pam), dconf-service, gvfs-udisks2-vo, gvfs-mtp-volume"):
 
@@ -203,13 +203,16 @@ craft-menu --title='Senha Wi-Fi' --at=network --ask='Senha' </dev/null   # modo 
 - **CANDIDATO SEM DISPLAY NUNCA É PROGRAMA** — `/proc/PID/environ` sem `WAYLAND_DISPLAY=`/`DISPLAY=` é assinatura de serviço de fundo (o Brave e o Files conversam com o compositor; sd-pam/dconf/gvfs, nunca);
 - **ENCERRAR DE VERDADE** — SIGTERM, 2s de paciência, SIGKILL em quem aguentou (o dono clica UMA vez);
 - **ÃNCORA** — o menu nasce sob o PRÓPRIO botão (--at=bgapps) e abre no clique ESQUERDO (v2.7.0 — a lei dos dois botões; o 2º clique fecha).
+- **O NOME HONESTO DO INTERPRETADOR (v4.2/E48 — o dono: "tá pegando python 3, pactl e etc")** — script python invocado DIRETO tem comm = `python3` (o INTERPRETADOR — prova no sandbox e no rig: o craft-audio-route, shebang `env python3`, aparecia como "python 3" e o filho `pactl subscribe` como "pactl"; matar era matar o áudio, e o supervisor ressuscitava). O candidato-interpretador se apresenta pelo SCRIPT do cmdline (caminho que resolve no `/proc/pid/cwd`); sem script real (`-c`/`-m`) é encanamento. O encanamento de áudio/mídia entrou na casca: `pactl*`, `wpctl*`, `playerctl*`, `pulsemixer*`;
+- **SOMBRA COM RÉU NOMEADO (v4.2/E48)** — quem é cortado como sombra deixa linha no `menus.log` nomeando QUEM sombreou (BGAPPS_TRACE nos verbos menu/list; o `status` de 30s NUNCA escreve — teto E36). "Não sei se detecta tudo" tem resposta no papel.
 
 ```bash
 craft-bgapps status   # JSON do módulo waybar (vazio = botão some)
 craft-bgapps menu     # clique ESQUERDO: craft-menu com "nome (pid N)"
+craft-bgapps list     # a lista BRUTA no stdout (a forense do "não sei se detecta tudo")
 ```
 
-**Como rodar:** automático (o waybar executa `status` a cada 10s; clique ESQUERDO abre o `menu`).
+**Como rodar:** automático (o waybar executa `status` a cada 30s; clique ESQUERDO abre o `menu`).
 
 **Depende de:** sh, ps, /proc; craft-menu para o menu.
 
@@ -240,13 +243,14 @@ craft-connect   # clique ESQUERDO no ícone de rede: cabo on/off, Wi-Fi on/off, 
 
 ---
 
-## craft-dock-gui (v2.9 — DOIS VERBOS NO CLIQUE, A DOCK PURA) — `/usr/local/bin/craft-dock-gui`
+## craft-dock-gui (v2.11 — DOIS VERBOS NO CLIQUE, A DOCK PURA) — `/usr/local/bin/craft-dock-gui`
 
 **O quê:** a dock GTK nativa (layer BOTTOM, sempre visível, zona exclusiva, pílula de ícones reais via Gio.DesktopAppInfo — história v2.0/v2.3.4 no cabeçalho do script). **v2.7.0 (o dono: "clicar num programa já aberto ele deve ir para a tarefa aberta invés de abrir outra pois vi que isso acontece com alguns programas, se o usuário quiser abrir outra rapidamente ele pode fazer clicando no ícone com o botão direito")**:
 - **ESQUERDO num pin** — se o programa ESTÁ rodando (pílula), FOCAR a janela dele (`wlrctl window focus app_id:…` — wlr-foreign-toplevel, que o labwc fala); se NÃO está, abrir. Não rodando = abrir DIRETO (zero subprocesso no caminho comum — instantâneo). A adivinhação do app_id segue ordem: hint explícito (2ª coluna do dock-pins) → StartupWMClass → binário → stem do desktop-id; TODOS falharam → abre (nunca pior que antes);
 - **DIREITO num pin** — abrir OUTRA instância, sempre (o verbo rápido para "quero outro agora");
 - **A DOCK PURA (v2.9.0 — a gaiola morreu com prova)** — o rig do dono desmentiu a v2.8 NA CARNE ("matou o uso do mouse no sistema — só topbar e dock funcionam"): a gaiola nascia com a região de entrada CHEIA (o campo era setado DEPOIS da chamada que a aplicava — a chamada não aplicava nada) e a região só crescia por união — uma rede invisível engolindo o clique de TODA janela (Calamares incluso). CURA ESTRUTURAL: ZERO superfícies auxiliares — a dock é SÓ a pílula dela (layer BOTTOM); o clique fora de menu é lei do rc.xml (craft-menu-dismiss). O que a dock não tem, ela não quebra;
-- **Tooltip honesto** — com wlrctl: "esquerdo: focar/abrir · direito: nova janela"; sem: "clique: abrir".
+- **Tooltip honesto** — com wlrctl: "esquerdo: focar/abrir · direito: nova janela"; sem: "clique: abrir";
+- **TRANSIÇÃO SUAVE (v2.11/E48 — o dono: "ao fechar programas a transição da dock deve ser suave invés de piscar")** — cada botão dinâmico vive num GtkRevealer (SLIDE_LEFT, 280ms): entra deslizando, sai deslizando, e o widget só deixa a árvore DEPOIS do slide (o destroy na detecção da saída era o piscar); o fio espera o fim dos deslizes em voo; `show_all` só quando algo entra/sai.
 
 ```bash
 craft-dock toggle   # W-S-d: esconder/mostrar (SIGUSR1)

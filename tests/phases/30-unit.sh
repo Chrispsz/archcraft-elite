@@ -983,11 +983,22 @@ ST="${MOCK_DIR:?}"; mkdir -p "$ST"; touch "$ST/pacman.log"
 printf 'pacman %s\n' "$*" >> "$ST/pacman.log"
 if [[ -f "$ST/pacman-fail" && "$1" == "-Syu" ]]; then echo "erro simulado" >&2; exit 3; fi
 case "$1" in
-  -Q)   v="6.12.4-2"; [ -f "$ST/kernel-flip" ] && v="6.12.5-1"
+  -Q)   if [ "$2" = "elite-craft" ]; then
+            # E48: o estado do veículo é arquivo (ausente = não instalado);
+            # a transação com ec-upgrade o move DE VERDADE (1.0-3 → 1.0-4
+            # ou adoção ausente → 1.0-4) — o delta do refresh é por -Q
+            if [ -f "$ST/ec-ver" ]; then echo "elite-craft $(cat "$ST/ec-ver")"; exit 0; fi
+            echo "erro: pacote 'elite-craft' não encontrado" >&2; exit 1
+        fi
+        v="6.12.4-2"; [ -f "$ST/kernel-flip" ] && v="6.12.5-1"
         echo "linux-cachyos-bore $v"; exit 0 ;;
   -Slq) [ -f "$ST/repo-fail" ] && exit 1
         printf '%s\n' elite-craft craft-toplevel brave-origin; exit 0 ;;
-  -Syu) touch "$ST/kernel-flip"; exit 0 ;;
+  -Syu) touch "$ST/kernel-flip"
+        [ -f "$ST/ec-upgrade" ] && printf '1.0-4\n' > "$ST/ec-ver"
+        exit 0 ;;
+  -Sy)  [ -f "$ST/ec-upgrade" ] && printf '1.0-4\n' > "$ST/ec-ver"
+        exit 0 ;;
   *)    exit 0 ;;
 esac
 EOF
@@ -1006,6 +1017,10 @@ exit 1
 EOF
 cat > "$MOCKCU/loginctl" <<'EOF'
 #!/usr/bin/env bash
+# sem cenário de sessão: silêncio (as cenas antigas não têm usuário);
+# com user-flip: UM usuário logado (uid 1000) — a cena E48 da sessão viva
+ST="${MOCK_DIR:?}"
+[ -f "$ST/user-flip" ] && printf '%s\n' "1000 chris"
 exit 0
 EOF
 cat > "$MOCKCU/runuser" <<'EOF'
@@ -1021,6 +1036,24 @@ EOF
 cat > "$MOCKCU/systemctl" <<'EOF'
 #!/usr/bin/env bash
 printf 'systemctl %s\n' "$*" >> "${MOCK_DIR:?}/systemctl.log"
+exit 0
+EOF
+cat > "$MOCKCU/pgrep" <<'EOF'
+#!/usr/bin/env bash
+# E48: o pgrep da sessão — craft-bars vivo SÓ com bars-alive (cena decide);
+# swayidle está vivo (a sessão roda). Toda chamada deixa linha no papel.
+ST="${MOCK_DIR:?}"; touch "$ST/pgrep.log"
+printf 'pgrep %s\n' "$*" >> "$ST/pgrep.log"
+case "$*" in
+  *craft-bars*) [ -f "$ST/bars-alive" ] && exit 0; exit 1 ;;
+  *)            exit 0 ;;
+esac
+EOF
+cat > "$MOCKCU/pkill" <<'EOF'
+#!/usr/bin/env bash
+# E48: o pkill cirúrgico do refresh deixa réu nominal no papel
+ST="${MOCK_DIR:?}"; touch "$ST/pkill.log"
+printf 'pkill %s\n' "$*" >> "$ST/pkill.log"
 exit 0
 EOF
 chmod +x "$MOCKCU"/*
@@ -1082,6 +1115,37 @@ assert_grep "$STCU/pacman.log" '\-Syu --needed --overwrite /usr/local/bin/\* eli
   "E46/manual: o -Syu leva os veículos como alvos EXPLÍCITOS (quem não tem o elite-craft o INSTALA — a ferida do rig da 28 morre aqui)"
 assert_grep "$STCU/systemctl.log" 'enable --now elite-channel.timer elite-sysupdate.timer' "E46/manual: a cadência liga na 1ª 'Atualizar sistema' (o automatismo nasce onde o dono já clica)"
 
+# ── E48 — A CURA NA SESSÃO VIVA (o 'atualizei e persistiu' morre): o
+#    dump nl3z provou o rig correndo a receita velha DEPOIS do update
+#    (timeout 1200 systemctl suspend cru, conf 2/7) — o update entregava
+#    ARQUIVOS e a sessão seguia com o daemon VELHO até relogin.
+# canal com DELTA: a dose diária atualizou o elite-craft (1.0-3 → 1.0-4)
+rm -rf "$STCU"; mkdir -p "$STCU"
+touch "$STCU/user-flip" "$STCU/bars-alive" "$STCU/ec-upgrade"
+printf '1.0-3\n' > "$STCU/ec-ver"
+run_cu --canal >/dev/null
+assert_grep "$STCU/update.log" 'elite-craft 1.0-3 → 1.0-4' "E48/canal: o delta do veículo fica no papel (a comparação -Q antes/depois, exata por construção)"
+assert_grep "$STCU/pkill.log" 'pkill -u 1000 -x swayidle' "E48/canal: o swayidle da SESSÃO é reiniciado (o supervisor craft-bars ressuscita com a receita nova — idle/suspensão valem SEM relogin)"
+assert_grep "$STCU/update.log" 'swayidle \(uid 1000\) reiniciado' "E48/canal: o refresh deixa linha no papel do log (o aviso na TELA segue o bus do usuário — sandbox honesto não tem bus; o papel é o registro, a lição E46)"
+# canal SEM delta: a transação não tocou a casa = NENHUM pkill (churn de daemon de graça não existe)
+rm -rf "$STCU"; mkdir -p "$STCU"
+touch "$STCU/user-flip" "$STCU/bars-alive"
+run_cu --canal >/dev/null
+assert_nogrep "$STCU/pkill.log" 'swayidle' "E48/canal: sem delta NÃO há pkill (o daemon vivo só é reiniciado quando a casa mudou)"
+# sistema com supervisor AUSENTE: o pkill NÃO sai (matar sem quem ressuscita = dano)
+rm -rf "$STCU"; mkdir -p "$STCU"
+touch "$STCU/user-flip" "$STCU/ec-upgrade"
+printf '1.0-3\n' > "$STCU/ec-ver"
+run_cu --sistema >/dev/null
+assert_nogrep "$STCU/pkill.log" 'swayidle' "E48/sistema: SEM supervisor o pkill NÃO sai (matar o idle sem volta é dano, não cura — o relogin é a porta honesta)"
+assert_grep "$STCU/update.log" 'supervisor craft-bars AUSENTE' "E48/sistema: a verdade no papel (o rig sem craft-bars sabe que a sessão segue com a receita antiga)"
+# manual com ADOÇÃO: o rig SEM elite-craft instala (ausente → 1.0-4) = delta
+rm -rf "$STCU"; mkdir -p "$STCU/units"
+cp "$REPO/elite/airootfs/etc/systemd/system/elite-channel.timer" "$REPO/elite/airootfs/etc/systemd/system/elite-sysupdate.timer" "$STCU/units/"
+touch "$STCU/user-flip" "$STCU/bars-alive" "$STCU/ec-upgrade"
+run_cu >/dev/null
+assert_grep "$STCU/pkill.log" 'pkill -u 1000 -x swayidle' "E48/manual: a ADOÇÃO do veículo também reinicia a sessão (ausente → 1.0-4 é delta — a ferida da 28 cura NA SESSÃO, não só nos arquivos)"
+
 # ── E47 — craft-lock --if-needed: O LOCK QUE JÁ VIVE NÃO MORRE NO ESCURO
 #    (a denúncia recorrente do dono: 'só entra em suspensão quando coloco
 #    a senha na tela de bloqueio'. O before-sleep REINICIAVA o hyprlock —
@@ -1136,5 +1200,134 @@ else
 fi
 assert_grep "$STCL/hyprlock.log" 'hyprlock' "E47/lock: o manual nasceu lock NOVO (quem aperta W-l quer o lock na hora, não um fantasma)"
 kill "$fk2pid" 2>/dev/null || true
+
+# ── E48 — craft-bgapps v4.2 NO COMPORTAMENTO (a lição E35.1/E42: texto
+#    não prova): processos REAIS com WAYLAND_DISPLAY no environ — o comm
+#    de python3 invocado DIRETO é 'python3' (o interpretador; provado no
+#    sandbox), o ps é FILTRADO para a cena e o /proc é o de verdade.
+#    A cena replica o rig (dump nl3z + relato do dono): o daemon de
+#    áudio python (comm python3) com o filho pactl, a dock python com o
+#    filho brave (lançado pela dock — a sombra que ENGOLIA o Brave), um
+#    app python de terceiros (blueman-applet) e um helper sombreado.
+MOCKBG="$WORK/mocks-bgapps"
+SCENE="$WORK/bgapps-scene"
+mkdir -p "$MOCKBG" "$SCENE"
+# os fakes binários (comm = basename garantido em qualquer kernel)
+cp /bin/sleep "$SCENE/pactl"
+cp /bin/sleep "$SCENE/brave"
+cp /bin/sleep "$SCENE/bghelper"
+# o daemon de áudio da casa (python3 DIRETO → comm 'python3') + filho pactl
+cat > "$SCENE/craft-audio-route" <<EOF
+#!/usr/bin/env python3
+import os, subprocess, sys, time
+env = dict(os.environ)
+env["WAYLAND_DISPLAY"] = "wl-0"
+p = subprocess.Popen(["$SCENE/pactl", "120"], env=env)
+open("$SCENE/pid-pactl", "w").write(str(p.pid))
+while True:
+    time.sleep(120)
+EOF
+# a dock da casa (python3 DIRETO) que lança o Brave (a cadeia real do rig)
+cat > "$SCENE/craft-dock-gui" <<EOF
+#!/usr/bin/env python3
+import os, subprocess, time
+env = dict(os.environ)
+env["WAYLAND_DISPLAY"] = "wl-0"
+p = subprocess.Popen(["$SCENE/brave", "120"], env=env)
+open("$SCENE/pid-brave", "w").write(str(p.pid))
+while True:
+    time.sleep(120)
+EOF
+# o app de terceiros (python3 DIRETO, nome honesto) + o helper sombreado
+cat > "$SCENE/blueman-applet" <<EOF
+#!/usr/bin/env python3
+import os, subprocess, time
+env = dict(os.environ)
+env["WAYLAND_DISPLAY"] = "wl-0"
+p = subprocess.Popen(["$SCENE/bghelper", "120"], env=env)
+open("$SCENE/pid-helper", "w").write(str(p.pid))
+while True:
+    time.sleep(120)
+EOF
+chmod +x "$SCENE/craft-audio-route" "$SCENE/craft-dock-gui" "$SCENE/blueman-applet"
+WAYLAND_DISPLAY=wl-0 python3 "$SCENE/craft-audio-route" & bg_aro=$!
+WAYLAND_DISPLAY=wl-0 python3 "$SCENE/craft-dock-gui"   & bg_dock=$!
+WAYLAND_DISPLAY=wl-0 python3 "$SCENE/blueman-applet"    & bg_blu=$!
+sleep 0.6   # os filhos (pactl/brave/helper) precisam existir no procfs
+bg_pactl="$(cat "$SCENE/pid-pactl" 2>/dev/null || true)"
+bg_brave="$(cat "$SCENE/pid-brave" 2>/dev/null || true)"
+bg_helper="$(cat "$SCENE/pid-helper" 2>/dev/null || true)"
+# o ps FILTRADO para a cena: só os nossos pids (o resto do sandbox é ruído)
+bg_ppid() { awk '{print $4}' "/proc/$1/stat" 2>/dev/null || echo 1; }
+{
+  printf '%s %s python3\n'      "$bg_aro" "$(bg_ppid "$bg_aro")"
+  printf '%s %s python3\n'      "$bg_dock" "$(bg_ppid "$bg_dock")"
+  printf '%s %s python3\n'      "$bg_blu" "$(bg_ppid "$bg_blu")"
+  [ -n "$bg_pactl" ]  && printf '%s %s pactl\n'     "$bg_pactl"  "$(bg_ppid "$bg_pactl")"
+  [ -n "$bg_brave" ]  && printf '%s %s brave\n'     "$bg_brave"  "$(bg_ppid "$bg_brave")"
+  [ -n "$bg_helper" ] && printf '%s %s bghelper\n'  "$bg_helper" "$(bg_ppid "$bg_helper")"
+} > "$SCENE/ps-lines"
+cat > "$MOCKBG/ps" <<'EOF'
+#!/usr/bin/env bash
+# ps da cena: as linhas preparadas (pid ppid comm reais dos processos vivos)
+ST="${MOCK_DIR:?}"
+cat "$ST/ps-lines"
+EOF
+chmod +x "$MOCKBG/ps"
+BGA="$REPO/elite/airootfs/usr/local/bin/craft-bgapps"
+STBG="$WORK/state-bgapps"
+bg_list() {
+  ( export PATH="$MOCKBG:$PATH" MOCK_DIR="$SCENE" XDG_CACHE_HOME="$STBG/cache"
+    BGAPPS_TRACE=1 bash "$BGA" list 2>/dev/null )
+}
+rm -rf "$STBG"; mkdir -p "$STBG"
+bg_out="$(bg_list)"; rc=$?
+assert_eq "$rc" "0" "E48/bgapps: o verbo list termina 0 (a lista bruta é a porta da forense)"
+# (1) a cena montada de verdade (o teste não mente sobre o que construiu):
+#     os 6 processos vivos com os comms esperados no papel da cena
+assert_grep "$SCENE/ps-lines" '^[0-9]+ [0-9]+ brave$' "E48/bgapps: a cena tem o Brave vivo com ppid real (o teste prova o cenário antes de julgar a cura)"
+assert_grep "$SCENE/ps-lines" '^[0-9]+ [0-9]+ pactl$' "E48/bgapps: a cena tem o pactl vivo (o filho do daemon de áudio do rig)"
+if printf '%s' "$bg_out" | grep -q 'python3'; then
+  fail "E48/bgapps: NENHUMA entrada 'python3' na lista" "python3 entrou — o interpretador não se apresentou pelo script"
+else
+  ok "E48/bgapps: NENHUMA entrada 'python3' na lista (o comm do interpretador nunca mais é 'programa')"
+fi
+if printf '%s' "$bg_out" | grep -q 'pactl'; then
+  fail "E48/bgapps: NENHUMA entrada 'pactl' na lista" "pactl entrou — o encanamento de áudio voltou a aparecer (matar = matar o roteamento)"
+else
+  ok "E48/bgapps: NENHUMA entrada 'pactl' na lista (o encanamento de áudio/mídia está na casca)"
+fi
+if printf '%s' "$bg_out" | grep -qE 'craft-audio-route|craft-dock-gui'; then
+  fail "E48/bgapps: os daemons da casa NÃO aparecem (casca craft-*)" "um daemon craft-* entrou na lista — a casca não alcançou o nome resolvido"
+else
+  ok "E48/bgapps: os daemons da casa NÃO aparecem (o nome resolvido cai na casca craft-* — matar o 'python 3' do menu nunca mais mata o áudio)"
+fi
+# (2) a denúncia B: o Brave lançado pela dock ENTRA (o pai resolvido é
+#     protegido — não é mais candidato que o sombreie)
+if printf '%s' "$bg_out" | grep -q '^brave (pid '; then
+  ok "E48/bgapps: o Brave ENTRA na lista (lançado pela dock — o pai protegido não o sombreia mais; o dono fecha o Brave de lá)"
+else
+  fail "E48/bgapps: o Brave ENTRA na lista" "o pai python3 resolvido ainda sombreia — a lista segue cega para o app que o dono quer fechar"
+fi
+# (3) o app de terceiros com o nome HONESTO (não 'python3')
+if printf '%s' "$bg_out" | grep -q '^blueman-applet (pid '; then
+  ok "E48/bgapps: o app python de terceiros aparece com o SEU nome (a lista fala a língua do programa)"
+else
+  fail "E48/bgapps: o app python de terceiros aparece com o SEU nome" "a resolução do cmdline falhou para script relativo/absoluto"
+fi
+# (4) a sombra com RÉU NOMEADO: o helper é filho do blueman (candidato
+#     vivo, comm diferente) — cortado COM a linha no papel
+assert_grep "$STBG/cache/elite/menus.log" 'sombra: bghelper \(pid .*\) — filho de blueman-applet' \
+  "E48/bgapps: a sombra cortada deixa réu nomeado (QUEM sombreou fica no papel — 'não sei se detecta tudo' tem resposta)"
+# (5) o status de 30s NUNCA escreve no papel (a lei do teto E36)
+rm -rf "$STBG"; mkdir -p "$STBG"
+( export PATH="$MOCKBG:$PATH" MOCK_DIR="$SCENE" XDG_CACHE_HOME="$STBG/cache"
+  bash "$BGA" status >/dev/null 2>&1 )
+assert_nofile "$STBG/cache/elite/menus.log" "E48/bgapps: o status (30s em loop) NUNCA escreve no menus.log (o trace só nos verbos menu/list — o teto E36 não sangra)"
+# ceifa da cena (nada órfão para o próximo teste)
+kill "$bg_aro" "$bg_dock" "$bg_blu" 2>/dev/null || true
+[ -n "$bg_pactl" ]  && kill "$bg_pactl"  2>/dev/null || true
+[ -n "$bg_brave" ]  && kill "$bg_brave"  2>/dev/null || true
+[ -n "$bg_helper" ] && kill "$bg_helper" 2>/dev/null || true
 
 phase_end
