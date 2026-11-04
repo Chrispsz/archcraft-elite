@@ -1233,6 +1233,38 @@ run_cu --adotar 1.0-4 1.0-4 >/dev/null
 assert_nogrep "$STCU/pkill.log" 'pkill' "E49/adotar: antes == depois = NENHUM pkill (o refresh às cegas mataria daemon vivo por rotina)"
 assert_grep "$STCU/systemctl.log" 'enable --now elite-channel.timer elite-sysupdate.timer' "E49/adotar: a cadência idempotente (chamou de novo, liga de novo — sem dano)"
 
+# (6) o PKGBUILD do craft-toplevel SOB A LUZ: no makepkg o package() roda
+#     no srcdir (só recebe o source=()) e os gêmeos E49 moram no STARTDIR
+#     (payload gerado, sem sha256) — o CI desmentiu a 1ª forma (run
+#     41893237128, 'A failure occurred in package()': install sem caminho
+#     não vê arquivo nenhum). A prova agora nasce AQUI, antes do CI: o
+#     package() EXTRAÍDO executa com os caminhos do makepkg e o install
+#     de prova registra ONDE cada arquivo foi buscado.
+PGB="$WORK/craft-toplevel-PKGBUILD"
+sed -n "/^cat > \/tmp\/elite-src\/craft-toplevel\/PKGBUILD <<'EOPKGBUILD'$/,/^EOPKGBUILD$/p" "$REPO/.ci/build.sh" | sed '1d;$d' > "$PGB"
+bash -n "$PGB"
+STPK="$WORK/state-pkgbuild"; rm -rf "$STPK"; mkdir -p "$STPK/startdir" "$STPK/srcdir" "$STPK/pkg"
+cp "$PGB" "$STPK/startdir/PKGBUILD"
+sed -n "/^cat > \/tmp\/elite-src\/craft-toplevel\/elite-adopt <<'EOADOPT'$/,/^EOADOPT$/p" "$REPO/.ci/build.sh" | sed '1d;$d' > "$STPK/startdir/elite-adopt"
+sed -n "/^cat > \/tmp\/elite-src\/craft-toplevel\/elite-adopt.hook <<'EOHOOK'$/,/^EOHOOK$/p" "$REPO/.ci/build.sh" | sed '1d;$d' > "$STPK/startdir/elite-adopt.hook"
+printf 'int main(void){return 0;}\n' > "$STPK/startdir/craft-toplevel.c"
+cp "$STPK/startdir/craft-toplevel.c" "$STPK/srcdir/"
+MOCKPK="$WORK/mocks-pkgbuild"; mkdir -p "$MOCKPK"
+cat > "$MOCKPK/install" <<'EOF'
+#!/usr/bin/env bash
+printf 'install %s\n' "$*" >> "${MOCK_DIR:?}/install.log"
+exit 0
+EOF
+chmod +x "$MOCKPK/install"
+( cd "$STPK/srcdir" \
+  && export PATH="$MOCKPK:$PATH" MOCK_DIR="$STPK" \
+  && export startdir="$STPK/startdir" srcdir="$STPK/srcdir" pkgdir="$STPK/pkg" \
+  && bash -c 'source "$startdir/PKGBUILD" ; package' )
+assert_grep "$STPK/install.log" "install -Dm755 $STPK/startdir/elite-adopt $STPK/pkg/usr/share/elite/elite-adopt" \
+  "E49/pkgbuild: o elite-adopt é resolvido NO STARTDIR (o package() roda no srcdir — o caminho explícito é a cura do 'failure in package()' que o CI pegou)"
+assert_grep "$STPK/install.log" "install -Dm644 $STPK/startdir/elite-adopt.hook $STPK/pkg/usr/share/libalpm/hooks/elite-adopt.hook" \
+  "E49/pkgbuild: o hook PostTransaction entra no payload com o modo 644 (o pacman o lê, não o executa)"
+
 # ── E47 — craft-lock --if-needed: O LOCK QUE JÁ VIVE NÃO MORRE NO ESCURO
 #    (a denúncia recorrente do dono: 'só entra em suspensão quando coloco
 #    a senha na tela de bloqueio'. O before-sleep REINICIAVA o hyprlock —
