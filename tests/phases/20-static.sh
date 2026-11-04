@@ -1424,7 +1424,9 @@ assert_nofile "$REPO/elite/airootfs/etc/systemd/system/elite-channel.service" "E
 assert_file "$REPO/elite/airootfs/etc/systemd/system/elite-bootupdate.service" "E51: a unit ao LIGAR nasce na overlay (a dose da casa tem casa)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-update" 'elite_cadencia' "E51: a cadência é UMA função nas duas portas (--adotar e manual — idempotente, sem duplicar)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-update" 'elite-channel.timer aposentado' "E51: a aposentadoria do relógio deixa réu no papel (o rig sabe POR QUE o canal de 11:30 sumiu)"
-assert_grep "$REPO/.ci/build.sh" 'pkgrel=2' "E51: pkgrel elite-system 1→2 NO MESMO COMMIT (lei E41 — o payload /etc trocou o timer; sem subir, o -Syu pula a cadência nova)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=3' "E51.1: pkgrel elite-system 2→3 NO MESMO COMMIT (lei E41 — a dose ganhou a auto-cura da cadência e a ponte saiu da fila; sem subir, o -Syu pula)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-update" 'dose AUTO-CURA a cadência' "E51.1: o canal SELF-HEAL a cadência (a dose v4.2 de hoje adota o rig e a PRÓPRIA dose troca o timer — nenhum rig fica com cadência fantasma)"
+assert_nogrep "$REPO/.github/workflows/publish-packages.yml" 'craft-toplevel-\*\.pkg' "E51.1: o fluxo de publicação não cita a ponte (upload de glob vazio = run vermelha à toa)"
 assert_grep "$REPO/README.md" 'elite-sysupdate.timer' "E46/V6: o README documenta a cadência SEMANAL com snapshot PRE/POST"
 assert_nogrep "$REPO/README.md" 'restauração GUI no menu Sessão' "E46/V6: o README não vende mais a restauração GUI no menu Sessão (o rollback saiu do menu — o papel acompanha, E33 auto-patrulhado)"
 
