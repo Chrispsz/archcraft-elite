@@ -310,6 +310,10 @@ if [[ "${1:-}" == "--canal" ]]; then
     ulog "canal: OK — ${CANAL_PKGS[*]}"
     refresh_if_craft_changed "$es_before" "$ec_before" "$tl_before"
     notify_users 'Elite: canal em dia' 'O código da casa foi atualizado (dose diária).'
+    # E51.1 — a dose AUTO-CURA a cadência: rigs adotados por caminhos que
+    # não passam pela elite_cadencia (a dose v4.2 de hoje) recebem a troca
+    # do timer na PRÓPRIA dose (idempotente — disable falho é silêncio)
+    elite_cadencia
     exit 0
 fi
 
