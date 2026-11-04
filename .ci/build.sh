@@ -253,7 +253,11 @@ pkgver=1.0
 # portas) e o craft-extract (o verbo novo) — mais as units da cadência
 # (elite-channel/elite-sysupdate) no payload /etc. Lei E41: pkgrel NO
 # MESMO commit (o guard-pkgrel cobra; sem isso o -Syu pula).
-pkgrel=3
+# E47 — o mesmo veículo entrega o before-sleep sem corrida: craft-lock
+# --if-needed (o lock vivo não morre no escuro do PrepareForSleep — a
+# denúncia 'só suspende quando coloco a senha') e o craft-idle chamando
+# o novo verbo nos dois braços do before-sleep.
+pkgrel=4
 pkgdesc='Código de casa da Elite (craft-*, elite-*, exo-open + units da cadência em /etc) — o canal diário de atualização sem reinstalar'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

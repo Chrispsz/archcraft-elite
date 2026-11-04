@@ -14,7 +14,27 @@
 #   wallpaper + blur + dim + relógio + campo estilizado). Roda no labwc
 #   via ext-session-lock-v1 (protocolo nativo). O swaylock (tela branca
 #   estática do burn test) saiu.
+# E47 — --if-needed: O LOCK QUE JÁ VIVE NÃO MORRE NO ESCURO (a denúncia
+#   recorrente do dono: 'só entra em suspensão quando coloco a senha na
+#   tela de bloqueio — essa lógica é burra'). A cadeia do auto-suspend
+#   (swayidle: timeout SUSPEND_MIN → systemctl suspend -i → PrepareForSleep
+#   → before-sleep craft-lock) REINICIAVA o hyprlock que JÁ ESTAVA na
+#   tela: pkill + espera + exec + init (o blur do wallpaper é caro —
+#   segundos numa GPU fraca). O logind só espera InhibitDelayMaxSec (5s)
+#   pelos hooks delay — se o hyprlock novo não terminou de mapear, o
+#   kernel congela no meio da init e o ACORDA NÃO TEM LOCK (ou tem um
+#   locker morto). Com --if-needed: lock vivo = exit 0 (ele sobrevive ao
+#   congelamento e recebe o dono acordando); lock MORTO = segue o fluxo
+#   completo (a promessa 'acorda no lock' também se AUTO-CURA). O caminho
+#   MANUAL (W-l, menu) continua com a semântica de reinício da E30 —
+#   instância única garantida nos dois mundos.
 set -euo pipefail
+
+# E47 — o no-op DIFERENTE do silêncio: só sai cedo quando há lock SAUDÁVEL
+# para guardar (a checagem é pgrep, não fé).
+if [ "${1:-}" = "--if-needed" ] && pgrep -x hyprlock >/dev/null 2>&1; then
+    exit 0
+fi
 # E30 (v2.10.18) — INSTÂNCIA ÚNICA (bars.log do dump p6aw: hyprlock
 # 'onLockFinished called. Seems we got yeeten. Is another lockscreen
 # running?' — dois caminhos do lock atravessaram [timeout do idle +
@@ -22,6 +42,9 @@ set -euo pipefail
 # destravada: um locker fantasma esperando para dar dor de cabeça).
 # pkill+espera+exec: SEMPRE exatamente um locker — o TERM no velho É o
 # fecho da corrida, e um lock pedido nunca vira no-op silencioso.
+# E47: o caminho --if-needed já devolveu cedo ACIMA quando havia lock
+# vivo — o pkill abaixo só alcança quem chegou até aqui (lock morto ou
+# caminho manual), a E30 segue intacta onde ela nasceu.
 pkill -x hyprlock 2>/dev/null || true
 i=0
 while [ "$i" -lt 10 ] && pgrep -x hyprlock >/dev/null 2>&1; do
