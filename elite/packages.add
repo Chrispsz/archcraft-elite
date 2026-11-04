@@ -108,7 +108,10 @@ pulsemixer
 # pulseaudio/pulseaudio#mic da waybar precisam da lib — dependia de cadeia
 # transitive que ninguém jurava (auditado na auditoria de simulações)
 libpulse
-polkit-gnome
+# E43: agente polkit wlroots-nativo — o polkit-gnome 0.105 é GTK2 de 2010 e
+# foi o diálogo dele que matou o gparted do dono com senha VIVA provada no
+# dump tg0b1 (a aposentadoria dele mora no packages.remove)
+hyprpolkitagent
 xdg-desktop-portal-wlr
 mpv
 imv

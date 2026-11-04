@@ -936,7 +936,7 @@ assert_grep "$SK/.config/waybar/config.top" '"battery"' "v2.10.5: o notebook tem
 
 # G. o conf do idle sobrevive ao menu (suspend opt-in não morre no rewrite):
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-idle" 'SUSPEND_MIN=%s' "v2.10.5: idle.conf regravado COM o suspend do usuário (os dois caminhos)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-idle" 'LOCK_MIN:-.*\*\[!0-9\]\*\) LOCK_MIN=10' "v2.10.5: valor lixo no conf não mata o daemon (sanidade antes do -eq)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-idle" 'LOCK_MIN:-.*\*\[!0-9\]\*\) LOCK_MIN=5' "E43: valor lixo no conf não mata o daemon (sanidade antes do -eq; a fábrica do gesto único responde)"
 
 # H. a senha recusada é PERGUNTADA de novo (classe 'fora de alcance' mentirosa):
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-connect" 'connection delete' "v2.10.5: perfil com senha recusada morre e o fluxo PERGUNTA (léxico EN+pt do stderr)"
@@ -951,7 +951,7 @@ assert_grep "$REPO/elite/airootfs/etc/udev/rules.d/60-io-elite.rules" 'TEST!="pa
 
 # K. enum de verdade no swaync (número mágico 80 não é valor de image-visibility):
 assert_nogrep "$SK/.config/swaync/config.json" '"image-visibility": 80' "v2.10.5: image-visibility não é número mágico (o schema é enum — chave ignorada era ruído)"
-assert_grep "$SK/.config/swaync/config.json" "when-there's-a-tray-icon" "v2.10.5: image-visibility com valor de enum válido"
+assert_grep "$SK/.config/swaync/config.json" '"when-available"' "E43: image-visibility no enum REAL do swaync 0.12.x (man swaync.5.scd:151) — o v2.10.5 aqui certificava a sintaxe MORTA 'when-there...'; o warning de deserialização em TODO boot era o sintoma (dump tg0b1)"
 
 # L. pacotes: a dependência jurada existe de facto:
 assert_grep "$REPO/elite/packages.add" '^libpulse$' "v2.10.5: libpulse explícito (pactl/volumes + módulo pulseaudio da waybar)"
@@ -1012,9 +1012,9 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" "ls /usr/local/share
 assert_grep "$REPO/elite/airootfs/etc/skel/.config/fuzzel/fuzzel.ini" 'exit-on-keyboard-focus-loss=yes' "v2.10.12: a opção com o nome que o fuzzel conhece (o próprio comentário v2.4.0 citava o nome certo)"
 # R5. A LÓGICA DO IDLE HONESTA: etiquetas nomeiam o que fazem + o knob do
 #     suspender existe (o dono mudou 'tempo de tela' e a tela TRAVOU).
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-idle" 'Travar: 2 minutos' "v2.10.12: o menu diz TRAVAR (o '2 minutos' genérico fez o dono esperar suspend e ver lock)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-idle" 'Idle: 2 min \(trava e apaga\)' "v2.10.12/E43: o menu nomeia o que faz E o gesto é ÚNICO (lock+off no mesmo instante — o relato 'mudei para 2 e bloqueou invés de suspender' virou fluxo honesto; os parênteses do rótulo são literais no ERE — a lição do E40)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-idle" 'Suspender: 20 min \(padrão\)' "v2.10.12: o knob do SUSPENDER existe no menu (SUSPEND_MIN=20 era fixo e invisível)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-idle" "'Suspender: Nunca')             SUSPEND_MIN=0" "v2.10.12: suspender 'Nunca' = 0 (o start v2.3.5 já suportava — agora é escolha do dono)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-idle" "'Suspender: Nunca') +SUSPEND_MIN=0" "v2.10.12: suspender 'Nunca' = 0 (o start v2.3.5 já suportava — agora é escolha do dono; o espaçamento exato era fragilidade da peça)"
 # R6. O CHAVEIRO GNOME QUE O PAM JAMAIS DESBLOQUEIA: bootstrap com senha
 #     vazia corria na frente no sistema COM senha (gkr-pam 'couldn't
 #     unlock' em todo login — journal 22:31:35 do nl3z).

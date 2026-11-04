@@ -327,7 +327,7 @@ jobs:
               echo "**ISO única** (≤ 2 GiB) — direto no Ventoy/Rufus."
             fi
             echo ""
-            echo "**Atualização pelo terminal** (E32): os pacotes da casa (\`brave-origin\`, \`pwvucontrol\`, \`craft-toplevel\`, \`wlrctl\`) acompanham esta release como assets — são o repo \`[elite-local]\` que o \`pacman.conf\` da ISO consome; \`craft-update\` (= \`sudo pacman -Syu\`) atualiza TUDO, navegador incluso."
+            echo "**Atualização pelo terminal** (E32/E43): os pacotes da casa (\`brave-origin\`, \`pwvucontrol\`, \`craft-toplevel\`, \`elite-craft\`, \`wlrctl\`) acompanham esta release como assets — são o repo \`[elite-local]\` que o \`pacman.conf\` da ISO consome; \`craft-update\` (= \`sudo pacman -Syu\`) atualiza TUDO, navegador incluso. A partir da E43, os COMMITS de código de casa chegam como atualização ENTRE releases (canal diário — sem formatar nem reinstalar)."
           } > body.md
 
       - name: Release (push de tag v*)
@@ -356,7 +356,15 @@ jobs:
             bash -c 'repo-add --quiet elite-local.db.tar.gz *.pkg.tar.zst && rm -f elite-local.db && cp elite-local.db.tar.gz elite-local.db'
           ls -lh
           echo "── subindo como assets de $TAG"
-          gh release upload "$TAG" elite-local.db elite-local.db.tar.gz *.pkg.tar.zst \
+          # E43 — A DIETA DOS ASSETS (o dono: 'porque está saindo tantos assets?'):
+          # os pacotes -debug NÃO sobem mais (símbolos de desenvolvedor não são
+          # produto; craft-toplevel/elite-craft nem os produzem mais — options=
+          # (!debug) no template; pwvucontrol/wlrctl (AUR) são filtrados aqui).
+          # O selo sha256sums-pacotes.txt cobre EXATAMENTE o que sobe.
+          PKGS=$(ls *.pkg.tar.zst | grep -v -- '-debug-')
+          echo "$PKGS"
+          sha256sum $PKGS > sha256sums-pacotes.txt
+          gh release upload "$TAG" elite-local.db elite-local.db.tar.gz $PKGS sha256sums-pacotes.txt \
             --repo "$GITHUB_REPOSITORY" --clobber
           echo "── assets pós-upload:"
           gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name'
