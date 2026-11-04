@@ -17,6 +17,21 @@
 # permissão) → SUCESSO com o aviso no log; exit ≥ 2 = falha de verdade.
 # Tratar 1 como falha apagaria um arquivo BOM — a suíte crava isso.
 #
+# E42 — O VERBO QUE MORRIA EM TODA ISO: o dono apertou Comprimir… e 'não
+# aconteceu nada' (04/nov). Raiz cravada: o dep-check exigia o binário
+# '7z', mas o pacote '7zip' do Arch entrega '7zz' — e o PRÓPRIO repo sabia
+# desde a v2.3.0 (e96bec4: qemu-boot-test.sh:24 'Arch: pacote 7zip fornece
+# 7zz; Ubuntu/CI: p7zip-full fornece 7z'). O sandbox/CI tem 7z (p7zip-full),
+# a ISO não: os '6 testes com zip REAL' e os greps da porteira provavam o
+# TEXTO, nunca a ISO — a classe E35.1 de novo (o sandbox mente, o CI não vê
+# a ISO). Segunda ferida do mesmo tiro: o '|| exit 0' do diálogo tratava
+# QUALQUER falha do zenity como 'Cancelar' — crash saía calado. Cura em
+# três mãos: (1) o resolver do qemu-boot-test entra aqui (7z OU 7zz); (2) a
+# dica de cura cita o pacote CERTO (7zip, não 7z); (3) rc do zenity PROVADO
+# no fonte oficial (util.c:45-53: OK=0 · CANCEL/ESC=1 · ERROR=-1→255) —
+# rc=1 é o dono desistindo (sai calado, com linha no log); rc≠0/1 vira die
+# com o stderr capturado. Erro nunca mais calado — lei da casa.
+#
 # uso:      craft-compress ARQUIVO… [ARQUIVO… DIR…]   (%F do uca.xml — a
 #           multi-seleção inteira chega como argumentos separados)
 # frontend: uca.xml do Thunar (skel) — "Comprimir…" no menu de contexto
@@ -55,7 +70,12 @@ die() {
 
 # ── dependências: declaradas no packages.add, guardas aqui (o binário
 # fantasma não existe — quem chama fora do Thunar recebe o caminho de cura)
-for bin in zenity 7z tar; do
+# E42 — o motor se RESOLVE (7z OU 7zz): o '7z' exigido a fio morria em toda
+# ISO da casa (o pacote 7zip entrega 7zz — qemu-boot-test.sh:24, e96bec4).
+SEVENZ="$(command -v 7z || command -v 7zz || true)"
+[[ -n "$SEVENZ" ]] ||
+    die "craft-compress" "O motor 7-Zip não está instalado.\nNo terminal: sudo pacman -S 7zip"
+for bin in zenity tar; do
     command -v "$bin" >/dev/null 2>&1 ||
         die "craft-compress" "O programa '$bin' não está instalado.\nNo terminal: sudo pacman -S $bin"
 done
@@ -80,13 +100,30 @@ else
 fi
 
 # ── O DIÁLOGO ÚNICO: formato + nome, do jeito que o usuário espera ──
+# E42 — rc provado no fonte oficial (util.c:45-53): 0=OK · 1=Cancelar/ESC ·
+# -1→255=ERRO. O '|| exit 0' antigo tratava QUALQUER falha como Cancelar —
+# um crash do diálogo saía calado (o dono apertava e NADA). Agora: rc=1 é o
+# dono desistindo (sai calado, com a linha no log); rc≠0/1 vira die com o
+# stderr capturado — erro nunca mais calado (lei da casa).
+formerr=$(mktemp)
+frc=0
 form=$(zenity --forms --title="Comprimir" \
     --text="Compactar $N_ITENS item(ns) em um único arquivo" \
     --add-combo="Formato" \
     --combo-values="zip (universal — abre em qualquer lugar)|7z (comprime mais)|tar.xz (nativo Linux)" \
     --add-entry="Nome do arquivo (sem extensão)" \
     --entry-text="$sugestao" \
-    --separator="|" 2>/dev/null) || exit 0   # Cancelar = mudou de ideia: sai calado, sem meia-work
+    --separator="|" 2>"$formerr") || frc=$?
+if [[ "$frc" -ne 0 ]]; then
+    cauda=$(tail -3 "$formerr" 2>/dev/null | tr '\n' ' ' | cut -c1-300)
+    rm -f "$formerr"
+    if [[ "$frc" -eq 1 ]]; then
+        log "cancelado: o dono fechou o diálogo (rc=1)${cauda:+ | stderr: $cauda}"
+        exit 0    # Cancelar = mudou de ideia: sai calado, sem meia-work
+    fi
+    die "Comprimir" "O diálogo de compressão não abriu (zenity rc=$frc).\n${cauda:-sem stderr do zenity}\n\nA prova completa fica no log: $LOG"
+fi
+rm -f "$formerr"
 
 fmt="${form%%|*}"
 nome="${form#*|}"
@@ -125,11 +162,11 @@ if [[ "$alvo" == *.tar.xz ]]; then
     motor=(tar -cJvf "$alvo" -- "$@")
     rc_ok=1
 else
-    motor=(7z a -bd -bso0 -bsp0 -- "$alvo" "$@")
-    rc_ok=1                    # 7z: 0 OU 1 (warning) = arquivo criado
+    motor=("$SEVENZ" a -bd -bso0 -bsp0 -- "$alvo" "$@")   # E42: binário RESOLVIDO
+    rc_ok=1                    # 7z/7zz: 0 OU 1 (warning) = arquivo criado
 fi
-
-log "comprimir: $N_ITENS item(ns) → $(basename -- "$alvo")"
+motor_name="$(basename -- "${motor[0]}")"   # E42: o log nomeia o motor REAL (tar ≠ 7zz)
+log "comprimir: $N_ITENS item(ns) → $(basename -- "$alvo") (motor: $motor_name)"
 ( "${motor[@]}" >"$logf" 2>&1; echo $? >"$rcf" ) &
 bgpid=$!
 
