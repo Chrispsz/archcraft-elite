@@ -1377,9 +1377,37 @@ assert_file "$S46/timers.target.wants/elite-channel.timer" "E46/V4: o timer do c
 assert_file "$S46/timers.target.wants/elite-sysupdate.timer" "E46/V4: o timer do sistema nasce HABILITADO"
 # V5. O VEÍCULO NASCE INSTALADO (futuras ISOs não repetem a ferida da 28):
 assert_grep "$REPO/elite/packages.add" '^elite-craft$' "E46/V5: o elite-craft no packages.add — a ISO nasce com o veículo INSTALADO (o rig da 28 provou o custo de não nascer)"
-assert_grep "$REPO/.ci/build.sh" 'pkgrel=5' "E48: pkgrel elite-craft 4→5 NO MESMO COMMIT (lei E41 — craft-update reinicia a sessão viva + craft-bgapps v4.2 + dock v2.11 mudaram a casa; sem subir, o -Syu pula a cura)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=6' "E48/E49: pkgrel elite-craft 5→6 NO MESMO COMMIT (lei E41 — a cura v4.2 da sessão inteira mudou a casa; sem subir, o -Syu pula a cura)"
 assert_grep "$REPO/.ci/build.sh" 'files/etc/systemd/system' "E46/V5: o elite-craft carrega as units no payload /etc (sem elas o rig instalado nunca recebe a cadência)"
 assert_grep "$REPO/.ci/guard-pkgrel.sh" 'systemd/system/elite' "E46/V5: o guard-pkgrel cobra delta de UNIT também (unit mudada sem pkgrel = o -Syu pula a cadência em silêncio)"
+# ── E49: A CURA QUE SE ENTREGA SOZINHA — sessão inteira + adoção de uma
+#    via. O dono: "eu atualizei mas o sistema está aparentemente igual…
+#    a não ser que o pacote não instalou ou a lógica de atualizações não
+#    funciona hoje". As provas dele (prints): rollback no menu, python3
+#    na lista — o rig corria a era pré-E46/E48 INTEIRA. Duas raízes
+#    mecânicas nomeáveis, dois contratos.
+CU49="$REPO/elite/airootfs/usr/local/bin/craft-update"
+# RAIZ 1 — o refresh da sessão era SÓ o swayidle: a dock (transição
+# suave), o áudio e o daemon de janelas seguiam velhos até relogin.
+assert_grep "$CU49" 'craft_tl_q' "E49: o SEGUNDO veículo tem delta próprio (craft-toplevel muda na transação → a sessão também recebe o daemon novo sem relogin)"
+assert_grep "$CU49" 'refresh_session' "E49: o refresh da sessão é função própria (por delta e por pacote — o E48 cresceu sem virar espaguete)"
+assert_grep "$CU49" 'craft-dock-gui\$' "E49: a DOCK entra no refresh (âncora do craft-bars — a transição suave v2.11 vale SEM relogin, o 'continua piscando' morre)"
+assert_grep "$CU49" 'craft-audio-route' "E49: o roteador de áudio entra no refresh (nenhum daemon da casa envelhece dentro da sessão atualizada)"
+assert_grep "$CU49" 'ELITE_TL_SETTLE' "E49: a espera do toplevel é porta de prova (a dock nova nasce sobre o toplevel de pé; a suíte não dorme à toa)"
+assert_grep "$CU49" '--adotar' "E49: o verbo --adotar existe (a porta da conclusão da adoção — sessão + cadência numa rodada)"
+# RAIZ 2 — o OVO-GALINHA: o rig pré-E46 roda craft-update sem alvos
+# explícitos; o elite-craft nunca é adotado; o craft-update novo mora
+# DENTRO do elite-craft. O gatilho viaja no craft-toplevel (o ÚNICO
+# pacote que TODO rig da casa tem).
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=4' "E49: pkgrel craft-toplevel 3→4 NO MESMO COMMIT (lei E41 — o pacote ganhou elite-adopt + hook; sem subir, o rig velho nunca o recebe)"
+assert_grep "$REPO/.ci/build.sh" 'cat > /tmp/elite-src/craft-toplevel/elite-adopt' "E49: o elite-adopt nasce no build.sh (fonte única — a suíte o extrai e o executa: comportamento, não texto)"
+assert_grep "$REPO/.ci/build.sh" 'When = PostTransaction' "E49: o hook é PostTransaction (dispara no fim da transação que o dono já rodou — nenhuma cerimônia nova)"
+assert_grep "$REPO/.ci/build.sh" 'Target = craft-toplevel' "E49: o gatilho é o craft-toplevel (o ÚNICO pacote da casa que TODO rig tem — até o rig da 28 recebe)"
+assert_grep "$REPO/.ci/build.sh" 'Exec = /usr/share/elite/elite-adopt' "E49: o Exec aponta para /usr/share/elite (FORA do domínio /usr/local/bin do elite-craft — zero briga de dono de arquivo)"
+assert_grep "$REPO/.ci/build.sh" 'setsid' "E49: a adoção nasce DESPRENDIDA (pacman NÃO roda dentro do hook — o lock da transação-mãe ainda vive)"
+assert_grep "$REPO/.ci/build.sh" 'db.lck' "E49: a espera do lock é honesta e com teto (a transação-mãe termina antes da adoção — sem corrida, sem loop eterno)"
+assert_grep "$REPO/.ci/build.sh" '--adotar' "E49: a conclusão é do craft-update NOVO (fonte única da lógica de refresh — o elite-adopt só semeia)"
+assert_grep "$REPO/.ci/build.sh" 'ELITE_ADOPT_SYNC' "E49: o corpo acoplado é porta de prova (a suíte observa o comportamento; o hook real nunca liga)"
 # V6. O README conta a cadência (o papel acompanha o sistema):
 assert_grep "$REPO/README.md" 'elite-channel.timer' "E46/V6: o README documenta a cadência DIÁRIA (o dono pediu para pensar as formas e intervalos — o papel diz quais são)"
 assert_grep "$REPO/README.md" 'elite-sysupdate.timer' "E46/V6: o README documenta a cadência SEMANAL com snapshot PRE/POST"
