@@ -2470,3 +2470,13 @@ consciente pós-merge (as 16 builds da história), e permanece assim.
 **Pendência:** testar trigger com outro ator/token, ou um workflow canário
 minimal, se a automação de push passar a valer a pena. Nada de silêncio:
 documentado aqui com o teste que o comprova.
+
+**E53.1 (04/nov) — O TRIGGER ESTÁ VIVO:** o push do `4bbb635` (E53, a dock
+v2.10.9) criou a run #15 SOZINHO (event `push`, conclusion `success`, minutos
+após o push — verificado pela API). A conclusão de cima vale para a era em que
+foi testada; hoje a automação de push FUNCIONA para este ator/token, e o canal
+diário não depende mais de dispatch consciente (ele segue disponível como
+contingência). Perícia do porquê: nada no workflow mudou — o gatilho era
+correto (`branches: [main]` provado em hex); o que mudou foi o lado do GitHub.
+Lição: conclusão 'não dispara' tem data de validade — reprovar antes de
+confiar nela.
