@@ -39,7 +39,7 @@ check() { # $1=pacote  $2=delta (nomes de arquivo)
     local pkg="$1" delta="$2" cur old
     [ -n "$delta" ] || { echo "guard-pkgrel: $pkg — conteúdo intocado desde $LAST_TAG (ok)"; return 0; }
     echo "guard-pkgrel: conteúdo de $pkg mudou desde $LAST_TAG:"
-    printf '  %s\n' $delta
+    while IFS= read -r f; do printf '  %s\n' "$f"; done <<< "$delta"
     cur="$(pkgrel_of HEAD "$pkg" || true)"
     old="$(pkgrel_of "$LAST_TAG" "$pkg" || true)"
     # template inexistente na tag (ex.: elite-craft nasceu depois) = 0

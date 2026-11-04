@@ -206,7 +206,11 @@ say "Gerando o PKGBUILD do elite-craft (o canal diário — E43)"
 mkdir -p /tmp/elite-src/elite-craft/files/usr/local/bin
 # caminho ABSOLUTO: aqui o CWD é /tmp/elite-src/<pkg> (o cd da seção pywal
 # acima) — o relativo nasceria vazio (a lição vai no próprio comentário).
-( cd /work/elite/airootfs/usr/local/bin && ls -1 | grep -vx 'craft-toplevel' ) > /tmp/elite-src/elite-craft/files/MANIFEST
+for f in /work/elite/airootfs/usr/local/bin/*; do
+    b="${f##*/}"
+    [ "$b" = "craft-toplevel" ] && continue
+    printf '%s\n' "$b"
+done > /tmp/elite-src/elite-craft/files/MANIFEST
 while read -r f; do
     cp -p "/work/elite/airootfs/usr/local/bin/$f" /tmp/elite-src/elite-craft/files/usr/local/bin/
 done < /tmp/elite-src/elite-craft/files/MANIFEST
@@ -214,8 +218,7 @@ python3 - /tmp/elite-src/elite-craft <<'PYE43'
 import sys, pathlib
 d = pathlib.Path(sys.argv[1])
 files = (d / 'files/MANIFEST').read_text().split()
-names = ',
-'.join(f'        "{f}"' for f in files)
+names = chr(10).join(f'        "{f}" \\' for f in files)   # cada item com \ de continuação — a lista do for NÃO aceita quebra simples
 pkg = f"""pkgname=elite-craft
 pkgver=1.0
 pkgrel=1
@@ -252,11 +255,11 @@ chown -R builder /tmp/elite-src
 # E43 — PACKAGES_ONLY=1 (canal diário, publish-packages.yml): só os
 # pacotes de CÓDIGO DE CASA — pywal/qt5vk/wlrctl não mudam no dia a dia
 # (o repo completo do release vivo entra no job por download+repo-add).
-PKG_LIST="python-pywal qt5-virtualkeyboard wlrctl craft-toplevel elite-craft"
+PKG_LIST=(python-pywal qt5-virtualkeyboard wlrctl craft-toplevel elite-craft)
 if [[ "${PACKAGES_ONLY:-0}" == "1" ]]; then
-    PKG_LIST="craft-toplevel elite-craft"
+    PKG_LIST=(craft-toplevel elite-craft)
 fi
-for pkgdir in $PKG_LIST; do
+for pkgdir in "${PKG_LIST[@]}"; do
     (cd "/tmp/elite-src/$pkgdir" && runuser -l builder -c "cd /tmp/elite-src/$pkgdir && makepkg -f --noconfirm") \
         || { echo "FALHA ao construir $pkgdir"; exit 1; }
     cp "/tmp/elite-src/$pkgdir/"*.pkg.tar.zst /var/cache/elite-local/
