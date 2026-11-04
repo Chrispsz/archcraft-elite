@@ -101,6 +101,16 @@
 #       entrega a conclusão ao --adotar (os 'antes' LEGADOS que o hook
 #       capturou dão o delta da transição — o pacote único não tinha
 #       'antes': a ADOÇÃO já é a mudança).
+# v5.1 (E51 — A CADÊNCIA AO LIGAR): o dono: "a ISO deve atualizar o
+#   sistema a cada vez que iniciar para poupar o usuário de ficar
+#   atualizando manualmente". O timer de relógio (11:30) era uma aposta
+#   contra a rotina do dono — máquina desligada na hora = dia sem cura. O
+#   boot é o ÚNICO relógio que o dono bate todos os dias: o
+#   elite-bootupdate.timer (OnBootSec 3min) assume a dose da casa e o
+#   elite-channel APOSENTA (disable --now + unit files fora do caminho —
+#   a função elite_cadencia serve as DUAS portas, --adotar e manual,
+#   idempotente). A dose semanal (sistema inteiro, com snapshot PRE/POST)
+#   segue no sáb 10:00 — a rede de segurança não se corta.
 # ═══════════════════════════════════════════════════════════════════════════
 set -euo pipefail
 
@@ -200,6 +210,31 @@ refresh_session() {
     done < <(loginctl list-users --no-legend 2>/dev/null || true)
 }
 
+# E51 — A CADÊNCIA AO LIGAR (a função única das duas portas — --adotar e
+# manual): a casa atualiza A CADA BOOT (o dono: "a ISO deve atualizar o
+# sistema a cada vez que iniciar para poupar o usuário de ficar
+# atualizando manualmente"). O timer de relógio (11:30) era uma aposta
+# contra a rotina: máquina desligada na hora = dia sem cura. O boot é o
+# relógio que o dono BATE todos os dias (elite-bootupdate.timer,
+# OnBootSec 3min) + a dose SEMANAL do sistema (sáb 10:00) segue como rede
+# completa. O elite-channel APOSENTA aqui: disable --now + as unit files
+# fora do caminho (rigs com overlay sem dono não ficam com cadência
+# fantasma; os que tinham as units por PACOTE já as perderam no replaces
+# do elite-system 1.0-2 — o rm é para os órfãos de overlay).
+elite_cadencia() {
+    UNITDIR="${ELITE_UNIT_DIR:-/etc/systemd/system}"
+    if run_root systemctl disable --now elite-channel.timer >/dev/null 2>&1; then
+        ulog "cadência: elite-channel.timer aposentado — a casa atualiza AO LIGAR (E51)"
+    fi
+    rm -f "$UNITDIR/elite-channel.timer" "$UNITDIR/elite-channel.service" 2>/dev/null || true
+    if [ -f "$UNITDIR/elite-bootupdate.timer" ] && [ -f "$UNITDIR/elite-sysupdate.timer" ]; then
+        if run_root systemctl enable --now elite-bootupdate.timer elite-sysupdate.timer >/dev/null 2>&1; then
+            ulog "cadência: AO LIGAR (bootupdate, 3min pós-boot) · sistema SEMANAL sáb 10:00"
+            echo "==> automatismo da casa ativo: casa AO LIGAR (3min pós-boot) · sistema SEMANAL sáb 10:00"
+        fi
+    fi
+}
+
 # o delta que IMPORTA para a sessão: versão antes ≠ depois (ou adoção, ou
 # SUBSTITUIÇÃO de era), POR PACOTE — elite-system mudou (ou o legado
 # mudou/apagou) → dock/áudio/idle/toplevel; o papel narra a história
@@ -233,18 +268,13 @@ if [[ "${1:-}" == "--adotar" ]]; then
     # (o verbo consome $1 — os deltas moram em $2/$3/$4; a lição do rc
     # capturado fora da negação: a posição certa ANTES de usar)
     refresh_if_craft_changed "${2:-}" "${3:-}" "${4:-}"
-    UNITDIR="${ELITE_UNIT_DIR:-/etc/systemd/system}"
-    if [ -f "$UNITDIR/elite-channel.timer" ] && [ -f "$UNITDIR/elite-sysupdate.timer" ]; then
-        if run_root systemctl enable --now elite-channel.timer elite-sysupdate.timer >/dev/null 2>&1; then
-            ulog "adotar: cadência ligada (canal DIÁRIO 11:30 · sistema SEMANAL sáb 10:00)"
-        fi
-    fi
+    elite_cadencia
     exit 0
 fi
 
-# ── dose DIÁRIA: o canal da casa (elite-channel.timer — 11:30±40min) ────
+# ── dose da casa AO LIGAR (elite-bootupdate.timer — OnBootSec 3min, E51) ─
 if [[ "${1:-}" == "--canal" ]]; then
-    ulog "canal: iniciando (dose diária dos pacotes da casa)"
+    ulog "canal: iniciando (dose da casa — ao ligar, E51)"
     es_before="$(es_q)"
     ec_before="$(elite_craft_q)"
     tl_before="$(craft_tl_q)"
@@ -359,16 +389,11 @@ run_root pacman -Syu --needed --overwrite '/usr/local/bin/*' elite-system
 # daemon de janelas — que agora viaja no pacote único)
 refresh_if_craft_changed "$es_before" "$ec_before" "$tl_before"
 
-# E46 — o automatismo nasce aqui (idempotente): os timers da casa ficam
-# vivos depois da 1ª 'Atualizar sistema' — a cadência assume a partir daí.
-# A morada das units é injetável (ELITE_UNIT_DIR) para prova em sandbox —
+# E46/E51 — o automatismo nasce aqui (idempotente): a cadência AO LIGAR
+# + a semanal ficam vivas depois da 1ª 'Atualizar sistema'. A morada das
+# units é injetável (ELITE_UNIT_DIR) para prova em sandbox —
 # mesma escola do VMARK/ELITE_UPDATE_LOG.
-UNITDIR="${ELITE_UNIT_DIR:-/etc/systemd/system}"
-if [ -f "$UNITDIR/elite-channel.timer" ] && [ -f "$UNITDIR/elite-sysupdate.timer" ]; then
-    if run_root systemctl enable --now elite-channel.timer elite-sysupdate.timer >/dev/null 2>&1; then
-        echo "==> automatismo da casa ativo: canal DIÁRIO 11:30 · sistema SEMANAL sáb 10:00"
-    fi
-fi
+elite_cadencia
 
 if command -v paru >/dev/null 2>&1; then
   echo "==> AUR (paru -Sua)"

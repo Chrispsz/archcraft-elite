@@ -122,7 +122,7 @@ sim melhorar constantemente"):
 
 | Cadência | O quê | Como |
 |---|---|---|
-| **Diária** (11:30 ±40min) | O código da casa (craft-*, elite-* + navegador) | `elite-channel.timer`: dose cirúrgica do repo `[elite-local]` — só os pacotes da casa, só na tomada, offline-safe |
+| **Ao ligar** (3 min após cada boot) | O código da casa (`elite-system` + navegador) | `elite-bootupdate.timer`: dose cirúrgica do repo `[elite-local]` — só na tomada, offline-safe; o relógio é o BOOT (E51, o dono: "atualizar a cada vez que iniciar") — máquina desligada não perde dose nenhuma |
 | **Semanal** (sáb 10:00 ±2h) | O sistema inteiro (repos Arch) | `elite-sysupdate.timer`: `-Syu` com snapshot **PRE/POST do snapper** — quebrou? o GRUB liga o snapshot e o rollback é um reboot |
 | **Mensal** (1º dia) | A ISO de fábrica | tag `v*` → build completo com os dois gates |
 | **Quando você quiser** | Tudo | `craft-update` (menu "Atualizar sistema") — a porta manual instala o veículo da casa e liga a cadência na 1ª rodada |

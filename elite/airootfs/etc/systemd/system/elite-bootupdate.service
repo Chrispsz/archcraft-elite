@@ -1,0 +1,12 @@
+[Unit]
+Description=Elite: dose da casa ao LIGAR (a cada boot — o dono: "atualizar a cada vez que iniciar")
+# E51 — A CADÊNCIA QUE NASCE COM A MÁQUINA: o timer de relógio (11:30) era
+# uma aposta contra a rotina do dono — máquina desligada às 11:30 = dia sem
+# cura. O boot é o único relógio que o dono BATE todos os dias: ligou,
+# 3 minutos depois a dose da casa desce sozinha (offline-safe: sem rede =
+# silêncio, a próxima vez que ligar tenta de novo).
+ConditionACPower=yes
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/craft-update --canal

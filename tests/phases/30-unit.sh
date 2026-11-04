@@ -1127,12 +1127,12 @@ assert_grep "$STCU/pacman.log" '\-Syu' "E46/sistema: a dose semanal NÃO morre p
 
 # a porta MANUAL: instala o veículo e liga a cadência (o fim do 'erros persistem')
 rm -rf "$STCU"; mkdir -p "$STCU/units"
-cp "$REPO/elite/airootfs/etc/systemd/system/elite-channel.timer" "$REPO/elite/airootfs/etc/systemd/system/elite-sysupdate.timer" "$STCU/units/"
+cp "$REPO/elite/airootfs/etc/systemd/system/elite-bootupdate.timer" "$REPO/elite/airootfs/etc/systemd/system/elite-sysupdate.timer" "$STCU/units/"
 run_cu >/dev/null
 assert_grep "$STCU/pacman.log" '\-Syu --needed --overwrite /usr/local/bin/\* elite-system' \
   "E50/manual: o -Syu leva O PACOTE ÚNICO como alvo EXPLÍCITO (quem não tem o INSTALLA e o pacman substitui o par legado na MESMA transação — replaces)"
 assert_nogrep "$STCU/pacman.log" '\-Syu --needed --overwrite /usr/local/bin/\* .* elite-craft' "E50/manual: o alvo é UM só (a era dos dois veículos não volta nem como alvo)"
-assert_grep "$STCU/systemctl.log" 'enable --now elite-channel.timer elite-sysupdate.timer' "E46/manual: a cadência liga na 1ª 'Atualizar sistema' (o automatismo nasce onde o dono já clica)"
+assert_grep "$STCU/systemctl.log" 'enable --now elite-bootupdate.timer elite-sysupdate.timer' "E46/manual: a cadência liga na 1ª 'Atualizar sistema' (o automatismo nasce onde o dono já clica)"
 
 # ── E48 — A CURA NA SESSÃO VIVA (o 'atualizei e persistiu' morre): o
 #    dump nl3z provou o rig correndo a receita velha DEPOIS do update
@@ -1158,7 +1158,7 @@ assert_nogrep "$STCU/pkill.log" 'swayidle' "E48/sistema: SEM supervisor o pkill 
 assert_grep "$STCU/update.log" 'supervisor craft-bars AUSENTE' "E48/sistema: a verdade no papel (o rig sem craft-bars sabe que a sessão segue com a receita antiga)"
 # manual com ADOÇÃO: o rig SEM elite-system instala (ausente → 1.0-1) = delta
 rm -rf "$STCU"; mkdir -p "$STCU/units"
-cp "$REPO/elite/airootfs/etc/systemd/system/elite-channel.timer" "$REPO/elite/airootfs/etc/systemd/system/elite-sysupdate.timer" "$STCU/units/"
+cp "$REPO/elite/airootfs/etc/systemd/system/elite-bootupdate.timer" "$REPO/elite/airootfs/etc/systemd/system/elite-sysupdate.timer" "$STCU/units/"
 touch "$STCU/user-flip" "$STCU/bars-alive" "$STCU/es-upgrade"
 run_cu >/dev/null
 assert_grep "$STCU/pkill.log" 'pkill -u 1000 -x swayidle' "E48/manual: a ADOÇÃO do pacote único também reinicia a sessão (ausente → 1.0-1 é delta — a ferida da 28 cura NA SESSÃO, não só nos arquivos)"
@@ -1195,7 +1195,7 @@ assert_nogrep "$STCU/update.log" 'adotar:' "E49/adopt: veículo presente = ZERO 
 # (2) veículo AUSENTE + supervisor vivo: a PONTE fecha TUDO — transação do
 #     pacote único, sessão inteira (toplevel primeiro), cadência ligada
 rm -rf "$STCU"; mkdir -p "$STCU/units"; touch "$STCU/update.log" "$STCU/pkill.log"
-cp "$REPO/elite/airootfs/etc/systemd/system/elite-channel.timer" "$REPO/elite/airootfs/etc/systemd/system/elite-sysupdate.timer" "$STCU/units/"
+cp "$REPO/elite/airootfs/etc/systemd/system/elite-bootupdate.timer" "$REPO/elite/airootfs/etc/systemd/system/elite-sysupdate.timer" "$STCU/units/"
 touch "$STCU/user-flip" "$STCU/bars-alive" "$STCU/es-upgrade" "$STCU/tl-upgrade"
 printf '1.0-3\n' > "$STCU/tl-ver"
 out="$(run_adopt)"; rc=$?
@@ -1211,13 +1211,13 @@ assert_grep "$STCU/pkill.log" 'pkill -u 1000 -f \^/usr/bin/python3 /usr/local/bi
   "E49/adotar: a DOCK da sessão é reiniciada (a transição suave v2.11 vale SEM relogin — o 'continua piscando' não renasce)"
 assert_grep "$STCU/pkill.log" 'pkill -u 1000 -x craft-audio-route' "E49/adotar: o roteador de áudio segue o mesmo porta (nenhum daemon da casa envelhece no update)"
 assert_grep "$STCU/pkill.log" 'pkill -u 1000 -x swayidle' "E49/adotar: o idle fecha o quarteto (a cura E48 continua valendo dentro da cura maior)"
-assert_grep "$STCU/systemctl.log" 'enable --now elite-channel.timer elite-sysupdate.timer' "E49/adotar: a cadência nasce ligada na MESMA rodada (o automatismo não espera a 2ª atualização)"
+assert_grep "$STCU/systemctl.log" 'enable --now elite-bootupdate.timer elite-sysupdate.timer' "E49/adotar: a cadência nasce ligada na MESMA rodada (o automatismo não espera a 2ª atualização)"
 assert_nogrep "$STCU/update.log" 'AUSENTE' "E49/adotar: com supervisor vivo NADA de lamento no papel (o AUSENTE é a cena do mundo sem craft-bars)"
 
 # (3) veículo ausente + supervisor AUSENTE: a adoção acontece (pacotes),
 #     mas NENHUM pkill sai — matar daemon sem quem ressuscita é dano
 rm -rf "$STCU"; mkdir -p "$STCU/units"; touch "$STCU/update.log" "$STCU/pkill.log"
-cp "$REPO/elite/airootfs/etc/systemd/system/elite-channel.timer" "$REPO/elite/airootfs/etc/systemd/system/elite-sysupdate.timer" "$STCU/units/"
+cp "$REPO/elite/airootfs/etc/systemd/system/elite-bootupdate.timer" "$REPO/elite/airootfs/etc/systemd/system/elite-sysupdate.timer" "$STCU/units/"
 touch "$STCU/user-flip" "$STCU/es-upgrade" "$STCU/tl-upgrade"
 run_adopt >/dev/null
 assert_nogrep "$STCU/pkill.log" 'pkill' "E49/adopt: SEM supervisor NENHUM daemon é morto (a lição E48 vale para os QUATRO — pkill sem volta é dano, não cura)"
@@ -1236,12 +1236,12 @@ assert_nogrep "$STCU/pkill.log" 'craft-dock-gui|craft-audio-route|swayidle' "E49
 # (5) --adotar com delta VAZIO: nenhuma morte, a cadência segue ligada
 #     (era única: o 'antes' do pacote único é passado pelo chamador)
 rm -rf "$STCU"; mkdir -p "$STCU/units"; touch "$STCU/update.log" "$STCU/pkill.log"
-cp "$REPO/elite/airootfs/etc/systemd/system/elite-channel.timer" "$REPO/elite/airootfs/etc/systemd/system/elite-sysupdate.timer" "$STCU/units/"
+cp "$REPO/elite/airootfs/etc/systemd/system/elite-bootupdate.timer" "$REPO/elite/airootfs/etc/systemd/system/elite-sysupdate.timer" "$STCU/units/"
 touch "$STCU/user-flip" "$STCU/bars-alive"
 printf '1.0-1\n' > "$STCU/es-ver"; printf '1.0-4\n' > "$STCU/ec-ver"; printf '1.0-4\n' > "$STCU/tl-ver"
 run_cu --adotar 1.0-1 1.0-4 1.0-4 >/dev/null
 assert_nogrep "$STCU/pkill.log" 'pkill' "E49/adotar: antes == depois = NENHUM pkill (o refresh às cegas mataria daemon vivo por rotina)"
-assert_grep "$STCU/systemctl.log" 'enable --now elite-channel.timer elite-sysupdate.timer' "E49/adotar: a cadência idempotente (chamou de novo, liga de novo — sem dano)"
+assert_grep "$STCU/systemctl.log" 'enable --now elite-bootupdate.timer elite-sysupdate.timer' "E49/adotar: a cadência idempotente (chamou de novo, liga de novo — sem dano)"
 
 # (6) o PKGBUILD do craft-toplevel SOB A LUZ: no makepkg o package() roda
 #     no srcdir (só recebe o source=()) e os gêmeos E49 moram no STARTDIR

@@ -1296,7 +1296,8 @@ for TOK in $(grep -oE '\b(craft|elite)-[a-z0-9.-]+' "$REPO/README.md" | sort -u)
     elite-build) ;;              # diretório de SAÍDA do apply-overlay (não é programa)
     elite-local) ;;              # id do REPO da casa no pacman.conf (não é arquivo)
     elite-firstboot.service) ;;  # unit — resolvida pelo contrato abaixo
-    elite-channel.timer|elite-sysupdate.timer) ;;  # units da cadência E46 — resolvidas pelos contratos V4
+    elite-bootupdate.timer|elite-sysupdate.timer) ;;  # units da cadência E46/E51 — resolvidas pelos contratos V4
+    elite-system) ;;             # o PACOTE ÚNICO (E50) — resolvido pelos contratos E50 do build/packages.add
     *) [ -f "$BINS/$TOK" ] || DOC_GHOSTS="$DOC_GHOSTS $TOK" ;;
   esac
 done
@@ -1348,7 +1349,7 @@ assert_grep "$CU46" '--canal' "E46/V1: a dose DIÁRIA existe (--canal — só os
 assert_grep "$CU46" '--sistema' "E46/V1: a dose SEMANAL existe (--sistema — o -Syu completo com rede de segurança)"
 assert_grep "$CU46" 'create -t pre' "E46/V1: a dose semanal arma o snapshot PRE do snapper ANTES da transação (quebrou? o GRUB liga o snapshot e o rollback é um reboot)"
 assert_grep "$CU46" 'pre-number' "E46/V1: o POST casa com o PRE (--pre-number — o par fecha a história)"
-assert_grep "$CU46" 'enable --now elite-channel.timer elite-sysupdate.timer' "E46/V1: a porta manual ('Atualizar sistema') liga a cadência na 1ª rodada (o automatismo nasce onde o dono já clica)"
+assert_grep "$CU46" 'enable --now elite-bootupdate.timer elite-sysupdate.timer' "E51/V1: a porta manual ('Atualizar sistema') liga a cadência AO LIGAR na 1ª rodada (o automatismo nasce onde o dono já clica)"
 assert_grep "$CU46" 'ELITE_UPDATE_LOG' "E46/V1: o log da automação é injetável (mesma escola do VMARK — a prova em sandbox não escreve em /var)"
 assert_grep "$CU46" 'pacman -Slq elite-local' "E46/V1: a dose diária nasce da LISTA VIVA do repo (pacote novo da casa entra no canal por construção)"
 # V2. UM VERBO POR FAMÍLIA (o 'Criar Arquivo…' que confundiu o dono morre):
@@ -1365,15 +1366,15 @@ assert_nogrep "$UCA" 'segue no menu' "E46/V2: o cabeçalho do uca.xml não jura 
 assert_nogrep "$CP46" 'Rollback do sistema…' "E46/V3: o item 'Rollback do sistema…' fora do menu Sessão (a porta do rollback é a entrada de snapshot no GRUB — o menu fica com o que se usa toda semana)"
 assert_nogrep "$CP46" 'exec craft-rollback' "E46/V3: o craft-power não executa mais o craft-rollback (o script segue no sistema — quem souber o caminho usa; o comentário que conta a história cita o nome, o EXEC é o que a peça proíbe)"
 # V4. A CADÊNCIA (as units da casa):
-for u46 in elite-channel.service elite-channel.timer elite-sysupdate.service elite-sysupdate.timer; do
-  assert_file "$S46/$u46" "E46/V4: $u46 existe (a cadência tem corpo — diário 11:30±40min · semanal sáb 10:00±2h)"
+for u46 in elite-bootupdate.service elite-bootupdate.timer elite-sysupdate.service elite-sysupdate.timer; do
+  assert_file "$S46/$u46" "E51/V4: $u46 existe (a cadência tem corpo — ao LIGAR 3min pós-boot · semanal sáb 10:00±2h)"
 done
-assert_grep "$S46/elite-channel.service" 'ConditionACPower=yes' "E46/V4: a dose diária SÓ na tomada (battery nunca é o momento da transação)"
-assert_grep "$S46/elite-channel.timer" 'OnCalendar=\*-\*-\* 11:30:00' "E46/V4: o canal da casa roda DIÁRIO (11:30 ±40min — 'os pacotes semanalmente ou até diariamente', o dono)"
+assert_grep "$S46/elite-bootupdate.service" 'ConditionACPower=yes' "E51/V4: a dose da casa SÓ na tomada (battery nunca é o momento da transação)"
+assert_grep "$S46/elite-bootupdate.timer" 'OnBootSec=3min' "E51/V4: a casa atualiza AO LIGAR (OnBootSec 3min — 'atualizar a cada vez que iniciar', o dono; o boot é o relógio que ele bate todos os dias)"
 assert_grep "$S46/elite-sysupdate.timer" 'OnCalendar=Sat \*-\*-\* 10:00:00' "E46/V4: o sistema roda SEMANAL (sáb 10:00 ±2h — 'as partes do sistema semanalmente', o dono)"
 assert_grep "$S46/elite-sysupdate.timer" 'Persistence=true' "E46/V4: o timer atrasado CUMPRE (máquina desligada no sábado = atualiza ao ligar, não pula a semana)"
 assert_grep "$S46/elite-sysupdate.service" 'ConditionACPower=yes' "E46/V4: a dose semanal SÓ na tomada"
-assert_file "$S46/timers.target.wants/elite-channel.timer" "E46/V4: o timer do canal nasce HABILITADO (wants symlink da overlay — a casa-prova do keyring-fix)"
+assert_file "$S46/timers.target.wants/elite-bootupdate.timer" "E51/V4: o timer ao LIGAR nasce HABILITADO (wants symlink da overlay — a casa-prova do keyring-fix)"
 assert_file "$S46/timers.target.wants/elite-sysupdate.timer" "E46/V4: o timer do sistema nasce HABILITADO"
 # V5. O VEÍCULO NASCE INSTALADO (futuras ISOs não repetem a ferida da 28):
 # E50 — O PACOTE ÚNICO é a entrada viva (a era dos dois veículos encerrou):
@@ -1417,7 +1418,13 @@ assert_grep "$REPO/.ci/build.sh" 'db.lck' "E49: a espera do lock é honesta e co
 assert_grep "$REPO/.ci/build.sh" '--adotar' "E49: a conclusão é do craft-update NOVO (fonte única da lógica de refresh — o elite-adopt só semeia)"
 assert_grep "$REPO/.ci/build.sh" 'ELITE_ADOPT_SYNC' "E49: o corpo acoplado é porta de prova (a suíte observa o comportamento; o hook real nunca liga)"
 # V6. O README conta a cadência (o papel acompanha o sistema):
-assert_grep "$REPO/README.md" 'elite-channel.timer' "E46/V6: o README documenta a cadência DIÁRIA (o dono pediu para pensar as formas e intervalos — o papel diz quais são)"
+assert_grep "$REPO/README.md" 'elite-bootupdate.timer' "E51/V6: o README documenta a cadência AO LIGAR (o boot é o relógio do dono — a casa atualiza a cada vez que iniciar)"
+assert_nofile "$REPO/elite/airootfs/etc/systemd/system/elite-channel.timer" "E51: o timer de relógio APOSENTOU (a overlay não entrega mais o elite-channel — a era do 11:30 acabou)"
+assert_nofile "$REPO/elite/airootfs/etc/systemd/system/elite-channel.service" "E51: o service do channel APOSENTOU junto (nenhum fantasma de cadência na overlay)"
+assert_file "$REPO/elite/airootfs/etc/systemd/system/elite-bootupdate.service" "E51: a unit ao LIGAR nasce na overlay (a dose da casa tem casa)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-update" 'elite_cadencia' "E51: a cadência é UMA função nas duas portas (--adotar e manual — idempotente, sem duplicar)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-update" 'elite-channel.timer aposentado' "E51: a aposentadoria do relógio deixa réu no papel (o rig sabe POR QUE o canal de 11:30 sumiu)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=2' "E51: pkgrel elite-system 1→2 NO MESMO COMMIT (lei E41 — o payload /etc trocou o timer; sem subir, o -Syu pula a cadência nova)"
 assert_grep "$REPO/README.md" 'elite-sysupdate.timer' "E46/V6: o README documenta a cadência SEMANAL com snapshot PRE/POST"
 assert_nogrep "$REPO/README.md" 'restauração GUI no menu Sessão' "E46/V6: o README não vende mais a restauração GUI no menu Sessão (o rollback saiu do menu — o papel acompanha, E33 auto-patrulhado)"
 
