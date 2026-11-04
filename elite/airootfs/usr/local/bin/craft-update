@@ -111,10 +111,35 @@
 #   a função elite_cadencia serve as DUAS portas, --adotar e manual,
 #   idempotente). A dose semanal (sistema inteiro, com snapshot PRE/POST)
 #   segue no sáb 10:00 — a rede de segurança não se corta.
+# v5.2 (E54 — A SENTINELA DA BASE): o dono rodou 'craft-update' e colheu o
+#   erro cru do pacman: "falha ao sincronizar todas as bases de dados (não
+#   foi possível travar a base de dados)". A raiz honesta tem DUAS caras:
+#   (1) a CASA CONTRA ELA MESMA — a dose ao ligar (elite-bootupdate,
+#       OnBootSec 3min) roda o pacman aos 3min do boot; o dono senta,
+#       roda o 'Atualizar sistema' no mesmo minuto e o lock recusa o
+#       manual. A dose semanal (--sistema) já sabia esperar (fuser, E46);
+#       a porta MANUAL não sabia NADA — com set -e o script morria com o
+#       erro cru do pacman, sem explicação e sem saída.
+#   (2) o LOCK ÓRFÃO — desligamento no meio de uma transação (a dose ao
+#       ligar cortada pelo botão do gabinete) deixa o db.lck para trás;
+#       nenhum pacman vivo, o arquivo é lixo — mas o pacman o respeita
+#       para sempre e TODO update morde o mesmo erro.
+#   A cura: a SENTINELA — a base de dados é um recurso de UM dono por vez.
+#   Porta manual: pacman vivo → ESPERA com mensagem (teto ELITE_LOCK_WAIT,
+#   120s — nada é tocado à força); lock sem dono → REMOVIDO com a prova
+#   no papel (a remoção só acontece com NENHUM pacman vivo, e um pacman
+#   que nascer no meio da limpeza aborta a rodada — segurança primeiro);
+#   transação recusada = mensagem honesta com o rc, nunca mais o erro cru.
+#   Portas automáticas (--canal): pacman ocupado = silêncio e o próximo
+#   boot traz a dose (a mesma lei da --sistema, E46). Uma definição só
+#   (db_busy) serve as três portas — revisar uma é revisar todas.
 # ═══════════════════════════════════════════════════════════════════════════
 set -euo pipefail
 
 KPKG=linux-cachyos-bore
+# a morada do lock do pacman — overridável para prova em sandbox
+# (mesma escola do VMARK/ELITE_UPDATE_LOG/ELITE_UNIT_DIR)
+LCK="${ELITE_PACMAN_LCK:-/var/lib/pacman/db.lck}"
 # marker de versão da casa — overridável para prova em sandbox
 VMARK="${ELITE_VERSION_MARKER:-/usr/local/share/elite/VERSION}"
 # log da automação — overridável para prova em sandbox (mesma escola)
@@ -133,6 +158,54 @@ ulog() {
 # do dono; os timers nascem root — mesmo binário, dois mundos)
 run_root() {
     if [ "$(id -u)" = 0 ]; then "$@"; else sudo "$@"; fi
+}
+
+# E54 — A BASE É DE UM DONO POR VEZ. O fuser diz quem segura o arquivo
+# AGORA (mais forte que pgrep: pega o pacman embaixo de paru/yay/timer);
+# sem fuser no rig, o pgrep -x pacman assume (casamento exato do binário).
+db_busy() {
+    if command -v fuser >/dev/null 2>&1; then
+        fuser "$LCK" >/dev/null 2>&1
+    else
+        pgrep -x pacman >/dev/null 2>&1
+    fi
+}
+
+# a sentinela da PORTA MANUAL (interativa): esperar é cortesia, força é
+# dano. Pacman vivo → espera com mensagem (teto ELITE_LOCK_WAIT — o dono
+# nunca fica preso numa espera infinita). Lock SEM dono vivo (sobra de
+# crash/desligamento no meio da transação) → removido com a prova no
+# papel: a remoção acontece SÓ com nenhum pacman vivo e um pacman que
+# nascer durante a limpeza ABORTA (dois pacmans numa base = corrupção —
+# o lock é a lei de um por vez, e a sentinela não a quebra para curá-la).
+sentinela_db() {
+    local espera=0 limite="${ELITE_LOCK_WAIT:-120}"
+    if db_busy; then
+        echo "==> outra operação de pacotes está em execução — aguardando a base liberar (teto ${limite}s)…"
+        echo "    (costuma ser a dose ao ligar — elite-bootupdate, 3min após o boot — terminando)"
+        while db_busy; do
+            sleep 2
+            espera=$((espera + 2))
+            if [ "$espera" -ge "$limite" ]; then
+                echo "ERRO: a base de dados segue ocupada há ${espera}s — NADA foi tocado." >&2
+                echo "      Tente de novo em instantes; a prova da outra transação mora em $ULOG." >&2
+                exit 1
+            fi
+        done
+        echo "==> base liberada (${espera}s de espera) — seguindo"
+        ulog "manual: base ocupada por ${espera}s (outra transação viva) — liberou, seguindo"
+    fi
+    if [ -f "$LCK" ] && ! db_busy; then
+        echo "==> lock órfão em $LCK (nenhuma transação viva — sobra de desligamento no meio de uma atualização)"
+        run_root rm -f "$LCK"
+        sleep 0.3
+        if db_busy; then
+            echo "ERRO: uma transação nasceu durante a limpeza do lock — abortando (um dono por vez)." >&2
+            exit 1
+        fi
+        ulog "manual: lock órfão de $LCK removido (nenhuma transação viva — sobra de crash/desligamento)"
+        echo "==> lock órfão removido — a base está livre"
+    fi
 }
 
 # o aviso para a SESSÃO do dono: root não tem bus — vai pelo bus de cada
@@ -275,6 +348,12 @@ fi
 # ── dose da casa AO LIGAR (elite-bootupdate.timer — OnBootSec 3min, E51) ─
 if [[ "${1:-}" == "--canal" ]]; then
     ulog "canal: iniciando (dose da casa — ao ligar, E51)"
+    # E54 — pacman ocupado? (o dono transacionando, a semanal, o keyring) —
+    # silêncio e o PRÓXIMO boot traz a dose (a mesma lei da --sistema)
+    if db_busy; then
+        ulog "canal: pacman ocupado (lock vivo) — silêncio, o próximo boot traz a dose"
+        exit 0
+    fi
     es_before="$(es_q)"
     ec_before="$(elite_craft_q)"
     tl_before="$(craft_tl_q)"
@@ -321,7 +400,9 @@ fi
 if [[ "${1:-}" == "--sistema" ]]; then
     ulog "sistema: iniciando (dose semanal completa)"
     # pacman ocupado? (o dono transacionando ou o keyring-fix) — silêncio
-    if command -v fuser >/dev/null 2>&1 && fuser /var/lib/pacman/db.lck >/dev/null 2>&1; then
+    # E54: a MESMA definição das três portas (db_busy) — revisar uma é
+    # revisar todas; o fuser sai do inline e mora na sentinela
+    if db_busy; then
         ulog "sistema: pacman ocupado (lock vivo) — silêncio, a semana volta"
         exit 0
     fi
@@ -385,7 +466,19 @@ tl_before="$(craft_tl_q)"
 # adota os arquivos de overlay); quem tinha o par legado acorda com UM
 # dono (o pacman remove o par na mesma transação); quem já tem o único,
 # segue na dose normal.
-run_root pacman -Syu --needed --overwrite '/usr/local/bin/*' elite-system
+# E54 — A SENTINELA ANTES DA TRANSAÇÃO (o erro cru do dono morre aqui):
+# espera a base liberar / limpa o lock órfão, e a recusa do pacman vira
+# mensagem honesta com o rc — o script NUNCA mais morde o erro cru calado
+# (o rc REAL se captura fora da negação, a mesma lição E46 do --sistema).
+sentinela_db
+manual_rc=0
+run_root pacman -Syu --needed --overwrite '/usr/local/bin/*' elite-system || manual_rc=$?
+if [ "$manual_rc" -ne 0 ]; then
+    echo "ERRO: o pacman recusou a transação (rc=$manual_rc) — NADA da casa mudou." >&2
+    echo "      A prova está nas linhas acima; se falar de 'travar a base de dados'," >&2
+    echo "      outra operação de pacotes está em execução — rode de novo (a sentinela espera por você)." >&2
+    exit "$manual_rc"
+fi
 
 # E48→E50 — a sessão do dono recebe o código novo NA HORA e INTEIRA (o
 # daemon vivo não segue com a receita velha até relogin — a ferida do

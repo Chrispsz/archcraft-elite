@@ -402,7 +402,20 @@ pkgver=1.0
 # (o dinâmico nascia do casamento comm→.desktop e o None traga a janela
 # real que o daemon já via). A cura viaja AQUI (o craft-dock-gui entra no
 # MANIFEST do pacote único) — pkgrel 3→4 NO MESMO COMMIT (lei E41).
-pkgrel=4
+# E54 — A SENTINELA DA BASE + O DIREITO QUE SERVE + O RICE NO PACOTE:
+# (1) o dono colheu o erro cru do pacman ("não foi possível travar a base
+#     de dados") — a dose ao ligar aos 3min do boot briga com o manual e o
+#     lock órfão de desligamento prende a base para sempre; a sentinela
+#     (esperar/limpar órfão/recusa honesta) vai em craft-update v5.2.
+# (2) a gramática da dock fica UMA (o dono: "com o direito deve abrir outra
+#     sessão/guia"): esquerdo foca · direito nova sessão em TUDO —
+#     craft-dock-gui v2.10.10; o fixar segue vivo no craft-pin-pick.
+# (3) o rice da casa passa a viajar COMO CÓDIGO (craft-rice novo: drop-ins
+#     rc.xml.d do labwc — hoje, a decoração de volta nos jogos Proton que
+#     "não desenha o maximizar, minimizar e fechar") — o fragmento chega
+#     ao rig do dono SEM tocar no rc.xml dele, a mesma lei do domínio.
+# Tudo no MANIFEST do pacote único — pkgrel 4→5 NO MESMO COMMIT (lei E41).
+pkgrel=5
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

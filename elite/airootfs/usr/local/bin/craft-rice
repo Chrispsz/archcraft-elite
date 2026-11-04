@@ -1,0 +1,77 @@
+#!/bin/sh
+# ═══════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · craft-rice — o rice da casa viaja NO PACOTE (E54)
+# ═══════════════════════════════════════════════════════════════════════════
+# POR QUÊ: as curas de COMPORTAMENTO viajam no elite-system (pacote único,
+# E50), mas as REGRAS DE JANELA moravam só no rc.xml do usuário — e config
+# de usuário NUNCA é tocada por update (a lei do domínio v3). O dono pagou
+# a lacuna: "jogos abertos com proton não desenha o maximizar, minimizar e
+# fechar" — o jogo Proton PEDE janela sem decoração e o labwc OBEDECE
+# (decoração = server-side, o compositor desenha quando a janela aceita).
+# A cura: fragmento de rice entregue como CÓDIGO (o padrão do craft-dock-gui:
+# o conteúdo mora dentro do script que viaja no pacote único) num DROP-IN
+# rc.xml.d — o labwc lê o diretório inteiro além do rc.xml e o arquivo do
+# dono NUNCA é aberto.
+#
+# LEIS:
+#  · ADITIVO — só escreve em ~/.config/labwc/rc.xml.d/; o rc.xml do dono é
+#    intocável (o drop-in não substitui nada, some ao apagar).
+#  · IDEMPOTENTE — conteúdo idêntico = zero escrita (o mtime não mente).
+#  · O DONO MANDA — arquivo na casa SEM o marcador "entregue por
+#    craft-rice" não é da casa: intocável (editou/renomeou, o respeito é
+#    a mesma lei das configs de usuário).
+#  · VIVO — com sessão labwc de pé, `labwc-msg reconfigure` aplica SEM
+#    relogin (mesma escola do refresh E48/E49 — a cura que chega viva;
+#    reconfigure é barato e não derruba janela nenhuma).
+#
+# FRAGMENTOS (a ordem lexical é a ordem de merge do labwc):
+#  10-elite-games.xml — jogos Proton/Steam (steam_app_*) ganham a decoração
+#    DE VOLTA: botões fechar/minimizar/maximizar da casa nas janelas que
+#    pediram para ficar nuas. Fullscreen do jogo segue limpo (regra de
+#    fullscreen não desenha titlebar — o labwc sabe).
+# ═══════════════════════════════════════════════════════════════════════════
+
+MARKER="entregue por craft-rice"
+DIR="${XDG_CONFIG_HOME:-$HOME/.config}/labwc/rc.xml.d"
+
+# ── fragmento 10-elite-games.xml (E54 — a decoração de volta nos jogos) ──
+GAMES="<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!-- Archcraft ELITE · fragmento de rice 10-jogos ($MARKER) -->
+<!-- Jogos Proton/Steam (steam_app_*): o jogo pede janela SEM decoração e o
+     labwc obedece — esta regra devolve os botões fechar/minimizar/maximizar
+     da casa. Jogo em fullscreen segue limpo (titlebar não se desenha lá). -->
+<labwc_config>
+  <windowRules>
+    <windowRule identifier=\"^steam_app_[0-9]+\$\" serverDecoration=\"yes\" />
+  </windowRules>
+</labwc_config>
+"
+
+ensure_fragment() {
+    # $1 = nome do arquivo, $2 = conteúdo — rc: 0 = ESCREVEU, 1 = idêntico
+    # (zero escrita), 2 = não é da casa / falhou (intocável é a lei)
+    f="$DIR/$1"
+    if [ -f "$f" ] && ! grep -q "$MARKER" "$f" 2>/dev/null; then
+        echo "craft-rice: $1 não é da casa (sem marcador) — intocável"
+        return 2
+    fi
+    if [ -f "$f" ] && [ "$(cat "$f" 2>/dev/null)" = "$(printf '%s' "$2")" ]; then
+        return 1   # idêntico — zero escrita, zero reconfigure
+    fi
+    mkdir -p "$DIR" 2>/dev/null || return 2
+    printf '%s\n' "$2" > "$f" 2>/dev/null || return 2
+    echo "craft-rice: fragmento $1 entregue ($DIR)"
+    return 0
+}
+
+# VIVO: reconfigure SÓ quando um fragmento FOI ESCRITO (o labwc relê as
+# regras sem relogin; sem sessão labwc — teste/SSH — o silêncio é o caminho
+# certo, a entrega vale no próximo login)
+if ensure_fragment "10-elite-games.xml" "$GAMES"; then
+    if command -v labwc-msg >/dev/null 2>&1 \
+            && [ -n "${WAYLAND_DISPLAY:-}" ]; then
+        labwc-msg reconfigure 2>/dev/null \
+            && echo "craft-rice: reconfigure aplicado (as regras valem na sessão viva)"
+    fi
+fi
+exit 0
