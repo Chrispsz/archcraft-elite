@@ -1377,7 +1377,7 @@ assert_file "$S46/timers.target.wants/elite-channel.timer" "E46/V4: o timer do c
 assert_file "$S46/timers.target.wants/elite-sysupdate.timer" "E46/V4: o timer do sistema nasce HABILITADO"
 # V5. O VEÍCULO NASCE INSTALADO (futuras ISOs não repetem a ferida da 28):
 assert_grep "$REPO/elite/packages.add" '^elite-craft$' "E46/V5: o elite-craft no packages.add — a ISO nasce com o veículo INSTALADO (o rig da 28 provou o custo de não nascer)"
-assert_grep "$REPO/.ci/build.sh" 'pkgrel=4' "E47: pkgrel elite-craft 3→4 NO MESMO COMMIT (lei E41 — craft-lock --if-needed + craft-idle mudaram a casa; sem subir, o -Syu pula a cura e o rig continua sem o before-sleep sem corrida)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=5' "E48: pkgrel elite-craft 4→5 NO MESMO COMMIT (lei E41 — craft-update reinicia a sessão viva + craft-bgapps v4.2 + dock v2.11 mudaram a casa; sem subir, o -Syu pula a cura)"
 assert_grep "$REPO/.ci/build.sh" 'files/etc/systemd/system' "E46/V5: o elite-craft carrega as units no payload /etc (sem elas o rig instalado nunca recebe a cadência)"
 assert_grep "$REPO/.ci/guard-pkgrel.sh" 'systemd/system/elite' "E46/V5: o guard-pkgrel cobra delta de UNIT também (unit mudada sem pkgrel = o -Syu pula a cadência em silêncio)"
 # V6. O README conta a cadência (o papel acompanha o sistema):

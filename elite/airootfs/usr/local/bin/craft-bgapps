@@ -59,6 +59,35 @@
 # menus.log) e o kill NUNCA partia. O pid agora é SÓ dígito (tr -cd
 # '0-9'): o parêntese morre e qualquer ruído futuro do formato morre
 # junto. Prova funcional na suíte (a extração roda de verdade).
+#
+# A CURA v4.2 (o dono, rig da 28: "tá pegando python 3, pactl e etc no
+# botão de encerrar programas, o Brave continua sem aparecer lá para
+# fechar e não sei se detecta tudo") — DOIS RÉUS PROVADOS COM PROVA DE
+# COMPORTAMENTO no sandbox (o comm de script python3 invocado DIRETO é
+# o INTERPRETADOR, não o script — provado: `python3 /tmp/x.py` →
+# /proc/comm = 'python3'):
+#   1. O 'python 3' do menu ERA O CRAFT-AUDIO-ROUTE — o daemon de
+#      roteamento de áudio nasce com shebang '#!/usr/bin/env python3'
+#      (a cadeia env executa o interpretador DIRETO → comm = 'python3')
+#      e corre com WAYLAND_DISPLAY no environ (conversa com a sessão).
+#      O seu filho 'pactl subscribe' (craft-bars o supervisiona) é o
+#      'pactl' da lista. Matar 'python3'/'pactl' = MATAR O ÁUDIO — e o
+#      craft-bars RESSUSCITA o daemon: o dono matava e eles VOLTAVAM
+#      ('tá pegando python 3, pactl e etc'). CURA DUPLA: (a) o
+#      candidato cujo comm é interpretador se apresenta pelo SCRIPT do
+#      cmdline (caminho com '/' que EXISTE — '/usr/local/bin/craft-
+#      audio-route' → nome 'craft-audio-route' → a casca craft-* o
+#      pega); sem script real (python3 -c/-m/pip) é encanamento, nunca
+#      programa; (b) o encanamento de ÁUDIO/MÍDIA da casa entra na
+#      casca (pactl/wpctl/playerctl/pulsemixer — o subscribe é filho
+#      permanente do daemon; playerctl vive nos bindings da topbar;
+#      pulsemixer é o W-a; wpctl é a sonda do PipeWire).
+#   2. 'O Brave não aparece' GANHA RÉU NOMEADO: quem é cortado como
+#      SOMBRA deixa linha no menus.log com QUEM o sombreou
+#      (BGAPPS_TRACE=1 nos verbos menu/list; o status de 30s NUNCA
+#      escreve — a lei do teto E36). 'Não sei se detecta tudo' passa a
+#      ser pergunta com resposta no papel: o verbo NOVO `list` mostra
+#      a lista bruta (o mesmo que o menu vê), linha a linha.
 # ═══════════════════════════════════════════════════════════════════════════
 set -eu
 
@@ -105,6 +134,14 @@ is_protected() {
             return 0 ;;
         # interpretadores e pipe-fitting: ruído de pipeline, nunca "programa"
         sh|bash|zsh|fish|dash|ksh|sleep|sudo|doas|tee|cat|tail|head|grep|sed|awk|cut|sort|uniq|wc|xargs|env|nohup|setsid|timeout|watch|ps|pgrep|pkill|kill|date|mkdir|rm|mv|cp|ln|chmod|chown|tr|find|basename|dirname|readlink|stat|true|false|which|mktemp)
+            return 0 ;;
+        # v4.2 — encanamento de ÁUDIO/MÍDIA da casa: o 'pactl subscribe' é
+        # filho PERMANENTE do craft-audio-route (matar = matar o roteamento,
+        # e o supervisor ressuscita o par — o dono matava e eles voltavam);
+        # playerctl vive nos bindings da topbar; pulsemixer é o W-a;
+        # wpctl é a sonda do PipeWire. Ferramenta de consulta/controle, não
+        # "programa do dono" (a mesma lei do dconf*/gvfs* da v2.6.0).
+        pactl*|wpctl*|playerctl*|pulsemixer*)
             return 0 ;;
     esac
     return 1
@@ -155,6 +192,40 @@ list_main_entries() {
            tr '\0' ' ' <"/proc/$pid/cmdline" 2>/dev/null | grep -q -- ' --type='; then
             continue
         fi
+        # v4.2 — O NOME HONESTO DO INTERPRETADOR: script python lançado
+        # DIRETO (python3 /caminho/app — ou shebang '#!/usr/bin/env
+        # python3', onde a cadeia env executa o interpretador direto) tem
+        # comm = 'python3', o INTERPRETADOR. O réu real: o craft-audio-
+        # route aparecia como 'python 3' no menu (e o filho 'pactl' ao
+        # lado) — matar era matar o áudio, e o supervisor ressuscitava:
+        # o dono matava e eles VOLTAVAM. O candidato-interpretador se
+        # apresenta pelo SCRIPT do cmdline: caminho com '/' que EXISTE;
+        # sem script real (-c/-m/pip) é encanamento, nunca programa. O
+        # nome resolvido passa pela MESMA casca (craft-*/elite-* caem
+        # aqui) e o menu mostra o nome de VERDADE (um app python de
+        # terceiros aparece como o seu nome, não como 'python3').
+        case "$comm" in
+            python|python3|python3.*)
+                script=""
+                if [ -r "/proc/$pid/cmdline" ]; then
+                    script="$( (tr '\0' '\n' <"/proc/$pid/cmdline") 2>/dev/null | \
+                        awk 'NR>1 && $0 !~ /^-/ && $0 !~ /^python3?(\.[0-9]+)?$/ {print; exit}')"
+                fi
+                case "$script" in
+                    # v4.2 — o caminho resolve NO CWD DO PROCESSO
+                    # (/proc/pid/cwd — mágica do kernel): cmdline relativo
+                    # ('./app') é real, o CWD do MENÚ não manda
+                    /*) [ -f "$script" ] || script="" ;;
+                    */*) [ -f "/proc/$pid/cwd/$script" ] || script="" ;;
+                    *)   script="" ;;
+                esac
+                if [ -z "$script" ]; then
+                    continue    # interpretador sem script = encanamento
+                fi
+                comm="$(basename "$script")"
+                ;;
+        esac
+        is_protected "$comm" && continue
         survivors="$survivors$pid "
         clean="$clean$pid $ppid $comm
 "
@@ -166,7 +237,18 @@ EOF
     while read -r pid ppid comm; do
         [ -n "${pid:-}" ] || continue
         case "$survivors" in
-            *" $ppid "*) continue ;;   # filho de outro programa — a sombra
+            *" $ppid "*)
+                # v4.2 — A EXCLUSÃO COM RÉU NOMEADO (o 'não sei se detecta
+                # tudo' do dono): quem é cortado como sombra deixa LINHA
+                # com QUEM o sombreou — sob trace (menu/list ligam;
+                # status de 30s NUNCA escreve, lei do teto E36). 'O Brave
+                # não aparece' passa a ter resposta no papel: ou entra,
+                # ou a linha nomeia o pai que o sombreou.
+                if [ "${BGAPPS_TRACE:-0}" = "1" ]; then
+                    pcomm="$(printf '%s\n' "$clean" | awk -v p="$ppid" '$1==p {print $3; exit}')"
+                    mlog "sombra: $comm (pid $pid) — filho de ${pcomm:-?} (pid $ppid) — não é principal"
+                fi
+                continue ;;   # filho de outro programa — a sombra
         esac
         printf '%s (pid %s)\n' "$comm" "$pid"
     done <<EOF
@@ -197,7 +279,9 @@ status() {
 menu() {
     # a lei dos fechamentos (ESC benigno, cross-dismiss, toggle) vive na
     # GRAMÁTICA de saída do craft-menu — este script só obedece os códigos.
-    entries="$(list_main_entries)"
+    # v4.2 — o menu roda COM trace: toda sombra cortada deixa réu nomeado
+    # no menus.log (o 'não sei se detecta tudo' do dono tem resposta).
+    entries="$(BGAPPS_TRACE=1 list_main_entries)"
     if [ -z "$entries" ]; then
         # corrida benigna: o botão estava na barra e o app saiu sozinho
         mlog "Processos: nada vivo para encerrar — saindo"
@@ -284,5 +368,8 @@ menu() {
 case "${1:-}" in
     status) status || printf '{"text":"","class":"","tooltip":""}\n' ;;
     menu)   menu ;;
-    *) printf 'uso: craft-bgapps [status|menu]\n' >&2; exit 2 ;;
+    # v4.2 — a lista BRUTA no stdout (o que o menu veria, linha a linha):
+    # a forense do 'não sei se detecta tudo' do dono — e a porta da suíte.
+    list)   BGAPPS_TRACE=1 list_main_entries ;;
+    *) printf 'uso: craft-bgapps [status|menu|list]\n' >&2; exit 2 ;;
 esac

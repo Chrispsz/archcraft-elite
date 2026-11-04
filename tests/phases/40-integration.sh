@@ -907,6 +907,30 @@ assert_grep "$P/airootfs/usr/local/bin/craft-bars" 'cyc % 6' "v2.10.26/E38: cap_
 assert_nogrep "$P/airootfs/usr/local/bin/craft-menu" 'grep -q -- ' "v2.10.26/E38: os 5 greps de CAPS viraram teste POSIX de substring — abrir menu NÃO fork-a mais"
 assert_grep "$P/airootfs/usr/local/bin/craft-keyring-wait" "pgrep -x 'pacman|pacman-key'" "v2.10.26/E38: UM pgrep com alternância ERE no guarda (eram 2 forks por 5s)"
 assert_nogrep "$P/airootfs/usr/local/bin/craft-dock-gui" '"exec"' "v2.0: o GUI não executa JSON de pin (a classe narrow v1.8 virou arquitetura)"
+# ── v2.11/E48 — A TRANSIÇÃO SUAVE DA DOCK (o dono: 'ao fechar programas a
+#    transição da dock deve ser suave invés de piscar'): os dinâmicos vivem
+#    num GtkRevealer (SLIDE_LEFT) e o widget sai da árvore SÓ no fim do
+#    slide — o destroy na DETECÇÃO da saída era o piscar.
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'Gtk\.Revealer\(\)' "v2.11/E48: o botão dinâmico nasce dentro de um revealer (a casa da animação)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'RevealerTransitionType\.SLIDE_LEFT' "v2.11/E48: o slide é HORIZONTAL (a pílula encolhe/cresce animada no eixo dela)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'set_transition_duration\(_REVEAL_MS\)' "v2.11/E48: a duração mora numa constante nomeada (280ms — o ritmo de dock, não o de shell)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'def _dyn_retire' "v2.11/E48: o destroy mora NO FIM do slide (o widget deixa a árvore depois da animação — o fim do piscar)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'timeout_add\(_REVEAL_MS \+ 90, self\._dyn_retire' "v2.11/E48: o retire é agendado pós-slide (a saída é 2 fases: desliza → sai)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'self\._pending' "v2.11/E48: o fio (sep) espera o FIM dos deslizes em voo (nunca abandona o botão animando)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'if fresh or dead:' "v2.11/E48: show_all SÓ quando algo entra/sai (o 'self.dyn or' antigo varria a árvore toda a cada tick)"
+# ── v4.2/E48 — O ENCERRAR HONESTO (o dono: 'tá pegando python 3, pactl e
+#    etc no botão de encerrar programas'): o interpretador se apresenta
+#    pelo script do cmdline (o comm de python direto É 'python3' — provado
+#    em comportamento no sandbox), o encanamento de áudio entra na casca,
+#    a sombra cortada deixa réu nomeado e o verbo list mostra a lista.
+assert_grep "$P/airootfs/usr/local/bin/craft-bgapps" 'python3\.\*\)' "v4.2/E48: o candidato-interpretador é reconhecido pelo comm (python3 direto = interpretador, não programa)"
+assert_grep "$P/airootfs/usr/local/bin/craft-bgapps" '/proc/\$pid/cwd/\$script' "v4.2/E48: o script relativo resolve NO CWD DO PROCESSO (a mágica do kernel — o CWD do menu não manda)"
+assert_grep "$P/airootfs/usr/local/bin/craft-bgapps" 'pactl\*[|]wpctl\*[|]playerctl\*[|]pulsemixer\*' "v4.2/E48: o encanamento de áudio/mídia na casca (o 'pactl subscribe' é filho permanente do daemon de roteamento — matar = matar o áudio, e o supervisor ressuscita)"
+assert_grep "$P/airootfs/usr/local/bin/craft-bgapps" 'BGAPPS_TRACE' "v4.2/E48: o trace de sombra existe (quem é cortado deixa réu nomeado — o 'não sei se detecta tudo' tem resposta)"
+assert_grep "$P/airootfs/usr/local/bin/craft-bgapps" 'sombra: ' "v4.2/E48: a linha de sombra nomeia QUEM sombreou (comm + pid do pai)"
+assert_grep "$P/airootfs/usr/local/bin/craft-bgapps" 'craft-bgapps \[status[|]menu[|]list\]' "v4.2/E48: o verbo list existe (a lista bruta que o menu vê — a forense do dono e a porta da suíte)"
+assert_grep "$P/airootfs/usr/local/bin/craft-update" 'refresh_idle_session' "v4.1/E48: o update reinicia o swayidle da SESSÃO VIVA quando o elite-craft muda (o dump nl3z provou o rig correndo a receita velha DEPOIS do update — o 'atualizei e persistiu' morre sem relogin)"
+assert_grep "$P/airootfs/usr/local/bin/craft-update" 'pkill sem volta seria dano, não cura' "v4.1/E48: o pkill é CONDICIONADO ao supervisor vivo (matar o idle sem quem ressuscita = dano; o papel registra e o relogin aplica)"
 # v1.5: keyring CachyOS em 4 camadas (spec: init → populate → refresh)
 assert_grep "$P/airootfs/usr/local/bin/craft-fix-keys" 'pacman-key --populate archlinux cachyos' "v1.5: craft-fix-keys — comandos LITERAIS da spec (populate)"
 assert_grep "$P/airootfs/usr/local/bin/craft-fix-keys" 'pacman -Sy --noconfirm archlinux-keyring cachyos-keyring' "v1.5: craft-fix-keys — refresh dos keyring packages (spec)"

@@ -50,6 +50,18 @@
 #       manual = este script (sempre). Tudo só na tomada (ConditionACPower).
 #   A morada do log é overridável (ELITE_UPDATE_LOG) para prova em sandbox —
 #   mesma escola do VMARK/DETECT_ONLY (o teste nunca escreve em /var).
+# v4.1 (E48 — A CURA CHEGA À SESSÃO VIVA): o dono atualizou e o problema da
+#   suspensão PERSISTIU — o dump nl3z provou o réu: o update entrega
+#   ARQUIVOS, mas o swayidle que corre desde o login segue com a RECEITA
+#   VELHA até relogin (o rig corria 'timeout 1200 systemctl suspend' CRU,
+#   receita anterior à E44 — lock e apagar separados, before-sleep sem o
+#   --if-needed). O update perfeito não pede relogin para valer: quando o
+#   elite-craft MUDA na transação, o craft-update reinicia o swayidle da
+#   sessão (pkill cirúrgico) — o supervisor craft-bars o ressuscita em ~1s
+#   com o código novo (craft-idle start = normalização E44 do conf legado
+#   + receita nova) e o fluxo de idle/suspensão vale NA HORA, sem relogin.
+#   Sem supervisor vivo, o pkill NÃO sai (matar sem volta é dano, não
+#   cura) — o papel diz a verdade e o relogin aplica.
 # ═══════════════════════════════════════════════════════════════════════════
 set -euo pipefail
 
@@ -91,9 +103,50 @@ notify_users() {
     done < <(loginctl list-users --no-legend 2>/dev/null || true)
 }
 
+# E48 — o delta do veículo: a versão instalada do elite-craft (vazio =
+# ausente — a adoção da E46 TAMBÉM é delta: '?' → '1.0-1' mudou a casa)
+elite_craft_q() {
+    pacman -Q elite-craft 2>/dev/null | awk '{print $2}' || true
+}
+
+# E48 — A CURA NA SESSÃO VIVA: o elite-craft mudou na transação → o
+# swayidle do usuário corre ainda com a receita ANTERIOR ao update. O
+# pkill é cirúrgico e CONDICIONADO: só com o supervisor craft-bars vivo
+# (quem ressuscita o idle com o código novo em ~1s — e o craft-idle start
+# reescreve o conf legado: a normalização E44 entra pela mesma porta).
+# Sem supervisor, o idle morreria SEM VOLTA — relogin aplica, e o papel
+# registra a verdade em vez de fingir a cura.
+refresh_idle_session() {
+    local uid
+    while read -r uid _; do
+        [ -n "$uid" ] || continue
+        if pgrep -u "$uid" -x swayidle >/dev/null 2>&1; then
+            if pgrep -u "$uid" -x craft-bars >/dev/null 2>&1; then
+                pkill -u "$uid" -x swayidle 2>/dev/null || true
+                ulog "sessão: swayidle (uid $uid) reiniciado — o supervisor craft-bars ressuscita com a receita nova (idle/suspensão valem SEM relogin)"
+            else
+                ulog "sessão: supervisor craft-bars AUSENTE (uid $uid) — o idle segue com a receita antiga até relogin (pkill sem volta seria dano, não cura)"
+            fi
+        fi
+    done < <(loginctl list-users --no-legend 2>/dev/null || true)
+}
+
+# o delta que IMPORTA para a sessão: versão antes ≠ depois (ou adoção)
+refresh_if_craft_changed() {
+    local antes="$1" depois
+    depois="$(elite_craft_q)"
+    if [[ "$depois" != "$antes" ]]; then
+        ulog "casa: elite-craft ${antes:-ausente} → ${depois:-ausente} — a sessão recebe o código novo"
+        refresh_idle_session
+        notify_users 'Elite: código da casa atualizado' \
+            'O fluxo de idle/suspensão da sessão já vale o novo — sem relogin.'
+    fi
+}
+
 # ── dose DIÁRIA: o canal da casa (elite-channel.timer — 11:30±40min) ────
 if [[ "${1:-}" == "--canal" ]]; then
     ulog "canal: iniciando (dose diária dos pacotes da casa)"
+    ec_before="$(elite_craft_q)"
     CANAL_PKGS=()
     while IFS= read -r p; do
         [ -n "$p" ] && CANAL_PKGS+=("$p")
@@ -110,6 +163,7 @@ if [[ "${1:-}" == "--canal" ]]; then
         exit 1
     fi
     ulog "canal: OK — ${CANAL_PKGS[*]}"
+    refresh_if_craft_changed "$ec_before"
     notify_users 'Elite: canal em dia' 'O código da casa foi atualizado (dose diária).'
     exit 0
 fi
@@ -134,6 +188,7 @@ if [[ "${1:-}" == "--sistema" ]]; then
         ulog "sistema: snapper indisponível — seguindo SEM rede de segurança (honesto)"
     fi
     kbefore="$(pacman -Q "$KPKG" 2>/dev/null | awk '{print $2}' || true)"
+    ec_before="$(elite_craft_q)"
     # o rc REAL se captura fora da negação (dentro do `if !`, o $? é o
     # status NEGADO — o log imprimiria rc=1 em qualquer falha)
     sys_rc=0
@@ -145,6 +200,7 @@ if [[ "${1:-}" == "--sistema" ]]; then
             "rc=$sys_rc — log: /var/log/elite-update.log${PRE_N:+ · rollback: snapshot #$PRE_N no GRUB}"
         exit 1
     fi
+    refresh_if_craft_changed "$ec_before"
     if [ -n "$PRE_N" ] && snapper -c root create -t post --pre-number "$PRE_N" \
             -d 'elite-sysupdate' >/dev/null 2>&1; then
         ulog "sistema: snapshot POST #$PRE_N criado (o par PRE/POST fecha a história)"
@@ -164,11 +220,18 @@ fi
 # ── a porta MANUAL (o menu 'Atualizar sistema'): o -Syu completo ────────
 # kernel ANTES da transação (o -Syu pode tocá-lo; vazio = pacote ausente)
 kbefore="$(pacman -Q "$KPKG" 2>/dev/null | awk '{print $2}' || true)"
+# E48 — o veículo ANTES (a adoção e o upgrade contam como delta da casa)
+ec_before="$(elite_craft_q)"
 
 # E46 — os alvos EXPLÍCITOS fazem a ADOÇÃO DO VEÍCULO: o rig que nunca
 # teve o elite-craft o INSTALA nesta transação (o pre_install do pacote
 # adota os arquivos de overlay); quem já tem, segue na dose normal.
 run_root pacman -Syu --needed --overwrite '/usr/local/bin/*' elite-craft craft-toplevel
+
+# E48 — a sessão do dono recebe o código novo NA HORA (o daemon vivo não
+# segue com a receita velha até relogin — a ferida do 'atualizei e
+# persistiu' morre aqui)
+refresh_if_craft_changed "$ec_before"
 
 # E46 — o automatismo nasce aqui (idempotente): os timers da casa ficam
 # vivos depois da 1ª 'Atualizar sistema' — a cadência assume a partir daí.
