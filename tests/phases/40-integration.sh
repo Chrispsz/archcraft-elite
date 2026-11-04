@@ -2445,14 +2445,53 @@ assert_grep "$DOCK" '"focus", "title"' "v2.10: último recurso por TÍTULO com o
 assert_grep "$DOCK" 'c == xl or _near_match\(xl, c\)' "v2.10.6: o 'está rodando?' do fallback = exato OU contenção COM FRONTEIRA (_near_match) — o fallback não vê o que o daemon vivo não vê (foot ≠ footclient nos dois mundos)"
 assert_grep "$DOCK" 'def _near_match' "v2.10.6: a FRONTEIRA da contenção existe (brave ⊂ brave-browser casa pelo '-'; foot ⊂ footclient NÃO casa — o MEIO no pin do foot não encerra mais janelas do footclient, o falso positivo com custo real da Rodada 2)"
 #   2. apps abertos SEM pin aparecem após um fio e somem ao fechar — a dock
-#      auto-adaptável; NADA se fixa sozinho (o direito no dinâmico fixa).
+#      auto-adaptável; NADA se fixa sozinho (o fixar mora no craft-pin-pick,
+#      direito no desktop — a gramática E54 deu o clique direito à sessão nova).
 assert_grep "$DOCK" 'def _sync_dynamic' "v2.10: a seção dinâmica existe (app aberto sem pin ganha botão — a dock como a de qualquer sistema)"
 assert_grep "$DOCK" 'get_nodisplay\(\) or app\.get_is_hidden\(\)' "v2.10: NoDisplay/Hidden NUNCA viram botão dinâmico (a lei E21 da gaveta vale na dock)"
 assert_grep "$DOCK" 'did in self\.pin_ids' "v2.10: dinâmico é DEDUP contra os pins (app fixado nunca aparece duas vezes)"
-assert_grep "$DOCK" 'self\._pin_add\(did\)' "v2.10: direito no dinâmico FIXA (craft-pin add — o mesmo verbo do sempre, com .bak e reload SIGUSR2)"
+assert_grep "$DOCK" 'def _press\(self, btn, ev, info, hint, did, cmd, dynamic=False\)' "v2.10: o botão distingue ESQUERDO/DIREITO/MEIO (button-press-event, o clicked não dispara duplo lançamento)"
 assert_grep "$DOCK" '"close", "app_id"' "v2.10: o MEIO fecha a janela (WM_DELETE gracioso — o app confirma se tiver o que salvar)"
 assert_grep "$DOCK" 'set\(current\) == set\(self\.dyn\)' "v2.10: diff por desktop-id — nada toca no GTK se nada mudou (zero flicker por refresh — v2.10.12; desde a v2.10.26/E38 o refresh é por EVENTO com tick de 5s)"
 assert_grep "$DOCK" 'dynsep' "v2.10: o fio que separa fixados de dinâmicos tem nome no CSS (estilizável no dock.css do usuário)"
+
+# ── E54 — A GRAMÁTICA UMA DA DOCK + O RICE NO PACOTE ────────────────────
+#    O dono: "a dock além de funcionar com qualquer pacote ela deve com um
+#    click abrir a aba que está aberta, no caso com o click esquerdo, e já
+#    com o direito deve abrir outra sessão/guia". O esquerdo JÁ era (E53);
+#    o direito ficou UMA lei para os três tipos de botão.
+assert_grep "$DOCK" 'def _raw_launch' "E54/dock: o SEM-NOME abre NOVA SESSÃO (argv[0] provado no /proc — a v2.10.9 só ensinava)"
+assert_grep "$DOCK" 'nova sessão do sem-nome via /proc' "E54/dock: o lançamento do raw deixa linha no log (a prova de origem vai junto)"
+assert_grep "$DOCK" 'self\._launch\(btn, cmd\)' "E54/dock: direito = _launch em TODO botão com .desktop (pin OU dinâmico — a mesma sessão nova para os dois)"
+assert_nogrep "$DOCK" '_pin_add' "E54/dock: o verbo morto saiu (o direito da dock é NOVA SESSÃO — o fixar mora no craft-pin-pick, direito no desktop)"
+assert_grep "$DOCK" 'esquerdo: focar/abrir · direito: nova janela' "E54/dock: o tooltip do dinâmico ensina a gramática nova (o tooltip não mente — o fixar saiu do clique direito)"
+assert_grep "$DOCK" 'len\(comm\) == 15 and key\.startswith\(comm\)' "E54/dock: a casca do comm é respeitada (TASK_COMM_LEN=15 — o stem do app_id mais longo que a casca também casa; nunca ao contrário)"
+
+# O RICE DA CASA VIAJA NO PACOTE — comportamento no HOME isolado (o teste
+# nunca escreve fora do $WORK — a mesma escola do VMARK/ELITE_UNIT_DIR)
+RICE="$P/airootfs/usr/local/bin/craft-rice"
+assert_file "$RICE" "E54/rice: o binário existe (o rice viaja no elite-system — a decoração dos jogos chega ao rig SEM ISO)"
+RHOME="$WORK/rice-home"
+mkdir -p "$RHOME"
+out_rice="$(HOME="$RHOME" sh "$RICE" 2>&1)"; rc_rice=$?
+assert_eq "$rc_rice" "0" "E54/rice: termina 0 (melhor-esforço — o arranque da sessão NUNCA fica preso ao rice)"
+assert_file "$RHOME/.config/labwc/rc.xml.d/10-elite-games.xml" "E54/rice: o fragmento nasce em rc.xml.d (drop-in ADITIVO — o rc.xml do usuário NUNCA é aberto)"
+assert_nofile "$RHOME/.config/labwc/rc.xml" "E54/rice: nenhum rc.xml foi criado/tocado (a lei do domínio viva — config de usuário não é da casa)"
+assert_grep "$RHOME/.config/labwc/rc.xml.d/10-elite-games.xml" 'identifier=.*steam_app' "E54/rice: a regra mira os steam_app_* (o WM_CLASS do Proton — jogos e nada mais)"
+assert_grep "$RHOME/.config/labwc/rc.xml.d/10-elite-games.xml" 'serverDecoration="yes"' "E54/rice: serverDecoration=yes — o jogo que pediu janela nua recebe os botões fechar/minimizar/maximizar DE VOLTA"
+assert_grep "$RHOME/.config/labwc/rc.xml.d/10-elite-games.xml" 'entregue por craft-rice' "E54/rice: o fragmento carrega o MARCADOR da casa (é a senha da posse — sem ela, o arquivo não é da casa)"
+RMT1="$(stat -c %Y "$RHOME/.config/labwc/rc.xml.d/10-elite-games.xml" 2>/dev/null || echo 0)"
+sleep 1
+HOME="$RHOME" sh "$RICE" >/dev/null 2>&1
+RMT2="$(stat -c %Y "$RHOME/.config/labwc/rc.xml.d/10-elite-games.xml" 2>/dev/null || echo 1)"
+assert_eq "$RMT2" "$RMT1" "E54/rice: IDEMPOTENTE — idêntico = zero escrita (o mtime não mente; o tick da sessão não reescreve o que já está de pé)"
+printf '<labwc_config>\n  <!-- meu rice próprio -->\n</labwc_config>\n' > "$RHOME/.config/labwc/rc.xml.d/10-elite-games.xml"
+out_f="$(HOME="$RHOME" sh "$RICE" 2>&1)"
+printf '%s\n' "$out_f" > "$RHOME/saida-rice.txt"
+assert_grep "$RHOME/saida-rice.txt" 'intocável' "E54/rice: arquivo sem o marcador = É DO DONO (editou/renomeou, o respeito é a lei das configs de usuário)"
+assert_grep "$RHOME/.config/labwc/rc.xml.d/10-elite-games.xml" 'meu rice próprio' "E54/rice: o rice do dono segue INTEIRO (a casa não sobrescreve o que não é dela)"
+assert_grep "$RICE" 'labwc-msg reconfigure' "E54/rice: a entrega VIVA existe (reconfigure aplica as regras sem relogin — a escola E48/E49)"
+assert_grep "$P/airootfs/usr/local/bin/craft-bars" 'craft-rice' "E54/rice: o supervisor da sessão desperta o rice (o fragmento nasce ANTES da UI que o assume; fd 9 fechado — a lição E43)"
 
 # v2.7.0 — WLRCTL FONTE VENDADA (a build #110 provou o que acontece sem
 # prova: 'target not found: wlrctl' — o pacote NUNCA esteve em repo

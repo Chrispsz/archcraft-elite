@@ -505,6 +505,7 @@ if grep -q '^file_permissions=(' "$PD"; then
            /usr/local/bin/craft-bars /usr/local/bin/elite-install-stage \
            /usr/local/bin/elite-session-probe \
            /usr/local/bin/craft-dock /usr/local/bin/craft-dock-gui \
+           /usr/local/bin/craft-rice \
            /usr/local/bin/craft-bgapps \
            /usr/local/bin/craft-menu /usr/local/bin/craft-menu-dismiss \
            /usr/local/bin/craft-dump \

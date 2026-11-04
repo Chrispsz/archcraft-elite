@@ -1076,6 +1076,9 @@ run_cu() { # run_cu <args…> — mundo root isolado, log injetável (o ESTADO d
   # cenário o teste prepara antes — o run não apaga nada por trás)
   local st="$STCU"
   ( export PATH="$MOCKCU:$PATH" MOCK_DIR="$st" ELITE_UPDATE_LOG="$st/update.log" ELITE_VERSION_MARKER="/nada" ELITE_UNIT_DIR="$st/units" ELITE_TL_SETTLE=0
+    # E54 — a morada do lock INJETÁVEL (mesma escola do VMARK/ULOG: o teste
+    # nunca escreve em /var) e o teto de espera por cenário (a cena decide)
+    export ELITE_PACMAN_LCK="$st/db.lck" ELITE_LOCK_WAIT="${ELITE_LOCK_WAIT:-120}"
     bash "$CU" "$@" 2>&1 )
 }
 STCU="$STATE/cupd"
@@ -1133,6 +1136,52 @@ assert_grep "$STCU/pacman.log" '\-Syu --needed --overwrite /usr/local/bin/\* eli
   "E50/manual: o -Syu leva O PACOTE ÚNICO como alvo EXPLÍCITO (quem não tem o INSTALLA e o pacman substitui o par legado na MESMA transação — replaces)"
 assert_nogrep "$STCU/pacman.log" '\-Syu --needed --overwrite /usr/local/bin/\* .* elite-craft' "E50/manual: o alvo é UM só (a era dos dois veículos não volta nem como alvo)"
 assert_grep "$STCU/systemctl.log" 'enable --now elite-bootupdate.timer elite-sysupdate.timer' "E46/manual: a cadência liga na 1ª 'Atualizar sistema' (o automatismo nasce onde o dono já clica)"
+
+# ── E54 — A SENTINELA DA BASE (o erro cru do dono morre): a base é de UM
+#    dono por vez — a porta manual ESPERA, o órfão é limpo, a recusa é
+#    honesta. O lock mora no cenário (ELITE_PACMAN_LCK) e o fuser mock lê
+#    o pacman-lock do cenário (a mesma mecânica da cena --sistema E46).
+# (a) manual com a base ocupada que LIBERA: espera com mensagem e segue
+rm -rf "$STCU"; mkdir -p "$STCU/units"
+cp "$REPO/elite/airootfs/etc/systemd/system/elite-bootupdate.timer" "$REPO/elite/airootfs/etc/systemd/system/elite-sysupdate.timer" "$STCU/units/"
+touch "$STCU/pacman-lock" "$STCU/db.lck"
+( sleep 1; rm -f "$STCU/pacman-lock" ) &
+ELITE_LOCK_WAIT=20 run_cu >/dev/null
+assert_grep "$STCU/pacman.log" '\-Syu --needed --overwrite /usr/local/bin/\* elite-system' "E54/sentinela: base ocupada que LIBERA = a porta manual espera e segue (a briga boot×mão não perde dose — o erro cru nunca mais é a saída)"
+assert_grep "$STCU/update.log" 'manual: base ocupada por [0-9]+s' "E54/sentinela: a espera fica no papel COM O TEMPO (quem lê o log entende o porquê e o quanto)"
+# (b) manual com a base ocupada ALÉM DO TETO: recusa honesta, NADA tocado
+rm -rf "$STCU"; mkdir -p "$STCU/units"
+cp "$REPO/elite/airootfs/etc/systemd/system/elite-bootupdate.timer" "$REPO/elite/airootfs/etc/systemd/system/elite-sysupdate.timer" "$STCU/units/"
+touch "$STCU/pacman-lock"
+ELITE_LOCK_WAIT=2; out="$(run_cu)"; rc=$?; unset ELITE_LOCK_WAIT
+printf '%s\n' "$out" > "$STCU/saida.txt"
+assert_eq "$rc" "1" "E54/sentinela: base ocupada além do teto = rc 1 honesto (a transação não começou — força é dano, a espera é cortesia com limite)"
+assert_nogrep "$STCU/pacman.log" '\-Syu' "E54/sentinela: recusada pelo teto = ZERO transação (a base não é tocada à força — nem um byte)"
+assert_grep "$STCU/saida.txt" 'segue ocupada' "E54/sentinela: a recusa fala com o dono (o erro cru do pacman nunca mais é a saída da porta do dono)"
+# (c) manual com lock ÓRFÃO (db.lck sem transação viva): limpo e a dose segue
+rm -rf "$STCU"; mkdir -p "$STCU/units"
+cp "$REPO/elite/airootfs/etc/systemd/system/elite-bootupdate.timer" "$REPO/elite/airootfs/etc/systemd/system/elite-sysupdate.timer" "$STCU/units/"
+touch "$STCU/db.lck"
+run_cu >/dev/null
+assert_grep "$STCU/pacman.log" '\-Syu --needed --overwrite /usr/local/bin/\* elite-system' "E54/sentinela: lock ÓRFÃO = limpo e a dose segue (o desligamento no meio da transação prende a base para sempre — o lixo sai com a prova no papel)"
+assert_grep "$STCU/update.log" 'lock órfão de .*db\.lck removido' "E54/sentinela: a limpeza do órfão fica no papel (a remoção tem réu e motivo — nunca silêncio)"
+ORPH=$( [ -e "$STCU/db.lck" ] && echo ficou || echo saiu )
+assert_eq "$ORPH" "saiu" "E54/sentinela: o db.lck órfão SAIU da base (o pacman respeita o arquivo para sempre — quem o remove é a casa, com nenhuma transação viva)"
+# (d) canal com a base ocupada: silêncio rc 0, ZERO transação (a lei --sistema)
+rm -rf "$STCU"; mkdir -p "$STCU"
+touch "$STCU/pacman-lock" "$STCU/db.lck"
+run_cu --canal >/dev/null; rc=$?
+assert_eq "$rc" "0" "E54/canal: pacman ocupado = rc 0 (o timer falhar visível seria ruído — a dose volta no próximo boot)"
+assert_nogrep "$STCU/pacman.log" '\-Sy' "E54/canal: ocupado = NENHUMA transação (a mesma definição das três portas — revisar uma é revisar todas)"
+assert_grep "$STCU/update.log" 'canal: pacman ocupado' "E54/canal: a recusa fica no papel (silêncio para o usuário, réu no log)"
+# (e) manual com o pacman recusando a transação: o rc REAL + mensagem honesta
+rm -rf "$STCU"; mkdir -p "$STCU/units"
+cp "$REPO/elite/airootfs/etc/systemd/system/elite-bootupdate.timer" "$REPO/elite/airootfs/etc/systemd/system/elite-sysupdate.timer" "$STCU/units/"
+touch "$STCU/pacman-fail"
+out="$(run_cu)"; rc=$?
+printf '%s\n' "$out" > "$STCU/saida.txt"
+assert_eq "$rc" "3" "E54/manual: o rc REAL do pacman chega ao script (capturado FORA da negação — a lição E46 agora também na porta manual)"
+assert_grep "$STCU/saida.txt" 'recusou a transação' "E54/manual: a recusa fala com o dono (NADA da casa mudou — e a saída nunca mais é o erro cru calado)"
 
 # ── E48 — A CURA NA SESSÃO VIVA (o 'atualizei e persistiu' morre): o
 #    dump nl3z provou o rig correndo a receita velha DEPOIS do update
