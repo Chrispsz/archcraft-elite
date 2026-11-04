@@ -56,6 +56,13 @@ cap_log() {
 }
 cap_log
 
+# E54 — O RICE DA CASA DESPERTA COM A SESSÃO: o craft-rice entrega os
+# fragmentos de labwc (rc.xml.d — hoje, a decoração de volta nos jogos
+# Proton) e aplica o reconfigure na sessão viva. Antes das barras: o rice
+# nasce antes da UI que o assume. Melhor-esforço com silêncio — o arranque
+# da sessão NUNCA fica preso ao rice (a barra é a missão aqui).
+craft-rice >>"$LOG" 2>&1 9>&- || true
+
 ensure() {
     # $1=valor da flag (0=1ª vez, 1=já visto vivo)  $2=config  $3=css
     # E36 — âncora ^: 'pgrep -f' casa SUBSTRING — um editor com "waybar -c

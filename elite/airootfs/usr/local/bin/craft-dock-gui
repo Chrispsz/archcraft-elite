@@ -1,6 +1,27 @@
 #!/usr/bin/python3
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · craft-dock-gui (v2.10.9 — a dock vê o SEM-NOME)
+# Archcraft ELITE · craft-dock-gui (v2.10.10 — O DIREITO SERVE A SESSÃO NOVA)
+# v2.10.10 — O DIREITO EM TUDO ABRE OUTRA SESSÃO (diretriz do dono: "a dock
+#   além de funcionar com qualquer pacote ela deve com um click abrir a aba
+#   que está aberta, no caso com o click esquerdo, e já com o direito deve
+#   abrir outra sessão/guia"): o esquerdo JÁ foca/cicla a janela aberta de
+#   TODOS os botões (pin/dinâmico/raw — v2.10.1/v2.10.9); o direito ficou
+#   desigual — pin lançava outra instância, DINÂMICO FIXAVA e o SEM-NOME
+#   só ensinava. A gramática nova é UMA para os três:
+#   esquerdo foca/abre · direito NOVA SESSÃO · meio encerra.
+#   · Dinâmico: direito = _launch (o .desktop é prova de origem — a mesma
+#     prova que o pin já usava). O verbo FIXAR não morre: a casa tem a
+#     porta própria (direito no desktop → Fixar, craft-pin-pick) — a dock
+#     deixa de gastar o clique direito com verbo que NÃO é o pedido.
+#   · SEM-NOME: direito = _raw_launch — o argv[0] do processo vivo
+#     (/proc/<pid>/cmdline, uid próprio) é PROVA de origem; só lança o que
+#     existe e é executável; sem prova, o log ensina (nunca adivinha — o
+#     AppImage reabre DE VERDADE, porque o binário dele está vivo no /proc).
+#     A casca do comm (15 chars, TASK_COMM_LEN) é lei do kernel: chave que
+#     começa com o comm truncado também casa (o stem do app_id costuma ser
+#     mais longo que a casca).
+#   E30→E53 ficam de pé: foco por id, meio estrito (E36), diff dos botões
+#   (a recriação por tick continua morta), transição suave v2.11.
 # v2.10.9 — O APPIMAGE ENTRA (o dono: "a dock não está mostrando todo tipo
 #   de pacote — estou com um app image aberto e só consigo acessar pelo
 #   alttab"): os dinâmicos nasceram SÓ do casamento comm→.desktop — o
@@ -635,7 +656,7 @@ class Dock:
         cmd = exec_of(info)
         if dynamic:
             btn.set_tooltip_text(
-                f"{name} — esquerdo: focar/abrir · direito: fixar na dock · "
+                f"{name} — esquerdo: focar/abrir · direito: nova janela · "
                 f"meio: encerrar programa")
         elif WLRCTL:
             btn.set_tooltip_text(
@@ -785,13 +806,15 @@ class Dock:
             return fw[0]
         return min(wids, key=lambda w: self.windows[w][1])
 
-    # ── os VERBOS do clique (v2.7 + v2.10 + v2.10.1) ─────────────────────
+    # ── os VERBOS do clique (v2.7 + v2.10 + v2.10.1 + v2.10.10) ──────
     def _press(self, btn, ev, info, hint, did, cmd, dynamic=False):
         if ev.button == 3:
-            if dynamic:
-                self._pin_add(did)                  # direito no dinâmico: FIXAR
-            else:
-                self._launch(btn, cmd)              # direito no pin: OUTRA instância
+            # v2.10.10 — a gramática UMA: direito = NOVA SESSÃO em todo
+            # botão com .desktop (pin OU dinâmico — o dono: "com o direito
+            # deve abrir outra sessão/guia"). O verbo FIXAR segue vivo na
+            # porta própria da casa (craft-pin-pick, direito no desktop) —
+            # a dock não gasta o clique direito com verbo que não é o dele.
+            self._launch(btn, cmd)
             return True                              # consumido — sem "clicked"
         if ev.button == 2:
             # v2.10.3 — o meio ENCERRA O PROGRAMA: TODAS as janelas do app
@@ -944,23 +967,41 @@ class Dock:
                 log(f"encerrado por id {w}")
         return ok
 
-    def _pin_add(self, did):
-        """v2.10: direito num DINÂMICO fixa o app (o mesmo craft-pin de
-        sempre: fuzzy resolve, .bak e reload SIGUSR2 — a dock re-lê sozinha)."""
-        if not did:
-            return
+    def _raw_launch(self, key, name):
+        """E54 — direito no SEM-NOME abre OUTRA SESSÃO honesta: o argv[0] do
+        processo vivo (/proc, uid próprio, comm casando com a chave) é a
+        PROVA de origem — só lança o que existe e é executável; sem prova,
+        o log ensina (nunca adivinha). A casca do comm é lei do kernel
+        (TASK_COMM_LEN = 15 visíveis): chave que COMEÇA com o comm truncado
+        também casa — o stem do app_id costuma ser mais longo que ela."""
+        uid = os.getuid()
         try:
-            r = subprocess.run(
-                ["/usr/local/bin/craft-pin", "add", did],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                timeout=10)
-        except (subprocess.TimeoutExpired, OSError) as exc:
-            log(f"craft-pin add falhou ({type(exc).__name__}): {did}")
-            return
-        if r.returncode == 0:
-            log(f"fixado via craft-pin: {did}")
-        else:
-            log(f"craft-pin add rc={r.returncode}: {did}")
+            pids = os.listdir("/proc")
+        except OSError:
+            pids = []
+        for pid in pids:
+            if not pid.isdigit():
+                continue
+            try:
+                if os.stat(f"/proc/{pid}").st_uid != uid:
+                    continue
+                with open(f"/proc/{pid}/comm") as fh:
+                    comm = fh.read().strip()
+                if not comm:
+                    continue
+                if comm != key and not (len(comm) == 15 and key.startswith(comm)):
+                    continue
+                with open(f"/proc/{pid}/cmdline", "rb") as fh:
+                    argv0 = fh.read().split(b"\x00")[0].decode("utf-8", "replace")
+            except OSError:
+                continue
+            if argv0.startswith("/") and os.path.isfile(argv0) \
+                    and os.access(argv0, os.X_OK):
+                log(f"nova sessão do sem-nome via /proc: {argv0}")
+                self._launch(None, argv0)
+                return
+        log(f"nova sessão sem prova de origem ({key}) — instale o .desktop "
+            f"do app e ele vira dinâmico completo")
 
     def _reap_children(self):
         """v2.10.3 — A CEIFA DOS ZUMBIS: todo app lançado pela dock é filho
@@ -1201,8 +1242,8 @@ class Dock:
     def _make_raw_button(self, key, name):
         """v2.10.9 — o botão do SEM-NOME (AppImage): ícone do tema se o
         stem trouxer algo; sem .desktop NÃO há ícone real a prometer — o
-        glifo executável é a verdade. Direito NÃO fixa (não existe ID de
-        .desktop para o craft-pin) e o tooltip não mente."""
+        glifo executável é a verdade. O tooltip não mente (v2.10.10: o
+        direito reabre pelo /proc quando a prova existe)."""
         btn = Gtk.Button.new()
         btn.set_relief(Gtk.ReliefStyle.NONE)
         img = Gtk.Image()
@@ -1215,25 +1256,25 @@ class Dock:
         img.set_pixel_size(ICON_SIZE)
         btn.add(img)
         btn.set_tooltip_text(
-            f"{name} — esquerdo: focar/ciclar · meio: encerrar · "
-            f"sem .desktop: nada a fixar")
+            f"{name} — esquerdo: focar/ciclar · direito: nova sessão · "
+            f"meio: encerrar")
         btn.connect("button-press-event", self._press_raw, key, name)
         btn.set_name("dockbtn")
         return btn
 
     def _press_raw(self, _btn, ev, key, name):
-        """Os verbos do SEM-NOME (v2.10.9): esquerdo foca/cicla as janelas
-        reais POR ID; meio encerra (strict — o título NUNCA recebe
-        WM_DELETE, a lei E36); direito NÃO fixa — sem .desktop não existe
-        ID para o craft-pin, e fingir fixação é mentira com .bak."""
+        """Os verbos do SEM-NOME (v2.10.9 → v2.10.10): esquerdo foca/cicla
+        as janelas reais POR ID; meio encerra (strict — o título NUNCA
+        recebe WM_DELETE, a lei E36); direito abre OUTRA SESSÃO pelo
+        argv[0] provado no /proc (a v2.10.9 só ensinava — o dono pediu a
+        sessão nova em TUDO). Sem prova de origem, o log é a saída."""
         if ev.button == 1:
             self._raw_focus(key, name)
             return True
         if ev.button == 2:
             self._raw_close(key, name)
             return True
-        log(f"fixar sem .desktop: {key} — nada a fixar "
-            f"(instale o .desktop do app e ele vira dinâmico completo)")
+        self._raw_launch(key, name)
         return True
 
     def _raw_windows(self, key, strict=False):
