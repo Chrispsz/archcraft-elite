@@ -21,7 +21,7 @@ a tornou verdade: 32 bins + scripts de repo).
 | `craft-bat` | resumo de bateria via /sys (clique no módulo da barra) |
 | `craft-bgapps` | menu de apps em 2º plano (o botão que só existe quando há o que encerrar) |
 | `craft-clean` | manutenção: cache de pacman, órfãos, journal vacuum |
-| `craft-compress` | "Comprimir…" do Thunar — multi-seleção → UM arquivo (zip/7z/tar.xz) com zenity; E36: tar com `--` + warning rc=1 |
+| `craft-compress` | "Comprimir…" do Thunar — multi-seleção → UM arquivo (zip/7z/tar.xz) com zenity; E36: tar com `--` + warning rc=1; E42: motor resolve 7z OU 7zz (o `7zip` do Arch entrega `7zz`) + crash do diálogo nunca calado (rc provado no fonte do zenity) |
 | `craft-connect` | central de rede PT-BR (Wi-Fi, cabo, Bluetooth, salvas) sob o botão de rede; E36: senha mascarada (zenity) + linha de BT só com adaptador |
 | `craft-dock` | toggle/reload da dock via SIGUSR (âncora — não mata editor alheio) |
 | `craft-dock-gui` | a dock (GTK3 + layer-shell): pins .desktop, dinâmicos por app, fecho no meio; E36: fecho nunca casa por título + CSS de fallback espelhado |
