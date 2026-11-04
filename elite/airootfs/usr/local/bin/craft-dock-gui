@@ -1,6 +1,24 @@
 #!/usr/bin/python3
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · craft-dock-gui (v2.10.8 — o comutador/menu EXTINTOS)
+# Archcraft ELITE · craft-dock-gui (v2.10.9 — a dock vê o SEM-NOME)
+# v2.10.9 — O APPIMAGE ENTRA (o dono: "a dock não está mostrando todo tipo
+#   de pacote — estou com um app image aberto e só consigo acessar pelo
+#   alttab"): os dinâmicos nasceram SÓ do casamento comm→.desktop — o
+#   _resolve_desktop devolvia None para o AppImage de fábrica (sem .desktop
+#   instalado NENHUM) e o continue TRAGIA a janela que o craft-toplevel já
+#   via de verdade: invisível na dock, acessível só no A-Tab. A cura: com o
+#   daemon vivo, Toda janela do snapshot não coberta por pin nem por
+#   dinâmico resolve uma vez POR APP_ID (stem) e ganha botão RAW — esquerdo
+#   foca/cicla as janelas reais POR ID, meio encerra (CLOSE por id, strict),
+#   direito NÃO fixa (sem .desktop não existe ID para o craft-pin — log
+#   honesto). Ícone: o tema se consultado pelo stem trouxer algo, entra;
+#   sem isso o glifo application-x-executable — sem .desktop NÃO há ícone
+#   real a prometer. Os raw moram no próprio estado (self.raw, diff
+#   separado dos dinâmicos — nada recria botão a cada tick) e deslizam
+#   para fora quando a última janela fecha (mesma v2.11). LEIS: sem daemon
+#   os raw somem (o /proc não nomeia o que o comm não resolve — o fallback
+#   não inventa botão); janela sem app_id usa o título como chave (churn
+#   de título documentado — é a única verdade que ela expõe).
 # v2.10.8 — A DESPEDIDA DO VERBO (ordem do dono no 1º dia da 10.7):
 #   "o botão de janelas abertas eu quero remover". REMOVIDO: o comutador
 #   clicável (v2.10.1) e o MENU das janelas (v2.10.3→v2.10.4) — a cadeia
@@ -330,7 +348,10 @@ class Dock:
         self.running = set()      # comms vivos do usuário (o poll alimenta)
         self.pin_ids = set()      # desktop-ids fixados (dedup dos dinâmicos)
         self.dyn = {}             # dinâmicos: did → (revealer, button, comm, info, cmd)
-        self.sep = None           # fio vertical pins | dinâmicos
+        # v2.10.9 — os SEM-NOME (AppImage sem .desktop): chave → (revealer,
+        # button). Diff PRÓPRIO dos dinâmicos — nada recria botão a cada tick.
+        self.raw = {}
+        self.sep = None           # fio vertical pins | dinâmicos/raw
         self._pending = 0         # v2.11: deslizes de SAÍDA em voo (o fio espera o fim)
         self._dindex = None       # cache: chave lower → DesktopAppInfo
         self._rcache = {}         # v2.10.26/E38: memoização de _resolve_desktop
@@ -382,6 +403,7 @@ class Dock:
         log(f"dock iniciada: {len(self.buttons)} pin(s) · "
             f"sempre visível (layer BOTTOM — some só sob tela cheia/gaveta) · "
             f"dinâmicos ON (apps abertos sem pin aparecem após o fio) · "
+            f"raw ON (v2.10.9 — janela sem .desktop, o AppImage entra) · "
             f"comutador/menu EXTINTOS (v2.10.8 — ordem do dono)")
 
         # v2.10.12 — TICK 1s (o dono: 'as coisas parecem ter um delay pra
@@ -575,6 +597,7 @@ class Dock:
             self.pill.remove(child)
         self.buttons = []
         self.dyn = {}
+        self.raw = {}
         self.sep = None
         self.pin_ids = set()
         for info, hint in read_pins():
@@ -1059,13 +1082,18 @@ class Dock:
                     return True
         return False
 
-    # ── dinâmicos (v2.10 — a dock auto-adaptável) ───────────────────────
+    # ── dinâmicos (v2.10 — a dock auto-adaptável) ─────────────────────────
     def _sync_dynamic(self):
         """Apps rodando SEM pin e COM .desktop → botão após o fio. Ao fechar,
         o botão DESLIZA PARA FORA (v2.11 — GtkRevealer; o dono: 'ao fechar
         programas a transição da dock deve ser suave invés de piscar') e só
         então sai da árvore. Diff por desktop-id: nada toca no GTK se nada
-        mudou (zero flicker por refresh — v2.10.12)."""
+        mudou (zero flicker por refresh — v2.10.12).
+        v2.10.9 — o SEM-NOME (AppImage): com o daemon vivo, as janelas do
+        snapshot NÃO cobertas pelos pins nem pelos dinâmicos acima ganham
+        botão raw por app_id (a lei da auto-adaptação não exige .desktop —
+        a JANELA é a verdade; o comm sem .desktop nunca mais traga janela
+        real)."""
         current = {}
         for comm in self.running:
             info = self._resolve_desktop(comm)
@@ -1082,47 +1110,195 @@ class Dock:
             if self.tl_alive and not self._windows_of(info, "", did):
                 continue
             current[did] = (info, comm)
-        if set(current) == set(self.dyn):
+        # v2.10.9 — a cobertura ANTES do raw: janela que um pin ou um
+        # dinâmico já enxerga NÃO ganha segundo botão (a mesma janela só
+        # mora em um botão — a lei de todo dock do mundo)
+        raw = {}
+        if self.tl_alive:
+            covered = set()
+            for _btn, _bin, info, hint, did in self.buttons:
+                covered.update(self._windows_of(info, hint, did))
+            for did, (info, _comm) in current.items():
+                covered.update(self._windows_of(info, "", did))
+            for wid, (_fl, _rk, app_id, title) in self.windows.items():
+                if wid in covered:
+                    continue
+                key, name = self._raw_key(app_id, title)
+                if not key or key in raw:
+                    continue
+                raw[key] = name
+        if set(current) == set(self.dyn) and set(raw) == set(self.raw):
             return
         dead = set(self.dyn) - set(current)
         for did in sorted(dead):
             rev = self.dyn[did][0]
             del self.dyn[did]
             log(f"dinâmico saiu: {did}")
-            # v2.11 — SAÍDA SUAVE: o revealer desliza para fora e o widget
-            # sai SÓ no fim do slide (_dyn_retire) — a pílula encolhe
-            # animada; o destroy instantâneo era o piscar rejeitado
-            self._pending += 1
-            rev.set_reveal_child(False)
-            GLib.timeout_add(_REVEAL_MS + 90, self._dyn_retire, rev)
+            self._slide_out(rev)
         fresh = set(current) - set(self.dyn)
         for did in sorted(fresh):
             info, comm = current[did]
             btn = self._make_button(info, "", dynamic=True)
-            # v2.11 — ENTRADA SUAVE: nasce não-revelado dentro do revealer
-            # e desliza no tick seguinte (o GTK precisa de um frame para
-            # animar a partir do estado visível)
-            rev = Gtk.Revealer()
-            rev.set_transition_type(Gtk.RevealerTransitionType.SLIDE_LEFT)
-            rev.set_transition_duration(_REVEAL_MS)
-            rev.set_reveal_child(False)
-            rev.add(btn)
-            self.pill.pack_start(rev, False, False, 0)
+            rev = self._slide_in(btn)
             self.dyn[did] = (rev, btn, comm, info, exec_of(info))
             log(f"dinâmico entrou: {did} (comm {comm})")
-            GLib.timeout_add(30, self._dyn_reveal, rev)
+        # v2.10.9 — o diff dos SEM-NOME (mesma coreografia dos dinâmicos)
+        rdead = set(self.raw) - set(raw)
+        for key in sorted(rdead):
+            rev = self.raw[key][0]
+            del self.raw[key]
+            log(f"raw saiu: {key}")
+            self._slide_out(rev)
+        rfresh = set(raw) - set(self.raw)
+        for key in sorted(rfresh):
+            btn = self._make_raw_button(key, raw[key])
+            rev = self._slide_in(btn)
+            self.raw[key] = (rev, btn)
+            log(f"raw entrou: {key}")
         self._sync_sep()
         # v2.11 — show_all SÓ quando algo entrou/saiu (o `self.dyn or`
         # antigo varria a árvore TODA a cada tick com dinâmicos vivos —
         # redraw de graça não existe)
-        if fresh or dead:
+        if fresh or dead or rfresh or rdead:
             self.pill.show_all()
+
+    def _slide_in(self, btn):
+        """v2.11 (fatorado da v2.10.9) — ENTRADA SUAVE: o botão nasce
+        não-revelado dentro do revealer e desliza no tick seguinte (o GTK
+        precisa de um frame para animar a partir do estado visível)."""
+        rev = Gtk.Revealer()
+        rev.set_transition_type(Gtk.RevealerTransitionType.SLIDE_LEFT)
+        rev.set_transition_duration(_REVEAL_MS)
+        rev.set_reveal_child(False)
+        rev.add(btn)
+        self.pill.pack_start(rev, False, False, 0)
+        GLib.timeout_add(30, self._dyn_reveal, rev)
+        return rev
+
+    def _slide_out(self, rev):
+        """v2.11 (fatorado da v2.10.9) — SAÍDA SUAVE: o revealer desliza
+        para fora e o widget sai SÓ no fim do slide (_dyn_retire) — a
+        pílula encolhe animada; o destroy instantâneo era o piscar
+        rejeitado pelo dono."""
+        self._pending += 1
+        rev.set_reveal_child(False)
+        GLib.timeout_add(_REVEAL_MS + 90, self._dyn_retire, rev)
+
+    def _raw_key(self, app_id, title):
+        """v2.10.9 — a chave do SEM-NOME: app_id em minúsculas, o STEM
+        composto ("com.github.App\" → "app"); sem app_id, o título
+        (truncado — churn de título documentado no cabeçalho: é a única
+        verdade que a janela expõe). Nada sem nome vira botão."""
+        a = (app_id or "").strip().lower()
+        if a:
+            stem = a.rsplit(".", 1)[-1]
+            return (stem if len(stem) >= 2 else a), a
+        t = (title or "").strip().lower()
+        if t:
+            return t[:24], t[:40]
+        return None, None
+
+    def _make_raw_button(self, key, name):
+        """v2.10.9 — o botão do SEM-NOME (AppImage): ícone do tema se o
+        stem trouxer algo; sem .desktop NÃO há ícone real a prometer — o
+        glifo executável é a verdade. Direito NÃO fixa (não existe ID de
+        .desktop para o craft-pin) e o tooltip não mente."""
+        btn = Gtk.Button.new()
+        btn.set_relief(Gtk.ReliefStyle.NONE)
+        img = Gtk.Image()
+        theme = Gtk.IconTheme.get_default()
+        if theme is not None and theme.has_icon(key):
+            img.set_from_icon_name(key, Gtk.IconSize.DIALOG)
+        else:
+            img.set_from_icon_name("application-x-executable",
+                                   Gtk.IconSize.DIALOG)
+        img.set_pixel_size(ICON_SIZE)
+        btn.add(img)
+        btn.set_tooltip_text(
+            f"{name} — esquerdo: focar/ciclar · meio: encerrar · "
+            f"sem .desktop: nada a fixar")
+        btn.connect("button-press-event", self._press_raw, key, name)
+        btn.set_name("dockbtn")
+        return btn
+
+    def _press_raw(self, _btn, ev, key, name):
+        """Os verbos do SEM-NOME (v2.10.9): esquerdo foca/cicla as janelas
+        reais POR ID; meio encerra (strict — o título NUNCA recebe
+        WM_DELETE, a lei E36); direito NÃO fixa — sem .desktop não existe
+        ID para o craft-pin, e fingir fixação é mentira com .bak."""
+        if ev.button == 1:
+            self._raw_focus(key, name)
+            return True
+        if ev.button == 2:
+            self._raw_close(key, name)
+            return True
+        log(f"fixar sem .desktop: {key} — nada a fixar "
+            f"(instale o .desktop do app e ele vira dinâmico completo)")
+        return True
+
+    def _raw_windows(self, key, strict=False):
+        """As janelas REAIS do sem-nome (v2.10.9): app_id == chave OU stem
+        == chave OU contenção com fronteira; sem app_id, a chave veio do
+        título e casa no título (só com daemon — o fallback não inventa).
+        strict=True (o fecho do meio): a cláusula do título SAI — a mesma
+        lei E36 do _windows_of."""
+        out = []
+        for wid, (_fl, _rk, app_id, title) in self.windows.items():
+            a = (app_id or "").lower()
+            t = (title or "").lower()
+            stem = a.rsplit(".", 1)[-1] if a else ""
+            if (a and (a == key or (stem and stem == key)
+                       or _near_match(a, key))) \
+                    or (not strict and not a and key and key in t):
+                out.append(wid)
+        return sorted(out)
+
+    def _raw_focus(self, key, name):
+        """Esquerdo no sem-nome: 1 janela → foca/restaura POR ID; N → cicla
+        (o mesmo anel do _app_cycle_next, chave própria raw:); daemon morto
+        → wlrctl com o stem (as 3 formas canônicas) e o título — nunca
+        pior que a v2.10."""
+        wids = self._raw_windows(key)
+        if wids and self.tl_alive:
+            if len(wids) == 1:
+                nxt = wids[0]
+            else:
+                nxt = self._app_cycle_next(wids, f"raw:{key}")
+            if nxt is not None and self._tl_act(nxt):
+                self._last_act[f"raw:{key}"] = nxt
+                log(f"foco raw por id {nxt} ({key})")
+                return
+        for v in case_variants(key):
+            if self._wlrctl("focus", "app_id", v):
+                log(f"foco raw: app_id:{v}")
+                return
+        if name and name != key:
+            for v in case_variants(name):
+                if self._wlrctl("focus", "title", v):
+                    log(f"foco raw: title:{v}")
+                    return
+        log(f"foco raw sem match ({key})")
+
+    def _raw_close(self, key, name):
+        """Meio no sem-nome: CLOSE POR ID (gracioso, WM_DELETE) das janelas
+        do app — strict (o título nunca manda fechar, lei E36); fallback
+        wlrctl com o stem."""
+        if self.tl_alive:
+            wids = self._raw_windows(key, strict=True)
+            if wids and self._close_app_windows(wids):
+                return
+        for v in case_variants(key):
+            if self._wlrctl("close", "app_id", v):
+                log(f"fechado raw: app_id:{v}")
+                return
+        log(f"fechar raw sem match ({key})")
 
     def _sync_sep(self):
         """O fio só existe quando há os dois lados. v2.11: a remoção espera
         o FIM dos deslizes de saída (self._pending) — o fio não abandona o
-        botão que ainda está deslizando."""
-        if self.dyn and self.buttons and self.sep is None:
+        botão que ainda está deslizando. v2.10.9: raw também é lado
+        direito do fio (o sem-nome mora do mesmo lado dos dinâmicos)."""
+        if (self.dyn or self.raw) and self.buttons and self.sep is None:
             self.sep = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
             self.sep.set_name("dynsep")
             self.sep.set_margin_top(8)
@@ -1130,8 +1306,8 @@ class Dock:
             self.pill.pack_start(self.sep, False, False, 0)
             self.pill.reorder_child(self.sep, len(self.buttons))
             self.sep.show_all()
-        elif ((not self.dyn or not self.buttons) and self.sep is not None
-              and self._pending == 0):
+        elif (((not self.dyn and not self.raw) or not self.buttons)
+              and self.sep is not None and self._pending == 0):
             self.sep.destroy()
             self.sep = None
 

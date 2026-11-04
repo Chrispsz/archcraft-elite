@@ -396,7 +396,13 @@ pkgver=1.0
 # craft-toplevel e o hook puxar o pacote único — uma notificação honesta é
 # o preço; um beco sem saída não é. O template segue: a ponte vive no db
 # ATÉ que nenhum rig da era v2 exista mais.
-pkgrel=3
+# E53 — A DOCK VÊ O SEM-NOME (v2.10.9, relato do dono: "a dock não está
+# mostrando todo tipo de pacote — estou com um app image aberto e só
+# consigo acessar pelo alttab"): o AppImage sem .desktop não virava botão
+# (o dinâmico nascia do casamento comm→.desktop e o None traga a janela
+# real que o daemon já via). A cura viaja AQUI (o craft-dock-gui entra no
+# MANIFEST do pacote único) — pkgrel 3→4 NO MESMO COMMIT (lei E41).
+pkgrel=4
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

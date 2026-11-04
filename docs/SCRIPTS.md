@@ -24,7 +24,7 @@ a tornou verdade: 32 bins + scripts de repo).
 | `craft-compress` | "Comprimir…" do Thunar — multi-seleção → UM arquivo (zip/7z/tar.xz) com zenity; E36: tar com `--` + warning rc=1; E42: motor resolve 7z OU 7zz (o `7zip` do Arch entrega `7zz`) + crash do diálogo nunca calado (rc provado no fonte do zenity) |
 | `craft-connect` | central de rede PT-BR (Wi-Fi, cabo, Bluetooth, salvas) sob o botão de rede; E36: senha mascarada (zenity) + linha de BT só com adaptador |
 | `craft-dock` | toggle/reload da dock via SIGUSR (âncora — não mata editor alheio) |
-| `craft-dock-gui` | a dock (GTK3 + layer-shell): pins .desktop, dinâmicos por app, fecho no meio; E36: fecho nunca casa por título + CSS de fallback espelhado |
+| `craft-dock-gui` | a dock (GTK3 + layer-shell): pins .desktop, dinâmicos por app, fecho no meio; E36: fecho nunca casa por título + CSS de fallback espelhado; E53: janela SEM .desktop (AppImage de fábrica) vira botão raw — foco/cicla/fecha por id de verdade, direito não finge fixação e o glifo executável é o ícone honesto |
 | `craft-drawer` | Launchpad (nwg-drawer) — W-d |
 | `craft-dump` | perícia completa em um arquivo (`--upload` = termbin PÚBLICO, avisado desde o E36) |
 | `craft-extract` | "Extrair aqui" do Thunar — o verbo da casa (E46; o plugin thunar-archive saiu): palco temporário, colisão pergunta, notificação; o MESMO motor 7z/7zz do Comprimir |
