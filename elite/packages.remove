@@ -307,11 +307,16 @@ kvantum                # theming Qt5 (sai com o qt5ct)
 kvantum-qt5
 archcraft-config-qt    # config do qt5ct/kvantum (sai com eles)
 
-## v1.0.4: snapshots — UMA estratégia só (Timeshift é o rollback da Elite:
-## craft-rollback aponta pro Timeshift; grub-btrfs cobre o boot de snapshot).
-## btrfs-assistant (stock) é GUI do SNAPPER — mas o snapper NÃO vem na ISO:
-## meia-ferramenta + duplicação de estratégia de snapshot. Quem quiser a rota
-## snapper, o cockpit dia-1 documenta os 3 pacotes (README "Dia 1").
+## snapshots — UMA estratégia só, com DONO ÚNICO: o SNAPPER. (E45 corrige
+## aqui o E33 que este bloco jurava como presente: que o craft-rollback
+## era do Timeshift e que o snapper não vinha na ISO — verdade MORTA da
+## era v1.0.4.) História: v1.0.4 = era Timeshift (craft-rollback v1 era o
+## launcher dele); v2.3.6 = o dump do rig provou o timeshift JAMAIS
+## configurado e o craft-rollback v2 virou snapper; v2.10.14 = a promessa
+## executada, o pacote timeshift entrou nesta lista (abaixo). Hoje: snapper
+## + grub-btrfs vivem no packages.add, o craft-rollback v2 é a GUI da casa
+## e o btrfs-assistant (GUI do snapper que NÃO é a nossa) segue fora por
+## DUPLICAÇÃO de estratégia — não por ausência dela.
 btrfs-assistant
 
 ## ── v2.3 · AUDITORIA MINUCIOSA — o teto da limpeza (diretriz do dono:
