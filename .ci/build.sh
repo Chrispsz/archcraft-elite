@@ -380,7 +380,11 @@ pkgver=1.0
 # (sha256 pinado), as units da cadência. O pacman SUBSTITUI o par legado
 # (elite-craft + craft-toplevel) na transação — o rig antigo acorda com
 # UM dono para /usr/local/bin e UM número para olhar.
-pkgrel=1
+# E51 — A CADÊNCIA AO LIGAR: o payload /etc troca o timer de relógio
+# (elite-channel, 11:30) pelo timer de BOOT (elite-bootupdate, OnBootSec
+# 3min) — o dono: 'atualizar a cada vez que iniciar'; a casa atualiza
+# quando a máquina acorda, não quando um relógio aposta que ela está on.
+pkgrel=2
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
