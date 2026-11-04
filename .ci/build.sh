@@ -298,9 +298,13 @@ package() {
     install -Dm755 craft-toplevel "${pkgdir}/usr/local/bin/craft-toplevel"
     install -Dm644 craft-toplevel.c "${pkgdir}/usr/local/share/elite/src/craft-toplevel.c"
     # E49 — a adoção de UMA VIA: hook + gatilho (fora de /usr/local/bin —
-    # o elite-craft reivindica os bins da casa; aqui não há briga de dono)
-    install -Dm755 elite-adopt "${pkgdir}/usr/share/elite/elite-adopt"
-    install -Dm644 elite-adopt.hook "${pkgdir}/usr/share/libalpm/hooks/elite-adopt.hook"
+    # o elite-craft reivindica os bins da casa; aqui não há briga de dono).
+    # Os gêmeos moram no STARTDIR (nascem ao lado do PKGBUILD, payload
+    # GERADO — não são source=() e não carregam sha256); o package() roda
+    # no srcdir — o CI desmentiu a 1ª forma (run 41893237128: 'A failure
+    # occurred in package()' — install sem caminho = arquivo não visto).
+    install -Dm755 "${startdir}/elite-adopt" "${pkgdir}/usr/share/elite/elite-adopt"
+    install -Dm644 "${startdir}/elite-adopt.hook" "${pkgdir}/usr/share/libalpm/hooks/elite-adopt.hook"
 }
 EOPKGBUILD
 
