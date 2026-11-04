@@ -384,15 +384,18 @@ pkgver=1.0
 # (elite-channel, 11:30) pelo timer de BOOT (elite-bootupdate, OnBootSec
 # 3min) — o dono: 'atualizar a cada vez que iniciar'; a casa atualiza
 # quando a máquina acorda, não quando um relógio aposta que ela está on.
-# E51.1 — A PONTE APOSENTA ANTES DE CAUSAR DANO: o craft-toplevel 1.0-5
-# chegou a ser publicado, mas o db VIVO foi operado (a ponte fora do
-# índice) e a fila de build deixou de produzi-la — com a ponte NO db, a
-# dose diária do craft-update v4.2 (o que o rig do dono corre HOJE)
-# puxaria craft-toplevel E elite-system na MESMA transação: conflito
-# alvo-contra-alvo = dose recusada = notificação crítica à toa. Sem ela no
-# db, a dose do v4.2 resolve a era em UMA transação (elite-system instala,
-# o replaces remove o par legado). O template da ponte segue no build.sh
-# como história e como sujeito de prova da suíte.
+# E51.1 — A PONTE VOLTA (a aposentadoria foi um ERRO DE CÁLCULO, 05/nov):
+# com a ponte fora do db, o rig da era v2 (craft-update sem alvos, sem
+# --canal) ficou SEM PORTA NENHUMA — o -Syu dele não tem alvo novo, a
+# ponte era a ÚNICA transação que disparava o hook da adoção (o dono
+# perguntou 'as atualizações funcionam de verdade? nenhum método funcionou
+# na 28' e a perícia provou: a cura da pergunta era a ponte, e eu a tinha
+# cortado). O custo aceito do retorno: o rig raro 'adotado e fora da era'
+# (elite-craft 6 + toplevel 4, sem elite-system) pode ver UMA dose v4.2
+# recusada (conflito alvo-contra-alvo) até a porta manual trocar o
+# craft-toplevel e o hook puxar o pacote único — uma notificação honesta é
+# o preço; um beco sem saída não é. O template segue: a ponte vive no db
+# ATÉ que nenhum rig da era v2 exista mais.
 pkgrel=3
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
@@ -446,9 +449,9 @@ chown -R builder /tmp/elite-src
 # E43 — PACKAGES_ONLY=1 (canal diário, publish-packages.yml): só os
 # pacotes de CÓDIGO DE CASA — pywal/qt5vk/wlrctl não mudam no dia a dia
 # (o repo completo do release vivo entra no job por download+repo-add).
-PKG_LIST=(python-pywal qt5-virtualkeyboard wlrctl elite-system)
+PKG_LIST=(python-pywal qt5-virtualkeyboard wlrctl craft-toplevel elite-system)
 if [[ "${PACKAGES_ONLY:-0}" == "1" ]]; then
-    PKG_LIST=(elite-system)
+    PKG_LIST=(craft-toplevel elite-system)
 fi
 for pkgdir in "${PKG_LIST[@]}"; do
     (cd "/tmp/elite-src/$pkgdir" && runuser -l builder -c "cd /tmp/elite-src/$pkgdir && makepkg -f --noconfirm") \

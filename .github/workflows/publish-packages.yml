@@ -13,10 +13,9 @@
 #   elite-craft PAROU de ser publicado (a era dos dois veículos encerrou;
 #   o último 1.0-6 segue no db como fóssil — os rigs que o têm são
 #   substituídos pelo replaces do elite-system).
-#   E51.1 — A PONTE APOSENTOU ANTES DE SERVIR: o craft-toplevel 1.0-5 foi
-#   publicado e RETIRADO do db no mesmo dia — no db ele forçaria a dose
-#   v4.2 dos rigs legados a recusar a transação (conflito com o
-#   elite-system na MESMA dose). A fila de build só produz o pacote único.
+#   E51.1 — A PONTE VOLTA (o erro confessado): retirá-la do db cortou a
+#   ÚNICA porta automática dos rigs v2 (craft-update sem alvos — a ISO 28
+#   inteira). Ela permanece publicada até a última era-v2 se extinguir.
 #
 # A LEI DA RELEASE ÚNICA VIVA fica intacta: NENHUMA release é criada/apagada;
 # os assets de ISO/sha256sums/JUNTAR-ISO/body da release viva NUNCA são
@@ -94,6 +93,7 @@ jobs:
               echo "── selo da run:"
               cat sha256sums-pacotes.txt
               gh release upload "$TAG" elite-local.db elite-local.db.tar.gz \
+                /work/out/pacotes/craft-toplevel-*.pkg.tar.zst \
                 /work/out/pacotes/elite-system-*.pkg.tar.zst \
                 sha256sums-pacotes.txt \
                 --repo "$REPO" --clobber

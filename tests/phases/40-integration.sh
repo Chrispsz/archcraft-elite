@@ -2732,8 +2732,8 @@ assert_grep "$BLD" "pkgname=craft-toplevel" \
   "v2.10.1: PKGBUILD do craft-toplevel na esteira do [elite-local] (a mesma do wlrctl)"
 assert_grep "$BLD" "$(sha256sum "$REPO/vendor/craft-toplevel.c" | awk '{print $1}')" \
   "v2.10.1: sha256 da fonte PINADO no PKGBUILD (determinismo — mudou 1 byte, makepkg PARA; o pin é o sha REAL da fonte, recalculado aqui — v2.10.7 atualizou o C com o ACK honesto)"
-assert_grep "$BLD" 'PKG_LIST=\(python-pywal qt5-virtualkeyboard wlrctl elite-system\)' \
-  "E51.1: a fila do makepkg produz SÓ o pacote único (a ponte aposentou antes de servir — com ela no db, a dose v4.2 dos rigs legados recusaria a transação inteira)"
+assert_grep "$BLD" 'PKG_LIST=\(python-pywal qt5-virtualkeyboard wlrctl craft-toplevel elite-system\)' \
+  "E51.1: a ponte permanece na fila do makepkg (a ÚNICA porta dos rigs v2 — o erro confessado: tirá-la do db cortou a corda do próprio dono)"
 assert_grep "$PAK" '^elite-system$' \
   "E50: o elite-system entra no pacstrap (packages.add — O PACOTE ÚNICO nasce instalado na ISO)"
 assert_nogrep "$PAK" '^craft-toplevel$' \
