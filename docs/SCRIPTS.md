@@ -42,6 +42,7 @@ a tornou verdade: 32 bins + scripts de repo).
 | `craft-shot` | captura de tela (região/tela) — W-p / W-S-p |
 | `craft-update` | atualização do sistema (-Syu + aviso exato de kernel + drift da casa) — porta de entrada: menu raiz "Atualizar sistema" |
 | `craft-wake-guard` | status/off/on do wake-guard USB (suspende sem acordar sozinho) |
+| `exo-open` | ponte de compatibilidade Xfce→Elite (E40): o Thunar 4.20 chama exo-open POR DENTRO — mapeia `--launch` para foot/brave/thunar, operandos para `gio open`; MailReader = erro honesto |
 
 **Scripts de repo:**
 

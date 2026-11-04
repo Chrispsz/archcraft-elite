@@ -75,7 +75,7 @@ o driver do próprio hardware.
 | GPU | NVIDIA open pré-compilado no build (rig A) / RADV (rig B) |
 | Arquivos | Thunar + tumbler (GUI), craft-connect para rede/bluetooth |
 | Navegador | Brave Origin (release oficial, versão e sha256 fixados no build) |
-| Rollback | btrfs + snapper + grub-btrfs + craft-rollback (snapshot no menu do GRUB; restauração GUI no menu Sessão — o timeshift saiu na v2.3.6: um rei só na estratégia de snapshot) |
+| Rollback | btrfs + snapper + grub-btrfs + craft-rollback (snapshot no menu do GRUB; restauração GUI no menu Sessão — a estratégia snapper-only é da v2.3.6 (o craft-rollback v1 apontava pro Timeshift); o pacote timeshift em si só saiu da ISO na v2.10.14 — um rei só na estratégia de snapshot) |
 
 Debloat do upstream no teto do que não quebra o sistema (impressão,
 cloud-init, sessões Openbox/BSPWM/X11, terminais extras, fontes CJK…,
@@ -107,7 +107,8 @@ volume/rede/sessão à direita.
 - `elite-tune` — tuning interativo; `--dry-run` simula sem escrever; `--apps`
   instala aplicativos opcionais (Steam, Lutris, OBS, escritório).
 - Toda alteração de arquivo gera backup `.bak.<timestamp>` junto ao original.
-- Rollback do sistema: Timeshift + entrada de snapshot no GRUB.
+- Rollback do sistema: snapshots **snapper** — criar/restaurar pelo `craft-rollback`
+  (menu Sessão) e boot de snapshot no GRUB (grub-btrfs).
 - Rollback dos repositórios: remover as seções `[cachyos*]` do
   `/etc/pacman.conf` e `sudo pacman -Qqn | pacman -S -`.
 - Chave GPG CachyOS importada; o pacman original do Arch é preservado

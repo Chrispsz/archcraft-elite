@@ -1278,4 +1278,50 @@ assert_grep "$CTUNE" 'CONCLUÍDO COM' "E37/n16: o epílogo diz 'CONCLUÍDO COM p
 assert_grep "$CTUNE" 'echo -e .*N\} pacman -S --needed --noconfirm \$\*' \
   "E37/n16: o pacman_s mantém a linha do plano no modo REAL (o rc real não custa o contrato visual '  $ pacman …')"
 
+# ── E45: CONTRATOS DE DOCS (plano ARQUITETURA nº3) ──────────────────────
+# A auditoria provou (§10.3/§10.7): NENHUM contrato lia o README e ele
+# APODRECEU — vendia o Timeshift que o packages.remove derruba. O papel da
+# casa agora tem porteira própria: fantasma citado = push vermelho, índice
+# desgarrado dos bins = idem, rollback vendido fora do rei = idem.
+BINS="$REPO/elite/airootfs/usr/local/bin"
+# D1. O README não cita fantasma: todo craft-*/elite-* citado existe na
+#     árvore (bin, unit ou fragmento). Allowlist só com justificativa.
+DOC_GHOSTS=""
+for TOK in $(grep -oE '\b(craft|elite)-[a-z0-9.-]+' "$REPO/README.md" | sort -u); do
+  case "$TOK" in
+    elite-build) ;;              # diretório de SAÍDA do apply-overlay (não é programa)
+    elite-firstboot.service) ;;  # unit — resolvida pelo contrato abaixo
+    *) [ -f "$BINS/$TOK" ] || DOC_GHOSTS="$DOC_GHOSTS $TOK" ;;
+  esac
+done
+assert_eq "$DOC_GHOSTS" "" "E45/D1: o README não cita craft-*/elite-* FANTASMA (toda citação existe em usr/local/bin; 'elite-build' é o diretório de saída do build e 'elite-firstboot.service' é a unit — allowlist com justificativa)"
+assert_file "$REPO/elite/airootfs/etc/systemd/system/elite-firstboot.service" "E45/D1: a elite-firstboot.service citada pelo README existe como unit na árvore"
+# D2. O índice do SCRIPTS.md cobre os bins VIVOS (a promessa E36 'todo
+#     binário vivo tem linha aqui' — o exo-open E40 tinha nascido fora do
+#     papel) e não documenta fantasma: todo craft-*/elite-* do índice existe.
+DOC_MISSING=""
+for BINPATH in "$BINS"/*; do
+  N="$(basename "$BINPATH")"
+  grep -q "\`$N\`" "$REPO/docs/SCRIPTS.md" || DOC_MISSING="$DOC_MISSING $N"
+done
+assert_eq "$DOC_MISSING" "" "E45/D2: o índice do SCRIPTS.md cobre TODOS os bins vivos (contagem — bin sem linha no papel = promessa E36 quebrada de novo)"
+DOC_FANTASMA=""
+for TOK in $(sed -n '/^## Índice completo/,/^\*\*Scripts de repo/p' "$REPO/docs/SCRIPTS.md" | grep -oE '\x60[a-z0-9._-]+\x60' | tr -d '\x60' | grep -E '^(craft|elite)-' | sort -u); do
+  [ -f "$BINS/$TOK" ] || DOC_FANTASMA="$DOC_FANTASMA $TOK"
+done
+assert_eq "$DOC_FANTASMA" "" "E45/D2: o índice do SCRIPTS.md não documenta FANTASMA (todo craft-*/elite-* da tabela existe em usr/local/bin — doc de peça morta é peça morta no papel)"
+# D3. O rollback citado bate com o packages.remove (a mentira flagrada na
+#     auditoria: o README vendia o Timeshift enquanto a lista o derruba —
+#     e o bloco v1.0.4 da lista jurava 'craft-rollback aponta pro
+#     Timeshift' como presente, o craft-rollback v2 é SNAPPER desde a
+#     v2.3.6, dump do rig).
+assert_nogrep "$REPO/README.md" 'Rollback do sistema: Timeshift' "E45/D3: o README não vende mais o Timeshift como rollback (a frase da auditoria §10.3 está EXTINTA — a seção fala a mesma língua da tabela 'O que a ISO contém')"
+assert_grep "$REPO/README.md" 'Rollback do sistema: snapshots \*\*snapper\*\*' "E45/D3: a seção de rollback do README cita o rei REAL (snapper + craft-rollback + grub-btrfs)"
+assert_nogrep "$REPO/README.md" 'o timeshift saiu na v2.3.6' "E45/D3: a meia-verdade 'saiu na v2.3.6' EXTINTA (a v2.3.6 trocou a ESTRATÉGIA; o PACOTE só saiu na v2.10.14 — o README conta as duas datas certas)"
+assert_grep "$REPO/elite/packages.remove" '^timeshift$' "E45/D3: o timeshift segue VEDADO no packages.remove (a promessa v2.3.6 executada na v2.10.14 não regride)"
+assert_grep "$REPO/elite/packages.add" '^snapper$' "E45/D3: o rei REAL está na ISO (snapper — o craft-rollback v2 e o grub-btrfsd vigiam /.snapshots)"
+assert_nogrep "$REPO/elite/packages.remove" 'craft-rollback aponta pro Timeshift' "E45/D3: o comentário E33 'craft-rollback aponta pro Timeshift' EXTINTO do packages.remove (verdade morta da v1.0.4 escrita como presente)"
+assert_nogrep "$REPO/elite/packages.remove" 'o snapper NÃO vem na ISO' "E45/D3: a segunda mentira do bloco v1.0.4 EXTINTA (o snapper É da ISO desde a v2.3.6 — packages.add)"
+assert_nogrep "$REPO/elite/packages.remove" 'README "Dia 1"' "E45/D3: o ponteiro morto 'README Dia 1' EXTINTO (seção que não existe em lugar nenhum do README)"
+
 phase_end
