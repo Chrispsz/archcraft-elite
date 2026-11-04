@@ -27,9 +27,10 @@ a tornou verdade: 32 bins + scripts de repo).
 | `craft-dock-gui` | a dock (GTK3 + layer-shell): pins .desktop, dinâmicos por app, fecho no meio; E36: fecho nunca casa por título + CSS de fallback espelhado |
 | `craft-drawer` | Launchpad (nwg-drawer) — W-d |
 | `craft-dump` | perícia completa em um arquivo (`--upload` = termbin PÚBLICO, avisado desde o E36) |
+| `craft-extract` | "Extrair aqui" do Thunar — o verbo da casa (E46; o plugin thunar-archive saiu): palco temporário, colisão pergunta, notificação; o MESMO motor 7z/7zz do Comprimir |
 | `craft-fix-keys` | cura do keyring pacman (sessão no live; no instalado o trabalho é do timer root) |
 | `craft-hello` | saudação do terminal (fastfetch + fallback próprio) |
-| `craft-idle` | daemon de idle (lock/DPMS/suspend conforme `idle.conf`) + menu de presets; E36: suspend entregue MESMO com Lock=Nunca + `-i` (inibidores ignorados); E44: gesto único normalizado (conf legado X/Y → X/X com aviso) + braços observáveis no `idle.log` (rc de wlopm/suspend no papel) |
+| `craft-idle` | daemon de idle (lock/DPMS/suspend conforme `idle.conf`) + menu em DUAS PORTAS (Tela: trava e apaga / Suspender após o idle — E46) com o valor atual no item; E36: suspend entregue MESMO com Lock=Nunca + `-i` (inibidores ignorados); E44: gesto único normalizado (conf legado X/Y → X/X com aviso) + braços observáveis no `idle.log` (rc de wlopm/suspend no papel) |
 | `craft-keyring-wait` | espera o pacman transacional (teto 420s) — ExecStartPre do pacman-init |
 | `craft-lock` | trava a sessão (hyprlock com o wallpaper resolvido) |
 | `craft-logout` | menu de sessão curto (W-Escape / W-x / C-A-Delete) |
@@ -37,10 +38,10 @@ a tornou verdade: 32 bins + scripts de repo).
 | `craft-menu-dismiss` | fecha qualquer menu/OSD aberto (lei de cross-dismiss) |
 | `craft-pin` | fixar/remover/listar pins da dock (`dock-pins` + .bak); E36: duplicata sai rc 1 |
 | `craft-pin-pick` | picker gráfico de apps para fixar (direito no desktop → Fixar); E36: toast honesto para duplicata/falha |
-| `craft-power` | menu Sessão completo (sair/suspender/reiniciar/desligar/idle/rollback) |
+| `craft-power` | menu Sessão completo (sair/suspender/reiniciar/desligar/idle) — E46: o rollback saiu do menu (a porta dele é a entrada de snapshot no GRUB; ordem do dono) |
 | `craft-rollback` | snapshots snapper — criar/restaurar com polkit |
 | `craft-shot` | captura de tela (região/tela) — W-p / W-S-p |
-| `craft-update` | atualização do sistema (-Syu + aviso exato de kernel + drift da casa) — porta de entrada: menu raiz "Atualizar sistema" |
+| `craft-update` | atualização do sistema — v4 (E46): o -Syu INSTALA o veículo (`elite-craft craft-toplevel` como alvos explícitos) e liga a cadência; `--canal` = dose DIÁRIA da casa (11:30±40min, offline-safe); `--sistema` = dose SEMANAL com snapshot PRE/POST do snapper (sáb 10:00±2h); porta de entrada: menu raiz "Atualizar sistema" |
 | `craft-wake-guard` | status/off/on do wake-guard USB (suspende sem acordar sozinho) |
 | `exo-open` | ponte de compatibilidade Xfce→Elite (E40): o Thunar 4.20 chama exo-open POR DENTRO — mapeia `--launch` para foot/brave/thunar, operandos para `gio open`; MailReader = erro honesto |
 

@@ -964,4 +964,122 @@ else
   skip "E36: BAD_RE do áudio executa" "python3 ausente no runner"
 fi
 
+# ── E46 — craft-update v4: as doses automatizadas SOB A LUZ (a ferida do
+#    'erros persistem' provada no COMPORTAMENTO, não no texto — a lição
+#    E35.1/E42: o sandbox mente quando o teste só lê). Mundo isolado com
+#    mocks dedicados (id=root, pacman com estado, snapper, fuser, loginctl).
+MOCKCU="$WORK/mocks-cupd"
+mkdir -p "$MOCKCU"
+cat > "$MOCKCU/id" <<'EOF'
+#!/usr/bin/env bash
+[ "${1:-}" = "-u" ] && echo 0
+exit 0
+EOF
+cat > "$MOCKCU/pacman" <<'EOF'
+#!/usr/bin/env bash
+# pacman de prova: -Slq devolve o canal, -Q lê o flip do kernel, a transação
+# cria o flip (o kernel muda de VERDADE entre o antes e o depois)
+ST="${MOCK_DIR:?}"; mkdir -p "$ST"; touch "$ST/pacman.log"
+printf 'pacman %s\n' "$*" >> "$ST/pacman.log"
+if [[ -f "$ST/pacman-fail" && "$1" == "-Syu" ]]; then echo "erro simulado" >&2; exit 3; fi
+case "$1" in
+  -Q)   v="6.12.4-2"; [ -f "$ST/kernel-flip" ] && v="6.12.5-1"
+        echo "linux-cachyos-bore $v"; exit 0 ;;
+  -Slq) [ -f "$ST/repo-fail" ] && exit 1
+        printf '%s\n' elite-craft craft-toplevel brave-origin; exit 0 ;;
+  -Syu) touch "$ST/kernel-flip"; exit 0 ;;
+  *)    exit 0 ;;
+esac
+EOF
+cat > "$MOCKCU/snapper" <<'EOF'
+#!/usr/bin/env bash
+ST="${MOCK_DIR:?}"; mkdir -p "$ST"
+printf 'snapper %s\n' "$*" >> "$ST/snapper.log"
+if [ "$3" = "list-configs" ]; then [ -f "$ST/no-snapper" ] && exit 1; exit 0; fi
+if [ "$3" = "create" ] && [ "$5" = "pre" ]; then echo 41; exit 0; fi
+exit 0
+EOF
+cat > "$MOCKCU/fuser" <<'EOF'
+#!/usr/bin/env bash
+[ -f "${MOCK_DIR:?}/pacman-lock" ] && exit 0
+exit 1
+EOF
+cat > "$MOCKCU/loginctl" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+cat > "$MOCKCU/runuser" <<'EOF'
+#!/usr/bin/env bash
+printf 'runuser %s\n' "$*" >> "${MOCK_DIR:?}/runuser.log"
+exit 0
+EOF
+cat > "$MOCKCU/notify-send" <<'EOF'
+#!/usr/bin/env bash
+printf 'notify-send %s\n' "$*" >> "${MOCK_DIR:?}/notify.log"
+exit 0
+EOF
+cat > "$MOCKCU/systemctl" <<'EOF'
+#!/usr/bin/env bash
+printf 'systemctl %s\n' "$*" >> "${MOCK_DIR:?}/systemctl.log"
+exit 0
+EOF
+chmod +x "$MOCKCU"/*
+CU="$REPO/elite/airootfs/usr/local/bin/craft-update"
+run_cu() { # run_cu <args…> — mundo root isolado, log injetável (o ESTADO do
+  # cenário o teste prepara antes — o run não apaga nada por trás)
+  local st="$STCU"
+  ( export PATH="$MOCKCU:$PATH" MOCK_DIR="$st" ELITE_UPDATE_LOG="$st/update.log" ELITE_VERSION_MARKER="/nada" ELITE_UNIT_DIR="$st/units"
+    bash "$CU" "$@" 2>&1 )
+}
+STCU="$STATE/cupd"
+
+# dose DIÁRIA: a lista VIVA do canal vai inteira para o pacman
+rm -rf "$STCU"; mkdir -p "$STCU"
+run_cu --canal >/dev/null
+assert_grep "$STCU/pacman.log" '\-Sy --needed --noconfirm --overwrite /usr/local/bin/\* elite-craft craft-toplevel brave-origin' \
+  "E46/canal: a dose diária leva a LISTA VIVA do [elite-local] (--needed — quem está em dia não reinstala)"
+assert_grep "$STCU/update.log" 'canal: OK' "E46/canal: dose concluída com linha no papel (o timer deixa réu nomeado)"
+
+# dose DIÁRIA offline: o repo não respondeu = silêncio rc 0 (o timer volta amanhã)
+touch "$STCU/repo-fail"
+out="$(run_cu --canal)" ; rc=$?
+assert_eq "$rc" "0" "E46/canal: offline é silêncio rc 0 (falha de rede JAMAIS é erro de atualização — a lei v2)"
+assert_grep "$STCU/update.log" 'não respondeu' "E46/canal: o offline fica no papel (a prova existe, o usuário não é assombrado)"
+
+# dose SEMANAL: PRE antes, transação, POST casado, kernel novo = REINICIE
+rm -rf "$STCU"; mkdir -p "$STCU"
+run_cu --sistema >/dev/null
+assert_grep "$STCU/snapper.log" 'create -t pre -p -d elite-sysupdate' "E46/sistema: o snapshot PRE é criado ANTES da transação (a rede de segurança arma antes do risco)"
+assert_grep "$STCU/snapper.log" 'create -t post --pre-number 41' "E46/sistema: o POST casa com o PRE (#41 — o par fecha a história)"
+assert_grep "$STCU/pacman.log" '\-Syu --needed --noconfirm --overwrite /usr/local/bin/\*' "E46/sistema: o -Syu completo leva o --overwrite escopado (a adoção da casa segue lei)"
+assert_grep "$STCU/update.log" 'kernel 6.12.4-2 → 6.12.5-1 — REBOOT' "E46/sistema: kernel novo na transação = aviso de reboot no papel (a comparação -Q antes/depois, exata por construção)"
+assert_grep "$STCU/update.log" 'REBOOT aplica' "E46/sistema: o kernel novo fica no papel (o aviso na sessão é guardado pelo bus do usuário — sandbox honesto não tem bus; o papel é o registro)"
+
+# dose SEMANAL com pacman ocupado: silêncio, ZERO transação
+rm -rf "$STCU"; mkdir -p "$STCU"; touch "$STCU/pacman-lock"
+run_cu --sistema >/dev/null
+assert_nogrep "$STCU/pacman.log" '\-Syu' "E46/sistema: pacman ocupado = NENHUMA transação (o lock é respeitado — a semana volta)"
+assert_grep "$STCU/update.log" 'ocupado' "E46/sistema: a recusa fica no papel (nunca silêncio absoluto)"
+
+# dose SEMANAL com pacman recusando: rc 1 + o PRE nomeado como rollback
+rm -rf "$STCU"; mkdir -p "$STCU"; touch "$STCU/pacman-fail"
+run_cu --sistema >/dev/null; rc=$?
+assert_eq "$rc" "1" "E46/sistema: transação recusada = rc 1 (o timer falha visível — nunca vermelho calado)"
+assert_grep "$STCU/update.log" 'FALHOU \(rc=3\)' "E46/sistema: o rc REAL no papel (capturado FORA da negação — dentro do if ! o status é o invertido; os parênteses são literais no ERE)"
+assert_grep "$STCU/update.log" 'snapshot PRE #41 guarda o estado anterior' "E46/sistema: a falha aponta ONDE está o rollback, no papel (o snapshot #41 é a porta do GRUB)"
+
+# dose SEMANAL sem snapper: segue SEM rede de segurança, com a verdade no papel
+rm -rf "$STCU"; mkdir -p "$STCU"; touch "$STCU/no-snapper"
+run_cu --sistema >/dev/null
+assert_grep "$STCU/update.log" 'snapper indisponível' "E46/sistema: sem snapper a dose diz que segue SEM rede (nunca finge que o snapshot existe)"
+assert_grep "$STCU/pacman.log" '\-Syu' "E46/sistema: a dose semanal NÃO morre por falta de snapper (a atualização é a missão; o snapshot é a rede — a ausência fica no papel)"
+
+# a porta MANUAL: instala o veículo e liga a cadência (o fim do 'erros persistem')
+rm -rf "$STCU"; mkdir -p "$STCU/units"
+cp "$REPO/elite/airootfs/etc/systemd/system/elite-channel.timer" "$REPO/elite/airootfs/etc/systemd/system/elite-sysupdate.timer" "$STCU/units/"
+run_cu >/dev/null
+assert_grep "$STCU/pacman.log" '\-Syu --needed --overwrite /usr/local/bin/\* elite-craft craft-toplevel' \
+  "E46/manual: o -Syu leva os veículos como alvos EXPLÍCITOS (quem não tem o elite-craft o INSTALA — a ferida do rig da 28 morre aqui)"
+assert_grep "$STCU/systemctl.log" 'enable --now elite-channel.timer elite-sysupdate.timer' "E46/manual: a cadência liga na 1ª 'Atualizar sistema' (o automatismo nasce onde o dono já clica)"
+
 phase_end

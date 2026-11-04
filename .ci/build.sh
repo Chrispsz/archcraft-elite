@@ -202,8 +202,9 @@ EOPKGBUILD
 # -Syu entregar o dia a dia SEM reinstalar (Server = releases/latest — E32).
 # A lista nasce do PRÓPRIO tree (fonte única): script novo no airootfs =
 # entra no pacote na próxima build; o guard-pkgrel cobra o pkgrel.
-say "Gerando o PKGBUILD do elite-craft (o canal diário — E43)"
+say "Gerando o PKGBUILD do elite-craft (o canal diário — E43/E46)"
 mkdir -p /tmp/elite-src/elite-craft/files/usr/local/bin
+mkdir -p /tmp/elite-src/elite-craft/files/etc/systemd/system
 # caminho ABSOLUTO: aqui o CWD é /tmp/elite-src/<pkg> (o cd da seção pywal
 # acima) — o relativo nasceria vazio (a lição vai no próprio comentário).
 for f in /work/elite/airootfs/usr/local/bin/*; do
@@ -214,17 +215,46 @@ done > /tmp/elite-src/elite-craft/files/MANIFEST
 while read -r f; do
     cp -p "/work/elite/airootfs/usr/local/bin/$f" /tmp/elite-src/elite-craft/files/usr/local/bin/
 done < /tmp/elite-src/elite-craft/files/MANIFEST
+# E46 — as units de SISTEMA da casa entram no pacote: sem elas, o rig
+# instalado nunca recebe a cadência (canal diário + sistema semanal) —
+# a mesma classe da ferida dos bins. Só as units de topo da casa
+# (elite-*); wants symlinks e drop-ins de terceiros seguem de overlay.
+shopt -s nullglob
+for u in /work/elite/airootfs/etc/systemd/system/elite-*.service \
+         /work/elite/airootfs/etc/systemd/system/elite-*.timer; do
+    cp -p "$u" /tmp/elite-src/elite-craft/files/etc/systemd/system/
+done
+shopt -u nullglob
 python3 - /tmp/elite-src/elite-craft <<'PYE43'
 import sys, pathlib
 d = pathlib.Path(sys.argv[1])
 files = (d / 'files/MANIFEST').read_text().split()
+units = sorted(p.name for p in (d / 'files/etc/systemd/system').iterdir())
 names = chr(10).join(f'        "{f}" \\' for f in files)   # cada item com \ de continuação — a lista do for NÃO aceita quebra simples
+# E46 — a adoção cobre também as units (rigs antigos têm as elite-* como
+# overlay sem dono; o mesmo rm-antes-de-instalar do pre_install)
+unames = chr(10).join(f'        "/etc/systemd/system/{u}" \\' for u in units)
+unit_loop = f"""    for f in \\
+{unames}
+    ; do
+        [ -e "$f" ] && rm -f "$f"
+    done
+""" if units else ""
+unit_install = f"""    install -d "${{pkgdir}}/etc/systemd/system"
+    cp -a "${{startdir}}/files/etc/systemd/system/." "${{pkgdir}}/etc/systemd/system/"
+""" if units else ""
 pkg = f"""pkgname=elite-craft
 pkgver=1.0
-# E44 — o gesto único + os braços observáveis mudaram o craft-idle: a lei
-# E41 é pkgrel NO MESMO commit (o guard-pkgrel cobra; sem isso o -Syu pula).
-pkgrel=2
-pkgdesc='Código de casa da Elite em /usr/local/bin (craft-*, elite-*, exo-open) — o canal diário de atualização sem reinstalar'
+# E46 — O VEÍCULO QUE INSTALA + A CADÊNCIA: o rig da 28 provou o custo do
+# veículo que nunca é INSTALADO (pacman -Syu só atualiza quem já tem —
+# 'os erros persistem após atualizar', o dono). Este pkgrel carrega:
+# craft-update v4 (alvos explícitos + doses --canal/--sistema),
+# craft-power (rollback fora do menu Sessão), craft-idle (menu em duas
+# portas) e o craft-extract (o verbo novo) — mais as units da cadência
+# (elite-channel/elite-sysupdate) no payload /etc. Lei E41: pkgrel NO
+# MESMO commit (o guard-pkgrel cobra; sem isso o -Syu pula).
+pkgrel=3
+pkgdesc='Código de casa da Elite (craft-*, elite-*, exo-open + units da cadência em /etc) — o canal diário de atualização sem reinstalar'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
 license=(GPL3)
@@ -235,6 +265,7 @@ options=(!debug !strip)
 # ISO). pacman recusa sobrescrever arquivo não-dono — o scriptlet remove
 # ANTES exatamente os caminhos que ESTE pacote entrega (cada um volta
 # pelo pacote na MESMA transação; a lista vem do MANIFEST de geração).
+# E46 — a adoção cobre também as units (mesma ferida, mesmo remédio).
 pre_install() {{
     local f
     for f in \
@@ -242,12 +273,12 @@ pre_install() {{
     ; do
         [ -e "/usr/local/bin/$f" ] && rm -f "/usr/local/bin/$f"
     done
-    return 0
+{unit_loop}    return 0
 }}
 package() {{
     install -d "${{pkgdir}}/usr/local/bin"
     cp -a "${{startdir}}/files/usr/local/bin/." "${{pkgdir}}/usr/local/bin/"
-}}
+{unit_install}}}
 """
 (d / 'PKGBUILD').write_text(pkg)
 PYE43

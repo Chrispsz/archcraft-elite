@@ -1,6 +1,11 @@
 #!/bin/sh
 # craft-power — menu de sessão MOUSE-FIRST (Desktop v2.1)
 # ─────────────────────────────────────────────────────────────────────────
+# E46 — O ROLLBACK SAIU DO MENU (ordem do dono: "remove a opção de rollback
+#   do menu"): a porta do rollback é a entrada de snapshot no GRUB (o rei
+#   continua no trono — snapper + grub-btrfsd vigiam /.snapshots); o
+#   craft-rollback segue no sistema para quem souber o caminho. O menu
+#   Sessão fica com o que se usa toda semana, não o que se usa uma vez.
 # v2.6.0 — O SESSÃO que o dono aprovou, sem o peso que ele apontou:
 #   · "é necessária essa opção de travar tela?" — NÃO: o menu fica
 #     minimalista e o item de travar a tela sai (o lock segue vivo no W-l
@@ -49,7 +54,6 @@ if command -v craft-menu >/dev/null 2>&1; then
         'Reiniciar' \
         'Desligar' \
         'Tempo de idle…' \
-        'Rollback do sistema…' \
         2>"$errf")" || ec=$?
     if [ "$ec" -eq 143 ]; then
         # v2.3.5 — SIGTERM = fechado de fora (cross-dismiss: outro menu
@@ -193,9 +197,5 @@ case "$choice" in
     # menu do desktop. Agora o Sessão carrega (as ações de energia e o
     # controle do idle na mesma porta — UX de um só lugar).
     'Tempo de idle…') exec craft-idle ;;
-    # v2.5.0 — o craft-rollback ganha PORTA DE ENTRADA (o menu completo de
-    # snapshots v2.3.6 não tinha NENHUM chamador — órfão de UX flagrado
-    # pelo audit 24-a; a porta natural é a do sistema: Sessão).
-    'Rollback do sistema…') exec craft-rollback ;;
     *)                exit 0 ;;   # Esc/vazio: menu fecha e NADA acontece
 esac

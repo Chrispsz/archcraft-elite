@@ -1,0 +1,160 @@
+#!/usr/bin/env bash
+# ═══════════════════════════════════════════════════════════════════════════
+# craft-extract — O VERBO "EXTRAIR AQUI" DO EXPLORADOR (E46)
+# ───────────────────────────────────────────────────────────────────────────
+# E46 — o dono achou DOIS verbos de arquivo no menu de contexto e perguntou
+# "Esse criar arquivo que é o botão novo?": o "Criar Arquivo…"/"Extrair
+# aqui" que ele via era o thunar-archive-plugin (v2.8.0, backend xarchiver)
+# ao lado do NOSSO "Comprimir…" — a faca de dois gumes que a auditoria já
+# nomeava virou corte: o dono mandou tirar a confusão e o plugin SAIU
+# (packages.remove). A extração segue existindo — como VERBO DA CASA:
+# clique-direito no arquivo → "Extrair aqui" → o conteúdo descomprime AO
+# LADO → notificação. O motor é o MESMO do craft-compress (7z OU 7zz):
+# 7-Zip extrai zip, 7z, tar, tar.gz, tar.xz, tar.bz2, gz, xz e bz2 — ZERO
+# pacote novo (o xarchiver FICA para ABRIR e gerenciar arquivos; EXTRAIR
+# aqui é trabalho do craft).
+#
+# A EXTRAÇÃO EM PALCO: o 7z descomprime num diretório temporário IRMÃO
+# (o palco) e o conteúdo sobe no fim — a colisão é conferida contra o que
+# o archive REALMENTE entregou (zero parse de listing: o palco é a verdade,
+# a saída do 7z -l é dialeto que muda de versão para versão). O que já
+# existe NUNCA é substituído sem pergunta (o -y do 7z responderia SIM a
+# tudo em silêncio — cabeça baixa é lei de fora).
+#
+# uso:      craft-extract ARQUIVO… (%F do uca.xml — cada arquivo selecionado
+#           vira uma extração; o que não é arquivo compactado é pulado com
+#           linha no log — nunca falha em lote por causa de um estranho)
+# frontend: uca.xml do Thunar (skel) — "Extrair aqui" no menu de contexto
+# ═══════════════════════════════════════════════════════════════════════════
+set -euo pipefail
+
+LOG_DIR="$HOME/.cache/elite"
+LOG="$LOG_DIR/compress.log"   # o papel da família de arquivos (compress + extract)
+
+# evidência append-only com teto — a MESMA lei da família (E36)
+log() {
+    mkdir -p "$LOG_DIR"
+    if [ -f "$LOG" ] && [ "$(wc -c <"$LOG" 2>/dev/null || echo 0)" -gt 262144 ]; then
+        tail -c 131072 "$LOG" > "$LOG.tmp" 2>/dev/null && mv -f "$LOG.tmp" "$LOG"
+    fi
+    printf '%s %b\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >>"$LOG"
+}
+
+# o erro NUNCA é calado (lei da casa): diálogo para o usuário, log para a prova
+die() {
+    log "FALHA: $1 — $2"
+    if command -v zenity >/dev/null 2>&1; then
+        zenity --error --title="$1" --text="$2" 2>/dev/null || true
+    fi
+    if command -v notify-send >/dev/null 2>&1; then
+        notify-send -u critical "$1" "$2" >/dev/null 2>&1 || true
+    fi
+    exit 1
+}
+
+# ── dependências: o MESMO resolver do craft-compress (E42 — 7z OU 7zz) ──
+SEVENZ="$(command -v 7z || command -v 7zz || true)"
+[[ -n "$SEVENZ" ]] ||
+    die "craft-extract" "O motor 7-Zip não está instalado.\nNo terminal: sudo pacman -S 7zip"
+command -v zenity >/dev/null 2>&1 ||
+    die "craft-extract" "O programa 'zenity' não está instalado.\nNo terminal: sudo pacman -S zenity"
+
+# ── a seleção: o uca.xml manda %F (um argumento por item selecionado) ──
+[[ $# -ge 1 ]] ||
+    die "craft-extract" "Nenhum arquivo selecionado.\nSelecione um arquivo compactado e use Extrair aqui de novo."
+
+# é arquivo compactado? (a extensão decide — o Thunar já filtra pelo
+# patterns do uca.xml; este guard é a segunda rede para chamadas à mão)
+is_archive() {
+    case "${1,,}" in
+        *.zip|*.7z|*.tar|*.tar.gz|*.tgz|*.tar.xz|*.txz|*.tar.bz2|*.tbz2|*.gz|*.xz|*.bz2) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+ok_n=0
+for arq in "$@"; do
+    if ! is_archive "$arq"; then
+        log "extrair: pulado (não é arquivo compactado): $arq"
+        continue
+    fi
+    [[ -f "$arq" ]] || { log "extrair: pulado (não existe): $arq"; continue; }
+
+    dest="$(dirname -- "$arq")"
+    if [[ ! -w "$dest" ]]; then
+        die "Sem permissão de escrita" "A pasta '$dest' não aceita novos arquivos.\nExtraia para uma pasta sua (ex.: Downloads)."
+    fi
+
+    # ── o palco: o archive descomprime no irmão temporário primeiro ──
+    palco="$(mktemp -d "$dest/.elite-extract.XXXXXX")"
+    logf="$(mktemp)"
+    rcf="$logf.rc"
+    trap 'rm -f "$logf" "$rcf"' EXIT
+    log "extrair: $(basename -- "$arq") → $dest (motor: $(basename -- "$SEVENZ"))"
+
+    ( "$SEVENZ" x -bd -bso0 -bsp0 -y -- "$arq" -o"$palco" >"$logf" 2>&1; echo $? >"$rcf" ) &
+    bgpid=$!
+
+    # janela de progresso: pulsa até o motor terminar; fechar = cancelar
+    ( while kill -0 "$bgpid" 2>/dev/null; do
+          echo "#Extraindo $(basename -- "$arq")…"
+          sleep 0.3
+      done
+      echo 100 ) | zenity --progress --title="Extrair aqui" --pulsate --auto-close \
+          --text="Extraindo…" 2>/dev/null &
+    zpid=$!
+    wait "$zpid" 2>/dev/null || true
+
+    if kill -0 "$bgpid" 2>/dev/null; then
+        # a janela fechou antes do fim = o usuário cancelou
+        pkill -P "$bgpid" 2>/dev/null || true
+        kill "$bgpid" 2>/dev/null || true
+        wait "$bgpid" 2>/dev/null || true
+        rm -rf -- "$palco"   # o palco morto não fica entulhando a pasta
+        log "extrair: cancelado no meio: $(basename -- "$arq") (nada tocou a pasta de destino)"
+        exit 0
+    fi
+    wait "$bgpid" 2>/dev/null || true
+    rc="$(cat "$rcf" 2>/dev/null || echo 99)"
+
+    if [[ "$rc" -gt 1 ]]; then
+        rm -rf -- "$palco"   # o palco morto não fica entulhando a pasta
+        cauda=$(tail -5 "$logf" 2>/dev/null | tr '\n' ' ' | cut -c1-300)
+        die "Falhou ao extrair" "O '$(basename -- "$arq")' não saiu.\n$cauda\n\nA prova completa fica no log: $LOG"
+    fi
+    if [[ "$rc" == "1" ]]; then
+        # WARNING do 7z: o conteúdo saiu, mas houve item travado — a prova no log
+        log "AVISO 7zip (rc=1): $(tail -3 "$logf" | tr '\n' ' ')"
+    fi
+
+    # ── colisão contra o PALCO (o conteúdo REAL, não o dialeto do listing) ──
+    colide=""
+    while IFS= read -r m; do
+        [ -n "$m" ] || continue
+        [[ -e "$dest/$m" ]] && colide="$colide$m\n"
+    done < <(find "$palco" -mindepth 1 -maxdepth 1 -printf '%f\n' | sort)
+
+    if [[ -n "$colide" ]]; then
+        zenity --question --title="Extrair aqui" \
+            --text="Já existe nesta pasta:\n$(printf '%b' "$colide" | head -6)\nSubstituir?" \
+            2>/dev/null || {
+                rm -rf -- "$palco"
+                log "extrair: cancelado (colisão não substituída): $(basename -- "$arq")"
+                continue
+            }
+        cp -a -- "$palco/." "$dest/"   # o dono disse sim: o palco sobe por cima
+    else
+        cp -a -- "$palco/." "$dest/"
+    fi
+    rm -rf -- "$palco"
+
+    ok_n=$((ok_n + 1))
+    if command -v notify-send >/dev/null 2>&1; then
+        notify-send -t 3000 "Extraído" \
+            "$(basename -- "$arq") → $dest" \
+            -i package-x-generic >/dev/null 2>&1 || true
+    fi
+done
+
+log "OK: extração concluída ($ok_n arquivo(s) de $#)"
+[[ $ok_n -ge 1 ]] || exit 0
