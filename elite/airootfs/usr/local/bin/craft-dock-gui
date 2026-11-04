@@ -182,6 +182,13 @@ ICON_SIZE = 36   # spec M3.2: escala fixa de fábrica
 # widget, não margem layer-shell): a zona exclusiva cobre pílula + vão —
 # a janela maximizada nunca invade nem o vão transparente.
 PILL_FLOAT = 6
+# v2.11 — A TRANSIÇÃO SUAVE (o dono: "ao fechar programas a transição da
+# dock deve ser suave invés de piscar"): cada botão dinâmico vive dentro
+# de um GtkRevealer (SLIDE_LEFT) — entra deslizando, sai deslizando, e o
+# widget só deixa a árvore DEPOIS da animação (o destroy no fim do slide,
+# não na detecção da saída). _REVEAL_MS é a duração do slide, e o +90 do
+# retire é a folga do último frame antes do destroy.
+_REVEAL_MS = 280
 
 WLRCTL = shutil.which("wlrctl")  # foco/fecho de janela (wlr-foreign-toplevel)
 
@@ -322,8 +329,9 @@ class Dock:
         self.buttons = []  # pins: (button, binary)
         self.running = set()      # comms vivos do usuário (o poll alimenta)
         self.pin_ids = set()      # desktop-ids fixados (dedup dos dinâmicos)
-        self.dyn = {}             # dinâmicos: did → (button, comm, info, cmd)
+        self.dyn = {}             # dinâmicos: did → (revealer, button, comm, info, cmd)
         self.sep = None           # fio vertical pins | dinâmicos
+        self._pending = 0         # v2.11: deslizes de SAÍDA em voo (o fio espera o fim)
         self._dindex = None       # cache: chave lower → DesktopAppInfo
         self._rcache = {}         # v2.10.26/E38: memoização de _resolve_desktop
         self._last_running = None # set de comms da rodada anterior (invalida o _rcache)
@@ -1054,9 +1062,10 @@ class Dock:
     # ── dinâmicos (v2.10 — a dock auto-adaptável) ───────────────────────
     def _sync_dynamic(self):
         """Apps rodando SEM pin e COM .desktop → botão após o fio. Ao fechar,
-        o botão some sozinho (até restar só o fixado). Diff por desktop-id:
-        nada toca no GTK se nada mudou (zero flicker por refresh —
-        v2.10.12; o "3s" antigo aqui era o tick que já morreu)."""
+        o botão DESLIZA PARA FORA (v2.11 — GtkRevealer; o dono: 'ao fechar
+        programas a transição da dock deve ser suave invés de piscar') e só
+        então sai da árvore. Diff por desktop-id: nada toca no GTK se nada
+        mudou (zero flicker por refresh — v2.10.12)."""
         current = {}
         for comm in self.running:
             info = self._resolve_desktop(comm)
@@ -1077,18 +1086,42 @@ class Dock:
             return
         dead = set(self.dyn) - set(current)
         for did in sorted(dead):
-            btn = self.dyn[did][0]
-            btn.destroy()
+            rev = self.dyn[did][0]
             del self.dyn[did]
             log(f"dinâmico saiu: {did}")
+            # v2.11 — SAÍDA SUAVE: o revealer desliza para fora e o widget
+            # sai SÓ no fim do slide (_dyn_retire) — a pílula encolhe
+            # animada; o destroy instantâneo era o piscar rejeitado
+            self._pending += 1
+            rev.set_reveal_child(False)
+            GLib.timeout_add(_REVEAL_MS + 90, self._dyn_retire, rev)
         fresh = set(current) - set(self.dyn)
         for did in sorted(fresh):
             info, comm = current[did]
             btn = self._make_button(info, "", dynamic=True)
-            self.pill.pack_start(btn, False, False, 0)
-            self.dyn[did] = (btn, comm, info, exec_of(info))
+            # v2.11 — ENTRADA SUAVE: nasce não-revelado dentro do revealer
+            # e desliza no tick seguinte (o GTK precisa de um frame para
+            # animar a partir do estado visível)
+            rev = Gtk.Revealer()
+            rev.set_transition_type(Gtk.RevealerTransitionType.SLIDE_LEFT)
+            rev.set_transition_duration(_REVEAL_MS)
+            rev.set_reveal_child(False)
+            rev.add(btn)
+            self.pill.pack_start(rev, False, False, 0)
+            self.dyn[did] = (rev, btn, comm, info, exec_of(info))
             log(f"dinâmico entrou: {did} (comm {comm})")
-        # o fio só existe quando há os dois lados
+            GLib.timeout_add(30, self._dyn_reveal, rev)
+        self._sync_sep()
+        # v2.11 — show_all SÓ quando algo entrou/saiu (o `self.dyn or`
+        # antigo varria a árvore TODA a cada tick com dinâmicos vivos —
+        # redraw de graça não existe)
+        if fresh or dead:
+            self.pill.show_all()
+
+    def _sync_sep(self):
+        """O fio só existe quando há os dois lados. v2.11: a remoção espera
+        o FIM dos deslizes de saída (self._pending) — o fio não abandona o
+        botão que ainda está deslizando."""
         if self.dyn and self.buttons and self.sep is None:
             self.sep = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
             self.sep.set_name("dynsep")
@@ -1096,11 +1129,24 @@ class Dock:
             self.sep.set_margin_bottom(8)
             self.pill.pack_start(self.sep, False, False, 0)
             self.pill.reorder_child(self.sep, len(self.buttons))
-        elif (not self.dyn or not self.buttons) and self.sep is not None:
+            self.sep.show_all()
+        elif ((not self.dyn or not self.buttons) and self.sep is not None
+              and self._pending == 0):
             self.sep.destroy()
             self.sep = None
-        if self.dyn or fresh or dead:
-            self.pill.show_all()
+
+    def _dyn_reveal(self, rev):
+        """v2.11 — o 2º frame da entrada: revela (o slide acontece)."""
+        rev.set_reveal_child(True)
+        return GLib.SOURCE_REMOVE
+
+    def _dyn_retire(self, rev):
+        """v2.11 — o fim da saída: o widget deixa a árvore DEPOIS do slide
+        (o destroy na detecção da saída era o piscar que o dono rejeitou)."""
+        self._pending = max(0, self._pending - 1)
+        rev.destroy()
+        self._sync_sep()
+        return GLib.SOURCE_REMOVE
 
     def toggle(self, *_):
         # v2.3.4: esconder é ESCOLHA do usuário (W-S-d) — nunca decisão

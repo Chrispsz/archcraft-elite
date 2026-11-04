@@ -257,7 +257,15 @@ pkgver=1.0
 # --if-needed (o lock vivo não morre no escuro do PrepareForSleep — a
 # denúncia 'só suspende quando coloco a senha') e o craft-idle chamando
 # o novo verbo nos dois braços do before-sleep.
-pkgrel=4
+# E48 — o update perfeito não pede relogin: craft-update reinicia o
+# swayidle da SESSÃO VIVA quando o elite-craft muda (o supervisor
+# craft-bars ressuscita com a receita nova — o dump nl3z provou o rig
+# correndo a receita velha DEPOIS do update); craft-bgapps v4.2 (o
+# 'python 3' era o craft-audio-route e o 'pactl' o seu filho — os dois
+# saem da lista; o Brave lançado pela dock ENTRA; sombra com réu
+# nomeado + verbo list); craft-dock-gui v2.11 (a transição dos
+# dinâmicos desliza — GtkRevealer — em vez de piscar).
+pkgrel=5
 pkgdesc='Código de casa da Elite (craft-*, elite-*, exo-open + units da cadência em /etc) — o canal diário de atualização sem reinstalar'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
