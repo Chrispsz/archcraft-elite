@@ -983,28 +983,34 @@ ST="${MOCK_DIR:?}"; mkdir -p "$ST"; touch "$ST/pacman.log"
 printf 'pacman %s\n' "$*" >> "$ST/pacman.log"
 if [[ -f "$ST/pacman-fail" && "$1" == "-Syu" ]]; then echo "erro simulado" >&2; exit 3; fi
 case "$1" in
-  -Q)   if [ "$2" = "elite-craft" ]; then
-            # E48: o estado do veículo é arquivo (ausente = não instalado);
-            # a transação com ec-upgrade o move DE VERDADE (1.0-3 → 1.0-4
-            # ou adoção ausente → 1.0-4) — o delta do refresh é por -Q
+  -Q)   if [ "$2" = "elite-system" ]; then
+            # E50: o PACOTE ÚNICO tem delta próprio (o antes/depois da era nova)
+            if [ -f "$ST/es-ver" ]; then echo "elite-system $(cat "$ST/es-ver")"; exit 0; fi
+            echo "erro: pacote 'elite-system' não encontrado" >&2; exit 1
+        fi
+        if [ "$2" = "elite-craft" ]; then
+            # LEGADO: o fóssil da era dos dois veículos (a transição narra)
             if [ -f "$ST/ec-ver" ]; then echo "elite-craft $(cat "$ST/ec-ver")"; exit 0; fi
             echo "erro: pacote 'elite-craft' não encontrado" >&2; exit 1
         fi
         if [ "$2" = "craft-toplevel" ]; then
-            # E49: o SEGUNDO veículo tem delta próprio (o hook do
-            # elite-adopt captura o 'antes' dele no hook)
+            # a PONTE (o hook do elite-adopt captura o 'antes' dele no hook)
             if [ -f "$ST/tl-ver" ]; then echo "craft-toplevel $(cat "$ST/tl-ver")"; exit 0; fi
             echo "erro: pacote 'craft-toplevel' não encontrado" >&2; exit 1
         fi
         v="6.12.4-2"; [ -f "$ST/kernel-flip" ] && v="6.12.5-1"
         echo "linux-cachyos-bore $v"; exit 0 ;;
   -Slq) [ -f "$ST/repo-fail" ] && exit 1
-        printf '%s\n' elite-craft craft-toplevel brave-origin; exit 0 ;;
+        # E50: o db da era nova — elite-system, a PONTE craft-toplevel, o
+        # FÓSSIL elite-craft (o canal dele se livra) e os apps de terceiros
+        printf '%s\n' elite-system craft-toplevel elite-craft brave-origin; exit 0 ;;
   -Syu) touch "$ST/kernel-flip"
+        [ -f "$ST/es-upgrade" ] && printf '1.0-1\n' > "$ST/es-ver"
         [ -f "$ST/ec-upgrade" ] && printf '1.0-4\n' > "$ST/ec-ver"
         [ -f "$ST/tl-upgrade" ] && printf '1.0-4\n' > "$ST/tl-ver"
         exit 0 ;;
-  -Sy)  [ -f "$ST/ec-upgrade" ] && printf '1.0-4\n' > "$ST/ec-ver"
+  -Sy)  [ -f "$ST/es-upgrade" ] && printf '1.0-1\n' > "$ST/es-ver"
+        [ -f "$ST/ec-upgrade" ] && printf '1.0-4\n' > "$ST/ec-ver"
         [ -f "$ST/tl-upgrade" ] && printf '1.0-4\n' > "$ST/tl-ver"
         exit 0 ;;
   *)    exit 0 ;;
@@ -1074,11 +1080,15 @@ run_cu() { # run_cu <args…> — mundo root isolado, log injetável (o ESTADO d
 }
 STCU="$STATE/cupd"
 
-# dose DIÁRIA: a lista VIVA do canal vai inteira para o pacman
-rm -rf "$STCU"; mkdir -p "$STCU"
+# dose DIÁRIA: a lista VIVA do canal vai inteira para o pacman — E50: sem
+# o par legado (o fóssil elite-craft e a ponte craft-toplevel ficam FORA —
+# briga de dono pelo binário do daemon recusaria a dose inteira)
+rm -rf "$STCU"; mkdir -p "$STCU"; printf '1.0-1\n' > "$STCU/es-ver"
 run_cu --canal >/dev/null
-assert_grep "$STCU/pacman.log" '\-Sy --needed --noconfirm --overwrite /usr/local/bin/\* elite-craft craft-toplevel brave-origin' \
-  "E46/canal: a dose diária leva a LISTA VIVA do [elite-local] (--needed — quem está em dia não reinstala)"
+assert_grep "$STCU/pacman.log" '\-Sy --needed --noconfirm --overwrite /usr/local/bin/\* elite-system brave-origin' \
+  "E50/canal: a dose diária leva a lista viva SEM o par legado (--needed — quem está em dia não reinstala; a era única não convive com o fóssil)"
+assert_nogrep "$STCU/pacman.log" '\-Sy .* (elite-craft|craft-toplevel)' "E50/canal: o fóssil e a ponte NÃO entram na dose (puxá-los numa era única seria briga de dono pelo daemon)"
+assert_grep "$STCU/update.log" 'era do pacote único' "E50/canal: a era nova deixa linha no papel (quem lê o log entende POR QUE o par legado sumiu da dose)"
 assert_grep "$STCU/update.log" 'canal: OK' "E46/canal: dose concluída com linha no papel (o timer deixa réu nomeado)"
 
 # dose DIÁRIA offline: o repo não respondeu = silêncio rc 0 (o timer volta amanhã)
@@ -1119,20 +1129,20 @@ assert_grep "$STCU/pacman.log" '\-Syu' "E46/sistema: a dose semanal NÃO morre p
 rm -rf "$STCU"; mkdir -p "$STCU/units"
 cp "$REPO/elite/airootfs/etc/systemd/system/elite-channel.timer" "$REPO/elite/airootfs/etc/systemd/system/elite-sysupdate.timer" "$STCU/units/"
 run_cu >/dev/null
-assert_grep "$STCU/pacman.log" '\-Syu --needed --overwrite /usr/local/bin/\* elite-craft craft-toplevel' \
-  "E46/manual: o -Syu leva os veículos como alvos EXPLÍCITOS (quem não tem o elite-craft o INSTALA — a ferida do rig da 28 morre aqui)"
+assert_grep "$STCU/pacman.log" '\-Syu --needed --overwrite /usr/local/bin/\* elite-system' \
+  "E50/manual: o -Syu leva O PACOTE ÚNICO como alvo EXPLÍCITO (quem não tem o INSTALLA e o pacman substitui o par legado na MESMA transação — replaces)"
+assert_nogrep "$STCU/pacman.log" '\-Syu --needed --overwrite /usr/local/bin/\* .* elite-craft' "E50/manual: o alvo é UM só (a era dos dois veículos não volta nem como alvo)"
 assert_grep "$STCU/systemctl.log" 'enable --now elite-channel.timer elite-sysupdate.timer' "E46/manual: a cadência liga na 1ª 'Atualizar sistema' (o automatismo nasce onde o dono já clica)"
 
 # ── E48 — A CURA NA SESSÃO VIVA (o 'atualizei e persistiu' morre): o
 #    dump nl3z provou o rig correndo a receita velha DEPOIS do update
 #    (timeout 1200 systemctl suspend cru, conf 2/7) — o update entregava
 #    ARQUIVOS e a sessão seguia com o daemon VELHO até relogin.
-# canal com DELTA: a dose diária atualizou o elite-craft (1.0-3 → 1.0-4)
+# canal com DELTA: a dose diária ADOTOU o pacote único (ausente → 1.0-1)
 rm -rf "$STCU"; mkdir -p "$STCU"
-touch "$STCU/user-flip" "$STCU/bars-alive" "$STCU/ec-upgrade"
-printf '1.0-3\n' > "$STCU/ec-ver"
+touch "$STCU/user-flip" "$STCU/bars-alive" "$STCU/es-upgrade"
 run_cu --canal >/dev/null
-assert_grep "$STCU/update.log" 'elite-craft 1.0-3 → 1.0-4' "E48/canal: o delta do veículo fica no papel (a comparação -Q antes/depois, exata por construção)"
+assert_grep "$STCU/update.log" 'elite-system ausente → 1.0-1' "E50/canal: o delta do PACOTE ÚNICO fica no papel (a comparação -Q antes/depois, exata por construção — a adoção é delta)"
 assert_grep "$STCU/pkill.log" 'pkill -u 1000 -x swayidle' "E48/canal: o swayidle da SESSÃO é reiniciado (o supervisor craft-bars ressuscita com a receita nova — idle/suspensão valem SEM relogin)"
 assert_grep "$STCU/update.log" 'swayidle \(uid 1000\) reiniciado' "E48/canal: o refresh deixa linha no papel do log (o aviso na TELA segue o bus do usuário — sandbox honesto não tem bus; o papel é o registro, a lição E46)"
 # canal SEM delta: a transação não tocou a casa = NENHUM pkill (churn de daemon de graça não existe)
@@ -1142,17 +1152,16 @@ run_cu --canal >/dev/null
 assert_nogrep "$STCU/pkill.log" 'swayidle' "E48/canal: sem delta NÃO há pkill (o daemon vivo só é reiniciado quando a casa mudou)"
 # sistema com supervisor AUSENTE: o pkill NÃO sai (matar sem quem ressuscita = dano)
 rm -rf "$STCU"; mkdir -p "$STCU"
-touch "$STCU/user-flip" "$STCU/ec-upgrade"
-printf '1.0-3\n' > "$STCU/ec-ver"
+touch "$STCU/user-flip" "$STCU/es-upgrade"
 run_cu --sistema >/dev/null
 assert_nogrep "$STCU/pkill.log" 'swayidle' "E48/sistema: SEM supervisor o pkill NÃO sai (matar o idle sem volta é dano, não cura — o relogin é a porta honesta)"
 assert_grep "$STCU/update.log" 'supervisor craft-bars AUSENTE' "E48/sistema: a verdade no papel (o rig sem craft-bars sabe que a sessão segue com a receita antiga)"
-# manual com ADOÇÃO: o rig SEM elite-craft instala (ausente → 1.0-4) = delta
+# manual com ADOÇÃO: o rig SEM elite-system instala (ausente → 1.0-1) = delta
 rm -rf "$STCU"; mkdir -p "$STCU/units"
 cp "$REPO/elite/airootfs/etc/systemd/system/elite-channel.timer" "$REPO/elite/airootfs/etc/systemd/system/elite-sysupdate.timer" "$STCU/units/"
-touch "$STCU/user-flip" "$STCU/bars-alive" "$STCU/ec-upgrade"
+touch "$STCU/user-flip" "$STCU/bars-alive" "$STCU/es-upgrade"
 run_cu >/dev/null
-assert_grep "$STCU/pkill.log" 'pkill -u 1000 -x swayidle' "E48/manual: a ADOÇÃO do veículo também reinicia a sessão (ausente → 1.0-4 é delta — a ferida da 28 cura NA SESSÃO, não só nos arquivos)"
+assert_grep "$STCU/pkill.log" 'pkill -u 1000 -x swayidle' "E48/manual: a ADOÇÃO do pacote único também reinicia a sessão (ausente → 1.0-1 é delta — a ferida da 28 cura NA SESSÃO, não só nos arquivos)"
 
 # ── E49 — A CURA NA SESSÃO INTEIRA + A ADOÇÃO DE UMA VIA: o v4.1 deixou
 #    duas feridas abertas. (1) o refresh reiniciava SÓ o swayidle — a dock
@@ -1177,26 +1186,26 @@ run_adopt() { # run_adopt — o hook no mundo root dos mocks, corpo ACOPLADO
 
 # (1) veículo PRESENTE: hook calado — custo zero, nenhuma adoção, nenhum papel
 rm -rf "$STCU"; mkdir -p "$STCU"; touch "$STCU/update.log" "$STCU/pkill.log"
-printf '1.0-5\n' > "$STCU/ec-ver"
+printf '1.0-1\n' > "$STCU/es-ver"
 out="$(run_adopt)"; rc=$?
-assert_eq "$rc" "0" "E49/adopt: veículo presente = exit 0 (o hook vive calado para sempre — custo zero por transação)"
+assert_eq "$rc" "0" "E50/adopt: PACOTE ÚNICO presente = exit 0 (o hook vive calado para sempre — a era da ponte acabou, custo zero por transação)"
 assert_nogrep "$STCU/pacman.log" '\-Sy --needed' "E49/adopt: veículo presente = NENHUMA transação extra (a adoção é UMA via, não um imposto eterno)"
 assert_nogrep "$STCU/update.log" 'adotar:' "E49/adopt: veículo presente = ZERO linhas no papel (silêncio honesto, não fingimento)"
 
-# (2) veículo AUSENTE + supervisor vivo: a adoção de UMA via fecha TUDO —
-#     transação, sessão inteira (toplevel primeiro), cadência ligada
+# (2) veículo AUSENTE + supervisor vivo: a PONTE fecha TUDO — transação do
+#     pacote único, sessão inteira (toplevel primeiro), cadência ligada
 rm -rf "$STCU"; mkdir -p "$STCU/units"; touch "$STCU/update.log" "$STCU/pkill.log"
 cp "$REPO/elite/airootfs/etc/systemd/system/elite-channel.timer" "$REPO/elite/airootfs/etc/systemd/system/elite-sysupdate.timer" "$STCU/units/"
-touch "$STCU/user-flip" "$STCU/bars-alive" "$STCU/ec-upgrade" "$STCU/tl-upgrade"
+touch "$STCU/user-flip" "$STCU/bars-alive" "$STCU/es-upgrade" "$STCU/tl-upgrade"
 printf '1.0-3\n' > "$STCU/tl-ver"
 out="$(run_adopt)"; rc=$?
-assert_eq "$rc" "0" "E49/adopt: veículo ausente = a adoção conclui (rc 0 — a via única não tropeça)"
-assert_grep "$STCU/pacman.log" '\-Sy --needed --noconfirm --overwrite /usr/local/bin/\* elite-craft craft-toplevel' \
-  "E49/adopt: a adoção leva os DOIS veículos com o --overwrite escopado (a mesma lei da adoção E43/E46)"
-assert_grep "$STCU/update.log" 'adoção de UMA via iniciando' "E49/adopt: a adoção deixa réu nominal no papel (o dono sabe QUEM agiu e quando)"
+assert_eq "$rc" "0" "E50/adopt: pacote único ausente = a ponte conclui (rc 0 — a via única não tropeça)"
+assert_grep "$STCU/pacman.log" '\-Syu --needed --noconfirm --overwrite /usr/local/bin/\* elite-system' \
+  "E50/adopt: a ponte puxa O PACOTE ÚNICO com o --overwrite escopado (o pacman substitui o par legado na MESMA transação — replaces)"
+assert_grep "$STCU/update.log" 'PACOTE ÚNICO elite-system ausente' "E50/adopt: a ponte deixa réu nominal no papel (o dono sabe QUEM agiu e quando)"
 assert_grep "$STCU/update.log" 'adoção concluída' "E49/adopt: a conclusão fica no papel (o ciclo inteiro é auditável)"
-assert_grep "$STCU/update.log" 'elite-craft ausente → 1.0-4' "E49/adotar: o delta capturado NO HOOK (antes vazio) dá a adoção como mudança — nada de refresh às cegas"
-assert_grep "$STCU/update.log" 'craft-toplevel 1.0-3 → 1.0-4' "E49/adotar: o delta do segundo veículo no papel (o 'antes' foi capturado ANTES da transação da adoção)"
+assert_grep "$STCU/update.log" 'elite-system ausente → 1.0-1' "E50/adotar: o pacote único não tinha 'antes' — a ADOÇÃO já é a mudança (nada de refresh às cegas)"
+assert_grep "$STCU/update.log" 'craft-toplevel 1.0-3 → 1.0-4' "E50/adotar: o 'antes' LEGADO capturado NO HOOK narra a substituição (a história completa no papel)"
 assert_grep "$STCU/pkill.log" 'pkill -u 1000 -x craft-toplevel' "E49/adotar: o daemon de janelas MORRE PRIMEIRO (a dock nova nasce sobre o toplevel já de pé)"
 assert_grep "$STCU/pkill.log" 'pkill -u 1000 -f \^/usr/bin/python3 /usr/local/bin/craft-dock-gui\$' \
   "E49/adotar: a DOCK da sessão é reiniciada (a transição suave v2.11 vale SEM relogin — o 'continua piscando' não renasce)"
@@ -1209,7 +1218,7 @@ assert_nogrep "$STCU/update.log" 'AUSENTE' "E49/adotar: com supervisor vivo NADA
 #     mas NENHUM pkill sai — matar daemon sem quem ressuscita é dano
 rm -rf "$STCU"; mkdir -p "$STCU/units"; touch "$STCU/update.log" "$STCU/pkill.log"
 cp "$REPO/elite/airootfs/etc/systemd/system/elite-channel.timer" "$REPO/elite/airootfs/etc/systemd/system/elite-sysupdate.timer" "$STCU/units/"
-touch "$STCU/user-flip" "$STCU/ec-upgrade" "$STCU/tl-upgrade"
+touch "$STCU/user-flip" "$STCU/es-upgrade" "$STCU/tl-upgrade"
 run_adopt >/dev/null
 assert_nogrep "$STCU/pkill.log" 'pkill' "E49/adopt: SEM supervisor NENHUM daemon é morto (a lição E48 vale para os QUATRO — pkill sem volta é dano, não cura)"
 assert_grep "$STCU/update.log" 'supervisor craft-bars AUSENTE' "E49/adopt: a verdade no papel (o rig sabe que a sessão segue antiga até o relogin)"
@@ -1225,11 +1234,12 @@ assert_grep "$STCU/pkill.log" 'pkill -u 1000 -x craft-toplevel' "E49/canal: delt
 assert_nogrep "$STCU/pkill.log" 'craft-dock-gui|craft-audio-route|swayidle' "E49/canal: quem NÃO mudou NEM acorda (a dock viva não pisca por causa de update alheio)"
 
 # (5) --adotar com delta VAZIO: nenhuma morte, a cadência segue ligada
+#     (era única: o 'antes' do pacote único é passado pelo chamador)
 rm -rf "$STCU"; mkdir -p "$STCU/units"; touch "$STCU/update.log" "$STCU/pkill.log"
 cp "$REPO/elite/airootfs/etc/systemd/system/elite-channel.timer" "$REPO/elite/airootfs/etc/systemd/system/elite-sysupdate.timer" "$STCU/units/"
 touch "$STCU/user-flip" "$STCU/bars-alive"
-printf '1.0-4\n' > "$STCU/ec-ver"; printf '1.0-4\n' > "$STCU/tl-ver"
-run_cu --adotar 1.0-4 1.0-4 >/dev/null
+printf '1.0-1\n' > "$STCU/es-ver"; printf '1.0-4\n' > "$STCU/ec-ver"; printf '1.0-4\n' > "$STCU/tl-ver"
+run_cu --adotar 1.0-1 1.0-4 1.0-4 >/dev/null
 assert_nogrep "$STCU/pkill.log" 'pkill' "E49/adotar: antes == depois = NENHUM pkill (o refresh às cegas mataria daemon vivo por rotina)"
 assert_grep "$STCU/systemctl.log" 'enable --now elite-channel.timer elite-sysupdate.timer' "E49/adotar: a cadência idempotente (chamou de novo, liga de novo — sem dano)"
 

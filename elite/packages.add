@@ -277,14 +277,18 @@ zsh-syntax-highlighting
 ## pediu a dock com alt-tab perfeito e atalho clicável; o wlrctl não lista
 ## janelas — este daemon fala o protocolo DIRETO (fonte vendada no repo,
 ## sha256 pinado, compilado no [elite-local])
-craft-toplevel
+## E50 — O BINÁRIO AGORA VIAJA DENTRO DO elite-system (o pacote único); a
+## entrada viva daqui para baixo é SÓ o elite-system (a era dos dois
+## veículos encerrou — o craft-toplevel segue sendo construído no canal
+## como PONTE para os rigs que nunca tiveram pacote)
 
-## E43/E46 — O VEÍCULO DO CANAL DIÁRIO: o elite-craft empacota TODA a casa
-## executável (craft-*, elite-*, exo-open — exceto o craft-toplevel, dono
-## do pacote próprio) + as units de sistema da casa (elite-channel /
-## elite-sysupdate — a cadência E46). NA ISO ele já nasce INSTALADO (a
-## E46 provou o custo de não nascer: o rig da 28 ficou SEM o veículo e
-## TODAS as curas do canal passaram por ele — 'os erros persistem após
-## atualizar', o dono); nos rigs antigos, o craft-update v4 o INSTALA
-## (alvo explícito no -Syu; o pre_install adota os arquivos de overlay).
-elite-craft
+## E50 — O SISTEMA EM UM PACOTE SÓ (diretriz do dono: "a atualização do
+## sistema como um todo deveria ser em um só pacote — já atualizava todo
+## o sistema com um só pacote"): o elite-system carrega TODA a casa
+## executável (craft-*, elite-*, exo-open), o daemon de janelas compilado
+## do C vendado e as units de sistema da casa (a cadência E46). NA ISO ele
+## nasce INSTALADO e ÚNICO — o pacman substitui o par legado (elite-craft +
+## craft-toplevel) nos rigs pela transição (replaces/conflicts; a ponte é
+## o craft-toplevel 1.0-5 no canal diário). Configs de usuário (~) NUNCA
+## são tocados por update.
+elite-system
