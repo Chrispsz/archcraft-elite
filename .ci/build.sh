@@ -243,6 +243,7 @@ pre_install() {{
     return 0
 }}
 package() {{
+    install -d "${{pkgdir}}/usr/local/bin"
     cp -a "${{startdir}}/files/usr/local/bin/." "${{pkgdir}}/usr/local/bin/"
 }}
 """
