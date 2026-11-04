@@ -1376,10 +1376,18 @@ assert_grep "$S46/elite-sysupdate.service" 'ConditionACPower=yes' "E46/V4: a dos
 assert_file "$S46/timers.target.wants/elite-channel.timer" "E46/V4: o timer do canal nasce HABILITADO (wants symlink da overlay — a casa-prova do keyring-fix)"
 assert_file "$S46/timers.target.wants/elite-sysupdate.timer" "E46/V4: o timer do sistema nasce HABILITADO"
 # V5. O VEÍCULO NASCE INSTALADO (futuras ISOs não repetem a ferida da 28):
-assert_grep "$REPO/elite/packages.add" '^elite-craft$' "E46/V5: o elite-craft no packages.add — a ISO nasce com o veículo INSTALADO (o rig da 28 provou o custo de não nascer)"
-assert_grep "$REPO/.ci/build.sh" 'pkgrel=6' "E48/E49: pkgrel elite-craft 5→6 NO MESMO COMMIT (lei E41 — a cura v4.2 da sessão inteira mudou a casa; sem subir, o -Syu pula a cura)"
-assert_grep "$REPO/.ci/build.sh" 'files/etc/systemd/system' "E46/V5: o elite-craft carrega as units no payload /etc (sem elas o rig instalado nunca recebe a cadência)"
+# E50 — O PACOTE ÚNICO é a entrada viva (a era dos dois veículos encerrou):
+assert_grep "$REPO/elite/packages.add" '^elite-system$' "E50: o elite-system no packages.add — a ISO nasce com O PACOTE ÚNICO INSTALADO (a diretriz do dono: um só pacote atualiza todo o sistema)"
+assert_nogrep "$REPO/elite/packages.add" '^elite-craft$' "E50: o elite-craft SAIU do packages.add (a era dos dois veículos encerrou — a ISO não nasce com o fóssil)"
+assert_grep "$REPO/.ci/build.sh" 'pkgname=elite-system' "E50: O PACOTE ÚNICO existe no build (elite-system — todo o código de casa em um pacote, diretriz do dono)"
+assert_grep "$REPO/.ci/build.sh" "replaces=\('elite-craft' 'craft-toplevel'\)" "E50: o elite-system SUBSTITUI o par legado na transação (replaces — o rig antigo acorda com UM dono para /usr/local/bin)"
+assert_grep "$REPO/.ci/build.sh" "conflicts=\('elite-craft' 'craft-toplevel'\)" "E50: o elite-system CONFLITA o par legado (a coexistência de eras é impossível — UM dono só)"
+assert_grep "$REPO/.ci/build.sh" 'install -m755 craft-toplevel' "E50: o daemon de janelas viaja DENTRO do pacote único (compilado do C vendado — sem pacote irmão)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=1' "E50: o elite-system nasce pkgrel=1 (a era nova começa honesta — lei E41 de agora em diante)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=5' "E50: pkgrel craft-toplevel 4→5 NO MESMO COMMIT (lei E41 — o pacote virou PONTE: o hook puxa o pacote único; sem subir, o rig velho nunca salta de era)"
+assert_grep "$REPO/.ci/build.sh" 'files/etc/systemd/system' "E50: o elite-system carrega as units no payload /etc (sem elas o rig instalado nunca recebe a cadência)"
 assert_grep "$REPO/.ci/guard-pkgrel.sh" 'systemd/system/elite' "E46/V5: o guard-pkgrel cobra delta de UNIT também (unit mudada sem pkgrel = o -Syu pula a cadência em silêncio)"
+assert_grep "$REPO/.ci/guard-pkgrel.sh" 'check elite-system' "E50: o guard cobra o PACOTE ÚNICO (bins + units + o C vendado — o mapa conteúdo→pacote segue a era nova)"
 # ── E49: A CURA QUE SE ENTREGA SOZINHA — sessão inteira + adoção de uma
 #    via. O dono: "eu atualizei mas o sistema está aparentemente igual…
 #    a não ser que o pacote não instalou ou a lógica de atualizações não
@@ -1399,7 +1407,7 @@ assert_grep "$CU49" '--adotar' "E49: o verbo --adotar existe (a porta da conclus
 # explícitos; o elite-craft nunca é adotado; o craft-update novo mora
 # DENTRO do elite-craft. O gatilho viaja no craft-toplevel (o ÚNICO
 # pacote que TODO rig da casa tem).
-assert_grep "$REPO/.ci/build.sh" 'pkgrel=4' "E49: pkgrel craft-toplevel 3→4 NO MESMO COMMIT (lei E41 — o pacote ganhou elite-adopt + hook; sem subir, o rig velho nunca o recebe)"
+assert_grep "$REPO/.ci/build.sh" 'PACOTE ÚNICO elite-system ausente' "E50: a PONTE fala a língua da era nova (o elite-adopt puxa o elite-system — o rig que nunca teve pacote salta DIRETO para um pacote só)"
 assert_grep "$REPO/.ci/build.sh" 'cat > /tmp/elite-src/craft-toplevel/elite-adopt' "E49: o elite-adopt nasce no build.sh (fonte única — a suíte o extrai e o executa: comportamento, não texto)"
 assert_grep "$REPO/.ci/build.sh" 'When = PostTransaction' "E49: o hook é PostTransaction (dispara no fim da transação que o dono já rodou — nenhuma cerimônia nova)"
 assert_grep "$REPO/.ci/build.sh" 'Target = craft-toplevel' "E49: o gatilho é o craft-toplevel (o ÚNICO pacote da casa que TODO rig tem — até o rig da 28 recebe)"

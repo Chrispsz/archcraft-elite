@@ -158,33 +158,37 @@ EOPKGBUILD
 mkdir -p /tmp/elite-src/craft-toplevel
 cp /work/vendor/craft-toplevel.c /tmp/elite-src/craft-toplevel/
 
-# ═══ E49 — A ADOÇÃO DE UMA VIA (a quebra do ovo-galinha) ════════════════
-# O rig da era pré-E46 roda um craft-update SEM alvos explícitos (o v2 da
-# ISO 28): o -Syu atualiza o INSTALADO e o elite-craft — o veículo de
-# TODAS as curas, onde mora o craft-update novo — NUNCA é adotado; o
-# pacman não instala pacote novo sozinho, e o adoptador novo mora dentro
-# do adoptado. O gatilho mora no ÚNICO pacote da casa que TODO rig tem
-# (o craft-toplevel): hook PostTransaction + elite-adopt em
-# /usr/share/elite (fora do domínio /usr/local/bin do elite-craft — zero
-# conflito de dono de arquivo). Veículo presente = calado para sempre;
-# ausente = a adoção nasce DESPRENDIDA (pacman NÃO roda dentro do hook —
-# o lock da transação-mãe ainda vive), espera o lock soltar, adota e
-# entrega a conclusão ao craft-update --adotar: sessão inteira com o
-# código novo (dock/toplevel/áudio/idle) + cadência ligada, UMA rodada de
-# update, sem relogin — a resposta final ao 'atualizei e ficou igual'.
+# ═══ E50 — A PONTE PARA O PACOTE ÚNICO (a era dos dois veículos encerra) ═
+# O dono: 'a atualização do sistema como um todo deveria ser em um só
+# pacote — já atualizava todo o sistema com um só pacote'. O elite-system
+# (pkgname único, replaces/conflicts do par legado) é essa era nova. Mas
+# o rig que NUNCA teve pacote algum roda um craft-update sem alvos
+# explícitos: o -Syu atualiza o INSTALADO e NADA instala o pacote novo
+# sozinho. A ponte mora no ÚNICO pacote da casa que TODO rig tem (o
+# craft-toplevel): hook PostTransaction + elite-adopt em /usr/share/elite
+# puxam o elite-system — o pacman SUBSTITUI o par legado na MESMA
+# transação (replaces) e o rig salta DIRETO para a era de um pacote só.
+# Veículo único presente = calado para sempre; ausente = a adoção nasce
+# DESPRENDIDA (pacman NÃO roda dentro do hook — o lock da transação-mãe
+# ainda vive), espera o lock soltar e entrega a conclusão ao
+# craft-update --adotar: sessão inteira com o código novo
+# (dock/toplevel/áudio/idle) + cadência ligada, UMA rodada de update,
+# sem relogin — a resposta final ao 'atualizei e ficou igual'.
 cat > /tmp/elite-src/craft-toplevel/elite-adopt <<'EOADOPT'
 #!/bin/sh
-# elite-adopt — E49: A ADOÇÃO DE UMA VIA (a quebra do ovo-galinha).
-# O rig da era pré-E46 tem craft-update sem alvos explícitos: o -Syu
-# atualiza o instalado e o elite-craft (o veículo de TODAS as curas,
-# onde mora o craft-update novo) NUNCA é adotado — pacman não instala
-# pacote novo sozinho, e o adoptador novo mora dentro do adoptado.
-# O gatilho mora no hook PostTransaction do craft-toplevel (o ÚNICO
-# pacote da casa que TODO rig tem). Regras:
-#   · veículo presente → calado para sempre (custo zero por transação);
-#   · veículo ausente  → a adoção nasce DESPRENDIDA (pacman NÃO roda
+# elite-adopt — E50: A PONTE PARA O PACOTE ÚNICO (o salto de era).
+# O rig que nunca teve pacote algum roda um craft-update sem alvos
+# explícitos: o -Syu atualiza o INSTALADO e NADA instala o pacote novo
+# sozinho. O gatilho mora no hook PostTransaction do craft-toplevel (o
+# ÚNICO pacote da casa que TODO rig tem) e puxa o ELITE-SYSTEM — o
+# SISTEMA INTEIRO em um pacote (diretriz do dono); o pacman substitui o
+# par legado (elite-craft + craft-toplevel) na MESMA transação
+# (replaces/conflicts). Regras:
+#   · elite-system presente → calado para sempre (custo zero por
+#     transação — a era da ponte acabou, o hook nunca mais acorda);
+#   · elite-system ausente  → a adoção nasce DESPRENDIDA (pacman NÃO roda
 #     dentro do hook — o lock da transação que o pariu ainda vive),
-#     espera o lock soltar, adota e entrega a conclusão ao
+#     espera o lock soltar, puxa o pacote único e entrega a conclusão ao
 #     craft-update --adotar (sessão viva: dock/toplevel/áudio/idle +
 #     cadência — UMA rodada de update, sem relogin).
 # Papel: /var/log/elite-update.log com o teto E36. Portas de prova (a
@@ -214,17 +218,17 @@ adopt_body() {
     if [ -f "$LOG" ] && [ "$(wc -c <"$LOG" 2>/dev/null || echo 0)" -gt 262144 ]; then
         tail -c 131072 "$LOG" >"$LOG.tmp" 2>/dev/null && mv -f "$LOG.tmp" "$LOG" || true
     fi
-    printf '[%s] adotar: veículo elite-craft ausente — adoção de UMA via iniciando (hook do craft-toplevel, E49)\n' "$(date '+%F %T')" >>"$LOG" 2>/dev/null || true
-    if ! pacman -Sy --needed --noconfirm --overwrite '/usr/local/bin/*' \
-            elite-craft craft-toplevel >>"$LOG" 2>&1; then
+    printf '[%s] adotar: PACOTE ÚNICO elite-system ausente — a ponte puxa o sistema inteiro (hook do craft-toplevel, E50)\n' "$(date '+%F %T')" >>"$LOG" 2>/dev/null || true
+    if ! pacman -Syu --needed --noconfirm --overwrite '/usr/local/bin/*' \
+            elite-system >>"$LOG" 2>&1; then
         printf '[%s] adotar: pacman RECUSOU a adoção — a prova está acima no log (o próximo update tenta de novo)\n' "$(date '+%F %T')" >>"$LOG" 2>/dev/null || true
         return 1
     fi
-    # o craft-update no disco AGORA é o novo (veio no veículo) — a sessão
-    # viva recebe a cura POR ELE (fonte única da lógica de refresh); os
-    # 'antes' capturados NO HOOK dão o delta exato (nada de churn de
-    # daemon que não mudou)
-    "$CU" --adotar "$_ec" "$_tl" >>"$LOG" 2>&1 || true
+    # o craft-update no disco AGORA é o novo (veio no pacote único) — a
+    # sessão viva recebe a cura POR ELE (fonte única da lógica de refresh);
+    # os 'antes' capturados NO HOOK narram a transição: o pacote único vai
+    # VAZIO na frente (a ADOÇÃO já é a mudança), o par legado na sequência
+    "$CU" --adotar "" "$_ec" "$_tl" >>"$LOG" 2>&1 || true
     printf '[%s] adotar: adoção concluída — o veículo vive e a sessão recebeu o código novo\n' "$(date '+%F %T')" >>"$LOG" 2>/dev/null || true
 }
 
@@ -236,8 +240,9 @@ fi
 
 [ "$(id -u)" = 0 ] || exit 0
 command -v pacman >/dev/null 2>&1 || exit 0
+_es="$(pacman -Q elite-system 2>/dev/null | awk '{print $2}')"
+[ -n "$_es" ] && exit 0    # o PACOTE ÚNICO já vive — hook calado, custo zero
 _ec="$(pacman -Q elite-craft 2>/dev/null | awk '{print $2}')"
-[ -n "$_ec" ] && exit 0    # veículo presente — hook calado, custo zero
 _tl="$(pacman -Q craft-toplevel 2>/dev/null | awk '{print $2}')"
 
 if [ "${ELITE_ADOPT_SYNC:-0}" = "1" ]; then
@@ -255,7 +260,7 @@ Type = Package
 Target = craft-toplevel
 
 [Action]
-Description = Elite: adoção de UMA via do veículo elite-craft (o rig velho se auto-cura — E49)
+Description = Elite: a ponte puxa o PACOTE ÚNICO elite-system (o rig velho salta de era — E50)
 When = PostTransaction
 Exec = /usr/share/elite/elite-adopt
 EOHOOK
@@ -279,7 +284,12 @@ pkgver=1.0
 # da era pré-E46 roda um craft-update sem alvos explícitos e NUNCA adota
 # o veículo por si — o gatilho viaja no ÚNICO pacote da casa que TODO rig
 # tem; UMA rodada de update fecha tudo (veículo + sessão viva + cadência).
-pkgrel=4
+# E50 — A ÚLTIMA VERSÃO DO PAR: o pacote vira PONTE — o hook puxa o
+# ELITE-SYSTEM (o sistema inteiro em um pacote, replaces/conflicts do par
+# legado) e o rig salta de era na MESMA transação. O daemon continua
+# aqui (o rig cuja ponte falha offline segue funcional até a próxima
+# dose). Lei E41: pkgrel NO MESMO commit.
+pkgrel=5
 pkgdesc='Daemon wlr-foreign-toplevel da Elite — janelas por id (LIST/ACT/CLOSE/CYCLE + anel MRU) para a dock comutar de verdade'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
@@ -309,45 +319,50 @@ package() {
 EOPKGBUILD
 
 # ═════════════════════════════════════════════════════════════════════
-# E43 — O CANAL DIÁRIO: o pacote elite-craft
-# O código de casa em /usr/local/bin NUNCA foi pacote: rigs instalados só
-# o recebiam de ISO nova (a E41 provou o custo: cura no main = rig velho).
-# O elite-craft empacota TODA a casa executável (craft-*, elite-*, exo-open
-# — EXCETO o craft-toplevel, dono do pacote próprio) para o craft-update
-# -Syu entregar o dia a dia SEM reinstalar (Server = releases/latest — E32).
-# A lista nasce do PRÓPRIO tree (fonte única): script novo no airootfs =
-# entra no pacote na próxima build; o guard-pkgrel cobra o pkgrel.
-say "Gerando o PKGBUILD do elite-craft (o canal diário — E43/E46)"
-mkdir -p /tmp/elite-src/elite-craft/files/usr/local/bin
-mkdir -p /tmp/elite-src/elite-craft/files/etc/systemd/system
+# E50 — O PACOTE ÚNICO: elite-system
+# O dono: "a atualização do sistema como um todo deveria ser em um só
+# pacote — assim fica até mais organizado o repositório e já atualizava
+# todo o sistema com um só pacote". A era dos DOIS veículos (elite-craft
+# E43 + craft-toplevel E32) se ENCERRA: TODO o código de casa — scripts
+# (craft-*, elite-*, exo-open), o daemon de janelas compilado do C
+# vendado, as units da cadência — viaja em UM pacote com UM número para
+# olhar. O pacman substitui o par legado na transação (replaces/
+# conflicts) e o craft-toplevel 1.0-5 é a ponte dos rigs que nunca
+# tiveram pacote (o hook dele puxa o elite-system). Na ISO o pacote nasce
+# INSTALADO (packages.add); nos rigs, o craft-update v5 o usa como alvo
+# explícito ÚNICO. Lei E41: pkgrel sobe NO MESMO commit (o guard cobra).
+say "Gerando o PKGBUILD do elite-system (O PACOTE ÚNICO — E50)"
+mkdir -p /tmp/elite-src/elite-system/files/usr/local/bin
+mkdir -p /tmp/elite-src/elite-system/files/etc/systemd/system
+cp /work/vendor/craft-toplevel.c /tmp/elite-src/elite-system/
 # caminho ABSOLUTO: aqui o CWD é /tmp/elite-src/<pkg> (o cd da seção pywal
 # acima) — o relativo nasceria vazio (a lição vai no próprio comentário).
 for f in /work/elite/airootfs/usr/local/bin/*; do
     b="${f##*/}"
+    # o daemon NÃO vem do overlay — nasce do C compilado no build()
+    # (fonte única vendada com sha256; o skip é cinto e suspensório)
     [ "$b" = "craft-toplevel" ] && continue
     printf '%s\n' "$b"
-done > /tmp/elite-src/elite-craft/files/MANIFEST
+done > /tmp/elite-src/elite-system/files/MANIFEST
 while read -r f; do
-    cp -p "/work/elite/airootfs/usr/local/bin/$f" /tmp/elite-src/elite-craft/files/usr/local/bin/
-done < /tmp/elite-src/elite-craft/files/MANIFEST
-# E46 — as units de SISTEMA da casa entram no pacote: sem elas, o rig
-# instalado nunca recebe a cadência (canal diário + sistema semanal) —
-# a mesma classe da ferida dos bins. Só as units de topo da casa
-# (elite-*); wants symlinks e drop-ins de terceiros seguem de overlay.
+    cp -p "/work/elite/airootfs/usr/local/bin/$f" /tmp/elite-src/elite-system/files/usr/local/bin/
+done < /tmp/elite-src/elite-system/files/MANIFEST
+# as units de SISTEMA da casa entram no pacote: sem elas, o rig instalado
+# nunca recebe a cadência — a mesma classe da ferida dos bins. Só as
+# units de topo da casa (elite-*); wants symlinks e drop-ins de terceiros
+# seguem de overlay.
 shopt -s nullglob
 for u in /work/elite/airootfs/etc/systemd/system/elite-*.service \
          /work/elite/airootfs/etc/systemd/system/elite-*.timer; do
-    cp -p "$u" /tmp/elite-src/elite-craft/files/etc/systemd/system/
+    cp -p "$u" /tmp/elite-src/elite-system/files/etc/systemd/system/
 done
 shopt -u nullglob
-python3 - /tmp/elite-src/elite-craft <<'PYE43'
+python3 - /tmp/elite-src/elite-system <<'PYE50'
 import sys, pathlib
 d = pathlib.Path(sys.argv[1])
 files = (d / 'files/MANIFEST').read_text().split()
 units = sorted(p.name for p in (d / 'files/etc/systemd/system').iterdir())
 names = chr(10).join(f'        "{f}" \\' for f in files)   # cada item com \ de continuação — a lista do for NÃO aceita quebra simples
-# E46 — a adoção cobre também as units (rigs antigos têm as elite-* como
-# overlay sem dono; o mesmo rm-antes-de-instalar do pre_install)
 unames = chr(10).join(f'        "/etc/systemd/system/{u}" \\' for u in units)
 unit_loop = f"""    for f in \\
 {unames}
@@ -358,50 +373,42 @@ unit_loop = f"""    for f in \\
 unit_install = f"""    install -d "${{pkgdir}}/etc/systemd/system"
     cp -a "${{startdir}}/files/etc/systemd/system/." "${{pkgdir}}/etc/systemd/system/"
 """ if units else ""
-pkg = f"""pkgname=elite-craft
+pkg = f"""pkgname=elite-system
 pkgver=1.0
-# E46 — O VEÍCULO QUE INSTALA + A CADÊNCIA: o rig da 28 provou o custo do
-# veículo que nunca é INSTALADO (pacman -Syu só atualiza quem já tem —
-# 'os erros persistem após atualizar', o dono). Este pkgrel carrega:
-# craft-update v4 (alvos explícitos + doses --canal/--sistema),
-# craft-power (rollback fora do menu Sessão), craft-idle (menu em duas
-# portas) e o craft-extract (o verbo novo) — mais as units da cadência
-# (elite-channel/elite-sysupdate) no payload /etc. Lei E41: pkgrel NO
-# MESMO commit (o guard-pkgrel cobra; sem isso o -Syu pula).
-# E47 — o mesmo veículo entrega o before-sleep sem corrida: craft-lock
-# --if-needed (o lock vivo não morre no escuro do PrepareForSleep — a
-# denúncia 'só suspende quando coloco a senha') e o craft-idle chamando
-# o novo verbo nos dois braços do before-sleep.
-# E48 — o update perfeito não pede relogin: craft-update reinicia o
-# swayidle da SESSÃO VIVA quando o elite-craft muda (o supervisor
-# craft-bars ressuscita com a receita nova — o dump nl3z provou o rig
-# correndo a receita velha DEPOIS do update); craft-bgapps v4.2 (o
-# 'python 3' era o craft-audio-route e o 'pactl' o seu filho — os dois
-# saem da lista; o Brave lançado pela dock ENTRA; sombra com réu
-# nomeado + verbo list); craft-dock-gui v2.11 (a transição dos
-# dinâmicos desliza — GtkRevealer — em vez de piscar).
-# E49 — a cura chega à SESSÃO INTEIRA e a UMA via: craft-update v4.2
-# (refresh por delta e por pacote — dock/toplevel/áudio/idle; verbo
-# --adotar) + craft-toplevel 1.0-4 carrega o elite-adopt (hook
-# PostTransaction no ÚNICO pacote que TODO rig tem — o ovo-galinha do
-# 'atualizei e ficou igual' morre: UMA rodada de update adota o veículo
-# e a sessão inteira segue viva, sem relogin).
-pkgrel=6
-pkgdesc='Código de casa da Elite (craft-*, elite-*, exo-open + units da cadência em /etc) — o canal diário de atualização sem reinstalar'
+# E50 — O SISTEMA EM UM PACOTE SÓ (diretriz do dono). Todo o código de
+# casa viaja aqui: os scripts, o daemon de janelas compilado do C vendado
+# (sha256 pinado), as units da cadência. O pacman SUBSTITUI o par legado
+# (elite-craft + craft-toplevel) na transação — o rig antigo acorda com
+# UM dono para /usr/local/bin e UM número para olhar.
+pkgrel=1
+pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
 license=(GPL3)
-depends=(bash python)
-# E43 — sem -debug (arquivos de shell/python; nada a tirar símbolo)
+depends=(bash python wayland)
+# E50 — A SUBSTITUIÇÃO DE ERA: conflita e substitui os DOIS veículos
+# legados — o -Syu do craft-update (alvo elite-system) remove o par e
+# instala o único na MESMA transação; configs de usuário (~) NUNCA são
+# tocados (o domínio da casa continua sendo /usr/local/bin + /etc/systemd).
+replaces=('elite-craft' 'craft-toplevel')
+conflicts=('elite-craft' 'craft-toplevel')
+# sem -debug (shell/python + binário já compilado com -s; nada a tirar
+# símbolo)
 options=(!debug !strip)
-# E43 — ADOÇÃO: nos rigs, estes arquivos nasceram SEM dono (overlay da
-# ISO). pacman recusa sobrescrever arquivo não-dono — o scriptlet remove
-# ANTES exatamente os caminhos que ESTE pacote entrega (cada um volta
-# pelo pacote na MESMA transação; a lista vem do MANIFEST de geração).
-# E46 — a adoção cobre também as units (mesma ferida, mesmo remédio).
+source=("craft-toplevel.c")
+sha256sums=('24d537866c1bc81881dc5f6e69a64b10447ae2de6270f18a6c8d0cf54f81b7be')
+build() {{
+    gcc -O2 -Wall -Wextra -s -o craft-toplevel craft-toplevel.c -lwayland-client
+}}
+# ADOÇÃO (a herança do elite-craft): nos rigs, estes arquivos nasceram SEM
+# dono (overlay da ISO) — o pacman recusa sobrescrever não-dono ANTES de
+# qualquer scriptlet; o pre_install remove exatamente os caminhos que
+# ESTE pacote entrega (a lista vem do MANIFEST de geração — fonte única).
+# O par legado INSTALADO não entra nesta dança: o replaces do pacman o
+# remove ANTES da extração deste pacote (remoções precedem instalações).
 pre_install() {{
     local f
-    for f in \
+    for f in \\
 {names}
     ; do
         [ -e "/usr/local/bin/$f" ] && rm -f "/usr/local/bin/$f"
@@ -411,10 +418,14 @@ pre_install() {{
 package() {{
     install -d "${{pkgdir}}/usr/local/bin"
     cp -a "${{startdir}}/files/usr/local/bin/." "${{pkgdir}}/usr/local/bin/"
+    install -m755 craft-toplevel "${{pkgdir}}/usr/local/bin/craft-toplevel"
+    # a fonte do daemon viaja no pacote (transparência — o mesmo papel que
+    # ela tinha no craft-toplevel legado)
+    install -Dm644 craft-toplevel.c "${{pkgdir}}/usr/local/share/elite/src/craft-toplevel.c"
 {unit_install}}}
 """
 (d / 'PKGBUILD').write_text(pkg)
-PYE43
+PYE50
 
 # makepkg se recusa a rodar como root — usuário builder descartável
 useradd -m builder 2>/dev/null || true
@@ -422,9 +433,9 @@ chown -R builder /tmp/elite-src
 # E43 — PACKAGES_ONLY=1 (canal diário, publish-packages.yml): só os
 # pacotes de CÓDIGO DE CASA — pywal/qt5vk/wlrctl não mudam no dia a dia
 # (o repo completo do release vivo entra no job por download+repo-add).
-PKG_LIST=(python-pywal qt5-virtualkeyboard wlrctl craft-toplevel elite-craft)
+PKG_LIST=(python-pywal qt5-virtualkeyboard wlrctl craft-toplevel elite-system)
 if [[ "${PACKAGES_ONLY:-0}" == "1" ]]; then
-    PKG_LIST=(craft-toplevel elite-craft)
+    PKG_LIST=(craft-toplevel elite-system)
 fi
 for pkgdir in "${PKG_LIST[@]}"; do
     (cd "/tmp/elite-src/$pkgdir" && runuser -l builder -c "cd /tmp/elite-src/$pkgdir && makepkg -f --noconfirm") \

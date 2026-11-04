@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# craft-update — atualiza TUDO que a Elite entrega (v4 — E46)
+# craft-update — atualiza TUDO que a Elite entrega (v5 — E50)
 # ═══════════════════════════════════════════════════════════════════════════
 # v1 (v2.10.5): 'sudo pacman -Syu' + cabeçalho honesto (paru prometido não
 #   existe — o bloco fica pronto, mas calado enquanto paru não entra).
@@ -81,6 +81,26 @@
 #       lock da transação-mãe ainda vive) → craft-update --adotar fecha a
 #       rodada: sessão inteira com o código novo + cadência ligada, UMA
 #       atualização, sem relogin.
+# v5 (E50 — O SISTEMA EM UM PACOTE SÓ): o dono: "a atualização do sistema
+#   como um todo deveria ser em um só pacote — assim fica até mais
+#   organizado o repositório e já atualizava todo o sistema com um só
+#   pacote". A era dos DOIS veículos (elite-craft + craft-toplevel) se
+#   ENCERRA: o elite-system carrega TUDO (scripts + daemon de janelas +
+#   units da cadência) e o pacman substitui o par legado na transação
+#   (replaces/conflicts). As mãos:
+#   (1) O ALVO ÚNICO no -Syu (elite-system): quem não tem, INSTALA (e o
+#       pacman remove o par legado na MESMA transação); quem tem,
+#       atualiza. UM número para olhar, UM dono para /usr/local/bin.
+#   (2) O DELTA DA CASA ÚNICA: o refresh da sessão viva lê o elite-system
+#       (os deltas LEGADOS contam para a transição — presente → ausente é
+#       a substituição acontecendo); o daemon de janelas agora viaja no
+#       pacote único, então mudou a casa = toplevel também reinicia (a
+#       ordem importa: toplevel primeiro, a dock nasce sobre ele de pé).
+#   (3) A PONTE dos rigs sem pacote algum: o craft-toplevel 1.0-5 (o
+#       ÚNICO pacote que TODO rig tem) puxa o elite-system pelo hook e
+#       entrega a conclusão ao --adotar (os 'antes' LEGADOS que o hook
+#       capturou dão o delta da transição — o pacote único não tinha
+#       'antes': a ADOÇÃO já é a mudança).
 # ═══════════════════════════════════════════════════════════════════════════
 set -euo pipefail
 
@@ -122,42 +142,48 @@ notify_users() {
     done < <(loginctl list-users --no-legend 2>/dev/null || true)
 }
 
-# o delta do veículo: a versão instalada do elite-craft (vazio =
-# ausente — a adoção da E46 TAMBÉM é delta: '?' → '1.0-1' mudou a casa)
+# o delta da casa ÚNICA: a versão do elite-system (vazio = ausente — a
+# ADOÇÃO e a SUBSTITUIÇÃO também são delta: '?' → '1.0-1' mudou a casa)
+es_q() {
+    pacman -Q elite-system 2>/dev/null | awk '{print $2}' || true
+}
+
+# LEGADO (a transição E50): os DOIS veículos da era antiga. Mudarem AQUI
+# (presente → ausente) é a prova da substituição pelo pacote único; o
+# papel registra a história completa (rig nenhum fica sem narrativa)
 elite_craft_q() {
     pacman -Q elite-craft 2>/dev/null | awk '{print $2}' || true
 }
 
-# E49 — o delta do SEGUNDO veículo: o daemon de janelas tem pacote
-# próprio (craft-toplevel) — mudou na transação, a sessão também merece
-# o daemon novo sem relogin (mesma lógica, mesmo papel)
 craft_tl_q() {
     pacman -Q craft-toplevel 2>/dev/null | awk '{print $2}' || true
 }
 
-# E48→E49 — A CURA NA SESSÃO VIVA, agora INTEIRA: o update troca ARQUIVOS,
-# mas o daemon vivo corre a receita ANTERIOR até relogin (o dump nl3z
-# provou no idle; a dock e o áudio padecem da MESMA febre). O pkill é
-# cirúrgico DUAS VEZES: por DELTA (só morre quem mudou de pacote) e por
-# SUPERVISOR (só morre quem tem craft-bars vivo para ressuscitar em ~1s
-# com o código novo). A ORDEM importa: o toplevel primeiro — a dock nova
-# nasce sobre o daemon de janelas já de pé (ELITE_TL_SETTLE é a porta de
-# prova da espera, mesma escola do VMARK/ELITE_UNIT_DIR).
+# E48→E49→E50 — A CURA NA SESSÃO VIVA, agora com UM dono: o update troca
+# ARQUIVOS, mas o daemon vivo corre a receita ANTERIOR até relogin. O
+# pkill é cirúrgico DUAS VEZES: por DELTA (só morre quem mudou de pacote)
+# e por SUPERVISOR (só morre quem tem craft-bars vivo para ressuscitar em
+# ~1s com o código novo). A ORDEM importa: o toplevel primeiro — a dock
+# nova nasce sobre o daemon de janelas já de pé (ELITE_TL_SETTLE é a
+# porta de prova da espera, mesma escola do VMARK/ELITE_UNIT_DIR). No E50
+# o daemon de janelas viaja DENTRO do pacote único: mudou a casa → o
+# toplevel também reinicia (os deltas LEGADOS preservam os rigs de
+# transição).
 refresh_session() {
-    local ec_mudou="$1" tl_mudou="$2" uid
-    [ "$ec_mudou" = 1 ] || [ "$tl_mudou" = 1 ] || return 0
+    local casa_mudou="$1" tl_mudou="$2" uid
+    [ "$casa_mudou" = 1 ] || [ "$tl_mudou" = 1 ] || return 0
     while read -r uid _; do
         [ -n "$uid" ] || continue
         if ! pgrep -u "$uid" -x craft-bars >/dev/null 2>&1; then
             ulog "sessão: supervisor craft-bars AUSENTE (uid $uid) — a sessão segue com o código antigo até relogin (pkill sem volta seria dano, não cura)"
             continue
         fi
-        if [ "$tl_mudou" = 1 ] && pgrep -u "$uid" -x craft-toplevel >/dev/null 2>&1; then
+        if { [ "$tl_mudou" = 1 ] || [ "$casa_mudou" = 1 ]; } && pgrep -u "$uid" -x craft-toplevel >/dev/null 2>&1; then
             pkill -u "$uid" -x craft-toplevel 2>/dev/null || true
             ulog "sessão: craft-toplevel (uid $uid) reiniciado — o supervisor ressuscita com o daemon de janelas novo"
             sleep "${ELITE_TL_SETTLE:-2}"
         fi
-        if [ "$ec_mudou" = 1 ]; then
+        if [ "$casa_mudou" = 1 ]; then
             if pgrep -u "$uid" -f '^/usr/bin/python3 /usr/local/bin/craft-dock-gui$' >/dev/null 2>&1; then
                 pkill -u "$uid" -f '^/usr/bin/python3 /usr/local/bin/craft-dock-gui$' 2>/dev/null || true
                 ulog "sessão: dock craft-dock-gui (uid $uid) reiniciada — a transição suave dos dinâmicos vale SEM relogin"
@@ -174,29 +200,39 @@ refresh_session() {
     done < <(loginctl list-users --no-legend 2>/dev/null || true)
 }
 
-# o delta que IMPORTA para a sessão: versão antes ≠ depois (ou adoção),
-# POR PACOTE — elite-craft muda → dock/áudio/idle; craft-toplevel muda →
-# daemon de janelas; ambos na transação → os dois mundos na mesma cura
+# o delta que IMPORTA para a sessão: versão antes ≠ depois (ou adoção, ou
+# SUBSTITUIÇÃO de era), POR PACOTE — elite-system mudou (ou o legado
+# mudou/apagou) → dock/áudio/idle/toplevel; o papel narra a história
+# completa da transição (o rig da era velha fica com a prova da troca)
 refresh_if_craft_changed() {
-    local ec_antes="$1" tl_antes="$2" ec_depois tl_depois ec_m=0 tl_m=0
+    local es_antes="$1" ec_antes="$2" tl_antes="$3" es_depois ec_depois tl_depois casa_m=0 tl_m=0
+    es_depois="$(es_q)"
     ec_depois="$(elite_craft_q)"
     tl_depois="$(craft_tl_q)"
-    [[ "$ec_depois" != "$ec_antes" ]] && ec_m=1
+    [[ "$es_depois" != "$es_antes" ]] && casa_m=1
+    [[ "$ec_depois" != "$ec_antes" ]] && casa_m=1
     [[ "$tl_depois" != "$tl_antes" ]] && tl_m=1
-    if [ "$ec_m" = 1 ] || [ "$tl_m" = 1 ]; then
-        ulog "casa: elite-craft ${ec_antes:-ausente} → ${ec_depois:-ausente} · craft-toplevel ${tl_antes:-ausente} → ${tl_depois:-ausente} — a sessão recebe o código novo"
-        refresh_session "$ec_m" "$tl_m"
+    if [ "$casa_m" = 1 ] || [ "$tl_m" = 1 ]; then
+        ulog "casa: elite-system ${es_antes:-ausente} → ${es_depois:-ausente} · elite-craft ${ec_antes:-ausente} → ${ec_depois:-ausente} · craft-toplevel ${tl_antes:-ausente} → ${tl_depois:-ausente} — a sessão recebe o código novo"
+        refresh_session "$casa_m" "$tl_m"
         notify_users 'Elite: código da casa atualizado' \
             'Idle/suspensão, dock e áudio da sessão já valem o novo — sem relogin.'
     fi
 }
 
-# ── a porta da ADOÇÃO (E49 — o elite-adopt entrega aqui): o rig velho
-# adotou o veículo pelo hook do craft-toplevel; o craft-update NOVO
-# conclui a rodada: refresh da sessão viva (delta exato que o hook
-# capturou ANTES) + cadência ligada. UMA atualização, sem relogin.
+# ── a porta da ADOÇÃO (E49/E50 — o elite-adopt entrega aqui): o rig velho
+# foi puxado pelo hook do craft-toplevel (a PONTE para o pacote único); o
+# craft-update NOVO conclui a rodada: refresh da sessão viva (o pacote
+# único não tinha 'antes' — a ADOÇÃO já é a mudança; os 'antes' LEGADOS
+# do hook narram a substituição) + cadência ligada. UMA atualização, sem
+# relogin.
 if [[ "${1:-}" == "--adotar" ]]; then
-    refresh_if_craft_changed "${2:-}" "${3:-}"
+    # assinatura v5: --adotar ES_ANTES EC_ANTES TL_ANTES — a ponte (o hook)
+    # não tem 'antes' do pacote único e passa VAZIO na frente (a ADOÇÃO já
+    # é a mudança); quem chama com o delta completo o narra inteiro
+    # (o verbo consome $1 — os deltas moram em $2/$3/$4; a lição do rc
+    # capturado fora da negação: a posição certa ANTES de usar)
+    refresh_if_craft_changed "${2:-}" "${3:-}" "${4:-}"
     UNITDIR="${ELITE_UNIT_DIR:-/etc/systemd/system}"
     if [ -f "$UNITDIR/elite-channel.timer" ] && [ -f "$UNITDIR/elite-sysupdate.timer" ]; then
         if run_root systemctl enable --now elite-channel.timer elite-sysupdate.timer >/dev/null 2>&1; then
@@ -209,15 +245,30 @@ fi
 # ── dose DIÁRIA: o canal da casa (elite-channel.timer — 11:30±40min) ────
 if [[ "${1:-}" == "--canal" ]]; then
     ulog "canal: iniciando (dose diária dos pacotes da casa)"
+    es_before="$(es_q)"
     ec_before="$(elite_craft_q)"
     tl_before="$(craft_tl_q)"
     CANAL_PKGS=()
+    # E50 — a era do PACOTE ÚNICO: o par legado NÃO entra na dose. O
+    # elite-craft é FÓSSIL do db (o replaces o removeu do rig) e o
+    # craft-toplevel é a PONTE congelada (o daemon vive no pacote único) —
+    # puxar qualquer um num rig da era nova seria BRIGA DE DONO pelo
+    # binário do daemon e o pacman RECUSARIA a dose inteira.
+    ERA_UNICA=""
+    [ -n "$(es_q)" ] && ERA_UNICA=1
     while IFS= read -r p; do
-        [ -n "$p" ] && CANAL_PKGS+=("$p")
+        [ -n "$p" ] || continue
+        if [ -n "$ERA_UNICA" ] && { [ "$p" = "elite-craft" ] || [ "$p" = "craft-toplevel" ]; }; then
+            continue
+        fi
+        CANAL_PKGS+=("$p")
     done < <(pacman -Slq elite-local 2>/dev/null || true)
     if [ "${#CANAL_PKGS[@]}" -eq 0 ]; then
         ulog "canal: [elite-local] não respondeu (offline?) — silêncio, o timer volta amanhã"
         exit 0
+    fi
+    if [ -n "$ERA_UNICA" ]; then
+        ulog "canal: era do pacote único — o par legado (fóssil/ponte) fica fora da dose"
     fi
     if ! run_root pacman -Sy --needed --noconfirm \
             --overwrite '/usr/local/bin/*' "${CANAL_PKGS[@]}" >>"$ULOG" 2>&1; then
@@ -227,7 +278,7 @@ if [[ "${1:-}" == "--canal" ]]; then
         exit 1
     fi
     ulog "canal: OK — ${CANAL_PKGS[*]}"
-    refresh_if_craft_changed "$ec_before" "$tl_before"
+    refresh_if_craft_changed "$es_before" "$ec_before" "$tl_before"
     notify_users 'Elite: canal em dia' 'O código da casa foi atualizado (dose diária).'
     exit 0
 fi
@@ -252,6 +303,7 @@ if [[ "${1:-}" == "--sistema" ]]; then
         ulog "sistema: snapper indisponível — seguindo SEM rede de segurança (honesto)"
     fi
     kbefore="$(pacman -Q "$KPKG" 2>/dev/null | awk '{print $2}' || true)"
+    es_before="$(es_q)"
     ec_before="$(elite_craft_q)"
     tl_before="$(craft_tl_q)"
     # o rc REAL se captura fora da negação (dentro do `if !`, o $? é o
@@ -265,7 +317,7 @@ if [[ "${1:-}" == "--sistema" ]]; then
             "rc=$sys_rc — log: /var/log/elite-update.log${PRE_N:+ · rollback: snapshot #$PRE_N no GRUB}"
         exit 1
     fi
-    refresh_if_craft_changed "$ec_before" "$tl_before"
+    refresh_if_craft_changed "$es_before" "$ec_before" "$tl_before"
     if [ -n "$PRE_N" ] && snapper -c root create -t post --pre-number "$PRE_N" \
             -d 'elite-sysupdate' >/dev/null 2>&1; then
         ulog "sistema: snapshot POST #$PRE_N criado (o par PRE/POST fecha a história)"
@@ -285,21 +337,27 @@ fi
 # ── a porta MANUAL (o menu 'Atualizar sistema'): o -Syu completo ────────
 # kernel ANTES da transação (o -Syu pode tocá-lo; vazio = pacote ausente)
 kbefore="$(pacman -Q "$KPKG" 2>/dev/null | awk '{print $2}' || true)"
-# E48 — o veículo ANTES (a adoção e o upgrade contam como delta da casa)
-# E49 — os DOIS veículos: o daemon de janelas tem pacote próprio
+# E48 — a casa ANTES (a adoção e o upgrade contam como delta da casa)
+# E50 — o ALVO ÚNICO: o elite-system é a casa inteira; o pacman substitui
+# o par legado (elite-craft + craft-toplevel) na MESMA transação
+# (replaces/conflicts) — os deltas LEGADOS capturados aqui narram a
+# substituição (presente → ausente) no papel
+es_before="$(es_q)"
 ec_before="$(elite_craft_q)"
 tl_before="$(craft_tl_q)"
 
-# E46 — os alvos EXPLÍCITOS fazem a ADOÇÃO DO VEÍCULO: o rig que nunca
-# teve o elite-craft o INSTALA nesta transação (o pre_install do pacote
-# adota os arquivos de overlay); quem já tem, segue na dose normal.
-run_root pacman -Syu --needed --overwrite '/usr/local/bin/*' elite-craft craft-toplevel
+# E46/E50 — o alvo EXPLÍCITO faz a ADOÇÃO E A SUBSTITUIÇÃO DE ERA: o rig
+# que nunca teve pacote INSTALA o único nesta transação (o pre_install
+# adota os arquivos de overlay); quem tinha o par legado acorda com UM
+# dono (o pacman remove o par na mesma transação); quem já tem o único,
+# segue na dose normal.
+run_root pacman -Syu --needed --overwrite '/usr/local/bin/*' elite-system
 
-# E48→E49 — a sessão do dono recebe o código novo NA HORA e INTEIRA (o
+# E48→E50 — a sessão do dono recebe o código novo NA HORA e INTEIRA (o
 # daemon vivo não segue com a receita velha até relogin — a ferida do
 # 'atualizei e persistiu' morre aqui, na dock, no áudio, no idle e no
-# daemon de janelas)
-refresh_if_craft_changed "$ec_before" "$tl_before"
+# daemon de janelas — que agora viaja no pacote único)
+refresh_if_craft_changed "$es_before" "$ec_before" "$tl_before"
 
 # E46 — o automatismo nasce aqui (idempotente): os timers da casa ficam
 # vivos depois da 1ª 'Atualizar sistema' — a cadência assume a partir daí.
