@@ -9,6 +9,11 @@
 #   push no main (código de casa) → guarda da lei E41 → makepkg dos pacotes
 #   da casa (PACKAGES_ONLY, minutos — sem ISO) → repo-add contra o db do
 #   release vivo → upload --clobber → o craft-update do rig (-Syu) entrega.
+#   E50 — O CANAL PUBLICA A ERA NOVA: elite-system (O PACOTE ÚNICO) + o
+#   craft-toplevel PONTE (1.0-5 — o hook dele puxa o pacote único nos rigs
+#   que nunca tiveram pacote). O elite-craft PAROU de ser publicado (a era
+#   dos dois veículos encerrou; o último 1.0-6 segue no db como fóssil —
+#   os rigs que o têm são substituídos pelo replaces do elite-system).
 #
 # A LEI DA RELEASE ÚNICA VIVA fica intacta: NENHUMA release é criada/apagada;
 # os assets de ISO/sha256sums/JUNTAR-ISO/body da release viva NUNCA são
@@ -87,11 +92,11 @@ jobs:
               cat sha256sums-pacotes.txt
               gh release upload "$TAG" elite-local.db elite-local.db.tar.gz \
                 /work/out/pacotes/craft-toplevel-*.pkg.tar.zst \
-                /work/out/pacotes/elite-craft-*.pkg.tar.zst \
+                /work/out/pacotes/elite-system-*.pkg.tar.zst \
                 sha256sums-pacotes.txt \
                 --repo "$REPO" --clobber
               echo "── assets de PACOTE da release viva após a run:"
               gh release view "$TAG" --repo "$REPO" --json assets --jq ".assets[].name" \
-                | grep -E "elite-craft|craft-toplevel|elite-local\.db|sha256sums-pacotes" || true
+                | grep -E "elite-system|craft-toplevel|elite-local\.db|sha256sums-pacotes" || true
               echo "── prontos: o craft-update do rig entrega no próximo -Syu."
             '

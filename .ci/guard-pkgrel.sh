@@ -9,10 +9,12 @@
 # de ter subido o pkgrel DELE — comparado contra a ÚLTIMA TAG. Falhou =
 # push vermelho = o mantenedor sobe o pkgrel NO MESMO commit.
 #
-# O mapa conteúdo→pacote (E43, refinamento: o guard grosso cobraria o
-# craft-toplevel por mudança de craft-bars — réu errado):
-#   vendor/craft-toplevel.c                                   → craft-toplevel
-#   elite/airootfs/usr/local/bin/* (menos craft-toplevel)     → elite-craft
+# O mapa conteúdo→pacote (E43→E50 — a era do PACOTE ÚNICO):
+#   vendor/craft-toplevel.c                                   → craft-toplevel (PONTE) + elite-system
+#   elite/airootfs/usr/local/bin/*                            → elite-system (o daemon COMPILADO também vive aqui)
+#   elite/airootfs/etc/systemd/system/elite-*                 → elite-system
+# (o elite-craft parou de existir: o replaces do elite-system o remove
+# dos rigs na transição; o guard não o cobra mais)
 #
 # Roda no publish-packages.yml (fetch-depth: 0 — precisa de história).
 # Sem tag ou sem delta do pacote → sai 0 (nada a cobrar).
@@ -54,16 +56,17 @@ check() { # $1=pacote  $2=delta (nomes de arquivo)
 }
 
 fail=0
-# craft-toplevel: o C vendado É o conteúdo do pacote
+# craft-toplevel (a PONTE E50): o C vendado É o conteúdo do pacote
 VENDOR_DELTA="$(git diff --name-only "$LAST_TAG" HEAD -- vendor/ || true)"
 check craft-toplevel "$VENDOR_DELTA" || fail=1
 
-# elite-craft: todo o /usr/local/bin da casa MENOS o arquivo dono do pacote
-# próprio + as units de sistema da casa (E46 — o payload /etc do pacote;
-# unit mudada sem pkgrel = o -Syu pula a cadência em silêncio)
-BIN_DELTA="$(git diff --name-only "$LAST_TAG" HEAD -- elite/airootfs/usr/local/bin | grep -vx 'craft-toplevel' || true)"
+# elite-system (O PACOTE ÚNICO E50): todo o /usr/local/bin da casa (o
+# daemon de janelas COMPILADO agora viaja aqui — o C vendado conta) + as
+# units de sistema da casa (o payload /etc do pacote; unit mudada sem
+# pkgrel = o -Syu pula a cadência em silêncio)
+BIN_DELTA="$(git diff --name-only "$LAST_TAG" HEAD -- elite/airootfs/usr/local/bin || true)"
 UNIT_DELTA="$(git diff --name-only "$LAST_TAG" HEAD -- 'elite/airootfs/etc/systemd/system/elite-*' || true)"
-DELTA="$(printf '%s\n%s\n' "$BIN_DELTA" "$UNIT_DELTA" | sed '/^$/d' | sort -u)"
-check elite-craft "$DELTA" || fail=1
+DELTA="$(printf '%s\n%s\n%s\n' "$BIN_DELTA" "$UNIT_DELTA" "$VENDOR_DELTA" | sed '/^$/d' | sort -u)"
+check elite-system "$DELTA" || fail=1
 
 exit "$fail"

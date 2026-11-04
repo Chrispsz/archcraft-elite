@@ -797,7 +797,7 @@ assert_grep "$CIDLE" 'OFF_MIN="\$LOCK_MIN"' "E44: a NORMALIZAÇÃO do conf legad
 assert_grep "$CIDLE" '262144' "E44: o idle.log nasce dentro da lei do teto (256 KiB — a família E36)"
 assert_grep "$CIDLE" 'suspend: ciclo completo' "E44: o suspend deixa PROVA no papel (o 'nunca entra em idle sozinho' vira linha com rc — o PC dormiu e voltou, no papel)"
 assert_grep "$CUPD" "overwrite '/usr/local/bin/\*'" "E43: a adoção do elite-craft passa pelo --overwrite ESCOPADO à casa (pacman recusa não-dono ANTES de qualquer pre_install; configs de usuário NUNCA são tocados)"
-assert_grep "$REPO/.ci/build.sh" 'pkgname=elite-craft' "E43: o canal diário tem PACOTE (elite-craft = /usr/local/bin inteiro da casa, exceto o craft-toplevel dono do próprio — a demanda do dono: commits viram atualização sem formatar)"
+assert_grep "$REPO/.ci/build.sh" 'pkgname=elite-system' "E50: O PACOTE ÚNICO é o canal diário (elite-system = /usr/local/bin inteiro da casa + o daemon compilado + as units — a diretriz do dono: um só pacote atualiza todo o sistema)"
 assert_grep "$REPO/.ci/build.sh" 'PACKAGES_ONLY=1' "E43: o modo pacotes-só (makepkg da casa em MINUTOS, zero ISO, zero pacstrap) alimenta o canal diário"
 assert_file "$REPO/.ci/guard-pkgrel.sh" "E43: a lei E41 virou EXECUÇÃO (guard-pkgrel.sh — conteúdo de casa mudado com pkgrel parado = push vermelho)"
 assert_grep "$REPO/.github/workflows/publish-packages.yml" 'releases/latest' "E43: o canal fala com a release ÚNICA VIVA via releases/latest (nenhuma release criada/apagada aqui — a lei fica intacta; só db + pacotes da casa + selo mudam por --clobber)"
@@ -2732,10 +2732,12 @@ assert_grep "$BLD" "pkgname=craft-toplevel" \
   "v2.10.1: PKGBUILD do craft-toplevel na esteira do [elite-local] (a mesma do wlrctl)"
 assert_grep "$BLD" "$(sha256sum "$REPO/vendor/craft-toplevel.c" | awk '{print $1}')" \
   "v2.10.1: sha256 da fonte PINADO no PKGBUILD (determinismo — mudou 1 byte, makepkg PARA; o pin é o sha REAL da fonte, recalculado aqui — v2.10.7 atualizou o C com o ACK honesto)"
-assert_grep "$BLD" 'PKG_LIST=\(python-pywal qt5-virtualkeyboard wlrctl craft-toplevel elite-craft\)' \
-  "v2.10.1/E43: craft-toplevel E elite-craft na fila do makepkg (a fila virou ARRAY — shellcheck-clean; o PACKAGES_ONLY do canal diário leva só os 2 da casa)"
-assert_grep "$PAK" '^craft-toplevel$' \
-  "v2.10.1: craft-toplevel entra no pacstrap (packages.add)"
+assert_grep "$BLD" 'PKG_LIST=\(python-pywal qt5-virtualkeyboard wlrctl craft-toplevel elite-system\)' \
+  "E50: a ponte E O PACOTE ÚNICO na fila do makepkg (a fila virou ARRAY — shellcheck-clean; o PACKAGES_ONLY do canal diário leva os 2 da era: a ponte para os rigs velhos + o elite-system)"
+assert_grep "$PAK" '^elite-system$' \
+  "E50: o elite-system entra no pacstrap (packages.add — O PACOTE ÚNICO nasce instalado na ISO)"
+assert_nogrep "$PAK" '^craft-toplevel$' \
+  "E50: o craft-toplevel SAIU do pacstrap (o daemon viaja DENTRO do pacote único — a entrada viva é uma só)"
 
 # ── dock: o protocolo direto com fallback LEI ──
 assert_grep "$DOCK" 'TOPOS = os.path.join\(GLib.get_user_runtime_dir\(\), "elite", "toplevel.sock"\)' \
