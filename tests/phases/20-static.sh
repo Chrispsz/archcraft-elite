@@ -1424,10 +1424,30 @@ assert_nofile "$REPO/elite/airootfs/etc/systemd/system/elite-channel.service" "E
 assert_file "$REPO/elite/airootfs/etc/systemd/system/elite-bootupdate.service" "E51: a unit ao LIGAR nasce na overlay (a dose da casa tem casa)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-update" 'elite_cadencia' "E51: a cadência é UMA função nas duas portas (--adotar e manual — idempotente, sem duplicar)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-update" 'elite-channel.timer aposentado' "E51: a aposentadoria do relógio deixa réu no papel (o rig sabe POR QUE o canal de 11:30 sumiu)"
-assert_grep "$REPO/.ci/build.sh" 'pkgrel=3' "E51.1: pkgrel elite-system 2→3 NO MESMO COMMIT (lei E41 — a dose ganhou a auto-cura da cadência e a ponte saiu da fila; sem subir, o -Syu pula)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=4' "E53: pkgrel elite-system 3→4 NO MESMO COMMIT (lei E41 — a dock v2.10.9 viaja no pacote único; sem subir, o -Syu pula)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-update" 'dose AUTO-CURA a cadência' "E51.1: o canal SELF-HEAL a cadência (a dose v4.2 de hoje adota o rig e a PRÓPRIA dose troca o timer — nenhum rig fica com cadência fantasma)"
 assert_grep "$REPO/.github/workflows/publish-packages.yml" 'craft-toplevel-\*\.pkg' "E51.1: o fluxo de publicação segue publicando a PONTE (a porta dos rigs v2 — o erro da aposentadoria confessado no build.sh)"
 assert_grep "$REPO/README.md" 'elite-sysupdate.timer' "E46/V6: o README documenta a cadência SEMANAL com snapshot PRE/POST"
 assert_nogrep "$REPO/README.md" 'restauração GUI no menu Sessão' "E46/V6: o README não vende mais a restauração GUI no menu Sessão (o rollback saiu do menu — o papel acompanha, E33 auto-patrulhado)"
+
+# ── E53: A DOCK VÊ O SEM-NOME — o dono: "a dock não está mostrando todo
+#    tipo de pacote — estou com um app image aberto e só consigo acessar
+#    pelo alttab". A perícia: os dinâmicos nasciam SÓ do casamento
+#    comm→.desktop — o _resolve_desktop devolvia None para o AppImage de
+#    fábrica (sem .desktop NENHUM instalado) e o continue TRAGIA a janela
+#    que o craft-toplevel já via de verdade: invisível na dock, só no
+#    A-Tab. A cura (v2.10.9): a JANELA é a verdade — snapshot não coberto
+#    por pin/dinâmico vira botão RAW com verbos reais por id.
+CDGUI9="$REPO/elite/airootfs/usr/local/bin/craft-dock-gui"
+assert_grep "$CDGUI9" 'self\.raw = \{\}' "E53: os sem-nome têm estado PRÓPRIO (diff separado dos dinâmicos — nada recria botão a cada tick)"
+assert_grep "$CDGUI9" 'def _raw_key' "E53: a chave do sem-nome é o app_id/stem (a janela real entra na dock SEM depender de .desktop)"
+assert_grep "$CDGUI9" 'set\(raw\) == set\(self\.raw\)' "E53: o diff dos raw é vigiado (nada entra nem sai sem mudança real — a lei v2.10.12 alcança o sem-nome)"
+assert_grep "$CDGUI9" 'def _make_raw_button' "E53: o botão RAW existe (ícone do tema pelo stem; sem .desktop não há ícone real a prometer)"
+assert_grep "$CDGUI9" 'theme\.has_icon' "E53: o tema de ícones é consultado pelo stem (AppImage que instala ícone o ganha; o resto, o glifo honesto)"
+assert_grep "$CDGUI9" 'def _press_raw' "E53: o sem-nome tem verbos (esquerdo foca/cicla por id · meio encerra · direito NÃO finge fixação)"
+assert_grep "$CDGUI9" 'def _raw_windows' "E53: as janelas do sem-nome são REAIS (snapshot do daemon; strict no fecho — a lei E36 não abre exceção)"
+assert_grep "$CDGUI9" 'fixar sem \.desktop' "E53: o direito no raw ensina a saída (instale o .desktop e o app vira dinâmico completo — o log não mente)"
+assert_grep "$CDGUI9" 'self\.dyn or self\.raw' "E53: o fio separador reconhece o lado dos raw (o sem-nome mora com os dinâmicos — nunca órfão no meio dos pins)"
+assert_grep "$CDGUI9" 'raw ON' "E53: o boot da dock confessa os raw no bars.log (a cura é evidência, não promessa)"
 
 phase_end

@@ -917,7 +917,7 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'set_transition_
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'def _dyn_retire' "v2.11/E48: o destroy mora NO FIM do slide (o widget deixa a árvore depois da animação — o fim do piscar)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'timeout_add\(_REVEAL_MS \+ 90, self\._dyn_retire' "v2.11/E48: o retire é agendado pós-slide (a saída é 2 fases: desliza → sai)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'self\._pending' "v2.11/E48: o fio (sep) espera o FIM dos deslizes em voo (nunca abandona o botão animando)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'if fresh or dead:' "v2.11/E48: show_all SÓ quando algo entra/sai (o 'self.dyn or' antigo varria a árvore toda a cada tick)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'if fresh or dead or rfresh or rdead:' "v2.11/E48: show_all SÓ quando algo entra/sai (o 'self.dyn or' antigo varria a árvore toda a cada tick) — E53: os raw entraram na mesma lei (o show_all enxerga os 4 lados do diff)"
 # ── v4.2/E48 — O ENCERRAR HONESTO (o dono: 'tá pegando python 3, pactl e
 #    etc no botão de encerrar programas'): o interpretador se apresenta
 #    pelo script do cmdline (o comm de python direto É 'python3' — provado
