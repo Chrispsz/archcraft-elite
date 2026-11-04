@@ -771,6 +771,33 @@ assert_grep "$CCOMP" 'cancelado: o dono fechou o diálogo' "E42: cancelar segue 
 assert_nogrep "$CCOMP" 'motor=\(7z ' "E42: nenhum motor 7z hard-coded (binário fixo era morte certa na ISO — o resolver 7z|7zz é a única porta)"
 assert_grep "$REPO/elite/packages.add" '^zenity$' "E35: o zenity é DEPENDÊNCIA DECLARADA (~1 MB; gtk3/libnotify já estavam na ISO — binário fantasma não existe na casa)"
 assert_grep "$REPO/elite/packages.add" '^7zip$' "E42: o pacote do motor 7-Zip é DECLARADO na ISO (nome explícito — o p7zip virou virtual e o pacstrap perguntaria; o script resolve o 7zz que ele entrega)"
+
+# ═══════════════════ E43 — O CANAL DIÁRIO + O RIG SEM SUJEIRA ════════════
+# O dono (04/nov, dump tg0b1 do rig na 28): "antes mesmo da iso sair esses
+# commits já devem sair como atualização… evitar ficar formatando a cada
+# update" + "porque está saindo tantos assets nos releases?" + "as montagens
+# do bloquear e do suspender fazendo mais sentido" + nada quebrado, sobrando,
+# duplicado. As curas e seus contratos:
+CBARS="$P/airootfs/usr/local/bin/craft-bars"
+CIDLE="$P/airootfs/usr/local/bin/craft-idle"
+CUPD="$P/airootfs/usr/local/bin/craft-update"
+SWNC="$P/airootfs/etc/skel/.config/swaync/config.json"
+assert_rc0 "E43: o config.json do swaync é JSON VÁLIDO (o que viaja na ISO nunca nasce quebrado)" python3 -c "import json,sys; json.load(open('$SWNC'))"
+assert_grep "$SWNC" '"when-available"' "E43: image-visibility no enum REAL do swaync 0.12.x (man swaync.5.scd:151 — o valor antigo era sintaxe morta: warning em TODO boot, dump tg0b1 :679)"
+assert_grep "$SWNC" '"notifications": \{' "E43: o widget notifications tem seção no widget-config (a ausência gritava 'Config not found! Using default config...' 2× por boot — man: vexpand documentado)"
+assert_grep "$CBARS" '9>&- &' "E43: todo spawn fecha o fd 9 — o lock do supervisor morre COM ele (os wrappers herdavam o fd: supervisor morto à mão = nova instância no-op = supervisão morta em silêncio)"
+assert_grep "$CBARS" 'iniciando \(1ª vez — nada morreu\)' "E43: o 1º arranque não mente — 'FORA — reiniciando' só com morte REAL (o dump tg0b1 mostrou BARS_RESTARTS=5 com ZERO mortes: a métrica era ruído de arranque; parênteses do rótulo são literais no ERE)"
+assert_grep "$CBARS" 'hyprpolkitagent' "E43: o agente polkit resolve wlroots-nativo NA FRENTE (polkit-gnome 0.105 = GTK2 de 2010 — o diálogo que matou o gparted do dono com senha VIVA provada no dump tg0b1)"
+assert_grep "$CIDLE" 'trava e apaga' "E43: o gesto ÚNICO existe no menu/status — lock+off no MESMO instante (a janela 'travada e acesa' de 5min morre; acorda já no lock)"
+assert_grep "$CIDLE" "'Suspender: 5 min')   SUSPEND_MIN=5" "E43: suspend 5min é escolha EXPLÍCITA no menu (o dono flutuou; a fábrica fica em 20 — 5min suspende desktop com trabalho vivo, e escolher 5 é um clique)"
+assert_grep "$CUPD" "overwrite '/usr/local/bin/\*'" "E43: a adoção do elite-craft passa pelo --overwrite ESCOPADO à casa (pacman recusa não-dono ANTES de qualquer pre_install; configs de usuário NUNCA são tocados)"
+assert_grep "$REPO/.ci/build.sh" 'pkgname=elite-craft' "E43: o canal diário tem PACOTE (elite-craft = /usr/local/bin inteiro da casa, exceto o craft-toplevel dono do próprio — a demanda do dono: commits viram atualização sem formatar)"
+assert_grep "$REPO/.ci/build.sh" 'PACKAGES_ONLY=1' "E43: o modo pacotes-só (makepkg da casa em MINUTOS, zero ISO, zero pacstrap) alimenta o canal diário"
+assert_file "$REPO/.ci/guard-pkgrel.sh" "E43: a lei E41 virou EXECUÇÃO (guard-pkgrel.sh — conteúdo de casa mudado com pkgrel parado = push vermelho)"
+assert_grep "$REPO/.github/workflows/publish-packages.yml" 'releases/latest' "E43: o canal fala com a release ÚNICA VIVA via releases/latest (nenhuma release criada/apagada aqui — a lei fica intacta; só db + pacotes da casa + selo mudam por --clobber)"
+assert_grep "$REPO/.github/workflows/build.yml" 'grep -v -- .-debug-.' "E43: os pacotes -debug não sobem mais ao release (a dieta dos 19 assets — símbolo de dev não é produto)"
+assert_nogrep "$REPO/elite/packages.add" '^polkit-gnome$' "E43: o agente GTK2 de 2010 saiu da ISO (hyprpolkitagent entra — packages.remove carrega a aposentadoria)"
+assert_grep "$REPO/elite/packages.add" '^hyprpolkitagent' "E43: o agente wlroots-nativo é DEPENDÊNCIA DECLARADA (binário fantasma não existe na casa)"
 # ═══════════════════ E40 — O VERBO "ABRIR TERMINAL AQUI" ══════════════════
 # O dono PROVOU com print (03/nov): o clique-direito do Thunar não tem
 # terminal ("cadê o botão pra abrir o terminal?"). Raiz DUPLA provada no
@@ -2207,8 +2234,9 @@ IDLECONF="$ST/elite/idle.conf"
 AUTX="$ST/labwc/autostart"
 assert_file "$CID" "v1.6.1: craft-idle existe (central de idle do dono)"
 assert_file "$IDLECONF" "v1.6.1: idle.conf no skel (defaults documentados no arquivo)"
-assert_grep "$IDLECONF" '^LOCK_MIN=10' "v1.6.1: default = trava aos 10min"
-assert_grep "$IDLECONF" '^OFF_MIN=15' "v1.6.1: default = tela APAGA aos 15min (idle real, não tela fixa)"
+assert_grep "$IDLECONF" '^LOCK_MIN=5'  "E43: a fábrica nasce com o gesto ÚNICO — trava E apaga aos 5min (o dono: 'montagens fazendo mais sentido'; o 10/15 antigo deixava tela travada ACESA no meio)"
+assert_grep "$IDLECONF" '^OFF_MIN=5'   "E43: OFF_MIN = LOCK_MIN na fábrica — UM instante, zero janela 'travada e acesa' (acorda já no lock)"
+assert_grep "$IDLECONF" '^SUSPEND_MIN=20' "E43: suspend 20min na fábrica (5min suspende desktop com trabalho vivo — e o 'Suspender: 5 min' existe no menu como escolha explícita do dono)"
 assert_grep "$CID" "before-sleep 'craft-lock'" "v2.5.0 (N4): lock antes do suspend PRESERVADO — agora via craft-lock (acorda no lock com o wallpaper certo)"
 assert_grep "$CID" 'resume .wlopm --on' "v1.6.1: resume → DPMS on (tela acorda JÁ no lock)"
 assert_grep "$CID" 'Nunca' "v1.6.1: preset 'Nunca' (LOCK_MIN=0 → sem daemon, W-l manual)"
@@ -2674,8 +2702,8 @@ assert_grep "$BLD" "pkgname=craft-toplevel" \
   "v2.10.1: PKGBUILD do craft-toplevel na esteira do [elite-local] (a mesma do wlrctl)"
 assert_grep "$BLD" "$(sha256sum "$REPO/vendor/craft-toplevel.c" | awk '{print $1}')" \
   "v2.10.1: sha256 da fonte PINADO no PKGBUILD (determinismo — mudou 1 byte, makepkg PARA; o pin é o sha REAL da fonte, recalculado aqui — v2.10.7 atualizou o C com o ACK honesto)"
-assert_grep "$BLD" 'for pkgdir in python-pywal qt5-virtualkeyboard wlrctl craft-toplevel; do' \
-  "v2.10.1: craft-toplevel na fila do makepkg (4º pacote)"
+assert_grep "$BLD" 'PKG_LIST="python-pywal qt5-virtualkeyboard wlrctl craft-toplevel elite-craft"' \
+  "v2.10.1/E43: craft-toplevel E elite-craft na fila do makepkg (a fila virou PKG_LIST — o PACKAGES_ONLY do canal diário leva só os 2 da casa)"
 assert_grep "$PAK" '^craft-toplevel$' \
   "v2.10.1: craft-toplevel entra no pacstrap (packages.add)"
 

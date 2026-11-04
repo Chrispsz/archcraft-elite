@@ -15,6 +15,16 @@
 #     /usr/local/share/elite/VERSION (escrito no build) compara com a
 #     release viva e aponta ISO/cura quando defasa. Offline-safe: falha de
 #     rede aqui é silêncio (nunca é erro de atualização).
+# v3 (E43 — O CANAL DIÁRIO): o código de casa em /usr/local/bin AGORA É
+#   PACOTE (elite-craft + craft-toplevel) e o commit de hoje chega ao rig
+#   no -Syu de hoje — sem formatar, sem reinstalar (a demanda do dono).
+#   O --overwrite ESCOPADO à casa existe por causa da ADOÇÃO: nos rigs
+#   instalados, os arquivos de /usr/local/bin nasceram SEM dono (overlay da
+#   ISO) e o pacman recusa sobrescrever não-dono ANTES de qualquer scriptlet
+#   (pre_install não alcança) — o --overwrite não-cibe /usr/local/bin/*
+#   adota os arquivos na 1ª vez e é inócuo depois (dono = transação normal).
+#   O domínio da casa é /usr/local/bin: configs de usuário (~) NUNCA são
+#   tocados por update.
 # ═══════════════════════════════════════════════════════════════════════════
 set -euo pipefail
 
@@ -26,7 +36,11 @@ VMARK="${ELITE_VERSION_MARKER:-/usr/local/share/elite/VERSION}"
 # kernel ANTES da transação (o -Syu pode tocá-lo; vazio = pacote ausente)
 kbefore="$(pacman -Q "$KPKG" 2>/dev/null | awk '{print $2}' || true)"
 
-sudo pacman -Syu
+# E43 — o --overwrite ESCOPADO à casa faz a ADOÇÃO do elite-craft: nos
+# rigs, /usr/local/bin nasceu SEM dono (overlay) e o pacman recusa
+# sobrescrever não-dono ANTES de qualquer scriptlet (pre_install não
+# alcança). Na 1ª vez os arquivos viram donos do pacote; depois é no-op.
+sudo pacman -Syu --overwrite '/usr/local/bin/*'
 
 if command -v paru >/dev/null 2>&1; then
   echo "==> AUR (paru -Sua)"

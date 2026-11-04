@@ -14,7 +14,7 @@
   "timeout-critical": 12,
   "transition-time": 200,
   "keyboard-shortcuts": true,
-  "image-visibility": "when-there's-a-tray-icon",
+  "image-visibility": "when-available",
   "notification-2fa-action": true,
   "notification-grouping": true,
   "notification-icon-size": 64,
@@ -32,6 +32,9 @@
     },
     "dnd": {
       "text": "Não Perturbe"
+    },
+    "notifications": {
+      "vexpand": true
     }
   }
 }

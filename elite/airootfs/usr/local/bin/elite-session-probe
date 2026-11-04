@@ -103,6 +103,14 @@ say "TOPLEVEL_SOCKET=$tp_sock"
 say "SWAYNC_COUNT=$sn_count"
 say "IDLE_COUNT=$idle_count"
 say "CRAFTBARS_COUNT=$cb_count"
+# E43 — a contagem por cmdline soma os WRAPPERS (1 supervisor + N subshells
+# esperando o exit do filho para logar 'SAIU' — o ps mostra o MESMO cmdline
+# para todos; o dump tg0b1 leu 5 'craft-bars' com 1 só supervisor vivo). A
+# verdade da supervisão é a POSSE DO LOCK: ATIVO = o flock está segurado
+# (supervisor cuidando); LIVRE = ninguém cuidando (o que nunca pode dormir).
+cb_lock="LIVRE"
+flock -n "${XDG_RUNTIME_DIR:-/run/user/1000}/elite/bars.lock" true 2>/dev/null || cb_lock="ATIVO"
+say "CRAFTBARS_LOCK=$cb_lock"
 say "BARS_RESTARTS=$restarts"
 say "BARS_EXITS=$exits"
 say "WAYBAR_PROCS=$wb_list"

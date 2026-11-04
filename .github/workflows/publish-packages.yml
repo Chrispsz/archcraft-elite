@@ -1,0 +1,97 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# Canal diário [elite-local] — commits de casa chegam como ATUALIZAÇÃO
+# ───────────────────────────────────────────────────────────────────────────
+# A demanda do dono (04/nov): "antes mesmo da iso sair esses commits já
+# devem sair como atualização… evitar ficar formatando e reinstalando a
+# cada update". A ISO fica sendo o retrato ESTÁVEL (mensal); a evolução
+# diária viaja pelo pacman:
+#
+#   push no main (código de casa) → guarda da lei E41 → makepkg dos pacotes
+#   da casa (PACKAGES_ONLY, minutos — sem ISO) → repo-add contra o db do
+#   release vivo → upload --clobber → o craft-update do rig (-Syu) entrega.
+#
+# A LEI DA RELEASE ÚNICA VIVA fica intacta: NENHUMA release é criada/apagada;
+# os assets de ISO/sha256sums/JUNTAR-ISO/body da release viva NUNCA são
+# tocados aqui — só elite-local.db, os .pkg.tar.zst da casa e o selo
+# sha256sums-pacotes.txt. (E43)
+name: Canal diário [elite-local]
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'elite/airootfs/usr/local/bin/**'
+      - 'vendor/**'
+      - '.ci/build.sh'
+      - '.ci/guard-pkgrel.sh'
+      - '.github/workflows/publish-packages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: canal-diario-elite-local
+  cancel-in-progress: true
+
+jobs:
+  pacotes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0            # a lei E41 compara contra a última tag
+          persist-credentials: false
+
+      - name: Lei E41 — conteúdo de casa mudou ⇒ pkgrel sobe (guard executável)
+        run: bash .ci/guard-pkgrel.sh
+
+      - name: Construir os pacotes da casa (container Arch privilegiado)
+        run: |
+          set -o pipefail
+          # o modo PACKAGES_ONLY de .ci/build.sh: makepkg de craft-toplevel +
+          # elite-craft e SAÍDA — nenhuma ISO, nenhum pacstrap, minutos.
+          docker run --rm \
+            -v "$PWD":/work \
+            -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
+            -e PACKAGES_ONLY=1 \
+            -w /work \
+            archlinux:base-devel \
+            bash .ci/build.sh 2>&1 | tee pacotes-output.log
+
+      - name: Repo completo do release vivo → repo-add → upload --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          docker run --rm \
+            -v "$PWD":/work -w /work \
+            -e GH_TOKEN="$GH_TOKEN" \
+            -e REPO="$GITHUB_REPOSITORY" \
+            archlinux:base-devel \
+            bash -euc '
+              pacman -Syu --noconfirm --needed github-cli >/dev/null 2>&1
+              TAG="$(gh api "repos/$REPO/releases/latest" --jq .tag_name)"
+              echo "release viva: $TAG (a Lei mantém só uma — nada é criada aqui)"
+              mkdir -p /tmp/repo && cd /tmp/repo
+              # o db ATUAL da release viva é a base: repo-add ADICIONA as
+              # entradas novas — os demais pacotes (brave-origin 186MB,
+              # pwvucontrol, …) NEM são baixados.
+              gh release download "$TAG" --repo "$REPO" --pattern "elite-local.db.tar.gz"
+              cp /work/out/pacotes/*.pkg.tar.zst .
+              repo-add --quiet elite-local.db.tar.gz /work/out/pacotes/*.pkg.tar.zst
+              # pacman consulta <repo>.db SEM sufixo (E32) — arquivo real, não symlink
+              rm -f elite-local.db && cp elite-local.db.tar.gz elite-local.db
+              cp /work/out/pacotes/sha256sums-pacotes.txt .
+              echo "── selo da run:"
+              cat sha256sums-pacotes.txt
+              gh release upload "$TAG" elite-local.db elite-local.db.tar.gz \
+                /work/out/pacotes/craft-toplevel-*.pkg.tar.zst \
+                /work/out/pacotes/elite-craft-*.pkg.tar.zst \
+                sha256sums-pacotes.txt \
+                --repo "$REPO" --clobber
+              echo "── assets de PACOTE da release viva após a run:"
+              gh release view "$TAG" --repo "$REPO" --json assets --jq ".assets[].name" \
+                | grep -E "elite-craft|craft-toplevel|elite-local\.db|sha256sums-pacotes" || true
+              echo "── prontos: o craft-update do rig entrega no próximo -Syu."
+            '

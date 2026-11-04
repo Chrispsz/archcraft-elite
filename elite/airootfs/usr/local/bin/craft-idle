@@ -47,8 +47,12 @@ CONF="$CONF_DIR/idle.conf"
 # mem_sleep [deep]) e o idle.conf do skel ditando 'nunca'. O default agora
 # é o das outras distros (o que o dono pediu: 'consiga entrar em
 # idle/suspensão'); 0 continua valendo (off consciente, explícito).
-LOCK_MIN=10
-OFF_MIN=15
+# E43 — fábrica = o gesto ÚNICO (trava E apaga no mesmo tick): 5 min.
+# O padrão antigo (10 → 15) e o do rig do dono (2 → 7) deixavam a tela
+# TRAVADA E ACESA no meio-caminho — o fluxo que o dono rejeitou no dump
+# tg0b1. Um só instante: hyprlock + wlopm --off juntos; acorda no lock.
+LOCK_MIN=5
+OFF_MIN=5
 SUSPEND_MIN=20  # auto-suspende APÓS X min de inatividade (o before-sleep
                 # já travou — acorda no lock; 0 = off, escolha explícita)
 # shellcheck disable=SC1090  # caminho dinâmico POR DESIGN: é o conf do
@@ -59,8 +63,8 @@ SUSPEND_MIN=20  # auto-suspende APÓS X min de inatividade (o before-sleep
 # com lixo ('LOCK_MIN=10min', linha vazia) não pode matar o daemon calado
 # sob o set -eu (o -eq do start_daemon morreria antes do primeiro timeout).
 # Valor ruim = padrão de fábrica, e o conf continua lá pra o usuário ver.
-case "${LOCK_MIN:-}"    in ''|*[!0-9]*) LOCK_MIN=10    ;; esac
-case "${OFF_MIN:-}"     in ''|*[!0-9]*) OFF_MIN=15     ;; esac
+case "${LOCK_MIN:-}"    in ''|*[!0-9]*) LOCK_MIN=5     ;; esac
+case "${OFF_MIN:-}"     in ''|*[!0-9]*) OFF_MIN=5      ;; esac
 case "${SUSPEND_MIN:-}" in ''|*[!0-9]*) SUSPEND_MIN=20 ;; esac
 
 # ── start: a receita inteira do swayidle num lugar só ────────────────────
@@ -156,7 +160,13 @@ case "${1:-}" in
                 echo "idle: nunca (travar é manual — W-l)"
             fi
         else
-            echo "idle: trava aos ${LOCK_MIN}min · tela apaga aos ${OFF_MIN}min · suspend: ${SUSPEND_MIN:-0}"
+            # E43 — o gesto único: quando trava e apaga é o MESMO instante, o
+            # status diz a verdade sem fingir dois eventos.
+            if [ "${LOCK_MIN}" -eq "${OFF_MIN}" ]; then
+                echo "idle: trava e apaga aos ${LOCK_MIN}min · suspend: ${SUSPEND_MIN:-0}"
+            else
+                echo "idle: trava aos ${LOCK_MIN}min · tela apaga aos ${OFF_MIN}min · suspend: ${SUSPEND_MIN:-0}"
+            fi
         fi
         exit 0
         ;;
@@ -174,6 +184,13 @@ CUR="${LOCK_MIN}min"
 # fábrica, invisível). Agora cada item nomeia o que faz e o suspender é
 # escolha do dono no MESMO menu (SUSPEND_MIN=0 = nunca, suportado no
 # start desde a v2.3.5).
+# E43 — O GESTO ÚNICO NO MENU: 'Travar: N minutos' virou 'Idle: N min
+# (trava e apaga)' — o item nomeia o que acontece de verdade (lock+off no
+# MESMO instante; a janela 'travada e acesa' dos presets antigos, que o
+# dono rejeitou ('as montagens do bloquear e do suspender fazendo mais
+# sentido'), morre aqui). O 'Suspender: 5 min' entra porque o dono o
+# flutuou — o padrão fica em 20 (5min suspende um desktop com trabalho
+# vivo; a escolha de 5 é um clique, não uma edição).
 # v2.10.26/E38 — o MENU órfão saiu: era definido aqui e INCONDICIONALMENTE
 # sobrescrito dentro do if do craft-menu (o else terminal usa read/prompt,
 # nunca $MENU) — 12 linhas mortas que a suíte teria que carregar para
@@ -187,25 +204,26 @@ if command -v craft-menu >/dev/null 2>&1; then
     # números do case — código morto desde sempre; o audit 24-c flagrou:
     # o dono nunca viu o preset atual marcado).
     case "${LOCK_MIN:-0}" in
-        0)  CUR_ITEM='Travar: Nunca (W-l manual)' ;;
-        2)  CUR_ITEM='Travar: 2 minutos' ;;
-        5)  CUR_ITEM='Travar: 5 minutos' ;;
-        10) CUR_ITEM='Travar: 10 minutos (padrão)' ;;
-        15) CUR_ITEM='Travar: 15 minutos' ;;
-        30) CUR_ITEM='Travar: 30 minutos' ;;
-        60) CUR_ITEM='Travar: 1 hora' ;;
+        0)  CUR_ITEM='Idle: Nunca (W-l manual)' ;;
+        2)  CUR_ITEM='Idle: 2 min (trava e apaga)' ;;
+        5)  CUR_ITEM='Idle: 5 min (trava e apaga)' ;;
+        10) CUR_ITEM='Idle: 10 min (trava e apaga)' ;;
+        15) CUR_ITEM='Idle: 15 min (trava e apaga)' ;;
+        30) CUR_ITEM='Idle: 30 min (trava e apaga)' ;;
+        60) CUR_ITEM='Idle: 1 hora (trava e apaga)' ;;
         *)  CUR_ITEM='' ;;
     esac
-    MENU="Travar: 2 minutos
-Travar: 5 minutos
-Travar: 10 minutos (padrão)
-Travar: 15 minutos
-Travar: 30 minutos
-Travar: 1 hora
-Travar: Nunca (W-l manual)
+    MENU="Idle: 2 min (trava e apaga)
+Idle: 5 min (trava e apaga)
+Idle: 10 min (trava e apaga)
+Idle: 15 min (trava e apaga)
+Idle: 30 min (trava e apaga)
+Idle: 1 hora (trava e apaga)
+Idle: Nunca (W-l manual)
+Suspender: 5 min
+Suspender: 10 min
 Suspender: 20 min (padrão)
 Suspender: 30 min
-Suspender: 45 min
 Suspender: 1 hora
 Suspender: Nunca"
     [ -n "$CUR_ITEM" ] && MENU="$(printf '%s\n' "$MENU" | sed "s|^${CUR_ITEM}$|${CUR_ITEM} ← atual|")"
@@ -263,22 +281,25 @@ else
 fi
 
 case "$choice" in
-    'Travar: 2 minutos')            LOCK_MIN=2;  OFF_MIN=7  ;;
-    'Travar: 5 minutos')            LOCK_MIN=5;  OFF_MIN=10 ;;
-    'Travar: 10 minutos (padrão)')  LOCK_MIN=10; OFF_MIN=15 ;;
-    'Travar: 15 minutos')           LOCK_MIN=15; OFF_MIN=20 ;;
-    'Travar: 30 minutos')           LOCK_MIN=30; OFF_MIN=35 ;;
-    'Travar: 1 hora')               LOCK_MIN=60; OFF_MIN=65 ;;
-    'Travar: Nunca (W-l manual)')   LOCK_MIN=0;  OFF_MIN=0  ;;
+    'Idle: 2 min (trava e apaga)')   LOCK_MIN=2;  OFF_MIN=2  ;;
+    'Idle: 5 min (trava e apaga)')   LOCK_MIN=5;  OFF_MIN=5  ;;
+    'Idle: 10 min (trava e apaga)')  LOCK_MIN=10; OFF_MIN=10 ;;
+    'Idle: 15 min (trava e apaga)')  LOCK_MIN=15; OFF_MIN=15 ;;
+    'Idle: 30 min (trava e apaga)')  LOCK_MIN=30; OFF_MIN=30 ;;
+    'Idle: 1 hora (trava e apaga)')  LOCK_MIN=60; OFF_MIN=60 ;;
+    'Idle: Nunca (W-l manual)')      LOCK_MIN=0;  OFF_MIN=0  ;;
     # v2.10.12 — o knob do SUSPENDER (escolha explícita; 0 = nunca). O
     # lock/apagar ficam INTACTOS quando só o suspend muda (a leitura do
     # conf lá em cima já carregou os valores atuais — nada se perde).
-    'Suspender: 20 min (padrão)')   SUSPEND_MIN=20 ;;
-    'Suspender: 30 min')            SUSPEND_MIN=30 ;;
-    'Suspender: 45 min')            SUSPEND_MIN=45 ;;
-    'Suspender: 1 hora')            SUSPEND_MIN=60 ;;
-    'Suspender: Nunca')             SUSPEND_MIN=0  ;;
-    *)                              exit 0 ;;   # Esc: nada acontece
+    # E43 — 'Suspender: 5 min' entra por pedido do dono (o fluxo é TODO
+    # dele); 45 min saiu (nunca foi escolhido — o 30/1h cobrem a faixa).
+    'Suspender: 5 min')   SUSPEND_MIN=5  ;;
+    'Suspender: 10 min')  SUSPEND_MIN=10 ;;
+    'Suspender: 20 min (padrão)') SUSPEND_MIN=20 ;;
+    'Suspender: 30 min')  SUSPEND_MIN=30 ;;
+    'Suspender: 1 hora')  SUSPEND_MIN=60 ;;
+    'Suspender: Nunca')   SUSPEND_MIN=0  ;;
+    *)                    exit 0 ;;   # Esc: nada acontece
 esac
 
 # persiste e reinicia o daemon JÁ (efeito imediato, sem relogin)
