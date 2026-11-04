@@ -2473,7 +2473,7 @@ RICE="$P/airootfs/usr/local/bin/craft-rice"
 assert_file "$RICE" "E54/rice: o binário existe (o rice viaja no elite-system — a decoração dos jogos chega ao rig SEM ISO)"
 RHOME="$WORK/rice-home"
 mkdir -p "$RHOME"
-out_rice="$(HOME="$RHOME" sh "$RICE" 2>&1)"; rc_rice=$?
+HOME="$RHOME" sh "$RICE" >/dev/null 2>&1; rc_rice=$?
 assert_eq "$rc_rice" "0" "E54/rice: termina 0 (melhor-esforço — o arranque da sessão NUNCA fica preso ao rice)"
 assert_file "$RHOME/.config/labwc/rc.xml.d/10-elite-games.xml" "E54/rice: o fragmento nasce em rc.xml.d (drop-in ADITIVO — o rc.xml do usuário NUNCA é aberto)"
 assert_nofile "$RHOME/.config/labwc/rc.xml" "E54/rice: nenhum rc.xml foi criado/tocado (a lei do domínio viva — config de usuário não é da casa)"
