@@ -1082,4 +1082,59 @@ assert_grep "$STCU/pacman.log" '\-Syu --needed --overwrite /usr/local/bin/\* eli
   "E46/manual: o -Syu leva os veículos como alvos EXPLÍCITOS (quem não tem o elite-craft o INSTALA — a ferida do rig da 28 morre aqui)"
 assert_grep "$STCU/systemctl.log" 'enable --now elite-channel.timer elite-sysupdate.timer' "E46/manual: a cadência liga na 1ª 'Atualizar sistema' (o automatismo nasce onde o dono já clica)"
 
+# ── E47 — craft-lock --if-needed: O LOCK QUE JÁ VIVE NÃO MORRE NO ESCURO
+#    (a denúncia recorrente do dono: 'só entra em suspensão quando coloco
+#    a senha na tela de bloqueio'. O before-sleep REINICIAVA o hyprlock —
+#    pkill + espera + exec + init com blur — dentro da janela de 5s do
+#    InhibitDelayMaxSec; o congelamento podia pegar a init no meio e o
+#    acordar ficava sem lock. Prova no COMPORTAMENTO: hyprlock FAKE vivo
+#    (cópia do sleep — o comm é 'hyprlock' de verdade) + hyprlock de PATH
+#    que deixa linha no papel).
+MOCKCL="$WORK/mocks-clock"
+mkdir -p "$MOCKCL"
+cat > "$MOCKCL/hyprlock" <<'EOF'
+#!/usr/bin/env bash
+ST="${MOCK_DIR:?}"; mkdir -p "$ST"
+printf 'hyprlock %s\n' "$*" >> "$ST/hyprlock.log"
+EOF
+chmod +x "$MOCKCL/hyprlock"
+CL="$REPO/elite/airootfs/usr/local/bin/craft-lock"
+STCL="$WORK/state-clock"
+
+# (1) lock VIVO + --if-needed: exit 0, o processo SOBREVIVE, ninguém recria
+rm -rf "$STCL"; mkdir -p "$STCL"
+FK="$WORK/fake-lock"; mkdir -p "$FK"; cp /bin/sleep "$FK/hyprlock"
+"$FK/hyprlock" 60 & fkpid=$!
+sleep 0.1   # o fake precisa existir no procfs antes da checagem
+PATH="$MOCKCL:$PATH" MOCK_DIR="$STCL" bash "$CL" --if-needed >/dev/null 2>&1; rc=$?
+assert_eq "$rc" "0" "E47/lock: --if-needed com lock vivo = exit 0 (o no-op é a cura: o hook do sono não briga com o lock que já está na tela)"
+if kill -0 "$fkpid" 2>/dev/null; then
+  ok "E47/lock: o hyprlock VIVO SOBREVIVE ao --if-needed (zero pkill na hora do sono — o acordar encontra o lock que ficou)"
+else
+  fail "E47/lock: o hyprlock VIVO SOBREVIVE ao --if-needed" "o processo fake morreu — a corrida do PrepareForSleep renasceria"
+fi
+assert_nogrep "$STCL/hyprlock.log" '.' "E47/lock: nenhum hyprlock NOVO nasceu no caminho --if-needed com lock vivo (recriar o vivo é a init que congelava no meio)"
+kill "$fkpid" 2>/dev/null || true
+
+# (2) lock MORTO + --if-needed: segue o fluxo COMPLETO (a promessa se auto-cura)
+rm -rf "$STCL"; mkdir -p "$STCL"
+PATH="$MOCKCL:$PATH" MOCK_DIR="$STCL" bash "$CL" --if-needed >/dev/null 2>&1; rc=$?
+assert_eq "$rc" "0" "E47/lock: --if-needed com lock MORTO conclui com lock novo (o --if-needed NUNCA é pulo do lock: só poupando o vivo)"
+assert_grep "$STCL/hyprlock.log" 'hyprlock' "E47/lock: o lock morto foi RECRIADO (o acordar nunca fica sem lock — nem no caso do hyprlock que morreu sozinho)"
+
+# (3) caminho MANUAL sem flag: o reinício da E30 segue INTACTO (pkill no vivo)
+rm -rf "$STCL"; mkdir -p "$STCL"
+FK2="$WORK/fake-lock2"; mkdir -p "$FK2"; cp /bin/sleep "$FK2/hyprlock"
+"$FK2/hyprlock" 60 & fk2pid=$!
+sleep 0.1
+PATH="$MOCKCL:$PATH" MOCK_DIR="$STCL" bash "$CL" >/dev/null 2>&1; rc=$?
+assert_eq "$rc" "0" "E47/lock: o caminho manual conclui (W-l nunca vira no-op silencioso)"
+if kill -0 "$fk2pid" 2>/dev/null; then
+  fail "E47/lock: o caminho MANUAL reinicia o locker vivo (E30 intacta)" "o fake sobreviveu ao pkill — a instância única quebraria"
+else
+  ok "E47/lock: o caminho MANUAL reinicia o locker vivo (E30 intacta — o pkill é o fecho da corrida onde ela nasceu)"
+fi
+assert_grep "$STCL/hyprlock.log" 'hyprlock' "E47/lock: o manual nasceu lock NOVO (quem aperta W-l quer o lock na hora, não um fantasma)"
+kill "$fk2pid" 2>/dev/null || true
+
 phase_end
