@@ -270,7 +270,8 @@ archcraft-skeleton
 xfce4-power-manager    # desktop sem bateria; swayidle entra
 xfce4-settings         # theming X11; nwg-look entra
 xsettingsd             # daemon XSettings (X11 puro)
-xfce-polkit            # duplicado do polkit-gnome (já na Elite)
+xfce-polkit            # duplicado do polkit-gnome (já na Elite) — E43: ambos aposentados
+polkit-gnome           # E43: agente GTK2 de 2010 — hyprpolkitagent (wlroots-nativo) entra no lugar; o diálogo do gparted do dono morreu nele com senha VIVA (dump tg0b1)
 gtk-nocsd-git          # anti-CSD nicho
 perl-linux-desktopfiles # dep órfã do obmenu-generator (removido)
 thunar-shares-plugin   # samba share (exige samba server)

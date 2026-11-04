@@ -16,11 +16,18 @@ df -h / /mnt || true
 
 say "Preparando container (archiso + deps do mkarchcraftiso)"
 sed -i 's/^#ParallelDownloads/ParallelDownloads/; s/^#Color/Color/' /etc/pacman.conf
-pacman -Syu --noconfirm --needed \
-    git rsync curl archiso xorriso mtools dosfstools \
-    e2fsprogs squashfs-tools openssl arch-install-scripts \
-    base-devel sudo \
-    meson ninja wayland wayland-protocols libxkbcommon
+# E43 — o canal diário (PACKAGES_ONLY) precisa só do toolchain de makepkg:
+# sem archiso/xorriso/pacstrap (nenhum mount acontece no modo pacotes).
+if [[ "${PACKAGES_ONLY:-0}" == "1" ]]; then
+    pacman -Syu --noconfirm --needed git rsync curl base-devel sudo python \
+        wayland wayland-protocols libxkbcommon
+else
+    pacman -Syu --noconfirm --needed \
+        git rsync curl archiso xorriso mtools dosfstools \
+        e2fsprogs squashfs-tools openssl arch-install-scripts \
+        base-devel sudo \
+        meson ninja wayland wayland-protocols libxkbcommon
+fi
 
 say "Importando chave CachyOS (ambiente de build)"
 # a imagem archlinux não traz chave secreta no keyring — init primeiro
@@ -171,6 +178,10 @@ arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
 license=(GPL3)
 depends=(wayland)
+# E43 — sem pacote -debug (gcc -s já entrega o binário limpo; o -debug
+# era asset gorduroso no release — o dono perguntou 'porque está saindo
+# tantos assets?')
+options=(!debug)
 source=("craft-toplevel.c")
 sha256sums=('24d537866c1bc81881dc5f6e69a64b10447ae2de6270f18a6c8d0cf54f81b7be')
 build() {
@@ -182,14 +193,83 @@ package() {
 }
 EOPKGBUILD
 
+# ═════════════════════════════════════════════════════════════════════
+# E43 — O CANAL DIÁRIO: o pacote elite-craft
+# O código de casa em /usr/local/bin NUNCA foi pacote: rigs instalados só
+# o recebiam de ISO nova (a E41 provou o custo: cura no main = rig velho).
+# O elite-craft empacota TODA a casa executável (craft-*, elite-*, exo-open
+# — EXCETO o craft-toplevel, dono do pacote próprio) para o craft-update
+# -Syu entregar o dia a dia SEM reinstalar (Server = releases/latest — E32).
+# A lista nasce do PRÓPRIO tree (fonte única): script novo no airootfs =
+# entra no pacote na próxima build; o guard-pkgrel cobra o pkgrel.
+say "Gerando o PKGBUILD do elite-craft (o canal diário — E43)"
+mkdir -p /tmp/elite-src/elite-craft/files/usr/local/bin
+# caminho ABSOLUTO: aqui o CWD é /tmp/elite-src/<pkg> (o cd da seção pywal
+# acima) — o relativo nasceria vazio (a lição vai no próprio comentário).
+( cd /work/elite/airootfs/usr/local/bin && ls -1 | grep -vx 'craft-toplevel' ) > /tmp/elite-src/elite-craft/files/MANIFEST
+while read -r f; do
+    cp -p "/work/elite/airootfs/usr/local/bin/$f" /tmp/elite-src/elite-craft/files/usr/local/bin/
+done < /tmp/elite-src/elite-craft/files/MANIFEST
+python3 - /tmp/elite-src/elite-craft <<'PYE43'
+import sys, pathlib
+d = pathlib.Path(sys.argv[1])
+files = (d / 'files/MANIFEST').read_text().split()
+names = ',
+'.join(f'        "{f}"' for f in files)
+pkg = f"""pkgname=elite-craft
+pkgver=1.0
+pkgrel=1
+pkgdesc='Código de casa da Elite em /usr/local/bin (craft-*, elite-*, exo-open) — o canal diário de atualização sem reinstalar'
+arch=(x86_64)
+url=https://github.com/Chrispsz/archcraft-elite
+license=(GPL3)
+depends=(bash python)
+# E43 — sem -debug (arquivos de shell/python; nada a tirar símbolo)
+options=(!debug !strip)
+# E43 — ADOÇÃO: nos rigs, estes arquivos nasceram SEM dono (overlay da
+# ISO). pacman recusa sobrescrever arquivo não-dono — o scriptlet remove
+# ANTES exatamente os caminhos que ESTE pacote entrega (cada um volta
+# pelo pacote na MESMA transação; a lista vem do MANIFEST de geração).
+pre_install() {{
+    local f
+    for f in \
+{names}
+    ; do
+        [ -e "/usr/local/bin/$f" ] && rm -f "/usr/local/bin/$f"
+    done
+    return 0
+}}
+package() {{
+    cp -a "${{startdir}}/files/usr/local/bin/." "${{pkgdir}}/usr/local/bin/"
+}}
+"""
+(d / 'PKGBUILD').write_text(pkg)
+PYE43
+
 # makepkg se recusa a rodar como root — usuário builder descartável
 useradd -m builder 2>/dev/null || true
 chown -R builder /tmp/elite-src
-for pkgdir in python-pywal qt5-virtualkeyboard wlrctl craft-toplevel; do
+# E43 — PACKAGES_ONLY=1 (canal diário, publish-packages.yml): só os
+# pacotes de CÓDIGO DE CASA — pywal/qt5vk/wlrctl não mudam no dia a dia
+# (o repo completo do release vivo entra no job por download+repo-add).
+PKG_LIST="python-pywal qt5-virtualkeyboard wlrctl craft-toplevel elite-craft"
+if [[ "${PACKAGES_ONLY:-0}" == "1" ]]; then
+    PKG_LIST="craft-toplevel elite-craft"
+fi
+for pkgdir in $PKG_LIST; do
     (cd "/tmp/elite-src/$pkgdir" && runuser -l builder -c "cd /tmp/elite-src/$pkgdir && makepkg -f --noconfirm") \
         || { echo "FALHA ao construir $pkgdir"; exit 1; }
     cp "/tmp/elite-src/$pkgdir/"*.pkg.tar.zst /var/cache/elite-local/
 done
+if [[ "${PACKAGES_ONLY:-0}" == "1" ]]; then
+    say "PACKAGES_ONLY=1 — pacotes da casa prontos (canal diário E43); ISO não construída"
+    mkdir -p /work/out/pacotes
+    cp /tmp/elite-src/*/*.pkg.tar.zst /work/out/pacotes/
+    ( cd /work/out/pacotes && sha256sum *.pkg.tar.zst > sha256sums-pacotes.txt )
+    ls -la /work/out/pacotes/
+    chown -R "${HOST_UID:-1000}:${HOST_GID:-1000}" /work/out 2>/dev/null || true
+    exit 0
+fi
 # cachyos-keyring + cachyos-v3-mirrorlist também entram no [elite-local]:
 # o E2 do customize instala os dois por file:// (PRIMEIRO repo do conf) —
 # o chroot não toca a rede no customize (era a última fonte potencial de

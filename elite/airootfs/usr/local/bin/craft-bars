@@ -16,9 +16,19 @@
 #      Se morrer de novo, o log tem a mensagem EXATA do waybar — fim do
 #      "iniciou sem aparecer nada" sem explicação.
 #
-# NOTA: o "FORA — reiniciando" no início do log é o arranque normal
-# (nenhuma barra existe ainda no primeiro loop); restarts em série com
-# mensagem do waybar entre eles = problema real, agora com evidência.
+# NOTA: o "FORA — reiniciando" no início do log era o arranque normal
+# (nenhuma barra existe ainda no primeiro loop) — e MENTIA: o dump tg0b1
+# do rig na 28 mostrou BARS_RESTARTS=5 com ZERO mortes reais. E43: o 1º
+# spawn de cada componente é logado 'iniciando (1ª vez — nada morreu)';
+# 'FORA — reiniciando' agora significa MORTE DE VERDADE (a métrica volta
+# a ser evidência, não ruído).
+# E43 — A FERIDA DO FD 9: os subshells `( … ) &` HERDAVAM o fd 9 do flock
+# — o supervisor morto à mão deixava os wrappers segurando o lock, e a
+# nova instância saía no-op: supervisão MORTA em silêncio com a casa
+# parecendo cuidada. Todo spawn agora fecha o fd (9>&-) — o lock vive e
+# morre COM o supervisor. (Achado do dump tg0b1: 5 'craft-bars' no ps —
+# 1 supervisor + 4 wrappers com o cmdline herdado; a contagem honesta
+# mora na posse do lock, não no cmdline.)
 # ═══════════════════════════════════════════════════════════════════════════
 LOG_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/elite"
 mkdir -p "$LOG_DIR" 2>/dev/null
@@ -47,12 +57,19 @@ cap_log() {
 cap_log
 
 ensure() {
-    # $1=nome  $2=config  $3=css
+    # $1=valor da flag (0=1ª vez, 1=já visto vivo)  $2=config  $3=css
     # E36 — âncora ^: 'pgrep -f' casa SUBSTRING — um editor com "waybar -c
     # config.top" aberto mascarava a morte da barra (a mesma lição da dock
     # e do toplevel na v2.10.6; aqui estava por vir).
+    # E43 — o 1º spawn é 'iniciando' (nada morreu ainda); 'FORA' só com
+    # o componente JÁ VISTO vivo (a métrica BARS_RESTARTS volta a contar
+    # morte, não arranque). O spawn fecha o fd 9 (ver cabeçalho E43).
     if ! pgrep -f "^waybar -c $2" >/dev/null 2>&1; then
-        printf '[%s] waybar %s FORA — reiniciando\n' "$(date '+%F %T')" "$1" >>"$LOG"
+        if [ "$1" -eq 1 ]; then
+            printf '[%s] waybar top FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
+        else
+            printf '[%s] waybar top iniciando (1ª vez — nada morreu)\n' "$(date '+%F %T')" >>"$LOG"
+        fi
         # v1.7.1 — EXIT CODE COMO EVIDÊNCIA: a v1.6.3 capturava o stderr,
         # mas morte LIMPA (exit 0) ou sinal não escrevem stderr nenhum —
         # "morreu calada" continuava possível. Agora TODA saída do waybar
@@ -61,8 +78,8 @@ ensure() {
         (
             waybar -c "$2" -s "$3" >>"$LOG" 2>&1
             st=$?
-            printf '[%s] waybar %s SAIU exit=%d\n' "$(date '+%F %T')" "$1" "$st" >>"$LOG"
-        ) &
+            printf '[%s] waybar top SAIU exit=%d\n' "$(date '+%F %T')" "$st" >>"$LOG"
+        ) 9>&- &
     fi
 }
 
@@ -79,6 +96,9 @@ ensure() {
 # sessão, não só para as barras). Segunda instância é no-op (o daemon
 # detecta o socket vivo e sai 0 — o restart nunca rouba nada).
 cyc=0
+# E43 — flags "já viu vivo": 0 = ainda não nasceu (o 1º ciclo loga
+# 'iniciando'); após o 1º ciclo = 1, e ausência vira morte real ('FORA').
+seen_top=0 seen_dock=0 seen_tl=0 seen_idle=0 seen_audio=0 seen_swyn=0 seen_udiskie=0 seen_polkit=0
 while :; do
     # v2.10.26/E38 — o teto segue NO LOOP, agora a cada 6 ciclos (30s): o
     # fork do wc só em 1 de 6 (eram 17.280 forks/dia só para medir tamanho;
@@ -86,15 +106,23 @@ while :; do
     # ~35min de qualquer forma, o cap continua honesto).
     cyc=$((cyc + 1))
     [ $((cyc % 6)) -eq 0 ] && cap_log
-    ensure top  "$HOME/.config/waybar/config.top"  "$HOME/.config/waybar/style.top.css"
+    # E43 — as flags "já viu vivo": o 1º ciclo loga 'iniciando'; depois,
+    # ausência = morte real ('FORA — reiniciando').
+    ensure "$seen_top" "$HOME/.config/waybar/config.top" "$HOME/.config/waybar/style.top.css"
+    seen_top=1
     if ! pgrep -f '^/usr/bin/python3 /usr/local/bin/craft-dock-gui$' >/dev/null 2>&1; then
-        printf '[%s] dock craft-dock-gui FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
+        if [ "$seen_dock" -eq 1 ]; then
+            printf '[%s] dock craft-dock-gui FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
+        else
+            printf '[%s] dock craft-dock-gui iniciando (1ª vez — nada morreu)\n' "$(date '+%F %T')" >>"$LOG"
+        fi
         (
             /usr/local/bin/craft-dock-gui >>"$LOG" 2>&1
             st=$?
             printf '[%s] dock craft-dock-gui SAIU exit=%d\n' "$(date '+%F %T')" "$st" >>"$LOG"
-        ) &
+        ) 9>&- &
     fi
+    seen_dock=1
     # v2.10.6 — as ÂNCORAS: 'pgrep -f' casa SUBSTRING do cmdline — o dono
     # com o fonte aberto no editor ('vim …/craft-toplevel.c') MASCARAVA a
     # morte do daemon e a supervisão ficava cega enquanto o editor vivesse.
@@ -102,7 +130,11 @@ while :; do
     # honesto; o comm da dock é 'python3' (shebang): -f com padrão ANCORA­DO
     # (só a dock de verdade — editor com o arquivo aberto não engana mais).
     if ! pgrep -x craft-toplevel >/dev/null 2>&1; then
-        printf '[%s] toplevel craft-toplevel FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
+        if [ "$seen_tl" -eq 1 ]; then
+            printf '[%s] toplevel craft-toplevel FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
+        else
+            printf '[%s] toplevel craft-toplevel iniciando (1ª vez — nada morreu)\n' "$(date '+%F %T')" >>"$LOG"
+        fi
         (
             /usr/local/bin/craft-toplevel >>"$LOG" 2>&1
             st=$?
@@ -118,8 +150,9 @@ while :; do
             else
                 printf '[%s] toplevel craft-toplevel SAIU exit=%d\n' "$(date '+%F %T')" "$st" >>"$LOG"
             fi
-        ) &
+        ) 9>&- &
     fi
+    seen_tl=1
     # v2.10.6 — O IDLE ENTRA NA SUPERVISÃO (achado da Rodada 2): o
     # craft-idle start era lançado UMA vez no autostart — morrendo calado,
     # lock/DPMS/suspend ficavam fora PARA SEMPRE e ninguém avisa. Mesma
@@ -141,14 +174,19 @@ while :; do
         sm="$(sed -n 's/^SUSPEND_MIN=//p' "$HOME/.config/elite/idle.conf" 2>/dev/null | head -1)"
         case "${sm:-}" in ''|*[!0-9]*) sm=20 ;; esac
         if [ "$lm" -gt 0 ] 2>/dev/null || [ "$sm" -gt 0 ] 2>/dev/null; then
-            printf '[%s] idle swayidle FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
+            if [ "$seen_idle" -eq 1 ]; then
+                printf '[%s] idle swayidle FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
+            else
+                printf '[%s] idle swayidle iniciando (1ª vez — nada morreu)\n' "$(date '+%F %T')" >>"$LOG"
+            fi
             (
                 /usr/local/bin/craft-idle start >>"$LOG" 2>&1
                 st=$?
                 printf '[%s] idle swayidle SAIU exit=%d\n' "$(date '+%F %T')" "$st" >>"$LOG"
-            ) &
+            ) 9>&- &
         fi
     fi
+    seen_idle=1
     # E30 (v2.10.18) — O ROTEADOR DE ÁUDIO ENTRA NA SUPERVISÃO (dump p6aw:
     # o som do rig saía pelo SINK FANTASMA do microfone USB — o dono pediu
     # troca automática ao plugar fone/saída). Mesma lei da família: o
@@ -158,14 +196,19 @@ while :; do
     # abaixo não teria deixado nascer; morreu dentro = volta em ≤5s.
     if command -v craft-audio-route >/dev/null 2>&1 && command -v pactl >/dev/null 2>&1; then
         if ! pgrep -f '^/usr/bin/env python3 /usr/local/bin/craft-audio-route$|^python3 /usr/local/bin/craft-audio-route$' >/dev/null 2>&1; then
-            printf '[%s] audio craft-audio-route FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
+            if [ "$seen_audio" -eq 1 ]; then
+                printf '[%s] audio craft-audio-route FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
+            else
+                printf '[%s] audio craft-audio-route iniciando (1ª vez — nada morreu)\n' "$(date '+%F %T')" >>"$LOG"
+            fi
             (
                 /usr/local/bin/craft-audio-route >>"$LOG" 2>&1
                 st=$?
                 printf '[%s] audio craft-audio-route SAIU exit=%d\n' "$(date '+%F %T')" "$st" >>"$LOG"
-            ) &
+            ) 9>&- &
         fi
     fi
+    seen_audio=1
     # E36 — FIM DOS ÓRFÃOS (audit de arquitetura, sessão Q2/Q8): o swaync é
     # a superfície de TODOS os avisos de erro dos craft-*; o udiskie monta
     # o USB; o agente polkit responde o pkexec — os três morriam CALADOS
@@ -173,29 +216,52 @@ while :; do
     # o autostart lança na 1ª vez; este ensure é a rede — pgrep vivo =
     # nada acontece (idempotente, sem corrida fork/exec da classe idle).
     if command -v swaync >/dev/null 2>&1 && ! pgrep -x swaync >/dev/null 2>&1; then
-        printf '[%s] swaync FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
+        if [ "$seen_swyn" -eq 1 ]; then
+            printf '[%s] swaync FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
+        else
+            printf '[%s] swaync iniciando (1ª vez — nada morreu)\n' "$(date '+%F %T')" >>"$LOG"
+        fi
         (
             swaync >>"$LOG" 2>&1
             st=$?
             printf '[%s] swaync SAIU exit=%d\n' "$(date '+%F %T')" "$st" >>"$LOG"
-        ) &
+        ) 9>&- &
     fi
+    seen_swyn=1
     if command -v udiskie >/dev/null 2>&1 && ! pgrep -x udiskie >/dev/null 2>&1; then
-        printf '[%s] udiskie FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
+        if [ "$seen_udiskie" -eq 1 ]; then
+            printf '[%s] udiskie FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
+        else
+            printf '[%s] udiskie iniciando (1ª vez — nada morreu)\n' "$(date '+%F %T')" >>"$LOG"
+        fi
         (
             udiskie --automount --notify --no-tray >>"$LOG" 2>&1
             st=$?
             printf '[%s] udiskie SAIU exit=%d\n' "$(date '+%F %T')" "$st" >>"$LOG"
-        ) &
+        ) 9>&- &
     fi
+    seen_udiskie=1
+    # E43 — O AGENTE POLKIT DA CASA: hyprpolkitagent (wlroots-nativo) na
+    # frente; o polkit-gnome 0.105 (GTK2, 2010) fica como legado de
+    # transição. O gparted do dono morreu no diálogo do velho com senha
+    # VIVA provada (dump tg0b1: o sudo do craft-dump pediu e ACEITOU a
+    # senha de chris) — o diálogo é o réu, não a senha.
     POLKIT_BIN=/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1
+    if [ -x /usr/lib/hyprpolkitagent/hyprpolkitagent ]; then
+        POLKIT_BIN=/usr/lib/hyprpolkitagent/hyprpolkitagent
+    fi
     if [ -x "$POLKIT_BIN" ] && ! pgrep -f "^$POLKIT_BIN\$" >/dev/null 2>&1; then
-        printf '[%s] polkit FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
+        if [ "$seen_polkit" -eq 1 ]; then
+            printf '[%s] polkit FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
+        else
+            printf '[%s] polkit iniciando (1ª vez — nada morreu)\n' "$(date '+%F %T')" >>"$LOG"
+        fi
         (
             "$POLKIT_BIN" >>"$LOG" 2>&1
             st=$?
             printf '[%s] polkit SAIU exit=%d\n' "$(date '+%F %T')" "$st" >>"$LOG"
-        ) &
+        ) 9>&- &
     fi
+    seen_polkit=1
     sleep 5
 done
