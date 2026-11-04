@@ -22,12 +22,18 @@
        compactar todos esses arquivos em um só e não consegui") —
        seleciona TUDO (%F = a seleção inteira como argumentos separados)
        → UM diálogo (nome + formato) → UM arquivo ao lado → notificação.
+    3. "Extrair aqui" (E46, ordem do dono: "esse criar arquivo que é o
+       botão novo?") — o thunar-archive-plugin (v2.8.0) SAIU da ISO e a
+       extração virou verbo da casa: craft-extract (%F; o motor é o
+       MESMO 7z/7zz do Comprimir; palco temporário + pergunta de colisão
+       + notificação). Um verbo por família, e o nosso.
 
   O motor do Comprimir é o craft-compress (usr/local/bin) — o 7zip que JÁ
-  está na ISO fala zip e 7z, o tar fala tar.xz. O "Criar pacote…" do
-  thunar-archive-plugin/xarchiver segue no menu (plugin thunarx — INDEPENDE
-  deste arquivo) para quem quiser o gerenciador; ESTES são os caminhos que
-  qualquer usuário espera.
+  está na ISO fala zip e 7z, o tar fala tar.xz. O motor do Extrair é o
+  craft-extract (E46) — o mesmo 7zip fala TODAS as extensões da lista
+  abaixo. O thunar-archive-plugin/xarchiver NÃO está mais na ISO (E46):
+  seus verbos de plugin morreram com ele — estes são os caminhos que
+  qualquer usuário espera, e nenhum deles mente sobre quem os entrega.
 
   Este arquivo mora no skel: todo usuário novo da Elite nasce com os
   verbos. Edits do usuário pelo próprio Thunar caem em
@@ -53,6 +59,20 @@
     <description>Compactar os itens selecionados em um único arquivo (zip, 7z ou tar.xz)</description>
     <patterns>*</patterns>
     <directories/>
+    <audio-files/>
+    <image-files/>
+    <other-files/>
+    <text-files/>
+    <video-files/>
+  </action>
+  <action>
+    <icon>package-x-generic</icon>
+    <name>Extrair aqui</name>
+    <submenu></submenu>
+    <unique-id>elite-craft-extract-1</unique-id>
+    <command>/usr/local/bin/craft-extract %F</command>
+    <description>Extrair o arquivo compactado nesta pasta (zip, 7z, tar, tar.gz, tar.xz, tar.bz2, gz, xz, bz2)</description>
+    <patterns>*.7z;*.zip;*.tar;*.tar.gz;*.tgz;*.tar.xz;*.txz;*.tar.bz2;*.tbz2;*.gz;*.xz;*.bz2</patterns>
     <audio-files/>
     <image-files/>
     <other-files/>

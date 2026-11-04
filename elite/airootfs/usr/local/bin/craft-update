@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# craft-update — atualiza TUDO que a Elite entrega (v2 — E32)
+# craft-update — atualiza TUDO que a Elite entrega (v4 — E46)
 # ═══════════════════════════════════════════════════════════════════════════
 # v1 (v2.10.5): 'sudo pacman -Syu' + cabeçalho honesto (paru prometido não
 #   existe — o bloco fica pronto, mas calado enquanto paru não entra).
@@ -25,22 +25,161 @@
 #   adota os arquivos na 1ª vez e é inócuo depois (dono = transação normal).
 #   O domínio da casa é /usr/local/bin: configs de usuário (~) NUNCA são
 #   tocados por update.
+# v4 (E46 — O CANAL QUE INSTALA + A CADÊNCIA): o dono: "vejo os erros
+#   persistir após atualizar… nosso sistema deve atualizar perfeitamente de
+#   forma cirúrgica e com a persistência necessária". A FERIDA CRAVADA: o
+#   pacman só ATUALIZA o que JÁ ESTÁ INSTALADO — e o veículo de TODAS as
+#   curas (elite-craft, E43) nunca tinha sido INSTALADO nos rigs cuja ISO é
+#   anterior (o packages.add só carregava o craft-toplevel): o 'Comprimir…'
+#   quebrado da era pré-E42 e o idle sem a normalização E44 sobreviveram a
+#   TODOS os craft-update. CURA em três mãos:
+#   (1) OS ALVOS EXPLÍCITOS no -Syu (elite-craft craft-toplevel): quem não
+#       tem, INSTALA (o pre_install adota os arquivos de overlay); quem tem,
+#       atualiza. A porta que o dono já usa ('Atualizar sistema') fecha o
+#       déficit na 1ª rodada e habilita o automatismo (timers abaixo).
+#   (2) --canal (root, dose DIÁRIA — timer elite-channel.timer, 11:30±40min):
+#       a dose cirúrgica — SÓ os pacotes do [elite-local] (pacman -Slq),
+#       --needed, offline-safe (repo não respondeu = silêncio, o timer volta
+#       amanhã), log honesto + aviso na sessão do usuário.
+#   (3) --sistema (root, dose SEMANAL — timer elite-sysupdate.timer,
+#       sáb 10:00±2h): o -Syu completo COM REDE DE SEGURANÇA — snapshot PRE
+#       do snapper antes, POST depois (quebrou? o GRUB liga o snapshot e o
+#       rollback é um reboot), kernel novo = aviso de reboot, pacman ocupado
+#       = silêncio (a semana volta). A CADÊNCIA (o dono pediu para pensar):
+#       casa = DIÁRIA · sistema = SEMANAL · ISO = MENSAL (1º, tarefa 4) ·
+#       manual = este script (sempre). Tudo só na tomada (ConditionACPower).
+#   A morada do log é overridável (ELITE_UPDATE_LOG) para prova em sandbox —
+#   mesma escola do VMARK/DETECT_ONLY (o teste nunca escreve em /var).
 # ═══════════════════════════════════════════════════════════════════════════
 set -euo pipefail
 
 KPKG=linux-cachyos-bore
-# marker de versão da casa — overridável para prova em sandbox (escola
-# craft-idle/DETECT_ONLY: path injetável, o teste nunca escreve em /usr)
+# marker de versão da casa — overridável para prova em sandbox
 VMARK="${ELITE_VERSION_MARKER:-/usr/local/share/elite/VERSION}"
+# log da automação — overridável para prova em sandbox (mesma escola)
+ULOG="${ELITE_UPDATE_LOG:-/var/log/elite-update.log}"
 
+ulog() {
+    mkdir -p "$(dirname "$ULOG")" 2>/dev/null || true
+    # teto 256 KiB (lei E36 — a mesma política de toda a família de logs)
+    if [ -f "$ULOG" ] && [ "$(wc -c <"$ULOG" 2>/dev/null || echo 0)" -gt 262144 ]; then
+        tail -c 131072 "$ULOG" > "$ULOG.tmp" 2>/dev/null && mv -f "$ULOG.tmp" "$ULOG" || true
+    fi
+    printf '[%s] %s\n' "$(date '+%F %T')" "$*" >>"$ULOG" 2>/dev/null || true
+}
+
+# root executa direto; humano com sessão usa o sudo (o interativo é a porta
+# do dono; os timers nascem root — mesmo binário, dois mundos)
+run_root() {
+    if [ "$(id -u)" = 0 ]; then "$@"; else sudo "$@"; fi
+}
+
+# o aviso para a SESSÃO do dono: root não tem bus — vai pelo bus de cada
+# usuário logado (/run/user/N/bus; sem bus = sem sessão gráfica, silêncio)
+notify_users() {
+    local uid
+    while read -r uid _; do
+        [ -n "$uid" ] || continue
+        [ -S "/run/user/$uid/bus" ] || continue
+        if [ "$(id -u)" = 0 ]; then
+            runuser -u "#$uid" -- env DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" \
+                notify-send -a 'Elite' "$@" 2>/dev/null || true
+        else
+            sudo -u "#$uid" env DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" \
+                notify-send -a 'Elite' "$@" 2>/dev/null || true
+        fi
+    done < <(loginctl list-users --no-legend 2>/dev/null || true)
+}
+
+# ── dose DIÁRIA: o canal da casa (elite-channel.timer — 11:30±40min) ────
+if [[ "${1:-}" == "--canal" ]]; then
+    ulog "canal: iniciando (dose diária dos pacotes da casa)"
+    CANAL_PKGS=()
+    while IFS= read -r p; do
+        [ -n "$p" ] && CANAL_PKGS+=("$p")
+    done < <(pacman -Slq elite-local 2>/dev/null || true)
+    if [ "${#CANAL_PKGS[@]}" -eq 0 ]; then
+        ulog "canal: [elite-local] não respondeu (offline?) — silêncio, o timer volta amanhã"
+        exit 0
+    fi
+    if ! run_root pacman -Sy --needed --noconfirm \
+            --overwrite '/usr/local/bin/*' "${CANAL_PKGS[@]}" >>"$ULOG" 2>&1; then
+        ulog "canal: pacman RECUSOU a dose — a prova está acima no log"
+        notify_users -u critical 'Canal da Elite falhou' \
+            'A dose diária da casa foi recusada — log: /var/log/elite-update.log'
+        exit 1
+    fi
+    ulog "canal: OK — ${CANAL_PKGS[*]}"
+    notify_users 'Elite: canal em dia' 'O código da casa foi atualizado (dose diária).'
+    exit 0
+fi
+
+# ── dose SEMANAL: o sistema inteiro, com rede de segurança (elite-sysupdate.timer)
+if [[ "${1:-}" == "--sistema" ]]; then
+    ulog "sistema: iniciando (dose semanal completa)"
+    # pacman ocupado? (o dono transacionando ou o keyring-fix) — silêncio
+    if command -v fuser >/dev/null 2>&1 && fuser /var/lib/pacman/db.lck >/dev/null 2>&1; then
+        ulog "sistema: pacman ocupado (lock vivo) — silêncio, a semana volta"
+        exit 0
+    fi
+    PRE_N=""
+    if command -v snapper >/dev/null 2>&1 && snapper -c root list-configs >/dev/null 2>&1; then
+        PRE_N="$(snapper -c root create -t pre -p -d 'elite-sysupdate' 2>/dev/null || true)"
+        if [ -n "$PRE_N" ]; then
+            ulog "sistema: snapshot PRE #$PRE_N — a rede de segurança está armada"
+        else
+            ulog "sistema: snapper recusou o PRE — seguindo SEM rede (a prova fica no log)"
+        fi
+    else
+        ulog "sistema: snapper indisponível — seguindo SEM rede de segurança (honesto)"
+    fi
+    kbefore="$(pacman -Q "$KPKG" 2>/dev/null | awk '{print $2}' || true)"
+    # o rc REAL se captura fora da negação (dentro do `if !`, o $? é o
+    # status NEGADO — o log imprimiria rc=1 em qualquer falha)
+    sys_rc=0
+    run_root pacman -Syu --needed --noconfirm \
+        --overwrite '/usr/local/bin/*' >>"$ULOG" 2>&1 || sys_rc=$?
+    if [ "$sys_rc" -ne 0 ]; then
+        ulog "sistema: pacman FALHOU (rc=$sys_rc) — snapshot PRE #$PRE_N guarda o estado anterior"
+        notify_users -u critical 'Atualização semanal falhou' \
+            "rc=$sys_rc — log: /var/log/elite-update.log${PRE_N:+ · rollback: snapshot #$PRE_N no GRUB}"
+        exit 1
+    fi
+    if [ -n "$PRE_N" ] && snapper -c root create -t post --pre-number "$PRE_N" \
+            -d 'elite-sysupdate' >/dev/null 2>&1; then
+        ulog "sistema: snapshot POST #$PRE_N criado (o par PRE/POST fecha a história)"
+    fi
+    kafter="$(pacman -Q "$KPKG" 2>/dev/null | awk '{print $2}' || true)"
+    if [ -n "$kafter" ] && [ "$kafter" != "$kbefore" ]; then
+        ulog "sistema: kernel ${kbefore:-ausente} → $kafter — REBOOT aplica"
+        notify_users 'Elite: sistema atualizado' \
+            "Kernel novo ($kafter) — REINICIE para rodá-lo.${PRE_N:+ Snapshots: #$PRE_N}"
+    else
+        ulog "sistema: OK (kernel intocado)"
+        notify_users 'Elite: sistema atualizado' 'Atualização semanal concluída.'
+    fi
+    exit 0
+fi
+
+# ── a porta MANUAL (o menu 'Atualizar sistema'): o -Syu completo ────────
 # kernel ANTES da transação (o -Syu pode tocá-lo; vazio = pacote ausente)
 kbefore="$(pacman -Q "$KPKG" 2>/dev/null | awk '{print $2}' || true)"
 
-# E43 — o --overwrite ESCOPADO à casa faz a ADOÇÃO do elite-craft: nos
-# rigs, /usr/local/bin nasceu SEM dono (overlay) e o pacman recusa
-# sobrescrever não-dono ANTES de qualquer scriptlet (pre_install não
-# alcança). Na 1ª vez os arquivos viram donos do pacote; depois é no-op.
-sudo pacman -Syu --overwrite '/usr/local/bin/*'
+# E46 — os alvos EXPLÍCITOS fazem a ADOÇÃO DO VEÍCULO: o rig que nunca
+# teve o elite-craft o INSTALA nesta transação (o pre_install do pacote
+# adota os arquivos de overlay); quem já tem, segue na dose normal.
+run_root pacman -Syu --needed --overwrite '/usr/local/bin/*' elite-craft craft-toplevel
+
+# E46 — o automatismo nasce aqui (idempotente): os timers da casa ficam
+# vivos depois da 1ª 'Atualizar sistema' — a cadência assume a partir daí.
+# A morada das units é injetável (ELITE_UNIT_DIR) para prova em sandbox —
+# mesma escola do VMARK/ELITE_UPDATE_LOG.
+UNITDIR="${ELITE_UNIT_DIR:-/etc/systemd/system}"
+if [ -f "$UNITDIR/elite-channel.timer" ] && [ -f "$UNITDIR/elite-sysupdate.timer" ]; then
+    if run_root systemctl enable --now elite-channel.timer elite-sysupdate.timer >/dev/null 2>&1; then
+        echo "==> automatismo da casa ativo: canal DIÁRIO 11:30 · sistema SEMANAL sáb 10:00"
+    fi
+fi
 
 if command -v paru >/dev/null 2>&1; then
   echo "==> AUR (paru -Sua)"
@@ -61,7 +200,7 @@ if [[ -r "$VMARK" ]] && command -v curl >/dev/null 2>&1; then
       | sed -n 's/^ *"tag_name": *"\([^"]*\)".*/\1/p' | head -n1 || true)"
   if [[ -n "$latest" && "$latest" != "$inst" ]]; then
     echo "==> Elite $latest disponível (base desta máquina: ${inst:-desconhecida})"
-    echo "    scripts/configs da casa viajam por ISO nova ou cura-viva:"
+    echo "    o código da casa viaja SOZINHO agora (canal diário); a ISO nova é o capote mensal:"
     echo "    https://github.com/Chrispsz/archcraft-elite/releases/latest"
   fi
 fi

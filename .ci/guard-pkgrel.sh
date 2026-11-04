@@ -58,8 +58,12 @@ fail=0
 VENDOR_DELTA="$(git diff --name-only "$LAST_TAG" HEAD -- vendor/ || true)"
 check craft-toplevel "$VENDOR_DELTA" || fail=1
 
-# elite-craft: todo o /usr/local/bin da casa MENOS o arquivo dono do pacote próprio
+# elite-craft: todo o /usr/local/bin da casa MENOS o arquivo dono do pacote
+# próprio + as units de sistema da casa (E46 — o payload /etc do pacote;
+# unit mudada sem pkgrel = o -Syu pula a cadência em silêncio)
 BIN_DELTA="$(git diff --name-only "$LAST_TAG" HEAD -- elite/airootfs/usr/local/bin | grep -vx 'craft-toplevel' || true)"
-check elite-craft "$BIN_DELTA" || fail=1
+UNIT_DELTA="$(git diff --name-only "$LAST_TAG" HEAD -- 'elite/airootfs/etc/systemd/system/elite-*' || true)"
+DELTA="$(printf '%s\n%s\n' "$BIN_DELTA" "$UNIT_DELTA" | sed '/^$/d' | sort -u)"
+check elite-craft "$DELTA" || fail=1
 
 exit "$fail"

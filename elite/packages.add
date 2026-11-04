@@ -120,14 +120,16 @@ tumbler
 ## v2.8.0 — ARQUIVOS: compactar/descompactar TUDO no explorador (dono:
 ## "o sistema e explorador de arquivos tem 7zip implementado pra conseguir
 ## descompactar e compactar tudo" — o 7zip CLI já está na ISO, faltava a
-## mão no Thunar). thunar-archive-plugin = os verbos "Criar pacote…"/
-## "Extrair aqui" no menu de contexto; xarchiver = o gerenciador GTK3 que
-## os executa (1,9 MB instalado — o mais leve da categoria; o file-roller
+## mão no Thunar). xarchiver = o gerenciador GTK3 para ABRIR/GERENCIAR
+## arquivos (1,9 MB instalado — o mais leve da categoria; o file-roller
 ## saiu na v1.1 e não volta). Backend: o 7zip da linha de cima — 7z, zip,
-## tar.*, gz, xz, zst, bz2, cab e extração de rar. Integracao provada na
-## API do Arch: o xarchiver traz usr/lib/xfce4/thunar-archive-plugin/
-## xarchiver.tap — o plugin o encontra sem configuração.
-thunar-archive-plugin
+## tar.*, gz, xz, zst, bz2, cab. Integração provada na API do Arch: o
+## xarchiver traz usr/lib/xfce4/thunar-archive-plugin/xarchiver.tap — MAS
+## o PLUGIN thunarx (thunar-archive-plugin) SAIU na E46 (packages.remove):
+## a mão no Thunar é dos verbos da CASA (craft-compress E35 +
+## craft-extract E46, no uca.xml do skel) — o duplo verbo confundiu o
+## dono na carne ("esse criar arquivo que é o botão novo?") e a faca de
+## dois gumes virou corte.
 xarchiver
 ## v2.10.25-candidate (E35) — O VERBO "COMPRIMIR…" (dono, 02/nov com print
 ## na mão: "estava tentando compactar todos esses arquivos em um só e não
@@ -276,3 +278,13 @@ zsh-syntax-highlighting
 ## janelas — este daemon fala o protocolo DIRETO (fonte vendada no repo,
 ## sha256 pinado, compilado no [elite-local])
 craft-toplevel
+
+## E43/E46 — O VEÍCULO DO CANAL DIÁRIO: o elite-craft empacota TODA a casa
+## executável (craft-*, elite-*, exo-open — exceto o craft-toplevel, dono
+## do pacote próprio) + as units de sistema da casa (elite-channel /
+## elite-sysupdate — a cadência E46). NA ISO ele já nasce INSTALADO (a
+## E46 provou o custo de não nascer: o rig da 28 ficou SEM o veículo e
+## TODAS as curas do canal passaram por ele — 'os erros persistem após
+## atualizar', o dono); nos rigs antigos, o craft-update v4 o INSTALA
+## (alvo explícito no -Syu; o pre_install adota os arquivos de overlay).
+elite-craft

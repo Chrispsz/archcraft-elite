@@ -103,13 +103,15 @@ for gone in gufw ufw; do
   assert_nogrep "$PKG" "^${gone}$" "v1.5: ${gone} ativo sumiu"
 done
 # v2.8.0: o plugin VOLTOU (pedido do dono: compactar/descompactar TUDO no
-# Thunar) — o receio v1.2 de ressuscitar deps de tema Xfce não existe:
-# plugin + xarchiver são GTK3 puros, e o backend é o 7zip que já está na
-# ISO. A integração é provada na API do Arch (xarchiver.tap + *.so).
-assert_grep "$PKG" '^thunar-archive-plugin$' \
-  "v2.8.0: thunar-archive-plugin ATIVO (os verbos Criar pacote/Extrair aqui do Thunar — pedido do dono)"
-assert_nogrep "$PKG" '^#thunar-archive-plugin # ELITE-REMOVED$' \
-  "v2.8.0: thunar-archive-plugin des-comentado da purga v1.1 (saiu do packages.remove)"
+# Thunar) — e a E46 o aposentou DE VEZ: o dono encontrou DOIS verbos de
+# arquivo no menu e perguntou 'esse criar arquivo que é o botão novo?' —
+# o duplo verbo confundiu NA CARNE quem manda. A mão no Thunar agora é
+# 100% da casa (craft-compress E35 + craft-extract E46 no uca.xml); o
+# xarchiver FICA para abrir/gerenciar. O plugin volta ao purgatório.
+assert_nogrep "$PKG" '^thunar-archive-plugin$' \
+  "E46: thunar-archive-plugin FORA da ISO (o duplo verbo confundiu o dono — 'esse criar arquivo que é o botão novo?' — a mão é dos verbos da casa)"
+assert_grep "$PKG" '^#thunar-archive-plugin # ELITE-REMOVED$' \
+  "E46: thunar-archive-plugin de volta ao purgatório (v1.1 removeu, v2.8.0 trouxe, E46 aposenta com história — o remove lista, o apply comenta)"
 assert_nogrep "$PKG" '^(mousepad|zathura|zathura-pdf-poppler|file-roller|xgps|xgpsspeed)$' \
   "v1.1: mousepad/zathura/file-roller/xgps* não voltam por engano"
 for modern in brave-origin papers pwvucontrol bluetui impala; do
@@ -367,7 +369,7 @@ assert_grep "$P/airootfs/usr/local/bin/craft-logout" 'rm -f "\$errf"   # v2\.5\.
 assert_grep "$P/airootfs/usr/local/bin/craft-idle" 'case "\$\{LOCK_MIN:-0\}" in' "v2.5.0: a marca '← atual' compara LOCK_MIN (o CUR='10min' NUNCA casava com os números do case — código morto: o dono nunca viu o preset marcado; audit 24-c)"
 assert_grep "$P/airootfs/usr/local/bin/craft-pin" 'mv -f "\$PINS\.tmp"' "v2.5.0: mv INCONDICIONAL no rm (o && mv pulava quando grep -v saía 1 — tmp órfão + 'removido' mentiroso; audit 24-c)"
 assert_grep "$P/airootfs/usr/local/bin/craft-fix-keys" 'keyring-refresh\.stamp' "v2.5.0: guard de 24h (pacman -Sy completo a TODO login: gpg + 10–20MB de rede — as camadas 1–3 já curam; belt roda 1×/dia; audit 24-b)"
-assert_grep "$P/airootfs/usr/local/bin/craft-power" 'Rollback do sistema' "v2.5.0: o craft-rollback ganha PORTA DE ENTRADA no Sessão (menu de snapshots completo sem NENHUM chamador — órfão de UX; audit 24-a)"
+assert_nogrep "$P/airootfs/usr/local/bin/craft-power" 'Rollback do sistema' "E46: o rollback SAIU do menu Sessão (ordem do dono — a porta dele é a entrada de snapshot no GRUB; v2.5.0 o trouxe ao menu, E46 o leva embora com a porta certa)"
 assert_nogrep "$P/airootfs/etc/skel/.config/hypr/hyprlock.conf" 'path = screenshot' "v2.5.0: o fundo do lock NÃO é mais screenshot (o dono: 'só o wallpaper com Blur e não mostrar as janelas abertas como o PC estava')"
 assert_grep "$P/airootfs/etc/skel/.config/hypr/hyprlock.conf" 'path = ~/\.config/labwc/wallpaper\.png' "v2.5.0: o fundo do lock é O WALLPAPER do desktop com blur (a identidade, sem as janelas; brightness .70 — o wallpaper dark premium em .35 era sopa preta)"
 assert_grep "$P/airootfs/usr/local/bin/craft-lock" 'wallpaper\.png' "v2.5.0: craft-lock resolve o fundo (png→jpg, a MESMA cadeia do swaybg; sem nenhum: color preto AMOLED — conf efêmero de nome fixo, zero acumulação)"
@@ -494,7 +496,7 @@ assert_grep "$APPS/foot-server.desktop" 'NoDisplay=true' "v1.2: foot-server fora
 assert_grep "$APPS/xgps.desktop" 'NoDisplay=true' "v1.2: xgps fora do menu (GPS num desktop gaming?)"
 assert_grep "$APPS/xgpsspeed.desktop" 'NoDisplay=true' "v1.2: xgpsspeed fora do menu"
 assert_grep "$REPO/elite/packages.remove" '^gpsd$' "v1.2: gpsd listado no debloat (depend DURA do waybar — NoDisplay é a cura real)"
-assert_nogrep "$REPO/elite/packages.remove" '^thunar-archive-plugin$' "v2.8.0: o plugin saiu do packages.remove (o add o traz — a esquizofrenia add∩remove não volta)"
+assert_grep "$REPO/elite/packages.remove" '^thunar-archive-plugin$' "E46: o plugin no TÚMULO do debloat (v2.8.0 o trouxe, E46 o aposenta — o xarchiver fica, a mão é dos verbos da casa)"
 # v2.10.14 — O DEBLOAT QUE O PAPEL PROVOU (dump nl3z do rig, seção 13):
 # timeshift 26.09.0-1.1 e network-manager-sstp 1.3.2-7.1 INSTALADOS no
 # rig. O timeshift era promessa v2.3.6 sem linha na lista; o sstp chegou
@@ -789,7 +791,7 @@ assert_grep "$CBARS" '9>&- &' "E43: todo spawn fecha o fd 9 — o lock do superv
 assert_grep "$CBARS" 'iniciando \(1ª vez — nada morreu\)' "E43: o 1º arranque não mente — 'FORA — reiniciando' só com morte REAL (o dump tg0b1 mostrou BARS_RESTARTS=5 com ZERO mortes: a métrica era ruído de arranque; parênteses do rótulo são literais no ERE)"
 assert_grep "$CBARS" 'hyprpolkitagent' "E43: o agente polkit resolve wlroots-nativo NA FRENTE (polkit-gnome 0.105 = GTK2 de 2010 — o diálogo que matou o gparted do dono com senha VIVA provada no dump tg0b1)"
 assert_grep "$CIDLE" 'trava e apaga' "E43: o gesto ÚNICO existe no menu/status — lock+off no MESMO instante (a janela 'travada e acesa' de 5min morre; acorda já no lock)"
-assert_grep "$CIDLE" "'Suspender: 5 min')   SUSPEND_MIN=5" "E43: suspend 5min é escolha EXPLÍCITA no menu (o dono flutuou; a fábrica fica em 20 — 5min suspende desktop com trabalho vivo, e escolher 5 é um clique)"
+assert_grep "$CIDLE" "'5 min') +SUSPEND_MIN=5" "E46: suspend 5min é escolha EXPLÍCITA na porta própria (o dono flutuou; a fábrica fica em 20 — 5min suspende desktop com trabalho vivo, e escolher 5 é um clique; o espaçamento não é peça)"
 assert_grep "$CIDLE" 'craft-idle screenoff' "E44: o apagar de tela é OBSERVÁVEL — o swayidle executa o subcomando que deixa rc no idle.log ('a tela nunca apaga' do dono vira réu nomeado, não reclamação sem corpo)"
 assert_grep "$CIDLE" 'OFF_MIN="\$LOCK_MIN"' "E44: a NORMALIZAÇÃO do conf legado (2/7 → 2/2 com linha no log + notificação — a janela 'travada e acesa' denunciada morre em TODO rig que atualizar; o update nunca pisa config, o FLUXO burro sim)"
 assert_grep "$CIDLE" '262144' "E44: o idle.log nasce dentro da lei do teto (256 KiB — a família E36)"
@@ -2517,7 +2519,7 @@ assert_nogrep "$P/airootfs/usr/local/bin/craft-dock-gui" 'GtkLayerShell\.Layer\.
 # mimeapps: os archives abrem no xarchiver
 assert_grep "$P/airootfs/etc/skel/.config/mimeapps.list" 'application/x-7z-compressed=xarchiver\.desktop' "v2.8.0: 7z abre no xarchiver (o dono clicou duas vezes num .7z e o sistema sabia o que fazer)"
 assert_grep "$P/airootfs/etc/skel/.config/mimeapps.list" 'application/zip=xarchiver\.desktop' "v2.8.0: zip abre no xarchiver"
-assert_grep "$REPO/elite/packages.add" '^thunar-archive-plugin$' "v2.8.0: thunar-archive-plugin no add (verbos do menu de contexto do Thunar)"
+assert_nogrep "$REPO/elite/packages.add" '^thunar-archive-plugin$' "E46: o plugin FORA do add (o duplo verbo confundiu o dono na carne — a mão no Thunar é do craft-compress/craft-extract no uca.xml)"
 assert_grep "$REPO/elite/packages.add" '^xarchiver$' "v2.8.0: xarchiver no add (a GUI do 7zip — 1,9 MB, a mais leve da categoria)"
 
 # v2.1 — REGRESSÃO DA RUN #92: GLib.get_user_home_dir() NÃO EXISTE em

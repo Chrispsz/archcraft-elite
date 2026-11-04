@@ -73,9 +73,9 @@ o driver do próprio hardware.
 | Tuning | `cachyos-settings`, zram zstd, sysctl/udev próprios, BBR + fq |
 | Gaming | gamemode, gamescope, mangohud, Vulkan RADV/Intel (lib32 sobe on-demand no firstboot), LACT, btop |
 | GPU | NVIDIA open pré-compilado no build (rig A) / RADV (rig B) |
-| Arquivos | Thunar + tumbler (GUI), craft-connect para rede/bluetooth |
+| Arquivos | Thunar + tumbler (GUI), craft-connect para rede/bluetooth, craft-compress + craft-extract para compactar/extrair (um verbo da casa por família — o thunar-archive-plugin saiu na E46) |
 | Navegador | Brave Origin (release oficial, versão e sha256 fixados no build) |
-| Rollback | btrfs + snapper + grub-btrfs + craft-rollback (snapshot no menu do GRUB; restauração GUI no menu Sessão — a estratégia snapper-only é da v2.3.6 (o craft-rollback v1 apontava pro Timeshift); o pacote timeshift em si só saiu da ISO na v2.10.14 — um rei só na estratégia de snapshot) |
+| Rollback | btrfs + snapper + grub-btrfs (snapshot no menu do GRUB — a porta do rollback; a estratégia snapper-only é da v2.3.6, o pacote timeshift saiu da ISO na v2.10.14: um rei só na estratégia de snapshot) |
 
 Debloat do upstream no teto do que não quebra o sistema (impressão,
 cloud-init, sessões Openbox/BSPWM/X11, terminais extras, fontes CJK…,
@@ -113,6 +113,23 @@ volume/rede/sessão à direita.
   `/etc/pacman.conf` e `sudo pacman -Qqn | pacman -S -`.
 - Chave GPG CachyOS importada; o pacman original do Arch é preservado
   (o fork do CachyOS não é instalado).
+
+## Atualizações
+
+A distro se mantém viva em QUATRO cadências — cada peça no ritmo do risco
+que ela carrega (E46, o dono: "o sistema não deve quebrar ao atualizar mas
+sim melhorar constantemente"):
+
+| Cadência | O quê | Como |
+|---|---|---|
+| **Diária** (11:30 ±40min) | O código da casa (craft-*, elite-* + navegador) | `elite-channel.timer`: dose cirúrgica do repo `[elite-local]` — só os pacotes da casa, só na tomada, offline-safe |
+| **Semanal** (sáb 10:00 ±2h) | O sistema inteiro (repos Arch) | `elite-sysupdate.timer`: `-Syu` com snapshot **PRE/POST do snapper** — quebrou? o GRUB liga o snapshot e o rollback é um reboot |
+| **Mensal** (1º dia) | A ISO de fábrica | tag `v*` → build completo com os dois gates |
+| **Quando você quiser** | Tudo | `craft-update` (menu "Atualizar sistema") — a porta manual instala o veículo da casa e liga a cadência na 1ª rodada |
+
+O canal diário é o fim do "erros persistem após atualizar": a cura no
+repositório chega à sua máquina no dia seguinte, sem formatar, sem
+reinstalar — e as configurações de usuário nunca são tocadas.
 
 ## Build
 

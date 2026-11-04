@@ -251,6 +251,14 @@ CUR="${LOCK_MIN}min"
 # sentido'), morre aqui). O 'Suspender: 5 min' entra porque o dono o
 # flutuou — o padrão fica em 20 (5min suspende um desktop com trabalho
 # vivo; a escolha de 5 é um clique, não uma edição).
+# E46 — O MENU EM DUAS PORTAS (o dono: "organiza melhor o de tempo de idle
+# e etc"): a parede de 13 itens (7 de tela + 6 de suspend numa lista só)
+# virou DUAS SEÇÕES NOMEADAS — a 1ª porta diz o que controla E mostra o
+# valor ATUAL no próprio item ('Tela: trava e apaga — 5 min'); o 2º nível
+# lista só os valores da seção, com a marca '← atual'. O fallback de
+# terminal também aprendeu o gesto único: ele AINDA escrevia OFF_MIN=
+# mins+5 — a janela 'travada e acesa' que a E43 matou no menu sobrevivia
+# no terminal (E33 de espelho, achado da própria ordem E46).
 # v2.10.26/E38 — o MENU órfão saiu: era definido aqui e INCONDICIONALMENTE
 # sobrescrito dentro do if do craft-menu (o else terminal usa read/prompt,
 # nunca $MENU) — 12 linhas mortas que a suíte teria que carregar para
@@ -258,109 +266,124 @@ CUR="${LOCK_MIN}min"
 
 if command -v craft-menu >/dev/null 2>&1; then
     # v2.3.8 — o menu NATIVO (título centrado, sem linha de digitação —
-    # o dono: "remover a barra que fica"); o valor ATUAL vira marca no
-    # item ('— atual'), não texto de prompt.
-    # v2.5.0 — a marca compara LOCK_MIN (o CUR="10min" NUNCA casava com os
-    # números do case — código morto desde sempre; o audit 24-c flagrou:
-    # o dono nunca viu o preset atual marcado).
-    case "${LOCK_MIN:-0}" in
-        0)  CUR_ITEM='Idle: Nunca (W-l manual)' ;;
-        2)  CUR_ITEM='Idle: 2 min (trava e apaga)' ;;
-        5)  CUR_ITEM='Idle: 5 min (trava e apaga)' ;;
-        10) CUR_ITEM='Idle: 10 min (trava e apaga)' ;;
-        15) CUR_ITEM='Idle: 15 min (trava e apaga)' ;;
-        30) CUR_ITEM='Idle: 30 min (trava e apaga)' ;;
-        60) CUR_ITEM='Idle: 1 hora (trava e apaga)' ;;
-        *)  CUR_ITEM='' ;;
-    esac
-    MENU="Idle: 2 min (trava e apaga)
-Idle: 5 min (trava e apaga)
-Idle: 10 min (trava e apaga)
-Idle: 15 min (trava e apaga)
-Idle: 30 min (trava e apaga)
-Idle: 1 hora (trava e apaga)
-Idle: Nunca (W-l manual)
-Suspender: 5 min
-Suspender: 10 min
-Suspender: 20 min (padrão)
-Suspender: 30 min
-Suspender: 1 hora
-Suspender: Nunca"
-    [ -n "$CUR_ITEM" ] && MENU="$(printf '%s\n' "$MENU" | sed "s|^${CUR_ITEM}$|${CUR_ITEM} ← atual|")"
-    mlog "Idle: abrindo (craft-menu)"
-    errf="$(mktemp)"
-    ec=0
-    choice="$(printf '%s\n' "$MENU" | craft-menu --title='Idle' --at=power 2>"$errf")" || ec=$?
-    if [ "$ec" -eq 143 ]; then
-        mlog "Idle: fechado de fora (SIGTERM — cross-dismiss) — benigno"
-        rm -f "$errf"
-        exit 0
-    fi
-    if [ "$ec" -eq 2 ]; then
-        mlog "Idle: toggle — 2ª chamada fechou o menu — benigno"
-        rm -f "$errf"
-        exit 0
-    fi
-    if [ "$ec" -eq 1 ]; then
-        # v2.3.10 — fechar NUNCA é erro, COM OU SEM stderr (o gate velho
-        # '! -s "$errf"' gritava FALHOU em fechamento normal — a pilha de
-        # notificações eternas da foto do dono). stderr vai pro log.
-        if [ -s "$errf" ]; then
-            mlog "Idle: fechado pelo usuário (ESC) — benigno — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
-        else
-            mlog "Idle: fechado pelo usuário (ESC) — benigno"
+    # o dono: "remover a barra que fica").
+    # E46 — o pick com a gramática COMPLETA do craft-menu (143/2/1/erro)
+    # mora numa função só: as TRÊS portas (seção, tela, suspender) falam
+    # a mesma gramática sem tríplicar o tratamento. Os itens entram por
+    # STDIN (um por linha — o espaço dentro do item nunca vira separador).
+    idle_pick() {
+        _ip_title="$1"
+        errf="$(mktemp)"
+        ec=0
+        choice="$(craft-menu --title="$_ip_title" --at=power 2>"$errf")" || ec=$?
+        if [ "$ec" -eq 143 ]; then
+            mlog "Idle: fechado de fora (SIGTERM — cross-dismiss) — benigno"
+            rm -f "$errf"
+            exit 0
+        fi
+        if [ "$ec" -eq 2 ]; then
+            mlog "Idle: toggle — 2ª chamada fechou o menu — benigno"
+            rm -f "$errf"
+            exit 0
+        fi
+        if [ "$ec" -eq 1 ]; then
+            # v2.3.10 — fechar NUNCA é erro, COM OU SEM stderr (o gate velho
+            # '! -s "$errf"' gritava FALHOU em fechamento normal — a pilha
+            # de notificações eternas da foto do dono). stderr vai pro log.
+            if [ -s "$errf" ]; then
+                mlog "Idle: fechado pelo usuário (ESC) — benigno — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
+            else
+                mlog "Idle: fechado pelo usuário (ESC) — benigno"
+            fi
+            rm -f "$errf"
+            exit 0
+        fi
+        if [ "$ec" -ne 0 ]; then
+            mlog "Idle: MENU FALHOU exit=$ec — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
+            # v2.10.5 — FIM DO ÚLTIMO LOG-ONLY: todo irmão (power/rollback/
+            # connect) avisa na central; o idle era o único que falhava calado
+            # para quem está na tela.
+            command -v notify-send >/dev/null 2>&1 && \
+                timeout 5 notify-send -a 'Elite' -u normal -t 6000 'Idle' \
+                    "Menu do idle falhou (exit=$ec) — log: ~/.cache/elite/menus.log" || true
         fi
         rm -f "$errf"
-        exit 0
-    fi
-    if [ "$ec" -ne 0 ]; then
-        mlog "Idle: MENU FALHOU exit=$ec — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
-        # v2.10.5 — FIM DO ÚLTIMO LOG-ONLY: todo irmão (power/rollback/
-        # connect) avisa na central; o idle era o único que falhava calado
-        # para quem está na tela.
-        command -v notify-send >/dev/null 2>&1 && \
-            timeout 5 notify-send -a 'Elite' -u normal -t 6000 'Idle' \
-                "Menu do idle falhou (exit=$ec) — log: ~/.cache/elite/menus.log" || true
-    fi
-    rm -f "$errf"
-    choice="$(printf '%s' "$choice" | sed 's/ ← atual$//')"
+        printf '%s' "$choice" | sed 's/ ← atual$//'
+    }
+    # o valor corrente na LÍNGUA DO MENU (o item EXATO — a marca nunca
+    # falha por divergência de texto; herdeiro do audit 24-c)
+    cur_lock_item() {
+        case "${LOCK_MIN:-0}" in
+            0)  printf 'Nunca (só W-l)' ;;
+            60) printf '1 hora' ;;
+            *)  printf '%s min' "${LOCK_MIN:-0}" ;;
+        esac
+    }
+    cur_susp_item() {
+        case "${SUSPEND_MIN:-0}" in
+            0)  printf 'Nunca' ;;
+            20) printf '20 min (padrão)' ;;
+            60) printf '1 hora' ;;
+            *)  printf '%s min' "${SUSPEND_MIN:-0}" ;;
+        esac
+    }
+    lock_txt="$(cur_lock_item)"
+    susp_txt="$(cur_susp_item)"
+    mlog "Idle: abrindo (craft-menu — duas portas)"
+    secao="$(printf '%s\n' \
+        "Tela: trava e apaga — $lock_txt" \
+        "Suspender após o idle — $susp_txt" | idle_pick 'Idle')" || exit 0
+    case "$secao" in
+        'Tela: trava e apaga'*)
+            # E43/E46 — o gesto único: os valores AQUI são LOCK=OFF (a
+            # janela 'travada e acesa' não tem mais porta em nenhum menu)
+            itens="$(printf '%s\n' '2 min' '5 min' '10 min' '15 min' '30 min' '1 hora' 'Nunca (só W-l)' \
+                | sed "s|^${lock_txt}\$|& ← atual|")"
+            choice="$(printf '%s\n' "$itens" | idle_pick 'Tela (trava e apaga)')" || exit 0
+            case "$choice" in
+                '2 min')          LOCK_MIN=2;  OFF_MIN=2  ;;
+                '5 min')          LOCK_MIN=5;  OFF_MIN=5  ;;
+                '10 min')         LOCK_MIN=10; OFF_MIN=10 ;;
+                '15 min')         LOCK_MIN=15; OFF_MIN=15 ;;
+                '30 min')         LOCK_MIN=30; OFF_MIN=30 ;;
+                '1 hora')         LOCK_MIN=60; OFF_MIN=60 ;;
+                'Nunca (só W-l)') LOCK_MIN=0;  OFF_MIN=0  ;;
+                *)                exit 0 ;;
+            esac ;;
+        'Suspender após o idle'*)
+            itens="$(printf '%s\n' '5 min' '10 min' '20 min (padrão)' '30 min' '1 hora' 'Nunca' \
+                | sed "s|^${susp_txt}\$|& ← atual|")"
+            choice="$(printf '%s\n' "$itens" | idle_pick 'Suspender após o idle')" || exit 0
+            case "$choice" in
+                '5 min')           SUSPEND_MIN=5  ;;
+                '10 min')          SUSPEND_MIN=10 ;;
+                '20 min (padrão)') SUSPEND_MIN=20 ;;
+                '30 min')          SUSPEND_MIN=30 ;;
+                '1 hora')          SUSPEND_MIN=60 ;;
+                'Nunca')           SUSPEND_MIN=0  ;;
+                *)                 exit 0 ;;
+            esac ;;
+        *) exit 0 ;;
+    esac
 else
     mlog "Idle: fuzzel AUSENTE — fallback terminal"
     # sem fuzzel: prompt de terminal (foot -e) — não trava o ajuste
     printf 'Idle — minutos até travar (atual: %s; vazio = cancela): ' "$CUR"
     read -r mins || mins=''   # v2.10.5: EOF/set -e não mata calado — vazio = cancela
-        case "$mins" in
-            ''|*[!0-9]*) exit 0 ;;
-            0)  choice='Nunca — só manual (W-l)' ;;
-            *)  LOCK_MIN="$mins"; OFF_MIN=$((mins + 5))
-                mkdir -p "$CONF_DIR"
-                printf 'LOCK_MIN=%s\nOFF_MIN=%s\nSUSPEND_MIN=%s\n' "$LOCK_MIN" "$OFF_MIN" "${SUSPEND_MIN:-0}" > "$CONF"
-                setsid craft-idle start >/dev/null 2>&1 &
-                exit 0 ;;
-        esac
+    case "$mins" in
+        ''|*[!0-9]*) exit 0 ;;
+        # E46 — o gesto único vale TAMBÉM no terminal (OFF=LOCK): o fallback
+        # ainda escrevia OFF=mins+5 — a janela 'travada e acesa' que a E43
+        # matou no menu sobrevivia aqui. E o 0 AGORA persiste (antes: o
+        # 'Nunca' do terminal cavia no `*)` do case antigo e saía sem
+        # escrever — ajuste que o usuário fez e o conf nunca soube).
+        *)  LOCK_MIN="$mins"; OFF_MIN="$mins"
+            mkdir -p "$CONF_DIR"
+            printf 'LOCK_MIN=%s\nOFF_MIN=%s\nSUSPEND_MIN=%s\n' "$LOCK_MIN" "$OFF_MIN" "${SUSPEND_MIN:-0}" > "$CONF"
+            setsid craft-idle start >/dev/null 2>&1 &
+            exit 0 ;;
+    esac
 fi
-
-case "$choice" in
-    'Idle: 2 min (trava e apaga)')   LOCK_MIN=2;  OFF_MIN=2  ;;
-    'Idle: 5 min (trava e apaga)')   LOCK_MIN=5;  OFF_MIN=5  ;;
-    'Idle: 10 min (trava e apaga)')  LOCK_MIN=10; OFF_MIN=10 ;;
-    'Idle: 15 min (trava e apaga)')  LOCK_MIN=15; OFF_MIN=15 ;;
-    'Idle: 30 min (trava e apaga)')  LOCK_MIN=30; OFF_MIN=30 ;;
-    'Idle: 1 hora (trava e apaga)')  LOCK_MIN=60; OFF_MIN=60 ;;
-    'Idle: Nunca (W-l manual)')      LOCK_MIN=0;  OFF_MIN=0  ;;
-    # v2.10.12 — o knob do SUSPENDER (escolha explícita; 0 = nunca). O
-    # lock/apagar ficam INTACTOS quando só o suspend muda (a leitura do
-    # conf lá em cima já carregou os valores atuais — nada se perde).
-    # E43 — 'Suspender: 5 min' entra por pedido do dono (o fluxo é TODO
-    # dele); 45 min saiu (nunca foi escolhido — o 30/1h cobrem a faixa).
-    'Suspender: 5 min')   SUSPEND_MIN=5  ;;
-    'Suspender: 10 min')  SUSPEND_MIN=10 ;;
-    'Suspender: 20 min (padrão)') SUSPEND_MIN=20 ;;
-    'Suspender: 30 min')  SUSPEND_MIN=30 ;;
-    'Suspender: 1 hora')  SUSPEND_MIN=60 ;;
-    'Suspender: Nunca')   SUSPEND_MIN=0  ;;
-    *)                    exit 0 ;;   # Esc: nada acontece
-esac
 
 # persiste e reinicia o daemon JÁ (efeito imediato, sem relogin)
 # v2.10.5 — SUSPEND_MIN VIAJA NO REESCRITO: o menu regravava SÓ lock/off
