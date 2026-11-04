@@ -790,6 +790,10 @@ assert_grep "$CBARS" 'iniciando \(1ª vez — nada morreu\)' "E43: o 1º arranqu
 assert_grep "$CBARS" 'hyprpolkitagent' "E43: o agente polkit resolve wlroots-nativo NA FRENTE (polkit-gnome 0.105 = GTK2 de 2010 — o diálogo que matou o gparted do dono com senha VIVA provada no dump tg0b1)"
 assert_grep "$CIDLE" 'trava e apaga' "E43: o gesto ÚNICO existe no menu/status — lock+off no MESMO instante (a janela 'travada e acesa' de 5min morre; acorda já no lock)"
 assert_grep "$CIDLE" "'Suspender: 5 min')   SUSPEND_MIN=5" "E43: suspend 5min é escolha EXPLÍCITA no menu (o dono flutuou; a fábrica fica em 20 — 5min suspende desktop com trabalho vivo, e escolher 5 é um clique)"
+assert_grep "$CIDLE" 'craft-idle screenoff' "E44: o apagar de tela é OBSERVÁVEL — o swayidle executa o subcomando que deixa rc no idle.log ('a tela nunca apaga' do dono vira réu nomeado, não reclamação sem corpo)"
+assert_grep "$CIDLE" 'OFF_MIN="\$LOCK_MIN"' "E44: a NORMALIZAÇÃO do conf legado (2/7 → 2/2 com linha no log + notificação — a janela 'travada e acesa' denunciada morre em TODO rig que atualizar; o update nunca pisa config, o FLUXO burro sim)"
+assert_grep "$CIDLE" '262144' "E44: o idle.log nasce dentro da lei do teto (256 KiB — a família E36)"
+assert_grep "$CIDLE" 'suspend: ciclo completo' "E44: o suspend deixa PROVA no papel (o 'nunca entra em idle sozinho' vira linha com rc — o PC dormiu e voltou, no papel)"
 assert_grep "$CUPD" "overwrite '/usr/local/bin/\*'" "E43: a adoção do elite-craft passa pelo --overwrite ESCOPADO à casa (pacman recusa não-dono ANTES de qualquer pre_install; configs de usuário NUNCA são tocados)"
 assert_grep "$REPO/.ci/build.sh" 'pkgname=elite-craft' "E43: o canal diário tem PACOTE (elite-craft = /usr/local/bin inteiro da casa, exceto o craft-toplevel dono do próprio — a demanda do dono: commits viram atualização sem formatar)"
 assert_grep "$REPO/.ci/build.sh" 'PACKAGES_ONLY=1' "E43: o modo pacotes-só (makepkg da casa em MINUTOS, zero ISO, zero pacstrap) alimenta o canal diário"
@@ -932,7 +936,7 @@ assert_grep "$REPO/scripts/apply-overlay.sh" 'craft-fix-keys' "v1.5: [9b] regist
 # spec v1.5 viraram DEFAULT, não hardcode). Contratos completos adiante
 # (bloco v1.6.1 · craft-idle).
 assert_grep "$P/airootfs/usr/local/bin/craft-idle" "timeout [$]\(\(LOCK_MIN \* 60\)\) 'craft-lock'" "v2.5.0 (N4): lock no timeout passa pelo CRAFT-LOCK (o resolvedor de wallpaper — chamar hyprlock direto ignorava a cadeia png→jpg; o CONF segue sendo o default editável da v1.6.1)"
-assert_grep "$P/airootfs/usr/local/bin/craft-idle" "timeout [$]\(\(OFF_MIN \* 60\)\) 'wlopm --off" "v1.6.1: DPMS no timeout do CONF (tela APAGA — idle real, não tela fixa)"
+assert_grep "$P/airootfs/usr/local/bin/craft-idle" "timeout [$]\(\(OFF_MIN \* 60\)\) 'craft-idle screenoff" "v1.6.1/E44: DPMS no timeout do CONF (tela APAGA — e agora via subcomando OBSERVÁVEL: o rc do wlopm fica no idle.log; o cru calado era o buraco que escondeu 'a tela nunca apaga')"
 assert_nogrep "$P/airootfs/etc/skel/.config/labwc/autostart" 'swaylock -f|exec swaylock' "v1.5: invocação do swaylock EXTINTA do autostart (tela branca → hyprlock)"
 # W-v clipboard + menu com os apps novos
 assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'W-v' "curadoria: W-v = histórico de clipboard"
@@ -2238,7 +2242,7 @@ assert_grep "$IDLECONF" '^LOCK_MIN=5'  "E43: a fábrica nasce com o gesto ÚNICO
 assert_grep "$IDLECONF" '^OFF_MIN=5'   "E43: OFF_MIN = LOCK_MIN na fábrica — UM instante, zero janela 'travada e acesa' (acorda já no lock)"
 assert_grep "$IDLECONF" '^SUSPEND_MIN=20' "E43: suspend 20min na fábrica (5min suspende desktop com trabalho vivo — e o 'Suspender: 5 min' existe no menu como escolha explícita do dono)"
 assert_grep "$CID" "before-sleep 'craft-lock'" "v2.5.0 (N4): lock antes do suspend PRESERVADO — agora via craft-lock (acorda no lock com o wallpaper certo)"
-assert_grep "$CID" 'resume .wlopm --on' "v1.6.1: resume → DPMS on (tela acorda JÁ no lock)"
+assert_grep "$CID" 'resume .craft-idle screenon' "v1.6.1/E44: resume → DPMS on (tela acorda JÁ no lock — via subcomando observável; o rc vai ao idle.log)"
 assert_grep "$CID" 'Nunca' "v1.6.1: preset 'Nunca' (LOCK_MIN=0 → sem daemon, W-l manual)"
 assert_grep "$CID" 'setsid craft-idle start' "v1.6.1: trocar o tempo reinicia o daemon NA HORA (sem relogin)"
 assert_nogrep "$AUTX" 'timeout 600' "v1.6.1: hardcode 600s MORTO no autostart (o conf manda)"
