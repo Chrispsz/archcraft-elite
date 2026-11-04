@@ -62,6 +62,25 @@
 #   + receita nova) e o fluxo de idle/suspensão vale NA HORA, sem relogin.
 #   Sem supervisor vivo, o pkill NÃO sai (matar sem volta é dano, não
 #   cura) — o papel diz a verdade e o relogin aplica.
+# v4.2 (E49 — A CURA NA SESSÃO INTEIRA + A ADOÇÃO DE UMA VIA): duas feridas
+#   que o v4.1 deixou abertas:
+#   (1) o refresh reiniciava SÓ o swayidle — mas o elite-craft carrega
+#       TODOS os daemons vivos da casa (a dock com a transição suave, o
+#       roteador de áudio, o idle) e o craft-toplevel carrega o daemon de
+#       janelas: o update trocava os ARQUIVOS e cada um seguia velho na
+#       sessão até relogin (o dono veria 'a dock continua piscando'). O
+#       refresh é agora POR DELTA e POR PACOTE: só morre quem mudou, o
+#       toplevel primeiro (a dock nova nasce sobre ele de pé), SEMPRE
+#       condicionado ao supervisor craft-bars vivo.
+#   (2) o OVO-GALINHA: o rig da era pré-E46 roda um craft-update SEM os
+#       alvos explícitos — o -Syu atualiza o instalado e o elite-craft (o
+#       veículo onde mora o craft-update novo) NUNCA é adotado. A quebra
+#       mora no elite-adopt (hook PostTransaction que viaja no
+#       craft-toplevel — o ÚNICO pacote da casa que TODO rig tem): veículo
+#       ausente → adoção desprendida (pacman não roda dentro do hook — o
+#       lock da transação-mãe ainda vive) → craft-update --adotar fecha a
+#       rodada: sessão inteira com o código novo + cadência ligada, UMA
+#       atualização, sem relogin.
 # ═══════════════════════════════════════════════════════════════════════════
 set -euo pipefail
 
@@ -103,50 +122,95 @@ notify_users() {
     done < <(loginctl list-users --no-legend 2>/dev/null || true)
 }
 
-# E48 — o delta do veículo: a versão instalada do elite-craft (vazio =
+# o delta do veículo: a versão instalada do elite-craft (vazio =
 # ausente — a adoção da E46 TAMBÉM é delta: '?' → '1.0-1' mudou a casa)
 elite_craft_q() {
     pacman -Q elite-craft 2>/dev/null | awk '{print $2}' || true
 }
 
-# E48 — A CURA NA SESSÃO VIVA: o elite-craft mudou na transação → o
-# swayidle do usuário corre ainda com a receita ANTERIOR ao update. O
-# pkill é cirúrgico e CONDICIONADO: só com o supervisor craft-bars vivo
-# (quem ressuscita o idle com o código novo em ~1s — e o craft-idle start
-# reescreve o conf legado: a normalização E44 entra pela mesma porta).
-# Sem supervisor, o idle morreria SEM VOLTA — relogin aplica, e o papel
-# registra a verdade em vez de fingir a cura.
-refresh_idle_session() {
-    local uid
+# E49 — o delta do SEGUNDO veículo: o daemon de janelas tem pacote
+# próprio (craft-toplevel) — mudou na transação, a sessão também merece
+# o daemon novo sem relogin (mesma lógica, mesmo papel)
+craft_tl_q() {
+    pacman -Q craft-toplevel 2>/dev/null | awk '{print $2}' || true
+}
+
+# E48→E49 — A CURA NA SESSÃO VIVA, agora INTEIRA: o update troca ARQUIVOS,
+# mas o daemon vivo corre a receita ANTERIOR até relogin (o dump nl3z
+# provou no idle; a dock e o áudio padecem da MESMA febre). O pkill é
+# cirúrgico DUAS VEZES: por DELTA (só morre quem mudou de pacote) e por
+# SUPERVISOR (só morre quem tem craft-bars vivo para ressuscitar em ~1s
+# com o código novo). A ORDEM importa: o toplevel primeiro — a dock nova
+# nasce sobre o daemon de janelas já de pé (ELITE_TL_SETTLE é a porta de
+# prova da espera, mesma escola do VMARK/ELITE_UNIT_DIR).
+refresh_session() {
+    local ec_mudou="$1" tl_mudou="$2" uid
+    [ "$ec_mudou" = 1 ] || [ "$tl_mudou" = 1 ] || return 0
     while read -r uid _; do
         [ -n "$uid" ] || continue
-        if pgrep -u "$uid" -x swayidle >/dev/null 2>&1; then
-            if pgrep -u "$uid" -x craft-bars >/dev/null 2>&1; then
+        if ! pgrep -u "$uid" -x craft-bars >/dev/null 2>&1; then
+            ulog "sessão: supervisor craft-bars AUSENTE (uid $uid) — a sessão segue com o código antigo até relogin (pkill sem volta seria dano, não cura)"
+            continue
+        fi
+        if [ "$tl_mudou" = 1 ] && pgrep -u "$uid" -x craft-toplevel >/dev/null 2>&1; then
+            pkill -u "$uid" -x craft-toplevel 2>/dev/null || true
+            ulog "sessão: craft-toplevel (uid $uid) reiniciado — o supervisor ressuscita com o daemon de janelas novo"
+            sleep "${ELITE_TL_SETTLE:-2}"
+        fi
+        if [ "$ec_mudou" = 1 ]; then
+            if pgrep -u "$uid" -f '^/usr/bin/python3 /usr/local/bin/craft-dock-gui$' >/dev/null 2>&1; then
+                pkill -u "$uid" -f '^/usr/bin/python3 /usr/local/bin/craft-dock-gui$' 2>/dev/null || true
+                ulog "sessão: dock craft-dock-gui (uid $uid) reiniciada — a transição suave dos dinâmicos vale SEM relogin"
+            fi
+            if pgrep -u "$uid" -x craft-audio-route >/dev/null 2>&1; then
+                pkill -u "$uid" -x craft-audio-route 2>/dev/null || true
+                ulog "sessão: craft-audio-route (uid $uid) reiniciado — o roteamento de áudio segue com o código novo"
+            fi
+            if pgrep -u "$uid" -x swayidle >/dev/null 2>&1; then
                 pkill -u "$uid" -x swayidle 2>/dev/null || true
                 ulog "sessão: swayidle (uid $uid) reiniciado — o supervisor craft-bars ressuscita com a receita nova (idle/suspensão valem SEM relogin)"
-            else
-                ulog "sessão: supervisor craft-bars AUSENTE (uid $uid) — o idle segue com a receita antiga até relogin (pkill sem volta seria dano, não cura)"
             fi
         fi
     done < <(loginctl list-users --no-legend 2>/dev/null || true)
 }
 
-# o delta que IMPORTA para a sessão: versão antes ≠ depois (ou adoção)
+# o delta que IMPORTA para a sessão: versão antes ≠ depois (ou adoção),
+# POR PACOTE — elite-craft muda → dock/áudio/idle; craft-toplevel muda →
+# daemon de janelas; ambos na transação → os dois mundos na mesma cura
 refresh_if_craft_changed() {
-    local antes="$1" depois
-    depois="$(elite_craft_q)"
-    if [[ "$depois" != "$antes" ]]; then
-        ulog "casa: elite-craft ${antes:-ausente} → ${depois:-ausente} — a sessão recebe o código novo"
-        refresh_idle_session
+    local ec_antes="$1" tl_antes="$2" ec_depois tl_depois ec_m=0 tl_m=0
+    ec_depois="$(elite_craft_q)"
+    tl_depois="$(craft_tl_q)"
+    [[ "$ec_depois" != "$ec_antes" ]] && ec_m=1
+    [[ "$tl_depois" != "$tl_antes" ]] && tl_m=1
+    if [ "$ec_m" = 1 ] || [ "$tl_m" = 1 ]; then
+        ulog "casa: elite-craft ${ec_antes:-ausente} → ${ec_depois:-ausente} · craft-toplevel ${tl_antes:-ausente} → ${tl_depois:-ausente} — a sessão recebe o código novo"
+        refresh_session "$ec_m" "$tl_m"
         notify_users 'Elite: código da casa atualizado' \
-            'O fluxo de idle/suspensão da sessão já vale o novo — sem relogin.'
+            'Idle/suspensão, dock e áudio da sessão já valem o novo — sem relogin.'
     fi
 }
+
+# ── a porta da ADOÇÃO (E49 — o elite-adopt entrega aqui): o rig velho
+# adotou o veículo pelo hook do craft-toplevel; o craft-update NOVO
+# conclui a rodada: refresh da sessão viva (delta exato que o hook
+# capturou ANTES) + cadência ligada. UMA atualização, sem relogin.
+if [[ "${1:-}" == "--adotar" ]]; then
+    refresh_if_craft_changed "${2:-}" "${3:-}"
+    UNITDIR="${ELITE_UNIT_DIR:-/etc/systemd/system}"
+    if [ -f "$UNITDIR/elite-channel.timer" ] && [ -f "$UNITDIR/elite-sysupdate.timer" ]; then
+        if run_root systemctl enable --now elite-channel.timer elite-sysupdate.timer >/dev/null 2>&1; then
+            ulog "adotar: cadência ligada (canal DIÁRIO 11:30 · sistema SEMANAL sáb 10:00)"
+        fi
+    fi
+    exit 0
+fi
 
 # ── dose DIÁRIA: o canal da casa (elite-channel.timer — 11:30±40min) ────
 if [[ "${1:-}" == "--canal" ]]; then
     ulog "canal: iniciando (dose diária dos pacotes da casa)"
     ec_before="$(elite_craft_q)"
+    tl_before="$(craft_tl_q)"
     CANAL_PKGS=()
     while IFS= read -r p; do
         [ -n "$p" ] && CANAL_PKGS+=("$p")
@@ -163,7 +227,7 @@ if [[ "${1:-}" == "--canal" ]]; then
         exit 1
     fi
     ulog "canal: OK — ${CANAL_PKGS[*]}"
-    refresh_if_craft_changed "$ec_before"
+    refresh_if_craft_changed "$ec_before" "$tl_before"
     notify_users 'Elite: canal em dia' 'O código da casa foi atualizado (dose diária).'
     exit 0
 fi
@@ -189,6 +253,7 @@ if [[ "${1:-}" == "--sistema" ]]; then
     fi
     kbefore="$(pacman -Q "$KPKG" 2>/dev/null | awk '{print $2}' || true)"
     ec_before="$(elite_craft_q)"
+    tl_before="$(craft_tl_q)"
     # o rc REAL se captura fora da negação (dentro do `if !`, o $? é o
     # status NEGADO — o log imprimiria rc=1 em qualquer falha)
     sys_rc=0
@@ -200,7 +265,7 @@ if [[ "${1:-}" == "--sistema" ]]; then
             "rc=$sys_rc — log: /var/log/elite-update.log${PRE_N:+ · rollback: snapshot #$PRE_N no GRUB}"
         exit 1
     fi
-    refresh_if_craft_changed "$ec_before"
+    refresh_if_craft_changed "$ec_before" "$tl_before"
     if [ -n "$PRE_N" ] && snapper -c root create -t post --pre-number "$PRE_N" \
             -d 'elite-sysupdate' >/dev/null 2>&1; then
         ulog "sistema: snapshot POST #$PRE_N criado (o par PRE/POST fecha a história)"
@@ -221,17 +286,20 @@ fi
 # kernel ANTES da transação (o -Syu pode tocá-lo; vazio = pacote ausente)
 kbefore="$(pacman -Q "$KPKG" 2>/dev/null | awk '{print $2}' || true)"
 # E48 — o veículo ANTES (a adoção e o upgrade contam como delta da casa)
+# E49 — os DOIS veículos: o daemon de janelas tem pacote próprio
 ec_before="$(elite_craft_q)"
+tl_before="$(craft_tl_q)"
 
 # E46 — os alvos EXPLÍCITOS fazem a ADOÇÃO DO VEÍCULO: o rig que nunca
 # teve o elite-craft o INSTALA nesta transação (o pre_install do pacote
 # adota os arquivos de overlay); quem já tem, segue na dose normal.
 run_root pacman -Syu --needed --overwrite '/usr/local/bin/*' elite-craft craft-toplevel
 
-# E48 — a sessão do dono recebe o código novo NA HORA (o daemon vivo não
-# segue com a receita velha até relogin — a ferida do 'atualizei e
-# persistiu' morre aqui)
-refresh_if_craft_changed "$ec_before"
+# E48→E49 — a sessão do dono recebe o código novo NA HORA e INTEIRA (o
+# daemon vivo não segue com a receita velha até relogin — a ferida do
+# 'atualizei e persistiu' morre aqui, na dock, no áudio, no idle e no
+# daemon de janelas)
+refresh_if_craft_changed "$ec_before" "$tl_before"
 
 # E46 — o automatismo nasce aqui (idempotente): os timers da casa ficam
 # vivos depois da 1ª 'Atualizar sistema' — a cadência assume a partir daí.

@@ -157,6 +157,109 @@ EOPKGBUILD
 #  wlrctl servem — a esteira é a mesma, 4º pacote da fila).
 mkdir -p /tmp/elite-src/craft-toplevel
 cp /work/vendor/craft-toplevel.c /tmp/elite-src/craft-toplevel/
+
+# ═══ E49 — A ADOÇÃO DE UMA VIA (a quebra do ovo-galinha) ════════════════
+# O rig da era pré-E46 roda um craft-update SEM alvos explícitos (o v2 da
+# ISO 28): o -Syu atualiza o INSTALADO e o elite-craft — o veículo de
+# TODAS as curas, onde mora o craft-update novo — NUNCA é adotado; o
+# pacman não instala pacote novo sozinho, e o adoptador novo mora dentro
+# do adoptado. O gatilho mora no ÚNICO pacote da casa que TODO rig tem
+# (o craft-toplevel): hook PostTransaction + elite-adopt em
+# /usr/share/elite (fora do domínio /usr/local/bin do elite-craft — zero
+# conflito de dono de arquivo). Veículo presente = calado para sempre;
+# ausente = a adoção nasce DESPRENDIDA (pacman NÃO roda dentro do hook —
+# o lock da transação-mãe ainda vive), espera o lock soltar, adota e
+# entrega a conclusão ao craft-update --adotar: sessão inteira com o
+# código novo (dock/toplevel/áudio/idle) + cadência ligada, UMA rodada de
+# update, sem relogin — a resposta final ao 'atualizei e ficou igual'.
+cat > /tmp/elite-src/craft-toplevel/elite-adopt <<'EOADOPT'
+#!/bin/sh
+# elite-adopt — E49: A ADOÇÃO DE UMA VIA (a quebra do ovo-galinha).
+# O rig da era pré-E46 tem craft-update sem alvos explícitos: o -Syu
+# atualiza o instalado e o elite-craft (o veículo de TODAS as curas,
+# onde mora o craft-update novo) NUNCA é adotado — pacman não instala
+# pacote novo sozinho, e o adoptador novo mora dentro do adoptado.
+# O gatilho mora no hook PostTransaction do craft-toplevel (o ÚNICO
+# pacote da casa que TODO rig tem). Regras:
+#   · veículo presente → calado para sempre (custo zero por transação);
+#   · veículo ausente  → a adoção nasce DESPRENDIDA (pacman NÃO roda
+#     dentro do hook — o lock da transação que o pariu ainda vive),
+#     espera o lock soltar, adota e entrega a conclusão ao
+#     craft-update --adotar (sessão viva: dock/toplevel/áudio/idle +
+#     cadência — UMA rodada de update, sem relogin).
+# Papel: /var/log/elite-update.log com o teto E36. Portas de prova (a
+# mesma escola do VMARK/ELITE_UNIT_DIR do craft-update):
+#   ELITE_ADOPT_SYNC=1    o corpo corre ACOPLADO (a suíte observa
+#                         comportamento; o hook real nunca liga)
+#   ELITE_UPDATE_LOG      a morada do papel
+#   ELITE_CRAFT_UPDATE    o craft-update da conclusão (prova aponta o repo)
+#   ELITE_ADOPT_SETTLE    a espera inicial do lock (default 3s)
+#   ELITE_ADOPT_POLL      o passo da espera do lock (default 3s)
+LOG="${ELITE_UPDATE_LOG:-/var/log/elite-update.log}"
+CU="${ELITE_CRAFT_UPDATE:-/usr/local/bin/craft-update}"
+SETTLE="${ELITE_ADOPT_SETTLE:-3}"
+POLL="${ELITE_ADOPT_POLL:-3}"
+
+adopt_body() {
+    _ec="$1" _tl="$2"
+    sleep "$SETTLE"
+    # o lock da transação-mãe pode ainda viver — espera honesta com teto
+    _n=0
+    while [ "$_n" -lt 20 ]; do
+        command -v fuser >/dev/null 2>&1 || break
+        fuser /var/lib/pacman/db.lck >/dev/null 2>&1 || break
+        sleep "$POLL"
+        _n=$((_n + 1))
+    done
+    if [ -f "$LOG" ] && [ "$(wc -c <"$LOG" 2>/dev/null || echo 0)" -gt 262144 ]; then
+        tail -c 131072 "$LOG" >"$LOG.tmp" 2>/dev/null && mv -f "$LOG.tmp" "$LOG" || true
+    fi
+    printf '[%s] adotar: veículo elite-craft ausente — adoção de UMA via iniciando (hook do craft-toplevel, E49)\n' "$(date '+%F %T')" >>"$LOG" 2>/dev/null || true
+    if ! pacman -Sy --needed --noconfirm --overwrite '/usr/local/bin/*' \
+            elite-craft craft-toplevel >>"$LOG" 2>&1; then
+        printf '[%s] adotar: pacman RECUSOU a adoção — a prova está acima no log (o próximo update tenta de novo)\n' "$(date '+%F %T')" >>"$LOG" 2>/dev/null || true
+        return 1
+    fi
+    # o craft-update no disco AGORA é o novo (veio no veículo) — a sessão
+    # viva recebe a cura POR ELE (fonte única da lógica de refresh); os
+    # 'antes' capturados NO HOOK dão o delta exato (nada de churn de
+    # daemon que não mudou)
+    "$CU" --adotar "$_ec" "$_tl" >>"$LOG" 2>&1 || true
+    printf '[%s] adotar: adoção concluída — o veículo vive e a sessão recebeu o código novo\n' "$(date '+%F %T')" >>"$LOG" 2>/dev/null || true
+}
+
+# a reentrada do corpo desprendido (o pai que forka passa --body)
+if [ "${1:-}" = "--body" ]; then
+    adopt_body "${2:-}" "${3:-}"
+    exit 0
+fi
+
+[ "$(id -u)" = 0 ] || exit 0
+command -v pacman >/dev/null 2>&1 || exit 0
+_ec="$(pacman -Q elite-craft 2>/dev/null | awk '{print $2}')"
+[ -n "$_ec" ] && exit 0    # veículo presente — hook calado, custo zero
+_tl="$(pacman -Q craft-toplevel 2>/dev/null | awk '{print $2}')"
+
+if [ "${ELITE_ADOPT_SYNC:-0}" = "1" ]; then
+    adopt_body "$_ec" "$_tl"
+    exit 0
+fi
+setsid "$0" --body "$_ec" "$_tl" >/dev/null 2>&1 </dev/null &
+exit 0
+EOADOPT
+cat > /tmp/elite-src/craft-toplevel/elite-adopt.hook <<'EOHOOK'
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = craft-toplevel
+
+[Action]
+Description = Elite: adoção de UMA via do veículo elite-craft (o rig velho se auto-cura — E49)
+When = PostTransaction
+Exec = /usr/share/elite/elite-adopt
+EOHOOK
+
 cat > /tmp/elite-src/craft-toplevel/PKGBUILD <<'EOPKGBUILD'
 pkgname=craft-toplevel
 pkgver=1.0
@@ -172,7 +275,11 @@ pkgver=1.0
 # chegaria a máquina instalada NENHUMA por update (a ISO nova não padece:
 # instalação fresca lê o repo ATUAL). A lei daqui em diante: conteúdo da
 # casa muda → pkgrel sobe NO MESMO commit.
-pkgrel=3
+# E49 — o pacote carrega a ADOÇÃO DE UMA VIA (elite-adopt + hook): o rig
+# da era pré-E46 roda um craft-update sem alvos explícitos e NUNCA adota
+# o veículo por si — o gatilho viaja no ÚNICO pacote da casa que TODO rig
+# tem; UMA rodada de update fecha tudo (veículo + sessão viva + cadência).
+pkgrel=4
 pkgdesc='Daemon wlr-foreign-toplevel da Elite — janelas por id (LIST/ACT/CLOSE/CYCLE + anel MRU) para a dock comutar de verdade'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
@@ -190,6 +297,10 @@ build() {
 package() {
     install -Dm755 craft-toplevel "${pkgdir}/usr/local/bin/craft-toplevel"
     install -Dm644 craft-toplevel.c "${pkgdir}/usr/local/share/elite/src/craft-toplevel.c"
+    # E49 — a adoção de UMA VIA: hook + gatilho (fora de /usr/local/bin —
+    # o elite-craft reivindica os bins da casa; aqui não há briga de dono)
+    install -Dm755 elite-adopt "${pkgdir}/usr/share/elite/elite-adopt"
+    install -Dm644 elite-adopt.hook "${pkgdir}/usr/share/libalpm/hooks/elite-adopt.hook"
 }
 EOPKGBUILD
 
@@ -265,7 +376,13 @@ pkgver=1.0
 # saem da lista; o Brave lançado pela dock ENTRA; sombra com réu
 # nomeado + verbo list); craft-dock-gui v2.11 (a transição dos
 # dinâmicos desliza — GtkRevealer — em vez de piscar).
-pkgrel=5
+# E49 — a cura chega à SESSÃO INTEIRA e a UMA via: craft-update v4.2
+# (refresh por delta e por pacote — dock/toplevel/áudio/idle; verbo
+# --adotar) + craft-toplevel 1.0-4 carrega o elite-adopt (hook
+# PostTransaction no ÚNICO pacote que TODO rig tem — o ovo-galinha do
+# 'atualizei e ficou igual' morre: UMA rodada de update adota o veículo
+# e a sessão inteira segue viva, sem relogin).
+pkgrel=6
 pkgdesc='Código de casa da Elite (craft-*, elite-*, exo-open + units da cadência em /etc) — o canal diário de atualização sem reinstalar'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

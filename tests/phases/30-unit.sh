@@ -990,14 +990,22 @@ case "$1" in
             if [ -f "$ST/ec-ver" ]; then echo "elite-craft $(cat "$ST/ec-ver")"; exit 0; fi
             echo "erro: pacote 'elite-craft' não encontrado" >&2; exit 1
         fi
+        if [ "$2" = "craft-toplevel" ]; then
+            # E49: o SEGUNDO veículo tem delta próprio (o hook do
+            # elite-adopt captura o 'antes' dele no hook)
+            if [ -f "$ST/tl-ver" ]; then echo "craft-toplevel $(cat "$ST/tl-ver")"; exit 0; fi
+            echo "erro: pacote 'craft-toplevel' não encontrado" >&2; exit 1
+        fi
         v="6.12.4-2"; [ -f "$ST/kernel-flip" ] && v="6.12.5-1"
         echo "linux-cachyos-bore $v"; exit 0 ;;
   -Slq) [ -f "$ST/repo-fail" ] && exit 1
         printf '%s\n' elite-craft craft-toplevel brave-origin; exit 0 ;;
   -Syu) touch "$ST/kernel-flip"
         [ -f "$ST/ec-upgrade" ] && printf '1.0-4\n' > "$ST/ec-ver"
+        [ -f "$ST/tl-upgrade" ] && printf '1.0-4\n' > "$ST/tl-ver"
         exit 0 ;;
   -Sy)  [ -f "$ST/ec-upgrade" ] && printf '1.0-4\n' > "$ST/ec-ver"
+        [ -f "$ST/tl-upgrade" ] && printf '1.0-4\n' > "$ST/tl-ver"
         exit 0 ;;
   *)    exit 0 ;;
 esac
@@ -1061,7 +1069,7 @@ CU="$REPO/elite/airootfs/usr/local/bin/craft-update"
 run_cu() { # run_cu <args…> — mundo root isolado, log injetável (o ESTADO do
   # cenário o teste prepara antes — o run não apaga nada por trás)
   local st="$STCU"
-  ( export PATH="$MOCKCU:$PATH" MOCK_DIR="$st" ELITE_UPDATE_LOG="$st/update.log" ELITE_VERSION_MARKER="/nada" ELITE_UNIT_DIR="$st/units"
+  ( export PATH="$MOCKCU:$PATH" MOCK_DIR="$st" ELITE_UPDATE_LOG="$st/update.log" ELITE_VERSION_MARKER="/nada" ELITE_UNIT_DIR="$st/units" ELITE_TL_SETTLE=0
     bash "$CU" "$@" 2>&1 )
 }
 STCU="$STATE/cupd"
@@ -1145,6 +1153,85 @@ cp "$REPO/elite/airootfs/etc/systemd/system/elite-channel.timer" "$REPO/elite/ai
 touch "$STCU/user-flip" "$STCU/bars-alive" "$STCU/ec-upgrade"
 run_cu >/dev/null
 assert_grep "$STCU/pkill.log" 'pkill -u 1000 -x swayidle' "E48/manual: a ADOÇÃO do veículo também reinicia a sessão (ausente → 1.0-4 é delta — a ferida da 28 cura NA SESSÃO, não só nos arquivos)"
+
+# ── E49 — A CURA NA SESSÃO INTEIRA + A ADOÇÃO DE UMA VIA: o v4.1 deixou
+#    duas feridas abertas. (1) o refresh reiniciava SÓ o swayidle — a dock
+#    (transição suave), o áudio e o daemon de janelas seguiam VELHOS na
+#    sessão até relogin: o dono veria 'a dock continua piscando' após
+#    atualizar. (2) o OVO-GALINHA: o rig da era pré-E46 roda um craft-
+#    update SEM alvos explícitos — o elite-craft nunca é adotado e o
+#    craft-update novo mora DENTRO dele. A quebra viaja no craft-toplevel
+#    (o ÚNICO pacote que TODO rig tem): elite-adopt + hook PostTransaction.
+#    O corpo do elite-adopt nasce do build.sh (fonte única) — o teste o
+#    extrai DE LÁ e o executa: comportamento, não texto (lição E35.1/E42).
+ADOPT_SRC="$WORK/elite-adopt-under-test"
+sed -n "/^cat > \/tmp\/elite-src\/craft-toplevel\/elite-adopt <<'EOADOPT'$/,/^EOADOPT$/p" "$REPO/.ci/build.sh" | sed '1d;$d' > "$ADOPT_SRC"
+chmod +x "$ADOPT_SRC"
+run_adopt() { # run_adopt — o hook no mundo root dos mocks, corpo ACOPLADO
+  local st="$STCU"
+  ( export PATH="$MOCKCU:$PATH" MOCK_DIR="$st" ELITE_UPDATE_LOG="$st/update.log" ELITE_VERSION_MARKER="/nada" ELITE_UNIT_DIR="$st/units" ELITE_TL_SETTLE=0
+    export ELITE_ADOPT_SYNC=1 ELITE_ADOPT_SETTLE=0 ELITE_ADOPT_POLL=0
+    export ELITE_CRAFT_UPDATE="$REPO/elite/airootfs/usr/local/bin/craft-update"
+    bash "$ADOPT_SRC" 2>&1 )
+}
+
+# (1) veículo PRESENTE: hook calado — custo zero, nenhuma adoção, nenhum papel
+rm -rf "$STCU"; mkdir -p "$STCU"; touch "$STCU/update.log" "$STCU/pkill.log"
+printf '1.0-5\n' > "$STCU/ec-ver"
+out="$(run_adopt)"; rc=$?
+assert_eq "$rc" "0" "E49/adopt: veículo presente = exit 0 (o hook vive calado para sempre — custo zero por transação)"
+assert_nogrep "$STCU/pacman.log" '\-Sy --needed' "E49/adopt: veículo presente = NENHUMA transação extra (a adoção é UMA via, não um imposto eterno)"
+assert_nogrep "$STCU/update.log" 'adotar:' "E49/adopt: veículo presente = ZERO linhas no papel (silêncio honesto, não fingimento)"
+
+# (2) veículo AUSENTE + supervisor vivo: a adoção de UMA via fecha TUDO —
+#     transação, sessão inteira (toplevel primeiro), cadência ligada
+rm -rf "$STCU"; mkdir -p "$STCU/units"; touch "$STCU/update.log" "$STCU/pkill.log"
+cp "$REPO/elite/airootfs/etc/systemd/system/elite-channel.timer" "$REPO/elite/airootfs/etc/systemd/system/elite-sysupdate.timer" "$STCU/units/"
+touch "$STCU/user-flip" "$STCU/bars-alive" "$STCU/ec-upgrade" "$STCU/tl-upgrade"
+printf '1.0-3\n' > "$STCU/tl-ver"
+out="$(run_adopt)"; rc=$?
+assert_eq "$rc" "0" "E49/adopt: veículo ausente = a adoção conclui (rc 0 — a via única não tropeça)"
+assert_grep "$STCU/pacman.log" '\-Sy --needed --noconfirm --overwrite /usr/local/bin/\* elite-craft craft-toplevel' \
+  "E49/adopt: a adoção leva os DOIS veículos com o --overwrite escopado (a mesma lei da adoção E43/E46)"
+assert_grep "$STCU/update.log" 'adoção de UMA via iniciando' "E49/adopt: a adoção deixa réu nominal no papel (o dono sabe QUEM agiu e quando)"
+assert_grep "$STCU/update.log" 'adoção concluída' "E49/adopt: a conclusão fica no papel (o ciclo inteiro é auditável)"
+assert_grep "$STCU/update.log" 'elite-craft ausente → 1.0-4' "E49/adotar: o delta capturado NO HOOK (antes vazio) dá a adoção como mudança — nada de refresh às cegas"
+assert_grep "$STCU/update.log" 'craft-toplevel 1.0-3 → 1.0-4' "E49/adotar: o delta do segundo veículo no papel (o 'antes' foi capturado ANTES da transação da adoção)"
+assert_grep "$STCU/pkill.log" 'pkill -u 1000 -x craft-toplevel' "E49/adotar: o daemon de janelas MORRE PRIMEIRO (a dock nova nasce sobre o toplevel já de pé)"
+assert_grep "$STCU/pkill.log" 'pkill -u 1000 -f \^/usr/bin/python3 /usr/local/bin/craft-dock-gui\$' \
+  "E49/adotar: a DOCK da sessão é reiniciada (a transição suave v2.11 vale SEM relogin — o 'continua piscando' não renasce)"
+assert_grep "$STCU/pkill.log" 'pkill -u 1000 -x craft-audio-route' "E49/adotar: o roteador de áudio segue o mesmo porta (nenhum daemon da casa envelhece no update)"
+assert_grep "$STCU/pkill.log" 'pkill -u 1000 -x swayidle' "E49/adotar: o idle fecha o quarteto (a cura E48 continua valendo dentro da cura maior)"
+assert_grep "$STCU/systemctl.log" 'enable --now elite-channel.timer elite-sysupdate.timer' "E49/adotar: a cadência nasce ligada na MESMA rodada (o automatismo não espera a 2ª atualização)"
+assert_nogrep "$STCU/update.log" 'AUSENTE' "E49/adotar: com supervisor vivo NADA de lamento no papel (o AUSENTE é a cena do mundo sem craft-bars)"
+
+# (3) veículo ausente + supervisor AUSENTE: a adoção acontece (pacotes),
+#     mas NENHUM pkill sai — matar daemon sem quem ressuscita é dano
+rm -rf "$STCU"; mkdir -p "$STCU/units"; touch "$STCU/update.log" "$STCU/pkill.log"
+cp "$REPO/elite/airootfs/etc/systemd/system/elite-channel.timer" "$REPO/elite/airootfs/etc/systemd/system/elite-sysupdate.timer" "$STCU/units/"
+touch "$STCU/user-flip" "$STCU/ec-upgrade" "$STCU/tl-upgrade"
+run_adopt >/dev/null
+assert_nogrep "$STCU/pkill.log" 'pkill' "E49/adopt: SEM supervisor NENHUM daemon é morto (a lição E48 vale para os QUATRO — pkill sem volta é dano, não cura)"
+assert_grep "$STCU/update.log" 'supervisor craft-bars AUSENTE' "E49/adopt: a verdade no papel (o rig sabe que a sessão segue antiga até o relogin)"
+assert_grep "$STCU/update.log" 'adoção concluída' "E49/adopt: os PACOTES chegam mesmo sem supervisor (a cura em arquivo é real, a de sessão é honesta)"
+
+# (4) o refresh POR DELTA e POR PACOTE: só o craft-toplevel mudou → só o
+#     toplevel morre — a dock/áudio/idle NEM ACORDAM (churn de graça não existe)
+rm -rf "$STCU"; mkdir -p "$STCU"
+touch "$STCU/user-flip" "$STCU/bars-alive" "$STCU/tl-upgrade"
+printf '1.0-3\n' > "$STCU/ec-ver"; printf '1.0-3\n' > "$STCU/tl-ver"
+run_cu --canal >/dev/null
+assert_grep "$STCU/pkill.log" 'pkill -u 1000 -x craft-toplevel' "E49/canal: delta SÓ do toplevel = SÓ o toplevel reinicia (a cirurgia é por pacote, não por família)"
+assert_nogrep "$STCU/pkill.log" 'craft-dock-gui|craft-audio-route|swayidle' "E49/canal: quem NÃO mudou NEM acorda (a dock viva não pisca por causa de update alheio)"
+
+# (5) --adotar com delta VAZIO: nenhuma morte, a cadência segue ligada
+rm -rf "$STCU"; mkdir -p "$STCU/units"; touch "$STCU/update.log" "$STCU/pkill.log"
+cp "$REPO/elite/airootfs/etc/systemd/system/elite-channel.timer" "$REPO/elite/airootfs/etc/systemd/system/elite-sysupdate.timer" "$STCU/units/"
+touch "$STCU/user-flip" "$STCU/bars-alive"
+printf '1.0-4\n' > "$STCU/ec-ver"; printf '1.0-4\n' > "$STCU/tl-ver"
+run_cu --adotar 1.0-4 1.0-4 >/dev/null
+assert_nogrep "$STCU/pkill.log" 'pkill' "E49/adotar: antes == depois = NENHUM pkill (o refresh às cegas mataria daemon vivo por rotina)"
+assert_grep "$STCU/systemctl.log" 'enable --now elite-channel.timer elite-sysupdate.timer' "E49/adotar: a cadência idempotente (chamou de novo, liga de novo — sem dano)"
 
 # ── E47 — craft-lock --if-needed: O LOCK QUE JÁ VIVE NÃO MORRE NO ESCURO
 #    (a denúncia recorrente do dono: 'só entra em suspensão quando coloco

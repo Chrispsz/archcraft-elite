@@ -929,7 +929,7 @@ assert_grep "$P/airootfs/usr/local/bin/craft-bgapps" 'pactl\*[|]wpctl\*[|]player
 assert_grep "$P/airootfs/usr/local/bin/craft-bgapps" 'BGAPPS_TRACE' "v4.2/E48: o trace de sombra existe (quem é cortado deixa réu nomeado — o 'não sei se detecta tudo' tem resposta)"
 assert_grep "$P/airootfs/usr/local/bin/craft-bgapps" 'sombra: ' "v4.2/E48: a linha de sombra nomeia QUEM sombreou (comm + pid do pai)"
 assert_grep "$P/airootfs/usr/local/bin/craft-bgapps" 'craft-bgapps \[status[|]menu[|]list\]' "v4.2/E48: o verbo list existe (a lista bruta que o menu vê — a forense do dono e a porta da suíte)"
-assert_grep "$P/airootfs/usr/local/bin/craft-update" 'refresh_idle_session' "v4.1/E48: o update reinicia o swayidle da SESSÃO VIVA quando o elite-craft muda (o dump nl3z provou o rig correndo a receita velha DEPOIS do update — o 'atualizei e persistiu' morre sem relogin)"
+assert_grep "$P/airootfs/usr/local/bin/craft-update" 'refresh_session' "E49: o update reinicia a SESSÃO VIVA INTEIRA quando a casa muda (o E48 provou o rig correndo a receita velha DEPOIS do update — agora dock/toplevel/áudio/idle seguem a mesma cura, 'atualizei e persistiu' morre sem relogin)"
 assert_grep "$P/airootfs/usr/local/bin/craft-update" 'pkill sem volta seria dano, não cura' "v4.1/E48: o pkill é CONDICIONADO ao supervisor vivo (matar o idle sem quem ressuscita = dano; o papel registra e o relogin aplica)"
 # v1.5: keyring CachyOS em 4 camadas (spec: init → populate → refresh)
 assert_grep "$P/airootfs/usr/local/bin/craft-fix-keys" 'pacman-key --populate archlinux cachyos' "v1.5: craft-fix-keys — comandos LITERAIS da spec (populate)"
