@@ -1,0 +1,9 @@
+[Unit]
+Description=Elite: a casa atualiza AO LIGAR (OnBootSec — 3min após cada boot)
+
+[Timer]
+OnBootSec=3min
+RandomizedDelaySec=2min
+
+[Install]
+WantedBy=timers.target
