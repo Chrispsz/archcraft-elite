@@ -2243,7 +2243,7 @@ assert_file "$IDLECONF" "v1.6.1: idle.conf no skel (defaults documentados no arq
 assert_grep "$IDLECONF" '^LOCK_MIN=5'  "E43: a fábrica nasce com o gesto ÚNICO — trava E apaga aos 5min (o dono: 'montagens fazendo mais sentido'; o 10/15 antigo deixava tela travada ACESA no meio)"
 assert_grep "$IDLECONF" '^OFF_MIN=5'   "E43: OFF_MIN = LOCK_MIN na fábrica — UM instante, zero janela 'travada e acesa' (acorda já no lock)"
 assert_grep "$IDLECONF" '^SUSPEND_MIN=20' "E43: suspend 20min na fábrica (5min suspende desktop com trabalho vivo — e o 'Suspender: 5 min' existe no menu como escolha explícita do dono)"
-assert_grep "$CID" "before-sleep 'craft-lock'" "v2.5.0 (N4): lock antes do suspend PRESERVADO — agora via craft-lock (acorda no lock com o wallpaper certo)"
+assert_grep "$CID" "before-sleep 'craft-lock --if-needed'" "v2.5.0/E47: lock antes do suspend PRESERVADO — e SEM CORRIDA: o hook chama --if-needed (o hyprlock vivo não morre no escuro do PrepareForSleep; a janela de 5s do logind não compete com o blur do wallpaper)"
 assert_grep "$CID" 'resume .craft-idle screenon' "v1.6.1/E44: resume → DPMS on (tela acorda JÁ no lock — via subcomando observável; o rc vai ao idle.log)"
 assert_grep "$CID" 'Nunca' "v1.6.1: preset 'Nunca' (LOCK_MIN=0 → sem daemon, W-l manual)"
 assert_grep "$CID" 'setsid craft-idle start' "v1.6.1: trocar o tempo reinicia o daemon NA HORA (sem relogin)"

@@ -28,6 +28,15 @@
 #                        receita swayidle, zero duplicação)
 #   craft-idle status    mostra os valores vigentes
 #
+# E47 — O BEFORE-SLEEP SEM CORRIDA: o hook do suspend chama
+#   'craft-lock --if-needed' — o hyprlock que JÁ está na tela (nascido no
+#   timeout do LOCK_MIN, ou no 'Suspender' do menu) NÃO é morto e recriado
+#   dentro da janela de 5s do logind (InhibitDelayMaxSec): o blur do
+#   wallpaper demora segundos e o kernel congelava no meio da init — o
+#   acordar podia não ter lock (a denúncia recorrente do dono: a lógica
+#   do suspend/lock 'é burra'). Lock vivo sobrevive; lock morto recria
+#   (auto-cura); o manual (W-l) segue a E30.
+#
 # v2.3.1 — FIM DO SILÊNCIO (família craft-*): open/falha do fuzzel deixam
 # linha em ~/.cache/elite/menus.log — crash nunca mais é morte calada.
 set -eu
@@ -164,13 +173,13 @@ start_daemon() {
                 timeout $((OFF_MIN * 60)) 'craft-idle screenoff' \
                 resume 'craft-idle screenon' \
                 timeout $((SUSPEND_MIN * 60)) 'craft-idle suspend' \
-                before-sleep 'craft-lock'
+                before-sleep 'craft-lock --if-needed'
         fi
         exec swayidle -w \
             timeout $((LOCK_MIN * 60)) 'craft-lock' \
             timeout $((OFF_MIN * 60)) 'craft-idle screenoff' \
             resume 'craft-idle screenon' \
-            before-sleep 'craft-lock'
+            before-sleep 'craft-lock --if-needed'
     fi
     # E36 — LOCK_MIN=0 com SUSPEND_MIN>0: sem lock automático ("Nunca" é a
     # escolha EXPLÍCITA do dono — nem before-sleep trava; quem quiser
