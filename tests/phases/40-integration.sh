@@ -2702,8 +2702,8 @@ assert_grep "$BLD" "pkgname=craft-toplevel" \
   "v2.10.1: PKGBUILD do craft-toplevel na esteira do [elite-local] (a mesma do wlrctl)"
 assert_grep "$BLD" "$(sha256sum "$REPO/vendor/craft-toplevel.c" | awk '{print $1}')" \
   "v2.10.1: sha256 da fonte PINADO no PKGBUILD (determinismo — mudou 1 byte, makepkg PARA; o pin é o sha REAL da fonte, recalculado aqui — v2.10.7 atualizou o C com o ACK honesto)"
-assert_grep "$BLD" 'PKG_LIST="python-pywal qt5-virtualkeyboard wlrctl craft-toplevel elite-craft"' \
-  "v2.10.1/E43: craft-toplevel E elite-craft na fila do makepkg (a fila virou PKG_LIST — o PACKAGES_ONLY do canal diário leva só os 2 da casa)"
+assert_grep "$BLD" 'PKG_LIST=\(python-pywal qt5-virtualkeyboard wlrctl craft-toplevel elite-craft\)' \
+  "v2.10.1/E43: craft-toplevel E elite-craft na fila do makepkg (a fila virou ARRAY — shellcheck-clean; o PACKAGES_ONLY do canal diário leva só os 2 da casa)"
 assert_grep "$PAK" '^craft-toplevel$' \
   "v2.10.1: craft-toplevel entra no pacstrap (packages.add)"
 
