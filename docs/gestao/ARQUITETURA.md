@@ -20,7 +20,7 @@ impacto saíram NA MESMA rodada (seção "Curas aplicadas"); o resto vive no pla
 | 1 | **dock** | `craft-dock-gui` (1049) · `craft-dock` · `craft-pin` · `craft-pin-pick` · `dock-pins` · `dock.css` · `vendor/craft-toplevel.c` (804) |
 | 2 | **tune** | `elite-tune` (918) · `elite-firstboot.service` · `craft-hello` |
 | 3 | **sessão** | labwc (rc/menu/autostart/environment) · waybar · fuzzel · swaync · nwg-drawer · foot · gtk · sddm · hyprlock · `craft-bars/menu/menu-dismiss/drawer/bgapps/idle/lock/logout/power/shot/bat/wake-guard` · `elite-session-probe` · cliphist · sleep/timeout units |
-| 4 | **arquivos** | Thunar `uca.xml` · `craft-compress` (164) · `mimeapps.list` · `xfce4/helpers.rc` · xarchiver/thunar-archive-plugin/7zip/zenity no `packages.add` |
+| 4 | **arquivos** | Thunar `uca.xml` · `craft-compress` (215) · `mimeapps.list` · `xfce4/helpers.rc` · xarchiver/thunar-archive-plugin/7zip/zenity no `packages.add` |
 | 5 | **áudio** | `craft-audio-route` (256) · pipewire/pwvucontrol no `packages.add` |
 | 6 | **rede-kernel** | `craft-connect` (539) · sysctl 99-elite(-net) · BBR · zram · udev I/O · preset BORE |
 | 7 | **saúde** | `craft-dump` (565) · `elite-sweep` · `craft-rollback` · `craft-fix-keys` · keyring-fix unit+timer · `craft-update` · `elite-status` · `craft-clean` · `craft-keyring-wait` · journald cap |
@@ -356,8 +356,10 @@ Critério: impacto alto × esforço baixo × risco baixo, tudo provado pela port
    já faz) — fim do NO-GO local que o sandbox finge e o CI desmente.
 3. **Contratos de docs**: todo `craft-*/elite-*` citado no README existe em `usr/local/bin`; rollback
    citado bate com packages.remove; SCRIPTS.md cobre os bins vivos (contrato de contagem).
-4. **Curas de campo**: `scripts/live/cura-e35.sh` (o rig do dono recebe o craft-compress) e as próximas
-   curas seguindo o padrão cura-viva.
+4. **Curas de campo**: a `cura-e35.sh` prometida aqui NUNCA chegou a existir (E42 — o papel dizia
+   'o rig do dono recebe o craft-compress' e o rig ficou sem cura; descoberta no mesmo dia em que o
+   dono provou o verbo morto). As curas vivas seguem o padrão `cura-viva.sh` (E25); a cura E42 viaja
+   na próxima ISO e o rig já instalado tem o alívio imediato do link `7z → 7zz` na resposta ao dono.
 5. **Pino da base upstream**: `elite/upstream-pin` com o HEAD do archcraft-os consumido pelo clone —
    a ISO da tag vira função do repo (reprodutibilidade real).
 6. **check-brave com gatilho**: workflow `schedule:` mensal (ou passo do agente) rodando o guardião.

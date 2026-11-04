@@ -758,12 +758,19 @@ assert_file "$UCA" "E35: o Thunar nasce com o verbo (uca.xml no skel — todo us
 assert_grep "$UCA" 'craft-compress %F' "E35: a ação chama o craft com %F (a seleção INTEIRA chega como argumentos — a cura exata do relato do dono)"
 assert_grep "$UCA" 'Comprimir…' "E35: o verbo em PT-BR no menu de contexto (produto ao dono)"
 assert_grep "$CCOMP" 'zenity --forms' "E35: UM diálogo nome+formato — não o fluxo do gerenciador (a lição do print)"
-assert_grep "$CCOMP" '7z a' "E35: o motor é o 7zip da v1.1 (zip E 7z sem pacote novo — o backend vira UI)"
+assert_grep "$CCOMP" 'command -v 7z \|\| command -v 7zz' "E42: o motor se resolve 7z OU 7zz — o pacote '7zip' do Arch entrega 7zz (o repo sabia desde a v2.3.0: qemu-boot-test.sh:24; o '7z' a fio morria no dep-check em TODA ISO desde a v2.10.25 — o dono apertou e 'não aconteceu nada')"
+assert_grep "$CCOMP" 'SEVENZ. a -bd' "E42: o motor chama o binário RESOLVIDO (o grep '7z a' provava o TEXTO — o sandbox/CI com p7zip-full jamais viu a ISO; a classe E35.1 de novo)"
+assert_grep "$CCOMP" 'sudo pacman -S 7zip' "E42: a dica de cura cita o nome CERTO do pacote (o antigo 'pacman -S 7z' mandava instalar um fantasma)"
 assert_grep "$CCOMP" 'rc_ok=1' "E35: 7z rc=1 (WARNING com arquivo CRIADO) é sucesso — tratar como falha apagaria arquivo bom (prova no comentário)"
 assert_grep "$CCOMP" 'já existe' "E35: colisão PERGUNTA antes de substituir (arquivo do usuário nunca morre calado)"
 assert_grep "$CCOMP" 'rm -f -- "\$alvo"' "E35: falha/cancelamento não deixa entulho (o parcial é apagado)"
 assert_grep "$CCOMP" 'die\(\) \{' "E35: erro com diálogo + log (nada calado — lei da casa)"
+assert_grep "$CCOMP" 'O diálogo de compressão não abriu' "E42: crash do diálogo NUNCA sai calado — o '|| exit 0' antigo tratava QUALQUER falha do zenity como Cancelar (rc provado no fonte oficial: util.c:45-53 — 0=OK · 1=Cancelar/ESC · -1→255=ERRO)"
+assert_grep "$CCOMP" 'util\.c:45-53' "E42: a semântica de rc do zenity fica CRAVADA no script (proveniência — ninguém 'conserta' o rc=1 de volta ao silêncio)"
+assert_grep "$CCOMP" 'cancelado: o dono fechou o diálogo' "E42: cancelar segue calado (rc=1 é o dono desistindo) MAS com linha no log (a evidência existe)"
+assert_nogrep "$CCOMP" 'motor=\(7z ' "E42: nenhum motor 7z hard-coded (binário fixo era morte certa na ISO — o resolver 7z|7zz é a única porta)"
 assert_grep "$REPO/elite/packages.add" '^zenity$' "E35: o zenity é DEPENDÊNCIA DECLARADA (~1 MB; gtk3/libnotify já estavam na ISO — binário fantasma não existe na casa)"
+assert_grep "$REPO/elite/packages.add" '^7zip$' "E42: o pacote do motor 7-Zip é DECLARADO na ISO (nome explícito — o p7zip virou virtual e o pacstrap perguntaria; o script resolve o 7zz que ele entrega)"
 # ═══════════════════ E40 — O VERBO "ABRIR TERMINAL AQUI" ══════════════════
 # O dono PROVOU com print (03/nov): o clique-direito do Thunar não tem
 # terminal ("cadê o botão pra abrir o terminal?"). Raiz DUPLA provada no
