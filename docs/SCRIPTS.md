@@ -29,7 +29,7 @@ a tornou verdade: 32 bins + scripts de repo).
 | `craft-dump` | perícia completa em um arquivo (`--upload` = termbin PÚBLICO, avisado desde o E36) |
 | `craft-fix-keys` | cura do keyring pacman (sessão no live; no instalado o trabalho é do timer root) |
 | `craft-hello` | saudação do terminal (fastfetch + fallback próprio) |
-| `craft-idle` | daemon de idle (lock/DPMS/suspend conforme `idle.conf`) + menu de presets; E36: suspend entregue MESMO com Lock=Nunca + `-i` (inibidores ignorados) |
+| `craft-idle` | daemon de idle (lock/DPMS/suspend conforme `idle.conf`) + menu de presets; E36: suspend entregue MESMO com Lock=Nunca + `-i` (inibidores ignorados); E44: gesto único normalizado (conf legado X/Y → X/X com aviso) + braços observáveis no `idle.log` (rc de wlopm/suspend no papel) |
 | `craft-keyring-wait` | espera o pacman transacional (teto 420s) — ExecStartPre do pacman-init |
 | `craft-lock` | trava a sessão (hyprlock com o wallpaper resolvido) |
 | `craft-logout` | menu de sessão curto (W-Escape / W-x / C-A-Delete) |

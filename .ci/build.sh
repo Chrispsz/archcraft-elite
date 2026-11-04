@@ -221,7 +221,9 @@ files = (d / 'files/MANIFEST').read_text().split()
 names = chr(10).join(f'        "{f}" \\' for f in files)   # cada item com \ de continuação — a lista do for NÃO aceita quebra simples
 pkg = f"""pkgname=elite-craft
 pkgver=1.0
-pkgrel=1
+# E44 — o gesto único + os braços observáveis mudaram o craft-idle: a lei
+# E41 é pkgrel NO MESMO commit (o guard-pkgrel cobra; sem isso o -Syu pula).
+pkgrel=2
 pkgdesc='Código de casa da Elite em /usr/local/bin (craft-*, elite-*, exo-open) — o canal diário de atualização sem reinstalar'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
