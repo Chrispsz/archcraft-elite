@@ -1,0 +1,11 @@
+[Unit]
+Description=Elite: atualização semanal do sistema (snapshot PRE/POST do snapper)
+# E46 — a CADÊNCIA: sistema = SEMANAL. O -Syu completo com rede de
+# segurança: snapshot PRE antes, POST depois — quebrou? o GRUB liga o
+# snapshot e o rollback é um reboot. Só na tomada (battery nunca).
+ConditionACPower=yes
+
+[Service]
+Type=oneshot
+TimeoutStartSec=2h
+ExecStart=/usr/local/bin/craft-update --sistema

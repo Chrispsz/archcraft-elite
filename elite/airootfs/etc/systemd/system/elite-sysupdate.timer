@@ -1,0 +1,10 @@
+[Unit]
+Description=Elite: timer semanal do sistema (sábado 10:00 ±2h)
+
+[Timer]
+OnCalendar=Sat *-*-* 10:00:00
+RandomizedDelaySec=2h
+Persistence=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,10 @@
+[Unit]
+Description=Elite: dose diária do canal da casa (pacotes [elite-local])
+# E46 — a CADÊNCIA: casa = DIÁRIA. O código da casa viaja pela suíte antes
+# de qualquer push (a porteira é a lei L2) — a dose diária é a mais segura
+# de todas e é ela que mata o 'erros persistem após atualizar'.
+ConditionACPower=yes
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/craft-update --canal

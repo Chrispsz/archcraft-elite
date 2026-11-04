@@ -1012,9 +1012,13 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" "ls /usr/local/share
 assert_grep "$REPO/elite/airootfs/etc/skel/.config/fuzzel/fuzzel.ini" 'exit-on-keyboard-focus-loss=yes' "v2.10.12: a opção com o nome que o fuzzel conhece (o próprio comentário v2.4.0 citava o nome certo)"
 # R5. A LÓGICA DO IDLE HONESTA: etiquetas nomeiam o que fazem + o knob do
 #     suspender existe (o dono mudou 'tempo de tela' e a tela TRAVOU).
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-idle" 'Idle: 2 min \(trava e apaga\)' "v2.10.12/E43: o menu nomeia o que faz E o gesto é ÚNICO (lock+off no mesmo instante — o relato 'mudei para 2 e bloqueou invés de suspender' virou fluxo honesto; os parênteses do rótulo são literais no ERE — a lição do E40)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-idle" 'Suspender: 20 min \(padrão\)' "v2.10.12: o knob do SUSPENDER existe no menu (SUSPEND_MIN=20 era fixo e invisível)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-idle" "'Suspender: Nunca') +SUSPEND_MIN=0" "v2.10.12: suspender 'Nunca' = 0 (o start v2.3.5 já suportava — agora é escolha do dono; o espaçamento exato era fragilidade da peça)"
+#     E46 — o menu de 13 itens virou DUAS PORTAS nomeadas ('organiza
+#     melhor o de tempo de idle e etc', o dono): a porta diz o que
+#     controla E mostra o valor ATUAL; o gesto único LOCK=OFF segue lei.
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-idle" 'Tela: trava e apaga — \$lock_txt' "E46: a porta da TELA diz o que controla E mostra o valor atual (a parede de 13 itens morreu; o gesto único LOCK=OFF da E43 segue lei nos dois níveis)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-idle" 'Suspender após o idle' "E46: a porta do SUSPENDER tem nome que se lê (v2.10.12: o knob era fixo e invisível; v2.10.12/E43: etiqueta honesta — agora em porta própria)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-idle" "'Nunca'\) +SUSPEND_MIN=0" "E46: suspender 'Nunca' = 0 (o start v2.3.5 já suportava — agora é escolha do dono na porta própria; o espaçamento não é peça)"
+assert_nogrep "$REPO/elite/airootfs/usr/local/bin/craft-idle" 'OFF_MIN=\$\(\(mins \+ 5\)\)' "E46: o fallback de terminal aprendeu o gesto único (OFF=mins+5 era a janela 'travada e acesa' que a E43 matou no menu — sobrevivia no terminal; espelho E33 morto)"
 # R6. O CHAVEIRO GNOME QUE O PAM JAMAIS DESBLOQUEIA: bootstrap com senha
 #     vazia corria na frente no sistema COM senha (gkr-pam 'couldn't
 #     unlock' em todo login — journal 22:31:35 do nl3z).
@@ -1290,7 +1294,9 @@ DOC_GHOSTS=""
 for TOK in $(grep -oE '\b(craft|elite)-[a-z0-9.-]+' "$REPO/README.md" | sort -u); do
   case "$TOK" in
     elite-build) ;;              # diretório de SAÍDA do apply-overlay (não é programa)
+    elite-local) ;;              # id do REPO da casa no pacman.conf (não é arquivo)
     elite-firstboot.service) ;;  # unit — resolvida pelo contrato abaixo
+    elite-channel.timer|elite-sysupdate.timer) ;;  # units da cadência E46 — resolvidas pelos contratos V4
     *) [ -f "$BINS/$TOK" ] || DOC_GHOSTS="$DOC_GHOSTS $TOK" ;;
   esac
 done
@@ -1323,5 +1329,60 @@ assert_grep "$REPO/elite/packages.add" '^snapper$' "E45/D3: o rei REAL está na 
 assert_nogrep "$REPO/elite/packages.remove" 'craft-rollback aponta pro Timeshift' "E45/D3: o comentário E33 'craft-rollback aponta pro Timeshift' EXTINTO do packages.remove (verdade morta da v1.0.4 escrita como presente)"
 assert_nogrep "$REPO/elite/packages.remove" 'o snapper NÃO vem na ISO' "E45/D3: a segunda mentira do bloco v1.0.4 EXTINTA (o snapper É da ISO desde a v2.3.6 — packages.add)"
 assert_nogrep "$REPO/elite/packages.remove" 'README "Dia 1"' "E45/D3: o ponteiro morto 'README Dia 1' EXTINTO (seção que não existe em lugar nenhum do README)"
+
+# ── E46: A ORDEM DO DONO (04/nov) — um verbo só, rollback fora do menu,
+#    o canal que INSTALA e a cadência. O dono: "vejo os erros persistir
+#    após atualizar… o sistema não deve quebrar ao atualizar mas sim
+#    melhorar constantemente". A ferida cravada: o pacman só ATUALIZA o
+#    que já está instalado — o veículo de todas as curas (elite-craft)
+#    nunca tinha sido INSTALADO no rig da 28 (a ISO é anterior à E43) e
+#    TODAS as curas do canal passaram por ele. Cada cura com contrato.
+CU46="$REPO/elite/airootfs/usr/local/bin/craft-update"
+CP46="$REPO/elite/airootfs/usr/local/bin/craft-power"
+CXT="$REPO/elite/airootfs/usr/local/bin/craft-extract"
+UCA="$REPO/elite/airootfs/etc/skel/.config/Thunar/uca.xml"
+S46="$REPO/elite/airootfs/etc/systemd/system"
+# V1. O CANAL QUE INSTALA (a cura da persistência):
+assert_grep "$CU46" 'elite-craft craft-toplevel' "E46/V1: o -Syu leva os VEÍCULOS como alvos explícitos (quem não tem, INSTALA — o pacman só atualiza quem já tem era a ferida do 'erros persistem')"
+assert_grep "$CU46" '--canal' "E46/V1: a dose DIÁRIA existe (--canal — só os pacotes [elite-local], --needed, offline-safe)"
+assert_grep "$CU46" '--sistema' "E46/V1: a dose SEMANAL existe (--sistema — o -Syu completo com rede de segurança)"
+assert_grep "$CU46" 'create -t pre' "E46/V1: a dose semanal arma o snapshot PRE do snapper ANTES da transação (quebrou? o GRUB liga o snapshot e o rollback é um reboot)"
+assert_grep "$CU46" 'pre-number' "E46/V1: o POST casa com o PRE (--pre-number — o par fecha a história)"
+assert_grep "$CU46" 'enable --now elite-channel.timer elite-sysupdate.timer' "E46/V1: a porta manual ('Atualizar sistema') liga a cadência na 1ª rodada (o automatismo nasce onde o dono já clica)"
+assert_grep "$CU46" 'ELITE_UPDATE_LOG' "E46/V1: o log da automação é injetável (mesma escola do VMARK — a prova em sandbox não escreve em /var)"
+assert_grep "$CU46" 'pacman -Slq elite-local' "E46/V1: a dose diária nasce da LISTA VIVA do repo (pacote novo da casa entra no canal por construção)"
+# V2. UM VERBO POR FAMÍLIA (o 'Criar Arquivo…' que confundiu o dono morre):
+assert_grep "$REPO/elite/packages.remove" '^thunar-archive-plugin$' "E46/V2: o plugin do duplo verbo VEDADO (o dono perguntou 'esse criar arquivo que é o botão novo?' — a faca de dois gumes da auditoria §4.6 virou corte)"
+assert_nogrep "$REPO/elite/packages.add" '^thunar-archive-plugin$' "E46/V2: o plugin não volta ao packages.add (a mão no Thunar é dos verbos da casa)"
+assert_grep "$REPO/elite/packages.add" '^xarchiver$' "E46/V2: o xarchiver FICA (abrir/gerenciar — só o plugin do duplo verbo morre)"
+assert_file "$CXT" "E46/V2: o craft-extract existe (o 'Extrair aqui' herda a casa — a extração não morreu com o plugin)"
+assert_grep "$CXT" 'command -v 7z || command -v 7zz' "E46/V2: o extract usa o MESMO resolver do compress (E42 — 7z OU 7zz; a ISO nunca mais exige um binário que não tem)"
+assert_grep "$CXT" 'mktemp -d' "E46/V2: a extração em PALCO (o colide-contra-o-conteúdo-real — zero parse de listing; o que existe nunca é substituído sem pergunta)"
+assert_grep "$UCA" 'craft-extract %F' "E46/V2: o 'Extrair aqui' tem assento no uca.xml (o skel nasce com os TRÊS verbos da casa)"
+assert_grep "$UCA" 'Extrair aqui' "E46/V2: o verbo em PT-BR no menu do dono (a lei L10)"
+assert_nogrep "$UCA" 'segue no menu' "E46/V2: o cabeçalho do uca.xml não jura mais que o plugin 'segue no menu' (o plugin morreu — a mentira de comentário não renasce no próprio arquivo da cura)"
+# V3. O ROLLBACK FORA DO MENU (ordem do dono):
+assert_nogrep "$CP46" 'Rollback do sistema…' "E46/V3: o item 'Rollback do sistema…' fora do menu Sessão (a porta do rollback é a entrada de snapshot no GRUB — o menu fica com o que se usa toda semana)"
+assert_nogrep "$CP46" 'exec craft-rollback' "E46/V3: o craft-power não executa mais o craft-rollback (o script segue no sistema — quem souber o caminho usa; o comentário que conta a história cita o nome, o EXEC é o que a peça proíbe)"
+# V4. A CADÊNCIA (as units da casa):
+for u46 in elite-channel.service elite-channel.timer elite-sysupdate.service elite-sysupdate.timer; do
+  assert_file "$S46/$u46" "E46/V4: $u46 existe (a cadência tem corpo — diário 11:30±40min · semanal sáb 10:00±2h)"
+done
+assert_grep "$S46/elite-channel.service" 'ConditionACPower=yes' "E46/V4: a dose diária SÓ na tomada (battery nunca é o momento da transação)"
+assert_grep "$S46/elite-channel.timer" 'OnCalendar=\*-\*-\* 11:30:00' "E46/V4: o canal da casa roda DIÁRIO (11:30 ±40min — 'os pacotes semanalmente ou até diariamente', o dono)"
+assert_grep "$S46/elite-sysupdate.timer" 'OnCalendar=Sat \*-\*-\* 10:00:00' "E46/V4: o sistema roda SEMANAL (sáb 10:00 ±2h — 'as partes do sistema semanalmente', o dono)"
+assert_grep "$S46/elite-sysupdate.timer" 'Persistence=true' "E46/V4: o timer atrasado CUMPRE (máquina desligada no sábado = atualiza ao ligar, não pula a semana)"
+assert_grep "$S46/elite-sysupdate.service" 'ConditionACPower=yes' "E46/V4: a dose semanal SÓ na tomada"
+assert_file "$S46/timers.target.wants/elite-channel.timer" "E46/V4: o timer do canal nasce HABILITADO (wants symlink da overlay — a casa-prova do keyring-fix)"
+assert_file "$S46/timers.target.wants/elite-sysupdate.timer" "E46/V4: o timer do sistema nasce HABILITADO"
+# V5. O VEÍCULO NASCE INSTALADO (futuras ISOs não repetem a ferida da 28):
+assert_grep "$REPO/elite/packages.add" '^elite-craft$' "E46/V5: o elite-craft no packages.add — a ISO nasce com o veículo INSTALADO (o rig da 28 provou o custo de não nascer)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=3' "E46/V5: pkgrel elite-craft 2→3 NO MESMO COMMIT (lei E41 — craft-update v4 + craft-power + craft-idle + craft-extract mudaram a casa)"
+assert_grep "$REPO/.ci/build.sh" 'files/etc/systemd/system' "E46/V5: o elite-craft carrega as units no payload /etc (sem elas o rig instalado nunca recebe a cadência)"
+assert_grep "$REPO/.ci/guard-pkgrel.sh" 'systemd/system/elite' "E46/V5: o guard-pkgrel cobra delta de UNIT também (unit mudada sem pkgrel = o -Syu pula a cadência em silêncio)"
+# V6. O README conta a cadência (o papel acompanha o sistema):
+assert_grep "$REPO/README.md" 'elite-channel.timer' "E46/V6: o README documenta a cadência DIÁRIA (o dono pediu para pensar as formas e intervalos — o papel diz quais são)"
+assert_grep "$REPO/README.md" 'elite-sysupdate.timer' "E46/V6: o README documenta a cadência SEMANAL com snapshot PRE/POST"
+assert_nogrep "$REPO/README.md" 'restauração GUI no menu Sessão' "E46/V6: o README não vende mais a restauração GUI no menu Sessão (o rollback saiu do menu — o papel acompanha, E33 auto-patrulhado)"
 
 phase_end
