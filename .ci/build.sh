@@ -156,7 +156,16 @@ pkgver=1.0
 # v2.10.7 — O ACK HONESTO: o rig 1º-install da 10.6 flagrou ACT com ACK e
 # sem foco na tela (dump 0qmq) — o daemon agora cobra a prova do compositor
 # (state activated confirma; state alheio/timeout 2s denuncia) em toplevel.log
-pkgrel=2
+# E41 — O PKGREL QUE NÃO SUBIU (achado 2026-11-03, pergunta do dono sobre a
+# marcação de programas abertos): a E38 trocou o C (PUSH EVT — o sha acima
+# é o conteúdo novo) e deixou pkgrel=2 — o MESMO 1.0-2 que os rigs
+# instalados já carregam (dump do dono 10-29: 'craft-toplevel 1.0-2').
+# pacman compara VERSÃO, nunca bytes: o -Syu do craft-update via
+# [elite-local] comparava 1.0-2 == 1.0-2 e PULAVA — o daemon do EVT nunca
+# chegaria a máquina instalada NENHUMA por update (a ISO nova não padece:
+# instalação fresca lê o repo ATUAL). A lei daqui em diante: conteúdo da
+# casa muda → pkgrel sobe NO MESMO commit.
+pkgrel=3
 pkgdesc='Daemon wlr-foreign-toplevel da Elite — janelas por id (LIST/ACT/CLOSE/CYCLE + anel MRU) para a dock comutar de verdade'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
