@@ -1450,4 +1450,17 @@ assert_grep "$CDGUI9" 'nova sessão sem prova de origem' "E53/E54: o direito no 
 assert_grep "$CDGUI9" 'self\.dyn or self\.raw' "E53: o fio separador reconhece o lado dos raw (o sem-nome mora com os dinâmicos — nunca órfão no meio dos pins)"
 assert_grep "$CDGUI9" 'raw ON' "E53: o boot da dock confessa os raw no bars.log (a cura é evidência, não promessa)"
 
+# ── E57 — O PACOTE É O ÚNICO DONO NA ISO (build de ISO 05/nov 03:17:
+#    'existe no sistema de arquivos' em 44 caminhos — a doença E56 no
+#    lado da esteira). O overlay entregava bins/units NO DISCO e o
+#    pacstrap instalava o elite-system por cima; o pacstrap não aceita
+#    --overwrite (só pacotes atravessam), então a cura é na origem: o
+#    par overlay↔pacote vira PACOTE SOZINHO, modos nativos do git index.
+BSH57="$REPO/.ci/build.sh"
+assert_grep "$BSH57" 'O PACOTE É O ÚNICO DONO NA ISO' "E57: a cura existe no build.sh (a ISO morria na mesma doença que derrubou a adoção do rig — 44 'existe no sistema de arquivos')"
+assert_grep "$BSH57" "MF_E57=/tmp/elite-src/elite-system/files/MANIFEST" "E57: a lista de remoção nasce do MANIFEST do pacote único (fonte única — a remoção nunca é inventada à mão)"
+assert_grep "$BSH57" 'MANIFEST do elite-system ausente — a remoção E57 é cega sem ele' "E57: sem MANIFEST o build ABORTA (remover sem prova de conteúdo = a doença com outra roupa)"
+assert_grep "$BSH57" "grep -qxF 'elite-system'" "E57: a remoção só existe quando o elite-system é alvo do pacstrap (overlay fica se o pacote não instala — no-op honesto)"
+assert_grep "$BSH57" 'file_permissions virou responsabilidade do elite-system' "E57: as entradas file_permissions dos bins empacotados saem do profiledef (os modos 100755/100644 viajam no pacote — o E54.1 garante)"
+
 phase_end
