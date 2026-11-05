@@ -415,7 +415,13 @@ pkgver=1.0
 #     "não desenha o maximizar, minimizar e fechar") — o fragmento chega
 #     ao rig do dono SEM tocar no rc.xml dele, a mesma lei do domínio.
 # Tudo no MANIFEST do pacote único — pkgrel 4→5 NO MESMO COMMIT (lei E41).
-pkgrel=5
+# E55 — O GUARDIÃO NÃO PODE VIRAR REFÉM: o craft-fix-keys que viaja neste
+#     pacote ganhou TETO (timeout 300s no pacman -Sy da cura do keyring).
+#     O timer elite-keyring-fix roda 2min após CADA boot e um pacman
+#     pendurado em conexão travada segurava o db.lck para sempre — cada
+#     pacman manual do dono morria em 3s ("não foi possível travar a base
+#     de dados") e NENHUMA transação (nem a ponte) atravessava.
+pkgrel=6
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
