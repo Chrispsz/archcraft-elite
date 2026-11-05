@@ -112,6 +112,14 @@ libpulse
 # foi o diálogo dele que matou o gparted do dono com senha VIVA provada no
 # dump tg0b1 (a aposentadoria dele mora no packages.remove)
 hyprpolkitagent
+## E58 — O AGENTE QUE RODA HOJE (verify da ISO 05/nov: 17 mortes na sessão):
+## o hyprpolkitagent 0.2.0 (02/nov) nasceu REESCRITO em hyprtoolkit — o
+## hyprtoolkit binda zwlr_layer_shell_v1 v5 e o labwc 0.20.2 do live oferece
+## v4 ('expected at most 4, got 5'). O craft-bars escolhe por CONTEÚDO
+## (probe 'hyprtoolkit' dentro do binário) e este pacote dá à ISO um agente
+## que roda AGORA (lxqt-policykit 2.4, Qt6, WM-agnóstico, no extra desde
+## abr/26). O hyprpolkitagent segue na lista como fallback (era Qt dos rigs).
+lxqt-policykit
 xdg-desktop-portal-wlr
 mpv
 imv

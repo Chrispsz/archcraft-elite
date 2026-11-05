@@ -253,10 +253,28 @@ while :; do
     # transição. O gparted do dono morreu no diálogo do velho com senha
     # VIVA provada (dump tg0b1: o sudo do craft-dump pediu e ACEITOU a
     # senha de chris) — o diálogo é o réu, não a senha.
-    POLKIT_BIN=/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1
-    if [ -x /usr/lib/hyprpolkitagent/hyprpolkitagent ]; then
-        POLKIT_BIN=/usr/lib/hyprpolkitagent/hyprpolkitagent
-    fi
+    # E58 — O ROLLING TROCA O JOGO EMBAIXO (verify da ISO 05/nov:
+    # BARS_EXITS=17, 'invalid version for global zwlr_layer_shell_v1 —
+    # expected at most 4, got 5'): o hyprpolkitagent 0.2.0 (02/nov) nasceu
+    # REESCRITO em hyprtoolkit, e o hyprtoolkit binda layer-shell v5 — o
+    # labwc 0.20.2 do live oferece v4: o agente morre a cada spawn, o
+    # supervisor ressuscita, morre de novo. A cura é o PROBE POR CONTEÚDO:
+    # binário com 'hyprtoolkit' dentro não roda no labwc de hoje e SAI DA
+    # FILA. lxqt-policykit 2.4 (Qt6, WM-agnóstico, no extra desde abr/26)
+    # assume a frente; o hyprpolkitagent da era Qt (v0.1.x, o dos rigs que
+    # ainda não atualizaram) segue válido de fallback; polkit-gnome segue
+    # último recurso (aposentado no packages.remove da ISO). Fila única,
+    # decisão provável no papel — quando o labwc aprender v5, uma linha
+    # aqui devolve o agente nativo.
+    POLKIT_BIN=""
+    for pb in /usr/bin/lxqt-policykit-agent \
+              /usr/lib/hyprpolkitagent/hyprpolkitagent \
+              /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1; do
+        [ -x "$pb" ] || continue
+        grep -q 'hyprtoolkit' "$pb" 2>/dev/null && continue
+        POLKIT_BIN="$pb"
+        break
+    done
     if [ -x "$POLKIT_BIN" ] && ! pgrep -f "^$POLKIT_BIN\$" >/dev/null 2>&1; then
         if [ "$seen_polkit" -eq 1 ]; then
             printf '[%s] polkit FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"

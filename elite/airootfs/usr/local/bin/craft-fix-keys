@@ -71,6 +71,20 @@ else
     SUDO='sudo -n'   # -n: nunca trava pedindo senha em background
 fi
 
+# v2.10.28 · E58 — A CLASSE COMPLETA: quem chega SEGUNDO, espera (verify
+# da ISO 05/nov: 'pacman-init.service: Failed with result' no serial). O
+# E38/E29 ensinou o RESTART do pacman-init a esperar (drop-in 10-elite-
+# retry, ExecStartPre craft-keyring-wait) — mas o PRIMEIRO confronto
+# ficava descoberto: este script (autostart da sessão, ~40s, sudo
+# NOPASSWD no live) rodava pacman-key SEM esperar ninguém, no meio do
+# --updatedb do pacman-init (boot TCG do verify: userspace 5min27s). Duas
+# mãos no MESMO /etc/pacman.d/gnupg = o perdedor sai 'Failed with result'
+# e o gate v1.5.2 reprova a ISO inteira por um tropeço evitável. A cura
+# mora AQUI — no ponto que TODOS os caminhos atravessam (autostart da
+# sessão, unit root do timer, rigs): o mesmo guard de sempre, com o mesmo
+# teto (420s), antes da primeira mão tocar no chaveiro.
+[ -x /usr/local/bin/craft-keyring-wait ] && /usr/local/bin/craft-keyring-wait
+
 $SUDO pacman-key --init >/dev/null 2>&1 || true
 $SUDO pacman-key --populate archlinux cachyos >/dev/null 2>&1 || true
 # v2.10.5 — O SELO SÓ COME COM A CURA FEITA: o carimbo de 24h era

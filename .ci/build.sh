@@ -432,7 +432,18 @@ pkgver=1.0
 #     (2) as units elite-* órfãs do /etc derrubaram a transação em
 #     'arquivos conflitantes' — o segundo glob '/etc/systemd/system/elite-*'
 #     escopa a segunda família da casa, nos quatros portas.
-pkgrel=7
+# E58 — O ROLLING TROCA O JOGO EMBAIXO (verify da ISO 05/nov): (1) o
+#     hyprpolkitagent 0.2.0 (02/nov) nasceu reescrito em hyprtoolkit —
+#     layer-shell v5 contra o v4 do labwc: 17 mortes na sessão do live; o
+#     craft-bars agora escolhe o agente POR CONTEÚDO (probe 'hyprtoolkit'):
+#     lxqt-policykit na frente, era-Qt de fallback, polkit-gnome de lenha —
+#     o packages.add ganhou o lxqt-policykit. (2) o craft-fix-keys da
+#     sessão agora ESPERA (craft-keyring-wait) antes de tocar no chaveiro
+#     — o 'pacman-init.service: Failed with result' do primeiro confronto
+#     (sessão ~40s × pacman-init --updatedb) não existe mais: quem chega
+#     segundo, espera. Tudo viaja no pacote único — pkgrel 7→8 NO MESMO
+#     COMMIT (lei E41).
+pkgrel=8
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
