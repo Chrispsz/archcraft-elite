@@ -78,7 +78,16 @@ $SUDO pacman-key --populate archlinux cachyos >/dev/null 2>&1 || true
 # mentia 'curado' e não re-tentava por um dia inteiro. Sem rede, sem
 # selo: o próximo boot re-tenta (as camadas 1-3 do keyring seguem
 # cobrindo o dia-a-dia; isso é a 4ª camada).
-if $SUDO pacman -Sy --noconfirm archlinux-keyring cachyos-keyring >/dev/null 2>&1; then
+# v2.10.28 · E55 — O GUARDIÃO NÃO PODE VIRAR REFÉM: o pacman -Sy da cura
+# é UNATTENDED (elite-keyring-fix.timer, 2min após CADA boot) e não tinha
+# TETO de tempo — numa conexão travada (o histórico de espelho 404 do rig
+# do dono), um pacman pendurado toma o db.lck e o segura PARA SEMPRE:
+# todo pacman manual depois morre em 3s com "não foi possível travar a
+# base de dados" (dump p0bve: o timer no ar às 16:26:40; o sintoma do
+# dono: a sincronização falha em 3s, sempre). O teto de 300s devolve a
+# física — cura lenta NÃO é cura eterna: o timeout mata, o selo não é
+# escrito e o caminho honesto de v2.10.5 abaixo re-tenta no boot seguinte.
+if $SUDO timeout 300 pacman -Sy --noconfirm archlinux-keyring cachyos-keyring >/dev/null 2>&1; then
     mkdir -p "${STAMP%/*}" 2>/dev/null || true
     date +%s > "$STAMP" 2>/dev/null || true
 else
