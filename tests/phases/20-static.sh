@@ -1465,4 +1465,17 @@ assert_grep "$BSH57" 'file_permissions virou responsabilidade do elite-system' "
 assert_grep "$BSH57" 'sobreviveram à remoção E57' "E57.1: quem sobreviver à remoção ABORTA ANTES do pacstrap (o build 2 provou o custo do silêncio: o glob com ponto literal removeu ZERO units e a ISO morreu 10 min depois — réus 44→9)"
 assert_grep "$BSH57" 'elite-\*\.service' "E57.1: o glob das units é GLOB de verdade (o 'elite-'.*.service nascia exigindo um PONTO depois de elite- — glob não é regex)"
 
+# ── E58 — O ROLLING TROCA O JOGO EMBAIXO (verify da ISO 05/nov: BARS_EXITS=17
+#    com 'invalid version for global zwlr_layer_shell_v1 — expected at most 4,
+#    got 5' + 'pacman-init.service: Failed with result'). Duas classes: o
+#    hyprpolkitagent 0.2.0 reescrito em hyprtoolkit (v5) contra o labwc v4, e
+#    o primeiro confronto sessão (craft-fix-keys ~40s) × pacman-init.
+CBARS58="$REPO/elite/airootfs/usr/local/bin/craft-bars"
+CFK58="$REPO/elite/airootfs/usr/local/bin/craft-fix-keys"
+assert_grep "$CBARS58" '/usr/bin/lxqt-policykit-agent' "E58: o agente que roda HOJE assume a fila (hyprpolkitagent 0.2.0 = hyprtoolkit = layer-shell v5 vs o v4 do labwc — 17 mortes provadas no verify)"
+assert_grep "$CBARS58" 'PROBE POR CONTEÚDO' "E58: o seletor decide por CONTEÚDO (binário com hyprtoolkit dentro sai da fila — a era Qt dos rigs segue válida de fallback)"
+assert_grep "$REPO/elite/packages.add" '^lxqt-policykit' "E58: o agente WM-agnóstico é DEPENDÊNCIA DECLARADA (lxqt-policykit 2.4, no extra desde abr/26; hyprpolkitagent segue de fallback)"
+assert_grep "$CFK58" 'craft-keyring-wait' "E58: a cura da sessão ESPERA antes de tocar no chaveiro (o primeiro confronto sessão×pacman-init não existe mais — quem chega segundo, espera; o E38/E29 só cobria o restart)"
+assert_grep "$REPO/.ci/build.sh" '^pkgrel=8' "E58: pkgrel elite-system 7→8 NO MESMO COMMIT (lei E41 — craft-bars e craft-fix-keys mudaram de conteúdo)"
+
 phase_end
