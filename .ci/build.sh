@@ -788,6 +788,52 @@ cp /var/cache/elite-local/* elite/airootfs/var/cache/elite-local/
 bash scripts/apply-overlay.sh
 
 # ─────────────────────────────────────────────────────────────────────
+# E57 — O PACOTE É O ÚNICO DONO NA ISO (a prova crua do build de ISO,
+# 05/nov 03:17): o overlay entrega os 35 bins + 9 units NO DISCO e o
+# pacstrap tenta instalar o elite-system POR CIMA — o pacman recusa
+# não-dono antes de qualquer scriptlet ('existe no sistema de arquivos'
+# em 44 caminhos) e a ISO morre na MESMA doença que derrubou a adoção
+# do rig (o E56 curou o craft-update; a esteira ficava doente). O
+# pacstrap NÃO encaminha --overwrite (só nomes de pacote atravessam a
+# linha de comando dele — _make_packages do mkarchcraftiso upstream),
+# então a cura é na ORIGEM: o par overlay↔pacote vira PACOTE SOZINHO —
+# UM dono por caminho, a mesma lei da casa. Os modos não se perdem: os
+# bins são 100755 e as units 100644 no git index (a lição E54.1) — o
+# cp -p do template e o pacman entregam 0755/0644 nativos. As entradas
+# file_permissions destes caminhos saem do profiledef junto (o fork só
+# AVISA em caminho ausente — mas log honesto não ladra 35 vezes por
+# desenho; os 2 caminhos fora do pacote — system-sleep e skel — ficam).
+# As wants symlinks ficam: eles APONTAM para units que o pacote entrega.
+# ─────────────────────────────────────────────────────────────────────
+PD_E57=$(find elite-build -maxdepth 3 -name profiledef.sh -print -quit)
+[[ -n "$PD_E57" ]] || { echo "ELITE-FAIL: profiledef não encontrado pós-overlay (E57)" >&2; exit 1; }
+MF_E57=/tmp/elite-src/elite-system/files/MANIFEST
+if grep -qxF 'elite-system' "${PD_E57%profiledef.sh}packages.x86_64"; then
+    [[ -s "$MF_E57" ]] || { echo "ELITE-FAIL: MANIFEST do elite-system ausente — a remoção E57 é cega sem ele (nunca)" >&2; exit 1; }
+    say "E57: elite-system é o ÚNICO dono na ISO — o par overlay↔pacote sai do disco ($(wc -l <"$MF_E57") bins + as units elite-*)"
+    while read -r b; do
+        rm -f "${PD_E57%profiledef.sh}airootfs/usr/local/bin/$b"
+    done < "$MF_E57"
+    shopt -s nullglob
+    units_e57=( "${PD_E57%profiledef.sh}airootfs/etc/systemd/system/elite-".*.service \
+                "${PD_E57%profiledef.sh}airootfs/etc/systemd/system/elite-".*.timer )
+    shopt -u nullglob
+    say "E57: ${#units_e57[@]} units elite-* saem do overlay (o pacote entrega as 9 da casa)"
+    rm -f "${units_e57[@]}"
+    python3 - "$PD_E57" "$MF_E57" <<'PYE57'
+import sys, pathlib
+pd, mf = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
+bins = {'["/usr/local/bin/%s"]="0:0:755"' % b for b in mf.read_text().split()}
+linhas = pd.read_text().splitlines(True)
+out = [l for l in linhas if l.strip() not in bins]
+pd.write_text(''.join(out))
+print(f"E57: {len(linhas) - len(out)} entrada(s) file_permissions virou responsabilidade do elite-system (profiledef limpo — sem 35 avisos por desenho)")
+PYE57
+else
+    say "E57: elite-system fora do pacstrap — overlay fica inteiro (sem pacote único a ISO não teria quem entregue os bins)"
+fi
+
+# ─────────────────────────────────────────────────────────────────────
 # Preflight v3 — EXECV-SEGURO. O pacman executa o XferCommand via
 # fork/execv (libalpm importa execv+fork, NÃO system()): operadores de
 # shell ("|| echo … >>") viram argumentos literais do curl e matam TODA
