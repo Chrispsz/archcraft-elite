@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# craft-update — atualiza TUDO que a Elite entrega (v5 — E50)
+# craft-update — atualiza TUDO que a Elite entrega (v5.3 — E56)
 # ═══════════════════════════════════════════════════════════════════════════
 # v1 (v2.10.5): 'sudo pacman -Syu' + cabeçalho honesto (paru prometido não
 #   existe — o bloco fica pronto, mas calado enquanto paru não entra).
@@ -367,7 +367,12 @@ if [[ "${1:-}" == "--canal" ]]; then
     [ -n "$(es_q)" ] && ERA_UNICA=1
     while IFS= read -r p; do
         [ -n "$p" ] || continue
-        if [ -n "$ERA_UNICA" ] && { [ "$p" = "elite-craft" ] || [ "$p" = "craft-toplevel" ]; }; then
+        # E56 — o par legado fica FORA da dose SEMPRE (antes, só na era
+        # única): com craft-toplevel vivo NA LISTA junto do elite-system, o
+        # pacman recusa a dose inteira (conflito alvo-contra-alvo — a prova
+        # crua do rig, 05/nov). O replaces do elite-system faz a troca de
+        # era na própria dose — a adoção não briga com ninguém.
+        if [ "$p" = "elite-craft" ] || [ "$p" = "craft-toplevel" ]; then
             continue
         fi
         CANAL_PKGS+=("$p")
@@ -378,9 +383,13 @@ if [[ "${1:-}" == "--canal" ]]; then
     fi
     if [ -n "$ERA_UNICA" ]; then
         ulog "canal: era do pacote único — o par legado (fóssil/ponte) fica fora da dose"
+    else
+        ulog "canal: ADOÇÃO nesta dose — o replaces do elite-system troca o par legado (alvo-contra-alvo nunca entra na lista)"
     fi
     if ! run_root pacman -Sy --needed --noconfirm \
-            --overwrite '/usr/local/bin/*' "${CANAL_PKGS[@]}" >>"$ULOG" 2>&1; then
+            --overwrite '/usr/local/bin/*' \
+            --overwrite '/etc/systemd/system/elite-*' \
+            "${CANAL_PKGS[@]}" >>"$ULOG" 2>&1; then
         ulog "canal: pacman RECUSOU a dose — a prova está acima no log"
         notify_users -u critical 'Canal da Elite falhou' \
             'A dose diária da casa foi recusada — log: /var/log/elite-update.log'
@@ -425,7 +434,8 @@ if [[ "${1:-}" == "--sistema" ]]; then
     # status NEGADO — o log imprimiria rc=1 em qualquer falha)
     sys_rc=0
     run_root pacman -Syu --needed --noconfirm \
-        --overwrite '/usr/local/bin/*' >>"$ULOG" 2>&1 || sys_rc=$?
+        --overwrite '/usr/local/bin/*' \
+        --overwrite '/etc/systemd/system/elite-*' >>"$ULOG" 2>&1 || sys_rc=$?
     if [ "$sys_rc" -ne 0 ]; then
         ulog "sistema: pacman FALHOU (rc=$sys_rc) — snapshot PRE #$PRE_N guarda o estado anterior"
         notify_users -u critical 'Atualização semanal falhou' \
@@ -461,18 +471,40 @@ es_before="$(es_q)"
 ec_before="$(elite_craft_q)"
 tl_before="$(craft_tl_q)"
 
-# E46/E50 — o alvo EXPLÍCITO faz a ADOÇÃO E A SUBSTITUIÇÃO DE ERA: o rig
-# que nunca teve pacote INSTALA o único nesta transação (o pre_install
-# adota os arquivos de overlay); quem tinha o par legado acorda com UM
-# dono (o pacman remove o par na mesma transação); quem já tem o único,
-# segue na dose normal.
+# E46/E50→E56 — O ALVO É CONDICIONAL (a prova crua do rig, 05/nov): nomear
+# elite-system junto do -Syu num rig onde o craft-toplevel tem candidato
+# de upgrade é conflito NÃO solucionável ('elite-system-1.0-6 e
+# craft-toplevel-1.0-5 estão em conflito' — o pacman não substitui o
+# pacote que a MESMA transação atualiza). O MESMO rig provou o caminho
+# limpo: SEM alvo explícito, o replaces do elite-system resolve a adoção
+# ('Substituir craft-toplevel por elite-local/elite-system?'). A lei:
+#   · craft-toplevel vivo + elite-system ausente → SEM alvo: o replaces
+#     adota (o par sai, o único entra, na MESMA transação);
+#   · nos outros estados → alvo explícito (quem já tem o único segue na
+#     dose normal; estado sem o par instala o único sem briga).
+# E56 — O SEGUNDO GLOB: as units elite-* da era da ISO vivem ÓRFÃS em
+# /etc/systemd/system e derrubaram a transação do rig em 'arquivos
+# conflitantes' — /usr/local/bin/* sozinho era cego para o /etc. As DUAS
+# famílias da casa escopam o --overwrite; nada fora delas é tocado.
 # E54 — A SENTINELA ANTES DA TRANSAÇÃO (o erro cru do dono morre aqui):
 # espera a base liberar / limpa o lock órfão, e a recusa do pacman vira
 # mensagem honesta com o rc — o script NUNCA mais morde o erro cru calado
 # (o rc REAL se captura fora da negação, a mesma lição E46 do --sistema).
+if [ -z "$es_before" ] && [ -n "$tl_before" ]; then
+    ulog "manual: craft-toplevel ${tl_before} vivo — o REPLACES puxa o elite-system nesta transação (alvo explícito brigaria alvo-contra-alvo com o próprio craft-toplevel)"
+    _alvo=""
+else
+    _alvo="elite-system"
+fi
 sentinela_db
 manual_rc=0
-run_root pacman -Syu --needed --overwrite '/usr/local/bin/*' elite-system || manual_rc=$?
+if [ -n "$_alvo" ]; then
+    run_root pacman -Syu --needed --overwrite '/usr/local/bin/*' \
+        --overwrite '/etc/systemd/system/elite-*' elite-system || manual_rc=$?
+else
+    run_root pacman -Syu --needed --overwrite '/usr/local/bin/*' \
+        --overwrite '/etc/systemd/system/elite-*' || manual_rc=$?
+fi
 if [ "$manual_rc" -ne 0 ]; then
     echo "ERRO: o pacman recusou a transação (rc=$manual_rc) — NADA da casa mudou." >&2
     echo "      A prova está nas linhas acima; se falar de 'travar a base de dados'," >&2

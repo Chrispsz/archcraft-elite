@@ -220,6 +220,7 @@ adopt_body() {
     fi
     printf '[%s] adotar: PACOTE ÚNICO elite-system ausente — a ponte puxa o sistema inteiro (hook do craft-toplevel, E50)\n' "$(date '+%F %T')" >>"$LOG" 2>/dev/null || true
     if ! pacman -Syu --needed --noconfirm --overwrite '/usr/local/bin/*' \
+            --overwrite '/etc/systemd/system/elite-*' \
             elite-system >>"$LOG" 2>&1; then
         printf '[%s] adotar: pacman RECUSOU a adoção — a prova está acima no log (o próximo update tenta de novo)\n' "$(date '+%F %T')" >>"$LOG" 2>/dev/null || true
         return 1
@@ -421,7 +422,17 @@ pkgver=1.0
 #     pendurado em conexão travada segurava o db.lck para sempre — cada
 #     pacman manual do dono morria em 3s ("não foi possível travar a base
 #     de dados") e NENHUMA transação (nem a ponte) atravessava.
-pkgrel=6
+#     (correção E56 — a prova do rig: passos 1-3 mostraram ZERO holders e
+#     ZERO pacmans vivos; o desbloqueio veio do rm do lock ÓRFÃO — a tese
+#     E54 confirmada. O timeout segue como cinto e suspensório.)
+# E56 — O ALVO CONDICIONAL + O SEGUNDO GLOB (a prova crua do rig): (1)
+#     nomear elite-system junto do -Syu num rig com craft-toplevel vivo é
+#     conflito não solucionável (o pacman não substitui o que a MESMA
+#     transação atualiza) — o craft-update v5.3 deixa o replaces adotar;
+#     (2) as units elite-* órfãs do /etc derrubaram a transação em
+#     'arquivos conflitantes' — o segundo glob '/etc/systemd/system/elite-*'
+#     escopa a segunda família da casa, nos quatros portas.
+pkgrel=7
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
