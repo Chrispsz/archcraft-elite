@@ -52,6 +52,18 @@ while [ "$i" -lt 10 ] && pgrep -x hyprlock >/dev/null 2>&1; do
     i=$((i + 1))
 done
 if command -v hyprlock >/dev/null 2>&1; then
+  # E60 — A VIGÍLIA: TODO lock novo ARMA o próprio vigia do suspend
+  # (setsid — sobrevive ao exec abaixo; stdin/stdout soltos). O suspend
+  # deixa de depender do relógio de idle do compositor: o vigia conta o
+  # tempo TRAVADO (hyprlock vivo) e dorme o PC com SUSPEND_MIN minutos de
+  # lock. O caminho --if-needed com lock VIVO saiu cedo acima — não
+  # rearma (o vigia daquele lock já está no ar). O fallback loginctl não
+  # arma por honestidade: o vigia lê a vida do HYPRLOCK — armar sem
+  # hyprlock é prometer o que não pode vigiar. Manual (W-l), menu,
+  # timeout do idle e craft-power: TODOS dormem travado agora.
+  if command -v craft-vigil >/dev/null 2>&1; then
+    setsid craft-vigil >/dev/null 2>&1 </dev/null &
+  fi
   src="$HOME/.config/hypr/hyprlock.conf"
   if [ -r "$src" ]; then
     bg="$HOME/.config/labwc/wallpaper.png"

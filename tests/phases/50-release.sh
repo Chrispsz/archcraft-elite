@@ -76,6 +76,33 @@ PYPVD
 if [[ "$MODE" == "split" ]]; then
   # peças: assets — 2 partes + docs, cada uma ≤ 2 GiB (contrato do GitHub)
   ok "release: 2 partes presentes (part-00 + part-01)"
+  # E60-fix — A ERA CERTA: a release única viva ACUMULA eras (2026.11.03 ao
+  # lado da 2026.11.05), e o head -1 do awk pegava as partes da ERA ANTIGA
+  # enquanto o sha256sums.txt certifica a ERA ATUAL — REAL de uma era contra
+  # o PVD de outra: matemática que compara produtos diferentes (a suíte
+  # mordeu exatamente aqui quando a segunda ISO foi publicada). A era
+  # corrente é a que o sha256sums.txt certifica (o publish gate o reescreve
+  # a cada era); as partes têm de ser AS DESSA ISO — mesmo nome-raiz.
+  if curl -fsSL --max-time 30 "$BASE/sha256sums.txt" -o "$WORK/rel-sums.txt" 2>/dev/null; then
+    ok "release: sha256sums.txt baixável"
+  else
+    fail "release: sha256sums.txt baixável" "HTTP falhou"
+  fi
+  n=$(grep -cE '^[0-9a-f]{64}  .+$' "$WORK/rel-sums.txt" 2>/dev/null || echo 0)
+  assert_eq "$n" "3" "release: sha256sums traz 3 hashes (ISO inteira + 2 partes)"
+  ISOn=$(grep -oE '  \S+$' "$WORK/rel-sums.txt" | grep -E 'archcraft-elite-.*-x86_64\.iso$' | head -1 | sed 's/^  //')
+  [[ -n "$ISOn" ]] \
+    && ok "release: hash da ISO inteira presente ($ISOn)" \
+    || fail "release: hash da ISO inteira presente" "linha .iso ausente"
+  p00=$(awk -F'\t' -v nm="$ISOn.part-00" '$1 == nm {print $2}' "$WORK/rel.txt" | head -1)
+  p01=$(awk -F'\t' -v nm="$ISOn.part-01" '$1 == nm {print $2}' "$WORK/rel.txt" | head -1)
+  if [[ -z "$p00" || -z "$p01" ]]; then
+    fail "release: partes da ERA CERTA nos assets" \
+         "sha256sums certifica '$ISOn', mas $ISOn.part-00/part-01 não estão nos assets (era misturada na release?)"
+    phase_end
+    return 2>/dev/null || exit 0
+  fi
+  ok "release: partes da era corrente casam com o sha256sums ($ISOn.part-*)"
   for pair in "part-00:$p00" "part-01:$p01"; do
     sz="${pair#*:}"; nm="${pair%%:*}"
     if [[ -n "$sz" ]] && (( sz > 0 )) && (( sz <= 2147483648 )); then
@@ -92,19 +119,6 @@ if [[ "$MODE" == "split" ]]; then
   # ISO real reconstruída = soma das partes
   REAL=$(( p00 + p01 ))
   ok "release: ISO real (part-00 + part-01) = $REAL B"
-
-  # peças: sha256sums.txt — 3 hashes (ISO inteira + 2 partes)
-  if curl -fsSL --max-time 30 "$BASE/sha256sums.txt" -o "$WORK/rel-sums.txt" 2>/dev/null; then
-    ok "release: sha256sums.txt baixável"
-  else
-    fail "release: sha256sums.txt baixável" "HTTP falhou"
-  fi
-  n=$(grep -cE '^[0-9a-f]{64}  .+$' "$WORK/rel-sums.txt" 2>/dev/null || echo 0)
-  assert_eq "$n" "3" "release: sha256sums traz 3 hashes (ISO inteira + 2 partes)"
-  ISOn=$(grep -oE '  \S+$' "$WORK/rel-sums.txt" | grep -E 'archcraft-elite-.*-x86_64\.iso$' | head -1 | sed 's/^  //')
-  [[ -n "$ISOn" ]] \
-    && ok "release: hash da ISO inteira presente ($ISOn)" \
-    || fail "release: hash da ISO inteira presente" "linha .iso ausente"
 
   # peças: JUNTAR-ISO.md — as instruções casam com os assets reais
   if curl -fsSL --max-time 30 "$BASE/JUNTAR-ISO.md" -o "$WORK/rel-juntar.md" 2>/dev/null; then
@@ -163,6 +177,16 @@ elif [[ "$MODE" == "single" ]]; then
   [[ -n "$ISOn" ]] \
     && ok "release: hash da ISO presente ($ISOn)" \
     || fail "release: hash da ISO presente" "linha .iso ausente"
+  # E60-fix — a era certa TAMBÉM no modo single: o size comparado ao PVD é
+  # o do asset QUE O SUMS CERTIFICA (mesmo nome-raiz), não o primeiro .iso
+  # da lista (a release viva acumula eras — o mesmo veneno do modo split).
+  iso=$(awk -F'\t' -v nm="$ISOn" '$1 == nm {print $2}' "$WORK/rel.txt" | head -1)
+  if [[ -z "$iso" || "$iso" == "0" ]]; then
+    fail "release: asset da ISO da era corrente presente" \
+         "sha256sums certifica '$ISOn', mas o asset não está na release (era misturada?)"
+    phase_end
+    return 2>/dev/null || exit 0
+  fi
   # peças: a ISO responde 206 (range) — baixável de verdade
   url=$(curl -sSL --max-time 30 -r 0-1023 -o "$WORK/chunk-iso" -w '%{http_code}' "$BASE/$ISOn")
   if [[ "$url" == "206" ]] && (( $(stat -c%s "$WORK/chunk-iso" 2>/dev/null || echo 0) == 1024 )); then
