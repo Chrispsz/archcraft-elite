@@ -1476,6 +1476,15 @@ assert_grep "$CBARS58" '/usr/bin/lxqt-policykit-agent' "E58: o agente que roda H
 assert_grep "$CBARS58" 'PROBE POR CONTEÚDO' "E58: o seletor decide por CONTEÚDO (binário com hyprtoolkit dentro sai da fila — a era Qt dos rigs segue válida de fallback)"
 assert_grep "$REPO/elite/packages.add" '^lxqt-policykit' "E58: o agente WM-agnóstico é DEPENDÊNCIA DECLARADA (lxqt-policykit 2.4, no extra desde abr/26; hyprpolkitagent segue de fallback)"
 assert_grep "$CFK58" 'craft-keyring-wait' "E58: a cura da sessão ESPERA antes de tocar no chaveiro (o primeiro confronto sessão×pacman-init não existe mais — quem chega segundo, espera; o E38/E29 só cobria o restart)"
-assert_grep "$REPO/.ci/build.sh" '^pkgrel=8' "E58: pkgrel elite-system 7→8 NO MESMO COMMIT (lei E41 — craft-bars e craft-fix-keys mudaram de conteúdo)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 7→8 NO MESMO' "E58: pkgrel elite-system 7→8 NO MESMO COMMIT (lei E41 — craft-bars e craft-fix-keys mudaram de conteúdo; a âncora é a HISTÓRIA no comentário — o número atual pertence ao guard-pkgrel do CI, não ao contrato estático: ele anda a cada E-passo)"
+
+# ── E59 — A DOSE É DO SISTEMA INSTALADO (verify da ISO #4: elite-bootupdate
+#    'Failed with result exit-code' aos 3min do LIVE — copy-to-RAM não
+#    persiste nada, TCG lento; a causa exata do exit 1 é inobservável por
+#    desenho: o stderr morre no update.log do live). Cura na unit: o live
+#    PULA honestamente (condition failed = skipped — sem 'Failed with
+#    result' para o gate v1.5.2 reprovar); o rig instalado segue E51.
+assert_grep "$REPO/elite/airootfs/etc/systemd/system/elite-bootupdate.service" 'ConditionPathExists=!/run/archiso' "E59: o live PULA a dose (skipped honesto — a cadência E51 é do rig instalado; mídia descartável não se auto-atualiza)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 8→9 NO MESMO COMMIT' "E59: pkgrel elite-system 8→9 NO MESMO COMMIT (lei E41 — a unit do pacote único mudou de conteúdo; âncora na HISTÓRIA, lição do E58: número atual anda, a lei que o cobra é o guard do CI)"
 
 phase_end

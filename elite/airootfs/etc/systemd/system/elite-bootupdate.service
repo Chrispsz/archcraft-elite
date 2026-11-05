@@ -5,7 +5,20 @@ Description=Elite: dose da casa ao LIGAR (a cada boot — o dono: "atualizar a c
 # cura. O boot é o único relógio que o dono BATE todos os dias: ligou,
 # 3 minutos depois a dose da casa desce sozinha (offline-safe: sem rede =
 # silêncio, a próxima vez que ligar tenta de novo).
+# E59 — A DOSE É DO SISTEMA INSTALADO (verify da ISO #4, 05/nov: elite-
+# bootupdate 'Failed with result exit-code' aos 3min do LIVE, 21.8s de
+# vida): a dose no LIVE é doença por desenho — mídia descartável
+# (copy-to-RAM: nada do que a dose baixa persiste), TCG lento, e o
+# stderr do craft-update morre no update.log do live (o serial não o
+# carrega — a causa exata do exit 1 é inobservável POR DESENHO; a
+# honestidade E33 registra a classe, não a fábula). O mesmo marcador da
+# casa (v2.10.12, craft-fix-keys): /run/archiso presente = live → a
+# unidade é PULADA (condition failed = skipped honesto — sem 'Failed
+# with result' para o gate v1.5.2 reprovar a ISO inteira); no INSTALADO
+# (o rig do dono via calamares) a dose segue EXATAMENTE como o E51
+# ordenou: ligou, 3min, a casa se atualiza.
 ConditionACPower=yes
+ConditionPathExists=!/run/archiso
 
 [Service]
 Type=oneshot

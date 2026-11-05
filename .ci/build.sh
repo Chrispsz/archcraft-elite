@@ -443,7 +443,15 @@ pkgver=1.0
 #     (sessão ~40s × pacman-init --updatedb) não existe mais: quem chega
 #     segundo, espera. Tudo viaja no pacote único — pkgrel 7→8 NO MESMO
 #     COMMIT (lei E41).
-pkgrel=8
+# E59 — A DOSE É DO SISTEMA INSTALADO (verify da ISO #4: elite-bootupdate
+#     'Failed with result exit-code' aos 3min do LIVE — mídia descartável,
+#     copy-to-RAM, nada persiste; a causa exata do exit 1 é inobservável
+#     por desenho: o stderr morre no update.log do live). Cura na UNIT:
+#     ConditionPathExists=!/run/archiso (o mesmo marcador v2.10.12 da
+#     camada de sessão) — o live PULA a dose honestamente; o instalado
+#     (rig do dono) segue com o E51 intacto. pkgrel 8→9 NO MESMO COMMIT
+#     (lei E41 — a unit do pacote único mudou de conteúdo).
+pkgrel=9
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
