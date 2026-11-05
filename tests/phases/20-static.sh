@@ -1462,5 +1462,7 @@ assert_grep "$BSH57" "MF_E57=/tmp/elite-src/elite-system/files/MANIFEST" "E57: a
 assert_grep "$BSH57" 'MANIFEST do elite-system ausente — a remoção E57 é cega sem ele' "E57: sem MANIFEST o build ABORTA (remover sem prova de conteúdo = a doença com outra roupa)"
 assert_grep "$BSH57" "grep -qxF 'elite-system'" "E57: a remoção só existe quando o elite-system é alvo do pacstrap (overlay fica se o pacote não instala — no-op honesto)"
 assert_grep "$BSH57" 'file_permissions virou responsabilidade do elite-system' "E57: as entradas file_permissions dos bins empacotados saem do profiledef (os modos 100755/100644 viajam no pacote — o E54.1 garante)"
+assert_grep "$BSH57" 'sobreviveram à remoção E57' "E57.1: quem sobreviver à remoção ABORTA ANTES do pacstrap (o build 2 provou o custo do silêncio: o glob com ponto literal removeu ZERO units e a ISO morreu 10 min depois — réus 44→9)"
+assert_grep "$BSH57" 'elite-\*\.service' "E57.1: o glob das units é GLOB de verdade (o 'elite-'.*.service nascia exigindo um PONTO depois de elite- — glob não é regex)"
 
 phase_end

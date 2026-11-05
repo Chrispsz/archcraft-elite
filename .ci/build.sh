@@ -814,12 +814,28 @@ if grep -qxF 'elite-system' "${PD_E57%profiledef.sh}packages.x86_64"; then
     while read -r b; do
         rm -f "${PD_E57%profiledef.sh}airootfs/usr/local/bin/$b"
     done < "$MF_E57"
+    # E57.1 — o glob das units nasceu com um PONTO LITERAL ('elite-'.*.service
+    # exige um ponto depois de elite- — glob não é regex) e removeu ZERO na
+    # prova de 16:27 (build 2): os 35 bins saíram, as 9 units ficaram no
+    # disco e o pacstrap morreu SÓ nelas — réus 44→9, a cura provada pela
+    # metade errada. Correção do glob + a regra da casa: quem sobreviver à
+    # remoção ABORTA o build ANTES do pacstrap (nunca seguir sabendo).
     shopt -s nullglob
-    units_e57=( "${PD_E57%profiledef.sh}airootfs/etc/systemd/system/elite-".*.service \
-                "${PD_E57%profiledef.sh}airootfs/etc/systemd/system/elite-".*.timer )
+    units_e57=( "${PD_E57%profiledef.sh}"airootfs/etc/systemd/system/elite-*.service \
+                "${PD_E57%profiledef.sh}"airootfs/etc/systemd/system/elite-*.timer )
     shopt -u nullglob
     say "E57: ${#units_e57[@]} units elite-* saem do overlay (o pacote entrega as 9 da casa)"
     rm -f "${units_e57[@]}"
+    shopt -s nullglob
+    sob_e57=( "${PD_E57%profiledef.sh}"airootfs/etc/systemd/system/elite-*.service \
+              "${PD_E57%profiledef.sh}"airootfs/etc/systemd/system/elite-*.timer )
+    shopt -u nullglob
+    (( ${#sob_e57[@]} == 0 )) || { echo "ELITE-FAIL: ${#sob_e57[@]} units elite-* sobreviveram à remoção E57 — o pacstrap morreria nelas (nunca seguir sabendo)" >&2; exit 1; }
+    while read -r b; do
+        if [[ -e "${PD_E57%profiledef.sh}airootfs/usr/local/bin/$b" ]]; then
+            echo "ELITE-FAIL: bin sobrevivente à remoção E57 ($b) — o pacstrap morreria nele (nunca seguir sabendo)" >&2; exit 1
+        fi
+    done < "$MF_E57"
     python3 - "$PD_E57" "$MF_E57" <<'PYE57'
 import sys, pathlib
 pd, mf = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
