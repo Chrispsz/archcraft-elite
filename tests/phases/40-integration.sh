@@ -961,7 +961,17 @@ assert_grep "$REPO/scripts/apply-overlay.sh" 'craft-fix-keys' "v1.5: [9b] regist
 # só delega. Tempos no ~/.config/elite/idle.conf (defaults 10/15 — os da
 # spec v1.5 viraram DEFAULT, não hardcode). Contratos completos adiante
 # (bloco v1.6.1 · craft-idle).
-assert_grep "$P/airootfs/usr/local/bin/craft-idle" "timeout [$]\(\(LOCK_MIN \* 60\)\) 'craft-lock'" "v2.5.0 (N4): lock no timeout passa pelo CRAFT-LOCK (o resolvedor de wallpaper — chamar hyprlock direto ignorava a cadeia png→jpg; o CONF segue sendo o default editável da v1.6.1)"
+assert_grep "$P/airootfs/usr/local/bin/craft-idle" "timeout [$]\(\(LOCK_MIN \* 60\)\) 'craft-lock --if-needed'" "v2.5.0 (N4) + E60: lock no timeout passa pelo CRAFT-LOCK (resolvedor de wallpaper) e é IDEMPOTENTE (--if-needed) — o hyprlock vivo rearmava o relógio de idle e o tick re-ticado REEXECUTAVA o lock: escrachador infinito e o suspend NUNCA disparava ('bloqueia e nada acontece', dono v2.10.28+)"
+# E60 — A VIGÍLIA: o suspend deixa de depender do relógio de idle. O lock
+# arma o próprio vigia (craft-vigil): tempo TRAVADO (hyprlock vivo) decide
+# dormir — manual (W-l), menu, idle e craft-power, TODOS os locks.
+assert_file "$P/airootfs/usr/local/bin/craft-vigil" "E60: a vigília existe e viaja na ISO (o suspend garantido por tempo TRAVADO — outra abordagem pedida pelo dono)"
+assert_grep "$P/airootfs/usr/local/bin/craft-lock" 'setsid craft-vigil' "E60: todo lock novo ARMA o vigia (setsid, sobrevive ao exec do hyprlock; --if-needed com lock vivo saiu cedo — não rearma)"
+assert_grep "$P/airootfs/usr/local/bin/craft-vigil" 'systemctl suspend -i' "E60: a vigília suspende DE VERDADE (mesma dose do braço idle; o segundo pedido é no-op — systemd serializa)"
+assert_grep "$P/airootfs/usr/local/bin/craft-vigil" 'pgrep -x hyprlock' "E60: o vigia lê a vida do LOCK (destravou = braço desarmado sem suspend — nunca dorme com o dono na frente)"
+assert_grep "$P/airootfs/usr/local/bin/craft-vigil" 'idle\.log' "E60: a vigília é OBSERVÁVEL (armada/suspendindo/falha/destravado deixam linha com rc no idle.log — réu nomeado, não opinião)"
+assert_grep "$P/airootfs/usr/local/bin/craft-vigil" 'SUSPEND_MIN' "E60: o vigia obedece ao MESMO knob do menu (idle.conf; 0 = off explícito nos dois braços)"
+assert_grep "$REPO/scripts/apply-overlay.sh" 'craft-vigil' "E60: a vigília registrada em file_permissions (203/EXEC nunca mais — a lição da v1.5)"
 assert_grep "$P/airootfs/usr/local/bin/craft-idle" "timeout [$]\(\(OFF_MIN \* 60\)\) 'craft-idle screenoff" "v1.6.1/E44: DPMS no timeout do CONF (tela APAGA — e agora via subcomando OBSERVÁVEL: o rc do wlopm fica no idle.log; o cru calado era o buraco que escondeu 'a tela nunca apaga')"
 assert_nogrep "$P/airootfs/etc/skel/.config/labwc/autostart" 'swaylock -f|exec swaylock' "v1.5: invocação do swaylock EXTINTA do autostart (tela branca → hyprlock)"
 # W-v clipboard + menu com os apps novos

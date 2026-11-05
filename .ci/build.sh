@@ -451,7 +451,14 @@ pkgver=1.0
 #     camada de sessão) — o live PULA a dose honestamente; o instalado
 #     (rig do dono) segue com o E51 intacto. pkgrel 8→9 NO MESMO COMMIT
 #     (lei E41 — a unit do pacote único mudou de conteúdo).
-pkgrel=9
+# E60 — A VIGÍLIA (relato do dono pós-update: 'bloqueia e NUNCA suspende
+#     sozinho'): o suspend deixa de depender do relógio de idle — o lock
+#     ARMA o vigia (craft-vigil novo: tempo TRAVADO decide dormir, réu
+#     nomeado no idle.log) e o braço do lock no swayidle virou idempotente
+#     (--if-needed: o hyprlock vivo rearmava o relógio e o relock infinito
+#     comia o suspend de 20min). Viaja no pacote único (MANIFEST adota o
+#     bin novo do airootfs). pkgrel 9→10 NO MESMO COMMIT (lei E41).
+pkgrel=10
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

@@ -11,8 +11,18 @@
 # FLUXO do idle (E44 — O GESTO ÚNICO; a versão antiga deste comentário
 # vendia a janela 'X min trava → X+5 apaga' que o dono REJEITOU no rig:
 # 'o PC vai pra tela de bloqueio e fica infinitamente' — travado e ACESO):
-#   X min de inatividade → TRAVA E APAGA no MESMO tick (hyprlock + wlopm
-#                          --off — acorda já no lock, escuro de fato)
+#   'X min de inatividade → TRAVA E APAGA no MESMO tick (hyprlock + wlopm
+#                          --off — acorda já no lock, escuro de fato)'
+# E60 — O BRAÇO DO LOCK É IDEMPOTENTE (--if-needed): o timeout do lock
+#   chamava 'craft-lock' cru — se o hyprlock vivo rearmar o relógio de
+#   idle do compositor (surface nova + grab = atividade), o tick voltava
+#   a 0 e o lock REEXECUTAVA: escrachador infinito de relock e o suspend
+#   (20min de idle) NUNCA disparava — o relato do dono ('bloqueia, passa
+#   o tempo, nada acontece', v2.10.28+). Agora: lock vivo = no-op (o tick
+#   re-ticado não recria NADA); lock morto = fluxo completo (E47 + E30
+#   preservados nos caminhos que os prometem). E O SUSPEND GARANTIDO
+#   ganhou a VIGÍLIA (craft-vigil — armada pelo próprio craft-lock): o
+#   tempo TRAVADO decide, o relógio de idle deixou de ser o único juiz.
 #   SUSPEND_MIN          → suspende ESCURO e TRAVADO (acorda no lock:
 #                          senha UMA vez e usa — nunca suspende com
 #                          alguém na frente; o conf legado X/Y é
@@ -169,14 +179,14 @@ start_daemon() {
     if [ "${LOCK_MIN:-0}" -gt 0 ]; then
         if [ "${SUSPEND_MIN:-0}" -gt 0 ]; then
             exec swayidle -w \
-                timeout $((LOCK_MIN * 60)) 'craft-lock' \
+                timeout $((LOCK_MIN * 60)) 'craft-lock --if-needed' \
                 timeout $((OFF_MIN * 60)) 'craft-idle screenoff' \
                 resume 'craft-idle screenon' \
                 timeout $((SUSPEND_MIN * 60)) 'craft-idle suspend' \
                 before-sleep 'craft-lock --if-needed'
         fi
         exec swayidle -w \
-            timeout $((LOCK_MIN * 60)) 'craft-lock' \
+            timeout $((LOCK_MIN * 60)) 'craft-lock --if-needed' \
             timeout $((OFF_MIN * 60)) 'craft-idle screenoff' \
             resume 'craft-idle screenon' \
             before-sleep 'craft-lock --if-needed'
