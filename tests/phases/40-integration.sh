@@ -2523,11 +2523,18 @@ assert_nofile "$RHOME/.config/labwc/rc.xml" "E54/rice: nenhum rc.xml foi criado/
 assert_grep "$RHOME/.config/labwc/rc.xml.d/10-elite-games.xml" 'identifier=.*steam_app' "E54/rice: a regra mira os steam_app_* (o WM_CLASS do Proton — jogos e nada mais)"
 assert_grep "$RHOME/.config/labwc/rc.xml.d/10-elite-games.xml" 'serverDecoration="yes"' "E54/rice: serverDecoration=yes — o jogo que pediu janela nua recebe os botões fechar/minimizar/maximizar DE VOLTA"
 assert_grep "$RHOME/.config/labwc/rc.xml.d/10-elite-games.xml" 'entregue por craft-rice' "E54/rice: o fragmento carrega o MARCADOR da casa (é a senha da posse — sem ela, o arquivo não é da casa)"
+assert_file "$RHOME/.config/labwc/rc.xml.d/20-elite-ssd.xml" "06/nov/rice: o fragmento SSD nasce ao lado do dos jogos (a decoração ÚNICA da spec do dono: as janelas CSD não ficam nuas)"
+assert_grep "$RHOME/.config/labwc/rc.xml.d/20-elite-ssd.xml" 'brave-browser' "06/nov/rice: o Brave na regra do SSD (o relato: 'o Brave não apresenta a barra/desenho')"
+assert_grep "$RHOME/.config/labwc/rc.xml.d/20-elite-ssd.xml" 'imv' "06/nov/rice: o imv na mesma lei (sem toolkit, sem negociação de decoração — a moldura da casa em TODO o desktop)"
+assert_grep "$RHOME/.config/labwc/rc.xml.d/20-elite-ssd.xml" 'serverDecoration="yes"' "06/nov/rice: serverDecoration=yes — o labwc desenha a titlebar do tema em toda a família (o mesmo padrão de todas as janelas)"
 RMT1="$(stat -c %Y "$RHOME/.config/labwc/rc.xml.d/10-elite-games.xml" 2>/dev/null || echo 0)"
+SMT1="$(stat -c %Y "$RHOME/.config/labwc/rc.xml.d/20-elite-ssd.xml" 2>/dev/null || echo 0)"
 sleep 1
 HOME="$RHOME" sh "$RICE" >/dev/null 2>&1
 RMT2="$(stat -c %Y "$RHOME/.config/labwc/rc.xml.d/10-elite-games.xml" 2>/dev/null || echo 1)"
+SMT2="$(stat -c %Y "$RHOME/.config/labwc/rc.xml.d/20-elite-ssd.xml" 2>/dev/null || echo 1)"
 assert_eq "$RMT2" "$RMT1" "E54/rice: IDEMPOTENTE — idêntico = zero escrita (o mtime não mente; o tick da sessão não reescreve o que já está de pé)"
+assert_eq "$SMT2" "$SMT1" "06/nov/rice: o SSD idem — IDEMPOTENTE (a 2ª rodada não reescreve nenhum dos dois fragmentos)"
 printf '<labwc_config>\n  <!-- meu rice próprio -->\n</labwc_config>\n' > "$RHOME/.config/labwc/rc.xml.d/10-elite-games.xml"
 out_f="$(HOME="$RHOME" sh "$RICE" 2>&1)"
 printf '%s\n' "$out_f" > "$RHOME/saida-rice.txt"

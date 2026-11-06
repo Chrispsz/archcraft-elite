@@ -188,8 +188,19 @@ list_main_entries() {
         # cintura de segurança: filho da render-pipeline (Chromium e
         # derivados — Brave/Chrome/Edge/Electron) nunca é principal,
         # nem quando o pai morreu e o init o adotou
+        # 06/nov — O CRASHPAD NÃO LEVA --type= (a spec do dono: "detecta
+        # apenas os subprocessos do Chrome Crashpad — ao fechar por ali o
+        # navegador continua aberto"): o crashpad_handler é um binário
+        # PRÓPRIO (brave_crashpad_handler --database=…) SEM a flag --type=
+        # do render-pipeline — o guard antigo o deixava passar, e ÓRFÃO
+        # (main fechou) ele virava "programa" na lista, cujo fecho não
+        # fecha navegador nenhum. O NOME no cmdline é a segunda chave: o
+        # caminho do crashpad sempre o contém. Janela real é o critério do
+        # dono (a dock) — aqui o menu segue pelo /proc, e o /proc manda
+        # o crashpad pra fora da lista de PROGRAMAS.
         if [ -r "/proc/$pid/cmdline" ] && \
-           tr '\0' ' ' <"/proc/$pid/cmdline" 2>/dev/null | grep -q -- ' --type='; then
+           tr '\0' ' ' <"/proc/$pid/cmdline" 2>/dev/null | \
+           grep -q -e ' --type=' -e 'crashpad'; then
             continue
         fi
         # v4.2 — O NOME HONESTO DO INTERPRETADOR: script python lançado
