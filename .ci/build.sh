@@ -458,7 +458,24 @@ pkgver=1.0
 #     (--if-needed: o hyprlock vivo rearmava o relógio e o relock infinito
 #     comia o suspend de 20min). Viaja no pacote único (MANIFEST adota o
 #     bin novo do airootfs). pkgrel 9→10 NO MESMO COMMIT (lei E41).
-pkgrel=10
+# E61 — A ORDEM CERTA (o dono esclareceu: 'ele até suspendia, mas SÓ
+#     DEPOIS que eu colocava a senha — a suspensão tá no lugar errado'):
+#     a arma do sintoma era o BRAÇO IDLE do suspend — o deadline de idle
+#     não vê a digitação quando o compositor não conta input travado, e
+#     o timeout vencia com a senha NO MEIO (o PC dormia em vez de
+#     desbloquear; o dono ligava e digitava de novo). Duas curas:
+#     (1) craft-idle: o braço idle DEFERE com lock vivo + vigia no ar —
+#         enquanto travado, o tempo TRAVADO é a autoridade; vigia morto =
+#         o braço volta a ser rede de fundo (E47/E30 intactos); e os
+#         braços do daemon SAEM DE IMEDIATO (cair no menu pendurava o
+#         callback num 'read' com stdin vivo — achado do smoke test);
+#     (2) craft-vigil ganhou OUVIDOS: CPU do próprio hyprlock (a única
+#         voz da mão em compositor que não conta input travado) + marca
+#         de atividade que o resume do swayidle renova — dormir EXIGE
+#         ticks quietos; nunca mais suspende sob o dono digitando.
+#     pkgrel 10→11 NO MESMO COMMIT (lei E41 — craft-idle e craft-vigil
+#     mudaram de conteúdo).
+pkgrel=11
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
