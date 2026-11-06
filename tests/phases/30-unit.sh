@@ -1117,17 +1117,21 @@ assert_grep "$STCU/update.log" 'não respondeu' "E46/canal: o offline fica no pa
 #    bash gritava 'linha 154: /var/log/elite-update.log: Permissão negada'
 #    e as linhas do manual se perdiam inteiras. As cenas rodam o DONO
 #    (mock id → 1000, via CU_EXTRA_PATH — o mesmo desenho do /var/log:
-#    nem o papel nem a gaveta são dele).
-# (a) sudo VIVO (a porta manual ACABOU de autorizar a transação): o papel
-#     é aberto (chmod 666) e a linha ATERRISSA — a prova que a sentinela
-#     aponta nunca mais fica sem a história do próprio dono
-rm -rf "$STCU"; mkdir -p "$STCU/bin" "$STCU/ro"; touch "$STCU/repo-fail"
-cat > "$STCU/bin/id" <<'EOF'
+#    nem o papel nem a gaveta são dele). BIMODAL POR DESENHO: o DAC não
+#    prende o root do CI (o -w nunca nega e o append em 444 nunca recusa),
+#    então a cena do dono roda onde existe um dono de verdade (runner
+#    não-root) e PULA nomeado no CI root (a mesma escola do 3.H GRUB).
+if [ "$(id -u)" != 0 ]; then
+  # (a) sudo VIVO (a porta manual ACABOU de autorizar a transação): o papel
+  #     é aberto (chmod 666) e a linha ATERRISSA — a prova que a sentinela
+  #     aponta nunca mais fica sem a história do próprio dono
+  rm -rf "$STCU"; mkdir -p "$STCU/bin" "$STCU/ro"; touch "$STCU/repo-fail"
+  cat > "$STCU/bin/id" <<'EOF'
 #!/usr/bin/env bash
 [ "${1:-}" = "-u" ] && echo 1000
 exit 0
 EOF
-cat > "$STCU/bin/sudo" <<'EOF'
+  cat > "$STCU/bin/sudo" <<'EOF'
 #!/usr/bin/env bash
 # sudo de prova (NOPASSWD/timestamp vivo): -n true → 0; os comandos do
 # heal (touch/chmod) executados DE VERDADE no arquivo de teste — o
@@ -1135,39 +1139,44 @@ cat > "$STCU/bin/sudo" <<'EOF'
 [ "${1:-}" = "-n" ] && exit 0
 exec "$@"
 EOF
-chmod +x "$STCU/bin/id" "$STCU/bin/sudo"
-printf '' > "$STCU/ro/update.log"; chmod 444 "$STCU/ro/update.log"; chmod 555 "$STCU/ro"
-CU_EXTRA_PATH="$STCU/bin"; export ELITE_UPDATE_LOG="$STCU/ro/update.log"
-out="$(run_cu --canal)" ; rc=$?
-assert_eq "$rc" "0" "E62/dono+sudo vivo: a dose offline segue rc 0 (a cura do papel nunca vira erro de atualização)"
-assert_nogrep "$out" 'Permissão negada' "E62/dono+sudo vivo: NENHUM grito do bash na cara do dono (a foto, linha 154, morre aqui)"
-assert_grep "$STCU/ro/update.log" 'canal: iniciando' "E62/dono+sudo vivo: a linha do dono ATERRISSA no papel curado (a porta manual volta a ter história)"
-assert_eq "$(stat -c '%a' "$STCU/ro/update.log")" "666" "E62/dono+sudo vivo: o papel foi ABERTO (666 — a casa é de um dono; root segue escrevendo nele)"
-# (b) sudo FRIO (senha exigida, nenhum timestamp — a cena que NUNCA pode
-#     virar prompt): a linha morre em SILÊNCIO honesto e o bash não grita
-chmod -R u+w "$STCU" 2>/dev/null || true
-rm -rf "$STCU"; mkdir -p "$STCU/bin-frio" "$STCU/ro-frio"; touch "$STCU/repo-fail"
-cat > "$STCU/bin-frio/id" <<'EOF'
+  chmod +x "$STCU/bin/id" "$STCU/bin/sudo"
+  printf '' > "$STCU/ro/update.log"; chmod 444 "$STCU/ro/update.log"; chmod 555 "$STCU/ro"
+  CU_EXTRA_PATH="$STCU/bin"; export ELITE_UPDATE_LOG="$STCU/ro/update.log"
+  out="$(run_cu --canal)" ; rc=$?
+  assert_eq "$rc" "0" "E62/dono+sudo vivo: a dose offline segue rc 0 (a cura do papel nunca vira erro de atualização)"
+  assert_nogrep "$out" 'Permissão negada' "E62/dono+sudo vivo: NENHUM grito do bash na cara do dono (a foto, linha 154, morre aqui)"
+  assert_grep "$STCU/ro/update.log" 'canal: iniciando' "E62/dono+sudo vivo: a linha do dono ATERRISSA no papel curado (a porta manual volta a ter história)"
+  assert_eq "$(stat -c '%a' "$STCU/ro/update.log")" "666" "E62/dono+sudo vivo: o papel foi ABERTO (666 — a casa é de um dono; root segue escrevendo nele)"
+  # (b) sudo FRIO (senha exigida, nenhum timestamp — a cena que NUNCA pode
+  #     virar prompt): a linha morre em SILÊNCIO honesto e o bash não grita
+  chmod -R u+w "$STCU" 2>/dev/null || true
+  rm -rf "$STCU"; mkdir -p "$STCU/bin-frio" "$STCU/ro-frio"; touch "$STCU/repo-fail"
+  cat > "$STCU/bin-frio/id" <<'EOF'
 #!/usr/bin/env bash
 [ "${1:-}" = "-u" ] && echo 1000
 exit 0
 EOF
-cat > "$STCU/bin-frio/sudo" <<'EOF'
+  cat > "$STCU/bin-frio/sudo" <<'EOF'
 #!/usr/bin/env bash
 # sudo FRIO de prova: a senha é exigida e não há timestamp — falha
 # calada (o sudo -n de verdade devolve o mesmo 1, nunca um prompt)
 exit 1
 EOF
-chmod +x "$STCU/bin-frio/id" "$STCU/bin-frio/sudo"
-printf '' > "$STCU/ro-frio/update.log"; chmod 444 "$STCU/ro-frio/update.log"; chmod 555 "$STCU/ro-frio"
-CU_EXTRA_PATH="$STCU/bin-frio"; export ELITE_UPDATE_LOG="$STCU/ro-frio/update.log"
-out="$(run_cu --canal)" ; rc=$?
-assert_eq "$rc" "0" "E62/dono+sudo frio: silêncio rc 0 (a linha perdida nunca é erro de atualização)"
-assert_nogrep "$out" 'Permissão negada' "E62/dono+sudo frio: o bash NÃO grita (erro de redirecionamento é do shell — calado por desenho)"
-assert_nogrep "$STCU/ro-frio/update.log" 'canal' "E62/dono+sudo frio: a linha morre honesta (sem poder de escrita e sem sudo, nada é fingido — os timers escrevem como root)"
+  chmod +x "$STCU/bin-frio/id" "$STCU/bin-frio/sudo"
+  printf '' > "$STCU/ro-frio/update.log"; chmod 444 "$STCU/ro-frio/update.log"; chmod 555 "$STCU/ro-frio"
+  CU_EXTRA_PATH="$STCU/bin-frio"; export ELITE_UPDATE_LOG="$STCU/ro-frio/update.log"
+  out="$(run_cu --canal)" ; rc=$?
+  assert_eq "$rc" "0" "E62/dono+sudo frio: silêncio rc 0 (a linha perdida nunca é erro de atualização)"
+  assert_nogrep "$out" 'Permissão negada' "E62/dono+sudo frio: o bash NÃO grita (erro de redirecionamento é do shell — calado por desenho)"
+  assert_nogrep "$STCU/ro-frio/update.log" 'canal' "E62/dono+sudo frio: a linha morre honesta (sem poder de escrita e sem sudo, nada é fingido — os timers escrevem como root)"
+  CU_EXTRA_PATH=""; unset ELITE_UPDATE_LOG
+else
+  skip "E62 (7 peças): cenas do DONO" "DAC não prende o root do CI (append em 444 nunca recusa) — a cena roda onde existe um dono de verdade (runner não-root); os estáticos E62 seguem em pé nos dois mundos"
+fi
 # (c) ROOT mantém o papel aberto: a dose ao ligar (mock id → 0) escreve no
 #     log que encontrar fechado e o deixa 666 — o próximo manual do dono
-#     já nasce com a porta aberta, sem esperar o primeiro sudo
+#     já nasce com a porta aberta, sem esperar o primeiro sudo (roda nos
+#     DOIS mundos: no CI root de verdade, no sandbox pelo mock id → 0)
 chmod -R u+w "$STCU" 2>/dev/null || true
 rm -rf "$STCU"; mkdir -p "$STCU"; touch "$STCU/repo-fail"
 printf '' > "$STCU/update.log"; chmod 600 "$STCU/update.log"
