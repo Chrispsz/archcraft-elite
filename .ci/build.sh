@@ -358,11 +358,22 @@ for u in /work/elite/airootfs/etc/systemd/system/elite-*.service \
     cp -p "$u" /tmp/elite-src/elite-system/files/etc/systemd/system/
 done
 shopt -u nullglob
+# E63 — A VOLTA DA IMAGEM viaja NO PACOTE: o hook de resume é a rede de
+# sistema que religa o display no wake (o monitor 'sem sinal, luz
+# vermelha' do dono) — fora do pacote ele NUNCA chegaria ao rig pelo
+# canal (system-sleep nunca foi veículo de adoção; este hook NASCE
+# empacotado, a lei de um dono por caminho).
+mkdir -p /tmp/elite-src/elite-system/files/usr/lib/systemd/system-sleep
+cp -p /work/elite/airootfs/usr/lib/systemd/system-sleep/elite-resume-display \
+      /tmp/elite-src/elite-system/files/usr/lib/systemd/system-sleep/
 python3 - /tmp/elite-src/elite-system <<'PYE50'
 import sys, pathlib
 d = pathlib.Path(sys.argv[1])
 files = (d / 'files/MANIFEST').read_text().split()
 units = sorted(p.name for p in (d / 'files/etc/systemd/system').iterdir())
+# E63 — os hooks de system-sleep que o pacote entrega (fonte única: o
+# que está em files/, o mesmo padrão das units)
+hooks = sorted(p.name for p in (d / 'files/usr/lib/systemd/system-sleep').iterdir())
 names = chr(10).join(f'        "{f}" \\' for f in files)   # cada item com \ de continuação — a lista do for NÃO aceita quebra simples
 unames = chr(10).join(f'        "/etc/systemd/system/{u}" \\' for u in units)
 unit_loop = f"""    for f in \\
@@ -374,6 +385,16 @@ unit_loop = f"""    for f in \\
 unit_install = f"""    install -d "${{pkgdir}}/etc/systemd/system"
     cp -a "${{startdir}}/files/etc/systemd/system/." "${{pkgdir}}/etc/systemd/system/"
 """ if units else ""
+hnames = chr(10).join(f'        "/usr/lib/systemd/system-sleep/{h}" \\' for h in hooks)
+hook_rm = f"""    for f in \\
+{hnames}
+    ; do
+        [ -e "$f" ] && rm -f "$f"
+    done
+""" if hooks else ""
+hook_install = f"""    install -d "${{pkgdir}}/usr/lib/systemd/system-sleep"
+    cp -a "${{startdir}}/files/usr/lib/systemd/system-sleep/." "${{pkgdir}}/usr/lib/systemd/system-sleep/"
+""" if hooks else ""
 pkg = f"""pkgname=elite-system
 pkgver=1.0
 # E50 — O SISTEMA EM UM PACOTE SÓ (diretriz do dono). Todo o código de
@@ -486,7 +507,33 @@ pkgver=1.0
 #     honesto) e o append viaja em subshell calado.
 #     pkgrel 11→12 NO MESMO COMMIT (lei E41 — craft-update mudou de
 #     conteúdo).
-pkgrel=12
+# E63 — A VOLTA DA IMAGEM (relato do dono 06/nov: 'suspendeu, voltou sem
+#     sinal no monitor — luz vermelha; cliquei Power e o PC desligou'):
+#     o SUSPEND finalmente acontece (E60/E61 venceram o timing) e o
+#     RESUME é a doença nova — o output morre DESLIGADO no DRM com o
+#     sistema já de pé. Três caminhos de religar, todos idempotentes:
+#     (1) craft-idle screenon virou SONDA (6 tentativas × 2s) e RE-ARMA
+#         a vigília quando o lock sobrevive ao sono (o vigia morre no
+#         próprio suspend e o braço idle só DEFERE com vigia no ar —
+#         o ciclo de sono reintroduzia o bug da E61);
+#     (2) craft-vigil chama o screenon no retorno do SUSPEND que ela
+#         mesma disparou (sobrevive ao sono — primeiro usuário de pé);
+#     (3) elite-resume-display NOVO, hook de system-sleep no 'post'
+#         (roda como root, TODOS os caminhos atravessam): espera o
+#         driver assentar e religa os outputs de cada usuário com
+#         labwc vivo. Viaja NO PACOTE (a lei de um dono por caminho —
+#         fora dele o rig nunca receberia pelo canal) + a remoção E57
+#         correspondente no build. Mais: craft-power espera o lock
+#         NASCER (sonda 2s — o 0.6s fixo era aposta), o
+#         elite-install-stage habilita os serviços nvidia-suspend/resume
+#         (VRAM preservada exige os serviços — sem eles o resume
+#         NVIDIA nasce preto) e o craft-dump coleta idle.log + o réu
+#         de kernel (amdgpu/drm/fence/nvrm) — a próxima ocorrência tem
+#         réu nomeado no papel.
+#     pkgrel 12→13 NO MESMO COMMIT (lei E41 — craft-idle, craft-vigil,
+#     craft-power, elite-install-stage e craft-dump mudaram de
+#     conteúdo; o hook novo entra no MANIFEST estendido).
+pkgrel=13
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
@@ -519,7 +566,7 @@ pre_install() {{
     ; do
         [ -e "/usr/local/bin/$f" ] && rm -f "/usr/local/bin/$f"
     done
-{unit_loop}    return 0
+{unit_loop}{hook_rm}    return 0
 }}
 package() {{
     install -d "${{pkgdir}}/usr/local/bin"
@@ -528,7 +575,7 @@ package() {{
     # a fonte do daemon viaja no pacote (transparência — o mesmo papel que
     # ela tinha no craft-toplevel legado)
     install -Dm644 craft-toplevel.c "${{pkgdir}}/usr/local/share/elite/src/craft-toplevel.c"
-{unit_install}}}
+{unit_install}{hook_install}}}
 """
 (d / 'PKGBUILD').write_text(pkg)
 PYE50
@@ -856,7 +903,9 @@ bash scripts/apply-overlay.sh
 # cp -p do template e o pacman entregam 0755/0644 nativos. As entradas
 # file_permissions destes caminhos saem do profiledef junto (o fork só
 # AVISA em caminho ausente — mas log honesto não ladra 35 vezes por
-# desenho; os 2 caminhos fora do pacote — system-sleep e skel — ficam).
+# desenho; os caminhos fora do pacote ficam — E63: EXCETO o hook de
+# resume elite-resume-display, que passou a viajar NO PACOTE porque o
+# rig só o recebe pelo canal — a remoção abaixo cobre o dele).
 # As wants symlinks ficam: eles APONTAM para units que o pacote entrega.
 # ─────────────────────────────────────────────────────────────────────
 PD_E57=$(find elite-build -maxdepth 3 -name profiledef.sh -print -quit)
@@ -868,6 +917,11 @@ if grep -qxF 'elite-system' "${PD_E57%profiledef.sh}packages.x86_64"; then
     while read -r b; do
         rm -f "${PD_E57%profiledef.sh}airootfs/usr/local/bin/$b"
     done < "$MF_E57"
+    # E63 — o hook de resume agora é DO PACOTE (a rede de sistema que o
+    # rig recebe pelo canal): sai do airootfs antes do pacstrap (a MESMA
+    # lei E57 de um dono por caminho — o pacstrap recusa não-dono).
+    rm -f "${PD_E57%profiledef.sh}airootfs/usr/lib/systemd/system-sleep/elite-resume-display"
+    [[ ! -e "${PD_E57%profiledef.sh}airootfs/usr/lib/systemd/system-sleep/elite-resume-display" ]] || { echo "ELITE-FAIL: hook de resume sobreviveu à remoção E57/E63 — o pacote é o ÚNICO dono (nunca dois)" >&2; exit 1; }
     # E57.1 — o glob das units nasceu com um PONTO LITERAL ('elite-'.*.service
     # exige um ponto depois de elite- — glob não é regex) e removeu ZERO na
     # prova de 16:27 (build 2): os 35 bins saíram, as 9 units ficaram no

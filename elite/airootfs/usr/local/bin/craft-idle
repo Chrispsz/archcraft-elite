@@ -257,10 +257,46 @@ case "${1:-}" in
         # travado, a digitação da senha renova a marca a cada tecla.
         mkdir -p "${ACT_EPOCH%/*}" 2>/dev/null || true
         : > "$ACT_EPOCH" 2>/dev/null || true
-        if wlopm --on '*'; then
-            ilog "tela: ACORDOU (wlopm rc=0)"
-        else
-            ilog "FALHA: wlopm --on rc=$? — a tela NÃO acordou (réu nomeado no papel)"
+        # E63 — A VOLTA DA IMAGEM: acordar deixou de ser UM tiro único.
+        # Relato do dono (06/nov): suspendeu, voltou — e o monitor ficou
+        # SEM SINAL (luz vermelha) até o clique no power desligar o PC.
+        # O wlopm de UMA vez corre a corrida contra a re-inicialização do
+        # driver/compositor no resume e perde: o output morre DESLIGADO no
+        # DRM com o sistema já de pé (e o logind, com HandlePowerKey
+        # default, desliga no segundo aperto — o poder de decisão ficou
+        # com o estado de pânico do dono). Sondagem: até 6 tentativas a
+        # cada 2s (12s de janela — a re-init do driver dá conta); o
+        # primeiro rc=0 vence e o resto nem roda. Idempotente com o hook
+        # de sistema (elite-resume-display) e com a vigília — wlopm --on
+        # em output aceso é no-op.
+        i=0
+        rc=0
+        while [ "$i" -lt 6 ]; do
+            rc=0
+            wlopm --on '*' || rc=$?
+            if [ "$rc" -eq 0 ]; then
+                ilog "tela: ACORDOU (wlopm rc=0, tentativa $((i + 1)))"
+                break
+            fi
+            i=$((i + 1))
+            sleep 2
+        done
+        if [ "$rc" -ne 0 ]; then
+            ilog "FALHA: wlopm --on rc=$rc após 6 tentativas — a tela NÃO acordou (réu nomeado no papel; o driver/compositor contam no craft-dump seção 10)"
+        fi
+        # E63 — A VIGÍLIA RENASCE NO RESUME: ela MORRE depois do suspend
+        # que ela mesma disparou (missão cumprida — exit 0) e o braço idle
+        # do suspend SÓ DEFERE com vigia no ar (E61). Lock vivo com vigia
+        # morto no wake = o dono na frente do lock (tela preta, senha
+        # pendente) e a rede de fundo ABLE de dormir sob as mãos de novo
+        # — o bug que a E61 curou, reintroduzido pelo próprio ciclo de
+        # sono. Re-armar aqui fecha o ciclo: o wake renova a marca,
+        # religa a tela e re-embaralha o vigia — lock vivo tem autoridade
+        # de novo. (O vigia que chama ESTE screenon após o seu suspend vê
+        # o próprio sucessor no ar e sai sem re-armar.)
+        if pgrep -x hyprlock >/dev/null 2>&1 && ! pgrep -x craft-vigil >/dev/null 2>&1; then
+            setsid craft-vigil >/dev/null 2>&1 &
+            ilog "VIGÍLIA: re-armada no resume (lock vivo, vigia morto — o braço idle volta a DEFERIR)"
         fi
         exit 0
         ;;

@@ -157,9 +157,20 @@ case "$choice" in
         # v2.6.0 — trava PRIMEIRO (acordou = tela travada, só o wallpaper
         # borrado) e suspende IGNORANDO inibidores: o -i é a cura do
         # "tenta mas rapidamente liga" (o inibidor de sono de app matava
-        # o suspend calado e sobrava só o lock). O 0.6s dá tempo do
-        # hyprlock mapear antes de a tela apagar.
+        # o suspend calado e sobrava só o lock).
         ( craft-lock >/dev/null 2>&1 & )
+        # E63 — ESPERAR O LOCK NASCER deixou de ser uma aposta de 0.6s:
+        # o blur do wallpaper demora SEGUNDOS (E47) e o kernel podia
+        # congelar no meio da init do locker (o acordar sem lock ou a
+        # meio render — a denúncia recorrente 'a lógica do suspend/lock
+        # é burra'). Sonda o processo até 2s e dá a graça de 0.6s
+        # pós-map; ausente em 2s = segue do mesmo jeito (o before-sleep
+        # do idle é a segunda rede — E47).
+        i=0
+        while [ "$i" -lt 20 ] && ! pgrep -x hyprlock >/dev/null 2>&1; do
+            sleep 0.1
+            i=$((i + 1))
+        done
         sleep 0.6
         if ! systemctl suspend -i >/dev/null 2>&1; then
             mlog "Sessão: suspend falhou mesmo com -i — avisando"
