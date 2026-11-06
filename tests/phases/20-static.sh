@@ -1487,4 +1487,17 @@ assert_grep "$REPO/.ci/build.sh" 'pkgrel 7→8 NO MESMO' "E58: pkgrel elite-syst
 assert_grep "$REPO/elite/airootfs/etc/systemd/system/elite-bootupdate.service" 'ConditionPathExists=!/run/archiso' "E59: o live PULA a dose (skipped honesto — a cadência E51 é do rig instalado; mídia descartável não se auto-atualiza)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 8→9 NO MESMO COMMIT' "E59: pkgrel elite-system 8→9 NO MESMO COMMIT (lei E41 — a unit do pacote único mudou de conteúdo; âncora na HISTÓRIA, lição do E58: número atual anda, a lei que o cobra é o guard do CI)"
 
+# ── E62 — O PAPEL É DO DONO TAMBÉM (a foto do rig, 05/nov:
+#    '/usr/local/bin/craft-update: linha 154: /var/log/elite-update.log:
+#    Permissão negada'). O log nasce root:root 644 (a dose ao ligar é a
+#    primeira a escrever) e a porta MANUAL do dono escrevia contra a
+#    parede — o bash grita o erro de REDIRECIONAMENTO (o '|| true' não o
+#    alcança: o diagnóstico é do próprio shell) e as linhas do manual se
+#    perdiam inteiras. Cura de duas mãos no ulog.
+CU62="$REPO/elite/airootfs/usr/local/bin/craft-update"
+assert_grep "$CU62" 'sudo -n true' "E62: o heal do papel NUNCA pede prompt (sudo -n — frio = silêncio honesto, os timers escrevem como root de qualquer jeito)"
+assert_grep "$CU62" 'chmod 666 "\$ULOG"' "E62: o papel é aberto para o dono (666 — a casa é de um dono; root mantém, o manual cura pelo sudo que a porta já autorizou)"
+assert_grep "$CU62" '\( printf .* >>"\$ULOG" \) 2>/dev/null' "E62: o append viaja em subshell CALADO (mesmo um imprevisto de modo não grita mais — a linha 154 da foto morre por desenho)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 11→12 NO MESMO COMMIT' "E62: pkgrel elite-system 11→12 NO MESMO COMMIT (lei E41 — craft-update mudou de conteúdo; âncora na HISTÓRIA, lição E58/E59: o número atual é lei do guard-pkgrel do CI)"
+
 phase_end

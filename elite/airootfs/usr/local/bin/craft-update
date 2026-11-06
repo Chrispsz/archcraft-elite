@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# craft-update — atualiza TUDO que a Elite entrega (v5.3 — E56)
+# craft-update — atualiza TUDO que a Elite entrega (v5.4 — E62)
 # ═══════════════════════════════════════════════════════════════════════════
 # v1 (v2.10.5): 'sudo pacman -Syu' + cabeçalho honesto (paru prometido não
 #   existe — o bloco fica pronto, mas calado enquanto paru não entra).
@@ -133,6 +133,22 @@
 #   Portas automáticas (--canal): pacman ocupado = silêncio e o próximo
 #   boot traz a dose (a mesma lei da --sistema, E46). Uma definição só
 #   (db_busy) serve as três portas — revisar uma é revisar todas.
+# v5.4 (E62 — O PAPEL É DO DONO TAMBÉM): a foto do rig, 05/nov —
+#   '/usr/local/bin/craft-update: linha 154: /var/log/elite-update.log:
+#   Permissão negada' gritando na cara do dono logo após o 'nada para
+#   fazer'. A raiz é de DONO: o log nasce root:root 644 (a dose ao ligar
+#   é a primeira a escrever) e a porta MANUAL roda como o dono — o append
+#   contra a parede fazia o BASH gritar (erro de redirecionamento é do
+#   shell, não morre no '|| true'), e as linhas do manual se perdiam
+#   inteiras (o papel que a sentinela aponta como prova nunca recebeu
+#   a história do próprio dono). Cura de DUAS mãos no ulog: root mantém
+#   o papel aberto (666 — a casa é de um dono; o conteúdo já era legível
+#   por todos de qualquer jeito); o dono sem poder de escrita cura o
+#   próprio papel pelo sudo que a porta manual ACABOU de autorizar
+#   (sudo -n: NUNCA um prompt por causa de log — sudo frio = a linha
+#   morre em silêncio honesto, os timers escrevem como root de qualquer
+#   jeito). O append em si viaja em subshell calado: mesmo um imprevisto
+#   de modo não grita mais (o rc do log nunca foi erro de atualização).
 # ═══════════════════════════════════════════════════════════════════════════
 set -euo pipefail
 
@@ -151,7 +167,28 @@ ulog() {
     if [ -f "$ULOG" ] && [ "$(wc -c <"$ULOG" 2>/dev/null || echo 0)" -gt 262144 ]; then
         tail -c 131072 "$ULOG" > "$ULOG.tmp" 2>/dev/null && mv -f "$ULOG.tmp" "$ULOG" || true
     fi
-    printf '[%s] %s\n' "$(date '+%F %T')" "$*" >>"$ULOG" 2>/dev/null || true
+    # E62 — O PAPEL É DO DONO TAMBÉM: o log nasce root:root 644 (a dose ao
+    # ligar é a primeira a escrever) e a porta MANUAL do dono escrevia contra
+    # a parede — o bash gritava 'linha 154: /var/log/elite-update.log:
+    # Permissão negada' (a foto do rig, 05/nov). Duas mãos: root mantém o
+    # papel aberto (666 — a casa é de um dono; o conteúdo já era legível por
+    # todos de qualquer jeito); o dono sem poder de escrita cura o próprio
+    # papel pelo sudo que a porta manual ACABOU de autorizar (sudo -n: NUNCA
+    # um prompt por causa de log — sudo frio = a linha morre em silêncio
+    # honesto, os timers escrevem como root de qualquer jeito). E o append
+    # em si viaja em subshell calado: mesmo um imprevisto de modo não grita
+    # mais (o rc do log nunca foi erro de atualização).
+    if [ "$(id -u)" = 0 ]; then
+        chmod 666 "$ULOG" 2>/dev/null || true
+    else
+        if [ ! -w "$ULOG" ] && [ ! -w "$(dirname "$ULOG")" ]; then
+            sudo -n true 2>/dev/null || return 0
+            run_root touch "$ULOG" 2>/dev/null || true
+            run_root chmod 666 "$ULOG" 2>/dev/null || true
+            [ -w "$ULOG" ] || return 0
+        fi
+    fi
+    ( printf '[%s] %s\n' "$(date '+%F %T')" "$*" >>"$ULOG" ) 2>/dev/null || true
 }
 
 # root executa direto; humano com sessão usa o sudo (o interativo é a porta
