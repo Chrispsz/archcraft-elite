@@ -972,6 +972,19 @@ assert_grep "$P/airootfs/usr/local/bin/craft-vigil" 'pgrep -x hyprlock' "E60: o 
 assert_grep "$P/airootfs/usr/local/bin/craft-vigil" 'idle\.log' "E60: a vigília é OBSERVÁVEL (armada/suspendindo/falha/destravado deixam linha com rc no idle.log — réu nomeado, não opinião)"
 assert_grep "$P/airootfs/usr/local/bin/craft-vigil" 'SUSPEND_MIN' "E60: o vigia obedece ao MESMO knob do menu (idle.conf; 0 = off explícito nos dois braços)"
 assert_grep "$REPO/scripts/apply-overlay.sh" 'craft-vigil' "E60: a vigília registrada em file_permissions (203/EXEC nunca mais — a lição da v1.5)"
+# E61 — A ORDEM CERTA (o dono esclareceu: 'ele até suspendia, mas SÓ DEPOIS
+# que eu colocava a senha — a suspensão tá no lugar errado'): a arma era o
+# BRAÇO IDLE do suspend (o deadline de idle não vê a digitação quando o
+# compositor não conta input travado — o timeout vencia com a senha no
+# meio e o PC dormia em vez de desbloquear). Cura em duas camadas: o braço
+# idle DEFERE com lock vivo + vigia no ar; a vigília ganha OUVIDOS (CPU do
+# hyprlock + marca de atividade do resume) e só dorme com ticks quietos.
+assert_grep "$P/airootfs/usr/local/bin/craft-idle" 'pgrep -x hyprlock' "E61: o braço idle do suspend olha o LOCK antes de dormir (lock vivo = a vigília manda — o sintoma 'suspende quando digito a senha' era este braço)"
+assert_grep "$P/airootfs/usr/local/bin/craft-idle" 'pgrep -x craft-vigil' "E61: o defer exige VIGIA no ar — vigia morto = o braço volta a ser rede de fundo (E47/E30 preservados; o suspend prometido nunca fica órfão)"
+assert_grep "$P/airootfs/usr/local/bin/craft-idle" 'idle-activity' "E61: o resume do swayidle renova a marca de atividade que a vigília lê (orelha do compositor — mtime no XDG_RUNTIME_DIR, morre com a sessão)"
+assert_grep "$P/airootfs/usr/local/bin/craft-vigil" '/proc/[$]p/stat' "E61: a vigília ganhou a orelha de CPU do hyprlock (utime+stime — a única voz da mão em compositor que não conta input travado)"
+assert_grep "$P/airootfs/usr/local/bin/craft-vigil" 'quiet' "E61: mãos no lock ADIAM o suspend — dormir exige ticks quietos (falso-positivo custa só um suspend mais tarde; falso-negativo é o que não pode existir)"
+assert_grep "$P/airootfs/usr/local/bin/craft-idle" 'exit 0' "E61: os braços do daemon SAEM de imediato — cair no menu pendurava o callback num 'read' com stdin vivo (achado do smoke test: suspend bloqueado 120s)"
 assert_grep "$P/airootfs/usr/local/bin/craft-idle" "timeout [$]\(\(OFF_MIN \* 60\)\) 'craft-idle screenoff" "v1.6.1/E44: DPMS no timeout do CONF (tela APAGA — e agora via subcomando OBSERVÁVEL: o rc do wlopm fica no idle.log; o cru calado era o buraco que escondeu 'a tela nunca apaga')"
 assert_nogrep "$P/airootfs/etc/skel/.config/labwc/autostart" 'swaylock -f|exec swaylock' "v1.5: invocação do swaylock EXTINTA do autostart (tela branca → hyprlock)"
 # W-v clipboard + menu com os apps novos

@@ -1,5 +1,5 @@
 #!/bin/sh
-# craft-vigil — A VIGÍLIA do lock (E60)
+# craft-vigil — A VIGÍLIA do lock (E60) com OUVIDOS (E61)
 # ─────────────────────────────────────────────────────────────────────────
 # O RELATO DO DONO (v2.10.28+): "quando bloqueia, não entra a suspensão
 # automática de forma alguma. Então passa o tempo, nada acontece." — e o
@@ -16,17 +16,37 @@
 # vigia conta o tempo TRAVADO (hyprlock vivo) e dorme o PC quando o lock
 # completar SUSPEND_MIN minutos. Desarmou? O hyprlock morreu (usuário
 # destravou) → vigia sai. O braço swayidle (timeout SUSPEND_MIN) fica no
-# ar como SEGUNDA rede — o primeiro a disparar vence, o segundo é no-op
-# (systemd serializa a operação de sono). Dois vigias no ar (relock rápido
-# sem janela morta entre eles) = dois pedidos idênticos de suspend —
-# benigno, registrado aqui como honestidade E33.
+# ar como SEGUNDA rede — e desde a E61 como rede DEFERIDA: lock vivo com
+# vigília no ar, o braço idle NÃO dorme (o tempo TRAVADO é a autoridade
+# enquanto travado).
+#
+# E61 — O RELATO ESCLARECIDO (a ordem errada): "ele até suspendia, mas só
+# DEPOIS que eu colocava a senha para desbloquear... ele vai lá e entra
+# em suspensão depois que eu coloco a senha... a suspensão tá no lugar
+# errado". A arma identificada: o braço idle de suspend — o deadline de
+# idle não vê a digitação quando o compositor não conta input travado
+# como atividade: o timeout vencia com a senha NO MEIO e o PC dormia em
+# vez de desbloquear (o dono ligava de novo, digitava de novo — o ciclo
+# que ele viveu). A cura tem duas camadas:
+#   (1) o braço idle defere com lock vivo + vigia no ar (no craft-idle);
+#   (2) ESTA vigília ganhou OUVIDOS — ela não suspende com mãos no lock:
+#       · orelha de CPU (universal): o hyprlock é o único que RECEBE a
+#         digitação em TODOS os mundos — queimou ≥ 1 jiffy de CPU desde
+#         o último tick = mãos (a única voz da mão quando o compositor
+#         não conta input travado);
+#       · orelha do compositor (mundo A): o RESUME do swayidle renova a
+#         marca idle-activity (mtime) — input travado contado como
+#         atividade renova a marca a cada tecla;
+#       · dormir EXIGE ticks quietos (≥ 60s sem nenhuma orelha gritar):
+#         falso-positivo custa só um suspend mais tarde (inofensivo);
+#         falso-negativo é o que não pode existir.
 #
 # SEMÂNTICA DO TEMPO: SUSPEND_MIN passou a valer DUAS leituras, ambas
 # legítimas — minutos de idle até dormir (rede swayidle) E minutos
 # TRAVADO até dormir (a vigília). O knob é o mesmo (idle.conf), o menu do
 # craft-idle continua sendo a única porta de ajuste. O sleep do vigia usa
-# relógio monotônico: tempo SUSPENSO não conta — só o tempo travado
-# desperto acumula.
+# contagem de ticks — o tempo SUSPENSO não conta (o vigia morre no
+# suspend de qualquer forma: a missão acabou).
 #
 # GRAVIDADE: spawn ANTES do exec do hyprlock (craft-lock) → o lock pode
 # ainda não ter mapeado quando o vigia acorda. Graça de 15s pelo primeiro
@@ -34,7 +54,11 @@
 #
 # LIMITAÇÃO HONESTA: o vigia lê a vida do HYPRLOCK — é o locker da Elite
 # (v1.5). No fallback loginctl (hyprlock ausente) o craft-lock NÃO arma
-# (armar seria prometer o que não pode vigiar — a lei da casa).
+# (armar seria prometer o que não pode vigiar — a lei da casa). As
+# orelhas têm limites próprios: a orelha de CPU pode não ver UMA tecla
+# isolada (o limiar é ≥ 1 jiffy); o limiar ≥ 60s de quieto pode suspender
+# com o dono PARADO na frente do lock (parado = idle por definição —
+# acordar dá o lock de volta com a senha, o fluxo prometido).
 #
 # OBSERVÁVEL: todo braço deixa linha no idle.log (a lei E33/E44 do corpo
 # do craft-idle) — 'não suspendeu' ganha réu NOMEADO com rc, não opinião.
@@ -58,7 +82,18 @@ vlog() {
     return 0
 }
 
+ACT_EPOCH="${XDG_RUNTIME_DIR:-/tmp}/elite/idle-activity"
+
 alive() { pgrep -x hyprlock >/dev/null 2>&1; }
+
+# E61 — a orelha de CPU: utime+stime do hyprlock em jiffies. Após o
+# comm (com ')' no meio — o corte é GULOSO até o último ') '), o utime
+# é o 12º campo do resto e o stime o 13º (campos 14/15 do stat inteiro).
+cpu_of() {
+    p="$(pgrep -x hyprlock 2>/dev/null | head -1)" || return 1
+    [ -r "/proc/$p/stat" ] || return 1
+    awk '{ sub(/^.*\) /, ""); printf "%d", $12 + $13 }' "/proc/$p/stat" 2>/dev/null
+}
 
 # graça: o lock que me armou pode ainda estar nascendo (spawn < exec)
 i=0
@@ -71,12 +106,43 @@ if ! alive; then
     exit 0
 fi
 
-vlog "VIGÍLIA: armada — suspende com o lock vivo por ${SUSPEND_MIN}min (o idle não precisa decidir)"
+vlog "VIGÍLIA: armada — suspende com o lock vivo por ${SUSPEND_MIN}min sem mãos (orelhas: CPU do hyprlock + marca de atividade do compositor; dormir exige ticks quietos)"
+cpu_ant="$(cpu_of 2>/dev/null || echo 0)"
+quiet=0
 elapsed=0
 teto=$((SUSPEND_MIN * 60))
 while alive; do
-    if [ "$elapsed" -ge "$teto" ]; then
-        vlog "VIGÍLIA: suspendindo (travado há ${SUSPEND_MIN}min — escuro e travado: acorda no lock)"
+    cpu_agora="$(cpu_of 2>/dev/null || echo 0)"
+    delta=$((cpu_agora - cpu_ant))
+    [ "$delta" -lt 0 ] && delta=0
+    cpu_ant="$cpu_agora"
+    motivo=""
+    if [ "$delta" -ge 1 ]; then
+        motivo="hyprlock +${delta} jiffies (mãos no lock)"
+    fi
+    if [ -r "$ACT_EPOCH" ]; then
+        marca="$(stat -c %Y "$ACT_EPOCH" 2>/dev/null || echo 0)"
+        idade=$(( $(date +%s) - marca ))
+        if [ "$idade" -lt 90 ]; then
+            if [ -n "$motivo" ]; then
+                motivo="$motivo; compositor viu atividade há ${idade}s"
+            else
+                motivo="compositor viu atividade há ${idade}s"
+            fi
+        fi
+    fi
+    if [ -n "$motivo" ]; then
+        # E61 — UM log por episódio: a mão que volta depois de um tick
+        # quieto registra; teclas seguidas no MESMO episódio não spama.
+        if [ "$quiet" -ge 1 ]; then
+            vlog "VIGÍLIA: mãos no lock ($motivo) — suspend adiado (não dorme sob o dono)"
+        fi
+        quiet=0
+    else
+        quiet=$((quiet + 1))
+    fi
+    if [ "$elapsed" -ge "$teto" ] && [ "$quiet" -ge 2 ]; then
+        vlog "VIGÍLIA: suspendindo (travado há ${SUSPEND_MIN}min, ${quiet} ticks quietos — escuro e travado: acorda no lock)"
         if systemctl suspend -i; then
             vlog "VIGÍLIA: suspend voltou (ciclo completo — a vigília EXISTE e está no papel)"
         else
@@ -87,5 +153,5 @@ while alive; do
     sleep 30
     elapsed=$((elapsed + 30))
 done
-vlog "VIGÍLIA: destravado com o lock vivo por ${elapsed}s — braço desarmado sem suspend"
+vlog "VIGÍLIA: destravado com o lock vivo por ${elapsed}s (últimos ${quiet} ticks quietos) — braço desarmado sem suspend"
 exit 0
