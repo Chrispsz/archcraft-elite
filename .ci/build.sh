@@ -555,7 +555,21 @@ pkgver=1.0
 #     perícia por download do 1.0-14 flagrou o banner da linha 2 ainda
 #     em v5.4 (o bloco de changelog v5.5 entrou, o banner não foi batido).
 #     pkgrel 14→15 NO MESMO COMMIT (lei E41 — o banner muda de conteúdo).
-pkgrel=15
+# E65 — A REUNIFICAÇÃO DOS MENUS DE SESSÃO (ARQUITETURA nº 9, a promessa
+#     do polimento desde 11-02): o craft-logout VIROU WRAPPER do
+#     craft-power (−69 linhas — o mlog, a gramática 0/1/143 e as ações
+#     copiadas morrem; a mecânica mora em UM lugar). O teclado
+#     (W-x/W-Escape/C-A-Delete) herda o Sessão inteiro — 'Suspender' com
+#     o gate logind/kernel + lock primeiro + -i, e 'Tempo de idle…' —
+#     que o menu curto de 3 itens nunca entregou. E a lei v2.9.0
+#     (recusa NUNCA é silêncio) chegou ao 'Sair da sessão' do
+#     craft-power, que ficou de fora quando reboot/poweroff ganharam a
+#     cinta (o labwc --exit falho morria calado no set -e; o guard de
+#     labwc ausente do craft-logout absorvido era stderr que tecla
+#     nenhuma vê — agora é log + toast).
+#     pkgrel 15→16 NO MESMO COMMIT (lei E41 — craft-logout e craft-power
+#     mudaram de conteúdo).
+pkgrel=16
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

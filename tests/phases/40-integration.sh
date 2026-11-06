@@ -365,7 +365,15 @@ assert_nogrep "$DOCKGUI" '"pgrep"' "v2.10: ZERO fork por tick no poll (a varredu
 assert_grep "$DOCKGUI" '_scan_user_comms' "v2.10: o scan direto de /proc existe (uid do usuário + comm — um só lugar onde 'aberto' existe)"
 assert_grep "$DOCKGUI" 'os\.stat\(f"/proc/\{pid\}"\)\.st_uid' "v2.10: o scan FILTRA por uid (comms de root/sistema não viram botão)"
 assert_grep "$P/airootfs/usr/local/bin/craft-bars" 'cap_log' "v2.5.0→v2.10.26/E38: o teto de 1 MiB do bars.log segue NO LOOP (agora a cada 6 ciclos — o fork do wc só em 1 de 6; o crash-loop de ~1,7MB/h passa do teto em ~35min igual; audit 24-b/24-c + E38)"
-assert_grep "$P/airootfs/usr/local/bin/craft-logout" 'rm -f "\$errf"   # v2\.5\.0' "v2.5.0: errf removido ANTES de todo exec (o trap EXIT não roda através de exec — um mktemp órfão por escolha de menu; audit 24-c)"
+# ARQUITETURA nº 9 (E65) — o craft-logout VIROU WRAPPER do craft-power: a
+# mecânica do menu de sessão (mlog, gramática 0/1/143, cinta de falha, a
+# lei v2.5.0 do errf) mora em UM lugar. Os contratos do menu antigo saem
+# do craft-logout (o craft-power já era coberto pelos mesmos loops) e o
+# wrapper recebe os SEUS:
+assert_grep "$P/airootfs/usr/local/bin/craft-logout" 'exec craft-power "\$@"' "nº 9/E65: craft-logout é WRAPPER honesto (o menu de sessão é UM — a duplicação de ~70 linhas morreu)"
+assert_nogrep "$P/airootfs/usr/local/bin/craft-logout" 'craft-menu|mlog\(|eq 143' "nº 9/E65: o wrapper não carrega mecânica de menu herdada (a cópia não volta por descuido)"
+assert_grep "$P/airootfs/usr/local/bin/craft-power" 'rm -f "\$errf"' "v2.5.0/nº 9: errf removido ANTES das ações do case (o trap EXIT não roda através de exec — um mktemp órfão por escolha de menu; audit 24-c; a lei migrou com o wrapper)"
+assert_grep "$P/airootfs/usr/local/bin/craft-power" 'labwc --exit 2>>' "v2.9.0/nº 9: a cinta de falha vale para o Sair da sessão (o craft-logout absorvido guardava o labwc ausente num stderr que tecla nenhuma vê; recusa = log + toast, nunca silêncio)"
 assert_grep "$P/airootfs/usr/local/bin/craft-idle" 'case "\$\{LOCK_MIN:-0\}" in' "v2.5.0: a marca '← atual' compara LOCK_MIN (o CUR='10min' NUNCA casava com os números do case — código morto: o dono nunca viu o preset marcado; audit 24-c)"
 assert_grep "$P/airootfs/usr/local/bin/craft-pin" 'mv -f "\$PINS\.tmp"' "v2.5.0: mv INCONDICIONAL no rm (o && mv pulava quando grep -v saía 1 — tmp órfão + 'removido' mentiroso; audit 24-c)"
 assert_grep "$P/airootfs/usr/local/bin/craft-fix-keys" 'keyring-refresh\.stamp' "v2.5.0: guard de 24h (pacman -Sy completo a TODO login: gpg + 10–20MB de rede — as camadas 1–3 já curam; belt roda 1×/dia; audit 24-b)"
@@ -421,7 +429,7 @@ assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'mousebind button="Right
 # provado pelo parse XML no bloco v2.8.0 (LEFT_NONE).
 assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'button="Left" action="Press">' "v2.9.0: o esquerdo do desktop é bind EXPLÍCITO (agora com a lei do dismiss — o default do labwc segue sem vez)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'command="craft-menu-dismiss"' "v2.9.0: o clique fora do menu é lei do rc.xml (esquerdo fecha e não abre nada; direito fecha e abre o menu-raiz no lugar)"
-for _at in craft-power craft-logout craft-idle craft-rollback; do
+for _at in craft-power craft-idle craft-rollback; do
     assert_grep "$P/airootfs/usr/local/bin/$_at" '--at=power' "v2.6.0: $_at nasce sob o botão do power (a família de sessão âncora no mesmo assento — submenus herdam o lugar do pai)"
 done
 assert_grep "$P/airootfs/usr/local/bin/craft-bgapps" '--at=bgapps' "v2.6.0: Encerrar nasce sob o PRÓPRIO botão"
@@ -2005,7 +2013,7 @@ fi
 # fuzzel e falhavam com stderr no /dev/null — morte calada, zero rastro.
 # Contrato: TODOS logam em ~/.cache/elite/menus.log (helper mlog) e o
 # fuzzel call captura o stderr (crash vira linha de log + notify).
-for menu in craft-power craft-pin-pick craft-idle craft-logout craft-bgapps; do
+for menu in craft-power craft-pin-pick craft-idle craft-bgapps; do
   assert_grep "$P/airootfs/usr/local/bin/$menu" 'menus\.log' "v2.3.1: $menu loga falhas em menus.log (fim do silêncio — rig: 'os menus morreram')"
   # positivos (mais robustos que nogrep: o 2>/dev/null do pkill do toggle é legítimo)
   assert_grep "$P/airootfs/usr/local/bin/$menu" '2>"\$errf"' "v2.3.1: $menu captura o stderr do fuzzel (mktemp errf — crash deixa rastro)"
@@ -2087,7 +2095,7 @@ assert_file "$CMN" "v2.3.8: craft-menu existe (o dropdown da Elite)"
 assert_nogrep "$CMN" 'Gtk.Entry' "v2.4.0: ZERO linha de digitação inventada pelo menu (a barra 'Rede |' morreu; o prompt do fuzzel é FUNÇÃO — filtrar a lista)"
 assert_grep "$CMN" 'set -u' "v2.4.0: motor POSIX sh puro (a classe 'morre antes do 1º frame' extinta — não existe toolkit para falhar)"
 assert_grep "$CMN" 'craft-menu --title=TÍTULO' "v2.4.0: a gramática documentada no cabeçalho (os 7 chamadores não mudam uma linha)"
-for _m in craft-power craft-bgapps craft-logout craft-idle; do
+for _m in craft-power craft-bgapps craft-idle; do
     assert_grep "$P/airootfs/usr/local/bin/$_m" 'craft-menu --title=' "v2.3.8: $_m no menu NATIVO (fim da era fuzzel nos menus de escolha)"
 done
 assert_grep "$P/airootfs/usr/local/bin/craft-rollback" 'craft-menu --title=.Rollback' "v2.3.8: rollback no menu nativo (picker + confirmar; a descrição fica no fuzzel — onde se DIGITA)"
