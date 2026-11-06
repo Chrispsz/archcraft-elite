@@ -15,6 +15,18 @@
 # output aceso é no-op) — três caminhos, zero briga.
 # Viaja NO PACOTE elite-system (a mesma lei E57 de um dono por caminho:
 # fora do pacote, o rig instalado NUNCA o receberia pelo canal).
+#
+# E68 — A FILA DE SOCKETS (relato do dono no 1.0-17: "meio que liga mas
+# sem imagem no monitor"): o WAYLAND_DISPLAY aqui era um CHUTE FIXO em
+# wayland-0 — uma sessão respawnada herda outro número (wayland-1,
+# wayland-2…) e o wlopm moria calado DENTRO de todas as 5 tentativas,
+# com o FALHA do journal sem contar a história inteira. Agora a fila
+# vem dos sockets que EXISTEM de verdade em /run/user/$uid: todos os
+# wayland-* entram, o que não existe não é tentado, e o 1º que responder
+# religa. Idempotência intacta — wlopm --on em output aceso é no-op, e
+# nenhum socket de outro usuário é tocado (a fila é POR usuário).
+# O réu que nem esta rede alcança (compositor morto, driver que não
+# re-assenta) continua nomeado no craft-dump seção 10 — perícia primeiro.
 # ═══════════════════════════════════════════════════════════════════════════
 [ "$1" = "post" ] || exit 0
 command -v wlopm >/dev/null 2>&1 || exit 0
@@ -28,10 +40,16 @@ while [ "$i" -lt 5 ]; do
         u="${uhome##*/}"
         uid="$(id -u "$u" 2>/dev/null)" || continue
         pgrep -u "$uid" -x labwc >/dev/null 2>&1 || continue
-        if runuser -u "$u" -- env XDG_RUNTIME_DIR="/run/user/$uid" \
-            WAYLAND_DISPLAY="wayland-0" wlopm --on '*' >/dev/null 2>&1; then
-            feito="$feito $u"
-        fi
+        religou=0
+        for sock in /run/user/"$uid"/wayland-*; do
+            [ -S "$sock" ] || continue
+            wd="${sock##*/}"
+            if runuser -u "$u" -- env XDG_RUNTIME_DIR="/run/user/$uid" \
+                WAYLAND_DISPLAY="$wd" wlopm --on '*' >/dev/null 2>&1; then
+                religou=1
+            fi
+        done
+        [ "$religou" -eq 1 ] && feito="$feito $u"
     done
     if [ -n "$feito" ]; then
         logger -t elite-resume-display "outputs religados pós-sono (usuários:$feito)"
