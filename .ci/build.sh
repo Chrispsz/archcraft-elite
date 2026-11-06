@@ -569,7 +569,19 @@ pkgver=1.0
 #     nenhuma vê — agora é log + toast).
 #     pkgrel 15→16 NO MESMO COMMIT (lei E41 — craft-logout e craft-power
 #     mudaram de conteúdo).
-pkgrel=16
+#
+# 06/nov — A SPEC UNIFICADA DO DONO (as 3 curas do dia):
+#     craft-rice entrega o fragmento 20-elite-ssd.xml (a decoração ÚNICA:
+#     Brave/família Chromium/imv FORÇADOS à moldura do tema — serverDecoration
+#     yes; o dono abriu-os sem botões);
+#     craft-dock-gui ganha a GRAÇA DO SNAPSHOT (1 LIST falho não derruba o
+#     último — o marcador não pisca no flap do socket; morte real na 3ª
+#     falha seguida);
+#     craft-bgapps cobra o crashpad PELO NOME (o handler do Chromium não
+#     leva --type=; órfão virava programa fantasma na lista).
+#     pkgrel 16→17 NO MESMO COMMIT (lei E41 — os 3 scripts mudaram de
+#     conteúdo).
+pkgrel=17
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

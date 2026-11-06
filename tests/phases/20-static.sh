@@ -1117,6 +1117,23 @@ assert_nogrep "$REPO/elite/airootfs/usr/local/bin/craft-bgapps" "'Encerrado'" "E
 assert_grep  "$REPO/elite/airootfs/usr/local/bin/craft-bgapps" 'notify-send\*' "E30: notify-send sai da lista do killer (avisou a morte do próprio aviso — pid 11463/11464)"
 assert_grep  "$REPO/elite/airootfs/usr/local/bin/craft-bgapps" 'tumblerd\*' "E30: serviços dbus-ativados saem da lista (matar é inútil — renascem)"
 
+# D2. A SPEC UNIFICADA DO DONO (06/nov) — as três curas do dia
+#     (1) crashpad fora da lista de PROGRAMAS (o guard --type= não o via —
+#         o crashpad_handler é binário PRÓPRIO sem a flag; órfão virava
+#         "programa" fantasma cujo fecho não fecha navegador nenhum)
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bgapps" "grep -q -e . --type=. -e .crashpad." "06/nov/spec: o guard do Chromium cobra crashpad PELO NOME (a spec: 'detecta apenas os subprocessos do Chrome Crashpad' — o fantasma sai da lista)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bgapps" 'O CRASHPAD NÃO LEVA --type=' "06/nov/spec: a cura tem PONHEIRO no fonte (a lição E33 do craft-dump v2.6 — o comentário do guard antigo jurava crashpad excluído e o código não excluía)"
+#     (2) a GRAÇA DO SNAPSHOT na dock (o 'pisca, some e reaparece'): 1 LIST
+#         falho não derruba o último snapshot — derrubar fazia o marcador
+#         apagar e reacender no tick seguinte
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" '_tl_miss' "06/nov/spec: a dock conta as falhas seguidas do LIST (a graça do snapshot — o flap de um tick vira invisível)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'snapshot anterior segurado \(graça\)' "06/nov/spec: a graça deixa RASTRO no log (recusa nunca é silêncio — mesmo a cortesia de 2 ticks)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'self\._tl_miss = 0' "06/nov/spec: o sucesso ZERA o contador de falhas (a morte real continua assumida na mesma cadência — a graça não vira cegueira)"
+#     (3) o rice entrega o SSD da família (a decoração ÚNICA — Brave/imv)
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-rice" '20-elite-ssd\.xml' "06/nov/spec: o rice entrega o fragmento SSD ao lado do dos jogos (a decoração é UMA em todo o desktop)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-rice" 'CHANGED' "06/nov/spec: o reconfigure dispara se QUALQUER fragmento foi escrito (idêntico e recusado não reconfiguram — o labwc relê só com entrega nova)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-rice" 'brave-browser\|chromium' "06/nov/spec: a regra do SSD mira a família do relato (o dono abriu o Brave e o imv nus — os dois entram)"
+
 # E. PAPEL COMPLETO: wpctl sem o head que escondeu o réu
 assert_nogrep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'wpctl status \| head' "E30: o dump NUNCA mais corta o wpctl (o head -30 escondeu Sinks/Sources do p6aw)"
 
