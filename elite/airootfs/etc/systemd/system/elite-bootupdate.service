@@ -22,4 +22,12 @@ ConditionPathExists=!/run/archiso
 
 [Service]
 Type=oneshot
+# E64 — A DOSE TEM TETO PRÓPRIO (AUD-B1 da auditoria geral): herdava os
+# 90s do system.conf — download lento = dose morta por SIGTERM antes de
+# nascer (o --sistema sempre teve 2h; a dose diária era a órfã). 15min
+# cobre a prova de rede (8s) + a espera da sentinela (teto 120s) + o
+# download da casa (pequena). E se morrer mesmo assim, o timer RE-ARMA
+# (OnUnitInactiveSec=1h — ver elite-bootupdate.timer): a morte da dose
+# no boot não custa mais o dia.
+TimeoutStartSec=15min
 ExecStart=/usr/local/bin/craft-update --canal

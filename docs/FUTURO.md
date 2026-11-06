@@ -36,7 +36,7 @@ outras deixam aberto**.
    e daemon de janelas renascem na sessão com o código novo.
 4. **A rede de segurança** (E46): snapshot antes/depois; quebrou? o GRUB
    liga o snapshot e o rollback é um reboot.
-5. **A porteira total** (E45→): 2298 peças em cadeia + guard E41 + canal
+5. **A porteira total** (E45→): 2436 peças em cadeia + guard E41 + canal
    diário — o CI nunca é o primeiro a ver um defeito.
 
 ## 3. O roadmap do "quase tudo automatizado" (o próximo nível)

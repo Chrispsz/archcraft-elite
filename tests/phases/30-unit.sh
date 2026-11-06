@@ -1029,6 +1029,17 @@ cat > "$MOCKCU/fuser" <<'EOF'
 [ -f "${MOCK_DIR:?}/pacman-lock" ] && exit 0
 exit 1
 EOF
+cat > "$MOCKCU/curl" <<'EOF'
+#!/usr/bin/env bash
+# E64: a prova de rede no mundo de mentira — o repo-fail decide (a MESMA
+# fonte de verdade do pacman mock: sandbox determinística nos DOIS mundos;
+# o CI com rede real NUNCA vaza para fora do cenário e o sandbox sem rede
+# NUNCA finge que a casa está no ar)
+ST="${MOCK_DIR:?}"; touch "$ST/curl.log"
+printf 'curl %s\n' "$*" >> "$ST/curl.log"
+[ -f "$ST/repo-fail" ] && exit 7
+exit 0
+EOF
 cat > "$MOCKCU/loginctl" <<'EOF'
 #!/usr/bin/env bash
 # sem cenário de sessão: silêncio (as cenas antigas não têm usuário);
@@ -1106,11 +1117,16 @@ assert_grep "$STCU/pacman.log" '\-Sy --needed --noconfirm --overwrite /usr/local
 assert_nogrep "$STCU/pacman.log" '\-Sy .* (elite-craft|craft-toplevel)' "E56/canal: o par legado não vira alvo NEM adotando (o replaces o remove — brigando com ele a dose inteira recusava)"
 assert_grep "$STCU/update.log" 'ADOÇÃO nesta dose' "E56/canal: a adoção deixa linha no papel (quem lê o log entende que ESTA dose trocou a era)"
 
-# dose DIÁRIA offline: o repo não respondeu = silêncio rc 0 (o timer volta amanhã)
+# dose DIÁRIA offline: a prova de rede FALHA PRIMEIRO = silêncio rc 0 (o
+# timer volta no próximo ciclo — E64: o curl prova o db ANTES do -Sy; a
+# mensagem saiu de 'não respondeu' (classe do pacman) para 'sem rede'
+# (classe da rede) — o réu certo no papel, e NENHUMA transação tentada)
+rm -rf "$STCU"; mkdir -p "$STCU"
 touch "$STCU/repo-fail"
 out="$(run_cu --canal)" ; rc=$?
-assert_eq "$rc" "0" "E46/canal: offline é silêncio rc 0 (falha de rede JAMAIS é erro de atualização — a lei v2)"
-assert_grep "$STCU/update.log" 'não respondeu' "E46/canal: o offline fica no papel (a prova existe, o usuário não é assombrado)"
+assert_eq "$rc" "0" "E46/E64/canal: offline é silêncio rc 0 (falha de rede JAMAIS é erro de atualização — a lei v2, agora ANTES do pacman)"
+assert_grep "$STCU/update.log" 'canal: sem rede' "E64/canal: o offline fica no papel com o RÉU CERTO (a prova de rede falhou — o pacman nem é chamado; o CRITICAL a cada boot morre aqui)"
+assert_nogrep "$STCU/pacman.log" '\-Sy' "E64/canal: offline = ZERO transação (o -Sy às cegas contra a parede acabou — a prova vem antes)"
 
 # ── E62 — O PAPEL É DO DONO TAMBÉM (a foto do rig, 05/nov): o log nasce
 #    root:root 644 e a porta MANUAL do dono escrevia contra a parede — o
@@ -1184,7 +1200,7 @@ CU_EXTRA_PATH=""; export ELITE_UPDATE_LOG=""
 out="$(run_cu --canal)" ; rc=$?
 assert_eq "$rc" "0" "E62/root: a dose ao ligar segue rc 0 (o chmod do papel nunca é erro)"
 assert_eq "$(stat -c '%a' "$STCU/update.log")" "666" "E62/root: o root MANTÉM o papel aberto (600 → 666 — o manual do dono escreve sem pedir nada a ninguém)"
-assert_grep "$STCU/update.log" 'não respondeu' "E62/root: a dose do root aterrissa no papel como sempre (E46 intacto)"
+assert_grep "$STCU/update.log" 'canal: sem rede' "E62/root: a dose do root aterrissa no papel como sempre (a prova E64 fala primeiro — o réu da rede é nomeado no papel do root)"
 CU_EXTRA_PATH=""; unset ELITE_UPDATE_LOG
 
 # dose SEMANAL: PRE antes, transação, POST casado, kernel novo = REINICIE
@@ -1197,11 +1213,13 @@ assert_grep "$STCU/pacman.log" '\-Syu --needed --noconfirm --overwrite /usr/loca
 assert_grep "$STCU/update.log" 'kernel 6.12.4-2 → 6.12.5-1 — REBOOT' "E46/sistema: kernel novo na transação = aviso de reboot no papel (a comparação -Q antes/depois, exata por construção)"
 assert_grep "$STCU/update.log" 'REBOOT aplica' "E46/sistema: o kernel novo fica no papel (o aviso na sessão é guardado pelo bus do usuário — sandbox honesto não tem bus; o papel é o registro)"
 
-# dose SEMANAL com pacman ocupado: silêncio, ZERO transação
+# dose SEMANAL com pacman ocupado: a sentinela espera com teto (E64 — a
+# mesma cortesia da manual, agora nas 3 portas) e adia honesta ao estourar
 rm -rf "$STCU"; mkdir -p "$STCU"; touch "$STCU/pacman-lock"
-run_cu --sistema >/dev/null
+ELITE_LOCK_WAIT=4 run_cu --sistema >/dev/null
 assert_nogrep "$STCU/pacman.log" '\-Syu' "E46/sistema: pacman ocupado = NENHUMA transação (o lock é respeitado — a semana volta)"
-assert_grep "$STCU/update.log" 'ocupado' "E46/sistema: a recusa fica no papel (nunca silêncio absoluto)"
+assert_grep "$STCU/update.log" 'sistema: pacman ocupado' "E64/sistema: a sentinela ESPERA antes de adiar (a briga com o keyring aos 120s do boot não custa mais a semana — o teto é o limite, não o susto)"
+assert_grep "$STCU/update.log" 'adiamento honesto' "E64/sistema: o teto estourado fica no papel (réu + horário — quem lê o log entende que a semana volta)"
 
 # dose SEMANAL com pacman recusando: rc 1 + o PRE nomeado como rollback
 rm -rf "$STCU"; mkdir -p "$STCU"; touch "$STCU/pacman-fail"
@@ -1215,6 +1233,16 @@ rm -rf "$STCU"; mkdir -p "$STCU"; touch "$STCU/no-snapper"
 run_cu --sistema >/dev/null
 assert_grep "$STCU/update.log" 'snapper indisponível' "E46/sistema: sem snapper a dose diz que segue SEM rede (nunca finge que o snapshot existe)"
 assert_grep "$STCU/pacman.log" '\-Syu' "E46/sistema: a dose semanal NÃO morre por falta de snapper (a atualização é a missão; o snapshot é a rede — a ausência fica no papel)"
+
+# dose SEMANAL offline: a prova de rede FALHA PRIMEIRO = adiamento honesto
+# rc 0 (E64: sem rede a semanal NEM nasce — nenhum snapshot PRE desperdiçado
+# numa manhã sem internet, nenhum notify CRITICAL por silêncio da rede)
+rm -rf "$STCU"; mkdir -p "$STCU"; touch "$STCU/repo-fail"
+run_cu --sistema >/dev/null; rc=$?
+assert_eq "$rc" "0" "E64/sistema: offline é adiamento rc 0 (a semana volta — falha de rede JAMAIS é erro de atualização)"
+assert_grep "$STCU/update.log" 'sistema: sem rede' "E64/sistema: o offline fica no papel com o RÉU CERTO (a prova de rede fala antes do snapper — o réu é a rede, não o pacman)"
+assert_eq "$(cat "$STCU/snapper.log" 2>/dev/null | wc -l)" "0" "E64/sistema: offline = NENHUM snapshot PRE gasto (a rede de segurança não se gasta contra a parede)"
+assert_nogrep "$STCU/pacman.log" '\-Syu' "E64/sistema: offline = ZERO transação (a mesma lei da --canal, agora nas DUAS automáticas)"
 
 # a porta MANUAL: instala o veículo e liga a cadência (o fim do 'erros persistem')
 rm -rf "$STCU"; mkdir -p "$STCU/units"
@@ -1269,13 +1297,39 @@ assert_grep "$STCU/pacman.log" '\-Syu --needed --overwrite /usr/local/bin/\* --o
 assert_grep "$STCU/update.log" 'lock órfão de .*db\.lck removido' "E54/sentinela: a limpeza do órfão fica no papel (a remoção tem réu e motivo — nunca silêncio)"
 ORPH=$( [ -e "$STCU/db.lck" ] && echo ficou || echo saiu )
 assert_eq "$ORPH" "saiu" "E54/sentinela: o db.lck órfão SAIU da base (o pacman respeita o arquivo para sempre — quem o remove é a casa, com nenhuma transação viva)"
-# (d) canal com a base ocupada: silêncio rc 0, ZERO transação (a lei --sistema)
+# (d) canal com a base ocupada ALÉM DO TETO: silêncio rc 0, ZERO transação
+#     (a lei --sistema — e E64: a porta automática ESPERA com teto antes
+#     de adiar, a cortesia da manual agora nas 3 portas)
 rm -rf "$STCU"; mkdir -p "$STCU"
 touch "$STCU/pacman-lock" "$STCU/db.lck"
-run_cu --canal >/dev/null; rc=$?
-assert_eq "$rc" "0" "E54/canal: pacman ocupado = rc 0 (o timer falhar visível seria ruído — a dose volta no próximo boot)"
-assert_nogrep "$STCU/pacman.log" '\-Sy' "E54/canal: ocupado = NENHUMA transação (a mesma definição das três portas — revisar uma é revisar todas)"
-assert_grep "$STCU/update.log" 'canal: pacman ocupado' "E54/canal: a recusa fica no papel (silêncio para o usuário, réu no log)"
+ELITE_LOCK_WAIT=4 run_cu --canal >/dev/null; rc=$?
+assert_eq "$rc" "0" "E54/E64/canal: pacman ocupado além do teto = rc 0 (o timer falhar visível seria ruído — e o OnUnitInactiveSec traz a dose de volta em 1h)"
+assert_nogrep "$STCU/pacman.log" '\-Sy' "E54/E64/canal: ocupado = NENHUMA transação (a mesma definição das três portas — revisar uma é revisar todas)"
+assert_grep "$STCU/update.log" 'canal: pacman ocupado' "E54/E64/canal: a recusa fica no papel (silêncio para o usuário, réu no log)"
+assert_grep "$STCU/update.log" 'adiamento honesto' "E64/canal: o adiamento nomeia o timer no papel (não é morte — é descanso com hora de volta)"
+# (d2) canal com a base ocupada que LIBERA: a sentinela automática ESPERA
+#      e a dose segue (a cena que o dia inteiro sem dose provava — o lock
+#      do keyring aos 120s não custa mais a dose do boot)
+rm -rf "$STCU"; mkdir -p "$STCU"
+touch "$STCU/pacman-lock" "$STCU/db.lck"; printf '1.0-1\n' > "$STCU/es-ver"
+( sleep 1; rm -f "$STCU/pacman-lock" ) &
+ELITE_LOCK_WAIT=20 run_cu --canal >/dev/null
+assert_grep "$STCU/pacman.log" '\-Sy --needed --noconfirm' "E64/canal: base ocupada que LIBERA = a automática espera e a dose SEGUE (o dia inteiro sem dose morre aqui — a mesma cortesia E54 da manual)"
+assert_grep "$STCU/update.log" 'canal: base liberada \([0-9]+s de espera\)' "E64/canal: a espera vitoriosa fica no papel COM O TEMPO (quem lê o log entende o porquê e o quanto)"
+ORPH2=$( [ -e "$STCU/db.lck" ] && echo ficou || echo saiu )
+assert_eq "$ORPH2" "saiu" "E64/canal: o lock órfão é curado na porta AUTOMÁTICA também (a mesma lei das 3 portas — remoção só com nenhuma transação viva)"
+# (d3) E64 — CHECAGEM NÃO É NOTÍCIA: dose horária sem novidade = ZERO
+#      pop-up (o OnUnitInactiveSec roda a dose de 1h em 1h; o dono não
+#      vive de notificação de 'está tudo bem')
+rm -rf "$STCU"; mkdir -p "$STCU"; touch "$STCU/user-flip"; printf '1.0-1\n' > "$STCU/es-ver"
+run_cu --canal >/dev/null
+assert_grep "$STCU/update.log" 'já estava em dia' "E64/canal: checagem sem novidade fica NO PAPEL, calada para o dono (o pop-up horário nunca nasce)"
+# (d4) E64 — dose com NOVIDADE na casa: o dono É avisado (o delta
+#      antes/depois, a escola E48 — o notify é a exceção, não a regra)
+rm -rf "$STCU"; mkdir -p "$STCU"; touch "$STCU/user-flip" "$STCU/es-upgrade"
+run_cu --canal >/dev/null
+assert_grep "$STCU/update.log" 'casa: elite-system ausente → 1.0-1' "E64/canal: a casa mudou = o papel narra o delta (a única fonte do notify — checagem vazia nunca avisa)"
+assert_grep "$STCU/update.log" 'sessão: supervisor craft-bars AUSENTE' "E64/canal: sem supervisor vivo a sessão NÃO é pkilada (a lei E48 intacta — relogin aplica, dano nenhum)"
 # (e) manual com o pacman recusando a transação: o rc REAL + mensagem honesta
 rm -rf "$STCU"; mkdir -p "$STCU/units"
 cp "$REPO/elite/airootfs/etc/systemd/system/elite-bootupdate.timer" "$REPO/elite/airootfs/etc/systemd/system/elite-sysupdate.timer" "$STCU/units/"

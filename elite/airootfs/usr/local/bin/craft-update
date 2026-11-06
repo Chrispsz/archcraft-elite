@@ -149,6 +149,30 @@
 #   morre em silêncio honesto, os timers escrevem como root de qualquer
 #   jeito). O append em si viaja em subshell calado: mesmo um imprevisto
 #   de modo não grita mais (o rc do log nunca foi erro de atualização).
+# v5.5 (E64 — A ATUALIZAÇÃO FINA, os 5 curáveis do AUD-B da auditoria
+#   geral): a dose do sistema que o dono aplaudiu tinha feridas de TEMPO e
+#   de REDE — nenhuma estrutural, todas curáveis:
+#   (1) A PROVA DE REDE ANTES DE TUDO (AUD-B2): falha de rede na dose ao
+#       ligar virava notify CRITICAL A CADA BOOT (o pacman recusava o -Sy
+#       e o aviso soava por doença que era só silêncio da rede). O curl
+#       prova o db da casa em 8s: sem rede = adiamento honesto, ZERO
+#       transação, ZERO susto — a lei v2 do offline-safe agora atua ANTES
+#       do pacman, não depois. A semanal ganha a MESMA prova (e de quebra
+#       não desperdiça mais um snapshot PRE numa manhã sem rede).
+#   (2) A SENTINELA NAS TRÊS PORTAS (AUD-B3): a base de dados é um
+#       recurso de UM dono por vez — a lei E54 agora é da casa inteira.
+#       A dose ao ligar brigava com a cura do keyring (aos 120s do boot)
+#       e morria calada = dia inteiro sem dose; a semanal brigava igual.
+#       As automáticas também ESPERAM com teto agora; estourou o teto =
+#       adiamento honesto (o timer re-arma — ver elite-bootupdate.timer
+#       E64). O lock órfão é curado nas 3 portas com a MESMA lei.
+#   (3) CHECAGEM NÃO É NOTÍCIA: com o re-armamento horário do timer, a
+#       dose roda de 1h em 1h; pacman --needed sem candidato novo é o
+#       caso COMUM — notify só quando a casa MUDA (delta antes/depois,
+#       escola E48; o pop-up 'canal em dia' a cada hora seria ruído).
+#   As irmãs do mesmo degrau moram nas units (TimeoutStartSec,
+#   ConditionPathExists !/run/archiso, OnUnitInactiveSec — E64 nos
+#   comentários delas).
 # ═══════════════════════════════════════════════════════════════════════════
 set -euo pipefail
 
@@ -160,6 +184,19 @@ LCK="${ELITE_PACMAN_LCK:-/var/lib/pacman/db.lck}"
 VMARK="${ELITE_VERSION_MARKER:-/usr/local/share/elite/VERSION}"
 # log da automação — overridável para prova em sandbox (mesma escola)
 ULOG="${ELITE_UPDATE_LOG:-/var/log/elite-update.log}"
+# E64 — a prova de rede ANTES de qualquer transação: o endereço do db da
+# casa (o MESMO arquivo que o pacman baixa no -Sy). Overridável para prova
+# em sandbox — mesma escola do LCK/VMARK/ULOG/UNIT_DIR.
+NETURL="${ELITE_NET_URL:-https://github.com/Chrispsz/archcraft-elite/releases/latest/download/elite-local.db}"
+
+# E64 — a prova custa 8s e vale a dose inteira: -f (404 recusa), -L (o
+# releases/latest redireciona para o asset assinado), --head (nada é
+# baixado — só o sinal de que a casa está no ar). Sem curl = sem prova =
+# adiamento honesto (nunca uma transação às cegas).
+rede_viva() {
+    command -v curl >/dev/null 2>&1 || return 1
+    curl -fsSL --head --max-time "${ELITE_NET_PROBE:-8}" -o /dev/null "$NETURL" 2>/dev/null
+}
 
 ulog() {
     mkdir -p "$(dirname "$ULOG")" 2>/dev/null || true
@@ -208,41 +245,71 @@ db_busy() {
     fi
 }
 
-# a sentinela da PORTA MANUAL (interativa): esperar é cortesia, força é
-# dano. Pacman vivo → espera com mensagem (teto ELITE_LOCK_WAIT — o dono
-# nunca fica preso numa espera infinita). Lock SEM dono vivo (sobra de
-# crash/desligamento no meio da transação) → removido com a prova no
-# papel: a remoção acontece SÓ com nenhum pacman vivo e um pacman que
-# nascer durante a limpeza ABORTA (dois pacmans numa base = corrupção —
-# o lock é a lei de um por vez, e a sentinela não a quebra para curá-la).
+# E54→E64 — A SENTINELA DA BASE, agora nas TRÊS PORTAS. A base de dados é
+# um recurso de UM dono por vez: a manual (interativa) espera com teto e
+# erra honesto — e as AUTOMÁTICAS (canal/sistema, modo "auto") também
+# esperam agora: a dose ao ligar brigava com a cura do keyring (aos 120s
+# do boot) e morria calada = o DIA INTEIRO sem dose; a semanal brigava
+# igual. Na automática, estourou o teto não é erro: é ADIAMENTO honesto
+# (a função devolve 1, a porta sai em silêncio rc 0 e o timer re-arma —
+# a lei E54 do adiamento não morre, ganha braço de espera). O lock órfão
+# é curado nas 3 portas com a MESMA lei: remoção SÓ com nenhum pacman
+# vivo, e um pacman que nascer durante a limpeza aborta (dois pacmans
+# numa base = corrupção — a sentinela não quebra a lei para curá-la).
+# A porta é nomeada no papel (o log da casa começa pelo nome da porta).
 sentinela_db() {
-    local espera=0 limite="${ELITE_LOCK_WAIT:-120}"
+    local modo="${1:-manual}" porta="${2:-manual}" espera=0 limite="${ELITE_LOCK_WAIT:-120}"
     if db_busy; then
-        echo "==> outra operação de pacotes está em execução — aguardando a base liberar (teto ${limite}s)…"
-        echo "    (costuma ser a dose ao ligar — elite-bootupdate, 3min após o boot — terminando)"
+        if [ "$modo" = "auto" ]; then
+            ulog "$porta: pacman ocupado (lock vivo) — a sentinela espera (teto ${limite}s)"
+        else
+            echo "==> outra operação de pacotes está em execução — aguardando a base liberar (teto ${limite}s)…"
+            echo "    (costuma ser a dose ao ligar — elite-bootupdate, 3min após o boot — terminando)"
+        fi
         while db_busy; do
             sleep 2
             espera=$((espera + 2))
             if [ "$espera" -ge "$limite" ]; then
+                if [ "$modo" = "auto" ]; then
+                    ulog "$porta: base ocupada há ${espera}s — adiamento honesto (o timer traz a dose de volta)"
+                    return 1
+                fi
                 echo "ERRO: a base de dados segue ocupada há ${espera}s — NADA foi tocado." >&2
                 echo "      Tente de novo em instantes; a prova da outra transação mora em $ULOG." >&2
                 exit 1
             fi
         done
-        echo "==> base liberada (${espera}s de espera) — seguindo"
-        ulog "manual: base ocupada por ${espera}s (outra transação viva) — liberou, seguindo"
+        if [ "$modo" = "auto" ]; then
+            ulog "$porta: base liberada (${espera}s de espera) — a dose segue"
+        else
+            echo "==> base liberada (${espera}s de espera) — seguindo"
+            ulog "manual: base ocupada por ${espera}s (outra transação viva) — liberou, seguindo"
+        fi
     fi
     if [ -f "$LCK" ] && ! db_busy; then
-        echo "==> lock órfão em $LCK (nenhuma transação viva — sobra de desligamento no meio de uma atualização)"
+        if [ "$modo" = "auto" ]; then
+            ulog "$porta: lock órfão em $LCK (nenhuma transação viva) — curando antes da dose"
+        else
+            echo "==> lock órfão em $LCK (nenhuma transação viva — sobra de desligamento no meio de uma atualização)"
+        fi
         run_root rm -f "$LCK"
         sleep 0.3
         if db_busy; then
+            if [ "$modo" = "auto" ]; then
+                ulog "$porta: transação nasceu durante a limpeza do lock — adiamento honesto (um dono por vez)"
+                return 1
+            fi
             echo "ERRO: uma transação nasceu durante a limpeza do lock — abortando (um dono por vez)." >&2
             exit 1
         fi
-        ulog "manual: lock órfão de $LCK removido (nenhuma transação viva — sobra de crash/desligamento)"
-        echo "==> lock órfão removido — a base está livre"
+        if [ "$modo" = "auto" ]; then
+            ulog "$porta: lock órfão removido — a base está livre"
+        else
+            ulog "manual: lock órfão de $LCK removido (nenhuma transação viva — sobra de crash/desligamento)"
+            echo "==> lock órfão removido — a base está livre"
+        fi
     fi
+    return 0
 }
 
 # o aviso para a SESSÃO do dono: root não tem bus — vai pelo bus de cada
@@ -385,12 +452,25 @@ fi
 # ── dose da casa AO LIGAR (elite-bootupdate.timer — OnBootSec 3min, E51) ─
 if [[ "${1:-}" == "--canal" ]]; then
     ulog "canal: iniciando (dose da casa — ao ligar, E51)"
-    # E54 — pacman ocupado? (o dono transacionando, a semanal, o keyring) —
-    # silêncio e o PRÓXIMO boot traz a dose (a mesma lei da --sistema)
-    if db_busy; then
-        ulog "canal: pacman ocupado (lock vivo) — silêncio, o próximo boot traz a dose"
+    # E64 — A PROVA DE REDE ANTES DE TUDO (AUD-B2): a falha de rede na
+    # dose ao ligar virava notify CRITICAL A CADA BOOT (o pacman recusava
+    # o -Sy e o aviso soava por doença que era só silêncio da rede). Prova
+    # de 8s no db da casa: sem rede = silêncio honesto, ZERO transação,
+    # ZERO susto — e nem briga pelo lock (a cura do keyring segue em paz).
+    if ! rede_viva; then
+        ulog "canal: sem rede — silêncio honesto, o próximo ciclo traz a dose"
         exit 0
     fi
+    # E64 — A SENTINELA NA PORTA AUTOMÁTICA (AUD-B3): a dose ao ligar
+    # brigava com a cura do keyring (aos 120s do boot) e morria calada —
+    # o DIA inteiro sem dose. Agora ESPERA com teto (a cortesia da manual,
+    # E54); estourou o teto = adiamento honesto (rc 1 → silêncio rc 0 e o
+    # timer re-arma em 1h — elite-bootupdate.timer, E64).
+    if ! sentinela_db auto canal; then
+        exit 0
+    fi
+    # E54 — pacman ocupado? (o dono transacionando, a semanal, o keyring) —
+    # a espera com teto virou lei das TRÊS portas (E64: a sentinela acima).
     es_before="$(es_q)"
     ec_before="$(elite_craft_q)"
     tl_before="$(craft_tl_q)"
@@ -415,7 +495,10 @@ if [[ "${1:-}" == "--canal" ]]; then
         CANAL_PKGS+=("$p")
     done < <(pacman -Slq elite-local 2>/dev/null || true)
     if [ "${#CANAL_PKGS[@]}" -eq 0 ]; then
-        ulog "canal: [elite-local] não respondeu (offline?) — silêncio, o timer volta amanhã"
+        # E64: com a prova de rede ANTES daqui, "lista vazia" deixou de ser
+        # sinônimo de offline — a rede respondeu e o db local não entregou
+        # peça (stale/corrupto/nunca sincronizado). Silêncio honesto igual.
+        ulog "canal: [elite-local] não entregou lista (a rede respondeu, o db não) — silêncio, o timer volta"
         exit 0
     fi
     if [ -n "$ERA_UNICA" ]; then
@@ -432,9 +515,16 @@ if [[ "${1:-}" == "--canal" ]]; then
             'A dose diária da casa foi recusada — log: /var/log/elite-update.log'
         exit 1
     fi
-    ulog "canal: OK — ${CANAL_PKGS[*]}"
+    ulog "canal: OK — a transação passou (${#CANAL_PKGS[@]} peças da casa)"
     refresh_if_craft_changed "$es_before" "$ec_before" "$tl_before"
-    notify_users 'Elite: canal em dia' 'O código da casa foi atualizado (dose diária).'
+    # E64 — CHECAGEM NÃO É NOTÍCIA: com o re-armamento horário do timer
+    # (OnUnitInactiveSec), a dose roda de 1h em 1h e o pacman --needed sem
+    # candidato novo é o caso COMUM — notify só quando a casa MUDA (o
+    # refresh_if_craft_changed acima já notifica por delta, escola E48);
+    # sem novidade = a linha no papel e SILENCIO para o dono.
+    if [[ "$(es_q)" == "$es_before" && "$(elite_craft_q)" == "$ec_before" && "$(craft_tl_q)" == "$tl_before" ]]; then
+        ulog "canal: a casa já estava em dia — silêncio para o dono (checagem não é notícia)"
+    fi
     # E51.1 — a dose AUTO-CURA a cadência: rigs adotados por caminhos que
     # não passam pela elite_cadencia (a dose v4.2 de hoje) recebem a troca
     # do timer na PRÓPRIA dose (idempotente — disable falho é silêncio)
@@ -445,13 +535,21 @@ fi
 # ── dose SEMANAL: o sistema inteiro, com rede de segurança (elite-sysupdate.timer)
 if [[ "${1:-}" == "--sistema" ]]; then
     ulog "sistema: iniciando (dose semanal completa)"
-    # pacman ocupado? (o dono transacionando ou o keyring-fix) — silêncio
-    # E54: a MESMA definição das três portas (db_busy) — revisar uma é
-    # revisar todas; o fuser sai do inline e mora na sentinela
-    if db_busy; then
-        ulog "sistema: pacman ocupado (lock vivo) — silêncio, a semana volta"
+    # E64 — A PROVA DE REDE ANTES DO PRE (AUD-B2 na irmã semanal): sem
+    # rede, o -Syu morreria DEPOIS de gastar um snapshot PRE à toa (e o
+    # notify CRITICAL soaria por doença que era silêncio). Prova de 8s:
+    # sem rede = adiamento honesto, NENHUM snapshot gasto, a semana volta.
+    if ! rede_viva; then
+        ulog "sistema: sem rede — adiamento honesto (a semana volta; nenhum snapshot PRE desperdiçado)"
         exit 0
     fi
+    # E64 — A SENTINELA NA SEMANAL (AUD-B3): a mesma espera com teto das
+    # portas irmãs — brigava com o keyring aos 120s do boot e com a dose
+    # ao ligar; agora espera e segue, ou adia honesta (o timer volta).
+    if ! sentinela_db auto sistema; then
+        exit 0
+    fi
+    # pacman ocupado? — lei das TRÊS portas (a sentinela acima, E64)
     PRE_N=""
     if command -v snapper >/dev/null 2>&1 && snapper -c root list-configs >/dev/null 2>&1; then
         PRE_N="$(snapper -c root create -t pre -p -d 'elite-sysupdate' 2>/dev/null || true)"
