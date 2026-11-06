@@ -1,84 +1,23 @@
-#!/usr/bin/env bash
-# craft-logout — menu de sessão (craft-menu; Esc cancela)
-# opções: logout (labwc) · reboot · shutdown
+#!/bin/sh
+# craft-logout — WRAPPER do craft-power (ARQUITETURA nº 9 — o polimento E65,
+# a promessa do diário desde 11-02: "craft-logout vira wrapper do
+# craft-power, −80 linhas de duplicação").
 #
-# v2.6.0 — minimalista como o Sessão: 'Travar tela' sai do menu (o lock
-# segue no W-l e é PARTE do suspender) e o menu nasce sob o BOTÃO do
-# power (--at=power — craft-menu v4; a tecla W-x também o chama — o
-# anchor top-right é o assento natural da família de sessão).
+# ATÉ AQUI eram DOIS menus de sessão com a MESMA mecânica copiada duas
+# vezes (mlog, gramática 0/1/143, cinta de falha) e conteúdos divergentes:
+# o teclado (W-x / W-Escape / C-A-Delete no rc.xml) abria 3 itens SEM
+# Suspender; o mouse (botão do power) abria o Sessão completo.
 #
-# v2.4.0 — O MOTOR QUE JÁ ABRIA: o craft-menu v3 é fuzzel --dmenu (a era
-# GTK do menu saiu de cena — nunca abriu no rig; o Sessão volta ao motor
-# que sempre abriu). A gramática de saída (0/1/143) é intocada e a lei
-# (ESC benigno; toggle/cross-dismiss POR PID — o determinismo do
-# craft-menu desmentiu a física do foco; v2.10.26/E38: o comentário antigo
-# dizia 'por foco' e mentia) segue valendo.
-#
-# v2.3.8 — a era do menu NATIVO (o dono: "remover a barra que fica, tipo
-# 'Rede |'"): craft-menu. A lei (toggle/cross-dismiss) é da gramática.
-#
-# v2.3.1 — FIM DO SILÊNCIO (família craft-*): crash calado nunca mais —
-# log em ~/.cache/elite/menus.log + notify na tela (padrão dos menus).
-set -euo pipefail
+# DE AGORA EM DIANTE o menu de sessão é UM. O teclado herda o Sessão
+# inteiro — 'Suspender' (gate logind/kernel, o lock primeiro, o -i da
+# v2.6.0) e 'Tempo de idle…' passam a valer para quem usa teclado — e a
+# mecânica inteira mora no craft-power (log, gramática, cinta v2.9.0).
+# Copiar qualquer coisa aqui de novo é reabrir a duplicação que o nº 9
+# aposentou.
+set -eu
 
-MLOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/menus.log"
-mlog() {
-    mkdir -p "${MLOG%/*}" 2>/dev/null
-    if [ -f "$MLOG" ] && [ "$(wc -c <"$MLOG" 2>/dev/null || echo 0)" -gt 262144 ]; then
-        : >"$MLOG"
-    fi
-    printf '[%s] %s\n' "$(date '+%F %T')" "$1" >>"$MLOG" 2>/dev/null
-    return 0
+command -v craft-power >/dev/null 2>&1 || {
+    echo "craft-logout: craft-power AUSENTE — o menu de sessão mora lá (pacote elite-system); nada aberto" >&2
+    exit 127
 }
-
-command -v craft-menu >/dev/null 2>&1 || { mlog "Logout: craft-menu AUSENTE"; exit 1; }
-
-mlog "Logout: abrindo (craft-menu)"
-errf="$(mktemp)"
-trap 'rm -f "$errf"' EXIT
-ec=0
-choice="$(craft-menu --title='Sair' --at=power \
-    'Sair da sessão' 'Reiniciar' 'Desligar' \
-    2>"$errf")" || ec=$?
-if [ "$ec" -eq 143 ]; then
-    mlog "Logout: fechado de fora (SIGTERM — cross-dismiss) — benigno"
-    exit 0
-fi
-if [ "$ec" -eq 2 ]; then
-    mlog "Logout: toggle — 2ª chamada fechou o menu — benigno"
-    exit 0
-fi
-if [ "$ec" -eq 1 ]; then
-    # v2.3.10 — fechar NUNCA é erro, COM OU SEM stderr (o gate velho
-    # '! -s "$errf"' gritava FALHOU em fechamento normal — a pilha de
-    # notificações eternas da foto do dono). stderr vai pro log.
-    if [ -s "$errf" ]; then
-        mlog "Logout: fechado pelo usuário (ESC) — benigno — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
-    else
-        mlog "Logout: fechado pelo usuário (ESC) — benigno"
-    fi
-    exit 0
-fi
-if [ "$ec" -ne 0 ]; then
-    mlog "Logout: MENU FALHOU exit=$ec — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
-    # v2.3.10 — falha REAL avisa e SOME (-u normal + timeout 5).
-    command -v notify-send >/dev/null 2>&1 && \
-        timeout 5 notify-send -a 'Elite' -u normal -t 8000 \
-            'Menu de sessão falhou' \
-            "craft-menu exit=$ec — detalhe em ~/.cache/elite/menus.log" || true
-    exit 1
-fi
-[ -n "$choice" ] || exit 0
-case "$choice" in
-  'Sair da sessão')
-    rm -f "$errf"   # v2.5.0: idem
-    if command -v labwc >/dev/null 2>&1; then exec labwc --exit; fi
-    echo "labwc não encontrado (não é uma sessão labwc?)" >&2 ;;
-  'Reiniciar')
-    rm -f "$errf"   # v2.5.0: idem
-    exec systemctl reboot ;;
-  'Desligar')
-    rm -f "$errf"   # v2.5.0: idem
-    exec systemctl poweroff ;;
-  *) exit 0 ;;
-esac
+exec craft-power "$@"
