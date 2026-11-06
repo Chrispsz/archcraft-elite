@@ -3,6 +3,14 @@ Description=Elite: a casa atualiza AO LIGAR (OnBootSec — 3min após cada boot)
 
 [Timer]
 OnBootSec=3min
+# E64 — A DOSE MORTA VOLTA (AUD-B1 da auditoria geral): falha de rede no
+# boot, lock ocupado pela cura do keyring, download lento que o teto de
+# 15min cortou — NADA disso custa mais o dia. OnUnitInactiveSec re-arma
+# o disparo 1h depois de cada rodada terminar (viva OU morta — o systemd
+# conta 'deactivated' para os dois): em dia, a checagem é calada (o
+# craft-update E64 só notifica com novidade de verdade); morta, a dose
+# volta na hora seguinte. O dia sem cura por um boot apertado morre aqui.
+OnUnitInactiveSec=1h
 RandomizedDelaySec=2min
 
 [Install]

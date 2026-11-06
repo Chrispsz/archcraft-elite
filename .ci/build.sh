@@ -533,7 +533,25 @@ pkgver=1.0
 #     pkgrel 12→13 NO MESMO COMMIT (lei E41 — craft-idle, craft-vigil,
 #     craft-power, elite-install-stage e craft-dump mudaram de
 #     conteúdo; o hook novo entra no MANIFEST estendido).
-pkgrel=13
+# E64 — A ATUALIZAÇÃO FINA (os 5 curáveis do AUD-B, num degrau só):
+#     craft-update v5.5 = prova de rede ANTES de qualquer transação
+#     (curl 8s no db da casa — falha de rede deixa de virar notify
+#     CRITICAL a cada boot e de gastar snapshot PRE da semanal) +
+#     sentinela nas TRÊS portas (canal/sistema esperam com teto em vez
+#     de morrer calados na briga com o keyring aos 120s do boot; órfão
+#     curado nas 3) + checagem horária sem pop-up (notify só com
+#     novidade — OnUnitInactiveSec do timer multiplicaria o 'canal em
+#     dia' por 24). Units irmãs: elite-bootupdate.service TimeoutStartSec
+#     15min (herdava 90s — dose morta por SIGTERM), elite-bootupdate.timer
+#     OnUnitInactiveSec=1h (a dose morta do boot volta na hora seguinte),
+#     elite-sysupdate.service ConditionPathExists=!/run/archiso (a doença
+#     E59 curada na irmã e esquecida na semanal — live >1 semana levaria
+#     -Syu na mídia), elite-keyring-fix.service TimeoutStartSec=15min
+#     (pacman-key de minutos de parede morto aos 90s = selo que nunca
+#     nasce).
+#     pkgrel 13→14 NO MESMO COMMIT (lei E41 — craft-update + 4 units
+#     mudaram de conteúdo).
+pkgrel=14
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
