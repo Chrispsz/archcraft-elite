@@ -551,7 +551,11 @@ pkgver=1.0
 #     nasce).
 #     pkgrel 13→14 NO MESMO COMMIT (lei E41 — craft-update + 4 units
 #     mudaram de conteúdo).
-pkgrel=14
+# E64.1 — A ETIQUETA É CONTEÚDO (a lição da casa, craft-dump v2.6): a
+#     perícia por download do 1.0-14 flagrou o banner da linha 2 ainda
+#     em v5.4 (o bloco de changelog v5.5 entrou, o banner não foi batido).
+#     pkgrel 14→15 NO MESMO COMMIT (lei E41 — o banner muda de conteúdo).
+pkgrel=15
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# craft-update — atualiza TUDO que a Elite entrega (v5.4 — E62)
+# craft-update — atualiza TUDO que a Elite entrega (v5.5 — E64)
 # ═══════════════════════════════════════════════════════════════════════════
 # v1 (v2.10.5): 'sudo pacman -Syu' + cabeçalho honesto (paru prometido não
 #   existe — o bloco fica pronto, mas calado enquanto paru não entra).
