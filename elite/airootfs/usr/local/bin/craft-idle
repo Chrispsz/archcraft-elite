@@ -29,6 +29,12 @@
 #                          normalizado pelo daemon, com aviso explícito)
 #   cada braço deixa linha no idle.log — 'a tela nunca apaga' e 'nunca
 #   entra em idle' ganham RÉU NOMEADO com rc no papel
+# E61 — O SUSPEND DO IDLE NÃO DORME SOB AS MÃOS (o dono esclareceu a
+#   ordem: ele suspendia DEPOIS da senha digitada, nunca enquanto
+#   travado): o braço idle DEFERE quando há lock vivo com vigília no ar
+#   — enquanto travado, quem manda é a vigília (o deadline de idle não
+#   vê digitação em compositor que não conta input travado). O resume
+#   renova a marca de atividade (idle-activity) que a vigília lê.
 #
 # Uso:
 #   craft-idle           menu de presets (mouse-first — item do menu do
@@ -68,6 +74,11 @@ CONF="$CONF_DIR/idle.conf"
 # lei da família E36): apagar/acordar/suspende deixam linha com rc — o
 # 'nunca entra em idle sozinho' do dono ganha prova, não opinião.
 IDLE_LOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/idle.log"
+# E61 — a marca de atividade que o RESUME deixa e a VIGÍLIA lê (o mtime
+# é o último idle→ativo que o compositor viu — mundo A, onde input
+# travado CONTA como atividade). Vive no XDG_RUNTIME_DIR (morre com a
+# sessão — zero lixo em disco).
+ACT_EPOCH="${XDG_RUNTIME_DIR:-/tmp}/elite/idle-activity"
 ilog() {
     mkdir -p "${IDLE_LOG%/*}" 2>/dev/null || true
     if [ -f "$IDLE_LOG" ] && [ "$(wc -c <"$IDLE_LOG" 2>/dev/null || echo 0)" -gt 262144 ]; then
@@ -227,27 +238,55 @@ case "${1:-}" in
     # subcomandos (não os binários crus) — todo resultado deixa linha com
     # rc no idle.log. 'A tela nunca apaga' e 'nunca entra em idle' viram
     # réu nomeado, não reclamação sem corpo (a lei E33 no papel).
+    # E61 — E SAEM DE IMEDIATO: os braços são callbacks do DAEMON — cair
+    # no menu interativo depois da ação pendurava o callback num 'read'
+    # com stdin vivo (achado do smoke test da E61: 'craft-idle suspend'
+    # bloqueado 120s — o filho do swayidle herdaria o stdin da sessão).
     screenoff)
         if wlopm --off '*'; then
             ilog "tela: APAGOU (wlopm rc=0) — gesto único do lock cumprido"
         else
             ilog "FALHA: wlopm --off rc=$? — a tela NÃO apagou (réu nomeado no papel)"
         fi
+        exit 0
         ;;
     screenon)
+        # E61 — A ORELHA DO COMPOSITOR: TODO idle→ativo renova a marca
+        # (mtime) ANTES de qualquer efeito — a VIGÍLIA lê este arquivo e
+        # ADIA o suspend com mãos no lock. Em compositor que conta input
+        # travado, a digitação da senha renova a marca a cada tecla.
+        mkdir -p "${ACT_EPOCH%/*}" 2>/dev/null || true
+        : > "$ACT_EPOCH" 2>/dev/null || true
         if wlopm --on '*'; then
             ilog "tela: ACORDOU (wlopm rc=0)"
         else
             ilog "FALHA: wlopm --on rc=$? — a tela NÃO acordou (réu nomeado no papel)"
         fi
+        exit 0
         ;;
     suspend)
+        # E61 — O SUSPEND DO IDLE NÃO DORME SOB AS MÃOS (a ordem certa,
+        # esclarecida pelo dono: ele suspendia DEPOIS da senha digitada —
+        # nunca enquanto travado). A arma era ESTE braço: o deadline de
+        # idle não vê a digitação quando o compositor não conta input
+        # travado como atividade — o timeout vencia com a senha no meio e
+        # o PC dormia em vez de desbloquear. Agora: lock vivo COM vigília
+        # no ar = DEFERIDO — enquanto travado, o tempo TRAVADO é a
+        # autoridade (a vigília tem orelhas e não dorme sob o dono). Lock
+        # vivo com vigília MORTA = o braço volta a ser rede de fundo
+        # (E47/E30 preservados — o before-sleep mantém o lock vivo). Lock
+        # morto = fluxo normal (LOCK_MIN=0 e wake manual intactos).
+        if pgrep -x hyprlock >/dev/null 2>&1 && pgrep -x craft-vigil >/dev/null 2>&1; then
+            ilog "idle: suspend DEFERIDO — lock vivo com vigília no ar (o tempo TRAVADO manda; o sintoma 'suspende quando digito a senha' era este braço)"
+            exit 0
+        fi
         ilog "suspendindo (idle ${SUSPEND_MIN:-?}min — escuro e travado: acorda no lock, senha UMA vez)"
         if systemctl suspend -i; then
             ilog "suspend: ciclo completo (dormiu e voltou — o idle EXISTE e está no papel)"
         else
             ilog "FALHA: systemctl suspend -i rc=$? — o PC NÃO dormiu (réu nomeado no papel)"
         fi
+        exit 0
         ;;
 esac
 
