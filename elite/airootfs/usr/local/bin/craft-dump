@@ -461,6 +461,13 @@ PY
     # amdgpu/drm/fence (GPU AMD) e nvrm (NVIDIA) gritam aqui — sem estas
     # linhas o papel não julga DRIVER vs callback de usuário.
     r "journalctl -b --no-pager 2>/dev/null | grep -iE 'amdgpu|drm|fence|nvrm|gpu' | tail -30" 34
+    # E69 — A CAÇA AO USB MORTO (relato do dono: voltou do sono e
+    # mouse/teclado NÃO despertam — sem desbloquear o lock): a classe
+    # 'xHC error in resume, USBSTS, Reinit' (prova a4h8/E24) grita aqui;
+    # e o estado da política de wake com o status do craft-wake-guard
+    # (o rebind do elite-resume-usb re-aplica disabled — o papel prova).
+    r "journalctl -b --no-pager 2>/dev/null | grep -iE 'xhci|ehci|ohci|usb.*(error|fail)|PTXH|XHC[0-9]?' | tail -30" 30
+    r "craft-wake-guard status 2>/dev/null || echo '(craft-wake-guard ausente — sistema anterior à 10.11)'" 12
     r "printf 'wlopm: '; command -v wlopm 2>/dev/null || echo ausente; printf 'mem_sleep atual: '; cat /sys/power/mem_sleep 2>/dev/null; true" 4
     r "grep -E '^[#]?Handle(Suspend|Power|Lid)' /etc/systemd/logind.conf 2>/dev/null" 6
     # v2.1 — quem segura inibidor de sono AGORA (o 'tenta e volta' do menu
