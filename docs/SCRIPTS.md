@@ -33,7 +33,7 @@ a tornou verdade: 36 bins + scripts de repo).
 | `craft-idle` | daemon de idle (lock/DPMS/suspend conforme `idle.conf`) + menu em DUAS PORTAS (Tela: trava e apaga / Suspender após o idle — E46) com o valor atual no item; E36: suspend entregue MESMO com Lock=Nunca + `-i` (inibidores ignorados); E44: gesto único normalizado (conf legado X/Y → X/X com aviso) + braços observáveis no `idle.log` (rc de wlopm/suspend no papel); E61: o braço idle do suspend DEFERE com lock vivo + vigia no ar (o tempo TRAVADO manda enquanto travado), o resume renova a marca `idle-activity` que a vigília lê e os braços do daemon SAEM de imediato (nunca caem no menu) |
 | `craft-keyring-wait` | espera o pacman transacional (teto 420s) — ExecStartPre do pacman-init |
 | `craft-lock` | trava a sessão (hyprlock com o wallpaper resolvido) |
-| `craft-logout` | menu de sessão curto (W-Escape / W-x / C-A-Delete) |
+| `craft-logout` | WRAPPER do craft-power — o menu Sessão é UM (W-Escape / W-x / C-A-Delete; ARQUITETURA nº 9: o teclado herda Suspender e Tempo de idle) |
 | `craft-menu` | o motor dmenu dos menus craft-* (fuzzel --dmenu + âncoras + log) |
 | `craft-menu-dismiss` | fecha qualquer menu/OSD aberto (lei de cross-dismiss) |
 | `craft-pin` | fixar/remover/listar pins da dock (`dock-pins` + .bak); E36: duplicata sai rc 1 |
@@ -161,9 +161,9 @@ craft-pin restore                 # desfaz a última alteração
 
 ---
 
-## craft-power (v2.6.0) — `/usr/local/bin/craft-power`
+## craft-power (v2.6.0 + nº 9/E65) — `/usr/local/bin/craft-power`
 
-**O quê:** menu de sessão do botão ⏻ da barra, MINIMALISTA como o dono pediu — entradas: Sair da sessão · Suspender · Reiniciar · Desligar · Tempo de idle… · Rollback do sistema…. **'Travar tela' saiu do menu** (o dono: "é necessária essa opção?" — não: o lock é PARTE do suspender e segue vivo no W-l). **O SUSPENDER DE VERDADE** (o dono: "tenta mas rapidamente liga e fica como se eu só tivesse clicado em travar tela"): trava PRIMEIRO (craft-lock — acorda no wallpaper borrado) e suspende com `systemctl suspend -i` — inibidores de sono de apps (navegador/players) IGNORADOS, que era a morte calada do suspend antigo. Fallback labnag preservado (e o labnag aberto também vira toggle). O menu nasce SOB O BOTÃO (--at=power). Toda abertura e toda falha deixam linha no `menus.log`.
+**O quê:** O menu de sessão da Elite (o ÚNICO desde o nº 9 — o teclado W-x/W-Escape/C-A-Delete chega aqui pelo wrapper craft-logout), do botão ⏻ da barra, MINIMALISTA como o dono pediu — entradas: Sair da sessão · Suspender · Reiniciar · Desligar · Tempo de idle…. **'Travar tela' saiu do menu** (o dono: "é necessária essa opção?" — não: o lock é PARTE do suspender e segue vivo no W-l). **'Rollback do sistema' saiu do menu na E46** (a porta dele é a entrada de snapshot no GRUB). **O SUSPENDER DE VERDADE** (o dono: "tenta mas rapidamente liga e fica como se eu só tivesse clicado em travar tela"): trava PRIMEIRO (craft-lock — acorda no wallpaper borrado) e suspende com `systemctl suspend -i` — inibidores de sono de apps (navegador/players) IGNORADOS, que era a morte calada do suspend antigo. Fallback labnag preservado (e o labnag aberto também vira toggle). O menu nasce SOB O BOTÃO (--at=power). Toda abertura e toda falha deixam linha no `menus.log` (incluída a recusa do Sair da sessão — cinta v2.9.0/E65).
 
 **Como rodar:** clique ESQUERDO no botão ⏻ da barra (custom/power) — a lei dos dois botões v2.7.0: a barra é INTERFACE e clica com o ESQUERDO; o direito fica para o desktop (onde não há botão). O 2º clique no MESMO botão fecha (toggle por pid).
 

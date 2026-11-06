@@ -792,9 +792,10 @@ assert_nogrep "$AUTO" 'nm-applet &' \
 assert_nogrep "$AUTO" 'blueman-applet &' \
   "v2.0: blueman-applet FORA do autostart (mesma classe — o blueman-manager do craft-connect cobre)"
 # v2.3.6 — a lei do fechamento: ESC (exit 1 com stderr vazio) é benigno em
-# TODOS os 6 menus — fechar menu NUNCA é erro (o rig flagrou "erro 1" no
-# fechamento normal da Rede; mesma classe do 143 da v2.3.5).
-for m in craft-power craft-connect craft-bgapps craft-pin-pick craft-logout craft-idle; do
+# TODOS os menus (5 desde o nº 9/E65 — o craft-logout virou wrapper do
+# craft-power e saiu da lista) — fechar menu NUNCA é erro (o rig flagrou
+# "erro 1" no fechamento normal da Rede; mesma classe do 143 da v2.3.5).
+for m in craft-power craft-connect craft-bgapps craft-pin-pick craft-idle; do
   assert_grep "$REPO/elite/airootfs/usr/local/bin/$m" 'fechado pelo usuário \(ESC\)' \
     "v2.3.6: $m — ESC é fechamento benigno (fim do falso 'erro 1')"
 done

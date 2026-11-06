@@ -120,7 +120,18 @@ else
 fi
 
 case "$choice" in
-    'Sair da sessão') labwc --exit ;;
+    'Sair da sessão')
+        # v2.9.0 — A CINTA QUE O Nº 9 TROUXE DE HERANÇA: o reboot e o
+        # poweroff ganharam a cinta (recusa NUNCA é silêncio) e o Sair da
+        # sessão ficou de fora — o craft-logout absorvido guardava o labwc
+        # ausente, mas num stderr que tecla nenhuma vê. Recusa = log + toast.
+        if ! labwc --exit 2>>"$MLOG"; then
+            mlog "Sessão: sair da sessão RECUSADO pelo sistema — detalhe no fim do log"
+            command -v notify-send >/dev/null 2>&1 && \
+                timeout 5 notify-send -a 'Elite' -u normal -t 8000 \
+                    'Sair da sessão falhou' \
+                    'O sistema recusou o encerramento da sessão — detalhe em ~/.cache/elite/menus.log' || true
+        fi ;;
     'Suspender')
         # v2.10.8 — O GATE QUE JULGAVA POR UMA PALAVRA DO LOGIND: no rig o
         # 'loginctl can-suspend' respondeu ≠ yes COM o kernel provando o
