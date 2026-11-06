@@ -475,7 +475,18 @@ pkgver=1.0
 #         ticks quietos; nunca mais suspende sob o dono digitando.
 #     pkgrel 10→11 NO MESMO COMMIT (lei E41 — craft-idle e craft-vigil
 #     mudaram de conteúdo).
-pkgrel=11
+# E62 — O PAPEL É DO DONO TAMBÉM (a foto do rig, 05/nov): o craft-update
+#     gritava 'linha 154: /var/log/elite-update.log: Permissão negada' na
+#     cara do dono — o log nasce root:root 644 (a dose ao ligar é a 1ª a
+#     escrever) e a porta MANUAL do dono escrevia contra a parede: o bash
+#     grita (erro de redirecionamento é do shell — não morre no '|| true')
+#     e as linhas do manual se perdiam inteiras. Cura no ulog: root mantém
+#     o papel aberto (666), o dono cura o próprio pelo sudo já autorizado
+#     da porta (sudo -n — NUNCA prompt por causa de log; frio = silêncio
+#     honesto) e o append viaja em subshell calado.
+#     pkgrel 11→12 NO MESMO COMMIT (lei E41 — craft-update mudou de
+#     conteúdo).
+pkgrel=12
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
