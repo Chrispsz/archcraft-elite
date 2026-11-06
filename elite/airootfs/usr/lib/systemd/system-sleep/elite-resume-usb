@@ -1,0 +1,76 @@
+#!/bin/sh
+# ═══════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · elite-resume-usb (E69 — O DESPERTAR DOS DISPOSITIVOS)
+# ═══════════════════════════════════════════════════════════════════════════
+# O RELATO DO DONO (06/nov, rig no 1.0-18): "quando funciona aparentemente
+# direito, o suspender volta SEM DESPERTAR os dispositivos USB — não
+# consigo sequer desbloquear porque mouse e teclado não funcionam". E o
+# agravante: "isso não tava acontecendo antes" — não é regressão de código:
+# antes da E60/E61 o PC quase nunca dormia (o armador estava quebrado),
+# então esta classe LATENTE não se manifestava; agora que o sono é diário,
+# ela morde. RELATO DE TESTE > PAPEL — a cura segue abaixo, e o veredito
+# final é o ciclo REAL no rig.
+#
+# A CLASSE JÁ TINHA PROVA NO PAPEL: o dump a4h8 (E24) registrou no journal
+# do rig   xhci_hcd 0000:02:00.0: xHC error in resume, USBSTS 0x401, Reinit
+# — o controlador ERRA no resume e o kernel o re-inicializa; a re-init pode
+# falhar em restaurar as portas (dispositivos mortos na cara do lock). A
+# cura E24 (desarmar o wake USB pela regra udev) curou o DESPERTAR SOZINHO
+# — nunca prometeu curar o RETORNO dos dispositivos. ESTE hook é a cura do
+# RETORNO: re-bind (unbind + bind) de CADA controlador USB PCI bound — a
+# re-inicialização DETERMINÍSTICA do controlador, feita à mão. Se o
+# controlador voltou sadio, o custo é a re-enumeracao (~1s — os
+# dispositivos piscam); se voltou morto (a classe acima), o rebind É o
+# despertar.
+#
+# E24 VIGIADA — a re-aplicação da política é PARTE da cura: o bind pode
+# re-nascer com o default 'enabled' do boot; sem re-aplicar
+# wakeup=disabled nos 0x0c03, o rebind reabriria o DESPERTAR SOZINHO (a
+# doença E24 de volta por efeito colateral do próprio remédio).
+#
+# Viaja NO PACOTE elite-system (a lei E57/E63 de um dono por caminho — o
+# rig instalado recebe pelo canal, com UM craft-update). O réu que nem
+# isto alcança fica NOMEADO: o craft-dump seção 10 passa a carregar o
+# journal xhci/usb + o status do craft-wake-guard (E69).
+# ═══════════════════════════════════════════════════════════════════════════
+[ "$1" = "post" ] || exit 0
+
+# 1) O RE-BIND — a re-inicialização determinística. Tres drivers cobrem os
+#    mundos comuns (xHCI = USB3/2 moderno, ehci_pci/ohci_pci = legados).
+rebinds=""
+for drv in xhci_hcd ehci_pci ohci_pci; do
+    ddir="/sys/bus/pci/drivers/$drv"
+    [ -d "$ddir" ] || continue
+    for dev in "$ddir"/[0-9a-f]*/; do
+        [ -d "$dev" ] || continue
+        nome="${dev%/}"
+        nome="${nome##*/}"
+        echo "$nome" > "$ddir/unbind" 2>/dev/null || continue
+        echo "$nome" > "$ddir/bind" 2>/dev/null
+        rebinds="$rebinds $nome($drv)"
+    done
+done
+
+# 2) A POLÍTICA E24 RE-APLICADA — o bind pode re-nascer 'enabled'; a
+#    palavra final do wake é da casa (mesmo predicado da regra udev 0x0c03).
+guardados=0
+for d in /sys/bus/pci/devices/*; do
+    [ -r "$d/power/wakeup" ] || continue
+    cls="$(cat "$d/class" 2>/dev/null)"
+    case "$cls" in
+        0x0c03*) ;;
+        *) continue ;;
+    esac
+    if echo disabled > "$d/power/wakeup" 2>/dev/null; then
+        guardados=$((guardados + 1))
+    fi
+done
+
+# 3) O PAPEL — o silêncio no resume é o buraco que escondeu o 'sem sinal'
+#    (lição E63); aqui a mesma lei: tudo que decide deixa rastro no journal.
+if [ -n "$rebinds" ]; then
+    logger -t elite-resume-usb "controladores USB re-inicializados pós-sono (rebind:$rebinds) · wake-guard E24 re-aplicado em $guardados controlador(es)"
+else
+    logger -t elite-resume-usb "nenhum controlador USB PCI para re-inicializar (nenhum bound ou rebind recusado — o journal do kernel nomeia o réu)"
+fi
+exit 0

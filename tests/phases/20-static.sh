@@ -316,6 +316,24 @@ assert_grep "$RD" 'runuser -u' "E63: o hook roda como CADA usuário de sessão (
 assert_grep "$RD" 'logger -t elite-resume-display' "E63: o hook é OBSERVÁVEL no journal (o silêncio no resume é o buraco que escondeu o 'sem sinal')"
 assert_grep "$RD" 'wayland-\*' "E68: o hook tenta TODOS os sockets wayland-* que existem no runtime (o wayland-0 fixo era aposta — sessão respawnada em wayland-1 ficava FORA da rede)"
 assert_nogrep "$RD" 'WAYLAND_DISPLAY="wayland-0"' "E68: o socket NÃO é mais chutado fixo (a fila vem dos sockets que EXISTEM em /run/user — o chute não volta por descuido)"
+
+# ── E69 — O DESPERTAR DOS DISPOSITIVOS (relato REAL do dono no 1.0-18:
+#    "o suspender volta sem despertar os dispositivos USB — não consigo
+#    sequer desbloquear"): a classe 'xHC error in resume, Reinit' (prova
+#    a4h8/E24) era latente e o sono diário a acordou. A cura: re-bind dos
+#    controladores USB no pós-sono + re-aplicação da política E24.
+#    RELATO DE TESTE > PAPEL — o contrato certifica a rede; o rig julga.
+RU="$REPO/elite/airootfs/usr/lib/systemd/system-sleep/elite-resume-usb"
+index_exec "elite/airootfs/usr/lib/systemd/system-sleep/elite-resume-usb" \
+  "E69: hook elite-resume-usb presente e executável (a cura do RETORNO dos dispositivos — modo 100755 do index, lições E54.1/E60.1)" \
+  "ausente ou sem +x no index — o resume com USB morto fica sem cura no live (203/EXEC)"
+assert_grep "$RU" '\[ "\$1" = "post" \]' "E69: o hook age SÓ no RETORNO do sono (o pre é do elite-sleep-report, o display é do resume-display — cada hook um papel, sem briga)"
+assert_grep "$RU" 'unbind' "E69: o re-bind é a re-inicialização DETERMINÍSTICA do controlador (a classe Reinit do a4h8 não depende da boa vontade do driver — o custo em controlador sadio é ~1s de re-enumeracao)"
+assert_grep "$RU" 'disabled' "E69: a política E24 é RE-APLICADA depois do bind (o re-nascer 'enabled' reabriria o despertar sozinho — a doença de volta por efeito colateral do remédio)"
+assert_nogrep "$RU" 'set -e' "E69: o hook NUNCA falha o ciclo de sono (set -e morreria no primeiro sysfs ausente — o resume não é lugar de abortar)"
+assert_grep "$RU" 'logger -t elite-resume-usb' "E69: o hook é OBSERVÁVEL no journal (rebinds e guardados nomeados — o silêncio no resume é o buraco da lição E63)"
+assert_grep "$REPO/.ci/build.sh" 'elite-resume-usb' "E69: o hook viaja NO PACOTE elite-system (a lei E57/E63 — fora dele o rig instalado NUNCA recebe pelo canal)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'xhci' "E69: o réu do USB morto entra NO PAPEL (journal xhci/usb + status do wake-guard — perícia antes de chute)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-idle" "wlopm --on '\*' \|\| rc=\\\$\\?" "E63: o screenon sonda o rc do wlopm em CADA tentativa (o réu do resume fica nomeado no idle.log — o tiro único morreu)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-idle" 're-armada no resume' "E63: o resume RE-ARMA a vigília (o vigia morre no próprio suspend e o braço idle só DEFERE com vigia no ar — o ciclo de sono reintroduzia o bug da E61)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-vigil" 'craft-idle screenon' "E63: o vigia SOBREVIVE ao próprio suspend e religa a tela no retorno (quem chamou o sono é o primeiro usuário de pé no wake)"

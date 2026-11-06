@@ -366,6 +366,8 @@ shopt -u nullglob
 mkdir -p /tmp/elite-src/elite-system/files/usr/lib/systemd/system-sleep
 cp -p /work/elite/airootfs/usr/lib/systemd/system-sleep/elite-resume-display \
       /tmp/elite-src/elite-system/files/usr/lib/systemd/system-sleep/
+cp -p /work/elite/airootfs/usr/lib/systemd/system-sleep/elite-resume-usb \
+      /tmp/elite-src/elite-system/files/usr/lib/systemd/system-sleep/
 python3 - /tmp/elite-src/elite-system <<'PYE50'
 import sys, pathlib
 d = pathlib.Path(sys.argv[1])
@@ -591,7 +593,20 @@ pkgver=1.0
 #     por usuário, idempotente). O réu que a rede não alcança segue
 #     nomeado no craft-dump seção 10 — perícia antes de cura.
 #     pkgrel 17→18 NO MESMO COMMIT (lei E41 — o hook mudou de conteúdo).
-pkgrel=18
+#
+# 06/nov — E69: O DESPERTAR DOS DISPOSITIVOS (relato do dono NO 1.0-18:
+#     'o suspender volta sem despertar os dispositivos USB — não consigo
+#     sequer desbloquear'): a classe 'xHC error in resume, Reinit' (prova
+#     a4h8/E24) era LATENTE — antes da E60 o PC quase não dormia; agora
+#     que o sono é diário, ela morde. elite-resume-usb NOVO, viaja NO
+#     PACOTE: re-bind (unbind+bind) de cada controlador USB PCI no post
+#     do sono (re-inicialização determinística — o custo em controlador
+#     sadio é ~1s de re-enumeracao; no morto, É o despertar) + re-aplicação
+#     da política E24 (wakeup=disabled nos 0x0c03 — o bind pode re-nascer
+#     'enabled' e reabrir o despertar sozinho). craft-dump ganha o réu USB
+#     (journal xhci/usb + craft-wake-guard status). Relato de teste > papel.
+#     pkgrel 18→19 NO MESMO COMMIT (lei E41 — o pacote mudou de conteúdo).
+pkgrel=19
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
@@ -978,8 +993,12 @@ if grep -qxF 'elite-system' "${PD_E57%profiledef.sh}packages.x86_64"; then
     # E63 — o hook de resume agora é DO PACOTE (a rede de sistema que o
     # rig recebe pelo canal): sai do airootfs antes do pacstrap (a MESMA
     # lei E57 de um dono por caminho — o pacstrap recusa não-dono).
+    # E69 — a cura do RETORNO dos dispositivos USB viaja NO PACOTE
+    # (o mesmo veículo de adoção: o rig instalado só a recebe por ele).
     rm -f "${PD_E57%profiledef.sh}airootfs/usr/lib/systemd/system-sleep/elite-resume-display"
+    rm -f "${PD_E57%profiledef.sh}airootfs/usr/lib/systemd/system-sleep/elite-resume-usb"
     [[ ! -e "${PD_E57%profiledef.sh}airootfs/usr/lib/systemd/system-sleep/elite-resume-display" ]] || { echo "ELITE-FAIL: hook de resume sobreviveu à remoção E57/E63 — o pacote é o ÚNICO dono (nunca dois)" >&2; exit 1; }
+    [[ ! -e "${PD_E57%profiledef.sh}airootfs/usr/lib/systemd/system-sleep/elite-resume-usb" ]] || { echo "ELITE-FAIL: hook de USB sobreviveu à remoção E57/E69 — o pacote é o ÚNICO dono (nunca dois)" >&2; exit 1; }
     # E57.1 — o glob das units nasceu com um PONTO LITERAL ('elite-'.*.service
     # exige um ponto depois de elite- — glob não é regex) e removeu ZERO na
     # prova de 16:27 (build 2): os 35 bins saíram, as 9 units ficaram no
