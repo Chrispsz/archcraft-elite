@@ -4,6 +4,12 @@ Description=Elite: atualização semanal do sistema (snapshot PRE/POST do snappe
 # segurança: snapshot PRE antes, POST depois — quebrou? o GRUB liga o
 # snapshot e o rollback é um reboot. Só na tomada (battery nunca).
 ConditionACPower=yes
+# E64 — A SEMANAL TAMBÉM PULA O LIVE (AUD-B4 da auditoria geral): a
+# doença do E59 foi curada no bootupdate e esquecida na irmã — live usado
+# mais de uma semana levaria -Syu NA MÍDIA (descartável: nada persiste,
+# TCG lento, stderr inobservável). O mesmo marcador da casa:
+# /run/archiso presente = live → a unidade é PULADA (skipped honesto).
+ConditionPathExists=!/run/archiso
 
 [Service]
 Type=oneshot

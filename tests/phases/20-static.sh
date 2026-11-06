@@ -324,6 +324,28 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'elite/idle\.log' "E
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 12→13 NO MESMO COMMIT' "E63: pkgrel elite-system 12→13 NO MESMO COMMIT (lei E41 — cinco bins + o hook novo mudaram de conteúdo; âncora na HISTÓRIA, lição E58/E59)"
 assert_grep "$REPO/.ci/build.sh" 'files/usr/lib/systemd/system-sleep' "E63: o hook viaja NO PACOTE elite-system (fora dele o rig instalado NUNCA receberia pelo canal — system-sleep nunca foi veículo de adoção)"
 assert_grep "$REPO/.ci/build.sh" 'sobreviveu à remoção E57/E63' "E63: a remoção E57 cobre o hook com guard de sobrevivente (o pacote é o ÚNICO dono — o pacstrap recusa não-dono)"
+
+# ── E64 — A ATUALIZAÇÃO FINA (os 5 curáveis do AUD-B da auditoria geral,
+#    num degrau só): feridas de TEMPO e de REDE no sistema de atualização
+#    que o dono aplaudiu — nenhuma estrutural. (1) dose ao ligar com teto
+#    próprio + re-armamento; (2) prova de rede ANTES de qualquer
+#    transação; (3) sentinela nas TRÊS portas; (4) a semanal pula o live;
+#    (5) o keyring-fix tem minutos de parede.
+B64="$REPO/elite/airootfs/etc/systemd/system/elite-bootupdate.service"
+T64="$REPO/elite/airootfs/etc/systemd/system/elite-bootupdate.timer"
+S64="$REPO/elite/airootfs/etc/systemd/system/elite-sysupdate.service"
+K64="$REPO/elite/airootfs/etc/systemd/system/elite-keyring-fix.service"
+CU64="$REPO/elite/airootfs/usr/local/bin/craft-update"
+assert_grep "$B64" '^TimeoutStartSec=15min$' "E64/AUD-B1: a dose ao ligar tem TETO PRÓPRIO (herdava 90s do system.conf — download lento = dose morta por SIGTERM antes de nascer; o --sistema sempre teve 2h, a diária era a órfã)"
+assert_grep "$T64" '^OnUnitInactiveSec=1h$' "E64/AUD-B1: a dose MORTA volta em 1h (OnUnitInactiveSec conta 'deactivated' de rodada viva OU morta — o dia sem cura por um boot apertado morre aqui)"
+assert_grep "$S64" '^ConditionPathExists=!/run/archiso$' "E64/AUD-B4: a semanal TAMBÉM pula o live (a doença E59 curada no bootupdate e esquecida na irmã — live usado >1 semana levaria -Syu NA MÍDIA)"
+assert_grep "$K64" '^TimeoutStartSec=15min$' "E64/AUD-B5: o keyring-fix tem MINUTOS DE PAREDE (pacman-key de minutos morto aos 90s = selo que nunca nasce, re-tenta eterna de 6h)"
+assert_grep "$CU64" 'rede_viva' "E64/AUD-B2: prova de rede ANTES de qualquer transação (curl 8s no db da casa — falha de rede deixa de virar notify CRITICAL a cada boot)"
+assert_grep "$CU64" 'releases/latest/download/elite-local\.db' "E64/AUD-B2: a prova bate no MESMO arquivo que o pacman baixa (o db da casa — overridável por ELITE_NET_URL, a escola do LCK/VMARK/ULOG)"
+assert_grep "$CU64" 'sentinela_db auto canal' "E64/AUD-B3: a sentinela na porta do CANAL (a dose ao ligar esperava zero e morria calada na briga com o keyring aos 120s = dia inteiro sem dose)"
+assert_grep "$CU64" 'sentinela_db auto sistema' "E64/AUD-B3: a sentinela na porta SEMANAL (a mesma briga — agora espera com teto e adia honesta)"
+assert_grep "$CU64" 'já estava em dia' "E64: checagem não é notícia (o re-armamento horário multiplica a dose por 24 — sem novidade, ZERO pop-up; notify é a exceção por delta, escola E48)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 13→14 NO MESMO COMMIT' "E64: pkgrel elite-system 13→14 NO MESMO COMMIT (lei E41 — craft-update + 4 units mudaram de conteúdo; âncora na HISTÓRIA, lição E58/E59)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2.6' "v2.10.18/E30: craft-dump etiqueta v2.6 (etiqueta = conteúdo — wpctl completo)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'date \+%Y%m%d-%H%M%S' "v2.10.11: dump com segundos no STAMP (fim da colisão de dois runs no mesmo minuto — a doença do a4h8)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'if ! : > "\$OUT" 2>/dev/null; then' "v2.10.11: guard de escrita antes do papel (dump root-owned + rerun sem sudo = recusa clara)"

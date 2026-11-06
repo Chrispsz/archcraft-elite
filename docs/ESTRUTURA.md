@@ -35,7 +35,7 @@ archcraft-elite/
 │   │                               ao rig hoje, sem ISO)
 │   ├── verify-install.yml          a instalação provada
 │   └── …                           agentes/artefatos
-├── tests/                      ← A SUÍTE (a cadeia — 2298 peças)
+├── tests/                      ← A SUÍTE (a cadeia — 2436 peças)
 │   ├── lib/                        o ambiente (mocks, extract.sh, core)
 │   └── phases/20…50                estática → unidade → integração → release
 ├── vendor/                     ← FONTES VENDADAS (sha256 pinado; mudou 1
@@ -69,7 +69,7 @@ archcraft-elite/
    guard cobra; sem isso o `-Syu` pula a cura em silêncio).
 4. **Lei da release única viva**: NENHUMA tag no dia a dia (a ISO é
    mensal); o canal diário publica pacotes, nunca toca a release.
-5. **A suíte é a porteira**: 2298 peças em cadeia; fase morta = NO-GO; o
+5. **A suíte é a porteira**: 2436 peças em cadeia; fase morta = NO-GO; o
    CI nunca é o primeiro a ver uma classe de defeito (a lição E49.1).
 
 ## Como navegar (as perguntas mais comuns)
