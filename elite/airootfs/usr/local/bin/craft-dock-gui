@@ -389,6 +389,10 @@ class Dock:
         self.focused = 0           # id da janela focada (0 = nenhuma)
         self._last_act = {}        # app → última janela que NÓS focamos
         self.tl_alive = False      # o daemon falou no último tick?
+        # 06/nov — A GRAÇA DO SNAPSHOT (o "marcador pisca, some e reaparece"
+        # da spec do dono): 1 LIST falho não é morte — é o socket a respirar
+        # (re-fork do daemon, hiccup do unix). Contador de falhas seguidas.
+        self._tl_miss = 0
         self._children = []        # Popen rastreados (a ceifa dos zumbis)
 
         self.win = Gtk.Window()
@@ -1072,14 +1076,26 @@ class Dock:
         # v2.10.3 — a verdade do daemon PRIMEIRO: vivo = a JANELA é o
         # critério do "aberto" (indicador, dinâmicos, verbo do clique);
         # morto = o /proc assume (lei do fallback — nada muda).
+        # 06/nov — GRAÇA DO SNAPSHOT: 1 tick falho (o daemon re-forkando,
+        # o unix socket a respirar) NÃO derruba o último snapshot — derrubar
+        # fazia o marcador apagar e reacender no tick seguinte (o "pisca,
+        # some e reaparece" da spec). O snapshot velho vive até 2 falhas
+        # seguidas; na 3ª é morte real: fallback assumido honesto. Sucesso
+        # zera o contador — o flap de UM tick vira invisível, o estado
+        # morto de verdade continua sendo assumido na mesma cadência.
         snap = self._tl_list()
-        if snap is None:
+        if snap is not None:
+            self._tl_miss = 0
+            self.windows, self.focused = snap
+            self.tl_alive = True
+        elif self.tl_alive and self._tl_miss < 2 and self.windows:
+            self._tl_miss += 1
+            log(f"toplevel: LIST falhou ({self._tl_miss}/2) — snapshot anterior segurado (graça)")
+        else:
+            self._tl_miss += 1
             self.windows = {}
             self.focused = 0
             self.tl_alive = False
-        else:
-            self.windows, self.focused = snap
-            self.tl_alive = True
         for btn, binary, info, hint, did in self.buttons:
             ctx = btn.get_style_context()
             if self.tl_alive:

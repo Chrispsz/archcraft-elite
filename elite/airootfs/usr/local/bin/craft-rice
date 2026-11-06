@@ -29,6 +29,12 @@
 #    DE VOLTA: botões fechar/minimizar/maximizar da casa nas janelas que
 #    pediram para ficar nuas. Fullscreen do jogo segue limpo (regra de
 #    fullscreen não desenha titlebar — o labwc sabe).
+#  20-elite-ssd.xml — A DECORAÇÃO É UMA SÓ (spec do dono 06/nov: "todas,
+#    absolutamente todas as janelas seguem o mesmo padrão"): a família
+#    Chromium/Brave e o imv DESENHAM a própria moldura (CSD) e deixam o
+#    dono sem botões — aqui eles são FORÇADOS à decoração do tema (SSD):
+#    o labwc desenha a titlebar da casa em toda janela da família. Apps
+#    com CSD honesto (foot, GTK da casa) ficam FORA da regra.
 # ═══════════════════════════════════════════════════════════════════════════
 
 MARKER="entregue por craft-rice"
@@ -43,6 +49,23 @@ GAMES="<?xml version=\"1.0\" encoding=\"UTF-8\"?>
 <labwc_config>
   <windowRules>
     <windowRule identifier=\"^steam_app_[0-9]+\$\" serverDecoration=\"yes\" />
+  </windowRules>
+</labwc_config>
+"
+
+# ── fragmento 20-elite-ssd.xml (06/nov — a spec do dono: decoração ÚNICA) ──
+SSD="<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!-- Archcraft ELITE · fragmento de rice 20-ssd ($MARKER) -->
+<!-- O relato do dono: Brave e imv abrem SEM moldura/botões — o
+     Chromium/derivados e o imv desenham a própria janela (CSD) ou pedem
+     para ficar nus, e o labwc OBEDECE. serverDecoration=yes FORÇA a
+     decoração do tema (SSD): o labwc desenha a titlebar da casa com os
+     botões em TODA janela da família — o mesmo padrão de todas as
+     outras janelas do desktop (o imv entra pela mesma lei: sem toolkit,
+     ele não negocia decoração nenhuma). -->
+<labwc_config>
+  <windowRules>
+    <windowRule identifier=\"^(brave-browser|chromium|google-chrome|microsoft-edge|vivaldi-stable|thorium-browser|imv)\$\" serverDecoration=\"yes\" />
   </windowRules>
 </labwc_config>
 "
@@ -64,10 +87,14 @@ ensure_fragment() {
     return 0
 }
 
-# VIVO: reconfigure SÓ quando um fragmento FOI ESCRITO (o labwc relê as
+# VIVO: reconfigure SÓ quando UM fragmento FOI ESCRITO (o labwc relê as
 # regras sem relogin; sem sessão labwc — teste/SSH — o silêncio é o caminho
-# certo, a entrega vale no próximo login)
-if ensure_fragment "10-elite-games.xml" "$GAMES"; then
+# certo, a entrega vale no próximo login). Idêntico (rc 1) e recusado (rc 2)
+# não reconfiguram — escrita nova (rc 0) sim.
+CHANGED=0
+ensure_fragment "10-elite-games.xml" "$GAMES" && CHANGED=1
+ensure_fragment "20-elite-ssd.xml" "$SSD" && CHANGED=1
+if [ "$CHANGED" -eq 1 ]; then
     if command -v labwc-msg >/dev/null 2>&1 \
             && [ -n "${WAYLAND_DISPLAY:-}" ]; then
         labwc-msg reconfigure 2>/dev/null \
