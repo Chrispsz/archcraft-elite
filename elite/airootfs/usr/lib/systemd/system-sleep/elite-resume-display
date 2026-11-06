@@ -1,0 +1,44 @@
+#!/bin/sh
+# ═══════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · elite-resume-display (E63 — A VOLTA DA IMAGEM)
+# ═══════════════════════════════════════════════════════════════════════════
+# O relato do dono (06/nov): suspendeu, voltou — e o monitor ficou SEM
+# SINAL (luz vermelha) até o clique no power desligar o PC. O callback
+# resume do swayidle ('craft-idle screenon') é UM tiro único e pode
+# perder a corrida contra a re-inicialização do driver/compositor — ou
+# nem disparar (swayidle morto durante o sono: o craft-bars o
+# ressuscita, mas o resume do wake que passou já não existe mais).
+# ESTE hook é a REDE DE SISTEMA: roda como root no 'post' do
+# systemd-sleep (TODOS os caminhos de sono atravessam aqui), espera o
+# driver assentar e religa os outputs de cada usuário com sessão
+# gráfica viva. Idempotente com os screenon do usuário (wlopm --on em
+# output aceso é no-op) — três caminhos, zero briga.
+# Viaja NO PACOTE elite-system (a mesma lei E57 de um dono por caminho:
+# fora do pacote, o rig instalado NUNCA o receberia pelo canal).
+# ═══════════════════════════════════════════════════════════════════════════
+[ "$1" = "post" ] || exit 0
+command -v wlopm >/dev/null 2>&1 || exit 0
+
+# O driver/compositor ainda re-inicializam no primeiro instante — janela
+# de sondagem: 5 tentativas × 2s (10s; o screenon do usuário tem a sua).
+i=0
+while [ "$i" -lt 5 ]; do
+    feito=""
+    for uhome in /home/*; do
+        u="${uhome##*/}"
+        uid="$(id -u "$u" 2>/dev/null)" || continue
+        pgrep -u "$uid" -x labwc >/dev/null 2>&1 || continue
+        if runuser -u "$u" -- env XDG_RUNTIME_DIR="/run/user/$uid" \
+            WAYLAND_DISPLAY="wayland-0" wlopm --on '*' >/dev/null 2>&1; then
+            feito="$feito $u"
+        fi
+    done
+    if [ -n "$feito" ]; then
+        logger -t elite-resume-display "outputs religados pós-sono (usuários:$feito)"
+        exit 0
+    fi
+    sleep 2
+    i=$((i + 1))
+done
+logger -t elite-resume-display "FALHA: wlopm não religou os outputs após 5 tentativas (o driver/compositor contam no craft-dump seção 10)"
+exit 0

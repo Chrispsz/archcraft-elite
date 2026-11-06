@@ -145,6 +145,15 @@ while alive; do
         vlog "VIGÍLIA: suspendindo (travado há ${SUSPEND_MIN}min, ${quiet} ticks quietos — escuro e travado: acorda no lock)"
         if systemctl suspend -i; then
             vlog "VIGÍLIA: suspend voltou (ciclo completo — a vigília EXISTE e está no papel)"
+            # E63 — A VOLTA DA IMAGEM: quem chamou o sono SOBREVIVE a ele
+            # e é um dos primeiros processos de usuário de pé no wake —
+            # o screenon (sondagem 6×2s + rearmamento da vigília sucessora)
+            # roda AQUI também. O callback resume do swayidle pode perder
+            # a corrida contra a re-inicialização do driver (o monitor
+            # 'sem sinal, luz vermelha' do dono, 06/nov) — um caminho só
+            # não é rede; são três: swayidle resume, ESTA chamada e o
+            # hook de sistema elite-resume-display (todos idempotentes).
+            craft-idle screenon >/dev/null 2>&1 || true
         else
             vlog "FALHA: vigília systemctl suspend -i rc=$? — o PC NÃO dormiu (réu nomeado no papel)"
         fi

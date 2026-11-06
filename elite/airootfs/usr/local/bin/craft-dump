@@ -456,6 +456,12 @@ PY
     r "journalctl -u systemd-suspend --no-pager 2>/dev/null | grep -E 'elite-sleep' | tail -10" 12
     r "cat /proc/acpi/wakeup 2>/dev/null" 25
     r "journalctl --no-pager 2>/dev/null | grep -iE 'wake(ing|up)?|resume|suspending' | tail -25" 30
+    # E63 — A CAÇA AO RESUME PRETO (relato do dono: suspendeu, voltou SEM
+    # SINAL no monitor — luz vermelha): o réu do resume mora no kernel.
+    # amdgpu/drm/fence (GPU AMD) e nvrm (NVIDIA) gritam aqui — sem estas
+    # linhas o papel não julga DRIVER vs callback de usuário.
+    r "journalctl -b --no-pager 2>/dev/null | grep -iE 'amdgpu|drm|fence|nvrm|gpu' | tail -30" 34
+    r "printf 'wlopm: '; command -v wlopm 2>/dev/null || echo ausente; printf 'mem_sleep atual: '; cat /sys/power/mem_sleep 2>/dev/null; true" 4
     r "grep -E '^[#]?Handle(Suspend|Power|Lid)' /etc/systemd/logind.conf 2>/dev/null" 6
     # v2.1 — quem segura inibidor de sono AGORA (o 'tenta e volta' do menu
     # era app com delay inhibitor; o -i do craft-power ignora, o idle do
@@ -470,8 +476,11 @@ PY
     r "journalctl -b -u elite-firstboot -u grub-btrfsd --no-pager 2>/dev/null | tail -30" 35
 
     printf '\n══════════ 12 · LOGS DA ELITE (evidência recente) ══════════\n'
+    # E63 — o idle.log ENTROU NO PAPEL: é onde moram o rc do wlopm do
+    # resume ('ACORDOU'/'FALHA … tentativa') e a vigília ('re-armada no
+    # resume') — a evidência central da caça ao resume sem vídeo.
     for f in "$UCACHE/elite/bars.log" "$UCACHE/elite/menus.log" \
-             "$UCACHE/elite/dock.log"; do
+             "$UCACHE/elite/idle.log" "$UCACHE/elite/dock.log"; do
         if [ -f "$f" ]; then
             printf '\n── tail %s\n' "$f"
             tail -n 150 "$f"

@@ -985,6 +985,18 @@ assert_grep "$P/airootfs/usr/local/bin/craft-idle" 'idle-activity' "E61: o resum
 assert_grep "$P/airootfs/usr/local/bin/craft-vigil" '/proc/[$]p/stat' "E61: a vigília ganhou a orelha de CPU do hyprlock (utime+stime — a única voz da mão em compositor que não conta input travado)"
 assert_grep "$P/airootfs/usr/local/bin/craft-vigil" 'quiet' "E61: mãos no lock ADIAM o suspend — dormir exige ticks quietos (falso-positivo custa só um suspend mais tarde; falso-negativo é o que não pode existir)"
 assert_grep "$P/airootfs/usr/local/bin/craft-idle" 'exit 0' "E61: os braços do daemon SAEM de imediato — cair no menu pendurava o callback num 'read' com stdin vivo (achado do smoke test: suspend bloqueado 120s)"
+# E63 — A VOLTA DA IMAGEM (o dono: suspendeu, voltou SEM SINAL no monitor
+# — luz vermelha; cliquei Power e o PC desligou): o resume é a doença —
+# o output morre DESLIGADO no DRM com o sistema já de pé. Três caminhos
+# de religar (screenon sonda + vigia sobrevivente + hook de sistema),
+# todos idempotentes; e o hook viaja NO PACOTE (o rig recebe pelo canal).
+assert_grep "$P/airootfs/usr/local/bin/craft-idle" 'tentativa \$\(\(i \+ 1\)\)' "E63: o screenon virou SONDA (o wlopm de UMA vez perde a corrida contra a re-init do driver — o monitor 'sem sinal' com o sistema de pé)"
+assert_grep "$P/airootfs/usr/local/bin/craft-idle" 'setsid craft-vigil >/dev/null 2>&1 &' "E63: o resume RE-ARMA a vigília quando o lock sobrevive ao sono (vigia morto no próprio suspend = o braço idle podia dormir sob as mãos de novo — o bug da E61 de volta pelo ciclo de sono)"
+assert_grep "$P/airootfs/usr/local/bin/craft-vigil" 'craft-idle screenon' "E63: o vigia sobrevive ao próprio suspend e religa a tela no retorno (quem chamou o sono é o primeiro usuário de pé no wake)"
+assert_file "$P/airootfs/usr/lib/systemd/system-sleep/elite-resume-display" "E63: o hook de system-sleep existe (a rede de SISTEMA do resume — TODOS os caminhos de sono atravessam, mesmo com o swayidle morto)"
+assert_grep "$P/airootfs/usr/lib/systemd/system-sleep/elite-resume-display" '\[ "\$1" = "post" \]' "E63: o hook age SÓ no retorno do sono (o pre é do elite-sleep-report — cada hook um papel)"
+assert_grep "$P/airootfs/usr/lib/systemd/system-sleep/elite-resume-display" 'runuser -u' "E63: o hook religa os outputs como CADA usuário de sessão (wlopm é cliente Wayland — root não tem display)"
+assert_grep "$REPO/.ci/build.sh" 'files/usr/lib/systemd/system-sleep' "E63: o hook viaja NO PACOTE elite-system (a rede de sistema chega ao rig pelo canal — fora do pacote ele nunca chegaria)"
 assert_grep "$P/airootfs/usr/local/bin/craft-idle" "timeout [$]\(\(OFF_MIN \* 60\)\) 'craft-idle screenoff" "v1.6.1/E44: DPMS no timeout do CONF (tela APAGA — e agora via subcomando OBSERVÁVEL: o rc do wlopm fica no idle.log; o cru calado era o buraco que escondeu 'a tela nunca apaga')"
 assert_nogrep "$P/airootfs/etc/skel/.config/labwc/autostart" 'swaylock -f|exec swaylock' "v1.5: invocação do swaylock EXTINTA do autostart (tela branca → hyprlock)"
 # W-v clipboard + menu com os apps novos

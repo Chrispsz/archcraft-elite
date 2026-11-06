@@ -300,6 +300,30 @@ index_exec "elite/airootfs/usr/lib/systemd/system-sleep/elite-sleep-report" \
   "v2.10.11: hook elite-sleep-report presente e executável (perícia do sono no journal; modo 100755 do index — v2.10.26/E39)" \
   "ausente ou sem +x no index — se o sono voltar curto, o dump não nomeia o suspeito restante"
 assert_grep "$SR" 'pre)' "v2.10.11: hook elite-sleep-report registra wake sources armadas ANTES de dormir"
+
+# ── E63 — A VOLTA DA IMAGEM (relato do dono: suspendeu, voltou SEM SINAL
+# no monitor — luz vermelha; cliquei Power e o PC desligou). O SUSPEND
+# acontece (E60/E61) e o RESUME é a doença: o output morre DESLIGADO no
+# DRM com o sistema já de pé. Três caminhos de religar, idempotentes +
+# a perícia que nomeia o réu (idle.log + kernel no papel).
+RD="$REPO/elite/airootfs/usr/lib/systemd/system-sleep/elite-resume-display"
+index_exec "elite/airootfs/usr/lib/systemd/system-sleep/elite-resume-display" \
+  "E63: hook elite-resume-display presente e executável (a rede de SISTEMA do resume; modo 100755 do index — lição E54.1)" \
+  "ausente ou sem +x no index — o resume sem vídeo fica sem rede de sistema (203/EXEC no live)"
+assert_grep "$RD" '\[ "\$1" = "post" \]' "E63: o hook age SÓ no RETORNO do sono (o pre é do elite-sleep-report — cada hook um papel, sem briga)"
+assert_grep "$RD" 'wlopm --on' "E63: o hook religa os outputs pós-sono (a mesma ferramenta dos braços do usuário — idempotente com eles)"
+assert_grep "$RD" 'runuser -u' "E63: o hook roda como CADA usuário de sessão (wlopm é cliente Wayland — root não tem display)"
+assert_grep "$RD" 'logger -t elite-resume-display' "E63: o hook é OBSERVÁVEL no journal (o silêncio no resume é o buraco que escondeu o 'sem sinal')"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-idle" "wlopm --on '\*' \|\| rc=\\\$\\?" "E63: o screenon sonda o rc do wlopm em CADA tentativa (o réu do resume fica nomeado no idle.log — o tiro único morreu)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-idle" 're-armada no resume' "E63: o resume RE-ARMA a vigília (o vigia morre no próprio suspend e o braço idle só DEFERE com vigia no ar — o ciclo de sono reintroduzia o bug da E61)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-vigil" 'craft-idle screenon' "E63: o vigia SOBREVIVE ao próprio suspend e religa a tela no retorno (quem chamou o sono é o primeiro usuário de pé no wake)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-power" 'pgrep -x hyprlock >/dev/null 2>&1; do' "E63: o craft-power espera o lock NASCER (o 0.6s fixo era aposta contra o blur de segundos — E47)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-install-stage" 'nvidia-suspend\.service nvidia-resume\.service' "E63: a VRAM preservada (PreserveVideoMemoryAllocations) ganhou os SERVIÇOS que a salvam/restauram — sem eles o resume NVIDIA nasce preto"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'amdgpu\|drm\|fence\|nvrm' "E63: o papel julga o DRIVER no resume (o réu de kernel era invisível — a classe do 'sem sinal' fica nomeada)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'elite/idle\.log' "E63: o idle.log entra NO PAPEL (o rc do wlopm do resume e o rearmamento da vigília são a evidência central)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 12→13 NO MESMO COMMIT' "E63: pkgrel elite-system 12→13 NO MESMO COMMIT (lei E41 — cinco bins + o hook novo mudaram de conteúdo; âncora na HISTÓRIA, lição E58/E59)"
+assert_grep "$REPO/.ci/build.sh" 'files/usr/lib/systemd/system-sleep' "E63: o hook viaja NO PACOTE elite-system (fora dele o rig instalado NUNCA receberia pelo canal — system-sleep nunca foi veículo de adoção)"
+assert_grep "$REPO/.ci/build.sh" 'sobreviveu à remoção E57/E63' "E63: a remoção E57 cobre o hook com guard de sobrevivente (o pacote é o ÚNICO dono — o pacstrap recusa não-dono)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2.6' "v2.10.18/E30: craft-dump etiqueta v2.6 (etiqueta = conteúdo — wpctl completo)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'date \+%Y%m%d-%H%M%S' "v2.10.11: dump com segundos no STAMP (fim da colisão de dois runs no mesmo minuto — a doença do a4h8)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'if ! : > "\$OUT" 2>/dev/null; then' "v2.10.11: guard de escrita antes do papel (dump root-owned + rerun sem sudo = recusa clara)"

@@ -245,6 +245,14 @@ elif [ "$ELITE_GPU" = "nvidia" ]; then
     grep -q '^MODULES=(nvidia' "${ROOT}/etc/mkinitcpio.conf" 2>/dev/null ||
         sed -i 's|^MODULES=.*|MODULES=(nvidia nvidia_modeset nvidia_uvm nvidia_drm)|' "${ROOT}/etc/mkinitcpio.conf" 2>/dev/null || true
     printf '%s\n' '# ELITE: NVIDIA (modeset+fbdev p/ Wayland; VRAM preservada em suspend)' 'options nvidia-drm modeset=1 fbdev=1' 'options nvidia NVreg_PreserveVideoMemoryAllocations=1 NVreg_TemporaryFilePath=/var/tmp' > "${ROOT}/etc/modprobe.d/00-elite-nvidia.conf"
+    # E63 — A VRAM PRESERVADA PRECISA DOS SERVIÇOS DO DRIVER NO AR: o
+    # PreserveVideoMemoryAllocations só vale se o nvidia-suspend salvar a
+    # memória no pre-sono e o nvidia-resume restaurá-la no wake — sem os
+    # serviços, o modeset re-inicializa com VRAM perdida e o resume nasce
+    # PRETO (a mesma classe do relato do dono, no ramo AMD o driver faz
+    # sozinho). A instalação agora os habilita — o elite-tune (interativo)
+    # continua como segunda porta, idempotente.
+    arch-chroot "$ROOT" systemctl enable nvidia-suspend.service nvidia-resume.service nvidia-hibernate.service nvidia-persistenced.service 2>/dev/null || true
     if grep -q '^GRUB_CMDLINE_LINUX_DEFAULT=' "${ROOT}/etc/default/grub" 2>/dev/null; then
         grep -q 'nvidia_drm.fbdev' "${ROOT}/etc/default/grub" ||
             sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT=/s/"$/ nvidia_drm.modeset=1 nvidia_drm.fbdev=1"/' "${ROOT}/etc/default/grub"
