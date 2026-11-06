@@ -581,7 +581,17 @@ pkgver=1.0
 #     leva --type=; órfão virava programa fantasma na lista).
 #     pkgrel 16→17 NO MESMO COMMIT (lei E41 — os 3 scripts mudaram de
 #     conteúdo).
-pkgrel=17
+#
+# 06/nov — E68: A REDE DE RESUME GANHA A FILA DE SOCKETS (relato do dono
+#     já no 1.0-17: 'meio que liga mas sem imagem no monitor'): o
+#     WAYLAND_DISPLAY do elite-resume-display era um CHUTE FIXO em
+#     wayland-0 — sessão respawnada herda outro número (wayland-1,
+#     wayland-2…) e o wlopm moria calado DENTRO das 5 tentativas. A fila
+#     agora vem dos sockets que EXISTEM em /run/user/$uid (wayland-*,
+#     por usuário, idempotente). O réu que a rede não alcança segue
+#     nomeado no craft-dump seção 10 — perícia antes de cura.
+#     pkgrel 17→18 NO MESMO COMMIT (lei E41 — o hook mudou de conteúdo).
+pkgrel=18
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
