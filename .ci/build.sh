@@ -835,7 +835,21 @@ pkgver=1.0
 #     duplicata não morre calada.
 #     pkgrel 27→28 NO MESMO COMMIT (lei E41 — craft-pin e craft-pin-pick
 #     mudaram de conteúdo).
-pkgrel=28
+# E77 — O PORTÃO E A AUTORIDADE ÚNICA (a spec do dono: corrida de estado
+#     no bloqueio/suspensão — timers estritamente sequenciais e
+#     mutuamente exclusivos; resume não re-suspende até o destravo):
+#     craft-idle ganhou o braço sleep-hook (o choke point universal do
+#     before-sleep: portão fecha PRIMEIRO, lock --if-needed desapegado
+#     depois), o braço suspend virou autoridade única sob lock vivo
+#     (defere SEMPRE e re-arma a vigília morta — a janela 'suspende no
+#     meio da senha' morreu) e obedece ao portão; craft-vigil obedece ao
+#     portão (teto estourado + portão fechado = espera o destravo),
+#     fecha-o antes do próprio suspend e abre-o na saída natural
+#     (destravo) e na graça que falha. Prova FUNCIONAL no 30-unit: 27
+#     peças novas com processos reais e stubs de papel.
+#     pkgrel 28→29 NO MESMO COMMIT (lei E41 — craft-idle e craft-vigil
+#     mudaram de conteúdo).
+pkgrel=29
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

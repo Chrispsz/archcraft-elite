@@ -1633,6 +1633,133 @@ fi
 assert_grep "$STCL/hyprlock.log" 'hyprlock' "E47/lock: o manual nasceu lock NOVO (quem aperta W-l quer o lock na hora, não um fantasma)"
 kill "$fk2pid" 2>/dev/null || true
 
+# ── E77 — O PORTÃO E A AUTORIDADE ÚNICA NO COMPORTAMENTO (a spec do
+#    dono: bloqueio/DPMS/suspensão são timers ESTRITAMENTE sequenciais e
+#    mutuamente exclusivos; resume não re-suspende até o destravo e um
+#    novo período completo). Os DOIS buracos da era E61 provados com
+#    processos REAIS (pgrep/procfs de verdade, hyprlock fake = /bin/sleep
+#    com o comm certo — a casa E47) e stubs de papel (wlopm/vigília/
+#    systemctl): (A) o braço idle suspendia com lock vivo + vigília MORTA
+#    — a janela do 'suspende no meio da senha' que a E61 fechava só com
+#    vigia no ar; (B) o pós-sono re-suspendia sem destravo NENHUM (o wake
+#    re-armava tudo do zero — o ciclo dorme/acorda/dorme que a spec
+#    proíbe). O PORTÃO vive no XDG_RUNTIME_DIR isolado do teste.
+pkill -x craft-vigil 2>/dev/null || true   # nenhum vigia fantasma da cena anterior
+MOCK77="$WORK/mocks-e77"; mkdir -p "$MOCK77"
+cat > "$MOCK77/wlopm" <<'EOF'
+#!/usr/bin/env bash
+ST="${MOCK_DIR:?}"; mkdir -p "$ST"
+printf 'wlopm %s\n' "$*" >> "$ST/wlopm.log"
+EOF
+cat > "$MOCK77/craft-vigil" <<'EOF'
+#!/usr/bin/env bash
+ST="${MOCK_DIR:?}"; mkdir -p "$ST"
+printf 'vigilia %s\n' "$*" >> "$ST/vigil.log"
+EOF
+cat > "$MOCK77/systemctl" <<'EOF'
+#!/usr/bin/env bash
+ST="${MOCK_DIR:?}"; mkdir -p "$ST"
+printf 'systemctl %s\n' "$*" >> "$ST/systemctl.log"
+EOF
+cat > "$MOCK77/hyprlock" <<'EOF'
+#!/usr/bin/env bash
+ST="${MOCK_DIR:?}"; mkdir -p "$ST"
+printf 'hyprlock %s\n' "$*" >> "$ST/hyprlock.log"
+EOF
+chmod +x "$MOCK77/wlopm" "$MOCK77/craft-vigil" "$MOCK77/systemctl" "$MOCK77/hyprlock"
+# o CRAFT-LOCK REAL entra no PATH do teste: o sleep-hook o convoca (o
+# mock de hyprlock é quem registra o nascimento — a mesma cena da E47)
+cp "$REPO/elite/airootfs/usr/local/bin/craft-lock" "$MOCK77/craft-lock"
+CI77="$REPO/elite/airootfs/usr/local/bin/craft-idle"
+ST77="$WORK/state-e77"; RT77="$WORK/xdg-e77"; CF77="$WORK/conf-e77"
+mkdir -p "$CF77/elite"
+e77_env() { XDG_RUNTIME_DIR="$RT77" XDG_CONFIG_HOME="$CF77" XDG_CACHE_HOME="$ST77" PATH="$MOCK77:$PATH" MOCK_DIR="$ST77" bash "$CI77" "$@"; }
+
+# (A1) lock VIVO + vigília MORTA → DEFERE e RE-ARMA a vigília; ninguém dorme
+rm -rf "$ST77" "$RT77"; mkdir -p "$ST77" "$RT77"
+FK77="$WORK/fake-lock77"; mkdir -p "$FK77"; cp /bin/sleep "$FK77/hyprlock"
+"$FK77/hyprlock" 30 & fk77=$!
+sleep 0.1
+e77_env suspend >/dev/null 2>&1; rc=$?
+assert_eq "$rc" "0" "E77/idle: o braço suspend conclui (defer não é falha — é a hierarquia da spec)"
+assert_nogrep "$ST77/systemctl.log" 'suspend' "E77/idle: lock vivo = o braço idle NUNCA dorme (a janela 'vigia morto + senha no meio' da E61 morre — T3 tem UM juiz)"
+sleep 0.3   # a corrida do setsid: a parteira escreve o papel antes da perícia ler
+assert_grep "$ST77/vigil.log" 'vigilia' "E77/idle: a vigília morta foi RE-ARMADA pelo braço (a parteira — o suspend prometido nunca fica órfão, mas é da vigília)"
+assert_grep "$ST77/elite/idle.log" 'RE-ARMADA' "E77/idle: o defer do vigia-morto deixa RÉU NOMEADO no papel (a lei E33/E44 do corpo)"
+kill "$fk77" 2>/dev/null || true
+
+# (A2) lock VIVO + vigília VIVA → defer da E61 PRESERVADO (sem re-arme duplicado)
+rm -rf "$ST77" "$RT77"; mkdir -p "$ST77" "$RT77"
+"$FK77/hyprlock" 30 & fk77=$!
+cp /bin/sleep "$FK77/craft-vigil"
+"$FK77/craft-vigil" 30 & fv77=$!
+sleep 0.1
+e77_env suspend >/dev/null 2>&1; rc=$?
+assert_eq "$rc" "0" "E77/idle: lock vivo + vigília viva conclui (o defer da E61 segue lei)"
+assert_nogrep "$ST77/systemctl.log" 'suspend' "E77/idle: lock vivo + vigília viva = ninguém dorme (o tempo TRAVADO manda — o sintoma 'suspende quando digito a senha')"
+assert_nogrep "$ST77/vigil.log" 'vigilia' "E77/idle: vigília VIVA não é re-armada (a parteira só nasce vigia morto — zero duplicação de juiz)"
+kill "$fk77" "$fv77" 2>/dev/null || true
+
+# (B1) lock MORTO + portão FECHADO → defer (o pós-sono sem destravo não re-suspende)
+rm -rf "$ST77" "$RT77"; mkdir -p "$ST77" "$RT77/elite"
+: > "$RT77/elite/idle-suspend-gate"
+e77_env suspend >/dev/null 2>&1; rc=$?
+assert_eq "$rc" "0" "E77/portão: o defer no pós-sono conclui (a spec: resume não re-suspende até o destravo)"
+assert_nogrep "$ST77/systemctl.log" 'suspend' "E77/portão: portão fechado = NENHUM timer suspende (o ciclo dorme/acorda/dorme da era E61 morre)"
+assert_grep "$ST77/elite/idle.log" 'portão fechado' "E77/portão: o defer do portão deixa linha no papel (réu nomeado, não silêncio)"
+
+# (B2) lock MORTO + portão ABERTO → dorme E fecha o portão (o LOCK=0 segue E36)
+rm -rf "$ST77" "$RT77"; mkdir -p "$ST77" "$RT77"
+e77_env suspend >/dev/null 2>&1; rc=$?
+assert_eq "$rc" "0" "E77/portão: portão aberto + lock morto = o suspend do idle EXISTE (a promessa E36 do LOCK=0 intacta)"
+assert_grep "$ST77/systemctl.log" 'systemctl suspend -i' "E77/portão: o braço dorme DE VERDADE quando o ciclo está pago (mesma dose do E60)"
+assert_file "$RT77/elite/idle-suspend-gate" "E77/portão: o sono FECHA o portão no próprio braço (cinto-e-suspensório do sleep-hook — swayidle morto também fica coberto)"
+
+# (B3) screenon com lock MORTO ABRE o portão (a rede dos vigias que morreram no sono)
+rm -rf "$ST77" "$RT77"; mkdir -p "$ST77" "$RT77/elite"
+: > "$RT77/elite/idle-suspend-gate"
+e77_env screenon >/dev/null 2>&1; rc=$?
+assert_eq "$rc" "0" "E77/portão: o screenon conclui (o ciclo E75 de vídeo segue de pé)"
+assert_nofile "$RT77/elite/idle-suspend-gate" "E77/portão: lock morto no screenon = portão ABERTO (a primeira atividade paga o resume — o ciclo pode recomeçar)"
+assert_grep "$ST77/elite/idle.log" 'portão ABERTO' "E77/portão: a abertura deixa linha no papel (tudo que decide registra — lei da casa)"
+assert_nogrep "$ST77/vigil.log" 'vigilia' "E77/portão: lock morto NÃO re-arma vigília (não vigiar o que não existe — a honestidade da E60)"
+
+# (B4) screenon com lock VIVO NÃO abre o portão (o wake de DPMS não quebra o isolamento)
+rm -rf "$ST77" "$RT77"; mkdir -p "$ST77" "$RT77/elite"
+: > "$RT77/elite/idle-suspend-gate"
+"$FK77/hyprlock" 30 & fk77=$!
+sleep 0.1
+e77_env screenon >/dev/null 2>&1; rc=$?
+assert_eq "$rc" "0" "E77/portão: o screenon com lock vivo conclui (o ciclo E75 + re-arme E63 intactos)"
+assert_file "$RT77/elite/idle-suspend-gate" "E77/portão: mouse na tela de bloqueio apagada NÃO abre o que o sono fechou (o isolamento sobrevive ao wake de DPMS puro)"
+sleep 0.3
+assert_grep "$ST77/vigil.log" 'vigilia' "E77/portão: o re-arme da vigília no resume segue lei (E63 preservada dentro da E77)"
+kill "$fk77" 2>/dev/null || true
+
+# (B5) sleep-hook: o portão FECHA no instante do sono e o lock vivo sobrevive (E47 dentro do hook)
+rm -rf "$ST77" "$RT77"; mkdir -p "$ST77" "$RT77"
+"$FK77/hyprlock" 30 & fk77=$!
+sleep 0.1
+e77_env sleep-hook >/dev/null 2>&1; rc=$?
+assert_eq "$rc" "0" "E77/sono: o sleep-hook conclui (o before-sleep único da receita nova)"
+assert_file "$RT77/elite/idle-suspend-gate" "E77/sono: o portão fecha no PrepareForSleep (choke point universal: vigília, braço, menu, tampa)"
+if kill -0 "$fk77" 2>/dev/null; then
+  ok "E77/sono: o lock VIVO sobrevive ao sleep-hook (a cura E47 mora dentro do hook — ninguém recria o que já está na tela)"
+else
+  fail "E77/sono: o lock VIVO sobrevive ao sleep-hook" "o fake morreu — o hook brigaria com o lock na janela do logind"
+fi
+assert_nogrep "$ST77/hyprlock.log" '.' "E77/sono: nenhum hyprlock NOVO nasce com lock vivo (o --if-needed dentro do hook)"
+kill "$fk77" 2>/dev/null || true
+
+# (B6) sleep-hook com lock MORTO: o lock RENASCE (acorda no lock — a promessa E47)
+rm -rf "$ST77" "$RT77"; mkdir -p "$ST77" "$RT77"
+e77_env sleep-hook >/dev/null 2>&1; rc=$?
+assert_eq "$rc" "0" "E77/sono: o sleep-hook com lock morto conclui (o fork desapegado — o gesto do craft-power)"
+_w=0
+while [ "$_w" -lt 20 ] && [ ! -s "$ST77/hyprlock.log" ]; do sleep 0.1; _w=$((_w + 1)); done
+assert_grep "$ST77/hyprlock.log" 'hyprlock' "E77/sono: o lock morto RENASCE no sono (o acordar nunca fica sem lock — E47 preservada no handler único)"
+assert_file "$RT77/elite/idle-suspend-gate" "E77/sono: o portão fecha MESMO com o lock renascendo (o sono é o sono — o isolamento não depende de quem dorme)"
+
 # ── E48 — craft-bgapps v4.2 NO COMPORTAMENTO (a lição E35.1/E42: texto
 #    não prova): processos REAIS com WAYLAND_DISPLAY no environ — o comm
 #    de python3 invocado DIRETO é 'python3' (o interpretador; provado no
