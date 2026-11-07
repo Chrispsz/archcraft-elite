@@ -30,3 +30,11 @@ XCURSOR_SIZE=24
 # nativo = a janela negocia xdg-decoration e a regra universal do
 # craft-rice (rc.xml.d/20-elite-ssd.xml) entrega a moldura do COMPOSITOR.
 ELECTRON_OZONE_PLATFORM_HINT=auto
+
+# E74 — FASE 2 (a spec: "SSD e CSD unificados para TODAS as janelas"): o
+# GTK3 respeita o GTK_CSD=0 e entrega a decoração ao COMPOSITOR — a mesma
+# moldura do craft-rice (rc.xml.d/20-elite-ssd.xml) para quem não passa
+# pela negociação xdg-decoration. GTK4/libadwaita ignora o hint (CSD-nato,
+# realidade do protocolo, documentada honestamente) — a regra universal
+# do compositor segue sendo a lei geral.
+GTK_CSD=0

@@ -379,15 +379,19 @@
       <action name="Exit" />
     </keybind>
 
-    <!-- ===== Mídia (knob do F75 Max + teclas Fn de notebook/fone) ===== -->
+    <!-- ===== Mídia (knob do F75 Max + teclas Fn de notebook/fone) =====
+         E74 — Fase 3: volume/brilho ganham OSD (swayosd — a barra per-
+         centual flutuante). O client pede E O daemon aplica; sem daemon
+         vivo, o || degrada ao pactl/brightnessctl puro: a barra some,
+         a função NUNCA morre. Mic segue pactl (sem OSD — consciente). -->
     <keybind key="XF86AudioRaiseVolume">
-      <action name="Execute" command="pactl set-sink-volume @DEFAULT_SINK@ +5%" />
+      <action name="Execute" command="sh -c 'swayosd-client --volume +5 || pactl set-sink-volume @DEFAULT_SINK@ +5%'" />
     </keybind>
     <keybind key="XF86AudioLowerVolume">
-      <action name="Execute" command="pactl set-sink-volume @DEFAULT_SINK@ -5%" />
+      <action name="Execute" command="sh -c 'swayosd-client --volume -5 || pactl set-sink-volume @DEFAULT_SINK@ -5%'" />
     </keybind>
     <keybind key="XF86AudioMute">
-      <action name="Execute" command="pactl set-sink-mute @DEFAULT_SINK@ toggle" />
+      <action name="Execute" command="sh -c 'swayosd-client --volume mute-toggle || pactl set-sink-mute @DEFAULT_SINK@ toggle'" />
     </keybind>
     <keybind key="XF86AudioMicMute">
       <action name="Execute" command="pactl set-source-mute @DEFAULT_SOURCE@ toggle" />
@@ -405,10 +409,10 @@
       <action name="Execute" command="playerctl previous" />
     </keybind>
     <keybind key="XF86MonBrightnessUp">
-      <action name="Execute" command="brightnessctl set +10%" />
+      <action name="Execute" command="sh -c 'swayosd-client --brightness +10% || brightnessctl set +10%'" />
     </keybind>
     <keybind key="XF86MonBrightnessDown">
-      <action name="Execute" command="brightnessctl set 10%-" />
+      <action name="Execute" command="sh -c 'swayosd-client --brightness -10% || brightnessctl set 10%-'" />
     </keybind>
   </keyboard>
 

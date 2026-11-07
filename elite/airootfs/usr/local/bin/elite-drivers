@@ -1,0 +1,120 @@
+#!/bin/bash
+# ═══════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · elite-drivers (v1.0 — E74, Fase 6 do protocolo do dono)
+# ═══════════════════════════════════════════════════════════════════════════
+# "Detecção e isolamento de perfil": a máquina só deve carregar componente
+# do hardware QUE ELA TEM. O elite-tune [4] é o instalanço profundo (modpro-
+# be/GRUB/serviços); ESTE é o repórter autônomo: detecta por lspci (classe
+# VGA/3D/Display, vendor 1002=AMD · 8086=Intel · 10de=NVIDIA), compara com
+# o que está instalado e AGE só sob pedido:
+#
+#   elite-drivers             RELATÓRIO (raiz não precisado — sempre honesto)
+#   elite-drivers --apply     instala o que falta do(s) perfil(is) detectado(s)
+#   elite-drivers --purge     LISTA os pacotes de vendor estranho ao hardware
+#   elite-drivers --purge --yes   executa a purga (raiz; NUNCA é silenciosa)
+#
+# LEI DA PURGA: o relato do dono manda "purga automática de bloatware", mas
+# pacman -R silencioso é a receita do sistema partido — o --purge SEM --yes
+# só LISTA (o papel E33 em forma de flag). A profundidade NVIDIA (GSP/gen)
+# continua no elite-tune [4]; aqui é presença/falta, não afinamento.
+# Costura de teste: ELITE_LSPCI_DATA (texto lspci injetado) + PACMAN_BIN.
+# ═══════════════════════════════════════════════════════════════════════════
+set -u
+PACMAN="${PACMAN_BIN:-pacman}"
+APPLY=0; PURGE=0; YES=0
+for a in "$@"; do
+    case "$a" in
+        --apply) APPLY=1 ;;
+        --purge) PURGE=1 ;;
+        --yes)   YES=1 ;;
+        -h|--help) sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        *) printf 'elite-drivers: modo desconhecido: %s\n' "$a" >&2; exit 2 ;;
+    esac
+done
+
+if [[ "${ELITE_LSPCI_DATA+x}" == x ]]; then
+    # setado MESMO VAZIO = "sem hardware" é uma resposta honesta (o fixture
+    # no-vga é vazio de propósito); vazio indeterminado = lspci de verdade
+    HW="$(printf '%s\n' "$ELITE_LSPCI_DATA")"
+else
+    command -v lspci >/dev/null 2>&1 || { printf 'elite-drivers: lspci ausente (pciutils?) — nada a relatar\n' >&2; exit 3; }
+    HW="$(lspci -nn 2>/dev/null | grep -Ei 'vga|3d|display')"
+fi
+
+have() { "$PACMAN" -Qq "$1" >/dev/null 2>&1; }
+missing() { ! have "$1"; }
+
+# A detecção aceita os DOIS mundos: ID de vendor (lspci -nn: [1002:7480])
+# OU nome (lspci cru: "AMD/ATI Navi 33") — os fixtures dos testes são crus.
+# CICATRIZ v1.0: 'ati' solto casava "VGA compATIble controller" — TODO
+# hardware virava AMD; a fronteira de palavra (\b) mata o falso positivo
+# e 'advanced micro devices' cobre o lspci sem abreviação.
+AMD=0; INTEL=0; NVIDIA=0
+printf '%s\n' "$HW" | grep -qEi '1002:|amd|advanced micro|\bati\b' && AMD=1
+printf '%s\n' "$HW" | grep -qEi '8086:|intel' && INTEL=1
+printf '%s\n' "$HW" | grep -qEi '10de:|nvidia' && NVIDIA=1
+
+if (( AMD + INTEL + NVIDIA == 0 )); then
+    printf 'elite-drivers: nenhum controlador gráfico reconhecido (1002/8086/10de) — nada a fazer\n'
+    printf '%s\n' "$HW" | sed 's/^/    hw: /'
+    exit 0
+fi
+
+printf 'elite-drivers: relatório do hardware\n'
+printf '%s\n' "$HW" | sed 's/^/    hw: /'
+
+# ── o papel de cada vendor (o QUE DEVE existir quando o hardware existe) ────
+# Arrays de ponta a ponta: o split de palavra intencional é o réu clássico
+# do shellcheck (SC2086) — aqui não existe: cada peça é um elemento.
+AMD_WANT=(mesa vulkan-radeon radeontop lact)
+INTEL_WANT=(mesa vulkan-intel intel-media-driver)
+NV_WANT=(nvidia-utils)
+# bloatware = componente de vendor SEM hardware (a purga é a lista disto)
+AMD_ONLY=(vulkan-radeon lib32-vulkan-radeon radeontop lact corectrl)
+INTEL_ONLY=(vulkan-intel intel-media-driver)
+NV_ONLY=(nvidia-utils nvidia-open-dkms nvidia-dkms nvidia-settings nvidia-prime)
+
+install_missing() {
+    local -a want=() miss=()
+    local tag p
+    tag="$1"; shift
+    want=("$@")
+    for p in "${want[@]}"; do missing "$p" && miss+=("$p"); done
+    if (( ${#miss[@]} == 0 )); then
+        printf '  %s: completo (nada a instalar)\n' "$tag"
+        return 0
+    fi
+    printf '  %s: faltando: %s\n' "$tag" "${miss[*]}"
+    (( APPLY )) || return 0
+    (( EUID == 0 )) || { printf '  ERRO: --apply exige root (sudo elite-drivers --apply)\n'; return 4; }
+    printf '  \$ pacman -S --needed --noconfirm %s\n' "${miss[*]}"
+    "$PACMAN" -S --needed --noconfirm "${miss[@]}"
+}
+
+(( AMD )) && { printf 'perfil AMD:\n'; install_missing AMD "${AMD_WANT[@]}"; }
+(( INTEL )) && { printf 'perfil Intel:\n'; install_missing Intel "${INTEL_WANT[@]}"; }
+(( NVIDIA )) && { printf 'perfil NVIDIA:\n'; install_missing NVIDIA "${NV_WANT[@]}"; \
+    printf '  NVIDIA: presença é daqui; a profundidade (GSP/gen/modprobe) é do elite-tune [4]\n'; }
+
+# ── a purga (LISTA sempre; EXECUTA só com --yes; raiz só no --yes) ──────────
+if (( PURGE )); then
+    # escopo de topo de arquivo: SEM local (o local é só de função — SC2168)
+    purge_list=(); found=()
+    p=""
+    (( AMD ))    || purge_list+=("${AMD_ONLY[@]}")
+    (( INTEL ))  || purge_list+=("${INTEL_ONLY[@]}")
+    (( NVIDIA )) || purge_list+=("${NV_ONLY[@]}")
+    for p in "${purge_list[@]}"; do have "$p" && found+=("$p"); done
+    if (( ${#found[@]} == 0 )); then
+        printf 'purga: nada de vendor estranho instalado — sistema limpo\n'
+        exit 0
+    fi
+    printf 'purga: candidato(s) de vendor SEM hardware: %s\n' "${found[*]}"
+    if (( ! YES )); then
+        printf 'purga: apenas relatório — reexecutar com --purge --yes para remover\n'
+        exit 0
+    fi
+    (( EUID == 0 )) || { printf 'purga: --yes exige root\n'; exit 4; }
+    printf '  \$ pacman -R --noconfirm %s\n' "${found[*]}"
+    "$PACMAN" -R --noconfirm "${found[@]}"
+fi

@@ -1,0 +1,128 @@
+#!/bin/bash
+# ═══════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · elite-optimize (v1.0 — E74, Fase 5 do protocolo do dono)
+# ═══════════════════════════════════════════════════════════════════════════
+# "Matemática dinâmica de RAM": o papel vindo da ISO era ÚNICO (swappiness
+# 180 + zram min(ram,8192) para todo mundo) — servia o rig de 16 GB e
+# enforcava a máquina de 2 GB. A spec manda LER A RAM FÍSICA e aplicar:
+#
+#   ≤ 4608 MiB (2-4 GB)  → ZRAM agressivo min(ram*2, 8192) · swappiness 150
+#                          · vfs_cache_pressure 150 (o cache pequeno rende)
+#   ≤ 10240 MiB (8 GB)   → ZRAM equilibrado min(ram, 8192) · swappiness 60
+#                          · vfs_cache_pressure 100
+#   > 10240 MiB (16 GB+) → ZRAM min(ram/2, 16384) · swappiness 15
+#                          · vfs_cache_pressure 50 (prioriza cache em RAM)
+#
+# ENTREGA: /etc/sysctl.d/99-elite-ram.conf — LEXICALMENTE DEPOIS de
+# 99-elite.conf ('r' > 'c'), o perfil VENCE nos 3 pontos sem tocar na lei
+# base (page-cluster/watermarks/etc. ficam intocados). O zram-generator.conf
+# só é reescrito QUANDO o pacote existe (conf sem dono era doença — a
+# reconciliação E74 pôs o zram-generator no packages.add).
+#
+# Uso: elite-optimize            aplica (raiz)
+#      elite-optimize --status   lê sem mutar (a E33 manda poder conferir)
+#      elite-optimize --profile  imprime o nome do perfil
+#      elite-optimize --swappiness  imprime o swappiness do perfil (o 2i
+#                                do firstboot consulta em vez de adivinhar)
+# Costuras de teste: ELITE_MEMINFO / ELITE_SYSCTL_DIR / ELITE_ZRAM_CONF ·
+# ELITE_NO_ROOT_CHECK=1 (o executor de testes roda sem raiz) · ELITE_PROVA=0
+# (o kernel do ambiente de teste não carrega o perfil — a prova real é do
+# rig; aqui a prova é o CONTEÚDO dos arquivos). Em produção, nada disso
+# é setado: raiz exigida, prova no kernel obrigatória.
+# ═════════════════════════════════════════════════════════════════════════
+set -u
+MEMINFO="${ELITE_MEMINFO:-/proc/meminfo}"
+SYSCTL_DIR="${ELITE_SYSCTL_DIR:-/etc/sysctl.d}"
+ZRAM_CONF="${ELITE_ZRAM_CONF:-/etc/systemd/zram-generator.conf}"
+
+say() { printf 'elite-optimize: %s\n' "$*"; }
+die() { printf 'elite-optimize: ERRO: %s\n' "$*" >&2; exit 1; }
+
+mem_mib() {
+    awk '/^MemTotal:/ { printf "%d\n", $2/1024 }' "$MEMINFO" 2>/dev/null | head -1
+}
+
+# ── a matemática (a ÚNICA fonte de verdade dos 3 números) ──────────────────
+calc() {
+    local m; m="$(mem_mib)"
+    [[ "${m:-0}" =~ ^[0-9]+$ ]] || m=0
+    (( m > 0 )) || die "MemTotal ilegível em $MEMINFO (impossível calcular o perfil)"
+    MEM_MIB="$m"
+    if (( m <= 4608 )); then
+        PROFILE="pequena (2-4 GB)"; SW=150; CP=150; ZRAM='min(ram * 2, 8192)'
+    elif (( m <= 10240 )); then
+        PROFILE="equilibrada (8 GB)"; SW=60; CP=100; ZRAM='min(ram, 8192)'
+    else
+        PROFILE="abundante (16 GB+)"; SW=15; CP=50; ZRAM='min(ram / 2, 16384)'
+    fi
+}
+
+status() {
+    calc
+    say "RAM física: ${MEM_MIB} MiB → perfil $PROFILE"
+    say "perfil: swappiness=$SW · vfs_cache_pressure=$CP · zram-size=$ZRAM (zstd)"
+    say "kernel hoje: vm.swappiness=$(sysctl -n vm.swappiness 2>/dev/null || echo '?')"
+    if command -v zramctl >/dev/null 2>&1 && zramctl 2>/dev/null | grep -q zram0; then
+        say "zram vivo: $(zramctl --output DISKSIZE,ALGORITHM 2>/dev/null | tail -1)"
+    else
+        say "zram: inativo (o systemd-zram-setup@zram0 sobe com o conf)"
+    fi
+    say "arquivos: $SYSCTL_DIR/99-elite-ram.conf $( [[ -f $SYSCTL_DIR/99-elite-ram.conf ]] && echo '(presente)' || echo '(ausente)' )"
+}
+
+case "${1:-apply}" in
+    --status) status; exit 0 ;;
+    --profile) calc; say "$PROFILE"; exit 0 ;;
+    --swappiness) calc; echo "$SW"; exit 0 ;;
+    -h|--help) sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    apply) : ;;
+    *) die "modo desconhecido: $1 (use --status / --profile / --swappiness)" ;;
+esac
+
+(( EUID == 0 || ${ELITE_NO_ROOT_CHECK:-0} == 1 )) \
+    || die "aplicar exige root (sudo elite-optimize) — o --status é público"
+
+calc
+say "RAM física: ${MEM_MIB} MiB → perfil $PROFILE"
+
+# ── 1. o perfil de sysctl (vence a base por ordem lexical — sem tocar nela) ──
+mkdir -p "$SYSCTL_DIR" 2>/dev/null
+SYSF="$SYSCTL_DIR/99-elite-ram.conf"
+cat > "$SYSF" <<EOF
+# ── ELITE: perfil de RAM (elite-optimize — E74, Fase 5 do protocolo) ──
+# MemTotal = ${MEM_MIB} MiB → perfil $PROFILE
+# Este arquivo VENCE o 99-elite.conf nos pontos abaixo (ordem lexical:
+# 'ram' > nada) — a lei base (page-cluster/watermarks/bbr) fica intacta.
+vm.swappiness = ${SW}
+vm.vfs_cache_pressure = ${CP}
+EOF
+say "sysctl: $SYSF escrito (swappiness=$SW · cache_pressure=$CP)"
+
+# ── 2. o zram SÓ quando o pacote existe (conf sem dono era doença) ─────────
+if [[ -f "$ZRAM_CONF" ]]; then
+    cat > "$ZRAM_CONF" <<EOF
+# ── ELITE: perfil de RAM (elite-optimize — E74) — vence o do cachyos-settings
+# MemTotal = ${MEM_MIB} MiB → perfil $PROFILE
+[zram0]
+zram-size = ${ZRAM}
+compression-algorithm = zstd
+EOF
+    say "zram: $ZRAM_CONF reescrito (zram-size = $ZRAM · zstd)"
+    systemctl daemon-reload 2>/dev/null || true
+    systemctl try-restart systemd-zram-setup@zram0.service 2>/dev/null || true
+else
+    say "zram: $ZRAM_CONF ausente (zram-generator não instalado — o elite-tune [5] cuida)"
+fi
+
+# ── 3. aplica e PROVA no kernel (a lei 2i: conferir, não apostar) ──────────
+if [[ "${ELITE_PROVA:-1}" == "1" ]]; then
+    sysctl --system >/dev/null 2>&1 || true
+    got="$(sysctl -n vm.swappiness 2>/dev/null || echo '?')"
+    if [[ "$got" == "$SW" ]]; then
+        say "PROVA: vm.swappiness = $got confirmado no kernel (perfil $PROFILE no ar)"
+    else
+        die "vm.swappiness do kernel segue '$got' (queria $SW) — réu à vista: sysctl.d concorrente"
+    fi
+else
+    say "prova no kernel ADIADA (ELITE_PROVA=0 — ambiente de teste): a prova aqui é o conteúdo"
+fi

@@ -511,6 +511,8 @@ if grep -q '^file_permissions=(' "$PD"; then
            /usr/local/bin/craft-dump \
            /usr/local/bin/craft-wake-guard \
            /usr/local/bin/craft-audio-route /usr/local/bin/elite-sweep \
+           /usr/local/bin/elite-optimize /usr/local/bin/elite-drivers \
+           /usr/local/bin/elite-ferramentas \
            /usr/local/bin/calamares-elite-log \
            /usr/lib/systemd/system-sleep/elite-sleep-report \
            /etc/skel/.config/labwc/autostart; do

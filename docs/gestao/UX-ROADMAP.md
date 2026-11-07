@@ -123,3 +123,29 @@ waybar, Thunar), units systemd, cadeia interna entre scripts e docs.
 3. "0 comandos sem `uso:`" (A2) — contável pela suíte (assert por script).
 4. Linhas: o mapa é degrau de CURA, não de peso — cada fase carrega
    `scripts: N · linhas: X → Y` no diário, como sempre.
+
+## 5 · Fila de ideias do protocolo E74 (o dono: "mais ideias assim pra gente pensar")
+
+A spec de 7 fases entrou e saiu curada; o que sobrou na esteira é a fila do
+próximo polimento — cada ideia no espírito da casa (pequena, provável,
+reversível), nenhuma virou código nesta sessão:
+
+1. **OSD de mídia**: capa/título da faixa no mesmo canal do swayosd
+   (playerctl metadata) — a tecla do knob além do volume.
+2. **Terminal que respira**: bloco zsh que mostra o status do repo git
+   (branch + sujo/limpo) no prompt da casa (starship já está — é config,
+   não pacote).
+3. **Dock com miniatura no hover**: thumbnailer por id de janela (o
+   protocolo do daemon já serve o id — falta a superfície).
+4. **Módulo "atualizações" na topbar**: contador do db do [elite-local]
+   que abre o craft-update com um clique (a dose vira botão).
+5. **AppImage sem appimagelauncher**: `craft-appimage` que registra o
+   .AppImage do usuário no menu (desktop gerado + ícone extraído) — a
+   porta nativa para quem não quer o AUR.
+6. **hyprlock com data PT-BR completa** e bateria no relógio da trava.
+7. **Modo foco** (item do craft-power): swaync dnd + waybar quieto +
+   OSD confirmado — um clique para o deep work.
+8. **craft-bat no OSD**: bateria baixa fala pelo mesmo canal visual.
+
+Cada degrau segue a lei da casa: perícia → cura pequena → suíte GO →
+addendum no diário.
