@@ -849,7 +849,30 @@ pkgver=1.0
 #     peças novas com processos reais e stubs de papel.
 #     pkgrel 28→29 NO MESMO COMMIT (lei E41 — craft-idle e craft-vigil
 #     mudaram de conteúdo).
-pkgrel=29
+#
+# 07/nov — E78: O CICLO PERSISTENTE (a EMENDA do dono ao isolamento E77:
+#     "tirar do modo suspensão e continuar na tela de bloqueio reinicia o
+#     ciclo para uma nova contagem — persistência, lógica correta para
+#     TODAS as formas de uso"). A prisão perpétua do suspend morre: o wake
+#     travado deixa de ficar acordado para sempre. craft-vigil mudou de
+#     conteúdo: (1) O PAGAMENTO — a vigília renascida no wake nasce
+#     DEPOIS do portão fechado e o período completo que ela conta É o
+#     'novo período' da spec: no teto com orelhas quietas ela PAGA o
+#     portão e suspende de novo (dorme/acorda parado/conta/dorme — cada
+#     rodada com o período INTEIRO, nunca loop apertado); (2) A VIGÍLIA
+#     OBSOLETA SE APOSENTA — portão com mtime DEPOIS do nascimento = sono
+#     sob a minha vigília (menu/tampa): saio sem dormir e armo a sucessora
+#     com a contagem nova (o ciclo não herda tempo pré-sono; o marco é a
+#     guard anti-loop); (3) AS MÃOS RENOVAM A CONTAGEM — o teto vira
+#     PERÍODO CONTÍNUO sem mãos (a spec: T3 só corre continuamente idle,
+#     input reseta T3): a pausa de pensamento do dono com o tempo total
+#     estourado não dorme mais no meio da senha. O destravo segue abrindo
+#     o portão na hora (E77 intacta); o screenon segue intocável (quem
+#     paga é a contagem nova, nunca o wake sozinho). craft-idle: só o
+#     papel do header (a emenda documentada — nenhum braço mudou).
+#     pkgrel 29→30 NO MESMO COMMIT (lei E41 — craft-vigil mudou de
+#     conteúdo: o ciclo persistente E78).
+pkgrel=30
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

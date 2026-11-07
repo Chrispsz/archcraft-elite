@@ -1060,8 +1060,12 @@ assert_grep "$P/airootfs/usr/local/bin/craft-idle" 'sleep-hook)' "E77: o braço 
 assert_grep "$P/airootfs/usr/local/bin/craft-idle" 'gate_close' "E77: cada autoridade fecha o portão antes do próprio suspend (cinto-e-suspensório — swayidle morto = before-sleep não roda e o isolamento sobrevive)"
 assert_grep "$P/airootfs/usr/local/bin/craft-idle" 'vigília MORTA: vigília RE-ARMADA' "E77: lock vivo + vigília morta = DEFER + RE-ARME (autoridade única do tempo travado — a janela 'suspende no meio da senha' da era E61 morre)"
 assert_grep "$P/airootfs/usr/local/bin/craft-idle" 'portão ABERTO' "E77: o screenon abre o portão SÓ com lock morto (o destravo/primeira atividade paga o resume; o wake de DPMS puro não quebra o isolamento)"
-assert_grep "$P/airootfs/usr/local/bin/craft-vigil" 'idle-suspend-gate' "E77: a vigília obedece ao portão (teto estourado + portão fechado = ESPERA — o wake fica travado e acordado, nunca re-suspendido por timer)"
-assert_grep "$P/airootfs/usr/local/bin/craft-vigil" 'portão FECHADO — suspend suprimido' "E77: a supressão do portão deixa linha no papel (uma vez por episódio — o réu nomeado sem spam)"
+assert_grep "$P/airootfs/usr/local/bin/craft-vigil" 'idle-suspend-gate' "E77/E78: a vigília julga o portão no teto (o closed deixou de ser prisão perpétua — a emenda do dono: obsoleta aposenta-se, nascida do wake PAGA o novo período)"
+# E78 — A EMENDA DO DONO AO ISOLAMENTO (o ciclo persistente): o portão
+# fechado no pós-sono virou JULGAMENTO com duas saídas, ambas no papel:
+assert_grep "$P/airootfs/usr/local/bin/craft-vigil" 'vigília OBSOLETA' "E78: portão fechado DEPOIS do meu nascimento = sono sob a minha vigília (menu/tampa) — aposento-me SEM dormir e a sucessora nasce com a contagem nova (o ciclo não herda tempo pré-sono; o marco é a guard anti-loop)"
+assert_grep "$P/airootfs/usr/local/bin/craft-vigil" 'novo período completo PAGO' "E78: portão fechado com a MINHA contagem (nasceu do wake) = o novo período completo da spec foi pago na íntegra — o isolamento E77 termina legitimamente e o ciclo persiste (dorme/acorda parado/conta/dorme)"
+assert_grep "$P/airootfs/usr/local/bin/craft-vigil" 'CONTAGEM RENOVADA' "E78: mãos no lock RENOVAM a contagem (a spec: T3 só corre continuamente idle — input reseta T3; a senha nunca é interrompida, nem na pausa de pensamento com o tempo total estourado)"
 assert_grep "$P/airootfs/usr/local/bin/craft-vigil" 'portão ABERTO \(E77\)' "E77: a saída natural da vigília (o DESTRAVO) abre o portão — o lock que morre é evento novo e o ciclo recomeça do zero"
 assert_grep "$P/airootfs/usr/local/bin/craft-idle" "timeout [$]\(\(LOCK_MIN \* 60\)\) 'craft-lock --if-needed'" "E60 preservada na E77: o timeout do lock continua IDEMPOTENTE (atingir T1 não reinicia a contagem — a 1ª regra da spec do dono já era lei da casa)"
 assert_grep "$REPO/.ci/build.sh" 'files/usr/lib/systemd/system-sleep' "E63: o hook viaja NO PACOTE elite-system (a rede de sistema chega ao rig pelo canal — fora do pacote ele nunca chegaria)"
@@ -3162,10 +3166,12 @@ assert_grep "$E74BIN/elite-ferramentas" '--report' \
   "E74/F7: o relatório de ferramentas é público (a E33 manda poder conferir sem raiz)"
 
 # ── E41: o pkgrel viajou NO MESMO COMMIT ──
-assert_grep "$REPO/.ci/build.sh" 'pkgrel=29' \
-  "E77 (lei E41): pkgrel elite-system 28→29 — craft-idle e craft-vigil mudaram de conteúdo (o portão do pós-sono E77 e a autoridade única do tempo travado)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=30' \
+  "E78 (lei E41): pkgrel elite-system 29→30 — craft-vigil mudou de conteúdo (o ciclo persistente: o wake travado PAGA o novo período completo; a vigília obsoleta aposenta-se; as mãos renovam a contagem)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 29→30 NO MESMO COMMIT' \
+  "E78 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 28→29 NO MESMO COMMIT' \
-  "E77 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
+  "E77 (lei E41, âncora histórica viva): craft-idle e craft-vigil mudaram de conteúdo (o portão do pós-sono E77 e a autoridade única do tempo travado)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 27→28 NO MESMO COMMIT' \
   "E76 (lei E41, âncora histórica viva): craft-pin e craft-pin-pick mudaram de conteúdo (help sem vazamento de código; o picker fala os três desfechos E36 e lista o XDG_DATA_HOME do usuário)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 26→27 NO MESMO COMMIT' \
