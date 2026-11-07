@@ -606,7 +606,30 @@ pkgver=1.0
 #     'enabled' e reabrir o despertar sozinho). craft-dump ganha o réu USB
 #     (journal xhci/usb + craft-wake-guard status). Relato de teste > papel.
 #     pkgrel 18→19 NO MESMO COMMIT (lei E41 — o pacote mudou de conteúdo).
-pkgrel=19
+#
+# 06/nov — E70: A MOLDURA ÚNICA + A ÁREA QUE SE ORGANIZA (o PRINT do dono,
+#     shot-20261106-204606: 'varrendo as inconsistências principalmente na
+#     moldura das janelas… e completamente consistente seja appimage, seja
+#     só wayland ou qualquer tipo de pacote'): o campo provou DUAS rachas
+#     que o papel escondia — o xdg-decoration é NEGOCIADO (app que pede
+#     CSD vence o default server do rc.xml: LACT/libadwaita e
+#     VS Code/Electron desenharam moldura própria) e a libadwaita NÃO lê
+#     settings.ini (o LACT abriu CLARO: ela lê o color-scheme do dconf).
+#     Cura arquitetural (doutrina E54, rc.xml do dono intocável): a regra
+#     UNIVERSAL identifier=".*" serverDecoration=yes no fragmento
+#     20-elite-ssd do craft-rice (a moldura é propriedade do COMPOSITOR
+#     para TODA janela que negocia — libadwaita, GTK3, Qt, Electron,
+#     AppImage) + fragmento 30-elite-organize NOVO (brave e Code nascem
+#     MAXIMIZADOS — a área se organiza no lançamento) + code-flags.conf
+#     NOVO no skel (VS Code Wayland nativo) + ELECTRON_OZONE_PLATFORM_HINT
+#     no environment (todo Electron ≥28/AppImage nasce Wayland) +
+#     color-scheme prefer-dark no autostart (o escuro alcança a
+#     libadwaita) + seção [8] NOVA no elite-tune (o rig vivo recebe: skel
+#     para as homes, gsettings AGORA, craft-rice vivo — escola 2g, lição
+#     E68 sem chute wayland-0).
+#     pkgrel 19→20 NO MESMO COMMIT (lei E41 — craft-rice e o skel da
+#     sessão mudaram o pacote).
+pkgrel=20
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

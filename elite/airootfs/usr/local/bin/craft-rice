@@ -32,9 +32,18 @@
 #  20-elite-ssd.xml — A DECORAÇÃO É UMA SÓ (spec do dono 06/nov: "todas,
 #    absolutamente todas as janelas seguem o mesmo padrão"): a família
 #    Chromium/Brave e o imv DESENHAM a própria moldura (CSD) e deixam o
-#    dono sem botões — aqui eles são FORÇADOS à decoração do tema (SSD):
-#    o labwc desenha a titlebar da casa em toda janela da família. Apps
-#    com CSD honesto (foot, GTK da casa) ficam FORA da regra.
+#    dono sem botões — aqui eles são FORÇADOS à decoração do tema (SSD).
+#    E70 (print do dono 20:46): o xdg-decoration é NEGOCIADO — todo app
+#    que PEDE CSD vence o default do compositor (libadwaita/LACT e
+#    Electron/VS Code caíram fora da regra da família). A REGRA UNIVERSAL
+#    (identifier=".*") fecha a classe: a moldura é propriedade do
+#    COMPOSITOR para TODA janela que negocia — libadwaita, GTK3, Qt,
+#    Electron, AppImage. App que PRECISA ficar nu sai com drop-in do dono
+#    (serverDecoration="no" — o dono manda, não o app).
+#  30-elite-organize.xml — A ÁREA SE ORGANIZA NO LANÇAMENTO (E70): os
+#    dois apps de corpo inteiro (brave, Code) nascem MAXIMIZADOS — o
+#    arranjo inicial não é pago pelo dedo (o snap W-Setas/W-m segue para
+#    o resto). Revertível por desenho: apagar o drop-in devolve.
 # ═══════════════════════════════════════════════════════════════════════════
 
 MARKER="entregue por craft-rice"
@@ -53,19 +62,39 @@ GAMES="<?xml version=\"1.0\" encoding=\"UTF-8\"?>
 </labwc_config>
 "
 
-# ── fragmento 20-elite-ssd.xml (06/nov — a spec do dono: decoração ÚNICA) ──
+# ── fragmento 20-elite-ssd.xml (06/nov spec do dono + E70 a REGRA UNIVERSAL) ──
 SSD="<?xml version=\"1.0\" encoding=\"UTF-8\"?>
 <!-- Archcraft ELITE · fragmento de rice 20-ssd ($MARKER) -->
-<!-- O relato do dono: Brave e imv abrem SEM moldura/botões — o
-     Chromium/derivados e o imv desenham a própria janela (CSD) ou pedem
-     para ficar nus, e o labwc OBEDECE. serverDecoration=yes FORÇA a
-     decoração do tema (SSD): o labwc desenha a titlebar da casa com os
-     botões em TODA janela da família — o mesmo padrão de todas as
-     outras janelas do desktop (o imv entra pela mesma lei: sem toolkit,
-     ele não negocia decoração nenhuma). -->
+<!-- O relato do dono (E30): Brave e imv abriam SEM moldura/botões — a
+     família Chromium desenha a própria janela (CSD) ou pede para ficar
+     nua, e o labwc OBEDECE. O print do dono (E70, 20:46) provou a classe
+     inteira: o xdg-decoration é NEGOCIADO — LACT (libadwaita) e VS Code
+     (Electron) pediram CSD e venceram o default server do rc.xml. A
+     regra UNIVERSAL fecha a classe: identifier=\".*\" força a decoração
+     do tema em TODA janela que negocia (libadwaita, GTK3, Qt, Electron,
+     AppImage) — a moldura é propriedade do COMPOSITOR, não do toolkit:
+     o MESMO traffic light em TODAS as janelas, qualquer que seja o
+     pacote ou desenho do programa. App que PRECISA ficar nu sai com um
+     drop-in do dono (serverDecoration=\"no\" — o dono manda). -->
 <labwc_config>
   <windowRules>
     <windowRule identifier=\"^(brave-browser|chromium|google-chrome|microsoft-edge|vivaldi-stable|thorium-browser|imv)\$\" serverDecoration=\"yes\" />
+    <windowRule identifier=\".*\" serverDecoration=\"yes\" />
+  </windowRules>
+</labwc_config>
+"
+
+# ── fragmento 30-elite-organize.xml (E70 — a área se organiza no lançamento) ──
+ORG="<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!-- Archcraft ELITE · fragmento de rice 30-organize ($MARKER) -->
+<!-- E70 — o print do dono: quatro janelas caçando posição à mão. Os dois
+     apps de corpo inteiro nascem MAXIMIZADOS — o arranjo inicial não é
+     pago pelo dedo. O snap da casa (W-Setas metades, W-m, A-F10/F11)
+     segue para o resto. Revertível por desenho: apagar este arquivo
+     devolve o comportamento (o drop-in some ao apagar). -->
+<labwc_config>
+  <windowRules>
+    <windowRule identifier=\"^(brave-browser|Code)\$\" maximized=\"yes\" />
   </windowRules>
 </labwc_config>
 "
@@ -94,6 +123,7 @@ ensure_fragment() {
 CHANGED=0
 ensure_fragment "10-elite-games.xml" "$GAMES" && CHANGED=1
 ensure_fragment "20-elite-ssd.xml" "$SSD" && CHANGED=1
+ensure_fragment "30-elite-organize.xml" "$ORG" && CHANGED=1
 if [ "$CHANGED" -eq 1 ]; then
     if command -v labwc-msg >/dev/null 2>&1 \
             && [ -n "${WAYLAND_DISPLAY:-}" ]; then

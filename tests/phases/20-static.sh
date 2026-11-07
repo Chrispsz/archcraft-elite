@@ -1585,4 +1585,27 @@ assert_grep "$CU62" 'chmod 666 "\$ULOG"' "E62: o papel é aberto para o dono (66
 assert_grep "$CU62" '\( printf .* >>"\$ULOG" \) 2>/dev/null' "E62: o append viaja em subshell CALADO (mesmo um imprevisto de modo não grita mais — a linha 154 da foto morre por desenho)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 11→12 NO MESMO COMMIT' "E62: pkgrel elite-system 11→12 NO MESMO COMMIT (lei E41 — craft-update mudou de conteúdo; âncora na HISTÓRIA, lição E58/E59: o número atual é lei do guard-pkgrel do CI)"
 
+# ── E70 — A MOLDURA ÚNICA + A ÁREA QUE SE ORGANIZA (o print do dono,
+#    shot-20261106-204606: LACT/libadwaita CLARO com headerbar própria;
+#    VS Code/Electron em XWayland com titlebar própria — dois sistemas de
+#    moldura num só desktop). O xdg-decoration é NEGOCIADO (app que pede
+#    CSD vence o <decoration>server do rc.xml) e a libadwaita NÃO lê o
+#    settings.ini (lê o color-scheme do dconf). Cura arquitetural na
+#    doutrina E54: a moldura vira propriedade do COMPOSITOR.
+SK70="$REPO/elite/airootfs/etc/skel"
+assert_file "$SK70/.config/code-flags.conf" "E70: code-flags.conf existe no skel (o launcher do code da Arch lê — VS Code nasce Wayland nativo e recebe a moldura do compositor)"
+assert_grep "$SK70/.config/code-flags.conf" 'ozone-platform=wayland' "E70: VS Code Wayland nativo (XWayland desenha titlebar própria — a racha do print)"
+assert_grep "$SK70/.config/labwc/environment" '^ELECTRON_OZONE_PLATFORM_HINT=auto' "E70: todo Electron ≥28 (AppImage incluído) nasce Wayland nativo pelo hint OFICIAL (a moldura do compositor alcança os AppImages sem flag nenhuma)"
+assert_grep "$SK70/.config/labwc/autostart" "color-scheme 'prefer-dark'" "E70: o color-scheme prefer-dark cravado na sessão (a libadwaita NÃO lê settings.ini — o LACT claro do print morre aqui)"
+assert_grep "$SK70/.config/labwc/autostart" "gtk-theme 'Catppuccin-Mocha-Standard-Mauve-Dark'" "E70: o gtk-theme do dconf é o MESMO Catppuccin do settings.ini (GTK3-dconf na mesma família do rice — zero sotaque)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-rice" '30-elite-organize.xml' "E70: o craft-rice entrega o fragmento de organização ao lado dos outros (a cura viaja NO PACOTE — a mesma escola E54 que alcança o rig vivo)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-rice" 'identifier=\\".*\\" serverDecoration' "E70: a regra UNIVERSAL está no código do rice (a moldura do compositor para toda janela que negocia — o fim da negociação perdida)"
+CTUNE70="$REPO/elite/airootfs/usr/local/bin/elite-tune"
+assert_grep "$CTUNE70" '\[8\] SESSÃO: A MOLDURA ÚNICA' "E70: a seção [8] existe no elite-tune (o rig vivo RECEBE a cura — o pacote nunca toca config de usuário, a lei do domínio)"
+assert_grep "$CTUNE70" 'code-flags.conf entregue' "E70/[8]: a entrega do code-flags.conf deixa LINHA (tudo que decide deixa rastro — lei E63)"
+assert_grep "$CTUNE70" "grep -q '\\^ELECTRON_OZONE_PLATFORM_HINT='" "E70/[8]: o append do environment é IDEMPOTENTE (a chave presente nunca é reescrita — a 2ª rodada do tune é silêncio)"
+assert_grep "$CTUNE70" "grep -q 'Tema escuro UNIVERSAL \\(E70'" "E70/[8]: o append do autostart tem MARCADOR (o bloco da casa se reconhece — a 2ª rodada não duplica)"
+assert_grep "$CTUNE70" 'WAYLAND_DISPLAY="\$WSOCK"' "E70/[8]: o reconfigure vivo usa o SOCKET REAL da fila (wayland-* — a lição E68: SEM chute wayland-0)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 19→20 NO MESMO COMMIT' "E70: pkgrel elite-system 19→20 NO MESMO COMMIT (lei E41 — craft-rice e o skel da sessão mudaram o pacote; âncora na HISTÓRIA, o número atual é lei do guard-pkgrel do CI)"
+
 phase_end

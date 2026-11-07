@@ -185,3 +185,16 @@ fi
 #     zero polling): fone no jack muda a PORTA, BT/USB novo muda o
 #     DEFAULT, classe microfone JAMAIS é default, saída que some tem
 #     fallback honesto. Morre → volta em ≤5s pelo supervisor.
+
+# --- Tema escuro UNIVERSAL (E70 — o print do dono 20:46: LACT claro no
+#     meio do rice escuro): a libadwaita NÃO lê o settings.ini gtk-3/gtk-4
+#     — ela lê o color-scheme do dconf (via portal; sem portal, via
+#     gsettings). O gsettings crava o escuro na sessão inteira
+#     (libadwaita + portal + Qt6 + GTK3-dconf); o gtk-theme é o espelho
+#     do settings.ini (Catppuccin Mocha Mauve — a mesma família do rice).
+#     Roda a cada boot: o padrão da casa é escuro (idempotente por
+#     natureza — escreve o mesmo valor).
+if command -v gsettings >/dev/null 2>&1; then
+    gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark' >/dev/null 2>&1 &
+    gsettings set org.gnome.desktop.interface gtk-theme 'Catppuccin-Mocha-Standard-Mauve-Dark' >/dev/null 2>&1 &
+fi
