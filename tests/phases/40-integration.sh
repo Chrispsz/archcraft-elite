@@ -2963,4 +2963,51 @@ assert_grep "$DUMP" 'toplevel.log' \
 assert_grep "$DUMP" 'uname -n' \
   "v2.10.7: o host do dump vem do uname (o 'hostname' não existe em toda ISO — o rig estampou 'host: ?')"
 
+# ── E71 — A DOCK QUE NÃO MENTE VAZIA (relato do dono no dump e8xl: "a dock
+#    ainda é bugada — o indicativo de aplicativos abertos somem do nada e
+#    as ações se comportam como se o programa não estivesse aberto").
+#    PERÍCIA PROVADA: 449 'SAIU exit=1' / BARS_RESTARTS=488 em 1h36, socket
+#    respondendo OK 'janelas=0' com Brave/Thunar/foot no ps. Doença inteira:
+#    o evento parent declarado NÃO-nulável no C — o parent(NULL) legal do
+#    XML oficial matava a conexão Wayland ("NULL object received on
+#    non-nullable type, message parent(o)") e o renascido servia LIST vazio
+#    VÁLIDO em loop; a graça da E70 só cobria LIST FALHO. Cura em DUAS
+#    pontas: o '?o' no daemon + as três redes na dock. ══
+
+# ── daemon: o parent é NULÁVEL (a cura de 1 caractere que mata a classe) ──
+assert_grep "$CT" '\{ "parent", "\?o", NULL \}' \
+  "E71: o evento parent é NULÁVEL ('?o' — o XML oficial é allow-null e o labwc/wlroots manda parent(NULL); com 'o' seco o demarshal MATA a conexão e o renascido serve '0 janelas' com a sessão cheia — a doença exata do e8xl)"
+assert_nogrep "$CT" '\{ "parent", "o", NULL \}' \
+  "E71: a assinatura DOENTE do parent ('o' seco) está EXTINTA do daemon (a classe 'NULL object received on non-nullable type' morre com contrato)"
+assert_grep "$CT" 'EVT_CLOSED, EVT_PARENT' \
+  "E71: o opcode 7 (parent) tem NOME no enum (evento que o compositor manda a qualquer momento — nunca mais é surpresa sem dono)"
+assert_grep "$CT" 'case EVT_PARENT' \
+  "E71: o dispatcher recebe o parent EXPLICITAMENTE (ignorado sem tocar o estado — a dock não usa parent; o default cego não serve de contrato)"
+assert_grep "$CT" 'parent_logged' \
+  "E71: o réu do e8xl deixa UMA linha por vida do daemon no bars.log (nada morre calado — a lição do burn test v1.6.2 no evento que matava)"
+
+# ── dock: as TRÊS REDES da lógica que não mente vazia ──
+assert_grep "$DOCK" 'A PROVA NO LANÇAMENTO' \
+  "E71/(1): abrir é o ÚNICO verbo irreversível e nunca parte de snapshot velho — antes de _launch, UMA LIST fresca julga; janela que aparecer agora é FOCADA, não duplicada (o estado se auto-cura com a resposta)"
+assert_grep "$DOCK" 'if snap is None:' \
+  "E71/(1): conexão morta NO MEIO do clique degrada ao fallback (o wlrctl fala com o compositor direto — lançamento às cegas extinto; a lei v2.10.6 inteira)"
+assert_grep "$DOCK" 'self\._launch\(None, cmd, key=key\)' \
+  "E71/(1): o lançamento do foco leva a CHAVE do app (o guard em voo julga o clique que chega com a janela ainda mapeando)"
+assert_grep "$DOCK" 'key=did or binary_of\(info\)' \
+  "E71/(1): o FALLBACK também lança COM CHAVE (daemon morto não é licença de DOIS — o guard é lei nos dois caminhos)"
+assert_grep "$DOCK" 'self\._launching = \{\}' \
+  "E71/(2): o estado do DEDUP EM VOO existe (key → monotonic do lançamento)"
+assert_grep "$DOCK" 'lançamento em voo' \
+  "E71/(2): o guard de 8s fala (clique no vão do mapa é ignorado com log — a janela leva segundos para nascer e cada clique lançava OUTRA instância)"
+assert_grep "$DOCK" 'age < 8\.0' \
+  "E71/(2): o guard TEM PRAZO (8s — o app nasceu e o clique passa a focar, ou falhou em nascer e o usuário pode tentar de novo; estado não acumula chave morta)"
+assert_grep "$DOCK" 'self\._empty_guard = 0' \
+  "E71/(3): a GRAÇA DO VAZIO existe (LIST válido-vazio que contradiz snapshot vivo é suspeito, não verdade — a graça da E70 só via LIST FALHO, nunca a resposta VÁLIDA que mente)"
+assert_grep "$DOCK" 'LIST vazio VÁLIDO' \
+  "E71/(3): o vazio suspeito deixa LINHA no dock.log (tudo que decide deixa rastro — a lei E63 no estado da dock)"
+
+# ── sessão: a cura CHEGA ao rig (craft-update reinicia o daemon quando a casa muda) ──
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-update" 'pkill -u "\$uid" -x craft-toplevel' \
+  "E71: o craft-update reinicia o daemon no delta (o rig recebe o '?o' com UM craft-update — a sessão renasce sobre o binário curado, lei E49/E50)"
+
 phase_end
