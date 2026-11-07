@@ -3166,10 +3166,12 @@ assert_grep "$E74BIN/elite-ferramentas" '--report' \
   "E74/F7: o relatório de ferramentas é público (a E33 manda poder conferir sem raiz)"
 
 # ── E41: o pkgrel viajou NO MESMO COMMIT ──
-assert_grep "$REPO/.ci/build.sh" 'pkgrel=30' \
-  "E78 (lei E41): pkgrel elite-system 29→30 — craft-vigil mudou de conteúdo (o ciclo persistente: o wake travado PAGA o novo período completo; a vigília obsoleta aposenta-se; as mãos renovam a contagem)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=31' \
+  "E79 (lei E41): pkgrel elite-system 30→31 — craft-vigil e craft-idle mudaram de conteúdo (a sucessora do próprio ciclo: o wake do pagamento nasce com vigia no ar; o FALHA re-tenta com vigia — a anti-prisão)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 30→31 NO MESMO COMMIT' \
+  "E79 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 29→30 NO MESMO COMMIT' \
-  "E78 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
+  "E78 (lei E41, âncora histórica viva): craft-vigil mudou de conteúdo (o ciclo persistente: o wake travado PAGA o novo período completo; a vigília obsoleta aposenta-se; as mãos renovam a contagem)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 28→29 NO MESMO COMMIT' \
   "E77 (lei E41, âncora histórica viva): craft-idle e craft-vigil mudaram de conteúdo (o portão do pós-sono E77 e a autoridade única do tempo travado)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 27→28 NO MESMO COMMIT' \

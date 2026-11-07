@@ -872,7 +872,22 @@ pkgver=1.0
 #     papel do header (a emenda documentada — nenhum braço mudou).
 #     pkgrel 29→30 NO MESMO COMMIT (lei E41 — craft-vigil mudou de
 #     conteúdo: o ciclo persistente E78).
-pkgrel=30
+# E79 — A SUCESSORA DO PRÓPRIO CICLO (o dump 4nsos do rig: o wake travado
+#     das 14:11:35 acordou SEM vigia no ar — o screenon do próprio ciclo
+#     executa o pgrep de re-arme com o CHAMADOR ainda vivo (vê a si
+#     mesmo, nunca um sucessor) e o callback resume do swayidle perde a
+#     corrida contra o exit — o wake pagou e a máquina ficou ESCURA,
+#     TRAVADA e ACORDADA por 2h08min até o Power do dono desligar (boot
+#     16:35:59). Cura no craft-vigil: a sucessora nasce EXPLÍCITA no fim
+#     do ciclo, no sucesso E no FALHA do sono — no sucesso ela é a
+#     contagem nova do wake (dorme/acorda/conta/dorme sem fim, cada
+#     rodada com o período INTEIRO); no FALHA é a anti-prisão (o sono que
+#     não veio re-tenta a cada período, réu nomeado no papel).
+#     craft-idle: só a verdade no papel do screenon (o comentário E63
+#     vendia 'vê o próprio sucessor no ar' — o pgrep vê o CHAMADOR).
+#     pkgrel 30→31 NO MESMO COMMIT (lei E41 — craft-vigil e craft-idle
+#     mudaram de conteúdo: a sucessora E79).
+pkgrel=31
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
