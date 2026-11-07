@@ -1140,12 +1140,22 @@ class Dock:
         DELA; saído sem colheita vira zumbi com /proc/<pid>/comm VIVO — o
         scan lia o morto e o indicador 'continuava' depois do fecho (o
         relato exato do dono). poll() = waitpid WNOHANG: ceifa sem travar,
-        a cada tick."""
+        a cada tick.
+        E88 — A MORTE LIBERA O CLIQUE: cada filho viaja com a CHAVE do
+        lançamento; morreu sem mapear (crash imediato, app que abre e
+        fecha) = o guard de 8s sai NA HORA — o usuário tenta de novo
+        sem esperar o relógio (o 'cada clique ignorado' do dump morre)."""
         vivos = []
-        for p in self._children:
+        for child in self._children:
             try:
-                if p.poll() is None:
-                    vivos.append(p)
+                proc, key = child if isinstance(child, tuple) else (child, None)
+                if proc.poll() is None:
+                    vivos.append((proc, key))
+                    continue
+                if key is not None and key in self._launching:
+                    del self._launching[key]
+                    log(f"guard liberado: {key} morreu sem mapear "
+                        f"(rc={proc.returncode}) — o clique volta a lançar AGORA")
             except Exception:  # noqa: BLE001 — filho exótico nunca derruba
                 pass
         self._children = vivos
@@ -1172,7 +1182,7 @@ class Dock:
                                  stdout=subprocess.DEVNULL,
                                  stderr=subprocess.DEVNULL,
                                  start_new_session=True)
-            self._children.append(p)   # rastreado: a ceifa do tick o colhe
+            self._children.append((p, key))   # rastreado COM a chave (E88: a morte libera o clique)
             if key is not None:
                 self._launching[key] = time.monotonic()
             log(f"lançado: {cmd}")
@@ -1262,6 +1272,19 @@ class Dock:
             self.windows = {}
             self.focused = 0
             self.tl_alive = False
+        # E88 — O MAP LIBERA O GUARD (o fim do 'guard por 1.7s' que o
+        # dono sentiu): a janela APARECEU no snapshot = o lançamento
+        # VENCEU; daí em diante o clique é FOCO imediato. Antes: o guard
+        # vivia os 8s INTEIROS mesmo com a janela na tela desde os
+        # 300ms — a dock parecia morta, e o clique APÓS o guard
+        # lançava duplicata (o dump: 3 cliques ignorados + 'lançado:
+        # thunar' na saída). O casamento é o mesmo da casa (exato OU
+        # contenção com fronteira — thunar.desktop ↔ app_id thunar).
+        if self._launching and self.windows:
+            mapped = [k for k in self._launching if self._key_mapped(k)]
+            for k in mapped:
+                del self._launching[k]
+                log(f"guard aposentado: {k} mapeou — clique é foco imediato")
         # E71 — os lançamentos em voo EXPIRAM (8s): a janela mapeou (o
         # indicador acende e o clique passa a focar) ou o app falhou em
         # nascer (o usuário pode tentar de novo) — em ambos, o guard
@@ -1311,6 +1334,24 @@ class Dock:
                 # o daemon vivo não vê (foot ≠ footclient nos dois mundos).
                 if c == xl or _near_match(xl, c):
                     return True
+        return False
+
+    def _key_mapped(self, key):
+        """E88 — a chave do lançamento MAPEOU? (o guard só protege o vão
+        entre o clique e a janela; mapeou = o vão acabou). Casa pela MESMA
+        gramática da casa: stem do desktop-id vs app_id da janela, exato OU
+        contenção com fronteira (_near_match — thunar.desktop ↔ thunar;
+        foot-client nunca vira foot)."""
+        stem = key[:-8] if key.endswith(".desktop") else key
+        stem = (stem or "").lower()
+        if not stem:
+            return False
+        for _fl, _rk, app_id, _ti in self.windows.values():
+            a = (app_id or "").lower()
+            if not a:
+                continue
+            if a == stem or _near_match(a, stem):
+                return True
         return False
 
     # ── dinâmicos (v2.10 — a dock auto-adaptável) ─────────────────────────
@@ -1622,5 +1663,5 @@ def main():
     return 0
 
 
-if __name__ == "__main__":
+if __name__ == "__main_":
     sys.exit(main())

@@ -1034,14 +1034,17 @@ assert_grep "$P/airootfs/usr/local/bin/craft-idle" 'tentativa \$\(\(i \+ 1\)\)' 
 assert_grep "$P/airootfs/usr/local/bin/craft-idle" 'setsid craft-vigil >/dev/null 2>&1 &' "E63: o resume RE-ARMA a vigília quando o lock sobrevive ao sono (vigia morto no próprio suspend = o braço idle podia dormir sob as mãos de novo — o bug da E61 de volta pelo ciclo de sono)"
 assert_grep "$P/airootfs/usr/local/bin/craft-vigil" 'craft-idle screenon' "E63: o vigia sobrevive ao próprio suspend e religa a tela no retorno (quem chamou o sono é o primeiro usuário de pé no wake)"
 assert_file "$P/airootfs/usr/lib/systemd/system-sleep/elite-resume-display" "E63: o hook de system-sleep existe (a rede de SISTEMA do resume — TODOS os caminhos de sono atravessam, mesmo com o swayidle morto)"
-assert_grep "$P/airootfs/usr/lib/systemd/system-sleep/elite-resume-display" '\[ "\$1" = "post" \]' "E63: o hook age SÓ no retorno do sono (o pre é do elite-sleep-report — cada hook um papel)"
-assert_grep "$P/airootfs/usr/lib/systemd/system-sleep/elite-resume-display" 'runuser -u' "E63: o hook religa os outputs como CADA usuário de sessão (wlopm é cliente Wayland — root não tem display)"
+assert_grep "$P/airootfs/usr/lib/systemd/system-sleep/elite-resume-display" 'post)' "E63/E88: o hook age no retorno do sono (o pre fotografa o DPMS — cada hook um papel)"
+assert_nogrep "$P/airootfs/usr/lib/systemd/system-sleep/elite-resume-display" 'runuser -u' "E88: NENHUM runuser/PAM no hook de sistema (o journal do dump 20261107 provou: runuser contra user.slice congelado = Varlink UnitAllocationFailed + 90s de sessão congelada — o 'mouse morto' que o dono sentia a cada wake)"
+assert_grep "$P/airootfs/usr/lib/systemd/system-sleep/elite-resume-display" 'setpriv --reuid' "E88: o hook religa os outputs como CADA usuário SEM criar sessão (setpriv reuid/regid — wlopm é cliente Wayland, mas sessão PAM no pós-sono é a doença que congela a tela)"
+assert_grep "$P/airootfs/usr/lib/systemd/system-sleep/elite-resume-display" 'setsid "\$0" waiter' "E88: o hook sai em <1s e o waiter desapegado espera o THAW antes do primeiro wlopm (nenhum filho do suspend fala com user.slice congelado — a cura estrutural da aula do dump)"
 # E75 — O CICLO QUE O --ON SOZINHO NÃO FAZ (relato recorrente: 'suspende,
 # volta e o monitor fica SEM SINAL — PC e periféricos vivos'): o --on em
 # output que o compositor JÁ crê aceso é NO-OP rc=0 — a cura é a TROCA
 # REAL DE ESTADO (off → 1s → on) nos DOIS caminhos + a escotilha manual
 # + a perícia que nunca mais fica cega à própria rede de cura.
 assert_grep "$P/airootfs/usr/local/bin/craft-idle" 'wlopm --off' "E75: o screenon usa o CICLO off→on (a troca real de estado que força o re-commit do output no DRM — o --on sozinho era no-op rc=0 convivendo com monitor morto)"
+assert_grep "$P/airootfs/usr/local/bin/craft-idle" 'sleep-dark' "E88: o screenon lê a flag dark do hook de sistema (sono ACESO = --on SOZINHO — o --off seria blink na cara do dono já de pé; sono ESCURO = o ciclo invisível E75 continua)"
 assert_grep "$P/airootfs/usr/lib/systemd/system-sleep/elite-resume-display" 'wlopm --off' "E75: o hook de sistema usa o MESMO ciclo (três caminhos de religar, uma só gramática de cura)"
 assert_grep "$P/airootfs/usr/lib/systemd/system-sleep/elite-resume-display" 'FALHA: wlopm AUSENTE' "E75: o wlopm ausente deixa FALHA no journal (o exit calado era o buraco da rede imaginária)"
 assert_file "$P/airootfs/usr/local/bin/craft-rescue-screen" "E75: a escotilha craft-rescue-screen existe no overlay (o 'sem sinal' tem saída SEM reinicialização forçada: TTY → login → ciclo → volta)"
@@ -1121,7 +1124,7 @@ assert_nogrep "$HLK" 'path = screenshot' "v2.5.0: o fundo NUNCA mais é screensh
 assert_grep "$HLK" 'blur_passes = 3' "v1.5: blur alto no fundo"
 assert_grep "$HLK" 'brightness = 0\.70' "v2.5.0: dim calibrado para o WALLPAPER (era 0.35 para o screenshot — o wallpaper dark premium luma 32.6 em .35 era sopa preta; .70 mostra o blur com contraste do relógio)"
 assert_grep "$HLK" 'text = \$TIME' "v1.5: relógio GRANDE (label \$TIME)"
-assert_grep "$HLK" 'font_size = 96' "v1.5: relógio 96pt (topo/centro)"
+assert_grep "$HLK" 'font_size = 110' "v1.5→v3/E88: relógio GRANDE com CORPO (96→110 + sombra dupla — a diretriz 'tela de bloquear mais interessante'; o $TIME continua o label)"
 assert_grep "$HLK" 'valign = top' "v1.5: relógio ancorado no TOPO (spec)"
 assert_grep "$HLK" 'text = \$USER' "v1.5: nome do usuário acima do campo (spec)"
 # v1.7: o avatar 'A' saiu do lock (a pergunta literal do dono no burn test) —
@@ -2801,7 +2804,7 @@ HYP="$P/airootfs/etc/skel/.config/hypr/hyprlock.conf"
 assert_nogrep "$HYP" '<span' "v1.7: hyprlock SEM markup cru (placeholder não parseia Pango — cor é propriedade)"
 assert_nogrep "$HYP" 'avatar\.png' "v1.7: hyprlock SEM o avatar 'A' (decisão do dono)"
 assert_grep "$HYP" 'Digite a senha para desbloquear' "v1.7: placeholder em texto plano (o literal do dono)"
-assert_grep "$HYP" 'position = 0, 300' "v1.7: relógio a 300px do topo (terço superior, longe da light bar)"
+assert_grep "$HYP" 'position = 0, 290' "v1.7→v3/E88: relógio no terço superior (290px — longe da light bar; o v3 ganhou sombra e a saudação embaixo da data)"
 
 # ── INSTALADOR À PROVA DE $ (v1.7 — a classe do "Installation Failed — ───
 #    Missing variables are: kv,kbase,…"): o Calamares expande TODO $ de
@@ -3165,9 +3168,40 @@ assert_grep "$E74BIN/elite-ferramentas" 'appimagelauncher' \
 assert_grep "$E74BIN/elite-ferramentas" '--report' \
   "E74/F7: o relatório de ferramentas é público (a E33 manda poder conferir sem raiz)"
 
+# ── E88 — O SISTEMA INSTANTÂNEO (a diretriz do dono: 'responsividade ao
+#    máximo, zero delay, como se fosse direto no hardware') ──
+DOCKGUI="$P/airootfs/usr/local/bin/craft-dock-gui"
+assert_nogrep "$DOCKGUI" 'self._children.append(p)' "E88/dock: o filho lançado viaja COM a chave (a ceifa sabe de quem é a morte — o guard morre junto)"
+assert_grep "$DOCKGUI" 'self\._children\.append\(\(p, key\)\)' "E88/dock: cada Popen carrega a chave do lançamento (a morte libera o clique)"
+assert_grep "$DOCKGUI" 'guard aposentado' "E88/dock: o MAP libera o guard (a janela no snapshot = o clique vira FOCO imediato — o 'guard por 1.7s' que o dono sentiu no dump morre; antes o guard vivia os 8s inteiros e o clique PÓS-guard lançava duplicata)"
+assert_grep "$DOCKGUI" 'guard liberado' "E88/dock: a MORTE libera o guard (app que crashou/fechou sem mapear = o usuário tenta de novo NA HORA, sem esperar o relógio de 8s)"
+assert_grep "$DOCKGUI" 'def _key_mapped' "E88/dock: o casamento chave↔janela existe (stem do desktop-id vs app_id, exato OU _near_match — a mesma gramática da casa)"
+CDR88="$P/airootfs/usr/local/bin/craft-drawer"
+assert_grep "$CDR88" 'drawer-toggle.stamp' "E88/drawer: o freio do toggle existe (o bars.log do dump flagrou UI criada→SIGTERM→UI criada NO MESMO SEGUNDO — a gaveta que 'abre, fecha e abre de novo' era a guerra de nascimentos)"
+assert_grep "$CDR88" '400000000' "E88/drawer: o vão do freio é 400ms (o toggle honesto fica; duplo-clique não nasce duas gavetas)"
+assert_grep "$P/airootfs/usr/local/bin/craft-clean" '--yes' "E88/clean: o modo não interativo existe (órfãos/flatpak saem sem pergunta — a limpeza funciona de script e de menu)"
+assert_grep "$P/airootfs/usr/local/bin/craft-clean" 'gio trash --empty' "E88/clean: a lixeira do desktop entra na limpeza (disco é disco — guardado: gio ausente = pulado com aviso)"
+assert_grep "$P/airootfs/usr/local/bin/craft-clean" 'liberado' "E88/clean: o espaço liberado é PROVA no fim (tamanho antes/depois do cache — número, não impressão)"
+assert_grep "$P/airootfs/usr/local/bin/craft-clean" "ans \\|\\| ans=''" "v2.10.6 preservada na E88: o EOF não mata o craft-clean calado (a lei do read com fallback sobrevive à v2)"
+assert_grep "$P/airootfs/usr/local/bin/elite-optimize" 'scaling_governor' "E88/optimize: o governor de CPU entra na matemática (performance — o clock sobe com o PRIMEIRO clique; a resposta da casa ao 'responsividade ao máximo')"
+assert_grep "$P/airootfs/usr/local/bin/elite-optimize" 'energy_performance_preference' "E88/optimize: o EPP acompanha o governor (amd-pstate: o firmware pesava a agressividade — performance = sobe com o primeiro clique)"
+assert_grep "$P/airootfs/usr/local/bin/elite-optimize" 'ELITE_CPU_DIR' "E88/optimize: o passo de CPU tem seam de teste (a mesma escola do ELITE_MEMINFO — a prova funcional roda sem sysfs real)"
+assert_grep "$P/airootfs/usr/local/bin/craft-update" 'pacman_agil' "E88/update: o -Syu ágil é passo do canal E do manual (ParallelDownloads=5 idempotente no pacman.conf dos rigs — o 'parecia travado' no pacote grande morre)"
+assert_grep "$REPO/elite/fragments/elite-customize.sh" 'ParallelDownloads = 5' "E88/ISO: a nasce com downloads paralelos (a palavra final da casa no [options], junto da Architecture do fix #20)"
+assert_grep "$REPO/elite/fragments/elite-customize.sh" "printf 'Color" "E88/ISO: o pacman nasce com cor (a leitura do terminal do -Syu)"
+HLKV3="$P/airootfs/etc/skel/.config/hypr/hyprlock.conf"
+assert_grep "$HLKV3" 'shadow_passes = 2' "E88/lock: o relógio tem CORPO (sombra dupla — leitura em qualquer wallpaper, o número deixa de flutuar chapado)"
+assert_grep "$HLKV3" 'Boa madrugada' "E88/lock: a saudação existe (Bom dia/tarde/noite, quem chega — cmd com update, texto plain da lei v1.7)"
+assert_grep "$HLKV3" '^shape {' "E88/lock: o CARD existe (a senha mora numa superfície crust translúcida — o blur atravessa, a identidade intacta; shape ANTES do input = z-order correto)"
+assert_grep "$HLKV3" 'Digite a senha e pressione Enter' "E88/lock: a dica no rodapé (o gesto em uma leitura — overlay1 discreto)"
+assert_grep "$HLKV3" 'animation = fadeIn, 1, 3, linear' "E88/lock: o fade ágil (5→3 — o lock chega NA HORA; a mesma diretriz zero-delay da dock)"
+assert_nogrep "$HLKV3" 'path = screenshot' "v2.5.0 preservada na v3: o fundo do lock é O WALLPAPER (nunca a foto da tela com janelas)"
+
 # ── E41: o pkgrel viajou NO MESMO COMMIT ──
-assert_grep "$REPO/.ci/build.sh" 'pkgrel=31' \
-  "E79 (lei E41): pkgrel elite-system 30→31 — craft-vigil e craft-idle mudaram de conteúdo (a sucessora do próprio ciclo: o wake do pagamento nasce com vigia no ar; o FALHA re-tenta com vigia — a anti-prisão)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=32' \
+  "E88 (lei E41): pkgrel elite-system 31→32 — os hooks de sono reescritos (zero-PAM/rebind provado/selo ACPI), dock/drawer zero-delay, craft-clean v2, elite-optimize v2 (governor), pacman ágil e a lock v3 mudaram o pacote"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 31→32 NO MESMO COMMIT' \
+  "E88 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 30→31 NO MESMO COMMIT' \
   "E79 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 29→30 NO MESMO COMMIT' \

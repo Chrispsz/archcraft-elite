@@ -2015,4 +2015,160 @@ kill "$bg_aro" "$bg_dock" "$bg_blu" 2>/dev/null || true
 [ -n "$bg_brave" ]  && kill "$bg_brave"  2>/dev/null || true
 [ -n "$bg_helper" ] && kill "$bg_helper" 2>/dev/null || true
 
+# ═══════════════════════════════════════════════════════════════════════════
+# E88 — O DESPERTAR QUE NÃO CONGELA (prova FUNCIONAL com fixtures de sysfs:
+# o dump elite-dump-20261107 do rig provou o resume de 90s congelado
+# (runuser+PAM contra user.slice congelado), o suspend de 7s (GPEs ACPI
+# armados) e o rebind cego que matava o mouse — aqui cada cura roda de
+# verdade, com /proc e /sys FALSOS mas a lógica REAL)
+# ═══════════════════════════════════════════════════════════════════════════
+MOCK88="$WORK/mocks-e88"; mkdir -p "$MOCK88"
+cat > "$MOCK88/logger" <<'EOF'
+#!/usr/bin/env bash
+ST="${MOCK_DIR:?}"; mkdir -p "$ST"
+printf '%s\n' "$*" >> "$ST/journal.log"
+exit 0
+EOF
+cat > "$MOCK88/setpriv" <<'EOF'
+#!/usr/bin/env bash
+# stub: derruba as flags de setuid e executa o resto (a prova é o registro
+# do wlopm, não o setuid — o sujeito do teste é a lógica zero-PAM)
+while [[ "${1:-}" == --* ]]; do shift; done
+exec "$@"
+EOF
+cat > "$MOCK88/udevadm" <<'EOF'
+#!/usr/bin/env bash
+ST="${MOCK_DIR:?}"; mkdir -p "$ST"
+printf 'udevadm %s\n' "$*" >> "$ST/udevadm.log"
+exit 0
+EOF
+cat > "$MOCK88/setsid" <<'EOF'
+#!/usr/bin/env bash
+ST="${MOCK_DIR:?}"; mkdir -p "$ST"
+printf 'setsid %s\n' "$*" >> "$ST/setsid.log"
+exit 0
+EOF
+cat > "$MOCK88/wlopm" <<'EOF'
+#!/usr/bin/env bash
+ST="${MOCK_DIR:?}"; mkdir -p "$ST"
+printf 'wlopm %s\n' "$*" >> "$ST/wlopm.log"
+exit 0
+EOF
+chmod +x "$MOCK88/logger" "$MOCK88/setpriv" "$MOCK88/udevadm" "$MOCK88/setsid" "$MOCK88/wlopm"
+
+HOOK_RD="$REPO/elite/airootfs/usr/lib/systemd/system-sleep/elite-resume-display"
+HOOK_RU="$REPO/elite/airootfs/usr/lib/systemd/system-sleep/elite-resume-usb"
+HOOK_SR="$REPO/elite/airootfs/usr/lib/systemd/system-sleep/elite-sleep-report"
+RUN88="$WORK/run-e88"          # o /run/elite do teste
+DRM88="$WORK/drm-e88"          # o /sys/class/drm do teste
+
+# (E88.1) o PRE do display: tela ACESA no sono → flag dark=0
+rm -rf "$RUN88" "$DRM88"; mkdir -p "$RUN88" "$DRM88/card1-DP-1"
+echo connected > "$DRM88/card1-DP-1/status"
+echo enabled  > "$DRM88/card1-DP-1/enabled"
+echo On       > "$DRM88/card1-DP-1/dpms"
+MOCK_DIR="$RUN88" PATH="$MOCK88:$PATH" ELITE_DRM_DIR="$DRM88" ELITE_RUN_DIR="$RUN88" sh "$HOOK_RD" pre >/dev/null 2>&1
+assert_eq "$(cat "$RUN88/sleep-dark" 2>/dev/null)" "0" "E88/display-pre: tela ACESA no sono = flag dark=0 (o wake NÃO pisca --off na cara do dono já de pé)"
+
+# (E88.2) o PRE do display: tela ESCURA (o ciclo do idle) → flag dark=1
+echo Off > "$DRM88/card1-DP-1/dpms"
+MOCK_DIR="$RUN88" PATH="$MOCK88:$PATH" ELITE_DRM_DIR="$DRM88" ELITE_RUN_DIR="$RUN88" sh "$HOOK_RD" pre >/dev/null 2>&1
+assert_eq "$(cat "$RUN88/sleep-dark" 2>/dev/null)" "1" "E88/display-pre: tela ESCURA no sono = flag dark=1 (o ciclo off→on invisível da E75 continua sendo a cura)"
+
+# (E88.3) o POST do display: SAI SEM ESPERAR (o waiter desapegado é convocado)
+rm -f "$RUN88/setsid.log"
+t0=$(date +%s%N)
+MOCK_DIR="$RUN88" PATH="$MOCK88:$PATH" ELITE_RUN_DIR="$RUN88" sh "$HOOK_RD" post >/dev/null 2>&1
+t1=$(date +%s%N)
+dt_ms=$(( (t1 - t0) / 1000000 ))
+assert_grep "$RUN88/setsid.log" 'waiter' "E88/display-post: o waiter DESAPEGADO é convocado (o hook não espera ninguém — o thaw acontece na hora; o gesto da sucessora E79)"
+if (( dt_ms < 900 )); then
+  ok "E88/display-post: o hook concluiu em ${dt_ms}ms (<1s — a aula do dump: nenhum filho do suspend prende o systemd-suspend)"
+else
+  fail "E88/display-post: o hook concluiu em ${dt_ms}ms" "o hook esperou algo — a cura estrutural falhou"
+fi
+assert_grep "$RUN88/journal.log" 'saiu em <1s' "E88/display-post: o gesto fica no papel (zero-PAM + waiter desapegado, o journal conta a história)"
+
+# (E88.4) o WAITER: thaw confirmado → tenta religar SEM runuser e SEM prender
+rm -f "$RUN88/journal.log" "$RUN88/wlopm.log"
+echo 0 > "$RUN88/cgroup.freeze"
+echo 0 > "$RUN88/sleep-dark"
+MOCK_DIR="$RUN88" PATH="$MOCK88:$PATH" ELITE_RUN_DIR="$RUN88" \
+  ELITE_CGROUP_FREEZE="$RUN88/cgroup.freeze" ELITE_RESUME_ATTEMPTS=1 sh "$HOOK_RD" waiter >/dev/null 2>&1
+assert_grep "$RUN88/journal.log" 'sessão descongelada' "E88/waiter: o thaw é ESPERADO no cgroup.freeze (falar com user.slice congelado era a doença do dump)"
+assert_nogrep "$RUN88/wlopm.log" '--off' "E88/waiter: sono ACESO (flag 0) = NENHUM --off no wake (zero blink sob as mãos do dono)"
+
+# (E88.5) o WAITER no escuro: sem sessão labwc, nenhuma chamada acontece
+echo 1 > "$RUN88/sleep-dark"
+rm -f "$RUN88/wlopm.log"
+MOCK_DIR="$RUN88" PATH="$MOCK88:$PATH" ELITE_RUN_DIR="$RUN88" \
+  ELITE_CGROUP_FREEZE="$RUN88/cgroup.freeze" ELITE_RESUME_ATTEMPTS=1 sh "$HOOK_RD" waiter >/dev/null 2>&1
+assert_nofile "$RUN88/wlopm.log" "E88/waiter: sem sessão labwc, nenhuma chamada de usuário acontece (o hook não fala com quem não existe — honestidade da fila E63)"
+
+# (E88.6) O SELO ACPI: wake sources armadas são DESARMADAS na porta do sono
+WK88="$WORK/wakeup-e88"
+cat > "$WK88" <<'EOF'
+GP12          S4        *enabled   pci:0000:00:07.1
+GP13          S4        *enabled   pci:0000:00:08.1
+XHC0          S4        *disabled  pci:0000:0c:00.3
+SWUS          S4        *enabled   pci:0000:08:00.0
+EOF
+rm -f "$RUN88/journal.log"
+MOCK_DIR="$RUN88" PATH="$MOCK88:$PATH" ELITE_WAKEUP_FILE="$WK88" \
+  sh "$HOOK_SR" pre > "$RUN88/selo.out" 2>&1
+assert_nogrep "$WK88" '\*enabled' "E88/selo: TODO *enabled da porta do sono é DESARMADO (GP12/GP13/SWUS — o suspend de 7s do dump não volta; o power é o despertar único E24 completa)"
+assert_grep "$WK88" 'SWUS' "E88/selo: o desarme emitiu os toggles SÓ dos armados (a escrita percorreu GP12→GP13→SWUS — o XHC0 que já dormia NUNCA foi escrito, o toggle cego não re-arma por descuido)"
+assert_grep "$RUN88/selo.out" 'dorme selado' "E88/selo: o veredito fica no papel (nenhuma armada após o selo — a prova que o próximo dump mostra)"
+
+# (E88.7) o screenon do usuário: flag dark=0 → o --off NÃO acontece (o blink sob as mãos morre)
+rm -rf "$ST77" "$RT77"; mkdir -p "$ST77" "$RT77/elite"
+echo 0 > "$RUN88/sleep-dark"
+XDG_RUNTIME_DIR="$RT77" XDG_CONFIG_HOME="$CF77" XDG_CACHE_HOME="$ST77" PATH="$MOCK77:$PATH" \
+  MOCK_DIR="$ST77" ELITE_DARK_FLAG="$RUN88/sleep-dark" bash "$CI77" screenon >/dev/null 2>&1
+assert_nogrep "$ST77/wlopm.log" '--off' "E88/screenon: sono ACESO = screenon NUNCA apaga (o --off no wake de menu/tampa era o blink na cara de quem já digita)"
+assert_grep "$ST77/wlopm.log" '--on' "E88/screenon: o --on segue sendo a cura (a sondagem E63 intacta, sem o custo visível)"
+
+# (E88.8) o screenon do usuário: flag dark=1 → o CICLO E75 continua (a cura do link morto)
+rm -rf "$ST77"; mkdir -p "$ST77"
+echo 1 > "$RUN88/sleep-dark"
+XDG_RUNTIME_DIR="$RT77" XDG_CONFIG_HOME="$CF77" XDG_CACHE_HOME="$ST77" PATH="$MOCK77:$PATH" \
+  MOCK_DIR="$ST77" ELITE_DARK_FLAG="$RUN88/sleep-dark" bash "$CI77" screenon >/dev/null 2>&1
+assert_grep "$ST77/wlopm.log" '--off' "E88/screenon: sono ESCURO = o ciclo off→on E75 continua (a troca real de estado no DRM — o blink é invisível, a cura não se perde)"
+
+# (E88.9) o rebind PROVADO: USB intacto = zero rebind (o caminho sadio não paga o martelo)
+HID88="$WORK/hid-e88"; PCI88="$WORK/pci-e88"
+rm -rf "$HID88" "$PCI88" "$RUN88"; mkdir -p "$RUN88"
+mkdir -p "$HID88/0003:046D:C52B.0001" "$HID88/0003:046D:C534.0002" \
+         "$PCI88/devices/0000:02:00.0/power" \
+         "$PCI88/drivers/xhci_hcd/0000:02:00.0"
+echo 0x0c0330 > "$PCI88/devices/0000:02:00.0/class"   # xHCI — o predicado E24 precisa ver a classe
+printf '0003:046D:C52B.0001\n0003:046D:C534.0002\n' > "$RUN88/usb-inputs.pre"
+printf '0003:046D:C52B.0001\t0000:02:00.0\n0003:046D:C534.0002\t0000:02:00.0\n' > "$RUN88/usb-inputs.map"
+echo enabled > "$PCI88/devices/0000:02:00.0/power/wakeup"
+rm -f "$RUN88/journal.log"
+MOCK_DIR="$RUN88" PATH="$MOCK88:$PATH" ELITE_HID_DIR="$HID88" ELITE_PCI_DIR="$PCI88" \
+  ELITE_RUN_DIR="$RUN88" ELITE_UDEVADM=udevadm sh "$HOOK_RU" post >/dev/null 2>&1
+assert_grep "$RUN88/journal.log" 'USB intacto' "E88/usb: a foto e o presente BATEM = ZERO rebind (o wake sadio não destrói e re-enumera nada — o mouse que morria no martelo cego morre de causa)"
+assert_nogrep "$RUN88/journal.log" 'prova de morte' "E88/usb: nenhuma morte provada, nenhum alvejado (o teclado vivo nunca é derrubado pela cura de ninguém)"
+assert_eq "$(cat "$PCI88/devices/0000:02:00.0/power/wakeup" 2>/dev/null)" "disabled" "E88/usb: a política E24 re-aplicada MESMO no caminho sadio (o re-nascer enabled não reabre o despertar sozinho)"
+
+# (E88.10) o rebind PROVADO: mouse morto → alvejado no controlador do morto + FALHA nomeada
+rm -rf "$HID88" "$PCI88" "$RUN88"; mkdir -p "$RUN88"
+mkdir -p "$HID88/0003:046D:C534.0002" \
+         "$PCI88/devices/0000:02:00.0/usb1/1-1/1-1:1.0" \
+         "$PCI88/devices/0000:02:00.0/power" \
+         "$PCI88/drivers/xhci_hcd/0000:02:00.0"
+printf '0003:046D:C52B.0001\n0003:046D:C534.0002\n' > "$RUN88/usb-inputs.pre"
+printf '0003:046D:C52B.0001\t0000:02:00.0\n0003:046D:C534.0002\t0000:02:00.0\n' > "$RUN88/usb-inputs.map"
+ln -sfn "$PCI88/devices/0000:02:00.0/usb1/1-1/1-1:1.0" "$HID88/0003:046D:C534.0002/device"
+ln -sfn ../../drivers/xhci_hcd "$PCI88/devices/0000:02:00.0/driver"
+echo 0x0c0330 > "$PCI88/devices/0000:02:00.0/class"
+echo enabled > "$PCI88/devices/0000:02:00.0/power/wakeup"
+rm -f "$RUN88/journal.log"
+MOCK_DIR="$RUN88" PATH="$MOCK88:$PATH" ELITE_HID_DIR="$HID88" ELITE_PCI_DIR="$PCI88" \
+  ELITE_RUN_DIR="$RUN88" ELITE_UDEVADM=udevadm sh "$HOOK_RU" post >/dev/null 2>&1
+assert_grep "$RUN88/journal.log" 'prova de morte' "E88/usb: a morte é PROVADA contra a foto (o teclado C534 voltou, o mouse C52B não — o réu fica nomeado antes de qualquer martelo)"
+assert_grep "$PCI88/devices/0000:02:00.0/driver/unbind" '0000:02:00.0' "E88/usb: o rebind ALVEJADO desceu no controlador do MORTO (o endereço vem do mapa do pre — o morto já não está no sysfs para dizer onde morava)"
+assert_grep "$RUN88/journal.log" 'FALHA' "E88/usb: o que não voltou FICA NOMEADO (a honestidade E33 — o craft-dump seção 10 tem réu de verdade)"
+
 phase_end

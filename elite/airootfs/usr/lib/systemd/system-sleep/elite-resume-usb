@@ -1,60 +1,210 @@
 #!/bin/sh
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · elite-resume-usb (E69 — O DESPERTAR DOS DISPOSITIVOS)
+# Archcraft ELITE · elite-resume-usb (E88 v2 — O REBIND QUE PROVA ANTES)
 # ═══════════════════════════════════════════════════════════════════════════
-# O RELATO DO DONO (06/nov, rig no 1.0-18): "quando funciona aparentemente
-# direito, o suspender volta SEM DESPERTAR os dispositivos USB — não
-# consigo sequer desbloquear porque mouse e teclado não funcionam". E o
-# agravante: "isso não tava acontecendo antes" — não é regressão de código:
-# antes da E60/E61 o PC quase nunca dormia (o armador estava quebrado),
-# então esta classe LATENTE não se manifestava; agora que o sono é diário,
-# ela morde. RELATO DE TESTE > PAPEL — a cura segue abaixo, e o veredito
-# final é o ciclo REAL no rig.
+# A HISTÓRIA: o relato do dono (06/nov, rig no 1.0-18) — "o suspender volta
+# SEM DESPERTAR os dispositivos USB" — gerou o rebind E69: unbind+bind de
+# CADA controlador USB em TODO resume. A cura funcionou (o despertar dos
+# dispositivos) e criou o próprio tumor: o rebind é um MARTELO CEGO que
+# destrói e re-enumera TUDO em todo sono — e o dump elite-dump-20261107
+# (07/nov, 18:14) mostrou o preço: teclado voltou, MOUSE não (o receptor
+# usb 3-4 re-enumerou com o libinput CONGELADO pelo elite-resume-display
+# da era E63 — o hotplug foi emitido para uma sessão dormindo), e o
+# journal do boot registra o usbhid 3-4:1.4 'couldn't find an input
+# interrupt endpoint' duas vezes (boot E wake).
 #
-# A CLASSE JÁ TINHA PROVA NO PAPEL: o dump a4h8 (E24) registrou no journal
-# do rig   xhci_hcd 0000:02:00.0: xHC error in resume, USBSTS 0x401, Reinit
-# — o controlador ERRA no resume e o kernel o re-inicializa; a re-init pode
-# falhar em restaurar as portas (dispositivos mortos na cara do lock). A
-# cura E24 (desarmar o wake USB pela regra udev) curou o DESPERTAR SOZINHO
-# — nunca prometeu curar o RETORNO dos dispositivos. ESTE hook é a cura do
-# RETORNO: re-bind (unbind + bind) de CADA controlador USB PCI bound — a
-# re-inicialização DETERMINÍSTICA do controlador, feita à mão. Se o
-# controlador voltou sadio, o custo é a re-enumeracao (~1s — os
-# dispositivos piscam); se voltou morto (a classe acima), o rebind É o
-# despertar.
+# A LEI NOVA (E88): REBIND SÓ COM PROVA DE MORTE. Três fases:
+#   pre  — A FOTOGRAFIA: o inventário de dispositivos HID no instante do
+#          sono (/sys/bus/hid) vai para /run/elite/usb-inputs.pre.
+#   post — (1) A PROVA: até 3s de graça — os HID da foto voltaram TODOS?
+#          SIM → 'USB intacto — zero rebind' (o caminho SADIO não paga o
+#          martelo: zero interrupção, zero re-enumercação, zero mouse
+#          morto). (2) O ALVO: alguma coisa morreu? rebind SÓ do(s)
+#          controlador(es) que hospedam o(s) morto(s) — o teclado vivo do
+#          outro controlador NUNCA é derrubado pela cura do mouse. (3) O
+#          MARTELO DE RESERVA: provou de novo e ainda falta gente → o
+#          rebind completo da E69 + udevadm trigger (o lembrete ao seat) +
+#          FALHA nomeada no papel.
+#   SEMPRE — a política E24 re-aplicada (wakeup=disabled nos 0x0c03): o
+#          bind pode re-nascer 'enabled' e reabrir o DESPERTAR SOZINHO.
 #
-# E24 VIGIADA — a re-aplicação da política é PARTE da cura: o bind pode
-# re-nascer com o default 'enabled' do boot; sem re-aplicar
-# wakeup=disabled nos 0x0c03, o rebind reabriria o DESPERTAR SOZINHO (a
-# doença E24 de volta por efeito colateral do próprio remédio).
+# A CASA DO HOOK (a mesma lei do elite-resume-display E88): zero PAM, zero
+# conversa com user.slice — só sysfs, procfs e journal. O pre e o post são
+# DESTE hook (a foto precisa do mesmo olho que julga).
 #
-# Viaja NO PACOTE elite-system (a lei E57/E63 de um dono por caminho — o
-# rig instalado recebe pelo canal, com UM craft-update). O réu que nem
-# isto alcança fica NOMEADO: o craft-dump seção 10 passa a carregar o
-# journal xhci/usb + o status do craft-wake-guard (E69).
+# Seams de teste: ELITE_HID_DIR, ELITE_PCI_DIR, ELITE_RUN_DIR,
+# ELITE_UDEVADM (o binário ou 'false' nos testes sem udevadm).
 # ═══════════════════════════════════════════════════════════════════════════
-[ "$1" = "post" ] || exit 0
+HID_DIR="${ELITE_HID_DIR:-/sys/bus/hid/devices}"
+PCI_DIR="${ELITE_PCI_DIR:-/sys/bus/pci}"
+RUN_DIR="${ELITE_RUN_DIR:-/run/elite}"
+SNAP="$RUN_DIR/usb-inputs.pre"
+SNAP_MAP="$RUN_DIR/usb-inputs.map"
+UDEVADM="${ELITE_UDEVADM:-udevadm}"
 
-# 1) O RE-BIND — a re-inicialização determinística. Tres drivers cobrem os
-#    mundos comuns (xHCI = USB3/2 moderno, ehci_pci/ohci_pci = legados).
-rebinds=""
-for drv in xhci_hcd ehci_pci ohci_pci; do
-    ddir="/sys/bus/pci/drivers/$drv"
-    [ -d "$ddir" ] || continue
-    for dev in "$ddir"/[0-9a-f]*/; do
-        [ -d "$dev" ] || continue
-        nome="${dev%/}"
-        nome="${nome##*/}"
-        echo "$nome" > "$ddir/unbind" 2>/dev/null || continue
-        echo "$nome" > "$ddir/bind" 2>/dev/null
-        rebinds="$rebinds $nome($drv)"
+# a caminhada hid→PCI: o ancestral controlador do dispositivo (a foto
+# precisa do ENDEREÇO, não só do nome — o morto no wake JÁ SAIU do sysfs,
+# só o mapa do pre sabe onde ele morava)
+pci_of_hid() {
+    devf="$(readlink -f "$HID_DIR/$1/device" 2>/dev/null)"
+    [ -n "$devf" ] || return 1
+    p="$(dirname "$devf")"
+    hop=0
+    while [ -n "$p" ] && [ "$p" != "/" ] && [ "$hop" -lt 12 ]; do
+        case "${p##*/}" in
+            [0-9a-f][0-9a-f][0-9a-f][0-9a-f]:[0-9a-f][0-9a-f]:[0-9a-f][0-9a-f].[0-9a-f])
+                printf '%s' "${p##*/}"
+                return 0
+                ;;
+        esac
+        p="$(dirname "$p")"
+        hop=$((hop + 1))
     done
+    return 1
+}
+
+hid_list() {
+    # a lista CANÔNICA: os dispositivos HID presentes AGORA (ordenada —
+    # a comparação é de CONJUNTO, não de ordem de diretório)
+    (ls "$HID_DIR" 2>/dev/null || true) | sort
+}
+
+# ── o REBIND de UM controlador PCI (a mesma cirurgia da E69, pontual) ─────
+rebind_one() {
+    # $1 = endereço PCI (0000:0c:00.3) — acha o driver vivo e reinicia;
+    # imprime o NOME do driver (o papel compõe o resto)
+    dev="$PCI_DIR/devices/$1"
+    drv="$(readlink -f "$dev/driver" 2>/dev/null)"
+    [ -n "$drv" ] && [ -d "$drv" ] || return 1
+    echo "$1" > "$drv/unbind" 2>/dev/null || return 1
+    echo "$1" > "$drv/bind" 2>/dev/null || return 1
+    printf '%s' "${drv##*/}"
+    return 0
+}
+# o alvo já pagou nesta rodada? (dedup — dois mortos no MESMO controlador
+# = UM rebind, nunca dois)
+alvo_pago() {
+    case " $alvos_rebindados " in
+        *" $1 "*) return 0 ;;
+    esac
+    return 1
+}
+
+case "${1:-}" in
+    pre)
+        # ── A FOTOGRAFIA (o instante do sono: o que existe É o que deve
+        #    voltar; e CADA um com o endereço do controlador — o mapa que
+        #    o alvejado consulta no wake, quando o morto já não está no
+        #    sysfs para dizer onde morava)
+        mkdir -p "$RUN_DIR" 2>/dev/null || true
+        hid_list > "$SNAP" 2>/dev/null || true
+        : > "$SNAP_MAP" 2>/dev/null || true
+        for hid in $(hid_list); do
+            if pci="$(pci_of_hid "$hid")"; then
+                printf '%s\t%s\n' "$hid" "$pci" >> "$SNAP_MAP" 2>/dev/null || true
+            fi
+        done
+        n="$(grep -c . "$SNAP" 2>/dev/null || echo 0)"
+        nm="$(grep -c . "$SNAP_MAP" 2>/dev/null || echo 0)"
+        logger -t elite-resume-usb "pré-sono: inventário HID fotografado ($n dispositivos, $nm com controlador mapeado) — o wake prova contra ESTA foto antes de tocar em qualquer controlador"
+        exit 0
+        ;;
+esac
+[ "$1" = "post" ] || exit 0
+mkdir -p "$RUN_DIR" 2>/dev/null || true
+
+# ── 1. A PROVA (a graça do despertar: a re-enumeração natural leva até
+#       3s; quem voltou sozinho não paga martelo)
+missing_now() {
+    # lista no stderr dos HID da FOTO que NÃO estão presentes AGORA
+    sort "$SNAP" 2>/dev/null > "$RUN_DIR/.snap.sorted" || true
+    hid_list > "$RUN_DIR/.now.sorted"
+    comm -23 "$RUN_DIR/.snap.sorted" "$RUN_DIR/.now.sorted"
+}
+i=0
+while [ "$i" -lt 6 ]; do
+    faltando="$(missing_now)"
+    [ -z "$faltando" ] && break
+    sleep 0.5
+    i=$((i + 1))
 done
 
-# 2) A POLÍTICA E24 RE-APLICADA — o bind pode re-nascer 'enabled'; a
+# SEM FOTO (pre não rodou — sono por caminho exótico): a sanidade GERAL
+# decide (HID presentes E pontos de input vivos) — zero rebind no sadio.
+if [ ! -s "$SNAP" ]; then
+    nhid="$(hid_list | grep -c . 2>/dev/null || echo 0)"
+    if [ "$nhid" -gt 0 ]; then
+        logger -t elite-resume-usb "sem foto do pré-sono, mas $nhid dispositivos HID vivos e inputs presentes — zero rebind (o martelo só desce com prova de morte)"
+        rebinds=""
+    fi
+fi
+
+rebinds=""
+if [ -s "$SNAP" ] && [ -n "$faltando" ]; then
+    # ── 2. O ALVO: rebind SÓ do controlador que hospeda cada morto —
+    #       a cura do mouse não pode derrubar o teclado vivo do vizinho.
+    logger -t elite-resume-usb "prova de morte: faltam $(printf '%s' "$faltando" | wc -l) dispositivo(s) da foto ($(printf '%s' "$faltando" | tr '\n' ' ')) — rebind ALVEJADO nos controladores hospedeiros"
+    alvo=""
+    alvos_rebindados=" "
+    for hid in $faltando; do
+        # o endereço vem do MAPA do pre (o morto já saiu do sysfs — só a
+        # foto sabe onde ele morava; hid sem mapa cai para o martelo de
+        # reserva mais abaixo, com o réu nomeado)
+        pci="$(awk -F '\t' -v h="$hid" '$1 == h { print $2; exit }' "$SNAP_MAP" 2>/dev/null)"
+        [ -n "$pci" ] && alvo="$alvo $pci"
+    done
+    for pci in $alvo; do
+        if alvo_pago "$pci"; then
+            continue                          # o controlador já pagou nesta rodada
+        fi
+        alvos_rebindados="$alvos_rebindados$pci "
+        if r="$(rebind_one "$pci")"; then
+            rebinds="$rebinds $pci($r)"
+        else
+            logger -t elite-resume-usb "rebind do alvo $pci RECUSADO (driver ausente/unbind falhou — o kernel nomeia no journal)"
+        fi
+    done
+    if [ -n "$rebinds" ]; then
+        sleep 2
+        faltando="$(missing_now)"
+    fi
+fi
+
+if [ -s "$SNAP" ] && [ -n "$faltando" ]; then
+    # ── 3. O MARTELO DE RESERVA (a cura E69 inteira — só quando o alvo
+    #       não bastou; o réu continua nomeado)
+    logger -t elite-resume-usb "alvejado não bastou (ainda faltam: $(printf '%s' "$faltando" | tr '\n' ' ')) — o martelo completo da E69 desce como RESERVA"
+    for drv in xhci_hcd ehci_pci ohci_pci; do
+        ddir="$PCI_DIR/drivers/$drv"
+        [ -d "$ddir" ] || continue
+        for dev in "$ddir"/[0-9a-f]*/; do
+            [ -d "$dev" ] || continue
+            nome="${dev%/}"
+            nome="${nome##*/}"
+            echo "$nome" > "$ddir/unbind" 2>/dev/null || continue
+            echo "$nome" > "$ddir/bind" 2>/dev/null
+            rebinds="$rebinds $nome($drv:reserva)"
+        done
+    done
+    [ -n "$rebinds" ] && sleep 2
+    faltando="$(missing_now)"
+    if [ -n "$faltando" ]; then
+        # ── 4. O LEMBRETE AO SEAT + a FALHA nomeada (a cura alcançou o
+        #       kernel; o seat que não viu é lembrado — o que NÃO voltou
+        #       fica nomeado no journal para o craft-dump seção 10)
+        if command -v "$UDEVADM" >/dev/null 2>&1; then
+            timeout 5 "$UDEVADM" trigger --subsystem-match=hid --action=add >/dev/null 2>&1 || true
+            timeout 5 "$UDEVADM" trigger --subsystem-match=input --action=add >/dev/null 2>&1 || true
+        fi
+        logger -t elite-resume-usb "FALHA: após alvejado e reserva, estes dispositivos da foto NÃO voltaram: $(printf '%s' "$faltando" | tr '\n' ' ') (o journal do kernel nomeia o réu — a perícia é o craft-dump seção 10)"
+    fi
+fi
+rm -f "$RUN_DIR/.snap.sorted" "$RUN_DIR/.now.sorted" 2>/dev/null || true
+
+# ── A POLÍTICA E24 RE-APLICADA — o bind pode re-nascer 'enabled'; a
 #    palavra final do wake é da casa (mesmo predicado da regra udev 0x0c03).
 guardados=0
-for d in /sys/bus/pci/devices/*; do
+for d in "$PCI_DIR"/devices/*; do
     [ -r "$d/power/wakeup" ] || continue
     cls="$(cat "$d/class" 2>/dev/null)"
     case "$cls" in
@@ -66,11 +216,10 @@ for d in /sys/bus/pci/devices/*; do
     fi
 done
 
-# 3) O PAPEL — o silêncio no resume é o buraco que escondeu o 'sem sinal'
-#    (lição E63); aqui a mesma lei: tudo que decide deixa rastro no journal.
-if [ -n "$rebinds" ]; then
-    logger -t elite-resume-usb "controladores USB re-inicializados pós-sono (rebind:$rebinds) · wake-guard E24 re-aplicado em $guardados controlador(es)"
+# ── O PAPEL — o veredito com a prova (E33: tudo que decide deixa linha)
+if [ -z "$rebinds" ]; then
+    logger -t elite-resume-usb "USB intacto pós-sono — a foto do pré-sono e o presente BATEMEM: zero rebind (o caminho sadio não paga o martelo) · wake-guard E24 re-aplicado em $guardados controlador(es)"
 else
-    logger -t elite-resume-usb "nenhum controlador USB PCI para re-inicializar (nenhum bound ou rebind recusado — o journal do kernel nomeia o réu)"
+    logger -t elite-resume-usb "controladores USB re-inicializados pós-sono (rebind:$rebinds) · wake-guard E24 re-aplicado em $guardados controlador(es)"
 fi
 exit 0

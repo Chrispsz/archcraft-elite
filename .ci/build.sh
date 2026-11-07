@@ -887,7 +887,35 @@ pkgver=1.0
 #     vendia 'vê o próprio sucessor no ar' — o pgrep vê o CHAMADOR).
 #     pkgrel 30→31 NO MESMO COMMIT (lei E41 — craft-vigil e craft-idle
 #     mudaram de conteúdo: a sucessora E79).
-pkgrel=31
+# E88 — O DESPERTAR QUE NÃO CONGELA + O SISTEMA INSTANTÂNEO (a perícia do
+#     dump elite-dump-20261107-181747 do rig provou TRÊS réus do resume e
+#     o dono sentiu o quarto): (1) elite-resume-display REESCRITO — o
+#     runuser (PAM) contra user.slice congelado prendia o systemd-suspend
+#     90s até o TimeoutStartSec (o journal: Varlink CreateSession
+#     UnitAllocationFailed) = tela/mouse/teclado mortos no wake; agora é
+#     zero-PAM (setpriv+timeout), sai em <1s e a imagem religa num waiter
+#     desapegado que ESPERA o thaw — e o ciclo E75 só usa o --off quando
+#     o sono foi ESCURO (a flag dark do pre; menu-suspend não pisca).
+#     (2) elite-resume-usb v2 — o rebind cego da E69 virou rebind COM
+#     PROVA: foto do inventário HID no pre, graça de 3s, alvejado só no
+#     controlador hospedeiro do morto, martelo E69 como reserva, FALHA
+#     nomeada — o caminho sadio não desce o martelo (o mouse que morria
+#     no rebind cego morre de causa). (3) elite-sleep-report — o papel
+#     virou ATO: o selo ACPI desarma TODO *enabled do /proc/acpi/wakeup
+#     (GP12/GP13/SWUS/SWDS — os GPEs que dormiram o PC em 7 segundos: 'ele
+#     sequer suspendeu' curado; o botão do power é o despertar ÚNICO, E24
+#     completa). (4) craft-idle screenon lê a flag dark (zero blink sob as
+#     mãos). E a responsividade que o dono mandou ao máximo: dock com
+#     guard que se aposenta no map/morte (fim do 'clique ignorado 8s'),
+#     craft-drawer com freio de 400ms (fim do abre-fecha-abre), craft-clean
+#     v2 (--yes, tamanhos, lixeira, flatpak), elite-optimize v2 (governor
+#     performance + EPP — o clock sobe com o PRIMEIRO clique), pacman com
+#     ParallelDownloads=5 (a atualização ágil) e a tela de lock v3
+#     (relógio com sombra, saudação, card, dica, fade ágil).
+#     pkgrel 31→32 NO MESMO COMMIT (lei E41 — 2 hooks reescritos, 1 hook
+#     vira ator, craft-idle/craft-dock-gui/craft-drawer/craft-clean/
+#     elite-optimize/craft-update/hyprlock.conf mudaram de conteúdo).
+pkgrel=32
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

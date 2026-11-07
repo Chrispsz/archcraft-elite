@@ -234,6 +234,22 @@ run_root() {
     if [ "$(id -u)" = 0 ]; then "$@"; else sudo "$@"; fi
 }
 
+# E88 — A ATUALIZAÇÃO ÁGIL: downloads paralelos no pacman.conf. O default
+# do pacote vem COMENTADO ('#ParallelDownloads = 5') — UM pacote por vez:
+# o -Syu que 'parecia travado' no pacote grande era ISTO. Idempotente e
+# best-effort (conf ausente/ilegível = silêncio honesto — o réu é o conf
+# da base, nunca o update); a ISO já nasce com a linha (E3 do customize);
+# este gesto alcança os RIGS instalados pelo canal.
+pacman_agil() {
+    local PC=/etc/pacman.conf
+    [ -r "$PC" ] || return 0
+    if ! run_root grep -q '^ParallelDownloads' "$PC" 2>/dev/null; then
+        if run_root sed -i '/^\[options\]$/a ParallelDownloads = 5' "$PC" 2>/dev/null; then
+            ulog "E88: pacman.conf ganhou ParallelDownloads = 5 (downloads paralelos — o -Syu ágil)"
+        fi
+    fi
+}
+
 # E54 — A BASE É DE UM DONO POR VEZ. O fuser diz quem segura o arquivo
 # AGORA (mais forte que pgrep: pega o pacman embaixo de paru/yay/timer);
 # sem fuser no rig, o pgrep -x pacman assume (casamento exato do binário).
@@ -451,6 +467,7 @@ fi
 
 # ── dose da casa AO LIGAR (elite-bootupdate.timer — OnBootSec 3min, E51) ─
 if [[ "${1:-}" == "--canal" ]]; then
+    pacman_agil
     ulog "canal: iniciando (dose da casa — ao ligar, E51)"
     # E64 — A PROVA DE REDE ANTES DE TUDO (AUD-B2): a falha de rede na
     # dose ao ligar virava notify CRITICAL A CADA BOOT (o pacman recusava
@@ -595,6 +612,7 @@ if [[ "${1:-}" == "--sistema" ]]; then
 fi
 
 # ── a porta MANUAL (o menu 'Atualizar sistema'): o -Syu completo ────────
+pacman_agil
 # kernel ANTES da transação (o -Syu pode tocá-lo; vazio = pacote ausente)
 kbefore="$(pacman -Q "$KPKG" 2>/dev/null | awk '{print $2}' || true)"
 # E48 — a casa ANTES (a adoção e o upgrade contam como delta da casa)

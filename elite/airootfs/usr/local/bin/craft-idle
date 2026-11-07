@@ -325,12 +325,28 @@ case "${1:-}" in
         # 1 blink no resume SADIO (na doença a tela já está preta — o
         # custo real é zero). Idempotente com o hook de sistema
         # (elite-resume-display, o MESMO ciclo) e com a vigília.
+        # E88 — O BLINK SOB AS MÃOS NÃO EXISTE MAIS: a flag dark do
+        # elite-resume-display (pré-sono, sysfs — a única conversa que o
+        # hook pode ter) conta a verdade do sono: suspendeu ESCURO (o
+        # ciclo do idle) = o off→on é INVISÍVEL e continua sendo a cura
+        # E75; suspendeu ACESO (menu do power, tampa) = o --off aqui
+        # seria um blink na cara do dono já de pé — a cura é o --on
+        # SOZINHO, na mesma sondagem. Um fato (a flag), três caminhos
+        # (swayidle resume, vigia sobrevivente, hook de sistema) — a
+        # gramática E63 de zerar briga, agora com ZERO custo visível no
+        # caminho sadio.
+        dark=1
+        DARK_FLAG="${ELITE_DARK_FLAG:-/run/elite/sleep-dark}"
+        [ -r "$DARK_FLAG" ] && dark="$(cat "$DARK_FLAG" 2>/dev/null)"
+        [ "$dark" = "1" ] || dark=0
         i=0
         rc=0
         while [ "$i" -lt 6 ]; do
             rc=0
-            wlopm --off '*' >/dev/null 2>&1 || true
-            sleep 1
+            if [ "$dark" -eq 1 ]; then
+                wlopm --off '*' >/dev/null 2>&1 || true
+                sleep 1
+            fi
             wlopm --on '*' || rc=$?
             if [ "$rc" -eq 0 ]; then
                 ilog "tela: ACORDOU (ciclo off→on E75, wlopm rc=0, tentativa $((i + 1)))"

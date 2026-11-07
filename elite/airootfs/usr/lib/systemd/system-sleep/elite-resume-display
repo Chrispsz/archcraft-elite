@@ -1,98 +1,231 @@
 #!/bin/sh
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · elite-resume-display (E63 — A VOLTA DA IMAGEM)
+# Archcraft ELITE · elite-resume-display (E88 — O DESPERTAR QUE NÃO CONGELA)
 # ═══════════════════════════════════════════════════════════════════════════
-# O relato do dono (06/nov): suspendeu, voltou — e o monitor ficou SEM
-# SINAL (luz vermelha) até o clique no power desligar o PC. O callback
-# resume do swayidle ('craft-idle screenon') é UM tiro único e pode
-# perder a corrida contra a re-inicialização do driver/compositor — ou
-# nem disparar (swayidle morto durante o sono: o craft-bars o
-# ressuscita, mas o resume do wake que passou já não existe mais).
-# ESTE hook é a REDE DE SISTEMA: roda como root no 'post' do
-# systemd-sleep (TODOS os caminhos de sono atravessam aqui), espera o
-# driver assentar e religa os outputs de cada usuário com sessão
-# gráfica viva. Idempotente com os screenon do usuário — três caminhos,
-# zero briga.
-# Viaja NO PACOTE elite-system (a mesma lei E57 de um dono por caminho:
-# fora do pacote, o rig instalado NUNCA o receberia pelo canal).
+# A PERÍCIA QUE REESCREVEU ESTE HOOK (dump elite-dump-20261107-181747, rig
+# do dono, 07/nov 18:14): o suspend entrou 18:14:37 e o kernel voltou
+# 18:14:44 — mas o user.slice SÓ foi descongelado às 18:16:14. No meio, o
+# journal gritou a cena inteira:
+#     runuser[13006]: pam_systemd: Varlink call io.systemd.Login.CreateSession
+#                     failed: io.systemd.Login.UnitAllocationFailed
+#     systemd[1]: Cannot start frozen unit Session 3 of User chris.
+# A CAUSA ERA ESTE HOOK: no 'post', ele chamava `runuser` (sessão PAM — que
+# o logind NÃO consegue alocar com o user.slice CONGELADO) e em seguida o
+# `wlopm` (IPC de Wayland contra um compositor CONGELADO — ninguém
+# responde). O hook ficou preso ~90s até o TimeoutStartSec do
+# systemd-suspend.service matar tudo: durante ESSA janela inteira, labwc,
+# libinput, dock, barras — TUDO que o dono vê e toca ficou CONGELADO. É a
+# experiência exata que ele relatou: "desbloqueio e ele já volta sem mexer
+# mouse, sem mexer teclado" — o PC voltou, a SESSÃO não.
 #
-# E68 — A FILA DE SOCKETS (relato do dono no 1.0-17: "meio que liga mas
-# sem imagem no monitor"): o WAYLAND_DISPLAY aqui era um CHUTE FIXO em
-# wayland-0 — uma sessão respawnada herda outro número (wayland-1,
-# wayland-2…) e o wlopm moria calado DENTRO de todas as 5 tentativas,
-# com o FALHA do journal sem contar a história inteira. Agora a fila
-# vem dos sockets que EXISTEM de verdade em /run/user/$uid: todos os
-# wayland-* entram, o que não existe não é tentado, e o 1º que responder
-# religa. Idempotência intacta — e nenhum socket de outro usuário é
-# tocado (a fila é POR usuário).
+# A LEI NOVA (a casa do hook): um filho do systemd-sleep NUNCA fala com
+# user.slice congelado. Três pilares:
+#   (1) ZERO PAM — o runuser morreu. Quem executa o wlopm como o usuário é
+#       o setpriv (reuid/regid diretos — nenhuma sessão logind é criada,
+#       nenhum Varlink é chamado, nada existe para falhar com UnitAllocation).
+#   (2) ZERO BLOQUEIO — toda chamada de usuário vive dentro de `timeout`
+#       (3s): o pior inimigo daqui é esperar para sempre um compositor
+#       que ainda não voltou.
+#   (3) O WAITER DESAPEGADO — o hook em si SAIE em <1s (o thaw acontece na
+#       hora e o dono retoma o controle); a volta da imagem é feita por um
+#       waiter `setsid` que ESPERA o thaw (cgroup.freeze=0) antes do
+#       primeiro toque — o mesmo gesto da sucessora da E79: o filho não
+#       herda a pressa do pai que dorme.
 #
-# E75 — O CICLO QUE O --ON SOZINHO NÃO FAZ (o relato recorrente:
-# "suspende, volta e o monitor fica SEM SINAL — PC e periféricos vivos,
-# só o vídeo morto; obrigou a reinicialização forçada"): o `wlopm --on`
-# em output que o compositor JÁ crê aceso é NO-OP com rc=0 — e no wake
-# esse é o estado COMUM: o labwc re-habilita outputs na atividade de
-# input que volta com o rebind do elite-resume-usb, e o 'Suspender' do
-# menu não apaga a tela antes de dormir. Quando a doença mora no nível
-# DRM (o driver não re-assentou o link de vídeo no resume — a classe
-# amdgpu/KMS que o craft-dump seção 10 caça), o rc=0 do no-op convive
-# com o monitor morto PARA SEMPRE: os dois caminhos de cura reportam
-# sucesso e NENHUM estado muda. A cura é a TROCA REAL DE ESTADO, aqui
-# e no screenon do usuário: `wlopm --off '*'` commita o output
-# DESLIGADO; 1s de trevas (o re-sync do monitor precisa do tempo mínimo
-# de DPMS off); `wlopm --on '*'` re-commita LIGADO — o wlroots refaz o
-# DPMS no nível DRM e o link do monitor re-treina. O hook roda no
-# instante mais escuro do ciclo (acabou de acordar), onde o blink do
-# ciclo sadio é invisível — e na doença é a diferença entre usar o PC
-# e reinicializar à força.
+# O CICLO E75 SOBREVIVE, INTELIGENTE: a foto do DPMS no 'pre' (a única
+# coisa que um hook pode ler sem falar com o compositor — sysfs é kernel)
+# fica em /run/elite/sleep-dark: suspendeu ESCURO (o ciclo do idle) → o
+# ciclo off→on continua sendo a cura (o blink é invisível); suspendeu
+# ACESO (menu do power, tampa) → SÓ o --on (o --off seria um blink na cara
+# de quem já está de pé). A flag é lida TAMBÉM pelo screenon do usuário
+# (craft-idle) — um fato, três caminhos, zero briga (E63 intacta).
 #
-# O réu que nem esta rede alcança (compositor morto, driver que não
-# re-assenta) continua nomeado: o journal deste hook (tag
-# elite-resume-display) e o estado dos conectores DRM entram no
-# craft-dump seção 10 (E75) — perícia antes de teoria.
+# E88 — O LEMBRETE AO SEAT: o wake com user.slice congelado atrasou a
+# entrega dos uevents de input (o remove/add do rebind do elite-resume-usb
+# aconteceu com o libinput DORMINDO). O waiter re-emite add para o
+# subsistema input — idempotente (o libinput deduplica por devnode) — e o
+# mouse que o kernel JÁ vê volta a ser visto pelo SEAT.
+#
+# Viaja NO PACOTE elite-system (lei E57/E63 de um dono por caminho).
+# Seams de teste (a mesma escola do elite-optimize E74): ELITE_DRM_DIR,
+# ELITE_RUN_DIR, ELITE_CGROUP_FREEZE, ELITE_RESUME_ATTEMPTS (a sondagem
+# do waiter — produção usa o default 5) — em produção nada disso é
+# setado.
 # ═══════════════════════════════════════════════════════════════════════════
-[ "$1" = "post" ] || exit 0
+DRM_DIR="${ELITE_DRM_DIR:-/sys/class/drm}"
+RUN_DIR="${ELITE_RUN_DIR:-/run/elite}"
+DARK_FLAG="$RUN_DIR/sleep-dark"
+FREEZE="${ELITE_CGROUP_FREEZE:-/sys/fs/cgroup/user.slice/cgroup.freeze}"
 
-# E75 — FIM DO EXIT CALADO: sem wlopm, esta rede NÃO EXISTE — e o
-# 'sem sinal' de um rig sem o binário tinha zero rastro (a lei da casa:
-# tudo que decide deixa linha no papel, inclusive a decisão de NÃO agir).
-if ! command -v wlopm >/dev/null 2>&1; then
-    logger -t elite-resume-display "FALHA: wlopm AUSENTE no sistema — a rede de sistema não tem como religar outputs (o pacote wlopm não está instalado; o rig precisou de reinicialização forçada sem este rastro até a E75)"
-    exit 0
-fi
+# ── o executor SEM PAM: setpriv + timeout (os DOIS pilares num só gesto) ──
+# Duas portas nomeadas (a gramática E75 legível no papel: o ciclo off→on
+# aparece LITERAL no código — o grep da suíte certifica o que executa):
+wlp_on() {
+    # $1=uid $2=gid $3=WAYLAND_DISPLAY — timeout 3: o compositor que não
+    # responde em 3s não recebe a paciência do wake (a aula do dump)
+    timeout 3 setpriv --reuid="$1" --regid="$2" --init-groups \
+        env XDG_RUNTIME_DIR="/run/user/$1" WAYLAND_DISPLAY="$3" \
+        wlopm --on '*' >/dev/null 2>&1
+}
+wlp_off() {
+    timeout 3 setpriv --reuid="$1" --regid="$2" --init-groups \
+        env XDG_RUNTIME_DIR="/run/user/$1" WAYLAND_DISPLAY="$3" \
+        wlopm --off '*' >/dev/null 2>&1
+}
 
-# O driver/compositor ainda re-inicializam no primeiro instante — janela
-# de sondagem: 5 tentativas × 2s (10s; o screenon do usuário tem a sua).
-i=0
-while [ "$i" -lt 5 ]; do
-    feito=""
-    for uhome in /home/*; do
-        u="${uhome##*/}"
-        uid="$(id -u "$u" 2>/dev/null)" || continue
-        pgrep -u "$uid" -x labwc >/dev/null 2>&1 || continue
-        religou=""
-        for sock in /run/user/"$uid"/wayland-*; do
-            [ -S "$sock" ] || continue
-            wd="${sock##*/}"
-            # E75 — O CICLO (off → 1s → on): a troca real de estado que
-            # força o re-commit do output no DRM. O --off é best-effort
-            # (output já desligado, socket morto — tanto faz); o julgamento
-            # é o rc do --on.
-            runuser -u "$u" -- env XDG_RUNTIME_DIR="/run/user/$uid" \
-                WAYLAND_DISPLAY="$wd" wlopm --off '*' >/dev/null 2>&1 || true
-            sleep 1
-            if runuser -u "$u" -- env XDG_RUNTIME_DIR="/run/user/$uid" \
-                WAYLAND_DISPLAY="$wd" wlopm --on '*' >/dev/null 2>&1; then
-                religou="$religou $wd"
-            fi
-        done
-        [ -n "$religou" ] && feito="$feito $u:$religou"
+# ── O WAITER DESAPEGADO (o modo 'waiter' é o próprio hook re-invocado) ────
+waiter() {
+    # 1) A ESPERA DO THAW: user.slice congelado não responde NADA (o
+    #    runuser do dump provou). Sondagem: até 15×2s no cgroup.freeze —
+    #    cgroup v1 / file ausente = sem provador, sigo best-effort (a
+    #    honestidade é logar, não fingir).
+    i=0
+    thawed=0
+    while [ "$i" -lt 15 ]; do
+        if [ ! -r "$FREEZE" ]; then
+            thawed=1
+            break
+        fi
+        if grep -q '^0$' "$FREEZE" 2>/dev/null; then
+            thawed=1
+            break
+        fi
+        sleep 2
+        i=$((i + 1))
     done
-    if [ -n "$feito" ]; then
-        logger -t elite-resume-display "outputs religados pós-sono (ciclo off→on E75; usuários/sockets:$feito)"
+    if [ "$thawed" -eq 1 ]; then
+        logger -t elite-resume-display "waiter: sessão descongelada (espera ${i} sondagens) — a volta da imagem começa AGORA, com o dono no controle"
+    else
+        logger -t elite-resume-display "waiter: user.slice não confirmou thaw em 30s — sigo best-effort (o réu fica nomeado aqui, não em tela preta)"
+    fi
+
+    # 2) AS REDES: wlopm ausente = a rede não existe (FALHA no papel — a
+    #    lei E75 mantida); setpriv ausente = a lei (1) é impossível — FALHA
+    #    honesta em vez de runuser disfarçado.
+    if ! command -v wlopm >/dev/null 2>&1; then
+        logger -t elite-resume-display "FALHA: wlopm AUSENTE no sistema — a rede de sistema não tem como religar outputs (o pacote wlopm não está instalado)"
         exit 0
     fi
-    sleep 2
-    i=$((i + 1))
-done
-logger -t elite-resume-display "FALHA: o ciclo off→on não re-assentou o vídeo após 5 tentativas (wlopm presente; o driver/compositor contam no craft-dump seção 10 — DRM/journal; a escotilha SEM reboot é o craft-rescue-screen a partir de um TTY)"
-exit 0
+    if ! command -v setpriv >/dev/null 2>&1; then
+        logger -t elite-resume-display "FALHA: setpriv AUSENTE — a lei zero-PAM não tem executor (o réu é o pacote util-linux; a rede user-side do craft-idle screenon continua de pé)"
+        exit 0
+    fi
+
+    # 3) A FLAG DARK decide o ciclo: escuro = off→on completo (E75, blink
+    #    invisível); aceso = --on SOZINHO (zero blink sob as mãos do dono).
+    dark=0
+    [ -r "$DARK_FLAG" ] && dark="$(cat "$DARK_FLAG" 2>/dev/null)"
+    [ "$dark" = "1" ] || dark=0
+
+    # 4) O LEMBRETE AO SEAT — ANTES do ciclo: os uevents atrasados pelo
+    #    congelamento chegam ao libinput; idempotente, 5s de teto.
+    if command -v udevadm >/dev/null 2>&1; then
+        timeout 5 udevadm trigger --subsystem-match=input --action=add >/dev/null 2>&1 || true
+    fi
+
+    # 5) O CICLO POR USUÁRIO/SOCKET (a sondagem E63; o seam de teste
+    #    baixa o número de tentativas — produção: 5×2s). O setpriv não
+    #    cria sessão — o UnitAllocationFailed do dump é fisicamente
+    #    impossível aqui.
+    tentativas="${ELITE_RESUME_ATTEMPTS:-5}"
+    case "$tentativas" in ''|*[!0-9]*) tentativas=5 ;; esac
+    [ "$tentativas" -ge 1 ] || tentativas=1
+    i=0
+    while [ "$i" -lt "$tentativas" ]; do
+        feito=""
+        for uhome in /home/*; do
+            u="${uhome##*/}"
+            uid="$(id -u "$u" 2>/dev/null)" || continue
+            gid="$(id -g "$u" 2>/dev/null)" || continue
+            pgrep -u "$uid" -x labwc >/dev/null 2>&1 || continue
+            religou=""
+            for sock in /run/user/"$uid"/wayland-*; do
+                [ -S "$sock" ] || continue
+                wd="${sock##*/}"
+                if [ "$dark" -eq 1 ]; then
+                    # E75 — o ciclo off→on (a troca real de estado que
+                    # re-treina o link no DRM); o off é best-effort.
+                    wlp_off "$uid" "$gid" "$wd" || true
+                    sleep 1
+                    if wlp_on "$uid" "$gid" "$wd"; then
+                        religou="$religou $wd"
+                    fi
+                else
+                    # E88 — menu-suspend com a tela ACESA: o --off seria o
+                    # blink na cara do dono já de pé; a cura é o --on.
+                    if wlp_on "$uid" "$gid" "$wd"; then
+                        religou="$religou $wd"
+                    fi
+                fi
+            done
+            [ -n "$religou" ] && feito="$feito $u:$religou"
+        done
+        if [ -n "$feito" ]; then
+            if [ "$dark" -eq 1 ]; then
+                logger -t elite-resume-display "outputs religados pós-sono (ciclo off→on E75, waiter desapegado E88, sessão JÁ descongelada; usuários/sockets:$feito)"
+            else
+                logger -t elite-resume-display "outputs confirmados pós-sono (--on direto E88 — a tela nunca dormiu ACESA sob este sono; usuários/sockets:$feito)"
+            fi
+            exit 0
+        fi
+        sleep 2
+        i=$((i + 1))
+    done
+    logger -t elite-resume-display "FALHA: a rede não re-assentou o vídeo após $tentativas tentativas (wlopm+setpriv presentes, sessão descongelada; o driver/compositor contam no craft-dump seção 10 — DRM/journal; a escotilha SEM reboot é o craft-rescue-screen a partir de um TTY)"
+    exit 0
+}
+
+case "${1:-}" in
+    pre)
+        # ── A FOTO DO ESCURO (a única conversa possível aqui é com o
+        #    KERNEL — sysfs dpms; o compositor ainda está vivo, mas sysfs
+        #    não pede nada a ele): TODOS os conectores connected+enabled
+        #    com dpms=Off → dark=1. É a flag que o waiter (sistema) e o
+        #    screenon (usuário) leem no wake.
+        mkdir -p "$RUN_DIR" 2>/dev/null || true
+        dark=1
+        visto=0
+        for c in "$DRM_DIR"/card*-*/; do
+            [ -r "${c}status" ] || continue
+            [ "$(cat "${c}status" 2>/dev/null)" = "connected" ] || continue
+            [ "$(cat "${c}enabled" 2>/dev/null)" = "enabled" ] || continue
+            visto=1
+            if [ "$(cat "${c}dpms" 2>/dev/null)" = "On" ]; then
+                dark=0
+                break
+            fi
+        done
+        [ "$visto" -eq 1 ] || dark=0
+        echo "$dark" > "$DARK_FLAG" 2>/dev/null || true
+        chmod 644 "$DARK_FLAG" 2>/dev/null || true
+        if [ "$dark" -eq 1 ]; then
+            logger -t elite-resume-display "pré-sono: DPMS já OFF em todos os conectores — flag dark=1 (o wake curará com o ciclo invisível)"
+        else
+            logger -t elite-resume-display "pré-sono: tela ACESA neste sono (menu/tampa) — flag dark=0 (o wake religa com --on direto: zero blink sob as mãos)"
+        fi
+        exit 0
+        ;;
+    post)
+        if ! command -v wlopm >/dev/null 2>&1; then
+            logger -t elite-resume-display "FALHA: wlopm AUSENTE no sistema — a rede de sistema não tem como religar outputs (o pacote wlopm não está instalado; o rig precisou de reinicialização forçada sem este rastro até a E75)"
+            exit 0
+        fi
+        mkdir -p "$RUN_DIR" 2>/dev/null || true
+        # ── O GESTO NOVO: o hook NÃO espera NINGUÉM. setsid + desapego: o
+        #    systemd-sleep termina em <1s, o thaw acontece NA HORA (a
+        #    experiência do dono: wake = controle imediato), e a imagem é
+        #    religada pelo waiter quando a sessão já respira.
+        if command -v setsid >/dev/null 2>&1; then
+            setsid "$0" waiter >/dev/null 2>&1 </dev/null &
+            logger -t elite-resume-display "post: hook saiu em <1s — o waiter desapegado (E88) religa a tela DEPOIS do thaw; nenhum filho do suspend fala com user.slice congelado (a aula do dump: runuser+wlopm presos 90s até o TimeoutStartSec)"
+        else
+            logger -t elite-resume-display "FALHA: setsid AUSENTE — o ciclo roda NO HOOK (o réu do atraso é o pacote util-linux; a lei zero-PAM segue de pé: setpriv+timeout, nunca runuser)"
+            waiter
+        fi
+        exit 0
+        ;;
+    waiter)
+        waiter
+        ;;
+    *) exit 0 ;;
+esac

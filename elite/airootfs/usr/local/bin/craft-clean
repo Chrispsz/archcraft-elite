@@ -1,18 +1,101 @@
 #!/usr/bin/env bash
-# craft-clean — cache do pacman, órfãos e journal
+# craft-clean — limpeza do sistema (v2 — E88)
+# ═══════════════════════════════════════════════════════════════════════
+# v1: cache do pacman, órfãos e journal.
+# v2 (E88 — a diretriz do dono: "mexe no limpeza"): a limpeza deixa de ser
+# três comandos mudos e vira UM relatório honesto, rápido e sem sustos:
+#   · TAMANHOS ANTES/DEPOIS — o espaço liberado é PROVA, não impressão
+#     (du -sm do cache do pacman; o número aparece no fim, com a fonte);
+#   · LIXEIRA — a lixeira do desktop também é disco (gio trash --empty
+#     quando o gio existe — guardado, best-effort);
+#   · FLATPAK — runtimes órfãos (flatpak uninstall --unused) quando o
+#     flatpak existe; no modo --yes entra sem perguntar;
+#   · MODO --yes — não interativo (script/timer/menu): órfãos e flatpak
+#     saem sem pergunta; sem TTY o read não morre (a lei v2.10.6 mantida);
+#   · JORNAL — retém 2 semanas (o vacuum da v1 continua).
+# A ordem importa: tudo que só LÊ vem antes; o que DESTRÓI pede raiz —
+# sudo falho = passo pulado COM aviso (nunca morte calada).
+# ═══════════════════════════════════════════════════════════════════════
 set -euo pipefail
-echo "==> cache: mantendo 2 versões (paccache -rk2)"
-sudo paccache -rk2 2>/dev/null || echo "  (instale pacman-contrib)"
-sudo paccache -ruk1 2>/dev/null || true
+
+ASSUME_YES=0
+for arg in "$@"; do
+  case "$arg" in
+    -y|--yes) ASSUME_YES=1 ;;
+    -h|--help) sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) echo "craft-clean: arg desconhecido: $arg (use --yes)" >&2; exit 2 ;;
+  esac
+done
+
+PKG_CACHE="/var/cache/pacman/pkg"
+cache_mib() {
+  if [[ -d "$PKG_CACHE" ]]; then
+    du -sm "$PKG_CACHE" 2>/dev/null | awk '{print $1}'
+  else
+    echo 0
+  fi
+}
+antes="$(cache_mib)"
+step() { printf '\n==> %s\n' "$*"; }
+skipped() { printf '   (pulado: %s — sudo indisponível/sem TTY; nada quebrou)\n' "$*" >&2; }
+
+srun() {
+  # sudo que NÃO mata o script: sem root/TTY o passo é pulado com aviso
+  if (( EUID == 0 )); then "$@"; return 0; fi
+  if command -v sudo >/dev/null 2>&1 && [[ -t 0 || ${ASSUME_YES} -eq 1 ]]; then
+    sudo "$@"
+  else
+    return 127
+  fi
+}
+
+step "cache: mantendo 2 versões (paccache -rk2)"
+srun paccache -rk2 2>/dev/null || skipped "paccache (instale pacman-contrib)"
+srun paccache -ruk1 2>/dev/null || true
+
+step "órfãos (pacman -Qtdq)"
 orphans="$(pacman -Qtdq 2>/dev/null || true)"
 if [[ -n "$orphans" ]]; then
-  echo "==> órfãos:"; echo "$orphans" | sed 's/^/  /'
-  # v2.10.6 — EOF/set -e NÃO MATA CALADO (a lei do craft-idle v2.10.5
-  # chegando ao último irmão): rodar de script/pipe sem TTY matava o
-  # craft-clean no read ANTES do vacuum do journal — morte silenciosa.
-  read -r -p "remover todos? [s/N] " ans || ans=''
-  [[ "${ans,,}" == "s" ]] && sudo pacman -Rns --noconfirm $orphans
+  echo "$orphans" | sed 's/^/  /'
+  if (( ASSUME_YES == 1 )); then
+    srun pacman -Rns --noconfirm $orphans || skipped "remoção dos órfãos"
+  else
+    # v2.10.6 — EOF/set -e NÃO MATA CALADO (a lei do craft-idle v2.10.5
+    # chegando ao último irmão): rodar de script/pipe sem TTY matava o
+    # craft-clean no read ANTES do vacuum do journal — morte silenciosa.
+    read -r -p "remover todos? [s/N] " ans || ans=''
+    if [[ "${ans,,}" == "s" ]]; then
+      srun pacman -Rns --noconfirm $orphans || skipped "remoção dos órfãos"
+    else
+      echo "  (órfãos mantidos — escolha do usuário no papel)"
+    fi
+  fi
+else
+  echo "  nenhum órfão (o sistema já está limpo desta praga)"
 fi
-echo "==> journal: retendo 2 semanas"
-sudo journalctl --vacuum-time=2weeks
-echo "✔ limpo."
+
+step "lixeira do desktop"
+if command -v gio >/dev/null 2>&1; then
+  gio trash --empty 2>/dev/null && echo "  lixeira esvaziada" || echo "  lixeira já vazia (ou sem acesso — nada quebrou)"
+else
+  echo "  (gio ausente — pulado)"
+fi
+
+step "flatpak: runtimes órfãos"
+if command -v flatpak >/dev/null 2>&1; then
+  if (( ASSUME_YES == 1 )); then
+    flatpak uninstall --unused -y 2>/dev/null || echo "  (nada a remover ou sem sessão — pulado)"
+  else
+    flatpak uninstall --unused 2>/dev/null || echo "  (nada a remover ou sem sessão — pulado)"
+  fi
+else
+  echo "  (flatpak ausente — pulado)"
+fi
+
+step "journal: retendo 2 semanas"
+srun journalctl --vacuum-time=2weeks || skipped "journalctl --vacuum"
+
+depois="$(cache_mib)"
+liberado=$(( antes - depois ))
+(( liberado < 0 )) && liberado=0
+printf '\n✔ limpo. cache do pacman: %s MiB → %s MiB (liberado: %s MiB)\n' "$antes" "$depois" "$liberado"

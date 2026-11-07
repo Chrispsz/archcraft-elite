@@ -152,6 +152,14 @@ awk '/^\[options\]/{opt=1; print; next}
 # is defined"). Append dentro do bloco [options] (arquivo é só-options).
 grep -q '^Architecture' /tmp/elite-pc-options \
     || printf 'Architecture = x86_64 x86_64_v3\n' >> /tmp/elite-pc-options
+# [E88] A ATUALIZAÇÃO ÁGIL: downloads paralelos + cor. O default do pacman
+# vem COMENTADO ('#ParallelDownloads = 5') = UM pacote por vez — o -Syu que
+# 'parecia travado' no pacote grande. A casa escreve a palavra final:
+# 5 em paralelo (o limite sadio) + Color (a leitura do terminal).
+grep -q '^ParallelDownloads' /tmp/elite-pc-options \
+    || printf 'ParallelDownloads = 5\n' >> /tmp/elite-pc-options
+grep -q '^Color' /tmp/elite-pc-options \
+    || printf 'Color\n' >> /tmp/elite-pc-options
 {
     cat /tmp/elite-pc-options
     cat <<'EOL'
