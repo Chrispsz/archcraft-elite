@@ -74,3 +74,13 @@ alias update='sudo pacman -Syu'
 # v2.10.5 — mousepad SAIU da ISO (packages.remove) — o atalho apontava
 # pra um editor que não existe; o editor da distro é o nano (W-e).
 alias zshconfig='nano ~/.zshrc'
+
+# ── elite-hello-1 · Saudação: o terminal abre com o retrato do sistema ──
+# E73 (o dono: "faz o terminal abrir por padrao com aquelas paradas que
+# mostra o kernel e etc"): o craft-hello (fastfetch com o logo Archcraft +
+# fallback próprio) roda a cada shell interativo novo — kernel, uptime e
+# pacotes na cara sem comando nenhum. Fuga honesta: export
+# ELITE_NO_HELLO=1 desliga (o W-S-h usa a mesma porta pra não dobrar).
+if [[ -o interactive ]] && (( $+commands[craft-hello] )) && [[ -z "${ELITE_NO_HELLO}" ]]; then
+  craft-hello
+fi

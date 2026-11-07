@@ -1,9 +1,27 @@
 #!/usr/bin/env bash
-# craft-hello — visão rápida do sistema (Archcraft Elite)
+# craft-hello — a saudação do terminal (Archcraft Elite)
+# ═══════════════════════════════════════════════════════════════════════
+# E73 — O TERMINAL ABRE COM O RETRATO (o dono: "faz o terminal abrir por
+#     padrao com aquelas paradas que mostra o kernel e etc"). O craft-hello
+#     existia desde a v1.0.3 mas ninguém o chamava quando o terminal abre
+#     (só o W-S-h — que executava o script SEM terminal: a saída se
+#     perdia no journal do labwc). Agora ele é a saudação: o .zshrc do
+#     skel chama a cada shell interativo novo e a seção [10] do elite-tune
+#     injeta o MESMO bloco nas homes vivas (o skel nunca viaja no pacote —
+#     lição E70.1). O VISUAL viaja em CONFIG DA CASA
+#     (/usr/local/share/elite/fastfetch/config.jsonc — logo "Archcraft"
+#     builtin do fastfetch, nome provado no fonte oficial): o usuário que
+#     quiser a própria cara cria ~/.config/fastfetch/config.jsonc e o dele
+#     VENCE — a casa não briga com o dono do home.
 set -euo pipefail
+CFG_SYS=/usr/local/share/elite/fastfetch/config.jsonc
+CFG_USR="$HOME/.config/fastfetch/config.jsonc"
 if command -v fastfetch >/dev/null 2>&1; then
-  exec fastfetch
+  if [[ -f "$CFG_USR" ]]; then exec fastfetch; fi                  # config do usuário manda
+  if [[ -f "$CFG_SYS" ]]; then exec fastfetch --config "$CFG_SYS"; fi
+  exec fastfetch                                                   # sem config da casa (ISO velha?) → default
 fi
+# ── fallback sem fastfetch: os 4 números vitais ────────────────────────
 k="$(uname -r)"
 c="$( (grep -m1 'model name' /proc/cpuinfo || true) | cut -d: -f2 | xargs )"   # v2.10.5: pipefail não morde CPU sem 'model name' (ARM/QEMU exótico)
 u="$(uptime -p 2>/dev/null || uptime)"

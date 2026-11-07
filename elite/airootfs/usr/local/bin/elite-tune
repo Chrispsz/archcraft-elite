@@ -1126,6 +1126,89 @@ for h in /home/*/; do
   fi
 done
 
+# ── [10] TERMINAL: A SAUDAÇÃO VOLTA (E73 — o rig vivo recebe) ─────────
+# O dono: "faz o terminal abrir por padrao com aquelas paradas que mostra
+# o kernel e etc". O craft-hello EXISTE desde a v1.0.3 mas ninguém o
+# chamava quando o terminal abre (só o W-S-h — que executava o script SEM
+# terminal: a saída se perdia no journal do labwc). A cura é DUAS mãos:
+# o skel da ISO já nasce com o bloco no .zshrc; ESTA seção injeta o MESMO
+# bloco nas homes vivas (config de usuário NUNCA viaja no pacote — lei do
+# domínio v3 e lição E70.1). Idempotente pelo marcador elite-hello-1;
+# backup escola 2g; append puro — o .zshrc do usuário é da casa desde a
+# v1.0.3 (stack zsh da Elite) e o bloco entra no FIM, intacto o resto.
+# E o W-S-h ganha terminal de verdade (foot + retrato + shell, com
+# ELITE_NO_HELLO evitando a saudação dobrada — o que hoje roda SEM
+# terminal imprime no journal, invisível ao dono).
+ZSKEL=/etc/skel/.zshrc
+if [[ -f "$ZSKEL" ]] && ! grep -q 'elite-hello-1' "$ZSKEL" 2>/dev/null; then
+  if (( DRY )); then
+    say "[dry] Terminal: bloco da saudação seria injetado no /etc/skel/.zshrc (E73)"
+  else
+    backup "$ZSKEL"
+    cat >> "$ZSKEL" <<'E73HELLO'
+
+# ── elite-hello-1 · Saudação: o terminal abre com o retrato do sistema ──
+# E73 (injetado pela seção [10] do elite-tune — o craft-hello = fastfetch
+# com o logo Archcraft + fallback próprio; kernel, uptime e pacotes na
+# cara sem comando nenhum). Fuga honesta: export ELITE_NO_HELLO=1 desliga.
+if [[ -o interactive ]] && (( $+commands[craft-hello] )) && [[ -z "${ELITE_NO_HELLO}" ]]; then
+  craft-hello
+fi
+E73HELLO
+    say "Terminal: bloco da saudação injetado no /etc/skel/.zshrc (E73 — futuros usuários da casa nascem com o retrato)"
+  fi
+fi
+for h in /home/*/; do
+  ZRC="$h/.zshrc"
+  [[ -f "$ZRC" ]] || continue
+  grep -q 'elite-hello-1' "$ZRC" 2>/dev/null && continue
+  u="$(stat -c '%U' "$h")"; [[ "$u" == "root" ]] && continue
+  if (( DRY )); then
+    say "[dry] Terminal ($u): bloco da saudação seria injetado no .zshrc (E73)"
+    continue
+  fi
+  backup "$ZRC"
+  cat >> "$ZRC" <<'E73HELLO'
+
+# ── elite-hello-1 · Saudação: o terminal abre com o retrato do sistema ──
+# E73 (injetado pela seção [10] do elite-tune — o craft-hello = fastfetch
+# com o logo Archcraft + fallback próprio; kernel, uptime e pacotes na
+# cara sem comando nenhum). Fuga honesta: export ELITE_NO_HELLO=1 desliga.
+if [[ -o interactive ]] && (( $+commands[craft-hello] )) && [[ -z "${ELITE_NO_HELLO}" ]]; then
+  craft-hello
+fi
+E73HELLO
+  chown "$(stat -c '%U:%G' "$h")" "$ZRC" 2>/dev/null || true
+  say "Terminal ($u): saudação injetada no .zshrc (E73 — o terminal abre com o retrato do sistema)"
+done
+for h in /home/*/; do
+  RXML="$h/.config/labwc/rc.xml"
+  [[ -f "$RXML" ]] || continue
+  grep -q 'command="craft-hello"' "$RXML" 2>/dev/null || continue
+  grep -q 'export ELITE_NO_HELLO=1' "$RXML" 2>/dev/null && continue
+  u="$(stat -c '%U' "$h")"; [[ "$u" == "root" ]] && continue
+  if (( DRY )); then
+    say "[dry] Terminal ($u): W-S-h do rc.xml ganharia terminal de verdade (E73)"
+    continue
+  fi
+  backup "$RXML"
+  if awk -v q="'" '
+      /command="craft-hello"/ {
+        gsub(/command="craft-hello"/,
+             "command=\"foot -e sh -c " q "craft-hello; export ELITE_NO_HELLO=1; exec zsh" q "\"")
+      }
+      { print }
+    ' "$RXML" > "$RXML.tmp" && [[ -s "$RXML.tmp" ]]; then
+    chmod --reference="$RXML" "$RXML.tmp" 2>/dev/null || true
+    chown "$(stat -c '%U:%G' "$h")" "$RXML.tmp" 2>/dev/null || true
+    mv -f "$RXML.tmp" "$RXML"
+    say "Terminal ($u): W-S-h abre foot com o retrato e cai no shell (E73 — a saída nunca mais se perde no journal)"
+  else
+    rm -f "$RXML.tmp"
+    warn "Terminal ($u): a reescrita do rc.xml falhou — o W-S-h segue executando sem terminal (réu à vista no papel)"
+  fi
+done
+
 # E37/n16 — epílogo HONESTO: o pacman_s alimentou FAILURES com rc real;
 # dizer 'CONCLUÍDO' sobre pendência era a mentira que o usuário só
 # descobria no boot seguinte (kernel que não veio, booster morto).

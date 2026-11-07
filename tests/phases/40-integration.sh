@@ -180,6 +180,30 @@ assert_grep "$PKG" '^swaync$' "v1.0.3: swaync no packages"
 assert_grep "$PKG" '^fuzzel$' "v1.0.3: fuzzel no packages"
 assert_grep "$PKG" '^fastfetch$' "v1.0.3: fastfetch no packages (craft-hello)"
 
+# ── E73 — A SAUDAÇÃO: o terminal abre com o retrato do sistema ─────────
+# O dono: "faz o terminal abrir por padrao com aquelas paradas que mostra
+# o kernel e etc". O craft-hello existia desde a v1.0.3 mas ninguém o
+# chamava quando o terminal abre (só o W-S-h — que executava o script SEM
+# terminal: a saída se perdia no journal do labwc). Quatro pontas:
+# skel .zshrc chama · elite-tune [10] injeta nas homes vivas · o config da
+# casa viaja NO PACOTE (lição E63) · o W-S-h ganha terminal de verdade.
+assert_grep "$P/airootfs/etc/skel/.zshrc" 'elite-hello-1' "E73: o .zshrc do skel carrega o bloco da saudação (o terminal abre com o retrato — marcador da casa)"
+assert_grep "$P/airootfs/etc/skel/.zshrc" 'ELITE_NO_HELLO' "E73: fuga honesta da saudação (export ELITE_NO_HELLO=1 desliga — o W-S-h usa a mesma porta)"
+assert_grep "$P/airootfs/etc/skel/.zshrc" '\[\[ -o interactive \]\]' "E73: a saudação é só em shell interativo (script/pipe não colhe retrato)"
+assert_grep "$P/airootfs/usr/local/bin/craft-hello" '\.config/fastfetch/config\.jsonc' "E73: o craft-hello respeita o config do USUÁRIO (o home vence a casa — lei do domínio)"
+assert_grep "$P/airootfs/usr/local/bin/craft-hello" 'share/elite/fastfetch/config\.jsonc' "E73: o craft-hello aponta pro config da CASA (o retrato é da distro)"
+assert_file "$P/airootfs/usr/local/share/elite/fastfetch/config.jsonc" "E73: o config do fastfetch da Elite existe (via overlay E no pacote — pre_install remove a via sem dono)"
+assert_grep "$P/airootfs/usr/local/share/elite/fastfetch/config.jsonc" '"source": "Archcraft"' "E73: o logo é o Archcraft BUILTIN (nome exato provado no builtin.c do fastfetch — nome errado = logo genérico)"
+assert_grep "$P/airootfs/usr/local/share/elite/fastfetch/config.jsonc" '"kernel"' "E73: o retrato mostra o KERNEL (o pedido do dono, verbo a verbo)"
+FF_JSON_OK="$(sed '/^[[:space:]]*\/\//d' "$P/airootfs/usr/local/share/elite/fastfetch/config.jsonc" | python3 -c 'import json,sys; json.load(sys.stdin)' 2>/dev/null && echo OK || echo QUEBRADO)"
+assert_eq "$FF_JSON_OK" "OK" "E73: o config.jsonc é JSON válido (fastfetch recusa config quebrado e o retrato morreria calado)"
+assert_grep "$P/airootfs/usr/local/bin/elite-tune" '\[10\] TERMINAL' "E73: a seção [10] existe no elite-tune (o rig vivo recebe — o skel nunca viaja no pacote, lição E70.1)"
+assert_grep "$P/airootfs/usr/local/bin/elite-tune" 'elite-hello-1' "E73: a injeção nas homes é idempotente pelo marcador elite-hello-1 (roda duas vezes = roda uma)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'foot -e sh -c' "E73: o W-S-h abre TERMINAL de verdade (executar sem terminal perdia a saída no journal do labwc)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'craft-hello; export ELITE_NO_HELLO=1; exec zsh' "E73: o W-S-h mostra o retrato UMA vez e cai no shell (sem saudação dobrada)"
+assert_grep "$REPO/.ci/build.sh" 'fastfetch/config\.jsonc' "E73: o config do retrato viaja NO PACOTE (lição E63: fora do pacote nunca chega ao rig)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 23→24 NO MESMO COMMIT' "E73 (âncora): pkgrel elite-system 23→24 NO MESMO COMMIT (lei E41 — craft-hello + config + tune [10] mudaram o pacote)"
+
 # ── v1.0.3: skel labwc + sddm sessão labwc ─────────────────────────────
 assert_file "$P/airootfs/etc/skel/.config/labwc/rc.xml" "v1.0.3: rc.xml do labwc no skel"
 assert_file "$P/airootfs/etc/skel/.config/labwc/menu.xml" "v1.0.3: menu.xml no skel"

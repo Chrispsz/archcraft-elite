@@ -28,7 +28,7 @@ a tornou verdade: 35 bins + scripts de repo; o craft-compress morreu com honra n
 | `craft-dump` | perícia completa em um arquivo (`--upload` = termbin PÚBLICO, avisado desde o E36) |
 | `craft-extract` | "Extrair aqui" do Thunar — o verbo da casa (E46; o plugin thunar-archive saiu): palco temporário, colisão pergunta, notificação; motor 7z/7zz (o `7zip` do Arch entrega `7zz`) |
 | `craft-fix-keys` | cura do keyring pacman (sessão no live; no instalado o trabalho é do timer root) |
-| `craft-hello` | saudação do terminal (fastfetch + fallback próprio) |
+| `craft-hello` | a SAUDAÇÃO: o terminal abre com o retrato do sistema (E73 — o .zshrc chama a cada shell interativo; fastfetch com o logo Archcraft do config da casa em `/usr/local/share/elite/fastfetch/config.jsonc`, o `~/.config/fastfetch/config.jsonc` do usuário VENCE; fallback próprio sem fastfetch; `ELITE_NO_HELLO=1` desliga) |
 | `craft-idle` | daemon de idle (lock/DPMS/suspend conforme `idle.conf`) + menu em DUAS PORTAS (Tela: trava e apaga / Suspender após o idle — E46) com o valor atual no item; E36: suspend entregue MESMO com Lock=Nunca + `-i` (inibidores ignorados); E44: gesto único normalizado (conf legado X/Y → X/X com aviso) + braços observáveis no `idle.log` (rc de wlopm/suspend no papel); E61: o braço idle do suspend DEFERE com lock vivo + vigia no ar (o tempo TRAVADO manda enquanto travado), o resume renova a marca `idle-activity` que a vigília lê e os braços do daemon SAEM de imediato (nunca caem no menu) |
 | `craft-keyring-wait` | espera o pacman transacional (teto 420s) — ExecStartPre do pacman-init |
 | `craft-lock` | trava a sessão (hyprlock com o wallpaper resolvido) |

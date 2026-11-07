@@ -92,7 +92,7 @@ impacto saíram NA MESMA rodada (seção "Curas aplicadas"); o resto vive no pla
    GEN unknown cai no default que não existe para pré-Turing e escreve modprobe/serviços sem driver.
 7. **`discover_latest` raspa HTML — robusto?** ⚠️ — sort -Vu + fallback pinado + pacman-key antes do -Sy
    são bons; o pacman -U falhado engolido segue inserindo repos que apontam para keyring velho.
-8. **`craft-hello` é peça avulsa?** ✅ — 16 linhas, fallback com pipefail curado, keybind W-S-h, custo zero.
+8. **`craft-hello` é peça avulsa?** ✅ — fallback com pipefail curado, custo zero. E73: virou A SAUDAÇÃO — o .zshrc chama a cada terminal, o config da casa (logo Archcraft builtin, nome provado no fonte do fastfetch) viaja no pacote, o usuário sobrepõe no home, e o W-S-h agora abre foot de verdade (executar sem terminal perdia a saída no journal).
 9. **O `--status` fala a língua do leigo?** ⚠️ — o único modo sem root, textos claros; mas "inactive" do
    firstboot auto-desativado lê como defeito e o `resultado:` registrado pela unit não é lido.
 10. **O tuning (zram, swappiness 180, THP, max_map_count) é coerente?** ✅ — o par zram zstd+swappiness é
