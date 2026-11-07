@@ -19,14 +19,17 @@ sed -i 's/^#ParallelDownloads/ParallelDownloads/; s/^#Color/Color/' /etc/pacman.
 # E43 — o canal diário (PACKAGES_ONLY) precisa só do toolchain de makepkg:
 # sem archiso/xorriso/pacstrap (nenhum mount acontece no modo pacotes).
 if [[ "${PACKAGES_ONLY:-0}" == "1" ]]; then
+    # E75.1 — o wlopm é DEPENDÊNCIA do elite-system (a rede do resume sem
+    # o binário era imaginária) — o makepkg do container EXIGE o pacote
+    # instalado, senão a transação do canal morre em 'Missing dependencies'.
     pacman -Syu --noconfirm --needed git rsync curl base-devel sudo python \
-        wayland wayland-protocols libxkbcommon
+        wayland wayland-protocols libxkbcommon wlopm
 else
     pacman -Syu --noconfirm --needed \
         git rsync curl archiso xorriso mtools dosfstools \
         e2fsprogs squashfs-tools openssl arch-install-scripts \
         base-devel sudo \
-        meson ninja wayland wayland-protocols libxkbcommon
+        meson ninja wayland wayland-protocols libxkbcommon wlopm
 fi
 
 say "Importando chave CachyOS (ambiente de build)"
@@ -800,7 +803,20 @@ pkgver=1.0
 #     pkgrel 25→26 NO MESMO COMMIT (lei E41 — craft-idle, craft-dump,
 #     elite-resume-display mudaram de conteúdo; craft-rescue-screen,
 #     elite-post-transaction e o .hook libalpm são NOVOS no pacote).
-pkgrel=26
+# E75.1 — A PORTEIRA DO CI EM FLAGRANTE (07/nov, run 42338856744/42338856804):
+#     (1) o canal morreu em 'Missing dependencies: wlopm' — o makepkg do
+#         container EXIGE o pacote; wlopm entrou nos DOIS ramos do
+#         preflight (a dependência nova do depends= exige o pacote no
+#         ambiente de build — lição cravada);
+#     (2) a SUÍTE vermelha era HERDADA: o SC2034 (ITEM="" morto) nasceu no
+#         elite-ferramentas do E74 e o canal daquele push publicou 1.0-25
+#         MESMO com a suíte vermelha (a classe conhecida 'canal publica com
+#         suíte vermelha') — a linha morta saiu; o gate shellcheck
+#         reproduzido LOCALMENTE com o binário estático v0.10.0: ZERO
+#         avisos no repo inteiro.
+#     pkgrel 26→27 NO MESMO COMMIT (lei E41 — elite-ferramentas mudou de
+#     conteúdo; o 1.0-26 nunca chegou a publicar — o container recusou).
+pkgrel=27
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
