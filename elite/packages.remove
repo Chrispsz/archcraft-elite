@@ -390,10 +390,12 @@ network-manager-sstp
 ## thunar-archive-plugin — E46: o dono encontrou DOIS verbos de arquivo no
 ## menu de contexto e perguntou "esse criar arquivo que é o botão novo?" —
 ## o dele era o plugin (v2.8.0 o trouxe de volta ao packages.add junto do
-## xarchiver), o nosso é o craft-compress (E35). O duplo verbo confundiu
-## NA CARNE quem manda e a extração virou verbo da CASA: o craft-extract
-## (E46) no uca.xml herda o "Extrair aqui" — o xarchiver FICA (abrir/
-## gerenciar; o .tap dele fica órfão, o que o plugin não entregava mais).
+## xarchiver), o nosso era o craft-compress (E35 — morto com honra na E72,
+## ordem do dono: "remove esse botao de comprimir"; o verbo da CASA que
+## fica é o craft-extract). O duplo verbo confundiu NA CARNE quem manda e
+## a extração virou verbo da CASA: o craft-extract (E46) no uca.xml herda
+## o "Extrair aqui" — o xarchiver FICA (abrir/gerenciar; o .tap dele fica
+## órfão, o que o plugin não entregava mais).
 thunar-archive-plugin
 boost              # headers de dev no live; o boost-libs runtime viria por dep se algo pedisse
 man-db             # o E15 já poda /usr/share/man do disco — manter o pacote é peso duplo

@@ -73,7 +73,7 @@ o driver do próprio hardware.
 | Tuning | `cachyos-settings`, zram zstd, sysctl/udev próprios, BBR + fq |
 | Gaming | gamemode, gamescope, mangohud, Vulkan RADV/Intel (lib32 sobe on-demand no firstboot), LACT, btop |
 | GPU | NVIDIA open pré-compilado no build (rig A) / RADV (rig B) |
-| Arquivos | Thunar + tumbler (GUI), craft-connect para rede/bluetooth, craft-compress + craft-extract para compactar/extrair (um verbo da casa por família — o thunar-archive-plugin saiu na E46) |
+| Arquivos | Thunar + tumbler (GUI), craft-connect para rede/bluetooth, craft-extract para extrair (verbo da casa — o thunar-archive-plugin saiu na E46; o Comprimir saiu na E72 por ordem do dono; xarchiver fica para abrir/gerenciar) |
 | Navegador | Brave Origin (release oficial, versão e sha256 fixados no build) |
 | Rollback | btrfs + snapper + grub-btrfs (snapshot no menu do GRUB — a porta do rollback; a estratégia snapper-only é da v2.3.6, o pacote timeshift saiu da ISO na v2.10.14: um rei só na estratégia de snapshot) |
 

@@ -1442,9 +1442,9 @@ assert_grep "$REPO/elite/packages.remove" '^thunar-archive-plugin$' "E46/V2: o p
 assert_nogrep "$REPO/elite/packages.add" '^thunar-archive-plugin$' "E46/V2: o plugin não volta ao packages.add (a mão no Thunar é dos verbos da casa)"
 assert_grep "$REPO/elite/packages.add" '^xarchiver$' "E46/V2: o xarchiver FICA (abrir/gerenciar — só o plugin do duplo verbo morre)"
 assert_file "$CXT" "E46/V2: o craft-extract existe (o 'Extrair aqui' herda a casa — a extração não morreu com o plugin)"
-assert_grep "$CXT" 'command -v 7z || command -v 7zz' "E46/V2: o extract usa o MESMO resolver do compress (E42 — 7z OU 7zz; a ISO nunca mais exige um binário que não tem)"
+assert_grep "$CXT" 'command -v 7z || command -v 7zz' "E46/V2: o resolver 7z OU 7zz (E42 — a ISO nunca mais exige um binário que não tem; dono único desde a E72)"
 assert_grep "$CXT" 'mktemp -d' "E46/V2: a extração em PALCO (o colide-contra-o-conteúdo-real — zero parse de listing; o que existe nunca é substituído sem pergunta)"
-assert_grep "$UCA" 'craft-extract %F' "E46/V2: o 'Extrair aqui' tem assento no uca.xml (o skel nasce com os TRÊS verbos da casa)"
+assert_grep "$UCA" 'craft-extract %F' "E46/V2: o 'Extrair aqui' tem assento no uca.xml (o skel nasce com os DOIS verbos da casa — terminal E40 + extrair E46; o Comprimir morreu na E72)"
 assert_grep "$UCA" 'Extrair aqui' "E46/V2: o verbo em PT-BR no menu do dono (a lei L10)"
 assert_nogrep "$UCA" 'segue no menu' "E46/V2: o cabeçalho do uca.xml não jura mais que o plugin 'segue no menu' (o plugin morreu — a mentira de comentário não renasce no próprio arquivo da cura)"
 # V3. O ROLLBACK FORA DO MENU (ordem do dono):

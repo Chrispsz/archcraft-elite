@@ -681,7 +681,10 @@ pkgver=1.0
 #         segurado 2 rodadas; na 3ª é verdade aceita).
 #     pkgrel 21→22 NO MESMO COMMIT (lei E41 — o C do daemon e a dock
 #     mudaram de conteúdo).
-pkgrel=22
+#     pkgrel 22→23 NO MESMO COMMIT (lei E41 — o Comprimir morreu com
+#     honra na E72: verbo fora do uca.xml do skel, craft-compress
+#     extinto do tree, elite-tune [9] entrega a remoção às homes vivas).
+pkgrel=23
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

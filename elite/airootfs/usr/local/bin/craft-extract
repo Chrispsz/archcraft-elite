@@ -5,12 +5,14 @@
 # E46 — o dono achou DOIS verbos de arquivo no menu de contexto e perguntou
 # "Esse criar arquivo que é o botão novo?": o "Criar Arquivo…"/"Extrair
 # aqui" que ele via era o thunar-archive-plugin (v2.8.0, backend xarchiver)
-# ao lado do NOSSO "Comprimir…" — a faca de dois gumes que a auditoria já
+# ao lado do NOSSO verbo (o Comprimir E35 morreu com honra na E72, ordem
+# do dono: "remove esse botao de comprimir") — a faca de dois gumes que a auditoria já
 # nomeava virou corte: o dono mandou tirar a confusão e o plugin SAIU
 # (packages.remove). A extração segue existindo — como VERBO DA CASA:
 # clique-direito no arquivo → "Extrair aqui" → o conteúdo descomprime AO
-# LADO → notificação. O motor é o MESMO do craft-compress (7z OU 7zz):
-# 7-Zip extrai zip, 7z, tar, tar.gz, tar.xz, tar.bz2, gz, xz e bz2 — ZERO
+# LADO → notificação. O motor é o resolver 7z OU 7zz (o 7zip do Arch
+# entrega 7zz — E42): 7-Zip extrai zip, 7z, tar, tar.gz, tar.xz, tar.bz2,
+# gz, xz e bz2 — ZERO
 # pacote novo (o xarchiver FICA para ABRIR e gerenciar arquivos; EXTRAIR
 # aqui é trabalho do craft).
 #
@@ -29,7 +31,7 @@
 set -euo pipefail
 
 LOG_DIR="$HOME/.cache/elite"
-LOG="$LOG_DIR/compress.log"   # o papel da família de arquivos (compress + extract)
+LOG="$LOG_DIR/compress.log"   # o papel da família de arquivos (nome herdado da era craft-compress, E35→E72)
 
 # evidência append-only com teto — a MESMA lei da família (E36)
 log() {
@@ -52,7 +54,7 @@ die() {
     exit 1
 }
 
-# ── dependências: o MESMO resolver do craft-compress (E42 — 7z OU 7zz) ──
+# ── dependências: o resolver 7z OU 7zz (E42 — o 7zip do Arch entrega 7zz) ─
 SEVENZ="$(command -v 7z || command -v 7zz || true)"
 [[ -n "$SEVENZ" ]] ||
     die "craft-extract" "O motor 7-Zip não está instalado.\nNo terminal: sudo pacman -S 7zip"
