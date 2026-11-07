@@ -28,6 +28,28 @@
 #   -nocats   desliga a barra de categorias (v1.4)
 set -eu
 
+# E88 — O FREIO DO TOGGLE: o bars.log do dump flagrou a cena (UI criada →
+# SIGTERM → UI criada de novo NO MESMO SEGUNDO, duas vezes seguidas) — dois
+# cliques/apertos em janelas de milissegundos nasciam duas gavetas e o
+# cross-fire as derrubava: a gaveta que 'abre, fecha e abre de novo' era
+# ISTO. O freio: a 2ª chamada dentro de 400ms sai — o toggle honesto fica,
+# a guerra de nascimentos morre. Stamp no XDG_RUNTIME_DIR (morre com a
+# sessão — zero lixo, a lei da casa).
+STAMP="${XDG_RUNTIME_DIR:-/tmp}/elite/drawer-toggle.stamp"
+mkdir -p "${STAMP%/*}" 2>/dev/null || true
+now_ns="$(date +%s%N 2>/dev/null || echo 0)"
+last_ns="$(cat "$STAMP" 2>/dev/null || echo 0)"
+echo "$now_ns" > "$STAMP" 2>/dev/null || true
+case "$now_ns" in ''|*[!0-9]*) now_ns=0 ;; esac
+case "$last_ns" in ''|*[!0-9]*) last_ns=0 ;; esac
+if [ "$now_ns" -gt 0 ] && [ "$last_ns" -gt 0 ]; then
+    delta=$((now_ns - last_ns))
+    [ "$delta" -lt 0 ] && delta=0
+    if [ "$delta" -lt 400000000 ]; then
+        exit 0   # 2ª chamada no vão de 400ms — o freio fala
+    fi
+fi
+
 # TOGGLE: gaveta aberta? fecha e sai
 if pgrep -x nwg-drawer >/dev/null 2>&1; then
     pkill -x nwg-drawer 2>/dev/null || true

@@ -27,13 +27,16 @@
 # Costuras de teste: ELITE_MEMINFO / ELITE_SYSCTL_DIR / ELITE_ZRAM_CONF ·
 # ELITE_NO_ROOT_CHECK=1 (o executor de testes roda sem raiz) · ELITE_PROVA=0
 # (o kernel do ambiente de teste não carrega o perfil — a prova real é do
-# rig; aqui a prova é o CONTEÚDO dos arquivos). Em produção, nada disso
-# é setado: raiz exigida, prova no kernel obrigatória.
+# rig; aqui a prova é o CONTEÚDO dos arquivos) · ELITE_CPU_DIR (o sysfs da
+# CPU no teste) · ELITE_NO_CPU=1 (máquina sem cpufreq — o passo é pulado
+# com aviso). Em produção, nada disso é setado: raiz exigida, prova no
+# kernel obrigatória.
 # ═════════════════════════════════════════════════════════════════════════
 set -u
 MEMINFO="${ELITE_MEMINFO:-/proc/meminfo}"
 SYSCTL_DIR="${ELITE_SYSCTL_DIR:-/etc/sysctl.d}"
 ZRAM_CONF="${ELITE_ZRAM_CONF:-/etc/systemd/zram-generator.conf}"
+CPU_DIR="${ELITE_CPU_DIR:-/sys/devices/system/cpu}"
 
 say() { printf 'elite-optimize: %s\n' "$*"; }
 die() { printf 'elite-optimize: ERRO: %s\n' "$*" >&2; exit 1; }
@@ -68,6 +71,11 @@ status() {
         say "zram: inativo (o systemd-zram-setup@zram0 sobe com o conf)"
     fi
     say "arquivos: $SYSCTL_DIR/99-elite-ram.conf $( [[ -f $SYSCTL_DIR/99-elite-ram.conf ]] && echo '(presente)' || echo '(ausente)' )"
+    # E88 — o governor no status (o 'responsivo?' se responde sem mutar)
+    local g epp
+    g="$(cat "$CPU_DIR/cpu0/cpufreq/scaling_governor" 2>/dev/null || echo '?')"
+    epp="$(cat "$CPU_DIR/cpu0/cpufreq/energy_performance_preference" 2>/dev/null || echo '?')"
+    say "CPU: governor=$g · epp=$epp (o alvo da casa: performance/performance)"
 }
 
 case "${1:-apply}" in
@@ -114,7 +122,45 @@ else
     say "zram: $ZRAM_CONF ausente (zram-generator não instalado — o elite-tune [5] cuida)"
 fi
 
-# ── 3. aplica e PROVA no kernel (a lei 2i: conferir, não apostar) ──────────
+# ── 3. O CORAÇÃO DA RESPONSIVIDADE: governor de CPU (E88 — a diretriz do
+#      dono: 'tudo acontecer na maior velocidade possível, como se fosse
+#      ali direto no hardware'). O scheduler que escala para baixo é a
+#      diferença entre INSTANTÂNEO e 'parece estar pensando': governor
+#      performance + EPP performance (amd-pstate) fazem o clock subir com
+#      o primeiro clique, não com o segundo. Idempotente, por-núcleo, e o
+#      custo é honesto: mais consumo energético — NUMA DESKTOP é a escolha
+#      certa (a spec do dono); notebook na bateria pode reverter com o
+#      powerprofilesctl (a casa não decide pelo dono aqui, aplica o pedido).
+if [[ "${ELITE_NO_CPU:-0}" == "1" ]]; then
+    say "CPU: passo pulado (ELITE_NO_CPU=1 — ambiente sem cpufreq)"
+else
+    _cpu_feitos=0; _cpu_falhas=0
+    for _gdir in "$CPU_DIR"/cpu*/cpufreq; do
+        [[ -d "$_gdir" ]] || continue
+        if [[ -w "$_gdir/scaling_governor" ]]; then
+            if echo performance > "$_gdir/scaling_governor" 2>/dev/null; then
+                _cpu_feitos=$((_cpu_feitos + 1))
+            else
+                _cpu_falhas=$((_cpu_falhas + 1))
+            fi
+        fi
+        # EPP: amd-pstate(-epp) expõe energy_performance_preference — o
+        # firmware pesando 'quão agressivo o governor sobe'; performance
+        # = sobe com o primeiro clique
+        if [[ -w "$_gdir/energy_performance_preference" ]]; then
+            echo performance > "$_gdir/energy_performance_preference" 2>/dev/null || true
+        fi
+    done
+    if (( _cpu_feitos == 0 && _cpu_falhas == 0 )); then
+        say "CPU: nenhum cpufreq exposto no sysfs — passo sem objeto (réu nomeado, não fingido)"
+    elif (( _cpu_falhas > 0 )); then
+        say "CPU: governor performance aplicado em $_cpu_feitos núcleo(s), $_cpu_falhas RECUSADO(S) — o kernel nomeia (o réu fica no papel)"
+    else
+        say "CPU: governor performance aplicado em $_cpu_feitos núcleo(s) + EPP performance (o clock sobe com o PRIMEIRO clique — a responsividade que o dono mandou)"
+    fi
+fi
+
+# ── 4. aplica e PROVA no kernel (a lei 2i: conferir, não apostar) ──────────
 if [[ "${ELITE_PROVA:-1}" == "1" ]]; then
     sysctl --system >/dev/null 2>&1 || true
     got="$(sysctl -n vm.swappiness 2>/dev/null || echo '?')"

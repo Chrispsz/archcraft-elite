@@ -1,20 +1,60 @@
 #!/bin/sh
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · elite-sleep-report (E24 — a perícia do sono no journal)
+# Archcraft ELITE · elite-sleep-report (E24→E88 — a perícia QUE VIRA ATO)
 # ═══════════════════════════════════════════════════════════════════════════
-# Hook do systemd-sleep (roda como root, stdout vai para o journal do
-# systemd-suspend.service). No 'pre' registra QUEM está armado para acordar
-# (a regra udev 90-elite-wake-guard.rules já desarmou os USB) — se o PC
-# ainda assim acordar sozinho, o próximo dump NOMEIA o suspeito restante
-# (bridge PCIe, NIC…) em vez de chutar. No 'post' marca o retorno.
-# O craft-dump v2.3 (seção 10) taila o systemd-suspend: prova do sono real
-# (duração) + wake sources no momento de dormir.
+# v2.10.11: hook do systemd-sleep (roda como root, stdout vai para o
+# journal do systemd-suspend.service). No 'pre' registrava QUEM está armado
+# para acordar — o papel que nomeava o suspeito quando o PC acordava sozinho.
+#
+# E88 — O PAPEL VIRA CURA (o dump elite-dump-20261107 provou a doença que a
+# E24 deixou em pé): o suspend das 18:14:37 voltou às 18:14:44 — SEIS
+# segundos de sono. O papel antigo apontava os réus, esperava o próximo
+# dump, julgava depois. Os réus estavam nomeados HÁ TEMPO:
+#     GP12  S4  *enabled   pci:0000:00:07.1   (bridge GPE — USB chipset)
+#     GP13  S4  *enabled   pci:0000:00:08.1   (bridge GPE — USB chipset)
+#     SWUS  S4  *enabled   pci:0000:08:00.0   (S/W USB wake S3/S4)
+#     SWDS  S4  *enabled   pci:0000:09:00.0   (S/W USB wake S3/S4)
+# — os wake sources da CAMADA ACPI que a regra udev da E24 (wakeup=disabled
+# nos controladores PCI 0x0c03) NÃO alcança: os GPEs das pontes AMD e os
+# wake USB S3/S4 virtuais sobrevivem com o PCI desarmado. Um pulso de
+# qualquer um deles = o PC acorda em segundos — o 'ele sequer suspendeu'
+# do dono, palavra por palavra.
+# A CURA: no 'pre', TODO wake source *enabled é DESARMADA (echo do nome em
+# /proc/acpi/wakeup), verificada (E41 da prova: reler o estado) e nomeada
+# no journal. A lei E24 completa o círculo: O BOTÃO DO POWER É O DESPERTAR
+# ÚNICO — nem ponte, nem USB virtual, nem GPE dorminhoco. (O botão do
+# power é evento ACPI fixo — nunca aparece nesta lista; RTC/LAN já estavam
+# desarmados nos dumps.) O toggle do craft-wake-guard 'on' (a escolha
+# consciente do dono de reabrir USB wake) re-arma os PCI no boot — e ESTE
+# selo os desarma de novo no instante de dormir: a política fala no único
+# momento em que a verdade importa, a porta do sono.
+# No 'post' marca o retorno (craft-dump seção 10 julga a duração).
+#
+# Seam de teste: ELITE_WAKEUP_FILE (o /proc/acpi/wakeup do teste).
 # ═══════════════════════════════════════════════════════════════════════════
+WAKEUP="${ELITE_WAKEUP_FILE:-/proc/acpi/wakeup}"
+
 case "${1:-}" in
     pre)
-        echo "[elite-sleep] pré-sono: wake sources ARMADAS em /proc/acpi/wakeup:"
-        if grep -E '\*enabled' /proc/acpi/wakeup 2>/dev/null; then
-            echo "[elite-sleep] (USB já desarmado pela E24; o que sobrar acima é suspeito se o sono for curto)"
+        # ── O SELO ACPI: desarmar TODO *enabled (a porta do sono é o
+        #    momento da verdade — a lei fala aqui ou não fala nunca)
+        selados=""
+        if [ -w "$WAKEUP" ]; then
+            for dev in $(awk '/\*enabled/ { print $1 }' "$WAKEUP" 2>/dev/null); do
+                [ -n "$dev" ] || continue
+                echo "$dev" > "$WAKEUP" 2>/dev/null || continue
+                if awk -v d="$dev" '$1 == d && /\*enabled/ { found=1 } END { exit !found }' "$WAKEUP" 2>/dev/null; then
+                    logger -t elite-sleep-report "selo ACPI: $dev RECUSOU o desarme (o kernel nomeia no journal — réu de verdade para o próximo dump)"
+                else
+                    selados="$selados $dev"
+                fi
+            done
+        fi
+        echo "[elite-sleep] pré-sono: SELO ACPI E88 aplicado — wake sources desarmadas:${selados:- (nenhuma estava armada)}"
+        echo "[elite-sleep] (a lei E24 completa: o botão do power é o despertar ÚNICO — pontes AMD/GPE/SWUS/SWDS dormem com o PC)"
+        restantes="$(awk '/\*enabled/ { printf "%s ", $1 }' "$WAKEUP" 2>/dev/null)"
+        if [ -n "$restantes" ]; then
+            echo "[elite-sleep] (ainda armadas após o selo: $restantes — suspeito nomeado se o sono for curto)"
         else
             echo "[elite-sleep] nenhuma armada — dorme selado"
         fi

@@ -300,6 +300,12 @@ index_exec "elite/airootfs/usr/lib/systemd/system-sleep/elite-sleep-report" \
   "v2.10.11: hook elite-sleep-report presente e executável (perícia do sono no journal; modo 100755 do index — v2.10.26/E39)" \
   "ausente ou sem +x no index — se o sono voltar curto, o dump não nomeia o suspeito restante"
 assert_grep "$SR" 'pre)' "v2.10.11: hook elite-sleep-report registra wake sources armadas ANTES de dormir"
+# E88 — O SELO ACPI (o papel virou ATO): o dump 20261107 provou o suspend de
+# 7 segundos — GP12/GP13/SWUS/SWDS armados na camada ACPI que a regra udev
+# da E24 não alcança. O selo desarma TODO *enabled na porta do sono.
+assert_grep "$SR" 'E88' "E88: o elite-sleep-report virou ATO (o papel que só nomeava o suspeito agora DESARMA: o suspend de 7s do dump não volta — 'ele sequer suspendeu' curado)"
+assert_grep "$SR" 'ELITE_WAKEUP_FILE' "E88: o selo tem seam de teste (a prova funcional do desarme roda sem /proc real — a mesma escola do ELITE_MEMINFO da E74)"
+assert_grep "$SR" '\*enabled' "E88: o selo lê o ESTADO antes de desarmar (echo em /proc/acpi/wakeup é TOGGLE — desarmar cego re- armaria o que já estava morto)"
 
 # ── E63 — A VOLTA DA IMAGEM (relato do dono: suspendeu, voltou SEM SINAL
 # no monitor — luz vermelha; cliquei Power e o PC desligou). O SUSPEND
@@ -310,9 +316,15 @@ RD="$REPO/elite/airootfs/usr/lib/systemd/system-sleep/elite-resume-display"
 index_exec "elite/airootfs/usr/lib/systemd/system-sleep/elite-resume-display" \
   "E63: hook elite-resume-display presente e executável (a rede de SISTEMA do resume; modo 100755 do index — lição E54.1)" \
   "ausente ou sem +x no index — o resume sem vídeo fica sem rede de sistema (203/EXEC no live)"
-assert_grep "$RD" '\[ "\$1" = "post" \]' "E63: o hook age SÓ no RETORNO do sono (o pre é do elite-sleep-report — cada hook um papel, sem briga)"
+assert_grep "$RD" 'post)' "E63/E88: o hook age no RETORNO do sono E no INSTANTE dele (o pre fotografa o DPMS — a flag dark que decide o ciclo do wake; cada hook um papel, sem briga)"
 assert_grep "$RD" 'wlopm --on' "E63: o hook religa os outputs pós-sono (a mesma ferramenta dos braços do usuário — idempotente com eles)"
-assert_grep "$RD" 'runuser -u' "E63: o hook roda como CADA usuário de sessão (wlopm é cliente Wayland — root não tem display)"
+assert_nogrep "$RD" 'runuser -u' "E88: NENHUM runuser/PAM no hook (a perícia do dump 20261107: o runuser contra user.slice congelado prendia o systemd-suspend 90s até o TimeoutStartSec — Varlink CreateSession UnitAllocationFailed — e a sessão inteira acordava CONGELADA: o 'mouse morto' do dono)"
+assert_grep "$RD" 'setpriv --reuid' "E88: o executor sem PAM é o setpriv (reuid/regid diretos — nenhuma sessão logind nasce, nenhum Varlink existe para falhar)"
+assert_grep "$RD" 'timeout 3' "E88: TODA chamada de usuário vive dentro de timeout (o compositor que não responde em 3s não recebe a paciência do wake — o hook nunca mais prende o suspend)"
+assert_grep "$RD" 'setsid "\$0" waiter' "E88: o waiter DESAPEGADO (o hook sai em <1s — o thaw acontece na hora; a imagem religa DEPOIS do thaw, esperado no cgroup.freeze — o mesmo gesto da sucessora E79)"
+assert_grep "$RD" 'cgroup.freeze' "E88: o waiter ESPERA O THAW (falar com user.slice congelado era a doença — a espera é a cura estrutural, não mais a sorte)"
+assert_grep "$RD" 'sleep-dark' "E88: a flag dark do pre decide o ciclo (sono ESCURO = off→on invisível E75; sono ACESO = --on direto — zero blink na cara do dono já de pé)"
+assert_grep "$RD" 'udevadm trigger --subsystem-match=input' "E88: o lembrete ao seat (os uevents de input atrasados pelo congelamento são re-emitidos — o mouse que o kernel JÁ vê volta ao libinput)"
 assert_grep "$RD" 'logger -t elite-resume-display' "E63: o hook é OBSERVÁVEL no journal (o silêncio no resume é o buraco que escondeu o 'sem sinal')"
 assert_grep "$RD" 'wayland-\*' "E68: o hook tenta TODOS os sockets wayland-* que existem no runtime (o wayland-0 fixo era aposta — sessão respawnada em wayland-1 ficava FORA da rede)"
 assert_nogrep "$RD" 'WAYLAND_DISPLAY="wayland-0"' "E68: o socket NÃO é mais chutado fixo (a fila vem dos sockets que EXISTEM em /run/user — o chute não volta por descuido)"
@@ -356,10 +368,15 @@ RU="$REPO/elite/airootfs/usr/lib/systemd/system-sleep/elite-resume-usb"
 index_exec "elite/airootfs/usr/lib/systemd/system-sleep/elite-resume-usb" \
   "E69: hook elite-resume-usb presente e executável (a cura do RETORNO dos dispositivos — modo 100755 do index, lições E54.1/E60.1)" \
   "ausente ou sem +x no index — o resume com USB morto fica sem cura no live (203/EXEC)"
-assert_grep "$RU" '\[ "\$1" = "post" \]' "E69: o hook age SÓ no RETORNO do sono (o pre é do elite-sleep-report, o display é do resume-display — cada hook um papel, sem briga)"
+assert_grep "$RU" '\[ "\$1" = "post" \]' "E69/E88: o post é onde o hook cura (o pre DESTE hook fotografa o inventário — a foto precisa do mesmo olho que julga)"
+assert_grep "$RU" 'pre)' "E88: o pre fotografa o inventário HID (a prova de morte do wake compara contra ESTA foto — o rebind cego da E69 não descia sem prova)"
 assert_grep "$RU" 'unbind' "E69: o re-bind é a re-inicialização DETERMINÍSTICA do controlador (a classe Reinit do a4h8 não depende da boa vontade do driver — o custo em controlador sadio é ~1s de re-enumeracao)"
+assert_grep "$RU" 'USB intacto' "E88: o caminho SADIO não paga o martelo (a foto e o presente BATEM = zero rebind — o mouse que morria no rebind de todo wake morre de causa)"
+assert_grep "$RU" 'prova de morte' "E88: rebind SÓ COM PROVA (a graça de 3s da re-enumeração natural vem primeiro; o alvejado toca SÓ o controlador hospedeiro do morto — o teclado vivo do vizinho nunca é derrubado pela cura do mouse)"
+assert_grep "$RU" 'RESERVA' "E88: o martelo completo da E69 é RESERVA (o alvejado não bastou = a cura antiga desce inteira — nada da cura de antes se perde, tudo passa a ter prova antes)"
 assert_grep "$RU" 'disabled' "E69: a política E24 é RE-APLICADA depois do bind (o re-nascer 'enabled' reabriria o despertar sozinho — a doença de volta por efeito colateral do remédio)"
 assert_nogrep "$RU" 'set -e' "E69: o hook NUNCA falha o ciclo de sono (set -e morreria no primeiro sysfs ausente — o resume não é lugar de abortar)"
+assert_nogrep "$RU" 'runuser' "E88: zero PAM no hook (a casa do elite-resume-display vale aqui: só sysfs/procfs/journal — user.slice congelado não é interlocutor)"
 assert_grep "$RU" 'logger -t elite-resume-usb' "E69: o hook é OBSERVÁVEL no journal (rebinds e guardados nomeados — o silêncio no resume é o buraco da lição E63)"
 assert_grep "$REPO/.ci/build.sh" 'elite-resume-usb' "E69: o hook viaja NO PACOTE elite-system (a lei E57/E63 — fora dele o rig instalado NUNCA recebe pelo canal)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'xhci' "E69: o réu do USB morto entra NO PAPEL (journal xhci/usb + status do wake-guard — perícia antes de chute)"
