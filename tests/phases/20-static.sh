@@ -343,6 +343,7 @@ assert_grep "$REPO/.ci/build.sh" 'elite-post-transaction.hook' "E75: o hook liba
 assert_grep "$REPO/.ci/build.sh" 'When = PostTransaction' "E75: o hook é PostTransaction Target=\* (toda transação conta — a do próprio craft-update incluída; o bin é inofensivo: zero rede, zero lock)"
 assert_grep "$REPO/.ci/build.sh" 'depends=\(bash python wayland wlopm\)' "E75: o wlopm é DEPENDÊNCIA do elite-system (a rede do resume sem o binário era rede imaginária nos rigs que não o tinham)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 25→26 NO MESMO COMMIT' "E75: pkgrel elite-system 25→26 NO MESMO COMMIT (lei E41 — craft-idle, craft-dump e elite-resume-display mudaram de conteúdo; 2 bins + o .hook libalpm são novos; âncora na HISTÓRIA, lição E58/E59)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 26→27 NO MESMO COMMIT' "E75.1: pkgrel elite-system 26→27 NO MESMO COMMIT (lei E41 — elite-ferramentas mudou de conteúdo: a linha morta ITEM='' saiu; o 1.0-26 nunca publicou — o container recusou o wlopm ausente, cura no preflight dos DOIS ramos)"
 
 # ── E69 — O DESPERTAR DOS DISPOSITIVOS (relato REAL do dono no 1.0-18:
 #    "o suspender volta sem despertar os dispositivos USB — não consigo

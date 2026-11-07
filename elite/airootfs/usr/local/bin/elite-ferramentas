@@ -64,7 +64,6 @@ do_appimage() {
     paru -S --needed --noconfirm appimagelauncher || { err "appimagelauncher não instalou — o log do paru nomeia o réu"; return 4; }
 }
 
-ITEM=""
 case "${1:-menu}" in
     --report) report; exit 0 ;;
     --paru) do_paru; exit $? ;;
