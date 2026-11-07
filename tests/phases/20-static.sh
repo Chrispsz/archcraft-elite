@@ -1603,9 +1603,11 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-rice" 'identifier=\\".*\\"
 CTUNE70="$REPO/elite/airootfs/usr/local/bin/elite-tune"
 assert_grep "$CTUNE70" '\[8\] SESSÃO: A MOLDURA ÚNICA' "E70: a seção [8] existe no elite-tune (o rig vivo RECEBE a cura — o pacote nunca toca config de usuário, a lei do domínio)"
 assert_grep "$CTUNE70" 'code-flags.conf entregue' "E70/[8]: a entrega do code-flags.conf deixa LINHA (tudo que decide deixa rastro — lei E63)"
+assert_grep "$CTUNE70" 'ozone-platform=wayland' "E70/[8]: o CONTEÚDO do code-flags.conf viaja NO BIN (padrão craft-rice — o elite-system não carrega skel e o /etc/skel do rig é da época da instalação: copiar do skel era a cura que não alcança o rig antigo, a perícia por download do 1.0-20 flagrou)"
 assert_grep "$CTUNE70" "grep -q '\\^ELECTRON_OZONE_PLATFORM_HINT='" "E70/[8]: o append do environment é IDEMPOTENTE (a chave presente nunca é reescrita — a 2ª rodada do tune é silêncio)"
 assert_grep "$CTUNE70" "grep -q 'Tema escuro UNIVERSAL \\(E70'" "E70/[8]: o append do autostart tem MARCADOR (o bloco da casa se reconhece — a 2ª rodada não duplica)"
 assert_grep "$CTUNE70" 'WAYLAND_DISPLAY="\$WSOCK"' "E70/[8]: o reconfigure vivo usa o SOCKET REAL da fila (wayland-* — a lição E68: SEM chute wayland-0)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 19→20 NO MESMO COMMIT' "E70: pkgrel elite-system 19→20 NO MESMO COMMIT (lei E41 — craft-rice e o skel da sessão mudaram o pacote; âncora na HISTÓRIA, o número atual é lei do guard-pkgrel do CI)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 20→21 NO MESMO COMMIT' "E70.1: pkgrel elite-system 20→21 NO MESMO COMMIT (lei E41 — elite-tune mudou de conteúdo: o code-flags.conf viaja no bin após a perícia por download flagrar o skel vazio no pacote)"
 
 phase_end

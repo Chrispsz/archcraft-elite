@@ -1002,11 +1002,24 @@ if [[ -d /etc/skel/.config/labwc ]]; then
     u="$(stat -c '%U' "$h")"; [[ "$u" == "root" ]] && continue
     uid="$(id -u "$u" 2>/dev/null)" || continue
     # 8a. VS Code em Wayland nativo (code-flags.conf — o launcher da Arch lê)
+    #     O CONTEÚDO MORA AQUI (padrão craft-rice: o que viaja no pacote
+    #     chega a TODO rig). A perícia por download do 1.0-20 flagrou: o
+    #     elite-system NUNCA carregou skel (64 membros = bins/units — o
+    #     skel é veículo da ISO) — o /etc/skel do rig instalado é da ÉPOCA
+    #     DA INSTALAÇÃO e o pacote NUNCA o atualiza; copiar do skel era a
+    #     cura que não alcança o rig antigo (o VS Code ficaria XWayland
+    #     com titlebar própria — a ferida do print persistiria).
     DST="$h/.config/code-flags.conf"
-    if [[ ! -f "$DST" && -f /etc/skel/.config/code-flags.conf ]]; then
+    if [[ ! -f "$DST" ]]; then
       say "Sessão ($u): code-flags.conf entregue (VS Code Wayland nativo)"
       if (( ! DRY )); then
-        install -m 644 /etc/skel/.config/code-flags.conf "$DST"
+        cat > "$DST" <<'E70CODE'
+# ── ELITE E70 · VS Code — Wayland nativo + a moldura do compositor ──────
+# (lido pelo launcher do code da Arch — padrão code-flags.conf; entregue
+#  pela seção [8] do elite-tune — o conteúdo viaja no pacote único)
+--enable-features=UseOzonePlatform
+--ozone-platform=wayland
+E70CODE
         chown "$(stat -c '%U:%G' "$h")" "$DST" 2>/dev/null || true
       fi
     fi
