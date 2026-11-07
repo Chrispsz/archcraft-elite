@@ -1802,6 +1802,24 @@ done
 assert_eq "$_pagou" "1" "E78/pagamento: o wake travado PAGA o novo período completo — a vigília nascida DEPOIS do portão suspende no teto quieto (a prisão perpétua da E77 morre; o ciclo persiste)"
 assert_file "$RT77/elite/idle-suspend-gate" "E78/pagamento: o sono da vigília fecha o portão de novo (o próximo wake renasce a contagem — a persistência é ciclicamente honesta)"
 assert_grep "$ST77/elite/idle.log" 'PAGO' "E78/pagamento: o pagamento deixa linha no papel (o isolamento E77 termina legitimamente — tudo que decide registra)"
+# E79 — A SUCESSORA DO PRÓPRIO CICLO: o ciclo que dorme acorda COM vigia.
+# O screenon do ciclo não arma (o pgrep dele vê o CHAMADOR vivo — o comm
+# do script é o próprio nome) e o callback resume do swayidle perde a
+# corrida contra o exit: sem o spawn E79 o wake fica sem vigia e o ciclo
+# persistente morre no 1º wake (o rig provou no dump 4nsos: wake 14:11:35
+# sem re-arme → 2h08min escuro, travado e ACORDADO até o Power desligar).
+_ok79=""
+_w=0
+while [ "$_w" -lt 40 ] && [ -z "$_ok79" ]; do
+    sleep 0.1
+    pgrep -x craft-vigil >/dev/null 2>&1 && _ok79=1
+    _w=$((_w + 1))
+done
+if [ -n "$_ok79" ]; then
+  ok "E79/sucessora: o wake do PRÓPRIO ciclo nasce com vigia no ar (o screenon vê o chamador no pgrep e nunca arma — quem arma é a E79 no fim do ciclo; dorme/acorda/conta/dorme sem fim)"
+else
+  fail "E79/sucessora: o wake do próprio ciclo nasce com vigia" "nenhuma vigília após o pagamento — o ciclo persistente morre no 1º wake (a doença do dump 4nsos: 2h08min travado+acordado)"
+fi
 kill "$fk78" "$vig78" 2>/dev/null || true
 pkill -x craft-vigil 2>/dev/null || true
 
@@ -1854,6 +1872,19 @@ assert_nogrep "$ST77/systemctl.log" 'suspend' "E78/mãos: ninguém dorme com mã
 kill "$fk78c" "$vig78c" 2>/dev/null || true
 pkill -x craft-vigil 2>/dev/null || true
 rm -f "$CF77/elite/idle.conf"   # o conf comprimido não vaza para as cenas seguintes
+
+# (C4) E79 — A ANTI-PRISÃO DO FALHA (contrato estrutural + cena local): o
+# sono que NÃO veio (systemctl rc≠0) não pode deixar o portão fechado com
+# vigia nenhum no ar — a prisão perpétua de volta pela janela do fracasso.
+# A sucessora nasce TAMBÉM no FALHA (o mesmo setsid depois do if/fi) e
+# re-tenta a cada período com o réu nomeado no papel. A prova FUNCIONAL
+# completa (vigília real até o teto com systemctl falhando) exigiria
+# ~60s reais de relógio a mais por rodada — a mesma classe da limitação
+# honesta da E77 (teto mínimo 60s); aqui o contrato é a linha depois do
+# if/fi + a cena C1 provando o MESMO setsid funcionalmente no sucesso.
+assert_grep "$VIGIL78" 'E79 — A SUCESSORA DO PRÓPRIO CICLO' "E79/anti-prisão: a cura E79 está no papel do craft-vigil (a sucessora documentada no próprio corpo)"
+_antes79="$(grep -c 'setsid craft-vigil' "$VIGIL78")"
+assert_eq "$_antes79" "2" "E79/anti-prisão: o setsid da sucessora existe nos DOIS braços (OBSOLETA da E78 + fim-de-ciclo E79 — o sucesso e o FALHA nascem com vigia; pgrep duplo não existe: o screenon vê o chamador e não arma)"
 
 # ── E48 — craft-bgapps v4.2 NO COMPORTAMENTO (a lição E35.1/E42: texto
 #    não prova): processos REAIS com WAYLAND_DISPLAY no environ — o comm

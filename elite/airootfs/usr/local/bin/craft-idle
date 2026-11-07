@@ -350,8 +350,13 @@ case "${1:-}" in
         # — o bug que a E61 curou, reintroduzido pelo próprio ciclo de
         # sono. Re-armar aqui fecha o ciclo: o wake renova a marca,
         # religa a tela e re-embaralha o vigia — lock vivo tem autoridade
-        # de novo. (O vigia que chama ESTE screenon após o seu suspend vê
-        # o próprio sucessor no ar e sai sem re-armar.)
+        # de novo. (E79 — A VERDADE DO PGREP: o vigia que chama ESTE
+        # screenon após o SEU próprio suspend ainda está VIVO — o pgrep
+        # vê o CHAMADOR, nunca um sucessor (o comm do script é o próprio
+        # nome, provado na E78): este ramo NUNCA arma para o próprio
+        # ciclo. A sucessora do wake-pagamento nasce na E79, no fim do
+        # ciclo do craft-vigil; ESTE ramo cobre os wakes em que a vigília
+        # NÃO sobreviveu ao sono — a rede dos vigias que morreram.)
         if pgrep -x hyprlock >/dev/null 2>&1 && ! pgrep -x craft-vigil >/dev/null 2>&1; then
             setsid craft-vigil >/dev/null 2>&1 &
             ilog "VIGÍLIA: re-armada no resume (lock vivo, vigia morto — o braço idle volta a DEFERIR)"

@@ -106,6 +106,29 @@
 #       suspend um período INTEIRO para a frente: interromper o dono no
 #       meio do pensamento (a pausa de 60s com o tempo total estourado)
 #       morre aqui. O destravo segue abrindo o portão na hora (E77).
+#
+# E79 — A SUCESSORA DO PRÓPRIO CICLO (o dump 4nsos do rig, 07/nov: o wake
+#   travado das 14:11:35 ACORDOU — 'tela: ACORDOU' no papel — e NENHUMA
+#   vigília nova apareceu: nem 'armada', nem 're-armada no resume'. A
+#   máquina ficou ESCURA, TRAVADA e ACORDADA por 2h08min até o Power do
+#   dono — e o logind default DESLIGOU no aperto (boot novo às 16:35:59).
+#   O ciclo persistente da E78 morria no PRIMEIRO wake). A perícia no
+#   código provou a janela: o screenon que EU chamo após o meu suspend
+#   executa o pgrep de re-arme enquanto EU ainda estou vivo — o pgrep vê
+#   o CHAMADOR, nunca um sucessor (o comm do script-shebang é o próprio
+#   nome, provado na E78) — e o callback resume do swayidle, o segundo
+#   candidato, perde a corrida contra o meu exit. A cura: a sucessora
+#   nasce EXPLÍCITA no fim do meu ciclo (o MESMO gesto do ramo
+#   OBSOLETA), no sucesso E no FALHA do sono:
+#     · no sucesso ela é a contagem NOVA do wake — nascida DEPOIS do
+#       touch do portão, PAGA o período inteiro no teto: dorme/acorda
+#       (parado)/conta/dorme SEM FIM, cada rodada com o período INTEIRO;
+#     · no FALHA ela é a ANTI-PRISÃO: o sono que não veio não pode deixar
+#       ninguém contando — a sucessora re-tenta a cada período, com o réu
+#       nomeado no papel a cada tentativa.
+#   pgrep duplo não existe: o screenon (meu filho) me vê vivo e não arma;
+#   o callback resume me vê (ou já vê a sucessora) e não arma; UMA vigília
+#   por ciclo, a lei E30 intacta.
 set -u
 
 CONF="${XDG_CONFIG_HOME:-$HOME/.config}/elite/idle.conf"
@@ -253,6 +276,20 @@ while alive; do
         else
             vlog "FALHA: vigília systemctl suspend -i rc=$? — o PC NÃO dormiu (réu nomeado no papel)"
         fi
+        # E79 — A SUCESSORA DO PRÓPRIO CICLO: o screenon acima NÃO arma
+        # ninguém para o meu ciclo (o pgrep dele vê o CHAMADOR vivo — eu),
+        # e o callback resume do swayidle perde a corrida contra o meu
+        # exit: sem este spawn, o wake do pagamento fica SEM vigia e o
+        # ciclo persistente morre no 1º wake (o rig provou: dump 4nsos,
+        # wake 14:11:35 sem re-arme → 2h08min escuro, travado e ACORDADO).
+        # A sucessora nasce AQUI, nos DOIS desfechos do sono: no sucesso é
+        # a contagem nova do wake (nascida DEPOIS do touch do portão —
+        # PAGA o período inteiro no teto, dorme/acorda/conta/dorme); no
+        # FALHA é a anti-prisão (o sono que não veio re-tenta a cada
+        # período com vigia no ar e réu nomeado no papel). Nascida depois
+        # do portão, ela nunca re-entra pelo MESMO sono — a guard anti-
+        # loop é o próprio marco de nascimento (E78 preservada).
+        setsid craft-vigil >/dev/null 2>&1 </dev/null &
         exit 0
     fi
     sleep 30
