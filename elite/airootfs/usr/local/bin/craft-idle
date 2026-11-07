@@ -172,6 +172,27 @@ if [ "${LOCK_MIN:-0}" -gt 0 ] && [ "${OFF_MIN:-0}" -ne "${LOCK_MIN}" ]; then
             "Travar e apagar agora é UM gesto (${LOCK_MIN}min — era ${LOCK_MIN}/${_off_velho}). Ajuste no menu se quiser." || true
 fi
 
+# E89 — A ORDEM É LEI (a spec E77 falada com números): suspend DEPOIS do
+#   lock, nunca antes. O conf do rig (dump 190719) provou a janela ilegal:
+#   LOCK_MIN=30 com SUSPEND_MIN=5 — aos 5min de idle o braço suspende um
+#   desktop DESBLOQUEADO e ACESO (o wake das 18:14:37 com sessão ativa é o
+#   flagrante), e o lock dos 30min nunca chega a mandar. O menu deixava
+#   essa combinação nascer (os knobs eram independentes). A normalização:
+#   SUSPEND > 0 com LOCK > 0 e SUSPEND < LOCK vira LOCK+5 — o mesmo gesto
+#   do E44 (prova no papel + aviso na central, nada às escondidas). Com
+#   LOCK=0 (travar é manual) o suspend é livre — não há ordem a respeitar.
+if [ "${LOCK_MIN:-0}" -gt 0 ] && [ "${SUSPEND_MIN:-0}" -gt 0 ] \
+   && [ "${SUSPEND_MIN}" -le "${LOCK_MIN}" ]; then
+    _susp_velho="$SUSPEND_MIN"
+    SUSPEND_MIN=$((LOCK_MIN + 5))
+    mkdir -p "$CONF_DIR" 2>/dev/null || true
+    printf 'LOCK_MIN=%s\nOFF_MIN=%s\nSUSPEND_MIN=%s\n' "$LOCK_MIN" "$OFF_MIN" "$SUSPEND_MIN" > "$CONF"
+    ilog "E89: ordem do ciclo restaurada — SUSPEND_MIN ${_susp_velho}→${SUSPEND_MIN} (suspende DEPOIS do lock: com lock aos ${LOCK_MIN}min, o suspend aos ${_susp_velho}min era um PC que dormia desbloqueado e aceso)"
+    command -v notify-send >/dev/null 2>&1 && \
+        timeout 5 notify-send -a 'Elite' -u normal -t 8000 'Idle · ordem do ciclo' \
+            "Suspender agora vem DEPOIS do bloqueio (${LOCK_MIN}min → ${SUSPEND_MIN}min — era ${_susp_velho}min, antes do lock)." || true
+fi
+
 # ── start: a receita inteira do swayidle num lugar só ────────────────────
 start_daemon() {
     # E30 (v2.10.18) — MUTEX DO SPAWN (dump p6aw: DOIS swayidle vivos no
@@ -608,6 +629,18 @@ else
     esac
 fi
 
+# E89 — A ORDEM É LEI TAMBÉM NO MENU: escolha que viola a sequência
+#   (suspend ≤ lock) não chega a nascer no conf — o clamp fala no item e
+#   o aviso diz por quê (a mesma gramática da normalização do start).
+if [ "${LOCK_MIN:-0}" -gt 0 ] && [ "${SUSPEND_MIN:-0}" -gt 0 ] \
+   && [ "${SUSPEND_MIN}" -le "${LOCK_MIN}" ]; then
+    _susp_velho="$SUSPEND_MIN"
+    SUSPEND_MIN=$((LOCK_MIN + 5))
+    ilog "E89: escolha do menu normalizada — suspend ${_susp_velho}→${SUSPEND_MIN}min (suspende DEPOIS do lock aos ${LOCK_MIN}min; ordem é lei)"
+    command -v notify-send >/dev/null 2>&1 && \
+        timeout 5 notify-send -a 'Elite' -u normal -t 8000 'Idle · ordem do ciclo' \
+            "Suspender vem depois do bloqueio: ${_susp_velho}min → ${SUSPEND_MIN}min." || true
+fi
 # persiste e reinicia o daemon JÁ (efeito imediato, sem relogin)
 # v2.10.5 — SUSPEND_MIN VIAJA NO REESCRITO: o menu regravava SÓ lock/off
 # e o suspend opt-in do usuário MORRIA na primeira troca de tempo de lock

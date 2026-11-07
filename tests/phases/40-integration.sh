@@ -3198,10 +3198,12 @@ assert_grep "$HLKV3" 'animation = fadeIn, 1, 3, linear' "E88/lock: o fade ágil 
 assert_nogrep "$HLKV3" 'path = screenshot' "v2.5.0 preservada na v3: o fundo do lock é O WALLPAPER (nunca a foto da tela com janelas)"
 
 # ── E41: o pkgrel viajou NO MESMO COMMIT ──
-assert_grep "$REPO/.ci/build.sh" 'pkgrel=32' \
-  "E88 (lei E41): pkgrel elite-system 31→32 — os hooks de sono reescritos (zero-PAM/rebind provado/selo ACPI), dock/drawer zero-delay, craft-clean v2, elite-optimize v2 (governor), pacman ágil e a lock v3 mudaram o pacote"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=33' \
+  "E89 (lei E41): pkgrel elite-system 32→33 — o C recompila com MIN+blindagem, craft-dock-gui/craft-idle mudaram, craft-display é bin novo, elite-resume-usb/autostart/menu.xml/packages.add mudaram"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 32→33 NO MESMO COMMIT' \
+  "E89 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 31→32 NO MESMO COMMIT' \
-  "E88 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
+  "E88 (lei E41, âncora histórica viva): os hooks de sono reescritos (zero-PAM/rebind provado/selo ACPI), dock/drawer zero-delay, craft-clean v2, elite-optimize v2 (governor), pacman ágil e a lock v3 mudaram o pacote"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 30→31 NO MESMO COMMIT' \
   "E79 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 29→30 NO MESMO COMMIT' \

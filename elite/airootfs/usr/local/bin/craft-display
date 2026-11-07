@@ -1,0 +1,348 @@
+#!/bin/sh
+# ═══════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · craft-display (E89 — A TELA QUE LEMBRA)
+# ═══════════════════════════════════════════════════════════════════════════
+# O RELATO DO DONO (07/nov): "o sistema não tem uma persistência, por
+#   exemplo, da resolução, dos hertz… Eu coloco 200 hertz e toda vez que eu
+#   reinicio o PC tem que estar colocando os 200 hertz na minha tela porque
+#   ele some". O réu é a FÍSICA do Wayland, não o monitor: o modo é
+#   propriedade do COMPOSITOR em RAM — o wdisplays (e o wlr-randr) aplicam
+#   na hora e MORREM sem memória; nenhum componente da casa gravava a
+#   escolha, e o labwc nasce no modo preferido do EDID (a resolução "vai",
+#   os hertz somem — exatamente o sintoma).
+#
+# A CURA (três braços, um conf):
+#   · apply  — o AUTOSTART chama: espera os outputs de pé (o wlr-randr
+#     falha nos primeiros instantes da sessão) e aplica o que está salvo
+#     em ~/.config/elite/displays.conf — o 200 Hz nasce aplicado, sem
+#     clique nenhum.
+#   · watch  — vigia a sessão: o estado atual do wlr-randr que DIFERIR do
+#     conf e SE ESTABILIZAR (2 leituras seguidas iguais = não é ruído de
+#     arranque) é a escolha do dono por QUALQUER porta (wdisplays, menu
+#     daqui, wlr-randr CLI) — grava sozinho. A persistência deixa de
+#     depender de lembrar de salvar.
+#   · menu   — o craft-display NU (o item "Displays…" do menu do desktop):
+#     fuzzel com TODOS os modos que o EDID do monitor oferece — "deveria
+#     ser todas as detectadas… ou então esse menu fosse bem pensado"
+#     (relato do dono) — aplica E grava no mesmo clique. A porta gráfica
+#     avançada (wdisplays) segue a um item de distância.
+#
+# FORMATO DO CONF (~/.config/elite/displays.conf — 1 linha por output):
+#   NOME|mode:LARGURAxA@TAXA|pos:X,Y|scale:S|transform:T|adaptive:estado
+#   (campos ausentes = o labwc manda — o conf só fala o que o dono escolheu)
+#
+# LEIS DA CASA: log em ~/.cache/elite/display.log (teto 256 KiB — família
+# E36); notify em falha (nada morre calado para quem está na tela); o
+# watch NUNCA briga com o apply (começa DEPOIS dele e o primeiro estado
+# igual ao conf não é "mudança").
+# ═══════════════════════════════════════════════════════════════════════════
+set -u
+
+CONF_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/elite"
+CONF="$CONF_DIR/displays.conf"
+DLOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/display.log"
+RANDR="${ELITE_RANDR:-wlr-randr}"
+
+dlog() {
+    mkdir -p "${DLOG%/*}" 2>/dev/null || true
+    if [ -f "$DLOG" ] && [ "$(wc -c <"$DLOG" 2>/dev/null || echo 0)" -gt 262144 ]; then
+        tail -c 131072 "$DLOG" > "$DLOG.tmp" 2>/dev/null && mv -f "$DLOG.tmp" "$DLOG"
+    fi
+    printf '[%s] %s\n' "$(date '+%F %T')" "$*" >>"$DLOG" 2>/dev/null
+    return 0
+}
+dnotify() {
+    command -v notify-send >/dev/null 2>&1 && \
+        timeout 5 notify-send -a 'Elite' -u normal -t 6000 'Displays' "$1" || true
+    return 0
+}
+
+# ── O PARSER do wlr-randr (a única leitura de verdade da casa) ───────────
+# Lê o stdout do $RANDR e imprime, POR output, uma linha canônica:
+#   NOME<TAB>mode:LxA@T<TAB>pos:X,Y<TAB>scale:S<TAB>transform:T<TAB>adaptive:ESTADO
+# Duas gerações de formato cobertas: o "Current mode:" da 0.4 e a marca
+# "(current)" na lista de modos da 0.5 (a do rig).
+parse_state() {
+    "$RANDR" 2>/dev/null | awk '
+        function flush() {
+            if (name != "" && enabled == "yes") {
+                if (cur == "") cur="-"
+                if (pos == "") pos="-"
+                if (scale == "") scale="-"
+                if (tr == "") tr="normal"
+                if (adap == "") adap="disabled"
+                printf "%s|mode:%s|pos:%s|scale:%s|transform:%s|adaptive:%s\n",
+                       name, cur, pos, scale, tr, adap
+            }
+        }
+        # a impressão é no FIM do bloco de cada output (a marca "(current)"
+        # da 0.5 vem DEPOIS da lista — imprimir na Adaptive Sync perderia)
+        /^[A-Za-z0-9-]+[ \t]+"/ {
+            flush()
+            name=$1
+            enabled=""; cur=""; pos=""; scale=""; tr=""; adap=""
+        }
+        /Enabled:/    { enabled=$2 }
+        /Current mode:/ {
+            for (i=1;i<=NF;i++) {
+                if ($i ~ /^[0-9]+x[0-9]+$/) cur=$i
+                if ($i ~ /^[0-9.]+$/ && $(i+1)=="Hz") cur=cur"@"$i
+            }
+        }
+        /Position:/   { pos=$2 }
+        /Transform:/  { tr=$2 }
+        /Scale:/      { scale=$2 }
+        /Adaptive Sync:/ { adap=$NF }
+        /^[ \t]+[0-9]+x[0-9]+ px,/ {
+            if (index($0, "(current)") > 0) {
+                m=$1; r=""
+                for (i=2;i<=NF;i++) if ($i ~ /^[0-9.]+$/) r=$i
+                cur=m"@"r
+            }
+        }
+        END { flush() }
+    '
+}
+
+# conf_hash — a impressão digital do conf (a mesma linha canônica, sem
+# comentários/linhas vazias — o watch compara ESTADO com CONF, não ruído)
+conf_keys() {
+    grep -v '^[[:space:]]*#' "$CONF" 2>/dev/null | grep -v '^[[:space:]]*$' | sort
+}
+state_keys() {
+    parse_state | sort
+}
+
+# ── apply: o arranque aplica o que está salvo ────────────────────────────
+do_apply() {
+    [ -s "$CONF" ] || { dlog "apply: sem conf salvo — nada a aplicar (o monitor manda o preferido do EDID)"; exit 0; }
+    # a espera: o compositor precisa dos outputs de pé para o wlr-randr
+    # responder (o autostart roda antes da primeira frame às vezes)
+    i=0
+    while [ "$i" -lt 30 ]; do
+        out="$("$RANDR" 2>/dev/null)" && [ -n "$out" ] && break
+        sleep 0.5
+        i=$((i + 1))
+    done
+    if [ "$i" -ge 30 ]; then
+        dlog "FALHA: wlr-randr não respondeu em 15s — apply abortado (o conf fica salvo; o menu aplica à mão)"
+        exit 1
+    fi
+    vivos="$(parse_state | cut -d'|' -f1)"
+    aplicados=0
+    falhas=0
+    while IFS= read -r linha; do
+        case "$linha" in ''|'#'*) continue ;; esac
+        nome="${linha%%|*}"
+        # vivo? (o grep -qx casa a LINHA exata — o output sumiu = pulado,
+        # o conf fica para a volta dele)
+        if ! printf '%s\n' "$vivos" | grep -qx "$nome"; then
+            dlog "apply: $nome não está presente agora — pulado (o conf fica)"
+            continue
+        fi
+        args=""
+        campo=""
+        rest="${linha#*|}"
+        resto="$rest"
+        while [ -n "$resto" ]; do
+            campo="${resto%%|*}"
+            resto="${resto#*|}"
+            [ "$campo" = "$resto" ] && resto=""
+            case "$campo" in
+                mode:*)
+                    modo="${campo#mode:}"
+                    [ "$modo" = "-" ] && continue
+                    w="${modo%%x*}"
+                    resto_m="${modo#*x}"
+                    h="${resto_m%%@*}"
+                    taxa="${resto_m#*@}"
+                    [ "$taxa" = "$h" ] && taxa=""
+                    if [ -n "$taxa" ]; then
+                        taxa_fmt="$(printf '%s' "$taxa" | awk '{printf "%.3f", $1}')"
+                        args="$args --mode ${w}x${h}@${taxa_fmt}Hz"
+                    else
+                        args="$args --mode ${w}x${h}"
+                    fi
+                    ;;
+                pos:*)      [ "${campo#pos:}" != "-" ] && args="$args --pos ${campo#pos:}" ;;
+                scale:*)    [ "${campo#scale:}" != "-" ] && args="$args --scale-exact ${campo#scale:}" ;;
+                transform:*) [ "${campo#transform:}" != "normal" ] && args="$args --transform ${campo#transform:}" ;;
+                adaptive:*)
+                    case "${campo#adaptive:}" in
+                        enabled)  args="$args --adaptive-sync on" ;;
+                        disabled) args="$args --adaptive-sync off" ;;
+                    esac ;;
+            esac
+            [ "$campo" = "${linha##*|}" ] && break
+        done
+        if [ -z "$args" ]; then
+            continue
+        fi
+        if "$RANDR" --output "$nome" $args >/dev/null 2>&1; then
+            dlog "apply: $nome$args — OK"
+            aplicados=$((aplicados + 1))
+        else
+            dlog "FALHA: apply $nome$args — o modo pode não existir mais neste EDID (o monitor manda)"
+            falhas=$((falhas + 1))
+        fi
+    done < "$CONF"
+    dlog "apply: fim ($aplicados aplicado(s), $falhas falha(s))"
+    [ "$falhas" -gt 0 ] && dnotify "Modo salvo não pôde ser aplicado em $falhas tela(s) — log: ~/.cache/elite/display.log"
+    exit 0
+}
+
+# ── save: fotografa o AGORA para o conf ──────────────────────────────────
+do_save() {
+    estado="$(state_keys)"
+    if [ -z "$estado" ]; then
+        dlog "FALHA: save sem estado do wlr-randr (sessão sem outputs?)"
+        dnotify "Não consegui ler as telas agora — nada salvo"
+        exit 1
+    fi
+    mkdir -p "$CONF_DIR" 2>/dev/null || true
+    tmp="$CONF.tmp.$$"
+    {
+        printf '# Archcraft ELITE · displays.conf — o arrangement salvo (craft-display E89)\n'
+        printf '# Regrado por craft-display em %s\n' "$(date '+%F %T')"
+        printf '%s\n' "$estado"
+    } > "$tmp" 2>/dev/null || { dlog "FALHA: save não conseguiu escrever $tmp"; rm -f "$tmp"; exit 1; }
+    mv -f "$tmp" "$CONF"
+    dlog "save: arrangement gravado ($estado)"
+    return 0
+}
+
+# ── watch: a escolha do dono grava sozinha ───────────────────────────────
+do_watch() {
+    # o watch nasce DEPOIS do apply (ordem do autostart): o primeiro
+    # estado é fotografiado como base — só MUDANÇA estável depois dele
+    # vira conf. Sem conf inicial, o estado atual É a base (nada é salvo
+    # "à toa" no arranque — a mudança tem que ser uma ESCOLHA visível).
+    base="$(state_keys | sort | md5sum | cut -d' ' -f1)"
+    estavel=0
+    while :; do
+        sleep 4
+        agora="$(state_keys | sort | md5sum | cut -d' ' -f1)"
+        [ -z "$agora" ] && continue                     # sessão sem resposta — espera
+        if [ "$agora" = "$base" ]; then
+            estavel=0
+            continue
+        fi
+        estavel=$((estavel + 1))
+        if [ "$estavel" -lt 2 ]; then
+            continue                                    # mudança instável — pode ser transição
+        fi
+        # mudança estável: é a escolha do dono por qualquer porta — grava.
+        do_save || true
+        dnotify "Arranjo de telas salvo — volta assim nos próximos boots"
+        base="$agora"
+        estavel=0
+    done
+}
+
+# ── o MENU (craft-display nu): todos os modos do EDID, aplicado+salvo ────
+menu_pick() {
+    _mp_title="$1"
+    errf="$(mktemp)"
+    ec=0
+    choice="$(craft-menu --title="$_mp_title" --at=power 2>"$errf")" || ec=$?
+    rm -f "$errf"
+    # 143 (cross-dismiss) e 2 (toggle) e 1 (ESC) = fechamentos benignos —
+    # a mesma gramática do craft-idle (E46/v2.3.10)
+    case "$ec" in
+        0) printf '%s' "$choice"; return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+do_menu() {
+    command -v craft-menu >/dev/null 2>&1 || {
+        # sem fuzzel/menu: a porta gráfica direta (o binário existe na ISO)
+        dlog "menu: craft-menu ausente — abrindo wdisplays direto"
+        exec wdisplays 2>/dev/null || dnotify "Nenhuma porta de Displays disponível"
+        exit 0
+    }
+    estado="$(state_keys)"
+    if [ -z "$estado" ]; then
+        dnotify "Não consegui ler as telas agora"
+        exit 1
+    fi
+    n_out="$(printf '%s\n' "$estado" | grep -c .)"
+    alvo=""
+    if [ "$n_out" -gt 1 ]; then
+        itens="$(printf '%s\n' "$estado" | awk -F'|' '{
+            m=$2; sub(/^mode:/,"",m); sub(/@/," @ ",m); sub(/Hz$/," Hz",m)
+            printf "Tela: %s (%s)\n", $1, m
+        }')"
+        escolha="$(printf '%s\n' "$itens" | menu_pick 'Displays — qual tela?')" || exit 0
+        alvo="$(printf '%s' "$escolha" | sed 's/^Tela: //; s/ (.*$//')"
+        [ -n "$alvo" ] || exit 0
+    else
+        alvo="$(printf '%s\n' "$estado" | head -1 | cut -f1)"
+    fi
+    linhad="$(printf '%s\n' "$estado" | awk -F'|' -v a="$alvo" '$1==a')"
+    [ -n "$linhad" ] || exit 0
+    cur="$(printf '%s\n' "$linhad" | cut -d'|' -f2 | sed 's/^mode://')"
+    # a lista de modos REAIS do EDID (a porta "todas as detectadas" do dono)
+    modos="$("$RANDR" 2>/dev/null | awk -v out="$alvo" '
+        $1 == out && /"/ { dentro=1; proxima=0 }
+        dentro && /^  Modes:/ { proxima=1; next }
+        dentro && proxima && /^[ \t]+[0-9]+x[0-9]+ px,/ {
+            m=$1; r=""
+            for (i=2;i<=NF;i++) if ($i ~ /^[0-9.]+$/) r=$i
+            printf "%s @ %s Hz\n", m, r
+        }
+    ')"
+    if [ -z "$modos" ]; then
+        dnotify "Não listei os modos de $alvo — abra o wdisplays"
+        exit 1
+    fi
+    cur_label="$(printf '%s' "$cur" | sed 's/@/ @ /; s/$/ Hz/')"
+    itens="$(printf '%s\n' "$modos" | awk -v c="$cur_label" '$0 == c { print $0 " ← atual"; next } { print }' | sort -u)"
+    itens="$(printf '%s\n' "$itens" \
+        "Modo preferido do monitor" \
+        "Posição/escala avançado (wdisplays)" \
+        "Salvar o arrangement atual")"
+    escolha="$(printf '%s\n' "$itens" | menu_pick "Displays — $alvo")" || exit 0
+    case "$escolha" in
+        'Modo preferido do monitor')
+            if "$RANDR" --output "$alvo" --preferred >/dev/null 2>&1; then
+                do_save && dnotify "$alvo no modo preferido — salvo para os próximos boots"
+            else
+                dnotify "Falhou aplicar o modo preferido (log: ~/.cache/elite/display.log)"
+            fi
+            exit 0 ;;
+        'Posição/escala avançado (wdisplays)')
+            if command -v wdisplays >/dev/null 2>&1; then
+                exec wdisplays   # o watch grava o que o dono fechar configurado
+            else
+                dnotify "wdisplays não está instalado"
+            fi
+            exit 0 ;;
+        'Salvar o arrangement atual')
+            do_save && dnotify "Arranjo atual salvo para os próximos boots"
+            exit 0 ;;
+        '← atual'|*←\ atual) exit 0 ;;
+        *)
+            modo="$(printf '%s' "$escolha" | sed 's/ ← atual$//; s/ @ /@/; s/ Hz$//')"
+            if "$RANDR" --output "$alvo" --mode "$modo" >/dev/null 2>&1; then
+                do_save && dnotify "$alvo: $escolha — aplicado e salvo para os próximos boots"
+            else
+                dnotify "Falhou aplicar $escolha (log: ~/.cache/elite/display.log)"
+                dlog "FALHA: menu apply $alvo --mode $modo"
+            fi
+            exit 0 ;;
+    esac
+}
+
+case "${1:-}" in
+    apply)  do_apply ;;
+    save)   do_save; exit 0 ;;
+    watch)  do_watch ;;
+    status)
+        echo "── salvo ($(basename "$CONF")):"
+        conf_keys || true
+        echo "── agora:"
+        state_keys || true
+        exit 0 ;;
+    *)      do_menu ;;
+esac

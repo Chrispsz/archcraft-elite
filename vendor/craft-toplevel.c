@@ -24,6 +24,12 @@
  *   CLOSE <id>              → close (WM_DELETE gracioso, não kill)
  *   CYCLE                   → foca a PRÓXIMA janela no anel MRU depois da
  *                             focada — o Alt-Tab clicável, sem preview
+ *   MIN <id>                → E89 — set_minimized (o TOGGLE da dock: o
+ *                             clique no app FOCADO minimiza — a gramática
+ *                             de toda dock do mundo; antes o 2º clique no
+ *                             ícone era ACT no já-ativo = "nada acontece",
+ *                             o relato do dono: "clico novamente no mesmo
+ *                             programa, ele não minimiza… nada acontece").
  *   EVT ON                  → OK|evt-on; daí em diante o daemon EMPURRA
  *                             "EVT\n" a cada batch do compositor (DONE =
  *                             commit de estado; CLOSED = janela sumiu).
@@ -33,6 +39,23 @@
  *                             evento em vez de poll de 1s).
  *
  * FLAGS: 1=maximized 2=minimized 4=activated 8=fullscreen.
+ *
+ * E89 — O SIGSEGV DO DUMP 190719 (a perícia antes da blindagem): o journal
+ *   do rig (1.0-31) registrou craft-toplevel exit=139 (SIGSEGV) QUATRO
+ *   vezes em 4 minutos — 18:26:26, 18:30:08, 18:30:10, 18:30:26 — SEMPRE
+ *   dentro de wl_display_read_events (via dispatch do loop E via roundtrip
+ *   do arranque). Cada morte deixa a dock sem daemon → fallback wlrctl →
+ *   fork por clique → "delays absurdos pra abrir e fechar" (relato do
+ *   dono). A cura na CASA (defesa em profundidade, sem mudar o fio):
+ *   (1) POLLHUP/POLLERR SEM POLLIN NUNCA mais toca o dispatch — socket
+ *       morto não é evento para ler; é CONEXÃO PERDIDA (exit limpo, o
+ *       supervisor renasce com estado novo); 
+ *   (2) wl_display_get_error DEPOIS de CADA conversa (dispatch, flush,
+ *       roundtrip) — o erro do fio vira SAÍDA LIMPA na hora, nunca
+ *       segundan-sessão sobre conexão doente;
+ *   (3) o exit limpo (1) é o contrato do supervisor: o craft-bars
+ *       reinicia ≤5s e a dock reconecta sozinha — o pior caso deixa de
+ *       ser core dump e volta a ser restart invisível.
  * ESTADO OTIMISTA: ACT/CYCLE movem a janela ao topo do MRU na hora (o
  * evento do compositor confirma depois) — cliques rápidos no comutador
  * caminham pelo anel em vez de re-mirar a mesma janela.
@@ -561,6 +584,19 @@ static void serve_list(Client *c)
     reply(c, line);
 }
 
+/* E89 — o verbo MIN (o toggle da dock): set_minimized (opcode 2) É o
+ * comando do protocolo; o estado é otimista (a flag 2 acende, a 4 apaga —
+ * o compositor confirma no state/done seguinte e a dock recebe o batch).
+ * A janela PERMANECE no anel MRU e no LIST: minimizada não é fechada —
+ * tirá-la do anel apagaria o indicador da dock e o clique de restauração
+ * (a doença exata que a E71 curou no parent; mru_remove é SÓ do CLOSED). */
+static void minimize(Tl *t)
+{
+    wl_proxy_marshal(t->proxy, TL_SET_MINIMIZED);
+    t->flags &= ~(uint32_t)(F_ACTIVATED | F_FULLSCREEN);
+    t->flags |= F_MINIMIZED;
+}
+
 static void serve_cycle(Client *c)
 {
     if (n_mru == 0) {
@@ -624,6 +660,16 @@ static void handle_line(Client *c, char *ln)
                      t->id);
             actlog_write(alb);
             fprintf(stderr, "craft-toplevel: %s\n", alb);
+            reply(c, "OK\n");
+        } else {
+            reply(c, "ERR|no-window\n");
+        }
+    } else if (strncmp(ln, "MIN ", 4) == 0) {
+        /* E89 — o TOGGLE da dock: o esquerdo no app focado minimiza.
+         * ERR se a janela não existe mais (a dock refresca o snapshot). */
+        Tl *t = by_id((uint32_t)strtoul(ln + 4, NULL, 10));
+        if (t) {
+            minimize(t);
             reply(c, "OK\n");
         } else {
             reply(c, "ERR|no-window\n");
@@ -707,9 +753,16 @@ int main(void)
     wl_proxy_add_dispatcher(reg, registry_dispatcher, NULL, NULL);
 
     /* roundtrip 1: o registry anuncia globals (manager, seat); roundtrip 2:
-     * globals anunciados por eventos pós-bind também entram */
-    wl_display_roundtrip(disp);
-    wl_display_roundtrip(disp);
+     * globals anunciados por eventos pós-bind também entram.
+     * E89 — cada conversa termina com o veredito do fio: erro do display =
+     * saída limpa (o supervisor renasce; um core dump nunca é o plano). */
+    if (wl_display_roundtrip(disp) < 0 || wl_display_get_error(disp) != 0 ||
+        wl_display_roundtrip(disp) < 0 || wl_display_get_error(disp) != 0) {
+        fprintf(stderr, "craft-toplevel: fio Wayland com erro no arranque "
+                        "(%s) — saída limpa, o supervisor renasce\n",
+                strerror(errno));
+        return 1;
+    }
     if (!mgr_bound) {
         fprintf(stderr, "craft-toplevel: este compositor não fala "
                         "zwlr_foreign_toplevel_management_v1 — saindo\n");
@@ -833,7 +886,20 @@ int main(void)
             break;
         }
         if (pfds[0].revents & (POLLIN | POLLHUP | POLLERR)) {
-            if (wl_display_dispatch(disp) < 0) {
+            /* E89 — A BLINDAGEM DO SIGSEGV (dump 190719: 4× exit=139 em
+             * wl_display_read_events): socket do compositor com POLLHUP ou
+             * POLLERR SEM dados não tem evento nenhum para ler — é CONEXÃO
+             * PERDIDA. Ler (dispatch) um fio morto era a porta do core dump;
+             * agora é saída limpa — o supervisor renasce com estado novo. */
+            if ((pfds[0].revents & (POLLHUP | POLLERR)) &&
+                !(pfds[0].revents & POLLIN)) {
+                fprintf(stderr, "craft-toplevel: compositor fechou o fio "
+                                "(POLLHUP/ERR) — saída limpa, o supervisor "
+                                "reinicia\n");
+                return 1;
+            }
+            if (wl_display_dispatch(disp) < 0 ||
+                wl_display_get_error(disp) != 0) {
                 fprintf(stderr, "craft-toplevel: compositor perdeu a "
                                 "conexão — o supervisor reinicia\n");
                 return 1;
@@ -876,7 +942,15 @@ int main(void)
             }
         }
         sweep_dead();
-        wl_display_flush(disp);
+        /* E89 — o flush também conversa com o fio: EPIPE/erro aqui sem
+         * veredito deixava o daemon vivo sobre uma conexão doente (o estado
+         * da sessão virava mentira até o próximo dispatch explodir). */
+        if (wl_display_flush(disp) < 0 && errno != EAGAIN) {
+            fprintf(stderr, "craft-toplevel: flush falhou (%s) — saída "
+                            "limpa, o supervisor reinicia\n",
+                    strerror(errno));
+            return 1;
+        }
     }
     return 1;
 }

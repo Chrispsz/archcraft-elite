@@ -100,6 +100,12 @@ wlopm
 ## modo ATUAL de cada saída); a receita canônica do labwc já o citava —
 ## a ferramenta agora viaja na ISO
 wlr-randr
+# E89 — A PORTA GRÁFICA dos displays (o dono usa e condenou a falta de
+# memória dela — a cura é o craft-display por cima; a janela segue sendo
+# o modo avançado dentro do menu "Displays…" do desktop). Explicitada na
+# lista: a porta gráfica não pode depender de herança silenciosa do
+# upstream (o contrato do menu cobra binário real).
+wdisplays
 ## v2.7.0 — foco de janela pela dock (o dono: "clicar num programa já
 ## aberto deve ir para a tarefa aberta invés de abrir outra"): o wlrctl
 ## fala wlr-foreign-toplevel (labwc fala) — wlrctl window focus app_id:…
