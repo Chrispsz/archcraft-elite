@@ -382,6 +382,13 @@ cp -p /work/elite/airootfs/usr/lib/systemd/system-sleep/elite-resume-display \
       /tmp/elite-src/elite-system/files/usr/lib/systemd/system-sleep/
 cp -p /work/elite/airootfs/usr/lib/systemd/system-sleep/elite-resume-usb \
       /tmp/elite-src/elite-system/files/usr/lib/systemd/system-sleep/
+# E73 — o retrato do terminal viaja NO PACOTE (lição E63: fora do pacote
+# nunca chega ao rig pelo canal). O craft-hello aponta pra cá; o usuário
+# que quiser a própria cara cria ~/.config/fastfetch/config.jsonc e o
+# dele VENCE (config de usuário intocado — lei do domínio v3).
+mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/fastfetch
+cp -p /work/elite/airootfs/usr/local/share/elite/fastfetch/config.jsonc \
+      /tmp/elite-src/elite-system/files/usr/local/share/elite/fastfetch/config.jsonc
 python3 - /tmp/elite-src/elite-system <<'PYE50'
 import sys, pathlib
 d = pathlib.Path(sys.argv[1])
@@ -411,6 +418,10 @@ hook_rm = f"""    for f in \\
 hook_install = f"""    install -d "${{pkgdir}}/usr/lib/systemd/system-sleep"
     cp -a "${{startdir}}/files/usr/lib/systemd/system-sleep/." "${{pkgdir}}/usr/lib/systemd/system-sleep/"
 """ if hooks else ""
+# E73 — o config do retrato (instalação + a remoção da via sem dono da
+# ISO no pre_install — a mesma dança dos bins desde a adoção E43)
+ff_install = '    install -d "${pkgdir}/usr/local/share/elite/fastfetch"\n    install -m644 "${startdir}/files/usr/local/share/elite/fastfetch/config.jsonc" "${pkgdir}/usr/local/share/elite/fastfetch/config.jsonc"\n'
+ff_rm = '    [ -e "/usr/local/share/elite/fastfetch/config.jsonc" ] && rm -f "/usr/local/share/elite/fastfetch/config.jsonc"\n'
 pkg = f"""pkgname=elite-system
 pkgver=1.0
 # E50 — O SISTEMA EM UM PACOTE SÓ (diretriz do dono). Todo o código de
@@ -684,7 +695,24 @@ pkgver=1.0
 #     pkgrel 22→23 NO MESMO COMMIT (lei E41 — o Comprimir morreu com
 #     honra na E72: verbo fora do uca.xml do skel, craft-compress
 #     extinto do tree, elite-tune [9] entrega a remoção às homes vivas).
-pkgrel=23
+# 07/nov — E73: O TERMINAL ABRE COM O RETRATO (o dono: "faz o terminal
+#     abrir por padrao com aquelas paradas que mostra o kernel e etc"):
+#     o craft-hello existia desde a v1.0.3 mas ninguém o chamava quando o
+#     terminal abre (só o W-S-h — que executava o script SEM terminal: a
+#     saída se perdia no journal do labwc). Três pontas NO MESMO COMMIT:
+#     (1) craft-hello ganha o CONFIG DA CASA (share/elite/fastfetch/
+#         config.jsonc — logo "Archcraft" builtin do fastfetch, nome
+#         provado no fonte oficial; o usuário que quiser a própria cara
+#         cria ~/.config/fastfetch/config.jsonc e o dele VENCE);
+#     (2) o .zshrc do skel chama o hello a cada shell interativo novo e
+#         a seção [10] do elite-tune injeta o MESMO bloco nas homes
+#         vivas (skel nunca viaja no pacote — lição E70.1) e dá terminal
+#         de verdade ao W-S-h das homes;
+#     (3) o config do retrato viaja NO PACOTE (lição E63: fora do pacote
+#         nunca chega — pre_install remove a via da ISO sem dono).
+#     pkgrel 23→24 NO MESMO COMMIT (lei E41 — craft-hello, o config e a
+#     seção [10] mudaram o pacote).
+pkgrel=24
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
@@ -717,7 +745,7 @@ pre_install() {{
     ; do
         [ -e "/usr/local/bin/$f" ] && rm -f "/usr/local/bin/$f"
     done
-{unit_loop}{hook_rm}    return 0
+{unit_loop}{hook_rm}{ff_rm}    return 0
 }}
 package() {{
     install -d "${{pkgdir}}/usr/local/bin"
@@ -726,7 +754,7 @@ package() {{
     # a fonte do daemon viaja no pacote (transparência — o mesmo papel que
     # ela tinha no craft-toplevel legado)
     install -Dm644 craft-toplevel.c "${{pkgdir}}/usr/local/share/elite/src/craft-toplevel.c"
-{unit_install}{hook_install}}}
+{unit_install}{hook_install}{ff_install}}}
 """
 (d / 'PKGBUILD').write_text(pkg)
 PYE50
