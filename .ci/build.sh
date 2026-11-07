@@ -816,7 +816,26 @@ pkgver=1.0
 #         avisos no repo inteiro.
 #     pkgrel 26→27 NO MESMO COMMIT (lei E41 — elite-ferramentas mudou de
 #     conteúdo; o 1.0-26 nunca chegou a publicar — o container recusou).
-pkgrel=27
+# 07/nov — E76 (POLIMENTO, ÁREA 3 DA ROTAÇÃO — craft-drawer/craft-pin/
+#     craft-pin-pick): a varredura inteira da área achou a morte silenciosa
+#     de VOLTA no picker: 'out="$(craft-pin add …)"; addrc=$?' morria no
+#     set -euo pipefail ANTES do addrc quando o craft-pin devolvia rc≠0 —
+#     e a duplicata É rc 1 desde o E36, logo o desfecho "'$choice' já
+#     estava na dock" era INALCANÇÁVEL (prova: script com stub rc 1 morre
+#     sem chegar ao eco seguinte). Cura na gramática da casa
+#     '|| addrc=$?' (a MESMA do fuzzel no próprio arquivo) + o help do
+#     craft-pin deixou de vazar código (o range mágico '2,22p' imprimia
+#     PINS_DIR/DESKTOP_DIRS/ensure_file cru depois do ═ — o awk agora
+#     imprime ENQUANTO a linha é comentário) + o inventário do picker
+#     enxerga o XDG_DATA_HOME do usuário PRIMEIRO (a precedência do
+#     resolve do irmão: .desktop do usuário — ex. AppImage registrada pelo
+#     appimagelauncher do E74 — é fixável pelo mesmo fluxo mouse-first).
+#     Prova FUNCIONAL de ponta a ponta no 30-unit 3.O: pick REAL +
+#     craft-pin REAL + stubs — os TRÊS desfechos E36 saem com toast, e a
+#     duplicata não morre calada.
+#     pkgrel 27→28 NO MESMO COMMIT (lei E41 — craft-pin e craft-pin-pick
+#     mudaram de conteúdo).
+pkgrel=28
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

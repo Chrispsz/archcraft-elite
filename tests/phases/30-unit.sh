@@ -1339,6 +1339,104 @@ printf '%s\n' "$out" > "$STCU/saida.txt"
 assert_eq "$rc" "3" "E54/manual: o rc REAL do pacman chega ao script (capturado FORA da negação — a lição E46 agora também na porta manual)"
 assert_grep "$STCU/saida.txt" 'recusou a transação' "E54/manual: a recusa fala com o dono (NADA da casa mudou — e a saída nunca mais é o erro cru calado)"
 
+# ── 3.O craft-pin-pick EXECUTADO: os três desfechos E36 de ponta a ponta (E76) ─
+#  TODOS os contratos do picker eram greps ESTÁTICOS (20-static) — nenhum o
+#  rodava. A perícia E76 provou que a forma 'out="$(craft-pin add …)"; addrc=$?'
+#  morria no set -euo pipefail ANTES do addrc quando o craft-pin devolvia rc≠0
+#  (e a duplicata É rc 1 desde o E36): o desfecho "'$choice' já estava na dock"
+#  era INALCANÇÁVEL — a morte silenciosa que a v2.3.1 jurou extinta,
+#  ressuscitada dentro do desfecho novo. Cura: a gramática da casa
+#  '|| addrc=$?' (a MESMA do fuzzel logo acima no arquivo). Provas abaixo com
+#  o pick REAL + craft-pin REAL + stubs de fuzzel/notify (o craft-pin ruim do
+#  fluxo C sombreia o real — o ramo else do toast de falha também vira vivo).
+#  O fixture .desktop mora SÓ no XDG_DATA_HOME do usuário falso — o mesmo
+#  teste prova o inventário novo (overrides do usuário PRIMEIRO, a precedência
+#  do resolve do craft-pin; antes o picker não o listava e AppImage
+#  registrada pelo appimagelauncher era infixável pelo mouse).
+PICKBIN="$REPO/elite/airootfs/usr/local/bin/craft-pin-pick"
+PICKW="$WORK/craft-pin-pick-home"
+PICKSTUBS="$WORK/pick-stubs"
+PICKFAIL="$WORK/pick-stubs-fail"
+PICKDATA="$PICKW/data"
+pick_reset() { # apaga SÓ o cenário do picker — a infra de stubs fica (a
+  # 1ª rodada mordeu o próprio mantenedor: rm -rf dos stubdirs DEPOIS dos
+  # stubs escritos = picker sem fuzzel no PATH = rc 1 calado ×8 asserts)
+  rm -rf "$PICKW"
+  mkdir -p "$PICKW/.config/elite" "$PICKSTUBS" "$PICKFAIL" "$PICKDATA/applications"
+  printf '[Desktop Entry]\nType=Application\nName=Steam\nExec=steam\nIcon=steam\n' \
+    > "$PICKDATA/applications/steam.desktop"
+  : > "$PICKW/toasts.txt"
+}
+# fuzzel stub: --help anuncia --anchor (o probe v2.10.5 passa); dmenu devolve Steam
+# (o 1º pick_reset vem PRIMEIRO — o $WORK da suíte nasce vazio e os cat >
+# abaixo precisam dos dirs: a 2ª rodada mordeu o mantenedor de novo)
+pick_reset
+cat > "$PICKSTUBS/fuzzel" <<'EOF'
+#!/bin/sh
+case "${1:-}" in
+  --help) echo "uso: fuzzel [--anchor=CENTER] [--dmenu]"; exit 0 ;;
+  *) cat >/dev/null; echo "Steam"; exit 0 ;;
+esac
+EOF
+# notify-send stub: o toast que SAIU é a prova (nada de screen real aqui)
+cat > "$PICKSTUBS/notify-send" <<'EOF'
+#!/bin/sh
+echo "TOAST: $*" >> "$PICK_TOASTS"
+EOF
+chmod +x "$PICKSTUBS/fuzzel" "$PICKSTUBS/notify-send"
+# o craft-pin RUIM do fluxo C (falha real, rc≠0 SEM 'já está fixado')
+cat > "$PICKFAIL/craft-pin" <<'EOF'
+#!/bin/sh
+echo "craft-pin: kaboom inesperado"
+exit 3
+EOF
+chmod +x "$PICKFAIL/craft-pin"
+
+pick_run() { # $1 = dir do craft-pin que vence o PATH -> rc do picker
+  PICK_TOASTS="$PICKW/toasts.txt" \
+    PATH="$PICKSTUBS:$1:$PATH" \
+    HOME="$PICKW" XDG_DATA_HOME="$PICKDATA" XDG_CACHE_HOME="$PICKW/.cache" \
+    bash "$PICKBIN" >/dev/null 2>&1
+  echo $?
+}
+
+# fluxo A — 1º pick: fixa de verdade (e o dir do USUÁRIO alimenta a lista)
+pick_reset
+rcA="$(pick_run "$REPO/elite/airootfs/usr/local/bin")"
+assert_eq "$rcA" "0" "E76/pick: 1º picker sai rc 0 (fixa Steam vinda do XDG_DATA_HOME do USUÁRIO — o inventário de overrides é lei)"
+assert_grep "$PICKW/.config/elite/dock-pins" '^steam\.desktop$' \
+  "E76/pick: o pin entrou no dock-pins (pick REAL → craft-pin REAL → arquivo)"
+assert_grep "$PICKW/toasts.txt" 'fixado na dock' \
+  "E76/pick: toast de sucesso no desfecho 1 (a prova é o toast que SAIU)"
+
+# fluxo B — duplicata: o desfecho 2 do E36, INALCANÇÁVEL antes do E76
+rcB="$(pick_run "$REPO/elite/airootfs/usr/local/bin")"
+assert_eq "$rcB" "0" "E76/pick: duplicata é benigna para o picker (rc 0 — quem fala é o toast, nunca a morte calada de antes)"
+assert_grep "$PICKW/toasts.txt" 'já estava na dock' \
+  "E76/pick: toast 'já estava na dock' ALCANÇADO (antes: set -e matava na atribuição e o desfecho 2 do E36 nunca saía)"
+assert_eq "$(grep -c '^steam\.desktop$' "$PICKW/.config/elite/dock-pins")" "1" \
+  "E76/pick: duplicata NÃO duplica o pin (1 linha, a coluna $1 é a lei)"
+
+# fluxo C — falha REAL do craft-pin (rc≠0 sem 'já está fixado'): o ramo else
+rm -f "$PICKW/.cache/elite/menus.log"
+rcC="$(pick_run "$PICKFAIL")"
+assert_grep "$PICKW/toasts.txt" 'Fixar na dock falhou' \
+  "E76/pick: falha REAL do craft-pin avisa na tela (o else do E36 também é vivo — nenhum desfecho calado)"
+assert_grep "$PICKW/.cache/elite/menus.log" 'craft-pin FALHOU rc=3' \
+  "E76/pick: a falha real deixa rastro no menus.log (v2.3.1: o picker nunca mais morre sem linha no papel)"
+
+# e o help do craft-pin NÃO vaza mais código (E76 — o range mágico '2,22p'
+# imprimia PINS_DIR/DESKTOP_DIRS/ensure_file cru depois do ═ de fechamento)
+pick_reset
+out="$(env HOME="$PICKW" bash "$REPO/elite/airootfs/usr/local/bin/craft-pin" 2>&1)"; rcHelp=$?
+assert_eq "$rcHelp" "2" "E76/pin: craft-pin sem args é help + rc 2 (contrato do *)"
+assert_match "$out" 'craft-pin add <nome' "E76/pin: o help carrega o USO (o cabeçalho inteiro)"
+if printf '%s' "$out" | grep -qE 'PINS_DIR|DESKTOP_DIRS|ensure_file|!/bin/sh'; then
+  fail "E76/pin: o help NÃO vaza código" "símbolo de implementação presente no help: $(printf '%s' "$out" | grep -E 'PINS_DIR|DESKTOP_DIRS|ensure_file' | head -1)"
+else
+  ok "E76/pin: o help NÃO vaza código (PINS_DIR/DESKTOP_DIRS/ensure_file/shebang extintos — o awk para na 1ª linha que não é comentário)"
+fi
+
 # ── E48 — A CURA NA SESSÃO VIVA (o 'atualizei e persistiu' morre): o
 #    dump nl3z provou o rig correndo a receita velha DEPOIS do update
 #    (timeout 1200 systemctl suspend cru, conf 2/7) — o update entregava
