@@ -40,6 +40,22 @@ if command -v swaybg >/dev/null 2>&1; then
     fi
 fi
 
+# --- Displays: O ARRANJO SALVO NASCE APLICADO (E89 — a tela que lembra) ---
+#     O relato do dono: "eu coloco 200 hertz e toda vez que eu reinicio o
+#     PC tem que estar colocando os 200 hertz… porque ele some". O modo é
+#     propriedade do compositor em RAM — nada na casa gravava a escolha.
+#     O craft-display fecha o ciclo: apply espera os outputs de pé e
+#     aplica ~/.config/elite/displays.conf (o 200 Hz nasce aplicado);
+#     o watch grava sozinho qualquer mudança que o dono fizer por
+#     QUALQUER porta (wdisplays, menu do desktop, wlr-randr) quando ela
+#     se estabiliza — a persistência deixa de depender de lembrar de
+#     salvar. O apply vai despegado (o autostart não é refém da espera
+#     de 15s); o watch segue de gaveta (daemon silencioso, zero UI).
+if command -v craft-display >/dev/null 2>&1; then
+    craft-display apply >/dev/null 2>&1 &
+    craft-display watch >/dev/null 2>&1 &
+fi
+
 # --- Janelas: daemon wlr-foreign-toplevel (v2.10.1 — a dock COMUTADORA) ---
 #     O craft-toplevel fala o protocolo DIRETO com o labwc (janelas por id +
 #     anel MRU do alt-tab) e serve a dock num socket da sessão. Antes do

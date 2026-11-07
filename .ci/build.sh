@@ -318,7 +318,7 @@ depends=(wayland)
 options=(!debug)
 source=("craft-toplevel.c")
 # E71 — o sha do C com o parent NULÁVEL ('?o') + EVT_PARENT no dispatcher
-sha256sums=('f719c2f0582f0787a26440ebc5566408d5889d8dc037e91505384efb9544f258')
+sha256sums=('361f6c4fc3065a8d65516cfd673a5ba110aa8005d25a5b8be86bdaf3015761a5')
 build() {
     gcc -O2 -Wall -Wextra -s -o craft-toplevel craft-toplevel.c -lwayland-client
 }
@@ -915,7 +915,34 @@ pkgver=1.0
 #     pkgrel 31→32 NO MESMO COMMIT (lei E41 — 2 hooks reescritos, 1 hook
 #     vira ator, craft-idle/craft-dock-gui/craft-drawer/craft-clean/
 #     elite-optimize/craft-update/hyprlock.conf mudaram de conteúdo).
-pkgrel=32
+# E89 — A TELA QUE LEMBRA + A DOCK QUE OBEDECE AO CLIQUE + O WAKE QUE PROVA
+#     INPUT (o dono, dump elite-dump-20261107-190719 do rig 1.0-31 + a
+#     lista de UX): (1) craft-display NOVO — a persistência que o sistema
+#     não tinha ("eu coloco 200 hertz e toda vez que eu reinicio o PC tem
+#     que estar colocando os 200 hertz… porque ele some"): apply no
+#     autostart (o arranjo salvo nasce aplicado), watch que grava sozinho
+#     a mudança estável feita por QUALQUER porta (wdisplays, menu,
+#     wlr-randr) e o menu "Displays…" com TODOS os modos do EDID no fuzzel
+#     (aplicado+salvo no mesmo clique — "deveria ser todas as detectadas");
+#     wdisplays explicitada na ISO e o item novo no menu.xml do desktop.
+#     (2) craft-toplevel ganhou o verbo MIN + a blindagem do SIGSEGV do
+#     dump (4× exit=139 em wl_display_read_events em 4 minutos — o réu da
+#     "dock com delays absurdos": POLLHUP sem POLLIN sai limpo, get_error
+#     julga cada conversa, flush com veredito — core dump nunca mais é
+#     desfecho possível). (3) craft-dock-gui: o TOGGLE da dock (clique no
+#     app focado MINIMIZA — o 2º clique era ACT no já-ativo = "nada
+#     acontece") + o dismiss do nwg-drawer (janela que a dock acorda
+#     nasce atrás da gaveta aberta — o dono tinha que fechar o menu à
+#     mão). (4) elite-resume-usb: a foto do pre ganha a terceira dimensão
+#     (inputs contados por HID — o caso usbhid 3-4:1.4 'couldn't find an
+#     input interrupt endpoint' ENUMERAVA e não mexia, a lista crua via
+#     vivo) e o BLUETOOTH re-assenta no wake (hci0 reset failed -19).
+#     (5) craft-idle: a ORDEM É LEI — SUSPEND ≤ LOCK não nasce mais no
+#     conf (o rig dormia DESBLOQUEADO e ACESO aos 5min com lock aos 30).
+#     pkgrel 32→33 NO MESMO COMMIT (lei E41 — craft-toplevel.c recompila,
+#     craft-dock-gui/craft-idle mudaram de conteúdo, craft-display é bin
+#     novo, elite-resume-usb/autostart/menu.xml/packages.add mudaram).
+pkgrel=33
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
@@ -931,7 +958,7 @@ conflicts=('elite-craft' 'craft-toplevel')
 # símbolo)
 options=(!debug !strip)
 source=("craft-toplevel.c")
-sha256sums=('f719c2f0582f0787a26440ebc5566408d5889d8dc037e91505384efb9544f258')
+sha256sums=('361f6c4fc3065a8d65516cfd673a5ba110aa8005d25a5b8be86bdaf3015761a5')
 build() {{
     gcc -O2 -Wall -Wextra -s -o craft-toplevel craft-toplevel.c -lwayland-client
 }}

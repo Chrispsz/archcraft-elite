@@ -515,6 +515,7 @@ if grep -q '^file_permissions=(' "$PD"; then
            /usr/local/bin/elite-ferramentas \
            /usr/local/bin/craft-rescue-screen /usr/local/bin/elite-post-transaction \
            /usr/local/bin/calamares-elite-log \
+           /usr/local/bin/craft-display \
            /usr/lib/systemd/system-sleep/elite-sleep-report \
            /etc/skel/.config/labwc/autostart; do
     grep -qF "[\"$p\"]" "$PD" || sed -i "s|^file_permissions=(|file_permissions=(\n  [\"$p\"]=\"0:0:755\"|" "$PD"

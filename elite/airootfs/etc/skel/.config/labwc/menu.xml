@@ -74,6 +74,15 @@
     <item label="Captura de tela (região)">
       <action name="Execute" command="craft-shot" />
     </item>
+    <!-- E89 — Displays no menu (o dono: "esse de displays é muito ruim…
+         deveria ser todas as detectadas… ou esse menu fosse bem pensado"):
+         o craft-display lista TODOS os modos do EDID no fuzzel, aplica E
+         grava no mesmo clique (a persistência dos hertz que o sistema
+         não tinha). A porta gráfica avançada (wdisplays) mora DENTRO do
+         menu daqui. -->
+    <item label="Displays…">
+      <action name="Execute" command="craft-display" />
+    </item>
     <separator />
     <item label="Atualizar sistema">
       <action name="Execute" command="foot -e craft-update" />

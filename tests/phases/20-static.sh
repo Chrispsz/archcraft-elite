@@ -1677,7 +1677,50 @@ assert_grep "$REPO/.ci/build.sh" 'pkgrel 20→21 NO MESMO COMMIT' "E70.1: pkgrel
 #    E70 só cobria LIST FALHO. Cura em DUAS pontas: o '?o' no daemon e as
 #    três redes na dock (prova no lançamento, dedup em voo, graça do
 #    vazio).
-assert_grep "$REPO/.ci/build.sh" 'f719c2f0582f0787a26440ebc5566408d5889d8dc037e91505384efb9544f258' "E71: o sha256 NÃO é mais o do C com parent seco (a fonte mudou e os pins acompanharam — o makepkg para se algo destoar)"
+assert_grep "$REPO/.ci/build.sh" '361f6c4fc3065a8d65516cfd673a5ba110aa8005d25a5b8be86bdaf3015761a5' "E71 (era f719c2f0, âncora refrescada na E89): o sha256 NÃO é mais o do C com parent seco (a fonte mudou e os pins acompanharam — o makepkg para se algo destoar)"
 assert_nogrep "$REPO/.ci/build.sh" '24d537866c1bc81881dc5f6e69a64b10447ae2de6270f18a6c8d0cf54f81b7be' "E71: o sha256 do C VELHO (parent 'o' seco) está EXTINTO do build (nenhum pin aponta para a fonte doente)"
+
+# ── E89 — A TELA QUE LEMBRA + A DOCK QUE OBEDECE AO CLIQUE + O WAKE QUE
+#    PROVA INPUT (dump elite-dump-20261107-190719 do rig 1.0-31 + a lista
+#    de UX do dono). CINCO réus, cinco curas com contrato:
+#    (1) os 200 Hz que somem no reboot → craft-display (apply/watch/menu);
+#    (2) o SIGSEGV do daemon (4× exit=139) → blindagem no C + verbo MIN;
+#    (3) o clique na dock que 'nada acontece' → toggle-minimize + dismiss
+#        da gaveta;
+#    (4) o mouse que ENUMERA e não mexe (usbhid 3-4:1.4) → foto de inputs
+#        no hook;
+#    (5) o PC que dormia DESBLOQUEADO e ACESO (SUSPEND 5min < LOCK 30min)
+#        → a ordem é lei no craft-idle.
+CDISP="$REPO/elite/airootfs/usr/local/bin/craft-display"
+assert_file "$CDISP" "E89: craft-display EXISTE (a persistência de modo/Hz que o sistema nunca teve — o réu dos 200 Hz que somem)"
+assert_grep "$CDISP" 'displays\.conf' "E89: o conf do arranjo é ~/.config/elite/displays.conf (o domínio da casa — mesma pasta do idle.conf)"
+assert_grep "$CDISP" 'apply)' "E89: o braço APPLY existe (o arranjo salvo nasce aplicado no autostart — o 200 Hz sem clique nenhum)"
+assert_grep "$CDISP" 'watch)' "E89: o braço WATCH existe (a mudança estável do dono grava sozinha — persistência que não depende de lembrar de salvar)"
+assert_grep "$CDISP" 'save)' "E89: o braço SAVE existe (a fotografia do AGORA para o conf)"
+assert_grep "$CDISP" 'ELITE_RANDR' "E89: craft-display tem seam de teste (ELITE_RANDR — a prova funcional roda sem sessão real, a escola da casa)"
+assert_grep "$CDISP" 'wdisplays' "E89: a porta gráfica avançada (wdisplays) mora DENTRO do menu do craft-display (um lugar, uma porta por nível)"
+CAUTOSTART="$REPO/elite/airootfs/etc/skel/.config/labwc/autostart"
+assert_grep "$CAUTOSTART" 'craft-display apply' "E89: o autostart chama o apply (a tela LEMBRA no boot — o arranjo salvo é a primeira coisa de pé)"
+assert_grep "$CAUTOSTART" 'craft-display watch' "E89: o autostart sobe o watch (a escolha do dono grava sozinha pelo resto da sessão)"
+CMENUX="$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml"
+assert_grep "$CMENUX" 'command="craft-display"' "E89: o menu do desktop tem o item Displays… (a porta 'bem pensada' que o dono pediu — todos os modos do EDID no fuzzel)"
+assert_grep "$REPO/elite/packages.add" '^wdisplays$' "E89: o wdisplays EXPLÍCITO na ISO (a porta gráfica não depende de herança silenciosa do upstream — o contrato do menu cobra binário real)"
+CTL="$REPO/vendor/craft-toplevel.c"
+assert_grep "$CTL" '"MIN "' "E89: o daemon fala o verbo MIN (set_minimized — o TOGGLE da dock, a gramática de toda dock do mundo)"
+assert_grep "$CTL" 'TL_SET_MINIMIZED' "E89: o MIN usa o opcode REAL do protocolo (set_minimized=2 — o mesmo zip de leis do ACT com unset_minimized=3/activate=4)"
+assert_grep "$CTL" 'POLLHUP' "E89: a blindagem do SIGSEGV mora no loop (POLLHUP/POLLERR sem POLLIN = conexão perdida, NUNCA dispatch sobre fio morto — os 4× exit=139 do dump não têm mais porta)"
+assert_grep "$CTL" 'wl_display_get_error' "E89: cada conversa termina com o veredito do fio (get_error após dispatch/roundtrip — erro = saída limpa, o supervisor renasce)"
+assert_grep "$REPO/.ci/build.sh" '361f6c4fc3065a8d65516cfd673a5ba110aa8005d25a5b8be86bdaf3015761a5' "E89: o sha256 do C acompanhou a fonte cega (MIN + blindagem — o makepkg para se algo destoar, a mesma lei E71)"
+assert_nogrep "$REPO/.ci/build.sh" 'f719c2f0582f0787a26440ebc5566408d5889d8dc037e91505384efb9544f258' "E89: o sha256 do C VELHO (sem MIN, sem blindagem) está EXTINTO do build (nenhum pin aponta para a fonte doente)"
+CDOCK="$REPO/elite/airootfs/usr/local/bin/craft-dock-gui"
+assert_grep "$CDOCK" '_tl_min' "E89: a dock fala MIN por id (o clique no app focado MINIMIZA — 'clico novamente no mesmo programa, ele não minimiza… nada acontece' curado)"
+assert_grep "$CDOCK" '_dismiss_overlays' "E89: a dock encerra a gaveta aberta ao acordar/lançar (a janela nasce atrás do nwg-drawer — o dono tinha que fechar o menu à mão)"
+CIDLE="$REPO/elite/airootfs/usr/local/bin/craft-idle"
+assert_grep "$CIDLE" 'E89: ordem do ciclo restaurada' "E89: a ORDEM é lei no start (SUSPEND ≤ LOCK vira LOCK+5 — o PC que dormia DESBLOQUEADO e ACESO aos 5min morre com prova no papel)"
+assert_grep "$CIDLE" 'E89: escolha do menu normalizada' "E89: a ordem é lei TAMBÉM no menu (a escolha ilegal não chega a nascer no conf)"
+CRUSB="$REPO/elite/airootfs/usr/lib/systemd/system-sleep/elite-resume-usb"
+assert_grep "$CRUSB" 'SNAP_IN' "E89: a foto do pre ganha a terceira dimensão (inputs contados por HID — o mouse que ENUMERA e não mexe é visto, o caso usbhid 3-4:1.4)"
+assert_grep "$CRUSB" 'btusb' "E89: o BLUETOOTH re-assenta no wake (hci0 reset failed -19 do dump — o rádio que não voltava até o reboot)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 32→33 NO MESMO COMMIT' "E89: pkgrel elite-system 32→33 NO MESMO COMMIT (lei E41 — o C recompila com MIN+blindagem, craft-dock-gui/craft-idle mudaram, craft-display é bin novo, hook/autostart/menu/packages mudaram; âncora na HISTÓRIA, lição E58/E59)"
 
 phase_end

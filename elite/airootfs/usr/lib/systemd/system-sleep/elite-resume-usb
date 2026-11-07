@@ -40,6 +40,7 @@ PCI_DIR="${ELITE_PCI_DIR:-/sys/bus/pci}"
 RUN_DIR="${ELITE_RUN_DIR:-/run/elite}"
 SNAP="$RUN_DIR/usb-inputs.pre"
 SNAP_MAP="$RUN_DIR/usb-inputs.map"
+SNAP_IN="$RUN_DIR/usb-inputs.inputs"
 UDEVADM="${ELITE_UDEVADM:-udevadm}"
 
 # a caminhada hid→PCI: o ancestral controlador do dispositivo (a foto
@@ -99,14 +100,24 @@ case "${1:-}" in
         mkdir -p "$RUN_DIR" 2>/dev/null || true
         hid_list > "$SNAP" 2>/dev/null || true
         : > "$SNAP_MAP" 2>/dev/null || true
+        # E89 — a foto ganha a TERCEIRA DIMENSÃO: quantos nós de input cada
+        # HID tinha ao dormir (hid NOME/input/inputN). É o padrão de ouro
+        # do wake: um HID só está 'de volta' se os INPUTS que ele tinha
+        # voltaram junto — o caso do dump 190719 (19:05:20: 'usbhid
+        # 3-4:1.4: couldn't find an input interrupt endpoint' — o mouse
+        # ENUMERA e não MEXE) passa pela lista crua e o martelo nunca
+        # descia; com a foto de inputs, o morto-na-função é visto.
+        : > "$SNAP_IN" 2>/dev/null || true
         for hid in $(hid_list); do
             if pci="$(pci_of_hid "$hid")"; then
                 printf '%s\t%s\n' "$hid" "$pci" >> "$SNAP_MAP" 2>/dev/null || true
             fi
+            n_in="$(ls "$HID_DIR/$hid/input" 2>/dev/null | grep -c '^input' || true)"
+            printf '%s\t%s\n' "$hid" "${n_in:-0}" >> "$SNAP_IN" 2>/dev/null || true
         done
         n="$(grep -c . "$SNAP" 2>/dev/null || echo 0)"
         nm="$(grep -c . "$SNAP_MAP" 2>/dev/null || echo 0)"
-        logger -t elite-resume-usb "pré-sono: inventário HID fotografado ($n dispositivos, $nm com controlador mapeado) — o wake prova contra ESTA foto antes de tocar em qualquer controlador"
+        logger -t elite-resume-usb "pré-sono: inventário HID fotografado ($n dispositivos, $nm com controlador mapeado, inputs contados) — o wake prova contra ESTA foto antes de tocar em qualquer controlador"
         exit 0
         ;;
 esac
@@ -116,9 +127,20 @@ mkdir -p "$RUN_DIR" 2>/dev/null || true
 # ── 1. A PROVA (a graça do despertar: a re-enumeração natural leva até
 #       3s; quem voltou sozinho não paga martelo)
 missing_now() {
-    # lista no stderr dos HID da FOTO que NÃO estão presentes AGORA
+    # lista no stderr dos HID da FOTO que NÃO estão presentes AGORA —
+    # E89: E os presentes que PERDERAM os inputs que a foto registrou
+    # (vivo no barramento, morto na função — o caso usbhid 3-4:1.4).
     sort "$SNAP" 2>/dev/null > "$RUN_DIR/.snap.sorted" || true
     hid_list > "$RUN_DIR/.now.sorted"
+    while IFS="$(printf '\t')" read -r hid n_pre; do
+        [ -n "$hid" ] || continue
+        case "$n_pre" in ''|*[!0-9]*) continue ;; esac
+        [ "$n_pre" -gt 0 ] || continue          # sem input ao dormir = nada a cobrar
+        if grep -qx "$hid" "$RUN_DIR/.now.sorted" 2>/dev/null; then
+            n_now="$(ls "$HID_DIR/$hid/input" 2>/dev/null | grep -c '^input' || true)"
+            [ "${n_now:-0}" -eq 0 ] && printf '%s\n' "$hid"
+        fi
+    done < "$SNAP_IN" 2>/dev/null
     comm -23 "$RUN_DIR/.snap.sorted" "$RUN_DIR/.now.sorted"
 }
 i=0
@@ -143,7 +165,7 @@ rebinds=""
 if [ -s "$SNAP" ] && [ -n "$faltando" ]; then
     # ── 2. O ALVO: rebind SÓ do controlador que hospeda cada morto —
     #       a cura do mouse não pode derrubar o teclado vivo do vizinho.
-    logger -t elite-resume-usb "prova de morte: faltam $(printf '%s' "$faltando" | wc -l) dispositivo(s) da foto ($(printf '%s' "$faltando" | tr '\n' ' ')) — rebind ALVEJADO nos controladores hospedeiros"
+    logger -t elite-resume-usb "prova de morte: faltam $(printf '%s\n' "$faltando" | wc -l) dispositivo(s) da foto ($(printf '%s' "$faltando" | tr '\n' ' ')) — rebind ALVEJADO nos controladores hospedeiros"
     alvo=""
     alvos_rebindados=" "
     for hid in $faltando; do
@@ -200,6 +222,41 @@ if [ -s "$SNAP" ] && [ -n "$faltando" ]; then
     fi
 fi
 rm -f "$RUN_DIR/.snap.sorted" "$RUN_DIR/.now.sorted" 2>/dev/null || true
+
+# ── E89 — A CURA DO BLUETOOTH NO DESPERTAR ────────────────────────────────
+#    O dump 190719 (19:05:18, logo no wake): 'Bluetooth: hci0: sending
+#    initial HCI reset failed (-19)' — o rádio voltou do sono SEM TORCIO:
+#    o hci0 não nasce de volta e o fone/teclado BT do dono não existe
+#    até o reboot. A mesma cirurgia pontual dos controladores, no vizinho
+#    que dorme no USB: re-assentar o btusb (unbind+bind das interfaces)
+#    refaz a init do rádio. Com graça: o hci pode demorar ~2s para nascer
+#    sozinho — o martelo só desce com prova de ausência.
+bt_graca=0
+while [ "$bt_graca" -lt 4 ] && ! ls /sys/class/bluetooth/hci* >/dev/null 2>&1; do
+    sleep 0.5
+    bt_graca=$((bt_graca + 1))
+done
+if ! ls /sys/class/bluetooth/hci* >/dev/null 2>&1; then
+    curados=""
+    for devdir in /sys/bus/usb/drivers/btusb/[0-9a-f]*/; do
+        [ -d "$devdir" ] || continue
+        nome="${devdir%/}"
+        nome="${nome##*/}"
+        echo "$nome" > /sys/bus/usb/drivers/btusb/unbind 2>/dev/null || continue
+        echo "$nome" > /sys/bus/usb/drivers/btusb/bind 2>/dev/null || continue
+        curados="$curados $nome"
+    done
+    if [ -n "$curados" ]; then
+        sleep 1
+        if ls /sys/class/bluetooth/hci* >/dev/null 2>&1; then
+            logger -t elite-resume-usb "bluetooth: hci re-nascido no wake (btusb re-assentado:$curados)"
+        else
+            logger -t elite-resume-usb "bluetooth: btusb re-assentado ($curados) e o hci NÃO voltou — réu nomeado para o craft-dump seção 10"
+        fi
+    else
+        logger -t elite-resume-usb "bluetooth: sem hci no wake e NENHUMA interface btusb para re-assentar (rádio ausente no hardware ou driver não tomou)"
+    fi
+fi
 
 # ── A POLÍTICA E24 RE-APLICADA — o bind pode re-nascer 'enabled'; a
 #    palavra final do wake é da casa (mesmo predicado da regra udev 0x0c03).

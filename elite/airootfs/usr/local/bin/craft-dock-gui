@@ -795,6 +795,32 @@ class Dock:
         out = self._tl_cmd(f"ACT {wid}")
         return bool(out) and out[-1].startswith("OK")
 
+    def _tl_min(self, wid):
+        """E89 — o TOGGLE da dock: MIN por id no daemon (set_minimized).
+        O clique no app FOCADO minimiza — a gramática de toda dock do mundo
+        (o relato do dono: 'clico novamente no mesmo programa, ele não
+        minimiza… nada acontece' — o 2º clique era ACT no já-ativo)."""
+        out = self._tl_cmd(f"MIN {wid}")
+        return bool(out) and out[-1].startswith("OK")
+
+    def _dismiss_overlays(self):
+        """E89 — A GAVETA NÃO SOBREPÕE O QUE A DOCK ACORDA (relato do dono:
+        'vou navegando na dock nos programas abertos, clicando e ele vai
+        abrindo no fundo, só que fica o menu de aplicativos em cima
+        sobrepondo — tenho que fechar o menu'). O nwg-drawer é layer-shell
+        TOPO com teclado exclusivo: janela que a dock foca nasce ATRÁS dele
+        e a gaveta fica lá até o Esc. A cura: TODO verbo de foco/abertura da
+        dock encerra a gaveta aberta (o mesmo gesto do toggle dela —
+        pkill -x; sem gaveta viva é um pgrep de µs). O drawer é efêmero por
+        desenho (nada de estado a preservar)."""
+        try:
+            subprocess.Popen(["pkill", "-x", "nwg-drawer"],
+                             stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL,
+                             start_new_session=True)
+        except OSError:
+            pass
+
     def _tl_close_win(self, wid):
         out = self._tl_cmd(f"CLOSE {wid}")
         return bool(out) and out[-1].startswith("OK")
@@ -986,6 +1012,9 @@ class Dock:
     def _focus_or_launch(self, info, hint, did, cmd):
         b = binary_of(info)
         key = did or b
+        # E89 — a gaveta aberta não sobrepõe o que a dock acorda (o dismiss
+        # é barato e no-op sem gaveta).
+        self._dismiss_overlays()
         # v2.10.3 — DAEMON VIVO = a JANELA é a ÚNICA verdade: 1 janela →
         # foca/restaura (ACT por id); N → cicla ENTRE ELAS (o alt-tab
         # dentro do botão do app); 0 janela → abrir (processo em 2º plano
@@ -1013,9 +1042,24 @@ class Dock:
                 wids = self._windows_of(info, hint, did)
             if wids:
                 if len(wids) == 1:
-                    if self._tl_act(wids[0]):
-                        self._last_act[key] = wids[0]
-                        log(f"foco por id {wids[0]}")
+                    wid = wids[0]
+                    flags = self.windows.get(wid, (0, 0, "", ""))[0]
+                    # E89 — O TOGGLE DA DOCK (a gramática de todo dock do
+                    # mundo): 1 janela do app E ela é a FOCADA da sessão
+                    # (flag 4, não minimizada) → o clique MINIMIZA (MIN por
+                    # id no daemon); qualquer outro estado → foca/restaura
+                    # (ACT). O 2º clique deixa de ser 'nada acontece'.
+                    # F_OUT_FULLSCREEN fora da conversa: fullscreen não
+                    # minimiza por clique de dock (o gesto de sair dele é
+                    # o próprio Esc do app — minimizar sob fullscreen
+                    # criaria o 'sumiu e não sei onde' que o dono odeia).
+                    if ((flags & 4) and not (flags & 2)
+                            and not (flags & 8) and self._tl_min(wid)):
+                        log(f"toggle: minimizado por id {wid}")
+                        return
+                    if self._tl_act(wid):
+                        self._last_act[key] = wid
+                        log(f"foco por id {wid}")
                         return
                 else:
                     nxt = self._app_cycle_next(wids, key)
@@ -1161,6 +1205,9 @@ class Dock:
         self._children = vivos
 
     def _launch(self, _btn, cmd, key=None):
+        # E89 — a gaveta aberta não sobrepõe o app que a dock LANÇA também
+        # (o mesmo dismiss do foco — um só lugar, _dismiss_overlays).
+        self._dismiss_overlays()
         # E71 — O GUARD DO LANÇAMENTO EM VOO, no GARGALO ÚNICO: todo verbo
         # de abrir passa aqui (foco do esquerdo, fallback v2.10.6) — só o
         # DIREITO "nova sessão" não passa chave, porque AQUELE é o verbo
