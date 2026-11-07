@@ -1,6 +1,35 @@
 #!/usr/bin/python3
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · craft-dock-gui (v2.10.10 — O DIREITO SERVE A SESSÃO NOVA)
+# Archcraft ELITE · craft-dock-gui (v2.10.11 — A LÓGICA QUE NÃO MENTE VAZIA)
+# E71 (06/nov) — O RELATO DO DONO: "a dock ainda é bugada — o indicativo de
+#   aplicativos abertos somem do nada e as ações se comportam como se o
+#   programa não estivesse aberto (os cliques do mouse e etc)". O dump e8xl
+#   provou a doença INTEIRA: o daemon (craft-toplevel) morria em LOOP
+#   (449 mortes / 488 restarts em 1h36) porque o evento parent era
+#   declarado não-nulável no C — o parent(NULL) do compositor matava a
+#   conexão Wayland e o renascido servia LIST VAZIO VÁLIDO com a sessão
+#   CHEIA ("vivo — (0 janela(s) na sessão)" no log, Brave/Thunar/foot
+#   abertos no ps). A dock acreditava, apagava os indicadores e o clique
+#   lançava DOIS. Cura em DUAS pontas:
+#   · a RAIZ no daemon: o evento parent é "?o" (nulável — vendor/
+#     craft-toplevel.c, pkgrel 6) e o loop de morte acaba;
+#   · a DOCK fica IMUNE à classe inteira (o papel parecia certo e não
+#     estava — as três redes valem para QUALQUER mentira de snapshot):
+#     (1) A PROVA NO LANÇAMENTO — abrir é o único verbo irreversível e
+#         nunca parte de snapshot velho: antes de _launch, UMA LIST fresca
+#         julga; janela que aparecer agora é FOCADA, não duplicada, e o
+#         estado se auto-cura com a resposta;
+#     (2) O DEDUP EM VOO — a janela leva segundos para mapear e cada
+#         clique nesse vão lançava outra; o guard de 8s mora no _launch
+#         (o gargalo único — cobre o foco E o fallback), o DIREITO "nova
+#         sessão" não passa chave e segue livre (aquele é o verbo
+#         explícito de duplicar);
+#     (3) A GRAÇA DO VAZIO — LIST válido-porém-vazio que CONTRADIZ um
+#         snapshot vivo é a assinatura do daemon mentindo: segurado 2
+#         rodadas (10s); na 3ª é verdade aceita (o usuário fechou tudo).
+#   As leis antigas ficam DE PÉ: a graça do LIST FALHO (E70), a morte no
+#   meio do clique degrada ao fallback (v2.10.6), o daemon morto usa
+#   /proc+wlrctl (v2.10.4), o indicador é a JANELA real (v2.10.3).
 # v2.10.10 — O DIREITO EM TUDO ABRE OUTRA SESSÃO (diretriz do dono: "a dock
 #   além de funcionar com qualquer pacote ela deve com um click abrir a aba
 #   que está aberta, no caso com o click esquerdo, e já com o direito deve
@@ -190,6 +219,7 @@ import signal
 import socket
 import subprocess
 import sys
+import time
 import warnings
 
 import gi
@@ -388,6 +418,9 @@ class Dock:
         self.windows = {}          # id → (flags, rank, app_id, title)
         self.focused = 0           # id da janela focada (0 = nenhuma)
         self._last_act = {}        # app → última janela que NÓS focamos
+        # E71 — AS TRÊS REDES DA LÓGICA QUE NÃO MENTE VAZIA (ver cabeçalho):
+        self._launching = {}       # key → monotonic do lançamento em voo
+        self._empty_guard = 0      # LIST vazio VÁLIDO seguido (graça do vazio)
         self.tl_alive = False      # o daemon falou no último tick?
         # 06/nov — A GRAÇA DO SNAPSHOT (o "marcador pisca, some e reaparece"
         # da spec do dono): 1 LIST falho não é morte — é o socket a respirar
@@ -880,14 +913,33 @@ class Dock:
 
     def _focus_or_launch(self, info, hint, did, cmd):
         b = binary_of(info)
+        key = did or b
         # v2.10.3 — DAEMON VIVO = a JANELA é a ÚNICA verdade: 1 janela →
         # foca/restaura (ACT por id); N → cicla ENTRE ELAS (o alt-tab
         # dentro do botão do app); 0 janela → abrir (processo em 2º plano
         # sem janela NÃO é "aberto" — o mesmo critério do indicador).
         if self.tl_alive:
             wids = self._windows_of(info, hint, did)
+            if not wids:
+                # E71 — A PROVA NO LANÇAMENTO: abrir é o ÚNICO verbo
+                # irreversível daqui e NUNCA parte de snapshot velho
+                # (o relato do dono: "as ações se comportam como se o
+                # programa não estivesse aberto" — o LIST vazio do daemon
+                # renascido mandava a dock abrir DOIS). Antes de lançar,
+                # UMA LIST fresca julga; janela que aparecer agora é
+                # FOCADA, não duplicada — e o estado se auto-cura com a
+                # resposta (o tick seguinte parte dela).
+                snap = self._tl_list()
+                if snap is None:
+                    # E71 — a conexão morreu NO MEIO do clique: degradar
+                    # ao fallback (o wlrctl fala com o compositor direto),
+                    # NUNCA lançar às cegas (a lei v2.10.6 inteira).
+                    self._fallback_focus(info, hint, did, cmd)
+                    return
+                self.windows, self.focused = snap
+                self.tl_alive = True
+                wids = self._windows_of(info, hint, did)
             if wids:
-                key = did or b
                 if len(wids) == 1:
                     if self._tl_act(wids[0]):
                         self._last_act[key] = wids[0]
@@ -910,7 +962,9 @@ class Dock:
                 if self._sock is None:
                     self._fallback_focus(info, hint, did, cmd)
                     return
-            self._launch(None, cmd)
+            # E71 — o lançamento leva a CHAVE: o guard do _launch julga o
+            # clique que chega enquanto a janela anterior ainda mapeia.
+            self._launch(None, cmd, key=key)
             return
         # daemon morto — LEI DO FALLBACK v2.10 INTACTA (o caminho inteiro
         # vive em _fallback_focus desde a v2.10.6; a morte no meio do
@@ -924,7 +978,9 @@ class Dock:
         ≠ 'brave-browser-stable' como não-rodando e lançava DOIS)."""
         alive = self._fallback_alive(info, hint, did)
         if not (WLRCTL and alive):
-            self._launch(None, cmd)
+            # E71 — o fallback também lança COM CHAVE (o guard em voo é
+            # lei nos DOIS caminhos: daemon morto não é licença de DOIS)
+            self._launch(None, cmd, key=did or binary_of(info))
             return
         # rodando: FOCAR. Para cada candidato, 3 formas canônicas de app_id
         # (a cura v2.10 do case-sensitive que abria nova sessão no Brave);
@@ -943,7 +999,7 @@ class Dock:
                     log(f"foco: title:{v}")
                     return
         log(f"foco sem match ({', '.join(self._focus_candidates(info, hint, did))}) — abrindo")
-        self._launch(None, cmd)
+        self._launch(None, cmd, key=did or binary_of(info))
 
     def _close_windows(self, info, hint, did):
         """v2.10: o verbo do MEIO — fechar (WM_DELETE gracioso; o app
@@ -1022,13 +1078,31 @@ class Dock:
                 pass
         self._children = vivos
 
-    def _launch(self, _btn, cmd):
+    def _launch(self, _btn, cmd, key=None):
+        # E71 — O GUARD DO LANÇAMENTO EM VOO, no GARGALO ÚNICO: todo verbo
+        # de abrir passa aqui (foco do esquerdo, fallback v2.10.6) — só o
+        # DIREITO "nova sessão" não passa chave, porque AQUELE é o verbo
+        # EXPLÍCITO de duplicar. A janela leva segundos para mapear; no
+        # vão, toda LIST vem vazia e cada clique lançava OUTRA instância
+        # (a 2ª metade do relato do dono). 8s: o app nasceu (o indicador
+        # acende e o clique passa a FOCAR) ou falhou em nascer (o usuário
+        # pode tentar de novo) — em ambos, o guard se aposenta.
+        if key is not None:
+            t0 = self._launching.get(key)
+            if t0 is not None:
+                age = time.monotonic() - t0
+                if age < 8.0:
+                    log(f"lançamento em voo ({key}) — clique ignorado "
+                        f"(a janela ainda mapeia; guard por {8.0 - age:.1f}s)")
+                    return
         try:
             p = subprocess.Popen(cmd, shell=True,
                                  stdout=subprocess.DEVNULL,
                                  stderr=subprocess.DEVNULL,
                                  start_new_session=True)
             self._children.append(p)   # rastreado: a ceifa do tick o colhe
+            if key is not None:
+                self._launching[key] = time.monotonic()
             log(f"lançado: {cmd}")
         except OSError as exc:
             log(f"falha ao lançar {cmd}: {exc}")
@@ -1085,17 +1159,45 @@ class Dock:
         # morto de verdade continua sendo assumido na mesma cadência.
         snap = self._tl_list()
         if snap is not None:
+            wins, focused = snap
+            # E71 — A GRAÇA DO VAZIO: um LIST VÁLIDO porém VAZIO que
+            # CONTRADIZ um snapshot vivo é a assinatura do daemon mentindo
+            # (o dump e8xl: o renascido com a conexão Wayland morta
+            # respondia "0 janelas" com a sessão CHEIA — a dock apagava os
+            # indicadores e o clique lançava DOIS; a graça do LIST FALHO,
+            # da E70, nunca via esta doença porque a resposta VEM VÁLIDA). O
+            # vazio suspeito é segurado 2 rodadas (10s); na 3ª é verdade
+            # aceita — o usuário fechou tudo mesmo (aí o critério v2.10.3
+            # segue de pé: sem janela, indicador morto, honesto).
+            if not wins and self.windows and self._empty_guard < 2:
+                self._empty_guard += 1
+                log(f"toplevel: LIST vazio VÁLIDO ({self._empty_guard}/2) "
+                    "contradiz o snapshot — segurado (graça do vazio)")
+            else:
+                if not wins and self.windows:
+                    log("toplevel: LIST vazio confirmado — snapshot zerado "
+                        "de verdade (o daemon realmente não vê janelas)")
+                self._empty_guard = 0
+                self.windows, self.focused = wins, focused
             self._tl_miss = 0
-            self.windows, self.focused = snap
             self.tl_alive = True
         elif self.tl_alive and self._tl_miss < 2 and self.windows:
             self._tl_miss += 1
             log(f"toplevel: LIST falhou ({self._tl_miss}/2) — snapshot anterior segurado (graça)")
         else:
             self._tl_miss += 1
+            self._empty_guard = 0
             self.windows = {}
             self.focused = 0
             self.tl_alive = False
+        # E71 — os lançamentos em voo EXPIRAM (8s): a janela mapeou (o
+        # indicador acende e o clique passa a focar) ou o app falhou em
+        # nascer (o usuário pode tentar de novo) — em ambos, o guard
+        # se aposenta e o estado não acumula chave morta.
+        if self._launching:
+            now = time.monotonic()
+            self._launching = {k: t for k, t in self._launching.items()
+                               if now - t < 8.0}
         for btn, binary, info, hint, did in self.buttons:
             ctx = btn.get_style_context()
             if self.tl_alive:

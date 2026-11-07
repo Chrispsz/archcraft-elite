@@ -1470,7 +1470,7 @@ assert_grep "$REPO/.ci/build.sh" "replaces=\('elite-craft' 'craft-toplevel'\)" "
 assert_grep "$REPO/.ci/build.sh" "conflicts=\('elite-craft' 'craft-toplevel'\)" "E50: o elite-system CONFLITA o par legado (a coexistência de eras é impossível — UM dono só)"
 assert_grep "$REPO/.ci/build.sh" 'install -m755 craft-toplevel' "E50: o daemon de janelas viaja DENTRO do pacote único (compilado do C vendado — sem pacote irmão)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel=1' "E50: o elite-system nasce pkgrel=1 (a era nova começa honesta — lei E41 de agora em diante)"
-assert_grep "$REPO/.ci/build.sh" 'pkgrel=5' "E50: pkgrel craft-toplevel 4→5 NO MESMO COMMIT (lei E41 — o pacote virou PONTE: o hook puxa o pacote único; sem subir, o rig velho nunca salta de era)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 5→6 NO MESMO COMMIT' "E71 (era E50, âncora refrescada): pkgrel craft-toplevel 5→6 NO MESMO COMMIT (lei E41 — o C do daemon mudou de conteúdo: o parent é nulável; âncora na HISTÓRIA, lição E58/E59: o número atual é lei do guard-pkgrel do CI)"
 assert_grep "$REPO/.ci/build.sh" 'files/etc/systemd/system' "E50: o elite-system carrega as units no payload /etc (sem elas o rig instalado nunca recebe a cadência)"
 assert_grep "$REPO/.ci/guard-pkgrel.sh" 'systemd/system/elite' "E46/V5: o guard-pkgrel cobra delta de UNIT também (unit mudada sem pkgrel = o -Syu pula a cadência em silêncio)"
 assert_grep "$REPO/.ci/guard-pkgrel.sh" 'check elite-system' "E50: o guard cobra o PACOTE ÚNICO (bins + units + o C vendado — o mapa conteúdo→pacote segue a era nova)"
@@ -1509,7 +1509,7 @@ assert_nofile "$REPO/elite/airootfs/etc/systemd/system/elite-channel.service" "E
 assert_file "$REPO/elite/airootfs/etc/systemd/system/elite-bootupdate.service" "E51: a unit ao LIGAR nasce na overlay (a dose da casa tem casa)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-update" 'elite_cadencia' "E51: a cadência é UMA função nas duas portas (--adotar e manual — idempotente, sem duplicar)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-update" 'elite-channel.timer aposentado' "E51: a aposentadoria do relógio deixa réu no papel (o rig sabe POR QUE o canal de 11:30 sumiu)"
-assert_grep "$REPO/.ci/build.sh" 'pkgrel=5' "E54: pkgrel elite-system 4→5 NO MESMO COMMIT (lei E41 — a sentinela do craft-update v5.2, a gramática da dock v2.10.10 e o craft-rice viajam no pacote único; sem subir, o -Syu pula)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 21→22 NO MESMO COMMIT' "E71 (era E54, âncora refrescada): pkgrel elite-system 21→22 NO MESMO COMMIT (lei E41 — o C do daemon e a dock mudaram de conteúdo; âncora na HISTÓRIA, o número atual é lei do guard-pkgrel do CI)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-update" 'dose AUTO-CURA a cadência' "E51.1: o canal SELF-HEAL a cadência (a dose v4.2 de hoje adota o rig e a PRÓPRIA dose troca o timer — nenhum rig fica com cadência fantasma)"
 assert_grep "$REPO/.github/workflows/publish-packages.yml" 'craft-toplevel-\*\.pkg' "E51.1: o fluxo de publicação segue publicando a PONTE (a porta dos rigs v2 — o erro da aposentadoria confessado no build.sh)"
 assert_grep "$REPO/README.md" 'elite-sysupdate.timer' "E46/V6: o README documenta a cadência SEMANAL com snapshot PRE/POST"
@@ -1609,5 +1609,18 @@ assert_grep "$CTUNE70" "grep -q 'Tema escuro UNIVERSAL \\(E70'" "E70/[8]: o appe
 assert_grep "$CTUNE70" 'WAYLAND_DISPLAY="\$WSOCK"' "E70/[8]: o reconfigure vivo usa o SOCKET REAL da fila (wayland-* — a lição E68: SEM chute wayland-0)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 19→20 NO MESMO COMMIT' "E70: pkgrel elite-system 19→20 NO MESMO COMMIT (lei E41 — craft-rice e o skel da sessão mudaram o pacote; âncora na HISTÓRIA, o número atual é lei do guard-pkgrel do CI)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 20→21 NO MESMO COMMIT' "E70.1: pkgrel elite-system 20→21 NO MESMO COMMIT (lei E41 — elite-tune mudou de conteúdo: o code-flags.conf viaja no bin após a perícia por download flagrar o skel vazio no pacote)"
+
+# ── E71 — A DOCK QUE NÃO MENTE VAZIA (relato do dono no dump e8xl) ──────
+#    'a dock ainda é bugada — o indicativo de aplicativos abertos somem do
+#    nada e as ações se comportam como se o programa não estivesse aberto'.
+#    A perícia: o craft-toplevel morria em LOOP (449 mortes / 488 restarts
+#    em 1h36) porque o evento parent era declarado não-nulável no C — o
+#    parent(NULL) legal do XML oficial matava a conexão Wayland e o
+#    renascido servia LIST vazio VÁLIDO com a sessão cheia; a graça da
+#    E70 só cobria LIST FALHO. Cura em DUAS pontas: o '?o' no daemon e as
+#    três redes na dock (prova no lançamento, dedup em voo, graça do
+#    vazio).
+assert_grep "$REPO/.ci/build.sh" 'f719c2f0582f0787a26440ebc5566408d5889d8dc037e91505384efb9544f258' "E71: o sha256 NÃO é mais o do C com parent seco (a fonte mudou e os pins acompanharam — o makepkg para se algo destoar)"
+assert_nogrep "$REPO/.ci/build.sh" '24d537866c1bc81881dc5f6e69a64b10447ae2de6270f18a6c8d0cf54f81b7be' "E71: o sha256 do C VELHO (parent 'o' seco) está EXTINTO do build (nenhum pin aponta para a fonte doente)"
 
 phase_end
