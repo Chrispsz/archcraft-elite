@@ -20,7 +20,7 @@ impacto saíram NA MESMA rodada (seção "Curas aplicadas"); o resto vive no pla
 | 1 | **dock** | `craft-dock-gui` (1049) · `craft-dock` · `craft-pin` · `craft-pin-pick` · `dock-pins` · `dock.css` · `vendor/craft-toplevel.c` (804) |
 | 2 | **tune** | `elite-tune` (918) · `elite-firstboot.service` · `craft-hello` |
 | 3 | **sessão** | labwc (rc/menu/autostart/environment) · waybar · fuzzel · swaync · nwg-drawer · foot · gtk · sddm · hyprlock · `craft-bars/menu/menu-dismiss/drawer/bgapps/idle/lock/logout/power/shot/bat/wake-guard` · `elite-session-probe` · cliphist · sleep/timeout units |
-| 4 | **arquivos** | Thunar `uca.xml` · `craft-compress` (215) · `mimeapps.list` · `xfce4/helpers.rc` · xarchiver/thunar-archive-plugin/7zip/zenity no `packages.add` |
+| 4 | **arquivos** | Thunar `uca.xml` · `craft-extract` · `mimeapps.list` · `xfce4/helpers.rc` · xarchiver/7zip/zenity no `packages.add` (o `craft-compress` morreu com honra na E72 — ordem do dono) |
 | 5 | **áudio** | `craft-audio-route` (256) · pipewire/pwvucontrol no `packages.add` |
 | 6 | **rede-kernel** | `craft-connect` (539) · sysctl 99-elite(-net) · BBR · zram · udev I/O · preset BORE |
 | 7 | **saúde** | `craft-dump` (565) · `elite-sweep` · `craft-rollback` · `craft-fix-keys` · keyring-fix unit+timer · `craft-update` · `elite-status` · `craft-clean` · `craft-keyring-wait` · journald cap |

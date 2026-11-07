@@ -8,9 +8,9 @@
   devolve o PRIMEIRO que existe (usuário > sistema). Quem define este
   arquivo no skel define TODAS as ações do usuário: o de fábrica deixa de
   existir. Foi exatamente assim que a Elite PERDEU o "Abrir terminal
-  aqui" (que só existia no de fábrica) quando o E35 entregou o
-  "Comprimir…" — e o de fábrica seria morto na Elite de qualquer jeito,
-  porque o comando dele é `exo-open …` e o exo NÃO está na ISO
+  aqui" (que só existia no de fábrica) quando a era do Comprimir
+  entregou o seu verbo — e o de fábrica seria morto na Elite de qualquer
+  jeito, porque o comando dele é `exo-open …` e o exo NÃO está na ISO
   (thunar 4.18+ não depende dele). Toda ação que a Elite quer no menu
   nasce AQUI. Prova: thunar-uca-model.c:278-285 (4.20.10) + print do dono.
 
@@ -18,22 +18,25 @@
     1. "Abrir terminal aqui" (E40) — foot com working-directory %f, na
        pasta de fundo ou na pasta clicada. O %f chega shell-quoted pelo
        Thunar (xfce_g_string_append_quoted) — caminho com espaço não quebra.
-    2. "Comprimir…" (E35, pedido do dono, 02/nov: "estava tentando
-       compactar todos esses arquivos em um só e não consegui") —
-       seleciona TUDO (%F = a seleção inteira como argumentos separados)
-       → UM diálogo (nome + formato) → UM arquivo ao lado → notificação.
-    3. "Extrair aqui" (E46, ordem do dono: "esse criar arquivo que é o
+    2. "Extrair aqui" (E46, ordem do dono: "esse criar arquivo que é o
        botão novo?") — o thunar-archive-plugin (v2.8.0) SAIU da ISO e a
-       extração virou verbo da casa: craft-extract (%F; o motor é o
-       MESMO 7z/7zz do Comprimir; palco temporário + pergunta de colisão
-       + notificação). Um verbo por família, e o nosso.
+       extração virou verbo da casa: craft-extract (%F; o motor resolve
+       7z/7zz — o 7zip do Arch entrega 7zz; palco temporário + pergunta
+       de colisão + notificação). Um verbo por família, e o nosso.
 
-  O motor do Comprimir é o craft-compress (usr/local/bin) — o 7zip que JÁ
-  está na ISO fala zip e 7z, o tar fala tar.xz. O motor do Extrair é o
-  craft-extract (E46) — o mesmo 7zip fala TODAS as extensões da lista
-  abaixo. O thunar-archive-plugin/xarchiver NÃO está mais na ISO (E46):
-  seus verbos de plugin morreram com ele — estes são os caminhos que
-  qualquer usuário espera, e nenhum deles mente sobre quem os entrega.
+  O "Comprimir…" (E35) MORREU COM HONRA NA E72 (ordem do dono, 07/nov:
+  "remove esse botao de comprimir" — o zenity REAL de formulário recusava
+  a flag entry-text com rc=255, terceira onda da mesma peça). A história
+  completa mora no diário (docs/gestao/POLIMENTO.md, E72); rigs vivos
+  recebem a remoção do verbo pela seção [9] do elite-tune.
+
+  O motor do Extrair é o craft-extract (usr/local/bin) — o 7zip que JÁ
+  está na ISO fala TODAS as extensões da lista abaixo. O xarchiver FICA
+  para ABRIR e gerenciar arquivos compactados (CRIAR pelo xarchiver segue
+  existindo como app — o botão que morreu é o nosso). O
+  thunar-archive-plugin NÃO está na ISO (E46): seus verbos de plugin
+  morreram com ele — estes são os caminhos que qualquer usuário espera,
+  e nenhum deles mente sobre quem os entrega.
 
   Este arquivo mora no skel: todo usuário novo da Elite nasce com os
   verbos. Edits do usuário pelo próprio Thunar caem em
@@ -49,21 +52,6 @@
     <description>Abre o terminal (foot) na pasta atual ou na pasta clicada</description>
     <patterns>*</patterns>
     <directories/>
-  </action>
-  <action>
-    <icon>package-x-generic</icon>
-    <name>Comprimir…</name>
-    <submenu></submenu>
-    <unique-id>elite-craft-compress-1</unique-id>
-    <command>/usr/local/bin/craft-compress %F</command>
-    <description>Compactar os itens selecionados em um único arquivo (zip, 7z ou tar.xz)</description>
-    <patterns>*</patterns>
-    <directories/>
-    <audio-files/>
-    <image-files/>
-    <other-files/>
-    <text-files/>
-    <video-files/>
   </action>
   <action>
     <icon>package-x-generic</icon>

@@ -106,8 +106,8 @@ done
 # Thunar) — e a E46 o aposentou DE VEZ: o dono encontrou DOIS verbos de
 # arquivo no menu e perguntou 'esse criar arquivo que é o botão novo?' —
 # o duplo verbo confundiu NA CARNE quem manda. A mão no Thunar agora é
-# 100% da casa (craft-compress E35 + craft-extract E46 no uca.xml); o
-# xarchiver FICA para abrir/gerenciar. O plugin volta ao purgatório.
+# 100% da casa (craft-extract E46 no uca.xml; o craft-compress E35 morreu
+# com honra na E72 — ordem do dono); o xarchiver FICA para abrir/gerenciar. O plugin volta ao purgatório.
 assert_nogrep "$PKG" '^thunar-archive-plugin$' \
   "E46: thunar-archive-plugin FORA da ISO (o duplo verbo confundiu o dono — 'esse criar arquivo que é o botão novo?' — a mão é dos verbos da casa)"
 assert_grep "$PKG" '^#thunar-archive-plugin # ELITE-REMOVED$' \
@@ -752,35 +752,43 @@ assert_nogrep "$PKG" '^geany$' "curadoria: geany saiu (mousepad entra)"
 assert_nogrep "$PKG" '^atril$' "curadoria: atril saiu (zathura entra)"
 assert_nogrep "$PKG" '^galculator$' "curadoria: galculator saiu (qalculate entra)"
 assert_grep "$PKG" '^xarchiver$' "v2.8.0: xarchiver na ISO (o gerenciador GTK3 mais leve p/ o 7zip executar — pedido do dono: compactar/descompactar tudo)"
-# ═══════════════ E35 — O VERBO "COMPRIMIR…" DO EXPLORADOR ═══════════════
-# O dono PROVOU com print (02/nov): selecionou vários .iso, o único caminho
-# era o "Criar Arquivo…" do par v2.8.0 (xarchiver) e o fluxo do gerenciador
-# NÃO é o que o usuário espera ("compactar todos esses arquivos em um só…
-# e não consegui"). A cura é o verbo da CASA: craft-compress com UM diálogo
-# (nome+formato), a seleção INTEIRA em UM arquivo ao lado dela, colisão
-# perguntando, erro mostrando a prova, cancelamento sem entulho. O motor é
-# o 7zip que já estava na ISO desde a v1.1 (zip E 7z são DELE) + tar.xz do
-# tar da base — zero pacote de compressão novo; o único add é o zenity.
-CCOMP="$P/airootfs/usr/local/bin/craft-compress"
+# ═══════════════ E72 — O COMPRIMIR MORRE COM HONRA (ordem do dono) ═══════
+# O dono (07/nov) colheu o erro HONESTO da E42 no rig real: 'O diálogo de
+# compressão não abriu (zenity rc=255) — --entry-text não tem suporte para
+# este diálogo'. O zenity --forms REAL recusa a flag que é do diálogo
+# --entry (a prova funcional da E42 rodou com zenity de rc controlado — o
+# stub aceitava a flag; a classe 'o sandbox mente' de novo). Terceira onda
+# da mesma peça (E35 nasceu cega ao 7z; E42 curou o motor; a onda do zenity
+# REAL matou o diálogo) e a ordem é REMOVE: 'remove esse botao de
+# comprimir' ('se for pra ser quebrado é melhor nem ter' — lei do dono
+# desde a E40). A peça INTEIRA sai: verbo fora do uca.xml do skel,
+# craft-compress extinto do airootfs (o pacman apaga o binário no upgrade
+# 1.0-22→1.0-23), refs fora da porteira; o elite-tune [9] remove o verbo
+# das homes vivas (config de usuário nunca é tocado por update — a porta é
+# EXPLÍCITA, backup escola 2g, os vizinhos intactos). História:
+# docs/gestao/POLIMENTO.md E72.
 UCA="$P/airootfs/etc/skel/.config/Thunar/uca.xml"
-assert_file "$CCOMP" "E35: o verbo Comprimir… existe (craft-compress — multi-seleção → UM arquivo)"
-assert_file "$UCA" "E35: o Thunar nasce com o verbo (uca.xml no skel — todo usuário novo da Elite)"
-assert_grep "$UCA" 'craft-compress %F' "E35: a ação chama o craft com %F (a seleção INTEIRA chega como argumentos — a cura exata do relato do dono)"
-assert_grep "$UCA" 'Comprimir…' "E35: o verbo em PT-BR no menu de contexto (produto ao dono)"
-assert_grep "$CCOMP" 'zenity --forms' "E35: UM diálogo nome+formato — não o fluxo do gerenciador (a lição do print)"
-assert_grep "$CCOMP" 'command -v 7z \|\| command -v 7zz' "E42: o motor se resolve 7z OU 7zz — o pacote '7zip' do Arch entrega 7zz (o repo sabia desde a v2.3.0: qemu-boot-test.sh:24; o '7z' a fio morria no dep-check em TODA ISO desde a v2.10.25 — o dono apertou e 'não aconteceu nada')"
-assert_grep "$CCOMP" 'SEVENZ. a -bd' "E42: o motor chama o binário RESOLVIDO (o grep '7z a' provava o TEXTO — o sandbox/CI com p7zip-full jamais viu a ISO; a classe E35.1 de novo)"
-assert_grep "$CCOMP" 'sudo pacman -S 7zip' "E42: a dica de cura cita o nome CERTO do pacote (o antigo 'pacman -S 7z' mandava instalar um fantasma)"
-assert_grep "$CCOMP" 'rc_ok=1' "E35: 7z rc=1 (WARNING com arquivo CRIADO) é sucesso — tratar como falha apagaria arquivo bom (prova no comentário)"
-assert_grep "$CCOMP" 'já existe' "E35: colisão PERGUNTA antes de substituir (arquivo do usuário nunca morre calado)"
-assert_grep "$CCOMP" 'rm -f -- "\$alvo"' "E35: falha/cancelamento não deixa entulho (o parcial é apagado)"
-assert_grep "$CCOMP" 'die\(\) \{' "E35: erro com diálogo + log (nada calado — lei da casa)"
-assert_grep "$CCOMP" 'O diálogo de compressão não abriu' "E42: crash do diálogo NUNCA sai calado — o '|| exit 0' antigo tratava QUALQUER falha do zenity como Cancelar (rc provado no fonte oficial: util.c:45-53 — 0=OK · 1=Cancelar/ESC · -1→255=ERRO)"
-assert_grep "$CCOMP" 'util\.c:45-53' "E42: a semântica de rc do zenity fica CRAVADA no script (proveniência — ninguém 'conserta' o rc=1 de volta ao silêncio)"
-assert_grep "$CCOMP" 'cancelado: o dono fechou o diálogo' "E42: cancelar segue calado (rc=1 é o dono desistindo) MAS com linha no log (a evidência existe)"
-assert_nogrep "$CCOMP" 'motor=\(7z ' "E42: nenhum motor 7z hard-coded (binário fixo era morte certa na ISO — o resolver 7z|7zz é a única porta)"
-assert_grep "$REPO/elite/packages.add" '^zenity$' "E35: o zenity é DEPENDÊNCIA DECLARADA (~1 MB; gtk3/libnotify já estavam na ISO — binário fantasma não existe na casa)"
-assert_grep "$REPO/elite/packages.add" '^7zip$' "E42: o pacote do motor 7-Zip é DECLARADO na ISO (nome explícito — o p7zip virou virtual e o pacstrap perguntaria; o script resolve o 7zz que ele entrega)"
+ETUNE="$P/airootfs/usr/local/bin/elite-tune"
+APPLY="$REPO/scripts/apply-overlay.sh"
+assert_nofile "$P/airootfs/usr/local/bin/craft-compress" "E72: craft-compress EXTINTO do airootfs (a peça inteira morre — verbo+motor)"
+assert_nogrep "$UCA" 'elite-craft-compress-1' "E72: o verbo morto FORA do uca.xml do skel (o botão não nasce mais)"
+assert_nogrep "$UCA" 'craft-compress' "E72: nenhuma referência viva ao motor extinto no skel (o contato com o morto não existe)"
+assert_grep "$UCA" 'elite-open-terminal-1' "E72: o vizinho terminal (E40) intacto"
+assert_grep "$UCA" 'elite-craft-extract-1' "E72: o vizinho Extrair aqui (E46) intacto — o verbo próprio não paga a dívida do irmão"
+assert_grep "$UCA" 'E72' "E72: a morte está documentada no próprio uca.xml (ninguém ressuscita por engano)"
+assert_grep "$P/airootfs/usr/local/bin/craft-extract" 'E72' "E72: o extract narra a morte do irmão no cabeçalho (a história não se perde)"
+assert_nogrep "$P/airootfs/usr/local/bin/craft-extract" 'MESMO do craft-compress' "E72: o extract não depende mais de irmão extinto (o resolver 7z/7zz é DELE)"
+assert_grep "$REPO/elite/packages.add" '^zenity$' "E72: o zenity FICA declarado (o craft-extract usa — o diálogo GTK da casa)"
+assert_grep "$REPO/elite/packages.add" '^7zip$' "E72: o 7zip FICA declarado (o motor do extract)"
+assert_grep "$REPO/elite/packages.add" 'morreu com honra na E72' "E72: a extinção documentada nos comentários do add (o zenity não fica órfão de história)"
+assert_nogrep "$APPLY" 'craft-compress' "E72: a porteira (file_permissions) não registra peça extinta"
+assert_grep "$ETUNE" 'elite-craft-compress-1' "E72: o elite-tune [9] conhece o marcador do verbo morto"
+assert_grep "$ETUNE" 'Comprimir… removido do uca.xml' "E72: a seção [9] sai calada NUNCA — o say nomeia a remoção (lei E63)"
+assert_grep "$ETUNE" "grep -q 'elite-craft-compress-1'" "E72: a remoção é idempotente (só mexe se o marcador existe — rodar 2× é inócuo)"
+assert_grep "$ETUNE" 'backup "\$UCAF"' "E72: backup escola 2g ANTES da reescrita (o uca.xml do usuário nunca morre sem cópia)"
+assert_grep "$ETUNE" 'elite-craft-extract-1' "E72: o awk da [9] preserva os vizinhos (só o bloco com o marcador morre)"
+assert_rc0 "E72: o elite-tune segue bash válido com a seção [9]" bash -n "$ETUNE"
+assert_rc0 "E72: o uca.xml do skel é XML VÁLIDO (o minidom recusa -- em comentário — a lição do dia embutida no contrato)" python3 -c "import xml.dom.minidom; xml.dom.minidom.parse('$UCA')"
 
 # ═══════════════════ E43 — O CANAL DIÁRIO + O RIG SEM SUJEIRA ════════════
 # O dono (04/nov, dump tg0b1 do rig na 28): "antes mesmo da iso sair esses
@@ -2645,7 +2653,7 @@ assert_nogrep "$P/airootfs/usr/local/bin/craft-dock-gui" 'GtkLayerShell\.Layer\.
 # mimeapps: os archives abrem no xarchiver
 assert_grep "$P/airootfs/etc/skel/.config/mimeapps.list" 'application/x-7z-compressed=xarchiver\.desktop' "v2.8.0: 7z abre no xarchiver (o dono clicou duas vezes num .7z e o sistema sabia o que fazer)"
 assert_grep "$P/airootfs/etc/skel/.config/mimeapps.list" 'application/zip=xarchiver\.desktop' "v2.8.0: zip abre no xarchiver"
-assert_nogrep "$REPO/elite/packages.add" '^thunar-archive-plugin$' "E46: o plugin FORA do add (o duplo verbo confundiu o dono na carne — a mão no Thunar é do craft-compress/craft-extract no uca.xml)"
+assert_nogrep "$REPO/elite/packages.add" '^thunar-archive-plugin$' "E46: o plugin FORA do add (o duplo verbo confundiu o dono na carne — a mão no Thunar é do craft-extract no uca.xml; o Comprimir saiu na E72)"
 assert_grep "$REPO/elite/packages.add" '^xarchiver$' "v2.8.0: xarchiver no add (a GUI do 7zip — 1,9 MB, a mais leve da categoria)"
 
 # v2.1 — REGRESSÃO DA RUN #92: GLib.get_user_home_dir() NÃO EXISTE em

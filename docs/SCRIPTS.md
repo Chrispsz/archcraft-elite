@@ -6,7 +6,7 @@ Formato: **o quê faz / como rodar / como reverter / dependências**.
 
 O detalhado mora nas seções abaixo; o índice cobre TODOS os vivos (a promessa
 "uso de cada script" do README era falsa com ~15 seções para 41 peças — E36
-a tornou verdade: 36 bins + scripts de repo).
+a tornou verdade: 35 bins + scripts de repo; o craft-compress morreu com honra na E72 — ordem do dono).
 
 | Peça | Papel em uma linha |
 |---|---|
@@ -21,13 +21,12 @@ a tornou verdade: 36 bins + scripts de repo).
 | `craft-bat` | resumo de bateria via /sys (clique no módulo da barra) |
 | `craft-bgapps` | menu de apps em 2º plano (o botão que só existe quando há o que encerrar) |
 | `craft-clean` | manutenção: cache de pacman, órfãos, journal vacuum |
-| `craft-compress` | "Comprimir…" do Thunar — multi-seleção → UM arquivo (zip/7z/tar.xz) com zenity; E36: tar com `--` + warning rc=1; E42: motor resolve 7z OU 7zz (o `7zip` do Arch entrega `7zz`) + crash do diálogo nunca calado (rc provado no fonte do zenity) |
 | `craft-connect` | central de rede PT-BR (Wi-Fi, cabo, Bluetooth, salvas) sob o botão de rede; E36: senha mascarada (zenity) + linha de BT só com adaptador |
 | `craft-dock` | toggle/reload da dock via SIGUSR (âncora — não mata editor alheio) |
 | `craft-dock-gui` | a dock (GTK3 + layer-shell): pins .desktop, dinâmicos por app, fecho no meio; E36: fecho nunca casa por título + CSS de fallback espelhado; E53: janela SEM .desktop (AppImage de fábrica) vira botão raw — foco/cicla/fecha por id de verdade e o glifo executável é o ícone honesto; E54: gramática UMA — esquerdo foca/abre · direito NOVA SESSÃO em TUDO (dinâmico lança pelo .desktop; raw reabre pelo argv[0] provado no /proc) · meio encerra — o fixar segue vivo no craft-pin-pick |
 | `craft-drawer` | Launchpad (nwg-drawer) — W-d |
 | `craft-dump` | perícia completa em um arquivo (`--upload` = termbin PÚBLICO, avisado desde o E36) |
-| `craft-extract` | "Extrair aqui" do Thunar — o verbo da casa (E46; o plugin thunar-archive saiu): palco temporário, colisão pergunta, notificação; o MESMO motor 7z/7zz do Comprimir |
+| `craft-extract` | "Extrair aqui" do Thunar — o verbo da casa (E46; o plugin thunar-archive saiu): palco temporário, colisão pergunta, notificação; motor 7z/7zz (o `7zip` do Arch entrega `7zz`) |
 | `craft-fix-keys` | cura do keyring pacman (sessão no live; no instalado o trabalho é do timer root) |
 | `craft-hello` | saudação do terminal (fastfetch + fallback próprio) |
 | `craft-idle` | daemon de idle (lock/DPMS/suspend conforme `idle.conf`) + menu em DUAS PORTAS (Tela: trava e apaga / Suspender após o idle — E46) com o valor atual no item; E36: suspend entregue MESMO com Lock=Nunca + `-i` (inibidores ignorados); E44: gesto único normalizado (conf legado X/Y → X/X com aviso) + braços observáveis no `idle.log` (rc de wlopm/suspend no papel); E61: o braço idle do suspend DEFERE com lock vivo + vigia no ar (o tempo TRAVADO manda enquanto travado), o resume renova a marca `idle-activity` que a vigília lê e os braços do daemon SAEM de imediato (nunca caem no menu) |

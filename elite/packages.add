@@ -134,22 +134,16 @@ tumbler
 ## tar.*, gz, xz, zst, bz2, cab. Integração provada na API do Arch: o
 ## xarchiver traz usr/lib/xfce4/thunar-archive-plugin/xarchiver.tap — MAS
 ## o PLUGIN thunarx (thunar-archive-plugin) SAIU na E46 (packages.remove):
-## a mão no Thunar é dos verbos da CASA (craft-compress E35 +
-## craft-extract E46, no uca.xml do skel) — o duplo verbo confundiu o
+## a mão no Thunar é dos verbos da CASA (craft-extract E46 no uca.xml do
+## skel; o craft-compress E35 morreu com honra na E72 — ordem do dono
+## "remove esse botao de comprimir") — o duplo verbo confundiu o
 ## dono na carne ("esse criar arquivo que é o botão novo?") e a faca de
 ## dois gumes virou corte.
 xarchiver
-## v2.10.25-candidate (E35) — O VERBO "COMPRIMIR…" (dono, 02/nov com print
-## na mão: "estava tentando compactar todos esses arquivos em um só e não
-## consegui… o xarchiver não estou sabendo utilizar do meu jeito"): o
-## par da v2.8.0 entrega o item no menu, mas o fluxo de CRIAÇÃO do
-## xarchiver não é o que o usuário espera. O craft-compress é o verbo da
-## casa (seleção inteira → UM diálogo nome+formato → UM arquivo →
-## notificação; colisão pergunta, erro mostra a prova, cancelar não deixa
-## entulho) e o zenity é o diálogo GTK dele — ~1 MB instalado, gtk3 e
-## libnotify JÁ estão na ISO (custo real: o binário). O backend segue o
-## 7zip da v1.1: zip E 7z são nativos dele, tar.xz é do tar da base —
-## ZERO pacote de compressão novo.
+## zenity — o diálogo GTK da casa (craft-extract E46 e demais peças —
+## ~1 MB instalado, gtk3 e libnotify JÁ estão na ISO). Era o diálogo do
+## craft-compress (E35→E72: a peça morreu — o zenity --forms REAL recusava
+## a flag entry-text com rc=255; ordem do dono na E72).
 zenity
 
 ## ── ELITE v1.0.3: fastfetch (o craft-hello usa quando existe) ─────────
