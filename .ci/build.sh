@@ -290,7 +290,20 @@ pkgver=1.0
 # legado) e o rig salta de era na MESMA transação. O daemon continua
 # aqui (o rig cuja ponte falha offline segue funcional até a próxima
 # dose). Lei E41: pkgrel NO MESMO commit.
-pkgrel=5
+# E71 — O PARENT QUE MATAVA A CONEXÃO (dump e8xl do dono: 'a dock ainda é
+#     bugada — o indicativo de aplicativos abertos somem do nada e as
+#     ações se comportam como se o programa não estivesse aberto'; 449
+#     mortes / 488 restarts em 1h36): o evento parent era declarado 'o'
+#     SECO — o XML oficial é allow-null="true" (desde a v2) e o
+#     labwc/wlroots manda parent(NULL) quando uma janela perde o pai. O
+#     demarshal da libwayland rejeita NULL em não-nulável ("NULL object
+#     received on non-nullable type, message parent(o)") e MATA a conexão
+#     inteira: o renascido servia '0 janelas' com a sessão CHEIA, a dock
+#     recebia LIST vazio VÁLIDO, apagava os indicadores e o clique
+#     lançava DUPLICADO — em loop. A cura é 1 caractere ('?o' nulável)
+#     + o evento nomeado no enum e ignorado de graça (a dock não o usa).
+#     pkgrel 5→6 NO MESMO COMMIT (lei E41 — o C do daemon mudou).
+pkgrel=6
 pkgdesc='Daemon wlr-foreign-toplevel da Elite — janelas por id (LIST/ACT/CLOSE/CYCLE + anel MRU) para a dock comutar de verdade'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
@@ -301,7 +314,8 @@ depends=(wayland)
 # tantos assets?')
 options=(!debug)
 source=("craft-toplevel.c")
-sha256sums=('24d537866c1bc81881dc5f6e69a64b10447ae2de6270f18a6c8d0cf54f81b7be')
+# E71 — o sha do C com o parent NULÁVEL ('?o') + EVT_PARENT no dispatcher
+sha256sums=('f719c2f0582f0787a26440ebc5566408d5889d8dc037e91505384efb9544f258')
 build() {
     gcc -O2 -Wall -Wextra -s -o craft-toplevel craft-toplevel.c -lwayland-client
 }
@@ -643,7 +657,31 @@ pkgver=1.0
 #     arquivo e a 8a é no-op nelas). +1 contrato.
 #     pkgrel 20→21 NO MESMO COMMIT (lei E41 — elite-tune mudou de
 #     conteúdo).
-pkgrel=21
+# 06/nov — E71: A DOCK QUE NÃO MENTE VAZIA (relato do dono NO 1.0-21:
+#     'a dock ainda é bugada — o indicativo de aplicativos abertos somem
+#     do nada e as ações se comportam como se o programa não estivesse
+#     aberto'; dump e8xl: craft-toplevel em LOOP de morte — 449 SAIU
+#     exit=1 / BARS_RESTARTS=488 em 1h36, o socket respondendo OK com
+#     'janelas=0' e o ps mostrando Brave/Thunar/foot abertos). A doença
+#     INTEIRA: o evento parent era declarado não-nulável no C vendado —
+#     o parent(NULL) do compositor (legal pelo XML oficial, que é
+#     allow-null="true") matava a conexão Wayland, e o renascido servia
+#     LIST vazio VÁLIDO em loop; a graça da E70 só cobria LIST FALHO,
+#     nunca a resposta VÁLIDA que mente. DUAS pontas NO MESMO COMMIT:
+#     (1) vendor/craft-toplevel.c: o parent vira '?o' (nulável — 1
+#         caractere que acaba com a classe inteira) + EVT_PARENT nomeado
+#         no enum e ignorado de graça (log uma-vida);
+#     (2) craft-dock-gui v2.10.11 — as TRÊS REDES da lógica que não
+#         mente vazia: A PROVA NO LANÇAMENTO (antes de abrir, UMA LIST
+#         fresca julga; janela que aparece agora é FOCADA, não duplicada,
+#         e o estado se auto-cura), O DEDUP EM VOO (guard de 8s no
+#         _launch — o gargalo único; o direito 'nova sessão' segue
+#         livre, aquele é o verbo explícito de duplicar) e A GRAÇA DO
+#         VAZIO (LIST válido-vazio que contradiz snapshot vivo é
+#         segurado 2 rodadas; na 3ª é verdade aceita).
+#     pkgrel 21→22 NO MESMO COMMIT (lei E41 — o C do daemon e a dock
+#     mudaram de conteúdo).
+pkgrel=22
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
@@ -659,7 +697,7 @@ conflicts=('elite-craft' 'craft-toplevel')
 # símbolo)
 options=(!debug !strip)
 source=("craft-toplevel.c")
-sha256sums=('24d537866c1bc81881dc5f6e69a64b10447ae2de6270f18a6c8d0cf54f81b7be')
+sha256sums=('f719c2f0582f0787a26440ebc5566408d5889d8dc037e91505384efb9544f258')
 build() {{
     gcc -O2 -Wall -Wextra -s -o craft-toplevel craft-toplevel.c -lwayland-client
 }}

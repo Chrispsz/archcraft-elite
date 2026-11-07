@@ -37,6 +37,18 @@
  * evento do compositor confirma depois) — cliques rápidos no comutador
  * caminham pelo anel em vez de re-mirar a mesma janela.
  *
+ * E71 — O PARENT QUE MATAVA A CONEXÃO (dump e8xl do dono: 'a dock ainda é
+ *   bugada — o indicativo de aplicativos abertos somem do nada e as ações
+ *   se comportam como se o programa não estivesse aberto'; 449 mortes /
+ *   488 restarts em 1h36): o evento parent era declarado 'o' SECO — o XML
+ *   oficial é allow-null="true" e o labwc/wlroots manda parent(NULL) quando
+ *   uma janela perde o pai. O demarshal rejeita NULL em não-nulável
+ *   ("NULL object received on non-nullable type, message parent(o)") e MATA
+ *   a conexão inteira: o daemon renascia servindo '0 janelas' com a sessão
+ *   CHEIA, a dock recebia LIST vazio VÁLIDO, apagava os indicadores e o
+ *   clique lançava duplicado. A cura mora na assinatura: "?o" (nulável) —
+ *   o evento passa a chegar e é ignorado de graça (a dock não o usa).
+ *
  * LEIS DA CASA respeitadas:
  *   · SEM preview — o comutador da dock mostra o ÍCONE do destino, nunca
  *     miniatura (minimalista, diretriz do dono);
@@ -73,7 +85,7 @@
 enum { TL_SET_MAXIMIZED = 0, TL_UNSET_MAXIMIZED, TL_SET_MINIMIZED,
        TL_UNSET_MINIMIZED, TL_ACTIVATE, TL_CLOSE };
 enum { EVT_TITLE = 0, EVT_APP_ID, EVT_OUT_ENTER, EVT_OUT_LEAVE,
-       EVT_STATE, EVT_DONE, EVT_CLOSED };
+       EVT_STATE, EVT_DONE, EVT_CLOSED, EVT_PARENT };
 
 /* dispatcher no-op (eventos do seat que ninguém lê) */
 static int noop_dispatcher(const void *data, void *target, uint32_t opcode,
@@ -116,7 +128,13 @@ static const struct wl_message tl_events[] = {
     { "state", "a", NULL },
     { "done", "", NULL },
     { "closed", "", NULL },
-    { "parent", "o", NULL },
+    /* E71 — o '?o' É A CURA: o XML oficial declara o parent NULÁVEL
+     * (allow-null="true") e o compositor manda parent(NULL) quando a
+     * janela perde o pai. 'o' seco = demarshal mata a conexão no 1º
+     * parent(NULL) e o daemon renascido serve '0 janelas' com a sessão
+     * cheia (a doença exata do dump e8xl). O '?' entrega o NULL e o
+     * dispatcher o ignora (a dock não usa parent). */
+    { "parent", "?o", NULL },
 };
 static const struct wl_interface tl_iface = {
     "zwlr_foreign_toplevel_handle_v1", 3,
@@ -239,6 +257,11 @@ static void mru_optimistic_focus(Tl *t)
  * nunca por evento — coalescing de graça). */
 static int evt_dirty = 0;
 
+/* E71 — o réu do dump e8xl, agora nomeado no papel: 1 linha por vida do
+ * daemon quando o compositor manda parent (o resto é silêncio — o stderr
+ * é do bars.log e ruído esconde doença). */
+static int parent_logged = 0;
+
 static int tl_dispatcher(const void *data, void *target, uint32_t opcode,
                          const struct wl_message *msg, union wl_argument *args)
 {
@@ -315,6 +338,19 @@ static int tl_dispatcher(const void *data, void *target, uint32_t opcode,
         }
         t->dead = 1;
         mru_remove(t);
+        break;
+    case EVT_PARENT:
+        /* E71 — parent(NULL) = a janela PERDEU o pai (diálogo fechado,
+         * transient destruído); parent(p) = ganhou. A dock não usa
+         * parent — o evento é ignorado SEM tocar o estado (nunca mais
+         * é a surpresa que matava a conexão: o '?o' entrega o NULL e
+         * a vida segue). */
+        if (!parent_logged) {
+            parent_logged = 1;
+            fprintf(stderr, "craft-toplevel: evento parent recebido e "
+                            "ignorado (nulável desde a E71 — o '?o' "
+                            "acabou com a morte por parent(o) NULL)\n");
+        }
         break;
     default:
         break;
