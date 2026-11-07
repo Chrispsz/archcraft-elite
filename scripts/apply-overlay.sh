@@ -493,7 +493,6 @@ PD="$PROFILE/profiledef.sh"
 if grep -q '^file_permissions=(' "$PD"; then
   for p in /usr/local/bin/elite-tune /usr/local/bin/elite-status \
            /usr/local/bin/craft-hello /usr/local/bin/craft-update /usr/local/bin/craft-clean \
-           /usr/local/bin/craft-compress \
            /usr/local/bin/craft-extract \
            /usr/local/bin/exo-open \
            /usr/local/bin/craft-rollback /usr/local/bin/craft-lock /usr/local/bin/craft-logout \

@@ -1080,6 +1080,52 @@ else
   say "Sessão: skel labwc ausente (alvo não-Elite?) — seção [8] pulada"
 fi
 
+# ── [9] ARQUIVOS: O COMPRIMIR MORRE COM HONRA (E72 — o rig vivo recebe) ──
+# O dono (07/nov) apertou o "Comprimir…" e colheu o erro HONESTO da E42
+# ('O diálogo de compressão não abriu (zenity rc=255) — --entry-text não
+# tem suporte para este diálogo'): o zenity --forms REAL recusa a flag que
+# é do diálogo --entry (a prova funcional da E42 rodou com zenity de rc
+# controlado — o stub aceitava a flag; a classe 'o sandbox mente' de novo).
+# Terceira onda da mesma peça (E35 nasceu cega ao 7z; E42 curou o motor) e
+# a ordem é REMOVE ('remove esse botao de comprimir' — 'se for pra ser
+# quebrado é melhor nem ter', já lei do dono desde a E40). No pacote a
+# peça INTEIRA sai (verbo fora do uca.xml do skel + craft-compress extinto
+# — o pacman apaga o binário na transação). FALTA o uca.xml do USUÁRIO:
+# config de usuário NUNCA é tocado por update (lei do domínio v3) — ESTA
+# seção é a porta EXPLÍCITA do dono: remove o bloco <action> do verbo
+# morto das homes vivas (idempotente; backup escola 2g; os vizinhos —
+# elite-open-terminal-1 (terminal E40) e elite-craft-extract-1 (Extrair
+# aqui E46) — intactos, o awk só apaga o bloco que carrega o marcador).
+for h in /home/*/; do
+  UCAF="$h/.config/Thunar/uca.xml"
+  [[ -f "$UCAF" ]] || continue
+  grep -q 'elite-craft-compress-1' "$UCAF" 2>/dev/null || continue
+  u="$(stat -c '%U' "$h")"
+  if (( DRY )); then
+    say "[dry] Arquivos ($u): verbo Comprimir… seria removido do uca.xml (E72)"
+    continue
+  fi
+  backup "$UCAF"
+  if awk '
+      /<action>/ { ina=1; buf="" }
+      ina { buf = buf (buf=="" ? "" : ORS) $0 }
+      ina && /<\/action>/ {
+        ina=0
+        if (buf !~ /elite-craft-compress-1/) print buf
+        next
+      }
+      !ina { print }
+    ' "$UCAF" > "$UCAF.tmp" && [[ -s "$UCAF.tmp" ]]; then
+    chmod --reference="$UCAF" "$UCAF.tmp" 2>/dev/null || true
+    chown "$(stat -c '%U:%G' "$h")" "$UCAF.tmp" 2>/dev/null || true
+    mv -f "$UCAF.tmp" "$UCAF"
+    say "Arquivos ($u): verbo Comprimir… removido do uca.xml (E72 — a peça morreu com honra; terminal e Extrair intactos)"
+  else
+    rm -f "$UCAF.tmp"
+    warn "Arquivos ($u): a reescrita do uca.xml falhou — o verbo segue no menu (réu à vista no papel)"
+  fi
+done
+
 # E37/n16 — epílogo HONESTO: o pacman_s alimentou FAILURES com rc real;
 # dizer 'CONCLUÍDO' sobre pendência era a mentira que o usuário só
 # descobria no boot seguinte (kernel que não veio, booster morto).
