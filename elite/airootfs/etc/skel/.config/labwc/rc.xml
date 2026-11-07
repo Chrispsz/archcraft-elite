@@ -242,9 +242,12 @@
     <keybind key="W-a">
       <action name="Execute" command="foot -e pulsemixer" />
     </keybind>
-    <!-- craft-hello: visão rápida do sistema (helper do 01-system-core.sh) -->
+    <!-- craft-hello: visão rápida do sistema (E73 — a saudação vive no
+         .zshrc; ESTE verbo abre um foot com o retrato e CAI NO SHELL:
+         o script executado sem terminal perdia a saída no journal do
+         labwc; ELITE_NO_HELLO evita a saudação dobrada) -->
     <keybind key="W-S-h">
-      <action name="Execute" command="craft-hello" />
+      <action name="Execute" command="foot -e sh -c 'craft-hello; export ELITE_NO_HELLO=1; exec zsh'" />
     </keybind>
 
     <!-- ===== Clipboard: histórico no fuzzel (cliphist — receita labwc) ===== -->
