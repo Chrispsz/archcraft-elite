@@ -2539,7 +2539,7 @@ assert_grep "$DOCK" 'def _raw_launch' "E54/dock: o SEM-NOME abre NOVA SESSÃO (a
 assert_grep "$DOCK" 'nova sessão do sem-nome via /proc' "E54/dock: o lançamento do raw deixa linha no log (a prova de origem vai junto)"
 assert_grep "$DOCK" 'self\._launch\(btn, cmd\)' "E54/dock: direito = _launch em TODO botão com .desktop (pin OU dinâmico — a mesma sessão nova para os dois)"
 assert_nogrep "$DOCK" '_pin_add' "E54/dock: o verbo morto saiu (o direito da dock é NOVA SESSÃO — o fixar mora no craft-pin-pick, direito no desktop)"
-assert_grep "$DOCK" 'esquerdo: focar/abrir · direito: nova janela' "E54/dock: o tooltip do dinâmico ensina a gramática nova (o tooltip não mente — o fixar saiu do clique direito)"
+assert_grep "$DOCK" 'esquerdo: focar/abrir · direito: menu' "E74/dock: o tooltip do dinâmico ensina a gramática E74 (direito = MENU; a 'nova janela' da E54 vive DENTRO do menu como 1º item — o tooltip não mente)"
 assert_grep "$DOCK" 'len\(comm\) == 15 and key\.startswith\(comm\)' "E54/dock: a casca do comm é respeitada (TASK_COMM_LEN=15 — o stem do app_id mais longo que a casca também casa; nunca ao contrário)"
 
 # O RICE DA CASA VIAJA NO PACOTE — comportamento no HOME isolado (o teste
@@ -3041,5 +3041,102 @@ assert_grep "$DOCK" 'LIST vazio VÁLIDO' \
 # ── sessão: a cura CHEGA ao rig (craft-update reinicia o daemon quando a casa muda) ──
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-update" 'pkill -u "\$uid" -x craft-toplevel' \
   "E71: o craft-update reinicia o daemon no delta (o rig recebe o '?o' com UM craft-update — a sessão renasce sobre o binário curado, lei E49/E50)"
+
+# ════════════════════════════════════════════════════════════════════
+# E74 — O PROTOCOLO DE OURO (as 7 fases da spec LabWC/Wayland do dono)
+# ════════════════════════════════════════════════════════════════════
+E74BIN="$REPO/elite/airootfs/usr/local/bin"
+E74SK="$REPO/elite/airootfs/etc/skel/.config/labwc"
+E74PKGS="$REPO/elite/packages.add"
+
+# ── FASE 1: dock — o direito ganhou MENU contextual ──
+assert_grep "$E74BIN/craft-dock-gui" 'def _dock_menu' \
+  "E74/F1: o botão DIREITO da dock tem MENU (a spec: 'Botão Direito: Menu contextual / abrir nova janela')"
+assert_grep "$E74BIN/craft-dock-gui" 'Nova janela' \
+  "E74/F1: a gramática UMA v2.10.10 sobrevive DENTRO do menu — 'Nova janela' é o primeiro item"
+assert_grep "$E74BIN/craft-dock-gui" 'child_watch_add' \
+  "E74/F1: o spawn do menu é ASSÍNCRONO (child_watch) — a dock NUNCA congela esperando o fuzzel"
+assert_grep "$E74BIN/craft-dock-gui" 'def _close_all' \
+  "E74/F1: o fecho E36 virou UMA fonte de verdade (_close_all) — meio-clique e 'Encerrar todas' do menu não divergem"
+assert_grep "$E74BIN/craft-dock-gui" '/usr/local/bin/craft-pin' \
+  "E74/F1: fixar/desafixar pelo menu usa a porta própria (craft-pin add/rm — o craft-pin-pick segue vivo no desktop)"
+assert_grep "$E74BIN/craft-dock-gui" 'sem craft-menu no PATH' \
+  "E74/F1: sem motor de menu, o direito cai na gramática UMA (a dock nunca fica pior por causa da cura — lei v2.10)"
+assert_nogrep "$E74BIN/craft-dock-gui" 'GtkMenu' \
+  "E74/F1: a era GTK dos menus segue MORTA (o motor é o fuzzel/craft-menu — os contratos v2.10.8 proíbem a volta)"
+assert_grep "$E74BIN/craft-menu" 'bottom-center' \
+  "E74/F1: o craft-menu ganhou o slot 'dock' (âncora bottom-center — o menu nasce SOBRE a dock, não no canto da topbar)"
+
+# ── FASE 2: SSD/CSD + teclado 75% ──
+assert_grep "$E74SK/environment" 'GTK_CSD=0' \
+  "E74/F2: o GTK3 entrega a moldura ao compositor (a spec: 'SSD e CSD unificados para TODAS as janelas' — GTK4 segue CSD-nato, narrado no papel)"
+assert_grep "$E74BIN/elite-tune" '8e\. GTK_CSD=0' \
+  "E74/F2: as HOMES VIVAS recebem o hint pelo elite-tune 8e (marker '^GTK_CSD=', backup escola 2g — skel nunca viaja no pacote, lição E70.1)"
+assert_nogrep "$E74SK/rc.xml" 'KP_' \
+  "E74/F2: ZERO dependência de numpad (teclado 75% Aula F75 Max — snap é W-arrows, mídia é XF86; a spec da Fase 2 já era lei da casa)"
+
+# ── FASE 3: OSD (swayosd) ──
+assert_grep "$E74PKGS" '^swayosd$' \
+  "E74/F3: o OSD entra na ISO (a spec: 'indicador visual flutuante com barra percentual precisa')"
+assert_grep "$E74SK/rc.xml" 'swayosd-client --volume +5 || pactl' \
+  "E74/F3: volume sobe com barra; sem daemon vivo, o || degrada ao pactl (a barra some, a função NUNCA morre)"
+assert_grep "$E74SK/rc.xml" 'swayosd-client --volume mute-toggle || pactl' \
+  "E74/F3: o mute tem feedback visual (o knob do F75 Max fala o mesmo idioma)"
+assert_grep "$E74SK/rc.xml" 'swayosd-client --brightness +10% || brightnessctl' \
+  "E74/F3: brilho com barra percentual"
+assert_grep "$E74SK/autostart" 'swayosd-server' \
+  "E74/F3: o daemon ÚNICO do OSD nasce com a sessão (pgrep guarda o re-spawn)"
+assert_grep "$E74SK/autostart" 'elite-osd-1' \
+  "E74/F3: o marker elite-osd-1 é a idempotência do autostart (o [11] do tune grava o MESMO marcador)"
+assert_grep "$E74BIN/elite-tune" 'elite-osd-1' \
+  "E74/F3: a seção [11] entrega daemon+binds às HOMES VIVAS (skel nunca viaja no pacote — lição E70.1)"
+assert_grep "$E74SK/rc.xml" 'pactl set-source-mute' \
+  "E74/F3: o mic segue pactl SEM OSD (decisão consciente — narrada no papel, não esquecimento)"
+
+# ── FASE 4: inatividade autônoma (AUDITORIA — a máquina já existia) ──
+assert_grep "$E74BIN/craft-vigil" 'systemctl suspend -i' \
+  "E74/F4: a vigília suspende ENQUANTO TRAVADO, sem senha e sem intervenção (o coração da Fase 4 já era lei da casa)"
+assert_grep "$E74BIN/craft-idle" 'before-sleep' \
+  "E74/F4: before-sleep trava no suspender (o ciclo lock→suspend→wake fecha sozinho)"
+
+# ── FASE 5: matemática de RAM (elite-optimize) ──
+assert_file "$E74BIN/elite-optimize" \
+  "E74/F5: elite-optimize existe (a spec: 2-4 GB zram agressivo · 8 GB equilibrado · 16 GB+ prioriza cache)"
+assert_grep "$E74BIN/elite-optimize" '99-elite-ram.conf' \
+  "E74/F5: o perfil vence por ORDEM LEXICAL (99-elite-ram > 99-elite) — a lei base fica intacta"
+assert_grep "$E74BIN/elite-optimize" 'ELITE_MEMINFO' \
+  "E74/F5: costura de teste honesta (o executor prova os 3 perfis sem raiz nem /proc do sandbox)"
+assert_grep "$E74BIN/elite-tune" 'run elite-optimize' \
+  "E74/F5: o [5] chama a matemática (atualização = recalcula — a spec manda pós-instalação E atualização)"
+assert_grep "$E74BIN/elite-tune" 'elite-optimize --swappiness' \
+  "E74/F5: o 2i do firstboot PERGUNTA ao perfil em vez de adivinhar 180 (o número estático morreu)"
+assert_grep "$E74PKGS" '^zram-generator$' \
+  "E74/F5: reconciliação — o zram-generator.conf viajava na ISO SEM DONO; o pacote agora é da lista"
+
+# ── FASE 6: perfis de driver (elite-drivers) ──
+assert_file "$E74BIN/elite-drivers" \
+  "E74/F6: elite-drivers existe (perfis AMD/Intel/NVIDIA por lspci; a profundidade NVIDIA segue no elite-tune [4])"
+assert_grep "$E74BIN/elite-drivers" 'ELITE_LSPCI_DATA' \
+  "E74/F6: costura de teste (os 6 fixtures provados: rx-7600 · rtx-5060 · intel-igpu · hybrid-optimus · matrox · no-vga)"
+assert_grep "$E74BIN/elite-drivers" 'VGA compATIble' \
+  "E74/F6: cicatriz v1.0 no papel — 'ati' solto casava 'VGA compATIble' e TODO hardware virava AMD (a fronteira de palavra matou o falso positivo)"
+assert_grep "$E74BIN/elite-drivers" '--purge --yes' \
+  "E74/F6: a purga NUNCA é silenciosa — --purge só LISTA; executar exige --yes + raiz"
+assert_grep "$E74PKGS" '^intel-media-driver$' \
+  "E74/F6: VAAPI Intel moderno entra na ISO (o vulkan-intel cobria só o Vulkan)"
+
+# ── FASE 7: utilitários (elite-ferramentas) ──
+assert_file "$E74BIN/elite-ferramentas" \
+  "E74/F7: elite-ferramentas existe (a promessa do AUR deixa de ser promessa — o cabeçalho do craft-update dizia 'paru prometido não existe')"
+assert_grep "$E74BIN/elite-ferramentas" 'appimagelauncher' \
+  "E74/F7: integração de .AppImage com a fonte declarada (AUR via paru — o script não finge o que não faz)"
+assert_grep "$E74BIN/elite-ferramentas" '--report' \
+  "E74/F7: o relatório de ferramentas é público (a E33 manda poder conferir sem raiz)"
+
+# ── E41: o pkgrel viajou NO MESMO COMMIT ──
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=25' \
+  "E74 (lei E41): pkgrel elite-system 24→25 — 3 bins novos + dock-gui + elite-tune mudaram o pacote"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 24→25 NO MESMO COMMIT' \
+  "E74 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
 
 phase_end

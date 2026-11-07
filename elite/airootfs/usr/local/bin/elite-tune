@@ -751,7 +751,14 @@ PYBRAVE
     # o cabeçalho 'restaurado pelo firstboot' era o espelho que divergia
     write_elite_sysctl
   fi
+  # E74 — Fase 5: o swappiness esperado é do PERFIL de RAM, não mais o
+  # 180 estático (o elite-optimize é a única fonte do número — o 2i passa
+  # a conferir o que a matemática manda, e aplica o perfil em seguida).
   want_sw=180
+  if command -v elite-optimize >/dev/null 2>&1; then
+    p_sw="$(elite-optimize --swappiness 2>/dev/null || true)"
+    [[ "$p_sw" =~ ^[0-9]+$ ]] && want_sw="$p_sw"
+  fi
   got_sw="$(sysctl -n vm.swappiness 2>/dev/null || true)"
   if [[ "$got_sw" != "$want_sw" ]]; then
     say "sysctl: kernel em vm.swappiness='${got_sw:-?}' (Elite pede $want_sw) — reaplicando sysctl.d"
@@ -766,6 +773,11 @@ PYBRAVE
     fi
   else
     say "sysctl: vm.swappiness = $want_sw (kernel já na lei da Elite)"
+  fi
+  # E74 — o perfil de RAM aplica no firstboot também (a spec: "na
+  # pós-instalação E atualização") — zram/sysctl proporcionais à máquina.
+  if (( ! DRY )) && command -v elite-optimize >/dev/null 2>&1; then
+    elite-optimize || warn "elite-optimize: o perfil de RAM não aplicou (réu à vista no log)"
   fi
 
   # 3. serviços de tuning
@@ -948,6 +960,19 @@ run systemctl start systemd-zram-setup@zram0.service || true
 
 write_elite_sysctl   # E37: a lei única (era cópia literal do bloco do firstboot)
 
+# E74 — Fase 5 do protocolo: a matemática de RAM virou lei própria (o
+# 180 estático servia o rig de 16 GB e enforcava o de 2 GB). O perfil
+# vence por ordem lexical (99-elite-ram.conf) — a base segue intacta.
+if command -v elite-optimize >/dev/null 2>&1; then
+  run elite-optimize || note_fail "elite-optimize (o perfil de RAM não aplicou)"
+elif (( DRY )); then
+  # no dry-run simulado o bin irmão NÃO está no PATH — pendência aqui era
+  # mentira (a cadeia D provou: o epílogo mudava por causa do simulador)
+  say "[dry] elite-optimize (perfil de RAM — bin irmão fora do PATH simulado)"
+else
+  note_fail "elite-optimize ausente (a matemática de RAM não roda)"
+fi
+
 # v4.6 — "internet rápida": BBR+fq quando o kernel oferece (enxerto em
 # sistema qualquer; no BORE da ISO já vem assado via 99-elite-net.conf +
 # elite-bbr.conf). E37: o par gêmeo vive em ensure_bbr — modo 'graft'.
@@ -1074,6 +1099,16 @@ E70DARK
       fi
     else
       say "[dry] Sessão ($u): color-scheme AGORA + craft-rice (fragmentos/reconfigure) simulados"
+    fi
+    # 8e. GTK_CSD=0 (E74 — Fase 2 do protocolo: a moldura ÚNICA alcança o
+    #     GTK3 — a spec do dono: "SSD e CSD unificados para TODAS as janelas")
+    if [[ -f "$ENVF" ]] && ! grep -q '^GTK_CSD=' "$ENVF" 2>/dev/null; then
+      say "Sessão ($u): GTK_CSD=0 → environment (o GTK3 entrega a moldura ao compositor)"
+      if (( ! DRY )); then
+        backup "$ENVF"
+        printf '\n# E74 — FASE 2: a moldura ÚNICA alcança o GTK3. O hint oficial\n# fecha a porta que a negociação xdg-decoration não fecha; GTK4/\n# libadwaita ignora o hint (CSD-nato, realidade do protocolo — a regra\n# universal do craft-rice segue sendo a lei geral).\nGTK_CSD=0\n' >> "$ENVF"
+        chown "$(stat -c '%U:%G' "$h")" "$ENVF" 2>/dev/null || true
+      fi
     fi
   done
 else
@@ -1206,6 +1241,73 @@ for h in /home/*/; do
   else
     rm -f "$RXML.tmp"
     warn "Terminal ($u): a reescrita do rc.xml falhou — o W-S-h segue executando sem terminal (réu à vista no papel)"
+  fi
+done
+
+# ── [11] OSD (E74 — Fase 3 do protocolo: volume/brilho com feedback) ──
+say "── [11] OSD (E74) ──"
+pacman_s swayosd || note_fail "swayosd (o OSD não instala; os binds seguem no pactl/brightnessctl)"
+for h in /home/*/; do
+  u="$(stat -c '%U' "$h")"; [[ "$u" == "root" ]] && continue
+  # 11a. autostart: o daemon do OSD (marker elite-osd-1 — idempotente)
+  ASTF="$h/.config/labwc/autostart"
+  if [[ -f "$ASTF" ]] && ! grep -q 'elite-osd-1' "$ASTF" 2>/dev/null; then
+    say "OSD ($u): daemon do swayosd → autostart (o feedback nasce com a sessão)"
+    if (( ! DRY )); then
+      backup "$ASTF"
+      cat >> "$ASTF" <<'E74OSD'
+
+# --- OSD (E74 — Fase 3): feedback visual de volume/brilho. O daemon é
+#     único (swayosd-server) e os binds falam com ele via swayosd-client;
+#     sem daemon, o bind degrada ao pactl/brightnessctl puro (a barra
+#     some, o som/brilho NUNCA).
+if command -v swayosd-server >/dev/null 2>&1; then
+    pgrep -x swayosd-server >/dev/null 2>&1 || swayosd-server &
+fi  # elite-osd-1
+E74OSD
+      chown "$(stat -c '%U:%G' "$h")" "$ASTF" 2>/dev/null || true
+    fi
+  fi
+  # 11b. binds: volume/brilho ganham feedback (as 5 reescritas EXATAS —
+  #      o skel da ISO já nasce novo; as homes vivas recebem AQUI)
+  RXML="$h/.config/labwc/rc.xml"
+  if [[ -f "$RXML" ]] && ! grep -q 'swayosd-client' "$RXML" 2>/dev/null; then
+    say "OSD ($u): binds de volume/brilho → swayosd-client (com fallback pactl/brightnessctl)"
+    if (( ! DRY )); then
+      backup "$RXML"
+      if python3 - "$RXML" <<'E74BINDS'
+import sys
+p = sys.argv[1]
+s = open(p).read()
+M = {
+ 'command="pactl set-sink-volume @DEFAULT_SINK@ +5%"':
+   'command="sh -c \'swayosd-client --volume +5 || pactl set-sink-volume @DEFAULT_SINK@ +5%\'"',
+ 'command="pactl set-sink-volume @DEFAULT_SINK@ -5%"':
+   'command="sh -c \'swayosd-client --volume -5 || pactl set-sink-volume @DEFAULT_SINK@ -5%\'"',
+ 'command="pactl set-sink-mute @DEFAULT_SINK@ toggle"':
+   'command="sh -c \'swayosd-client --volume mute-toggle || pactl set-sink-mute @DEFAULT_SINK@ toggle\'"',
+ 'command="brightnessctl set +10%"':
+   'command="sh -c \'swayosd-client --brightness +10% || brightnessctl set +10%\'"',
+ 'command="brightnessctl set 10%-"':
+   'command="sh -c \'swayosd-client --brightness -10% || brightnessctl set 10%-\'"',
+}
+n = 0
+for k, v in M.items():
+    if k in s:
+        s = s.replace(k, v)
+        n += 1
+open(p, "w").write(s)
+print(f"E74: {n}/5 binds reescritos")
+sys.exit(0 if n else 3)
+E74BINDS
+      then
+        chmod --reference="$RXML" "$RXML" 2>/dev/null || true
+        chown "$(stat -c '%U:%G' "$h")" "$RXML" 2>/dev/null || true
+        say "OSD ($u): binds reescritos (labwc-msg reconfigure pelo próprio usuário: C-S-R)"
+      else
+        warn "OSD ($u): a reescrita dos binds falhou — os XF86 seguem no pactl (sem barra, com função)"
+      fi
+    fi
   fi
 done
 

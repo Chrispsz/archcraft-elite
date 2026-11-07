@@ -109,6 +109,15 @@ if command -v udiskie >/dev/null 2>&1; then
     udiskie --automount --notify --no-tray &
 fi
 
+# --- OSD (E74 — Fase 3 do protocolo): feedback visual de volume/brilho.
+#     O daemon é ÚNICO (swayosd-server) e os binds XF86Audio/MonBrightness
+#     falam com ele via swayosd-client; client sem daemon = fallback
+#     pactl/brightnessctl dentro do próprio bind (a barra some, a função
+#     NUNCA). Idempotente: pgrep guarda o re-spawn a cada sessão.
+if command -v swayosd-server >/dev/null 2>&1; then
+    pgrep -x swayosd-server >/dev/null 2>&1 || swayosd-server &
+fi  # elite-osd-1
+
 # --- Idle + lock (v1.6.1): TEMPOS AJUSTÁVEIS PELO USUÁRIO — "consigo
 #     controlar em quanto tempo o Pc entra em idle?" (dono). Defaults
 #     no ~/.config/elite/idle.conf (10 min lock · 15 min apagar); o

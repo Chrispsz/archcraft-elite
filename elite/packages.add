@@ -40,8 +40,15 @@ gamescope
 mangohud
 vulkan-radeon
 vulkan-intel
+# E74 — Fase 6 do protocolo: VAAPI Intel moderno (o vulkan-intel cobre o
+# Vulkan; o decodificador de vídeo em hardware era a lacuna do perfil Intel)
+intel-media-driver
 btop
 lact
+# E74 — Fase 5 (reconciliação): o /etc/systemd/zram-generator.conf viaja
+# na ISO desde sempre, mas o PACOTE que o executa não vinha na lista — o
+# zram nascia só no elite-tune do primeiro boot. O conf agora tem dono.
+zram-generator
 
 ## ── ELITE: infra de rollback + diagnóstico ──
 grub-btrfs
@@ -265,6 +272,11 @@ archcraft-cursor-qogirr
 swayidle
 udiskie
 cliphist
+# E74 — Fase 3 do protocolo: OSD de volume/brilho (a spec: "indicador
+# visual flutuante com barra percentual precisa"). O daemon é único
+# (swayosd-server) e os binds falam via swayosd-client; sem daemon, os
+# binds degradam ao pactl/brightnessctl puro (a barra some, a função NUNCA).
+swayosd
 
 ## Infra de notificação (craft-shot/craft-bat usam notify-send; o dunst
 ## removido era quem trazia libnotify por transição)

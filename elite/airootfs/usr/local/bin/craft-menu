@@ -168,6 +168,10 @@ case "$at" in
     bgapps)  xm=60 ;;
     network) xm=104 ;;
     drawer)  xm=16 ;;
+    # E74 — Fase 1 do protocolo: o menu da DOCK (direito no botão). A
+    # âncora é bottom-center: nasce SOBRE a dock e a exclusive zone do
+    # wlroots o empurra para cima sozinho (o x/y-margin 0 é o respiro).
+    dock)    xm=0 ;;
 esac
 
 # ── A INVOCACÃO (flags primeiro, âncora depois, tudo por argv — sem eval) ───
@@ -205,6 +209,10 @@ case "$at" in
     drawer)
         if [ "${CAPS#*--anchor}" != "$CAPS" ]; then
             set -- "$@" --anchor top-left --x-margin "$xm" --y-margin "$ym"
+        fi ;;
+    dock)
+        if [ "${CAPS#*--anchor}" != "$CAPS" ]; then
+            set -- "$@" --anchor bottom-center --x-margin "$xm" --y-margin "$ym"
         fi ;;
     center)
         if [ "${CAPS#*--anchor}" != "$CAPS" ]; then
