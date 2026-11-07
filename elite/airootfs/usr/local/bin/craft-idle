@@ -265,24 +265,41 @@ case "${1:-}" in
         # DRM com o sistema já de pé (e o logind, com HandlePowerKey
         # default, desliga no segundo aperto — o poder de decisão ficou
         # com o estado de pânico do dono). Sondagem: até 6 tentativas a
-        # cada 2s (12s de janela — a re-init do driver dá conta); o
-        # primeiro rc=0 vence e o resto nem roda. Idempotente com o hook
-        # de sistema (elite-resume-display) e com a vigília — wlopm --on
-        # em output aceso é no-op.
+        # cada 2s — a re-init do driver dá conta; o primeiro rc=0 vence.
+        # E75 — O CICLO QUE O --ON SOZINHO NÃO FAZ (o relato recorrente:
+        # 'suspende, volta e o monitor fica SEM SINAL — PC e periféricos
+        # vivos, só o vídeo morto'): o wlopm --on em output que o
+        # compositor JÁ crê aceso é NO-OP com rc=0 — e no wake esse é o
+        # estado comum (o labwc re-habilita outputs na atividade de input
+        # que volta com o rebind do elite-resume-usb, e o 'Suspender' do
+        # menu não apaga a tela antes de dormir). Quando a doença mora no
+        # DRM (o driver não re-assentou o link no resume — a classe
+        # amdgpu/KMS que o craft-dump seção 10 caça), o rc=0 do no-op
+        # convive com o monitor morto PARA SEMPRE: os dois caminhos de
+        # cura reportam sucesso e NENHUM estado muda. A cura é a TROCA
+        # REAL DE ESTADO: --off força o compositor a commitar o output
+        # DESLIGADO; 1s de trevas (o re-sync do monitor precisa do tempo
+        # mínimo de DPMS off); --on re-commita LIGADO — o wlroots refaz o
+        # DPMS no nível DRM e o link do monitor re-treina. Custo honesto:
+        # 1 blink no resume SADIO (na doença a tela já está preta — o
+        # custo real é zero). Idempotente com o hook de sistema
+        # (elite-resume-display, o MESMO ciclo) e com a vigília.
         i=0
         rc=0
         while [ "$i" -lt 6 ]; do
             rc=0
+            wlopm --off '*' >/dev/null 2>&1 || true
+            sleep 1
             wlopm --on '*' || rc=$?
             if [ "$rc" -eq 0 ]; then
-                ilog "tela: ACORDOU (wlopm rc=0, tentativa $((i + 1)))"
+                ilog "tela: ACORDOU (ciclo off→on E75, wlopm rc=0, tentativa $((i + 1)))"
                 break
             fi
             i=$((i + 1))
             sleep 2
         done
         if [ "$rc" -ne 0 ]; then
-            ilog "FALHA: wlopm --on rc=$rc após 6 tentativas — a tela NÃO acordou (réu nomeado no papel; o driver/compositor contam no craft-dump seção 10)"
+            ilog "FALHA: ciclo off→on rc=$rc após 6 tentativas — a tela NÃO acordou (réu nomeado no papel; o driver/compositor contam no craft-dump seção 10; a escotilha SEM reboot é o craft-rescue-screen a partir de um TTY)"
         fi
         # E63 — A VIGÍLIA RENASCE NO RESUME: ela MORRE depois do suspend
         # que ela mesma disparou (missão cumprida — exit 0) e o braço idle

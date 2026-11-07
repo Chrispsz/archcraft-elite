@@ -1036,6 +1036,19 @@ assert_grep "$P/airootfs/usr/local/bin/craft-vigil" 'craft-idle screenon' "E63: 
 assert_file "$P/airootfs/usr/lib/systemd/system-sleep/elite-resume-display" "E63: o hook de system-sleep existe (a rede de SISTEMA do resume — TODOS os caminhos de sono atravessam, mesmo com o swayidle morto)"
 assert_grep "$P/airootfs/usr/lib/systemd/system-sleep/elite-resume-display" '\[ "\$1" = "post" \]' "E63: o hook age SÓ no retorno do sono (o pre é do elite-sleep-report — cada hook um papel)"
 assert_grep "$P/airootfs/usr/lib/systemd/system-sleep/elite-resume-display" 'runuser -u' "E63: o hook religa os outputs como CADA usuário de sessão (wlopm é cliente Wayland — root não tem display)"
+# E75 — O CICLO QUE O --ON SOZINHO NÃO FAZ (relato recorrente: 'suspende,
+# volta e o monitor fica SEM SINAL — PC e periféricos vivos'): o --on em
+# output que o compositor JÁ crê aceso é NO-OP rc=0 — a cura é a TROCA
+# REAL DE ESTADO (off → 1s → on) nos DOIS caminhos + a escotilha manual
+# + a perícia que nunca mais fica cega à própria rede de cura.
+assert_grep "$P/airootfs/usr/local/bin/craft-idle" 'wlopm --off' "E75: o screenon usa o CICLO off→on (a troca real de estado que força o re-commit do output no DRM — o --on sozinho era no-op rc=0 convivendo com monitor morto)"
+assert_grep "$P/airootfs/usr/lib/systemd/system-sleep/elite-resume-display" 'wlopm --off' "E75: o hook de sistema usa o MESMO ciclo (três caminhos de religar, uma só gramática de cura)"
+assert_grep "$P/airootfs/usr/lib/systemd/system-sleep/elite-resume-display" 'FALHA: wlopm AUSENTE' "E75: o wlopm ausente deixa FALHA no journal (o exit calado era o buraco da rede imaginária)"
+assert_file "$P/airootfs/usr/local/bin/craft-rescue-screen" "E75: a escotilha craft-rescue-screen existe no overlay (o 'sem sinal' tem saída SEM reinicialização forçada: TTY → login → ciclo → volta)"
+assert_grep "$P/airootfs/usr/local/bin/craft-dump" 'elite-resume-display' "E75: o dump carrega o journal do hook de resume (a perícia do 'sem sinal' vê o veredito da própria rede de cura — logger não aparece no tail -u systemd-suspend)"
+assert_grep "$P/airootfs/usr/local/bin/craft-dump" 'sys/class/drm/card' "E75: a tríade status/enabled/dpms dos conectores DRM entra SEMPRE no dump (a prova que separa driver-morto de monitor-não-re-trinou)"
+assert_file "$P/airootfs/usr/local/bin/elite-post-transaction" "E75: o elite-post-transaction existe no overlay (a casa acorda no pacman -Syu cru — kernel novo avisado na hora, wake-guard E24 observado no papel)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 25→26 NO MESMO COMMIT' "E75: pkgrel elite-system 25→26 NO MESMO COMMIT (lei E41 — o pacote mudou de conteúdo: ciclo, dump, escotilha, post-transaction e o .hook libalpm)"
 assert_grep "$REPO/.ci/build.sh" 'files/usr/lib/systemd/system-sleep' "E63: o hook viaja NO PACOTE elite-system (a rede de sistema chega ao rig pelo canal — fora do pacote ele nunca chegaria)"
 assert_grep "$P/airootfs/usr/local/bin/craft-idle" "timeout [$]\(\(OFF_MIN \* 60\)\) 'craft-idle screenoff" "v1.6.1/E44: DPMS no timeout do CONF (tela APAGA — e agora via subcomando OBSERVÁVEL: o rc do wlopm fica no idle.log; o cru calado era o buraco que escondeu 'a tela nunca apaga')"
 assert_nogrep "$P/airootfs/etc/skel/.config/labwc/autostart" 'swaylock -f|exec swaylock' "v1.5: invocação do swaylock EXTINTA do autostart (tela branca → hyprlock)"
@@ -3134,8 +3147,10 @@ assert_grep "$E74BIN/elite-ferramentas" '--report' \
   "E74/F7: o relatório de ferramentas é público (a E33 manda poder conferir sem raiz)"
 
 # ── E41: o pkgrel viajou NO MESMO COMMIT ──
-assert_grep "$REPO/.ci/build.sh" 'pkgrel=25' \
-  "E74 (lei E41): pkgrel elite-system 24→25 — 3 bins novos + dock-gui + elite-tune mudaram o pacote"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=26' \
+  "E75 (lei E41): pkgrel elite-system 25→26 — craft-idle/craft-dump/elite-resume-display mudaram + craft-rescue-screen/elite-post-transaction/.hook libalpm novos no pacote"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 25→26 NO MESMO COMMIT' \
+  "E75 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 24→25 NO MESMO COMMIT' \
   "E74 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
 

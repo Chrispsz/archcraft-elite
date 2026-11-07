@@ -469,6 +469,21 @@ PY
     r "journalctl -b --no-pager 2>/dev/null | grep -iE 'xhci|ehci|ohci|usb.*(error|fail)|PTXH|XHC[0-9]?' | tail -30" 30
     r "craft-wake-guard status 2>/dev/null || echo '(craft-wake-guard ausente — sistema anterior à 10.11)'" 12
     r "printf 'wlopm: '; command -v wlopm 2>/dev/null || echo ausente; printf 'mem_sleep atual: '; cat /sys/power/mem_sleep 2>/dev/null; true" 4
+    # E75 — O VEREDITO DA REDE DE SISTEMA NO PAPEL: o elite-resume-display
+    # fala via logger (tag própria) — o journal dele NÃO aparece no tail de
+    # '-u systemd-suspend' (logger vai para o journal geral, o stdout do
+    # hook é que cai na unit). Sem esta linha, o 'outputs religados'/'FALHA'
+    # do hook ficava fora do dump — a perícia do 'sem sinal' sem a prova da
+    # própria rede de cura.
+    r "journalctl -b --no-pager 2>/dev/null | grep -i 'elite-resume-display' | tail -10" 12
+    # E75 — O ESTADO DOS CONECTORES DRM, SEMPRE (a lente que faltava): o
+    # grep de status/modes na linha da sessão wlr SÓ RODA quando não há
+    # sessão (o '||' do fallback) — na doença 'PC vivo, monitor sem sinal'
+    # a sessão ESTÁ de pé e o estado do conector (status/enabled/dpms) não
+    # entrava em dump nenhum. Aqui entra SEMPRE: status=reconhecido?,
+    # enabled=KMS ligado?, dpms=On/Off? — a tríade que separa 'o driver
+    # apagou o conector' de 'o conector está aceso e o monitor não re-trinou'.
+    r "for c in /sys/class/drm/card*-*/; do n=\${c%/}; n=\${n##*/}; [ -r \"\$c/status\" ] || continue; printf '%-24s status=%-10s enabled=%-4s dpms=%s\n' \"\$n\" \"\$(cat \"\$c/status\" 2>/dev/null)\" \"\$(cat \"\$c/enabled\" 2>/dev/null || echo -)\" \"\$(cat \"\$c/dpms\" 2>/dev/null || echo -)\"; done; true" 12
     r "grep -E '^[#]?Handle(Suspend|Power|Lid)' /etc/systemd/logind.conf 2>/dev/null" 6
     # v2.1 — quem segura inibidor de sono AGORA (o 'tenta e volta' do menu
     # era app com delay inhibitor; o -i do craft-power ignora, o idle do
