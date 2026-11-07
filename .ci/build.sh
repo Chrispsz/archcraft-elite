@@ -389,6 +389,26 @@ cp -p /work/elite/airootfs/usr/lib/systemd/system-sleep/elite-resume-usb \
 mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/fastfetch
 cp -p /work/elite/airootfs/usr/local/share/elite/fastfetch/config.jsonc \
       /tmp/elite-src/elite-system/files/usr/local/share/elite/fastfetch/config.jsonc
+# E75 — O HOOK DA CASA NO PACMAN (a auditoria do dono: 'estruturar hooks
+# nativos do pacman para disparar checagens de hardware... após qualquer
+# pacman -Syu'). O gap provado no papel: a pedagogia de reboot do kernel
+# só existia na porta do craft-update — um pacman -Syu cru trocava o
+# kernel em silêncio. O bin elite-post-transaction viaja pelo MANIFEST
+# (é um bin do airootfs); ESTE .hook é quem o convoca no fim de TODA
+# transação (mesma escola do elite-adopt.hook: heredoc aqui, dono ÚNICO
+# no pacote — nunca dois por caminho).
+cat > /tmp/elite-src/elite-system/elite-post-transaction.hook <<'EOPT'
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = *
+
+[Action]
+Description = Elite: pós-transação (aviso de kernel novo + vigília do wake-guard E24)
+When = PostTransaction
+Exec = /usr/local/bin/elite-post-transaction
+EOPT
 python3 - /tmp/elite-src/elite-system <<'PYE50'
 import sys, pathlib
 d = pathlib.Path(sys.argv[1])
@@ -422,6 +442,9 @@ hook_install = f"""    install -d "${{pkgdir}}/usr/lib/systemd/system-sleep"
 # ISO no pre_install — a mesma dança dos bins desde a adoção E43)
 ff_install = '    install -d "${pkgdir}/usr/local/share/elite/fastfetch"\n    install -m644 "${startdir}/files/usr/local/share/elite/fastfetch/config.jsonc" "${pkgdir}/usr/local/share/elite/fastfetch/config.jsonc"\n'
 ff_rm = '    [ -e "/usr/local/share/elite/fastfetch/config.jsonc" ] && rm -f "/usr/local/share/elite/fastfetch/config.jsonc"\n'
+# E75 — o hook libalpm da casa (dono ÚNICO no pacote; pacman remove sozinho
+# na desinstalação — arquivo pertence ao pacote, sem dança de adoção)
+pt_install = '    install -Dm644 "${startdir}/elite-post-transaction.hook" "${pkgdir}/usr/share/libalpm/hooks/elite-post-transaction.hook"\n'
 pkg = f"""pkgname=elite-system
 pkgver=1.0
 # E50 — O SISTEMA EM UM PACOTE SÓ (diretriz do dono). Todo o código de
@@ -732,12 +755,57 @@ pkgver=1.0
 #         appimagelauncher; a promessa do AUR vira porta).
 #     pkgrel 24→25 NO MESMO COMMIT (lei E41 — 3 bins novos + dock-gui +
 #     elite-tune mudaram o pacote).
-pkgrel=25
+# 07/nov — E75 — O CICLO QUE O --ON SOZINHO NÃO FAZ (a cura do relato
+#     recorrente 'suspende, volta e o monitor fica SEM SINAL — PC e
+#     periféricos vivos, obrigou a reinicialização forçada') + o 1º lote
+#     da AUDITORIA ARQUITETURAL. A perícia do papel: os DOIS caminhos de
+#     religar (craft-idle screenon e o hook elite-resume-display) mandam
+#     só 'wlopm --on' — que é NO-OP com rc=0 quando o compositor JÁ crê
+#     o output aceso, estado comum no wake (o labwc re-habilita na
+#     atividade de input que volta com o rebind do elite-resume-usb; o
+#     'Suspender' do menu não apaga antes de dormir). Quando a doença
+#     mora no DRM (driver não re-assentou o link — a classe amdgpu/KMS
+#     que o craft-dump seção 10 caça), o rc=0 do no-op convive com o
+#     monitor morto PARA SEMPRE: os dois cures reportam sucesso e
+#     NENHUM estado muda. O pacote mudou em SEIS pontas NO MESMO COMMIT:
+#     (1) craft-idle screenon: CICLO off→1s→on em cada tentativa (a
+#         troca real de estado que força o re-commit no DRM e o
+#         re-treino do link; custo honesto: 1 blink no resume sadio —
+#         na doença a tela já está preta);
+#     (2) elite-resume-display: o MESMO ciclo por socket + FIM DO EXIT
+#         CALADO (wlopm ausente agora deixa FALHA no journal — a lei:
+#         até a decisão de NÃO agir deixa rastro);
+#     (3) craft-dump seção 10: o journal do hook (tag elite-resume-
+#         display — logger não aparece no tail -u systemd-suspend) + o
+#         estado dos conectores DRM SEMPRE (status/enabled/dpms — a
+#         tríade que separa 'driver apagou o conector' de 'conector
+#         aceso, monitor não re-trinou'; antes só entrava no fallback
+#         sem sessão);
+#     (4) craft-rescue-screen NOVO — a escotilha SEM reboot: TTY
+#         (Ctrl+Alt+F3) → login → o ciclo nos sockets → volta (o lock do
+#         hyprlock está lá); root varre todas as sessões, usuário o
+#         próprio runtime; rc no papel (idle.log/journal);
+#     (5) elite-post-transaction NOVO + elite-post-transaction.hook
+#         (libalpm, /usr/share/libalpm/hooks — heredoc no build, dono
+#         ÚNICO no pacote): a auditoria do dono virou código — pacman
+#         -Syu cru agora AVISA kernel novo na cara de quem rodou (o
+#         carimbo /var/lib/elite/kernel-seen dispara UMA vez por troca;
+#         a 1ª execução é linha de base) e observa o wake-guard E24 no
+#         papel (/var/log/elite-post-transaction.log; zero rede, zero
+#         lock — inofensivo na transação do próprio craft-update);
+#     (6) AUDITORIA-ARQUITETURA.md NOVO em docs/gestao — o plano de
+#         elevação pedido pelo dono (pipeline, repos híbridos, painéis,
+#         provisionamento) com o que JÁ era lei da casa separado do que
+#         é proposta.
+#     pkgrel 25→26 NO MESMO COMMIT (lei E41 — craft-idle, craft-dump,
+#     elite-resume-display mudaram de conteúdo; craft-rescue-screen,
+#     elite-post-transaction e o .hook libalpm são NOVOS no pacote).
+pkgrel=26
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
 license=(GPL3)
-depends=(bash python wayland)
+depends=(bash python wayland wlopm)
 # E50 — A SUBSTITUIÇÃO DE ERA: conflita e substitui os DOIS veículos
 # legados — o -Syu do craft-update (alvo elite-system) remove o par e
 # instala o único na MESMA transação; configs de usuário (~) NUNCA são
@@ -774,7 +842,7 @@ package() {{
     # a fonte do daemon viaja no pacote (transparência — o mesmo papel que
     # ela tinha no craft-toplevel legado)
     install -Dm644 craft-toplevel.c "${{pkgdir}}/usr/local/share/elite/src/craft-toplevel.c"
-{unit_install}{hook_install}{ff_install}}}
+{unit_install}{hook_install}{ff_install}{pt_install}}}
 """
 (d / 'PKGBUILD').write_text(pkg)
 PYE50

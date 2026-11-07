@@ -317,6 +317,33 @@ assert_grep "$RD" 'logger -t elite-resume-display' "E63: o hook é OBSERVÁVEL n
 assert_grep "$RD" 'wayland-\*' "E68: o hook tenta TODOS os sockets wayland-* que existem no runtime (o wayland-0 fixo era aposta — sessão respawnada em wayland-1 ficava FORA da rede)"
 assert_nogrep "$RD" 'WAYLAND_DISPLAY="wayland-0"' "E68: o socket NÃO é mais chutado fixo (a fila vem dos sockets que EXISTEM em /run/user — o chute não volta por descuido)"
 
+# ── E75 — O CICLO QUE O --ON SOZINHO NÃO FAZ (o relato recorrente:
+#    'suspende, volta e o monitor fica SEM SINAL — PC e periféricos
+#    vivos, obrigou a reinicialização forçada'): o wlopm --on em output
+#    que o compositor JÁ crê aceso é NO-OP com rc=0 — e no wake esse é
+#    o estado comum (o labwc re-habilita na atividade de input que volta
+#    com o rebind do elite-resume-usb; o 'Suspender' do menu não apaga
+#    antes de dormir). Quando a doença mora no DRM (driver não re-assentou
+#    o link — a classe amdgpu/KMS do seção 10), o rc=0 do no-op convive
+#    com o monitor morto PARA SEMPRE. A cura é a TROCA REAL DE ESTADO.
+CR="$REPO/elite/airootfs/usr/local/bin/craft-rescue-screen"
+assert_grep "$RD" 'wlopm --off' "E75: o hook de sistema usa o CICLO (off → 1s → on) — a troca real de estado que força o re-commit do output no DRM e o re-treino do link"
+assert_grep "$RD" 'FALHA: wlopm AUSENTE' "E75: o wlopm ausente DEIXA RASTRO no journal (o exit calado escondia a rede inexistente de um rig sem o binário — até a decisão de NÃO agir deixa linha)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-idle" 'ciclo off→on E75' "E75: o screenon do usuário usa o MESMO ciclo do hook de sistema (três caminhos de religar, uma só gramática de cura)"
+index_exec "elite/airootfs/usr/local/bin/craft-rescue-screen" \
+  "E75: craft-rescue-screen presente e executável (a escotilha SEM reboot — TTY → login → ciclo → volta; o lock do hyprlock sobrevive ao passeio)" \
+  "ausente ou sem +x no index — o 'monitor sem sinal' volta a exigir reinicialização forçada (a classe que atravessou E63/E68)"
+assert_grep "$CR" 'wlopm --off' "E75: a escotilha repete o MESMO ciclo do E75 (a cura na mão do dono, sem inventar segunda gramática)"
+assert_grep "$CR" 'Ctrl\+Alt\+F3' "E75: a escotilha ensina o caminho no próprio corpo (no pânico do 'sem sinal' ninguém abre wiki — o passo-a-passo mora no comando)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'elite-resume-display' "E75: o veredito do hook entra NO PAPEL (o logger vai ao journal GERAL — o tail -u systemd-suspend era cego à rede de sistema; a perícia do 'sem sinal' sem a prova da própria cura)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'sys/class/drm/card' "E75: a tríade status/enabled/dpms dos conectores DRM entra SEMPRE no dump (antes só no fallback sem sessão — na doença 'PC vivo, monitor morto' a sessão ESTÁ de pé e a prova não entrava)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-post-transaction" 'REINICIE' "E75: o kernel novo AVISA na cara de quem rodou o pacman -Syu cru (a pedagogia do reboot deixa de ser exclusiva da porta do craft-update)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-post-transaction" 'kernel-seen' "E75: o carimbo do kernel dispara o aviso UMA vez por troca (a 1ª execução é linha de base — nunca falso REINICIE)"
+assert_grep "$REPO/.ci/build.sh" 'elite-post-transaction.hook' "E75: o hook libalpm viaja NO PACOTE (dono ÚNICO — heredoc no build, install em /usr/share/libalpm/hooks; escola elite-adopt)"
+assert_grep "$REPO/.ci/build.sh" 'When = PostTransaction' "E75: o hook é PostTransaction Target=\* (toda transação conta — a do próprio craft-update incluída; o bin é inofensivo: zero rede, zero lock)"
+assert_grep "$REPO/.ci/build.sh" 'depends=\(bash python wayland wlopm\)' "E75: o wlopm é DEPENDÊNCIA do elite-system (a rede do resume sem o binário era rede imaginária nos rigs que não o tinham)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 25→26 NO MESMO COMMIT' "E75: pkgrel elite-system 25→26 NO MESMO COMMIT (lei E41 — craft-idle, craft-dump e elite-resume-display mudaram de conteúdo; 2 bins + o .hook libalpm são novos; âncora na HISTÓRIA, lição E58/E59)"
+
 # ── E69 — O DESPERTAR DOS DISPOSITIVOS (relato REAL do dono no 1.0-18:
 #    "o suspender volta sem despertar os dispositivos USB — não consigo
 #    sequer desbloquear"): a classe 'xHC error in resume, Reinit' (prova

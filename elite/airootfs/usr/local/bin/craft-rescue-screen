@@ -1,0 +1,114 @@
+#!/bin/sh
+# ═══════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · craft-rescue-screen (E75 — A ESCOTILHA DO MONITOR CEGO)
+# ═══════════════════════════════════════════════════════════════════════════
+# O RELATO DO DONO (a classe que atravessou E63/E68): suspendeu, voltou —
+# e o monitor ficou SEM SINAL (standby/DPMS), com PC e periféricos vivos;
+# até hoje o único caminho era a reinicialização forçada. A cura
+# automática agora é o CICLO off→on (E75, no craft-idle screenon e no
+# elite-resume-display). ESTE comando é a ESCOTILHA MANUAL para o pior
+# caso — quando nem a rede de sistema alcançou o réu:
+#
+#   1. Ctrl+Alt+F3          (um TTY — o console de texto INDEPENDENTE do
+#                            sinal do monitor na sessão gráfica);
+#   2. login                (o usuário normal);
+#   3. craft-rescue-screen  (o ciclo off→on nos sockets da sessão);
+#   4. Ctrl+Alt+F1 (ou F2)  (volta à sessão — o lock do hyprlock está lá,
+#                            senha UMA vez e usa).
+#
+# COMO FUNCIONA: o mesmo ciclo do E75 — `wlopm --off` força o compositor
+# a commitar o output DESLIGADO, 1s de trevas, `wlopm --on` re-commita
+# LIGADO: o wlroots refaz o DPMS no nível DRM e o link do monitor
+# re-treina. O --on sozinho é no-op quando o compositor JÁ crê o output
+# aceso (rc=0 convivendo com monitor morto) — a troca REAL de estado é
+# o que re-assenta o vídeo.
+#
+# QUEM PODE CHAMAR: o usuário da sessão (roda nos sockets do próprio
+# XDG_RUNTIME_DIR) OU o root (varre TODAS as sessões gráficas vivas, a
+# mesma varredura do elite-resume-display). Viaja NO PACOTE elite-system
+# (lei E57/E63: fora do pacote, o rig nunca o receberia pelo canal).
+#
+# OBSERVÁVEL: o resultado deixa linha no idle.log da sessão (a lei E44 do
+# corpo do craft-idle) ou no journal (root) — 'funcionou' e 'não funcionou'
+# com rc no papel, nunca opinião.
+# ═══════════════════════════════════════════════════════════════════════════
+set -u
+
+TENTATIVAS=3
+
+say() {
+    printf '%s\n' "$1"
+    if [ "$(id -u)" = "0" ]; then
+        logger -t craft-rescue-screen "$1" 2>/dev/null || true
+    else
+        LOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/idle.log"
+        mkdir -p "${LOG%/*}" 2>/dev/null || true
+        printf '[%s] [rescue] %s\n' "$(date '+%F %T')" "$1" >>"$LOG" 2>/dev/null || true
+    fi
+}
+
+# O CICLO (E75) — off força o commit de estado, trevas, on re-assenta.
+ciclo() { # ciclo <usuário> <XDG_RUNTIME_DIR> <WAYLAND_DISPLAY>
+    _u="$1" _rd="$2" _wd="$3"
+    if [ "$_u" = "eu" ]; then
+        wlopm --off '*' >/dev/null 2>&1 || true
+        sleep 1
+        wlopm --on '*' >/dev/null 2>&1
+        return $?
+    fi
+    runuser -u "$_u" -- env XDG_RUNTIME_DIR="$_rd" WAYLAND_DISPLAY="$_wd" \
+        wlopm --off '*' >/dev/null 2>&1 || true
+    sleep 1
+    runuser -u "$_u" -- env XDG_RUNTIME_DIR="$_rd" WAYLAND_DISPLAY="$_wd" \
+        wlopm --on '*' >/dev/null 2>&1
+}
+
+command -v wlopm >/dev/null 2>&1 || {
+    say "FALHA: wlopm ausente no sistema — a escotilha não tem ferramenta (instale o pacote wlopm)"
+    exit 1
+}
+
+say "escotilha: iniciando o ciclo off→on (${TENTATIVAS} tentativas — o monitor deve piscar ao re-assentar)"
+
+# ROOT: varre TODAS as sessões gráficas vivas (a varredura do hook).
+# USUÁRIO: os sockets do próprio runtime.
+i=0
+venceu=0
+while [ "$i" -lt "$TENTATIVAS" ]; do
+    i=$((i + 1))
+    if [ "$(id -u)" = "0" ]; then
+        algum=0
+        for uhome in /home/*; do
+            u="${uhome##*/}"
+            uid="$(id -u "$u" 2>/dev/null)" || continue
+            pgrep -u "$uid" -x labwc >/dev/null 2>&1 || continue
+            for sock in /run/user/"$uid"/wayland-*; do
+                [ -S "$sock" ] || continue
+                wd="${sock##*/}"
+                if ciclo "$u" "/run/user/$uid" "$wd"; then
+                    say "tentativa $i: outputs religados ($u via $wd) — volte à sessão (Ctrl+Alt+F1 ou F2)"
+                    algum=1
+                fi
+            done
+        done
+        [ "$algum" -eq 1 ] && venceu=1 && break
+    else
+        for sock in "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"/wayland-*; do
+            [ -S "$sock" ] || continue
+            wd="${sock##*/}"
+            if ciclo eu "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}" "$wd"; then
+                say "tentativa $i: outputs religados ($wd) — volte à sessão gráfica (Ctrl+Alt+F1 ou F2)"
+                venceu=1
+            fi
+        done
+        [ "$venceu" -eq 1 ] && break
+    fi
+    sleep 2
+done
+
+if [ "$venceu" -eq 1 ]; then
+    say "escotilha: ciclo concluído — se o monitor CONTINUA sem sinal, o réu é o driver (craft-dump seção 10 tem a tríade status/enabled/dpms dos conectores)"
+    exit 0
+fi
+say "FALHA: nenhum socket respondeu ao ciclo em ${TENTATIVAS} tentativas — a sessão gráfica não está viva (ou o driver morreu de verdade; craft-dump seção 10 no próximo boot nomeia o réu)"
+exit 1
