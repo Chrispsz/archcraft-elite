@@ -2527,14 +2527,27 @@ assert_file "$RHOME/.config/labwc/rc.xml.d/20-elite-ssd.xml" "06/nov/rice: o fra
 assert_grep "$RHOME/.config/labwc/rc.xml.d/20-elite-ssd.xml" 'brave-browser' "06/nov/rice: o Brave na regra do SSD (o relato: 'o Brave não apresenta a barra/desenho')"
 assert_grep "$RHOME/.config/labwc/rc.xml.d/20-elite-ssd.xml" 'imv' "06/nov/rice: o imv na mesma lei (sem toolkit, sem negociação de decoração — a moldura da casa em TODO o desktop)"
 assert_grep "$RHOME/.config/labwc/rc.xml.d/20-elite-ssd.xml" 'serverDecoration="yes"' "06/nov/rice: serverDecoration=yes — o labwc desenha a titlebar do tema em toda a família (o mesmo padrão de todas as janelas)"
+# ── E70 — A MOLDURA ÚNICA (o print do dono, shot-20261106-204606) ────────
+#    O print provou no campo: LACT (libadwaita) com headerbar PRÓPRIA e
+#    tema claro no meio do rice escuro; VS Code (Electron/XWayland) com
+#    titlebar própria. O xdg-decoration é NEGOCIADO — app que pede CSD
+#    vence o default do rc.xml. A regra UNIVERSAL fecha a classe: a
+#    moldura é propriedade do COMPOSITOR para toda janela que negocia.
+assert_grep "$RHOME/.config/labwc/rc.xml.d/20-elite-ssd.xml" 'identifier="\.\*"' "E70/rice: a REGRA UNIVERSAL existe (identifier='.*' — libadwaita/Electron/Qt/AppImage recebem a moldura do compositor; o fim dos dois sistemas de moldura)"
+assert_file "$RHOME/.config/labwc/rc.xml.d/30-elite-organize.xml" "E70/rice: o fragmento de ORGANIZAÇÃO nasce ao lado dos outros (a área se organiza no lançamento — brave/Code maximizados, sem arranjo manual)"
+assert_grep "$RHOME/.config/labwc/rc.xml.d/30-elite-organize.xml" 'maximized="yes"' "E70/rice: maximized=yes no lançamento (o dedo não paga o arranjo inicial; o snap W-Setas segue para o resto)"
+assert_grep "$RHOME/.config/labwc/rc.xml.d/30-elite-organize.xml" 'entregue por craft-rice' "E70/rice: o fragmento de organização carrega o MARCADOR da casa (apagar o drop-in devolve o comportamento — o drop-in some ao apagar)"
 RMT1="$(stat -c %Y "$RHOME/.config/labwc/rc.xml.d/10-elite-games.xml" 2>/dev/null || echo 0)"
 SMT1="$(stat -c %Y "$RHOME/.config/labwc/rc.xml.d/20-elite-ssd.xml" 2>/dev/null || echo 0)"
+OMT1="$(stat -c %Y "$RHOME/.config/labwc/rc.xml.d/30-elite-organize.xml" 2>/dev/null || echo 0)"
 sleep 1
 HOME="$RHOME" sh "$RICE" >/dev/null 2>&1
 RMT2="$(stat -c %Y "$RHOME/.config/labwc/rc.xml.d/10-elite-games.xml" 2>/dev/null || echo 1)"
 SMT2="$(stat -c %Y "$RHOME/.config/labwc/rc.xml.d/20-elite-ssd.xml" 2>/dev/null || echo 1)"
+OMT2="$(stat -c %Y "$RHOME/.config/labwc/rc.xml.d/30-elite-organize.xml" 2>/dev/null || echo 1)"
 assert_eq "$RMT2" "$RMT1" "E54/rice: IDEMPOTENTE — idêntico = zero escrita (o mtime não mente; o tick da sessão não reescreve o que já está de pé)"
 assert_eq "$SMT2" "$SMT1" "06/nov/rice: o SSD idem — IDEMPOTENTE (a 2ª rodada não reescreve nenhum dos dois fragmentos)"
+assert_eq "$OMT2" "$OMT1" "E70/rice: o organize idem — IDEMPOTENTE (o 3º fragmento segue a mesma lei: idêntico = zero escrita)"
 printf '<labwc_config>\n  <!-- meu rice próprio -->\n</labwc_config>\n' > "$RHOME/.config/labwc/rc.xml.d/10-elite-games.xml"
 out_f="$(HOME="$RHOME" sh "$RICE" 2>&1)"
 printf '%s\n' "$out_f" > "$RHOME/saida-rice.txt"

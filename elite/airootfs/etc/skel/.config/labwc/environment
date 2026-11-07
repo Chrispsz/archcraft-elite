@@ -23,3 +23,10 @@ XDG_DATA_DIRS=/usr/local/share:/usr/share:/var/lib/flatpak/exports/share
 # decisão consciente de manter (o rice do greeter é outro domínio).
 XCURSOR_THEME=Bibata
 XCURSOR_SIZE=24
+
+# E70 — A MOLDURA ÚNICA (o print do dono: VS Code em XWayland desenhava
+# titlebar própria): o hint OFICIAL do Electron — todo app Electron ≥28
+# (AppImage incluído) nasce Wayland nativo sem flag nenhuma. Wayland
+# nativo = a janela negocia xdg-decoration e a regra universal do
+# craft-rice (rc.xml.d/20-elite-ssd.xml) entrega a moldura do COMPOSITOR.
+ELECTRON_OZONE_PLATFORM_HINT=auto

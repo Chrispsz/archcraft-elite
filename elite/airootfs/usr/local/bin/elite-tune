@@ -981,6 +981,92 @@ if [[ "$VENDOR" == "nvidia" ]]; then
   done
 fi
 
+# ── [8] SESSÃO: A MOLDURA ÚNICA + TEMA ESCURO (E70 — o rig vivo recebe) ──
+# O print do dono (06/nov 20:46) provou a ferida NO CAMPO: o LACT
+# (libadwaita) abriu CLARO e com headerbar própria no meio do rice escuro;
+# o VS Code (Electron em XWayland) desenhava titlebar própria — dois
+# sistemas de moldura num só desktop. O papel da casa já era certo
+# (rc.xml <decoration>server + settings.ini escuros) e o campo venceu a
+# negociação DUAS vezes: o xdg-decoration é NEGOCIADO (app que pede CSD
+# vence o default) e a libadwaita NÃO lê o settings.ini (lê o
+# color-scheme do dconf). A cura é ARQUITETURAL (a moldura vira
+# propriedade do compositor) e o skel da ISO já nasce curado; ESTA seção
+# leva a cura às HOMES EXISTENTES (o pacote NUNCA toca config de usuário
+# — a lei do domínio v3): entrega o code-flags.conf, append idempotente
+# no environment e no autostart (marcador E70), grava o escuro AGORA e
+# roda o craft-rice (fragmentos + reconfigure vivo — sockets wayland-*
+# reais, a lição E68: SEM chute wayland-0). Escola 2g: backup + chown.
+if [[ -d /etc/skel/.config/labwc ]]; then
+  for h in /home/*/; do
+    [[ -d "$h/.config" ]] || continue
+    u="$(stat -c '%U' "$h")"; [[ "$u" == "root" ]] && continue
+    uid="$(id -u "$u" 2>/dev/null)" || continue
+    # 8a. VS Code em Wayland nativo (code-flags.conf — o launcher da Arch lê)
+    DST="$h/.config/code-flags.conf"
+    if [[ ! -f "$DST" && -f /etc/skel/.config/code-flags.conf ]]; then
+      say "Sessão ($u): code-flags.conf entregue (VS Code Wayland nativo)"
+      if (( ! DRY )); then
+        install -m 644 /etc/skel/.config/code-flags.conf "$DST"
+        chown "$(stat -c '%U:%G' "$h")" "$DST" 2>/dev/null || true
+      fi
+    fi
+    # 8b. ELECTRON_OZONE_PLATFORM_HINT no environment (Electron ≥28/AppImage)
+    ENVF="$h/.config/labwc/environment"
+    if [[ -f "$ENVF" ]] && ! grep -q '^ELECTRON_OZONE_PLATFORM_HINT=' "$ENVF" 2>/dev/null; then
+      say "Sessão ($u): ELECTRON_OZONE_PLATFORM_HINT=auto → environment (Electron nasce Wayland)"
+      if (( ! DRY )); then
+        backup "$ENVF"
+        printf '\n# E70 — A MOLDURA ÚNICA: todo Electron (AppImage incluído) nasce\n# Wayland nativo — o compositor decora, a moldura é UMA.\nELECTRON_OZONE_PLATFORM_HINT=auto\n' >> "$ENVF"
+        chown "$(stat -c '%U:%G' "$h")" "$ENVF" 2>/dev/null || true
+      fi
+    fi
+    # 8c. O escuro alcança a libadwaita (o LACT claro do print)
+    ASTF="$h/.config/labwc/autostart"
+    if [[ -f "$ASTF" ]] && ! grep -q 'Tema escuro UNIVERSAL (E70' "$ASTF" 2>/dev/null; then
+      say "Sessão ($u): color-scheme prefer-dark → autostart (libadwaita/portal abrem escuros)"
+      if (( ! DRY )); then
+        backup "$ASTF"
+        cat >> "$ASTF" <<'E70DARK'
+
+# --- Tema escuro UNIVERSAL (E70 — o print do dono 20:46: LACT claro no
+#     meio do rice escuro): a libadwaita NÃO lê o settings.ini gtk-3/gtk-4
+#     — ela lê o color-scheme do dconf (via portal; sem portal, via
+#     gsettings). Roda a cada boot: o padrão da casa é escuro.
+if command -v gsettings >/dev/null 2>&1; then
+    gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark' >/dev/null 2>&1 &
+    gsettings set org.gnome.desktop.interface gtk-theme 'Catppuccin-Mocha-Standard-Mauve-Dark' >/dev/null 2>&1 &
+fi
+E70DARK
+        chown "$(stat -c '%U:%G' "$h")" "$ASTF" 2>/dev/null || true
+      fi
+    fi
+    # 8d. O escuro AGORA (sem esperar boot) + os fragmentos do rice VIVOS
+    if (( ! DRY )); then
+      if runuser -u "$u" -- env DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" \
+           gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark' >/dev/null 2>&1; then
+        say "Sessão ($u): color-scheme prefer-dark gravado no dconf AGORA"
+      else
+        warn "Sessão ($u): gsettings sem dbus do usuário — o escuro vale no próximo login (o autostart 8c cobre)"
+      fi
+      if [[ -x /usr/local/bin/craft-rice ]]; then
+        WSOCK=""
+        for w in /run/user/"$uid"/wayland-*; do [[ -S "$w" ]] && WSOCK="${w##*/}" && break; done
+        if [[ -n "$WSOCK" ]]; then
+          runuser -u "$u" -- env XDG_RUNTIME_DIR="/run/user/$uid" WAYLAND_DISPLAY="$WSOCK" \
+            /usr/local/bin/craft-rice >/dev/null 2>&1 || true
+        else
+          runuser -u "$u" -- /usr/local/bin/craft-rice >/dev/null 2>&1 || true
+        fi
+        say "Sessão ($u): craft-rice entregou os fragmentos (reconfigure vivo quando há sessão — o que sobrou vale no próximo login)"
+      fi
+    else
+      say "[dry] Sessão ($u): color-scheme AGORA + craft-rice (fragmentos/reconfigure) simulados"
+    fi
+  done
+else
+  say "Sessão: skel labwc ausente (alvo não-Elite?) — seção [8] pulada"
+fi
+
 # E37/n16 — epílogo HONESTO: o pacman_s alimentou FAILURES com rc real;
 # dizer 'CONCLUÍDO' sobre pendência era a mentira que o usuário só
 # descobria no boot seguinte (kernel que não veio, booster morto).
