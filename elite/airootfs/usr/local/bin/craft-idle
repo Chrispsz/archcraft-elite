@@ -35,6 +35,24 @@
 #   — enquanto travado, quem manda é a vigília (o deadline de idle não
 #   vê digitação em compositor que não conta input travado). O resume
 #   renova a marca de atividade (idle-activity) que a vigília lê.
+# E77 — O PORTÃO E A AUTORIDADE ÚNICA (a spec do dono: bloqueio, DPMS e
+#   suspensão são timers ESTRITAMENTE SEQUENCIAIS E MUTUAMENTE EXCLUSIVOS
+#   — nenhum par corre ou dispara junto; resume não re-suspende até o
+#   destravo e um novo período completo de inatividade). Duas curas:
+#   (1) AUTORIDADE ÚNICA: com lock vivo, o braço idle NUNCA suspende —
+#       DEFERE SEMPRE e RE-ARMA a vigília se ela morreu (a parteira; a
+#       janela 'vigia morto + digitação' do E61 não tem mais suspend
+#       concorrente: quem dorme sob lock é SÓ a vigília, com orelhas).
+#   (2) O PORTÃO (idle-suspend-gate, XDG_RUNTIME_DIR — morre com a
+#       sessão): FECHA em TODO sono real do logind (before-sleep →
+#       sleep-hook, o choke point universal: vigília, braço idle, menu
+#       do craft-power, tampa) e no suspend de cada autoridade; ABRE no
+#       DESTRAVO (saída natural da vigília / screenon com lock morto).
+#       Fechado, NENHUM timer suspende — o wake fica travado e ACORDADO
+#       esperando a senha; o destravo abre e o ciclo recomeça do zero
+#       (T1 → lock novo → vigília nova → SUSPEND_MIN travado).
+#       O wake de DPMS puro (mouse na tela de bloqueio apagada) NÃO
+#       abre: screenon só abre com lock MORTO.
 #
 # Uso:
 #   craft-idle           menu de presets (mouse-first — item do menu do
@@ -79,6 +97,20 @@ IDLE_LOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/idle.log"
 # travado CONTA como atividade). Vive no XDG_RUNTIME_DIR (morre com a
 # sessão — zero lixo em disco).
 ACT_EPOCH="${XDG_RUNTIME_DIR:-/tmp}/elite/idle-activity"
+# E77 — O PORTÃO do pós-sono: arquivo-PRESENÇA (existe = FECHADO =
+# nenhum timer suspende; ausente = ABERTO). Fecha no sono (sleep-hook do
+# before-sleep + cada autoridade antes do próprio suspend), abre no
+# DESTRAVO (saída natural da vigília / screenon com lock morto). Vive no
+# XDG_RUNTIME_DIR pela mesma lei da marca: morre com a sessão — um boot
+# novo nasce com o portão aberto, zero lixo em disco.
+GATE="${XDG_RUNTIME_DIR:-/tmp}/elite/idle-suspend-gate"
+gate_close() {
+    mkdir -p "${GATE%/*}" 2>/dev/null || true
+    : > "$GATE" 2>/dev/null || true
+}
+gate_open() {
+    rm -f "$GATE" 2>/dev/null || true
+}
 ilog() {
     mkdir -p "${IDLE_LOG%/*}" 2>/dev/null || true
     if [ -f "$IDLE_LOG" ] && [ "$(wc -c <"$IDLE_LOG" 2>/dev/null || echo 0)" -gt 262144 ]; then
@@ -194,13 +226,13 @@ start_daemon() {
                 timeout $((OFF_MIN * 60)) 'craft-idle screenoff' \
                 resume 'craft-idle screenon' \
                 timeout $((SUSPEND_MIN * 60)) 'craft-idle suspend' \
-                before-sleep 'craft-lock --if-needed'
+                before-sleep 'craft-idle sleep-hook'
         fi
         exec swayidle -w \
             timeout $((LOCK_MIN * 60)) 'craft-lock --if-needed' \
             timeout $((OFF_MIN * 60)) 'craft-idle screenoff' \
             resume 'craft-idle screenon' \
-            before-sleep 'craft-lock --if-needed'
+            before-sleep 'craft-idle sleep-hook'
     fi
     # E36 — LOCK_MIN=0 com SUSPEND_MIN>0: sem lock automático ("Nunca" é a
     # escolha EXPLÍCITA do dono — nem before-sleep trava; quem quiser
@@ -315,6 +347,36 @@ case "${1:-}" in
             setsid craft-vigil >/dev/null 2>&1 &
             ilog "VIGÍLIA: re-armada no resume (lock vivo, vigia morto — o braço idle volta a DEFERIR)"
         fi
+        # E77 — O PORTÃO ABRE NO DESTRAVO (a rede dos vigias que nunca
+        # nasceram ou morreram no sono): lock morto no screenon = a sessão
+        # NÃO está travada — o resume não pode segurar o próximo ciclo
+        # para sempre. Com lock VIVO o portão é INTOCÁVEL aqui: o wake de
+        # DPMS puro (mouse na tela de bloqueio apagada) não abre o que o
+        # sono fechou — quem abre é o DESTRAVO (saída natural da vigília)
+        # ou este ramo quando o lock já não existe.
+        if ! pgrep -x hyprlock >/dev/null 2>&1 && [ -e "$GATE" ]; then
+            gate_open
+            ilog "E77: portão ABERTO (lock morto no resume/atividade — o ciclo pode recomeçar)"
+        fi
+        exit 0
+        ;;
+    sleep-hook)
+        # E77 — O CHOKE POINT UNIVERSAL DO SONO: TODO suspend real do
+        # logind atravessa o PrepareForSleep (vigília, braço idle, menu do
+        # craft-power, tampa do notebook) e chega AQUI pelo before-sleep.
+        # UM handler só, ordem determinística: o portão FECHA primeiro
+        # (nenhum timer suspende no pós-sono até o destravo — a spec da
+        # E77), depois o lock --if-needed da E47 (o vivo sobrevive, o
+        # morto renasce — acorda no lock). Múltiplos before-sleep não são
+        # contrato do swayidle: os dois gestos moram num braço só. O lock
+        # vai DESPEGADO (a casa do craft-power): o craft-lock executa o
+        # hyprlock — esperar por ele aqui era pendurar o hook até o
+        # destravo; o fork desapegado é o mesmo gesto que o menu usa.
+        gate_close
+        ilog "E77: sono chegando — portão FECHADO (PrepareForSleep: nenhum timer suspende no pós-sono até o destravo)"
+        if command -v craft-lock >/dev/null 2>&1; then
+            ( craft-lock --if-needed >/dev/null 2>&1 & ) || true
+        fi
         exit 0
         ;;
     suspend)
@@ -323,17 +385,37 @@ case "${1:-}" in
         # nunca enquanto travado). A arma era ESTE braço: o deadline de
         # idle não vê a digitação quando o compositor não conta input
         # travado como atividade — o timeout vencia com a senha no meio e
-        # o PC dormia em vez de desbloquear. Agora: lock vivo COM vigília
-        # no ar = DEFERIDO — enquanto travado, o tempo TRAVADO é a
-        # autoridade (a vigília tem orelhas e não dorme sob o dono). Lock
-        # vivo com vigília MORTA = o braço volta a ser rede de fundo
-        # (E47/E30 preservados — o before-sleep mantém o lock vivo). Lock
-        # morto = fluxo normal (LOCK_MIN=0 e wake manual intactos).
-        if pgrep -x hyprlock >/dev/null 2>&1 && pgrep -x craft-vigil >/dev/null 2>&1; then
-            ilog "idle: suspend DEFERIDO — lock vivo com vigília no ar (o tempo TRAVADO manda; o sintoma 'suspende quando digito a senha' era este braço)"
+        # o PC dormia em vez de desbloquear.
+        # E77 — AUTORIDADE ÚNICA (a regra de ouro da spec: timers
+        # mutuamente exclusivos): com lock VIVO este braço NUNCA suspende
+        # — o tempo travado é EXCLUSIVIDADE da vigília. O E61 deferia só
+        # com vigia no ar; a janela 'vigia morto' suspendia NO MEIO da
+        # senha (dois juízes para o mesmo T3). Agora: vigília morta =
+        # RE-ARMADA aqui (a parteira — o gesto do screenon) e o braço
+        # sai; quem dorme sob lock é SÓ a vigília, com orelhas e ticks
+        # quietos. O suspend prometido nunca fica órfão (o caso 'dono
+        # foi embora com vigia morto': sem atividade não há screenon —
+        # o braço dispara, re-arma e a vigília cumpre o E60).
+        if pgrep -x hyprlock >/dev/null 2>&1; then
+            if pgrep -x craft-vigil >/dev/null 2>&1; then
+                ilog "idle: suspend DEFERIDO — lock vivo com vigília no ar (o tempo TRAVADO manda; o sintoma 'suspende quando digito a senha' era este braço)"
+            else
+                setsid craft-vigil >/dev/null 2>&1 &
+                ilog "E77: suspend DEFERIDO — lock vivo com vigília MORTA: vigília RE-ARMADA pelo braço (autoridade única do tempo travado; a janela 'suspende no meio da senha' morre aqui)"
+            fi
+            exit 0
+        fi
+        # E77 — O PORTÃO: fechado = o último sono ainda não foi pago com
+        # um destravo (isolamento de resume — a spec: nenhum timer de
+        # inatividade suspende de novo até a sessão desbloquear e correr
+        # um novo período completo). O braço DEFERE e sai; a primeira
+        # atividade abre (screenon com lock morto) e o ciclo renasce.
+        if [ -e "$GATE" ]; then
+            ilog "E77: idle suspend DEFERIDO — portão fechado no pós-sono (resume sem destravo; a primeira atividade reabre o ciclo)"
             exit 0
         fi
         ilog "suspendindo (idle ${SUSPEND_MIN:-?}min — escuro e travado: acorda no lock, senha UMA vez)"
+        gate_close   # E77 — cinto-e-suspensório do sleep-hook (swayidle morto também fica coberto)
         if systemctl suspend -i; then
             ilog "suspend: ciclo completo (dormiu e voltou — o idle EXISTE e está no papel)"
         else

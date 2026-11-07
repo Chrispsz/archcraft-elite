@@ -62,6 +62,23 @@
 #
 # OBSERVÁVEL: todo braço deixa linha no idle.log (a lei E33/E44 do corpo
 # do craft-idle) — 'não suspendeu' ganha réu NOMEADO com rc, não opinião.
+#
+# E77 — O PORTÃO E A AUTORIDADE ÚNICA (a spec do dono: timers de
+# bloqueio/DPMS/suspensão estritamente sequenciais e mutuamente
+# exclusivos; resume não re-suspende até o destravo e um novo período
+# completo de inatividade):
+#   · AUTORIDADE ÚNICA: sob lock vivo, esta vigília é o ÚNICO juiz do
+#     suspend (o braço idle do craft-idle defere SEMPRE e a re-arma se
+#     ela morreu — a janela 'vigia morto + senha no meio' morreu);
+#   · O PORTÃO (idle-suspend-gate, XDG_RUNTIME_DIR): fechado no pós-sono
+#     (o sleep-hook do before-sleep fecha em TODO sono; esta vigília
+#     fecha de novo antes do próprio suspend — swayidle morto também
+#     fica coberto) = o teto estourado NÃO dorme: espera o destravo. O
+#     destravo mata esta vigília pelo próprio laço — e a saída natural
+#     ABRE o portão (o lock que morreu é evento NOVO: o ciclo pode
+#     recomeçar do zero — T1 → lock novo → vigília nova).
+#   · A GRAÇA que falha (lock não nasceu em 15s) também abre: um braço
+#     desarmado não pode segurar o ciclo para sempre.
 set -u
 
 CONF="${XDG_CONFIG_HOME:-$HOME/.config}/elite/idle.conf"
@@ -83,6 +100,10 @@ vlog() {
 }
 
 ACT_EPOCH="${XDG_RUNTIME_DIR:-/tmp}/elite/idle-activity"
+# E77 — o portão do pós-sono (a MESMA lei do craft-idle: existe = fechado
+# = nenhum timer suspende; a vigília obedece, fecha no próprio sono e
+# abre na saída natural — o destravo é o dono da chave).
+GATE="${XDG_RUNTIME_DIR:-/tmp}/elite/idle-suspend-gate"
 
 alive() { pgrep -x hyprlock >/dev/null 2>&1; }
 
@@ -103,6 +124,10 @@ while [ "$i" -lt 15 ] && ! alive; do
 done
 if ! alive; then
     vlog "VIGÍLIA: lock não nasceu em 15s — braço desarmado (réu: o lock não mapeou)"
+    # E77 — braço desarmado não segura o ciclo: um portão fechado aqui é
+    # prisão perpétua do suspend (o lock morreu antes de nascer — evento
+    # NOVO, não o resume; o próximo T1/lock novo recomeça do zero).
+    rm -f "$GATE" 2>/dev/null || true
     exit 0
 fi
 
@@ -111,6 +136,7 @@ cpu_ant="$(cpu_of 2>/dev/null || echo 0)"
 quiet=0
 elapsed=0
 teto=$((SUSPEND_MIN * 60))
+gate_dito=""   # E77 — o portão falha UMA vez por episódio (o papel não spama)
 while alive; do
     cpu_agora="$(cpu_of 2>/dev/null || echo 0)"
     delta=$((cpu_agora - cpu_ant))
@@ -142,25 +168,50 @@ while alive; do
         quiet=$((quiet + 1))
     fi
     if [ "$elapsed" -ge "$teto" ] && [ "$quiet" -ge 2 ]; then
-        vlog "VIGÍLIA: suspendindo (travado há ${SUSPEND_MIN}min, ${quiet} ticks quietos — escuro e travado: acorda no lock)"
-        if systemctl suspend -i; then
-            vlog "VIGÍLIA: suspend voltou (ciclo completo — a vigília EXISTE e está no papel)"
-            # E63 — A VOLTA DA IMAGEM: quem chamou o sono SOBREVIVE a ele
-            # e é um dos primeiros processos de usuário de pé no wake —
-            # o screenon (sondagem 6×2s + rearmamento da vigília sucessora)
-            # roda AQUI também. O callback resume do swayidle pode perder
-            # a corrida contra a re-inicialização do driver (o monitor
-            # 'sem sinal, luz vermelha' do dono, 06/nov) — um caminho só
-            # não é rede; são três: swayidle resume, ESTA chamada e o
-            # hook de sistema elite-resume-display (todos idempotentes).
-            craft-idle screenon >/dev/null 2>&1 || true
+        # E77 — O PORTÃO NA DECISÃO: fechado = o último sono ainda não foi
+        # pago com um destravo (a spec: nenhum timer suspende de novo até
+        # a sessão desbloquear e correr um novo período completo de
+        # inatividade). A vigília ESPERA (o laço segue; o destravo mata o
+        # laço e a saída natural abre o portão) — o wake fica travado e
+        # ACORDADO esperando a senha, nunca re-suspendido por timer.
+        if [ -e "$GATE" ]; then
+            if [ -z "$gate_dito" ]; then
+                vlog "VIGÍLIA: portão FECHADO — suspend suprimido (pós-sono sem destravo: isolamento E77; o destravo abre o portão e encerra a vigília)"
+                gate_dito=1
+            fi
         else
-            vlog "FALHA: vigília systemctl suspend -i rc=$? — o PC NÃO dormiu (réu nomeado no papel)"
+            vlog "VIGÍLIA: suspendindo (travado há ${SUSPEND_MIN}min, ${quiet} ticks quietos — escuro e travado: acorda no lock)"
+            # E77 — o portão fecha PELO SUSPEND (cinto-e-suspensório do
+            # sleep-hook do before-sleep: swayidle morto = before-sleep
+            # não roda — o sono da vigília mesma garante o isolamento do
+            # próximo wake).
+            mkdir -p "${GATE%/*}" 2>/dev/null || true
+            : > "$GATE" 2>/dev/null || true
+            if systemctl suspend -i; then
+                vlog "VIGÍLIA: suspend voltou (ciclo completo — a vigília EXISTE e está no papel)"
+                # E63 — A VOLTA DA IMAGEM: quem chamou o sono SOBREVIVE a ele
+                # e é um dos primeiros processos de usuário de pé no wake —
+                # o screenon (sondagem 6×2s + rearmamento da vigília sucessora)
+                # roda AQUI também. O callback resume do swayidle pode perder
+                # a corrida contra a re-inicialização do driver (o monitor
+                # 'sem sinal, luz vermelha' do dono, 06/nov) — um caminho só
+                # não é rede; são três: swayidle resume, ESTA chamada e o
+                # hook de sistema elite-resume-display (todos idempotentes).
+                craft-idle screenon >/dev/null 2>&1 || true
+            else
+                vlog "FALHA: vigília systemctl suspend -i rc=$? — o PC NÃO dormiu (réu nomeado no papel)"
+            fi
+            exit 0
         fi
-        exit 0
     fi
     sleep 30
     elapsed=$((elapsed + 30))
 done
-vlog "VIGÍLIA: destravado com o lock vivo por ${elapsed}s (últimos ${quiet} ticks quietos) — braço desarmado sem suspend"
+# E77 — O DESTRAVO ABRE O PORTÃO: o lock morreu (o dono digitou a senha —
+# ou o lock crashou; os dois são eventos NOVOS, não o resume). O isolamento
+# acaba aqui: o próximo ciclo (T1 → lock novo → vigília nova) é o 'novo
+# período completo de inatividade' da spec. Sem isto, um vigia morto antes
+# de abrir deixaria o portão preso fechado para sempre.
+rm -f "$GATE" 2>/dev/null || true
+vlog "VIGÍLIA: destravado com o lock vivo por ${elapsed}s (últimos ${quiet} ticks quietos) — braço desarmado sem suspend · portão ABERTO (E77)"
 exit 0

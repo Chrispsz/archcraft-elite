@@ -1049,6 +1049,21 @@ assert_grep "$P/airootfs/usr/local/bin/craft-dump" 'elite-resume-display' "E75: 
 assert_grep "$P/airootfs/usr/local/bin/craft-dump" 'sys/class/drm/card' "E75: a tríade status/enabled/dpms dos conectores DRM entra SEMPRE no dump (a prova que separa driver-morto de monitor-não-re-trinou)"
 assert_file "$P/airootfs/usr/local/bin/elite-post-transaction" "E75: o elite-post-transaction existe no overlay (a casa acorda no pacman -Syu cru — kernel novo avisado na hora, wake-guard E24 observado no papel)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 25→26 NO MESMO COMMIT' "E75: pkgrel elite-system 25→26 NO MESMO COMMIT (lei E41 — o pacote mudou de conteúdo: ciclo, dump, escotilha, post-transaction e o .hook libalpm)"
+# E77 — O PORTÃO E A AUTORIDADE ÚNICA (a spec do dono: bloqueio/DPMS/
+# suspensão são timers ESTRITAMENTE sequenciais e mutuamente exclusivos;
+# resume não re-suspende até o destravo e um novo período completo de
+# inatividade). Os contratos da máquina de estados:
+assert_grep "$P/airootfs/usr/local/bin/craft-idle" 'idle-suspend-gate' "E77: o portão vive no XDG_RUNTIME_DIR (morre com a sessão — boot novo nasce aberto, zero lixo em disco; a mesma lei do idle-activity da E61)"
+assert_grep "$P/airootfs/usr/local/bin/craft-idle" "before-sleep 'craft-idle sleep-hook'" "E77: o before-sleep é o sleep-hook ÚNICO (o choke point universal do sono — vigília, braço idle, menu do craft-power e tampa atravessam o MESMO handler)"
+assert_nogrep "$P/airootfs/usr/local/bin/craft-idle" "before-sleep 'craft-lock" "E77: o before-sleep não chama craft-lock CRU (a ordem portão→lock mora DENTRO do hook — múltiplos before-sleep não são contrato do swayidle; o E47 segue vivo na 2ª metade do handler)"
+assert_grep "$P/airootfs/usr/local/bin/craft-idle" 'sleep-hook)' "E77: o braço sleep-hook existe (fecha o portão PRIMEIRO e depois convoca o lock --if-needed desapegado — o gesto do craft-power)"
+assert_grep "$P/airootfs/usr/local/bin/craft-idle" 'gate_close' "E77: cada autoridade fecha o portão antes do próprio suspend (cinto-e-suspensório — swayidle morto = before-sleep não roda e o isolamento sobrevive)"
+assert_grep "$P/airootfs/usr/local/bin/craft-idle" 'vigília MORTA: vigília RE-ARMADA' "E77: lock vivo + vigília morta = DEFER + RE-ARME (autoridade única do tempo travado — a janela 'suspende no meio da senha' da era E61 morre)"
+assert_grep "$P/airootfs/usr/local/bin/craft-idle" 'portão ABERTO' "E77: o screenon abre o portão SÓ com lock morto (o destravo/primeira atividade paga o resume; o wake de DPMS puro não quebra o isolamento)"
+assert_grep "$P/airootfs/usr/local/bin/craft-vigil" 'idle-suspend-gate' "E77: a vigília obedece ao portão (teto estourado + portão fechado = ESPERA — o wake fica travado e acordado, nunca re-suspendido por timer)"
+assert_grep "$P/airootfs/usr/local/bin/craft-vigil" 'portão FECHADO — suspend suprimido' "E77: a supressão do portão deixa linha no papel (uma vez por episódio — o réu nomeado sem spam)"
+assert_grep "$P/airootfs/usr/local/bin/craft-vigil" 'portão ABERTO \(E77\)' "E77: a saída natural da vigília (o DESTRAVO) abre o portão — o lock que morre é evento novo e o ciclo recomeça do zero"
+assert_grep "$P/airootfs/usr/local/bin/craft-idle" "timeout [$]\(\(LOCK_MIN \* 60\)\) 'craft-lock --if-needed'" "E60 preservada na E77: o timeout do lock continua IDEMPOTENTE (atingir T1 não reinicia a contagem — a 1ª regra da spec do dono já era lei da casa)"
 assert_grep "$REPO/.ci/build.sh" 'files/usr/lib/systemd/system-sleep' "E63: o hook viaja NO PACOTE elite-system (a rede de sistema chega ao rig pelo canal — fora do pacote ele nunca chegaria)"
 assert_grep "$P/airootfs/usr/local/bin/craft-idle" "timeout [$]\(\(OFF_MIN \* 60\)\) 'craft-idle screenoff" "v1.6.1/E44: DPMS no timeout do CONF (tela APAGA — e agora via subcomando OBSERVÁVEL: o rc do wlopm fica no idle.log; o cru calado era o buraco que escondeu 'a tela nunca apaga')"
 assert_nogrep "$P/airootfs/etc/skel/.config/labwc/autostart" 'swaylock -f|exec swaylock' "v1.5: invocação do swaylock EXTINTA do autostart (tela branca → hyprlock)"
@@ -2355,7 +2370,7 @@ assert_file "$IDLECONF" "v1.6.1: idle.conf no skel (defaults documentados no arq
 assert_grep "$IDLECONF" '^LOCK_MIN=5'  "E43: a fábrica nasce com o gesto ÚNICO — trava E apaga aos 5min (o dono: 'montagens fazendo mais sentido'; o 10/15 antigo deixava tela travada ACESA no meio)"
 assert_grep "$IDLECONF" '^OFF_MIN=5'   "E43: OFF_MIN = LOCK_MIN na fábrica — UM instante, zero janela 'travada e acesa' (acorda já no lock)"
 assert_grep "$IDLECONF" '^SUSPEND_MIN=20' "E43: suspend 20min na fábrica (5min suspende desktop com trabalho vivo — e o 'Suspender: 5 min' existe no menu como escolha explícita do dono)"
-assert_grep "$CID" "before-sleep 'craft-lock --if-needed'" "v2.5.0/E47: lock antes do suspend PRESERVADO — e SEM CORRIDA: o hook chama --if-needed (o hyprlock vivo não morre no escuro do PrepareForSleep; a janela de 5s do logind não compete com o blur do wallpaper)"
+assert_grep "$CID" "before-sleep 'craft-idle sleep-hook'" "v2.5.0/E47 + E77: o before-sleep ÚNICO é o sleep-hook — fecha o portão do pós-sono PRIMEIRO e depois roda o lock --if-needed (o hyprlock vivo não morre no escuro do PrepareForSleep; a janela de 5s do logind não compete com o blur do wallpaper; múltiplos before-sleep não são contrato do swayidle)"
 assert_grep "$CID" 'resume .craft-idle screenon' "v1.6.1/E44: resume → DPMS on (tela acorda JÁ no lock — via subcomando observável; o rc vai ao idle.log)"
 assert_grep "$CID" 'Nunca' "v1.6.1: preset 'Nunca' (LOCK_MIN=0 → sem daemon, W-l manual)"
 assert_grep "$CID" 'setsid craft-idle start' "v1.6.1: trocar o tempo reinicia o daemon NA HORA (sem relogin)"
@@ -3147,10 +3162,12 @@ assert_grep "$E74BIN/elite-ferramentas" '--report' \
   "E74/F7: o relatório de ferramentas é público (a E33 manda poder conferir sem raiz)"
 
 # ── E41: o pkgrel viajou NO MESMO COMMIT ──
-assert_grep "$REPO/.ci/build.sh" 'pkgrel=28' \
-  "E76 (lei E41): pkgrel elite-system 27→28 — craft-pin e craft-pin-pick mudaram de conteúdo (help sem vazamento de código; o picker fala os três desfechos E36 e lista o XDG_DATA_HOME do usuário)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=29' \
+  "E77 (lei E41): pkgrel elite-system 28→29 — craft-idle e craft-vigil mudaram de conteúdo (o portão do pós-sono E77 e a autoridade única do tempo travado)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 28→29 NO MESMO COMMIT' \
+  "E77 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 27→28 NO MESMO COMMIT' \
-  "E76 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
+  "E76 (lei E41, âncora histórica viva): craft-pin e craft-pin-pick mudaram de conteúdo (help sem vazamento de código; o picker fala os três desfechos E36 e lista o XDG_DATA_HOME do usuário)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 26→27 NO MESMO COMMIT' \
   "E75.1 (lei E41, âncora histórica viva): elite-ferramentas mudou de conteúdo (a linha morta ITEM='' saiu; o gate shellcheck do CI exige zero avisos)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 25→26 NO MESMO COMMIT' \
