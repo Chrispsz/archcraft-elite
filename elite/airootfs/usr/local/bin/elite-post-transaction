@@ -1,0 +1,66 @@
+#!/bin/sh
+# ═══════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · elite-post-transaction (E75 — A CASA ACORDA NO -Syu)
+# ═══════════════════════════════════════════════════════════════════════════
+# Auditoria arquitetural do dono (07/nov): "estruturar hooks nativos do
+# pacman para disparar checagens de hardware... automaticamente após
+# qualquer pacman -Syu". O gap real medido no papel: a pedagogia de
+# REBOOT do kernel só existia na porta do craft-update — um pacman -Syu
+# cru trocava o kernel em silêncio e o dono vivia semanas num kernel
+# antigo sem saber (o rolling release da base não avisa; só a Elite
+# avisava, e só na porta dela).
+#
+# ESTE bin é o Exec do hook libalpm elite-post-transaction.hook
+# (/usr/share/libalpm/hooks — Trigger PostTransaction, Target=*): roda ao
+# fim de TODA transação de pacotes (a do craft-update incluída — ele é
+# rápido e inofensivo: leituras de sysfs/pacman -Q, zero rede, zero lock).
+#
+# O QUE FAZ (e o que NÃO faz — a lei de não prometer o que não prova):
+#   1. KERNEL NOVO → o aviso na cara de quem rodou o pacman + linha no
+#      papel (/var/log/elite-post-transaction.log) + carimbo em
+#      /var/lib/elite/kernel-seen (o aviso é UMA vez por troca de kernel —
+#      a 1ª execução é só linha de base, nunca falso 'REINICIE');
+#   2. WAKE-GUARD E24 OBSERVADO → quantas fontes ACPI seguem armadas (a
+#      regra udev 90-elite-wake-guard rege o add de controladores; este
+#      log é a vigília do papel — se um update de firmware/udev re-armar
+#      o despertar USB, o dump nomeia a hora exata da re-transação);
+#   3. NADA MAIS: sysctl/zram/etc. são arquivos ESTÁTICOS da casa que o
+#      pacman NUNCA toca — re-aplicar por transação seria teatro; a regra
+#      da casa é agir só onde há gargalo provado.
+# ═══════════════════════════════════════════════════════════════════════════
+set -u
+
+LOG=/var/log/elite-post-transaction.log
+STAMP=/var/lib/elite/kernel-seen
+KPKG=linux-cachyos-bore   # o kernel da casa (mesma constante do craft-update)
+
+tlog() {
+    mkdir -p "${LOG%/*}" 2>/dev/null || true
+    if [ -f "$LOG" ] && [ "$(wc -c <"$LOG" 2>/dev/null || echo 0)" -gt 262144 ]; then
+        tail -c 131072 "$LOG" > "$LOG.tmp" 2>/dev/null && mv -f "$LOG.tmp" "$LOG"
+    fi
+    printf '[%s] %s\n' "$(date '+%F %T')" "$1" >>"$LOG" 2>/dev/null || true
+}
+
+# ── 1. A PEDAGOGIA DO KERNEL — trocou na transação, o dono sabe NA HORA ──
+cur="$(pacman -Q "$KPKG" 2>/dev/null | awk '{print $2}')"
+if [ -n "$cur" ]; then
+    if [ ! -e "$STAMP" ]; then
+        mkdir -p "${STAMP%/*}" 2>/dev/null || true
+        printf '%s\n' "$cur" > "$STAMP" 2>/dev/null || true
+        tlog "linha de base: $KPKG $cur (o aviso só dispara em TROCA a partir de agora)"
+    else
+        seen="$(cat "$STAMP" 2>/dev/null)"
+        if [ -n "$seen" ] && [ "$seen" != "$cur" ]; then
+            tlog "kernel: $seen → $cur — REINICIE para rodá-lo (aviso ao fim da transação)"
+            echo "==> Elite: kernel atualizado (${seen} → ${cur}) — REINICIE para rodá-lo"
+            printf '%s\n' "$cur" > "$STAMP" 2>/dev/null || true
+        fi
+    fi
+fi
+
+# ── 2. A VIGÍLIA DO WAKE-GUARD (E24) — o estado no papel, sem agir ──────
+armadas="$(grep -c '\*enabled' /proc/acpi/wakeup 2>/dev/null || echo '?')"
+tlog "wake-guard E24 observado: ${armadas} fonte(s) ACPI armada(s) em /proc/acpi/wakeup (USB regido pela regra udev 90-elite-wake-guard)"
+
+exit 0

@@ -11,8 +11,8 @@
 # ESTE hook é a REDE DE SISTEMA: roda como root no 'post' do
 # systemd-sleep (TODOS os caminhos de sono atravessam aqui), espera o
 # driver assentar e religa os outputs de cada usuário com sessão
-# gráfica viva. Idempotente com os screenon do usuário (wlopm --on em
-# output aceso é no-op) — três caminhos, zero briga.
+# gráfica viva. Idempotente com os screenon do usuário — três caminhos,
+# zero briga.
 # Viaja NO PACOTE elite-system (a mesma lei E57 de um dono por caminho:
 # fora do pacote, o rig instalado NUNCA o receberia pelo canal).
 #
@@ -23,13 +23,42 @@
 # com o FALHA do journal sem contar a história inteira. Agora a fila
 # vem dos sockets que EXISTEM de verdade em /run/user/$uid: todos os
 # wayland-* entram, o que não existe não é tentado, e o 1º que responder
-# religa. Idempotência intacta — wlopm --on em output aceso é no-op, e
-# nenhum socket de outro usuário é tocado (a fila é POR usuário).
+# religa. Idempotência intacta — e nenhum socket de outro usuário é
+# tocado (a fila é POR usuário).
+#
+# E75 — O CICLO QUE O --ON SOZINHO NÃO FAZ (o relato recorrente:
+# "suspende, volta e o monitor fica SEM SINAL — PC e periféricos vivos,
+# só o vídeo morto; obrigou a reinicialização forçada"): o `wlopm --on`
+# em output que o compositor JÁ crê aceso é NO-OP com rc=0 — e no wake
+# esse é o estado COMUM: o labwc re-habilita outputs na atividade de
+# input que volta com o rebind do elite-resume-usb, e o 'Suspender' do
+# menu não apaga a tela antes de dormir. Quando a doença mora no nível
+# DRM (o driver não re-assentou o link de vídeo no resume — a classe
+# amdgpu/KMS que o craft-dump seção 10 caça), o rc=0 do no-op convive
+# com o monitor morto PARA SEMPRE: os dois caminhos de cura reportam
+# sucesso e NENHUM estado muda. A cura é a TROCA REAL DE ESTADO, aqui
+# e no screenon do usuário: `wlopm --off '*'` commita o output
+# DESLIGADO; 1s de trevas (o re-sync do monitor precisa do tempo mínimo
+# de DPMS off); `wlopm --on '*'` re-commita LIGADO — o wlroots refaz o
+# DPMS no nível DRM e o link do monitor re-treina. O hook roda no
+# instante mais escuro do ciclo (acabou de acordar), onde o blink do
+# ciclo sadio é invisível — e na doença é a diferença entre usar o PC
+# e reinicializar à força.
+#
 # O réu que nem esta rede alcança (compositor morto, driver que não
-# re-assenta) continua nomeado no craft-dump seção 10 — perícia primeiro.
+# re-assenta) continua nomeado: o journal deste hook (tag
+# elite-resume-display) e o estado dos conectores DRM entram no
+# craft-dump seção 10 (E75) — perícia antes de teoria.
 # ═══════════════════════════════════════════════════════════════════════════
 [ "$1" = "post" ] || exit 0
-command -v wlopm >/dev/null 2>&1 || exit 0
+
+# E75 — FIM DO EXIT CALADO: sem wlopm, esta rede NÃO EXISTE — e o
+# 'sem sinal' de um rig sem o binário tinha zero rastro (a lei da casa:
+# tudo que decide deixa linha no papel, inclusive a decisão de NÃO agir).
+if ! command -v wlopm >/dev/null 2>&1; then
+    logger -t elite-resume-display "FALHA: wlopm AUSENTE no sistema — a rede de sistema não tem como religar outputs (o pacote wlopm não está instalado; o rig precisou de reinicialização forçada sem este rastro até a E75)"
+    exit 0
+fi
 
 # O driver/compositor ainda re-inicializam no primeiro instante — janela
 # de sondagem: 5 tentativas × 2s (10s; o screenon do usuário tem a sua).
@@ -40,23 +69,30 @@ while [ "$i" -lt 5 ]; do
         u="${uhome##*/}"
         uid="$(id -u "$u" 2>/dev/null)" || continue
         pgrep -u "$uid" -x labwc >/dev/null 2>&1 || continue
-        religou=0
+        religou=""
         for sock in /run/user/"$uid"/wayland-*; do
             [ -S "$sock" ] || continue
             wd="${sock##*/}"
+            # E75 — O CICLO (off → 1s → on): a troca real de estado que
+            # força o re-commit do output no DRM. O --off é best-effort
+            # (output já desligado, socket morto — tanto faz); o julgamento
+            # é o rc do --on.
+            runuser -u "$u" -- env XDG_RUNTIME_DIR="/run/user/$uid" \
+                WAYLAND_DISPLAY="$wd" wlopm --off '*' >/dev/null 2>&1 || true
+            sleep 1
             if runuser -u "$u" -- env XDG_RUNTIME_DIR="/run/user/$uid" \
                 WAYLAND_DISPLAY="$wd" wlopm --on '*' >/dev/null 2>&1; then
-                religou=1
+                religou="$religou $wd"
             fi
         done
-        [ "$religou" -eq 1 ] && feito="$feito $u"
+        [ -n "$religou" ] && feito="$feito $u:$religou"
     done
     if [ -n "$feito" ]; then
-        logger -t elite-resume-display "outputs religados pós-sono (usuários:$feito)"
+        logger -t elite-resume-display "outputs religados pós-sono (ciclo off→on E75; usuários/sockets:$feito)"
         exit 0
     fi
     sleep 2
     i=$((i + 1))
 done
-logger -t elite-resume-display "FALHA: wlopm não religou os outputs após 5 tentativas (o driver/compositor contam no craft-dump seção 10)"
+logger -t elite-resume-display "FALHA: o ciclo off→on não re-assentou o vídeo após 5 tentativas (wlopm presente; o driver/compositor contam no craft-dump seção 10 — DRM/journal; a escotilha SEM reboot é o craft-rescue-screen a partir de um TTY)"
 exit 0
