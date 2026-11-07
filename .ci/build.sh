@@ -629,7 +629,21 @@ pkgver=1.0
 #     E68 sem chute wayland-0).
 #     pkgrel 19→20 NO MESMO COMMIT (lei E41 — craft-rice e o skel da
 #     sessão mudaram o pacote).
-pkgrel=20
+#
+# 06/nov — E70.1 (addendum): A PERÍCIA POR DOWNLOAD do 1.0-20 flagrou a
+#     cura que não alcançaria o rig antigo: o elite-system NUNCA carregou
+#     skel (64 membros = bins/units — o skel é veículo da ISO) e o
+#     /etc/skel do rig instalado é da ÉPOCA DA INSTALAÇÃO (o pacote nunca
+#     o atualiza) — a 8a copiaria code-flags.conf de um skel velho SEM o
+#     arquivo e o VS Code ficaria XWayland com titlebar própria (a ferida
+#     do print persistiria). A lição do dono de novo: parecia certo no
+#     papel (o contrato lia o skel do REPO) e não funcionaria no campo.
+#     Cura: o CONTEÚDO mora no BIN (padrão craft-rice — heredoc na seção
+#     [8]); o skel segue para a ISO (instalações novas nascem com o
+#     arquivo e a 8a é no-op nelas). +1 contrato.
+#     pkgrel 20→21 NO MESMO COMMIT (lei E41 — elite-tune mudou de
+#     conteúdo).
+pkgrel=21
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
