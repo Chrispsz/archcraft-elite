@@ -1760,6 +1760,101 @@ while [ "$_w" -lt 20 ] && [ ! -s "$ST77/hyprlock.log" ]; do sleep 0.1; _w=$((_w 
 assert_grep "$ST77/hyprlock.log" 'hyprlock' "E77/sono: o lock morto RENASCE no sono (o acordar nunca fica sem lock — E47 preservada no handler único)"
 assert_file "$RT77/elite/idle-suspend-gate" "E77/sono: o portão fecha MESMO com o lock renascendo (o sono é o sono — o isolamento não depende de quem dorme)"
 
+# ── E78 — O CICLO PERSISTENTE (a EMENDA do dono ao isolamento E77:
+#    "tirar do modo suspensão e continuar na tela de bloqueio reinicia o
+#    ciclo para uma nova contagem — persistência para TODAS as formas de
+#    uso"). As TRÊS curas provadas com a VIGÍLIA REAL (procfs de verdade,
+#    hyprlock fake = /bin/sleep com o comm certo, systemctl de papel) e a
+#    conta REAL do tempo: SUSPEND_MIN=1 no conf do teste (teto = 60s
+#    reais — o mínimo da casa; o tick de 30s é o do rig, sem nó de teste).
+#    (C1) O PAGAMENTO: vigília nascida DEPOIS do portão fechado suspende
+#         no teto quieto — o wake travado reinicia o ciclo (a prisão
+#         perpétua da E77 morre; dorme/acorda parado/conta/dorme).
+#    (C2) A OBSOLESCÊNCIA: portão com mtime DEPOIS do meu nascimento (sono
+#         SOB a minha vigília — menu/tampa) = saio SEM dormir e a sucessora
+#         nasce com a contagem nova (o ciclo não herda tempo pré-sono).
+#    (C3) AS MÃOS RENOVAM: episódio de mãos zera a contagem (a spec: input
+#         reseta T3 — a senha nunca é interrompida, nem na pausa de
+#         pensamento com o tempo total estourado).
+pkill -x craft-vigil 2>/dev/null || true
+VIGIL78="$REPO/elite/airootfs/usr/local/bin/craft-vigil"
+e78_env() { XDG_RUNTIME_DIR="$RT77" XDG_CONFIG_HOME="$CF77" XDG_CACHE_HOME="$ST77" PATH="$MOCK77:$PATH" MOCK_DIR="$ST77" bash "$VIGIL78"; }
+# o PATH da cena E78 carrega a vigília REAL: a sucessora da obsolescência
+# (C2) nasce pelo setsid via PATH — o stub de papel da E77 aposenta-se
+# AQUI (o stub não sobrevive a si mesmo e a sucessora tem que EXISTIR)
+cp "$VIGIL78" "$MOCK77/craft-vigil"
+printf 'SUSPEND_MIN=1\n' > "$CF77/elite/idle.conf"   # teto REAL de 60s (o mínimo honesto — sem nó de teste)
+FK78="$WORK/fake-lock78"; mkdir -p "$FK78"; cp /bin/sleep "$FK78/hyprlock"
+
+# (C1) O PAGAMENTO — o ciclo persistente existe de verdade
+rm -rf "$ST77" "$RT77"; mkdir -p "$ST77" "$RT77/elite"
+"$FK78/hyprlock" 120 & fk78=$!
+sleep 0.1
+touch -d '10 seconds ago' "$RT77/elite/idle-suspend-gate"   # portão do sono ANTERIOR ao meu nascimento (o wake)
+e78_env >/dev/null 2>&1 & vig78=$!
+_pagou=""
+_w=0
+while [ "$_w" -lt 90 ] && [ -z "$_pagou" ]; do
+    sleep 1
+    grep -q 'systemctl suspend -i' "$ST77/systemctl.log" 2>/dev/null && _pagou=1
+    _w=$((_w + 1))
+done
+assert_eq "$_pagou" "1" "E78/pagamento: o wake travado PAGA o novo período completo — a vigília nascida DEPOIS do portão suspende no teto quieto (a prisão perpétua da E77 morre; o ciclo persiste)"
+assert_file "$RT77/elite/idle-suspend-gate" "E78/pagamento: o sono da vigília fecha o portão de novo (o próximo wake renasce a contagem — a persistência é ciclicamente honesta)"
+assert_grep "$ST77/elite/idle.log" 'PAGO' "E78/pagamento: o pagamento deixa linha no papel (o isolamento E77 termina legitimamente — tudo que decide registra)"
+kill "$fk78" "$vig78" 2>/dev/null || true
+pkill -x craft-vigil 2>/dev/null || true
+
+# (C2) A OBSOLESCÊNCIA — o sono sob a minha vigília invalida a minha contagem
+rm -rf "$ST77" "$RT77"; mkdir -p "$ST77" "$RT77"
+"$FK78/hyprlock" 180 & fk78b=$!
+sleep 0.1
+e78_env >/dev/null 2>&1 & vig78b=$!
+# 1.2s — o touch do portão tem que ATRAVESSAR o segundo do nascimento
+# (mtime > nascimento em segundos inteiros). No rig a corrida não existe
+# (o sono manual vem minutos depois do armar); no teste comprimido ela
+# morde: touch no MESMO segundo do nascimento = a vigília paga em vez de
+# aposentar-se — o falso positivo do juízo, não da cura.
+sleep 1.2
+mkdir -p "$RT77/elite"; : > "$RT77/elite/idle-suspend-gate"   # o sono DEPOIS do meu nascimento (menu/tampa)
+_aposentou=""
+_w=0
+while [ "$_w" -lt 90 ] && [ -z "$_aposentou" ]; do
+    sleep 1
+    grep -q 'OBSOLETA' "$ST77/elite/idle.log" 2>/dev/null && _aposentou=1
+    _w=$((_w + 1))
+done
+assert_eq "$_aposentou" "1" "E78/obsolescência: o sono SOB a minha vigília aposenta-me (contagem VOID — o ciclo não herda tempo pré-sono)"
+assert_nogrep "$ST77/systemctl.log" 'suspend' "E78/obsolescência: a vigília obsoleta NÃO dorme (tempo pago antes do sono não vale — quem conta é a sucessora)"
+sleep 0.5
+if pgrep -x craft-vigil >/dev/null 2>&1; then
+  ok "E78/obsolescência: a SUCESSORA nasce com a contagem nova do wake (a guard anti-loop é o próprio marco: nascida DEPOIS do portão, ela é quem paga o ciclo)"
+else
+  fail "E78/obsolescência: a SUCESSORA nasce" "nenhuma vigília no ar após a aposentadoria — o ciclo persistente morreria no sono manual"
+fi
+kill "$fk78b" "$vig78b" 2>/dev/null || true
+pkill -x craft-vigil 2>/dev/null || true
+
+# (C3) AS MÃOS RENOVAM — input reseta T3 (a spec do dono, agora lei do teto)
+rm -rf "$ST77" "$RT77"; mkdir -p "$ST77" "$RT77/elite"
+"$FK78/hyprlock" 90 & fk78c=$!
+sleep 0.1
+e78_env >/dev/null 2>&1 & vig78c=$!
+sleep 1   # o primeiro tick quieto (quiet=1 — a mão que VOLTA é quem registra o episódio)
+: > "$RT77/elite/idle-activity"   # mãos no lock (a marca do compositor — mundo A)
+_renovou=""
+_w=0
+while [ "$_w" -lt 45 ] && [ -z "$_renovou" ]; do
+    sleep 1
+    grep -q 'CONTAGEM RENOVADA' "$ST77/elite/idle.log" 2>/dev/null && _renovou=1
+    _w=$((_w + 1))
+done
+assert_eq "$_renovou" "1" "E78/mãos: o episódio de mãos RENOVA a contagem (o papel registra a cura — T3 é período contínuo sem mãos)"
+assert_nogrep "$ST77/systemctl.log" 'suspend' "E78/mãos: ninguém dorme com mãos no lock (a E61 preservada dentro da E78 — a senha nunca é interrompida)"
+kill "$fk78c" "$vig78c" 2>/dev/null || true
+pkill -x craft-vigil 2>/dev/null || true
+rm -f "$CF77/elite/idle.conf"   # o conf comprimido não vaza para as cenas seguintes
+
 # ── E48 — craft-bgapps v4.2 NO COMPORTAMENTO (a lição E35.1/E42: texto
 #    não prova): processos REAIS com WAYLAND_DISPLAY no environ — o comm
 #    de python3 invocado DIRETO é 'python3' (o interpretador; provado no

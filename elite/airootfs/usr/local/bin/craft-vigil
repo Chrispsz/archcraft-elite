@@ -73,12 +73,39 @@
 #   · O PORTÃO (idle-suspend-gate, XDG_RUNTIME_DIR): fechado no pós-sono
 #     (o sleep-hook do before-sleep fecha em TODO sono; esta vigília
 #     fecha de novo antes do próprio suspend — swayidle morto também
-#     fica coberto) = o teto estourado NÃO dorme: espera o destravo. O
-#     destravo mata esta vigília pelo próprio laço — e a saída natural
-#     ABRE o portão (o lock que morreu é evento NOVO: o ciclo pode
-#     recomeçar do zero — T1 → lock novo → vigília nova).
+#     fica coberto). O destravo mata esta vigília pelo próprio laço — e
+#     a saída natural ABRE o portão (o lock que morreu é evento NOVO: o
+#     ciclo pode recomeçar do zero — T1 → lock novo → vigília nova).
 #   · A GRAÇA que falha (lock não nasceu em 15s) também abre: um braço
 #     desarmado não pode segurar o ciclo para sempre.
+#
+# E78 — O CICLO PERSISTENTE (a EMENDA do dono ao isolamento E77 — 07/nov:
+#   "se eu ligar o PC e tirar ele do modo suspensão, mas continuar
+#   deixando na tela de bloqueio, aí ele vai reiniciar esse ciclo para
+#   uma nova contagem para suspender e tudo funcionar normalmente...
+#   persistência, lógica correta para TODAS as formas de uso"). A E77
+#   tinha o limite honesto registrado: wake travado esperando a senha
+#   ficava ACORDADO PARA SEMPRE (o portão só abria no destravo) — a
+#   prisão perpétua do suspend. A emenda: o wake travado NÃO é prisão;
+#   é o INÍCIO de uma contagem nova. Três curas:
+#   (1) O PAGAMENTO: a vigília RENASCIDA no wake (screenon/re-arme)
+#       nasce DEPOIS do portão fechado — o período completo que ela
+#       conta É o 'novo período de inatividade' da spec. No teto com
+#       orelhas quietas e portão fechado com a MINHA contagem: PAGA —
+#       suspende (escuro e travado) e o ciclo PERSISTE:
+#       dorme/acorda(parado)/conta/dorme — cada rodada com o período
+#       INTEIRO desde o wake, nunca um loop apertado.
+#   (2) A VIGÍLIA OBSOLETA SE APOSENTA: portão fechado com mtime DEPOIS
+#       do meu nascimento = um sono real aconteceu ENQUANTO eu vigiava
+#       (sono manual do menu, tampa) — a minha contagem nasceu ANTES do
+#       sono e morreu com ele. Saio SEM dormir e ARMO a sucessora com a
+#       contagem NOVA do wake (o ciclo não herda tempo pré-sono).
+#   (3) AS MÃOS RENOVAM A CONTAGEM (a spec do dono: T3 só corre com o
+#       sistema CONTINUAMENTE idle — input reseta T3): cada episódio de
+#       mãos zera o teto, não só o quiet. A senha digitada empurra o
+#       suspend um período INTEIRO para a frente: interromper o dono no
+#       meio do pensamento (a pausa de 60s com o tempo total estourado)
+#       morre aqui. O destravo segue abrindo o portão na hora (E77).
 set -u
 
 CONF="${XDG_CONFIG_HOME:-$HOME/.config}/elite/idle.conf"
@@ -106,6 +133,13 @@ ACT_EPOCH="${XDG_RUNTIME_DIR:-/tmp}/elite/idle-activity"
 GATE="${XDG_RUNTIME_DIR:-/tmp}/elite/idle-suspend-gate"
 
 alive() { pgrep -x hyprlock >/dev/null 2>&1; }
+
+# E78 — O MARCO DO MEU NASCIMENTO: a fronteira entre a contagem que é
+# MINHA e a contagem pré-sono que virou papel velho. O portão com mtime
+# DEPOIS deste instante é um sono que aconteceu SOB a minha vigília —
+# e um sono sob a minha vigília invalida a minha contagem (a sucessora
+# nasce com a contagem nova do wake).
+nascimento="$(date +%s)"
 
 # E61 — a orelha de CPU: utime+stime do hyprlock em jiffies. Após o
 # comm (com ')' no meio — o corte é GULOSO até o último ') '), o utime
@@ -136,7 +170,6 @@ cpu_ant="$(cpu_of 2>/dev/null || echo 0)"
 quiet=0
 elapsed=0
 teto=$((SUSPEND_MIN * 60))
-gate_dito=""   # E77 — o portão falha UMA vez por episódio (o papel não spama)
 while alive; do
     cpu_agora="$(cpu_of 2>/dev/null || echo 0)"
     delta=$((cpu_agora - cpu_ant))
@@ -160,49 +193,67 @@ while alive; do
     if [ -n "$motivo" ]; then
         # E61 — UM log por episódio: a mão que volta depois de um tick
         # quieto registra; teclas seguidas no MESMO episódio não spama.
+        # E78 (3) — AS MÃOS RENOVAM A CONTAGEM: o teto deixa de ser tempo
+        # TRAVADO total e vira PERÍODO CONTÍNUO sem mãos (a spec: T3 só
+        # corre continuamente idle — input reseta T3). A senha digitada
+        # empurra o suspend um período INTEIRO para a frente a cada
+        # episódio: a pausa de pensamento do dono não é mais suficiente
+        # para dormir (o total antigo estourava com 60s de pausa).
         if [ "$quiet" -ge 1 ]; then
-            vlog "VIGÍLIA: mãos no lock ($motivo) — suspend adiado (não dorme sob o dono)"
+            vlog "VIGÍLIA: mãos no lock ($motivo) — suspend adiado e CONTAGEM RENOVADA (E78: o novo período começa AGORA — não dorme sob o dono)"
         fi
         quiet=0
+        elapsed=0
     else
         quiet=$((quiet + 1))
     fi
     if [ "$elapsed" -ge "$teto" ] && [ "$quiet" -ge 2 ]; then
-        # E77 — O PORTÃO NA DECISÃO: fechado = o último sono ainda não foi
-        # pago com um destravo (a spec: nenhum timer suspende de novo até
-        # a sessão desbloquear e correr um novo período completo de
-        # inatividade). A vigília ESPERA (o laço segue; o destravo mata o
-        # laço e a saída natural abre o portão) — o wake fica travado e
-        # ACORDADO esperando a senha, nunca re-suspendido por timer.
+        # E78 — O PORTÃO NA DECISÃO, REESCRITO PELA EMENDA: fechado não é
+        # mais prisão perpétua. Dois julgamentos, na ordem:
+        #   (a) OBRIGAÇÃO: portão com mtime DEPOIS do meu nascimento = o
+        #       sono aconteceu SOB a minha vigília — minha contagem é
+        #       pré-sono (papel velho): aposto-me SEM dormir e a sucessora
+        #       nasce com a contagem nova do wake (o ciclo persistente
+        #       limpo; a guard anti-loop é o próprio marco — a sucessora
+        #       nasce DEPOIS do portão, nunca re-entra aqui pelo MESMO
+        #       sono).
+        #   (b) O PAGAMENTO: portão fechado com a MINHA contagem (nasci
+        #       DEPOIS do portão) = o novo período completo de inatividade
+        #       foi pago na íntegra DESDE o wake — o isolamento E77
+        #       termina legitimamente AQUI (lock vivo, orelhas quietas,
+        #       ninguém digitando). Suspende — e o screenon do retorno
+        #       re-arma a sucessora: o ciclo persiste indefinidamente.
         if [ -e "$GATE" ]; then
-            if [ -z "$gate_dito" ]; then
-                vlog "VIGÍLIA: portão FECHADO — suspend suprimido (pós-sono sem destravo: isolamento E77; o destravo abre o portão e encerra a vigília)"
-                gate_dito=1
+            gmt="$(stat -c %Y "$GATE" 2>/dev/null || echo 0)"
+            if [ "$gmt" -gt "$nascimento" ]; then
+                vlog "E78: vigília OBSOLETA (o sono fechou o portão DEPOIS do meu nascimento) — contagem VOID: saio sem dormir e a sucessora nasce com a contagem NOVA do wake (o ciclo persistente não herda tempo pré-sono)"
+                setsid craft-vigil >/dev/null 2>&1 </dev/null &
+                exit 0
             fi
-        else
-            vlog "VIGÍLIA: suspendindo (travado há ${SUSPEND_MIN}min, ${quiet} ticks quietos — escuro e travado: acorda no lock)"
-            # E77 — o portão fecha PELO SUSPEND (cinto-e-suspensório do
-            # sleep-hook do before-sleep: swayidle morto = before-sleep
-            # não roda — o sono da vigília mesma garante o isolamento do
-            # próximo wake).
-            mkdir -p "${GATE%/*}" 2>/dev/null || true
-            : > "$GATE" 2>/dev/null || true
-            if systemctl suspend -i; then
-                vlog "VIGÍLIA: suspend voltou (ciclo completo — a vigília EXISTE e está no papel)"
-                # E63 — A VOLTA DA IMAGEM: quem chamou o sono SOBREVIVE a ele
-                # e é um dos primeiros processos de usuário de pé no wake —
-                # o screenon (sondagem 6×2s + rearmamento da vigília sucessora)
-                # roda AQUI também. O callback resume do swayidle pode perder
-                # a corrida contra a re-inicialização do driver (o monitor
-                # 'sem sinal, luz vermelha' do dono, 06/nov) — um caminho só
-                # não é rede; são três: swayidle resume, ESTA chamada e o
-                # hook de sistema elite-resume-display (todos idempotentes).
-                craft-idle screenon >/dev/null 2>&1 || true
-            else
-                vlog "FALHA: vigília systemctl suspend -i rc=$? — o PC NÃO dormiu (réu nomeado no papel)"
-            fi
-            exit 0
+            vlog "E78: portão fechado no pós-sono, mas a contagem é MINHA (nasceu do wake) — novo período completo PAGO: o isolamento E77 termina legitimamente (lock vivo, orelhas quietas); o ciclo persiste"
         fi
+        vlog "VIGÍLIA: suspendindo (travado há ${SUSPEND_MIN}min sem mãos — contagem contínua E78, ${quiet} ticks quietos; escuro e travado: acorda no lock)"
+        # E77 — o portão fecha PELO SUSPEND (cinto-e-suspensório do
+        # sleep-hook do before-sleep: swayidle morto = before-sleep
+        # não roda — o sono da vigília mesma garante o isolamento do
+        # próximo wake).
+        mkdir -p "${GATE%/*}" 2>/dev/null || true
+        : > "$GATE" 2>/dev/null || true
+        if systemctl suspend -i; then
+            vlog "VIGÍLIA: suspend voltou (ciclo completo — a vigília EXISTE e está no papel)"
+            # E63 — A VOLTA DA IMAGEM: quem chamou o sono SOBREVIVE a ele
+            # e é um dos primeiros processos de usuário de pé no wake —
+            # o screenon (sondagem 6×2s + rearmamento da vigília sucessora)
+            # roda AQUI também. O callback resume do swayidle pode perder
+            # a corrida contra a re-inicialização do driver (o monitor
+            # 'sem sinal, luz vermelha' do dono, 06/nov) — um caminho só
+            # não é rede; são três: swayidle resume, ESTA chamada e o
+            # hook de sistema elite-resume-display (todos idempotentes).
+            craft-idle screenon >/dev/null 2>&1 || true
+        else
+            vlog "FALHA: vigília systemctl suspend -i rc=$? — o PC NÃO dormiu (réu nomeado no papel)"
+        fi
+        exit 0
     fi
     sleep 30
     elapsed=$((elapsed + 30))

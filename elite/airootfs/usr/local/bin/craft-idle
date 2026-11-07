@@ -53,6 +53,15 @@
 #       (T1 → lock novo → vigília nova → SUSPEND_MIN travado).
 #       O wake de DPMS puro (mouse na tela de bloqueio apagada) NÃO
 #       abre: screenon só abre com lock MORTO.
+#       E78 — A EMENDA DO DONO AO ISOLAMENTO (o ciclo persistente): o
+#       wake travado NÃO é prisão perpétua. A vigília RENASCIDA no wake
+#       nasce DEPOIS do portão — o período completo que ela conta É o
+#       'novo período de inatividade' da spec, e no teto com orelhas
+#       quietas ela PAGA o portão e suspende de novo (escuro e travado).
+#       Mãos renovam a contagem (T3 = período contínuo sem mãos — a
+#       senha nunca é interrompida); o destravo segue abrindo na hora.
+#       O portão segue fechando em TODO sono e intocável pelo screenon —
+#       quem o paga é a contagem nova, NUNCA o wake sozinho.
 #
 # Uso:
 #   craft-idle           menu de presets (mouse-first — item do menu do
