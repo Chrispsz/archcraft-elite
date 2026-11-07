@@ -112,7 +112,11 @@ case "${1:-}" in
         reload_dock
         ;;
     *)
-        sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'
+        # E76 — o range mágico '2,22p' imprimia CÓDIGO cru no help (o
+        # cabeçalho terminava na linha 17 e as linhas 18-22 vazavam
+        # PINS_DIR/PINS/DESKTOP_DIRS/ensure_file). O awk imprime ENQUANTO
+        # a linha é comentário — o cabeçalho inteiro, o código NUNCA.
+        awk 'NR==1{next} /^#/{print; next} {exit}' "$0" | sed 's/^# \{0,1\}//'
         exit 2
         ;;
 esac

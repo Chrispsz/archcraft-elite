@@ -344,6 +344,7 @@ assert_grep "$REPO/.ci/build.sh" 'When = PostTransaction' "E75: o hook é PostTr
 assert_grep "$REPO/.ci/build.sh" 'depends=\(bash python wayland wlopm\)' "E75: o wlopm é DEPENDÊNCIA do elite-system (a rede do resume sem o binário era rede imaginária nos rigs que não o tinham)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 25→26 NO MESMO COMMIT' "E75: pkgrel elite-system 25→26 NO MESMO COMMIT (lei E41 — craft-idle, craft-dump e elite-resume-display mudaram de conteúdo; 2 bins + o .hook libalpm são novos; âncora na HISTÓRIA, lição E58/E59)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 26→27 NO MESMO COMMIT' "E75.1: pkgrel elite-system 26→27 NO MESMO COMMIT (lei E41 — elite-ferramentas mudou de conteúdo: a linha morta ITEM='' saiu; o 1.0-26 nunca publicou — o container recusou o wlopm ausente, cura no preflight dos DOIS ramos)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 27→28 NO MESMO COMMIT' "E76: pkgrel elite-system 27→28 NO MESMO COMMIT (lei E41 — craft-pin e craft-pin-pick mudaram de conteúdo: o help não vaza código, o picker fala os três desfechos E36 de verdade e lista o XDG_DATA_HOME do usuário; âncora na HISTÓRIA, lição E58/E59)"
 
 # ── E69 — O DESPERTAR DOS DISPOSITIVOS (relato REAL do dono no 1.0-18:
 #    "o suspender volta sem despertar os dispositivos USB — não consigo
@@ -1024,6 +1025,17 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin-pick" "grep -q -- '--a
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-rollback" "grep -q -- '--anchor'" "v2.10.5: rollback prova --anchor (mesma lei)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin-pick" 'Hidden=true' "v2.10.5: picker respeita Hidden (a lei XDG é dupla)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin-pick" 'pt_BR' "v2.10.5: picker fala o nome da gente (Name[pt_BR] antes do genérico)"
+
+# E76 — ÁREA 3 DA ROTAÇÃO (GUIs fuzzel): o picker fala a verdade e enxerga
+# o mesmo mundo que o irmão resolve.
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin-pick" '\|\| addrc=\$\?' \
+  "E76: o add do picker usa a gramática '|| addrc=\$?' (a forma 'out=\$(…); addrc=\$?' morria no set -e com rc≠0 do craft-pin — o desfecho 'já estava na dock' do E36 era inalcançável; prova FUNCIONAL no 30-unit 3.O)"
+assert_nogrep "$REPO/elite/airootfs/usr/local/bin/craft-pin-pick" '\); addrc=\$\?' \
+  "E76: a forma morta 'out=\$(…); addrc=\$?' saiu do picker (o ponto-e-vírgula era a assinatura da morte calada)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin-pick" 'local/share\}/applications' \
+  "E76: o inventário do picker inclui o XDG_DATA_HOME do USUÁRIO PRIMEIRO (a MESMA precedência do resolve do craft-pin — .desktop do usuário, ex. AppImage do appimagelauncher, é fixável pelo mouse; o comentário 'overrides primeiro' vira verdade)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin" 'awk .NR==1\{next\}' \
+  "E76: o help do craft-pin imprime ENQUANTO é comentário (o range mágico '2,22p' vazava PINS_DIR/DESKTOP_DIRS/ensure_file cru; prova FUNCIONAL no 30-unit 3.O)"
 
 # F. bateria: /sys puro (upower saiu da equação — e a mensagem amigável é alcançável):
 assert_nogrep "$REPO/elite/airootfs/usr/local/bin/craft-bat" 'command -v upower' "v2.10.5: craft-bat sem upower (dep que não estava na ISO)"

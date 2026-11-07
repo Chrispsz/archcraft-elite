@@ -42,13 +42,17 @@ command -v craft-pin >/dev/null 2>&1 || { mlog "Fixar: craft-pin AUSENTE"; exit 
 ANCHOR=''
 fuzzel --help 2>&1 | grep -q -- '--anchor' && ANCHOR='--anchor=center'
 
-# ── 1. Inventário: .desktop visíveis (overrides primeiro — XDG order) ──
+# ── 1. Inventário: .desktop visíveis (overrides do USUÁRIO primeiro —
+#       a MESMA precedência do resolve do craft-pin: um .desktop do usuário
+#       (AppImage registrado pelo appimagelauncher, ex.) é fixável pelo
+#       mesmo fluxo mouse-first — E76) ─────────────────────────────────────
 LIST="$(mktemp)"
 errf="$(mktemp)"
 trap 'rm -f "$LIST" "$errf"' EXIT
 : >"$LIST"
 seen=""
-for d in /usr/local/share/applications /usr/share/applications; do
+for d in "${XDG_DATA_HOME:-$HOME/.local/share}/applications" \
+         /usr/local/share/applications /usr/share/applications; do
     [ -d "$d" ] || continue
     for f in "$d"/*.desktop; do
         [ -r "$f" ] || continue
@@ -102,8 +106,15 @@ base="$(awk -F'\t' -v n="$choice" '$1 == n {print $2; exit}' "$LIST")"
 # ── 3. Fixa o ID .desktop REAL (Gio.DesktopAppInfo.new() é case-sensitive:
 #       nada de slug minúsculo — o ID exato é o que a dock consome) ──────
 # E36 — três desfechos com TRÊS toasts (antes: duplicata era rc 0 = toast
-# de sucesso falsa; falha real = silêncio — o leigo não sabia NADA):
-addout="$(craft-pin add "$base" 2>&1)"; addrc=$?
+# de sucesso falsa; falha real = silêncio — o leigo não sabia NADA).
+# E76 — a gramática '|| addrc=$?' (a MESMA do fuzzel acima): a forma antiga
+# capturava a saída numa atribuição e lia o rc na LINHA SEGUINTE — mas o
+# set -e matava na própria atribuição quando o craft-pin devolvia rc≠0 (a
+# duplicata é rc 1 desde o E36): o picker morria CALADO e o desfecho
+# 'já estava na dock' era inalcançável (a morte silenciosa que a v2.3.1
+# jurou extinta).
+addrc=0
+addout="$(craft-pin add "$base" 2>&1)" || addrc=$?
 if [ "$addrc" -eq 0 ]; then
     if command -v notify-send >/dev/null 2>&1; then
         notify-send -a craft-pin "Dock" \

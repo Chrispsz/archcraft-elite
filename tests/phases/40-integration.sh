@@ -3147,10 +3147,12 @@ assert_grep "$E74BIN/elite-ferramentas" '--report' \
   "E74/F7: o relatório de ferramentas é público (a E33 manda poder conferir sem raiz)"
 
 # ── E41: o pkgrel viajou NO MESMO COMMIT ──
-assert_grep "$REPO/.ci/build.sh" 'pkgrel=27' \
-  "E75.1 (lei E41): pkgrel elite-system 26→27 — elite-ferramentas mudou de conteúdo (a linha morta ITEM='' saiu; o gate shellcheck do CI exige zero avisos)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=28' \
+  "E76 (lei E41): pkgrel elite-system 27→28 — craft-pin e craft-pin-pick mudaram de conteúdo (help sem vazamento de código; o picker fala os três desfechos E36 e lista o XDG_DATA_HOME do usuário)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 27→28 NO MESMO COMMIT' \
+  "E76 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 26→27 NO MESMO COMMIT' \
-  "E75.1 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
+  "E75.1 (lei E41, âncora histórica viva): elite-ferramentas mudou de conteúdo (a linha morta ITEM='' saiu; o gate shellcheck do CI exige zero avisos)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 25→26 NO MESMO COMMIT' \
   "E75 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 24→25 NO MESMO COMMIT' \
