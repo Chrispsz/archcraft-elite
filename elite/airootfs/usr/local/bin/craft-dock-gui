@@ -427,6 +427,7 @@ class Dock:
         # (re-fork do daemon, hiccup do unix). Contador de falhas seguidas.
         self._tl_miss = 0
         self._children = []        # Popen rastreados (a ceifa dos zumbis)
+        self._menus = []           # Popen dos menus vivos (E74 — child_watch)
 
         self.win = Gtk.Window()
         self.win.set_name("dockwindow")
@@ -691,13 +692,11 @@ class Dock:
         name = info.get_display_name() or ""
         did = info.get_id() or ""
         cmd = exec_of(info)
-        if dynamic:
+        # E74 — o direito agora é MENU (a spec do dono: "Botão Direito:
+        # Menu contextual / abrir nova janela") — o tooltip narra a casa.
+        if dynamic or WLRCTL:
             btn.set_tooltip_text(
-                f"{name} — esquerdo: focar/abrir · direito: nova janela · "
-                f"meio: encerrar programa")
-        elif WLRCTL:
-            btn.set_tooltip_text(
-                f"{name} — esquerdo: focar/abrir · direito: nova janela · "
+                f"{name} — esquerdo: focar/abrir · direito: menu · "
                 f"meio: encerrar programa")
         else:
             btn.set_tooltip_text(f"{name} — clique: abrir")
@@ -846,27 +845,26 @@ class Dock:
     # ── os VERBOS do clique (v2.7 + v2.10 + v2.10.1 + v2.10.10) ──────
     def _press(self, btn, ev, info, hint, did, cmd, dynamic=False):
         if ev.button == 3:
-            # v2.10.10 — a gramática UMA: direito = NOVA SESSÃO em todo
-            # botão com .desktop (pin OU dinâmico — o dono: "com o direito
-            # deve abrir outra sessão/guia"). O verbo FIXAR segue vivo na
-            # porta própria da casa (craft-pin-pick, direito no desktop) —
-            # a dock não gasta o clique direito com verbo que não é o dele.
-            self._launch(btn, cmd)
+            # E74 — O DIREITO GANHOU MENU (a spec do dono: "Botão Direito:
+            # Menu contextual / abrir nova janela"). A gramática UMA da
+            # v2.10.10 sobrevive INTEIRA: "Nova janela" é o PRIMEIRO item —
+            # o verbo que o dono pediu continua a um clique de distância,
+            # agora com companhia (encerrar todas, fixar/desafixar). O
+            # motor é o fuzzel (craft-menu — a era GTK dos menus morreu
+            # duas vezes e os contratos proíbem a volta); o slot 'dock'
+            # ancora o menu SOBRE a dock. Botão SEM .desktop (AppImage
+            # raw) segue DIRETO: menu sem identidade é enfeite.
+            if did:
+                self._dock_menu(btn, info, hint, did, cmd, dynamic)
+            else:
+                self._launch(btn, cmd)
             return True                              # consumido — sem "clicked"
         if ev.button == 2:
-            # v2.10.3 — o meio ENCERRA O PROGRAMA: TODAS as janelas do app
-            # recebem o WM_DELETE gracioso (o dono: "clico na tarefa e ela
-            # não encerra"). Sem daemon, o wlrctl da v2.10 assume.
-            if self.tl_alive:
-                # E36 — strict=True: o fecho exige casamento por app_id (o
-                # título nunca manda WM_DELETE — ver _windows_of)
-                wids = self._windows_of(info, hint, did, strict=True)
-                if wids and self._close_app_windows(wids):
-                    return True
-            if WLRCTL:
-                self._close_windows(info, hint, did)  # meio: fechar (gracioso)
-                return True
-            return False
+            # v2.10.3 — o meio ENCERRA O PROGRAMA (o dono: "clico na
+            # tarefa e ela não encerra"). E74: o corpo virou verbo — o
+            # menu "Encerrar todas" usa a MESMA fonte de verdade.
+            self._close_all(info, hint, did)
+            return True
         if ev.button == 1:
             self._focus_or_launch(info, hint, did, cmd)  # esquerdo
             return True
@@ -875,6 +873,80 @@ class Dock:
     def _clicked(self, _btn, info, hint, did, cmd):
         # teclado (Espaço/Enter) = o mesmo verbo do esquerdo
         self._focus_or_launch(info, hint, did, cmd)
+
+    # ── o MENU do direito (E74 — Fase 1 do protocolo do dono) ──────────
+    def _close_all(self, info, hint, did):
+        """O verbo ENCERRAR TODAS — o corpo exato do meio-clique (E36):
+        strict por app_id + fallback wlrctl. UMA fonte de verdade para o
+        meio-clique e para o menu; o título NUNCA manda WM_DELETE."""
+        if self.tl_alive:
+            wids = self._windows_of(info, hint, did, strict=True)
+            if wids and self._close_app_windows(wids):
+                return True
+        if WLRCTL:
+            self._close_windows(info, hint, did)  # fechar (gracioso)
+            return True
+        return False
+
+    def _dock_menu(self, _btn, info, hint, did, cmd, dynamic):
+        """Menu contextual do botão direito (E74). Itens: 'Nova janela'
+        (a gramática UMA, primeiro — default do dono), 'Encerrar todas'
+        (só com janelas vivas — a lista decide, não a adivinhação) e o
+        fixar/desafixar pela porta própria (craft-pin). Spawn ASSÍNCRONO
+        com child_watch: a dock NUNCA congela esperando o fuzzel."""
+        key = did or binary_of(info) or "app"
+        items = ["Nova janela"]
+        if self.tl_alive:
+            wids = self._windows_of(info, hint, did, strict=True)
+            if wids:
+                items.append(f"Encerrar todas ({len(wids)})")
+        if did:
+            items.append("Remover fixação" if not dynamic else "Fixar na dock")
+        try:
+            proc = subprocess.Popen(
+                ["/usr/local/bin/craft-menu", "--title=dock:" + key,
+                 "--at=dock"] + items,
+                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                text=True, start_new_session=True)
+        except OSError:
+            # sem craft-menu no PATH: o direito cai no verbo da gramática
+            # UMA — a dock nunca fica pior por causa da cura (lei v2.10)
+            self._launch(None, cmd)
+            return
+        self._menus = [m for m in self._menus if m.poll() is not None]
+        self._menus.append(proc)
+        GLib.child_watch_add(GLib.PRIORITY_DEFAULT, proc.pid,
+                             self._dock_menu_done,
+                             (info, hint, did, cmd, proc))
+
+    def _dock_menu_done(self, _pid, _status, ctx):
+        """O dispatch do menu (callback do child_watch — thread GTK).
+        Silêncio (ESC/toggle/cross-dismiss) = nada acontece — a lei do
+        craft-menu: exit 1/2/143 são fechamentos, não escolhas."""
+        info, hint, did, cmd, proc = ctx
+        choice = ""
+        try:
+            choice = (proc.stdout.read() or "").strip()
+        except Exception:  # noqa: BLE001 — menu exótico não derruba a dock
+            choice = ""
+        try:
+            proc.stdout.close()
+        except Exception:  # noqa: BLE001
+            pass
+        if choice == "Nova janela":
+            self._launch(None, cmd)
+        elif choice.startswith("Encerrar todas"):
+            self._close_all(info, hint, did)
+        elif choice == "Fixar na dock" and did:
+            subprocess.Popen(["/usr/local/bin/craft-pin", "add", did],
+                             stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL,
+                             start_new_session=True)
+        elif choice == "Remover fixação" and did:
+            subprocess.Popen(["/usr/local/bin/craft-pin", "rm", did],
+                             stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL,
+                             start_new_session=True)
 
     def _focus_candidates(self, info, hint, did):
         # ordem de adivinha: hint explícito → StartupWMClass → binário →

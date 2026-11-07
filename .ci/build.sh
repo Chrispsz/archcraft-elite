@@ -712,7 +712,27 @@ pkgver=1.0
 #         nunca chega — pre_install remove a via da ISO sem dono).
 #     pkgrel 23→24 NO MESMO COMMIT (lei E41 — craft-hello, o config e a
 #     seção [10] mudaram o pacote).
-pkgrel=24
+# 07/nov — E74 — O PROTOCOLO DE OURO (as 7 fases da spec LabWC/Wayland do
+#     dono). O pacote mudou em CINCO pontas NO MESMO COMMIT:
+#     (1) DOCK: o direito ganhou MENU contextual (craft-dock-gui: _dock_menu
+#         + _close_all como fonte única do fecho E36; 'Nova janela' é o 1º
+#         item — a gramática UMA v2.10.10 sobrevive dentro do menu; o
+#         craft-menu ganhou o slot 'dock' — âncora bottom-center);
+#     (2) MOLDURA: GTK_CSD=0 no environment do skel + elite-tune 8e (o GTK3
+#         entrega a decoração ao compositor; a regra universal do craft-rice
+#         é a lei geral);
+#     (3) OSD: swayosd na ISO + binds swayosd-client com fallback
+#         pactl/brightnessctl no skel + elite-tune [11] (daemon elite-osd-1
+#         no autostart + reescrita das 5 homes vivas);
+#     (4) RAM: elite-optimize NOVO — matemática por MemTotal (≤4 GB zram×2/
+#         swappiness 150 · 8 GB 60 · 16 GB+ 15) em 99-elite-ram.conf (vence
+#         por ordem lexical); elite-tune [5] chama e o 2i pergunta ao perfil;
+#     (5) FERRAMENTAS: elite-drivers NOVO (perfis AMD/Intel/NVIDIA por lspci;
+#         purga nunca silenciosa) + elite-ferramentas NOVO (paru/octopi/
+#         appimagelauncher; a promessa do AUR vira porta).
+#     pkgrel 24→25 NO MESMO COMMIT (lei E41 — 3 bins novos + dock-gui +
+#     elite-tune mudaram o pacote).
+pkgrel=25
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

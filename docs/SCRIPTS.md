@@ -6,7 +6,7 @@ Formato: **o quê faz / como rodar / como reverter / dependências**.
 
 O detalhado mora nas seções abaixo; o índice cobre TODOS os vivos (a promessa
 "uso de cada script" do README era falsa com ~15 seções para 41 peças — E36
-a tornou verdade: 35 bins + scripts de repo; o craft-compress morreu com honra na E72 — ordem do dono).
+a tornou verdade: 38 bins + scripts de repo; o craft-compress morreu com honra na E72 — ordem do dono; os 3 bins do protocolo E74 (optimize/drivers/ferramentas) entraram depois).
 
 | Peça | Papel em uma linha |
 |---|---|
@@ -15,6 +15,9 @@ a tornou verdade: 35 bins + scripts de repo; o craft-compress morreu com honra n
 | `elite-install-stage` | pós-pacstrap do Calamares (GPU profile, kernels, BORE initramfs, btrfs, GRUB); E36: gate órfãos exclui o bloco 30_os-prober |
 | `elite-session-probe` | sonda da sessão gráfica (barras/dock/toplevel/socket) — o insumo do gate do CI e do `craft-dump` |
 | `elite-sweep` | varredura one-shot dos atalhos órfãos do instalador (pré-login) |
+| `elite-optimize` | matemática dinâmica de RAM (E74/Fase 5): lê MemTotal e aplica o perfil (≤4 GB: zram×2 + swappiness 150 · 8 GB: 60 · 16 GB+: 15) em `/etc/sysctl.d/99-elite-ram.conf` (vence por ordem lexical) + zram-generator.conf; `--status` público, prova no kernel no fim; o elite-tune [5] chama e o 2i pergunta o swappiness a ele |
+| `elite-drivers` | perfis de hardware por lspci (E74/Fase 6): AMD (mesa/vulkan-radeon/lact) · Intel (vulkan-intel/intel-media-driver) · NVIDIA; `--apply` instala o que falta, `--purge` LISTA o vendor estranho e só remove com `--yes` (raiz) — nunca silencioso |
+| `elite-ferramentas` | porta honesta do AUR/GUI/AppImage (E74/Fase 7): menu craft-menu ou `--paru` (build como usuário), `--octopi` (repo), `--appimage` (AUR via paru), `--report` |
 | `calamares-elite-log` | wrapper do Calamares — log silencioso + cópia para /var/log |
 | `craft-audio-route` | roteamento automático de áudio (fone pluga, som troca; classe microfone EN+pt nunca é default) |
 | `craft-bars` | supervisor da sessão (waybar, dock, toplevel, idle, áudio, swaync, udiskie, polkit) + forense `bars.log` |
@@ -23,7 +26,7 @@ a tornou verdade: 35 bins + scripts de repo; o craft-compress morreu com honra n
 | `craft-clean` | manutenção: cache de pacman, órfãos, journal vacuum |
 | `craft-connect` | central de rede PT-BR (Wi-Fi, cabo, Bluetooth, salvas) sob o botão de rede; E36: senha mascarada (zenity) + linha de BT só com adaptador |
 | `craft-dock` | toggle/reload da dock via SIGUSR (âncora — não mata editor alheio) |
-| `craft-dock-gui` | a dock (GTK3 + layer-shell): pins .desktop, dinâmicos por app, fecho no meio; E36: fecho nunca casa por título + CSS de fallback espelhado; E53: janela SEM .desktop (AppImage de fábrica) vira botão raw — foco/cicla/fecha por id de verdade e o glifo executável é o ícone honesto; E54: gramática UMA — esquerdo foca/abre · direito NOVA SESSÃO em TUDO (dinâmico lança pelo .desktop; raw reabre pelo argv[0] provado no /proc) · meio encerra — o fixar segue vivo no craft-pin-pick |
+| `craft-dock-gui` | a dock (GTK3 + layer-shell): pins .desktop, dinâmicos por app, fecho no meio; E36: fecho nunca casa por título + CSS de fallback espelhado; E53: janela SEM .desktop (AppImage de fábrica) vira botão raw — foco/cicla/fecha por id de verdade e o glifo executável é o ícone honesto; E54: esquerdo foca/abre (raw reabre pelo argv[0] provado no /proc) · meio encerra; E74: direito = MENU contextual (Nova janela — a gramática UMA como 1º item · Encerrar todas · Fixar/Desafixar via craft-pin; fuzzel pelo slot `dock`, spawn assíncrono com child_watch; raw sem .desktop segue lançando direto) |
 | `craft-drawer` | Launchpad (nwg-drawer) — W-d |
 | `craft-dump` | perícia completa em um arquivo (`--upload` = termbin PÚBLICO, avisado desde o E36) |
 | `craft-extract` | "Extrair aqui" do Thunar — o verbo da casa (E46; o plugin thunar-archive saiu): palco temporário, colisão pergunta, notificação; motor 7z/7zz (o `7zip` do Arch entrega `7zz`) |
@@ -33,7 +36,7 @@ a tornou verdade: 35 bins + scripts de repo; o craft-compress morreu com honra n
 | `craft-keyring-wait` | espera o pacman transacional (teto 420s) — ExecStartPre do pacman-init |
 | `craft-lock` | trava a sessão (hyprlock com o wallpaper resolvido) |
 | `craft-logout` | WRAPPER do craft-power — o menu Sessão é UM (W-Escape / W-x / C-A-Delete; ARQUITETURA nº 9: o teclado herda Suspender e Tempo de idle) |
-| `craft-menu` | o motor dmenu dos menus craft-* (fuzzel --dmenu + âncoras + log) |
+| `craft-menu` | o motor dmenu dos menus craft-* (fuzzel --dmenu + âncoras + log); E74: slot `dock` — âncora bottom-center para o menu do botão direito da dock |
 | `craft-menu-dismiss` | fecha qualquer menu/OSD aberto (lei de cross-dismiss) |
 | `craft-pin` | fixar/remover/listar pins da dock (`dock-pins` + .bak); E36: duplicata sai rc 1 |
 | `craft-pin-pick` | picker gráfico de apps para fixar (direito no desktop → Fixar); E36: toast honesto para duplicata/falha |

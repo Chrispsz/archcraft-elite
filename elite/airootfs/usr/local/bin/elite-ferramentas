@@ -1,0 +1,95 @@
+#!/bin/bash
+# ═══════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · elite-ferramentas (v1.0 — E74, Fase 7 do protocolo)
+# ═══════════════════════════════════════════════════════════════════════════
+# "Gerenciamento de pacotes": o papel da casa sempre prometeu o AUR e nunca
+# entregou (o cabeçalho do craft-update: "paru prometido não existe"). Esta
+# é a porta HONESTA — cada item declara de onde vem e o que custa:
+#
+#   paru  → base-devel + git do repositório, build do AUR como USUÁRIO
+#           (makepkg recusa raiz — a lei é do próprio makepkg)
+#   octopi → repositório oficial (GUI de pacotes mínima)
+#   appimagelauncher → AUR via paru (exige paru instalado antes)
+#
+# A integração de .AppImage SEM appimagelauncher fica documentada no
+# UX-ROADMAP (fila de ideias) — o script não finge o que não faz.
+#
+# Uso: elite-ferramentas            menu (craft-menu — o motor único da casa)
+#      elite-ferramentas --report   só o relatório do que existe
+#      elite-ferramentas --paru | --octopi | --appimage   direto, sem menu
+# ═══════════════════════════════════════════════════════════════════════════
+set -u
+say() { printf 'elite-ferramentas: %s\n' "$*"; }
+err() { printf 'elite-ferramentas: ERRO: %s\n' "$*" >&2; }
+
+report() {
+    printf 'ferramentas presentes:\n'
+    for t in paru yay octopi bauh pamac appimagelauncher cliphist grim slurp udiskie; do
+        command -v "$t" >/dev/null 2>&1 && printf '  ✓ %s\n' "$t"
+    done
+    command -v paru >/dev/null 2>&1 || command -v yay >/dev/null 2>&1 \
+        || say "nenhum ajudante do AUR (paru/yay) — o item 1 do menu resolve"
+}
+
+sudo_pacman() {
+    if (( EUID == 0 )); then
+        pacman -S --needed --noconfirm "$@"
+    else
+        sudo pacman -S --needed --noconfirm "$@"
+    fi
+}
+
+do_paru() {
+    if command -v paru >/dev/null 2>&1; then say "paru já instalado ($(paru --version 2>/dev/null | head -1))"; return 0; fi
+    say "paru: base-devel + git (repo oficial) e o build COMO USUÁRIO (makepkg recusa raiz)"
+    sudo_pacman base-devel git || { err "base-devel/git não instalaram (rede/repos?)"; return 4; }
+    local d="/tmp/paru-build.$$"
+    git clone --depth=1 https://aur.archlinux.org/paru.git "$d" || { err "clone do AUR falhou (rede?)"; return 4; }
+    ( cd "$d" && makepkg -si --noconfirm ) || { err "makepkg do paru falhou — as dependências de build estão no log"; rm -rf "$d"; return 4; }
+    rm -rf "$d"
+    command -v paru >/dev/null 2>&1 && say "paru no ar: 'paru -S <pacote>' (o AUR é domínio do usuário, NÃO do sudo)" \
+        || err "paru não apareceu no PATH — réu à vista"
+}
+
+do_octopi() {
+    command -v octopi >/dev/null 2>&1 && { say "octopi já instalado"; return 0; }
+    say "octopi: GUI de pacotes do repositório oficial"
+    sudo_pacman octopi || { err "octopi não instalou (rede/repos?)"; return 4; }
+}
+
+do_appimage() {
+    if command -v appimagelauncher >/dev/null 2>&1; then say "appimagelauncher já instalado"; return 0; fi
+    command -v paru >/dev/null 2>&1 || { err "appimagelauncher mora no AUR — instale o paru primeiro (item 1 / --paru)"; return 4; }
+    say "appimagelauncher: AUR via paru (o domínio do AUR é do usuário — sem sudo aqui)"
+    paru -S --needed --noconfirm appimagelauncher || { err "appimagelauncher não instalou — o log do paru nomeia o réu"; return 4; }
+}
+
+ITEM=""
+case "${1:-menu}" in
+    --report) report; exit 0 ;;
+    --paru) do_paru; exit $? ;;
+    --octopi) do_octopi; exit $? ;;
+    --appimage) do_appimage; exit $? ;;
+    -h|--help) sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    menu|"") : ;;
+    *) err "modo desconhecido: $1"; exit 2 ;;
+esac
+
+if ! command -v craft-menu >/dev/null 2>&1; then
+    err "craft-menu ausente (sessão não-Elite?) — use os modos diretos (--paru/--octopi/--appimage)"
+    exit 3
+fi
+
+choice="$(printf '%s\n' \
+    "Ajudante do AUR — paru (repo + build do AUR)" \
+    "GUI de pacotes — octopi (repositório oficial)" \
+    "Integração de .AppImage — appimagelauncher (AUR, via paru)" \
+    "Relatório do que já existe" \
+    | craft-menu --title=ferramentas --at=center)" || exit 0
+
+case "$choice" in
+    *paru*) do_paru ;;
+    *octopi*) do_octopi ;;
+    *appimagelauncher*) do_appimage ;;
+    *Relatório*) report ;;
+esac
