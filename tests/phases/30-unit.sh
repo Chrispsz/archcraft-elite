@@ -2235,6 +2235,19 @@ assert_eq "$check_rc" "0" "E90/--check: o veredito termina 0 (read-only, sem sud
 assert_match "$check_out" 'veredito SEM tocar nada' "E90/--check: o veredito se apresenta"
 assert_match "$check_out" 'última dose|nenhuma dose rodou' "E90/--check: a dose da automação no papel (o estado do canal na pergunta barata)"
 
+# (E90.2b) --check sobrevive a pacman VIVO SEM os pacotes da casa — a classe
+# que o CI flagrou no 3ece5cb (run 42473609437): container Arch real, elite
+# ausente, 'pacman -Q' rc=1 e o pipefail matava o veredito no meio
+# ('── instalado' e silêncio, rc 1). O pacman stub falha EM TUDO (como um
+# -Q de pacote que não existe) — o veredito tem de terminar 0 com '(ausente)'
+# no papel, não morrer.
+CKBIN="$E91H/fakebin"; mkdir -p "$CKBIN"
+printf '#!/bin/sh\nexit 1\n' > "$CKBIN/pacman"; chmod 755 "$CKBIN/pacman"
+ck2_out="$(PATH="$CKBIN:$PATH" ELITE_UPDATE_LOG="$E91H/ulog2.log" bash "$CUCHK" --check 2>&1)"; ck2_rc=$?
+assert_eq "$ck2_rc" "0" "E90/--check: pacman VIVO sem a casa NÃO mata o veredito (rc 1 do -Q é '(ausente)', não morte — a classe do run 42473609437)"
+assert_match "$ck2_out" '\(ausente\)' "E90/--check: o pacote que o pacman não tem entra no papel (a era instalada honesta)"
+assert_match "$ck2_out" 'fim do veredito' "E90/--check: o veredito chega AO FIM mesmo com o -Q falhando em tudo (nada morre no meio)"
+
 # (E90.3) craft-help: o mapa vivo (rc 0, sem rede, sem pacman — a
 # descoberta nunca depende de infraestrutura)
 HELP90="$REPO/elite/airootfs/usr/local/bin/craft-help"

@@ -1011,7 +1011,10 @@ pkgver=1.0
 #     elite-tune/elite-status/hyprlock.conf/menu.xml/packages.add/
 #     apply-overlay/build.sh mudaram; craft-help é bin novo; o pacote
 #     ganha elite-sleep-report + hyprlock/ + docs/ no payload).
-pkgrel=34
+#     pkgrel 34→35 NO MESMO COMMIT (E-atualização 08-11: craft-update
+#     --check sobrevive a pacman vivo sem os pacotes da casa — pipefail
+#     não mata mais a pergunta barata; classe flagrada pelo run 42473609437).
+pkgrel=35
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
