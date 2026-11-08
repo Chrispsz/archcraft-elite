@@ -1029,7 +1029,14 @@ pkgver=1.0
 #     casa ganhou a FONTE ÚNICA HOUSE_OVERWRITE (system-sleep + share/elite
 #     + libalpm hooks nas famílias) e a remoção E57 vira VARREDURA do
 #     profile — o pacstrap da build mensal não recusa o mesmo conflito).
-pkgrel=36
+#     pkgrel 36→37 NO MESMO COMMIT (E93, o paste do dono 08-11: o 1.0-36
+#     publicado foi RECUSADO na máquina — o craft-update que rodou é o
+#     VELHO (o novo viaja DENTRO do pacote que o conflito bloqueia —
+#     bootstrap da cura). A sentinela agora ENSINA a classe órfã com o
+#     caminho exato do pacman nas TRÊS portas (canal/semanal no papel;
+#     manual com o cru de volta à tela) — bak- para fora do dir de sono,
+#     verificação do sem-dono antes de mover, nunca destruição).
+pkgrel=37
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

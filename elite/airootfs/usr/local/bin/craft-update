@@ -255,6 +255,40 @@ run_root() {
     if [ "$(id -u)" = 0 ]; then "$@"; else sudo "$@"; fi
 }
 
+# E93 — A CLASSE ÓRFÃ GANHA A PALAVRA DA CASA. '…existe no sistema de
+# arquivos' é a ferida era-ISO: o arquivo nasceu no sistema ANTES de o
+# pacote da casa o carregar (airootfs/deploy direto não tem dono no
+# pacman) e a checagem de conflito corre ANTES de qualquer scriptlet —
+# nenhuma cura viaja no pacote, o pre_install NUNCA alcança. A prova do
+# dono (08/11): o 1.0-36 recusado na máquina com o elite-sleep-report —
+# e a cura E92 (HOUSE_OVERWRITE) viajava DENTRO do pacote recusado
+# (bootstrap da cura: a chave foi o bak- À MÃO, uma vez, na primeira dose
+# que carrega o overwrite). A sentinela ENSINA com o caminho EXATO que o
+# pacman nomeou (lido do papel cru) e NUNCA move nada sem o dono: a lei
+# é bak- (nunca destruição) PARA FORA do dir de sono — systemd executa
+# TUDO executável em system-sleep, até um .bak renomeado no lugar.
+ensina_orfao() {
+    local src="${1:-$ULOG}"
+    grep -q 'existe no sistema de arquivos' "$src" 2>/dev/null || return 0
+    local p base l
+    while IFS= read -r p; do
+        [ -n "$p" ] || continue
+        base="$(basename "$p")"
+        local -a msgs=(
+            "CLASSE CONHECIDA — ARQUIVO ÓRFÃO: '$p' existe no sistema de arquivos (sem dono, era ISO/deploy direto)."
+            "  o pre_install do pacote NUNCA alcança: a checagem de conflito corre ANTES de qualquer scriptlet."
+            "  a lei da casa é bak- (nunca destruição), PARA FORA do dir de sono (systemd executa tudo executável lá):"
+            "    1) pacman -Qo '$p'   # deve responder 'Nenhum pacote possui' — se nomear outro pacote, NÃO mova"
+            "    2) sudo install -d /var/backups/elite && sudo mv '$p' '/var/backups/elite/${base}.bak-\$(date +%Y%m%d-%H%M%S)'"
+            "    3) rode craft-update de novo — a transação passa e o pacote entrega o arquivo com dono."
+        )
+        for l in "${msgs[@]}"; do
+            ulog "$l"
+            printf '%s\n' "$l" >&2
+        done
+    done < <(sed -n -E 's/^[^:]+: (.+) existe no sistema de arquivos$/\1/p' "$src" | sort -u)
+}
+
 # E88 — A ATUALIZAÇÃO ÁGIL: downloads paralelos no pacman.conf. O default
 # do pacote vem COMENTADO ('#ParallelDownloads = 5') — UM pacote por vez:
 # o -Syu que 'parecia travado' no pacote grande era ISTO. Idempotente e
@@ -658,6 +692,9 @@ if [[ "${1:-}" == "--canal" ]]; then
             "${HOUSE_OVERWRITE[@]}" \
             "${CANAL_PKGS[@]}" >>"$ULOG" 2>&1; then
         ulog "canal: pacman RECUSOU a dose — a prova está acima no log"
+        # E93 — o papel é a única boca do timer: a classe órfã (se for
+        # ela a ré) ensina no log, com o caminho exato que o pacman nomeou
+        ensina_orfao
         notify_users -u critical 'Canal da Elite falhou' \
             'A dose diária da casa foi recusada — log: /var/log/elite-update.log'
         exit 1
@@ -719,6 +756,8 @@ if [[ "${1:-}" == "--sistema" ]]; then
         "${HOUSE_OVERWRITE[@]}" >>"$ULOG" 2>&1 || sys_rc=$?
     if [ "$sys_rc" -ne 0 ]; then
         ulog "sistema: pacman FALHOU (rc=$sys_rc) — snapshot PRE #$PRE_N guarda o estado anterior"
+        # E93 — a recusa órfã ensina no papel (a semanal também é boca do log)
+        ensina_orfao
         notify_users -u critical 'Atualização semanal falhou' \
             "rc=$sys_rc — log: /var/log/elite-update.log${PRE_N:+ · rollback: snapshot #$PRE_N no GRUB}"
         exit 1
@@ -780,17 +819,28 @@ else
 fi
 sentinela_db
 manual_rc=0
+# E93 — o cru do pacman não some da tela: o STDERR passa pelo papel
+# (ERRCAP → cat de volta + ULOG) e a classe órfã ganha a palavra. O
+# STDOUT fica VIVO (as barras do pacman são a prova do progresso —
+# capturar tudo era cegar a transação); só o stderr — onde o pacman
+# fala 'existe no sistema de arquivos' — viaja pelo papel primeiro.
+ERRCAP="$(mktemp "${TMPDIR:-/tmp}/elite-err.XXXXXX")"
 if [ -n "$_alvo" ]; then
-    run_root pacman -Syu --needed "${HOUSE_OVERWRITE[@]}" elite-system || manual_rc=$?
+    run_root pacman -Syu --needed "${HOUSE_OVERWRITE[@]}" elite-system 2>"$ERRCAP" || manual_rc=$?
 else
-    run_root pacman -Syu --needed "${HOUSE_OVERWRITE[@]}" || manual_rc=$?
+    run_root pacman -Syu --needed "${HOUSE_OVERWRITE[@]}" 2>"$ERRCAP" || manual_rc=$?
 fi
 if [ "$manual_rc" -ne 0 ]; then
+    cat "$ERRCAP" >&2
+    cat "$ERRCAP" >>"$ULOG" 2>/dev/null || true
     echo "ERRO: o pacman recusou a transação (rc=$manual_rc) — NADA da casa mudou." >&2
     echo "      A prova está nas linhas acima; se falar de 'travar a base de dados'," >&2
     echo "      outra operação de pacotes está em execução — rode de novo (a sentinela espera por você)." >&2
+    ensina_orfao "$ERRCAP"
+    rm -f "$ERRCAP"
     exit "$manual_rc"
 fi
+rm -f "$ERRCAP"
 
 # E48→E50 — a sessão do dono recebe o código novo NA HORA e INTEIRA (o
 # daemon vivo não segue com a receita velha até relogin — a ferida do

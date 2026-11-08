@@ -3198,8 +3198,10 @@ assert_grep "$HLKV3" 'animation = fadeIn, 1, 3, linear' "E88/lock: o fade ágil 
 assert_nogrep "$HLKV3" 'path = screenshot' "v2.5.0 preservada na v3: o fundo do lock é O WALLPAPER (nunca a foto da tela com janelas)"
 
 # ── E41: o pkgrel viajou NO MESMO COMMIT ──
-assert_grep "$REPO/.ci/build.sh" 'pkgrel=36' \
-  "E92 (lei E41): pkgrel elite-system 35→36 — a adoção sem recusa: HOUSE_OVERWRITE fonte única das 5 famílias da casa + remoção E57 vira varredura (o rig flagrou 'elite-sleep-report existe no sistema de arquivos' em 08/11)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=37' \
+  "E93 (lei E41): pkgrel elite-system 36→37 — a classe órfã ganha a palavra: o paste do dono provou o bootstrap da cura (o 1.0-36 recusado na máquina carregava a própria cura E92) — a sentinela ensina o bak- com o caminho exato nas 3 portas"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 36→37 NO MESMO COMMIT' \
+  "E93 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 35→36 NO MESMO COMMIT' \
   "E92 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 34→35 NO MESMO COMMIT' \
