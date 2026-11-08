@@ -2217,7 +2217,7 @@ assert_grep "$E91H/home/.config/hypr/hyprlock.conf" '^# MEU LOCK PESSOAL$' "E91/
 XDG_CONFIG_HOME="$E91H/home/.config" HOME="$E91H/home" \
   ELITE_LOCK_SRC="$E91H/src/hyprlock.conf" sh "$RICE91" --lock-adopt >"$E91H/out-adopt.txt" 2>&1 || true
 assert_grep "$E91H/home/.config/hypr/hyprlock.conf" 'entregue por craft-rice' "E91/lock: o --lock-adopt entrega a v3 (a escolha é do dono, o backup é a rede)"
-n_baks="$(ls "$E91H/home/.config/hypr/" 2>/dev/null | grep -c 'bak-')"
+n_baks="$(find "$E91H/home/.config/hypr" -maxdepth 1 -name '*bak-*' 2>/dev/null | wc -l)"
 assert_match "$n_baks" '^[1-9][0-9]*$' "E91/lock: o backup .bak-<stamp> existe ao lado (o conf antigo nunca é perdido)"
 
 # (E90.1) craft-vigil RECUSA argumentos (a 2ª vigília acidental nunca

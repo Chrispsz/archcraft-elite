@@ -1140,7 +1140,7 @@ elite_fetch "${ML_LATEST:-cachyos-v3-mirrorlist-27-1-any.pkg.tar.zst}" \
 #  makepkg --nodeps: pacote binário; as deps (gtk3 nss alsa-lib…) são
 #  resolvidas pelo pacstrap no airootfs, não precisam existir no
 #  container de build.
-say "Estágio Brave ORIGIN 1.98.63 (release oficial) → /var/cache/elite-local/"
+say "Estágio Brave ORIGIN 1.99.55 (release oficial) → /var/cache/elite-local/"
 # v2.1 — cache do Actions persiste /var/cache/elite-local entre runs
 #  (build.yml monta .ci-cache/elite-local no container): pkg.tar.zst
 #  presente = bits cujos sources passaram no sha256 da run que o
@@ -1152,7 +1152,7 @@ else
 mkdir -p /tmp/elite-src/brave-origin
 cat > /tmp/elite-src/brave-origin/PKGBUILD <<'EOPKGBUILD'
 pkgname=brave-origin
-pkgver=1.98.63
+pkgver=1.99.55
 pkgrel=1
 pkgdesc='Brave Origin — navegador que bloqueia ads e trackers por padrão (release oficial brave-origin)'
 arch=(x86_64)
@@ -1176,7 +1176,7 @@ source=(brave-origin.sh
 noextract=("${_brave_zip}")
 sha256sums=('ba01b127ffbedae6956b8e0f1565170cdecfbba9c19f3fcf76cbf7d6a566bea4'
             '2187fb69be1ebfbc29f8dbd55d2c98d7b5a8b677f247258b43480b894cdac82b'
-            '7714b3c2bb3e92c14f8f8ab373e2d298ff941abe1d81589c21c5f9227ac07c0b')
+            '9d0e39e4020bfdf7aafc51308017d440ec009f8f3bbd91b67876b0d65a55505d')
 
 prepare() {
     mkdir -p brave
@@ -1256,7 +1256,7 @@ EODESK
 chown -R builder /tmp/elite-src/brave-origin
 if runuser -l builder -c "cd /tmp/elite-src/brave-origin && makepkg -f --noconfirm --nodeps"; then
     cp /tmp/elite-src/brave-origin/*.pkg.tar.zst /var/cache/elite-local/
-    say "  ok: brave-origin 1.98.63 (Brave ORIGIN oficial, sha256 verificado)"
+    say "  ok: brave-origin 1.99.55 (Brave ORIGIN oficial, sha256 verificado)"
 else
     echo "ELITE-FAIL: makepkg do brave-origin (fonte/CDN fora?) — sem retry: fonte é GitHub Releases da Brave" >&2
     exit 1
