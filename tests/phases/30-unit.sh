@@ -982,6 +982,15 @@ cat > "$MOCKCU/pacman" <<'EOF'
 ST="${MOCK_DIR:?}"; mkdir -p "$ST"; touch "$ST/pacman.log"
 printf 'pacman %s\n' "$*" >> "$ST/pacman.log"
 if [[ -f "$ST/pacman-fail" && "$1" == "-Syu" ]]; then echo "erro simulado" >&2; exit 3; fi
+# E93 — a recusa ÓRFÃ (a frase exata do paste do dono 08/11, rc 1): as
+# DUAS doses que a casa abre para o pacman (-Sy do canal, -Syu da
+# semanal/manual) recusam com 'existe no sistema de arquivos' nomeando
+# o caminho — o ensino E93 só pode nascer DEPOIS desta recusa real
+if [[ -f "$ST/pacman-conflict" && ( "$1" == "-Sy" || "$1" == "-Syu" ) ]]; then
+  printf 'erro: falha ao efetuar a transação (arquivos conflitantes)\n' >&2
+  printf 'elite-system: /usr/lib/systemd/system-sleep/elite-sleep-report existe no sistema de arquivos\n' >&2
+  exit 1
+fi
 case "$1" in
   -Q)   if [ "$2" = "elite-system" ]; then
             # E50: o PACOTE ÚNICO tem delta próprio (o antes/depois da era nova)
@@ -2267,5 +2276,39 @@ HELLO90="$REPO/elite/airootfs/usr/local/bin/craft-hello"
 hello_out="$(HOME="$E91H/home" bash "$HELLO90" 2>&1)"; hello_rc=$?
 assert_eq "$hello_rc" "0" "E90/craft-hello: a saudação termina 0 mesmo sem fastfetch/pacman (o pointer nunca mata o retrato)"
 assert_match "$hello_out" 'craft-help abre o mapa' "E90/craft-hello: o onboarding aponta o mapa (a lacuna nº 3 fechada)"
+
+# (E93) A CLASSE ÓRFÃ TEM A PALAVRA DA CASA — o paste do dono 08/11
+# provou o BOOTSTRAP DA CURA: o 1.0-36 publicado foi recusado na máquina
+# ('elite-sleep-report existe no sistema de arquivos') e a cura E92
+# viajava DENTRO do pacote recusado. A sentinela agora ensina: caminho
+# EXATO nomeado pelo pacman, lei bak- PARA FORA do dir de sono, o
+# sem-dono verificado ANTES de mover — e o cru do pacman volta à tela.
+rm -rf "$STCU"; mkdir -p "$STCU"; printf '1.0-33\n' > "$STCU/es-ver"
+touch "$STCU/pacman-conflict"
+e93_out="$(run_cu)"; e93_rc=$?
+assert_eq "$e93_rc" "1" "E93/manual: a recusa continua HONESTA (o rc do pacman chega ao shell — a cura é ensino, nunca falso GO)"
+assert_match "$e93_out" 'elite-sleep-report existe no sistema de arquivos' "E93/manual: o cru do pacman VOLTA à tela (o stderr viajou pelo papel e foi lido de volta — a prova continua acima do ERRO)"
+assert_match "$e93_out" 'ERRO: o pacman recusou a transação \(rc=1\)' "E93/manual: a sentinela E54 segue de pé (a mensagem honesta não morreu pela captura do stderr)"
+assert_match "$e93_out" 'CLASSE CONHECIDA — ARQUIVO ÓRFÃO' "E93/manual: a classe ganha a palavra da casa (o dono sabe O QUE é, não só que falhou)"
+assert_match "$e93_out" "pacman -Qo '/usr/lib/systemd/system-sleep/elite-sleep-report'" "E93/manual: o caminho EXATO nomeado pelo pacman entra na receita (nada de ensinar no abstrato)"
+assert_match "$e93_out" '/var/backups/elite/elite-sleep-report\.bak-' "E93/manual: a lei bak- com o basename (nunca destruição)"
+assert_match "$e93_out" 'Nenhum pacote possui' "E93/manual: o sem-dono verificado ANTES de mover (o dono de outro pacote nunca é movido)"
+assert_grep "$STCU/update.log" 'CLASSE CONHECIDA — ARQUIVO ÓRFÃO' "E93/manual: o ensino entra NO PAPEL também (o log da casa carrega a cura inteira)"
+assert_grep "$STCU/pacman.log" '\-Syu --needed --overwrite' "E93/manual: o overwrite da casa foi TENTADO primeiro (o ensino só fala DEPOIS da recusa real — nunca no lugar da transação)"
+assert_grep "$STCU/update.log" 'erro: falha ao efetuar a transação \(arquivos conflitantes\)' "E93/manual: o cru do pacman aterrissa NO PAPEL (antes da E93 a porta manual não logava a transação — a recusa só existia na tela)"
+# controle: recusa SEM a frase da classe = NENHUM ensino (a casa não
+# promete cura que não provou — a sentinela E54 segue calada no que
+# não sabe)
+rm -rf "$STCU"; mkdir -p "$STCU"; printf '1.0-33\n' > "$STCU/es-ver"; touch "$STCU/pacman-fail"
+e93b_out="$(run_cu)"; e93b_rc=$?
+assert_eq "$e93b_rc" "3" "E93/manual (controle): o rc alienígena (3) atravessa sem cura inventada"
+printf '%s\n' "$e93b_out" > "$STCU/manual-fail.out"
+assert_nogrep "$STCU/manual-fail.out" 'CLASSE CONHECIDA' "E93/manual (controle): recusa SEM a frase órfã NÃO ensina (nenhuma palavra-chave de cura no chute)"
+# headless: a dose do CANAL recusada leva o ensino ao PAPEL (a única
+# boca do timer é o log — o dono lê a cura junto da recusa)
+rm -rf "$STCU"; mkdir -p "$STCU"; printf '1.0-33\n' > "$STCU/es-ver"; touch "$STCU/pacman-conflict"
+run_cu --canal >/dev/null
+assert_grep "$STCU/update.log" 'CLASSE CONHECIDA — ARQUIVO ÓRFÃO' "E93/canal: a dose headless recusada ensina no log (caminho exato + bak- no papel onde a recusa está)"
+assert_grep "$STCU/update.log" 'elite-sleep-report' "E93/canal: o caminho nomeado pelo pacman chega ao log (a cura é copiável, não decorável)"
 
 phase_end
