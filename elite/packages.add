@@ -106,6 +106,12 @@ wlr-randr
 # lista: a porta gráfica não pode depender de herança silenciosa do
 # upstream (o contrato do menu cobra binário real).
 wdisplays
+# E90 — ETHTOOL NA CAÇA AO DESPERTAR: o r8169 com Wake-on-L é o réu
+# clássico do "suspendeu e voltou em 7s" (o dump 190719 suspendeu às
+# 18:14:37 e o kernel voltou às 18:14:44 — e o papel NUNCA fotografou o
+# WOL). O craft-dump v2.7 lê o Wake-on quando a ferramenta existe; a
+# caça ao despertar passa a ver a face PME da placa de rede.
+ethtool
 ## v2.7.0 — foco de janela pela dock (o dono: "clicar num programa já
 ## aberto deve ir para a tarefa aberta invés de abrir outra"): o wlrctl
 ## fala wlr-foreign-toplevel (labwc fala) — wlrctl window focus app_id:…

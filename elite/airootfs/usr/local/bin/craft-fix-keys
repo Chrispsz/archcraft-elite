@@ -37,6 +37,20 @@
 # absoluto; usuário normal segue no seu state (o sudo -n do Arch reseta
 # HOME para o alvo — liveuser lê o próprio home). Sem gambiarra de
 # migração: o rig legado faz UMA cura e escreve o selo no caminho novo.
+
+# E90 — o --help que faltava (a lacuna nº 1 do UX-ROADMAP)
+uso() {
+    printf '%s\n' \
+        'uso: craft-fix-keys — cura do keyring do pacman (chaves archlinux+' \
+        '     cachyos: init → populate → limpeza, idempotente e na ordem)' \
+        '' \
+        '  no LIVE roda na sessão (sudo via terminal); no sistema INSTALADO o' \
+        '  trabalho é do timer root elite-keyring-fix.timer — esta porta é o' \
+        '  plano B do dono. rc 0 = chaveiro vivo.'
+    exit 0
+}
+case "${1:-}" in -h|--help|uso) uso ;; esac
+
 if [ "$(id -u)" -eq 0 ]; then
     STAMP="/root/.local/state/elite/keyring-refresh.stamp"
 else

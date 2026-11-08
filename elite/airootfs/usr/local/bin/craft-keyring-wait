@@ -29,6 +29,19 @@
 # o guard esgotava ANTES dela e o pacman-key reia dentro da janela de
 # colisão de novo. Teto agora 84 × 5s = 420s (> 5min provados). O custo
 # do caminho feliz continua ~2ms (um pgrep).
+
+# E90 — o --help que faltava (a lacuna nº 1 do UX-ROADMAP)
+uso() {
+    printf '%s\n' \
+        'uso: craft-keyring-wait — espera o pacman transacional terminar' \
+        '     (teto 84 × 5s = 420s), antes de qualquer cura que toque o pacman' \
+        '' \
+        '  ExecStartPre do pacman-init (elite-keyring-fix): evita que a cura do' \
+        '  keyring reia dentro da janela de colisão de uma transação viva.'
+    exit 0
+}
+case "${1:-}" in -h|--help|uso) uso ;; esac
+
 i=0
 while [ "$i" -lt 84 ]; do          # teto honesto: 84 × 5s = 420s (> transação provada de 4min46s)
     # v2.10.26/E38 — UM pgrep com alternância ERE (eram DOIS forks por 5s:

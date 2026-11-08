@@ -16,6 +16,18 @@
 # aposentou.
 set -eu
 
+# E90 — o --help que faltava (a lacuna nº 1 do UX-ROADMAP)
+uso() {
+    printf '%s\n' \
+        'uso: craft-logout — o menu Sessão (wrapper do craft-power — UM menu,' \
+        '     sem duplicação: ARQUITETURA nº 9)' \
+        '' \
+        '  atalhos: W-x · W-Escape · C-A-Delete. O teclado herda Suspender e' \
+        '  Tempo de idle do mesmo menu.'
+    exit 0
+}
+case "${1:-}" in -h|--help|uso) uso ;; esac
+
 command -v craft-power >/dev/null 2>&1 || {
     echo "craft-logout: craft-power AUSENTE — o menu de sessão mora lá (pacote elite-system); nada aberto" >&2
     exit 127

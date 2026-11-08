@@ -14,21 +14,57 @@
 #     quiser a própria cara cria ~/.config/fastfetch/config.jsonc e o dele
 #     VENCE — a casa não briga com o dono do home.
 set -euo pipefail
+
+# E90 — o --help que faltava (a lacuna nº 1 do UX-ROADMAP)
+uso() {
+    printf '%s\n' \
+        'uso: craft-hello — a SAUDAÇÃO do terminal: o retrato do sistema' \
+        '     (fastfetch com o logo Archcraft) a cada shell interativo' \
+        '' \
+        '  o .zshrc chama (W-S-h repete no terminal com shell limpo após).' \
+        '  ELITE_NO_HELLO=1 desliga. O config da casa mora em' \
+        '  /usr/local/share/elite/fastfetch/config.jsonc — o ~/.config/fastfetch/' \
+        '  config.jsonc do usuário VENCE (a casa não briga com o dono).'
+    exit 0
+}
+case "${1:-}" in -h|--help|uso) uso ;; esac
+
 CFG_SYS=/usr/local/share/elite/fastfetch/config.jsonc
 CFG_USR="$HOME/.config/fastfetch/config.jsonc"
+# E90 — O ONBOARDING COMPACTO (a lacuna nº 3 do UX-ROADMAP: o craft-hello
+# era SÓ um retrato; agora ele APRESENTA a casa — 3 linhas baratas após o
+# retrato: a versão do pacote, o mapa dos comandos e a última dose do
+# canal. Lê 2 arquivos + 1 pacman -Q — cada shell paga ~15ms, o preço de
+# nunca mais ter sistema "cirúrgico e invisível").
+elite_pointer() {
+  # (pipefail da casa: pacman -Q morre rc 1/127 quando o pacote não existe
+  # ou o pacman não está — o RETRATO nunca pode morrer pela saudação; os
+  # || true viajam na FONTE de cada pipeline)
+  local ver dose
+  ver="$( { pacman -Q elite-system 2>/dev/null || true; } | awk '{print $2}')"
+  dose=""
+  if [ -r /var/log/elite-update.log ]; then
+    dose="$( { grep -E 'canal: |manual: |sistema: ' /var/log/elite-update.log 2>/dev/null || true; } | tail -1 | sed 's/^\[[^]]*\] //' | cut -c1-52)"
+  fi
+  printf '\n  \033[2m──\033[0m Elite \033[1m%s\033[0m' "${ver:-?}"
+  [ -n "$dose" ] && printf ' \033[2m· última dose: %s\033[0m' "$dose"
+  printf '\n'
+  printf '  \033[2mcraft-help abre o mapa dos comandos · craft-update --check diz se há novidade\033[0m\n'
+}
 if command -v fastfetch >/dev/null 2>&1; then
-  if [[ -f "$CFG_USR" ]]; then exec fastfetch; fi                  # config do usuário manda
-  if [[ -f "$CFG_SYS" ]]; then exec fastfetch --config "$CFG_SYS"; fi
-  exec fastfetch                                                   # sem config da casa (ISO velha?) → default
+  if [[ -f "$CFG_USR" ]]; then fastfetch; elite_pointer; exit 0; fi       # config do usuário manda
+  if [[ -f "$CFG_SYS" ]]; then fastfetch --config "$CFG_SYS"; elite_pointer; exit 0; fi
+  fastfetch; elite_pointer; exit 0                                         # sem config da casa (ISO velha?) → default
 fi
 # ── fallback sem fastfetch: os 4 números vitais ────────────────────────
 k="$(uname -r)"
 c="$( (grep -m1 'model name' /proc/cpuinfo || true) | cut -d: -f2 | xargs )"   # v2.10.5: pipefail não morde CPU sem 'model name' (ARM/QEMU exótico)
 u="$(uptime -p 2>/dev/null || uptime)"
-n="$(pacman -Q 2>/dev/null | wc -l)"
+n="$( { pacman -Q 2>/dev/null || true; } | wc -l)"   # E90: pipefail não morde pacman ausente (a mesma cura v2.10.5 do c=, agora no n=)
 printf '\n  ⚡ Archcraft Elite (labwc · CachyOS engine)\n'
 printf '  ────────────────────────────────────────\n'
 printf '  kernel : %s\n' "$k"
 printf '  cpu    : %s\n' "$c"
 printf '  pkgs   : %s\n' "$n"
 printf '  %s\n\n' "$u"
+elite_pointer

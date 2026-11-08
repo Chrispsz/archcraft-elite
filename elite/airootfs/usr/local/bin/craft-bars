@@ -30,6 +30,20 @@
 # 1 supervisor + 4 wrappers com o cmdline herdado; a contagem honesta
 # mora na posse do lock, não no cmdline.)
 # ═══════════════════════════════════════════════════════════════════════════
+# E90 — o --help que faltava (a lacuna nº 1 do UX-ROADMAP: a descoberta
+# dentro do sistema). O bars é o supervisor da SESSÃO — não é porta de mão.
+uso() {
+    printf '%s\n' \
+        'uso: craft-bars — supervisor da sessão (waybar top, dock, toplevel,' \
+        '     idle, áudio, swaync, udiskie, polkit) com forense em bars.log' \
+        '' \
+        '  quem morre renasce em ≤5s; o stderr de tudo vai para' \
+        '  ~/.cache/elite/bars.log (teto 1 MiB). Chamado pelo autostart do' \
+        '  labwc — rodar na mão cria supervisor DUPLICADO (a lei E30 manda).'
+    exit 0
+}
+case "${1:-}" in -h|--help|uso) uso ;; esac
+
 LOG_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/elite"
 mkdir -p "$LOG_DIR" 2>/dev/null
 LOG="$LOG_DIR/bars.log"

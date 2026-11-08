@@ -2171,4 +2171,84 @@ assert_grep "$RUN88/journal.log" 'prova de morte' "E88/usb: a morte é PROVADA c
 assert_grep "$PCI88/devices/0000:02:00.0/driver/unbind" '0000:02:00.0' "E88/usb: o rebind ALVEJADO desceu no controlador do MORTO (o endereço vem do mapa do pre — o morto já não está no sysfs para dizer onde morava)"
 assert_grep "$RUN88/journal.log" 'FALHA' "E88/usb: o que não voltou FICA NOMEADO (a honestidade E33 — o craft-dump seção 10 tem réu de verdade)"
 
+# ═══════════════════════════════════════════════════════════════════════
+# E90/E91 — AS CENAS DA ÁREA 4 + AS CURAS DAS REGRESSÕES (funcional,
+# com os scripts REAIS da casa e seams ELITE_* — nunca se escreve em /usr)
+# ═══════════════════════════════════════════════════════════════════════
+RICE91="$REPO/elite/airootfs/usr/local/bin/craft-rice"
+E91H="$WORK/e91-lock"; rm -rf "$E91H"
+mkdir -p "$E91H/home/.config/hypr" "$E91H/src"
+# a pele-mestra da prova: o skel v3 É o que o pacote entrega em
+# /usr/local/share/elite/hyprlock/hyprlock.conf (o seam aponta para cá)
+cp "$REPO/elite/airootfs/etc/skel/.config/hypr/hyprlock.conf" "$E91H/src/hyprlock.conf"
+
+# (E91.1) FÓSSIL → RENOVA: o hyprlock.conf velho da casa (hash conhecido
+# na lista) é atualizado para a pele v3 SEM perguntar — ninguém personalizou
+git -C "$REPO" show 5c6c3dd:elite/airootfs/etc/skel/.config/hypr/hyprlock.conf \
+    > "$E91H/home/.config/hypr/hyprlock.conf" 2>/dev/null || true
+XDG_CONFIG_HOME="$E91H/home/.config" HOME="$E91H/home" \
+  ELITE_LOCK_SRC="$E91H/src/hyprlock.conf" sh "$RICE91" >/dev/null 2>&1 || true
+# o marcador da casa é o veredito da renovação
+if grep -q 'entregue por craft-rice' "$E91H/home/.config/hypr/hyprlock.conf" 2>/dev/null; then
+    ok "E91/lock: o FÓSSIL foi renovado (a v3 chegou ao home vivo — o dono: 'não mudou nada' curado pelo canal)"
+else
+    # sem git/objeto no ambiente: planta um fóssil DIRETO pela lista de hashes
+    printf '# conf fossil de prova\n' > "$E91H/home/.config/hypr/hyprlock.conf"
+    fossil_hash="$(sha256sum "$E91H/home/.config/hypr/hyprlock.conf" | cut -d' ' -f1)"
+    sed "s|^LOCK_FOSSILS=.*|LOCK_FOSSILS=\"$fossil_hash\"|" "$RICE91" > "$E91H/rice-t.sh"
+    XDG_CONFIG_HOME="$E91H/home/.config" HOME="$E91H/home" \
+      ELITE_LOCK_SRC="$E91H/src/hyprlock.conf" sh "$E91H/rice-t.sh" >/dev/null 2>&1
+    if grep -q 'entregue por craft-rice' "$E91H/home/.config/hypr/hyprlock.conf" 2>/dev/null; then
+        ok "E91/lock: o FÓSSIL foi renovado (fóssil plantado pela lista — a v3 chegou ao home vivo)"
+    else
+        fail "E91/lock: o fóssil NÃO renovou" "o caminho fóssil→v3 é a cura do 'bloqueio não mudou'"
+    fi
+fi
+
+# (E91.2) PERSONALIZADO → INTOCÁVEL: o conf do dono (sem marcador, sem
+# fóssil) NUNCA é tocado — a lei do domínio v3 com recusa no papel
+printf '# MEU LOCK PESSOAL\n' > "$E91H/home/.config/hypr/hyprlock.conf"
+XDG_CONFIG_HOME="$E91H/home/.config" HOME="$E91H/home" \
+  ELITE_LOCK_SRC="$E91H/src/hyprlock.conf" sh "$RICE91" >"$E91H/out-pers.txt" 2>&1 || true
+assert_grep "$E91H/out-pers.txt" 'PERSONALIZADO' "E91/lock: o conf do dono é INTOCÁVEL com a porta no papel (a lei do domínio v3 intocada)"
+assert_grep "$E91H/home/.config/hypr/hyprlock.conf" '^# MEU LOCK PESSOAL$' "E91/lock: o conteúdo do dono permanece o DELE (um byte não mudou)"
+
+# (E91.3) --lock-adopt: a porta explícita — backup ao lado + a v3 entregue
+XDG_CONFIG_HOME="$E91H/home/.config" HOME="$E91H/home" \
+  ELITE_LOCK_SRC="$E91H/src/hyprlock.conf" sh "$RICE91" --lock-adopt >"$E91H/out-adopt.txt" 2>&1 || true
+assert_grep "$E91H/home/.config/hypr/hyprlock.conf" 'entregue por craft-rice' "E91/lock: o --lock-adopt entrega a v3 (a escolha é do dono, o backup é a rede)"
+n_baks="$(ls "$E91H/home/.config/hypr/" 2>/dev/null | grep -c 'bak-')"
+assert_match "$n_baks" '^[1-9][0-9]*$' "E91/lock: o backup .bak-<stamp> existe ao lado (o conf antigo nunca é perdido)"
+
+# (E90.1) craft-vigil RECUSA argumentos (a 2ª vigília acidental nunca
+# nasce — a lei E30 na entrada; rc 2 com o uso no papel)
+VIG90="$REPO/elite/airootfs/usr/local/bin/craft-vigil"
+vig_out="$(sh "$VIG90" status 2>&1)"; vig_rc=$?
+assert_eq "$vig_rc" "2" "E90/vigil: argumento inesperado = rc 2 (nunca uma 2ª vigília — 'status' era typo humano esperando veredito)"
+assert_match "$vig_out" 'argumento inesperado' "E90/vigil: a recusa é LOUD (o uso no papel — nada de morte calada)"
+
+# (E90.2) craft-update --check: o veredito READ-ONLY de pé (o sandbox sem
+# pacman responde honesto; a rede bimodal não pode derrubar o rc)
+CUCHK="$REPO/elite/airootfs/usr/local/bin/craft-update"
+check_out="$(ELITE_UPDATE_LOG="$E91H/ulog.log" bash "$CUCHK" --check 2>&1)"; check_rc=$?
+assert_eq "$check_rc" "0" "E90/--check: o veredito termina 0 (read-only, sem sudo — a pergunta barata nunca custa uma transação)"
+assert_match "$check_out" 'veredito SEM tocar nada' "E90/--check: o veredito se apresenta"
+assert_match "$check_out" 'última dose|nenhuma dose rodou' "E90/--check: a dose da automação no papel (o estado do canal na pergunta barata)"
+
+# (E90.3) craft-help: o mapa vivo (rc 0, sem rede, sem pacman — a
+# descoberta nunca depende de infraestrutura)
+HELP90="$REPO/elite/airootfs/usr/local/bin/craft-help"
+help_out="$(bash "$HELP90" 2>&1)"; help_rc=$?
+assert_eq "$help_rc" "0" "E90/craft-help: o mapa termina 0 (a porta de descoberta sempre abre)"
+assert_match "$help_out" 'O MAPA DOS COMANDOS' "E90/craft-help: o mapa se apresenta"
+dock_out="$(bash "$HELP90" dock 2>&1)"
+assert_match "$dock_out" 'craft-dock-gui' "E90/craft-help: o filtro por termo casa (craft-help dock devolve a dock)"
+
+# (E90.4) craft-hello: o onboarding sobrevive sem fastfetch/pacman (o
+# pointer não pode matar o retrato — a cura pipefail do n=)
+HELLO90="$REPO/elite/airootfs/usr/local/bin/craft-hello"
+hello_out="$(HOME="$E91H/home" bash "$HELLO90" 2>&1)"; hello_rc=$?
+assert_eq "$hello_rc" "0" "E90/craft-hello: a saudação termina 0 mesmo sem fastfetch/pacman (o pointer nunca mata o retrato)"
+assert_match "$hello_out" 'craft-help abre o mapa' "E90/craft-hello: o onboarding aponta o mapa (a lacuna nº 3 fechada)"
+
 phase_end

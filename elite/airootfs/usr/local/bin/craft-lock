@@ -30,6 +30,19 @@
 #   instância única garantida nos dois mundos.
 set -euo pipefail
 
+# E90 — o --help que faltava (a lacuna nº 1 do UX-ROADMAP)
+uso() {
+    printf '%s\n' \
+        'uso: craft-lock [--if-needed] — trava a sessão (hyprlock, com o' \
+        '     wallpaper resolvido + a lock skin da casa)' \
+        '' \
+        '  --if-needed: lock já vivo = exit 0 (ele sobrevive; o braço do idle' \
+        '  usa para não matar o lock no escuro — E47).' \
+        '  atalho: W-l. A vigília (craft-vigil) nasce com TODO lock novo.'
+    exit 0
+}
+case "${1:-}" in -h|--help|uso) uso ;; esac
+
 # E47 — o no-op DIFERENTE do silêncio: só sai cedo quando há lock SAUDÁVEL
 # para guardar (a checagem é pgrep, não fé).
 if [ "${1:-}" = "--if-needed" ] && pgrep -x hyprlock >/dev/null 2>&1; then

@@ -256,4 +256,18 @@ def main():
 
 
 if __name__ == "__main__":
+    # E90 — o --help que faltava (a lacuna nº 1 do UX-ROADMAP)
+    import sys as _sys  # local: o daemon nunca precisa do sys; só o help
+    if len(_sys.argv) > 1 and _sys.argv[1] in ("-h", "--help", "uso"):
+        print(
+            "uso: craft-audio-route — roteamento automático de áudio\n"
+            "     (daemon interno da sessão; sem argumentos)\n"
+            "\n"
+            "  fone pluga → som troca de porta; sink novo (BT/USB/DAC) vira o\n"
+            "  default na hora; default morre → melhor remanescente (a classe\n"
+            "  microfone/webcam é PROIBIDA de ser default — o sink fantasma do\n"
+            "  dump p6aw). Não briga com escolha MANUAL do dono. Chamado pelo\n"
+            "  craft-bars no arranque; o papel mora em ~/.cache/elite/bars.log."
+        )
+        _sys.exit(0)
     main()

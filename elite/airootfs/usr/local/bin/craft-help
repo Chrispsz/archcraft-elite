@@ -1,0 +1,136 @@
+#!/usr/bin/env bash
+# craft-help — O MAPA DOS COMANDOS (E90 — a lacuna nº 1 do UX-ROADMAP)
+# ═══════════════════════════════════════════════════════════════════════════
+# A auditoria E66 provou a ferida: 20 de 31 comandos sem --help, o
+# docs/SCRIPTS.md não viajava no pacote nem na ISO e nenhum centro de ajuda
+# existia — "o código é cirúrgico, mas a cirurgia é invisível de dentro do
+# sistema". O craft-help é a porta: o mapa dos comandos + os atalhos de
+# teclado reais (lidos do rc.xml da sessão) + o estado Elite, tudo
+# read-only e barato (roda em terminal, sem root, sem rede).
+#
+# Uso:
+#   craft-help            → o mapa inteiro
+#   craft-help <termo>    → filtra (ex.: craft-help dock, craft-help idle)
+#   craft-help -v         → mapa + o caminho da doc completa no papel
+#
+# A doc COMPLETA (o SCRIPTS.md — a linha de cada peça) viaja no pacote
+# elite-system em /usr/local/share/elite/docs/SCRIPTS.md (E90): o craft-help
+# aponta para ela quando existe — a fonte única continua sendo o repositório.
+# ═══════════════════════════════════════════════════════════════════════════
+set -u
+
+DOC=/usr/local/share/elite/docs/SCRIPTS.md
+B=$'\e[1m'; D=$'\e[2m'; N=$'\e[0m'; V=$'\e[35m'
+# sem TTY (pipe/redis) = sem cor (o papel viaja limpo)
+[ -t 1 ] || { B=""; D=""; N=""; V=""; }
+
+# ── o mapa embutido (o índice de uma linha — a mesma escola do E36) ────────
+MAPA=(
+"elite-tune        | tuning completo (kernel/GPU/zram/daemons) — --firstboot/--apps/--status"
+"elite-status      | a certificação resumida (alias de elite-tune --status)"
+"elite-optimize    | matemática de RAM: zram + swappiness pelo tamanho da memória (--status prova)"
+"elite-drivers     | perfis de driver por lspci (AMD/Intel/NVIDIA) — --apply/--purge"
+"elite-ferramentas | porta honesta do AUR/GUI/AppImage (--paru/--octopi/--appimage/--report)"
+"elite-sweep       | varredura one-shot dos atalhos órfãos do instalador (pré-login)"
+"craft-audio-route | roteamento automático de áudio (fone pluga, som troca)"
+"craft-bars        | supervisor da sessão (waybar, dock, toplevel, idle, áudio, swaync)"
+"craft-bat         | resumo de bateria (o clique no módulo da barra)"
+"craft-bgapps      | menu dos apps em 2º plano (só existe quando há o que encerrar)"
+"craft-clean       | manutenção: cache do pacman, órfãos, journal vacuum"
+"craft-connect     | central de rede PT-BR (Wi-Fi/cabo/Bluetooth) sob o botão de rede"
+"craft-dock        | toggle/reload da dock via sinal (W-S-d)"
+"craft-dock-gui    | a dock nativa (pins .desktop, dinâmicos, clique-focado-minimiza)"
+"craft-display     | A TELA QUE LEMBRA — modo/Hz/posição salvos em disco (apply/watch/save/status)"
+"craft-drawer      | Launchpad de aplicativos (W-d / tecla Super)"
+"craft-dump        | perícia completa em um arquivo (--upload sobe no termbin — PÚBLICO)"
+"craft-extract     | 'Extrair aqui' do Thunar — palco temporário + colisão pergunta"
+"craft-fix-keys    | cura do keyring do pacman (no live; no instalado o timer root cuida)"
+"craft-help        | este mapa (craft-help <termo> filtra)"
+"craft-hello       | a saudação do terminal (o retrato do sistema a cada shell)"
+"craft-idle        | lock/DPMS/suspend ajustáveis SEM relogin (menu de presets)"
+"craft-keyring-wait| espera o pacman transacional (ExecStartPre do pacman-init)"
+"craft-lock        | trava a sessão (W-l)"
+"craft-logout      | menu Sessão (W-Escape/W-x/C-A-Delete)"
+"craft-menu        | o motor dmenu dos menus craft-* (fuzzel + âncoras)"
+"craft-menu-dismiss| fecha qualquer menu/OSD aberto (lei de cross-dismiss)"
+"craft-pin         | fixar/remover/listar pins da dock"
+"craft-pin-pick    | picker gráfico para fixar apps (botão direito → Fixar)"
+"craft-power       | menu Sessão completo (sair/suspender/reiniciar/desligar)"
+"craft-rescue-screen | a escotilha do monitor cego (resume sem sinal — de um TTY)"
+"craft-rollback    | snapshots snapper — criar/restaurar (a porta é o GRUB)"
+"craft-rice        | garante os drop-ins do labwc (decoração ÚNICA + jogos sem moldura)"
+"craft-shot        | captura de tela — região (W-p) / tela inteira (W-S-p)"
+"craft-update      | atualização — manual, --canal (ao ligar), --sistema (semanal), --check (veredito sem tocar nada)"
+"craft-vigil       | a vigília do lock (suspende após SUSPEND_MIN travado, com ouvidos)"
+"craft-wake-guard  | status/off/on do wake-guard USB (dorme sem acordar sozinho)"
+)
+
+# ── atalhos reais (a verdade do rc.xml — nada de atalho fantasma) ──────────
+ATALHOS=(
+"W / Super       | Launchpad (abrir aplicativos)"
+"W-d             | Launchpad · W-S-d alterna a dock"
+"C-A-space       | fuzzel (lançador por texto)"
+"W-w             | navegador · W-f arquivos · W-e editor · W-s btop"
+"W-a             | pulsemixer (áudio) · W-n rede · W-S-b bluetooth"
+"W-v             | histórico da área de transferência"
+"W-p / W-S-p     | captura (região / tela inteira)"
+"W-l             | travar a tela · W-x/W-Escape menu Sessão"
+"W-i / W-m / W-q | minimizar / maximizar / fechar · W-S-f molduras"
+"W-1..4 / W-S-1..4 | trocar de área / mandar janela para a área"
+"A-Tab / W-Tab   | alternar janelas / o anel MRU da casa"
+"W-S-r           | reconfigurar o labwc (aplicar config na sessão viva)"
+)
+
+TERMO="${1:-}"
+VERBOSO=0
+case "${1:-}" in
+    -h|--help|-v|--verboso) VERBOSO=1; TERMO="${2:-}" ;;
+esac
+
+printf '%b╔══════════════════════════════════════════════════════════╗%b\n' "$V" "$N"
+printf '%b║  ARCHCRAFT ELITE — O MAPA DOS COMANDOS (craft-help)      ║%b\n' "$V" "$N"
+printf '%b╚══════════════════════════════════════════════════════════╝%b\n' "$V" "$N"
+
+# ── estado Elite (read-only, barato — 4 perguntas ao sistema) ──────────────
+es_ver="$(pacman -Q elite-system 2>/dev/null | awk '{print $2}')"
+printf 'estado: elite-system %b%s%b' "$B" "${es_ver:-ausente}" "$N"
+if [ -r /var/log/elite-update.log ]; then
+    ultima="$(grep -E 'canal: |manual|sistema:' /var/log/elite-update.log 2>/dev/null | tail -1 | sed 's/^\[[^]]*\] //' | cut -c1-58)"
+    [ -n "$ultima" ] && printf ' · última dose: %b%s%b' "$D" "$ultima" "$N"
+fi
+printf '\n'
+[ -r "$DOC" ] || printf '%b(doc completa ausente nesta instalação — antiga demais para o canal? sudo craft-update)%b\n' "$D" "$N"
+
+# ── filtro por termo (o termo casa no NOME ou no papel) ───────────────────
+if [ -n "$TERMO" ]; then
+    printf '\n%b── comandos que casam "%s" ──%b\n' "$B" "$TERMO" "$N"
+    achou=0
+    for linha in "${MAPA[@]}"; do
+        if printf '%s' "$linha" | grep -qi -- "$TERMO"; then
+            nome="${linha%%|*}"; papel="${linha#*| }"
+            printf '  %b%-19s%b %s\n' "$B" "$nome" "$N" "$papel"
+            achou=1
+        fi
+    done
+    [ "$achou" = 1 ] || printf '  (nada casou — tente: dock, idle, display, update, shot)\n'
+    exit 0
+fi
+
+printf '\n%b── ATALHOS DE TECLADO (os reais do rc.xml) ──%b\n' "$B" "$N"
+for linha in "${ATALHOS[@]}"; do
+    printf '  %b%-15s%b %s\n' "$V" "${linha%%|*}" "$N" "${linha#*| }"
+done
+
+printf '\n%b── COMANDOS DA CASA (%d — craft-help <termo> filtra) ──%b\n' "$B" "${#MAPA[@]}" "$N"
+for linha in "${MAPA[@]}"; do
+    printf '  %b%-19s%b %s\n' "$B" "${linha%%|*}" "$N" "${linha#*| }"
+done
+
+printf '\n%b── PARA IR ALÉM ──%b\n' "$B" "$N"
+printf '  doc completa : %b%s%b\n' "$B" "$DOC" "$N"
+printf '  perícia      : %bsudo craft-dump%b (o papel que julga o sistema)\n' "$B" "$N"
+printf '  ajuda viva   : W-S-h repete o retrato · %bcraft-help <termo>%b filtra\n' "$B" "$N"
+if [ "$VERBOSO" = 1 ]; then
+    [ -r "$DOC" ] && { printf '\n%b── $ %s ──%b\n' "$B" "head -30 $DOC" "$N"; head -30 "$DOC"; }
+fi
+exit 0

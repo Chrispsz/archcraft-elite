@@ -268,7 +268,7 @@ assert_grep "$U/elite-keyring-fix.timer" '^WantedBy=timers.target$' "v2.10.10: [
 assert_grep "$U/elite-keyring-fix.timer" '^OnBootSec=120s$' "v2.10.10: timer dispara 2min pós-boot (a cura chega cedo, sem brigar com o boot)"
 assert_grep "$U/elite-keyring-fix.timer" '^OnUnitActiveSec=6h$' "v2.10.10: timer re-tenta de 6h em 6h (o guard de 24h do script decide o custo real)"
 # craft-dump v2.2: a etiqueta = conteúdo, e o keyring ganha as 3 provas
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2.6' "v2.10.18/E30: craft-dump etiqueta v2.6 (a lei: etiqueta = conteúdo — a v2.6 nomeia o fantasma, a E23 e o wpctl inteiro)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2\.7' "v2.10.18/E30→E90: craft-dump etiqueta v2.7 (a lei: etiqueta = conteúdo — a v2.7 traz os modos COMPLETOS, o WOL e a E89 no papel; âncora refrescada viva)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'pubring.gpg' "v2.10.10: dump prova o pubring (a doença do d33o no papel)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'list-keys cachyos' "v2.10.10: dump prova as chaves CachyOS populadas"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'pacman lê o banco: OK' "v2.10.10: dump prova funcional do pacman (o -Syu vivo ou morto nomeado)"
@@ -413,7 +413,7 @@ assert_grep "$CU64" 'sentinela_db auto canal' "E64/AUD-B3: a sentinela na porta 
 assert_grep "$CU64" 'sentinela_db auto sistema' "E64/AUD-B3: a sentinela na porta SEMANAL (a mesma briga — agora espera com teto e adia honesta)"
 assert_grep "$CU64" 'já estava em dia' "E64: checagem não é notícia (o re-armamento horário multiplica a dose por 24 — sem novidade, ZERO pop-up; notify é a exceção por delta, escola E48)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 13→14 NO MESMO COMMIT' "E64: pkgrel elite-system 13→14 NO MESMO COMMIT (lei E41 — craft-update + 4 units mudaram de conteúdo; âncora na HISTÓRIA, lição E58/E59)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2.6' "v2.10.18/E30: craft-dump etiqueta v2.6 (etiqueta = conteúdo — wpctl completo)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2\.7' "v2.10.18/E30→E90: craft-dump etiqueta v2.7 (etiqueta = conteúdo — a v2.7: modos completos/WOL/E89 no papel)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'date \+%Y%m%d-%H%M%S' "v2.10.11: dump com segundos no STAMP (fim da colisão de dois runs no mesmo minuto — a doença do a4h8)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'if ! : > "\$OUT" 2>/dev/null; then' "v2.10.11: guard de escrita antes do papel (dump root-owned + rerun sem sudo = recusa clara)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" '90-elite-wake-guard.rules' "v2.10.11: dump prova a regra E24 no papel (seção 10)"
@@ -1158,7 +1158,7 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bgapps" '\( tr .*/proc/.pi
 # R9. A E23 GANHA CURANDEIRO VISÍVEL NO PAPEL (o nl3z não mostrou UM
 #     elite-keyring — o veredito da cura precisa ver quem cura):
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'elite-keyring-fix\.timer' "v2.10.12: a seção 5 mostra o timer da E23 (a cura estava invisível no papel)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2.6' "v2.10.18/E30: o papel é v2.6 (etiqueta = conteúdo — wpctl completo entra junto)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2\.7' "v2.10.18/E30→E90: o papel é v2.7 (etiqueta = conteúdo — a v2.7: modos completos/WOL/E89 no papel; âncora refrescada viva)"
 
 # ── v2.10.18 · E30 — o papel p6aw (1325 linhas) + as fotos do dono ─────────
 # O rig real provou o que o QEMU não vê: bell misterioso (wall do firstboot
@@ -1722,5 +1722,79 @@ CRUSB="$REPO/elite/airootfs/usr/lib/systemd/system-sleep/elite-resume-usb"
 assert_grep "$CRUSB" 'SNAP_IN' "E89: a foto do pre ganha a terceira dimensão (inputs contados por HID — o mouse que ENUMERA e não mexe é visto, o caso usbhid 3-4:1.4)"
 assert_grep "$CRUSB" 'btusb' "E89: o BLUETOOTH re-assenta no wake (hci0 reset failed -19 do dump — o rádio que não voltava até o reboot)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 32→33 NO MESMO COMMIT' "E89: pkgrel elite-system 32→33 NO MESMO COMMIT (lei E41 — o C recompila com MIN+blindagem, craft-dock-gui/craft-idle mudaram, craft-display é bin novo, hook/autostart/menu/packages mudaram; âncora na HISTÓRIA, lição E58/E59)"
+
+# ═══════════════════════════════════════════════════════════════════════
+# E90/E91 — A ÁREA 4 DA ROTAÇÃO + AS 3 LACUNAS DO UX-ROADMAP + AS CURAS
+# DAS REGRESSÕES DO 1.0-33 (dump 231955: a dock sumiu, o sono de 7s
+# voltou, o lock não mudou — cada réu nomeado com prova)
+# ═══════════════════════════════════════════════════════════════════════
+# ── R1: o typo que matou a dock (a E89 escreveu "__main_" — main() nunca
+# rodava, exit=0 em loop de 5s, DOCK_COUNT=0 no dump 231955) ──
+CDOCK2="$REPO/elite/airootfs/usr/local/bin/craft-dock-gui"
+assert_grep "$CDOCK2" 'if __name__ == "__main__":' "E91: o typo '__main_' está MORTO (a dock volta a nascer — o crash-loop exit=0 do dump 231955, DOCK_COUNT=0)"
+assert_nogrep "$CDOCK2" '^if __name__ == "__main_":' "E91: nenhuma linha com o typo de um underscore sobrevive (a lição: ast.parse NÃO pega typo de string — o contrato pega)"
+
+# ── R2: o selo ACPI fora do veículo (o build copiava 2 hooks POR NOME e
+# o elite-sleep-report nunca viajou — o rig 1.0-33 seguiu com o hook
+# velho, sono de 7s/9s no journal do dump 231955) ──
+assert_grep "$REPO/.ci/build.sh" 'for h in /work/elite/airootfs/usr/lib/systemd/system-sleep/elite-\*' "E91: a cópia de hooks é VARREDURA do diretório (lista fixa enferruja — a mesma lição da ferida dos bins E46; o selo E88 chega ao rig pelo canal)"
+assert_grep "$REPO/.ci/build.sh" 'elite-sleep-report' "E91: o elite-sleep-report VIAJA no pacote (o selo ACPI da E88 — a cura do 'suspendeu e voltou em 7s' que nunca chegou ao 1.0-33)"
+
+# ── R3: o lock que não chegava (hyprlock.conf v3 só no skel — home vivo
+# nunca o recebe, lei do domínio v3; o dono: "não mudou nada") ──
+CRICE="$REPO/elite/airootfs/usr/local/bin/craft-rice"
+assert_grep "$CRICE" 'LOCK_FOSSILS' "E91: a lock skin conhece os FÓSSEIS (a versão velha da casa = ninguém personalizou = renova com segurança)"
+assert_grep "$CRICE" 'lock-adopt' "E91: a porta EXPLÍCITA --lock-adopt (backup .bak-<stamp> + entrega — a lei do domínio v3 intocada, a novidade a um comando)"
+assert_grep "$CRICE" 'ELITE_LOCK_SRC' "E91: o seam de prova (a escola ELITE_* da casa — o teste nunca escreve em /usr)"
+assert_grep "$REPO/elite/airootfs/etc/skel/.config/hypr/hyprlock.conf" 'entregue por craft-rice' "E91: o skel da v3 carrega o MARCADOR do rice (o conf da casa se renova em homes vivos nas próximas peles)"
+assert_grep "$REPO/.ci/build.sh" 'usr/local/share/elite/hyprlock/hyprlock.conf' "E91: a pele-mestra viaja NO PACOTE (a mesma escola do fastfetch E73 — fora do pacote nunca chega ao canal)"
+
+# ── E90: craft-dump v2.7 — as provas que o papel deixava cair ──
+CDUMP="$REPO/elite/airootfs/usr/local/bin/craft-dump"
+assert_grep "$CDUMP" 'wayland-0 wayland-1 wayland-2.*140' "E90: o randr INTEIRO no papel (o teto 30 cortava o 200 Hz do dump 190719 — a lista começava em 1024x768, exatamente onde os modos grandes moravam)"
+assert_grep "$CDUMP" 'displays\.conf' "E90: a E89 no papel (o conf em disco + craft-display status — o julgamento da tela que lembra ganha prova DIRETA)"
+assert_grep "$CDUMP" 'Wake-on-LAN' "E90: o WOL na caça ao despertar (o r8169 é o réu clássico do 'voltou em 7s' — o papel nunca o fotografou)"
+assert_grep "$CDUMP" 'Supports Wake' "E90: o ethtool entrega o Wake-on quando existe (entrou na ISO; sysfs é a prova sempre)"
+assert_grep "$CDUMP" 'PME' "E90: a PME no grep do despertar (a outra face do réu PCIe)"
+assert_grep "$CDUMP" "dumped core" "E90: os coredumps do toplevel no papel (o réu dos delays da dock — contagem + últimas mortes: zero linhas = cura E89 provada)"
+assert_grep "$CDUMP" 'elite-resume-usb' "E90: o relato do rebind no papel (a foto dos inputs, o alvo, o martelo de reserva — a cura do mouse morto com prova DIRETA)"
+
+# ── E90: a descoberta — craft-help + --help na família + a doc no pacote ──
+CHELP="$REPO/elite/airootfs/usr/local/bin/craft-help"
+assert_file "$CHELP" "E90: craft-help EXISTE (a lacuna nº 1 do UX-ROADMAP: a cirurgia deixa de ser invisível)"
+assert_grep "$CHELP" 'O MAPA DOS COMANDOS' "E90: o craft-help se apresenta"
+assert_grep "$CHELP" 'craft-help <termo>' "E90: o filtro por termo documentado no próprio mapa"
+assert_grep "$CHELP" 'W-S-h repete|A-Tab / W-Tab' "E90: os atalhos REAIS no mapa (a verdade do rc.xml — nada de atalho fantasma)"
+assert_grep "$REPO/scripts/apply-overlay.sh" 'craft-help' "E90: o craft-help registrado no file_permissions (o gate 203/EXEC — lição diag-boot2)"
+assert_grep "$REPO/.ci/build.sh" 'usr/local/share/elite/docs/SCRIPTS.md' "E90: o SCRIPTS.md viaja NO PACOTE (a doc completa dentro do sistema — a fonte única continua o repo)"
+assert_grep "$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml" 'foot -e craft-help' "E90: o menu do desktop abre o mapa (a porta de mouse-first da descoberta)"
+assert_grep "$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml" 'craft-update --check' "E90: o menu ganha 'Verificar atualizações' (a porta barata de checagem — a lacuna nº 2)"
+
+# ── E90: a família inteira com --help (a auditoria E66: 20 de 31 nus) ──
+# o contrato casa o VOCÁBULO --help no dispatch (a casa tem 3 gramáticas:
+# case "-h|--help|uso)" do sh, "== \"--help\"" do bash e a tupla python
+# "-h", "--help" — o que importa é a PORTA existir em cada bin)
+E90_BINS="craft-audio-route craft-bars craft-bat craft-clean craft-connect craft-dock-gui craft-drawer craft-dump craft-fix-keys craft-hello craft-idle craft-keyring-wait craft-lock craft-logout craft-menu-dismiss craft-power craft-rice craft-update craft-vigil elite-status"
+for b in $E90_BINS; do
+    f="$REPO/elite/airootfs/usr/local/bin/$b"
+    if grep -q -- '--help' "$f" 2>/dev/null && grep -q -- 'uso: ' "$f" 2>/dev/null; then
+        ok "E90/--help: $b responde -h/--help (a descoberta de dentro do sistema)"
+    else
+        fail "E90/--help: $b NÃO responde -h/--help" "a auditoria E66 nomeou 20 nus; o contrato cobra a família inteira (--help no dispatch + 'uso: ' na saída)"
+    fi
+done
+
+# ── E90: o veredito sem tocar nada (--check) + o onboarding (hello v2) ──
+CUPD="$REPO/elite/airootfs/usr/local/bin/craft-update"
+assert_grep "$CUPD" '== "--check"' "E90: craft-update --check existe (a pergunta barata de 'tem atualização?')"
+assert_grep "$CUPD" 'zero -Sy, zero root, zero transação' "E90: o --check é READ-ONLY por contrato (o veredito nunca sincroniza a base)"
+assert_grep "$CUPD" 'base sincronizada' "E90: a IDADE da base local no veredito (base velha = julgamento honesto do que o pacman JÁ viu)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-hello" 'elite_pointer' "E90: o onboarding depois do retrato (a versão + a última dose + o craft-help — a lacuna nº 3)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'última dose' "E90/área 4: o estado do canal na certificação (elite-system/dose/pendências com a idade da base)"
+assert_grep "$REPO/elite/packages.add" '^ethtool$' "E90: ethtool na ISO (a prova do WOL na caça ao despertar)"
+
+# ── E90: a vigília fecha a porta (argumento inesperado = 2ª vigília —
+# a lei E30 manda UMA por ciclo; o typo humano morre na entrada) ──
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-vigil" 'argumento inesperado' "E90: craft-vigil recusa argumentos com recusa clara (rc 2 — a 2ª vigília acidental nunca nasce)"
 
 phase_end

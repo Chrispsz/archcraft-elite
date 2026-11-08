@@ -84,6 +84,21 @@
 # linha em ~/.cache/elite/menus.log — crash nunca mais é morte calada.
 set -eu
 
+# E90 — o --help que faltava (a lacuna nº 1 do UX-ROADMAP)
+uso() {
+    printf '%s\n' \
+        'uso: craft-idle — o daemon de idle (lock → apagar → suspender) e o' \
+        '     menu de presets: "Tempo para travar a tela…" (duas portas)' \
+        '' \
+        '  sem args abre o MENU (presets de minutos; efeito imediato, sem' \
+        '  relogin — a máquina de estados renasce com a nova receita). A' \
+        '  escolha persiste em ~/.config/elite/idle.conf (LOCK/OFF/SUSPEND_MIN).' \
+        '  A ORDEM É LEI (E89): SUSPEND ≤ LOCK não nasce — normaliza p/ LOCK+5.' \
+        '  o papel dos braços mora em ~/.cache/elite/idle.log.'
+    exit 0
+}
+case "${1:-}" in -h|--help|uso) uso ;; esac
+
 MLOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/menus.log"
 mlog() {
     mkdir -p "${MLOG%/*}" 2>/dev/null

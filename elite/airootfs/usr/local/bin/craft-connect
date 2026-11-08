@@ -36,6 +36,19 @@
 # ─────────────────────────────────────────────────────────────────────────
 set -u
 
+# E90 — o --help que faltava (a lacuna nº 1 do UX-ROADMAP)
+uso() {
+    printf '%s\n' \
+        'uso: craft-connect — central de rede PT-BR (Wi-Fi, cabo, Bluetooth,' \
+        '     redes salvas) sob o botão de rede da barra' \
+        '' \
+        '  menu interativo (craft-menu/fuzzel) que CONTROLA o NetworkManager:' \
+        '  conectar, desconectar, esquecer rede, abrir o editor do sistema e o' \
+        '  gerenciador Bluetooth. Sem argumentos — chamado pelo módulo de rede.'
+    exit 0
+}
+case "${1:-}" in -h|--help|uso) uso ;; esac
+
 MLOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/menus.log"
 mlog() {
     mkdir -p "${MLOG%/*}" 2>/dev/null

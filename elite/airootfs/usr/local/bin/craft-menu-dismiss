@@ -31,6 +31,19 @@
 # ═══════════════════════════════════════════════════════════════════════════
 set -u
 
+# E90 — o --help que faltava (a lacuna nº 1 do UX-ROADMAP)
+uso() {
+    printf '%s\n' \
+        'uso: craft-menu-dismiss — fecha QUALQUER menu/OSD aberto da sessão' \
+        '     (a lei de cross-dismiss: um menu novo ou um lançamento nunca' \
+        '     convivem com o anterior)' \
+        '' \
+        '  sem args — varre os sockets/daemons de menu (fuzzel, nwg-drawer,' \
+        '  OSD) e encerra com a gramática 0/1/143 no menus.log.'
+    exit 0
+}
+case "${1:-}" in -h|--help|uso) uso ;; esac
+
 ST="${XDG_RUNTIME_DIR:-/tmp}/elite-menus.$(id -u 2>/dev/null || echo 0)"
 
 # sem state = sem menu aberto = no-op imediato (o caminho comum)

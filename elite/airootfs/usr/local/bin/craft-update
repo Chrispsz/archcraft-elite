@@ -448,6 +448,111 @@ refresh_if_craft_changed() {
     fi
 }
 
+# ── E90 — A PORTA DE DESCOBERTA E O VEREDITO SEM TRANSAÇÃO ──────────────
+# A auditoria E66 nomeou as duas lacunas: "--help não existe" (o script é
+# de linha reta) e "checagem não é porta" (nada responde 'tem atualização
+# pendente?' SEM tocar a base). O --check é READ-ONLY DE VERDADE: zero
+# pacman -Sy, zero root, zero transação — lê o INSTALADO, a base LOCAL
+# (com a idade dela no papel — base velha = julgamento honesto do que o
+# pacman JÁ conhece), a cadência e (se houver rede) a tag viva da casa.
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" || "${1:-}" == "uso" ]]; then
+    cat <<'EOUSO'
+uso: craft-update [--check | --canal | --sistema | --adotar] — atualiza TUDO
+     que a Elite entrega (pacote único elite-system + repositórios)
+
+  (sem args)   a porta MANUAL: sudo pacman -Syu com alvo elite-system,
+               sentinela da base (espera lock vivo, cura lock órfão),
+               refresh da sessão viva SEM relogin e aviso de kernel novo
+  --check      o VEREDITO SEM TOCAR NADA: versões instaladas, pendências
+               da base LOCAL (com a idade dela), cadência e a tag viva
+               (se houver rede). Read-only, sem root — a pergunta
+               barata de 'tem atualização?' (E90)
+  --canal      dose da casa AO LIGAR (elite-bootupdate.timer, OnBootSec
+               3min — a cadência que o (sem args) liga)
+  --sistema    dose SEMANAL com snapshot PRE/POST (sáb 10:00±2h)
+  --adotar     a conclusão da PONTE (elite-adopt do craft-toplevel velho)
+
+  a dose pede sudo; o --check roda como dono mesmo. O papel da
+  automação: /var/log/elite-update.log
+EOUSO
+    exit 0
+fi
+
+if [[ "${1:-}" == "--check" ]]; then
+    printf '══════════ craft-update --check — veredito SEM tocar nada ══════════\n'
+    printf '(read-only: zero -Sy, zero root, zero transação — a base local\n'
+    printf ' permanece a que o último sincronismo trouxe)\n\n'
+    # ── a era instalada (o que o pacman TEM) ──
+    printf '── instalado\n'
+    if command -v pacman >/dev/null 2>&1; then
+        for p in elite-system elite-craft craft-toplevel linux-cachyos-bore; do
+            v="$(pacman -Q "$p" 2>/dev/null | awk '{print $2}')"
+            printf '  %-20s %s\n' "$p" "${v:-(ausente)}"
+        done
+    else
+        printf '  (pacman ausente — ambiente de prova?)\n'
+    fi
+    if [[ -r "$VMARK" ]]; then
+        printf '  base da ISO          %s (/usr/local/share/elite/VERSION)\n' "$(head -n1 "$VMARK" 2>/dev/null || echo '?')"
+    fi
+    # ── a cadência (a automação de pé?) ──
+    printf '\n── cadência\n'
+    for t in elite-bootupdate.timer elite-sysupdate.timer; do
+        st="$(systemctl is-enabled "$t" 2>/dev/null)" || st='desligada'
+        printf '  %-22s %s\n' "$t" "$st"
+    done
+    # ── a última dose no papel ──
+    printf '\n── última dose (o papel da automação)\n'
+    if [[ -r "$ULOG" ]]; then
+        { grep -E 'canal: |manual: |sistema: ' "$ULOG" 2>/dev/null || true; } | tail -3 | sed 's/^/  /'
+    else
+        printf '  (sem %s ainda — nenhuma dose rodou nesta máquina?)\n' "$ULOG"
+    fi
+    # ── as pendências que a base LOCAL já conhece (com a idade da base) ──
+    # (pipefail: o pacman -Qu devolve rc=1 quando NADA está pendente — a
+    # negação honesta não pode matar o veredito; o || true na FONTE)
+    printf '\n── pendências conhecidas da base LOCAL\n'
+    if command -v pacman >/dev/null 2>&1; then
+        npend="$( { pacman -Qu 2>/dev/null || true; } | wc -l )"
+        oldest=""
+        for db in /var/lib/pacman/sync/*.db; do
+            [[ -e "$db" ]] || continue
+            d="$(date -r "$db" '+%d/%m %H:%M' 2>/dev/null)" || continue
+            [[ -z "$oldest" || "$db" -ot "$oldest_db" ]] && oldest="$d" && oldest_db="$db"
+        done
+        if (( npend > 0 )); then
+            printf '  %d pacote(s) com upgrade pronto — base sincronizada %s\n' "$npend" "${oldest:-?}"
+            { pacman -Qu 2>/dev/null || true; } | head -8 | sed 's/^/    /'
+            (( npend > 8 )) && printf '    … e mais %d\n' $((npend - 8))
+        else
+            printf '  nada pendente — base sincronizada %s\n' "${oldest:-?}"
+        fi
+    fi
+    # ── a rede: a tag viva da casa (a prova de 8s — nunca às cegas) ──
+    printf '\n── o canal (a tag viva, se a rede responder)\n'
+    if rede_viva; then
+        latest="$(curl -fsSL --max-time 10 \
+            https://api.github.com/repos/Chrispsz/archcraft-elite/releases/latest 2>/dev/null \
+            | sed -n 's/^ *"tag_name": *"\([^"]*\)".*/\1/p' | head -n1 || true)"
+        inst_tag="$(head -n1 "$VMARK" 2>/dev/null || true)"
+        if [[ -n "$latest" ]]; then
+            if [[ -n "$inst_tag" && "$latest" != "$inst_tag" ]]; then
+                printf '  ISO %s disponível (base desta máquina: %s)\n' "$latest" "$inst_tag"
+                printf '  o código da casa viaja SOZINHO pelo canal; a ISO nova é o capote mensal\n'
+            else
+                printf '  canal no ar — a base desta máquina é a última (%s)\n' "${latest:-?}"
+            fi
+        else
+            printf '  (a API não respondeu a tempo — o canal está no ar, a tag não veio)\n'
+        fi
+    else
+        printf '  SEM REDE (a prova de 8s falhou) — o julgamento do canal fica\n'
+        printf '  para a próxima dose; a base local acima segue valendo\n'
+    fi
+    printf '\n══════════ fim do veredito (nada foi tocado) ══════════\n'
+    exit 0
+fi
+
 # ── a porta da ADOÇÃO (E49/E50 — o elite-adopt entrega aqui): o rig velho
 # foi puxado pelo hook do craft-toplevel (a PONTE para o pacote único); o
 # craft-update NOVO conclui a rodada: refresh da sessão viva (o pacote

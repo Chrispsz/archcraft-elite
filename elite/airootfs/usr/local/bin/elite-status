@@ -1,3 +1,16 @@
 #!/usr/bin/env bash
 # elite-status — atalho para a certificação (elite-tune --status)
+# E90 — o --help que faltava (a lacuna nº 1 do UX-ROADMAP): a certificação
+# é do elite-tune (a lógica num lugar só — o alias aqui é só a porta).
+case "${1:-}" in
+    -h|--help|uso)
+        printf '%s\n' \
+            'uso: elite-status — a certificação resumida do sistema' \
+            '     (alias de elite-tune --status: kernel, driver cpufreq,' \
+            '     cmdline, zram, THP, repos, serviços da casa, GPU, firstboot)' \
+            '' \
+            '  read-only, sem sudo. O retrato completo: sudo craft-dump'
+        exit 0
+        ;;
+esac
 exec /usr/local/bin/elite-tune --status "$@"

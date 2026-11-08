@@ -46,6 +46,25 @@
 #    o resto). Revertível por desenho: apagar o drop-in devolve.
 # ═══════════════════════════════════════════════════════════════════════════
 
+# E90 — o --help que faltava (a lacuna nº 1 do UX-ROADMAP)
+uso() {
+    printf '%s\n' \
+        'uso: craft-rice — garante os drop-ins da casa em ~/.config/labwc/rc.xml.d/' \
+        '     10-elite-games.xml (serverDecoration para jogos Proton/Steam) e' \
+        '     20-elite-ssd.xml (a decoração ÚNICA — Chromium/Brave/imv forçados à' \
+        '     moldura do tema, a spec do dono: "todas as janelas seguem o mesmo padrão")' \
+        '' \
+        '  aditivo e idempotente (o rc.xml do usuário NUNCA é tocado); arquivo sem' \
+        '  o marcador da casa = intocável. O craft-bars chama no arranque; mudou' \
+        '  algo = labwc-msg reconfigure na sessão viva.' \
+        '' \
+        '  E91 — a LOCK SKIN: o hyprlock.conf v3 alcança homes VIVOS (fóssil da' \
+        '  casa → renova; personalizado → intocável + papel honesto).' \
+        '  craft-rice --lock-adopt = adota a v3 NA FORÇA (backup .bak-<stamp>).'
+    exit 0
+}
+case "${1:-}" in -h|--help|uso) uso ;; esac
+
 MARKER="entregue por craft-rice"
 DIR="${XDG_CONFIG_HOME:-$HOME/.config}/labwc/rc.xml.d"
 
@@ -131,4 +150,74 @@ if [ "$CHANGED" -eq 1 ]; then
             && echo "craft-rice: reconfigure aplicado (as regras valem na sessão viva)"
     fi
 fi
+
+# ═══════════════════════════════════════════════════════════════════════════
+# E91 — A LOCK SKIN QUE ALCANÇA O HOME VIVO (o bloqueio que "não mudou")
+# ═══════════════════════════════════════════════════════════════════════════
+# A FERIDA (dump 231955, o dono: "o bloqueio de tela não mudou nada"): o
+# hyprlock.conf v3 (E88 — relógio com corpo, saudação, card) mora no SKEL
+# da ISO — e home que JÁ EXISTE nunca o recebe (a lei do domínio v3:
+# config de usuário não é tocada por update — correta, mas sem porta
+# nenhuma o lock novo era uma promessa da ISO nova, nunca do canal).
+# A GRAMÁTICA DO RICE RESOLVE sem quebrar a lei (a mesma do ensure_fragment):
+#   · conf AUSENTE            → entrega (home novo/primeiro uso);
+#   · conf da CASA            → o marcador acima autoriza a renovação;
+#   · conf FÓSSIL             → hash de versão antiga da casa conhecida
+#                               (ninguém personalizou — é a nossa velha);
+#   · conf PERSONALIZADO      → NÃO TOCA + papel honesto + a porta
+#                               `craft-rice --lock-adopt` (backup e entrega).
+# A pele-mestra viaja NO PACOTE (build.sh): /usr/local/share/elite/hyprlock/
+# hyprlock.conf — mesma escola do fastfetch (E73). Chamo no arranque pelo
+# craft-bars: o update entrega, o rice aplica no próximo arranque/relogin.
+LOCK_SRC="${ELITE_LOCK_SRC:-/usr/local/share/elite/hyprlock/hyprlock.conf}"
+LOCK_DST="${XDG_CONFIG_HOME:-$HOME/.config}/hypr/hyprlock.conf"
+# fósseis: v2.8.0 (6e9cf53) · v2.5.0 (5c6c3dd) · v2.3.0 (e96bec4) — o
+# git da casa é a fonte; um conf NOVO da casa ganha marcador próprio.
+LOCK_FOSSILS="8db51ea1b3f1538ff8205da0acfee007ad09f45a312680f4c7584259ee7a254c 3b12babe69f16e40edd5dd1c8a4680e2b32d116821f7c3aad138d803a3ef5407 67e7a7da7ded2b55bbfe3b0090ce6801a902a8d89f410c9e8155ff435f095711"
+
+lock_skin() {
+    # --lock-adopt: a porta EXPLÍCITA do dono (backup .bak-<stamp> + entrega)
+    if [ "${1:-}" = "--lock-adopt" ]; then
+        if [ ! -r "$LOCK_SRC" ]; then
+            echo "craft-rice: a pele-mestra não está no sistema (elite-system antigo?) — nada a adotar" >&2
+            exit 1
+        fi
+        if [ -f "$LOCK_DST" ]; then
+            cp -p "$LOCK_DST" "$LOCK_DST.bak-$(date +%Y%m%d-%H%M%S)" 2>/dev/null \
+                && echo "craft-rice: backup do seu lock salvo ao lado ($LOCK_DST.bak-*)"
+        fi
+        mkdir -p "${LOCK_DST%/*}" 2>/dev/null
+        cp -p "$LOCK_SRC" "$LOCK_DST" && echo "craft-rice: lock v3 adotado (a pele nova vale no próximo lock)"
+        return 0
+    fi
+    [ -r "$LOCK_SRC" ] || return 0   # elite-system antigo: silêncio honesto
+    # já é a nossa (marcador)? renovou = entrega; idêntica = zero escrita
+    if [ -f "$LOCK_DST" ]; then
+        if grep -q "$MARKER" "$LOCK_DST" 2>/dev/null; then
+            if cmp -s "$LOCK_SRC" "$LOCK_DST"; then return 0; fi
+            cp -p "$LOCK_SRC" "$LOCK_DST" 2>/dev/null \
+                && echo "craft-rice: lock skin renovada (a casa atualizou a própria pele)"
+            return 0
+        fi
+        # fóssil? a nossa versão velha — ninguém personalizou, renova
+        now_hash="$(sha256sum "$LOCK_DST" 2>/dev/null | cut -d' ' -f1)"
+        case " $LOCK_FOSSILS " in
+            *" $now_hash "*)
+                cp -p "$LOCK_SRC" "$LOCK_DST" 2>/dev/null \
+                    && echo "craft-rice: lock fóssil renovado — a tela v3 (relógio, saudação, card) chegou ao home vivo"
+                return 0
+                ;;
+        esac
+        echo "craft-rice: $LOCK_DST é PERSONALIZADO — intocável (a lei do domínio v3)"
+        echo "             a lock skin v3 existe: craft-rice --lock-adopt (backup + entrega)"
+        return 0
+    fi
+    # ausente → entrega (primeiro uso)
+    mkdir -p "${LOCK_DST%/*}" 2>/dev/null
+    cp -p "$LOCK_SRC" "$LOCK_DST" 2>/dev/null \
+        && echo "craft-rice: lock skin entregue (o hyprlock precisa dela para travar bonito)"
+    return 0
+}
+
+lock_skin "${1:-}"
 exit 0

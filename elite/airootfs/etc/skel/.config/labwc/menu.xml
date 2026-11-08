@@ -87,10 +87,23 @@
     <item label="Atualizar sistema">
       <action name="Execute" command="foot -e craft-update" />
     </item>
+    <!-- E90 — O VEREDITO SEM TOCAR NADA (a lacuna nº 2 do UX-ROADMAP: "não
+         existe porta barata de checagem" — agora existe: o --check lê o
+         instalado, a base local e a tag viva, sem root e sem transação) -->
+    <item label="Verificar atualizações">
+      <action name="Execute" command="foot -e craft-update --check" />
+    </item>
     <item label="Limpeza do sistema">
       <action name="Execute" command="foot -e craft-clean" />
     </item>
     <separator />
+    <!-- E90 — O MAPA DOS COMANDOS (a lacuna nº 1 do UX-ROADMAP: 20 de 31
+         comandos sem --help, a doc não viajava, nenhum centro de ajuda —
+         "a cirurgia era invisível de dentro do sistema". O craft-help é a
+         porta: atalhos reais + os 37 comandos + o estado do canal) -->
+    <item label="Ajuda — comandos da Elite">
+      <action name="Execute" command="foot -e craft-help" />
+    </item>
     <item label="Aplicativos (Launchpad)">
       <action name="Execute" command="craft-drawer" />
     </item>
