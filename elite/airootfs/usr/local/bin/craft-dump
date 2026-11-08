@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · craft-dump (v2.6 — o "btop completão" que se atualiza)
+# Archcraft ELITE · craft-dump (v2.7 — o "btop completão" que se atualiza)
 # ═══════════════════════════════════════════════════════════════════════════
 # Pedido do dono (out/2026): "como puxo tudo que está rodando como se fosse
 # um btop completão pra gente ter um diagnóstico da RAM, pacotes, uso, CPU
@@ -53,6 +53,23 @@
 # puxa o craft-dump DA MAIN do repo (raw, sem credencial), valida com
 # bash -n antes de instalar, guarda o velho como .bak-<stamp> e imprime o
 # sha256 dos dois — a perícia nunca mais envelhece no rig.
+# v2.7 (E90 — a área 4 da rotação; o dump 190719 do rig 1.0-31 apontou as
+# provas que o papel deixou CAIR): (1) A LISTA DE MODOS TRUNCADA — o tail
+# de 30 linhas cortava o wlr-randr EXATAMENTE onde mora o 200 Hz (o papel
+# começava no meio da lista, em 1024x768, e o julgamento da E89
+# 'displays que lembram' ficava sem os modos do EDID); agora o randr
+# entra INTEIRO (teto 140 — lista completa de qualquer monitor). (2) A
+# CAÇA AO DESPERTAR GANHA O WOL — o r8169 com Wake-on-L é o réu clássico
+# do 'suspendeu e voltou em 7s' e o papel NUNCA o fotografou: wakeup por
+# interface (sysfs) + ethtool Wake-on quando presente (entrou na ISO,
+# E90) + PME no grep do despertar. (3) A E89 NO PAPEL — displays.conf do
+# dono + craft-display status entram na seção 7 (o julgamento da tela que
+# lembra passa a ter prova no papel). (4) O RÉU DOS DELAYS NOMEADO — o
+# journal dos coredumps do craft-toplevel (exit=139, o réu da dock
+# lenta) entra na seção 6 com contagem + últimas mortes. (5) O REBIND
+# PROVADO — o relato do elite-resume-usb (a foto dos inputs, o alvo, o
+# martelo de reserva) entra na seção 10 — a cura E88/E89 do mouse morto
+# era invisível no papel (só aparecia no grep genérico, se aparecesse).
 #
 #    0 · VEREDITO RÁPIDO — probe da sessão + units falhados + disco raiz
 #    1 · identidade (+ o ambiente de sessão: o dump nasceu dentro dela?)
@@ -61,14 +78,18 @@
 #    4 · boot & rollback — história de boots, tempo, findmnt (lição D1),
 #        snapshots
 #    5 · serviços Elite + a VERSÃO dos pacotes craft/elite NO RIG (pacman)
-#    6 · sessão — processos, barras, supervisão, PINS e a TABELA REAL de
+#    6 · sessão — processos, barras, supervisão, PINS, a TABELA REAL de
 #        janelas do daemon toplevel (o socket que a dock fala:
 #        W|id|flags|rank|app_id|título — o teste do btop chega com prova)
-#    7 · display & teclado — wlr-randr (posição/scale/modo ATUAL), XKB
-#        (o ABNT2 com prova), localectl
+#        e os COREDUMPS do toplevel (o réu dos delays da dock)
+#    7 · display & teclado — wlr-randr INTEIRO (todos os modos do EDID —
+#        o 200 Hz não cai mais fora do papel), displays.conf + status do
+#        craft-display (a E89 julgada no papel), XKB (o ABNT2 com prova),
+#        localectl
 #    8 · rede — nmcli (a cura B2 com evidência) + IPs + hardware de rede
 #    9 · áudio — sink/fonte default (wpctl)
-#   10 · suspend/ACPI — a caça ao despertar + idle.conf (a escolha do dono)
+#   10 · suspend/ACPI — a caça ao despertar (WAKE SOURCES + WOL + PME + o
+#        relato do elite-resume-usb) + idle.conf (a escolha do dono)
 #   11 · journal de erros deste boot
 #   12 · os 3 logs da Elite + firstboot + Calamares
 #   13 · pacotes (explicit/órfãos/foreign/flatpak/repos) + O KEYRING NO
@@ -103,6 +124,25 @@ STAMP="$(date +%Y%m%d-%H%M%S)"
 # o bash -n julga ANTES da instalação, o velho vira .bak e o sha256 fica
 # no terminal — atualização auditável em 1 comando.
 RAW_BASE="https://raw.githubusercontent.com/Chrispsz/archcraft-elite/main"
+
+# E90 — o --help que faltava (a lacuna nº 1 do UX-ROADMAP)
+uso() {
+    printf '%s\n' \
+        'uso: craft-dump [--upload] [--update] — a perícia completa em um' \
+        '     arquivo (15 seções: sessão, hardware, kernel, boot, serviços,' \
+        '     display, rede, áudio, a caça ao despertar, journal, logs,' \
+        '     pacotes, caches)' \
+        '' \
+        '  (sem args)  gera ~/elite-dump-<data>.txt e mostra o caminho' \
+        '  --upload    idem + sobe no termbin.com (PÚBLICO — avisado; SSIDs,' \
+        '              IPs e MACs viajam no papel)' \
+        '  --update    renova ESTE script da main do repo (bash -n valida;' \
+        '              o velho vira .bak; sha256 no terminal) — root' \
+        '  rodar com sudo traz o journal completo; sem sudo, o essencial.'
+    exit 0
+}
+case "${1:-}" in -h|--help|uso) uso ;; esac
+
 if [ "${1:-}" = "--update" ]; then
     SELF="$0"
     if [ "$(id -u)" -ne 0 ]; then
@@ -184,7 +224,7 @@ if ! : > "$OUT" 2>/dev/null; then
 fi
 
 {
-    printf '══════════ ELITE DUMP v2.6 — diagnóstico completo ══════════\n'
+    printf '══════════ ELITE DUMP v2.7 — diagnóstico completo ══════════\n'
     if [ "$(id -un)" != "$DUMP_USER" ]; then
         printf 'gerado: %s · usuário: %s → sessão de %s (uid %s) · host: %s\n' \
             "$(date)" "$(id -un)" "$DUMP_USER" "$DUMP_UID" "$(uname -n 2>/dev/null || echo '?')"
@@ -378,6 +418,15 @@ PY
     done
     [ -n "$tp_done" ] || printf '(socket do toplevel não encontrado — daemon craft-toplevel morto? veja o probe na seção 0 e o bars.log na seção 12)\n'
 
+    # v2.7/E90 — O RÉU DOS DELAYS NOMEADO NO PAPEL: cada coredump do
+    # toplevel (exit=139 em wl_display_read_events — 4× em 4 min no dump
+    # 190719) é uma janela em que a dock cai no fallback wlrctl e o clique
+    # vira fork = os 'delays absurdos'. Contagem + as últimas mortes: o
+    # julgamento da blindagem E89 passa a ter prova direta (zero linhas =
+    # cura provada).
+    printf '\n── craft-toplevel: os coredumps deste boot (o réu dos delays da dock)\n'
+    r "journalctl -b --no-pager 2>/dev/null | grep -c 'craft-toplevel.*dumped core'; journalctl -b --no-pager 2>/dev/null | grep -E 'craft-toplevel.*(dumped core|exit=139)' | tail -5" 8
+
     printf '\n── processos da Elite (a sessão inteira, com args)\n'
     r "ps -u $DUMP_UID -o pid,args | grep -E 'craft-|waybar|swayidle|swaync|fuzzel|labwc|hyprlock' | grep -v grep" 25
 
@@ -385,7 +434,18 @@ PY
     # v2.10.6: wlr-randr NA ISO — posição/scale/MODO ATUAL de cada monitor.
     # v2.1: via sudo, o bridge do runtime do usuário (XDG_RUNTIME_DIR da
     # sessão) traz o randr REAL; sem sessão, decai p/ os conectores do kernel
-    r "for d in wayland-0 wayland-1 wayland-2; do if env XDG_RUNTIME_DIR=$URUNTIME WAYLAND_DISPLAY=\$d wlr-randr 2>/dev/null; then break; fi; done || { echo '(sem sessão wlr — conectores do kernel):'; grep -H . /sys/class/drm/card*-*/status 2>/dev/null; grep -H . /sys/class/drm/card*-*/modes 2>/dev/null | head -8; }" 30
+    # v2.7/E90 — O TETO 30 MATAVA A PROVA: o tail cortava a lista de modos
+    # EXATAMENTE onde mora o 200 Hz (o papel do dump 190719 começava em
+    # 1024x768 — os modos grandes ficaram fora e o julgamento da E89 ficou
+    # cego). Teto 140: a lista INTEIRA de qualquer monitor de verdade.
+    r "for d in wayland-0 wayland-1 wayland-2; do if env XDG_RUNTIME_DIR=$URUNTIME WAYLAND_DISPLAY=\$d wlr-randr 2>/dev/null; then break; fi; done || { echo '(sem sessão wlr — conectores do kernel):'; grep -H . /sys/class/drm/card*-*/status 2>/dev/null; grep -H . /sys/class/drm/card*-*/modes 2>/dev/null | head -8; }" 140
+    # v2.7/E90 — A E89 NO PAPEL: o conf que o craft-display grava em disco
+    # (a 'memória' da tela) + o status da ferramenta. O julgamento do '200
+    # Hz que lembram' passa a ter prova DIRETA: displays.conf presente =
+    # escolha registrada; aplicado no boot = a prova da persistência.
+    printf '\n── craft-display (E89 — a tela que lembra): o conf em disco + o status\n'
+    r "cat \"$UHOME/.config/elite/displays.conf\" 2>/dev/null || echo '(sem displays.conf — nenhuma escolha registrada em disco ainda)'" 14
+    r "craft-display status 2>/dev/null || echo '(craft-display ausente — sistema anterior ao 1.0-33)'" 14
     # o ABNT2 (Z2) com prova: o XKB_DEFAULT_LAYOUT chegou à sessão ou não
     r "grep XKB /etc/environment 2>/dev/null || echo '(sem XKB_DEFAULT_LAYOUT em /etc/environment)'" 4
     # v2.1 — a prova DENTRO da sessão: o ambiente REAL do labwc (o
@@ -455,7 +515,18 @@ PY
     r "for d in /sys/bus/pci/devices/*; do [ -f \"\$d/power/wakeup\" ] || continue; c=\$(cat \$d/class 2>/dev/null); case \$c in 0x0c03*|0x0c00*|0x0c01*|0x0c02*|0x0c04*|0x0c05*|0x0c06*|0x0c07*) printf '%s class=%s wakeup=%s\n' \"\${d##*/}\" \"\$c\" \"\$(cat \$d/power/wakeup)\";; esac; done; true" 12
     r "journalctl -u systemd-suspend --no-pager 2>/dev/null | grep -E 'elite-sleep' | tail -10" 12
     r "cat /proc/acpi/wakeup 2>/dev/null" 25
-    r "journalctl --no-pager 2>/dev/null | grep -iE 'wake(ing|up)?|resume|suspending' | tail -25" 30
+    # v2.7/E90 — O PME NO PAPEL: o despertar imediato tem um segundo réu
+    # que o grep genérico não nomeava — a PME do PCIe (o r8169 é o clássico;
+    # o WOL abaixo fotografado é a outra face da mesma moeda).
+    r "journalctl --no-pager 2>/dev/null | grep -iE 'wake(ing|up)?|resume|suspending|PME' | tail -25" 30
+    # v2.7/E90 — O WOL ENTRA NA CAÇA: Wake-on-L da placa cabeada é o réu
+    # clássico do 'suspendeu e voltou em 7s' (o dump 190719 suspendeu às
+    # 18:14:37 e o kernel voltou às 18:14:44 — e o papel NUNCA fotografou o
+    # WOL). wakeup por interface (sysfs, sempre) + ethtool (entrou na ISO,
+    # E90 — quem tem, entrega o Supports Wake inteiro).
+    printf '\n── Wake-on-LAN (o réu do despertar imediato): sysfs + ethtool\n'
+    r "for n in /sys/class/net/*; do i=\${n##*/}; [ \"\$i\" = lo ] && continue; printf '%-12s wakeup=%s\n' \"\$i\" \"\$(cat \"\$n/device/power/wakeup\" 2>/dev/null || echo '(sem nó)')\"; done; true" 10
+    r "if command -v ethtool >/dev/null 2>&1; then for i in \$(ls /sys/class/net 2>/dev/null | grep -v '^lo$'); do echo \"── ethtool \$i\"; ethtool \"\$i\" 2>/dev/null | grep -E 'Wake-on|Supports Wake'; done; else echo '(ethtool ausente — ISO anterior à E90; o sysfs acima é a prova)'; fi" 14
     # E63 — A CAÇA AO RESUME PRETO (relato do dono: suspendeu, voltou SEM
     # SINAL no monitor — luz vermelha): o réu do resume mora no kernel.
     # amdgpu/drm/fence (GPU AMD) e nvrm (NVIDIA) gritam aqui — sem estas
@@ -476,6 +547,13 @@ PY
     # do hook ficava fora do dump — a perícia do 'sem sinal' sem a prova da
     # própria rede de cura.
     r "journalctl -b --no-pager 2>/dev/null | grep -i 'elite-resume-display' | tail -10" 12
+    # v2.7/E90 — O REBIND PROVADO NO PAPEL: o elite-resume-usb da E88/E89
+    # narra a própria perícia no journal (a foto dos inputs ao dormir, o
+    # 'USB intacto — zero rebind', o alvejado no controlador do morto, o
+    # martelo de reserva, a FALHA nomeada) — e o dump só o via no grep
+    # genérico do resume, se aparecesse. A cura do mouse morto ganha a
+    # prova DIRETA da própria rede de sistema.
+    r "journalctl -b --no-pager 2>/dev/null | grep -i 'elite-resume-usb' | tail -8" 10
     # E75 — O ESTADO DOS CONECTORES DRM, SEMPRE (a lente que faltava): o
     # grep de status/modes na linha da sessão wlr SÓ RODA quando não há
     # sessão (o '||' do fallback) — na doença 'PC vivo, monitor sem sinal'
@@ -568,7 +646,7 @@ PY
     r "du -sh '$UHOME/.cache'/* 2>/dev/null | sort -rh | head -12" 14
     r "journalctl --disk-usage 2>/dev/null" 2
 
-    printf '\n══════════ FIM DO DUMP v2.6 ══════════\n'
+    printf '\n══════════ FIM DO DUMP v2.7 ══════════\n'
     printf 'a seção 0 é o resumo; as seções 1-14 são o detalhe.\n'
     printf 'envie este arquivo (ou a URL do --upload) para a análise.\n'
 } > "$OUT" 2>&1

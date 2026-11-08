@@ -13,6 +13,18 @@
 #      estava na ISO e o docs/SCRIPTS.md jurava /sys — agora o código
 #      concorda com o contrato).
 set -u
+
+# E90 — o --help que faltava (a lacuna nº 1 do UX-ROADMAP)
+uso() {
+    printf '%s\n' \
+        'uso: craft-bat — resumo da bateria em notificação (/sys puro, sem' \
+        '     upower)' \
+        '' \
+        '  chamado pelo clique no módulo de bateria da waybar (ou do terminal).' \
+        '  Sem bateria (desktop): recusa amigável com rc 1.'
+    exit 0
+}
+case "${1:-}" in -h|--help|uso) uso ;; esac
 bat=""
 for d in /sys/class/power_supply/BAT*; do
     [ -d "$d" ] && bat="$d" && break

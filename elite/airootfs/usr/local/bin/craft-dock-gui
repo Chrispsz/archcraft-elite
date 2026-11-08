@@ -211,6 +211,23 @@
 # PINS: ~/.config/elite/dock-pins — 1 ID de .desktop por linha
 # (ex.: "foot.desktop"). Gerido pelo craft-pin; skel de fábrica: 3 apps.
 # ═══════════════════════════════════════════════════════════════════════════
+# E90 — o --help ANTES do import gi: o guard no fim do arquivo morria no
+# import (PyGObject ausente fora da sessão/devel) antes de alcançar o
+# help — a descoberta não pode depender de biblioteca gráfica.
+if __name__ == "__main__":
+    import sys as _s  # local: o help nasce antes de TODA biblioteca
+    if len(_s.argv) > 1 and _s.argv[1] in ("-h", "--help", "uso"):
+        print(
+            "uso: craft-dock-gui — a DOCK nativa da casa (GTK3 + layer-shell;\n"
+            "     daemon interno da sessão; sem argumentos)\n"
+            "\n"
+            "  clique esquerdo: foca/abre · app focado = MINIMIZA (toggle E89)\n"
+            "  · meio: encerra · direito: menu (nova janela/encerrar/fixar)\n"
+            "  pins: ~/.config/elite/dock-pins (craft-pin) · W-S-d alterna\n"
+            "  (craft-dock) · o papel mora em ~/.cache/elite/dock.log. Chamada\n"
+            "  pelo craft-bars; rodar na mão nasce dock duplicada (lei E30)."
+        )
+        _s.exit(0)
 import os
 import re
 import shlex
@@ -1710,5 +1727,10 @@ def main():
     return 0
 
 
-if __name__ == "__main_":
+if __name__ == "__main__":
+    # E91 — O TYPO QUE MATOU A DOCK: a E89 escreveu "__main_" (UM underscore
+    # a menos) — __name__ nunca casava, main() NUNCA rodava, o script inteiro
+    # virava um no-op que sai exit=0 na hora: a dock desaparecia e o
+    # craft-bars a relançava a cada 5s (o crash-loop exit=0 do dump 231955,
+    # DOCK_COUNT=0). Um caractere, a dock volta.
     sys.exit(main())

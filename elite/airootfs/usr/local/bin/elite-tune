@@ -444,7 +444,27 @@ if (( STATUS )); then
   echo ""
   echo "firstboot:      $([[ -f /var/lib/elite/firstboot-done ]] && echo 'concluído' || echo 'pendente/não-ISO')"
   echo ""
-  echo "Verificações manuais: btop | elite-tune --apps"
+  # E90 (área 4) — O ESTADO DO CANAL NA CERTIFICAÇÃO: a era do pacote, a
+  # última dose da automação e as pendências que a base LOCAL já conhece
+  # (o dono pergunta 'tem atualização?' — a certificação responde sem
+  # abrir mão de ser read-only; a idade da base vai junto: base velha =
+  # julgamento honesto do que o pacman JÁ viu).
+  es_ver="$( { pacman -Q elite-system 2>/dev/null || true; } | awk '{print $2}')"
+  printf 'elite-system:    %s\n' "${es_ver:-ausente}"
+  if [ -r /var/log/elite-update.log ]; then
+    last_dose="$( { grep -E 'canal: |manual: |sistema: ' /var/log/elite-update.log 2>/dev/null || true; } | tail -1 | sed 's/^\[[^]]*\] //' | cut -c1-70)"
+    printf 'última dose:    %s\n' "${last_dose:-(nenhuma)}"
+  fi
+  npend="$( { pacman -Qu 2>/dev/null || true; } | wc -l)"
+  oldest=""
+  for db in /var/lib/pacman/sync/*.db; do
+    [ -e "$db" ] || continue
+    d="$(date -r "$db" '+%d/%m %H:%M' 2>/dev/null)" || continue
+    [ -z "$oldest" ] && oldest="$d"
+  done
+  printf 'pendências:     %s na base local (sincronizada %s)\n' "$npend" "${oldest:-?}"
+  echo ""
+  echo "Verificações manuais: btop | elite-tune --apps | craft-update --check"
   exit 0
 fi
 

@@ -28,6 +28,18 @@
 #   -nocats   desliga a barra de categorias (v1.4)
 set -eu
 
+# E90 — o --help que faltava (a lacuna nº 1 do UX-ROADMAP)
+uso() {
+    printf '%s\n' \
+        'uso: craft-drawer — o Launchpad (nwg-drawer): grade de apps em tela' \
+        '     cheia com busca; clique abre, Esc/clique fora fecha' \
+        '' \
+        '  W-d / tecla Super abrem. O FREIO do toggle (E88) trava o re-nascimento' \
+        '  por 400ms — dois toggles no mesmo meio segundo são um só. Sem args.'
+    exit 0
+}
+case "${1:-}" in -h|--help|uso) uso ;; esac
+
 # E88 — O FREIO DO TOGGLE: o bars.log do dump flagrou a cena (UI criada →
 # SIGTERM → UI criada de novo NO MESMO SEGUNDO, duas vezes seguidas) — dois
 # cliques/apertos em janelas de milissegundos nasciam duas gavetas e o

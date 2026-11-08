@@ -131,6 +131,35 @@
 #   por ciclo, a lei E30 intacta.
 set -u
 
+# E90 — o --help que faltava (a lacuna nº 1 do UX-ROADMAP). A vigília é um
+# daemon interno — não é porta de mão: qualquer argumento aqui seria uma
+# SEGUNDA vigília (a lei E30 manda UMA por ciclo). O estado mora no
+# idle.log (seção da vigília) e no craft-dump.
+uso() {
+    printf '%s\n' \
+        'uso: craft-vigil — A VIGÍLIA DO LOCK (daemon interno; sem argumentos)' \
+        '' \
+        '  armada pelo craft-lock a TODO lock novo: com o hyprlock vivo, suspende' \
+        '  via systemctl suspend -i após SUSPEND_MIN minutos TRAVADOS (o tempo' \
+        '  travado decide — E60); ouvidos E61: exige ticks quietos do próprio' \
+        '  hyprlock (nunca suspende sob o dono digitando a senha); o destravo' \
+        '  desarma; a sucessora do próprio ciclo renasce a cada sono (E78/E79).' \
+        '  o estado no papel: ~/.cache/elite/idle.log · sudo craft-dump (seção 10).' \
+        '  NÃO rodar na mão — UMA vigília por ciclo (lei E30).'
+    exit 0
+}
+case "${1:-}" in -h|--help|uso) uso ;; esac
+# E90 — A PORTA FECHA (a cura E30 que faltava): os DOIS chamadores legítimos
+# (craft-lock e craft-idle) armam sem argumentos — um argumento qualquer
+# aqui não é contrato, é erro humano (e viraria uma SEGUNDA vigília).
+# Recusa clara antes de qualquer contagem.
+if [ $# -gt 0 ]; then
+    # (o uso() termina em exit 0 — chamá-lo aqui ROUBARIA o rc 2; o caminho
+    # de erro aponta a porta em vez de imprimi-la)
+    printf 'craft-vigil: argumento inesperado "%s" — a vigília não tem verbos (uso completo: craft-vigil --help)\n' "$1" >&2
+    exit 2
+fi
+
 CONF="${XDG_CONFIG_HOME:-$HOME/.config}/elite/idle.conf"
 SUSPEND_MIN=20   # fábrica = a mesma do craft-idle (conf ruim → padrão,
                  # nunca silêncio — v2.10.5)

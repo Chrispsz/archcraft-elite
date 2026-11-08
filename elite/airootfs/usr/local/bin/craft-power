@@ -27,6 +27,18 @@
 # ─────────────────────────────────────────────────────────────────────────
 set -eu
 
+# E90 — o --help que faltava (a lacuna nº 1 do UX-ROADMAP)
+uso() {
+    printf '%s\n' \
+        'uso: craft-power — menu Sessão completo (sair · suspender · reiniciar ·' \
+        '     desligar · tempo de idle — o rollback saiu: a porta dele é o GRUB, E46)' \
+        '' \
+        '  atalhos: W-x / W-Escape / C-A-Delete (o craft-logout é o wrapper).' \
+        '  chamado também pelo item "Sessão (menu gráfico)" do botão direito.'
+    exit 0
+}
+case "${1:-}" in -h|--help|uso) uso ;; esac
+
 MLOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/menus.log"
 mlog() {
     mkdir -p "${MLOG%/*}" 2>/dev/null

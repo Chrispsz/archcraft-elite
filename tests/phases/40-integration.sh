@@ -712,7 +712,7 @@ assert_grep "$DUMP" 'list-sessions' "v2.10.8: sessões do logind no papel (o can
 assert_grep "$DUMP" 'sleep.conf.d' "v2.10.8: cadeia de sono INTEIRA no papel (sleep.conf + drop-ins — o réu AllowSuspend=no tem endereço)"
 assert_grep "$DUMP" '/sys/power/disk' "v2.10.8: o estado disk do kernel no papel (hibernate sem resume= = recusa honesta; a prova viaja)"
 assert_grep "$DUMP" 'systemd-inhibit' "v2.10.8: quem segura inibidor de sono AGORA (o 'tenta e volta' tinha réu anônimo — o -i do menu e o idle-inhibit do swayidle no papel)"
-assert_grep "$DUMP" 'FIM DO DUMP v2.6' "v2.10.18/E30: versão do papel = conteúdo do papel (a v2.6 traz o wpctl inteiro — o head -30 que escondeu o réu do áudio morreu junto)"
+assert_grep "$DUMP" 'FIM DO DUMP v2\.7' "v2.10.18/E30→E90: versão do papel = conteúdo do papel (a v2.7 traz o randr inteiro + WOL + a E89 no papel; âncora refrescada viva)"
 assert_grep "$TUN" 'pacman-key --populate archlinux cachyos' "v2.3.6: firstboot popula as chaves ANTES do primeiro -Sy (db assinado por chave desconhecida falha INTEIRO — o rig flagrou: firstboot nunca completava)"
 assert_grep "$TUN" 'timeout 90 pacman-key --recv-keys' "v2.3.6: recv-keys com timeout 90 (keyserver lento pendurou a unit 17min em 'activating' — o rig flagrou)"
 assert_grep "$TUN" 'ensure_cachyos \|\| true' "v2.3.6: firstboot puxa o keyring FRESCO do mirror (o pacote datado 2024 é a raiz do 'chave desconhecida')"
@@ -3198,10 +3198,12 @@ assert_grep "$HLKV3" 'animation = fadeIn, 1, 3, linear' "E88/lock: o fade ágil 
 assert_nogrep "$HLKV3" 'path = screenshot' "v2.5.0 preservada na v3: o fundo do lock é O WALLPAPER (nunca a foto da tela com janelas)"
 
 # ── E41: o pkgrel viajou NO MESMO COMMIT ──
-assert_grep "$REPO/.ci/build.sh" 'pkgrel=33' \
-  "E89 (lei E41): pkgrel elite-system 32→33 — o C recompila com MIN+blindagem, craft-dock-gui/craft-idle mudaram, craft-display é bin novo, elite-resume-usb/autostart/menu.xml/packages.add mudaram"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=34' \
+  "E90/E91 (lei E41): pkgrel elite-system 33→34 — o typo da dock curado, o selo ACPI viaja (varredura de hooks), a lock skin no pacote, craft-help novo, --help em todos, --check, dump v2.7, SCRIPTS.md no pacote"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 33→34 NO MESMO COMMIT' \
+  "E90/E91 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 32→33 NO MESMO COMMIT' \
-  "E89 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
+  "E89 (lei E41, âncora histórica viva): o C recompila com MIN+blindagem, craft-display é bin novo, elite-resume-usb/autostart/menu/packages mudaram"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 31→32 NO MESMO COMMIT' \
   "E88 (lei E41, âncora histórica viva): os hooks de sono reescritos (zero-PAM/rebind provado/selo ACPI), dock/drawer zero-delay, craft-clean v2, elite-optimize v2 (governor), pacman ágil e a lock v3 mudaram o pacote"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 30→31 NO MESMO COMMIT' \

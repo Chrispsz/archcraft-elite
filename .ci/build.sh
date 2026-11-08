@@ -380,11 +380,22 @@ shopt -u nullglob
 # vermelha' do dono) — fora do pacote ele NUNCA chegaria ao rig pelo
 # canal (system-sleep nunca foi veículo de adoção; este hook NASCE
 # empacotado, a lei de um dono por caminho).
+# E91 — A LISTA FIXA DEIXOU O SELO FORA DO RIG: o build copiava DOIS hooks
+# por nome (resume-display + resume-usb) e o elite-sleep-report (O SELO
+# ACPI da E88 — a cura do 'suspendeu e voltou em 7s') ficou na ISO nova e
+# NUNCA no pacote: o rig 1.0-33 continuou com o hook VELHO que só nomeava
+# suspeitos (o dump 231955 provou no journal — GP12/GP13/SWUS/SWDS
+# armadas na porta do sono, sono de 7s/9s). A lição estrutural é a mesma
+# da ferida dos bins (E46): LISTA FIXA ENFERRUJA — a cópia passa a ser a
+# VARREDURA do diretório (todo elite-* de system-sleep nasce no pacote; o
+# pre_install adota o que existia sem dono no rig — o python daqui gera a
+# lista de rm a partir do que está em files/, fonte única).
 mkdir -p /tmp/elite-src/elite-system/files/usr/lib/systemd/system-sleep
-cp -p /work/elite/airootfs/usr/lib/systemd/system-sleep/elite-resume-display \
-      /tmp/elite-src/elite-system/files/usr/lib/systemd/system-sleep/
-cp -p /work/elite/airootfs/usr/lib/systemd/system-sleep/elite-resume-usb \
-      /tmp/elite-src/elite-system/files/usr/lib/systemd/system-sleep/
+shopt -s nullglob
+for h in /work/elite/airootfs/usr/lib/systemd/system-sleep/elite-*; do
+    cp -p "$h" /tmp/elite-src/elite-system/files/usr/lib/systemd/system-sleep/
+done
+shopt -u nullglob
 # E73 — o retrato do terminal viaja NO PACOTE (lição E63: fora do pacote
 # nunca chega ao rig pelo canal). O craft-hello aponta pra cá; o usuário
 # que quiser a própria cara cria ~/.config/fastfetch/config.jsonc e o
@@ -392,6 +403,20 @@ cp -p /work/elite/airootfs/usr/lib/systemd/system-sleep/elite-resume-usb \
 mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/fastfetch
 cp -p /work/elite/airootfs/usr/local/share/elite/fastfetch/config.jsonc \
       /tmp/elite-src/elite-system/files/usr/local/share/elite/fastfetch/config.jsonc
+# E91 — A LOCK SKIN NO PACOTE: o hyprlock.conf v3 (E88) morava só no skel
+# — home VIVO nunca o recebia (o dono: "o bloqueio de tela não mudou
+# nada"). A pele-mestra viaja AQUI e o craft-rice a entrega ao home com a
+# gramática do rice (marcador/fóssil/personalizado — ver craft-rice E91).
+mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/hyprlock
+cp -p /work/elite/airootfs/etc/skel/.config/hypr/hyprlock.conf \
+      /tmp/elite-src/elite-system/files/usr/local/share/elite/hyprlock/hyprlock.conf
+# E90 — O MAPA VIAJA NO PACOTE: a doc completa (SCRIPTS.md — a linha de
+# cada peça) morava só no repo; o craft-help aponta para ela e o dono
+# ganha o mapa DENTRO do sistema (a fonte única continua sendo o repo —
+# o build injeta, o airootfs em pé não duplica).
+mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/docs
+cp -p /work/docs/SCRIPTS.md \
+      /tmp/elite-src/elite-system/files/usr/local/share/elite/docs/SCRIPTS.md
 # E75 — O HOOK DA CASA NO PACMAN (a auditoria do dono: 'estruturar hooks
 # nativos do pacman para disparar checagens de hardware... após qualquer
 # pacman -Syu'). O gap provado no papel: a pedagogia de reboot do kernel
@@ -445,6 +470,13 @@ hook_install = f"""    install -d "${{pkgdir}}/usr/lib/systemd/system-sleep"
 # ISO no pre_install — a mesma dança dos bins desde a adoção E43)
 ff_install = '    install -d "${pkgdir}/usr/local/share/elite/fastfetch"\n    install -m644 "${startdir}/files/usr/local/share/elite/fastfetch/config.jsonc" "${pkgdir}/usr/local/share/elite/fastfetch/config.jsonc"\n'
 ff_rm = '    [ -e "/usr/local/share/elite/fastfetch/config.jsonc" ] && rm -f "/usr/local/share/elite/fastfetch/config.jsonc"\n'
+# E91 — a lock skin (mesma dança do fastfetch: o rig da ISO velha pode ter
+# o caminho sem dono — o pre_install adota antes da extração)
+lock_install = '    install -d "${pkgdir}/usr/local/share/elite/hyprlock"\n    install -m644 "${startdir}/files/usr/local/share/elite/hyprlock/hyprlock.conf" "${pkgdir}/usr/local/share/elite/hyprlock/hyprlock.conf"\n'
+lock_rm = '    [ -e "/usr/local/share/elite/hyprlock/hyprlock.conf" ] && rm -f "/usr/local/share/elite/hyprlock/hyprlock.conf"\n'
+# E90 — o mapa dos comandos (SCRIPTS.md no pacote — mesma dança)
+doc_install = '    install -d "${pkgdir}/usr/local/share/elite/docs"\n    install -m644 "${startdir}/files/usr/local/share/elite/docs/SCRIPTS.md" "${pkgdir}/usr/local/share/elite/docs/SCRIPTS.md"\n'
+doc_rm = '    [ -e "/usr/local/share/elite/docs/SCRIPTS.md" ] && rm -f "/usr/local/share/elite/docs/SCRIPTS.md"\n'
 # E75 — o hook libalpm da casa (dono ÚNICO no pacote; pacman remove sozinho
 # na desinstalação — arquivo pertence ao pacote, sem dança de adoção)
 pt_install = '    install -Dm644 "${startdir}/elite-post-transaction.hook" "${pkgdir}/usr/share/libalpm/hooks/elite-post-transaction.hook"\n'
@@ -942,7 +974,44 @@ pkgver=1.0
 #     pkgrel 32→33 NO MESMO COMMIT (lei E41 — craft-toplevel.c recompila,
 #     craft-dock-gui/craft-idle mudaram de conteúdo, craft-display é bin
 #     novo, elite-resume-usb/autostart/menu.xml/packages.add mudaram).
-pkgrel=33
+# E90/E91 — A ÁREA 4 DA ROTAÇÃO + AS CURAS DAS REGRESSÕES DO 1.0-33 (o
+#     dump 231955 do rig flagrou o que a entrega prometeu e o canal não
+#     carregou): (R1) O TYPO QUE MATOU A DOCK — a E89 escreveu
+#     "__main_" no craft-dock-gui: main() nunca rodava, exit=0 em loop de
+#     5s, DOCK_COUNT=0 ("a dock sumiu" palavra por palavra no bars.log).
+#     Um caractere cura. (R2) O SELO ACPI FORA DO VEÍCULO — o build
+#     copiava 2 hooks POR NOME e o elite-sleep-report (o selo E88 do
+#     'suspendeu e voltou em 7s') nunca viajou: o rig 1.0-33 seguiu com o
+#     hook VELHO (journal provou: GP12/GP13/SWUS/SWDS armadas na porta do
+#     sono, sono de 7s/9s). A cópia vira VARREDURA do diretório (todo
+#     elite-* de system-sleep nasce no pacote; o pre_install adota — a
+#     mesma lição da ferida dos bins E46). (R3) O LOCK QUE NÃO CHEGOU —
+#     o hyprlock.conf v3 morava só no skel e home VIVO nunca o recebe
+#     (lei do domínio v3): a LOCK SKIN viaja no pacote
+#     (/usr/local/share/elite/hyprlock/) e o craft-rice a entrega com a
+#     gramática do rice (marcador/fóssil/personalizado + --lock-adopt).
+#     E A ÁREA 4 + AS 3 LACUNAS DO UX-ROADMAP no mesmo degrau: craft-dump
+#     v2.7 (modos COMPLETOS no wlr-randr — o teto 30 cortava o 200 Hz do
+#     papel; WOL/ethtool + PME na caça ao despertar; displays.conf +
+#     craft-display status na seção 7; coredumps do toplevel na seção 6;
+#     o relato do elite-resume-usb na seção 10), craft-help NOVO (o mapa
+#     dos comandos + atalhos reais + estado do canal — a descoberta de
+#     dentro do sistema), --help/uso: em TODOS os bins da casa (20
+#     nus, a auditoria E66), SCRIPTS.md viaja NO PACOTE (a doc completa
+#     em /usr/local/share/elite/docs/), craft-update --check (o veredito
+#     READ-ONLY: zero -Sy, zero root — a porta barata de 'tem
+#     atualização?'), craft-hello v2 (o onboarding: versão + dose +
+#     craft-help após o retrato), elite-tune --status ganha o estado do
+#     canal (elite-system/última dose/pendências com a idade da base),
+#     ethtool na ISO (a prova do WOL), menu.xml com "Verificar
+#     atualizações" + "Ajuda — comandos da Elite", craft-vigil recusa
+#     argumentos (a 2ª vigília acidental morre na porta, lei E30).
+#     pkgrel 33→34 NO MESMO COMMIT (lei E41 — craft-dock-gui/craft-dump/
+#     craft-update/craft-hello/craft-rice/craft-vigil/craft-idle/
+#     elite-tune/elite-status/hyprlock.conf/menu.xml/packages.add/
+#     apply-overlay/build.sh mudaram; craft-help é bin novo; o pacote
+#     ganha elite-sleep-report + hyprlock/ + docs/ no payload).
+pkgrel=34
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
@@ -975,7 +1044,7 @@ pre_install() {{
     ; do
         [ -e "/usr/local/bin/$f" ] && rm -f "/usr/local/bin/$f"
     done
-{unit_loop}{hook_rm}{ff_rm}    return 0
+{unit_loop}{hook_rm}{ff_rm}{lock_rm}{doc_rm}    return 0
 }}
 package() {{
     install -d "${{pkgdir}}/usr/local/bin"
@@ -984,7 +1053,7 @@ package() {{
     # a fonte do daemon viaja no pacote (transparência — o mesmo papel que
     # ela tinha no craft-toplevel legado)
     install -Dm644 craft-toplevel.c "${{pkgdir}}/usr/local/share/elite/src/craft-toplevel.c"
-{unit_install}{hook_install}{ff_install}{pt_install}}}
+{unit_install}{hook_install}{ff_install}{lock_install}{doc_install}{pt_install}}}
 """
 (d / 'PKGBUILD').write_text(pkg)
 PYE50
