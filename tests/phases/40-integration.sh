@@ -3198,10 +3198,12 @@ assert_grep "$HLKV3" 'animation = fadeIn, 1, 3, linear' "E88/lock: o fade ágil 
 assert_nogrep "$HLKV3" 'path = screenshot' "v2.5.0 preservada na v3: o fundo do lock é O WALLPAPER (nunca a foto da tela com janelas)"
 
 # ── E41: o pkgrel viajou NO MESMO COMMIT ──
-assert_grep "$REPO/.ci/build.sh" 'pkgrel=34' \
-  "E90/E91 (lei E41): pkgrel elite-system 33→34 — o typo da dock curado, o selo ACPI viaja (varredura de hooks), a lock skin no pacote, craft-help novo, --help em todos, --check, dump v2.7, SCRIPTS.md no pacote"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=35' \
+  "E-atualização 08-11 (lei E41): pkgrel elite-system 34→35 — o --check sobrevive a pacman vivo sem os pacotes da casa (pipefail não mata a pergunta barata; a classe que o run 42473609437 flagrou)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 34→35 NO MESMO COMMIT' \
+  "E-atualização 08-11 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 33→34 NO MESMO COMMIT' \
-  "E90/E91 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
+  "E90/E91 (lei E41, âncora histórica viva): o typo da dock curado, o selo ACPI viaja (varredura de hooks), a lock skin no pacote, craft-help novo, --help em todos, --check, dump v2.7, SCRIPTS.md no pacote"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 32→33 NO MESMO COMMIT' \
   "E89 (lei E41, âncora histórica viva): o C recompila com MIN+blindagem, craft-display é bin novo, elite-resume-usb/autostart/menu/packages mudaram"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 31→32 NO MESMO COMMIT' \

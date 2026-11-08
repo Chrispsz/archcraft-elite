@@ -486,7 +486,12 @@ if [[ "${1:-}" == "--check" ]]; then
     printf '── instalado\n'
     if command -v pacman >/dev/null 2>&1; then
         for p in elite-system elite-craft craft-toplevel linux-cachyos-bore; do
-            v="$(pacman -Q "$p" 2>/dev/null | awk '{print $2}')"
+            # || true na FONTE (mesma lei do -Qu abaixo): pacman -Q de pacote
+            # ausente devolve rc=1 e o pipefail NÃO pode matar a pergunta
+            # barata — a classe que o CI flagrou (container Arch real,
+            # elite ausente = rc 1 no meio do veredito). Ausente é papel, é
+            # '(ausente)', não morte.
+            v="$( { pacman -Q "$p" 2>/dev/null || true; } | awk '{print $2}')"
             printf '  %-20s %s\n' "$p" "${v:-(ausente)}"
         done
     else
