@@ -390,7 +390,30 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'elite/idle\.log' "E
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 17→18 NO MESMO COMMIT' "E68: pkgrel elite-system 17→18 NO MESMO COMMIT (lei E41 — o hook elite-resume-display mudou de conteúdo; âncora na HISTÓRIA, lição E58/E59: o número atual é lei do guard-pkgrel do CI)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 12→13 NO MESMO COMMIT' "E63: pkgrel elite-system 12→13 NO MESMO COMMIT (lei E41 — cinco bins + o hook novo mudaram de conteúdo; âncora na HISTÓRIA, lição E58/E59)"
 assert_grep "$REPO/.ci/build.sh" 'files/usr/lib/systemd/system-sleep' "E63: o hook viaja NO PACOTE elite-system (fora dele o rig instalado NUNCA receberia pelo canal — system-sleep nunca foi veículo de adoção)"
-assert_grep "$REPO/.ci/build.sh" 'sobreviveu à remoção E57/E63' "E63: a remoção E57 cobre o hook com guard de sobrevivente (o pacote é o ÚNICO dono — o pacstrap recusa não-dono)"
+assert_grep "$REPO/.ci/build.sh" 'sobreviveu à remoção E57/E92' "E92: a remoção E57 vira VARREDURA com guard de sobrevivente (a lista por nome enferrujou a 3ª vez — o pacote é o ÚNICO dono, o pacstrap recusa não-dono e quem sobreviver ABORTA o build)"
+
+# ── E92 — A ADOÇÃO SEM RECUSA (relato do dono, 08/11): o rig flagrou
+#    'elite-sleep-report existe no sistema de arquivos' e o pacman recusou
+#    a transação INTEIRA — o --overwrite escopado da casa (E42) cobria só
+#    /usr/local/bin + units, e a E90/E91 pôs TRÊS famílias novas no pacote
+#    (system-sleep, share/elite, libalpm hooks). A cura estrutural: UMA
+#    fonte das famílias (HOUSE_OVERWRITE) usada pelos 4 sites do pacman +
+#    a remoção E57 vira varredura no profile. A ferida 'lista fixa
+#    enferruja' (E46 bins → E90 hooks → E92 escopo) morre CONTRATADA: o
+#    esquecimento seguinte morre aqui, não no rig do dono. ──
+CU92="$REPO/elite/airootfs/usr/local/bin/craft-update"
+assert_grep "$CU92" 'HOUSE_OVERWRITE=\(' "E92: as famílias da casa nascem de UMA fonte (a lista duplicada à mão em 4 sites era a doença — o escopo velho recusou a transação inteira no rig)"
+assert_grep "$CU92" '/usr/lib/systemd/system-sleep/\*' "E92: a família system-sleep está na lista (o réu do relato: elite-sleep-report, unowned da era ISO vs. o sweep do pacote)"
+assert_grep "$CU92" '/usr/local/share/elite/\*' "E92: a família share/elite está na lista (hyprlock/fastfetch/docs/src — o payload da E90/E91 que a lista velha nunca viu)"
+assert_grep "$CU92" '/usr/share/libalpm/hooks/elite-\*' "E92: a família libalpm está na lista (o hook E75 — o próximo unowned não nasce recusa)"
+assert_grep "$CU92" '/etc/systemd/system/elite-\*' "E92: a família das units preservada (o que a casa já cobria segue coberto pela fonte única)"
+assert_grep "$CU92" '/usr/local/bin/\*' "E92: a família dos bins preservada (a adoção original da E42 segue de pé pela mesma fonte)"
+n_over92="$(grep -c '"${HOUSE_OVERWRITE\[@\]}"' "$CU92" || true)"
+assert_eq "$n_over92" "4" "E92: os 4 sites do pacman usam a MESMA lista (canal + semanal + manual com e sem alvo — nenhum escopo escrito à mão para enferrujar)"
+assert_nogrep "$CU92" 'run_root pacman.*--overwrite' "E92: NENHUM site carrega escopo inline (a fonte única ou nada — o par à mão era a classe da recusa)"
+assert_grep "$REPO/.ci/build.sh" 'airootfs/usr/local/share/elite/fastfetch' "E92: a família share/elite SAI do profile também (o airootfs entregava o config que o pacote agora reclama — um dono por caminho na ISO)"
+assert_grep "$REPO/.ci/build.sh" 'remoção E57/E92' "E92: o guard de sobrevivente generalizado (quem sobreviver à varredura ABORTA antes do pacstrap — a lição E57.1 vale para hooks e configs, não só units)"
+assert_grep "$REPO/.ci/build.sh" "--overwrite '/usr/lib/systemd/system-sleep/\*'" "E92: o 5º site — o hook elite-adopt (standalone no craft-toplevel velho) leva as famílias novas TAMBÉM (a adoção da ponte recusaria pelo mesmo conflito; a peça 30-unit prova o alcance real no pacman.log)"
 
 # ── E64 — A ATUALIZAÇÃO FINA (os 5 curáveis do AUD-B da auditoria geral,
 #    num degrau só): feridas de TEMPO e de REDE no sistema de atualização
