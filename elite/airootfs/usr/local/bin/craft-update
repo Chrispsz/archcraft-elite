@@ -219,6 +219,19 @@ HOUSE_OVERWRITE=(
     '--overwrite' '/usr/share/libalpm/hooks/elite-*'
 )
 
+# E94 — A ADOÇÃO DE ÂNCORAS. packages.add só nutre a ISO: o rig JÁ-INSTALADO
+# nunca recebe um pacote novo da casa se ele não for dependência de nada —
+# o -Syu atualiza o que existe, não instala o que falta. Primeiro réu: o
+# gparted 'não vem funcionando por padrão' (relato do dono 09/11) — a
+# cabeça da fila do craft-bars (E58) é o lxqt-policykit e nos rigs
+# anteriores à ISO da E58 ele NUNCA chegou: a fila caía no hyprpolkitagent
+# hyprtoolkit (skip pelo probe) ou no polkit-gnome zumbi — o réu do dump
+# tg0b1 que morria COM a senha viva. Disciplina: âncora entra COM
+# procedência (disponibilidade no repo Arch verificada na entrada, a
+# escola do pin: checksum ou nada) e PRESENTE no packages.add (a MESMA
+# definição na ISO e no rig — a suíte contrata o sync).
+ADOCAO=(lxqt-policykit)
+
 ulog() {
     mkdir -p "$(dirname "$ULOG")" 2>/dev/null || true
     # teto 256 KiB (lei E36 — a mesma política de toda a família de logs)
@@ -287,6 +300,28 @@ ensina_orfao() {
             printf '%s\n' "$l" >&2
         done
     done < <(sed -n -E 's/^[^:]+: (.+) existe no sistema de arquivos$/\1/p' "$src" | sort -u)
+}
+
+# E94 — A ADOÇÃO EXECUTADA. Transação SEPARADA e best-effort DEPOIS da
+# dose vencida: âncora que não resolve NUNCA bloqueia a principal (a
+# lição E93 no lado da discrição — recusa da adoção não é notícia do
+# tamanho de uma dose perdida). -Q com guarda na FONTE (a lei do -Qu —
+# condição é lugar seguro sob pipefail) e checagem que NÃO é notícia
+# (a escola E64: presente = silêncio, sem transação nenhuma). -S sem
+# -Sy: a dose acabou de sincronizar o db — zero custo de rede a mais.
+adota_ancoras() {
+    local a
+    for a in "${ADOCAO[@]}"; do
+        if run_root pacman -Q "$a" >/dev/null 2>&1; then
+            continue
+        fi
+        if run_root pacman -S --needed --noconfirm "$a" >>"$ULOG" 2>&1; then
+            ulog "adoção: $a presente (âncora da casa — o rig convergiu)"
+        else
+            ulog "adoção: $a não resolveu agora — a dose principal segue de pé (best-effort, nunca bloqueia)"
+        fi
+    done
+    return 0
 }
 
 # E88 — A ATUALIZAÇÃO ÁGIL: downloads paralelos no pacman.conf. O default
@@ -700,6 +735,7 @@ if [[ "${1:-}" == "--canal" ]]; then
         exit 1
     fi
     ulog "canal: OK — a transação passou (${#CANAL_PKGS[@]} peças da casa)"
+    adota_ancoras
     refresh_if_craft_changed "$es_before" "$ec_before" "$tl_before"
     # E64 — CHECAGEM NÃO É NOTÍCIA: com o re-armamento horário do timer
     # (OnUnitInactiveSec), a dose roda de 1h em 1h e o pacman --needed sem
@@ -762,6 +798,7 @@ if [[ "${1:-}" == "--sistema" ]]; then
             "rc=$sys_rc — log: /var/log/elite-update.log${PRE_N:+ · rollback: snapshot #$PRE_N no GRUB}"
         exit 1
     fi
+    adota_ancoras
     refresh_if_craft_changed "$es_before" "$ec_before" "$tl_before"
     if [ -n "$PRE_N" ] && snapper -c root create -t post --pre-number "$PRE_N" \
             -d 'elite-sysupdate' >/dev/null 2>&1; then
@@ -841,6 +878,9 @@ if [ "$manual_rc" -ne 0 ]; then
     exit "$manual_rc"
 fi
 rm -f "$ERRCAP"
+# E94 — a adoção de âncoras entra DEPOIS da dose vencida (a transação
+# separada nunca bloqueia a principal) e ANTES do refresh da sessão.
+adota_ancoras
 
 # E48→E50 — a sessão do dono recebe o código novo NA HORA e INTEIRA (o
 # daemon vivo não segue com a receita velha até relogin — a ferida do

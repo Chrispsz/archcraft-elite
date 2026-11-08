@@ -3198,10 +3198,12 @@ assert_grep "$HLKV3" 'animation = fadeIn, 1, 3, linear' "E88/lock: o fade ágil 
 assert_nogrep "$HLKV3" 'path = screenshot' "v2.5.0 preservada na v3: o fundo do lock é O WALLPAPER (nunca a foto da tela com janelas)"
 
 # ── E41: o pkgrel viajou NO MESMO COMMIT ──
-assert_grep "$REPO/.ci/build.sh" 'pkgrel=37' \
-  "E93 (lei E41): pkgrel elite-system 36→37 — a classe órfã ganha a palavra: o paste do dono provou o bootstrap da cura (o 1.0-36 recusado na máquina carregava a própria cura E92) — a sentinela ensina o bak- com o caminho exato nas 3 portas"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=38' \
+  "E94 (lei E41): pkgrel elite-system 37→38 — dois réus do relato do dono 08-11: a dock da casa nunca vestiu o Terminal=true (btop nasce e morre sem tty) e a cabeça da fila E58 nunca chegou a rigs (packages.add só nutre a ISO) — cura é foot com app-id no exec_of + ADOÇÃO DE ÂNCORAS nas três portas"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 37→38 NO MESMO COMMIT' \
+  "E94 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 36→37 NO MESMO COMMIT' \
-  "E93 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
+  "E93 (lei E41, âncora histórica viva): a classe órfã ganha a palavra — o paste do dono provou o bootstrap da cura e a sentinela ensina o bak- com o caminho exato nas 3 portas"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 35→36 NO MESMO COMMIT' \
   "E92 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 34→35 NO MESMO COMMIT' \

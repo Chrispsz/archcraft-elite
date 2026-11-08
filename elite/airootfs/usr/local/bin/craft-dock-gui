@@ -390,16 +390,48 @@ def read_pins():
     return pins
 
 
-def exec_of(info):
-    """Commandline do .desktop sem os códigos de campo (%f %U …)."""
+def raw_of(info):
+    """Commandline do .desktop sem os códigos de campo (%f %U …) — SEM o
+    casaco do terminal: a prova de origem para o casamento de janelas é o
+    APP mesmo, nunca o foot que o carrega (o comm do /proc e o app_id do
+    compositor falam o nome do app)."""
     raw = info.get_commandline() or ""
-    raw = re.sub(r"\s%[a-zA-Z]", "", raw).strip()
+    return re.sub(r"\s%[a-zA-Z]", "", raw).strip()
+
+
+def exec_of(info):
+    """Commandline PRONTO PARA NASCER. E94 — TUI PRECISA DE TERMINAL:
+    Terminal=true do .desktop veste o foot da casa (a herança do drawer —
+    dump nl3z 22:32:42: 'foot /usr/bin/env -S btop' funciona há eras na
+    gaveta) com app-id DETERMINÍSTICO (o binário do app — o casamento de
+    janelas da dock fala esse nome, não o do terminal). O _launch é
+    Popen(shell=True) SEM tty: o btop (Terminal=true) nasce e morre em
+    milissegundos e a dock só loga 'lançado' — 'btop não abre pela dock'
+    (relato do dono). Um só lugar: pins e dinâmicos nascem neste raw;
+    a origem SEM casaco vive no raw_of/binary_of. O guard do startswith
+    evita o casaco duplo em Exec já-terminalizado (foot/footclient)."""
+    raw = raw_of(info)
+    if not raw:
+        return raw
+    try:
+        if info.get_boolean("Terminal") and not raw.startswith("foot"):
+            nome = ""
+            try:
+                nome = os.path.basename(shlex.split(raw)[0])
+            except (ValueError, IndexError):
+                nome = raw.split()[0] if raw.split() else ""
+            if nome:
+                raw = f"foot --app-id={nome} /usr/bin/env -S {raw}"
+    except Exception:  # noqa: BLE001 — .desktop exótico não derruba a dock
+        pass
     return raw
 
 
 def binary_of(info):
-    """Primeiro binário do commandline do .desktop."""
-    raw = exec_of(info)
+    """Primeiro binário do commandline do .desktop — do RAW (sem o casaco
+    do terminal): o indicador, o foco e o 'aberto' casam o APP, e o comm
+    do /proc fala o nome do app, não o do foot."""
+    raw = raw_of(info)
     if not raw:
         return ""
     try:
