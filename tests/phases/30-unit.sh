@@ -1099,8 +1099,10 @@ STCU="$STATE/cupd"
 # briga de dono pelo binário do daemon recusaria a dose inteira)
 rm -rf "$STCU"; mkdir -p "$STCU"; printf '1.0-1\n' > "$STCU/es-ver"
 run_cu --canal >/dev/null
-assert_grep "$STCU/pacman.log" '\-Sy --needed --noconfirm --overwrite /usr/local/bin/\* --overwrite /etc/systemd/system/elite-\* elite-system brave-origin' \
-  "E50→E56/canal: a dose diária leva a lista viva SEM o par legado e com os DOIS globs escopados (--needed — quem está em dia não reinstala; a era única não convive com o fóssil; as units órfãs não derrubam a dose)"
+assert_grep "$STCU/pacman.log" '\-Sy --needed --noconfirm --overwrite .* elite-system brave-origin' \
+  "E50→E56/canal: a dose diária leva a lista viva SEM o par legado e com o ESCOPO DA CASA inteiro (--needed — quem está em dia não reinstala; a era única não convive com o fóssil; as units órfãs não derrubam a dose)"
+assert_grep "$STCU/pacman.log" '--overwrite /usr/lib/systemd/system-sleep/\*' \
+  "E92/canal: o escopo chega ao pacman com a família system-sleep (a cura do 'existe no sistema de arquivos' que o rig flagrou em 08/11 — o overwrite expande do HOUSE_OVERWRITE)"
 assert_nogrep "$STCU/pacman.log" '\-Sy .* (elite-craft|craft-toplevel)' "E50/canal: o fóssil e a ponte NÃO entram na dose (puxá-los numa era única seria briga de dono pelo daemon)"
 assert_grep "$STCU/update.log" 'era do pacote único' "E50/canal: a era nova deixa linha no papel (quem lê o log entende POR QUE o par legado sumiu da dose)"
 assert_grep "$STCU/update.log" 'canal: OK' "E46/canal: dose concluída com linha no papel (o timer deixa réu nomeado)"
@@ -1112,8 +1114,8 @@ assert_grep "$STCU/update.log" 'canal: OK' "E46/canal: dose concluída com linha
 # conflito' morreu aqui)
 rm -rf "$STCU"; mkdir -p "$STCU"
 run_cu --canal >/dev/null
-assert_grep "$STCU/pacman.log" '\-Sy --needed --noconfirm --overwrite /usr/local/bin/\* --overwrite /etc/systemd/system/elite-\* elite-system brave-origin' \
-  "E56/canal: a dose de adoção leva o pacote único SEM o par legado na lista (o replaces faz a troca de era — o rig provou que NOMEAR os dois é transação morta)"
+assert_grep "$STCU/pacman.log" '\-Sy --needed --noconfirm --overwrite .* elite-system brave-origin' \
+  "E56/canal: a dose de adoção leva o pacote único SEM o par legado na lista e com o ESCOPO DA CASA inteiro (o replaces faz a troca de era — o rig provou que NOMEAR os dois é transação morta)"
 assert_nogrep "$STCU/pacman.log" '\-Sy .* (elite-craft|craft-toplevel)' "E56/canal: o par legado não vira alvo NEM adotando (o replaces o remove — brigando com ele a dose inteira recusava)"
 assert_grep "$STCU/update.log" 'ADOÇÃO nesta dose' "E56/canal: a adoção deixa linha no papel (quem lê o log entende que ESTA dose trocou a era)"
 
@@ -1248,8 +1250,8 @@ assert_nogrep "$STCU/pacman.log" '\-Syu' "E64/sistema: offline = ZERO transaçã
 rm -rf "$STCU"; mkdir -p "$STCU/units"
 cp "$REPO/elite/airootfs/etc/systemd/system/elite-bootupdate.timer" "$REPO/elite/airootfs/etc/systemd/system/elite-sysupdate.timer" "$STCU/units/"
 run_cu >/dev/null
-assert_grep "$STCU/pacman.log" '\-Syu --needed --overwrite /usr/local/bin/\* --overwrite /etc/systemd/system/elite-\* elite-system' \
-  "E50→E56/manual: sem a ponte viva, o alvo EXPLÍCITO instala o único com os DOIS globs (estado sem o par não briga; com craft-toplevel vivo o replaces adota — cena E56 abaixo)"
+assert_grep "$STCU/pacman.log" '\-Syu --needed --overwrite .* elite-system' \
+  "E50→E56/manual: sem a ponte viva, o alvo EXPLÍCITO instala o único com o ESCOPO DA CASA inteiro (estado sem o par não briga; com craft-toplevel vivo o replaces adota — cena E56 abaixo)"
 assert_nogrep "$STCU/pacman.log" '\-Syu --needed --overwrite /usr/local/bin/\* .* elite-craft' "E50/manual: o alvo é UM só (a era dos dois veículos não volta nem como alvo)"
 assert_grep "$STCU/systemctl.log" 'enable --now elite-bootupdate.timer elite-sysupdate.timer' "E46/manual: a cadência liga na 1ª 'Atualizar sistema' (o automatismo nasce onde o dono já clica)"
 
@@ -1262,8 +1264,8 @@ rm -rf "$STCU"; mkdir -p "$STCU/units"
 cp "$REPO/elite/airootfs/etc/systemd/system/elite-bootupdate.timer" "$REPO/elite/airootfs/etc/systemd/system/elite-sysupdate.timer" "$STCU/units/"
 printf '1.0-4\n' > "$STCU/tl-ver"
 run_cu >/dev/null
-assert_grep "$STCU/pacman.log" 'pacman -Syu --needed --overwrite /usr/local/bin/\* --overwrite /etc/systemd/system/elite-\*$' \
-  "E56/manual: com a ponte viva o -Syu vai SEM alvo explícito e com os DOIS globs (o replaces do elite-system adota na mesma transação)"
+assert_grep "$STCU/pacman.log" 'pacman -Syu --needed --overwrite /usr/local/bin/\* .*elite-\*$' \
+  "E56/manual: com a ponte viva o -Syu vai SEM alvo explícito e com o ESCOPO DA CASA inteiro (o replaces do elite-system adota na mesma transação; o último argumento é a última família — nada de alvo brigando)"
 assert_nogrep "$STCU/pacman.log" 'pacman -Syu .* elite-system$' "E56/manual: o alvo explícito NÃO entra quando a ponte pode brigar (o rig provou: transação morta por conflito alvo-contra-alvo)"
 assert_grep "$STCU/update.log" 'o REPLACES puxa o elite-system' "E56/manual: a decisão deixa linha no papel (quem lê o log entende POR QUE o alvo sumiu)"
 
@@ -1277,7 +1279,7 @@ cp "$REPO/elite/airootfs/etc/systemd/system/elite-bootupdate.timer" "$REPO/elite
 touch "$STCU/pacman-lock" "$STCU/db.lck"
 ( sleep 1; rm -f "$STCU/pacman-lock" ) &
 ELITE_LOCK_WAIT=20 run_cu >/dev/null
-assert_grep "$STCU/pacman.log" '\-Syu --needed --overwrite /usr/local/bin/\* --overwrite /etc/systemd/system/elite-\* elite-system' "E54/sentinela: base ocupada que LIBERA = a porta manual espera e segue (a briga boot×mão não perde dose — o erro cru nunca mais é a saída)"
+assert_grep "$STCU/pacman.log" '\-Syu --needed --overwrite .* elite-system' "E54/sentinela: base ocupada que LIBERA = a porta manual espera e segue (a briga boot×mão não perde dose — o erro cru nunca mais é a saída)"
 assert_grep "$STCU/update.log" 'manual: base ocupada por [0-9]+s' "E54/sentinela: a espera fica no papel COM O TEMPO (quem lê o log entende o porquê e o quanto)"
 # (b) manual com a base ocupada ALÉM DO TETO: recusa honesta, NADA tocado
 rm -rf "$STCU"; mkdir -p "$STCU/units"
@@ -1293,7 +1295,7 @@ rm -rf "$STCU"; mkdir -p "$STCU/units"
 cp "$REPO/elite/airootfs/etc/systemd/system/elite-bootupdate.timer" "$REPO/elite/airootfs/etc/systemd/system/elite-sysupdate.timer" "$STCU/units/"
 touch "$STCU/db.lck"
 run_cu >/dev/null
-assert_grep "$STCU/pacman.log" '\-Syu --needed --overwrite /usr/local/bin/\* --overwrite /etc/systemd/system/elite-\* elite-system' "E54/sentinela: lock ÓRFÃO = limpo e a dose segue (o desligamento no meio da transação prende a base para sempre — o lixo sai com a prova no papel; a prova do rig 05/nov CONFIRMOU o órfão como o bloqueio recorrente)"
+assert_grep "$STCU/pacman.log" '\-Syu --needed --overwrite .* elite-system' "E54/sentinela: lock ÓRFÃO = limpo e a dose segue (o desligamento no meio da transação prende a base para sempre — o lixo sai com a prova no papel; a prova do rig 05/nov CONFIRMOU o órfão como o bloqueio recorrente)"
 assert_grep "$STCU/update.log" 'lock órfão de .*db\.lck removido' "E54/sentinela: a limpeza do órfão fica no papel (a remoção tem réu e motivo — nunca silêncio)"
 ORPH=$( [ -e "$STCU/db.lck" ] && echo ficou || echo saiu )
 assert_eq "$ORPH" "saiu" "E54/sentinela: o db.lck órfão SAIU da base (o pacman respeita o arquivo para sempre — quem o remove é a casa, com nenhuma transação viva)"
@@ -1503,8 +1505,10 @@ touch "$STCU/user-flip" "$STCU/bars-alive" "$STCU/es-upgrade" "$STCU/tl-upgrade"
 printf '1.0-3\n' > "$STCU/tl-ver"
 out="$(run_adopt)"; rc=$?
 assert_eq "$rc" "0" "E50/adopt: pacote único ausente = a ponte conclui (rc 0 — a via única não tropeça)"
-assert_grep "$STCU/pacman.log" '\-Syu --needed --noconfirm --overwrite /usr/local/bin/\* --overwrite /etc/systemd/system/elite-\* elite-system' \
-  "E50→E56/adopt: a ponte puxa O PACOTE ÚNICO com os DOIS globs escopados (o pacman substitui o par legado na MESMA transação — replaces; as units órfãs não derrubam a adoção)"
+assert_grep "$STCU/pacman.log" '\-Syu --needed --noconfirm --overwrite .* elite-system' \
+  "E50→E56/adopt: a ponte puxa O PACOTE ÚNICO com o ESCOPO DA CASA inteiro (o pacman substitui o par legado na MESMA transação — replaces; as units órfãs não derrubam a adoção)"
+assert_grep "$STCU/pacman.log" '--overwrite /usr/lib/systemd/system-sleep/\*' \
+  "E92/adopt: o 5º site (o hook elite-adopt do craft-toplevel velho) leva as famílias novas TAMBÉM — senão a adoção da ponte recusa pelo MESMO 'existe no sistema de arquivos' (o hook é standalone: não herda o HOUSE_OVERWRITE do craft-update novo)"
 assert_grep "$STCU/update.log" 'PACOTE ÚNICO elite-system ausente' "E50/adopt: a ponte deixa réu nominal no papel (o dono sabe QUEM agiu e quando)"
 assert_grep "$STCU/update.log" 'adoção concluída' "E49/adopt: a conclusão fica no papel (o ciclo inteiro é auditável)"
 assert_grep "$STCU/update.log" 'elite-system ausente → 1.0-1' "E50/adotar: o pacote único não tinha 'antes' — a ADOÇÃO já é a mudança (nada de refresh às cegas)"

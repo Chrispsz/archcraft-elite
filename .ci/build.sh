@@ -222,8 +222,18 @@ adopt_body() {
         tail -c 131072 "$LOG" >"$LOG.tmp" 2>/dev/null && mv -f "$LOG.tmp" "$LOG" || true
     fi
     printf '[%s] adotar: PACOTE ÚNICO elite-system ausente — a ponte puxa o sistema inteiro (hook do craft-toplevel, E50)\n' "$(date '+%F %T')" >>"$LOG" 2>/dev/null || true
+    # E92 — o 5º site do escopo (o hook é standalone no craft-toplevel
+    # velho — não importa o HOUSE_OVERWRITE do craft-update novo): as
+    # famílias novas do payload (system-sleep, share/elite, libalpm hooks)
+    # entram AQUI TAMBÉM, senão a adoção da ponte recusa a transação pelo
+    # MESMO 'existe no sistema de arquivos' que o rig flagrou no
+    # craft-update em 08/11. A lista é elite-* ou caminho da casa — zero
+    # risco a pacote de fora.
     if ! pacman -Syu --needed --noconfirm --overwrite '/usr/local/bin/*' \
             --overwrite '/etc/systemd/system/elite-*' \
+            --overwrite '/usr/lib/systemd/system-sleep/*' \
+            --overwrite '/usr/local/share/elite/*' \
+            --overwrite '/usr/share/libalpm/hooks/elite-*' \
             elite-system >>"$LOG" 2>&1; then
         printf '[%s] adotar: pacman RECUSOU a adoção — a prova está acima no log (o próximo update tenta de novo)\n' "$(date '+%F %T')" >>"$LOG" 2>/dev/null || true
         return 1
@@ -1014,7 +1024,12 @@ pkgver=1.0
 #     pkgrel 34→35 NO MESMO COMMIT (E-atualização 08-11: craft-update
 #     --check sobrevive a pacman vivo sem os pacotes da casa — pipefail
 #     não mata mais a pergunta barata; classe flagrada pelo run 42473609437).
-pkgrel=35
+#     pkgrel 35→36 NO MESMO COMMIT (E92, relato do dono 08-11: o rig flagrou
+#     'elite-sleep-report existe no sistema de arquivos' — o --overwrite da
+#     casa ganhou a FONTE ÚNICA HOUSE_OVERWRITE (system-sleep + share/elite
+#     + libalpm hooks nas famílias) e a remoção E57 vira VARREDURA do
+#     profile — o pacstrap da build mensal não recusa o mesmo conflito).
+pkgrel=36
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
@@ -1398,15 +1413,27 @@ if grep -qxF 'elite-system' "${PD_E57%profiledef.sh}packages.x86_64"; then
     while read -r b; do
         rm -f "${PD_E57%profiledef.sh}airootfs/usr/local/bin/$b"
     done < "$MF_E57"
-    # E63 — o hook de resume agora é DO PACOTE (a rede de sistema que o
-    # rig recebe pelo canal): sai do airootfs antes do pacstrap (a MESMA
-    # lei E57 de um dono por caminho — o pacstrap recusa não-dono).
+    # E63 — os hooks de system-sleep agora são DO PACOTE (a rede de sistema
+    # que o rig recebe pelo canal): sai do airootfs antes do pacstrap (a
+    # MESMA lei E57 de um dono por caminho — o pacstrap recusa não-dono).
     # E69 — a cura do RETORNO dos dispositivos USB viaja NO PACOTE
     # (o mesmo veículo de adoção: o rig instalado só a recebe por ele).
-    rm -f "${PD_E57%profiledef.sh}airootfs/usr/lib/systemd/system-sleep/elite-resume-display"
-    rm -f "${PD_E57%profiledef.sh}airootfs/usr/lib/systemd/system-sleep/elite-resume-usb"
-    [[ ! -e "${PD_E57%profiledef.sh}airootfs/usr/lib/systemd/system-sleep/elite-resume-display" ]] || { echo "ELITE-FAIL: hook de resume sobreviveu à remoção E57/E63 — o pacote é o ÚNICO dono (nunca dois)" >&2; exit 1; }
-    [[ ! -e "${PD_E57%profiledef.sh}airootfs/usr/lib/systemd/system-sleep/elite-resume-usb" ]] || { echo "ELITE-FAIL: hook de USB sobreviveu à remoção E57/E69 — o pacote é o ÚNICO dono (nunca dois)" >&2; exit 1; }
+    # E92 — a remoção vira VARREDURA (a lista POR NOME enferrujou a 3ª vez:
+    # o sweep da E90/E91 pôs elite-sleep-report no pacote e estas duas
+    # linhas rm -f não o removiam do profile — o pacstrap da build mensal
+    # ia recusar o MESMO conflito que o rig do dono flagrou no craft-update
+    # de 08/11). TODO elite-* do system-sleep sai do profile; quem
+    # sobreviver ABORTA o build ANTES do pacstrap (nunca seguir sabendo).
+    for h in "${PD_E57%profiledef.sh}airootfs/usr/lib/systemd/system-sleep"/elite-*; do
+        [[ -e "$h" ]] && rm -f "$h" || true
+    done
+    for h in "${PD_E57%profiledef.sh}airootfs/usr/lib/systemd/system-sleep"/elite-*; do
+        [[ ! -e "$h" ]] || { echo "ELITE-FAIL: hook $(basename "$h") sobreviveu à remoção E57/E92 — o pacote é o ÚNICO dono (nunca dois)" >&2; exit 1; }
+    done
+    # E92 — a mesma lei para a família share/elite (o fastfetch config era
+    # do airootfs e o pacote agora o entrega — o pacstrap recusaria igual).
+    rm -rf "${PD_E57%profiledef.sh}airootfs/usr/local/share/elite/fastfetch"
+    [[ ! -e "${PD_E57%profiledef.sh}airootfs/usr/local/share/elite/fastfetch" ]] || { echo "ELITE-FAIL: fastfetch config sobreviveu à remoção E57/E92 — o pacote é o ÚNICO dono (nunca dois)" >&2; exit 1; }
     # E57.1 — o glob das units nasceu com um PONTO LITERAL ('elite-'.*.service
     # exige um ponto depois de elite- — glob não é regex) e removeu ZERO na
     # prova de 16:27 (build 2): os 35 bins saíram, as 9 units ficaram no

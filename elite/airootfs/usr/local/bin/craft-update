@@ -198,6 +198,27 @@ rede_viva() {
     curl -fsSL --head --max-time "${ELITE_NET_PROBE:-8}" -o /dev/null "$NETURL" 2>/dev/null
 }
 
+# ── E92 — AS FAMÍLIAS DA CASA (UMA lista, todos os sites do pacman) ──────
+# O --overwrite é escopado à casa (E42): o pacman assume a propriedade dos
+# arquivos SEM dono que a Elite entrega (a adoção dos rigs) — nunca de
+# coisa alheia (cada padrão é elite-* ou caminho da casa, zero risco a
+# pacote de fora). A lista ENFERRUJOU 2×: E46 (bins por nome) e agora
+# 08/11 — o sweep da E90/E91 pôs elite-sleep-report no pacote e o escopo
+# velho (só /usr/local/bin + units) não cobria: o pacman do rig RECUSOU a
+# transação INTEIRA ('existe no sistema de arquivos', relato do dono). A
+# cura estrutural: UMA definição aqui (fonte única usada pelos 4 sites —
+# canal, semanal e a porta manual) + a suíte CONTRATA a sincronia
+# lista↔payload (40-integration: cada família que o elite-system entrega
+# tem de estar coberta — o esquecimento seguinte morre na porteira, não
+# no rig do dono).
+HOUSE_OVERWRITE=(
+    '--overwrite' '/usr/local/bin/*'
+    '--overwrite' '/etc/systemd/system/elite-*'
+    '--overwrite' '/usr/lib/systemd/system-sleep/*'
+    '--overwrite' '/usr/local/share/elite/*'
+    '--overwrite' '/usr/share/libalpm/hooks/elite-*'
+)
+
 ulog() {
     mkdir -p "$(dirname "$ULOG")" 2>/dev/null || true
     # teto 256 KiB (lei E36 — a mesma política de toda a família de logs)
@@ -634,8 +655,7 @@ if [[ "${1:-}" == "--canal" ]]; then
         ulog "canal: ADOÇÃO nesta dose — o replaces do elite-system troca o par legado (alvo-contra-alvo nunca entra na lista)"
     fi
     if ! run_root pacman -Sy --needed --noconfirm \
-            --overwrite '/usr/local/bin/*' \
-            --overwrite '/etc/systemd/system/elite-*' \
+            "${HOUSE_OVERWRITE[@]}" \
             "${CANAL_PKGS[@]}" >>"$ULOG" 2>&1; then
         ulog "canal: pacman RECUSOU a dose — a prova está acima no log"
         notify_users -u critical 'Canal da Elite falhou' \
@@ -696,8 +716,7 @@ if [[ "${1:-}" == "--sistema" ]]; then
     # status NEGADO — o log imprimiria rc=1 em qualquer falha)
     sys_rc=0
     run_root pacman -Syu --needed --noconfirm \
-        --overwrite '/usr/local/bin/*' \
-        --overwrite '/etc/systemd/system/elite-*' >>"$ULOG" 2>&1 || sys_rc=$?
+        "${HOUSE_OVERWRITE[@]}" >>"$ULOG" 2>&1 || sys_rc=$?
     if [ "$sys_rc" -ne 0 ]; then
         ulog "sistema: pacman FALHOU (rc=$sys_rc) — snapshot PRE #$PRE_N guarda o estado anterior"
         notify_users -u critical 'Atualização semanal falhou' \
@@ -762,11 +781,9 @@ fi
 sentinela_db
 manual_rc=0
 if [ -n "$_alvo" ]; then
-    run_root pacman -Syu --needed --overwrite '/usr/local/bin/*' \
-        --overwrite '/etc/systemd/system/elite-*' elite-system || manual_rc=$?
+    run_root pacman -Syu --needed "${HOUSE_OVERWRITE[@]}" elite-system || manual_rc=$?
 else
-    run_root pacman -Syu --needed --overwrite '/usr/local/bin/*' \
-        --overwrite '/etc/systemd/system/elite-*' || manual_rc=$?
+    run_root pacman -Syu --needed "${HOUSE_OVERWRITE[@]}" || manual_rc=$?
 fi
 if [ "$manual_rc" -ne 0 ]; then
     echo "ERRO: o pacman recusou a transação (rc=$manual_rc) — NADA da casa mudou." >&2

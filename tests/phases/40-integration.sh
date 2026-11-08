@@ -836,7 +836,7 @@ assert_grep "$CIDLE" 'craft-idle screenoff' "E44: o apagar de tela é OBSERVÁVE
 assert_grep "$CIDLE" 'OFF_MIN="\$LOCK_MIN"' "E44: a NORMALIZAÇÃO do conf legado (2/7 → 2/2 com linha no log + notificação — a janela 'travada e acesa' denunciada morre em TODO rig que atualizar; o update nunca pisa config, o FLUXO burro sim)"
 assert_grep "$CIDLE" '262144' "E44: o idle.log nasce dentro da lei do teto (256 KiB — a família E36)"
 assert_grep "$CIDLE" 'suspend: ciclo completo' "E44: o suspend deixa PROVA no papel (o 'nunca entra em idle sozinho' vira linha com rc — o PC dormiu e voltou, no papel)"
-assert_grep "$CUPD" "overwrite '/usr/local/bin/\*'" "E43: a adoção do elite-craft passa pelo --overwrite ESCOPADO à casa (pacman recusa não-dono ANTES de qualquer pre_install; configs de usuário NUNCA são tocados)"
+assert_grep "$CUPD" "HOUSE_OVERWRITE=\(" "E43: a adoção do elite-craft passa pelo --overwrite ESCOPADO à casa (pacman recusa não-dono ANTES de qualquer pre_install; configs de usuário NUNCA são tocados) — E92: o escopo é a FONTE ÚNICA HOUSE_OVERWRITE (as 5 famílias, os 4 sites)"
 assert_grep "$REPO/.ci/build.sh" 'pkgname=elite-system' "E50: O PACOTE ÚNICO é o canal diário (elite-system = /usr/local/bin inteiro da casa + o daemon compilado + as units — a diretriz do dono: um só pacote atualiza todo o sistema)"
 assert_grep "$REPO/.ci/build.sh" 'PACKAGES_ONLY=1' "E43: o modo pacotes-só (makepkg da casa em MINUTOS, zero ISO, zero pacstrap) alimenta o canal diário"
 assert_file "$REPO/.ci/guard-pkgrel.sh" "E43: a lei E41 virou EXECUÇÃO (guard-pkgrel.sh — conteúdo de casa mudado com pkgrel parado = push vermelho)"
@@ -3198,10 +3198,12 @@ assert_grep "$HLKV3" 'animation = fadeIn, 1, 3, linear' "E88/lock: o fade ágil 
 assert_nogrep "$HLKV3" 'path = screenshot' "v2.5.0 preservada na v3: o fundo do lock é O WALLPAPER (nunca a foto da tela com janelas)"
 
 # ── E41: o pkgrel viajou NO MESMO COMMIT ──
-assert_grep "$REPO/.ci/build.sh" 'pkgrel=35' \
-  "E-atualização 08-11 (lei E41): pkgrel elite-system 34→35 — o --check sobrevive a pacman vivo sem os pacotes da casa (pipefail não mata a pergunta barata; a classe que o run 42473609437 flagrou)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=36' \
+  "E92 (lei E41): pkgrel elite-system 35→36 — a adoção sem recusa: HOUSE_OVERWRITE fonte única das 5 famílias da casa + remoção E57 vira varredura (o rig flagrou 'elite-sleep-report existe no sistema de arquivos' em 08/11)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 35→36 NO MESMO COMMIT' \
+  "E92 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 34→35 NO MESMO COMMIT' \
-  "E-atualização 08-11 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
+  "E-atualização 08-11 (lei E41, âncora histórica viva): o --check sobrevive a pacman vivo sem os pacotes da casa (pipefail não mata a pergunta barata; a classe que o run 42473609437 flagrou)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 33→34 NO MESMO COMMIT' \
   "E90/E91 (lei E41, âncora histórica viva): o typo da dock curado, o selo ACPI viaja (varredura de hooks), a lock skin no pacote, craft-help novo, --help em todos, --check, dump v2.7, SCRIPTS.md no pacote"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 32→33 NO MESMO COMMIT' \
