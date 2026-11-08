@@ -1770,6 +1770,17 @@ assert_grep "$CRICE" 'LOCK_FOSSILS' "E91: a lock skin conhece os FÓSSEIS (a ver
 assert_grep "$CRICE" 'lock-adopt' "E91: a porta EXPLÍCITA --lock-adopt (backup .bak-<stamp> + entrega — a lei do domínio v3 intocada, a novidade a um comando)"
 assert_grep "$CRICE" 'ELITE_LOCK_SRC' "E91: o seam de prova (a escola ELITE_* da casa — o teste nunca escreve em /usr)"
 assert_grep "$REPO/elite/airootfs/etc/skel/.config/hypr/hyprlock.conf" 'entregue por craft-rice' "E91: o skel da v3 carrega o MARCADOR do rice (o conf da casa se renova em homes vivos nas próximas peles)"
+
+# ── E94: a dock veste o terminal no TUI + a adoção de âncoras no rig ──
+CDOCK94="$REPO/elite/airootfs/usr/local/bin/craft-dock-gui"
+assert_grep "$CDOCK94" 'info\.get_boolean\("Terminal"\)' "E94: o exec_of consulta o Terminal=true do .desktop (o TUI sem tty nasce e morre — 'btop não abre pela dock', relato do dono 08-11)"
+assert_grep "$CDOCK94" 'foot --app-id=' "E94: o foot da casa leva app-id DETERMINÍSTICO (o casamento de janelas fala o nome do app, não o do terminal — a mesma lição E89 das case-variants)"
+assert_grep "$CDOCK94" 'def raw_of' "E94: a origem do app vive SEM o casaco (raw_of/binary_of — o comm do /proc e o app_id falam o APP)"
+CUPD94="$REPO/elite/airootfs/usr/local/bin/craft-update"
+assert_grep "$CUPD94" 'ADOCAO=\(lxqt-policykit\)' "E94: a ADOÇÃO DE ÂNCORAS tem FONTE ÚNICA no craft-update (packages.add só nutre a ISO — o rig nunca recebeu a cabeça da fila E58)"
+assert_grep "$REPO/elite/packages.add" 'lxqt-policykit' "E94: a âncora do rig é a MESMA definição da ISO (sync contratado — a disciplina do pin aplicada à adoção)"
+n_sites="$(grep -cE '^[[:space:]]*adota_ancoras$' "$CUPD94" || true)"
+assert_eq "$n_sites" "3" "E94: a adoção corre nas TRÊS portas (canal, semanal, manual — uma função, nenhum escopo à mão)"
 assert_grep "$REPO/.ci/build.sh" 'usr/local/share/elite/hyprlock/hyprlock.conf' "E91: a pele-mestra viaja NO PACOTE (a mesma escola do fastfetch E73 — fora do pacote nunca chega ao canal)"
 
 # ── E90: craft-dump v2.7 — as provas que o papel deixava cair ──

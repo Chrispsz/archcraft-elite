@@ -1036,7 +1036,18 @@ pkgver=1.0
 #     caminho exato do pacman nas TRÊS portas (canal/semanal no papel;
 #     manual com o cru de volta à tela) — bak- para fora do dir de sono,
 #     verificação do sem-dono antes de mover, nunca destruição).
-pkgrel=37
+#     pkgrel 37→38 NO MESMO COMMIT (E94, relato do dono 08-11, dois réus:
+#     (1) 'btop não abre pela dock' — a dock da casa (Popen shell=True, sem
+#     tty) nunca vestiu o Terminal=true do .desktop: o TUI nasce e morre em
+#     milissegundos. Cura: exec_of veste o foot da casa com app-id
+#     determinístico num SÓ lugar, com a origem preservada no raw_of/
+#     binary_of (o casamento de janelas fala o nome do app, não o do
+#     terminal). (2) 'gparted não vem funcionando por padrão' — a cabeça da
+#     fila E58 (lxqt-policykit) nunca chegou a rigs: packages.add só nutre a
+#     ISO e o -Syu não instala o que não é dependência. Cura: ADOÇÃO DE
+#     ÂNCORAS (ADOCAO/adota_ancoras) nas três portas, transação separada e
+#     best-effort que nunca bloqueia a dose principal).
+pkgrel=38
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

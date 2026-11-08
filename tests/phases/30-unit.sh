@@ -991,6 +991,9 @@ if [[ -f "$ST/pacman-conflict" && ( "$1" == "-Sy" || "$1" == "-Syu" ) ]]; then
   printf 'elite-system: /usr/lib/systemd/system-sleep/elite-sleep-report existe no sistema de arquivos\n' >&2
   exit 1
 fi
+# E94 — a âncora que não resolve (best-effort: a dose principal NUNCA
+# bloqueia pela adoção)
+if [[ -f "$ST/anchor-fail" && "$1" == "-S" ]]; then echo "erro: alvo não encontrado: lxqt-policykit" >&2; exit 1; fi
 case "$1" in
   -Q)   if [ "$2" = "elite-system" ]; then
             # E50: o PACOTE ÚNICO tem delta próprio (o antes/depois da era nova)
@@ -1006,6 +1009,12 @@ case "$1" in
             # a PONTE (o hook do elite-adopt captura o 'antes' dele no hook)
             if [ -f "$ST/tl-ver" ]; then echo "craft-toplevel $(cat "$ST/tl-ver")"; exit 0; fi
             echo "erro: pacote 'craft-toplevel' não encontrado" >&2; exit 1
+        fi
+        if [ "$2" = "lxqt-policykit" ]; then
+            # E94: a âncora nasce AUSENTE; anchor-here = já presente (a dose
+            # idempotente vira silêncio — checagem não é notícia)
+            if [ -f "$ST/anchor-here" ]; then echo "lxqt-policykit 2.4.0-1"; exit 0; fi
+            echo "erro: pacote 'lxqt-policykit' não encontrado" >&2; exit 1
         fi
         v="6.12.4-2"; [ -f "$ST/kernel-flip" ] && v="6.12.5-1"
         echo "linux-cachyos-bore $v"; exit 0 ;;
@@ -2310,5 +2319,95 @@ rm -rf "$STCU"; mkdir -p "$STCU"; printf '1.0-33\n' > "$STCU/es-ver"; touch "$ST
 run_cu --canal >/dev/null
 assert_grep "$STCU/update.log" 'CLASSE CONHECIDA — ARQUIVO ÓRFÃO' "E93/canal: a dose headless recusada ensina no log (caminho exato + bak- no papel onde a recusa está)"
 assert_grep "$STCU/update.log" 'elite-sleep-report' "E93/canal: o caminho nomeado pelo pacman chega ao log (a cura é copiável, não decorável)"
+
+# ═══════════════════════════════════════════════════════════════════════
+# E94 — DOIS RÉUS DO RELATO DO DONO (08/11): 'btop não abre pela dock' +
+# 'gparted não vem funcionando por padrão'
+# ═══════════════════════════════════════════════════════════════════════
+# ── Réu 1: a dock da casa nunca vestiu o Terminal=true (o _launch é
+# Popen shell=True SEM tty — o TUI nasce e morre em milissegundos; o
+# drawer resolve na mão há eras: dump nl3z 22:32:42 'foot /usr/bin/env -S
+# btop'). A cura é o exec_of — UM SÓ LUGAR, pins e dinâmicos nascem nele
+# — com a origem preservada no raw_of/binary_of (o casamento de janelas
+# fala o nome do APP, não o do foot que o carrega).
+CD94="$REPO/elite/airootfs/usr/local/bin/craft-dock-gui"
+e94_py="$(python3 - "$CD94" <<'PYEOF' 2>&1
+import ast, sys
+src = open(sys.argv[1]).read()
+tree = ast.parse(src)
+quero = ("raw_of", "exec_of", "binary_of")
+funcs = {n.name: n for n in ast.walk(tree)
+         if isinstance(n, ast.FunctionDef) and n.name in quero}
+faltam = set(quero) - set(funcs)
+if faltam:
+    print(f"FALTAM:{','.join(sorted(faltam))}")
+    sys.exit(0)
+body = [ast.fix_missing_locations(funcs[k]) for k in quero]
+mod = ast.Module(body=body, type_ignores=[])
+ns = {"re": __import__("re"), "shlex": __import__("shlex"), "os": __import__("os")}
+exec(compile(mod, "<elite>", "exec"), ns)
+
+class Info:
+    def __init__(self, cmd, term=False, boom=False):
+        self._c, self._t, self._b = cmd, term, boom
+    def get_commandline(self): return self._c
+    def get_boolean(self, k):
+        if self._b:
+            raise RuntimeError("desktop exótico")
+        return self._t if k == "Terminal" else False
+
+raw_of, exec_of, binary_of = ns["raw_of"], ns["exec_of"], ns["binary_of"]
+fails = []
+def chk(rot, got, want):
+    if got != want:
+        fails.append(f"{rot}={got!r}!={want!r}")
+
+chk("tui-wrap", exec_of(Info("btop", True)), "foot --app-id=btop /usr/bin/env -S btop")
+chk("tui-path", exec_of(Info("/usr/bin/gparted", True)), "foot --app-id=gparted /usr/bin/env -S /usr/bin/gparted")
+chk("gui-intacto", exec_of(Info("brave-browser %U")), "brave-browser")
+chk("vazio", exec_of(Info("")), "")
+chk("idempotente", exec_of(Info("foot -e btop", True)), "foot -e btop")
+chk("footclient", exec_of(Info("footclient -s x", True)), "footclient -s x")
+chk("exotico", exec_of(Info("btop", True, True)), "btop")
+chk("origem-tui", binary_of(Info("btop", True)), "btop")
+chk("origem-path", binary_of(Info("/usr/bin/gparted", True)), "gparted")
+chk("origem-gui", binary_of(Info("brave-browser %U")), "brave-browser")
+print("FAILS:" + ";".join(fails) if fails else "E94-OK")
+PYEOF
+)" || e94_py="PY-ERRO"
+assert_eq "$e94_py" "E94-OK" "E94/dock: exec_of veste o foot no TUI (Terminal=true, app-id determinístico) e binary_of/raw_of mantêm a origem — o btop ABRE pela dock e o toggle casa a janela certa"
+
+# ── Réu 2: a cabeça da fila E58 (lxqt-policykit) nunca chegou a rigs —
+# packages.add só nutre a ISO e o -Syu não instala o que não é dependência.
+# A cura: ADOÇÃO DE ÂNCORAS nas três portas, transação SEPARADA e
+# best-effort (a adoção que falha NUNCA bloqueia a dose principal).
+# manual: dose vencida → a âncora é adotada na retaguarda
+rm -rf "$STCU"; mkdir -p "$STCU"; printf '1.0-33\n' > "$STCU/es-ver"
+run_cu >/dev/null; e94_rc=$?
+assert_eq "$e94_rc" "0" "E94/manual: a dose vence COM a adoção na retaguarda (rc 0)"
+assert_grep "$STCU/pacman.log" '\-S --needed --noconfirm lxqt-policykit' \
+  "E94/manual: a âncora é adotada numa transação PRÓPRIA (-S sem -Sy — o db já foi sincronizado pela dose; zero custo de rede a mais)"
+assert_grep "$STCU/update.log" 'adoção: lxqt-policykit presente' \
+  "E94/manual: a adoção deixa a linha no papel (a casa narra o que fez no rig)"
+# manual (idempotência): âncora presente = SILENCIO, sem transação nenhuma
+rm -rf "$STCU"; mkdir -p "$STCU"; printf '1.0-33\n' > "$STCU/es-ver"; touch "$STCU/anchor-here"
+run_cu >/dev/null
+assert_nogrep "$STCU/pacman.log" '\-S --needed --noconfirm lxqt-policykit' \
+  "E94/manual (idempotência): âncora presente NÃO abre transação (checagem não é notícia — a escola E64; o -Q tem guarda na FONTE e pipefail não mata a dose)"
+# manual (isolamento): a âncora que não resolve NUNCA bloqueia a principal
+rm -rf "$STCU"; mkdir -p "$STCU"; printf '1.0-33\n' > "$STCU/es-ver"; touch "$STCU/anchor-fail"
+run_cu >/dev/null; e94_rc=$?
+assert_eq "$e94_rc" "0" "E94/manual (isolamento): a âncora recusada não derruba a dose (rc segue 0 — a lição E93 do lado da discrição)"
+assert_grep "$STCU/update.log" 'adoção: lxqt-policykit não resolveu agora' \
+  "E94/manual (isolamento): a recusa da âncora fica NOMEADA no papel (best-effort honesto, sem falso sucesso)"
+assert_grep "$STCU/pacman.log" '\-Syu --needed --overwrite' \
+  "E94/manual (isolamento): a dose PRINCIPAL correu inteira apesar da âncora recusada"
+# canal: a dose headless também adota (o rig converge pelo timer, sem mão do dono)
+rm -rf "$STCU"; mkdir -p "$STCU"; printf '1.0-33\n' > "$STCU/es-ver"
+run_cu --canal >/dev/null
+assert_grep "$STCU/pacman.log" '\-S --needed --noconfirm lxqt-policykit' \
+  "E94/canal: a dose diária do timer também adota a âncora (o gparted volta a funcionar SEM clique do dono)"
+assert_grep "$STCU/update.log" 'adoção: lxqt-policykit presente' \
+  "E94/canal: a adoção entra no papel do timer (a única boca do headless)"
 
 phase_end
