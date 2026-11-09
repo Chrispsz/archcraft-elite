@@ -543,10 +543,28 @@ static void reply(Client *c, const char *s)
                 continue;
             }
             if (w < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
-                /* cliente não-block travado no read: corta-o em vez de
-                 * pendurar o daemon inteiro (revisão 3-a) */
-                close(c->fd);
-                c->fd = -1;
+                /* E96 — o EAGAIN NÃO é cliente morto: é um INSTANTE de
+                 * buffer cheio (a dock redesenhando sob CPU saturada).
+                 * O corte no 1º EAGAIN (revisão 3-a) derrubava o canal
+                 * da dock em ciclo ('canal de eventos caiu → tick de 5s
+                 * reconecta' em série no dock.log do rig 1.0-39) e o
+                 * 'atualizar na hora' virava o delay que o dono sentiu.
+                 * AGORA: espera polida com prazo — poll POLLOUT 2s;
+                 * estourou (cliente REALMENTE morto/travado) = corte
+                 * HONESTO com log (o dump passa a nomear o réu). */
+                struct pollfd p;
+                p.fd = c->fd;
+                p.events = POLLOUT;
+                p.revents = 0;
+                if (poll(&p, 1, 2000) <= 0) {
+                    fprintf(stderr,
+                            "craft-toplevel: cliente cortado (buffer cheio "
+                            ">2s — sem leitor de verdade)\n");
+                    close(c->fd);
+                    c->fd = -1;
+                    return;
+                }
+                continue; /* o buffer abriu: tenta o mesmo byte de novo */
             }
             return; /* EPIPE etc — o próximo poll limpa o cliente */
         }

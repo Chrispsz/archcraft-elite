@@ -99,3 +99,11 @@ depois="$(cache_mib)"
 liberado=$(( antes - depois ))
 (( liberado < 0 )) && liberado=0
 printf '\n✔ limpo. cache do pacman: %s MiB → %s MiB (liberado: %s MiB)\n' "$antes" "$depois" "$liberado"
+# E96 — O RELATÓRIO NÃO SOME (o relato do dono: "o botão de limpeza do
+# menu do sistema não funciona" — o item existia, o foot -e fechava na
+# hora e o dono via um flash sem conteúdo; e o passo principal vivia
+# pulado sem o paccache do pacman-contrib, que entra na ISO neste
+# commit). Interativo = pausa honesta: o dono LÊ o que a limpeza fez.
+if (( ASSUME_YES == 0 )) && [[ -t 0 ]] && [[ -t 1 ]]; then
+  read -r -p 'Enter para fechar… ' _ || true
+fi

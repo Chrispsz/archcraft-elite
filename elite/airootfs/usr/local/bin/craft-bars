@@ -140,7 +140,7 @@ ensure() {
 cyc=0
 # E43 — flags "já viu vivo": 0 = ainda não nasceu (o 1º ciclo loga
 # 'iniciando'); após o 1º ciclo = 1, e ausência vira morte real ('FORA').
-seen_top=0 seen_dock=0 seen_tl=0 seen_idle=0 seen_audio=0 seen_swyn=0 seen_udiskie=0 seen_polkit=0
+seen_top=0 seen_dock=0 seen_tl=0 seen_idle=0 seen_audio=0 seen_swyn=0 seen_udiskie=0 seen_polkit=0 seen_display=0
 while :; do
     # v2.10.26/E38 — o teto segue NO LOOP, agora a cada 6 ciclos (30s): o
     # fork do wc só em 1 de 6 (eram 17.280 forks/dia só para medir tamanho;
@@ -340,5 +340,35 @@ while :; do
         ) 9>&- &
     fi
     seen_polkit=1
+    # E96 — A TELA QUE LEMBRA ALCANÇA OS RIGS VIVOS (a classe fóssil
+    # E90/E95, réu do relato do dono: "reiniciei, ele não ficou os
+    # hertz"): o apply/watch nasceram no AUTOSTART (E89), mas o autostart
+    # do home vivo é domínio do dono — o rig da casa carrega o fóssil SEM
+    # as linhas, o displays.conf nunca nasceu (dump 150829 L436: 'sem
+    # displays.conf') e os 200 Hz morriam a cada boot. O supervisor é a
+    # casa do pacote que alcança rigs vivos (a lei E58/E95 — polkit e
+    # chaveiro vieram antes). O watch é daemon de sessão (grava sozinho a
+    # mudança estável de QUALQUER porta — wdisplays, menu, CLI); o apply
+    # corre UMA vez por sessão (stamp próprio em XDG_RUNTIME_DIR — quem
+    # chega 2º sai em silêncio, escola E64; autostart que um dia ganhe as
+    # linhas não vira corrida dupla).
+    if command -v craft-display >/dev/null 2>&1; then
+        (
+            /usr/local/bin/craft-display apply >>"$LOG" 2>&1
+        ) 9>&- &
+        if ! pgrep -f 'craft-display watch$' >/dev/null 2>&1; then
+            if [ "$seen_display" -eq 1 ]; then
+                printf '[%s] display watch FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
+            else
+                printf '[%s] display watch iniciando (1ª vez — nada morreu)\n' "$(date '+%F %T')" >>"$LOG"
+            fi
+            (
+                /usr/local/bin/craft-display watch >>"$LOG" 2>&1
+                st=$?
+                printf '[%s] display watch SAIU exit=%d\n' "$(date '+%F %T')" "$st" >>"$LOG"
+            ) 9>&- &
+        fi
+        seen_display=1
+    fi
     sleep 5
 done

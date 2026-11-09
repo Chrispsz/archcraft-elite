@@ -115,6 +115,17 @@ state_keys() {
 
 # ── apply: o arranque aplica o que está salvo ────────────────────────────
 do_apply() {
+    # E96 — o stamp anti-duplo (XDG_RUNTIME_DIR = tmpfs por boot): o
+    # autostart (skel) e o supervisor (craft-bars — rigs fósseis sem as
+    # linhas, a classe E90/E95) podem AMBOS chamar o apply na mesma
+    # sessão; quem chega 2º vê o stamp e sai em silêncio (escola E64).
+    stamp="${XDG_RUNTIME_DIR:-/run/user/$(id -u 2>/dev/null || echo 0)}/elite/display-applied"
+    if [ -e "$stamp" ]; then
+        dlog "apply: já aplicado nesta sessão (stamp) — nada a fazer"
+        exit 0
+    fi
+    mkdir -p "${stamp%/*}" 2>/dev/null || true
+    : > "$stamp" 2>/dev/null || true
     [ -s "$CONF" ] || { dlog "apply: sem conf salvo — nada a aplicar (o monitor manda o preferido do EDID)"; exit 0; }
     # a espera: o compositor precisa dos outputs de pé para o wlr-randr
     # responder (o autostart roda antes da primeira frame às vezes)
@@ -152,17 +163,12 @@ do_apply() {
                 mode:*)
                     modo="${campo#mode:}"
                     [ "$modo" = "-" ] && continue
-                    w="${modo%%x*}"
-                    resto_m="${modo#*x}"
-                    h="${resto_m%%@*}"
-                    taxa="${resto_m#*@}"
-                    [ "$taxa" = "$h" ] && taxa=""
-                    if [ -n "$taxa" ]; then
-                        taxa_fmt="$(printf '%s' "$taxa" | awk '{printf "%.3f", $1}')"
-                        args="$args --mode ${w}x${h}@${taxa_fmt}Hz"
-                    else
-                        args="$args --mode ${w}x${h}"
-                    fi
+                    # E96 — a string salva INTEIRA (WxH@TAXA, 6 casas do
+                    # float do EDID): sem reformat %.3f (viagem de ida e
+                    # volta que podia cair no mHz vizinho) e sem sufixo
+                    # Hz (o parse_mode do wlr-randr antigo exigia número
+                    # puro). O que o EDID imprimiu é o que volta.
+                    args="$args --mode $modo"
                     ;;
                 pos:*)      [ "${campo#pos:}" != "-" ] && args="$args --pos ${campo#pos:}" ;;
                 scale:*)    [ "${campo#scale:}" != "-" ] && args="$args --scale-exact ${campo#scale:}" ;;

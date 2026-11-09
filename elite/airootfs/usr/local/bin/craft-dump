@@ -456,6 +456,13 @@ PY
     printf '\n── craft-display (E89 — a tela que lembra): o conf em disco + o status\n'
     r "cat \"$UHOME/.config/elite/displays.conf\" 2>/dev/null || echo '(sem displays.conf — nenhuma escolha registrada em disco ainda)'" 14
     r "craft-display status 2>/dev/null || echo '(craft-display ausente — sistema anterior ao 1.0-33)'" 14
+    # E96 — o display.log no papel (o julgamento sai da hipótese: o apply
+    # do boot aplicou? o watch gravou? o stamp viu duplo?). O status acima
+    # corre SEM WAYLAND_DISPLAY no env do dump (o 'agora' vazio é artefato
+    # do coletor, não doença — a prova do parser vivo é o status rodado
+    # DENTRO da sessão, linha abaixo, com o env explícito).
+    r "cat \"$UHOME/.cache/elite/display.log\" 2>/dev/null | tail -30 || echo '(sem display.log — o craft-display nunca rodou apply/watch nesta home)'" 30
+    r "for d in wayland-0 wayland-1 wayland-2; do if env XDG_RUNTIME_DIR=\$URUNTIME WAYLAND_DISPLAY=\$d craft-display status 2>/dev/null; then break; fi; done || true" 20
     # o ABNT2 (Z2) com prova: o XKB_DEFAULT_LAYOUT chegou à sessão ou não
     r "grep XKB /etc/environment 2>/dev/null || echo '(sem XKB_DEFAULT_LAYOUT em /etc/environment)'" 4
     # v2.1 — a prova DENTRO da sessão: o ambiente REAL do labwc (o
