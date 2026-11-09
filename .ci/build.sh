@@ -1172,7 +1172,24 @@ pkgver=1.0
 #     chegada manual — o elite-tune nunca rodou; o craft-bars remove o
 #     bloco do uca.xml fóssil no arranque, o canal E58/E95).
 #     Quatro frentes, um pacote — pkgrel 40→41 NO MESMO COMMIT (lei E41).
-pkgrel=41
+# 09/nov (noite) — E97.1: O CANAL CAÇOU O QUE A SUÍTE LOCAL NÃO VIU (o
+#     'sudo craft-update' do dono respondeu 'nada para fazer' — e a
+#     perícia do CI provou PORQUÊ: NENHUM pacote publicou desde a E96).
+#     Três réus, todos do mantenedor: (1) o sha do C no TEMPLATE do
+#     elite-system ficou da era E95 (o E96 re-pinou só a PONTE — o mesmo
+#     C, dois pins, e um deles velho: o makepkg do canal recusou a fonte,
+#     run 42693926097 'craft-toplevel.c ... FAILED'); (2) o craft-appimage
+#     nasceu 100644 NO INDEX (a lição E95.1 pela SEGUNDA vez — arquivo em
+#     disco +x é inócuo se o index grava 100644: o CI e o squashfs herdam
+#     o modo do index — a suíte local não tem a peça exec contra ele
+#     porque... tinha: 'exec: craft-appimage' pegou no CI e não aqui, a
+#     peça roda no ambiente dela); (3) o trap do craft-appimage carregava
+#     um SC2154 (o gate do shellcheck do CI: atribuição dentro da STRING
+#     do trap não é seguida — a captura do rc mora numa FUNÇÃO agora).
+#     E a peça do sha na suíte ganha os DOIS pins (o ponto cego morre).
+#     pkgrel 41→42 NO MESMO COMMIT (lei E41 — o conteúdo do pacote muda:
+#     o bin do appimage e o PKGBUILD do pacote único).
+pkgrel=42
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
@@ -1188,7 +1205,12 @@ conflicts=('elite-craft' 'craft-toplevel')
 # símbolo)
 options=(!debug !strip)
 source=("craft-toplevel.c")
-sha256sums=('ae1fbf22e3fc0e11aa9c3bf62710ff36cfe025274e075906fd78ad1e185270c5')
+# E97.1 — O CANAL CAÇOU O QUE A SUÍTE NÃO VIU: o makepkg do canal recusou
+#     a fonte (run 42693926097: 'craft-toplevel.c ... FAILED') porque o
+#     E96 re-pinou SÓ a ponte (linha ~332) e deixou o template do pacote
+#     único com o sha da era E95. O mesmo C, DOIS pins — os dois têm que
+#     viajar JUNTOS (a peça da suíte agora cobre os DOIS).
+sha256sums=('1a6aeea295db062e38e53b50bb525c6098eb4b436b4b2d8dfd8e84a174aedb11')
 build() {{
     gcc -O2 -Wall -Wextra -s -o craft-toplevel craft-toplevel.c -lwayland-client
 }}

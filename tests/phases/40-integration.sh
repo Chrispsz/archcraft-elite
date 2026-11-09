@@ -2901,6 +2901,10 @@ assert_grep "$BLD" "pkgname=craft-toplevel" \
   "v2.10.1: PKGBUILD do craft-toplevel na esteira do [elite-local] (a mesma do wlrctl)"
 assert_grep "$BLD" "$(sha256sum "$REPO/vendor/craft-toplevel.c" | awk '{print $1}')" \
   "v2.10.1: sha256 da fonte PINADO no PKGBUILD (determinismo — mudou 1 byte, makepkg PARA; o pin é o sha REAL da fonte, recalculado aqui — v2.10.7 atualizou o C com o ACK honesto)"
+_sha_c="$(sha256sum "$REPO/vendor/craft-toplevel.c" | awk '{print $1}')"
+_n_pins="$(grep -c "$_sha_c" "$BLD" || true)"
+assert_eq "$_n_pins" "2" \
+  "E97.1: o MESMO C tem DOIS pins (a ponte craft-toplevel + o pacote elite-system) e os DOIS viajam JUNTOS — o canal caçou o que esta peça não via: o E96 re-pinou só a ponte e o makepkg do canal recusou a fonte ('craft-toplevel.c ... FAILED', run 42693926097) — NENHUM pacote publicou até aqui"
 assert_grep "$BLD" 'PKG_LIST=\(python-pywal qt5-virtualkeyboard wlrctl craft-toplevel elite-system\)' \
   "E51.1: a ponte permanece na fila do makepkg (a ÚNICA porta dos rigs v2 — o erro confessado: tirá-la do db cortou a corda do próprio dono)"
 assert_grep "$PAK" '^elite-system$' \
@@ -3265,8 +3269,12 @@ assert_grep "$P/airootfs/usr/local/bin/craft-bars" 'elite-craft-compress-1' \
   "E97/thunar: a remoção do Comprimir viaja pelo SUPERVISOR (a E72 curou com chegada MANUAL — 'sudo craft-update && sudo elite-tune' — e o dono só roda o craft-update: o fóssil do uca.xml seguiu vivo no rig; o canal E58/E95 entrega no arranque, one-shot pelo próprio marcador)"
 
 # ── E41: o pkgrel viajou NO MESMO COMMIT ──
-assert_grep "$REPO/.ci/build.sh" 'pkgrel=41' \
-  "E97 (lei E41, âncora viva refrescada): pkgrel elite-system 40→41 — quatro frentes: o sono que se paga sozinho (orelha pike ≥8 + flock da lei E30 + sleep-hook que espera o lock vivo), a loja de fábrica (octopi/yay/flatpak na ISO e na ADOCAO + hook flathub + craft-appimage + ferramentas v2), a pele limpa do lock (v4: relógio+data+card, sem saudação/nome/dica) e o Comprimir chegando ao rig pelo supervisor"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=42' \
+  "E97.1 (lei E41, âncora viva refrescada): pkgrel elite-system 41→42 — o canal caçou o que a suíte local não viu: NENHUM pacote publicou desde a E96 (o sha do C no TEMPLATE do elite-system ficou da era E95 — o E96 re-pinou só a ponte; o makepkg recusou a fonte), o craft-appimage nasceu 100644 no index (lição E95.1 pela 2ª vez) e o trap carregava um SC2154 do gate do CI"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 41→42 NO MESMO COMMIT' \
+  "E97.1 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
+assert_grep "$P/airootfs/usr/local/bin/craft-appimage" 'palco_fora' \
+  "E97.1/appimage: a captura do rc mora numa FUNÇÃO (o shellcheck do CI não segue atribuição dentro da STRING do trap — SC2154 no run 42709705809)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 40→41 NO MESMO COMMIT' \
   "E97 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 39→40 NO MESMO COMMIT' \
