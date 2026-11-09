@@ -233,6 +233,7 @@ adopt_body() {
             --overwrite '/etc/systemd/system/elite-*' \
             --overwrite '/usr/lib/systemd/system-sleep/*' \
             --overwrite '/usr/local/share/elite/*' \
+            --overwrite '/usr/local/share/applications/*' \
             --overwrite '/usr/share/libalpm/hooks/elite-*' \
             elite-system >>"$LOG" 2>&1; then
         printf '[%s] adotar: pacman RECUSOU a adoção — a prova está acima no log (o próximo update tenta de novo)\n' "$(date '+%F %T')" >>"$LOG" 2>/dev/null || true
@@ -328,7 +329,7 @@ depends=(wayland)
 options=(!debug)
 source=("craft-toplevel.c")
 # E71 — o sha do C com o parent NULÁVEL ('?o') + EVT_PARENT no dispatcher
-sha256sums=('361f6c4fc3065a8d65516cfd673a5ba110aa8005d25a5b8be86bdaf3015761a5')
+sha256sums=('ae1fbf22e3fc0e11aa9c3bf62710ff36cfe025274e075906fd78ad1e185270c5')
 build() {
     gcc -O2 -Wall -Wextra -s -o craft-toplevel craft-toplevel.c -lwayland-client
 }
@@ -427,6 +428,17 @@ cp -p /work/elite/airootfs/etc/skel/.config/hypr/hyprlock.conf \
 mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/docs
 cp -p /work/docs/SCRIPTS.md \
       /tmp/elite-src/elite-system/files/usr/local/share/elite/docs/SCRIPTS.md
+# E95 — O OVERRIDE DO GPARTED NO PACOTE: a mesma desktop-id na FRENTE do
+# XDG_DATA_DIRS (o environment da sessão labwc põe /usr/local/share
+# primeiro) — dock, gaveta e fuzzel resolvem gparted.desktop para AQUI,
+# e o Exec veste o root com a sessão (elite-gparted: pkexec env +
+# WAYLAND_DISPLAY — o pkexec nu despe o ambiente e a GDK root morre rc=1
+# com a senha JÁ aceita, a prova do dump 225119). O upstream em
+# /usr/share/applications fica intocado (o override é a nossa fronteira;
+# desinstalar o elite-system devolve o comportamento cru do Arch).
+mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/applications
+cp -p /work/elite/airootfs/usr/local/share/applications/gparted.desktop \
+      /tmp/elite-src/elite-system/files/usr/local/share/applications/gparted.desktop
 # E75 — O HOOK DA CASA NO PACMAN (a auditoria do dono: 'estruturar hooks
 # nativos do pacman para disparar checagens de hardware... após qualquer
 # pacman -Syu'). O gap provado no papel: a pedagogia de reboot do kernel
@@ -487,6 +499,11 @@ lock_rm = '    [ -e "/usr/local/share/elite/hyprlock/hyprlock.conf" ] && rm -f "
 # E90 — o mapa dos comandos (SCRIPTS.md no pacote — mesma dança)
 doc_install = '    install -d "${pkgdir}/usr/local/share/elite/docs"\n    install -m644 "${startdir}/files/usr/local/share/elite/docs/SCRIPTS.md" "${pkgdir}/usr/local/share/elite/docs/SCRIPTS.md"\n'
 doc_rm = '    [ -e "/usr/local/share/elite/docs/SCRIPTS.md" ] && rm -f "/usr/local/share/elite/docs/SCRIPTS.md"\n'
+# E95 — o override do gparted (mesma dança: o rig da ISO velha pode ter
+# um gparted.desktop sem dono por lá — o pre_install adota antes da
+# extração; caminho NOVO em rig comum = criação limpa)
+gp_install = '    install -d "${pkgdir}/usr/local/share/applications"\n    install -m644 "${startdir}/files/usr/local/share/applications/gparted.desktop" "${pkgdir}/usr/local/share/applications/gparted.desktop"\n'
+gp_rm = '    [ -e "/usr/local/share/applications/gparted.desktop" ] && rm -f "/usr/local/share/applications/gparted.desktop"\n'
 # E75 — o hook libalpm da casa (dono ÚNICO no pacote; pacman remove sozinho
 # na desinstalação — arquivo pertence ao pacote, sem dança de adoção)
 pt_install = '    install -Dm644 "${startdir}/elite-post-transaction.hook" "${pkgdir}/usr/share/libalpm/hooks/elite-post-transaction.hook"\n'
@@ -1047,7 +1064,42 @@ pkgver=1.0
 #     ISO e o -Syu não instala o que não é dependência. Cura: ADOÇÃO DE
 #     ÂNCORAS (ADOCAO/adota_ancoras) nas três portas, transação separada e
 #     best-effort que nunca bloqueia a dose principal).
-pkgrel=38
+#     pkgrel 38→39 NO MESMO COMMIT (E95, perícia dos dois dumps do dono
+#     08/11 — 16:50 e 22:51: os cinco exit=139 do craft-toplevel + o
+#     gparted que morre DEPOIS da senha + o trono polkit duplo à espera):
+#     (1) O DEMARSHAL SEM MILITARES — 9 coredumps (4 no dia 07, 5 no dia
+#     08, offsets IDÊNTICOS libwayland-client+0x9ae3, um deles na rodada
+#     do STARTUP via wl_display_roundtrip_queue): a libwayland lê
+#     events[opcode] CEGO (sem conferir event_count) e um opcode além da
+#     mesa vira wl_message de lixo — a signature vira ponteiro selvagem e
+#     o parser de argumentos SEGVa dentro de wl_display_read_events.
+#     Cura dupla: o ACOLCHOADO (pads com assinatura vazia no fim das
+#     tabelas de eventos do handle E do manager — opcode selvagem cai em
+#     memória NOSSA, closure sã, dispatcher ignora) + o manager nasce
+#     em v2 (o evento parent, o da churn dos diálogos transitórios,
+#     some do fio — a dock nunca o usou; o '?o' da E71 segue declarado
+#     de cinto). (2) O GPARTED QUE MORRE COM A SENHA VIVA (o dump prova
+#     o agente pedindo E aceitando a senha — 'raw entrou/saiu:
+#     polkit-gnome-authentication-agent-1' e gparted 'morreu sem
+#     mapear (rc=1)' DUAS vezes no mesmo boot): o pkexec despe o
+#     ambiente do root por lei, a GDK sem WAYLAND_DISPLAY não acha o
+#     labwc e morre — 'não abre a interface mesmo depois de eu colocar
+#     a senha'. Cura: o override gparted.desktop (/usr/local/share/
+#     applications, na FRENTE do XDG_DATA_DIRS da sessão) aponta o Exec
+#     para o bin NOVO elite-gparted — 'pkexec env' veste o root com a
+#     sessão ANTES de ele nascer (e o gparted já-root não re-pede nada:
+#     UMA senha, a interface abre). (3) UM TRONO POLKIT — os homes
+#     vivos sobem o polkit-gnome às cegas pelo autostart do skel velho
+#     (domínio do dono — update não toca) e a âncora lxqt da E94 criaria
+#     DOIS agentes registrados (o diálogo da senha nascendo 2× por
+#     pedido): o craft-bars aposenta o perdedor na hora — a fila única
+#     E58 reina de verdade. Junto no arranque: o chaveiro que o PAM
+#     nunca abriu ('gkr-pam: couldn't unlock' em TODO login, o
+#     gcr-prompter 2× no dump) recebe o unlock best-effort de senha
+#     vazia NO CHAVEIRO EXISTENTE — canal craft-bars, o que alcança rigs
+#     vivos. Craft-dump v2.7.1 fotografa o 'SIGSEGV, address' do
+#     coredumpctl — a prova que faltava se um 139 resistir ao acolchoado.
+pkgrel=39
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
@@ -1063,7 +1115,7 @@ conflicts=('elite-craft' 'craft-toplevel')
 # símbolo)
 options=(!debug !strip)
 source=("craft-toplevel.c")
-sha256sums=('361f6c4fc3065a8d65516cfd673a5ba110aa8005d25a5b8be86bdaf3015761a5')
+sha256sums=('ae1fbf22e3fc0e11aa9c3bf62710ff36cfe025274e075906fd78ad1e185270c5')
 build() {{
     gcc -O2 -Wall -Wextra -s -o craft-toplevel craft-toplevel.c -lwayland-client
 }}
@@ -1080,7 +1132,7 @@ pre_install() {{
     ; do
         [ -e "/usr/local/bin/$f" ] && rm -f "/usr/local/bin/$f"
     done
-{unit_loop}{hook_rm}{ff_rm}{lock_rm}{doc_rm}    return 0
+{unit_loop}{hook_rm}{ff_rm}{lock_rm}{doc_rm}{gp_rm}    return 0
 }}
 package() {{
     install -d "${{pkgdir}}/usr/local/bin"
@@ -1089,7 +1141,7 @@ package() {{
     # a fonte do daemon viaja no pacote (transparência — o mesmo papel que
     # ela tinha no craft-toplevel legado)
     install -Dm644 craft-toplevel.c "${{pkgdir}}/usr/local/share/elite/src/craft-toplevel.c"
-{unit_install}{hook_install}{ff_install}{lock_install}{doc_install}{pt_install}}}
+{unit_install}{hook_install}{ff_install}{lock_install}{doc_install}{gp_install}{pt_install}}}
 """
 (d / 'PKGBUILD').write_text(pkg)
 PYE50

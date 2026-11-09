@@ -513,6 +513,7 @@ if grep -q '^file_permissions=(' "$PD"; then
            /usr/local/bin/craft-audio-route /usr/local/bin/elite-sweep \
            /usr/local/bin/elite-optimize /usr/local/bin/elite-drivers \
            /usr/local/bin/elite-ferramentas \
+           /usr/local/bin/elite-gparted \
            /usr/local/bin/craft-rescue-screen /usr/local/bin/elite-post-transaction \
            /usr/local/bin/calamares-elite-log \
            /usr/local/bin/craft-display \

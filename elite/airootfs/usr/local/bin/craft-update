@@ -216,6 +216,7 @@ HOUSE_OVERWRITE=(
     '--overwrite' '/etc/systemd/system/elite-*'
     '--overwrite' '/usr/lib/systemd/system-sleep/*'
     '--overwrite' '/usr/local/share/elite/*'
+    '--overwrite' '/usr/local/share/applications/*'
     '--overwrite' '/usr/share/libalpm/hooks/elite-*'
 )
 

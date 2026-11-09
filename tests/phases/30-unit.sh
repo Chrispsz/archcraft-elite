@@ -2410,4 +2410,48 @@ assert_grep "$STCU/pacman.log" '\-S --needed --noconfirm lxqt-policykit' \
 assert_grep "$STCU/update.log" 'adoção: lxqt-policykit presente' \
   "E94/canal: a adoção entra no papel do timer (a única boca do headless)"
 
+# ═══════════════════════════════════════════════════════════════════════
+# E95 — O GPARTED QUE VESTE A SESSÃO: prova comportamental COMPLETA pelo
+# seam (a escola ELITE_*): um pkexec de mentira grava o argv que o root
+# receberia e um gparted de mentira assina o recebimento. O julgamento é
+# o VESTIMENTA: o fio Wayland atravessou? o alvo é o gparted? o argumento
+# do usuário (%f do .desktop) chegou inteiro? E o guard honesto: sem
+# gparted no sistema, o bin SAI 1 com a linha que ensina — nunca um
+# silêncio de porta fechada.
+# ═══════════════════════════════════════════════════════════════════════
+EGPU="$REPO/elite/airootfs/usr/local/bin/elite-gparted"
+mkdir -p "$WORK/e95"
+printf '#!/bin/sh\nexit 0\n' > "$WORK/e95/gparted"; chmod +x "$WORK/e95/gparted"
+cat > "$WORK/e95/pkexec" <<'EOF'
+#!/bin/sh
+# o pkexec de mentira: grava o argv EXATO que o root veria
+i=0; : > "$E95_OUT"
+for a in "$@"; do
+    printf '%s\n' "$a" >> "$E95_OUT"
+    i=$((i+1))
+done
+printf 'argc=%s\n' "$i" >> "$E95_OUT"
+exit 0
+EOF
+chmod +x "$WORK/e95/pkexec"
+E95_OUT="$WORK/e95/argv" \
+ELITE_PKEXEC_BIN="$WORK/e95/pkexec" \
+ELITE_GPARTED_BIN="$WORK/e95/gparted" \
+WAYLAND_DISPLAY=wayland-9 XDG_RUNTIME_DIR=/run/user/1000 XDG_SESSION_TYPE=wayland \
+    bash "$EGPU" /dev/sda >/dev/null 2>&1
+e95_rc=$?
+assert_eq "$e95_rc" "0" "E95: a vestimenta exec inteira (o stub assina rc 0 — o exec substitui e o rc do root vira o da porta)"
+assert_grep "$WORK/e95/argv" '^env$' "E95: o pkexec recebe o ENV na frente (a lei do pkexec: o que não é nomeado não atravessa — o env nomeado é o casaco)"
+assert_grep "$WORK/e95/argv" '^WAYLAND_DISPLAY=wayland-9$' "E95: O FIO ATRAVESSOU (o compositor chega ao gparted-root — a cura da GDK morta 'não abre a interface mesmo depois de eu colocar a senha')"
+assert_grep "$WORK/e95/argv" '^XDG_RUNTIME_DIR=/run/user/1000$' "E95: o runtime da sessão atravessou (sem ele o socket do Wayland não existe para o root)"
+assert_grep "$WORK/e95/argv" "^${WORK}/e95/gparted$" "E95: o alvo é o gparted (o root veste a sessão PARA o gparted — o seam entrega o alvo que o bin resolveu)"
+assert_grep "$WORK/e95/argv" '^/dev/sda$' "E95: o %f do .desktop chega inteiro (o argumento do usuário não cai no caminho)"
+# o guard honesto: sem gparted NENHUM no sistema, a porta SAI 1 ensinando
+ELITE_PKEXEC_BIN="$WORK/e95/pkexec" ELITE_GPARTED_BIN="$WORK/e95/inexistente" \
+    bash "$EGPU" >/dev/null 2>&1
+assert_eq "$?" "1" "E95: sem gparted o bin recusa com rc 1 (a linha ensina 'pacman -S gparted' — o erro NUNCA é mudo, a lei da casa)"
+# o uso (E66): --help sai 0 limpo
+bash "$EGPU" --help >/dev/null 2>&1
+assert_eq "$?" "0" "E95 (E66): o --help sai 0 (o mapa antes do motor — a lei de todos os bins da casa)"
+
 phase_end

@@ -77,6 +77,27 @@ cap_log
 # da sessão NUNCA fica preso ao rice (a barra é a missão aqui).
 craft-rice >>"$LOG" 2>&1 9>&- || true
 
+# E95 — O CHAVEIRO QUE O PAM NÃO ABRIU (a chave dos diálogos gcr-prompter):
+# o journal de TODO login do rig canta 'gkr-pam: couldn't unlock the
+# login keyring' e o Brave responde com o diálogo do gcr-prompter (o
+# dump 225119 o flagrou 2×: 'raw entrou/saiu: gcr-prompter'). A causa é a
+# herança da era do live: o bootstrap de chaveiro de senha VAZIA (a cura
+# do live/autologin, v2.10.12) chegou ao home instalado ANTES do 1º
+# login por senha — o PAM tenta a senha do login num chaveiro de senha
+# VAZIA e falha PARA SEMPRE (a senha do chaveiro ≠ senha do login).
+# A cura é a mesma porta do autostart do live, agora para o rig vivo:
+# desbloquear com a senha VAZIA o chaveiro que EXISTE (o guard de
+# existência é o cinto — sem chaveiro, quem o cria com a senha CERTA
+# continua sendo o PAM do 1º login, a lição v2.10.12 segue LEI).
+# Idempotente por natureza: chaveiro já aberto (PAM são) = no-op;
+# chaveiro de senha própria = falha em silêncio (o dono vê o prompt —
+# protegido é protegido). O canal é o craft-bars (domínio do PACOTE):
+# o autostart do home é skel e os rigs vivos nunca o receberiam.
+if command -v gnome-keyring-daemon >/dev/null 2>&1 && \
+   [ -e "$HOME/.local/share/keyrings/login.keyring" ]; then
+    ( printf '' | gnome-keyring-daemon --unlock >/dev/null 2>&1 ) &
+fi
+
 ensure() {
     # $1=valor da flag (0=1ª vez, 1=já visto vivo)  $2=config  $3=css
     # E36 — âncora ^: 'pgrep -f' casa SUBSTRING — um editor com "waybar -c
@@ -288,6 +309,23 @@ while :; do
         grep -q 'hyprtoolkit' "$pb" 2>/dev/null && continue
         POLKIT_BIN="$pb"
         break
+    done
+    # E95 — UM TRONO SÓ (o perdedor sai da sala): os homes VIVOS ainda
+    # sobem o polkit-gnome às cegas pelo autostart do skel velho (home é
+    # domínio do dono — update nenhum o toca), e quando a âncora lxqt
+    # chega pelo craft-update os DOIS viveriam juntos: dois agentes
+    # registrados = o diálogo da senha nasce DUAS vezes por pedido. A
+    # fila E58 reina em UM trono: o eleito sobe (o bloco de baixo), os
+    # demais que estiverem VIVOS são aposentados na hora — o supervisor
+    # é quem decide, e o home velho obedece.
+    for loser in /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 \
+                /usr/lib/hyprpolkitagent/hyprpolkitagent; do
+        [ "$loser" = "$POLKIT_BIN" ] && continue
+        if pgrep -f "^$loser\$" >/dev/null 2>&1; then
+            pkill -f "^$loser\$" 2>/dev/null || true
+            printf '[%s] polkit perdedor aposentado (%s — a fila única E58 reina: um trono só)\n' \
+                "$(date '+%F %T')" "${loser##*/}" >>"$LOG"
+        fi
     done
     if [ -x "$POLKIT_BIN" ] && ! pgrep -f "^$POLKIT_BIN\$" >/dev/null 2>&1; then
         if [ "$seen_polkit" -eq 1 ]; then
