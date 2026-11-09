@@ -6,7 +6,7 @@ Formato: **o quê faz / como rodar / como reverter / dependências**.
 
 O detalhado mora nas seções abaixo; o índice cobre TODOS os vivos (a promessa
 "uso de cada script" do README era falsa com ~15 seções para 41 peças — E36
-a tornou verdade: 38 bins + scripts de repo; o craft-compress morreu com honra na E72 — ordem do dono; os 3 bins do protocolo E74 (optimize/drivers/ferramentas) entraram depois).
+a tornou verdade: 39 bins + scripts de repo; o craft-compress morreu com honra na E72 — ordem do dono; os 3 bins do protocolo E74 (optimize/drivers/ferramentas) entraram depois; o elite-gparted é o E95).
 
 | Peça | Papel em uma linha |
 |---|---|
@@ -18,6 +18,7 @@ a tornou verdade: 38 bins + scripts de repo; o craft-compress morreu com honra n
 | `elite-optimize` | matemática dinâmica de RAM (E74/Fase 5): lê MemTotal e aplica o perfil (≤4 GB: zram×2 + swappiness 150 · 8 GB: 60 · 16 GB+: 15) em `/etc/sysctl.d/99-elite-ram.conf` (vence por ordem lexical) + zram-generator.conf; `--status` público, prova no kernel no fim; o elite-tune [5] chama e o 2i pergunta o swappiness a ele |
 | `elite-drivers` | perfis de hardware por lspci (E74/Fase 6): AMD (mesa/vulkan-radeon/lact) · Intel (vulkan-intel/intel-media-driver) · NVIDIA; `--apply` instala o que falta, `--purge` LISTA o vendor estranho e só remove com `--yes` (raiz) — nunca silencioso |
 | `elite-ferramentas` | porta honesta do AUR/GUI/AppImage (E74/Fase 7): menu craft-menu ou `--paru` (build como usuário), `--octopi` (repo), `--appimage` (AUR via paru), `--report` |
+| `elite-gparted` | o GParted que VESTE a sessão (E95): `pkexec env` carrega WAYLAND_DISPLAY/XDG_RUNTIME_DIR no root — o gparted do .desktop abre com UMA senha em vez de morrer com a senha já aceita; chamado pelo override `gparted.desktop` (dock/gaveta/fuzzel), `--help` público, seams de prova `ELITE_PKEXEC_BIN`/`ELITE_GPARTED_BIN` |
 | `calamares-elite-log` | wrapper do Calamares — log silencioso + cópia para /var/log |
 | `craft-audio-route` | roteamento automático de áudio (fone pluga, som troca; classe microfone EN+pt nunca é default) |
 | `craft-bars` | supervisor da sessão (waybar, dock, toplevel, idle, áudio, swaync, udiskie, polkit) + forense `bars.log` |

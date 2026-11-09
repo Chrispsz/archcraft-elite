@@ -1700,7 +1700,7 @@ assert_grep "$REPO/.ci/build.sh" 'pkgrel 20→21 NO MESMO COMMIT' "E70.1: pkgrel
 #    E70 só cobria LIST FALHO. Cura em DUAS pontas: o '?o' no daemon e as
 #    três redes na dock (prova no lançamento, dedup em voo, graça do
 #    vazio).
-assert_grep "$REPO/.ci/build.sh" '361f6c4fc3065a8d65516cfd673a5ba110aa8005d25a5b8be86bdaf3015761a5' "E71 (era f719c2f0, âncora refrescada na E89): o sha256 NÃO é mais o do C com parent seco (a fonte mudou e os pins acompanharam — o makepkg para se algo destoar)"
+assert_grep "$REPO/.ci/build.sh" 'ae1fbf22e3fc0e11aa9c3bf62710ff36cfe025274e075906fd78ad1e185270c5' "E71 (era f719c2f0, âncora refrescada na E95): o sha256 NÃO é mais o do C com parent seco (a fonte mudou e os pins acompanharam — o makepkg para se algo destoar)"
 assert_nogrep "$REPO/.ci/build.sh" '24d537866c1bc81881dc5f6e69a64b10447ae2de6270f18a6c8d0cf54f81b7be' "E71: o sha256 do C VELHO (parent 'o' seco) está EXTINTO do build (nenhum pin aponta para a fonte doente)"
 
 # ── E89 — A TELA QUE LEMBRA + A DOCK QUE OBEDECE AO CLIQUE + O WAKE QUE
@@ -1733,8 +1733,9 @@ assert_grep "$CTL" '"MIN "' "E89: o daemon fala o verbo MIN (set_minimized — o
 assert_grep "$CTL" 'TL_SET_MINIMIZED' "E89: o MIN usa o opcode REAL do protocolo (set_minimized=2 — o mesmo zip de leis do ACT com unset_minimized=3/activate=4)"
 assert_grep "$CTL" 'POLLHUP' "E89: a blindagem do SIGSEGV mora no loop (POLLHUP/POLLERR sem POLLIN = conexão perdida, NUNCA dispatch sobre fio morto — os 4× exit=139 do dump não têm mais porta)"
 assert_grep "$CTL" 'wl_display_get_error' "E89: cada conversa termina com o veredito do fio (get_error após dispatch/roundtrip — erro = saída limpa, o supervisor renasce)"
-assert_grep "$REPO/.ci/build.sh" '361f6c4fc3065a8d65516cfd673a5ba110aa8005d25a5b8be86bdaf3015761a5' "E89: o sha256 do C acompanhou a fonte cega (MIN + blindagem — o makepkg para se algo destoar, a mesma lei E71)"
-assert_nogrep "$REPO/.ci/build.sh" 'f719c2f0582f0787a26440ebc5566408d5889d8dc037e91505384efb9544f258' "E89: o sha256 do C VELHO (sem MIN, sem blindagem) está EXTINTO do build (nenhum pin aponta para a fonte doente)"
+assert_grep "$REPO/.ci/build.sh" 'ae1fbf22e3fc0e11aa9c3bf62710ff36cfe025274e075906fd78ad1e185270c5' "E95 (era E89, âncora refrescada): o sha256 do C acompanhou a fonte cega (MIN + blindagem + ACOLCHOADO do demarshal — o makepkg para se algo destoar, a mesma lei E71)"
+assert_nogrep "$REPO/.ci/build.sh" '361f6c4fc3065a8d65516cfd673a5ba110aa8005d25a5b8be86bdaf3015761a5' "E95: o sha256 do C VELHO (sem acolchoado — a fonte onde os 9 exit=139 moravam) está EXTINTO do build (nenhum pin aponta para a fonte doente)"
+assert_nogrep "$REPO/.ci/build.sh" 'f719c2f0582f0787a26440ebc5566408d5889d8dc037e91505384efb9544f258' "E89: o sha256 do C PRIMITIVO (sem MIN, sem blindagem) está EXTINTO do build (nenhum pin aponta para a fonte doente)"
 CDOCK="$REPO/elite/airootfs/usr/local/bin/craft-dock-gui"
 assert_grep "$CDOCK" '_tl_min' "E89: a dock fala MIN por id (o clique no app focado MINIMIZA — 'clico novamente no mesmo programa, ele não minimiza… nada acontece' curado)"
 assert_grep "$CDOCK" '_dismiss_overlays' "E89: a dock encerra a gaveta aberta ao acordar/lançar (a janela nasce atrás do nwg-drawer — o dono tinha que fechar o menu à mão)"
@@ -1830,5 +1831,45 @@ assert_grep "$REPO/elite/packages.add" '^ethtool$' "E90: ethtool na ISO (a prova
 # ── E90: a vigília fecha a porta (argumento inesperado = 2ª vigília —
 # a lei E30 manda UMA por ciclo; o typo humano morre na entrada) ──
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-vigil" 'argumento inesperado' "E90: craft-vigil recusa argumentos com recusa clara (rc 2 — a 2ª vigília acidental nunca nasce)"
+
+# ═══════════════════════════════════════════════════════════════════════
+# E95 — O DEMARSHAL BLINDADO + O GPARTED QUE VESTE A SESSÃO + UM TRONO
+# POLKIT + O CHAVEIRO QUE O PAM NÃO ABRIU (perícia dos dumps 165011 e
+# 225119: 9 exit=139 com offsets idênticos; o gparted morrendo COM A
+# SENHA VIVA; o gcr-prompter pedindo em cima do gkr-pam falho)
+# ═══════════════════════════════════════════════════════════════════════
+CTL95="$REPO/vendor/craft-toplevel.c"
+assert_grep "$CTL95" '\{ "elite-pad", "", NULL \}' "E95: o ACOLCHOADO existe (a libwayland lê events[opcode] sem conferir event_count — opcode além da mesa era wl_message de lixo e o parser SEGVa nos 9 exit=139; o pad com assinatura VAZIA faz o opcode selvagem virar closure sã que o dispatcher ignora)"
+n_pads="$(grep -c '"elite-pad"' "$CTL95" || true)"
+assert_eq "$n_pads" "14" "E95: as DUAS mesas acolchoadas (8 pads no handle + 6 no manager — opcode 8..15 do handle e 2..7 do manager caem em memória NOSSA)"
+assert_grep "$CTL95" '16, tl_events' "E95: a mesa do handle declara 16 lugares (8 reais do protocolo + 8 de fôlego)"
+assert_grep "$CTL95" '8, mgr_events' "E95: a mesa do manager declara 8 lugares (2 reais + 6 de fôlego)"
+assert_grep "$CTL95" 'version < 2 \? version : 2' "E95: o manager nasce em v2 (o evento parent — o da churn dos diálogos transitórios, o perfil dos 9 crashes — some do fio; a dock nunca o usou e o '?o' da E71 segue de cinto)"
+assert_grep "$CTL95" 'clients\[i\]\.evt = 0' "E95: o slot reciclado não herda a inscrição de eventos do dono anterior (a conexão de PEDIDOS nunca recebe linha não pedida)"
+assert_grep "$CTL95" 'ACOLCHOADO DO DEMARSHAL' "E95: a perícia dos 9 exit=139 mora na fonte (offsets idênticos libwayland-client+0x9ae3, um na rodada do STARTUP — quem ler a mesa sabe por quê)"
+
+EGP="$REPO/elite/airootfs/usr/local/bin/elite-gparted"
+assert_file "$EGP" "E95: o bin elite-gparted existe (o motor do gparted que veste o root)"
+assert_grep "$EGP" 'ELITE_PKEXEC_BIN' "E95: o seam de prova do pkexec (o teste julga o VESTIMENTA sem polkit — a escola ELITE_*)"
+assert_grep "$EGP" 'ELITE_GPARTED_BIN' "E95: o seam de prova do alvo (hermético: nem gparted instalado o teste precisa)"
+assert_grep "$EGP" 'exec "\$PKEXEC_BIN" env' "E95: a vestimenta é 'pkexec env' (o pkexec despe o ambiente por LEI — WAYLAND_DISPLAY/XDG_RUNTIME_DIR nomeados EXPLICITAMENTE é a cura da GDK root morta)"
+assert_grep "$EGP" 'WAYLAND_DISPLAY="\$\{WAYLAND_DISPLAY:-\}"' "E95: o fio do compositor atravessa com o ${VAR:-} de cinto (sessão sem X11 não explode; Wayland puro é o terreno)"
+assert_grep "$EGP" '\-h\|--help\|uso\)' "E95 (lei E66): o bin tem --help (nenhum bin da casa é mudo)"
+GPD="$REPO/elite/airootfs/usr/local/share/applications/gparted.desktop"
+assert_file "$GPD" "E95: o override gparted.desktop existe na FRENTE do XDG_DATA_DIRS (o environment da sessão põe /usr/local/share primeiro — dock, gaveta e fuzzel resolvem para AQUI)"
+assert_grep "$GPD" 'Exec=/usr/local/bin/elite-gparted %f' "E95: o Exec aponta o motor da casa (o upstream em /usr/share fica intocado — a fronteira é só nossa)"
+assert_grep "$GPD" 'StartupWMClass=gparted' "E95: a janela casa de volta no botão da dock (o indicador/foco fala o APP — a mesma gramática E94 do raw_of)"
+CBARS95="$REPO/elite/airootfs/usr/local/bin/craft-bars"
+assert_grep "$CBARS95" 'polkit perdedor aposentado' "E95: UM TRONO POLKIT (o autostart dos homes vivos sobe o polkit-gnome às cegas e a âncora lxqt da E94 criaria DOIS agentes — o diálogo da senha nascendo 2×; o supervisor aposenta o perdedor, canal que alcança rigs vivos)"
+assert_grep "$CBARS95" 'keyrings/login\.keyring' "E95: o chaveiro que o PAM não abriu recebe o unlock best-effort NO CHAVEIRO EXISTENTE (o guard é o cinto da v2.10.12: sem chaveiro, quem cria com a senha CERTA continua sendo o PAM)"
+assert_grep "$CBARS95" 'gnome-keyring-daemon --unlock' "E95: a porta do unlock é a MESMA do live ('gkr-pam: couldn't unlock' em todo login + o gcr-prompter 2× no dump — o canal craft-bars alcança o home que update nenhum toca)"
+CDMP95="$REPO/elite/airootfs/usr/local/bin/craft-dump"
+assert_grep "$CDMP95" 'coredumpctl info --no-pager craft-toplevel' "E95: o dump v2.7.1 fotografa o 'SIGSEGV, address' do coredumpctl (NULO ≠ SELVAGEM — a peça que faltava se um 139 resistir ao acolchoado)"
+assert_grep "$CDMP95" 'v2.7.1' "E95: a versão do dump no papel (o --update do rig compara versões — a perícia nunca envelhece)"
+assert_grep "$REPO/.ci/build.sh" 'files/usr/local/share/applications/gparted\.desktop' "E95: o override VIAJA no pacote (a lição E63: fora do pacote nunca chega ao rig pelo canal)"
+assert_grep "$REPO/.ci/build.sh" 'gp_install' "E95: o PKGBUILD gera as linhas de instalação da família nova (a mesma dança do fastfetch/lock/docs)"
+assert_grep "$REPO/.ci/build.sh" "overwrite '/usr/local/share/applications/\*'" "E95 (E92, o 5º site): o elite-adopt da PONTE leva a família nova (senão a adoção recusa pelo MESMO conflito órfão que o rig flagrou)"
+CUPD95="$REPO/elite/airootfs/usr/local/bin/craft-update"
+assert_grep "$CUPD95" "'--overwrite' '/usr/local/share/applications/\\*'" "E95: o HOUSE_OVERWRITE do craft-update cobre a família nova (a lista↔payload é a porteira da 40-integration)"
 
 phase_end

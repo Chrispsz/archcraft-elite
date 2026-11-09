@@ -1,0 +1,29 @@
+# ═════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · gparted.desktop (E95 — O OVERRIDE DA CASA)
+# ────────────────────────────────────────────────────────────────────────
+# POR QUE ELE EXISTE: o gparted 1.8 pede root ao pkexec INTERNAMENTE, o
+# agente pede a senha, a senha passa… e o gparted-ROOT morre rc=1 sem
+# janela: o pkexec entrega ambiente LIMPO por lei, a GDK root não acha o
+# WAYLAND_DISPLAY e desiste ("não abre a interface mesmo depois de eu
+# colocar a senha" — relato do dono 08/11, provado no dump 225119). O
+# upstream (em /usr/share/applications) segue lá, INTOCADO — este arquivo
+# é a MESMA desktop-id na frente do XDG_DATA_DIRS (/usr/local/share vem
+# PRIMEIRO no environment da sessão labwc), então dock, gaveta e fuzzel
+# resolvem gparted.desktop para AQUI, e o Exec veste o root com a sessão
+# antes de ele nascer (elite-gparted: pkexec env + WAYLAND_DISPLAY).
+# StartupWMClass=gparted casa a janela aberta de volta no botão da dock
+# (o indicador/acordo de foco fala o APP — a mesma gramática E94).
+# ═════════════════════════════════════════════════════════════════════════
+[Desktop Entry]
+Name=GParted
+GenericName=Partition Editor
+Comment=Create, reorganize, and delete partitions (opens with the live session — the house dresses root for Wayland)
+Comment[pt_BR]=Cria, reorganiza e exclui partições (abre na sessão viva — o root vestido para o Wayland)
+Exec=/usr/local/bin/elite-gparted %f
+Icon=gparted
+Terminal=false
+Type=Application
+Categories=GNOME;System;Filesystem;
+Keywords=Partition;Disk;Drive;Volume;Sizes;
+StartupNotify=true
+StartupWMClass=gparted

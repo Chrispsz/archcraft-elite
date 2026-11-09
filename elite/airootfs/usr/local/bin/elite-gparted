@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# ═══════════════════════════════════════════════════════════════════════════
+# elite-gparted — O GPARTED QUE VESTE A SESSÃO (E95)
+# ───────────────────────────────────────────────────────────────────────────
+# A DOENÇA (relato do dono 08/11: "o gparted não vem funcionando por
+# padrão, ele não abre a interface mesmo depois de eu colocar a senha"):
+# o gparted 1.8 pede root ao pkexec INTERNAMENTE — o agente polkit pede a
+# senha (o dump 225119 prova o diálogo vivo: 'raw entrou: polkit-gnome-
+# authentication-agent-1'), a senha É aceita… e o gparted-root morre rc=1
+# SEM mapear janela nenhuma ('guard liberado: gparted.desktop morreu sem
+# mapear (rc=1)' — a mesma prova, duas vezes, no mesmo boot). O réu é a
+# LEI DO PKEXEC: a transação exec o root com ambiente LIMPO — o
+# WAYLAND_DISPLAY/XDG_RUNTIME_DIR da sessão NÃO atravessam, a GDK do
+# gparted-root não acha o compositor e morre ("cannot open display").
+# Em X11 isso era parcialmente contornado; na sessão labwc (Wayland puro)
+# a morte é na certa.
+#
+# A CURA: vestir o root com a sessão ANTES de ele nascer — 'pkexec env
+# VAR=valor… gparted' entrega o fio Wayland EXPLICITAMENTE. Como o
+# gparted já acorda ROOT, o pkexec interno NEM DISPARA (o pedido de senha
+# que o usuário vê é o ÚNICO; o agente pergunta uma vez e a interface
+# ABRE — o comportamento padrão que faltava). O canal de chegada é o
+# override /usr/local/share/applications/gparted.desktop (XDG_DATA_DIRS
+# põe /usr/local/share NA FRENTE — a dock, a gaveta e o fuzzel lançam
+# TODOS por aqui; o upstream em /usr/share fica intocado).
+#
+# uso:      elite-gparted [ARQUIVO] — a senha é pedida UMA vez (polkit),
+#           e a interface abre na sessão de quem pediu.
+# bin:      /usr/local/bin/elite-gparted (chamado pelo gparted.desktop da
+#           casa — o Exec é o contrato, o bin é o motor)
+# seam:     ELITE_PKEXEC_BIN (default pkexec) e ELITE_GPARTED_BIN (default
+#           /usr/bin/gparted) — as portas de prova da suíte: o teste
+#           aponta para stubs e julga o VESTIMENTA (env + alvo) sem
+#           precisar de polkit nem de gparted instalado.
+# ═══════════════════════════════════════════════════════════════════════════
+set -euo pipefail
+
+uso() {
+    printf '%s\n' \
+        'uso: elite-gparted [ARQUIVO] — abre o GParted como root na sessão' \
+        '     Wayland viva (o pkexec nu despe o ambiente e a GDK root' \
+        '     morre — este bin veste o root com o fio do compositor).' \
+        '' \
+        '  a senha é pedida UMA vez pelo agente polkit da sessão.' \
+        '  chamado pelo gparted.desktop da casa (dock/gaveta/fuzzel).'
+    exit 0
+}
+case "${1:-}" in -h|--help|uso) uso ;; esac
+
+GPARTED_BIN="${ELITE_GPARTED_BIN:-}"
+if [ -z "$GPARTED_BIN" ]; then
+    for cand in /usr/bin/gparted /usr/local/bin/gparted; do
+        [ -x "$cand" ] && GPARTED_BIN="$cand" && break
+    done
+fi
+if [ -z "$GPARTED_BIN" ] || [ ! -x "$GPARTED_BIN" ]; then
+    printf 'elite-gparted: o binário do gparted não existe — instale-o (pacman -S gparted)\n' >&2
+    exit 1
+fi
+
+PKEXEC_BIN="${ELITE_PKEXEC_BIN:-pkexec}"
+if ! command -v "$PKEXEC_BIN" >/dev/null 2>&1; then
+    printf 'elite-gparted: o %s não existe — sem ele não há root vestido\n' "$PKEXEC_BIN" >&2
+    exit 1
+fi
+
+# A VESTIMENTA (a cura inteira é esta linha): cada variável viaja EXPLÍCITA
+# porque o pkexec entrega um ambiente LIMPO por lei — o que não é nomeado
+# não atravessa. O ${VAR:-} é o cinto: sessão sem X11 (labwc puro) não tem
+# DISPLAY/XAUTHORITY nenhum, e a string VAZIA no env é inócua — a GDK
+# Wayland só fala mesmo com WAYLAND_DISPLAY + XDG_RUNTIME_DIR.
+exec "$PKEXEC_BIN" env \
+    DISPLAY="${DISPLAY:-}" \
+    WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-}" \
+    XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-}" \
+    XDG_SESSION_TYPE="${XDG_SESSION_TYPE:-}" \
+    XAUTHORITY="${XAUTHORITY:-}" \
+    "$GPARTED_BIN" "$@"

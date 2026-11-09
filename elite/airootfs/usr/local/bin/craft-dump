@@ -53,6 +53,9 @@
 # puxa o craft-dump DA MAIN do repo (raw, sem credencial), valida com
 # bash -n antes de instalar, guarda o velho como .bak-<stamp> e imprime o
 # sha256 dos dois — a perícia nunca mais envelhece no rig.
+# v2.7.1 (E95 — o endereço do crime nos coredumps do toplevel): o journal
+# entrega o stack, mas o 'SIGSEGV, address' do coredumpctl é quem separa
+# NULO de SELVAGEM — a peça que a perícia dos 9 exit=139 sentiu falta.
 # v2.7 (E90 — a área 4 da rotação; o dump 190719 do rig 1.0-31 apontou as
 # provas que o papel deixou CAIR): (1) A LISTA DE MODOS TRUNCADA — o tail
 # de 30 linhas cortava o wlr-randr EXATAMENTE onde mora o 200 Hz (o papel
@@ -426,6 +429,13 @@ PY
     # cura provada).
     printf '\n── craft-toplevel: os coredumps deste boot (o réu dos delays da dock)\n'
     r "journalctl -b --no-pager 2>/dev/null | grep -c 'craft-toplevel.*dumped core'; journalctl -b --no-pager 2>/dev/null | grep -E 'craft-toplevel.*(dumped core|exit=139)' | tail -5" 8
+    # v2.7.1/E95 — O ENDEREÇO DO CRIME (a peça que faltava na perícia dos
+    # 9 exit=139): o stack do journal nomeia a função, mas o VÉU está no
+    # 'SIGSEGV, address 0x…' do coredumpctl — endereço ~0 = ponteiro NULO,
+    # endereço selvagem = leitura fora da mesa (a classe do acolchoado
+    # E95). Se um 139 RESISTIR à blindagem, o próximo dump já nasce com o
+    # nome do assassino; zero coredumps = a cura segue provada.
+    r "coredumpctl info --no-pager craft-toplevel 2>/dev/null | grep -E 'Signal|SIGSEGV|Stack trace|#[0-9] ' | head -12 || true" 12
 
     printf '\n── processos da Elite (a sessão inteira, com args)\n'
     r "ps -u $DUMP_UID -o pid,args | grep -E 'craft-|waybar|swayidle|swaync|fuzzel|labwc|hyprlock' | grep -v grep" 25

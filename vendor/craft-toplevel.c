@@ -130,6 +130,14 @@ static const struct wl_message mgr_requests[] = { { "stop", "", NULL } };
 static const struct wl_message mgr_events[] = {
     { "toplevel", "n", mgr_evt_types },
     { "finished", "", NULL },
+    /* E95 — o mesmo acolchoado do handle (opcode selvagem no manager
+     * tem a mesma classe de SEGV — a mesa do manager também estica) */
+    { "elite-pad", "", NULL },
+    { "elite-pad", "", NULL },
+    { "elite-pad", "", NULL },
+    { "elite-pad", "", NULL },
+    { "elite-pad", "", NULL },
+    { "elite-pad", "", NULL },
 };
 static const struct wl_message tl_requests[] = {
     { "set_maximized", "", NULL },
@@ -158,16 +166,38 @@ static const struct wl_message tl_events[] = {
      * cheia (a doença exata do dump e8xl). O '?' entrega o NULL e o
      * dispatcher o ignora (a dock não usa parent). */
     { "parent", "?o", NULL },
+    /* E95 — O ACOLCHOADO DO DEMARSHAL (a cura dos 9 exit=139): a
+     * libwayland NÃO confere opcode contra event_count — o demarshal
+     * lê proxy->interface->events[opcode] CEGO, e um opcode além do
+     * fim da tabela vira um wl_message de LIXO: a 'signature' vira
+     * ponteiro selvagem e o parser de argumentos SEGVa DENTRO de
+     * wl_display_read_events (as 9 provas dos dumps 190719/163513/
+     * 165011/225119 — offsets IDÊNTICOS: libwayland-client+0x9ae3,
+     * um deles na rodada do STARTUP via wl_display_roundtrip_queue).
+     * O acolchoado: entradas com assinatura VAZIA (zero argumentos,
+     * types NULL) fazem o opcode selvagem cair em memória NOSSA — o
+     * demarshal nasce uma closure sã, o dispatcher a ignora
+     * (default: break) e o daemon SEGUE VIVO. A blindagem E89 do
+     * POLLHUP seguia valendo (fio morto = saída limpa); o que ela não
+     * cobria era o opcode LENDO além da mesa — agora a mesa tem fôlego. */
+    { "elite-pad", "", NULL },
+    { "elite-pad", "", NULL },
+    { "elite-pad", "", NULL },
+    { "elite-pad", "", NULL },
+    { "elite-pad", "", NULL },
+    { "elite-pad", "", NULL },
+    { "elite-pad", "", NULL },
+    { "elite-pad", "", NULL },
 };
 static const struct wl_interface tl_iface = {
     "zwlr_foreign_toplevel_handle_v1", 3,
     10, tl_requests,
-    8, tl_events,
+    16, tl_events,
 };
 static const struct wl_interface mgr_iface = {
     "zwlr_foreign_toplevel_manager_v1", 3,
     1, mgr_requests,
-    2, mgr_events,
+    8, mgr_events,
 };
 
 /* ── estado das janelas ──────────────────────────────────────────────── */
@@ -456,7 +486,16 @@ static int registry_dispatcher(const void *data, void *target,
     struct wl_proxy *reg = (struct wl_proxy *)target;
 
     if (strcmp(iface, mgr_iface.name) == 0) {
-        uint32_t v = version < 3 ? version : 3;
+        /* E95 — O MANAGER NASCE EM v2 (não v3): o v3 acrescentou APENAS o
+         * evento parent — que a dock nunca usou (E71 já o ignorava) e que
+         * é o evento da CHURN dos diálogos transitórios (gcr-prompter,
+         * polkit-gnome: janelas que nascem com pai e morrem em
+         * milissegundos — o perfil EXATO dos momentos dos 9 exit=139).
+         * Em v2 o compositor NÃO ENVIA parent nenhum: a coluna inteira
+         * some do fio. O acolchoado das tabelas segue no lugar (o cinto
+         * por cima da suspensória) e o '?o' permanece declarado — se
+         * um dia voltarmos ao v3, o terreno já é seguro. */
+        uint32_t v = version < 2 ? version : 2;
         struct wl_proxy *mgr = wl_proxy_marshal_constructor(
             reg, 0 /* WL_REGISTRY_BIND */, &mgr_iface,
             name, mgr_iface.name, v);
@@ -922,6 +961,11 @@ int main(void)
                     if (clients[i].fd < 0) {
                         clients[i].fd = fd;
                         clients[i].len = 0;
+                        /* E95 — o slot reciclado não herda a inscrição de
+                         * eventos do dono anterior (a conexão de PEDIDOS
+                         * nunca recebe linha não pedida — o protocolo é o
+                         * contrato, mesmo em slot de segunda mão) */
+                        clients[i].evt = 0;
                         break;
                     }
                 }
