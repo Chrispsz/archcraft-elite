@@ -38,7 +38,14 @@
 #     o mesmo nome = o último vence (o id appimage-<stem> é estável);
 #   · o Exec NUNCA é o AppRun extraído — é o ARQUIVO ORIGINAL (o
 #     registro não copia o app, só dá rosto a ele).
-trap 'rc=$?; [ -n "${PALCO:-}" ] && rm -rf "$PALCO" 2>/dev/null; exit $rc' EXIT
+# o palco MORRE no fim — a captura do rc mora numa FUNÇÃO (o shellcheck
+# SC2154 do gate do CI não segue atribuição dentro da string do trap)
+palco_fora() {
+    st=$?
+    [ -n "${PALCO:-}" ] && rm -rf "$PALCO" 2>/dev/null
+    exit "$st"
+}
+trap palco_fora EXIT
 set -u
 
 APPS_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/applications"

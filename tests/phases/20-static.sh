@@ -1700,7 +1700,7 @@ assert_grep "$REPO/.ci/build.sh" 'pkgrel 20→21 NO MESMO COMMIT' "E70.1: pkgrel
 #    E70 só cobria LIST FALHO. Cura em DUAS pontas: o '?o' no daemon e as
 #    três redes na dock (prova no lançamento, dedup em voo, graça do
 #    vazio).
-assert_grep "$REPO/.ci/build.sh" 'ae1fbf22e3fc0e11aa9c3bf62710ff36cfe025274e075906fd78ad1e185270c5' "E71 (era f719c2f0, âncora refrescada na E95): o sha256 NÃO é mais o do C com parent seco (a fonte mudou e os pins acompanharam — o makepkg para se algo destoar)"
+assert_grep "$REPO/.ci/build.sh" '1a6aeea295db062e38e53b50bb525c6098eb4b436b4b2d8dfd8e84a174aedb11' "E71 (era f719c2f0, refrescada E95→E97.1): o sha256 NÃO é mais o do C com parent seco (a fonte mudou e os pins acompanharam — o makepkg para se algo destoar)"
 assert_nogrep "$REPO/.ci/build.sh" '24d537866c1bc81881dc5f6e69a64b10447ae2de6270f18a6c8d0cf54f81b7be' "E71: o sha256 do C VELHO (parent 'o' seco) está EXTINTO do build (nenhum pin aponta para a fonte doente)"
 
 # ── E89 — A TELA QUE LEMBRA + A DOCK QUE OBEDECE AO CLIQUE + O WAKE QUE
@@ -1733,7 +1733,8 @@ assert_grep "$CTL" '"MIN "' "E89: o daemon fala o verbo MIN (set_minimized — o
 assert_grep "$CTL" 'TL_SET_MINIMIZED' "E89: o MIN usa o opcode REAL do protocolo (set_minimized=2 — o mesmo zip de leis do ACT com unset_minimized=3/activate=4)"
 assert_grep "$CTL" 'POLLHUP' "E89: a blindagem do SIGSEGV mora no loop (POLLHUP/POLLERR sem POLLIN = conexão perdida, NUNCA dispatch sobre fio morto — os 4× exit=139 do dump não têm mais porta)"
 assert_grep "$CTL" 'wl_display_get_error' "E89: cada conversa termina com o veredito do fio (get_error após dispatch/roundtrip — erro = saída limpa, o supervisor renasce)"
-assert_grep "$REPO/.ci/build.sh" 'ae1fbf22e3fc0e11aa9c3bf62710ff36cfe025274e075906fd78ad1e185270c5' "E95 (era E89, âncora refrescada): o sha256 do C acompanhou a fonte cega (MIN + blindagem + ACOLCHOADO do demarshal — o makepkg para se algo destoar, a mesma lei E71)"
+assert_grep "$REPO/.ci/build.sh" '1a6aeea295db062e38e53b50bb525c6098eb4b436b4b2d8dfd8e84a174aedb11' "E95 (era E89, refrescada E97.1): o sha256 do C acompanhou a fonte (MIN + blindagem + ACOLCHOADO + o reply() do EAGAIN com prazo — o makepkg para se algo destoar, a mesma lei E71)"
+assert_nogrep "$REPO/.ci/build.sh" 'ae1fbf22e3fc0e11aa9c3bf62710ff36cfe025274e075906fd78ad1e185270c5' "E97.1: o sha da era E95 está EXTINTO dos DOIS pins (o canal recusou a fonte com ele vivo no template — o ponto cego que a peça dos dois pins mata)"
 assert_nogrep "$REPO/.ci/build.sh" '361f6c4fc3065a8d65516cfd673a5ba110aa8005d25a5b8be86bdaf3015761a5' "E95: o sha256 do C VELHO (sem acolchoado — a fonte onde os 9 exit=139 moravam) está EXTINTO do build (nenhum pin aponta para a fonte doente)"
 assert_nogrep "$REPO/.ci/build.sh" 'f719c2f0582f0787a26440ebc5566408d5889d8dc037e91505384efb9544f258' "E89: o sha256 do C PRIMITIVO (sem MIN, sem blindagem) está EXTINTO do build (nenhum pin aponta para a fonte doente)"
 CDOCK="$REPO/elite/airootfs/usr/local/bin/craft-dock-gui"
