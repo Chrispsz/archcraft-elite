@@ -1,0 +1,38 @@
+#!/bin/sh
+# elite-flathub — o remote do Flathub, idempotente (E97)
+# ═══════════════════════════════════════════════════════════════════════════
+# A LOJA DE FÁBRICA: o flatpak entra na ISO (packages.add) e nos rigs
+# (ADOCAO do craft-update) — mas flatpak SEM remote é uma porta fechada:
+# 'flatpak install flathub <app>' morre no 'remote não encontrado'. Este
+# bin garante o remote do Flathub em TODO install/upgrade do flatpak,
+# convocado pelo hook libalpm elite-flathub.hook (mesma escola do
+# elite-post-transaction: dono ÚNICO no pacote, heredoc no build). Dois
+# mundos num gesto só: na BUILD da ISO o pacstrap instala o flatpak → o
+# hook dispara NO CHROOT → a ISO nasce com o remote; no rig, o
+# craft-update instala/adota o flatpak → o hook dispara → o remote chega.
+#
+# A ordem das fontes do remote é a gramática do flatpak da casa:
+#   1. /usr/share/flatpak/flathub.flatpakrepo — o arquivo que o PACOTE
+#      flatpak entrega (offline-friendly: a build da ISO não depende de
+#      rede para o remote);
+#   2. https://flathub.org/repo/flathub.flatpakrepo — o fallback vivo.
+# --if-not-exists = idempotência de verdade (o remote do usuário nunca é
+# sobrescrito; quem trocou de espelho de Flathub por escolha PRÓPRIA não
+# é tocado). Hook roda como root: o remote nasce SYSTEM-WIDE — o 'flatpak
+# install flathub' de qualquer usuário da máquina funciona de cara.
+#
+# Observável: silêncio em sucesso é lei de hook (o pacman não quer eco);
+# a falha das DUAS fontes segue silenciosa COM rc 0 — um hook de
+# conveniência NUNCA pode falhar a transação do pacman por causa de rede
+# (o remote pode ser adicionado à mão depois; o craft-dump seção 13
+# fotografa 'flatpak remotes' para o julgamento).
+set -u
+command -v flatpak >/dev/null 2>&1 || exit 0
+if [ -r /usr/share/flatpak/flathub.flatpakrepo ]; then
+    flatpak remote-add --if-not-exists flathub \
+        /usr/share/flatpak/flathub.flatpakrepo >/dev/null 2>&1 || true
+    exit 0
+fi
+flatpak remote-add --if-not-exists flathub \
+    https://flathub.org/repo/flathub.flatpakrepo >/dev/null 2>&1 || true
+exit 0

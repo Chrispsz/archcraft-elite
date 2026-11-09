@@ -461,6 +461,23 @@ Description = Elite: pós-transação (aviso de kernel novo + vigília do wake-g
 When = PostTransaction
 Exec = /usr/local/bin/elite-post-transaction
 EOPT
+# E97 — O HOOK DO FLATHUB: o remote nasce com o pacote (mesma escola do
+# elite-post-transaction — Target estreito: dispara SÓ quando o flatpak
+# entra na transação; na build da ISO o pacstrap o convoca NO CHROOT e a
+# ISO nasce com o remote; no rig, o craft-update adota o flatpak e o hook
+# dispara no mesmo gesto — dois mundos, um arquivo).
+cat > /tmp/elite-src/elite-system/elite-flathub.hook <<'EOFH'
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = flatpak
+
+[Action]
+Description = Elite: remote Flathub no flatpak (idempotente)
+When = PostTransaction
+Exec = /usr/local/bin/elite-flathub
+EOFH
 python3 - /tmp/elite-src/elite-system <<'PYE50'
 import sys, pathlib
 d = pathlib.Path(sys.argv[1])
@@ -509,6 +526,9 @@ gp_rm = '    [ -e "/usr/local/share/applications/gparted.desktop" ] && rm -f "/u
 # E75 — o hook libalpm da casa (dono ÚNICO no pacote; pacman remove sozinho
 # na desinstalação — arquivo pertence ao pacote, sem dança de adoção)
 pt_install = '    install -Dm644 "${startdir}/elite-post-transaction.hook" "${pkgdir}/usr/share/libalpm/hooks/elite-post-transaction.hook"\n'
+# E97 — o hook do flathub (mesma escola do post-transaction: heredoc no
+# build, dono ÚNICO no pacote — o libalpm remove sozinho na saída)
+ef_install = '    install -Dm644 "${startdir}/elite-flathub.hook" "${pkgdir}/usr/share/libalpm/hooks/elite-flathub.hook"\n'
 pkg = f"""pkgname=elite-system
 pkgver=1.0
 # E50 — O SISTEMA EM UM PACOTE SÓ (diretriz do dono). Todo o código de
@@ -1125,7 +1145,34 @@ pkgver=1.0
 #     rodado DENTRO da sessão (o 'agora' vazio do dump era artefato do
 #     env do coletor, não doença). Quatro réus, um pacote só —
 #     pkgrel 39→40 NO MESMO COMMIT (lei E41).
-pkgrel=40
+# 09/nov (tarde) — E97: O SONO QUE SE PAGA SOZINHO + A LOJA DE FÁBRICA +
+#     A PELE LIMPA (o mea-culpa do dono: "acho estranho você ter falado
+#     que funcionou — funcionou, mas não funcionou com a lógica que
+#     deveria"). (1) A orelha de CPU da vigília gritava 'mãos no lock'
+#     com o PRÓPRIO RELÓGIO do hyprlock (+1/+2 jiffies a cada tick de
+#     render — 62 min de 'CONTAGEM RENOVADA' com o dono AUSENTE no dump
+#     163423: o sono automático nunca foi pago travado; a máquina só
+#     dormia na hora da senha): o limiar vira PIKE de verdade (≥8
+#     jiffies num tick = senha/PAM; o relógio é ruído); a lei E30 ganha
+#     flock (duas vigílias vivas no mesmo lock, pids 37301+59893 — o
+#     kernel decide, o pgrep perdia a corrida); e o sleep-hook passa a
+#     ESPERAR o lock vivo antes do sono (o desapegado perdia a corrida
+#     do S3, o lock nascia DEPOIS do wake e o dono digitava a senha
+#     duas vezes — 'acorda no lock, senha UMA vez' vira fato). (2) A
+#     LOJA DE FÁBRICA (a diretriz do dono): octopi+yay+flatpak na ISO E
+#     na ADOCAO (procedência provada: octopi 0.19.0-2 no repo [cachyos],
+#     lido no espelho; o pacman-contrib do E96 ganha o canal que E96
+#     esqueceu), o hook elite-flathub em TODO install/upgrade do flatpak
+#     (ISO e rigs num gesto), o craft-appimage (o registrador da casa —
+#     o AppImage baixado ganha rosto no menu sem daemon AUR) e o
+#     elite-ferramentas v2 (o mapa do que já está na mão). (3) A PELE
+#     LIMPA do lock (v4): saudação, nome e dica SAEM (o dono: "redundante
+#     as mensagens — poderia ter um relógio"); relógio+data+card, só.
+#     (4) O Comprimir chega ao rig vivo pelo SUPERVISOR (a E72 curou com
+#     chegada manual — o elite-tune nunca rodou; o craft-bars remove o
+#     bloco do uca.xml fóssil no arranque, o canal E58/E95).
+#     Quatro frentes, um pacote — pkgrel 40→41 NO MESMO COMMIT (lei E41).
+pkgrel=41
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
@@ -1167,7 +1214,7 @@ package() {{
     # a fonte do daemon viaja no pacote (transparência — o mesmo papel que
     # ela tinha no craft-toplevel legado)
     install -Dm644 craft-toplevel.c "${{pkgdir}}/usr/local/share/elite/src/craft-toplevel.c"
-{unit_install}{hook_install}{ff_install}{lock_install}{doc_install}{gp_install}{pt_install}}}
+{unit_install}{hook_install}{ff_install}{lock_install}{doc_install}{gp_install}{pt_install}{ef_install}}}
 """
 (d / 'PKGBUILD').write_text(pkg)
 PYE50

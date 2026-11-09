@@ -184,6 +184,38 @@ ACT_EPOCH="${XDG_RUNTIME_DIR:-/tmp}/elite/idle-activity"
 # abre na saída natural — o destravo é o dono da chave).
 GATE="${XDG_RUNTIME_DIR:-/tmp}/elite/idle-suspend-gate"
 
+# E97 — A TRAVA DA LEI E30 (o dump 163423 do rig flagrou DUAS vigílias
+# vivas no mesmo lock — pids 37301+59893: a sucessora da E79 e o re-arme
+# do screenon nasceram da mesma janela e o pgrep de guard perdeu a
+# corrida, como o próprio E79 confessa). O flock não perde corrida: o
+# kernel decide, a perdedora se retira em silêncio. A trava mora no
+# XDG_RUNTIME_DIR/elite (tmpfs — morre com a sessão, zero lixo em disco);
+# sem XDG_RUNTIME_DIR o /tmp com uid no nome evita colisão de usuários.
+# DUAS LIÇÕES DA PRÓPRIA SUÍTE (a cena C2 do 30-unit pegou as duas na
+# carne — a rede funcionando):
+#   · O CAMINHO: o .lock mora DENTRO do elite/ (o primeiro rascunho
+#     colava o sufixo no PRÓPRIO dir do XDG — ${XDG}.lock — e o arquivo
+#     sobrevivia ao rm -rf de qualquer cenário de renascimento);
+#   · O VAZAMENTO: fd 9 é HERDADO pelos filhos — o sleep do loop vira
+#     ÓRFÃO com a trava na mão quando a vigília morre, e a sucessora
+#     nasce batendo numa trava que NINGUÉM segura (o sleep segura!).
+#     TODO filho longo fecha o 9 na cara (a mesma gramática 9>&- do
+#     craft-bars); os filhos curtos (awk/pgrep de um tick) morrem em
+#     milissegundos e nunca atravessam um parto.
+_rt97="${XDG_RUNTIME_DIR:-/tmp/elite-vigil-$(id -u 2>/dev/null || echo 0)}"
+VLOCK="$_rt97/elite/vigil.lock"
+mkdir -p "${VLOCK%/*}" 2>/dev/null || true
+exec 9>"$VLOCK" 2>/dev/null || true
+if ! flock -n 9 2>/dev/null; then
+    # UMA vigília por ciclo — a lei E30 deixou de ser promessa do pgrep
+    # (o pgrep vê o próprio chamador, perde a corrida do sucessor, morre
+    # no duplo-nascimento) e virou fato do kernel. A retirada é SILENTE
+    # de propósito: o nascimento legítimo (craft-lock) e os re-armes
+    # (screenon/suspend/sucessora) DISPUTAM a trava toda hora — logar
+    # cada retirada seria choramingar o circuito sadio.
+    exit 0
+fi
+
 alive() { pgrep -x hyprlock >/dev/null 2>&1; }
 
 # E78 — O MARCO DO MEU NASCIMENTO: a fronteira entre a contagem que é
@@ -205,7 +237,7 @@ cpu_of() {
 # graça: o lock que me armou pode ainda estar nascendo (spawn < exec)
 i=0
 while [ "$i" -lt 15 ] && ! alive; do
-    sleep 1
+    sleep 1 9>&- 2>/dev/null || sleep 1
     i=$((i + 1))
 done
 if ! alive; then
@@ -228,8 +260,21 @@ while alive; do
     [ "$delta" -lt 0 ] && delta=0
     cpu_ant="$cpu_agora"
     motivo=""
-    if [ "$delta" -ge 1 ]; then
-        motivo="hyprlock +${delta} jiffies (mãos no lock)"
+    # E97 — A ORELHA DE CPU PERDEU O DIREITO DE RENOVAR SOZINHA (o rig
+    # provou no papel: 62 minutos — 15:31→16:33 do dump 163423 — de
+    # 'mãos no lock (hyprlock +1/+2 jiffies)' com o dono AUSENTE: o
+    # RELÓGIO do hyprlock queima +1 jiffie a cada tick de render e a
+    # orelha gritava 'mãos' a cada 30-90s, zerando a contagem — o sono
+    # automático NUNCA foi pago travado, e o dono viveu o absurdo: a
+    # máquina só dormia na hora da senha dele). O limiar agora é PIKE
+    # DE VERDADE: ≥ 8 jiffies num único tick de 30s = a tentativa de
+    # senha (PAM + crypt + o redraw completo do lock) — o relógio e o
+    # cursor do campo (+1/+2) são ruído de render, não mão. A outra
+    # orelha (compositor, ACT_EPOCH < 90s) segue como a voz legítima
+    # do input. Falso-positivo custa um sono mais tarde; falso-
+    # negativo em excesso custava O SONO AUTOMÁTICO INTEIRO.
+    if [ "$delta" -ge 8 ]; then
+        motivo="hyprlock +${delta} jiffies (pike de senha — mão de verdade, não o relógio)"
     fi
     if [ -r "$ACT_EPOCH" ]; then
         marca="$(stat -c %Y "$ACT_EPOCH" 2>/dev/null || echo 0)"
@@ -279,6 +324,10 @@ while alive; do
             gmt="$(stat -c %Y "$GATE" 2>/dev/null || echo 0)"
             if [ "$gmt" -gt "$nascimento" ]; then
                 vlog "E78: vigília OBSOLETA (o sono fechou o portão DEPOIS do meu nascimento) — contagem VOID: saio sem dormir e a sucessora nasce com a contagem NOVA do wake (o ciclo persistente não herda tempo pré-sono)"
+                # E97 — a trava abre ANTES do parto: a sucessora nasce sob
+                # flock novo (senão ela vê a minha trava ainda viva, se
+                # retira, e o wake fica ÓRFÃO — a cura E30 matando a E79).
+                exec 9>&- 2>/dev/null || true
                 setsid craft-vigil >/dev/null 2>&1 </dev/null &
                 exit 0
             fi
@@ -318,10 +367,13 @@ while alive; do
         # período com vigia no ar e réu nomeado no papel). Nascida depois
         # do portão, ela nunca re-entra pelo MESMO sono — a guard anti-
         # loop é o próprio marco de nascimento (E78 preservada).
+        # E97 — a trava abre ANTES do parto (a mesma cura do ramo
+        # OBSOLETA: sucessora sob flock novo, nunca órfã).
+        exec 9>&- 2>/dev/null || true
         setsid craft-vigil >/dev/null 2>&1 </dev/null &
         exit 0
     fi
-    sleep 30
+    sleep 30 9>&- 2>/dev/null || sleep 30
     elapsed=$((elapsed + 30))
 done
 # E77 — O DESTRAVO ABRE O PORTÃO: o lock morreu (o dono digitou a senha —

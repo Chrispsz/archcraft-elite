@@ -435,13 +435,36 @@ case "${1:-}" in
         # E77), depois o lock --if-needed da E47 (o vivo sobrevive, o
         # morto renasce — acorda no lock). Múltiplos before-sleep não são
         # contrato do swayidle: os dois gestos moram num braço só. O lock
-        # vai DESPEGADO (a casa do craft-power): o craft-lock executa o
-        # hyprlock — esperar por ele aqui era pendurar o hook até o
-        # destravo; o fork desapegado é o mesmo gesto que o menu usa.
+        # nasce DESAPEGADO (o craft-lock executa o hyprlock — esperá-lo em
+        # primeiro plano penduraria o hook até o destravo) mas o hook
+        # ESPERA o lock VIVO antes de devolver a mão ao logind (a cura
+        # E97 abaixo: o desapegado puro perdia a corrida contra o S3).
         gate_close
         ilog "E77: sono chegando — portão FECHADO (PrepareForSleep: nenhum timer suspende no pós-sono até o destravo)"
         if command -v craft-lock >/dev/null 2>&1; then
+            # E97 — O LOCK ESPERA ESTAR VIVO ANTES DO SONO (o rig provou a
+            # doença no dump 163423: às 16:33:56 o braço idle suspendeu 5min
+            # após o último input do dono, o hook lançou o craft-lock
+            # DESAPEGADO '( & )', o hyprlock perdeu a corrida contra o S3 e
+            # NASCEU DEPOIS DO WAKE — a máquina dormiu na cara do dono,
+            # acordou, travou-se sozinha na frente dele e ele digitou a
+            # senha DE NOVO: 'só suspende quando eu coloco a senha... tenho
+            # que ligar para depois colocar a senha', palavra por palavra).
+            # O before-sleep é SÍNCRONO no logind (InhibitDelayMaxSec=5s de
+            # fábrica): o hook espera o hyprlock VIVO (o pgrep, não o map
+            # completo — o E47 provou que lock vivo SOBREVIVE ao
+            # congelamento e termina de mapear no wake) e devolve a mão em
+            # ≤3s: no caminho comum (lock já vivo do idle) o craft-lock
+            # --if-needed devolve na hora e o pgrep passa no 1º tiro —
+            # custo zero; no caminho raro (sono manual sem lock) o lock
+            # nasce E chega vivo ao freeze. Acorda no lock, senha UMA vez —
+            # a promessa vira fato.)
             ( craft-lock --if-needed >/dev/null 2>&1 & ) || true
+            w=0
+            while [ "$w" -lt 10 ] && ! pgrep -x hyprlock >/dev/null 2>&1; do
+                sleep 0.3
+                w=$((w + 1))
+            done
         fi
         exit 0
         ;;
