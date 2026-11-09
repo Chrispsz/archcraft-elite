@@ -1,0 +1,170 @@
+#!/bin/sh
+# craft-appimage — o canto do AppImage (E97)
+# ═══════════════════════════════════════════════════════════════════════════
+# A diretriz do dono: o usuário precisa adquirir apps "seja de onde
+# quer que ele queira baixar" — repo, AUR (octopi/yay), Flatpak
+# (flathub) e o AppImage: o arquivo único que se baixa da internet e
+# RODA. O gap: um AppImage em ~/Downloads é um binário sem rosto — não
+# aparece no fuzzel, não aparece na dock, não tem ícone. Este script é
+# o REGISTRADOR da casa: extrai o .desktop e o ícone DE DENTRO do
+# próprio AppImage (o runtime --appimage-extract entrega o squashfs sem
+# executar o app), gera o .desktop do USUÁRIO apontando para o arquivo
+# ORIGINAL, e o sistema inteiro (fuzzel, dock, drawer) passa a enxergar
+# o app — o canal é o freedesktop padrão: ~/.local/share/applications.
+#
+# A DECISÃO DE ARQUITETURA (o dono perguntou por appimagelauncher): SEM
+# daemon externo, SEM AUR. O appimagelauncher mora no AUR (a ISO só
+# instala repo) e é um DAEMON inteiro para o que um awk de 30 linhas
+# resolve — a casa já lista janelas raw na dock (v2.10.9, 'o AppImage
+# entra') e já tem o motor de .desktops; o que faltava era o
+# REGISTRO. Um verbo da casa, zero dependência nova.
+#
+# Uso:
+#   craft-appimage <arquivo.AppImage>   registra (ou re-registra)
+#   craft-appimage                      sem arquivo → o SELETOR (zenity)
+#                                      — a porta do usuário leigo
+#   craft-appimage --list               o que está registrado
+#   craft-appimage --remove <nome>      tira o registro (o .AppImage
+#                                      ORIGINAL nunca é apagado)
+#
+# Contratos:
+#   · o .desktop aponta para o CAMINHO ATUAL do arquivo — mudou o
+#     arquivo de lugar, re-registre (o --help diz);
+#   · a extração é em palco temporário (mktemp -d) e o palco MORRE no
+#     fim (trap) — zero entulho;
+#   · ícone: o .png/.svg que o AppImage carrega; svg → hicolor/scalable,
+#     png → hicolor/512x512 (o compositor escala);
+#   · a chave única é o STEM do arquivo: registrar dois AppImages com
+#     o mesmo nome = o último vence (o id appimage-<stem> é estável);
+#   · o Exec NUNCA é o AppRun extraído — é o ARQUIVO ORIGINAL (o
+#     registro não copia o app, só dá rosto a ele).
+trap 'rc=$?; [ -n "${PALCO:-}" ] && rm -rf "$PALCO" 2>/dev/null; exit $rc' EXIT
+set -u
+
+APPS_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
+ICON_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/icons/hicolor"
+
+uso() {
+    sed -n '2,32p' "$0" | sed 's/^# \{0,1\}//'
+    exit 0
+}
+case "${1:-}" in -h|--help|uso) uso ;; esac
+
+die() { printf 'craft-appimage: ✖ %s\n' "$*" >&2; exit 1; }
+say() { printf 'craft-appimage: %s\n' "$*"; }
+
+# ── --list: o que a casa registrou ─────────────────────────────────────
+if [ "${1:-}" = "--list" ]; then
+    n=0
+    for d in "$APPS_DIR"/appimage-*.desktop; do
+        [ -e "$d" ] || continue
+        n=$((n + 1))
+        nome="$(rg -m1 '^Name=' "$d" | cut -d= -f2-)"
+        exec_="$(rg -m1 '^Exec=' "$d" | cut -d= -f2- | cut -d' ' -f1)"
+        printf '  ✓ %s — %s\n' "${d##*/appimage-}" "${nome:-?}"
+        printf '      %s\n' "$exec_"
+    done
+    [ "$n" -eq 0 ] && say "nenhum AppImage registrado — registre: craft-appimage <arquivo.AppImage>"
+    exit 0
+fi
+
+# ── --remove: o registro sai, o arquivo fica ──────────────────────────
+if [ "${1:-}" = "--remove" ]; then
+    [ -n "${2:-}" ] || die "--remove precisa do nome (veja --list)"
+    alvo="$APPS_DIR/appimage-$2.desktop"
+    [ -e "$alvo" ] || die "não há registro '$2' ($alvo ausente)"
+    rm -f "$alvo"
+    rm -f "$ICON_DIR/scalable/apps/appimage-$2.svg" \
+          "$ICON_DIR/512x512/apps/appimage-$2.png" 2>/dev/null || true
+    command -v update-desktop-database >/dev/null 2>&1 \
+        && update-desktop-database "$APPS_DIR" >/dev/null 2>&1 || true
+    say "registro '$2' removido (o .AppImage original segue onde estava)"
+    exit 0
+fi
+
+# ── o alvo: argumento ou o SELETOR do usuário leigo ────────────────────
+ALVO="${1:-}"
+if [ -z "$ALVO" ]; then
+    command -v zenity >/dev/null 2>&1 \
+        || die "sem arquivo e sem zenity — use: craft-appimage <arquivo.AppImage>"
+    ALVO="$(zenity --file-selection --title='Registrar AppImage no menu' 2>/dev/null)" \
+        || exit 0
+    [ -n "$ALVO" ] || exit 0
+fi
+[ -f "$ALVO" ] || die "arquivo não encontrado: $ALVO"
+case "$ALVO" in
+    *.[Aa]pp[Ii]mage) ;;
+    *) say "aviso: '$ALVO' não tem cara de AppImage — registrando mesmo assim" ;;
+esac
+
+# o stem é a CHAVE do registro (appimage-<stem>): acento e espaço viram
+# hífem — id de .desktop é DNS-like (a spec manda [a-zA-Z0-9-])
+STEM="$(basename "$ALVO" | sed -E 's/\.[Aa]pp[Ii]mage$//; s/[^a-zA-Z0-9-]+/-/g; s/^-+|-+$//g')"
+[ -n "$STEM" ] || STEM="app-sem-nome"
+ALVO_ABS="$(cd "$(dirname "$ALVO")" && pwd)/$(basename "$ALVO")"
+
+# o exec bit: AppImage baixado vem 644 — sem ele o .desktop abre NADA
+[ -x "$ALVO_ABS" ] || chmod +x "$ALVO_ABS" 2>/dev/null \
+    || say "aviso: não consegui dar exec ao arquivo — rode: chmod +x '$ALVO_ABS'"
+
+# ── a extração: o .desktop e o ícone de DENTRO do arquivo ──────────
+# (a extração do runtime nasce ./squashfs-root no CWD — o subshell ANDA
+#  para o palco ANTES: o lixo nunca toca a pasta do usuário)
+PALCO="$(mktemp -d /tmp/elite-appimage.XXXXXX)" || die "mktemp falhou"
+(
+    cd "$PALCO" || exit 1
+    "$ALVO_ABS" --appimage-extract '*.desktop' >/dev/null 2>&1 || true
+    "$ALVO_ABS" --appimage-extract '*.png' >/dev/null 2>&1 || true
+    "$ALVO_ABS" --appimage-extract '*.svg' >/dev/null 2>&1 || true
+)
+SQ="$PALCO/squashfs-root"
+[ -d "$SQ" ] || die "a extração não entregou nada ('$ALVO' é um AppImage válido?)"
+
+DT="$(find "$SQ" -name '*.desktop' -type f 2>/dev/null | head -1)"
+[ -n "$DT" ] || die "o AppImage não carrega .desktop (fora do padrão) — registro manual em $APPS_DIR"
+
+# os campos do .desktop extraído (Name/Icon/Categories/Categories —
+# Exec NÃO: o da casa aponta para o ARQUIVO ORIGINAL, não para o AppRun)
+pega() { rg -m1 "^$1=" "$DT" 2>/dev/null | cut -d= -f2- | head -1; }
+NOME="$(pega Name)";    [ -n "$NOME" ] || NOME="$STEM"
+CATS="$(pega Categories)"; [ -n "$CATS" ] || CATS="Utility"
+COM="$(pega Comment)"
+
+# o ícone: svg > png, o primeiro que o squashfs tem
+ICO=""
+for c in "$(pega Icon)" "$STEM"; do
+    [ -n "$c" ] || continue
+    ICO="$(find "$SQ" \( -name "$c.svg" -o -name "$c.png" \) 2>/dev/null | head -1)"
+    [ -n "$ICO" ] && break
+done
+[ -n "$ICO" ] || ICO="$(find "$SQ" \( -name '*.svg' -o -name '*.png' \) 2>/dev/null | head -1)"
+
+# ── o registro nasce ────────────────────────────────────────────────────
+mkdir -p "$APPS_DIR" "$ICON_DIR/scalable/apps" "$ICON_DIR/512x512/apps"
+ICON_KEY="appimage-$STEM"
+if [ -n "$ICO" ]; then
+    case "$ICO" in
+        *.svg) cp -f "$ICO" "$ICON_DIR/scalable/apps/$ICON_KEY.svg" 2>/dev/null || true ;;
+        *)     cp -f "$ICO" "$ICON_DIR/512x512/apps/$ICON_KEY.png" 2>/dev/null || true ;;
+    esac
+fi
+# %U na ponta: quem solta arquivo NO ícone quer abrir COM ele (o padrão
+# dos .desktop de app; AppImage que não aceita args só ignora)
+printf '%s\n' \
+    '[Desktop Entry]' \
+    'Type=Application' \
+    "Name=$NOME" \
+    "Exec=$ALVO_ABS %U" \
+    "Icon=$ICON_KEY" \
+    'Terminal=false' \
+    "Categories=$CATS" \
+    "${COM:+Comment=$COM}" \
+    'X-Elite-AppImage=yes' \
+    > "$APPS_DIR/appimage-$STEM.desktop"
+
+command -v update-desktop-database >/dev/null 2>&1 \
+    && update-desktop-database "$APPS_DIR" >/dev/null 2>&1 || true
+
+say "registrado: $NOME"
+say "  menu/fuzzel/dock: procure por '$NOME' (o índice da dock re-ler os .desktops sozinho)"
+say "  arquivo original: $ALVO_ABS (mudou de lugar? re-registre)"

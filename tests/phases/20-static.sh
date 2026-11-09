@@ -1778,7 +1778,7 @@ assert_grep "$CDOCK94" 'info\.get_boolean\("Terminal"\)' "E94: o exec_of consult
 assert_grep "$CDOCK94" 'foot --app-id=' "E94: o foot da casa leva app-id DETERMINÍSTICO (o casamento de janelas fala o nome do app, não o do terminal — a mesma lição E89 das case-variants)"
 assert_grep "$CDOCK94" 'def raw_of' "E94: a origem do app vive SEM o casaco (raw_of/binary_of — o comm do /proc e o app_id falam o APP)"
 CUPD94="$REPO/elite/airootfs/usr/local/bin/craft-update"
-assert_grep "$CUPD94" 'ADOCAO=\(lxqt-policykit\)' "E94: a ADOÇÃO DE ÂNCORAS tem FONTE ÚNICA no craft-update (packages.add só nutre a ISO — o rig nunca recebeu a cabeça da fila E58)"
+assert_grep "$CUPD94" 'ADOCAO=\(lxqt-policykit pacman-contrib octopi yay flatpak\)' "E94+E97: a ADOÇÃO DE ÂNCORAS tem FONTE ÚNICA no craft-update (packages.add só nutre a ISO — o rig nunca recebeu a cabeça da fila E58; a E97 soma a tríade da loja de fábrica E o pacman-contrib que o E96 pôs na ISO esquecendo o canal — o botão Limpeza seguiria morto no rig)"
 assert_grep "$REPO/elite/packages.add" 'lxqt-policykit' "E94: a âncora do rig é a MESMA definição da ISO (sync contratado — a disciplina do pin aplicada à adoção)"
 n_sites="$(grep -cE '^[[:space:]]*adota_ancoras$' "$CUPD94" || true)"
 assert_eq "$n_sites" "3" "E94: a adoção corre nas TRÊS portas (canal, semanal, manual — uma função, nenhum escopo à mão)"

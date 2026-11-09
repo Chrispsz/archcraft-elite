@@ -231,7 +231,15 @@ HOUSE_OVERWRITE=(
 # procedência (disponibilidade no repo Arch verificada na entrada, a
 # escola do pin: checksum ou nada) e PRESENTE no packages.add (a MESMA
 # definição na ISO e no rig — a suíte contrata o sync).
-ADOCAO=(lxqt-policykit)
+# E97 — A LOJA CHEGA AOS RIGS: pacman-contrib (a Limpeza do menu promete o
+# paccache — o E96 o pôs na ISO mas ERROU o canal: sem adoção, o rig do
+# dono seguia sem o bin e o botão seguia morto; o furo fecha aqui) e a
+# tríade da loja (octopi GUI + yay AUR + flatpak/Flathub — a diretriz do
+# dono: o usuário abre o sistema e JÁ sabe como instalar pacotes).
+# Procedência: octopi 0.19.0-2 confirmado no repo [cachyos] (índice do
+# espelho lido na entrada); yay: o dump 163423 do rig o lista instalado de
+# REPO (Qm limpo); flatpak: [extra] canônico.
+ADOCAO=(lxqt-policykit pacman-contrib octopi yay flatpak)
 
 ulog() {
     mkdir -p "$(dirname "$ULOG")" 2>/dev/null || true

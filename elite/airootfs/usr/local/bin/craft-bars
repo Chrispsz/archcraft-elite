@@ -141,6 +141,46 @@ cyc=0
 # E43 — flags "já viu vivo": 0 = ainda não nasceu (o 1º ciclo loga
 # 'iniciando'); após o 1º ciclo = 1, e ausência vira morte real ('FORA').
 seen_top=0 seen_dock=0 seen_tl=0 seen_idle=0 seen_audio=0 seen_swyn=0 seen_udiskie=0 seen_polkit=0 seen_display=0
+
+# ── E97 — O COMPRIMIR CHEGA AO RIG VIVO (a ordem do dono, de novo: "o ───
+# botão de comprimir ainda continua aqui no gerenciador de arquivos…
+# quero desativar e ter essa opção completamente do sistema junto do
+# arquivo XML que ela fica"). A E72 matou o verbo no SKEL e criou a
+# seção [9] do elite-tune para os rigs — mas a chegada era MANUAL
+# ("sudo craft-update && sudo elite-tune"): o dono só roda o
+# craft-update, o elite-tune nunca rodou no rig, e o uca.xml FÓSSIL do
+# home segue carregando o bloco <action> do Comprimir (o 'criar arquivo'
+# do xarchiver — que o dono aprovou — é o outro caminho e segue vivo).
+# A CURA É O CANAL QUE SEMPRE ALCANÇA: este supervisor roda como o
+# USUÁRIO da sessão a TODO arranque (a lei E58/E95 — polkit, chaveiro e
+# o display da E96 vieram por aqui). One-shot natural: o grep falhou =
+# o bloco já não existe = silêncio eterno (escola E64); o awk é o MESMO
+# da seção [9] do elite-tune (a gêmea de root) — os vizinhos
+# elite-open-terminal-1/elite-craft-extract-1 intactos, backup .bak-
+# ao lado. O Thunar vivo relê o uca.xml na próxima sessão dele (ou
+# reinício do próprio Thunar) — o papel registra o resto.
+UCA_E97="$HOME/.config/Thunar/uca.xml"
+if [ -f "$UCA_E97" ] && grep -q 'elite-craft-compress-1' "$UCA_E97" 2>/dev/null; then
+    cp -p "$UCA_E97" "$UCA_E97.bak-$(date +%Y%m%d-%H%M%S)" 2>/dev/null || true
+    if awk '
+        /<action>/ { ina=1; buf="" }
+        ina { buf = buf (buf=="" ? "" : ORS) $0 }
+        ina && /<\/action>/ {
+            ina=0
+            if (buf !~ /elite-craft-compress-1/) print buf
+            next
+        }
+        !ina { print }
+    ' "$UCA_E97" > "$UCA_E97.tmp" && [ -s "$UCA_E97.tmp" ]; then
+        mv -f "$UCA_E97.tmp" "$UCA_E97"
+        printf '[%s] thunar: verbo Comprimir… removido do uca.xml (E97 — a E72 chegou ao rig pelo supervisor; terminal e Extrair intactos)\n' "$(date '+%F %T')" >>"$LOG"
+    else
+        rm -f "$UCA_E97.tmp" 2>/dev/null || true
+        printf '[%s] thunar: FALHA ao reescrever o uca.xml — o verbo Comprimir… segue (réu nomeado)\n' "$(date '+%F %T')" >>"$LOG"
+    fi
+fi
+unset UCA_E97
+
 while :; do
     # v2.10.26/E38 — o teto segue NO LOOP, agora a cada 6 ciclos (30s): o
     # fork do wc só em 1 de 6 (eram 17.280 forks/dia só para medir tamanho;

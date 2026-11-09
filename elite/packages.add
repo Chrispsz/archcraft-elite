@@ -80,6 +80,26 @@ pciutils
 ## entra, o passo executa de verdade.
 pacman-contrib
 
+## ── E97: A LOJA DE PACOTES DE FÁBRICA (a diretriz do dono: "o usuário ────
+## abre o sistema e não fica perdido — como faço para instalar um Flatpak
+## ou gerenciar meus pacotes?"). A arquitetura: UM binário de cada família,
+## o que melhor se adequa ao sistema — nada de loja pesada, nada de
+## redundância (o dono: "só o necessário"). Procedência provada na entrada
+## (escola do pin): octopi 0.19.0-2 CONFIRMADO no repo [cachyos] (índice
+## do espelho us.cachyos.org lido na entrada; o rig do dono instala do
+## MESMO repo — o pacman -Qe do dump 163423 lista yay 13.1.0-1 e o -Qm
+## vem LIMPO: zero foreign = yay veio de repo, não de AUR construído).
+##   octopi → a GUI de pacotes (repo + AUR: enxerga o yay da casa) — o
+##            usuário leito instala SEM terminal;
+##   yay    → o ajudante do AUR (o dono já o usa no rig; a ISO passa a
+##            nascer com ele — o octopi ganha a porta AUR de graça);
+##   flatpak→ o mundo Flathub (o remote vem pelo hook elite-flathub em
+##            TODO install/upgrade do flatpak — ISO e rigs no mesmo
+##            gesto; 'flatpak install flathub <app>' funciona de cara).
+octopi
+yay
+flatpak
+
 ## ── ELITE v2.3.2: 'which' — o binário que o post_install upstream USA ──
 ## O chrooted_post_install.sh e o grubcfg do Calamares chamam `which` — e a
 ## ISO não o trazia ("which: command not found" em TODA instalação, log

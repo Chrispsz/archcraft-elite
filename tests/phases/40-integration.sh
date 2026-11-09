@@ -1126,7 +1126,7 @@ assert_grep "$HLK" 'brightness = 0\.70' "v2.5.0: dim calibrado para o WALLPAPER 
 assert_grep "$HLK" 'text = \$TIME' "v1.5: relógio GRANDE (label \$TIME)"
 assert_grep "$HLK" 'font_size = 110' "v1.5→v3/E88: relógio GRANDE com CORPO (96→110 + sombra dupla — a diretriz 'tela de bloquear mais interessante'; o $TIME continua o label)"
 assert_grep "$HLK" 'valign = top' "v1.5: relógio ancorado no TOPO (spec)"
-assert_grep "$HLK" 'text = \$USER' "v1.5: nome do usuário acima do campo (spec)"
+assert_nogrep "$HLK" 'text = \$USER' "v1.5→v4/E97: o nome do usuário acima do campo NASCEU na v1.5 (spec) e APOSENTOU-SE na v4 — o dono: 'redundante as mensagens que tem nela' (ele sabe o próprio nome; a v4 é relógio+data+card, só)"
 # v1.7: o avatar 'A' saiu do lock (a pergunta literal do dono no burn test) —
 # e o PNG órfão saiu do overlay na v2.3.3 (hyprlock não o usa desde a v1.7)
 assert_nogrep "$HLK" 'pixmaps/elite/avatar' "v1.7: lock SEM avatar (o 'A' do burn test saiu — decisão do dono)"
@@ -3191,9 +3191,12 @@ assert_grep "$REPO/elite/fragments/elite-customize.sh" 'ParallelDownloads = 5' "
 assert_grep "$REPO/elite/fragments/elite-customize.sh" "printf 'Color" "E88/ISO: o pacman nasce com cor (a leitura do terminal do -Syu)"
 HLKV3="$P/airootfs/etc/skel/.config/hypr/hyprlock.conf"
 assert_grep "$HLKV3" 'shadow_passes = 2' "E88/lock: o relógio tem CORPO (sombra dupla — leitura em qualquer wallpaper, o número deixa de flutuar chapado)"
-assert_grep "$HLKV3" 'Boa madrugada' "E88/lock: a saudação existe (Bom dia/tarde/noite, quem chega — cmd com update, texto plain da lei v1.7)"
+assert_grep "$HLKV3" 'font_size = 110' "E97/lock: o relógio GRANDE fica (o pedido do dono: 'poderia ter um relógio' — 110px com corpo, o acerto da v3 que a v4 preserva)"
+assert_nogrep "$HLKV3" 'Boa madrugada' "E97/lock: a SAUDAÇÃO saiu (o dono: 'redundante as mensagens que tem nela' — a tela não precisa conversar; a v3 empilhava 4 blocos de texto além do relógio)"
+assert_nogrep "$HLKV3" 'text = \$USER' "E97/lock: o NOME do usuário saiu (ele sabe o próprio nome — a redundância nomeada)"
+assert_nogrep "$HLKV3" 'Digite a senha e pressione Enter' "E97/lock: a DICA do rodapé saiu (o placeholder do campo já diz o gesto — uma voz, não duas)"
+assert_grep "$HLKV3" 'size = 470, 120' "E97/lock: o card emagreceu 200→120px (sem username dentro — só o campo; nada na tela que não trabalhe)"
 assert_grep "$HLKV3" '^shape {' "E88/lock: o CARD existe (a senha mora numa superfície crust translúcida — o blur atravessa, a identidade intacta; shape ANTES do input = z-order correto)"
-assert_grep "$HLKV3" 'Digite a senha e pressione Enter' "E88/lock: a dica no rodapé (o gesto em uma leitura — overlay1 discreto)"
 assert_grep "$HLKV3" 'animation = fadeIn, 1, 3, linear' "E88/lock: o fade ágil (5→3 — o lock chega NA HORA; a mesma diretriz zero-delay da dock)"
 assert_nogrep "$HLKV3" 'path = screenshot' "v2.5.0 preservada na v3: o fundo do lock é O WALLPAPER (nunca a foto da tela com janelas)"
 
@@ -3221,9 +3224,51 @@ assert_grep "$REPO/elite/packages.add" '^pacman-contrib$' \
 assert_grep "$P/airootfs/usr/local/bin/craft-dump" 'display\.log' \
   "E96/dump: o display.log no papel (o julgamento sai da hipótese: o apply do boot aplicou? o watch gravou?) + o status DENTRO da sessão com env explícito (o 'agora:' vazio era artefato do coletor, não doença do parser)"
 
+# ── E97 — O SONO QUE SE PAGA SOZINHO + A LOJA DE FÁBRICA + A PELE LIMPA ──
+# (o mea-culpa do dono: "funcionou, mas não funcionou com a lógica que deveria"
+#  — as 62 linhas de 'CONTAGEM RENOVADA' com ele AUSENTE eram a prova)
+VIG97="$P/airootfs/usr/local/bin/craft-vigil"
+assert_grep "$VIG97" '"\$delta" -ge 8' \
+  "E97/vigília: a orelha de CPU exige PIKE de verdade (≥8 jiffies = senha/PAM; o relógio do hyprlock queimava +1/+2 a cada tick de render e a orelha renovava SOZINHA a contagem — 62 min de adiamentos com o dono ausente: o sono automático nunca foi pago travado)"
+assert_grep "$VIG97" 'pike de senha' \
+  "E97/vigília: o log NOMEIA a diferença (o papel distingue mão de verdade de ruído de render — o julgamento do próximo dump sai da hipótese)"
+assert_grep "$VIG97" 'flock -n 9' \
+  "E97/vigília: a lei E30 vira fato do kernel (duas vigílias vivas no mesmo lock, pids 37301+59893 no dump 163423: o pgrep de guard perdia a corrida do sucessor; o flock não perde)"
+assert_grep "$VIG97" 'exec 9>&-' \
+  "E97/vigília: a trava abre ANTES de cada parto de sucessora (o exec 9>&- antes dos setsid — senão a sucessora vê a trava do pai vivo, se retira, e o wake fica órfão: a cura E30 matando a E79)"
+IDLE97="$P/airootfs/usr/local/bin/craft-idle"
+assert_grep "$IDLE97" 'O LOCK ESPERA ESTAR VIVO ANTES DO SONO' \
+  "E97/sleep-hook: o hook espera o hyprlock vivo antes de devolver a mão ao logind (o desapegado puro perdia a corrida do S3: o lock nascia DEPOIS do wake e o dono digitava a senha duas vezes — a máquina dormia na cara dele e travava-se sozinha ao acordar)"
+# a loja de fábrica
+assert_grep "$REPO/elite/packages.add" '^octopi$' "E97/loja: o Octopi nasce na ISO (a GUI de repo+AUR — o usuário leigo instala sem terminal; procedência provada: 0.19.0-2 no repo [cachyos], índice do espelho lido na entrada)"
+assert_grep "$REPO/elite/packages.add" '^yay$' "E97/loja: o yay nasce na ISO (o ajudante do AUR — o rig do dono já o usa de REPO: o -Qm do dump 163423 vem limpo; o Octopi ganha a porta AUR de graça)"
+assert_grep "$REPO/elite/packages.add" '^flatpak$' "E97/loja: o flatpak nasce na ISO (o mundo Flathub — o remote vem pelo hook em todo install/upgrade)"
+assert_grep "$P/airootfs/usr/local/bin/craft-update" 'ADOCAO=\(lxqt-policykit pacman-contrib octopi yay flatpak\)' \
+  "E97/adoção: a loja CHEGA AOS RIGS (o E96 pôs o pacman-contrib na ISO mas esqueceu a ADOCAO — o botão Limpeza seguiria morto no rig do dono; o furo fecha junto com a tríade)"
+assert_file "$P/airootfs/usr/local/bin/elite-flathub" "E97/flathub: o bin do remote existe (idempotente — --if-not-exists nunca sobrescreve escolha do usuário)"
+assert_grep "$P/airootfs/usr/local/bin/elite-flathub" 'flathub.flatpakrepo' \
+  "E97/flathub: a fonte do remote é o arquivo do PRÓPRIO pacote flatpak (offline-friendly na build da ISO; a URL viva é o fallback)"
+assert_grep "$REPO/.ci/build.sh" 'Target = flatpak' \
+  "E97/flathub: o hook libalpm dispara SÓ quando o flatpak entra na transação (build da ISO e craft-update do rig no mesmo gesto — dois mundos, um arquivo)"
+assert_grep "$REPO/.ci/build.sh" 'elite-flathub.hook' "E97/flathub: o hook viaja NO PACOTE (dono único — o libalpm remove sozinho na saída)"
+assert_file "$P/airootfs/usr/local/bin/craft-appimage" "E97/appimage: o registrador existe (o AppImage baixado ganha rosto no menu/dock — sem daemon, sem AUR)"
+assert_grep "$P/airootfs/usr/local/bin/craft-appimage" '--appimage-extract' \
+  "E97/appimage: o .desktop e o ícone saem DE DENTRO do próprio arquivo (o runtime entrega o squashfs sem executar o app — o grep -qE -- do core protege o padrão com traço inicial)"
+assert_grep "$P/airootfs/usr/local/bin/craft-appimage" 'zenity --file-selection' \
+  "E97/appimage: a porta do usuário leigo é o SELETOR (sem arquivo → zenity — o pedido do dono: evitar terminal)"
+assert_grep "$P/airootfs/usr/local/bin/elite-ferramentas" 'craft-appimage' \
+  "E97/ferramentas: o menu v2 aponta para o registrador da casa (o mapa do que já está na mão — a v1 instalava o que faltava; a loja agora é de fábrica)"
+assert_nogrep "$P/airootfs/usr/local/bin/elite-ferramentas" 'do_paru' \
+  "E97/ferramentas: o instalador do paru SAIU (dois ajudantes de AUR no mesmo sistema era a redundância que o dono nomeou — yay é o da casa)"
+# o Comprimir pelo canal do supervisor
+assert_grep "$P/airootfs/usr/local/bin/craft-bars" 'elite-craft-compress-1' \
+  "E97/thunar: a remoção do Comprimir viaja pelo SUPERVISOR (a E72 curou com chegada MANUAL — 'sudo craft-update && sudo elite-tune' — e o dono só roda o craft-update: o fóssil do uca.xml seguiu vivo no rig; o canal E58/E95 entrega no arranque, one-shot pelo próprio marcador)"
+
 # ── E41: o pkgrel viajou NO MESMO COMMIT ──
-assert_grep "$REPO/.ci/build.sh" 'pkgrel=40' \
-  "E96 (lei E41, âncora viva refrescada): pkgrel elite-system 39→40 — o julgamento da 1.0-39 (dump 150829 do rig + relato do dono) nomeou QUATRO réus: o reply() do C cortava o cliente no 1º EAGAIN (cura: poll POLLOUT 2s + corte honesto com log), o displays.conf nunca nasceu no rig fóssil (cura: craft-bars sobe apply+watch + stamp anti-duplo + modo salvo INTEIRO sem %.3f/Hz), o botão Limpeza sem pacman-contrib na ISO (cura: paccache entra + pausa interativa) e o dump às cegas do display (cura: display.log no papel + status com env da sessão)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=41' \
+  "E97 (lei E41, âncora viva refrescada): pkgrel elite-system 40→41 — quatro frentes: o sono que se paga sozinho (orelha pike ≥8 + flock da lei E30 + sleep-hook que espera o lock vivo), a loja de fábrica (octopi/yay/flatpak na ISO e na ADOCAO + hook flathub + craft-appimage + ferramentas v2), a pele limpa do lock (v4: relógio+data+card, sem saudação/nome/dica) e o Comprimir chegando ao rig pelo supervisor"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 40→41 NO MESMO COMMIT' \
+  "E97 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 39→40 NO MESMO COMMIT' \
   "E96 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 38→39 NO MESMO COMMIT' \
