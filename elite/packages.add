@@ -71,6 +71,15 @@ pciutils
 ## de provider no pacstrap (build não-interativo)
 7zip
 
+## ── E96: pacman-contrib — o paccache que a Limpeza do sistema promete ──
+## O item 'Limpeza do sistema' do menu chama o craft-clean, cujo passo
+## principal é o paccache -rk2 (o relato do dono: "o botão de limpeza não
+## funciona" — sem o pacman-contrib o passo vivia '(pulado: instale
+## pacman-contrib)' e a limpeza virava um flash sem conteúdo). O contrato
+## do menu (v1.6.3) é TODO Execute ter binário real na ISO: a dependência
+## entra, o passo executa de verdade.
+pacman-contrib
+
 ## ── ELITE v2.3.2: 'which' — o binário que o post_install upstream USA ──
 ## O chrooted_post_install.sh e o grubcfg do Calamares chamam `which` — e a
 ## ISO não o trazia ("which: command not found" em TODA instalação, log

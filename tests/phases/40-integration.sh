@@ -3197,11 +3197,37 @@ assert_grep "$HLKV3" 'Digite a senha e pressione Enter' "E88/lock: a dica no rod
 assert_grep "$HLKV3" 'animation = fadeIn, 1, 3, linear' "E88/lock: o fade ágil (5→3 — o lock chega NA HORA; a mesma diretriz zero-delay da dock)"
 assert_nogrep "$HLKV3" 'path = screenshot' "v2.5.0 preservada na v3: o fundo do lock é O WALLPAPER (nunca a foto da tela com janelas)"
 
+# ── E96 — O CANAL QUE NÃO CORTA + A TELA QUE LEMBRA CHEGA AO RIG ──
+# (o julgamento da 1.0-39 pelo dump 150829 do rig + o relato do dono)
+assert_grep "$REPO/vendor/craft-toplevel.c" 'poll\(&p, 1, 2000\)' \
+  "E96/daemon: o EAGAIN vira espera com prazo (poll POLLOUT 2s — o corte no 1º EAGAIN derrubava o canal da dock em ciclo: 'canal de eventos caiu → tick de 5s reconecta' em série no dock.log do rig; cada queda = até 5s de staleness = o delay que o dono sentiu)"
+assert_grep "$REPO/vendor/craft-toplevel.c" 'cliente cortado \(buffer cheio' \
+  "E96/daemon: o corte de verdade tem LOG honesto (o dump passa a nomear o cliente realmente morto — >2s sem leitor)"
+assert_nogrep "$REPO/vendor/craft-toplevel.c" 'corta-o em vez de' \
+  "E96/daemon: o corte injusto do 1º EAGAIN (revisão 3-a) morreu — EAGAIN é INSTANTE de buffer cheio, não cliente morto"
+CDISP96="$P/airootfs/usr/local/bin/craft-display"
+assert_grep "$CDISP96" 'args="\$args --mode \$modo"' \
+  "E96/display: o apply passa a string salva INTEIRA (sem reformat %.3f — a viagem de ida e volta podia cair no mHz vizinho e o match exato falhava — e sem sufixo Hz: o parse_mode do wlr-randr 0.4 exigia número puro; o que o EDID imprimiu é o que volta, as duas gerações aceitam)"
+assert_grep "$CDISP96" 'display-applied' \
+  "E96/display: o stamp anti-duplo em XDG_RUNTIME_DIR (autostart do skel e supervisor do craft-bars podem AMBOS chamar o apply; quem chega 2º vê o stamp e sai em silêncio — escola E64)"
+assert_grep "$P/airootfs/usr/local/bin/craft-bars" 'craft-display watch\$' \
+  "E96/bars: o supervisor sobe o watch da tela (o canal do pacote que alcança rigs FÓSSEIS — o displays.conf nunca nasceu no rig do dono: o autostart do home vivo não tem as linhas E89, classe E90/E95; polkit e chaveiro vieram antes por este mesmo canal)"
+assert_grep "$P/airootfs/usr/local/bin/craft-bars" 'seen_display=0' \
+  "E96/bars: a flag 'já viu vivo' do display no mesmíssimo padrão E43 (a 1ª volta do loop não suja o log com 'integer expression expected')"
+assert_grep "$P/airootfs/usr/local/bin/craft-clean" 'Enter para fechar' \
+  "E96/clean: o relatório interativo PAUSA no fim (o item do menu abria foot -e e o relatório morria com o terminal — o dono via um flash sem conteúdo)"
+assert_grep "$REPO/elite/packages.add" '^pacman-contrib$' \
+  "E96/ISO: o paccache entra (o passo principal da Limpeza vivia '(pulado: instale pacman-contrib)' — o contrato do menu v1.6.3 é TODO Execute ter binário real na ISO)"
+assert_grep "$P/airootfs/usr/local/bin/craft-dump" 'display\.log' \
+  "E96/dump: o display.log no papel (o julgamento sai da hipótese: o apply do boot aplicou? o watch gravou?) + o status DENTRO da sessão com env explícito (o 'agora:' vazio era artefato do coletor, não doença do parser)"
+
 # ── E41: o pkgrel viajou NO MESMO COMMIT ──
-assert_grep "$REPO/.ci/build.sh" 'pkgrel=39' \
-  "E95 (lei E41, âncora viva refrescada): pkgrel elite-system 38→39 — a perícia dos dois dumps do dono 08/11 nomeou TRÊS réus: o demarshal sem militares (9 exit=139, offsets idênticos libwayland+0x9ae3 — cura: acolchoado nas tabelas + manager em v2), o gparted que morre com a senha viva (pkexec despe o ambiente — cura: override gparted.desktop + elite-gparted vestindo o root) e o trono polkit duplo (o autostart dos homes velhos + a âncora lxqt da E94 — cura: o craft-bars aposenta o perdedor)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=40' \
+  "E96 (lei E41, âncora viva refrescada): pkgrel elite-system 39→40 — o julgamento da 1.0-39 (dump 150829 do rig + relato do dono) nomeou QUATRO réus: o reply() do C cortava o cliente no 1º EAGAIN (cura: poll POLLOUT 2s + corte honesto com log), o displays.conf nunca nasceu no rig fóssil (cura: craft-bars sobe apply+watch + stamp anti-duplo + modo salvo INTEIRO sem %.3f/Hz), o botão Limpeza sem pacman-contrib na ISO (cura: paccache entra + pausa interativa) e o dump às cegas do display (cura: display.log no papel + status com env da sessão)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 39→40 NO MESMO COMMIT' \
+  "E96 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 38→39 NO MESMO COMMIT' \
-  "E95 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
+  "E95 (lei E41, âncora histórica viva): a perícia dos dois dumps nomeou o demarshal sem militares, o gparted despido e o trono polkit duplo"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 37→38 NO MESMO COMMIT' \
   "E94 (lei E41, âncora histórica viva): a dock veste o Terminal=true (foot com app-id no exec_of) e a cabeça da fila E58 chega aos rigs (ADOÇÃO DE ÂNCORAS nas três portas)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 36→37 NO MESMO COMMIT' \

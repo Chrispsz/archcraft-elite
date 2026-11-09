@@ -329,7 +329,9 @@ depends=(wayland)
 options=(!debug)
 source=("craft-toplevel.c")
 # E71 — o sha do C com o parent NULÁVEL ('?o') + EVT_PARENT no dispatcher
-sha256sums=('ae1fbf22e3fc0e11aa9c3bf62710ff36cfe025274e075906fd78ad1e185270c5')
+# E96 — o sha re-pinado: o reply() do EAGAIN virou poll POLLOUT 2s (o canal
+#     da dock não cai mais no primeiro soluço de buffer)
+sha256sums=('1a6aeea295db062e38e53b50bb525c6098eb4b436b4b2d8dfd8e84a174aedb11')
 build() {
     gcc -O2 -Wall -Wextra -s -o craft-toplevel craft-toplevel.c -lwayland-client
 }
@@ -1099,7 +1101,31 @@ pkgver=1.0
 #     vazia NO CHAVEIRO EXISTENTE — canal craft-bars, o que alcança rigs
 #     vivos. Craft-dump v2.7.1 fotografa o 'SIGSEGV, address' do
 #     coredumpctl — a prova que faltava se um 139 resistir ao acolchoado.
-pkgrel=39
+# 09/nov — E96: O CANAL QUE NÃO CORTA + A TELA QUE LEMBRA CHEGA AO RIG +
+#     A LIMPEZA QUE MOSTRA A CARA (dump 150829 do rig 1.0-39 julgando a
+#     E95 e o relato novo do dono). (1) O reply() do C cortava o cliente
+#     no PRIMEIRO EAGAIN — um instante de buffer cheio (a dock
+#     redesenhando sob CPU saturada do Brave) derrubava o canal em ciclo
+#     ('canal de eventos caiu → tick de 5s reconecta' em série no
+#     dock.log) e o push virava o delay que o dono sentiu; agora EAGAIN
+#     espera poll POLLOUT 2s e só corta cliente REALMENTE morto, com log
+#     honesto. (2) O displays.conf NUNCA nasceu no rig (dump L436: 'sem
+#     displays.conf' + zero craft-display nos processos) — o autostart do
+#     home vivo é fóssil sem as linhas E89 (classe E90/E95); o
+#     craft-bars sobe apply+watch (o canal do pacote que alcança rigs
+#     vivos — polkit/chaveiro vieram antes) e o apply ganha stamp
+#     anti-duplo em XDG_RUNTIME_DIR + passa o modo salvo INTEIRO (sem
+#     reformat %.3f e sem sufixo Hz — o parse_mode do wlr-randr antigo
+#     exigia número puro; a string do EDID volta idêntica). (3) O botão
+#     'Limpeza do sistema' não funcionava: o pacman-contrib (o paccache)
+#     nunca esteve na ISO (o passo vivia '(pulado)') e o foot -e fechava
+#     antes de o relatório aparecer — entra na ISO (contrato do menu
+#     v1.6.3) e o craft-clean interativo PAUSA no fim ('Enter para
+#     fechar'). (4) Craft-dump v2.7.2: display.log no papel + o status
+#     rodado DENTRO da sessão (o 'agora' vazio do dump era artefato do
+#     env do coletor, não doença). Quatro réus, um pacote só —
+#     pkgrel 39→40 NO MESMO COMMIT (lei E41).
+pkgrel=40
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
