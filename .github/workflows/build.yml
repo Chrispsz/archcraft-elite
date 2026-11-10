@@ -34,7 +34,12 @@ jobs:
     container: archlinux:base-devel
     steps:
       - name: Preparar container
-        run: pacman -Sy --noconfirm --needed git shellcheck shfmt
+        # E101.1 — O -Sy VIRou -Syu (a run #267 flagrou): o rsync 3.5.2-3 do
+        # db linka libcrypto.so.4 e o -Sy sem -u instalava o binário NOVO
+        # sobre a lib VELHA da imagem (partial upgrade = Frankenstein —
+        # 'error while loading shared libraries'). Container Arch se
+        # atualiza INTEIRO ou não se atualiza.
+        run: pacman -Syu --noconfirm --needed git shellcheck shfmt
       # v5 = Node 24 nativo (v4 alvo Node 20: warning de deprecação em todo run)
       - uses: actions/checkout@v5
         # v2.10.6 — o token NÃO dorme no .git/config: o checkout entra num
@@ -86,7 +91,9 @@ jobs:
       - name: Preparar container (mesa, ferramentas)
         run: |
           pacman-key --init
-          pacman -Sy --noconfirm --needed git rsync shellcheck python-yaml python-pillow shfmt bun
+          # E101.1 — -Syu: partial upgrade é Frankenstein (o rsync da #267
+          # nasceu sem a libcrypto dele — container se atualiza INTEIRO)
+          pacman -Syu --noconfirm --needed git rsync shellcheck python-yaml python-pillow shfmt bun
       - uses: actions/checkout@v5
         # v2.10.6 — o token NÃO dorme no .git/config: o checkout entra num
         # container --privileged (pacstrap monta /proc) — credencial

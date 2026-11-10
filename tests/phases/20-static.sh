@@ -1939,3 +1939,25 @@ assert_grep "$REPO/.github/workflows/publish-packages.yml" 'delete-asset' "E101/
 assert_grep "$REPO/.github/workflows/publish-packages.yml" 'A LOJA SEM PILHA' "E101/loja: a regra tem nome no papel (o dono: 'cheio de assets sujos' — a limpeza é lei, não acaso de uma run)"
 
 phase_end
+
+# ═══ E101.1 — O VENENO SILENCIOSO DAS ASPAS ═══════════════════════════
+#    O script do canal vive DENTRO de bash -euc "..." — uma aspa simples
+#    no corpo TERMINA a string: o resto do script morre como argumento
+#    solto e o step fica VERDE (a run #63 provou na carne: o upload
+#    rodou às 20:44:05, a dieta da loja virou poeira, o container saiu
+#    0 dois segundos depois com a loja INTACTA). O corpo é LIVRE de
+#    aspas simples por lei — o veneno silencioso vira contrato.
+CANAL101="$REPO/.github/workflows/publish-packages.yml"
+BODY101="$(sed -n "/bash -euc '/,/^            '/p" "$CANAL101" | sed '1d;$d')"
+SQ101="$(printf '%s\n' "$BODY101" | grep -c "'" || true)"
+assert_eq "$SQ101" "0" "E101.1/canal: ZERO aspas simples no corpo do bash -euc (a aspa termina a string e o step morre VERDE com metade do script executado — a lição da run #63)"
+
+# E101.1 — PARTIAL UPGRADE É FRANKENSTEIN: nenhum prep de container Arch
+# usa -Sy sem -u (o rsync 3.5.2-3 da #266/#267 nasceu linkando a
+# libcrypto.so.4 nova sobre a imagem com a lib velha — 'error while
+# loading shared libraries' e 900 peças em cascata; o container se
+# atualiza INTEIRO ou não se atualiza)
+PART101="$(grep -rn "pacman -Sy " "$REPO/.github/workflows"/*.yml 2>/dev/null | wc -l)"
+assert_eq "$PART101" "0" "E101.1/CI: NENHUM -Sy sem -u nos preps (Arch rolling é inteiro — a libcrypto do rsync da #267 ensinou)"
+
+phase_end

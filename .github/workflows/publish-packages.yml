@@ -97,19 +97,24 @@ jobs:
                 /work/out/pacotes/elite-system-*.pkg.tar.zst \
                 sha256sums-pacotes.txt \
                 --repo "$REPO" --clobber
-              # E101 — A LOJA SEM PILHA (o dono: 'cheio de assets sujos'):
+              # E101 — A LOJA SEM PILHA (o dono: "cheio de assets sujos"):
               # o --clobber sobrepõe o NOME igual, mas cada pkgrel é um nome
               # NOVO — 44 versões do elite-system lotaram a release viva
               # (4,9 GB de assets, 73 arquivos). Publicada a versão de
               # hoje, toda OUTRA versão do MESMO pacote sai do ar: o rig só
               # quer a última, o fóssil não é produto.
+              # E101.1 — ZERO ASPAS SIMPLES no corpo (o script inteiro vive
+              # DENTRO de bash -euc "...": aspa simples TERMINA a string e
+              # o resto morre como argumento solto — a run #63 provou: o
+              # upload rodou, a dieta virou poeira e o step ficou VERDE.
+              # O veneno era silencioso; agora é lei do papel).
               for nm in elite-system craft-toplevel; do
                   keep="$(ls /work/out/pacotes/${nm}-*.pkg.tar.zst 2>/dev/null | head -1 | xargs -r -n1 basename)"
                   [ -n "$keep" ] || continue
-                  gh release view "$TAG" --repo "$REPO" --json assets --jq '.assets[].name' \
+                  gh release view "$TAG" --repo "$REPO" --json assets --jq ".assets[].name" \
                     | grep -E "^${nm}-.*\.pkg\.tar\.zst$" | grep -vxF "$keep" \
                     | while read -r old; do
-                        echo "── loja limpa: '$old' fora do ar (a viva é '$keep')"
+                        echo "── loja limpa: $old fora do ar (a viva é $keep)"
                         gh release delete-asset "$TAG" "$old" --repo "$REPO" --yes || true
                       done
               done
