@@ -347,3 +347,11 @@ zsh-syntax-highlighting
 ## o craft-toplevel 1.0-5 no canal diário). Configs de usuário (~) NUNCA
 ## são tocados por update.
 elite-system
+
+## ── ELITE — compat de empacotamento universal (AppImage) ─────────────
+## fuse2: AppImages (formato universal de apps Linux — ex.: o TurnRush)
+## precisam de libfuse2 para montar no duplo-clique. Sem ele, o app só
+## abre via --appimage-extract-and-run. ~200 KB instalados. (Adotado da
+## branch compat/turnrush-appimage — 12 dias órfã, 133 commits atrás:
+## o recurso entra no tronco e a branch se aposenta.)
+fuse2
