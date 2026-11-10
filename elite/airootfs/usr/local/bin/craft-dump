@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · craft-dump (v2.7 — o "btop completão" que se atualiza)
+# Archcraft ELITE · craft-dump (v2.8 — o "btop completão" que se atualiza)
 # ═══════════════════════════════════════════════════════════════════════════
 # Pedido do dono (out/2026): "como puxo tudo que está rodando como se fosse
 # um btop completão pra gente ter um diagnóstico da RAM, pacotes, uso, CPU
@@ -53,6 +53,16 @@
 # puxa o craft-dump DA MAIN do repo (raw, sem credencial), valida com
 # bash -n antes de instalar, guarda o velho como .bak-<stamp> e imprime o
 # sha256 dos dois — a perícia nunca mais envelhece no rig.
+# v2.8 (E98 — A DOSE E A GAVETA NO PAPEL): (1) A LACUNA DO DUMP 195819 — a
+# 1.0-42 aterrissou no rig entre 19:13–19:46 e o MINUTO nunca foi provado
+# (sem update.log/pacman.log no papel): a seção 12 ganha o tail do
+# elite-update.log (cada porta da dose, cada âncora adotada) e as linhas
+# elite-system do pacman.log (o carimbo de hora de CADA aterrissagem);
+# (2) o ps da seção 3 agora filtra nwg-drawer e lxqt-policykit — a gaveta
+# presa e o porteiro da senha (o relato do dono: 'o menu que não fecha'
+# e 'o LXQt PolicyKit no segundo plano') deixam de ser invisíveis ao
+# papel. O martelo e o guardião moram nos bins (E98); a LENTE mora no
+# probe (v2.2 — DRAWER_OPEN/FUZZEL_OPEN).
 # v2.7.1 (E95 — o endereço do crime nos coredumps do toplevel): o journal
 # entrega o stack, mas o 'SIGSEGV, address' do coredumpctl é quem separa
 # NULO de SELVAGEM — a peça que a perícia dos 9 exit=139 sentiu falta.
@@ -227,7 +237,7 @@ if ! : > "$OUT" 2>/dev/null; then
 fi
 
 {
-    printf '══════════ ELITE DUMP v2.7 — diagnóstico completo ══════════\n'
+    printf '══════════ ELITE DUMP v2.8 — diagnóstico completo ══════════\n'
     if [ "$(id -un)" != "$DUMP_USER" ]; then
         printf 'gerado: %s · usuário: %s → sessão de %s (uid %s) · host: %s\n' \
             "$(date)" "$(id -un)" "$DUMP_USER" "$DUMP_UID" "$(uname -n 2>/dev/null || echo '?')"
@@ -438,7 +448,7 @@ PY
     r "coredumpctl info --no-pager craft-toplevel 2>/dev/null | grep -E 'Signal|SIGSEGV|Stack trace|#[0-9] ' | head -12 || true" 12
 
     printf '\n── processos da Elite (a sessão inteira, com args)\n'
-    r "ps -u $DUMP_UID -o pid,args | grep -E 'craft-|waybar|swayidle|swaync|fuzzel|labwc|hyprlock' | grep -v grep" 25
+    r "ps -u $DUMP_UID -o pid,args | grep -E 'craft-|waybar|swayidle|swaync|fuzzel|labwc|hyprlock|nwg-drawer|lxqt' | grep -v grep" 25
 
     printf '\n══════════ 7 · DISPLAY & TECLADO ══════════\n'
     # v2.10.6: wlr-randr NA ISO — posição/scale/MODO ATUAL de cada monitor.
@@ -605,6 +615,19 @@ PY
             printf '\n── (ausente: %s)\n' "$f"
         fi
     done
+    # E98 — A DOSE NO PAPEL (a lacuna do dump 195819: a 1.0-42 caiu no rig
+    # entre 19:13–19:46 e o MINUTO nunca foi provado — sem o log da dose,
+    # a aterrissagem era uma janela, não um fato): o elite-update.log é a
+    # narrativa do craft-update (cada porta, cada âncora adotada, cada
+    # espera de lock) e o pacman.log carimba a hora de CADA elite-system
+    # que pisou no disco — a dose deixa de ser fé e vira papel.
+    if [ -f /var/log/elite-update.log ]; then
+        printf '\n── tail /var/log/elite-update.log (a dose e as âncoras)\n'
+        tail -n 80 /var/log/elite-update.log
+    else
+        printf '\n── (ausente: /var/log/elite-update.log — a dose nunca rodou nesta máquina?)\n'
+    fi
+    r "grep 'elite-system' /var/log/pacman.log 2>/dev/null | tail -12" 14
     for f in /var/log/elite-firstboot.log /var/log/calamares.log \
              "$UCACHE/calamares/session.log"; do
         if [ -f "$f" ]; then
@@ -663,7 +686,7 @@ PY
     r "du -sh '$UHOME/.cache'/* 2>/dev/null | sort -rh | head -12" 14
     r "journalctl --disk-usage 2>/dev/null" 2
 
-    printf '\n══════════ FIM DO DUMP v2.7 ══════════\n'
+    printf '\n══════════ FIM DO DUMP v2.8 ══════════\n'
     printf 'a seção 0 é o resumo; as seções 1-14 são o detalhe.\n'
     printf 'envie este arquivo (ou a URL do --upload) para a análise.\n'
 } > "$OUT" 2>&1

@@ -1,0 +1,21 @@
+# ═════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · nwg-look.desktop (E98 — O OVERRIDE DA CASA)
+# ────────────────────────────────────────────────────────────────────────
+# POR QUE ELE EXISTE: o GTK da casa é o Catppuccin Mocha/Mauve entregue
+# pelo rice (craft-rice); tema/cursor/fonte são decisão de dono, não de
+# menu — o pedido do dono: "o sistema utiliza, mas pode ser ocultado,
+# tipo GTK settings, Qt6 settings". O nwg-look FICA instalado (é a
+# ferramenta da casa para um dia de cursor novo — a lei de admissão do
+# ESSENCIAIS: ferramenta na mão, não na cara). A UI sai do menu pela
+# MESMA desktop-id na FRENTE do XDG_DATA_DIRS (o trilho xgps/gparted).
+# Restaurar: apague este arquivo. Roda na mão: nwg-look.
+# ═════════════════════════════════════════════════════════════════════════
+[Desktop Entry]
+Name=GTK Settings
+Comment=GTK settings editor (nwg-look)
+Exec=nwg-look
+Icon=nwg-look
+Terminal=false
+Type=Application
+Categories=Settings;DesktopSettings;
+NoDisplay=true

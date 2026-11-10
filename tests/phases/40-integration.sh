@@ -712,7 +712,7 @@ assert_grep "$DUMP" 'list-sessions' "v2.10.8: sessões do logind no papel (o can
 assert_grep "$DUMP" 'sleep.conf.d' "v2.10.8: cadeia de sono INTEIRA no papel (sleep.conf + drop-ins — o réu AllowSuspend=no tem endereço)"
 assert_grep "$DUMP" '/sys/power/disk' "v2.10.8: o estado disk do kernel no papel (hibernate sem resume= = recusa honesta; a prova viaja)"
 assert_grep "$DUMP" 'systemd-inhibit' "v2.10.8: quem segura inibidor de sono AGORA (o 'tenta e volta' tinha réu anônimo — o -i do menu e o idle-inhibit do swayidle no papel)"
-assert_grep "$DUMP" 'FIM DO DUMP v2\.7' "v2.10.18/E30→E90: versão do papel = conteúdo do papel (a v2.7 traz o randr inteiro + WOL + a E89 no papel; âncora refrescada viva)"
+assert_grep "$DUMP" 'FIM DO DUMP v2\.8' "E98 (E30→E90→): versão do papel = conteúdo do papel (a v2.8 traz a dose no papel — elite-update.log + pacman.log na seção 12; âncora refrescada viva)"
 assert_grep "$TUN" 'pacman-key --populate archlinux cachyos' "v2.3.6: firstboot popula as chaves ANTES do primeiro -Sy (db assinado por chave desconhecida falha INTEIRO — o rig flagrou: firstboot nunca completava)"
 assert_grep "$TUN" 'timeout 90 pacman-key --recv-keys' "v2.3.6: recv-keys com timeout 90 (keyserver lento pendurou a unit 17min em 'activating' — o rig flagrou)"
 assert_grep "$TUN" 'ensure_cachyos \|\| true' "v2.3.6: firstboot puxa o keyring FRESCO do mirror (o pacote datado 2024 é a raiz do 'chave desconhecida')"
@@ -3268,9 +3268,37 @@ assert_nogrep "$P/airootfs/usr/local/bin/elite-ferramentas" 'do_paru' \
 assert_grep "$P/airootfs/usr/local/bin/craft-bars" 'elite-craft-compress-1' \
   "E97/thunar: a remoção do Comprimir viaja pelo SUPERVISOR (a E72 curou com chegada MANUAL — 'sudo craft-update && sudo elite-tune' — e o dono só roda o craft-update: o fóssil do uca.xml seguiu vivo no rig; o canal E58/E95 entrega no arranque, one-shot pelo próprio marcador)"
 
+# ── E98: o menu que não fecha + a loja limpa + a dose no papel ──
+CDR98="$P/airootfs/usr/local/bin/craft-drawer"
+assert_grep "$CDR98" 'drawer-grave\.stamp' "E98/drawer: O TÚMULO existe (o freio E88 cobria o vão do NASCER; o túmulo cobre o vão do MORRER — o clique-eco de 'fechar de novo' não reabre)"
+assert_grep "$CDR98" '600000000' "E98/drawer: 600ms de silêncio contados da MORTE (o baile das 20:31 no dump 203201: gaveta B morta às :37, gaveta C NASCIDA às :38 — o eco achava o morto e nascia outra)"
+assert_grep "$CDR98" 'sleep 0\.05' "E98/drawer: A MORTE ESPERADA — o toggle que mata polla 50ms pela morte (o pkill assíncrono era a porta da reabertura: 'menu de aplicativos que não fecha' era a cara da REABERTURA)"
+assert_grep "$CDR98" 'pkill -9 -x nwg-drawer' "E98/drawer: a misericórdia após o teto de 1.5s (gaveta pendurada ganha o martelo — SIGTERM ignorado nunca vira eterno)"
+assert_grep "$CDR98" 'sleep 300' "E98/drawer: O CÃO DE GUARDA — 300s e a gaveta presa encerra sozinha (o 'timer dos menus' da fila E98 feito carne, sem matar gaveta em uso)"
+assert_grep "$CDR98" 'ps -o comm= -p "\$_dpid"' "E98/drawer: o guardião mata por pid + comm provado (a lei da casa: pid é pid, comm é a prova — nunca um pid reciclado)"
+CMD98="$P/airootfs/usr/local/bin/craft-menu-dismiss"
+assert_grep "$CMD98" 'pkill -x nwg-drawer' "E98/dismiss: O MARTELO ALCANÇA A GAVETA (clique no desktop encerra qualquer gaveta aberta — o state só casa fuzzel, a gaveta não tinha martelo)"
+assert_grep "$CMD98" 'martelo E98' "E98/dismiss: o golpe de martelo deixa LINHA no menus.log (o próximo dump prova o martelo em ação)"
+assert_grep "$P/airootfs/usr/local/bin/elite-session-probe" 'DRAWER_OPEN=' "E98/probe: a LENTE — quem está aberto AGORA com pid+argv (a gaveta é layer-shell keyboard-exclusivo: nunca vira toplevel da dock, e o ps da seção 3 não a filtrava)"
+assert_grep "$P/airootfs/usr/local/bin/elite-session-probe" 'FUZZEL_OPEN=' "E98/probe: a lente também casa o fuzzel órfão (menu sem state é invisível ao dismiss — no papel, não)"
+CDMP98="$P/airootfs/usr/local/bin/craft-dump"
+assert_grep "$CDMP98" 'elite-update\.log' "E98/dump: A DOSE NO PAPEL — o tail do log do craft-update na seção 12 (cada porta, cada âncora; o minuto da 1.0-42 era janela, não fato)"
+assert_grep "$CDMP98" "grep 'elite-system' /var/log/pacman\.log" "E98/dump: o pacman.log carimba a hora de CADA elite-system que pisou no disco (a aterrissagem deixa de ser fé)"
+assert_grep "$CDMP98" 'hyprlock\|nwg-drawer\|lxqt' "E98/dump: o ps da seção 3 filtra nwg-drawer e lxqt-policykit (a gaveta presa e o porteiro da senha entram no processo da sessão)"
+assert_grep "$CDMP98" 'v2\.8' "E98/dump: a versão no papel (o --update do rig compara — a perícia nunca envelhece)"
+OV98="$P/airootfs/usr/local/share/applications"
+assert_file "$OV98/octopi-notifier.desktop" "E98/loja: o override do Notifier existe (o monólito octopi 0.19.0-2 carrega os QUATRO .desktop — não há sub-pacote a tirar; a tray morreu na E33 e avisar update é papel da casa)"
+assert_file "$OV98/octopi-repoeditor.desktop" "E98/loja: o override do Repository Editor existe (repos são curadoria da casa — o espelho do rig é o mesmo da ISO; GUI de repos para o leigo é o desastre silencioso)"
+assert_file "$OV98/qt6ct.desktop" "E98/theming: o override do Qt6 Settings existe (pedido do dono: 'o sistema utiliza, mas pode ser ocultado')"
+assert_file "$OV98/nwg-look.desktop" "E98/theming: o override do GTK Settings existe (o GTK é o Catppuccin do rice — tema/cursor é decisão de dono, não de menu)"
+assert_grep "$REPO/.ci/build.sh" 'applications/\*\.desktop' "E98/build: o trilho virou VARREDURA (todo .desktop do dir embarca sozinho — a lição E95 generalizada: override novo é arquivo novo, zero cirurgia)"
+assert_grep "$REPO/.ci/build.sh" 'ovr = sorted' "E98/build: o PKGBUILD gera install E adoção por varredura (o pre_install adota cada override — a dança da via sem dono, agora em série)"
+
 # ── E41: o pkgrel viajou NO MESMO COMMIT ──
-assert_grep "$REPO/.ci/build.sh" 'pkgrel=42' \
-  "E97.1 (lei E41, âncora viva refrescada): pkgrel elite-system 41→42 — o canal caçou o que a suíte local não viu: NENHUM pacote publicou desde a E96 (o sha do C no TEMPLATE do elite-system ficou da era E95 — o E96 re-pinou só a ponte; o makepkg recusou a fonte), o craft-appimage nasceu 100644 no index (lição E95.1 pela 2ª vez) e o trap carregava um SC2154 do gate do CI"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=43' \
+  "E98 (lei E41, âncora viva refrescada): pkgrel elite-system 42→43 — o dia do julgamento dos dumps 202112/203201: o toggle da gaveta passou a esperar a morte (o pkill assíncrono reabria), a loja ganhou os overrides NoDisplay (o monólito octopi carrega os 4 .desktop de uma vez), o trilho do build virou varredura e a dose entrou no papel (elite-update.log + pacman.log na seção 12)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 42→43 NO MESMO COMMIT' \
+  "E98 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 41→42 NO MESMO COMMIT' \
   "E97.1 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
 assert_grep "$P/airootfs/usr/local/bin/craft-appimage" 'palco_fora' \

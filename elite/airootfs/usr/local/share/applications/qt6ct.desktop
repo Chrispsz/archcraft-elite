@@ -1,0 +1,22 @@
+# ═════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · qt6ct.desktop (E98 — O OVERRIDE DA CASA)
+# ────────────────────────────────────────────────────────────────────────
+# POR QUE ELE EXISTE: o theming de Qt é ARQUIVO DA CASA — o qt6ct.conf do
+# skel entrega o tema pronto (Catppuccin, acento Mauve, o mesmo do rice)
+# e nenhum app da casa pede calibração na mão; o pacote FICA instalado
+# (a nota do packages.remove: 'sem apps Qt5 na ISO; qt6ct fica' — os
+# apps Qt6, lxqt-policykit inclusive, leem o conf). O pedido do dono:
+# "o sistema utiliza, mas pode ser ocultado, tipo GTK settings, Qt6
+# settings" — a UI sai do menu pela MESMA desktop-id na FRENTE do
+# XDG_DATA_DIRS (o trilho xgps/gparted). Restaurar: apague este arquivo.
+# Roda na mão: qt6ct.
+# ═════════════════════════════════════════════════════════════════════════
+[Desktop Entry]
+Name=Qt6 Settings
+Comment=Qt6 settings editor
+Exec=qt6ct
+Icon=qt6ct
+Terminal=false
+Type=Application
+Categories=Settings;DesktopSettings;
+NoDisplay=true

@@ -1,0 +1,24 @@
+# ═════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · octopi-repoeditor.desktop (E98 — O OVERRIDE DA CASA)
+# ────────────────────────────────────────────────────────────────────────
+# POR QUE ELE EXISTE: o Repository Editor mexe no pacman.conf REPOS da
+# máquina — e a curadoria de repos É da casa ([elite-local] primeiro,
+# cachyos-v3, archcraft, os pins do build; o rig do dono instala do MESMO
+# espelho que a ISO — a nota E97 da loja). Uma GUI de repos na frente do
+# usuário leigo é a receita do desastre silencioso (um repo a menos = a
+# dose some sem erro visível); para o dono, repo se edita no papel. O
+# monólito octopi 0.19.0-2 instala os QUATRO .desktop de uma vez (não há
+# sub-pacote para tirar) — ocultar pela MESMA desktop-id na FRENTE do
+# XDG_DATA_DIRS é a fronteira da casa (o trilho xgps/gparted). Restaurar:
+# apague este arquivo. Roda na mão: /usr/bin/octopi-repoeditor.
+# ═════════════════════════════════════════════════════════════════════════
+[Desktop Entry]
+Name=Octopi Repository Editor
+Comment=Manage the package repositories used by the system
+Icon=octopi
+Exec=/usr/bin/octopi-repoeditor
+Terminal=false
+Type=Application
+Categories=GNOME;GTK;System;
+StartupNotify=true
+NoDisplay=true

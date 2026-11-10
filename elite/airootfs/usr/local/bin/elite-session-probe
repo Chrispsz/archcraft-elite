@@ -1,6 +1,6 @@
 #!/bin/sh
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · elite-session-probe (v2.1.1) — evidência da SESSÃO GRÁFICA
+# Archcraft ELITE · elite-session-probe (v2.2) — evidência da SESSÃO GRÁFICA
 # ═══════════════════════════════════════════════════════════════════════════
 # POR QUÊ: o gate do CI (verify/QEMU) boota a ISO e para no LOGIN — nunca
 # viu a sessão gráfica. As duas barras waybar morreram caladas no rig do
@@ -157,6 +157,14 @@ PY
     done
 fi
 say "FUZZEL_INI=$ini_ok"
+# v2.2 (E98 — A LENTE DA GAVETA): o relato do dono ('menu de aplicativos
+# em primeiro plano que não fecha') chegou SEM réu no papel — a gaveta é
+# layer-shell com keyboard-exclusivo (nunca vira toplevel da dock; o ps da
+# seção 3 do dump não a filtrava). A lente: quem está aberto AGORA, com
+# pid E argv — a gaveta presa aparece aqui lavada no próximo dump, e o
+# fuzzel órfão idem (o torch do veredito acende no papel, não no palpite).
+say "DRAWER_OPEN=$(pgrep -ax nwg-drawer 2>/dev/null || true)"
+say "FUZZEL_OPEN=$(pgrep -ax fuzzel 2>/dev/null || true)"
 for f in /root/.cache/elite/menus.log /home/*/.cache/elite/menus.log; do
     [ -f "$f" ] || continue
     tail -8 "$f" 2>/dev/null | while IFS= read -r line; do
