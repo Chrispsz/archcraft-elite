@@ -14,7 +14,11 @@ cp -a "$REPO/elite" "$REPO/scripts" "$RE/"
 if out="$( cd "$RE" && HOME="$WORK/home" bash scripts/apply-overlay.sh 2>&1 )" ; then
   ok "overlay: roda limpo contra o fixture"
 else
-  fail "overlay: roda limpo contra o fixture" "${out:0:300}"
+  # E101.1 — A FALHA NOMEADA, INTEIRA: os 300 chars cortavam o erro do
+  # rsync no meio (a run #266 morreu com 'Aplicando overlay airootfs/'
+  # truncado e o réu real — o rsync 3.5.2-3 do rolling do dia — invisível
+  # no papel). Forense de log é ciência: o stderr viaja COMPLETO.
+  fail "overlay: roda limpo contra o fixture" "${out:0:3000}"
 fi
 
 # v1.1: pacotes do packages.remove que NÃO existem upstream (mousepad/
