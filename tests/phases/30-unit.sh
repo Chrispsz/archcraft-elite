@@ -2556,10 +2556,13 @@ exec /usr/bin/sleep "$@"
 EOF
 chmod +x "$WORK/e98/bin/sleep"
 run98() {
+    # sem "$@" no repasse (SC2120): nenhuma cena chama com argumento — o
+    # wrapper lê o estado do cenário (E98_STATE/E98_ALIVE/E98_TTL/E98_HUNG);
+    # cena que precisar de argv devolve o repasse JUNTO com a chamada
     env PATH="$WORK/e98/bin:$PATH" XDG_RUNTIME_DIR="$WORK/e98/run" \
         E98_STATE="$WORK/e98/state" E98_ALIVE="$WORK/e98/alive" \
         E98_TTL="${E98_TTL:-0}" E98_HUNG="${E98_HUNG:-}" \
-        sh "$CDR98U" "$@" >/dev/null 2>&1
+        sh "$CDR98U" >/dev/null 2>&1
 }
 # (1) abrir NASCE a gaveta (o wrapper espera a morte do stub e volta)
 : > "$WORK/e98/state"; rm -f "$WORK/e98/alive" "$WORK/e98/run/elite/drawer-toggle.stamp" \
@@ -2579,8 +2582,7 @@ printf '%s\n' $(( _now98 - 900000000 )) > "$WORK/e98/run/elite/drawer-toggle.sta
 run98
 assert_eq "$?" "0" "E98/drawer: o toggle-fecha sai limpo (o pkill + o túmulo + return)"
 assert_grep "$WORK/e98/state" 'pkill -x nwg-drawer' "E98/drawer: o golpe do toggle assinado (a gaveta viva morre pela mão do wrapper)"
-[ -f "$WORK/e98/run/elite/drawer-grave.stamp" ]
-assert_eq "$?" "0" "E98/drawer: O TÚMULO selado na morte (o eco do fechamento tem contra-prova no disco)"
+assert_file "$WORK/e98/run/elite/drawer-grave.stamp" "E98/drawer: O TÚMULO selado na morte (o eco do fechamento tem contra-prova no disco)"
 # (4) o clique-eco NO VÃO DO TÚMULO não reabre (a cena das 20:31 morta)
 rm -f "$WORK/e98/alive"
 _now98=$(date +%s%N)
