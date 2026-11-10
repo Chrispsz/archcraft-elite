@@ -77,13 +77,19 @@ oldsha="$(sed -n "/^pkgname=brave-origin$/,/^EOPKGBUILD$/p" "$BUILD" \
 
 # prova local OPCIONAL (barata só se o zip já estiver em cache/http proxy):
 # o makepkg da CI é a prova real — ele valida o sha contra os bytes baixados.
-echo "==> atualizando o pin em $BUILD (pkgver + sha + says)"
+echo "==> atualizando o pin em $BUILD (pkgver + sha + BRAVE_PIN + says)"
 sed -i "/^pkgname=brave-origin$/,/^EOPKGBUILD$/ s/^pkgver=.*/pkgver=${latest}/" "$BUILD"
 sed -i "s/${oldsha}/${pub}/" "$BUILD"
+# E101 — o BRAVE_PIN do guard de cache (exato) sobe JUNTO: sem isto o
+# guard passa a procurar o pin VELHO e reconstrói o navegador por nada
+# (ou pior: aceita o fóssil da era anterior — a doença que o pin exato
+# veio curar voltaria pelo descuido do próprio guardião).
+sed -i "s/^BRAVE_PIN=.*/BRAVE_PIN=\"${latest}\"/" "$BUILD"
 sed -i "s/Brave ORIGIN ${cur}/Brave ORIGIN ${latest}/" "$BUILD"
 sed -i "s/brave-origin ${cur}/brave-origin ${latest}/" "$BUILD"
 
 grep -q "pkgver=${latest}" "$BUILD" && grep -q "${pub}" "$BUILD" \
+    && grep -q "^BRAVE_PIN=\"${latest}\"" "$BUILD" \
     && echo "✔ pin atualizado: ${cur} → ${latest}" \
     || { echo "ERRO: pós-checagem falhou — confira o $BUILD"; exit 1; }
 

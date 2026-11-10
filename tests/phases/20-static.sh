@@ -1894,3 +1894,48 @@ assert_grep "$REPO/elite/airootfs/usr/local/share/applications/qt6ct.desktop" '^
 assert_grep "$REPO/elite/airootfs/usr/local/share/applications/nwg-look.desktop" '^Exec=nwg-look$' "E98/theming: o Exec do GTK Settings pelo nome (nwg-look fica instalado — um dia de cursor novo roda na mão)"
 
 phase_end
+
+# ═══ E. E101 — O FÓSSIL DO CACHE NUNCA VENCE A VERSÃO DE HOJE ═══════════
+#    A run #153 (tag v2.11.0) nasceu com o PASSADO dentro: o .ci-cache
+#    restaurado trouxe o elite-system-1.0-7 de 5 dias atrás, o repo-add
+#    RECUSOU o 1.0-44 recém-nascido ("A newer version for 'elite-system'
+#    is already present in database") e o pacstrap instalou o fóssil na
+#    ISO — o elite-bootupdate sem o skip do live rodou (unit failed), o
+#    craft-bars sem a fila E58 elegeu o hyprpolkitagent (crash-loop 21×):
+#    as DUAS falhas do verify, UM réu. O mesmo cache derrotou o pin do
+#    Brave (1.98.63 aceito com o pin em 1.99.55). Os contratos abaixo
+#    cravam as 4 curas no papel — o fóssil não volta nem de cache velho.
+BS101="$REPO/.ci/build.sh"
+
+# (1) a purga: pacote da casa recém-construído = fóssil do cache morto
+assert_grep "$BS101" 'rm -f /var/cache/elite-local/"\$pkgdir"-\*\.pkg\.tar\.zst' "E101/purga: o fóssil do cache morre ANTES do pacote novo chegar ao repo (dois elite-system no dir = o velho pode vencer o repo-add — a #153 provou)"
+
+# (2) o db nasce de novo: entradas de eras mortas não sobrevivem
+assert_grep "$BS101" 'rm -f /var/cache/elite-local/elite-local\.db \\' "E101/db: o db é DESTRUÍDO antes do repo-add (o db restaurado do cache e o gosto do repo-add por versões velhas apontavam o repo pro passado)"
+assert_grep "$BS101" 'elite-local\.db\.tar\.gz\.old' "E101/db: nem o .old do cache sobrevive (o fóssil de 5 dias viajou NELE na #153)"
+
+# (3) selo 1: o db referencia o pacote de HOJE
+assert_grep "$BS101" 'SELO 1' "E101/selo1: o db do [elite-local] tem que apontar pro pacote que o makepkg acabou de parir (divergência = ELITE-FAIL no minuto 6, não no QEMU do minuto 40)"
+
+# (4) selo 2: a resolução lacrada entrega o pacote de HOJE
+assert_grep "$BS101" 'selo_elite_system_resolve' "E101/selo2: a prova de ponta a ponta — o pacman resolve o elite-system de HOJE com o conf lacrado (os mesmos dbs que o pacstrap consome)"
+assert_grep "$BS101" 'seal_build_conf && selo_elite_system_resolve && ./mkarchcraftiso' "E101/selo2: o selo está NA CADEIA do build (preflight → selo → ISO; fóssil no resolve = build morto antes de gastar 30 min)"
+
+# (5) o pin do Brave é EXATO — fóssil de outra era não serve de cache hit
+assert_grep "$BS101" '^BRAVE_PIN=' "E101/brave: o pin vive NUMA variável (o guard antigo aceitava QUALQUER brave-origin-* — o 1.98.63 do cache derrotava o pin 1.99.55 sem nem tentar)"
+assert_grep "$BS101" 'if \[ -f "/var/cache/elite-local/\$BRAVE_PKG" \]' "E101/brave: o cache hit exige o ARQUIVO do pin exato (nome-versão-arquitetura — nada mais serve)"
+assert_grep "$BS101" 'find /var/cache/elite-local -maxdepth 1 .*brave-origin-\*.*-delete' "E101/brave: nem no cache hit o fóssil sobrevive (o repo-add adiante processa o dir inteiro — dois brave-origin = o velho pode vencer)"
+
+# anti-drift: BRAVE_PIN == pkgver do heredoc (o check-brave sobe os dois)
+BP101="$(sed -n 's/^BRAVE_PIN="\([0-9.]*\)"$/\1/p' "$BS101" | head -1)"
+BPV101="$(sed -n '/^pkgname=brave-origin$/,/^EOPKGBUILD$/p' "$BS101" | sed -n 's/^pkgver=\([0-9.]*\)$/\1/p' | head -1)"
+assert_eq "$BP101" "$BPV101" "E101/brave: BRAVE_PIN (${BP101:-?}) == pkgver do heredoc (${BPV101:-?}) — as duas fontes do pin nunca divergem (drift = guard caçando versão morta)"
+
+# o guardião sobe o BRAVE_PIN no mesmo bump
+assert_grep "$REPO/scripts/check-brave.sh" 'BRAVE_PIN=' "E101/brave: o check-brave.sh atualiza o BRAVE_PIN no bump (single source: sem isto o guard procuraria o pin velho para sempre)"
+
+# (6) a loja sem pilha: o canal não deixa 44 versões do mesmo pacote no ar
+assert_grep "$REPO/.github/workflows/publish-packages.yml" 'delete-asset' "E101/loja: publicada a versão de hoje, a OUTRA versão do mesmo pacote sai do ar (o --clobber só cobre nome IGUAL — pkgrel novo é nome novo; a pilha de 4,9 GB nunca mais se forma)"
+assert_grep "$REPO/.github/workflows/publish-packages.yml" 'A LOJA SEM PILHA' "E101/loja: a regra tem nome no papel (o dono: 'cheio de assets sujos' — a limpeza é lei, não acaso de uma run)"
+
+phase_end

@@ -1336,6 +1336,16 @@ fi
 for pkgdir in "${PKG_LIST[@]}"; do
     (cd "/tmp/elite-src/$pkgdir" && runuser -l builder -c "cd /tmp/elite-src/$pkgdir && makepkg -f --noconfirm") \
         || { echo "FALHA ao construir $pkgdir"; exit 1; }
+    # E101 — O FÓSSIL DO CACHE MORRE ANTES DO PACOTE NOVO CHEGAR: o
+    # .ci-cache restaurado de uma era anterior pode carregar versão VELHA
+    # deste mesmo pacote ao lado da recém-nascida (a run #153: o
+    # elite-system-1.0-7 de 5 dias atrás derrotou o 1.0-44 no repo-add e o
+    # pacstrap instalou o PASSADO na ISO de hoje — o elite-bootupdate sem
+    # o skip do live rodou no QEMU, o craft-bars sem a fila E58 elegeu o
+    # hyprpolkitagent e crash-loopou 21×: AS DUAS falhas do verify, UM
+    # réu). A casa acabou de parir a versão VIVA: qualquer outra do mesmo
+    # nome é fóssil e não pode existir no repo no momento do repo-add.
+    rm -f /var/cache/elite-local/"$pkgdir"-*.pkg.tar.zst
     cp "/tmp/elite-src/$pkgdir/"*.pkg.tar.zst /var/cache/elite-local/
 done
 if [[ "${PACKAGES_ONLY:-0}" == "1" ]]; then
@@ -1405,15 +1415,32 @@ elite_fetch "${ML_LATEST:-cachyos-v3-mirrorlist-27-1-any.pkg.tar.zst}" \
 #  makepkg --nodeps: pacote binário; as deps (gtk3 nss alsa-lib…) são
 #  resolvidas pelo pacstrap no airootfs, não precisam existir no
 #  container de build.
-say "Estágio Brave ORIGIN 1.99.55 (release oficial) → /var/cache/elite-local/"
+# E101 — O PIN É ÚNICO E EXATO: BRAVE_PIN acompanha o pkgver do heredoc
+#  (o check-brave.sh sobe os DOIS no mesmo bump — contrato anti-drift na
+#  suíte cobra a igualdade). O guard de cache antigo aceitava QUALQUER
+#  brave-origin-* e o fóssil de uma era anterior (1.98.63) derrotava o
+#  pin novo (1.99.55) sem nem tentar: a ISO nascia com o navegador velho
+#  e a chave E32 do cache não salvava — o restore-keys devolve o cache
+#  antigo de qualquer jeito (a run #153 flagrou: 'cache hit:
+#  brave-origin-1.98.63' com o pin em 1.99.55). O pin manda: cache serve
+#  quando É o pin; fóssil de outra era morre.
+BRAVE_PIN="1.99.55"
+BRAVE_PKG="brave-origin-${BRAVE_PIN}-1-x86_64.pkg.tar.zst"
+say "Estágio Brave ORIGIN ${BRAVE_PIN} (release oficial) → /var/cache/elite-local/"
 # v2.1 — cache do Actions persiste /var/cache/elite-local entre runs
 #  (build.yml monta .ci-cache/elite-local no container): pkg.tar.zst
 #  presente = bits cujos sources passaram no sha256 da run que o
 #  construiu. Cache miss = download/rebuild (comportamento original).
-if ls /var/cache/elite-local/brave-origin-*.pkg.tar.zst >/dev/null 2>&1; then
-    say "  cache hit: $(ls /var/cache/elite-local/brave-origin-*.pkg.tar.zst | head -1 | xargs -n1 basename) — download/rebuild pulados"
-    sha256sum /var/cache/elite-local/brave-origin-*.pkg.tar.zst
+if [ -f "/var/cache/elite-local/$BRAVE_PKG" ]; then
+    say "  cache hit: $BRAVE_PKG (o pin exato — E101) — download/rebuild pulados"
+    # fósseis de outras eras não sobrevivem ao cache hit (o repo-add
+    # adiante processa o dir INTEIRO — dois brave-origin = o velho pode
+    # vencer, a mesma doença do elite-system da #153)
+    find /var/cache/elite-local -maxdepth 1 -name 'brave-origin-*.pkg.tar.zst' ! -name "$BRAVE_PKG" -delete
+    sha256sum "/var/cache/elite-local/$BRAVE_PKG"
 else
+    # sem o pin no cache: qualquer brave-origin que exista é fóssil — fora
+    rm -f /var/cache/elite-local/brave-origin-*.pkg.tar.zst
 mkdir -p /tmp/elite-src/brave-origin
 cat > /tmp/elite-src/brave-origin/PKGBUILD <<'EOPKGBUILD'
 pkgname=brave-origin
@@ -1521,7 +1548,7 @@ EODESK
 chown -R builder /tmp/elite-src/brave-origin
 if runuser -l builder -c "cd /tmp/elite-src/brave-origin && makepkg -f --noconfirm --nodeps"; then
     cp /tmp/elite-src/brave-origin/*.pkg.tar.zst /var/cache/elite-local/
-    say "  ok: brave-origin 1.99.55 (Brave ORIGIN oficial, sha256 verificado)"
+    say "  ok: brave-origin ${BRAVE_PIN} (Brave ORIGIN oficial, sha256 verificado)"
 else
     echo "ELITE-FAIL: makepkg do brave-origin (fonte/CDN fora?) — sem retry: fonte é GitHub Releases da Brave" >&2
     exit 1
@@ -1598,6 +1625,19 @@ if ! ls /var/cache/elite-local/pwvucontrol-*.pkg.tar.zst >/dev/null 2>&1; then
 fi
 rm -f /etc/sudoers.d/builder
 
+# E101 — O db NASCE DE NOVO TODO BUILD: o db restaurado do cache carrega
+#  entradas de eras mortas, e o gosto do repo-add por elas (a comparação
+#  que recusou o 1.0-44 recém-nascido dizendo 'A newer version for
+#  elite-system is already present in database' com o 1.0-7 no db) deixava
+#  o repo apontando pro PASSADO. O db é DERIVADO dos arquivos — destruí-lo
+#  e recriar custa segundos e mata a classe inteira: nenhuma entrada
+#  defasada sobrevive para ser preferida.
+rm -f /var/cache/elite-local/elite-local.db \
+      /var/cache/elite-local/elite-local.db.tar.gz \
+      /var/cache/elite-local/elite-local.db.tar.gz.old \
+      /var/cache/elite-local/elite-local.files \
+      /var/cache/elite-local/elite-local.files.tar.gz \
+      /var/cache/elite-local/elite-local.files.tar.gz.old
 repo-add --quiet /var/cache/elite-local/elite-local.db.tar.gz /var/cache/elite-local/*.pkg.tar.zst
 # E32 — pacman consulta <repo>.db SEM sufixo: o repo-add JÁ cria um SYMLINK
 # elite-local.db → elite-local.db.tar.gz (a run 41254942475 flagrou: cp
@@ -1605,6 +1645,23 @@ repo-add --quiet /var/cache/elite-local/elite-local.db.tar.gz /var/cache/elite-l
 # rm -f antes do cp garante ARQUIVO REAL (o symlink não viaja bem no
 # artifact; o E8 preserva estes 2 arquivos na ISO p/ o file:// do conf)
 rm -f /var/cache/elite-local/elite-local.db && cp /var/cache/elite-local/elite-local.db.tar.gz /var/cache/elite-local/elite-local.db
+
+# E101 — SELO 1 · O db APONTA PRO PACOTE DE HOJE: o repo-add já preferiu o
+#  fóssil uma vez; o selo garante que o db que o pacstrap vai sincronizar
+#  referencia EXATAMENTE o arquivo que o makepkg acabou de parir.
+#  Divergência = build morto AGORA, com o réu nomeado — não daqui a 40
+#  min no QEMU do verify (o custo da #153: 35 min de ISO + 8 de verify
+#  para descobrir no serial que o elite-system era de 5 dias atrás).
+ES_STAGED="$(ls /var/cache/elite-local/elite-system-*.pkg.tar.zst 2>/dev/null | head -1)"
+ES_STAGED="${ES_STAGED##*/}"
+ES_DB="$(bsdtar -xOf /var/cache/elite-local/elite-local.db.tar.gz \
+           "$(bsdtar -tf /var/cache/elite-local/elite-local.db.tar.gz | grep -m1 '^elite-system[^/]*/desc$')" \
+         | awk '/^%FILENAME%$/{getline; print; exit}')"
+if [ -z "$ES_STAGED" ] || [ "$ES_DB" != "$ES_STAGED" ]; then
+    echo "ELITE-FAIL: selo E101 — o db do [elite-local] diz elite-system='${ES_DB:-?}' mas o build pariu '${ES_STAGED:-?}' (o fóssil do cache venceu o repo-add? — classe da run #153)" >&2
+    exit 1
+fi
+say "E101 selo 1: db do [elite-local] referencia o elite-system de hoje ($ES_DB)"
 ls -la /var/cache/elite-local/
 
 ## E32 — marker da versão do código da casa: o craft-update compara com a
@@ -2012,12 +2069,39 @@ seal_build_conf() {
     awk '/^\[/{sec=$0} /^[[:space:]]*Server/{print "    " sec " " $0}' "$pc"
 }
 
+# E101 — SELO 2 · A RESOLUÇÃO LACRADA ENTREGA O PACOTE DE HOJE: o selo 1
+#  olhou o db no ponto de criação; este olha o QUE O PACMAN RESOLVE com o
+#  conf lacrado (dbs de /tmp/pf-db — os MESMOS que o pacstrap offline
+#  consome). É a prova de ponta a ponta: db → resolver → a versão que
+#  ENTRA na ISO. Se o fóssil voltar por qualquer caminho (repo-add,
+#  sync, skew), o build morre aqui — no minuto 6, não no QEMU do minuto 40.
+selo_elite_system_resolve() {
+    local want got
+    want="${ES_STAGED#elite-system-}"          # 1.0-44-x86_64.pkg.tar.zst
+    want="${want%-x86_64.pkg.tar.zst}"         # 1.0-44
+    got="$(pacman --config /work/elite-build/profile/pacman.conf -b /tmp/pf-db \
+             -Sp --print-format '%n %v' --noconfirm elite-system 2>/dev/null \
+             | awk '$1=="elite-system"{print $2; exit}')"
+    if [ -z "$got" ]; then
+        say "selo E101: o resolve lacrado não respondeu — stderr inteiro (honestidade do preflight):"
+        pacman --config /work/elite-build/profile/pacman.conf -b /tmp/pf-db \
+             -Sp --print-format '%n %v' --noconfirm elite-system || true
+        echo "ELITE-FAIL: selo E101 — o resolve lacrado não achou elite-system" >&2
+        return 1
+    fi
+    if [ "$got" != "$want" ]; then
+        echo "ELITE-FAIL: selo E101 — o resolve lacrado entrega elite-system $got mas o build pariu $want (a ISO nasceria com pacote velho — classe da run #153)" >&2
+        return 1
+    fi
+    say "E101 selo 2: o resolve lacrado entrega elite-system $want (o de hoje)"
+}
+
 say "Construindo ISO (mkarchcraftiso — fork oficial do Archcraft)"
 mkdir -p /mnt/iso-work /work/out
 cd elite-build/profile
 for attempt in 1 2; do
     rm -rf /mnt/iso-work
-    if preflight && seal_build_conf && ./mkarchcraftiso -v -w /mnt/iso-work -o /work/out . ; then
+    if preflight && seal_build_conf && selo_elite_system_resolve && ./mkarchcraftiso -v -w /mnt/iso-work -o /work/out . ; then
         break
     fi
     if [ "$attempt" = "2" ]; then
