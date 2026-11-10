@@ -268,7 +268,7 @@ assert_grep "$U/elite-keyring-fix.timer" '^WantedBy=timers.target$' "v2.10.10: [
 assert_grep "$U/elite-keyring-fix.timer" '^OnBootSec=120s$' "v2.10.10: timer dispara 2min pós-boot (a cura chega cedo, sem brigar com o boot)"
 assert_grep "$U/elite-keyring-fix.timer" '^OnUnitActiveSec=6h$' "v2.10.10: timer re-tenta de 6h em 6h (o guard de 24h do script decide o custo real)"
 # craft-dump v2.2: a etiqueta = conteúdo, e o keyring ganha as 3 provas
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2\.7' "v2.10.18/E30→E90: craft-dump etiqueta v2.7 (a lei: etiqueta = conteúdo — a v2.7 traz os modos COMPLETOS, o WOL e a E89 no papel; âncora refrescada viva)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2\.8' "E98 (E30→E90→): craft-dump etiqueta v2.8 (a lei: etiqueta = conteúdo — a v2.8 traz a dose no papel [seção 12] e a gaveta/lxqt no ps; âncora refrescada viva)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'pubring.gpg' "v2.10.10: dump prova o pubring (a doença do d33o no papel)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'list-keys cachyos' "v2.10.10: dump prova as chaves CachyOS populadas"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'pacman lê o banco: OK' "v2.10.10: dump prova funcional do pacman (o -Syu vivo ou morto nomeado)"
@@ -436,7 +436,7 @@ assert_grep "$CU64" 'sentinela_db auto canal' "E64/AUD-B3: a sentinela na porta 
 assert_grep "$CU64" 'sentinela_db auto sistema' "E64/AUD-B3: a sentinela na porta SEMANAL (a mesma briga — agora espera com teto e adia honesta)"
 assert_grep "$CU64" 'já estava em dia' "E64: checagem não é notícia (o re-armamento horário multiplica a dose por 24 — sem novidade, ZERO pop-up; notify é a exceção por delta, escola E48)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 13→14 NO MESMO COMMIT' "E64: pkgrel elite-system 13→14 NO MESMO COMMIT (lei E41 — craft-update + 4 units mudaram de conteúdo; âncora na HISTÓRIA, lição E58/E59)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2\.7' "v2.10.18/E30→E90: craft-dump etiqueta v2.7 (etiqueta = conteúdo — a v2.7: modos completos/WOL/E89 no papel)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2\.8' "E98 (E30→E90→): craft-dump etiqueta v2.8 (etiqueta = conteúdo — a dose no papel da seção 12; âncora refrescada viva)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'date \+%Y%m%d-%H%M%S' "v2.10.11: dump com segundos no STAMP (fim da colisão de dois runs no mesmo minuto — a doença do a4h8)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'if ! : > "\$OUT" 2>/dev/null; then' "v2.10.11: guard de escrita antes do papel (dump root-owned + rerun sem sudo = recusa clara)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" '90-elite-wake-guard.rules' "v2.10.11: dump prova a regra E24 no papel (seção 10)"
@@ -1181,7 +1181,7 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bgapps" '\( tr .*/proc/.pi
 # R9. A E23 GANHA CURANDEIRO VISÍVEL NO PAPEL (o nl3z não mostrou UM
 #     elite-keyring — o veredito da cura precisa ver quem cura):
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'elite-keyring-fix\.timer' "v2.10.12: a seção 5 mostra o timer da E23 (a cura estava invisível no papel)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2\.7' "v2.10.18/E30→E90: o papel é v2.7 (etiqueta = conteúdo — a v2.7: modos completos/WOL/E89 no papel; âncora refrescada viva)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2\.8' "E98 (E30→E90→): o papel é v2.8 (etiqueta = conteúdo — a v2.8/E98: a dose no papel [elite-update.log + pacman.log na seção 12] e a gaveta/lxqt no ps da seção 3; âncora refrescada viva)"
 
 # ── v2.10.18 · E30 — o papel p6aw (1325 linhas) + as fotos do dono ─────────
 # O rig real provou o que o QEMU não vê: bell misterioso (wall do firstboot
@@ -1867,10 +1867,29 @@ assert_grep "$CBARS95" 'gnome-keyring-daemon --unlock' "E95: a porta do unlock �
 CDMP95="$REPO/elite/airootfs/usr/local/bin/craft-dump"
 assert_grep "$CDMP95" 'coredumpctl info --no-pager craft-toplevel' "E95: o dump v2.7.1 fotografa o 'SIGSEGV, address' do coredumpctl (NULO ≠ SELVAGEM — a peça que faltava se um 139 resistir ao acolchoado)"
 assert_grep "$CDMP95" 'v2.7.1' "E95: a versão do dump no papel (o --update do rig compara versões — a perícia nunca envelhece)"
-assert_grep "$REPO/.ci/build.sh" 'files/usr/local/share/applications/gparted\.desktop' "E95: o override VIAJA no pacote (a lição E63: fora do pacote nunca chega ao rig pelo canal)"
+assert_grep "$REPO/.ci/build.sh" 'usr/local/share/applications/\*\.desktop' "E95→E98: o override VIAJA no pacote pela VARREDURA do dir (a lição E63 fica: fora do pacote nunca chega ao rig pelo canal)"
 assert_grep "$REPO/.ci/build.sh" 'gp_install' "E95: o PKGBUILD gera as linhas de instalação da família nova (a mesma dança do fastfetch/lock/docs)"
 assert_grep "$REPO/.ci/build.sh" "overwrite '/usr/local/share/applications/\*'" "E95 (E92, o 5º site): o elite-adopt da PONTE leva a família nova (senão a adoção recusa pelo MESMO conflito órfão que o rig flagrou)"
 CUPD95="$REPO/elite/airootfs/usr/local/bin/craft-update"
 assert_grep "$CUPD95" "'--overwrite' '/usr/local/share/applications/\\*'" "E95: o HOUSE_OVERWRITE do craft-update cobre a família nova (a lista↔payload é a porteira da 40-integration)"
+
+# ── E98: os overrides NoDisplay da loja/theming — a gramática da desktop-entry ──
+# (o gparted E95 NÃO entra na fila do NoDisplay: o override dele é FUNCIONAL —
+# troca o Exec para o elite-gparted — e a entrada TEM que continuar visível)
+for _ov in gparted octopi-notifier octopi-repoeditor qt6ct nwg-look; do
+    _ovf="$REPO/elite/airootfs/usr/local/share/applications/$_ov.desktop"
+    assert_grep "$_ovf" '^\[Desktop Entry\]$' "E98/gramática: $_ov.desktop abre com [Desktop Entry] (a mesa da spec — meio .desktop quebrado é entrada morta)"
+    assert_grep "$_ovf" '^Type=Application' "E98/gramática: $_ov.desktop declara Type=Application (sem Type o launcher engole a entrada em silêncio)"
+done
+for _ov in octopi-notifier octopi-repoeditor qt6ct nwg-look; do
+    _ovf="$REPO/elite/airootfs/usr/local/share/applications/$_ov.desktop"
+    assert_grep "$_ovf" '^NoDisplay=true' "E98/gramática: $_ov.desktop carrega o NoDisplay=true (a MESMA desktop-id na frente do XDG_DATA_DIRS — o trilho xgps da v1.2)"
+done
+ON98="$REPO/elite/airootfs/usr/local/share/applications/octopi-notifier.desktop"
+assert_grep "$ON98" '^Name=Octopi Notifier$' "E98/loja: fiel ao upstream aarnt/octopi (notifier/octopi-notifier.desktop — procedência lida no clone do upstream, não no palpite)"
+assert_grep "$ON98" '^Exec=/usr/bin/octopi-notifier$' "E98/loja: o Exec do Notifier é o upstream de verdade (oculto NÃO é mutilado — roda na mão se um dia pedir)"
+assert_grep "$REPO/elite/airootfs/usr/local/share/applications/octopi-repoeditor.desktop" '^Exec=/usr/bin/octopi-repoeditor$' "E98/loja: o Exec do RepoEditor idem (fiel; a decisão de OCULTAR é curadoria, a entrada não morre)"
+assert_grep "$REPO/elite/airootfs/usr/local/share/applications/qt6ct.desktop" '^Exec=qt6ct$' "E98/theming: o Exec do Qt6 Settings pelo nome (o pacote FICA — 'qt6ct fica', a nota do packages.remove; só a UI sai do menu)"
+assert_grep "$REPO/elite/airootfs/usr/local/share/applications/nwg-look.desktop" '^Exec=nwg-look$' "E98/theming: o Exec do GTK Settings pelo nome (nwg-look fica instalado — um dia de cursor novo roda na mão)"
 
 phase_end

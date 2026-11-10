@@ -1,0 +1,24 @@
+# ═════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · octopi-notifier.desktop (E98 — O OVERRIDE DA CASA)
+# ────────────────────────────────────────────────────────────────────────
+# POR QUE ELE EXISTE: o pacote octopi 0.19.0-2 do [cachyos] é o MONÓLITO
+# upstream (aarnt/octopi — os QUATRO .desktop nascem de um pacote só: não
+# existem sub-pacotes para remover; o -Q do rig lista só 'octopi'). O
+# Notifier é TRAY por natureza (X-LXQt-Need-Tray=true no upstream) e a
+# casa NÃO tem tray desde a E33 — ele nasceria morto; e avisar de updates
+# é papel da CASA (a dose do craft-update), não do polvo. Ocultar = a
+# MESMA desktop-id na FRENTE do XDG_DATA_DIRS (o trilho xgps da v1.2 — o
+# drawer do rig já esconde 26 entradas por este caminho, prova viva no
+# log do dump 203201). Restaurar: apague este arquivo. Roda na mão:
+# /usr/bin/octopi-notifier.
+# ═════════════════════════════════════════════════════════════════════════
+[Desktop Entry]
+Name=Octopi Notifier
+Comment=Get notified when package updates are available
+Icon=octopi
+Exec=/usr/bin/octopi-notifier
+Terminal=false
+Type=Application
+Categories=GNOME;GTK;System;
+StartupNotify=true
+NoDisplay=true

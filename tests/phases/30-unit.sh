@@ -2454,4 +2454,99 @@ assert_eq "$?" "1" "E95: sem gparted o bin recusa com rc 1 (a linha ensina 'pacm
 bash "$EGPU" --help >/dev/null 2>&1
 assert_eq "$?" "0" "E95 (E66): o --help sai 0 (o mapa antes do motor — a lei de todos os bins da casa)"
 
+# ═══════════════════════════════════════════════════════════════════════
+# E98 — A GAVETA QUE MORRE ANTES DE REABRIR: a prova comportamental do
+# toggle v1.7 com STUBS de PATH (a escola do seam, agora no /bin do
+# teste). O nwg-drawer de mentira assina o nascimento e dorme; o pgrep
+# lê um arquivo de estado (a gaveta 'viva'); o pkill mata o estado E
+# assina o golpe — e no modo PENDURADA ignora o sinal (a cena da gaveta
+# que não morre). O julgamento é a DANÇA das 20:31 do dump 203201,
+# agora determinística: nasce → mata e ESPERA → o eco no vão do túmulo
+# não reabre → passado o túmulo, abre → a pendurada ganha o -9.
+# ═══════════════════════════════════════════════════════════════════════
+CDR98U="$REPO/elite/airootfs/usr/local/bin/craft-drawer"
+mkdir -p "$WORK/e98/bin" "$WORK/e98/run"
+cat > "$WORK/e98/bin/nwg-drawer" <<'EOF'
+#!/bin/sh
+# o drawer de mentira: assina o nascimento e dorme o E98_TTL (0 = morre já)
+printf 'nasceu %s\n' "$$" >> "$E98_STATE"
+exec /usr/bin/sleep "${E98_TTL:-60}"
+EOF
+chmod +x "$WORK/e98/bin/nwg-drawer"
+cat > "$WORK/e98/bin/pgrep" <<'EOF'
+#!/bin/sh
+# o pgrep de mentira: a gaveta 'viva' é um arquivo (determinístico)
+[ -f "$E98_ALIVE" ] && exit 0
+exit 1
+EOF
+chmod +x "$WORK/e98/bin/pgrep"
+cat > "$WORK/e98/bin/pkill" <<'EOF'
+#!/bin/sh
+# o pkill de mentira: assina o golpe; PENDURADA (E98_HUNG) ignora o sinal
+printf 'pkill %s\n' "$*" >> "$E98_STATE"
+[ -n "${E98_HUNG:-}" ] && exit 0
+rm -f "$E98_ALIVE"
+exit 0
+EOF
+chmod +x "$WORK/e98/bin/pkill"
+cat > "$WORK/e98/bin/sleep" <<'EOF'
+#!/bin/sh
+# o sleep de prova: a espera da morte vira 10ms; o cão de guarda (300s)
+# acorda já e acha comm != nwg-drawer (o guardião de mentira é inofensivo)
+case "$1" in
+    0.05) exec /usr/bin/sleep 0.01 ;;
+    300)  exit 0 ;;
+esac
+exec /usr/bin/sleep "$@"
+EOF
+chmod +x "$WORK/e98/bin/sleep"
+run98() {
+    env PATH="$WORK/e98/bin:$PATH" XDG_RUNTIME_DIR="$WORK/e98/run" \
+        E98_STATE="$WORK/e98/state" E98_ALIVE="$WORK/e98/alive" \
+        E98_TTL="${E98_TTL:-0}" E98_HUNG="${E98_HUNG:-}" \
+        sh "$CDR98U" "$@" >/dev/null 2>&1
+}
+# (1) abrir NASCE a gaveta (o wrapper espera a morte do stub e volta)
+: > "$WORK/e98/state"; rm -f "$WORK/e98/alive" "$WORK/e98/run/elite/drawer-toggle.stamp" \
+    "$WORK/e98/run/elite/drawer-grave.stamp"
+run98
+assert_eq "$?" "0" "E98/drawer: abrir nasce a gaveta e volta limpo (o wrapper espera o filho — o wait não vira Processo Vivo Eterno)"
+assert_grep "$WORK/e98/state" '^nasceu ' "E98/drawer: o nascimento assinado no papel (o stub grava o pid — a dança começa)"
+# (2) o freio E88 segue vivo: 2ª chamada no vão de 400ms não nasce duas
+_n98=$(grep -c '^nasceu ' "$WORK/e98/state")
+run98
+_n98b=$(grep -c '^nasceu ' "$WORK/e98/state")
+assert_eq "$_n98b" "$_n98" "E98/E88: o freio ainda reina (chamada no vão de 400ms = um só nascimento — a regressão do freio está presa)"
+# (3) o toggle com a gaveta viva MATA e espera a morte e sela o túmulo
+touch "$WORK/e98/alive"
+_now98=$(date +%s%N)
+printf '%s\n' $(( _now98 - 900000000 )) > "$WORK/e98/run/elite/drawer-toggle.stamp"   # fora do vão do freio
+run98
+assert_eq "$?" "0" "E98/drawer: o toggle-fecha sai limpo (o pkill + o túmulo + return)"
+assert_grep "$WORK/e98/state" 'pkill -x nwg-drawer' "E98/drawer: o golpe do toggle assinado (a gaveta viva morre pela mão do wrapper)"
+[ -f "$WORK/e98/run/elite/drawer-grave.stamp" ]
+assert_eq "$?" "0" "E98/drawer: O TÚMULO selado na morte (o eco do fechamento tem contra-prova no disco)"
+# (4) o clique-eco NO VÃO DO TÚMULO não reabre (a cena das 20:31 morta)
+rm -f "$WORK/e98/alive"
+_now98=$(date +%s%N)
+printf '%s\n' $(( _now98 - 500000000 )) > "$WORK/e98/run/elite/drawer-toggle.stamp"   # freio já passou (500ms)
+printf '%s\n' $(( _now98 - 300000000 )) > "$WORK/e98/run/elite/drawer-grave.stamp"    # túmulo no vão (300ms < 600ms)
+_n98=$(grep -c '^nasceu ' "$WORK/e98/state")
+run98
+_n98b=$(grep -c '^nasceu ' "$WORK/e98/state")
+assert_eq "$_n98b" "$_n98" "E98/drawer: O TÚMULO engole o eco (a 600ms da morte, o clique que era a REABERTURA das 20:31 morre em silêncio)"
+# (5) passado o túmulo, abre de novo (o toggle honesto segue honesto)
+_now98=$(date +%s%N)
+printf '%s\n' $(( _now98 - 800000000 )) > "$WORK/e98/run/elite/drawer-toggle.stamp"
+printf '%s\n' $(( _now98 - 700000000 )) > "$WORK/e98/run/elite/drawer-grave.stamp"    # túmulo vencido (700ms > 600ms)
+_n98=$(grep -c '^nasceu ' "$WORK/e98/state")
+run98
+_n98b=$(grep -c '^nasceu ' "$WORK/e98/state")
+assert_eq "$_n98b" "$(( _n98 + 1 ))" "E98/drawer: passado o túmulo a gaveta NASCE de novo (o usuário que quer reabrir, reabre — o silêncio não é eterno)"
+# (6) a PENDURADA ganha o -9 (SIGTERM ignorado 1.5s = misericórdia)
+rm -f "$WORK/e98/run/elite/drawer-toggle.stamp" "$WORK/e98/run/elite/drawer-grave.stamp"
+touch "$WORK/e98/alive"
+E98_HUNG=1 run98
+assert_grep "$WORK/e98/state" 'pkill -9 -x nwg-drawer' "E98/drawer: a pendurada recebe o -9 após o teto (o stub ignora o TERM — o martelo fala; a gaveta presa nunca é eterna)"
+
 phase_end

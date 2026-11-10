@@ -1,6 +1,6 @@
 #!/bin/sh
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · craft-menu-dismiss (v1.0 — A LEI DO DISMISS, v2.9.0)
+# Archcraft ELITE · craft-menu-dismiss (v1.1 — A LEI DO DISMISS, v2.9.0/E98)
 # ═══════════════════════════════════════════════════════════════════════════
 # O QUE É: o fechamento de menu por clique fora, como LEI DO COMPOSITOR.
 #
@@ -22,12 +22,24 @@
 #     (um stat() no state) — o clique esquerdo do desktop continua MUDO
 #     na prática, como o dono quer desde a v2.7.
 #
+# v1.1 (E98 — O MARTELO ALCANÇA A GAVETA): o relato do dono ("menu de
+#   aplicativos em primeiro plano que não fecha") + o baile das 20:31 no
+#   dump 203201 — a GAVETA (nwg-drawer, layer-shell, keyboard-exclusivo)
+#   não tinha martelo: o state só casa fuzzel, e uma gaveta presa não
+#   morria por clique-fora NENHUM. Agora o clique no desktop encerra
+#   QUALQUER gaveta aberta, por comm exato (pkill -x — a mesma lei: pid
+#   é pid, comm é a prova), com uma linha no menus.log quando fala — o
+#   próximo dump prova o martelo em ação.
+#
 # GARANTIAS (a classe de bug que matou a gaiola é impossível aqui):
 #   · nenhuma superfície, nenhuma input region, nenhuma geometria;
-#   · só mata processo cujo comm é EXATAMENTE "fuzzel" (nunca um pid
-#     reciclado de outro programa — mesma lei do toggle do craft-menu);
+#   · só mata processo cujo comm é EXATAMENTE "fuzzel" (state — nunca um
+#     pid reciclado de outro programa) ou "nwg-drawer" (martelo, comm
+#     exato — mesma lei do toggle do craft-menu/craft-drawer);
 #   · estado é do craft-menu: o kill interrompe o wait() lá e o trap
-#     EXIT do craft-menu limpa o state; o rm aqui é cinto e suspendrio.
+#     EXIT do craft-menu limpa o state; o rm aqui é cinto e suspensório.
+#   · sem gaveta e sem menu: no-op de poucos milissegundos (um pkill
+#     comm-exato + um stat no state — o esquerdo segue MUDO na prática).
 # ═══════════════════════════════════════════════════════════════════════════
 set -u
 
@@ -38,15 +50,24 @@ uso() {
         '     (a lei de cross-dismiss: um menu novo ou um lançamento nunca' \
         '     convivem com o anterior)' \
         '' \
-        '  sem args — varre os sockets/daemons de menu (fuzzel, nwg-drawer,' \
-        '  OSD) e encerra com a gramática 0/1/143 no menus.log.'
+        '  sem args — encerra a gaveta aberta (martelo E98) e o menu fuzzel' \
+        '  do state (comm exato); gramática 0/1/143 no menus.log.'
     exit 0
 }
 case "${1:-}" in -h|--help|uso) uso ;; esac
 
+# E98 — O MARTELO (antes do state: a gaveta não é fuzzel e nunca terá
+# state; o clique no desktop é do dono — qualquer overlay aberto encerra)
+if pkill -x nwg-drawer 2>/dev/null; then
+    mlog="${XDG_CACHE_HOME:-${HOME:-/root}/.cache}/elite/menus.log"
+    mkdir -p "${mlog%/*}" 2>/dev/null || true
+    printf '[%s] gaveta: encerrada pelo clique-fora (martelo E98 — comm nwg-drawer)\n' \
+        "$(date '+%Y-%m-%d %H:%M:%S')" >> "$mlog" 2>/dev/null || true
+fi
+
 ST="${XDG_RUNTIME_DIR:-/tmp}/elite-menus.$(id -u 2>/dev/null || echo 0)"
 
-# sem state = sem menu aberto = no-op imediato (o caminho comum)
+# sem state = sem menu fuzzel aberto = no-op imediato (o caminho comum)
 [ -f "$ST" ] || exit 0
 
 pid=""

@@ -439,8 +439,11 @@ cp -p /work/docs/SCRIPTS.md \
 # /usr/share/applications fica intocado (o override é a nossa fronteira;
 # desinstalar o elite-system devolve o comportamento cru do Arch).
 mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/applications
-cp -p /work/elite/airootfs/usr/local/share/applications/gparted.desktop \
-      /tmp/elite-src/elite-system/files/usr/local/share/applications/gparted.desktop
+# E98 — o trilho único da E95 vira VARREDURA: todo .desktop de override
+# embarca sozinho (gparted E95 · octopi-notifier/octopi-repoeditor/qt6ct/
+# nwg-look E98) — override novo é ARQUIVO NOVO NO DIR, zero cirurgia aqui.
+cp -p /work/elite/airootfs/usr/local/share/applications/*.desktop \
+      /tmp/elite-src/elite-system/files/usr/local/share/applications/
 # E75 — O HOOK DA CASA NO PACMAN (a auditoria do dono: 'estruturar hooks
 # nativos do pacman para disparar checagens de hardware... após qualquer
 # pacman -Syu'). O gap provado no papel: a pedagogia de reboot do kernel
@@ -520,9 +523,18 @@ doc_install = '    install -d "${pkgdir}/usr/local/share/elite/docs"\n    instal
 doc_rm = '    [ -e "/usr/local/share/elite/docs/SCRIPTS.md" ] && rm -f "/usr/local/share/elite/docs/SCRIPTS.md"\n'
 # E95 — o override do gparted (mesma dança: o rig da ISO velha pode ter
 # um gparted.desktop sem dono por lá — o pre_install adota antes da
-# extração; caminho NOVO em rig comum = criação limpa)
-gp_install = '    install -d "${pkgdir}/usr/local/share/applications"\n    install -m644 "${startdir}/files/usr/local/share/applications/gparted.desktop" "${pkgdir}/usr/local/share/applications/gparted.desktop"\n'
-gp_rm = '    [ -e "/usr/local/share/applications/gparted.desktop" ] && rm -f "/usr/local/share/applications/gparted.desktop"\n'
+# extração; caminho NOVO em rig comum = criação limpa).
+# E98 — O TRILHO VIROU VARREDURA: TODO .desktop em files/usr/local/share/
+# applications/ embarca sozinho (gparted E95 + octopi-notifier,
+# octopi-repoeditor, qt6ct, nwg-look E98) com a sua linha de install E a
+# sua linha de adoção no pre_install — a lição E95 generalizada: override
+# novo é arquivo novo no dir, zero cirurgia neste PKGBUILD.
+ovr = sorted(p.name for p in (d / 'files/usr/local/share/applications').glob('*.desktop'))
+gp_install = '    install -d "${pkgdir}/usr/local/share/applications"\n'
+gp_rm = ''
+for o in ovr:
+    gp_install += f'    install -m644 "${{startdir}}/files/usr/local/share/applications/{o}" "${{pkgdir}}/usr/local/share/applications/{o}"\n'
+    gp_rm += f'    [ -e "/usr/local/share/applications/{o}" ] && rm -f "/usr/local/share/applications/{o}"\n'
 # E75 — o hook libalpm da casa (dono ÚNICO no pacote; pacman remove sozinho
 # na desinstalação — arquivo pertence ao pacote, sem dança de adoção)
 pt_install = '    install -Dm644 "${startdir}/elite-post-transaction.hook" "${pkgdir}/usr/share/libalpm/hooks/elite-post-transaction.hook"\n'
@@ -1189,7 +1201,39 @@ pkgver=1.0
 #     E a peça do sha na suíte ganha os DOIS pins (o ponto cego morre).
 #     pkgrel 41→42 NO MESMO COMMIT (lei E41 — o conteúdo do pacote muda:
 #     o bin do appimage e o PKGBUILD do pacote único).
-pkgrel=42
+# 10/nov — E98: O MENU QUE NÃO FECHA + A LOJA LIMPA + A DOSE NO PAPEL — o
+#     dia do julgamento dos dumps 202112/203201 (o relogin do dono às
+#     20:27:45 e o baile da gaveta às 20:31: B morta às :37, C NASCIDA às
+#     :38 — o clique-eco de 'fechar de novo' achava o processo morto e
+#     reabria; o relato 'menu de aplicativos que não fecha' era a cara
+#     da REABERTURA). Cinco frentes: (1) craft-drawer v1.7 — A MORTE
+#     ESPERADA (o toggle que mata agora ESPERA a morte: pkill assíncrono
+#     era a porta) + O TÚMULO (600ms de silêncio contados da MORTE — o
+#     freio E88 cobria o vão do nascer, o túmulo cobre o do morrer) + O
+#     CÃO DE GUARDA (300s e a gaveta presa encerra sozinha, pid+comm
+#     provado — o 'timer dos menus' da fila E98 feito carne sem matar
+#     gaveta em uso); (2) craft-menu-dismiss v1.1 — O MARTELO ALCANÇA A
+#     GAVETA (clique no desktop encerra qualquer gaveta aberta, comm
+#     exato, linha no menus.log); (3) A LOJA LIMPA — o monólito octopi
+#     0.19.0-2 do [cachyos] carrega os QUATRO .desktop de uma vez (não
+#     há sub-pacote a tirar; o -Q do rig lista só 'octopi'): notifier
+#     (a tray morreu na E33 e avisar update é papel da casa) e
+#     repoeditor (repos são curadoria, não GUI de leigo) ficam OCULTOS
+#     por overrides NoDisplay na frente do XDG_DATA_DIRS — o trilho
+#     xgps/gparted, e o drawer do rig JÁ esconde 26 entradas por ele
+#     (prova viva no dump 203201); QT6CT e NWG-LOOK idem (pedido do
+#     dono: 'o sistema utiliza, mas pode ser ocultado' — pacotes ficam,
+#     a UI sai do menu, roda na mão); (4) O TRILHO VIROU VARREDURA no
+#     build — todo .desktop do dir embarca sozinho (lição E95
+#     generalizada); (5) A DOSE NO PAPEL — craft-dump v2.8 (seção 12
+#     ganha o elite-update.log + as linhas elite-system do pacman.log:
+#     o minuto da aterrissagem deixa de ser janela; o ps da seção 3
+#     filtra nwg-drawer/lxqt-policykit) + elite-session-probe v2.2 (a
+#     LENTE: DRAWER_OPEN/FUZZEL_OPEN com pid+argv — o réu da gaveta
+#     aparece lavado no próximo dump).
+#     pkgrel 42→43 NO MESMO COMMIT (lei E41 — 4 overrides novos, 4 bins
+#     de conteúdo mudado, o trilho do build generalizado).
+pkgrel=43
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

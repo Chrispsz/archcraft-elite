@@ -20,6 +20,24 @@
 #   daemon — a instância aberta É o processo; detectar por nome exato
 #   (pgrep -x) e matar (pkill -x) é o toggle inteiro.
 #
+# v1.7 (E98 — A MORTE ESPERADA + O TÚMULO + O CÃO DE GUARDA): o baile das
+#   20:31 no dump 203201 do rig — gaveta B nascida às :36, SIGTERM às :37,
+#   gaveta C NASCIDA às :38, SIGTERM às :39. O pkill era um grito
+#   ASSÍNCRONO (sinal, sem esperar a morte): o clique-eco de 'fechar de
+#   novo' achava o processo JÁ morto e nascia OUTRA gaveta — o relato do
+#   dono ("menu de aplicativos em primeiro plano que não fecha") era a
+#   cara da REABERTURA, não da teimosia. Curas:
+#   (1) A MORTE ESPERADA: o toggle que mata ESPERA a morte (poll 50ms,
+#       teto 1.5s — a superfície some da tela ANTES do wrapper sair; o
+#       -9 após o teto é a misericórdia para a gaveta pendurada);
+#   (2) O TÚMULO: fechou por toggle = 600ms de silêncio contados da
+#       MORTE (o eco do clique não reabre — o freio E88 cobria o vão do
+#       NASCER, o túmulo cobre o vão do MORRER);
+#   (3) O CÃO DE GUARDA: 300s e a gaveta encerra sozinha, por pid + comm
+#       provado (ninguém encara uma grade de apps por 5 minutos — quem
+#       encara está presa; o 'timer dos menus' da fila E98 feito carne,
+#       sem timer que mate gaveta em USO: o guardião só fala aos 300s).
+#
 # Flags (upstream nwg-piotr/nwg-drawer):
 #   -fm       gerenciador de arquivos (busca de arquivos do drawer —
 #             Thunar, o FM padrão da v1.5: xdg-mime inode/directory)
@@ -35,7 +53,8 @@ uso() {
         '     cheia com busca; clique abre, Esc/clique fora fecha' \
         '' \
         '  W-d / tecla Super abrem. O FREIO do toggle (E88) trava o re-nascimento' \
-        '  por 400ms — dois toggles no mesmo meio segundo são um só. Sem args.'
+        '  por 400ms; o TÚMULO (E98) segura o eco do fechamento por 600ms; o CÃO' \
+        '  DE GUARDA (E98) encerra uma gaveta presa aos 300s. Sem args.'
     exit 0
 }
 case "${1:-}" in -h|--help|uso) uso ;; esac
@@ -48,6 +67,9 @@ case "${1:-}" in -h|--help|uso) uso ;; esac
 # a guerra de nascimentos morre. Stamp no XDG_RUNTIME_DIR (morre com a
 # sessão — zero lixo, a lei da casa).
 STAMP="${XDG_RUNTIME_DIR:-/tmp}/elite/drawer-toggle.stamp"
+# E98 — O TÚMULO: o freio cobria o vão do nascer; o vão do MORRER é deste
+# stamp (escrito só no fechamento-por-toggle, contado da morte).
+GRAVE="${XDG_RUNTIME_DIR:-/tmp}/elite/drawer-grave.stamp"
 mkdir -p "${STAMP%/*}" 2>/dev/null || true
 now_ns="$(date +%s%N 2>/dev/null || echo 0)"
 last_ns="$(cat "$STAMP" 2>/dev/null || echo 0)"
@@ -62,17 +84,58 @@ if [ "$now_ns" -gt 0 ] && [ "$last_ns" -gt 0 ]; then
     fi
 fi
 
-# TOGGLE: gaveta aberta? fecha e sai
+# TOGGLE: gaveta aberta? mata, ESPERA a morte (E98 — o grito assíncrono era
+# a porta da reabertura), sela o túmulo com a hora da MORTE e sai
 if pgrep -x nwg-drawer >/dev/null 2>&1; then
     pkill -x nwg-drawer 2>/dev/null || true
+    _n=0
+    while pgrep -x nwg-drawer >/dev/null 2>&1 && [ "$_n" -lt 30 ]; do
+        sleep 0.05
+        _n=$((_n + 1))
+    done
+    # pendurada além do teto (30 × 50ms = 1.5s)? a misericórdia fala mais alto
+    if pgrep -x nwg-drawer >/dev/null 2>&1; then
+        pkill -9 -x nwg-drawer 2>/dev/null || true
+    fi
+    dead_ns="$(date +%s%N 2>/dev/null || echo 0)"
+    case "$dead_ns" in ''|*[!0-9]*) dead_ns=0 ;; esac
+    echo "$dead_ns" > "$GRAVE" 2>/dev/null || true
     exit 0
 fi
 
-exec nwg-drawer \
+# O TÚMULO (E98): acabou de fechar por toggle? o eco do clique não reabre —
+# 600ms de silêncio contados da MORTE, não do clique (o freio E88 já comeu
+# o primeiro vão de 400ms; o túmulo cobre o resto do eco)
+grave_ns="$(cat "$GRAVE" 2>/dev/null || echo 0)"
+case "$grave_ns" in ''|*[!0-9]*) grave_ns=0 ;; esac
+if [ "$grave_ns" -gt 0 ] && [ "$now_ns" -gt 0 ]; then
+    gdelta=$((now_ns - grave_ns))
+    [ "$gdelta" -lt 0 ] && gdelta=0
+    if [ "$gdelta" -lt 600000000 ]; then
+        exit 0   # eco do fechamento — o túmulo fala
+    fi
+fi
+
+# O CÃO DE GUARDA (E98): 300s e a gaveta encerra sozinha — pid + comm
+# provado (a mesma lei do craft-menu-dismiss: pid é pid, comm é a prova;
+# o guardião órfão nunca encerra gaveta de outro dono). O wrapper espera
+# a gaveta (wait) para ceifar o guardião na saída — zero processos vivos
+# depois do fechamento normal, o alívio só mora no pior dia.
+nwg-drawer \
   -fm "thunar" \
   -term foot \
   -is 64 \
   -c 8 \
   -spacing 16 \
   -nocats \
-  "$@"
+  "$@" &
+_dpid=$!
+( sleep 300
+  if [ "$(ps -o comm= -p "$_dpid" 2>/dev/null || true)" = "nwg-drawer" ]; then
+      kill "$_dpid" 2>/dev/null || true
+  fi
+) >/dev/null 2>&1 &
+_wdpid=$!
+wait "$_dpid" 2>/dev/null || true
+kill "$_wdpid" 2>/dev/null || true
+exit 0
