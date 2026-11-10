@@ -81,10 +81,11 @@ assert_nogrep "$REPO/.github/workflows/build.yml" "^\s*elite/airootfs/usr/local/
 assert_grep "$REPO/.github/workflows/build.yml" "FUZZEL_BIN" "v2.3.1: gate da sessão cobre fuzzel presente (menus da família craft-*)"
 assert_grep "$REPO/.github/workflows/build.yml" "FUZZEL_INI" "v2.3.1: gate da sessão cobre fuzzel.ini parseável (config corrompida = todos os menus mortos)"
 
-# peças: YAML válido (os 5 workflows — v1.5.2: diag-install renomeado p/
-# verify-install [nomenclatura de debug não vive em pipeline de produção]
-# e publish-artifact entrou na lista: é load-bearing no release manual)
-for y in build.yml verify-install.yml agents.yml tests.yml publish-artifact.yml; do
+# peças: YAML válido (TODOS os workflows vivos — v1.5.2: diag-install
+# renomeado p/ verify-install [nomenclatura de debug não vive em pipeline de
+# produção]; publish-artifact é load-bearing no release manual;
+# publish-packages é o canal diário — v2.11.3 fecha a lista)
+for y in build.yml verify-install.yml tests.yml publish-artifact.yml publish-packages.yml; do
   if [[ -f "$REPO/.github/workflows/$y" ]]; then
     python3 -c "import yaml,sys; yaml.safe_load(open(sys.argv[1]))" "$REPO/.github/workflows/$y" 2>/dev/null \
       && ok "yaml: $y parseia" \
@@ -530,17 +531,12 @@ ZR="$REPO/elite/airootfs/etc/systemd/zram-generator.conf"
 assert_grep "$ZR" '^\[zram0\]$' "zram: seção [zram0]"
 assert_grep "$ZR" 'compression-algorithm = zstd' "zram: compressão zstd"
 
-# ── peça: agents/*.ts transpilam (o agents.yml roda bun neles no CI) ──
-if command -v bun >/dev/null 2>&1; then
-  tsfail=""
-  for f in "$REPO"/agents/*.ts; do
-    bun build "$f" --target=bun --outfile="$WORK/ts-check.js" >/dev/null 2>&1 \
-      || tsfail="$tsfail $(basename "$f")"
-  done
-  assert_eq "$tsfail" "" "agents: todo *.ts transpila (gate de sintaxe bun)"
-else
-  skip "agents: gate de sintaxe bun" "bun ausente — o workflow agents.yml o executa"
-fi
+# ── peça v2.11.3: harness de agentes de IA fora do repo (infraestrutura
+#    estranha ao produto — a revisão de código é a suíte de contratos) ──
+assert_nofile "$REPO/.github/workflows/agents.yml" "v2.11.3: agents.yml removido (auditoria por IA fora do repositório)"
+assert_nofile "$REPO/agents/run.ts" "v2.11.3: agents/ removido (nada de relay de IA no repo)"
+assert_nofile "$REPO/docs/AGENTS.md" "v2.11.3: docs/AGENTS.md removido"
+assert_nogrep "$REPO/README.md" 'Token Harbor' "v2.11.3: README sem menção a infra de IA externa"
 
 # ── peças: contratos do tests.yml (a suíte protege o PRÓPRIO gate) ──
 TY="$REPO/.github/workflows/tests.yml"

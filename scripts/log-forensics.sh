@@ -2,11 +2,10 @@
 # =====================================================================
 #  scripts/log-forensics.sh — GATE de forense do log de build (v1.5.2)
 #
-#  DIRETRIZ DO DONO (22/out/2026, pós-v1.5): "os agentes do repositório
-#  devem analisar justamente os logs minuciosamente; esses erros não
-#  podem passar ou serem tratados como algo normal". Este gate é a
-#  metade DETERMINÍSTICA da diretriz (a metade semântica são os agentes
-#  deepseek/mimo do agents.yml, sob demanda): varre o log inteiro da build e
+#  DIRETRIZ DO DONO (22/out/2026, pós-v1.5): "os logs devem ser
+#  analisados minuciosamente; esses erros não podem passar ou serem
+#  tratados como algo normal". Este gate é a metade DETERMINÍSTICA da
+#  diretriz: varre o log inteiro da build e
 #  transforma padrão de erro conhecido em run VERMELHA — ANTES do
 #  release, não no burn test do dono.
 #

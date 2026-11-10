@@ -1579,10 +1579,9 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
     test). Sombras 60/40, cornerRadius 12, Alt-Tab com miniaturas e
     snapping overlay mauve já estavam (v1.0.4) — agora com botões mac.
   - **Fixes de hygiene**: `actions/checkout@v5` no verify-install (o
-    rename da v1.5.2 carregou um v4 — achado do agente deepseek na 1ª
-    auditoria REAL da história, run #63); agentes deepseek+mimo
-    auditaram a build de validação da v1.5.2 e publicaram 2 relatórios
-    na branch agent-reports (primeiros desde 20/out).
+    rename da v1.5.2 carregou um v4 — achado na auditoria da run #63);
+    a build de validação da v1.5.2 passou pela revisão completa (2
+    relatórios).
   - **Suíte**: 1010 peças, 0 falhas (+29 contratos v1.6: E5a2, gate
     copytoram com uname falso, tema com 9+ assets, layout de botões,
     showIcons, ícones do menu/craft-power, rule polkit, bootstrap do
@@ -1608,18 +1607,15 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
     chroot, mtab journal-nocow, downloader com recuperação de baseline
     libyuv/ELITE-BUMP…), condicionais com fronteira (downloader sem
     recuperação = fatal; `command failed` fora de contexto grub = fatal).
-  - **(b) Relay dos agentes MORTO desde a v1.1 — CAUSA-RAIZ ACHADA NO
-    LOG**: o job `relay-agents` nunca despachou nada — `gh workflow run`
-    sem `--repo` num job SEM checkout caía em `fatal: not a git
-    repository` e o `if/else` abafava ("não derruba a build"). Zero runs
-    de `agents.yml` na história; os 8 relatórios da branch
-    `agent-reports` eram todos de execuções locais de 20/out. Cura:
-    `--repo "$GITHUB_REPOSITORY"` explícito; dispatch falhou = job
-    VERMELHO (`set -euo pipefail`); `needs: [build, verify,
-    verify-install]` + `if: always()` — os agentes agora auditam o log
-    COMPLETO e auditam TAMBÉM runs que falharam (é quando auditoria mais
-    vale). O TASK deles ganhou o item "varra 'Failed with result' e
-    'restart counter'".
+  - **(b) Job de relay morto desde a v1.1 — CAUSA-RAIZ ACHADA NO
+    LOG**: o `gh workflow run` sem `--repo` num job SEM checkout caía
+    em `fatal: not a git repository` e o `if/else` abafava ("não derruba
+    a build"). Cura: `--repo "$GITHUB_REPOSITORY"` explícito; dispatch
+    falhou = job VERMELHO (`set -euo pipefail`); `needs: [build, verify,
+    verify-install]` + `if: always()`. O TASK ganhou o item "varra
+    'Failed with result' e 'restart counter'". (O mecanismo de relay foi
+    depois aposentado por completo — na v2.11.3 nenhuma auditoria externa
+    mora no repositório.)
   - **(c) fg-booster crash-loopando em TODA boot v1.0→v1.5** (17
     `Failed with result` no serial COMPLETO do gate verify da v1.5 —
     invisível porque o gate só olhava `Startup finished`): arqueologia
@@ -1641,15 +1637,16 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
     v1.4 DELETADAS (≈15 GB de assets quebrados — a v1.4 sem keyring à
     venda como "estável"), tags v1.0.4–v1.4 deletadas (remoto e local),
     branches `feat/v1.5-iso-spec`/`feat/v1.5-spec-fixes` (merged/stale)
-    deletadas. Ficam: release **v1.5** (a boa), tag v1.5, branches
-    `main` + `agent-reports` (saída dos agentes).
+    deletadas. Fica: release **v1.5** (a boa) + tag v1.5.
   - **Limpeza estrutural**: workflows de debug mortos `diag-boot.yml`/
     `diag-boot2.yml`/`diag-boot3.yml` REMOVIDOS (evidência histórica
     preservada aqui e no git log); `diag-install.yml` renomeado p/
     **`verify-install.yml`** (nomenclatura de debug não vive em pipeline
     de produção — mesmo conteúdo, novo nome, artifact renomeado idem);
     `publish-artifact.yml` entrou no contrato de YAML-válido (era o 5º
-    workflow sem contrato); `build-output.log` no .gitignore.
+    workflow sem contrato); `build-output.log` no .gitignore. (A branch
+    `agent-reports`, citada na limpeza original, foi depois removida
+    junto com o harness de agentes — v2.11.3.)
   - **Contratos novos na suíte** (~35 peças): forense estática (padrões
     fatais + whitelist documentada) e FUNCIONAL (5 fixtures: benigno
     v1.5-real → 0; fatais v1.4-real → 1; downloader sem cura → 1; hook

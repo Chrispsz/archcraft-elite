@@ -34,16 +34,15 @@ archcraft-elite/
 │   ├── publish-packages.yml        O CANAL DIÁRIO (o commit de hoje chega
 │   │                               ao rig hoje, sem ISO)
 │   ├── verify-install.yml          a instalação provada
-│   └── …                           agentes/artefatos
-├── tests/                      ← A SUÍTE (a cadeia — 2436 peças)
+│   └── publish-artifact.yml        publicação manual de release
+├── tests/                      ← A SUÍTE (a cadeia — ~5.9 mil peças)
 │   ├── lib/                        o ambiente (mocks, extract.sh, core)
 │   └── phases/20…50                estática → unidade → integração → release
 ├── vendor/                     ← FONTES VENDADAS (sha256 pinado; mudou 1
 │   │                               byte, o makepkg PARA)
 ├── scripts/                    ← FERRAMENTAS DO MANTENEDOR
 │   ├── apply-overlay.sh            a ponte repo → airootfs
-│   ├── logs_dono/                  os dumps do rig do dono (provas)
-│   └── …                           forense, qemu, brave
+│   └── …                           forense, qemu, brave, curas vivas
 ├── docs/                       ← O PAPEL
 │   ├── ESTRUTURA.md                este mapa
 │   ├── FUTURO.md                   o brainstorm da evolução (E53)
@@ -52,7 +51,6 @@ archcraft-elite/
 │   └── gestao/                     a governança (PROTOCOL, POLIMENTO,
 │                                   ARQUITETURA, ATUALIZACOES, AUDITORIA,
 │                                   EFICIENCIA)
-├── agents/                     ← o harness dos agentes de CI
 └── README.md                   ← a porta de entrada (porteira E45/D1:
                                    todo craft-*/elite-* citado existe)
 ```
@@ -69,7 +67,7 @@ archcraft-elite/
    guard cobra; sem isso o `-Syu` pula a cura em silêncio).
 4. **Lei da release única viva**: NENHUMA tag no dia a dia (a ISO é
    mensal); o canal diário publica pacotes, nunca toca a release.
-5. **A suíte é a porteira**: 2436 peças em cadeia; fase morta = NO-GO; o
+5. **A suíte é a porteira**: ~5.9 mil peças em cadeia; fase morta = NO-GO; o
    CI nunca é o primeiro a ver uma classe de defeito (a lição E49.1).
 
 ## Como navegar (as perguntas mais comuns)

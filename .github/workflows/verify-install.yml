@@ -336,7 +336,7 @@ jobs:
           # "pra você pegar nos testes logs do instalador em tempo real"):
           # o tee abaixo STREAMA linha a linha para o console da Actions
           # (o log da run é o "terminal ao vivo" da instalação) E grava o
-          # arquivo completo p/ auditoria dos agentes + o filtro destacado
+          # arquivo completo p/ auditoria posterior + o filtro destacado
           # mostra cada marcador ELITE na hora (linha a linha, sem buffer).
           sudo rootfs/usr/local/bin/elite-install-stage /mnt/elite 2>&1 | stdbuf -oL -eL tee elite-install-stage.log | grep --line-buffered -E 'ELITE|ERRO|error|premature|truncad' || true
           STAGE_RC=${PIPESTATUS[0]}

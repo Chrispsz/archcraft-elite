@@ -64,8 +64,6 @@ só cai com runner maior (decisão de custo, não implementada).
 4. **release** — GATE 1 (artifact vs. sha256sums) e GATE 2 (re-download dos
    assets) falham VERMELHO se qualquer byte divergir. Sem asset quebrado no
    ar.
-5. Auditoria por IA opcional: `gh workflow run agents.yml -f agent=deepseek
-   -f task="audite a run X" -f context=ci:<run_id>` (ver docs/AGENTS.md).
 
 ## Suíte de contratos (`tests.yml`)
 

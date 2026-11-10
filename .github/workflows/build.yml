@@ -12,11 +12,7 @@ on:
     paths-ignore: ['**.md', 'docs/**', 'tests/**']
 
 # v2.1 — menor privilégio: o workflow inteiro só lê; ÚNICO job com
-# escrita é o release (publica a release). O job de relay automático foi REMOVIDO
-# do pipeline: dispatchava deepseek+mimo EM TODA build — inclusive em
-# runs canceladas (a #91 cancelada queimou 2 dispatches) — até esgotar
-# a cota free do Token Harbor (HTTP 429 em massa). Auditoria de IA agora
-# é sob demanda: agents.yml manual, protocolo em docs/AGENTS.md.
+# escrita é o release (publica a release).
 permissions:
   contents: read
 
@@ -394,8 +390,7 @@ jobs:
       # ── E31 (v2.10.19) — LEI DA RELEASE ÚNICA VIVA, AGORA COM DENTES ──
       # Publicada a release da tag corrente, TODA outra release sai do ar
       # (em qualquer momento só UMA vive) — as TAGS ficam (lei: tag nunca
-      # se apaga, --cleanup-tag=false). Antes disto a lei dependia do
-      # agente executá-la à mão após o verde; a CI mesma cumpre agora —
+      # se apaga, --cleanup-tag=false). A CI mesma cumpre a lei —
       # vale para a build mensal automática (a máquina não esquece).
       - name: Lei da Release Única Viva — só UMA release no ar (tags preservadas)
         run: |
@@ -410,7 +405,7 @@ jobs:
                 if gh release delete "$OLD" --repo "$GITHUB_REPOSITORY" --cleanup-tag=false --yes; then
                   echo "   OK: release $OLD apagada"
                 else
-                  echo "   FALHOU apagar $OLD — o agente no campo resolve (a tag e a release atual seguem íntegras)"
+                  echo "   FALHOU apagar $OLD — resolver manualmente (a tag e a release atual seguem íntegras)"
                 fi
               done
           echo "── releases vivas depois da lei (deve sobrar só $TAG):"
@@ -624,16 +619,9 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-  # ── Auditoria de IA (deepseek + mimo): SOB DEMANDA (v2.1) ─────────
-  # O relay automático pós-build foi removido: queimava a cota free do
-  # Token Harbor em toda build (inclusive cancelada) até o 429 geral.
-  # Dispatch manual quando quiser auditar uma run:
-  #   dispatch manual (UI ou API) conforme docs/AGENTS.md — contexto ci:<run_id>
-  # Protocolo de consenso (3 IAs): docs/AGENTS.md
-
   # ── E31 (v2.10.19): A FALHA DE TAG NUNCA É SILENCIOSA ──────────────
-  # A build mensal automática (cron do agente) conserta; a ISSUE é o
-  # sinal durável: o dono (e o agente da próxima sessão) encontram a
+  # A build mensal automática conserta; a ISSUE é o
+  # sinal durável: o dono (e a próxima sessão de manutenção) encontram a
   # falha NOMEADA — lista de jobs + link da run — sem depender de
   # ninguém lembrar de olhar a aba Actions. A tag fica PRESERVADA
   # (lei); a correção nasce numa tag NOVA (patch+1), nunca re-aprove.

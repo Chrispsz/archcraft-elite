@@ -54,7 +54,7 @@ mkdir -p /var/cache/elite-local
 rm -rf /tmp/elite-src && mkdir -p /tmp/elite-src/python-pywal /tmp/elite-src/qt5-virtualkeyboard /tmp/elite-src/wlrctl
 
 cd /tmp/elite-src/python-pywal
-# PIN de commit (R6 do auditor mimo): a URL branch-driven (refs/heads/master)
+# PIN de commit (R6 da revisão v1.6): a URL branch-driven (refs/heads/master)
 # pode mudar sem aviso; o tarball de commit é imutável. Extração vira
 # pywal-<sha> → o cd do package() usa glob.
 PYWAL_PIN="236aa48e741ff8d65c4c3826db2813bf2ee6f352" # master @ 2026-10-20
@@ -1903,7 +1903,7 @@ preflight() {
     mkdir -p "$pfdb" "$pfdb/sync" # dbpath: sync dbs caem em $pfdb/sync/ (layout do pacman)
     cd /work/elite-build/profile
 
-    # Evidência (pedido do auditor mimo, R1): a mirrorlist do Arch é a única
+    # Evidência (pedido da revisão v1.6, R1): a mirrorlist do Arch é a única
     # superfície de curl que o selo não cobre (só o preflight a usa). Quais
     # mirrors estavam em jogo fica registrado no log para qualquer triagem.
     echo "    Mirrorlist Arch em uso (até 5):"
@@ -2062,7 +2062,7 @@ seal_build_conf() {
     local pc=/work/elite-build/profile/pacman.conf
     grep -q '^# elite-sealed' "$pc" && { say "Selo já aplicado (idempotente)"; return 0; }
 
-    # Assert (auditor mimo, R2): todo .db que o pacstrap vai ler precisa
+    # Assert (da revisão v1.6, R2): todo .db que o pacstrap vai ler precisa
     # existir no pf-db ANTES do selo — sem isto, um db ausente viraria falha
     # file:// LOCAL no meio do pacstrap, com mensagem confusa.
     local missing=() s

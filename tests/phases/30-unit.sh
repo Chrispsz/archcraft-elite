@@ -96,11 +96,11 @@ assert_grep "$REPO/.ci/build.sh" 'cd pywal-\*/' "pywal #27: o PKGBUILD do CI usa
 
 # ── 3.D contratos dos workflows (o texto do CI é promessa pública) ──
 BY="$REPO/.github/workflows/build.yml"
-# v1.0.3/v1.0.5: 4 jobs com runs-on próprio pinados em ubuntu-24.04 (lint,
+# v1.0.3/v1.0.5: jobs com runs-on próprio pinados em ubuntu-24.04 (lint,
 # build, release, verify — runner image é superfície de risco p/ o build
-# privilegiado, o release e o QEMU do gate); relay-agents (só dispatch da
-# API) fica no ubuntu-latest; verify-install (v1.0.5) é workflow_call — o
-# runs-on mora no verify-install.yml (ex-diag-install) reutilizado, também 24.04
+# privilegiado, o release e o QEMU do gate); verify-install (v1.0.5) é
+# workflow_call — o runs-on mora no verify-install.yml (ex-diag-install)
+# reutilizado, também 24.04
 # E31 (v2.10.19): o suite (v2.10.5) e o notify-failure (issue de diagnóstico
 # de tag) entram na mesma disciplina de pino — 6 no total.
 assert_eq "$(grep -c 'runs-on: ubuntu-24.04' "$BY")" "6" "contrato: build.yml — 6 jobs pinados em ubuntu-24.04 (lint/build/release/verify/suite + notify-failure da E31 — a disciplina do pino é para todo job que importa)"
@@ -108,7 +108,7 @@ assert_grep "$BY" 'needs: \[build, verify, verify-install, suite\]' "contrato: r
 assert_grep "$BY" 'verify-install:' "contrato: job verify-install presente (install-gate no pipeline)"
 assert_grep "$BY" 'uses: \./\.github/workflows/verify-install\.yml' "contrato: install-gate reusa o verify-install.yml (workflow_call — zero duplicação)"
 assert_grep "$BY" "code=203/EXEC" "contrato: gate verifica 203/EXEC (binários executáveis no live)"
-assert_nogrep "$BY" 'gh workflow run agents\.yml' "contrato v2.1: a build NÃO dispatcha agentes (auditoria sob demanda — agents.yml manual; cota free respeitada)"
+assert_nogrep "$BY" 'relay\|agents\.yml' "contrato v2.11.3: a build NÃO referencia nenhum relay/auditoria por IA"
 assert_grep "$BY" 'split -b 1900M -d "\$ISO" "\$\{ISO\}\.part-"' "contrato: split com prefixo aspasado"
 assert_grep "$BY" 'sha256sum -- "\$\{ISO\}\.part-"\* >> sha256sums\.txt' "contrato: hashes das PARTES ANEXADOS (>>)"
 pat_q=$(printf '%s' "grep -E 'part|" "\${ISO}\$' sha256sums.txt")
@@ -124,10 +124,6 @@ assert_grep "$BY" 'paths-ignore:.*tests/\*\*' "contrato: build.yml — tests/** 
 # (2.9GB de ISO + 5G de cow: -m 3072 morreria no boot; 7168 é o contrato)
 assert_grep "$BY" '-m 7168' "contrato v1.1: build.yml — QEMU do verify com 7168 MB (copytoram=y no default)"
 assert_grep "$REPO/scripts/qemu-boot-test.sh" '-m 7168' "contrato v1.1: qemu-boot-test.sh idem (7168 MB)"
-AY="$REPO/.github/workflows/agents.yml"
-assert_grep "$AY" 'deepseek' "contrato: agents.yml — deepseek presente"
-assert_grep "$AY" 'mimo' "contrato: agents.yml — mimo presente"
-assert_grep "$AY" 'actions: read' "contrato: agents.yml — permissão de ler runs"
 # v1.0.5: o install-gate tem contrato próprio — o grep de entradas do
 # grub.cfg casa TAB (o '(linux|initrd) ' com espaço da v1.0.4 devolvia vazio
 # = falso negativo; a run #2 da branch diag-install morreu nisso sem o
@@ -228,7 +224,7 @@ both=$(comm -12 <(grep -v '^#' "$PA" | sed 's/#.*//' | tr -d ' ' | grep -v '^$' 
                  <(grep -v '^#' "$PR" | sed 's/#.*//' | tr -d ' ' | grep -v '^$' | sort))
 assert_eq "$both" "" "packages.add ∩ packages.remove = ∅ (sem esquizofrenia)"
 
-# ── 3.F o grep do usuário final (armadilhas A1/A2 do auditor mimo) ──
+# ── 3.F o grep do usuário final (armadilhas A1/A2 da auditoria v1.6) ──
 g="$WORK/grep-case"; mkdir -p "$g"
 iso="archcraft-elite-2026.10.20-x86_64.iso"
 printf '%s\n' \
@@ -241,7 +237,7 @@ assert_eq "$sel" "3" "grep do usuário: seleciona ISO + 2 partes, exclui JUNTAR-
 nosel=$(cd "$g" && grep -E "part|$iso\$" sha256sums.txt | grep -c JUNTAR || true)
 assert_eq "$nosel" "0" "grep do usuário: pipeline-sem-aspas não vaza (A1 fechada)"
 
-# ── 3.G contratos de build (lacunas apontadas na revisão deepseek run #11) ─
+# ── 3.G contratos de build (lacunas apontadas na revisão da run #11) ─
 # #19: o stderr do -Syw tem de SER MOSTRADO na falha (não escondido)
 assert_grep "$REPO/.ci/build.sh" 'stderr do próprio -Syw' "contrato #19: preflight revela o stderr do -Syw (não esconde)"
 assert_grep "$REPO/.ci/build.sh" '-Syw .*>/tmp/elite-pf\.log' "contrato #19: stderr do -Syw vai p/ log que é dumpado (nunca /dev/null)"
@@ -565,15 +561,15 @@ assert_grep "$REPO/.ci/build.sh" 'options=\(!debug\)' \
   "contrato bump: PKGBUILD do repack com options=(!debug) (sem -debug espúrio no elite-local)"
 
 # ════════════════════════════════════════════════════════════════════
-# v1.5.2 — LIMPEZA + RELAY DOS AGENTES + FORENSE DE LOG + UNITS FALHADAS
-# Diretriz do dono pós-v1.5: "os agentes do repositório devem analisar
-# justamente os logs minuciosamente; esses erros não podem passar ou ser
-# tratados como algo normal". Três buracos sistêmicos fechados de uma vez:
+# v1.5.2 — LIMPEZA + FORENSE DE LOG + UNITS FALHADAS
+# Diretriz do dono pós-v1.5: "os logs devem ser analisados minuciosamente;
+# esses erros não podem passar ou ser tratados como algo normal".
+# Buracos sistêmicos fechados de uma vez:
 #   (a) build VERDE com erro silencioso no log — a v1.4 saiu sem
 #       cachyos-keyring com 5 classes fatais ESCRITAS no log;
-#   (b) relay-agents engolia o dispatch quebrado — gh sem --repo caía em
-#       "fatal: not a git repository" e o if/else abafava: ZERO auditorias
-#       desde 20/out;
+#   (b) job de dispatch com gh sem --repo engolindo a falha — o if/else
+#       abafava o "fatal: not a git repository" como algo normal (o
+#       mecanismo inteiro foi aposentado na v2.11.3);
 #   (c) units em crash-loop passavam pelo gate de boot — fg-booster
 #       falhava 17× no serial da v1.5 (debloat v4.2 varreu o xdotool) e
 #       'Startup finished' não enxerga units falhadas.
@@ -586,16 +582,14 @@ assert_grep "$BY" 'bash \.ci/build\.sh 2>&1 \| tee build-output\.log' \
 assert_grep "$BY" 'scripts/log-forensics\.sh build-output\.log' \
   "contrato v1.5.2: gate de forense roda no job de build (erro silencioso = run vermelha)"
 
-# (b) v2.1 — auditoria por IA é SOB DEMANDA: o relay automático saiu do
-# build (queimava a cota free do Token Harbor em toda build — inclusive
-# cancelada — até o 429 em massa). A auditoria agora vive no agents.yml
-# manual, com relatório de FALHA assinado (fim dos artifacts 0 MB).
+# (b) v2.11.3 — auditoria por IA FOI DO REPOSITÓRIO: nenhum workflow de
+# relay/auditoria externa existe (a revisão de código é a suíte de
+# contratos). O texto do CI é promessa pública — nenhum trabalho morto
+# menciona mecanismo que não existe.
 assert_nogrep "$BY" 'relay-agents' \
-  "contrato v2.1: NENHUM job de relay automático no build (cota do Token Harbor respeitada)"
-assert_grep "$REPO/.github/workflows/agents.yml" 'workflow_dispatch' \
-  "contrato v2.1: auditoria de IA sob demanda (agents.yml manual — deepseek/mimo com contexto ci:<run_id>)"
-assert_grep "$REPO/agents/run.ts" 'RELATÓRIO DE FALHA' \
-  "contrato v2.1: falha do agente gera relatório ASSINADO antes do exit (artifacts 0 MB extintos)"
+  "contrato: NENHUM job de relay automático no build"
+assert_nofile "$REPO/.github/workflows/agents.yml" \
+  "contrato v2.11.3: agents.yml fora do repositório"
 assert_nogrep "$BY" 'não derruba a build' \
   "contrato v1.5.2: o abafador 'não derruba a build' não existe mais no build.yml"
 

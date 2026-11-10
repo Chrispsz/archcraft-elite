@@ -174,14 +174,12 @@ cd elite-build/profile && sudo ./mkarchcraftiso -v -w /tmp/iso-work -o out .
 .github/workflows/build.yml          CI: lint → build → verify → verify-install → release
 .github/workflows/tests.yml          Suíte de contratos (5 fases; roda em todo push que toca código — e a suíte é GATE do release via build.yml desde v2.10.5)
 .github/workflows/verify-install.yml Gate de instalação (QEMU, workflow_call)
-.github/workflows/agents.yml         Auditoria por IA sob demanda (Token Harbor)
 .github/workflows/publish-artifact.yml  Publicação manual de artifact como release
 .ci/build.sh                         Lógica de build dentro do container Arch
 scripts/apply-overlay.sh             O delta: clona o upstream e aplica a camada Elite
 scripts/log-forensics.sh             Varredura fatal do log de build
 elite/                               A camada Elite (packages, airootfs, fragments)
 tests/                               5 fases de contratos (estáticos → release)
-agents/                              Relay de IA (deepseek = Builder, mimo = Auditor)
 docs/                                Documentação técnica (ver abaixo)
 ```
 
@@ -193,7 +191,6 @@ docs/                                Documentação técnica (ver abaixo)
 | [docs/SCRIPTS.md](docs/SCRIPTS.md) | Uso, dependências e reversão de cada script |
 | [docs/BUILDING.md](docs/BUILDING.md) | Pipeline de build em detalhe: estágios, cache, tempos, diagnóstico |
 | [docs/VERIFICATION.md](docs/VERIFICATION.md) | O que cada gate PROVA — e o que não prova (contrato de honestidade) |
-| [docs/AGENTS.md](docs/AGENTS.md) | Auditoria por IA: relay, cota e protocolo de consenso entre 3 modelos |
 
 ## Créditos e licença
 

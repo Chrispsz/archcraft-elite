@@ -26,7 +26,7 @@ impacto saíram NA MESMA rodada (seção "Curas aplicadas"); o resto vive no pla
 | 7 | **saúde** | `craft-dump` (565) · `elite-sweep` · `craft-rollback` · `craft-fix-keys` · keyring-fix unit+timer · `craft-update` · `elite-status` · `craft-clean` · `craft-keyring-wait` · journald cap |
 | 8 | **instalação** | `elite-install-stage` (394) · `calamares-elite-log` · `calamares.desktop` · `validate-calamares.py` · verify-install.yml |
 | 9 | **build-pacotes** | `apply-overlay.sh` (514) · `.ci/build.sh` · `qemu-boot-test.sh` · fragments · `packages.add/remove` · pins (Brave/pywal/wlrctl) · vendor |
-| 10 | **porteira-gestão** | `tests/**` (6 fases) · 5 workflows · `agents/*.ts` · `docs/**` · leis do PROTOCOL |
+| 10 | **porteira-gestão** | `tests/**` (6 fases) · 5 workflows · `docs/**` · leis do PROTOCOL |
 
 ## Veredicto por palavra-chave
 
@@ -288,8 +288,10 @@ impacto saíram NA MESMA rodada (seção "Curas aplicadas"); o resto vive no pla
 4. **Workflows com drift?** ⚠️ — lint assimétrico (a peça jura "mesma lista do build.yml" e já não é);
    publish-artifact.yml NÃO tem a Lei da Release Única Viva; blocos gêmeos copiados ("Mesma lógica do
    build.yml" com data marcada).
-5. **agents.ts coerente com docs/AGENTS.md?** ⚠️ — modelos e relay batem; MAS as 4 crons vivem SÓ na
-   plataforma (sem versionamento, sem gate) e o dia 1 provou o custo (2/2 falhas de plataforma sem rastro).
+5. **Auditoria por IA mora no repo?** ✅ — REMOVIDA na v2.11.3: o harness
+   agents/ era infraestrutura estranha ao produto (nunca fez parte do
+   pedido — a revisão de código é a SUÍTE de contratos, em cadeia, com
+   gate).
 6. **Diários têm máquina de estados?** ✅ — a lei do `próximo` está escrita; riscos de append-only já
    visíveis (adendo sem próximo; sem ponteiro "estado atual" no topo).
 7. **SCRIPTS.md sincronizado?** ❌ — contados: ~15 seções para 41 scripts vivos (~30%); o README promete

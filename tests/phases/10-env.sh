@@ -15,7 +15,6 @@ for f in \
   scripts/apply-overlay.sh \
   .ci/build.sh \
   .github/workflows/build.yml \
-  .github/workflows/agents.yml \
   elite/airootfs/etc/skel/.config/brave-flags.conf \
   elite/airootfs/etc/skel/.config/hypr/hyprlock.conf \
   elite/airootfs/etc/skel/.face.icon \

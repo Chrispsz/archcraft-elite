@@ -34,7 +34,7 @@ assert_match "${out:-}" "aviso: 'gpsd' não está na lista upstream — ignorado
 P="$RE/elite-build/archcraft"   # profile transformado
 assert_file "$P/packages.x86_64" "cadeia A: elite-build/archcraft existe (profile detectado)"
 
-# proveniência do clone (armadilha #6 da revisão deepseek): se o insteadOf
+# proveniência do clone (armadilha #6 da revisão v1.6): se o insteadOf
 # falhar em silêncio, o overlay teria clonado o upstream REAL — verde por sorte.
 # ls-remote --get-url aplica o insteadOf (remote get-url mostra a URL crua);
 # precisa do HOME onde o insteadOf foi registrado
@@ -1595,7 +1595,7 @@ firstboot() { # encaminha p/ o wrapper de root escolhido; saída SEM códigos AN
 }
 
 # Setup A (RTX 5060) herdando ICDs Vulkan AMD/Intel da ISO:
-# (guard deepseek #3: sem root E sem unshare → SKIP, nunca FAIL por ambiente)
+# (guard da revisão v1.6 #3: sem root E sem unshare → SKIP, nunca FAIL por ambiente)
 if [[ ${ROOTWRAP[0]} == SKIP ]]; then
   skip "cadeia C (firstboot ×3): exige root (unshare indisponível)" "o job do CI roda como root no container Arch"
 else
