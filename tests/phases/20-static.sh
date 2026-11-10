@@ -268,7 +268,7 @@ assert_grep "$U/elite-keyring-fix.timer" '^WantedBy=timers.target$' "v2.10.10: [
 assert_grep "$U/elite-keyring-fix.timer" '^OnBootSec=120s$' "v2.10.10: timer dispara 2min pós-boot (a cura chega cedo, sem brigar com o boot)"
 assert_grep "$U/elite-keyring-fix.timer" '^OnUnitActiveSec=6h$' "v2.10.10: timer re-tenta de 6h em 6h (o guard de 24h do script decide o custo real)"
 # craft-dump v2.2: a etiqueta = conteúdo, e o keyring ganha as 3 provas
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2\.8' "E98 (E30→E90→): craft-dump etiqueta v2.8 (a lei: etiqueta = conteúdo — a v2.8 traz a dose no papel [seção 12] e a gaveta/lxqt no ps; âncora refrescada viva)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2\.9' "E100 (E30→E90→E98→): craft-dump etiqueta v2.9 (a lei: etiqueta = conteúdo — a v2.9 traz A FOTO DA PELE [seção 12]; a v2.8 trouxe a dose no papel e a gaveta/lxqt no ps; âncora refrescada viva)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'pubring.gpg' "v2.10.10: dump prova o pubring (a doença do d33o no papel)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'list-keys cachyos' "v2.10.10: dump prova as chaves CachyOS populadas"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'pacman lê o banco: OK' "v2.10.10: dump prova funcional do pacman (o -Syu vivo ou morto nomeado)"
@@ -436,7 +436,7 @@ assert_grep "$CU64" 'sentinela_db auto canal' "E64/AUD-B3: a sentinela na porta 
 assert_grep "$CU64" 'sentinela_db auto sistema' "E64/AUD-B3: a sentinela na porta SEMANAL (a mesma briga — agora espera com teto e adia honesta)"
 assert_grep "$CU64" 'já estava em dia' "E64: checagem não é notícia (o re-armamento horário multiplica a dose por 24 — sem novidade, ZERO pop-up; notify é a exceção por delta, escola E48)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 13→14 NO MESMO COMMIT' "E64: pkgrel elite-system 13→14 NO MESMO COMMIT (lei E41 — craft-update + 4 units mudaram de conteúdo; âncora na HISTÓRIA, lição E58/E59)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2\.8' "E98 (E30→E90→): craft-dump etiqueta v2.8 (etiqueta = conteúdo — a dose no papel da seção 12; âncora refrescada viva)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2\.9' "E100 (E30→E90→E98→): craft-dump etiqueta v2.9 (etiqueta = conteúdo — a foto da pele na seção 12; a v2.8 trouxe a dose no papel; âncora refrescada viva)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'date \+%Y%m%d-%H%M%S' "v2.10.11: dump com segundos no STAMP (fim da colisão de dois runs no mesmo minuto — a doença do a4h8)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'if ! : > "\$OUT" 2>/dev/null; then' "v2.10.11: guard de escrita antes do papel (dump root-owned + rerun sem sudo = recusa clara)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" '90-elite-wake-guard.rules' "v2.10.11: dump prova a regra E24 no papel (seção 10)"
@@ -1181,7 +1181,7 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bgapps" '\( tr .*/proc/.pi
 # R9. A E23 GANHA CURANDEIRO VISÍVEL NO PAPEL (o nl3z não mostrou UM
 #     elite-keyring — o veredito da cura precisa ver quem cura):
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'elite-keyring-fix\.timer' "v2.10.12: a seção 5 mostra o timer da E23 (a cura estava invisível no papel)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2\.8' "E98 (E30→E90→): o papel é v2.8 (etiqueta = conteúdo — a v2.8/E98: a dose no papel [elite-update.log + pacman.log na seção 12] e a gaveta/lxqt no ps da seção 3; âncora refrescada viva)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2\.9' "E100 (E30→E90→E98→): o papel é v2.9 (etiqueta = conteúdo — a v2.9/E100: A FOTO DA PELE [home vs mestre: sha256 + 1ª linha + veredito na seção 12 — o estado do lock skin nunca mais anda às cegas]; a v2.8/E98 trouxe a dose no papel e a gaveta/lxqt no ps; âncora refrescada viva)"
 
 # ── v2.10.18 · E30 — o papel p6aw (1325 linhas) + as fotos do dono ─────────
 # O rig real provou o que o QEMU não vê: bell misterioso (wall do firstboot
@@ -1747,6 +1747,7 @@ CRUSB="$REPO/elite/airootfs/usr/lib/systemd/system-sleep/elite-resume-usb"
 assert_grep "$CRUSB" 'SNAP_IN' "E89: a foto do pre ganha a terceira dimensão (inputs contados por HID — o mouse que ENUMERA e não mexe é visto, o caso usbhid 3-4:1.4)"
 assert_grep "$CRUSB" 'btusb' "E89: o BLUETOOTH re-assenta no wake (hci0 reset failed -19 do dump — o rádio que não voltava até o reboot)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 32→33 NO MESMO COMMIT' "E89: pkgrel elite-system 32→33 NO MESMO COMMIT (lei E41 — o C recompila com MIN+blindagem, craft-dock-gui/craft-idle mudaram, craft-display é bin novo, hook/autostart/menu/packages mudaram; âncora na HISTÓRIA, lição E58/E59)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 43→44 NO MESMO COMMIT' "E100: pkgrel elite-system 43→44 NO MESMO COMMIT (lei E41 — a pele v5 do lock no skel + craft-rice/craft-lock/craft-dump mudaram de conteúdo; âncora na HISTÓRIA, lição E58/E59)"
 
 # ═══════════════════════════════════════════════════════════════════════
 # E90/E91 — A ÁREA 4 DA ROTAÇÃO + AS 3 LACUNAS DO UX-ROADMAP + AS CURAS

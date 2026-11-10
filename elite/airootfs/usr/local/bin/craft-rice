@@ -58,15 +58,32 @@ uso() {
         '  o marcador da casa = intocável. O craft-bars chama no arranque; mudou' \
         '  algo = labwc-msg reconfigure na sessão viva.' \
         '' \
-        '  E91 — a LOCK SKIN: o hyprlock.conf v3 alcança homes VIVOS (fóssil da' \
+        '  E91 — a LOCK SKIN: o hyprlock.conf alcança homes VIVOS (fóssil da' \
         '  casa → renova; personalizado → intocável + papel honesto).' \
-        '  craft-rice --lock-adopt = adota a v3 NA FORÇA (backup .bak-<stamp>).'
+        '  craft-rice --lock-adopt = adota a pele atual NA FORÇA (backup .bak-<stamp>).' \
+        '  craft-rice --lock-quiet  = a mesma gramática SEM papel (o craft-lock' \
+        '  chama antes de CADA lock — E100: a dose da casa vale no próximo lock,' \
+        '  não no próximo relogin; o lock não é lugar de log).'
     exit 0
 }
 case "${1:-}" in -h|--help|uso) uso ;; esac
 
 MARKER="entregue por craft-rice"
 DIR="${XDG_CONFIG_HOME:-$HOME/.config}/labwc/rc.xml.d"
+
+# E100 — o modo calado: o craft-lock chama a renovação da pele ANTES de
+# cada lock; o lock não é lugar de log (o papel da pele fica no arranque,
+# no craft-dump — a foto da pele — e no --lock-adopt).
+QUIET=0
+say() {
+    [ "$QUIET" -eq 1 ] && return 0
+    printf '%s\n' "$1"
+}
+# o modo calado é lido NO TOPO: os fragmentos também saem calados (o lock
+# não é lugar de log — o lock_skin herda o silêncio)
+case "${1:-}" in
+    --lock-quiet) QUIET=1; set -- "" ;;
+esac
 
 # ── fragmento 10-elite-games.xml (E54 — a decoração de volta nos jogos) ──
 GAMES="<?xml version=\"1.0\" encoding=\"UTF-8\"?>
@@ -123,7 +140,7 @@ ensure_fragment() {
     # (zero escrita), 2 = não é da casa / falhou (intocável é a lei)
     f="$DIR/$1"
     if [ -f "$f" ] && ! grep -q "$MARKER" "$f" 2>/dev/null; then
-        echo "craft-rice: $1 não é da casa (sem marcador) — intocável"
+        say "craft-rice: $1 não é da casa (sem marcador) — intocável"
         return 2
     fi
     if [ -f "$f" ] && [ "$(cat "$f" 2>/dev/null)" = "$(printf '%s' "$2")" ]; then
@@ -131,7 +148,7 @@ ensure_fragment() {
     fi
     mkdir -p "$DIR" 2>/dev/null || return 2
     printf '%s\n' "$2" > "$f" 2>/dev/null || return 2
-    echo "craft-rice: fragmento $1 entregue ($DIR)"
+    say "craft-rice: fragmento $1 entregue ($DIR)"
     return 0
 }
 
@@ -147,7 +164,7 @@ if [ "$CHANGED" -eq 1 ]; then
     if command -v labwc-msg >/dev/null 2>&1 \
             && [ -n "${WAYLAND_DISPLAY:-}" ]; then
         labwc-msg reconfigure 2>/dev/null \
-            && echo "craft-rice: reconfigure aplicado (as regras valem na sessão viva)"
+            && say "craft-rice: reconfigure aplicado (as regras valem na sessão viva)"
     fi
 fi
 
@@ -168,15 +185,41 @@ fi
 #                               `craft-rice --lock-adopt` (backup e entrega).
 # A pele-mestra viaja NO PACOTE (build.sh): /usr/local/share/elite/hyprlock/
 # hyprlock.conf — mesma escola do fastfetch (E73). Chamo no arranque pelo
-# craft-bars: o update entrega, o rice aplica no próximo arranque/relogin.
+# craft-bars e — E100 — pelo craft-lock antes de CADA lock (--lock-quiet):
+# o update entrega, o rice aplica no próximo arranque OU no próximo lock
+# (a pele não espera mais a sessão renascer).
+#
+# ═══════════════════════════════════════════════════════════════════════
+# E100 — A PELE IRMÃ + O SINAL QUE ESCONDEU O RELÓGIO POR TRÊS ERAS
+# ═══════════════════════════════════════════════════════════════════════
+# O relato do dono de novo ("ela é muito simples... ter um relógio") deu
+# a cara do RÉU REAL: o eixo Y do hyprlock é PRA CIMA (y=0 = pé da tela,
+# y=H = cabeça — IWidget::posFromHVAlign + Mat3x3::outputProjection do
+# fonte). Os +290/+300/+440/+505 da era v1.7→v4 plantavam relógio, data e
+# saudação 290–505px ACIMA da tela — JAMAIS renderizaram (o v1.7 nasceu
+# com o erro: a ISO que o rig instalou nunca mostrou relógio NENHUM). O
+# dono pediu o relógio em três eras seguidas e a suíte, que lê STRINGS,
+# não enxergava pixels. A v5 (skel) corrige o sinal (valign=top com y
+# NEGATIVO), copia o sistema visual do GREETER (a tela que ele aplaudiu:
+# Iosevka, paleta #D8D8D8/#ABB2BF/#5a6477/#1E2128/#5294E2/#E06B74,
+# pílulas 380×54, data "A, %-d de B", o usuário FICA na tela — pílula
+# glifo+nome) e a SUÍTE ganha a LEI DO SINAL (40-integration) para o
+# conf nunca mais nascer com o sinal torto. E esta função é chamada pelo
+# craft-lock (--lock-quiet) ANTES DE CADA LOCK: a dose vale no próximo
+# lock, não no próximo relogin.
 LOCK_SRC="${ELITE_LOCK_SRC:-/usr/local/share/elite/hyprlock/hyprlock.conf}"
 LOCK_DST="${XDG_CONFIG_HOME:-$HOME/.config}/hypr/hyprlock.conf"
-# fósseis: v2.8.0 (6e9cf53) · v2.5.0 (5c6c3dd) · v2.3.0 (e96bec4) — o
-# git da casa é a fonte; um conf NOVO da casa ganha marcador próprio.
-LOCK_FOSSILS="8db51ea1b3f1538ff8205da0acfee007ad09f45a312680f4c7584259ee7a254c 3b12babe69f16e40edd5dd1c8a4680e2b32d116821f7c3aad138d803a3ef5407 67e7a7da7ded2b55bbfe3b0090ce6801a902a8d89f410c9e8155ff435f095711"
+# fósseis: v2.8.0 (6e9cf53) · v2.5.0 (5c6c3dd) · v2.3.0/v2.1.1 (e96bec4 —
+# o conf nasceu na v2.1.1 e não mudou até a v2.3.0: a era da ISO que o rig
+# do dono instalou) · v4 (d26fd57/E97, sha e53fbf2c — quem adotou a v4
+# renova pela MARCADA; o fóssil é o cinto) — o git da casa é a fonte; um
+# conf NOVO da casa ganha marcador próprio.
+LOCK_FOSSILS="8db51ea1b3f1538ff8205da0acfee007ad09f45a312680f4c7584259ee7a254c 3b12babe69f16e40edd5dd1c8a4680e2b32d116821f7c3aad138d803a3ef5407 67e7a7da7ded2b55bbfe3b0090ce6801a902a8d89f410c9e8155ff435f095711 e53fbf2c5fa2779c0881141d8b0f9198e09b6dfbb1be8937da00c5a6e4669717"
 
 lock_skin() {
     # --lock-adopt: a porta EXPLÍCITA do dono (backup .bak-<stamp> + entrega)
+    # (o --lock-quiet é lido NO TOPO do script — os fragmentos saem calados
+    # junto; chegar aqui com $1 vazio é o caminho do craft-lock)
     if [ "${1:-}" = "--lock-adopt" ]; then
         if [ ! -r "$LOCK_SRC" ]; then
             echo "craft-rice: a pele-mestra não está no sistema (elite-system antigo?) — nada a adotar" >&2
@@ -184,10 +227,10 @@ lock_skin() {
         fi
         if [ -f "$LOCK_DST" ]; then
             cp -p "$LOCK_DST" "$LOCK_DST.bak-$(date +%Y%m%d-%H%M%S)" 2>/dev/null \
-                && echo "craft-rice: backup do seu lock salvo ao lado ($LOCK_DST.bak-*)"
+                && say "craft-rice: backup do seu lock salvo ao lado ($LOCK_DST.bak-*)"
         fi
         mkdir -p "${LOCK_DST%/*}" 2>/dev/null
-        cp -p "$LOCK_SRC" "$LOCK_DST" && echo "craft-rice: lock v3 adotado (a pele nova vale no próximo lock)"
+        cp -p "$LOCK_SRC" "$LOCK_DST" && say "craft-rice: lock skin adotada (a pele nova vale no próximo lock)"
         return 0
     fi
     [ -r "$LOCK_SRC" ] || return 0   # elite-system antigo: silêncio honesto
@@ -196,7 +239,7 @@ lock_skin() {
         if grep -q "$MARKER" "$LOCK_DST" 2>/dev/null; then
             if cmp -s "$LOCK_SRC" "$LOCK_DST"; then return 0; fi
             cp -p "$LOCK_SRC" "$LOCK_DST" 2>/dev/null \
-                && echo "craft-rice: lock skin renovada (a casa atualizou a própria pele)"
+                && say "craft-rice: lock skin renovada (a casa atualizou a própria pele)"
             return 0
         fi
         # fóssil? a nossa versão velha — ninguém personalizou, renova
@@ -204,18 +247,18 @@ lock_skin() {
         case " $LOCK_FOSSILS " in
             *" $now_hash "*)
                 cp -p "$LOCK_SRC" "$LOCK_DST" 2>/dev/null \
-                    && echo "craft-rice: lock fóssil renovado — a tela v3 (relógio, saudação, card) chegou ao home vivo"
+                    && say "craft-rice: lock fóssil renovado — a pele da casa chegou ao home vivo"
                 return 0
                 ;;
         esac
-        echo "craft-rice: $LOCK_DST é PERSONALIZADO — intocável (a lei do domínio v3)"
-        echo "             a lock skin v3 existe: craft-rice --lock-adopt (backup + entrega)"
+        say "craft-rice: $LOCK_DST é PERSONALIZADO — intocável (a lei do domínio v3)"
+        say "             a lock skin da casa existe: craft-rice --lock-adopt (backup + entrega)"
         return 0
     fi
     # ausente → entrega (primeiro uso)
     mkdir -p "${LOCK_DST%/*}" 2>/dev/null
     cp -p "$LOCK_SRC" "$LOCK_DST" 2>/dev/null \
-        && echo "craft-rice: lock skin entregue (o hyprlock precisa dela para travar bonito)"
+        && say "craft-rice: lock skin entregue (o hyprlock precisa dela para travar bonito)"
     return 0
 }
 

@@ -1,5 +1,13 @@
 #!/usr/bin/env bash
 # craft-lock — bloqueia a tela (hyprlock → loginctl → erro claro)
+# v2.1 (E100): A PELE SEGUE O LOCK — antes de cada lock novo, o craft-rice
+#   --lock-quiet renova o conf do home (a MESMA gramática do arranque:
+#   marcador renova, fóssil renova, ausente entrega, personalizado
+#   intoca). A dose da casa vale no PRÓXIMO LOCK — não no próximo
+#   relogin: o 'não mudou nada' morre (a pele não espera a sessão
+#   renascer; o lock não é lugar de log). O --if-needed segue intacto:
+#   lock JÁ VIVO sai cedo ANTES daqui — ninguém troca a pele de um
+#   hyprlock que já está na tela (o conf é lido no nascimento).
 # v2.0 (v2.5.0): o FUNDO do lock = o MESMO wallpaper do desktop — o dono:
 #   "ele deve ficar só o wallpaper com Blur e não mostrar as janelas
 #   abertas e etc como o PC estava antes de ir pra tela de bloqueio/idle".
@@ -38,6 +46,8 @@ uso() {
         '' \
         '  --if-needed: lock já vivo = exit 0 (ele sobrevive; o braço do idle' \
         '  usa para não matar o lock no escuro — E47).' \
+        '  E100: cada lock NOVO renova a lock skin antes de nascer (o' \
+        '  craft-rice --lock-quiet — a dose da casa vale no próximo lock).' \
         '  atalho: W-l. A vigília (craft-vigil) nasce com TODO lock novo.'
     exit 0
 }
@@ -48,6 +58,15 @@ case "${1:-}" in -h|--help|uso) uso ;; esac
 if [ "${1:-}" = "--if-needed" ] && pgrep -x hyprlock >/dev/null 2>&1; then
     exit 0
 fi
+
+# E100 — A PELE SEGUE O LOCK (a renovação vem ANTES do pkill: o conf é
+# lido pelo hyprlock NO NASCIMENTO — quem já está na tela não troca de
+# pele, e quem vai nascer nasce VESTIDO). craft-rice ausente (ISO
+# estranha?) = silêncio: o lock segue com o conf do home como sempre.
+if command -v craft-rice >/dev/null 2>&1; then
+    craft-rice --lock-quiet >/dev/null 2>&1 || true
+fi
+
 # E30 (v2.10.18) — INSTÂNCIA ÚNICA (bars.log do dump p6aw: hyprlock
 # 'onLockFinished called. Seems we got yeeten. Is another lockscreen
 # running?' — dois caminhos do lock atravessaram [timeout do idle +

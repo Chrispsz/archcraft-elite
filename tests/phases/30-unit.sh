@@ -2242,6 +2242,61 @@ assert_grep "$E91H/home/.config/hypr/hyprlock.conf" 'entregue por craft-rice' "E
 n_baks="$(find "$E91H/home/.config/hypr" -maxdepth 1 -name '*bak-*' 2>/dev/null | wc -l)"
 assert_match "$n_baks" '^[1-9][0-9]*$' "E91/lock: o backup .bak-<stamp> existe ao lado (o conf antigo nunca é perdido)"
 
+# ── E100 — A PELE SEGUE O LOCK (funcional): o craft-lock chama o rice
+#    --lock-quiet ANTES de cada hyprlock novo; fóssil → a pele da casa no
+#    home E no conf efêmero que o locker recebe. A cena que dá a cara da
+#    cura do 'não mudou nada': a dose da casa vale no PRÓXIMO LOCK.
+#    (a) --lock-quiet direto: renova calado (zero papel, rc 0);
+#    (b) via craft-lock: o mock do hyprlock CAPTURA o conf -c recebido —
+#        o lock nasce VESTIDO com a pele nova.
+RICE100="$REPO/elite/airootfs/usr/local/bin/craft-rice"
+CL100="$REPO/elite/airootfs/usr/local/bin/craft-lock"
+E100H="$WORK/e100-lock"; rm -rf "$E100H"
+ST100="$WORK/state-e100"; mkdir -p "$ST100" "$E100H/home/.config/hypr" "$E100H/runtime"
+# o fóssil plantado: a era v1.7 (o conf que a ISO do rig instalou — o do
+# relógio que nunca renderizou: +300 é PRA CIMA no eixo do hyprlock)
+printf '# Archcraft ELITE · hyprlock — a tela de lock do rice (v1.7)\n' > "$E100H/home/.config/hypr/hyprlock.conf"
+fossil100="$(sha256sum "$E100H/home/.config/hypr/hyprlock.conf" | cut -d' ' -f1)"
+sed "s|^LOCK_FOSSILS=.*|LOCK_FOSSILS=\"$fossil100\"|" "$RICE100" > "$E100H/rice-t.sh"
+chmod +x "$E100H/rice-t.sh"   # o craft-lock EXECUTA o rice do PATH (sem o bit, o exec morre em Permission denied — o || true engoliria)
+
+# (a) o modo calado: renova E NÃO IMPRIME NADA (o lock não é lugar de log)
+out100="$(XDG_CONFIG_HOME="$E100H/home/.config" HOME="$E100H/home" \
+  XDG_RUNTIME_DIR="$E100H/runtime" ELITE_LOCK_SRC="$REPO/elite/airootfs/etc/skel/.config/hypr/hyprlock.conf" \
+  sh "$E100H/rice-t.sh" --lock-quiet 2>&1)"; rc100=$?
+assert_eq "$rc100" "0" "E100/rice: --lock-quiet termina 0 (a mesma gramática, sem porta de erro nova)"
+assert_eq "$out100" "" "E100/rice: --lock-quiet é CALADO (zero papel no lock — o papel da pele mora no arranque, no dump e no --lock-adopt)"
+assert_grep "$E100H/home/.config/hypr/hyprlock.conf" 'entregue por craft-rice' "E100/rice: o fóssil foi renovado CALADO (a pele da casa chegou ao home sem dizer uma palavra)"
+
+# (b) a integração: o craft-lock (mock do hyprlock captura o conf -c)
+# com o fóssil replantado — o lock novo nasce com a pele da casa
+printf '# Archcraft ELITE · hyprlock — a tela de lock do rice (v1.7)\n' > "$E100H/home/.config/hypr/hyprlock.conf"
+MOCKE100="$WORK/mocks-e100"; mkdir -p "$MOCKE100"
+cat > "$MOCKE100/hyprlock" <<'EOF'
+#!/bin/sh
+ST="${MOCK_DIR:?}"
+printf 'hyprlock %s\n' "$*" >> "$ST/hyprlock.log"
+if [ "${1:-}" = "-c" ] && [ -r "${2:-}" ]; then
+    cp "$2" "$ST/captured.conf"
+fi
+EOF
+chmod +x "$MOCKE100/hyprlock"
+# wrapper em vez de symlink (o sandbox da suíte não cria links; o exec é
+# o mesmo contrato do craft-lock: command -v craft-rice → executa)
+printf '#!/bin/sh\nexec sh "%s" "$@"\n' "$E100H/rice-t.sh" > "$MOCKE100/craft-rice"
+chmod +x "$MOCKE100/craft-rice"
+PATH="$MOCKE100:$PATH" MOCK_DIR="$ST100" XDG_CONFIG_HOME="$E100H/home/.config" HOME="$E100H/home" \
+  XDG_RUNTIME_DIR="$E100H/runtime" ELITE_LOCK_SRC="$REPO/elite/airootfs/etc/skel/.config/hypr/hyprlock.conf" \
+  bash "$CL100" >/dev/null 2>&1 || true
+assert_grep "$E100H/home/.config/hypr/hyprlock.conf" 'entregue por craft-rice' "E100/lock: o craft-lock RENOVOU o fóssil antes de nascer o locker (a pele segue o lock — sem relogin)"
+if [ -r "$ST100/captured.conf" ]; then
+    ok "E100/lock: o hyprlock recebeu um conf -c (o lock nasce com endereço)"
+else
+    fail "E100/lock: o hyprlock recebeu um conf -c" "o mock não capturou o conf — o locker nasceria nu (sem wallpaper resolvido)"
+fi
+assert_grep "$ST100/captured.conf" 'font_size = 120' "E100/lock: o conf que o locker recebeu é A PELE NOVA (o relógio 120px da v5 — o 'não mudou nada' morre no nascimento)"
+assert_grep "$ST100/captured.conf" 'position = 0, -240' "E100/lock: o relógio nasce PRA DENTRO da tela (o sinal negativo no conf efêmero — a lei do sinal atravessa o craft-lock)"
+
 # (E90.1) craft-vigil RECUSA argumentos (a 2ª vigília acidental nunca
 # nasce — a lei E30 na entrada; rc 2 com o uso no papel)
 VIG90="$REPO/elite/airootfs/usr/local/bin/craft-vigil"
