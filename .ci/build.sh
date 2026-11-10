@@ -1738,6 +1738,26 @@ if grep -qxF 'elite-system' "${PD_E57%profiledef.sh}packages.x86_64"; then
     # do airootfs e o pacote agora o entrega — o pacstrap recusaria igual).
     rm -rf "${PD_E57%profiledef.sh}airootfs/usr/local/share/elite/fastfetch"
     [[ ! -e "${PD_E57%profiledef.sh}airootfs/usr/local/share/elite/fastfetch" ]] || { echo "ELITE-FAIL: fastfetch config sobreviveu à remoção E57/E92 — o pacote é o ÚNICO dono (nunca dois)" >&2; exit 1; }
+    # E101.2 — A FAMÍLIA .desktop NA LEI E57 (a build #154 morreu nela):
+    # a E98 pôs os overrides de menu NO PACOTE (a varredura gp_install —
+    # 14 .desktop de calamares/foot/gparted/octopi-notifier/octopi-
+    # repoeditor/qt6ct/nwg-look/xgps e cia) e a remoção E57 não ganhou a
+    # família: o overlay seguia entregando os MESMOS caminhos no disco e o
+    # pacstrap recusava não-dono em todos ('exists in filesystem' — 14
+    # caminhos × 2 tentativas = 28 réus no log; a #153 não viu a classe
+    # porque instalou o fóssil 1.0-7 pré-E98, sem a família). A lei de
+    # sempre: UM dono por caminho — o pacote entrega, o overlay cala.
+    # TODO .desktop da casa sai do profile; quem sobreviver ABORTA antes
+    # do pacstrap (a mesma regra E92 da família fastfetch).
+    shopt -s nullglob
+    desk_e57=( "${PD_E57%profiledef.sh}"airootfs/usr/local/share/applications/*.desktop )
+    shopt -u nullglob
+    say "E101.2: ${#desk_e57[@]} .desktop de casa saem do overlay (o pacote entrega a família E98 — um dono por caminho)"
+    rm -f "${desk_e57[@]}"
+    shopt -s nullglob
+    sobd_e57=( "${PD_E57%profiledef.sh}"airootfs/usr/local/share/applications/*.desktop )
+    shopt -u nullglob
+    (( ${#sobd_e57[@]} == 0 )) || { echo "ELITE-FAIL: ${#sobd_e57[@]} .desktop sobreviveram à remoção E57/E101.2 — o pacstrap morreria neles (nunca seguir sabendo)" >&2; exit 1; }
     # E57.1 — o glob das units nasceu com um PONTO LITERAL ('elite-'.*.service
     # exige um ponto depois de elite- — glob não é regex) e removeu ZERO na
     # prova de 16:27 (build 2): os 35 bins saíram, as 9 units ficaram no

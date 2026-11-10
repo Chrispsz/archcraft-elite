@@ -1961,3 +1961,26 @@ PART101="$(grep -rn "pacman -Sy " "$REPO/.github/workflows"/*.yml 2>/dev/null | 
 assert_eq "$PART101" "0" "E101.1/CI: NENHUM -Sy sem -u nos preps (Arch rolling é inteiro — a libcrypto do rsync da #267 ensinou)"
 
 phase_end
+
+# ═══ E101.2 — A FAMÍLIA .desktop NA LEI E57 ═══════════════════════════
+#    A build #154 (v2.11.1) morreu no pacstrap: 14 overrides de menu da
+#    E98 entraram NO PACOTE (a varredura gp_install) e a remoção E57
+#    nunca ganhou a família — o overlay entregava os MESMOS caminhos e
+#    o pacman recusava não-dono em todos ('exists in filesystem' ×14 ×2
+#    tentativas). A lei de um dono por caminho agora cobre a família —
+#    e quem sobreviver à remoção ABORTA o build antes do pacstrap.
+E57SEC="$(sed -n '/E57 — O PACOTE É O ÚNICO DONO/,/^PYE57$/p' "$REPO/.ci/build.sh")"
+assert_match "$E57SEC" 'usr/local/share/applications/\*\.desktop' "E101.2/E57: a remoção E57 cobre a família .desktop da E98 (um dono por caminho — o pacote entrega, o overlay cala; a #154 morreu no buraco)"
+assert_match "$E57SEC" '\.desktop sobreviveram à remoção' "E101.2/E57: sobrevivente da família .desktop ABORTA o build antes do pacstrap (a regra E92 estendida — nunca seguir sabendo)"
+
+# E101.2 — A LEI GERAL (o buraco era estrutural): toda família de caminho
+# que o template instala NO PACOTE e que EXISTE no overlay tem que ter a
+# sua remoção no bloco E57. As famílias de hoje: fastfetch (overlay tem,
+# E92 remove), applications (overlay tem, E101.2 remove) — as demais
+# (hyprlock/docs/src/hooks/libalpm) moram em caminhos que o overlay não
+# carrega. O contrato cobre AS DUAS presentes:
+for fam in 'usr/local/share/elite/fastfetch' 'usr/local/share/applications'; do
+    assert_match "$E57SEC" "${fam}" "E101.2/E57: a família '$fam' (presente no overlay) tem remoção no bloco E57 — família nova no pacote ⇒ família nova na remoção (a lição da #154 em lei)"
+done
+
+phase_end
