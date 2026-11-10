@@ -1233,7 +1233,45 @@ pkgver=1.0
 #     aparece lavado no próximo dump).
 #     pkgrel 42→43 NO MESMO COMMIT (lei E41 — 4 overrides novos, 4 bins
 #     de conteúdo mudado, o trilho do build generalizado).
-pkgrel=43
+# 10/nov — E100: A PELE IRMÃ DO GREETER + O SINAL QUE ESCONDEU O RELÓGIO
+#     POR TRÊS ERAS — o relato do dono de novo ('a tela de bloqueio não
+#     mudou nada... ela é muito simples... ter um relógio') e a perícia no
+#     FONTE do hyprlock (IWidget::posFromHVAlign + Mat3x3::outputProjection
+#     + o transform FLIPPED_180 do render: o eixo Y do plano é PRA CIMA —
+#     y=0 é o PÉ da tela, y=H é a CABEÇA) cravaram o réu silencioso: os
+#     +290/+300/+440/+505 da era v1.7→v4 plantavam relógio, data e
+#     saudação ACIMA da borda de cima — JAMAIS renderizaram (a ISO que o
+#     rig instalou nunca mostrou relógio NENHUM: o dono pede o relógio
+#     desde a v1.7 e a suíte, que lê STRINGS, não enxergava pixels).
+#     Quatro frentes: (1) A PELE v5 — irmã do GREETER (archcraft-sddm-
+#     theme 2.0, a tela de saída de sessão que o dono aplaudiu): Iosevka
+#     Nerd Font (a fonte do greeter + o glifo do usuário na mesma
+#     família), a paleta do tema (#D8D8D8/#ABB2BF/#5a6477/#1E2128/
+#     #5294E2/#E06B74), relógio 120px BOLD a -240 (PRA BAIXO desta vez),
+#     data no esquema do greeter ('%A, %-d de %B' — 'domingo, 9 de
+#     novembro'), O USUÁRIO FICA NA TELA (a pílula do greeter: glifo
+#     fa-user + nome real via getent, fallback no login — o pedido
+#     'permanecer ali'), pílulas 380×54 rounding 27 (o card crust
+#     470×120 se aposenta), placeholder UMA voz ('Senha'), pontos ● do
+#     greeter, fundo = o wallpaper borrado (lei v2.5.0 intacta);
+#     (2) A LEI DO SINAL na suíte (40-integration): todo valign=top com
+#     position y positivo CRAVA (e valign=bottom negativo idem) — o conf
+#     que nascer com o sinal torto não passa da porteira nunca mais;
+#     (3) A PELE SEGUE O LOCK — craft-lock v2.1 chama craft-rice
+#     --lock-quiet (a gramática E91 SEM papel) ANTES de cada lock novo:
+#     a dose da casa vale no PRÓXIMO LOCK, não no próximo relogin (o
+#     'não mudou nada' morre de vez; --if-needed intacto — lock vivo sai
+#     cedo antes da renovação); a rede de fósseis ganha o sha da v4
+#     (e53fbf2c — quem adotou a v4 renova pela marcada, o fóssil é o
+#     cinto); (4) A FOTO DA PELE — craft-dump v2.9: a seção 12 ganha o
+#     par home vs mestre (sha256 + 1ª linha de cada) + o veredito da
+#     gramática (pele da casa em uso / fóssil aguardando / personalizado
+#     com a porta no papel) — a lacuna que deixou o 'não mudou nada'
+#     andar às cegas por três eras fecha: o próximo dump NOMEIA o estado
+#     do lock skin do home.
+#     pkgrel 43→44 NO MESMO COMMIT (lei E41 — o skel da pele v5 + 3 bins
+#     de conteúdo mudado: craft-rice, craft-lock, craft-dump).
+pkgrel=44
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

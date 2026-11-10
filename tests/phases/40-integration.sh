@@ -712,7 +712,7 @@ assert_grep "$DUMP" 'list-sessions' "v2.10.8: sessões do logind no papel (o can
 assert_grep "$DUMP" 'sleep.conf.d' "v2.10.8: cadeia de sono INTEIRA no papel (sleep.conf + drop-ins — o réu AllowSuspend=no tem endereço)"
 assert_grep "$DUMP" '/sys/power/disk' "v2.10.8: o estado disk do kernel no papel (hibernate sem resume= = recusa honesta; a prova viaja)"
 assert_grep "$DUMP" 'systemd-inhibit' "v2.10.8: quem segura inibidor de sono AGORA (o 'tenta e volta' tinha réu anônimo — o -i do menu e o idle-inhibit do swayidle no papel)"
-assert_grep "$DUMP" 'FIM DO DUMP v2\.8' "E98 (E30→E90→): versão do papel = conteúdo do papel (a v2.8 traz a dose no papel — elite-update.log + pacman.log na seção 12; âncora refrescada viva)"
+assert_grep "$DUMP" 'FIM DO DUMP v2\.9' "E100 (E30→E90→E98→): versão do papel = conteúdo do papel (a v2.9 traz A FOTO DA PELE — home vs mestre na seção 12; a v2.8 trouxe a dose no papel; âncora refrescada viva)"
 assert_grep "$TUN" 'pacman-key --populate archlinux cachyos' "v2.3.6: firstboot popula as chaves ANTES do primeiro -Sy (db assinado por chave desconhecida falha INTEIRO — o rig flagrou: firstboot nunca completava)"
 assert_grep "$TUN" 'timeout 90 pacman-key --recv-keys' "v2.3.6: recv-keys com timeout 90 (keyserver lento pendurou a unit 17min em 'activating' — o rig flagrou)"
 assert_grep "$TUN" 'ensure_cachyos \|\| true' "v2.3.6: firstboot puxa o keyring FRESCO do mirror (o pacote datado 2024 é a raiz do 'chave desconhecida')"
@@ -1124,23 +1124,22 @@ assert_nogrep "$HLK" 'path = screenshot' "v2.5.0: o fundo NUNCA mais é screensh
 assert_grep "$HLK" 'blur_passes = 3' "v1.5: blur alto no fundo"
 assert_grep "$HLK" 'brightness = 0\.70' "v2.5.0: dim calibrado para o WALLPAPER (era 0.35 para o screenshot — o wallpaper dark premium luma 32.6 em .35 era sopa preta; .70 mostra o blur com contraste do relógio)"
 assert_grep "$HLK" 'text = \$TIME' "v1.5: relógio GRANDE (label \$TIME)"
-assert_grep "$HLK" 'font_size = 110' "v1.5→v3/E88: relógio GRANDE com CORPO (96→110 + sombra dupla — a diretriz 'tela de bloquear mais interessante'; o $TIME continua o label)"
+assert_grep "$HLK" 'font_size = 120' "v1.5→v3/E88→v5/E100: relógio GRANDE com CORPO (96→110→120 — a escala do greeter; o \$TIME continua o label; desde a E88 o número crescia no PAPEL e nascia ACIMA da tela — a lei do sinal abaixo acabou com a mentira)"
 assert_grep "$HLK" 'valign = top' "v1.5: relógio ancorado no TOPO (spec)"
-assert_nogrep "$HLK" 'text = \$USER' "v1.5→v4/E97: o nome do usuário acima do campo NASCEU na v1.5 (spec) e APOSENTOU-SE na v4 — o dono: 'redundante as mensagens que tem nela' (ele sabe o próprio nome; a v4 é relógio+data+card, só)"
+assert_nogrep "$HLK" 'text = \$USER' "v1.5→v5/E100: o nome do usuário NUNCA via variável \$USER solta — na v4 ele saiu (o dono: 'redundante as mensagens') e na v5 VOLTOU como PÍLULA do greeter via cmd/getent com fallback no login (o pedido 'permanecer ali'); a variável crua nunca mais"
 # v1.7: o avatar 'A' saiu do lock (a pergunta literal do dono no burn test) —
 # e o PNG órfão saiu do overlay na v2.3.3 (hyprlock não o usa desde a v1.7)
 assert_nogrep "$HLK" 'pixmaps/elite/avatar' "v1.7: lock SEM avatar (o 'A' do burn test saiu — decisão do dono)"
 assert_nogrep "$HLK" 'rounding = -1' "v1.7: sem o círculo do avatar (só o campo tem rounding)"
-assert_grep "$HLK" 'outer_color = rgba\(203, 166, 247' "v1.5→v1.7: borda MAUVE agora no CAMPO (a assinatura do rice)"
-assert_grep "$HLK" 'placeholder_text = .*Digite a senha para desbloquear' "v1.5: placeholder da spec (campo sempre visível — fade_on_empty false)"
+assert_grep "$HLK" 'outer_color = rgba\(90, 100, 119' "v1.5→v5/E100: borda do campo na COR DO GREETER (#5a6477 — o slate do archcraft-sddm-theme; o mauve segue vivo na barra/fuzzel/foot/themerc, o lock agora é irmão do greeter)"
+assert_grep "$HLK" 'placeholder_text = Senha$' "v1.5→v5/E100: UMA voz para o gesto ('Senha' — o greeter também usa uma palavra; 'Digite a senha para desbloquear' era a redundância que o dono nomeou)"
 assert_grep "$HLK" 'fail_text = .*Senha Incorreta' "v1.5: feedback de FALHA em texto (spec)"
 assert_grep "$HLK" 'check_text = .*Validando' "v1.5: feedback de VALIDAÇÃO em texto (spec)"
-assert_grep "$HLK" 'fail_color = rgba\(243, 139, 168' "v1.5: falha em VERMELHO Catppuccin (spec)"
-assert_grep "$HLK" 'dots_text_format = \*' "v1.5: asteriscos como feedback de digitação (spec)"
+assert_grep "$HLK" 'fail_color = rgba\(224, 107, 116' "v1.5→v5/E100: falha no VERMELHO DO GREETER (#E06B74 — o WarningColor do tema)"
+assert_nogrep "$HLK" 'dots_text_format' "v1.5→v5/E100: os pontos ● do GREETER (o default do hyprlock — os asteriscos eram a spec da era v1.5; a v5 segue o greeter)"
 assert_grep "$HLK" 'fade_on_empty = false' "v1.5: campo de senha fixo (não some vazio — spec)"
-assert_grep "$HLK" 'outline_thickness = 3' "v1.5: campo com borda estilizada (outline mauve)"
-assert_grep "$HLK" 'outer_color = rgba\(203, 166, 247' "v1.5: borda do campo MAUVE"
-assert_grep "$HLK" '\$font = JetBrainsMono NF' "v1.5: fonte do lock = a REAL do rice (definida em \$font)"
+assert_grep "$HLK" 'outline_thickness = 2' "v1.5→v5/E100: borda de 2px (o InputFieldBorderWidth do greeter — a era mauve-3px se aposenta)"
+assert_grep "$HLK" '\$font = Iosevka Nerd Font' "v1.5→v5/E100: a FONTE DO GREETER (kde_settings Font=Iosevka; a variante NF da casa tem os mesmos traços + o glifo do usuário na própria família — sem fallback cruzado)"
 # v1.6: os PNGs de dock (terminal/files/web) saíram JUNTO com os módulos
 # image# (fix waybar #5051) — glifos mandam; o avatar.png órfão saiu na v2.3.3
 for gone in terminal files web avatar; do
@@ -2803,8 +2802,8 @@ assert_grep "$RCX" 'GoToDesktop' "v1.7: scroll no desktop segue trocando de work
 HYP="$P/airootfs/etc/skel/.config/hypr/hyprlock.conf"
 assert_nogrep "$HYP" '<span' "v1.7: hyprlock SEM markup cru (placeholder não parseia Pango — cor é propriedade)"
 assert_nogrep "$HYP" 'avatar\.png' "v1.7: hyprlock SEM o avatar 'A' (decisão do dono)"
-assert_grep "$HYP" 'Digite a senha para desbloquear' "v1.7: placeholder em texto plano (o literal do dono)"
-assert_grep "$HYP" 'position = 0, 290' "v1.7→v3/E88: relógio no terço superior (290px — longe da light bar; o v3 ganhou sombra e a saudação embaixo da data)"
+assert_grep "$HYP" 'placeholder_text = Senha$' "v1.7→v5/E100: placeholder em texto plano e UMA palavra (o literal do dono de hoje; o v1.7 'Digite a senha para desbloquear' era meia frase a mais)"
+assert_grep "$HYP" 'position = 0, -240' "v1.7→v3/E88→v5/E100: o relógio ABAIXO da borda de cima (o +290 da v1.7→v4 era PRA CIMA no eixo do hyprlock — o relógio três eras fora da tela; o sinal negativo é a cura)"
 
 # ── INSTALADOR À PROVA DE $ (v1.7 — a classe do "Installation Failed — ───
 #    Missing variables are: kv,kbase,…"): o Calamares expande TODO $ de
@@ -3195,14 +3194,59 @@ assert_grep "$REPO/elite/fragments/elite-customize.sh" 'ParallelDownloads = 5' "
 assert_grep "$REPO/elite/fragments/elite-customize.sh" "printf 'Color" "E88/ISO: o pacman nasce com cor (a leitura do terminal do -Syu)"
 HLKV3="$P/airootfs/etc/skel/.config/hypr/hyprlock.conf"
 assert_grep "$HLKV3" 'shadow_passes = 2' "E88/lock: o relógio tem CORPO (sombra dupla — leitura em qualquer wallpaper, o número deixa de flutuar chapado)"
-assert_grep "$HLKV3" 'font_size = 110' "E97/lock: o relógio GRANDE fica (o pedido do dono: 'poderia ter um relógio' — 110px com corpo, o acerto da v3 que a v4 preserva)"
+assert_grep "$HLKV3" 'font_size = 120' "E97→E100/lock: o relógio GRANDE fica e cresce à escala do greeter (o pedido do dono, três eras seguidas: 'poderia ter um relógio' — agora o sinal também o manda PRA DENTRO da tela)"
 assert_nogrep "$HLKV3" 'Boa madrugada' "E97/lock: a SAUDAÇÃO saiu (o dono: 'redundante as mensagens que tem nela' — a tela não precisa conversar; a v3 empilhava 4 blocos de texto além do relógio)"
-assert_nogrep "$HLKV3" 'text = \$USER' "E97/lock: o NOME do usuário saiu (ele sabe o próprio nome — a redundância nomeada)"
+assert_nogrep "$HLKV3" 'text = \$USER' "E97→E100/lock: o NOME do usuário nunca mais variável crua — na v5 ele volta como PÍLULA do greeter (glifo + getent com fallback; o pedido 'permanecer ali')"
 assert_nogrep "$HLKV3" 'Digite a senha e pressione Enter' "E97/lock: a DICA do rodapé saiu (o placeholder do campo já diz o gesto — uma voz, não duas)"
-assert_grep "$HLKV3" 'size = 470, 120' "E97/lock: o card emagreceu 200→120px (sem username dentro — só o campo; nada na tela que não trabalhe)"
-assert_grep "$HLKV3" '^shape {' "E88/lock: o CARD existe (a senha mora numa superfície crust translúcida — o blur atravessa, a identidade intacta; shape ANTES do input = z-order correto)"
+assert_grep "$HLKV3" 'size = 380, 54' "E97→E100/lock: as PÍLULAS do greeter (380×54 — o card crust 470×120 da v4 se aposenta; o greeter não tem cartão atrás dos campos)"
+assert_grep "$HLKV3" '^shape {' "E88→E100/lock: o SHAPE existe — a pílula do USUÁRIO (borda #5a6477 + superfície #1E2128 translúcida: o blur atravessa; shape ANTES dos labels = z-order correto)"
 assert_grep "$HLKV3" 'animation = fadeIn, 1, 3, linear' "E88/lock: o fade ágil (5→3 — o lock chega NA HORA; a mesma diretriz zero-delay da dock)"
-assert_nogrep "$HLKV3" 'path = screenshot' "v2.5.0 preservada na v3: o fundo do lock é O WALLPAPER (nunca a foto da tela com janelas)"
+assert_nogrep "$HLKV3" 'path = screenshot' "v2.5.0 preservada na v3/v5: o fundo do lock é O WALLPAPER (nunca a foto da tela com janelas)"
+# ── E100 — A PELE IRMÃ DO GREETER + A LEI DO SINAL ──────────────────────
+# (o relato do dono: 'se a tela de bloqueio fosse mais próxima daquela
+# [o greeter do SDDM]... ficar lá o usuário, ter um relógio, talvez
+# aquele esquema lá de data'. A perícia no fonte do hyprlock provou que
+# o relógio da v1.7→v4 nasce ACIMA da tela — o Y do plano é PRA CIMA.)
+assert_grep "$HLKV3" 'Iosevka Nerd Font' "E100/lock: a fonte é A DO GREETER (kde_settings Font=Iosevka — as duas telas lêem como irmãs; a NF da casa carrega o glifo do usuário na mesma família)"
+assert_grep "$HLKV3" 'position = 0, -240' "E100/lock: o relógio a 240px PRA BAIXO da borda de cima (valign=top + y NEGATIVO — a correção do sinal que três eras esconderam)"
+assert_grep "$HLKV3" 'position = 0, -390' "E100/lock: a data logo abaixo do relógio (o encaixe apertado do greeter — spacing 0 do Column do Clock.qml)"
+assert_grep "$HLKV3" 'date \+"%A, %-d de %B"' "E100/lock: a data NO ESQUEMA DO GREETER ('domingo, 9 de novembro' — a família do DateFormat 'dddd, MMMM d' do tema, na locale da sessão)"
+assert_grep "$HLKV3" 'rgba\(216, 216, 216' "E100/lock: relógio+data no BRANCO DO GREETER (#D8D8D8 — TimeTextColor/DateTextColor do theme.conf)"
+assert_grep "$HLKV3" 'rgba\(90, 100, 119' "E100/lock: as bordas no SLATE DO GREETER (#5a6477 — LoginFieldBorderColor)"
+assert_grep "$HLKV3" 'rgba\(82, 148, 226' "E100/lock: validando no AZUL DO GREETER (#5294E2 — o HighlightBackgroundColor, a cor do botão Login)"
+assert_grep "$HLKV3" 'rgba\(224, 107, 116' "E100/lock: erro no VERMELHO DO GREETER (#E06B74 — o WarningColor)"
+assert_grep "$HLKV3" 'rgba\(30, 33, 40' "E100/lock: as superfícies no FUNDO DO GREETER (#1E2128 — FormBackgroundColor translúcido, o blur atravessa)"
+assert_grep "$HLKV3" 'getent passwd' "E100/lock: o nome REAL do usuário (GECOS como o UseRealName=true do greeter)"
+assert_grep "$HLKV3" 'id -un' "E100/lock: fallback no LOGIN se o GECOS vier vazio (o nome nunca falta na pílula)"
+assert_nogrep "$HLKV3" 'dots_text_format' "E100/lock: os pontos ● do greeter (o default do hyprlock — os asteriscos da era v1.5 saíram)"
+assert_nogrep "$HLKV3" 'size = 470, 120' "E100/lock: o card crust 470×120 EXTINTO (as pílulas do greeter substituíram o cartão)"
+assert_nogrep "$HLKV3" 'JetBrainsMono' "E100/lock: a era JetBrainsMono no lock acabou (a casa da pele é Iosevka — a mesma do greeter)"
+# A LEI DO SINAL — o gate que nunca mais deixa o conf nascer torto: o eixo
+# Y do hyprlock é PRA CIMA (IWidget::posFromHVAlign: valign=top faz pos.y
+# = off + H − size, e o Mat3x3::outputProjection mapeia y=H para o TOPO da
+# tela). valign=top com y positivo = elemento ACIMA da tela (o relógio
+# invisível de três eras); valign=bottom com y negativo = abaixo do pé.
+SIGN_VIOL="$(awk '
+    /^[a-z-]+ \{/ { inblk=1; block=$1; pos=""; val=""; next }
+    inblk && /^    position = / { pos=$4 }
+    inblk && /^    valign = / { val=$3 }
+    /^}/ {
+        if (inblk && pos != "" && val != "") {
+            y=pos+0
+            if (val=="top" && y>0) printf "%s: valign=top com y=+%d (acima da tela)\n", block, y
+            if (val=="bottom" && y<0) printf "%s: valign=bottom com y=%d (abaixo do pé)\n", block, y
+        }
+        inblk=0; next
+    }
+' "$HLKV3")"
+assert_eq "$SIGN_VIOL" "" "E100/lock: A LEI DO SINAL — nenhum elemento nasce fora da tela (valign=top ⇒ y ≤ 0, valign=bottom ⇒ y ≥ 0; o eixo Y do hyprlock é PRA CIMA — o réu silencioso de três eras agora tem porteira)"
+# E100 — A PELE SEGUE O LOCK (o craft-lock renova o conf do home antes de
+# cada hyprlock nascer — a dose da casa vale no próximo lock, não no
+# próximo relogin)
+assert_grep "$P/airootfs/usr/local/bin/craft-lock" 'craft-rice --lock-quiet' "E100/lock: o craft-lock chama o rice --lock-quiet antes de cada lock novo (a pele segue o lock — o 'não mudou nada' morre)"
+assert_grep "$P/airootfs/usr/local/bin/craft-rice" '--lock-quiet' "E100/rice: o modo calado existe (a gramática E91 sem papel — o lock não é lugar de log)"
+assert_grep "$P/airootfs/usr/local/bin/craft-dump" 'a pele do lock' "E100/dump: A FOTO DA PELE — o dump fotografa home vs mestre (sha256 + 1ª linha + veredito; o estado do lock skin nunca mais anda às cegas)"
+assert_grep "$P/airootfs/usr/local/bin/craft-rice" 'e53fbf2c5fa2779c0881141d8b0f9198e09b6dfbb1be8937da00c5a6e4669717' "E100/rice: o fóssil da v4 entra na rede (quem adotou a v4 renova pela marcada; o fóssil é o cinto)"
 
 # ── E96 — O CANAL QUE NÃO CORTA + A TELA QUE LEMBRA CHEGA AO RIG ──
 # (o julgamento da 1.0-39 pelo dump 150829 do rig + o relato do dono)
@@ -3295,8 +3339,8 @@ assert_grep "$REPO/.ci/build.sh" 'applications/\*\.desktop' "E98/build: o trilho
 assert_grep "$REPO/.ci/build.sh" 'ovr = sorted' "E98/build: o PKGBUILD gera install E adoção por varredura (o pre_install adota cada override — a dança da via sem dono, agora em série)"
 
 # ── E41: o pkgrel viajou NO MESMO COMMIT ──
-assert_grep "$REPO/.ci/build.sh" 'pkgrel=43' \
-  "E98 (lei E41, âncora viva refrescada): pkgrel elite-system 42→43 — o dia do julgamento dos dumps 202112/203201: o toggle da gaveta passou a esperar a morte (o pkill assíncrono reabria), a loja ganhou os overrides NoDisplay (o monólito octopi carrega os 4 .desktop de uma vez), o trilho do build virou varredura e a dose entrou no papel (elite-update.log + pacman.log na seção 12)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=44' \
+  "E100 (lei E41, âncora viva refrescada): pkgrel elite-system 43→44 — a pele v5 do lock (irmã do greeter, a lei do sinal que três eras escondeu), a pele que segue o lock (craft-lock → rice --lock-quiet) e a foto da pele no dump (v2.9); a E98 (42→43) trouxe o toggle que espera a morte, os overrides NoDisplay da loja e a dose no papel"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 42→43 NO MESMO COMMIT' \
   "E98 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 41→42 NO MESMO COMMIT' \

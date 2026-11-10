@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · craft-dump (v2.8 — o "btop completão" que se atualiza)
+# Archcraft ELITE · craft-dump (v2.9 — o "btop completão" que se atualiza)
 # ═══════════════════════════════════════════════════════════════════════════
 # Pedido do dono (out/2026): "como puxo tudo que está rodando como se fosse
 # um btop completão pra gente ter um diagnóstico da RAM, pacotes, uso, CPU
@@ -53,6 +53,12 @@
 # puxa o craft-dump DA MAIN do repo (raw, sem credencial), valida com
 # bash -n antes de instalar, guarda o velho como .bak-<stamp> e imprime o
 # sha256 dos dois — a perícia nunca mais envelhece no rig.
+# v2.9 (E100 — A FOTO DA PELE): a lacuna que escondeu o réu por TRÊS eras —
+# nenhum dump jamais fotografou o conf do lock no home: o dono dizia 'a tela
+# de bloqueio não mudou nada' e o papel não tinha COMO dizer se a pele da
+# casa chegou, se é fóssil esperando, ou se é conf personalizado. A seção 12
+# ganha o par home vs mestre do pacote (sha256 + 1ª linha de cada) + o
+# veredito da gramática do rice (marcador? fóssil? porta --lock-adopt?).
 # v2.8 (E98 — A DOSE E A GAVETA NO PAPEL): (1) A LACUNA DO DUMP 195819 — a
 # 1.0-42 aterrissou no rig entre 19:13–19:46 e o MINUTO nunca foi provado
 # (sem update.log/pacman.log no papel): a seção 12 ganha o tail do
@@ -237,7 +243,7 @@ if ! : > "$OUT" 2>/dev/null; then
 fi
 
 {
-    printf '══════════ ELITE DUMP v2.8 — diagnóstico completo ══════════\n'
+    printf '══════════ ELITE DUMP v2.9 — diagnóstico completo ══════════\n'
     if [ "$(id -un)" != "$DUMP_USER" ]; then
         printf 'gerado: %s · usuário: %s → sessão de %s (uid %s) · host: %s\n' \
             "$(date)" "$(id -un)" "$DUMP_USER" "$DUMP_UID" "$(uname -n 2>/dev/null || echo '?')"
@@ -628,6 +634,42 @@ PY
         printf '\n── (ausente: /var/log/elite-update.log — a dose nunca rodou nesta máquina?)\n'
     fi
     r "grep 'elite-system' /var/log/pacman.log 2>/dev/null | tail -12" 14
+    # E100 — A FOTO DA PELE (a lacuna que escondeu o réu de três eras: os
+    # dumps nunca fotografaram o conf do lock no home — o 'não mudou nada'
+    # andava às cegas): hash + 1ª linha do conf do home e da mestre do
+    # pacote + o veredito da gramática do rice. O próximo dump NOMEIA o
+    # estado: pele da casa em uso, fóssil aguardando renovação, ou conf
+    # personalizado (e a porta --lock-adopt no papel).
+    LOCK_HOME="${UHOME}/.config/hypr/hyprlock.conf"
+    LOCK_MAST=/usr/local/share/elite/hyprlock/hyprlock.conf
+    printf '\n── a pele do lock (home vs mestre do pacote — E100)\n'
+    lock_hash_home=''
+    lock_hash_mast=''
+    if [ -r "$LOCK_HOME" ]; then
+        lock_hash_home="$(sha256sum "$LOCK_HOME" 2>/dev/null | cut -d' ' -f1)"
+        printf '%s  %s\n' "$lock_hash_home" "$LOCK_HOME"
+        sed -n '1p' "$LOCK_HOME"
+    else
+        printf '(ausente/ilegível: %s — o home nunca recebeu a pele?)\n' "$LOCK_HOME"
+    fi
+    if [ -r "$LOCK_MAST" ]; then
+        lock_hash_mast="$(sha256sum "$LOCK_MAST" 2>/dev/null | cut -d' ' -f1)"
+        printf '%s  %s\n' "$lock_hash_mast" "$LOCK_MAST"
+        sed -n '1p' "$LOCK_MAST"
+    else
+        printf '(ausente: %s — elite-system antigo na máquina?)\n' "$LOCK_MAST"
+    fi
+    if [ -n "$lock_hash_home" ]; then
+        if grep -q 'entregue por craft-rice' "$LOCK_HOME" 2>/dev/null; then
+            if [ -n "$lock_hash_mast" ] && [ "$lock_hash_home" = "$lock_hash_mast" ]; then
+                printf 'veredito: o conf do home É DA CASA e está NA PELE ATUAL\n'
+            else
+                printf 'veredito: o conf do home É DA CASA (marcador) — a mestre é outra: o próximo lock/arranque renova (craft-lock --lock-quiet / craft-rice no craft-bars)\n'
+            fi
+        else
+            printf 'veredito: o conf do home NÃO tem o marcador — fóssil conhecido renova no próximo lock/arranque; se for conf do próprio dono, a porta é craft-rice --lock-adopt (backup + entrega)\n'
+        fi
+    fi
     for f in /var/log/elite-firstboot.log /var/log/calamares.log \
              "$UCACHE/calamares/session.log"; do
         if [ -f "$f" ]; then
@@ -686,7 +728,7 @@ PY
     r "du -sh '$UHOME/.cache'/* 2>/dev/null | sort -rh | head -12" 14
     r "journalctl --disk-usage 2>/dev/null" 2
 
-    printf '\n══════════ FIM DO DUMP v2.8 ══════════\n'
+    printf '\n══════════ FIM DO DUMP v2.9 ══════════\n'
     printf 'a seção 0 é o resumo; as seções 1-14 são o detalhe.\n'
     printf 'envie este arquivo (ou a URL do --upload) para a análise.\n'
 } > "$OUT" 2>&1
