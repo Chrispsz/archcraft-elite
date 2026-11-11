@@ -1237,7 +1237,22 @@ class Dock:
         E88 — A MORTE LIBERA O CLIQUE: cada filho viaja com a CHAVE do
         lançamento; morreu sem mapear (crash imediato, app que abre e
         fecha) = o guard de 8s sai NA HORA — o usuário tenta de novo
-        sem esperar o relógio (o 'cada clique ignorado' do dump morre)."""
+        sem esperar o relógio (o 'cada clique ignorado' do dump morre).
+        E101 — A CLASSE DAEMONIZADA NÃO MENTE COM A MORTE DO LAÇADOR
+        (a prova do papel, 10/nov: 'lançado: thunar' / 'guard liberado:
+        thunar.desktop morreu sem mapear (rc=0)' em loops — o Thunar é
+        daemon: o lançador morre rc=0 na hora e a JANELA mapeia DEPOIS,
+        pelo daemon; o release instantâneo deixou o vão aberto e o clique
+        seguinte lançava OUTRA — o duping que o dono proibiu). A cura tem
+        DOIS braços, na ordem:
+          (1) A LIST FRESCA NA MORTE — se a janela do app JÁ mapeou, o
+              guard se aposenta como mapeado (a corrida vencida, a
+              gramática E88 intacta);
+          (2) A GRAÇA CURTA DA DELEGAÇÃO — sem janela ainda, o guard NÃO
+              morre: fica 3s (o vão do daemonizado), o clique no vão é
+              guardado e o MAP (o poll de baixo) aposenta no instante em
+              que a janela chega. Crash REAL continua liberando rápido:
+              3s, não 8s — o preço do duping é este meio-tempo."""
         vivos = []
         for child in self._children:
             try:
@@ -1246,9 +1261,24 @@ class Dock:
                     vivos.append((proc, key))
                     continue
                 if key is not None and key in self._launching:
-                    del self._launching[key]
-                    log(f"guard liberado: {key} morreu sem mapear "
-                        f"(rc={proc.returncode}) — o clique volta a lançar AGORA")
+                    # E101 (1) — a LIST fresca: mapeou na corrida? aposenta
+                    # como VENCEDOR (não como morto)
+                    snap = self._tl_list()
+                    if snap is not None and self._key_mapped(key):
+                        del self._launching[key]
+                        log(f"guard aposentado: {key} mapeou (a LIST fresca "
+                            "da morte do lançador) — clique é foco imediato")
+                        continue
+                    # E101 (2) — a graça curta da delegação: a janela de um
+                    # app daemonizado mapeia DEPOIS da morte do lançador.
+                    # Guard remanescente de 3s (t0 recuado: age = 5s de um
+                    # guard de 8s) — o expiry do poll cuida do resto.
+                    self._launching[key] = (time.monotonic()
+                                            - (8.0 - 3.0))
+                    log(f"guard delegado: {key} morreu sem mapear "
+                        f"(rc={proc.returncode}) — classe daemonizada: "
+                        "3s de graça enquanto a janela mapeia (o clique no "
+                        "vão não duplica)")
             except Exception:  # noqa: BLE001 — filho exótico nunca derruba
                 pass
         self._children = vivos

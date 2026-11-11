@@ -6,6 +6,113 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **E103 — A REUNIÃO DOS TRONCOS + A ABSTRAÇÃO: O POLIMENTO SÊNIOR** (a missão do dono: "lapidar,
+  otimizar e refatorar… abstração, estados de fazer e desfazer, uso por
+  diversos usuários… nada de remendo que funciona em partes"). O trabalho
+  nasceu como E101 na linha divergida do repositório (067cb96 — a dose
+  v6, o polkit sob demanda, o OSD e o modo de jogo ficaram PRESOS fora do
+  tronco enquanto o canal da linha velha pagava a run #66 vermelha) e
+  chega ao tronco limpo unificado como E103 — o trunk volta a ser UM
+  (a v2.11.3 é a origem; o main volta a apontar para ela com o trabalho
+  em cima). Nove frentes:
+  - **A DOSE COM AUTO-CURA** (craft-update v6) — a prova do papel 10/nov
+    (dose ao ligar RECUSADA por 'elite-sleep-report existe no sistema de
+    arquivos' + comandos manuais no papel — a lei do dono: atualização que
+    chega INSTALA): `cura_orfao` (quarantena bak- do sem-dono com a prova
+    do `pacman -Qo` ANTES da mão + retry narrado nas três portas; subclasse
+    COM dono segue ensinando — mover seria roubo) + `lista_404` (as peças
+    que o db ADVERTISE sem arquivo saem da dose e ela refaz — o
+    `brave-origin` de mentira da cena; o nome COM traço via rsplit guloso) +
+    o `-debug` FORA da dose (artefato de desenvolvimento — a primeira
+    camada; o canal é a segunda).
+  - **O CANAL SE PROVA** (publish-packages.yml) — `repo-add` recebe
+    EXATAMENTE o conjunto que embarca (a era dos pwvucontrol-debug/wlrctl-
+    debug no db sem upload morre — a recusa 404 do rig de 10/nov) + os
+    órfãos -debug PRUNADOS do db-base ANTES do repo-add + verificação
+    db↔assets no fim da run (cada entrada do db precisa de asset na
+    release — a classe 404 impossível ANTES de o rig pagar). A cura da
+    divergência: a 1ª verificação reconstruia nome-versão-arch e mentia
+    para as peças -any (a run #66 reprovou 4 assets SADIOS por hardcode
+    -x86_64) — o %FILENAME% do db é a fonte da verdade.
+  - **O POLKIT SOB DEMANDA** (a diretriz: "prompt APENAS quando uma
+    aplicação solicitar… RAM nula em idle") — a perícia no fonte do polkit
+    provou: o polkitd NUNCA D-Bus ativa agentes (o agente se REGISTRA) e
+    REJEITA um segundo por sessão — o corpo certo é DOIS: `vendor/elite-
+    polkit-listener.c` (C vendado, sha pinado, compilado no pacote único —
+    GDBus puro, idle ~1–2 MB, o diálogo zenity só DURANTE o desafio,
+    até 3 tentativas, senha zerada da RAM) eleito pelo craft-bars na fila
+    nova (listener → lxqt → hyprpolkitagent → polkit-gnome), o spawn
+    residente do autostart morto e o residente perdedor aposentado.
+  - **O OSD COMPLETO** — swayosd na ADOÇÃO (o rig do dono nasceu antes da
+    E74 — a barra nunca existiu lá), binds com a gramática ATUAL
+    (`--output-volume raise/lower/mute-toggle` + `--input-volume
+    mute-toggle` no MIC — o estado do mute é feedback), config da casa
+    (top_margin 0.86 = LOGO ACIMA da dock, show_percentage, duration 900
+    = menos de 1 segundo) viajando NO PACOTE e alcançando homes vivos
+    pela gramática do rice, daemon na supervisão (morre → volta em ≤5s).
+  - **A GRAMÁTICA DAS SKINS GENERALIZADA** (craft-rice) — a lei E91 da
+    lock skin vira `skin_ensure` ÚNICO para TRÊS peles: lock + **rc.xml**
+    (rede de fósseis com os shas históricos do git — o rig recebe os binds
+    E103 SEM --rc-adopt) + **swayosd/config.toml**; portas --lock-adopt /
+    --rc-adopt / --skin-adopt com backup .bak-; o rc.xml do skel ganha o
+    marcador e o menu.xml nasce XML VÁLIDO (o `--check` em comentário era
+    XML doente há eras — labwc tolerava).
+  - **A PELE v6 DO LOCK** (a missão: avatar 1:1 rigoroso, hierarquia
+    vertical, rodapé 0.6) — AVATAR em círculo PERFEITO (o craft-lock
+    recorta a fonte com ffmpeg crop min(iw,ih)+scale 256 para o cache
+    com mtime — retangular viraria elipse: o corte assimétrico morre;
+    fontes ~/.config/elite/avatar.png → ~/.face), relógio 100px no terço
+    superior, pílulas com GAP DE 24PX (78px centro-a-centro − 54), rodapé
+    'sessão bloqueada' a rgba(171,178,191,0.6); a v5 entra na rede de
+    fósseis (quem adotou renova PELO FÓSSIL, sem porta manual).
+  - **OS APPS PADRÃO COMO VARIÁVEIS** (a abstração FreeDesktop) —
+    /etc/profile.d/10-elite-defaults.sh (TERMINAL/FILEMANAGER/EDITOR/
+    VISUAL/BROWSER com os defaults da casa — a variável PRESENTE do
+    usuário nunca é tocada), exo-open lendo ${TERMINAL:-foot}/
+    ${FILEMANAGER:-thunar}/${BROWSER:-brave}, o menu raiz sem binário cru
+    (o labwc roda o Execute via sh — a variável vale), as labels sem nome
+    de app redundante.
+  - **O MODO DE JOGO DE FÁBRICA** (a diretriz: "o modo de jogo do CachyOS
+    ou do feral, o que for melhor… performance no CPU quando entrar no
+    jogo… ou um botão no sistema") — OS DOIS: o músculo é o gamemode do
+    Feral (JÁ na ISO; sob D-Bus activation = RAM zero no idle; governor
+    performance + amd_performance_level high + rollback automático pelo
+    /etc/gamemode.ini da casa, dono único do pacote) e o cérebro é o
+    `craft-game` NOVO (menu/status/on/off/watch/hook: o watch detecta a
+    família de jogos e REGISTRA O PID DO JOGO — o reaper de lá sabe da
+    morte, a casa não conta nada duas vezes; o manual usa holder próprio;
+    avisos -u low; AUTO=1 em ~/.config/elite/game.conf é o contrato, o
+    watch na supervisão do craft-bars, a porta no menu raiz).
+  - **A VIGÍLIA DO SYSCTL** (elite-post-transaction) — o papel 10/nov
+    provou o drift (kernel em vm.swappiness=150 com o conf da casa pedindo
+    180 — o cachyos-settings reescreveu depois do firstboot e o
+    systemd-sysctl só roda no boot): o hook compara CADA chave do
+    99-elite.conf com o kernel vivo e re-aplica na hora, com a prova no
+    papel.
+  - **A DOCK SEM DUPING** (craft-dock-gui) — a classe DAEMONIZADA não
+    mente com a morte do lançador (o papel 10/nov: 'thunar.desktop morreu
+    sem mapear (rc=0)' em LOOPS — o release instantâneo deixava o vão
+    aberto e o clique seguinte lançava OUTRA): a LIST fresca na morte
+    aposenta o guard como VENCEDOR e a graça curta de 3s cobre o vão do
+    Thunar (o crash real espera 3s, o duping espera 0s); fixar/desfixar
+    seguem os DOIS sentidos pela porta própria (craft-pin rc 1 na
+    duplicata — tentativa repetida nunca vira loop de notificação).
+  - **A CENTRAL MANDA NO POP-UP** (swaync) — `notification-visibility`
+    low→muted: urgência baixa NUNCA sobe pop-up, vai direto para a
+    central/histórico; pop-up flutuante é lugar de normal/critical; o
+    'já estava fixado' desce para -u low (estado não é evento).
+  - **O MUNDO DE PROVA** — a suíte ganha a cena da cura nas DUAS classes
+    (sem dono: quarantena+retry rc 0; com dono: recusa honesta rc 1,
+    nada movido) + a cena 404 (peça fantasma sai e a dose refaz) + o
+    mock sudo no mundo E46 (o sandbox NÃO-root tem o mesmo poder do root
+    do CI — a lição bimodal E64) + os contratos estáticos de TODAS as
+    frentes acima. GO 3087 peças · 0 falhas · 1 pulo (a fase de release
+    sem rede no sandbox — bimodal por desenho).
+  - **pkgrel elite-system 44→45 NO MESMO COMMIT (lei E41)** — bins novo
+    (craft-game), C novo (elite-polkit-listener.c), 9 bins de conteúdo
+    mudado, skel novo (swayosd/config.toml, gamemode.ini, profile.d) e os
+    XMLs da pele E103. Chegada ao rig: `sudo craft-update`.
+
 - **v2.10.19 — E31: O PT-BR COMPLETO E O SUSPEND DESTRAVADO** (o dono:
   "mistura de inglês com ptbr… como a data e o open terminal here" +
   "ele vai pra tela de bloqueio e fica todo tempo ligado nela… nunca entra

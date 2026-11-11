@@ -99,12 +99,16 @@ if command -v swaync >/dev/null 2>&1; then
     swaync >>"${XDG_CACHE_HOME:-$HOME/.cache}/elite/bars.log" 2>&1 &
 fi
 
-# --- Diálogo de senha gráfico (polkit) — o Archcraft só sobe agente na sessão
-#     Openbox dele; na sessão LABWC é este arquivo que sobe o agente
-#     (necessário p/ gparted, coolercontrol, btrfs-assistant no dia-1)
-if [ -x /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 ]; then
-    /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 &
-fi
+# --- Diálogo de senha gráfico (polkit) — E101: SOB DEMANDA ────────────────
+#     NADA sobe aqui: o agente da casa é o elite-polkit-listener (C do
+#     pacote único — idle ~1–2 MB, sem Qt), lançado e SUPERVISIONADO pelo
+#     craft-bars (a lei do um-só-lançador): registra o agente da sessão e
+#     abre o diálogo (zenity) SÓ quando um app (gparted, pkexec, octopi)
+#     pedir privilégio, encerrando o diálogo com o desafio — RAM nula no
+#     idle. A perícia no fonte do polkit provou que o polkitd NUNCA D-Bus
+#     ativa agentes (o agente se REGISTRA) e recusa um segundo por sessão —
+#     o spawn residente do agente da era antiga saiu daqui (a
+#     aposentadoria dos residentes é lei E58/E95 no craft-bars).
 
 # --- Rede/Bluetooth (v2.0 → v2.3.5 → v2.3.6 — a história, com as 3 evidências):
 #     v2.0 tirou os applets (estética: "um ícone antigo… e um de Bluetooth.

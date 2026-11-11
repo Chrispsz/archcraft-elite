@@ -497,7 +497,8 @@ if grep -q '^file_permissions=(' "$PD"; then
            /usr/local/bin/exo-open \
            /usr/local/bin/craft-rollback /usr/local/bin/craft-lock /usr/local/bin/craft-logout \
            /usr/local/bin/craft-shot /usr/local/bin/craft-bat \
-           /usr/local/bin/craft-drawer /usr/local/bin/craft-power /usr/local/bin/craft-pin \
+           /usr/local/bin/craft-drawer /usr/local/bin/craft-power \
+           /usr/local/bin/craft-game /usr/local/bin/craft-pin \
            /usr/local/bin/craft-connect /usr/local/bin/craft-pin-pick \
            /usr/local/bin/craft-fix-keys /usr/local/bin/craft-idle \
            /usr/local/bin/craft-vigil \

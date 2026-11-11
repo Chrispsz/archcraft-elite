@@ -120,6 +120,7 @@ SSD="<?xml version=\"1.0\" encoding=\"UTF-8\"?>
 </labwc_config>
 "
 
+
 # ── fragmento 30-elite-organize.xml (E70 — a área se organiza no lançamento) ──
 ORG="<?xml version=\"1.0\" encoding=\"UTF-8\"?>
 <!-- Archcraft ELITE · fragmento de rice 30-organize ($MARKER) -->
@@ -152,31 +153,14 @@ ensure_fragment() {
     return 0
 }
 
-# VIVO: reconfigure SÓ quando UM fragmento FOI ESCRITO (o labwc relê as
-# regras sem relogin; sem sessão labwc — teste/SSH — o silêncio é o caminho
-# certo, a entrega vale no próximo login). Idêntico (rc 1) e recusado (rc 2)
-# não reconfiguram — escrita nova (rc 0) sim.
-CHANGED=0
-ensure_fragment "10-elite-games.xml" "$GAMES" && CHANGED=1
-ensure_fragment "20-elite-ssd.xml" "$SSD" && CHANGED=1
-ensure_fragment "30-elite-organize.xml" "$ORG" && CHANGED=1
-if [ "$CHANGED" -eq 1 ]; then
-    if command -v labwc-msg >/dev/null 2>&1 \
-            && [ -n "${WAYLAND_DISPLAY:-}" ]; then
-        labwc-msg reconfigure 2>/dev/null \
-            && say "craft-rice: reconfigure aplicado (as regras valem na sessão viva)"
-    fi
-fi
-
 # ═══════════════════════════════════════════════════════════════════════════
 # E91 — A LOCK SKIN QUE ALCANÇA O HOME VIVO (o bloqueio que "não mudou")
 # ═══════════════════════════════════════════════════════════════════════════
 # A FERIDA (dump 231955, o dono: "o bloqueio de tela não mudou nada"): o
-# hyprlock.conf v3 (E88 — relógio com corpo, saudação, card) mora no SKEL
-# da ISO — e home que JÁ EXISTE nunca o recebe (a lei do domínio v3:
-# config de usuário não é tocada por update — correta, mas sem porta
-# nenhuma o lock novo era uma promessa da ISO nova, nunca do canal).
-# A GRAMÁTICA DO RICE RESOLVE sem quebrar a lei (a mesma do ensure_fragment):
+# hyprlock.conf v3 (E88) mora no SKEL da ISO — e home que JÁ EXISTE nunca o
+# recebe (a lei do domínio v3: config de usuário não é tocada por update —
+# correta, mas sem porta nenhuma o lock novo era uma promessa da ISO nova,
+# nunca do canal). A GRAMÁTICA DO RICE RESOLVE sem quebrar a lei:
 #   · conf AUSENTE            → entrega (home novo/primeiro uso);
 #   · conf da CASA            → o marcador acima autoriza a renovação;
 #   · conf FÓSSIL             → hash de versão antiga da casa conhecida
@@ -186,81 +170,124 @@ fi
 # A pele-mestra viaja NO PACOTE (build.sh): /usr/local/share/elite/hyprlock/
 # hyprlock.conf — mesma escola do fastfetch (E73). Chamo no arranque pelo
 # craft-bars e — E100 — pelo craft-lock antes de CADA lock (--lock-quiet):
-# o update entrega, o rice aplica no próximo arranque OU no próximo lock
-# (a pele não espera mais a sessão renascer).
+# o update entrega, o rice aplica no próximo arranque OU no próximo lock.
 #
 # ═══════════════════════════════════════════════════════════════════════
-# E100 — A PELE IRMÃ + O SINAL QUE ESCONDEU O RELÓGIO POR TRÊS ERAS
+# E100 — A PELE IRMÃ DO GREETER (o sinal que escondeu o relógio por três
+# eras: o eixo Y do hyprlock é PRA CIMA — valign=top com y>0 nasce ACIMA da
+# tela; a suíte cobra a lei do sinal em 40-integration)
 # ═══════════════════════════════════════════════════════════════════════
-# O relato do dono de novo ("ela é muito simples... ter um relógio") deu
-# a cara do RÉU REAL: o eixo Y do hyprlock é PRA CIMA (y=0 = pé da tela,
-# y=H = cabeça — IWidget::posFromHVAlign + Mat3x3::outputProjection do
-# fonte). Os +290/+300/+440/+505 da era v1.7→v4 plantavam relógio, data e
-# saudação 290–505px ACIMA da tela — JAMAIS renderizaram (o v1.7 nasceu
-# com o erro: a ISO que o rig instalou nunca mostrou relógio NENHUM). O
-# dono pediu o relógio em três eras seguidas e a suíte, que lê STRINGS,
-# não enxergava pixels. A v5 (skel) corrige o sinal (valign=top com y
-# NEGATIVO), copia o sistema visual do GREETER (a tela que ele aplaudiu:
-# Iosevka, paleta #D8D8D8/#ABB2BF/#5a6477/#1E2128/#5294E2/#E06B74,
-# pílulas 380×54, data "A, %-d de B", o usuário FICA na tela — pílula
-# glifo+nome) e a SUÍTE ganha a LEI DO SINAL (40-integration) para o
-# conf nunca mais nascer com o sinal torto. E esta função é chamada pelo
-# craft-lock (--lock-quiet) ANTES DE CADA LOCK: a dose vale no próximo
-# lock, não no próximo relogin.
+
+# ── AS TRÊS SKINS DA CASA (fontes mestras do pacote, destes nos homes) ──
 LOCK_SRC="${ELITE_LOCK_SRC:-/usr/local/share/elite/hyprlock/hyprlock.conf}"
 LOCK_DST="${XDG_CONFIG_HOME:-$HOME/.config}/hypr/hyprlock.conf"
-# fósseis: v2.8.0 (6e9cf53) · v2.5.0 (5c6c3dd) · v2.3.0/v2.1.1 (e96bec4 —
-# o conf nasceu na v2.1.1 e não mudou até a v2.3.0: a era da ISO que o rig
-# do dono instalou) · v4 (d26fd57/E97, sha e53fbf2c — quem adotou a v4
-# renova pela MARCADA; o fóssil é o cinto) — o git da casa é a fonte; um
-# conf NOVO da casa ganha marcador próprio.
-LOCK_FOSSILS="8db51ea1b3f1538ff8205da0acfee007ad09f45a312680f4c7584259ee7a254c 3b12babe69f16e40edd5dd1c8a4680e2b32d116821f7c3aad138d803a3ef5407 67e7a7da7ded2b55bbfe3b0090ce6801a902a8d89f410c9e8155ff435f095711 e53fbf2c5fa2779c0881141d8b0f9198e09b6dfbb1be8937da00c5a6e4669717"
+# fósseis do lock: v2.8.0 (6e9cf53) · v2.5.0 (5c6c3dd) · v2.3.0/v2.1.1
+# (e96bec4) · v4 (E97, e53fbf2c) · v5 (E100, a37c7c13 — quem adotou a v5
+# renova para a v6 PELO FÓSSIL, sem --lock-adopt). O git da casa é a fonte.
+LOCK_FOSSILS="8db51ea1b3f1538ff8205da0acfee007ad09f45a312680f4c7584259ee7a254c 3b12babe69f16e40edd5dd1c8a4680e2b32d116821f7c3aad138d803a3ef5407 67e7a7da7ded2b55bbfe3b0090ce6801a902a8d89f410c9e8155ff435f095711 e53fbf2c5fa2779c0881141d8b0f9198e09b6dfbb1be8937da00c5a6e4669717 a37c7c13e6f51b0fe912ecccff2dcb0f5ab0a430eb144e80041fe751617ef9f9"
 
-lock_skin() {
-    # --lock-adopt: a porta EXPLÍCITA do dono (backup .bak-<stamp> + entrega)
-    # (o --lock-quiet é lido NO TOPO do script — os fragmentos saem calados
-    # junto; chegar aqui com $1 vazio é o caminho do craft-lock)
-    if [ "${1:-}" = "--lock-adopt" ]; then
-        if [ ! -r "$LOCK_SRC" ]; then
-            echo "craft-rice: a pele-mestra não está no sistema (elite-system antigo?) — nada a adotar" >&2
-            exit 1
+# E101 — AS SKINS DA CASA (a gramática E91 generalizada): o rc.xml e o
+# swayosd/config.toml adotam a MESMA lei da lock skin. O rc.xml de rig vivo
+# é domínio do dono — mas o skel da ISO é a nossa velha: a REDE DE FÓSSEIS
+# (os shas dos blobs históricos do git, calculados em 11/nov sobre
+# elite/airootfs/etc/skel/.config/labwc/rc.xml) distingue 'é a nossa velha'
+# de 'o dono editou'. Fóssil = renova (o rig do dono recebe os binds E101
+# do OSD SEM --rc-adopt); marcador = renova; outro conteúdo = PERSONALIZADO.
+# Fósseis rc.xml: v2.3.0 (c2374d0) · v2.3.3 (ca551a0) · v2.3.6 (285c5a0) ·
+# v2.7.0 (ca30384) · v2.8.0 (0d3966e) · v2.9.0 (4982e58) · v2.10.5 (fd4bfdb) ·
+# v2.10.6 (c13e9b4) · E36 (e1c48ab) · E73 (b483f32) · E74 (5b9b0c6).
+RC_SRC="${ELITE_RC_SRC:-/usr/local/share/elite/labwc/rc.xml}"
+RC_DST="${XDG_CONFIG_HOME:-$HOME/.config}/labwc/rc.xml"
+RC_FOSSILS="6e587404c68ae1bd9cbfa3031e252c7c977c638508acc37a093e602de1c89027 e2da4dd412e27eb5a675a0e8017daf5bf5ad3353ac456ef416f937150d106868 ccab2c54730b0b6d826e0bd705ff097797b636b6c670de83f235544830676ce6 161346f2df37a7806ee3c00d2e772653d5ee05fe62f89fc30a249c517b4b8aa5 b738b6a0209b541bfc32dc73541d43ddf9205bad5430f96b4a0bce21fbc01ae0 3bf86bafa2bc961164b545669e065afef3515f89ce0067482a791d4c3804f5dc f1db32b41677107fe0ca3c18f32ba759746f0299316d06676f85aadf1b92f48c edda13fcddb603ce63722104597c2e046529fb89905d008bd24ba3508d03f8cf b631ad7586d7a5185193bf0ff7c326b88ebb778ac5bc8de7887338da4a388816 0838944e0a6a0adcfed9fd78f2bfac584753aebe18f43b4464643276fd7625b7 a1a972d5482926e88c0de2bcc27b7e14337f412147e84f0a6734309f53b47ac4"
+
+OSD_SRC="${ELITE_OSD_SRC:-/usr/local/share/elite/swayosd/config.toml}"
+OSD_DST="${XDG_CONFIG_HOME:-$HOME/.config}/swayosd/config.toml"
+
+# ── a pele ÚNICA (uma gramática, três peles) ─────────────────────────────
+# RETORNO: 0 = a pele MEXEU (o fluxo cobra reconfigure); 1 = nada mudou
+# (idêntica, personalizada, mestre ausente ou cp falhou)
+skin_ensure() {
+    # POSIX puro (a lei do shellcheck 0 avisos — local é bashismo):
+    # os cinco parâmetros moram em nomes únicos do próprio corpo
+    _sk_src="$1" _sk_dst="$2" _sk_fossils="$3" _sk_modo="$4" _sk_nome="$5"
+    [ -r "$_sk_src" ] || return 1   # elite-system antigo: silêncio honesto
+    if [ "$_sk_modo" = "adopt" ]; then
+        if [ -f "$_sk_dst" ]; then
+            cp -p "$_sk_dst" "$_sk_dst.bak-$(date +%Y%m%d-%H%M%S)" 2>/dev/null \
+                && say "craft-rice: backup do seu $_sk_nome salvo ao lado ($_sk_dst.bak-*)"
         fi
-        if [ -f "$LOCK_DST" ]; then
-            cp -p "$LOCK_DST" "$LOCK_DST.bak-$(date +%Y%m%d-%H%M%S)" 2>/dev/null \
-                && say "craft-rice: backup do seu lock salvo ao lado ($LOCK_DST.bak-*)"
-        fi
-        mkdir -p "${LOCK_DST%/*}" 2>/dev/null
-        cp -p "$LOCK_SRC" "$LOCK_DST" && say "craft-rice: lock skin adotada (a pele nova vale no próximo lock)"
+        mkdir -p "${_sk_dst%/*}" 2>/dev/null
+        cp -p "$_sk_src" "$_sk_dst" && say "craft-rice: $_sk_nome adotada (a pele nova vale no próximo uso)"
         return 0
     fi
-    [ -r "$LOCK_SRC" ] || return 0   # elite-system antigo: silêncio honesto
-    # já é a nossa (marcador)? renovou = entrega; idêntica = zero escrita
-    if [ -f "$LOCK_DST" ]; then
-        if grep -q "$MARKER" "$LOCK_DST" 2>/dev/null; then
-            if cmp -s "$LOCK_SRC" "$LOCK_DST"; then return 0; fi
-            cp -p "$LOCK_SRC" "$LOCK_DST" 2>/dev/null \
-                && say "craft-rice: lock skin renovada (a casa atualizou a própria pele)"
+    if [ -f "$_sk_dst" ]; then
+        if grep -q "$MARKER" "$_sk_dst" 2>/dev/null; then
+            cmp -s "$_sk_src" "$_sk_dst" && return 1
+            cp -p "$_sk_src" "$_sk_dst" 2>/dev/null \
+                && say "craft-rice: $_sk_nome renovada (a casa atualizou a própria pele)"
             return 0
         fi
-        # fóssil? a nossa versão velha — ninguém personalizou, renova
-        now_hash="$(sha256sum "$LOCK_DST" 2>/dev/null | cut -d' ' -f1)"
-        case " $LOCK_FOSSILS " in
-            *" $now_hash "*)
-                cp -p "$LOCK_SRC" "$LOCK_DST" 2>/dev/null \
-                    && say "craft-rice: lock fóssil renovado — a pele da casa chegou ao home vivo"
+        _sk_hash="$(sha256sum "$_sk_dst" 2>/dev/null | cut -d' ' -f1)"
+        case " $_sk_fossils " in
+            *" $_sk_hash "*)
+                cmp -s "$_sk_src" "$_sk_dst" && return 1
+                cp -p "$_sk_src" "$_sk_dst" 2>/dev/null \
+                    && say "craft-rice: $_sk_nome fóssil renovada — a pele da casa chegou ao home vivo"
                 return 0
                 ;;
         esac
-        say "craft-rice: $LOCK_DST é PERSONALIZADO — intocável (a lei do domínio v3)"
-        say "             a lock skin da casa existe: craft-rice --lock-adopt (backup + entrega)"
-        return 0
+        say "craft-rice: $_sk_dst é PERSONALIZADO — intocável (a lei do domínio v3)"
+        say "             a pele da casa existe: craft-rice --skin-adopt (backup + entrega)"
+        return 1
     fi
-    # ausente → entrega (primeiro uso)
-    mkdir -p "${LOCK_DST%/*}" 2>/dev/null
-    cp -p "$LOCK_SRC" "$LOCK_DST" 2>/dev/null \
-        && say "craft-rice: lock skin entregue (o hyprlock precisa dela para travar bonito)"
-    return 0
+    mkdir -p "${_sk_dst%/*}" 2>/dev/null
+    cp -p "$_sk_src" "$_sk_dst" 2>/dev/null \
+        && say "craft-rice: $_sk_nome entregue (primeiro uso)" && return 0
+    return 1
 }
 
-lock_skin "${1:-}"
+lock_skin() {
+    skin_ensure "$LOCK_SRC" "$LOCK_DST" "$LOCK_FOSSILS" "${1:-none}" "lock skin"
+}
+rc_skin() {
+    skin_ensure "$RC_SRC" "$RC_DST" "$RC_FOSSILS" "${1:-none}" "rc.xml"
+}
+osd_skin() {
+    skin_ensure "$OSD_SRC" "$OSD_DST" "" "${1:-none}" "config do OSD"
+}
+
+# ── o despacho (as portas de adoção explícita) ──────────────────────────
+case "${1:-}" in
+    --lock-adopt) lock_skin "adopt"; exit 0 ;;
+    --rc-adopt)   rc_skin "adopt"; exit 0 ;;
+    --skin-adopt) # TODAS as skins da casa de uma vez (backup em cada)
+                  lock_skin "adopt"; rc_skin "adopt"; osd_skin "adopt"
+                  exit 0 ;;
+esac
+
+# ── o fluxo padrão: os três fragmentos + as TRÊS skins da casa ──────────
+CHANGED=0
+ensure_fragment "10-elite-games.xml" "$GAMES" && CHANGED=1
+ensure_fragment "20-elite-ssd.xml" "$SSD" && CHANGED=1
+ensure_fragment "30-elite-organize.xml" "$ORG" && CHANGED=1
+rc_skin   && CHANGED=1   # rc.xml renovado = binds/leis novas valem no reconfigure
+osd_skin   && CHANGED=2  # config do OSD renovado: o server RE-LÊ no nascimento
+                         # (o pkill abaixo ressuscita com a pele nova)
+lock_skin  || true       # a lock skin NÃO mexe no CHANGED (o hyprlock lê no
+                         # próximo lock — o craft-lock chama ANTES de cada
+                         # lock, E100; a lei E91/E100: a dose vale no PRÓXIMO
+                         # LOCK, sem reconfigure)
+
+if [ "$CHANGED" -ge 1 ]; then
+    if command -v labwc-msg >/dev/null 2>&1 \
+            && [ -n "${WAYLAND_DISPLAY:-}" ]; then
+        labwc-msg reconfigure 2>/dev/null \
+            && say "craft-rice: reconfigure aplicado (as regras valem na sessão viva)"
+    fi
+    if [ "$CHANGED" -eq 2 ] && cmp -s "$OSD_SRC" "$OSD_DST" 2>/dev/null; then
+        pgrep -x swayosd-server >/dev/null 2>&1 \
+            && pkill -x swayosd-server 2>/dev/null || true
+    fi
+fi
+
 exit 0

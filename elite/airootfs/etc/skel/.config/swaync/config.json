@@ -23,7 +23,11 @@
   "hide-on-action": true,
   "script-fail-notify": true,
   "text-empty": "Sem notificações",
-  "widgets": ["title", "dnd", "notifications"],
+  "widgets": [
+    "title",
+    "dnd",
+    "notifications"
+  ],
   "widget-config": {
     "title": {
       "text": "Notificações",
@@ -35,6 +39,12 @@
     },
     "notifications": {
       "vexpand": true
+    }
+  },
+  "notification-visibility": {
+    "elite-baixa-prioridade": {
+      "state": "muted",
+      "urgency": "^low$"
     }
   }
 }

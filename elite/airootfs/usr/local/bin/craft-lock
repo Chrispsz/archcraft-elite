@@ -112,6 +112,30 @@ if command -v hyprlock >/dev/null 2>&1; then
       # sem wallpaper: path vazio → o color do bloco assume (preto)
       sed 's|^[[:space:]]*path = .*|    path =|' "$src" > "$conf"
     fi
+    # E101 — O AVATAR 1:1 (a diretriz do dono: proporção 1:1 rigorosa,
+    # círculo perfeito). O rounding=-1 do hyprlock sobre imagem RETANGULAR
+    # é ELIPSE — o corte assimétrico que o dono mandou eliminar. A cura:
+    # a FONTE é sempre QUADRADA — o crop min(iw,ih) do ffmpeg (que a casa
+    # já leva na ISO) recorta o lado menor e o cache nasce quadrado.
+    # FONTE: ~/.config/elite/avatar.png (a casa do dono) → ~/.face (o
+    # padrão XDG). CACHE com mtime: a foto mudou? nasce de novo; igual?
+    # o lock não paga o ffmpeg (milissegundos viram zero).
+    if command -v ffmpeg >/dev/null 2>&1; then
+      av_src=""
+      for cand in "$HOME/.config/elite/avatar.png" "$HOME/.face" \
+                  "$HOME/.config/elite/avatar.jpg" "$HOME/.face.icon"; do
+        [ -r "$cand" ] && { av_src="$cand"; break; }
+      done
+      if [ -n "$av_src" ]; then
+        av_dst="${XDG_CACHE_HOME:-$HOME/.cache}/elite/avatar.png"
+        if [ ! -r "$av_dst" ] || [ "$av_src" -nt "$av_dst" ]; then
+          mkdir -p "${av_dst%/*}" 2>/dev/null || true
+          ffmpeg -y -loglevel error -i "$av_src" \
+            -vf "crop='min(iw,ih)':'min(iw,ih)',scale=256:256" \
+            "$av_dst" 2>/dev/null || true
+        fi
+      fi
+    fi
     exec hyprlock -c "$conf"
   fi
   exec hyprlock

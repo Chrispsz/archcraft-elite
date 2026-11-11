@@ -53,14 +53,14 @@
     <item label="Navegador">
       <action name="Execute" command="sh -c 'for b in brave librewolf chromium thorium-browser qutebrowser; do command -v &quot;$b&quot; &gt;/dev/null &amp;&amp; exec &quot;$b&quot;; done; exec xdg-open https://archlinux.org'" />
     </item>
-    <item label="Arquivos (Thunar)">
-      <action name="Execute" command="thunar" />
+    <item label="Arquivos">
+      <action name="Execute" command="sh -c 'exec &quot;${FILEMANAGER:-thunar}&quot;'" />
     </item>
-    <item label="Terminal (foot)">
-      <action name="Execute" command="foot" />
+    <item label="Terminal">
+      <action name="Execute" command="sh -c 'exec &quot;${TERMINAL:-foot}&quot;'" />
     </item>
-    <item label="Editor (nano)">
-      <action name="Execute" command="foot -e nano" />
+    <item label="Editor">
+      <action name="Execute" command="sh -c 'exec &quot;${TERMINAL:-foot}&quot; -e &quot;${EDITOR:-nano}&quot;'" />
     </item>
     <item label="Leitor de PDF (papers)">
       <action name="Execute" command="papers" />
@@ -87,8 +87,8 @@
     <item label="Atualizar sistema">
       <action name="Execute" command="foot -e craft-update" />
     </item>
-    <!-- E90 — O VEREDITO SEM TOCAR NADA (a lacuna nº 2 do UX-ROADMAP: "não
-         existe porta barata de checagem" — agora existe: o --check lê o
+    <!-- E90: O VEREDITO SEM TOCAR NADA (a lacuna nº 2 do UX-ROADMAP: "não
+         existe porta barata de checagem" — agora existe: a flag check lê o
          instalado, a base local e a tag viva, sem root e sem transação) -->
     <item label="Verificar atualizações">
       <action name="Execute" command="foot -e craft-update --check" />
@@ -98,7 +98,7 @@
     </item>
     <separator />
     <!-- E90 — O MAPA DOS COMANDOS (a lacuna nº 1 do UX-ROADMAP: 20 de 31
-         comandos sem --help, a doc não viajava, nenhum centro de ajuda —
+         comandos sem —help, a doc não viajava, nenhum centro de ajuda —
          "a cirurgia era invisível de dentro do sistema". O craft-help é a
          porta: atalhos reais + os 37 comandos + o estado do canal) -->
     <item label="Ajuda — comandos da Elite">
@@ -118,6 +118,14 @@
     </item>
     <!-- v1.6.1: "consigo controlar em quanto tempo o Pc entra em idle?"
          (dono) — presets no fuzzel, efeito imediato, sem relogin -->
+    <!-- E103 — O MODO DE JOGO (a diretriz do dono: "um botão em algum
+         lugar do sistema para mexer no governor — e o automático que
+         define performance quando entrar no jogo"): o craft-game é o
+         cérebro, o gamemode do Feral o músculo (governor performance +
+         GPU high + rollback automático, RAM zero no idle). -->
+    <item label="Modo de jogo…">
+      <action name="Execute" command="craft-game" />
+    </item>
     <item label="Tempo para travar a tela…">
       <action name="Execute" command="craft-idle" />
     </item>

@@ -1,0 +1,252 @@
+#!/usr/bin/env bash
+# ═══════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · craft-game (E101 — O MODO DE JOGO DA CASA)
+# ═══════════════════════════════════════════════════════════════════════════
+# A diretriz do dono: "tem o modo de jogo do CachyOS ou do feral, o que for
+# melhor, que vai abrir automaticamente e definir o performance no CPU
+# quando entrar no jogo — ou um botão em algum lugar do sistema para
+# conseguir mexer no governor". A resposta da casa é OS DOIS NO MESMO
+# CORPO, sem daemon novo:
+#
+#   · O MÚSCULO é o gamemode do Feral (JÁ NA ISO/ADOÇÃO — zero pacote
+#     novo): o gamemoded sobe por D-BUS ACTIVATION só quando há jogo
+#     (idle = ZERO RAM — o mesmo princípio do polkit E101), aplica o
+#     governor performance (EPP incluso no amd-pstate-epp), o
+#     amd_performance_level high na GPU (power_dpm_force_performance_
+#     level), inibe o screensaver e morre com o jogo — TUDO NATIVO, com
+#     rede de segurança própria (reaper) erollback automático.
+#   · O CÉREBRO é este script: o WATCH detecta o jogo (pgrep da família —
+#     Steam sem gamemoderun, emuladores, Wine) e REGISTRA O PID DO JOGO no
+#     gamemode (o reaper DELE sabe quando o pid morre — a casa não conta
+#     nada duas vezes); o MANUAL (menu) registra um HOLDER próprio; os
+#     hooks [custom] do gamemode.ini avisam o dono (-u low — pop-up não é
+#     lugar de estado, a lei C101 da casa).
+#
+#   O CachyOS-Settings (ananicy-cpp + kernel BORE) já dá o scheduling de
+#   fundo — o gamemode entra POR CIMA só no jogo: nenhuma camada luta com
+#   outra (a lição v2.2 da leveza radical).
+#
+# Uso:
+#   craft-game            menu (Ativar agora / Desativar / Automático / Status)
+#   craft-game status     o veredito sem tocar nada
+#   craft-game on|off     manual (holder próprio, conta no gamemode)
+#   craft-game watch      o daemon da sessão (AUTO=1 em ~/.config/elite/game.conf;
+#                         AUTO=0/ausente = sai 0 — ausência intencional, lei do idle)
+#   craft-game hook       os [custom] do gamemode.ini (inicio/fim do modo)
+# ═══════════════════════════════════════════════════════════════════════════
+set -u
+
+CONF_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/elite"
+CONF="$CONF_DIR/game.conf"
+RUN_DIR="${XDG_RUNTIME_DIR:-/tmp}/elite"
+LOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/game.log"
+
+# a família de JOGOS da casa (comm de processo — casing exato, pgrep -x).
+# Steam nativo, Wine/Proton (preloader), emuladores e clients conhecidos.
+GAME_COMMS=(wine64-preloader wine-preloader gamescope pcsx2 retroarch
+            duckstation dolphin-emu melonds citra-qt ryujinx PPSSPPSDL rpcs3
+            osu! Cemu)
+
+# o glifo de log único (o papel da casa — 256 KiB de teto, lei E36)
+glog() {
+    mkdir -p "${LOG%/*}" 2>/dev/null || true
+    if [ -f "$LOG" ] && [ "$(wc -c <"$LOG" 2>/dev/null || echo 0)" -gt 262144 ]; then
+        tail -c 131072 "$LOG" > "$LOG.tmp" 2>/dev/null && mv -f "$LOG.tmp" "$LOG" || true
+    fi
+    printf '[%s] %s\n' "$(date '+%F %T')" "$*" >>"$LOG" 2>/dev/null || true
+}
+
+# o aviso para o dono: -u low SEMPRE (a lei do pop-up: estado não sobe na
+# tela — a central/histórico guarda; pop-up é lugar de normal/critical)
+note() {
+    command -v notify-send >/dev/null 2>&1 || return 0
+    timeout 5 notify-send -a 'Elite · Jogo' -u low -t 4000 "$@" >/dev/null 2>&1 || true
+}
+
+# ── o canal D-Bus do gamemode (o sistema é root por trás do gamemoded) ──
+gm_call() { # $1..n = método + args (int32:…)
+    dbus-send --system --print-reply --dest=org.freedesktop.GameMode \
+        /org/freedesktop/GameMode "$@" 2>/dev/null \
+        | awk '/int32/ {print $NF; exit}'
+}
+gm_register() { gm_call org.freedesktop.GameMode.RegisterGame "int32:$1" "int32:$1" "int32:0"; }
+gm_unregister() { gm_call org.freedesktop.GameMode.UnregisterGame "int32:$1" "int32:$1" "int32:0"; }
+gm_status() { gm_call org.freedesktop.GameMode.QueryStatus "int32:$1" "int32:$1" "int32:0"; }
+
+has_gamemode() {
+    command -v dbus-send >/dev/null 2>&1 && command -v gamemoded >/dev/null 2>&1
+}
+
+# o holder do modo MANUAL: um processo da casa que dorme enquanto o dono
+# quer performance — o pid registrado é o DELE (off = unregister + ceifa)
+holder_pid_file() { printf '%s/game-holder.pid' "$RUN_DIR"; }
+
+ensure_run_dir() { mkdir -p "$RUN_DIR" 2>/dev/null || true; }
+
+gm_on() {
+    if ! has_gamemode; then
+        glog "manual: gamemode/dbus-send ausente — nada a fazer (honesto)"
+        echo "✖ gamemode/dbus-send ausente — sudo craft-update (a âncora E94 adota)" >&2
+        return 1
+    fi
+    ensure_run_dir
+    local hpid file
+    file="$(holder_pid_file)"
+    if [ -r "$file" ] && kill -0 "$(cat "$file" 2>/dev/null)" 2>/dev/null; then
+        echo "o modo de jogo JÁ está ativo (manual)" >&2
+        return 1
+    fi
+    hpid="$(setsid sh -c 'while :; do sleep 30; done' 2>/dev/null & echo $!)"
+    printf '%s\n' "$hpid" > "$file" 2>/dev/null || true
+    if gm_register "$hpid" >/dev/null 2>&1; then
+        glog "manual: ON (holder pid $hpid registrado no gamemode)"
+        echo "==> modo de jogo ATIVO (governor performance + GPU high — gamemode)"
+        return 0
+    fi
+    kill "$hpid" 2>/dev/null || true
+    rm -f "$file" 2>/dev/null || true
+    glog "manual: o gamemode RECUSOU o registro (dbus?) — nada mudou"
+    echo "✖ o gamemode não respondeu — prova em $LOG" >&2
+    return 1
+}
+
+gm_off() {
+    local file hpid
+    file="$(holder_pid_file)"
+    if [ -r "$file" ]; then
+        hpid="$(cat "$file" 2>/dev/null)"
+        gm_unregister "$hpid" >/dev/null 2>&1 || true
+        kill "$hpid" 2>/dev/null || true
+        rm -f "$file" 2>/dev/null || true
+        glog "manual: OFF (holder pid $hpid liberado — o gamemode devolve o governor)"
+        echo "==> modo de jogo DESATIVADO (o governor volta ao perfil da casa)"
+        return 0
+    fi
+    # jogos do watch: liberar TUDO que o watch registrou (o round falhou?)
+    if [ -r "$RUN_DIR/game-watch.pid" ]; then
+        rm -f "$RUN_DIR/game-watch.pids" 2>/dev/null || true
+        glog "manual: OFF — fila do watch limpa (os jogos que morreram o reaper já liberou)"
+    fi
+    echo "o modo de jogo não está ativo (nada a desativar)" >&2
+    return 1
+}
+
+# ── o WATCH (o detector da família — daemon da sessão, pgrep barato) ────
+# Um jogo achado → o PID DELE vai pro gamemode (o reaper de lá sabe da
+# morte dele — zero estado duplicado); jogo nenhum → 5s de silêncio (um
+# pgrep de µs). O AUTO=0/ausente é AUSÊNCIA INTENCIONAL (lei do idle E36).
+gm_watch() {
+    if ! has_gamemode; then
+        glog "watch: gamemode ausente — daemon sai (a âncora E94 traz o pacote)"
+        exit 0
+    fi
+    local auto=""
+    [ -r "$CONF" ] && auto="$(sed -n 's/^AUTO=//p' "$CONF" | head -1)"
+    if [ "${auto:-0}" != "1" ]; then
+        glog "watch: AUTO≠1 (config da casa) — ausência intencional, nada roda"
+        exit 0
+    fi
+    ensure_run_dir
+    printf '%s\n' "$$" > "$RUN_DIR/game-watch.pid" 2>/dev/null || true
+    glog "watch: no ar (pid $$ — família com ${#GAME_COMMS[@]} comms conhecidos)"
+
+    local -A held=()   # pid → 1 (registrado por nós)
+    while :; do
+        # 1) os REGISTRADOS que morreram: libera (o reaper de lá também
+        #    sabe — o unregister é o cinto)
+        for p in "${!held[@]}"; do
+            if ! kill -0 "$p" 2>/dev/null; then
+                gm_unregister "$p" >/dev/null 2>&1 || true
+                unset "held[$p]"
+                glog "watch: jogo pid $p morreu — gamemode liberado (o governor volta)"
+            fi
+        done
+        # 2) os jogos VIVOS da família que AINDA não estão registrados
+        while IFS= read -r p; do
+            [ -n "$p" ] || continue
+            [ "${held[$p]:-}" = 1 ] && continue
+            if gm_register "$p" >/dev/null 2>&1; then
+                held["$p"]=1
+                glog "watch: jogo detectado (pid $p) — registrando no gamemode (performance ON)"
+                note 'Modo de jogo' 'Governor performance + GPU high automáticos'
+            else
+                glog "watch: jogo pid $p detectado mas o registro recusou (dbus?) — próxima rodada tenta de novo"
+            fi
+        done < <(pgrep -u "$(id -u)" -x "${GAME_COMMS[@]}" 2>/dev/null || true)
+        sleep 5
+    done
+}
+
+# ── o HOOK (o [custom] do gamemode.ini — início/fim NATIVO do modo) ─────
+gm_hook() { # $1 = start|end
+    case "${1:-}" in
+        start) glog "gamemode: INÍCIO (o hook nativo do gamemode.ini — governor/GPU já aplicados)"
+               note 'Modo de jogo' 'Performance ativa (CPU governor + GPU high)' ;;
+        end)   glog "gamemode: FIM (o hook nativo devolveu o perfil da casa)"
+               note 'Modo de jogo' 'Perfil normal restaurado' ;;
+    esac
+    exit 0
+}
+
+# ── o STATUS (o veredito sem tocar nada — a escola do --check) ──────────
+gm_status_cmd() {
+    printf '══════════ craft-game status — o veredito sem tocar nada ══════════\n'
+    command -v gamemoded >/dev/null 2>&1 \
+        && printf 'gamemode            instalado (%s)\n' "$(pacman -Q gamemode 2>/dev/null | awk '{print $2}')" \
+        || printf 'gamemode            AUSENTE (sudo craft-update — a âncora E94 adota)\n'
+    local auto=""
+    [ -r "$CONF" ] && auto="$(sed -n 's/^AUTO=//p' "$CONF" | head -1)"
+    printf 'automático          %s\n' "$([ "${auto:-0}" = 1 ] && echo ON || echo OFF)"
+    if [ -r "$(holder_pid_file)" ]; then
+        printf 'manual              ATIVO (holder pid %s)\n' "$(cat "$(holder_pid_file)" 2>/dev/null)"
+    else
+        printf 'manual              —\n'
+    fi
+    if has_gamemode; then
+        st="$(gm_status "$$" 2>/dev/null)"
+        [ "$st" = "1" ] && printf 'gamemoded           ATIVO nesta sessão\n' || printf 'gamemoded           idle (sobe por D-Bus só com jogo — RAM zero)\n'
+    fi
+    printf 'jogos vivos agora   '
+    pgrep -u "$(id -u)" -x "${GAME_COMMS[@]}" >/dev/null 2>&1 \
+        && pgrep -a -u "$(id -u)" -x "${GAME_COMMS[@]}" 2>/dev/null | head -3 \
+        || echo "(nenhum da família)"
+    printf '\npapel da casa: %s\n' "$LOG"
+}
+
+# ── o MENU (a porta mouse-first — o motor único craft-menu) ─────────────
+gm_menu() {
+    command -v craft-menu >/dev/null 2>&1 || { gm_status_cmd; exit 0; }
+    local auto=""
+    [ -r "$CONF" ] && auto="$(sed -n 's/^AUTO=//p' "$CONF" | head -1)"
+    local items=() choice
+    [ "${auto:-0}" = 1 ] && items+=("Automático: ON (desligar)") || items+=("Automático: OFF (ligar)")
+    items+=("Ativar agora (manual)" "Desativar" "Status" )
+    choice="$(printf '%s\n' "${items[@]}" | craft-menu --title='Modo de jogo' --at=power)" || exit 0
+    case "$choice" in
+        Automático*) 
+            if [ "${auto:-0}" = 1 ]; then
+                printf 'AUTO=0\n' > "$CONF" 2>/dev/null
+                pkill -f 'craft-game watch$' 2>/dev/null || true
+                note 'Modo de jogo' 'Detecção automática desligada'
+            else
+                mkdir -p "$CONF_DIR" 2>/dev/null || true
+                printf 'AUTO=1\n' > "$CONF" 2>/dev/null
+                setsid /usr/local/bin/craft-game watch >/dev/null 2>&1 </dev/null &
+                note 'Modo de jogo' 'Detecção automática ligada (performance entra com o jogo)'
+            fi ;;
+        *Ativar*) gm_on ;;
+        *Desativar*) gm_off ;;
+        *Status*) gm_status_cmd ;;
+    esac
+}
+
+case "${1:-menu}" in
+    status) gm_status_cmd ;;
+    on) gm_on ;;
+    off) gm_off ;;
+    watch) gm_watch ;;
+    hook) gm_hook "${2:-}" ;;
+    menu|"") gm_menu ;;
+    -h|--help|uso) sed -n '2,32p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) echo "uso: craft-game [status|on|off|watch|hook start|hook end|menu]" >&2; exit 2 ;;
+esac

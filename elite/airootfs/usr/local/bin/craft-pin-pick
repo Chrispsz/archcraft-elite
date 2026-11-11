@@ -122,8 +122,13 @@ if [ "$addrc" -eq 0 ]; then
     fi
 elif printf '%s' "$addout" | grep -q 'já está fixado'; then
     # E36 — a verdade no toast: "já estava" ≠ "fixado"
+    # E101 — A CLASSE INFORMATIVA NÃO SOBE (a lei do dono: pop-up flutuante
+    # é lugar de normal/critical; 'já estava fixado' é estado, não evento —
+    # -u low = o swaync da casa manda direto para a central/histórico,
+    # a tela do dono fica limpa e a tentativa repetida NUNCA vira pop-up
+    # em loop — a cura anda com a notification-visibility low→muted).
     if command -v notify-send >/dev/null 2>&1; then
-        notify-send -a craft-pin "Dock" \
+        notify-send -a craft-pin -u low -t 4000 "Dock" \
             "'$choice' já estava na dock" || true
     fi
 else

@@ -873,7 +873,7 @@ grep -A10 'elite-open-terminal-1' "$UCA" | grep -q '<directories/>' \
   && ok "E40: a ação cobre fundo-de-pasta E pasta-clicada (<directories/> — a semântica exata da ação de fábrica)" \
   || fail "E40: a ação cobre fundo-de-pasta E pasta-clicada" "flag <directories/> ausente no bloco da ação"
 assert_file "$EXO" "E40: a ponte exo-open existe (o Thunar 4.20 chama o binário INTERNAMENTE — thunar-file.c:1756 — e o exo não está na ISO desde a v1.1)"
-assert_grep "$EXO" 'exec foot -e sh -c' "E40: 'executar no terminal' do Thunar roda o comando NO foot (não morre em silêncio)"
+assert_grep "$EXO" 'exec "\${TERMINAL:-foot}" -e sh -c' "E40→E103/xdg: 'executar no terminal' do Thunar roda o comando NO TERMINAL DA CASA (\${TERMINAL:-foot} — a abstração XDG; não morre em silêncio)"
 assert_grep "$EXO" 'exec gio open' "E40: operandos sem --launch caem no gio open (glib é dep dura do gtk3/gtk4 — sempre presente; xdg-utils não é contrato)"
 assert_grep "$MIME" 'x-scheme-handler/terminal=foot.desktop' "E40: o handler de terminal programático (spec xdg-terminal-exec) aponta para o foot da Elite"
 assert_nogrep "$PKG" '^ranger$' "curadoria: ranger saiu (yazi entra)"
@@ -1081,9 +1081,9 @@ assert_nogrep "$P/airootfs/etc/skel/.config/labwc/autostart" 'swaylock -f|exec s
 # W-v clipboard + menu com os apps novos
 assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'W-v' "curadoria: W-v = histórico de clipboard"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'cliphist decode' "curadoria: pipe cliphist→fuzzel→wl-copy"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'Arquivos \(Thunar\)' "v1.5: menu Arquivos = Thunar (FM padrão da spec)"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'command="thunar"' "v1.5: menu abre thunar direto (GUI)"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'foot -e nano' "v1.5: menu Editor = nano no foot (helix saiu)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'Arquivos' "v1.5→E103/xdg: o menu Arquivos existe (o app vem da variável \${FILEMANAGER:-thunar} — FM padrão da spec)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" '\$\{FILEMANAGER:-thunar\}' "v1.5→E103/xdg: o menu abre o GERENCIADOR pela variável (nada de binário hardcoded — a troca de app é export)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" '\$\{EDITOR:-nano\}' "v1.5→E103/xdg: o Editor abre pelo par TERMINAL×EDITOR (nano no \${TERMINAL:-foot} da casa — helix saiu)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'papers' "v1.1: menu Leitor de PDF = papers (GTK4)"
 # v1.7 (dono: "deixa só os importantes", "sem muita complexidade"): as
 # ferramentas de sistema saíram DO MENU — continuam INSTALADAS e vivem no
@@ -1128,13 +1128,14 @@ assert_nogrep "$HLK" 'path = screenshot' "v2.5.0: o fundo NUNCA mais é screensh
 assert_grep "$HLK" 'blur_passes = 3' "v1.5: blur alto no fundo"
 assert_grep "$HLK" 'brightness = 0\.70' "v2.5.0: dim calibrado para o WALLPAPER (era 0.35 para o screenshot — o wallpaper dark premium luma 32.6 em .35 era sopa preta; .70 mostra o blur com contraste do relógio)"
 assert_grep "$HLK" 'text = \$TIME' "v1.5: relógio GRANDE (label \$TIME)"
-assert_grep "$HLK" 'font_size = 120' "v1.5→v3/E88→v5/E100: relógio GRANDE com CORPO (96→110→120 — a escala do greeter; o \$TIME continua o label; desde a E88 o número crescia no PAPEL e nascia ACIMA da tela — a lei do sinal abaixo acabou com a mentira)"
+assert_grep "$HLK" 'font_size = 100' "v1.5→v3/E88→v5/E100→v6/E103: relógio com CORPO no TERÇO SUPERIOR (96→110→120→100 — a v6 reorganiza a hierarquia da missão do dono: 100px deixam o corpo do centro respirar com o avatar; o \$TIME continua o label; desde a E88 o número crescia no PAPEL e nascia ACIMA da tela — a lei do sinal acabou com a mentira)"
 assert_grep "$HLK" 'valign = top' "v1.5: relógio ancorado no TOPO (spec)"
 assert_nogrep "$HLK" 'text = \$USER' "v1.5→v5/E100: o nome do usuário NUNCA via variável \$USER solta — na v4 ele saiu (o dono: 'redundante as mensagens') e na v5 VOLTOU como PÍLULA do greeter via cmd/getent com fallback no login (o pedido 'permanecer ali'); a variável crua nunca mais"
 # v1.7: o avatar 'A' saiu do lock (a pergunta literal do dono no burn test) —
 # e o PNG órfão saiu do overlay na v2.3.3 (hyprlock não o usa desde a v1.7)
 assert_nogrep "$HLK" 'pixmaps/elite/avatar' "v1.7: lock SEM avatar (o 'A' do burn test saiu — decisão do dono)"
-assert_nogrep "$HLK" 'rounding = -1' "v1.7: sem o círculo do avatar (só o campo tem rounding)"
+assert_nogrep "$HLK" 'size = 470, 120' "v1.7: o card crust continua extinto (a pílula do greeter manda)"
+assert_grep "$HLK" 'rounding = -1' "v1.7→E103/lock: o avatar em círculo PERFEITO (a v6 traz o image widget com rounding=-1 sobre fonte quadrada — o corte assimétrico da missão morre)"
 assert_grep "$HLK" 'outer_color = rgba\(90, 100, 119' "v1.5→v5/E100: borda do campo na COR DO GREETER (#5a6477 — o slate do archcraft-sddm-theme; o mauve segue vivo na barra/fuzzel/foot/themerc, o lock agora é irmão do greeter)"
 assert_grep "$HLK" 'placeholder_text = Senha$' "v1.5→v5/E100: UMA voz para o gesto ('Senha' — o greeter também usa uma palavra; 'Digite a senha para desbloquear' era a redundância que o dono nomeou)"
 assert_grep "$HLK" 'fail_text = .*Senha Incorreta' "v1.5: feedback de FALHA em texto (spec)"
@@ -2135,7 +2136,17 @@ assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" '"craft-bgapps menu
 # módulo de rede; energia → menu Sessão) e o painel vira notificações.
 SNC="$P/airootfs/etc/skel/.config/swaync/config.json"
 assert_nogrep "$SNC" 'buttons-grid' "v2.3.7: toggles de rede/energia FORA do painel de notificações (o dono: 'algo escondido que o usuário não espera')"
-assert_grep "$SNC" '"widgets": \["title", "dnd", "notifications"\]' "v2.3.7: painel de notificações = notificações (título + não-perturbe + lista)"
+if command -v python3 >/dev/null 2>&1; then
+  swn_w="$(python3 -c "
+import json, sys
+d = json.load(open('$SNC'))
+w = d.get('widgets', [])
+sys.exit(0 if w == ['title', 'dnd', 'notifications'] else 1)
+" 2>/dev/null && echo ok)"
+  assert_eq "$swn_w" "ok" "v2.3.7→E103: painel de notificações = notificações (título + não-perturbe + lista — o JSON da casa é pretty-printed pela E103; os widgets julgam por nome, não por linha)"
+else
+  skip "v2.3.7: os widgets do painel" "python3 ausente no runner"
+fi
 assert_grep "$P/airootfs/etc/skel/.config/waybar/style.top.css" '#custom-bgapps' "v2.3.4→v2.3.10: CSS do botão no rice (BRANCO quando há o que encerrar — o dono: lado direito branco com o power roxo)"
 BGA="$P/airootfs/usr/local/bin/craft-bgapps"
 # v2.3.10 — a casca POR PREFIXO (o ps corta o comm em 15 caracteres e a
@@ -2805,9 +2816,9 @@ assert_grep "$RCX" 'GoToDesktop' "v1.7: scroll no desktop segue trocando de work
 #    avatar 'A' fora, relógio fora da borda (light bar).
 HYP="$P/airootfs/etc/skel/.config/hypr/hyprlock.conf"
 assert_nogrep "$HYP" '<span' "v1.7: hyprlock SEM markup cru (placeholder não parseia Pango — cor é propriedade)"
-assert_nogrep "$HYP" 'avatar\.png' "v1.7: hyprlock SEM o avatar 'A' (decisão do dono)"
+assert_nogrep "$HYP" 'text = A' "v1.7→E103/lock: o avatar LETTER 'A' segue extinto (a decisão do burn test; a v6 traz a FOTO real 1:1 da missão de polimento — ~/.cache/elite/avatar.png)"
 assert_grep "$HYP" 'placeholder_text = Senha$' "v1.7→v5/E100: placeholder em texto plano e UMA palavra (o literal do dono de hoje; o v1.7 'Digite a senha para desbloquear' era meia frase a mais)"
-assert_grep "$HYP" 'position = 0, -240' "v1.7→v3/E88→v5/E100: o relógio ABAIXO da borda de cima (o +290 da v1.7→v4 era PRA CIMA no eixo do hyprlock — o relógio três eras fora da tela; o sinal negativo é a cura)"
+assert_grep "$HYP" 'position = 0, -150' "v1.7→v3/E88→v5/E100→v6/E103: o relógio ABAIXO da borda de cima (o +290 da v1.7→v4 era PRA CIMA no eixo do hyprlock — o relógio três eras fora da tela; o sinal negativo é a cura; a v6 o assenta no terço superior)"
 
 # ── INSTALADOR À PROVA DE $ (v1.7 — a classe do "Installation Failed — ───
 #    Missing variables are: kv,kbase,…"): o Calamares expande TODO $ de
@@ -3198,7 +3209,7 @@ assert_grep "$REPO/elite/fragments/elite-customize.sh" 'ParallelDownloads = 5' "
 assert_grep "$REPO/elite/fragments/elite-customize.sh" "printf 'Color" "E88/ISO: o pacman nasce com cor (a leitura do terminal do -Syu)"
 HLKV3="$P/airootfs/etc/skel/.config/hypr/hyprlock.conf"
 assert_grep "$HLKV3" 'shadow_passes = 2' "E88/lock: o relógio tem CORPO (sombra dupla — leitura em qualquer wallpaper, o número deixa de flutuar chapado)"
-assert_grep "$HLKV3" 'font_size = 120' "E97→E100/lock: o relógio GRANDE fica e cresce à escala do greeter (o pedido do dono, três eras seguidas: 'poderia ter um relógio' — agora o sinal também o manda PRA DENTRO da tela)"
+assert_grep "$HLKV3" 'font_size = 100' "E97→E100→E103/lock: o relógio com corpo no terço superior (120→100 na v6 — a hierarquia da missão do dono: relógio no alto, corpo no centro com avatar, estado no rodapé; o sinal manda PRA DENTRO da tela)"
 assert_nogrep "$HLKV3" 'Boa madrugada' "E97/lock: a SAUDAÇÃO saiu (o dono: 'redundante as mensagens que tem nela' — a tela não precisa conversar; a v3 empilhava 4 blocos de texto além do relógio)"
 assert_nogrep "$HLKV3" 'text = \$USER' "E97→E100/lock: o NOME do usuário nunca mais variável crua — na v5 ele volta como PÍLULA do greeter (glifo + getent com fallback; o pedido 'permanecer ali')"
 assert_nogrep "$HLKV3" 'Digite a senha e pressione Enter' "E97/lock: a DICA do rodapé saiu (o placeholder do campo já diz o gesto — uma voz, não duas)"
@@ -3212,8 +3223,8 @@ assert_nogrep "$HLKV3" 'path = screenshot' "v2.5.0 preservada na v3/v5: o fundo 
 # aquele esquema lá de data'. A perícia no fonte do hyprlock provou que
 # o relógio da v1.7→v4 nasce ACIMA da tela — o Y do plano é PRA CIMA.)
 assert_grep "$HLKV3" 'Iosevka Nerd Font' "E100/lock: a fonte é A DO GREETER (kde_settings Font=Iosevka — as duas telas lêem como irmãs; a NF da casa carrega o glifo do usuário na mesma família)"
-assert_grep "$HLKV3" 'position = 0, -240' "E100/lock: o relógio a 240px PRA BAIXO da borda de cima (valign=top + y NEGATIVO — a correção do sinal que três eras esconderam)"
-assert_grep "$HLKV3" 'position = 0, -390' "E100/lock: a data logo abaixo do relógio (o encaixe apertado do greeter — spacing 0 do Column do Clock.qml)"
+assert_grep "$HLKV3" 'position = 0, -150' "E100→E103/lock: o relógio a 150px PRA BAIXO da borda de cima (valign=top + y NEGATIVO — a correção do sinal que três eras esconderam; a v6 o assenta no terço superior)"
+assert_grep "$HLKV3" 'position = 0, -300' "E100→E103/lock: a data logo abaixo do relógio (o esquema do greeter; a v6 abre espaço para o avatar)"
 assert_grep "$HLKV3" 'date \+"%A, %-d de %B"' "E100/lock: a data NO ESQUEMA DO GREETER ('domingo, 9 de novembro' — a família do DateFormat 'dddd, MMMM d' do tema, na locale da sessão)"
 assert_grep "$HLKV3" 'rgba\(216, 216, 216' "E100/lock: relógio+data no BRANCO DO GREETER (#D8D8D8 — TimeTextColor/DateTextColor do theme.conf)"
 assert_grep "$HLKV3" 'rgba\(90, 100, 119' "E100/lock: as bordas no SLATE DO GREETER (#5a6477 — LoginFieldBorderColor)"
@@ -3295,8 +3306,8 @@ assert_grep "$IDLE97" 'O LOCK ESPERA ESTAR VIVO ANTES DO SONO' \
 assert_grep "$REPO/elite/packages.add" '^octopi$' "E97/loja: o Octopi nasce na ISO (a GUI de repo+AUR — o usuário leigo instala sem terminal; procedência provada: 0.19.0-2 no repo [cachyos], índice do espelho lido na entrada)"
 assert_grep "$REPO/elite/packages.add" '^yay$' "E97/loja: o yay nasce na ISO (o ajudante do AUR — o rig do dono já o usa de REPO: o -Qm do dump 163423 vem limpo; o Octopi ganha a porta AUR de graça)"
 assert_grep "$REPO/elite/packages.add" '^flatpak$' "E97/loja: o flatpak nasce na ISO (o mundo Flathub — o remote vem pelo hook em todo install/upgrade)"
-assert_grep "$P/airootfs/usr/local/bin/craft-update" 'ADOCAO=\(lxqt-policykit pacman-contrib octopi yay flatpak\)' \
-  "E97/adoção: a loja CHEGA AOS RIGS (o E96 pôs o pacman-contrib na ISO mas esqueceu a ADOCAO — o botão Limpeza seguiria morto no rig do dono; o furo fecha junto com a tríade)"
+assert_grep "$P/airootfs/usr/local/bin/craft-update" 'ADOCAO=\(lxqt-policykit pacman-contrib octopi yay flatpak swayosd\)' \
+  "E97→E103/adoção: a loja CHEGA AOS RIGS e o OSD junto (o E96 pôs o pacman-contrib na ISO mas esqueceu a ADOCAO — o furo fecha junto com a tríade; o swayosd é a âncora E103: o rig do dono nasceu ANTES da E74 e a barra nunca apareceu)"
 assert_file "$P/airootfs/usr/local/bin/elite-flathub" "E97/flathub: o bin do remote existe (idempotente — --if-not-exists nunca sobrescreve escolha do usuário)"
 assert_grep "$P/airootfs/usr/local/bin/elite-flathub" 'flathub.flatpakrepo' \
   "E97/flathub: a fonte do remote é o arquivo do PRÓPRIO pacote flatpak (offline-friendly na build da ISO; a URL viva é o fallback)"
@@ -3343,8 +3354,8 @@ assert_grep "$REPO/.ci/build.sh" 'applications/\*\.desktop' "E98/build: o trilho
 assert_grep "$REPO/.ci/build.sh" 'ovr = sorted' "E98/build: o PKGBUILD gera install E adoção por varredura (o pre_install adota cada override — a dança da via sem dono, agora em série)"
 
 # ── E41: o pkgrel viajou NO MESMO COMMIT ──
-assert_grep "$REPO/.ci/build.sh" 'pkgrel=44' \
-  "E100 (lei E41, âncora viva refrescada): pkgrel elite-system 43→44 — a pele v5 do lock (irmã do greeter, a lei do sinal que três eras escondeu), a pele que segue o lock (craft-lock → rice --lock-quiet) e a foto da pele no dump (v2.9); a E98 (42→43) trouxe o toggle que espera a morte, os overrides NoDisplay da loja e a dose no papel"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=45' \
+  "E103 (lei E41, âncora viva refrescada): pkgrel elite-system 44→45 — a pele v5 do lock (irmã do greeter, a lei do sinal que três eras escondeu), a pele que segue o lock (craft-lock → rice --lock-quiet) e a foto da pele no dump (v2.9); a E98 (42→43) trouxe o toggle que espera a morte, os overrides NoDisplay da loja e a dose no papel"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 42→43 NO MESMO COMMIT' \
   "E98 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 41→42 NO MESMO COMMIT' \
@@ -3385,5 +3396,120 @@ assert_grep "$REPO/.ci/build.sh" 'pkgrel 25→26 NO MESMO COMMIT' \
   "E75 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 24→25 NO MESMO COMMIT' \
   "E74 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
+
+# ═══════════════════════════════════════════════════════════════════════
+# E103 — A ABSTRAÇÃO (a missão de polimento do dono): dock bidirecional
+# sem duping, notificações low→história, polkit sob demanda, OSD completo,
+# pele v6 (avatar 1:1/gap 24/rodapé 0.6), XDG defaults, modo de jogo e
+# a dose que se cura sozinha (as cenas funcionais moram na 30-unit).
+# ═══════════════════════════════════════════════════════════════════════
+BARS101="$P/airootfs/usr/local/bin/craft-bars"
+RICE103="$P/airootfs/usr/local/bin/craft-rice"
+LOCK101="$P/airootfs/usr/local/bin/craft-lock"
+CUPD101="$P/airootfs/usr/local/bin/craft-update"
+CNG101="$P/airootfs/usr/local/bin/craft-game"
+
+# ── a DOCK: fixar/desfixar os DOIS sentidos + o duping de daemonizado ──
+DOCK101="$P/airootfs/usr/local/bin/craft-dock-gui"
+assert_grep "$DOCK101" '"Fixar na dock"' "E103/dock: o menu contextual carrega o FIXAR (o dinâmico entra pela porta própria — o verbo bidirecional da missão)"
+assert_grep "$DOCK101" '"Remover fixação"' "E103/dock: o menu contextual carrega o DESFIXAR (o pin sai pela mesma porta — a remoção purga o pin e o craft-dock reload re-lê; o crash e o travamento não existem: spawn assíncrono child_watch)"
+assert_grep "$P/airootfs/usr/local/bin/craft-pin" 'exit 1' "E103/pin: duplicata NUNCA é sucesso (o rc 1 do 'já está fixado' é a verdade E36 — nenhuma tentativa repetida vira loop de notificação: o -u low da central guarda)"
+assert_grep "$DOCK101" 'guard delegado' "E103/dock: a classe DAEMONIZADA não mente com a morte do lançador (o papel 10/nov provou 'thunar.desktop morreu sem mapear (rc=0)' em LOOPS — o release instantâneo deixava o vão aberto e o clique lançava OUTRA)"
+assert_grep "$DOCK101" 'time.monotonic\(\)\n.*- \(8\.0 - 3\.0\)|- \(8\.0 - 3\.0\)' "E103/dock: a graça curta de 3s (o vão do Thunar não paga 8s e o duping não paga NADA — o meio-tempo do crash real)"
+assert_grep "$DOCK101" 'LIST fresca' "E103/dock: a morte consulta o MAPA antes de declarar falha (a janela que mapeou na corrida aposenta o guard como VENCEDOR)"
+
+# ── a CENTRAL: low→história (pop-up é lugar de normal/critical) ────────
+SWN101="$P/airootfs/etc/skel/.config/swaync/config.json"
+if command -v python3 >/dev/null 2>&1; then
+  swn_ok="$(python3 -c "
+import json, sys
+d = json.load(open('$SWN101'))
+nv = d.get('notification-visibility', {})
+rule = nv.get('elite-baixa-prioridade', {})
+sys.exit(0 if rule.get('state') == 'muted' and rule.get('urgency') == '^low\$' else 1)
+" 2>/dev/null && echo ok)"
+  assert_eq "$swn_ok" "ok" "E103/central: a lei low→muted EXECUTA no JSON (urgência baixa NUNCA sobe pop-up — vai direto para a central/histórico; normal e critical seguem flutuando)"
+else
+  skip "E103/central: a lei low→muted executa" "python3 ausente no runner"
+fi
+assert_grep "$P/airootfs/usr/local/bin/craft-pin-pick" '-u low -t 4000 "Dock"' "E103/central: o 'já estava fixado' desce para low (estado não sobe na tela — a tentativa repetida NUNCA vira pop-up em loop)"
+
+# ── o POLKIT SOB DEMANDA (idle ~1–2 MB, diálogo só no desafio) ──────────
+assert_file "$REPO/vendor/elite-polkit-listener.c" "E103/polkit: o C vendado existe (a fonte única — a gramática do craft-toplevel)"
+assert_grep "$REPO/vendor/elite-polkit-listener.c" 'polkit_agent_listener_register' "E103/polkit: o listener REGISTRA o agente da sessão (a perícia no fonte do polkit provou: o polkitd NUNCA D-Bus ativa agentes e REJEITA um segundo por sessão — registro é a única via)"
+assert_grep "$REPO/vendor/elite-polkit-listener.c" 'zenity' "E103/polkit: o diálogo só existe DURANTE o desafio (o corpo vivo é GDBus puro ~1–2 MB — sem Qt na RAM: a diretriz do dono)"
+assert_grep "$REPO/.ci/build.sh" 'gcc -O2 -Wall -Wextra -s -o elite-polkit-listener' "E103/polkit: o listener compila NO build do pacote único (a fonte única com sha pinado)"
+assert_grep "$REPO/.ci/build.sh" '8bd6fb5209c75aacde6723f62a858a7abc21a915f7256c7d5f161c99095b19a2' "E103/polkit: o sha do C vendado PINADO no PKGBUILD (a lição E97.1 — pin que viaja junto)"
+LST_SHA="$(sha256sum "$REPO/vendor/elite-polkit-listener.c" 2>/dev/null | cut -d' ' -f1)"
+assert_eq "$LST_SHA" "8bd6fb5209c75aacde6723f62a858a7abc21a915f7256c7d5f161c99095b19a2" "E103/polkit: o pin MORDE (o sha do arquivo é o do PKGBUILD — a fonte e o pacote não desincronizam)"
+assert_grep "$BARS101" 'elite-polkit-listener >/dev/null 2>&1' "E103/polkit: o supervisor ELEGE o listener (a fila nova: LISTENER idle-nulo → lxqt residente → hyprpolkitagent era-Qt → polkit-gnome)"
+assert_grep "$BARS101" 'perdedor aposentado \(lxqt-policykit-agent residente' "E103/polkit: o residente perdedor sai da sala quando o listener reina (dois agentes = duas caixas de senha por pedido — o E95 de pé)"
+assert_nogrep "$P/airootfs/etc/skel/.config/labwc/autostart" 'polkit-gnome' "E103/polkit: o spawn residente do autostart MORREU (o bloco legacy que subia o polkit-gnome às cegas — o supervisor é o único lançador)"
+assert_grep "$P/airootfs/usr/local/bin/elite-gparted" 'pkexec' "E103/polkit: o gparted segue pelo pkexec (o desafio sobe o diálogo sob demanda — o caminho que o dono usa continua)"
+
+# ── o OSD (a barra acima da dock, flags atuais, mic com feedback) ───────
+RCXML101="$P/airootfs/etc/skel/.config/labwc/rc.xml"
+assert_grep "$RCXML101" 'swayosd-client --output-volume raise' "E103/osd: o raise fala a gramática ATUAL do swayosd (o --volume da era antiga o client atual RECUSA — 'not a valid option' em cada tecla)"
+assert_grep "$RCXML101" 'swayosd-client --output-volume mute-toggle' "E103/osd: o mute de SAÍDA com barra (o estado é feedback)"
+assert_grep "$RCXML101" 'swayosd-client --input-volume mute-toggle' "E103/osd: o mute do MICROFONE ganha OSD (a diretriz: o estado do mute do mic é feedback, não segredo) com o pactl de queda"
+assert_grep "$REPO/elite/packages.add" '^swayosd$' "E103/osd: o pacote nasce na ISO (a E74 o pôs no bind mas não na lista — a barra nunca existiu de fábrica)"
+assert_grep "$CUPD101" 'ADOCAO=\(lxqt-policykit pacman-contrib octopi yay flatpak swayosd\)' "E103/osd: a âncora chega ao RIG do dono (o dump 211627 prova: o rig nasceu antes da E74 — sem adoção a barra nunca apareceria)"
+assert_grep "$BARS101" 'swayosd-server FORA — reiniciando' "E103/osd: o daemon entra na SUPERVISÃO (a lição v2.10.6 do idle: a barra morta calada = volume cego para sempre; morre → volta em ≤5s)"
+assert_file "$P/airootfs/etc/skel/.config/swayosd/config.toml" "E103/osd: o config da casa existe (top_margin 0.86 = LOGO ACIMA da dock; show_percentage = a porcentagem exata; duration 900 = menos de 1 segundo)"
+assert_grep "$RICE103" 'OSD_SRC' "E103/osd: o config alcança rigs vivos pela gramática do rice (marcador/fóssil/personalizado — home é domínio do dono, a pele da casa é a exceção provada)"
+
+# ── a SKINS GRAMMAR (uma lei, três peles) ────────────────────────────────
+assert_grep "$RICE103" 'skin_ensure()' "E103/rice: a gramática E91 GENERALIZADA (marcador renova · fóssil renova · personalizado intoca · ausente entrega — a lei que a lock skin provou)"
+assert_grep "$RICE103" 'RC_FOSSILS=' "E103/rice: o rc.xml tem REDE DE FÓSSEIS (os shas históricos do git distinguem 'é a nossa velha' de 'o dono editou' — o rig recebe os binds E103 SEM --rc-adopt)"
+assert_grep "$RICE103" 'a37c7c13e6f51b0fe912ecccff2dcb0f5ab0a430eb144e80041fe751617ef9f9' "E103/rice: o fóssil da v5 entra na rede do lock (quem adotou a v5 renova para a v6 PELO FÓSSIL — sem porta manual)"
+assert_grep "$RICE103" '--rc-adopt' "E103/rice: a porta explícita do rc.xml (backup .bak- + entrega — o dono personalizado nunca é surpreendido)"
+assert_grep "$REPO/.ci/build.sh" 'usr/local/share/elite/labwc/rc.xml' "E103/rice: a pele rc.xml viaja NO PACOTE (a lição E63: fora do pacote nunca chega ao rig pelo canal)"
+assert_grep "$REPO/.ci/build.sh" 'usr/local/share/elite/swayosd/config.toml' "E103/rice: o config do OSD viaja NO PACOTE (mesma escola)"
+
+# ── a PELE v6 (avatar 1:1 · gap 24px · rodapé 0.6) ──────────────────────
+assert_grep "$HLKV3" 'rounding = -1' "E103/lock: o avatar em CÍRCULO PERFEITO (a diretriz: 1:1 rigoroso — o -1 do hyprlock sobre fonte quadrada)"
+assert_grep "$HLKV3" 'path = ~/\.cache/elite/avatar\.png' "E103/lock: o avatar nasce do CACHE QUADRADO (o craft-lock recorta com ffmpeg — retangular viraria elipse: o corte assimétrico que o dono mandou eliminar)"
+assert_grep "$LOCK101" "crop='min\(iw,ih\)':'min\(iw,ih\)'" "E103/lock: o recorte QUADRADO na fonte (min(iw,ih) + scale 256 — o cache nasce 1:1 e o rounding=-1 vira círculo de verdade)"
+assert_grep "$LOCK101" '\$HOME/\.face' "E103/lock: a fonte do avatar segue o padrão XDG (a casa do dono ~/.config/elite/avatar.png primeiro, o .face de sempre depois)"
+assert_grep "$HLKV3" 'size = 380, 54' "E103/lock: as pílulas do greeter permanecem (380×54 — a v6 só reorganiza a hierarquia, não reinventa o corpo)"
+assert_grep "$HLKV3" 'position = 0, -44' "E103/lock: o campo de senha com o GAP DE 24PX (78px centro-a-centro − 54px de pílula = 24px de ar entre os blocos — a missão do dono)"
+assert_grep "$HLKV3" 'rgba\(171, 178, 191, 0.6\)' "E103/lock: o rodapé de status a 0.6 (a hierarquia fecha: relógio no alto, corpo no centro, estado no pé — #ABB2BF com a opacidade da missão)"
+assert_grep "$HLKV3" 'valign = bottom' "E103/lock: o rodapé ancorado no CHÃO (com y positivo — a lei do sinal de pé no novo bloco)"
+assert_grep "$HLKV3" '^image \{' "E103/lock: o bloco image do avatar existe (a v5 era só glifo — a missão pediu a foto com proporção 1:1)"
+
+# ── os XDG DEFAULTS (a abstração FreeDesktop) ────────────────────────────
+assert_file "$P/airootfs/etc/profile.d/10-elite-defaults.sh" "E103/xdg: o profile.d da casa existe (TERMINAL/FILEMANAGER/EDITOR/VISUAL/BROWSER com defaults — a variável PRESENTE do usuário nunca é tocada)"
+assert_grep "$P/airootfs/etc/profile.d/10-elite-defaults.sh" ': "\$\{TERMINAL:=foot\}"' "E103/xdg: o default de terminal é foot VIA VARIÁVEL (a troca de app é export, não edição de menu)"
+assert_grep "$P/airootfs/usr/local/bin/exo-open" '\$\{TERMINAL:-foot\}' "E103/xdg: o exo-open lê a variável (o binário hardcoded morre — a abstração vale para quem chama: Thunar, gio, os menus)"
+assert_grep "$P/airootfs/usr/local/bin/exo-open" '\$\{FILEMANAGER:-thunar\}' "E103/xdg: o gerenciador padrão via variável (a mesma lei)"
+assert_nogrep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'command="foot"' "E103/xdg: o menu raiz NUNCA chama binário cru de app padrão (o Execute lê \${TERMINAL:-foot} — o labwc roda via sh e a variável vale)"
+assert_grep "$REPO/.ci/build.sh" '10-elite-defaults.sh' "E103/xdg: o profile.d viaja NO PACOTE (a ISO nasce com os defaults e o rig recebe pelo canal)"
+
+# ── o MODO DE JOGO (o músculo feral nativo, o cérebro da casa) ──────────
+assert_file "$CNG101" "E103/game: o módulo existe (o cérebro: detecção, holder manual, menu, hooks — o músculo é o gamemode do Feral JÁ na ISO)"
+assert_grep "$CNG101" 'RegisterGame' "E103/game: o watch REGISTRA O PID DO JOGO no gamemode (o reaper DELE sabe da morte — a casa não conta nada duas vezes; RAM zero no idle via D-Bus activation)"
+assert_grep "$CNG101" '-u low' "E103/game: os avisos do modo são LOW (pop-up não é lugar de estado — a lei da central de pé em TODA a casa)"
+assert_grep "$CNG101" 'AUTO' "E103/game: o automático é escolha do dono (AUTO=1 em game.conf; ausente/0 = ausência intencional silenciosa — a lei do idle)"
+assert_grep "$P/airootfs/etc/gamemode.ini" 'desiredgov=performance|amd_performance_level=high|reaper_freq' "E103/game: o gamemode.ini da casa (governor performance + GPU high + rollback automático — a diretriz 'definir o performance no CPU quando entrar no jogo')"
+assert_grep "$REPO/.ci/build.sh" 'etc/gamemode.ini' "E103/game: o gamemode.ini viaja NO PACOTE (o Arch só entrega o example — /etc é da casa)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'craft-game' "E103/game: o menu raiz tem a porta (o botão do sistema que a missão pediu — 'mexer no governor' sem terminal; o comando resolve pelo PATH — o gate v1.6.3 sem fantasma)"
+assert_grep "$BARS101" 'craft-game watch' "E103/game: o watch entra na SUPERVISÃO (morre → volta em ≤5s; AUTO≠1 = ausência intencional — zero spam)"
+assert_grep "$REPO/elite/packages.add" '^gamemode$' "E103/game: o músculo nasce na ISO (gamemode+gamescope+mangohud desde a v1 — a cadeia completa do jogador)"
+
+# ── a DOSE QUE SE CURA (os contratos estáticos; as cenas vivem na 30-unit)
+assert_grep "$CUPD101" 'cura_orfao()' "E103/dose: a classe órfã CURA-SE (a lei do dono: atualização que chega INSTALA — o papel 10/nov provou a recusa com TRÊS comandos manuais)"
+assert_grep "$CUPD101" 'ELITE_BACKUP_DIR' "E103/dose: a quarantena é injetável (a prova em sandbox nunca escreve /var — a escola VMARK/ULOG)"
+assert_grep "$CUPD101" 'lista_404' "E103/dose: a classe 404 cura (as peças que o db ADVERTISE sem arquivo saem da dose e ela refaz — o canal nunca mais morre por um fóssil do db)"
+assert_grep "$CUPD101" '\*-debug\) continue' "E103/dose: o -debug fica FORA da dose (artefato de desenvolvimento — o rig de produção nunca o pede: a primeira camada da defesa)"
+assert_grep "$REPO/.github/workflows/publish-packages.yml" 'repo-add --quiet elite-local\.db\.tar\.gz craft-toplevel-' "E103/canal: o db recebe EXATAMENTE o conjunto que embarca (a era dos -debug no repo-add sem upload morreu — o db ADIVERTE só o que existe)"
+assert_grep "$REPO/.github/workflows/publish-packages.yml" 'o db ficou ADIANTE da release' "E103/canal: a verificação db↔assets (cada entrada do db precisa de asset na release — a classe 404 impossível ANTES de o rig pagar)"
+
+# ── a vigília do SYSCTL (o drift que outro pacote impõe) ────────────────
+POST101="$P/airootfs/usr/local/bin/elite-post-transaction"
+assert_grep "$POST101" 'ELITE_SYSCTL' "E103/pós-transação: a vigília do sysctl da casa (o papel 10/nov: kernel em 150 com o conf pedindo 180 — o cachyos-settings reescreveu depois do firstboot e o systemd-sysctl só roda no boot)"
+assert_grep "$POST101" 'systemd-sysctl "\$ELITE_SYSCTL"' "E103/pós-transação: o drift é REAPLICADO na hora (o tuning da casa vale no -Syu, não no próximo boot — com a prova no papel)"
+
+# ── o firmware da missão: a suíte cobra o mantenedor ────────────────────
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 44→45 NO MESMO COMMIT' "E103 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
 
 phase_end

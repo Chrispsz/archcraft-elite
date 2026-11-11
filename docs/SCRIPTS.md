@@ -43,6 +43,7 @@ a tornou verdade: 39 bins + scripts de repo; o craft-compress morreu com honra n
 | `craft-logout` | WRAPPER do craft-power — o menu Sessão é UM (W-Escape / W-x / C-A-Delete; ARQUITETURA nº 9: o teclado herda Suspender e Tempo de idle) |
 | `craft-menu` | o motor dmenu dos menus craft-* (fuzzel --dmenu + âncoras + log); E74: slot `dock` — âncora bottom-center para o menu do botão direito da dock |
 | `craft-menu-dismiss` | fecha qualquer menu/OSD aberto (lei de cross-dismiss) · v1.1 (E98): O MARTELO ALCANÇA A GAVETA — o clique no desktop encerra qualquer nwg-drawer aberto (comm exato), com linha no menus.log |
+| `craft-game` | modo de jogo da casa (E103): menu/status/on/off/watch/hook — o cérebro sobre o gamemode (governor+GPU via D-Bus, RAM zero no idle; watch registra o pid do jogo, holder para o manual; avisos -u low) |
 | `craft-pin` | fixar/remover/listar pins da dock (`dock-pins` + .bak); E36: duplicata sai rc 1 |
 | `craft-pin-pick` | picker gráfico de apps para fixar (direito no desktop → Fixar); E36: toast honesto para duplicata/falha |
 | `craft-power` | menu Sessão completo (sair/suspender/reiniciar/desligar/idle) — E46: o rollback saiu do menu (a porta dele é a entrada de snapshot no GRUB; ordem do dono) |

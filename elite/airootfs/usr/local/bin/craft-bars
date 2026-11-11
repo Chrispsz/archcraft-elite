@@ -140,7 +140,7 @@ ensure() {
 cyc=0
 # E43 — flags "já viu vivo": 0 = ainda não nasceu (o 1º ciclo loga
 # 'iniciando'); após o 1º ciclo = 1, e ausência vira morte real ('FORA').
-seen_top=0 seen_dock=0 seen_tl=0 seen_idle=0 seen_audio=0 seen_swyn=0 seen_udiskie=0 seen_polkit=0 seen_display=0
+seen_top=0 seen_dock=0 seen_tl=0 seen_idle=0 seen_audio=0 seen_osd=0 seen_game=0 seen_swyn=0 seen_udiskie=0 seen_polkit=0 seen_display=0
 
 # ── E97 — O COMPRIMIR CHEGA AO RIG VIVO (a ordem do dono, de novo: "o ───
 # botão de comprimir ainda continua aqui no gerenciador de arquivos…
@@ -291,6 +291,50 @@ while :; do
         fi
     fi
     seen_audio=1
+    # E101 — O OSD ENTRA NA SUPERVISÃO (a lição v2.10.6 do idle aplicada ao
+    # irmão): o spawn do autostart é do home VIVO (domínio do dono) — nos
+    # rigs onde ele existe fica (o pgrep guarda a dupla nasceria); nos que
+    # NÃO têm a linha, o supervisor lança e RELANÇA (a barra do swayosd
+    # morria calada e o volume voltava a ser cego). O pacote é a âncora
+    # E94 (ADOCAO) — o rig do dono recebe o binário na dose e o daemon
+    # sobe na hora, sem relogin.
+    if command -v swayosd-server >/dev/null 2>&1; then
+        if ! pgrep -x swayosd-server >/dev/null 2>&1; then
+            if [ "$seen_osd" -eq 1 ]; then
+                printf '[%s] OSD swayosd-server FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
+            else
+                printf '[%s] OSD swayosd-server iniciando (1ª vez — nada morreu)\n' "$(date '+%F %T')" >>"$LOG"
+            fi
+            (
+                swayosd-server >>"$LOG" 2>&1
+                st=$?
+                printf '[%s] OSD swayosd-server SAIU exit=%d\n' "$(date '+%F %T')" "$st" >>"$LOG"
+            ) 9>&- &
+        fi
+    fi
+    seen_osd=1
+    # E101 — O WATCH DO MODO DE JOGO ENTRA NA SUPERVISÃO (o mesmo corpo da
+    # família): AUTO=1 no ~/.config/elite/game.conf é o contrato — o daemon
+    # SAI 0 sozinho quando AUTO≠1 (ausência intencional, lei do idle, zero
+    # spam); AUTO=1 + gamemode presente = o detector de jogos no ar, morre
+    # → volta em ≤5s. O gamemoded em si é D-Bus activation (idle = RAM zero
+    # — o músculo só existe quando há jogo).
+    if command -v craft-game >/dev/null 2>&1; then
+        auto="$(sed -n 's/^AUTO=//p' "$HOME/.config/elite/game.conf" 2>/dev/null | head -1)"
+        if [ "${auto:-0}" = 1 ] && ! pgrep -f '^/usr/local/bin/craft-game watch$' >/dev/null 2>&1; then
+            if [ "$seen_game" -eq 1 ]; then
+                printf '[%s] game watch FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
+            else
+                printf '[%s] game watch iniciando (1ª vez — nada morreu)\n' "$(date '+%F %T')" >>"$LOG"
+            fi
+            (
+                /usr/local/bin/craft-game watch >>"$LOG" 2>&1
+                st=$?
+                printf '[%s] game watch SAIU exit=%d\n' "$(date '+%F %T')" "$st" >>"$LOG"
+            ) 9>&- &
+        fi
+    fi
+    seen_game=1
     # E36 — FIM DOS ÓRFÃOS (audit de arquitetura, sessão Q2/Q8): o swaync é
     # a superfície de TODOS os avisos de erro dos craft-*; o udiskie monta
     # o USB; o agente polkit responde o pkexec — os três morriam CALADOS
@@ -341,23 +385,44 @@ while :; do
     # último recurso (aposentado no packages.remove da ISO). Fila única,
     # decisão provável no papel — quando o labwc aprender v5, uma linha
     # aqui devolve o agente nativo.
+    # E101 — O POLKIT SOB DEMANDA (a diretriz do dono: 'subir o prompt
+    # APENAS quando uma aplicação solicitar, encerrando logo em seguida —
+    # RAM nula em idle'). A perícia no fonte do polkit provou: o polkitd
+    # NUNCA D-Bus ativa agentes e REJEITA um segundo por sessão — o agente
+    # se REGISTRA e o prompt é DESAFIO. O elite-polkit-listener (C vendado,
+    # sha pinado, do pacote único) é o corpo SEMPRE VIVO MÍNIMO (GDBus,
+    # idle ~1–2 MB — sem Qt na RAM): registra o agente da sessão e abre o
+    # diálogo (zenity) SÓ quando um app pede privilégio, matando-o com o
+    # desafio. A fila da casa reorganiza: LISTENER (idle nulo) → lxqt
+    # (residente, fallback honesto) → hyprpolkitagent (era Qt) → polkit-gnome
+    # (legado). O TRONO segue um só (E95): com o listener eleito, TODOS os
+    # residentes se aposentam (o polkitd recusa o segundo registro —
+    # dois agentes = duas caixas de senha por pedido).
     POLKIT_BIN=""
-    for pb in /usr/bin/lxqt-policykit-agent \
-              /usr/lib/hyprpolkitagent/hyprpolkitagent \
-              /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1; do
-        [ -x "$pb" ] || continue
-        grep -q 'hyprtoolkit' "$pb" 2>/dev/null && continue
-        POLKIT_BIN="$pb"
-        break
-    done
+    if command -v elite-polkit-listener >/dev/null 2>&1 \
+            && command -v zenity >/dev/null 2>&1; then
+        POLKIT_BIN=/usr/local/bin/elite-polkit-listener
+    else
+        for pb in /usr/bin/lxqt-policykit-agent \
+                  /usr/lib/hyprpolkitagent/hyprpolkitagent \
+                  /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1; do
+            [ -x "$pb" ] || continue
+            grep -q 'hyprtoolkit' "$pb" 2>/dev/null && continue
+            POLKIT_BIN="$pb"
+            break
+        done
+    fi
     # E95 — UM TRONO SÓ (o perdedor sai da sala): os homes VIVOS ainda
     # sobem o polkit-gnome às cegas pelo autostart do skel velho (home é
-    # domínio do dono — update nenhum o toca), e quando a âncora lxqt
-    # chega pelo craft-update os DOIS viveriam juntos: dois agentes
-    # registrados = o diálogo da senha nasce DUAS vezes por pedido. A
-    # fila E58 reina em UM trono: o eleito sobe (o bloco de baixo), os
-    # demais que estiverem VIVOS são aposentados na hora — o supervisor
-    # é quem decide, e o home velho obedece.
+    # domínio do dono — update nenhum o toca), e quando o eleito chega
+    # pelo craft-update os DOIS viveriam juntos: dois agentes registrados
+    # = o diálogo da senha nasce DUAS vezes por pedido. A fila E58 reina
+    # em UM trono: o eleito sobe (o bloco de baixo), os demais que
+    # estiverem VIVOS são aposentados na hora — o supervisor é quem
+    # decide, e o home velho obedece.
+    # E101 — com o listener eleito, o lxqt-policykit-agent RESIDENTE também
+    # é aposentado (ele é o perdedor da fila nova; sem listener na máquina,
+    # ele é o eleito e NINGUÉM o toca — o fallback é a rede).
     for loser in /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 \
                 /usr/lib/hyprpolkitagent/hyprpolkitagent; do
         [ "$loser" = "$POLKIT_BIN" ] && continue
@@ -367,6 +432,13 @@ while :; do
                 "$(date '+%F %T')" "${loser##*/}" >>"$LOG"
         fi
     done
+    if [ "$POLKIT_BIN" = "/usr/local/bin/elite-polkit-listener" ]; then
+        if pgrep -x lxqt-policykit-agent >/dev/null 2>&1; then
+            pkill -x lxqt-policykit-agent 2>/dev/null || true
+            printf '[%s] polkit perdedor aposentado (lxqt-policykit-agent residente — o listener E101 reina com idle nulo)\n' \
+                "$(date '+%F %T')" >>"$LOG"
+        fi
+    fi
     if [ -x "$POLKIT_BIN" ] && ! pgrep -f "^$POLKIT_BIN\$" >/dev/null 2>&1; then
         if [ "$seen_polkit" -eq 1 ]; then
             printf '[%s] polkit FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"

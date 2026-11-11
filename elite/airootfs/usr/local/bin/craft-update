@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# craft-update — atualiza TUDO que a Elite entrega (v5.5 — E64)
+# craft-update — atualiza TUDO que a Elite entrega (v6 — E103)
 # ═══════════════════════════════════════════════════════════════════════════
 # v1 (v2.10.5): 'sudo pacman -Syu' + cabeçalho honesto (paru prometido não
 #   existe — o bloco fica pronto, mas calado enquanto paru não entra).
@@ -173,6 +173,28 @@
 #   As irmãs do mesmo degrau moram nas units (TimeoutStartSec,
 #   ConditionPathExists !/run/archiso, OnUnitInactiveSec — E64 nos
 #   comentários delas).
+# v6 (E103 — A DOSE QUE SE CURA SOZINHA; nascido na linha divergida como
+#   E101, chegou ao tronco pela reunião): o papel 10/nov provou a recusa
+#   ('elite-sleep-report existe no sistema de arquivos' + o bootupdate
+#   FALHOU e o papel ensinou TRÊS comandos manuais) — a lei do dono:
+#   atualização que chega INSTALA:
+#   (1) A AUTO-CURA (cura_orfao): a prova do dono (pacman -Qo) ANTES da
+#       mão — sem dono = quarantena bak- em /var/backups/elite + retry
+#       narrado nas TRÊS portas (teto 2 rounds); COM dono = a mão para e
+#       ensina_orfao narra (roubar arquivo alheio nunca). O réu do bash:
+#       o `!` INVERTE o rc — com "1 = curou" ele entrava no erro JUSTO
+#       quando a cura funcionava.
+#   (2) A CLASSE 404 (lista_404): as peças que o pacman nomeou e o db
+#       ADVERTISE sem arquivo saem da dose e ela refaz — o nome COM traço
+#       (brave-origin) via rsplit guloso, o `([^-]+)` cortava no 1º traço.
+#   (3) O -debug FORA DA DOSE SEMPRE (case *-debug) — artefato de
+#       desenvolvimento; a 2ª camada mora no canal (o db-base é prunado).
+#   (4) A ADOÇÃO DO OSD: swayosd entra na ADOCAO (o rig do dono nasceu
+#       antes da E74 — os binds degradavam ao pactl sem barra NUNCA); a
+#       barra chega viva na sessão (o craft-bars supervisiona).
+#   (5) AS FAMÍLIAS DA CASA ganham a 5ª (system-sleep já coberta) e a
+#       suíte CONTRATA a sincronia lista↔payload (o esquecimento seguinte
+#       morre na porteira, não no rig do dono).
 # ═══════════════════════════════════════════════════════════════════════════
 set -euo pipefail
 
@@ -237,9 +259,14 @@ HOUSE_OVERWRITE=(
 # tríade da loja (octopi GUI + yay AUR + flatpak/Flathub — a diretriz do
 # dono: o usuário abre o sistema e JÁ sabe como instalar pacotes).
 # Procedência: octopi 0.19.0-2 confirmado no repo [cachyos] (índice do
-# espelho lido na entrada); yay: o dump 163423 do rig o lista instalado de
+# clone do upstream aarnt/octopi); yay: o dump 163423 do rig o lista instalado de
 # REPO (Qm limpo); flatpak: [extra] canônico.
-ADOCAO=(lxqt-policykit pacman-contrib octopi yay flatpak)
+# E101 — O OSD CHEGA AO RIG: o swayosd está no packages.add desde a E74,
+# mas o rig do dono nasceu ANTES (o dump 211627 não o tem — os binds
+# degradavam ao pactl sem barra NUNCA). A adoção fecha o furo: sudo
+# craft-update → o daemon e a barra nascem na sessão viva (o craft-bars
+# supervisiona).
+ADOCAO=(lxqt-policykit pacman-contrib octopi yay flatpak swayosd)
 
 ulog() {
     mkdir -p "$(dirname "$ULOG")" 2>/dev/null || true
@@ -277,38 +304,87 @@ run_root() {
     if [ "$(id -u)" = 0 ]; then "$@"; else sudo "$@"; fi
 }
 
-# E93 — A CLASSE ÓRFÃ GANHA A PALAVRA DA CASA. '…existe no sistema de
-# arquivos' é a ferida era-ISO: o arquivo nasceu no sistema ANTES de o
-# pacote da casa o carregar (airootfs/deploy direto não tem dono no
-# pacman) e a checagem de conflito corre ANTES de qualquer scriptlet —
-# nenhuma cura viaja no pacote, o pre_install NUNCA alcança. A prova do
-# dono (08/11): o 1.0-36 recusado na máquina com o elite-sleep-report —
-# e a cura E92 (HOUSE_OVERWRITE) viajava DENTRO do pacote recusado
-# (bootstrap da cura: a chave foi o bak- À MÃO, uma vez, na primeira dose
-# que carrega o overwrite). A sentinela ENSINA com o caminho EXATO que o
-# pacman nomeou (lido do papel cru) e NUNCA move nada sem o dono: a lei
-# é bak- (nunca destruição) PARA FORA do dir de sono — systemd executa
-# TUDO executável em system-sleep, até um .bak renomeado no lugar.
+# E93 — A CLASSE ÓRFÃO ENSINA (a porta de papel permanece para a subclasse
+# que a cura NÃO pode tocar: arquivo COM dono de outro pacote).
 ensina_orfao() {
     local src="${1:-$ULOG}"
     grep -q 'existe no sistema de arquivos' "$src" 2>/dev/null || return 0
     local p base l
+    local BK="${ELITE_BACKUP_DIR:-/var/backups/elite}"
     while IFS= read -r p; do
         [ -n "$p" ] || continue
         base="$(basename "$p")"
         local -a msgs=(
-            "CLASSE CONHECIDA — ARQUIVO ÓRFÃO: '$p' existe no sistema de arquivos (sem dono, era ISO/deploy direto)."
-            "  o pre_install do pacote NUNCA alcança: a checagem de conflito corre ANTES de qualquer scriptlet."
-            "  a lei da casa é bak- (nunca destruição), PARA FORA do dir de sono (systemd executa tudo executável lá):"
-            "    1) pacman -Qo '$p'   # deve responder 'Nenhum pacote possui' — se nomear outro pacote, NÃO mova"
-            "    2) sudo install -d /var/backups/elite && sudo mv '$p' '/var/backups/elite/${base}.bak-\$(date +%Y%m%d-%H%M%S)'"
-            "    3) rode craft-update de novo — a transação passa e o pacote entrega o arquivo com dono."
+            "CLASSE CONHECIDA — ARQUIVO ÓRFÃO: '$p' existe no sistema de arquivos."
+            "  a casa NÃO moveu: a prova do dono (pacman -Qo) nomeou um pacote como dono — curar aqui seria roubar arquivo alheio."
+            "  se for lixo MESMO, a palavra é do dono (a lei bak-, nunca destruição):"
+            "    sudo mv '$p' '${BK:-/var/backups/elite}/${base}.bak-\$(date +%Y%m%d-%H%M%S)'"
         )
         for l in "${msgs[@]}"; do
             ulog "$l"
             printf '%s\n' "$l" >&2
         done
     done < <(sed -n -E 's/^[^:]+: (.+) existe no sistema de arquivos$/\1/p' "$src" | sort -u)
+}
+
+# E101 — A CLASSE ÓRFÃ CURA-SE SOZINHA (a prova do dono no papel, 10/nov:
+# a dose ao ligar RECUSADA por '/usr/lib/systemd/system-sleep/elite-sleep-report'
+# existe no sistema de arquivos' — o elite-bootupdate.service FALHOU e o
+# papel ensinou TRÊS comandos manuais. A lei do dono: 'não lançar
+# atualização e não conseguir instalar… e ter que dar comandos manuais'.
+# A cura que viaja dentro do pacote recusado nunca alcança (bootstrap) —
+# ENTÃO a sentinela é quem cura, ANTES do retry: a mesma lei bak- que a
+# aula ensinava, executada pela casa com a prova ANTES da mão:
+#   1) pacman -Qo '$p' nomeou DONO?  → a mão para (subclasse alheia);
+#   2) sem dono → quarantena bak- em /var/backups/elite (PARA FORA do dir
+#      de sono — systemd executa TUDO executável lá) e RETORNA 1 (mudou);
+#   3) o chamador que venceu a classe refaz a dose — o dono só vê o papel.
+# Retorno: 0 = nada a curar (ou nada curável), 1 = curou algo (retry deve
+# acontecer). NUNCA destrói: mv para quarantena datada, restaurável à mão.
+cura_orfao() {
+    local src="${1:-$ULOG}" p healed=0
+    grep -q 'existe no sistema de arquivos' "$src" 2>/dev/null || return 0
+    while IFS= read -r p; do
+        [ -n "$p" ] || continue
+        [ -e "$p" ] || continue   # já quarantenado em rodada anterior
+        if run_root pacman -Qo "$p" >/dev/null 2>&1; then
+            ulog "cura-órfão: '$p' TEM dono no pacman — a mão para (subclasse alheia, ensina_orfao narra)"
+            continue
+        fi
+        local base dest ts bdir
+        ts="$(date +%Y%m%d-%H%M%S)"
+        base="$(basename "$p")"
+        # E101 — a quarantena é INJETÁVEL (ELITE_BACKUP_DIR — a mesma escola
+        # do LCK/VMARK/ULOG/UNIT_DIR: a prova em sandbox nunca escreve /var)
+        bdir="${ELITE_BACKUP_DIR:-/var/backups/elite}"
+        dest="${bdir}/${base}.bak-${ts}"
+        if run_root sh -c "install -d '${bdir}' && mv '${p}' '${dest}'"; then
+            ulog "cura-órfão: '$p' SEM dono → quarantena bak- em '$dest' (nunca destruição — restaure à mão se quiser)"
+            healed=1
+        else
+            ulog "cura-órfão: quarantena de '$p' falhou — a dose segue recusada (a prova está no papel)"
+        fi
+    done < <(sed -n -E 's/^[^:]+: (.+) existe no sistema de arquivos$/\1/p' "$src" | sort -u)
+    # 1 = curou algo (o chamador refaz a dose); 0 = nada curável (recusa
+    # honesta). Lei do retorno é contrária ao rc convencional — o nome da
+    # função diz: curou é o EVENTO.
+    if [ "$healed" -eq 1 ]; then return 1; fi
+    return 0
+}
+
+# E101 — A CLASSE 404 CURA-SE SOZINHA (a mesma prova do papel, 10/nov:
+# 'erro: falha ao obter o arquivo "pwvucontrol-debug-…"' — o db ADVERTISE
+# um pacote cujo arquivo NUNCA embarcou na release (a era dos -debug no
+# repo-add sem upload). A recusa perde a dose INTEIRA por causa de uma
+# peça que o rig NUNCA pediu. A cura: os nomes que o pacman nomeou saem
+# DA LISTA e a dose refaz — o canal nunca mais morre por um fóssil do db.
+# Lida da FONTE ($1 = log/errcap da transação), devolve os nomes (um por
+# linha); vazio = classe não presente.
+lista_404() {
+    # o nome do pacote PODE ter traço (brave-origin) — o (.+) guloso deixa
+    # só as TRÊS caudas (ver-rel-arch) e entrega o nome inteiro
+    sed -n -E 's/^erro: falha ao obter o arquivo "(.+)-[^-]+-[^-]+-[^"]+\.pkg\.tar\.zst".*$/\1/p' \
+        "$1" 2>/dev/null | sort -u || true
 }
 
 # E94 — A ADOÇÃO EXECUTADA. Transação SEPARADA e best-effort DEPOIS da
@@ -718,6 +794,14 @@ if [[ "${1:-}" == "--canal" ]]; then
         if [ "$p" = "elite-craft" ] || [ "$p" = "craft-toplevel" ]; then
             continue
         fi
+        # E101 — o -debug fica FORA da dose SEMPRE (a prova do papel, 10/nov:
+        # 'pwvucontrol-debug/wlrctl-debug' nomeados na transação e 404 no
+        # download — o db ADVERTISE peças que NUNCA embarcaram na release;
+        # o rig de produção NUNCA pede um -debug — são artefato de
+        # desenvolvimento). Defense in depth: o canal da casa também para
+        # de publicar a entrada órfã (publish-packages.yml) — aqui é o
+        # cinto do rig que já sincronizou o db doente.
+        case "$p" in *-debug) continue ;; esac
         CANAL_PKGS+=("$p")
     done < <(pacman -Slq elite-local 2>/dev/null || true)
     if [ "${#CANAL_PKGS[@]}" -eq 0 ]; then
@@ -732,13 +816,62 @@ if [[ "${1:-}" == "--canal" ]]; then
     else
         ulog "canal: ADOÇÃO nesta dose — o replaces do elite-system troca o par legado (alvo-contra-alvo nunca entra na lista)"
     fi
-    if ! run_root pacman -Sy --needed --noconfirm \
+    # E101 — A DOSE COM AUTO-CURA (a lei do dono: atualização que CHEGA
+    # INSTALA — nunca comandos manuais). A transação tenta, e uma recusa
+    # conhecida cura e refaz (teto 2 rounds — o retry não é loop):
+    #   · órfã sem dono      → quarantena bak- (cura_orfao) e refaz;
+    #   · 404 (db adiante)   → as peças nomeadas saem da lista e refaz;
+    #   · qualquer outra     → recusa honesta, a prova no papel.
+    canal_rc=0
+    canal_round=0
+    ERRCAP="$(mktemp "${TMPDIR:-/tmp}/elite-canal-err.XXXXXX")"
+    while :; do
+        canal_rc=0
+        run_root pacman -Sy --needed --noconfirm \
             "${HOUSE_OVERWRITE[@]}" \
-            "${CANAL_PKGS[@]}" >>"$ULOG" 2>&1; then
-        ulog "canal: pacman RECUSOU a dose — a prova está acima no log"
-        # E93 — o papel é a única boca do timer: a classe órfã (se for
-        # ela a ré) ensina no log, com o caminho exato que o pacman nomeou
-        ensina_orfao
+            "${CANAL_PKGS[@]}" 2>"$ERRCAP" >>"$ULOG" || canal_rc=$?
+        if [ "$canal_rc" -eq 0 ]; then break; fi
+        canal_round=$((canal_round + 1))
+        if [ "$canal_round" -gt 2 ]; then break; fi
+        cat "$ERRCAP" >>"$ULOG" 2>/dev/null || true
+        healed=0
+        # 1) a classe órfã: cura (quarantena) — curou algo? refaz
+        cura_orfao "$ERRCAP" && healed=1
+        # 2) a classe 404: as peças que o pacman nomeou saem da lista
+        dropped="$(lista_404 "$ERRCAP")"
+        if [ -n "$dropped" ]; then
+            ulog "canal: classe 404 — saindo da dose: $(echo "$dropped" | tr '\n' ' ')"
+            # reconstrói a array ELEMENTO por elemento (a lista do pacman
+            # é uma array da casa — colapsar em uma string recriaria a
+            # recusa com o alvo inteiro virado uma linha só)
+            old_list=("${CANAL_PKGS[@]}")
+            CANAL_PKGS=()
+            while IFS= read -r p; do
+                [ -n "$p" ] || continue
+                skip=0
+                while IFS= read -r d; do
+                    if [ "$p" = "$d" ]; then skip=1; break; fi
+                done <<< "$dropped"
+                [ "$skip" -eq 0 ] && CANAL_PKGS+=("$p")
+            done < <(printf '%s\n' "${old_list[@]}")
+            if [ "${#CANAL_PKGS[@]}" -eq 0 ]; then
+                ulog "canal: a dose inteira era peça 404 — nada a instalar (silêncio, o db novo traz o resto)"
+                rm -f "$ERRCAP"
+                exit 0
+            fi
+            healed=1
+        fi
+        if [ "$healed" -eq 0 ]; then
+            break   # classe desconhecida — recusa honesta abaixo
+        fi
+        ulog "canal: cura aplicada (rodada $canal_round) — a dose refaz"
+    done
+    rm -f "$ERRCAP"
+    if [ "$canal_rc" -ne 0 ]; then
+        ulog "canal: pacman RECUSOU a dose (rc=$canal_rc) — a prova está acima no log"
+        # E93/E101 — as subclasses que a casa NÃO cura ganham a palavra
+        # (dono de outro pacote — mover seria roubo; o resto a casa já curou)
+        ensina_orfao "$ULOG"
         notify_users -u critical 'Canal da Elite falhou' \
             'A dose diária da casa foi recusada — log: /var/log/elite-update.log'
         exit 1
@@ -796,13 +929,30 @@ if [[ "${1:-}" == "--sistema" ]]; then
     tl_before="$(craft_tl_q)"
     # o rc REAL se captura fora da negação (dentro do `if !`, o $? é o
     # status NEGADO — o log imprimiria rc=1 em qualquer falha)
+    # E101 — A SEMANAL TAMBÉM CURA (mesma lei do canal): órfã sem dono →
+    # quarantena bak- e refaz (teto 2 rounds — o snapshot PRE guarda o
+    # estado anterior de QUALQUER rodada, a rede de segurança não aposta).
     sys_rc=0
-    run_root pacman -Syu --needed --noconfirm \
-        "${HOUSE_OVERWRITE[@]}" >>"$ULOG" 2>&1 || sys_rc=$?
+    sys_round=0
+    ERRCAP="$(mktemp "${TMPDIR:-/tmp}/elite-sys-err.XXXXXX")"
+    while :; do
+        sys_rc=0
+        run_root pacman -Syu --needed --noconfirm \
+            "${HOUSE_OVERWRITE[@]}" 2>"$ERRCAP" >>"$ULOG" || sys_rc=$?
+        if [ "$sys_rc" -eq 0 ]; then break; fi
+        sys_round=$((sys_round + 1))
+        if [ "$sys_round" -gt 2 ]; then break; fi
+        cat "$ERRCAP" >>"$ULOG" 2>/dev/null || true
+        if cura_orfao "$ERRCAP"; then
+            break   # nada curável — recusa honesta abaixo
+        fi
+        ulog "sistema: cura aplicada (rodada $sys_round) — a dose refaz"
+    done
+    rm -f "$ERRCAP"
     if [ "$sys_rc" -ne 0 ]; then
         ulog "sistema: pacman FALHOU (rc=$sys_rc) — snapshot PRE #$PRE_N guarda o estado anterior"
-        # E93 — a recusa órfã ensina no papel (a semanal também é boca do log)
-        ensina_orfao
+        # E93/E101 — a subclasse que a casa NÃO cura ensina no papel
+        ensina_orfao "$ULOG"
         notify_users -u critical 'Atualização semanal falhou' \
             "rc=$sys_rc — log: /var/log/elite-update.log${PRE_N:+ · rollback: snapshot #$PRE_N no GRUB}"
         exit 1
@@ -870,22 +1020,38 @@ manual_rc=0
 # STDOUT fica VIVO (as barras do pacman são a prova do progresso —
 # capturar tudo era cegar a transação); só o stderr — onde o pacman
 # fala 'existe no sistema de arquivos' — viaja pelo papel primeiro.
+# E101 — A PORTA DO DONO TAMBÉM CURA (a mesma lei das automáticas):
+# recusa conhecida (órfã sem dono) cura com quarantena bak- e refaz —
+# o dono aperta o botão UMA vez, a casa faz a rodada inteira (teto 2
+# rounds). Classe desconhecida: mensagem honesta, nada tocado.
 ERRCAP="$(mktemp "${TMPDIR:-/tmp}/elite-err.XXXXXX")"
-if [ -n "$_alvo" ]; then
-    run_root pacman -Syu --needed "${HOUSE_OVERWRITE[@]}" elite-system 2>"$ERRCAP" || manual_rc=$?
-else
-    run_root pacman -Syu --needed "${HOUSE_OVERWRITE[@]}" 2>"$ERRCAP" || manual_rc=$?
-fi
-if [ "$manual_rc" -ne 0 ]; then
+manual_round=0
+while :; do
+    manual_rc=0
+    if [ -n "$_alvo" ]; then
+        run_root pacman -Syu --needed "${HOUSE_OVERWRITE[@]}" elite-system 2>"$ERRCAP" || manual_rc=$?
+    else
+        run_root pacman -Syu --needed "${HOUSE_OVERWRITE[@]}" 2>"$ERRCAP" || manual_rc=$?
+    fi
+    if [ "$manual_rc" -eq 0 ]; then break; fi
+    manual_round=$((manual_round + 1))
     cat "$ERRCAP" >&2
     cat "$ERRCAP" >>"$ULOG" 2>/dev/null || true
-    echo "ERRO: o pacman recusou a transação (rc=$manual_rc) — NADA da casa mudou." >&2
-    echo "      A prova está nas linhas acima; se falar de 'travar a base de dados'," >&2
-    echo "      outra operação de pacotes está em execução — rode de novo (a sentinela espera por você)." >&2
-    ensina_orfao "$ERRCAP"
-    rm -f "$ERRCAP"
-    exit "$manual_rc"
-fi
+    # teto 2 rounds + só refaz quando a cura MEXEU (a lei do retorno:
+    # rc 0 = nada curável → recusa honesta; rc 1 = curou → refaz. A lição
+    # do réu: o `!` INVERTE o rc — com "1 = curou" ele entra no erro
+    # JUSTO quando a cura funcionou; o `!` morre aqui)
+    if [ "$manual_round" -gt 2 ] || cura_orfao "$ERRCAP"; then
+        echo "ERRO: o pacman recusou a transação (rc=$manual_rc) — NADA da casa mudou." >&2
+        echo "      A prova está nas linhas acima e no papel ($ULOG); se falar de 'travar a base de dados'," >&2
+        echo "      outra operação de pacotes está em execução — rode de novo (a sentinela espera por você)." >&2
+        ensina_orfao "$ULOG"
+        rm -f "$ERRCAP"
+        exit "$manual_rc"
+    fi
+    ulog "manual: cura aplicada (rodada $manual_round) — a transação refaz"
+    echo "==> cura aplicada (arquivo órfão sem dono foi para a quarantena bak-) — a transação refaz…"
+done
 rm -f "$ERRCAP"
 # E94 — a adoção de âncoras entra DEPOIS da dose vencida (a transação
 # separada nunca bloqueia a principal) e ANTES do refresh da sessão.

@@ -969,6 +969,15 @@ cat > "$MOCKCU/id" <<'EOF'
 [ "${1:-}" = "-u" ] && echo 0
 exit 0
 EOF
+cat > "$MOCKCU/sudo" <<'EOF'
+#!/usr/bin/env bash
+# E103: o run_root do craft-update no sandbox NÃO-ROOT cai no sudo REAL
+# (ausente) — a quarantena bak- morria 'quarantena falhou' e a cura virava
+# recusa honesta por acidente. O pass-through dá ao sandbox o mesmo poder
+# que o root do CI tem direto (o mundo de mentira fica determinístico nos
+# DOIS runners — a lição E64 do curl bimodal).
+exec "$@"
+EOF
 cat > "$MOCKCU/pacman" <<'EOF'
 #!/usr/bin/env bash
 # pacman de prova: -Slq devolve o canal, -Q lê o flip do kernel, a transação
@@ -980,15 +989,30 @@ if [[ -f "$ST/pacman-fail" && "$1" == "-Syu" ]]; then echo "erro simulado" >&2; 
 # DUAS doses que a casa abre para o pacman (-Sy do canal, -Syu da
 # semanal/manual) recusam com 'existe no sistema de arquivos' nomeando
 # o caminho — o ensino E93 só pode nascer DEPOIS desta recusa real
-if [[ -f "$ST/pacman-conflict" && ( "$1" == "-Sy" || "$1" == "-Syu" ) ]]; then
+# E103 — a recusa órfã condicionada ao ARQUIVO REAL (o fs de mentira mora
+# em $ST/fs — a cura da casa mexe no arquivo de verdade e a retry PASSA):
+if [[ -e "$ST/fs/elite-sleep-report" && ( "$1" == "-Sy" || "$1" == "-Syu" ) ]]; then
   printf 'erro: falha ao efetuar a transação (arquivos conflitantes)\n' >&2
-  printf 'elite-system: /usr/lib/systemd/system-sleep/elite-sleep-report existe no sistema de arquivos\n' >&2
+  printf 'elite-system: %s existe no sistema de arquivos\n' "$ST/fs/elite-sleep-report" >&2
+  exit 1
+fi
+# E103 — a classe 404 (o db adiante da release): -Sy/-Syu recusam nomeando
+# o arquivo que o pacman não conseguiu baixar — SÓ quando a peça ainda
+# entra na transação (a cura da casa a retira da lista e a retry PASSA,
+# como no pacman real: o db re-sincronizado não ofende quem não é alvo)
+if [[ -f "$ST/p404" && " $* " == *" brave-origin "* && ( "$1" == "-Sy" || "$1" == "-Syu" ) ]]; then
+  printf 'erro: falha ao obter o arquivo "brave-origin-1.99.55-1-x86_64.pkg.tar.zst" de github.com : The requested URL returned error: 404\n' >&2
+  printf 'erro: falha ao efetuar a transação (falha ao obter alguns arquivos)\n' >&2
   exit 1
 fi
 # E94 — a âncora que não resolve (best-effort: a dose principal NUNCA
 # bloqueia pela adoção)
 if [[ -f "$ST/anchor-fail" && "$1" == "-S" ]]; then echo "erro: alvo não encontrado: lxqt-policykit" >&2; exit 1; fi
 case "$1" in
+  -Qo)  # E103: a prova do dono ANTES da mão — $ST/owned decide o dono
+        [ -f "$ST/owned" ] && exit 0
+        echo "erro: Nenhum pacote possui $(echo "$*" | cut -d' ' -f2)" >&2
+        exit 1 ;;
   -Q)   if [ "$2" = "elite-system" ]; then
             # E50: o PACOTE ÚNICO tem delta próprio (o antes/depois da era nova)
             if [ -f "$ST/es-ver" ]; then echo "elite-system $(cat "$ST/es-ver")"; exit 0; fi
@@ -1015,7 +1039,7 @@ case "$1" in
   -Slq) [ -f "$ST/repo-fail" ] && exit 1
         # E50: o db da era nova — elite-system, a PONTE craft-toplevel, o
         # FÓSSIL elite-craft (o canal dele se livra) e os apps de terceiros
-        printf '%s\n' elite-system craft-toplevel elite-craft brave-origin; exit 0 ;;
+        printf '%s\n' elite-system craft-toplevel elite-craft brave-origin pwvucontrol-debug; exit 0 ;;
   -Syu) touch "$ST/kernel-flip"
         [ -f "$ST/es-upgrade" ] && printf '1.0-1\n' > "$ST/es-ver"
         [ -f "$ST/ec-upgrade" ] && printf '1.0-4\n' > "$ST/ec-ver"
@@ -1098,7 +1122,7 @@ CU="$REPO/elite/airootfs/usr/local/bin/craft-update"
 run_cu() { # run_cu <args…> — mundo root isolado, log injetável (o ESTADO do
   # cenário o teste prepara antes — o run não apaga nada por trás)
   local st="$STCU"
-  ( export PATH="${CU_EXTRA_PATH:+$CU_EXTRA_PATH:}$MOCKCU:$PATH" MOCK_DIR="$st" ELITE_UPDATE_LOG="${ELITE_UPDATE_LOG:-$st/update.log}" ELITE_VERSION_MARKER="/nada" ELITE_UNIT_DIR="$st/units" ELITE_TL_SETTLE=0
+  ( export PATH="${CU_EXTRA_PATH:+$CU_EXTRA_PATH:}$MOCKCU:$PATH" MOCK_DIR="$st" ELITE_UPDATE_LOG="${ELITE_UPDATE_LOG:-$st/update.log}" ELITE_VERSION_MARKER="/nada" ELITE_UNIT_DIR="$st/units" ELITE_TL_SETTLE=0 ELITE_BACKUP_DIR="$st/backups"
     # E54 — a morada do lock INJETÁVEL (mesma escola do VMARK/ULOG: o teste
     # nunca escreve em /var) e o teto de espera por cenário (a cena decide)
     export ELITE_PACMAN_LCK="$st/db.lck" ELITE_LOCK_WAIT="${ELITE_LOCK_WAIT:-120}"
@@ -1116,6 +1140,7 @@ assert_grep "$STCU/pacman.log" '\-Sy --needed --noconfirm --overwrite .* elite-s
 assert_grep "$STCU/pacman.log" '--overwrite /usr/lib/systemd/system-sleep/\*' \
   "E92/canal: o escopo chega ao pacman com a família system-sleep (a cura do 'existe no sistema de arquivos' que o rig flagrou em 08/11 — o overwrite expande do HOUSE_OVERWRITE)"
 assert_nogrep "$STCU/pacman.log" '\-Sy .* (elite-craft|craft-toplevel)' "E50/canal: o fóssil e a ponte NÃO entram na dose (puxá-los numa era única seria briga de dono pelo daemon)"
+assert_nogrep "$STCU/pacman.log" '\-Sy .*pwvucontrol-debug' "E103/canal: o -debug NÃO entra na dose (o db que o ADVERTISE nunca embarcou o arquivo — o rig pagou 404 e perdeu a dose INTEIRA em 10/nov; artefato de desenvolvimento fica fora do canal de produção)"
 assert_grep "$STCU/update.log" 'era do pacote único' "E50/canal: a era nova deixa linha no papel (quem lê o log entende POR QUE o par legado sumiu da dose)"
 assert_grep "$STCU/update.log" 'canal: OK' "E46/canal: dose concluída com linha no papel (o timer deixa réu nomeado)"
 
@@ -2288,8 +2313,9 @@ if [ -r "$ST100/captured.conf" ]; then
 else
     fail "E100/lock: o hyprlock recebeu um conf -c" "o mock não capturou o conf — o locker nasceria nu (sem wallpaper resolvido)"
 fi
-assert_grep "$ST100/captured.conf" 'font_size = 120' "E100/lock: o conf que o locker recebeu é A PELE NOVA (o relógio 120px da v5 — o 'não mudou nada' morre no nascimento)"
-assert_grep "$ST100/captured.conf" 'position = 0, -240' "E100/lock: o relógio nasce PRA DENTRO da tela (o sinal negativo no conf efêmero — a lei do sinal atravessa o craft-lock)"
+assert_grep "$ST100/captured.conf" 'font_size = 100' "E100→E103/lock: o conf que o locker recebeu é A PELE NOVA (o relógio 100px no terço superior da v6 — o 'não mudou nada' morre no nascimento)"
+assert_grep "$ST100/captured.conf" 'position = 0, -150' "E100→E103/lock: o relógio nasce PRA DENTRO da tela (o sinal negativo no conf efêmero — a lei do sinal atravessa o craft-lock)"
+assert_grep "$ST100/captured.conf" 'rounding = -1' "E103/lock: o conf capturado carrega o AVATAR 1:1 (o círculo perfeito viaja até o nascimento do locker)"
 
 # (E90.1) craft-vigil RECUSA argumentos (a 2ª vigília acidental nunca
 # nasce — a lei E30 na entrada; rc 2 com o uso no papel)
@@ -2335,39 +2361,62 @@ hello_out="$(HOME="$E91H/home" bash "$HELLO90" 2>&1)"; hello_rc=$?
 assert_eq "$hello_rc" "0" "E90/craft-hello: a saudação termina 0 mesmo sem fastfetch/pacman (o pointer nunca mata o retrato)"
 assert_match "$hello_out" 'craft-help abre o mapa' "E90/craft-hello: o onboarding aponta o mapa (a lacuna nº 3 fechada)"
 
-# (E93) A CLASSE ÓRFÃ TEM A PALAVRA DA CASA — o paste do dono 08/11
-# provou o BOOTSTRAP DA CURA: o 1.0-36 publicado foi recusado na máquina
-# ('elite-sleep-report existe no sistema de arquivos') e a cura E92
-# viajava DENTRO do pacote recusado. A sentinela agora ensina: caminho
-# EXATO nomeado pelo pacman, lei bak- PARA FORA do dir de sono, o
-# sem-dono verificado ANTES de mover — e o cru do pacman volta à tela.
+# ═══════════════════════════════════════════════════════════════════════
+# E103 — A CLASSE ÓRFÃ CURA-SE SOZINHA (o paste do dono 08/11 provou o
+# BOOTSTRAP e o papel de 10/nov provou o ÚLTIMO ato: a dose ao ligar
+# FALHOU e o papel ensinou TRÊS comandos manuais — a lei do dono:
+# atualização que CHEGA INSTALA, nunca comandos manuais). TRÊS cenas:
+#   (a) órfão SEM dono  → quarantena bak- AUTOMÁTICA + retry PASSA;
+#   (b) órfão COM dono  → a mão PARA (roubo seria) + o ensino honesto;
+#   (c) classe 404      → as peças nomeadas saem da dose + retry PASSA.
+# ═══════════════════════════════════════════════════════════════════════
+# (a) o órfão sem dono: a cura antes do retry (o arquivo de mentira em
+#     $ST/fs — a casa o move DE VERDADE e a segunda rodada passa)
+rm -rf "$STCU"; mkdir -p "$STCU" "$STCU/fs"; printf '1.0-33\n' > "$STCU/es-ver"
+printf 'lixo de era ISO\n' > "$STCU/fs/elite-sleep-report"
+e101a_out="$(run_cu)"; e101a_rc=$?
+printf '%s\n' "$e101a_out" > /tmp/e101a.out
+cp -p "$STCU/update.log" /tmp/e101a.log 2>/dev/null || true
+cp -p "$STCU/pacman.log" /tmp/e101a.pacman 2>/dev/null || true
+printf '%s\n' "$e101a_out" > "$STCU/cura-a.out"
+assert_eq "$e101a_rc" "0" "E103/cura (a): a dose que a classe órfã recusou termina 0 (a casa cura e refaz — o dono NUNCA mais vê comando manual por isso)"
+assert_grep "$STCU/update.log" 'SEM dono → quarantena bak- em .*elite-sleep-report\.bak-' "E103/cura (a): a quarantena bak- entra NO PAPEL com o caminho (nunca destruição — restaurável à mão)"
+assert_nofile "$STCU/fs/elite-sleep-report" "E103/cura (a): o órfão SAIU do sistema de arquivos (o conflito que recusava a transação morreu)"
+ORB="$(find "$STCU/backups" -name 'elite-sleep-report.bak-*' 2>/dev/null | head -1)"
+[ -n "$ORB" ] && ok "E103/cura (a): o órfão está na quarantena ($ORB — a lei bak-)" \
+  || fail "E103/cura (a): o órfão está na quarantena" "nenhum elite-sleep-report.bak-* em $STCU/backups"
+assert_grep "$STCU/update.log" 'cura aplicada \(rodada 1\) — a transação refaz' "E103/cura (a): o retry é NARRADO (o papel mostra a rodada — a cura não é mágica silenciosa)"
+assert_grep "$STCU/pacman.log" '\-Syu --needed --overwrite' "E103/cura (a): o overwrite da casa foi TENTADO primeiro (a cura só fala DEPOIS da recusa real — nunca no lugar da transação)"
+# (b) o órfão COM dono: a mão para (a cura nunca rouba arquivo alheio)
+rm -rf "$STCU"; mkdir -p "$STCU" "$STCU/fs"; printf '1.0-33\n' > "$STCU/es-ver"
+printf 'conteúdo de outro pacote\n' > "$STCU/fs/elite-sleep-report"
+touch "$STCU/owned"     # o -Qo do mock nomeia um dono
+e101b_out="$(run_cu)"; e101b_rc=$?
+assert_eq "$e101b_rc" "1" "E103/cura (b): com dono nomeado a recusa continua HONESTA (rc do pacman chega ao shell — falso GO nenhum)"
+assert_grep "$STCU/update.log" 'TEM dono no pacman — a mão para' "E103/cura (b): a subclasse COM dono fica NO PAPEL (a prova que a casa se recusou a mover)"
+assert_grep "$STCU/update.log" 'CLASSE CONHECIDA — ARQUIVO ÓRFÃO' "E103/cura (b): o ensino honesto no papel (a receita bak- copiável, a palavra é do dono)"
+assert_match "$e101b_out" 'ERRO: o pacman recusou a transação \(rc=1\)' "E103/cura (b): a sentinela E54 segue de pé na porta do dono (mensagem honesta com o rc)"
+[ -e "$STCU/fs/elite-sleep-report" ] && ok "E103/cura (b): o arquivo COM dono NÃO foi movido (roubo nenhum)" \
+  || fail "E103/cura (b): o arquivo COM dono NÃO foi movido" "a cura moveu arquivo de outro pacote — a lei virou o contrário"
+
+# (c) a classe 404: as peças nomeadas saem da dose e a dose refaz
 rm -rf "$STCU"; mkdir -p "$STCU"; printf '1.0-33\n' > "$STCU/es-ver"
-touch "$STCU/pacman-conflict"
-e93_out="$(run_cu)"; e93_rc=$?
-assert_eq "$e93_rc" "1" "E93/manual: a recusa continua HONESTA (o rc do pacman chega ao shell — a cura é ensino, nunca falso GO)"
-assert_match "$e93_out" 'elite-sleep-report existe no sistema de arquivos' "E93/manual: o cru do pacman VOLTA à tela (o stderr viajou pelo papel e foi lido de volta — a prova continua acima do ERRO)"
-assert_match "$e93_out" 'ERRO: o pacman recusou a transação \(rc=1\)' "E93/manual: a sentinela E54 segue de pé (a mensagem honesta não morreu pela captura do stderr)"
-assert_match "$e93_out" 'CLASSE CONHECIDA — ARQUIVO ÓRFÃO' "E93/manual: a classe ganha a palavra da casa (o dono sabe O QUE é, não só que falhou)"
-assert_match "$e93_out" "pacman -Qo '/usr/lib/systemd/system-sleep/elite-sleep-report'" "E93/manual: o caminho EXATO nomeado pelo pacman entra na receita (nada de ensinar no abstrato)"
-assert_match "$e93_out" '/var/backups/elite/elite-sleep-report\.bak-' "E93/manual: a lei bak- com o basename (nunca destruição)"
-assert_match "$e93_out" 'Nenhum pacote possui' "E93/manual: o sem-dono verificado ANTES de mover (o dono de outro pacote nunca é movido)"
-assert_grep "$STCU/update.log" 'CLASSE CONHECIDA — ARQUIVO ÓRFÃO' "E93/manual: o ensino entra NO PAPEL também (o log da casa carrega a cura inteira)"
-assert_grep "$STCU/pacman.log" '\-Syu --needed --overwrite' "E93/manual: o overwrite da casa foi TENTADO primeiro (o ensino só fala DEPOIS da recusa real — nunca no lugar da transação)"
-assert_grep "$STCU/update.log" 'erro: falha ao efetuar a transação \(arquivos conflitantes\)' "E93/manual: o cru do pacman aterrissa NO PAPEL (antes da E93 a porta manual não logava a transação — a recusa só existia na tela)"
-# controle: recusa SEM a frase da classe = NENHUM ensino (a casa não
-# promete cura que não provou — a sentinela E54 segue calada no que
-# não sabe)
+touch "$STCU/p404"
+e101c_out="$(run_cu --canal)" ; e101c_rc=$?
+printf '%s\n' "$e101c_out" > "$STCU/cura-c.out"
+assert_eq "$e101c_rc" "0" "E103/404 (c): a dose recusada por arquivo 404 termina 0 (a peça fantasma sai e a dose refaz — o canal não morre por um fóssil do db)"
+assert_grep "$STCU/update.log" 'classe 404 — saindo da dose: brave-origin' "E103/404 (c): a peça nomeada pelo pacman entra no papel (o réu nominal)"
+assert_grep "$STCU/update.log" 'cura aplicada \(rodada 1\) — a dose refaz' "E103/404 (c): o retry narrado (a rodada no papel)"
+# a dose FINAL (a última -Sy do log) não nomeia mais a peça 404
+assert_nogrep "$STCU/pacman.log" '\-Sy --needed --noconfirm --overwrite .* elite-system brave-origin .* brave-origin' "E103/404 (c): a dose final não duplica a peça 404 (ela saiu da lista — a transação passou sem ela)"
+
+# controle: recusa alienígena = rc atravessa sem cura inventada
 rm -rf "$STCU"; mkdir -p "$STCU"; printf '1.0-33\n' > "$STCU/es-ver"; touch "$STCU/pacman-fail"
 e93b_out="$(run_cu)"; e93b_rc=$?
 assert_eq "$e93b_rc" "3" "E93/manual (controle): o rc alienígena (3) atravessa sem cura inventada"
 printf '%s\n' "$e93b_out" > "$STCU/manual-fail.out"
 assert_nogrep "$STCU/manual-fail.out" 'CLASSE CONHECIDA' "E93/manual (controle): recusa SEM a frase órfã NÃO ensina (nenhuma palavra-chave de cura no chute)"
-# headless: a dose do CANAL recusada leva o ensino ao PAPEL (a única
-# boca do timer é o log — o dono lê a cura junto da recusa)
-rm -rf "$STCU"; mkdir -p "$STCU"; printf '1.0-33\n' > "$STCU/es-ver"; touch "$STCU/pacman-conflict"
-run_cu --canal >/dev/null
-assert_grep "$STCU/update.log" 'CLASSE CONHECIDA — ARQUIVO ÓRFÃO' "E93/canal: a dose headless recusada ensina no log (caminho exato + bak- no papel onde a recusa está)"
-assert_grep "$STCU/update.log" 'elite-sleep-report' "E93/canal: o caminho nomeado pelo pacman chega ao log (a cura é copiável, não decorável)"
+assert_nogrep "$STCU/manual-fail.out" 'cura-órfão' "E103/manual (controle): recusa alienígena não move NENHUM arquivo (a cura só age na classe provada)"
 
 # ═══════════════════════════════════════════════════════════════════════
 # E94 — DOIS RÉUS DO RELATO DO DONO (08/11): 'btop não abre pela dock' +

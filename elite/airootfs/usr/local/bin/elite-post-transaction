@@ -24,15 +24,21 @@
 #      regra udev 90-elite-wake-guard rege o add de controladores; este
 #      log é a vigília do papel — se um update de firmware/udev re-armar
 #      o despertar USB, o dump nomeia a hora exata da re-transação);
-#   3. NADA MAIS: sysctl/zram/etc. são arquivos ESTÁTICOS da casa que o
-#      pacman NUNCA toca — re-aplicar por transação seria teatro; a regra
-#      da casa é agir só onde há gargalo provado.
+#   3. E101 — SYSCTL DA CASA COM DRIFT → o update de OUTRO pacote pode
+#      re-aplicar o sysctl DELE por cima do da casa (a prova do rig,
+#      10/nov: kernel em vm.swappiness='150' com /etc/sysctl.d/99-elite.conf
+#      pedindo '180' — o cachyos-settings re-escreveu depois do firstboot,
+#      e o systemd-sysctl só roda no boot). O hook compara CADA chave do
+#      conf da casa com o kernel vivo; drift = re-aplica só o conf da casa
+#      e narra no papel (o tuning da casa vale no -Syu, não no próximo boot);
+#   4. NADA MAIS: zram/etc. são estáticos — agir só onde há gargalo provado.
 # ═══════════════════════════════════════════════════════════════════════════
 set -u
 
 LOG=/var/log/elite-post-transaction.log
 STAMP=/var/lib/elite/kernel-seen
 KPKG=linux-cachyos-bore   # o kernel da casa (mesma constante do craft-update)
+ELITE_SYSCTL=/etc/sysctl.d/99-elite.conf
 
 tlog() {
     mkdir -p "${LOG%/*}" 2>/dev/null || true
@@ -62,5 +68,32 @@ fi
 # ── 2. A VIGÍLIA DO WAKE-GUARD (E24) — o estado no papel, sem agir ──────
 armadas="$(grep -c '\*enabled' /proc/acpi/wakeup 2>/dev/null || echo '?')"
 tlog "wake-guard E24 observado: ${armadas} fonte(s) ACPI armada(s) em /proc/acpi/wakeup (USB regido pela regra udev 90-elite-wake-guard)"
+
+# ── 3. A VIGÍLIA DO SYSCTL DA CASA (E101) — o drift que outro pacote ────
+#     impõe por cima (prova do papel: swappiness 150 vs 180, 10/nov).
+#     Comparação por chave (o conf da casa é a FONTE; o kernel é o vivo):
+#     só chave presente NO CONF é julgada — nada da casa invadiu o alheio.
+if [ -r "$ELITE_SYSCTL" ]; then
+    drift=""
+    while IFS= read -r line; do
+        case "$line" in ''|'#'*) continue ;; esac
+        key="${line%%=*}"; val="${line#*=}"
+        key="$(printf '%s' "$key" | awk '{$1=$1;print}')"
+        val="$(printf '%s' "$val" | awk '{$1=$1;print}')"
+        [ -n "$key" ] || continue
+        cur="$(sysctl -n "$key" 2>/dev/null || true)"
+        if [ -n "$cur" ] && [ "$cur" != "$val" ]; then
+            drift="$drift $key($cur≠$val)"
+        fi
+    done < "$ELITE_SYSCTL"
+    if [ -n "$drift" ]; then
+        tlog "sysctl da casa com drift:${drift} — re-aplicando ${ELITE_SYSCTL} (o tuning vale no -Syu, não só no boot)"
+        if systemd-sysctl "$ELITE_SYSCTL" >/dev/null 2>&1; then
+            tlog "sysctl: conf da casa re-aplicado — o kernel voltou ao valor da casa"
+        else
+            tlog "sysctl: re-aplicação FALHOU — o drift segue até o próximo boot (a prova fica no papel)"
+        fi
+    fi
+fi
 
 exit 0

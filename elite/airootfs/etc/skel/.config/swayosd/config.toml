@@ -1,0 +1,26 @@
+# Archcraft ELITE · swayosd — o OSD da casa (E103 — entregue por craft-rice)
+# ─────────────────────────────────────────────────────────────────────────
+# A diretriz do dono: barra flutuante MINIMALISTA, centralizada LOGO ACIMA
+# da dock, com a PORCENTAGEM EXATA, sumindo em menos de 1 segundo.
+#
+# top_margin = fração da altura da tela (0..1) onde o OSD nasce. A dock
+# mora na base (~70px de pílula + respiro) → 0.86 põe a barra acima dela,
+# centrada (o swayosd é horizontalmente central por desenho).
+#
+# O arquivo mora em ~/.config/swayosd/config.toml. Este exemplar é DA CASA
+# (o marcador acima autoriza o craft-rice a renovar rigs vivos; editou =
+# intocável — a lei do domínio v3, a mesma da lock skin).
+#
+# Referência: README do swayosd (github.com/ErikReider/SwayOSD).
+[server]
+## on which height to show the OSD (0..1 — fração da altura)
+top_margin = 0.86
+
+## show percentage on the right of the OSD (a porcentagem exata do dono)
+show_percentage = true
+
+## OSD display duration in milliseconds (200-60000) — menos de 1 segundo
+duration = 900
+
+## brilho mínimo em % (o chão do notebook — nunca apaga a tela de verdade)
+min_brightness = 5

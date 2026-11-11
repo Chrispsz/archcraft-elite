@@ -85,16 +85,38 @@ jobs:
               # entradas novas — os demais pacotes (brave-origin 186MB,
               # pwvucontrol, …) NEM são baixados.
               gh release download "$TAG" --repo "$REPO" --pattern "elite-local.db.tar.gz"
-              cp /work/out/pacotes/*.pkg.tar.zst .
-              repo-add --quiet elite-local.db.tar.gz /work/out/pacotes/*.pkg.tar.zst
+              # E103 — OS ÓRFÃOS DO DB-BASE (a era pré-E101 publicou -debug
+              # que nunca embarcou: pwvucontrol-debug/wlrctl-debug no db e
+              # 404 no rig — a prova do papel, 10/nov). A entrada órfã sai
+              # do db ANTES do repo-add: o rig novo não herda o fantasma
+              # (o cinto case *-debug da dose cobre quem já sincronizou o
+              # db doente).
+              mkdir -p db-prune && tar -xzf elite-local.db.tar.gz -C db-prune
+              for d in db-prune/*-debug-*/; do
+                [ -d "$d" ] || continue
+                echo "── db-base: órfão fora do ar: ${d#db-prune/}"
+                rm -rf "$d"
+              done
+              tar -czf elite-local.db.tar.gz -C db-prune $(ls db-prune)
+              rm -rf db-prune
+              cp /work/out/pacotes/craft-toplevel-*.pkg.tar.zst .
+              cp /work/out/pacotes/elite-system-*.pkg.tar.zst .
+              # E103 — O DB ADVERSA SÓ O QUE EMBARCA (a prova do dono no
+              # papel, 10/nov: pwvucontrol-debug/wlrctl-debug no repo-add
+              # e 404 no download do rig — o pacman RECUSOU a dose INTEIRA
+              # por uma peça que não existe na release). A lei nova: o db
+              # recebe EXATAMENTE o conjunto que sobe; -debug e amigos que
+              # o makepkg gerar ficam FORA (o rig de produção nunca os
+              # pede — artefato de desenvolvimento).
+              repo-add --quiet elite-local.db.tar.gz craft-toplevel-*.pkg.tar.zst elite-system-*.pkg.tar.zst
               # pacman consulta <repo>.db SEM sufixo (E32) — arquivo real, não symlink
               rm -f elite-local.db && cp elite-local.db.tar.gz elite-local.db
               cp /work/out/pacotes/sha256sums-pacotes.txt .
               echo "── selo da run:"
               cat sha256sums-pacotes.txt
               gh release upload "$TAG" elite-local.db elite-local.db.tar.gz \
-                /work/out/pacotes/craft-toplevel-*.pkg.tar.zst \
-                /work/out/pacotes/elite-system-*.pkg.tar.zst \
+                craft-toplevel-*.pkg.tar.zst \
+                elite-system-*.pkg.tar.zst \
                 sha256sums-pacotes.txt \
                 --repo "$REPO" --clobber
               # E101 — A LOJA SEM PILHA (o dono: "cheio de assets sujos"):
@@ -121,5 +143,33 @@ jobs:
               echo "── assets de PACOTE da release viva após a run:"
               gh release view "$TAG" --repo "$REPO" --json assets --jq ".assets[].name" \
                 | grep -E "elite-system|craft-toplevel|elite-local\.db|sha256sums-pacotes" || true
+              # E103 — A VERIFICAÇÃO DO CANAL: CADA arquivo no db precisa
+              # ter asset na release viva (a classe 404 é impossível — o
+              # canal se prova antes de o rig pagar a recusa). O
+              # %FILENAME% do db é a FONTE DA VERDADE — a reconstrução
+              # nome-versão-arch mentia para as peças -any (o réu da run
+              # #66 da linha divergida: 4 assets sadios reprovados por
+              # hardcode -x86_64).
+              echo "── verificação db↔assets:"
+              fail=0
+              verify_dir="$(mktemp -d)"
+              tar -xzf elite-local.db.tar.gz -C "$verify_dir"
+              for d in "$verify_dir"/*/; do
+                [ -f "$d/desc" ] || continue
+                arq="$(awk "/%FILENAME%/{getline; print; exit}" "$d/desc")"
+                [ -n "$arq" ] || continue
+                if gh release view "$TAG" --repo "$REPO" --json assets \
+                     --jq ".assets[].name" | grep -qx "$arq"; then
+                  echo "  ok: $arq"
+                else
+                  echo "FALTOU: $arq — asset ausente para uma entrada do db" >&2
+                  fail=1
+                fi
+              done
+              rm -rf "$verify_dir"
+              if [ "$fail" -eq 1 ]; then
+                echo "ERRO: o db ficou ADIANTE da release — a run é VERMELHA (o rig nunca deve ver 404)" >&2
+                exit 1
+              fi
               echo "── prontos: o craft-update do rig entrega no próximo -Syu."
             '

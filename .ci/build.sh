@@ -22,14 +22,16 @@ if [[ "${PACKAGES_ONLY:-0}" == "1" ]]; then
     # E75.1 — o wlopm é DEPENDÊNCIA do elite-system (a rede do resume sem
     # o binário era imaginária) — o makepkg do container EXIGE o pacote
     # instalado, senão a transação do canal morre em 'Missing dependencies'.
+    # E103 — o polkit entra pelos HEADERS do listener (libpolkit-agent-1 —
+    # o agente sob demanda da casa; sem o pacote, o makepkg morre igual).
     pacman -Syu --noconfirm --needed git rsync curl base-devel sudo python \
-        wayland wayland-protocols libxkbcommon wlopm
+        wayland wayland-protocols libxkbcommon wlopm polkit
 else
     pacman -Syu --noconfirm --needed \
         git rsync curl archiso xorriso mtools dosfstools \
         e2fsprogs squashfs-tools openssl arch-install-scripts \
         base-devel sudo \
-        meson ninja wayland wayland-protocols libxkbcommon wlopm
+        meson ninja wayland wayland-protocols libxkbcommon wlopm polkit
 fi
 
 say "Importando chave CachyOS (ambiente de build)"
@@ -366,6 +368,11 @@ say "Gerando o PKGBUILD do elite-system (O PACOTE ÚNICO — E50)"
 mkdir -p /tmp/elite-src/elite-system/files/usr/local/bin
 mkdir -p /tmp/elite-src/elite-system/files/etc/systemd/system
 cp /work/vendor/craft-toplevel.c /tmp/elite-src/elite-system/
+# E103 — O AGENTE SOB DEMANDA viaja na MESMA fonte única (o C vendado com
+# sha256 pinado — a gramática do craft-toplevel; o listener compila NO
+# build do pacote e o binário sai pelo MANIFEST de exclusão, como o daemon):
+# registra o agente da sessão, idle ~1–2 MB, diálogo zenity só no desafio.
+cp /work/vendor/elite-polkit-listener.c /tmp/elite-src/elite-system/
 # caminho ABSOLUTO: aqui o CWD é /tmp/elite-src/<pkg> (o cd da seção pywal
 # acima) — o relativo nasceria vazio (a lição vai no próprio comentário).
 for f in /work/elite/airootfs/usr/local/bin/*; do
@@ -423,6 +430,28 @@ cp -p /work/elite/airootfs/usr/local/share/elite/fastfetch/config.jsonc \
 mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/hyprlock
 cp -p /work/elite/airootfs/etc/skel/.config/hypr/hyprlock.conf \
       /tmp/elite-src/elite-system/files/usr/local/share/elite/hyprlock/hyprlock.conf
+# E103 — AS PELES rc.xml + swayosd NO PACOTE (a gramática E91 generalizada):
+# o rc.xml do rig (binds E103 do OSD) e o config.toml do swayosd (a barra
+# acima da dock) alcançam homes vivos via craft-rice (marcador/fóssil) —
+# a mesma via da lock skin (E91).
+mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/labwc
+cp -p /work/elite/airootfs/etc/skel/.config/labwc/rc.xml \
+      /tmp/elite-src/elite-system/files/usr/local/share/elite/labwc/rc.xml
+mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/swayosd
+cp -p /work/elite/airootfs/etc/skel/.config/swayosd/config.toml \
+      /tmp/elite-src/elite-system/files/usr/local/share/elite/swayosd/config.toml
+# E103 — OS APPS PADRÃO COMO VARIÁVEIS (a abstração XDG): o profile.d da
+# casa crava TERMINAL/FILEMANAGER/EDITOR/VISUAL/BROWSER com os defaults —
+# o usuário vence exportando (a variável PRESENTE não é tocada).
+mkdir -p /tmp/elite-src/elite-system/files/etc/profile.d
+cp -p /work/elite/airootfs/etc/profile.d/10-elite-defaults.sh \
+      /tmp/elite-src/elite-system/files/etc/profile.d/10-elite-defaults.sh
+# E103 — O MUSCULO DO MODO DE JOGO (gamemode.ini da casa): governor
+# performance + GPU high + hooks do craft-game. O gamemode do Arch NÃO
+# entrega /etc/gamemode.ini (só o example) — o caminho é dono único do
+# pacote (sem conflito); o rig com arquivo sem dono adota no pre_install.
+cp -p /work/elite/airootfs/etc/gamemode.ini \
+      /tmp/elite-src/elite-system/files/etc/gamemode.ini
 # E90 — O MAPA VIAJA NO PACOTE: a doc completa (SCRIPTS.md — a linha de
 # cada peça) morava só no repo; o craft-help aponta para ela e o dono
 # ganha o mapa DENTRO do sistema (a fonte única continua sendo o repo —
@@ -518,6 +547,18 @@ ff_rm = '    [ -e "/usr/local/share/elite/fastfetch/config.jsonc" ] && rm -f "/u
 # o caminho sem dono — o pre_install adota antes da extração)
 lock_install = '    install -d "${pkgdir}/usr/local/share/elite/hyprlock"\n    install -m644 "${startdir}/files/usr/local/share/elite/hyprlock/hyprlock.conf" "${pkgdir}/usr/local/share/elite/hyprlock/hyprlock.conf"\n'
 lock_rm = '    [ -e "/usr/local/share/elite/hyprlock/hyprlock.conf" ] && rm -f "/usr/local/share/elite/hyprlock/hyprlock.conf"\n'
+# E103 — as peles rc.xml + swayosd (mesma dança da adoção E43)
+rc_install = '    install -d "${pkgdir}/usr/local/share/elite/labwc"\n    install -m644 "${startdir}/files/usr/local/share/elite/labwc/rc.xml" "${pkgdir}/usr/local/share/elite/labwc/rc.xml"\n'
+rc_rm = '    [ -e "/usr/local/share/elite/labwc/rc.xml" ] && rm -f "/usr/local/share/elite/labwc/rc.xml"\n'
+osd_install = '    install -d "${pkgdir}/usr/local/share/elite/swayosd"\n    install -m644 "${startdir}/files/usr/local/share/elite/swayosd/config.toml" "${pkgdir}/usr/local/share/elite/swayosd/config.toml"\n'
+osd_rm = '    [ -e "/usr/local/share/elite/swayosd/config.toml" ] && rm -f "/usr/local/share/elite/swayosd/config.toml"\n'
+# E103 — os defaults XDG (arquivo de pacote: dono único, sem dança de adoção)
+pd_install = '    install -d "${pkgdir}/etc/profile.d"\n    install -m644 "${startdir}/files/etc/profile.d/10-elite-defaults.sh" "${pkgdir}/etc/profile.d/10-elite-defaults.sh"\n'
+# E103 — o gamemode.ini (adoção: o rig com o arquivo SEM dono o perde no
+# pre_install e o pacote o entrega com dono — a dança E43 da casa)
+gm_install = '    install -Dm644 "${startdir}/files/etc/gamemode.ini" "${pkgdir}/etc/gamemode.ini"\n'
+gm_rm = '    [ -e "/etc/gamemode.ini" ] && ! pacman -Qo "/etc/gamemode.ini" >/dev/null 2>&1 && rm -f "/etc/gamemode.ini"\n'
+pd_rm = ''
 # E90 — o mapa dos comandos (SCRIPTS.md no pacote — mesma dança)
 doc_install = '    install -d "${pkgdir}/usr/local/share/elite/docs"\n    install -m644 "${startdir}/files/usr/local/share/elite/docs/SCRIPTS.md" "${pkgdir}/usr/local/share/elite/docs/SCRIPTS.md"\n'
 doc_rm = '    [ -e "/usr/local/share/elite/docs/SCRIPTS.md" ] && rm -f "/usr/local/share/elite/docs/SCRIPTS.md"\n'
@@ -1271,12 +1312,34 @@ pkgver=1.0
 #     do lock skin do home.
 #     pkgrel 43→44 NO MESMO COMMIT (lei E41 — o skel da pele v5 + 3 bins
 #     de conteúdo mudado: craft-rice, craft-lock, craft-dump).
-pkgrel=44
+# E103 — A ABSTRAÇÃO (a missão de polimento do dono): a dose com AUTO-CURA
+#     (cura_orfao + classe 404 com retry — o papel de 10/nov provou a
+#     recusa com comandos manuais; a lei nova: atualização que chega
+#     INSTALA), o -debug fora da dose, o canal com verificação db↔assets,
+#     o POLKIT SOB DEMANDA (elite-polkit-listener.c vendado + eleito no
+#     craft-bars — idle ~1–2 MB, diálogo zenity só no desafio), o OSD
+#     completo (swayosd na ADOCAO, binds --output-volume/--input-volume,
+#     config acima da dock via craft-rice), a SKINS GRAMMAR generalizada
+#     (rc.xml + swayosd config via craft-rice com rede de fósseis),
+#     a PELE v6 (avatar 1:1, gap 24px, rodapé 0.6), os XDG DEFAULTS
+#     (profile.d + exo-open + menu sem binário hardcoded), o MODO DE JOGO
+#     (craft-game + gamemode.ini — o músculo feral nativo, RAM zero no
+#     idle), a vigília do sysctl no post-transaction, a dock com o guard
+#     delegado (duping de daemonizado morto) e a central de notificações
+#     com a lei low→história.
+#     pkgrel 44→45 NO MESMO COMMIT (lei E41 — bins novos (craft-game),
+#     C novo (elite-polkit-listener.c), bins de conteúdo mudado
+#     (craft-update, craft-bars, craft-rice, craft-lock, craft-pin-pick,
+#     exo-open, elite-post-transaction), skel novo (swayosd/config.toml,
+#     rc.xml E103, menu.xml, profile.d, gamemode.ini) e vendor C novo).
+pkgrel=45
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
 license=(GPL3)
 depends=(bash python wayland wlopm)
+# E103 — o listener C precisa dos headers do polkit (libpolkit-agent-1)
+makedepends=(polkit)
 # E50 — A SUBSTITUIÇÃO DE ERA: conflita e substitui os DOIS veículos
 # legados — o -Syu do craft-update (alvo elite-system) remove o par e
 # instala o único na MESMA transação; configs de usuário (~) NUNCA são
@@ -1286,15 +1349,21 @@ conflicts=('elite-craft' 'craft-toplevel')
 # sem -debug (shell/python + binário já compilado com -s; nada a tirar
 # símbolo)
 options=(!debug !strip)
-source=("craft-toplevel.c")
+source=("craft-toplevel.c" "elite-polkit-listener.c")
 # E97.1 — O CANAL CAÇOU O QUE A SUÍTE NÃO VIU: o makepkg do canal recusou
 #     a fonte (run 42693926097: 'craft-toplevel.c ... FAILED') porque o
 #     E96 re-pinou SÓ a ponte (linha ~332) e deixou o template do pacote
 #     único com o sha da era E95. O mesmo C, DOIS pins — os dois têm que
 #     viajar JUNTOS (a peça da suíte agora cobre os DOIS).
-sha256sums=('1a6aeea295db062e38e53b50bb525c6098eb4b436b4b2d8dfd8e84a174aedb11')
+# E103 — o pin do listener viaja JUNTO (a mesma lição — a suíte cobra a
+#     sincronia dos TRÊS pins: ponte, pacote único e agente).
+sha256sums=('1a6aeea295db062e38e53b50bb525c6098eb4b436b4b2d8dfd8e84a174aedb11'
+            '8bd6fb5209c75aacde6723f62a858a7abc21a915f7256c7d5f161c99095b19a2')
 build() {{
     gcc -O2 -Wall -Wextra -s -o craft-toplevel craft-toplevel.c -lwayland-client
+    # E103 — o agente sob demanda (idle ~1–2 MB, diálogo zenity no desafio)
+    gcc -O2 -Wall -Wextra -s -o elite-polkit-listener elite-polkit-listener.c \
+        $(pkg-config --libs polkit-agent-1 gobject-2.0)
 }}
 # ADOÇÃO (a herança do elite-craft): nos rigs, estes arquivos nasceram SEM
 # dono (overlay da ISO) — o pacman recusa sobrescrever não-dono ANTES de
@@ -1309,7 +1378,7 @@ pre_install() {{
     ; do
         [ -e "/usr/local/bin/$f" ] && rm -f "/usr/local/bin/$f"
     done
-{unit_loop}{hook_rm}{ff_rm}{lock_rm}{doc_rm}{gp_rm}    return 0
+{unit_loop}{hook_rm}{ff_rm}{lock_rm}{rc_rm}{osd_rm}{gm_rm}{doc_rm}{gp_rm}    return 0
 }}
 package() {{
     install -d "${{pkgdir}}/usr/local/bin"
@@ -1318,7 +1387,10 @@ package() {{
     # a fonte do daemon viaja no pacote (transparência — o mesmo papel que
     # ela tinha no craft-toplevel legado)
     install -Dm644 craft-toplevel.c "${{pkgdir}}/usr/local/share/elite/src/craft-toplevel.c"
-{unit_install}{hook_install}{ff_install}{lock_install}{doc_install}{gp_install}{pt_install}{ef_install}}}
+    # E103 — o agente sob demanda + a fonte dele (mesma transparência)
+    install -m755 elite-polkit-listener "${{pkgdir}}/usr/local/bin/elite-polkit-listener"
+    install -Dm644 elite-polkit-listener.c "${{pkgdir}}/usr/local/share/elite/src/elite-polkit-listener.c"
+{unit_install}{hook_install}{ff_install}{lock_install}{rc_install}{osd_install}{pd_install}{gm_install}{doc_install}{gp_install}{pt_install}{ef_install}}}
 """
 (d / 'PKGBUILD').write_text(pkg)
 PYE50

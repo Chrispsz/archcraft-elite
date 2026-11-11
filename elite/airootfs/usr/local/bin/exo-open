@@ -47,18 +47,22 @@ fi
 
 case "$kind" in
   TerminalEmulator)
+    # E101 — XDG DEFAULTS (a missão do dono: nada de binário hardcoded):
+    # ${TERMINAL:-foot} — o /etc/profile.d/10-elite-defaults.sh crava os
+    # defaults da casa; o usuário troca exportando a variável, o script
+    # segue (a abstração vale para TODOS os apps padrão).
     if [ $# -eq 0 ]; then
-      exec foot
+      exec "${TERMINAL:-foot}"
     fi
     # thunar-file.c:1756 chega AQUI com UM argumento já montado (o comando
     # do arquivo, shell-quoted pelo próprio Thunar) — roda via sh -c.
-    exec foot -e sh -c "$*"
+    exec "${TERMINAL:-foot}" -e sh -c "$*"
     ;;
   WebBrowser)
-    exec brave "$@"
+    exec "${BROWSER:-brave}" "$@"
     ;;
   FileManager)
-    exec thunar "$@"
+    exec "${FILEMANAGER:-thunar}" "$@"
     ;;
   MailReader)
     die "a Elite não tem leitor de e-mail de fábrica — instale um pelo Launchpad (ou: sudo pacman -S <leitor>)"
