@@ -1362,7 +1362,13 @@ sha256sums=('1a6aeea295db062e38e53b50bb525c6098eb4b436b4b2d8dfd8e84a174aedb11'
 build() {{
     gcc -O2 -Wall -Wextra -s -o craft-toplevel craft-toplevel.c -lwayland-client
     # E103 — o agente sob demanda (idle ~1–2 MB, diálogo zenity no desafio)
+    # E103.4 — O CFLAGS QUE NUNCA VEIO: o --libs ligava as bibliotecas, mas
+    # o --cflags (o -I/usr/include/polkit-1 — onde o polkitagent/ mora) era
+    # o FALSO: 'polkitagent/polkitagent.h: No such file or directory' na
+    # run #68 — a primeira build do listener morreu no gcc SEM include path
+    # (as runs #66/#67 nem chegaram aqui). pkg-config entrega os DOIS.
     gcc -O2 -Wall -Wextra -s -o elite-polkit-listener elite-polkit-listener.c \
+        $(pkg-config --cflags polkit-agent-1 gobject-2.0) \
         $(pkg-config --libs polkit-agent-1 gobject-2.0)
 }}
 # ADOÇÃO (a herança do elite-craft): nos rigs, estes arquivos nasceram SEM
