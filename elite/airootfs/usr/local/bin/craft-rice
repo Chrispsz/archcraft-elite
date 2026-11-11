@@ -60,6 +60,8 @@ uso() {
         '' \
         '  E91 — a LOCK SKIN: o hyprlock.conf alcança homes VIVOS (fóssil da' \
         '  casa → renova; personalizado → intocável + papel honesto).' \
+        '  E101/E104 — as peles rc.xml + menu.xml + swayosd seguem a MESMA' \
+        '  gramática (o menu do rig vivo renova no reconfigure — sessão viva).' \
         '  craft-rice --lock-adopt = adota a pele atual NA FORÇA (backup .bak-<stamp>).' \
         '  craft-rice --lock-quiet  = a mesma gramática SEM papel (o craft-lock' \
         '  chama antes de CADA lock — E100: a dose da casa vale no próximo lock,' \
@@ -203,6 +205,21 @@ RC_FOSSILS="6e587404c68ae1bd9cbfa3031e252c7c977c638508acc37a093e602de1c89027 e2d
 OSD_SRC="${ELITE_OSD_SRC:-/usr/local/share/elite/swayosd/config.toml}"
 OSD_DST="${XDG_CONFIG_HOME:-$HOME/.config}/swayosd/config.toml"
 
+# E104 — A PELE DO MENU (a gramática E91 na 3ª pele — a ferida do dono:
+# "cliquei com o botão direito… ele não mudou nada, não foi atualizado"):
+# o menu.xml morava SÓ no skel — veículo da ISO — e o menu do rig vivo
+# ficava congelado na era da ISO que o instalou (o menu do rig v2.10.28
+# não tinha nem o Displays… da E89, nem o Modo de jogo, nem o Desafixar).
+# A pele-mestra viaja NO PACOTE (build.sh): /usr/local/share/elite/labwc/
+# menu.xml. Fósseis = as versões históricas do git (calculadas em 12/nov
+# sobre elite/airootfs/etc/skel/.config/labwc/menu.xml): E74 (093e4462…) ·
+# E71/v2.10.28 (37d18426… — a ISO que o rig do dono instalou) · v2.11.x
+# (14678b7d…) · E103 (ceb1fb74…). Fóssil = renova (com backup); marcador
+# (a v2 carrega) = renova; outro conteúdo = PERSONALIZADO, intocável.
+MENU_SRC="${ELITE_MENU_SRC:-/usr/local/share/elite/labwc/menu.xml}"
+MENU_DST="${XDG_CONFIG_HOME:-$HOME/.config}/labwc/menu.xml"
+MENU_FOSSILS="093e446216230b9dd648362ca40c648059645941b2dec561cb67e13d9eef2818 37d18426ee60cf2d869c94accb9759d11da2a3a0470e2ba9b4091eade348f9b5 14678b7dc9bb8a734b8832898be366361218b142b1bd327a54e4077b899f3eab ceb1fb74ccf74387004addca6159c749fae3c7aa089af09e9ca19e9a607aa14c"
+
 # ── a pele ÚNICA (uma gramática, três peles) ─────────────────────────────
 # RETORNO: 0 = a pele MEXEU (o fluxo cobra reconfigure); 1 = nada mudou
 # (idêntica, personalizada, mestre ausente ou cp falhou)
@@ -223,6 +240,7 @@ skin_ensure() {
     if [ -f "$_sk_dst" ]; then
         if grep -q "$MARKER" "$_sk_dst" 2>/dev/null; then
             cmp -s "$_sk_src" "$_sk_dst" && return 1
+            cp -p "$_sk_dst" "$_sk_dst.bak-$(date +%Y%m%d-%H%M%S)" 2>/dev/null
             cp -p "$_sk_src" "$_sk_dst" 2>/dev/null \
                 && say "craft-rice: $_sk_nome renovada (a casa atualizou a própria pele)"
             return 0
@@ -231,6 +249,7 @@ skin_ensure() {
         case " $_sk_fossils " in
             *" $_sk_hash "*)
                 cmp -s "$_sk_src" "$_sk_dst" && return 1
+                cp -p "$_sk_dst" "$_sk_dst.bak-$(date +%Y%m%d-%H%M%S)" 2>/dev/null
                 cp -p "$_sk_src" "$_sk_dst" 2>/dev/null \
                     && say "craft-rice: $_sk_nome fóssil renovada — a pele da casa chegou ao home vivo"
                 return 0
@@ -255,13 +274,17 @@ rc_skin() {
 osd_skin() {
     skin_ensure "$OSD_SRC" "$OSD_DST" "" "${1:-none}" "config do OSD"
 }
+menu_skin() {
+    skin_ensure "$MENU_SRC" "$MENU_DST" "$MENU_FOSSILS" "${1:-none}" "menu.xml"
+}
 
 # ── o despacho (as portas de adoção explícita) ──────────────────────────
 case "${1:-}" in
     --lock-adopt) lock_skin "adopt"; exit 0 ;;
     --rc-adopt)   rc_skin "adopt"; exit 0 ;;
+    --menu-adopt) menu_skin "adopt"; exit 0 ;;
     --skin-adopt) # TODAS as skins da casa de uma vez (backup em cada)
-                  lock_skin "adopt"; rc_skin "adopt"; osd_skin "adopt"
+                  lock_skin "adopt"; rc_skin "adopt"; osd_skin "adopt"; menu_skin "adopt"
                   exit 0 ;;
 esac
 
@@ -271,6 +294,8 @@ ensure_fragment "10-elite-games.xml" "$GAMES" && CHANGED=1
 ensure_fragment "20-elite-ssd.xml" "$SSD" && CHANGED=1
 ensure_fragment "30-elite-organize.xml" "$ORG" && CHANGED=1
 rc_skin   && CHANGED=1   # rc.xml renovado = binds/leis novas valem no reconfigure
+menu_skin && CHANGED=1   # menu.xml renovado = o reconfigure re-lê o menu — o
+                         # menu novo aparece na sessão VIVA (sem relogin)
 osd_skin   && CHANGED=2  # config do OSD renovado: o server RE-LÊ no nascimento
                          # (o pkill abaixo ressuscita com a pele nova)
 lock_skin  || true       # a lock skin NÃO mexe no CHANGED (o hyprlock lê no

@@ -6,6 +6,41 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **E104 — A PELE DO MENU + A PORTA DO DESAFIXAR** (a denúncia do dono,
+  12/nov: "cliquei com o botão direito… ele não mudou nada, não foi
+  atualizado"; "fica aparecendo os nomes dos pacotes"; "eu consigo fixar,
+  mas eu não consigo tirar um aplicativo da dock. Como é que eu faço?").
+  A PERÍCIA (o papel antes do dedo) nomeou o réu ESTRUTURAL: o menu.xml
+  morava SÓ no skel — veículo da ISO — e o menu do rig vivo ficava
+  CONGELADO na era da ISO que o instalou (o menu do rig v2.10.28 não
+  tinha nem o Displays… da E89, nem o Modo de jogo da E103, nem o
+  Desafixar). As curas:
+  1. **A PELE DO MENU (a gramática E91 na 3ª pele)** — o menu.xml v2
+     viaja NO PACOTE (`/usr/local/share/elite/labwc/menu.xml`, build.sh)
+     e alcança homes VIVOS via craft-rice: fóssil (as 4 versões
+     históricas do git, incluindo a ISO v2.10.28 do rig do dono —
+     `MENU_FOSSILS`) = renova COM BACKUP; marcador (a v2 carrega
+     "entregue por craft-rice") = renova; personalizado = intocável +
+     `craft-rice --menu-adopt`. A renovação dispara `labwc-msg
+     reconfigure` — o menu novo aparece na SESSÃO VIVA (sem relogin).
+  2. **O RÓTULO NUNCA NOMEIA O PACOTE** — "Leitor de PDF (papers)",
+     "Calculadora (qalculate)", "Lock (W-l)" e "Captura de tela (região)"
+     viram rótulos limpos; o EXEC resolve pela varredura (a escola do
+     Navegador generalizada: papers→evince→zathura→okular;
+     qalculate→gnome-calculator) — "de acordo com o que existe no
+     sistema" (dono).
+  3. **A PORTA DO DESAFIXAR** — o `craft-pin rm` existia desde a v2.0
+     como CLI INVISÍVEL (e o menu da dock saiu na v2.10.8 por ordem do
+     dono, fechando a 2ª porta): o craft-pin-pick v3.0 ganha `--rm` —
+     a lista dos FIXADOS com o nome real (Name[pt_BR]; .desktop
+     desinstalado segue removível pelo ID cru — o órfão que o dono quer
+     ver fora) → craft-pin rm (backup .bak.last + SIGUSR2 na dock).
+  4. **pkgrel 45→46 NO MESMO COMMIT** (lei E41). Contratos E104 na fase
+     4 (a âncora E103 refrescada + 9 assertivas novas). Suíte GO 5961
+     peças · 0 falhas. Chegada ao rig: `sudo craft-update` → o craft-rice
+     renova o menu no próximo arranque OU no próximo lock (E100) —
+     sessão viva via reconfigure.
+
 - **E103 — A REUNIÃO DOS TRONCOS + A ABSTRAÇÃO: O POLIMENTO SÊNIOR** (a missão do dono: "lapidar,
   otimizar e refatorar… abstração, estados de fazer e desfazer, uso por
   diversos usuários… nada de remendo que funciona em partes"). O trabalho

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# craft-pin-pick — fixa um app na DOCK escolhendo numa lista (v2.0)
+# craft-pin-pick — fixa (ou desfixa) um app na DOCK escolhendo numa lista (v3.0)
 # ─────────────────────────────────────────────────────────────────────────
 # Burn test do dono na v1.3 ao vivo: "tentei fixar alguma coisa nela e
 # não consigo — na verdade fica fixando ali na bandeja de aplicativos".
@@ -21,6 +21,16 @@
 # (morria na linha do command -v sem JAMAIS aparecer para o usuário — a
 # denúncia do rig: "fixar app na dock não abre menu"). Agora open/falha
 # deixam linha em ~/.cache/elite/menus.log e crash do fuzzel avisa na tela.
+#
+# E104 (v3.0) — O MODO --rm: A METADE QUE FALTAVA (a denúncia do dono:
+# "eu consigo fixar, mas eu não consigo tirar um aplicativo da dock. E se
+# eu quiser remover um aplicativo, como é que eu faço?"). O craft-pin rm
+# existia desde a v2.0 e era CLI INVISÍVEL — e o menu da dock saiu na
+# v2.10.8 (ordem do dono), fechando a 2ª porta que era. A cura: menu do
+# desktop → "Desafixar app da dock…" → a lista dos FIXADOS com o nome
+# real (Name[pt_BR], a escola da v2.10.5; .desktop desinstalado segue
+# removível pelo ID cru — é o órfão que o dono quer ver fora) → craft-pin
+# rm resolve, faz backup (.bak.last) e recarrega a dock (SIGUSR2).
 set -euo pipefail
 
 MLOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/menus.log"
@@ -33,14 +43,100 @@ mlog() {
     return 0
 }
 
-command -v fuzzel >/dev/null 2>&1 || { mlog "Fixar: fuzzel AUSENTE — picker morreu antes de abrir"; timeout 5 notify-send -a 'Elite' -u normal -t 8000 'Fixar na dock falhou' "fuzzel ausente — detalhe em ~/.cache/elite/menus.log" 2>/dev/null || true; exit 1; }
-command -v craft-pin >/dev/null 2>&1 || { mlog "Fixar: craft-pin AUSENTE"; exit 1; }
+command -v fuzzel >/dev/null 2>&1 || { mlog "Dock: fuzzel AUSENTE — picker morreu antes de abrir"; timeout 5 notify-send -a 'Elite' -u normal -t 8000 'A dock não abriu o menu' "fuzzel ausente — detalhe em ~/.cache/elite/menus.log" 2>/dev/null || true; exit 1; }
+command -v craft-pin >/dev/null 2>&1 || { mlog "Dock: craft-pin AUSENTE"; exit 1; }
+
+# ── o modo (E104): add (default — o picker histórico) ou rm (o desafixar) ──
+MODO=add
+case "${1:-}" in
+    -h|--help) printf 'uso: craft-pin-pick [--rm] — fixa (ou desfixa) apps na dock escolhendo numa lista\n\n  (sem arg)  lista os apps instalados → fixa o escolhido\n  --rm       lista os FIXADOS → desfixa o escolhido (E104)\n'; exit 0 ;;
+    --rm|rm)   MODO=rm ;;
+    add|"")    : ;;
+    *) printf 'craft-pin-pick: arg desconhecido: %s (use --rm)\n' "$1" >&2; exit 2 ;;
+esac
 
 # v2.10.5 — A FLAG É PROBADA ANTES DE USAR (lei do craft-menu: 'flag nova
 # que mata'): --anchor sem probe matava o picker inteiro em fuzzel velho
 # ('unrecognized option' → 'Fixar na dock falhou' na cara do usuário).
 ANCHOR=''
 fuzzel --help 2>&1 | grep -q -- '--anchor' && ANCHOR='--anchor=center'
+
+# ══ E104 — O MODO rm: a lista é a DOS FIXADOS (não o inventário todo) ══
+if [ "$MODO" = "rm" ]; then
+    LIST="$(mktemp)"
+    errf="$(mktemp)"
+    trap 'rm -f "$LIST" "$errf"' EXIT
+    : >"$LIST"
+    pins="$(craft-pin list 2>/dev/null || true)"
+    [ -n "$pins" ] || {
+        mlog "Desafixar: a dock não tem pins — nada a remover"
+        command -v notify-send >/dev/null 2>&1 && \
+            timeout 5 notify-send -a craft-pin -u low -t 4000 "Dock" \
+                "A dock não tem apps fixados" || true
+        exit 0
+    }
+    # o nome REAL do pin (Name[pt_BR] primeiro — a escola v2.10.5);
+    # .desktop sumido = o ID cru (o órfão de app desinstalado segue
+    # removível — é exatamente o caso que o dono quer ver resolvido)
+    for id in $pins; do
+        name=""
+        for d in "${XDG_DATA_HOME:-$HOME/.local/share}/applications" \
+                 /usr/local/share/applications /usr/share/applications; do
+            f="$d/$id"
+            [ -r "$f" ] || continue
+            name="$(sed -n 's/^Name\[pt_BR\]=//p' "$f" | head -1)"
+            [ -n "$name" ] || name="$(sed -n 's/^Name=//p' "$f" | head -1)"
+            break
+        done
+        [ -n "$name" ] || name="$id"
+        printf '%s\t%s\n' "$name" "$id" >>"$LIST"
+    done
+    mlog "Desafixar: abrindo picker (fuzzel, $(grep -c . "$LIST") pins)"
+    ec=0
+    choice="$(cut -f1 "$LIST" | fuzzel --dmenu $ANCHOR --lines=10 --width=32 \
+        --prompt='Desafixar da dock  ' 2>"$errf")" || ec=$?
+    if [ "$ec" -eq 143 ]; then
+        mlog "Desafixar: fechado de fora (SIGTERM) — benigno"
+        rm -f "$errf"
+        exit 0
+    fi
+    if [ "$ec" -eq 1 ] && [ ! -s "$errf" ]; then
+        mlog "Desafixar: fechado pelo usuário (ESC) — benigno"
+        rm -f "$errf"
+        exit 0
+    fi
+    if [ "$ec" -ne 0 ]; then
+        mlog "Desafixar: FUZZEL FALHOU exit=$ec — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
+        command -v notify-send >/dev/null 2>&1 && \
+            timeout 5 notify-send -a 'Elite' -u normal -t 8000 'Desafixar falhou' \
+                "fuzzel exit=$ec — detalhe em ~/.cache/elite/menus.log" || true
+        exit 1
+    fi
+    [ -n "$choice" ] || exit 0   # Esc: nada acontece
+    base="$(awk -F'\t' -v n="$choice" '$1 == n {print $2; exit}' "$LIST")"
+    [ -n "$base" ] || exit 0
+    # a MESMA gramática '|| addrc=$?' do add (o set -e nunca mata calado)
+    rmrc=0
+    rmout="$(craft-pin rm "$base" 2>&1)" || rmrc=$?
+    if [ "$rmrc" -eq 0 ]; then
+        if command -v notify-send >/dev/null 2>&1; then
+            notify-send -a craft-pin "Dock" \
+                "'$choice' saiu da dock" || true
+        fi
+    elif printf '%s' "$rmout" | grep -q 'não está na dock'; then
+        if command -v notify-send >/dev/null 2>&1; then
+            notify-send -a craft-pin -u low -t 4000 "Dock" \
+                "'$choice' não está mais na dock" || true
+        fi
+    else
+        mlog "Desafixar: craft-pin FALHOU rc=$rmrc — $(printf '%s' "$rmout" | head -c 200)"
+        if command -v notify-send >/dev/null 2>&1; then
+            notify-send -a craft-pin -u normal -t 8000 "Desafixar falhou" \
+                "rc=$rmrc — detalhe em ~/.cache/elite/menus.log" || true
+        fi
+    fi
+    exit 0
+fi
 
 # ── 1. Inventário: .desktop visíveis (overrides do USUÁRIO primeiro —
 #       a MESMA precedência do resolve do craft-pin: um .desktop do usuário

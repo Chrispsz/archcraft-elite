@@ -3354,8 +3354,11 @@ assert_grep "$REPO/.ci/build.sh" 'applications/\*\.desktop' "E98/build: o trilho
 assert_grep "$REPO/.ci/build.sh" 'ovr = sorted' "E98/build: o PKGBUILD gera install E adoção por varredura (o pre_install adota cada override — a dança da via sem dono, agora em série)"
 
 # ── E41: o pkgrel viajou NO MESMO COMMIT ──
-assert_grep "$REPO/.ci/build.sh" 'pkgrel=45' \
-  "E103 (lei E41, âncora viva refrescada): pkgrel elite-system 44→45 — a pele v5 do lock (irmã do greeter, a lei do sinal que três eras escondeu), a pele que segue o lock (craft-lock → rice --lock-quiet) e a foto da pele no dump (v2.9); a E98 (42→43) trouxe o toggle que espera a morte, os overrides NoDisplay da loja e a dose no papel"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=46' \
+  "E104 (lei E41, âncora viva refrescada): pkgrel elite-system 45→46 — a PELE DO MENU no pacote (usr/local/share/elite/labwc/menu.xml — a gramática E91 na 3ª pele: o menu do rig vivo renova pelo fóssil/marcador) e o modo --rm do craft-pin-pick (o desafixar com porta visível); a E103 (44→45) trouxe a pele v5 do lock e a abstração XDG"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 45→46 NO MESMO COMMIT' "E104 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 44→45 NO MESMO COMMIT' \
+  "E103 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 42→43 NO MESMO COMMIT' \
   "E98 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 41→42 NO MESMO COMMIT' \
@@ -3512,4 +3515,15 @@ assert_grep "$POST101" 'systemd-sysctl "\$ELITE_SYSCTL"' "E103/pós-transação:
 # ── o firmware da missão: a suíte cobra o mantenedor ────────────────────
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 44→45 NO MESMO COMMIT' "E103 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
 
+# ── E104: A PELE DO MENU + A PORTA DO DESAFIXAR (o menu que chega ao rig vivo) ──
+assert_grep "$REPO/.ci/build.sh" 'usr/local/share/elite/labwc/menu.xml' "E104: a pele do menu viaja NO PACOTE (a mesma escola E91 da lock skin — fora do pacote nunca chega ao canal, e o menu do rig ficava fóssil da ISO que o instalou)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-rice" 'MENU_FOSSILS' "E104: o menu conhece os FÓSSEIS (as versões históricas do git — a velha da casa = ninguém personalizou = renova com backup; a ISO v2.10.28 do rig do dono está na rede)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-rice" 'menu_skin && CHANGED=1' "E104: a renovação do menu dispara reconfigure — o menu novo aparece na SESSÃO VIVA (sem relogin)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-rice" '--menu-adopt' "E104: a porta explícita --menu-adopt (backup + entrega — a lei do domínio v3 intocada)"
+assert_nogrep "$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml" '\(papers\)|\(qalculate\)|\(W-l\)' "E104: o RÓTULO nunca nomeia o pacote nem o atalho (a ordem do dono — 'fica aparecendo os nomes dos pacotes'; o exec resolve pela varredura)"
+assert_grep "$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml" 'Desafixar app da dock' "E104: a porta do DESAFIXAR no menu (a denúncia do dono: 'eu consigo fixar, mas eu não consigo tirar um aplicativo da dock')"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin-pick" 'MODO=rm' "E104: o picker DESAFIXA (--rm — o craft-pin rm existia desde a v2.0 como CLI invisível; a lista é a dos FIXADOS, o .desktop sumido segue removível pelo ID cru)"
+assert_grep "$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml" 'entregue por craft-rice' "E104: o skel do menu carrega o MARCADOR do rice (a pele da casa se renova em homes vivos nas próximas peles — a escola E91)"
+assert_grep "$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml" 'for p in papers evince zathura okular' "E104: o Leitor de PDF resolve pelo que EXISTE no sistema (a escola do Navegador — o dono: 'de acordo com o que existe no sistema')"
+assert_grep "$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml" 'for c in qalculate-gtk gnome-calculator' "E104: a Calculadora resolve pelo que EXISTE no sistema (rótulo limpo, varredura viva)"
 phase_end

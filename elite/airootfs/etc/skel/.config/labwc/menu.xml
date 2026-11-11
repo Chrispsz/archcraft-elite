@@ -1,6 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- entregue por craft-rice — a pele do menu (E104): rig vivo renova pela
+     gramática fóssil/marcador; menu editado pelo dono = intocável -->
 <!--
-  Archcraft Cockpit · labwc menu.xml — PERFIL ELITE (v1.7)
+  Archcraft Cockpit · labwc menu.xml — PERFIL ELITE (v2)
+  ══════════════════════════════════════════════════════════════════════════
+  E104 (v2) — O RÓTULO NUNCA NOMEIA O PACOTE (ordem do dono: "fica
+  aparecendo os nomes dos pacotes"): os rótulos que carregavam o nome do
+  pacote ou do atalho entre parênteses (Leitor de PDF, Calculadora,
+  Lock, Captura de tela) viram rótulos limpos — o EXEC resolve (a
+  varredura do Navegador generalizada: papers→evince→zathura→okular;
+  qalculate→gnome-calculator).
+  E A PORTA QUE FALTAVA: "Desafixar app da dock…" — o craft-pin rm
+  existia desde a v2.0 e era CLI invisível (o dono: "eu consigo fixar,
+  mas eu não consigo tirar um aplicativo da dock. Como é que eu faço?").
+  E A PELE: este arquivo viaja NO PACOTE (build.sh) e alcança homes
+  vivos via craft-rice — o menu do rig deixa de ser fóssil da ISO que o
+  instalou (o menu do rig v2.10.28 não tinha nem o Displays… da E89).
   ══════════════════════════════════════════════════════════════════════════
   v1.7 — CURADORIA DO DONO ("deixa só os importantes", "sem muita
   complexidade"): SAÍRAM os itens de ferramentas do antigo submenu
@@ -62,16 +77,19 @@
     <item label="Editor">
       <action name="Execute" command="sh -c 'exec &quot;${TERMINAL:-foot}&quot; -e &quot;${EDITOR:-nano}&quot;'" />
     </item>
-    <item label="Leitor de PDF (papers)">
-      <action name="Execute" command="papers" />
+    <!-- E104 — o rótulo não nomeia o pacote: a varredura resolve pelo que
+         EXISTE no sistema (a escola do Navegador; o dono: "de acordo com o
+         que está, com o que existe no sistema") -->
+    <item label="Leitor de PDF">
+      <action name="Execute" command="sh -c 'for p in papers evince zathura okular; do command -v &quot;$p&quot; &gt;/dev/null &amp;&amp; exec &quot;$p&quot;; done; exit 0'" />
     </item>
-    <item label="Calculadora (qalculate)">
-      <action name="Execute" command="qalculate-gtk" />
+    <item label="Calculadora">
+      <action name="Execute" command="sh -c 'for c in qalculate-gtk gnome-calculator; do command -v &quot;$c&quot; &gt;/dev/null &amp;&amp; exec &quot;$c&quot;; done; exit 0'" />
     </item>
     <!-- E30 (v2.10.18): captura rápida no menu (pedido do dono — "botão de
          captura de tela rápida"; o modo região é o default do craft-shot e
          W-p segue vivo no teclado; tela inteira = W-S-p) -->
-    <item label="Captura de tela (região)">
+    <item label="Captura de tela">
       <action name="Execute" command="craft-shot" />
     </item>
     <!-- E89 — Displays no menu (o dono: "esse de displays é muito ruim…
@@ -104,7 +122,7 @@
     <item label="Ajuda — comandos da Elite">
       <action name="Execute" command="foot -e craft-help" />
     </item>
-    <item label="Aplicativos (Launchpad)">
+    <item label="Aplicativos">
       <action name="Execute" command="craft-drawer" />
     </item>
     <!-- v1.4: fixar apps na dock no fluxo mouse-first (burn test: o
@@ -112,8 +130,13 @@
     <item label="Fixar app na dock…">
       <action name="Execute" command="craft-pin-pick" />
     </item>
+    <!-- E104 — a porta do DESAFIXAR (a metade que faltava: fixar tinha
+         picker desde a v1.4, remover era craft-pin rm em CLI invisível) -->
+    <item label="Desafixar app da dock…">
+      <action name="Execute" command="craft-pin-pick --rm" />
+    </item>
     <separator />
-    <item label="Lock (W-l)">
+    <item label="Lock">
       <action name="Execute" command="craft-lock" />
     </item>
     <!-- v1.6.1: "consigo controlar em quanto tempo o Pc entra em idle?"

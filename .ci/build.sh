@@ -437,6 +437,15 @@ cp -p /work/elite/airootfs/etc/skel/.config/hypr/hyprlock.conf \
 mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/labwc
 cp -p /work/elite/airootfs/etc/skel/.config/labwc/rc.xml \
       /tmp/elite-src/elite-system/files/usr/local/share/elite/labwc/rc.xml
+# E104 — A PELE DO MENU NO PACOTE (a gramática E91 na 3ª pele): o menu v2
+# (rótulos sem nome de pacote + a porta do desafixar) alcança homes VIVOS
+# via craft-rice (fóssil = a velha da casa → renova com backup;
+# personalizado → intocável). O menu do rig deixa de ser fóssil da ISO —
+# o caminho é NOVO (nenhum rig tem /usr/local/share/elite/labwc/menu.xml
+# sem dono — sem dança de pre_install).
+mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/labwc
+cp -p /work/elite/airootfs/etc/skel/.config/labwc/menu.xml \
+      /tmp/elite-src/elite-system/files/usr/local/share/elite/labwc/menu.xml
 mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/swayosd
 cp -p /work/elite/airootfs/etc/skel/.config/swayosd/config.toml \
       /tmp/elite-src/elite-system/files/usr/local/share/elite/swayosd/config.toml
@@ -552,6 +561,9 @@ rc_install = '    install -d "${pkgdir}/usr/local/share/elite/labwc"\n    instal
 rc_rm = '    [ -e "/usr/local/share/elite/labwc/rc.xml" ] && rm -f "/usr/local/share/elite/labwc/rc.xml"\n'
 osd_install = '    install -d "${pkgdir}/usr/local/share/elite/swayosd"\n    install -m644 "${startdir}/files/usr/local/share/elite/swayosd/config.toml" "${pkgdir}/usr/local/share/elite/swayosd/config.toml"\n'
 osd_rm = '    [ -e "/usr/local/share/elite/swayosd/config.toml" ] && rm -f "/usr/local/share/elite/swayosd/config.toml"\n'
+# E104 — a pele do menu (mesma dança da família E91)
+menu_install = '    install -d "${pkgdir}/usr/local/share/elite/labwc"\n    install -m644 "${startdir}/files/usr/local/share/elite/labwc/menu.xml" "${pkgdir}/usr/local/share/elite/labwc/menu.xml"\n'
+menu_rm = '    [ -e "/usr/local/share/elite/labwc/menu.xml" ] && rm -f "/usr/local/share/elite/labwc/menu.xml"\n'
 # E103 — os defaults XDG (arquivo de pacote: dono único, sem dança de adoção)
 pd_install = '    install -d "${pkgdir}/etc/profile.d"\n    install -m644 "${startdir}/files/etc/profile.d/10-elite-defaults.sh" "${pkgdir}/etc/profile.d/10-elite-defaults.sh"\n'
 # E103 — o gamemode.ini (adoção: o rig com o arquivo SEM dono o perde no
@@ -1332,7 +1344,12 @@ pkgver=1.0
 #     (craft-update, craft-bars, craft-rice, craft-lock, craft-pin-pick,
 #     exo-open, elite-post-transaction), skel novo (swayosd/config.toml,
 #     rc.xml E103, menu.xml, profile.d, gamemode.ini) e vendor C novo).
-pkgrel=45
+#     pkgrel 45→46 NO MESMO COMMIT (lei E41 — E104: a PELE DO MENU viaja
+#     no pacote (usr/local/share/elite/labwc/menu.xml) e três bins mudam
+#     de conteúdo: craft-rice (a 3ª pele + backup nas renovações),
+#     craft-pin-pick (o modo --rm — o desafixar com porta visível) e o
+#     menu.xml v2 do skel (rótulos sem nome de pacote, a ordem do dono).
+pkgrel=46
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
@@ -1392,7 +1409,7 @@ pre_install() {{
     ; do
         [ -e "/usr/local/bin/$f" ] && rm -f "/usr/local/bin/$f"
     done
-{unit_loop}{hook_rm}{ff_rm}{lock_rm}{rc_rm}{osd_rm}{gm_rm}{doc_rm}{gp_rm}    return 0
+{unit_loop}{hook_rm}{ff_rm}{lock_rm}{rc_rm}{osd_rm}{menu_rm}{gm_rm}{doc_rm}{gp_rm}    return 0
 }}
 package() {{
     install -d "${{pkgdir}}/usr/local/bin"
@@ -1404,7 +1421,7 @@ package() {{
     # E103 — o agente sob demanda + a fonte dele (mesma transparência)
     install -m755 elite-polkit-listener "${{pkgdir}}/usr/local/bin/elite-polkit-listener"
     install -Dm644 elite-polkit-listener.c "${{pkgdir}}/usr/local/share/elite/src/elite-polkit-listener.c"
-{unit_install}{hook_install}{ff_install}{lock_install}{rc_install}{osd_install}{pd_install}{gm_install}{doc_install}{gp_install}{pt_install}{ef_install}}}
+{unit_install}{hook_install}{ff_install}{lock_install}{rc_install}{osd_install}{menu_install}{pd_install}{gm_install}{doc_install}{gp_install}{pt_install}{ef_install}}}
 """
 (d / 'PKGBUILD').write_text(pkg)
 PYE50
