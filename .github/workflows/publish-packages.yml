@@ -25,6 +25,12 @@ name: Canal diário [elite-local]
 
 on:
   push:
+    # E103.1 — A PORTEIRA HONESTA: o filtro nasceu podre (a E43 escreveu
+    # "branches: ain" + o colchete se perdeu na escrita) e o GitHub CALOU
+    # (schema leniente: filtro invalido = ignora e dispara em qualquer
+    # branch com os paths da casa). A intencao sempre foi MAIN — agora o
+    # filtro DIZ o que faz (push no main dispara o canal; a suite CONTRATA
+    # a linha abaixo — o filtro nao enferruja de novo).
     branches: [main]
     paths:
       - 'elite/airootfs/usr/local/bin/**'
