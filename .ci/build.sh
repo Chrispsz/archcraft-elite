@@ -1367,7 +1367,15 @@ build() {{
     # o FALSO: 'polkitagent/polkitagent.h: No such file or directory' na
     # run #68 — a primeira build do listener morreu no gcc SEM include path
     # (as runs #66/#67 nem chegaram aqui). pkg-config entrega os DOIS.
+    # E-auditoria (12/nov) — A SENTINELA DA API INSTÁVEL: o --cflags abriu
+    # a porta e o header COBROU a passagem — polkitagent.h:26 (#error):
+    # libpolkitagent é API instável e EXIGE o reconhecimento
+    # POLKIT_AGENT_I_KNOW_API_IS_SUBJECT_TO_CHANGE antes do include (run
+    # #69). O -D no gcc reconhece SEM tocar a fonte vendada — o sha
+    # pinado (8bd6fb52…19a2) fica intacto, a fonte segue a que a suíte
+    # auditou.
     gcc -O2 -Wall -Wextra -s -o elite-polkit-listener elite-polkit-listener.c \
+        -DPOLKIT_AGENT_I_KNOW_API_IS_SUBJECT_TO_CHANGE \
         $(pkg-config --cflags polkit-agent-1 gobject-2.0) \
         $(pkg-config --libs polkit-agent-1 gobject-2.0)
 }}
