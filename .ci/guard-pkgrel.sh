@@ -56,17 +56,27 @@ check() { # $1=pacote  $2=delta (nomes de arquivo)
 }
 
 fail=0
-# craft-toplevel (a PONTE E50): o C vendado É o conteúdo do pacote
-VENDOR_DELTA="$(git diff --name-only "$LAST_TAG" HEAD -- vendor/ || true)"
-check craft-toplevel "$VENDOR_DELTA" || fail=1
+# craft-toplevel (a PONTE E50): o C vendado É o conteúdo do pacote.
+# E103.2 — O DONO CERTO DA PEÇA: o listener do polkit (vendor/elite-
+# polkit-listener.c) NÃO é conteúdo do toplevel — ele compila NO build
+# do elite-system (o pacote único o consome e o MANIFEST o exclui do
+# toplevel) e a delta DELE já o conta abaixo. Mapear o listener para o
+# toplevel era cobrar pkgrel de quem não mudou (a falha da run #67: o
+# guard reprovou a E103 inteira porque 6 ≤ 6 — o toplevel intocado, o
+# elite-system com o bump certo 44→45). vendor/ aqui = o que NÃO é do
+# pacote único.
+VENDOR_TL_DELTA="$(git diff --name-only "$LAST_TAG" HEAD -- vendor/ ':(exclude)vendor/elite-polkit-listener.c' 2>/dev/null || true)"
+check craft-toplevel "$VENDOR_TL_DELTA" || fail=1
 
 # elite-system (O PACOTE ÚNICO E50): todo o /usr/local/bin da casa (o
 # daemon de janelas COMPILADO agora viaja aqui — o C vendado conta) + as
 # units de sistema da casa (o payload /etc do pacote; unit mudada sem
-# pkgrel = o -Syu pula a cadência em silêncio)
+# pkgrel = o -Syu pula a cadência em silêncio) + o C vendado DO PACOTE
+# (o listener compila aqui — a fonte é conteúdo deste pacote)
 BIN_DELTA="$(git diff --name-only "$LAST_TAG" HEAD -- elite/airootfs/usr/local/bin || true)"
 UNIT_DELTA="$(git diff --name-only "$LAST_TAG" HEAD -- 'elite/airootfs/etc/systemd/system/elite-*' || true)"
-DELTA="$(printf '%s\n%s\n%s\n' "$BIN_DELTA" "$UNIT_DELTA" "$VENDOR_DELTA" | sed '/^$/d' | sort -u)"
+VENDOR_FULL_DELTA="$(git diff --name-only "$LAST_TAG" HEAD -- vendor/ || true)"
+DELTA="$(printf '%s\n%s\n%s\n' "$BIN_DELTA" "$UNIT_DELTA" "$VENDOR_FULL_DELTA" | sed '/^$/d' | sort -u)"
 check elite-system "$DELTA" || fail=1
 
 exit "$fail"
