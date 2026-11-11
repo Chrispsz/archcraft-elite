@@ -1349,7 +1349,11 @@ pkgver=1.0
 #     de conteúdo: craft-rice (a 3ª pele + backup nas renovações),
 #     craft-pin-pick (o modo --rm — o desafixar com porta visível) e o
 #     menu.xml v2 do skel (rótulos sem nome de pacote, a ordem do dono).
-pkgrel=46
+#     pkgrel 46→47 NO MESMO COMMIT (a cura do gate: o shellcheck do CI
+#     cobrou SC2209 no MODO=rm do craft-pin-pick — bytes mudam, a
+#     etiqueta acompanha; a 1.0-46 da run #71 nunca chega ao rig, a
+#     1.0-47 é a pele do menu inteira).
+pkgrel=47
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

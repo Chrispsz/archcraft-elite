@@ -47,10 +47,10 @@ command -v fuzzel >/dev/null 2>&1 || { mlog "Dock: fuzzel AUSENTE — picker mor
 command -v craft-pin >/dev/null 2>&1 || { mlog "Dock: craft-pin AUSENTE"; exit 1; }
 
 # ── o modo (E104): add (default — o picker histórico) ou rm (o desafixar) ──
-MODO=add
+MODO="add"
 case "${1:-}" in
     -h|--help) printf 'uso: craft-pin-pick [--rm] — fixa (ou desfixa) apps na dock escolhendo numa lista\n\n  (sem arg)  lista os apps instalados → fixa o escolhido\n  --rm       lista os FIXADOS → desfixa o escolhido (E104)\n'; exit 0 ;;
-    --rm|rm)   MODO=rm ;;
+    --rm|rm)   MODO="rm" ;;
     add|"")    : ;;
     *) printf 'craft-pin-pick: arg desconhecido: %s (use --rm)\n' "$1" >&2; exit 2 ;;
 esac
