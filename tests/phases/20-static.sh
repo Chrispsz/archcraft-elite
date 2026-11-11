@@ -1948,6 +1948,14 @@ BODY101="$(sed -n "/bash -euc '/,/^            '/p" "$CANAL101" | sed '1d;$d')"
 SQ101="$(printf '%s\n' "$BODY101" | grep -c "'" || true)"
 assert_eq "$SQ101" "0" "E101.1/canal: ZERO aspas simples no corpo do bash -euc (a aspa termina a string e o step morre VERDE com metade do script executado — a lição da run #63)"
 
+#    E103.1 — A PORTEIRA HONESTA: o filtro do push nasceu podre (a E43
+#    escreveu 'branches: ain' sem o colchete de abertura) e o schema
+#    leniente do Actions IGNORA filtro inválido — o canal disparava em
+#    QUALQUER branch com os paths da casa (funcional por acidente, podre
+#    por dentro — a cura viajou VIA API, E103.1). O filtro DIZ o que faz:
+#    push no main dispara o canal; a suíte cobra a linha.
+assert_grep "$CANAL101" "branches: \[main\]" "E103.1/canal: o filtro do push DIZ o que faz — o main dispara o canal (o filtro inválido que o Actions calava desde a E43 nunca mais volta; a porta escreve a verdade)"
+
 # E101.1 — PARTIAL UPGRADE É FRANKENSTEIN: nenhum prep de container Arch
 # usa -Sy sem -u (o rsync 3.5.2-3 da #266/#267 nasceu linkando a
 # libcrypto.so.4 nova sobre a imagem com a lib velha — 'error while
