@@ -446,12 +446,15 @@ elite_polkit_listener_init (ElitePolkitListener *listener)
 }
 
 /* ── o subject do registro (E105 — a prova do dump 195332) ───────────────
- * O polkit do rolling (CachyOS, nov/26) COBRA o subject explícito: a
- * forma simples (sem subject) morria na asserção
- * 'POLKIT_IS_SUBJECT (subject)' dentro do register_with_options e o
- * listener saía 1 a cada 5s em loop (o dump 195332 fotografou cinco
- * relançamentos no mesmo minuto — com o lxqt já aposentado: a sessão
- * ficou SEM agente). A fila do subject, da mais forte para a mais fraca:
+ * A API do polkit MUDOU embaixo da casa: o registro moderno é
+ *   polkit_agent_listener_register (listener, flags, SUBJECT, object_path,
+ *                                   cancellable, error)
+ * — o subject virou o 3º argumento OBRIGATÓRIO e o par callback/user_data
+ * saiu do protótipo. A chamada da era E103 (callback NULL, object_path no
+ * user_data) COMPILOVA CALADA (NULL casa em qualquer ponteiro) e explodia
+ * NA HORA no rig: assertion 'POLKIT_IS_SUBJECT (subject)' — o dump 195332
+ * fotografou o listener morrendo exit=1 a cada 5s, a sessão inteira SEM
+ * agente. A fila do subject, da mais forte para a mais fraca:
  *   1. /proc/self/sessionid — o kernel aponta a sessão logind do processo;
  *   2. XDG_SESSION_ID — o ambiente da sessão.
  * Sem nenhuma das duas → NULL honesto: o main sai 1 com a mensagem
@@ -530,19 +533,16 @@ main (int argc, char *argv[])
       g_object_unref (listener);
       return 1;
     }
-  reg = polkit_agent_listener_register_with_options (
-              POLKIT_AGENT_LISTENER (listener),
-              POLKIT_AGENT_REGISTER_FLAGS_NONE,
-              NULL,                                        /* completed: nada extra */
-              NULL,                                        /* user_data             */
-              subject,                                     /* E105: a sessão EXPLÍCITA */
-              NULL,
-              NULL,
-              &err);
+  reg = polkit_agent_listener_register (POLKIT_AGENT_LISTENER (listener),
+                                        POLKIT_AGENT_REGISTER_FLAGS_NONE,
+                                        subject,          /* E105: a sessão EXPLÍCITA (3º arg da API nova) */
+                                        "/org/elite/PolicyKit1/AuthenticationAgent",
+                                        NULL,
+                                        &err);
   g_object_unref (subject);
   if (reg == NULL)
     {
-      elog ("registro recusado (%s) — o trono pode estar ocupado (E58/E95) ou o subject não resolveu no polkitd",
+      elog ("registro recusado (%s) — o trono pode estar ocupado (E58/E95) ou a sessão do subject não existe no logind",
             err ? err->message : "?");
       g_clear_error (&err);
       g_object_unref (listener);
