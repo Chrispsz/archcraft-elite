@@ -1421,7 +1421,51 @@ pkgver=1.0
 #     craft-display, craft-dump, elite-post-transaction, elite-sweep,
 #     elite-resume-display, menu.xml, hyprlock.conf (a pele v7 — SEM
 #     avatar/pílula/nome: a ordem do dono), config.top. pkgrel 49→50 NO MESMO COMMIT (lei E41).
-pkgrel=50
+#     E107 (O DUMP DO DONO PERICIADO, elite-dump-20261112-200537): a bomba
+#     do menu + as três cargas dos 200 Hz + as duas portas de pacote —
+#     (1) O MENU DE 3 ITENS ('de 21 para 3', o dono): o comentário da
+#     v2.11.4 citou um verbo de CLI com dois hífens de prefixo — a espec
+#     XML PROÍBE dois hífens em comentário, o libxml2 do labwc rejeitou
+#     o ARQUIVO INTEIRO e todo rig da dose 1.0-50 caiu no menu de
+#     fábrica (Terminal/Reconfigure/Exit — o 'Reconfigurar que não faz
+#     nada' do dono é o labwc de fábrica, não a casa); provado por parse
+#     (not well-formed line 74) + pacote baixado byte a byte igual ao
+#     repo; A CURA em três mãos: o menu.xml v3 parseia (contrato E107 na
+#     fase 2: o juiz é o parser, não o olho), o craft-rice RECUSA pele
+#     XML doente na porta do rig (a pele viva segue no lugar) e a
+#     curadoria do dono no v3: programas SAEM (Navegador/Arquivos/
+#     Calculadora — a gaveta Aplicativos cobre), ações de sistema FICAM
+#     (print/telas/atualizar/limpar/dock/jogo/idle/lock/sair) e as
+#     portas de pacote ENTRAM (AppImages… e Flatpaks…); (2) O RETRY
+#     MENTIROSO (E33): o do_apply anunciava 'RE-TENTANDO (1/6)' e a
+#     aplicadora recusava DENTRO com o guarda anti-duplo E96 ('nada a
+#     fazer') matando o processo com exit 0 — o contador congelado em
+#     1/6 PARA SEMPRE (o eco duplo de 5s no display.log, o rig a 60 Hz
+#     desde o boot); a aplicadora agora é PURA e a máquina de estados
+#     mora SÓ no do_apply (o contador ANDA: fail:1, fail:2, teto 6);
+#     (3) O SAVE DE LIXO: no meio da troca de modo o wlr-randr some com
+#     a marca '(current)', o parser devolve 'mode:-' e a v2.11.4
+#     GRAVOU isso — o displays.conf do rig amanheceu com um traço no
+#     lugar do 200 Hz (19:57:08 — o 'tá salvando lixo' na letra do
+#     dono); o save RECUSA estado sem marca (espera assentar 5s, recusa
+#     com prova no papel), o watch SÓ grava com o apply da sessão
+#     assentado (o default do boot NÃO é escolha), transição não conta
+#     como estabilidade e o gesto do menu assenta o stamp e avisa;
+#     (4) O DUMP CEGO: o env do dono escapado expandia VAZIO no filho
+#     (status cego 'HOME=<não setado>') — o pai expande agora + A FOTO
+#     DO MENU no papel (parse com veredito, a pele vs a mestre com
+#     sha256): o ponto cego que escondeu o réu morre; (5) AS PORTAS DE
+#     PACOTE do dono ('a integração entre os formatos'):
+#     craft-appimage ganha o braço menu (registrar/remover/ver com
+#     desfecho na tela — o registrador da E97 era CLI invisível) e
+#     craft-flatpak NASCE (a gestão SEM TERMINAL: busca+instala, remove,
+#     limpa runtimes e DADOS órfãos com --delete-data, atualiza — o
+#     flatpak/Flathub já viajavam desde a E97); craft-clean v3 ganha os
+#     caches de USUÁRIO (octopi/yay/thumbnails medidos no relatório).
+#     Bins de conteúdo mudado: menu.xml, craft-rice, craft-display,
+#     craft-dump, craft-clean, craft-appimage, craft-help, SCRIPTS.md +
+#     bin NOVO craft-flatpak. pkgrel 50→51 NO MESMO COMMIT (lei E41).
+pkgrel=51
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

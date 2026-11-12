@@ -1082,7 +1082,7 @@ assert_nogrep "$P/airootfs/etc/skel/.config/labwc/autostart" 'swaylock -f|exec s
 assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'W-v' "curadoria: W-v = histórico de clipboard"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'cliphist decode' "curadoria: pipe cliphist→fuzzel→wl-copy"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'Arquivos' "v1.5→E103/xdg: o menu Arquivos existe (o app vem da variável \${FILEMANAGER:-thunar} — FM padrão da spec)"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" '\$\{FILEMANAGER:-thunar\}' "v1.5→E103/xdg: o menu abre o GERENCIADOR pela variável (nada de binário hardcoded — a troca de app é export)"
+assert_nogrep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'label="Arquivos"' "v1.5→E107: o item Arquivos SAIU do menu (curadoria do dono: programas vivem no Aplicativos — a variável FILEMANAGER segue na casa via profile.d E103, a gaveta abre o gerenciador)"
 assert_nogrep "$P/airootfs/etc/skel/.config/labwc/menu.xml" '\$\{EDITOR:-nano\}' "E106: o item Editor MORREU no menu (Terminal + nano cobre — o volume morto do enxugamento; o W-e do teclado segue vivo no rc.xml e o EDITOR=nano segue no environment)"
 assert_nogrep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'label="Leitor de PDF"' "E106: o menu ENXUGOU (a ordem do dono: 'muita coisa aqui pode simplesmente ser inútil e pode ser removida' — Leitor de PDF e Editor eram volume morto; o Aplicativos cobre)"
 # v1.7 (dono: "deixa só os importantes", "sem muita complexidade"): as
@@ -1095,13 +1095,13 @@ assert_nogrep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'pwvucontrol' "v1.7:
 assert_nogrep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'foot -e 7z' "v1.7: 7z saiu do menu (Launchpad)"
 assert_nogrep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'nwg-look' "v1.7: nwg-look saiu do menu (Launchpad)"
 assert_nogrep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'craft-hello|craft-rollback|foot -e btop' "v1.7: submenu Cockpit extinto do menu (ferramentas continuam no Launchpad)"
-assert_nogrep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'cockpit-menu|Janelas\.\.\.|Reconfigure|Encerrar labwc' "v1.7: Janelas/Reconfigure/Encerrar saíram (decisão do dono)"
+assert_nogrep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'cockpit-menu|Janelas\.\.\.|label="Reconfigure"|label="Encerrar labwc"' "v1.7: Janelas/Reconfigure/Encerrar saíram dos RÓTULOS (decisão do dono; E107: a palavra 'Reconfigure' pode citar o menu de fábrica nos COMENTÁRIOS da lei do XML — o contrato é do rótulo de item, não da palavra solta)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'Atualizar sistema' "v1.7: menu = Atualizar sistema (o 'importante' eleito pelo dono)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'command="foot -e craft-update"' "v1.7: Atualizar abre craft-update no foot"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'Limpeza do sistema' "v1.7: menu = Limpeza do sistema (pacman cache + órfãos — o 'se for bom' é)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'command="foot -e craft-clean"' "v1.7: Limpeza abre craft-clean no foot"
 assert_nogrep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'mousepad|nmtui|pulsemixer|file-roller|yazi|helix' "v1.1/v1.5: menu sem vestígio do app-layer legado/extinto"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'qalculate-gtk' "curadoria: qalculate no menu"
+assert_nogrep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'qalculate-gtk' "curadoria E107: o qalculate SAIU do menu (programa vive no Aplicativos; o PACOTE segue na ISO — a gaveta cobre)"
 
 # ── v1.1 · APP-STACK MODERNA (MEGA PROMPT): skel novo por dentro ────────
 SKCFG="$P/airootfs/etc/skel/.config"
@@ -2782,7 +2782,7 @@ done < <(sed -n 's/.*action name="Execute" command="\([^"]*\)".*/\1/p' "$MXML")
 # v1.7: craft-hello saiu DO MENU (o Launchpad cobre o overview) — o binário
 # segue instalado para CLI; o contrato do foot -e craft-hello (v1.6.3) deu
 # lugar ao nogrep da curadoria acima.
-assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'for b in brave librewolf' "v1.1: navegador do menu = brave em 1º"
+assert_nogrep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'for b in brave librewolf' "v1.1→E107: o Navegador SAIU do menu (curadoria do dono: 'para abrir programas já tem a parte de aplicativos' — a varredura brave→librewolf→… segue viva no craft-* que precisa dela)"
 
 # ── v2.2 — MENU TEXTO PURO (o fixture menu-icons-papirus.txt foi EXTINTO):
 #    nenhum item carrega icon= e o tema não existe mais na ISO. A regra 1
@@ -3355,8 +3355,9 @@ assert_grep "$REPO/.ci/build.sh" 'applications/\*\.desktop' "E98/build: o trilho
 assert_grep "$REPO/.ci/build.sh" 'ovr = sorted' "E98/build: o PKGBUILD gera install E adoção por varredura (o pre_install adota cada override — a dança da via sem dono, agora em série)"
 
 # ── E41: o pkgrel viajou NO MESMO COMMIT ──
-assert_grep "$REPO/.ci/build.sh" 'pkgrel=50' \
-    "E106 (lei E41, âncora viva refrescada): pkgrel elite-system 49→50 — o dump do dono PERICIADO (elite-dump-20261112-161718): âncora game watch E48 no craft-bars (1540 restarts) + flock singleton no watch; polkit com subject (XDG_SESSION_ID injetado + aposentadoria do lxqt com âncora honesta); a dupla senha do lock (unlock.stamp + recheck + porteira que solta o exec + guards de destravo fresco); a última olhada do vigia antes do sono; o stamp honesto do display (ok/fail:N com retry + o watch não grava a reversão do resume + status nomeado); o menu enxugado 21→17 (a gaveta unificada com marcadores no laço, sair direto, help com pausa, calculadora que avisa); o contador de processos honesto (swayosd/lxqt/gcr/zenity na casca + interval 5 + aviso no clique vazio); o fantasma 'Install Archcraft' morto em três mãos; a dock com denylist de raw + case-insensitive + menu de pé; o ciclo de wake com mutex. A E106 do 0848037 (48→49) foi a cura do roteador de áudio; a E105 (47→48) as quatro curas do dump 195332; a E104.1 (46→47) o gate SC2209; a E104 (45→46) a PELE DO MENU e o modo --rm; a E103 (44→45) a abstração XDG"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=51' \
+    "E107 (lei E41, âncora viva refrescada): pkgrel elite-system 50→51 — o dump do dono PERICIADO (elite-dump-20261112-200537): A BOMBA DO MENU (o comentário da v2.11.4 com dois hífens matou o XML inteiro — todo rig da dose caiu no menu de fábrica de 3 itens, 'de 21 para 3'; o menu.xml v3 parseia com contrato na fase 2 + o craft-rice recusa pele doente na porta do rig + a curadoria do dono: programas saem, ações de sistema ficam, AppImages… e Flatpaks… entram); o RETRY MENTIROSO do display morre (a aplicadora pura + a máquina de estados única: o contador ANDA, o eco duplo de 5s sai do papel); o SAVE DE LIXO morre (mode:- nunca mais no conf — o save recusa transição, o watch só grava com o apply assentado); o dump ganha a FOTO DO MENU e a injeção do env que expande de verdade; as PORTAS DE PACOTE (craft-appimage menu + craft-flatpak NOVO — a gestão sem terminal que o dono pediu) e o craft-clean v3 (octopi/yay/thumbnails medidos). A E106 (49→50) foi a colheita do dump 161718; a E106 do 0848037 (48→49) a cura do roteador de áudio; a E105 (47→48) as quatro curas do dump 195332; a E104.1 (46→47) o gate SC2209; a E104 (45→46) a PELE DO MENU e o modo --rm; a E103 (44→45) a abstração XDG"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 50→51 NO MESMO COMMIT' "E107 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 49→50 NO MESMO COMMIT' "E106 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 46→47 NO MESMO COMMIT' "E104.1 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 48→49 NO MESMO COMMIT' "E106 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
@@ -3529,6 +3530,5 @@ assert_grep "$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml" 'Apps da dock
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin-pick" 'craft-menu --title=.Apps da dock.' "E106: o laço da gaveta corre NO MOTOR craft-menu (o fuzzel cru one-shot da v3 morria rc=2 calado uma vez — o dump fotografou; o motor traz toggle/cross-dismiss/determinismo de pid e a gramática 0/1/2/143)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin-pick" 'laço v4|volta' "E106: a gaveta é LAÇO (fecha só no ESC/clique-fora/cross-dismiss — a v3 fechava a cada ação e o dono reabria um por um: 8→7→6→5 pins no menus.log)"
 assert_grep "$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml" 'entregue por craft-rice' "E104: o skel do menu carrega o MARCADOR do rice (a pele da casa se renova em homes vivos nas próximas peles — a escola E91)"
-assert_grep "$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml" 'for c in qalculate-gtk gnome-calculator' "E104: a Calculadora resolve pelo que EXISTE no sistema (rótulo limpo, varredura viva)"
-assert_grep "$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml" 'Calculadora não encontrada' "E106: o ramo vazio da varredura AVISA (a denúncia 'abrir calculadora' parou de funcionar — o exec sem binário morria calado; a classe dnotify nomeia o réu)"
+assert_nogrep "$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml" 'label="Calculadora"' "E104/E106→E107: o item Calculadora SAIU do menu (curadoria do dono: programas vivem no Aplicativos — a varredura 'pelo que existe' E104 e o aviso honesto do ramo vazio E106 seguem na escola da casa e no commit E106; o pacote qalculate-gtk segue na ISO para a gaveta)"
 phase_end

@@ -1815,7 +1815,7 @@ assert_nogrep "$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml" 'label="Edi
 assert_grep "$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml" 'Apps da dock…' "E106: a GAVETA UNIFICADA (o desenho do dono, palavra por palavra: 'um menu unificado… com o marcador se tá ativado… ele só fecharia quando você tirasse o mouse de cima da função ou clicasse fora da tela' — ✓/· que alterna e reabre, ESC/clique-fora fecham)"
 assert_grep "$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml" 'Sair da sessão' "E106: o SAIR DIRETO no menu (o dono: reboot e desligar já estão ali — o que faltava era o sair; o menu gráfico segue no ⏻ da topbar)"
 assert_grep "$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml" 'Telas — resolução' "E106: o rótulo que DIZ o que faz (o dono: 'esse display, eu não sei nem para que é isso' — o nome era a doença)"
-assert_grep "$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml" 'Calculadora não encontrada' "E106: o ramo vazio da varredura AVISA (a classe dnotify — a morte calada do exec sem binário nunca mais; o dono: 'abrir calculadora' parou de funcionar)"
+assert_nogrep "$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml" 'label="Calculadora"' "E106→E107: o item Calculadora SAIU do menu (curadoria do dono: 'para abrir programas já tem a parte de aplicativos' — programas vivem no Aplicativos; o padrão do aviso honesto do ramo vazio mora no commit E106, a máquina continua)"
 
 # ── E90: a família inteira com --help (a auditoria E66: 20 de 31 nus) ──
 # o contrato casa o VOCÁBULO --help no dispatch (a casa tem 3 gramáticas:
@@ -2034,8 +2034,8 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'playerctl -l' \
     "E105/dump v2.10: a foto da MÍDIA (quem está no barramento — o próximo fantasma nasce com nome)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'lock\.log' \
     "E105/dump v2.10: a foto do LOCK (nascimentos + lock vivo + journal — a próxima denúncia de dupla senha nasce assinada)"
-assert_grep "$REPO/.ci/build.sh" 'pkgrel=50' \
-    "E106/E41: pkgrel 49→50 NO MESMO COMMIT (o dump do dono periciado — a colheita inteira no heredoc do PKGBUILD: âncora do game watch, polkit com subject, a dupla senha do lock, o stamp honesto do display, o menu enxugado, o contador honesto, o fantasma morto em três mãos)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 49→50 NO MESMO COMMIT' \
+    "E106/E41 (âncora histórica, refrescada na E107): a colheita do dump 161718 no heredoc do PKGBUILD (âncora do game watch, polkit com subject, a dupla senha do lock, o stamp honesto do display, o menu enxugado 21→17, o contador honesto, o fantasma morto em três mãos)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bars" '\^bash /usr/local/bin/craft-game watch\$\|\^/usr/bin/env bash /usr/local/bin/craft-game watch' \
     "E106/bars: a âncora do game watch casa o CMDLINE REAL (o shebang env-bash apresenta 'bash …' — o padrão '^/usr/local/bin/…' JAMAIS viu o processo vivo: 1540 restarts, 12 pares vivos no ps do dump, o log em loop de 5s desde o boot — E48 a 3ª vez na casa)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bars" 'pkill -f .\^/usr/bin/lxqt-policykit-agent' \
@@ -2072,5 +2072,69 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'timeout_add\(60
     "E106/dock: o menu fica de pé (Fixar/Remover REABREM o menu com o verbo alternado — 'o menu fecha e depois faz a ação… toda vez abrir o menu novamente')"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'idle-write-fail' \
     "E106/dump: o buraco preto do papel entra no retrato (o boot inteiro SEM UMA linha no idle.log — braços rodaram e a escrita falhava calada; owner+mode dos logs e o fallback de escrita no papel)"
+
+# ── E107 — A BOMBA DO MENU + AS TRÊS CARGAS DOS 200 Hz + AS PORTAS ──────
+# (o dump 20261112-200537 periciado: o menu 'de 21 para 3', o displays.conf
+#  com um TRAÇO no lugar do 200 Hz e o eco duplo de 5s no display.log —
+#  o retry que anunciava e recusava, o save que gravava transição)
+C107M="$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml"
+if python3 -c 'import sys, xml.etree.ElementTree as ET; ET.parse(sys.argv[1])' "$C107M" >/dev/null 2>&1; then
+    ok "E107/menu: o menu.xml PARSEIA como XML de verdade (o libxml2 do labwc aceita — a v2.11.4 morreu 'not well-formed line 74': um verbo de CLI citado com dois hífens dentro de comentário, o arquivo INTEIRO rejeitado e todo rig da dose 1.0-50 caiu no menu de fábrica de 3 itens — 'de 21 para 3')"
+else
+    fail "E107/menu: o menu.xml NÃO PARSEIA" "o labwc rejeita o arquivo inteiro e o rig cai no menu de fábrica (Terminal/Reconfigure/Exit) — o botão direito morre de novo"
+fi
+assert_grep "$C107M" 'A LEI DO COMENTÁRIO' "E107/menu: a lei escrita na própria pele (dois hífens seguidos dentro de comentário são proibidos pela espec XML — a bomba da v2.11.4 documentada no arquivo que ela quase comeu)"
+assert_grep "$C107M" 'AppImages…' "E107/menu: a porta do AppImage no botão direito (o registrador da E97 era CLI invisível — 'adiciono o AppImage e ele já nasce com ícone e atalho como programa nativo')"
+assert_grep "$C107M" 'command="craft-appimage menu"' "E107/menu: o item chama o BRAÇO menu do craft-appimage (registrar/remover/ver com desfecho na tela)"
+assert_grep "$C107M" 'Flatpaks…' "E107/menu: a porta do Flatpak no botão direito ('simplifies installing, uninstalling, and cleaning up leftover Flatpak data' — a gestão sem terminal)"
+assert_grep "$C107M" 'command="craft-flatpak"' "E107/menu: o item lança o craft-flatpak (o bin NOVO da E107)"
+assert_grep "$C107M" 'label="Terminal"' "E107/menu: o Terminal fica (o dono, palavra por palavra: 'pode ter o terminal, que é um negócio mais universal do sistema')"
+assert_nogrep "$C107M" 'label="Navegador"' "E107/menu: o Navegador SAI (programa vive no Aplicativos — a curadoria do dono)"
+assert_nogrep "$C107M" 'label="Arquivos"' "E107/menu: o Arquivos SAI (o menu é de AÇÕES DE SISTEMA — o mesmo desenho)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-rice" 'xml_ok' \
+    "E107/rice: o gate de XML na porta do rig (pele doente NÃO viaja ao home — a pele viva segue no lugar: menu velho funcionando vence menu de fábrica de 3 itens)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-rice" 'renovação RECUSADA' \
+    "E107/rice: a recusa é LOUD (a suíte E107 é o juiz principal; esta porta segura o rig se uma pele doente passar)"
+assert_nogrep "$REPO/elite/airootfs/usr/local/bin/craft-display" 'nada a fazer \(o menu aplica à mão\)' \
+    "E107/display: A MENTIRA MORRE (a v2.11.4 anunciava 'RE-TENTANDO' na fora e recusava DENTRO — o eco duplo de 5s no display.log do dump, o contador congelado em 1/6 para sempre)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-display" 'APLICADOR PURO' \
+    "E107/display: a aplicadora não lê stamp nenhum (a máquina de estados mora SÓ no do_apply — as duas gramáticas de stamp da v2.11.4 brigavam no mesmo corpo e o retry era teatro)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-display" 'modo_em_curso' \
+    "E107/display: a transição não é escolha (o save e o watch consultam a marca de modo atual — nada de 'mode:-' no conf)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-display" 'save: RECUSADO' \
+    "E107/display: o save RECUSA lixo com a prova no papel (o displays.conf do rig amanheceu com um TRAÇO no lugar do 200 Hz, 19:57:08 — o 'tá salvando lixo' na letra do dono)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-display" 'NÃO grava \(o conf salvo é a fonte da verdade' \
+    "E107/display: o watch SÓ grava com o apply da sessão assentado (o default do boot gravado como escolha era o envenenamento — o conf era sobrescrito 1 minuto após o boot)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-display" 'n_fail=\$\(\(n_fail \+ 1\)\)' \
+    "E107/display: o contador ANDA de verdade (fail:1, fail:2… teto 6 — a v2.11.4 relia um stamp vazio e eternizava fail:1)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'labwc menu.xml' \
+    "E107/dump: A FOTO DO MENU no papel (parse com veredito + a pele vs a mestre com sha256 — o ponto cego que escondeu o réu do 'de 21 para 3' morre)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'HOME=.UHOME XDG_CONFIG_HOME=.UHOME/.config craft-display status' \
+    "E107/dump: a injeção do env do dono expande NO PAI (a E106 escapava URUNTIME/UHOME com contra-barra — o filho expandia VAZIO e o status saía cego 'HOME=<não setado>')"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-clean" 'octopi' \
+    "E107/clean: o cache do octopi no 'bem completinho' (nomeado pelo dono: 'limpa cache do octopi')"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-clean" 'thumbnails' \
+    "E107/clean: miniaturas órfãs no relatório (medidas ANTES — o número é prova, não impressão)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-clean" 'yay' \
+    "E107/clean: o cache de build do yay (a loja de fábrica E97 deixa palco atrás)"
+assert_file "$REPO/elite/airootfs/usr/local/bin/craft-flatpak" "E107/flatpak: o bin existe (a gestão de Flatpaks SEM TERMINAL — o item 'Flatpaks…' do botão direito)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-flatpak" 'delete-data' \
+    "E107/flatpak: os DADOS órfãos têm limpeza própria (o 'leftover Flatpak data' que o dono nomeou — uninstall --unused com --delete-data)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-flatpak" 'instalar\|remover\|limpar\|atualizar' \
+    "E107/flatpak: os verbos têm porta CLI (o menu é a frente; o terminal é opção, não prisão)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-appimage" '= "menu"' \
+    "E107/appimage: o braço menu existe (a porta do botão direito — registrar/remover/ver)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-appimage" 'die_menu' \
+    "E107/appimage: o erro SOBE NA TELA no menu do desktop (o stdout do labwc morre no ar — morte calada nunca mais)"
+assert_grep "$REPO/scripts/apply-overlay.sh" 'craft-flatpak' \
+    "E107/overlay: o bin novo no file_permissions (a ferida E89: sem o 755 no live é 203/EXEC — o gate flagrou)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=51' \
+    "E107/E41: pkgrel 50→51 NO MESMO COMMIT (menu.xml, craft-rice, craft-display, craft-dump, craft-clean, craft-appimage, craft-help, SCRIPTS.md de conteúdo mudado + craft-flatpak é bin NOVO)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 50→51 NO MESMO COMMIT' \
+    "E107/E41: a razão do bump no heredoc (a história viaja no papel)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-help" 'craft-flatpak' \
+    "E107/help: o mapa conhece a porta nova (a descoberta não depende de sorte)"
+assert_grep "$REPO/docs/SCRIPTS.md" 'craft-flatpak' \
+    "E107/doc: a doc que viaja no pacote conhece o bin novo"
 
 phase_end

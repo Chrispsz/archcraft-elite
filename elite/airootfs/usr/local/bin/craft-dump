@@ -482,6 +482,16 @@ PY
     # 1024x768 — os modos grandes ficaram fora e o julgamento da E89 ficou
     # cego). Teto 140: a lista INTEIRA de qualquer monitor de verdade.
     r "for d in wayland-0 wayland-1 wayland-2; do if env XDG_RUNTIME_DIR=$URUNTIME WAYLAND_DISPLAY=\$d wlr-randr 2>/dev/null; then break; fi; done || { echo '(sem sessão wlr — conectores do kernel):'; grep -H . /sys/class/drm/card*-*/status 2>/dev/null; grep -H . /sys/class/drm/card*-*/modes 2>/dev/null | head -8; }" 140
+    # E107 — A PELE DO MENU NO PAPEL (o ponto cego que escondeu o réu: o
+    # dump 200537 não fotografava o menu.xml — o rig caiu no menu de
+    # fábrica de 3 itens do labwc e a perícia só achou a bomba no
+    # COMENTÁRIO do menu v2.11.4, parse line 74). Daqui em diante o
+    # papel mostra: o menu do home EXISTE? PARSEIA? é a pele da casa?
+    printf '\n── labwc menu.xml (E107 — a pele do botão direito no rig)\n'
+    r "ls -l \"$UHOME/.config/labwc/\" 2>/dev/null || echo '(sem ~/.config/labwc — o labwc lê o default de fábrica)'" 10
+    r "python3 -c 'import sys, xml.etree.ElementTree as ET; ET.parse(sys.argv[1])' \"$UHOME/.config/labwc/menu.xml\" >/dev/null 2>&1 && echo 'menu.xml do home: PARSEIA (XML válido)' || echo 'menu.xml do home: NÃO PARSEIA ou AUSENTE — o labwc cai no menu de fábrica de 3 itens: Terminal, Reconfigure, Exit'" 6
+    r "head -3 \"$UHOME/.config/labwc/menu.xml\" 2>/dev/null || echo '(sem menu.xml no home)'" 6
+    r "if [ -f \"$UHOME/.config/labwc/menu.xml\" ] && [ -f /usr/local/share/elite/labwc/menu.xml ]; then cmp -s \"$UHOME/.config/labwc/menu.xml\" /usr/local/share/elite/labwc/menu.xml && echo 'pele do home == pele do pacote (a casa e o rig no mesmo passo)' || echo 'pele do home ≠ pele do pacote (renovação pendente ou menu do dono)'; sha256sum \"$UHOME/.config/labwc/menu.xml\" /usr/local/share/elite/labwc/menu.xml 2>/dev/null; fi" 10
     # v2.7/E90 — A E89 NO PAPEL: o conf que o craft-display grava em disco
     # (a 'memória' da tela) + o status da ferramenta. O julgamento do '200
     # Hz que lembram' passa a ter prova DIRETA: displays.conf presente =
@@ -500,13 +510,18 @@ PY
     # contradição que o próprio papel mostra: cat via $UHOME cheio + status
     # via $HOME vazio). O HOME do dono entra junto com o WAYLAND_DISPLAY.
     r "cat \"$UHOME/.cache/elite/display.log\" 2>/dev/null | tail -30 || echo '(sem display.log — o craft-display nunca rodou apply/watch nesta home)'" 30
-    r "for d in wayland-0 wayland-1 wayland-2; do if env XDG_RUNTIME_DIR=\$URUNTIME WAYLAND_DISPLAY=\$d HOME=\$UHOME XDG_CONFIG_HOME=\$UHOME/.config craft-display status 2>/dev/null; then break; fi; done || true" 20
+    # E107 — A INJEÇÃO QUE VIAJOU ERRADA (o dump 200537 provou no papel:
+    # a linha abaixo fugia o URUNTIME/UHOME com contra-barra — o shell
+    # filho não conhece as variáveis da casa, expandiam VAZIAS e o status
+    # saía 'HOME=<não setado>' com o env quebrado). O pai expande AGORA
+    # (a mesma gramática da linha do wlr-randr acima: literal no comando).
+    r "for d in wayland-0 wayland-1 wayland-2; do if env XDG_RUNTIME_DIR=$URUNTIME WAYLAND_DISPLAY=\$d HOME=$UHOME XDG_CONFIG_HOME=$UHOME/.config craft-display status 2>/dev/null; then break; fi; done || true" 20
     # E106 — O BURACO PRETO DO PAPEL (o dump 20261112: o boot inteiro SEM
     # UMA linha no idle.log — braços rodaram e o papel ficou mudo): os
     # donos/modes dos arquivos de log entram no papel (owner errado =
     # escrita de usuário falhando calada — o réu nomeado).
     r "ls -l \"$UHOME/.cache/elite/idle.log\" \"$UHOME/.cache/elite/display.log\" \"$UHOME/.cache/elite/bars.log\" \"$UHOME/.cache/elite/lock.log\" 2>/dev/null || true" 4
-    r "cat \"\$URUNTIME/elite/idle-write-fail\" 2>/dev/null || echo '(sem idle-write-fail — o ilog nunca falhou gravar)'" 8
+    r "cat \"$URUNTIME/elite/idle-write-fail\" 2>/dev/null || echo '(sem idle-write-fail — o ilog nunca falhou gravar)'" 8
     # o ABNT2 (Z2) com prova: o XKB_DEFAULT_LAYOUT chegou à sessão ou não
     r "grep XKB /etc/environment 2>/dev/null || echo '(sem XKB_DEFAULT_LAYOUT em /etc/environment)'" 4
     # v2.1 — a prova DENTRO da sessão: o ambiente REAL do labwc (o

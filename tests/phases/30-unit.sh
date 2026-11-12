@@ -2708,4 +2708,194 @@ assert_nogrep "$STSED/conf.out" '^shape {' \
     "E106/lock: a pele v7 NÃO TEM pílula solta do usuário (o 'bonequinho pela metade' era o glifo U+F007 sobre fonte sem o glifo + o z-order do campo — os blocos inteirinhos fora)"
 rm -rf "$STSED"
 
+# ── E107 — CENAS FUNCIONAIS: o gate do rice, o display honesto, as portas ──
+# (o dump 200537 periciado virou CENA: a pele doente NÃO pode passar, o
+#  save não grava transição, o retry RETENTA de verdade e as portas de
+#  pacote do dono funcionam de ponta a ponta com o motor de verdade)
+S107="$(mktemp -d "$WORK/e107.XXXXXX")"
+
+# (1) O GATE DE XML DO RICE — a pele doente é recusada NA PORTA do rig
+RICE107="$REPO/elite/airootfs/usr/local/bin/craft-rice"
+mkdir -p "$S107/home/.config/labwc" "$S107/src"
+cat > "$S107/src/menu-malo.xml" <<'XMLMAU'
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- entregue por craft-rice — a pele com o veneno da v2.11.4 dentro -->
+<!-- o comentário que mata: o verbo --check citado com dois hifens literais -->
+<openbox_menu>
+</openbox_menu>
+XMLMAU
+printf '<?xml version="1.0" encoding="UTF-8"?>\n<!-- entregue por craft-rice — a pele viva do home -->\n<openbox_menu>\n  <menu id="root-menu">\n    <item label="Pele viva"><action name="Execute" command="foot" /></item>\n  </menu>\n</openbox_menu>\n' > "$S107/home/.config/labwc/menu.xml"
+XDG_CONFIG_HOME="$S107/home/.config" HOME="$S107/home" \
+  ELITE_MENU_SRC="$S107/src/menu-malo.xml" \
+  ELITE_RC_SRC="$S107/src/ausente" ELITE_OSD_SRC="$S107/src/ausente" \
+  ELITE_LOCK_SRC="$S107/src/ausente" \
+  sh "$RICE107" >"$S107/rice-out.txt" 2>&1 || true
+assert_grep "$S107/rice-out.txt" 'renovação RECUSADA' \
+    "E107/rice: a pele doente é RECUSADA NA PORTA com o motivo no papel (o libxml2 do labwc rejeitaria o arquivo inteiro e o rig cairia no menu de 3 itens de fábrica)"
+assert_grep "$S107/home/.config/labwc/menu.xml" 'Pele viva' \
+    "E107/rice: a pele VIVA segue no lugar (menu velho funcionando vence menu de fábrica — a defesa em profundidade da E107)"
+# (1b) o controle negativo: a mestre SÃ renova (o gate é juiz, não travão)
+cp "$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml" "$S107/src/menu-bom.xml"
+XDG_CONFIG_HOME="$S107/home/.config" HOME="$S107/home" \
+  ELITE_MENU_SRC="$S107/src/menu-bom.xml" \
+  ELITE_RC_SRC="$S107/src/ausente" ELITE_OSD_SRC="$S107/src/ausente" \
+  ELITE_LOCK_SRC="$S107/src/ausente" \
+  sh "$RICE107" >"$S107/rice-out2.txt" 2>&1 || true
+assert_grep "$S107/home/.config/labwc/menu.xml" 'AppImages…' \
+    "E107/rice: a mestre SÃ renova o home vivo (o gate julga o XML, não trava a casa — a pele v3 chega ao rig)"
+
+# (2) O DISPLAY HONESTO — o save não grava transição; o retry retenta
+DISP107="$REPO/elite/airootfs/usr/local/bin/craft-display"
+D107="$(mktemp -d "$WORK/e107d.XXXXXX")"
+mkdir -p "$D107/home/.config/elite" "$D107/home/.cache/elite" "$D107/run"
+cat > "$D107/randr-a.sh" <<'RAH'
+#!/bin/sh
+echo 'DP-1 "Monitor de prova (DP-1)"'
+echo '  Enabled: yes'
+echo '  Modes:'
+echo '    1920x1080 px, 60.000000 Hz (preferred)'
+echo '    1920x1080 px, 200.000000 Hz (current)'
+echo '  Position: 0,0'
+echo '  Transform: normal'
+echo '  Scale: 1.000000'
+echo '  Adaptive Sync: disabled'
+RAH
+sed 's/ (current)//' "$D107/randr-a.sh" > "$D107/randr-b.sh" && chmod +x "$D107/randr-a.sh" "$D107/randr-b.sh"
+# (2a) o save RECUSA a leitura sem marca de modo atual (o 'mode:-' do rig)
+env HOME="$D107/home" XDG_CONFIG_HOME="$D107/home/.config" XDG_CACHE_HOME="$D107/home/.cache" \
+    XDG_RUNTIME_DIR="$D107/run" ELITE_RANDR="$D107/randr-b.sh" \
+    sh "$DISP107" save >/dev/null 2>&1 || true
+if [ -f "$D107/home/.config/elite/displays.conf" ]; then
+    fail "E107/display: o save de transição" "gravou state sem marca no conf — o lixo 'mode:-' que matou o 200 Hz salvo do rig"
+else
+    ok "E107/display: o save RECUSA a transição (sem marca de modo atual NADA entra no conf — o displays.conf do rig amanheceu com um TRAÇO na v2.11.4)"
+fi
+assert_grep "$D107/home/.cache/elite/display.log" 'save: RECUSADO' \
+    "E107/display: a recusa fica no papel com o motivo (o 'tá salvando lixo' do dono nunca mais é silêncio)"
+# (2b) o save são grava o 200 Hz com a marca
+env HOME="$D107/home" XDG_CONFIG_HOME="$D107/home/.config" XDG_CACHE_HOME="$D107/home/.cache" \
+    XDG_RUNTIME_DIR="$D107/run" ELITE_RANDR="$D107/randr-a.sh" \
+    sh "$DISP107" save >/dev/null 2>&1 || true
+assert_grep "$D107/home/.config/elite/displays.conf" 'mode:1920x1080@200.000000' \
+    "E107/display: o save são grava o 200 Hz com a marca (a escolha no conf é o que o boot aplica — a memória da tela)"
+# (2c) o retry que RETENTA: o link frio falha na 1ª, treina na 2ª
+cat > "$D107/randr-c.sh" <<RCH
+#!/bin/sh
+if [ "\${1:-}" = "--output" ]; then
+    echo "--output \$*" >> "$D107/calls.log"
+    n="\$(cat "$D107/mode-fails" 2>/dev/null || echo 1)"
+    printf '%s\n' "\$((n - 1))" > "$D107/mode-fails"
+    [ "\$n" -le 0 ] && exit 0
+    exit 1
+fi
+echo 'DP-1 "Monitor de prova (DP-1)"'
+echo '  Enabled: yes'
+echo '  Modes:'
+echo '    1920x1080 px, 60.000000 Hz (preferred, current)'
+echo '    1920x1080 px, 200.000000 Hz'
+echo '  Position: 0,0'
+echo '  Transform: normal'
+echo '  Scale: 1.000000'
+echo '  Adaptive Sync: disabled'
+RCH
+chmod +x "$D107/randr-c.sh"
+: > "$D107/calls.log"
+env HOME="$D107/home" XDG_CONFIG_HOME="$D107/home/.config" XDG_CACHE_HOME="$D107/home/.cache" \
+    XDG_RUNTIME_DIR="$D107/run" ELITE_RANDR="$D107/randr-c.sh" \
+    sh "$DISP107" apply >/dev/null 2>&1 || true
+assert_eq "$(cat "$D107/run/elite/display-applied" 2>/dev/null)" "fail:1" \
+    "E107/display: o 1º apply de link frio escreve o stamp HONESTO fail:1 (o feito é o fato — o stamp só nasce DEPOIS)"
+env HOME="$D107/home" XDG_CONFIG_HOME="$D107/home/.config" XDG_CACHE_HOME="$D107/home/.cache" \
+    XDG_RUNTIME_DIR="$D107/run" ELITE_RANDR="$D107/randr-c.sh" \
+    sh "$DISP107" apply >/dev/null 2>&1 || true
+assert_eq "$(cat "$D107/run/elite/display-applied" 2>/dev/null)" "ok" \
+    "E107/display: o retry RETENTOU DE VERDADE (a v2.11.4 anunciava 'RE-TENTANDO (1/6)' e recusava DENTRO — o contador congelado, o eco duplo de 5s, o rig a 60 Hz; o link treinou na 2ª e o 200 Hz aplicou)"
+n_mode_calls="$(grep -c 'mode 1920x1080@200' "$D107/calls.log" 2>/dev/null || echo 0)"
+assert_eq "$n_mode_calls" "2" \
+    "E107/display: o --mode saiu DUAS vezes no papel (a 1ª falhou, o retry acordou e aplicou — o contador ANDA, a máquina de estados é uma só)"
+assert_grep "$D107/home/.cache/elite/display.log" 'RE-TENTANDO' \
+    "E107/display: o retry deixa a linha de tentativa no papel (uma por tentativa — o eco duplo contraditório morreu)"
+# (2d) o gate do watch: com o apply pendente o default do boot NÃO vira conf
+rm -f "$D107/home/.config/elite/displays.conf" "$D107/home/.cache/elite/display.log"
+printf 'fail:1\n' > "$D107/run/elite/display-applied"
+cat > "$D107/randr-d.sh" <<RDH
+#!/bin/sh
+cat "$D107/estado.txt"
+RDH
+chmod +x "$D107/randr-d.sh"
+printf 'DP-1 "M (DP-1)"\n  Enabled: yes\n  Modes:\n    1920x1080 px, 60.000000 Hz (preferred, current)\n  Position: 0,0\n  Transform: normal\n  Scale: 1.000000\n  Adaptive Sync: disabled\n' > "$D107/estado.txt"
+( sleep 1; printf 'DP-1 "M (DP-1)"\n  Enabled: yes\n  Modes:\n    1920x1080 px, 200.000000 Hz (current)\n  Position: 0,0\n  Transform: normal\n  Scale: 1.000000\n  Adaptive Sync: disabled\n' > "$D107/estado.txt" ) &
+env HOME="$D107/home" XDG_CONFIG_HOME="$D107/home/.config" XDG_CACHE_HOME="$D107/home/.cache" \
+    XDG_RUNTIME_DIR="$D107/run" ELITE_RANDR="$D107/randr-d.sh" \
+    timeout 14 sh "$DISP107" watch >/dev/null 2>&1 || true
+if [ -f "$D107/home/.config/elite/displays.conf" ]; then
+    fail "E107/display: o gate do watch" "gravou o default do boot com o apply pendente (stamp fail) — o envenenamento que destruiu o conf de 200 Hz do rig"
+else
+    ok "E107/display: o watch NÃO grava com o apply pendente (o default do boot não é escolha — o conf salvo é a fonte da verdade até o arranjo assentar)"
+fi
+assert_grep "$D107/home/.cache/elite/display.log" 'fonte da verdade' \
+    "E107/display: o gate do watch fala no papel QUANDO recusa (a perícia do próximo dump lê a decisão)"
+
+# (3) O REGISTRADOR DE APPIMAGE — de ponta a ponta com o motor de verdade
+AI107="$(mktemp -d "$WORK/e107a.XXXXXX")"
+mkdir -p "$AI107/home"
+cat > "$AI107/jogo-prova.AppImage" <<'AISH'
+#!/bin/sh
+case "$1" in
+  --appimage-extract)
+    mkdir -p "$PWD/squashfs-root" 2>/dev/null || true
+    printf '[Desktop Entry]\nType=Application\nName=Jogo de Prova\nIcon=jogo-prova\nCategories=Game;\n' > "$PWD/squashfs-root/jogo.desktop"
+    printf 'PNG-FALSO\n' > "$PWD/squashfs-root/jogo-prova.png"
+    ;;
+esac
+exit 0
+AISH
+chmod +x "$AI107/jogo-prova.AppImage"
+env HOME="$AI107/home" XDG_DATA_HOME="$AI107/home/.local/share" \
+    sh "$REPO/elite/airootfs/usr/local/bin/craft-appimage" "$AI107/jogo-prova.AppImage" \
+    >"$AI107/out.txt" 2>&1 || true
+assert_file "$AI107/home/.local/share/applications/appimage-jogo-prova.desktop" \
+    "E107/appimage: o registro nasceu (.desktop do usuário — o fuzzel/dock/drawer enxergam o AppImage)"
+assert_grep "$AI107/home/.local/share/applications/appimage-jogo-prova.desktop" "^Exec=$AI107/jogo-prova.AppImage" \
+    "E107/appimage: o Exec aponta para o ARQUIVO ORIGINAL (não para o AppRun extraído — o registro dá rosto, não copia o app)"
+assert_file "$AI107/home/.local/share/icons/hicolor/512x512/apps/appimage-jogo-prova.png" \
+    "E107/appimage: o ícone saiu DE DENTRO do próprio arquivo (o rosto de programa nativo que o dono pediu)"
+env HOME="$AI107/home" XDG_DATA_HOME="$AI107/home/.local/share" \
+    sh "$REPO/elite/airootfs/usr/local/bin/craft-appimage" --list >"$AI107/list.txt" 2>&1 || true
+assert_grep "$AI107/list.txt" 'Jogo de Prova' \
+    "E107/appimage: a lista mostra o NOME REAL (Name= lido do .desktop extraído — o grep universal, zero dependência)"
+env HOME="$AI107/home" XDG_DATA_HOME="$AI107/home/.local/share" \
+    sh "$REPO/elite/airootfs/usr/local/bin/craft-appimage" --remove jogo-prova >/dev/null 2>&1 || true
+if [ -e "$AI107/home/.local/share/applications/appimage-jogo-prova.desktop" ]; then
+    fail "E107/appimage: o --remove" "o registro não saiu — a porta de desafixar o AppImage está morta"
+else
+    ok "E107/appimage: o --remove tira o registro (o arquivo ORIGINAL fica — a reversibilidade é a lei)"
+fi
+
+# (4) A GESTÃO DE FLATPAKS — os verbos com o stub de prova
+FP107="$(mktemp -d "$WORK/e107f.XXXXXX")"
+mkdir -p "$FP107/bin" "$FP107/home"
+cat > "$FP107/bin/flatpak" <<'FPSH'
+#!/bin/sh
+echo "flatpak $*" >> "$FP_LOG"
+case "$1" in
+  --version) echo "flatpak 1.12.7-stub" ;;
+  uninstall) echo "Nothing unused to uninstall" ;;
+esac
+exit 0
+FPSH
+chmod +x "$FP107/bin/flatpak"
+env PATH="$FP107/bin:$PATH" HOME="$FP107/home" XDG_CACHE_HOME="$FP107/home/.cache" FP_LOG="$FP107/calls.log" \
+    sh "$REPO/elite/airootfs/usr/local/bin/craft-flatpak" status >"$FP107/st.txt" 2>&1 || true
+assert_grep "$FP107/st.txt" 'instalado \(1.12.7-stub\)' \
+    "E107/flatpak: o status lê a versão viva (o veredito sem tocar nada — a escola do craft-game)"
+env PATH="$FP107/bin:$PATH" HOME="$FP107/home" XDG_CACHE_HOME="$FP107/home/.cache" FP_LOG="$FP107/calls.log" \
+    sh "$REPO/elite/airootfs/usr/local/bin/craft-flatpak" limpar >/dev/null 2>&1 || true
+assert_grep "$FP107/calls.log" 'uninstall --unused -y --delete-data' \
+    "E107/flatpak: a limpeza varre runtimes E DADOS órfãos no mesmo gesto (o 'leftover Flatpak data' que o dono nomeou na letra)"
+assert_grep "$FP107/home/.cache/elite/flatpak.log" 'nada órfão' \
+    "E107/flatpak: o veredito honesto de 'nada a limpar' fica no papel (a mensagem REAL do flatpak casa — E33)"
+
+rm -rf "$S107" "$D107" "$AI107" "$FP107"
+
 phase_end

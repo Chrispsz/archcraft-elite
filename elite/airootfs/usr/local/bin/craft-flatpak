@@ -1,0 +1,209 @@
+#!/bin/sh
+# ═══════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · craft-flatpak — a gestão de Flatpaks SEM TERMINAL (E107)
+# ═══════════════════════════════════════════════════════════════════════════
+# O RELATO DO DONO: "Same goes for Flatpaks—having some kind of store or
+# management tool that handles Flatpaks really well, or at least
+# simplifies installing, uninstalling, and cleaning up leftover Flatpak
+# data". O flatpak e o remote Flathub já viajam na casa desde a E97
+# (packages.add + elite-flathub no hook de todo install/upgrade) — o que
+# faltava era a PORTA: o dono tinha que abrir terminal e decorar verbo
+# para instalar, remover e limpar dados órfãos. Este bin é a porta: o
+# motor da casa (craft-menu) com os verbos do flatpak e o desfecho na
+# tela (notify — o stdout do menu do desktop morre no ar).
+#
+# LEIS DA CASA:
+#  · HONESTO SEM FLATPAK: ausência de flatpak é estado nomeado, não erro
+#    mudo (o status diz AUSENTE e a porta de adoção: sudo craft-update —
+#    a âncora E94 traz o pacote; a ISO já nasce com ele).
+#  · O DADOS ÓRFÃOS TÊM LIMPEZA PRÓPRIA (o dono pediu 'cleaning up
+#    leftover Flatpak data' na letra): flatpak uninstall --unused com
+#    --delete-data — runtimes sem app E os dados que ficam de apps que
+#    saíram saem no mesmo gesto, com o resultado no papel.
+#  · A BUSCA PEDE REDE: flatpak search sem rede morre — o erro é
+#    traduzido em aviso na tela com a causa (nada de morte calada).
+#  · log em ~/.cache/elite/flatpak.log (teto 256 KiB — família E36);
+#    feedback de AÇÃO em -u normal (a escola E106 do craft-game: o que o
+#    dono clicou sobe na tela e some em segundos).
+#
+# Uso:
+#   craft-flatpak              o MENU (o item 'Flatpaks…' do botão direito)
+#   craft-flatpak status       o veredito sem tocar nada
+#   craft-flatpak instalar     busca + lista + instala (o assistente)
+#   craft-flatpak remover      lista os apps instalados e remove
+#   craft-flatpak limpar       runtimes órfãos + dados órfãos (--delete-data)
+#   craft-flatpak atualizar    flatpak update de tudo
+# ═══════════════════════════════════════════════════════════════════════════
+set -u
+
+LOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/flatpak.log"
+
+flog() {
+    mkdir -p "${LOG%/*}" 2>/dev/null || true
+    if [ -f "$LOG" ] && [ "$(wc -c <"$LOG" 2>/dev/null || echo 0)" -gt 262144 ]; then
+        tail -c 131072 "$LOG" > "$LOG.tmp" 2>/dev/null && mv -f "$LOG.tmp" "$LOG" || true
+    fi
+    printf '[%s] %s\n' "$(date '+%F %T')" "$*" >>"$LOG" 2>/dev/null || true
+    return 0
+}
+avisa() { # $1=titulo $2=texto — a AÇÃO do dono sobe na tela
+    command -v notify-send >/dev/null 2>&1 || return 0
+    timeout 5 notify-send -a 'Elite · Flatpaks' -u normal -t 6000 "$1" "$2" >/dev/null 2>&1 || true
+    return 0
+}
+
+tem_flatpak() { command -v flatpak >/dev/null 2>&1; }
+
+# ── status: o veredito sem tocar nada (a escola do craft-game) ───────────
+do_status() {
+    echo "══════════ craft-flatpak status — o veredito sem tocar nada ══════════"
+    if ! tem_flatpak; then
+        echo "flatpak             AUSENTE (sudo craft-update — a âncora E94 adota)"
+        return 1
+    fi
+    printf 'flatpak             instalado (%s)\n' "$(flatpak --version 2>/dev/null | awk '{print $2}')"
+    printf 'remotes             %s\n' "$(flatpak remotes --columns=name 2>/dev/null | grep -v '^Name$' | tr '\n' ' ')"
+    n_apps="$(flatpak list --app --columns=application 2>/dev/null | grep -c .)"
+    printf 'apps instalados     %s\n' "$n_apps"
+    if [ -d /var/lib/flatpak ]; then
+        printf 'disco do sistema    %s MiB\n' "$(du -sm /var/lib/flatpak 2>/dev/null | awk '{print $1}')"
+    fi
+    if [ -d "${XDG_DATA_HOME:-$HOME/.local/share}/flatpak" ]; then
+        printf 'disco do usuário    %s MiB\n' "$(du -sm "${XDG_DATA_HOME:-$HOME/.local/share}/flatpak" 2>/dev/null | awk '{print $1}')"
+    fi
+    printf 'papel da casa: %s\n' "$LOG"
+    return 0
+}
+
+# ── instalar: a busca do dono vira lista, a lista vira instala ────────────
+do_instalar() {
+    if ! tem_flatpak; then
+        avisa 'Flatpaks' 'O flatpak não está no sistema — sudo craft-update traz o suporte (a âncora E94)'
+        return 1
+    fi
+    command -v zenity >/dev/null 2>&1 || { avisa 'Flatpaks' 'O assistente de busca precisa do zenity — flatpak search <nome> no terminal'; return 1; }
+    termo="$(zenity --entry --title='Instalar Flatpak' --text='Que aplicativo procurar no Flathub?' 2>/dev/null)" || return 0
+    [ -n "$termo" ] || return 0
+    achados="$(flatpak search "$termo" --columns=application,description 2>/dev/null | head -12)" || true
+    if [ -z "$achados" ]; then
+        flog "instalar: busca por '$termo' voltou vazia (sem rede? termo sem match?)"
+        avisa 'Flatpaks' "Nada achado para '$termo' — confira o nome ou a rede (flatpak search pede internet)"
+        return 1
+    fi
+    escolha="$(printf '%s\n' "$achados" | craft-menu --title='Flatpaks — qual instalar?')" || return 0
+    [ -n "$escolha" ] || return 0
+    ref="$(printf '%s' "$escolha" | awk -F'\t' '{print $1}')"
+    [ -n "$ref" ] || ref="$escolha"
+    flog "instalar: '$ref' (busca por '$termo')"
+    if flatpak install -y flathub "$ref" >/dev/null 2>&1; then
+        flog "instalar: '$ref' OK"
+        avisa 'Flatpak instalado' "'$ref' — procure por ele no Aplicativos/fuzzel"
+    else
+        flog "instalar: '$ref' FALHOU (rc=$?)"
+        avisa 'Flatpaks' "'$ref' não instalou — detalhe em ~/.cache/elite/flatpak.log"
+        return 1
+    fi
+    return 0
+}
+
+# ── remover: a lista REAL dos instalados, um clique tira ────────────────
+do_remover() {
+    if ! tem_flatpak; then
+        avisa 'Flatpaks' 'O flatpak não está no sistema — nada a remover'
+        return 1
+    fi
+    apps="$(flatpak list --app --columns=application,origin 2>/dev/null | grep -v '^APPLICATION' || true)"
+    if [ -z "$apps" ]; then
+        avisa 'Flatpaks' 'Nenhum app Flatpak instalado — nada a remover'
+        return 0
+    fi
+    escolha="$(printf '%s\n' "$apps" | craft-menu --title='Flatpaks — qual remover?')" || return 0
+    [ -n "$escolha" ] || return 0
+    ref="$(printf '%s' "$escolha" | awk -F'\t' '{print $1}')"
+    [ -n "$ref" ] || ref="$escolha"
+    flog "remover: '$ref'"
+    if flatpak uninstall -y "$ref" >/dev/null 2>&1; then
+        flog "remover: '$ref' OK (os dados de usuário ficam — o 'Limpar' varre os órfãos)"
+        avisa 'Flatpak removido' "'$ref' saiu (os dados órfãos saem no item Limpar)"
+    else
+        flog "remover: '$ref' FALHOU (rc=$?)"
+        avisa 'Flatpaks' "'$ref' não saiu — detalhe em ~/.cache/elite/flatpak.log"
+        return 1
+    fi
+    return 0
+}
+
+# ── limpar: runtimes órfãos + os DADOS órfãos no mesmo gesto ─────────────
+do_limpar() {
+    if ! tem_flatpak; then
+        avisa 'Flatpaks' 'O flatpak não está no sistema — nada a limpar'
+        return 1
+    fi
+    antes="$(du -sm /var/lib/flatpak 2>/dev/null | awk '{print $1}')"
+    saida="$(flatpak uninstall --unused -y --delete-data 2>&1)" || true
+    depois="$(du -sm /var/lib/flatpak 2>/dev/null | awk '{print $1}')"
+    # o veredito honesto do flatpak quando não há órfãos: 'Nothing unused
+    # to uninstall' (e variações de versão) — case-insensitive para não
+    # prometer limpeza que não houve (E33)
+    if printf '%s' "$saida" | grep -qi 'nothing\|no unused'; then
+        flog "limpar: nada órfão (runtimes e dados já cobertos por apps)"
+        avisa 'Flatpaks' 'Nada órfão — runtimes e dados já pertencem a apps instalados'
+        return 0
+    fi
+    flog "limpar: runtimes/dados órfãos varridos (${antes:-?} MiB → ${depois:-?} MiB no /var/lib/flatpak)"
+    avisa 'Flatpaks limpos' "Runtimes e dados órfãos saíram — o log soma o que foi (${antes:-?} → ${depois:-?} MiB)"
+    return 0
+}
+
+# ── atualizar: tudo, sem perguntas de terminal ────────────────────────────
+do_atualizar() {
+    if ! tem_flatpak; then
+        avisa 'Flatpaks' 'O flatpak não está no sistema — nada a atualizar'
+        return 1
+    fi
+    flog "atualizar: flatpak update -y (a pedido do menu)"
+    if flatpak update -y >/dev/null 2>&1; then
+        flog "atualizar: OK"
+        avisa 'Flatpaks atualizados' 'Tudo no Flathub em dia'
+    else
+        flog "atualizar: falhou (sem rede? — rc=$?)"
+        avisa 'Flatpaks' 'A atualização falhou — confira a rede (detalhe em ~/.cache/elite/flatpak.log)'
+        return 1
+    fi
+    return 0
+}
+
+# ── o MENU (a porta do botão direito — o motor único da casa) ────────────
+do_menu() {
+    if ! command -v craft-menu >/dev/null 2>&1; then
+        do_status
+        exit 0
+    fi
+    escolha="$(printf '%s\n' \
+        'Status' \
+        'Instalar aplicativo… (busca no Flathub)' \
+        'Remover aplicativo…' \
+        'Limpar dados órfãos' \
+        'Atualizar todos' \
+        | craft-menu --title='Flatpaks')" || exit 0
+    case "$escolha" in
+        Status*)      do_status ;;
+        Instalar*)    do_instalar ;;
+        Remover*)     do_remover ;;
+        Limpar*)      do_limpar ;;
+        Atualizar*)   do_atualizar ;;
+        *) exit 0 ;;
+    esac
+    exit 0
+}
+
+case "${1:-menu}" in
+    menu|"")   do_menu ;;
+    status)    do_status; exit $? ;;
+    instalar)  do_instalar; exit $? ;;
+    remover)   do_remover; exit $? ;;
+    limpar)    do_limpar; exit $? ;;
+    atualizar) do_atualizar; exit $? ;;
+    -h|--help|uso) sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) echo "uso: craft-flatpak [status|instalar|remover|limpar|atualizar]" >&2; exit 2 ;;
+esac

@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
-# craft-clean — limpeza do sistema (v2 — E88)
+# craft-clean — limpeza do sistema (v3 — E107)
 # ═══════════════════════════════════════════════════════════════════════
 # v1: cache do pacman, órfãos e journal.
 # v2 (E88 — a diretriz do dono: "mexe no limpeza"): a limpeza deixa de ser
 # três comandos mudos e vira UM relatório honesto, rápido e sem sustos:
-#   · TAMANHOS ANTES/DEPOIS — o espaço liberado é PROVA, não impressão
-#     (du -sm do cache do pacman; o número aparece no fim, com a fonte);
-#   · LIXEIRA — a lixeira do desktop também é disco (gio trash --empty
-#     quando o gio existe — guardado, best-effort);
-#   · FLATPAK — runtimes órfãos (flatpak uninstall --unused) quando o
-#     flatpak existe; no modo --yes entra sem perguntar;
-#   · MODO --yes — não interativo (script/timer/menu): órfãos e flatpak
-#     saem sem pergunta; sem TTY o read não morre (a lei v2.10.6 mantida);
-#   · JORNAL — retém 2 semanas (o vacuum da v1 continua).
+# TAMANHOS ANTES/DEPOIS, LIXEIRA, FLATPAK órfãos, MODO --yes, pausa final.
+# v3 (E107 — o 'bem completinho' do dono: "um script de limpeza que faz
+# uma limpeza realmente aprofundada… que limpa cache do octopi, todos
+# os pacotes, versões antigas que não estão sendo mais usadas, pacotes
+# mortos"): os CACHES DE USUÁRIO que nenhum passo cobria entram com
+# tamanho medido no relatório — octopi (o gerenciador da casa deixa
+# cache de ícones/imports), yay (build dirs de AUR — a loja de fábrica
+# E97) e thumbnails (miniaturas de vídeo/foto órfãs). O relatório
+# soma tudo que saiu, com a fonte de cada número.
 # A ordem importa: tudo que só LÊ vem antes; o que DESTRÓI pede raiz —
 # sudo falho = passo pulado COM aviso (nunca morte calada).
 # ═══════════════════════════════════════════════════════════════════════
@@ -81,6 +81,44 @@ else
   echo "  (gio ausente — pulado)"
 fi
 
+# E107 — OS CACHES DE USUÁRIO (o 'bem completinho'): cada um medido ANTES,
+# varrido e contado no relatório final. Todos são ~/.cache — domínio do
+# usuário, zero sudo, tudo regenerável por desenho (índices e miniaturas
+# reconstroem sozinhos no uso; o build do yay refaz no próximo -S).
+step "octopi: cache do gerenciador"
+lib_user=0
+if [ -d "$HOME/.cache/octopi" ]; then
+  mib="$(du -sm "$HOME/.cache/octopi" 2>/dev/null | awk '{print $1}')"
+  mib="${mib:-0}"
+  rm -rf -- "$HOME/.cache/octopi"/* 2>/dev/null || true
+  echo "  $mib MiB varridos (ícones/imports antigos — reconstroem no uso)"
+  lib_user=$((lib_user + mib))
+else
+  echo "  (sem cache do octopi — nada a fazer)"
+fi
+
+step "yay: cache de build do AUR"
+if [ -d "$HOME/.cache/yay" ]; then
+  mib="$(du -sm "$HOME/.cache/yay" 2>/dev/null | awk '{print $1}')"
+  mib="${mib:-0}"
+  rm -rf -- "$HOME/.cache/yay"/* 2>/dev/null || true
+  echo "  $mib MiB varridos (fontes/pkgbuilds de builds passados — o próximo -S baixa de novo)"
+  lib_user=$((lib_user + mib))
+else
+  echo "  (sem cache do yay — nada a fazer)"
+fi
+
+step "thumbnails: miniaturas órfãs"
+if [ -d "$HOME/.cache/thumbnails" ]; then
+  mib="$(du -sm "$HOME/.cache/thumbnails" 2>/dev/null | awk '{print $1}')"
+  mib="${mib:-0}"
+  rm -rf -- "$HOME/.cache/thumbnails"/* 2>/dev/null || true
+  echo "  $mib MiB varridos (miniaturas de mídia — reconstroem na navegação)"
+  lib_user=$((lib_user + mib))
+else
+  echo "  (sem thumbnails — nada a fazer)"
+fi
+
 step "flatpak: runtimes órfãos"
 if command -v flatpak >/dev/null 2>&1; then
   if (( ASSUME_YES == 1 )); then
@@ -99,6 +137,7 @@ depois="$(cache_mib)"
 liberado=$(( antes - depois ))
 (( liberado < 0 )) && liberado=0
 printf '\n✔ limpo. cache do pacman: %s MiB → %s MiB (liberado: %s MiB)\n' "$antes" "$depois" "$liberado"
+printf '✔ caches de usuário (octopi/yay/thumbnails): %s MiB liberados (a fonte de cada número acima do passo dele)\n' "$lib_user"
 # E96 — O RELATÓRIO NÃO SOME (o relato do dono: "o botão de limpeza do
 # menu do sistema não funciona" — o item existia, o foot -e fechava na
 # hora e o dono via um flash sem conteúdo; e o passo principal vivia

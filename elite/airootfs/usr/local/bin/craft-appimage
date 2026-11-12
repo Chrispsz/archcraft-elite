@@ -23,6 +23,9 @@
 #   craft-appimage <arquivo.AppImage>   registra (ou re-registra)
 #   craft-appimage                      sem arquivo → o SELETOR (zenity)
 #                                      — a porta do usuário leigo
+#   craft-appimage menu                 a porta do BOTÃO DIREITO (E107):
+#                                      registrar / remover / ver — o
+#                                      item 'AppImages…' do menu chama AQUI
 #   craft-appimage --list               o que está registrado
 #   craft-appimage --remove <nome>      tira o registro (o .AppImage
 #                                      ORIGINAL nunca é apagado)
@@ -52,13 +55,23 @@ APPS_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
 ICON_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/icons/hicolor"
 
 uso() {
-    sed -n '2,32p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n "2,35p" "$0" | sed 's/^# \{0,1\}//'
     exit 0
 }
 case "${1:-}" in -h|--help|uso) uso ;; esac
 
 die() { printf 'craft-appimage: ✖ %s\n' "$*" >&2; exit 1; }
 say() { printf 'craft-appimage: %s\n' "$*"; }
+MENU=0
+# E107 — no menu do botão direito o stdout morre no ar (o labwc lança
+# desapegado): o erro também SOBE NA TELA — morte calada nunca mais.
+die_menu() {
+    printf 'craft-appimage: ✖ %s\n' "$*" >&2
+    if [ "$MENU" -eq 1 ] && command -v notify-send >/dev/null 2>&1; then
+        timeout 5 notify-send -a Elite -u normal -t 8000 'AppImages' "✖ $*" >/dev/null 2>&1 || true
+    fi
+    exit 1
+}
 
 # ── --list: o que a casa registrou ─────────────────────────────────────
 if [ "${1:-}" = "--list" ]; then
@@ -66,8 +79,8 @@ if [ "${1:-}" = "--list" ]; then
     for d in "$APPS_DIR"/appimage-*.desktop; do
         [ -e "$d" ] || continue
         n=$((n + 1))
-        nome="$(rg -m1 '^Name=' "$d" | cut -d= -f2-)"
-        exec_="$(rg -m1 '^Exec=' "$d" | cut -d= -f2- | cut -d' ' -f1)"
+        nome="$(grep -m1 '^Name=' "$d" | cut -d= -f2-)"
+        exec_="$(grep -m1 '^Exec=' "$d" | cut -d= -f2- | cut -d' ' -f1)"
         printf '  ✓ %s — %s\n' "${d##*/appimage-}" "${nome:-?}"
         printf '      %s\n' "$exec_"
     done
@@ -89,6 +102,64 @@ if [ "${1:-}" = "--remove" ]; then
     exit 0
 fi
 
+# ── menu: A PORTA DO BOTÃO DIREITO (E107 — o craft-appimage da E97 era
+# CLI invisível: a integração existia mas ninguém a alcançava sem
+# terminal — o dono pediu 'adicionar um AppImage e ele já cria o ícone
+# e o atalho como um programa nativo… sem tratar como executável
+# portável'. O menu do desktop chama 'craft-appimage menu' — o motor
+# craft-menu com as mesmas portas do CLI: registrar (seletor), remover
+# registro (a lista REAL dos registrados) e ver (terminal com pausa).
+if [ "${1:-}" = "menu" ]; then
+    command -v craft-menu >/dev/null 2>&1 \
+        || die "craft-menu ausente — use: craft-appimage <arquivo.AppImage>"
+    MENU=1
+    reg=0
+    for d in "$APPS_DIR"/appimage-*.desktop; do
+        [ -e "$d" ] || continue
+        reg=$((reg + 1))
+    done
+    escolha="$(printf '%s\n' \
+        'Registrar AppImage… (seletor de arquivos)' \
+        'Remover registro… (o ícone sai; o arquivo fica)' \
+        'Ver registrados (terminal)' \
+        | craft-menu --title="AppImages — ${reg} registrado(s)")" || exit 0
+    case "$escolha" in
+        Registrar*)
+            # cai no fluxo abaixo com o seletor zenity — a variável MENU
+            # faz o desfecho subir na tela também
+            ;;
+        Remover*)
+            if [ "$reg" -eq 0 ]; then
+                timeout 5 notify-send -a Elite -u normal -t 5000 'AppImages' 'Nenhum AppImage registrado ainda — o item Registrar cria o primeiro' >/dev/null 2>&1 || true
+                exit 0
+            fi
+            lista=""
+            for d in "$APPS_DIR"/appimage-*.desktop; do
+                [ -e "$d" ] || continue
+                stem_="${d##*/appimage-}"; stem_="${stem_%.desktop}"
+                nome_="$(grep -m1 '^Name=' "$d" 2>/dev/null | cut -d= -f2-)"
+                lista="${lista}${nome_:-?} (${stem_})
+"
+            done
+            escolha2="$(printf '%s' "$lista" | craft-menu --title='AppImages — qual registro sai?')" || exit 0
+            id_="$(printf '%s' "$escolha2" | sed 's/.* (\([^)]*\))$/\1/')"
+            [ -n "$id_" ] || exit 0
+            rm -f "$APPS_DIR/appimage-$id_.desktop"
+            rm -f "$ICON_DIR/scalable/apps/appimage-$id_.svg" \
+                  "$ICON_DIR/512x512/apps/appimage-$id_.png" 2>/dev/null || true
+            command -v update-desktop-database >/dev/null 2>&1 \
+                && update-desktop-database "$APPS_DIR" >/dev/null 2>&1 || true
+            timeout 5 notify-send -a Elite -u normal -t 4000 'AppImages' "registro '$id_' removido (o .AppImage original segue onde estava)" >/dev/null 2>&1 || true
+            exit 0 ;;
+        Ver*)
+            command -v foot >/dev/null 2>&1 \
+                && foot -e sh -c 'craft-appimage --list; echo; read -r -p "Enter para fechar… " _' \
+                || die_menu "foot ausente — use: craft-appimage --list"
+            exit 0 ;;
+        *) exit 0 ;;
+    esac
+fi
+
 # ── o alvo: argumento ou o SELETOR do usuário leigo ────────────────────
 ALVO="${1:-}"
 if [ -z "$ALVO" ]; then
@@ -98,7 +169,7 @@ if [ -z "$ALVO" ]; then
         || exit 0
     [ -n "$ALVO" ] || exit 0
 fi
-[ -f "$ALVO" ] || die "arquivo não encontrado: $ALVO"
+[ -f "$ALVO" ] || die_menu "arquivo não encontrado: $ALVO"
 case "$ALVO" in
     *.[Aa]pp[Ii]mage) ;;
     *) say "aviso: '$ALVO' não tem cara de AppImage — registrando mesmo assim" ;;
@@ -125,14 +196,14 @@ PALCO="$(mktemp -d /tmp/elite-appimage.XXXXXX)" || die "mktemp falhou"
     "$ALVO_ABS" --appimage-extract '*.svg' >/dev/null 2>&1 || true
 )
 SQ="$PALCO/squashfs-root"
-[ -d "$SQ" ] || die "a extração não entregou nada ('$ALVO' é um AppImage válido?)"
+[ -d "$SQ" ] || die_menu "a extração não entregou nada ('$ALVO' é um AppImage válido?)"
 
 DT="$(find "$SQ" -name '*.desktop' -type f 2>/dev/null | head -1)"
-[ -n "$DT" ] || die "o AppImage não carrega .desktop (fora do padrão) — registro manual em $APPS_DIR"
+[ -n "$DT" ] || die_menu "o AppImage não carrega .desktop (fora do padrão) — registro manual em $APPS_DIR"
 
 # os campos do .desktop extraído (Name/Icon/Categories/Categories —
 # Exec NÃO: o da casa aponta para o ARQUIVO ORIGINAL, não para o AppRun)
-pega() { rg -m1 "^$1=" "$DT" 2>/dev/null | cut -d= -f2- | head -1; }
+pega() { grep -m1 "^$1=" "$DT" 2>/dev/null | cut -d= -f2- | head -1; }
 NOME="$(pega Name)";    [ -n "$NOME" ] || NOME="$STEM"
 CATS="$(pega Categories)"; [ -n "$CATS" ] || CATS="Utility"
 COM="$(pega Comment)"
@@ -175,3 +246,9 @@ command -v update-desktop-database >/dev/null 2>&1 \
 say "registrado: $NOME"
 say "  menu/fuzzel/dock: procure por '$NOME' (o índice da dock re-ler os .desktops sozinho)"
 say "  arquivo original: $ALVO_ABS (mudou de lugar? re-registre)"
+# E107 — O DESFECHO NA TELA (no menu do botão direito o stdout morre no
+# ar — o dono pediu: 'adiciono o AppImage e ele já nasce com ícone e
+# atalho como programa nativo'; o aviso confirma que nasceu)
+if [ "$MENU" -eq 1 ] && command -v notify-send >/dev/null 2>&1; then
+    timeout 5 notify-send -a Elite -u normal -t 6000 'AppImage registrado' "$NOME — já está no Aplicativos/fuzzel/dock (procure por '$NOME')" >/dev/null 2>&1 || true
+fi

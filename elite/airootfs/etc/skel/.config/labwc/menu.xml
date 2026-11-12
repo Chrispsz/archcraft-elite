@@ -2,42 +2,49 @@
 <!-- entregue por craft-rice — a pele do menu (E104): rig vivo renova pela
      gramática fóssil/marcador; menu editado pelo dono = intocável -->
 <!--
-  Archcraft Cockpit · labwc menu.xml — PERFIL ELITE (v2)
+  Archcraft Cockpit · labwc menu.xml — PERFIL ELITE (v3)
   ══════════════════════════════════════════════════════════════════════════
-  E104 (v2) — O RÓTULO NUNCA NOMEIA O PACOTE (ordem do dono: "fica
-  aparecendo os nomes dos pacotes"): os rótulos que carregavam o nome do
-  pacote ou do atalho entre parênteses (Leitor de PDF, Calculadora,
-  Lock, Captura de tela) viram rótulos limpos — o EXEC resolve (a
-  varredura do Navegador generalizada: papers→evince→zathura→okular;
-  qalculate→gnome-calculator).
-  E A PORTA QUE FALTAVA: "Desafixar app da dock…" — o craft-pin rm
-  existia desde a v2.0 e era CLI invisível (o dono: "eu consigo fixar,
-  mas eu não consigo tirar um aplicativo da dock. Como é que eu faço?").
-  E A PELE: este arquivo viaja NO PACOTE (build.sh) e alcança homes
-  vivos via craft-rice — o menu do rig deixa de ser fóssil da ISO que o
-  instalou (o menu do rig v2.10.28 não tinha nem o Displays… da E89).
+  E107 — A LEI DO COMENTÁRIO (a ferida que comeu o menu inteiro): a espec
+  XML PROÍBE dois hífens seguidos dentro de comentário. A v2.11.4 citou
+  um verbo de CLI prefixado por dois hífens na linha 74 e o libxml2 do
+  labwc REJEITOU O ARQUIVO
+  INTEIRO: todo rig da dose 1.0-50 caiu no menu de fábrica de 3 itens
+  (Terminal, Reconfigure, Exit) e o dono perdeu TODAS as portas de uma
+  vez — print, atualização, game mode, gaveta da dock, telas, lock ('de
+  21 para 3', o dump 200537: o item 'Reconfigurar' que não faz nada é o
+  do labwc de fábrica, não da casa). Prova periciada: python3 parse
+  'not well-formed line 74 column 65' + o pacote 1.0-50 byte a byte
+  igual ao repo. A suíte agora PARSEIA este arquivo como XML de verdade
+  (contrato E107 na fase 2) e o craft-rice RECUSA pele que não parseia
+  (a pele viva do home segue no lugar — a defesa final do rig).
   ══════════════════════════════════════════════════════════════════════════
-  v1.7 — CURADORIA DO DONO ("deixa só os importantes", "sem muita
-  complexidade"): SAÍRAM os itens de ferramentas do antigo submenu
-  Cockpit (todos CONTINUAM instalados e vivem no Launchpad, que busca e
-  categoriza), a lista de janelas que o botão direito abria (o dock é o
-  comutador de janelas), o item de reconfiguração do compositor
-  (ferramenta de dev) e o item de encerrar a sessão do compositor
-  (mis-click perigoso; o menu de sessão já tem sair).
-    · FICARAM: os apps do dia-1 + as 2 ações de sistema que o dono
-      elegeu (Atualizar · Limpeza) + Launchpad/Fixar + lock/idle/sessão
-      + Reboot/Desligar. 15 itens, texto puro (v2.2: sem tema de ícones).
+  E107 — A CURADORIA DO DONO (a auditoria que ele mandou fazer: 'uma
+  definição só do que realmente é importante no botão direito, um menu
+  rápido, evitar o terminal, evitar ações de teclado e ações escondidas
+  no sistema'): o menu é de AÇÕES DE SISTEMA. Programas vivem no
+  Aplicativos (gaveta) — Navegador, Arquivos e Calculadora SAEM (o
+  dono: 'para abrir programas padrão já tem a parte de aplicativos';
+  a curadoria anterior tirou Editor e Leitor de PDF pelo mesmo motivo).
+  O Terminal FICA (o dono, palavra por palavra: 'pode ter o terminal,
+  que é um negócio mais universal do sistema'). ENTRAM as portas de
+  pacote que faltavam: AppImages… (o registrador da casa — ícone e menu
+  para o arquivo único) e Flatpaks… (instalar, remover e limpar dados
+  sem terminal) — 'a integração entre os formatos de pacote' do
+  relato do dono.
+  ══════════════════════════════════════════════════════════════════════════
   ESTRUTURA herdada do menu do criador do Archcraft (obmenu-generator;
   o labwc lê menu.xml ESTÁTICO). Sintaxe: labwc docs/menu.xml +
   labwc-menu(5) (formato openbox_menu).
 
-  DUAS REGRAS COM CONTRATO CI (v1.6.3 — a 2ª substituída na v2.2):
+  DUAS REGRAS COM CONTRATO CI (v1.6.3; a 2ª da v2.2):
     1. TODO Execute command=X tem binário REAL na ISO (packages.add ∪
        /usr/local/bin ∪ allowlist base) — o debloat não quebra item em
        silêncio.
     2. (v2.2, diretriz do dono — leveza radical) NENHUM item carrega
-       atributo de ícone: o tema de ícones saiu da ISO e o menu é TEXTO
-       PURO — nenhum caminho de tema pode voltar a este arquivo.
+       atributo de ícone: o menu é TEXTO PURO.
+    3. (E107) NENHUM comentário deste arquivo contém dois hífens
+       seguidos — a espec XML proíbe e o labwc rejeita o arquivo
+       inteiro (a suíte parseia: o juiz é o parser, não o olho).
 -->
 <openbox_menu>
 
@@ -64,52 +71,26 @@
   </menu>
 
   <!-- root-menu (botão direito no desktop)
-       E106 — O ENXUGAMENTO QUE O DONO MANDOU ("o menu cresceu… muita coisa
-       aqui pode simplesmente ser inútil e pode ser removida… não vamos
-       sair adicionando um monte de coisa"): 21 → 17 itens, NADA novo —
-       · Editor e Leitor de PDF MORREM (Terminal + Aplicativos cobrem —
-         o dono não pediu nenhum dos dois por nome; eram volume morto);
-       · "Verificar atualizações" MORRE (o dono: "os dois é a mesma
-         coisa. No caso o atualizar sistema ele já verifica e já
-         atualiza, se necessário" — provado no craft-update: o --check é
-         read-only sobre a base LOCAL, o -Syu sincroniza E atualiza);
-       · Fixar + Desafixar VIRAM UM ("Apps da dock…" — a gaveta com
-         marcador ✓/· que alterna e reabre, laço que fecha só no
-         ESC/clique-fora — o fluxo que o dono desenhou);
-       · "Sessão (menu gráfico)" vira "Sair da sessão" (o dono: "só não
-         tem sair da sessão ali… poderia levar direto para sessão" — o
-         menu completo do power segue vivo no ⏻ da topbar e nos atalhos);
-       · Displays ganha o rótulo que diz o que faz (o dono: "esse
-         display, eu não sei nem para que é isso"). -->
+       E107: AÇÕES DE SISTEMA, nada de programas soltos (o dono:
+       'trazer pelo menos o essencial, o importante… mais prático, mais
+       direto, o sistema configurável de verdade'). A ordem é a rotina:
+       capturar, telas, atualizar, limpar, pacotes, dock, jogo, lock,
+       sair. -->
   <menu id="root-menu">
-    <item label="Navegador">
-      <action name="Execute" command="sh -c 'for b in brave librewolf chromium thorium-browser qutebrowser; do command -v &quot;$b&quot; &gt;/dev/null &amp;&amp; exec &quot;$b&quot;; done; exec xdg-open https://archlinux.org'" />
-    </item>
-    <item label="Arquivos">
-      <action name="Execute" command="sh -c 'exec &quot;${FILEMANAGER:-thunar}&quot;'" />
-    </item>
+    <!-- o dono: 'pode ter o terminal, que é um negócio mais universal
+         assim do sistema' -->
     <item label="Terminal">
       <action name="Execute" command="sh -c 'exec &quot;${TERMINAL:-foot}&quot;'" />
     </item>
-    <!-- E104 — o rótulo não nomeia o pacote: a varredura resolve pelo que
-         EXISTE no sistema (a escola do Navegador; o dono: "de acordo com o
-         que está, com o que existe no sistema"). E106: o ramo vazio AVISA
-         (a classe dnotify do craft-display — morte calada nunca mais). -->
-    <item label="Calculadora">
-      <action name="Execute" command="sh -c 'for c in qalculate-gtk gnome-calculator; do command -v &quot;$c&quot; &gt;/dev/null &amp;&amp; exec &quot;$c&quot;; done; notify-send -a Elite -u normal -t 8000 &quot;Calculadora não encontrada&quot; &quot;Nenhum binário conhecido no sistema — o sudo craft-update traz o qalculate-gtk&quot;; exit 1'" />
-    </item>
-    <!-- E30 (v2.10.18): captura rápida no menu (pedido do dono — "botão de
-         captura de tela rápida"; o modo região é o default do craft-shot e
+    <!-- E30 (v2.10.18): captura rápida no menu (pedido do dono — 'botão de
+         captura de tela rápida'; o modo região é o default do craft-shot e
          W-p segue vivo no teclado; tela inteira = W-S-p) -->
     <item label="Captura de tela">
       <action name="Execute" command="craft-shot" />
     </item>
-    <!-- E89 — Displays no menu (o dono: "deveria ser todas as detectadas…
-         ou esse menu fosse bem pensado"): o craft-display lista TODOS os
-         modos do EDID no fuzzel, aplica E grava no mesmo clique (a
-         persistência dos hertz que o sistema não tinha). E106 — o rótulo
-         agora DIZ o que faz (o dono: "esse display, eu não sei nem para
-         que é isso" — o nome era a doença). -->
+    <!-- E89 — o craft-display lista TODOS os modos do EDID no fuzzel,
+         aplica E grava no mesmo clique (a persistência dos hertz que o
+         sistema não tinha). E106 — o rótulo DIZ o que faz. -->
     <item label="Telas — resolução e Hz…">
       <action name="Execute" command="craft-display" />
     </item>
@@ -121,46 +102,56 @@
       <action name="Execute" command="foot -e craft-clean" />
     </item>
     <separator />
-    <!-- E90 — O MAPA DOS COMANDOS (a lacuna nº 1 do UX-ROADMAP). E106 — a
-         pausa do E96 chegou ao craft-help: a janela ABRE E FICA (o dono:
-         "ele tenta abrir uma janela, mas também fecha"). -->
+    <!-- E107 — A PORTA DO APPIMAGE (o craft-appimage da E97 era CLI
+         invisível: registra o arquivo baixado no menu da casa com
+         ícone e .desktop, extrai de dentro do próprio arquivo — sem
+         daemon, sem AUR) -->
+    <item label="AppImages…">
+      <action name="Execute" command="craft-appimage menu" />
+    </item>
+    <!-- E107 — A GESTÃO DE FLATPAKS SEM TERMINAL (instalar por busca,
+         remover, limpar dados órfãos, atualizar — o flatpak e o remote
+         Flathub já viajam na ISO desde a E97; faltava a PORTA) -->
+    <item label="Flatpaks…">
+      <action name="Execute" command="craft-flatpak" />
+    </item>
+    <!-- E106 — A GAVETA UNIFICADA (o desenho do dono, palavra por
+         palavra: 'um menu unificado… os programas… com o marcador se tá
+         ativado, habilitado ou não, para você habilitar e
+         desabilitar'). ✓ fixado · não fixado; escolher alterna e
+         reabre; ESC/clique-fora/cross-dismiss fecham o laço. -->
+    <item label="Apps da dock…">
+      <action name="Execute" command="craft-pin-pick" />
+    </item>
+    <!-- E103 — O MODO DE JOGO (a diretriz do dono: 'um botão em algum
+         lugar do sistema para mexer no governor — e o automático que
+         define performance quando entrar no jogo'): o craft-game é o
+         cérebro, o gamemode do Feral o músculo (governor performance +
+         GPU high + rollback automático, RAM zero no idle). E106:
+         ON/OFF/Automático/Status DEVOLvem feedback na tela. -->
+    <item label="Modo de jogo…">
+      <action name="Execute" command="craft-game" />
+    </item>
+    <!-- v1.6.1: presets do idle no fuzzel, efeito imediato, sem
+         relogin -->
+    <item label="Tempo para travar a tela…">
+      <action name="Execute" command="craft-idle" />
+    </item>
+    <separator />
+    <!-- E90 — O MAPA DOS COMANDOS. E106 — a pausa do E96: a janela
+         ABRE E FICA. -->
     <item label="Ajuda — comandos da Elite">
       <action name="Execute" command="foot -e craft-help" />
     </item>
     <item label="Aplicativos">
       <action name="Execute" command="craft-drawer" />
     </item>
-    <!-- E106 — A GAVETA UNIFICADA (o desenho do dono, palavra por palavra:
-         "um menu unificado… os programas… com o marcador se tá ativado,
-         habilitado ou não, para você habilitar e desabilitar. Aí ele só
-         fecharia quando você tirasse o mouse de cima da função ou
-         clicasse fora da tela"). ✓ fixado · não fixado; escolher alterna
-         e reabre; ESC/clique-fora/cross-dismiss fecham o laço. -->
-    <item label="Apps da dock…">
-      <action name="Execute" command="craft-pin-pick" />
-    </item>
-    <separator />
     <item label="Lock">
       <action name="Execute" command="craft-lock" />
     </item>
-    <!-- v1.6.1: "consigo controlar em quanto tempo o Pc entra em idle?"
-         (dono) — presets no fuzzel, efeito imediato, sem relogin -->
-    <!-- E103 — O MODO DE JOGO (a diretriz do dono: "um botão em algum
-         lugar do sistema para mexer no governor — e o automático que
-         define performance quando entrar no jogo"): o craft-game é o
-         cérebro, o gamemode do Feral o músculo (governor performance +
-         GPU high + rollback automático, RAM zero no idle). E106: ON/OFF/
-         Automático/Status agora DEVOLvem feedback na tela (o dono:
-         "clico em ativar agora e eu não vejo nada"). -->
-    <item label="Modo de jogo…">
-      <action name="Execute" command="craft-game" />
-    </item>
-    <item label="Tempo para travar a tela…">
-      <action name="Execute" command="craft-idle" />
-    </item>
-    <!-- E106 — O SAIR DIRETO (o dono: reboot e desligar já estão aqui — o
-         que faltava era o SAIR). O menu gráfico completo do power segue
-         vivo no ⏻ da topbar e nos atalhos (W-Escape/W-x/C-A-Del). -->
+    <!-- E106 — O SAIR DIRETO (o dono: reboot e desligar já estão aqui —
+         o que faltava era o SAIR). O menu gráfico completo do power
+         segue vivo no ⏻ da topbar e nos atalhos (W-Escape/W-x/C-A-Del). -->
     <item label="Sair da sessão">
       <action name="Execute" command="labwc --exit" />
     </item>
