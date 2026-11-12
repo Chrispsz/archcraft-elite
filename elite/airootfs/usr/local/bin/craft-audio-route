@@ -177,14 +177,18 @@ def manage_ports(sink):
         except Exception as e:
             log("FALHA set-sink-port %s: %s" % (name, e))
     elif not avail and active and WIRE_RE.search(active):
-        # fone saiu e a porta ativa era a dele — volta pra 1ª disponível
+        # fone saiu e a porta ativa era a dele — volta pra 1ª disponível;
+        # o rc é CHECADO (a escola E33: log que anuncia ação sem conferir o
+        # pactl mente na falha — o sink pode sumir entre a lista e o set)
         other = [p for p in ports if p[2] == "yes"
                  and not WIRE_RE.search(p[1]) and not WIRE_RE.search(p[0])]
         if other:
             try:
-                subprocess.run(["pactl", "set-sink-port", name, other[0][0]],
-                               capture_output=True, timeout=10)
-                log("PORTA (fone saiu) → %s" % (other[0][1] or other[0][0]))
+                if subprocess.run(["pactl", "set-sink-port", name, other[0][0]],
+                                  capture_output=True, timeout=10).returncode == 0:
+                    log("PORTA (fone saiu) → %s" % (other[0][1] or other[0][0]))
+                else:
+                    log("FALHA set-sink-port (unplug) %s: rc != 0" % name)
             except Exception as e:
                 log("FALHA set-sink-port (unplug) %s: %s" % (name, e))
 
@@ -267,7 +271,9 @@ if __name__ == "__main__":
             "  default na hora; default morre → melhor remanescente (a classe\n"
             "  microfone/webcam é PROIBIDA de ser default — o sink fantasma do\n"
             "  dump p6aw). Não briga com escolha MANUAL do dono. Chamado pelo\n"
-            "  craft-bars no arranque; o papel mora em ~/.cache/elite/bars.log."
+            "  craft-bars no arranque; a prova das TROCAS mora em\n"
+            "  ~/.cache/elite/audio.log (a SUPERVISÃO — quem a lançou, stderr —\n"
+            "  mora em bars.log)."
         )
         _sys.exit(0)
     main()

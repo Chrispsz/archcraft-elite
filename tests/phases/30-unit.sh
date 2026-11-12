@@ -1553,7 +1553,8 @@ assert_grep "$STCU/update.log" 'craft-toplevel 1.0-3 → 1.0-4' "E50/adotar: o '
 assert_grep "$STCU/pkill.log" 'pkill -u 1000 -x craft-toplevel' "E49/adotar: o daemon de janelas MORRE PRIMEIRO (a dock nova nasce sobre o toplevel já de pé)"
 assert_grep "$STCU/pkill.log" 'pkill -u 1000 -f \^/usr/bin/python3 /usr/local/bin/craft-dock-gui\$' \
   "E49/adotar: a DOCK da sessão é reiniciada (a transição suave v2.11 vale SEM relogin — o 'continua piscando' não renasce)"
-assert_grep "$STCU/pkill.log" 'pkill -u 1000 -x craft-audio-route' "E49/adotar: o roteador de áudio segue o mesmo porta (nenhum daemon da casa envelhece no update)"
+assert_grep "$STCU/pkill.log" 'pkill -u 1000 -f \^/usr/bin/env python3 /usr/local/bin/craft-audio-route' \
+  "E106/adotar: o roteador de áudio segue a MESMA forma -f do supervisor (nenhum daemon da casa envelhece no update)"
 assert_grep "$STCU/pkill.log" 'pkill -u 1000 -x swayidle' "E49/adotar: o idle fecha o quarteto (a cura E48 continua valendo dentro da cura maior)"
 assert_grep "$STCU/systemctl.log" 'enable --now elite-bootupdate.timer elite-sysupdate.timer' "E49/adotar: a cadência nasce ligada na MESMA rodada (o automatismo não espera a 2ª atualização)"
 assert_nogrep "$STCU/update.log" 'AUSENTE' "E49/adotar: com supervisor vivo NADA de lamento no papel (o AUSENTE é a cena do mundo sem craft-bars)"

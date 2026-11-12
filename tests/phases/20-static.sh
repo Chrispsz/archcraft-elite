@@ -296,6 +296,8 @@ index_exec "elite/airootfs/usr/local/bin/craft-wake-guard" \
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-wake-guard" 'do_set disabled' "v2.10.11: craft-wake-guard off desarma USB (o mesmo gesto da regra udev)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-wake-guard" 'do_set enabled' "v2.10.11: craft-wake-guard on rearma USB (a porta de volta, assumindo o risco E24)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-wake-guard" 'cat /sys/power/mem_sleep' "v2.10.11: craft-wake-guard status mostra o modo real do hardware (deep vs s2idle)"
+assert_nogrep "$REPO/elite/airootfs/usr/local/bin/craft-wake-guard" '0x0c00–0x0c07 = USB' \
+  "E106/E33: a mentira taxonômica extinta (0x0c00–0x0c07 é SERIAL BUS — FireWire/ACCESS/SSA/USB/Fibre/SMBus/InfiniBand/IPMI; USB é SÓ a 0x0c03 — o comentário volta a mentir, a porteira crava)"
 SR="$REPO/elite/airootfs/usr/lib/systemd/system-sleep/elite-sleep-report"
 index_exec "elite/airootfs/usr/lib/systemd/system-sleep/elite-sleep-report" \
   "v2.10.11: hook elite-sleep-report presente e executável (perícia do sono no journal; modo 100755 do index — v2.10.26/E39)" \
@@ -1203,6 +1205,8 @@ assert_grep  "$REPO/elite/airootfs/usr/local/bin/craft-audio-route" 'set-default
 assert_grep  "$REPO/elite/airootfs/usr/local/bin/craft-audio-route" 'set-sink-port' "E30: fone no MESMO sink muda a PORTA (jack com detecção)"
 assert_grep  "$REPO/elite/airootfs/usr/local/bin/craft-bars" 'craft-audio-route' "E30: roteador sob a supervisão da família (morreu, volta em ≤5s)"
 assert_nogrep "$REPO/elite/airootfs/etc/skel/.config/labwc/autostart" '^[[:space:]]*craft-audio-route[[:space:]]*&' "E30/v2.10.6: UM SÓ lançador (craft-bars) — a corrida fork/exec do idle não renasce"
+assert_nogrep "$REPO/elite/airootfs/usr/local/bin/craft-update" 'x craft-audio-route' \
+  "E106/E48: o refresh de sessão NUNCA volta ao -x (o comm do daemon é 'python3' — shebang env — o -x JAMAIS casou e o roteador envelhecia no update; a forma é a -f do supervisor)"
 
 # C. LOCK/IDLE: as corridas do dump morrem
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-lock" 'pkill -x hyprlock' "E30: instância única do locker (o 'got yeeten'/pid 3666 fantasma do bars.log)"
@@ -2020,7 +2024,7 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'playerctl -l' \
     "E105/dump v2.10: a foto da MÍDIA (quem está no barramento — o próximo fantasma nasce com nome)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'lock\.log' \
     "E105/dump v2.10: a foto do LOCK (nascimentos + lock vivo + journal — a próxima denúncia de dupla senha nasce assinada)"
-assert_grep "$REPO/.ci/build.sh" 'pkgrel=48' \
-    "E105/E41: pkgrel 47→48 NO MESMO COMMIT (as quatro curas viajam)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=49' \
+    "E106/E41: pkgrel 48→49 NO MESMO COMMIT (o refresh de sessão que JAMAIS reiniciou o áudio — a doutrina E48 aplicada ao roteador)"
 
 phase_end

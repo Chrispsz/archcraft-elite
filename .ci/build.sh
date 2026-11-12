@@ -1363,7 +1363,15 @@ pkgver=1.0
 #     dono), o format-stopped vazio na top bar (o fantasma parado sai) e
 #     a foto do nascimento do lock (lock.log + MPRIS no dump). pkgrel
 #     47→48 NO MESMO COMMIT (lei E41).
-pkgrel=48
+#     E106 (polimento área 5): o refresh de sessão do craft-update
+#     JAMAIS reiniciou o roteador de áudio — o pgrep -x casa COMM e o
+#     comm do daemon é 'python3' (shebang env; a doutrina E48 aplicada
+#     à dock, esquecida do áudio) — a forma -f do supervisor assume
+#     (craft-update, bins de conteúdo mudado: craft-update,
+#     craft-audio-route (o unplug anuncia FALHA quando o pactl falha +
+#     o help aponta o papel certo), craft-wake-guard (a taxonomia
+#     verdadeira da serial bus — comentário)). pkgrel 48→49 NO MESMO COMMIT (lei E41).
+pkgrel=49
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

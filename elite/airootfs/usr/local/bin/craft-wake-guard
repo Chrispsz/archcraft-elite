@@ -9,10 +9,12 @@
 #
 # A ISO cura no boot pela regra udev 90-elite-wake-guard.rules (class USB
 # 0x0c03 → power/wakeup=disabled). ESTE script é o comando manual para:
-#   · status  — quem está armado agora (ACPI + controladores USB PCI);
-#   · off     — desarmar USB agora (o mesmo que a regra udev faz no boot);
-#   · on      — REARMAR USB (para acordar por teclado/mouse USB — aceitando
-#               o risco do despertar sozinho que trouxe a E24).
+#   · status  — quem está armado agora (ACPI + serial bus PCI);
+#   · off     — desarmar USB agora (a regra udev do boot mira SÓ a classe
+#               USB 0x0c03; ESTE comando vai ALÉM — desarma toda a família
+#               serial bus 0x0c0x que expõe wakeup, por excesso);
+#   · on      — REARMAR (a mesma família — para acordar por teclado/mouse
+#               USB, aceitando o risco do despertar sozinho que trouxe a E24).
 # Efeito da cura: o PC dorme de verdade; acordar = BOTÃO DE POWER.
 # ═══════════════════════════════════════════════════════════════════════════
 set -u
@@ -20,7 +22,12 @@ set -u
 PROG="${0##*/}"
 
 usb_pci() {
-    # controladores USB PCI (class 0x0c00–0x0c07 = USB) com wakeup exposto
+    # a família SERIAL BUS PCI inteira (class 0x0c00–0x0c07). A taxonomia
+    # PCI: 0x0c00 FireWire · 0x0c01 ACCESS.bus · 0x0c02 SSA · 0x0c03 USB ·
+    # 0x0c04 Fibre Channel · 0x0c05 SMBus · 0x0c06 InfiniBand · 0x0c07 IPMI.
+    # USB é SÓ a 0x0c03 (o que a regra udev do boot mira); este predicado
+    # é MAIS LARGO de propósito — quem expõe power/wakeup na família pode
+    # acordar o PC, e no hardware real as irmãs do USB raramente expõem.
     for d in /sys/bus/pci/devices/*; do
         [ -r "$d/power/wakeup" ] || continue
         cls="$(cat "$d/class" 2>/dev/null)"; cls="${cls:-0x000000}"
@@ -45,7 +52,7 @@ status() {
     printf '── /proc/acpi/wakeup (armadas = quem pode acordar o PC)\n'
     grep -E '\*enabled' /proc/acpi/wakeup 2>/dev/null \
         || printf '  (nenhuma armada — tudo desarmado)\n'
-    printf '── controladores USB PCI (class 0x0c0x)\n'
+    printf '── serial bus PCI (class 0x0c0x — USB é a 0x0c03; as irmãs raramente expõem wakeup)\n'
     local dev cls
     for dev in $(usb_pci); do
         cls="$(cat "$dev/class" 2>/dev/null)"

@@ -566,8 +566,16 @@ refresh_session() {
                 pkill -u "$uid" -f '^/usr/bin/python3 /usr/local/bin/craft-dock-gui$' 2>/dev/null || true
                 ulog "sessão: dock craft-dock-gui (uid $uid) reiniciada — a transição suave dos dinâmicos vale SEM relogin"
             fi
-            if pgrep -u "$uid" -x craft-audio-route >/dev/null 2>&1; then
-                pkill -u "$uid" -x craft-audio-route 2>/dev/null || true
+            # E48 — o comm deste daemon é 'python3' (o interpretador se
+            # apresenta; shebang `env python3`, provado no sandbox e no rig —
+            # SCRIPTS.md v4.2): o pgrep -x JAMAIS casou (nome ≠ comm, e 17
+            # chars não cabem no comm de 15) e o pkill nunca mordeu — o
+            # roteador de áudio envelhecia no update até o relogin, calado.
+            # A forma -f é a MESMA que o supervisor (craft-bars) usa no
+            # próprio guard — supervisor e refresh enxergam o mesmo mundo.
+            local aro_pat='^/usr/bin/env python3 /usr/local/bin/craft-audio-route$|^python3 /usr/local/bin/craft-audio-route$'
+            if pgrep -u "$uid" -f "$aro_pat" >/dev/null 2>&1; then
+                pkill -u "$uid" -f "$aro_pat" 2>/dev/null || true
                 ulog "sessão: craft-audio-route (uid $uid) reiniciado — o roteamento de áudio segue com o código novo"
             fi
             if pgrep -u "$uid" -x swayidle >/dev/null 2>&1; then

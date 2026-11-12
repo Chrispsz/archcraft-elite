@@ -3354,9 +3354,10 @@ assert_grep "$REPO/.ci/build.sh" 'applications/\*\.desktop' "E98/build: o trilho
 assert_grep "$REPO/.ci/build.sh" 'ovr = sorted' "E98/build: o PKGBUILD gera install E adoção por varredura (o pre_install adota cada override — a dança da via sem dono, agora em série)"
 
 # ── E41: o pkgrel viajou NO MESMO COMMIT ──
-assert_grep "$REPO/.ci/build.sh" 'pkgrel=48' \
-    "E105 (lei E41, âncora viva refrescada): pkgrel elite-system 47→48 — as quatro curas do dump 195332 (subject explícito do polkit + demição, sed de escopo do lock, reconciliação do display, format-stopped vazio + fotos do dump v2.10); a E104.1 (46→47) foi a cura do gate SC2209; a E104 (45→46) trouxe a PELE DO MENU e o modo --rm; a E103 (44→45) a abstração XDG"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=49' \
+    "E106 (lei E41, âncora viva refrescada): pkgrel elite-system 48→49 — o refresh de sessão do craft-update volta a reiniciar o roteador de áudio (pgrep -x casava COMM, o comm do daemon é 'python3' — a forma -f do supervisor assume; craft-audio-route honesto na falha do unplug; craft-wake-guard com a taxonomia da serial bus); a E105 (47→48) foram as quatro curas do dump 195332 (subject explícito do polkit + demição, sed de escopo do lock, reconciliação do display, format-stopped vazio + fotos do dump v2.10); a E104.1 (46→47) foi a cura do gate SC2209; a E104 (45→46) trouxe a PELE DO MENU e o modo --rm; a E103 (44→45) a abstração XDG"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 46→47 NO MESMO COMMIT' "E104.1 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 48→49 NO MESMO COMMIT' "E106 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 45→46 NO MESMO COMMIT' "E104 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 44→45 NO MESMO COMMIT' \
   "E103 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
