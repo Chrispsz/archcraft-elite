@@ -1,5 +1,14 @@
 #!/usr/bin/env bash
 # craft-lock — bloqueia a tela (hyprlock → loginctl → erro claro)
+# v2.6 (E105): A PORTEIRA + A FOTO + O SED DE ESCOPO — (1) todo nascimento
+#   atravessa o flock único (a corrida idle 120s × sleep-hook não gera
+#   mais spawn paralelo; a porta fecha enquanto o hyprlock vive) e cada
+#   spawn/if-needed ganha UMA linha no lock.log (argv + ppid = a porta e
+#   QUEM chamou — a perícia do 'pediu a senha duas vezes' tem papel);
+#   (2) o sedito do wallpaper fica PRESO ao bloco background — o bloco
+#   avatar (E103) deixou de ser sobrescrito (a 'fotinha cortada' e o
+#   'preview feio do papel de parede' eram o path do avatar virando o
+#   wallpaper no conf efêmero).
 # v2.1 (E100): A PELE SEGUE O LOCK — antes de cada lock novo, o craft-rice
 #   --lock-quiet renova o conf do home (a MESMA gramática do arranque:
 #   marcador renova, fóssil renova, ausente entrega, personalizado
@@ -53,11 +62,37 @@ uso() {
 }
 case "${1:-}" in -h|--help|uso) uso ;; esac
 
+# E105 — A PORTEIRA DO NASCIMENTO (a corrida que o dump não conseguiu
+# fotografar: 'pediu a senha duas vezes'). TODO craft-lock atravessa a
+# MESMA porteira (flock em XDG_RUNTIME_DIR — tmpfs por boot): o 2º
+# instante da corrida (o idle 120s e o sleep-hook do suspend nascendo
+# juntos) espera até 2s em vez de spawnar em paralelo; com o lock vivo, o
+# --if-needed de baixo vê o pgrep e sai. A porta fica FECHADA enquanto o
+# lock vive (o fd 9 acompanha o exec do hyprlock — o flock é dele):
+# nenhum outro nascimento por descuido. Sem flock(1) na máquina, a
+# porteira degrada em silêncio (o pgrep de baixo segue segurando).
+LLOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/lock.log"
+mkdir -p "${XDG_RUNTIME_DIR:-/tmp}/elite" "${LLOG%/*}" 2>/dev/null || true
+exec 9>>"${XDG_RUNTIME_DIR:-/tmp}/elite/lock-spawn.lock" 2>/dev/null || true
+if command -v flock >/dev/null 2>&1; then
+    flock -w 2 9 2>/dev/null || true
+fi
+
 # E47 — o no-op DIFERENTE do silêncio: só sai cedo quando há lock SAUDÁVEL
 # para guardar (a checagem é pgrep, não fé).
 if [ "${1:-}" = "--if-needed" ] && pgrep -x hyprlock >/dev/null 2>&1; then
+    printf '[%s] if-needed: lock vivo — nada a fazer\n' "$(date '+%F %T')" >>"$LLOG" 2>/dev/null || true
     exit 0
 fi
+
+# E105 — A FOTO DO NASCIMENTO (uma linha por spawn REAL — o argv diz a
+# porta e o ppid diz QUEM chamou: idle, sleep-hook, menu, W-l; a próxima
+# denúncia de dupla senha tem o nascimento de CADA lock no papel, e o
+# craft-dump fotografa este log). Teto 1 MiB (a escola do bars.log).
+if [ -f "$LLOG" ] && [ "$(wc -c <"$LLOG" 2>/dev/null || echo 0)" -gt 1048576 ]; then
+    : > "$LLOG" 2>/dev/null || true
+fi
+printf '[%s] spawn argv=[%s] ppid=%s\n' "$(date '+%F %T')" "$*" "${PPID:-?}" >>"$LLOG" 2>/dev/null || true
 
 # E100 — A PELE SEGUE O LOCK (a renovação vem ANTES do pkill: o conf é
 # lido pelo hyprlock NO NASCIMENTO — quem já está na tela não troca de
@@ -94,7 +129,7 @@ if command -v hyprlock >/dev/null 2>&1; then
   # hyprlock é prometer o que não pode vigiar. Manual (W-l), menu,
   # timeout do idle e craft-power: TODOS dormem travado agora.
   if command -v craft-vigil >/dev/null 2>&1; then
-    setsid craft-vigil >/dev/null 2>&1 </dev/null &
+    setsid craft-vigil >/dev/null 2>&1 </dev/null 9>&- &
   fi
   src="$HOME/.config/hypr/hyprlock.conf"
   if [ -r "$src" ]; then
@@ -106,11 +141,21 @@ if command -v hyprlock >/dev/null 2>&1; then
       # o ^path puro era no-op silencioso (o teste dos 3 cenários flagrou).
       # v2.5.0 (N1a, audit 24-r): $bg escapado p/ sed — HOME com | & \
       # morria o sed (set -e) e o lock morria sem fallback.
+      # E105 — O SED DE ESCOPO (o dump 195332 + a denúncia do dono: 'a
+      # fotinha cortada e um preview feio do papel de parede entre o
+      # relógio e as credenciais'): o sedito antigo trocava TODA linha
+      # path do conf — o bloco avatar (E103) inclusive, que na sessão
+      # viva virava o WALLPAPER (a foto do dono nunca aparecia; o círculo
+      # 96px mostrava um recorte feio da parede). A cura: a troca fica
+      # PRESA ao bloco background (a parede); o path do avatar
+      # (~/.cache/elite/avatar.png) sobra intacto e a foto real aparece
+      # no círculo 1:1 que a E101 entregou.
       bg_esc=$(printf '%s' "$bg" | sed 's/[&|\\]/\\&/g')
-      sed "s|^[[:space:]]*path = .*|    path = $bg_esc|" "$src" > "$conf"
+      sed "/^background {/,/^}/ s|^[[:space:]]*path = .*|    path = $bg_esc|" "$src" > "$conf"
     else
-      # sem wallpaper: path vazio → o color do bloco assume (preto)
-      sed 's|^[[:space:]]*path = .*|    path =|' "$src" > "$conf"
+      # sem wallpaper: path vazio → o color do bloco assume (preto);
+      # mesmo escopo E105: só o bloco background
+      sed "/^background {/,/^}/ s|^[[:space:]]*path = .*|    path =|" "$src" > "$conf"
     fi
     # E101 — O AVATAR 1:1 (a diretriz do dono: proporção 1:1 rigorosa,
     # círculo perfeito). O rounding=-1 do hyprlock sobre imagem RETANGULAR

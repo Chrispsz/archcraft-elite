@@ -46,6 +46,7 @@
 #include <pwd.h>
 
 #include <polkitagent/polkitagent.h>
+#include <polkit/polkit.h>
 
 /* ── o objeto ──────────────────────────────────────────────────────────── */
 
@@ -444,6 +445,45 @@ elite_polkit_listener_init (ElitePolkitListener *listener)
   (void) listener;
 }
 
+/* ── o subject do registro (E105 — a prova do dump 195332) ───────────────
+ * O polkit do rolling (CachyOS, nov/26) COBRA o subject explícito: a
+ * forma simples (sem subject) morria na asserção
+ * 'POLKIT_IS_SUBJECT (subject)' dentro do register_with_options e o
+ * listener saía 1 a cada 5s em loop (o dump 195332 fotografou cinco
+ * relançamentos no mesmo minuto — com o lxqt já aposentado: a sessão
+ * ficou SEM agente). A fila do subject, da mais forte para a mais fraca:
+ *   1. /proc/self/sessionid — o kernel aponta a sessão logind do processo;
+ *   2. XDG_SESSION_ID — o ambiente da sessão.
+ * Sem nenhuma das duas → NULL honesto: o main sai 1 com a mensagem
+ * clara e o craft-bars elege o fallback da fila (nunca loop cego).
+ */
+static PolkitSubject *
+make_session_subject (void)
+{
+  FILE *f;
+  char buf[32];
+  gboolean ok;
+  long v;
+  const gchar *env;
+
+  f = fopen ("/proc/self/sessionid", "r");
+  if (f != NULL)
+    {
+      ok = (fgets (buf, sizeof buf, f) != NULL);
+      fclose (f);
+      if (ok)
+        {
+          v = strtol (buf, NULL, 10);
+          if (v > 0 && v < 2147483648L)
+            return polkit_unix_session_new (g_strdup_printf ("%ld", v));
+        }
+    }
+  env = g_getenv ("XDG_SESSION_ID");
+  if (env != NULL && *env != '\0')
+    return polkit_unix_session_new (g_strdup (env));
+  return NULL;
+}
+
 /* ── main: registra e dorme (o idle de ~1–2 MB) ────────────────────────── */
 
 int
@@ -451,6 +491,7 @@ main (int argc, char *argv[])
 {
   GError *err = NULL;
   ElitePolkitListener *listener;
+  PolkitSubject *subject;
   gpointer reg;
   GMainLoop *loop;
 
@@ -482,17 +523,29 @@ main (int argc, char *argv[])
 
   listener = g_object_new (ELITE_TYPE_POLKIT_LISTENER, NULL);
 
-  reg = polkit_agent_listener_register (POLKIT_AGENT_LISTENER (listener),
-                                        POLKIT_AGENT_REGISTER_FLAGS_NONE,
-                                        NULL,  /* scope: a sessão do chamador */
-                                        "/org/elite/PolicyKit1/AuthenticationAgent",
-                                        NULL,
-                                        &err);
+  subject = make_session_subject ();
+  if (subject == NULL)
+    {
+      elog ("sem sessão logind (/proc/self/sessionid vazio, XDG_SESSION_ID ausente) — sem subject honesto para o registro");
+      g_object_unref (listener);
+      return 1;
+    }
+  reg = polkit_agent_listener_register_with_options (
+              POLKIT_AGENT_LISTENER (listener),
+              POLKIT_AGENT_REGISTER_FLAGS_NONE,
+              NULL,                                        /* completed: nada extra */
+              NULL,                                        /* user_data             */
+              subject,                                     /* E105: a sessão EXPLÍCITA */
+              NULL,
+              NULL,
+              &err);
+  g_object_unref (subject);
   if (reg == NULL)
     {
-      elog ("registro recusado (%s) — um agente já ocupa o trono? (E58/E95)",
+      elog ("registro recusado (%s) — o trono pode estar ocupado (E58/E95) ou o subject não resolveu no polkitd",
             err ? err->message : "?");
       g_clear_error (&err);
+      g_object_unref (listener);
       return 1;
     }
   elog ("registrado na sessão — aguardando desafios (idle)");

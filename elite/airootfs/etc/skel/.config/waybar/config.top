@@ -106,7 +106,11 @@
   "mpris": {
     "format": " \uf001 {dynamic}",
     "format-paused": " \uf04c {dynamic}",
-    "format-stopped": "\uf04d",
+    "format-stopped": "",
+    // E105 — o stopped não prende mais o módulo (o dump 195332: a aba do
+    // YouTube Music fechou, o player ficou parado na barra — o formato
+    // stopped desenhava o ícone e o widget nunca saía; vazio = some,
+    // a promessa do comentário acima vira fato).
     "format-empty": "",
     "player-icons": {
       "default": "\uf001"

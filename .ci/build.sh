@@ -1353,7 +1353,17 @@ pkgver=1.0
 #     cobrou SC2209 no MODO=rm do craft-pin-pick — bytes mudam, a
 #     etiqueta acompanha; a 1.0-46 da run #71 nunca chega ao rig, a
 #     1.0-47 é a pele do menu inteira).
-pkgrel=47
+#     E105 (o dump 195332 periciado): o subject EXPLÍCITO do listener (o
+#     polkit novo cobrava e o arranque morria exit=1 em loop a cada 5s —
+#     a sessão sem agente), a demição honesta no craft-bars (3 arranques
+#     mortos = o fallback da fila assume o trono), o sed do lock PRESO ao
+#     bloco background (o avatar mostrava o wallpaper — 'a fotinha
+#     cortada e o preview feio'), a reconciliação do display (o stamp não
+#     é fé: realidade em 60 Hz com conf em 200 Hz volta ao arranjo do
+#     dono), o format-stopped vazio na top bar (o fantasma parado sai) e
+#     a foto do nascimento do lock (lock.log + MPRIS no dump). pkgrel
+#     47→48 NO MESMO COMMIT (lei E41).
+pkgrel=48
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
@@ -1379,7 +1389,7 @@ source=("craft-toplevel.c" "elite-polkit-listener.c")
 # E103 — o pin do listener viaja JUNTO (a mesma lição — a suíte cobra a
 #     sincronia dos TRÊS pins: ponte, pacote único e agente).
 sha256sums=('1a6aeea295db062e38e53b50bb525c6098eb4b436b4b2d8dfd8e84a174aedb11'
-            '8bd6fb5209c75aacde6723f62a858a7abc21a915f7256c7d5f161c99095b19a2')
+            '89bf38bb63795b61ce46a045a48c5df3cf9d856a44ddb8852558cc8319a06d26')
 build() {{
     gcc -O2 -Wall -Wextra -s -o craft-toplevel craft-toplevel.c -lwayland-client
     # E103 — o agente sob demanda (idle ~1–2 MB, diálogo zenity no desafio)
@@ -1393,7 +1403,7 @@ build() {{
     # libpolkitagent é API instável e EXIGE o reconhecimento
     # POLKIT_AGENT_I_KNOW_API_IS_SUBJECT_TO_CHANGE antes do include (run
     # #69). O -D no gcc reconhece SEM tocar a fonte vendada — o sha
-    # pinado (8bd6fb52…19a2) fica intacto, a fonte segue a que a suíte
+    # pinado (89bf38bb…6d26) fica intacto, a fonte segue a que a suíte
     # auditou.
     gcc -O2 -Wall -Wextra -s -o elite-polkit-listener elite-polkit-listener.c \
         -DPOLKIT_AGENT_I_KNOW_API_IS_SUBJECT_TO_CHANGE \

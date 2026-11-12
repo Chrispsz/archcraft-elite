@@ -439,15 +439,55 @@ while :; do
                 "$(date '+%F %T')" >>"$LOG"
         fi
     fi
+    # E105 — A DEMOÇÃO HONESTA (a prova do dump 195332: o listener morrendo
+    # no arranque voltava a cada tick PARA SEMPRE — o supervisor relançava
+    # o mesmo perdedor a cada 5s e a sessão vivia SEM agente, com o lxqt
+    # aposentado antes: a rede ficou muda). O tempo de vida de cada saída
+    # vai para o papel (polkit-fails em XDG_RUNTIME_DIR — tmpfs por boot):
+    # três mortes curtas (≤5s) seguidas = o trono troca de rei (o fallback
+    # da fila assume) e o contador zera. Sucesso apaga o passado.
+    POLKIT_FAILS="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/elite/polkit-fails"
+    mkdir -p "${POLKIT_FAILS%/*}" 2>/dev/null || true
+    if pgrep -f "^$POLKIT_BIN\$" >/dev/null 2>&1; then
+        : > "$POLKIT_FAILS" 2>/dev/null || true
+    fi
     if [ -x "$POLKIT_BIN" ] && ! pgrep -f "^$POLKIT_BIN\$" >/dev/null 2>&1; then
+        if [ "$POLKIT_BIN" = "/usr/local/bin/elite-polkit-listener" ] \
+                && [ "$(grep -c . "$POLKIT_FAILS" 2>/dev/null || echo 0)" -ge 3 ]; then
+            _novo=""
+            for pb in /usr/bin/lxqt-policykit-agent \
+                      /usr/lib/hyprpolkitagent/hyprpolkitagent \
+                      /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1; do
+                [ -x "$pb" ] || continue
+                grep -q 'hyprtoolkit' "$pb" 2>/dev/null && continue
+                _novo="$pb"
+                break
+            done
+            if [ -n "$_novo" ]; then
+                printf '[%s] polkit DEMOÇÃO: o listener morreu %s arranques seguidos em ≤5s — %s assume o trono (a fila é a rede, E105)\n' \
+                    "$(date '+%F %T')" "$(grep -c . "$POLKIT_FAILS" 2>/dev/null || echo '?')" "${_novo##*/}" >>"$LOG"
+                POLKIT_BIN="$_novo"
+                : > "$POLKIT_FAILS" 2>/dev/null || true
+                pkill -x elite-polkit-listener 2>/dev/null || true
+            else
+                : > "$POLKIT_FAILS" 2>/dev/null || true
+            fi
+        fi
         if [ "$seen_polkit" -eq 1 ]; then
             printf '[%s] polkit FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
         else
             printf '[%s] polkit iniciando (1ª vez — nada morreu)\n' "$(date '+%F %T')" >>"$LOG"
         fi
         (
+            _t0=$(date +%s)
             "$POLKIT_BIN" >>"$LOG" 2>&1
             st=$?
+            _d=$(( $(date +%s) - _t0 ))
+            if [ "$st" -ne 0 ] && [ "$_d" -le 5 ]; then
+                printf '%s\n' "$_d" >>"$POLKIT_FAILS" 2>/dev/null || true
+            else
+                : > "$POLKIT_FAILS" 2>/dev/null || true
+            fi
             printf '[%s] polkit SAIU exit=%d\n' "$(date '+%F %T')" "$st" >>"$LOG"
         ) 9>&- &
     fi

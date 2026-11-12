@@ -35,6 +35,15 @@
 # E36); notify em falha (nada morre calado para quem está na tela); o
 # watch NUNCA briga com o apply (começa DEPOIS dele e o primeiro estado
 # igual ao conf não é "mudança").
+#
+# E105 — O STAMP NÃO É FÉ (o dump 195332): o mode1 reset do amdgpu no
+# resume devolvia o rig a 60 Hz com o conf salvo em 200 Hz e o stamp
+# mandava o apply calar ('já aplicado') a cada 5s. O apply RECONCILIA:
+# conf ≠ realidade, estável por ~30s (a escolha do dono em curso termina
+# dentro dela — o watch grava em ~8s) = REAPLICA o arranjo salvo; o stamp
+# 'fail' (apply abortado) não re-tenta (o aviso já saiu). O watch segue
+# sem brigar: ele grava a escolha; o apply devolve o arranjo — cada um
+# com o seu ofício.
 # ═══════════════════════════════════════════════════════════════════════════
 set -u
 
@@ -120,9 +129,48 @@ do_apply() {
     # linhas, a classe E90/E95) podem AMBOS chamar o apply na mesma
     # sessão; quem chega 2º vê o stamp e sai em silêncio (escola E64).
     stamp="${XDG_RUNTIME_DIR:-/run/user/$(id -u 2>/dev/null || echo 0)}/elite/display-applied"
+    diverge="${XDG_RUNTIME_DIR:-/run/user/$(id -u 2>/dev/null || echo 0)}/elite/display-diverge"
     if [ -e "$stamp" ]; then
-        dlog "apply: já aplicado nesta sessão (stamp) — nada a fazer"
-        exit 0
+        # E105 — O STAMP NÃO É FÉ (o dump 195332 nomeou: o rig inteiro
+        # numa sessão em 60 Hz com o conf salvo em 200 Hz — o mode1 reset
+        # do amdgpu no resume reverteu o modo e o stamp mandou o apply
+        # calar 'já aplicado' a cada 5s). A reconciliação: o conf salvo é
+        # conferido contra a realidade do wlr-randr; divergência ESTÁVEL
+        # (6 ticks ≈ 30s — a escolha do dono em curso termina dentro
+        # dela: o watch grava o estado estável em ~8s) = o arranjo volta.
+        # O stamp 'fail' (apply que não conseguiu) NÃO re-tenta — o aviso
+        # já saiu e brigaria a cada 5s com um EDID que perdeu o modo.
+        if [ -s "$stamp" ]; then
+            dlog "apply: apply anterior falhou (stamp fail) — nada a fazer (o menu aplica à mão)"
+            exit 0
+        fi
+        if [ ! -s "$CONF" ]; then
+            dlog "apply: já aplicado nesta sessão (stamp) — nada a fazer"
+            exit 0
+        fi
+        vivos="$(state_keys)"
+        divergente=0
+        while IFS= read -r linha; do
+            case "$linha" in ''|'#'*) continue ;; esac
+            if ! printf '%s\n' "$vivos" | grep -Fxq "$linha"; then
+                divergente=1
+                break
+            fi
+        done < "$CONF"
+        if [ "$divergente" -eq 0 ]; then
+            rm -f "$diverge" 2>/dev/null || true
+            dlog "apply: já aplicado nesta sessão (stamp) e a realidade confere — nada a fazer"
+            exit 0
+        fi
+        n_div=$(( $(cat "$diverge" 2>/dev/null || echo 0) + 1 ))
+        printf '%s\n' "$n_div" > "$diverge" 2>/dev/null || true
+        if [ "$n_div" -lt 6 ]; then
+            dlog "apply: realidade diverge do conf salvo (tick $n_div/6) — esperando a estabilidade (a escolha do dono pode estar a caminho)"
+            exit 0
+        fi
+        dlog "apply: realidade ≠ conf salvo há ~30s — REAPLICANDO o arranjo do dono (resume/replug?)"
+        rm -f "$diverge" "$stamp" 2>/dev/null || true
+        # cai no apply real abaixo (o stamp renasce; a falha o marca 'fail')
     fi
     mkdir -p "${stamp%/*}" 2>/dev/null || true
     : > "$stamp" 2>/dev/null || true
@@ -136,6 +184,7 @@ do_apply() {
         i=$((i + 1))
     done
     if [ "$i" -ge 30 ]; then
+        printf 'fail\n' > "$stamp" 2>/dev/null || true
         dlog "FALHA: wlr-randr não respondeu em 15s — apply abortado (o conf fica salvo; o menu aplica à mão)"
         exit 1
     fi
@@ -193,6 +242,9 @@ do_apply() {
         fi
     done < "$CONF"
     dlog "apply: fim ($aplicados aplicado(s), $falhas falha(s))"
+    # E105 — a falha fica MARCADA no stamp: o reconcile não re-tenta o que
+    # não conseguiu (o aviso já saiu; brigaria a cada 5s com o EDID).
+    if [ "$falhas" -gt 0 ]; then printf 'fail\n' > "$stamp" 2>/dev/null || true; fi
     [ "$falhas" -gt 0 ] && dnotify "Modo salvo não pôde ser aplicado em $falhas tela(s) — log: ~/.cache/elite/display.log"
     exit 0
 }

@@ -243,7 +243,7 @@ if ! : > "$OUT" 2>/dev/null; then
 fi
 
 {
-    printf '══════════ ELITE DUMP v2.9 — diagnóstico completo ══════════\n'
+    printf '══════════ ELITE DUMP v2.10 — diagnóstico completo ══════════\n'
     if [ "$(id -un)" != "$DUMP_USER" ]; then
         printf 'gerado: %s · usuário: %s → sessão de %s (uid %s) · host: %s\n' \
             "$(date)" "$(id -un)" "$DUMP_USER" "$DUMP_UID" "$(uname -n 2>/dev/null || echo '?')"
@@ -455,6 +455,23 @@ PY
 
     printf '\n── processos da Elite (a sessão inteira, com args)\n'
     r "ps -u $DUMP_UID -o pid,args | grep -E 'craft-|waybar|swayidle|swaync|fuzzel|labwc|hyprlock|nwg-drawer|lxqt' | grep -v grep" 25
+
+    # v2.9/E105 — A FOTO DA MÍDIA: o fantasma da top bar ('fechei a aba do
+    # YouTube Music e o player ficou lá') tinha quem o SEGURAVA invisível —
+    # nenhum dump dizia quem estava no barramento MPRIS. A lista + status +
+    # faixa de cada player (o playerctld proxy sai da foto — é o porteiro,
+    # não a música) nomeia o dono do widget na hora.
+    printf '\n── MPRIS (quem está no barramento da mídia — o fantasma da top bar tem nome aqui)\n'
+    r "pl=\$(env XDG_RUNTIME_DIR=$URUNTIME playerctl -l 2>/dev/null); [ -n \"\$pl\" ] || { echo '(nenhum player MPRIS vivo)'; exit 0; }; for p in \$pl; do [ \"\$p\" = playerctld ] && continue; echo \"player: \$p · status: \$(env XDG_RUNTIME_DIR=$URUNTIME playerctl -p \$p status 2>/dev/null)\"; env XDG_RUNTIME_DIR=$URUNTIME playerctl -p \$p metadata --format '  {{artist}} — {{title}} ({{url}})' 2>/dev/null; done" 12
+
+    # v2.9/E105 — A FOTO DO LOCK: os nascimentos (lock.log — argv + ppid
+    # dizem a porta e QUEM chamou) + o vivo agora + o journal do lock e do
+    # agente polkit. A próxima denúncia de 'pediu a senha duas vezes' nasce
+    # com o réu assinado no papel.
+    printf '\n── LOCK (nascimentos, o vivo e o journal — a perícia do duplo lock)\n'
+    r "tail -15 $UCACHE/elite/lock.log 2>/dev/null || echo '(sem lock.log — sistema anterior à 1.0-48)'" 16
+    r "pgrep -ax hyprlock 2>/dev/null || echo '(sem lock vivo)'" 4
+    r "journalctl -b --no-pager 2>/dev/null | grep -iE 'hyprlock|polkit_agent|polkit.*assert' | tail -12" 12
 
     printf '\n══════════ 7 · DISPLAY & TECLADO ══════════\n'
     # v2.10.6: wlr-randr NA ISO — posição/scale/MODO ATUAL de cada monitor.

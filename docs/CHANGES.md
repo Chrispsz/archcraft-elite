@@ -6,6 +6,49 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **E105 — O QUE O DUMP 195332 NOMEOU** (o dono: "ela voltou duas vezes
+  para a tela de bloqueio, pediu a senha de novo"; "o íconezinho de
+  perfil fica cortado pela metade"; "mostra um preview feio do papel de
+  parede entre o relógio e as credenciais"; "o player de música não saiu
+  da top bar depois que fechei a aba"). A perícia no papel nomeou QUATRO
+  réus e as curas:
+  1. **O POLKIT QUE MORRIA EM LOOP** — o `elite-polkit-listener` saía
+     `exit=1` a cada 5s desde o arranque (`polkit_agent_listener_register_
+     with_options: assertion 'POLKIT_IS_SUBJECT (subject)' failed` no
+     bars.log; BARS_EXITS=1145): o polkit do rolling passou a COBRAR o
+     subject explícito e a forma simples registrava com subject NULO —
+     com o lxqt já aposentado pela E101, a sessão ficava SEM agente
+     (nenhum diálogo de senha jamais abriria). CURA: o listener cria o
+     subject EXPLÍCITO (`/proc/self/sessionid` → `XDG_SESSION_ID`), sem
+     subject honesto ele sai 1 com a mensagem clara; e o craft-bars
+     ganha a DEMOÇÃO — 3 arranques mortos (≤5s) seguidos = o fallback da
+     fila assume o trono (o loop cego virou rede de verdade).
+  2. **O AVATAR QUE ERA O WALLPAPER** — o sedito do craft-lock trocava
+     TODA linha `path =` do conf efêmero: o bloco avatar da E103 virava
+     o PAPEL DE PARDE no lock ("preview feio entre o relógio e as
+     credenciais", a "fotinha cortada"). CURA: o sed fica PRESO ao bloco
+     `background` (escopo `/^background {/,/^}/`) — a foto real do dono
+     volta ao círculo 1:1.
+  3. **O 60 Hz QUE O STAMP ESCONDIA** — o rig passou a sessão inteira em
+     60 Hz com o conf salvo em 200 Hz (`apply: já aplicado nesta sessão
+     (stamp) — nada a fazer` a cada 5s no display.log): o mode1 reset do
+     amdgpu no resume reverte o modo e o stamp E96 mandava calar. CURA: o
+     apply RECONCILIA — conf ≠ realidade, estável por ~30s (a escolha do
+     dono em curso termina dentro: o watch grava em ~8s) = REAPLICA o
+     arranjo salvo; o stamp `fail` (apply abortado) não re-tenta.
+  4. **O FANTASMA DA TOP BAR** — o `format-stopped` desenhava o ícone
+     ■ para player PARADO (a aba fechada, o widget ficava). CURA:
+     `format-stopped: ""` — vazio = some (a promessa do comentário do
+     módulo vira fato); e o craft-dump v2.10 FOTOGRAFA o barramento
+     MPRIS (players vivos + status + faixa) — o próximo fantasma nasce
+     com nome no papel.
+  5. **A FOTO DO DUPLO LOCK** — o 'pediu a senha duas vezes' não tinha
+     papel (nenhum log de nascimento): o craft-lock v2.6 ganha a
+     PORTEIRA (flock único — a corrida idle 120s × sleep-hook não gera
+     spawn paralelo; a porta fecha enquanto o hyprlock vive) e o
+     lock.log (argv + ppid = a porta e QUEM chamou); o craft-dump
+     fotografa nascimentos + lock vivo + journal.
+  6. **pkgrel 47→48 NO MESMO COMMIT** (lei E41).
 - **E104 — A PELE DO MENU + A PORTA DO DESAFIXAR** (a denúncia do dono,
   12/nov: "cliquei com o botão direito… ele não mudou nada, não foi
   atualizado"; "fica aparecendo os nomes dos pacotes"; "eu consigo fixar,

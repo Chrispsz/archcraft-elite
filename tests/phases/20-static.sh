@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=48' "E105 (lei E41, âncora viva refrescada): pkgrel elite-system 47→48 — as quatro curas do dump 195332 (subject explícito do polkit + demição, sed de escopo do lock, reconciliação do display, format-stopped vazio + fotos do dump); a E104.1 (46→47) foi a cura do gate SC2209; a E104 (45→46) trouxe a PELE DO MENU; a E103 (44→45) a abstração XDG"#!/usr/bin/env bash
 # FASE 2 — A TAMPA DA CAIXA: qualidade estática (o desenho completo antes de abrir)
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/core.sh"
 phase_start 2 "QUALIDADE ESTÁTICA — a tampa da caixa"
@@ -269,7 +269,7 @@ assert_grep "$U/elite-keyring-fix.timer" '^WantedBy=timers.target$' "v2.10.10: [
 assert_grep "$U/elite-keyring-fix.timer" '^OnBootSec=120s$' "v2.10.10: timer dispara 2min pós-boot (a cura chega cedo, sem brigar com o boot)"
 assert_grep "$U/elite-keyring-fix.timer" '^OnUnitActiveSec=6h$' "v2.10.10: timer re-tenta de 6h em 6h (o guard de 24h do script decide o custo real)"
 # craft-dump v2.2: a etiqueta = conteúdo, e o keyring ganha as 3 provas
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2\.9' "E100 (E30→E90→E98→): craft-dump etiqueta v2.9 (a lei: etiqueta = conteúdo — a v2.9 traz A FOTO DA PELE [seção 12]; a v2.8 trouxe a dose no papel e a gaveta/lxqt no ps; âncora refrescada viva)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2\.10' "E100→E105 (E30→E90→E98→): craft-dump etiqueta v2.10 (a lei: etiqueta = conteúdo — a v2.10 traz A FOTO DA MÍDIA E DO LOCK [seção 6]; a v2.9 trouxe A FOTO DA PELE [seção 12]; a v2.8 trouxe a dose no papel e a gaveta/lxqt no ps; âncora refrescada viva)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'pubring.gpg' "v2.10.10: dump prova o pubring (a doença do d33o no papel)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'list-keys cachyos' "v2.10.10: dump prova as chaves CachyOS populadas"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'pacman lê o banco: OK' "v2.10.10: dump prova funcional do pacman (o -Syu vivo ou morto nomeado)"
@@ -437,7 +437,7 @@ assert_grep "$CU64" 'sentinela_db auto canal' "E64/AUD-B3: a sentinela na porta 
 assert_grep "$CU64" 'sentinela_db auto sistema' "E64/AUD-B3: a sentinela na porta SEMANAL (a mesma briga — agora espera com teto e adia honesta)"
 assert_grep "$CU64" 'já estava em dia' "E64: checagem não é notícia (o re-armamento horário multiplica a dose por 24 — sem novidade, ZERO pop-up; notify é a exceção por delta, escola E48)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 13→14 NO MESMO COMMIT' "E64: pkgrel elite-system 13→14 NO MESMO COMMIT (lei E41 — craft-update + 4 units mudaram de conteúdo; âncora na HISTÓRIA, lição E58/E59)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2\.9' "E100 (E30→E90→E98→): craft-dump etiqueta v2.9 (etiqueta = conteúdo — a foto da pele na seção 12; a v2.8 trouxe a dose no papel; âncora refrescada viva)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2\.10' "E100→E105 (E30→E90→E98→): craft-dump etiqueta v2.10 (etiqueta = conteúdo — a foto da mídia e do lock na seção 6; a foto da pele segue na 12; âncora refrescada viva)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'date \+%Y%m%d-%H%M%S' "v2.10.11: dump com segundos no STAMP (fim da colisão de dois runs no mesmo minuto — a doença do a4h8)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'if ! : > "\$OUT" 2>/dev/null; then' "v2.10.11: guard de escrita antes do papel (dump root-owned + rerun sem sudo = recusa clara)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" '90-elite-wake-guard.rules' "v2.10.11: dump prova a regra E24 no papel (seção 10)"
@@ -1177,7 +1177,7 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bgapps" '\( tr .*/proc/.pi
 # R9. A E23 GANHA CURANDEIRO VISÍVEL NO PAPEL (o nl3z não mostrou UM
 #     elite-keyring — o veredito da cura precisa ver quem cura):
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'elite-keyring-fix\.timer' "v2.10.12: a seção 5 mostra o timer da E23 (a cura estava invisível no papel)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2\.9' "E100 (E30→E90→E98→): o papel é v2.9 (etiqueta = conteúdo — a v2.9/E100: A FOTO DA PELE [home vs mestre: sha256 + 1ª linha + veredito na seção 12 — o estado do lock skin nunca mais anda às cegas]; a v2.8/E98 trouxe a dose no papel e a gaveta/lxqt no ps; âncora refrescada viva)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2\.10' "E100→E105 (E30→E90→E98→): o papel é v2.10 (etiqueta = conteúdo — a v2.9/E100: A FOTO DA PELE [home vs mestre: sha256 + 1ª linha + veredito na seção 12] segue viva — e a v2.10 soma A FOTO DA MÍDIA E DO LOCK na seção 6 (o barramento MPRIS nomeia o fantasma; o lock.log assina o nascimento) — o estado nunca mais anda às cegas; a v2.8/E98 trouxe a dose no papel e a gaveta/lxqt no ps; âncora refrescada viva)"
 
 # ── v2.10.18 · E30 — o papel p6aw (1325 linhas) + as fotos do dono ─────────
 # O rig real provou o que o QEMU não vê: bell misterioso (wall do firstboot
@@ -1986,5 +1986,41 @@ assert_match "$E57SEC" '\.desktop sobreviveram à remoção' "E101.2/E57: sobrev
 for fam in 'usr/local/share/elite/fastfetch' 'usr/local/share/applications'; do
     assert_match "$E57SEC" "${fam}" "E101.2/E57: a família '$fam' (presente no overlay) tem remoção no bloco E57 — família nova no pacote ⇒ família nova na remoção (a lição da #154 em lei)"
 done
+
+
+# ── E105 — O DUMP 195332 PERICIADO (o polkit em loop, o avatar que era o
+#    wallpaper, o 60 Hz que o stamp escondia, o fantasma da top bar) ────
+assert_grep "$REPO/vendor/elite-polkit-listener.c" 'polkit_unix_session_new' \
+    "E105/polkit: o subject nasce EXPLÍCITO (o polkit do rolling cobra o subject — a forma simples morria na asserção POLKIT_IS_SUBJECT, dump 195332)"
+assert_grep "$REPO/vendor/elite-polkit-listener.c" '/proc/self/sessionid' \
+    "E105/polkit: a 1ª fila do subject é a sessão logind do kernel (XDG_SESSION_ID é o fallback)"
+assert_grep "$REPO/vendor/elite-polkit-listener.c" 'sem subject honesto' \
+    "E105/polkit: sem subject = exit 1 com mensagem clara (nunca loop cego — a fila assume o trono)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bars" 'polkit DEMOÇÃO' \
+    "E105/polkit: 3 arranques mortos (≤5s) = o fallback da fila assume o trono (o loop cego virou rede)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bars" 'polkit-fails' \
+    "E105/polkit: o tempo de vida de cada saída vai para o papel (XDG_RUNTIME_DIR; sucesso zera)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-lock" '/\^background \{/,/\^}/ s\|' \
+    "E105/lock: o sedito do wallpaper fica PRESO ao bloco background (o avatar E103 deixa de virar wallpaper)"
+assert_nogrep "$REPO/elite/airootfs/usr/local/bin/craft-lock" 'sed "s\|' \
+    "E105/lock: o sedito GLOBAL (sed com s| na abertura) não existe mais"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-lock" 'lock-spawn.lock' \
+    "E105/lock: a porteira flock única (a corrida idle×sleep-hook não gera spawn paralelo; a porta fecha com o hyprlock vivo)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-lock" 'spawn argv' \
+    "E105/lock: a foto do nascimento no lock.log (argv + ppid = a porta e QUEM chamou)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-display" 'display-diverge' \
+    "E105/display: a divergência conta em papel (6 ticks ≈ 30s — a escolha do dono em curso termina dentro)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-display" 'REAPLICANDO o arranjo do dono' \
+    "E105/display: o stamp não é fé — conf ≠ realidade estável = o arranjo salvo volta (o 60 Hz escondido morre)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-display" 'a falha fica MARCADA no stamp' \
+    "E105/display: apply abortado marca o stamp fail (o reconcile não re-tenta o que não conseguiu — sem briga a cada 5s)"
+assert_grep "$REPO/elite/airootfs/etc/skel/.config/waybar/config.top" '"format-stopped": ""' \
+    "E105/topbar: o stopped não prende mais o módulo (o fantasma da aba fechada sai — a promessa do comentário vira fato)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'playerctl -l' \
+    "E105/dump v2.10: a foto da MÍDIA (quem está no barramento — o próximo fantasma nasce com nome)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'lock\.log' \
+    "E105/dump v2.10: a foto do LOCK (nascimentos + lock vivo + journal — a próxima denúncia de dupla senha nasce assinada)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=48' \
+    "E105/E41: pkgrel 47→48 NO MESMO COMMIT (as quatro curas viajam)"
 
 phase_end

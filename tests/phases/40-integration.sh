@@ -3354,8 +3354,8 @@ assert_grep "$REPO/.ci/build.sh" 'applications/\*\.desktop' "E98/build: o trilho
 assert_grep "$REPO/.ci/build.sh" 'ovr = sorted' "E98/build: o PKGBUILD gera install E adoção por varredura (o pre_install adota cada override — a dança da via sem dono, agora em série)"
 
 # ── E41: o pkgrel viajou NO MESMO COMMIT ──
-assert_grep "$REPO/.ci/build.sh" 'pkgrel=47' \
-  "E104.1 (lei E41, âncora viva refrescada): pkgrel elite-system 46→47 — a cura do gate (SC2209 no MODO do craft-pin-pick — bytes mudam, a etiqueta acompanha); a 1.0-46 da run #71 nunca chega ao rig, a 1.0-47 é a pele do menu inteira; a E104 (45→46) trouxe a PELE DO MENU no pacote e o modo --rm; a E103 (44→45) a abstração XDG"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=48' \
+    "E105 (lei E41, âncora viva refrescada): pkgrel elite-system 47→48 — as quatro curas do dump 195332 (subject explícito do polkit + demição, sed de escopo do lock, reconciliação do display, format-stopped vazio + fotos do dump v2.10); a E104.1 (46→47) foi a cura do gate SC2209; a E104 (45→46) trouxe a PELE DO MENU e o modo --rm; a E103 (44→45) a abstração XDG"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 46→47 NO MESMO COMMIT' "E104.1 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 45→46 NO MESMO COMMIT' "E104 (lei E41): a razão do bump está no heredoc (a história viaja no papel)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 44→45 NO MESMO COMMIT' \
@@ -3443,9 +3443,9 @@ assert_file "$REPO/vendor/elite-polkit-listener.c" "E103/polkit: o C vendado exi
 assert_grep "$REPO/vendor/elite-polkit-listener.c" 'polkit_agent_listener_register' "E103/polkit: o listener REGISTRA o agente da sessão (a perícia no fonte do polkit provou: o polkitd NUNCA D-Bus ativa agentes e REJEITA um segundo por sessão — registro é a única via)"
 assert_grep "$REPO/vendor/elite-polkit-listener.c" 'zenity' "E103/polkit: o diálogo só existe DURANTE o desafio (o corpo vivo é GDBus puro ~1–2 MB — sem Qt na RAM: a diretriz do dono)"
 assert_grep "$REPO/.ci/build.sh" 'gcc -O2 -Wall -Wextra -s -o elite-polkit-listener' "E103/polkit: o listener compila NO build do pacote único (a fonte única com sha pinado)"
-assert_grep "$REPO/.ci/build.sh" '8bd6fb5209c75aacde6723f62a858a7abc21a915f7256c7d5f161c99095b19a2' "E103/polkit: o sha do C vendado PINADO no PKGBUILD (a lição E97.1 — pin que viaja junto)"
+assert_grep "$REPO/.ci/build.sh" '89bf38bb63795b61ce46a045a48c5df3cf9d856a44ddb8852558cc8319a06d26' "E103→E105/polkit: o sha do C vendado PINADO no PKGBUILD (a lição E97.1 — pin que viaja junto; a E105 trocou o fonte — subject explícito — e o pin acompanhou)"
 LST_SHA="$(sha256sum "$REPO/vendor/elite-polkit-listener.c" 2>/dev/null | cut -d' ' -f1)"
-assert_eq "$LST_SHA" "8bd6fb5209c75aacde6723f62a858a7abc21a915f7256c7d5f161c99095b19a2" "E103/polkit: o pin MORDE (o sha do arquivo é o do PKGBUILD — a fonte e o pacote não desincronizam)"
+assert_eq "$LST_SHA" "89bf38bb63795b61ce46a045a48c5df3cf9d856a44ddb8852558cc8319a06d26" "E103→E105/polkit: o pin MORDE (o sha do arquivo é o do PKGBUILD — a fonte e o pacote não desincronizam)"
 assert_grep "$BARS101" 'elite-polkit-listener >/dev/null 2>&1' "E103/polkit: o supervisor ELEGE o listener (a fila nova: LISTENER idle-nulo → lxqt residente → hyprpolkitagent era-Qt → polkit-gnome)"
 assert_grep "$BARS101" 'perdedor aposentado \(lxqt-policykit-agent residente' "E103/polkit: o residente perdedor sai da sala quando o listener reina (dois agentes = duas caixas de senha por pedido — o E95 de pé)"
 assert_nogrep "$P/airootfs/etc/skel/.config/labwc/autostart" 'polkit-gnome' "E103/polkit: o spawn residente do autostart MORREU (o bloco legacy que subia o polkit-gnome às cegas — o supervisor é o único lançador)"

@@ -2649,4 +2649,18 @@ touch "$WORK/e98/alive"
 E98_HUNG=1 run98
 assert_grep "$WORK/e98/state" 'pkill -9 -x nwg-drawer' "E98/drawer: a pendurada recebe o -9 após o teto (o stub ignora o TERM — o martelo fala; a gaveta presa nunca é eterna)"
 
+
+# ── E105/lock — O SED DE ESCOPO EM COMPORTAMENTO REAL (o MESMO sedito do
+#    craft-lock contra a MESTRA do repo: a parede entra, o avatar sobra) ──
+STSED="$(mktemp -d "$WORK/estsed.XXXXXX")"
+bg_fake="$STSED/parede.png"
+: > "$bg_fake"
+sed "/^background {/,/^}/ s|^[[:space:]]*path = .*|    path = $bg_fake|" \
+    "$REPO/elite/airootfs/etc/skel/.config/hypr/hyprlock.conf" > "$STSED/conf.out"
+assert_grep "$STSED/conf.out" "path = $STSED/parede\.png" \
+    "E105/lock: o path do background recebe a parede (a v2.5.0-fix segue de pé dentro do escopo)"
+assert_grep "$STSED/conf.out" '\.cache/elite/avatar\.png' \
+    "E105/lock: o path do avatar SOBREVIVE ao sedito (a foto real volta ao círculo 1:1 — a denúncia 'preview feio' morre)"
+rm -rf "$STSED"
+
 phase_end
