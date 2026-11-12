@@ -183,6 +183,21 @@ ACT_EPOCH="${XDG_RUNTIME_DIR:-/tmp}/elite/idle-activity"
 # = nenhum timer suspende; a vigília obedece, fecha no próprio sono e
 # abre na saída natural — o destravo é o dono da chave).
 GATE="${XDG_RUNTIME_DIR:-/tmp}/elite/idle-suspend-gate"
+# E106 — O TERMÔMETRO DO DESTRAVO: o craft-vigil toca ESTE stamp no
+# momento em que o lock morre (a saída natural do laço — 'destravado'),
+# e o sleep-hook do before-sleep + o braço idle do suspend consultam a
+# idade: destravo com menos de 15s = NINGUÉM recria lock nem suspende
+# (a corrida 'unlock × suspend em voo' do dump 20261112 morre aqui: a
+# máquina congelou com um lock #2 recém-nascido e acordou pedindo a
+# senha DUAS vezes). Vive no XDG_RUNTIME_DIR — morre com a sessão.
+UNLOCK_STAMP="${XDG_RUNTIME_DIR:-/tmp}/elite/unlock.stamp"
+unlock_fresco() { # 0 = o destravo foi há MENOS de $1 segundos
+    _janela="${1:-15}"
+    [ -r "$UNLOCK_STAMP" ] || return 1
+    _marca="$(stat -c %Y "$UNLOCK_STAMP" 2>/dev/null || echo 0)"
+    _agora="$(date +%s)"
+    [ "$((_agora - _marca))" -lt "$_janela" ]
+}
 
 # E97 — A TRAVA DA LEI E30 (o dump 163423 do rig flagrou DUAS vigílias
 # vivas no mesmo lock — pids 37301+59893: a sucessora da E79 e o re-arme
@@ -334,6 +349,19 @@ while alive; do
             vlog "E78: portão fechado no pós-sono, mas a contagem é MINHA (nasceu do wake) — novo período completo PAGO: o isolamento E77 termina legitimamente (lock vivo, orelhas quietas); o ciclo persiste"
         fi
         vlog "VIGÍLIA: suspendindo (travado há ${SUSPEND_MIN}min sem mãos — contagem contínua E78, ${quiet} ticks quietos; escuro e travado: acorda no lock)"
+        # E106 — A ÚLTIMA OLHADA ANTES DE DORMIR (a prova do dump: o suspend
+        # das 16:09:58 congelou a máquina 1 segundo DEPOIS do destravo do
+        # dono — o tick de 30s viu lock vivo, o dono digitou e saiu no
+        # intervalo, e o sono caiu na cara dele). O tick é amostra; o sono
+        # é FATRÁGIO: pgrep FRESCO (sem janela) imediatamente antes do
+        # systemctl — lock morto = o dono acabou de sair: nada de sono,
+        # portão abre e o vigia sai (o próximo lock arma vigília nova).
+        if ! pgrep -x hyprlock >/dev/null 2>&1; then
+            : > "$UNLOCK_STAMP" 2>/dev/null || true
+            rm -f "$GATE" 2>/dev/null || true
+            vlog "E106: suspend ABORTADO na última olhada — o lock morreu AGORA (o dono destravou no intervalo do tick; sono sobre destravo nunca mais)"
+            exit 0
+        fi
         # E77 — o portão fecha PELO SUSPEND (cinto-e-suspensório do
         # sleep-hook do before-sleep: swayidle morto = before-sleep
         # não roda — o sono da vigília mesma garante o isolamento do
@@ -381,6 +409,10 @@ done
 # acaba aqui: o próximo ciclo (T1 → lock novo → vigília nova) é o 'novo
 # período completo de inatividade' da spec. Sem isto, um vigia morto antes
 # de abrir deixaria o portão preso fechado para sempre.
+# E106 — O TERMÔMETRO: o stamp do destravo é tocado AQUI (o sleep-hook do
+# before-sleep e o braço idle do suspend leem a idade — destravo fresco
+# = ninguém recria lock nem suspende; a corrida do dump morre aqui).
 rm -f "$GATE" 2>/dev/null || true
-vlog "VIGÍLIA: destravado com o lock vivo por ${elapsed}s (últimos ${quiet} ticks quietos) — braço desarmado sem suspend · portão ABERTO (E77)"
+: > "$UNLOCK_STAMP" 2>/dev/null || true
+vlog "VIGÍLIA: destravado com o lock vivo por ${elapsed}s (últimos ${quiet} ticks quietos) — braço desarmado sem suspend · portão ABERTO (E77) · termômetro do destravo tocado (E106)"
 exit 0

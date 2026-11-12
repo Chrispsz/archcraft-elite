@@ -115,6 +115,21 @@ is_protected() {
         # lock/idle/notificações/clipboard/automount — serviço, não app
         swaylock*|swayidle*|swaync*|cliphist*|wl-copy*|wl-paste*|udiskie*|playerctld*|mpd*|mako*|dunst*|hyprlock*|hypridle*|hyprpaper*)
             return 0 ;;
+        # E106 — OS DAEMONS QUE O CONTADOR CHAMAVA DE "PROGRAMA" (a denúncia
+        # do dono: "como programa em primeiro plano fica o Sway OSD Server,
+        # ele tá ficando ali toda vez que você reinicia tudo… não sei para
+        # quê"). O swayosd-server é o daemon do OSD de volume/brilho — tem
+        # WAYLAND_DISPLAY no environ, passa no cinto do display e não casa
+        # linha nenhuma da casca: entrava na contagem e no menu PARA SEMPRE
+        # (e o craft-bars ressuscita em ≤5s quem o dono matasse — o dono
+        # matava e eles voltavam). Os irmãos da mesma classe, com a prova
+        # do dump: o gcr-prompter (diálogo do chaveiro — 'raw entrou/saiu'
+        # no dock.log), o zenity (o diálogo do listener polkit) e o agente
+        # lxqt-policykit (comm cortado em 15 = 'lxqt-policykit-' — o prefixo
+        # polkit* da linha de baixo JAMAIS o casou; o menus.log mostra o
+        # dono matando o agente pelo menu = prompt de senha morto).
+        swayosd*|lxqt-policykit*|gcr-prompter*|zenity*)
+            return 0 ;;
         # E30 (v2.10.18, dump p6aw): o dono matou 'notify-send' no menu e o
         # killer AVISOU a morte do próprio aviso — recursão cômica e ruído.
         # notify-send é um cliente efêmero (nasce, avisa, morre); tumblerd/
@@ -295,7 +310,16 @@ menu() {
     entries="$(BGAPPS_TRACE=1 list_main_entries)"
     if [ -z "$entries" ]; then
         # corrida benigna: o botão estava na barra e o app saiu sozinho
+        # E106 — MAS SILENCIO NÃO É MAIS TRATAMENTO (a denúncia do dono:
+        # "tá acusando um programa, você clica nele e não tem nada" — o
+        # menu recalculava na hora, achava nada e SAIA SEM MENU, SEM AVISO:
+        # o dono clicava num botão que sumia). A pílula de 30s podia estar
+        # velha — o aviso é -u low (estado, não evento: vai para a
+        # central, não estoura na cara).
         mlog "Processos: nada vivo para encerrar — saindo"
+        command -v notify-send >/dev/null 2>&1 && \
+            timeout 5 notify-send -a 'Elite' -u low -t 4000 'Processos' \
+                'Nada para encerrar agora — a lista que a pílula mostrou já saiu' || true
         exit 0
     fi
 

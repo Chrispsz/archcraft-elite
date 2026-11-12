@@ -494,8 +494,19 @@ PY
     # corre SEM WAYLAND_DISPLAY no env do dump (o 'agora' vazio é artefato
     # do coletor, não doença — a prova do parser vivo é o status rodado
     # DENTRO da sessão, linha abaixo, com o env explícito).
+    # E106 — A PROVA DO PAPEL VIVO: a linha de baixo injeta o env da
+    # sessão, mas o status lê o CONF via $HOME — rodando como ROOT o HOME
+    # era /root e o 'salvo' saía VAZIO com o conf do dono PREENCHIDO (a
+    # contradição que o próprio papel mostra: cat via $UHOME cheio + status
+    # via $HOME vazio). O HOME do dono entra junto com o WAYLAND_DISPLAY.
     r "cat \"$UHOME/.cache/elite/display.log\" 2>/dev/null | tail -30 || echo '(sem display.log — o craft-display nunca rodou apply/watch nesta home)'" 30
-    r "for d in wayland-0 wayland-1 wayland-2; do if env XDG_RUNTIME_DIR=\$URUNTIME WAYLAND_DISPLAY=\$d craft-display status 2>/dev/null; then break; fi; done || true" 20
+    r "for d in wayland-0 wayland-1 wayland-2; do if env XDG_RUNTIME_DIR=\$URUNTIME WAYLAND_DISPLAY=\$d HOME=\$UHOME XDG_CONFIG_HOME=\$UHOME/.config craft-display status 2>/dev/null; then break; fi; done || true" 20
+    # E106 — O BURACO PRETO DO PAPEL (o dump 20261112: o boot inteiro SEM
+    # UMA linha no idle.log — braços rodaram e o papel ficou mudo): os
+    # donos/modes dos arquivos de log entram no papel (owner errado =
+    # escrita de usuário falhando calada — o réu nomeado).
+    r "ls -l \"$UHOME/.cache/elite/idle.log\" \"$UHOME/.cache/elite/display.log\" \"$UHOME/.cache/elite/bars.log\" \"$UHOME/.cache/elite/lock.log\" 2>/dev/null || true" 4
+    r "cat \"\$URUNTIME/elite/idle-write-fail\" 2>/dev/null || echo '(sem idle-write-fail — o ilog nunca falhou gravar)'" 8
     # o ABNT2 (Z2) com prova: o XKB_DEFAULT_LAYOUT chegou à sessão ou não
     r "grep XKB /etc/environment 2>/dev/null || echo '(sem XKB_DEFAULT_LAYOUT em /etc/environment)'" 4
     # v2.1 — a prova DENTRO da sessão: o ambiente REAL do labwc (o

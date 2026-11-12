@@ -15,16 +15,36 @@
 # calamares inteiro; este sweep remove os ATALHOS órfãos mesmo sem rede).
 #
 # Regras: live (/run/archiso) NUNCA toca — o instalador é legítimo lá;
-# sistema com firstboot-done não roda de novo (idempotente de graça);
 # cada remoção nomeia o arquivo (o journal é a evidência).
-# ═══════════════════════════════════════════════════════════════════════════
+# E106 — O PURGE DO CACHE SAI DO GATE (o dump 20261112 + o journal do
+# drawer: "Cannot load icon 'calamares' for 'Install Archcraft'" no rig do
+# dono HOJE, com firstboot-done CRAVADO desde 3/nov): o sweep inteiro era
+# 1× (o gate do firstboot o matava para sempre) — e a dose do elite-system
+# REINSTALAVA o calamares.desktop por cima (--overwrite applications/*, a
+# varredura E98 embalava o fóssil). Fantasma ressuscitado + cache que
+# nunca mais purgava = o 'Starchcraft' que o dono viu nascer do nada.
+# A cura tem duas mãos: o build SAI de embalar o fantasma (E106 no
+# build.sh + elite-post-transaction o remove dos rigs) e AQUI o purge do
+# cache da gaveta roda em TODA varredura — incondicional do firstboot.
 set -eu
 
 if [ -e /run/archiso ]; then
     exit 0   # live: o instalador é o quebra-vento da ISO — intocado
 fi
+
+# E106 — o PURGE DO CACHE vem PRIMEIRO e roda SEMPRE (o gate do firstboot
+# não o segura mais: o cache podre de uma era antiga morre em qualquer
+# varredura — barato, idempotente, honesto).
+for c in /home/*/.cache/nwg-drawer/cache.db; do
+    [ -f "$c" ] || continue
+    if grep -aq calamares "$c" 2>/dev/null; then
+        rm -f -- "$c"
+        echo "elite-sweep: cache do drawer purgado (listava calamares): $c"
+    fi
+done
+
 if [ -e /var/lib/elite/firstboot-done ]; then
-    exit 0   # firstboot concluiu: a varredura dele já cobriu (e este é 1×)
+    exit 0   # firstboot concluído: a varredura dele já cobriu os atalhos
 fi
 
 removed=0

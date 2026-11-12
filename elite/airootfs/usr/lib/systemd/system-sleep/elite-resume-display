@@ -211,6 +211,18 @@ case "${1:-}" in
             exit 0
         fi
         mkdir -p "$RUN_DIR" 2>/dev/null || true
+        # E106 — O MARCO DO RESUME (a fronteira ESCOLHA × REVERSÃO do
+        # craft-display): o watch do craft-display NÃO grava o estado que o
+        # driver revertou no wake (a escolha de 200 Hz do dono saía do
+        # disco PARA SEMPRE — o watch via divergência estável em ~8s e
+        # salvava 60 Hz antes do reconcile acordar) e o reconcile do apply
+        # NÃO re-aplica sob o wake ainda instável. O marco vive 45s: fresco
+        # = wake em curso (tmpfs do usuário, root toca e o dono lê — 644).
+        for d in /run/user/[0-9]*/elite; do
+            [ -d "$d" ] || continue
+            : > "$d/display-resume" 2>/dev/null || true
+            chmod 644 "$d/display-resume" 2>/dev/null || true
+        done
         # ── O GESTO NOVO: o hook NÃO espera NINGUÉM. setsid + desapego: o
         #    systemd-sleep termina em <1s, o thaw acontece NA HORA (a
         #    experiência do dono: wake = controle imediato), e a imagem é

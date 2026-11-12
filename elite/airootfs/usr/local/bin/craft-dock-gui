@@ -264,6 +264,20 @@ CSS_FILE = os.path.join(GLib.get_user_config_dir(), "elite", "dock.css")
 LOG = os.path.join(GLib.get_user_cache_dir(), "elite", "dock.log")
 
 ICON_SIZE = 36   # spec M3.2: escala fixa de fábrica
+# E106 — A DENYLIST DO RAW (o dump 20261112: 'raw entrou: gcr-prompter' —
+# diálogo do chaveiro virou BOTÃO na dock; o polkit-gnome-agent entrou
+# duas vezes antes): janela de DAEMON/diálogo de sistema não é aplicativo
+# — a dock é a mesa de PROGRAMAS do dono, não o inventário de superfícies.
+# Por STEM (app_id ou título em minúsculas; startswith cobre o corte de
+# título truncado). Cura da fila E98(b) dos docs (POLIMENTO:496).
+RAW_DENY_STEMS = (
+    "gcr-prompter",       # diálogo de desbloqueio do chaveiro (gnome-keyring)
+    "lxqt-policykit",     # agente/prompt de autenticação polkit
+    "polkit-gnome",       # o agente legacy da fila E58
+    "zenity",             # diálogos do listener polkit (E101) e scripts
+    "swayosd",            # OSD de volume/brilho (daemon da casa)
+    "hyprpolkitagent",    # o agente da era Qt (fallback da fila E58)
+)
 # v2.3.4 — o float da pílula mora DENTRO da superfície (margem GTK no
 # widget, não margem layer-shell): a zona exclusiva cobre pílula + vão —
 # a janela maximizada nunca invade nem o vão transparente.
@@ -992,13 +1006,22 @@ class Dock:
         self._menus.append(proc)
         GLib.child_watch_add(GLib.PRIORITY_DEFAULT, proc.pid,
                              self._dock_menu_done,
-                             (info, hint, did, cmd, proc))
+                             (info, hint, did, cmd, proc, _btn, dynamic))
 
     def _dock_menu_done(self, _pid, _status, ctx):
         """O dispatch do menu (callback do child_watch — thread GTK).
         Silêncio (ESC/toggle/cross-dismiss) = nada acontece — a lei do
-        craft-menu: exit 1/2/143 são fechamentos, não escolhas."""
-        info, hint, did, cmd, proc = ctx
+        craft-menu: exit 1/2/143 são fechamentos, não escolhas.
+
+        E106 — O MENU QUE FICA DE PÉ (a denúncia do dono: "o menu fecha e
+        depois faz a ação. Tanto fixar quanto desfixar… toda vez abrir o
+        menu novamente"): Fixar/Remover fixação REABRE o menu do MESMO
+        botão com o verbo já alternado — o dono encadeia ações sem
+        re-clicar o botão direito. O craft-pin manda o SIGUSR2 e a dock
+        re-lê os pins; a reabertura (600ms — o craft-pin escreve, sinaliza
+        e o rebuild corre) mostra a lista no estado NOVO. ESC/clique-fora
+        (sem escolha) continua fechando — o que o dono pediu."""
+        info, hint, did, cmd, proc, btn, dynamic = ctx
         choice = ""
         try:
             choice = (proc.stdout.read() or "").strip()
@@ -1017,11 +1040,17 @@ class Dock:
                              stdout=subprocess.DEVNULL,
                              stderr=subprocess.DEVNULL,
                              start_new_session=True)
+            # E106 — a reabertura: o menu de pé (o verbo já alterna)
+            GLib.timeout_add(600, self._dock_menu, btn, info, hint,
+                             did, cmd, False)
         elif choice == "Remover fixação" and did:
             subprocess.Popen(["/usr/local/bin/craft-pin", "rm", did],
                              stdout=subprocess.DEVNULL,
                              stderr=subprocess.DEVNULL,
                              start_new_session=True)
+            # E106 — a reabertura: o menu de pé (agora como dinâmico)
+            GLib.timeout_add(600, self._dock_menu, btn, info, hint,
+                             did, cmd, True)
 
     def _focus_candidates(self, info, hint, did):
         # ordem de adivinha: hint explícito → StartupWMClass → binário →
@@ -1214,7 +1243,15 @@ class Dock:
                     comm = fh.read().strip()
                 if not comm:
                     continue
-                if comm != key and not (len(comm) == 15 and key.startswith(comm)):
+                # E106 — a prova de origem segue honesta, mas CASE-
+                # INSENSITIVE (o comm do kernel preserva o CASO do
+                # binário — um AppImage chamado 'MyTool' apresenta comm
+                # 'MyTool' e a chave do raw é 'mytool': o match antigo
+                # case-sensitive virava 'nova sessão sem prova de origem'
+                # e o dono via um botão morto — o 'Starchcraft sem
+                # funcionar' do relato).
+                if comm.lower() != key.lower() and not (
+                        len(comm) == 15 and key.lower().startswith(comm.lower())):
                     continue
                 with open(f"/proc/{pid}/cmdline", "rb") as fh:
                     argv0 = fh.read().split(b"\x00")[0].decode("utf-8", "replace")
@@ -1586,8 +1623,22 @@ class Dock:
         """v2.10.9 — a chave do SEM-NOME: app_id em minúsculas, o STEM
         composto ("com.github.App\" → "app"); sem app_id, o título
         (truncado — churn de título documentado no cabeçalho: é a única
-        verdade que a janela expõe). Nada sem nome vira botão."""
+        verdade que a janela expõe). Nada sem nome vira botão.
+
+        E106 — A DENYLIST DO DIÁLOGO DE DAEMON (o dump 20261112 + o dock.log
+        do rig: 'raw entrou/saiu: gcr-prompter' — o diálogo do chaveiro
+        virou BOTÃO na dock; o polkit-gnome-agent já tinha entrado duas
+        vezes era antes): janela viva SEM .desktop é o caso raw, mas
+        DIÁLOGO de daemon/diálogo de sistema NÃO é aplicativo — botão de
+        coisa que não abre programa nenhum é sujeira visual (a fila E98(b)
+        dos docs já pedia a versão polkit). A lista por STEM: o diálogo
+        do chaveiro, o prompt de privilégio, o zenity do listener, o
+        OSD de volume — todos saem da dock (o log explica quem saiu)."""
         a = (app_id or "").strip().lower()
+        stem_cand = a.rsplit(".", 1)[-1] if a else (title or "").strip().lower()[:24]
+        if stem_cand and stem_cand.startswith(RAW_DENY_STEMS):
+            log(f"raw DENYLIST: '{stem_cand}' é diálogo de daemon — sem botão (E106)")
+            return None, None
         if a:
             stem = a.rsplit(".", 1)[-1]
             return (stem if len(stem) >= 2 else a), a

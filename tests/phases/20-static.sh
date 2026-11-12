@@ -1059,7 +1059,9 @@ assert_nogrep "$SK/.zshrc" "mousepad ~" "v2.10.5: .zshrc não invoca pacote remo
 assert_grep "$SK/.zshrc" "alias zshconfig='nano ~/.zshrc'" "v2.10.5: zshconfig aponta pro editor da distro (nano)"
 
 # E. a flag é probada antes de usar (lei do craft-menu — classe 'flag nova que mata'):
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin-pick" "grep -q -- '--anchor'" "v2.10.5: pin-pick prova --anchor (fuzzel velho não mata o picker)"
+# E106 — a v4 corre no MOTOR craft-menu (a probe CAPS com cache selado mora
+# LÁ — o picker cru que forkava 'fuzzel --help' POR CLIQUE morreu com o laço)
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin-pick" 'craft-menu --title' "v2.10.5→E106: o picker corre no motor com probe própria (a lei 'flag nova que mata' seguiu para o craft-menu — CAPS cacheadas por stat, zero fork de prova por clique)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-rollback" "grep -q -- '--anchor'" "v2.10.5: rollback prova --anchor (mesma lei)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin-pick" 'Hidden=true' "v2.10.5: picker respeita Hidden (a lei XDG é dupla)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin-pick" 'pt_BR' "v2.10.5: picker fala o nome da gente (Name[pt_BR] antes do genérico)"
@@ -1805,7 +1807,15 @@ assert_grep "$CHELP" 'W-S-h repete|A-Tab / W-Tab' "E90: os atalhos REAIS no mapa
 assert_grep "$REPO/scripts/apply-overlay.sh" 'craft-help' "E90: o craft-help registrado no file_permissions (o gate 203/EXEC — lição diag-boot2)"
 assert_grep "$REPO/.ci/build.sh" 'usr/local/share/elite/docs/SCRIPTS.md' "E90: o SCRIPTS.md viaja NO PACOTE (a doc completa dentro do sistema — a fonte única continua o repo)"
 assert_grep "$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml" 'foot -e craft-help' "E90: o menu do desktop abre o mapa (a porta de mouse-first da descoberta)"
-assert_grep "$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml" 'craft-update --check' "E90: o menu ganha 'Verificar atualizações' (a porta barata de checagem — a lacuna nº 2)"
+# ── E106 — O ENXUGAMENTO DO MENU (a ordem do dono: "muita coisa aqui pode
+#    simplesmente ser inútil e pode ser removida") ──
+assert_nogrep "$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml" 'craft-update --check' "E106: 'Verificar atualizações' MORREU no menu (o dono: 'os dois é a mesma coisa. No caso o atualizar sistema ele já verifica e já atualiza, se necessário' — provado: o --check é read-only sobre a base LOCAL, o -Syu sincroniza E atualiza; o verbo --check segue vivo no CLI)"
+assert_nogrep "$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml" 'label="Leitor de PDF"' "E106: 'Leitor de PDF' MORREU no menu (volume morto — o Aplicativos cobre; o dono mandou enxugar, NADA novo)"
+assert_nogrep "$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml" 'label="Editor"' "E106: 'Editor' MORREU no menu (Terminal + nano cobre — volume morto do enxugamento)"
+assert_grep "$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml" 'Apps da dock…' "E106: a GAVETA UNIFICADA (o desenho do dono, palavra por palavra: 'um menu unificado… com o marcador se tá ativado… ele só fecharia quando você tirasse o mouse de cima da função ou clicasse fora da tela' — ✓/· que alterna e reabre, ESC/clique-fora fecham)"
+assert_grep "$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml" 'Sair da sessão' "E106: o SAIR DIRETO no menu (o dono: reboot e desligar já estão ali — o que faltava era o sair; o menu gráfico segue no ⏻ da topbar)"
+assert_grep "$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml" 'Telas — resolução' "E106: o rótulo que DIZ o que faz (o dono: 'esse display, eu não sei nem para que é isso' — o nome era a doença)"
+assert_grep "$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml" 'Calculadora não encontrada' "E106: o ramo vazio da varredura AVISA (a classe dnotify — a morte calada do exec sem binário nunca mais; o dono: 'abrir calculadora' parou de funcionar)"
 
 # ── E90: a família inteira com --help (a auditoria E66: 20 de 31 nus) ──
 # o contrato casa o VOCÁBULO --help no dispatch (a casa tem 3 gramáticas:
@@ -2016,15 +2026,51 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-display" 'display-diverge'
     "E105/display: a divergência conta em papel (6 ticks ≈ 30s — a escolha do dono em curso termina dentro)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-display" 'REAPLICANDO o arranjo do dono' \
     "E105/display: o stamp não é fé — conf ≠ realidade estável = o arranjo salvo volta (o 60 Hz escondido morre)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-display" 'a falha fica MARCADA no stamp' \
-    "E105/display: apply abortado marca o stamp fail (o reconcile não re-tenta o que não conseguiu — sem briga a cada 5s)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-display" 'fail:N|RE-TENTANDO|stamp honesto' \
+    "E106/display: o stamp é HONESTO (escrito DEPOIS do feito, ok/fail:N com retry de 6 — a v2.6 escrevia 'sucesso antecipado' antes do apply e o fail era TERMINAL: um boot de link frio muteava a sessão inteira até o reboot, o réu dos 200 Hz do dump 20261112)"
 assert_grep "$REPO/elite/airootfs/etc/skel/.config/waybar/config.top" '"format-stopped": ""' \
     "E105/topbar: o stopped não prende mais o módulo (o fantasma da aba fechada sai — a promessa do comentário vira fato)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'playerctl -l' \
     "E105/dump v2.10: a foto da MÍDIA (quem está no barramento — o próximo fantasma nasce com nome)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'lock\.log' \
     "E105/dump v2.10: a foto do LOCK (nascimentos + lock vivo + journal — a próxima denúncia de dupla senha nasce assinada)"
-assert_grep "$REPO/.ci/build.sh" 'pkgrel=49' \
-    "E106/E41: pkgrel 48→49 NO MESMO COMMIT (o refresh de sessão que JAMAIS reiniciou o áudio — a doutrina E48 aplicada ao roteador)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=50' \
+    "E106/E41: pkgrel 49→50 NO MESMO COMMIT (o dump do dono periciado — a colheita inteira no heredoc do PKGBUILD: âncora do game watch, polkit com subject, a dupla senha do lock, o stamp honesto do display, o menu enxugado, o contador honesto, o fantasma morto em três mãos)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bars" '\^bash /usr/local/bin/craft-game watch\$\|\^/usr/bin/env bash /usr/local/bin/craft-game watch' \
+    "E106/bars: a âncora do game watch casa o CMDLINE REAL (o shebang env-bash apresenta 'bash …' — o padrão '^/usr/local/bin/…' JAMAIS viu o processo vivo: 1540 restarts, 12 pares vivos no ps do dump, o log em loop de 5s desde o boot — E48 a 3ª vez na casa)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bars" 'pkill -f .\^/usr/bin/lxqt-policykit-agent' \
+    "E106/bars: a aposentadoria do lxqt por CMDLINE (o -x casa COMM e o comm é cortado em 15: 'lxqt-policykit-' — o residente nunca saía da sala e o listener não registrava; a fila E105 girava em falso)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bars" 'XDG_SESSION_ID="\$_pk_sid"' \
+    "E106/bars: o lançador injeta o SUBJECT (o agente morria em TODO arranque com assertion POLKIT_IS_SUBJECT — XDG_SESSION_ID ausente na sessão SDDM+labwc; sem agente, TODO pedido de privilégio do menu morria calado)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-idle" 'unlock_fresco 15' \
+    "E106/idle: o termômetro do DESTRAVO guarda o sleep-hook E o suspend (o suspend em voo recriava o lock 1s após o destravo — a dupla senha do dump; o guard antigo só via o lock, nunca as mãos)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-vigil" 'suspend ABORTADO na última olhada' \
+    "E106/vigil: a última olhada antes do sono (pgrep FRESCO imediatamente antes do systemctl — o tick de 30s é amostra, o sono é flagrante; sono sobre destravo nunca mais)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-idle" 'wake-cycle' \
+    "E106/idle: o ciclo de wake é UM SÓ (mutex de 3s — três braços corriam o off→on em paralelo e a intercalação off(A) on(B) off(C) deixava a tela ESCURA com todos logando sucesso: o 'perde a imagem ao despertar')"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bgapps" 'swayosd\*\|lxqt-policykit\*' \
+    "E106/bgapps: os daemons saem da lista de programas (o SwayOSD era o 'programa em primeiro plano que não sei para quê' — ressuscitado ≤5s pelo supervisor; o lxqt-policykit- com o comm cortado JAMAIS casava o prefixo polkit\* e o dono matava o agente pelo menu)"
+assert_grep "$REPO/elite/airootfs/etc/skel/.config/waybar/config.top" '"interval": 5' \
+    "E106/topbar: o contador atualiza a cada 5s (a pílula de 30s mentia por até meio ciclo — 'acusa um programa, você clica e não tem nada'; o custo é o mesmo fork de ps do módulo pulseaudio que já roda a cada segundo)"
+assert_grep "$REPO/elite/airootfs/usr/lib/systemd/system-sleep/elite-resume-display" 'display-resume' \
+    "E106/resume: o marco do resume (a fronteira ESCOLHA × REVERSÃO — o watch NÃO grava a reversão do driver: a escolha de 200 Hz do dono saía do disco PARA SEMPRE em ~8s, antes do reconcile acordar)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-post-transaction" 'calamares.desktop' \
+    "E106/post-transaction: o fantasma não renasce (a dose REINSTALAVA o calamares.desktop em todo rig — o elite-sweep o removia 1× e a próxima dose o ressuscitava; o 'Starchcraft' que o dono viu nascer do nada)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-lock" 'exec hyprlock -c "\$conf" 9>&-' \
+    "E106/lock: a porteira solta o exec (o fd 9 acompanhava o hyprlock VIVO — todo --if-needed paralelo esperava 2s e decidia com pgrep de até 2s atrás; a janela exata da dupla senha)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-menu" 'limpa_state' \
+    "E106/menu: o state é removido SÓ se ainda é MEU (o rm incondicional apagava o state do menu NOVO no cross-dismiss: toggle cego, dismiss mudo, menus vazando — o dump fotografou 2× 'Encerrar' vivos)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-game" 'GAME_PATS=' \
+    "E106/game: a família é ERE sobre o comm cortado (o pgrep -x wine64-preloader JAMAIS viu o Wine 64-bit — comm 'wine64-preload' em 15 chars; o modo automático nasceu cego para a família mais comum do dono)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-game" 'NOTE_URGEN=normal' \
+    "E106/game: o feedback que o dono não via (a política low→muted do swaync engolia TUDO — on/off/Automático/Status falavam para o stdout do labwc; agora sobem normal e somem em 8s)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-help" 'pausa_final' \
+    "E106/help: a pausa do E96 que o irmão nunca recebeu (a janela 'abre e fecha' do dono — o mapa imprimia e o foot fechava junto)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'RAW_DENY_STEMS' \
+    "E106/dock: a denylist do raw (o gcr-prompter 'raw entrou/saiu' no dock.log — diálogo de daemon não é aplicativo; o polkit-gnome já tinha entrado 2×)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'timeout_add\(600, self\._dock_menu' \
+    "E106/dock: o menu fica de pé (Fixar/Remover REABREM o menu com o verbo alternado — 'o menu fecha e depois faz a ação… toda vez abrir o menu novamente')"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'idle-write-fail' \
+    "E106/dump: o buraco preto do papel entra no retrato (o boot inteiro SEM UMA linha no idle.log — braços rodaram e a escrita falhava calada; owner+mode dos logs e o fallback de escrita no papel)"
 
 phase_end

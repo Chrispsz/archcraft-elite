@@ -1,22 +1,33 @@
 #!/usr/bin/env bash
 # craft-lock — bloqueia a tela (hyprlock → loginctl → erro claro)
+# v2.7 (E106): A PORTEIRA SOLTA O BEBÊ + O RECHECK DE NASCIMENTO — o dump
+#   20261112 fotografou a dupla senha na carne: unlock às 16:09:57
+#   ('Unlocked, exiting!'), suspend JÁ EM VOO às 16:09:58, o sleep-hook
+#   recriou o lock (pgrep honestamente falso — o lock morreu há 1s) e a
+#   máquina congelou com o lock #2 na cara do dono — acorda pedindo a
+#   senha DE NOVO. Três curas: (1) o fd 9 da porteira NÃO acompanha mais
+#   o exec do hyprlock (9>&- no exec) — o flock vive SÓ no nascimento e o
+#   próximo --if-needed adquire a porta DE IMEDIATO com pgrep FRESCO (o
+#   comentário v2.6 vendia 'a porta fecha enquanto o hyprlock vive' — era
+#   a janela do próprio bug); (2) recheck do pgrep IMEDIATAMENTE antes do
+#   exec no caminho --if-needed (o rice/sed custa até 3s — a corrida que
+#   o pgrep de 1 tiro não fechava); (3) o termômetro do DESTRAVO: o
+#   craft-vigil toca unlock.stamp quando o lock morre e o sleep-hook
+#   (craft-idle) se recusa a recriar lock sobre destravo fresco.
+# v2.7 (E106): O AVATAR MORRE (a ordem do dono: 'eu não quero aquele
+#   ícone, eu não quero aquela foto, eu não quero nada entre o relógio e
+#   onde coloca as credenciais') — o bloco image da pele v7 não existe
+#   mais, e o ffmpeg crop que alimentava ~/.cache/elite/avatar.png era
+#   código morto queimando milissegundos em todo nascimento de lock:
+#   sai inteiro daqui (a lei E33: código morto com comentário vivo).
 # v2.6 (E105): A PORTEIRA + A FOTO + O SED DE ESCOPO — (1) todo nascimento
 #   atravessa o flock único (a corrida idle 120s × sleep-hook não gera
-#   mais spawn paralelo; a porta fecha enquanto o hyprlock vive) e cada
-#   spawn/if-needed ganha UMA linha no lock.log (argv + ppid = a porta e
-#   QUEM chamou — a perícia do 'pediu a senha duas vezes' tem papel);
-#   (2) o sedito do wallpaper fica PRESO ao bloco background — o bloco
-#   avatar (E103) deixou de ser sobrescrito (a 'fotinha cortada' e o
-#   'preview feio do papel de parede' eram o path do avatar virando o
-#   wallpaper no conf efêmero).
+#   mais spawn paralelo) e cada spawn/if-needed ganha UMA linha no
+#   lock.log (argv + ppid = a porta e QUEM chamou); (2) o sedito do
+#   wallpaper fica PRESO ao bloco background.
 # v2.1 (E100): A PELE SEGUE O LOCK — antes de cada lock novo, o craft-rice
-#   --lock-quiet renova o conf do home (a MESMA gramática do arranque:
-#   marcador renova, fóssil renova, ausente entrega, personalizado
-#   intoca). A dose da casa vale no PRÓXIMO LOCK — não no próximo
-#   relogin: o 'não mudou nada' morre (a pele não espera a sessão
-#   renascer; o lock não é lugar de log). O --if-needed segue intacto:
-#   lock JÁ VIVO sai cedo ANTES daqui — ninguém troca a pele de um
-#   hyprlock que já está na tela (o conf é lido no nascimento).
+#   --lock-quiet renova o conf do home. A dose da casa vale no PRÓXIMO
+#   LOCK — não no próximo relogin.
 # v2.0 (v2.5.0): o FUNDO do lock = o MESMO wallpaper do desktop — o dono:
 #   "ele deve ficar só o wallpaper com Blur e não mostrar as janelas
 #   abertas e etc como o PC estava antes de ir pra tela de bloqueio/idle".
@@ -67,9 +78,7 @@ case "${1:-}" in -h|--help|uso) uso ;; esac
 # MESMA porteira (flock em XDG_RUNTIME_DIR — tmpfs por boot): o 2º
 # instante da corrida (o idle 120s e o sleep-hook do suspend nascendo
 # juntos) espera até 2s em vez de spawnar em paralelo; com o lock vivo, o
-# --if-needed de baixo vê o pgrep e sai. A porta fica FECHADA enquanto o
-# lock vive (o fd 9 acompanha o exec do hyprlock — o flock é dele):
-# nenhum outro nascimento por descuido. Sem flock(1) na máquina, a
+# --if-needed de baixo vê o pgrep e sai. Sem flock(1) na máquina, a
 # porteira degrada em silêncio (o pgrep de baixo segue segurando).
 LLOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/lock.log"
 mkdir -p "${XDG_RUNTIME_DIR:-/tmp}/elite" "${LLOG%/*}" 2>/dev/null || true
@@ -77,6 +86,11 @@ exec 9>>"${XDG_RUNTIME_DIR:-/tmp}/elite/lock-spawn.lock" 2>/dev/null || true
 if command -v flock >/dev/null 2>&1; then
     flock -w 2 9 2>/dev/null || true
 fi
+# E106 — o fd 9 SAI antes de qualquer nascimento: o flock é do PARTO, não
+# da vida do lock. A v2.6 deixava o fd acompanhando o exec — o hyprlock
+# segurava a porteira ENQUANTO VIVO e todo --if-needed paralelo esperava
+# 2s inteiros e seguia com um pgrep de até 2s atrás (a janela da dupla
+# senha). O vlog do dono volta a nascer fresco.
 
 # E47 — o no-op DIFERENTE do silêncio: só sai cedo quando há lock SAUDÁVEL
 # para guardar (a checagem é pgrep, não fé).
@@ -104,11 +118,10 @@ fi
 
 # E30 (v2.10.18) — INSTÂNCIA ÚNICA (bars.log do dump p6aw: hyprlock
 # 'onLockFinished called. Seems we got yeeten. Is another lockscreen
-# running?' — dois caminhos do lock atravessaram [timeout do idle +
-# manual/suspend] e o perdedor ficou VIVO, pid 3666, mesmo com a sessão
-# destravada: um locker fantasma esperando para dar dor de cabeça).
-# pkill+espera+exec: SEMPRE exatamente um locker — o TERM no velho É o
-# fecho da corrida, e um lock pedido nunca vira no-op silencioso.
+# running?'). pkill+espera+exec: SEMPRE exatamente um locker — e agora
+# com KILL de resposta (E106: hyprlock moribundo sobrevive ao TERM e aos
+# 10×0.1s quando a GPU está doente — o exec nasceria POR CIMA e o
+# fantasma da E30 voltava; o KILL condicional fecha o caso).
 # E47: o caminho --if-needed já devolveu cedo ACIMA quando havia lock
 # vivo — o pkill abaixo só alcança quem chegou até aqui (lock morto ou
 # caminho manual), a E30 segue intacta onde ela nasceu.
@@ -118,6 +131,14 @@ while [ "$i" -lt 10 ] && pgrep -x hyprlock >/dev/null 2>&1; do
     sleep 0.1
     i=$((i + 1))
 done
+if pgrep -x hyprlock >/dev/null 2>&1; then
+    pkill -KILL -x hyprlock 2>/dev/null || true
+    i=0
+    while [ "$i" -lt 10 ] && pgrep -x hyprlock >/dev/null 2>&1; do
+        sleep 0.1
+        i=$((i + 1))
+    done
+fi
 if command -v hyprlock >/dev/null 2>&1; then
   # E60 — A VIGÍLIA: TODO lock novo ARMA o próprio vigia do suspend
   # (setsid — sobrevive ao exec abaixo; stdin/stdout soltos). O suspend
@@ -133,6 +154,17 @@ if command -v hyprlock >/dev/null 2>&1; then
   fi
   src="$HOME/.config/hypr/hyprlock.conf"
   if [ -r "$src" ]; then
+    # E106 — O RECHECK DO NASCIMENTO (a janela de até 3s do rice/sed): o
+    # --if-needed não manda lock nascer se um lock VIVO apareceu no meio
+    # do caminho (o pgrep de 1 tiro na porta era o único juiz — o dump
+    # provou a corrida: spawn às 16:09:58 com o lock morto há 1s, o
+    # suspend em voo congelou a máquina com o lock #2 no rosto do dono —
+    # 'pisca e volta a pedir senha'). Caminho manual não rechecka: a E30
+    # manda matar e renascer (a instância única é o CONTRATO do manual).
+    if [ "${1:-}" = "--if-needed" ] && pgrep -x hyprlock >/dev/null 2>&1; then
+      printf '[%s] if-needed: lock NASCEU durante o caminho — saio sem duplicar\n' "$(date '+%F %T')" >>"$LLOG" 2>/dev/null || true
+      exit 0
+    fi
     bg="$HOME/.config/labwc/wallpaper.png"
     [ -r "$bg" ] || bg="$HOME/.config/labwc/wallpaper.jpg"
     conf="${XDG_RUNTIME_DIR:-/tmp}/elite-hyprlock.conf"
@@ -141,15 +173,9 @@ if command -v hyprlock >/dev/null 2>&1; then
       # o ^path puro era no-op silencioso (o teste dos 3 cenários flagrou).
       # v2.5.0 (N1a, audit 24-r): $bg escapado p/ sed — HOME com | & \
       # morria o sed (set -e) e o lock morria sem fallback.
-      # E105 — O SED DE ESCOPO (o dump 195332 + a denúncia do dono: 'a
-      # fotinha cortada e um preview feio do papel de parede entre o
-      # relógio e as credenciais'): o sedito antigo trocava TODA linha
-      # path do conf — o bloco avatar (E103) inclusive, que na sessão
-      # viva virava o WALLPAPER (a foto do dono nunca aparecia; o círculo
-      # 96px mostrava um recorte feio da parede). A cura: a troca fica
-      # PRESA ao bloco background (a parede); o path do avatar
-      # (~/.cache/elite/avatar.png) sobra intacto e a foto real aparece
-      # no círculo 1:1 que a E101 entregou.
+      # E105/E106 — O SED DE ESCOPO: a troca fica PRESA ao bloco
+      # background (a parede). A pele v7 não tem mais bloco avatar —
+      # o escopo segue como cinto (a gramática do hyprlock manda).
       bg_esc=$(printf '%s' "$bg" | sed 's/[&|\\]/\\&/g')
       sed "/^background {/,/^}/ s|^[[:space:]]*path = .*|    path = $bg_esc|" "$src" > "$conf"
     else
@@ -157,33 +183,12 @@ if command -v hyprlock >/dev/null 2>&1; then
       # mesmo escopo E105: só o bloco background
       sed "/^background {/,/^}/ s|^[[:space:]]*path = .*|    path =|" "$src" > "$conf"
     fi
-    # E101 — O AVATAR 1:1 (a diretriz do dono: proporção 1:1 rigorosa,
-    # círculo perfeito). O rounding=-1 do hyprlock sobre imagem RETANGULAR
-    # é ELIPSE — o corte assimétrico que o dono mandou eliminar. A cura:
-    # a FONTE é sempre QUADRADA — o crop min(iw,ih) do ffmpeg (que a casa
-    # já leva na ISO) recorta o lado menor e o cache nasce quadrado.
-    # FONTE: ~/.config/elite/avatar.png (a casa do dono) → ~/.face (o
-    # padrão XDG). CACHE com mtime: a foto mudou? nasce de novo; igual?
-    # o lock não paga o ffmpeg (milissegundos viram zero).
-    if command -v ffmpeg >/dev/null 2>&1; then
-      av_src=""
-      for cand in "$HOME/.config/elite/avatar.png" "$HOME/.face" \
-                  "$HOME/.config/elite/avatar.jpg" "$HOME/.face.icon"; do
-        [ -r "$cand" ] && { av_src="$cand"; break; }
-      done
-      if [ -n "$av_src" ]; then
-        av_dst="${XDG_CACHE_HOME:-$HOME/.cache}/elite/avatar.png"
-        if [ ! -r "$av_dst" ] || [ "$av_src" -nt "$av_dst" ]; then
-          mkdir -p "${av_dst%/*}" 2>/dev/null || true
-          ffmpeg -y -loglevel error -i "$av_src" \
-            -vf "crop='min(iw,ih)':'min(iw,ih)',scale=256:256" \
-            "$av_dst" 2>/dev/null || true
-        fi
-      fi
-    fi
-    exec hyprlock -c "$conf"
+    # E106 — o exec solta a porteira (9>&-): o flock é do PARTO, não da
+    # vida do lock — o próximo --if-needed adquire a porta de imediato e
+    # decide com pgrep FRESCO (a janela da dupla senha fecha aqui).
+    exec hyprlock -c "$conf" 9>&-
   fi
-  exec hyprlock
+  exec hyprlock 9>&-
 fi
 if command -v loginctl >/dev/null 2>&1; then
   exec loginctl lock-session

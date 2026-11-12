@@ -41,11 +41,17 @@ CONF="$CONF_DIR/game.conf"
 RUN_DIR="${XDG_RUNTIME_DIR:-/tmp}/elite"
 LOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/game.log"
 
-# a família de JOGOS da casa (comm de processo — casing exato, pgrep -x).
+# a família de JOGOS da casa (ERE sobre o COMM, ancorada — pgrep SEM -x).
 # Steam nativo, Wine/Proton (preloader), emuladores e clients conhecidos.
-GAME_COMMS=(wine64-preloader wine-preloader gamescope pcsx2 retroarch
-            duckstation dolphin-emu melonds citra-qt ryujinx PPSSPPSDL rpcs3
-            osu! Cemu)
+# E106 — O COMM QUE NUNCA CASOU (a doutrina E48 na família do jogo): o
+# kernel corta o comm em 15 caracteres — 'wine64-preloader' (17) chega
+# como 'wine64-preload' e o 'pgrep -x wine64-preloader' da lista antiga
+# JAMAIS viu o jogo Wine/Proton 64-bit: o modo automático nasceu CEGO
+# para a família mais comum do dono. A lista agora é ERE sobre o comm
+# (pgrep sem -x casa regex) com âncoras ^…$ — o corte do kernel entra
+# no padrão ('wine6?-preload(er)?' casa 14 e 17 chars), e a âncora
+# impede que um 'gamescope-helper' hipotético passe por 'gamescope'.
+GAME_PATS='^wine6?-preload(er)?$|^gamescope$|^pcsx2$|^retroarch$|^duckstation$|^dolphin-emu$|^melonds$|^citra-qt$|^ryujinx$|^PPSSPPSDL$|^rpcs3$|^osu!$|^Cemu$'
 
 # o glifo de log único (o papel da casa — 256 KiB de teto, lei E36)
 glog() {
@@ -56,11 +62,19 @@ glog() {
     printf '[%s] %s\n' "$(date '+%F %T')" "$*" >>"$LOG" 2>/dev/null || true
 }
 
-# o aviso para o dono: -u low SEMPRE (a lei do pop-up: estado não sobe na
-# tela — a central/histórico guarda; pop-up é lugar de normal/critical)
+# o aviso para o dono: -u low por padrão (a lei do pop-up: estado não sobe
+# na tela — a central/histórico guarda; pop-up é lugar de normal/critical).
+# E106 — A EXCEÇÃO QUE O DONO MANDOU: ação DELE no menu (on/off/Automático)
+# que não deixava NENHUM feedback — o menu fechava e NADA aparecia (o
+# dump: 'clico em ativar agora e eu não vejo nada se ele está on ou off').
+# A política -u low do swaync MATA toda urgência low (notification-visibility
+# muted) — o feedback da ação do dono usa -u normal: sobe na tela, some em
+# 8s (nunca critical — a doutrina da casa fica). Eventos AUTOMÁTICOS
+# (jogo detectado/saído) seguem -u low — a lei C101 fica de pé.
 note() {
+    local urgen="${NOTE_URGEN:-low}"
     command -v notify-send >/dev/null 2>&1 || return 0
-    timeout 5 notify-send -a 'Elite · Jogo' -u low -t 4000 "$@" >/dev/null 2>&1 || true
+    timeout 5 notify-send -a 'Elite · Jogo' -u "$urgen" -t 8000 "$@" >/dev/null 2>&1 || true
 }
 
 # ── o canal D-Bus do gamemode (o sistema é root por trás do gamemoded) ──
@@ -100,12 +114,14 @@ gm_on() {
     printf '%s\n' "$hpid" > "$file" 2>/dev/null || true
     if gm_register "$hpid" >/dev/null 2>&1; then
         glog "manual: ON (holder pid $hpid registrado no gamemode)"
+        NOTE_URGEN=normal note 'Modo de jogo ATIVO' 'Governor performance + GPU high (gamemode) — desligue no menu ou craft-game off'
         echo "==> modo de jogo ATIVO (governor performance + GPU high — gamemode)"
         return 0
     fi
     kill "$hpid" 2>/dev/null || true
     rm -f "$file" 2>/dev/null || true
     glog "manual: o gamemode RECUSOU o registro (dbus?) — nada mudou"
+    NOTE_URGEN=normal note 'Modo de jogo não ativou' "O gamemode não respondeu — prova em $LOG"
     echo "✖ o gamemode não respondeu — prova em $LOG" >&2
     return 1
 }
@@ -119,6 +135,7 @@ gm_off() {
         kill "$hpid" 2>/dev/null || true
         rm -f "$file" 2>/dev/null || true
         glog "manual: OFF (holder pid $hpid liberado — o gamemode devolve o governor)"
+        NOTE_URGEN=normal note 'Modo de jogo DESATIVADO' 'Perfil normal restaurado (governor/GPU da casa)'
         echo "==> modo de jogo DESATIVADO (o governor volta ao perfil da casa)"
         return 0
     fi
@@ -127,6 +144,7 @@ gm_off() {
         rm -f "$RUN_DIR/game-watch.pids" 2>/dev/null || true
         glog "manual: OFF — fila do watch limpa (os jogos que morreram o reaper já liberou)"
     fi
+    NOTE_URGEN=normal note 'Modo de jogo' 'Não estava ativo — nada a desativar'
     echo "o modo de jogo não está ativo (nada a desativar)" >&2
     return 1
 }
@@ -147,8 +165,20 @@ gm_watch() {
         exit 0
     fi
     ensure_run_dir
+    # E106 — O SINGLETON QUE O SUPERVISOR CEGO EXIGE (o dump 20261112: a
+    # âncora quebrada do craft-bars spawnou UM watch novo a cada 5s — 12
+    # pares vivos no ps, 1540 restarts no papel). A âncora do supervisor
+    # está curada (E106 lá), mas a defesa final é DO CORPO: o flock no
+    # XDG_RUNTIME_DIR decide no KERNEL — o 2º watch sai 0 em silêncio,
+    # mesmo que alguém o lance na mão ou um supervisor antigo (versão
+    # velha em memória) continue cego. O fd morre com o processo — sem
+    # órfão segurando a porta (a lição E43 do craft-bars).
+    exec 9>"$RUN_DIR/game-watch.lock" 2>/dev/null || true
+    if command -v flock >/dev/null 2>&1 && ! flock -n 9 2>/dev/null; then
+        exit 0
+    fi
     printf '%s\n' "$$" > "$RUN_DIR/game-watch.pid" 2>/dev/null || true
-    glog "watch: no ar (pid $$ — família com ${#GAME_COMMS[@]} comms conhecidos)"
+    glog "watch: no ar (pid $$ — família ERE sobre o comm, ${#GAME_PATS} chars de padrões)"
 
     local -A held=()   # pid → 1 (registrado por nós)
     while :; do
@@ -162,6 +192,8 @@ gm_watch() {
             fi
         done
         # 2) os jogos VIVOS da família que AINDA não estão registrados
+        # (E106: pgrep SEM -x — a família é ERE sobre o comm cortado; a
+        # lista antiga nunca viu o Wine 64-bit)
         while IFS= read -r p; do
             [ -n "$p" ] || continue
             [ "${held[$p]:-}" = 1 ] && continue
@@ -172,7 +204,7 @@ gm_watch() {
             else
                 glog "watch: jogo pid $p detectado mas o registro recusou (dbus?) — próxima rodada tenta de novo"
             fi
-        done < <(pgrep -u "$(id -u)" -x "${GAME_COMMS[@]}" 2>/dev/null || true)
+        done < <(pgrep -u "$(id -u)" "$GAME_PATS" 2>/dev/null || true)
         sleep 5
     done
 }
@@ -207,8 +239,8 @@ gm_status_cmd() {
         [ "$st" = "1" ] && printf 'gamemoded           ATIVO nesta sessão\n' || printf 'gamemoded           idle (sobe por D-Bus só com jogo — RAM zero)\n'
     fi
     printf 'jogos vivos agora   '
-    pgrep -u "$(id -u)" -x "${GAME_COMMS[@]}" >/dev/null 2>&1 \
-        && pgrep -a -u "$(id -u)" -x "${GAME_COMMS[@]}" 2>/dev/null | head -3 \
+    pgrep -u "$(id -u)" "$GAME_PATS" >/dev/null 2>&1 \
+        && pgrep -a -u "$(id -u)" "$GAME_PATS" 2>/dev/null | head -3 \
         || echo "(nenhum da família)"
     printf '\npapel da casa: %s\n' "$LOG"
 }
@@ -226,17 +258,28 @@ gm_menu() {
         Automático*) 
             if [ "${auto:-0}" = 1 ]; then
                 printf 'AUTO=0\n' > "$CONF" 2>/dev/null
-                pkill -f 'craft-game watch$' 2>/dev/null || true
-                note 'Modo de jogo' 'Detecção automática desligada'
+                pkill -f '^bash /usr/local/bin/craft-game watch$|^/usr/bin/env bash /usr/local/bin/craft-game watch$' 2>/dev/null || true
+                NOTE_URGEN=normal note 'Automático: OFF' 'O modo de jogo só entra pela porta manual (menu)'
             else
                 mkdir -p "$CONF_DIR" 2>/dev/null || true
                 printf 'AUTO=1\n' > "$CONF" 2>/dev/null
-                setsid /usr/local/bin/craft-game watch >/dev/null 2>&1 </dev/null &
-                note 'Modo de jogo' 'Detecção automática ligada (performance entra com o jogo)'
+                setsid /usr/local/bin/craft-game watch >/dev/null 2>&1 </dev/null 9>&- &
+                NOTE_URGEN=normal note 'Automático: ON' 'Performance entra sozinha quando um jogo abre'
             fi ;;
         *Ativar*) gm_on ;;
         *Desativar*) gm_off ;;
-        *Status*) gm_status_cmd ;;
+        *Status*)
+            # E106 — O STATUS QUE NÃO EXISTIA (o dono: 'tem o status também,
+            # que sinceramente eu clico nele e nada'). O veredito ia TODO
+            # para o stdout do labwc — sumido. Agora: a UMA LINHA do
+            # veredito sobe na tela (normal, some em 8s) e o veredito
+            # COMPLETO vai para o papel (game.log — ou terminal à mão:
+            # craft-game status).
+            _st_auto="OFF"; [ "${auto:-0}" = 1 ] && _st_auto="ON"
+            _st_gm="idle (sobe sozinho com jogo — RAM zero)"
+            if [ -r "$(holder_pid_file)" ]; then _st_gm="ATIVO (manual)"; fi
+            NOTE_URGEN=normal note "Automático: $_st_auto · gamemoded: $_st_gm" "Completo no papel: ~/.cache/elite/game.log"
+            gm_status_cmd >>"$LOG" 2>&1 || true ;;
     esac
 }
 

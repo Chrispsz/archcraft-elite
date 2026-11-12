@@ -1378,51 +1378,59 @@ printf '%s\n' "$out" > "$STCU/saida.txt"
 assert_eq "$rc" "3" "E54/manual: o rc REAL do pacman chega ao script (capturado FORA da negação — a lição E46 agora também na porta manual)"
 assert_grep "$STCU/saida.txt" 'recusou a transação' "E54/manual: a recusa fala com o dono (NADA da casa mudou — e a saída nunca mais é o erro cru calado)"
 
-# ── 3.O craft-pin-pick EXECUTADO: os três desfechos E36 de ponta a ponta (E76) ─
-#  TODOS os contratos do picker eram greps ESTÁTICOS (20-static) — nenhum o
-#  rodava. A perícia E76 provou que a forma 'out="$(craft-pin add …)"; addrc=$?'
-#  morria no set -euo pipefail ANTES do addrc quando o craft-pin devolvia rc≠0
-#  (e a duplicata É rc 1 desde o E36): o desfecho "'$choice' já estava na dock"
-#  era INALCANÇÁVEL — a morte silenciosa que a v2.3.1 jurou extinta,
-#  ressuscitada dentro do desfecho novo. Cura: a gramática da casa
-#  '|| addrc=$?' (a MESMA do fuzzel logo acima no arquivo). Provas abaixo com
-#  o pick REAL + craft-pin REAL + stubs de fuzzel/notify (o craft-pin ruim do
-#  fluxo C sombreia o real — o ramo else do toast de falha também vira vivo).
-#  O fixture .desktop mora SÓ no XDG_DATA_HOME do usuário falso — o mesmo
-#  teste prova o inventário novo (overrides do usuário PRIMEIRO, a precedência
-#  do resolve do craft-pin; antes o picker não o listava e AppImage
-#  registrada pelo appimagelauncher era infixável pelo mouse).
+# ── 3.O craft-pin-pick EXECUTADO: os desfechos E36 de ponta a ponta
+#    (E76, reescrito na E106 para o LAÇO v4 com marcadores) ──────────────
+#  A v3 era um picker fuzzel cru one-shot; a v4 é o LAÇO da gaveta
+#  (craft-menu com marcadores ✓/· que alterna e REABRE — a ordem do dono).
+#  Os desfechos seguem os MESMOS: fixa / 'já estava' / falha real com
+#  rastro no papel. O stub agora é o craft-menu (o motor do laço) com
+#  ROTEIRO em arquivo: cada chamada consome uma linha; ESC encerra o
+#  laço. O craft-pin segue o REAL da casa; os falsos cobrem os ramos.
 PICKBIN="$REPO/elite/airootfs/usr/local/bin/craft-pin-pick"
 PICKW="$WORK/craft-pin-pick-home"
 PICKSTUBS="$WORK/pick-stubs"
 PICKFAIL="$WORK/pick-stubs-fail"
 PICKDATA="$PICKW/data"
-pick_reset() { # apaga SÓ o cenário do picker — a infra de stubs fica (a
-  # 1ª rodada mordeu o próprio mantenedor: rm -rf dos stubdirs DEPOIS dos
-  # stubs escritos = picker sem fuzzel no PATH = rc 1 calado ×8 asserts)
+pick_reset() { # apaga SÓ o cenário do picker — a infra de stubs fica
   rm -rf "$PICKW"
   mkdir -p "$PICKW/.config/elite" "$PICKSTUBS" "$PICKFAIL" "$PICKDATA/applications"
   printf '[Desktop Entry]\nType=Application\nName=Steam\nExec=steam\nIcon=steam\n' \
     > "$PICKDATA/applications/steam.desktop"
   : > "$PICKW/toasts.txt"
+  : > "$PICKW/menu-script"
 }
-# fuzzel stub: --help anuncia --anchor (o probe v2.10.5 passa); dmenu devolve Steam
-# (o 1º pick_reset vem PRIMEIRO — o $WORK da suíte nasce vazio e os cat >
-# abaixo precisam dos dirs: a 2ª rodada mordeu o mantenedor de novo)
+# (o 1º pick_reset vem PRIMEIRO — a lição que a v3 já mordeu uma vez: o
+#  $WORK da suíte nasce vazio e os cat > dos stubs precisam dos dirs
+#  criados — sem a chamada, o stub nunca nasce e o picker morre no guard
+#  do fuzzel com rc 1 e UMA linha no papel: 'fuzzel AUSENTE')
 pick_reset
+# craft-menu stub (o motor do laço): consome UMA linha do roteiro por
+# chamada; 'ESC' vira exit 1 (o fechamento pelo usuário); linha vazia
+# depois do fim do roteiro também (o laço termina honesto)
+cat > "$PICKSTUBS/craft-menu" <<'EOF'
+#!/bin/sh
+cat >/dev/null
+n="$(head -1 "$PICK_MENU_SCRIPT" 2>/dev/null)"
+[ -n "$n" ] || exit 1
+tail -n +2 "$PICK_MENU_SCRIPT" > "$PICK_MENU_SCRIPT.tmp" && mv -f "$PICK_MENU_SCRIPT.tmp" "$PICK_MENU_SCRIPT"
+[ "$n" = "ESC" ] && exit 1
+printf '%s\n' "$n"
+exit 0
+EOF
+# fuzzel stub MÍNIMO (a v4 não o chama — o laço é craft-menu — mas o
+# guarda 'command -v fuzzel' do picker continua sendo a rede; no sandbox
+# da suíte o binário real não existe, o stub satisfaz o comando)
 cat > "$PICKSTUBS/fuzzel" <<'EOF'
 #!/bin/sh
-case "${1:-}" in
-  --help) echo "uso: fuzzel [--anchor=CENTER] [--dmenu]"; exit 0 ;;
-  *) cat >/dev/null; echo "Steam"; exit 0 ;;
-esac
+echo "uso: fuzzel [--anchor=CENTER] [--dmenu]"
+exit 0
 EOF
 # notify-send stub: o toast que SAIU é a prova (nada de screen real aqui)
 cat > "$PICKSTUBS/notify-send" <<'EOF'
 #!/bin/sh
 echo "TOAST: $*" >> "$PICK_TOASTS"
 EOF
-chmod +x "$PICKSTUBS/fuzzel" "$PICKSTUBS/notify-send"
+chmod +x "$PICKSTUBS/fuzzel" "$PICKSTUBS/craft-menu" "$PICKSTUBS/notify-send"
 # o craft-pin RUIM do fluxo C (falha real, rc≠0 SEM 'já está fixado')
 cat > "$PICKFAIL/craft-pin" <<'EOF'
 #!/bin/sh
@@ -1432,37 +1440,65 @@ EOF
 chmod +x "$PICKFAIL/craft-pin"
 
 pick_run() { # $1 = dir do craft-pin que vence o PATH -> rc do picker
-  PICK_TOASTS="$PICKW/toasts.txt" \
+  PICK_TOASTS="$PICKW/toasts.txt" PICK_MENU_SCRIPT="$PICKW/menu-script" \
     PATH="$PICKSTUBS:$1:$PATH" \
     HOME="$PICKW" XDG_DATA_HOME="$PICKDATA" XDG_CACHE_HOME="$PICKW/.cache" \
     bash "$PICKBIN" >/dev/null 2>&1
   echo $?
 }
 
-# fluxo A — 1º pick: fixa de verdade (e o dir do USUÁRIO alimenta a lista)
+# fluxo A — o laço FIXA (e o dir do USUÁRIO alimenta a lista) e fecha no ESC
 pick_reset
+printf '· Steam\nESC\n' > "$PICKW/menu-script"
 rcA="$(pick_run "$REPO/elite/airootfs/usr/local/bin")"
-assert_eq "$rcA" "0" "E76/pick: 1º picker sai rc 0 (fixa Steam vinda do XDG_DATA_HOME do USUÁRIO — o inventário de overrides é lei)"
+assert_eq "$rcA" "0" "E106/pick: o laço fecha 0 no ESC (a gaveta é laço — escolher REABRE; ESC encerra honesto)"
 assert_grep "$PICKW/.config/elite/dock-pins" '^steam\.desktop$' \
-  "E76/pick: o pin entrou no dock-pins (pick REAL → craft-pin REAL → arquivo)"
+  "E106/pick: o pin entrou no dock-pins (laço REAL → craft-menu stub → craft-pin REAL → arquivo)"
 assert_grep "$PICKW/toasts.txt" 'fixado na dock' \
-  "E76/pick: toast de sucesso no desfecho 1 (a prova é o toast que SAIU)"
+  "E106/pick: toast de sucesso no desfecho 1 (a prova é o toast que SAIU — o feedback que a v3 nunca deu)"
+assert_grep "$PICKW/.cache/elite/menus.log" 'fechado pelo usuário \(ESC\)' \
+  "E106/pick: o fechamento do laço deixa linha no papel (o ESC do dono não é morte calada)"
 
-# fluxo B — duplicata: o desfecho 2 do E36, INALCANÇÁVEL antes do E76
+# fluxo B — o marcador ✓ desfixa: a metade rm da unificação, pelo LAÇO
+pick_reset
+printf '✓ Steam\nESC\n' > "$PICKW/menu-script"
+mkdir -p "$PICKW/.config/elite"
+printf 'steam.desktop\n' > "$PICKW/.config/elite/dock-pins"
 rcB="$(pick_run "$REPO/elite/airootfs/usr/local/bin")"
-assert_eq "$rcB" "0" "E76/pick: duplicata é benigna para o picker (rc 0 — quem fala é o toast, nunca a morte calada de antes)"
-assert_grep "$PICKW/toasts.txt" 'já estava na dock' \
-  "E76/pick: toast 'já estava na dock' ALCANÇADO (antes: set -e matava na atribuição e o desfecho 2 do E36 nunca saía)"
-assert_eq "$(grep -c '^steam\.desktop$' "$PICKW/.config/elite/dock-pins")" "1" \
-  "E76/pick: duplicata NÃO duplica o pin (1 linha, a coluna $1 é a lei)"
+assert_eq "$rcB" "0" "E106/pick: o laço fecha 0 no desafixar também"
+assert_nogrep "$PICKW/.config/elite/dock-pins" '^steam\.desktop$' \
+  "E106/pick: o ✓ DESFIXOU (a unificação cobre os dois verbos — Fixar+Desafixar viraram UM item, a ordem do dono)"
+assert_grep "$PICKW/toasts.txt" 'saiu da dock' \
+  "E106/pick: toast do desafixar no papel"
 
-# fluxo C — falha REAL do craft-pin (rc≠0 sem 'já está fixado'): o ramo else
+# fluxo C — 'já estava na dock' (o desfecho 2 do E36): o craft-pin
+# mentiroso lista VAZIO mas recusa o add com o texto do E36
+mkdir -p "$WORK/pick-stubs-dup"
+cat > "$WORK/pick-stubs-dup/craft-pin" <<'EOF'
+#!/bin/sh
+case "${1:-}" in
+  list) exit 0 ;;                       # lista vazia — o marcador vira ·
+  add)  echo "craft-pin: 'Steam' já está fixado"; exit 1 ;;
+esac
+exit 0
+EOF
+chmod +x "$WORK/pick-stubs-dup/craft-pin"
+pick_reset
+printf '· Steam\nESC\n' > "$PICKW/menu-script"
+rcB="$(pick_run "$WORK/pick-stubs-dup")"
+assert_grep "$PICKW/toasts.txt" 'já estava na dock' \
+  "E106/pick: o desfecho 2 do E36 continua ALCANÇÁVEL no laço (a condição de corrida list×add está coberta)"
+assert_eq "$rcB" "0" "E106/pick: duplicata é benigna para o laço (rc 0 — quem fala é o toast)"
+
+# fluxo D — falha REAL do craft-pin (rc≠0): o ramo else avisa e deixa rastro
 rm -f "$PICKW/.cache/elite/menus.log"
+pick_reset
+printf '· Steam\nESC\n' > "$PICKW/menu-script"
 rcC="$(pick_run "$PICKFAIL")"
-assert_grep "$PICKW/toasts.txt" 'Fixar na dock falhou' \
-  "E76/pick: falha REAL do craft-pin avisa na tela (o else do E36 também é vivo — nenhum desfecho calado)"
-assert_grep "$PICKW/.cache/elite/menus.log" 'craft-pin FALHOU rc=3' \
-  "E76/pick: a falha real deixa rastro no menus.log (v2.3.1: o picker nunca mais morre sem linha no papel)"
+assert_grep "$PICKW/toasts.txt" 'Fixar falhou' \
+  "E106/pick: falha REAL do craft-pin avisa na tela (nenhum desfecho calado no laço)"
+assert_grep "$PICKW/.cache/elite/menus.log" 'craft-pin add FALHOU rc=3' \
+  "E106/pick: a falha real deixa rastro no menus.log (v2.3.1 no laço v4)"
 
 # e o help do craft-pin NÃO vaza mais código (E76 — o range mágico '2,22p'
 # imprimia PINS_DIR/DESKTOP_DIRS/ensure_file cru depois do ═ de fechamento)
@@ -2171,7 +2207,11 @@ assert_nogrep "$ST77/wlopm.log" '--off' "E88/screenon: sono ACESO = screenon NUN
 assert_grep "$ST77/wlopm.log" '--on' "E88/screenon: o --on segue sendo a cura (a sondagem E63 intacta, sem o custo visível)"
 
 # (E88.8) o screenon do usuário: flag dark=1 → o CICLO E75 continua (a cura do link morto)
-rm -rf "$ST77"; mkdir -p "$ST77"
+# E106 — o RT77 RESSETA junto: o mutex do wake (wake-cycle 3s) é a cura da
+# corrida off/on — a rodada anterior (E88.7) tocou o mutex há <3s e o
+# screenon DEVERIA pular o ciclo (o design funcionando); um wake novo
+# merece runtime novo.
+rm -rf "$ST77" "$RT77"; mkdir -p "$ST77" "$RT77/elite"
 echo 1 > "$RUN88/sleep-dark"
 XDG_RUNTIME_DIR="$RT77" XDG_CONFIG_HOME="$CF77" XDG_CACHE_HOME="$ST77" PATH="$MOCK77:$PATH" \
   MOCK_DIR="$ST77" ELITE_DARK_FLAG="$RUN88/sleep-dark" bash "$CI77" screenon >/dev/null 2>&1
@@ -2316,7 +2356,8 @@ else
 fi
 assert_grep "$ST100/captured.conf" 'font_size = 100' "E100→E103/lock: o conf que o locker recebeu é A PELE NOVA (o relógio 100px no terço superior da v6 — o 'não mudou nada' morre no nascimento)"
 assert_grep "$ST100/captured.conf" 'position = 0, -150' "E100→E103/lock: o relógio nasce PRA DENTRO da tela (o sinal negativo no conf efêmero — a lei do sinal atravessa o craft-lock)"
-assert_grep "$ST100/captured.conf" 'rounding = -1' "E103/lock: o conf capturado carrega o AVATAR 1:1 (o círculo perfeito viaja até o nascimento do locker)"
+assert_grep "$ST100/captured.conf" 'fail_text = .*Senha Incorreta' "E106/v7: as vozes do campo atravessam o nascimento (o conf capturado é a PELE v7 — relógio, data, campo e rodapé)"
+assert_nogrep "$ST100/captured.conf" '^image {' "E106/v7: o conf capturado NÃO TEM avatar (a ordem do dono viaja até o locker: nada entre o relógio e as credenciais — o bloco image saiu da pele e o craft-lock não gera mais o cache)"
 
 # (E90.1) craft-vigil RECUSA argumentos (a 2ª vigília acidental nunca
 # nasce — a lei E30 na entrada; rc 2 com o uso no papel)
@@ -2651,8 +2692,9 @@ E98_HUNG=1 run98
 assert_grep "$WORK/e98/state" 'pkill -9 -x nwg-drawer' "E98/drawer: a pendurada recebe o -9 após o teto (o stub ignora o TERM — o martelo fala; a gaveta presa nunca é eterna)"
 
 
-# ── E105/lock — O SED DE ESCOPO EM COMPORTAMENTO REAL (o MESMO sedito do
-#    craft-lock contra a MESTRA do repo: a parede entra, o avatar sobra) ──
+# ── E106/lock — O SED DE ESCOPO contra a MESTRA v7 (a parede entra; o
+#    avatar/pílula/glifo/nome NÃO EXISTEM MAIS — a ordem do dono: 'nada
+#    entre o relógio e as credenciais') ──
 STSED="$(mktemp -d "$WORK/estsed.XXXXXX")"
 bg_fake="$STSED/parede.png"
 : > "$bg_fake"
@@ -2660,8 +2702,10 @@ sed "/^background {/,/^}/ s|^[[:space:]]*path = .*|    path = $bg_fake|" \
     "$REPO/elite/airootfs/etc/skel/.config/hypr/hyprlock.conf" > "$STSED/conf.out"
 assert_grep "$STSED/conf.out" "path = $STSED/parede\.png" \
     "E105/lock: o path do background recebe a parede (a v2.5.0-fix segue de pé dentro do escopo)"
-assert_grep "$STSED/conf.out" '\.cache/elite/avatar\.png' \
-    "E105/lock: o path do avatar SOBREVIVE ao sedito (a foto real volta ao círculo 1:1 — a denúncia 'preview feio' morre)"
+assert_nogrep "$STSED/conf.out" '^image {' \
+    "E106/lock: a pele v7 NÃO TEM bloco image (o avatar saiu INTEIRO e com ele o ffmpeg crop morto do craft-lock, lei E33 — o dono: 'eu não quero aquele ícone, eu não quero aquela foto, eu não quero nada entre o relógio e onde coloca as credenciais')"
+assert_nogrep "$STSED/conf.out" '^shape {' \
+    "E106/lock: a pele v7 NÃO TEM pílula solta do usuário (o 'bonequinho pela metade' era o glifo U+F007 sobre fonte sem o glifo + o z-order do campo — os blocos inteirinhos fora)"
 rm -rf "$STSED"
 
 phase_end

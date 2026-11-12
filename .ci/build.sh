@@ -480,8 +480,21 @@ mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/applications
 # E98 — o trilho único da E95 vira VARREDURA: todo .desktop de override
 # embarca sozinho (gparted E95 · octopi-notifier/octopi-repoeditor/qt6ct/
 # nwg-look E98) — override novo é ARQUIVO NOVO NO DIR, zero cirurgia aqui.
-cp -p /work/elite/airootfs/usr/local/share/applications/*.desktop \
-      /tmp/elite-src/elite-system/files/usr/local/share/applications/
+# E106 — O FANTASMA NÃO VIAJA MAIS (o dump 20261112 + o journal do drawer:
+# "Cannot load icon 'calamares' for 'Install Archcraft'" — o calamares.
+# desktop da ISO embarcava NO PACOTE, e a dose com --overwrite
+# /usr/local/share/applications/* REINSTALAVA o instalador morto em todo
+# rig instalado — o elite-sweep o remove 1× no firstboot e a dose o
+# RESSUSCITAVA na primeira dose seguinte; a gaveta indexava um instalador
+# que não existe (sem ícone, sem função — o 'Starchcraft' que o dono viu
+# nascer do nada). O abif (o irmão de ferramenta de gravação) sai junto:
+# são FERRAMENTAS DA SESSÃO LIVE, não do instalado).
+for dsk in /work/elite/airootfs/usr/local/share/applications/*.desktop; do
+    case "$(basename "$dsk")" in
+        calamares.desktop|abif.desktop) continue ;;
+    esac
+    cp -p "$dsk" /tmp/elite-src/elite-system/files/usr/local/share/applications/
+done
 # E75 — O HOOK DA CASA NO PACMAN (a auditoria do dono: 'estruturar hooks
 # nativos do pacman para disparar checagens de hardware... após qualquer
 # pacman -Syu'). O gap provado no papel: a pedagogia de reboot do kernel
@@ -1371,7 +1384,44 @@ pkgver=1.0
 #     craft-audio-route (o unplug anuncia FALHA quando o pactl falha +
 #     o help aponta o papel certo), craft-wake-guard (a taxonomia
 #     verdadeira da serial bus — comentário)). pkgrel 48→49 NO MESMO COMMIT (lei E41).
-pkgrel=49
+#     E106 (O DUMP DO DONO PERICIADO, elite-dump-20261112-161718): a
+#     colheita completa — (a) a âncora do game watch no craft-bars
+#     JAMAIS casou ('^/usr/local/bin/craft-game watch$' vs o cmdline real
+#     'bash /usr/local/bin/craft-game watch': 1540 restarts, 12 pares
+#     vivos no ps, o log em loop de 5s desde o boot — E48 a 3ª vez) e o
+#     watch ganhou flock singleton no corpo; (b) o agente polkit morria
+#     em TODO arranque com assertion POLKIT_IS_SUBJECT (XDG_SESSION_ID
+#     ausente na sessão SDDM+labwc — o lançador injeta a sessão wayland
+#     do logind) e a aposentadoria do lxqt JAMAIS mordeu (comm cortado
+#     em 15: 'lxqt-policykit-'); (c) a DUPLA SENHA do lock (suspend em
+#     voo × destravo no mesmo segundo: o sleep-hook recriava o lock e a
+#     máquina congelava pedindo a senha DE NOVO) — termômetro
+#     unlock.stamp no vigia + recheck de nascimento no craft-lock +
+#     porteira que solta o exec (o flock é do parto, não da vida) + os
+#     braços do idle com guard de destravo fresco; (d) o vigia ganhou a
+#     última olhada antes do sono (suspend sobre destravo nunca mais);
+#     (e) os 200 Hz: o stamp 'fail' era TERMINAL e escrito ANTES do
+#     apply (um boot de link frio muteava a sessão inteira) — stamp
+#     honesto ok/fail:N com retry de 6, o watch NÃO grava a reversão do
+#     resume (marco display-resume do hook) e o status nomeia as seções
+#     vazias; (f) o menu do desktop enxugado 21→17 (Editor/PDF mortos,
+#     Verificar atualizações morta — o atualizar já verifica, Sair da
+#     sessão direto, a gaveta unificada com marcadores no laço, o help
+#     com a pausa do E96, a calculadora avisa no ramo vazio); (g) o
+#     contador de processos honesto (swayosd/lxqt-policykit/gcr/zenity
+#     na casca, interval 5, aviso no clique vazio); (h) o fantasma
+#     'Install Archcraft' morto nas três mãos (build não embala,
+#     post-transaction remove, sweep purga o cache sempre); (i) a dock
+#     com denylist de diálogos de daemon no raw + case-insensitive no
+#     launch + menu que fica de pé após fixar/desafixar; (j) o ciclo de
+#     wake com mutex (fim da corrida off/on dos três braços — o 'perde
+#     a imagem ao despertar'). Bins de conteúdo mudado: craft-bars,
+#     craft-game, craft-lock, craft-idle, craft-vigil, craft-menu,
+#     craft-pin-pick, craft-help, craft-bgapps, craft-dock-gui,
+#     craft-display, craft-dump, elite-post-transaction, elite-sweep,
+#     elite-resume-display, menu.xml, hyprlock.conf (a pele v7 — SEM
+#     avatar/pílula/nome: a ordem do dono), config.top. pkgrel 49→50 NO MESMO COMMIT (lei E41).
+pkgrel=50
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

@@ -135,12 +135,33 @@ gate_close() {
 gate_open() {
     rm -f "$GATE" 2>/dev/null || true
 }
+# E106 — O TERMÔMETRO DO DESTRAVO (a MESMA gramática do craft-vigil, que
+# é quem toca o stamp): destravo com menos de $1 segundos = NINGUÉM
+# recria lock nem suspende — a corrida 'unlock × suspend em voo' do dump
+# 20261112 (a dupla senha) morre aqui. O stamp vive no XDG_RUNTIME_DIR.
+UNLOCK_STAMP="${XDG_RUNTIME_DIR:-/tmp}/elite/unlock.stamp"
+unlock_fresco() { # 0 = o destravo foi há MENOS de $1 segundos
+    _janela="${1:-15}"
+    [ -r "$UNLOCK_STAMP" ] || return 1
+    _marca="$(stat -c %Y "$UNLOCK_STAMP" 2>/dev/null || echo 0)"
+    _agora="$(date +%s)"
+    [ "$((_agora - _marca))" -lt "$_janela" ]
+}
 ilog() {
     mkdir -p "${IDLE_LOG%/*}" 2>/dev/null || true
     if [ -f "$IDLE_LOG" ] && [ "$(wc -c <"$IDLE_LOG" 2>/dev/null || echo 0)" -gt 262144 ]; then
         tail -c 131072 "$IDLE_LOG" > "$IDLE_LOG.tmp" 2>/dev/null && mv -f "$IDLE_LOG.tmp" "$IDLE_LOG"
     fi
-    printf '[%s] %s\n' "$(date '+%F %T')" "$*" >>"$IDLE_LOG" 2>/dev/null
+    if ! printf '[%s] %s\n' "$(date '+%F %T')" "$*" >>"$IDLE_LOG" 2>/dev/null; then
+        # E106 — O PAPEL QUE NÃO ACEITA ESCRITA NÃO É MAIS SILÊNCIO (o
+        # dump 20261112 fotografou o buraco preto: o boot inteiro SEM UMA
+        # linha no idle.log — os braços rodavam (spawn do lock às 15:56:17,
+        # sleep-hook às 16:09:58) e o papel ficou mudo; o 2>/dev/null da
+        # linha antiga engolia a falha — E33 na sua forma mais pura). A
+        # falha de escrita vai para um tmpfs SEMPRE gravável pelo dono.
+        printf '[%s] ilog FALHOU (%s): %s\n' "$(date '+%F %T')" "$IDLE_LOG" "$*" \
+            >>"${XDG_RUNTIME_DIR:-/tmp}/elite/idle-write-fail" 2>/dev/null || true
+    fi
     return 0
 }
 # v2.10.8 — SUSPEND_MIN de fábrica 0 → 20: a 10.7 nascia com suspend OFF
@@ -320,6 +341,21 @@ case "${1:-}" in
     # com stdin vivo (achado do smoke test da E61: 'craft-idle suspend'
     # bloqueado 120s — o filho do swayidle herdaria o stdin da sessão).
     screenoff)
+        # E106 — O APAGAR NÃO TOCA O DONO (o OFF_MIN=2 com LOCK_MIN=2 — o
+        # gesto único — dispara os DOIS no mesmo tick; num compositor que
+        # não conta input travado, o tick vence COM O DONO DIGITANDO A
+        # SENHA: a tela apaga na cara dele, o mouse renova (resume), o
+        # ciclo off→on pisca — o 'lógica doida' do dump). Atividade do
+        # compositor com menos de 30s = mãos de verdade: o apagar adia —
+        # o próximo tick de quietude cumpre o gesto.
+        if [ -r "$ACT_EPOCH" ]; then
+            _marca="$(stat -c %Y "$ACT_EPOCH" 2>/dev/null || echo 0)"
+            _agora="$(date +%s)"
+            if [ "$((_agora - _marca))" -lt 30 ]; then
+                ilog "E106: screenoff ADIADO — atividade do compositor há $((_agora - _marca))s (o dono está na frente; o gesto único espera o quieto)"
+                exit 0
+            fi
+        fi
         if wlopm --off '*'; then
             ilog "tela: APAGOU (wlopm rc=0) — gesto único do lock cumprido"
         else
@@ -375,24 +411,43 @@ case "${1:-}" in
         DARK_FLAG="${ELITE_DARK_FLAG:-/run/elite/sleep-dark}"
         [ -r "$DARK_FLAG" ] && dark="$(cat "$DARK_FLAG" 2>/dev/null)"
         [ "$dark" = "1" ] || dark=0
-        i=0
-        rc=0
-        while [ "$i" -lt 6 ]; do
+        # E106 — O CICLO DE WAKE É UM SÓ (o dump: 'tela: APAGOU... tela:
+        # ACORDOU' em DOBRÓO ~1s — TRÊS braços (swayidle resume, o vigia
+        # pós-suspend, o hook elite-resume-display) correm o MESMO ciclo
+        # off→on em paralelo; a intercalação off(A) on(B) off(C) deixa o
+        # output ESCURO com os três logando sucesso — e é exatamente o
+        # 'perde a imagem no monitor ao despertar'). O mutex de 3s no
+        # XDG_RUNTIME_DIR: quem correu o ciclo AGORA fecha a porta; os
+        # outros braços só seguem com o resto (registro/vigília/portão).
+        WAKE_MTX="${XDG_RUNTIME_DIR:-/tmp}/elite/wake-cycle"
+        _wm="0"
+        [ -e "$WAKE_MTX" ] && _wm="$(stat -c %Y "$WAKE_MTX" 2>/dev/null || echo 0)"
+        _agora="$(date +%s)"
+        if [ "$((_agora - _wm))" -lt 3 ]; then
+            ilog "E106: ciclo de wake EM CURSO por outro braço (mutex 3s) — este segue só com o registro/vigília (fim da corrida off/on)"
+            i=99   # pula o ciclo — o outro braço é a mão na tela agora
             rc=0
-            if [ "$dark" -eq 1 ]; then
-                wlopm --off '*' >/dev/null 2>&1 || true
-                sleep 1
+        else
+            : > "$WAKE_MTX" 2>/dev/null || true
+            i=0
+            rc=0
+            while [ "$i" -lt 6 ]; do
+                rc=0
+                if [ "$dark" -eq 1 ]; then
+                    wlopm --off '*' >/dev/null 2>&1 || true
+                    sleep 1
+                fi
+                wlopm --on '*' || rc=$?
+                if [ "$rc" -eq 0 ]; then
+                    ilog "tela: ACORDOU (ciclo off→on E75, wlopm rc=0, tentativa $((i + 1)))"
+                    break
+                fi
+                i=$((i + 1))
+                sleep 2
+            done
+            if [ "$rc" -ne 0 ]; then
+                ilog "FALHA: ciclo off→on rc=$rc após 6 tentativas — a tela NÃO acordou (réu nomeado no papel; o driver/compositor contam no craft-dump seção 10; a escotilha SEM reboot é o craft-rescue-screen a partir de um TTY)"
             fi
-            wlopm --on '*' || rc=$?
-            if [ "$rc" -eq 0 ]; then
-                ilog "tela: ACORDOU (ciclo off→on E75, wlopm rc=0, tentativa $((i + 1)))"
-                break
-            fi
-            i=$((i + 1))
-            sleep 2
-        done
-        if [ "$rc" -ne 0 ]; then
-            ilog "FALHA: ciclo off→on rc=$rc após 6 tentativas — a tela NÃO acordou (réu nomeado no papel; o driver/compositor contam no craft-dump seção 10; a escotilha SEM reboot é o craft-rescue-screen a partir de um TTY)"
         fi
         # E63 — A VIGÍLIA RENASCE NO RESUME: ela MORRE depois do suspend
         # que ela mesma disparou (missão cumprida — exit 0) e o braço idle
@@ -459,6 +514,17 @@ case "${1:-}" in
             # custo zero; no caminho raro (sono manual sem lock) o lock
             # nasce E chega vivo ao freeze. Acorda no lock, senha UMA vez —
             # a promessa vira fato.)
+            # E106 — O RECHECK DO DESTRAVO FRESCO (a prova do dump 20261112:
+            # spawn do lock às 16:09:58, um segundo DEPOIS do 'Unlocked,
+            # exiting!' — o suspend em voo recriou o lock na cara do dono
+            # e a máquina congelou pedindo a senha DUAS vezes). Destravo
+            # com menos de 15s (o craft-vigil toca o stamp) = o dono está
+            # saindo: NINGUÉM recria lock para um sono que chegou tarde
+            # demais. O portão segue FECHADO (o sono real segue isolado).
+            if unlock_fresco 15; then
+                ilog "E106: sleep-hook NÃO recria lock — o destravo foi há <15s (a corrida unlock × suspend em voo do dump morre aqui; o portão segue fechado para o isolamento do sono)"
+                exit 0
+            fi
             ( craft-lock --if-needed >/dev/null 2>&1 & ) || true
             w=0
             while [ "$w" -lt 10 ] && ! pgrep -x hyprlock >/dev/null 2>&1; do
@@ -499,6 +565,16 @@ case "${1:-}" in
         # inatividade suspende de novo até a sessão desbloquear e correr
         # um novo período completo). O braço DEFERE e sai; a primeira
         # atividade abre (screenon com lock morto) e o ciclo renasce.
+        # E106 — O MESMO GESTO PARA O DESTRAVO FRESCO (o sintoma 'suspende
+        # quando digito a senha' tinha UMA janela que as E61/E77 não
+        # fechavam: o destravo satisfaz o guard do lock e o braço SEM lock
+        # suspendia 1s depois — o deadline de idle venceu sob o lock, o
+        # guard só conhecia o lock, nunca as mãos). Destravo <15s = o dono
+        # está AQUI: defere, e o próximo tick quieto cumpre o sono.
+        if unlock_fresco 15; then
+            ilog "E106: suspend ADIADO — o destravo foi há <15s (o guard antigo só via o lock; agora vê as mãos também)"
+            exit 0
+        fi
         if [ -e "$GATE" ]; then
             ilog "E77: idle suspend DEFERIDO — portão fechado no pós-sono (resume sem destravo; a primeira atividade reabre o ciclo)"
             exit 0

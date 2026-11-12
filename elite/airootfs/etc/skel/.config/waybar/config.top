@@ -219,7 +219,13 @@
   "custom/bgapps": {
     "exec": "craft-bgapps status",
     "return-type": "json",
-    "interval": 30,
+    // E106 — interval 30 → 5 (a denúncia do dono: "o contador também dos
+    // programas em primeiro plano não é muito atualizado… acusa um
+    // programa, você clica nele e não tem nada"). A pílula de 30s
+    // mentia por até meio ciclo inteiro — o status é 1 fork de ps
+    // (custo igual ao módulo pulseaudio da mesma barra, que já roda a
+    // cada segundo); e o ramo vazio do menu avisa (fim do clique mudo).
+    "interval": 5,
     "on-click": "craft-bgapps menu",
     "tooltip": true
   },

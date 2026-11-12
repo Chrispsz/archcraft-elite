@@ -319,9 +319,22 @@ while :; do
     # spam); AUTO=1 + gamemode presente = o detector de jogos no ar, morre
     # → volta em ≤5s. O gamemoded em si é D-Bus activation (idle = RAM zero
     # — o músculo só existe quando há jogo).
+    # E106 — A ÂNCORA QUE JAMAIS CASOU (o dump 20261112 do rig: 1540
+    # 'game watch FORA — reiniciando' no bars.log, 12 pares de processos
+    # vivos ao mesmo tempo, o log em loop de 5 em 5 segundos DESDE O BOOT).
+    # O padrão '^/usr/local/bin/craft-game watch$' casa SUBSTRING ANCORADA
+    # do cmdline — mas o shebang do craft-game é '#!/usr/bin/env bash': o
+    # kernel executa o env, o env executa o bash, e o cmdline REAL que
+    # sobra é 'bash /usr/local/bin/craft-game watch' (a prova no ps do
+    # dump). A âncora ^/usr/local/bin NUNCA viu o processo vivo — o
+    # supervisor achou morte onde havia VIDA e spawnou um watch novo a
+    # cada 5s (a doutrina E48 pela terceira vez na casa: roteador de
+    # áudio, agora o jogo). O padrão duplo segue a cura E106 do
+    # craft-audio-route: o pós-exec ('bash …') na frente, o env
+    # transitório atrás.
     if command -v craft-game >/dev/null 2>&1; then
         auto="$(sed -n 's/^AUTO=//p' "$HOME/.config/elite/game.conf" 2>/dev/null | head -1)"
-        if [ "${auto:-0}" = 1 ] && ! pgrep -f '^/usr/local/bin/craft-game watch$' >/dev/null 2>&1; then
+        if [ "${auto:-0}" = 1 ] && ! pgrep -f '^bash /usr/local/bin/craft-game watch$|^/usr/bin/env bash /usr/local/bin/craft-game watch$' >/dev/null 2>&1; then
             if [ "$seen_game" -eq 1 ]; then
                 printf '[%s] game watch FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
             else
@@ -433,13 +446,20 @@ while :; do
         fi
     done
     if [ "$POLKIT_BIN" = "/usr/local/bin/elite-polkit-listener" ]; then
-        if pgrep -x lxqt-policykit-agent >/dev/null 2>&1; then
-            pkill -x lxqt-policykit-agent 2>/dev/null || true
+        # E106 — A APOSENTADORIA QUE JAMAIS MORDEU: 'pgrep -x lxqt-policykit-
+        # agent' casa o COMM — e o comm é CORTADO em 15 caracteres no kernel
+        # ('lxqt-policykit-' — a prova está no menus.log do dump, 'SIGTERM
+        # enviado — lxqt-policykit-'). O nome tem 21 chars: -x JAMAIS casa, o
+        # residente nunca era aposentado, o listener não conseguia registrar
+        # ('already exists'), morria 3× e a demissão E105 girava em falso.
+        # A forma honesta é -f com o cmdline ANCORADO (a doutrina E48).
+        if pgrep -f '^/usr/bin/lxqt-policykit-agent$' >/dev/null 2>&1; then
+            pkill -f '^/usr/bin/lxqt-policykit-agent$' 2>/dev/null || true
             printf '[%s] polkit perdedor aposentado (lxqt-policykit-agent residente — o listener E101 reina com idle nulo)\n' \
                 "$(date '+%F %T')" >>"$LOG"
         fi
     fi
-    # E105 — A DEMOÇÃO HONESTA (a prova do dump 195332: o listener morrendo
+    # E106 — A DEMOÇÃO HONESTA (a prova do dump 195332: o listener morrendo
     # no arranque voltava a cada tick PARA SEMPRE — o supervisor relançava
     # o mesmo perdedor a cada 5s e a sessão vivia SEM agente, com o lxqt
     # aposentado antes: a rede ficou muda). O tempo de vida de cada saída
@@ -448,6 +468,37 @@ while :; do
     # da fila assume) e o contador zera. Sucesso apaga o passado.
     POLKIT_FAILS="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/elite/polkit-fails"
     mkdir -p "${POLKIT_FAILS%/*}" 2>/dev/null || true
+    # E106 — O ASSUNTO QUE NÃO EXISTIA (o dump 20261112 do rig: o agente
+    # morria em TODO arranque com 'polkit_agent_listener_register_with_
+    # options: assertion POLKIT_IS_SUBJECT (subject) failed' no bars.log —
+    # o agente constrói o SUBJECT a partir do XDG_SESSION_ID e a sessão
+    # SDDM+labwc pode chegar a ele SEM a variável: subject NULL → assertion
+    # → morte → o supervisor re-spawnando para sempre → a sessão SEM agente
+    # → TODO pedido de privilégio (Atualizar/Limpeza do menu, pkexec, gparted)
+    # morria calado — o sudo do dump às 15:51:39 ('conversation failed') é
+    # o mesmo buraco por outra porta). A cura é do LANÇADOR: sem
+    # XDG_SESSION_ID, descobre a sessão wayland ATIVA do uid no logind e
+    # injeta antes do spawn (cache em tmpfs — uma pergunta por boot, não
+    # por ciclo).
+    if [ -n "$POLKIT_BIN" ] && [ -z "${XDG_SESSION_ID:-}" ]; then
+        _pk_sid_file="${XDG_RUNTIME_DIR:-/tmp}/elite/polkit-session-id"
+        _pk_sid=""
+        if [ -r "$_pk_sid_file" ]; then
+            _pk_sid="$(cat "$_pk_sid_file" 2>/dev/null || true)"
+        else
+            for _s in $(loginctl list-sessions --no-legend 2>/dev/null | awk '{print $1}'); do
+                [ "$(loginctl show-session "$_s" -p User 2>/dev/null | awk -F= '{print $2}')" = "$(id -u 2>/dev/null)" ] || continue
+                [ "$(loginctl show-session "$_s" -p Type 2>/dev/null | awk -F= '{print $2}')" = "wayland" ] || continue
+                _pk_sid="$_s"
+                break
+            done
+            case "${_pk_sid:-}" in ''|*[!0-9]*) _pk_sid="" ;; *) printf '%s\n' "$_pk_sid" >"$_pk_sid_file" 2>/dev/null || true ;; esac
+        fi
+        if [ -n "$_pk_sid" ]; then
+            export XDG_SESSION_ID="$_pk_sid"
+        fi
+        unset _pk_sid _pk_sid_file _s
+    fi
     if pgrep -f "^$POLKIT_BIN\$" >/dev/null 2>&1; then
         : > "$POLKIT_FAILS" 2>/dev/null || true
     fi

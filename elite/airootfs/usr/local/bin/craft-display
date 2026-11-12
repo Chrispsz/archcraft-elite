@@ -39,11 +39,26 @@
 # E105 — O STAMP NÃO É FÉ (o dump 195332): o mode1 reset do amdgpu no
 # resume devolvia o rig a 60 Hz com o conf salvo em 200 Hz e o stamp
 # mandava o apply calar ('já aplicado') a cada 5s. O apply RECONCILIA:
-# conf ≠ realidade, estável por ~30s (a escolha do dono em curso termina
-# dentro dela — o watch grava em ~8s) = REAPLICA o arranjo salvo; o stamp
-# 'fail' (apply abortado) não re-tenta (o aviso já saiu). O watch segue
-# sem brigar: ele grava a escolha; o apply devolve o arranjo — cada um
-# com o seu ofício.
+# conf ≠ realidade, estável por ~30s = REAPLICA o arranjo salvo.
+#
+# E106 — O STAMP HONESTO (o dump 20261112 fotografou a doença INTEIRA:
+# displays.conf CORRETO em disco com 200 Hz, o display.log em loop de 5s
+# com 'apply anterior falhou (stamp fail)' e o rig a 60 Hz DESDE O BOOT).
+# Três feridas, três curas:
+#   1. O stamp era escrito ANTES do apply ('sucesso antecipado') e o
+#      estado fail era TERMINAL — UM apply que falhasse uma vez (o
+#      arranque é o momento mais provável: link DP frio que às vezes
+#      não treina 200 Hz de primeira) MUTEAVA a sessão inteira até o
+#      reboot. Agora o stamp só é escrito DEPOIS do feito (ok / fail:N)
+#      e o fail RE-TENTA com teto (6 tentativas cobre o link frio e o
+#      compositor lento; depois de 6, silêncio — sem spam no papel).
+#   2. O supervisor respawna o apply a cada ciclo (o heartbeat) — com o
+#      stamp ok e a realidade conferindo, o apply é um no-op SILENCIOSO
+#      de ~10ms (fim das ~17 mil linhas/dia que rolavam a cabeça do log
+#      e apagavam a prova da FALHA original do boot).
+#   3. O estado vazinho (a v2.6 escrevia antes) = 'em curso' — tratado
+#      como sem-stamp (o apply corre de novo; quem nasceu por último
+#      vence, a escola E64).
 # ═══════════════════════════════════════════════════════════════════════════
 set -u
 
@@ -57,7 +72,12 @@ dlog() {
     if [ -f "$DLOG" ] && [ "$(wc -c <"$DLOG" 2>/dev/null || echo 0)" -gt 262144 ]; then
         tail -c 131072 "$DLOG" > "$DLOG.tmp" 2>/dev/null && mv -f "$DLOG.tmp" "$DLOG"
     fi
-    printf '[%s] %s\n' "$(date '+%F %T')" "$*" >>"$DLOG" 2>/dev/null
+    if ! printf '[%s] %s\n' "$(date '+%F %T')" "$*" >>"$DLOG" 2>/dev/null; then
+        # E106 — a mesma honestidade do ilog do craft-idle: papel que não
+        # aceita escrita não é mais silêncio (tmpfs sempre gravável).
+        printf '[%s] dlog FALHOU (%s): %s\n' "$(date '+%F %T')" "$DLOG" "$*" \
+            >>"${XDG_RUNTIME_DIR:-/tmp}/elite/display-write-fail" 2>/dev/null || true
+    fi
     return 0
 }
 dnotify() {
@@ -122,8 +142,19 @@ state_keys() {
     parse_state | sort
 }
 
-# ── apply: o arranque aplica o que está salvo ────────────────────────────
-do_apply() {
+# E106 — o MARCO DO RESUME (a fronteira entre ESCOLHA e REVERSÃO): o
+# hook elite-resume-display (root, system-sleep) toca ESTE arquivo no
+# pós-sono. O watch e o reconcile leem a idade: reversão do driver no
+# resume NÃO é escolha — não grava e não re-aplica sob o wake instável.
+RESUME_MARK="${XDG_RUNTIME_DIR:-/run/user/$(id -u 2>/dev/null || echo 0)}/elite/display-resume"
+resume_fresco() {
+    [ -r "$RESUME_MARK" ] || return 1
+    _m="$(stat -c %Y "$RESUME_MARK" 2>/dev/null || echo 0)"
+    [ "$(($(date +%s) - _m))" -lt 45 ]
+}
+
+# ── apply: o arranque aplica o que está salvo (com retry honesto) ───────
+aplica_arranjo() {
     # E96 — o stamp anti-duplo (XDG_RUNTIME_DIR = tmpfs por boot): o
     # autostart (skel) e o supervisor (craft-bars — rigs fósseis sem as
     # linhas, a classe E90/E95) podem AMBOS chamar o apply na mesma
@@ -242,10 +273,93 @@ do_apply() {
         fi
     done < "$CONF"
     dlog "apply: fim ($aplicados aplicado(s), $falhas falha(s))"
-    # E105 — a falha fica MARCADA no stamp: o reconcile não re-tenta o que
-    # não conseguiu (o aviso já saiu; brigaria a cada 5s com o EDID).
-    if [ "$falhas" -gt 0 ]; then printf 'fail\n' > "$stamp" 2>/dev/null || true; fi
-    [ "$falhas" -gt 0 ] && dnotify "Modo salvo não pôde ser aplicado em $falhas tela(s) — log: ~/.cache/elite/display.log"
+    if [ "$falhas" -gt 0 ]; then
+        dnotify "Modo salvo não pôde ser aplicado em $falhas tela(s) — log: ~/.cache/elite/display.log"
+        return 1
+    fi
+    return 0
+}
+
+do_apply() {
+    # E96 — o stamp anti-duplo (XDG_RUNTIME_DIR = tmpfs por boot): o
+    # autostart (skel) e o supervisor (craft-bars) podem AMBOS chamar o
+    # apply na mesma sessão — o stamp decide quem já fez.
+    stamp="${XDG_RUNTIME_DIR:-/run/user/$(id -u 2>/dev/null || echo 0)}/elite/display-applied"
+    diverge="${XDG_RUNTIME_DIR:-/run/user/$(id -u 2>/dev/null || echo 0)}/elite/display-diverge"
+    mkdir -p "${stamp%/*}" 2>/dev/null || true
+
+    if [ ! -s "$CONF" ]; then
+        rm -f "$stamp" "$diverge" 2>/dev/null || true
+        exit 0   # sem conf = nada a aplicar (o monitor manda o EDID; silêncio — heartbeat)
+    fi
+
+    if [ -f "$stamp" ] && [ -s "$stamp" ]; then
+        estado_stamp="$(cat "$stamp" 2>/dev/null || true)"
+        case "$estado_stamp" in
+            ok)
+                # E105 — O RECONCILIE (o mode1 reset do amdgpu no resume
+                # devolvia o rig a 60 Hz com o conf em 200 Hz): conf ≠
+                # realidade estável por ~30s = o arranjo salvo volta.
+                vivos="$(state_keys)"
+                divergente=0
+                while IFS= read -r linha; do
+                    case "$linha" in ''|'#'*) continue ;; esac
+                    if ! printf '%s\n' "$vivos" | grep -Fxq "$linha"; then
+                        divergente=1
+                        break
+                    fi
+                done < "$CONF"
+                if [ "$divergente" -eq 0 ]; then
+                    rm -f "$diverge" 2>/dev/null || true
+                    exit 0   # confere — no-op silêncioso (o heartbeat de 5s)
+                fi
+                if resume_fresco; then
+                    dlog "apply: realidade diverge do conf DURANTE o resume (marca fresca) — a reversão do driver não é escolha; o reconcile aguarda o assentar"
+                    exit 0
+                fi
+                n_div=$(( $(cat "$diverge" 2>/dev/null || echo 0) + 1 ))
+                printf '%s\n' "$n_div" > "$diverge" 2>/dev/null || true
+                if [ "$n_div" -lt 6 ]; then
+                    dlog "apply: realidade diverge do conf salvo (tick $n_div/6) — esperando a estabilidade (a escolha do dono pode estar a caminho)"
+                    exit 0
+                fi
+                dlog "apply: realidade ≠ conf salvo há ~30s — REAPLICANDO o arranjo do dono (resume/replug?)"
+                rm -f "$diverge" "$stamp" 2>/dev/null || true
+                ;;
+            fail:*)
+                # E106 — O RETRY COM TETO (a ferida que muteava a sessão:
+                # fail era terminal na v2.6). Até 6 falhas seguidas o apply
+                # re-tenta a cada heartbeat (o link DP frio treina na 2ª-3ª
+                # tentativa); depois de 6 = silêncio honesto (o papel tem
+                # as 6 provas; o menu à mão grava o conf e limpa o fail).
+                n_fail="${estado_stamp#fail:}"
+                case "$n_fail" in ''|*[!0-9]*) n_fail=1 ;; esac
+                if [ "$n_fail" -ge 6 ]; then
+                    exit 0
+                fi
+                if resume_fresco; then
+                    exit 0   # o wake ainda está assentando — o retry espera
+                fi
+                dlog "apply: tentativa anterior falhou ($n_fail/6) — RE-TENTANDO (o stamp honesto re-tenta; a v2.6 desistia para sempre)"
+                ;;
+            *)
+                # stamp vazio/lixo (a era v2.6 do 'sucesso antecipado') =
+                # em curso: o apply corre de novo (quem nasceu por último
+                # vence — a escola E64)
+                ;;
+        esac
+    else
+        rm -f "$diverge" 2>/dev/null || true
+    fi
+
+    if aplica_arranjo; then
+        printf 'ok\n' > "$stamp" 2>/dev/null || true
+        rm -f "$diverge" 2>/dev/null || true
+    else
+        n_fail=$(( $(cat "$stamp" 2>/dev/null | sed -n 's/^fail://p') + 1 ))
+        [ "$n_fail" -ge 1 ] || n_fail=1
+        printf 'fail:%s\n' "$n_fail" > "$stamp" 2>/dev/null || true
+    fi
     exit 0
 }
 
@@ -288,6 +402,21 @@ do_watch() {
         estavel=$((estavel + 1))
         if [ "$estavel" -lt 2 ]; then
             continue                                    # mudança instável — pode ser transição
+        fi
+        # E106 — A FRONTEIRA ENTRE ESCOLHA E REVERSÃO (o segundo réu do
+        # '200 Hz que não sobrevive': o resume com mode1 reset do amdgpu
+        # devolvia a realidade a 60 Hz, o watch via divergência estável
+        # em ~8s e GRAVAVA 60 Hz no conf — a escolha do dono saía do
+        # disco PARA SEMPRE antes do reconcile do apply (30s) acordar).
+        # Divergência com o marco do resume fresco (<45s) = reversão do
+        # driver, NÃO é escolha: NÃO grava — o reconcile do apply re-
+        # asegura o arranjo salvo. Mudança estável SEM marco = escolha
+        # do dono por qualquer porta — grava (a E89 intacta).
+        if resume_fresco; then
+            dlog "watch: mudança estável DURANTE o resume (marca fresca) — NÃO grava (a reversão do driver não é escolha; o apply re-assegura o conf salvo)"
+            base="$agora"
+            estavel=0
+            continue
         fi
         # mudança estável: é a escolha do dono por qualquer porta — grava.
         do_save || true
@@ -397,10 +526,26 @@ case "${1:-}" in
     save)   do_save; exit 0 ;;
     watch)  do_watch ;;
     status)
-        echo "── salvo ($(basename "$CONF")):"
-        conf_keys || true
+        # E106 — O STATUS QUE FALAVA SOZINHO (a prova do dump: seções
+        # VAZIAS com exit 0 — rodado por um coletor com HOME errado ou
+        # fora da sessão, ninguém sabia se era parse quebrado ou env
+        # faltando; o veredito 'status morto' nasceu daí). Seções vazias
+        # ganham LINHA NOMEADA e exit ≠ 0 quando a realidade não responde.
+        _rc=0
+        echo "── salvo ($(basename "$CONF")) em $CONF_DIR"
+        if [ -s "$CONF" ]; then
+            conf_keys || true
+        else
+            echo "   (sem conf em disco — nenhuma escolha registrada ainda)"
+        fi
         echo "── agora:"
-        state_keys || true
-        exit 0 ;;
+        st="$(state_keys 2>/dev/null)"
+        if [ -n "$st" ]; then
+            printf '%s\n' "$st"
+        else
+            echo "   (wlr-randr sem resposta — WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-<não setado>}, HOME=${HOME:-<não setado>})"
+            _rc=1
+        fi
+        exit "$_rc" ;;
     *)      do_menu ;;
 esac

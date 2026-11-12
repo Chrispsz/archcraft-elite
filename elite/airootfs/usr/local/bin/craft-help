@@ -87,6 +87,20 @@ case "${1:-}" in
     -h|--help|-v|--verboso) VERBOSO=1; TERMO="${2:-}" ;;
 esac
 
+# E106 — A PAUSA DO E96 QUE O IRMÃO NUNCA RECEBEU (a denúncia do dono:
+# "Ajuda e comandos, ele tenta abrir uma janela, mas também fecha" — o
+# craft-help imprimia o mapa e saía; o foot fechava junto e a janela era
+# um FLASH ilegível). O craft-clean ganhou a pausa no E96 (read com gate
+# de TTY) — este é o mesmo gesto: interativo (TTY real) = espera o
+# Enter; pipe/journal (não é pra ninguém ler na tela) = sai direto.
+pausa_final() {
+    if [[ -t 0 ]] && [[ -t 1 ]]; then
+        printf '\n%s' 'Enter para fechar… '
+        read -r _
+    fi
+    return 0
+}
+
 printf '%b╔══════════════════════════════════════════════════════════╗%b\n' "$V" "$N"
 printf '%b║  ARCHCRAFT ELITE — O MAPA DOS COMANDOS (craft-help)      ║%b\n' "$V" "$N"
 printf '%b╚══════════════════════════════════════════════════════════╝%b\n' "$V" "$N"
@@ -113,6 +127,7 @@ if [ -n "$TERMO" ]; then
         fi
     done
     [ "$achou" = 1 ] || printf '  (nada casou — tente: dock, idle, display, update, shot)\n'
+    pausa_final
     exit 0
 fi
 
@@ -133,4 +148,5 @@ printf '  ajuda viva   : W-S-h repete o retrato · %bcraft-help <termo>%b filtra
 if [ "$VERBOSO" = 1 ]; then
     [ -r "$DOC" ] && { printf '\n%b── $ %s ──%b\n' "$B" "head -30 $DOC" "$N"; head -30 "$DOC"; }
 fi
+pausa_final
 exit 0

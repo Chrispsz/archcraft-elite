@@ -96,4 +96,22 @@ if [ -r "$ELITE_SYSCTL" ]; then
     fi
 fi
 
+# ── 4. O FANTASMA NÃO RENASCE (E106) — o calamares.desktop/abif.desktop ──
+#     eram ferramentas da SESSÃO LIVE que o pacote embarcava por cima da
+#     varredura E98; rigs instalados recebiam o instalador morto de volta
+#     em TODA dose (--overwrite applications/*) — a gaveta indexava o
+#     "Install Archcraft" sem ícone/sem função (o journal do drawer canta:
+#     "Cannot load icon 'calamares'"). O build não os embala mais; ESTE
+#     gesto cura os rigs CONTAMINADOS (o arquivo já em disco sai na
+#     primeira transação pós-dose). Só fora do live (o live PRECISA dele).
+if [ ! -e /run/archiso ]; then
+    for dsk in /usr/local/share/applications/calamares.desktop \
+               /usr/local/share/applications/abif.desktop; do
+        if [ -e "$dsk" ]; then
+            rm -f "$dsk" 2>/dev/null || true
+            tlog "fantasma da live removido: $dsk (E106 — a gaveta não indexa mais o instalador morto)"
+        fi
+    done
+fi
+
 exit 0

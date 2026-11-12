@@ -63,7 +63,24 @@
     </item>
   </menu>
 
-  <!-- root-menu (botão direito no desktop — v1.7) -->
+  <!-- root-menu (botão direito no desktop)
+       E106 — O ENXUGAMENTO QUE O DONO MANDOU ("o menu cresceu… muita coisa
+       aqui pode simplesmente ser inútil e pode ser removida… não vamos
+       sair adicionando um monte de coisa"): 21 → 17 itens, NADA novo —
+       · Editor e Leitor de PDF MORREM (Terminal + Aplicativos cobrem —
+         o dono não pediu nenhum dos dois por nome; eram volume morto);
+       · "Verificar atualizações" MORRE (o dono: "os dois é a mesma
+         coisa. No caso o atualizar sistema ele já verifica e já
+         atualiza, se necessário" — provado no craft-update: o --check é
+         read-only sobre a base LOCAL, o -Syu sincroniza E atualiza);
+       · Fixar + Desafixar VIRAM UM ("Apps da dock…" — a gaveta com
+         marcador ✓/· que alterna e reabre, laço que fecha só no
+         ESC/clique-fora — o fluxo que o dono desenhou);
+       · "Sessão (menu gráfico)" vira "Sair da sessão" (o dono: "só não
+         tem sair da sessão ali… poderia levar direto para sessão" — o
+         menu completo do power segue vivo no ⏻ da topbar e nos atalhos);
+       · Displays ganha o rótulo que diz o que faz (o dono: "esse
+         display, eu não sei nem para que é isso"). -->
   <menu id="root-menu">
     <item label="Navegador">
       <action name="Execute" command="sh -c 'for b in brave librewolf chromium thorium-browser qutebrowser; do command -v &quot;$b&quot; &gt;/dev/null &amp;&amp; exec &quot;$b&quot;; done; exec xdg-open https://archlinux.org'" />
@@ -74,17 +91,12 @@
     <item label="Terminal">
       <action name="Execute" command="sh -c 'exec &quot;${TERMINAL:-foot}&quot;'" />
     </item>
-    <item label="Editor">
-      <action name="Execute" command="sh -c 'exec &quot;${TERMINAL:-foot}&quot; -e &quot;${EDITOR:-nano}&quot;'" />
-    </item>
     <!-- E104 — o rótulo não nomeia o pacote: a varredura resolve pelo que
          EXISTE no sistema (a escola do Navegador; o dono: "de acordo com o
-         que está, com o que existe no sistema") -->
-    <item label="Leitor de PDF">
-      <action name="Execute" command="sh -c 'for p in papers evince zathura okular; do command -v &quot;$p&quot; &gt;/dev/null &amp;&amp; exec &quot;$p&quot;; done; exit 0'" />
-    </item>
+         que está, com o que existe no sistema"). E106: o ramo vazio AVISA
+         (a classe dnotify do craft-display — morte calada nunca mais). -->
     <item label="Calculadora">
-      <action name="Execute" command="sh -c 'for c in qalculate-gtk gnome-calculator; do command -v &quot;$c&quot; &gt;/dev/null &amp;&amp; exec &quot;$c&quot;; done; exit 0'" />
+      <action name="Execute" command="sh -c 'for c in qalculate-gtk gnome-calculator; do command -v &quot;$c&quot; &gt;/dev/null &amp;&amp; exec &quot;$c&quot;; done; notify-send -a Elite -u normal -t 8000 &quot;Calculadora não encontrada&quot; &quot;Nenhum binário conhecido no sistema — o sudo craft-update traz o qalculate-gtk&quot;; exit 1'" />
     </item>
     <!-- E30 (v2.10.18): captura rápida no menu (pedido do dono — "botão de
          captura de tela rápida"; o modo região é o default do craft-shot e
@@ -92,48 +104,40 @@
     <item label="Captura de tela">
       <action name="Execute" command="craft-shot" />
     </item>
-    <!-- E89 — Displays no menu (o dono: "esse de displays é muito ruim…
-         deveria ser todas as detectadas… ou esse menu fosse bem pensado"):
-         o craft-display lista TODOS os modos do EDID no fuzzel, aplica E
-         grava no mesmo clique (a persistência dos hertz que o sistema
-         não tinha). A porta gráfica avançada (wdisplays) mora DENTRO do
-         menu daqui. -->
-    <item label="Displays…">
+    <!-- E89 — Displays no menu (o dono: "deveria ser todas as detectadas…
+         ou esse menu fosse bem pensado"): o craft-display lista TODOS os
+         modos do EDID no fuzzel, aplica E grava no mesmo clique (a
+         persistência dos hertz que o sistema não tinha). E106 — o rótulo
+         agora DIZ o que faz (o dono: "esse display, eu não sei nem para
+         que é isso" — o nome era a doença). -->
+    <item label="Telas — resolução e Hz…">
       <action name="Execute" command="craft-display" />
     </item>
     <separator />
     <item label="Atualizar sistema">
       <action name="Execute" command="foot -e craft-update" />
     </item>
-    <!-- E90: O VEREDITO SEM TOCAR NADA (a lacuna nº 2 do UX-ROADMAP: "não
-         existe porta barata de checagem" — agora existe: a flag check lê o
-         instalado, a base local e a tag viva, sem root e sem transação) -->
-    <item label="Verificar atualizações">
-      <action name="Execute" command="foot -e craft-update --check" />
-    </item>
     <item label="Limpeza do sistema">
       <action name="Execute" command="foot -e craft-clean" />
     </item>
     <separator />
-    <!-- E90 — O MAPA DOS COMANDOS (a lacuna nº 1 do UX-ROADMAP: 20 de 31
-         comandos sem —help, a doc não viajava, nenhum centro de ajuda —
-         "a cirurgia era invisível de dentro do sistema". O craft-help é a
-         porta: atalhos reais + os 37 comandos + o estado do canal) -->
+    <!-- E90 — O MAPA DOS COMANDOS (a lacuna nº 1 do UX-ROADMAP). E106 — a
+         pausa do E96 chegou ao craft-help: a janela ABRE E FICA (o dono:
+         "ele tenta abrir uma janela, mas também fecha"). -->
     <item label="Ajuda — comandos da Elite">
       <action name="Execute" command="foot -e craft-help" />
     </item>
     <item label="Aplicativos">
       <action name="Execute" command="craft-drawer" />
     </item>
-    <!-- v1.4: fixar apps na dock no fluxo mouse-first (burn test: o
-         clique-direito do drawer pinava no drawer, não na dock) -->
-    <item label="Fixar app na dock…">
+    <!-- E106 — A GAVETA UNIFICADA (o desenho do dono, palavra por palavra:
+         "um menu unificado… os programas… com o marcador se tá ativado,
+         habilitado ou não, para você habilitar e desabilitar. Aí ele só
+         fecharia quando você tirasse o mouse de cima da função ou
+         clicasse fora da tela"). ✓ fixado · não fixado; escolher alterna
+         e reabre; ESC/clique-fora/cross-dismiss fecham o laço. -->
+    <item label="Apps da dock…">
       <action name="Execute" command="craft-pin-pick" />
-    </item>
-    <!-- E104 — a porta do DESAFIXAR (a metade que faltava: fixar tinha
-         picker desde a v1.4, remover era craft-pin rm em CLI invisível) -->
-    <item label="Desafixar app da dock…">
-      <action name="Execute" command="craft-pin-pick --rm" />
     </item>
     <separator />
     <item label="Lock">
@@ -145,15 +149,20 @@
          lugar do sistema para mexer no governor — e o automático que
          define performance quando entrar no jogo"): o craft-game é o
          cérebro, o gamemode do Feral o músculo (governor performance +
-         GPU high + rollback automático, RAM zero no idle). -->
+         GPU high + rollback automático, RAM zero no idle). E106: ON/OFF/
+         Automático/Status agora DEVOLvem feedback na tela (o dono:
+         "clico em ativar agora e eu não vejo nada"). -->
     <item label="Modo de jogo…">
       <action name="Execute" command="craft-game" />
     </item>
     <item label="Tempo para travar a tela…">
       <action name="Execute" command="craft-idle" />
     </item>
-    <item label="Sessão (menu gráfico)">
-      <action name="Execute" command="craft-power" />
+    <!-- E106 — O SAIR DIRETO (o dono: reboot e desligar já estão aqui — o
+         que faltava era o SAIR). O menu gráfico completo do power segue
+         vivo no ⏻ da topbar e nos atalhos (W-Escape/W-x/C-A-Del). -->
+    <item label="Sair da sessão">
+      <action name="Execute" command="labwc --exit" />
     </item>
     <separator />
     <item label="Reboot">

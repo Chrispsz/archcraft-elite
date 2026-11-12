@@ -132,11 +132,27 @@ list="$(printf '%s\n' "$list" | sed '/^[[:space:]]*$/d')"
 # morria com rc=2, que o chamador lê como "toggle benigno": menu que nunca
 # abre e morre SORRATEIRO. O smoke test flagrou; o bug inteiro morreu aqui)
 ST="${XDG_RUNTIME_DIR:-/tmp}/elite-menus.$(id -u 2>/dev/null || echo 0)"
-# v2.9.0 — limpeza GARANTIDA: todo fechamento (normal, toggle, cross,
-# SIGTERM, morte por set -u) remove o state do toggle — sem pid zombie
-# virando toggle fantasma. (A gaiola não existe mais: o dismiss é o
-# craft-menu-dismiss, chamado pelo rc.xml — ele lê ESTE state.)
-trap 'rm -f "$ST" 2>/dev/null' EXIT
+# v2.10.15+E106 — limpeza GARANTIDA E HONESTA: todo fechamento remove o
+# state — MAS SÓ O STATE QUE AINDA É MEU. A v2.9 removia SEM CONFERIR: no
+# cross-dismiss, B mata o fuzzel de A, escreve o state DELE e fica no
+# wait; A acorda (143) e o rm incondicional APAGAVA O STATE DE B — B
+# ficava anônimo: o toggle parava de fechar (o 2º clique abria um SEGUNDO
+# fuzzel empilhado), o clique-fora não fechava nada (o craft-menu-dismiss
+# não achava pid) e os menus VAZAVAM (o dump 20261112 fotografou 2×
+# 'craft-menu --title=Encerrar' vivos). A cura: o trap e o pós-wait
+# conferem o conteúdo — se o state ainda é '$mystate', removo; se é de
+# outro menu, NÃO TOCO (a lição E48 da casa: a identidade se prova, não
+# se assume).
+mystate=""
+limpa_state() {
+    [ -n "$mystate" ] || return 0
+    [ -f "$ST" ] || return 0
+    if [ "$(cat "$ST" 2>/dev/null || true)" = "$mystate" ]; then
+        rm -f "$ST" 2>/dev/null || true
+    fi
+    return 0
+}
+trap 'limpa_state' EXIT
 if [ -f "$ST" ]; then
     opid=""
     otitle=""
@@ -224,16 +240,16 @@ case "$at" in
 esac
 
 if [ -n "$list" ]; then
-    choice="$(printf '%s\n' "$list" | fuzzel "$@" & p=$!; printf '%s %s\n' "$p" "$title" >"$ST"; wait "$p")"
+    choice="$(printf '%s\n' "$list" | fuzzel "$@" & p=$!; mystate="$p $title"; printf '%s %s\n' "$p" "$title" >"$ST"; wait "$p")"
 else
     # v2.8.0 — lista vazia (o modo --ask): STDIN VAZIO DE VERDADE. O
     # printf '%s\n' de string vazia imprime UMA LINHA — o fuzzel a via
     # como uma ENTRADA FANTASMA vazia e selecionada (o retângulo claro
     # da foto do dono). </dev/null não entrega linha nenhuma.
-    choice="$(fuzzel "$@" </dev/null & p=$!; printf '%s %s\n' "$p" "$title" >"$ST"; wait "$p")"
+    choice="$(fuzzel "$@" </dev/null & p=$!; mystate="$p $title"; printf '%s %s\n' "$p" "$title" >"$ST"; wait "$p")"
 fi
 rc=$?
-rm -f "$ST"
+limpa_state
 [ -n "$choice" ] || exit "$rc"
 printf '%s\n' "$choice"
 exit 0
