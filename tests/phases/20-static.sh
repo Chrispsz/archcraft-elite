@@ -1,4 +1,4 @@
-assert_grep "$REPO/.ci/build.sh" 'pkgrel=48' "E105 (lei E41, âncora viva refrescada): pkgrel elite-system 47→48 — as quatro curas do dump 195332 (subject explícito do polkit + demição, sed de escopo do lock, reconciliação do display, format-stopped vazio + fotos do dump); a E104.1 (46→47) foi a cura do gate SC2209; a E104 (45→46) trouxe a PELE DO MENU; a E103 (44→45) a abstração XDG"#!/usr/bin/env bash
+#!/usr/bin/env bash
 # FASE 2 — A TAMPA DA CAIXA: qualidade estática (o desenho completo antes de abrir)
 source "$(dirname "${BASH_SOURCE[0]}")/../lib/core.sh"
 phase_start 2 "QUALIDADE ESTÁTICA — a tampa da caixa"
