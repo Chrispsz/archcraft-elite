@@ -443,7 +443,7 @@ assert_grep "$CMN" '--ask=' "v2.6.0: modo entrada (senha de Wi-Fi) — o prompt 
 # v2.9.0 — O HANDSHAKE DA GAIOLA MORREU JUNTO: sem SIGRTMIN, sem ack, sem
 # espera — o menu nasce NO FRAME em que é chamado (feedback instantâneo do
 # dono, agora literal). O dismiss é lei do rc.xml: craft-menu-dismiss.
-assert_grep "$CMN" 'trap .rm -f "\$ST" 2>/dev/null.' "v2.9.0: trap EXIT limpa o state do toggle em TODO fechamento (a gaiola não existe mais — não há ack para limpar)"
+assert_grep "$CMN" 'trap .limpa_state. EXIT' "v2.9.0→E106: trap EXIT limpa o state — MAS SÓ O QUE AINDA É MEU (o rm incondicional apagava o state do menu NOVO no cross-dismiss: toggle cego, dismiss mudo, menus vazando — 2× 'Encerrar' vivos no ps do dump)"
 assert_nogrep "$CMN" 'SIGRTMIN|elite-cage|elite-dock|kill -RTMIN|sleep 0\\.01' "v2.9.0: craft-menu NÃO fala com a dock — sem handshake, sem espera de 300ms (a espera morreu com a gaiola)"
 assert_grep "$P/airootfs/usr/local/bin/craft-menu-dismiss" 'comm' "v2.9.0: o dismiss só mata processo com comm EXATAMENTE 'fuzzel' (pid reciclado de outro programa NUNCA morre — mesma lei do toggle)"
 assert_grep "$P/airootfs/usr/local/bin/craft-menu-dismiss" '\[ -f "\$ST" \] || exit 0' "v2.9.0: dismiss sem menu aberto é no-op imediato (um stat no state — o clique esquerdo do desktop segue MUDO na prática)"
@@ -1084,7 +1084,7 @@ assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'cliphist decode' "curad
 assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'Arquivos' "v1.5→E103/xdg: o menu Arquivos existe (o app vem da variável \${FILEMANAGER:-thunar} — FM padrão da spec)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" '\$\{FILEMANAGER:-thunar\}' "v1.5→E103/xdg: o menu abre o GERENCIADOR pela variável (nada de binário hardcoded — a troca de app é export)"
 assert_nogrep "$P/airootfs/etc/skel/.config/labwc/menu.xml" '\$\{EDITOR:-nano\}' "E106: o item Editor MORREU no menu (Terminal + nano cobre — o volume morto do enxugamento; o W-e do teclado segue vivo no rc.xml e o EDITOR=nano segue no environment)"
-assert_nogrep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'Leitor de PDF' "E106: o menu ENXUGOU (a ordem do dono: 'muita coisa aqui pode simplesmente ser inútil e pode ser removida' — Leitor de PDF e Editor eram volume morto; o Aplicativos cobre)"
+assert_nogrep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'label="Leitor de PDF"' "E106: o menu ENXUGOU (a ordem do dono: 'muita coisa aqui pode simplesmente ser inútil e pode ser removida' — Leitor de PDF e Editor eram volume morto; o Aplicativos cobre)"
 # v1.7 (dono: "deixa só os importantes", "sem muita complexidade"): as
 # ferramentas de sistema saíram DO MENU — continuam INSTALADAS e vivem no
 # Launchpad (nwg-drawer busca + categoriza); o dock é o comutador de
@@ -2090,7 +2090,7 @@ for menu in craft-power craft-pin-pick craft-idle craft-bgapps; do
   # positivos (mais robustos que nogrep: o 2>/dev/null do pkill do toggle é legítimo)
   assert_grep "$P/airootfs/usr/local/bin/$menu" '2>"\$errf"' "v2.3.1: $menu captura o stderr do fuzzel (mktemp errf — crash deixa rastro)"
   assert_grep "$P/airootfs/usr/local/bin/$menu" 'FALHOU' "v2.3.1: $menu tem caminho de erro LOGADO (exit != 0 nunca é calado — MENU FALHOU na era craft-menu, FUZZEL FALHOU onde o fuzzel segue)"
-  assert_grep "$P/airootfs/usr/local/bin/$menu" 'eq 143' "v2.3.5: $menu trata SIGTERM do toggle/cross-dismiss como fechamento benigno (o falso 'fuzzel exit=143' crítico do print do dono morreu)"
+  assert_grep "$P/airootfs/usr/local/bin/$menu" 'eq 143|143\)' "v2.3.5→E106: $menu trata SIGTERM do toggle/cross-dismiss como fechamento benigno (a gramática eq 143 da casa; a gaveta v4 usa case com 143\) — o falso 'fuzzel exit=143' crítico do print do dono morreu)"
 done
 # v2.6.0 — o craft-connect v5 fala a MESMA gramática, pela voz do
 # open_menu/benign_close (errf capturado · MENU FALHOU · 1|2|143 benignos)
@@ -2181,7 +2181,7 @@ for _m in craft-power craft-bgapps craft-idle; do
     assert_grep "$P/airootfs/usr/local/bin/$_m" 'craft-menu --title=' "v2.3.8: $_m no menu NATIVO (fim da era fuzzel nos menus de escolha)"
 done
 assert_grep "$P/airootfs/usr/local/bin/craft-rollback" 'craft-menu --title=.Rollback' "v2.3.8: rollback no menu nativo (picker + confirmar; a descrição fica no fuzzel — onde se DIGITA)"
-assert_grep "$P/airootfs/usr/local/bin/craft-pin-pick" 'fuzzel' "v2.3.8: Fixar fica no fuzzel (buscar entre apps é BUSCA — a linha de digitação ali é função, não ruído)"
+assert_grep "$P/airootfs/usr/local/bin/craft-pin-pick" 'fuzzel' "v2.3.8→E106: a gaveta guarda o fuzzel como REDE (o guard command -v continua; a busca de apps corre no motor craft-menu — CAPS cacheadas, zero fork de prova por clique)"
 
 # ── v2.3.1 — PROBE COBRE MENUS (o gate via enxergar o que o rig vê) ───────
 assert_grep "$P/airootfs/usr/local/bin/elite-session-probe" 'FUZZEL_BIN=' "v2.3.1: probe colhe FUZZEL_BIN (binário dos 5 menus)"
@@ -2590,7 +2590,7 @@ assert_grep "$DOCK" 'nova sessão do sem-nome via /proc' "E54/dock: o lançament
 assert_grep "$DOCK" 'self\._launch\(btn, cmd\)' "E54/dock: direito = _launch em TODO botão com .desktop (pin OU dinâmico — a mesma sessão nova para os dois)"
 assert_nogrep "$DOCK" '_pin_add' "E54/dock: o verbo morto saiu (o direito da dock é NOVA SESSÃO — o fixar mora no craft-pin-pick, direito no desktop)"
 assert_grep "$DOCK" 'esquerdo: focar/abrir · direito: menu' "E74/dock: o tooltip do dinâmico ensina a gramática E74 (direito = MENU; a 'nova janela' da E54 vive DENTRO do menu como 1º item — o tooltip não mente)"
-assert_grep "$DOCK" 'len\(comm\) == 15 and key\.startswith\(comm\)' "E54/dock: a casca do comm é respeitada (TASK_COMM_LEN=15 — o stem do app_id mais longo que a casca também casa; nunca ao contrário)"
+assert_grep "$DOCK" 'len\(comm\) == 15 and key\.lower\(\)\.startswith\(comm\.lower\(\)\)' "E54→E106/dock: a casca do comm é respeitada E CASE-INSENSITIVE (TASK_COMM_LEN=15 — o stem do app_id mais longo que a casca também casa, e o comm do kernel preserva o CASO do binário: o match antigo case-sensitive virava 'sem prova de origem' e o dono via um botão morto)"
 
 # O RICE DA CASA VIAJA NO PACOTE — comportamento no HOME isolado (o teste
 # nunca escreve fora do $WORK — a mesma escola do VMARK/ELITE_UNIT_DIR)
@@ -3215,7 +3215,7 @@ assert_nogrep "$HLKV3" 'Boa madrugada' "E97/lock: a SAUDAÇÃO saiu (o dono: 're
 assert_nogrep "$HLKV3" 'text = \$USER' "E97→E100/lock: o NOME do usuário nunca mais variável crua — na v5 ele volta como PÍLULA do greeter (glifo + getent com fallback; o pedido 'permanecer ali')"
 assert_nogrep "$HLKV3" 'Digite a senha e pressione Enter' "E97/lock: a DICA do rodapé saiu (o placeholder do campo já diz o gesto — uma voz, não duas)"
 assert_grep "$HLKV3" 'size = 380, 54' "E97→E100/lock: as PÍLULAS do greeter (380×54 — o card crust 470×120 da v4 se aposenta; o greeter não tem cartão atrás dos campos)"
-assert_grep "$HLKV3" '^shape {' "E88→E100/lock: o SHAPE existe — a pílula do USUÁRIO (borda #5a6477 + superfície #1E2128 translúcida: o blur atravessa; shape ANTES dos labels = z-order correto)"
+assert_nogrep "$HLKV3" '^shape {' "E106/v7: a pílula do USUÁRIO SAIU (a ordem do dono, palavra por palavra: 'eu não quero aquele ícone, eu não quero aquela foto, eu não quero nada entre o relógio e onde coloca as credenciais' — o campo de senha é o único corpo do centro; o greeter do SDDM guarda a pílula)"
 assert_grep "$HLKV3" 'animation = fadeIn, 1, 3, linear' "E88/lock: o fade ágil (5→3 — o lock chega NA HORA; a mesma diretriz zero-delay da dock)"
 assert_nogrep "$HLKV3" 'path = screenshot' "v2.5.0 preservada na v3/v5: o fundo do lock é O WALLPAPER (nunca a foto da tela com janelas)"
 # ── E100 — A PELE IRMÃ DO GREETER + A LEI DO SINAL ──────────────────────
@@ -3232,8 +3232,8 @@ assert_grep "$HLKV3" 'rgba\(90, 100, 119' "E100/lock: as bordas no SLATE DO GREE
 assert_grep "$HLKV3" 'rgba\(82, 148, 226' "E100/lock: validando no AZUL DO GREETER (#5294E2 — o HighlightBackgroundColor, a cor do botão Login)"
 assert_grep "$HLKV3" 'rgba\(224, 107, 116' "E100/lock: erro no VERMELHO DO GREETER (#E06B74 — o WarningColor)"
 assert_grep "$HLKV3" 'rgba\(30, 33, 40' "E100/lock: as superfícies no FUNDO DO GREETER (#1E2128 — FormBackgroundColor translúcido, o blur atravessa)"
-assert_grep "$HLKV3" 'getent passwd' "E100/lock: o nome REAL do usuário (GECOS como o UseRealName=true do greeter)"
-assert_grep "$HLKV3" 'id -un' "E100/lock: fallback no LOGIN se o GECOS vier vazio (o nome nunca falta na pílula)"
+assert_nogrep "$HLKV3" 'getent passwd' "E106/v7: o NOME do usuário saiu do lock junto com a pílula (a ordem do dono — nada entre o relógio e as credenciais; o GECOS segue vivo no greeter do SDDM como o UseRealName=true)"
+assert_nogrep "$HLKV3" 'id -un' "E106/v7: o fallback do login saiu com o nome (o campo de senha pergunta SEM dizer quem — a tela limpa que o dono mandou)"
 assert_nogrep "$HLKV3" 'dots_text_format' "E100/lock: os pontos ● do greeter (o default do hyprlock — os asteriscos da era v1.5 saíram)"
 assert_nogrep "$HLKV3" 'size = 470, 120' "E100/lock: o card crust 470×120 EXTINTO (as pílulas do greeter substituíram o cartão)"
 assert_nogrep "$HLKV3" 'JetBrainsMono' "E100/lock: a era JetBrainsMono no lock acabou (a casa da pele é Iosevka — a mesma do greeter)"
@@ -3473,16 +3473,16 @@ assert_grep "$RICE103" '--rc-adopt' "E103/rice: a porta explícita do rc.xml (ba
 assert_grep "$REPO/.ci/build.sh" 'usr/local/share/elite/labwc/rc.xml' "E103/rice: a pele rc.xml viaja NO PACOTE (a lição E63: fora do pacote nunca chega ao rig pelo canal)"
 assert_grep "$REPO/.ci/build.sh" 'usr/local/share/elite/swayosd/config.toml' "E103/rice: o config do OSD viaja NO PACOTE (mesma escola)"
 
-# ── a PELE v6 (avatar 1:1 · gap 24px · rodapé 0.6) ──────────────────────
-assert_grep "$HLKV3" 'rounding = -1' "E103/lock: o avatar em CÍRCULO PERFEITO (a diretriz: 1:1 rigoroso — o -1 do hyprlock sobre fonte quadrada)"
-assert_grep "$HLKV3" 'path = ~/\.cache/elite/avatar\.png' "E103/lock: o avatar nasce do CACHE QUADRADO (o craft-lock recorta com ffmpeg — retangular viraria elipse: o corte assimétrico que o dono mandou eliminar)"
-assert_grep "$LOCK101" "crop='min\(iw,ih\)':'min\(iw,ih\)'" "E103/lock: o recorte QUADRADO na fonte (min(iw,ih) + scale 256 — o cache nasce 1:1 e o rounding=-1 vira círculo de verdade)"
-assert_grep "$LOCK101" '\$HOME/\.face' "E103/lock: a fonte do avatar segue o padrão XDG (a casa do dono ~/.config/elite/avatar.png primeiro, o .face de sempre depois)"
-assert_grep "$HLKV3" 'size = 380, 54' "E103/lock: as pílulas do greeter permanecem (380×54 — a v6 só reorganiza a hierarquia, não reinventa o corpo)"
-assert_grep "$HLKV3" 'position = 0, -44' "E103/lock: o campo de senha com o GAP DE 24PX (78px centro-a-centro − 54px de pílula = 24px de ar entre os blocos — a missão do dono)"
+# ── a PELE v7 (a tela limpa — a ordem do dono vence a missão da v6) ──────
+assert_nogrep "$HLKV3" 'rounding = -1' "E106/v7: o avatar em círculo saiu INTEIRO (a diretriz mudou: o dono não quer foto no lock — o bloco image inteiro fora, não só o corte)"
+assert_nogrep "$HLKV3" 'avatar\.png' "E106/v7: o cache do avatar não existe mais na pele (o craft-lock deixou de gerar — código morto saiu com o bloco, lei E33)"
+assert_nogrep "$LOCK101" "crop='min" "E106/v7: o ffmpeg crop do avatar SAIU do craft-lock (o lock não queima milissegundos recortando uma foto que a pele v7 não mostra)"
+assert_nogrep "$LOCK101" '\$HOME/\.face' "E106/v7: a fonte XDG do avatar saiu com o resto (a ordem do dono atravessa o código inteiro — pele, cache e fonte)"
+assert_grep "$HLKV3" 'size = 380, 54' "E103→E106/v7: a pílula do CAMPO permanece (380×54 — a v7 removeu o corpo ACIMA do campo; o campo em si não mudou)"
+assert_grep "$HLKV3" 'position = 0, -44' "E103→E106/v7: o campo no centro (o gap da v6 era para o avatar que saiu; a posição do campo é a própria da v6 — a tela limpa não reenventa a geometria)"
 assert_grep "$HLKV3" 'rgba\(171, 178, 191, 0.6\)' "E103/lock: o rodapé de status a 0.6 (a hierarquia fecha: relógio no alto, corpo no centro, estado no pé — #ABB2BF com a opacidade da missão)"
 assert_grep "$HLKV3" 'valign = bottom' "E103/lock: o rodapé ancorado no CHÃO (com y positivo — a lei do sinal de pé no novo bloco)"
-assert_grep "$HLKV3" '^image \{' "E103/lock: o bloco image do avatar existe (a v5 era só glifo — a missão pediu a foto com proporção 1:1)"
+assert_nogrep "$HLKV3" '^image \{' "E106/v7: o bloco image do avatar NÃO EXISTE (a v5/v6 pediram a foto 1:1; a v7 obedece a ordem nova: 'eu não quero aquela foto' — a missão virou a TELA LIMPA)"
 
 # ── os XDG DEFAULTS (a abstração FreeDesktop) ────────────────────────────
 assert_file "$P/airootfs/etc/profile.d/10-elite-defaults.sh" "E103/xdg: o profile.d da casa existe (TERMINAL/FILEMANAGER/EDITOR/VISUAL/BROWSER com defaults — a variável PRESENTE do usuário nunca é tocada)"

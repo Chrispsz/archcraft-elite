@@ -42,9 +42,13 @@ mlog() {
     return 0
 }
 
-avisa() { # $1=titulo $2=texto (feedback da ação do dono — some em 3s)
+avisa() { # $1=titulo $2=texto (feedback da AÇÃO do dono — some em 3s)
     command -v notify-send >/dev/null 2>&1 || return 0
     timeout 5 notify-send -a craft-pin -u normal -t 3000 "$1" "$2" >/dev/null 2>&1 || true
+}
+avisa_estado() { # $1=texto (ESTADO, não evento — a lei E103: baixa não sobe na tela, vai para a central/histórico; a tentativa repetida NUNCA vira pop-up em loop)
+    command -v notify-send >/dev/null 2>&1 || return 0
+    timeout 5 notify-send -a craft-pin -u low -t 4000 "Dock" "$1" >/dev/null 2>&1 || true
 }
 
 command -v fuzzel >/dev/null 2>&1 || { mlog "Dock: fuzzel AUSENTE — picker morreu antes de abrir"; avisa 'A dock não abriu o menu' "fuzzel ausente — detalhe em ~/.cache/elite/menus.log"; exit 1; }
@@ -139,7 +143,7 @@ while :; do
                 avisa "Dock" "'${choice#✓ }' saiu da dock"
                 mlog "Dock: desafixou $base (laço v4)"
             elif printf '%s' "$rmout" | grep -q 'não está na dock'; then
-                avisa "Dock" "'${choice#✓ }' não está mais na dock"
+                avisa_estado "'${choice#✓ }' não está mais na dock"
             else
                 mlog "Dock: craft-pin rm FALHOU rc=$rmrc — $(printf '%s' "$rmout" | head -c 200)"
                 avisa 'Desafixar falhou' "rc=$rmrc — detalhe em ~/.cache/elite/menus.log"
@@ -152,7 +156,7 @@ while :; do
                 avisa "Dock" "'${choice#· }' fixado na dock"
                 mlog "Dock: fixou $base (laço v4)"
             elif printf '%s' "$addout" | grep -q 'já está fixado'; then
-                avisa "Dock" "'${choice#· }' já estava na dock"
+                avisa_estado "'${choice#· }' já estava na dock"
             else
                 mlog "Dock: craft-pin add FALHOU rc=$addrc — $(printf '%s' "$addout" | head -c 200)"
                 avisa 'Fixar falhou' "rc=$addrc — detalhe em ~/.cache/elite/menus.log"
