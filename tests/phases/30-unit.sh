@@ -1833,8 +1833,13 @@ kill "$fk77" 2>/dev/null || true
 rm -rf "$ST77" "$RT77"; mkdir -p "$ST77" "$RT77"
 e77_env sleep-hook >/dev/null 2>&1; rc=$?
 assert_eq "$rc" "0" "E77/sono: o sleep-hook com lock morto conclui (o fork desapegado — o gesto do craft-power)"
+# E107-cura 2 — A ESPERA DO FILHO DESAPEGADO: o hook FORKA o hyprlock e volta
+# (o gesto do craft-power); a 1ª rodada do CI no 9c8a683 provou que 2s de
+# teto estouram sob a carga do runner compartilhado (a peça verde local e
+# verde em 2 CIs anteriores — o filho escreveu DEPOIS do assert). O fork
+# assíncrono é o DESENHO; a prova é a espera com teto honesto de 5s.
 _w=0
-while [ "$_w" -lt 20 ] && [ ! -s "$ST77/hyprlock.log" ]; do sleep 0.1; _w=$((_w + 1)); done
+while [ "$_w" -lt 50 ] && [ ! -s "$ST77/hyprlock.log" ]; do sleep 0.1; _w=$((_w + 1)); done
 assert_grep "$ST77/hyprlock.log" 'hyprlock' "E77/sono: o lock morto RENASCE no sono (o acordar nunca fica sem lock — E47 preservada no handler único)"
 assert_file "$RT77/elite/idle-suspend-gate" "E77/sono: o portão fecha MESMO com o lock renascendo (o sono é o sono — o isolamento não depende de quem dorme)"
 
