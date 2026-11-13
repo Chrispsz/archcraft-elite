@@ -35,7 +35,8 @@
 uso() {
     printf '%s\n' \
         'uso: craft-bars — supervisor da sessão (waybar top, dock, toplevel,' \
-        '     idle, áudio, swaync, udiskie, polkit) com forense em bars.log' \
+        '     idle, áudio, OSD, game watch, swaync, udiskie, polkit, display)' \
+        '     com forense em bars.log' \
         '' \
         '  quem morre renasce em ≤5s; o stderr de tudo vai para' \
         '  ~/.cache/elite/bars.log (teto 1 MiB). Chamado pelo autostart do' \
@@ -140,7 +141,7 @@ ensure() {
 cyc=0
 # E43 — flags "já viu vivo": 0 = ainda não nasceu (o 1º ciclo loga
 # 'iniciando'); após o 1º ciclo = 1, e ausência vira morte real ('FORA').
-seen_top=0 seen_dock=0 seen_tl=0 seen_idle=0 seen_audio=0 seen_osd=0 seen_game=0 seen_swyn=0 seen_udiskie=0 seen_polkit=0 seen_display=0
+seen_top=0 seen_dock=0 seen_tl=0 seen_idle=0 seen_audio=0 seen_osd=0 seen_game=0 seen_swyn=0 seen_udiskie=0 seen_polkit=0 seen_display=0 seen_comp=0
 
 # ── E97 — O COMPRIMIR CHEGA AO RIG VIVO (a ordem do dono, de novo: "o ───
 # botão de comprimir ainda continua aqui no gerenciador de arquivos…
@@ -188,6 +189,29 @@ while :; do
     # ~35min de qualquer forma, o cap continua honesto).
     cyc=$((cyc + 1))
     [ $((cyc % 6)) -eq 0 ] && cap_log
+    # E99 — O GATE DO COMPOSITOR (a fila E99 nomeada pelo coredump 181504:
+    # 'o craft-bars não deve ressuscitar clientes de display na ausência do
+    # labwc'). A JANELA MORTA DO LOGOUT: o labwc morre e o logind demora a
+    # colher a sessão — no buraco, este loop respawnava waybar, dock,
+    # toplevel, OSD e display watch a cada 5s; cada um nascia, procurava o
+    # display que não existe e morria em coredump (o réu 181504), o
+    # bars.log inchava de 'SAIU exit=N' e a journald colecionava lixo.
+    # Sem compositor não há display a cuidar: o supervisor DORME (o sleep
+    # de 5s continua — o lock, o cap_log e o singleton seguem de pé; o
+    # logind colhe a sessão e o craft-bars morre junto, como sempre
+    # morreu). Transição loga UMA vez (sem spam no gap); o labwc é o
+    # compositor ÚNICO da casa (5 chars de comm — -x casa, a doutrina E48
+    # não se aplica). seen_comp segue a família seen_*.
+    if ! pgrep -x labwc >/dev/null 2>&1; then
+        if [ "$seen_comp" -eq 1 ]; then
+            printf '[%s] compositor labwc FORA — supervisor DORME (sem respawn de clientes de display na janela morta do logout — os coredumps morrem aqui, fila E99)\n' "$(date '+%F %T')" >>"$LOG"
+        else
+            printf '[%s] compositor labwc ausente — supervisor DORME (sem display não há clientes a cuidar)\n' "$(date '+%F %T')" >>"$LOG"
+        fi
+        sleep 5
+        continue
+    fi
+    seen_comp=1
     # E43 — as flags "já viu vivo": o 1º ciclo loga 'iniciando'; depois,
     # ausência = morte real ('FORA — reiniciando').
     ensure "$seen_top" "$HOME/.config/waybar/config.top" "$HOME/.config/waybar/style.top.css"
@@ -209,7 +233,7 @@ while :; do
     # com o fonte aberto no editor ('vim …/craft-toplevel.c') MASCARAVA a
     # morte do daemon e a supervisão ficava cega enquanto o editor vivesse.
     # O comm do toplevel É 'craft-toplevel' (binário C): -x é o casamento
-    # honesto; o comm da dock é 'python3' (shebang): -f com padrão ANCORA­DO
+    # honesto; o comm da dock é 'python3' (shebang): -f com padrão ANCORADO
     # (só a dock de verdade — editor com o arquivo aberto não engana mais).
     if ! pgrep -x craft-toplevel >/dev/null 2>&1; then
         if [ "$seen_tl" -eq 1 ]; then
@@ -247,7 +271,7 @@ while :; do
     # start) e o morto deixaria 'SAIU exit=143' no gate.
     if ! pgrep -x swayidle >/dev/null 2>&1; then
         lm="$(sed -n 's/^LOCK_MIN=//p' "$HOME/.config/elite/idle.conf" 2>/dev/null | head -1)"
-        case "${lm:-}" in ''|*[!0-9]*) lm=10 ;; esac
+        case "${lm:-}" in ''|*[!0-9]*) lm=5 ;; esac
         # E36 (audit de arquitetura): o gate só olhava LOCK_MIN — a
         # combinação Lock=Nunca + Suspender=20min nunca nascia (o menu
         # gravava o conf, o daemon morria no exit 0 e NADA era dito).
@@ -255,6 +279,12 @@ while :; do
         # fábrica — o conf do skel).
         sm="$(sed -n 's/^SUSPEND_MIN=//p' "$HOME/.config/elite/idle.conf" 2>/dev/null | head -1)"
         case "${sm:-}" in ''|*[!0-9]*) sm=20 ;; esac
+        # E99/E33 — O ESPELHO QUE MENTIA: o comentário jurava 'o clamp
+        # espelha o próprio craft-idle' e o número era 10 — o craft-idle
+        # grampa lixo em 5 (LOCK_MIN de fábrica, idle.conf do skel). O gate
+        # aqui é só '-gt 0', zero mudança de comportamento; o número agora
+        # é o MESMO do irmão (a casa inteira fala a verdade ou ninguém
+        # fala). SUSPEND_MIN já era 20 dos dois lados.
         if [ "$lm" -gt 0 ] 2>/dev/null || [ "$sm" -gt 0 ] 2>/dev/null; then
             if [ "$seen_idle" -eq 1 ]; then
                 printf '[%s] idle swayidle FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"

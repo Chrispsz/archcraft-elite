@@ -1465,7 +1465,15 @@ pkgver=1.0
 #     Bins de conteúdo mudado: menu.xml, craft-rice, craft-display,
 #     craft-dump, craft-clean, craft-appimage, craft-help, SCRIPTS.md +
 #     bin NOVO craft-flatpak. pkgrel 50→51 NO MESMO COMMIT (lei E41).
-pkgrel=51
+# E99 — A FILA DO LOGOUT CHEGA (polimento do dia): o gate do COMPOSITOR no
+#     craft-bars — sem labwc o supervisor DORME (a janela morta do logout
+#     respawnava clientes de display a cada 5s; cada um morria em
+#     coredump — o réu 181504) + o espelho do clamp E33 (lm=10 → 5, o
+#     comentário jurava espelho com o craft-idle e o número era outro) +
+#     o soft-hyphen invisível e a lista do uso() que faltava 3 membros.
+#     Bin de conteúdo mudado: craft-bars. pkgrel 51→52 NO MESMO COMMIT
+#     (lei E41).
+pkgrel=52
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

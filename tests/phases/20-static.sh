@@ -2042,6 +2042,12 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bars" 'pkill -f .\^/usr/bi
     "E106/bars: a aposentadoria do lxqt por CMDLINE (o -x casa COMM e o comm é cortado em 15: 'lxqt-policykit-' — o residente nunca saía da sala e o listener não registrava; a fila E105 girava em falso)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bars" 'XDG_SESSION_ID="\$_pk_sid"' \
     "E106/bars: o lançador injeta o SUBJECT (o agente morria em TODO arranque com assertion POLKIT_IS_SUBJECT — XDG_SESSION_ID ausente na sessão SDDM+labwc; sem agente, TODO pedido de privilégio do menu morria calado)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bars" 'pgrep -x labwc' \
+    "E99/bars: o GATE DO COMPOSITOR — supervisor DORME sem labwc (a janela morta do logout respawnava waybar/dock/toplevel/OSD/display-watch a cada 5s; cada um nascia sem display e morria em coredump — o réu 181504 da fila E99)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bars" 'supervisor DORME' \
+    "E99/bars: a transição do gate loga UMA vez no bars.log (o gap de logout não vira spam — o papel conta o que o supervisor decidiu, não 20 linhas iguais)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bars" 'lm=5' \
+    "E99/E33/bars: o clamp do LOCK_MIN espelha o craft-idle DE VERDADE (o comentário jurava espelho e o número era 10 — fábrica é 5 no idle.conf e no clamp do irmão; o gate é '-gt 0', zero mudança de comportamento, o papel que acordou)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-idle" 'unlock_fresco 15' \
     "E106/idle: o termômetro do DESTRAVO guarda o sleep-hook E o suspend (o suspend em voo recriava o lock 1s após o destravo — a dupla senha do dump; o guard antigo só via o lock, nunca as mãos)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-vigil" 'suspend ABORTADO na última olhada' \
@@ -2128,8 +2134,8 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-appimage" 'die_menu' \
     "E107/appimage: o erro SOBE NA TELA no menu do desktop (o stdout do labwc morre no ar — morte calada nunca mais)"
 assert_grep "$REPO/scripts/apply-overlay.sh" 'craft-flatpak' \
     "E107/overlay: o bin novo no file_permissions (a ferida E89: sem o 755 no live é 203/EXEC — o gate flagrou)"
-assert_grep "$REPO/.ci/build.sh" 'pkgrel=51' \
-    "E107/E41: pkgrel 50→51 NO MESMO COMMIT (menu.xml, craft-rice, craft-display, craft-dump, craft-clean, craft-appimage, craft-help, SCRIPTS.md de conteúdo mudado + craft-flatpak é bin NOVO)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 51→52 NO MESMO COMMIT' \
+    "E99/E41 (era 'pkgrel=51', âncora REFRESCADA — a lição E58/E59: o número atual é lei do guard-pkgrel do CI, o contrato estático ama a HISTÓRIA; o bump de hoje paga o craft-bars do gate do compositor E99 + o espelho do clamp E33)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 50→51 NO MESMO COMMIT' \
     "E107/E41: a razão do bump no heredoc (a história viaja no papel)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-help" 'craft-flatpak' \
