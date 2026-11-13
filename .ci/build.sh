@@ -1643,7 +1643,7 @@ elite_fetch "${ML_LATEST:-cachyos-v3-mirrorlist-27-1-any.pkg.tar.zst}" \
 #  antigo de qualquer jeito (a run #153 flagrou: 'cache hit:
 #  brave-origin-1.98.63' com o pin em 1.99.55). O pin manda: cache serve
 #  quando É o pin; fóssil de outra era morre.
-BRAVE_PIN="1.99.56"
+BRAVE_PIN="1.99.57"
 BRAVE_PKG="brave-origin-${BRAVE_PIN}-1-x86_64.pkg.tar.zst"
 say "Estágio Brave ORIGIN ${BRAVE_PIN} (release oficial) → /var/cache/elite-local/"
 # v2.1 — cache do Actions persiste /var/cache/elite-local entre runs
@@ -1663,7 +1663,7 @@ else
 mkdir -p /tmp/elite-src/brave-origin
 cat > /tmp/elite-src/brave-origin/PKGBUILD <<'EOPKGBUILD'
 pkgname=brave-origin
-pkgver=1.99.56
+pkgver=1.99.57
 pkgrel=1
 pkgdesc='Brave Origin — navegador que bloqueia ads e trackers por padrão (release oficial brave-origin)'
 arch=(x86_64)
@@ -1687,7 +1687,7 @@ source=(brave-origin.sh
 noextract=("${_brave_zip}")
 sha256sums=('ba01b127ffbedae6956b8e0f1565170cdecfbba9c19f3fcf76cbf7d6a566bea4'
             '2187fb69be1ebfbc29f8dbd55d2c98d7b5a8b677f247258b43480b894cdac82b'
-            '9c23fa625c124222c6c59d6d6f9819831838a715a7b8109c7f7ef8d85ec636a3')
+            'd59a4b6368d6b6e48c086b984c3b26287c850a580d4907128ead545f3428b65b')
 
 prepare() {
     mkdir -p brave
