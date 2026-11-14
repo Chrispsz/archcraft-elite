@@ -18,6 +18,22 @@
 # ═══════════════════════════════════════════════════════════════════════
 set -euo pipefail
 
+# E109 — O PAPEL DA LIMPEZA (a denúncia do dono no dump 181701: 'limpeza
+# do sistema também não funciona' — e a casa NÃO TINHA UM LOG para
+# julgar: o item rodava no foot -e e morria sem rastro nenhum; nem a
+# perícia do dump achava a execução). Cada passo deixa linha com rc —
+# 'não funciona' vira réu nomeado no papel (a lei E33 no último irmão).
+# Teto 256 KiB — a lei da família E36.
+CLEAN_LOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/clean.log"
+clog() {
+    mkdir -p "${CLEAN_LOG%/*}" 2>/dev/null || true
+    if [ -f "$CLEAN_LOG" ] && [ "$(wc -c <"$CLEAN_LOG" 2>/dev/null || echo 0)" -gt 262144 ]; then
+        tail -c 131072 "$CLEAN_LOG" > "$CLEAN_LOG.tmp" 2>/dev/null && mv -f "$CLEAN_LOG.tmp" "$CLEAN_LOG" || true
+    fi
+    printf '[%s] %s\n' "$(date '+%F %T')" "$*" >>"$CLEAN_LOG" 2>/dev/null || true
+    return 0
+}
+
 ASSUME_YES=0
 for arg in "$@"; do
   case "$arg" in
@@ -26,6 +42,8 @@ for arg in "$@"; do
     *) echo "craft-clean: arg desconhecido: $arg (use --yes)" >&2; exit 2 ;;
   esac
 done
+
+clog "═══ craft-clean iniciado (TTY: $([ -t 0 ] && echo sim || echo não) · modo: $([ "$ASSUME_YES" = 1 ] && echo --yes || echo interativo))"
 
 PKG_CACHE="/var/cache/pacman/pkg"
 cache_mib() {
@@ -50,15 +68,23 @@ srun() {
 }
 
 step "cache: mantendo 2 versões (paccache -rk2)"
-srun paccache -rk2 2>/dev/null || skipped "paccache (instale pacman-contrib)"
-srun paccache -ruk1 2>/dev/null || true
+if srun paccache -rk2 2>/dev/null; then
+  clog "paccache -rk2: OK"
+else
+  _prc=$?
+  clog "paccache -rk2: PULADO (rc=$_prc — pacman-contrib ausente? sudo recusado? a adoção do craft-update traz o pacote; 'sudo pacman -S pacman-contrib' cura à mão)"
+  skipped "paccache (instale pacman-contrib)"
+fi
+srun paccache -ruk1 2>/dev/null && clog "paccache -ruk1: OK" || clog "paccache -ruk1: pulado"
 
 step "órfãos (pacman -Qtdq)"
 orphans="$(pacman -Qtdq 2>/dev/null || true)"
 if [[ -n "$orphans" ]]; then
   echo "$orphans" | sed 's/^/  /'
+  clog "órfãos achados: $(echo "$orphans" | tr '\n' ' ')"
   if (( ASSUME_YES == 1 )); then
     srun pacman -Rns --noconfirm $orphans || skipped "remoção dos órfãos"
+    clog "órfãos: removidos (--yes)"
   else
     # v2.10.6 — EOF/set -e NÃO MATA CALADO (a lei do craft-idle v2.10.5
     # chegando ao último irmão): rodar de script/pipe sem TTY matava o
@@ -66,12 +92,15 @@ if [[ -n "$orphans" ]]; then
     read -r -p "remover todos? [s/N] " ans || ans=''
     if [[ "${ans,,}" == "s" ]]; then
       srun pacman -Rns --noconfirm $orphans || skipped "remoção dos órfãos"
+      clog "órfãos: removidos (escolha do dono no TTY)"
     else
       echo "  (órfãos mantidos — escolha do usuário no papel)"
+      clog "órfãos: mantidos (escolha do usuário)"
     fi
   fi
 else
   echo "  nenhum órfão (o sistema já está limpo desta praga)"
+  clog "órfãos: nenhum"
 fi
 
 step "lixeira do desktop"
@@ -136,6 +165,7 @@ srun journalctl --vacuum-time=2weeks || skipped "journalctl --vacuum"
 depois="$(cache_mib)"
 liberado=$(( antes - depois ))
 (( liberado < 0 )) && liberado=0
+clog "fim: cache do pacman ${antes}→${depois} MiB · caches de usuário: ${lib_user} MiB · total liberado: $((liberado + lib_user)) MiB"
 printf '\n✔ limpo. cache do pacman: %s MiB → %s MiB (liberado: %s MiB)\n' "$antes" "$depois" "$liberado"
 printf '✔ caches de usuário (octopi/yay/thumbnails): %s MiB liberados (a fonte de cada número acima do passo dele)\n' "$lib_user"
 # E96 — O RELATÓRIO NÃO SOME (o relato do dono: "o botão de limpeza do

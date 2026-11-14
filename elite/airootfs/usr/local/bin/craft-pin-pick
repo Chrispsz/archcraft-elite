@@ -94,8 +94,22 @@ while :; do
             name="$(sed -n 's/^Name\[pt_BR\]=//p' "$f" | head -1)"
             [ -n "$name" ] || name="$(sed -n 's/^Name=//p' "$f" | head -1)"
             [ -n "$name" ] || continue
+            # E109 — O MARCADOR QUE NUNCA ACENDIA (o dono no dump 181701:
+            # 'só tá detectando que o Thunar tá na dock… se eu clico de
+            # novo, ele aparece já estava na dock, ou seja, ele não
+            # remove'). O case ' $pins ' contra ' $base ' comparava o
+            # ARQUIVO INTEIRO (multilinha) como uma palavra só: o newline
+            # entre os pins quebrava o casamento e NENHUM pin acendia o ✓
+            # (a prova empírica: 3 pins = 0 ✓ — só um arquivo de pin ÚNICO
+            # acendia, e o caso-limite era o Thunar sozinho com a coluna de
+            # hint). Clique em pinado virava ADD → 'já estava na dock' →
+            # o dono não conseguia remover NADA. A comparação certa é POR
+            # LINHA no $1 (o id) — a MESMA gramática do rm do craft-pin
+            # (awk '$1 == id'), que sempre soube ler a coluna de hint.
             fixado="· "
-            case " $pins " in *" $base "*) fixado="✓ " ;; esac
+            if printf '%s\n' "$pins" | awk -v b="$base" '$1 == b { f=1 } END { exit !f }'; then
+                fixado="✓ "
+            fi
             printf '%s%s\t%s\n' "$fixado" "$name" "$base" >>"$LIST"
             achou=1
         done

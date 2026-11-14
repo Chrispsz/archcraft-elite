@@ -25,6 +25,15 @@ B=$'\e[1m'; D=$'\e[2m'; N=$'\e[0m'; V=$'\e[35m'
 [ -t 1 ] || { B=""; D=""; N=""; V=""; }
 
 # ── o mapa embutido (o índice de uma linha — a mesma escola do E36) ────────
+# E109 — O MAPA QUE NÃO ASSUSTA (o dono no dump 181701: 'Tem muito
+# comando… Nem sei se precisa de tanto comando, cara. Sinceramente, eu
+# não sei se precisa de tanto comando assim'). A resposta é HONESTA:
+# a casa não PRECISA de todos esses comandos NA MÃO DO DONO — a maioria
+# roda sozinha (daemons, hooks, braços de callback) e nenhum exige
+# decoração. O mapa agora fala em DUAS VOZES: as PORTAS DO DONO (o que
+# ele pode chamar de verdade, poucos e nomeados) e O QUE RODA SOZINHO
+# (o resto — 'nada para decorar'). A lista inteira segue viva para o
+# filtro (craft-help <termo> e a doc completa).
 MAPA=(
 "elite-tune        | tuning completo (kernel/GPU/zram/daemons) — --firstboot/--apps/--status"
 "elite-status      | a certificação resumida (alias de elite-tune --status)"
@@ -32,12 +41,12 @@ MAPA=(
 "elite-drivers     | perfis de driver por lspci (AMD/Intel/NVIDIA) — --apply/--purge"
 "elite-ferramentas | porta honesta do AUR/GUI/AppImage (--paru/--octopi/--appimage/--report)"
 "elite-sweep       | varredura one-shot dos atalhos órfãos do instalador (pré-login)"
-"craft-appimage    | registra AppImage no menu da casa — ícone e atalho extraídos do próprio arquivo; o item AppImages… do botão direito chama"
+"craft-appimage    | registra AppImage no menu da casa — ícone e atalho extraídos do próprio arquivo (CLI; o item do botão direito saiu na E109 — a ordem do dono)"
 "craft-audio-route | roteamento automático de áudio (fone pluga, som troca)"
 "craft-bars        | supervisor da sessão (waybar, dock, toplevel, idle, áudio, swaync)"
 "craft-bat         | resumo de bateria (o clique no módulo da barra)"
 "craft-bgapps      | menu dos apps em 2º plano (só existe quando há o que encerrar)"
-"craft-clean       | manutenção: cache do pacman, órfãos, journal vacuum"
+"craft-clean       | manutenção: cache do pacman, órfãos, journal vacuum (o papel agora é ~/.cache/elite/clean.log)"
 "craft-connect     | central de rede PT-BR (Wi-Fi/cabo/Bluetooth) sob o botão de rede"
 "craft-dock        | toggle/reload da dock via sinal (W-S-d)"
 "craft-dock-gui    | a dock nativa (pins .desktop, dinâmicos, clique-focado-minimiza)"
@@ -46,7 +55,8 @@ MAPA=(
 "craft-dump        | perícia completa em um arquivo (--upload sobe no termbin — PÚBLICO)"
 "craft-extract     | 'Extrair aqui' do Thunar — palco temporário + colisão pergunta"
 "craft-fix-keys    | cura do keyring do pacman (no live; no instalado o timer root cuida)"
-"craft-flatpak     | gestão de Flatpaks sem terminal — instalar/remover/limpar dados órfãos (o item Flatpaks… do botão direito)"
+"craft-flatpak     | gestão de Flatpaks pelo terminal (instalar/remover/limpar/atualizar/status — CLI; o item do botão direito saiu na E109)"
+"craft-game        | modo de jogo — automático (o watch registra o jogo) e manual; o Status ensina como o Feral gamemode funciona"
 "craft-help        | este mapa (craft-help <termo> filtra)"
 "craft-hello       | a saudação do terminal (o retrato do sistema a cada shell)"
 "craft-idle        | lock/DPMS/suspend ajustáveis SEM relogin (menu de presets)"
@@ -56,7 +66,7 @@ MAPA=(
 "craft-menu        | o motor dmenu dos menus craft-* (fuzzel + âncoras)"
 "craft-menu-dismiss| fecha qualquer menu/OSD aberto (lei de cross-dismiss)"
 "craft-pin         | fixar/remover/listar pins da dock"
-"craft-pin-pick    | picker gráfico para fixar apps (botão direito → Fixar)"
+"craft-pin-pick    | picker gráfico para fixar apps (botão direito → Apps da dock…)"
 "craft-power       | menu Sessão completo (sair/suspender/reiniciar/desligar)"
 "craft-rescue-screen | a escotilha do monitor cego (resume sem sinal — de um TTY)"
 "craft-rollback    | snapshots snapper — criar/restaurar (a porta é o GRUB)"
@@ -66,6 +76,10 @@ MAPA=(
 "craft-vigil       | a vigília do lock (suspende após SUSPEND_MIN travado, com ouvidos)"
 "craft-wake-guard  | status/off/on do wake-guard USB (dorme sem acordar sozinho)"
 )
+
+# E109 — AS PORTAS DO DONO (a lista curta — o que vale a mão do dono; o
+# resto roda sozinho ou é braço de daemon, nada para decorar)
+PORTAS_DONO="craft-shot craft-update craft-clean craft-display craft-idle craft-pin-pick craft-game craft-drawer craft-lock craft-power craft-dump elite-status craft-help"
 
 # ── atalhos reais (a verdade do rc.xml — nada de atalho fantasma) ──────────
 ATALHOS=(
@@ -138,9 +152,26 @@ for linha in "${ATALHOS[@]}"; do
     printf '  %b%-15s%b %s\n' "$V" "${linha%%|*}" "$N" "${linha#*| }"
 done
 
-printf '\n%b── COMANDOS DA CASA (%d — craft-help <termo> filtra) ──%b\n' "$B" "${#MAPA[@]}" "$N"
+# E109 — AS DUAS VOZES DO MAPA (a resposta honesta ao 'tanto comando'):
+# a mão do dono precisa de POUCO — o resto roda sozinho. O casamento é
+# por TOKEN exato (o grep -w comeria 'craft-pin' dentro de
+# 'craft-pin-pick' — o hífen é fronteira de palavra).
+porta_do_dono() { # 0 = o nome é uma porta do dono (token exato)
+    case " $PORTAS_DONO " in *" $1 "*) return 0 ;; *) return 1 ;; esac
+}
+printf '\n%b── AS PORTAS DO DONO (a mão que você usa — %d no total) ──%b\n' "$B" "$(printf '%s\n' "$PORTAS_DONO" | wc -w)" "$N"
 for linha in "${MAPA[@]}"; do
-    printf '  %b%-19s%b %s\n' "$B" "${linha%%|*}" "$N" "${linha#*| }"
+    nome="${linha%%|*}"
+    if porta_do_dono "${nome%% *}"; then
+        printf '  %b%-19s%b %s\n' "$B" "$nome" "$N" "${linha#*| }"
+    fi
+done
+printf '\n%b── O QUE RODA SOZINHO (internos e braços — nada para decorar) ──%b\n' "$D" "$N"
+for linha in "${MAPA[@]}"; do
+    nome="${linha%%|*}"
+    if ! porta_do_dono "${nome%% *}"; then
+        printf '  %b%-19s%b %s\n' "$D" "$nome" "$N" "${linha#*| }"
+    fi
 done
 
 printf '\n%b── PARA IR ALÉM ──%b\n' "$B" "$N"

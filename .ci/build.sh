@@ -1498,7 +1498,50 @@ pkgver=1.0
 #     Bins de conteúdo mudado: craft-display, craft-idle, craft-vigil,
 #     craft-dump, elite-post-transaction. pkgrel 52→53 NO MESMO COMMIT
 #     (lei E41).
-pkgrel=53
+# E109 — o dump 181701 (18:17 do rig) periciado e os réus curados: (1)
+#     menu.xml — AppImages… e Flatpaks… SAEM do botão direito (a ordem do
+#     dono: 'eu esperava um gerenciador de app images como um pacote
+#     realmente instalado no sistema e não isso… Por mim, poderia ser
+#     removido ambos do menu' — menus de comando não são pacote; os bins
+#     seguem CLI e os gerenciadores reais (Gear Lever/Warehouse, Flathub)
+#     ficam como candidatos QUANDO o dono ratificar); (2) craft-pin-pick —
+#     O MARCADOR QUE NUNCA ACENDIA (o case ' $pins ' contra o arquivo
+#     multilinha: o newline quebrava o casamento e NENHUM pin acendia o ✓
+#     — o dono não conseguia remover NADA, 'só tá detectando que o Thunar
+#     tá na dock'; comparação por linha no $1, a gramática do rm); (3)
+#     craft-display — A MORTE CALADA DO SINGLE-OUTPUT ('Telas e resolução,
+#     eu clico e não acontece nada': o alvo da 1ª tela nascia de cut -f1
+#     (TAB!) e recebia A LINHA INTEIRA — o filtro awk nunca casava e o
+#     menu saía exit 0 SEM JANELA e SEM PALAVRA em toda máquina de UM
+#     monitor; cut -d'|' + morte nomeada); (4) craft-idle — O ZUMBI DO
+#     ANTES-SONO (a DUPLA SENHA provada de ponta a ponta: o sleep-hook
+#     nasceu 17:20:50 e o S3 congelou-o antes do primeiro ilog; completou
+#     18:01:16 — 10s pós-wake — com o termômetro do destravo VELHO (a
+#     vigília só o tocou 18:01:29) e re-travou a tela em cima do dono que
+#     ACABAVA de digitar a senha; o mesmo zumbi no braço suspend = o
+#     'pc suspendendo depois de colocar a senha'; o relógio de nascimento
+#     T_INICIO julga — braço que atravessou sono NÃO re-trava, NÃO
+#     suspende, NÃO pisca a tela, com linha nomeada no papel); (5)
+#     craft-clean — O PAPEL DA LIMPEZA ('limpeza do sistema também não
+#     funciona' e a casa NÃO TINHA LOG para julgar: clean.log família E36
+#     com o veredito de cada passo); (6) craft-update — A ADOÇÃO NOMEADA
+#     (o rig SEM o pacman-contrib e o papel SEM UMA linha de adoção em 3
+#     doses de canal — o 'presente = silêncio' virou ponto-cego; veredito
+#     por âncora + --asexplicit contra o varredor de órfãos) e (7)
+#     craft-game — o Status ABRE O PAPEL INTEIRO no foot (o dono: 'clico
+#     em status, ele gera um log… não sei como funciona isso') + o resumo
+#     honesto de como o gamemode funciona. Lição nova da periciagem (sem
+#     cura cega): o padrao "\[multilib\]" do build/apply-overlay/packages.add
+#     SEMPRE esteve inteiro no disco — o 'ultilib]' era ARTEFATO DE
+#     EXIBIÇÃO (a renderização come a sequência colchete-m; od provou; o
+#     POLIMENTO 4nsos já dizia e a cura de hoje quase quebrou código
+#     sadio 4× — a prova é o byte, não a tela). craft-help — O MAPA EM
+#     DUAS VOZES ('Tem muito comando… nem sei se precisa de tanto': 13
+#     PORTAS DO DONO + o resto rotulado 'O QUE RODA SOZINHO').
+#     Bins de conteúdo mudado: menu.xml (pele), craft-pin-pick,
+#     craft-display, craft-idle, craft-clean, craft-update, craft-help,
+#     craft-game. pkgrel 53→54 NO MESMO COMMIT (lei E41).
+pkgrel=54
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

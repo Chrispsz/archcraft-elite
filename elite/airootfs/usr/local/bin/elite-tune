@@ -415,6 +415,10 @@ EOF
       fi
     fi
   fi
+  # E109 — A LENTEGUICE DA VISÃO (a lição da periciagem): dumps e views
+  # mostram '[m' comendo a abertura de seção — o ARTEFATO de
+  # exibição que o POLIMENTO 4nsos nomeou; o padrão real no disco é
+  # o deste grep, comprovado por od (a prova é o byte, não a tela).
   grep -q '^\[multilib\]' "$PACMAN_CONF" || warn "ative [multilib] no pacman.conf (lib32 p/ Steam)"
   run pacman -Sy
 }

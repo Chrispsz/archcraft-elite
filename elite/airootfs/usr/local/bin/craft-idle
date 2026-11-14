@@ -190,6 +190,27 @@ case "${LOCK_MIN:-}"    in ''|*[!0-9]*) LOCK_MIN=5     ;; esac
 case "${OFF_MIN:-}"     in ''|*[!0-9]*) OFF_MIN=5      ;; esac
 case "${SUSPEND_MIN:-}" in ''|*[!0-9]*) SUSPEND_MIN=20 ;; esac
 
+# E109 — O RELÓGIO DE NASCIMENTO DO BRAÇO (a cura da DUPLA SENHA que o
+# dump 181701 fotografou de ponta a ponta): o sleep-hook do swayidle
+# nasceu às 17:20:50 no before-sleep e o S3 CONGELOU o processo antes do
+# primeiro ilog; ao acordar (18:01:06) o zumbi completou o corpo às
+# 18:01:16 — 10s DEPOIS do wake — e o termômetro do destravo ainda era
+# VELHO (a vigília só o tocou às 18:01:29): o unlock_fresco 15 deixou
+# passar, o `craft-lock --if-needed` rodou e RE-TRAVOU a tela em cima do
+# dono que ACABAVA de digitar a senha ('você coloca uma vez, ela volta
+# de novo, pede senha de novo'). O mesmo zumbi no braço `suspend`
+# explica o 'pc suspendendo depois de colocar a senha'. A cura é a
+# escola E108 levada à AÇÃO (não só ao log): o braço sabe QUANDO NASCEU;
+# se o relógio de parede andou mais que a janela de decisão entre o
+# nascimento e o momento de agir, o processo atravessou um sono — é um
+# zumbi do antes-sono e NADA do que ele decidiu lá atrás vale no mundo
+# novo. A seam ELITE_T_INICIO existe para a prova funcional da suíte
+# (a mesma escola do ELITE_RANDR).
+T_INICIO="${ELITE_T_INICIO:-$(date +%s)}"
+zumbi() { # 0 = este processo atravessou um sono (a mão chegou tarde demais)
+    [ "$(( $(date +%s) - T_INICIO ))" -ge 10 ]
+}
+
 # E44 — A NORMALIZAÇÃO DO FLUXO (o rig do dono: 2/7 = a janela 'travada e
 # acesa' que ele denunciou — 'fica infinitamente na tela de bloqueio').
 # Conf legado com LOCK>0 e OFF_MIN ≠ LOCK_MIN é a janela morta: o daemon
@@ -423,7 +444,16 @@ case "${1:-}" in
         _wm="0"
         [ -e "$WAKE_MTX" ] && _wm="$(stat -c %Y "$WAKE_MTX" 2>/dev/null || echo 0)"
         _agora="$(date +%s)"
-        if [ "$((_agora - _wm))" -lt 3 ]; then
+        # E109 — O ZUMBI NÃO PISCA A TELA: um screenon congelado pelo sono
+        # que completa 10s+ depois do wake re-corria o ciclo off→on SOB o
+        # dono já de pé (o blink na cara). O registro/vigília/portão
+        # seguem idempotentes; o ciclo de wlopm pertence a quem acordou
+        # NO TEMPO (o hook de sistema ou um braço vivo).
+        if zumbi; then
+            ilog "E109: screenon ZUMBI (atrasado $(( $(date +%s) - T_INICIO ))s pelo sono) — segue só com o registro/vigília/portão; o ciclo de tela é de quem acordou no tempo"
+            i=99
+            rc=0
+        elif [ "$((_agora - _wm))" -lt 3 ]; then
             ilog "E106: ciclo de wake EM CURSO por outro braço (mutex 3s) — este segue só com o registro/vigília (fim da corrida off/on)"
             i=99   # pula o ciclo — o outro braço é a mão na tela agora
             rc=0
@@ -482,6 +512,18 @@ case "${1:-}" in
         exit 0
         ;;
     sleep-hook)
+        # E109 — O ZUMBI PRIMEIRO DE TUDO: este hook nasceu no
+        # before-sleep (PrepareForSleep true) e o S3 pode tê-lo congelado
+        # no meio — o zumbi que acorda DEPOIS do wake (a dupla senha do
+        # dump 181701 fotografou exatamente isto: nascimento 17:20:50,
+        # completação 18:01:16, re-travada em cima do destravo fresco).
+        # Nada do que ele decidiu antes de dormir vale no mundo novo: o
+        # portão segue como o pós-wake deixou e o lock NÃO é recriado
+        # (o destravo/screenon/craft-vigil são os donos do agora).
+        if zumbi; then
+            ilog "E109: sleep-hook ZUMBI (nasceu no antes-sono e acordou com o relógio adiantado $(( $(date +%s) - T_INICIO ))s) — nada a fazer: o portão e o lock pertencem ao mundo pós-wake (a dupla senha morre aqui)"
+            exit 0
+        fi
         # E77 — O CHOKE POINT UNIVERSAL DO SONO: TODO suspend real do
         # logind atravessa o PrepareForSleep (vigília, braço idle, menu do
         # craft-power, tampa do notebook) e chega AQUI pelo before-sleep.
@@ -535,6 +577,16 @@ case "${1:-}" in
         exit 0
         ;;
     suspend)
+        # E109 — O ZUMBI PRIMEIRO (o 'pc suspendendo depois de colocar a
+        # senha'): o braço nasceu no timeout de 20min do swayidle, o sono
+        # congelou-o no meio e ele completou DEPOIS do destravo — sem
+        # lock, com o termômetro do destravo velho: suspendia o PC na
+        # cara do dono que acabou de digitar a senha. Zumbi NÃO suspende:
+        # a decisão pertence a um braço vivo, no mundo novo.
+        if zumbi; then
+            ilog "E109: suspend ZUMBI (congelado pelo sono, acordou $(( $(date +%s) - T_INICIO ))s atrasado) — nada a fazer: quem decide o sono agora é um braço vivo (o 'suspende depois da senha' morre aqui)"
+            exit 0
+        fi
         # E61 — O SUSPEND DO IDLE NÃO DORME SOB AS MÃOS (a ordem certa,
         # esclarecida pelo dono: ele suspendia DEPOIS da senha digitada —
         # nunca enquanto travado). A arma era ESTE braço: o deadline de

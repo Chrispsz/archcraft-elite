@@ -18,19 +18,27 @@
   (contrato E107 na fase 2) e o craft-rice RECUSA pele que não parseia
   (a pele viva do home segue no lugar — a defesa final do rig).
   ══════════════════════════════════════════════════════════════════════════
-  E107 — A CURADORIA DO DONO (a auditoria que ele mandou fazer: 'uma
-  definição só do que realmente é importante no botão direito, um menu
-  rápido, evitar o terminal, evitar ações de teclado e ações escondidas
-  no sistema'): o menu é de AÇÕES DE SISTEMA. Programas vivem no
-  Aplicativos (gaveta) — Navegador, Arquivos e Calculadora SAEM (o
-  dono: 'para abrir programas padrão já tem a parte de aplicativos';
-  a curadoria anterior tirou Editor e Leitor de PDF pelo mesmo motivo).
-  O Terminal FICA (o dono, palavra por palavra: 'pode ter o terminal,
-  que é um negócio mais universal do sistema'). ENTRAM as portas de
-  pacote que faltavam: AppImages… (o registrador da casa — ícone e menu
-  para o arquivo único) e Flatpaks… (instalar, remover e limpar dados
-  sem terminal) — 'a integração entre os formatos de pacote' do
-  relato do dono.
+  E107 — A CURADORIA DO DONO: o menu é de AÇÕES DE SISTEMA. Programas
+  vivem no Aplicativos (gaveta) — Navegador, Arquivos e Calculadora
+  SAÍRAM pela curadoria anterior ('para abrir programas padrão já tem a
+  parte de aplicativos'). O Terminal FICA ('pode ter o terminal,
+  que é um negócio mais universal do sistema').
+
+  ══════════════════════════════════════════════════════════════════════════
+  E109 — A PORTA QUE NÃO ERA PACOTE (o dump 181701 + o veredito do dono
+  palavra por palavra: 'eu esperava um gerenciador de app images como um
+  pacote realmente instalado no sistema e não isso… eu também queria algo
+  que fosse um pacote realmente no sistema, algo que gerenciasse… não a
+  criação de um menu louco que tenta fazer comandos… Por mim, poderia ser
+  removido ambos do menu, o app images e o Flatpaks'): os DOIS itens que
+  a E107 ergueu como 'portas de pacote' eram MENUS DE COMANDO da casa —
+  o dono queria FERRAMENTAS REAIS (pacote especializado que gerencia o
+  formato). Os itens SAEM do botão direito; os bins (craft-appimage,
+  craft-flatpak) seguem como CLI honesto para quem usa terminal — e a
+  direção fica no papel: gerenciadores de verdade (Flathub: Gear Lever
+  para AppImage, Warehouse para Flatpak) entram como candidato de adoção
+  QUANDO o dono ratificar. A base não se destrói com gambiarra ('a gente
+  tem que ir pelas melhores soluções, soluções que funcionam realmente').
   ══════════════════════════════════════════════════════════════════════════
   ESTRUTURA herdada do menu do criador do Archcraft (obmenu-generator;
   o labwc lê menu.xml ESTÁTICO). Sintaxe: labwc docs/menu.xml +
@@ -102,24 +110,19 @@
       <action name="Execute" command="foot -e craft-clean" />
     </item>
     <separator />
-    <!-- E107 — A PORTA DO APPIMAGE (o craft-appimage da E97 era CLI
-         invisível: registra o arquivo baixado no menu da casa com
-         ícone e .desktop, extrai de dentro do próprio arquivo — sem
-         daemon, sem AUR) -->
-    <item label="AppImages…">
-      <action name="Execute" command="craft-appimage menu" />
-    </item>
-    <!-- E107 — A GESTÃO DE FLATPAKS SEM TERMINAL (instalar por busca,
-         remover, limpar dados órfãos, atualizar — o flatpak e o remote
-         Flathub já viajam na ISO desde a E97; faltava a PORTA) -->
-    <item label="Flatpaks…">
-      <action name="Execute" command="craft-flatpak" />
-    </item>
+    <!-- E109 — AppImages… e Flatpaks… SAÍRAM (a ordem do dono: menus de
+         comando não são 'pacotes realmente instalados no sistema'; a
+         integração de verdade é ferramenta especializada — a decisão
+         inteira está no comentário E109 do cabeçalho) -->
     <!-- E106 — A GAVETA UNIFICADA (o desenho do dono, palavra por
          palavra: 'um menu unificado… os programas… com o marcador se tá
          ativado, habilitado ou não, para você habilitar e
          desabilitar'). ✓ fixado · não fixado; escolher alterna e
-         reabre; ESC/clique-fora/cross-dismiss fecham o laço. -->
+         reabre; ESC/clique-fora/cross-dismiss fecham o laço. E109: o
+         marcador agora é comparado POR LINHA ($1 do pin) — o newline do
+         arquivo multilinha quebrava o case e NENHUM pin acendia o ✓
+         (o dono: 'só tá detectando que o Thunar tá na dock… ele não
+         remove' — a prova do dump 181701). -->
     <item label="Apps da dock…">
       <action name="Execute" command="craft-pin-pick" />
     </item>

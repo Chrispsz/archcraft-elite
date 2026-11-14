@@ -223,6 +223,16 @@ gm_hook() { # $1 = start|end
 # ── o STATUS (o veredito sem tocar nada — a escola do --check) ──────────
 gm_status_cmd() {
     printf '══════════ craft-game status — o veredito sem tocar nada ══════════\n'
+    cat <<'E109'
+como funciona (o dono: "não sei se é injeção automática como na Steam"):
+  · O MÚSCULO é o gamemode do Feral: quando um JOGO está vivo, ele sobe
+    sozinho (D-Bus), aplica governor performance + GPU high e MORRE com o
+    jogo — rollback automático, zero RAM no idle. Nada para configurar.
+  · O CÉREBRO é o watch da casa: vigia os processos de jogo (Wine/Proton,
+    emuladores, gamescope) e REGISTRA o pid no gamemode — para a Steam
+    que NÃO usa gamemoderun, é o watch quem liga o modo. A Steam também
+    aceita o caminho clássico: opções de lançamento = gamemoderun %command%.
+E109
     command -v gamemoded >/dev/null 2>&1 \
         && printf 'gamemode            instalado (%s)\n' "$(pacman -Q gamemode 2>/dev/null | awk '{print $2}')" \
         || printf 'gamemode            AUSENTE (sudo craft-update — a âncora E94 adota)\n'
@@ -269,17 +279,21 @@ gm_menu() {
         *Ativar*) gm_on ;;
         *Desativar*) gm_off ;;
         *Status*)
-            # E106 — O STATUS QUE NÃO EXISTIA (o dono: 'tem o status também,
-            # que sinceramente eu clico nele e nada'). O veredito ia TODO
-            # para o stdout do labwc — sumido. Agora: a UMA LINHA do
-            # veredito sobe na tela (normal, some em 8s) e o veredito
-            # COMPLETO vai para o papel (game.log — ou terminal à mão:
-            # craft-game status).
-            _st_auto="OFF"; [ "${auto:-0}" = 1 ] && _st_auto="ON"
-            _st_gm="idle (sobe sozinho com jogo — RAM zero)"
-            if [ -r "$(holder_pid_file)" ]; then _st_gm="ATIVO (manual)"; fi
-            NOTE_URGEN=normal note "Automático: $_st_auto · gamemoded: $_st_gm" "Completo no papel: ~/.cache/elite/game.log"
-            gm_status_cmd >>"$LOG" 2>&1 || true ;;
+            # E106 — o veredito sobe na tela; E109 — a porta do dono ABRE O
+            # PAPEL INTEIRO (o relato do dump 181701: 'clico em status, ele
+            # gera um log… não sei como funciona isso' — a linha no toast
+            # não ensina; o terminal com o veredito COMPLETO + o resumo de
+            # como o gamemode funciona é a resposta. foot existe na ISO
+            # (é o terminal do menu); sem foot, o toast clássico segue).
+            gm_status_cmd >>"$LOG" 2>&1 || true
+            if command -v foot >/dev/null 2>&1; then
+                foot -e sh -c 'craft-game status; echo; read -r -p "Enter para fechar… " _' &
+            else
+                _st_auto="OFF"; [ "${auto:-0}" = 1 ] && _st_auto="ON"
+                _st_gm="idle (sobe sozinho com jogo — RAM zero)"
+                if [ -r "$(holder_pid_file)" ]; then _st_gm="ATIVO (manual)"; fi
+                NOTE_URGEN=normal note "Automático: $_st_auto · gamemoded: $_st_gm" "Completo no papel: ~/.cache/elite/game.log"
+            fi ;;
     esac
 }
 

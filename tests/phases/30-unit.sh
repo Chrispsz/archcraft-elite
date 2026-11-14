@@ -1969,6 +1969,126 @@ assert_grep "$VIGIL78" 'E79 — A SUCESSORA DO PRÓPRIO CICLO' "E79/anti-prisão
 _antes79="$(grep -c 'setsid craft-vigil' "$VIGIL78")"
 assert_eq "$_antes79" "2" "E79/anti-prisão: o setsid da sucessora existe nos DOIS braços (OBSOLETA da E78 + fim-de-ciclo E79 — o sucesso e o FALHA nascem com vigia; pgrep duplo não existe: o screenon vê o chamador e não arma)"
 
+# ── E109 — O ZUMBI DO ANTES-SONO (a cura da DUPLA SENHA que o dump
+#    181701 fotografou de ponta a ponta): o sleep-hook nasceu 17:20:50 e
+#    o S3 congelou-o ANTES do primeiro ilog; completou 18:01:16 — 10s
+#    DEPOIS do wake — com o termômetro do destravo VELHO (a vigília só o
+#    tocou 18:01:29) e re-travou a tela em cima do dono que ACABAVA de
+#    digitar a senha ('você coloca uma vez, ela volta de novo'); o mesmo
+#    zumbi no braço suspend = 'pc suspendendo depois de colocar a senha'.
+#    A cura: o relógio de nascimento (T_INICIO, seam ELITE_T_INICIO) —
+#    braço que atravessou sono NÃO age (não re-trava, não suspende, não
+#    pisca) e deixa UMA linha nomeada no papel.
+zumbi_env() { XDG_RUNTIME_DIR="$RT77" XDG_CONFIG_HOME="$CF77" XDG_CACHE_HOME="$ST77" PATH="$MOCK77:$PATH" MOCK_DIR="$ST77" ELITE_T_INICIO="$1" bash "$CI77" "${2:-}"; }
+# (Z1) sleep-hook ZUMBI: nascimento 60s atrás (atravessou o sono), lock
+#      MORTO, termômetro do destravo VELHO — a cena EXATA do 18:01:16.
+#      Ninguém re-trava: o hyprlock.log fica vazio e o papel tem a linha.
+rm -rf "$ST77" "$RT77"; mkdir -p "$ST77" "$RT77"
+_T0="$(($(date +%s) - 60))"
+zumbi_env "$_T0" sleep-hook >/dev/null 2>&1; rc=$?
+assert_eq "$rc" "0" "E109/zumbi: o sleep-hook atravessado pelo sono conclui 0 honesto (sem drama, sem morte calada)"
+if [ -s "$ST77/hyprlock.log" ]; then
+    fail "E109/zumbi: o sleep-hook ZUMBI re-travou a tela" "o hyprlock nasceu — a dupla senha do dump 181701 reproduzida em teste (o zumbi deve sair ANTES de tocar o mundo)"
+else
+    ok "E109/zumbi: o sleep-hook ZUMBI NÃO re-trava (o portão e o lock pertencem ao mundo pós-wake — a dupla senha morre aqui)"
+fi
+assert_grep "$ST77/elite/idle.log" 'ZUMBI' "E109/zumbi: o desfecho deixa linha nomeada no papel (a prova do antes-sono fica no log — a lei E33)"
+# (Z2) suspend ZUMBI: a mesma mão no braço que dorme o PC — NINGUÉM dorme
+rm -rf "$ST77" "$RT77"; mkdir -p "$ST77" "$RT77"
+_T0="$(($(date +%s) - 60))"
+zumbi_env "$_T0" suspend >/dev/null 2>&1; rc=$?
+assert_eq "$rc" "0" "E109/zumbi: o braço suspend atravessado pelo sono conclui 0 (a decisão pertence a um braço vivo)"
+if grep -q 'systemctl suspend -i' "$ST77/systemctl.log" 2>/dev/null; then
+    fail "E109/zumbi: o suspend ZUMBI dormiu o PC" "o systemctl suspend rodou — o 'suspende depois da senha' reproduzido (o zumbi deve sair antes)"
+else
+    ok "E109/zumbi: o suspend ZUMBI NÃO dorme o PC (o 'pc suspendendo depois de colocar a senha' morre aqui)"
+fi
+# (Z3) o controle: braço VIVO (nascido agora) segue inteiro — a cura não
+#      amputou o caminho são (o sleep-hook vivo com lock morto RENASCE o
+#      lock, o contrato E47/B6 intacto)
+rm -rf "$ST77" "$RT77"; mkdir -p "$ST77" "$RT77"
+e77_env sleep-hook >/dev/null 2>&1 || true
+_w=0
+while [ "$_w" -lt 50 ] && [ ! -s "$ST77/hyprlock.log" ]; do sleep 0.1; _w=$((_w + 1)); done
+assert_grep "$ST77/hyprlock.log" 'hyprlock' "E109/zumbi: o braço VIVO segue renascendo o lock (a cura é só para quem atravessou o sono — o contrato E47/B6 intacto)"
+assert_nogrep "$ST77/elite/idle.log" 'ZUMBI' "E109/zumbi: o braço vivo NÃO loga zumbi (a linha nomeada é só do atravessado — papel sem ruído)"
+
+# ── E109/pick — O MARCADOR QUE NUNCA ACENDIA (a metade do dono: 'só tá
+#    detectando que o Thunar tá na dock… se eu clico de novo, ele aparece
+#    já estava na dock, ou seja, ele não remove'): o case ' $pins ' contra
+#    o ARQUIVO INTEIRO (multilinha) nunca casava — o newline entre os pins
+#    matava o padrão. A prova: 2 pins (um COM coluna de hint) — o ✓ tem
+#    que acender para os DOIS; clicar num ✓ (via stub do motor) DESFIXA.
+pick_reset
+# os dois apps da cena do rig — o caminho testado é o NORMAL (o pin como
+# .desktop real, não o ramo órfão: o órfão acende ✓ por desenho e testaria
+# a outra metade do código)
+printf '[Desktop Entry]\nType=Application\nName=Foot\nExec=foot\nIcon=foot\n' > "$PICKDATA/applications/foot.desktop"
+printf '[Desktop Entry]\nType=Application\nName=Thunar\nExec=thunar\nIcon=thunar\n' > "$PICKDATA/applications/thunar.desktop"
+printf 'foot.desktop\nthunar.desktop org.xfce.Thunar\n' > "$PICKW/.config/elite/dock-pins"
+# o roteiro: a lista vem do craft-menu stub — 1ª volta escolhe o THUNAR
+# (✓ esperado, com hint na linha do pin), 2ª volta ESC encerra o laço
+printf '✓ Thunar\nESC\n' > "$PICKW/menu-script"
+rcB2="$(pick_run "$REPO/elite/airootfs/usr/local/bin")"
+assert_eq "$rcB2" "0" "E109/pick: o laço fecha 0 no cenário multilinha (a cena do rig: 2 pins, um com hint)"
+assert_nogrep "$PICKW/.config/elite/dock-pins" '^thunar\.desktop' \
+    "E109/pick: o ✓ acendeu e o DESFIXOU (o case multilinha nunca acendia o marcador — o dono não conseguia remover NADA; a comparação por linha no \$1 casa o pin COM hint)"
+# e o foot (pin SEM hint) também acende — o teste é do MARCADOR, a lista
+# que o stub recebe é a LISTA PRONTA: refaz com o foot alvo
+pick_reset
+printf '[Desktop Entry]\nType=Application\nName=Foot\nExec=foot\nIcon=foot\n' > "$PICKDATA/applications/foot.desktop"
+printf '[Desktop Entry]\nType=Application\nName=Thunar\nExec=thunar\nIcon=thunar\n' > "$PICKDATA/applications/thunar.desktop"
+printf 'foot.desktop\nthunar.desktop org.xfce.Thunar\n' > "$PICKW/.config/elite/dock-pins"
+printf '✓ Foot\nESC\n' > "$PICKW/menu-script"
+rcB3="$(pick_run "$REPO/elite/airootfs/usr/local/bin")"
+assert_eq "$rcB3" "0" "E109/pick: o laço fecha 0 no alvo sem hint"
+assert_nogrep "$PICKW/.config/elite/dock-pins" '^foot\.desktop' \
+    "E109/pick: o ✓ do pin SEM hint também desfixa (a prova empírica do rig: 3 pins = 0 marcadores acesos — o newline era o réu)"
+
+# ── E109/display — A MORTE CALADA DO SINGLE-OUTPUT (o dono: 'Telas e
+#    resolução, eu clico e não acontece nada — nem abre uma janelinha'):
+#    o alvo da 1ª tela nascia de cut -f1 (TAB!) e recebia A LINHA INTEIRA
+#    do estado canônico — o filtro awk nunca casava e o menu saía exit 0
+#    SEM JANELA e SEM PALAVRA. A prova: UM output (a cena do rig DP-1), o
+#    stub do craft-menu GRITA quando é convocado — o menu tem que ABRIR.
+disp109="$(mktemp -d "$WORK/e109d.XXXXXX")"
+mkdir -p "$disp109/home/.config/elite" "$disp109/home/.cache/elite" "$disp109/run/elite" "$disp109/mocks"
+cat > "$disp109/randr.sh" <<'R109'
+#!/bin/sh
+echo 'DP-1 "Monitor de prova (DP-1)"'
+echo '  Enabled: yes'
+echo '  Modes:'
+echo '    1920x1080 px, 60.000000 Hz (preferred)'
+echo '    1920x1080 px, 200.000000 Hz (current)'
+echo '  Position: 0,0'
+echo '  Transform: normal'
+echo '  Scale: 1.000000'
+echo '  Adaptive Sync: disabled'
+R109
+chmod +x "$disp109/randr.sh"
+cat > "$disp109/mocks/craft-menu" <<'M109'
+#!/bin/sh
+cat >/dev/null
+printf '%s\n' "$@" >> "${MOCK109_LOG:?}"
+printf '1920x1080 @ 200.000000 Hz\n'
+exit 0
+M109
+chmod +x "$disp109/mocks/craft-menu"
+: > "$disp109/menu-calls.log"
+# E109 — o stderr da cena fica no PALCO (a morte rc=2 sem prova era a
+# mesma doença que o dump periciou — a prova é o byte, não o palco vazio)
+env HOME="$disp109/home" XDG_CONFIG_HOME="$disp109/home/.config" XDG_CACHE_HOME="$disp109/home/.cache" \
+    XDG_RUNTIME_DIR="$disp109/run" ELITE_RANDR="$disp109/randr.sh" \
+    PATH="$disp109/mocks:$PATH" MOCK109_LOG="$disp109/menu-calls.log" \
+    sh "$REPO/elite/airootfs/usr/local/bin/craft-display" >"$disp109/stdout.log" 2>"$disp109/stderr.log"; rc109=$?
+assert_eq "$rc109" "0" "E109/display: o menu single-output conclui (a cena do rig: UM monitor DP-1 · stderr: $(head -c 120 "$disp109/stderr.log" 2>/dev/null | tr '\n' ';'))"
+if [ -s "$disp109/menu-calls.log" ]; then
+    ok "E109/display: o menu ABRE no single-output (o craft-menu foi convocado — a janelinha que o dono não via; o cut -f1 recebia a LINHA INTEIRA e o filtro awk nunca casava)"
+else
+    fail "E109/display: o menu single-output NÃO abre" "o craft-menu não foi convocado — a morte calada do dump 181701 reproduzida (cut -f1 = TAB, a linha canônica não tem tab)"
+fi
+assert_grep "$disp109/menu-calls.log" 'Displays' "E109/display: o menu abre com o título da tela (o alvo é o NOME curto DP-1 — cut -d'|' — não a linha canônica inteira)"
+
 # ── E48 — craft-bgapps v4.2 NO COMPORTAMENTO (a lição E35.1/E42: texto
 #    não prova): processos REAIS com WAYLAND_DISPLAY no environ — o comm
 #    de python3 invocado DIRETO é 'python3' (o interpretador; provado no
@@ -2530,8 +2650,8 @@ assert_eq "$e94_py" "E94-OK" "E94/dock: exec_of veste o foot no TUI (Terminal=tr
 rm -rf "$STCU"; mkdir -p "$STCU"; printf '1.0-33\n' > "$STCU/es-ver"
 run_cu >/dev/null; e94_rc=$?
 assert_eq "$e94_rc" "0" "E94/manual: a dose vence COM a adoção na retaguarda (rc 0)"
-assert_grep "$STCU/pacman.log" '\-S --needed --noconfirm lxqt-policykit' \
-  "E94/manual: a âncora é adotada numa transação PRÓPRIA (-S sem -Sy — o db já foi sincronizado pela dose; zero custo de rede a mais)"
+assert_grep "$STCU/pacman.log" '\-S --needed --noconfirm --asexplicit lxqt-policykit' \
+  "E94/manual: a âncora é adotada numa transação PRÓPRIA (-S sem -Sy — o db já foi sincronizado pela dose; zero custo de rede a mais; --asexplicit da E109: a âncora adotada JAMAIS nasce dependência solta para o varredor de órfãos)"
 assert_grep "$STCU/update.log" 'adoção: lxqt-policykit presente' \
   "E94/manual: a adoção deixa a linha no papel (a casa narra o que fez no rig)"
 # manual (idempotência): âncora presente = SILENCIO, sem transação nenhuma
@@ -2550,10 +2670,12 @@ assert_grep "$STCU/pacman.log" '\-Syu --needed --overwrite' \
 # canal: a dose headless também adota (o rig converge pelo timer, sem mão do dono)
 rm -rf "$STCU"; mkdir -p "$STCU"; printf '1.0-33\n' > "$STCU/es-ver"
 run_cu --canal >/dev/null
-assert_grep "$STCU/pacman.log" '\-S --needed --noconfirm lxqt-policykit' \
-  "E94/canal: a dose diária do timer também adota a âncora (o gparted volta a funcionar SEM clique do dono)"
+assert_grep "$STCU/pacman.log" '\-S --needed --noconfirm --asexplicit lxqt-policykit' \
+  "E94/canal: a dose diária do timer também adota a âncora (o gparted volta a funcionar SEM clique do dono; --asexplicit E109 no argv)"
 assert_grep "$STCU/update.log" 'adoção: lxqt-policykit presente' \
   "E94/canal: a adoção entra no papel do timer (a única boca do headless)"
+assert_grep "$STCU/update.log" 'adoção: pacman-contrib já presente' \
+  "E109/canal: o VEREDITO NOMEADO de cada âncora no papel (o 'presente = silêncio' virou ponto-cego que escondeu o pacman-contrib do rig por dias — 3 doses de canal sem UMA linha; presente/adotado/recusado sempre nomeados)"
 
 # ═══════════════════════════════════════════════════════════════════════
 # E95 — O GPARTED QUE VESTE A SESSÃO: prova comportamental COMPLETA pelo
@@ -2746,8 +2868,8 @@ XDG_CONFIG_HOME="$S107/home/.config" HOME="$S107/home" \
   ELITE_RC_SRC="$S107/src/ausente" ELITE_OSD_SRC="$S107/src/ausente" \
   ELITE_LOCK_SRC="$S107/src/ausente" \
   sh "$RICE107" >"$S107/rice-out2.txt" 2>&1 || true
-assert_grep "$S107/home/.config/labwc/menu.xml" 'AppImages…' \
-    "E107/rice: a mestre SÃ renova o home vivo (o gate julga o XML, não trava a casa — a pele v3 chega ao rig)"
+assert_grep "$S107/home/.config/labwc/menu.xml" 'Apps da dock…' \
+    "E107/rice→E109: a mestre SÃ renova o home vivo (o gate julga o XML, não trava a casa — a pele com a curadoria E109 chega ao rig)"
 
 # (2) O DISPLAY HONESTO — o save não grava transição; o retry retenta
 DISP107="$REPO/elite/airootfs/usr/local/bin/craft-display"

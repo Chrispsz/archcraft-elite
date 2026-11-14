@@ -2102,10 +2102,11 @@ else
     fail "E107/menu: o menu.xml NÃO PARSEIA" "o labwc rejeita o arquivo inteiro e o rig cai no menu de fábrica (Terminal/Reconfigure/Exit) — o botão direito morre de novo"
 fi
 assert_grep "$C107M" 'A LEI DO COMENTÁRIO' "E107/menu: a lei escrita na própria pele (dois hífens seguidos dentro de comentário são proibidos pela espec XML — a bomba da v2.11.4 documentada no arquivo que ela quase comeu)"
-assert_grep "$C107M" 'AppImages…' "E107/menu: a porta do AppImage no botão direito (o registrador da E97 era CLI invisível — 'adiciono o AppImage e ele já nasce com ícone e atalho como programa nativo')"
-assert_grep "$C107M" 'command="craft-appimage menu"' "E107/menu: o item chama o BRAÇO menu do craft-appimage (registrar/remover/ver com desfecho na tela)"
-assert_grep "$C107M" 'Flatpaks…' "E107/menu: a porta do Flatpak no botão direito ('simplifies installing, uninstalling, and cleaning up leftover Flatpak data' — a gestão sem terminal)"
-assert_grep "$C107M" 'command="craft-flatpak"' "E107/menu: o item lança o craft-flatpak (o bin NOVO da E107)"
+assert_nogrep "$C107M" 'label="AppImages…"' "E109/menu: a porta AppImages… SAI do botão direito (a ordem do dono no dump 181701: 'eu esperava um gerenciador de app images como um pacote realmente instalado no sistema e não isso… Por mim, poderia ser removido ambos do menu' — menus de comando não são pacote; a âncora E107 'a porta do AppImage' fica na HISTÓRIA)"
+assert_nogrep "$C107M" 'command="craft-appimage menu"' "E109/menu: o item não chama mais o BRAÇO menu (o bin segue CLI honesto; a direção real é ferramenta especializada — Gear Lever no Flathub como candidato, QUANDO o dono ratificar)"
+assert_nogrep "$C107M" 'label="Flatpaks…"' "E109/menu: a porta Flatpaks… SAI (o dono: 'não a criação de um menu louco que tenta fazer comandos… por mim, poderia ser removido ambos' — a âncora E107 'gestão sem terminal' fica na HISTÓRIA)"
+assert_nogrep "$C107M" 'command="craft-flatpak"' "E109/menu: o item não lança mais o craft-flatpak (o bin segue CLI — Warehouse no Flathub como candidato de ferramenta real)"
+assert_grep "$C107M" 'E109 — A PORTA QUE NÃO ERA PACOTE' "E109/menu: a decisão do dono registrada NA PELE (a próxima periciagem lê a ordem no próprio arquivo)"
 assert_grep "$C107M" 'label="Terminal"' "E107/menu: o Terminal fica (o dono, palavra por palavra: 'pode ter o terminal, que é um negócio mais universal do sistema')"
 assert_nogrep "$C107M" 'label="Navegador"' "E107/menu: o Navegador SAI (programa vive no Aplicativos — a curadoria do dono)"
 assert_nogrep "$C107M" 'label="Arquivos"' "E107/menu: o Arquivos SAI (o menu é de AÇÕES DE SISTEMA — o mesmo desenho)"
@@ -2145,7 +2146,7 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-flatpak" 'delete-data' \
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-flatpak" 'instalar\|remover\|limpar\|atualizar' \
     "E107/flatpak: os verbos têm porta CLI (o menu é a frente; o terminal é opção, não prisão)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-appimage" '= "menu"' \
-    "E107/appimage: o braço menu existe (a porta do botão direito — registrar/remover/ver)"
+    "E107/appimage: o braço menu existe (o CLI mantém as portas registrar/remover/ver — o ITEM do botão direito saiu na E109, o CLI segue honesto)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-appimage" 'die_menu' \
     "E107/appimage: o erro SOBE NA TELA no menu do desktop (o stdout do labwc morre no ar — morte calada nunca mais)"
 assert_grep "$REPO/scripts/apply-overlay.sh" 'craft-flatpak' \
@@ -2154,6 +2155,8 @@ assert_grep "$REPO/.ci/build.sh" 'pkgrel 51→52 NO MESMO COMMIT' \
     "E99/E41 (era 'pkgrel=51', âncora REFRESCADA — a lição E58/E59: o número atual é lei do guard-pkgrel do CI, o contrato estático ama a HISTÓRIA; o bump de hoje paga o craft-bars do gate do compositor E99 + o espelho do clamp E33)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 52→53 NO MESMO COMMIT' \
     "E108/E41 (a razão do bump no heredoc): o dump 180302 periciado — craft-display (conf doente dorme a persistência + FALHA com rc/stderr), craft-idle/craft-vigil (o papel não clama ciclo que não houve), craft-dump v2.11 (carimbo único + CanSuspend busctl + hwmon + Leader + zram-generator.conf + E101 no papel + /var/log/journal) e elite-post-transaction (o jornal que sobrevive ao reboot)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 53→54 NO MESMO COMMIT' \
+    "E109/E41: o dump 181701 periciado e os réus curados — menu.xml (AppImages/Flatpaks saem pela ordem do dono), craft-pin-pick (o marcador ✓ por linha), craft-display (o cut -f1 do single-output), craft-idle (o zumbi do antes-sono), craft-clean (o papel), craft-update (a adoção nomeada + --asexplicit) e craft-game (o status que ensina)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 50→51 NO MESMO COMMIT' \
     "E107/E41: a razão do bump no heredoc (a história viaja no papel)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-help" 'craft-flatpak' \

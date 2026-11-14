@@ -391,16 +391,28 @@ lista_404() {
 # dose vencida: âncora que não resolve NUNCA bloqueia a principal (a
 # lição E93 no lado da discrição — recusa da adoção não é notícia do
 # tamanho de uma dose perdida). -Q com guarda na FONTE (a lei do -Qu —
-# condição é lugar seguro sob pipefail) e checagem que NÃO é notícia
-# (a escola E64: presente = silêncio, sem transação nenhuma). -S sem
-# -Sy: a dose acabou de sincronizar o db — zero custo de rede a mais.
+# condição é lugar seguro sob pipefail). -S sem -Sy: a dose acabou de
+# sincronizar o db — zero custo de rede a mais.
+# E109 — O PAPEL TEM O VEREDITO DE CADA ÂNCORA (presente/adotado/recusado
+# — a cura do ponto-cego que escondeu o pacman-contrib do rig por dias).
 adota_ancoras() {
     local a
     for a in "${ADOCAO[@]}"; do
         if run_root pacman -Q "$a" >/dev/null 2>&1; then
+            # E109 — O VEREDITO NOMEADO (a perícia do dump 181701: o rig
+            # SEM o pacman-contrib e o papel SEM UMA linha de adoção em
+            # TRÊS doses de canal — o 'presente = silêncio' da escola E64
+            # era para o NOTIFY do dono, não para o PAPEL; o silêncio no
+            # papel virou ponto-cego que escondeu o réu por dias). Âncora
+            # presente deixa linha — 6 linhas curtas por dose compram a
+            # perícia de amanhã.
+            ulog "adoção: $a já presente — nada a fazer"
             continue
         fi
-        if run_root pacman -S --needed --noconfirm "$a" >>"$ULOG" 2>&1; then
+        # --asexplicit: âncora adotada JAMAIS nasce como dependência
+        # solta — o varredor de órfãos do craft-clean não pode comer a
+        # âncora que a casa trouxe (a lição do rig sem o paccache).
+        if run_root pacman -S --needed --noconfirm --asexplicit "$a" >>"$ULOG" 2>&1; then
             ulog "adoção: $a presente (âncora da casa — o rig convergiu)"
         else
             ulog "adoção: $a não resolveu agora — a dose principal segue de pé (best-effort, nunca bloqueia)"

@@ -214,6 +214,10 @@ Include = /etc/pacman.d/mirrorlist
 [extra]
 Include = /etc/pacman.d/mirrorlist
 
+# E109 — A LENTEGUICE DA VISÃO: o dump e QUALQUER view mostram esta
+# linha como 'ultilib]' — a renderização come a abertura '[m' (o
+# artefato que o POLIMENTO 4nsos nomeou; od no disco provou o padrão
+# inteiro — a prova é o byte, não a tela; NÃO 'curar' o que está sadio).
 [multilib]
 Include = /etc/pacman.d/mirrorlist
 EOL

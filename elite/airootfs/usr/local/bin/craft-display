@@ -527,10 +527,24 @@ do_menu() {
         alvo="$(printf '%s' "$escolha" | sed 's/^Tela: //; s/ (.*$//')"
         [ -n "$alvo" ] || exit 0
     else
-        alvo="$(printf '%s\n' "$estado" | head -1 | cut -f1)"
+        alvo="$(printf '%s\n' "$estado" | head -1 | cut -d'|' -f1)"
     fi
     linhad="$(printf '%s\n' "$estado" | awk -F'|' -v a="$alvo" '$1==a')"
-    [ -n "$linhad" ] || exit 0
+    # E109 — A MORTE CALADA DO SINGLE-OUTPUT (o dono: 'Telas e resolução,
+    # eu clico e não acontece nada — nem abre uma janelinha' — o dump
+    # 181701: UM output DP-1 e NENHUMA abertura de menu). O alvo da 1ª
+    # tela nascia de `cut -f1` — o -f corta por TAB, a linha canônica
+    # não tem tab: o alvo recebia A LINHA INTEIRA ('DP-1|mode:…'), o
+    # filtro awk nunca casava e o `[ -n "$linhad" ] || exit 0` matava o
+    # menu SEM JANELA e SEM PALAVRA — morto só nas máquinas de UM monitor
+    # (as de duas telas escolhiam pela 1ª porta e nunca pisaram neste
+    # ramo). A cura é o separador CERTO + a morte NOMEADA (a lei E33: o
+    # desfecho sem tela e sem log é a mentira silenciosa).
+    if [ -z "$linhad" ]; then
+        dlog "FALHA: menu — o output '$alvo' saiu do estado entre a leitura e o filtro (réu nomeado; nada aberto)"
+        dnotify "Não consegui ler '$alvo' agora — tenta de novo (log: ~/.cache/elite/display.log)"
+        exit 1
+    fi
     cur="$(printf '%s\n' "$linhad" | cut -d'|' -f2 | sed 's/^mode://')"
     # a lista de modos REAIS do EDID (a porta "todas as detectadas" do dono)
     modos="$("$RANDR" 2>/dev/null | awk -v out="$alvo" '
