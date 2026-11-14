@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · craft-dump (v2.9 — o "btop completão" que se atualiza)
+# Archcraft ELITE · craft-dump (v2.11 — o "btop completão" que se atualiza)
 # ═══════════════════════════════════════════════════════════════════════════
 # Pedido do dono (out/2026): "como puxo tudo que está rodando como se fosse
 # um btop completão pra gente ter um diagnóstico da RAM, pacotes, uso, CPU
@@ -243,7 +243,7 @@ if ! : > "$OUT" 2>/dev/null; then
 fi
 
 {
-    printf '══════════ ELITE DUMP v2.10 — diagnóstico completo ══════════\n'
+    printf '══════════ ELITE DUMP v2.11 — diagnóstico completo ══════════\n'
     if [ "$(id -un)" != "$DUMP_USER" ]; then
         printf 'gerado: %s · usuário: %s → sessão de %s (uid %s) · host: %s\n' \
             "$(date)" "$(id -un)" "$DUMP_USER" "$DUMP_UID" "$(uname -n 2>/dev/null || echo '?')"
@@ -290,13 +290,37 @@ fi
     r "df -h / /home /boot /boot/grub 2>/dev/null | sort -u" 10
     r "zramctl 2>/dev/null" 5
     r "swapon --show 2>/dev/null" 4
-    printf '\n── temperaturas (sysfs do kernel — sem precisar de lm_sensors; valor em m°C)\n'
+    # E108 — O SUSPEITO DO SWAPPINESS (prova do rig 180302: kernel em 150
+    # com o conf da casa pedindo 180 — o zram-generator APLICA o dele na
+    # criação do dispositivo, DEPOIS do systemd-sysctl; sem o conf no
+    # papel o réu nunca é nomeado)
+    r "cat /etc/systemd/zram-generator.conf 2>/dev/null || echo '(sem zram-generator.conf — o 150×180 procura-se nos sysctl.d do /usr/lib)'" 4
+    printf '\n── temperaturas (sysfs do kernel — valor em m°C)\n'
     for z in /sys/class/thermal/thermal_zone*; do
         [ -d "$z" ] || continue
         tz_type="$(cat "$z/type" 2>/dev/null)"
         tz_temp="$(cat "$z/temp" 2>/dev/null)"
         [ -n "$tz_type" ] && printf '%-28s %s\n' "$tz_type" "$tz_temp"
     done
+    # E108 — O hwmon QUE O thermal_zone NÃO TEM (a prova do rig 180302:
+    # a seção amanheceu VAZIA — desktop AMD expõe a temperatura por hwmon
+    # (k10temp/amdgpu/nvme), não por thermal_zone; o papel ficou sem a
+    # linha e sem a confissão do vazio)
+    _hw_vazio=1
+    for h in /sys/class/hwmon/hwmon*; do
+        [ -d "$h" ] || continue
+        h_name="$(cat "$h/name" 2>/dev/null)"
+        [ -n "$h_name" ] || continue
+        for tin in "$h"/temp*_input; do
+            [ -r "$tin" ] || continue
+            _hw_vazio=0
+            t_label="$(cat "${tin%_input}_label" 2>/dev/null || echo temp)"
+            t_raw="$(cat "$tin" 2>/dev/null)"
+            printf '%-28s %s (%s: %s.%s°C)\n' "$h_name" "$t_raw" "${t_label}" "$((t_raw / 1000))" "$(( (t_raw % 1000) / 100 ))"
+        done
+    done
+    [ "$_hw_vazio" -eq 1 ] && printf '(nenhum sensor térmico exposto ao sysfs — thermal_zone e hwmon vazios de verdade)\n'
+    unset _hw_vazio
 
     printf '\n══════════ 3 · KERNEL & TUNING ══════════\n'
     r "cat /proc/cmdline" 2
@@ -318,6 +342,10 @@ fi
     # precisa de lugar no papel — a caça ao despertar não termina no reboot)
     r "journalctl --list-boots --no-pager 2>/dev/null | tail -8" 10
     r "systemd-analyze 2>&1" 4
+    # E108 — A CADEIA CRÍTICA (o '1min 35s de userspace' do dump 180302
+    # não tinha QUEM explicar: o analyze total não nomeia o unit que
+    # atrasou — o critical-chain aponta o culpado com hora)
+    r "systemd-analyze critical-chain --no-pager 2>/dev/null | head -15" 8
     # lição D1: findmnt é a verdade do mount ('mount | grep " on / btrfs"'
     # NUNCA casou) — o fstype/subvol daqui é o que o rollback cura usa
     r "findmnt /" 6
@@ -574,14 +602,21 @@ PY
     r "printf 'kernel: '; cat /sys/power/state 2>/dev/null || echo '(sem /sys/power/state)'" 4
     r "printf 'mem_sleep: '; cat /sys/power/mem_sleep 2>/dev/null || echo '(sem mem_sleep)'" 4
     r "printf 'disk: '; cat /sys/power/disk 2>/dev/null || echo '(sem /sys/power/disk)'" 4
-    r "loginctl can-suspend" 4
+    # E108 — O VERBO QUE MORREU: 'loginctl can-suspend' não existe no
+    # systemd 26x do rig (a resposta do dump 180302 foi 'Unknown command
+    # verb' — a coleção morta). A palavra do logind vem da PROPRIEDADE:
+    r "busctl get-property org.freedesktop.login1 /org/freedesktop/login1 org.freedesktop.login1.Manager CanSuspend 2>/dev/null || echo '(busctl sem resposta — o can-suspend do logind não pode ser lido)'" 4
     # v2.1 — as SESSÕES do logind (a pergunta que faltava: o can-suspend é
     # respondido PARA o chamador — sessão não-active pode virar 'challenge')
-    r "for s in \$(loginctl list-sessions --no-legend 2>/dev/null | awk '{print \$1}'); do loginctl show-session \"\$s\" -p Id -p Name -p Active -p State -p Type -p Remote 2>/dev/null; done; true" 20
+    r "for s in \$(loginctl list-sessions --no-legend 2>/dev/null | awk '{print \$1}'); do loginctl show-session \"\$s\" -p Id -p Name -p Active -p State -p Type -p Remote -p Leader 2>/dev/null; done; true" 20
+    # E108 — O LÍDER DE CADA SESSÃO (a promessa da v2.11: a 2ª sessão
+    # 'unspecified' do rig — ativa no papel sem DONO nomeado — fecha a
+    # perícia: o cmdline do líder diz QUEM nasceu ali)
+    r "for s in \$(loginctl list-sessions --no-legend 2>/dev/null | awk '{print \$1}'); do L=\$(loginctl show-session \"\$s\" -p Leader --value 2>/dev/null); [ -n \"\$L\" ] && printf 'sessão %s líder pid %s: %s\\n' \"\$s\" \"\$L\" \"\$(tr '\\0' ' ' < /proc/\$L/cmdline 2>/dev/null || echo '(líder já saiu)')\"; done; true" 20
     # v2.1 — a config de sono INTEIRA (AllowSuspend=no herdado de base é
     # réu possível do '≠ yes' do rig; o /usr/lib é o que o pacote entrega,
     # o /etc é a palavra final do drop-in)
-    r "for f in /etc/systemd/sleep.conf /etc/systemd/sleep.conf.d/*.conf /usr/lib/systemd/sleep.conf.d/*.conf; do [ -f \"\$f\" ] && { echo '── \$f'; cat \"\$f\"; }; done; true" 30
+    r "for f in /etc/systemd/sleep.conf /etc/systemd/sleep.conf.d/*.conf /usr/lib/systemd/sleep.conf.d/*.conf; do [ -f \"\$f\" ] && { echo \"── \$f\"; cat \"\$f\"; }; done; true" 30
     r "journalctl -u systemd-suspend --no-pager 2>/dev/null | tail -40" 45
     # v2.3 — A CURA E24 NO PAPEL: wakeup REAL dos controladores USB PCI
     # (a regra udev 90-elite-wake-guard os desarma no boot — dormir sem
@@ -677,6 +712,17 @@ PY
         printf '\n── (ausente: /var/log/elite-update.log — a dose nunca rodou nesta máquina?)\n'
     fi
     r "grep 'elite-system' /var/log/pacman.log 2>/dev/null | tail -12" 14
+    # E108 — O VEREDITO DO PÓS-TRANSAÇÃO NO PAPEL (o E101 do sysctl drifted
+    # re-aplicando o conf da casa vive em /var/log/elite-post-transaction.log
+    # — o dump 180302 fotografou o kernel em swappiness 150 com o conf em
+    # 180 DEPOIS da transação das 16:45: a prova de se o E101 re-aplicou
+    # (e se falhou) mora NESTE log, que o dump não coletava)
+    if [ -f /var/log/elite-post-transaction.log ]; then
+        printf '\n── tail /var/log/elite-post-transaction.log (kernel novo + wake-guard + o veredito do E101)\n'
+        tail -n 25 /var/log/elite-post-transaction.log
+    else
+        printf '\n── (ausente: /var/log/elite-post-transaction.log — nenhuma transação passou pelo hook?)\n'
+    fi
     # E100 — A FOTO DA PELE (a lacuna que escondeu o réu de três eras: os
     # dumps nunca fotografaram o conf do lock no home — o 'não mudou nada'
     # andava às cegas): hash + 1ª linha do conf do home e da mestre do
@@ -770,8 +816,14 @@ PY
     r "du -sh '$UCACHE/elite' '$UCACHE/calamares' 2>/dev/null" 4
     r "du -sh '$UHOME/.cache'/* 2>/dev/null | sort -rh | head -12" 14
     r "journalctl --disk-usage 2>/dev/null" 2
+    # E108 — A PERSISTÊNCIA DO JORNAL NO PAPEL (o rig 180302: 'journalctl
+    # --list-boots' só mostrou O BOOT VIVO — o journal era VOLÁTIL, a
+    # história cross-boot inteira morria no reboot; a cura E108 vive no
+    # elite-post-transaction (cria /var/log/journal) — esta linha prova se
+    # o rig já tem o dir)
+    r "ls -ld /var/log/journal 2>/dev/null || echo '(sem /var/log/journal — o journal é VOLÁTIL: a história cross-boot morre no reboot; a cura E108 chega pela próxima dose)'" 2
 
-    printf '\n══════════ FIM DO DUMP v2.9 ══════════\n'
+    printf '\n══════════ FIM DO DUMP v2.11 ══════════\n'
     printf 'a seção 0 é o resumo; as seções 1-14 são o detalhe.\n'
     printf 'envie este arquivo (ou a URL do --upload) para a análise.\n'
 } > "$OUT" 2>&1

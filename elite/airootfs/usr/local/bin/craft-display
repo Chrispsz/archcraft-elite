@@ -243,11 +243,17 @@ aplica_arranjo() {
         if [ -z "$args" ]; then
             continue
         fi
-        if "$RANDR" --output "$nome" $args >/dev/null 2>&1; then
+        _rc=0
+        _err="$("$RANDR" --output "$nome" $args 2>&1 1>/dev/null)" || _rc=$?
+        if [ "$_rc" -eq 0 ]; then
             dlog "apply: $nome$args — OK"
             aplicados=$((aplicados + 1))
         else
-            dlog "FALHA: apply $nome$args — o modo pode não existir mais neste EDID (o monitor manda)"
+            # E108 — A FALHA NOMEADA: o rc e o stderr do wlr-randr entram
+            # no papel (o FALHA antigo CHUTAVA a causa — 'o modo pode não
+            # existir neste EDID' — com o stderr engolido por >/dev/null;
+            # o dump 180302 fotografou 6 FALHAS sem UMA prova do porquê).
+            dlog "FALHA: apply $nome$args — rc=$_rc stderr: ${_err:-<vazio>} (o modo pode não existir mais neste EDID — o monitor manda)"
             falhas=$((falhas + 1))
         fi
     done < "$CONF"
@@ -271,6 +277,27 @@ do_apply() {
     if [ ! -s "$CONF" ]; then
         rm -f "$STAMP" "$DIVERGE" 2>/dev/null || true
         exit 0   # sem conf = nada a aplicar (o monitor manda o EDID; silêncio — heartbeat)
+    fi
+    # E108 — O CONF DOENTE DORME A PERSISTÊNCIA (a cura da raiz do '60 Hz
+    # sempre volta'): o conf gravado por save antigo pode amanhecer com
+    # 'mode:-' (o traço da transição — o veneno que o dump 200537
+    # fotografou e o E107 recusa escrever NOVO). O E107 pula o CAMPO por
+    # desenho — mas o resto da linha aplicava meia-casa (pos/scale sem o
+    # modo) e o reconcile do stamp ok lutava 30s contra um conf que NUNCA
+    # restaura o modo: a máquina reconciliava PARA 60 Hz para sempre. O
+    # dump 180302 fotografou a cauda: FALHA ×6 (16:45:13→34), stamp
+    # fail:6, e o conf só curou quando o dono salvou à mão às 18:02:39.
+    # Cura: conf com mode:- = persistência DORME (log nomeado UMA vez por
+    # sessão + aviso na cara do dono dizendo a porta da cura) — o save
+    # novo grava limpo e o ciclo renasce sem reinício.
+    if grep -q 'mode:-' "$CONF" 2>/dev/null; then
+        if [ ! -e "$RUN_E/display-sick-notified" ]; then
+            : > "$RUN_E/display-sick-notified" 2>/dev/null || true
+            _doentes="$(grep 'mode:-' "$CONF" 2>/dev/null | cut -d'|' -f1 | tr '\n' ' ')"
+            dlog "conf doente (E108): [${_doentes}] com mode:- no disco — o modo nunca será restaurado por ESTE conf; a persistência dorme até o save novo (Telas… escolhe e grava limpo — o ciclo renasce sem reinício)"
+            dnotify "Registro de telas doente (mode:-) — escolha o modo em Telas… e salve; o conf cura na hora"
+        fi
+        exit 0
     fi
     n_fail=0
     estado_stamp=""
@@ -570,6 +597,7 @@ case "${1:-}" in
         echo "── salvo ($(basename "$CONF")) em $CONF_DIR"
         if [ -s "$CONF" ]; then
             conf_keys || true
+            grep -q 'mode:-' "$CONF" 2>/dev/null && echo "   (conf doente: mode:- no disco — a persistência dorme; escolha o modo em Telas… e salve para curar — E108)"
         else
             echo "   (sem conf em disco — nenhuma escolha registrada ainda)"
         fi

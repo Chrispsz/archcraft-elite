@@ -368,8 +368,20 @@ while alive; do
         # próximo wake).
         mkdir -p "${GATE%/*}" 2>/dev/null || true
         : > "$GATE" 2>/dev/null || true
+        # E108 — O PAPEL NÃO CLAMA CICLO QUE NÃO HOUVE: o dump 180302
+        # fotografou 'suspendindo' e 'suspend voltou (ciclo completo)' NO
+        # MESMO SEGUNDO (17:20:45) com o journal provando o sono REAL 5s
+        # depois (17:20:50→18:01:06, 40min de sono). O relógio de parede
+        # julga: sono de verdade avança date +%s; retorno curto = o
+        # journal é o juiz do ciclo (a vigília segue de pé).
+        _t0="$(date +%s)"
         if systemctl suspend -i; then
-            vlog "VIGÍLIA: suspend voltou (ciclo completo — a vigília EXISTE e está no papel)"
+            _dur=$(( $(date +%s) - _t0 ))
+            if [ "$_dur" -ge 10 ]; then
+                vlog "VIGÍLIA: suspend voltou (ciclo completo — ${_dur}s de sono; a vigília EXISTE e está no papel)"
+            else
+                vlog "VIGÍLIA: systemctl voltou em ${_dur}s SEM sono (rc=0) — o ciclo REAL pertence ao journal; a vigília segue de pé (E108: o papel não clama sono que não houve)"
+            fi
             # E63 — A VOLTA DA IMAGEM: quem chamou o sono SOBREVIVE a ele
             # e é um dos primeiros processos de usuário de pé no wake —
             # o screenon (sondagem 6×2s + rearmamento da vigília sucessora)

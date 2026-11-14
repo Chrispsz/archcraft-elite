@@ -114,4 +114,20 @@ if [ ! -e /run/archiso ]; then
     done
 fi
 
+# ── 5. O JORNAL QUE SOBREVIVE AO REBOOT (E108) — a prova do rig 180302:
+#      'journalctl --list-boots' só mostrou O BOOT VIVO (o journal era
+#      VOLÁTIL — /var/log/journal não existe) e a perícia cross-boot
+#      inteira morria a cada reinício (a caça ao despertar, a dupla senha,
+#      o réu do boot anterior: tudo sem memória). Cura: o dir existe →
+#      Storage=auto persiste sozinho; o try-restart faz o journald vivo
+#      adotar o disco NA HORA (idempotente — o dir só nasce UMA vez).
+if [ ! -e /run/archiso ] && [ ! -d /var/log/journal ]; then
+    if install -d -m 2755 -o root -g systemd-journal /var/log/journal 2>/dev/null; then
+        tlog "jornal do systemd: /var/log/journal criado (era VOLÁTIL — a história cross-boot morria no reboot); try-restart do journald para persistir já"
+        systemctl try-restart systemd-journald.service 2>/dev/null || true
+    else
+        tlog "jornal: FALHOU criar /var/log/journal — o journal segue volátil (réu nomeado no papel)"
+    fi
+fi
+
 exit 0

@@ -1473,7 +1473,32 @@ pkgver=1.0
 #     o soft-hyphen invisível e a lista do uso() que faltava 3 membros.
 #     Bin de conteúdo mudado: craft-bars. pkgrel 51→52 NO MESMO COMMIT
 #     (lei E41).
-pkgrel=52
+# E108 — O DUMP 180302 PERICIADO (o dono: "analisa tudo minuciosamente e
+#     corrige tudo que está errado, mal feito ou com lógica ruim"): (1)
+#     craft-display — o CONF DOENTE (mode:- no disco, veneno do save
+#     antigo) dorme a persistência com aviso nomeado UMA vez por sessão
+#     (o '60 Hz sempre volta' era o reconcile lutando 30s contra um conf
+#     que nunca restaura o modo — FALHA ×6 fotografada) e o FALHA do apply
+#     agora carrega rc+stderr (o antigo CHUTAVA a causa com stderr
+#     engolido); (2) craft-idle/craft-vigil — o papel não clama mais ciclo
+#     que não houve ('suspend voltou (ciclo completo)' logado NO MESMO
+#     SEGUNDO do 'suspendindo' com o journal provando sono REAL 40min — o
+#     relógio de parede julga: sono de verdade avança date +%s); (3)
+#     craft-dump v2.11 — os 3 carimbos divergentes (v2.9/v2.10/v2.9) viram
+#     UM, o can-suspend MORTO (verbo inexistente no systemd 26x) vira a
+#     propriedade CanSuspend via busctl, as temperaturas ganham o hwmon
+#     que o thermal_zone não tem (a seção amanhecia VAZIA em desktop AMD)
+#     + critical-chain (o '1min35s' sem réu) + o LÍDER de cada sessão
+#     logind (a 2ª 'unspecified' fecha a perícia) + zram-generator.conf (o
+#     suspeito do swappiness 150×180) + o veredito do E101 no papel (o
+#     elite-post-transaction.log que o dump não coletava) + a honestidade
+#     do /var/log/journal; (4) elite-post-transaction — O JORNAL QUE
+#     SOBREVIVE AO REBOOT (o journal VOLÁTIL do rig matava a perícia
+#     cross-boot inteira; /var/log/journal nasce na primeira dose).
+#     Bins de conteúdo mudado: craft-display, craft-idle, craft-vigil,
+#     craft-dump, elite-post-transaction. pkgrel 52→53 NO MESMO COMMIT
+#     (lei E41).
+pkgrel=53
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

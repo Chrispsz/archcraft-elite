@@ -269,7 +269,13 @@ assert_grep "$U/elite-keyring-fix.timer" '^WantedBy=timers.target$' "v2.10.10: [
 assert_grep "$U/elite-keyring-fix.timer" '^OnBootSec=120s$' "v2.10.10: timer dispara 2min pós-boot (a cura chega cedo, sem brigar com o boot)"
 assert_grep "$U/elite-keyring-fix.timer" '^OnUnitActiveSec=6h$' "v2.10.10: timer re-tenta de 6h em 6h (o guard de 24h do script decide o custo real)"
 # craft-dump v2.2: a etiqueta = conteúdo, e o keyring ganha as 3 provas
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2\.10' "E100→E105 (E30→E90→E98→): craft-dump etiqueta v2.10 (a lei: etiqueta = conteúdo — a v2.10 traz A FOTO DA MÍDIA E DO LOCK [seção 6]; a v2.9 trouxe A FOTO DA PELE [seção 12]; a v2.8 trouxe a dose no papel e a gaveta/lxqt no ps; âncora refrescada viva)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2\.11' "E100→E108 (E30→E90→E98→): craft-dump etiqueta v2.11 (a lei: etiqueta = conteúdo — a v2.11 traz A CADEIA CRÍTICA, o hwmon das temperaturas, O LÍDER de cada sessão logind, o zram-generator.conf e o veredito do E101 no papel [o dump 180302 que fechou a v2.10 tinha 3 carimbos divergentes v2.9/v2.10/v2.9 e o can-suspend morto]; a v2.10 trouxe A FOTO DA MÍDIA E DO LOCK; a v2.9 trouxe A FOTO DA PELE; âncora refrescada viva)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'CanSuspend' "E108: o can-suspend MORTO (verbo inexistente no systemd 26x — 'Unknown command verb' no dump 180302) vira a propriedade CanSuspend via busctl (a coleção volta a viver)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'hwmon' "E108: as temperaturas ganham o hwmon que o thermal_zone não tem (desktop AMD expõe k10temp/amdgpu por hwmon — a seção amanhecia VAZIA sem confissão; agora confessa o vazio de verdade)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" '-p Leader' "E108: o LÍDER de cada sessão logind no papel (a promessa da v2.11: a 2ª sessão 'unspecified' do rig fecha a perícia — o cmdline do líder diz QUEM nasceu ali)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'zram-generator.conf' "E108: o suspeito do swappiness 150×180 no papel (o zram-generator aplica o dele DEPOIS do systemd-sysctl — sem o conf no dump o réu nunca é nomeado)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'elite-post-transaction.log' "E108: o veredito do E101 (o drift do sysctl e sua re-aplicação) entra NO PAPEL (o log que o dump não coletava era onde a prova do 150×180 morava)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" '/var/log/journal' "E108: a persistência do jornal confessa seu estado (o journal VOLÁTIL do rig matava a lista de boots — 1 boot no papel)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'pubring.gpg' "v2.10.10: dump prova o pubring (a doença do d33o no papel)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'list-keys cachyos' "v2.10.10: dump prova as chaves CachyOS populadas"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'pacman lê o banco: OK' "v2.10.10: dump prova funcional do pacman (o -Syu vivo ou morto nomeado)"
@@ -354,6 +360,12 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'elite-resume-displa
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'sys/class/drm/card' "E75: a tríade status/enabled/dpms dos conectores DRM entra SEMPRE no dump (antes só no fallback sem sessão — na doença 'PC vivo, monitor morto' a sessão ESTÁ de pé e a prova não entrava)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-post-transaction" 'REINICIE' "E75: o kernel novo AVISA na cara de quem rodou o pacman -Syu cru (a pedagogia do reboot deixa de ser exclusiva da porta do craft-update)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-post-transaction" 'kernel-seen' "E75: o carimbo do kernel dispara o aviso UMA vez por troca (a 1ª execução é linha de base — nunca falso REINICIE)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-post-transaction" '/var/log/journal' \
+    "E108/post-transaction: O JORNAL QUE SOBREVIVE AO REBOOT (o journal VOLÁTIL do rig 180302 — 1 boot no papel — matava a perícia cross-boot inteira; /var/log/journal nasce na 1ª dose e o try-restart faz o journald vivo adotar o disco na hora)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-idle" 'SEM sono' \
+    "E108/idle: o papel não clama ciclo que não houve (o relógio de parede julga: sono de verdade avança date +%s; o 'ciclo completo' do dump 180302 saiu NO MESMO SEGUNDO do 'suspendindo' com o journal provando 40min de sono REAL)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-vigil" 'SEM sono' \
+    "E108/vigil: mesma lei do papel honesto (a 'VIGÍLIA: suspend voltou (ciclo completo)' às 17:20:45 mentia — o sono REAL foi 17:20:50→18:01:06 pelo journal)"
 assert_grep "$REPO/.ci/build.sh" 'elite-post-transaction.hook' "E75: o hook libalpm viaja NO PACOTE (dono ÚNICO — heredoc no build, install em /usr/share/libalpm/hooks; escola elite-adopt)"
 assert_grep "$REPO/.ci/build.sh" 'When = PostTransaction' "E75: o hook é PostTransaction Target=\* (toda transação conta — a do próprio craft-update incluída; o bin é inofensivo: zero rede, zero lock)"
 assert_grep "$REPO/.ci/build.sh" 'depends=\(bash python wayland wlopm\)' "E75: o wlopm é DEPENDÊNCIA do elite-system (a rede do resume sem o binário era rede imaginária nos rigs que não o tinham)"
@@ -439,7 +451,7 @@ assert_grep "$CU64" 'sentinela_db auto canal' "E64/AUD-B3: a sentinela na porta 
 assert_grep "$CU64" 'sentinela_db auto sistema' "E64/AUD-B3: a sentinela na porta SEMANAL (a mesma briga — agora espera com teto e adia honesta)"
 assert_grep "$CU64" 'já estava em dia' "E64: checagem não é notícia (o re-armamento horário multiplica a dose por 24 — sem novidade, ZERO pop-up; notify é a exceção por delta, escola E48)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 13→14 NO MESMO COMMIT' "E64: pkgrel elite-system 13→14 NO MESMO COMMIT (lei E41 — craft-update + 4 units mudaram de conteúdo; âncora na HISTÓRIA, lição E58/E59)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2\.10' "E100→E105 (E30→E90→E98→): craft-dump etiqueta v2.10 (etiqueta = conteúdo — a foto da mídia e do lock na seção 6; a foto da pele segue na 12; âncora refrescada viva)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2\.11' "E100→E108 (E30→E90→E98→): craft-dump etiqueta v2.11 (etiqueta = conteúdo — a cadeia crítica, o hwmon e o líder de sessão na era nova; a foto da mídia/lock segue na 6 e a da pele na 12; âncora refrescada viva)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'date \+%Y%m%d-%H%M%S' "v2.10.11: dump com segundos no STAMP (fim da colisão de dois runs no mesmo minuto — a doença do a4h8)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'if ! : > "\$OUT" 2>/dev/null; then' "v2.10.11: guard de escrita antes do papel (dump root-owned + rerun sem sudo = recusa clara)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" '90-elite-wake-guard.rules' "v2.10.11: dump prova a regra E24 no papel (seção 10)"
@@ -1181,7 +1193,7 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bgapps" '\( tr .*/proc/.pi
 # R9. A E23 GANHA CURANDEIRO VISÍVEL NO PAPEL (o nl3z não mostrou UM
 #     elite-keyring — o veredito da cura precisa ver quem cura):
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'elite-keyring-fix\.timer' "v2.10.12: a seção 5 mostra o timer da E23 (a cura estava invisível no papel)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2\.10' "E100→E105 (E30→E90→E98→): o papel é v2.10 (etiqueta = conteúdo — a v2.9/E100: A FOTO DA PELE [home vs mestre: sha256 + 1ª linha + veredito na seção 12] segue viva — e a v2.10 soma A FOTO DA MÍDIA E DO LOCK na seção 6 (o barramento MPRIS nomeia o fantasma; o lock.log assina o nascimento) — o estado nunca mais anda às cegas; a v2.8/E98 trouxe a dose no papel e a gaveta/lxqt no ps; âncora refrescada viva)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2\.11' "E100→E108 (E30→E90→E98→): o papel é v2.11 (etiqueta = conteúdo — a v2.9/E100 A FOTO DA PELE e a v2.10 A FOTO DA MÍDIA E DO LOCK seguem vivas; a v2.11 soma A CADEIA CRÍTICA, O HWMON E O LÍDER DE SESSÃO — o estado nunca mais anda às cegas; âncora refrescada viva)"
 
 # ── v2.10.18 · E30 — o papel p6aw (1325 linhas) + as fotos do dono ─────────
 # O rig real provou o que o QEMU não vê: bell misterioso (wall do firstboot
@@ -2109,6 +2121,10 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-display" 'modo_em_curso' \
     "E107/display: a transição não é escolha (o save e o watch consultam a marca de modo atual — nada de 'mode:-' no conf)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-display" 'save: RECUSADO' \
     "E107/display: o save RECUSA lixo com a prova no papel (o displays.conf do rig amanheceu com um TRAÇO no lugar do 200 Hz, 19:57:08 — o 'tá salvando lixo' na letra do dono)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-display" 'conf doente \(E108\)' \
+    "E108/display: o CONF DOENTE dorme a persistência (mode:- no disco = o modo NUNCA é restaurado — o reconcile lutava 30s PARA 60 Hz para sempre, o '60 Hz sempre volta'; FALHA ×6 fotografada pelo dump 180302, stamp fail:6; aviso nomeado UMA vez por sessão e a cura é a mão do dono no menu)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-display" 'stderr: \${_err:-<vazio>}' \
+    "E108/display: a FALHA NOMEADA (rc+stderr do wlr-randr no papel — o antigo CHUTAVA 'o modo pode não existir neste EDID' com stderr engolido; 6 FALHAS sem UMA prova do porquê no dump)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-display" 'NÃO grava \(o conf salvo é a fonte da verdade' \
     "E107/display: o watch SÓ grava com o apply da sessão assentado (o default do boot gravado como escolha era o envenenamento — o conf era sobrescrito 1 minuto após o boot)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-display" 'n_fail=\$\(\(n_fail \+ 1\)\)' \
@@ -2136,6 +2152,8 @@ assert_grep "$REPO/scripts/apply-overlay.sh" 'craft-flatpak' \
     "E107/overlay: o bin novo no file_permissions (a ferida E89: sem o 755 no live é 203/EXEC — o gate flagrou)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 51→52 NO MESMO COMMIT' \
     "E99/E41 (era 'pkgrel=51', âncora REFRESCADA — a lição E58/E59: o número atual é lei do guard-pkgrel do CI, o contrato estático ama a HISTÓRIA; o bump de hoje paga o craft-bars do gate do compositor E99 + o espelho do clamp E33)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 52→53 NO MESMO COMMIT' \
+    "E108/E41 (a razão do bump no heredoc): o dump 180302 periciado — craft-display (conf doente dorme a persistência + FALHA com rc/stderr), craft-idle/craft-vigil (o papel não clama ciclo que não houve), craft-dump v2.11 (carimbo único + CanSuspend busctl + hwmon + Leader + zram-generator.conf + E101 no papel + /var/log/journal) e elite-post-transaction (o jornal que sobrevive ao reboot)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 50→51 NO MESMO COMMIT' \
     "E107/E41: a razão do bump no heredoc (a história viaja no papel)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-help" 'craft-flatpak' \
