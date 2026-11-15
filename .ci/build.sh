@@ -1610,7 +1610,19 @@ pkgver=1.0
 #     rótulos), craft-help (mapa limpo + as lojas), craft-dump (coleta),
 #     elite-post-transaction (FALHA nomeada). pkgrel 54→55 NO MESMO
 #     COMMIT (lei E41).
-pkgrel=55
+#     E111: craft-update — O ATRASO DE UMA DOSE NOMEADO (a pergunta do
+#     dono no rig 1.0-55: 'os programas de app image etc, não foram
+#     adicionados igual ao sistema? Talvez você tenha adicionado a ISO,
+#     mas não adicionou aí no pacote de atualização' — o réu é a
+#     natureza do binário que se atualiza: a dose que ENTREGA o
+#     craft-update novo RODOU com o binário ANTERIOR — o código das
+#     lojas (Flathub + Warehouse + Gear Lever) e da ADOCAO ampliada
+#     (gamemode+gamescope) entra na PRÓXIMA dose; a dose ao ligar
+#     (elite-bootupdate) e a porta manual já nascem com o código novo;
+#     o papel NUNCA deixa o dono adivinhar — nomeia_fila_nova nos 3
+#     fluxos). Bin de conteúdo mudado: craft-update. pkgrel 55→56 NO
+#     MESMO COMMIT (lei E41).
+pkgrel=56
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

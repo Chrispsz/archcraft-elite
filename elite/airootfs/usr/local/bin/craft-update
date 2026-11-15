@@ -461,6 +461,25 @@ adota_lojas() {
     return 0
 }
 
+# E111 — O ATRASO DE UMA DOSE NOMEADO (a pergunta do dono no rig 1.0-55,
+# palavra por palavra: 'os programas de app image, etc, não foram
+# adicionados igual ao sistema? Talvez você tenha adicionado a ISO, mas
+# não adicionou aí no pacote de atualização'). O réu é a NATUREZA do
+# binário que se atualiza: a dose que ENTREGA o craft-update novo RODOU
+# com o binário ANTERIOR (o código em execução nasceu antes do download;
+# o pacman troca o arquivo no disco, mas quem está rodando é o de antes).
+# As filas que o commit novo carrega (adota_lojas, ADOCAO ampliada)
+# entram na PRÓXIMA dose — idempotente, nada fica para trás: a dose ao
+# ligar (elite-bootupdate) e a porta manual já nascem com o código novo.
+# O papel NUNCA deixa o dono adivinhar.
+nomeia_fila_nova() {
+    local es_antes="$1" es_depois
+    es_depois="$(es_q)"
+    [ -z "$es_antes" ] && return 0
+    [ "$es_depois" = "$es_antes" ] && return 0
+    ulog "E111: o elite-system ${es_antes} → ${es_depois} chegou NESTA dose — mas ela rodou com o craft-update ANTERIOR: as filas novas do pacote (lojas da casa, adoção ampliada) entram na PRÓXIMA dose (a dose ao ligar já carrega o código novo — nada ficou para trás)"
+}
+
 # E88 — A ATUALIZAÇÃO ÁGIL: downloads paralelos no pacman.conf. O default
 # do pacote vem COMENTADO ('#ParallelDownloads = 5') — UM pacote por vez:
 # o -Syu que 'parecia travado' no pacote grande era ISTO. Idempotente e
@@ -939,6 +958,7 @@ if [[ "${1:-}" == "--canal" ]]; then
     ulog "canal: OK — a transação passou (${#CANAL_PKGS[@]} peças da casa)"
     adota_ancoras
     adota_lojas
+    nomeia_fila_nova "$es_before"
     refresh_if_craft_changed "$es_before" "$ec_before" "$tl_before"
     # E64 — CHECAGEM NÃO É NOTÍCIA: com o re-armamento horário do timer
     # (OnUnitInactiveSec), a dose roda de 1h em 1h e o pacman --needed sem
@@ -1020,6 +1040,7 @@ if [[ "${1:-}" == "--sistema" ]]; then
     fi
     adota_ancoras
     adota_lojas
+    nomeia_fila_nova "$es_before"
     refresh_if_craft_changed "$es_before" "$ec_before" "$tl_before"
     if [ -n "$PRE_N" ] && snapper -c root create -t post --pre-number "$PRE_N" \
             -d 'elite-sysupdate' >/dev/null 2>&1; then
@@ -1119,6 +1140,7 @@ rm -f "$ERRCAP"
 # separada nunca bloqueia a principal) e ANTES do refresh da sessão.
 adota_ancoras
 adota_lojas
+nomeia_fila_nova "$es_before"
 
 # E48→E50 — a sessão do dono recebe o código novo NA HORA e INTEIRA (o
 # daemon vivo não segue com a receita velha até relogin — a ferida do
