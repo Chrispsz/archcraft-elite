@@ -1622,7 +1622,25 @@ pkgver=1.0
 #     o papel NUNCA deixa o dono adivinhar — nomeia_fila_nova nos 3
 #     fluxos). Bin de conteúdo mudado: craft-update. pkgrel 55→56 NO
 #     MESMO COMMIT (lei E41).
-pkgrel=56
+#     E112: o dump 195015 periciado — O ID DO GEAR LEVER MENTIA (o E110
+#     usou 'io.github.mijorus.smile', ID que NÃO existe no Flathub — a
+#     API do próprio Flathub nomeia: it.mijorus.gearlever — e o papel
+#     culpad 'sem rede?' com a rede perfeita: réu renomeado, família E33
+#     no nosso próprio papel); a falha da loja agora carrega rc+stderr
+#     (a escola do sysctl E110 — o réu tem nome). O DUMP GANHA OS OLHOS
+#     QUE A SEÇÃO JURAVA: /usr/lib/sysctl.d + /run/sysctl.d listados e
+#     greppados (o réu do swappiness 150×180 mora lá — cachyos-settings —
+#     e o drift que SOBREVIVEU ao reboot do 19:48 voltou numa janela sem
+#     ator nomeável: 17:12:35 sem drift (hook viu 180) → 19:50 com 150 —
+#     a caça agora é no papel) + o journal do systemd-sysctl do boot +
+#     o tail COMPLETO de upgrades do pacman.log (um cachyos-settings às
+#     19:49 passava invisível). O STATUS DO JOGO JULGA O WATCH (o papel
+#     dizia ON lendo o conf enquanto o daemon podia estar FORA — o boot2
+#     de 16:06 não recebeu NENHUM 'no ar' no game.log: pid vivo + cmdline
+#     julgam, reutilização de pid não engana). Bins de conteúdo mudado:
+#     craft-update, craft-dump, craft-game. pkgrel 56→57 NO MESMO COMMIT
+#     (lei E41).
+pkgrel=57
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

@@ -248,6 +248,21 @@ E110
     local auto=""
     [ -r "$CONF" ] && auto="$(sed -n 's/^AUTO=//p' "$CONF" | head -1)"
     printf 'automático          %s\n' "$([ "${auto:-0}" = 1 ] && echo ON || echo OFF)"
+    # E112 — O VEREDITO DO WATCH (o dump 195015 fotografou o silêncio: o
+    # papel dizia 'ON' lendo o CONF enquanto o daemon podia estar FORA —
+    # no boot2 de 16:06 o game.log não recebeu NENHUM 'no ar' e o status
+    # não contava história. O status agora julga o PROCESSO (pid vivo com
+    # cmdline do watch — a reutilização de pid não engana) e nomeia o réu:
+    # ON sem daemon vivo = o supervisor que não trouxe — a fila tem nome.
+    if [ "${auto:-0}" = 1 ]; then
+        _wp="$(cat "$RUN_DIR/game-watch.pid" 2>/dev/null || true)"
+        if [ -n "$_wp" ] && kill -0 "$_wp" 2>/dev/null \
+           && tr '\0' ' ' <"/proc/$_wp/cmdline" 2>/dev/null | grep -q 'craft-game watch'; then
+            printf 'watch               no ar (pid %s — o cérebro vigia)\n' "$_wp"
+        else
+            printf 'watch               FORA — sem daemon vivo (o automático ON é só o conf: o supervisor não trouxe o cérebro — RÉU NOMEADO no próximo dump)\n'
+        fi
+    fi
     if [ -r "$(holder_pid_file)" ]; then
         printf 'manual              ATIVO (holder pid %s)\n' "$(cat "$(holder_pid_file)" 2>/dev/null)"
     else

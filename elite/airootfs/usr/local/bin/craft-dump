@@ -334,6 +334,15 @@ fi
     r "sysctl vm.swappiness vm.vfs_cache_pressure vm.page_lock_unfairness vm.max_map_count kernel.sched_autogroup_enabled 2>/dev/null" 5
     r "ls -l /etc/sysctl.d/ 2>/dev/null" 6
     r "grep -RH . /etc/sysctl.d/ 2>/dev/null | grep -E 'swappiness|vfs_cache|map_count|page_lock|autogroup'" 8
+    # E112 — A CAÇA PROMETIDA (o dump 195015 provou o ponto cego: o papel
+    # listava SÓ /etc/sysctl.d — mas o réu do swappiness 150×180 mora em
+    # /usr/lib/sysctl.d (o cachyos-settings da casa dos vendors) e o
+    # comentário desta seção JURAVA a caça sem entregá-la. O /usr/lib e o
+    # /run entram no papel + o journal do systemd-sysctl (o réu do BOOT
+    # nomeado — o drift que sobrevive ao reboot é contado aqui).
+    r "ls -l /usr/lib/sysctl.d/ /run/sysctl.d/ 2>/dev/null || echo '(sem /usr/lib ou /run sysctl.d)'" 8
+    r "grep -RH . /usr/lib/sysctl.d/ /run/sysctl.d/ 2>/dev/null | grep -E 'swappiness|vfs_cache|map_count|page_lock|autogroup' || echo '(nenhuma chave da lei em /usr/lib ou /run sysctl.d)'" 8
+    r "journalctl -b -u systemd-sysctl.service --no-pager 2>/dev/null | tail -5 || echo '(sem journal da unit — o boot não reclamou)'" 6
     r "cat /sys/kernel/mm/transparent_hugepage/enabled 2>/dev/null" 2
     r "sysctl net.ipv4.tcp_congestion_control net.core.default_qdisc 2>/dev/null" 3
 
@@ -713,6 +722,12 @@ PY
         printf '\n── (ausente: /var/log/elite-update.log — a dose nunca rodou nesta máquina?)\n'
     fi
     r "grep 'elite-system' /var/log/pacman.log 2>/dev/null | tail -12" 14
+    # E112 — A HISTÓRIA INTEIRA (o ponto cego do 195015: o tail acima só
+    # mostra o elite-system — um cachyos-settings (o réu do swappiness)
+    # atualizando às 19:49 passava INVISÍVEL. As últimas mudanças de
+    # pacote do rig INTEIRO entram no papel — o ator da janela 17:12→19:50
+    # onde o 150 voltou não escapa mais.
+    r "grep -E '\\] \\[(ALPM)\\] (upgraded|installed|removed|reinstalled) ' /var/log/pacman.log 2>/dev/null | tail -25" 25
     # E108 — O VEREDITO DO PÓS-TRANSAÇÃO NO PAPEL (o E101 do sysctl drifted
     # re-aplicando o conf da casa vive em /var/log/elite-post-transaction.log
     # — o dump 180302 fotografou o kernel em swappiness 150 com o conf em

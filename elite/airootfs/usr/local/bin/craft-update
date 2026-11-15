@@ -445,17 +445,27 @@ adota_lojas() {
     else
         ulog "lojas: Flathub já presente — nada a fazer"
     fi
+    # E112 — O ID REAL DO GEAR LEVER (o dump 195015 fotografou o réu: o E110
+    # usou 'io.github.mijorus.smile' — ID que NÃO existe no Flathub; a API
+    # do próprio Flathub nomeia o app: it.mijorus.gearlever. E a falha
+    # NÃO MENTE mais: o rc+stderr da instalação entra no papel — o réu
+    # tem nome, o 'sem rede?' calado morre).
     local id nome
-    for nome in "Warehouse:io.github.flattool.Warehouse" "Gear Lever:io.github.mijorus.smile"; do
+    for nome in "Warehouse:io.github.flattool.Warehouse" "Gear Lever:it.mijorus.gearlever"; do
         id="${nome#*:}"; nome="${nome%%:*}"
         if flatpak info --system "$id" >/dev/null 2>&1; then
             ulog "lojas: $nome já presente — nada a fazer"
             continue
         fi
-        if flatpak install --system --noninteractive --or-update flathub "$id" >>"$ULOG" 2>&1; then
+        _flat_rc=0
+        _flat_out="$(flatpak install --system --noninteractive --or-update flathub "$id" 2>&1)" || _flat_rc=$?
+        if [ "$_flat_rc" = 0 ]; then
             ulog "lojas: $nome presente (a loja da casa — apps entram no Aplicativos)"
         else
-            ulog "lojas: $nome não instalou agora (sem rede? — a próxima dose tenta de novo, best-effort, nunca bloqueia)"
+            # E112 — a prova fica no papel (a escola do sysctl E110): o
+            # stderr do flatpak nomeia o réu real (ID ausente, sem rede,
+            # runtime recusado) — o papel NUNCA renomeia o réu por ele.
+            ulog "lojas: $nome não instalou agora (rc=$_flat_rc, stderr: $(printf '%s' "$_flat_out" | tail -c 200 | tr '\n' ';')) — a próxima dose tenta de novo, best-effort, nunca bloqueia"
         fi
     done
     return 0
