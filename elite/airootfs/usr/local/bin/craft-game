@@ -100,7 +100,14 @@ ensure_run_dir() { mkdir -p "$RUN_DIR" 2>/dev/null || true; }
 gm_on() {
     if ! has_gamemode; then
         glog "manual: gamemode/dbus-send ausente — nada a fazer (honesto)"
-        echo "✖ gamemode/dbus-send ausente — sudo craft-update (a âncora E94 adota)" >&2
+        echo "✖ O pacote gamemode não está instalado — Atualizar o sistema (menu) traz e o modo passa a funcionar" >&2
+        # E110 — O FEEDBACK QUE O RIG DO DONO NUNCA VIU (o dump 114852:
+        # 'clico para ativar agora manual e ele não dá o indicador se
+        # ativou ou não, só fecha o menu... o manual fica com um risquinho
+        # na janela do status' — o ramo ausente só ecoava no fuzzel
+        # sumido e NENHUM note subia: o dono clicava no vazio). A ação
+        # DELE pede resposta NA TELA (a lei E106 do feedback normal).
+        NOTE_URGEN=normal note 'Modo de jogo não ativou' 'O pacote gamemode falta neste sistema — Atualizar o sistema (menu) adota e o modo passa a funcionar'
         return 1
     fi
     ensure_run_dir
@@ -223,8 +230,8 @@ gm_hook() { # $1 = start|end
 # ── o STATUS (o veredito sem tocar nada — a escola do --check) ──────────
 gm_status_cmd() {
     printf '══════════ craft-game status — o veredito sem tocar nada ══════════\n'
-    cat <<'E109'
-como funciona (o dono: "não sei se é injeção automática como na Steam"):
+    cat <<'E110'
+como o modo de jogo funciona:
   · O MÚSCULO é o gamemode do Feral: quando um JOGO está vivo, ele sobe
     sozinho (D-Bus), aplica governor performance + GPU high e MORRE com o
     jogo — rollback automático, zero RAM no idle. Nada para configurar.
@@ -232,10 +239,12 @@ como funciona (o dono: "não sei se é injeção automática como na Steam"):
     emuladores, gamescope) e REGISTRA o pid no gamemode — para a Steam
     que NÃO usa gamemoderun, é o watch quem liga o modo. A Steam também
     aceita o caminho clássico: opções de lançamento = gamemoderun %command%.
-E109
+  · O caminho MANUAL liga a performance AGORA, com o jogo que você quiser
+    (menu → Ativar agora) — e o Desativar devolve o perfil da casa.
+E110
     command -v gamemoded >/dev/null 2>&1 \
         && printf 'gamemode            instalado (%s)\n' "$(pacman -Q gamemode 2>/dev/null | awk '{print $2}')" \
-        || printf 'gamemode            AUSENTE (sudo craft-update — a âncora E94 adota)\n'
+        || printf 'gamemode            AUSENTE — Atualizar o sistema (menu) traz o pacote\n'
     local auto=""
     [ -r "$CONF" ] && auto="$(sed -n 's/^AUTO=//p' "$CONF" | head -1)"
     printf 'automático          %s\n' "$([ "${auto:-0}" = 1 ] && echo ON || echo OFF)"
@@ -262,7 +271,17 @@ gm_menu() {
     [ -r "$CONF" ] && auto="$(sed -n 's/^AUTO=//p' "$CONF" | head -1)"
     local items=() choice
     [ "${auto:-0}" = 1 ] && items+=("Automático: ON (desligar)") || items+=("Automático: OFF (ligar)")
-    items+=("Ativar agora (manual)" "Desativar" "Status" )
+    # E110 — O MANUAL DIZ O ESTADO (o dono no dump 114852: o item estático
+    # não dava indicador — 'só fecha o menu'; o automático mostrava ON/OFF
+    # e o manual era mudo). O item segue o estado real do holder: reabrir
+    # o menu mostra ATIVO ou não — o feedback mora na porta que o dono
+    # usa, não num toast que o daemon pode engolir.
+    if [ -r "$(holder_pid_file)" ]; then
+        items+=("Manual: ATIVO (desativar)")
+    else
+        items+=("Ativar agora (manual)")
+    fi
+    items+=("Status" )
     choice="$(printf '%s\n' "${items[@]}" | craft-menu --title='Modo de jogo' --at=power)" || exit 0
     case "$choice" in
         Automático*) 
@@ -276,7 +295,10 @@ gm_menu() {
                 setsid /usr/local/bin/craft-game watch >/dev/null 2>&1 </dev/null 9>&- &
                 NOTE_URGEN=normal note 'Automático: ON' 'Performance entra sozinha quando um jogo abre'
             fi ;;
-        *Ativar*) gm_on ;;
+        *Manual*|*Ativar*)
+            # E110 — o item dinâmico: ATIVO → o clique DESATIVA (o mesmo
+            # gesto do automático; a porta nunca engana o estado)
+            if [ -r "$(holder_pid_file)" ]; then gm_off; else gm_on; fi ;;
         *Desativar*) gm_off ;;
         *Status*)
             # E106 — o veredito sobe na tela; E109 — a porta do dono ABRE O

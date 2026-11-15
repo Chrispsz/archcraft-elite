@@ -2013,6 +2013,71 @@ while [ "$_w" -lt 50 ] && [ ! -s "$ST77/hyprlock.log" ]; do sleep 0.1; _w=$((_w 
 assert_grep "$ST77/hyprlock.log" 'hyprlock' "E109/zumbi: o braço VIVO segue renascendo o lock (a cura é só para quem atravessou o sono — o contrato E47/B6 intacto)"
 assert_nogrep "$ST77/elite/idle.log" 'ZUMBI' "E109/zumbi: o braço vivo NÃO loga zumbi (a linha nomeada é só do atravessado — papel sem ruído)"
 
+# ── E110 — O JUÍZ É O ESTADO DO LOGIND (a cura da dupla senha que o dump
+#    114852 fotografou com a prova do byte): o fork do swayidle foi
+#    congelado pelo S3 antes de executar UMA linha do hook — o T_INICIO
+#    do E109 rodou SÓ NO THAW (relógio FRESCO, 11:48:25) e o zumbi ficou
+#    CEGO ao réu real: hook tardio, systemd-suspend.service inactive desde
+#    11:48:06, o craft-lock renasceu NO FINI do hyprlock original e a
+#    senha foi pedida DE NOVO. A cura: o hook julga pelo ESTADO do
+#    serviço (activating = o sono é AGORA; inactive = carta do passado —
+#    nada a fazer). + o guard do screenoff pelo carimbo do despertar.
+MOCK110="$WORK/mocks-e110"; mkdir -p "$MOCK110"
+for _m in wlopm craft-vigil hyprlock craft-lock; do cp "$MOCK77/$_m" "$MOCK110/$_m" 2>/dev/null || true; done
+cat > "$MOCK110/systemctl" <<'EOF'
+#!/usr/bin/env bash
+ST="${MOCK_DIR:?}"; mkdir -p "$ST"
+printf 'systemctl %s\n' "$*" >> "$ST/systemctl.log"
+if [ "${1:-}" = "is-active" ]; then
+    printf '%s\n' "${ELITE_IS_ACTIVE:-inactive}"
+fi
+exit 0
+EOF
+chmod +x "$MOCK110/systemctl" "$MOCK110/wlopm" "$MOCK110/craft-vigil" "$MOCK110/hyprlock" "$MOCK110/craft-lock"
+e110_env() { XDG_RUNTIME_DIR="$RT77" XDG_CONFIG_HOME="$CF77" XDG_CACHE_HOME="$ST77" PATH="$MOCK110:$PATH" MOCK_DIR="$ST77" bash "$CI77" "$@"; }
+
+# (T1) TARDIO: service INACTIVE + T_INICIO FRESCO (a cena EXATA do dump —
+#      o relógio do E109 é novo, o evento é do passado) — NADA a fazer
+rm -rf "$ST77" "$RT77"; mkdir -p "$ST77" "$RT77"
+export ELITE_IS_ACTIVE=inactive
+e110_env sleep-hook >/dev/null 2>&1; rc=$?
+unset ELITE_IS_ACTIVE
+assert_eq "$rc" "0" "E110/tardio: o hook tardio conclui 0 honesto (a carta do passado sai sem drama)"
+if [ -s "$ST77/hyprlock.log" ]; then
+    fail "E110/tardio: o hook tardio RE-TRAVOU a tela" "o hyprlock nasceu com o service INACTIVE — a dupla senha do dump 114852 reproduzida (o estado do logind é o juiz)"
+else
+    ok "E110/tardio: o hook tardio NÃO re-trava (inactive = o PrepareForSleep JÁ passou — o portão e o lock são do mundo pós-wake)"
+fi
+assert_grep "$ST77/elite/idle.log" 'E110: sleep-hook TARDIO' "E110/tardio: o desfecho deixa LINHA NOMEADA no papel (a dupla senha morre pelo ESTADO do logind — a lei E33)"
+
+# (T2) LEGÍTIMO: service ACTIVATING (o sono é AGORA) — o hook SEGUE inteiro
+#      (fecha o portão e renasce o lock — o contrato E77/E47/B6 intacto)
+rm -rf "$ST77" "$RT77"; mkdir -p "$ST77" "$RT77"
+export ELITE_IS_ACTIVE=activating
+e110_env sleep-hook >/dev/null 2>&1 || true
+unset ELITE_IS_ACTIVE
+_w=0
+while [ "$_w" -lt 50 ] && [ ! -s "$ST77/hyprlock.log" ]; do sleep 0.1; _w=$((_w + 1)); done
+assert_grep "$ST77/hyprlock.log" 'hyprlock' "E110/legítimo: o hook com sono EM VOO segue renascendo o lock (a cura é só para a carta do passado — o trabalho de verdade segue)"
+assert_nogrep "$ST77/elite/idle.log" 'TARDIO' "E110/legítimo: o hook em voo NÃO loga tardio (o papel nomeia só o réu real — zero ruído)"
+
+# (T3) O GUARD DO SCREENOFF: carimbo do despertar FRESCO = o mundo pós-wake
+#      NÃO apaga a tela que o resume acendeu (o APAGOU+ACORDOU às 11:48:25
+#      morre); carimbo VELHO = o gesto único segue (economia intacta)
+rm -rf "$ST77" "$RT77"; mkdir -p "$ST77" "$RT77"
+printf '%s\n' "$(date +%s)" > "$ST77/sleep-returned"
+export ELITE_SLEEP_RETURNED="$ST77/sleep-returned"
+e110_env screenoff >/dev/null 2>&1; rc=$?
+unset ELITE_SLEEP_RETURNED
+assert_eq "$rc" "0" "E110/screenoff: o guard conclui (adiar nunca é falha — o mesmo contrato do E106)"
+assert_nogrep "$ST77/wlopm.log" 'wlopm' "E110/screenoff: carimbo FRESCO = a tela NÃO apaga (o ciclo pós-wake é de quem acordou no tempo — o 'escurece por um tempo' morre)"
+assert_grep "$ST77/elite/idle.log" 'E110: screenoff ADIADO' "E110/screenoff: o adiamento deixa linha no papel (o próximo tick de quietude cumpre o gesto — adiar nunca é matar)"
+printf '%s\n' "$(($(date +%s) - 300))" > "$ST77/sleep-returned"
+export ELITE_SLEEP_RETURNED="$ST77/sleep-returned"
+e110_env screenoff >/dev/null 2>&1 || true
+unset ELITE_SLEEP_RETURNED
+assert_grep "$ST77/wlopm.log" 'wlopm' "E110/screenoff: carimbo VELHO = o apagar SEGUE (o dono saiu de sala — a economia de energia intacta)"
+
 # ── E109/pick — O MARCADOR QUE NUNCA ACENDIA (a metade do dono: 'só tá
 #    detectando que o Thunar tá na dock… se eu clico de novo, ele aparece
 #    já estava na dock, ou seja, ele não remove'): o case ' $pins ' contra

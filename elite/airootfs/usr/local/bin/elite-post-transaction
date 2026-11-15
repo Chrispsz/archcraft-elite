@@ -88,10 +88,17 @@ if [ -r "$ELITE_SYSCTL" ]; then
     done < "$ELITE_SYSCTL"
     if [ -n "$drift" ]; then
         tlog "sysctl da casa com drift:${drift} — re-aplicando ${ELITE_SYSCTL} (o tuning vale no -Syu, não só no boot)"
-        if systemd-sysctl "$ELITE_SYSCTL" >/dev/null 2>&1; then
+        # E110 — A FALHA NOMEADA (família E108: o stderr engolido era o
+        # porquê que o papel não dizia — o rig do dono fotografou 'FALHOU'
+        # SEIS vezes em três dias SEM UMA prova do porquê; o swappiness
+        # 150×180 continua vivo e o réu do WHY nunca foi nomeado). O rc e
+        # o stderr da re-aplicação entram NO PAPEL — o próximo dump julga.
+        _sys_rc=0
+        _sys_out="$(systemd-sysctl "$ELITE_SYSCTL" 2>&1)" || _sys_rc=$?
+        if [ "$_sys_rc" = 0 ]; then
             tlog "sysctl: conf da casa re-aplicado — o kernel voltou ao valor da casa"
         else
-            tlog "sysctl: re-aplicação FALHOU — o drift segue até o próximo boot (a prova fica no papel)"
+            tlog "sysctl: re-aplicação FALHOU (rc=$_sys_rc, stderr: $(printf '%s' "$_sys_out" | tail -c 220 | tr '\n' ';')) — o drift segue até o próximo boot (a prova fica no papel)"
         fi
     fi
 fi

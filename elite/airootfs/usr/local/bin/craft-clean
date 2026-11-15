@@ -35,15 +35,27 @@ clog() {
 }
 
 ASSUME_YES=0
+MENU_HOLD=0
 for arg in "$@"; do
   case "$arg" in
     -y|--yes) ASSUME_YES=1 ;;
-    -h|--help) printf 'uso: craft-clean [--yes] — a limpeza honesta (o que sai, quanto saiu — E88)\n\n'; sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    menu) MENU_HOLD=1 ;;
+    -h|--help) printf 'uso: craft-clean [--yes|menu] — a limpeza honesta (o que sai, quanto saiu — E88)\n\n'; sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "craft-clean: arg desconhecido: $arg (use --yes)" >&2; exit 2 ;;
   esac
 done
 
-clog "═══ craft-clean iniciado (TTY: $([ -t 0 ] && echo sim || echo não) · modo: $([ "$ASSUME_YES" = 1 ] && echo --yes || echo interativo))"
+# E110 — O MENU SEGURA O PAPEL (o dono, dump 114852: 'limpeza do sistema,
+# ele tenta abrir uma tela que fecha na hora, terminal') — o modo `menu`
+# pausa INCONDICIONAL no fim: o terminal do menu nunca fecha antes do
+# Enter, MESMO que um passo morra no meio (o read do modo interativo
+# exigia TTY em stdin/stdout — qualquer lançamento sem os dois e o relatório
+# virava flash de novo). O CLI manual mantém a pausa TTY de sempre.
+
+_modo="interativo"
+[ "$ASSUME_YES" = 1 ] && _modo="--yes"
+[ "$ASSUME_YES" != 1 ] && [ "$MENU_HOLD" = 1 ] && _modo="menu"
+clog "═══ craft-clean iniciado (TTY: $([ -t 0 ] && echo sim || echo não) · modo: $_modo)"
 
 PKG_CACHE="/var/cache/pacman/pkg"
 cache_mib() {
@@ -173,6 +185,11 @@ printf '✔ caches de usuário (octopi/yay/thumbnails): %s MiB liberados (a font
 # hora e o dono via um flash sem conteúdo; e o passo principal vivia
 # pulado sem o paccache do pacman-contrib, que entra na ISO neste
 # commit). Interativo = pausa honesta: o dono LÊ o que a limpeza fez.
-if (( ASSUME_YES == 0 )) && [[ -t 0 ]] && [[ -t 1 ]]; then
+# E110 — o modo `menu` (a ordem do dono no dump 114852) pausa SEM EXIGIR
+# de TTY: o terminal do menu fica aberto até o Enter MESMO que um passo
+# morra no meio — 'fecha na hora' extinto por construção.
+if (( MENU_HOLD == 1 )); then
+  read -r -p 'Enter para fechar… ' _ || true
+elif (( ASSUME_YES == 0 )) && [[ -t 0 ]] && [[ -t 1 ]]; then
   read -r -p 'Enter para fechar… ' _ || true
 fi

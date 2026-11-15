@@ -31,8 +31,15 @@
 # No 'post' marca o retorno (craft-dump seção 10 julga a duração).
 #
 # Seam de teste: ELITE_WAKEUP_FILE (o /proc/acpi/wakeup do teste).
+# E110 — O CARIMBO DO DESPERTAR: no 'post' o retorno do sono é escrito NO
+# DISCO (/run/elite/sleep-returned, tmpfs legível pelo user-slice) — os
+# braços do idle julgam o mundo pós-wake pelo ESTADO real (o dump 114852:
+# o timer pendente do OFF_MIN apagou a tela 19s pós-wake e o hook tardio
+# re-travou o destravo — a dupla senha). O journal diz a hora mas não é
+# consultável sem bus; o carimbo é. Seam de teste: ELITE_RUN_DIR.
 # ═══════════════════════════════════════════════════════════════════════════
 WAKEUP="${ELITE_WAKEUP_FILE:-/proc/acpi/wakeup}"
+RUN_DIR="${ELITE_RUN_DIR:-/run/elite}"
 
 case "${1:-}" in
     pre)
@@ -60,6 +67,10 @@ case "${1:-}" in
         fi
         ;;
     post)
+        # E110 — o carimbo NO DISCO (o estado real que os braços do user
+        # julgam; o mkdir é do root, o arquivo fica legível — 0644 umask)
+        mkdir -p "$RUN_DIR" 2>/dev/null || true
+        date +%s > "$RUN_DIR/sleep-returned" 2>/dev/null || true
         echo "[elite-sleep] retorno do sono registrado (craft-dump seção 10 julga a duração)"
         ;;
 esac

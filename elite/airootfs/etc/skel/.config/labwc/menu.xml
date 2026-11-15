@@ -107,7 +107,7 @@
       <action name="Execute" command="foot -e craft-update" />
     </item>
     <item label="Limpeza do sistema">
-      <action name="Execute" command="foot -e craft-clean" />
+      <action name="Execute" command="foot -e craft-clean menu" />
     </item>
     <separator />
     <!-- E109 — AppImages… e Flatpaks… SAÍRAM (a ordem do dono: menus de

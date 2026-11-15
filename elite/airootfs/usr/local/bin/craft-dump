@@ -691,7 +691,8 @@ PY
     # resume ('ACORDOU'/'FALHA … tentativa') e a vigília ('re-armada no
     # resume') — a evidência central da caça ao resume sem vídeo.
     for f in "$UCACHE/elite/bars.log" "$UCACHE/elite/menus.log" \
-             "$UCACHE/elite/idle.log" "$UCACHE/elite/dock.log"; do
+             "$UCACHE/elite/idle.log" "$UCACHE/elite/dock.log" \
+             "$UCACHE/elite/clean.log" "$UCACHE/elite/game.log"; do
         if [ -f "$f" ]; then
             printf '\n── tail %s\n' "$f"
             tail -n 150 "$f"

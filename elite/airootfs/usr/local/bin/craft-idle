@@ -140,6 +140,11 @@ gate_open() {
 # recria lock nem suspende — a corrida 'unlock × suspend em voo' do dump
 # 20261112 (a dupla senha) morre aqui. O stamp vive no XDG_RUNTIME_DIR.
 UNLOCK_STAMP="${XDG_RUNTIME_DIR:-/tmp}/elite/unlock.stamp"
+# E110 — O CARIMBO DO DESPERTAR (o elite-sleep-report escreve /run/elite/
+# sleep-returned no 'post'): os braços do idle julgam o mundo pós-wake pelo
+# ESTADO real do sono, não pelo relógio do processo (a dupla senha do dump
+# 114852 morre aqui — ver o sleep-hook abaixo). Seam de teste.
+SLEEP_RETURNED="${ELITE_SLEEP_RETURNED:-/run/elite/sleep-returned}"
 unlock_fresco() { # 0 = o destravo foi há MENOS de $1 segundos
     _janela="${1:-15}"
     [ -r "$UNLOCK_STAMP" ] || return 1
@@ -377,6 +382,23 @@ case "${1:-}" in
                 exit 0
             fi
         fi
+        # E110 — O MUNDO PÓS-WAKE NÃO APAGA A TELA QUE O RESUME ACENDEU (o
+        # dump 114852 fotografou o ciclo APAGOU+ACORDOU às 11:48:25: o
+        # timer do OFF_MIN pendente no thaw apagou a tela 19s DEPOIS do
+        # wake, COM O DONO digitando a senha — o 'escurece por um tempo e
+        # abre'). O carimbo do elite-sleep-report (sleep-returned) diz
+        # QUANDO o PC voltou; retorno recente = o ciclo de tela pertence a
+        # quem acordou no tempo (o elite-resume-display é o dono). O
+        # próximo tick de quietude cumpre o gesto (o MESMO contrato do
+        # guard E106 acima — adiar nunca é matar).
+        if [ -r "$SLEEP_RETURNED" ]; then
+            _wake="$(cat "$SLEEP_RETURNED" 2>/dev/null || echo 0)"
+            case "$_wake" in ''|*[!0-9]*) _wake=0 ;; esac
+            if [ "$_wake" -gt 0 ] && [ "$(( $(date +%s) - _wake ))" -lt 120 ]; then
+                ilog "E110: screenoff ADIADO — o sono voltou há $(( $(date +%s) - _wake ))s (o ciclo de tela pertence a quem acordou no tempo; o próximo tick de quietude cumpre o gesto)"
+                exit 0
+            fi
+        fi
         if wlopm --off '*'; then
             ilog "tela: APAGOU (wlopm rc=0) — gesto único do lock cumprido"
         else
@@ -512,6 +534,27 @@ case "${1:-}" in
         exit 0
         ;;
     sleep-hook)
+        # E110 — O JUÍZ É O ESTADO DO LOGIND (a cura da dupla senha que o
+        # dump elite-dump-20261115-114852 fotografou com a prova do byte:
+        # o fork do swayidle foi CONGELADO pelo S3 antes de executar UMA
+        # linha do hook — o script rodou T_INICIO=$(date +%s) SÓ NO THAW
+        # (relógio FRESCO, 11:48:25) e o zumbi do E109 (relógio de processo)
+        # ficou CEGO ao réu real: o hook fechou o portão e convocou
+        # craft-lock --if-needed no MESMO segundo do fini do hyprlock
+        # original — o lock renasceu e a senha foi pedida DE NOVO. A
+        # verdade que o relógio do processo não alcança: o PrepareForSleep
+        # que convocou este hook é do PASSADO quando o
+        # systemd-suspend.service já saiu de cena. active/activating = o
+        # sono é AGORA (hook legítimo — o trabalho segue); inactive =
+        # carta do passado — NADA a fazer (o portão e o lock pertencem a
+        # quem acordou no tempo). A consulta falha (sem bus) = sem juiz:
+        # o E109 abaixo decide (defesa em camadas, o relógio ainda pega o
+        # zumbi que RODOU linhas antes de congelar).
+        _susp="$(timeout 3 systemctl is-active systemd-suspend.service 2>/dev/null || true)"
+        if [ -n "$_susp" ] && [ "$_susp" != "active" ] && [ "$_susp" != "activating" ]; then
+            ilog "E110: sleep-hook TARDIO (o PrepareForSleep que o convocou JÁ passou — systemd-suspend.service=$_susp) — nada a fazer: o portão e o lock pertencem ao mundo pós-wake (a dupla senha morre pelo ESTADO do logind, não pelo relógio do processo)"
+            exit 0
+        fi
         # E109 — O ZUMBI PRIMEIRO DE TUDO: este hook nasceu no
         # before-sleep (PrepareForSleep true) e o S3 pode tê-lo congelado
         # no meio — o zumbi que acorda DEPOIS do wake (a dupla senha do

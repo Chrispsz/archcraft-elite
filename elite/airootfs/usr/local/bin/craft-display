@@ -561,14 +561,36 @@ do_menu() {
         exit 1
     fi
     cur_label="$(printf '%s' "$cur" | sed 's/@/ @ /; s/$/ Hz/')"
-    itens="$(printf '%s\n' "$modos" | awk -v c="$cur_label" '$0 == c { print $0 " ← atual"; next } { print }' | sort -u)"
+    # E110 — O MENU QUE O DONO LÊ (o dump 114852: 'a tela é bem poluída e
+    # não é fácil ter os indicadores do que está marcado'): a lista nascia
+    # do sort -u ALFABÉTICO — '1024x768' antes de '1920x1080', as taxas
+    # misturadas, o atual perdido no meio. A cura: resolução de cima para
+    # baixo (numérica), dentro dela a maior taxa primeiro, o modo atual
+    # com o marcador ← atual (o dono nunca perde o ponto). Os rótulos de
+    # ação saem da fala técnica e entram na língua do usuário leigo —
+    # 'aplicar por lá já salva automático' (a cura do auto-save já era o
+    # desenho: menu_escolheu aplica E grava; o item de guardar segue para
+    # o arrangement feito fora da porta, agora com nome que explica).
+    itens="$(printf '%s\n' "$modos" \
+        | awk -v c="$cur_label" '
+            $0 == c { print "1\t" $0 " ← atual"; next }
+            { print "2\t" $0 }' \
+        | awk -F'\t' '
+            {
+                m=$2; res=m; sub(/ @ .*/, "", res);
+                split(res, wh, "x");
+                chave = (wh[1]+0)*100000 + (wh[2]+0);
+                hz=m; sub(/.*@/, "", hz); sub(/ Hz.*/, "", hz);
+                if ($1 == "1") chave = chave * 1000 + 999999; else chave = chave * 1000 + hz*10;
+                printf "%015d\t%s\n", chave, $2
+            }' | sort -r | cut -f2-)"
     itens="$(printf '%s\n' "$itens" \
-        "Modo preferido do monitor" \
-        "Posição/escala avançado (wdisplays)" \
-        "Salvar o arrangement atual")"
+        "Melhor qualidade do monitor" \
+        "Duas telas: posição/escala (avançado)" \
+        "Guardar como está agora (para os próximos boots)")"
     escolha="$(printf '%s\n' "$itens" | menu_pick "Displays — $alvo")" || exit 0
     case "$escolha" in
-        'Modo preferido do monitor')
+        'Melhor qualidade do monitor')
             if "$RANDR" --output "$alvo" --preferred >/dev/null 2>&1; then
                 printf 'ok\n' > "$STAMP" 2>/dev/null || true
                 if do_save; then
@@ -580,14 +602,14 @@ do_menu() {
                 dnotify "Falhou aplicar o modo preferido (log: ~/.cache/elite/display.log)"
             fi
             exit 0 ;;
-        'Posição/escala avançado (wdisplays)')
+        'Duas telas: posição/escala (avançado)')
             if command -v wdisplays >/dev/null 2>&1; then
                 exec wdisplays   # o watch grava o que o dono fechar configurado
             else
                 dnotify "wdisplays não está instalado"
             fi
             exit 0 ;;
-        'Salvar o arrangement atual')
+        'Guardar como está agora (para os próximos boots)')
             do_save && dnotify "Arranjo atual salvo para os próximos boots"
             exit 0 ;;
         '← atual'|*←\ atual) exit 0 ;;

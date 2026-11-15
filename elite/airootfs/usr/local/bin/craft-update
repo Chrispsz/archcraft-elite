@@ -266,7 +266,7 @@ HOUSE_OVERWRITE=(
 # degradavam ao pactl sem barra NUNCA). A adoção fecha o furo: sudo
 # craft-update → o daemon e a barra nascem na sessão viva (o craft-bars
 # supervisiona).
-ADOCAO=(lxqt-policykit pacman-contrib octopi yay flatpak swayosd)
+ADOCAO=(lxqt-policykit pacman-contrib octopi yay flatpak swayosd gamemode gamescope)
 
 ulog() {
     mkdir -p "$(dirname "$ULOG")" 2>/dev/null || true
@@ -416,6 +416,46 @@ adota_ancoras() {
             ulog "adoção: $a presente (âncora da casa — o rig convergiu)"
         else
             ulog "adoção: $a não resolveu agora — a dose principal segue de pé (best-effort, nunca bloqueia)"
+        fi
+    done
+    return 0
+}
+
+# E110 — AS LOJAS DA CASA CHEGAM AOS RIGS (a ratificação do dono no dump
+# 114852, palavra por palavra: 'o certo seria ter um pacote no próprio
+# sistema que vai gerenciar isso, no caso uma ferramenta que já existe no
+# mundo Linux… para AppImages que você baixou… e para Flatpaks via FlatHub
+#… uma loja que consegue navegar tranquila') — os gerenciadores DE VERDADE
+# do Flathub: WAREHOUSE (a loja de Flatpaks com navegação real) e GEAR
+# LEVER (o gerenciador de AppImages — launcher e atalho sem instalação
+# manual pelo terminal). Mesma escola da adoção E94: Flathub entra como
+# remote do SISTEMA (if-not-exists — leve, idempotente), os apps sobem
+# best-effort com veredito NOMEADO no papel (presente/adotado/recusado),
+# NUNCA bloqueiam a dose (a rede de apps é a rede do dono). Idempotente:
+# presente = UMA linha de convergência, zero download.
+adota_lojas() {
+    command -v flatpak >/dev/null 2>&1 || { ulog "lojas: flatpak ausente — nada a fazer (honesto)"; return 0; }
+    if ! flatpak remotes --system 2>/dev/null | grep -q '^flathub'; then
+        if flatpak remote-add --system --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo >>"$ULOG" 2>&1; then
+            ulog "lojas: Flathub entrou como repositório (a loja da comunidade)"
+        else
+            ulog "lojas: Flathub não entrou agora (sem rede? — a próxima dose tenta de novo, best-effort)"
+            return 0
+        fi
+    else
+        ulog "lojas: Flathub já presente — nada a fazer"
+    fi
+    local id nome
+    for nome in "Warehouse:io.github.flattool.Warehouse" "Gear Lever:io.github.mijorus.smile"; do
+        id="${nome#*:}"; nome="${nome%%:*}"
+        if flatpak info --system "$id" >/dev/null 2>&1; then
+            ulog "lojas: $nome já presente — nada a fazer"
+            continue
+        fi
+        if flatpak install --system --noninteractive --or-update flathub "$id" >>"$ULOG" 2>&1; then
+            ulog "lojas: $nome presente (a loja da casa — apps entram no Aplicativos)"
+        else
+            ulog "lojas: $nome não instalou agora (sem rede? — a próxima dose tenta de novo, best-effort, nunca bloqueia)"
         fi
     done
     return 0
@@ -898,6 +938,7 @@ if [[ "${1:-}" == "--canal" ]]; then
     fi
     ulog "canal: OK — a transação passou (${#CANAL_PKGS[@]} peças da casa)"
     adota_ancoras
+    adota_lojas
     refresh_if_craft_changed "$es_before" "$ec_before" "$tl_before"
     # E64 — CHECAGEM NÃO É NOTÍCIA: com o re-armamento horário do timer
     # (OnUnitInactiveSec), a dose roda de 1h em 1h e o pacman --needed sem
@@ -978,6 +1019,7 @@ if [[ "${1:-}" == "--sistema" ]]; then
         exit 1
     fi
     adota_ancoras
+    adota_lojas
     refresh_if_craft_changed "$es_before" "$ec_before" "$tl_before"
     if [ -n "$PRE_N" ] && snapper -c root create -t post --pre-number "$PRE_N" \
             -d 'elite-sysupdate' >/dev/null 2>&1; then
@@ -1076,6 +1118,7 @@ rm -f "$ERRCAP"
 # E94 — a adoção de âncoras entra DEPOIS da dose vencida (a transação
 # separada nunca bloqueia a principal) e ANTES do refresh da sessão.
 adota_ancoras
+adota_lojas
 
 # E48→E50 — a sessão do dono recebe o código novo NA HORA e INTEIRA (o
 # daemon vivo não segue com a receita velha até relogin — a ferida do

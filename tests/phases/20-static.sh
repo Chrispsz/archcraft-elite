@@ -1794,7 +1794,7 @@ assert_grep "$CDOCK94" 'info\.get_boolean\("Terminal"\)' "E94: o exec_of consult
 assert_grep "$CDOCK94" 'foot --app-id=' "E94: o foot da casa leva app-id DETERMINÍSTICO (o casamento de janelas fala o nome do app, não o do terminal — a mesma lição E89 das case-variants)"
 assert_grep "$CDOCK94" 'def raw_of' "E94: a origem do app vive SEM o casaco (raw_of/binary_of — o comm do /proc e o app_id falam o APP)"
 CUPD94="$REPO/elite/airootfs/usr/local/bin/craft-update"
-assert_grep "$CUPD94" 'ADOCAO=\(lxqt-policykit pacman-contrib octopi yay flatpak swayosd\)' "E94+E97→E103: a ADOÇÃO DE ÂNCORAS tem FONTE ÚNICA no craft-update (packages.add só nutre a ISO — o rig nunca recebeu a cabeça da fila E58; a E97 soma a tríade da loja de fábrica E o pacman-contrib que o E96 pôs na ISO esquecendo o canal; a E103 soma o swayosd — o OSD do rig do dono nasceu antes da E74 e a barra nunca apareceu)"
+assert_grep "$CUPD94" 'ADOCAO=\(lxqt-policykit pacman-contrib octopi yay flatpak swayosd gamemode gamescope\)' "E94+E97→E103→E110: a ADOÇÃO DE ÂNCORAS tem FONTE ÚNICA no craft-update (packages.add só nutre a ISO — o rig nunca recebeu a cabeça da fila E58; a E97 soma a tríade da loja de fábrica E o pacman-contrib que o E96 pôs na ISO esquecendo o canal; a E103 soma o swayosd; a E110 soma GAMEMODE+GAMESCOPE — o músculo do modo de jogo pôs os pacotes na ISO pela E103 e a ADOCAO nunca os carregou: o dono clicava 'Ativar agora' num sistema sem gamemode)"
 assert_grep "$REPO/elite/packages.add" 'lxqt-policykit' "E94: a âncora do rig é a MESMA definição da ISO (sync contratado — a disciplina do pin aplicada à adoção)"
 n_sites="$(grep -cE '^[[:space:]]*adota_ancoras$' "$CUPD94" || true)"
 assert_eq "$n_sites" "3" "E94: a adoção corre nas TRÊS portas (canal, semanal, manual — uma função, nenhum escopo à mão)"
@@ -2159,8 +2159,8 @@ assert_grep "$REPO/.ci/build.sh" 'pkgrel 53→54 NO MESMO COMMIT' \
     "E109/E41: o dump 181701 periciado e os réus curados — menu.xml (AppImages/Flatpaks saem pela ordem do dono), craft-pin-pick (o marcador ✓ por linha), craft-display (o cut -f1 do single-output), craft-idle (o zumbi do antes-sono), craft-clean (o papel), craft-update (a adoção nomeada + --asexplicit) e craft-game (o status que ensina)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 50→51 NO MESMO COMMIT' \
     "E107/E41: a razão do bump no heredoc (a história viaja no papel)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-help" 'craft-flatpak' \
-    "E107/help: o mapa conhece a porta nova (a descoberta não depende de sorte)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-help" 'Warehouse' \
+    "E110/help (âncora E107 refrescada): o mapa conhece a LOJA DE VERDADE (a ratificação do dono: 'o certo seria ter um pacote no próprio sistema que gerencie' — os CLIs de menu-morto saem da voz dele, a doc SCRIPTS.md continua conhecendo os bins, e a seção das lojas acende só quando Warehouse/Gear Lever existirem)"
 assert_grep "$REPO/docs/SCRIPTS.md" 'craft-flatpak' \
     "E107/doc: a doc que viaja no pacote conhece o bin novo"
 

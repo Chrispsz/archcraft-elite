@@ -1541,7 +1541,76 @@ pkgver=1.0
 #     Bins de conteúdo mudado: menu.xml (pele), craft-pin-pick,
 #     craft-display, craft-idle, craft-clean, craft-update, craft-help,
 #     craft-game. pkgrel 53→54 NO MESMO COMMIT (lei E41).
-pkgrel=54
+#
+#     E110 (54→55) — O DUMP elite-dump-20261115-114852 PERICIADO e a dupla
+#     senha morta PELO ESTADO (o dono: 'ao despertar da suspensao tenho
+#     que colocar a senha duas vezes na tela de bloqueio ou seja o erro
+#     persiste'): (1) O JUÍZ É O ESTADO DO LOGIND — o fork do swayidle foi
+#     congelado pelo S3 ANTES de executar UMA linha do sleep-hook: o
+#     T_INICIO=$(date +%s) do E109 rodou SÓ NO THAW (relógio FRESCO,
+#     11:48:25) e o zumbi ficou CEGO ao réu real (o hook fechou o portão e
+#     convocou craft-lock --if-needed NO MESMO SEGUNDO do fini do hyprlock
+#     original — o lock renasceu e a senha foi pedida de novo); o hook
+#     agora julga pelo systemd-suspend.service (active/activating = o sono
+#     é AGORA; inactive = carta do passado — nada a fazer; consulta falha
+#     = o E109 decide, defesa em camadas); (2) O CARIMBO DO DESPERTAR — o
+#     elite-sleep-report escreve /run/elite/sleep-returned no post (os
+#     braços do user julgam o pós-wake pelo ESTADO real, o journal não é
+#     consultável sem bus); (3) O MUNDO PÓS-WAKE NÃO APAGA A TELA QUE O
+#     RESUME ACENDEU — o timer pendente do OFF_MIN apagou a tela 19s pós-
+#     wake COM O DONO digitando ('escurece por um tempo e abre'); o
+#     screenoff adia com carimbo fresco <120s e o próximo tick de quietude
+#     cumpre o gesto; (4) O DESTRAVO É INSTANTÂNEO — o fadeOut 5→1 da pele
+#     do lock (o dono: 'poderia ser praticamente instantânea… só coloca a
+#     senha e ele já abre muito rápido').
+#     E110/pacote-2 — AS CURAS DA UX DO DUMP 114852 (o dono palavra por
+#     palavra): (5) craft-clean — O MODO MENU PAUSA INCONDICIONAL ('limpeza
+#     do sistema, ele tenta abrir uma tela que fecha na hora, terminal' —
+#     o item lança craft-clean menu: o papel fica até o Enter, MESMO que um
+#     passo morra no meio); (6) craft-update — GAMEMODE+GAMESCOPE ENTRAM NA
+#     ADOÇÃO (o músculo do modo de jogo NUNCA chegou ao rig: a ISO tem os
+#     pacotes desde a E103 e a ADOCAO não os carregava — o dono clicava
+#     'Ativar agora' num sistema sem gamemode) + AS LOJAS DA CASA CHEGAM
+#     (a ratificação do dono: 'o certo seria ter um pacote no próprio
+#     sistema que vai gerenciar isso… uma ferramenta que já existe no
+#     mundo Linux' — Flathub entra como remote e WAREHOUSE (a loja de
+#     Flatpaks com navegação real do FlatHub) + GEAR LEVER (o gerenciador
+#     de AppImages: launcher e atalho sem instalação manual pelo terminal)
+#     sobem best-effort com veredito nomeado, nunca bloqueiam a dose);
+#     (7) craft-game — O FEEDBACK QUE O DONO NUNCA VIU (o ramo ausente só
+#     ecoava no fuzzel sumido e NENHUM note subia: 'clico para ativar
+#     agora manual e ele não dá o indicador se ativou ou não, só fecha o
+#     menu... o manual fica com um risquinho na janela do status' — o
+#     note E106 chega no ramo ausente e o item do menu DIZ O ESTADO:
+#     'Manual: ATIVO (desativar)') + O STATUS NÃO CITA RELATO DO DONO
+#     ('imagina outra pessoa abrindo isso daqui, ela não vai entender
+#     nada' — o texto citado vira linguagem neutra e ganha o caminho
+#     manual nomeado); (8) craft-display — O MENU QUE O DONO LÊ ('a tela
+#     é bem poluída e não é fácil ter os indicadores do que está marcado…
+#     Salvar arrangement atual, inclusive isso não é nem autoexplicativo')
+#     — ordena por resolução desc / taxa desc com o atual marcado no topo
+#     do seu tamanho + rótulos leigos (Melhor qualidade do monitor / Duas
+#     telas: posição-escala / Guardar como está agora); (9) craft-help —
+#     O MAPA SÓ COM O ÚTIL ('removendo desses comandos que não são úteis…
+#     só comandos úteis') — craft-appimage/craft-flatpak saem da voz do
+#     dono (os bins seguem CLI honesto, a doc SCRIPTS.md os cobre) + a
+#     seção AS LOJAS DA CASA acende SÓ quando Warehouse/Gear Lever
+#     existirem (o papel nunca anuncia o que não está na mão);
+#     (10) craft-dump — O PAPEL DA LIMPEZA E DO JOGO ENTRA NO DUMP (a
+#     seção 12 coleta clean.log e game.log — o réu do 'fecha na hora'
+#     morre com prova no próximo dump); (11) elite-post-transaction — A
+#     FALHA NOMEADA (seis 're-aplicação FALHOU' em três dias SEM UMA prova
+#     do porquê: o rc+stderr do systemd-sysctl entra no papel — o réu do
+#     swappiness 150×180 fica nomeado para o próximo dump julgar).
+#     Bins/pele de conteúdo mudado: craft-idle (sleep-hook + screenoff),
+#     elite-sleep-report (o carimbo), hyprlock.conf (pele, fadeOut),
+#     craft-clean (modo menu), menu.xml (pele: Limpeza lança o modo menu),
+#     craft-update (adoção gamemode/gamescope + as lojas), craft-game
+#     (feedback + estado + texto neutro), craft-display (ordenação +
+#     rótulos), craft-help (mapa limpo + as lojas), craft-dump (coleta),
+#     elite-post-transaction (FALHA nomeada). pkgrel 54→55 NO MESMO
+#     COMMIT (lei E41).
+pkgrel=55
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
