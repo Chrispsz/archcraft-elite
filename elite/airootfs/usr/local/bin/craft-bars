@@ -364,7 +364,8 @@ while :; do
     # transitório atrás.
     if command -v craft-game >/dev/null 2>&1; then
         auto="$(sed -n 's/^AUTO=//p' "$HOME/.config/elite/game.conf" 2>/dev/null | head -1)"
-        if [ "${auto:-0}" = 1 ] && ! pgrep -f '^bash /usr/local/bin/craft-game watch$|^/usr/bin/env bash /usr/local/bin/craft-game watch$' >/dev/null 2>&1; then
+        _gm_vivo="$(pgrep -f '^bash /usr/local/bin/craft-game watch$|^/usr/bin/env bash /usr/local/bin/craft-game watch$' 2>/dev/null | head -1)"
+        if [ "${auto:-0}" = 1 ] && [ -z "$_gm_vivo" ]; then
             if [ "$seen_game" -eq 1 ]; then
                 printf '[%s] game watch FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
             else
@@ -375,7 +376,23 @@ while :; do
                 st=$?
                 printf '[%s] game watch SAIU exit=%d\n' "$(date '+%F %T')" "$st" >>"$LOG"
             ) 9>&- &
+        elif [ "$seen_game" -eq 0 ]; then
+            # E113 — O PORQUÊ ENTRA NO PAPEL (uma vez por boot): o rig
+            # fotografou o watch FORA desde 11-15 com o supervisor calado
+            # (o conf em AUTO e o guard sem UMA linha de explicação) — a
+            # ausência sem porquê é réu aparente demais. AUTO≠1 = ausência
+            # intencional nomeada; AUTO=1 com match = o match tem NOME
+            # (cmdline no papel — o falso-positivo do pgrep deixa de ser
+            # caça às cegas; o dump fotografa a família inteira).
+            if [ "${auto:-0}" = 1 ]; then
+                printf '[%s] game watch: AUTO=1 e o pgrep vê pid %s (%s) — nada a fazer (o cérebro já está no ar)\n' \
+                    "$(date '+%F %T')" "${_gm_vivo:-?}" \
+                    "$(tr '\0' ' ' <"/proc/$_gm_vivo/cmdline" 2>/dev/null | cut -c1-90)" >>"$LOG"
+            else
+                printf '[%s] game watch: AUTO≠1 no conf da casa — ausência intencional, o watch não sobe (o toggle do menu é quem decide)\n' "$(date '+%F %T')" >>"$LOG"
+            fi
         fi
+        unset _gm_vivo
     fi
     seen_game=1
     # E36 — FIM DOS ÓRFÃOS (audit de arquitetura, sessão Q2/Q8): o swaync é

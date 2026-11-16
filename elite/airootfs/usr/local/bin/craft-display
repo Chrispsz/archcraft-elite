@@ -77,6 +77,16 @@ CONF_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/elite"
 CONF="$CONF_DIR/displays.conf"
 DLOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/display.log"
 RANDR="${ELITE_RANDR:-wlr-randr}"
+# E113 — A BANDEIRA QUE CADA WLR-RANDR ACEITA: o rig do dono fotografa
+# 'wlr-randr: unrecognized option --scale-exact' rc=1 (dump 170720,
+# display.log: 6 FALHAS por boot — a tela sobe no preferido do EDID, 60 Hz,
+# até o dono abrir o wdisplays na mão). O upstream anuncia as bandeiras que
+# tem no --help; a casa chutava '--scale-exact' e a geração do rig NÃO tem.
+# O probe decide UMA vez por processo e o apply usa a bandeira local — o
+# conf salvo volta a valer no boot (a promessa E89 de pé em qualquer
+# geração; o que o wlr-randr da máquina aceita é o que a casa manda).
+RANDR_SCALE_FLAG="--scale-exact"
+"$RANDR" --help 2>&1 | grep -q -- '--scale-exact' || RANDR_SCALE_FLAG="--scale"
 RUN_E="${XDG_RUNTIME_DIR:-/run/user/$(id -u 2>/dev/null || echo 0)}/elite"
 STAMP="$RUN_E/display-applied"
 DIVERGE="$RUN_E/display-diverge"
@@ -230,7 +240,7 @@ aplica_arranjo() {
                     args="$args --mode $modo"
                     ;;
                 pos:*)      [ "${campo#pos:}" != "-" ] && args="$args --pos ${campo#pos:}" ;;
-                scale:*)    [ "${campo#scale:}" != "-" ] && args="$args --scale-exact ${campo#scale:}" ;;
+                scale:*)    [ "${campo#scale:}" != "-" ] && args="$args $RANDR_SCALE_FLAG ${campo#scale:}" ;;
                 transform:*) [ "${campo#transform:}" != "normal" ] && args="$args --transform ${campo#transform:}" ;;
                 adaptive:*)
                     case "${campo#adaptive:}" in

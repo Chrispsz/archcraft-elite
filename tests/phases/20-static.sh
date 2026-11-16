@@ -269,7 +269,7 @@ assert_grep "$U/elite-keyring-fix.timer" '^WantedBy=timers.target$' "v2.10.10: [
 assert_grep "$U/elite-keyring-fix.timer" '^OnBootSec=120s$' "v2.10.10: timer dispara 2min pós-boot (a cura chega cedo, sem brigar com o boot)"
 assert_grep "$U/elite-keyring-fix.timer" '^OnUnitActiveSec=6h$' "v2.10.10: timer re-tenta de 6h em 6h (o guard de 24h do script decide o custo real)"
 # craft-dump v2.2: a etiqueta = conteúdo, e o keyring ganha as 3 provas
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2\.11' "E100→E108 (E30→E90→E98→): craft-dump etiqueta v2.11 (a lei: etiqueta = conteúdo — a v2.11 traz A CADEIA CRÍTICA, o hwmon das temperaturas, O LÍDER de cada sessão logind, o zram-generator.conf e o veredito do E101 no papel [o dump 180302 que fechou a v2.10 tinha 3 carimbos divergentes v2.9/v2.10/v2.9 e o can-suspend morto]; a v2.10 trouxe A FOTO DA MÍDIA E DO LOCK; a v2.9 trouxe A FOTO DA PELE; âncora refrescada viva)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2\.12' "E100→E108→E113: craft-dump etiqueta v2.12 (a lei: etiqueta = conteúdo — a v2.12 traz OS OLHOS QUE FALTAVAM: /usr/local/lib/sysctl.d, os atores executáveis do sysctl, o veredito do jogo AO VIVO, as recusas do hyprlock e o brave-origin instalado×db; a v2.11 trouxe A CADEIA CRÍTICA, o hwmon, O LÍDER de sessão logind e o veredito do E101; âncora refrescada viva)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'CanSuspend' "E108: o can-suspend MORTO (verbo inexistente no systemd 26x — 'Unknown command verb' no dump 180302) vira a propriedade CanSuspend via busctl (a coleção volta a viver)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'hwmon' "E108: as temperaturas ganham o hwmon que o thermal_zone não tem (desktop AMD expõe k10temp/amdgpu por hwmon — a seção amanhecia VAZIA sem confissão; agora confessa o vazio de verdade)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" '-p Leader' "E108: o LÍDER de cada sessão logind no papel (a promessa da v2.11: a 2ª sessão 'unspecified' do rig fecha a perícia — o cmdline do líder diz QUEM nasceu ali)"
@@ -451,7 +451,7 @@ assert_grep "$CU64" 'sentinela_db auto canal' "E64/AUD-B3: a sentinela na porta 
 assert_grep "$CU64" 'sentinela_db auto sistema' "E64/AUD-B3: a sentinela na porta SEMANAL (a mesma briga — agora espera com teto e adia honesta)"
 assert_grep "$CU64" 'já estava em dia' "E64: checagem não é notícia (o re-armamento horário multiplica a dose por 24 — sem novidade, ZERO pop-up; notify é a exceção por delta, escola E48)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 13→14 NO MESMO COMMIT' "E64: pkgrel elite-system 13→14 NO MESMO COMMIT (lei E41 — craft-update + 4 units mudaram de conteúdo; âncora na HISTÓRIA, lição E58/E59)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2\.11' "E100→E108 (E30→E90→E98→): craft-dump etiqueta v2.11 (etiqueta = conteúdo — a cadeia crítica, o hwmon e o líder de sessão na era nova; a foto da mídia/lock segue na 6 e a da pele na 12; âncora refrescada viva)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2\.12' "E100→E108→E113: craft-dump etiqueta v2.12 (etiqueta = conteúdo — a cadeia crítica, o hwmon e o líder de sessão na era v2.11; a v2.12 soma os olhos do sysctl completo, do jogo ao vivo e das recusas do lock; âncora refrescada viva)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'date \+%Y%m%d-%H%M%S' "v2.10.11: dump com segundos no STAMP (fim da colisão de dois runs no mesmo minuto — a doença do a4h8)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'if ! : > "\$OUT" 2>/dev/null; then' "v2.10.11: guard de escrita antes do papel (dump root-owned + rerun sem sudo = recusa clara)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" '90-elite-wake-guard.rules' "v2.10.11: dump prova a regra E24 no papel (seção 10)"
@@ -1193,7 +1193,7 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bgapps" '\( tr .*/proc/.pi
 # R9. A E23 GANHA CURANDEIRO VISÍVEL NO PAPEL (o nl3z não mostrou UM
 #     elite-keyring — o veredito da cura precisa ver quem cura):
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'elite-keyring-fix\.timer' "v2.10.12: a seção 5 mostra o timer da E23 (a cura estava invisível no papel)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2\.11' "E100→E108 (E30→E90→E98→): o papel é v2.11 (etiqueta = conteúdo — a v2.9/E100 A FOTO DA PELE e a v2.10 A FOTO DA MÍDIA E DO LOCK seguem vivas; a v2.11 soma A CADEIA CRÍTICA, O HWMON E O LÍDER DE SESSÃO — o estado nunca mais anda às cegas; âncora refrescada viva)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'ELITE DUMP v2\.12' "E100→E108→E113: o papel é v2.12 (etiqueta = conteúdo — a v2.9/E100 A FOTO DA PELE e a v2.10 A FOTO DA MÍDIA E DO LOCK seguem vivas; a v2.11 somou A CADEIA CRÍTICA, O HWMON E O LÍDER DE SESSÃO; a v2.12 soma O SYSCTL SEM DIR CEGO, O JOGO AO VIVO, AS RECUSAS DO LOCK E O BRAVE instalado×db — o estado nunca mais anda às cegas; âncora refrescada viva)"
 
 # ── v2.10.18 · E30 — o papel p6aw (1325 linhas) + as fotos do dono ─────────
 # O rig real provou o que o QEMU não vê: bell misterioso (wall do firstboot

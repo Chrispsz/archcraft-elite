@@ -66,7 +66,12 @@ if [ -n "$cur" ]; then
 fi
 
 # ── 2. A VIGÍLIA DO WAKE-GUARD (E24) — o estado no papel, sem agir ──────
-armadas="$(grep -c '\*enabled' /proc/acpi/wakeup 2>/dev/null || echo '?')"
+# E113 — O 0 COM ? ATRÁS: o '|| echo ?' dispara TAMBÉM quando o grep -c
+# acha ZERO matches (rc=1 é resposta válida do -c) — o papel 19:49:19 do
+# rig fotografou 'observado: 0\n? fonte(s)': o ? mentindo alongside o 0.
+# O '|| true' + o default 0 separam ARQUIVO AUSENTE de ZERO ARMADAS.
+armadas="$(grep -c '\*enabled' /proc/acpi/wakeup 2>/dev/null || true)"
+[ -n "$armadas" ] || armadas=0
 tlog "wake-guard E24 observado: ${armadas} fonte(s) ACPI armada(s) em /proc/acpi/wakeup (USB regido pela regra udev 90-elite-wake-guard)"
 
 # ── 3. A VIGÍLIA DO SYSCTL DA CASA (E101) — o drift que outro pacote ────
@@ -90,16 +95,39 @@ if [ -r "$ELITE_SYSCTL" ]; then
         tlog "sysctl da casa com drift:${drift} — re-aplicando ${ELITE_SYSCTL} (o tuning vale no -Syu, não só no boot)"
         # E110 — A FALHA NOMEADA (família E108: o stderr engolido era o
         # porquê que o papel não dizia — o rig do dono fotografou 'FALHOU'
-        # SEIS vezes em três dias SEM UMA prova do porquê; o swappiness
-        # 150×180 continua vivo e o réu do WHY nunca foi nomeado). O rc e
-        # o stderr da re-aplicação entram NO PAPEL — o próximo dump julga.
+        # SEIS vezes em três dias SEM UMA prova do porquê). O rc e
+        # o stderr da re-aplicação entram NO PAPEL.
+        # E113 — O RC=127 RECEBE NOME E MORRE: o dump 170720 fotografou a
+        # cura inteira do E110 — 'linha 97: systemd-sysctl: comando não
+        # encontrado' em TODA execução desde 11-15 (o réu: systemd-sysctl
+        # NÃO é comando de PATH — o binário é /usr/lib/systemd/systemd-
+        # sysctl; o E110 nomeou o porquê do FALHOU e entregou uma cura que
+        # não executa — a família E33 na cura). O padrão da casa que o
+        # firstboot provou ('vm.swappiness = 180 confirmado no kernel',
+        # elite-tune:790) assume: systemctl restart systemd-sysctl.service
+        # — sysctl --system de fallback. E A FÉ MORRE: cada chave que deu
+        # drift é RELIDA no kernel depois da cura; o valor VIVO é o
+        # veredito, não o rc (o rig nasce em 150 com /etc pedindo 180 e o
+        # ator do 150 ainda sem nome — os olhos novos do dump o caçam).
         _sys_rc=0
-        _sys_out="$(systemd-sysctl "$ELITE_SYSCTL" 2>&1)" || _sys_rc=$?
-        if [ "$_sys_rc" = 0 ]; then
-            tlog "sysctl: conf da casa re-aplicado — o kernel voltou ao valor da casa"
-        else
-            tlog "sysctl: re-aplicação FALHOU (rc=$_sys_rc, stderr: $(printf '%s' "$_sys_out" | tail -c 220 | tr '\n' ';')) — o drift segue até o próximo boot (a prova fica no papel)"
+        _sys_out="$(systemctl restart systemd-sysctl.service 2>&1)" || _sys_rc=$?
+        if [ "$_sys_rc" -ne 0 ]; then
+            _sys_rc=0
+            _sys_out="$(sysctl --system 2>&1)" || _sys_rc=$?
         fi
+        _restou=""
+        for _pair in $drift; do
+            _k="${_pair%%(*}"
+            _want="${_pair##*≠}"
+            _now="$(sysctl -n "$_k" 2>/dev/null || true)"
+            [ "$_now" = "$_want" ] || _restou="$_restou $_pair(agora:${_now:-?})"
+        done
+        if [ -z "$_restou" ]; then
+            tlog "sysctl: conf da casa re-aplicado e CONFIRMADO no kernel — o veredito é o valor vivo, não o rc"
+        else
+            tlog "sysctl: re-aplicação FALHOU (rc=$_sys_rc, stderr: $(printf '%s' "$_sys_out" | tail -c 220 | tr '\n' ';')) — drift que RESISTIU:$_restou (o réu segue vivo, a prova fica no papel)"
+        fi
+        unset _restou _pair _k _want _now
     fi
 fi
 

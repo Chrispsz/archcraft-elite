@@ -303,11 +303,18 @@ gm_menu() {
             if [ "${auto:-0}" = 1 ]; then
                 printf 'AUTO=0\n' > "$CONF" 2>/dev/null
                 pkill -f '^bash /usr/local/bin/craft-game watch$|^/usr/bin/env bash /usr/local/bin/craft-game watch$' 2>/dev/null || true
+                # E113 — O TOGGLE DEIXA LINHA NO PAPEL (o rig fotografou o
+                # watch FORA + supervisor calado + o último clique do menu
+                # em AUTO=0 — e o conf mudou SEM UMA linha no game.log: o
+                # toggle era invisível para a perícia; aqui o quem-quando
+                # entra — a ausência intencional fica assinada)
+                glog "auto: OFF (pelo menu — o watch sai; ausência intencional assinada no papel)"
                 NOTE_URGEN=normal note 'Automático: OFF' 'O modo de jogo só entra pela porta manual (menu)'
             else
                 mkdir -p "$CONF_DIR" 2>/dev/null || true
                 printf 'AUTO=1\n' > "$CONF" 2>/dev/null
                 setsid /usr/local/bin/craft-game watch >/dev/null 2>&1 </dev/null 9>&- &
+                glog "auto: ON (pelo menu — o watch nasce com a escolha)"
                 NOTE_URGEN=normal note 'Automático: ON' 'Performance entra sozinha quando um jogo abre'
             fi ;;
         *Manual*|*Ativar*)

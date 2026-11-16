@@ -1648,7 +1648,38 @@ pkgver=1.0
 #     Cura: o ID real no craft-help + a guarda re-apontada para onde o
 #     réu morava + anti-regressão (assert_nogrep). Bin de conteúdo
 #     mudado: craft-help. pkgrel 57→58 NO MESMO COMMIT (lei E41).
-pkgrel=58
+#     E113 (2026-11-16): O DUMP 170720 PERICIADO — o rig pós-dose 1.0-57
+#     em quatro réus com nome no papel: (1) O RC=127 DA CURA DO E110 —
+#     'systemd-sysctl: comando não encontrado' em TODA re-aplicação desde
+#     11-15: o systemd-sysctl não é comando de PATH (o binário é
+#     /usr/lib/systemd/systemd-sysctl) e a cura do E110 nunca executou —
+#     família E33 na cura; o padrão do firstboot (systemctl restart
+#     systemd-sysctl.service || sysctl --system) assume + VERIFICAÇÃO por
+#     chave no kernel vivo (o valor VIVO é o veredito, não o rc) + o
+#     '0\n? fonte(s)' do wake-guard morre (o '|| echo ?' disparava em
+#     zero-matches do grep -c). (2) A TELA QUE O BOOT ESQUECE — o
+#     craft-display aplicava '--scale-exact' e o wlr-randr do rig NÃO
+#     TEM (unrecognized option, 6 FALHAS por boot, o dono a 60 Hz até
+#     abrir o wdisplays na mão): o probe do --help decide a bandeira que
+#     a máquina local aceita (--scale-exact ou --scale) — a promessa E89
+#     de pé em qualquer geração. (3) O WATCH DO JOGO FORA + SUPERVISOR
+#     CALADO + O ÚLTIMO CLIQUE DO MENU EM AUTO=0 — o toggle do menu era
+#     invisível para a perícia: o toggle deixa linha no game.log e o
+#     supervisor nomeia o porquê do silêncio UMA vez por boot (ausência
+#     intencional ou o match do pgrep com cmdline no papel) + o dump
+#     fotografa o veredito AO VIVO (conf + status E112 + família no ps —
+#     não mais cliques antigos no tail). (4) AS SENHAS QUE O LOCK
+#     RECUSOU — 'Authentication failed for hyprlock' ×2 às 17:02 no
+#     bars.log: contagem + últimas recusas entram no papel. E os olhos
+#     que faltavam: /usr/local/lib/sysctl.d (o ÚLTIMO dir que o
+#     systemd-sysctl lê e o papel nunca abriu — o ator do 150 pré-Elite)
+#     + os atores executáveis do sysctl + brave-origin instalado×db (o
+#     canal diário não traz o Brave: 1.99.55 no rig com o pin em 1.99.57
+#     e check-brave celebrando — a distância no papel). O dump etiqueta
+#     v2.12 (etiqueta = conteúdo). Bins de conteúdo mudado:
+#     elite-post-transaction, craft-display, craft-bars, craft-game,
+#     craft-dump. pkgrel 58→59 NO MESMO COMMIT (lei E41).
+pkgrel=59
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

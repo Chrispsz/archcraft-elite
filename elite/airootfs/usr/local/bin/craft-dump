@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · craft-dump (v2.11 — o "btop completão" que se atualiza)
+# Archcraft ELITE · craft-dump (v2.12 — o "btop completão" que se atualiza)
 # ═══════════════════════════════════════════════════════════════════════════
 # Pedido do dono (out/2026): "como puxo tudo que está rodando como se fosse
 # um btop completão pra gente ter um diagnóstico da RAM, pacotes, uso, CPU
@@ -243,7 +243,7 @@ if ! : > "$OUT" 2>/dev/null; then
 fi
 
 {
-    printf '══════════ ELITE DUMP v2.11 — diagnóstico completo ══════════\n'
+    printf '══════════ ELITE DUMP v2.12 — diagnóstico completo ══════════\n'
     if [ "$(id -un)" != "$DUMP_USER" ]; then
         printf 'gerado: %s · usuário: %s → sessão de %s (uid %s) · host: %s\n' \
             "$(date)" "$(id -un)" "$DUMP_USER" "$DUMP_UID" "$(uname -n 2>/dev/null || echo '?')"
@@ -342,6 +342,18 @@ fi
     # nomeado — o drift que sobrevive ao reboot é contado aqui).
     r "ls -l /usr/lib/sysctl.d/ /run/sysctl.d/ 2>/dev/null || echo '(sem /usr/lib ou /run sysctl.d)'" 8
     r "grep -RH . /usr/lib/sysctl.d/ /run/sysctl.d/ 2>/dev/null | grep -E 'swappiness|vfs_cache|map_count|page_lock|autogroup' || echo '(nenhuma chave da lei em /usr/lib ou /run sysctl.d)'" 8
+    # E113 — O ÚLTIMO OLHO CEGO: o systemd-sysctl lê TAMBÉM /usr/local/lib
+    # /sysctl.d (ordem: /run → /etc → /usr/local/lib → /usr/lib) e o papel
+    # v2.11 nunca olhou lá. A prova do rig 170720: o kernel NASCE em 150
+    # com /etc pedindo 180 (e o firstboot fotografou 150 ANTES do Elite
+    # aplicar 180 — o ator é pré-Elite e mora num dir que o papel não
+    # abre). O dir + o grep entram — o 150 com nome ou a casa limpa.
+    r "ls -l /usr/local/lib/sysctl.d/ 2>/dev/null || echo '(sem /usr/local/lib/sysctl.d — o dir não existe nesta máquina)'" 8
+    r "grep -RH . /usr/local/lib/sysctl.d/ 2>/dev/null | grep -E 'swappiness|vfs_cache|map_count|page_lock|autogroup' || echo '(nenhuma chave da lei em /usr/local/lib/sysctl.d)'" 8
+    # E113 — OS ATORES EXECUTÁVEIS: o réu do 150 pode ser CÓDIGO, não
+    # arquivo — quem chama sysctl à mão (sysctl -w/--system/systemd-sysctl)
+    # em bins da casa, units do sistema e hooks do sono é fotografado.
+    r "grep -rns 'sysctl -w\|sysctl --system\|systemd-sysctl' /usr/local/bin/ /etc/systemd/system/ /usr/lib/systemd/system/ /usr/lib/systemd/system-sleep/ 2>/dev/null | head -15" 16
     r "journalctl -b -u systemd-sysctl.service --no-pager 2>/dev/null | tail -5 || echo '(sem journal da unit — o boot não reclamou)'" 6
     r "cat /sys/kernel/mm/transparent_hugepage/enabled 2>/dev/null" 2
     r "sysctl net.ipv4.tcp_congestion_control net.core.default_qdisc 2>/dev/null" 3
@@ -509,6 +521,14 @@ PY
     r "tail -15 $UCACHE/elite/lock.log 2>/dev/null || echo '(sem lock.log — sistema anterior à 1.0-48)'" 16
     r "pgrep -ax hyprlock 2>/dev/null || echo '(sem lock vivo)'" 4
     r "journalctl -b --no-pager 2>/dev/null | grep -iE 'hyprlock|polkit_agent|polkit.*assert' | tail -12" 12
+    # E113 — A SENHA QUE O LOCK RECUSOU (o bars.log do rig 170720 fotografa
+    # 'Authentication failed for hyprlock' ×2 às 17:02 — o dono voltou de
+    # um idle de 10 min pós-dose, a senha recusou DUAS vezes e o reboot
+    # seguiu. A contagem + as últimas recusas entram no papel — o padrão
+    # (typo, layout us-intl do lock vs da sessão, PAM) deixa de ser
+    # adivinhação e a recusa REPETIDA ganha perícia própria.)
+    r "printf 'recusas do hyprlock no bars.log: '; grep -c 'Authentication failed for hyprlock' \"$UCACHE/elite/bars.log\" 2>/dev/null || echo 0" 3
+    r "grep -n 'Authentication failed for hyprlock' \"$UCACHE/elite/bars.log\" 2>/dev/null | tail -3" 4
 
     printf '\n══════════ 7 · DISPLAY & TECLADO ══════════\n'
     # v2.10.6: wlr-randr NA ISO — posição/scale/MODO ATUAL de cada monitor.
@@ -709,6 +729,18 @@ PY
             printf '\n── (ausente: %s)\n' "$f"
         fi
     done
+    # E113 — O VEREDITO DO JOGO AO VIVO (o tail do game.log do rig 170720
+    # mostrava 5 cliques ANTIGOS de menu — o mais novo com AUTO=0 — e o
+    # estado HOJE sem nome: o watch FORA desde 11-15 com supervisor
+    # calado. O byte do conf + o status LIVE (a peça E112 que julga o
+    # processo por pid+cmdline) + a família inteira no ps entram no papel:
+    # ausência intencional ou réu, com o nome na hora.)
+    if [ -x /usr/local/bin/craft-game ]; then
+        printf '\n── craft-game AO VIVO (o conf + o veredito E112 — não é clique antigo de menu)\n'
+        r "cat \"$UHOME/.config/elite/game.conf\" 2>/dev/null || echo '(sem game.conf — AUTO ausente = ausência intencional)'" 3
+        r "env XDG_RUNTIME_DIR=$URUNTIME HOME=$UHOME /usr/local/bin/craft-game status 2>&1 | tail -12" 13
+        r "pgrep -af 'craft-game|gamemoded' 2>/dev/null || echo '(nenhum processo da família game vivo)'" 4
+    fi
     # E98 — A DOSE NO PAPEL (a lacuna do dump 195819: a 1.0-42 caiu no rig
     # entre 19:13–19:46 e o MINUTO nunca foi provado — sem o log da dose,
     # a aterrissagem era uma janela, não um fato): o elite-update.log é a
@@ -721,6 +753,12 @@ PY
     else
         printf '\n── (ausente: /var/log/elite-update.log — a dose nunca rodou nesta máquina?)\n'
     fi
+    # E113 — O BRAVE QUE O CANAL NÃO TRAZ (a prova do rig 170720: instalado
+    # 1.99.55 com o pin da casa em 1.99.57 e o check-brave celebrando 'pin
+    # em dia' — o canal diário publica SÓ elite-system; brave-origin
+    # (186 MB) viaja SÓ em ISO nova. A distância instalado×db no papel —
+    # o buraco nomeado não é buraco silencioso.)
+    r "printf 'brave-origin instalado: '; pacman -Q brave-origin 2>/dev/null || echo '(ausente)'; printf 'brave-origin no db da casa: '; pacman -Si brave-origin 2>/dev/null | sed -n 's/^Version *: //p' | head -1" 4
     r "grep 'elite-system' /var/log/pacman.log 2>/dev/null | tail -12" 14
     # E112 — A HISTÓRIA INTEIRA (o ponto cego do 195015: o tail acima só
     # mostra o elite-system — um cachyos-settings (o réu do swappiness)
@@ -839,7 +877,7 @@ PY
     # o rig já tem o dir)
     r "ls -ld /var/log/journal 2>/dev/null || echo '(sem /var/log/journal — o journal é VOLÁTIL: a história cross-boot morre no reboot; a cura E108 chega pela próxima dose)'" 2
 
-    printf '\n══════════ FIM DO DUMP v2.11 ══════════\n'
+    printf '\n══════════ FIM DO DUMP v2.12 ══════════\n'
     printf 'a seção 0 é o resumo; as seções 1-14 são o detalhe.\n'
     printf 'envie este arquivo (ou a URL do --upload) para a análise.\n'
 } > "$OUT" 2>&1
