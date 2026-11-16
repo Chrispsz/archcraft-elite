@@ -64,7 +64,9 @@ jobs:
         run: |
           set -o pipefail
           # o modo PACKAGES_ONLY de .ci/build.sh: makepkg de craft-toplevel +
-          # elite-craft e SAÍDA — nenhuma ISO, nenhum pacstrap, minutos.
+          # elite-system e SAÍDA — nenhuma ISO, nenhum pacstrap, minutos
+          # (o elite-craft parou de ser publicado na E50 — a era do pacote
+          # único; o cp/repo-add abaixo copia exatamente estes dois).
           docker run --rm \
             -v "$PWD":/work \
             -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \

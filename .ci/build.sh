@@ -1625,7 +1625,7 @@ pkgver=1.0
 #     E112: o dump 195015 periciado — O ID DO GEAR LEVER MENTIA (o E110
 #     usou 'io.github.mijorus.smile', ID que NÃO existe no Flathub — a
 #     API do próprio Flathub nomeia: it.mijorus.gearlever — e o papel
-#     culpad 'sem rede?' com a rede perfeita: réu renomeado, família E33
+#     culpava 'sem rede?' com a rede perfeita: réu renomeado, família E33
 #     no nosso próprio papel); a falha da loja agora carrega rc+stderr
 #     (a escola do sysctl E110 — o réu tem nome). O DUMP GANHA OS OLHOS
 #     QUE A SEÇÃO JURAVA: /usr/lib/sysctl.d + /run/sysctl.d listados e
