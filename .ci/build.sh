@@ -1664,7 +1664,7 @@ pkgver=1.0
 #     família E33 na cura; o padrão do firstboot (systemctl restart
 #     systemd-sysctl.service || sysctl --system) assume + VERIFICAÇÃO por
 #     chave no kernel vivo (o valor VIVO é o veredito, não o rc) + o
-#     '0\n? fonte(s)' do wake-guard morre (o '|| echo ?' disparava em
+#     '0\\n? fonte(s)' do wake-guard morre (o '|| echo ?' disparava em
 #     zero-matches do grep -c). (2) A TELA QUE O BOOT ESQUECE — o
 #     craft-display aplicava '--scale-exact' e o wlr-randr do rig NÃO
 #     TEM (unrecognized option, 6 FALHAS por boot, o dono a 60 Hz até
