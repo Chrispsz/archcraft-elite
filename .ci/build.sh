@@ -1841,15 +1841,20 @@ for pkgdir in "${PKG_LIST[@]}"; do
     rm -f /var/cache/elite-local/"$pkgdir"-*.pkg.tar.zst
     cp "/tmp/elite-src/$pkgdir/"*.pkg.tar.zst /var/cache/elite-local/
 done
+# E114.2 — O BRAVE DO PIN VAI AO CANAL (a 2ª camada do buraco nomeado pela
+# E113: o canal baixava o ASSET da release viva — que é do ESTÁGIO da ISO,
+# preso no pin da era do último build completo — e o rig recebia o navegador
+# velho com 'already existed' no papel). O fluxo do canal agora PARTE O
+# BRAVE DO PIN ATUAL (o mesmo estágio do build completo) ANTES de sair:
+# pin movido = asset novo na release = o rig recebe o navegador vivo na
+# dose seguinte. O pulo honesto: keyring/mirrorlist (o canal não os muda)
+# ficam para o build completo.
+PKG_ONLY_SKIP_REST=0
 if [[ "${PACKAGES_ONLY:-0}" == "1" ]]; then
-    say "PACKAGES_ONLY=1 — pacotes da casa prontos (canal diário E43); ISO não construída"
-    mkdir -p /work/out/pacotes
-    cp /tmp/elite-src/*/*.pkg.tar.zst /work/out/pacotes/
-    ( cd /work/out/pacotes && sha256sum *.pkg.tar.zst > sha256sums-pacotes.txt )
-    ls -la /work/out/pacotes/
-    chown -R "${HOST_UID:-1000}:${HOST_GID:-1000}" /work/out 2>/dev/null || true
-    exit 0
+    PKG_ONLY_SKIP_REST=1
+    say "PACKAGES_ONLY=1 — pacotes de casa prontos; o estágio do BRAVE segue (E114.2: o canal parte o pin) e a ISO não é construída"
 fi
+if [[ "$PKG_ONLY_SKIP_REST" != 1 ]]; then
 # cachyos-keyring + cachyos-v3-mirrorlist também entram no [elite-local]:
 # o E2 do customize instala os dois por file:// (PRIMEIRO repo do conf) —
 # o chroot não toca a rede no customize (era a última fonte potencial de
@@ -1888,6 +1893,8 @@ elite_fetch "${ML_LATEST:-cachyos-v3-mirrorlist-27-1-any.pkg.tar.zst}" \
     || elite_fetch "cachyos-v3-mirrorlist-27-1-any.pkg.tar.zst" \
     || echo "  (aviso: cachyos-v3-mirrorlist fora do ar nos 2 mirrors — E2 usará fallback de rede)"
 
+
+fi  # fim do pulo do PACKAGES_ONLY (keyring/mirrorlist ficam para o build completo)
 
 # ── v1.4: BRAVE ORIGIN (release oficial) → [elite-local] ─────────────
 #  Diretriz do dono (burn test da v1.3 AO VIVO no rig dele, 2026-10-22):
@@ -2047,6 +2054,19 @@ else
     exit 1
 fi
 fi  # v2.1 — fim do guard de cache do estágio brave-origin
+
+# E114.2 — A SAÍDA DO CANAL (o cp que morava no branch do PACKAGES_ONLY
+# antes da reestruturação): com o Brave do pin já em /tmp/elite-src, a
+# cópia pega TODOS os pacotes paridos nesta run — o rig recebe a dose
+# inteira (elite-system 1.0-60 + o brave do pin) numa transação só.
+if [[ "$PKG_ONLY_SKIP_REST" == 1 ]]; then
+    mkdir -p /work/out/pacotes
+    cp /tmp/elite-src/*/*.pkg.tar.zst /work/out/pacotes/
+    ( cd /work/out/pacotes && sha256sum *.pkg.tar.zst > sha256sums-pacotes.txt )
+    ls -la /work/out/pacotes/
+    chown -R "${HOST_UID:-1000}:${HOST_GID:-1000}" /work/out 2>/dev/null || true
+    exit 0
+fi
 
 # ── v1.1: estágio AUR → [elite-local] (pwvucontrol) ──────────────────
 #  pwvucontrol não existe nos repos oficiais ( conferido via

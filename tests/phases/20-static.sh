@@ -1841,7 +1841,9 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-clean" 'BraveSoftware' "E1
 assert_grep "$REPO/elite/packages.add" '^mousepad$' "E114: o editor gráfico da casa na ISO (a palavra do dono: o nano 'não é prático para a galera que é iniciante' — a experiência moderna sem terminal; o nano FICA para o terminal)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-update" 'gamescope mousepad' "E114: mousepad na ADOÇÃO do canal (os rigs vivos recebem o editor na próxima dose — o mesmo veículo do swayosd da E101)"
 assert_grep "$REPO/elite/airootfs/etc/skel/.config/mimeapps.list" 'text/plain=mousepad.desktop' "E114: clique duplo no texto abre o mousepad (a associação segue no skel e chega aos rigs vivos pelo elite-post-transaction QUANDO o dono não escolheu outra — a escolha existente é intocável)"
-assert_grep "$REPO/.github/workflows/publish-packages.yml" 'brave-origin' "E114: o Brave NO CANAL DIÁRIO (o buraco nomeado pela E113 fechado: o asset da release viva entra no db — o rig sai do 1.99.55 permanente sem rebuild nem upload de 186 MB por push)"
+assert_grep "$REPO/.github/workflows/publish-packages.yml" 'brave-origin' "E114: o Brave NO CANAL DIÁRIO (o buraco nomeado pela E113 fechado: o pacote da casa entra no db — o rig sai do navegador velho permanente sem ISO nova)"
+assert_grep "$REPO/elite/../.ci/build.sh" 'PKG_ONLY_SKIP_REST' "E114.2: o fluxo do canal PARTE O BRAVE DO PIN (o asset da release era do estágio velho — a 1ª run provou: 'already existed' com 1.99.55 no papel; o pin parido vence o asset e o rig recebe o navegador vivo na dose)"
+assert_grep "$REPO/.github/workflows/publish-packages.yml" 'o asset vivo é O MESMO \(sha igual\)' "E114.2: o upload do Brave é CONDICIONAL ao sha do selo vivo (186 MB de --clobber por push sem mudança = desperdício que o papel não pede)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'brave-flags.conf' "E114: o conf do navegador no papel (a seção 13 fotografa o primeiro suspeito do vídeo branco — etiqueta v2.13)"
 
 # ── E90: a família inteira com --help (a auditoria E66: 20 de 31 nus) ──

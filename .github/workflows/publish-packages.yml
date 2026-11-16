@@ -119,12 +119,22 @@ jobs:
               # ZERO rebuild aqui, ZERO upload de 186 MB por push — o db é
               # o único veículo novo. Ausente na release = o canal segue
               # sem ele, com o réu nomeado no log da run.
-              if gh release download "$TAG" --repo "$REPO" --pattern "brave-origin-*.pkg.tar.zst" --clobber; then
-                echo "── brave do release vivo entra no db:"
+              # E114.2 — A ORDEM DA VERDADE: o pin PARIDO nesta run vence
+              # (o estágio do build.sh parte o BRAVE_PIN atual no fluxo do
+              # canal); o asset da release viva é o plano B (o estágio da
+              # era do último build completo — pode estar no pin velho);
+              # nenhum dos dois = o canal segue sem ele, réu nomeado.
+              if ls /work/out/pacotes/brave-origin-*.pkg.tar.zst >/dev/null 2>&1; then
+                cp /work/out/pacotes/brave-origin-*.pkg.tar.zst .
+                echo "── brave DO PIN recém-parido entra no db:"
+                ls -lh brave-origin-*.pkg.tar.zst
+                BRAVE_NO_CANAL=1
+              elif gh release download "$TAG" --repo "$REPO" --pattern "brave-origin-*.pkg.tar.zst" --clobber; then
+                echo "── brave do ASSET da release viva entra no db (o pin parido não veio nesta run):"
                 ls -lh brave-origin-*.pkg.tar.zst
                 BRAVE_NO_CANAL=1
               else
-                echo "── SEM brave-origin na release viva — o canal segue sem ele (réu nomeado; o build completo é quem o pari)"
+                echo "── SEM brave-origin (nem parido, nem asset) — o canal segue sem ele (réu nomeado no log da run)"
                 BRAVE_NO_CANAL=""
               fi
               # E103 — O DB ADVERSA SÓ O QUE EMBARCA (a prova do dono no
@@ -154,6 +164,22 @@ jobs:
                 elite-system-*.pkg.tar.zst \
                 sha256sums-pacotes.txt \
                 --repo "$REPO" --clobber
+              # E114.2 — O ASSET DO BRAVE SÓ SOBE QUANDO É NOVO (186 MB de
+              # --clobber por push sem mudança = desperdício que o papel não
+              # pede): o selo VIVO da release carrega o sha do asset atual —
+              # igual = upload pulado; diferente/ausente = sobe com --clobber.
+              if [ -n "$BRAVE_NO_CANAL" ]; then
+                nm_brave="$(basename brave-origin-*.pkg.tar.zst)"
+                gh release download "$TAG" --repo "$REPO" --pattern "sha256sums-pacotes.txt" --clobber || true
+                want="$(sha256sum "$nm_brave" | awk "{print \$1}")"
+                have="$(grep -F "$nm_brave" sha256sums-pacotes.txt 2>/dev/null | awk "{print \$1}")"
+                if [ -n "$have" ] && [ "$want" = "$have" ]; then
+                  echo "── brave $nm_brave: o asset vivo é O MESMO (sha igual) — upload pulado"
+                else
+                  echo "── brave $nm_brave: asset novo/diferente — sobe (o rig o baixa na dose)"
+                  gh release upload "$TAG" "$nm_brave" --repo "$REPO" --clobber
+                fi
+              fi
               # E101 — A LOJA SEM PILHA (o dono: "cheio de assets sujos"):
               # o --clobber sobrepõe o NOME igual, mas cada pkgrel é um nome
               # NOVO — 44 versões do elite-system lotaram a release viva
