@@ -1640,7 +1640,15 @@ pkgver=1.0
 #     julgam, reutilização de pid não engana). Bins de conteúdo mudado:
 #     craft-update, craft-dump, craft-game. pkgrel 56→57 NO MESMO COMMIT
 #     (lei E41).
-pkgrel=57
+#     E-auditoria (2026-11-16): O HELP REPETIA O ID MENTIROSO — a 2ª
+#     instância do réu da E112: o craft-help consultava o app inexistente
+#     no Flathub e a linha 'Gear Lever' do help NUNCA acendia. E A GUARDA
+#     1095 DA SUÍTE PASSAVA VERDE POR COMENTÁRIO desde a E112 (o padrão
+#     que ela certificava no craft-update morava só num comentário).
+#     Cura: o ID real no craft-help + a guarda re-apontada para onde o
+#     réu morava + anti-regressão (assert_nogrep). Bin de conteúdo
+#     mudado: craft-help. pkgrel 57→58 NO MESMO COMMIT (lei E41).
+pkgrel=58
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

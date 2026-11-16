@@ -185,7 +185,11 @@ _loja=""
 if command -v flatpak >/dev/null 2>&1; then
     flatpak info --system io.github.flattool.Warehouse >/dev/null 2>&1 \
         && _loja="$_loja Warehouse (Flatpaks — loja Flathub)"
-    flatpak info --system io.github.mijorus.smile >/dev/null 2>&1 \
+    # E-auditoria (11-16): a 2ª instância do ID mentiroso do E110 morava
+    # AQUI (o E112 renomeou o réu só no craft-update — o flatpak info
+    # consultava um app que NÃO existe no Flathub e a linha 'Gear Lever'
+    # do help NUNCA acendia) — o ID real, o mesmo que o Flathub nomeia:
+    flatpak info --system it.mijorus.gearlever >/dev/null 2>&1 \
         && _loja="$_loja Gear Lever (AppImages — launcher e atalho)"
 fi
 [ -n "$_loja" ] && printf '  %b%s\n' "$B" "lojas instaladas:$_loja (os apps entram no Aplicativos)" || true
