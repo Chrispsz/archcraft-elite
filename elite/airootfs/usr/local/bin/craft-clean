@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# craft-clean — limpeza do sistema (v3 — E107)
+# craft-clean — limpeza do sistema (v4 — E114)
 # ═══════════════════════════════════════════════════════════════════════
 # v1: cache do pacman, órfãos e journal.
 # v2 (E88 — a diretriz do dono: "mexe no limpeza"): a limpeza deixa de ser
@@ -13,6 +13,16 @@
 # cache de ícones/imports), yay (build dirs de AUR — a loja de fábrica
 # E97) e thumbnails (miniaturas de vídeo/foto órfãs). O relatório
 # soma tudo que saiu, com a fonte de cada número.
+# v4 (E114 — o papel 183150 + o relato do dono: 'eu clico e não abre
+# nada… ele tenta até abrir uma tela, mas ele não executa uma limpeza no
+# sistema realmente'): DUAS curas. (1) O MODO ROOT HONESTO: sudo dentro
+# de terminal exigia senha no ESCURO do prompt (a parede invisível que
+# o dono abandonava) — o item do menu agora PEDE RAIZ pelo polkit
+# GRÁFICO (pkexec, o diálogo que o dono já conhece do octopi) e este
+# script roda como root COM O HOME DO DONO (a lixeira certa, os caches
+# do usuário certos, zero sudo no escuro). (2) O PRÊMIO REAL: o cache do
+# BRAVE (1,6 GB no papel — o MAIOR do disco) entra na varredura, só com
+# o navegador fechado e só os regeneráveis (Cache/Code Cache/GPUCache).
 # A ordem importa: tudo que só LÊ vem antes; o que DESTRÓI pede raiz —
 # sudo falho = passo pulado COM aviso (nunca morte calada).
 # ═══════════════════════════════════════════════════════════════════════
@@ -116,7 +126,14 @@ else
 fi
 
 step "lixeira do desktop"
-if command -v gio >/dev/null 2>&1; then
+# E114 — O MODO pkexec É ROOT COM O HOME DO DONO: o gio como root opera a
+# lixeira do ROOT — a do dono ficava de pé. Com HOME do usuário no bolso
+# (o item do menu passa HOME= via pkexec env), a lixeira certa é
+# esvaziada direto; o caminho de sessão (gio) segue como sempre.
+if [ "$(id -u)" = "0" ] && [ -n "${HOME:-}" ] && [ -d "$HOME/.local/share/Trash" ]; then
+  rm -rf -- "$HOME/.local/share/Trash/files" "$HOME/.local/share/Trash/info" 2>/dev/null || true
+  echo "  lixeira esvaziada (modo pkexec: a lixeira do dono)"
+elif command -v gio >/dev/null 2>&1; then
   gio trash --empty 2>/dev/null && echo "  lixeira esvaziada" || echo "  lixeira já vazia (ou sem acesso — nada quebrou)"
 else
   echo "  (gio ausente — pulado)"
@@ -158,6 +175,31 @@ if [ -d "$HOME/.cache/thumbnails" ]; then
   lib_user=$((lib_user + mib))
 else
   echo "  (sem thumbnails — nada a fazer)"
+fi
+
+# E114 — O PRÊMIO QUE A LIMPEZA NUNCA PEGOU (o papel da seção 14 do dump
+# 183150: o cache do Brave era o MAIOR cache do disco — 1,6 GB — e nenhum
+# passo o tocava; o dono: 'ele tenta até abrir uma tela, mas ele não
+# executa uma limpeza no sistema realmente'). Seguro por desenho: SÓ com
+# o navegador fechado (pgrep nomeado no papel quando aberto) e SÓ os
+# caches regeneráveis (Cache/Code Cache/GPUCache) — senhas, histórico e
+# extensões moram em OUTROS arquivos do perfil: nada deles sai.
+step "Brave: cache do navegador (o maior prêmio do disco)"
+if pgrep -x brave >/dev/null 2>&1; then
+  echo "  (Brave está ABERTO — pulado: feche o navegador e rode a limpeza de novo)"
+  clog "Brave cache: PULADO (o navegador está vivo)"
+elif [ -d "$HOME/.cache/BraveSoftware" ]; then
+  mib="$(du -sm "$HOME/.cache/BraveSoftware" 2>/dev/null | awk '{print $1}')"
+  mib="${mib:-0}"
+  rm -rf -- "$HOME/.cache/BraveSoftware"/Brave-Browser/*/Cache \
+            "$HOME/.cache/BraveSoftware"/Brave-Browser/*/Code*Cache \
+            "$HOME/.cache/BraveSoftware"/Brave-Browser/*/GPUCache 2>/dev/null || true
+  echo "  $mib MiB avaliados (Cache/Code Cache/GPUCache varridos — o perfil intacto; reconstroem no uso)"
+  lib_user=$((lib_user + mib))
+  clog "Brave cache: varrido (${mib} MiB avaliados — só os caches regeneráveis)"
+else
+  echo "  (sem cache do Brave — nada a fazer)"
+  clog "Brave cache: ausente"
 fi
 
 step "flatpak: runtimes órfãos"

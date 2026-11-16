@@ -41,7 +41,7 @@ MAPA=(
 "elite-drivers     | perfis de driver por lspci (AMD/Intel/NVIDIA) — --apply/--purge"
 "elite-ferramentas | porta honesta do AUR/GUI (--paru/--octopi/--report — a loja gráfica é o Warehouse/Gear Lever, instalados pela Atualização)"
 "elite-sweep       | varredura one-shot dos atalhos órfãos do instalador (pré-login)"
-"craft-clean       | manutenção: cache do pacman, órfãos, journal vacuum (o papel agora é ~/.cache/elite/clean.log)"
+"craft-clean       | manutenção: cache do pacman, cache do NAVEGADOR (o maior prêmio), órfãos, journal vacuum (o papel é ~/.cache/elite/clean.log)"
 "craft-audio-route | roteamento automático de áudio (fone pluga, som troca)"
 "craft-bars        | supervisor da sessão (waybar, dock, toplevel, idle, áudio, swaync)"
 "craft-bat         | resumo de bateria (o clique no módulo da barra)"

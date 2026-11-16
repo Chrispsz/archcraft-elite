@@ -31,7 +31,12 @@
 #      e o systemd-sysctl só roda no boot). O hook compara CADA chave do
 #      conf da casa com o kernel vivo; drift = re-aplica só o conf da casa
 #      e narra no papel (o tuning da casa vale no -Syu, não no próximo boot);
-#   4. NADA MAIS: zram/etc. são estáticos — agir só onde há gargalo provado.
+#   4. E106 — O FANTASMA DO INSTALADOR NÃO RENASCE (calamares/abif fora dos
+#      rigs instalados); 5. E108 — O JORNAL PERSISTENTE (/var/log/journal);
+#   6. E114 — O CONFO DO NAVEGADOR E A ASSOCIAÇÃO DO EDITOR GRÁFICO
+#      sincronizam ao home dos rigs vivos (a cura do vídeo branco + o
+#      mousepad como porta text/plain quando o dono não escolheu outra);
+#      nada além disso: agir só onde há gargalo provado.
 # ═══════════════════════════════════════════════════════════════════════════
 set -u
 
@@ -163,6 +168,48 @@ if [ ! -e /run/archiso ] && [ ! -d /var/log/journal ]; then
     else
         tlog "jornal: FALHOU criar /var/log/journal — o journal segue volátil (réu nomeado no papel)"
     fi
+fi
+
+# ── 6. O CONFO DO NAVEGADOR E O EDITOR GRÁFICO VIAJAM (E114) ─────────────
+#      O brave-flags.conf era SKEL: rig vivo NUNCA recebia a cura (o réu
+#      do vídeo branco do YouTube — a linha Vulkan da era v1.1 — morava
+#      no home do dono e nenhuma dose o tocava). O conf da casa viaja no
+#      PACOTE (/usr/local/share/elite/chromium-flags/) e este hook o
+#      sincroniza ao home de cada usuário real — dono do arquivo é o
+#      usuário (o papai root não deixa lixo). Idempotente: só copia
+#      quando difere, com linha no papel.
+#      E o editor gráfico (mousepad — a adoção da E114): quem não tem
+#      associação text/plain ganha a porta moderna do dono ('saindo um
+#      pouco desse uso do terminal… trazendo a experiência mais moderna
+#      do Linux'); quem JÁ escolheu o seu, fica com o seu (a escolha do
+#      dono é intocável).
+SRC_FLAGS=/usr/local/share/elite/chromium-flags/brave-flags.conf
+if [ ! -e /run/archiso ] && [ -r "$SRC_FLAGS" ]; then
+    while IFS=: read -r _u _p _uid _gid _g _h _s; do
+        [ "$_uid" -ge 1000 ] 2>/dev/null || continue
+        [ -d "$_h" ] || continue
+        _tgt="$_h/.config/brave-flags.conf"
+        if ! cmp -s "$SRC_FLAGS" "$_tgt" 2>/dev/null; then
+            if install -Dm644 -o "$_uid" -g "$_gid" "$SRC_FLAGS" "$_tgt" 2>/dev/null; then
+                tlog "brave-flags: conf da casa sincronizado para $_u (o réu do vídeo branco morre no PRÓXIMO abrir do navegador)"
+            else
+                tlog "brave-flags: FALHOU sincronizar para $_u (réu nomeado no papel)"
+            fi
+        fi
+        _mapps="$_h/.config/mimeapps.list"
+        if ! grep -q "^text/plain=" "$_mapps" 2>/dev/null; then
+            mkdir -p "${_mapps%/*}" 2>/dev/null || true
+            if grep -q "^\[Default Applications\]" "$_mapps" 2>/dev/null; then
+                sed -i "/^\[Default Applications\]/a text/plain=mousepad.desktop" "$_mapps" 2>/dev/null || true
+            else
+                printf '[Default Applications]\ntext/plain=mousepad.desktop\n' >> "$_mapps" 2>/dev/null || true
+            fi
+            chown "$_uid:$_gid" "$_mapps" 2>/dev/null || true
+            grep -q "^text/plain=" "$_mapps" 2>/dev/null && \
+                tlog "mimeapps: text/plain → mousepad para $_u (o editor gráfico da casa — o rig não tinha associação)"
+        fi
+        unset _tgt _mapps
+    done < /etc/passwd
 fi
 
 exit 0

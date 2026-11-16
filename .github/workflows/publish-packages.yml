@@ -109,6 +109,24 @@ jobs:
               rm -rf db-prune
               cp /work/out/pacotes/craft-toplevel-*.pkg.tar.zst .
               cp /work/out/pacotes/elite-system-*.pkg.tar.zst .
+              # E114 — O BRAVE NO CANAL (o buraco nomeado pela E113: o canal
+              # publicava SÓ elite-system (+ a ponte) e o rig ficava em
+              # 1.99.55 com o pin da casa em 1.99.57 — o navegador do rig
+              # era defasado PERMANENTE e o check-brave celebrava o pin
+              # enquanto o rig ficava para trás). O pacote da casa já existe
+              # como ASSET da release viva (o build completo o pariu):
+              # baixa → repo-add → o craft-update -Sy do rig entrega o pin.
+              # ZERO rebuild aqui, ZERO upload de 186 MB por push — o db é
+              # o único veículo novo. Ausente na release = o canal segue
+              # sem ele, com o réu nomeado no log da run.
+              if gh release download "$TAG" --repo "$REPO" --pattern "brave-origin-*.pkg.tar.zst" --clobber; then
+                echo "── brave do release vivo entra no db:"
+                ls -lh brave-origin-*.pkg.tar.zst
+                BRAVE_NO_CANAL=1
+              else
+                echo "── SEM brave-origin na release viva — o canal segue sem ele (réu nomeado; o build completo é quem o pari)"
+                BRAVE_NO_CANAL=""
+              fi
               # E103 — O DB ADVERSA SÓ O QUE EMBARCA (a prova do dono no
               # papel, 10/nov: pwvucontrol-debug/wlrctl-debug no repo-add
               # e 404 no download do rig — o pacman RECUSOU a dose INTEIRA
@@ -116,10 +134,19 @@ jobs:
               # recebe EXATAMENTE o conjunto que sobe; -debug e amigos que
               # o makepkg gerar ficam FORA (o rig de produção nunca os
               # pede — artefato de desenvolvimento).
-              repo-add --quiet elite-local.db.tar.gz craft-toplevel-*.pkg.tar.zst elite-system-*.pkg.tar.zst
+              PKGARGS="craft-toplevel-*.pkg.tar.zst elite-system-*.pkg.tar.zst"
+              [ -n "$BRAVE_NO_CANAL" ] && PKGARGS="$PKGARGS brave-origin-*.pkg.tar.zst"
+              repo-add --quiet elite-local.db.tar.gz $PKGARGS
               # pacman consulta <repo>.db SEM sufixo (E32) — arquivo real, não symlink
               rm -f elite-local.db && cp elite-local.db.tar.gz elite-local.db
-              cp /work/out/pacotes/sha256sums-pacotes.txt .
+              # E114 — O SELO COBRE EXATAMENTE O QUE O DB ADVERSA (o selo da
+              # era anterior não sabia do brave): regenerado aqui sobre o
+              # conjunto real; sem brave, o selo do makepkg segue valendo.
+              if [ -n "$BRAVE_NO_CANAL" ]; then
+                sha256sum craft-toplevel-*.pkg.tar.zst elite-system-*.pkg.tar.zst brave-origin-*.pkg.tar.zst > sha256sums-pacotes.txt
+              else
+                cp /work/out/pacotes/sha256sums-pacotes.txt .
+              fi
               echo "── selo da run:"
               cat sha256sums-pacotes.txt
               gh release upload "$TAG" elite-local.db elite-local.db.tar.gz \
@@ -138,8 +165,10 @@ jobs:
               # o resto morre como argumento solto — a run #63 provou: o
               # upload rodou, a dieta virou poeira e o step ficou VERDE.
               # O veneno era silencioso; agora é lei do papel).
-              for nm in elite-system craft-toplevel; do
-                  keep="$(ls /work/out/pacotes/${nm}-*.pkg.tar.zst 2>/dev/null | head -1 | xargs -r -n1 basename)"
+              for nm in elite-system craft-toplevel brave-origin; do
+                  # E114 — o brave mora no CWD (baixado do asset), os outros
+                  # dois em /work/out/pacotes: a busca cobre os dois endereços
+                  keep="$(ls /work/out/pacotes/${nm}-*.pkg.tar.zst ./${nm}-*.pkg.tar.zst 2>/dev/null | head -1 | xargs -r -n1 basename)"
                   [ -n "$keep" ] || continue
                   gh release view "$TAG" --repo "$REPO" --json assets --jq ".assets[].name" \
                     | grep -E "^${nm}-.*\.pkg\.tar\.zst$" | grep -vxF "$keep" \
@@ -150,7 +179,7 @@ jobs:
               done
               echo "── assets de PACOTE da release viva após a run:"
               gh release view "$TAG" --repo "$REPO" --json assets --jq ".assets[].name" \
-                | grep -E "elite-system|craft-toplevel|elite-local\.db|sha256sums-pacotes" || true
+                | grep -E "elite-system|craft-toplevel|brave-origin|elite-local\.db|sha256sums-pacotes" || true
               # E103 — A VERIFICAÇÃO DO CANAL: CADA arquivo no db precisa
               # ter asset na release viva (a classe 404 é impossível — o
               # canal se prova antes de o rig pagar a recusa). O

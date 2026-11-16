@@ -52,7 +52,10 @@ firefox
 thunar-volman
 gufw
 ufw
-mousepad
+## E114 — O mousepad VOLTOU: o editor gráfico da casa (a palavra do dono:
+## o nano 'não é prático para a galera que é iniciante' — a experiência
+## moderna sem terminal). A era do debloat o tirou; a palavra do dono o
+## traz (packages.add; a associação text/plain segue no mimeapps).
 vim
 zathura
 zathura-pdf-poppler
@@ -226,7 +229,7 @@ xorg-x11perf
 
 ## Apps específicos ou "simples demais" (não são uso geral de fábrica)
 simplescreenrecorder   # gravador X11 — diretriz do dono; OBS fica no cockpit
-geany                  # IDE-lite; mousepad cobre o editor simples
+geany                  # IDE-lite; o mousepad da casa cobre o editor simples (E114 — de volta ao packages.add)
 geany-plugins
 archcraft-config-geany # config do geany (sai com ele)
 meld                   # diff GUI (dev tool)

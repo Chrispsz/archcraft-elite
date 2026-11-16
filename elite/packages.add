@@ -275,6 +275,14 @@ pwvucontrol
 bluetui
 impala
 brave-origin
+## E114 — O EDITOR GRÁFICO DA CASA (a palavra do dono: o editor via
+## terminal (nano) 'não é prático para a galera que é iniciante e tal,
+## vai precisar editar um documento… trazendo a experiência mais moderna
+## do Linux'): o mousepad é o editor GUI do dia a dia — clique duplo no
+## Thunar abre o texto (a associação text/plain segue no mimeapps.list e
+## no elite-post-transaction para rigs vivos); o nano FICA para o
+## terminal (git/EDITOR — o TUI de sempre para quem o quiser).
+mousepad
 
 ## v1.8.2 — CONECTIVIDADE GUI (áudio do dono, 24/out: "impala e bluetui…
 ## eu não sei utilizar esses programas que são terminal… quero mais bonito,

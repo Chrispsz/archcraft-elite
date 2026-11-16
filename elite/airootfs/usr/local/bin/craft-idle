@@ -551,6 +551,18 @@ case "${1:-}" in
         # o E109 abaixo decide (defesa em camadas, o relógio ainda pega o
         # zumbi que RODOU linhas antes de congelar).
         _susp="$(timeout 3 systemctl is-active systemd-suspend.service 2>/dev/null || true)"
+        # E114 — O JUIZ PODIA SER CONVOCADO CEDO DEMAIS (o papel 183150,
+        # 17:27:43: 'TARDIO ... systemd-suspend.service=inactive' fotografado
+        # NO MEIO do sono real — o PrepareForSleep do logind dispara ANTES de
+        # a unit entrar em 'activating'). Um retry único de 1s separa o
+        # INÍCIO do sono (a 2ª leitura acha active/activating) do zumbi de
+        # verdade (que segue inactive nas DUAS leituras) — o juiz para de
+        # condenar sono legítimo e a cura da dupla senha não nasce com
+        # falsa confissão.
+        if [ -n "$_susp" ] && [ "$_susp" != "active" ] && [ "$_susp" != "activating" ]; then
+            sleep 1
+            _susp="$(timeout 3 systemctl is-active systemd-suspend.service 2>/dev/null || true)"
+        fi
         if [ -n "$_susp" ] && [ "$_susp" != "active" ] && [ "$_susp" != "activating" ]; then
             ilog "E110: sleep-hook TARDIO (o PrepareForSleep que o convocou JÁ passou — systemd-suspend.service=$_susp) — nada a fazer: o portão e o lock pertencem ao mundo pós-wake (a dupla senha morre pelo ESTADO do logind, não pelo relógio do processo)"
             exit 0
@@ -672,6 +684,25 @@ case "${1:-}" in
         fi
         if [ -e "$GATE" ]; then
             ilog "E77: idle suspend DEFERIDO — portão fechado no pós-sono (resume sem destravo; a primeira atividade reabre o ciclo)"
+            exit 0
+        fi
+        # E114 — A VIGÍLIA NO AR É O PORTÃO VIVO (o crime do papel 183150
+        # fotografado de ponta a ponta: 17:18:07 o dono digitando no lock
+        # (+12 jiffies), 17:27:42 o deadline deste braço chegou NO MESMO
+        # segundo em que o hyprlock morreu (a senha aceita) — o pgrep do
+        # topo viu o lock MORTO, o stamp do destravo ainda não existia (a
+        # vigília tica a cada 30s), o portão aberto, e o systemctl
+        # suspendeu o PC na cara do dono que ACABAVA de digitar a senha
+        # ('colocar a senha e o sistema suspender na tela de bloqueio',
+        # palavra por palavra). A lei E77 em sua letra inteira: enquanto a
+        # vigília estiver NO AR, o tempo travado é DELA — nem o lock morto
+        # libera este braço, porque quem formaliza o destravo é a vigília
+        # (stamp + portão + saída do laço); o próximo período COMPLETO de
+        # inatividade suspende. O dono ausente de verdade nunca fica sem
+        # sono: o lock vivo não morre sem ele e a vigília suspende no
+        # próprio teto — o custo é zero, a corrida morre pelo ESTADO.
+        if pgrep -x craft-vigil >/dev/null 2>&1; then
+            ilog "E114: idle suspend ADIADO — a vigília segue no ar (o lock morreu DENTRO da janela desta decisão: o destravo é DELA; o 'suspende quando digito a senha' morre pelo estado da vigília)"
             exit 0
         fi
         ilog "suspendindo (idle ${SUSPEND_MIN:-?}min — escuro e travado: acorda no lock, senha UMA vez)"

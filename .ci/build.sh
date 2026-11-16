@@ -449,6 +449,14 @@ cp -p /work/elite/airootfs/etc/skel/.config/labwc/menu.xml \
 mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/swayosd
 cp -p /work/elite/airootfs/etc/skel/.config/swayosd/config.toml \
       /tmp/elite-src/elite-system/files/usr/local/share/elite/swayosd/config.toml
+# E114 — O CONFO DO NAVEGADOR NO PACOTE: o brave-flags.conf era SKEL — rig
+# vivo nunca recebia (a cura do vídeo branco do YouTube — o réu Vulkan da
+# era v1.1 fora — morria sem veículo). Viaja em /usr/local/share/elite/
+# chromium-flags/ e o elite-post-transaction sincroniza ao home (dono do
+# arquivo = o usuário; idempotente, com linha no papel).
+mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/chromium-flags
+cp -p /work/elite/airootfs/etc/skel/.config/brave-flags.conf \
+      /tmp/elite-src/elite-system/files/usr/local/share/elite/chromium-flags/brave-flags.conf
 # E103 — OS APPS PADRÃO COMO VARIÁVEIS (a abstração XDG): o profile.d da
 # casa crava TERMINAL/FILEMANAGER/EDITOR/VISUAL/BROWSER com os defaults —
 # o usuário vence exportando (a variável PRESENTE não é tocada).
@@ -1679,7 +1687,59 @@ pkgver=1.0
 #     v2.12 (etiqueta = conteúdo). Bins de conteúdo mudado:
 #     elite-post-transaction, craft-display, craft-bars, craft-game,
 #     craft-dump. pkgrel 58→59 NO MESMO COMMIT (lei E41).
-pkgrel=59
+#
+#     pkgrel 59→60 NO MESMO COMMIT (lei E41) — E114: o dump 183150
+#     periciado + a palavra do dono de 16/11. (1) O SUSPEND SOB A SENHA
+#     QUE O DONO DIGITOU — o papel fotografou o crime inteiro
+#     (17:18:07 mãos no lock; 17:27:42 o deadline do braço idle chegou
+#     NO MESMO segundo da morte do hyprlock: pgrep morto, stamp do
+#     destravo ainda por nascer — a vigília tica a cada 30s — portão
+#     aberto, systemctl suspendeu na cara do dono): o braço do idle
+#     agora DEFERE enquanto a vigília estiver no ar (a lei E77 na letra
+#     inteira: o destravo formal é DELA; o dono ausente segue dormindo
+#     pelo teto DELA — a corrida morre pelo ESTADO) + o juiz E110 do
+#     sleep-hook ganha retry de 1s (o papel 17:27:43 fotografou
+#     'inactive' NO MEIO do sono real — o PrepareForSleep do logind
+#     dispara antes do flip da unit). craft-idle. (2) O VÍDEO BRANCO DO
+#     YOUTUBE — o réu é a linha Vulkan do brave-flags.conf da era v1.1
+#     (compositing Vulkan do Chromium sobre RADV: o frame não desenha, o
+#     preview da timeline desenha por outro caminho — a assinatura exata
+#     do relato): o conf da casa vira v1.2 (GL compositing, o padrão
+#     estável) e GANHA VEÍCULO até o rig vivo: o conf viaja no pacote
+#     (/usr/local/share/elite/chromium-flags/) e o elite-post-transaction
+#     sincroniza ao home de cada usuário real. brave-flags.conf +
+#     elite-post-transaction + build.sh (empacotamento). (3) A LIMPEZA
+#     QUE NÃO LIMPAVA — o relato do dono ('clico e não abre nada… tenta
+#     abrir uma tela, mas não executa uma limpeza realmente') tinha dois
+#     réus: o sudo no escuro do terminal (a parede invisível) e o MAIOR
+#     cache do disco fora da varredura (Brave 1,6 GB no papel). Cura: o
+#     item do menu pede raiz pelo polkit GRÁFICO (pkexec env HOME — o
+#     diálogo que o dono já conhece) e o craft-clean v4 ganha o passo do
+#     Brave (só com o navegador fechado, só os regeneráveis Cache/Code
+#     Cache/GPUCache) + a lixeira certa no modo root. menu.xml +
+#     craft-clean. (4) A PORTA DAS TELAS SAI DO BOTÃO DIREITO — a ordem
+#     do dono ('já tem o programa para mexer nos hertz e tal, então acho
+#     que nem precisa dessa opção aqui'): o wdisplays é a porta e a
+#     persistência E89 é do watch (que grava a mudança por QUALQUER
+#     porta); o craft-display segue vivo como CLI do socorro. menu.xml.
+#     (5) O EDITOR GRÁFICO DA CASA — mousepad entra na ISO (packages.add)
+#     e na ADOÇÃO do canal (rigs recebem na próxima dose) + a associação
+#     text/plain quando o dono não escolheu outra (elite-post-transaction;
+#     a escolha existente é intocável) + mimeapps do skel. craft-update +
+#     packages.add + mimeapps.list + elite-post-transaction. (6) O BRAVE
+#     NO CANAL DIÁRIO — o buraco nomeado pela E113 fechado: o
+#     publish-packages.yml baixa o brave-origin do asset da release viva
+#     (zero rebuild, zero upload de 186 MB por push), repo-add entrega o
+#     pin 1.99.57 ao rig, a loja sem pilha cobre o nome, o selo cobre o
+#     conjunto, a verificação db↔assets prova. publish-packages.yml. (7)
+#     OS OLHOS DO DUMP — o conf do navegador entra na seção 13 (o réu do
+#     vídeo mora no papel; a etiqueta sobe para v2.13). craft-dump. (8) O
+#     MAPA DIZ A VERDADE — a linha do craft-clean nomeia o cache do
+#     navegador (o passo novo). craft-help. Bins de conteúdo mudado:
+#     craft-idle, craft-clean, elite-post-transaction, craft-update,
+#     craft-dump, craft-help, menu.xml (pele), brave-flags.conf
+#     (skel→pacote).
+pkgrel=60
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

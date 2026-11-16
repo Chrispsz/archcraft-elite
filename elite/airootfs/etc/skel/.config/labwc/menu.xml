@@ -40,6 +40,20 @@
   QUANDO o dono ratificar. A base não se destrói com gambiarra ('a gente
   tem que ir pelas melhores soluções, soluções que funcionam realmente').
   ══════════════════════════════════════════════════════════════════════════
+  E114 — A PORTA DAS TELAS SAI E A LIMPEZA GANHA RAIZ NO DIÁLOGO CERTO
+  (o papel 183150 + a palavra do dono): (1) o item 'Telas — resolução e
+  Hz…' saiu — 'já tem o programa para mexer nos hertz e tal, então acho
+  que nem precisa dessa opção aqui na parte do botão direito' — o
+  wdisplays é a porta e a persistência E89 segue VIVA (o watch grava a
+  mudança que o dono fizer POR QUALQUER porta; o apply do boot nasce
+  aplicado); o craft-display segue vivo como CLI do socorro (craft-help
+  nomeia). (2) a Limpeza roda com raiz PELO DIÁLOGO GRÁFICO (pkexec — o
+  mesmo que o octopi abre): o sudo no escuro do terminal era a parede
+  invisível ('ele tenta até abrir uma tela, mas ele não executa uma
+  limpeza no sistema realmente') — agora o diálogo pede a senha, o
+  relatório fica no terminal e o papel em ~/.cache/elite/clean.log conta
+  tudo.
+  ══════════════════════════════════════════════════════════════════════════
   ESTRUTURA herdada do menu do criador do Archcraft (obmenu-generator;
   o labwc lê menu.xml ESTÁTICO). Sintaxe: labwc docs/menu.xml +
   labwc-menu(5) (formato openbox_menu).
@@ -82,8 +96,9 @@
        E107: AÇÕES DE SISTEMA, nada de programas soltos (o dono:
        'trazer pelo menos o essencial, o importante… mais prático, mais
        direto, o sistema configurável de verdade'). A ordem é a rotina:
-       capturar, telas, atualizar, limpar, pacotes, dock, jogo, lock,
-       sair. -->
+       capturar, atualizar, limpar, pacotes, dock, jogo, lock, sair.
+       E114: a porta das telas saiu (o wdisplays é a porta e a
+       persistência E89 é do watch — ver o comentário E114 acima). -->
   <menu id="root-menu">
     <!-- o dono: 'pode ter o terminal, que é um negócio mais universal
          assim do sistema' -->
@@ -96,18 +111,20 @@
     <item label="Captura de tela">
       <action name="Execute" command="craft-shot" />
     </item>
-    <!-- E89 — o craft-display lista TODOS os modos do EDID no fuzzel,
-         aplica E grava no mesmo clique (a persistência dos hertz que o
-         sistema não tinha). E106 — o rótulo DIZ o que faz. -->
-    <item label="Telas — resolução e Hz…">
-      <action name="Execute" command="craft-display" />
-    </item>
+    <!-- E114 — O ITEM DAS TELAS SAIU (a ordem do dono: o wdisplays já
+         é a porta dos hertz e a persistência E89 é do watch do
+         craft-display — ver o comentário E114 do cabeçalho; o CLI
+         segue vivo para o socorro) -->
     <separator />
     <item label="Atualizar sistema">
       <action name="Execute" command="foot -e craft-update" />
     </item>
+    <!-- E114 — A LIMPEZA COM RAIZ NO DIÁLOGO CERTO: o pkexec abre o
+         diálogo GRÁFICO de senha (o mesmo do octopi); o relatório fica
+         no terminal e o modo `menu` segura a janela até o Enter. Se o
+         dono cancelar o diálogo, a porta explica e não pisca. -->
     <item label="Limpeza do sistema">
-      <action name="Execute" command="foot -e craft-clean menu" />
+      <action name="Execute" command="foot -e sh -c &apos;pkexec env HOME=&quot;$HOME&quot; craft-clean menu || { printf &quot;\nLimpeza cancelada — a senha não foi aceita ou o diálogo foi fechado (o papel em ~/.cache/elite/clean.log conta o que rodou).\n&quot;; read -r _; }&apos;" />
     </item>
     <separator />
     <!-- E109 — AppImages… e Flatpaks… SAÍRAM (a ordem do dono: menus de

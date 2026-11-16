@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · craft-dump (v2.12 — o "btop completão" que se atualiza)
+# Archcraft ELITE · craft-dump (v2.13 — o "btop completão" que se atualiza)
 # ═══════════════════════════════════════════════════════════════════════════
 # Pedido do dono (out/2026): "como puxo tudo que está rodando como se fosse
 # um btop completão pra gente ter um diagnóstico da RAM, pacotes, uso, CPU
@@ -243,7 +243,7 @@ if ! : > "$OUT" 2>/dev/null; then
 fi
 
 {
-    printf '══════════ ELITE DUMP v2.12 — diagnóstico completo ══════════\n'
+    printf '══════════ ELITE DUMP v2.13 — diagnóstico completo ══════════\n'
     if [ "$(id -un)" != "$DUMP_USER" ]; then
         printf 'gerado: %s · usuário: %s → sessão de %s (uid %s) · host: %s\n' \
             "$(date)" "$(id -un)" "$DUMP_USER" "$DUMP_UID" "$(uname -n 2>/dev/null || echo '?')"
@@ -753,12 +753,22 @@ PY
     else
         printf '\n── (ausente: /var/log/elite-update.log — a dose nunca rodou nesta máquina?)\n'
     fi
-    # E113 — O BRAVE QUE O CANAL NÃO TRAZ (a prova do rig 170720: instalado
+    # E113 — O BRAVE QUE O CANAL NÃO TRAZIA (a prova do rig 170720: instalado
     # 1.99.55 com o pin da casa em 1.99.57 e o check-brave celebrando 'pin
-    # em dia' — o canal diário publica SÓ elite-system; brave-origin
+    # em dia' — o canal diário publicava SÓ elite-system; brave-origin
     # (186 MB) viaja SÓ em ISO nova. A distância instalado×db no papel —
     # o buraco nomeado não é buraco silencioso.)
+    # E114 — O BURACO MORREU: o canal baixa o brave-origin do asset da
+    # release viva e o repo-add entrega o pin ao rig — a distância
+    # instalado×db abaixo deixa de ser permanente e vira JANELA (a dose
+    # seguinte fecha).
     r "printf 'brave-origin instalado: '; pacman -Q brave-origin 2>/dev/null || echo '(ausente)'; printf 'brave-origin no db da casa: '; pacman -Si brave-origin 2>/dev/null | sed -n 's/^Version *: //p' | head -1" 4
+    # E114 — O CONFO DO NAVEGADOR NO PAPEL (o réu do vídeo branco do
+    # YouTube mora no home do dono — a linha Vulkan da era v1.1; a cura
+    # v1.2 viaja no pacote e o elite-post-transaction sincroniza). O conf
+    # REAL do rig entra no papel: se o vídeo branco voltar, o primeiro
+    # suspeito tem endereço e conteúdo — sem fé, só o byte.
+    r "cat \"$UHOME/.config/brave-flags.conf\" 2>/dev/null || echo '(sem conf do navegador — o Brave corre sem flags da casa)'" 6
     r "grep 'elite-system' /var/log/pacman.log 2>/dev/null | tail -12" 14
     # E112 — A HISTÓRIA INTEIRA (o ponto cego do 195015: o tail acima só
     # mostra o elite-system — um cachyos-settings (o réu do swappiness)
@@ -877,7 +887,7 @@ PY
     # o rig já tem o dir)
     r "ls -ld /var/log/journal 2>/dev/null || echo '(sem /var/log/journal — o journal é VOLÁTIL: a história cross-boot morre no reboot; a cura E108 chega pela próxima dose)'" 2
 
-    printf '\n══════════ FIM DO DUMP v2.12 ══════════\n'
+    printf '\n══════════ FIM DO DUMP v2.13 ══════════\n'
     printf 'a seção 0 é o resumo; as seções 1-14 são o detalhe.\n'
     printf 'envie este arquivo (ou a URL do --upload) para a análise.\n'
 } > "$OUT" 2>&1

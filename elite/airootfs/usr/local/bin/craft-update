@@ -266,7 +266,13 @@ HOUSE_OVERWRITE=(
 # degradavam ao pactl sem barra NUNCA). A adoção fecha o furo: sudo
 # craft-update → o daemon e a barra nascem na sessão viva (o craft-bars
 # supervisiona).
-ADOCAO=(lxqt-policykit pacman-contrib octopi yay flatpak swayosd gamemode gamescope)
+# E114 — O EDITOR GRÁFICO DA CASA CHEGA AO RIG: mousepad entra na adoção
+# (a palavra do dono: 'o nosso próprio editor de texto também ser o
+# editor via terminal… o Nano… não é prático para a galera que é
+# iniciante… trazendo a experiência mais moderna do Linux') — rigs vivos
+# recebem na próxima dose; a associação text/plain (sem escolha anterior
+# do dono) vai pelo elite-post-transaction.
+ADOCAO=(lxqt-policykit pacman-contrib octopi yay flatpak swayosd gamemode gamescope mousepad)
 
 ulog() {
     mkdir -p "$(dirname "$ULOG")" 2>/dev/null || true
