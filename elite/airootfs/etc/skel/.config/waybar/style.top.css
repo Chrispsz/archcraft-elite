@@ -1,4 +1,6 @@
 /* Archcraft ELITE · Waybar TOP CSS — "Menu Bar" estilo macOS · AMOLED rice v1.3
+ * entregue por craft-rice — a pele da topbar (E115): rig vivo renova pela
+ * gramática fóssil/marcador; CSS editado pelo dono = intocável
  * Full-width no topo, altura fina, fundo translúcido escuro — o visual do
  * menu bar do macOS. Palette oficial: github.com/catppuccin/palette (mocha).
  * GTK CSS: @define-color + alpha(@cor, fator) suportados pelo Waybar.
@@ -149,6 +151,18 @@ window#waybar {
   color: @text;
 }
 
+/* E115 — o assento do MODO DE JOGO (só existe quando o gamemoded está
+ * vivo — um jogo da família ou o manual ligou): verde da casa enquanto
+ * ATIVO — o estado que se VÊ, a resposta ao 'não sei se funciona'.
+ * Sem jogo o texto é vazio e o módulo some (a gramática do bgapps). */
+#custom-game {
+  padding: 0 12px;
+  color: @subtext0;
+}
+#custom-game.game-on {
+  color: @green;
+}
+
 /* v2.3.10 — o print SAIU da barra ("não gostei do botão de print melhor
  * remover"): nenhuma regra do módulo extinto mora mais neste arquivo —
  * os verbos vivem nos atalhos W-P / W-S-P. */
@@ -157,6 +171,7 @@ window#waybar {
  * mesma transição na base (ida E volta animadas). */
 #custom-power,
 #custom-drawer,
+#custom-game,
 #mpris,
 #network,
 #pulseaudio,

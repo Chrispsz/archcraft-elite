@@ -25,6 +25,15 @@
 # o navegador fechado e só os regeneráveis (Cache/Code Cache/GPUCache).
 # A ordem importa: tudo que só LÊ vem antes; o que DESTRÓI pede raiz —
 # sudo falho = passo pulado COM aviso (nunca morte calada).
+# v5 (E115 — o clean.log do dump 224713 conta CINCO 'iniciado' e ZERO
+# 'fim' — o dono fechou a janela no meio (o paccache num cache grande
+# leva até 1 min e a tela parecia parada) e a perícia só tinha a
+# abertura): cada passo deixa linha ANTES de correr (o trace sobrevive
+# à morte no meio — o papel mostra ONDE estava quando a janela fechou);
+# a abertura nomeia uid/HOME (o modo pkexec fica no papel: raiz com o
+# home do dono é legível, não presumido); e o passo pesado AVISA que é
+# pesado (o relógio de parede no papel também — o 'não abre' era o
+# passo lendo o disco calado).
 # ═══════════════════════════════════════════════════════════════════════
 set -euo pipefail
 
@@ -65,7 +74,9 @@ done
 _modo="interativo"
 [ "$ASSUME_YES" = 1 ] && _modo="--yes"
 [ "$ASSUME_YES" != 1 ] && [ "$MENU_HOLD" = 1 ] && _modo="menu"
-clog "═══ craft-clean iniciado (TTY: $([ -t 0 ] && echo sim || echo não) · modo: $_modo)"
+# E115 — a abertura fala QUEM corre: uid e HOME no papel (o modo pkexec
+# é raiz com o home do dono — o dono do papel vê a física, não presume)
+clog "═══ craft-clean iniciado (TTY: $([ -t 0 ] && echo sim || echo não) · modo: $_modo · uid: $(id -u) · HOME: ${HOME:-?})"
 
 PKG_CACHE="/var/cache/pacman/pkg"
 cache_mib() {
@@ -90,6 +101,12 @@ srun() {
 }
 
 step "cache: mantendo 2 versões (paccache -rk2)"
+# E115 — O PASSO FALA ANTES DE CORRER (o clean.log do dump só tinha a
+# abertura: o dono fechava a janela no meio do paccache silencioso e o
+# papel não contava o porquê). Cache grande = até 1 min de leitura de
+# disco — o aviso DIZ isso na tela e no papel.
+clog "passo: paccache -rk2 iniciado (cache grande pode levar até 1 min)"
+echo "   (o paccache lê o cache inteiro — cache grande leva até 1 min)"
 if srun paccache -rk2 2>/dev/null; then
   clog "paccache -rk2: OK"
 else
@@ -185,6 +202,7 @@ fi
 # caches regeneráveis (Cache/Code Cache/GPUCache) — senhas, histórico e
 # extensões moram em OUTROS arquivos do perfil: nada deles sai.
 step "Brave: cache do navegador (o maior prêmio do disco)"
+clog "passo: cache do Brave iniciado (checa navegador vivo antes de tocar)"
 if pgrep -x brave >/dev/null 2>&1; then
   echo "  (Brave está ABERTO — pulado: feche o navegador e rode a limpeza de novo)"
   clog "Brave cache: PULADO (o navegador está vivo)"

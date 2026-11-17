@@ -409,3 +409,15 @@ apparmor           # userspace inerte sem LSM habilitado no kernel
 linux-firmware-marvell # firmware nicho, fora da curadoria de firmware (v1.1)
 rxvt-unicode-terminfo  # terminal removido, terminfo órfã
 archcraft-openbox-themes # temas OB de sessões mortas (o rice tem themerc-override próprio)
+
+## E115 — O CHAVEIRO SAI DA NASCENÇA (a palavra do dono: 'eu não sei por
+## que tem o chaveiro do GNOME, sendo que nosso sistema não é GNOME, não
+## usa interface GNOME nem nada do tipo, então nem era para ter esse
+## chaveiro'). O gnome-keyring NÃO é o desktop GNOME — é o daemon da API
+## Secret Service (onde apps guardam senhas) que a BASE upstream trazia;
+## com o Brave da casa em --password-store=basic (o mesmo commit), NINGUÉM
+## o consulta: zero popup, zero gcr-prompter, zero 'couldn't unlock' no
+## journal. O p11-kit-server NÃO sai (dep do gnutls/mesa — certificados
+## TLS; encanamento, escondido da lista de 2º plano pelo craft-bgapps).
+## Se um pacote futuro voltar a precisar, o pacman o traz de novo sozinho.
+gnome-keyring

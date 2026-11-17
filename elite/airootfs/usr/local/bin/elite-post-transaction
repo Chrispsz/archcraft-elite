@@ -212,4 +212,26 @@ if [ ! -e /run/archiso ] && [ -r "$SRC_FLAGS" ]; then
     done < /etc/passwd
 fi
 
+# ── 7. O STAMP DA TELA MORRE COM A DOSE (E115) ──────────────────────────
+#      O apply do craft-display com falha dorme no teto E106 (fail:6 —
+#      silêncio honesto até o reboot). O rig do dump 224713 passou o boot
+#      TODO no fail:6: o --scale-exact da era velha falhou 6× no arranque
+#      e a tela foi para o modo errado até o dono abrir o wdisplays na
+#      mão. A cura que chega POR DOSE (a E113: o probe da bandeira) ficava
+#      presa atrás do stamp velho — a promessa valia só no reinício.
+#      Cura: o hook apaga o stamp fail:* de cada usuário vivo — o
+#      heartbeat do craft-bars re-aplica com o binário NOVO em ≤5s, SEM
+#      reboot (o stamp ok NUNCA é tocado: arranjo assentado é fé; e o
+#      conf salvo é a fonte da verdade — o apply restaurando o que o dono
+#      escolheu, nunca o default do boot).
+for _d in /run/user/[0-9]*; do
+    [ -d "$_d/elite" ] || continue
+    _st="$_d/elite/display-applied"
+    if [ -f "$_st" ] && grep -q '^fail:' "$_st" 2>/dev/null; then
+        rm -f "$_st" 2>/dev/null || true
+        tlog "display: stamp fail apagado (uid ${_d##*/user/}) — o craft-display NOVO re-aplica o conf salvo no próximo heartbeat (≤5s), sem reboot"
+    fi
+    unset _st
+done
+
 exit 0

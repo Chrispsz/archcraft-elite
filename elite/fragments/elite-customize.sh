@@ -490,6 +490,24 @@ if command -v pacman >/dev/null 2>&1; then
         || echo "ELITE E14: gufw/ufw não removíveis (dependência?) — serviço derrubado, atalho oculto via NoDisplay" >&2
 fi
 
+## [E115] — O CHAVEIRO FORA DO LIVE E DA ISO (a palavra do dono: 'nem era
+##       para ter esse chaveiro'). O gnome-keyring é o daemon da API
+##       Secret Service que a BASE upstream trazia — não é o desktop
+##       GNOME. Com o Brave da casa em --password-store=basic (E115,
+##       mesmo commit), NINGUÉM o consulta: os popups gcr-prompter de
+##       senha (o ×2 a cada boot do navegador) e o 'gkr-pam: couldn't
+##       unlock' do journal morrem junto. O packages.remove corta a linha
+##       do pacstrap; o -Rns abaixo cobre o caso de o upstream trazê-lo
+##       por dependência de grupo (a escola E13/gpsd: falha segura — se
+##       algo DE VERDADE depender dele, o pacman recusa e nada quebra;
+##       o rig VIVO não remove em runtime: ninguém mais o acorda).
+if command -v pacman >/dev/null 2>&1; then
+    if pacman -Qq gnome-keyring >/dev/null 2>&1; then
+        pacman -Rns --noconfirm gnome-keyring 2>/dev/null \
+            || echo "ELITE E115: gnome-keyring é dependência de outro pacote — fica (o Brave em basic store não o acorda; réu nomeado no papel do build)" >&2
+    fi
+fi
+
 ## [E10] FIX DO BOOT DO SISTEMA INSTALADO (v1.0.4 · bug reportado no rig B)
 ##      ══════════════════════════════════════════════════════════════════
 ##      SINTOMA (GRUB, pós-instalação em btrfs):

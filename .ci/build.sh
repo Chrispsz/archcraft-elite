@@ -457,6 +457,18 @@ cp -p /work/elite/airootfs/etc/skel/.config/swayosd/config.toml \
 mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/chromium-flags
 cp -p /work/elite/airootfs/etc/skel/.config/brave-flags.conf \
       /tmp/elite-src/elite-system/files/usr/local/share/elite/chromium-flags/brave-flags.conf
+# E115 — AS SKINS DA TOPBAR NO PACOTE (a gramática E91 na 4ª pele): o
+# config.top/style.top.css moravam só no skel — rig vivo NUNCA recebia
+# (o assento do modo de jogo e o player melhorado eram promessa da ISO
+# nova). Viajam em /usr/local/share/elite/waybar/ e o craft-rice entrega
+# ao home (fóssil = a velha da casa → renova com backup; marcador =
+# renova; personalizado → intocável) e ressuscita o waybar com a pele
+# nova (o supervisor respawna em ≤5s).
+mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/waybar
+cp -p /work/elite/airootfs/etc/skel/.config/waybar/config.top \
+      /tmp/elite-src/elite-system/files/usr/local/share/elite/waybar/config.top
+cp -p /work/elite/airootfs/etc/skel/.config/waybar/style.top.css \
+      /tmp/elite-src/elite-system/files/usr/local/share/elite/waybar/style.top.css
 # E103 — OS APPS PADRÃO COMO VARIÁVEIS (a abstração XDG): o profile.d da
 # casa crava TERMINAL/FILEMANAGER/EDITOR/VISUAL/BROWSER com os defaults —
 # o usuário vence exportando (a variável PRESENTE não é tocada).
@@ -1739,7 +1751,78 @@ pkgver=1.0
 #     craft-idle, craft-clean, elite-post-transaction, craft-update,
 #     craft-dump, craft-help, menu.xml (pele), brave-flags.conf
 #     (skel→pacote).
-pkgrel=60
+# E115 — O DUMP 224713 PERICIADO + A PALAVRA DO DONO DE 16/11 À NOITE, OS
+#     RÉUS COM NOME E CURA (o rig parou na 1.0-59 — a E114 não chegou; a
+#     cadeia dos réus que JÁ TEM cura no repo segue viva: o vídeo branco
+#     do Brave morre no GL do conf v1.2 que a dose sincroniza ao home; a
+#     limpeza pede raiz pelo pkexec GRÁFICO; a porta das telas segue
+#     fora; o mousepad o dono confirmou: 'já subiu o mousepad, boa'):
+#     (1) O ASSENTO DO MODO DE JOGO — a resposta VISÍVEL ao 'não sei se
+#         funciona' (dito TRÊS vezes seguidas): o módulo custom/game na
+#         topbar consulta o ESTADO REAL (pgrep gamemoded — o daemon só
+#         está vivo com jogo OU manual, a física D-Bus do músculo) e o
+#         glifo verde só existe QUANDO o modo está ligado, some quando
+#         sai; clique abre o Modo de jogo… — o estado que não se vê não
+#         existe para quem usa. craft-game (verbo pill) + config.top +
+#         style.top.css.
+#     (2) O PLAYER CADA VEZ MELHOR (o pedido: 'quão bom poderia ser o
+#         nosso player… sem nenhum bug e cada vez melhor'): {icon} no
+#         formato é a porta do mapa player-icons — cada player com o
+#         PRÓPRIO glifo (brave/chromium/mpv/vlc/spotify) e o tooltip diz
+#         a FAIXA INTEIRA (artista — título). Atalhos de clique e
+#         {dynamic} intocados.
+#     (3) AS SKINS DA TOPBAR — a ferida que a topbar repetia do menu
+#         E104: config.top/style.top.css moravam SÓ no skel e a barra do
+#         rig vivo ficava congelada na era da ISO (nenhum módulo novo
+#         chegava NUNCA). Viajam NO PACOTE (/usr/local/share/elite/
+#         waybar/) e o craft-rice entrega com a gramática fóssil/
+#         marcador (fósseis do git: 25dcb816/56a6e056/74ab03f2 +
+#         7b9100f4; personalizado = intocável) e ressuscita o waybar
+#         com a pele nova (≤5s — a física do OSD). craft-rice + build.sh.
+#     (4) O CHAVEIRO GANHA A RESPOSTA E O FIM DOS POPUPS (o dono: 'eu
+#         não sei por que tem o chaveiro do GNOME, sendo que nosso
+#         sistema não é GNOME… nem era para ter esse chaveiro'): o
+#         gnome-keyring É o provedor da API Secret Service (senhas de
+#         apps; NÃO é o desktop GNOME) e nasce na ISO pela BASE upstream;
+#         o réu dos popups do navegador é a física: autologin sddm não
+#         digita senha (gkr-pam 'could not unlock' no papel — dump
+#         seção 11) e o Brave pede o chaveiro a cada boot (o ×2 = a
+#         senha do login no chaveiro que não a aceita). CURA DUPLA: o
+#         brave-flags.conf ganha --password-store=basic (o Brave NUNCA
+#         mais toca o chaveiro — zero popup, senhas no perfil do
+#         navegador, o cargo honesto no comentário) e a ISO deixa de
+#         nascer com o daemon (packages.remove; o rig vivo o mantém
+#         como encanamento de compat até a ISO nova — ninguém mais o
+#         acorda). brave-flags.conf + packages.remove + fragmento.
+#     (5) O P11-KIT-SERVER some da lista de 2º plano E GANHA RESPOSTA:
+#         é o servidor PKCS11 do p11-kit (certificados/confiança TLS —
+#         dep do gnutls/mesa: NÃO é removível e NÃO é app — encanamento
+#         de sessão). A casca do craft-bgapps o recebe (p11-kit* +
+#         gcr*) — o menu encerra PROGRAMA, não encanamento (a lei
+#         v2.6.0). craft-bgapps.
+#     (6) A LIMPEZA QUE O PAPEL NÃO CONTOU ATÉ O FIM (o clean.log: 5
+#         'iniciado' e ZERO 'fim' — o dono fechava a janela no meio e a
+#         perícia só tinha a abertura): cada passo deixa linha ANTES de
+#         correr (o trace sobrevive à morte no meio) + a linha de
+#         abertura nomeia uid/HOME (o modo pkexec fica no papel) + o
+#         aviso de duração (cache grande leva até 1 min — a janela não
+#         parece morta). craft-clean.
+#     (7) O STAMP DA TELA MORRE COM A DOSE: o apply com falha dorme no
+#         teto E106 (fail:6 — o rig do dump passou o boot TODO no
+#         fail:6, a tela no modo errado até o dono abrir o wdisplays);
+#         a cura E113 ficava presa atrás do stamp velho até o reboot.
+#         O elite-post-transaction apaga o stamp fail:* dos usuários
+#         vivos — o heartbeat do craft-bars re-aplica com o binário NOVO
+#         em ≤5s, SEM reboot (os hertz que o dono salvou valem na dose,
+#         não no reinício — a pergunta 'vai ficar salvo quando
+#         reiniciar?' fica SIM pela física: o watch grava a escolha por
+#         QUALQUER porta e o apply a restaura no boot). elite-post-
+#         transaction.
+#     Skins/skel de conteúdo mudado: config.top, style.top.css
+#     (skel→pacote). Bins: craft-game, craft-rice, craft-bgapps,
+#     craft-clean, elite-post-transaction.
+#     pkgrel 60→61 NO MESMO COMMIT (lei E41).
+pkgrel=61
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

@@ -198,6 +198,26 @@ ensure_fragment() {
 # ═══════════════════════════════════════════════════════════════════════
 
 # ── AS TRÊS SKINS DA CASA (fontes mestras do pacote, destes nos homes) ──
+# E115 — AS SKINS DA TOPBAR (a gramática E91 na 4ª pele — a ferida que o
+# E104 já curou no menu e que a topbar repetia): o config.top/style.top.css
+# moravam SÓ no skel — veículo da ISO — e a barra do rig vivo ficava
+# congelada na era da ISO que o instalou: nenhum módulo novo (o assento do
+# jogo, o player melhorado) chegava NUNCA. A pele-mestra viaja NO PACOTE
+# (build.sh): /usr/local/share/elite/waybar/. Fósseis = as versões
+# históricas do git (shas sobre os blobs de elite/airootfs/etc/skel/.
+# config/waybar/): config.top — v1.3-era (25dcb816…) · v2.x (56a6e056…) ·
+# E114-era (74ab03f2…) · style.top.css (7b9100f4…, única era). Fóssil =
+# renova (com backup); marcador = renova; outro conteúdo = PERSONALIZADO,
+# intocável (a lei do domínio v3). A barra RE-LEN no NASCIMENTO: o
+# craft-rice mata o waybar vivo e o supervisor o respawna em ≤5s com a
+# pele nova (a mesma física do OSD — CHANGED=2 → pkill).
+WTOP_SRC="${ELITE_WTOP_SRC:-/usr/local/share/elite/waybar/config.top}"
+WTOP_DST="${XDG_CONFIG_HOME:-$HOME/.config}/waybar/config.top"
+WTOP_FOSSILS="25dcb81601ecb9168e3b49a723a7d29c290541c6c7266fda8d7cb78525f7c984 56a6e0564523f154f417d5861c2b59027d87c91850efc8342269ef24b9c169c1 74ab03f2c31b966accc5f43b03be585a256c94b54468105bfbe69922d9baff79"
+WSTY_SRC="${ELITE_WSTY_SRC:-/usr/local/share/elite/waybar/style.top.css}"
+WSTY_DST="${XDG_CONFIG_HOME:-$HOME/.config}/waybar/style.top.css"
+WSTY_FOSSILS="7b9100f40a73df9f448e1295f0dccc6c6958424c9569c7922b6555c6cdda2120"
+
 LOCK_SRC="${ELITE_LOCK_SRC:-/usr/local/share/elite/hyprlock/hyprlock.conf}"
 LOCK_DST="${XDG_CONFIG_HOME:-$HOME/.config}/hypr/hyprlock.conf"
 # fósseis do lock: v2.8.0 (6e9cf53) · v2.5.0 (5c6c3dd) · v2.3.0/v2.1.1
@@ -237,7 +257,7 @@ MENU_SRC="${ELITE_MENU_SRC:-/usr/local/share/elite/labwc/menu.xml}"
 MENU_DST="${XDG_CONFIG_HOME:-$HOME/.config}/labwc/menu.xml"
 MENU_FOSSILS="093e446216230b9dd648362ca40c648059645941b2dec561cb67e13d9eef2818 37d18426ee60cf2d869c94accb9759d11da2a3a0470e2ba9b4091eade348f9b5 14678b7dc9bb8a734b8832898be366361218b142b1bd327a54e4077b899f3eab ceb1fb74ccf74387004addca6159c749fae3c7aa089af09e9ca19e9a607aa14c"
 
-# ── a pele ÚNICA (uma gramática, três peles) ─────────────────────────────
+# ── a pele ÚNICA (uma gramática, seis peles — E115 soma a topbar) ──────
 # RETORNO: 0 = a pele MEXEU (o fluxo cobra reconfigure); 1 = nada mudou
 # (idêntica, personalizada, mestre ausente ou cp falhou)
 skin_ensure() {
@@ -306,18 +326,26 @@ menu_skin() {
     fi
     skin_ensure "$MENU_SRC" "$MENU_DST" "$MENU_FOSSILS" "${1:-none}" "menu.xml"
 }
+wtop_skin() {
+    skin_ensure "$WTOP_SRC" "$WTOP_DST" "$WTOP_FOSSILS" "${1:-none}" "config da topbar"
+}
+wsty_skin() {
+    skin_ensure "$WSTY_SRC" "$WSTY_DST" "$WSTY_FOSSILS" "${1:-none}" "CSS da topbar"
+}
 
 # ── o despacho (as portas de adoção explícita) ──────────────────────────
 case "${1:-}" in
     --lock-adopt) lock_skin "adopt"; exit 0 ;;
     --rc-adopt)   rc_skin "adopt"; exit 0 ;;
     --menu-adopt) menu_skin "adopt"; exit 0 ;;
+    --topbar-adopt) wtop_skin "adopt"; wsty_skin "adopt"; exit 0 ;;
     --skin-adopt) # TODAS as skins da casa de uma vez (backup em cada)
                   lock_skin "adopt"; rc_skin "adopt"; osd_skin "adopt"; menu_skin "adopt"
+                  wtop_skin "adopt"; wsty_skin "adopt"
                   exit 0 ;;
 esac
 
-# ── o fluxo padrão: os três fragmentos + as TRÊS skins da casa ──────────
+# ── o fluxo padrão: os três fragmentos + AS SEIS skins da casa ──────────
 CHANGED=0
 ensure_fragment "10-elite-games.xml" "$GAMES" && CHANGED=1
 ensure_fragment "20-elite-ssd.xml" "$SSD" && CHANGED=1
@@ -325,12 +353,30 @@ ensure_fragment "30-elite-organize.xml" "$ORG" && CHANGED=1
 rc_skin   && CHANGED=1   # rc.xml renovado = binds/leis novas valem no reconfigure
 menu_skin && CHANGED=1   # menu.xml renovado = o reconfigure re-lê o menu — o
                          # menu novo aparece na sessão VIVA (sem relogin)
+_wt=0; _ws=0
+wtop_skin && _wt=1       # config da topbar renovada = o waybar RE-LÊ no
+                         # NASCIMENTO (o kill abaixo; no boot o rice corre
+                         # ANTES da barra — sem kill nenhum)
+wsty_skin && _ws=1       # CSS da topbar — reload_style_on_change re-lê o
+                         # estilo vivo; o kill cobre os DOIS por garantia
 osd_skin   && CHANGED=2  # config do OSD renovado: o server RE-LÊ no nascimento
                          # (o pkill abaixo ressuscita com a pele nova)
 lock_skin  || true       # a lock skin NÃO mexe no CHANGED (o hyprlock lê no
                          # próximo lock — o craft-lock chama ANTES de cada
                          # lock, E100; a lei E91/E100: a dose vale no PRÓXIMO
                          # LOCK, sem reconfigure)
+
+if [ "$_wt" = 1 ] || [ "$_ws" = 1 ]; then
+    # E115 — a topbar lê config no NASCIMENTO (não há reconfigure para
+    # waybar): o waybar vivo morre e o supervisor da casa o respawna
+    # em ≤5s com a pele nova (a mesma física do OSD — o pkill aqui).
+    # Âncora ^: só o waybar DE VERDADE (um editor com o conf aberto
+    # nunca morre por isso — a lição E43/E106 da família).
+    if pgrep -f '^waybar -c ' >/dev/null 2>&1; then
+        pkill -f '^waybar -c ' 2>/dev/null || true
+        say "craft-rice: waybar reiniciando com a pele nova (o supervisor respawna em ≤5s)"
+    fi
+fi
 
 if [ "$CHANGED" -ge 1 ]; then
     if command -v labwc-msg >/dev/null 2>&1 \

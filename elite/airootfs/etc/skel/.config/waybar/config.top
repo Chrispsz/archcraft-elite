@@ -1,4 +1,6 @@
 // Archcraft ELITE · Waybar TOP — "Menu Bar" estilo macOS (Catppuccin Mocha)
+// entregue por craft-rice — a pele da topbar (E115): rig vivo renova pela
+// gramática fóssil/marcador; config editada pelo dono = intocável
 // ─────────────────────────────────────────────────────────────────────────
 // Desktop v2.4 (v1.6 — burn test v1.5): o ARCH VOLTA ao canto esquerdo
 // (ordem do dono: "o ícone do Arch no canto superior esquerdo não foi
@@ -65,7 +67,13 @@
   // (v2.3.10 — o print SAIU da barra: "não gostei do botão de print
   // melhor remover" — o craft-shot segue vivo nos atalhos W-p e W-S-p,
   // que cobrem os dois verbos sem ocupar assento na barra.)
+  // E115 — O ASSENTO DO MODO DE JOGO (a resposta VISÍVEL ao 'não sei se
+  // funciona', dito duas vezes): o módulo consulta o ESTADO REAL (o
+  // gamemoded só está vivo quando um jogo OU o manual ligou o modo) e
+  // só então ocupa a barra — sem jogo, sem assento, sem ruído. Clique
+  // abre o Modo de jogo… (o mesmo item do botão direito).
   "modules-right": [
+    "custom/game",
     "mpris",
     "pulseaudio",
     "pulseaudio#mic",
@@ -92,6 +100,17 @@
   // v2.3.10 — E SAIU DE NOVO: "não gostei do botão de print melhor
   // remover". O módulo morre aqui; o craft-shot segue vivo e os verbos
   // continuam no teclado: W-p = região, W-S-p = tela inteira.)
+  // Modo de jogo (E115) — o estado que se VÊ: 🎮 verde na barra enquanto
+  // o gamemode está ativo (jogo da família ou manual), some quando sai.
+  // O pgrep é O estado (zero cache — a mesma física do músculo D-Bus).
+  "custom/game": {
+    "exec": "craft-game pill",
+    "return-type": "json",
+    "interval": 3,
+    "on-click": "craft-game",
+    "tooltip": true
+  },
+
   // Música do USUÁRIO (MPRIS) — YouTube no navegador, Spotify, mpv: o que
   // VOCÊ tocar aparece aqui. Com nada tocando o módulo some sozinho.
   // Clique: esq = play/pause · meio = próxima · dir = anterior (a "faixa
@@ -103,8 +122,17 @@
   // segundo DENTRO do processo que já roda (zero fork, zero spawn; os
   // módulos de rede/pulseaudio da mesma barra já polinam no mesmo ritmo).
   // Tooltip agora DIZ os controles (o dono descobriu o meio/dir por sorte).
+  // E115 — O PLAYER CADA VEZ MELHOR (o pedido do dono: 'quão bom poderia
+  // ser o nosso player… sem nenhum bug e seja ainda cada vez melhor'):
+  // cada player ganha o PRÓPRIO glifo (o navegador/música/mídia se
+  // contam só de olhar) e o tooltip diz a FAIXA INTEIRA (artista —
+  // título — o que a barra corta, o tooltip guarda). Os atalhos de clique
+  // e o formato {dynamic} ficam intocados — o que o dono já usou, segue.
   "mpris": {
-    "format": " \uf001 {dynamic}",
+    // E115 — {icon} é a porta do mapa player-icons: o glifo segue O PLAYER
+    // (navegador/música/mídia), não um desenho fixo; o estado (pausado)
+    // segue nos format-*.format com o glifo próprio da casa.
+    "format": " {icon} {dynamic}",
     "format-paused": " \uf04c {dynamic}",
     "format-stopped": "",
     // E105 — o stopped não prende mais o módulo (o dump 195332: a aba do
@@ -113,14 +141,22 @@
     // a promessa do comentário acima vira fato).
     "format-empty": "",
     "player-icons": {
-      "default": "\uf001"
+      "default": "\uf001",
+      "brave": "\uf268",
+      "brave-origin": "\uf268",
+      "chromium": "\uf268",
+      "mpv": "\uf04b",
+      "vlc": "\uf04b",
+      "spotify": "\uf1bc",
+      "strawberry": "\uf001",
+      "Celluloid": "\uf04b"
     },
     "status-icons": {
       "playing": "\uf04b",
       "paused": "\uf04c",
       "stopped": "\uf04d"
     },
-    "tooltip-format": "esq: play/pause · meio/scroll↑: próxima · dir/scroll↓: anterior",
+    "tooltip-format": "esq: play/pause · meio/scroll↑: próxima · dir/scroll↓: anterior\n{artist} — {title}",
     "ignored-players": ["playerctld"],
     "dynamic-len": 40,
     "interval": 1,

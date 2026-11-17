@@ -33,6 +33,10 @@
 #   craft-game watch      o daemon da sessão (AUTO=1 em ~/.config/elite/game.conf;
 #                         AUTO=0/ausente = sai 0 — ausência intencional, lei do idle)
 #   craft-game hook       os [custom] do gamemode.ini (inicio/fim do modo)
+#   craft-game pill       JSON para o módulo custom/game da topbar (E115):
+#                         o assento só existe QUANDO o gamemoded está vivo
+#                         (jogo da família OU manual) — estado visível sem
+#                         abrir nada, a resposta ao 'não sei se funciona'
 # ═══════════════════════════════════════════════════════════════════════════
 set -u
 
@@ -216,6 +220,22 @@ gm_watch() {
     done
 }
 
+# ── o PILL (o assento da topbar — E115, o dono: 'não sei se é injeção
+# automática como na Steam' DUAS VEZES: o estado que não se vê não existe
+# para quem usa): o gamemoded só está vivo quando um jogo OU o manual
+# ligou o modo (D-Bus activation — zero RAM no idle, a lei do músculo);
+# o pgrep é O estado, sem cache e sem conf. JSON vazio = o assento some
+# (a mesma gramática do bgapps — o módulo só ocupa a barra quando há
+# o que dizer). O supervisor do craft-bars não cuida dele: o módulo é
+# consulta barata (1 pgrep a cada 3s — o mesmo custo do pulseaudio).
+gm_pill() {
+    if pgrep -x gamemoded >/dev/null 2>&1; then
+        printf '{"text":"\\uf11b","class":"game-on","tooltip":"Modo de jogo ATIVO — governor performance + GPU high (sai sozinho com o jogo; menu: Modo de jogo…)"}\n'
+    else
+        printf '{"text":"","class":"","tooltip":""}\n'
+    fi
+}
+
 # ── o HOOK (o [custom] do gamemode.ini — início/fim NATIVO do modo) ─────
 gm_hook() { # $1 = start|end
     case "${1:-}" in
@@ -343,6 +363,7 @@ gm_menu() {
 
 case "${1:-menu}" in
     status) gm_status_cmd ;;
+    pill) gm_pill ;;
     on) gm_on ;;
     off) gm_off ;;
     watch) gm_watch ;;

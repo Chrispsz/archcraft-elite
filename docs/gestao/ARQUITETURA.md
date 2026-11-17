@@ -383,3 +383,26 @@ Critério: impacto alto × esforço baixo × risco baixo, tudo provado pela port
     de ser invisível ao repo.
 16. ✅ **FEITO — E37**: pacman_s com rc real alimenta FAILURES; falha vira 'PENDÊNCIA: …' na hora e
     'CONCLUÍDO COM N PENDÊNCIA(S)' no epílogo — o 'CONCLUÍDO' incondicional morreu.
+
+## 2026-11-17 · Avaliação do dono: a arquitetura de comandos, logs e atualização segue de pé? (a pergunta: "continua dando avanço ou devemos melhorar tudo isso para termos conclusões, bugs, falhas e erros lógicos ainda mais precisos para polir")
+
+**Veredito: a espinha MANTÉM-SE — ela é a razão dos réus terem nome. As três famílias provaram valor real no dump 224713; três melhorias sobem nesta rodada (E115), duas ficam de fila nomeada.**
+
+O que o papel de hoje provou que FUNCIONA (mantém-se sem mudança):
+
+1. **Comandos craft-\* com papel próprio** (`~/.cache/elite/*.log`, teto 256 KiB, lei E36): a perícia de hoje NÃO teria réus sem eles — o clean.log com 5 'iniciado' e 0 'fim' NOMEIA a ferida (o dono fechava no meio do paccache calado); o display.log com 6 FALHAS nomeadas e o stamp fail:6 nomeia o --scale-exact; o game.log assina o toggle; o bars.log fotografa a dança qt-sudo do octopi-cachecleaner e a linha `Executing command` que distingue gaveta de menu. A casa já manda o réu para o papel — o que faltava era o papel contar o MEIO (a cura v5 do craft-clean: passo-a-passo ANTES de correr).
+2. **O dump como perícia versionada** (v2.13): as seções novas que os 'próximos' pediram (conf do navegador, /usr/lib/sysctl.d, tail ALPM) chegaram e foram as que fecharam os réus da E114. O ciclo pergunta→dump→réu→cura→contrato está fechando em 1 sessão cada vez.
+3. **A atualização por DOSE** (bootupdate ao ligar + manual + post-transaction como veículo): o rig do dono estava na 1.0-59 SEM saber — e a dose ao ligar dele entregará 1.0-61 com as curas E114+E115 sem formato novo nenhum. O elite-post-transaction provou ser o VEÍCULO certo (sincroniza conf ao home vivo — a E114 usou, a E115 usa de novo: o stamp da tela morto pela dose). O guard-pkgrel cobra a lei E41 no push — ela MORDERIA hoje se o bump esquecesse.
+
+As três melhorias que SOBEM agora (E115, com contrato):
+
+1. **Skins viajam no pacote** (a gramática fóssil/marcador generalizada à topbar): configs de usuário eram domínio intocável — correto — mas isso congelava a barra do rig na era da ISO. Agora: casa-renova-com-backup, dono-personalizado-intocável. O mesmo desenho que curou o menu (E104) e o lock (E91).
+2. **O estado que o dono não vê não existe** (o assento do jogo na topbar): a arquitetura de logs é para EU periciar; a arquitetura de assentos é para O DONO saber. O módulo consulta o ESTADO REAL (pgrep do gamemoded), não um conf — zero estado duplicado (a lição E43/E48).
+3. **A dose cura o que o boot esqueceu** (o stamp fail apagado pelo post-transaction): o teto E106 era honesto mas congelava a cura atrás do stamp velho até o reboot — agora a dose desbloqueia o ciclo em ≤5s, sem reboot.
+
+As duas de fila nomeada (não sobem hoje — sem perícia de uso ainda):
+
+- **Navegação mouse-first dos menus** (a fila (d) do polimento 12): o dono cita o teclado três dumps seguidos; os menus craft-* já são listas curtas clicáveis e o drawer é mouse-first — antes de mudar a FÍSICA (fuzzel→outro motor), a próxima rodada de UX precisa do padrão de uso real no papel (menus.log × o que o dono abre).
+- **Um cronômetro de saúde da casa** (o 'não sei se funciona' generalizado): o padrão do réu invisível (keyring, p11-kit, gamemode, skins congeladas) se repete — a casa poderia publicar `craft-status-visual`, um retrato de UMA tela do que a sessão tem de pé (o craft-dump v2.13 já coleta tudo; falta a versão LEIGO de top-of-mind). Fila para o próximo polimento, não lei hoje.
+
+Conclusão para o dono: **NÃO refazer — a arquitetura atual é a que nomeia o réu em vez de adivinhar; ela deu as 8 respostas do dump de hoje sem uma gambiarra.** O que ela pede é o que ela sempre pediu: cada cura com veículo (pacote), cada veículo com contrato (suíte), cada contrato com papel (diário). É exatamente o que este commit carrega.
