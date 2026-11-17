@@ -1551,7 +1551,7 @@ pkgver=1.0
 #     craft-game — o Status ABRE O PAPEL INTEIRO no foot (o dono: 'clico
 #     em status, ele gera um log… não sei como funciona isso') + o resumo
 #     honesto de como o gamemode funciona. Lição nova da periciagem (sem
-#     cura cega): o padrao "\[multilib\]" do build/apply-overlay/packages.add
+#     cura cega): o padrao "\\[multilib\\]" do build/apply-overlay/packages.add
 #     SEMPRE esteve inteiro no disco — o 'ultilib]' era ARTEFATO DE
 #     EXIBIÇÃO (a renderização come a sequência colchete-m; od provou; o
 #     POLIMENTO 4nsos já dizia e a cura de hoje quase quebrou código
@@ -1766,11 +1766,15 @@ pkgver=1.0
 #         existe para quem usa. craft-game (verbo pill) + config.top +
 #         style.top.css.
 #     (2) O PLAYER CADA VEZ MELHOR (o pedido: 'quão bom poderia ser o
-#         nosso player… sem nenhum bug e cada vez melhor'): {icon} no
-#         formato é a porta do mapa player-icons — cada player com o
-#         PRÓPRIO glifo (brave/chromium/mpv/vlc/spotify) e o tooltip diz
-#         a FAIXA INTEIRA (artista — título). Atalhos de clique e
-#         {dynamic} intocados.
+#         nosso player… sem nenhum bug e cada vez melhor'): o placeholder
+#         icon no formato é a porta do mapa player-icons — cada player
+#         com o PRÓPRIO glifo (brave/chromium/mpv/vlc/spotify) e o
+#         tooltip diz a FAIXA INTEIRA (artista — título). Atalhos de
+#         clique e o placeholder dynamic intocados. (E115-corrige: o
+#         comentário anterior escrevia os placeholders COM CHAVES e o
+#         f-string deste gerador os leu como SUBSTITUIÇÃO — o mesmo réu
+#         do E114-corrige, a mesma cura: o papel da casa não brinca com
+#         a sintaxe do próprio molde.)
 #     (3) AS SKINS DA TOPBAR — a ferida que a topbar repetia do menu
 #         E104: config.top/style.top.css moravam SÓ no skel e a barra do
 #         rig vivo ficava congelada na era da ISO (nenhum módulo novo
