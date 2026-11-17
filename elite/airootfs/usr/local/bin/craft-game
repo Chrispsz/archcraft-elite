@@ -150,10 +150,14 @@ gm_off() {
         echo "==> modo de jogo DESATIVADO (o governor volta ao perfil da casa)"
         return 0
     fi
-    # jogos do watch: liberar TUDO que o watch registrou (o round falhou?)
+    # o modo MANUAL não estava ativo; os registros do WATCH (se houver
+    # jogo vivo) moram na MEMÓRIA do próprio daemon e saem SOZINHOS com o
+    # jogo (o reaper do gamemode + a rodada do watch liberam na morte) —
+    # o off não inventa fila que não existe: o rm do game-watch.pids
+    # apagava um arquivo que NUNCA foi escrito (a fila nunca foi arquivo)
+    # e o log jurava uma 'limpa' que não aconteceu — a E33 no papel cura.
     if [ -r "$RUN_DIR/game-watch.pid" ]; then
-        rm -f "$RUN_DIR/game-watch.pids" 2>/dev/null || true
-        glog "manual: OFF — fila do watch limpa (os jogos que morreram o reaper já liberou)"
+        glog "manual: OFF sem holder — registros do watch (se houver) saem sozinhos com o jogo"
     fi
     NOTE_URGEN=normal note 'Modo de jogo' 'Não estava ativo — nada a desativar'
     echo "o modo de jogo não está ativo (nada a desativar)" >&2

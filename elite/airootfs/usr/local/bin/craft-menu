@@ -38,7 +38,9 @@
 #   "resposta instantânea" do dono, agora literal). O trap EXIT segue
 #   limpando o state em TODO fechamento.
 #
-# A GRAMÁTICA DE SAÍDA (contrato com os 6 chamadores — INTACTA da v3):
+# A GRAMÁTICA DE SAÍDA (contrato com os chamadores — INTACTA da v3; o
+#   número NÃO mora na prosa: a família cresce a cada era — 12 bins o
+#   chamam hoje — e o que não muda é a gramática 0/1/2/143):
 #   stdout: o item escolhido · exit 0
 #   exit 1: fechado sem escolha (ESC / clique fora) — stderr vazio
 #   exit 2: TOGGLE — a 2ª chamada do mesmo título fechou o menu (AGORA é

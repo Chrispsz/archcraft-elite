@@ -1826,7 +1826,17 @@ pkgver=1.0
 #     (skel→pacote). Bins: craft-game, craft-rice, craft-bgapps,
 #     craft-clean, elite-post-transaction.
 #     pkgrel 60→61 NO MESMO COMMIT (lei E41).
-pkgrel=61
+#     pkgrel 61→62 NO MESMO COMMIT (lei E41) — E116-POLIMENTO (17/11), E33
+#     ×2 CURADAS SEM FÍSICA: (1) craft-game gm_off — o rm do game-watch.pids
+#     era FANTASMA (o arquivo nunca foi escrito: a fila do watch mora na
+#     MEMÓRIA do daemon) e o log jurava 'fila do watch limpa'; o papel diz
+#     a verdade (registros do watch saem sozinhos com o jogo — reaper +
+#     rodada). (2) craft-menu — o cabeçalho jurava 'contrato com os 6
+#     chamadores' e a suíte dizia 'os 7': a contagem real é 12; a prosa
+#     fica SEM número que possa apodrecer (o contrato é a gramática
+#     0/1/2/143). Bins: craft-menu, craft-game. Suíte: 40-integration
+#     (prosa sem número ×2, âncora refrescada).
+pkgrel=62
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
