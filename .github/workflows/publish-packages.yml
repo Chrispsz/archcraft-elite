@@ -164,21 +164,16 @@ jobs:
                 elite-system-*.pkg.tar.zst \
                 sha256sums-pacotes.txt \
                 --repo "$REPO" --clobber
-              # E114.2 — O ASSET DO BRAVE SÓ SOBE QUANDO É NOVO (186 MB de
-              # --clobber por push sem mudança = desperdício que o papel não
-              # pede): o selo VIVO da release carrega o sha do asset atual —
-              # igual = upload pulado; diferente/ausente = sobe com --clobber.
+              # E114.2 — O ASSET DO BRAVE SOBE SEMPRE QUE O DB O ADVERSA (a
+              # 1ª tentativa com skip-por-sha morreu no próprio papel: o selo
+              # comparado era o que a run ACABAVA de subir, e o builddate do
+              # makepkg muda os bytes a cada build — o db é a autoridade do
+              # sha que o pacman cobra: o asset tem que ser O BYTE desta
+              # build). O store abaixo mantém uma versão só no ar.
               if [ -n "$BRAVE_NO_CANAL" ]; then
                 nm_brave="$(basename brave-origin-*.pkg.tar.zst)"
-                gh release download "$TAG" --repo "$REPO" --pattern "sha256sums-pacotes.txt" --clobber || true
-                want="$(sha256sum "$nm_brave" | awk "{print \$1}")"
-                have="$(grep -F "$nm_brave" sha256sums-pacotes.txt 2>/dev/null | awk "{print \$1}")"
-                if [ -n "$have" ] && [ "$want" = "$have" ]; then
-                  echo "── brave $nm_brave: o asset vivo é O MESMO (sha igual) — upload pulado"
-                else
-                  echo "── brave $nm_brave: asset novo/diferente — sobe (o rig o baixa na dose)"
-                  gh release upload "$TAG" "$nm_brave" --repo "$REPO" --clobber
-                fi
+                echo "── brave $nm_brave: sobe com --clobber (o db cobra O byte desta build)"
+                gh release upload "$TAG" "$nm_brave" --repo "$REPO" --clobber
               fi
               # E101 — A LOJA SEM PILHA (o dono: "cheio de assets sujos"):
               # o --clobber sobrepõe o NOME igual, mas cada pkgrel é um nome
