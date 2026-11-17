@@ -917,6 +917,35 @@ if [[ "${1:-}" == "--canal" ]]; then
     #   · órfã sem dono      → quarantena bak- (cura_orfao) e refaz;
     #   · 404 (db adiante)   → as peças nomeadas saem da lista e refaz;
     #   · qualquer outra     → recusa honesta, a prova no papel.
+    # E117 — A DOSE ATUALIZA A CASA (a lei E101 do próprio papel: atualização
+    #     que CHEGA INSTALA — nunca comandos manuais). O --needed instala
+    #     peça AUSENTE mas NUNCA ATUALIZA peça ATRASADA: o dump 163548
+    #     fotografou o pywal do rig preso em 3.3.0-11 contra o 3.3.1-1 do
+    #     db da casa com o papel jurando 'a casa já estava em dia' —
+    #     mentira que só um -Syu manual do dono desfaria. Cura: cada peça
+    #     instalada é comparada com o db da casa (vercmp; LC_ALL=C porque
+    #     o pacman em pt_BR diz 'Versão'); peça atrasada entra numa
+    #     segunda passada SEM --needed, que atualiza SÓ a casa — o
+    #     sistema inteiro segue na cadência semanal do --sistema.
+    atrasadas=()
+    while IFS= read -r p; do
+        [ -n "$p" ] || continue
+        # E46 na veia: o rc REAL do -Q entra CAPTURADO (pacote ausente = rc 1
+        # legítimo — sob set -e, a atribuição com substituição falha mataria
+        # a dose INTEIRA antes da transação; a cena E56 do rig sem es-ver
+        # fotografou a morte).
+        inst=""
+        inst="$(pacman -Q "$p" 2>/dev/null | awk '{print $2}')" || inst=""
+        [ -n "$inst" ] || continue   # ausente: o --needed instala no fluxo de cima
+        repo=""
+        repo="$(LC_ALL=C pacman -Si "$p" 2>/dev/null | awk -F': +' '/^Version/{print $2; exit}')" || repo=""
+        [ -n "$repo" ] || continue   # sem candidato no db: nada a julgar
+        if command -v vercmp >/dev/null 2>&1; then
+            [ "$(vercmp "$inst" "$repo")" -lt 0 ] && atrasadas+=("$p")
+        elif [ "$inst" != "$repo" ]; then
+            atrasadas+=("$p")   # sem vercmp: diferença textual é a sentinela
+        fi
+    done < <(printf '%s\n' "${CANAL_PKGS[@]}")
     canal_rc=0
     canal_round=0
     ERRCAP="$(mktemp "${TMPDIR:-/tmp}/elite-canal-err.XXXXXX")"
@@ -972,6 +1001,35 @@ if [[ "${1:-}" == "--canal" ]]; then
         exit 1
     fi
     ulog "canal: OK — a transação passou (${#CANAL_PKGS[@]} peças da casa)"
+    # E117 — A PASSADA FINA: só as peças atrasadas, sem --needed (o alvo
+    #     passado à mão atualiza — a casa alcança o db dela sem o -Syu
+    #     do sistema inteiro). O veredito é o valor INSTALADO, relido
+    #     depois do pacman — o papel não clama atualização que não houve
+    #     (a escola E108).
+    if [ "${#atrasadas[@]}" -gt 0 ]; then
+        ulog "canal: peça(s) da casa atrasada(s) no rig — a dose atualiza SÓ a casa (E101): $(printf '%s ' "${atrasadas[@]}")"
+        if run_root pacman -Sy --noconfirm "${HOUSE_OVERWRITE[@]}" "${atrasadas[@]}" >>"$ULOG" 2>&1; then
+            _fina=0
+            while IFS= read -r p; do
+                [ -n "$p" ] || continue
+                inst=""
+                inst="$(pacman -Q "$p" 2>/dev/null | awk '{print $2}')" || inst=""
+                repo=""
+                repo="$(LC_ALL=C pacman -Si "$p" 2>/dev/null | awk -F': +' '/^Version/{print $2; exit}')" || repo=""
+                [ -n "$inst" ] && [ -n "$repo" ] || continue
+                if command -v vercmp >/dev/null 2>&1 && [ "$(vercmp "$inst" "$repo")" -lt 0 ]; then
+                    ulog "canal: $p seguiu atrasada ($inst < $repo) — réu nomeado no papel"
+                    _fina=1
+                else
+                    ulog "canal: $p ${inst:-?} == db ${repo:-?} — em dia"
+                fi
+            done < <(printf '%s\n' "${atrasadas[@]}")
+            [ "$_fina" -eq 0 ] && ulog "canal: a casa inteira no passo do db — o 'em dia' volta a dizer a verdade (E117)"
+            unset _fina
+        else
+            ulog "canal: a atualização fina RECUSOU (rc=$?) — a prova está acima no log"
+        fi
+    fi
     adota_ancoras
     adota_lojas
     nomeia_fila_nova "$es_before"
@@ -981,7 +1039,7 @@ if [[ "${1:-}" == "--canal" ]]; then
     # candidato novo é o caso COMUM — notify só quando a casa MUDA (o
     # refresh_if_craft_changed acima já notifica por delta, escola E48);
     # sem novidade = a linha no papel e SILENCIO para o dono.
-    if [[ "$(es_q)" == "$es_before" && "$(elite_craft_q)" == "$ec_before" && "$(craft_tl_q)" == "$tl_before" ]]; then
+    if [ "${#atrasadas[@]}" -eq 0 ] && [[ "$(es_q)" == "$es_before" && "$(elite_craft_q)" == "$ec_before" && "$(craft_tl_q)" == "$tl_before" ]]; then
         ulog "canal: a casa já estava em dia — silêncio para o dono (checagem não é notícia)"
     fi
     # E51.1 — a dose AUTO-CURA a cadência: rigs adotados por caminhos que

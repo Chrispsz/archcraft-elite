@@ -113,7 +113,13 @@ flock -n "${XDG_RUNTIME_DIR:-/run/user/1000}/elite/bars.lock" true 2>/dev/null |
 say "CRAFTBARS_LOCK=$cb_lock"
 say "BARS_RESTARTS=$restarts"
 say "BARS_EXITS=$exits"
-say "WAYBAR_PROCS=$wb_list"
+# E117 — O RÓTULO QUE JURAVA CONTAGEM E MOSTRAVA LISTA (dump 163548: o
+# perito leria 'WAYBAR_PROCS=997 waybar -c …' como NOVECENTAS waybars
+# vivas — era o PID do processo ÚNICO concatenado com o cmdline do
+# pgrep -a). Hoje: a contagem de verdade numa linha, a lista na outra —
+# a família E33 aplicada ao próprio papel da casa.
+say "WAYBAR_PROCS=$wb_count"
+say "WAYBAR_LIST=$wb_list"
 say "BARS_LOG=$logf"
 if [ -n "$logf" ]; then
     tail -12 "$logf" 2>/dev/null | while IFS= read -r line; do

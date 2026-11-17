@@ -424,7 +424,7 @@ assert_grep "$CU92" '/usr/share/libalpm/hooks/elite-\*' "E92: a família libalpm
 assert_grep "$CU92" '/etc/systemd/system/elite-\*' "E92: a família das units preservada (o que a casa já cobria segue coberto pela fonte única)"
 assert_grep "$CU92" '/usr/local/bin/\*' "E92: a família dos bins preservada (a adoção original da E42 segue de pé pela mesma fonte)"
 n_over92="$(grep -c '"${HOUSE_OVERWRITE\[@\]}"' "$CU92" || true)"
-assert_eq "$n_over92" "4" "E92: os 4 sites do pacman usam a MESMA lista (canal + semanal + manual com e sem alvo — nenhum escopo escrito à mão para enferrujar)"
+assert_eq "$n_over92" "5" "E92: os 5 sites do pacman usam a MESMA lista (canal + semanal + manual ×2 + a passada fina E117 que atualiza a casa atrasada — todos da FONTE ÚNICA, nenhum escopo escrito à mão para enferrujar)"
 assert_nogrep "$CU92" 'run_root pacman.*--overwrite' "E92: NENHUM site carrega escopo inline (a fonte única ou nada — o par à mão era a classe da recusa)"
 assert_grep "$REPO/.ci/build.sh" 'airootfs/usr/local/share/elite/fastfetch' "E92: a família share/elite SAI do profile também (o airootfs entregava o config que o pacote agora reclama — um dono por caminho na ISO)"
 assert_grep "$REPO/.ci/build.sh" 'remoção E57/E92' "E92: o guard de sobrevivente generalizado (quem sobreviver à varredura ABORTA antes do pacstrap — a lição E57.1 vale para hooks e configs, não só units)"

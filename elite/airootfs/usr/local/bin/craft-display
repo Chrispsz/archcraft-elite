@@ -255,6 +255,26 @@ aplica_arranjo() {
         fi
         _rc=0
         _err="$("$RANDR" --output "$nome" $args 2>&1 1>/dev/null)" || _rc=$?
+        if [ "$_rc" -ne 0 ] && printf '%s' "$_err" | grep -q 'invalid adaptive sync state'; then
+            # E117 — O FLAG QUE ESTE WLR-RANDR NÃO ACEITA (dump 163548: o
+            # apply 6/6 com rc=1 'invalid adaptive sync state: off' e a
+            # tela NO MODO CERTO — o wlr-randr 0.5.0 deste rig recusa o
+            # --adaptive-sync off e morria ANTES de aplicar nada; o stamp
+            # ficava fail:6 gritando FALHA para um arranjo que o
+            # compositor JÁ entrega, porque VRR desligado é o estado
+            # default dele). Cura: o stderr nomeou o flag → o flag MORRE
+            # da linha (o adaptive:disabled é o estado que nasce) e o
+            # apply RE-RODA com o resto — modo/pos/scale/transform
+            # aplicam; se ainda falhar, a FALHA volta a ser nomeada.
+            case "$args" in
+                *"--adaptive-sync "*)
+                    args="${args%--adaptive-sync *}"
+                    args="${args% }"
+                    _rc=0
+                    _err="$("$RANDR" --output "$nome" $args 2>&1 1>/dev/null)" || _rc=$?
+                    ;;
+            esac
+        fi
         if [ "$_rc" -eq 0 ]; then
             dlog "apply: $nome$args — OK"
             aplicados=$((aplicados + 1))

@@ -597,6 +597,18 @@ osd_rm = '    [ -e "/usr/local/share/elite/swayosd/config.toml" ] && rm -f "/usr
 # E104 — a pele do menu (mesma dança da família E91)
 menu_install = '    install -d "${pkgdir}/usr/local/share/elite/labwc"\n    install -m644 "${startdir}/files/usr/local/share/elite/labwc/menu.xml" "${pkgdir}/usr/local/share/elite/labwc/menu.xml"\n'
 menu_rm = '    [ -e "/usr/local/share/elite/labwc/menu.xml" ] && rm -f "/usr/local/share/elite/labwc/menu.xml"\n'
+# E114/E117 — O CONFO DO NAVEGADOR EMBARCA DE VERDADE: o staging existia
+# desde a E114 e o molde NUNCA o installou (o réu-mãe do dump 163548 —
+# o hook sincronizador fazia [ -r $SRC_FLAGS ] falha silenciosa e o rig
+# do dono vivia sem --password-store=basic e sem os flags Ozone/GPU) —
+# a mesma dança da família E91 (caminho novo = criação limpa).
+flags_install = '    install -d "${pkgdir}/usr/local/share/elite/chromium-flags"\n    install -m644 "${startdir}/files/usr/local/share/elite/chromium-flags/brave-flags.conf" "${pkgdir}/usr/local/share/elite/chromium-flags/brave-flags.conf"\n'
+flags_rm = '    [ -e "/usr/local/share/elite/chromium-flags/brave-flags.conf" ] && rm -f "/usr/local/share/elite/chromium-flags/brave-flags.conf"\n'
+# E115/E117 — AS SKINS DA TOPBAR EMBARCAM DE VERDADE (o mesmo réu-mãe:
+# staged e nunca installado — o craft-rice das skins lia um caminho que
+# o pacote nunca entregou ao rig vivo).
+waybar_install = '    install -d "${pkgdir}/usr/local/share/elite/waybar"\n    install -m644 "${startdir}/files/usr/local/share/elite/waybar/config.top" "${pkgdir}/usr/local/share/elite/waybar/config.top"\n    install -m644 "${startdir}/files/usr/local/share/elite/waybar/style.top.css" "${pkgdir}/usr/local/share/elite/waybar/style.top.css"\n'
+waybar_rm = '    [ -e "/usr/local/share/elite/waybar/config.top" ] && rm -f "/usr/local/share/elite/waybar/config.top"\n    [ -e "/usr/local/share/elite/waybar/style.top.css" ] && rm -f "/usr/local/share/elite/waybar/style.top.css"\n'
 # E103 — os defaults XDG (arquivo de pacote: dono único, sem dança de adoção)
 pd_install = '    install -d "${pkgdir}/etc/profile.d"\n    install -m644 "${startdir}/files/etc/profile.d/10-elite-defaults.sh" "${pkgdir}/etc/profile.d/10-elite-defaults.sh"\n'
 # E103 — o gamemode.ini (adoção: o rig com o arquivo SEM dono o perde no
@@ -1836,7 +1848,62 @@ pkgver=1.0
 #     fica SEM número que possa apodrecer (o contrato é a gramática
 #     0/1/2/143). Bins: craft-menu, craft-game. Suíte: 40-integration
 #     (prosa sem número ×2, âncora refrescada).
-pkgrel=62
+#     pkgrel 62→63 NO MESMO COMMIT (lei E41) — E117-POLIMENTO (18/11), o
+#     dump 163548 (pós-reboot, pós-dose 62) periciado com CINCO réus de
+#     nome: (1) O EMBARQUE QUE NUNCA SAIU (a mãe dos réus): o molde do
+#     PKGBUILD instalava fastfetch/hyprlock/rc/menu/swayosd/docs/desktops
+#     mas NUNCA installou files/usr/local/share/elite/chromium-flags/
+#     (E114) nem files/usr/local/share/elite/waybar/ (E115) — os dois
+#     foram STAGED no build.sh e ficaram FORA do pacote; o hook
+#     sincronizador do post-transaction fazia [ -r $SRC_FLAGS ] → falha
+#     SILenciosa → o rig do dono nunca recebeu --password-store=basic
+#     (os popups do chaveiro VIVOS: a enchente gcr-prompter do dock.log
+#     com lançamentos de brave intercalados) nem os flags Ozone/GPU
+#     (o terreno do vídeo branco do YouTube) nem as skins da topbar;
+#     cura: as DUAS linhas de install + remoção no molde (a dança da
+#     família E91) — a dose seguinte entrega tudo ao rig vivo.
+#     (2) craft-display — o apply com adaptive:disabled manda
+#     --adaptive-sync off e ESTE wlr-randr (0.5.0) recusa 'invalid
+#     adaptive sync state: off' com rc=1: 6/6 tentativas por sessão,
+#     stamp fail:6, 150KB de papel de FALHA para um arranjo que na
+#     verdade ESTÁ aplicado (200Hz vivo == conf salvo); cura: no ramo
+#     da falha, se o stderr nomeia o adaptive sync, o flag morre e o
+#     apply RE-RODA sem ele (modo/pos/scale aplicam) e o papel diz a
+#     física (o VRR já nasce off no compositor deste build — o estado
+#     pedido é o estado default); física do conf/stamp intocada.
+#     (3) elite-post-transaction — o veredito do sysctl nunca podia
+#     passar: o _want extraído por ##*≠ deixava o PARÊNTESE de fecho no
+#     valor ('180)' ≠ '180') e o papel imprimia FALHOU (rc=0 …)
+#     (agora:180) — FALHA declarada com o kernel JÁ no alvo (o dump
+#     fotografou); cura: o parêntese morre na extração (uma linha).
+#     (4) O SEGUNDO TRONO DO SWAYNC (journal: 'Failed to start Swaync
+#     notification daemon' ×5 a CADA boot — a ativação corre 4s antes
+#     da sessão existir, o craft-bars é quem sobe o swaync vivo): a
+#     unit de usuário morre com systemctl --global mask (E58 — um
+#     trono só), fail-safe e logado só na mudança.
+#     (5) craft-update — a dose do canal usava pacman -Sy --needed:
+#     INSTALA peça ausente mas NUNCA ATUALIZA peça atrasada — o pywal
+#     do rig ficou 3.3.0-11 contra o 3.3.1-1 do db da casa (o papel
+#     jurou 'a casa já estava em dia' — mentira que o dump fotografou;
+#     a lei E101 do próprio papel: atualização que CHEGA INSTALA);
+#     cura: verificação de versão (vercmp, locale-safe LC_ALL=C) sobre
+#     a lista da casa — peça atrasada entra numa segunda passada SEM
+#     --needed (atualiza SÓ a casa, o sistema inteiro segue na
+#     cadência semanal), log nomeado com o de→para.
+#     (6) O PAPEL (família E33-cosmético, curados no mesmo corpo):
+#     elite-session-probe WAYBAR_PROCS mostrava a LISTA (pid + cmdline)
+#     onde o rótulo jurava contagem — hoje conta e lista em linhas
+#     separadas; craft-dump chamava craft-display VIVO de 'ausente —
+#     sistema anterior ao 1.0-33' quando o rc≠0 era só sessão ausente
+#     (o probe root sem WAYLAND_DISPLAY) e o probe do brave-origin
+#     grepava 'Version' contra pacman em pt_BR ('Versão') e imprimia
+#     VAZIO — os dois falam a verdade hoje (command -v antes do
+#     'ausente'; LC_ALL=C antes do grep).
+#     Bins/moldes com conteúdo mudado: craft-display, craft-update,
+#     craft-dump, elite-session-probe, elite-post-transaction, o molde
+#     do PKGBUILD (2 installs novos). Suíte: 40-integration (âncora
+#     refrescada + contratos novos da dose E117).
+pkgrel=63
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
@@ -1896,7 +1963,7 @@ pre_install() {{
     ; do
         [ -e "/usr/local/bin/$f" ] && rm -f "/usr/local/bin/$f"
     done
-{unit_loop}{hook_rm}{ff_rm}{lock_rm}{rc_rm}{osd_rm}{menu_rm}{gm_rm}{doc_rm}{gp_rm}    return 0
+{unit_loop}{hook_rm}{ff_rm}{lock_rm}{rc_rm}{osd_rm}{menu_rm}{gm_rm}{doc_rm}{gp_rm}{flags_rm}{waybar_rm}    return 0
 }}
 package() {{
     install -d "${{pkgdir}}/usr/local/bin"
@@ -1908,7 +1975,7 @@ package() {{
     # E103 — o agente sob demanda + a fonte dele (mesma transparência)
     install -m755 elite-polkit-listener "${{pkgdir}}/usr/local/bin/elite-polkit-listener"
     install -Dm644 elite-polkit-listener.c "${{pkgdir}}/usr/local/share/elite/src/elite-polkit-listener.c"
-{unit_install}{hook_install}{ff_install}{lock_install}{rc_install}{osd_install}{menu_install}{pd_install}{gm_install}{doc_install}{gp_install}{pt_install}{ef_install}}}
+{unit_install}{hook_install}{ff_install}{lock_install}{rc_install}{osd_install}{menu_install}{pd_install}{gm_install}{doc_install}{gp_install}{pt_install}{ef_install}{flags_install}{waybar_install}}}
 """
 (d / 'PKGBUILD').write_text(pkg)
 PYE50

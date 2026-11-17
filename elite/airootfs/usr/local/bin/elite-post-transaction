@@ -124,6 +124,14 @@ if [ -r "$ELITE_SYSCTL" ]; then
         for _pair in $drift; do
             _k="${_pair%%(*}"
             _want="${_pair##*≠}"
+            # E117 — O PARÊNTESE QUE IMPEDIA O VEREDITO (dump 163548: o papel
+            # imprimia 're-aplicação FALHOU (rc=0 …)' com '(agora:180)' na
+            # MESMA linha — o kernel JÁ no alvo e o papel gritando falha;
+            # o _pair nasce 'chave(vivo≠alvo)' e o ##*≠ deixava o ')' de
+            # fecho no _want ('180)' ≠ '180' — a comparação NUNCA passava,
+            # todo drift virava FALHOU para sempre, família E33 na
+            # verificação). O ')' morre aqui: o valor vivo é o veredito.
+            _want="${_want%)}"
             _now="$(sysctl -n "$_k" 2>/dev/null || true)"
             [ "$_now" = "$_want" ] || _restou="$_restou $_pair(agora:${_now:-?})"
         done
@@ -233,5 +241,29 @@ for _d in /run/user/[0-9]*; do
     fi
     unset _st
 done
+
+# ── 8. O SEGUNDO TRONO DO SWAYNC MORRE (E117 — um trono só, E58) ────────
+#      O journal do dump 163548 fotografa CINCO 'Failed to start Swaync
+#      notification daemon' a CADA boot (15:11:31–33, 4s após o boot —
+#      a unit de usuário do pacote sobe ANTES da sessão existir, falha
+#      sem display e o systemd repete). O swaync VIVO é filho do
+#      craft-bars (o supervisor da casa, que sobe com a sessão e carrega
+#      o config do usuário — o ps do mesmo dump crava). Dois tronos para
+#      um daemon é a doença que a E58 abomina — e as cinco linhas
+#      vermelhas por boot são ruído que a perícia leria como defeito.
+#      Cura: a unit de usuário é MASCARADA globalmente (o auto-start e
+#      a ativação dbus morrem; o arquivo vive em /etc/systemd/user/ —
+#      fora do pacote, sobrevive a doses, reversível com unmask).
+_mask="/etc/systemd/user/swaync.service"
+if [ ! -e /run/archiso ] && command -v systemctl >/dev/null 2>&1; then
+    if [ -e "$_mask" ] && [ "$(readlink -f "$_mask" 2>/dev/null)" = "/dev/null" ]; then
+        :   # já mascarado por uma dose anterior — silêncio (o papel não repete história)
+    elif systemctl --global mask swaync.service >/dev/null 2>&1; then
+        tlog "swaync: unit de usuário MASCARADA (E117) — o segundo trono morre; o swaync vivo é o do craft-bars (o journal deixa de nascer vermelho a cada boot)"
+    else
+        tlog "swaync: FALHOU mascarar a unit de usuário (réu nomeado no papel)"
+    fi
+fi
+unset _mask
 
 exit 0

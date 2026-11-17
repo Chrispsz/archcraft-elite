@@ -555,7 +555,7 @@ PY
     # escolha registrada; aplicado no boot = a prova da persistência.
     printf '\n── craft-display (E89 — a tela que lembra): o conf em disco + o status\n'
     r "cat \"$UHOME/.config/elite/displays.conf\" 2>/dev/null || echo '(sem displays.conf — nenhuma escolha registrada em disco ainda)'" 14
-    r "craft-display status 2>/dev/null || echo '(craft-display ausente — sistema anterior ao 1.0-33)'" 14
+    r "if command -v craft-display >/dev/null 2>&1; then craft-display status 2>/dev/null || echo '(craft-display vivo mas sem sessão no probe — WAYLAND_DISPLAY/HOME não chegam ao root; a leitura COM env vem abaixo)'; else echo '(craft-display ausente — sistema anterior ao 1.0-33)'; fi" 14
     # E96 — o display.log no papel (o julgamento sai da hipótese: o apply
     # do boot aplicou? o watch gravou? o stamp viu duplo?). O status acima
     # corre SEM WAYLAND_DISPLAY no env do dump (o 'agora' vazio é artefato
@@ -762,7 +762,7 @@ PY
     # release viva e o repo-add entrega o pin ao rig — a distância
     # instalado×db abaixo deixa de ser permanente e vira JANELA (a dose
     # seguinte fecha).
-    r "printf 'brave-origin instalado: '; pacman -Q brave-origin 2>/dev/null || echo '(ausente)'; printf 'brave-origin no db da casa: '; pacman -Si brave-origin 2>/dev/null | sed -n 's/^Version *: //p' | head -1" 4
+    r "printf 'brave-origin instalado: '; pacman -Q brave-origin 2>/dev/null || echo '(ausente)'; printf 'brave-origin no db da casa: '; LC_ALL=C pacman -Si brave-origin 2>/dev/null | awk -F': +' '/^Version/{print \$2; exit}'" 4
     # E114 — O CONFO DO NAVEGADOR NO PAPEL (o réu do vídeo branco do
     # YouTube mora no home do dono — a linha Vulkan da era v1.1; a cura
     # v1.2 viaja no pacote e o elite-post-transaction sincroniza). O conf
