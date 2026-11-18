@@ -2207,4 +2207,45 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-help" 'Warehouse' \
 assert_grep "$REPO/docs/SCRIPTS.md" 'craft-flatpak' \
     "E107/doc: a doc que viaja no pacote conhece o bin novo"
 
+# ── E122-CORRIGE: O MOLDE É F-STRING — TODO placeholder precisa de dono ──
+# A lição do canal vermelho do 106881a: o comentário E122 do template
+# escreveu "${VAR}" e o python da geração cuspiu NameError (a f-string
+# avaliou o placeholder que eu só QUERIA citar). A prática E115-corrige
+# (gerador local antes do push) não foi cumprida no degrau — a porteira
+# agora mora NA SUÍTE: cada placeholder de f-string de verdade (chave
+# simples; {{ }} é literal do pacman) precisa de atribuição no build.sh,
+# e o molde INTEIRO renderiza com valores de mentira (o NameError morre
+# na fonte, não no canal).
+python3 - "$REPO/.ci/build.sh" <<'PYEOF' && ok "E122-corrige: o molde do elite-system renderiza INTEIRO (todos os placeholders com dono — o \${VAR} do comentário que o canal avaliou como expressão morre com a porteira; a prática E115-corrige virou contrato)" || fail "E122-corrige: o molde do elite-system" "placeholder órfão no f-string (NameError do canal) — ver o stderr"
+import re, sys
+src = open(sys.argv[1]).read()
+m = re.search(r'pkg = f"""pkgname=elite-system.*?"""(?=\n)', src, re.S)
+assert m, "molde do elite-system não encontrado em build.sh"
+tmpl = m.group(0)[len('pkg = '):]
+out = []; i = 0; t = tmpl
+while i < len(t):
+    c = t[i]
+    if c == '{':
+        if i + 1 < len(t) and t[i+1] == '{':
+            out.append('\x01'); i += 2; continue
+        j = t.index('}', i)
+        out.append('{'+t[i+1:j]+'}'); i = j + 1; continue
+    if c == '}':
+        if i + 1 < len(t) and t[i+1] == '}':
+            out.append('\x02'); i += 2; continue
+        raise SyntaxError('chave solta no molde')
+    out.append(c); i += 1
+masked = ''.join(out)
+names = set()
+for ph in re.findall(r'\{([^{}]+)\}', masked):
+    n = ph.split(':')[0].split('!')[0].strip()
+    if n and n.isidentifier():
+        names.add(n)
+missing = [n for n in sorted(names) if not re.search(rf'\b{re.escape(n)}\s*=', src)]
+assert not missing, f"placeholder órfão no molde (NameError do canal): {missing}"
+ctx = {n: 'DUMMY-%s' % n for n in names}
+result = eval(tmpl, {}, ctx)
+assert 'pkgname=elite-system' in result and 'pkgrel=' in result
+PYEOF
+
 phase_end

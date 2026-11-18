@@ -2118,7 +2118,7 @@ pkgver=1.0
 #     O JOURNAL MOSTRA NA JANELA (Suspending→Awake com duração de parede —
 #     'voltou em 0s' nunca provou insônia). E a pécela que o E121 deixou
 #     nomeada: o ExecStopPost do elite-firstboot imprimia 'resultado:
-#     /bin/bash (exit=/bin/bash)' no rig (dump 184815) — a linha ${VAR}
+#     /bin/bash (exit=/bin/bash)' no rig (dump 184815) — a linha ${{VAR}}
 #     atravessava duas expansões; '$$' entrega '$' literal ao sh (uma
 #     expansão só, a que lê o env que o systemd.service(5) garante).
 #     Bins com conteúdo mudado: craft-wake-guard, craft-vigil, craft-idle,
