@@ -92,7 +92,10 @@ clog "porta: ppid=$_ppid pai: ${_pai:-?}"
 # acontece ANTES do primeiro passo): o trap registra qualquer saída que
 # não passou pelo 'fim:' — papel sem cabeçalho órfão nunca mais.
 _sem_fim=1
-trap 'rc=$?; if [ "${_sem_fim:-0}" = 1 ]; then clog "MORTE no meio (rc=$rc — set -e, kill ou janela fechada): o último passo antes da morte é o último passo logado acima"; fi' EXIT
+# E118-corrige — o rc NÃO viaja em variável (SC2154 no shellcheck 0.11 do
+# CI: o rc=$? dentro da string do trap não conta como atribuição) — o $? 
+# direto diz o mesmo número e o réu morre.
+trap 'if [ "${_sem_fim:-0}" = 1 ]; then clog "MORTE no meio (rc=$? — set -e, kill ou janela fechada): o último passo antes da morte é o último passo logado acima"; fi' EXIT
 
 # E118 — O BOTÃO NÃO EMPILHA CORRIDAS (o papel 210305: dois 'iniciado'
 # a 2s — duas corridas concorrentes brigam pelo mesmo paccache): flock

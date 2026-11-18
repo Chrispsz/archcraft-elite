@@ -1973,7 +1973,16 @@ pkgver=1.0
 #     Suíte: 40-integration (contratos E118 novos: imediato do
 #     pós-sono ×2, porta/testemunho/travamento da limpeza, olho da
 #     topbar; âncora E41 refrescada 63→64).
-pkgrel=64
+#     pkgrel 64→65 NO MESMO COMMIT (lei E41) — E118-CORRIGE (18/11): o
+#     gate do shellcheck 0.11 do CI pegou o SC2154 do trap do craft-clean
+#     ('rc is referenced but not assigned' — o rc=$? dentro da STRING do
+#     trap não conta como atribuição para o linter; a suíte LOCAL pulara
+#     o gate por binário ausente — a lição: o shellcheck agora corre
+#     LOCAL na mesma versão do CI ANTES de qualquer push). Cura: o $?
+#     direto no corpo do trap diz o MESMO número e o réu morre; o
+#     witness 'MORTE no meio' provado de novo com kill real, e o fim
+#     normal segue silencioso. craft-clean mudou de conteúdo.
+pkgrel=65
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
