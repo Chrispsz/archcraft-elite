@@ -3179,4 +3179,163 @@ assert_grep "$FP107/home/.cache/elite/flatpak.log" 'nada órfão' \
 
 rm -rf "$S107" "$D107" "$AI107" "$FP107"
 
+# ═══════════════════════════════════════════════════════════════════════════
+# E122 — O PLAYER COM JUÍZO + A POLÍTICA DO DESPERTAR (o relato do dono)
+# ═══════════════════════════════════════════════════════════════════════════
+CP122="$REPO/elite/airootfs/usr/local/bin/craft-player"
+WG122="$REPO/elite/airootfs/usr/local/bin/craft-wake-guard"
+
+# ── (A) O CRAFT-PLAYER — o bus falso de prova (playerctl stub por cenário) ──
+P122="$(mktemp -d "$WORK/e122p.XXXXXX")"
+mkdir -p "$P122/bin" "$P122/run/elite" "$P122/cache/elite"
+cat > "$P122/bin/playerctl" <<'PLSTUB'
+#!/bin/sh
+# o cenário é um ARQUIVO: uma linha por player, campos separados por \036
+# (a MESMA leitura que o craft-player faz do bus real)
+[ -n "${PLAYER_STUB:-}" ] && [ -f "$PLAYER_STUB" ] && cat "$PLAYER_STUB"
+exit 0
+PLSTUB
+chmod +x "$P122/bin/playerctl"
+# o separador de campo do produto (\036)
+SEP122="$(printf '\036')"
+# cenários (nome|status|título|artista|url|posição)
+printf 'brave%sPlaying%sClipe Teste%sCanal Teste%shttps://www.youtube.com/watch?v=abc%s1:04\n' "$SEP122" "$SEP122" "$SEP122" "$SEP122" "$SEP122" > "$P122/yt.txt"
+printf 'brave%sPlaying%s(2) WhatsApp%s%s%s%s\n' "$SEP122" "$SEP122" "$SEP122" "$SEP122" "$SEP122" "$SEP122" > "$P122/wa.txt"
+printf 'brave%sPlaying%sRecado%s%sblob:https://web.whatsapp.com/uuid%s0:07\n' "$SEP122" "$SEP122" "$SEP122" "$SEP122" "$SEP122" > "$P122/wablob.txt"
+printf 'brave%sPlaying%sMúsica YTM%sArtista YTM%shttps://music.youtube.com/watch?v=xyz%s2:30\n' "$SEP122" "$SEP122" "$SEP122" "$SEP122" "$SEP122" > "$P122/ytm.txt"
+printf 'brave%sPaused%sClipe Teste%sCanal Teste%shttps://www.youtube.com/watch?v=abc%s0:00\n' "$SEP122" "$SEP122" "$SEP122" "$SEP122" "$SEP122" > "$P122/paused.txt"
+printf 'spotify%sPlaying%sFaixa Nativa%sBanda Nativa%s%s1:00\n' "$SEP122" "$SEP122" "$SEP122" "$SEP122" "$SEP122" > "$P122/spotify.txt"
+printf 'brave%sPlaying%sThe signal and the noise%sCanal História%shttps://www.youtube.com/watch?v=noise%s10:01\n' "$SEP122" "$SEP122" "$SEP122" "$SEP122" "$SEP122" > "$P122/sinal.txt"
+printf '' > "$P122/vazio.txt"
+cp122() { # <cenário> [cmd] — um tick limpo no mesmo home
+    env XDG_RUNTIME_DIR="$P122/run" XDG_CACHE_HOME="$P122/cache" \
+        PATH="$P122/bin:$PATH" PLAYER_STUB="$P122/$1" \
+        sh "$CP122" "${2:-state}"
+}
+out122="$(cp122 yt.txt)"
+assert_match "$out122" 'uf268' \
+    "E122/player: YouTube no navegador entra com o glifo da família (a porta de ENTRADA intacta — o que toca aparece)"
+assert_match "$out122" 'Canal Teste — Clipe Teste' \
+    "E122/player: o pill fala 'artista — título' (a MESMA gramática que o dono já usava)"
+assert_match "$out122" '"class":"playing"' \
+    "E122/player: o JSON carrega a classe de estado (o CSS da barra acende o botão vivo)"
+out122="$(cp122 wa.txt)"
+assert_eq "$out122" '{"text":"","class":"","tooltip":""}' \
+    "E122/player: RECADO DE WHATSAPP (título de sessão, sem url) NÃO entra — a lei 1 do dono ('tirar isso do WhatsApp')"
+out122="$(cp122 wablob.txt)"
+assert_eq "$out122" '{"text":"","class":"","tooltip":""}' \
+    "E122/player: o blob:https://web.whatsapp.com/… é julgado pelo HOST de trás dos dois schemes — recado com url também não entra"
+out122="$(cp122 ytm.txt)"
+assert_match "$out122" 'Artista YTM — Música YTM' \
+    "E122/player: YouTube Music entra (o site que o dono nomeou como reprodução de verdade)"
+out122="$(cp122 spotify.txt)"
+assert_match "$out122" 'uf1bc' \
+    "E122/player: app de mídia NATIVO (spotify) entra SEM filtro — o juízo é só do navegador que serve mensagem e mídia no MESMO player"
+out122="$(cp122 sinal.txt)"
+assert_match "$out122" 'The signal and the noise' \
+    "E122/player: o token 'signal' só julga quando NÃO há url — um vídeo do YouTube com 'signal' no título não cai no filtro (falso-positivo extinto no design)"
+out122="$(cp122 paused.txt)"
+assert_eq "$out122" '{"text":"","class":"","tooltip":""}' \
+    "E119 preservado: PAUSADO não segura o pillar (a barra é de quem toca de verdade)"
+out122="$(cp122 vazio.txt)"
+assert_eq "$out122" '{"text":"","class":"","tooltip":""}' \
+    "E122/player: bus VAZIO = pillar fora (o 'off' do on/off — zeros e uns, a ordem do dono)"
+out122="$(cp122 wablob.txt status)"
+assert_match "$out122" 'origem de MENSAGENS' \
+    "E122/player: o veredito humano NOMEIA a origem (a escola do craft-game status — o porquê no papel, não opinião)"
+assert_rc0 "E122/player: o status sai 0 mesmo sem vencedor (nenhuma porta quebra o script do módulo)" \
+    env XDG_RUNTIME_DIR="$P122/run" XDG_CACHE_HOME="$P122/cache" PATH="$P122/bin:$PATH" \
+    PLAYER_STUB="$P122/wablob.txt" sh "$CP122" status
+
+# ── o ZUMBI (a lei 2): 3 ticks de posição congelada = aba fechada ──
+PZ122="$(mktemp -d "$WORK/e122z.XXXXXX")"
+mkdir -p "$PZ122/run/elite" "$PZ122/cache/elite" "$PZ122/bin"
+cp "$P122/bin/playerctl" "$PZ122/bin/playerctl"
+printf 'brave%sPlaying%sClipe Zumbi%sCanal%shttps://www.youtube.com/watch?v=zombie%s1:04\n' "$SEP122" "$SEP122" "$SEP122" "$SEP122" "$SEP122" > "$PZ122/frozen.txt"
+printf 'brave%sPlaying%sClipe Zumbi%sCanal%shttps://www.youtube.com/watch?v=zombie%s1:05\n' "$SEP122" "$SEP122" "$SEP122" "$SEP122" "$SEP122" > "$PZ122/moving.txt"
+cpz122() {
+    env XDG_RUNTIME_DIR="$PZ122/run" XDG_CACHE_HOME="$PZ122/cache" \
+        PATH="$PZ122/bin:$PATH" PLAYER_STUB="$PZ122/$1" \
+        sh "$CP122" state
+}
+assert_match "$(cpz122 frozen.txt)" 'Clipe Zumbi' \
+    "E122/zumbi: tick 1 — tocando de verdade (posição 1:04), o pillar entra"
+assert_match "$(cpz122 frozen.txt)" 'Clipe Zumbi' \
+    "E122/zumbi: tick 2 — UM tick congelado ainda não corta (a graça do tick — o leitor DBus lento não é réu)"
+out122="$(cpz122 frozen.txt)"
+assert_eq "$out122" '{"text":"","class":"","tooltip":""}' \
+    "E122/zumbi: tick 3 — posição congelada 3 observações seguidas = ABA FECHADA, o MPRIS órfão sai da barra (o fio corta sem matar o navegador)"
+assert_grep "$PZ122/cache/elite/player.log" 'sessão ZUMBI saiu da barra \(brave' \
+    "E122/zumbi: o corte deixa RÉU NOMEADO no papel (a linha ZUMBI com o player e a causa — E33: recusa nunca é silêncio)"
+assert_match "$(cpz122 moving.txt)" 'Clipe Zumbi' \
+    "E122/zumbi: a posição ANDANDO de novo = reprodução viva, o pillar VOLTA (o on do on/off)"
+assert_grep "$PZ122/cache/elite/player.log" 'ENTROU' \
+    "E122/player: as transições ENTROU/SAIU ficam no papel ~/.cache/elite/player.log (o on/off do dono ganhou prova — uma linha por mudança, nunca por tick)"
+rm -rf "$P122" "$PZ122"
+
+# ── (B) O CRAFT-WAKE-GUARD — a política do despertar (árvore sysfs falsa) ──
+W122="$(mktemp -d "$WORK/e122w.XXXXXX")"
+mkdir -p "$W122/sys/bus/pci/devices" "$W122/sys/bus/usb/devices" "$W122/sys/power"
+C122="$W122/sys/bus/pci/devices/0000:02:00.0"
+K122="$W122/sys/bus/usb/devices/1-2"
+M122="$W122/sys/bus/usb/devices/1-3"
+ST122="$W122/sys/bus/usb/devices/1-4"
+mkdir -p "$C122/power" "$K122/power" "$K122:1.0" "$K122:2.0" "$M122/power" "$M122:1.0" "$ST122/power" "$ST122:1.0"
+printf '0x0c0330\n' > "$C122/class";  printf 'disabled\n' > "$C122/power/wakeup"
+printf '03\n' > "$K122:1.0/bInterfaceClass";     printf '01\n' > "$K122:1.0/bInterfaceProtocol"
+printf '03\n' > "$K122:2.0/bInterfaceClass";     printf '02\n' > "$K122:2.0/bInterfaceProtocol"
+printf 'enabled\n' > "$K122/power/wakeup"    # a era E24 deixou TUDO errado — o apply corrige
+printf 'enabled\n' > "$M122/power/wakeup";   printf '03\n' > "$M122:1.0/bInterfaceClass";  printf '02\n' > "$M122:1.0/bInterfaceProtocol"
+printf 'enabled\n' > "$ST122/power/wakeup";  printf '08\n' > "$ST122:1.0/bInterfaceClass"; printf '06\n' > "$ST122:1.0/bInterfaceProtocol"
+printf 's2idle [deep]\n' > "$W122/sys/power/mem_sleep"
+out122="$(env WAKE_SYSFS="$W122/sys" WAKE_ACPI="$W122/nenhuma" bash "$WG122" apply)"
+assert_match "$out122" 'controlador ARMADO' \
+    "E122/wake: o controlador USB 0x0c03 fica ARMADO (a porta por onde o teclado fala — sem ela, teclado nenhum acorda)"
+assert_eq "$(cat "$C122/power/wakeup")" "enabled" \
+    "E122/wake: o wakeup do controlador virou enabled no sysfs (a escrita REAL, não o discurso)"
+assert_eq "$(cat "$K122/power/wakeup")" "enabled" \
+    "E122/wake: TECLADO USB (HID protocolo 01) acorda — a ordem literal do dono ('uma ação no teclado libere')"
+assert_eq "$(cat "$M122/power/wakeup")" "disabled" \
+    "E122/wake: MOUSE dorme ('não necessariamente no mouse… qualquer toque na mesa fica ativando' — a E24 continua curada pelo nível de DISPOSITIVO)"
+assert_eq "$(cat "$ST122/power/wakeup")" "disabled" \
+    "E122/wake: o RESTO do bus USB dorme (pêndulo/storage não acorda ninguém — só a mão do teclado)"
+out122="$(env WAKE_SYSFS="$W122/sys" WAKE_ACPI="$W122/nenhuma" bash "$WG122" usb-apply /devices/pci0000:00/0000:02:00.0/usb1/1-3)"
+assert_eq "$(cat "$M122/power/wakeup")" "disabled" \
+    "E122/wake: o gancho udev usb-apply (o %p da regra) decide UM dispositivo e mantém o mouse dormindo"
+out122="$(env WAKE_SYSFS="$W122/sys" WAKE_ACPI="$W122/nenhuma" bash "$WG122" status)"
+assert_match "$out122" 'TECLADO acorda' \
+    "E122/wake: o status DIZ a política (a vista que o craft-dump seção 10 colhe no rig)"
+assert_rc0 "E122/wake: status sai 0 na árvore falsa (a perícia sem raiz é a prova da suíte)" \
+    env WAKE_SYSFS="$W122/sys" WAKE_ACPI="$W122/nenhuma" bash "$WG122" status
+# contratos de instalação: a regra udev e a unit de boot
+assert_grep "$REPO/elite/airootfs/etc/udev/rules.d/90-elite-wake-guard.rules" '0x0c03\*.*power/wakeup\}="enabled"' \
+    "E122/wake: a regra udev v2 ARMA o controlador (a marreta 'disabled' da era E24 morre na ISO nova)"
+assert_grep "$REPO/elite/airootfs/etc/udev/rules.d/90-elite-wake-guard.rules" 'usb-apply %p' \
+    "E122/wake: o gancho RUN por usb_device entra na regra (coldplug + hotplug decidem por DISPOSITIVO)"
+assert_file "$REPO/elite/airootfs/etc/systemd/system/elite-wake-guard.service" \
+    "E122/wake: a unit elite-wake-guard existe (o apply a cada boot — quem cura os rigs da era E24 cuja .rules velha segue no disco)"
+assert_file "$REPO/elite/airootfs/etc/systemd/system/multi-user.target.wants/elite-wake-guard.service" \
+    "E122/wake: a unit está habilitada DE FÁBRICA (symlink no multi-user.wants — a habilitação é o único caminho de ativação, a escola E23)"
+assert_grep "$REPO/elite/airootfs/etc/systemd/system/elite-wake-guard.service" 'ExecStart=/usr/local/bin/craft-wake-guard apply' \
+    "E122/wake: a unit roda O APPLY (a política inteira — controlador, dispositivos e ACPI)"
+rm -rf "$W122"
+
+# ── (C) A MENTIRA E108 — o veredito do sono é o JOURNAL, não o relógio ──
+assert_nogrep "$REPO/elite/airootfs/usr/local/bin/craft-vigil" 'SEM sono \(rc=0\)' \
+    "E122/E108: o papel do vigia NUNCA MAIS clama insônia pelo relógio (o rig provou 20+ vezes: 'voltou em 0s' seguido 1s depois de 'tela: ACORDOU' — a chamada é assíncrona, o sono era REAL)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-vigil" 'a chamada é ASSÍNCRONA' \
+    "E122/E108: a mentira virou explicação nomeada no papel (a mensagem do veredito diz o que a chamada É — E33 na própria cura)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-vigil" 'Suspending system' \
+    "E122/E108: o vigia julga pela JANELA do journal (Suspending→Awake — a parede real do systemd-suspend)"
+assert_nogrep "$REPO/elite/airootfs/usr/local/bin/craft-idle" 'SEM sono \(rc=0\)' \
+    "E122/E108: o braço idle do suspend segue a mesma lei (a assinatura da mentira — 'SEM sono (rc=0)' — não sobrevive num irmão)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-idle" 'sono REAL confirmado pelo journal' \
+    "E122/E108: o idle também tem o veredito do journal (as DUAS portas do sono falam a mesma língua)"
+
+# ── (D) A PÉCELA DO FIRSTBOOT — o 'resultado: /bin/bash' vira verdade ──
+assert_grep "$REPO/elite/airootfs/etc/systemd/system/elite-firstboot.service" '\$\$SERVICE_RESULT' \
+    "E122/firstboot: o \$\$ entrega '$' LITERAL ao sh (uma expansão só — a que lê o env que o systemd.service(5) garante; o rig imprimia 'resultado: /bin/bash')"
+assert_nogrep "$REPO/elite/airootfs/etc/systemd/system/elite-firstboot.service" '\$\{SERVICE_RESULT:-\?\}' \
+    "E122/firstboot: a expansão \${VAR:-default} dupla morre (a linha que atravessava systemd+sh imprimia lixo nas duas posições)"
+
 phase_end

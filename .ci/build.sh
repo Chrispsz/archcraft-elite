@@ -2076,7 +2076,57 @@ pkgver=1.0
 #     nunca rodou no rig) e o menu.xml (o item Captura tela inteira).
 #     Bins/peles com conteúdo mudado: craft-game, menu.xml, listener.c.
 #     Suíte: âncora refrescada 67→68.
-pkgrel=68
+# E122 — O PLAYER COM JUÍZO + A POLÍTICA DO DESPERTAR (o relato do dono no
+#     dump pós-dose-67 + o relato na mesa do mesmo dia): (1) O PILLAR PEGOU
+#     UM RECADO DE WHATSAPP ('ele pegou o áudio do WhatsApp, contou o tempo,
+#     botou o ícone do Chrome… e ficou. Eu fechei a página do WhatsApp e
+#     ficou lá em cima' + 'tem que saber os sites que são reprodução
+#     realmente de necessários para um player, tipo YouTube Music… e tirar
+#     isso do WhatsApp, entre outros' + 'assim que encerrar a reprodução ou
+#     a página atrelada à reprodução seja fechada… já cortasse essa
+#     conexão… um on e off, zeros e uns, conforme o uso'): o módulo mpris
+#     interno do waybar só filtra por NOME (ignored-players) — o juízo de
+#     ORIGEM e o de ESTADO MORIBUNDO não existem como opção. Cura: BIN NOVO
+#     craft-player (a porta do módulo custom/player no config.top) com as
+#     três leis — mensagem não é mídia (WhatsApp/Telegram/Messenger/Signal
+#     pelo host da url, inclusive blob:, e pelo título QUANDO não há url —
+#     o vídeo do YouTube "signal and the noise" não cai no filtro), o ZUMBI
+#     morre (browser Playing com posição congelada 2 ticks = aba fechada,
+#     MPRIS órfão — sai da barra com linha no papel player.log) e o custo é
+#     o MESMO tick de 1s que o módulo interno já polia (agora externo porque
+#     o juízo mora fora). A porta de ENTRADA fica intacta: tudo que toca de
+#     verdade continua aparecendo (a ordem 'não tem que mexer no que tá
+#     quieto'). (2) O DESPERTAR QUE NÃO EXISTIA ('eu tentava fazer ação no
+#     teclado, ação no mouse e nada despertava o computador… cliquei no
+#     botão de power e aí o computador desligou' + 'que uma ação, por
+#     exemplo, no teclado libere… não necessariamente no mouse — pode ter
+#     mouse sensível que qualquer toque na mesa ativa'): a perícia do dump
+#     182602 seção 10 provou /proc/acpi/wakeup com XHC0/PS2K/PS2M TODOS
+#     *disabled — a E24 desarmou TODO controlador USB e o dono fotografou o
+#     preço (dormiu e nada acordava; o único wake era o power button que o
+#     logind atende como poweroff). E a E108 do idle.log mentiu dias a fio
+#     ('systemctl voltou em 0s SEM sono' seguido 1s depois de 'tela:
+#     ACORDOU' — a chamada é ASSÍNCRONA, o sono era REAL, ninguém podia
+#     acordá-la). CURA ×3: craft-wake-guard v2 com A POLÍTICA (teclado USB
+#     HID protocolo 01 + PS2K acorda; mouse e o resto do bus dormem;
+#     controlador 0x0c03 armado — a porta do teclado; PS2M dorme; WoL segue
+#     morto E90), a regra udev v2 (0x0c03 enabled + RUN do gancho
+#     usb-apply) e a UNIT NOVA elite-wake-guard.service (apply a cada boot,
+#     multi-user.wants — quem cura os rigs da era E24, cuja .rules velha
+#     segue no disco; a varredura pós-coldplug vence porque suspende só
+#     minutos depois); craft-vigil + craft-idle: o veredito do sono é O QUE
+#     O JOURNAL MOSTRA NA JANELA (Suspending→Awake com duração de parede —
+#     'voltou em 0s' nunca provou insônia). E a pécela que o E121 deixou
+#     nomeada: o ExecStopPost do elite-firstboot imprimia 'resultado:
+#     /bin/bash (exit=/bin/bash)' no rig (dump 184815) — a linha ${VAR}
+#     atravessava duas expansões; '$$' entrega '$' literal ao sh (uma
+#     expansão só, a que lê o env que o systemd.service(5) garante).
+#     Bins com conteúdo mudado: craft-wake-guard, craft-vigil, craft-idle,
+#     config.top, style.top.css, 90-elite-wake-guard.rules,
+#     elite-firstboot.service. Bin NOVO: craft-player. Unit NOVA:
+#     elite-wake-guard.service (+wants). pkgrel 68→69 NO MESMO COMMIT (lei
+#     E41).
+pkgrel=69
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

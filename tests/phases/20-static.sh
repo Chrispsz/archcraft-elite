@@ -292,16 +292,19 @@ WG="$REPO/elite/airootfs/etc/udev/rules.d/90-elite-wake-guard.rules"
 [[ -f "$WG" ]] \
   && ok "v2.10.11: regra udev 90-elite-wake-guard.rules presente (a cura do despertar no add/coldplug)" \
   || fail "v2.10.11: 90-elite-wake-guard.rules" "ausente — o suspend volta a acordar sozinho (a doença do a4h8)"
-assert_grep "$WG" 'ACTION=="add"' "v2.10.11: regra E24 atua no add (coldplug cobre o boot, hotplug cobre o encaixe a quente)"
-assert_grep "$WG" 'SUBSYSTEM=="pci"' "v2.10.11: regra E24 mira dispositivos PCI"
-assert_grep "$WG" 'ATTR\{class\}=="0x0c03\*"' "v2.10.11: regra E24 desarma controladores USB (class 0x0c03) — cirúrgico, sem shotgun"
-assert_grep "$WG" 'ATTR\{power/wakeup\}="disabled"' "v2.10.11: regra E24 escreve wakeup=disabled (sem porta de volta do mouse/controlador)"
+assert_grep "$WG" 'ACTION=="add"' "v2.10.11/E122: regra atua no add (coldplug cobre o boot, hotplug cobre o encaixe a quente)"
+assert_grep "$WG" 'SUBSYSTEM=="pci"' "v2.10.11/E122: regra mira dispositivos PCI"
+assert_grep "$WG" 'ATTR\{class\}=="0x0c03\*"' "E122: a regra continua cirúrgica no class 0x0c03 (a família inteira nunca voltou)"
+assert_grep "$WG" 'ATTR\{power/wakeup\}="enabled"' "E122: A POLÍTICA DO DESPERTAR — o controlador fica ARMADO (a porta por onde o TECLADO fala; o mouse segue dormindo por DISPOSITIVO — o usb-apply decide; a era E24 que desarmava TUDO deixou o dono sem voz: 'nada despertava o computador' e o power button desligava)"
+assert_grep "$WG" 'usb-apply %p' "E122: o gancho RUN por usb_device na regra (a decisão de teclado/mouse é por DISPOSITIVO, não por controlador)"
 index_exec "elite/airootfs/usr/local/bin/craft-wake-guard" \
   "v2.10.11: craft-wake-guard presente e executável (status/off/on — o comando manual da cura; modo 100755 do index — v2.10.26/E39)" \
   "ausente ou sem +x no index — o dono fica sem perícia/ajuste manual"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-wake-guard" 'do_set disabled' "v2.10.11: craft-wake-guard off desarma USB (o mesmo gesto da regra udev)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-wake-guard" 'do_set enabled' "v2.10.11: craft-wake-guard on rearma USB (a porta de volta, assumindo o risco E24)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-wake-guard" 'cat /sys/power/mem_sleep' "v2.10.11: craft-wake-guard status mostra o modo real do hardware (deep vs s2idle)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-wake-guard" 'do_set disabled' "v2.10.11/E122: craft-wake-guard off desarma a família (A MARRETA LEGADA — o resgate da era E24, agora fora do caminho feliz)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-wake-guard" 'do_set enabled' "v2.10.11/E122: craft-wake-guard on rearma a família (a marreta de volta, assumindo o risco E24)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-wake-guard" 'power/mem_sleep' "v2.10.11/E122: o status mostra o modo real do hardware (deep vs s2idle — via WAKE_SYSFS, a perícia sem raiz da suíte)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-wake-guard" 'decide_usb' "E122: a DECISÃO por dispositivo existe (HID protocolo 01 acorda — teclado composto com leitor acorda; o resto dorme)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-wake-guard" 'WAKE_SYSFS' "E122: a perícia SEM RAIZ é contrato (a suíte constrói a árvore falsa e julga a política — a prova não precisa de kernel de verdade)"
 assert_nogrep "$REPO/elite/airootfs/usr/local/bin/craft-wake-guard" '0x0c00–0x0c07 = USB' \
   "E106/E33: a mentira taxonômica extinta (0x0c00–0x0c07 é SERIAL BUS — FireWire/ACCESS/SSA/USB/Fibre/SMBus/InfiniBand/IPMI; USB é SÓ a 0x0c03 — o comentário volta a mentir, a porteira crava)"
 SR="$REPO/elite/airootfs/usr/lib/systemd/system-sleep/elite-sleep-report"
@@ -1252,11 +1255,13 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-rice" 'brave-browser\|chro
 # E. PAPEL COMPLETO: wpctl sem o head que escondeu o réu
 assert_nogrep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'wpctl status \| head' "E30: o dump NUNCA mais corta o wpctl (o head -30 escondeu Sinks/Sources do p6aw)"
 
-# F. PLAYER: descobribilidade + segundos em tempo real (custo = leitura
-#    DBus interna, zero fork — a resposta honesta à pergunta do dono)
-assert_grep "$REPO/elite/airootfs/etc/skel/.config/waybar/config.top" '"interval": 1' "E30: mpris com segundos em tempo real (interval 1 = 1 leitura DBus interna/s, zero fork)"
+# F. PLAYER: descobribilidade + o JUÍZO E122 (a resposta ao relato do dono:
+#    o pillar pegou recado de WhatsApp e ficou após o fecho da página)
+assert_grep "$REPO/elite/airootfs/etc/skel/.config/waybar/config.top" '"custom/player"' "E122: o player da barra é o craft-player (o juízo de ORIGEM e de ZUMBI mora fora do waybar — o módulo interno só filtra por NOME)"
+assert_grep "$REPO/elite/airootfs/etc/skel/.config/waybar/config.top" '"interval": 1' "E30/E122: o tick de 1s segue (a MESMA cadência que o módulo interno já polia — o juízo novo não carrega poll extra)"
 assert_grep "$REPO/elite/airootfs/etc/skel/.config/waybar/config.top" 'on-scroll-up' "E30: scroll troca faixa (passar/retroceder sem adivinhar botões)"
-assert_grep "$REPO/elite/airootfs/etc/skel/.config/waybar/config.top" 'tooltip-format' "E30: a barra DIZ os controles (o dono descobriu meio/dir por sorte)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-player" 'esq: play/pause' "E30: a barra DIZ os controles (o tooltip do craft-player — o dono descobriu meio/dir por sorte)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-player" 'MENSAGENS' "E122: a lista de mensagens é EXTENSÍVEL (uma linha por app — o 'entre outros' do dono tem porta)"
 
 # G. CAPTURA RÁPIDA no menu (pedido explícito do dono) — binário real na ISO
 assert_grep "$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml" 'Captura de tela' "E30: captura rápida no menu do desktop (o dono pediu botão)"
@@ -1846,9 +1851,9 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-game" 'pill) gm_pill' "E11
 assert_grep "$REPO/elite/airootfs/etc/skel/.config/waybar/config.top" '"custom/game"' "E115: o assento do MODO DE JOGO na topbar (a resposta VISÍVEL ao 'não sei se funciona' dito três vezes — o glifo verde só existe quando o modo está ligado e some quando sai, a gramática do bgapps)"
 assert_grep "$REPO/elite/airootfs/etc/skel/.config/waybar/config.top" '"exec": "craft-game pill"' "E115: o módulo consulta o verbo pill (o estado que não se vê não existe para quem usa; clique abre o Modo de jogo…)"
 assert_grep "$REPO/elite/airootfs/etc/skel/.config/waybar/style.top.css" '#custom-game.game-on' "E115: o verde da casa no assento do jogo (Catppuccin @green — estado ATIVO legível de longe)"
-assert_grep "$REPO/elite/airootfs/etc/skel/.config/waybar/config.top" '"format": " {player_icon} {dynamic}"' "E119 (âncora E115 refrescada): o token é {player_icon} — o man do waybar 0.16 nomeia {player_icon}/{status_icon} (UNDERSCORE) e o {icon} da E115 NÃO existia: o placeholder desconhecido renderizava VAZIO e o mapa player-icons era config morta (o rig do dono: 'ele não tem o íconezinho que indica do que é que ele está tocando' — a mapa acende de verdade agora)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-player" 'icon_of' "E122 (âncora E115/E119 refrescada): o mapa de GLIFOS vive NO CRAFT-PLAYER (o módulo mpris interno saiu — a decisão do token {player_icon} segue como história; agora o juízo de origem e de zumbi também mora no mesmo bin, e o glifo por player é de quem FORMATA)"
 assert_nogrep "$REPO/elite/airootfs/etc/skel/.config/waybar/config.top" '"format": " {icon} ' "E119: o token morto {icon} NÃO volta (a lição E114 do typo — o contrato escrito tinha de bater na física do waybar)"
-assert_grep "$REPO/elite/airootfs/etc/skel/.config/waybar/config.top" '"spotify": ' "E115: o mapa player-icons vive (o player cada vez melhor — o pedido do dono; o tooltip diz a faixa inteira)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-player" 'spotify)                                 printf' "E115/E122: o glifo do spotify vive (o player cada vez melhor — o pedido do dono; o tooltip diz a faixa inteira)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-rice" 'share/elite/waybar/config.top' "E115: as SKINS DA TOPBAR existem no rice (a ferida que a topbar repetia do menu E104: config/style só no skel = barra do rig congelada na era da ISO, nenhum módulo novo chegava NUNCA)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-rice" 'WTOP_FOSSILS=' "E115: a gramática fóssil/marcador cobre a topbar (fósseis do git autorizam a renovação com backup; personalizado = intocável — a lei do domínio v3)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-rice" "pkill -f '\\^waybar -c '" "E115: a barra ressuscita com a pele nova (o waybar lê config no NASCIMENTO — o supervisor respawna em ≤5s; âncora ^: um editor com o conf aberto não morre por isso, lição E43/E106)"
@@ -2078,8 +2083,8 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-display" 'REAPLICANDO o ar
     "E105/display: o stamp não é fé — conf ≠ realidade estável = o arranjo salvo volta (o 60 Hz escondido morre)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-display" 'fail:N|RE-TENTANDO|stamp honesto' \
     "E106/display: o stamp é HONESTO (escrito DEPOIS do feito, ok/fail:N com retry de 6 — a v2.6 escrevia 'sucesso antecipado' antes do apply e o fail era TERMINAL: um boot de link frio muteava a sessão inteira até o reboot, o réu dos 200 Hz do dump 20261112)"
-assert_grep "$REPO/elite/airootfs/etc/skel/.config/waybar/config.top" '"format-stopped": ""' \
-    "E105/topbar: o stopped não prende mais o módulo (o fantasma da aba fechada sai — a promessa do comentário vira fato)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-player" 'status.*!=.*Playing' \
+    "E105/topbar→E122: o stopped/pausado não prende mais o módulo (o fantasma da aba fechada sai — o juízo de quem FORMATA só exibe Playing: a promessa do comentário vira fato no bin)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'playerctl -l' \
     "E105/dump v2.10: a foto da MÍDIA (quem está no barramento — o próximo fantasma nasce com nome)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'lock\.log' \

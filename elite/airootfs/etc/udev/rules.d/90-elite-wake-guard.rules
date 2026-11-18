@@ -1,21 +1,28 @@
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · 90-elite-wake-guard.rules (E24 — A CURA DO DESPERTAR)
+# Archcraft ELITE · 90-elite-wake-guard.rules (E122 — A POLÍTICA DO DESPERTAR)
 # ═══════════════════════════════════════════════════════════════════════════
-# Prova d33o (dump a4h8, rig na 10.9 · journal do systemd-suspend):
-#   16:54:49 "Performing sleep operation 'suspend'"
-#   16:54:54 "System returned from sleep operation 'suspend'"
-# → 5 SEGUNDOS de sono. O usuário clicou Suspender e viu "nada aconteceu".
-# /proc/acpi/wakeup mostrava 6 wake sources USB/PCIe armadas (GP12, GP13,
-# XHC0, SWUS, SWDS, PTXH) e o resume registrou o sintoma:
-#   xhci_hcd 0000:02:00.0: xHC error in resume, USBSTS 0x401, Reinit
-# O hardware entrega S3 real (mem_sleep: s2idle [deep]) — o modo não é
-# doença; quem acorda o PC é DISPOSITIVO USB (sensor do mouse vibra, o
-# controlador gera PME). Cura cirúrgica: desarmar o wakeup de TODO
-# controlador USB PCI (class 0x0c03) no add — coldplug cobre o boot e
-# hotplug cobre o encaixe a quente. Efeito honesto e reversível: o PC
-# dorme de verdade e acorda pelo BOTÃO DE POWER (rearmar a quente:
-# craft-wake-guard on · ou echo <dev> > /proc/acpi/wakeup).
-# Juiz da cura: o próximo craft-dump (v2.3, seção 10) mostra wakeup=disabled
-# nos controladores USB e o journal do elite-sleep-report prova o sono.
+# A E24 (a cura do despertar imediato, dump a4h8: suspend 16:54:49 → retorno
+# 16:54:54) curou desarmando TODO controlador USB PCI — e cobrou o preço que
+# o dono só viu depois (dump 182602, seção 10): dormiu e NADA acordava —
+# teclado e mouse sem voz, o único despertar vivo era o botão de power,
+# que o logind atende como HandlePowerKey=poweroff. A ordem do dono:
+#   'uma ação, por exemplo, no teclado libere… Ative o monitor. Não
+#    necessariamente no mouse — o mouse é menos confiável, qualquer toque
+#    na mesa fica ativando o computador.'
+# A política é por DISPOSITIVO, não por classe de controlador:
+#   · controlador USB PCI (0x0c03): ARMADO — a porta por onde o teclado
+#     fala (o despertar-imediato era DISPOSITIVO: o sensor do mouse; o
+#     dispositivo-mouse segue DESARMADO no nível dele);
+#   · TECLADO USB (HID protocolo 01): ACORDA — a decisão mora no
+#     craft-wake-guard usb-apply (o gancho RUN), que lê as interfaces do
+#     dispositivo e decide; teclado composto (com leitor/touchpad) acorda;
+#   · MOUSE e TODO o resto do bus USB: DORMEM (o echo por dispositivo);
+#   · PS2K/PS2M e a re-aplicação de CADA boot: elite-wake-guard.service
+#     → craft-wake-guard apply (o /proc/acpi/wakeup não passa por udev).
+# A marreta antiga (`craft-wake-guard off|on`) segue viva como resgate.
+# Juiz da cura: o craft-dump (seção 10) mostra os controladores armados e
+# o elite-wake-guard.service na lista de units; o próximo sono real acorda
+# pelo TECLADO.
 # ═══════════════════════════════════════════════════════════════════════════
-ACTION=="add", SUBSYSTEM=="pci", ATTR{class}=="0x0c03*", ATTR{power/wakeup}="disabled"
+ACTION=="add", SUBSYSTEM=="pci", ATTR{class}=="0x0c03*", ATTR{power/wakeup}="enabled"
+ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", RUN+="/usr/local/bin/craft-wake-guard usb-apply %p"

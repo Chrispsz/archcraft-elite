@@ -368,19 +368,30 @@ while alive; do
         # próximo wake).
         mkdir -p "${GATE%/*}" 2>/dev/null || true
         : > "$GATE" 2>/dev/null || true
-        # E108 — O PAPEL NÃO CLAMA CICLO QUE NÃO HOUVE: o dump 180302
-        # fotografou 'suspendindo' e 'suspend voltou (ciclo completo)' NO
-        # MESMO SEGUNDO (17:20:45) com o journal provando o sono REAL 5s
-        # depois (17:20:50→18:01:06, 40min de sono). O relógio de parede
-        # julga: sono de verdade avança date +%s; retorno curto = o
-        # journal é o juiz do ciclo (a vigília segue de pé).
+        # E108→E122 — O VEREDICTO É O QUE O JOURNAL MOSTRA (a prova do papel
+        # do próprio rig, 20+ linhas no idle.log: 'systemctl voltou em 0s
+        # SEM sono' seguido 1s depois de 'tela: ACORDOU' + vigília
+        # re-armada — a chamada systemctl é ASSÍNCRONA: ela só ENTREGA o
+        # pedido ao logind, o sono acontece por conta DELE; 'voltou em 0s'
+        # nunca provou insônia e o papel mentiu dias a fio — E33 na própria
+        # cura). O julgamento agora é por JANELA de journal: systemd-suspend
+        # loga 'Suspending system...' antes do S3 e 'Awake from suspend.'
+        # depois do thaw — os dois timestamps são a prova de parede.
         _t0="$(date +%s)"
         if systemctl suspend -i; then
             _dur=$(( $(date +%s) - _t0 ))
-            if [ "$_dur" -ge 10 ]; then
-                vlog "VIGÍLIA: suspend voltou (ciclo completo — ${_dur}s de sono; a vigília EXISTE e está no papel)"
+            vlog "VIGÍLIA: systemctl suspend aceito (${_dur}s, rc=0) — a chamada é ASSÍNCRONA (E122); o veredito do sono é o que o journal mostra na janela:"
+            _j="$(journalctl -b -u systemd-suspend --since "@$_t0" -o short-epoch --no-pager 2>/dev/null || true)"
+            _ts="$(printf '%s\n' "$_j" | grep -m1 'Suspending system' | cut -d' ' -f1 | cut -d. -f1)"
+            _ta="$(printf '%s\n' "$_j" | grep -m1 'Awake from suspend' | cut -d' ' -f1 | cut -d. -f1)"
+            case "${_ts:-}" in ''|*[!0-9]*) _ts="" ;; esac
+            case "${_ta:-}" in ''|*[!0-9]*) _ta="" ;; esac
+            if [ -n "$_ts" ] && [ -n "$_ta" ]; then
+                vlog "VIGÍLIA: sono REAL confirmado pelo journal ($((_ta - _ts))s de S3 — Suspending→Awake, 1º ciclo da janela)"
+            elif [ -n "$_ts" ]; then
+                vlog "VIGÍLIA: journal confirma o INÍCIO do sono (Suspending system) sem o despertar na janela vista — quem conta o fim é o journal (o papel não chuta)"
             else
-                vlog "VIGÍLIA: systemctl voltou em ${_dur}s SEM sono (rc=0) — o ciclo REAL pertence ao journal; a vigília segue de pé (E108: o papel não clama sono que não houve)"
+                vlog "VIGÍLIA: journal SEM sono na janela da chamada (${_dur}s) — se o logind dormir depois, quem conta é o journal; o papel não chuta (E122)"
             fi
             # E63 — A VOLTA DA IMAGEM: quem chamou o sono SOBREVIVE a ele
             # e é um dos primeiros processos de usuário de pé no wake —

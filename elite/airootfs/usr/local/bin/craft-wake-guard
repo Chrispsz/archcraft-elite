@@ -1,84 +1,234 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · craft-wake-guard (E24 — a cura do despertar imediato)
+# Archcraft ELITE · craft-wake-guard (E122) — A POLÍTICA DO DESPERTAR
 # ═══════════════════════════════════════════════════════════════════════════
-# Prova d33o (dump a4h8): suspend 16:54:49 → retorno 16:54:54 (5s). Seis
-# wake sources USB/PCIe armadas em /proc/acpi/wakeup; o resume errou no
-# xHC do PTXH (0000:02:00.0, USBSTS 0x401, Reinit). O kernel entrega S3
-# real (mem_sleep [deep]) — quem acorda é USB.
+# O relato do dono (dump 182602, seção 10 — e a ordem dele no mesmo fôlego):
+#   'eu tentava fazer ação no teclado, ação no mouse e nada despertava o
+#    computador, fazendo com que eu clicasse no botão de power e aí o
+#    computador desligou' · 'nesses casos do monitor suspender, etc., que
+#    uma ação, por exemplo, no teclado libere, né? Ative o monitor. Não
+#    necessariamente no mouse… o mouse é menos confiável, pode ser que
+#    tenha pessoas que tenham mouse mais sensível e qualquer toque na mesa
+#    fica ativando o computador'.
 #
-# A ISO cura no boot pela regra udev 90-elite-wake-guard.rules (class USB
-# 0x0c03 → power/wakeup=disabled). ESTE script é o comando manual para:
-#   · status  — quem está armado agora (ACPI + serial bus PCI);
-#   · off     — desarmar USB agora (a regra udev do boot mira SÓ a classe
-#               USB 0x0c03; ESTE comando vai ALÉM — desarma toda a família
-#               serial bus 0x0c0x que expõe wakeup, por excesso);
-#   · on      — REARMAR (a mesma família — para acordar por teclado/mouse
-#               USB, aceitando o risco do despertar sozinho que trouxe a E24).
-# Efeito da cura: o PC dorme de verdade; acordar = BOTÃO DE POWER.
+# A PERÍCIA: o /proc/acpi/wakeup do rig mostrava XHC0, PTXH, X161, X162,
+# X1_1, X1_2, PS2K, PS2M, GP30, GP31 — TODOS *disabled. A E24 (a cura do
+# despertar imediato) desarmou TODO controlador USB PCI e a casa aceitou
+# a troca ('acordar = botão de power') — até o dono fotografar o preço:
+# dormiu e NADA acordava; o único despertar vivo era o power button, que o
+# logind atende como HandlePowerKey=poweroff — o wake e o desligamento no
+# MESMO aperto. O E108 do idle.log ('systemctl voltou em 0s SEM sono')
+# enganava: a chamada é assíncrona (a máquina DORMIA — 'tela: ACORDOU' 1s
+# depois em toda linha; o sonho era real, só ninguém podia acordá-la).
+#
+# A POLÍTICA (E122) — cirúrgica, a ordem literal do dono:
+#   · TECLADO USB (HID, interface protocolo 01) → ACORDA
+#   · PS2K (teclado PS/2)                        → ACORDA
+#   · MOUSE USB (protocolo 02) e TODO o resto do bus USB → DORME
+#   · PS2M                                       → DORME
+#   · controlador USB PCI (class 0x0c03)         → ARMADO (a porta por
+#     onde o teclado fala; o despertar-imediato do E24 era DISPOSITIVO —
+#     o sensor do mouse — e o dispositivo-mouse segue DESARMADO no nível
+#     dele, então a vibração na mesa continua não acendendo nada)
+#   · WoL segue morto (a cura E90 intocada).
+#
+# QUEM APLICA: a regra udev 90-elite-wake-guard.rules (nova instalação:
+# coldplug + hotplug — este script é o gancho RUN do usb_device) E a unit
+# elite-wake-guard.service a CADA boot (`craft-wake-guard apply`) — a
+# varredura de boot é quem cura os rigs da era E24, cuja .rules velha
+# (tudo desarmado) segue no disco: a política aplicada DEPOIS do coldplug
+# vence, e suspende só minutos depois (não há corrida).
+#
+# Custo honesto do teclado acordando: o teclado USB volta a poder acordar
+# o PC — é EXATAMENTE o que o dono pediu; qualquer alarme falso dele é o
+# preço da porta que ele quis aberta.
+#
+# Uso:
+#   craft-wake-guard              = status (a vista da política agora)
+#   craft-wake-guard apply        APLICA a política (varredura completa)
+#   craft-wake-guard usb-apply P  gancho udev: um usb_device (por %p)
+#   craft-wake-guard status       a vista detalhada
+#   craft-wake-guard off|on       A MARRETA E24 (legado/resgate): desarma
+#                                 ou arma TODA a família serial bus 0x0c0x
+# WAKE_SYSFS / WAKE_ACPI (ambiente): raiz alternativa de /sys e /proc para
+# PERÍCIA SEM RAIZ (os testes da suíte constroem a árvore falsa e julgam a
+# decisão — a prova não precisa de kernel de verdade).
 # ═══════════════════════════════════════════════════════════════════════════
 set -u
 
 PROG="${0##*/}"
+S="${WAKE_SYSFS:-/sys}"
+ACPI_TABLE="${WAKE_ACPI:-/proc/acpi/wakeup}"
+TEST_MODE=0
+[ -n "${WAKE_SYSFS:-}" ] && TEST_MODE=1
 
-usb_pci() {
-    # a família SERIAL BUS PCI inteira (class 0x0c00–0x0c07). A taxonomia
-    # PCI: 0x0c00 FireWire · 0x0c01 ACCESS.bus · 0x0c02 SSA · 0x0c03 USB ·
-    # 0x0c04 Fibre Channel · 0x0c05 SMBus · 0x0c06 InfiniBand · 0x0c07 IPMI.
-    # USB é SÓ a 0x0c03 (o que a regra udev do boot mira); este predicado
-    # é MAIS LARGO de propósito — quem expõe power/wakeup na família pode
-    # acordar o PC, e no hardware real as irmãs do USB raramente expõem.
-    for d in /sys/bus/pci/devices/*; do
+usb_pci_ctrls() {
+    # SÓ a classe USB 0x0c03 agora (a política é do despertar por INPUT —
+    # as irmãs 0x0c00-0x0c07 não falam por teclado e a E24 as tocava por
+    # excesso; a marreta `off` legada mantém a família inteira)
+    for d in "$S"/bus/pci/devices/*; do
         [ -r "$d/power/wakeup" ] || continue
         cls="$(cat "$d/class" 2>/dev/null)"; cls="${cls:-0x000000}"
         case "$cls" in
-            0x0c03*|0x0c00*|0x0c01*|0x0c02*|0x0c04*|0x0c05*|0x0c06*|0x0c07*) echo "$d" ;;
+            0x0c03*) echo "$d" ;;
         esac
     done
 }
 
-do_set() { # do_set <enabled|disabled>
-    local want="$1" dev n=0
-    for dev in $(usb_pci); do
-        if echo "$want" >"$dev/power/wakeup" 2>/dev/null; then
-            printf '  wakeup=%-9s %s\n' "$want" "${dev##*/}"
-            n=$((n + 1))
+# a DECISÃO por dispositivo: teclado acorda, todo o resto dorme. Lê as
+# interfaces HID do usb_device ($1 = devpath absoluto, udev %p ou caminho
+# em $S): bInterfaceClass 03 (HID) + bInterfaceProtocol 01 (keyboard) =
+# TECLADO; protocolo 02 (mouse) e todo o resto = DORME. Um dispositivo
+# composto (teclado com leitor, com touchpad) ACORDA se tiver UMA
+# interface de teclado — o dono quer a MÃO de volta, não cada dedo.
+decide_usb() {
+    local dev="$1" itf cls proto
+    local ret="dorme"
+    for itf in "$dev":*; do
+        [ -d "$itf" ] || continue
+        cls="$(cat "$itf/bInterfaceClass" 2>/dev/null || true)"
+        proto="$(cat "$itf/bInterfaceProtocol" 2>/dev/null || true)"
+        if [ "$cls" = "03" ] && [ "$proto" = "01" ]; then
+            ret="acorda"; break
         fi
     done
-    [ "$n" -gt 0 ] || printf '  (nenhum controlador USB PCI expôs wakeup)\n'
+    printf '%s' "$ret"
 }
 
-status() {
-    printf '── /proc/acpi/wakeup (armadas = quem pode acordar o PC)\n'
-    grep -E '\*enabled' /proc/acpi/wakeup 2>/dev/null \
-        || printf '  (nenhuma armada — tudo desarmado)\n'
-    printf '── serial bus PCI (class 0x0c0x — USB é a 0x0c03; as irmãs raramente expõem wakeup)\n'
-    local dev cls
-    for dev in $(usb_pci); do
-        cls="$(cat "$dev/class" 2>/dev/null)"
-        printf '  %-12s class=%s wakeup=%s\n' "${dev##*/}" "$cls" \
-            "$(cat "$dev/power/wakeup" 2>/dev/null)"
+set_wakeup() { # $1=arquivo power/wakeup  $2=valor → 0 se escreveu
+    [ -f "$1" ] || return 1
+    if [ "$(cat "$1" 2>/dev/null)" = "$2" ]; then
+        return 0
+    fi
+    echo "$2" > "$1" 2>/dev/null
+}
+
+usb_apply_one() { # $1 = devpath (absoluto sob $S) — o gancho udev
+    local dev="$1" want
+    [ -d "$dev" ] || return 0
+    [ -f "$dev/power/wakeup" ] || return 0
+    want="$(decide_usb "$dev")"
+    case "$want" in
+        acorda) set_wakeup "$dev/power/wakeup" enabled  >/dev/null 2>&1 || true ;;
+        dorme)  set_wakeup "$dev/power/wakeup" disabled >/dev/null 2>&1 || true ;;
+    esac
+    return 0
+}
+
+do_apply() {
+    local n_on=0 n_off=0 n_ctrl=0 dev want
+    # (1) controladores USB PCI ARMADOS (a porta do teclado)
+    for dev in $(usb_pci_ctrls); do
+        if set_wakeup "$dev/power/wakeup" enabled; then
+            printf '  controlador ARMADO  %s (a porta por onde o teclado fala)\n' "${dev##*/}"
+            n_ctrl=$((n_ctrl + 1))
+        fi
     done
+    # (2) dispositivos USB: a decisão por dispositivo
+    for dev in "$S"/bus/usb/devices/*; do
+        case "${dev##*/}" in *:*) continue ;; esac   # interfaces (:x.y) não são dispositivos
+        [ -f "$dev/power/wakeup" ] || continue
+        want="$(decide_usb "$dev")"
+        case "$want" in
+            acorda)
+                if set_wakeup "$dev/power/wakeup" enabled; then
+                    printf '  TECLADO   acorda    %s\n' "${dev##*/}"
+                    n_on=$((n_on + 1))
+                fi ;;
+            *)
+                if set_wakeup "$dev/power/wakeup" disabled; then
+                    printf '  resto     dorme     %s\n' "${dev##*/}"
+                    n_off=$((n_off + 1))
+                fi ;;
+        esac
+    done
+    # (3) ACPI: PS2K acorda, PS2M dorme (o /proc/acpi/wakeup é TOGGLE —
+    # escrever só quando o estado não é o desejado)
+    if [ -f "$ACPI_TABLE" ] && [ "$TEST_MODE" -eq 0 ]; then
+        if grep -qE '^PS2K.*\*disabled' "$ACPI_TABLE" 2>/dev/null; then
+            printf 'PS2K' > "$ACPI_TABLE" 2>/dev/null || true
+            printf '  PS2K      acorda (ACPI rearmado)\n'
+            n_on=$((n_on + 1))
+        fi
+        if grep -qE '^PS2M.*\*enabled' "$ACPI_TABLE" 2>/dev/null; then
+            printf 'PS2M' > "$ACPI_TABLE" 2>/dev/null || true
+            printf '  PS2M      dorme (ACPI desarmado)\n'
+            n_off=$((n_off + 1))
+        fi
+    fi
+    printf '  ── política aplicada: %d acordam (teclados+controladores) · %d dorme (mouse/resto)\n' "$n_on" "$n_off"
+    [ "$TEST_MODE" -eq 1 ] && printf '  (modo perícia WAKE_SYSFS=%s — nada real foi tocado)\n' "$S"
+    return 0
+}
+
+do_status() {
+    local dev want cls
+    printf '── A POLÍTICA (E122): TECLADO acorda · mouse e resto do USB dormem\n'
+    printf '── a ordem do dono: "uma ação no teclado libere… não necessariamente no mouse"\n'
+    printf '── controladores USB PCI (a porta do teclado):\n'
+    for dev in $(usb_pci_ctrls); do
+        cls="$(cat "$dev/class" 2>/dev/null)"
+        printf '  %-12s class=%s wakeup=%s\n' "${dev##*/}" "$cls" "$(cat "$dev/power/wakeup" 2>/dev/null)"
+    done
+    printf '── dispositivos USB (a decisão por dispositivo):\n'
+    for dev in "$S"/bus/usb/devices/*; do
+        case "${dev##*/}" in *:*) continue ;; esac
+        [ -f "$dev/power/wakeup" ] || continue
+        want="$(decide_usb "$dev")"
+        printf '  %-12s %s (wakeup=%s)\n' "${dev##*/}" "$want" "$(cat "$dev/power/wakeup" 2>/dev/null)"
+    done
+    printf '── ACPI (o que o hardware oferece):\n'
+    grep -E '\*enabled' "$ACPI_TABLE" 2>/dev/null | sed 's/^/  /' \
+        || printf '  (nenhuma armada — tudo desarmado)\n'
     printf '── mem_sleep (o modo que o hardware entrega)\n'
-    printf '  %s\n' "$(cat /sys/power/mem_sleep 2>/dev/null || echo '(sem mem_sleep)')"
+    printf '  %s\n' "$(cat "$S/power/mem_sleep" 2>/dev/null || echo '(sem mem_sleep)')"
+}
+
+do_set() { # $1 = enabled|disabled — A MARRETA LEGADA (família 0x0c0x inteira)
+    local want="$1" dev n=0
+    for d in "$S"/bus/pci/devices/*; do
+        [ -r "$d/power/wakeup" ] || continue
+        cls="$(cat "$d/class" 2>/dev/null)"; cls="${cls:-0x000000}"
+        case "$cls" in
+            0x0c03*|0x0c00*|0x0c01*|0x0c02*|0x0c04*|0x0c05*|0x0c06*|0x0c07*)
+                if echo "$want" >"$d/power/wakeup" 2>/dev/null; then
+                    printf '  wakeup=%-9s %s\n' "$want" "${d##*/}"
+                    n=$((n + 1))
+                fi ;;
+        esac
+    done
+    [ "$n" -gt 0 ] || printf '  (nenhum controlador da família serial bus expôs wakeup)\n'
 }
 
 case "${1:-status}" in
+    apply)
+        [ "$TEST_MODE" -eq 1 ] || [ "$(id -u)" -eq 0 ] || { printf '%s: aplicar a política precisa root (sudo %s apply)\n' "$PROG" "$PROG" >&2; exit 1; }
+        printf 'Aplicando a política do despertar (E122 — teclado acorda, mouse dorme):\n'
+        do_apply
+        ;;
+    usb-apply)
+        # o gancho da regra udev: silencioso por contrato (um gancho que
+        # grita vira spam do udevd; falha aqui é cortesia, não desastre —
+        # a varredura de boot refaz)
+        usb_apply_one "${S}${2:-}" || true
+        [ -d "${S}${2:-}" ] || usb_apply_one "${2:-}" || true
+        exit 0
+        ;;
     off)
-        [ "$(id -u)" -eq 0 ] || { printf '%s: desarmar precisa root (sudo %s off)\n' "$PROG" "$PROG" >&2; exit 1; }
-        printf 'Desarmando wakeup dos controladores USB (acordar = botão de power):\n'
+        [ "$TEST_MODE" -eq 1 ] || [ "$(id -u)" -eq 0 ] || { printf '%s: desarmar precisa root (sudo %s off)\n' "$PROG" "$PROG" >&2; exit 1; }
+        printf 'MARRETA LEGADA (E24): desarmando TODA a família serial bus (acordar = botão de power):\n'
         do_set disabled
         ;;
     on)
-        [ "$(id -u)" -eq 0 ] || { printf '%s: rearmar precisa root (sudo %s on)\n' "$PROG" "$PROG" >&2; exit 1; }
-        printf 'REARMANDO wakeup dos controladores USB (atenção: é a porta de volta do despertar sozinho — E24):\n'
+        [ "$TEST_MODE" -eq 1 ] || [ "$(id -u)" -eq 0 ] || { printf '%s: rearmar precisa root (sudo %s on)\n' "$PROG" "$PROG" >&2; exit 1; }
+        printf 'MARRETA LEGADA (E24): REARMANDO TODA a família serial bus (é a porta de volta do despertar sozinho):\n'
         do_set enabled
         ;;
     status)
-        status
+        do_status
         ;;
     *)
-        printf 'uso: %s [status|off|on]\n' "$PROG" >&2
+        printf 'uso: %s [apply|usb-apply <devpath>|status|off|on]\n' "$PROG" >&2
         exit 2
         ;;
 esac

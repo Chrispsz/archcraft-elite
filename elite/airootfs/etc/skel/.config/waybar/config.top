@@ -74,7 +74,7 @@
   // abre o Modo de jogo… (o mesmo item do botão direito).
   "modules-right": [
     "custom/game",
-    "mpris",
+    "custom/player",
     "pulseaudio",
     "pulseaudio#mic",
     "battery",
@@ -111,75 +111,41 @@
     "tooltip": true
   },
 
-  // Música do USUÁRIO (MPRIS) — YouTube no navegador, Spotify, mpv: o que
-  // VOCÊ tocar aparece aqui. Com nada tocando o módulo some sozinho.
+  // Música do USUÁRIO — YouTube no navegador, Spotify, mpv: o que VOCÊ
+  // tocar aparece aqui. Com nada tocando o módulo some sozinho.
   // Clique: esq = play/pause · meio = próxima · dir = anterior (a "faixa
   // reiniciando" é o previous honesto do MPRIS: no meio da música, voltar
   // = recomeçar). RODAR A FAIXA: scroll ↑ próxima, ↓ anterior.
-  // E30 (v2.10.18) — segundos em TEMPO REAL: interval 10 → 1. O custo da
-  // pergunta do dono ("os segundos consumiriam mais?"): o módulo mpris é
-  // INTERNO do waybar — atualizar posição é ler UMA propriedade DBus por
-  // segundo DENTRO do processo que já roda (zero fork, zero spawn; os
-  // módulos de rede/pulseaudio da mesma barra já polinam no mesmo ritmo).
-  // Tooltip agora DIZ os controles (o dono descobriu o meio/dir por sorte).
-  // E115 — O PLAYER CADA VEZ MELHOR (o pedido do dono: 'quão bom poderia
-  // ser o nosso player… sem nenhum bug e seja ainda cada vez melhor'):
-  // cada player ganha o PRÓPRIO glifo (o navegador/música/mídia se
-  // contam só de olhar) e o tooltip diz a FAIXA INTEIRA (artista —
-  // título — o que a barra corta, o tooltip guarda). Os atalhos de clique
-  // e o formato {dynamic} ficam intocados — o que o dono já usou, segue.
-  // E119 — A PALAVRA QUE NÃO EXISTIA (o rig do dono: 'ele não tem o
-  // íconezinho que indica do que é que ele está tocando'): o E115 nasceu
-  // com o token {icon} e O WAYBAR 0.16 NÃO TEM ESSE TOKEN — o man
-  // waybar-mpris(5) nomeia os únicos válidos: {player_icon} e
-  // {status_icon} (com UNDERSCORE); o {icon} era um placeholder
-  // desconhecido renderizando VAZIO — o mapa player-icons era config
-  // morta DE NOVO (a mesma doença que o E115 curou, agora no token). O
-  // {player_icon} acende o mapa de verdade: brave/brave-origin/chromium
-  // \uf268 · mpv/vlc/Celluloid \uf04b · spotify \uf1bc · o resto \uf001.
-  "mpris": {
-    // E119 — o token é {player_icon} (o man do waybar 0.16 nomeia; o
-    // {icon} da E115 não existe e renderizava vazio — a mapa morta acende).
-    "format": " {player_icon} {dynamic}",
-    "format-paused": " {player_icon} \uf04c {dynamic}",
-    "format-stopped": "",
-    // E105 — o stopped não prende mais o módulo (o dump 195332: a aba do
-    // YouTube Music fechou, o player ficou parado na barra — o formato
-    // stopped desenhava o ícone e o widget nunca saía; vazio = some,
-    // a promessa do comentário acima vira fato).
-    "format-empty": "",
-    // E119 — O PILLAR QUE NÃO FICA (a ordem do dono no dump 221647: 'no
-    // caso quando fechar abas que reproduzem mídias ele suma, feche e não
-    // seja mais usado, não consuma recursos nem nada, pois ele tá
-    // permanecendo… isso é coisa que não deve acontecer em nenhuma função
-    // do sistema — só quando ele for chamado e quando for encerrado
-    // também ser encerrado na hora'): o chromium MANTÉM o player MPRIS
-    // registrado e PAUSADO depois do fecho da aba (a barra mostrava o
-    // conteúdo morto com a marcação de tempo congelada — o remanescente
-    // que o dono fotografou). O hide-on-paused é a resposta NATIVA do
-    // waybar: pausado = o pillar SAI (o vivo é só o que toca de verdade;
-    // a música pausada volta pelo próprio player — e a porta de volta é
-    // uma linha aqui, se o dono pedir o display pausado).
-    "player-icons": {
-      "default": "\uf001",
-      "brave": "\uf268",
-      "brave-origin": "\uf268",
-      "chromium": "\uf268",
-      "mpv": "\uf04b",
-      "vlc": "\uf04b",
-      "spotify": "\uf1bc",
-      "strawberry": "\uf001",
-      "Celluloid": "\uf04b"
-    },
-    "status-icons": {
-      "playing": "\uf04b",
-      "paused": "\uf04c",
-      "stopped": "\uf04d"
-    },
-    "tooltip-format": "esq: play/pause · meio/scroll↑: próxima · dir/scroll↓: anterior\n{artist} — {title}",
-    "ignored-players": ["playerctld"],
-    "hide-on-paused": true,
-    "dynamic-len": 40,
+  // E30 (v2.10.18) — segundos em TEMPO REAL: interval 10 → 1 (o módulo
+  // mpris era INTERNO do waybar — ler posição custava UMA propriedade
+  // DBus por segundo DENTRO do processo; a história segue no craft-player).
+  // E115 — O PLAYER CADA VEZ MELHOR (glifo por player + tooltip falado).
+  // E119 — O TOKEN QUE EXISTIA ({player_icon}) e O PILLAR QUE NÃO FICA
+  // (hide-on-paused).
+  // E105 — O stopped não prende o módulo (a aba fechou, o player sumiu).
+  // E122 — O PLAYER COM JUÍZO (o relato do dono: o pillar pegou o ÁUDIO
+  //   DE UM RECADO DO WHATSAPP, contou o tempo, FICOU na barra depois do
+  //   fecho da página e só sumiu quando o navegador inteiro morreu — 'tem
+  //   que saber os sites que são reprodução realmente de necessários para
+  //   um player, tipo YouTube Music… e tirar isso do WhatsApp, entre
+  //   outros' · 'assim que encerrar a reprodução ou a página atrelada
+  //   for fechada… já cortasse essa conexão… um on e off, zeros e uns').
+  //   O módulo interno NÃO TEM o juízo (ignored-players casa NOME, nunca
+  //   ORIGEM nem estado moribundo): o craft-player (bin novo) lê o bus
+  //   UMA vez por tick e aplica as três leis — (1) MENSAGEM NÃO É MÍDIA:
+  //   navegador com origem de recado (WhatsApp/Telegram/Messenger/Signal
+  //   — host da url, inclusive blob:, e o título quando não há url) não
+  //   entra; a porta de ENTRADA intacta (YouTube/Music, Spotify e a mídia
+  //   de qualquer outro site — nada além do nomeado foi escondido);
+  //   (2) O ZUMBI MORRE: navegador "Playing" com posição congelada 2
+  //   ticks = aba fechada, MPRIS órfão — o pillar sai COM O PAPEL NOMEADO;
+  //   (3) o custo é o MESMO tick que o módulo interno já polia, agora
+  //   externo porque o juízo mora fora — e com nada tocando a saída é
+  //   vazia (zero pixel, zero estado). As transições ENTROU/SAIU ficam
+  //   no papel ~/.cache/elite/player.log (o on/off ganhou prova).
+  "custom/player": {
+    "exec": "craft-player state",
+    "return-type": "json",
     "interval": 1,
     "on-click": "playerctl play-pause",
     "on-click-middle": "playerctl next",

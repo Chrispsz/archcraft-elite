@@ -1,0 +1,331 @@
+#!/bin/sh
+# craft-player — O PLAYER DA TOPBAR COM JUÍZO (E122)
+# ─────────────────────────────────────────────────────────────────────────
+# O relato do dono (dump pós-dose-67): o player da topbar pegou o ÁUDIO DE
+# UM RECADO DO WHATSAPP (não é mídia — é mensagem), contou o tempo, ficou
+# na barra DEPOIS do fecho da página e só sumiu quando o navegador inteiro
+# morreu. A ordem: o player tem de saber o que é REPRODUÇÃO de verdade
+# (YouTube, YouTube Music, sites de mídia) e não pegar mensagem de
+# WhatsApp "entre outros"; e o ciclo é LIGA/DESLIGA — reprodução acabou ou
+# a página dona fechou = a linha corta, o pillar sai, zero exibição
+# pendurada ("zeros e uns, conforme o uso").
+#
+# POR QUE UM BIN NOVO: o módulo mpris era INTERNO do waybar (E30) e a sua
+# única porta de filtro é 'ignored-players' — que casa com o NOME do
+# player, nunca com a ORIGEM nem com o ESTADO MORIBUNDO da sessão
+# (o chromium/brave MANTÉM o player MPRIS registrado e "Playing" com
+# posição congelada depois que a aba morre — o E119 escondeu o PAUSADO, o
+# ZUMBI jogando-para-inglês ficou). O juízo que o dono pediu não existe
+# como opção do waybar-mpris(5) — nasce aqui.
+#
+# AS TRÊS LEIS DESTE JUÍZO (E122):
+#   (1) A PORTA DE SAÍDA — MENSAGEM NÃO É MÍDIA: players de NAVEGADOR com
+#       origem de mensagens (WhatsApp/Telegram/Messenger/Signal — o host
+#       da url do MediaSession, inclusive blob:, e o título da sessão
+#       QUANDO não há url para julgar) NÃO entram na barra. A porta de
+#       ENTRADA fica como sempre foi: tudo que toca de verdade (YouTube/
+#       Music, Spotify, mpv, e a mídia de qualquer outro site) aparece —
+#       nada foi escondido além do que o dono nomeou ("não tem que mexer
+#       no que tá quieto").
+#   (2) O ZUMBI MORRE: navegador com status "Playing" e POSIÇÃO CONGELADA
+#       (a aba fechou, o MPRIS ficou — a posição não anda mais) sai da
+#       barra após 2 ticks parados, com linha no papel nomeando o réu. É
+#       o corte do fio que o dono pediu: fim de reprodução ou página
+#       fechada = sumir, sem esperar o navegador inteiro morrer.
+#   (3) O CUSTO É NOMEADO (E33): 1 leitura de playerctl por segundo (a
+#       MESMA cadência que o módulo interno já polia — agora externa,
+#       porque o juízo mora fora). Quando não há nada a mostrar, a saída é
+#       vazia e o pillar não ocupa nem pinta um pixel. O objeto MPRIS que
+#       o navegador guarda é DO navegador — a Elite mata a EXIBIÇÃO e
+#       qualquer estado nosso, não alheio.
+#
+# Papel: ~/.cache/elite/player.log (teto 256 KiB — a lei E36) — o ENTROU e
+# o SAIU de cada transição nomeados (o on/off do dono ganhou prova). O
+# estado do tick (posição/contagem do zumbi) morre com a sessão, no
+# XDG_RUNTIME_DIR — a mesma lei da marca E61: boot novo nasce limpo.
+#
+# Uso:
+#   craft-player state    UM tick: lê o barramento MPRIS, aplica o juízo,
+#                         imprime o JSON do módulo (a porta do waybar)
+#   craft-player status   veredito humano (quem está no bus, quem venceu,
+#                         por quê) — a mesma escola do craft-game status
+set -eu
+
+uso() {
+    printf '%s\n' \
+        'uso: craft-player <state|status>' \
+        '' \
+        '  state   JSON para o módulo custom/player da topbar (interval 1).' \
+        '  status  veredito humano: o bus MPRIS, o vencedor e o porquê.' \
+        '' \
+        'O juízo (E122): navegador com origem de MENSAGENS (WhatsApp/' \
+        'Telegram/Messenger/Signal) não entra; navegador "Playing" com' \
+        'posição congelada 2 ticks é ZUMBI (aba fechou) e sai da barra.' \
+        'O papel mora em ~/.cache/elite/player.log.' \
+        '' \
+        'Os cliques ficam no config.top (playerctl play-pause/next/previous).' \
+        '' \
+        'extend: as listas estão no topo do script (BROWSER, MENSAGENS,' \
+        'ICONES) — app novo de mensagem = uma linha.' \
+        ''
+    exit 0
+}
+case "${1:-}" in -h|--help|uso) uso ;; esac
+CMD="${1:-state}"
+
+# ── o juízo é EXTENSÍVEL (uma linha por app; o comentário diz o porquê) ──
+# navegadores: o MediaSession deles serve MENSAGEM e MÍDIA no MESMO
+# player — por isso recebem juízo próprio. Apps de mídia nativos (mpv,
+# spotify, vlc…) são mídia por natureza — nunca entram no filtro.
+BROWSER='
+brave
+brave-origin
+brave-bin
+chromium
+chrome
+google-chrome
+firefox
+librewolf
+waterfox
+zen
+vivaldi
+opera
+microsoft-edge
+edge
+thorium-browser
+epiphany
+'
+# origens de MENSAGENS (a porta de SAÍDA do dono: "tirar isso do WhatsApp,
+# entre outros" — apps de recado/voz, não de mídia). Caso substring no
+# HOST da url: cobre web.whatsapp.com e o CDN mmg.whatsapp.net de uma vez.
+# O token pelo TÍTULO só julga quando NÃO há host (url vazia) — um vídeo
+# do YouTube intitulado "signal and the noise" nunca cai no filtro.
+MENSAGENS='
+whatsapp
+telegram
+messenger
+signal
+'
+# glifos (a mesma gramática visual do mapa player-icons do E119 — o
+# \uf268 é o glifo da família chromium: o dono ratificou "baseado em
+# Chrome, dá no mesmo")
+icon_of() {
+    case "$1" in
+        brave*|chromium*|chrome*|google-chrome*) printf '\uf268' ;;
+        mpv|vlc|celluloid)                       printf '\uf04b' ;;
+        spotify)                                 printf '\uf1bc' ;;
+        *)                                       printf '\uf001' ;;
+    esac
+}
+
+DYN_LEN=40
+STATE_DIR="${XDG_RUNTIME_DIR:-/tmp}/elite"
+STATE="$STATE_DIR/player.state"    # o livro de transições: nome|shown
+ZSTATE="$STATE_DIR/player.zumbi"   # o contador do zumbi: nome|pos|count
+PLOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/player.log"
+
+log() { # papel da família (teto 256 KiB — lei E36)
+    mkdir -p "${PLOG%/*}" 2>/dev/null || true
+    if [ -f "$PLOG" ] && [ "$(wc -c <"$PLOG" 2>/dev/null || echo 0)" -gt 262144 ]; then
+        : >"$PLOG" 2>/dev/null || true
+    fi
+    printf '[%s] %s\n' "$(date '+%F %T')" "$1" >>"$PLOG" 2>/dev/null
+    return 0
+}
+
+# barra do campo X da linha (o \036 separa campos — controle que nunca
+# nasce em título/artist honestos)
+SEP="$(printf '\036')"
+field() { printf '%s' "$1" | cut -d"$SEP" -f"$2"; }
+
+esq_json() { # escapa para JSON: barra invertida, aspas e controles de linha
+    printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr '\n\t\r' '   '
+}
+em_uma_linha() { printf '%s' "$1" | tr '\n\t\r' '   '; }
+num_ou() { case "$1" in ''|*[!0-9]*) printf '%s' "$2" ;; *) printf '%s' "$1" ;; esac; }
+
+# ── o barramento: UMA leitura por tick (campos separados por \036) ───────
+URUNTIME="${XDG_RUNTIME_DIR:-/run/user/$(id -u 2>/dev/null || echo 0)}"
+ROWS="$(env XDG_RUNTIME_DIR="$URUNTIME" playerctl -a metadata \
+    --format "{{playerName}}${SEP}{{status}}${SEP}{{title}}${SEP}{{artist}}${SEP}{{url}}${SEP}{{position}}" \
+    2>/dev/null || true)"
+
+VEREDITO=""    # para o status: por que cada player caiu onde caiu
+WINNER=""
+WIN_NAME=""
+
+while IFS= read -r linha; do
+    [ -z "$linha" ] && continue
+    _name="$(field "$linha" 1)"
+    _status="$(field "$linha" 2)"
+    _title="$(field "$linha" 3)"
+    _artist="$(field "$linha" 4)"
+    _url="$(field "$linha" 5)"
+    _pos="$(field "$linha" 6)"
+    [ -z "$_name" ] && continue
+    _host=""   # cada linha nasce sem herança da anterior (o veredito do
+               # spotify não pode herdar o host de um navegador irmão)
+    _lname="$(printf '%s' "$_name" | tr 'A-Z' 'a-z')"
+
+    case "$_lname" in
+        playerctld)
+            VEREDITO="$_name: porteiro do bus — nunca é o show (o E105 segue de pé)"
+            continue ;;
+    esac
+
+    _is_browser=0
+    case "$BROWSER" in *"$_lname"*) _is_browser=1 ;; esac
+
+    if [ "$_status" != "Playing" ]; then
+        VEREDITO="$_name: status $_status — só o que TOCA de verdade ocupa a barra (o E119 segue de pé)"
+        continue
+    fi
+
+    if [ "$_is_browser" -eq 1 ]; then
+        # ── LEI 1: mensagem não é mídia ──
+        # host da url (corta scheme e caminho; blob:https://host/... cai no
+        # MESMO corte — a origem real é o host depois do(s) scheme(s): o
+        # recado do WhatsApp viaja como blob:https://web.whatsapp.com/… —
+        # dois schemes, dois cortes)
+        _host="$(printf '%s' "$_url" | sed 's#^[a-zA-Z][a-zA-Z0-9+.-]*:##; s#^[a-zA-Z][a-zA-Z0-9+.-]*:##; s#^//##; s#/# #; s# .*##')"
+        case "$_host" in *.*) : ;; *) _host="" ;; esac   # sem host válido = só o título fala
+        _mens=0
+        if [ -n "$_host" ]; then
+            for _d in $MENSAGENS; do
+                case "$_host" in *"$_d"*) _mens=1; break ;; esac
+            done
+        else
+            for _t in $MENSAGENS; do
+                case "$(printf '%s' "$_title" | tr 'A-Z' 'a-z')" in
+                    *"$_t"*) _mens=1; break ;;
+                esac
+            done
+        fi
+        if [ "$_mens" -eq 1 ]; then
+            VEREDITO="$_name: origem de MENSAGENS (${_host:-título "${_title:-sem url}"}) — recado não é mídia (a lei 1 do E122)"
+            # sem log por tick (o recado toca por segundos — 1 linha/s seria
+            # spam); a transição SAIU já fala pelo estado shown
+            continue
+        fi
+
+        # ── LEI 2: o zumbi morre (posição congelada com status Playing) ──
+        # o contador é SEPARADO do livro de transições (o shown do vencedor
+        # não pode ser cindido pelo laço — dois papéis, dois arquivos)
+        _z_name=""; _z_pos=""; _z_n="0"
+        if [ -f "$ZSTATE" ]; then
+            _zt="$(cat "$ZSTATE" 2>/dev/null || true)"
+            _z_name="$(printf '%s' "$_zt" | cut -d'|' -f1)"
+            _z_pos="$(printf '%s' "$_zt" | cut -d'|' -f2)"
+            _z_n="$(num_ou "$(printf '%s' "$_zt" | cut -d'|' -f3)" 0)"
+        fi
+        if [ -n "$_pos" ]; then
+            if [ "$_z_name" = "$_name" ] && [ "$_z_pos" = "$_pos" ]; then
+                _n=$((_z_n + 1))
+            else
+                _n=0
+            fi
+            mkdir -p "$STATE_DIR" 2>/dev/null || true
+            printf '%s|%s|%s\n' "$_name" "$_pos" "$_n" > "$ZSTATE" 2>/dev/null || true
+            if [ "$_n" -ge 2 ]; then
+                # o papel da transição segue consistente: se estava na
+                # barra, o livro registra o off (a linha ZUMBI nomeia o réu)
+                _st=""
+                [ -f "$STATE" ] && _st="$(cat "$STATE" 2>/dev/null || true)"
+                [ "$(printf '%s' "$_st" | cut -d'|' -f1)" = "$_name" ] && \
+                    printf '%s|0\n' "$_name" > "$STATE" 2>/dev/null || true
+                log "E122: sessão ZUMBI saiu da barra ($_name — status Playing com posição congelada há $((_n + 1))s: a página dona fechou e o MPRIS ficou; o fio cortou)"
+                VEREDITO="$_name: ZUMBI ($((_n + 1))s de posição congelada com status Playing — a aba morreu, o MPRIS ficou; a lei 2 do E122 corta)"
+                continue
+            fi
+        else
+            # navegador sem posição não dá para julgar — contagem zerada
+            # (uma sessão nova não herda a contagem da velha)
+            mkdir -p "$STATE_DIR" 2>/dev/null || true
+            printf '%s||0\n' "$_name" > "$ZSTATE" 2>/dev/null || true
+        fi
+    fi
+
+    WINNER="$linha"
+    WIN_NAME="$_name"
+    if [ -n "$_host" ]; then
+        VEREDITO="$_name: VENCEU (Playing · origem $_host) — mídia de verdade"
+    else
+        VEREDITO="$_name: VENCEU (Playing${_title:+ · título \"$_title\"}) — mídia de verdade"
+    fi
+    break
+done <<EOF
+$ROWS
+EOF
+
+# ── veredito humano (a escola do craft-game status) ──────────────────────
+status_humano() {
+    printf '%s\n' '── o bus MPRIS agora:'
+    if [ -z "$ROWS" ]; then
+        printf '%s\n' '  (nenhum player registrado — o bus está limpo)'
+    else
+        printf '%s\n' "$ROWS" | while IFS= read -r _l; do
+            [ -z "$_l" ] && continue
+            printf '  %s\n' "$(printf '%s' "$_l" | tr "$SEP" ' ')"
+        done
+    fi
+    printf '%s\n' '── o juízo (E122):'
+    printf '  %s\n' "${VEREDITO:-nenhum player no bus}"
+    if [ -n "$WINNER" ]; then
+        printf 'pillar: LIGADO (%s)\n' "$WIN_NAME"
+    else
+        printf '%s\n' 'pillar: DESLIGADO (o off do on/off — zeros e uns)'
+    fi
+}
+[ "$CMD" = "status" ] && { status_humano; exit 0; }
+
+if [ -z "$WINNER" ]; then
+    # nada tocando de verdade: pillar fora do ar (o "off" do on/off)
+    _st=""
+    [ -f "$STATE" ] && _st="$(cat "$STATE" 2>/dev/null || true)"
+    _prev_name="$(printf '%s' "$_st" | cut -d'|' -f1)"
+    _prev_shown="$(num_ou "$(printf '%s' "$_st" | cut -d'|' -f2)" 0)"
+    if [ "$_prev_shown" = "1" ]; then
+        log "SAIU ($_prev_name — sem reprodução viva no bus: o off do on/off do dono)"
+    fi
+    rm -f "$STATE" 2>/dev/null || true
+    printf '{"text":"","class":"","tooltip":""}\n'
+    exit 0
+fi
+
+# ── o vencedor toca de verdade: pillar no ar (o "on") ────────────────────
+_title="$(field "$WINNER" 3)"
+_artist="$(field "$WINNER" 4)"
+
+# a marca de "está na barra" para as transições do papel (uma linha por
+# mudança de estado, nunca por tick — a gramática dos papéis da casa)
+_st=""
+[ -f "$STATE" ] && _st="$(cat "$STATE" 2>/dev/null || true)"
+_prev_name="$(printf '%s' "$_st" | cut -d'|' -f1)"
+_prev_shown="$(num_ou "$(printf '%s' "$_st" | cut -d'|' -f2)" 0)"
+if [ "$_prev_shown" = "1" ] && [ -n "$_prev_name" ] && [ "$_prev_name" != "$WIN_NAME" ]; then
+    log "SAIU ($_prev_name — o player virou: a barra é de quem toca AGORA)"
+fi
+if [ "$_prev_shown" != "1" ] || [ "$_prev_name" != "$WIN_NAME" ]; then
+    log "ENTROU ($WIN_NAME — $(em_uma_linha "${_artist:+$_artist — }$_title"))"
+fi
+mkdir -p "$STATE_DIR" 2>/dev/null || true
+printf '%s|1\n' "$WIN_NAME" > "$STATE" 2>/dev/null || true
+
+_icon="$(icon_of "$(printf '%s' "$WIN_NAME" | tr 'A-Z' 'a-z')")"
+
+# o texto do pill: "artista — título" (só título quando não há artista) —
+# a MESMA gramática que o dono já usava, truncada no 40 que a barra já tinha
+if [ -n "$_artist" ]; then
+    _full="$_artist — $_title"
+else
+    _full="$_title"
+fi
+_full="$(em_uma_linha "$_full")"
+if [ "${#_full}" -gt "$DYN_LEN" ]; then
+    _full="$(printf '%s' "$_full" | cut -c1-"$DYN_LEN")…"
+fi
+
+_tt="esq: play/pause · meio/scroll↑: próxima · dir/scroll↓: anterior\\n$(esq_json "$(em_uma_linha "${_artist:+$_artist — }$_title")")"
+
+printf '{"text":"%s %s","class":"playing","tooltip":"%s"}\n' \
+    "$_icon" "$(esq_json "$_full")" "$_tt"

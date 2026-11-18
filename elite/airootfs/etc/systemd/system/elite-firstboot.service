@@ -22,7 +22,16 @@ TimeoutStartSec=1800
 # systemctl, sem contar história). ExecStopPost roda em TODOS os casos;
 # NÃO marca firstboot-done (a lei v4.5 do retry por rede/driver fica de pé
 # — sem rede o firstboot re-tenta no boot seguinte, agora sem travar nada).
-ExecStopPost=/bin/sh -c 'printf "\n[elite-firstboot] resultado: %s (exit=%s)\n" "${SERVICE_RESULT:-?}" "${EXIT_STATUS:-?}" >> /var/log/elite-firstboot.log'
+# E122 — O EPÍLOGO IMPRIMIA LIXO: o rig logou "[elite-firstboot] resultado:
+# /bin/bash (exit=/bin/bash)" (dump 184815) — a linha ${VAR} atravessa DUAS
+# camadas de expansão (a do systemd, antes do fork, e a do /bin/sh) e a
+# saída foi lixo nas duas posições. A cura é a gramática documentada do
+# systemd.service(5): "$$" manda o systemd entregar um '$' LITERAL ao sh —
+# a expansão vira UMA só (a do sh, que lê o env SERVICE_RESULT/EXIT_STATUS
+# que o systemd GARANTE ao ExecStopPost). A pergunta "por que /bin/bash?"
+# segue para o próximo dump com a cura já no ar (o papel nomeia o fato e a
+# mecânica nova — não inventa a causa que não viu).
+ExecStopPost=/bin/sh -c 'printf "\n[elite-firstboot] resultado: %s (exit=%s)\n" "$$SERVICE_RESULT" "$$EXIT_STATUS" >> /var/log/elite-firstboot.log'
 StandardOutput=append:/var/log/elite-firstboot.log
 StandardError=append:/var/log/elite-firstboot.log
 RemainAfterExit=yes

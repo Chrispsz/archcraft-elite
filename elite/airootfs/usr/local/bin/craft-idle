@@ -707,18 +707,26 @@ case "${1:-}" in
         fi
         ilog "suspendindo (idle ${SUSPEND_MIN:-?}min — escuro e travado: acorda no lock, senha UMA vez)"
         gate_close   # E77 — cinto-e-suspensório do sleep-hook (swayidle morto também fica coberto)
+        # E108→E122 — O VEREDICTO É O QUE O JOURNAL MOSTRA (o papel do rig
+        # mentiu dias a fio: 'systemctl voltou em 0s SEM sono' seguido 1s
+        # depois de 'tela: ACORDOU' — a chamada é ASSÍNCRONA, o sono acontece
+        # por conta do logind; 'voltou em 0s' nunca provou insônia. O
+        # julgamento é por JANELA de journal — Suspending→Awake, parede real).
         _t0="$(date +%s)"
         if systemctl suspend -i; then
-            # E108 — O PAPEL NÃO CLAMA CICLO QUE NÃO HOUVE (a prova do dump
-            # 180302: 'ciclo completo' logado NO MESMO SEGUNDO do
-            # 'suspendindo' com o journal provando o sono REAL 5s depois —
-            # 40min de sono. O relógio de parede julga: sono de verdade =
-            # data +%s avança; retorno curto = o journal é o juiz).
             _t1="$(date +%s)"; _dur=$((_t1 - _t0))
-            if [ "$_dur" -ge 10 ]; then
-                ilog "suspend: ciclo completo (${_dur}s de sono — dormiu e voltou, o idle EXISTE e está no papel)"
+            ilog "suspend: systemctl aceito (${_dur}s, rc=0) — a chamada é ASSÍNCRONA (E122); o veredito do sono é o que o journal mostra na janela:"
+            _j="$(journalctl -b -u systemd-suspend --since "@$_t0" -o short-epoch --no-pager 2>/dev/null || true)"
+            _ts="$(printf '%s\n' "$_j" | grep -m1 'Suspending system' | cut -d' ' -f1 | cut -d. -f1)"
+            _ta="$(printf '%s\n' "$_j" | grep -m1 'Awake from suspend' | cut -d' ' -f1 | cut -d. -f1)"
+            case "${_ts:-}" in ''|*[!0-9]*) _ts="" ;; esac
+            case "${_ta:-}" in ''|*[!0-9]*) _ta="" ;; esac
+            if [ -n "$_ts" ] && [ -n "$_ta" ]; then
+                ilog "suspend: sono REAL confirmado pelo journal ($((_ta - _ts))s de S3 — Suspending→Awake, 1º ciclo da janela)"
+            elif [ -n "$_ts" ]; then
+                ilog "suspend: journal confirma o INÍCIO do sono sem o despertar na janela vista — quem conta o fim é o journal (o papel não chuta)"
             else
-                ilog "suspend: systemctl voltou em ${_dur}s SEM sono (rc=0) — o ciclo REAL pertence ao journal; o idle segue de pé (réu de mecânica fica para o próximo dump julgar)"
+                ilog "suspend: journal SEM sono na janela da chamada (${_dur}s) — se o logind dormir depois, quem conta é o journal; o papel não chuta (E122)"
             fi
         else
             ilog "FALHA: systemctl suspend -i rc=$? — o PC NÃO dormiu (réu nomeado no papel)"

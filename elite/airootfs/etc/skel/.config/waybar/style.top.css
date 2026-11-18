@@ -95,12 +95,12 @@ window#waybar {
   font-weight: 600;
 }
 
-/* v2.3.12 — mpris é BOTÃO de verdade (playerctl: esq play/pause, meio
+/* v2.3.12 — mpris (hoje custom/player, E122) é BOTÃO de verdade (playerctl: esq play/pause, meio
  * próxima, dir anterior — o que o comentário do config SEMPRE prometeu)
  * e BRANCO como o resto do lado direito ("o resto pode ser branco
  * mesmo"): a assinatura mauve fica com o ARCH (esquerda) e o power
  * (direita) — o resto é texto. */
-#mpris {
+#custom-player {
   padding: 0 12px;
 }
 
@@ -172,7 +172,7 @@ window#waybar {
 #custom-power,
 #custom-drawer,
 #custom-game,
-#mpris,
+#custom-player,
 #network,
 #pulseaudio,
 #custom-bgapps,
@@ -186,7 +186,7 @@ window#waybar {
  * widget) — a pílula é uma só. */
 #custom-power:hover,
 #custom-drawer:hover,
-#mpris:hover,
+#custom-player:hover,
 #network:hover,
 #pulseaudio:hover,
 #custom-bgapps:hover,
@@ -197,7 +197,7 @@ window#waybar {
 
 #custom-power:active,
 #custom-drawer:active,
-#mpris:active,
+#custom-player:active,
 #network:active,
 #pulseaudio:active,
 #custom-bgapps:active,
