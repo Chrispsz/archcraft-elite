@@ -49,23 +49,28 @@
 # E90 — o --help que faltava (a lacuna nº 1 do UX-ROADMAP)
 uso() {
     printf '%s\n' \
-        'uso: craft-rice — garante os drop-ins da casa em ~/.config/labwc/rc.xml.d/' \
-        '     10-elite-games.xml (serverDecoration para jogos Proton/Steam) e' \
-        '     20-elite-ssd.xml (a decoração ÚNICA — Chromium/Brave/imv forçados à' \
-        '     moldura do tema, a spec do dono: "todas as janelas seguem o mesmo padrão")' \
+        'uso: craft-rice — garante os drop-ins e as peles da casa nos homes vivos' \
         '' \
-        '  aditivo e idempotente (o rc.xml do usuário NUNCA é tocado); arquivo sem' \
-        '  o marcador da casa = intocável. O craft-bars chama no arranque; mudou' \
-        '  algo = labwc-msg reconfigure na sessão viva.' \
+        '  DROP-INS em ~/.config/labwc/rc.xml.d/ (o rc.xml do dono NUNCA é tocado):' \
+        '    10-elite-games.xml    — jogos Proton/Steam (steam_app_*) com a decoração' \
+        '                            de volta (fechar/minimizar/maximizar da casa)' \
+        '    20-elite-ssd.xml      — a decoração ÚNICA: toda janela que negocia ganha' \
+        '                            a moldura do tema ("todas as janelas seguem o' \
+        '                            mesmo padrão" — a spec do dono)' \
+        '    30-elite-organize.xml — brave e Code nascem maximizados (apagar o' \
+        '                            drop-in devolve o arranjo por dedo)' \
         '' \
-        '  E91 — a LOCK SKIN: o hyprlock.conf alcança homes VIVOS (fóssil da' \
-        '  casa → renova; personalizado → intocável + papel honesto).' \
-        '  E101/E104 — as peles rc.xml + menu.xml + swayosd seguem a MESMA' \
-        '  gramática (o menu do rig vivo renova no reconfigure — sessão viva).' \
-        '  craft-rice --lock-adopt = adota a pele atual NA FORÇA (backup .bak-<stamp>).' \
-        '  craft-rice --lock-quiet  = a mesma gramática SEM papel (o craft-lock' \
-        '  chama antes de CADA lock — E100: a dose da casa vale no próximo lock,' \
-        '  não no próximo relogin; o lock não é lugar de log).'
+        '  PELES (a MESMA gramática: ausente, marcador ou fóssil renova com backup' \
+        '  .bak-<stamp>; personalizado = intocável + papel honesto): hyprlock.conf,' \
+        '  rc.xml, menu.xml, swayosd config.toml e as DUAS da topbar — waybar' \
+        '  config.top + style.top.css (E115: a barra re-lê no renascimento, em ≤5s).' \
+        '' \
+        '  PORTAS DE ADOÇÃO (na força, com backup): --lock-adopt · --rc-adopt ·' \
+        '  --menu-adopt · --topbar-adopt · --skin-adopt (todas de uma vez).' \
+        '  --lock-quiet = a gramática SEM papel (o craft-lock chama antes de CADA' \
+        '  lock — E100: a dose da casa vale no próximo lock, não no próximo relogin).' \
+        '' \
+        '  Aditivo e idempotente; mudou algo = labwc-msg reconfigure na sessão viva.'
     exit 0
 }
 case "${1:-}" in -h|--help|uso) uso ;; esac
@@ -267,29 +272,45 @@ skin_ensure() {
     [ -r "$_sk_src" ] || return 1   # elite-system antigo: silêncio honesto
     if [ "$_sk_modo" = "adopt" ]; then
         if [ -f "$_sk_dst" ]; then
-            cp -p "$_sk_dst" "$_sk_dst.bak-$(date +%Y%m%d-%H%M%S)" 2>/dev/null \
-                && say "craft-rice: backup do seu $_sk_nome salvo ao lado ($_sk_dst.bak-*)"
+            # E120: o backup do dono é a REDE do adopt — sem rede a adoção é
+            # RECUSADA (gravar por cima sem backup era a perda de dados do
+            # dono esperando o disco cheio; o erro engolido não é lei aqui)
+            if ! cp -p "$_sk_dst" "$_sk_dst.bak-$(date +%Y%m%d-%H%M%S)" 2>/dev/null; then
+                say "craft-rice: FALHA no backup do seu $_sk_nome — adoção RECUSADA (o arquivo seu segue intocado)"
+                return 1
+            fi
+            say "craft-rice: backup do seu $_sk_nome salvo ao lado ($_sk_dst.bak-*)"
         fi
         mkdir -p "${_sk_dst%/*}" 2>/dev/null
-        cp -p "$_sk_src" "$_sk_dst" && say "craft-rice: $_sk_nome adotada (a pele nova vale no próximo uso)"
-        return 0
+        if cp -p "$_sk_src" "$_sk_dst" 2>/dev/null; then
+            say "craft-rice: $_sk_nome adotada (a pele nova vale no próximo uso)"
+            return 0
+        fi
+        say "craft-rice: FALHA ao gravar a $_sk_nome adotada (o cp recusou) — o arquivo seu segue no lugar"
+        return 1
     fi
     if [ -f "$_sk_dst" ]; then
         if grep -q "$MARKER" "$_sk_dst" 2>/dev/null; then
             cmp -s "$_sk_src" "$_sk_dst" && return 1
             cp -p "$_sk_dst" "$_sk_dst.bak-$(date +%Y%m%d-%H%M%S)" 2>/dev/null
-            cp -p "$_sk_src" "$_sk_dst" 2>/dev/null \
-                && say "craft-rice: $_sk_nome renovada (a casa atualizou a própria pele)"
-            return 0
+            if cp -p "$_sk_src" "$_sk_dst" 2>/dev/null; then
+                say "craft-rice: $_sk_nome renovada (a casa atualizou a própria pele)"
+                return 0
+            fi
+            say "craft-rice: FALHA ao renovar a $_sk_nome (o cp recusou) — a pele viva segue no lugar"
+            return 1
         fi
         _sk_hash="$(sha256sum "$_sk_dst" 2>/dev/null | cut -d' ' -f1)"
         case " $_sk_fossils " in
             *" $_sk_hash "*)
                 cmp -s "$_sk_src" "$_sk_dst" && return 1
                 cp -p "$_sk_dst" "$_sk_dst.bak-$(date +%Y%m%d-%H%M%S)" 2>/dev/null
-                cp -p "$_sk_src" "$_sk_dst" 2>/dev/null \
-                    && say "craft-rice: $_sk_nome fóssil renovada — a pele da casa chegou ao home vivo"
-                return 0
+                if cp -p "$_sk_src" "$_sk_dst" 2>/dev/null; then
+                    say "craft-rice: $_sk_nome fóssil renovada — a pele da casa chegou ao home vivo"
+                    return 0
+                fi
+                say "craft-rice: FALHA ao renovar a $_sk_nome fóssil (o cp recusou) — a pele viva segue no lugar"
+                return 1
                 ;;
         esac
         say "craft-rice: $_sk_dst é PERSONALIZADO — intocável (a lei do domínio v3)"

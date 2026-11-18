@@ -2038,7 +2038,39 @@ pkgver=1.0
 #     craft-shot, craft-help. Suíte: contratos E119 novos + âncora
 #     refrescada 65→66 + o contrato E115 do token refrescado (com o
 #     nogrep do token morto).
-pkgrel=66
+#     pkgrel 66→67 NO MESMO COMMIT (lei E41) — E120-POLIMENTO (18/11), a
+#     varredura E33 do craft-rice (o único bin da era E115 que a varredura
+#     não tinha visitado — a fila nomeada pelos polimentos 15/15b/15c,
+#     cumprida porque o dump novo do dono não chegou) com DOIS réus de
+#     papel e UM guard ausente, todos curados SEM mudança de comportamento
+#     no caminho feliz:
+#     (1) O USO QUE MENTIA POR OMISSÃO: o código entrega TRÊS fragmentos,
+#         SEIS peles e SEIS portas; o --help nomeava DOIS fragmentos (o
+#         30-elite-organize não existia para o dono que só lê o help),
+#         TRÊS peles (as DUAS da topbar E115 nunca foram apresentadas) e
+#         DUAS portas (as adoções rc/menu/topbar/skin eram portas sem
+#         papel). Cura: o inventário INTEIRO no papel, na ordem da casa.
+#     (2) O CONTRATO QUE O PRÓPRIO CÓDIGO VIOLAVA (skin_ensure): o
+#         RETORNO jurava '1 = ... cp falhou' e TRÊS ramos (adopt, marcador,
+#         fóssil) devolviam 0 COM o cp falho — a renovação morta no disco
+#         saía no papel como 'pele mexeu' (o reconfigure corria para nada;
+#         o erro engolido sem voz). Cura: cp falho = say honesto nomeado +
+#         return 1 — o contrato agora vale em TODOS os ramos (a feliz
+#         via permanece byte a byte: mesmo cmp, mesmo cp, mesmo say).
+#     (3) O GUARD AUSENTE NO ADOPT (a rede de backup): o --*-adopt gravava
+#         a pele da casa POR CIMA do arquivo do dono MESMO com o backup
+#         falhado (o cp 2>/dev/null engolido) — a perda de dados do dono
+#         esperando o disco cheio. Cura: backup falhou = adoção RECUSADA
+#         (o arquivo do dono segue intocado e o papel nomeia a recusa).
+#         ACHADO NOMEADO SEM CURA NESTE DEGRAU (a fila do próximo): o
+#         fragmento 10-elite-games e a lista da família no 20-ssd estão
+#         SOMBREADOS pela regra universal identifier=".*" do próprio
+#         20-ssd (mesmo valor 'yes', mesmo alvo) — mortos sob
+#         last-match-wins, VENENOSOS sob first-match-wins (defeataria o
+#         drop-in do dono); a remoção exige o man do labwc citado + os
+#         contratos E54 (2626-2660) reescritos — degrau próprio.
+#     Bins com conteúdo mudado: craft-rice. Suíte: âncora refrescada 66→67.
+pkgrel=67
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
