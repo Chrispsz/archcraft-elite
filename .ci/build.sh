@@ -1903,7 +1903,77 @@ pkgver=1.0
 #     craft-dump, elite-session-probe, elite-post-transaction, o molde
 #     do PKGBUILD (2 installs novos). Suíte: 40-integration (âncora
 #     refrescada + contratos novos da dose E117).
-pkgrel=63
+#     pkgrel 63→64 NO MESMO COMMIT (lei E41) — E118-POLIMENTO (18/11), o
+#     dump 210305 (pós-dose-63, a casa SÃ: 0 units failed, suspend ×2
+#     limpos, ACK ×6, dose no ar) periciado com o veredito das filas do
+#     polimento 13/14 e DOIS réus novos de nome:
+#     (1) O PÓS-SONO QUE DORMIA NO IMEDIATO (craft-display — a ordem do
+#         dono no papel 210305: 'demorou um tempo aí para aplicar e
+#         aplicou do nada… deve reiniciar o que… fica imediato, fica
+#         fixo… e que nunca volte para o padrão, seja realmente a
+#         configuração que o usuário setou'): o reconcile via a marca
+#         fresca do resume e DORMIA a janela de 45s inteira (exit 0 a
+#         cada heartbeat — o próprio comentário jurava 'o apply
+#         re-assegura o conf salvo' e o código só esperava) e ainda
+#         pagava os 6 ticks de estabilidade: o papel fotografou ~74s de
+#         tela errada (resume 20:27:00, diverge 20:27:11, REAPLICANDO
+#         20:28:14, save 20:28:21). Cura: a marca fresca NOMEIA a
+#         divergência ('a reversão do driver não é escolha') e o
+#         reconcile REAPLICA no PRIMEIRO heartbeat divergente do
+#         pós-sono (≤10s do resume — o imediato é lei); o apply falho
+#         re-tenta com UM tick de assento (RESUME_TICKS novo em
+#         $RUN_E) e o teto E106 intacto; o save guarda a janela de 45s
+#         INTEIRA (a reversão do driver nunca vira escolha do dono —
+#         'nunca volte para o padrão' pela física do conf). O boot
+#         segue imediato pelo braço que já existia (craft-bars chama
+#         apply no arranque; a E117 tirou o flag morto — o papel 210305
+#         provou o apply falho 6/6 do boot 15:11 morrer COM o flag e o
+#         18:37:04 aplicar OK sem ele: a tela de 200 Hz nasce aplicada
+#         no próximo boot, sem clique).
+#     (2) O PAPEL SEM BURACO (craft-clean — o papel 210305: DOIS
+#         'iniciado' às 21:00:16/18 e ZERO trace depois; a v5 loga o
+#         primeiro passo 1 linha após a abertura e o papel mostrou
+#         NADA entre eles): (a) a medida do cache (du sob
+#         set -euo pipefail) podia matar o script ENTRE a abertura e o
+#         primeiro passo — hoje a medida falha e devolve 0 (a medida
+#         ruim não vale morte calada); (b) MORTE DEIXA TESTEMUNHO — o
+#         trap EXIT registra qualquer saída que não passou pelo 'fim:'
+#         (cabeçalho órfão extinto por construção); (c) A PORTA SE
+#         NOMEIA — o pai (ppid + cmdline) entra na abertura: o papel
+#         210305 mostrou uid 1000 e NENHUMA porta da casa corre
+#         craft-clean como usuário (o item do menu é pkexec→raiz) — a
+#         próxima corrida entrega a porta dela no papel (fuzzel,
+#         terminal, .desktop sobrevivente); (d) o botão não empilha
+#         corridas — flock no dir do papel (o mesmo arquivo para as
+#         duas portas), a segunda corrida sai com testemunho.
+#     (3) O OLHO DA TOPBAR (craft-dump — a fila (e) do 15b sem papel):
+#         o papel comparava o menu (200537) e ficava CEGO para a
+#         topbar — seção nova: config.top/style.top.css do home vs o
+#         mestre do pacote (cmp + sha256) + a contagem do custom/game
+#         na pele viva — o assento do modo de jogo ganha prova direta
+#         no próximo dump.
+#     Confirmações do papel 210305 (ZERO réu novo nelas): dose 63 no
+#     ar (elite-system 1.0-63 às 18:37:00) com componentes renascidos
+#     ≤3s; E117-2 provado (apply 18:37:04 SEM o flag: 1 aplicado 0
+#     falha); resume das 20:27 fotografou a física honesta; status
+#     salvo==agora 200Hz; game watch estável (pid 10248, AUTO=1, zero
+#     respawn); 0 units failed, 0 coredump; suspend ×2 limpos (selo
+#     E88, USB intacto, WoL d); E110 (sysctl 180 vivo) e E101 (casa em
+#     dia) confirmados; pywal 3.3.0-11 = esperado (a passada fina da
+#     63 entrega 3.3.1-1 na dose 64); toplevel ACK ×6; lock/menu na
+#     pele atual; popups/YouTube = juiz ainda é o 1º brave nascido
+#     APÓS a morte dos processos de 15:11 (reboot — os flags não mudam
+#     processo rodando; as 3 linhas gcr-prompter do dock.log são do
+#     brave VELHO recebendo janelas nova); swaync ×5 do boot 15:11 foi
+#     PRÉ-mask (18:37) — o próximo boot prova; órfão granite7 nomeado
+#     para a limpeza; e o item 'Telas' do menu segue EXTINTO (E114 —
+#     o dono ratificou: 'não acho que preciso, pois já tem o programa
+#     lá para gerenciar isso').
+#     Bins com conteúdo mudado: craft-display, craft-clean, craft-dump.
+#     Suíte: 40-integration (contratos E118 novos: imediato do
+#     pós-sono ×2, porta/testemunho/travamento da limpeza, olho da
+#     topbar; âncora E41 refrescada 63→64).
+pkgrel=64
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

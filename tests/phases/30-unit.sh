@@ -3028,6 +3028,95 @@ fi
 assert_grep "$D107/home/.cache/elite/display.log" 'fonte da verdade' \
     "E107/display: o gate do watch fala no papel QUANDO recusa (a perícia do próximo dump lê a decisão)"
 
+# ── E118 — O IMEDIATO DO PÓS-SONO (o reconcile que DORMIA): a marca
+#    fresca do resume NOMEIA a divergência ('a reversão do driver não é
+#    escolha') e o apply re-assegura o conf NO PRIMEIRO heartbeat — os
+#    ~74s de tela errada do papel 210305 (resume 20:27 → REAPLICANDO
+#    20:28:14) viram ≤10s. O retry sob a marca conta UM tick de assento.
+D118="$(mktemp -d "$WORK/e118d.XXXXXX")"
+mkdir -p "$D118/home/.config/elite" "$D118/home/.cache/elite" "$D118/run/elite"
+cat > "$D118/randr-200.sh" <<'R118A'
+#!/bin/sh
+echo 'DP-1 "Monitor de prova (DP-1)"'
+echo '  Enabled: yes'
+echo '  Modes:'
+echo '    1920x1080 px, 60.000000 Hz (preferred)'
+echo '    1920x1080 px, 200.000000 Hz (current)'
+echo '  Position: 0,0'
+echo '  Transform: normal'
+echo '  Scale: 1.000000'
+echo '  Adaptive Sync: disabled'
+R118A
+chmod +x "$D118/randr-200.sh"
+cat > "$D118/randr-60.sh" <<R118B
+#!/bin/sh
+if [ "\${1:-}" = "--output" ]; then
+    echo "--output \$*" >> "$D118/calls.log"
+    exit 0
+fi
+echo 'DP-1 "Monitor de prova (DP-1)"'
+echo '  Enabled: yes'
+echo '  Modes:'
+echo '    1920x1080 px, 60.000000 Hz (preferred, current)'
+echo '    1920x1080 px, 200.000000 Hz'
+echo '  Position: 0,0'
+echo '  Transform: normal'
+echo '  Scale: 1.000000'
+echo '  Adaptive Sync: disabled'
+R118B
+chmod +x "$D118/randr-60.sh"
+env HOME="$D118/home" XDG_CONFIG_HOME="$D118/home/.config" XDG_CACHE_HOME="$D118/home/.cache" \
+    XDG_RUNTIME_DIR="$D118/run" ELITE_RANDR="$D118/randr-200.sh" \
+    sh "$DISP107" save >/dev/null 2>&1 || true
+printf 'ok\n' > "$D118/run/elite/display-applied"
+touch "$D118/run/elite/display-resume"
+: > "$D118/calls.log"
+env HOME="$D118/home" XDG_CONFIG_HOME="$D118/home/.config" XDG_CACHE_HOME="$D118/home/.cache" \
+    XDG_RUNTIME_DIR="$D118/run" ELITE_RANDR="$D118/randr-60.sh" \
+    sh "$DISP107" apply >/dev/null 2>&1 || true
+n_res_calls="$(grep -c 'mode 1920x1080@200' "$D118/calls.log" 2>/dev/null || echo 0)"
+assert_eq "$n_res_calls" "1" \
+    "E118/display: o pós-sono REAPLICA no PRIMEIRO heartbeat (a marca fresca nomeou a reversão e o apply re-assegurou o conf salvo — a v2.13 dormia 45s + 30s de ticks; o imediato que o dono ordenou)"
+assert_eq "$(cat "$D118/run/elite/display-applied" 2>/dev/null)" "ok" \
+    "E118/display: o stamp ok renasce do feito (o arranjo do dono de volta — salvo==agora no próximo heartbeat)"
+assert_grep "$D118/home/.cache/elite/display.log" 'REAPLICANDO o arranjo do dono AGORA' \
+    "E118/display: o imediato fica no papel (a linha NOMEIA a física: a reversão do driver não é escolha)"
+# (E118-b) o retry sob a marca conta UM tick de assento e re-tenta
+rm -f "$D118/calls.log" "$D118/run/elite/display-resume-ticks" "$D118/home/.cache/elite/display.log"
+cat > "$D118/randr-quebra.sh" <<R118C
+#!/bin/sh
+if [ "\${1:-}" = "--output" ]; then
+    echo "--output \$*" >> "$D118/calls.log"
+    exit 3
+fi
+echo 'DP-1 "Monitor de prova (DP-1)"'
+echo '  Enabled: yes'
+echo '  Modes:'
+echo '    1920x1080 px, 60.000000 Hz (preferred, current)'
+echo '    1920x1080 px, 200.000000 Hz'
+echo '  Position: 0,0'
+echo '  Transform: normal'
+echo '  Scale: 1.000000'
+echo '  Adaptive Sync: disabled'
+R118C
+chmod +x "$D118/randr-quebra.sh"
+printf 'fail:1\n' > "$D118/run/elite/display-applied"
+touch "$D118/run/elite/display-resume"
+env HOME="$D118/home" XDG_CONFIG_HOME="$D118/home/.config" XDG_CACHE_HOME="$D118/home/.cache" \
+    XDG_RUNTIME_DIR="$D118/run" ELITE_RANDR="$D118/randr-quebra.sh" \
+    sh "$DISP107" apply >/dev/null 2>&1 || true
+n_tick1="$(grep -c 'mode 1920x1080@200' "$D118/calls.log" 2>/dev/null || echo 0)"
+assert_eq "$n_tick1" "0" \
+    "E118/display: o 1º heartbeat de assento NÃO martela (o retry conta o tick — o wake termina de acordar antes do primeiro re-tento)"
+env HOME="$D118/home" XDG_CONFIG_HOME="$D118/home/.config" XDG_CACHE_HOME="$D118/home/.cache" \
+    XDG_RUNTIME_DIR="$D118/run" ELITE_RANDR="$D118/randr-quebra.sh" \
+    sh "$DISP107" apply >/dev/null 2>&1 || true
+n_tick2="$(grep -c 'mode 1920x1080@200' "$D118/calls.log" 2>/dev/null || echo 0)"
+assert_eq "$n_tick2" "1" \
+    "E118/display: o 2º heartbeat RE-TENTA de verdade (o tick contado — o imediato não dorme o resume inteiro; o teto E106 segue sendo o guarda)"
+assert_eq "$(cat "$D118/run/elite/display-applied" 2>/dev/null)" "fail:2" \
+    "E118/display: o contador ANDA honesto no pós-sono (fail:2 no papel — a tentativa falha fica registrada com o teto E106 intacto)"
+
 # (3) O REGISTRADOR DE APPIMAGE — de ponta a ponta com o motor de verdade
 AI107="$(mktemp -d "$WORK/e107a.XXXXXX")"
 mkdir -p "$AI107/home"

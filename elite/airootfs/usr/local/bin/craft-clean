@@ -78,13 +78,48 @@ _modo="interativo"
 # é raiz com o home do dono — o dono do papel vê a física, não presume)
 clog "═══ craft-clean iniciado (TTY: $([ -t 0 ] && echo sim || echo não) · modo: $_modo · uid: $(id -u) · HOME: ${HOME:-?})"
 
+# E118 — A TESTEMUNHA DA PORTA (o papel 210305: dois 'iniciado' uid 1000
+# — e NENHUMA porta da casa corre craft-clean como usuário: o item do
+# menu é pkexec→raiz — o papel não dizia de ONDE o clique veio). O pai
+# entra na abertura: a próxima corrida NOMEIA a porta dela (fuzzel,
+# menu, terminal, .desktop — o réu da porta se entrega no papel).
+_ppid="$(ps -o ppid= -p $$ 2>/dev/null | tr -d ' ')"
+[ -n "$_ppid" ] && _pai="$(tr '\0' ' ' </proc/"$_ppid"/cmdline 2>/dev/null | cut -c1-100)" || _pai='(pai já saiu)'
+clog "porta: ppid=$_ppid pai: ${_pai:-?}"
+
+# E118 — A MORTE DEIXA TESTEMUNHO (a mesma escola do E115 — 'o trace
+# sobrevive à morte no meio' — agora vale TAMBÉM para a morte que
+# acontece ANTES do primeiro passo): o trap registra qualquer saída que
+# não passou pelo 'fim:' — papel sem cabeçalho órfão nunca mais.
+_sem_fim=1
+trap 'rc=$?; if [ "${_sem_fim:-0}" = 1 ]; then clog "MORTE no meio (rc=$rc — set -e, kill ou janela fechada): o último passo antes da morte é o último passo logado acima"; fi' EXIT
+
+# E118 — O BOTÃO NÃO EMPILHA CORRIDAS (o papel 210305: dois 'iniciado'
+# a 2s — duas corridas concorrentes brigam pelo mesmo paccache): flock
+# no dir do papel (o MESMO arquivo para a porta usuário e a pkexec — o
+# HOME viaja em ambas); a segunda corrida SAIR com testemunho.
+if exec 9>>"${CLEAN_LOG%/*}/clean.lock" 2>/dev/null && command -v flock >/dev/null 2>&1; then
+  if ! flock -n 9; then
+    _sem_fim=0
+    clog "saiu: já há uma limpeza a correr — este clique não empilha (a corrida viva é a dona do papel)"
+    echo "  (já há uma limpeza a correr — esta janela sai; a corrida viva segue no comando dela)"
+    exit 0
+  fi
+fi
+
 PKG_CACHE="/var/cache/pacman/pkg"
 cache_mib() {
+  # E118 — A MEDIDA NÃO MATA: a v5 media o cache no top-level com
+  # set -euo pipefail — um du que falha (rc≠0 sob pipefail) matava o
+  # script ENTRE a abertura e o primeiro passo (o papel 210305: DOIS
+  # 'iniciado' e ZERO trace — a janela cega entre as linhas 79 e 108).
+  # Hoje a medida falha e devolve 0 — o papel segue e o fim mostra o
+  # 0→0 honesto (a medida ruim não vale uma morte calada).
+  local m=''
   if [[ -d "$PKG_CACHE" ]]; then
-    du -sm "$PKG_CACHE" 2>/dev/null | awk '{print $1}'
-  else
-    echo 0
+    m="$(du -sm "$PKG_CACHE" 2>/dev/null | awk '{print $1}' || true)"
   fi
+  printf '%s\n' "${m:-0}"
 }
 antes="$(cache_mib)"
 step() { printf '\n==> %s\n' "$*"; }
@@ -237,6 +272,7 @@ srun journalctl --vacuum-time=2weeks || skipped "journalctl --vacuum"
 depois="$(cache_mib)"
 liberado=$(( antes - depois ))
 (( liberado < 0 )) && liberado=0
+_sem_fim=0
 clog "fim: cache do pacman ${antes}→${depois} MiB · caches de usuário: ${lib_user} MiB · total liberado: $((liberado + lib_user)) MiB"
 printf '\n✔ limpo. cache do pacman: %s MiB → %s MiB (liberado: %s MiB)\n' "$antes" "$depois" "$liberado"
 printf '✔ caches de usuário (octopi/yay/thumbnails): %s MiB liberados (a fonte de cada número acima do passo dele)\n' "$lib_user"

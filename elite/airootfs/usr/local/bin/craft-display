@@ -90,6 +90,9 @@ RANDR_SCALE_FLAG="--scale-exact"
 RUN_E="${XDG_RUNTIME_DIR:-/run/user/$(id -u 2>/dev/null || echo 0)}/elite"
 STAMP="$RUN_E/display-applied"
 DIVERGE="$RUN_E/display-diverge"
+# E118 — O CONTADOR DO PÓS-SONO: o retry sob a marca fresca conta UM
+# heartbeat de assento (5s) e re-tenta — não dorme a janela inteira.
+RESUME_TICKS="$RUN_E/display-resume-ticks"
 
 dlog() {
     mkdir -p "${DLOG%/*}" 2>/dev/null || true
@@ -349,22 +352,41 @@ do_apply() {
                 fi
             done < "$CONF"
             if [ "$divergente" -eq 0 ]; then
-                rm -f "$DIVERGE" 2>/dev/null || true
+                rm -f "$DIVERGE" "$RESUME_TICKS" 2>/dev/null || true
                 exit 0   # confere — no-op silencioso (o heartbeat de 5s)
             fi
             if resume_fresco; then
-                dlog "apply: realidade diverge do conf DURANTE o resume (marca fresca) — a reversão do driver não é escolha; o reconcile aguarda o assentar"
-                exit 0
+                # E118 — O IMEDIATO DO PÓS-SONO (a ordem do dono no dump
+                # 210305: 'demorou um tempo aí para aplicar e aplicou do
+                # nada… fica imediato, fica fixo, e que nunca volte para
+                # o padrão — seja realmente a configuração que o usuário
+                # setou'). A v2.13 via a marca fresca e DORMIA: o
+                # reconcile aguardava a janela de 45s inteira e AINDA
+                # pagava os 6 ticks de estabilidade (~74s de tela errada
+                # no papel 20:27:11→20:28:14). A marca existe para NOMEAR
+                # a divergência — 'a reversão do driver não é escolha' —
+                # e o papel já dizia o que o apply devia fazer. Hoje o
+                # reconcile re-aplica NO PRIMEIRO heartbeat divergente do
+                # pós-sono (≤10s do resume), o apply falho re-tenta com
+                # UM tick de assento e o teto E106 intacto, e o conf
+                # salvo segue sendo a fonte da verdade — o save guarda a
+                # janela de 45s INTEIRA (a reversão nunca vira escolha;
+                # a escolha do dono continua intocável).
+                dlog "apply: realidade diverge do conf no pós-sono (marca fresca) — a reversão do driver não é escolha; REAPLICANDO o arranjo do dono AGORA (o imediato é lei E118)"
+                rm -f "$DIVERGE" "$RESUME_TICKS" 2>/dev/null || true
+                # cai no apply real abaixo (o stamp ok renasce do feito)
+            else
+                rm -f "$RESUME_TICKS" 2>/dev/null || true
+                n_div=$(( $(cat "$DIVERGE" 2>/dev/null || echo 0) + 1 ))
+                printf '%s\n' "$n_div" > "$DIVERGE" 2>/dev/null || true
+                if [ "$n_div" -lt 6 ]; then
+                    dlog "apply: realidade diverge do conf salvo (tick $n_div/6) — esperando a estabilidade (a escolha do dono pode estar a caminho)"
+                    exit 0
+                fi
+                dlog "apply: realidade ≠ conf salvo há ~30s — REAPLICANDO o arranjo do dono (resume/replug?)"
+                rm -f "$DIVERGE" 2>/dev/null || true
+                # cai no apply real abaixo (o stamp ok renasce do feito)
             fi
-            n_div=$(( $(cat "$DIVERGE" 2>/dev/null || echo 0) + 1 ))
-            printf '%s\n' "$n_div" > "$DIVERGE" 2>/dev/null || true
-            if [ "$n_div" -lt 6 ]; then
-                dlog "apply: realidade diverge do conf salvo (tick $n_div/6) — esperando a estabilidade (a escolha do dono pode estar a caminho)"
-                exit 0
-            fi
-            dlog "apply: realidade ≠ conf salvo há ~30s — REAPLICANDO o arranjo do dono (resume/replug?)"
-            rm -f "$DIVERGE" 2>/dev/null || true
-            # cai no apply real abaixo (o stamp ok renasce do feito)
             ;;
         fail:*)
             # E106 — O RETRY COM TETO (a ferida que muteava a sessão:
@@ -380,9 +402,21 @@ do_apply() {
                 exit 0
             fi
             if resume_fresco; then
-                exit 0   # o wake ainda está assentando — o retry espera
+                # E118 — o retry do pós-sono NÃO dorme a janela inteira:
+                # UM heartbeat de assento (5s) e re-tenta — o teto E106
+                # segue sendo o guarda (o link DP frio treina na 2ª-3ª
+                # tentativa; o imediato que o dono ordenou não espera 45s
+                # para começar a treinar).
+                n_res=$(( $(cat "$RESUME_TICKS" 2>/dev/null || echo 0) + 1 ))
+                printf '%s\n' "$n_res" > "$RESUME_TICKS" 2>/dev/null || true
+                if [ "$n_res" -lt 2 ]; then
+                    exit 0   # um heartbeat de assento — o wake termina de acordar
+                fi
+                dlog "apply: tentativa anterior falhou ($n_fail/6) no pós-sono — RE-TENTANDO (E118: o imediato não dorme o resume)"
+            else
+                rm -f "$RESUME_TICKS" 2>/dev/null || true
+                dlog "apply: tentativa anterior falhou ($n_fail/6) — RE-TENTANDO (o stamp honesto re-tenta; a v2.11.4 congelava em 1/6 com o eco duplo)"
             fi
-            dlog "apply: tentativa anterior falhou ($n_fail/6) — RE-TENTANDO (o stamp honesto re-tenta; a v2.11.4 congelava em 1/6 com o eco duplo)"
             ;;
         *)
             # stamp vazio/lixo (a era v2.6 do 'sucesso antecipado') =
