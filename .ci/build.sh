@@ -1982,7 +1982,63 @@ pkgver=1.0
 #     direto no corpo do trap diz o MESMO número e o réu morre; o
 #     witness 'MORTE no meio' provado de novo com kill real, e o fim
 #     normal segue silencioso. craft-clean mudou de conteúdo.
-pkgrel=65
+#     pkgrel 65→66 NO MESMO COMMIT (lei E41) — E119-POLIMENTO (18/11), o
+#     dump 221647 (o rig PÓS-reboot com o uso do dono, o julgamento que
+#     as filas 13/14/15 esperavam) periciado com a casa SÃ provada e o
+#     dono na mesa apontando QUATRO réus, todos com cura:
+#     (1) O TOKEN QUE NÃO EXISTIA (config.top mpris): o E115 nasceu com
+#         o placeholder ENTRE CHAVES 'icon' e o man do waybar 0.16 nomeia os únicos
+#         válidos 'player_icon'/'status_icon' (UNDERSCORE) — o
+#         desconhecido renderizava VAZIO e o mapa player-icons era
+#         config morta DE NOVO (o rig: 'ele não tem o íconezinho que
+#         indica do que é que ele está tocando'). Cura: o token
+#         player_icon no format e no format-paused — o mapa acende (brave \uf268,
+#         mpv/vlc \uf04b, spotify \uf1bc, default \uf001).
+#     (2) O PILLAR QUE NÃO FICA (a ordem do dono: 'quando fechar abas
+#         que reproduzem mídias ele suma… só quando ele for chamado e
+#         quando for encerrado também ser encerrado na hora'): o
+#         chromium MANTÉM o player MPRIS registrado e PAUSADO depois do
+#         fecho da aba — a barra mostrava o conteúdo morto com a
+#         marcação de tempo congelada (o remanescente que o dono
+#         fotografou; a casa já havia curado o stopped no E105, o
+#         pausado ficou). Cura: hide-on-paused:true — a resposta NATIVA
+#         do man do waybar; o pillar vive SÓ enquanto toca de verdade.
+#     (3) A PORTA NO PAPEL (craft-game): o dono clicou 'Ativar agora' e
+#         o game.log NÃO TEM UMA linha — o gm_on tem quatro ramos e
+#         todos logam, logo o clique morreu ANTES do despacho (o caminho
+#         fuzzel→case era cego: o || exit 0 engolia rc≠0 calado). Cura:
+#         o despacho entra no papel (a escolha logada + o rc anômalo
+#         nomeado; 1/2/143 seguem benignos na lei dos menus) e o ramo do
+#         já-ativo (o único sem linha) também deixa testemunho. A
+#         próxima perícia vê ONDE a porta falhou.
+#     (4) O CANCELAR FALA (craft-shot): 'se aperto o Esc, também ele
+#         tira o screenshot… não tem a forma de cancelar nem nada' — o
+#         ESC do slurp (rc=1 sem saída, provado no upstream) descia
+#         para o grim com geometria vazia e o set -e matava o script
+#         SEM voz. Cura: geometria capturada com desfecho nomeado — o
+#         cancelar avisa NA TELA ('nada foi salvo'), zero arquivo,
+#         zero clipboard.
+#     (5) A TELA QUE NÃO ESTOURA (craft-help): 'um monte de comandos…
+#         fica cortada pelo tamanho que abre, algumas coisas chegam
+#         quebradas' — a lista de internos (22 linhas dim que o dono
+#         nunca chama) vira DUAS linhas com a contagem; a lista inteira
+#         segue VIVA no filtro (craft-help <termo>) e na doc do pacote;
+#         as descrições das portas encurtadas (o wrap quebrava o
+#         encaixe). O casamento do filtro e os atalhos REAIS intactos.
+#     A CASA SÃ NO PAPEL 221647 (o julgamento pós-reboot): o BOOT APPLY
+#     21:29:14 OK NO PRIMEIRO TENTO (a física E117/E118 — os 200 Hz
+#     nascem aplicados, sem clique, sem espera); ZERO 'Failed to start
+#     Swaync' no journal do boot (a máscara E117-4 PROVADA — o boot
+#     anterior tinha ×5); suspend do dono limpo; MPRIS sem player vivo
+#     no papel (a lente do E119-2 fotografa o remanescente que ele viu);
+#     o elite-system ainda 1.0-63 no rig ('nada para atualizar' — a dose
+#     64/65 publicou DEPOIS do bootupdate dele; a próxima dose ao ligar
+#     entrega o E118+E119) e o olho da topbar (E118) chega com ela.
+#     Bins/moldes com conteúdo mudado: config.top (o mpris), craft-game,
+#     craft-shot, craft-help. Suíte: contratos E119 novos + âncora
+#     refrescada 65→66 + o contrato E115 do token refrescado (com o
+#     nogrep do token morto).
+pkgrel=66
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

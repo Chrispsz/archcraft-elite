@@ -128,18 +128,38 @@
   // contam só de olhar) e o tooltip diz a FAIXA INTEIRA (artista —
   // título — o que a barra corta, o tooltip guarda). Os atalhos de clique
   // e o formato {dynamic} ficam intocados — o que o dono já usou, segue.
+  // E119 — A PALAVRA QUE NÃO EXISTIA (o rig do dono: 'ele não tem o
+  // íconezinho que indica do que é que ele está tocando'): o E115 nasceu
+  // com o token {icon} e O WAYBAR 0.16 NÃO TEM ESSE TOKEN — o man
+  // waybar-mpris(5) nomeia os únicos válidos: {player_icon} e
+  // {status_icon} (com UNDERSCORE); o {icon} era um placeholder
+  // desconhecido renderizando VAZIO — o mapa player-icons era config
+  // morta DE NOVO (a mesma doença que o E115 curou, agora no token). O
+  // {player_icon} acende o mapa de verdade: brave/brave-origin/chromium
+  // \uf268 · mpv/vlc/Celluloid \uf04b · spotify \uf1bc · o resto \uf001.
   "mpris": {
-    // E115 — {icon} é a porta do mapa player-icons: o glifo segue O PLAYER
-    // (navegador/música/mídia), não um desenho fixo; o estado (pausado)
-    // segue nos format-*.format com o glifo próprio da casa.
-    "format": " {icon} {dynamic}",
-    "format-paused": " \uf04c {dynamic}",
+    // E119 — o token é {player_icon} (o man do waybar 0.16 nomeia; o
+    // {icon} da E115 não existe e renderizava vazio — a mapa morta acende).
+    "format": " {player_icon} {dynamic}",
+    "format-paused": " {player_icon} \uf04c {dynamic}",
     "format-stopped": "",
     // E105 — o stopped não prende mais o módulo (o dump 195332: a aba do
     // YouTube Music fechou, o player ficou parado na barra — o formato
     // stopped desenhava o ícone e o widget nunca saía; vazio = some,
     // a promessa do comentário acima vira fato).
     "format-empty": "",
+    // E119 — O PILLAR QUE NÃO FICA (a ordem do dono no dump 221647: 'no
+    // caso quando fechar abas que reproduzem mídias ele suma, feche e não
+    // seja mais usado, não consuma recursos nem nada, pois ele tá
+    // permanecendo… isso é coisa que não deve acontecer em nenhuma função
+    // do sistema — só quando ele for chamado e quando for encerrado
+    // também ser encerrado na hora'): o chromium MANTÉM o player MPRIS
+    // registrado e PAUSADO depois do fecho da aba (a barra mostrava o
+    // conteúdo morto com a marcação de tempo congelada — o remanescente
+    // que o dono fotografou). O hide-on-paused é a resposta NATIVA do
+    // waybar: pausado = o pillar SAI (o vivo é só o que toca de verdade;
+    // a música pausada volta pelo próprio player — e a porta de volta é
+    // uma linha aqui, se o dono pedir o display pausado).
     "player-icons": {
       "default": "\uf001",
       "brave": "\uf268",
@@ -158,6 +178,7 @@
     },
     "tooltip-format": "esq: play/pause · meio/scroll↑: próxima · dir/scroll↓: anterior\n{artist} — {title}",
     "ignored-players": ["playerctld"],
+    "hide-on-paused": true,
     "dynamic-len": 40,
     "interval": 1,
     "on-click": "playerctl play-pause",

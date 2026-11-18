@@ -20,7 +20,23 @@ case "$mode" in
   area)
     command -v slurp >/dev/null 2>&1 \
       || { echo "✖ slurp ausente: sudo pacman -S slurp" >&2; exit 1; }
-    grim -g "$(slurp)" "$file" && wl-copy < "$file"
+    # E119 — O CANCELAR FALA (o dono no dump 221647: 'se aperto o Esc,
+    # também ele tira o screenshot… não tem a forma de cancelar nem
+    # nada'): o ESC do slurp morava num silêncio ambíguo — o rc=1 sem
+    # saída descia para o grim com geometria vazia e o set -e matava o
+    # script SEM NENHUMA voz (o dono não sabia se cancelou ou tirou).
+    # Hoje o cancelar é um DESFECHO NOMEADO: notificação na cara, zero
+    # arquivo, zero clipboard — 'nada foi salvo' é a resposta visível.
+    geometria="$(slurp)" || {
+      notify "captura cancelada (Esc) — nada foi salvo"
+      echo "captura cancelada (Esc) — nada foi salvo" >&2
+      exit 0
+    }
+    [ -n "$geometria" ] || {
+      notify "captura cancelada — nada foi salvo"
+      exit 0
+    }
+    grim -g "$geometria" "$file" && wl-copy < "$file"
     notify "região → clipboard + $file" ;;
   full)
     grim "$file"

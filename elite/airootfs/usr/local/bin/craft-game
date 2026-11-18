@@ -118,6 +118,9 @@ gm_on() {
     local hpid file
     file="$(holder_pid_file)"
     if [ -r "$file" ] && kill -0 "$(cat "$file" 2>/dev/null)" 2>/dev/null; then
+        # E119 — este ramo também deixa linha (o único sem papel era ele:
+        # o eco ia para o fuzzel sumido e o papel não contava o já-ativo)
+        glog "manual: já estava ATIVO (holder pid $(cat "$file" 2>/dev/null) vivo) — nada mudou"
         echo "o modo de jogo JÁ está ativo (manual)" >&2
         return 1
     fi
@@ -321,7 +324,24 @@ gm_menu() {
         items+=("Ativar agora (manual)")
     fi
     items+=("Status" )
-    choice="$(printf '%s\n' "${items[@]}" | craft-menu --title='Modo de jogo' --at=power)" || exit 0
+    # E119 — O PAPEL DA PORTA (o dump 221647: o dono clicou 'Ativar agora'
+    # e o game.log NÃO TEM UMA linha — o gm_on tem quatro ramos e TODOS
+    # logam, o que significa que o clique MORREU ANTES do despacho: o
+    # caminho entre o fuzzel e o case era cego (rc≠0 do craft-menu saía
+    # no || exit 0 calado). O despacho entra no papel: o clique que chega
+    # deixa a escolha; o fecho benigno segue na lei dos menus; o rc
+    # anômalo fica nomeado — a próxima perícia vê onde a porta falhou.
+    _gm_rc=0
+    choice="$(printf '%s\n' "${items[@]}" | craft-menu --title='Modo de jogo' --at=power)" || _gm_rc=$?
+    if [ "$_gm_rc" = 0 ]; then
+        glog "menu: escolha '$choice' (despacho = papel)"
+    else
+        case "$_gm_rc" in
+            1|2|143) : ;;   # ESC/toggle/cross-dismiss — a lei dos menus, benigno
+            *) glog "menu: fechou ANORMAL (rc=$_gm_rc) — nenhum despacho correu" ;;
+        esac
+        exit 0
+    fi
     case "$choice" in
         Automático*) 
             if [ "${auto:-0}" = 1 ]; then

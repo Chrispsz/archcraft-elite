@@ -36,12 +36,12 @@ B=$'\e[1m'; D=$'\e[2m'; N=$'\e[0m'; V=$'\e[35m'
 # filtro (craft-help <termo> e a doc completa).
 MAPA=(
 "elite-tune        | tuning completo (kernel/GPU/zram/daemons) — --firstboot/--apps/--status"
-"elite-status      | a certificação resumida (alias de elite-tune --status)"
-"elite-optimize    | matemática de RAM: zram + swappiness pelo tamanho da memória (--status prova)"
+"elite-status      | a certificação do sistema em uma tela"
+"elite-optimize    | matemática de RAM: zram + swappiness pelo tamanho da memória"
 "elite-drivers     | perfis de driver por lspci (AMD/Intel/NVIDIA) — --apply/--purge"
-"elite-ferramentas | porta honesta do AUR/GUI (--paru/--octopi/--report — a loja gráfica é o Warehouse/Gear Lever, instalados pela Atualização)"
+"elite-ferramentas | porta honesta do AUR/GUI (--paru/--octopi/--report)"
 "elite-sweep       | varredura one-shot dos atalhos órfãos do instalador (pré-login)"
-"craft-clean       | manutenção: cache do pacman, cache do NAVEGADOR (o maior prêmio), órfãos, journal vacuum (o papel é ~/.cache/elite/clean.log)"
+"craft-clean       | a limpeza honesta — caches, órfãos, journal (papel: ~/.cache/elite/clean.log)"
 "craft-audio-route | roteamento automático de áudio (fone pluga, som troca)"
 "craft-bars        | supervisor da sessão (waybar, dock, toplevel, idle, áudio, swaync)"
 "craft-bat         | resumo de bateria (o clique no módulo da barra)"
@@ -49,28 +49,28 @@ MAPA=(
 "craft-connect     | central de rede PT-BR (Wi-Fi/cabo/Bluetooth) sob o botão de rede"
 "craft-dock        | toggle/reload da dock via sinal (W-S-d)"
 "craft-dock-gui    | a dock nativa (pins .desktop, dinâmicos, clique-focado-minimiza)"
-"craft-display     | A TELA QUE LEMBRA — modo/Hz/posição salvos em disco (apply/watch/save/status)"
-"craft-drawer      | Launchpad de aplicativos (W-d / tecla Super)"
-"craft-dump        | perícia completa em um arquivo (--upload sobe no termbin — PÚBLICO)"
+"craft-display     | A TELA QUE LEMBRA — modo/Hz/posição salvos em disco"
+"craft-drawer      | Launchpad de aplicativos (W / Super)"
+"craft-dump        | a perícia completa em um arquivo (--upload sobe no termbin — PÚBLICO)"
 "craft-extract     | 'Extrair aqui' do Thunar — palco temporário + colisão pergunta"
 "craft-fix-keys    | cura do keyring do pacman (no live; no instalado o timer root cuida)"
-"craft-game        | modo de jogo — automático (o watch registra o jogo) e manual; o Status ensina como o Feral gamemode funciona"
+"craft-game        | modo de jogo — automático (watch) e manual; o Status ensina o gamemode"
 "craft-help        | este mapa (craft-help <termo> filtra)"
 "craft-hello       | a saudação do terminal (o retrato do sistema a cada shell)"
-"craft-idle        | lock/DPMS/suspend ajustáveis SEM relogin (menu de presets)"
+"craft-idle        | lock/DPMS/suspensão ajustáveis SEM relogin (menu de presets)"
 "craft-keyring-wait| espera o pacman transacional (ExecStartPre do pacman-init)"
 "craft-lock        | trava a sessão (W-l)"
 "craft-logout      | menu Sessão (W-Escape/W-x/C-A-Delete)"
 "craft-menu        | o motor dmenu dos menus craft-* (fuzzel + âncoras)"
 "craft-menu-dismiss| fecha qualquer menu/OSD aberto (lei de cross-dismiss)"
 "craft-pin         | fixar/remover/listar pins da dock"
-"craft-pin-pick    | picker gráfico para fixar apps (botão direito → Apps da dock…)"
-"craft-power       | menu Sessão completo (sair/suspender/reiniciar/desligar)"
+"craft-pin-pick    | picker gráfico para fixar apps na dock (botão direito → Apps da dock…)"
+"craft-power       | menu de energia — sair/suspender/reiniciar/desligar"
 "craft-rescue-screen | a escotilha do monitor cego (resume sem sinal — de um TTY)"
 "craft-rollback    | snapshots snapper — criar/restaurar (a porta é o GRUB)"
 "craft-rice        | garante os drop-ins do labwc (decoração ÚNICA + jogos sem moldura)"
-"craft-shot        | captura de tela — região (W-p) / tela inteira (W-S-p)"
-"craft-update      | atualização — manual, --canal (ao ligar), --sistema (semanal), --check (veredito sem tocar nada)"
+"craft-shot        | captura de tela — região (W-p, Esc cancela com aviso) / tela inteira (W-S-p)"
+"craft-update      | a atualização da casa — manual, --canal (ao ligar), --sistema (semanal)"
 "craft-vigil       | a vigília do lock (suspende após SUSPEND_MIN travado, com ouvidos)"
 "craft-wake-guard  | status/off/on do wake-guard USB (dorme sem acordar sozinho)"
 )
@@ -164,13 +164,19 @@ for linha in "${MAPA[@]}"; do
         printf '  %b%-19s%b %s\n' "$B" "$nome" "$N" "${linha#*| }"
     fi
 done
+# E119 — A TELA QUE NÃO ESTOURA (o dono no dump 221647: 'tem um monte de
+# comandos… alguns poderiam ser completamente removidos, minimizados,
+# limpos. Essa tela não precisava ser uma tela tão complexa de ajuda —
+# tem muita coisa, ela fica inclusive cortada pelo tamanho que abre.
+# Algumas coisas chegam quebradas, não fica bem encaixado'): a lista de
+# internos (a MAIOR da tela — 22 linhas dim que o dono nunca chama)
+# vira DUAS linhas com a contagem; a lista inteira segue VIVA no filtro
+# (craft-help <termo> casa na lista completa) e na doc do pacote. O que
+# a mão do dono usa fica inteiro; o que roda sozinho se apresenta e sai.
+_internos=$(( ${#MAPA[@]} - $(printf '%s\n' "$PORTAS_DONO" | wc -w) ))
 printf '\n%b── O QUE RODA SOZINHO (internos e braços — nada para decorar) ──%b\n' "$D" "$N"
-for linha in "${MAPA[@]}"; do
-    nome="${linha%%|*}"
-    if ! porta_do_dono "${nome%% *}"; then
-        printf '  %b%-19s%b %s\n' "$D" "$nome" "$N" "${linha#*| }"
-    fi
-done
+printf '  %d peças vivem sem a sua mão (daemons, hooks, braços de callback).\n' "$_internos"
+printf '  %bcraft-help <termo>%b filtra TODAS (ex.: craft-help dock) · a doc completa: %s\n' "$B" "$N" "$DOC"
 
 printf '\n%b── PARA IR ALÉM ──%b\n' "$B" "$N"
 printf '  doc completa : %b%s%b\n' "$B" "$DOC" "$N"
