@@ -110,11 +110,16 @@ signal
 # \uf268 é o glifo da família chromium: o dono ratificou "baseado em
 # Chrome, dá no mesmo")
 icon_of() {
+    # a convenção da casa é a do craft-game pill (\\uf11b): o printf
+    # entrega a SEQUÊNCIA de escape literal (backslash-u…) para o JSON —
+    # quem vira glifo é o parser JSON do waybar. O printf POSIX novo
+    # interpreta \u e cuspiria o glifo cru (o réu do CI do 11b7dfc:
+    # dash do runner comeu o \u e o texto saiu sem o ícone)
     case "$1" in
-        brave*|chromium*|chrome*|google-chrome*) printf '\uf268' ;;
-        mpv|vlc|celluloid)                       printf '\uf04b' ;;
-        spotify)                                 printf '\uf1bc' ;;
-        *)                                       printf '\uf001' ;;
+        brave*|chromium*|chrome*|google-chrome*) printf '\\uf268' ;;
+        mpv|vlc|celluloid)                       printf '\\uf04b' ;;
+        spotify)                                 printf '\\uf1bc' ;;
+        *)                                       printf '\\uf001' ;;
     esac
 }
 
