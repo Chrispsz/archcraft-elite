@@ -124,7 +124,16 @@ gm_on() {
         echo "o modo de jogo JÁ está ativo (manual)" >&2
         return 1
     fi
-    hpid="$(setsid sh -c 'while :; do sleep 30; done' 2>/dev/null & echo $!)"
+    # E121 — O HOLDER QUE ENGASGAVA O MANUAL: o hpid nasce de uma
+    # substituição $(setsid sh -c '…' & echo $!) — o holder DE FUNDO
+    # herdava o stdout da substituição e NUNCA o fechava: a $( ) espera
+    # EOF para terminar e o EOF nunca vinha — o 'Ativar agora' TRAVAVA
+    # para sempre (sem notificação, sem linha no papel; o dump 173257
+    # corrobora: game.log com auto ON/OFF desde sempre e ZERO 'manual:
+    # ON' — o dono: 'modo de jogo não sei se funciona'). A cura é o
+    # desprendimento TOTAL do holder (stdin/stdout/stderr em /dev/null):
+    # a substituição recebe só o echo $! e o EOF chega na hora.
+    hpid="$(setsid sh -c 'while :; do sleep 30; done' </dev/null >/dev/null 2>&1 & echo $!)"
     printf '%s\n' "$hpid" > "$file" 2>/dev/null || true
     if gm_register "$hpid" >/dev/null 2>&1; then
         glog "manual: ON (holder pid $hpid registrado no gamemode)"

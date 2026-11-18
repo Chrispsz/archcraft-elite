@@ -107,9 +107,18 @@
     </item>
     <!-- E30 (v2.10.18): captura rápida no menu (pedido do dono — 'botão de
          captura de tela rápida'; o modo região é o default do craft-shot e
-         W-p segue vivo no teclado; tela inteira = W-S-p) -->
+         W-p segue vivo no teclado; tela inteira = W-S-p).
+         E121 (dump 173257 — o dono: 'o captura de tela só tem aquele modo
+         que a gente arrasta… não sei se é a melhor alternativa, mas OK'):
+         o modo tela inteira EXISTIA no CLI e no W-S-p e NENHUMA porta do
+         dono o mostrava — a capacidade invisível não existe para quem usa.
+         O item irmão entra SEM tocar no modo arrastar (o default e o
+         caminho que o dono já usa seguem byte a byte). -->
     <item label="Captura de tela">
       <action name="Execute" command="craft-shot" />
+    </item>
+    <item label="Captura (tela inteira)">
+      <action name="Execute" command="craft-shot full" />
     </item>
     <!-- E114 — O ITEM DAS TELAS SAIU (a ordem do dono: o wdisplays já
          é a porta dos hertz e a persistência E89 é do watch do

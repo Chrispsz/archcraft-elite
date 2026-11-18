@@ -2070,7 +2070,13 @@ pkgver=1.0
 #         drop-in do dono); a remoção exige o man do labwc citado + os
 #         contratos E54 (2626-2660) reescritos — degrau próprio.
 #     Bins com conteúdo mudado: craft-rice. Suíte: âncora refrescada 66→67.
-pkgrel=67
+#     E121-POLIMENTO (18/11 — dump 173257): o listener (a corrida
+#     request↔diálogo — o réu do terminal em branco da Limpeza), o
+#     craft-game (o holder que engasgava o 'Ativar agora' — o manual
+#     nunca rodou no rig) e o menu.xml (o item Captura tela inteira).
+#     Bins/peles com conteúdo mudado: craft-game, menu.xml, listener.c.
+#     Suíte: âncora refrescada 67→68.
+pkgrel=68
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
@@ -2096,7 +2102,7 @@ source=("craft-toplevel.c" "elite-polkit-listener.c")
 # E103 — o pin do listener viaja JUNTO (a mesma lição — a suíte cobra a
 #     sincronia dos TRÊS pins: ponte, pacote único e agente).
 sha256sums=('1a6aeea295db062e38e53b50bb525c6098eb4b436b4b2d8dfd8e84a174aedb11'
-            '4e586b77f2bd2aca5a6fb6e26d809b95a07744e8560d4c53614616303f89452b')
+            '50f70f8a2b29a4e274e881d78494a9aba01959e05308343e2d0588fc41a5d5cf')
 build() {{
     gcc -O2 -Wall -Wextra -s -o craft-toplevel craft-toplevel.c -lwayland-client
     # E103 — o agente sob demanda (idle ~1–2 MB, diálogo zenity no desafio)

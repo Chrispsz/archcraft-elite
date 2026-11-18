@@ -29,8 +29,24 @@
  * Base do padrão GObject: polkitagenttextlistener.c (LGPL 2.1, David
  * Zeuthen, Red Hat) — os vfuncs do PolkitAgentListener seguem a mesma
  * gramática; o diálogo TTY virou diálogo zenity da casa.
+ * v2 (E121 — o dump 173257 + o relato do dono: 'coloco a senha e fica um
+ * terminal em branco, nada acontece, aperto enter também não'): o RÉU era
+ * a CORRIDA daqui dentro — o helper do polkit pede a senha EM MILISEGUNDOS
+ * e o diálogo responde EM SEGUNDOS; o on_request viajava com a senha
+ * vazia, marcava nada e voltava; o zenity_done guardava a senha e
+ * NINGUÉM respondia — o helper esperava para sempre, o pkexec congelava
+ * e o dono ficava no terminal mudo (o clean.log SEM NENHUMA entrada
+ * uid:0 desde o nascimento do caminho pkexec foi a prova). A cura: o
+ * pedido pendente fica MARCADO e o zenity_done ENTREGA a resposta na
+ * hora em que a senha chega; tentativas esgotadas cancelam o desafio
+ * COM VOZ (nunca um hang sem nome).
  * Build: gcc -O2 -Wall -Wextra -s -o elite-polkit-listener \
- *            elite-polkit-listener.c $(pkg-config --libs polkit-agent-1 gobject-2.0)
+ *            elite-polkit-listener.c -DPOLKIT_AGENT_I_KNOW_API_IS_SUBJECT_TO_CHANGE \
+ *            $(pkg-config --cflags polkit-agent-1 gobject-2.0) \
+ *            $(pkg-config --libs polkit-agent-1 gobject-2.0)
+ *            (o --cflags é LEI — E103.4: sem ele o polkitagent/ mora fora
+ *             do include path e a build morre no header; o -D reconhece a
+ *             API instável — E-auditoria 12/nov)
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
@@ -63,6 +79,7 @@ struct _ElitePolkitListener
   GCancellable       *zenity_cancel;   /* cancela a leitura do stdout     */
   gchar              *password;        /* senha coletada (consumida uma vez) */
   guint               attempts;        /* tentativas de diálogo nesta auth */
+  gboolean            request_pending; /* E121: o helper pediu e espera a senha */
   gchar              *message;         /* texto do desafio (para re-diálogo) */
   gchar              *action_id;
 };
@@ -198,12 +215,12 @@ zenity_done (GObject *source, GAsyncResult *res, gpointer user_data)
   listener->zenity = NULL;              /* o sub mora aqui até o fim da leitura */
   g_clear_object (&sub);
 
-  g_object_unref (listener);            /* devolve a ref do user_data */
-
   if (cancelado)
     {
+      listener->request_pending = FALSE;  /* E121: o desafio morre inteiro */
       if (listener->active_session != NULL)
         polkit_agent_session_cancel (listener->active_session);
+      g_object_unref (listener);          /* devolve a ref do user_data (o uso ANTES do devolver) */
       return;
     }
 
@@ -222,14 +239,34 @@ zenity_done (GObject *source, GAsyncResult *res, gpointer user_data)
     {
       elog ("diálogo fechado sem senha — cancelando o desafio");
       g_clear_pointer (&listener->password, g_free);
+      listener->request_pending = FALSE;  /* E121: nada a entregar */
       if (listener->active_session != NULL)
         polkit_agent_session_cancel (listener->active_session);
+      g_object_unref (listener);
+      return;
+    }
+
+  /* E121 — A ENTREGA IMEDIATA (o réu do terminal em branco): o helper
+   * costuma pedir ENQUANTO o diálogo ainda está aberto — o on_request
+   * marcava o pedido e voltava de mãos vazias; o zenity_done guardava a
+   * senha e o RESPOSTA nunca saía: o helper esperava para sempre, o
+   * pkexec congelava e o dono ficava no terminal mudo. A marca existe
+   * para ESTE momento: senha na mão + pedido pendente = resposta AGORA. */
+  if (listener->request_pending && listener->active_session != NULL)
+    {
+      elog ("senha entregue ao pedido pendente (a corrida request↔diálogo — o réu do terminal em branco)");
+      listener->request_pending = FALSE;
+      polkit_agent_session_response (listener->active_session, listener->password);
+      memset (listener->password, 0, strlen (listener->password));
+      g_clear_pointer (&listener->password, g_free);
+      g_object_unref (listener);
       return;
     }
 
   /* a senha pode chegar ANTES do primeiro request do helper (o diálogo é
    * rápido, o PAM nem sempre) — o on_request entrega quando pedir */
   elog ("senha coletada — aguardando o helper pedir");
+  g_object_unref (listener);
 }
 
 /* ── os sinais do PolkitAgentSession ───────────────────────────────────── */
@@ -246,16 +283,29 @@ on_request (PolkitAgentSession *session,
 
   if (listener->password == NULL)
     {
-      /* o helper pediu e o diálogo ainda não respondeu — ele responde
-       * quando o zenity_done entregar (o pending de cima) */
+      /* o helper pediu e o diálogo ainda não respondeu — o pedido fica
+       * MARCADO (E121) e o zenity_done entrega a resposta no instante
+       * em que a senha chegar; a ordem request→senha é a COMUM (o PAM
+       * pergunta em ms, o dono responde em segundos) e era a ordem que
+       * congelava o pkexec com o terminal em branco. */
+      listener->request_pending = TRUE;
       if (listener->zenity == NULL && listener->attempts < MAX_ATTEMPTS)
         {
           elog ("helper pediu ('%s') sem diálogo vivo — abrindo outro", request);
           spawn_dialog (listener);
         }
+      else if (listener->zenity == NULL)
+        {
+          /* E121 — as tentativas se esgotaram e ninguém pode responder:
+           * o desafio morre COM VOZ — o helper esperando para sempre era
+           * o mesmo hang do terminal em branco por outra porta */
+          elog ("helper pediu sem diálogo possível (%d tentativas esgotadas) — desafio cancelado", listener->attempts);
+          polkit_agent_session_cancel (session);
+        }
       return;
     }
 
+  listener->request_pending = FALSE;    /* E121: entregue pelo caminho comum */
   polkit_agent_session_response (session, listener->password);
   memset (listener->password, 0, strlen (listener->password));
   g_free (listener->password);
@@ -272,6 +322,8 @@ on_completed (PolkitAgentSession *session,
   (void) session;
 
   elog ("desafio concluído (%s)", gained_authorization ? "autorizado" : "falhou");
+
+  listener->request_pending = FALSE;    /* E121: o ciclo do desafio fechou */
 
   if (listener->simple != NULL)
     {
@@ -362,6 +414,7 @@ elite_polkit_listener_initiate_authentication (PolkitAgentListener  *_listener,
     }
 
   listener->attempts = 0;
+  listener->request_pending = FALSE;    /* E121: desafio novo, marca zerada */
   g_free (listener->message);
   listener->message = g_strdup (message ? message : "Autenticação requerida");
   g_free (listener->action_id);
