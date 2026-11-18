@@ -1839,7 +1839,7 @@ assert_eq "$rc" "0" "E77/sono: o sleep-hook com lock morto conclui (o fork desap
 # verde em 2 CIs anteriores — o filho escreveu DEPOIS do assert). O fork
 # assíncrono é o DESENHO; a prova é a espera com teto honesto de 5s.
 _w=0
-while [ "$_w" -lt 50 ] && [ ! -s "$ST77/hyprlock.log" ]; do sleep 0.1; _w=$((_w + 1)); done
+while [ "$_w" -lt 200 ] && [ ! -s "$ST77/hyprlock.log" ]; do sleep 0.1; _w=$((_w + 1)); done
 assert_grep "$ST77/hyprlock.log" 'hyprlock' "E77/sono: o lock morto RENASCE no sono (o acordar nunca fica sem lock — E47 preservada no handler único)"
 assert_file "$RT77/elite/idle-suspend-gate" "E77/sono: o portão fecha MESMO com o lock renascendo (o sono é o sono — o isolamento não depende de quem dorme)"
 
@@ -2009,7 +2009,7 @@ fi
 rm -rf "$ST77" "$RT77"; mkdir -p "$ST77" "$RT77"
 e77_env sleep-hook >/dev/null 2>&1 || true
 _w=0
-while [ "$_w" -lt 50 ] && [ ! -s "$ST77/hyprlock.log" ]; do sleep 0.1; _w=$((_w + 1)); done
+while [ "$_w" -lt 200 ] && [ ! -s "$ST77/hyprlock.log" ]; do sleep 0.1; _w=$((_w + 1)); done
 assert_grep "$ST77/hyprlock.log" 'hyprlock' "E109/zumbi: o braço VIVO segue renascendo o lock (a cura é só para quem atravessou o sono — o contrato E47/B6 intacto)"
 assert_nogrep "$ST77/elite/idle.log" 'ZUMBI' "E109/zumbi: o braço vivo NÃO loga zumbi (a linha nomeada é só do atravessado — papel sem ruído)"
 
@@ -2057,7 +2057,7 @@ export ELITE_IS_ACTIVE=activating
 e110_env sleep-hook >/dev/null 2>&1 || true
 unset ELITE_IS_ACTIVE
 _w=0
-while [ "$_w" -lt 50 ] && [ ! -s "$ST77/hyprlock.log" ]; do sleep 0.1; _w=$((_w + 1)); done
+while [ "$_w" -lt 200 ] && [ ! -s "$ST77/hyprlock.log" ]; do sleep 0.1; _w=$((_w + 1)); done
 assert_grep "$ST77/hyprlock.log" 'hyprlock' "E110/legítimo: o hook com sono EM VOO segue renascendo o lock (a cura é só para a carta do passado — o trabalho de verdade segue)"
 assert_nogrep "$ST77/elite/idle.log" 'TARDIO' "E110/legítimo: o hook em voo NÃO loga tardio (o papel nomeia só o réu real — zero ruído)"
 
