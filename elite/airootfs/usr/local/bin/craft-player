@@ -63,10 +63,6 @@
 # o SAIU de cada transição nomeados (o on/off do dono ganhou prova). O
 # estado do tick (posição/contagem do zumbi) morre com a sessão, no
 # XDG_RUNTIME_DIR — a mesma lei da marca E61: boot novo nasce limpo.
-# Papel: ~/.cache/elite/player.log (teto 256 KiB — a lei E36) — o ENTROU e
-# o SAIU de cada transição nomeados (o on/off do dono ganhou prova). O
-# estado do tick (posição/contagem do zumbi) morre com a sessão, no
-# XDG_RUNTIME_DIR — a mesma lei da marca E61: boot novo nasce limpo.
 #
 # Uso:
 #   craft-player state    UM tick: lê o barramento MPRIS, aplica o juízo,
@@ -149,7 +145,12 @@ icon_of() {
     esac
 }
 
-DYN_LEN=40
+# E126 — O TETO CRESCEU (a ordem do dono: 'não deve cortar antes do
+# necessário' — o print fotografou 'aldn — icantbelieveile…' com o sufixo
+# de tempo cabendo SOBRANDO: 40 chars davam ao título 21 após pagar o
+# tempo). 64 paga o tempo (~12) e deixa ~52 de faixa — o tooltip segue
+# falando a íntegra para quem quiser tudo.
+DYN_LEN=64
 STATE_DIR="${XDG_RUNTIME_DIR:-/tmp}/elite"
 STATE="$STATE_DIR/player.state"    # o livro de transições: nome|shown
 ZSTATE="$STATE_DIR/player.zumbi"   # o contador do zumbi: nome|pos|count
@@ -385,15 +386,24 @@ fi
 
 # E124 — O TEMPO DE REPRODUÇÃO (o dono: 'que tenha, por exemplo, o tempo
 # de reprodução… talvez porque o texto atinja o limite'): decorrido do
-# {{position}} (segundos — corta o decimal) e total do {{mpris:length}}
-# (microssegundos — a unidade do dbus). 'm:ss' ou 'm:ss/m:ss'. Player
+# {{position}} e total do {{mpris:length}}. 'm:ss' ou 'm:ss/m:ss'. Player
 # que não entrega (campo vazio) = pillar de sempre, sem sufixo.
+#
+# E126 — A UNIDADE DO {{position}} É MICROSEGUNDO (o print do dono
+# fotografou '1517519:46/2:15': o valor cru era 91051186 — µs = 1:31 de
+# uma faixa de 2:15, EXATAMENTE plausível; o teste da E124 alimentou o
+# campo em segundos e o rig desmentiu a suíte — o playerctl -a metadata
+# --format devolve o mpris:position NA UNIDADE DO DBUS (µs), igual ao
+# length. A cura divide por 1.000.000; o teste agora alimenta µs de
+# verdade (fidelidade ao bus real — a suíte nunca mais mente sobre a
+# unidade).
 _time=""
 _pos_s=""
 if [ -n "$_pos" ]; then
     _pos_s="$(printf '%s' "$_pos" | cut -d. -f1)"
     case "$_pos_s" in ''|*[!0-9]*) _pos_s="" ;; esac
     if [ -n "$_pos_s" ]; then
+        _pos_s=$(( _pos_s / 1000000 ))
         _time="$(printf '%d:%02d' $((_pos_s / 60)) $((_pos_s % 60)))"
     fi
 fi

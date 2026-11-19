@@ -220,6 +220,14 @@ RC_FOSSILS="6e587404c68ae1bd9cbfa3031e252c7c977c638508acc37a093e602de1c89027 e2d
 
 OSD_SRC="${ELITE_OSD_SRC:-/usr/local/share/elite/swayosd/config.toml}"
 OSD_DST="${XDG_CONFIG_HOME:-$HOME/.config}/swayosd/config.toml"
+# E126 — A PELE GRÁFICA DO OSD (o item do dono: harmonizar o popup de
+# volume com o tema escuro SEM perder o contraste aprovado). O swayosd
+# lê style.css do próprio dir de config automaticamente — a escada
+# AMOLED + o acento MAUVE viajam como pele da casa (mesma gramática do
+# config.toml: fóssil vazio + marcador; o pkill do server vem do
+# entregador que já existe no fim do fluxo).
+OSDCSS_SRC="${ELITE_OSDCSS_SRC:-/usr/local/share/elite/swayosd/style.css}"
+OSDCSS_DST="${XDG_CONFIG_HOME:-$HOME/.config}/swayosd/style.css"
 
 # E104 — A PELE DO MENU (a gramática E91 na 3ª pele — a ferida do dono:
 # "cliquei com o botão direito… ele não mudou nada, não foi atualizado"):
@@ -309,7 +317,15 @@ rc_skin() {
     skin_ensure "$RC_SRC" "$RC_DST" "$RC_FOSSILS" "${1:-none}" "rc.xml"
 }
 osd_skin() {
-    skin_ensure "$OSD_SRC" "$OSD_DST" "" "${1:-none}" "config do OSD"
+    # E126 — DOIS arquivos, UMA pele: o config.toml (comportamento) e o
+    # style.css (a cara do popup — a casa agora TEM cara própria para o
+    # OSD: escada AMOLED + mauve, a cura do GtkGizto min-width do
+    # bars.log no mesmo gesto). O veredito é o OU dos dois: qualquer um
+    # que MEXEU pede o restart do swayosd-server do fim do fluxo.
+    _osd_rc=1
+    skin_ensure "$OSD_SRC" "$OSD_DST" "" "${1:-none}" "config do OSD" && _osd_rc=0
+    skin_ensure "$OSDCSS_SRC" "$OSDCSS_DST" "" "${1:-none}" "CSS do OSD" && _osd_rc=0
+    return "$_osd_rc"
 }
 menu_skin() {
     # E107 — o gate de XML antes da entrega (o menu de fábrica de 3 itens

@@ -449,6 +449,22 @@ cp -p /work/elite/airootfs/etc/skel/.config/labwc/menu.xml \
 mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/swayosd
 cp -p /work/elite/airootfs/etc/skel/.config/swayosd/config.toml \
       /tmp/elite-src/elite-system/files/usr/local/share/elite/swayosd/config.toml
+# E126 — o CSS do OSD embarca junto (a pele gráfica do popup de volume:
+# escada AMOLED + acento mauve — o craft-rice entrega os DOIS arquivos
+# como UMA pele; o swayosd lê style.css do dir de config automaticamente)
+cp -p /work/elite/airootfs/etc/skel/.config/swayosd/style.css \
+      /tmp/elite-src/elite-system/files/usr/local/share/elite/swayosd/style.css
+# E126 — A REGRA DO DESPERTAR EMBARCA NO PACOTE (o buraco de entrega que o
+# dump 173137 fotografou: a regra E122 morava só no airootfs da ISO — os
+# rigs instalados seguiam com o fóssil E24 de 3/nov desarmando TODO o USB
+# a cada coldplug, e a unit elite-wake-guard.service chegava SEM o symlink
+# de wants: nunca rodou, o teclado do dono nunca acordou a máquina). Viaja
+# como /usr/lib/udev/rules.d/91-* — nome 91 vence o fóssil /etc/90-* do
+# rig pela ordem lexical do udev (nomes diferentes SOMAM, não substituem)
+# e o elite-post-transaction aposenta o fóssil com voz na 1ª dose.
+mkdir -p /tmp/elite-src/elite-system/files/usr/lib/udev/rules.d
+cp -p /work/elite/airootfs/etc/udev/rules.d/90-elite-wake-guard.rules \
+      /tmp/elite-src/elite-system/files/usr/lib/udev/rules.d/91-elite-wake-guard.rules
 # E114 — O CONFO DO NAVEGADOR NO PACOTE: o brave-flags.conf era SKEL — rig
 # vivo nunca recebia (a cura do vídeo branco do YouTube — o réu Vulkan da
 # era v1.1 fora — morria sem veículo). Viaja em /usr/local/share/elite/
@@ -592,8 +608,8 @@ lock_rm = '    [ -e "/usr/local/share/elite/hyprlock/hyprlock.conf" ] && rm -f "
 # E103 — as peles rc.xml + swayosd (mesma dança da adoção E43)
 rc_install = '    install -d "${pkgdir}/usr/local/share/elite/labwc"\n    install -m644 "${startdir}/files/usr/local/share/elite/labwc/rc.xml" "${pkgdir}/usr/local/share/elite/labwc/rc.xml"\n'
 rc_rm = '    [ -e "/usr/local/share/elite/labwc/rc.xml" ] && rm -f "/usr/local/share/elite/labwc/rc.xml"\n'
-osd_install = '    install -d "${pkgdir}/usr/local/share/elite/swayosd"\n    install -m644 "${startdir}/files/usr/local/share/elite/swayosd/config.toml" "${pkgdir}/usr/local/share/elite/swayosd/config.toml"\n'
-osd_rm = '    [ -e "/usr/local/share/elite/swayosd/config.toml" ] && rm -f "/usr/local/share/elite/swayosd/config.toml"\n'
+osd_install = '    install -d "${pkgdir}/usr/local/share/elite/swayosd"\n    install -m644 "${startdir}/files/usr/local/share/elite/swayosd/config.toml" "${pkgdir}/usr/local/share/elite/swayosd/config.toml"\n    install -m644 "${startdir}/files/usr/local/share/elite/swayosd/style.css" "${pkgdir}/usr/local/share/elite/swayosd/style.css"\n'
+osd_rm = '    [ -e "/usr/local/share/elite/swayosd/config.toml" ] && rm -f "/usr/local/share/elite/swayosd/config.toml"\n    [ -e "/usr/local/share/elite/swayosd/style.css" ] && rm -f "/usr/local/share/elite/swayosd/style.css"\n'
 # E104 — a pele do menu (mesma dança da família E91)
 menu_install = '    install -d "${pkgdir}/usr/local/share/elite/labwc"\n    install -m644 "${startdir}/files/usr/local/share/elite/labwc/menu.xml" "${pkgdir}/usr/local/share/elite/labwc/menu.xml"\n'
 menu_rm = '    [ -e "/usr/local/share/elite/labwc/menu.xml" ] && rm -f "/usr/local/share/elite/labwc/menu.xml"\n'
@@ -639,6 +655,11 @@ pt_install = '    install -Dm644 "${startdir}/elite-post-transaction.hook" "${pk
 # E97 — o hook do flathub (mesma escola do post-transaction: heredoc no
 # build, dono ÚNICO no pacote — o libalpm remove sozinho na saída)
 ef_install = '    install -Dm644 "${startdir}/elite-flathub.hook" "${pkgdir}/usr/share/libalpm/hooks/elite-flathub.hook"\n'
+# E126 — a regra udev do despertar (mesma escola das peles: staging acima,
+# install aqui; caminho NOVO em rig comum = criação limpa, sem dança de
+# adoção — o fóssil /etc/90-* do rig é aposentado pelo elite-post-transaction
+# com voz, nunca sobrescrito às cegas pelo pacman)
+udev_install = '    install -d "${pkgdir}/usr/lib/udev/rules.d"\n    install -m644 "${startdir}/files/usr/lib/udev/rules.d/91-elite-wake-guard.rules" "${pkgdir}/usr/lib/udev/rules.d/91-elite-wake-guard.rules"\n'
 pkg = f"""pkgname=elite-system
 pkgver=1.0
 # E50 — O SISTEMA EM UM PACOTE SÓ (diretriz do dono). Todo o código de
@@ -2263,8 +2284,37 @@ pkgver=1.0
 #     craft-flatpak, craft-extract, elite-tune, craft-bars, craft-display,
 #     craft-rollback, elite-install-stage, exo-open, hyprlock.conf.
 #     Tests: âncoras 'Apps da dock'/'Comprimir' refrescadas ×4.
-#     pkgrel 72→73 NO MESMO COMMIT (lei E41).
-pkgrel=73
+# E126 — O POLIMENTO DOS 12 ITENS (o backlog do dono com protocolo de
+#     cobertura total: o print decodificou o tempo do player — o
+#     {{position}} do playerctl é MICROSEGUNDO, o '1517519:46' era
+#     91051186µs = 1:31 de uma faixa de 2:15; o pill do jogo consultava
+#     'pgrep gamemoded' e o daemon que sobrevive ao último cliente deixava
+#     o ícone aceso SEM jogo — agora o QueryStatus manda, o watch registra
+#     o jogo Steam pelo EXE em steamapps/common, aposenta o gamemoded idle
+#     e o clique direito desativa; o despertar fecha a CADEIA (controlador
+#     PCI + fonte ACPI do MESMO endereço — o elo que faltava; a regra v2
+#     EMBARCA no pacote como /usr/lib/udev/rules.d/91-* e a unit é
+#     enable+start pelo elite-post-transaction em TODA transação: o rig
+#     nunca mais fica com a política só na ISO); o watchdog do compositor
+#     no craft-bars (labwc VIVO E MUDO = 3 strikes, o journal no papel e a
+#     sessão encerrada com o greeter na tela — o botão de power descansa);
+#     o mutex+timeout do craft-display (a tempestade de contadores
+#     duplicados) e a desculpa do stamp fail que EXPIRA (a resolução
+#     escolhida volta a gravar); o ícone real do AppImage na dock (o
+#     .DirIcon do /tmp/.mount_* pelo /proc — o que o Gear Lever lê) e o
+#     steam_icon_* do jogo Steam; a moldura de volta ao sair do fullscreen
+#     (o xprop -remove _MOTIF_WM_HINTS da janela steam_app_* — o
+#     xorg-xprop entra na ADOCAO); o Papirus-Dark de volta por ordem do
+#     dono (packages.add + ADOCAO + settings.ini + guarda E16) com o
+#     destaque MAUVE do menu; a pele CSS do OSD de volume; o LACT só em
+#     AMD (NVIDIA/Intel perdem o daemon e o pacote no install-stage e no
+#     firstboot); a LOJA Flathub gráfica (craft-flatpak loja + a porta
+#     'Loja de apps' no botão direito + o Okular); o craft-help adaptativo
+#     à largura do foot (initial-window-size-chars=88x28); os rótulos
+#     fuzzel ao cap de 26. pkgrel 73→74 NO MESMO COMMIT (lei E41).
+#     A cadeia E125 (o menu que nunca chegou + os três pontinhos + o
+#     status sem pids): pkgrel 72→73 NO MESMO COMMIT (lei E41).
+pkgrel=74
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
@@ -2336,7 +2386,7 @@ package() {{
     # E103 — o agente sob demanda + a fonte dele (mesma transparência)
     install -m755 elite-polkit-listener "${{pkgdir}}/usr/local/bin/elite-polkit-listener"
     install -Dm644 elite-polkit-listener.c "${{pkgdir}}/usr/local/share/elite/src/elite-polkit-listener.c"
-{unit_install}{hook_install}{ff_install}{lock_install}{rc_install}{osd_install}{menu_install}{pd_install}{gm_install}{doc_install}{gp_install}{pt_install}{ef_install}{flags_install}{waybar_install}}}
+{unit_install}{hook_install}{ff_install}{lock_install}{rc_install}{osd_install}{menu_install}{pd_install}{gm_install}{doc_install}{gp_install}{pt_install}{ef_install}{flags_install}{waybar_install}{udev_install}}}
 """
 (d / 'PKGBUILD').write_text(pkg)
 PYE50

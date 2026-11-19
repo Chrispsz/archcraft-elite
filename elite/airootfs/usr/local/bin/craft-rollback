@@ -144,10 +144,10 @@ case "$choice" in
         snap="$(printf '%s' "$pick" | cut -d' ' -f1)"
         ec=0
         errf="$(mktemp)"
-        ok="$(craft-menu --title='Confirmar' --at=power 'Cancelar' 'CONFIRMAR — o sistema volta a este snapshot' \
+        ok="$(craft-menu --title='Confirmar' --at=power 'Cancelar' 'CONFIRMAR o retorno' \
             2>"$errf")" || ec=$?
         rm -f "$errf"
-        if [ "$ec" -ne 0 ] || [ "$ok" != 'CONFIRMAR — o sistema volta a este snapshot' ]; then
+        if [ "$ec" -ne 0 ] || [ "$ok" != 'CONFIRMAR o retorno' ]; then
             mlog "Rollback: restauração do snapshot $snap não confirmada — benigno"
             exit 0
         fi

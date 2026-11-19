@@ -255,7 +255,69 @@ except ImportError:
 
 gi.require_version("Gtk", "3.0")
 gi.require_version("GtkLayerShell", "0.1")
-from gi.repository import GLib, Gio, Gtk, Gdk, GtkLayerShell, Pango  # noqa: E402
+gi.require_version("GdkPixbuf", "2.0")
+from gi.repository import GLib, Gio, Gtk, Gdk, GtkLayerShell, Pango, GdkPixbuf  # noqa: E402
+
+# ── E126 — O ÍCONE REAL DO SEM-NOME (o print do dono fotografou o losango
+# azul genérico na última posição da dock: o Hydra Plus — AppImage aberto
+# sem pin — entrava como janela raw e o 'theme.has_icon(stem)' nunca acha
+# 'hydra-plus' em tema nenhum; o mesmo para o jogo Steam 'steam_app_…').
+# A cadeia de resolução do botão raw ganhou DOIS degraus antes do glifo
+# genérico: (1) STEAM: 'steam_icon_<appid>' é o nome que os atalhos da
+# Steam usam (com Papirus-Dark o ícone do jogo existe quando o Steam o
+# registrou); (2) APPIMAGE MONTADO: o processo do usuário cujo comm casa
+# com a chave (o mesmo molde do _raw_launch) tem o /proc/<pid>/exe DENTRO
+# de /tmp/.mount_* — o squashfs montado carrega o .DirIcon do próprio
+# app (o ícone que o Gear Lever lê); GdkPixbuf carrega direto do arquivo
+# (PNG; SVG quando há loader — o fallback honesto segue se nada abrir).
+def _raw_icon_candidates(key):
+    """Nomes de ícone de tema que valem para esta chave raw (steam em 1º)."""
+    if key.startswith("steam_app_"):
+        appid = key[len("steam_app_"):]
+        if appid:
+            yield f"steam_icon_{appid}"
+        yield "steam"
+
+
+def _appimage_diricon(key):
+    """O .DirIcon do AppImage montado que roda sob esta chave (None se não
+    houver). O molde é o do _raw_launch: /proc do usuário, comm case-
+    insensitive com a casca de 15 chars, e o exe provando a origem — só
+    que aqui quem importa é o CAMINHO do exe: dentro de /tmp/.mount_*
+    está o squashfs do AppImage com o ícone embutido dele."""
+    uid = os.getuid()
+    klow = key.lower()
+    try:
+        pids = os.listdir("/proc")
+    except OSError:
+        return None
+    for pid in pids:
+        if not pid.isdigit():
+            continue
+        try:
+            if os.stat(f"/proc/{pid}").st_uid != uid:
+                continue
+            with open(f"/proc/{pid}/comm") as fh:
+                comm = fh.read().strip().lower()
+            if comm != klow and not (len(comm) == 15 and klow.startswith(comm)):
+                continue
+            exe = os.path.realpath(f"/proc/{pid}/exe")
+        except OSError:
+            continue
+        if "/.mount_" not in exe:
+            continue
+        mount = exe.split("/.mount_", 1)[0] + "/" + exe.split("/.mount_", 1)[1].split("/", 1)[0]
+        icon = os.path.join(mount, ".DirIcon")
+        if os.path.isfile(icon):
+            return icon
+    return None
+
+
+def _pixbuf_or_none(path, size):
+    try:
+        return GdkPixbuf.Pixbuf.new_from_file_at_size(path, size, size)
+    except (GLib.Error, OSError):
+        return None
 
 PINS_FILE = os.path.join(
     GLib.get_user_config_dir(), "elite", "dock-pins"
@@ -1651,14 +1713,36 @@ class Dock:
         """v2.10.9 — o botão do SEM-NOME (AppImage): ícone do tema se o
         stem trouxer algo; sem .desktop NÃO há ícone real a prometer — o
         glifo executável é a verdade. O tooltip não mente (v2.10.10: o
-        direito reabre pelo /proc quando a prova existe)."""
+        direito reabre pelo /proc quando a prova existe).
+        E126 — O LOSANGO AZUL MORRE (o print do dono: AppImage sem pin e
+        jogo Steam com ícone GENÉRICO na ponta direita da dock — o Gear
+        Lever lê o ícone embutido e a dock não). A cadeia agora é QUATRO
+        degraus: tema → ícones steam → .DirIcon do AppImage montado → o
+        glifo executável de sempre (o fallback honesto quando NADA
+        existe de verdade)."""
         btn = Gtk.Button.new()
         btn.set_relief(Gtk.ReliefStyle.NONE)
         img = Gtk.Image()
         theme = Gtk.IconTheme.get_default()
+        done = False
         if theme is not None and theme.has_icon(key):
             img.set_from_icon_name(key, Gtk.IconSize.DIALOG)
-        else:
+            done = True
+        if not done:
+            for cand in _raw_icon_candidates(key):
+                if theme is not None and theme.has_icon(cand):
+                    img.set_from_icon_name(cand, Gtk.IconSize.DIALOG)
+                    done = True
+                    break
+        if not done:
+            diricon = _appimage_diricon(key)
+            if diricon:
+                pix = _pixbuf_or_none(diricon, ICON_SIZE)
+                if pix is not None:
+                    img.set_from_pixbuf(pix)
+                    done = True
+                    log(f"raw ícone: '{key}' ganhou o .DirIcon do AppImage montado ({diricon})")
+        if not done:
             img.set_from_icon_name("application-x-executable",
                                    Gtk.IconSize.DIALOG)
         img.set_pixel_size(ICON_SIZE)

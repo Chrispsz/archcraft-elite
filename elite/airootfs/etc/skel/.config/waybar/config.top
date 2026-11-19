@@ -101,13 +101,17 @@
   // remover". O módulo morre aqui; o craft-shot segue vivo e os verbos
   // continuam no teclado: W-p = região, W-S-p = tela inteira.)
   // Modo de jogo (E115) — o estado que se VÊ: 🎮 verde na barra enquanto
-  // o gamemode está ativo (jogo da família ou manual), some quando sai.
-  // O pgrep é O estado (zero cache — a mesma física do músculo D-Bus).
+  // o gamemode está ativo (jogo da família, jogo Steam ou manual), some
+  // quando sai. E126 — o clique DIREITO desativa na hora (a ordem do dono:
+  // "falta opção de desativação manual, ex.: clique direito no ícone da
+  // barra") e o pill consulta o ESTADO REAL do D-Bus (QueryStatus — o
+  // daemon que sobrevive ao último cliente não acende mais o assento).
   "custom/game": {
     "exec": "craft-game pill",
     "return-type": "json",
     "interval": 3,
     "on-click": "craft-game",
+    "on-click-right": "craft-game off",
     "tooltip": true
   },
 

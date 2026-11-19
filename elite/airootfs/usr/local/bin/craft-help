@@ -24,6 +24,50 @@ B=$'\e[1m'; D=$'\e[2m'; N=$'\e[0m'; V=$'\e[35m'
 # sem TTY (pipe/redis) = sem cor (o papel viaja limpo)
 [ -t 1 ] || { B=""; D=""; N=""; V=""; }
 
+# ── E126 — A LARGURA É DO TERMINAL, NÃO DO OLHÕMETRO (a ordem do dono:
+# 'Reescrever e redimensionar o layout da Ajuda e Comandos para
+# encaixar perfeitamente na geometria padrão do terminal foot'). A
+# moldura era 58 colunas CRAVADAS e o papel dos comandos corria até 90+
+# — na janela padrão do foot as linhas longas quebravam sozinhas em
+# qualquer coluna ('não fica bem encaixado'). Agora: o foot.ini da casa
+# NASCE com initial-window-size-chars (88x28 — a geometria padrão é
+# ESPECIFICADA, não herdada do pixel default) e o craft-help MEDE a
+# largura viva (tput cols · fallback 80) e desenha TUDO dentro dela:
+# moldura do tamanho exato, papel longo quebrado por PALAVRA com recuo
+# alinhado à coluna do papel — texto inteiro, nada de reticências
+# escondendo conteúdo (a mesma lei E125 dos menus, agora na tela de
+# ajuda).
+COLS="${COLUMNS:-}"
+[ -z "$COLS" ] && COLS="$(tput cols 2>/dev/null || true)"
+case "$COLS" in ''|*[!0-9]*) COLS=80 ;; esac
+[ "$COLS" -lt 66 ] && COLS=66      # chão: a moldura mínima legível
+[ "$COLS" -gt 108 ] && COLS=108    # teto: linha de leitura confortável
+INNER=$((COLS - 2))
+# o tr NÃO faz multibyte (o '═' tem 3 bytes UTF-8 — o tr cuspiria o
+# primeiro byte e a moldura nascia quebrada): a escada é bash puro,
+# ${#} conta CARACTERES, não bytes
+bar() {
+    local _n="$1" _out=""
+    while [ "${#_out}" -lt "$_n" ]; do _out="$_out══"; done
+    printf '%s' "${_out:0:$_n}"
+}
+
+# a linha do mapa com quebra por palavra: o papel continua INTEIRO —
+# quem não cabe vira linha nova com recuo alinhado (fmt quebra em
+# fronteira de palavra; coreutils de fábrica)
+print_row() { # $1=cor do nome $2=nome $3=papel
+    local _primeira=1 _l
+    while IFS= read -r _l; do
+        [ -n "$_l" ] || continue
+        if [ "$_primeira" = 1 ]; then
+            printf '  %b%-19s%b %s\n' "$1" "$2" "$N" "$_l"
+            _primeira=0
+        else
+            printf '  %19s  %s\n' "" "$_l"
+        fi
+    done < <(printf '%s' "$3" | fmt -w "$((COLS - 23))" 2>/dev/null || printf '%s\n' "$3")
+}
+
 # ── o mapa embutido (o índice de uma linha — a mesma escola do E36) ────────
 # E109 — O MAPA QUE NÃO ASSUSTA (o dono no dump 181701: 'Tem muito
 # comando… Nem sei se precisa de tanto comando, cara. Sinceramente, eu
@@ -115,15 +159,20 @@ pausa_final() {
     return 0
 }
 
-printf '%b╔══════════════════════════════════════════════════════════╗%b\n' "$V" "$N"
-printf '%b║  ARCHCRAFT ELITE — O MAPA DOS COMANDOS (craft-help)      ║%b\n' "$V" "$N"
-printf '%b╚══════════════════════════════════════════════════════════╝%b\n' "$V" "$N"
+_t='ARCHCRAFT ELITE — O MAPA DOS COMANDOS'
+_pad=$(( (INNER - ${#_t}) / 2 ))
+[ "$_pad" -lt 0 ] && _pad=0
+printf '%b╔%s╗%b\n' "$V" "$(bar "$INNER")" "$N"
+printf '%b║%b' "$V" "$N"
+printf '%*s%s%*s' "$_pad" "" "$_t" "$((INNER - _pad - ${#_t}))" ""
+printf '%b║%b\n' "$V" "$N"
+printf '%b╚%s╝%b\n' "$V" "$(bar "$INNER")" "$N"
 
 # ── estado Elite (read-only, barato — 4 perguntas ao sistema) ──────────────
 es_ver="$(pacman -Q elite-system 2>/dev/null | awk '{print $2}')"
 printf 'estado: elite-system %b%s%b' "$B" "${es_ver:-ausente}" "$N"
 if [ -r /var/log/elite-update.log ]; then
-    ultima="$(grep -E 'canal: |manual|sistema:' /var/log/elite-update.log 2>/dev/null | tail -1 | sed 's/^\[[^]]*\] //' | cut -c1-58)"
+    ultima="$(grep -E 'canal: |manual|sistema:' /var/log/elite-update.log 2>/dev/null | tail -1 | sed 's/^\[[^]]*\] //' | cut -c1-$((COLS - 34)))"
     [ -n "$ultima" ] && printf ' · última dose: %b%s%b' "$D" "$ultima" "$N"
 fi
 printf '\n'
@@ -136,7 +185,7 @@ if [ -n "$TERMO" ]; then
     for linha in "${MAPA[@]}"; do
         if printf '%s' "$linha" | grep -qi -- "$TERMO"; then
             nome="${linha%%|*}"; papel="${linha#*| }"
-            printf '  %b%-19s%b %s\n' "$B" "$nome" "$N" "$papel"
+            print_row "$B" "$nome" "$papel"
             achou=1
         fi
     done
@@ -147,7 +196,7 @@ fi
 
 printf '\n%b── ATALHOS DE TECLADO (os reais do rc.xml) ──%b\n' "$B" "$N"
 for linha in "${ATALHOS[@]}"; do
-    printf '  %b%-15s%b %s\n' "$V" "${linha%%|*}" "$N" "${linha#*| }"
+    printf '  %b%-17s%b %s\n' "$V" "${linha%%|*}" "$N" "${linha#*| }"
 done
 
 # E109 — AS DUAS VOZES DO MAPA (a resposta honesta ao 'tanto comando'):
@@ -161,7 +210,7 @@ printf '\n%b── AS PORTAS DO DONO (a mão que você usa — %d no total) ─�
 for linha in "${MAPA[@]}"; do
     nome="${linha%%|*}"
     if porta_do_dono "${nome%% *}"; then
-        printf '  %b%-19s%b %s\n' "$B" "$nome" "$N" "${linha#*| }"
+        print_row "$B" "$nome" "${linha#*| }"
     fi
 done
 # E119 — A TELA QUE NÃO ESTOURA (o dono no dump 221647: 'tem um monte de

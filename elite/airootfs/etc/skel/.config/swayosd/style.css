@@ -1,0 +1,62 @@
+/* Archcraft ELITE · swayosd — a pele do OSD (E126 · o item do dono:
+ * "Manter o excelente visual e contraste do popup/OSD de volume, apenas
+ * harmonizando-o com o tema escuro sem perder contraste").
+ * O swayosd lê ESTE arquivo automaticamente (~/.config/swayosd/
+ * style.css) e desenha o volume/captura/brilho com a escada AMOLED da
+ * casa — a MESMA família da waybar/dock/swaync: preto real de fundo,
+ * superfície #16161f, borda #22222e, texto #cdd6f4 e o acento MAUVE
+ * #cba6f7 (o roxo das páginas da distro, em harmonia com o wallpaper).
+ * O contraste antigo segue INTACTO (o dono aprovou o visual): a barra
+ * de progresso ganhou min-width explícito — a cura do aviso
+ * 'GtkGizmo (progress) reported min width -2' que enchia o bars.log.
+ * Seletores sobrando são inofensivos (o parser GTK ignora o que não
+ * casa); os que casam pintam o popup inteiro. */
+window#osd {
+  background: rgba(0, 0, 0, 0.88);
+  border: 2px solid #22222e;
+  border-radius: 18px;
+}
+
+#osd {
+  background: rgba(0, 0, 0, 0.88);
+  border-radius: 18px;
+}
+
+#container {
+  padding: 14px 20px;
+  border-radius: 18px;
+}
+
+box {
+  margin: 4px 8px;
+}
+
+image {
+  color: #cba6f7;
+  min-width: 26px;
+  min-height: 26px;
+}
+
+label {
+  color: #cdd6f4;
+  font-weight: 700;
+}
+
+progressbar {
+  min-width: 140px;
+}
+
+progressbar trough {
+  background: #16161f;
+  border-radius: 99px;
+  min-height: 7px;
+  min-width: 140px;
+}
+
+progressbar progress,
+.progress {
+  background: #cba6f7;
+  border-radius: 99px;
+  min-height: 7px;
+  min-width: 3px;
+}

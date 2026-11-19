@@ -207,11 +207,13 @@ fastfetch
 ##   · python + python-gobject — o GUI é um único script PyGObject
 ##     (mantível no repo, sem toolchain Go no build)
 ##   · gtk-layer-shell — o protocolo (dep do nwg-drawer, aqui explícito)
-## v2.2 (leveza radical, diretriz do dono): SEM tema de ícones — o Papirus
-## saiu da ISO. Cada app usa o PRÓPRIO ícone (hicolor: brave, foot, thunar,
-## papers, qalculate…) e o GTK cai no fallback base que JÁ vem como dep
-## dura de gtk3/gtk4 (adwaita-icon-theme, <1 MB instalado — verificado na
-## API do Arch, out/2026). Zero pacote novo somado.
+## E126 — O PAPPIRUS VOLTA (a ordem do dono 19/nov: "padronizar o tema de
+## ícones do sistema para eliminar inconsistências visuais"). A v2.2 o
+## tinha cortado por leveza — o preço foi a babel de ícones (cada app no
+## próprio hicolor + fallback Adwaita + AppImage genérico na dock: nada
+## de família). UM tema escuro coerente com o Catppuccin Mocha; os rigs
+## vivos adotam pela dose (ADOCAO do craft-update), o ISO nasce com ele,
+## e o E16 do customize agora o espera em vez de avisar.
 python
 python-gobject
 gtk-layer-shell
@@ -226,6 +228,7 @@ gtk-layer-shell
 ## archcraft-cursor-bibata: cursor Bibata — o cursor dos melhores rices.
 nwg-drawer
 catppuccin-gtk-theme-mocha
+papirus-icon-theme
 gtk-engine-murrine
 archcraft-cursor-bibata
 

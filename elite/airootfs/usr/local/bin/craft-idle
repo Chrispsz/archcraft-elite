@@ -834,10 +834,10 @@ if command -v craft-menu >/dev/null 2>&1; then
     susp_txt="$(cur_susp_item)"
     mlog "Idle: abrindo (craft-menu — duas portas)"
     secao="$(printf '%s\n' \
-        "Tela: trava e apaga — $lock_txt" \
-        "Suspender após o idle — $susp_txt" | idle_pick 'Idle')" || exit 0
+        "Tela — $lock_txt" \
+        "Suspender — $susp_txt" | idle_pick 'Idle')" || exit 0
     case "$secao" in
-        'Tela: trava e apaga'*)
+        'Tela —'*)
             # E43/E46 — o gesto único: os valores AQUI são LOCK=OFF (a
             # janela 'travada e acesa' não tem mais porta em nenhum menu)
             itens="$(printf '%s\n' '2 min' '5 min' '10 min' '15 min' '30 min' '1 hora' 'Nunca (só W-l)' \
@@ -853,10 +853,10 @@ if command -v craft-menu >/dev/null 2>&1; then
                 'Nunca (só W-l)') LOCK_MIN=0;  OFF_MIN=0  ;;
                 *)                exit 0 ;;
             esac ;;
-        'Suspender após o idle'*)
+        'Suspender —'*)
             itens="$(printf '%s\n' '5 min' '10 min' '20 min (padrão)' '30 min' '1 hora' 'Nunca' \
                 | sed "s|^${susp_txt}\$|& ← atual|")"
-            choice="$(printf '%s\n' "$itens" | idle_pick 'Suspender após o idle')" || exit 0
+            choice="$(printf '%s\n' "$itens" | idle_pick 'Suspender')" || exit 0
             case "$choice" in
                 '5 min')           SUSPEND_MIN=5  ;;
                 '10 min')          SUSPEND_MIN=10 ;;

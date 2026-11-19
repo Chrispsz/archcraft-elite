@@ -3207,7 +3207,8 @@ printf 'brave%sPaused%sClipe Teste%sCanal Teste%shttps://www.youtube.com/watch?v
 printf 'spotify%sPlaying%sFaixa Nativa%sBanda Nativa%s%s1:00\n' "$SEP122" "$SEP122" "$SEP122" "$SEP122" "$SEP122" > "$P122/spotify.txt"
 printf 'brave%sPlaying%sThe signal and the noise%sCanal História%shttps://www.youtube.com/watch?v=noise%s10:01\n' "$SEP122" "$SEP122" "$SEP122" "$SEP122" "$SEP122" > "$P122/sinal.txt"
 printf 'brave%sPaused%s%s%s%s%s\n' "$SEP122" "$SEP122" "$SEP122" "$SEP122" "$SEP122" "$SEP122" > "$P122/morta.txt"
-printf 'brave%sPlaying%sClipe Tempo%sCanal Tempo%shttps://music.youtube.com/watch?v=t%s83.528%s193000000\n' "$SEP122" "$SEP122" "$SEP122" "$SEP122" "$SEP122" "$SEP122" > "$P122/tempo.txt"
+printf 'brave%sPlaying%sClipe Tempo%sCanal Tempo%shttps://music.youtube.com/watch?v=t%s91051186%s135000000\n' "$SEP122" "$SEP122" "$SEP122" "$SEP122" "$SEP122" "$SEP122" > "$P122/tempo.txt"
+printf 'brave%sPlaying%sClipe Longo%sCanal Longo%shttps://music.youtube.com/watch?v=l%s83528000%s193000000\n' "$SEP122" "$SEP122" "$SEP122" "$SEP122" "$SEP122" "$SEP122" > "$P122/tempol.txt"
 printf '' > "$P122/vazio.txt"
 cp122() { # <cenário> [cmd] — um tick limpo no mesmo home
     env XDG_RUNTIME_DIR="$P122/run" XDG_CACHE_HOME="$P122/cache" \
@@ -3245,8 +3246,11 @@ out122="$(cp122 morta.txt)"
 assert_eq "$out122" '{"text":"","class":"","tooltip":""}' \
     "E124/player: a SESSÃO MORTA pausada (metadata vazia — a aba dona fechou e o MPRIS esvaziou) sai da barra (o zumbi da lei 2 no status Paused)"
 out122="$(cp122 tempo.txt)"
+assert_match "$out122" '1:31/2:15' \
+    "E124→E126/player: o TEMPO DE REPRODUÇÃO entra no pillar COM A UNIDADE CERTA (o print do dono fotografou '1517519:46/2:15': o {{position}} do playerctl é MICROSEGUNDO — 91051186µs = 1:31 de uma faixa de 2:15, os números REAIS do rig; o teste antigo alimentava segundos e a suíte mentia junto com o bug)"
+out122="$(cp122 tempol.txt)"
 assert_match "$out122" '1:23/3:13' \
-    "E124/player: o TEMPO DE REPRODUÇÃO entra no pillar (decorrido/total: 83.528s → 1:23 e 193000000µs → 3:13 — o dono pediu o tempo; o título cede o espaço, o total nunca estoura o teto de 40)"
+    "E124→E126/player: o vetor longo em µs (83528000µs → 1:23 de 193000000µs → 3:13 — a mesma prova da E124, agora na unidade do bus de verdade)"
 assert_match "$out122" '"class":"playing"' \
     "E124/player: o tocando de verdade segue com a classe playing (a gramática do CSS intacta)"
 out122="$(cp122 vazio.txt)"

@@ -242,6 +242,12 @@ if [ "$ELITE_GPU" = "amd" ]; then
         printf 'GRUB_CMDLINE_LINUX_DEFAULT="quiet amdgpu.ppfeaturemask=0xffffffff"\n' >> "${ROOT}/etc/default/grub"
     fi
 elif [ "$ELITE_GPU" = "nvidia" ]; then
+    # E126 — O LACT É DA FAMÍLIA AMD (a ordem do dono: pacotes de um
+    # fabricante não moram no sistema do outro): o painel de undervolt da
+    # casa fala com o amdgpu — em NVIDIA ele não controla nada e o daemon
+    # não tem por que acordar. Sai do alvo junto com o serviço desligado.
+    arch-chroot "$ROOT" systemctl disable lactd.service 2>/dev/null || true
+    arch-chroot "$ROOT" pacman -Rns --noconfirm lact 2>/dev/null || true
     grep -q '^MODULES=(nvidia' "${ROOT}/etc/mkinitcpio.conf" 2>/dev/null ||
         sed -i 's|^MODULES=.*|MODULES=(nvidia nvidia_modeset nvidia_uvm nvidia_drm)|' "${ROOT}/etc/mkinitcpio.conf" 2>/dev/null || true
     printf '%s\n' '# ELITE: NVIDIA (modeset+fbdev p/ Wayland; VRAM preservada em suspend)' 'options nvidia-drm modeset=1 fbdev=1' 'options nvidia NVreg_PreserveVideoMemoryAllocations=1 NVreg_TemporaryFilePath=/var/tmp' > "${ROOT}/etc/modprobe.d/00-elite-nvidia.conf"
@@ -259,6 +265,13 @@ elif [ "$ELITE_GPU" = "nvidia" ]; then
     else
         printf 'GRUB_CMDLINE_LINUX_DEFAULT="quiet nvidia_drm.modeset=1 nvidia_drm.fbdev=1"\n' >> "${ROOT}/etc/default/grub"
     fi
+else
+    # E126 — Intel/desconhecida: o mesmo princípio (LACT sem amdgpu não é
+    # ferramenta, é peso): o daemon desliga e o pacote sai; o elite-tune
+    # do primeiro boot refaz o veredito com o lspci vivo (a dupla é
+    # idempotente — o que já saiu, saiu).
+    arch-chroot "$ROOT" systemctl disable lactd.service 2>/dev/null || true
+    arch-chroot "$ROOT" pacman -Rns --noconfirm lact 2>/dev/null || true
 fi
 
 # ── 3. FASE FINAL DE BOOT (v1.9 — spec M1.1 do dono, prematurity EOF) ──────

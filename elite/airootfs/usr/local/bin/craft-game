@@ -34,9 +34,11 @@
 #                         AUTO=0/ausente = sai 0 — ausência intencional, lei do idle)
 #   craft-game hook       os [custom] do gamemode.ini (inicio/fim do modo)
 #   craft-game pill       JSON para o módulo custom/game da topbar (E115):
-#                         o assento só existe QUANDO o gamemoded está vivo
-#                         (jogo da família OU manual) — estado visível sem
-#                         abrir nada, a resposta ao 'não sei se funciona'
+#                         o assento só existe QUANDO o modo está ATIVO de
+#                         verdade (E126: o estado é o QueryStatus do D-Bus,
+#                         não a vida do daemon — o rig fotografou o ícone
+#                         aceso SEM jogo nenhum porque o gamemoded sobrevive
+#                         ao último cliente)
 # ═══════════════════════════════════════════════════════════════════════════
 set -u
 
@@ -56,6 +58,17 @@ LOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/game.log"
 # no padrão ('wine6?-preload(er)?' casa 14 e 17 chars), e a âncora
 # impede que um 'gamescope-helper' hipotético passe por 'gamescope'.
 GAME_PATS='^wine6?-preload(er)?$|^gamescope$|^pcsx2$|^retroarch$|^duckstation$|^dolphin-emu$|^melonds$|^citra-qt$|^ryujinx$|^PPSSPPSDL$|^rpcs3$|^osu!$|^Cemu$'
+
+# E126 — O EXE QUE O COMM NÃO CONTA (o relato do dono: 'abrir o jogo real
+# não ativa o modo' — o Stardew Valley via Proton roda com o comm DO .exe
+# ('Stardew Valley'), que NENHUMA ERE da casa casa: a família por comm é
+# fechada por construção e o jogo Steam de verdade escapa dela TODA. A
+# segunda porta é o CAMINHO do executável: todo jogo Steam (nativo OU
+# Proton) roda de dentro de steamapps/common — ler o /proc/<pid>/exe do
+# usuário e casar o caminho é detector GERAL, de graça (1 readlink por
+# processo vivo, na MESMA rodada de 5s do pgrep). O wine-preloader da
+# ERE segue valendo para o jogo fora da Steam; as duas portas somam.
+STEAM_EXE_MARK='/steamapps/common/'
 
 # o glifo de log único (o papel da casa — 256 KiB de teto, lei E36)
 glog() {
@@ -100,6 +113,48 @@ has_gamemode() {
 holder_pid_file() { printf '%s/game-holder.pid' "$RUN_DIR"; }
 
 ensure_run_dir() { mkdir -p "$RUN_DIR" 2>/dev/null || true; }
+
+# ── E126 — A MOLDURA VOLTA AO SAIR DO FULLSCREEN (o item do dono: jogos
+# Proton como o Stardew Valley 'abrem com a barra de título e os 3 botões
+# intactos, mas ao entrar em tela cheia e voltar para modo janela, retornam
+# SEM a decoração'). A mecânica do crime: janelas XWayland são decoradas
+# PELO labwc seguindo o _MOTIF_WM_HINTS do X — o jogo em fullscreen pede
+# janela nua (hint de decoração zerado) e, ao VOLTAR ao modo janela, o
+# hint segue zerado (o jogo não restaura): a titlebar nunca mais desenha.
+# A regra universal serverDecoration="yes" do rc.xml vale NO PRIMEIRO
+# MAPA — a transição fullscreen→janela não remapeia, a regra não re-dispara.
+# A cura lê o próprio X: janela de jogo Steam (WM_CLASS steam_app_*) FORA
+# do fullscreen com hint de decoração ZERADO → a propriedade é APAGADA
+# (xprop -remove) → o PropertyNotify acorda o XWayland, o hint volta ao
+# DEFAULT (decorado) e o labwc redesenha a moldura. De graça, na mesma
+# rodada de 5s do watch — e uma vez por janela (o log assina o gesto).
+decor_fix() {
+    command -v xprop >/dev/null 2>&1 || return 0
+    _clients="$(timeout 3 xprop -root _NET_CLIENT_LIST 2>/dev/null || true)"
+    case "$_clients" in *window\ id*) ;; *) return 0 ;; esac
+    _ids="$(printf '%s' "$_clients" | sed 's/.*, //; s/^window id # //; s/, /\n/g' | grep -E '^0x[0-9a-f]+$' || true)"
+    [ -n "$_ids" ] || return 0
+    printf '%s\n' "$_ids" | while IFS= read -r _id; do
+        [ -n "$_id" ] || continue
+        _cls="$(timeout 3 xprop -id "$_id" WM_CLASS 2>/dev/null || true)"
+        case "$_cls" in
+            *steam_app_*) ;;
+            *) continue ;;
+        esac
+        _st="$(timeout 3 xprop -id "$_id" _NET_WM_STATE 2>/dev/null || true)"
+        case "$_st" in *FULLSCREEN*) continue ;; esac
+        _hints="$(timeout 3 xprop -id "$_id" _MOTIF_WM_HINTS 2>/dev/null || true)"
+        # o 3º campo é o flag de decoração: 0x0 = PEDIDA NUA
+        case "$_hints" in
+            *'= 0x'*', 0x'*', 0x0, 0x'*','*)
+                if timeout 3 xprop -id "$_id" -remove _MOTIF_WM_HINTS >/dev/null 2>&1; then
+                    glog "watch: moldura devolvida ($_id ${_cls##*\"} — saiu do fullscreen com hint de janela nua; a propriedade morreu, o default do labwc é a titlebar)"
+                fi
+                ;;
+        esac
+    done
+    return 0
+}
 
 gm_on() {
     if ! has_gamemode; then
@@ -208,6 +263,8 @@ gm_watch() {
     glog "watch: no ar (pid $$ — família ERE sobre o comm, ${#GAME_PATS} chars de padrões)"
 
     local -A held=()   # pid → 1 (registrado por nós)
+    local -A steamheld=()  # E126 — pid → 1 (o caminho do exe falou, o comm não)
+    local retire=0     # E126 — rodadas seguidas com NADA vivo e modo idle
     while :; do
         # 1) os REGISTRADOS que morreram: libera (o reaper de lá também
         #    sabe — o unregister é o cinto)
@@ -216,6 +273,13 @@ gm_watch() {
                 gm_unregister "$p" >/dev/null 2>&1 || true
                 unset "held[$p]"
                 glog "watch: jogo pid $p morreu — gamemode liberado (o governor volta)"
+            fi
+        done
+        for p in "${!steamheld[@]}"; do
+            if ! kill -0 "$p" 2>/dev/null; then
+                gm_unregister "$p" >/dev/null 2>&1 || true
+                unset "steamheld[$p]"
+                glog "watch: jogo Steam pid $p morreu — gamemode liberado (o governor volta)"
             fi
         done
         # 2) os jogos VIVOS da família que AINDA não estão registrados
@@ -232,33 +296,95 @@ gm_watch() {
                 glog "watch: jogo pid $p detectado mas o registro recusou (dbus?) — próxima rodada tenta de novo"
             fi
         done < <(pgrep -u "$(id -u)" "$GAME_PATS" 2>/dev/null || true)
+        # E126 — A SEGUNDA PORTA: o exe dentro de steamapps/common (o
+        # jogo Steam de verdade — nativo ou Proton — que o comm nunca
+        # nomeia). 1 readlink por processo do usuário, na mesma rodada.
+        _uid="$(id -u)"
+        for _pdir in /proc/[0-9]*; do
+            [ -r "$_pdir/status" ] || continue
+            _p="${_pdir##*/}"
+            [ "${held[$_p]:-}" = 1 ] && continue
+            [ "${steamheld[$_p]:-}" = 1 ] && continue
+            _exe="$(readlink "$_pdir/exe" 2>/dev/null || true)"
+            case "$_exe" in
+                *"$STEAM_EXE_MARK"*)
+                    if gm_register "$_p" >/dev/null 2>&1; then
+                        steamheld["$_p"]=1
+                        glog "watch: jogo Steam detectado pelo exe (pid $_p · ${_exe##*common/}) — registrando no gamemode (performance ON)"
+                        note 'Modo de jogo' 'Governor performance + GPU high automáticos'
+                    fi
+                    ;;
+            esac
+        done
+        # E126 — A APOSENTADORIA DO DAEMON (o relato do dono: 'ao fechar o
+        # jogo e até encerrar o Hydra, o serviço gamemode e o indicador
+        # permanecem ativos' — ele teve que matar o gamemoded NA MÃO pelo
+        # menu de processos). O gamemoded é ativado por D-Bus e NÃO morre
+        # com o último cliente — com o modo IDLE (QueryStatus 0) por 2
+        # rodadas seguidas SEM jogo vivo e SEM manual, o watch o encerra
+        # COM VOZ: ele renasce sozinho por ativação D-Bus no próximo jogo
+        # (zero custo de trazer de volta, RAM zero enquanto aposentado).
+        if pgrep -x gamemoded >/dev/null 2>&1 \
+           && [ "${#held[@]}" -eq 0 ] && [ "${#steamheld[@]}" -eq 0 ] \
+           && [ ! -r "$(holder_pid_file)" ] \
+           && [ "$(gm_status "$$" 2>/dev/null)" != "1" ]; then
+            retire=$((retire + 1))
+        else
+            retire=0
+        fi
+        if [ "$retire" -ge 2 ]; then
+            if pkill -x gamemoded 2>/dev/null; then
+                glog "watch: gamemoded APOSENTADO (idle 2 rodadas sem jogo e sem manual — renasce por D-Bus no próximo jogo; o indicador some com ele)"
+            fi
+            retire=0
+        fi
+        # E126 — a ronda da moldura (jogo Steam saindo do fullscreen ganha
+        # a titlebar de volta — a leitura do X só toca janelas steam_app_*)
+        decor_fix
         sleep 5
     done
 }
 
 # ── o PILL (o assento da topbar — E115, o dono: 'não sei se é injeção
 # automática como na Steam' DUAS VEZES: o estado que não se vê não existe
-# para quem usa): o gamemoded só está vivo quando um jogo OU o manual
-# ligou o modo (D-Bus activation — zero RAM no idle, a lei do músculo);
-# o pgrep é O estado, sem cache e sem conf. JSON vazio = o assento some
-# (a mesma gramática do bgapps — o módulo só ocupa a barra quando há
-# o que dizer). O supervisor do craft-bars não cuida dele: o módulo é
-# consulta barata (1 pgrep a cada 3s — o mesmo custo do pulseaudio).
+# para quem usa). E126 — O ESTADO É O QUERYSTATUS, NÃO O PGREP (o print
+# do dono fotografou o ícone aceso SEM jogo: o gamemoded é um daemon
+# D-Bus que SOBREVIVE ao último cliente — 'pgrep gamemoded' acende o
+# assento para sempre; o rig provou com o dono matando o daemon na mão).
+# O D-Bus é o juiz: QueryStatus 1 = modo ATIVO (jogo da família, jogo
+# Steam ou manual); 0/sem resposta = assento vazio, ZERO pixel. O
+# pgrep de servidor morto (dbus-send falha) também é vazio — o assento
+# nunca acende por engano de processo vivo.
 gm_pill() {
-    if pgrep -x gamemoded >/dev/null 2>&1; then
-        printf '{"text":"\\uf11b","class":"game-on","tooltip":"Modo de jogo ATIVO — governor performance + GPU high (sai sozinho com o jogo; menu: Modo de jogo)"}\n'
+    if [ "$(gm_status "$$" 2>/dev/null)" = "1" ]; then
+        printf '{"text":"\\uf11b","class":"game-on","tooltip":"Modo de jogo ATIVO — governor performance + GPU high (sai sozinho com o jogo; esq: menu · dir: desativar)"}\n'
     else
         printf '{"text":"","class":"","tooltip":""}\n'
     fi
 }
 
 # ── o HOOK (o [custom] do gamemode.ini — início/fim NATIVO do modo) ─────
+# E126 — O LOOP DE NOTIFICAÇÕES MORRE (o game.log do rig fotografou SETE
+# pares INÍCIO/FIM NO MESMO SEGUNDO em volta da sessão do Hydra: um
+# registrante de fora ligava/desligava o modo em <1s e cada par subia
+# DOIS toasts na tela do dono). O start agora ESPERA 2s e confere o
+# D-Bus ANTES de notificar (o fantasma de meio segundo não é notícia);
+# o end desce para -u low (a história conta, a tela não pisca).
 gm_hook() { # $1 = start|end
     case "${1:-}" in
-        start) glog "gamemode: INÍCIO (o hook nativo do gamemode.ini — governor/GPU já aplicados)"
-               note 'Modo de jogo' 'Performance ativa (CPU governor + GPU high)' ;;
-        end)   glog "gamemode: FIM (o hook nativo devolveu o perfil da casa)"
-               note 'Modo de jogo' 'Perfil normal restaurado' ;;
+        start)
+            glog "gamemode: INÍCIO (o hook nativo do gamemode.ini — governor/GPU já aplicados)"
+            (
+                sleep 2
+                if [ "$(gm_status "$$" 2>/dev/null)" = "1" ]; then
+                    note 'Modo de jogo' 'Performance ativa (CPU governor + GPU high)'
+                fi
+            ) >/dev/null 2>&1 </dev/null &
+            ;;
+        end)
+            glog "gamemode: FIM (o hook nativo devolveu o perfil da casa)"
+            NOTE_URGEN=low note 'Modo de jogo' 'Perfil normal restaurado'
+            ;;
     esac
     exit 0
 }

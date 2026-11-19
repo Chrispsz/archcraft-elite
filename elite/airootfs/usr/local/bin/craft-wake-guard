@@ -32,6 +32,18 @@
 #     dele, então a vibração na mesa continua não acendendo nada)
 #   · WoL segue morto (a cura E90 intocada).
 #
+# E126 — O ELO ACPI QUE FALTAVA (o dump 173137 fotografou a cadeia
+#   QUEBRADA no meio: controlador 0c:00.3 wakeup=disabled no sysfs E
+#   XHC0 *disabled no /proc/acpi/wakeup — o dispositivo-teclado 3-3
+#   estava enabled SOZINHO, gritando para um ouvido fechado; o dono
+#   dormiu, apertou teclado e NADA, botão de power). O despertar USB em
+#   S3 é uma CORRENTE: dispositivo → controlador PCI → fonte ACPI. O
+#   apply agora arma os TRÊS elos: dispositivo (HID 01), controlador
+#   (0x0c03 sysfs) E a fonte ACPI que aponta para o MESMO endereço PCI
+#   do controlador (a linha 'XHC0 S4 *disabled pci:0000:0c:00.3' do
+#   /proc/acpi/wakeup vira *enabled — o arquivo é TOGGLE: escrever o
+#   nome inverte o estado). PS2K/PS2M seguem na mesma dança.
+#
 # QUEM APLICA: a regra udev 90-elite-wake-guard.rules (nova instalação:
 # coldplug + hotplug — este script é o gancho RUN do usb_device) E a unit
 # elite-wake-guard.service a CADA boot (`craft-wake-guard apply`) — a
@@ -116,12 +128,34 @@ usb_apply_one() { # $1 = devpath (absoluto sob $S) — o gancho udev
 }
 
 do_apply() {
-    local n_on=0 n_off=0 n_ctrl=0 dev want
+    local n_on=0 n_off=0 n_ctrl=0 n_acpi=0 dev want
     # (1) controladores USB PCI ARMADOS (a porta do teclado)
     for dev in $(usb_pci_ctrls); do
         if set_wakeup "$dev/power/wakeup" enabled; then
             printf '  controlador ARMADO  %s (a porta por onde o teclado fala)\n' "${dev##*/}"
             n_ctrl=$((n_ctrl + 1))
+        fi
+        # E126 — O TERCEIRO ELO: a fonte ACPI do MESMO controlador (a
+        # linha do /proc/acpi/wakeup cujo 'pci:AAAA:BB:CC.D' é o endereço
+        # DESTE dispositivo). Sem ela, o controlador sysfs armado continua
+        # sem voz no S3 — o elo que o rig provou faltando (XHC0/PTXH
+        # *disabled com o teclado esperando). O arquivo é TOGGLE: só
+        # escreve quem está *disabled.
+        if [ -f "$ACPI_TABLE" ] && [ "$TEST_MODE" -eq 0 ]; then
+            local addr="pci:${dev##*/}" aclinha aname
+            aclinha="$(grep -m1 " $addr\$\| $addr " "$ACPI_TABLE" 2>/dev/null \
+                       || grep -m1 "$addr" "$ACPI_TABLE" 2>/dev/null || true)"
+            aname="$(printf '%s' "$aclinha" | awk '{print $1}')"
+            if [ -n "$aname" ]; then
+                if printf '%s' "$aclinha" | grep -q '\*disabled'; then
+                    if printf '%s' "$aname" > "$ACPI_TABLE" 2>/dev/null; then
+                        printf '  ACPI       ARMADO  %s (%s — o gatilho S3 do controlador)\n' "$aname" "$addr"
+                        n_acpi=$((n_acpi + 1))
+                    fi
+                else
+                    n_acpi=$((n_acpi + 1))
+                fi
+            fi
         fi
     done
     # (2) dispositivos USB: a decisão por dispositivo
@@ -156,7 +190,7 @@ do_apply() {
             n_off=$((n_off + 1))
         fi
     fi
-    printf '  ── política aplicada: %d acordam (teclados+controladores) · %d dorme (mouse/resto)\n' "$n_on" "$n_off"
+    printf '  ── política aplicada: %d acordam (teclados+controladores) · %d dorme (mouse/resto) · %d fontes ACPI do USB vivas\n' "$n_on" "$n_off" "$n_acpi"
     [ "$TEST_MODE" -eq 1 ] && printf '  (modo perícia WAKE_SYSFS=%s — nada real foi tocado)\n' "$S"
     return 0
 }

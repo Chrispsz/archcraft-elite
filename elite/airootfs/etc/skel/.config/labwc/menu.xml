@@ -132,6 +132,13 @@
          craft-display — ver o comentário E114 do cabeçalho; o CLI
          segue vivo para o socorro) -->
     <separator />
+    <!-- E126 — A LOJA NO BOTÃO DIREITO (a ordem do dono: 'uma loja gráfica
+         conectada ao Flathub para buscar, instalar e atualizar Flatpaks
+         visualmente' — a porta existia só pelo terminal). O rótulo curto
+         (a lei E125: palavra inteira, nunca tocando o cap de 200px). -->
+    <item label="Loja de apps">
+      <action name="Execute" command="craft-flatpak loja" />
+    </item>
     <item label="Atualizar sistema">
       <action name="Execute" command="foot -e craft-update" />
     </item>

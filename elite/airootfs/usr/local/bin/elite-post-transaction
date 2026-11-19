@@ -70,14 +70,46 @@ if [ -n "$cur" ]; then
     fi
 fi
 
-# ── 2. A VIGÍLIA DO WAKE-GUARD (E24) — o estado no papel, sem agir ──────
+# ── 2. A POLÍTICA DO DESPERTAR (E122→E126) — agora ENTREGA, não só observa ──
 # E113 — O 0 COM ? ATRÁS: o '|| echo ?' dispara TAMBÉM quando o grep -c
 # acha ZERO matches (rc=1 é resposta válida do -c) — o papel 19:49:19 do
 # rig fotografou 'observado: 0\n? fonte(s)': o ? mentindo alongside o 0.
 # O '|| true' + o default 0 separam ARQUIVO AUSENTE de ZERO ARMADAS.
+# E126 — O BURACO DE ENTREGA (o dump 173137 provou com bytes: a unit
+# elite-wake-guard.service chegou ao rig PELO PACOTE mas o symlink de
+# wants NÃO viajava — a unit nunca rodou, os controladores ficaram
+# wakeup=disabled e o teclado do dono NUNCA acordou a máquina; a regra
+# udev da E122 morava só no airootfs da ISO — o rig da ISO velha segue
+# com o fóssil E24 de 3/nov desarmando tudo). A cura em três gestos,
+# idempotentes em TODA transação:
+#   (a) a unit é HABILITADA e INICIADA aqui (o hook é o veículo que o
+#       pacote não tinha — enable --now vale para o rig da dose antiga);
+#   (b) a regra v2 viaja NO PACOTE como /usr/lib/udev/rules.d/91-* (o
+#       nome 91 vence o fóssil /etc/90-* pela ordem lexical do udev);
+#   (c) o fóssil E24 do /etc (sem o marcador E122) é aposentado COM
+#       VOZ — renomeado .elite-fossil, nunca apagado às cegas.
 armadas="$(grep -c '\*enabled' /proc/acpi/wakeup 2>/dev/null || true)"
 [ -n "$armadas" ] || armadas=0
-tlog "wake-guard E24 observado: ${armadas} fonte(s) ACPI armada(s) em /proc/acpi/wakeup (USB regido pela regra udev 90-elite-wake-guard)"
+if [ -x /usr/local/bin/craft-wake-guard ]; then
+    if systemctl enable elite-wake-guard.service >/dev/null 2>&1 \
+       || systemctl is-enabled elite-wake-guard.service >/dev/null 2>&1; then
+        tlog "wake-guard E122: unit garantida habilitada na transação (enable ok ou já estava — idempotente)"
+    else
+        tlog "wake-guard E122: unit não pôde ser habilitada (systemctl rc=$?) — o boot seguinte tenta de novo"
+    fi
+    systemctl start elite-wake-guard.service >/dev/null 2>&1 \
+        && tlog "wake-guard E122: política APLICADA na transação (teclado acorda · mouse dorme · ACPI do USB armado)" \
+        || true
+fi
+if [ -f /etc/udev/rules.d/90-elite-wake-guard.rules ] \
+   && ! grep -q 'E122' /etc/udev/rules.d/90-elite-wake-guard.rules 2>/dev/null; then
+    if mv -f /etc/udev/rules.d/90-elite-wake-guard.rules \
+            /etc/udev/rules.d/90-elite-wake-guard.rules.elite-fossil 2>/dev/null; then
+        tlog "wake-guard E126: fóssil E24 do /etc/udev aposentado (.elite-fossil) — a regra v2 do pacote (/usr/lib/…/91-*) reina; udevd relê no próximo evento"
+        udevadm control --reload 2>/dev/null || true
+    fi
+fi
+tlog "wake-guard observado: ${armadas} fonte(s) ACPI armada(s) em /proc/acpi/wakeup (política E122: teclado acorda · mouse dorme)"
 
 # ── 3. A VIGÍLIA DO SYSCTL DA CASA (E101) — o drift que outro pacote ────
 #     impõe por cima (prova do papel: swappiness 150 vs 180, 10/nov).

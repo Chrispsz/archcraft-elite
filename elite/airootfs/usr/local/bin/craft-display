@@ -92,6 +92,20 @@ RANDR_SCALE_FLAG="--scale-exact"
 RUN_E="${XDG_RUNTIME_DIR:-/run/user/$(id -u 2>/dev/null || echo 0)}/elite"
 STAMP="$RUN_E/display-applied"
 DIVERGE="$RUN_E/display-diverge"
+# E126 — O MUTEX DO APPLY (a tempestade de retries do rig, 17:13-17:14 do
+# dump 173137: o craft-bars spawna um apply a cada 5s e o apply de CADA um
+# vivia 15s+ com o compositor mudo — três ou quatro em voo LERAM o mesmo
+# stamp 'fail:N' e cada um logou o MESMO contador ('(2/6)' duas×, '(3/6)'
+# três× no papel), gravando N+1 por cima um do outro e até REGREDINDO o
+# contador (o mais velho escreveu por último). O flock decide no KERNEL:
+# quem chega 2º sai 0 em silêncio — UM dono por veredito. O fd morre com
+# o processo, sem órfão segurando a porta (a lição E43).
+APPLY_LOCK="$RUN_E/display-apply.lock"
+# E126 — O FREIO POR COMANDO: nenhuma chamada ao wlr-randr fica SEM
+# timeout — o compositor travado que BLOQUEIA (em vez de falhar rápido)
+# pendurava o apply INTEIRO para sempre segurando o pipe (a pilha de
+# applies vivos do rig). 6s é o teto: o labwc saudável responde em ms.
+RANDR_T=6
 # E118 — O CONTADOR DO PÓS-SONO: o retry sob a marca fresca conta UM
 # heartbeat de assento (5s) e re-tenta — não dorme a janela inteira.
 RESUME_TICKS="$RUN_E/display-resume-ticks"
@@ -121,7 +135,7 @@ dnotify() {
 # Duas gerações de formato cobertas: o "Current mode:" da 0.4 e a marca
 # "(current)" na lista de modos da 0.5 (a do rig).
 parse_state() {
-    "$RANDR" 2>/dev/null | awk '
+    timeout "$RANDR_T" "$RANDR" 2>/dev/null | awk '
         function flush() {
             if (name != "" && enabled == "yes") {
                 if (cur == "") cur="-"
@@ -204,13 +218,13 @@ aplica_arranjo() {
     # a espera: o compositor precisa dos outputs de pé para o wlr-randr
     # responder (o autostart roda antes da primeira frame às vezes)
     i=0
-    while [ "$i" -lt 30 ]; do
-        out="$("$RANDR" 2>/dev/null)" && [ -n "$out" ] && break
+    while [ "$i" -lt 8 ]; do
+        out="$(timeout "$RANDR_T" "$RANDR" 2>/dev/null)" && [ -n "$out" ] && break
         sleep 0.5
         i=$((i + 1))
     done
-    if [ "$i" -ge 30 ]; then
-        dlog "FALHA: wlr-randr não respondeu em 15s — apply abortado (o conf fica salvo; o retry do heartbeat tenta de novo)"
+    if [ "$i" -ge 8 ]; then
+        dlog "FALHA: wlr-randr não respondeu (8 sondas de até ${RANDR_T}s) — apply abortado (o conf fica salvo; o retry do heartbeat tenta de novo; compositor mudo há muito tempo = o watchdog do craft-bars toma a frente)"
         return 1
     fi
     vivos="$(parse_state | cut -d'|' -f1)"
@@ -259,7 +273,7 @@ aplica_arranjo() {
             continue
         fi
         _rc=0
-        _err="$("$RANDR" --output "$nome" $args 2>&1 1>/dev/null)" || _rc=$?
+        _err="$(timeout "$RANDR_T" "$RANDR" --output "$nome" $args 2>&1 1>/dev/null)" || _rc=$?
         if [ "$_rc" -ne 0 ] && printf '%s' "$_err" | grep -q 'invalid adaptive sync state'; then
             # E117 — O FLAG QUE ESTE WLR-RANDR NÃO ACEITA (dump 163548: o
             # apply 6/6 com rc=1 'invalid adaptive sync state: off' e a
@@ -276,7 +290,7 @@ aplica_arranjo() {
                     args="${args%--adaptive-sync *}"
                     args="${args% }"
                     _rc=0
-                    _err="$("$RANDR" --output "$nome" $args 2>&1 1>/dev/null)" || _rc=$?
+                    _err="$(timeout "$RANDR_T" "$RANDR" --output "$nome" $args 2>&1 1>/dev/null)" || _rc=$?
                     ;;
             esac
         fi
@@ -309,6 +323,16 @@ do_apply() {
     # feito: ok no sucesso, fail:N+1 na falha (o contador ANDA — a
     # v2.11.4 relia um stamp vazio e eternizava fail:1).
     mkdir -p "${STAMP%/*}" 2>/dev/null || true
+    # E126 — O MUTEX PRIMEIRO DE TUDO (a tempestade do rig: sem exclusão,
+    # o contador do stamp era lido por 3-4 processos no mesmo segundo —
+    # cada um logava '(N/6)' e gravava N+1 por cima; o flock garante UM
+    # dono por veredito e o craft-bars também pula o spawn com apply
+    # vivo — as duas metades da cura). Quem chega 2º sai 0 em silêncio:
+    # o dono da vez é quem conta para o papel.
+    if command -v flock >/dev/null 2>&1; then
+        exec 8>"$APPLY_LOCK" 2>/dev/null || true
+        flock -n 8 2>/dev/null || exit 0
+    fi
     if [ ! -s "$CONF" ]; then
         rm -f "$STAMP" "$DIVERGE" 2>/dev/null || true
         exit 0   # sem conf = nada a aplicar (o monitor manda o EDID; silêncio — heartbeat)
@@ -521,11 +545,26 @@ do_watch() {
         # sobrescrito 1 minuto após o boot). O conf é a fonte da
         # verdade até o arranjo de pé; a porta do MENU grava sempre (é
         # escolha explícita, com o stamp ok na mão).
+        # E126 — A DESCULPA EXPIRA (a janela de perda do item da
+        # resolução: o rig ficou fail:6 ETERNO após a tempestade do
+        # compositor mudo — o dono escolheu o modo pelo wdisplays na
+        # sessão recuperada e o watch NUNCA gravou; o reboot devolvia o
+        # conf velho — 'a resolução escolhida precisa ser salva'). Um
+        # stamp fail com MAIS DE 2 MINUTOS de idade não é 'arranjo a
+        # caminho' — é arranjo desistido: se o wlr-randr RESPONDE ao
+        # watch agora (condição de entrada deste bloco) e o estado está
+        # estável com marca, é a mão do dono por qualquer porta — grava
+        # COM VOZ. O envenenamento do boot (a razão do gate) mora nos
+        # primeiros 2min — a janela original segue intacta lá.
         if ! grep -qx 'ok' "$STAMP" 2>/dev/null; then
-            dlog "watch: mudança estável com o apply pendente (stamp '$(cat "$STAMP" 2>/dev/null || echo ausente)') — NÃO grava (o conf salvo é a fonte da verdade até o arranjo assentar)"
-            base="$agora"
-            estavel=0
-            continue
+            _st_age=$(( $(date +%s) - $(stat -c %Y "$STAMP" 2>/dev/null || echo 0) ))
+            if [ "$_st_age" -le 120 ]; then
+                dlog "watch: mudança estável com o apply pendente (stamp '$(cat "$STAMP" 2>/dev/null || echo ausente)' há ${_st_age}s) — NÃO grava (o conf salvo é a fonte da verdade até o arranjo assentar)"
+                base="$agora"
+                estavel=0
+                continue
+            fi
+            dlog "watch: mudança estável com stamp fail VELHO (${_st_age}s — a desculpa do arranjo a caminho expirou) — o wlr-randr responde e o estado assentou: É ESCOLHA — gravando (E126)"
         fi
         # mudança estável com marca e arranjo assentado: é a escolha do
         # dono por qualquer porta — grava.
@@ -556,7 +595,7 @@ menu_pick() {
 # qualquer porta) + o save guardado (a transição não entra no conf; a
 # recusa avisa e o watch grava quando assentar).
 menu_escolheu() { # $1 = alvo, $2 = modo mostrado
-    if "$RANDR" --output "$1" --mode "$3" >/dev/null 2>&1; then
+    if timeout "$RANDR_T" "$RANDR" --output "$1" --mode "$3" >/dev/null 2>&1; then
         printf 'ok\n' > "$STAMP" 2>/dev/null || true
         if do_save; then
             dnotify "$1: $2 — aplicado e salvo para os próximos boots"
@@ -613,7 +652,7 @@ do_menu() {
     fi
     cur="$(printf '%s\n' "$linhad" | cut -d'|' -f2 | sed 's/^mode://')"
     # a lista de modos REAIS do EDID (a porta "todas as detectadas" do dono)
-    modos="$("$RANDR" 2>/dev/null | awk -v out="$alvo" '
+    modos="$(timeout "$RANDR_T" "$RANDR" 2>/dev/null | awk -v out="$alvo" '
         $1 == out && /"/ { dentro=1; proxima=0 }
         dentro && /^  Modes:/ { proxima=1; next }
         dentro && proxima && /^[ \t]+[0-9]+x[0-9]+ px,/ {
@@ -657,7 +696,7 @@ do_menu() {
     escolha="$(printf '%s\n' "$itens" | menu_pick "Displays — $alvo")" || exit 0
     case "$escolha" in
         'Melhor qualidade do monitor')
-            if "$RANDR" --output "$alvo" --preferred >/dev/null 2>&1; then
+            if timeout "$RANDR_T" "$RANDR" --output "$alvo" --preferred >/dev/null 2>&1; then
                 printf 'ok\n' > "$STAMP" 2>/dev/null || true
                 if do_save; then
                     dnotify "$alvo no modo preferido — salvo para os próximos boots"

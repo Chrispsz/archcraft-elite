@@ -272,7 +272,7 @@ HOUSE_OVERWRITE=(
 # iniciante… trazendo a experiência mais moderna do Linux') — rigs vivos
 # recebem na próxima dose; a associação text/plain (sem escolha anterior
 # do dono) vai pelo elite-post-transaction.
-ADOCAO=(lxqt-policykit pacman-contrib octopi yay flatpak swayosd gamemode gamescope mousepad)
+ADOCAO=(lxqt-policykit pacman-contrib octopi yay flatpak swayosd gamemode gamescope mousepad papirus-icon-theme xorg-xprop)
 
 ulog() {
     mkdir -p "$(dirname "$ULOG")" 2>/dev/null || true
@@ -457,7 +457,9 @@ adota_lojas() {
     # NÃO MENTE mais: o rc+stderr da instalação entra no papel — o réu
     # tem nome, o 'sem rede?' calado morre).
     local id nome
-    for nome in "Warehouse:io.github.flattool.Warehouse" "Gear Lever:it.mijorus.gearlever"; do
+    # E126 — Okular entra na família (a ordem do dono: 'Okular para
+    # documentos' — o leitor universal em flatpak, sem Qt no sistema)
+    for nome in "Warehouse:io.github.flattool.Warehouse" "Gear Lever:it.mijorus.gearlever" "Okular:org.kde.okular"; do
         id="${nome#*:}"; nome="${nome%%:*}"
         if flatpak info --system "$id" >/dev/null 2>&1; then
             ulog "lojas: $nome já presente — nada a fazer"

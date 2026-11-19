@@ -144,6 +144,9 @@ cyc=0
 # E43 — flags "já viu vivo": 0 = ainda não nasceu (o 1º ciclo loga
 # 'iniciando'); após o 1º ciclo = 1, e ausência vira morte real ('FORA').
 seen_top=0 seen_dock=0 seen_tl=0 seen_idle=0 seen_audio=0 seen_osd=0 seen_game=0 seen_swyn=0 seen_udiskie=0 seen_polkit=0 seen_display=0 seen_comp=0
+# E126 — o placar do CÃO DE GUARDA do compositor (strikes de mudez do
+# labwc; 0 = saudável — reseta na primeira resposta)
+wedge=0
 
 # ── E97 — O COMPRIMIR CHEGA AO RIG VIVO (a ordem do dono, de novo: "o ───
 # botão de comprimir ainda continua aqui no gerenciador de arquivos…
@@ -605,9 +608,16 @@ while :; do
     # chega 2º sai em silêncio, escola E64; autostart que um dia ganhe as
     # linhas não vira corrida dupla).
     if command -v craft-display >/dev/null 2>&1; then
-        (
-            /usr/local/bin/craft-display apply >>"$LOG" 2>&1
-        ) 9>&- &
+        # E126 — O GUARDO DO SPAWN DO APPLY (a tempestade de retries do rig:
+        # um apply por ciclo SEM exclusão amontoava 3-4 concurrentes quando
+        # o wlr-randr engolia 15s por chamada — os contadores duplicados do
+        # display.log nasceram AQUI e no mutex que faltava no craft-display;
+        # os DOIS agora existem: vivo um apply, o próximo ciclo não spawna).
+        if ! pgrep -f 'craft-display apply' >/dev/null 2>&1; then
+            (
+                /usr/local/bin/craft-display apply >>"$LOG" 2>&1
+            ) 9>&- &
+        fi
         if ! pgrep -f 'craft-display watch$' >/dev/null 2>&1; then
             if [ "$seen_display" -eq 1 ]; then
                 printf '[%s] display watch FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
@@ -621,6 +631,43 @@ while :; do
             ) 9>&- &
         fi
         seen_display=1
+    fi
+    # E126 — O CÃO DE GUARDA DO COMPOSITOR (a tela preta do dump 173137:
+    # 17:13, o rig com wlr-randr sem resposta por 15s SEGUIDOS, idle.log
+    # silencioso — o maquinário de idle NÃO era o réu; o labwc estava VIVO
+    # (pgrep passa, ventoinhas a todo vapor) e MUDO (o loop principal
+    # travado — nenhuma chamada Wayland voltava), e o dono segurou o botão
+    # de power no escuro). A sonda é o mesmo wlr-randr que o braço display
+    # já usa — com TIMEOUT: o labwc saudável responde em milissegundos; 3
+    # strikes de 8s SEGUIDOS (~40s de mudez total) = wedge CONFIRMADO:
+    # o papel ganha o retrato do journal (a prova do próximo dump) e a
+    # sessão é ENCERRADA por mão da casa — o sddm renasce com o greeter na
+    # tela em vez do preto eterno. O 1º passo é TERM (o labwc limpa se
+    # ainda conseguir); persistindo a mudez, o KILL garante. Custo
+    # honesto: trabalho não salvo morre — mas já morria no botão de power,
+    # e lá sem papel nenhum.
+    if command -v wlr-randr >/dev/null 2>&1; then
+        if timeout 8 wlr-randr >/dev/null 2>&1; then
+            wedge=0
+        else
+            _wrc=$?
+            if [ "$_wrc" = 124 ]; then
+                wedge=$((wedge + 1))
+                printf '[%s] WATCHDOG: labwc VIVO E MUDO (wlr-randr sem resposta em 8s — strike %d; a sessão de trabalho segue até o veredito)\n' "$(date '+%F %T')" "$wedge" >>"$LOG"
+                if [ "$wedge" -eq 3 ]; then
+                    printf '[%s] WATCHDOG: WEDGE CONFIRMADO (labwc mudo por ~40s) — provando o journal no papel e encerrando a sessão travada (o greeter do sddm volta à tela no lugar do preto)\n' "$(date '+%F %T')" >>"$LOG"
+                    journalctl -b --no-pager 2>/dev/null | tail -n 80 >>"$LOG" 2>/dev/null || true
+                    printf '[%s] WATCHDOG: fim do retrato do journal (80 linhas acima) — SIGTERM ao labwc\n' "$(date '+%F %T')" >>"$LOG"
+                    pkill -x -TERM labwc 2>/dev/null || true
+                elif [ "$wedge" -ge 5 ]; then
+                    printf '[%s] WATCHDOG: o labwc sobreviveu ao TERM mudo — SIGKILL (a última mão da casa; o greeter renasce)\n' "$(date '+%F %T')" >>"$LOG"
+                    pkill -x -KILL labwc 2>/dev/null || true
+                    wedge=0
+                fi
+            else
+                wedge=0
+            fi
+        fi
     fi
     sleep 5
 done

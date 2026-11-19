@@ -746,12 +746,17 @@ assert_grep "$ECF" 'en_US\.utf8' "debloat sistêmico: verificação pós-locale-
 assert_nogrep "$ECF" 'rm -rf /usr/share/licenses' "debloat sistêmico: licenças INTACTAS (compliance legal — a poda não encosta)"
 assert_grep "$ECF" 'l10n' "debloat sistêmico: prune de locale preserva l10n/ e en*/pt* (flags de exceção no find)"
 assert_grep "$ECF" '\[E16\]' "debloat sistêmico: E16 presente (v2.2 — guarda sem-tema-de-ícones)"
-assert_nogrep "$ECF" 'papirus-icon-theme|Papirus-Dark|ELITE-FAIL: Papirus' "debloat sistêmico: NENHUM resquício de gate do Papirus no customize (tema saiu — diretriz do dono)"
+# E126 — âncora REFRESCADA (a v2.2 cortou o tema; a ordem do dono 19/nov
+# o trouxe de volta: "padronizar o tema de ícones") — o gate E16 agora
+# ESPERA o Papirus na família autorizada da casa.
+assert_grep "$ECF" 'Papirus\*' "E126: o customize GUARDA o Papirus (tema de ícones da casa de volta — a allowlist do E16 espera Papirus* junto da base Adwaita/hicolor; a babel de ícones que o dono nomeou morre aqui)"
 MENUX="$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml"
 assert_nogrep "$MENUX" '<item label=[^>]* icon=' "debloat sistêmico: menu.xml é TEXTO PURO (nenhum item com atributo de ícone — sem tema de ícones na ISO)"
 assert_nogrep "$REPO/elite/airootfs/etc/skel/.config/fuzzel/fuzzel.ini" 'Papirus|icon-theme' "debloat sistêmico: fuzzel sem icon-theme (fallback base do GTK)"
-assert_nogrep "$REPO/elite/airootfs/etc/skel/.config/gtk-3.0/settings.ini" 'Papirus|gtk-icon-theme-name' "debloat sistêmico: GTK3 sem referência a tema de ícones (fallback Adwaita, dep de gtk3)"
-assert_nogrep "$REPO/elite/airootfs/etc/skel/.config/gtk-4.0/settings.ini" 'Papirus|gtk-icon-theme-name' "debloat sistêmico: GTK4 espelha a ausência"
+# E126 — âncora REFRESCADA: o tema VOLTOU por ordem do dono (babel de
+# hicolor+Adwaita fora; UM tema escuro coerente com o Mocha)
+assert_grep "$REPO/elite/airootfs/etc/skel/.config/gtk-3.0/settings.ini" 'gtk-icon-theme-name=Papirus-Dark' "E126: GTK3 com o tema de ícones DA CASA (Papirus-Dark — a ordem do dono: padronizar os ícones; a v2.2 cortava e o preço foi a babel)"
+assert_grep "$REPO/elite/airootfs/etc/skel/.config/gtk-4.0/settings.ini" 'gtk-icon-theme-name=Papirus-Dark' "E126: GTK4 espelha o tema da casa (Papirus-Dark — a mesma âncora do GTK3)"
 # journald cap — o teto que protege RAM (live) e disco (instalado)
 JCAP="$REPO/elite/airootfs/etc/systemd/journald.conf.d/99-elite-cap.conf"
 assert_file "$JCAP" "journal: drop-in de teto existe (journald.conf.d vence qualquer journald.conf upstream)"
@@ -1178,8 +1183,11 @@ assert_grep "$REPO/elite/airootfs/etc/skel/.config/fuzzel/fuzzel.ini" 'exit-on-k
 #     E46 — o menu de 13 itens virou DUAS PORTAS nomeadas ('organiza
 #     melhor o de tempo de idle e etc', o dono): a porta diz o que
 #     controla E mostra o valor ATUAL; o gesto único LOCK=OFF segue lei.
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-idle" 'Tela: trava e apaga — \$lock_txt' "E46: a porta da TELA diz o que controla E mostra o valor atual (a parede de 13 itens morreu; o gesto único LOCK=OFF da E43 segue lei nos dois níveis)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-idle" 'Suspender após o idle' "E46: a porta do SUSPENDER tem nome que se lê (v2.10.12: o knob era fixo e invisível; v2.10.12/E43: etiqueta honesta — agora em porta própria)"
+# E126 — âncora REFRESCADA (o rótulo completo cortava na largura 26 do
+# fuzzel — a lei E125 dos textos inteiros; o 'trava e apaga' segue
+# explicado no SUBMENU e no tooltip da porta)
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-idle" 'Tela — \$lock_txt' "E46: a porta da TELA mostra o valor atual em rótulo que CABE (a parede de 13 itens morreu na E46; a E126 encurtou ao cap do fuzzel — texto inteiro, sem reticência)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-idle" 'Suspender — \$susp_txt' "E46: a porta do SUSPENDER tem nome que se lê E CABE (v2.10.12: o knob era fixo e invisível; E126: rótulo ao cap do fuzzel — palavra inteira)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-idle" "'Nunca'\) +SUSPEND_MIN=0" "E46: suspender 'Nunca' = 0 (o start v2.3.5 já suportava — agora é escolha do dono na porta própria; o espaçamento não é peça)"
 assert_nogrep "$REPO/elite/airootfs/usr/local/bin/craft-idle" 'OFF_MIN=\$\(\(mins \+ 5\)\)' "E46: o fallback de terminal aprendeu o gesto único (OFF=mins+5 era a janela 'travada e acesa' que a E43 matou no menu — sobrevivia no terminal; espelho E33 morto)"
 # R6. O CHAVEIRO GNOME QUE O PAM JAMAIS DESBLOQUEIA: bootstrap com senha
@@ -1813,7 +1821,7 @@ assert_grep "$CDOCK94" 'info\.get_boolean\("Terminal"\)' "E94: o exec_of consult
 assert_grep "$CDOCK94" 'foot --app-id=' "E94: o foot da casa leva app-id DETERMINÍSTICO (o casamento de janelas fala o nome do app, não o do terminal — a mesma lição E89 das case-variants)"
 assert_grep "$CDOCK94" 'def raw_of' "E94: a origem do app vive SEM o casaco (raw_of/binary_of — o comm do /proc e o app_id falam o APP)"
 CUPD94="$REPO/elite/airootfs/usr/local/bin/craft-update"
-assert_grep "$CUPD94" 'ADOCAO=\(lxqt-policykit pacman-contrib octopi yay flatpak swayosd gamemode gamescope mousepad\)' "E94+E97→E103→E110: a ADOÇÃO DE ÂNCORAS tem FONTE ÚNICA no craft-update (packages.add só nutre a ISO — o rig nunca recebeu a cabeça da fila E58; a E97 soma a tríade da loja de fábrica E o pacman-contrib que o E96 pôs na ISO esquecendo o canal; a E103 soma o swayosd; a E110 soma GAMEMODE+GAMESCOPE — o músculo do modo de jogo pôs os pacotes na ISO pela E103 e a ADOCAO nunca os carregou: o dono clicava 'Ativar agora' num sistema sem gamemode)"
+assert_grep "$CUPD94" 'ADOCAO=\(lxqt-policykit pacman-contrib octopi yay flatpak swayosd gamemode gamescope mousepad papirus-icon-theme xorg-xprop\)' "E94+E97→E103→E110→E126: a ADOÇÃO DE ÂNCORAS tem FONTE ÚNICA no craft-update (packages.add só nutre a ISO — o rig nunca recebeu a cabeça da fila E58; a E97 soma a tríade da loja + pacman-contrib; a E103 soma o swayosd; a E110 soma gamemode/gamescope; a E126 soma o PAPYRUS (o tema de ícones da casa de volta por ordem do dono) e o XORG-XPROP (a ferramenta da moldura dos jogos Proton ao sair do fullscreen))"
 assert_grep "$REPO/elite/packages.add" 'lxqt-policykit' "E94: a âncora do rig é a MESMA definição da ISO (sync contratado — a disciplina do pin aplicada à adoção)"
 n_sites="$(grep -cE '^[[:space:]]*adota_ancoras$' "$CUPD94" || true)"
 assert_eq "$n_sites" "3" "E94: a adoção corre nas TRÊS portas (canal, semanal, manual — uma função, nenhum escopo à mão)"

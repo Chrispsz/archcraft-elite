@@ -144,7 +144,7 @@ main_rows() {
 " ;;
                 *)
                     # unmanaged/unavailable (sem cabo na porta) — informativa
-                    rows="${rows}Cabo: indisponível ($d)
+                    rows="${rows}Cabo indisponível
 " ;;
             esac
         done <<EOF
@@ -537,7 +537,7 @@ EOF
                 note -u normal -t 8000 'Rede' "Falhou ao desligar o cabo ($d)."
             fi
             continue ;;
-        'Cabo: indisponível ('*)
+        'Cabo indisponível'*)
             # linha informativa (sem cabo na porta) — nada a fazer, o menu
             # reabre com o mesmo estado
             continue ;;

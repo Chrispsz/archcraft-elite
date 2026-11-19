@@ -222,8 +222,8 @@ gpu_cleanup_foreign() {
   local vendor=$1 hybrid=${2:-0} np pkgs=()
   case "$vendor" in
     amd)    for np in nvidia-open nvidia-open-dkms nvidia-utils nvidia-settings lib32-nvidia-utils vulkan-intel lib32-vulkan-intel; do (( hybrid )) && [[ "$np" == *nvidia* ]] && continue; pacman -Qq "$np" >/dev/null 2>&1 && pkgs+=("$np"); done ;;
-    intel)  for np in nvidia-open nvidia-open-dkms nvidia-utils nvidia-settings lib32-nvidia-utils vulkan-radeon lib32-vulkan-radeon; do (( hybrid )) && [[ "$np" == *nvidia* ]] && continue; pacman -Qq "$np" >/dev/null 2>&1 && pkgs+=("$np"); done ;;
-    nvidia) for np in vulkan-radeon lib32-vulkan-radeon vulkan-intel lib32-vulkan-intel; do pacman -Qq "$np" >/dev/null 2>&1 && pkgs+=("$np"); done ;;
+    intel)  for np in nvidia-open nvidia-open-dkms nvidia-utils nvidia-settings lib32-nvidia-utils vulkan-radeon lib32-vulkan-radeon lact; do (( hybrid )) && [[ "$np" == *nvidia* ]] && continue; pacman -Qq "$np" >/dev/null 2>&1 && pkgs+=("$np"); done ;;
+    nvidia) for np in vulkan-radeon lib32-vulkan-radeon vulkan-intel lib32-vulkan-intel lact; do pacman -Qq "$np" >/dev/null 2>&1 && pkgs+=("$np"); done ;;
     *)      return 0 ;;
   esac
   (( ${#pkgs[@]} )) || { say "Auto-limpeza: nenhum pacote estranho ao hardware (já limpo)"; return 0; }
@@ -822,7 +822,17 @@ PYBRAVE
   # E37: ensure_btrfs_stack — o 'mesmo bloco do firstboot' deixou de ser
   # promessa de comentário: é a MESMA FUNÇÃO.
   ensure_btrfs_stack
-  run systemctl enable --now lactd.service 2>/dev/null || true
+  # E126 — O LACT É DA FAMÍLIA AMD (a ordem do dono: pacotes de um
+  # fabricante não podem morar no sistema do outro — LACT é o painel do
+  # amdgpu/undervolt da casa; em NVIDIA/Intel ele não tem o que fazer e
+  # nem daemon tem por que acordar). AMD: habilitado de fábrica; outro
+  # vendor: o daemon DESLIGA e o pacote já saiu na auto-limpeza de cima.
+  if [ "${VENDOR:-}" = "amd" ]; then
+    run systemctl enable --now lactd.service 2>/dev/null || true
+  else
+    run systemctl disable lactd.service 2>/dev/null || true
+    say "GPU ${VENDOR:-desconhecida}: lactd desligado (o LACT é o painel da família AMD — o item do dono)"
+  fi
 
   # 4. tokens de kernel (GRUB) — E37: apply_grub_tokens (o espelho morreu)
   apply_grub_tokens

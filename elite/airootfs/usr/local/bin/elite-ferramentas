@@ -79,9 +79,9 @@ if ! command -v craft-menu >/dev/null 2>&1; then
 fi
 
 choice="$(printf '%s\n' \
-    "Loja de pacotes — Octopi (repo + AUR, sem terminal)" \
-    "Registrar .AppImage no menu (o baixado ganha rosto)" \
-    "Relatório do que existe" \
+    "Loja Octopi (pacotes/AUR)" \
+    "Registrar AppImage" \
+    "Relatório do sistema" \
     | craft-menu --title=ferramentas --at=center)" || exit 0
 
 case "$choice" in

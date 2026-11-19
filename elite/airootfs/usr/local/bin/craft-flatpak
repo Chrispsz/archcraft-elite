@@ -28,6 +28,9 @@
 #
 # Uso:
 #   craft-flatpak              o MENU (o item 'Flatpaks…' do botão direito)
+#   craft-flatpak loja         A LOJA (E126 — buscar, instalar e atualizar
+#                              visualmente: o catálogo do Flathub com
+#                              zenity — sem terminal, a ordem do dono)
 #   craft-flatpak status       o veredito sem tocar nada
 #   craft-flatpak instalar     busca + lista + instala (o assistente)
 #   craft-flatpak remover      lista os apps instalados e remove
@@ -72,6 +75,83 @@ do_status() {
         printf 'disco do usuário    %s MiB\n' "$(du -sm "${XDG_DATA_HOME:-$HOME/.local/share}/flatpak" 2>/dev/null | awk '{print $1}')"
     fi
     printf 'papel da casa: %s\n' "$LOG"
+    return 0
+}
+
+# ── E126 — A LOJA (a ordem do dono: 'uma loja gráfica conectada ao Flathub
+# para buscar, instalar e atualizar Flatpaks VISUALMENTE'). O catálogo é o
+# próprio Flathub (flatpak search); a vitrine é o zenity da casa (sem DE
+# store de 300 MB — a leveza segue): pergunta → resultados com nome e
+# descrição → instalação com barra de progresso pulsante → o menu volta.
+# O ciclo não termina até o dono mandar Sair — uma loja de verdade, não
+# um one-shot; e o mesmo motor serve o botão direito do desktop.
+loja_buscar() {
+    termo="$(zenity --entry --title='Loja Flathub' --text='Que aplicativo procurar?' --entry-text='' 2>/dev/null)" || return 0
+    [ -n "$termo" ] || return 0
+    achados="$(flatpak search "$termo" --columns=application,name,version,description 2>/dev/null | head -20)" || true
+    if [ -z "$achados" ]; then
+        flog "loja: busca por '$termo' voltou vazia (sem rede? termo sem match?)"
+        avisa 'Loja Flathub' "Nada achado para '$termo' — confira o nome ou a rede"
+        return 0
+    fi
+    # a vitrine: radio-list com nome, versão e descrição (cortada para a
+    # largura da janela — o texto INTEIRO mora no Flathub)
+    _list=""
+    while IFS="$(printf '\t')" read -r _app _nome _ver _desc; do
+        [ -n "$_app" ] || continue
+        _desc="$(printf '%s' "$_desc" | cut -c1-64)"
+        _list="$_listFALSE|$_app|$_nome ${_ver:+($_ver)}|$_desc
+"
+    done <<EOF
+$achados
+EOF
+    escolha="$(printf '%s' "$_list" | zenity --list --radiolist \
+        --title='Loja Flathub — resultados' --text="Busca: $termo" \
+        --column='' --column='App' --column='Nome' --column='Descrição' \
+        --hide-column=2 --print-column=2 --height=460 --width=720 2>/dev/null)" || return 0
+    [ -n "$escolha" ] || return 0
+    ref="$escolha"
+    flog "loja: instalando '$ref' (busca por '$termo')"
+    flatpak install -y --system flathub "$ref" >>"$LOG" 2>&1 &
+    _fpid=$!
+    ( while kill -0 "$_fpid" 2>/dev/null; do printf '# %s\n' "Instalando $ref — o Flathub baixa o app e a runtime dele"; sleep 1; done ) \
+        | zenity --progress --pulsate --auto-close --title='Loja Flathub' \
+            --text="Instalando $ref…" >/dev/null 2>&1 || true
+    wait "$_fpid"; _rc=$?
+    if [ "$_rc" = 0 ]; then
+        flog "loja: '$ref' OK"
+        avisa 'App instalado' "'$ref' — procure por ele no Aplicativos"
+    else
+        flog "loja: '$ref' FALHOU (rc=$_rc)"
+        avisa 'Loja Flathub' "'$ref' não instalou — detalhe em ~/.cache/elite/flatpak.log"
+    fi
+    return 0
+}
+
+do_loja() {
+    if ! tem_flatpak; then
+        avisa 'Loja Flathub' 'O flatpak não está no sistema — sudo craft-update traz o suporte'
+        return 1
+    fi
+    command -v zenity >/dev/null 2>&1 || { avisa 'Loja Flathub' 'A loja precisa do zenity — Atualizar o sistema (menu) traz'; return 1; }
+    flog "loja: aberta (o catálogo do Flathub sem terminal)"
+    while :; do
+        escolha="$(printf '%s\n' \
+            'Buscar e instalar' \
+            'Atualizar todos' \
+            'Remover aplicativo' \
+            'Limpar dados órfãos' \
+            'Sair da loja' \
+            | craft-menu --title='Loja Flathub')" || break
+        case "$escolha" in
+            Buscar*)    loja_buscar ;;
+            Atualizar*) do_atualizar ;;
+            Remover*)   do_remover ;;
+            Limpar*)    do_limpar ;;
+            *) break ;;
+        esac
+    done
+    flog "loja: fechada"
     return 0
 }
 
@@ -181,7 +261,7 @@ do_menu() {
     fi
     escolha="$(printf '%s\n' \
         'Status' \
-        'Instalar aplicativo (busca no Flathub)' \
+        'Instalar (Flathub)' \
         'Remover aplicativo' \
         'Limpar dados órfãos' \
         'Atualizar todos' \
@@ -199,11 +279,12 @@ do_menu() {
 
 case "${1:-menu}" in
     menu|"")   do_menu ;;
+    loja)      do_loja; exit $? ;;
     status)    do_status; exit $? ;;
     instalar)  do_instalar; exit $? ;;
     remover)   do_remover; exit $? ;;
     limpar)    do_limpar; exit $? ;;
     atualizar) do_atualizar; exit $? ;;
     -h|--help|uso) sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
-    *) echo "uso: craft-flatpak [status|instalar|remover|limpar|atualizar]" >&2; exit 2 ;;
+    *) echo "uso: craft-flatpak [loja|status|instalar|remover|limpar|atualizar]" >&2; exit 2 ;;
 esac

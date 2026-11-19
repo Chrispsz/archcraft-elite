@@ -620,23 +620,20 @@ find /usr/share/locale -mindepth 1 -maxdepth 1 -type d \
 rm -rf /usr/share/man /usr/share/info /usr/share/doc /usr/share/gtk-doc 2>/dev/null || true
 echo "E15: locale/man/info/doc/gtk-doc podados (licenses intactas)"
 
-## [E16] v2.2 — SEM TEMA DE ÍCONES (leveza radical, diretriz do dono).
-##      O tema de ícones do upstream SAIU do packages.add — não há nada a podar.
-##      O antigo E16 (v1.8.1) podava as 4 variantes mortas desse tema e
-##      falhava a build sem as 2 vivas; hoje o único tema de
-##      ícones do sistema é o fallback base (Adwaita — dep dura de
-##      gtk3/gtk4, <1 MB) e cada app traz o próprio ícone no hicolor.
-##      Guarda INFORMATIVA (nomes de tema variam entre versões de pacote —
-##      o contrato de ausência vive na suíte, onde é exato): qualquer dir
-##      fora da base (Adwaita*/Bibata*/hicolor) é avisado no log.
+## [E16] E126 — O TEMA DA CASA É O PAPPIRUS-DARK (a ordem do dono
+##      19/nov: padronizar os ícones). A v2.2 vivia SEM tema (babel de
+##      hicolor + Adwaita) — agora a ISO nasce com o Papirus e a guarda
+##      o ESPERA: qualquer dir fora da família autorizada é avisado no
+##      log (nomes variam entre versões de pacote — a suíte ancora o
+##      resto).
 for _iv in /usr/share/icons/*; do
     [[ -d "$_iv" ]] || continue
     case "$(basename "$_iv")" in
-        Adwaita*|Bibata*|hicolor|locolor) ;;
-        *) echo "E16 AVISO: tema de ícones não-base detectado: $(basename "$_iv") (o pacote mudou?)" >&2 ;;
+        Adwaita*|Bibata*|Papirus*|hicolor|locolor) ;;
+        *) echo "E16 AVISO: tema de ícones fora da família da casa detectado: $(basename "$_iv") (o pacote mudou?)" >&2 ;;
     esac
 done
-echo "E16: sem tema de ícones de terceiros — fallback base (Adwaita/hicolor) cobre"
+echo "E16: tema de ícones da casa — Papirus-Dark (default) + base (Adwaita/hicolor)"
 
 
 ## [E17] v1.8.2 — LACT: o daemon habilitado DE FÁBRICA.
