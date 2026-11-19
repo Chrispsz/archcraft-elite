@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  Archcraft Cockpit · labwc rc.xml — PERFIL ELITE (v1.2) · E103 (entregue por craft-rice)
+  Archcraft Cockpit · labwc rc.xml — PERFIL ELITE (v1.3) · E123 (entregue por craft-rice)
 
   ══════════════════════════════════════════════════════════════════════════
   DERIVADO DO ARQUIVO OFICIAL DO CRIADOR DO ARCHCRAFT
@@ -486,13 +486,33 @@
     </device>
   </libinput>
 
-  <!-- Exemplos de regras por janela (descomente e ajuste):
   <windowRules>
-    <windowRule identifier="com.github.dominiksalvet.pwvucontrol">
-      <action name="ToggleAlwaysOnTop" />
-    </windowRule>
-    <windowRule identifier="^(foot|fuzzel)$" skipTaskbar="yes" />
+    <!-- E123 — A MOLDURA É UMA SÓ (spec do dono 06/nov: "todas,
+         absolutamente todas as janelas seguem o mesmo padrão"). Regra SEM
+         identifier casa com TODA janela (labwc-config(5) + src/view.c:
+         query_str_match sem condition devolve true) e o serverDecoration
+         "sobrepõe qualquer outra definição no primeiro mapa" (man). O
+         casamento do labwc é GLOB (fnmatch(3) case-insensitive —
+         labwc-config(5): "shell wildcard patterns (see glob(7))") — em
+         glob, "^a|b$" casa com NADA, não use regex aqui.
+         App que PRECISA ficar nu: regra identifier="meu-app"
+         serverDecoration="no" DEPOIS desta (last-match-wins — o man:
+         "later config entries have higher priority") e tire o marcador
+         do cabeçalho: o arquivo vira personalizado e a casa nunca mais
+         o renova. -->
+    <windowRule serverDecoration="yes" />
+    <!-- E70/E123 — A ÁREA SE ORGANIZA NO LANÇAMENTO: brave e Code nascem
+         maximizados por AÇÃO no primeiro mapa (o man lista as propriedades
+         da windowRule e maximized não está nelas — maximized é CRITÉRIO;
+         quem maximiza é a ação, que roda no único evento da windowRule,
+         ON_FIRST_MAP). Dois identifiers exatos: glob não tem alternância. -->
+    <windowRule identifier="brave-browser"><action name="Maximize" /></windowRule>
+    <windowRule identifier="Code"><action name="Maximize" /></windowRule>
+    <!-- Exemplo para o dono (COMENTADO — descomente para ativar; a sintaxe
+         é glob(7): identifier exato, sem '^', sem '|'): <windowRule
+         identifier="com.github.dominiksalvet.pwvucontrol"><action
+         name="ToggleAlwaysOnTop" /></windowRule> -->
+    <!-- Outro exemplo: <windowRule identifier="foot" skipTaskbar="yes" /> -->
   </windowRules>
-  -->
 
 </labwc_config>

@@ -1,64 +1,79 @@
 #!/bin/sh
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · craft-rice — o rice da casa viaja NO PACOTE (E54)
+# Archcraft ELITE · craft-rice — o rice da casa viaja NO PACOTE (E54→E123)
 # ═══════════════════════════════════════════════════════════════════════════
 # POR QUÊ: as curas de COMPORTAMENTO viajam no elite-system (pacote único,
-# E50), mas as REGRAS DE JANELA moravam só no rc.xml do usuário — e config
-# de usuário NUNCA é tocada por update (a lei do domínio v3). O dono pagou
-# a lacuna: "jogos abertos com proton não desenha o maximizar, minimizar e
-# fechar" — o jogo Proton PEDE janela sem decoração e o labwc OBEDECE
-# (decoração = server-side, o compositor desenha quando a janela aceita).
-# A cura: fragmento de rice entregue como CÓDIGO (o padrão do craft-dock-gui:
-# o conteúdo mora dentro do script que viaja no pacote único) num DROP-IN
-# rc.xml.d — o labwc lê o diretório inteiro além do rc.xml e o arquivo do
-# dono NUNCA é aberto.
+# E50). As REGRAS DE JANELA da casa (a moldura ÚNICA e o arranjo inicial)
+# moram NO rc.xml mestre da casa — o ÚNICO arquivo de regras que o labwc
+# lê — entregue pelo skin_ensure (E101: marcador/fóssil renova com backup;
+# personalizado é intocável).
+#
+# E123 — A FICÇÃO rc.xml.d MORRE COM FONTE (a fila E120 fechada e a fonte
+# pedida abriu um abismo): três eras entregaram drop-ins em ~/.config/
+# labwc/rc.xml.d/ (10-elite-games, 20-elite-ssd, 30-elite-organize) sob a
+# premissa 'o labwc lê o diretório inteiro além do rc.xml'. A perícia com
+# a fonte provou TRÊS mortes:
+#  (1) O DIRETÓRIO NÃO EXISTE no labwc — o repo inteiro (0.20.3-12,
+#      src+include+docs) tem ZERO ocorrências de rc.xml.d; paths_config_
+#      create constrói UM path por arquivo (src/common/dir.c) e a única
+#      porta para mais de um rc.xml é o --merge-config (commit 698c7ace0,
+#      2024-01: itera os dirs XDG em ordem reversa — não é um diretório .d;
+#      labwc-config(5) só documenta environment.d/*.env e os scripts de
+#      sessão *.d). O rig lê UM rc.xml: o de ~/.config/labwc/.
+#  (2) O CASAMENTO É GLOB, NÃO REGEX — fnmatch(3) com FNM_CASEFOLD
+#      (src/common/match.c; labwc-config(5): 'shell wildcard patterns
+#      (see glob(7))'; NEWS 0.6.6 de 2023-11-25 trocou g_pattern_match_
+#      simple por fnmatch — a família glob é a única que já existiu).
+#      As regras em estilo regex casam com NADA: '^steam_app_[0-9]+$',
+#      '^(brave-browser|…|imv)$' e a 'universal' '.*' (em glob, um ponto
+#      literal seguido de qualquer coisa) nunca casaram nenhum app_id.
+#      A universal de VERDADE é a REGRA SEM identifier — query_str_match
+#      sem condition devolve true (src/view.c): casa com TODAS.
+#  (3) MAXIMIZED É CRITÉRIO, NÃO PROPRIEDADE — o labwc-config(5) lista as
+#      propriedades da windowRule e maximized não está nelas (o rcxml.c
+#      lê maximized como CONDIÇÃO de casamento — NEWS 0.8.2: 'additional
+#      window rule conditions'); quem maximiza é a AÇÃO <action
+#      name="Maximize"/>, que roda no PRIMEIRO mapa (enum window_rule_
+#      event: ON_FIRST_MAP é o único evento).
+# AS TRÊS FERIDAS ORIGINAIS (E54 jogos sem botões, 06/nov janelas nuas,
+# E70 área desorganizada) NUNCA FORAM CURADAS no rig — o papel celebrava
+# arquivos que o compositor nunca abriu, em sintaxe que nunca casaria.
+# CURA (E41 no mesmo commit): as regras moram no rc.xml mestre (skel →
+# /usr/local/share/elite/labwc/rc.xml → home vivo pela pele E101) na
+# sintaxe viva; e os fósseis saem dos rigs pela LEI DE REMOÇÃO — arquivo
+# com o MARCADOR da casa em rc.xml.d é coisa que a casa entregou e não
+# entrega mais: REMOVIDO com voz (o marcador é a senha; sem marcador,
+# intocável — o dono manda no dir dele).
 #
 # LEIS:
-#  · ADITIVO — só escreve em ~/.config/labwc/rc.xml.d/; o rc.xml do dono é
-#    intocável (o drop-in não substitui nada, some ao apagar).
+#  · A PELE DO RC.XML É A PORTA — o rc.xml do dono renova pelo marcador
+#    ou fóssil (E101); editou e tirou o marcador = PERSONALIZADO,
+#    intocável. A PORTA DE ESCAPE DA CASA (app que PRECISA ficar nu): o
+#    dono edita o rc.xml DELE — <windowRule identifier="meu-app"
+#    serverDecoration="no"/> DEPOIS da regra universal (labwc-config(5):
+#    'later config entries have higher priority' — last-match-wins) — e
+#    tira o marcador: a casa nunca mais o toca.
 #  · IDEMPOTENTE — conteúdo idêntico = zero escrita (o mtime não mente).
-#  · O DONO MANDA — arquivo na casa SEM o marcador "entregue por
-#    craft-rice" não é da casa: intocável (editou/renomeou, o respeito é
-#    a mesma lei das configs de usuário).
+#  · REMOÇÃO COM SENHA — o marcador autoriza a casa a remover o que ela
+#    mesma entregou e não entrega mais (o rc.xml.d fóssil sai do rig).
 #  · VIVO — com sessão labwc de pé, `labwc-msg reconfigure` aplica SEM
 #    relogin (mesma escola do refresh E48/E49 — a cura que chega viva;
 #    reconfigure é barato e não derruba janela nenhuma).
-#
-# FRAGMENTOS (a ordem lexical é a ordem de merge do labwc):
-#  10-elite-games.xml — jogos Proton/Steam (steam_app_*) ganham a decoração
-#    DE VOLTA: botões fechar/minimizar/maximizar da casa nas janelas que
-#    pediram para ficar nuas. Fullscreen do jogo segue limpo (regra de
-#    fullscreen não desenha titlebar — o labwc sabe).
-#  20-elite-ssd.xml — A DECORAÇÃO É UMA SÓ (spec do dono 06/nov: "todas,
-#    absolutamente todas as janelas seguem o mesmo padrão"): a família
-#    Chromium/Brave e o imv DESENHAM a própria moldura (CSD) e deixam o
-#    dono sem botões — aqui eles são FORÇADOS à decoração do tema (SSD).
-#    E70 (print do dono 20:46): o xdg-decoration é NEGOCIADO — todo app
-#    que PEDE CSD vence o default do compositor (libadwaita/LACT e
-#    Electron/VS Code caíram fora da regra da família). A REGRA UNIVERSAL
-#    (identifier=".*") fecha a classe: a moldura é propriedade do
-#    COMPOSITOR para TODA janela que negocia — libadwaita, GTK3, Qt,
-#    Electron, AppImage. App que PRECISA ficar nu sai com drop-in do dono
-#    (serverDecoration="no" — o dono manda, não o app).
-#  30-elite-organize.xml — A ÁREA SE ORGANIZA NO LANÇAMENTO (E70): os
-#    dois apps de corpo inteiro (brave, Code) nascem MAXIMIZADOS — o
-#    arranjo inicial não é pago pelo dedo (o snap W-Setas/W-m segue para
-#    o resto). Revertível por desenho: apagar o drop-in devolve.
 # ═══════════════════════════════════════════════════════════════════════════
 
 # E90 — o --help que faltava (a lacuna nº 1 do UX-ROADMAP)
 uso() {
     printf '%s\n' \
-        'uso: craft-rice — garante os drop-ins e as peles da casa nos homes vivos' \
+        'uso: craft-rice — garante as peles da casa nos homes vivos' \
         '' \
-        '  DROP-INS em ~/.config/labwc/rc.xml.d/ (o rc.xml do dono NUNCA é tocado):' \
-        '    10-elite-games.xml    — jogos Proton/Steam (steam_app_*) com a decoração' \
-        '                            de volta (fechar/minimizar/maximizar da casa)' \
-        '    20-elite-ssd.xml      — a decoração ÚNICA: toda janela que negocia ganha' \
-        '                            a moldura do tema ("todas as janelas seguem o' \
-        '                            mesmo padrão" — a spec do dono)' \
-        '    30-elite-organize.xml — brave e Code nascem maximizados (apagar o' \
-        '                            drop-in devolve o arranjo por dedo)' \
+        '  REGRAS DE JANELA (E123): moram no rc.xml da casa — o ÚNICO arquivo' \
+        '  de regras que o labwc lê (o casamento é glob(7), labwc-config(5);' \
+        '  os antigos drop-ins rc.xml.d nunca foram lidos pelo compositor e' \
+        '  são REMOVIDOS — o marcador da casa é a senha da remoção). A' \
+        '  moldura ÚNICA para toda janela + brave/Code maximizados por AÇÃO' \
+        '  no primeiro mapa. App que PRECISA ficar nu: regra serverDecoration' \
+        '  "no" DEPOIS da universal (last-match-wins) e tire o marcador —' \
+        '  o rc.xml vira personalizado e a casa nunca mais o toca.' \
         '' \
         '  PELES (a MESMA gramática: ausente, marcador ou fóssil renova com backup' \
         '  .bak-<stamp>; personalizado = intocável + papel honesto): hyprlock.conf,' \
@@ -109,71 +124,30 @@ case "${1:-}" in
     --lock-quiet) QUIET=1; set -- "" ;;
 esac
 
-# ── fragmento 10-elite-games.xml (E54 — a decoração de volta nos jogos) ──
-GAMES="<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!-- Archcraft ELITE · fragmento de rice 10-jogos ($MARKER) -->
-<!-- Jogos Proton/Steam (steam_app_*): o jogo pede janela SEM decoração e o
-     labwc obedece — esta regra devolve os botões fechar/minimizar/maximizar
-     da casa. Jogo em fullscreen segue limpo (titlebar não se desenha lá). -->
-<labwc_config>
-  <windowRules>
-    <windowRule identifier=\"^steam_app_[0-9]+\$\" serverDecoration=\"yes\" />
-  </windowRules>
-</labwc_config>
-"
-
-# ── fragmento 20-elite-ssd.xml (06/nov spec do dono + E70 a REGRA UNIVERSAL) ──
-SSD="<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!-- Archcraft ELITE · fragmento de rice 20-ssd ($MARKER) -->
-<!-- O relato do dono (E30): Brave e imv abriam SEM moldura/botões — a
-     família Chromium desenha a própria janela (CSD) ou pede para ficar
-     nua, e o labwc OBEDECE. O print do dono (E70, 20:46) provou a classe
-     inteira: o xdg-decoration é NEGOCIADO — LACT (libadwaita) e VS Code
-     (Electron) pediram CSD e venceram o default server do rc.xml. A
-     regra UNIVERSAL fecha a classe: identifier=\".*\" força a decoração
-     do tema em TODA janela que negocia (libadwaita, GTK3, Qt, Electron,
-     AppImage) — a moldura é propriedade do COMPOSITOR, não do toolkit:
-     o MESMO traffic light em TODAS as janelas, qualquer que seja o
-     pacote ou desenho do programa. App que PRECISA ficar nu sai com um
-     drop-in do dono (serverDecoration=\"no\" — o dono manda). -->
-<labwc_config>
-  <windowRules>
-    <windowRule identifier=\"^(brave-browser|chromium|google-chrome|microsoft-edge|vivaldi-stable|thorium-browser|imv)\$\" serverDecoration=\"yes\" />
-    <windowRule identifier=\".*\" serverDecoration=\"yes\" />
-  </windowRules>
-</labwc_config>
-"
-
-
-# ── fragmento 30-elite-organize.xml (E70 — a área se organiza no lançamento) ──
-ORG="<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!-- Archcraft ELITE · fragmento de rice 30-organize ($MARKER) -->
-<!-- E70 — o print do dono: quatro janelas caçando posição à mão. Os dois
-     apps de corpo inteiro nascem MAXIMIZADOS — o arranjo inicial não é
-     pago pelo dedo. O snap da casa (W-Setas metades, W-m, A-F10/F11)
-     segue para o resto. Revertível por desenho: apagar este arquivo
-     devolve o comportamento (o drop-in some ao apagar). -->
-<labwc_config>
-  <windowRules>
-    <windowRule identifier=\"^(brave-browser|Code)\$\" maximized=\"yes\" />
-  </windowRules>
-</labwc_config>
-"
-
-ensure_fragment() {
-    # $1 = nome do arquivo, $2 = conteúdo — rc: 0 = ESCREVEU, 1 = idêntico
-    # (zero escrita), 2 = não é da casa / falhou (intocável é a lei)
-    f="$DIR/$1"
-    if [ -f "$f" ] && ! grep -q "$MARKER" "$f" 2>/dev/null; then
-        say "craft-rice: $1 não é da casa (sem marcador) — intocável"
-        return 2
+# ── E123 — A LEI DE REMOÇÃO (o marcador é a SENHA) ──────────────────────
+# O conjunto da casa em rc.xml.d ficou VAZIO (a perícia no cabeçalho: o
+# labwc nunca leu o diretório). Todo arquivo *.xml com o MARCADOR da casa
+# neste diretório é fóssil que a casa entregou e não entrega mais: REMOVIDO
+# com voz (a lei natural que faltava: o rice nunca apagou o que entregou —
+# agora apaga, com a senha e com o nome do réu no papel). Sem marcador =
+# nunca foi da casa: intocável (o dono manda no dir dele). O diretório
+# esvaziado sai também — sem -r: nada do dono é tocado.
+REMOVED=0
+rice_sweep() {
+    [ -d "$DIR" ] || return 0
+    for _sw_f in "$DIR"/*.xml; do
+        [ -f "$_sw_f" ] || continue
+        if grep -q "$MARKER" "$_sw_f" 2>/dev/null; then
+            rm -f "$_sw_f" 2>/dev/null || continue
+            say "craft-rice: fóssil $(basename "$_sw_f") removido do rc.xml.d (o labwc nunca leu o diretório — o marcador autorizou a remoção)"
+            REMOVED=1
+        fi
+    done
+    # o diretório vazio de fósseis sai também (a casa não deixa casca oca —
+    # vale em TODO run: o que já saiu antes não esconde o dir por um tick)
+    if [ -z "$(ls "$DIR" 2>/dev/null)" ]; then
+        rmdir "$DIR" 2>/dev/null || true
     fi
-    if [ -f "$f" ] && [ "$(cat "$f" 2>/dev/null)" = "$(printf '%s' "$2")" ]; then
-        return 1   # idêntico — zero escrita, zero reconfigure
-    fi
-    mkdir -p "$DIR" 2>/dev/null || return 2
-    printf '%s\n' "$2" > "$f" 2>/dev/null || return 2
-    say "craft-rice: fragmento $1 entregue ($DIR)"
     return 0
 }
 
@@ -366,12 +340,12 @@ case "${1:-}" in
                   exit 0 ;;
 esac
 
-# ── o fluxo padrão: os três fragmentos + AS SEIS skins da casa ──────────
+# ── o fluxo padrão: a LEI DE REMOÇÃO + AS SEIS skins da casa ────────────
 CHANGED=0
-ensure_fragment "10-elite-games.xml" "$GAMES" && CHANGED=1
-ensure_fragment "20-elite-ssd.xml" "$SSD" && CHANGED=1
-ensure_fragment "30-elite-organize.xml" "$ORG" && CHANGED=1
-rc_skin   && CHANGED=1   # rc.xml renovado = binds/leis novas valem no reconfigure
+rice_sweep
+[ "$REMOVED" -eq 1 ] && CHANGED=1  # fóssil do rc.xml.d removido = reconfigure cobra
+rc_skin   && CHANGED=1   # rc.xml renovado = binds/REGRAS novas valem no reconfigure
+                         # (E123: as regras de janela moram NO rc.xml mestre)
 menu_skin && CHANGED=1   # menu.xml renovado = o reconfigure re-lê o menu — o
                          # menu novo aparece na sessão VIVA (sem relogin)
 _wt=0; _ws=0

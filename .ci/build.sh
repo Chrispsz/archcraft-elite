@@ -2126,7 +2126,31 @@ pkgver=1.0
 #     elite-firstboot.service. Bin NOVO: craft-player. Unit NOVA:
 #     elite-wake-guard.service (+wants). pkgrel 68→69 NO MESMO COMMIT (lei
 #     E41).
-pkgrel=69
+# E123-POLIMENTO (19/11 — a fila E120 fechada e a fonte pedida abriu um
+#     abismo): os três drop-ins rc.xml.d (10-elite-games/20-elite-ssd/
+#     30-elite-organize) eram FICÇÃO — o labwc NUNCA leu o diretório (o
+#     repo inteiro 0.20.3-12 sem uma ocorrência de rc.xml.d; a única
+#     porta para múltiplos rc.xml é o --merge-config, commit 698c7ace0
+#     de 2024-01, que itera os dirs XDG — não é um .d), as regras eram
+#     REGEX num casador que é GLOB (fnmatch(3) FNM_CASEFOLD,
+#     src/common/match.c, man 'shell wildcard patterns (see glob(7))' —
+#     '^steam_app_[0-9]+$', '^(brave-browser|…)$' e a 'universal' '.*'
+#     nunca casaram nenhum app_id; a universal de verdade é a regra SEM
+#     identifier — query_str_match sem condition devolve true) e o
+#     maximized é CRITÉRIO, não propriedade (quem maximiza é a AÇÃO
+#     Maximize no primeiro mapa). AS TRÊS FERIDAS ORIGINAIS (E54 jogos
+#     sem botões, 06/nov janelas nuas, E70 área desorganizada) NUNCA
+#     foram curadas no rig. Cura: as regras moram NO rc.xml mestre (skel
+#     v1.3 — <windowRule serverDecoration="yes"/> sem identifier +
+#     <action name="Maximize"/> para brave-browser e Code, com o man
+#     citado no comentário) que a pele E101 renova; a LEI DE REMOÇÃO
+#     (o marcador é a senha) apaga os fósseis do rc.xml.d nos rigs COM
+#     VOZ; o ensure_fragment morto saiu; craft-bars/environment/
+#     code-flags.conf/SCRIPTS.md citam o rc.xml mestre.
+#     Bins/peles com conteúdo mudado: craft-rice, craft-bars, rc.xml,
+#     environment, code-flags.conf. pkgrel 69→70 NO MESMO COMMIT (lei
+#     E41).
+pkgrel=70
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

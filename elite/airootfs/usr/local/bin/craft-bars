@@ -71,11 +71,13 @@ cap_log() {
 }
 cap_log
 
-# E54 — O RICE DA CASA DESPERTA COM A SESSÃO: o craft-rice entrega os
-# fragmentos de labwc (rc.xml.d — hoje, a decoração de volta nos jogos
-# Proton) e aplica o reconfigure na sessão viva. Antes das barras: o rice
-# nasce antes da UI que o assume. Melhor-esforço com silêncio — o arranque
-# da sessão NUNCA fica preso ao rice (a barra é a missão aqui).
+# E54/E123 — O RICE DA CASA DESPERTA COM A SESSÃO: o craft-rice renova as
+# peles da casa — o rc.xml mestre incluído, onde moram as REGRAS DE JANELA
+# (a moldura única e o arranjo inicial; os drop-ins rc.xml.d que o labwc
+# nunca leu saem pela lei de remoção E123) — e aplica o reconfigure na
+# sessão viva. Antes das barras: o rice nasce antes da UI que o assume.
+# Melhor-esforço com silêncio — o arranque da sessão NUNCA fica preso ao
+# rice (a barra é a missão aqui).
 craft-rice >>"$LOG" 2>&1 9>&- || true
 
 # E95 — O CHAVEIRO QUE O PAM NÃO ABRIU (a chave dos diálogos gcr-prompter):

@@ -27,14 +27,15 @@ XCURSOR_SIZE=24
 # E70 — A MOLDURA ÚNICA (o print do dono: VS Code em XWayland desenhava
 # titlebar própria): o hint OFICIAL do Electron — todo app Electron ≥28
 # (AppImage incluído) nasce Wayland nativo sem flag nenhuma. Wayland
-# nativo = a janela negocia xdg-decoration e a regra universal do
-# craft-rice (rc.xml.d/20-elite-ssd.xml) entrega a moldura do COMPOSITOR.
+# nativo = a janela negocia xdg-decoration e a regra universal da casa
+# (rc.xml mestre, E123: <windowRule serverDecoration="yes"/> — o ÚNICO
+# arquivo de regras que o labwc lê) entrega a moldura do COMPOSITOR.
 ELECTRON_OZONE_PLATFORM_HINT=auto
 
 # E74 — FASE 2 (a spec: "SSD e CSD unificados para TODAS as janelas"): o
 # GTK3 respeita o GTK_CSD=0 e entrega a decoração ao COMPOSITOR — a mesma
-# moldura do craft-rice (rc.xml.d/20-elite-ssd.xml) para quem não passa
-# pela negociação xdg-decoration. GTK4/libadwaita ignora o hint (CSD-nato,
+# moldura da casa (rc.xml mestre, E123) para quem não passa pela
+# negociação xdg-decoration. GTK4/libadwaita ignora o hint (CSD-nato,
 # realidade do protocolo, documentada honestamente) — a regra universal
 # do compositor segue sendo a lei geral.
 GTK_CSD=0

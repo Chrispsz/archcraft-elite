@@ -1247,10 +1247,10 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bgapps" 'O CRASHPAD NÃO L
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" '_tl_miss' "06/nov/spec: a dock conta as falhas seguidas do LIST (a graça do snapshot — o flap de um tick vira invisível)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'snapshot anterior segurado \(graça\)' "06/nov/spec: a graça deixa RASTRO no log (recusa nunca é silêncio — mesmo a cortesia de 2 ticks)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'self\._tl_miss = 0' "06/nov/spec: o sucesso ZERA o contador de falhas (a morte real continua assumida na mesma cadência — a graça não vira cegueira)"
-#     (3) o rice entrega o SSD da família (a decoração ÚNICA — Brave/imv)
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-rice" '20-elite-ssd\.xml' "06/nov/spec: o rice entrega o fragmento SSD ao lado do dos jogos (a decoração é UMA em todo o desktop)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-rice" 'CHANGED' "06/nov/spec: o reconfigure dispara se QUALQUER fragmento foi escrito (idêntico e recusado não reconfiguram — o labwc relê só com entrega nova)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-rice" 'brave-browser\|chromium' "06/nov/spec: a regra do SSD mira a família do relato (o dono abriu o Brave e o imv nus — os dois entram)"
+#     (3) o SSD da casa (a decoração ÚNICA — E123: mora NO rc.xml mestre)
+assert_grep "$REPO/elite/airootfs/etc/skel/.config/labwc/rc.xml" 'serverDecoration="yes" />' "06/nov/spec/E123: a decoração ÚNICA vive no rc.xml mestre (o ÚNICO arquivo de regras que o labwc lê — a spec do dono em sintaxe viva)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-rice" 'CHANGED' "06/nov/spec: o reconfigure dispara se QUALQUER pele/fóssil mudou (idêntico e recusado não reconfiguram — o labwc relê só com entrega nova)"
+assert_grep "$REPO/elite/airootfs/etc/skel/.config/labwc/rc.xml" 'identifier="brave-browser"><action name="Maximize" />' "06/nov/spec/E123: o brave nasce maximizado por AÇÃO no primeiro mapa (o man lista as propriedades e maximized não está nelas — a ação é quem maximiza)"
 
 # E. PAPEL COMPLETO: wpctl sem o head que escondeu o réu
 assert_nogrep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'wpctl status \| head' "E30: o dump NUNCA mais corta o wpctl (o head -30 escondeu Sinks/Sources do p6aw)"
@@ -1697,8 +1697,8 @@ assert_grep "$SK70/.config/code-flags.conf" 'ozone-platform=wayland' "E70: VS Co
 assert_grep "$SK70/.config/labwc/environment" '^ELECTRON_OZONE_PLATFORM_HINT=auto' "E70: todo Electron ≥28 (AppImage incluído) nasce Wayland nativo pelo hint OFICIAL (a moldura do compositor alcança os AppImages sem flag nenhuma)"
 assert_grep "$SK70/.config/labwc/autostart" "color-scheme 'prefer-dark'" "E70: o color-scheme prefer-dark cravado na sessão (a libadwaita NÃO lê settings.ini — o LACT claro do print morre aqui)"
 assert_grep "$SK70/.config/labwc/autostart" "gtk-theme 'Catppuccin-Mocha-Standard-Mauve-Dark'" "E70: o gtk-theme do dconf é o MESMO Catppuccin do settings.ini (GTK3-dconf na mesma família do rice — zero sotaque)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-rice" '30-elite-organize.xml' "E70: o craft-rice entrega o fragmento de organização ao lado dos outros (a cura viaja NO PACOTE — a mesma escola E54 que alcança o rig vivo)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-rice" 'identifier=\\".*\\" serverDecoration' "E70: a regra UNIVERSAL está no código do rice (a moldura do compositor para toda janela que negocia — o fim da negociação perdida)"
+assert_grep "$SK70/.config/labwc/rc.xml" '<action name="Maximize" />' "E70/E123: o arranjo inicial vive no rc.xml do skel (brave e Code maximizados no lançamento — a ação que roda no primeiro mapa, o único evento da windowRule)"
+assert_grep "$SK70/.config/labwc/rc.xml" '<windowRule serverDecoration="yes" />' "E70/E123: a regra UNIVERSAL viva no rc.xml (SEM identifier casa com toda janela — a negociação perdida morre de verdade, na sintaxe glob que o labwc casa)"
 CTUNE70="$REPO/elite/airootfs/usr/local/bin/elite-tune"
 assert_grep "$CTUNE70" '\[8\] SESSÃO: A MOLDURA ÚNICA' "E70: a seção [8] existe no elite-tune (o rig vivo RECEBE a cura — o pacote nunca toca config de usuário, a lei do domínio)"
 assert_grep "$CTUNE70" 'code-flags.conf entregue' "E70/[8]: a entrega do code-flags.conf deixa LINHA (tudo que decide deixa rastro — lei E63)"
