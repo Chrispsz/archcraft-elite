@@ -86,8 +86,8 @@ uso() {
         'Signal) não entra; navegador "Playing" com posição congelada 2' \
         'ticks é ZUMBI (aba fechou) e sai; PAUSADO com título/artista' \
         'FICA (o pillar é o botão de play — o clique retoma); metadata' \
-        'vazia no Paused = sessão morta, sai. O papel mora em' \
-        '~/.cache/elite/player.log.' \
+        'vazia no Paused = sessão morta, sai.' \
+        'O papel mora em ~/.cache/elite/player.log.' \
         '' \
         'Os cliques ficam no config.top (playerctl play-pause/next/previous).' \
         '' \

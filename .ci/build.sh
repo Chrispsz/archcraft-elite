@@ -2200,7 +2200,20 @@ pkgver=1.0
 #     craft-idle, menu.xml, style.top.css, idle.conf, autostart. Tests:
 #     o assert do pausado segue a lei nova do dono + cenários morta e
 #     tempo. pkgrel 70→71 NO MESMO COMMIT (lei E41).
-pkgrel=71
+# E124-CORRIGE (19/11 — o gate do shellcheck 0.11 do CI pegou o
+#     SC2088 do uso() do craft-player: a reescrita do texto deixou o
+#     '~/.cache/elite/player.log.' na CABEÇA de uma linha citada — tilde
+#     em posição expansível dentro de aspas; o texto ORIGINAL tinha a
+#     frase antes do tilde e era verde. A suíte LOCAL pulou o gate por
+#     binário ausente (o pulo nomeado no commit fe532c7 — o CI o cobrou
+#     na hora). Cura: a frase volta a preceder o tilde; o shellcheck
+#     0.11.0 EXATO do CI instalado nesta sessão e o gate EXATO da casa
+#     (a lista glob-driven da 20-static) corre LOCAL: 0 avisos. Nota
+#     honesta: o '~' não expande em aspas mesmo — a 1.0-71 publicada
+#     FUNCIONA (o help imprimia o literal que o usuário devia ler); a
+#     cura é para o GATE ficar verde. pkgrel 71→72 NO MESMO COMMIT (lei
+#     E41 — craft-player mudou de conteúdo de novo).
+pkgrel=72
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
