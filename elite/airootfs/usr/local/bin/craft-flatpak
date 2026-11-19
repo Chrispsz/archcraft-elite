@@ -100,7 +100,7 @@ loja_buscar() {
     while IFS="$(printf '\t')" read -r _app _nome _ver _desc; do
         [ -n "$_app" ] || continue
         _desc="$(printf '%s' "$_desc" | cut -c1-64)"
-        _list="$_listFALSE|$_app|$_nome ${_ver:+($_ver)}|$_desc
+        _list="${_list}FALSE|$_app|$_nome ${_ver:+($_ver)}|$_desc
 "
     done <<EOF
 $achados

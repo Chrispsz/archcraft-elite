@@ -2314,7 +2314,17 @@ pkgver=1.0
 #     fuzzel ao cap de 26. pkgrel 73→74 NO MESMO COMMIT (lei E41).
 #     A cadeia E125 (o menu que nunca chegou + os três pontinhos + o
 #     status sem pids): pkgrel 72→73 NO MESMO COMMIT (lei E41).
-pkgrel=74
+# E126-corrige — O GATE QUE O LOCAL NÃO TINHA: o shellcheck 0.11 do CI
+#     pegou o SC2154 na vitrine da loja (o cifrão grudado no sufixo
+#     FALSE no lugar do expandidor do ACUMULADOR com chaves — a
+#     concatenação perdia a lista e a vitrine mostrava SÓ a última
+#     linha da busca); a suíte local pulou o gate
+#     por binário ausente (o pulo nomeado de sempre) — o shellcheck
+#     0.11.0 EXATO do CI instalado NESTA sessão e o gate EXATO da casa
+#     (a lista glob-driven da 20-static) corre LOCAL: 0 avisos em 66
+#     scripts. Uma linha de cura. pkgrel 74→75 NO MESMO COMMIT (lei E41
+#     — o craft-flatpak mudou de conteúdo de novo).
+pkgrel=75
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
