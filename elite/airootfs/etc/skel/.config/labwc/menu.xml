@@ -114,12 +114,19 @@
          dono o mostrava — a capacidade invisível não existe para quem usa.
          O item irmão entra SEM tocar no modo arrastar (o default e o
          caminho que o dono já usa seguem byte a byte). -->
-    <item label="Captura de tela">
-      <action name="Execute" command="craft-shot" />
-    </item>
-    <item label="Captura (tela inteira)">
-      <action name="Execute" command="craft-shot full" />
-    </item>
+    <!-- E124 (o relato do dono: 'nomes curtos, resumidos, entendíveis' —
+         'Captura (tela inteira)' cortava em '(tela int…' na largura do
+         menu): os DOIS itens soltos viram UM submenu — o pai abre, os
+         dois modos ficam nomeados por inteiro e o rótulo repetido
+         ('Captura…') morre: redundância a menos no menu da casa -->
+    <menu id="captura-menu" label="Captura de tela">
+      <item label="Região (arrastar)">
+        <action name="Execute" command="craft-shot" />
+      </item>
+      <item label="Tela inteira">
+        <action name="Execute" command="craft-shot full" />
+      </item>
+    </menu>
     <!-- E114 — O ITEM DAS TELAS SAIU (a ordem do dono: o wdisplays já
          é a porta dos hertz e a persistência E89 é do watch do
          craft-display — ver o comentário E114 do cabeçalho; o CLI
@@ -128,12 +135,20 @@
     <item label="Atualizar sistema">
       <action name="Execute" command="foot -e craft-update" />
     </item>
-    <!-- E114 — A LIMPEZA COM RAIZ NO DIÁLOGO CERTO: o pkexec abre o
-         diálogo GRÁFICO de senha (o mesmo do octopi); o relatório fica
-         no terminal e o modo `menu` segura a janela até o Enter. Se o
-         dono cancelar o diálogo, a porta explica e não pisca. -->
+    <!-- E114 — A LIMPEZA COM RAIZ NO DIÁLOGO CERTO (pkexec, o diálogo
+         GRÁFICO que o octopi abre; o relatório fica no terminal e o
+         modo `menu` segura a janela até o Enter).
+         E124 — O CAMINHO ABSOLUTO (o relato do dono de 19/11: 'eu
+         autentico e ele dá um erro de env'): a fonte provou — o pkexec
+         REINICIA o ambiente e o PATH do alvo raiz é /usr/sbin:/usr/bin:
+         /sbin:/bin:/root/bin (pkexec.c, 'Set PATH to a safe list'),
+         SEM /usr/local/bin, onde moram os bins da casa: o env não
+         achava o craft-clean e moria com 'No such file or directory'
+         DEPOIS da senha aceita — e a mensagem de fallback MENTIA ('a
+         senha não foi aceita'). O caminho ABSOLUTO mata a classe e a
+         mensagem agora fala o rc honesto + o papel. -->
     <item label="Limpeza do sistema">
-      <action name="Execute" command="foot -e sh -c &apos;pkexec env HOME=&quot;$HOME&quot; craft-clean menu || { printf &quot;\nLimpeza cancelada — a senha não foi aceita ou o diálogo foi fechado (o papel em ~/.cache/elite/clean.log conta o que rodou).\n&quot;; read -r _; }&apos;" />
+      <action name="Execute" command="foot -e sh -c &apos;_rc=0; pkexec env HOME=&quot;$HOME&quot; /usr/local/bin/craft-clean menu || _rc=$?; [ &quot;$_rc&quot; -eq 0 ] || { printf &quot;\nLimpeza não completou (rc=%s) — a mensagem acima e o papel em ~/.cache/elite/clean.log dizem o porquê.\n&quot; &quot;$_rc&quot;; read -r _; }&apos;" />
     </item>
     <separator />
     <!-- E109 — AppImages… e Flatpaks… SAÍRAM (a ordem do dono: menus de
@@ -163,13 +178,17 @@
     </item>
     <!-- v1.6.1: presets do idle no fuzzel, efeito imediato, sem
          relogin -->
-    <item label="Tempo para travar a tela…">
+    <!-- E124 — o label cabia no papel e cortava na largura do menu
+         ('Tempo para travar a te…'): voz curta, sentido inteiro -->
+    <item label="Trava automática…">
       <action name="Execute" command="craft-idle" />
     </item>
     <separator />
     <!-- E90 — O MAPA DOS COMANDOS. E106 — a pausa do E96: a janela
          ABRE E FICA. -->
-    <item label="Ajuda — comandos da Elite">
+    <!-- E124 — 'Ajuda — comandos da Elite' cortava em 'comandos…' na
+         largura do menu: o nome curto abre o mapa completo -->
+    <item label="Ajuda">
       <action name="Execute" command="foot -e craft-help" />
     </item>
     <item label="Aplicativos">

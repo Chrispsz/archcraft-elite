@@ -3206,6 +3206,8 @@ printf 'brave%sPlaying%sMúsica YTM%sArtista YTM%shttps://music.youtube.com/watc
 printf 'brave%sPaused%sClipe Teste%sCanal Teste%shttps://www.youtube.com/watch?v=abc%s0:00\n' "$SEP122" "$SEP122" "$SEP122" "$SEP122" "$SEP122" > "$P122/paused.txt"
 printf 'spotify%sPlaying%sFaixa Nativa%sBanda Nativa%s%s1:00\n' "$SEP122" "$SEP122" "$SEP122" "$SEP122" "$SEP122" > "$P122/spotify.txt"
 printf 'brave%sPlaying%sThe signal and the noise%sCanal História%shttps://www.youtube.com/watch?v=noise%s10:01\n' "$SEP122" "$SEP122" "$SEP122" "$SEP122" "$SEP122" > "$P122/sinal.txt"
+printf 'brave%sPaused%s%s%s%s%s\n' "$SEP122" "$SEP122" "$SEP122" "$SEP122" "$SEP122" "$SEP122" > "$P122/morta.txt"
+printf 'brave%sPlaying%sClipe Tempo%sCanal Tempo%shttps://music.youtube.com/watch?v=t%s83.528%s193000000\n' "$SEP122" "$SEP122" "$SEP122" "$SEP122" "$SEP122" "$SEP122" > "$P122/tempo.txt"
 printf '' > "$P122/vazio.txt"
 cp122() { # <cenário> [cmd] — um tick limpo no mesmo home
     env XDG_RUNTIME_DIR="$P122/run" XDG_CACHE_HOME="$P122/cache" \
@@ -3235,8 +3237,18 @@ out122="$(cp122 sinal.txt)"
 assert_match "$out122" 'The signal and the noise' \
     "E122/player: o token 'signal' só julga quando NÃO há url — um vídeo do YouTube com 'signal' no título não cai no filtro (falso-positivo extinto no design)"
 out122="$(cp122 paused.txt)"
+assert_match "$out122" 'uf04c' \
+    "E124/player: PAUSADO de verdade FICA (o relato do dono: 'pausou e fechou… não consigo retornar' — o pillar é o botão de play, o glifo de pause e o clique retomam)"
+assert_match "$out122" '"class":"paused"' \
+    "E124/player: o JSON carrega a classe paused (o CSS da barra apaga a cor — o estado se vê; o E119 segue de pé para o que não tem corpo)"
+out122="$(cp122 morta.txt)"
 assert_eq "$out122" '{"text":"","class":"","tooltip":""}' \
-    "E119 preservado: PAUSADO não segura o pillar (a barra é de quem toca de verdade)"
+    "E124/player: a SESSÃO MORTA pausada (metadata vazia — a aba dona fechou e o MPRIS esvaziou) sai da barra (o zumbi da lei 2 no status Paused)"
+out122="$(cp122 tempo.txt)"
+assert_match "$out122" '1:23/3:13' \
+    "E124/player: o TEMPO DE REPRODUÇÃO entra no pillar (decorrido/total: 83.528s → 1:23 e 193000000µs → 3:13 — o dono pediu o tempo; o título cede o espaço, o total nunca estoura o teto de 40)"
+assert_match "$out122" '"class":"playing"' \
+    "E124/player: o tocando de verdade segue com a classe playing (a gramática do CSS intacta)"
 out122="$(cp122 vazio.txt)"
 assert_eq "$out122" '{"text":"","class":"","tooltip":""}' \
     "E122/player: bus VAZIO = pillar fora (o 'off' do on/off — zeros e uns, a ordem do dono)"

@@ -141,7 +141,7 @@ fi  # elite-osd-1
 # --- Idle + lock (v1.6.1): TEMPOS AJUSTÁVEIS PELO USUÁRIO — "consigo
 #     controlar em quanto tempo o Pc entra em idle?" (dono). Defaults
 #     no ~/.config/elite/idle.conf (10 min lock · 15 min apagar); o
-#     menu do desktop → "Tempo para travar a tela…" (craft-idle) troca
+#     menu do desktop → "Trava automática…" (craft-idle) troca
 #     e reinicia o daemon NA HORA, sem relogin. Receita canônica da
 #     wiki do labwc (labwc.github.io/integration §7: swayidle + wlopm —
 #     o wlr-randr --off re-arranha views; wlopm é o cliente do protocolo

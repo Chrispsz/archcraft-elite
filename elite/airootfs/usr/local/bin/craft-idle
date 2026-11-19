@@ -65,7 +65,7 @@
 #
 # Uso:
 #   craft-idle           menu de presets (mouse-first — item do menu do
-#                        desktop: "Tempo para travar a tela…")
+#                        desktop: "Trava automática…")
 #   craft-idle start     sobe o daemon com os valores do conf (o
 #                        autostart chama isto — única definição da
 #                        receita swayidle, zero duplicação)
@@ -88,7 +88,7 @@ set -eu
 uso() {
     printf '%s\n' \
         'uso: craft-idle — o daemon de idle (lock → apagar → suspender) e o' \
-        '     menu de presets: "Tempo para travar a tela…" (duas portas)' \
+        '     menu de presets: "Trava automática…" (duas portas)' \
         '' \
         '  sem args abre o MENU (presets de minutos; efeito imediato, sem' \
         '  relogin — a máquina de estados renasce com a nova receita). A' \

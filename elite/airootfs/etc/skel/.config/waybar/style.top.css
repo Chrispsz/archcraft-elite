@@ -104,6 +104,14 @@ window#waybar {
   padding: 0 12px;
 }
 
+/* E124 — o pausado FICA (o pillar é o botão de play — o relato do dono:
+ * 'pausou e fechou… não consigo retornar'): a classe .paused apaga a
+ * cor — o estado se VÊ (a mesma gramática do #custom-game sem
+ * .game-on). O clique retoma a reprodução. */
+#custom-player.paused {
+  color: @subtext0;
+}
+
 #network,
 #pulseaudio {
   padding: 0 12px;

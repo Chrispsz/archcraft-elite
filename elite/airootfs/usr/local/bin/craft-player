@@ -39,6 +39,30 @@
 #       o navegador guarda é DO navegador — a Elite mata a EXIBIÇÃO e
 #       qualquer estado nosso, não alheio.
 #
+# E124 — O DIA SEGUINTE DO MESMO RELATO (o dono, 19/11: "quando eu aperto
+#   play/pause o player fecha — pausou e fechou — e eu não consigo retornar
+#   porque o player sumiu… quando a página que está reproduzindo fosse
+#   fechada, o player deveria sumir… e que tenha o tempo de reprodução").
+#   A lei do E119 (só o que toca ocupa a barra) matava o PRÓPRIO BOTÃO: o
+#   pillar É o play/pause, e expulsar o pausado era expulsar o único lugar
+#   onde o play voltava. As curas:
+#   (4) PAUSADO DE VERDADE FICA: título/artista presentes = corpo vivo —
+#       glifo de pause, classe .paused (o CSS apaga a cor), o clique
+#       retoma. Sessão MORTA pausada (metadata vazia — a aba dona fechou e
+#       o MPRIS esvaziou: o zumbi da lei 2 no status Paused) SAI como
+#       sempre. A lei 1 (mensagem não é mídia) migrou para ANTES do juízo
+#       de estado — o recado PAUSADO continua não sendo mídia.
+#   (5) O TEMPO DE REPRODUÇÃO entra no pillar: decorrido/total do
+#       {{position}} (segundos) e {{mpris:length}} (microssegundos) —
+#       'm:ss/m:ss' dentro do teto de 40 chars (o título cede o espaço;
+#       quem não entrega os campos ganha o pillar de sempre).
+#   (6) O LOG DO ZUMBI vira TRANSIÇÃO: uma linha no corte (quando estava
+#       na barra), não uma por tick — a gramática dos papéis da casa.
+#
+# Papel: ~/.cache/elite/player.log (teto 256 KiB — a lei E36) — o ENTROU e
+# o SAIU de cada transição nomeados (o on/off do dono ganhou prova). O
+# estado do tick (posição/contagem do zumbi) morre com a sessão, no
+# XDG_RUNTIME_DIR — a mesma lei da marca E61: boot novo nasce limpo.
 # Papel: ~/.cache/elite/player.log (teto 256 KiB — a lei E36) — o ENTROU e
 # o SAIU de cada transição nomeados (o on/off do dono ganhou prova). O
 # estado do tick (posição/contagem do zumbi) morre com a sessão, no
@@ -58,10 +82,12 @@ uso() {
         '  state   JSON para o módulo custom/player da topbar (interval 1).' \
         '  status  veredito humano: o bus MPRIS, o vencedor e o porquê.' \
         '' \
-        'O juízo (E122): navegador com origem de MENSAGENS (WhatsApp/' \
-        'Telegram/Messenger/Signal) não entra; navegador "Playing" com' \
-        'posição congelada 2 ticks é ZUMBI (aba fechou) e sai da barra.' \
-        'O papel mora em ~/.cache/elite/player.log.' \
+        'O juízo (E122+E124): mensagem (WhatsApp/Telegram/Messenger/' \
+        'Signal) não entra; navegador "Playing" com posição congelada 2' \
+        'ticks é ZUMBI (aba fechou) e sai; PAUSADO com título/artista' \
+        'FICA (o pillar é o botão de play — o clique retoma); metadata' \
+        'vazia no Paused = sessão morta, sai. O papel mora em' \
+        '~/.cache/elite/player.log.' \
         '' \
         'Os cliques ficam no config.top (playerctl play-pause/next/previous).' \
         '' \
@@ -151,8 +177,11 @@ num_ou() { case "$1" in ''|*[!0-9]*) printf '%s' "$2" ;; *) printf '%s' "$1" ;; 
 
 # ── o barramento: UMA leitura por tick (campos separados por \036) ───────
 URUNTIME="${XDG_RUNTIME_DIR:-/run/user/$(id -u 2>/dev/null || echo 0)}"
+# E124 — o campo 7 é o {{mpris:length}} (microssegundos — a unidade MPRIS
+# do dbus): a matéria-prima do total do tempo de reprodução. Campos 1-6
+# intactos (o zumbi e o juízo leem as MESMAS posições de sempre).
 ROWS="$(env XDG_RUNTIME_DIR="$URUNTIME" playerctl -a metadata \
-    --format "{{playerName}}${SEP}{{status}}${SEP}{{title}}${SEP}{{artist}}${SEP}{{url}}${SEP}{{position}}" \
+    --format "{{playerName}}${SEP}{{status}}${SEP}{{title}}${SEP}{{artist}}${SEP}{{url}}${SEP}{{position}}${SEP}{{mpris:length}}" \
     2>/dev/null || true)"
 
 VEREDITO=""    # para o status: por que cada player caiu onde caiu
@@ -181,13 +210,10 @@ while IFS= read -r linha; do
     _is_browser=0
     case "$BROWSER" in *"$_lname"*) _is_browser=1 ;; esac
 
-    if [ "$_status" != "Playing" ]; then
-        VEREDITO="$_name: status $_status — só o que TOCA de verdade ocupa a barra (o E119 segue de pé)"
-        continue
-    fi
-
     if [ "$_is_browser" -eq 1 ]; then
-        # ── LEI 1: mensagem não é mídia ──
+        # ── LEI 1: mensagem não é mídia (E124: para QUALQUER estado — o
+        # recado PAUSADO continua não sendo mídia; o juízo de ORIGEM vem
+        # antes do juízo de ESTADO) ──
         # host da url (corta scheme e caminho; blob:https://host/... cai no
         # MESMO corte — a origem real é o host depois do(s) scheme(s): o
         # recado do WhatsApp viaja como blob:https://web.whatsapp.com/… —
@@ -212,7 +238,32 @@ while IFS= read -r linha; do
             # spam); a transição SAIU já fala pelo estado shown
             continue
         fi
+    fi
 
+    # ── E124 — O JUÍZO DE ESTADO com a cura do dono: PAUSADO DE VERDADE
+    # FICA (o pillar É o botão de play — expulsar o pausado era matar o
+    # único lugar onde o play voltava: 'pausou e fechou… não consigo
+    # retornar'). Só a sessão MORTA pausada sai (metadata vazia: a aba
+    # dona fechou e o MPRIS esvaziou — o zumbi da lei 2 no status Paused;
+    # um player vivo sempre tem título ou artista para dizer o que é).
+    if [ "$_status" != "Playing" ]; then
+        if [ "$_status" = "Paused" ] && [ -n "$_title$_artist" ]; then
+            WINNER="$linha"
+            WIN_NAME="$_name"
+            VEREDITO="$_name: PAUSADO de verdade (fica na barra — o clique retoma; a lei do E124)"
+            break
+        fi
+        if [ "$_status" = "Paused" ]; then
+            VEREDITO="$_name: sessão MORTA (Paused sem título/artista — a aba dona fechou e o MPRIS ficou; a lei do E124)"
+            # o SAIU fica no caminho sem vencedor (a gramática do papel é
+            # uma só — nenhuma linha por tick)
+            continue
+        fi
+        VEREDITO="$_name: status $_status — nem Playing nem Paused com corpo: sai da barra (o E119 segue de pé)"
+        continue
+    fi
+
+    if [ "$_is_browser" -eq 1 ]; then
         # ── LEI 2: o zumbi morre (posição congelada com status Playing) ──
         # o contador é SEPARADO do livro de transições (o shown do vencedor
         # não pode ser cindido pelo laço — dois papéis, dois arquivos)
@@ -233,12 +284,17 @@ while IFS= read -r linha; do
             printf '%s|%s|%s\n' "$_name" "$_pos" "$_n" > "$ZSTATE" 2>/dev/null || true
             if [ "$_n" -ge 2 ]; then
                 # o papel da transição segue consistente: se estava na
-                # barra, o livro registra o off (a linha ZUMBI nomeia o réu)
+                # barra, o livro registra o off e a linha ZUMBI nomeia o
+                # réu UMA VEZ — no corte (E124: o log por tick enchia o
+                # papel com a MESMA linha enquanto o MPRIS órfão durasse;
+                # a gramática dos papéis é uma linha por MUDANÇA)
                 _st=""
                 [ -f "$STATE" ] && _st="$(cat "$STATE" 2>/dev/null || true)"
-                [ "$(printf '%s' "$_st" | cut -d'|' -f1)" = "$_name" ] && \
+                if [ "$(printf '%s' "$_st" | cut -d'|' -f1)" = "$_name" ] \
+                   && [ "$(num_ou "$(printf '%s' "$_st" | cut -d'|' -f2)" 0)" = "1" ]; then
                     printf '%s|0\n' "$_name" > "$STATE" 2>/dev/null || true
-                log "E122: sessão ZUMBI saiu da barra ($_name — status Playing com posição congelada há $((_n + 1))s: a página dona fechou e o MPRIS ficou; o fio cortou)"
+                    log "E122: sessão ZUMBI saiu da barra ($_name — status Playing com posição congelada há $((_n + 1))s: a página dona fechou e o MPRIS ficou; o fio cortou)"
+                fi
                 VEREDITO="$_name: ZUMBI ($((_n + 1))s de posição congelada com status Playing — a aba morreu, o MPRIS ficou; a lei 2 do E122 corta)"
                 continue
             fi
@@ -317,20 +373,77 @@ mkdir -p "$STATE_DIR" 2>/dev/null || true
 printf '%s|1\n' "$WIN_NAME" > "$STATE" 2>/dev/null || true
 
 _icon="$(icon_of "$(printf '%s' "$WIN_NAME" | tr 'A-Z' 'a-z')")"
+_w_status="$(field "$WINNER" 2)"
+_cls="playing"
+if [ "$_w_status" != "Playing" ]; then
+    # E124 — o pausado de verdade fica e DIZ que está pausado: glifo de
+    # pause + classe .paused (o CSS da barra apaga a cor — o estado se
+    # vê; o clique retoma)
+    _cls="paused"
+    _icon="$(printf '\\uf04c')"
+fi
+
+# E124 — O TEMPO DE REPRODUÇÃO (o dono: 'que tenha, por exemplo, o tempo
+# de reprodução… talvez porque o texto atinja o limite'): decorrido do
+# {{position}} (segundos — corta o decimal) e total do {{mpris:length}}
+# (microssegundos — a unidade do dbus). 'm:ss' ou 'm:ss/m:ss'. Player
+# que não entrega (campo vazio) = pillar de sempre, sem sufixo.
+_time=""
+_pos_s=""
+if [ -n "$_pos" ]; then
+    _pos_s="$(printf '%s' "$_pos" | cut -d. -f1)"
+    case "$_pos_s" in ''|*[!0-9]*) _pos_s="" ;; esac
+    if [ -n "$_pos_s" ]; then
+        _time="$(printf '%d:%02d' $((_pos_s / 60)) $((_pos_s % 60)))"
+    fi
+fi
+_dur="$(field "$WINNER" 7)"
+case "$_dur" in ''|*[!0-9]*) _dur="" ;; esac
+if [ -n "$_dur" ] && [ "$_dur" -gt 0 ]; then
+    _dur_s=$((_dur / 1000000))
+    _to="$(printf '%d:%02d' $((_dur_s / 60)) $((_dur_s % 60)))"
+    if [ -n "$_time" ]; then
+        _time="$_time/$_to"
+    else
+        _time="$_to"
+    fi
+fi
+_time_suf=""
+if [ -n "$_time" ]; then
+    _time_suf=" · $_time"
+fi
 
 # o texto do pill: "artista — título" (só título quando não há artista) —
-# a MESMA gramática que o dono já usava, truncada no 40 que a barra já tinha
+# a MESMA gramática que o dono já usava, truncada dentro do teto de 40
+# (E124: o tempo entra NO TETO — o título cede o espaço que o tempo
+# precisa e o total nunca estoura a largura que a barra já tinha)
 if [ -n "$_artist" ]; then
     _full="$_artist — $_title"
 else
     _full="$_title"
 fi
 _full="$(em_uma_linha "$_full")"
-if [ "${#_full}" -gt "$DYN_LEN" ]; then
-    _full="$(printf '%s' "$_full" | cut -c1-"$DYN_LEN")…"
+_budget="$DYN_LEN"
+if [ -n "$_time_suf" ]; then
+    _budget=$((DYN_LEN - ${#_time_suf}))
+fi
+if [ "${#_full}" -gt "$_budget" ]; then
+    _full="$(printf '%s' "$_full" | cut -c1-"$_budget")…"
+fi
+if [ -n "$_time_suf" ]; then
+    _full="$_full$_time_suf"
 fi
 
-_tt="esq: play/pause · meio/scroll↑: próxima · dir/scroll↓: anterior\\n$(esq_json "$(em_uma_linha "${_artist:+$_artist — }$_title")")"
+# o tooltip fala a faixa INTEIRA (sem teto) + o tempo entre parênteses
+# + o estado pausado nomeado (a mesma voz do pillar, sem corte)
+_tt_meta="$(em_uma_linha "${_artist:+$_artist — }$_title")"
+if [ -n "$_time" ]; then
+    _tt_meta="$_tt_meta ($_time)"
+fi
+if [ "$_w_status" != "Playing" ]; then
+    _tt_meta="pausado · $_tt_meta"
+fi
+_tt="esq: play/pause · meio/scroll↑: próxima · dir/scroll↓: anterior\\n$(esq_json "$_tt_meta")"
 
-printf '{"text":"%s %s","class":"playing","tooltip":"%s"}\n' \
-    "$_icon" "$(esq_json "$_full")" "$_tt"
+printf '{"text":"%s %s","class":"%s","tooltip":"%s"}\n' \
+    "$_icon" "$(esq_json "$_full")" "$_cls" "$_tt"

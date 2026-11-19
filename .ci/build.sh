@@ -2150,7 +2150,57 @@ pkgver=1.0
 #     Bins/peles com conteúdo mudado: craft-rice, craft-bars, rc.xml,
 #     environment, code-flags.conf. pkgrel 69→70 NO MESMO COMMIT (lei
 #     E41).
-pkgrel=70
+# E124-POLIMENTO (19/11 — o polimento do uso real, os quatro réus do
+#     relato do dono): (1) A LIMPEZA QUE AUTENTICAVA E MORRIA — o item do
+#     menu chamava 'pkexec env HOME=… craft-clean' e A FONTE PROVOU
+#     (pkexec.c, 'Set PATH to a safe list'): o PATH do alvo raiz é
+#     /usr/sbin:/usr/bin:/sbin:/bin:/root/bin — SEM /usr/local/bin, onde
+#     moram os bins da casa; o env não achava o craft-clean, o terminal
+#     imprimia 'No such file or directory' DEPOIS da senha aceita e a
+#     mensagem de fallback MENTIA ('a senha não foi aceita') — o
+#     clean.log não recebeu NENHUMA entrada hoje (o réu morreu antes do
+#     papel) e ZERO uid:0 desde o nascimento do caminho pkexec (a camada
+#     de baixo do congelamento que a E121 curou). Cura ×2: caminho
+#     ABSOLUTO /usr/local/bin/craft-clean no item (a classe morre) e a
+#     mensagem fala o rc honesto + o papel (a mentira E33 sai).
+#     (2) O PLAYER QUE MATAVA O PRÓPRIO BOTÃO — a lei do E119 (só o que
+#     toca ocupa a barra) expulsava o PAUSADO: o dono clicava
+#     play/pause, a mídia pausava, o pillar sumia E o play não tinha
+#     mais onde voltar ('pausou e fechou… não consigo retornar').
+#     Cura ×3: pausado com CORPO (título/artista) FICA (glifo pause +
+#     classe .paused com cor apagada no style.top.css, o clique retoma);
+#     sessão MORTA pausada (metadata vazia — a aba dona fechou e o MPRIS
+#     esvaziou, o zumbi da lei 2 no status Paused) SAI; a lei 1 (mensagem
+#     não é mídia) migrou para ANTES do juízo de estado (o recado pausado
+#     continua não sendo mídia). E o TEMPO DE REPRODUÇÃO entra no pillar
+#     (o dono: 'que tenha, por exemplo, o tempo de reprodução'):
+#     {{mpris:length}} (µs) entra como campo 7 da leitura do bus,
+#     decorrido/total 'm:ss/m:ss' no teto de 40 chars — o título cede o
+#     espaço, o total nunca estoura a largura; tooltip fala a faixa
+#     inteira + tempo + 'pausado' nomeado. O log do zumbi vira TRANSIÇÃO
+#     (uma linha no corte, não uma por tick enquanto o MPRIS órfão
+#     durasse — a gramática dos papéis da casa).
+#     (3) O STATUS DO JOGO SEM A AULA — o dono: 'esse status é bem sujo…
+#     veredito, como o modo de jogo funciona, um monte de sujeira que
+#     sinceramente não tem para quê': o banner 'veredito' + as 12 linhas
+#     de como-funciona SAIEM do status (a aula mora no --help, que já a
+#     tinha); a mesa de fatos fica — gamemode/automático/watch/manual/
+#     gamemoded/jogos/log, uma linha cada (o detector E112 do watch FORA
+#     segue de pé, com a frase que a suíte ancora).
+#     (4) O MENU SEM RECORTE E SEM REDUNDÂNCIA — o dono: 'nomes curtos,
+#     resumidos e entendíveis': 'Captura (tela inteira)' cortava em
+#     '(tela int…' e 'Ajuda — comandos da Elite' em 'comandos…' na
+#     largura do menu — os DOIS itens de captura viram UM submenu
+#     (Captura de tela → Região (arrastar) / Tela inteira; os contratos
+#     da suíte 'Captura de tela' e command="craft-shot" seguem vivos), a
+#     ajuda é 'Ajuda', o idle é 'Trava automática…' (os 4 irmãos de
+#     referência — idle.conf, autostart, craft-idle ×2 — seguem a nova
+#     voz, E33).
+#     Bins/peles com conteúdo mudado: craft-player, craft-game,
+#     craft-idle, menu.xml, style.top.css, idle.conf, autostart. Tests:
+#     o assert do pausado segue a lei nova do dono + cenários morta e
+#     tempo. pkgrel 70→71 NO MESMO COMMIT (lei E41).
+pkgrel=71
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

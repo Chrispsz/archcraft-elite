@@ -28,7 +28,7 @@
 #
 # Uso:
 #   craft-game            menu (Ativar agora / Desativar / Automático / Status)
-#   craft-game status     o veredito sem tocar nada
+#   craft-game status     a mesa de fatos (sem palestra — a aula mora no --help)
 #   craft-game on|off     manual (holder próprio, conta no gamemode)
 #   craft-game watch      o daemon da sessão (AUTO=1 em ~/.config/elite/game.conf;
 #                         AUTO=0/ausente = sai 0 — ausência intencional, lei do idle)
@@ -263,40 +263,29 @@ gm_hook() { # $1 = start|end
     exit 0
 }
 
-# ── o STATUS (o veredito sem tocar nada — a escola do --check) ──────────
+# ── o STATUS (a mesa de fatos — E124: o dono leu o banner 'veredito' +
+# a aula de como funciona e falou 'um monte de sujeira que sinceramente
+# não tem para quê': a explicação mora no --help; o status é FATOS, uma
+# linha cada, sem discurso) ──────────────────────────────────────
 gm_status_cmd() {
-    printf '══════════ craft-game status — o veredito sem tocar nada ══════════\n'
-    cat <<'E110'
-como o modo de jogo funciona:
-  · O MÚSCULO é o gamemode do Feral: quando um JOGO está vivo, ele sobe
-    sozinho (D-Bus), aplica governor performance + GPU high e MORRE com o
-    jogo — rollback automático, zero RAM no idle. Nada para configurar.
-  · O CÉREBRO é o watch da casa: vigia os processos de jogo (Wine/Proton,
-    emuladores, gamescope) e REGISTRA o pid no gamemode — para a Steam
-    que NÃO usa gamemoderun, é o watch quem liga o modo. A Steam também
-    aceita o caminho clássico: opções de lançamento = gamemoderun %command%.
-  · O caminho MANUAL liga a performance AGORA, com o jogo que você quiser
-    (menu → Ativar agora) — e o Desativar devolve o perfil da casa.
-E110
-    command -v gamemoded >/dev/null 2>&1 \
-        && printf 'gamemode            instalado (%s)\n' "$(pacman -Q gamemode 2>/dev/null | awk '{print $2}')" \
-        || printf 'gamemode            AUSENTE — Atualizar o sistema (menu) traz o pacote\n'
+    printf '%s\n' '═══ Modo de jogo ═══'
+    if has_gamemode; then
+        printf 'gamemode            instalado (%s)\n' "$(pacman -Q gamemode 2>/dev/null | awk '{print $2}')"
+    else
+        printf 'gamemode            AUSENTE — Atualizar o sistema (menu) traz o pacote\n'
+    fi
     local auto=""
     [ -r "$CONF" ] && auto="$(sed -n 's/^AUTO=//p' "$CONF" | head -1)"
     printf 'automático          %s\n' "$([ "${auto:-0}" = 1 ] && echo ON || echo OFF)"
-    # E112 — O VEREDITO DO WATCH (o dump 195015 fotografou o silêncio: o
-    # papel dizia 'ON' lendo o CONF enquanto o daemon podia estar FORA —
-    # no boot2 de 16:06 o game.log não recebeu NENHUM 'no ar' e o status
-    # não contava história. O status agora julga o PROCESSO (pid vivo com
-    # cmdline do watch — a reutilização de pid não engana) e nomeia o réu:
+    # E112 — o veredito do WATCH (o status julga o PROCESSO, não o conf):
     # ON sem daemon vivo = o supervisor que não trouxe — a fila tem nome.
     if [ "${auto:-0}" = 1 ]; then
         _wp="$(cat "$RUN_DIR/game-watch.pid" 2>/dev/null || true)"
         if [ -n "$_wp" ] && kill -0 "$_wp" 2>/dev/null \
            && tr '\0' ' ' <"/proc/$_wp/cmdline" 2>/dev/null | grep -q 'craft-game watch'; then
-            printf 'watch               no ar (pid %s — o cérebro vigia)\n' "$_wp"
+            printf 'watch               no ar (pid %s)\n' "$_wp"
         else
-            printf 'watch               FORA — sem daemon vivo (o automático ON é só o conf: o supervisor não trouxe o cérebro — RÉU NOMEADO no próximo dump)\n'
+            printf 'watch               FORA — sem daemon vivo (o automático é só o conf)\n'
         fi
     fi
     if [ -r "$(holder_pid_file)" ]; then
@@ -306,13 +295,13 @@ E110
     fi
     if has_gamemode; then
         st="$(gm_status "$$" 2>/dev/null)"
-        [ "$st" = "1" ] && printf 'gamemoded           ATIVO nesta sessão\n' || printf 'gamemoded           idle (sobe por D-Bus só com jogo — RAM zero)\n'
+        [ "$st" = "1" ] && printf 'gamemoded           ATIVO\n' || printf 'gamemoded           idle (sobe sozinho só com jogo)\n'
     fi
     printf 'jogos vivos agora   '
     pgrep -u "$(id -u)" "$GAME_PATS" >/dev/null 2>&1 \
         && pgrep -a -u "$(id -u)" "$GAME_PATS" 2>/dev/null | head -3 \
-        || echo "(nenhum da família)"
-    printf '\npapel da casa: %s\n' "$LOG"
+        || echo "(nenhum)"
+    printf '\nlog: %s\n' "$LOG"
 }
 
 # ── o MENU (a porta mouse-first — o motor único craft-menu) ─────────────
@@ -376,12 +365,10 @@ gm_menu() {
             if [ -r "$(holder_pid_file)" ]; then gm_off; else gm_on; fi ;;
         *Desativar*) gm_off ;;
         *Status*)
-            # E106 — o veredito sobe na tela; E109 — a porta do dono ABRE O
-            # PAPEL INTEIRO (o relato do dump 181701: 'clico em status, ele
-            # gera um log… não sei como funciona isso' — a linha no toast
-            # não ensina; o terminal com o veredito COMPLETO + o resumo de
-            # como o gamemode funciona é a resposta. foot existe na ISO
-            # (é o terminal do menu); sem foot, o toast clássico segue).
+            # E106 — o status sobe na tela; E124 — a mesa de FATOS (a
+            # palestra saiu — o dono a nomeou de sujeira; a explicação
+            # mora no --help). foot existe na ISO (é o terminal do menu);
+            # sem foot, o toast clássico segue.
             gm_status_cmd >>"$LOG" 2>&1 || true
             if command -v foot >/dev/null 2>&1; then
                 foot -e sh -c 'craft-game status; echo; read -r -p "Enter para fechar… " _' &
