@@ -246,7 +246,7 @@ gm_watch() {
 # consulta barata (1 pgrep a cada 3s — o mesmo custo do pulseaudio).
 gm_pill() {
     if pgrep -x gamemoded >/dev/null 2>&1; then
-        printf '{"text":"\\uf11b","class":"game-on","tooltip":"Modo de jogo ATIVO — governor performance + GPU high (sai sozinho com o jogo; menu: Modo de jogo…)"}\n'
+        printf '{"text":"\\uf11b","class":"game-on","tooltip":"Modo de jogo ATIVO — governor performance + GPU high (sai sozinho com o jogo; menu: Modo de jogo)"}\n'
     else
         printf '{"text":"","class":"","tooltip":""}\n'
     fi
@@ -270,7 +270,10 @@ gm_hook() { # $1 = start|end
 gm_status_cmd() {
     printf '%s\n' '═══ Modo de jogo ═══'
     if has_gamemode; then
-        printf 'gamemode            instalado (%s)\n' "$(pacman -Q gamemode 2>/dev/null | awk '{print $2}')"
+        # E125 — a versão do pacote é sujeira para quem lê (o dono: 'um
+        # monte de sujeira que sinceramente não tem para quê' — a mesa é
+        # de FATOS do MODO, não de inventário; a versão mora no pacman)
+        printf 'gamemode            instalado\n'
     else
         printf 'gamemode            AUSENTE — Atualizar o sistema (menu) traz o pacote\n'
     fi
@@ -283,13 +286,16 @@ gm_status_cmd() {
         _wp="$(cat "$RUN_DIR/game-watch.pid" 2>/dev/null || true)"
         if [ -n "$_wp" ] && kill -0 "$_wp" 2>/dev/null \
            && tr '\0' ' ' <"/proc/$_wp/cmdline" 2>/dev/null | grep -q 'craft-game watch'; then
-            printf 'watch               no ar (pid %s)\n' "$_wp"
+            # E125 — o pid é máquina e não vale a mesa (o dono lê estado,
+            # não números de processo; o pid do watch já tem linha no papel
+            # desde o nascimento dele — 'watch: no ar (pid N)')
+            printf 'watch               no ar\n'
         else
             printf 'watch               FORA — sem daemon vivo (o automático é só o conf)\n'
         fi
     fi
     if [ -r "$(holder_pid_file)" ]; then
-        printf 'manual              ATIVO (holder pid %s)\n' "$(cat "$(holder_pid_file)" 2>/dev/null)"
+        printf 'manual              ATIVO\n'
     else
         printf 'manual              —\n'
     fi
@@ -369,9 +375,15 @@ gm_menu() {
             # palestra saiu — o dono a nomeou de sujeira; a explicação
             # mora no --help). foot existe na ISO (é o terminal do menu);
             # sem foot, o toast clássico segue.
-            gm_status_cmd >>"$LOG" 2>&1 || true
+            # E125 — O PAPEL RECEBE UMA LINHA (o bloco INTEIRO a cada
+            # clique engolia o game.log — a E121 nomeou o réu e o teto
+            # E36 só segurava o tamanho: o dono folheou o papel cheio de
+            # blocos repetidos e viu sujeira onde devia ler história). O
+            # estado completo sobe NA TELA; o papel guarda a frase que
+            # cabe (os pids nem entram — o status novo não os mostra).
+            glog "status: consultado ($(gm_status_cmd 2>/dev/null | grep -v '^═══' | grep -v '^$' | tr '\n' ' ' | sed 's/  */ /g; s/ $//'))"
             if command -v foot >/dev/null 2>&1; then
-                foot -e sh -c 'craft-game status; echo; read -r -p "Enter para fechar… " _' &
+                foot -e sh -c 'craft-game status; echo; read -r -p "Enter para fechar" _' &
             else
                 _st_auto="OFF"; [ "${auto:-0}" = 1 ] && _st_auto="ON"
                 _st_gm="idle (sobe sozinho com jogo — RAM zero)"

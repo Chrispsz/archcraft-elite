@@ -2933,8 +2933,8 @@ XDG_CONFIG_HOME="$S107/home/.config" HOME="$S107/home" \
   ELITE_RC_SRC="$S107/src/ausente" ELITE_OSD_SRC="$S107/src/ausente" \
   ELITE_LOCK_SRC="$S107/src/ausente" \
   sh "$RICE107" >"$S107/rice-out2.txt" 2>&1 || true
-assert_grep "$S107/home/.config/labwc/menu.xml" 'Apps da dock…' \
-    "E107/rice→E109: a mestre SÃ renova o home vivo (o gate julga o XML, não trava a casa — a pele com a curadoria E109 chega ao rig)"
+assert_grep "$S107/home/.config/labwc/menu.xml" 'Apps da dock' \
+    "E107/rice→E109→E125: a mestre SÃ renova o home vivo (o gate julga o XML, não trava a casa — a pele com a curadoria E109 chega ao rig; o rótulo sem os três pontinhos que o dono mandou matar)"
 
 # (2) O DISPLAY HONESTO — o save não grava transição; o retry retenta
 DISP107="$REPO/elite/airootfs/usr/local/bin/craft-display"

@@ -162,7 +162,7 @@ if [ "$(findmnt -n -o FSTYPE "$ROOT")" = "btrfs" ]; then
                 exit 1
             }
             tmp="${ROOT}/boot/.elite-${kbase}.tmp"
-            echo "ELITE: recopiando ${kbase} (${src_size} bytes) com verificação byte-a-byte…"
+            echo "ELITE: recopiando ${kbase} (${src_size} bytes) com verificação byte-a-byte"
             # v1.10: escrita --sparse=never (a classe de truncamento em
             # btrfs comprimido está ligada a escrita sparse) + 1 retry —
             # só falha alto DEPOIS de 2 tentativas provadas ruins.
@@ -297,7 +297,7 @@ if [ -n "$KERNEL_SRC" ]; then
             echo "  alvo:   $h_dst" >&2
             khash_fail=$((khash_fail + 1))
         else
-            echo "ELITE: [M1.1] sha256 OK — ${kbase} ${h_src:0:16}… (fonte == alvo)"
+            echo "ELITE: [M1.1] sha256 OK — ${kbase} ${h_src} (fonte == alvo)"
         fi
     done
 else
@@ -305,7 +305,7 @@ else
         [ -f "$t" ] || continue
         sz="$(stat -c%s "$t" 2>/dev/null || echo 0)"
         if [ "$sz" -ge 5242880 ] && [ "$(head -c2 "$t" 2>/dev/null)" = "MZ" ]; then
-            echo "ELITE: [M1.1] sha256 (auditoria, sem fonte p/ comparar) — $(basename "$t") $(sha256sum "$t" | awk '{print $1}' | cut -c1-16)…"
+            echo "ELITE: [M1.1] sha256 (auditoria, sem fonte p/ comparar) — $(basename "$t") $(sha256sum "$t" | awk '{print $1}')"
         fi
     done
 fi

@@ -49,7 +49,7 @@
 #   outros: falha REAL — o stderr do fuzzel segue vivo até o chamador
 #           (log + aviso que SOME).
 #
-# Uso: craft-menu --title=TÍTULO [--at=SLOT] [--ask=PROMPT] item1 [item2 …]
+# Uso: craft-menu --title=TÍTULO [--at=SLOT] [--ask=PROMPT] item1 item2 [itemN]
 #      (ou itens por STDIN — a interface dmenu: 1 linha = 1 item)
 #   --title=  identidade do menu no toggle (NÃO é exibido — a lista fala)
 #   --at=     slot de âncora: power | bgapps | network | drawer | center

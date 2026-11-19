@@ -21,7 +21,9 @@
 #     arranque) é a escolha do dono por QUALQUER porta (wdisplays, menu
 #     daqui, wlr-randr CLI) — grava sozinho. A persistência deixa de
 #     depender de lembrar de salvar.
-#   · menu   — o craft-display NU (o item "Telas…" do menu do desktop):
+#   · menu   — o craft-display menu (porta CLI; o item 'Telas' do menu
+#     do desktop saiu pela E114 — a porta gráfica do dono é o wdisplays,
+#     e o watch E89 grava a escolha que vier por QUALQUER delas):
 #     fuzzel com TODOS os modos que o EDID do monitor oferece — "deveria
 #     ser todas as detectadas… ou então esse menu fosse bem pensado"
 #     (relato do dono) — aplica E grava no mesmo clique. A porta gráfica
@@ -327,8 +329,8 @@ do_apply() {
         if [ ! -e "$RUN_E/display-sick-notified" ]; then
             : > "$RUN_E/display-sick-notified" 2>/dev/null || true
             _doentes="$(grep 'mode:-' "$CONF" 2>/dev/null | cut -d'|' -f1 | tr '\n' ' ')"
-            dlog "conf doente (E108): [${_doentes}] com mode:- no disco — o modo nunca será restaurado por ESTE conf; a persistência dorme até o save novo (Telas… escolhe e grava limpo — o ciclo renasce sem reinício)"
-            dnotify "Registro de telas doente (mode:-) — escolha o modo em Telas… e salve; o conf cura na hora"
+            dlog "conf doente (E108): [${_doentes}] com mode:- no disco — o modo nunca será restaurado por ESTE conf; a persistência dorme até o save novo (o wdisplays escolhe e o watch grava limpo — o ciclo renasce sem reinício)"
+            dnotify "Registro de telas doente (mode:-) — escolha o modo no wdisplays e aplique; o watch grava e o conf cura na hora"
         fi
         exit 0
     fi
@@ -697,7 +699,7 @@ case "${1:-}" in
         echo "── salvo ($(basename "$CONF")) em $CONF_DIR"
         if [ -s "$CONF" ]; then
             conf_keys || true
-            grep -q 'mode:-' "$CONF" 2>/dev/null && echo "   (conf doente: mode:- no disco — a persistência dorme; escolha o modo em Telas… e salve para curar — E108)"
+            grep -q 'mode:-' "$CONF" 2>/dev/null && echo "   (conf doente: mode:- no disco — a persistência dorme; escolha o modo no wdisplays e aplique para curar — o watch grava — E108)"
         else
             echo "   (sem conf em disco — nenhuma escolha registrada ainda)"
         fi

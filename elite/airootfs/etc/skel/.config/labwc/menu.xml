@@ -164,7 +164,13 @@
          arquivo multilinha quebrava o case e NENHUM pin acendia o ✓
          (o dono: 'só tá detectando que o Thunar tá na dock… ele não
          remove' — a prova do dump 181701). -->
-    <item label="Apps da dock…">
+    <!-- E125 — os três pontinhos morrem (a ordem do dono: 'textos
+         completos sem recortes ou sem três pontinhos' — o '…' no
+         rótulo era convenção de diálogo e o dono leu como recorte;
+         todo rótulo do menu da casa agora é palavra inteira, e curto
+         o bastante para nunca tocar o cap de 200px do labwc —
+         theme.c: menu_max_width 200, o cortador do '(tela int…'). -->
+    <item label="Apps da dock">
       <action name="Execute" command="craft-pin-pick" />
     </item>
     <!-- E103 — O MODO DE JOGO (a diretriz do dono: 'um botão em algum
@@ -173,14 +179,13 @@
          cérebro, o gamemode do Feral o músculo (governor performance +
          GPU high + rollback automático, RAM zero no idle). E106:
          ON/OFF/Automático/Status DEVOLvem feedback na tela. -->
-    <item label="Modo de jogo…">
+    <item label="Modo de jogo">
       <action name="Execute" command="craft-game" />
     </item>
     <!-- v1.6.1: presets do idle no fuzzel, efeito imediato, sem
-         relogin -->
-    <!-- E124 — o label cabia no papel e cortava na largura do menu
-         ('Tempo para travar a te…'): voz curta, sentido inteiro -->
-    <item label="Trava automática…">
+         relogin. E124: 'Trava automática' entrou cortando o tempo;
+         E125: os três pontinhos morrem — a palavra fica INTEIRA. -->
+    <item label="Trava automática">
       <action name="Execute" command="craft-idle" />
     </item>
     <separator />

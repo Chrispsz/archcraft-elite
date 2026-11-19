@@ -288,7 +288,7 @@ printf '✔ caches de usuário (octopi/yay/thumbnails): %s MiB liberados (a font
 # de TTY: o terminal do menu fica aberto até o Enter MESMO que um passo
 # morra no meio — 'fecha na hora' extinto por construção.
 if (( MENU_HOLD == 1 )); then
-  read -r -p 'Enter para fechar… ' _ || true
+  read -r -p 'Enter para fechar' _ || true
 elif (( ASSUME_YES == 0 )) && [[ -t 0 ]] && [[ -t 1 ]]; then
-  read -r -p 'Enter para fechar… ' _ || true
+  read -r -p 'Enter para fechar' _ || true
 fi

@@ -99,11 +99,11 @@ for arq in "$@"; do
 
     # janela de progresso: pulsa até o motor terminar; fechar = cancelar
     ( while kill -0 "$bgpid" 2>/dev/null; do
-          echo "#Extraindo $(basename -- "$arq")…"
+          echo "#Extraindo $(basename -- "$arq")"
           sleep 0.3
       done
       echo 100 ) | zenity --progress --title="Extrair aqui" --pulsate --auto-close \
-          --text="Extraindo…" 2>/dev/null &
+          --text="Extraindo" 2>/dev/null &
     zpid=$!
     wait "$zpid" 2>/dev/null || true
 

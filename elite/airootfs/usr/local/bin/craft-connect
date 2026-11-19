@@ -155,7 +155,7 @@ EOF
     case "$wifi" in
         enabled)
             rows="${rows}Wi-Fi: desligar
-Redes Wi-Fi…
+Redes Wi-Fi
 " ;;
         disabled)
             rows="${rows}Wi-Fi: ligar
@@ -167,12 +167,12 @@ Redes Wi-Fi…
     # casa combate em todo o resto). /sys/class/bluetooth/hciN = o
     # adaptador de verdade, sem depender de ferramenta de userland.
     if [ -n "$(ls /sys/class/bluetooth 2>/dev/null)" ]; then
-        rows="${rows}Conexões salvas…
-Bluetooth: dispositivos…
-Editor de conexões…"
+        rows="${rows}Conexões salvas
+Bluetooth: dispositivos
+Editor de conexões"
     else
-        rows="${rows}Conexões salvas…
-Editor de conexões…"
+        rows="${rows}Conexões salvas
+Editor de conexões"
     fi
     printf '%s\n' "$rows"
 }
@@ -305,10 +305,10 @@ wifi_menu() {
         if [ ! -s "$MAP" ]; then
             # cache vazio (1º boot / rádio recém-ligado): o menu NÃO morre —
             # avisa e oferece a varredura DE VERDADE (que espera o resultado)
-            note -t 4000 'Rede' 'Sem redes no cache — atualizando…'
-            rows='Atualizar…'
+            note -t 4000 'Rede' 'Sem redes no cache — atualizando'
+            rows='Atualizar'
         else
-            rows="$( { cut -f1 "$MAP"; printf 'Atualizar…'; } )"
+            rows="$( { cut -f1 "$MAP"; printf 'Atualizar'; } )"
         fi
         open_menu --title='Wi-Fi' --at=network <<EOF
 $rows
@@ -321,7 +321,7 @@ EOF
             return 0
         fi
         case "$_c" in
-            'Atualizar…') wifi_rescan; continue ;;
+            'Atualizar') wifi_rescan; continue ;;
             *)
                 ssid="$(awk -F'\t' -v r="$_c" '$1 == r { print $2; exit }' "$MAP")"
                 sec="$(awk -F'\t' -v r="$_c" '$1 == r { print $3; exit }' "$MAP")"
@@ -431,10 +431,10 @@ known_manage() {
     esac
     if [ "$ctype" = "802-11-wireless" ]; then
         acts="${acts}
-Alterar senha…"
+Alterar senha"
     fi
     acts="${acts}
-Esquecer…"
+Esquecer"
     open_menu --title='Conexões' --at=network <<EOF
 $acts
 EOF
@@ -461,9 +461,9 @@ EOF
             else
                 note -u normal -t 8000 'Rede' "Falhou ao desligar $name."
             fi ;;
-        'Alterar senha…')
+        'Alterar senha')
             known_password "$name" ;;
-        'Esquecer…')
+        'Esquecer')
             known_forget "$name" ;;
     esac
     return 0
@@ -541,16 +541,16 @@ EOF
             # linha informativa (sem cabo na porta) — nada a fazer, o menu
             # reabre com o mesmo estado
             continue ;;
-        'Redes Wi-Fi…')
+        'Redes Wi-Fi')
             # v6 — re-engatilha a varredura de fundo por via das dúvidas (o
             # usuário pode ter ficado no menu principal); a lista NÃO espera
             bg_rescan
             wifi_menu
             continue ;;
-        'Conexões salvas…')
+        'Conexões salvas')
             known_menu
             continue ;;
-        'Bluetooth: dispositivos…')
+        'Bluetooth: dispositivos')
             # v2.6.0 — o verbo que o dono APROVOU no rig ("o de bluetooth é
             # legal e funcional") segue: blueman-manager (GUI) com o
             # bluetui de fallback
@@ -560,7 +560,7 @@ EOF
                 exec blueman-manager
             fi
             exec foot -e bluetui ;;
-        'Editor de conexões…')
+        'Editor de conexões')
             # a CRIAÇÃO manual de redes mora no gerenciador gráfico do
             # sistema (a definição do próprio dono para o editor)
             mlog "Rede: abrindo o editor de conexões do sistema"

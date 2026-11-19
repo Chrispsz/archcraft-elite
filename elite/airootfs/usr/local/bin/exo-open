@@ -68,7 +68,7 @@ case "$kind" in
     die "a Elite não tem leitor de e-mail de fábrica — instale um pelo Launchpad (ou: sudo pacman -S <leitor>)"
     ;;
   "")
-    [ $# -eq 0 ] && die "nada para abrir (uso: exo-open [--launch TIPO] [--working-directory DIR] [ARQUIVO|URL…])"
+    [ $# -eq 0 ] && die "nada para abrir (uso: exo-open [--launch TIPO] [--working-directory DIR] [ARQUIVO|URL])"
     exec gio open "$@"
     ;;
   *)

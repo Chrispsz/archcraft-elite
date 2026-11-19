@@ -64,11 +64,11 @@ MAPA=(
 "craft-menu        | o motor dmenu dos menus craft-* (fuzzel + âncoras)"
 "craft-menu-dismiss| fecha qualquer menu/OSD aberto (lei de cross-dismiss)"
 "craft-pin         | fixar/remover/listar pins da dock"
-"craft-pin-pick    | picker gráfico para fixar apps na dock (botão direito → Apps da dock…)"
+"craft-pin-pick    | picker gráfico para fixar apps na dock (botão direito → Apps da dock)"
 "craft-power       | menu de energia — sair/suspender/reiniciar/desligar"
 "craft-rescue-screen | a escotilha do monitor cego (resume sem sinal — de um TTY)"
 "craft-rollback    | snapshots snapper — criar/restaurar (a porta é o GRUB)"
-"craft-rice        | garante os drop-ins do labwc (decoração ÚNICA + jogos sem moldura)"
+"craft-rice        | renova as peles da casa (rc.xml/menu/topbar — regras no rc.xml mestre)"
 "craft-shot        | captura de tela — região (W-p, Esc cancela com aviso) / tela inteira (W-S-p)"
 "craft-update      | a atualização da casa — manual, --canal (ao ligar), --sistema (semanal)"
 "craft-vigil       | a vigília do lock (suspende após SUSPEND_MIN travado, com ouvidos)"
@@ -109,7 +109,7 @@ esac
 # Enter; pipe/journal (não é pra ninguém ler na tela) = sai direto.
 pausa_final() {
     if [[ -t 0 ]] && [[ -t 1 ]]; then
-        printf '\n%s' 'Enter para fechar… '
+        printf '\n%s' 'Enter para fechar '
         read -r _
     fi
     return 0

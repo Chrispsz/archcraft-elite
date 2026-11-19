@@ -65,7 +65,7 @@ if command -v craft-menu >/dev/null 2>&1; then
         'Suspender' \
         'Reiniciar' \
         'Desligar' \
-        'Tempo de idle…' \
+        'Tempo de idle' \
         2>"$errf")" || ec=$?
     if [ "$ec" -eq 143 ]; then
         # v2.3.5 — SIGTERM = fechado de fora (cross-dismiss: outro menu
@@ -230,6 +230,6 @@ case "$choice" in
     # tempo de idle facilmente?' — o craft-idle JÁ fazia, mas morava só no
     # menu do desktop. Agora o Sessão carrega (as ações de energia e o
     # controle do idle na mesma porta — UX de um só lugar).
-    'Tempo de idle…') exec craft-idle ;;
+    'Tempo de idle') exec craft-idle ;;
     *)                exit 0 ;;   # Esc/vazio: menu fecha e NADA acontece
 esac

@@ -249,7 +249,7 @@ gpu_cleanup_foreign() {
     # boot seguinte vai pro emergency shell. A contradição morre na fonte.
     if [[ -f /etc/mkinitcpio.conf ]] && grep -q '^MODULES=(nvidia' /etc/mkinitcpio.conf; then
       (( DRY )) || sed -i 's|^MODULES=(nvidia[^)]*)|MODULES=()|' /etc/mkinitcpio.conf
-      say "Auto-limpeza: MODULES=(nvidia …) saiu do initramfs (install-stage viu o dGPU; quem manda no driver é o tune — GPU $vendor)"
+      say "Auto-limpeza: o bloco MODULES do nvidia saiu do initramfs (install-stage viu o dGPU; quem manda no driver é o tune — GPU $vendor)"
     fi
     if [[ -e /etc/modprobe.d/00-elite-nvidia.conf ]]; then
       (( DRY )) || rm -f /etc/modprobe.d/00-elite-nvidia.conf
@@ -1161,7 +1161,7 @@ for h in /home/*/; do
   grep -q 'elite-craft-compress-1' "$UCAF" 2>/dev/null || continue
   u="$(stat -c '%U' "$h")"
   if (( DRY )); then
-    say "[dry] Arquivos ($u): verbo Comprimir… seria removido do uca.xml (E72)"
+    say "[dry] Arquivos ($u): verbo Comprimir seria removido do uca.xml (E72)"
     continue
   fi
   backup "$UCAF"
@@ -1178,7 +1178,7 @@ for h in /home/*/; do
     chmod --reference="$UCAF" "$UCAF.tmp" 2>/dev/null || true
     chown "$(stat -c '%U:%G' "$h")" "$UCAF.tmp" 2>/dev/null || true
     mv -f "$UCAF.tmp" "$UCAF"
-    say "Arquivos ($u): verbo Comprimir… removido do uca.xml (E72 — a peça morreu com honra; terminal e Extrair intactos)"
+    say "Arquivos ($u): verbo Comprimir removido do uca.xml (E72 — a peça morreu com honra; terminal e Extrair intactos)"
   else
     rm -f "$UCAF.tmp"
     warn "Arquivos ($u): a reescrita do uca.xml falhou — o verbo segue no menu (réu à vista no papel)"

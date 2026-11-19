@@ -541,7 +541,7 @@ sentinela_db() {
         if [ "$modo" = "auto" ]; then
             ulog "$porta: pacman ocupado (lock vivo) — a sentinela espera (teto ${limite}s)"
         else
-            echo "==> outra operação de pacotes está em execução — aguardando a base liberar (teto ${limite}s)…"
+            echo "==> outra operação de pacotes está em execução — aguardando a base liberar (teto ${limite}s)"
             echo "    (costuma ser a dose ao ligar — elite-bootupdate, 3min após o boot — terminando)"
         fi
         while db_busy; do
@@ -669,6 +669,50 @@ refresh_session() {
                 pkill -u "$uid" -x swayidle 2>/dev/null || true
                 ulog "sessão: swayidle (uid $uid) reiniciado — o supervisor craft-bars ressuscita com a receita nova (idle/suspensão valem SEM relogin)"
             fi
+            # E125 — AS PELES DA CASA CHEGAM VIVAS NA DOSE (a mesma escola
+            # do E48: a cura que espera reboot é cura adiada). O dump
+            # 161746 fotografou o buraco inteiro: a dose 1.0-72 aterrissou
+            # 16:14:31 com o menu novo NO DISCO e o dono viu o dia inteiro
+            # o menu VELHO (labwc lê o menu no próprio arranque; o rice do
+            # boot correu DEPOIS — 16:15:15 — e o reconfigure de tiro único
+            # morreu na corrida do IPC). AQUI a dose renova as seis peles
+            # (menu/rc/topbar/OSD/lock) na sessão viva e o craft-rice
+            # aplica o reconfigure com rede de tentativas. GUARD: só com o
+            # craft-bars de pé (o supervisor garante o respawn da barra —
+            # o pkill do rice sem supervisor seria dano, não cura; o ramo
+            # AUSENTE acima já devolveu). WAYLAND_DISPLAY descoberto no
+            # /run/user/$uid (o socket do compositor vivo); sem socket =
+            # sessão sem gráfico = silêncio honesto.
+            _wd=""
+            for _w in /run/user/"$uid"/wayland-*; do
+                [ -S "$_w" ] || continue
+                _wd="${_w##*/}"
+                break
+            done
+            if [ -n "$_wd" ]; then
+                # raiz executa pelo runuser; o próprio usuário corre direto
+                # (a porta manual do menu é uid 1000 — o runuser de raiz
+                # morreria aqui; a mesma escola do notify_users acima)
+                if [ "$uid" = "$(id -u)" ]; then
+                    _rice_out="$(env \
+                        XDG_RUNTIME_DIR="/run/user/$uid" \
+                        WAYLAND_DISPLAY="$_wd" \
+                        HOME="$(getent passwd "$uid" | cut -d: -f6)" \
+                        craft-rice 2>&1 || true)"
+                else
+                    _rice_out="$(runuser -u "#$uid" -- env \
+                        XDG_RUNTIME_DIR="/run/user/$uid" \
+                        WAYLAND_DISPLAY="$_wd" \
+                        HOME="$(getent passwd "$uid" | cut -d: -f6)" \
+                        craft-rice 2>&1 || true)"
+                fi
+                if printf '%s' "$_rice_out" | grep -q 'reconfigure aplicado'; then
+                    ulog "sessão: peles da casa renovadas + reconfigure (uid $uid) — menu/rc/topbar novos valem na sessão viva, sem relogin"
+                elif [ -n "$_rice_out" ]; then
+                    ulog "sessão: craft-rice correu (uid $uid) sem reconfigure confirmado — o veredito dele segue no bars.log (as peles valem no próximo reconfigure/arranque)"
+                fi
+            fi
+            unset _wd _rice_out _w
         fi
     done < <(loginctl list-users --no-legend 2>/dev/null || true)
 }
@@ -798,7 +842,7 @@ if [[ "${1:-}" == "--check" ]]; then
         if (( npend > 0 )); then
             printf '  %d pacote(s) com upgrade pronto — base sincronizada %s\n' "$npend" "${oldest:-?}"
             { pacman -Qu 2>/dev/null || true; } | head -8 | sed 's/^/    /'
-            (( npend > 8 )) && printf '    … e mais %d\n' $((npend - 8))
+            (( npend > 8 )) && printf '    e mais %d\n' $((npend - 8))
         else
             printf '  nada pendente — base sincronizada %s\n' "${oldest:-?}"
         fi
@@ -1207,7 +1251,7 @@ while :; do
         exit "$manual_rc"
     fi
     ulog "manual: cura aplicada (rodada $manual_round) — a transação refaz"
-    echo "==> cura aplicada (arquivo órfão sem dono foi para a quarantena bak-) — a transação refaz…"
+    echo "==> cura aplicada (arquivo órfão sem dono foi para a quarantena bak-) — a transação refaz"
 done
 rm -f "$ERRCAP"
 # E94 — a adoção de âncoras entra DEPOIS da dose vencida (a transação

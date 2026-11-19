@@ -374,10 +374,41 @@ if [ "$_wt" = 1 ] || [ "$_ws" = 1 ]; then
 fi
 
 if [ "$CHANGED" -ge 1 ]; then
-    if command -v labwc-msg >/dev/null 2>&1 \
-            && [ -n "${WAYLAND_DISPLAY:-}" ]; then
-        labwc-msg reconfigure 2>/dev/null \
-            && say "craft-rice: reconfigure aplicado (as regras valem na sessão viva)"
+    if command -v labwc-msg >/dev/null 2>&1; then
+        if [ -n "${WAYLAND_DISPLAY:-}" ]; then
+            # E125 — O RECONFIGURE COM REDE (a corrida do arranque): no
+            # boot o rice corre NO autostart — o labwc ainda está
+            # assentando e o IPC pode não responder no 1º tiro. O dump
+            # 161746 fotografou o crime inteiro: o menu.xml renovou às
+            # 16:15:15 e a linha do reconfigure NUNCA chegou ao papel —
+            # o labwc tinha lido o menu VELHO no próprio arranque e
+            # serviu a pele antiga o dia inteiro (o dono: 'os botões de
+            # captura continuam separados' — o submenu que a casa
+            # entregou nunca apareceu; a dose 1.0-72 estava no disco e
+            # INVISÍVEL na sessão). Até 6 tentativas, 0.5s entre elas: a
+            # 1ª que responde encerra; o veredito honesto sai nos dois
+            # desfechos (o papel nunca chama de aplicado o que não
+            # respondeu — a lição E33 na escala da pele).
+            _rice_ok=0
+            _rice_try=1
+            while [ "$_rice_try" -le 6 ]; do
+                if labwc-msg reconfigure >/dev/null 2>&1; then
+                    _rice_ok=1
+                    break
+                fi
+                sleep 0.5
+                _rice_try=$((_rice_try + 1))
+            done
+            if [ "$_rice_ok" = 1 ]; then
+                say "craft-rice: reconfigure aplicado (tentativa $_rice_try — as peles valem na sessão viva)"
+            else
+                say "craft-rice: labwc-msg SEM resposta nas 6 tentativas — as peles valem no próximo reconfigure/arranque (o réu fica nomeado no papel)"
+            fi
+        else
+            say "craft-rice: peles mudaram mas WAYLAND_DISPLAY está vazio neste env (sem sessão gráfica alcançável) — valem no próximo arranque/reconfigure"
+        fi
+    else
+        say "craft-rice: peles mudaram mas labwc-msg não existe — valem no próximo arranque"
     fi
     if [ "$CHANGED" -eq 2 ] && cmp -s "$OSD_SRC" "$OSD_DST" 2>/dev/null; then
         pgrep -x swayosd-server >/dev/null 2>&1 \

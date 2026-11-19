@@ -50,7 +50,7 @@ snap_list() {
 mlog "Rollback: abrindo (craft-menu)"
 errf="$(mktemp)"
 ec=0
-choice="$(craft-menu --title='Rollback' --at=power 'Criar snapshot agora' 'Restaurar snapshot…' \
+choice="$(craft-menu --title='Rollback' --at=power 'Criar snapshot agora' 'Restaurar snapshot' \
     2>"$errf")" || ec=$?
 if [ "$ec" -eq 143 ]; then
     mlog "Rollback: fechado de fora (SIGTERM — toggle/cross-dismiss) — benigno"
@@ -113,7 +113,7 @@ case "$choice" in
             note -u normal -t 8000 'Rollback' 'Não deu para criar o snapshot — senha ou snapper sem config.'
         fi
         ;;
-    'Restaurar snapshot…')
+    'Restaurar snapshot')
         list="$(snap_list || true)"
         if [ -z "$list" ]; then
             mlog "Rollback: nenhum snapshot para restaurar"

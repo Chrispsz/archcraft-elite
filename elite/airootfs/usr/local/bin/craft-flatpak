@@ -181,8 +181,8 @@ do_menu() {
     fi
     escolha="$(printf '%s\n' \
         'Status' \
-        'Instalar aplicativo… (busca no Flathub)' \
-        'Remover aplicativo…' \
+        'Instalar aplicativo (busca no Flathub)' \
+        'Remover aplicativo' \
         'Limpar dados órfãos' \
         'Atualizar todos' \
         | craft-menu --title='Flatpaks')" || exit 0

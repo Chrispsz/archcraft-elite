@@ -176,10 +176,10 @@ if [ -f "$UCA_E97" ] && grep -q 'elite-craft-compress-1' "$UCA_E97" 2>/dev/null;
         !ina { print }
     ' "$UCA_E97" > "$UCA_E97.tmp" && [ -s "$UCA_E97.tmp" ]; then
         mv -f "$UCA_E97.tmp" "$UCA_E97"
-        printf '[%s] thunar: verbo Comprimir… removido do uca.xml (E97 — a E72 chegou ao rig pelo supervisor; terminal e Extrair intactos)\n' "$(date '+%F %T')" >>"$LOG"
+        printf '[%s] thunar: verbo Comprimir removido do uca.xml (E97 — a E72 chegou ao rig pelo supervisor; terminal e Extrair intactos)\n' "$(date '+%F %T')" >>"$LOG"
     else
         rm -f "$UCA_E97.tmp" 2>/dev/null || true
-        printf '[%s] thunar: FALHA ao reescrever o uca.xml — o verbo Comprimir… segue (réu nomeado)\n' "$(date '+%F %T')" >>"$LOG"
+        printf '[%s] thunar: FALHA ao reescrever o uca.xml — o verbo Comprimir segue (réu nomeado)\n' "$(date '+%F %T')" >>"$LOG"
     fi
 fi
 unset UCA_E97

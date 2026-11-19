@@ -2213,7 +2213,58 @@ pkgver=1.0
 #     FUNCIONA (o help imprimia o literal que o usuário devia ler); a
 #     cura é para o GATE ficar verde. pkgrel 71→72 NO MESMO COMMIT (lei
 #     E41 — craft-player mudou de conteúdo de novo).
-pkgrel=72
+# E125 (19/11 — o dump 161746 + o relato do dono em vivo: 'os botões
+#     de captura continuam separados', 'o sistema continua tendo muito
+#     os três pontinhos assim para completar', 'o status mudou, mas não
+#     mudou tudo que eu pedi'). TRÊS réus de nome:
+#     (1) O MENU QUE NUNCA CHEGOU — a dose 1.0-72 aterrissou 16:14:31
+#     com o submenu 'Captura de tela' NO DISCO e o labwc serviu o menu
+#     VELHO o dia inteiro (o dono viu 'separado' o que a casa já tinha
+#     unificado). A perícia do dump provou: o rice do boot correu NO
+#     autostart (menu renovado 16:15:15, waybar 16:15:15) e o reconfigure
+#     de tiro único morreu CALADO — a linha 'reconfigure aplicado' nunca
+#     chegou ao bars.log; o labwc lê o menu no PRÓPRIO arranque e o rice
+#     corre DEPOIS dele. Cura ×2: o craft-rice re-tenta o labwc-msg até
+#     6× (0.5s entre elas) com veredito honesto nos DOIS desfechos (o
+#     papel nunca chama de aplicado o que não respondeu — E33) e nomeia
+#     o env sem WAYLAND_DISPLAY e o labwc-msg ausente; o craft-update
+#     refresh_session renova as peles + reconfigure NA DOSE VIVA (o
+#     mesmo esquema do notify_users: raiz via runuser, o próprio usuário
+#     direto; WAYLAND_DISPLAY descoberto no /run/user/$uid; guard do
+#     craft-bars de pé — o pkill do waybar sem supervisor seria dano —
+#     a escola E48: a cura que espera reboot é cura adiada).
+#     (2) OS TRÊS PONTINHOS MORREM (a ordem do dono: 'textos completos
+#     sem recortes ou sem três pontinhos' — todo '…' de convenção lido
+#     como recorte): menu.xml — 'Apps da dock', 'Modo de jogo', 'Trava
+#     automática'; fuzzel — 'Tempo de idle', 'Redes Wi-Fi', 'Conexões
+#     salvas', 'Bluetooth: dispositivos', 'Editor de conexões',
+#     'Atualizar', 'Alterar senha', 'Esquecer', 'Registrar AppImage',
+#     'Remover registro', 'Instalar aplicativo', 'Remover aplicativo',
+#     'Restaurar snapshot'; terminal/notificações — 'Enter para fechar',
+#     'Validando' (hyprlock), 'Extraindo', 'e mais N', 'a transação
+#     refaz', o verbo 'Comprimir' (elite-tune + craft-bars, E33 de voz),
+#     e o craft-display que mandava o dono para 'Telas…' — porta EXTINTA
+#     desde a E114: a mentira E33 sai e a mensagem aponta o wdisplays +
+#     o watch que grava. A FONTE do labwc (0.20.3 theme.c) provou o
+#     CORTADOR de rótulo: menu.width.max = 200px é o réu do '(tela
+#     int…' — todo rótulo da casa agora cabe no cap (o dono nunca mais
+#     vê pontinho de recorte no menu). O help do craft-help ainda
+#     citava os 'drop-ins do labwc' que a E123 aposentou (E33).
+#     (3) O STATUS DO JOGO SEM A ÚLTIMA SUJEIRA — os PIDs e a versão do
+#     pacote saem da mesa de fatos (o dono lê ESTADO, não números de
+#     processo; a versão mora no pacman; o pid do watch já tem linha no
+#     papel desde o nascimento dele). E O PAPEL RECEBE UMA LINHA: o
+#     bloco INTEIRO do status a cada clique engolia o game.log (a E121
+#     nomeou o réu e o teto E36 só segurava o tamanho) — agora o papel
+#     guarda 'status: consultado (estado em uma linha)' e a tela o
+#     estado completo. Bins/peles com conteúdo mudado: menu.xml,
+#     craft-rice, craft-update, craft-power, craft-connect, craft-game,
+#     craft-clean, craft-help, craft-idle, craft-appimage,
+#     craft-flatpak, craft-extract, elite-tune, craft-bars, craft-display,
+#     craft-rollback, elite-install-stage, exo-open, hyprlock.conf.
+#     Tests: âncoras 'Apps da dock'/'Comprimir' refrescadas ×4.
+#     pkgrel 72→73 NO MESMO COMMIT (lei E41).
+pkgrel=73
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
