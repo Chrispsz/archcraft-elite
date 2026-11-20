@@ -116,19 +116,22 @@ volume/rede/sessão à direita.
 
 ## Atualizações
 
-A distro se mantém viva em QUATRO cadências — cada peça no ritmo do risco
-que ela carrega (E46, o dono: "o sistema não deve quebrar ao atualizar mas
-sim melhorar constantemente"):
+A distro se mantém viva — cada peça no ritmo do risco que ela carrega:
 
 | Cadência | O quê | Como |
 |---|---|---|
-| **Ao ligar** (3 min após cada boot) | O código da casa (`elite-system` + navegador) | `elite-bootupdate.timer`: dose cirúrgica do repo `[elite-local]` — só na tomada, offline-safe; o relógio é o BOOT (E51, o dono: "atualizar a cada vez que iniciar") — máquina desligada não perde dose nenhuma |
-| **Semanal** (sáb 10:00 ±2h) | O sistema inteiro (repos Arch) | `elite-sysupdate.timer`: `-Syu` com snapshot **PRE/POST do snapper** — quebrou? o GRUB liga o snapshot e o rollback é um reboot |
+| **Sob demanda** (você no comando) | O sistema inteiro + o código da casa | `craft-update` (menu "Atualizar sistema") ou `elite-update` — `-Syu` com snapshot **PRE/POST do snapper** (quebrou? o GRUB liga o snapshot e o rollback é um reboot), aviso de reboot quando o kernel muda, `ParallelDownloads = 5` |
 | **Mensal** (1º dia) | A ISO de fábrica | tag `v*` → build completo com os dois gates |
-| **Quando você quiser** | Tudo | `craft-update` (menu "Atualizar sistema") — a porta manual instala o veículo da casa e liga a cadência na 1ª rodada |
 
-O canal diário é o fim do "erros persistem após atualizar": a cura no
-repositório chega à sua máquina no dia seguinte, sem formatar, sem
+E128 (2026-11-20): NENHUM timer roda update no boot ou em background — a
+constituição do dono (`AGENTS.md` §5) aposentou a cadência ao ligar
+(`elite-bootupdate`) e a semanal (`elite-sysupdate`): boot instantâneo, sem
+gargalo de I/O no arranque, sem briga de lock, sem partial upgrade escondido.
+A atualização é 100% sob demanda e o usuário de `wheel` sobe a dose sem
+senha (regra `50-elite-wheel.rules` — polkit narrow, sem wildcard).
+
+O fim do "erros persistem após atualizar" continua sendo o canal: a cura no
+repositório chega à sua máquina no próximo `craft-update`, sem formatar, sem
 reinstalar — e as configurações de usuário nunca são tocadas.
 
 ## Build

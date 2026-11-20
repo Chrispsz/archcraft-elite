@@ -105,12 +105,20 @@
 #   sistema a cada vez que iniciar para poupar o usuário de ficar
 #   atualizando manualmente". O timer de relógio (11:30) era uma aposta
 #   contra a rotina do dono — máquina desligada na hora = dia sem cura. O
-#   boot é o ÚNICO relógio que o dono bate todos os dias: o
-#   elite-bootupdate.timer (OnBootSec 3min) assume a dose da casa e o
-#   elite-channel APOSENTA (disable --now + unit files fora do caminho —
+#   elite-channel APOSENTOU (disable --now + unit files fora do caminho —
 #   a função elite_cadencia serve as DUAS portas, --adotar e manual,
-#   idempotente). A dose semanal (sistema inteiro, com snapshot PRE/POST)
-#   segue no sáb 10:00 — a rede de segurança não se corta.
+#   idempotente).
+# v5.7 (E128 — A CADÊNCIA MORRE INTEIRA, 2026-11-20): a CONSTITUIÇÃO do
+#   dono (AGENTS.md §5, ratificada neste dia) REVOGA a ordem E51: "Nunca
+#   habilitar pacman -Sy/-Syu automático no boot ou silencioso em
+#   background (gargalo de I/O, db.lck travado, partial upgrades e
+#   dessincronização de módulos do kernel). Atualizações são 100% sob
+#   demanda via elite-update / craft-update." A família inteira da
+#   cadência (elite-channel, elite-bootupdate, elite-sysupdate — service
+#   E timer) sai da árvore, é DISABLED e MASCARADA pela elite_cadencia
+#   (idempotente nas DUAS portas) e o post_upgrade do pacote faz o mesmo
+#   no rig que só chega pelo pacman. A dose sob demanda ganhou a porta
+#   canônica elite-update (pkexec + a regra 50-elite-wheel.rules).
 # v5.2 (E54 — A SENTINELA DA BASE): o dono rodou 'craft-update' e colheu o
 #   erro cru do pacman: "falha ao sincronizar todas as bases de dados (não
 #   foi possível travar a base de dados)". A raiz honesta tem DUAS caras:
@@ -164,8 +172,11 @@
 #       A dose ao ligar brigava com a cura do keyring (aos 120s do boot)
 #       e morria calada = dia inteiro sem dose; a semanal brigava igual.
 #       As automáticas também ESPERAM com teto agora; estourou o teto =
-#       adiamento honesto (o timer re-arma — ver elite-bootupdate.timer
-#       E64). O lock órfão é curado nas 3 portas com a MESMA lei.
+#       adiamento honesto. O lock órfão é curado nas 3 portas com a
+#       MESMA lei.
+#       (E128 — o 'timer re-arma' citado aqui morreu com a cadência:
+#       os timers não existem mais; o adiamento é adiamento — a próxima
+#       chamada sob demanda traz a dose.)
 #   (3) CHECAGEM NÃO É NOTÍCIA: com o re-armamento horário do timer, a
 #       dose roda de 1h em 1h; pacman --needed sem candidato novo é o
 #       caso COMUM — notify só quando a casa MUDA (delta antes/depois,
@@ -334,8 +345,8 @@ ensina_orfao() {
 }
 
 # E101 — A CLASSE ÓRFÃ CURA-SE SOZINHA (a prova do dono no papel, 10/nov:
-# a dose ao ligar RECUSADA por '/usr/lib/systemd/system-sleep/elite-sleep-report'
-# existe no sistema de arquivos' — o elite-bootupdate.service FALHOU e o
+# a dose RECUSADA por '/usr/lib/systemd/system-sleep/elite-sleep-report'
+# existe no sistema de arquivos' — a dose FALHOU e o
 # papel ensinou TRÊS comandos manuais. A lei do dono: 'não lançar
 # atualização e não conseguir instalar… e ter que dar comandos manuais'.
 # A cura que viaja dentro do pacote recusado nunca alcança (bootstrap) —
@@ -457,9 +468,15 @@ adota_lojas() {
     # NÃO MENTE mais: o rc+stderr da instalação entra no papel — o réu
     # tem nome, o 'sem rede?' calado morre).
     local id nome
-    # E126 — Okular entra na família (a ordem do dono: 'Okular para
-    # documentos' — o leitor universal em flatpak, sem Qt no sistema)
-    for nome in "Warehouse:io.github.flattool.Warehouse" "Gear Lever:it.mijorus.gearlever" "Okular:org.kde.okular"; do
+    # E126 — a família das lojas/leitor (a ordem do dono na era E126)
+    # E128 — O OKULAR SAI E O BAZAAR ENTRA (a ordem do dono em 2026-11-20:
+    # "mantendo apenas GNOME Papers + Bazaar" — o leitor da casa é o
+    # Papers (papers, GTK4 — packages.add); o Okular era Qt inteiro no
+    # Flathub (runtime ~1 GB de Qt quando é o único flatpak Qt) e a loja
+    # GRÁFICA da casa é o Bazaar (a porta 'Loja de apps' já o nomeia — o
+    # binário agora NASCE adotado). A remoção do okular (e dos runtimes
+    # órfãos --unused) roda no bloco logo abaixo — idempotente.)
+    for nome in "Warehouse:io.github.flattool.Warehouse" "Gear Lever:it.mijorus.gearlever" "Bazaar:io.github.kolunmi.Bazaar"; do
         id="${nome#*:}"; nome="${nome%%:*}"
         if flatpak info --system "$id" >/dev/null 2>&1; then
             ulog "lojas: $nome já presente — nada a fazer"
@@ -476,6 +493,23 @@ adota_lojas() {
             ulog "lojas: $nome não instalou agora (rc=$_flat_rc, stderr: $(printf '%s' "$_flat_out" | tail -c 200 | tr '\n' ';')) — a próxima dose tenta de novo, best-effort, nunca bloqueia"
         fi
     done
+    # E128 — O OKULAR SAI DO SISTEMA (idempotente; a ordem do dono de
+    # 2026-11-20: apenas Papers + Bazaar moram na casa). O --unused depois
+    # leva os runtimes que SÓ o okular puxava (o Qt do Flathub inteiro,
+    # quando é o único app Qt) — higiene de disco/RAM de graça. Best-effort:
+    # sem flatpak, sem rede ou recusado = linha no papel, dose segue.
+    if flatpak info --system org.kde.okular >/dev/null 2>&1; then
+        _okr_rc=0
+        _okr_out="$(flatpak uninstall --system --noninteractive org.kde.okular 2>&1)" || _okr_rc=$?
+        if [ "$_okr_rc" = 0 ]; then
+            ulog "lojas: org.kde.okular REMOVIDO (a ordem do dono E128 — Papers é o leitor da casa)"
+        else
+            ulog "lojas: okular não saiu agora (rc=$_okr_rc, stderr: $(printf '%s' "$_okr_out" | tail -c 200 | tr '\n' ';')) — a próxima dose tenta de novo, best-effort"
+        fi
+    fi
+    if flatpak uninstall --system --noninteractive --unused >/dev/null 2>&1; then
+        ulog "lojas: runtimes órfãos (--unused) sem dono nenhum — nada removido ou limpeza ok (idempotente)"
+    fi
     return 0
 }
 
@@ -487,8 +521,9 @@ adota_lojas() {
 # com o binário ANTERIOR (o código em execução nasceu antes do download;
 # o pacman troca o arquivo no disco, mas quem está rodando é o de antes).
 # As filas que o commit novo carrega (adota_lojas, ADOCAO ampliada)
-# entram na PRÓXIMA dose — idempotente, nada fica para trás: a dose ao
-# ligar (elite-bootupdate) e a porta manual já nascem com o código novo.
+# entram na PRÓXIMA dose — idempotente, nada fica para trás: a porta
+# manual e o elite-update já nascem com o código novo (E128: a dose 'ao
+# ligar' não existe mais — a constituição aposentou os timers).
 # O papel NUNCA deixa o dono adivinhar.
 nomeia_fila_nova() {
     local es_antes="$1" es_depois
@@ -544,7 +579,7 @@ sentinela_db() {
             ulog "$porta: pacman ocupado (lock vivo) — a sentinela espera (teto ${limite}s)"
         else
             echo "==> outra operação de pacotes está em execução — aguardando a base liberar (teto ${limite}s)"
-            echo "    (costuma ser a dose ao ligar — elite-bootupdate, 3min após o boot — terminando)"
+            echo "    (costuma ser outra transação do dono — o pacman é de UM dono por vez)"
         fi
         while db_busy; do
             sleep 2
@@ -719,28 +754,32 @@ refresh_session() {
     done < <(loginctl list-users --no-legend 2>/dev/null || true)
 }
 
-# E51 — A CADÊNCIA AO LIGAR (a função única das duas portas — --adotar e
-# manual): a casa atualiza A CADA BOOT (o dono: "a ISO deve atualizar o
-# sistema a cada vez que iniciar para poupar o usuário de ficar
-# atualizando manualmente"). O timer de relógio (11:30) era uma aposta
-# contra a rotina: máquina desligada na hora = dia sem cura. O boot é o
-# relógio que o dono BATE todos os dias (elite-bootupdate.timer,
-# OnBootSec 3min) + a dose SEMANAL do sistema (sáb 10:00) segue como rede
-# completa. O elite-channel APOSENTA aqui: disable --now + as unit files
-# fora do caminho (rigs com overlay sem dono não ficam com cadência
-# fantasma; os que tinham as units por PACOTE já as perderam no replaces
-# do elite-system 1.0-2 — o rm é para os órfãos de overlay).
+# E128 — A CADÊNCIA MORRE INTEIRA (a função única das DUAS portas —
+# --adotar e manual; idempotente): a CONSTITUIÇÃO do dono (AGENTS.md §5,
+# ratificada em 2026-11-20) REVOGA a ordem E51 ("atualizar a cada boot") e
+# nomeia a lei nova: NENHUM timer roda pacman em background — boot
+# instantâneo, zero gargalo de I/O no arranque, zero db.lck travado, zero
+# partial upgrade escondido. Toda a família da cadência (elite-channel,
+# elite-bootupdate, elite-sysupdate — service E timer, as três eras do
+# automatismo) é APOSENTADA COM VOZ: disable --now → unit files fora do
+# caminho (órfãos de overlay e do pacote antigo) → MÁSCARA (o systemd
+# recusa até o start manual dessas unidades — o fóssil de rig antigo não
+# renasce). A atualização vive SÓ sob demanda: craft-update (menu/sudo) e
+# elite-update (a porta canônica com a regra 50-elite-wheel.rules).
 elite_cadencia() {
     UNITDIR="${ELITE_UNIT_DIR:-/etc/systemd/system}"
-    if run_root systemctl disable --now elite-channel.timer >/dev/null 2>&1; then
-        ulog "cadência: elite-channel.timer aposentado — a casa atualiza AO LIGAR (E51)"
-    fi
-    rm -f "$UNITDIR/elite-channel.timer" "$UNITDIR/elite-channel.service" 2>/dev/null || true
-    if [ -f "$UNITDIR/elite-bootupdate.timer" ] && [ -f "$UNITDIR/elite-sysupdate.timer" ]; then
-        if run_root systemctl enable --now elite-bootupdate.timer elite-sysupdate.timer >/dev/null 2>&1; then
-            ulog "cadência: AO LIGAR (bootupdate, 3min pós-boot) · sistema SEMANAL sáb 10:00"
-            echo "==> automatismo da casa ativo: casa AO LIGAR (3min pós-boot) · sistema SEMANAL sáb 10:00"
-        fi
+    local t
+    for t in elite-channel.timer elite-channel.service \
+             elite-bootupdate.timer elite-bootupdate.service \
+             elite-sysupdate.timer elite-sysupdate.service; do
+        run_root systemctl disable --now "$t" >/dev/null 2>&1 || true
+        rm -f "$UNITDIR/$t" 2>/dev/null || true
+    done
+    if run_root systemctl mask elite-channel.timer elite-channel.service \
+        elite-bootupdate.timer elite-bootupdate.service \
+        elite-sysupdate.timer elite-sysupdate.service >/dev/null 2>&1; then
+        ulog "cadência: a família elite-channel/bootupdate/sysupdate (service+timer) aposentada e MASCARADA — atualização é 100% sob demanda (constituição do dono, AGENTS.md §5, E128)"
+        echo "==> cadência de update aposentada (constituição §5) — a casa atualiza sob demanda: craft-update ou elite-update"
     fi
 }
 
@@ -783,9 +822,10 @@ uso: craft-update [--check | --canal | --sistema | --adotar] — atualiza TUDO
                da base LOCAL (com a idade dela), cadência e a tag viva
                (se houver rede). Read-only, sem root — a pergunta
                barata de 'tem atualização?' (E90)
-  --canal      dose da casa AO LIGAR (elite-bootupdate.timer, OnBootSec
-               3min — a cadência que o (sem args) liga)
-  --sistema    dose SEMANAL com snapshot PRE/POST (sáb 10:00±2h)
+  --canal      dose da casa (só os pacotes [elite-local] — sob demanda;
+               era a dose AO LIGAR, os timers morreram na E128)
+  --sistema    dose completa do sistema com snapshot PRE/POST (snapper) —
+               a dose que o elite-update executa
   --adotar     a conclusão da PONTE (elite-adopt do craft-toplevel velho)
 
   a dose pede sudo; o --check roda como dono mesmo. O papel da
@@ -816,10 +856,13 @@ if [[ "${1:-}" == "--check" ]]; then
     if [[ -r "$VMARK" ]]; then
         printf '  base da ISO          %s (/usr/local/share/elite/VERSION)\n' "$(head -n1 "$VMARK" 2>/dev/null || echo '?')"
     fi
-    # ── a cadência (a automação de pé?) ──
+    # ── a cadência (a constituição §5: nenhuma rodando — sob demanda) ──
     printf '\n── cadência\n'
+    printf '  (a casa atualiza SOB DEMANDA — constituição do dono, AGENTS.md §5:
+'
+    printf '   nenhum timer de update; a família bootupdate/sysupdate está aposentada)\n'
     for t in elite-bootupdate.timer elite-sysupdate.timer; do
-        st="$(systemctl is-enabled "$t" 2>/dev/null)" || st='desligada'
+        st="$(systemctl is-enabled "$t" 2>/dev/null)" || st='ausente'
         printf '  %-22s %s\n' "$t" "$st"
     done
     # ── a última dose no papel ──
@@ -891,10 +934,11 @@ if [[ "${1:-}" == "--adotar" ]]; then
     exit 0
 fi
 
-# ── dose da casa AO LIGAR (elite-bootupdate.timer — OnBootSec 3min, E51) ─
+# ── dose da casa SOB DEMANDA (E128 — era a dose AO LIGAR do E51; os timers ─
+#    morreram na constituição do dono; a porta viva é esta + o elite-update) ─
 if [[ "${1:-}" == "--canal" ]]; then
     pacman_agil
-    ulog "canal: iniciando (dose da casa — ao ligar, E51)"
+    ulog "canal: iniciando (dose da casa — sob demanda, E128)"
     # E64 — A PROVA DE REDE ANTES DE TUDO (AUD-B2): a falha de rede na
     # dose ao ligar virava notify CRITICAL A CADA BOOT (o pacman recusava
     # o -Sy e o aviso soava por doença que era só silêncio da rede). Prova

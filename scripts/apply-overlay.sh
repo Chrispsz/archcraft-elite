@@ -503,6 +503,7 @@ if grep -q '^file_permissions=(' "$PD"; then
            /usr/local/bin/craft-fix-keys /usr/local/bin/craft-idle \
            /usr/local/bin/craft-vigil \
            /usr/local/bin/craft-keyring-wait \
+           /usr/local/bin/elite-update \
            /usr/local/bin/craft-bars /usr/local/bin/elite-install-stage \
            /usr/local/bin/elite-session-probe \
            /usr/local/bin/craft-dock /usr/local/bin/craft-dock-gui \

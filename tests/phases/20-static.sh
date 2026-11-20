@@ -439,14 +439,16 @@ assert_grep "$REPO/.ci/build.sh" "--overwrite '/usr/lib/systemd/system-sleep/\*'
 #    próprio + re-armamento; (2) prova de rede ANTES de qualquer
 #    transação; (3) sentinela nas TRÊS portas; (4) a semanal pula o live;
 #    (5) o keyring-fix tem minutos de parede.
-B64="$REPO/elite/airootfs/etc/systemd/system/elite-bootupdate.service"
-T64="$REPO/elite/airootfs/etc/systemd/system/elite-bootupdate.timer"
-S64="$REPO/elite/airootfs/etc/systemd/system/elite-sysupdate.service"
+# E128 (2026-11-20) — A CADÊNCIA MORRE: os contratos E64/AUD-B1 e B4 das
+#     units elite-bootupdate/elite-sysupdate APOSENTAM JUNTAS — a
+#     constituição do dono (AGENTS.md §5) revogou a E51 e a família saiu
+#     da árvore (os novos contratos da aposentadoria vivam no bloco E128
+#     abaixo, junto do E51/V4 reescrito).
 K64="$REPO/elite/airootfs/etc/systemd/system/elite-keyring-fix.service"
 CU64="$REPO/elite/airootfs/usr/local/bin/craft-update"
-assert_grep "$B64" '^TimeoutStartSec=15min$' "E64/AUD-B1: a dose ao ligar tem TETO PRÓPRIO (herdava 90s do system.conf — download lento = dose morta por SIGTERM antes de nascer; o --sistema sempre teve 2h, a diária era a órfã)"
-assert_grep "$T64" '^OnUnitInactiveSec=1h$' "E64/AUD-B1: a dose MORTA volta em 1h (OnUnitInactiveSec conta 'deactivated' de rodada viva OU morta — o dia sem cura por um boot apertado morre aqui)"
-assert_grep "$S64" '^ConditionPathExists=!/run/archiso$' "E64/AUD-B4: a semanal TAMBÉM pula o live (a doença E59 curada no bootupdate e esquecida na irmã — live usado >1 semana levaria -Syu NA MÍDIA)"
+assert_nofile "$REPO/elite/airootfs/etc/systemd/system/elite-bootupdate.service" "E128: o elite-bootupdate.service NÃO existe na árvore (a constituição do dono — AGENTS.md §5 — revogou a E51: nenhum timer roda update no boot)"
+assert_nofile "$REPO/elite/airootfs/etc/systemd/system/elite-bootupdate.timer" "E128: o elite-bootupdate.timer NÃO existe na árvore (o 'atualizar a cada vez que iniciar' da E51 foi revogado por escrito pelo próprio dono — atualização é 100% sob demanda)"
+assert_nofile "$REPO/elite/airootfs/etc/systemd/system/elite-sysupdate.service" "E128: o elite-sysupdate.service NÃO existe na árvore (a semanal automática morreu com a irmã — a dose sob demanda é o --sistema do craft-update e o elite-update)"
 assert_grep "$K64" '^TimeoutStartSec=15min$' "E64/AUD-B5: o keyring-fix tem MINUTOS DE PAREDE (pacman-key de minutos morto aos 90s = selo que nunca nasce, re-tenta eterna de 6h)"
 assert_grep "$CU64" 'rede_viva' "E64/AUD-B2: prova de rede ANTES de qualquer transação (curl 8s no db da casa — falha de rede deixa de virar notify CRITICAL a cada boot)"
 assert_grep "$CU64" 'releases/latest/download/elite-local\.db' "E64/AUD-B2: a prova bate no MESMO arquivo que o pacman baixa (o db da casa — overridável por ELITE_NET_URL, a escola do LCK/VMARK/ULOG)"
@@ -1502,7 +1504,8 @@ for TOK in $(grep -oE '\b(craft|elite)-[a-z0-9.-]+' "$REPO/README.md" | sort -u)
     elite-build) ;;              # diretório de SAÍDA do apply-overlay (não é programa)
     elite-local) ;;              # id do REPO da casa no pacman.conf (não é arquivo)
     elite-firstboot.service) ;;  # unit — resolvida pelo contrato abaixo
-    elite-bootupdate.timer|elite-sysupdate.timer) ;;  # units da cadência E46/E51 — resolvidas pelos contratos V4
+    elite-bootupdate|elite-sysupdate) ;;  # units APOSENTADAS pela constituição E128 (AGENTS.md §5) — citadas no README como HISTÓRIA revogada (a lei §5 contrata a citação: o papel conta o que morreu e por quê)
+    elite-wheel.rules) ;;        # a REGRA POLKIT da casa (50-elite-wheel.rules — E128; arquivo de /etc/polkit-1, não é bin)
     elite-system) ;;             # o PACOTE ÚNICO (E50) — resolvido pelos contratos E50 do build/packages.add
     *) [ -f "$BINS/$TOK" ] || DOC_GHOSTS="$DOC_GHOSTS $TOK" ;;
   esac
@@ -1555,7 +1558,7 @@ assert_grep "$CU46" '--canal' "E46/V1: a dose DIÁRIA existe (--canal — só os
 assert_grep "$CU46" '--sistema' "E46/V1: a dose SEMANAL existe (--sistema — o -Syu completo com rede de segurança)"
 assert_grep "$CU46" 'create -t pre' "E46/V1: a dose semanal arma o snapshot PRE do snapper ANTES da transação (quebrou? o GRUB liga o snapshot e o rollback é um reboot)"
 assert_grep "$CU46" 'pre-number' "E46/V1: o POST casa com o PRE (--pre-number — o par fecha a história)"
-assert_grep "$CU46" 'enable --now elite-bootupdate.timer elite-sysupdate.timer' "E51/V1: a porta manual ('Atualizar sistema') liga a cadência AO LIGAR na 1ª rodada (o automatismo nasce onde o dono já clica)"
+assert_grep "$CU46" 'mask elite-channel.timer elite-channel.service' "E128/V1: a porta manual ('Atualizar sistema') APOSENTA a cadência na 1ª rodada (a constituição do dono AGENTS.md §5 revoga a E51 — disable+mask idempotente nas duas portas)"
 assert_grep "$CU46" 'ELITE_UPDATE_LOG' "E46/V1: o log da automação é injetável (mesma escola do VMARK — a prova em sandbox não escreve em /var)"
 assert_grep "$CU46" 'pacman -Slq elite-local' "E46/V1: a dose diária nasce da LISTA VIVA do repo (pacote novo da casa entra no canal por construção)"
 # V2. UM VERBO POR FAMÍLIA (o 'Criar Arquivo…' que confundiu o dono morre):
@@ -1572,16 +1575,41 @@ assert_nogrep "$UCA" 'segue no menu' "E46/V2: o cabeçalho do uca.xml não jura 
 assert_nogrep "$CP46" 'Rollback do sistema…' "E46/V3: o item 'Rollback do sistema…' fora do menu Sessão (a porta do rollback é a entrada de snapshot no GRUB — o menu fica com o que se usa toda semana)"
 assert_nogrep "$CP46" 'exec craft-rollback' "E46/V3: o craft-power não executa mais o craft-rollback (o script segue no sistema — quem souber o caminho usa; o comentário que conta a história cita o nome, o EXEC é o que a peça proíbe)"
 # V4. A CADÊNCIA (as units da casa):
+# E128/V4 — A FAMÍLIA DA CADÊNCIA NÃO EXISTE MAIS (a constituição do dono
+#     AGENTS.md §5, 2026-11-20, revogou a E51/E46-cadência: boot instantâneo,
+#     update 100% sob demanda; a chaveiro-fix segue viva e habilitada — o
+#     keyring NÃO é update de pacote, é self-healing do próprio boot).
 for u46 in elite-bootupdate.service elite-bootupdate.timer elite-sysupdate.service elite-sysupdate.timer; do
-  assert_file "$S46/$u46" "E51/V4: $u46 existe (a cadência tem corpo — ao LIGAR 3min pós-boot · semanal sáb 10:00±2h)"
+  assert_nofile "$S46/$u46" "E128/V4: $u46 NÃO existe na árvore (a cadência de update morreu por ordem do dono — o automatismo nas três eras channel/bootupdate/sysupdate é história)"
 done
-assert_grep "$S46/elite-bootupdate.service" 'ConditionACPower=yes' "E51/V4: a dose da casa SÓ na tomada (battery nunca é o momento da transação)"
-assert_grep "$S46/elite-bootupdate.timer" 'OnBootSec=3min' "E51/V4: a casa atualiza AO LIGAR (OnBootSec 3min — 'atualizar a cada vez que iniciar', o dono; o boot é o relógio que ele bate todos os dias)"
-assert_grep "$S46/elite-sysupdate.timer" 'OnCalendar=Sat \*-\*-\* 10:00:00' "E46/V4: o sistema roda SEMANAL (sáb 10:00 ±2h — 'as partes do sistema semanalmente', o dono)"
-assert_grep "$S46/elite-sysupdate.timer" 'Persistence=true' "E46/V4: o timer atrasado CUMPRE (máquina desligada no sábado = atualiza ao ligar, não pula a semana)"
-assert_grep "$S46/elite-sysupdate.service" 'ConditionACPower=yes' "E46/V4: a dose semanal SÓ na tomada"
-assert_file "$S46/timers.target.wants/elite-bootupdate.timer" "E51/V4: o timer ao LIGAR nasce HABILITADO (wants symlink da overlay — a casa-prova do keyring-fix)"
-assert_file "$S46/timers.target.wants/elite-sysupdate.timer" "E46/V4: o timer do sistema nasce HABILITADO"
+assert_nofile "$S46/timers.target.wants/elite-bootupdate.timer" "E128/V4: o wants symlink do bootupdate NÃO existe (nenhum timer de update nasce habilitado — a constituição §5)"
+assert_nofile "$S46/timers.target.wants/elite-sysupdate.timer" "E128/V4: o wants symlink do sysupdate NÃO existe (a semanal automática não renasce — a dose é o --sistema sob demanda)"
+assert_grep "$CU46" 'systemctl mask elite-channel.timer' "E128/V4: a aposentadoria TEM MÁSCARA no código (o fóssil de rig antigo não renasce — disable+rm+mask idempotentes)"
+
+# ── E128 — A PORTA CANÔNICA + A AUTORIZAÇÃO DA CASA (2026-11-20): a
+#    constituição do dono (AGENTS.md §5) nomeia elite-update como veículo
+#    da atualização sob demanda; a regra polkit 50-elite-wheel.rules
+#    libera o pkexec das portas da casa para o wheel local ativo — NARROW
+#    por desenho (lookup EXATO, sem wildcard), o resto do sistema segue
+#    pedindo senha como sempre.
+EU128="$REPO/elite/airootfs/usr/local/bin/elite-update"
+PK128="$REPO/elite/airootfs/etc/polkit-1/rules.d/50-elite-wheel.rules"
+assert_file "$EU128" "E128: o elite-update EXISTE (a lei §5 cita a porta — porta sem corpo é fantasma E45)"
+assert_grep "$EU128" 'craft-update --sistema' "E128: a porta executa a dose COMPLETA com snapshot PRE/POST (a rede de segurança snapper não se corta na era sob demanda)"
+assert_grep "$EU128" 'pkexec' "E128: a escalada é POLKIT (o agente da casa — elite-polkit-listener — é quem conversa com o dono; zero sudo no escuro)"
+assert_grep "$EU128" 'id -u' "E128: como raiz ela executa DIRETO (a dose já é privilegiada — pkexec duplo seria teatro)"
+assert_file "$PK128" "E128: a regra polkit da casa existe na árvore (o 'Usuário não autorizado' do dono morre por DESPACHO, não por gambiarra de perms)"
+assert_grep "$PK128" 'org\.freedesktop\.policykit\.exec' "E128: a regra casa a ação do PKEXEC (a família lookup — o casamento é o caminho do binário)"
+assert_grep "$PK128" 'isInGroup\("wheel"\)' "E128: o juiz é o GRUPO WHEEL (a casa não inventa grupo novo — sudo/pam_wheel já decidem quem é admin)"
+assert_grep "$PK128" 'subject\.local && subject\.active' "E128: LOCAL E ATIVO (a regra não abre a porta para sessões remota/inativa — o polkit narrow da 49 vai à escola)"
+assert_grep "$PK128" '/usr/local/bin/craft-clean' "E128: a limpeza da casa entra na autorização (a porta que o menu chama por caminho absoluto)"
+assert_grep "$PK128" '/usr/local/bin/elite-update' "E128: a atualização sob demanda entra na autorização (a porta canônica da constituição §5)"
+assert_nogrep "$PK128" 'polkit\.Result\.YES;\s*}\s*$' "E128: a regra NÃO termina em YES livre (a estreiteza é a lei — a suíte lê o arquivo inteiro)"
+assert_grep "$CU46" 'org\.kde\.okular' "E128: o okular TEM REMOÇÃO NOMEADA no craft-update (uninstall idempotente — a ordem do dono: apenas Papers + Bazaar moram na casa)"
+assert_grep "$CU46" '--unused' "E128: os runtimes órfãos têm varredura (o Qt inteiro do Flathub que SÓ o okular puxava sai — higiene de disco de graça)"
+assert_grep "$CU46" 'io\.github\.kolunmi\.Bazaar' "E128: o Bazaar NASCE ADOTADO (a loja gráfica da porta 'Loja de apps' agora tem corpo garantido no rig)"
+assert_grep "$REPO/.ci/build.sh" 'pk_install' "E128: a regra polkit VIAJA NO PACOTE (o rig que só chega pelo pacman recebe a autorização com dono — a dança E43 da casa)"
+assert_grep "$REPO/elite/packages.add" '^papers$' "E128: o Papers FICA como leitor da casa (a família nova é Papers + Bazaar — nada do leitor regrede)"
 # V5. O VEÍCULO NASCE INSTALADO (futuras ISOs não repetem a ferida da 28):
 # E50 — O PACOTE ÚNICO é a entrada viva (a era dos dois veículos encerrou):
 assert_grep "$REPO/elite/packages.add" '^elite-system$' "E50: o elite-system no packages.add — a ISO nasce com O PACOTE ÚNICO INSTALADO (a diretriz do dono: um só pacote atualiza todo o sistema)"
@@ -1623,17 +1651,18 @@ assert_grep "$REPO/.ci/build.sh" 'setsid' "E49: a adoção nasce DESPRENDIDA (pa
 assert_grep "$REPO/.ci/build.sh" 'db.lck' "E49: a espera do lock é honesta e com teto (a transação-mãe termina antes da adoção — sem corrida, sem loop eterno)"
 assert_grep "$REPO/.ci/build.sh" '--adotar' "E49: a conclusão é do craft-update NOVO (fonte única da lógica de refresh — o elite-adopt só semeia)"
 assert_grep "$REPO/.ci/build.sh" 'ELITE_ADOPT_SYNC' "E49: o corpo acoplado é porta de prova (a suíte observa o comportamento; o hook real nunca liga)"
-# V6. O README conta a cadência (o papel acompanha o sistema):
-assert_grep "$REPO/README.md" 'elite-bootupdate.timer' "E51/V6: o README documenta a cadência AO LIGAR (o boot é o relógio do dono — a casa atualiza a cada vez que iniciar)"
-assert_nofile "$REPO/elite/airootfs/etc/systemd/system/elite-channel.timer" "E51: o timer de relógio APOSENTOU (a overlay não entrega mais o elite-channel — a era do 11:30 acabou)"
-assert_nofile "$REPO/elite/airootfs/etc/systemd/system/elite-channel.service" "E51: o service do channel APOSENTOU junto (nenhum fantasma de cadência na overlay)"
-assert_file "$REPO/elite/airootfs/etc/systemd/system/elite-bootupdate.service" "E51: a unit ao LIGAR nasce na overlay (a dose da casa tem casa)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-update" 'elite_cadencia' "E51: a cadência é UMA função nas duas portas (--adotar e manual — idempotente, sem duplicar)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-update" 'elite-channel.timer aposentado' "E51: a aposentadoria do relógio deixa réu no papel (o rig sabe POR QUE o canal de 11:30 sumiu)"
+# V6. O README conta a lei NOVA (E128 — sob demanda; o papel acompanha):
+assert_nogrep "$REPO/README.md" 'elite-bootupdate\.timer' "E128/V6: o README não documenta mais a cadência AO LIGAR (a constituição do dono AGENTS.md §5 revogou a E51 — papel que vende porta morta é mentira E33)"
+assert_nogrep "$REPO/README.md" 'elite-sysupdate\.timer' "E128/V6: o README não documenta mais a semanal automática (a dose sob demanda é o craft-update --sistema e o elite-update)"
+assert_grep "$REPO/README.md" 'elite-update' "E128/V6: o README nomeia a porta canônica nova (a constituição §5 e a suíte contratam o mesmo nome)"
+assert_nofile "$REPO/elite/airootfs/etc/systemd/system/elite-channel.timer" "E51/E128: o timer de relógio APOSENTOU (a overlay não entrega mais o elite-channel — a era do 11:30 acabou)"
+assert_nofile "$REPO/elite/airootfs/etc/systemd/system/elite-channel.service" "E51/E128: o service do channel APOSENTOU junto (nenhum fantasma de cadência na overlay)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-update" 'elite_cadencia' "E51/E128: a cadência é UMA função nas duas portas (--adotar e manual — idempotente, sem duplicar)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-update" 'aposentada e MASCARADA' "E128: a aposentadoria deixa réu no papel (o rig sabe POR QUE os timers sumiram — a constituição está citada no log)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 21→22 NO MESMO COMMIT' "E71 (era E54, âncora refrescada): pkgrel elite-system 21→22 NO MESMO COMMIT (lei E41 — o C do daemon e a dock mudaram de conteúdo; âncora na HISTÓRIA, o número atual é lei do guard-pkgrel do CI)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-update" 'dose AUTO-CURA a cadência' "E51.1: o canal SELF-HEAL a cadência (a dose v4.2 de hoje adota o rig e a PRÓPRIA dose troca o timer — nenhum rig fica com cadência fantasma)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-update" 'elite_cadencia' "E51.1/E128: a aposentadoria é SELF-HEAL (a dose de hoje desliga e mascara a família inteira no rig vivo — nenhum rig fica com cadência fantasma)"
 assert_grep "$REPO/.github/workflows/publish-packages.yml" 'craft-toplevel-\*\.pkg' "E51.1: o fluxo de publicação segue publicando a PONTE (a porta dos rigs v2 — o erro da aposentadoria confessado no build.sh)"
-assert_grep "$REPO/README.md" 'elite-sysupdate.timer' "E46/V6: o README documenta a cadência SEMANAL com snapshot PRE/POST"
+
 assert_nogrep "$REPO/README.md" 'restauração GUI no menu Sessão' "E46/V6: o README não vende mais a restauração GUI no menu Sessão (o rollback saiu do menu — o papel acompanha, E33 auto-patrulhado)"
 
 # ── E53: A DOCK VÊ O SEM-NOME — o dono: "a dock não está mostrando todo
@@ -1684,13 +1713,11 @@ assert_grep "$REPO/elite/packages.add" '^lxqt-policykit' "E58: o agente WM-agnó
 assert_grep "$CFK58" 'craft-keyring-wait' "E58: a cura da sessão ESPERA antes de tocar no chaveiro (o primeiro confronto sessão×pacman-init não existe mais — quem chega segundo, espera; o E38/E29 só cobria o restart)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 7→8 NO MESMO' "E58: pkgrel elite-system 7→8 NO MESMO COMMIT (lei E41 — craft-bars e craft-fix-keys mudaram de conteúdo; a âncora é a HISTÓRIA no comentário — o número atual pertence ao guard-pkgrel do CI, não ao contrato estático: ele anda a cada E-passo)"
 
-# ── E59 — A DOSE É DO SISTEMA INSTALADO (verify da ISO #4: elite-bootupdate
-#    'Failed with result exit-code' aos 3min do LIVE — copy-to-RAM não
-#    persiste nada, TCG lento; a causa exata do exit 1 é inobservável por
-#    desenho: o stderr morre no update.log do live). Cura na unit: o live
-#    PULA honestamente (condition failed = skipped — sem 'Failed with
-#    result' para o gate v1.5.2 reprovar); o rig instalado segue E51.
-assert_grep "$REPO/elite/airootfs/etc/systemd/system/elite-bootupdate.service" 'ConditionPathExists=!/run/archiso' "E59: o live PULA a dose (skipped honesto — a cadência E51 é do rig instalado; mídia descartável não se auto-atualiza)"
+# ── E59 — A DOSE É DO SISTEMA INSTALADO (verify da ISO #4): o live PULAVA a
+#    dose pela ConditionPathExists=!/run/archiso. E128: a unit inteira
+#    APOSENTOU (a constituição §5 matou a cadência) — o live de hoje não tem
+#    dose automática NENHUMA, que é a cura máxima da classe (nada para pular).
+assert_nofile "$REPO/elite/airootfs/etc/systemd/system/elite-bootupdate.service" "E59/E128: a cura máxima da doença do live é a unit NÃO EXISTIR (nada de dose na mídia descartável — por desenho, não por skip)"
 assert_grep "$REPO/.ci/build.sh" 'pkgrel 8→9 NO MESMO COMMIT' "E59: pkgrel elite-system 8→9 NO MESMO COMMIT (lei E41 — a unit do pacote único mudou de conteúdo; âncora na HISTÓRIA, lição do E58: número atual anda, a lei que o cobra é o guard do CI)"
 
 # ── E62 — O PAPEL É DO DONO TAMBÉM (a foto do rig, 05/nov:

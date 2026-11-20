@@ -465,6 +465,15 @@ cp -p /work/elite/airootfs/etc/skel/.config/swayosd/style.css \
 mkdir -p /tmp/elite-src/elite-system/files/usr/lib/udev/rules.d
 cp -p /work/elite/airootfs/etc/udev/rules.d/90-elite-wake-guard.rules \
       /tmp/elite-src/elite-system/files/usr/lib/udev/rules.d/91-elite-wake-guard.rules
+# E128 — A AUTORIZAÇÃO DA CASA NO PACOTE: a regra 50-elite-wheel.rules
+# (pkexec de craft-clean / elite-update / craft-update SEM senha para
+# usuário LOCAL ATIVO do grupo wheel — narrow por desenho, sem wildcard)
+# viaja NO elite-system: rig que só chega pelo pacman recebe a regra com
+# dono — a dança E43 de adoção (o pre_install remove o caminho sem dono
+# antes da extração).
+mkdir -p /tmp/elite-src/elite-system/files/etc/polkit-1/rules.d
+cp -p /work/elite/airootfs/etc/polkit-1/rules.d/50-elite-wheel.rules \
+      /tmp/elite-src/elite-system/files/etc/polkit-1/rules.d/50-elite-wheel.rules
 # E114 — O CONFO DO NAVEGADOR NO PACOTE: o brave-flags.conf era SKEL — rig
 # vivo nunca recebia (a cura do vídeo branco do YouTube — o réu Vulkan da
 # era v1.1 fora — morria sem veículo). Viaja em /usr/local/share/elite/
@@ -660,6 +669,9 @@ ef_install = '    install -Dm644 "${startdir}/elite-flathub.hook" "${pkgdir}/usr
 # adoção — o fóssil /etc/90-* do rig é aposentado pelo elite-post-transaction
 # com voz, nunca sobrescrito às cegas pelo pacman)
 udev_install = '    install -d "${pkgdir}/usr/lib/udev/rules.d"\n    install -m644 "${startdir}/files/usr/lib/udev/rules.d/91-elite-wake-guard.rules" "${pkgdir}/usr/lib/udev/rules.d/91-elite-wake-guard.rules"\n'
+# E128 — a regra polkit da casa (mesma dança da família E91/E98)
+pk_install = '    install -d "${pkgdir}/etc/polkit-1/rules.d"\n    install -m644 "${startdir}/files/etc/polkit-1/rules.d/50-elite-wheel.rules" "${pkgdir}/etc/polkit-1/rules.d/50-elite-wheel.rules"\n'
+pk_rm = '    [ -e "/etc/polkit-1/rules.d/50-elite-wheel.rules" ] && ! pacman -Qo "/etc/polkit-1/rules.d/50-elite-wheel.rules" >/dev/null 2>&1 && rm -f "/etc/polkit-1/rules.d/50-elite-wheel.rules"\n'
 pkg = f"""pkgname=elite-system
 pkgver=1.0
 # E50 — O SISTEMA EM UM PACOTE SÓ (diretriz do dono). Todo o código de
@@ -2324,8 +2336,21 @@ pkgver=1.0
 #     (a lista glob-driven da 20-static) corre LOCAL: 0 avisos em 66
 #     scripts. Uma linha de cura. pkgrel 74→75 NO MESMO COMMIT (lei E41
 #     — o craft-flatpak mudou de conteúdo de novo).
-pkgrel=75
-pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da cadência; substitui elite-craft/craft-toplevel'
+# E128 — A CONSTITUIÇÃO ENTRA EM AÇÃO NO PACOTE (2026-11-20): (1) A
+#     CADÊNCIA NO BOOT MORRE — a família elite-channel/bootupdate/sysupdate
+#     (service E timer, as três eras do automatismo) sai da ÁRVORE (rigs
+#     novos não nascem com ela), é disabled+MASCARADA pela elite_cadencia
+#     do craft-update (toda porta) e pelo elite-post-upgrade (o post_upgrade
+#     do pacote, commit seguinte) — a revogação da E51 por AGENTS.md §5;
+#     a dose sob demanda ganha a porta canônica elite-update (pkexec);
+#     (2) A REGRA POLKIT DA CASA embarca (50-elite-wheel.rules — wheel
+#     local ativo sobe craft-clean/elite-update SEM senha, sem wildcard);
+#     (3) O OKULAR SAI e o BAZAAR NASCE adotado (apenas Papers + Bazaar
+#     moram na casa — org.kde.okular uninstall + --unused idempotentes).
+#     pkgrel 75→76 NO MESMO COMMIT (lei E41 — craft-update mudou de
+#     conteúdo, elite-update nasceu, unidades saíram da árvore).
+pkgrel=76
+pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da sessão; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
 license=(GPL3)
@@ -2384,7 +2409,7 @@ pre_install() {{
     ; do
         [ -e "/usr/local/bin/$f" ] && rm -f "/usr/local/bin/$f"
     done
-{unit_loop}{hook_rm}{ff_rm}{lock_rm}{rc_rm}{osd_rm}{menu_rm}{gm_rm}{doc_rm}{gp_rm}{flags_rm}{waybar_rm}    return 0
+{unit_loop}{hook_rm}{ff_rm}{lock_rm}{rc_rm}{osd_rm}{menu_rm}{gm_rm}{doc_rm}{gp_rm}{flags_rm}{waybar_rm}{pk_rm}    return 0
 }}
 package() {{
     install -d "${{pkgdir}}/usr/local/bin"
@@ -2396,7 +2421,7 @@ package() {{
     # E103 — o agente sob demanda + a fonte dele (mesma transparência)
     install -m755 elite-polkit-listener "${{pkgdir}}/usr/local/bin/elite-polkit-listener"
     install -Dm644 elite-polkit-listener.c "${{pkgdir}}/usr/local/share/elite/src/elite-polkit-listener.c"
-{unit_install}{hook_install}{ff_install}{lock_install}{rc_install}{osd_install}{menu_install}{pd_install}{gm_install}{doc_install}{gp_install}{pt_install}{ef_install}{flags_install}{waybar_install}{udev_install}}}
+{unit_install}{hook_install}{ff_install}{lock_install}{rc_install}{osd_install}{menu_install}{pd_install}{gm_install}{doc_install}{gp_install}{pt_install}{ef_install}{flags_install}{waybar_install}{udev_install}{pk_install}}}
 """
 (d / 'PKGBUILD').write_text(pkg)
 PYE50

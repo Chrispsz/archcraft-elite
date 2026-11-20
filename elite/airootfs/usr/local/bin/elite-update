@@ -1,0 +1,38 @@
+#!/bin/sh
+# ═══════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · elite-update — A PORTA CANÔNICA DA ATUALIZAÇÃO SOB
+# DEMANDA (E128 — a constituição do dono, AGENTS.md §5, 2026-11-20)
+# ═══════════════════════════════════════════════════════════════════════════
+# POR QUÊ EXISTE: a constituição do projeto ("Boot instantâneo e zero
+# auto-update no boot") aposentou a cadência ao ligar (E51/E46 — os timers
+# elite-bootupdate/elite-sysupdate morreram no MESMO commit) e nomeou a lei
+# nova: atualização é 100% SOB DEMANDA, "via elite-update / craft-update".
+# O nome elite-update era citado pela lei e não existia no sistema — papel
+# que cita porta que não tem corpo é a doença E45 (fantasma no índice).
+# Este bin É a porta: executa a dose completa do sistema (--sistema) com a
+# rede de segurança da casa (snapshot PRE/POST do snapper — quebrou, o GRUB
+# liga o snapshot e o rollback é um reboot; kernel novo = aviso de reboot
+# na cara do dono,ParallelDownloads = 5 no pacman.conf, E88).
+#
+# A ESCALADA É POLKIT (o agente da casa é o elite-polkit-listener): pkexec
+# sobe a dose como raiz e a regra da casa 50-elite-wheel.rules libera
+# EXATAMENTE este caminho (e o craft-clean) para usuário LOCAL ATIVO do
+# grupo wheel — o dono do wheel clique sem senha, ninguém fora do wheel
+# sobe nada. O craft-update continua a porta de entrada pelo menu/terminal
+# (sudo) — esta aqui é a mesma dose com o nome da lei e a autorização
+# gráfica do polkit.
+# ═══════════════════════════════════════════════════════════════════════════
+set -u
+
+if [ "$(id -u)" = 0 ]; then
+    exec /usr/local/bin/craft-update --sistema "$@"
+fi
+
+if command -v pkexec >/dev/null 2>&1; then
+    exec pkexec /usr/local/bin/craft-update --sistema "$@"
+fi
+
+# sem pkexec (ambiente de prova?): a porta recusa com a verdade — nunca
+# sobe dose privilegiada por caminho silencioso.
+printf 'elite-update: sem pkexec nesta máquina — rode "craft-update --sistema" com sudo.\n' >&2
+exit 1

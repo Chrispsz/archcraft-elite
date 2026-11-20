@@ -1,0 +1,34 @@
+// ═════════════════════════════════════════════════════════════════════════
+// Archcraft ELITE · 50-elite-wheel.rules — a AUTORIZAÇÃO DA CASA (E128)
+// ═════════════════════════════════════════════════════════════════════════
+// O RELATO DO DONO (2026-11-20): o polkit cobrava senha onde a casa é dona
+// ("Polkit sem erro 'Usuário não autorizado'"). A cura é NARROW por
+// desenho — NADA de wildcard: as duas portas que a casa entende de raiz
+// ficam sem senha PARA QUEM PODE (usuário LOCAL ATIVO do grupo wheel);
+// todo o resto do sistema continua pedindo autenticação como sempre.
+//
+//   · /usr/local/bin/craft-clean  — a limpeza da casa (pkexec via menu);
+//   · /usr/local/bin/elite-update — a porta canônica da atualização sob
+//     demanda (constituição §5; o pkexec dela roda craft-update --sistema,
+//     por isso o lookup do craft-update entra na MESMA família);
+//   · /usr/local/bin/craft-update — o mesmo caminho executado direto por
+//     pkexec (a dose é uma só; a regra não briga com a porta).
+//
+// O grupo wheel É o juiz (a casa não inventa grupo novo — sudo/pam_wheel
+// já decidem quem é admin neste rig; polkit apenas RESPEITA a decisão).
+// id "org.freedesktop.policykit.exec" com lookup do CAMINHO: o casamento é
+// EXATO (strcmp do polkit — path diferente = regra não casa = senha normal).
+// ═════════════════════════════════════════════════════════════════════════
+polkit.addRule(function(action, subject) {
+    var casa = [
+        "/usr/local/bin/craft-clean",
+        "/usr/local/bin/elite-update",
+        "/usr/local/bin/craft-update"
+    ];
+    if (action.id == "org.freedesktop.policykit.exec"
+        && subject.isInGroup("wheel")
+        && subject.local && subject.active
+        && casa.indexOf(action.lookup) >= 0) {
+        return polkit.Result.YES;
+    }
+});
