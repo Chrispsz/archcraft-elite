@@ -65,7 +65,12 @@ fail=0
 # guard reprovou a E103 inteira porque 6 ≤ 6 — o toplevel intocado, o
 # elite-system com o bump certo 44→45). vendor/ aqui = o que NÃO é do
 # pacote único.
-VENDOR_TL_DELTA="$(git diff --name-only "$LAST_TAG" HEAD -- vendor/ ':(exclude)vendor/elite-polkit-listener.c' 2>/dev/null || true)"
+# E131 — A MESMA LIÇÃO PARA O RUST: o workspace vendor/rust/ compila NO
+# build do elite-system (makedepends rust exclusivo — a fundação do
+# espreme-limão); a ponte craft-toplevel nunca o vê. Sem a exclusão o
+# guard cobrou o pkgrel=6 da ponte pela fundação (run 44815642965 — o
+# réu nomeado pelo próprio log do CI).
+VENDOR_TL_DELTA="$(git diff --name-only "$LAST_TAG" HEAD -- vendor/ ':(exclude)vendor/elite-polkit-listener.c' ':(exclude)vendor/rust/**' 2>/dev/null || true)"
 check craft-toplevel "$VENDOR_TL_DELTA" || fail=1
 
 # elite-system (O PACOTE ÚNICO E50): todo o /usr/local/bin da casa (o
