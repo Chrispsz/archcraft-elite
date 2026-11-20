@@ -446,6 +446,20 @@ cp -p /work/elite/airootfs/etc/skel/.config/labwc/rc.xml \
 mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/labwc
 cp -p /work/elite/airootfs/etc/skel/.config/labwc/menu.xml \
       /tmp/elite-src/elite-system/files/usr/local/share/elite/labwc/menu.xml
+# E130 — AS PELES DO TEMA E DO GTK NO PACOTE (a ordem do dono 2026-11-21):
+# o themerc-override (destaque mauve) e os settings.ini GTK (Papirus-Dark)
+# alcançam homes VIVOS via craft-rice (marcador/fóssil — a gramática E91)
+# e o post_upgrade (o elite-post-upgrade chama o rice a cada dose). O rig
+# da ISO velha sai do tema de 3/nov e o GTK ganha família de ícones.
+mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/labwc
+cp -p /work/elite/airootfs/etc/skel/.config/labwc/themerc-override \
+      /tmp/elite-src/elite-system/files/usr/local/share/elite/labwc/themerc-override
+mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/gtk-3.0
+cp -p /work/elite/airootfs/etc/skel/.config/gtk-3.0/settings.ini \
+      /tmp/elite-src/elite-system/files/usr/local/share/elite/gtk-3.0/settings.ini
+mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/gtk-4.0
+cp -p /work/elite/airootfs/etc/skel/.config/gtk-4.0/settings.ini \
+      /tmp/elite-src/elite-system/files/usr/local/share/elite/gtk-4.0/settings.ini
 mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/swayosd
 cp -p /work/elite/airootfs/etc/skel/.config/swayosd/config.toml \
       /tmp/elite-src/elite-system/files/usr/local/share/elite/swayosd/config.toml
@@ -682,6 +696,12 @@ pk_rm = '    [ -e "/etc/polkit-1/rules.d/50-elite-wheel.rules" ] && ! pacman -Qo
 # E129 — o tema Qt da casa (mesma dança da família E91)
 q6_install = '    install -d "${pkgdir}/usr/local/share/elite/qt6ct"\n    install -m644 "${startdir}/files/usr/local/share/elite/qt6ct/qt6ct.conf" "${pkgdir}/usr/local/share/elite/qt6ct/qt6ct.conf"\n'
 q6_rm = '    [ -e "/usr/local/share/elite/qt6ct/qt6ct.conf" ] && rm -f "/usr/local/share/elite/qt6ct/qt6ct.conf"\n'
+# E130 — o tema do labwc e os settings GTK da casa (mesma dança da família
+# E91: caminho NOVO em rig comum = criação limpa, sem dança de adoção)
+theo_install = '    install -d "${pkgdir}/usr/local/share/elite/labwc"\n    install -m644 "${startdir}/files/usr/local/share/elite/labwc/themerc-override" "${pkgdir}/usr/local/share/elite/labwc/themerc-override"\n'
+theo_rm = '    [ -e "/usr/local/share/elite/labwc/themerc-override" ] && rm -f "/usr/local/share/elite/labwc/themerc-override"\n'
+gtk_install = '    install -d "${pkgdir}/usr/local/share/elite/gtk-3.0"\n    install -d "${pkgdir}/usr/local/share/elite/gtk-4.0"\n    install -m644 "${startdir}/files/usr/local/share/elite/gtk-3.0/settings.ini" "${pkgdir}/usr/local/share/elite/gtk-3.0/settings.ini"\n    install -m644 "${startdir}/files/usr/local/share/elite/gtk-4.0/settings.ini" "${pkgdir}/usr/local/share/elite/gtk-4.0/settings.ini"\n'
+gtk_rm = '    [ -e "/usr/local/share/elite/gtk-3.0/settings.ini" ] && rm -f "/usr/local/share/elite/gtk-3.0/settings.ini"\n    [ -e "/usr/local/share/elite/gtk-4.0/settings.ini" ] && rm -f "/usr/local/share/elite/gtk-4.0/settings.ini"\n'
 pkg = f"""pkgname=elite-system
 pkgver=1.0
 # E50 — O SISTEMA EM UM PACOTE SÓ (diretriz do dono). Todo o código de
@@ -2471,7 +2491,7 @@ package() {{
     # E103 — o agente sob demanda + a fonte dele (mesma transparência)
     install -m755 elite-polkit-listener "${{pkgdir}}/usr/local/bin/elite-polkit-listener"
     install -Dm644 elite-polkit-listener.c "${{pkgdir}}/usr/local/share/elite/src/elite-polkit-listener.c"
-{unit_install}{hook_install}{ff_install}{lock_install}{rc_install}{osd_install}{menu_install}{pd_install}{gm_install}{doc_install}{gp_install}{pt_install}{ef_install}{flags_install}{waybar_install}{udev_install}{pk_install}{q6_install}}}
+{unit_install}{hook_install}{ff_install}{lock_install}{rc_install}{osd_install}{menu_install}{pd_install}{gm_install}{doc_install}{gp_install}{pt_install}{ef_install}{flags_install}{waybar_install}{udev_install}{pk_install}{q6_install}{theo_install}{gtk_install}}}
 """
 (d / 'PKGBUILD').write_text(pkg)
 PYE50

@@ -1,69 +1,131 @@
 #!/bin/sh
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · elite-sleep-report (E24→E88 — a perícia QUE VIRA ATO)
+# Archcraft ELITE · elite-sleep-report (E24→E88→E130 — a perícia QUE VIRA ATO)
 # ═══════════════════════════════════════════════════════════════════════════
 # v2.10.11: hook do systemd-sleep (roda como root, stdout vai para o
 # journal do systemd-suspend.service). No 'pre' registrava QUEM está armado
 # para acordar — o papel que nomeava o suspeito quando o PC acordava sozinho.
 #
-# E88 — O PAPEL VIRA CURA (o dump elite-dump-20261107 provou a doença que a
-# E24 deixou em pé): o suspend das 18:14:37 voltou às 18:14:44 — SEIS
-# segundos de sono. O papel antigo apontava os réus, esperava o próximo
-# dump, julgava depois. Os réus estavam nomeados HÁ TEMPO:
-#     GP12  S4  *enabled   pci:0000:00:07.1   (bridge GPE — USB chipset)
-#     GP13  S4  *enabled   pci:0000:00:08.1   (bridge GPE — USB chipset)
-#     SWUS  S4  *enabled   pci:0000:08:00.0   (S/W USB wake S3/S4)
-#     SWDS  S4  *enabled   pci:0000:09:00.0   (S/W USB wake S3/S4)
-# — os wake sources da CAMADA ACPI que a regra udev da E24 (wakeup=disabled
-# nos controladores PCI 0x0c03) NÃO alcança: os GPEs das pontes AMD e os
-# wake USB S3/S4 virtuais sobrevivem com o PCI desarmado. Um pulso de
-# qualquer um deles = o PC acorda em segundos — o 'ele sequer suspendeu'
-# do dono, palavra por palavra.
-# A CURA: no 'pre', TODO wake source *enabled é DESARMADA (echo do nome em
-# /proc/acpi/wakeup), verificada (E41 da prova: reler o estado) e nomeada
-# no journal. A lei E24 completa o círculo: O BOTÃO DO POWER É O DESPERTAR
-# ÚNICO — nem ponte, nem USB virtual, nem GPE dorminhoco. (O botão do
-# power é evento ACPI fixo — nunca aparece nesta lista; RTC/LAN já estavam
-# desarmados nos dumps.) O toggle do craft-wake-guard 'on' (a escolha
-# consciente do dono de reabrir USB wake) re-arma os PCI no boot — e ESTE
-# selo os desarma de novo no instante de dormir: a política fala no único
-# momento em que a verdade importa, a porta do sono.
-# No 'post' marca o retorno (craft-dump seção 10 julga a duração).
+# E88 — O PAPEL VIRA CURA: no 'pre', TODO wake source *enabled era
+# DESARMADA — o botão do power como despertar único (o dump
+# elite-dump-20261107 provou a doença: o suspend das 18:14:37 voltou às
+# 18:14:44 — SEIS segundos de sono; os réus eram os wake sources da camada
+# ACPI que a regra PCI da E24 não alcança: GP12/GP13 = pontes GPE AMD,
+# SWUS/SWDS = wake USB S3/S4 em 08:00.0/09:00.0).
 #
-# Seam de teste: ELITE_WAKEUP_FILE (o /proc/acpi/wakeup do teste).
-# E110 — O CARIMBO DO DESPERTAR: no 'post' o retorno do sono é escrito NO
-# DISCO (/run/elite/sleep-returned, tmpfs legível pelo user-slice) — os
-# braços do idle julgam o mundo pós-wake pelo ESTADO real (o dump 114852:
-# o timer pendente do OFF_MIN apagou a tela 19s pós-wake e o hook tardio
-# re-travou o destravo — a dupla senha). O journal diz a hora mas não é
-# consultável sem bus; o carimbo é. Seam de teste: ELITE_RUN_DIR.
+# O TUMOR PRÓPRIO DA CURA (a ordem do dono 2026-11-21 harmoniza com a
+# E122): o selo cego desarmava TAMBÉM a CADEIA DO TECLADO que o
+# craft-wake-guard arma (XHC0/PTXH e a fonte ACPI do controlador PCI que
+# hospeda o teclado — as portas 1-8, 1-9 e 3-3 do rig) — a casa selava a
+# porta que o dono pediu aberta e o 'dormiu e NADA acordava' voltava pela
+# mão da própria casa.
+#
+# E130 — O SELO CIRÚRGICO (harmonização E88↔E122):
+#   (0) a política E122 é RE-AFIRMADA primeiro (craft-wake-guard apply —
+#       o selo de uma noite anterior pode ter deixado a cadeia desarmada;
+#       o apply re-arma dispositivo + controlador + fonte ACPI do MESMO
+#       endereço PCI e dorme o mouse);
+#   (1) ISENTOS do selo: PS2K (teclado PS/2), PWRB/SLPB/LID0 (botão de
+#       power, sono e tampa — despertares intencionais) e TODA fonte
+#       ACPI cujo 'pci:' aponta para controlador USB 0x0c03 que hospeda
+#       TECLADO (interface HID protocolo 01 — a MESMA decisão do
+#       craft-wake-guard; XHC0/PTXH do rig entram aqui);
+#   (2) SELADOS: todo o resto *enabled — os réus de despertar espúrio
+#       (GP12, GP13, SWUS, SWDS — as pontes AMD/GPE e os wake USB S3/S4
+#       que a regra PCI não alcança) e o mouse (PS2M; os mice USB já
+#       dormiram no apply). Cada selo verificado por releitura (a prova
+#       E41 do selo) e nomeado no journal.
+# No 'post' marca o retorno (craft-dump seção 10 julga a duração) —
+# E110: o carimbo NO DISCO (/run/elite/sleep-returned, tmpfs legível pelo
+# user-slice) — os braços do idle julgam o mundo pós-wake pelo ESTADO real.
+#
+# Seams de teste: ELITE_WAKEUP_FILE (o /proc/acpi/wakeup do teste),
+# ELITE_SYSFS (raiz /sys falsa), ELITE_WAKE_GUARD (o binário ou 'false'),
+# ELITE_RUN_DIR.
 # ═══════════════════════════════════════════════════════════════════════════
 WAKEUP="${ELITE_WAKEUP_FILE:-/proc/acpi/wakeup}"
 RUN_DIR="${ELITE_RUN_DIR:-/run/elite}"
+S="${ELITE_SYSFS:-/sys}"
+WG="${ELITE_WAKE_GUARD:-/usr/local/bin/craft-wake-guard}"
+
+# a MESMA decisão do craft-wake-guard (o teclado é reconhecido pela
+# interface, não pelo nome): interface HID (03) com protocolo 01 = teclado
+kbd_iface() {
+    _ki_itf=""
+    for _ki_itf in "$1":*; do
+        [ -d "$_ki_itf" ] || continue
+        _ki_cls="$(cat "$_ki_itf/bInterfaceClass" 2>/dev/null || true)"
+        _ki_proto="$(cat "$_ki_itf/bInterfaceProtocol" 2>/dev/null || true)"
+        [ "$_ki_cls" = "03" ] && [ "$_ki_proto" = "01" ] && return 0
+    done
+    return 1
+}
+
+kbd_pci() { # $1 = endereço PCI (0000:0c:00.3) → 0 se controlador 0x0c03
+            # hospedando teclado (a cadeia que a E122 arma e o selo ISENTA)
+    _kp_dev="$S/bus/pci/devices/$1"
+    [ -d "$_kp_dev" ] || return 1
+    _kp_cls="$(cat "$_kp_dev/class" 2>/dev/null || true)"
+    case "$_kp_cls" in 0x0c03*) ;; *) return 1 ;; esac
+    for _kp_u in "$S"/bus/usb/devices/*; do
+        case "${_kp_u##*/}" in *:*) continue ;; esac
+        _kp_rf="$(readlink -f "$_kp_u" 2>/dev/null || true)"
+        case "$_kp_rf" in
+            *"$1"*) kbd_iface "$_kp_u" && return 0 ;;
+        esac
+    done
+    return 1
+}
 
 case "${1:-}" in
     pre)
-        # ── O SELO ACPI: desarmar TODO *enabled (a porta do sono é o
-        #    momento da verdade — a lei fala aqui ou não fala nunca)
+        # ── (0) A POLÍTICA E122 RE-AFIRMADA ── o selo de uma noite anterior
+        #    pode ter desarmado a cadeia; o apply re-arma o despertar do
+        #    teclado inteiro (device + controlador + fonte ACPI) e dorme o
+        #    mouse — o selo NUNCA é quem decide sozinho a política da casa.
+        if [ -x "$WG" ]; then
+            if "$WG" apply >/dev/null 2>&1; then
+                echo "[elite-sleep] pré-sono: política E122 re-afirmada (craft-wake-guard apply — teclado acorda, mouse dorme)"
+            else
+                echo "[elite-sleep] pré-sono: craft-wake-guard apply não respondeu (a regra udev e o boot seguinte re-tentam)"
+            fi
+        fi
+        # ── O SELO CIRÚRGICO: isentar a cadeia do teclado, selar os réus ──
+        # (a lista é capturada PRIMEIRO — o arquivo é TOGGLE: escrever nele
+        #  dentro da leição truncava o resto da tabela, o SC2094 nomeado)
         selados=""
+        isentos=""
         if [ -w "$WAKEUP" ]; then
-            for dev in $(awk '/\*enabled/ { print $1 }' "$WAKEUP" 2>/dev/null); do
-                [ -n "$dev" ] || continue
-                echo "$dev" > "$WAKEUP" 2>/dev/null || continue
-                if awk -v d="$dev" '$1 == d && /\*enabled/ { found=1 } END { exit !found }' "$WAKEUP" 2>/dev/null; then
-                    logger -t elite-sleep-report "selo ACPI: $dev RECUSOU o desarme (o kernel nomeia no journal — réu de verdade para o próximo dump)"
+            _armadas="$(awk '/\*enabled/ { print $1 }' "$WAKEUP" 2>/dev/null)"
+            for _dev in $_armadas; do
+                [ -n "$_dev" ] || continue
+                _addr="$(awk -v d="$_dev" '$1 == d { for (i=2;i<=NF;i++) if ($i ~ /^pci:/) { sub(/^pci:/,"",$i); print $i; exit } }' "$WAKEUP" 2>/dev/null)"
+                # ISENTOS: teclado PS/2, botões intencionais, e a fonte ACPI
+                # do controlador USB que hospeda o teclado (E122/E130)
+                case "$_dev" in
+                    PS2K|PWRB|SLPB|LID0) isentos="$isentos $_dev"; continue ;;
+                esac
+                if [ -n "$_addr" ] && kbd_pci "$_addr"; then
+                    isentos="$isentos $_dev"
+                    continue
+                fi
+                # SELADO: réu de despertar espúrio (GP12/GP13/SWUS/SWDS,
+                # PS2M e tudo mais que o hardware deixou armado)
+                echo "$_dev" > "$WAKEUP" 2>/dev/null || continue
+                if awk -v d="$_dev" '$1 == d && /\*enabled/ { found=1 } END { exit !found }' "$WAKEUP" 2>/dev/null; then
+                    echo "[elite-sleep] selo ACPI: $_dev RECUSOU o desarme (o kernel nomeia no journal — réu de verdade para o próximo dump)"
                 else
-                    selados="$selados $dev"
+                    selados="$selados $_dev"
                 fi
             done
         fi
-        echo "[elite-sleep] pré-sono: SELO ACPI E88 aplicado — wake sources desarmadas:${selados:- (nenhuma estava armada)}"
-        echo "[elite-sleep] (a lei E24 completa: o botão do power é o despertar ÚNICO — pontes AMD/GPE/SWUS/SWDS dormem com o PC)"
+        echo "[elite-sleep] pré-sono: SELO ACPI E130 aplicado — cadeia do teclado ISENTA:${isentos:- (nenhuma estava armada)} · réus espúrios SELADOS:${selados:- (nenhum estava armado)}"
+        echo "[elite-sleep] (a harmonização: o teclado acorda — E122; as pontes AMD/GPE e os wake USB virtuais dormem com o PC — E88)"
         restantes="$(awk '/\*enabled/ { printf "%s ", $1 }' "$WAKEUP" 2>/dev/null)"
         if [ -n "$restantes" ]; then
-            echo "[elite-sleep] (ainda armadas após o selo: $restantes — suspeito nomeado se o sono for curto)"
+            echo "[elite-sleep] (armadas após o selo — a CADEIA DO TECLADO, esperado: $restantes)"
         else
-            echo "[elite-sleep] nenhuma armada — dorme selado"
+            echo "[elite-sleep] nenhuma armada — dorme selado (sem cadeia de teclado neste hardware)"
         fi
         ;;
     post)

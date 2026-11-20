@@ -44,7 +44,8 @@
 #   /proc/acpi/wakeup vira *enabled — o arquivo é TOGGLE: escrever o
 #   nome inverte o estado). PS2K/PS2M seguem na mesma dança.
 #
-# QUEM APLICA: a regra udev 90-elite-wake-guard.rules (nova instalação:
+# QUEM APLICA: a regra udev da casa (ISO: 90-elite-wake-guard.rules;
+# pacote: /usr/lib/udev/rules.d/91-elite-wake-guard.rules — a E126 —
 # coldplug + hotplug — este script é o gancho RUN do usb_device) E a unit
 # elite-wake-guard.service a CADA boot (`craft-wake-guard apply`) — a
 # varredura de boot é quem cura os rigs da era E24, cuja .rules velha

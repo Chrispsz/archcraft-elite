@@ -363,6 +363,31 @@ gm_pill() {
     fi
 }
 
+# ── E130 — O RÉU DO PAR EM 1s (a ordem do dono): o game.log do rig
+# fotografou SETE pares INÍCIO/FIM no mesmo segundo em volta da sessão do
+# Hydra e NINGUÉM sabia QUEM registrava. O hook fotografa os vivos da
+# família (GameMode / Wine / Steam / Hydra — comm + o padrão da casa) com
+# PID + comm + argumento principal, nos DOIS braços (start e end: quem
+# entrou e quem saiu) — o papel nomeia o registrante na hora.
+gm_whois() {
+    _wi=""
+    for _d in /proc/[0-9]*; do
+        _p="${_d##*/}"
+        _c="$(cat "$_d/comm" 2>/dev/null || true)"
+        [ -n "$_c" ] || continue
+        printf '%s' "$_c" | grep -Eqi 'gamemoded|wine|steam|hydra|gamescope|preload' \
+            || printf '%s' "$_c" | grep -Eq "$GAME_PATS" || continue
+        _a="$(tr '\0' ' ' < "$_d/cmdline" 2>/dev/null | cut -c1-120)"
+        _wi="$_wi [pid $_p comm $_c arg: ${_a:-—}]"
+    done
+    if [ -n "$_wi" ]; then
+        glog "gamemode: vivos da família no hook:$_wi"
+    else
+        glog "gamemode: vivos da família no hook: NENHUM casou (o registrante não é da família — réu anônimo no /proc)"
+    fi
+    return 0
+}
+
 # ── o HOOK (o [custom] do gamemode.ini — início/fim NATIVO do modo) ─────
 # E126 — O LOOP DE NOTIFICAÇÕES MORRE (o game.log do rig fotografou SETE
 # pares INÍCIO/FIM NO MESMO SEGUNDO em volta da sessão do Hydra: um
@@ -370,10 +395,13 @@ gm_pill() {
 # DOIS toasts na tela do dono). O start agora ESPERA 2s e confere o
 # D-Bus ANTES de notificar (o fantasma de meio segundo não é notícia);
 # o end desce para -u low (a história conta, a tela não pisca).
+# E130 — cada braço do hook fotografa os vivos da família (gm_whois) —
+# o par em 1s ganha RÉU com nome, pid e argumento no papel.
 gm_hook() { # $1 = start|end
     case "${1:-}" in
         start)
             glog "gamemode: INÍCIO (o hook nativo do gamemode.ini — governor/GPU já aplicados)"
+            gm_whois
             (
                 sleep 2
                 if [ "$(gm_status "$$" 2>/dev/null)" = "1" ]; then
@@ -383,6 +411,7 @@ gm_hook() { # $1 = start|end
             ;;
         end)
             glog "gamemode: FIM (o hook nativo devolveu o perfil da casa)"
+            gm_whois
             NOTE_URGEN=low note 'Modo de jogo' 'Perfil normal restaurado'
             ;;
     esac

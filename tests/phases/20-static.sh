@@ -392,7 +392,7 @@ assert_grep "$RU" 'unbind' "E69: o re-bind é a re-inicialização DETERMINÍSTI
 assert_grep "$RU" 'USB intacto' "E88: o caminho SADIO não paga o martelo (a foto e o presente BATEM = zero rebind — o mouse que morria no rebind de todo wake morre de causa)"
 assert_grep "$RU" 'prova de morte' "E88: rebind SÓ COM PROVA (a graça de 3s da re-enumeração natural vem primeiro; o alvejado toca SÓ o controlador hospedeiro do morto — o teclado vivo do vizinho nunca é derrubado pela cura do mouse)"
 assert_grep "$RU" 'RESERVA' "E88: o martelo completo da E69 é RESERVA (o alvejado não bastou = a cura antiga desce inteira — nada da cura de antes se perde, tudo passa a ter prova antes)"
-assert_grep "$RU" 'disabled' "E69: a política E24 é RE-APLICADA depois do bind (o re-nascer 'enabled' reabriria o despertar sozinho — a doença de volta por efeito colateral do remédio)"
+assert_grep "$RU" 'craft-wake-guard apply' "E130: a política E122 é RE-APLICADA depois do bind (a chamada direta substitui a re-observação E24 que desarmava a cadeia do teclado — o re-nascer 'enabled' do rebind é re-julgado pela política da casa: teclado acorda, mouse dorme)"
 assert_nogrep "$RU" 'set -e' "E69: o hook NUNCA falha o ciclo de sono (set -e morreria no primeiro sysfs ausente — o resume não é lugar de abortar)"
 assert_nogrep "$RU" 'runuser' "E88: zero PAM no hook (a casa do elite-resume-display vale aqui: só sysfs/procfs/journal — user.slice congelado não é interlocutor)"
 assert_grep "$RU" 'logger -t elite-resume-usb' "E69: o hook é OBSERVÁVEL no journal (rebinds e guardados nomeados — o silêncio no resume é o buraco da lição E63)"

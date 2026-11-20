@@ -11,8 +11,9 @@
 # dormem (a vibração na mesa não acende nada), controlador USB 0x0c03
 # armado (a porta por onde o teclado fala).
 #
-# POR QUE UMA UNIT a cada boot: a regra udev 90-elite-wake-guard.rules v2
-# cobre a ISO nova (coldplug + hotplug), MAS os rigs da era E24 ainda
+# POR QUE UMA UNIT a cada boot: a regra udev da casa v2 (ISO: 90-*; pacote:
+# /usr/lib/udev/rules.d/91-elite-wake-guard.rules — a E126) cobre a ISO
+# nova (coldplug + hotplug), MAS os rigs da era E24 ainda
 # têm a .rules velha no disco (pacote não sobrescreve arquivo que não é
 # dele) — a varredura roda DEPOIS do coldplug e VENCE por ordem: o
 # suspende só acontece minutos depois (LOCK/SUSPEND_MIN), nunca há

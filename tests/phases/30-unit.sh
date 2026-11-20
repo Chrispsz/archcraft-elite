@@ -2412,7 +2412,7 @@ MOCK_DIR="$RUN88" PATH="$MOCK88:$PATH" ELITE_HID_DIR="$HID88" ELITE_PCI_DIR="$PC
   ELITE_RUN_DIR="$RUN88" ELITE_UDEVADM=udevadm sh "$HOOK_RU" post >/dev/null 2>&1
 assert_grep "$RUN88/journal.log" 'USB intacto' "E88/usb: a foto e o presente BATEM = ZERO rebind (o wake sadio não destrói e re-enumera nada — o mouse que morria no martelo cego morre de causa)"
 assert_nogrep "$RUN88/journal.log" 'prova de morte' "E88/usb: nenhuma morte provada, nenhum alvejado (o teclado vivo nunca é derrubado pela cura de ninguém)"
-assert_eq "$(cat "$PCI88/devices/0000:02:00.0/power/wakeup" 2>/dev/null)" "disabled" "E88/usb: a política E24 re-aplicada MESMO no caminho sadio (o re-nascer enabled não reabre o despertar sozinho)"
+assert_eq "$(cat "$PCI88/devices/0000:02:00.0/power/wakeup" 2>/dev/null)" "enabled" "E130: o hook NÃO desarma mais às cegas (a re-observação E24 morreu — o estado do wakeup é da POLÍTICA E122 que o craft-wake-guard aplica; sem o bin no disco, o hook não toca o que não pode julgar)"
 
 # (E88.10) o rebind PROVADO: mouse morto → alvejado no controlador do morto + FALHA nomeada
 rm -rf "$HID88" "$PCI88" "$RUN88"; mkdir -p "$RUN88"

@@ -23,12 +23,22 @@
 Sempre buscar a credencial do GitHub nesta ordem ANTES de qualquer
 operação remota (fetch, push, API, clone):
 
-1. `~/.elite-gh-token` (arquivo com `chmod 600` — cópia sobrevivente fora
+1. `/home/z/my-project/.elite-gh-token` — A FONTE PERSISTENTE (1ª via,
+   ordem do dono 2026-11-21): o sandbox recicla `/home/z/` mas
+   `/home/z/my-project/` sobrevive — este arquivo é a cópia que
+   renasce. Se `~/.elite-gh-token` ou `~/.git-credentials` estiverem
+   AUSENTES (reciclo detectado), o agente os (re)cria AQUI
+   automaticamente antes de qualquer operação: `cp` para
+   `~/.elite-gh-token` (`chmod 600`) e grava
+   `https://USUARIO:TOKEN@github.com` em `~/.git-credentials`
+   (`chmod 600`, com `git config --global credential.helper store`),
+   sem nunca imprimir o valor;
+2. `~/.elite-gh-token` (arquivo com `chmod 600` — cópia sobrevivente fora
    do repo);
-2. `~/.git-credentials` (formato `https://USUARIO:TOKEN@github.com`,
+3. `~/.git-credentials` (formato `https://USUARIO:TOKEN@github.com`,
    `chmod 600`, alimentado por `git config --global credential.helper
    store`);
-3. Variáveis de ambiente (`GH_TOKEN` / `GITHUB_TOKEN`) ou `gh auth token`.
+4. Variáveis de ambiente (`GH_TOKEN` / `GITHUB_TOKEN`) ou `gh auth token`.
 
 Se NENHUMA via funcionar: relatório honesto de bloqueio ao dono — nunca
 inventar resultado, nunca pedir credencial em texto exposto (L6/L3 da casa
@@ -63,8 +73,9 @@ continuam valendo: toda chamada de API autenticada, honestidade absoluta).
   concluir **cada etapa**:
   1. validação rápida da etapa (`bash -n` / `shellcheck` / `py_compile` /
      teste unitário da peça);
-  2. `git add` → `git commit` → `git push` imediatamente para
-     `origin/main` (sempre com a suíte porteira GO quando a lei L2 da casa
+  2. `git add` → `git commit` → `git push origin main` imediatamente (a
+     regra do dono 2026-11-21: commit + push ao final de CADA etapa —
+     sempre com a suíte porteira GO quando a lei L2 da casa
      exigir);
   3. só então avançar para a etapa seguinte.
 - **Validação prática em vez de especulação:** não gastar minutos em

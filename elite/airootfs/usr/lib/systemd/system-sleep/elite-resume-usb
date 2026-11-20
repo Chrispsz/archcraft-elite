@@ -25,15 +25,18 @@
 #          MARTELO DE RESERVA: provou de novo e ainda falta gente → o
 #          rebind completo da E69 + udevadm trigger (o lembrete ao seat) +
 #          FALHA nomeada no papel.
-#   SEMPRE — a política E24 re-aplicada (wakeup=disabled nos 0x0c03): o
-#          bind pode re-nascer 'enabled' e reabrir o DESPERTAR SOZINHO.
+#   SEMPRE — a política E122 re-aplicada NO FIM (E130: a chamada direta a
+#          craft-wake-guard apply substitui a re-observação E24 que
+#          desarmava tudo — o teclado continua podendo acordar depois do
+#          wake; o mouse volta a dormir).
 #
 # A CASA DO HOOK (a mesma lei do elite-resume-display E88): zero PAM, zero
 # conversa com user.slice — só sysfs, procfs e journal. O pre e o post são
 # DESTE hook (a foto precisa do mesmo olho que julga).
 #
 # Seams de teste: ELITE_HID_DIR, ELITE_PCI_DIR, ELITE_RUN_DIR,
-# ELITE_UDEVADM (o binário ou 'false' nos testes sem udevadm).
+# ELITE_UDEVADM (o binário ou 'false' nos testes sem udevadm),
+# ELITE_WAKE_GUARD (o binário ou 'false' nos testes sem wake-guard).
 # ═══════════════════════════════════════════════════════════════════════════
 HID_DIR="${ELITE_HID_DIR:-/sys/bus/hid/devices}"
 PCI_DIR="${ELITE_PCI_DIR:-/sys/bus/pci}"
@@ -112,7 +115,11 @@ case "${1:-}" in
             if pci="$(pci_of_hid "$hid")"; then
                 printf '%s\t%s\n' "$hid" "$pci" >> "$SNAP_MAP" 2>/dev/null || true
             fi
-            n_in="$(ls "$HID_DIR/$hid/input" 2>/dev/null | grep -c '^input' || true)"
+            n_in=0
+            for _in in "$HID_DIR/$hid/input"/input*; do
+                [ -e "$_in" ] || continue
+                n_in=$((n_in + 1))
+            done
             printf '%s\t%s\n' "$hid" "${n_in:-0}" >> "$SNAP_IN" 2>/dev/null || true
         done
         n="$(grep -c . "$SNAP" 2>/dev/null || echo 0)"
@@ -137,7 +144,11 @@ missing_now() {
         case "$n_pre" in ''|*[!0-9]*) continue ;; esac
         [ "$n_pre" -gt 0 ] || continue          # sem input ao dormir = nada a cobrar
         if grep -qx "$hid" "$RUN_DIR/.now.sorted" 2>/dev/null; then
-            n_now="$(ls "$HID_DIR/$hid/input" 2>/dev/null | grep -c '^input' || true)"
+            n_now=0
+            for _in in "$HID_DIR/$hid/input"/input*; do
+                [ -e "$_in" ] || continue
+                n_now=$((n_now + 1))
+            done
             [ "${n_now:-0}" -eq 0 ] && printf '%s\n' "$hid"
         fi
     done < "$SNAP_IN" 2>/dev/null
@@ -258,25 +269,26 @@ if ! ls /sys/class/bluetooth/hci* >/dev/null 2>&1; then
     fi
 fi
 
-# ── A POLÍTICA E24 RE-APLICADA — o bind pode re-nascer 'enabled'; a
-#    palavra final do wake é da casa (mesmo predicado da regra udev 0x0c03).
-guardados=0
-for d in "$PCI_DIR"/devices/*; do
-    [ -r "$d/power/wakeup" ] || continue
-    cls="$(cat "$d/class" 2>/dev/null)"
-    case "$cls" in
-        0x0c03*) ;;
-        *) continue ;;
-    esac
-    if echo disabled > "$d/power/wakeup" 2>/dev/null; then
-        guardados=$((guardados + 1))
-    fi
-done
+# ── A POLÍTICA E122 RE-APLICADA — a palavra final do wake é da casa ──
+#    E130 — o bind do rebind pode re-nascer 'enabled'; e a re-observação
+#    E24 (que desarmava TODO 0x0c03 e apagava a porta do teclado que a
+#    E122 arma) MORRE: a chamada DIRETA ao craft-wake-guard apply re-afirma
+#    a política inteira (teclado acorda — dispositivo + controlador +
+#    fonte ACPI do MESMO endereço PCI; mouse e resto dormem) — a mesma
+#    gramática do selo pré-sono (elite-sleep-report E130). O resumo da
+#    aplicação entra no journal (a prova de que o wake passou a política).
+WG="${ELITE_WAKE_GUARD:-/usr/local/bin/craft-wake-guard}"
+resumo=""
+if [ -x "$WG" ]; then
+    resumo="$("$WG" apply 2>/dev/null | grep -m1 'política aplicada' || true)"
+else
+    resumo="(o craft-wake-guard NÃO está no disco — a política do despertar fica para a regra udev e o boot; nada desarmado às cegas aqui)"
+fi
 
 # ── O PAPEL — o veredito com a prova (E33: tudo que decide deixa linha)
 if [ -z "$rebinds" ]; then
-    logger -t elite-resume-usb "USB intacto pós-sono — a foto do pré-sono e o presente BATEMEM: zero rebind (o caminho sadio não paga o martelo) · wake-guard E24 re-aplicado em $guardados controlador(es)"
+    logger -t elite-resume-usb "USB intacto pós-sono — a foto do pré-sono e o presente BATEMEM: zero rebind (o caminho sadio não paga o martelo) · política do despertar (E122): craft-wake-guard apply${resumo:+ — $resumo}"
 else
-    logger -t elite-resume-usb "controladores USB re-inicializados pós-sono (rebind:$rebinds) · wake-guard E24 re-aplicado em $guardados controlador(es)"
+    logger -t elite-resume-usb "controladores USB re-inicializados pós-sono (rebind:$rebinds) · política do despertar (E122): craft-wake-guard apply${resumo:+ — $resumo}"
 fi
 exit 0

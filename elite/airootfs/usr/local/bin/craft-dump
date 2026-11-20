@@ -657,10 +657,17 @@ PY
     r "for f in /etc/systemd/sleep.conf /etc/systemd/sleep.conf.d/*.conf /usr/lib/systemd/sleep.conf.d/*.conf; do [ -f \"\$f\" ] && { echo \"── \$f\"; cat \"\$f\"; }; done; true" 30
     r "journalctl -u systemd-suspend --no-pager 2>/dev/null | tail -40" 45
     # v2.3 — A CURA E24 NO PAPEL: wakeup REAL dos controladores USB PCI
-    # (a regra udev 90-elite-wake-guard os desarma no boot — dormir sem
-    # porta de volta do mouse/controlador), a regra presente e o relato
-    # do hook elite-sleep-report no journal do suspend.
-    r "ls -l /etc/udev/rules.d/90-elite-wake-guard.rules 2>/dev/null || echo '(regra E24 ausente — sistema anterior à 10.11)'" 4
+    # (a regra udev rege o add de controladores; dormir sem porta de
+    # volta do mouse/controlador), a regra presente e o relato do hook
+    # elite-sleep-report no journal do suspend.
+    # E130 — A SONDA MENTE MENOS: a regra VIVA do rig instalado é a
+    # /usr/lib/udev/rules.d/91-elite-wake-guard.rules (o pacote a entrega
+    # lá — a E126); o nome 90-* no /etc é o FÓSSIL da era E24 (a
+    # elite-post-transaction o aposenta). A sonda verifica a viva PRIMEIRO
+    # e o fóssil como arqueologia — a mensagem enganosa 'regra E24
+    # ausente' morre (a classe E33 na sonda).
+    r "ls -l /usr/lib/udev/rules.d/91-elite-wake-guard.rules 2>/dev/null || echo '(regra VIVA E122 AUSENTE em /usr/lib/udev/rules.d/91-* — rig anterior à 1.0-75; a política do despertar pode não estar no disco)'" 4
+    r "ls -l /etc/udev/rules.d/90-elite-wake-guard.rules 2>/dev/null || echo '(fóssil E24 em /etc/udev ausente — o correto: a viva é a 91 do pacote)'" 4
     r "for d in /sys/bus/pci/devices/*; do [ -f \"\$d/power/wakeup\" ] || continue; c=\$(cat \$d/class 2>/dev/null); case \$c in 0x0c03*|0x0c00*|0x0c01*|0x0c02*|0x0c04*|0x0c05*|0x0c06*|0x0c07*) printf '%s class=%s wakeup=%s\n' \"\${d##*/}\" \"\$c\" \"\$(cat \$d/power/wakeup)\";; esac; done; true" 12
     r "journalctl -u systemd-suspend --no-pager 2>/dev/null | grep -E 'elite-sleep' | tail -10" 12
     r "cat /proc/acpi/wakeup 2>/dev/null" 25

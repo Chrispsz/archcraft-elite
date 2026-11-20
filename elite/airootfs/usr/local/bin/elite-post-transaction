@@ -298,4 +298,47 @@ if [ ! -e /run/archiso ] && command -v systemctl >/dev/null 2>&1; then
 fi
 unset _mask
 
+# ── 9. O TEMA DE ÍCONES É UM SÓ (E130 — a ordem do dono 2026-11-21) ────
+#      "Garanta Papirus-Dark nos settings.ini GTK dos usuários ativos e o
+#      qt6ct sincronizado." O E126 entregou o tema NO SKEL (veículo da
+#      ISO) e o rig vivo ficava na babel hicolor/Adwaita — a ferida fecha
+#      POR DOSE agora: a linha gtk-icon-theme-name é garantida nos DOIS
+#      settings (GTK3 e GTK4) e o icon_theme do qt6ct.conf acompanha. A
+#      casa sincroniza SÓ a linha de ícones — o resto do arquivo do dono
+#      é intocável (a lei do domínio v3; a pele INTEIRA viaja pelo
+#      craft-rice com marcador/fóssil — o post_upgrade chama).
+SRC_QTC=/usr/local/share/elite/qt6ct/qt6ct.conf
+if [ ! -e /run/archiso ]; then
+    while IFS=: read -r _u _p _uid _gid _g _h _s; do
+        [ "$_uid" -ge 1000 ] 2>/dev/null || continue
+        [ -d "$_h" ] || continue
+        for _ini in "$_h/.config/gtk-3.0/settings.ini" "$_h/.config/gtk-4.0/settings.ini"; do
+            if [ -f "$_ini" ]; then
+                if grep -q '^gtk-icon-theme-name=' "$_ini" 2>/dev/null; then
+                    if ! grep -q '^gtk-icon-theme-name=Papirus-Dark$' "$_ini" 2>/dev/null; then
+                        sed -i 's/^gtk-icon-theme-name=.*/gtk-icon-theme-name=Papirus-Dark/' "$_ini" 2>/dev/null || continue
+                        chown "$_uid:$_gid" "$_ini" 2>/dev/null || true
+                        tlog "icons: gtk-icon-theme-name → Papirus-Dark em $_u ($_ini — a ordem do dono E130; o resto do arquivo dele segue intocado)"
+                    fi
+                else
+                    printf 'gtk-icon-theme-name=Papirus-Dark\n' >> "$_ini" 2>/dev/null || continue
+                    chown "$_uid:$_gid" "$_ini" 2>/dev/null || true
+                    tlog "icons: gtk-icon-theme-name ACRESCENTADA (Papirus-Dark) em $_u ($_ini não tinha a linha — a babel morre)"
+                fi
+            fi
+        done
+        # o Qt acompanha: qt6ct.conf vivo com ícone diferente da casa = cura
+        if [ -f "$_h/.config/qt6ct/qt6ct.conf" ] && [ -r "$SRC_QTC" ]; then
+            if grep -q '^icon_theme=' "$_h/.config/qt6ct/qt6ct.conf" 2>/dev/null; then
+                if ! grep -q '^icon_theme=Papirus-Dark$' "$_h/.config/qt6ct/qt6ct.conf" 2>/dev/null; then
+                    sed -i 's/^icon_theme=.*/icon_theme=Papirus-Dark/' "$_h/.config/qt6ct/qt6ct.conf" 2>/dev/null || true
+                    chown "$_uid:$_gid" "$_h/.config/qt6ct/qt6ct.conf" 2>/dev/null || true
+                    tlog "icons: icon_theme do qt6ct → Papirus-Dark em $_u (o Qt veste a mesma família do GTK)"
+                fi
+            fi
+        fi
+        unset _ini
+    done < /etc/passwd
+fi
+
 exit 0
