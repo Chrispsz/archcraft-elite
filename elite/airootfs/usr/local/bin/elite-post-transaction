@@ -341,4 +341,24 @@ if [ ! -e /run/archiso ]; then
     done < /etc/passwd
 fi
 
+# ── 10. O OKULAR FLATPAK NÃO RENASCE (E130 — a ordem do dono: apenas
+#       GNOME Papers nativo mora na casa como leitor único de PDFs) ────
+#      A cura E128 rodava SÓ na porta do craft-update (--sistema) e no
+#      post_upgrade; um rig que não atualiza segue com o Okular Qt inteiro
+#      (runtime ~1 GB no disco) até a próxima dose. ESTE hook roda em TODA
+#      transação: o uninstall idempotente + o --unused dos runtimes órfãos
+#      (o Qt do Flathub inteiro quando o okular era o único app Qt). O
+#      papers (pacote nativo, packages.add) é o leitor da casa.
+if [ ! -e /run/archiso ] && command -v flatpak >/dev/null 2>&1; then
+    if flatpak info --system org.kde.okular >/dev/null 2>&1; then
+        if flatpak uninstall --system --noninteractive org.kde.okular >/dev/null 2>&1; then
+            tlog "flatpak: org.kde.okular REMOVIDO na transação (E130 — Papers nativo é o leitor único da casa)"
+        else
+            tlog "flatpak: okular não saiu nesta transação (best-effort — a próxima re-tenta)"
+        fi
+        flatpak uninstall --system --noninteractive --unused >/dev/null 2>&1 \
+            && tlog "flatpak: --unused varreu os runtimes órfãos do okular (higiene de disco)"
+    fi
+fi
+
 exit 0

@@ -251,6 +251,13 @@ elif [ "$ELITE_GPU" = "nvidia" ]; then
     grep -q '^MODULES=(nvidia' "${ROOT}/etc/mkinitcpio.conf" 2>/dev/null ||
         sed -i 's|^MODULES=.*|MODULES=(nvidia nvidia_modeset nvidia_uvm nvidia_drm)|' "${ROOT}/etc/mkinitcpio.conf" 2>/dev/null || true
     printf '%s\n' '# ELITE: NVIDIA (modeset+fbdev p/ Wayland; VRAM preservada em suspend)' 'options nvidia-drm modeset=1 fbdev=1' 'options nvidia NVreg_PreserveVideoMemoryAllocations=1 NVreg_TemporaryFilePath=/var/tmp' > "${ROOT}/etc/modprobe.d/00-elite-nvidia.conf"
+    # E130 — OS HEADERS DO KERNEL ATIVO ACOMPANHAM O DKMS: o
+    # nvidia-open-dkms pré-compilado da ISO vale para o kernel que
+    # embarca; o PRÓXIMO kernel precisa do linux-cachyos-bore-headers para
+    # o dkms reconstruir (o primeiro -Syu com kernel novo SEM headers
+    # deixa o rig sem driver — o módulo antigo não carrega no novo).
+    # --needed: idempotente (rig que já tem, zero download).
+    arch-chroot "$ROOT" pacman -S --needed --noconfirm linux-cachyos-bore-headers 2>/dev/null || true
     # E63 — A VRAM PRESERVADA PRECISA DOS SERVIÇOS DO DRIVER NO AR: o
     # PreserveVideoMemoryAllocations só vale se o nvidia-suspend salvar a
     # memória no pre-sono e o nvidia-resume restaurá-la no wake — sem os

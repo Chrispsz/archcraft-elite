@@ -1910,8 +1910,8 @@ else
     "cadeia F (Setup A): marker firstboot-done criado"
   assert_grep "$STATE/pacman.log" 'pacman -R --noconfirm nvidia-open$' \
     "cadeia F (Setup A): nvidia-open pré-compilado removido (vai entrar o dkms)"
-  assert_grep "$STATE/pacman.log" 'pacman -S --needed --noconfirm nvidia-open-dkms nvidia-utils lib32-nvidia-utils$' \
-    "cadeia F (Setup A): stack dkms instalado SEM nvidia-settings (v4.6 — LACT cobre)"
+  assert_grep "$STATE/pacman.log" 'pacman -S --needed --noconfirm linux-cachyos-bore-headers nvidia-open-dkms nvidia-utils lib32-nvidia-utils$' \
+    "cadeia F (Setup A): stack dkms com os HEADERS do kernel ativo, sem nvidia-settings (E130 — o dkms do próximo kernel constrói; LACT não cobre NVIDIA)"
   assert_grep "$STATE/pacman.log" 'pacman -Rns --noconfirm vulkan-radeon' \
     "cadeia F (Setup A): ICDs alienígenas removidos na execução real"
   assert_grep "$STATE/systemctl.log" 'disable elite-firstboot' \
@@ -1941,8 +1941,8 @@ else
   assert_match "$(sed -n '/^RC=/p' "$LN")" '^RC=0$' "cadeia F (A sem rede): firstboot AINDA exit 0 (nunca trava)"
   assert_grep "$LN" 'nvidia-open-dkms não instalou' "cadeia F (A sem rede): falha assumida com aviso"
   assert_grep "$LN" 'driver atual PRESERVADO' "cadeia F (A sem rede): driver do live PRESERVADO (anti-brick)"
-  assert_grep "$STATE/pacman.log" 'pacman -S --needed --noconfirm nvidia-open-dkms nvidia-utils lib32-nvidia-utils$' \
-    "cadeia F (A sem rede): tentativa de dkms registrada (ordem -S→-R, sem nvidia-settings)"
+  assert_grep "$STATE/pacman.log" 'pacman -S --needed --noconfirm linux-cachyos-bore-headers nvidia-open-dkms nvidia-utils lib32-nvidia-utils$' \
+    "cadeia F (A sem rede): tentativa de dkms registrada com headers (ordem -S→-R, sem nvidia-settings)"
   assert_nogrep "$STATE/pacman.log" 'pacman -R --noconfirm nvidia-open$' \
     "cadeia F (A sem rede): NUNCA removeu o nvidia-open (o -R só existe após -S vencer)"
   assert_match "$(sed -n '/^=== MARKER/,+1p' "$LN" | tail -1)" '^no$' \

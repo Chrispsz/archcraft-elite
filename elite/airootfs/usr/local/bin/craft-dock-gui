@@ -229,6 +229,7 @@ if __name__ == "__main__":
         )
         _s.exit(0)
 import os
+import hashlib
 import re
 import shlex
 import shutil
@@ -236,6 +237,7 @@ import signal
 import socket
 import subprocess
 import sys
+import threading
 import time
 import warnings
 
@@ -279,18 +281,81 @@ def _raw_icon_candidates(key):
         yield "steam"
 
 
-def _appimage_diricon(key):
-    """O .DirIcon do AppImage montado que roda sob esta chave (None se não
-    houver). O molde é o do _raw_launch: /proc do usuário, comm case-
-    insensitive com a casca de 15 chars, e o exe provando a origem — só
-    que aqui quem importa é o CAMINHO do exe: dentro de /tmp/.mount_*
-    está o squashfs do AppImage com o ícone embutido dele."""
+def _fold(s):
+    """E130 — a normalização da casa para nomes de ícone: '_' e '-' se
+    equivalenciam (o Hydra_Plus, o hydra-plus e o HydraPlus são O MESMO
+    app para a busca)."""
+    return s.lower().replace("_", "-").replace(" ", "")
+
+
+def _icon_file_by_name(name):
+    """Arquivo de ícone de usuário com o nome dado (~/.local/share/icons
+    — onde o Gear Lever e as instalações de usuário escrevem). None se
+    nada casar."""
+    k = _fold(name)
+    root = os.path.join(GLib.get_home_dir(), ".local", "share", "icons")
+    for r, _dirs, files in os.walk(root):
+        for f in files:
+            stem, ext = os.path.splitext(f)
+            if ext.lower() in (".png", ".svg", ".svgz") and _fold(stem) == k:
+                return os.path.join(r, f)
+    return None
+
+
+def _gearlever_icon(key):
+    """E130 — O ÍCONE QUE O GEAR LEVER JÁ EXTRAÍU (sem trabalho novo):
+    ~/.local/share/icons/**/<nome>.png|svg e o Icon= do
+    ~/.local/share/applications/*.desktop de usuário que casa com a chave
+    (nome do arquivo, StartupWMClass ou o próprio Icon). None se nada."""
+    k = _fold(key)
+    hit = _icon_file_by_name(key)
+    if hit:
+        return hit
+    apps = os.path.join(GLib.get_home_dir(), ".local", "share", "applications")
+    try:
+        entries = sorted(os.listdir(apps)) if os.path.isdir(apps) else []
+    except OSError:
+        entries = []
+    for f in entries:
+        if not f.endswith(".desktop"):
+            continue
+        try:
+            with open(os.path.join(apps, f), encoding="utf-8", errors="replace") as fh:
+                txt = fh.read()
+        except OSError:
+            continue
+        m = re.search(r"^Icon=(.+)$", txt, re.M)
+        if not m:
+            continue
+        wm = re.search(r"^StartupWMClass=(.+)$", txt, re.M)
+        cand_names = {_fold(f[:-8])}
+        if wm:
+            cand_names.add(_fold(wm.group(1).strip()))
+        cand_names.add(_fold(m.group(1).strip()))
+        if k not in cand_names:
+            continue
+        icon = m.group(1).strip()
+        if os.path.isfile(icon):
+            return icon
+        hit = _icon_file_by_name(icon)
+        if hit:
+            return hit
+    return None
+
+
+def _proc_appimage(key):
+    """E130 — O ARQUIVO AppImage (e o mount vivo) que roda sob esta chave:
+    o environ APPIMAGE=... é a palavra oficial do runtime; o argv[0] do
+    cmdline é a prova do resto (só aceito se o stem casar com a chave). O
+    molde é o do _raw_launch: /proc do usuário, comm case-insensitive com
+    a casca de 15 chars; o environ APPIMAGE= é a palavra oficial e o exe
+    prova o mount vivo (o molde herdado da _appimage_diricon aposentada)."""
     uid = os.getuid()
     klow = key.lower()
     try:
         pids = os.listdir("/proc")
     except OSError:
-        return None
+        return None, None
     for pid in pids:
         if not pid.isdigit():
             continue
@@ -301,16 +366,86 @@ def _appimage_diricon(key):
                 comm = fh.read().strip().lower()
             if comm != klow and not (len(comm) == 15 and klow.startswith(comm)):
                 continue
-            exe = os.path.realpath(f"/proc/{pid}/exe")
+            env = ""
+            try:
+                with open(f"/proc/{pid}/environ", "rb") as fh:
+                    env = fh.read().decode("utf-8", "replace")
+            except OSError:
+                pass
+            argv0 = ""
+            try:
+                with open(f"/proc/{pid}/cmdline", "rb") as fh:
+                    argv0 = fh.read().decode("utf-8", "replace").split("\0")[0]
+            except OSError:
+                pass
         except OSError:
             continue
-        if "/.mount_" not in exe:
+        appimg = None
+        for kv in env.split("\0"):
+            if kv.startswith("APPIMAGE=") and kv[9:]:
+                cand = kv[9:]
+                if os.path.isfile(cand):
+                    appimg = cand
+                    break
+        if appimg is None and argv0.lower().endswith(".appimage") and os.path.isfile(argv0):
+            stem = os.path.basename(argv0)[:-9]
+            if _fold(stem) == _fold(key):
+                appimg = argv0
+        if appimg is None:
             continue
-        mount = exe.split("/.mount_", 1)[0] + "/" + exe.split("/.mount_", 1)[1].split("/", 1)[0]
-        icon = os.path.join(mount, ".DirIcon")
-        if os.path.isfile(icon):
-            return icon
-    return None
+        exe = ""
+        try:
+            exe = os.path.realpath(f"/proc/{pid}/exe")
+        except OSError:
+            pass
+        mount = None
+        if "/.mount_" in exe:
+            mount = exe.split("/.mount_", 1)[0] + "/.mount_" + exe.split("/.mount_", 1)[1].split("/", 1)[0]
+            if not os.path.isdir(mount):
+                mount = None
+        return appimg, mount
+    return None, None
+
+
+APPICON_CACHE = os.path.join(GLib.get_user_cache_dir(), "elite", "appimage-icons")
+
+
+def _appicon_cache_path(appimg):
+    """E130 — o destino CACHEADO do ícone extraído:
+    ~/.cache/elite/appimage-icons/<sha256-do-caminho>.<ext> (persiste
+    entre sessões — o AppImage DESMONTADO continua com rosto na dock)."""
+    h = hashlib.sha256(appimg.encode("utf-8", "replace")).hexdigest()[:24]
+    ext = ".svg" if appimg.lower().endswith(".svg") else ".png"
+    os.makedirs(APPICON_CACHE, exist_ok=True)
+    return os.path.join(APPICON_CACHE, f"{h}{ext}")
+
+
+def _extract_appicon(mount_dir, dest):
+    """E130 — a extração (THREAD DE FUNDO): o .DirIcon ou o MAIOR PNG/SVG
+    do squashfs montado vai para o cache. Zero subprocesso: os arquivos
+    JÁ estão legíveis no mount. Retorna o destino ou None."""
+    best, best_size = None, -1
+    for r, _dirs, files in os.walk(mount_dir):
+        for f in files:
+            if f == ".DirIcon":
+                cand = os.path.join(r, f)
+            elif f.lower().endswith((".png", ".svg", ".svgz")):
+                cand = os.path.join(r, f)
+            else:
+                continue
+            try:
+                sz = os.path.getsize(cand)
+            except OSError:
+                continue
+            if sz > best_size:
+                best, best_size = cand, sz
+    if best is None:
+        return None
+    try:
+        shutil.copyfile(best, dest)
+        return dest
+    except OSError:
+        return None
 
 
 def _pixbuf_or_none(path, size):
@@ -1736,18 +1871,25 @@ class Dock:
         direito reabre pelo /proc quando a prova existe).
         E126 — O LOSANGO AZUL MORRE (o print do dono: AppImage sem pin e
         jogo Steam com ícone GENÉRICO na ponta direita da dock — o Gear
-        Lever lê o ícone embutido e a dock não). A cadeia agora é QUATRO
-        degraus: tema → ícones steam → .DirIcon do AppImage montado → o
-        glifo executável de sempre (o fallback honesto quando NADA
-        existe de verdade)."""
+        Lever lê o ícone embutido e a dock não).
+        E130 — A CADEIA COMPLETA (a ordem do dono: NUNCA ícone genérico
+        quebrado): tema (com a normalização _fold: '_' ↔ '-') → ícones
+        steam → os ícones que o Gear Lever JÁ extraiu (~/.local/share/
+        icons + Icon= do .desktop de usuário) → o cache da casa
+        (~/.cache/elite/appimage-icons) → o .DirIcon do mount vivo → a
+        EXTRAÇÃO EM THREAD DE FUNDO (o maior PNG/SVG do squashfs vai para
+        o cache e o botão vivo ganha a cara via idle_add) → o glifo
+        executável honesto (o fallback quando NADA existe de verdade)."""
         btn = Gtk.Button.new()
         btn.set_relief(Gtk.ReliefStyle.NONE)
         img = Gtk.Image()
         theme = Gtk.IconTheme.get_default()
         done = False
-        if theme is not None and theme.has_icon(key):
-            img.set_from_icon_name(key, Gtk.IconSize.DIALOG)
-            done = True
+        for cand in (key, key.replace("_", "-"), key.replace("-", "_")):
+            if theme is not None and theme.has_icon(cand):
+                img.set_from_icon_name(cand, Gtk.IconSize.DIALOG)
+                done = True
+                break
         if not done:
             for cand in _raw_icon_candidates(key):
                 if theme is not None and theme.has_icon(cand):
@@ -1755,13 +1897,52 @@ class Dock:
                     done = True
                     break
         if not done:
-            diricon = _appimage_diricon(key)
-            if diricon:
+            glever = _gearlever_icon(key)
+            if glever:
+                pix = _pixbuf_or_none(glever, ICON_SIZE)
+                if pix is not None:
+                    img.set_from_pixbuf(pix)
+                    done = True
+                    log(f"raw ícone: '{key}' veio do Gear Lever ({glever})")
+        appimg, mount = (None, None)
+        if not done:
+            appimg, mount = _proc_appimage(key)
+            if appimg:
+                cached = _appicon_cache_path(appimg)
+                if os.path.isfile(cached):
+                    pix = _pixbuf_or_none(cached, ICON_SIZE)
+                    if pix is not None:
+                        img.set_from_pixbuf(pix)
+                        done = True
+                        log(f"raw ícone: '{key}' veio do cache da casa ({cached})")
+        if not done and mount:
+            diricon = os.path.join(mount, ".DirIcon")
+            if os.path.isfile(diricon):
                 pix = _pixbuf_or_none(diricon, ICON_SIZE)
                 if pix is not None:
                     img.set_from_pixbuf(pix)
                     done = True
                     log(f"raw ícone: '{key}' ganhou o .DirIcon do AppImage montado ({diricon})")
+        if not done and appimg and mount:
+            # E130 — a extração em THREAD DE FUNDO (a UI não bloqueia no
+            # walk do squashfs): o .DirIcon/maior PNG-SVG vai para o cache
+            # persistente e o botão VIVO ganha a cara nova via idle_add
+            # (o GLib manda o apply para a main loop — thread não toca GTK).
+            cache_dest = _appicon_cache_path(appimg)
+            _img_ref = img
+
+            def _extract_worker():
+                got = _extract_appicon(mount, cache_dest)
+                if got is not None:
+                    def _apply():
+                        pix = _pixbuf_or_none(got, ICON_SIZE)
+                        if pix is not None:
+                            _img_ref.set_from_pixbuf(pix)
+                            log(f"raw ícone: '{key}' EXTRAÍDO do AppImage para o cache ({got})")
+                        return False
+                    GLib.idle_add(_apply)
+
+            threading.Thread(target=_extract_worker, daemon=True).start()
         if not done:
             img.set_from_icon_name("application-x-executable",
                                    Gtk.IconSize.DIALOG)

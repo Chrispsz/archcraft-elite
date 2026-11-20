@@ -194,13 +194,14 @@ dossie() {
 ensure_cmdline_token() {
   local file=$1 token=$2
   [[ $EUID -ne 0 || $DRY -eq 1 ]] && return 0
-  grep -E '^GRUB_CMDLINE_LINUX_DEFAULT=' "$file" 2>/dev/null | grep -qF -- "$token" && return 0
+  grep -E '^GRUB_CMDLINE_LINUX_DEFAULT=' "$file" 2>/dev/null | grep -qF -- "$token" && return 1   # E130: sem mudança = 1 (o mkconfig não desce)
   backup "$file"
   if grep -qE '^GRUB_CMDLINE_LINUX_DEFAULT=' "$file" 2>/dev/null; then
     sed -i -E "/^GRUB_CMDLINE_LINUX_DEFAULT=/ s|\"([^\"]*)\"|\"\1 ${token}\"|" "$file"
   else
     printf 'GRUB_CMDLINE_LINUX_DEFAULT="quiet %s"\n' "$token" >> "$file"
   fi
+  return 0
 }
 
 # ── gpu_cleanup_foreign: auto-limpeza do stack estranho à GPU detectada ──
@@ -271,9 +272,15 @@ gpu_cleanup_foreign() {
 # chamada 2×, zero cópia viva.
 
 apply_grub_tokens() { # tokens de kernel + grub-mkconfig ([4] firstboot / [3] interativo)
-  (( CPU_AMD )) && ensure_cmdline_token /etc/default/grub amd_pstate=active
-  ensure_cmdline_token /etc/default/grub nowatchdog
-  ensure_cmdline_token /etc/default/grub zswap.enabled=0
+  # E130 — O REBUILD FANTASMA MORRE (a ordem do dono: grub-mkconfig SÓ se
+  # o arquivo mudou): o ensure_cmdline_token agora DIZ se editou (0=mudou,
+  # 1=sem mudança — idempotente) e o mkconfig só desce com conteúdo novo.
+  local _mudou=0
+  if (( CPU_AMD )); then
+    ensure_cmdline_token /etc/default/grub amd_pstate=active && _mudou=1
+  fi
+  ensure_cmdline_token /etc/default/grub nowatchdog && _mudou=1
+  ensure_cmdline_token /etc/default/grub zswap.enabled=0 && _mudou=1
   # E129 — A ORDEM DO DONO (2026-11-20): transparent_hugepage=MADVISE
   # (o 'always' da era E74 fragmenta e trava o reclaim sob memória
   # apertada; madvise dá THP a quem pede). A MIGRAÇÃO SUBSTITUI: o fóssil
@@ -283,9 +290,14 @@ apply_grub_tokens() { # tokens de kernel + grub-mkconfig ([4] firstboot / [3] in
   if grep -q 'transparent_hugepage=always' /etc/default/grub 2>/dev/null; then
     backup /etc/default/grub
     sed -i -E 's/transparent_hugepage=always ?//g; s/  +/ /g; s/" "/"/' /etc/default/grub 2>/dev/null || true
+    _mudou=1
   fi
-  ensure_cmdline_token /etc/default/grub transparent_hugepage=madvise
-  run grub-mkconfig -o /boot/grub/grub.cfg
+  ensure_cmdline_token /etc/default/grub transparent_hugepage=madvise && _mudou=1
+  if (( _mudou )); then
+    run grub-mkconfig -o /boot/grub/grub.cfg
+  else
+    say "grub: tokens da casa já no cmdline — grub-mkconfig NÃO roda (o rebuild fantasma morre, E130)"
+  fi
 }
 
 write_elite_sysctl() { # a lei do sysctl ([2i] firstboot quando ausente / [5] interativo)
@@ -551,7 +563,7 @@ if (( FIRSTBOOT )); then
         # rig sem driver NENHUM se o -S falhasse (ex.: sem rede no 1º boot) —
         # e o marker 'done' sepultava o retry. Agora: -S vence → -R limpa o
         # pré-compilado; -S falha → driver PRESERVADO e re-tenta amanhã.
-        if pacman_s nvidia-open-dkms nvidia-utils lib32-nvidia-utils; then
+        if pacman_s "${KERNEL_PKG}-headers" nvidia-open-dkms nvidia-utils lib32-nvidia-utils; then
           run pacman -R --noconfirm nvidia-open 2>/dev/null || true
         else
           RETRY_DRIVER=1
@@ -562,7 +574,7 @@ if (( FIRSTBOOT )); then
       ;;
     nvidia:pascal|nvidia:maxwell)
       say "NVIDIA $GEN → tentando nvidia-dkms (branch 580 = última p/ Maxwell/Pascal)"
-      if pacman_s nvidia-dkms nvidia-utils lib32-nvidia-utils; then
+      if pacman_s "${KERNEL_PKG}-headers" nvidia-dkms nvidia-utils lib32-nvidia-utils; then
         run pacman -R --noconfirm nvidia-open 2>/dev/null || true
       else
         RETRY_DRIVER=1
@@ -966,8 +978,8 @@ if [[ "$VENDOR" == "nvidia" ]]; then
   run pacman -R --noconfirm nvidia-open 2>/dev/null || true
   if ! pacman -Qqs "^${DRIVER}$" >/dev/null 2>&1; then
     if (( DRY )); then
-      echo "  \$ pacman -S --needed --noconfirm $DRIVER nvidia-utils nvidia-settings lib32-nvidia-utils"
-    elif ! pacman -S --needed --noconfirm "$DRIVER" nvidia-utils nvidia-settings lib32-nvidia-utils; then
+      echo "  \$ pacman -S --needed --noconfirm ${KERNEL_PKG}-headers $DRIVER nvidia-utils nvidia-settings lib32-nvidia-utils"
+    elif ! pacman -S --needed --noconfirm "${KERNEL_PKG}-headers" "$DRIVER" nvidia-utils nvidia-settings lib32-nvidia-utils; then
       note_fail "driver NVIDIA ($DRIVER) — o sistema segue no driver presente"
       [[ "$GEN" == pascal || "$GEN" == maxwell ]] && \
         warn "Para $GEN: paru -S nvidia-580xx-dkms (AUR) e rode elite-tune de novo"
