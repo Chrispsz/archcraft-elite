@@ -9,6 +9,22 @@ pode ser apagado entre uma tarefa e outra. Tudo que importa está commitado
 aqui. Se um agente acordar sem repo local, ele re-clona e segue do ponto
 onde o diário diz (os diários desta pasta são a memória que sobrevive).
 
+## Lei 0 · Constituição suprema (leia primeiro)
+
+**`AGENTS.md` na RAIZ do repo é a CONSTITUIÇÃO OPERACIONAL PERMANENTE do
+projeto** — toda sessão futura lê ANTES de qualquer operação: bootstrap
+limpo e a escada de credencial persistida (`~/.elite-gh-token` e
+`~/.git-credentials`, `chmod 600`, FORA do Git — nunca token bruto em
+arquivo rastreado), execução incremental anti-timeout (ciclo atômico
+code→valida→commit→push por etapa), a regra de ouro (nenhuma tarefa
+termina localmente — pipeline completo até o CI verde e o pacote no
+índice do `elite-local`), migração autônoma idempotente pelo
+`post_upgrade()` (o usuário final nunca roda comando manual de
+pós-instalação), os princípios de arquitetura (zero auto-update no boot,
+zero polling, higiene visual) e o formato do relatório final. As leis
+L1–L10 abaixo operam DENTRO dela; em conflito percebido, `AGENTS.md`
+prevalece e a divergência é harmonizada no MESMO commit.
+
 ## As 4 tarefas (horários America/Sao_Paulo)
 
 | # | Tarefa | Quando | Diário |
@@ -24,17 +40,23 @@ resultado da build mensal do dia.
 
 ## Leis inegociáveis (valem para TODAS as tarefas)
 
-- **L1 · Bootstrap anti-reset**: repo local em
-  `/home/z/my-project/upload/archcraft-elite-v22`. Se existir:
+- **L1 · Bootstrap anti-reset** (detalhe completo no `AGENTS.md` §1):
+  repo local em `/home/z/my-project/upload/archcraft-elite-v22`. Se
+  existir e `git status`/`git diff` mostrarem árvore íntegra:
   `git fetch origin && git reset --hard origin/main && git clean -fd`
-  (o clone local é CACHE — o GitHub manda). Se NÃO existir: escada do
-  token — (1) `git remote get-url origin` do próprio repo (o remote
-  carrega o token); (2) `cat /home/z/.elite-token` (cópia `chmod 600`
-  mantida FORA do repo — sobrevive a reset parcial); (3) com o token,
-  re-clonar: `git clone https://Chrispsz:TOKEN@github.com/Chrispsz/archcraft-elite.git`.
-  Se NENHUMA via funcionar (reset total do sandbox): relatório honesto de
-  bloqueio ao dono — o token é reposto uma vez e os diários desta pasta
-  retomam o estado exato (é para isso que eles existem). Nunca inventar.
+  (o clone local é CACHE — o GitHub manda). **NUNCA reset --hard cego** —
+  herdeiro na árvore é julgado, provado e commitado antes de qualquer
+  reset. Escada do token SEM pedir ao usuário (AGENTS.md §1.1):
+  (1) `cat ~/.elite-gh-token` (chmod 600, FORA do Git); (2)
+  `~/.git-credentials` com `credential.helper store` (o remote fica
+  LIMPO, sem token na URL); (3) `GH_TOKEN`/`GITHUB_TOKEN` ou
+  `gh auth token`. Com o token, re-clone LIMPO **DIRETO no destino
+  final** (nunca `mv` de repo git entre filesystems — lição provada
+  2026-11-20) e `.git` morrendo em `Failed to checksum tmp_pack` =
+  corrupção: clone fresco é a cura. Se NENHUMA via funcionar (reset
+  total do sandbox): relatório honesto de bloqueio ao dono — o token é
+  reposto uma vez e os diários desta pasta retomam o estado exato (é
+  para isso que eles existem). Nunca inventar.
 - **L2 · Suíte porteira**: `bash tests/run-tests.sh` com GO local (0
   falhas) antes de QUALQUER push. Sem GO não sai commit.
 - **L3 · GitHub API sempre autenticada** (`-H "Authorization: Bearer $TOKEN"`).
