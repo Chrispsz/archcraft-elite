@@ -1,0 +1,16 @@
+[package]
+name = "elite-daemon"
+version = "1.0.0"
+edition = "2021"
+description = "ELITE · o detector de jogo unificado (v1: o núcleo do craft-game watch como serviço nativo)"
+license = "GPL-3.0"
+
+[dependencies]
+# zbus: o cliente D-Bus NATIVO (com.feralinteractive.GameMode) — zero
+# subprocesso dbus-send por rodada (o bash pagava um fork a cada chamada).
+zbus = { version = "4", features = ["blocking"] }
+# regex: a MESMA família ERE do bash (o padrão GAME_PATS traduzido 1:1)
+regex = "1"
+libc = "0.2"
+
+[dev-dependencies]

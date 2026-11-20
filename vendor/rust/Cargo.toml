@@ -1,0 +1,26 @@
+# ELITE · workspace Rust (E131 — a ordem do dono: "espremer o limão")
+# Os binários NATIVOS da casa vivem aqui. Zero toolchain Rust na ISO ou
+# no pacote final: o rust/cargo entra EXCLUSIVAMENTE no makedepends do
+# PKGBUILD (o binário compilado é o que viaja).
+#
+# RUSTFLAGS da casa (máximo de performance, x86-64-v3 — o alvo da ISO):
+#   -C target-cpu=x86-64-v3 -C opt-level=3 -C lto=fat -C codegen-units=1
+#   -C strip=symbols
+# (aplicados no build do pacote via RUSTFLAGS em .ci/build.sh; o
+#  build local usa o mesmo valor no .cargo/config.toml do workspace)
+#
+# MEMBROS:
+#   elite-daemon — o detector de jogo UNIFICADO (v1: o núcleo do
+#     craft-game watch — varredura de /proc sem fork por tick, D-Bus
+#     nativo com o GameMode, instância única por flock de arquivo).
+#     O craft-dock-rs (a dock em gtk-rs) entra como membro no degrau
+#     seguinte — nunca aqui pela metade.
+[workspace]
+resolver = "2"
+members = ["elite-daemon"]
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+strip = "symbols"
+opt-level = 3
