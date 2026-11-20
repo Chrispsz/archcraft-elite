@@ -8,6 +8,19 @@
 # Desktop v2 (v1.0.4) — estilo macOS, mouse-first: menu bar no topo
 # (waybar config.top) + DOCK flutuante na base (craft-dock-gui — v2.0),
 # Launchpad (nwg-drawer via craft-drawer) e wallpaper de imagem.
+#
+# E129 — OS ÓRFÃOS DA SESSÃO ANTERIOR MORREM NO FRAME 0 (a ordem do dono):
+#     o ${XDG_RUNTIME_DIR:-/run/user/$UID}/elite/ é tmpfs da SESSÃO (morre
+#     com ela por desenho), mas o relogin rápido e o crash deixam fósseis:
+#     sockets mortos (o toplevel que ninguém escuta), stamps e locks de
+#     watch/apply/vigília que MENTEM à sessão nova. A sessão ÚNICA da casa
+#     (v1.0.3+) garante a segurança: no frame 0 do labwc NÃO há outra
+#     sessão viva — tudo que está aqui é órfão. Sockets e arquivos saem
+#     (o diretório fica — é a morada da sessão que nasce agora).
+_run_elite="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/elite"
+if [ -d "$_run_elite" ]; then
+    find "$_run_elite" -mindepth 1 -maxdepth 1 \( -type s -o -type f \) -delete 2>/dev/null
+fi
 
 # --- Wallpaper: v1.7.1 — CURADORIA DA INTERNET (decisão do dono) ----------
 #     "Eu queria um wallpaper da internet mesmo, esses gerados são muito
@@ -40,19 +53,18 @@ if command -v swaybg >/dev/null 2>&1; then
     fi
 fi
 
-# --- Displays: O ARRANJO SALVO NASCE APLICADO (E89 — a tela que lembra) ---
+# --- Displays: O ARRANJO SALVO NASCE APLICADO NO FRAME 0 (E89→E129) -----
 #     O relato do dono: "eu coloco 200 hertz e toda vez que eu reinicio o
 #     PC tem que estar colocando os 200 hertz… porque ele some". O modo é
 #     propriedade do compositor em RAM — nada na casa gravava a escolha.
-#     O craft-display fecha o ciclo: apply espera os outputs de pé e
-#     aplica ~/.config/elite/displays.conf (o 200 Hz nasce aplicado);
-#     o watch grava sozinho qualquer mudança que o dono fizer por
-#     QUALQUER porta (wdisplays, menu do desktop, wlr-randr) quando ela
-#     se estabiliza — a persistência deixa de depender de lembrar de
-#     salvar. O apply vai despegado (o autostart não é refém da espera
-#     de 15s); o watch segue de gaveta (daemon silencioso, zero UI).
+#     E129 — O APPLY-BOOT É SÍNCRONO (a ordem do dono: 'sem espera de
+#     27s/6 ticks no relogin'): UMA passada, a resolução nasce ANTES das
+#     barras (nada de waybar/dock nascendo a 60 Hz para trocar depois —
+#     o 'aplicou do nada' morre); os 6 ticks de retry são teatro no boot
+#     (o do_apply do supervisor mantém o teto E106 por baixo, e o watch
+#     segue gravando a escolha do dono por QUALQUER porta).
 if command -v craft-display >/dev/null 2>&1; then
-    craft-display apply >/dev/null 2>&1 &
+    craft-display apply-boot >/dev/null 2>&1
     craft-display watch >/dev/null 2>&1 &
 fi
 

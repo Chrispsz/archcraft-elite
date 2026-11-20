@@ -1,0 +1,205 @@
+#!/bin/sh
+# ═══════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · elite-post-upgrade — A MIGRAÇÃO AUTÔNOMA (E129)
+# ═══════════════════════════════════════════════════════════════════════════
+# A LEI DO DONO (AGENTS.md §4, 2026-11-20): "O usuário final nunca roda
+# comandos manuais de pós-instalação — toda correção em /etc, Polkit,
+# systemd, sysctl, GRUB, Flatpaks e dotfiles roda automaticamente no
+# pacman -Syu via post_upgrade(), SEM depender do firstboot-done (que só
+# roda na instalação inicial)". O post_upgrade do elite-system chama ESTE
+# bin a cada upgrade do pacote — o rig já instalado RECEBE a cura pela
+# transação, não a procura num manual.
+#
+# IDEMPOTENTE POR DESENHO (§4: rodar múltiplas vezes = mesmo estado final):
+#   · máscara/enable são no-op repetidos (o systemd responde igual);
+#   · token de GRUB entra UMA vez (grep antes do sed); grub-mkconfig SÓ
+#     roda quando o default/grub mudou de verdade (sem rebuild fantasma);
+#   · qt6ct.conf só nasce SE AUSENTE (personalizado do dono é intocável);
+#   · flatpak okular/--unused sem alvo = linha no papel, rc 0;
+#   · o rice das peles segue a gramática E101/E123 do craft-rice
+#     (ausente/marcador/fóssil renova com backup; personalizado intocável).
+# Papel: /var/log/elite-post-upgrade.log (teto E36 256 KiB). Instância
+# única por flock (a lei E30 — zero pgrep, zero polling).
+# ═══════════════════════════════════════════════════════════════════════════
+set -u
+
+LOG=/var/log/elite-post-upgrade.log
+LOCK=/run/elite-post-upgrade.lock
+
+tlog() {
+    mkdir -p "${LOG%/*}" 2>/dev/null || true
+    if [ -f "$LOG" ] && [ "$(wc -c <"$LOG" 2>/dev/null || echo 0)" -gt 262144 ]; then
+        tail -c 131072 "$LOG" > "$LOG.tmp" 2>/dev/null && mv -f "$LOG.tmp" "$LOG" || true
+    fi
+    printf '[%s] %s\n' "$(date '+%F %T')" "$1" >>"$LOG" 2>/dev/null || true
+}
+
+if [ "${1:-}" = "--help" ]; then
+    sed -n '2,30p' "$0" | grep '^# ' | sed 's/^# \{0,1\}//'
+    exit 0
+fi
+
+[ "$(id -u)" = 0 ] || { printf 'elite-post-upgrade: corre como raiz (o post_upgrade do elite-system o convoca)\n' >&2; exit 0; }
+
+# instância única (E30): flock na entrada — a segunda corrida SAI (o
+# pacman nunca roda dois post_upgrade do mesmo pacote em paralelo, mas a
+# porta manual é livre; a lei é de UM dono por vez)
+if command -v flock >/dev/null 2>&1; then
+    exec 9>"$LOCK" 2>/dev/null || true
+    flock -n 9 || { tlog "post-upgrade: outra corrida viva — saída honesta (a lei E30)"; exit 0; }
+fi
+
+tlog "post-upgrade: iniciando (E129 — a migração autônoma da constituição §4)"
+
+# ── 1. O systemd RELE o mundo (units novas/mascaradas da transação) ──
+systemctl daemon-reload >/dev/null 2>&1 && tlog "systemd: daemon-reload ok" || tlog "systemd: daemon-reload falhou (sem systemd rodando? — ambiente de prova, no-op honesto)"
+
+# ── 2. A CADÊNCIA MORTA NÃO RENASCE + O ESPERA-TEMPO DO BOOT MORRE ──
+# E128: a família da cadência (a revogação da E51 pela §5) é disable+mask —
+# o fóssil de rig antigo não volta nem por start manual.
+# §5 do dono: o systemd-time-wait-sync segura o boot esperando rede
+# (o -31s de arranque que a máquina do dono pagou) — MASCARADO (o
+# systemd-networkd-wait-online é quem sobrou, e é da base, não da casa).
+systemctl mask systemd-time-wait-sync.service >/dev/null 2>&1 \
+    && tlog "boot: systemd-time-wait-sync MASCARADO (o arranque não espera rede morta)" \
+    || tlog "boot: mask do time-wait-sync falhou (no-op honesto)"
+_cad=""
+for _u in elite-channel.timer elite-channel.service \
+          elite-bootupdate.timer elite-bootupdate.service \
+          elite-sysupdate.timer elite-sysupdate.service; do
+    systemctl disable --now "$_u" >/dev/null 2>&1 || true
+    rm -f "/etc/systemd/system/$_u" 2>/dev/null || true
+    _cad="$_cad $_u"
+done
+if systemctl mask $_cad >/dev/null 2>&1; then
+    tlog "cadência: elite-channel/bootupdate/sysupdate aposentados e MASCARADOS (E128 — a constituição §5; os timers de update não renascem)"
+fi
+
+# ── 3. TMPFILES DA CASA CRIA O QUE PRECISA EXISTIR (o /run e o /var) ──
+systemd-tmpfiles --create >/dev/null 2>&1 \
+    && tlog "tmpfiles: --create ok (a estrutura transitória segue a receita)" \
+    || tlog "tmpfiles: --create falhou (no-op honesto)"
+
+# ── 4. O SYSCTL DA CASA NO KERNEL VIVO (a transação pode ter trazido ──
+#      conf de terceiro por cima — a E101 do post-transaction prova a classe)
+sysctl --system >/dev/null 2>&1 \
+    && tlog "sysctl: --system re-aplicou (o tuning da casa vale NA HORA, não no próximo boot)" \
+    || tlog "sysctl: --system não aplicou (no-op honesto)"
+
+# ── 5. GRUB: OS TOKENS DA CASA ENTRAM UMA VEZ; O REBUILD SÓ SE MUDOU ──
+# zswap.enabled=0: o zram da casa é o swap (zram-generator) — o zswap na
+# frente dele é CPU de compressão DUPLA por desenho.
+# transparent_hugepage=madvise: THP total ('always') fragmenta e trava o
+# reclaim sob memória apertada; madvise dá THP a quem pede (a ordem do
+# dono 2026-11-20 substitui o 'always' da era E74).
+_ensure_token() {
+    _f=$1; _t=$2
+    grep '^GRUB_CMDLINE_LINUX_DEFAULT=' "$_f" 2>/dev/null | grep -qF -- "$_t" && return 1
+    if [ -f "$_f" ]; then
+        cp -p "$_f" "$_f.bak-post-upgrade-$(date +%s)" 2>/dev/null || true
+        sed -i -E "/^GRUB_CMDLINE_LINUX_DEFAULT=/ s|\"([^\"]*)\"|\"\1 ${_t}\"|" "$_f" 2>/dev/null || return 1
+    else
+        printf 'GRUB_CMDLINE_LINUX_DEFAULT="quiet %s"\n' "$_t" > "$_f" 2>/dev/null || return 1
+    fi
+    return 0
+}
+_grub_mudou=0
+[ -f /etc/default/grub ] || { printf 'GRUB_CMDLINE_LINUX_DEFAULT="quiet"\n' > /etc/default/grub 2>/dev/null; _grub_mudou=1; }
+# o FÓSSIL 'always' SAI (E129: o rig da era E74 amanheceu com o token
+# antigo — a migração o remove ANTES de cravar o madvise; o sed é no-op
+# se o fóssil não existe — idempotente)
+if grep -q 'transparent_hugepage=always' /etc/default/grub 2>/dev/null; then
+    cp -p /etc/default/grub "/etc/default/grub.bak-post-upgrade-$(date +%s)" 2>/dev/null || true
+    sed -i -E 's/(GRUB_CMDLINE_LINUX_DEFAULT=)"([^"]*)"/\1"\2"/; s/transparent_hugepage=always ?//g; s/  +/ /g; s/" "/"/' /etc/default/grub 2>/dev/null && {
+        tlog "grub: o fóssil transparent_hugepage=always SAIU (a migração E129 substitui — não empilha)"
+        _grub_mudou=1
+    }
+fi
+_ensure_token /etc/default/grub zswap.enabled=0         && { tlog "grub: zswap.enabled=0 entrou (o zram é o swap da casa — compressão dupla morre)"; _grub_mudou=1; }
+_ensure_token /etc/default/grub transparent_hugepage=madvise && { tlog "grub: transparent_hugepage=madvise entrou (a ordem do dono E129 substitui o 'always' — THP a quem pede)"; _grub_mudou=1; }
+if [ "$_grub_mudou" = 1 ] && command -v grub-mkconfig >/dev/null 2>&1; then
+    if grub-mkconfig -o /boot/grub/grub.cfg >/dev/null 2>&1; then
+        tlog "grub: grub-mkconfig rodou (o cmdline novo vale no PRÓXIMO boot — o atual segue de pé)"
+    else
+        tlog "grub: grub-mkconfig falhou (os tokens ficaram no default/grub — o próximo tune/primeiro boot re-tenta)"
+    fi
+fi
+
+# ── 6. O HELPER DO POLKIT COM O SETUID DE FÁBRICA + O TRONO LIMPO ──
+# O 'Usuário não autorizado' do dono: o polkit-agent-helper-1 SEM o 4755
+# recusa autenticar qualquer agente (a classe documentada na FICHA do
+# polkit-agent-helper). O reset-failed limpa as unidades do agente que
+# morreram antes da cura (o journal deixa de gritar o passado).
+if [ -e /usr/lib/polkit-1/polkit-agent-helper-1 ]; then
+    chmod 4755 /usr/lib/polkit-1/polkit-agent-helper-1 2>/dev/null \
+        && tlog "polkit: helper com 4755 de fábrica (o agente da casa autentica — o 'Usuário não autorizado' morre)"
+fi
+systemctl reset-failed 'polkit-agent-helper@*' >/dev/null 2>&1 || true
+tlog "polkit: reset-failed dos agentes mortos (o journal conta o presente, não o passado)"
+
+# ── 7. O OKULAR SAI DO SISTEMA (E128 — idempotente; a ordem do dono:
+#      apenas Papers + Bazaar moram na casa) + os runtimes órfãos
+if command -v flatpak >/dev/null 2>&1; then
+    if flatpak info --system org.kde.okular >/dev/null 2>&1; then
+        flatpak uninstall --system --noninteractive org.kde.okular >/dev/null 2>&1 \
+            && tlog "flatpak: org.kde.okular REMOVIDO (Papers é o leitor da casa — E128)" \
+            || tlog "flatpak: okular não saiu agora (a próxima transação re-tenta — best-effort)"
+    fi
+    flatpak uninstall --system --noninteractive --unused >/dev/null 2>&1 || true
+fi
+
+# ── 8. O RICE E O QT DO USUÁRIO ATIVO (a peça que o firstboot-done ──
+#      NUNCA levava ao rig já instalado): as seis peles viajam pelo
+#      craft-rice (gramática E101/E123 — marcador/backup/intocável) e o
+#      qt6ct.conf da casa nasce SE AUSENTE (Papirus-Dark — o mesmo tema
+#      dos settings.ini; o Qt6 para de ficar nu no meio do rice escuro).
+#      O labwc --reconfigure aplica NA SESSÃO VIVA (a descoberta do
+#      WAYLAND_DISPLAY no /run/user/$uid — a escola E126 do craft-update).
+loginctl list-users --no-legend 2>/dev/null | while read -r uid _; do
+    [ -n "$uid" ] || continue
+    [ "$uid" -ge 1000 ] 2>/dev/null || continue
+    _home="$(getent passwd "$uid" 2>/dev/null | cut -d: -f6)"
+    [ -n "$_home" ] && [ -d "$_home" ] || continue
+    # qt6ct: a casa do tema Qt — cria se ausente, toca no que o dono tem
+    if [ ! -e "$_home/.config/qt6ct/qt6ct.conf" ]; then
+        if [ -r /usr/local/share/elite/qt6ct/qt6ct.conf ]; then
+            mkdir -p "$_home/.config/qt6ct" 2>/dev/null || true
+            cp /usr/local/share/elite/qt6ct/qt6ct.conf "$_home/.config/qt6ct/qt6ct.conf" 2>/dev/null \
+                && chown -R "$uid:$uid" "$_home/.config/qt6ct" 2>/dev/null \
+                && tlog "qt6ct: qt6ct.conf da casa nasceu no uid $uid (Papirus-Dark — o Qt6 veste o rice; personalização futura do dono é intocável)"
+        fi
+    fi
+    # o rice + o reconfigure na sessão viva (guard: socket do compositor)
+    _wd=""
+    for _w in /run/user/"$uid"/wayland-*; do
+        [ -S "$_w" ] || continue
+        _wd="${_w##*/}"
+        break
+    done
+    if [ -n "$_wd" ]; then
+        _out="$(runuser -u "#$uid" -- env \
+            XDG_RUNTIME_DIR="/run/user/$uid" \
+            WAYLAND_DISPLAY="$_wd" \
+            DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" \
+            HOME="$_home" \
+            /usr/local/bin/craft-rice 2>&1 || true)"
+        case "$_out" in
+            *'reconfigure aplicado'*) tlog "sessão: peles renovadas + reconfigure (uid $uid) — o rice novo vale sem relogin" ;;
+            *) tlog "sessão: craft-rice correu (uid $uid, sem socket de sessão viva o reconfigure fica para o arranque)" ;;
+        esac
+        if [ "$uid" != "$(id -u)" ]; then
+            runuser -u "#$uid" -- env XDG_RUNTIME_DIR="/run/user/$uid" \
+                WAYLAND_DISPLAY="$_wd" HOME="$_home" \
+                labwc --reconfigure >/dev/null 2>&1 || true
+        fi
+    else
+        # sem sessão viva: o rice corre MESMO ASSIM (as peles valem no
+        # próximo arranque — o rig sem login aberto recebe a cura igual)
+        _out="$(runuser -u "#$uid" -- env HOME="$_home" \
+            /usr/local/bin/craft-rice 2>&1 || true)"
+        tlog "sessão: uid $uid sem Wayland vivo — o rice correu para o disco (as peles valem no próximo arranque)"
+    fi
+done
+
+tlog "post-upgrade: concluído (a migração é idempotente — rodar de novo é no-op com papel)"
+exit 0

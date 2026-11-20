@@ -474,6 +474,13 @@ cp -p /work/elite/airootfs/etc/udev/rules.d/90-elite-wake-guard.rules \
 mkdir -p /tmp/elite-src/elite-system/files/etc/polkit-1/rules.d
 cp -p /work/elite/airootfs/etc/polkit-1/rules.d/50-elite-wheel.rules \
       /tmp/elite-src/elite-system/files/etc/polkit-1/rules.d/50-elite-wheel.rules
+# E129 — O TEMA QT VESTE O RICE: o qt6ct.conf da casa viaja no pacote
+# (icon_theme=Papirus-Dark — o MESMO dos settings.ini GTK) e o
+# elite-post-upgrade o entrega aos homes vivos SE AUSENTE (personalizado
+# do dono é intocável — a gramática E101). O skel da ISO nasce com ele.
+mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/qt6ct
+cp -p /work/elite/airootfs/usr/local/share/elite/qt6ct/qt6ct.conf \
+      /tmp/elite-src/elite-system/files/usr/local/share/elite/qt6ct/qt6ct.conf
 # E114 — O CONFO DO NAVEGADOR NO PACOTE: o brave-flags.conf era SKEL — rig
 # vivo nunca recebia (a cura do vídeo branco do YouTube — o réu Vulkan da
 # era v1.1 fora — morria sem veículo). Viaja em /usr/local/share/elite/
@@ -672,6 +679,9 @@ udev_install = '    install -d "${pkgdir}/usr/lib/udev/rules.d"\n    install -m6
 # E128 — a regra polkit da casa (mesma dança da família E91/E98)
 pk_install = '    install -d "${pkgdir}/etc/polkit-1/rules.d"\n    install -m644 "${startdir}/files/etc/polkit-1/rules.d/50-elite-wheel.rules" "${pkgdir}/etc/polkit-1/rules.d/50-elite-wheel.rules"\n'
 pk_rm = '    [ -e "/etc/polkit-1/rules.d/50-elite-wheel.rules" ] && ! pacman -Qo "/etc/polkit-1/rules.d/50-elite-wheel.rules" >/dev/null 2>&1 && rm -f "/etc/polkit-1/rules.d/50-elite-wheel.rules"\n'
+# E129 — o tema Qt da casa (mesma dança da família E91)
+q6_install = '    install -d "${pkgdir}/usr/local/share/elite/qt6ct"\n    install -m644 "${startdir}/files/usr/local/share/elite/qt6ct/qt6ct.conf" "${pkgdir}/usr/local/share/elite/qt6ct/qt6ct.conf"\n'
+q6_rm = '    [ -e "/usr/local/share/elite/qt6ct/qt6ct.conf" ] && rm -f "/usr/local/share/elite/qt6ct/qt6ct.conf"\n'
 pkg = f"""pkgname=elite-system
 pkgver=1.0
 # E50 — O SISTEMA EM UM PACOTE SÓ (diretriz do dono). Todo o código de
@@ -2347,9 +2357,32 @@ pkgver=1.0
 #     local ativo sobe craft-clean/elite-update SEM senha, sem wildcard);
 #     (3) O OKULAR SAI e o BAZAAR NASCE adotado (apenas Papers + Bazaar
 #     moram na casa — org.kde.okular uninstall + --unused idempotentes).
-#     pkgrel 75→76 NO MESMO COMMIT (lei E41 — craft-update mudou de
-#     conteúdo, elite-update nasceu, unidades saíram da árvore).
-pkgrel=76
+# E129 — A MIGRAÇÃO AUTÔNOMA + O FRAME 0 (2026-11-20): (1) O
+#     elite-post-upgrade NASCE (o corpo do post_upgrade/post_install do
+#     PKGBUILD — AGENTS.md §4: o dono NUNCA roda comando manual de
+#     pós-instalação; o rig já instalado RECEBE a cura no pacman -Syu SEM
+#     depender do firstboot-done): daemon-reload, a cadência E128
+#     disable+mask no rig vivo, o systemd-time-wait-sync MASCARADO (o -31s
+#     do arranque morre), systemd-tmpfiles --create, sysctl --system, os
+#     tokens de GRUB (zswap=0 + THP madvise com o fóssil always SAINDO —
+#     grub-mkconfig SÓ se mudou), o helper do polkit com 4755 de fábrica +
+#     reset-failed, o okular fora e o qt6ct.conf da casa nascendo SE
+#     AUSENTE nos homes vivos (Papirus-Dark) com o rice + labwc
+#     --reconfigure na sessão — IDEMPOTENTE por desenho (rodar 2× = mesmo
+#     estado); (2) O FRAME 0 DO RELogin: o autostart limpa os órfãos do
+#     o dir elite do XDG_RUNTIME_DIR (sockets/stamps/locks que mentem à sessão
+#     nova) e roda o craft-display apply-boot SÍNCRONO (uma passada — os
+#     27s/6 ticks de retry eram tela errada no relogin; o do_apply do
+#     supervisor mantém o teto E106 por baixo); (3) A DOCK DEVOLVE O
+#     GDKPIXBUF (o .DirIcon do AppImage decodificado não fica agarrado a
+#     botão morto — o clear() na saída suave e no rebuild); (4) as FLAGS
+#     VA-API do Brave entram em PRODUÇÃO (decode por GPU de fábrica — o
+#     compositing Vulkan segue fora pela prova E114 do próprio rig); (5)
+#     o THP madvise no elite-tune (a mesma migração da porta do tune).
+#     pkgrel 76→77 NO MESMO COMMIT (lei E41 — elite-post-upgrade nasceu,
+#     craft-display/dock-gui/tune/brave-flags/autostart mudaram de
+#     conteúdo, qt6ct mestre novo no pacote).
+pkgrel=77
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da sessão; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
@@ -2409,7 +2442,24 @@ pre_install() {{
     ; do
         [ -e "/usr/local/bin/$f" ] && rm -f "/usr/local/bin/$f"
     done
-{unit_loop}{hook_rm}{ff_rm}{lock_rm}{rc_rm}{osd_rm}{menu_rm}{gm_rm}{doc_rm}{gp_rm}{flags_rm}{waybar_rm}{pk_rm}    return 0
+{unit_loop}{hook_rm}{ff_rm}{lock_rm}{rc_rm}{osd_rm}{menu_rm}{gm_rm}{doc_rm}{gp_rm}{flags_rm}{waybar_rm}{pk_rm}{q6_rm}    return 0
+}}
+# E129 — A MIGRAÇÃO AUTÔNOMA (AGENTS.md §4, 2026-11-20): o usuário final
+# NUNCA roda comando manual de pós-instalação — toda correção de /etc,
+# Polkit, systemd, sysctl, GRUB, Flatpaks e dotfiles corre AQUI, no
+# pacman -Syu, SEM depender do firstboot-done (que só roda na instalação
+# inicial). O corpo mora no elite-post-upgrade (bin do pacote — o
+# post_upgrade corre DEPOIS da extração, o bin novo já vive) e é
+# IDEMPOTENTE por desenho (rodar 2× = mesmo estado final, §4).
+post_install() {{
+    if [ -x /usr/local/bin/elite-post-upgrade ]; then
+        /usr/local/bin/elite-post-upgrade post_install || true
+    fi
+}}
+post_upgrade() {{
+    if [ -x /usr/local/bin/elite-post-upgrade ]; then
+        /usr/local/bin/elite-post-upgrade post_upgrade || true
+    fi
 }}
 package() {{
     install -d "${{pkgdir}}/usr/local/bin"
@@ -2421,7 +2471,7 @@ package() {{
     # E103 — o agente sob demanda + a fonte dele (mesma transparência)
     install -m755 elite-polkit-listener "${{pkgdir}}/usr/local/bin/elite-polkit-listener"
     install -Dm644 elite-polkit-listener.c "${{pkgdir}}/usr/local/share/elite/src/elite-polkit-listener.c"
-{unit_install}{hook_install}{ff_install}{lock_install}{rc_install}{osd_install}{menu_install}{pd_install}{gm_install}{doc_install}{gp_install}{pt_install}{ef_install}{flags_install}{waybar_install}{udev_install}{pk_install}}}
+{unit_install}{hook_install}{ff_install}{lock_install}{rc_install}{osd_install}{menu_install}{pd_install}{gm_install}{doc_install}{gp_install}{pt_install}{ef_install}{flags_install}{waybar_install}{udev_install}{pk_install}{q6_install}}}
 """
 (d / 'PKGBUILD').write_text(pkg)
 PYE50

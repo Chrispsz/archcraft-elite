@@ -274,7 +274,17 @@ apply_grub_tokens() { # tokens de kernel + grub-mkconfig ([4] firstboot / [3] in
   (( CPU_AMD )) && ensure_cmdline_token /etc/default/grub amd_pstate=active
   ensure_cmdline_token /etc/default/grub nowatchdog
   ensure_cmdline_token /etc/default/grub zswap.enabled=0
-  ensure_cmdline_token /etc/default/grub transparent_hugepage=always
+  # E129 — A ORDEM DO DONO (2026-11-20): transparent_hugepage=MADVISE
+  # (o 'always' da era E74 fragmenta e trava o reclaim sob memória
+  # apertada; madvise dá THP a quem pede). A MIGRAÇÃO SUBSTITUI: o fóssil
+  # 'always' sai do cmdline (o mesmo gesto do elite-post-upgrade — função
+  # única? aqui é o corpo do tune com o backup() da casa; o espelho é o
+  # CONTRATO da suíte, não cópia de código) e o madvise entra no lugar.
+  if grep -q 'transparent_hugepage=always' /etc/default/grub 2>/dev/null; then
+    backup /etc/default/grub
+    sed -i -E 's/transparent_hugepage=always ?//g; s/  +/ /g; s/" "/"/' /etc/default/grub 2>/dev/null || true
+  fi
+  ensure_cmdline_token /etc/default/grub transparent_hugepage=madvise
   run grub-mkconfig -o /boot/grub/grub.cfg
 }
 

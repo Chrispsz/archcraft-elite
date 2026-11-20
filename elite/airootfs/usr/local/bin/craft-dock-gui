@@ -319,6 +319,25 @@ def _pixbuf_or_none(path, size):
     except (GLib.Error, OSError):
         return None
 
+
+def _release_pixbufs(widget):
+    """E129 — O GdkPixbuf VOLTA PARA O POOL ao fechar (a ordem do dono:
+    higiene de RAM na dock). O .DirIcon do AppImage decodificado
+    (new_from_file_at_size — PIXMAP na memória do processo) ficava
+    AGARRADO pelo Gtk.Image do botão que saiu da pílula até o GC do
+    Python passar (e referências cíclicas de signal nunca o largam): cada
+    fechar/abrir de AppImage engordava a dock. O clear() solta a
+    referência do widget AGORA (a ordem é o destroy da saída suave v2.11 —
+    o pixbuf sai antes do widget morrer) e o GC devolve os bytes."""
+    try:
+        for child in widget.get_children():
+            _release_pixbufs(child)
+    except AttributeError:
+        pass
+    if isinstance(widget, Gtk.Image):
+        widget.clear()
+
+
 PINS_FILE = os.path.join(
     GLib.get_user_config_dir(), "elite", "dock-pins"
 )
@@ -778,6 +797,7 @@ class Dock:
     # ── pins ─────────────────────────────────────────────────────────────
     def rebuild(self, *_):
         for child in self.pill.get_children():
+            _release_pixbufs(child)  # E129 — os pixbufs dos pins rearmados voltam ao pool
             self.pill.remove(child)
         self.buttons = []
         self.dyn = {}
@@ -1851,8 +1871,11 @@ class Dock:
 
     def _dyn_retire(self, rev):
         """v2.11 — o fim da saída: o widget deixa a árvore DEPOIS do slide
-        (o destroy na detecção da saída era o piscar que o dono rejeitou)."""
+        (o destroy na detecção da saída era o piscar que o dono rejeitou).
+        E129 — o GdkPixbuf do botão sai ANTES do destroy (a RAM volta na
+        hora — o .DirIcon do AppImage não fica agarrado a botão morto)."""
         self._pending = max(0, self._pending - 1)
+        _release_pixbufs(rev)
         rev.destroy()
         self._sync_sep()
         return GLib.SOURCE_REMOVE

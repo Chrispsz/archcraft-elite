@@ -314,6 +314,36 @@ aplica_arranjo() {
     return 0
 }
 
+# ── apply-boot: o FRAME 0 do relogin (E129 — a ordem do dono) ────────
+apply_boot() {
+    # UMA passada SÍNCRONA: o autostart do labwc roda desapegado por
+    # desenho (o compositor o lança em background), então correr AQUI de
+    # forma síncrona atrasa as barras em NO MÁXIMO a espera dos outputs
+    # (8 sondas de 0.5s — o normal é a 1ª responder). O ganho: a resolução
+    # do dono nasce ANTES da waybar/dock — nada de barras nascendo a 60 Hz
+    # para trocar a 200 Hz (o 'aplicou do nada' que o dono fotografou no
+    # dump 210305). SEM o teatro do retry (os 6 ticks do E106 eram ~27s de
+    # tela errada no relogin): UMA aplicação, stamp honesto ok/fail:1, e a
+    # casa da persistência continua de pé por baixo (o do_apply do
+    # supervisor re-tenta com o teto; o watch segue gravando a escolha).
+    if command -v flock >/dev/null 2>&1; then
+        exec 8>"$APPLY_LOCK" 2>/dev/null || true
+        flock -n 8 2>/dev/null || { dlog "apply-boot: outro apply vive — sai (o mutex E126)"; exit 0; }
+    fi
+    if [ ! -s "$CONF" ]; then
+        dlog "apply-boot: sem conf salvo — nada a aplicar (o EDID manda; silêncio)"
+        return 0
+    fi
+    if aplica_arranjo; then
+        printf 'ok\n' > "$STAMP" 2>/dev/null || true
+        dlog "apply-boot: arranjo salvo aplicado no frame 0 (uma passada, sem retry — E129)"
+    else
+        printf 'fail:1\n' > "$STAMP" 2>/dev/null || true
+        dlog "apply-boot: falhou no frame 0 (stamp fail:1 — o do_apply do supervisor re-tenta com o teto E106; nada morre aqui)"
+    fi
+    return 0
+}
+
 do_apply() {
     # E107 — A MÁQUINA DE ESTADOS ÚNICA (a casa do stamp): o E96
     # (anti-duplo: autostart e supervisor podem AMBOS chamar — o ok é a
@@ -727,6 +757,7 @@ do_menu() {
 
 case "${1:-}" in
     apply)  do_apply ;;
+    apply-boot) apply_boot ;;
     save)   do_save; exit $? ;;
     watch)  do_watch ;;
     status)
