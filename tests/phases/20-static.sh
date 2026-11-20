@@ -1638,6 +1638,44 @@ assert_grep "$REPO/.ci/build.sh" 'post_install' "E129: o post_install convoca o 
 assert_grep "$REPO/.ci/build.sh" 'q6_install' "E129: o qt6ct.conf VIAJA NO PACOTE (o molde o instala em /usr/local/share/elite/qt6ct — a fonte única dos homes)"
 AUT129="$REPO/elite/airootfs/etc/skel/.config/labwc/autostart"
 assert_grep "$AUT129" '-type s -o -type f' "E129: os órfãos da sessão anterior MORREM no frame 0 (sockets/stamps/locks que mentem à sessão nova — tmpfs de relogin rápido não vira fantasma)"
+
+# ── E130 — A ORDEM DO DONO DE 2026-11-21 EM DUAS ETAPAS ──────────────────
+# Etapa 1: a harmonização do sono E88↔E122, as peles do tema/GTK em homes
+# vivos, o réu do par em 1s e a fonte persistente do token na constituição.
+SL130="$REPO/elite/airootfs/usr/lib/systemd/system-sleep/elite-sleep-report"
+RU130="$REPO/elite/airootfs/usr/lib/systemd/system-sleep/elite-resume-usb"
+assert_grep "$SL130" 'craft-wake-guard apply' "E130: o selo pré-sono RE-AFIRMA a política E122 antes de selar (o apply re-arma a cadeia do teclado — o selo de uma noite anterior não pode ter deixado a porta fechada)"
+assert_grep "$SL130" 'kbd_pci' "E130: o selo ISENTA a fonte ACPI do controlador que hospeda teclado (a MESMA decisão por interface do wake-guard — protocolo HID 01 —, não um nome fixo; XHC0/PTXH do rig entram pela prova)"
+assert_grep "$SL130" 'PS2K|PWRB|SLPB|LID0' "E130: PS2K e os botões intencionais FICAM ARMADOS (o despertar do teclado é a porta que o dono pediu aberta; GP12/GP13/SWUS/SWDS e o mouse selam)"
+assert_grep "$SL130" '_armadas=' "E130: a lista ACPI é capturada PRIMEIRO (o SC2094 nomeado: escrever no /proc/acpi/wakeup dentro da leição truncava a tabela — o arquivo é TOGGLE)"
+assert_grep "$RU130" 'craft-wake-guard apply' "E130: o resume chama a política DIRETA (a re-observação E24 que desarmava TODO 0x0c03 matava a porta do teclado — a chamada re-afirma teclado acorda/mouse dorme com o resumo no journal)"
+assert_nogrep "$RU130" 'echo disabled > "\$d/power/wakeup"' "E130: o desarmar às cegas MORREU (o estado do wakeup é da POLÍTICA — nada de força bruta no wake)"
+assert_grep "$RU130" 'NÃO está no disco' "E130: sem craft-wake-guard o hook NÃO inventa política (a honestidade E33 no journal — o que não pode aplicar não afirma que aplicou)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" '91-elite-wake-guard.rules' "E130: a sonda da seção 10 verifica a regra VIVA do pacote (o /etc/90-* é arqueologia — a mensagem enganosa 'regra E24 ausente' morre, classe E33 na sonda)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-rice" 'theo_skin' "E130: o themerc-override (o destaque MAUVE) é PELE da casa (a gramática E91 alcança o home vivo — o rig da ISO velha sai do tema de 3/nov)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-rice" 'gtk_skin' "E130: os settings GTK3+GTK4 são PELE da casa (o Papirus-Dark chega ao rig vivo sem relogin — o item 10 do backlog fechado por completo)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-rice" 'qtc_skin' "E130: o qt6ct.conf entra na dança das irmãs (renova por marcador/fóssil — o E129 só o entregava SE AUSENTE)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-rice" 'THEO_FOSSILS=' "E130: o themerc-override tem REDE DE FÓSSEIS (as 7 eras desde 13ff633 — 'é a nossa velha' de 'o dono editou')"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-post-transaction" 'gtk-icon-theme-name=Papirus-Dark' "E130: a linha de ícones é GARANTIDA em toda transação (GTK3+GTK4 dos usuários ativos — a casa sincroniza SÓ a linha, o resto do arquivo é intocável)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-post-transaction" 'icon_theme=Papirus-Dark' "E130: o Qt ACOMPANHA a família (o icon_theme do qt6ct.conf vivo com ícone diferente é cura)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-post-transaction" 'org\.kde\.okular' "E130: o okular não RENASCE em transação nenhuma (a cura E128 rodava só na dose — o rig que não atualiza carregava o runtime Qt inteiro)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-game" 'gm_whois' "E130: o hook do jogo FOTOGRAFA os vivos da família (PID+comm+argumento no game.log — o par INÍCIO/FIM em 1s ao abrir o Hydra ganha réu com nome)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-game" 'gamemoded|wine|steam|hydra|gamescope|preload' "E130: a família fotografada cobre GameMode/Wine/Steam/Hydra (o registrante fantasma não é mais anônimo)"
+assert_grep "$REPO/AGENTS.md" '/home/z/my-project/.elite-gh-token' "E130: a constituição conhece a FONTE PERSISTENTE do token (1ª via da escada §1.1 — /home/z/my-project sobrevive ao reciclo, o agente re-cria ~/.elite-gh-token e ~/.git-credentials daqui)"
+# Etapa 2: o okular, o GRUB sem rebuild fantasma, os headers do dkms, a
+# cadeia de ícones AppImage.
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-tune" '"\${KERNEL_PKG}-headers" nvidia-open-dkms' "E130: o nvidia-open-dkms (Turing+) nasce com os HEADERS do kernel ativo (sem headers o dkms não constrói no PRÓXIMO kernel — o rig ficava sem driver)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-tune" '"\${KERNEL_PKG}-headers" nvidia-dkms' "E130: o nvidia-dkms (Maxwell/Pascal) nasce com os HEADERS também (as três portas concordam)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-install-stage" 'linux-cachyos-bore-headers' "E130: o rig NVIDIA instala os headers NO CHROOT (o pré-compilado da ISO vale só para o kernel que embarca)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'grub-mkconfig NÃO roda' "E130: o rebuild fantasma morre POR LINHA (o plano diz quando NÃO rodou — o papel E33 na escala do GRUB)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" '_gearlever_icon' "E130: a dock lê o ícone que o GEAR LEVER JÁ extraiu (~/.local/share/icons + Icon= do .desktop de usuário por StartupWMClass — zero trabalho novo)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" '_proc_appimage' "E130: o environ APPIMAGE= do /proc é a palavra oficial (o argv[0] do cmdline é a prova do resto — o AppImage sem .desktop tem origem nomeada)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'appimage-icons' "E130: o CACHE da casa (~/.cache/elite/appimage-icons, sha256 do caminho) persiste o rosto do AppImage DESMONTADO entre sessões"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'threading.Thread' "E130: a extração corre em THREAD DE FUNDO (a UI não bloqueia no walk do squashfs; o botão vivo ganha a cara via GLib.idle_add — thread não toca GTK)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" '_fold' "E130: a normalização '_' ↔ '-' casa o nome real do app (Hydra_Plus = hydra-plus para o tema)"
+assert_grep "$REPO/.ci/build.sh" 'theo_install' "E130: o themerc-override VIAJA NO PACOTE (mestre em /usr/local/share/elite/labwc — a fonte única dos homes)"
+assert_grep "$REPO/.ci/build.sh" 'gtk_install' "E130: os settings GTK VIAJAM NO PACOTE (mestres em /usr/local/share/elite/gtk-3.0 e gtk-4.0)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel 77→78 NO MESMO COMMIT' "E130: âncora E41 refrescada — a lição E58: o contrato ama a HISTÓRIA, o número atual é lei do guard do CI"
 assert_grep "$AUT129" 'craft-display apply-boot' "E129: o autostart chama o apply-boot (o arranjo salvo nasce aplicado ANTES das barras — a ordem do dono)"
 assert_nogrep "$AUT129" 'craft-display apply >' "E129: o apply DESPEGADO do boot morreu (o autostart não espera 27s/6 ticks de tela errada — uma passada síncrona)"
 CD129="$REPO/elite/airootfs/usr/local/bin/craft-display"
@@ -1656,7 +1694,7 @@ assert_nogrep "$BF129" '^--enable-features=.*Vulkan' "E114 ratificada: o composi
 assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'transparent_hugepage=madvise' "E129: o tune crava o madvise (a porta do tune e o post_upgrade falam a MESMA lei)"
 assert_nogrep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'ensure_cmdline_token /etc/default/grub transparent_hugepage=always' "E129: o tune NÃO crava mais o 'always' (o fóssil da era E74 morre por escrito)"
 assert_grep "$REPO/elite/airootfs/usr/local/share/elite/qt6ct/qt6ct.conf" 'icon_theme=Papirus-Dark' "E129: o mestre do qt6ct é o Papirus-Dark (o MESMO dos settings.ini GTK — zero babel de ícones)"
-assert_grep "$REPO/.ci/build.sh" 'pkgrel=77' "E129/E41: pkgrel elite-system 76→77 NO MESMO COMMIT (lei E41 — elite-post-upgrade nasceu, display/dock/tune/flags/autostart mudaram, qt6ct mestre novo)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=78' "E130/E41: pkgrel elite-system 77→78 NO MESMO COMMIT (lei E41 — a ordem do dono em duas etapas: sono harmonizado, peles em homes vivos, okular morto, headers do dkms, cadeia de ícones; âncora refrescada — a lição E58/E59: o número atual é lei do guard do CI)"
 # V5. O VEÍCULO NASCE INSTALADO (futuras ISOs não repetem a ferida da 28):
 # E50 — O PACOTE ÚNICO é a entrada viva (a era dos dois veículos encerrou):
 assert_grep "$REPO/elite/packages.add" '^elite-system$' "E50: o elite-system no packages.add — a ISO nasce com O PACOTE ÚNICO INSTALADO (a diretriz do dono: um só pacote atualiza todo o sistema)"

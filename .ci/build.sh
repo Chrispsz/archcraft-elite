@@ -2402,7 +2402,26 @@ pkgver=1.0
 #     pkgrel 76→77 NO MESMO COMMIT (lei E41 — elite-post-upgrade nasceu,
 #     craft-display/dock-gui/tune/brave-flags/autostart mudaram de
 #     conteúdo, qt6ct mestre novo no pacote).
-pkgrel=77
+# E130 (lei E41, âncora viva refrescada): pkgrel 77→78 NO MESMO COMMIT
+#     (lei E41) — a ordem do dono de 2026-11-21 em DUAS etapas
+#     de engenharia convergindo nesta dose: (1) A HARMONIZAÇÃO DO SONO
+#     E88↔E122 (elite-sleep-report isenta a cadeia do teclado — XHC0/PTXH
+#     e as portas 1-8/1-9/3-3 — e
+#     sela só os réus espúrios; elite-resume-usb chama o craft-wake-guard
+#     apply; a sonda do craft-dump verifica a regra 91 viva); (2) AS PELES
+#     EM HOMES VIVOS (themerc-override mauve + settings GTK Papirus-Dark +
+#     qt6ct como peles E91 no craft-rice, mestres no pacote, e a linha de
+#     ícones garantida pelo post-transaction); (3) O OKULAR NÃO RENASCE
+#     (uninstall em TODA transação); (4) O REBUILD FANTASMA DO GRUB MORRE
+#     (mkconfig só se mudou) e os HEADERS do kernel acompanham o dkms
+#     NVIDIA nas três portas; (5) A CADEIA COMPLETA de ícones AppImage na
+#     dock (Gear Lever → cache → extração em thread) e o gm_whois no hook
+#     do jogo. Bins com conteúdo mudado: elite-sleep-report,
+#     elite-resume-usb, craft-dump, craft-wake-guard (comentário),
+#     craft-rice, elite-post-transaction, craft-game, elite-tune,
+#     elite-install-stage, craft-dock-gui. Mestres novos no pacote:
+#     themerc-override + settings GTK3/GTK4 (theo_install/gtk_install).
+pkgrel=78
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da sessão; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
