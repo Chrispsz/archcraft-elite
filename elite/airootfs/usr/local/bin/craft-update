@@ -283,7 +283,13 @@ HOUSE_OVERWRITE=(
 # iniciante… trazendo a experiência mais moderna do Linux') — rigs vivos
 # recebem na próxima dose; a associação text/plain (sem escolha anterior
 # do dono) vai pelo elite-post-transaction.
-ADOCAO=(lxqt-policykit pacman-contrib octopi yay flatpak swayosd gamemode gamescope mousepad papirus-icon-theme xorg-xprop)
+# E134 — GAMESCOPE SAI da adoção (a ordem do dono, dump 1.0-80: o modo
+#     de jogo nasce da ÁRVORE REAL Proton/Wine/UMU no elite-daemon — o
+#     compositor de jogos não é mais adotado pela casa) e o OVERSKRIDE
+#     ENTRA (o gerenciador Bluetooth GRÁFICO GTK4/libadwaita no lugar do
+#     bluetui TUI — a ordem do dono; nasce do [elite-local]: o build o
+#     compila do AUR 0.6.6 e o canal da release o entrega ao rig).
+ADOCAO=(lxqt-policykit pacman-contrib octopi yay flatpak swayosd gamemode overskride mousepad papirus-icon-theme xorg-xprop)
 
 ulog() {
     mkdir -p "$(dirname "$ULOG")" 2>/dev/null || true
@@ -537,9 +543,12 @@ nomeia_fila_nova() {
 
 # E132 — A HIGIENE DE PACOTES DA ORDEM DO DONO (dump pós-1.0-78): os
 # APPLETS redundantes saem (polkit-gnome — o agente é o lxqt-policykit
-# nativo; blueman — o bluetui fica; network-manager-applet — o
-# nm-connection-editor é pacote próprio) e os ÓRFÃOS de carteira saem
-# junto (pacman -Qtdq — o granite7 da era vala e tudo que perdeu o dono).
+# nativo; network-manager-applet — o nm-connection-editor é pacote
+# próprio). E134 — o BLUETUI TUI sai junto (o Bluetooth gráfico da casa
+# é o overskride) e o GNOME-KEYRING sai inteiro (o chaveiro não é da
+# casa: máscaras/PAM no post_upgrade, --password-store=basic nos
+# Chromium) e os ÓRFÃOS de carteira saem junto (pacman -Qtdq — o
+# granite7 da era vala e tudo que perdeu o dono).
 # SOB DEMANDA (a constituição §5): a higiene corre NO FIM da dose
 # (--sistema — o lock da transação já liberou; JAMAIS dentro de
 # scriptlet/hook, onde o db.lck da própria transação mataria o pacman).
@@ -547,7 +556,14 @@ nomeia_fila_nova() {
 # fica (a próxima dose re-tenta) e o papel nomeia cada gesto.
 higiene_e132() {
     local pkg _orfaos
-    for pkg in polkit-gnome blueman network-manager-applet; do
+    # E134 — o BLUETUI (TUI) sai com a chegada do overskride GRÁFICO e o
+    # GNOME-KEYRING sai inteiro (a ordem do dono, dump 1.0-80: 'gkr-pam:
+    # unable to locate daemon control file' no SDDM, centenas de
+    # gcr-prompter no dock.log, senha pedida no Bazaar — o chaveiro não é
+    # da casa; os apps Chromium/Electron usam --password-store=basic e o
+    # post_upgrade mascara as units e limpa o PAM). O -Rns recusa
+    # dependentes: chaveiro com fila fica e o papel nomeia.
+    for pkg in polkit-gnome blueman network-manager-applet bluetui gnome-keyring; do
         if pacman -Q "$pkg" >/dev/null 2>&1; then
             if run_root pacman -Rns --noconfirm "$pkg" >>"$ULOG" 2>&1; then
                 ulog "higiene E132: $pkg REMOVIDO (redundante — a casa tem substituto; sem dependentes)"
@@ -719,9 +735,18 @@ refresh_session() {
             sleep "${ELITE_TL_SETTLE:-2}"
         fi
         if [ "$casa_mudou" = 1 ]; then
+            # E134 — A DOCK RUST É A ÚNICA: o fóssil Python da dose
+            # anterior morre AQUI também (a âncora do supervisor segue
+            # viva para o dump nomear quem não morreu); e a dock RUST
+            # renasce com o binário novo — a transição suave dos
+            # dinâmicos vale SEM relogin.
             if pgrep -u "$uid" -f '^/usr/bin/python3 /usr/local/bin/craft-dock-gui$' >/dev/null 2>&1; then
                 pkill -u "$uid" -f '^/usr/bin/python3 /usr/local/bin/craft-dock-gui$' 2>/dev/null || true
-                ulog "sessão: dock craft-dock-gui (uid $uid) reiniciada — a transição suave dos dinâmicos vale SEM relogin"
+                ulog "sessão: dock Python fóssil (uid $uid) ENCERRADA — a dock da casa é o craft-dock-rs (E134)"
+            fi
+            if pgrep -u "$uid" -f '^/usr/local/bin/craft-dock-rs$' >/dev/null 2>&1; then
+                pkill -u "$uid" -f '^/usr/local/bin/craft-dock-rs$' 2>/dev/null || true
+                ulog "sessão: dock craft-dock-rs (uid $uid) reiniciada — o supervisor ressuscita com o binário novo"
             fi
             # E48 — o comm deste daemon é 'python3' (o interpretador se
             # apresenta; shebang `env python3`, provado no sandbox e no rig —

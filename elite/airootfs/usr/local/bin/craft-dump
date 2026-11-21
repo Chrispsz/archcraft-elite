@@ -422,10 +422,12 @@ fi
     # Xorg, NetworkManager — a dock e o swayidle do dono eram invisíveis)
     r "ps -u $DUMP_UID -o pid,pcpu,pmem,comm --sort=-pcpu | head -25" 30
     r "pgrep -a labwc | head -3" 4
-    # v2.10.6: contagem ANCORADA (o comm da dock é python3 — o pgrep -c puro
-    # nunca acharia; e '-f craft-dock-gui' solto somava editor com o fonte)
-    printf 'waybar=%s · dock_gui=%s (cmdline ancorada)\n' \
+    # v2.10.6: contagem ANCORADA ('-f' solto somava editor com o fonte).
+    # E134 — a dock é o binário Rust craft-dock-rs (o Python aposentado);
+    # o fóssil Python da dose anterior AINDA conta (a migração nomeia os dois)
+    printf 'waybar=%s · dock_rs=%s · dock_python_fossil=%s (cmdline ancorada)\n' \
         "$(pgrep -c waybar 2>/dev/null)" \
+        "$(pgrep -u "$DUMP_UID" -fc '^/usr/local/bin/craft-dock-rs$' 2>/dev/null)" \
         "$(pgrep -u "$DUMP_UID" -fc '^/usr/bin/python3 /usr/local/bin/craft-dock-gui$' 2>/dev/null)"
     # v2.10.8 — o idle na prova: swayidle (lock/DPMS/suspend) e o supervisor
     # (a reclamação 'o PC não entra em idle' precisa de réu nomeado)

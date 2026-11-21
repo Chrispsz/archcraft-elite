@@ -91,26 +91,15 @@ cap_log
 # rice (a barra é a missão aqui).
 craft-rice >>"$LOG" 2>&1 9>&- || true
 
-# E95 — O CHAVEIRO QUE O PAM NÃO ABRIU (a chave dos diálogos gcr-prompter):
-# o journal de TODO login do rig canta 'gkr-pam: couldn't unlock the
-# login keyring' e o Brave responde com o diálogo do gcr-prompter (o
-# dump 225119 o flagrou 2×: 'raw entrou/saiu: gcr-prompter'). A causa é a
-# herança da era do live: o bootstrap de chaveiro de senha VAZIA (a cura
-# do live/autologin, v2.10.12) chegou ao home instalado ANTES do 1º
-# login por senha — o PAM tenta a senha do login num chaveiro de senha
-# VAZIA e falha PARA SEMPRE (a senha do chaveiro ≠ senha do login).
-# A cura é a mesma porta do autostart do live, agora para o rig vivo:
-# desbloquear com a senha VAZIA o chaveiro que EXISTE (o guard de
-# existência é o cinto — sem chaveiro, quem o cria com a senha CERTA
-# continua sendo o PAM do 1º login, a lição v2.10.12 segue LEI).
-# Idempotente por natureza: chaveiro já aberto (PAM são) = no-op;
-# chaveiro de senha própria = falha em silêncio (o dono vê o prompt —
-# protegido é protegido). O canal é o craft-bars (domínio do PACOTE):
-# o autostart do home é skel e os rigs vivos nunca o receberiam.
-if command -v gnome-keyring-daemon >/dev/null 2>&1 && \
-   [ -e "$HOME/.local/share/keyrings/login.keyring" ]; then
-    ( printf '' | gnome-keyring-daemon --unlock >/dev/null 2>&1 ) &
-fi
+# E134 — O BLOCO DO CHAVEIRO MORREU: a ordem do dono (dump 1.0-80) é o
+# fim do gnome-keyring na casa — 'gkr-pam: unable to locate daemon
+# control file' no SDDM, CENTENAS de gcr-prompter no dock.log e pedido
+# de senha no Bazaar. O post_upgrade remove o pacote, mascara as units
+# de usuário e tira o pam_gnome_keyring.so do PAM; os apps
+# Chromium/Electron usam --password-store=basic (as senhas moram no
+# perfil do app). Este desbloqueio de senha vazia era a paliativa da
+# era em que o chaveiro PRECISAVA viver — sem chaveiro, não há o que
+# desbloquear (a lição E33: código morto com comentário vivo não).
 
 ensure() {
     # $1=valor da flag (0=1ª vez, 1=já visto vivo)  $2=config  $3=css
@@ -139,8 +128,9 @@ ensure() {
     fi
 }
 
-# v2.0 — a dock é o craft-dock-gui (GTK3 nativa + layer-shell): ícones
-# REAIS via .desktop (Gio), pílula centrada que abraça o conteúdo.
+# v2.0→E134 — a dock é o craft-dock-rs (GTK4 + layer-shell, binário
+# Rust): ícones REAIS via .desktop, pílula centrada que abraça o
+# conteúdo. (A era craft-dock-gui Python morreu na E134.)
 # v2.3.4 — SEMPRE VISÍVEL (o autohide por hotspot morreu na prática: o dono
 # instalou a v2.3.x e a dock "sumiu e não apareceu mais"): layer BOTTOM +
 # zona exclusiva = some SÓ sob tela cheia/gaveta, zero polling.
@@ -232,35 +222,28 @@ while :; do
     # ausência = morte real ('FORA — reiniciando').
     ensure "$seen_top" "$HOME/.config/waybar/config.top" "$HOME/.config/waybar/style.top.css"
     seen_top=1
-    # E132 — A DOCK NATIVA É A FRENTE (a ordem do dono: espremer o limão
-    # — o craft-dock-rs em gtk-rs economiza os ~45–60 MB do interpretador
-    # Python do craft-dock-gui, que segue como fallback da rede). O binário
-    # Rust viaja no pacote desde a 1.0-79; a âncora do pgrep casa o binário
-    # ELEITO (um trono só — a lei E95 da fila da casa).
-    if [ -x /usr/local/bin/craft-dock-rs ]; then
-        if ! pgrep -f '^/usr/local/bin/craft-dock-rs$' >/dev/null 2>&1; then
+    # E134 — A DOCK É O BINÁRIO RUST, PONTO (a migração definitiva da
+    # ordem do dono: o craft-dock-gui Python saiu do pacote — o build do
+    # crate é OBRIGATÓRIO no CI desde esta dose, sem o eco de aviso que
+    # publicou 1.0-80 sem o binário e manteve o Python vivo no rig; o
+    # post_upgrade remove o arquivo velho e encerra o processo Python).
+    # Binário ausente = palavra honesta no papel (nunca o silêncio de
+    # uma dock que não existe); a âncora do pgrep casa SÓ a dock.
+    if ! pgrep -f '^/usr/local/bin/craft-dock-rs$' >/dev/null 2>&1; then
+        if [ -x /usr/local/bin/craft-dock-rs ]; then
             if [ "$seen_dock" -eq 1 ]; then
                 printf '[%s] dock craft-dock-rs FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
             else
-                printf '[%s] dock craft-dock-rs iniciando (1ª vez — a dock nativa E132)\n' "$(date '+%F %T')" >>"$LOG"
+                printf '[%s] dock craft-dock-rs iniciando (1ª vez — a dock nativa E134)\n' "$(date '+%F %T')" >>"$LOG"
             fi
             (
                 /usr/local/bin/craft-dock-rs >>"$LOG" 2>&1
                 st=$?
                 printf '[%s] dock craft-dock-rs SAIU exit=%d\n' "$(date '+%F %T')" "$st" >>"$LOG"
             ) 9>&- &
+        elif [ "$seen_dock" -eq 0 ]; then
+            printf '[%s] dock: binário craft-dock-rs AUSENTE — dose incompleta? (a dock é o Rust desde a E134; o papel nomeia, o respawn segue tentando)\n' "$(date '+%F %T')" >>"$LOG"
         fi
-    elif ! pgrep -f '^/usr/bin/python3 /usr/local/bin/craft-dock-gui$' >/dev/null 2>&1; then
-        if [ "$seen_dock" -eq 1 ]; then
-            printf '[%s] dock craft-dock-gui FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
-        else
-            printf '[%s] dock craft-dock-gui iniciando (1ª vez — nada morreu)\n' "$(date '+%F %T')" >>"$LOG"
-        fi
-        (
-            /usr/local/bin/craft-dock-gui >>"$LOG" 2>&1
-            st=$?
-            printf '[%s] dock craft-dock-gui SAIU exit=%d\n' "$(date '+%F %T')" "$st" >>"$LOG"
-        ) 9>&- &
     fi
     seen_dock=1
     # v2.10.6 — as ÂNCORAS: 'pgrep -f' casa SUBSTRING do cmdline — o dono
@@ -445,19 +428,27 @@ while :; do
     # intencional, lei do idle, zero spam). O caminho bash do craft-game
     # watch ABAIXO segue como fallback para o env sem o binário (a lição
     # E106 da âncora do cmdline real continua valendo para ELE).
+    # E134 — O LOOP DOS WATCHES FANTASMAS MORRE (dump 1.0-80:
+    # BARS_RESTARTS=63, OITO craft-bars vivos, 'watch: delegando ao
+    # elite-daemon' a cada 5s no papel): o respawn do craft-game watch
+    # de DENTRO daqui saiu — o elite-daemon é O motor desde a E132
+    # (viaja no pacote desde a 1.0-79; o craft-game `watch` de bash era
+    # o fallback para ISOs velhas que já não existem). Quem sobe é SÓ
+    # o binário nativo; binário ausente = voz no papel (o gate do AUTO
+    # da casa segue AQUI — o daemon não lê o game.conf).
     if [ -x /usr/local/bin/elite-daemon ]; then
         auto="$(sed -n 's/^AUTO=//p' "$HOME/.config/elite/game.conf" 2>/dev/null | head -1)"
         _gm_vivo="$(pgrep -f '^/usr/local/bin/elite-daemon$' 2>/dev/null | head -1)"
         if [ "${auto:-0}" = 1 ] && [ -z "$_gm_vivo" ]; then
             if [ "$seen_game" -eq 1 ]; then
-                printf '[%s] game watch FORA — reiniciando (elite-daemon E132)\n' "$(date '+%F %T')" >>"$LOG"
+                printf '[%s] game watch FORA — reiniciando (elite-daemon E134)\n' "$(date '+%F %T')" >>"$LOG"
             else
-                printf '[%s] game watch iniciando (1ª vez — nada morreu; elite-daemon E132)\n' "$(date '+%F %T')" >>"$LOG"
+                printf '[%s] game watch iniciando (1ª vez — nada morreu; elite-daemon E134)\n' "$(date '+%F %T')" >>"$LOG"
             fi
             (
                 /usr/local/bin/elite-daemon >>"$LOG" 2>&1
                 st=$?
-                printf '[%s] game watch SAIU exit=%d (elite-daemon E132)\n' "$(date '+%F %T')" "$st" >>"$LOG"
+                printf '[%s] game watch SAIU exit=%d (elite-daemon E134)\n' "$(date '+%F %T')" "$st" >>"$LOG"
             ) 9>&- &
         elif [ "$seen_game" -eq 0 ]; then
             # a mesma voz E113 do porquê (uma vez por boot): a ausência
@@ -470,37 +461,8 @@ while :; do
             fi
         fi
         unset _gm_vivo
-    elif command -v craft-game >/dev/null 2>&1; then
-        auto="$(sed -n 's/^AUTO=//p' "$HOME/.config/elite/game.conf" 2>/dev/null | head -1)"
-        _gm_vivo="$(pgrep -f '^bash /usr/local/bin/craft-game watch$|^/usr/bin/env bash /usr/local/bin/craft-game watch$' 2>/dev/null | head -1)"
-        if [ "${auto:-0}" = 1 ] && [ -z "$_gm_vivo" ]; then
-            if [ "$seen_game" -eq 1 ]; then
-                printf '[%s] game watch FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
-            else
-                printf '[%s] game watch iniciando (1ª vez — nada morreu)\n' "$(date '+%F %T')" >>"$LOG"
-            fi
-            (
-                /usr/local/bin/craft-game watch >>"$LOG" 2>&1
-                st=$?
-                printf '[%s] game watch SAIU exit=%d\n' "$(date '+%F %T')" "$st" >>"$LOG"
-            ) 9>&- &
-        elif [ "$seen_game" -eq 0 ]; then
-            # E113 — O PORQUÊ ENTRA NO PAPEL (uma vez por boot): o rig
-            # fotografou o watch FORA desde 11-15 com o supervisor calado
-            # (o conf em AUTO e o guard sem UMA linha de explicação) — a
-            # ausência sem porquê é réu aparente demais. AUTO≠1 = ausência
-            # intencional nomeada; AUTO=1 com match = o match tem NOME
-            # (cmdline no papel — o falso-positivo do pgrep deixa de ser
-            # caça às cegas; o dump fotografa a família inteira).
-            if [ "${auto:-0}" = 1 ]; then
-                printf '[%s] game watch: AUTO=1 e o pgrep vê pid %s (%s) — nada a fazer (o cérebro já está no ar)\n' \
-                    "$(date '+%F %T')" "${_gm_vivo:-?}" \
-                    "$(tr '\0' ' ' <"/proc/$_gm_vivo/cmdline" 2>/dev/null | cut -c1-90)" >>"$LOG"
-            else
-                printf '[%s] game watch: AUTO≠1 no conf da casa — ausência intencional, o watch não sobe (o toggle do menu é quem decide)\n' "$(date '+%F %T')" >>"$LOG"
-            fi
-        fi
-        unset _gm_vivo
+    elif [ "$seen_game" -eq 0 ]; then
+        printf '[%s] game watch: binário elite-daemon AUSENTE — o motor nativo não chegou (dose incompleta? o papel nomeia; o respawn segue)\n' "$(date '+%F %T')" >>"$LOG"
     fi
     seen_game=1
     # E36 — FIM DOS ÓRFÃOS (audit de arquitetura, sessão Q2/Q8): o swaync é

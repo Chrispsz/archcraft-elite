@@ -3,8 +3,8 @@
 # Archcraft ELITE · craft-pin (v2.0) — fixa apps na DOCK nativa
 # ═══════════════════════════════════════════════════════════════════════════
 # v2.0: os pins são IDs de .desktop reais (uma linha por app) no arquivo
-# ~/.config/elite/dock-pins. O craft-dock-gui resolve ÍCONE/NOME/EXEC pelo
-# próprio sistema (Gio.DesktopAppInfo) — fim dos glifos Nerd Font e das
+# ~/.config/elite/dock-pins. A dock (craft-dock-rs, E134) resolve
+# ÍCONE/NOME/EXEC pelo próprio sistema — fim dos glifos Nerd Font e das
 # imagens custom: "deixe o ícone ser tratado como o sistema já é" (dono).
 # Reload = SIGUSR2 na dock (re-lê o arquivo; sem reiniciar processo).
 # TODA mutação grava .bak restaurável (craft-pin restore) — contrato v1.8.

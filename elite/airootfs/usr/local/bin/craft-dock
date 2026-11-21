@@ -1,20 +1,32 @@
 #!/bin/sh
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · craft-dock (v2.0) — CLI da dock nativa (craft-dock-gui)
+# Archcraft ELITE · craft-dock (v3.0) — CLI da dock nativa (craft-dock-rs)
 # ═══════════════════════════════════════════════════════════════════════════
-# craft-dock toggle   → sobe/desce a dock (W-S-d; SIGUSR1 no processo GUI)
+# craft-dock toggle   → sobe/desce a dock (W-S-d; SIGUSR1 no processo)
 # craft-dock reload   → re-lê os pins (SIGUSR2 — usado pelo craft-pin)
 # Sem argumentos      → toggle (mesma convenção do nwg-dock: re-exec alterna)
-# A dock em si é o craft-dock-gui (GTK3 + layer-shell, supervisionado pelo
-# craft-bars). SEMPRE VISÍVEL (v2.3.4 — o autohide por hotspot morreu na
-# prática: escondia e não voltava): layer BOTTOM — some só sob tela cheia
+# A dock é o binário Rust craft-dock-rs (GTK4 + layer-shell, supervisionado
+# pelo craft-bars). E134 — A MIGRAÇÃO DEFINITIVA: o corpo Python
+# craft-dock-gui foi APOSENTADO (saiu do pacote; o post_upgrade remove o
+# arquivo velho e encerra o processo Python vivo dos rigs da dose
+# anterior). SEMPRE VISÍVEL (v2.3.4 — o autohide por hotspot morreu na
+# prática: escondia e não voltava): layer TOP — some só sob tela cheia
 # e gaveta; esconder à mão é o toggle acima, escolha do usuário.
 # ═══════════════════════════════════════════════════════════════════════════
 # v2.10.6 — padrão ANCORADO: 'pkill -f' casa substring do cmdline — o
 # toggle podia mandar USR1 para um EDITOR com o fonte aberto ('vim …/
-# craft-dock-gui' — sinal default = terminate). A âncora pega só a dock
+# craft-dock-rs' — sinal default = terminate). A âncora pega só a dock
+uso() {
+    printf '%s\n' \
+        'uso: craft-dock [toggle|reload] — o CLI da dock nativa (craft-dock-rs)' \
+        '' \
+        '  toggle   sobe/desce a dock (W-S-d — o default sem argumentos)' \
+        '  reload   re-lê os pins (SIGUSR2 — usado pelo craft-pin)'
+    exit 0
+}
 case "${1:-toggle}" in
-    toggle) pkill -USR1 -f '^/usr/bin/python3 /usr/local/bin/craft-dock-gui$' 2>/dev/null || true ;;
-    reload) pkill -USR2 -f '^/usr/bin/python3 /usr/local/bin/craft-dock-gui$' 2>/dev/null || true ;;
+    toggle) pkill -USR1 -f '^/usr/local/bin/craft-dock-rs$' 2>/dev/null || true ;;
+    reload) pkill -USR2 -f '^/usr/local/bin/craft-dock-rs$' 2>/dev/null || true ;;
+    -h|--help|uso) uso ;;
     *) echo "uso: craft-dock [toggle|reload]" >&2; exit 2 ;;
 esac

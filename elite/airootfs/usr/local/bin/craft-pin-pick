@@ -79,9 +79,12 @@ while :; do
     pins="$(craft-pin list 2>/dev/null || true)"
     seen=""
     achou=0
-    # ── o inventário visível com o marcador (a MESMA precedência do
-    #    resolve do craft-pin: usuário → local → sistema — E76) ──
-    for d in "${XDG_DATA_HOME:-$HOME/.local/share}/applications" \
+    # ── o inventário visível com o marcador (a MESMA precedência da dock
+    #    Rust E132/E134: os EXPORTS do Flatpak primeiro — o ícone/nome
+    #    oficiais vêm de lá — depois o usuário, o local e o sistema) ──
+    for d in /var/lib/flatpak/exports/share/applications \
+             "${XDG_DATA_HOME:-$HOME/.local/share}/flatpak/exports/share/applications" \
+             "${XDG_DATA_HOME:-$HOME/.local/share}/applications" \
              /usr/local/share/applications /usr/share/applications; do
         [ -d "$d" ] || continue
         for f in "$d"/*.desktop; do
@@ -91,6 +94,19 @@ while :; do
             seen="$seen $base"
             grep -q '^NoDisplay=true' "$f" && continue
             grep -q '^Hidden=true' "$f" && continue   # a lei XDG é dupla
+            # E134 — UTILITÁRIOS INTERNOS não são app de dock (a ordem do
+            # dono, dump 1.0-80: a gaveta de fixação lista PROGRAMAS, não
+            # ferramentas de sistema/daemon): avahi-* (descoberta de
+            # rede), bssh/bvnc (clientes SSH/VNC do avahi), lstopo
+            # (topologia de hardware), qv4l2/qvidcap (debug de câmera),
+            # xterm/uxterm (terminais de compatibilidade X11 — o da casa é
+            # o foot) e os launchers crus de Electron (o framework, não
+            # apps). A MESMA lista mora nos overrides NoDisplay de
+            # /usr/local/share/applications (o Launchpad enxerga igual).
+            case "$base" in
+                avahi-*|bssh.desktop|bvnc.desktop|lstopo*|qv4l2.desktop|qvidcap.desktop|\
+                xterm.desktop|uxterm.desktop|electron*.desktop) continue ;;
+            esac
             name="$(sed -n 's/^Name\[pt_BR\]=//p' "$f" | head -1)"
             [ -n "$name" ] || name="$(sed -n 's/^Name=//p' "$f" | head -1)"
             [ -n "$name" ] || continue

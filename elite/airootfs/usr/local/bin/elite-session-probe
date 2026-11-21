@@ -15,10 +15,11 @@
 # grepa (ELITE_PROBE_BEGIN/END, WAYBAR_COUNT, DOCK_COUNT, BARS_EXITS). No
 # stdout vai a mesma carga (→ journal do systemd, forense pós-mortem).
 #
-# v2.1.1 (run #93): a sessão v2.0 é waybar top + dock NATIVA (craft-dock-gui,
-# GTK) — o probe só contava waybar e o gate cobrava "2 waybars" (contrato da
-# era waybar-dock, defasado). Agora DOCK_COUNT entra no bloco; o comm do
-# script Python é "python3" (shebang), então a contagem é por cmdline (-f).
+# v2.1.1 (run #93): a sessão v2.0 é waybar top + dock NATIVA — o probe
+# só contava waybar e o gate cobrava "2 waybars" (contrato da era
+# waybar-dock, defasado). Agora DOCK_COUNT entra no bloco. E134: a dock
+# é o BINÁRIO Rust craft-dock-rs (o comm casa o nome; a contagem da era
+# Python era por cmdline — o fóssil seguiu contado à parte no craft-dump).
 #
 # Inofensivo por construção: one-shot, sem escrita em disco, exit 0 SEMPRE
 # (uma unidade failed aqui viraria falso negativo do gate "nenhuma unidade
@@ -52,10 +53,11 @@ idle_count="$(count swayidle)"
 cb_count="$(count craft-bars)"
 # v2.1.1: dock GTK contada por cmdline (comm = "python3" — pgrep -c puro
 # nunca acharia). Padrão do count(): sem '|| echo 0' (duplicaria a linha).
-# v2.10.6 — padrão ANCORADO: '-f craft-dock-gui' casava substring — um
-# editor com o fonte aberto ('vim …/craft-dock-gui') contava como DOCK
-# (o falso positivo da Rodada 2). A âncora pega só a dock de verdade.
-dk_count="$(pgrep -fc '^/usr/bin/python3 /usr/local/bin/craft-dock-gui$' 2>/dev/null)"
+# v2.10.6 — padrão ANCORADO: '-f' casava substring — um editor com o
+# fonte aberto ('vim …/craft-dock-rs') contava como DOCK (o falso
+# positivo da Rodada 2). A âncora pega só a dock de verdade.
+# E134 — a dock é o BINÁRIO RUST craft-dock-rs (o Python foi aposentado).
+dk_count="$(pgrep -fc '^/usr/local/bin/craft-dock-rs$' 2>/dev/null)"
 [ -n "$dk_count" ] || dk_count=0
 # v2.10.1: o daemon wlr-foreign-toplevel (a dock COMUTADORA) — vivo E
 # FALANDO (a prova é o PING no socket da sessão, não só o processo)

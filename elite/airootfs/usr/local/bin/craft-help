@@ -92,7 +92,7 @@ MAPA=(
 "craft-bgapps      | menu dos apps em 2º plano (só existe quando há o que encerrar)"
 "craft-connect     | central de rede PT-BR (Wi-Fi/cabo/Bluetooth) sob o botão de rede"
 "craft-dock        | toggle/reload da dock via sinal (W-S-d)"
-"craft-dock-gui    | a dock nativa (pins .desktop, dinâmicos, clique-focado-minimiza)"
+"craft-dock-rs     | a dock nativa em Rust/GTK4 (pins .desktop, dinâmicos, clique-focado-minimiza)"
 "craft-display     | A TELA QUE LEMBRA — modo/Hz/posição salvos em disco"
 "craft-drawer      | Launchpad de aplicativos (W / Super)"
 "craft-dump        | a perícia completa em um arquivo (--upload sobe no termbin — PÚBLICO)"
