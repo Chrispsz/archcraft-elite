@@ -25,9 +25,9 @@
 //   · E71: A PROVA NO LANÇAMENTO (uma LIST FRESCA julga antes de
 //     abrir — janela que apareceu agora é FOCADA, não duplicada), o
 //     GUARD de 8s no gargalo único e o MAP que aposenta o guard (E88);
-//   · a GRAÇA DO VAZIO E71 (LIST vazio válido que CONTRADIZ snapshot
-//     vivo é segurado 2 rodadas) e a graça do snapshot morto (1 miss
-//     não é morte — o socket respira);
+//   · E134: A SINCRONIZAÇÃO IMEDIATA com o snapshot real: a graça do
+//     vazio E71 (LIST vazio segurado 2 rodadas) APOSENTADA — o
+//     indicador preso após fechar janelas transitórias morreu com ela;
 //   · a cadeia de ícones E130/E132 COMPLETA (tema com fold → steam →
 //     Gear Lever → cache sha256 → .DirIcon do mount vivo → EXTRAÇÃO
 //     EM THREAD com apply via canal → glifo honesto) e o ícone OFICIAL
@@ -51,8 +51,8 @@
 //     DIRETO "nova sessão" — sem menu contextual nesta v1;
 //   ✗ o FALLBACK wlrctl (daemon morto = /proc + wlrctl): sem
 //     craft-toplevel os verbos de foco/fecho ficam sem rede NESTA v1
-//     (o lançar segue; o craft-dock-gui PYTHON continua no pacote
-//     como fallback — a decisão da wrapper é do orquestrador);
+//     (E134: o craft-dock-gui PYTHON saiu do pacote — sem fallback
+//     por desenho; o respawn do craft-bars cobre o daemon em ≤5s);
 //   ✗ a E101 completa (a graça de 3s da classe daemonizada): o guard
 //     aposenta no MAP, no expiry de 8s ou na morte do lançador — sem
 //     o meio-tempo recursivo do Python;
@@ -153,8 +153,6 @@ struct State {
     // o snapshot da sessão (a JANELA é a verdade — v2.10.3)
     snap: sock::Snapshot,
     tl_alive: bool,
-    miss: u32,
-    empty_guard: u32,
     last_act: HashMap<String, u64>,
     launching: HashMap<String, Instant>,
     children: Vec<(std::process::Child, Option<String>)>,
@@ -170,11 +168,13 @@ pub fn run() -> i32 {
 
 fn build(app: &gtk::Application) {
     if !gtk4_layer_shell::is_supported() {
-        // o labwc fala layer-shell; se isto aparecer, a sessão mudou —
-        // o fallback é o craft-dock-gui Python (decisão da wrapper)
+        // o labwc fala layer-shell; se isto aparecer, a sessão mudou.
+        // E134: o craft-dock-gui Python foi APOSENTADO — não há fallback;
+        // a dock sai com a verdade no papel (o respawn do craft-bars
+        // re-tenta em ≤5s; sessão sem layer-shell não é a casa)
         log(&format!(
             "craft-dock-rs {VERSION}: o compositor NÃO fala layer-shell — \
-             saindo (o fallback é o Python)"
+             saindo (a dock da casa É esta; sem fallback por desenho E134)"
         ));
         return;
     }
@@ -227,8 +227,6 @@ fn build(app: &gtk::Application) {
         pins_txt: String::new(),
         snap: sock::Snapshot::default(),
         tl_alive: false,
-        miss: 0,
-        empty_guard: 0,
         last_act: HashMap::new(),
         launching: HashMap::new(),
         children: Vec::new(),
@@ -372,42 +370,33 @@ fn drain(st: &Rc<RefCell<State>>, rx: &Receiver<Msg>) {
     }
 }
 
-/// E71 — A GRAÇA DO VAZIO e a graça do snapshot morto: um LIST vazio
-/// VÁLIDO que CONTRADIZ um snapshot vivo é segurado 2 rodadas (o daemon
-/// renascido mentindo com a sessão cheia); 1 miss não é morte (o
-/// socket respira). A 3ª é verdade aceita, honesta.
+/// E134 — A SINCRONIZAÇÃO IMEDIATA COM O SNAPSHOT REAL: a graça do
+/// vazio E71 (o LIST vazio segurado 2 rodadas) e a graça do snapshot
+/// morto (o miss segurado 2) foram APOSENTADAS pela ordem do dono
+/// (dump 1.0-80): o indicador de app ficava PRESO quando janelas
+/// transitórias fechavam — o botão seguia "aberto" depois do fecho
+/// porque a dock segurava o snapshot velho POR DESENHO. O snapshot do
+/// craft-toplevel é a FONTE: o que ele diz É o estado, na hora —
+/// janela que fechou, indicador que apaga no mesmo frame do evento
+/// (o canal EVT entrega o LIST fresco com latência ~0; o tick de 5s
+/// é a rede de segurança). Socket morto = sessão sem janelas
+/// conhecidas: indicadores apagados, tl_alive falso (a dock segue
+/// VIVA — o respawn do craft-bars a devolve ao ar em ≤5s).
 fn apply_snapshot(s: &mut State, opt: Option<sock::Snapshot>) {
     match opt {
         Some(snap) => {
-            if snap.windows.is_empty() && !s.snap.windows.is_empty() && s.empty_guard < 2 {
-                s.empty_guard += 1;
-                log(&format!(
-                    "toplevel: LIST vazio VÁLIDO ({}/2) contradiz o snapshot — \
-                     segurado (graça do vazio)",
-                    s.empty_guard
-                ));
-            } else {
-                if snap.windows.is_empty() && !s.snap.windows.is_empty() {
-                    log("toplevel: LIST vazio confirmado — snapshot zerado de verdade");
-                }
-                s.snap = snap;
-                s.empty_guard = 0;
+            if snap.windows.is_empty() && !s.snap.windows.is_empty() {
+                log("toplevel: LIST vazio — snapshot zerado NA HORA (o fecho de janela vale no frame do evento, sem graça)");
             }
-            s.miss = 0;
+            s.snap = snap;
             s.tl_alive = true;
         }
         None => {
-            if s.tl_alive && s.miss < 2 && !s.snap.windows.is_empty() {
-                s.miss += 1;
-                log(&format!(
-                    "toplevel: LIST falhou ({}/2) — snapshot anterior segurado (graça)",
-                    s.miss
-                ));
-            } else {
-                s.snap = sock::Snapshot::default();
-                s.tl_alive = false;
-                s.empty_guard = 0;
+            if s.tl_alive && !s.snap.windows.is_empty() {
+                log("toplevel: LIST falhou — snapshot zerado (o transporte morto não segura indicador)");
             }
+            s.snap = sock::Snapshot::default();
+            s.tl_alive = false;
         }
     }
 }

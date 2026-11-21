@@ -34,16 +34,16 @@
 //     ao /proc/<pid>/exe de Electron/Snap/Nix/portables);
 //   ✓ o guard de lançamento de 8s (E71: o clique no vão não duplica)
 //     com a liberação no MAP (E88) e a ceifa dos filhos zumbis;
-//   ✓ a GRAÇA DO VAZIO E71 (LIST vazio válido que contradiz snapshot
-//     vivo é segurado 2 rodadas) e a graça do snapshot morto;
+//   ✓ E134 — a SINCRONIZAÇÃO IMEDIATA com o snapshot real: a graça do
+//     vazio E71 (LIST vazio segurado 2 rodadas) APOSENTADA — o
+//     indicador preso após fechar janelas transitórias morreu com ela;
 //   ✓ SIGUSR1 = toggle W-S-d · SIGUSR2 = reload dos pins (v2.5.0).
 // O QUE NÃO FOI PORTADO (nomeado, nunca escondido):
 //   ✗ o MENU do direito E74 (craft-menu/fuzzel): o direito é o verbo
 //     DIRETO "nova sessão" da gramática v2.10.10 — sem menu nesta v1;
 //   ✗ o FALLBACK wlrctl (daemon morto = /proc + wlrctl com as 3
 //     formas canônicas): a dock Rust assume o craft-toplevel VIVO —
-//     sem daemon os verbos de foco/fecho ficam sem rede NESTA v1 (o
-//     craft-dock-gui segue no pacote como fallback da wrapper);
+//     sem daemon os verbos de foco/fecho ficam sem rede NESTA v1;
 //   ✗ a E101 completa (a graça de 3s da classe daemonizada): o guard
 //     aposenta no MAP, no expiry de 8s ou na morte do lançador — sem
 //     o meio-tempo recursivo do Python;
@@ -52,8 +52,10 @@
 //     aplica igual, mas a transição animada falta);
 //   ✗ o _dismiss_overlays (pkill nwg-drawer) e o casaco de terminal
 //     "foot" nos TUI fica no exec_ready (ESSE foi portado).
-// O Python craft-dock-gui CONTINUA na árvore (fallback; a decisão da
-// wrapper é do orquestrador — nada é trocado pela metade).
+// E134 — A DOCK É DEFINITIVAMENTE ESTA: o craft-dock-gui Python saiu do
+// pacote e da árvore (a migração da ordem do dono — o craft-bars lança
+// SÓ o binário Rust; o post_upgrade remove o arquivo velho e encerra o
+// processo Python vivo dos rigs da dose anterior).
 mod icons;
 mod procapp;
 mod sock;
