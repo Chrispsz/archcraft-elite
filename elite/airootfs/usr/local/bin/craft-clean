@@ -1,48 +1,50 @@
 #!/usr/bin/env bash
-# craft-clean — limpeza do sistema (v4 — E114)
+# craft-clean — limpeza do sistema (v6 — E133, as DUAS FASES do fechamento)
 # ═══════════════════════════════════════════════════════════════════════
 # v1: cache do pacman, órfãos e journal.
-# v2 (E88 — a diretriz do dono: "mexe no limpeza"): a limpeza deixa de ser
-# três comandos mudos e vira UM relatório honesto, rápido e sem sustos:
-# TAMANHOS ANTES/DEPOIS, LIXEIRA, FLATPAK órfãos, MODO --yes, pausa final.
-# v3 (E107 — o 'bem completinho' do dono: "um script de limpeza que faz
-# uma limpeza realmente aprofundada… que limpa cache do octopi, todos
-# os pacotes, versões antigas que não estão sendo mais usadas, pacotes
-# mortos"): os CACHES DE USUÁRIO que nenhum passo cobria entram com
-# tamanho medido no relatório — octopi (o gerenciador da casa deixa
-# cache de ícones/imports), yay (build dirs de AUR — a loja de fábrica
-# E97) e thumbnails (miniaturas de vídeo/foto órfãs). O relatório
-# soma tudo que saiu, com a fonte de cada número.
-# v4 (E114 — o papel 183150 + o relato do dono: 'eu clico e não abre
-# nada… ele tenta até abrir uma tela, mas ele não executa uma limpeza no
-# sistema realmente'): DUAS curas. (1) O MODO ROOT HONESTO: sudo dentro
-# de terminal exigia senha no ESCURO do prompt (a parede invisível que
-# o dono abandonava) — o item do menu agora PEDE RAIZ pelo polkit
-# GRÁFICO (pkexec, o diálogo que o dono já conhece do octopi) e este
-# script roda como root COM O HOME DO DONO (a lixeira certa, os caches
-# do usuário certos, zero sudo no escuro). (2) O PRÊMIO REAL: o cache do
-# BRAVE (1,6 GB no papel — o MAIOR do disco) entra na varredura, só com
-# o navegador fechado e só os regeneráveis (Cache/Code Cache/GPUCache).
-# A ordem importa: tudo que só LÊ vem antes; o que DESTRÓI pede raiz —
-# sudo falho = passo pulado COM aviso (nunca morte calada).
-# v5 (E115 — o clean.log do dump 224713 conta CINCO 'iniciado' e ZERO
-# 'fim' — o dono fechou a janela no meio (o paccache num cache grande
-# leva até 1 min e a tela parecia parada) e a perícia só tinha a
-# abertura): cada passo deixa linha ANTES de correr (o trace sobrevive
-# à morte no meio — o papel mostra ONDE estava quando a janela fechou);
-# a abertura nomeia uid/HOME (o modo pkexec fica no papel: raiz com o
-# home do dono é legível, não presumido); e o passo pesado AVISA que é
-# pesado (o relógio de parede no papel também — o 'não abre' era o
-# passo lendo o disco calado).
+# v2 (E88): UM relatório honesto — tamanhos antes/depois, lixeira, flatpak.
+# v3 (E107): os caches de usuário (octopi/yay/thumbnails) medidos no papel.
+# v4 (E114): o modo root honesto (pkexec COM o HOME do dono) + o cache do
+#            Brave (o maior do disco) com o navegador fechado.
+# v5 (E115/E118): o trace sobrevive à morte no meio, a porta se nomeia,
+#            a morte deixa testemunho (trap), o botão não empilha (flock).
+# v6 (E133 — o fechamento do dono): a limpeza vira DUAS FASES CLARAS com o
+#            TOTAL LIBERADO no fim:
+#   FASE 1 — 100% segura e automática (sem risco, sem pergunta):
+#     · journal: vacuum de 7 dias E teto de 100M (--vacuum-time=7d
+#       --vacuum-size=100M);
+#     · paccache -rk2 (2 versões por pacote — o rollback seguro) e
+#       paccache -ruk0 (o cache de pacotes JÁ DESINSTALADOS sai inteiro);
+#     · o trio redundante da casa (E132: polkit-gnome/blueman/
+#       network-manager-applet — -Rns recusa dependentes);
+#     · links simbólicos QUEBRADOS em ~/.local/share/applications e
+#       ~/.config (find -xtype l — contados no papel, removidos);
+#     · coredumps velhos (systemd-coredump >7 dias) e órfãos de /var/tmp
+#       (>7 dias — o mesmo critério do tmpfiles do systemd, apertado);
+#     · os caches regeneráveis de usuário (octopi/yay) e o cache do Brave
+#       SÓ com o navegador fechado (só Cache/Code Cache/GPUCache);
+#     · a lixeira do desktop.
+#     REGRA INVIOLÁVEL: NUNCA tocar em pastas pessoais (~/Documentos,
+#     ~/Downloads, ~/Imagens, ~/Vídeos, ~/Projetos, ~/Música), em PERFIL
+#     de navegador (senhas/histórico/extensões — só os caches
+#     regeneráveis do Cache/*) nem em configurações viva de ~/.config
+#     (a varredura de symlinks SÓ apaga o link quebrado, nunca o alvo).
+#   FASE 2 — avançada e INTERATIVA, cada pergunta [s/N] com padrão NÃO:
+#     1. órfãos/mortos (pacman -Qtdq) listados → remover? [s/N]
+#     2. runtimes Flatpak não utilizados → remover? [s/N]
+#     3. miniaturas (~/.cache/thumbnails) e caches de shaders
+#        (Mesa/Vulkan/NVIDIA — recriados sozinhos no uso) → limpar? [s/N]
+#   PORTAS:
+#     · --auto-safe: SÓ a fase 1, sem PERGUNTA nenhuma (a porta da
+#       automação e dos testes — o mesmo desenho honesto do --yes);
+#     · --yes: fase 1 + fase 2 SEM pergunta (a porta velha, preservada
+#       para scripts que já a chamam);
+#     · menu: raiz pelo pkexec com o HOME do dono, terminal de pé — as
+#       perguntas [s/N] funcionam no terminal do menu.
 # ═══════════════════════════════════════════════════════════════════════
 set -euo pipefail
 
-# E109 — O PAPEL DA LIMPEZA (a denúncia do dono no dump 181701: 'limpeza
-# do sistema também não funciona' — e a casa NÃO TINHA UM LOG para
-# julgar: o item rodava no foot -e e morria sem rastro nenhum; nem a
-# perícia do dump achava a execução). Cada passo deixa linha com rc —
-# 'não funciona' vira réu nomeado no papel (a lei E33 no último irmão).
-# Teto 256 KiB — a lei da família E36.
+# E109 — O PAPEL DA LIMPEZA (teto 256 KiB — a lei da família E36).
 CLEAN_LOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/clean.log"
 clog() {
     mkdir -p "${CLEAN_LOG%/*}" 2>/dev/null || true
@@ -54,53 +56,30 @@ clog() {
 }
 
 ASSUME_YES=0
+AUTO_SAFE=0
 MENU_HOLD=0
 for arg in "$@"; do
   case "$arg" in
     -y|--yes) ASSUME_YES=1 ;;
+    --auto-safe) AUTO_SAFE=1 ;;
     menu) MENU_HOLD=1 ;;
-    -h|--help) printf 'uso: craft-clean [--yes|menu] — a limpeza honesta (o que sai, quanto saiu — E88)\n\n'; sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
-    *) echo "craft-clean: arg desconhecido: $arg (use --yes)" >&2; exit 2 ;;
+    -h|--help) printf 'uso: craft-clean [--yes|--auto-safe|menu] — a limpeza em DUAS FASES (E133)\n\n'; sed -n '2,40p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) echo "craft-clean: arg desconhecido: $arg (use --yes ou --auto-safe)" >&2; exit 2 ;;
   esac
 done
 
-# E110 — O MENU SEGURA O PAPEL (o dono, dump 114852: 'limpeza do sistema,
-# ele tenta abrir uma tela que fecha na hora, terminal') — o modo `menu`
-# pausa INCONDICIONAL no fim: o terminal do menu nunca fecha antes do
-# Enter, MESMO que um passo morra no meio (o read do modo interativo
-# exigia TTY em stdin/stdout — qualquer lançamento sem os dois e o relatório
-# virava flash de novo). O CLI manual mantém a pausa TTY de sempre.
-
 _modo="interativo"
 [ "$ASSUME_YES" = 1 ] && _modo="--yes"
-[ "$ASSUME_YES" != 1 ] && [ "$MENU_HOLD" = 1 ] && _modo="menu"
-# E115 — a abertura fala QUEM corre: uid e HOME no papel (o modo pkexec
-# é raiz com o home do dono — o dono do papel vê a física, não presume)
+[ "$ASSUME_YES" != 1 ] && [ "$AUTO_SAFE" = 1 ] && _modo="--auto-safe"
+[ "$ASSUME_YES" != 1 ] && [ "$AUTO_SAFE" != 1 ] && [ "$MENU_HOLD" = 1 ] && _modo="menu"
 clog "═══ craft-clean iniciado (TTY: $([ -t 0 ] && echo sim || echo não) · modo: $_modo · uid: $(id -u) · HOME: ${HOME:-?})"
 
-# E118 — A TESTEMUNHA DA PORTA (o papel 210305: dois 'iniciado' uid 1000
-# — e NENHUMA porta da casa corre craft-clean como usuário: o item do
-# menu é pkexec→raiz — o papel não dizia de ONDE o clique veio). O pai
-# entra na abertura: a próxima corrida NOMEIA a porta dela (fuzzel,
-# menu, terminal, .desktop — o réu da porta se entrega no papel).
+# E118 — a testemunha da porta + a morte deixa testemunho + o flock.
 _ppid="$(ps -o ppid= -p $$ 2>/dev/null | tr -d ' ')"
 [ -n "$_ppid" ] && _pai="$(tr '\0' ' ' </proc/"$_ppid"/cmdline 2>/dev/null | cut -c1-100)" || _pai='(pai já saiu)'
 clog "porta: ppid=$_ppid pai: ${_pai:-?}"
-
-# E118 — A MORTE DEIXA TESTEMUNHO (a mesma escola do E115 — 'o trace
-# sobrevive à morte no meio' — agora vale TAMBÉM para a morte que
-# acontece ANTES do primeiro passo): o trap registra qualquer saída que
-# não passou pelo 'fim:' — papel sem cabeçalho órfão nunca mais.
 _sem_fim=1
-# E118-corrige — o rc NÃO viaja em variável (SC2154 no shellcheck 0.11 do
-# CI: o rc=$? dentro da string do trap não conta como atribuição) — o $? 
-# direto diz o mesmo número e o réu morre.
 trap 'if [ "${_sem_fim:-0}" = 1 ]; then clog "MORTE no meio (rc=$? — set -e, kill ou janela fechada): o último passo antes da morte é o último passo logado acima"; fi' EXIT
-
-# E118 — O BOTÃO NÃO EMPILHA CORRIDAS (o papel 210305: dois 'iniciado'
-# a 2s — duas corridas concorrentes brigam pelo mesmo paccache): flock
-# no dir do papel (o MESMO arquivo para a porta usuário e a pkexec — o
-# HOME viaja em ambas); a segunda corrida SAIR com testemunho.
 if exec 9>>"${CLEAN_LOG%/*}/clean.lock" 2>/dev/null && command -v flock >/dev/null 2>&1; then
   if ! flock -n 9; then
     _sem_fim=0
@@ -112,12 +91,7 @@ fi
 
 PKG_CACHE="/var/cache/pacman/pkg"
 cache_mib() {
-  # E118 — A MEDIDA NÃO MATA: a v5 media o cache no top-level com
-  # set -euo pipefail — um du que falha (rc≠0 sob pipefail) matava o
-  # script ENTRE a abertura e o primeiro passo (o papel 210305: DOIS
-  # 'iniciado' e ZERO trace — a janela cega entre as linhas 79 e 108).
-  # Hoje a medida falha e devolve 0 — o papel segue e o fim mostra o
-  # 0→0 honesto (a medida ruim não vale uma morte calada).
+  # E118 — a medida não mata: du que falha devolve 0 (o papel segue).
   local m=''
   if [[ -d "$PKG_CACHE" ]]; then
     m="$(du -sm "$PKG_CACHE" 2>/dev/null | awk '{print $1}' || true)"
@@ -138,27 +112,66 @@ srun() {
   fi
 }
 
-step "cache: mantendo 2 versões (paccache -rk2)"
-# E115 — O PASSO FALA ANTES DE CORRER (o clean.log do dump só tinha a
-# abertura: o dono fechava a janela no meio do paccache silencioso e o
-# papel não contava o porquê). Cache grande = até 1 min de leitura de
-# disco — o aviso DIZ isso na tela e no papel.
-clog "passo: paccache -rk2 iniciado (cache grande pode levar até 1 min)"
+# E133 — O CONTADOR ÚNICO DO TOTAL (a fonte de cada número é o passo dele;
+# o fim soma e fala MiB E GB — o dono pediu 'em MB/GB').
+TOTAL_MIB=0
+add_mib() { # $1 = MiB medidos → soma no total e imprime quando > 0
+  local m="${1:-0}"
+  [[ "$m" =~ ^[0-9]+$ ]] || m=0
+  TOTAL_MIB=$((TOTAL_MIB + m))
+  [ "$m" -gt 0 ] && printf '     −%s MiB\n' "$m"
+  return 0
+}
+dir_mib() { # $1 = diretório → tamanho em MiB (0 se ausente/ilegível)
+  local m=''
+  [ -d "$1" ] && m="$(du -sm "$1" 2>/dev/null | awk '{print $1}' || true)"
+  printf '%s\n' "${m:-0}"
+}
+hum_gb() { # $1 = MiB → texto humano (MiB e GB)
+  local m="$1"
+  if [ "$m" -ge 1024 ]; then
+    printf '%s MiB (≈ %s GB)' "$m" "$(awk -v m="$m" 'BEGIN{printf "%.1f", m/1024}')"
+  else
+    printf '%s MiB' "$m"
+  fi
+}
+
+# ═══════════════════════════════════════════════════════════════════════
+# FASE 1 — LIMPEZA AUTOMÁTICA 100% SEGURA (sem pergunta, sem risco)
+# ═══════════════════════════════════════════════════════════════════════
+fase1() {
+step "fase 1 · cache: mantendo 2 versões (paccache -rk2) e limpando desinstalados (-ruk0)"
+# E133 — o -ruk0 do dono: pacotes JÁ DESINSTALADOS não guardam versão
+# nenhuma no cache (o -ruk1 velha mantinha 1 — rollback de desinstalado
+# não existe, é lixo que nunca volta sozinho).
+clog "passo: paccache iniciado (cache grande pode levar até 1 min)"
 echo "   (o paccache lê o cache inteiro — cache grande leva até 1 min)"
 if srun paccache -rk2 2>/dev/null; then
   clog "paccache -rk2: OK"
 else
   _prc=$?
-  clog "paccache -rk2: PULADO (rc=$_prc — pacman-contrib ausente? sudo recusado? a adoção do craft-update traz o pacote; 'sudo pacman -S pacman-contrib' cura à mão)"
+  clog "paccache -rk2: PULADO (rc=$_prc — pacman-contrib ausente? sudo recusado? 'sudo pacman -S pacman-contrib' cura à mão)"
   skipped "paccache (instale pacman-contrib)"
 fi
-srun paccache -ruk1 2>/dev/null && clog "paccache -ruk1: OK" || clog "paccache -ruk1: pulado"
+srun paccache -ruk0 2>/dev/null && clog "paccache -ruk0: OK (desinstalados saem)" || clog "paccache -ruk0: pulado"
 
-step "redundantes (E132 — applets com substituto na casa)"
-# E132 — A HIGIENE DA ORDEM DO DONO: polkit-gnome (o agente é o
-# lxqt-policykit-agent nativo), blueman (o bluetui fica) e
-# network-manager-applet (o nm-connection-editor é pacote próprio) saem
-# COM SEGURANÇA: o -Rns recusa pacote com dependentes e o papel nomeia.
+step "fase 1 · journal: retendo 7 dias, teto de 100M"
+# E133 — o vacuum duplo do dono (tempo E tamanho): o journal não passa
+# de 100M nem de 7 dias — o -vacuum do v4 mantinha 2 semanas e nenhum teto.
+clog "passo: journalctl --vacuum-time=7d --vacuum-size=100M"
+_jb="$(dir_mib /var/log/journal)"
+if srun journalctl --vacuum-time=7d --vacuum-size=100M >/dev/null 2>&1; then
+  _ja="$(dir_mib /var/log/journal)"
+  _jd=$((_jb - _ja)); [ "$_jd" -lt 0 ] && _jd=0
+  echo "  journal: ${_jb} MiB → ${_ja} MiB"
+  clog "journal: ${_jb}→${_ja} MiB (liberado ${_jd} MiB)"
+  add_mib "$_jd"
+else
+  skipped "journalctl --vacuum (sudo indisponível?)"
+  clog "journal: PULADO (sudo indisponível)"
+fi
+
+step "fase 1 · redundantes (E132 — applets com substituto na casa)"
 for pkg in polkit-gnome blueman network-manager-applet; do
   if pacman -Q "$pkg" >/dev/null 2>&1; then
     if srun pacman -Rns --noconfirm "$pkg"; then
@@ -169,92 +182,81 @@ for pkg in polkit-gnome blueman network-manager-applet; do
   fi
 done
 
-step "órfãos (pacman -Qtdq)"
-orphans="$(pacman -Qtdq 2>/dev/null || true)"
-if [[ -n "$orphans" ]]; then
-  echo "$orphans" | sed 's/^/  /'
-  clog "órfãos achados: $(echo "$orphans" | tr '\n' ' ')"
-  if (( ASSUME_YES == 1 )); then
-    srun pacman -Rns --noconfirm $orphans || skipped "remoção dos órfãos"
-    clog "órfãos: removidos (--yes)"
+step "fase 1 · links quebrados em applications e config"
+# E133 — o find -xtype l: o link cujo ALVO morreu (aplicativo desinstalado
+# que deixou lançador órfão, cache que sumiu). A regra inviolável vale:
+# SÓ o link quebrado sai — o alvo já não existe, nada pessoal é tocado.
+_ln=0
+while IFS= read -r -d '' _l; do
+  rm -f -- "$_l" 2>/dev/null || true
+  _ln=$((_ln + 1))
+done < <(find "${XDG_DATA_HOME:-$HOME/.local/share}/applications" \
+               "${XDG_CONFIG_HOME:-$HOME/.config}" -xtype l -print0 2>/dev/null || true)
+if [ "$_ln" -gt 0 ]; then
+  echo "  $_ln link(s) quebrado(s) removido(s) (alvos mortos — lançadores órfãos)"
+  clog "links quebrados: $_ln removidos"
+else
+  echo "  nenhum link quebrado (limpo)"
+  clog "links quebrados: nenhum"
+fi
+
+step "fase 1 · coredumps velhos (>7 dias)"
+_cd="$(dir_mib /var/lib/systemd/coredump)"
+if [ "$_cd" -gt 0 ] && [ "$_cd" != "0" ]; then
+  _cdlist="$(find /var/lib/systemd/coredump -type f -mtime +7 -print 2>/dev/null | head -50 || true)"
+  if [ -n "$_cdlist" ]; then
+    _cdc="$(printf '%s\n' "$_cdlist" | wc -l | tr -d ' ')"
+    srun find /var/lib/systemd/coredump -type f -mtime +7 -delete 2>/dev/null \
+      && { echo "  $_cdc coredump(s) velho(s) apagado(s)"; clog "coredump: $_cdc apagados"; }
   else
-    # v2.10.6 — EOF/set -e NÃO MATA CALADO (a lei do craft-idle v2.10.5
-    # chegando ao último irmão): rodar de script/pipe sem TTY matava o
-    # craft-clean no read ANTES do vacuum do journal — morte silenciosa.
-    read -r -p "remover todos? [s/N] " ans || ans=''
-    if [[ "${ans,,}" == "s" ]]; then
-      srun pacman -Rns --noconfirm $orphans || skipped "remoção dos órfãos"
-      clog "órfãos: removidos (escolha do dono no TTY)"
-    else
-      echo "  (órfãos mantidos — escolha do usuário no papel)"
-      clog "órfãos: mantidos (escolha do usuário)"
-    fi
+    echo "  nenhum coredump com mais de 7 dias"
+    clog "coredump: nenhum >7d"
   fi
 else
-  echo "  nenhum órfão (o sistema já está limpo desta praga)"
-  clog "órfãos: nenhum"
+  echo "  sem /var/lib/systemd/coredump (ou vazio)"
+  clog "coredump: ausente"
 fi
 
-step "lixeira do desktop"
-# E114 — O MODO pkexec É ROOT COM O HOME DO DONO: o gio como root opera a
-# lixeira do ROOT — a do dono ficava de pé. Com HOME do usuário no bolso
-# (o item do menu passa HOME= via pkexec env), a lixeira certa é
-# esvaziada direto; o caminho de sessão (gio) segue como sempre.
-if [ "$(id -u)" = "0" ] && [ -n "${HOME:-}" ] && [ -d "$HOME/.local/share/Trash" ]; then
-  rm -rf -- "$HOME/.local/share/Trash/files" "$HOME/.local/share/Trash/info" 2>/dev/null || true
-  echo "  lixeira esvaziada (modo pkexec: a lixeira do dono)"
-elif command -v gio >/dev/null 2>&1; then
-  gio trash --empty 2>/dev/null && echo "  lixeira esvaziada" || echo "  lixeira já vazia (ou sem acesso — nada quebrou)"
+step "fase 1 · órfãos de /var/tmp (>7 dias)"
+# E133 — o mesmo critério do tmpfiles do systemd para /var/tmp (30d),
+# apertado para 7d pela ordem do dono: o que 7 dias ninguém abriu é órfão.
+# -mindepth 1 -maxdepth 1: o próprio /var/tmp nunca sai.
+_vt="$(find /var/tmp -mindepth 1 -maxdepth 1 -mtime +7 2>/dev/null | head -50 || true)"
+if [ -n "$_vt" ]; then
+  _vtm="$(printf '%s\n' "$_vt" | while IFS= read -r _p; do du -sm "$_p" 2>/dev/null | awk '{print $1}'; done | awk '{s+=$1} END{print s+0}')"
+  srun find /var/tmp -mindepth 1 -maxdepth 1 -mtime +7 -exec rm -rf {} + 2>/dev/null \
+    && { echo "  $(printf '%s\n' "$_vt" | wc -l | tr -d ' ') órfão(s) de /var/tmp apagado(s) ($_vtm MiB)"; clog "/var/tmp: apagados (${_vtm} MiB)"; add_mib "$_vtm"; }
 else
-  echo "  (gio ausente — pulado)"
+  echo "  nenhum órfão de /var/tmp (tudo com menos de 7 dias)"
+  clog "/var/tmp: nenhum >7d"
 fi
 
-# E107 — OS CACHES DE USUÁRIO (o 'bem completinho'): cada um medido ANTES,
-# varrido e contado no relatório final. Todos são ~/.cache — domínio do
-# usuário, zero sudo, tudo regenerável por desenho (índices e miniaturas
-# reconstroem sozinhos no uso; o build do yay refaz no próximo -S).
-step "octopi: cache do gerenciador"
-lib_user=0
+step "fase 1 · octopi: cache do gerenciador"
 if [ -d "$HOME/.cache/octopi" ]; then
   mib="$(du -sm "$HOME/.cache/octopi" 2>/dev/null | awk '{print $1}')"
   mib="${mib:-0}"
   rm -rf -- "$HOME/.cache/octopi"/* 2>/dev/null || true
   echo "  $mib MiB varridos (ícones/imports antigos — reconstroem no uso)"
-  lib_user=$((lib_user + mib))
+  add_mib "$mib"
 else
   echo "  (sem cache do octopi — nada a fazer)"
 fi
 
-step "yay: cache de build do AUR"
+step "fase 1 · yay: cache de build do AUR"
 if [ -d "$HOME/.cache/yay" ]; then
   mib="$(du -sm "$HOME/.cache/yay" 2>/dev/null | awk '{print $1}')"
   mib="${mib:-0}"
   rm -rf -- "$HOME/.cache/yay"/* 2>/dev/null || true
   echo "  $mib MiB varridos (fontes/pkgbuilds de builds passados — o próximo -S baixa de novo)"
-  lib_user=$((lib_user + mib))
+  add_mib "$mib"
 else
   echo "  (sem cache do yay — nada a fazer)"
 fi
 
-step "thumbnails: miniaturas órfãs"
-if [ -d "$HOME/.cache/thumbnails" ]; then
-  mib="$(du -sm "$HOME/.cache/thumbnails" 2>/dev/null | awk '{print $1}')"
-  mib="${mib:-0}"
-  rm -rf -- "$HOME/.cache/thumbnails"/* 2>/dev/null || true
-  echo "  $mib MiB varridos (miniaturas de mídia — reconstroem na navegação)"
-  lib_user=$((lib_user + mib))
-else
-  echo "  (sem thumbnails — nada a fazer)"
-fi
-
-# E114 — O PRÊMIO QUE A LIMPEZA NUNCA PEGOU (o papel da seção 14 do dump
-# 183150: o cache do Brave era o MAIOR cache do disco — 1,6 GB — e nenhum
-# passo o tocava; o dono: 'ele tenta até abrir uma tela, mas ele não
-# executa uma limpeza no sistema realmente'). Seguro por desenho: SÓ com
-# o navegador fechado (pgrep nomeado no papel quando aberto) e SÓ os
-# caches regeneráveis (Cache/Code Cache/GPUCache) — senhas, histórico e
-# extensões moram em OUTROS arquivos do perfil: nada deles sai.
-step "Brave: cache do navegador (o maior prêmio do disco)"
+# E114 — O PRÊMIO (o cache do Brave): SÓ com o navegador fechado e SÓ os
+# regeneráveis — senhas, histórico e extensões moram em OUTROS arquivos do
+# perfil: nada deles sai (a regra inviolável do fechamento por extenso).
+step "fase 1 · Brave: cache do navegador (o maior prêmio do disco)"
 clog "passo: cache do Brave iniciado (checa navegador vivo antes de tocar)"
 if pgrep -x brave >/dev/null 2>&1; then
   echo "  (Brave está ABERTO — pulado: feche o navegador e rode a limpeza de novo)"
@@ -266,42 +268,140 @@ elif [ -d "$HOME/.cache/BraveSoftware" ]; then
             "$HOME/.cache/BraveSoftware"/Brave-Browser/*/Code*Cache \
             "$HOME/.cache/BraveSoftware"/Brave-Browser/*/GPUCache 2>/dev/null || true
   echo "  $mib MiB avaliados (Cache/Code Cache/GPUCache varridos — o perfil intacto; reconstroem no uso)"
-  lib_user=$((lib_user + mib))
+  add_mib "$mib"
   clog "Brave cache: varrido (${mib} MiB avaliados — só os caches regeneráveis)"
 else
   echo "  (sem cache do Brave — nada a fazer)"
   clog "Brave cache: ausente"
 fi
 
-step "flatpak: runtimes órfãos"
+step "fase 1 · lixeira do desktop"
+# E114 — o modo pkexec é root com o HOME do dono: a lixeira certa.
+if [ "$(id -u)" = "0" ] && [ -n "${HOME:-}" ] && [ -d "$HOME/.local/share/Trash" ]; then
+  rm -rf -- "$HOME/.local/share/Trash/files" "$HOME/.local/share/Trash/info" 2>/dev/null || true
+  echo "  lixeira esvaziada (modo pkexec: a lixeira do dono)"
+elif command -v gio >/dev/null 2>&1; then
+  gio trash --empty 2>/dev/null && echo "  lixeira esvaziada" || echo "  lixeira já vazia (ou sem acesso — nada quebrou)"
+else
+  echo "  (gio ausente — pulado)"
+fi
+}
+
+# ═══════════════════════════════════════════════════════════════════════
+# FASE 2 — LIMPEZA AVANÇADA INTERATIVA (cada pergunta [s/N], padrão NÃO)
+# ═══════════════════════════════════════════════════════════════════════
+fase2() {
+step "fase 2 · órfãos e pacotes mortos (pacman -Qtdq)"
+orphans="$(pacman -Qtdq 2>/dev/null || true)"
+if [[ -n "$orphans" ]]; then
+  echo "$orphans" | sed 's/^/  /'
+  clog "órfãos achados: $(echo "$orphans" | tr '\n' ' ')"
+  if (( ASSUME_YES == 1 )); then
+    srun pacman -Rns --noconfirm $orphans || skipped "remoção dos órfãos"
+    clog "órfãos: removidos (--yes)"
+  else
+    # E133 — a pergunta do fechamento, palavra por palavra, padrão NÃO.
+    # v2.10.6 preservada: o EOF não mata calado (read com fallback).
+    read -r -p "Remover pacotes órfãos/mortos listados acima? [s/N] " ans || ans=''
+    if [[ "${ans,,}" == "s" ]]; then
+      srun pacman -Rns --noconfirm $orphans || skipped "remoção dos órfãos"
+      clog "órfãos: removidos (escolha do dono no TTY)"
+    else
+      echo "  (órfãos mantidos — padrão NÃO; escolha do usuário no papel)"
+      clog "órfãos: mantidos (escolha do usuário)"
+    fi
+  fi
+else
+  echo "  nenhum órfão (o sistema já está limpo desta praga)"
+  clog "órfãos: nenhum"
+fi
+
+step "fase 2 · runtimes Flatpak não utilizados"
 if command -v flatpak >/dev/null 2>&1; then
   if (( ASSUME_YES == 1 )); then
     flatpak uninstall --unused -y 2>/dev/null || echo "  (nada a remover ou sem sessão — pulado)"
   else
-    flatpak uninstall --unused 2>/dev/null || echo "  (nada a remover ou sem sessão — pulado)"
+    # E133 — o flatpak LISTA o que vai no próprio comando; a casa pergunta
+    # ANTES (padrão NÃO) e o -y só desce com o sim do dono.
+    read -r -p "Remover runtimes Flatpak não utilizados? [s/N] " ans || ans=''
+    if [[ "${ans,,}" == "s" ]]; then
+      flatpak uninstall --unused -y 2>/dev/null || echo "  (nada a remover ou sem sessão — pulado)"
+      clog "flatpak --unused: corrido (escolha do dono)"
+    else
+      echo "  (runtimes mantidos — padrão NÃO)"
+      clog "flatpak --unused: mantidos (escolha do usuário)"
+    fi
   fi
 else
   echo "  (flatpak ausente — pulado)"
 fi
 
-step "journal: retendo 2 semanas"
-srun journalctl --vacuum-time=2weeks || skipped "journalctl --vacuum"
+step "fase 2 · miniaturas e caches de shaders (recriados automaticamente)"
+# E133 — os caches de SHADER da casa: Mesa (~/.cache/mesa_shader_cache e
+# mesa_shader_cache_db — RADV/anv), Vulkan (~/.cache/vulkan_shader_cache)
+# e NVIDIA (~/.cache/nvidia/GLCache — DXVK/OGL). Todos reconstroem sozinhos
+# no primeiro uso — o jogo compila de novo o que precisa.
+_thumb="$(dir_mib "$HOME/.cache/thumbnails")"
+_shm=0
+for _d in "$HOME/.cache/mesa_shader_cache" "$HOME/.cache/mesa_shader_cache_db" \
+          "$HOME/.cache/vulkan_shader_cache" "$HOME/.cache/nvidia/GLCache"; do
+  _m="$(dir_mib "$_d")"
+  _shm=$((_shm + _m))
+done
+echo "  miniaturas: ${_thumb} MiB · shaders (Mesa/Vulkan/NVIDIA): ${_shm} MiB"
+clog "fase 2 caches: miniaturas ${_thumb} MiB · shaders ${_shm} MiB"
+if (( ASSUME_YES == 1 )); then
+  _ans=s
+else
+  read -r -p "Limpar caches de miniaturas e shaders (recriados automaticamente)? [s/N] " _ans || _ans=''
+fi
+if [[ "${_ans,,}" == "s" ]]; then
+  _freed=0
+  for _d in "$HOME/.cache/thumbnails" "$HOME/.cache/mesa_shader_cache" \
+            "$HOME/.cache/mesa_shader_cache_db" "$HOME/.cache/vulkan_shader_cache" \
+            "$HOME/.cache/nvidia/GLCache"; do
+    if [ -d "$_d" ]; then
+      _m="$(du -sm "$_d" 2>/dev/null | awk '{print $1}')"; _m="${_m:-0}"
+      rm -rf -- "${_d:?}/"* 2>/dev/null || true
+      _freed=$((_freed + _m))
+    fi
+  done
+  echo "  $_freed MiB varridos (miniaturas + shaders — recriam no primeiro uso)"
+  add_mib "$_freed"
+  clog "miniaturas+shaders: ${_freed} MiB varridos (escolha do dono)"
+else
+  echo "  (caches mantidos — padrão NÃO)"
+  clog "miniaturas+shaders: mantidos (escolha do usuário)"
+fi
+}
+
+# ── o corpo: fase 1 SEMPRE; fase 2 só quem pediu ────────────────────────
+fase1
+if [ "$AUTO_SAFE" = 1 ]; then
+  echo
+  echo "  --auto-safe: fase 2 (órfãos/flatpak/shaders) NÃO corre — a porta da automação não pergunta"
+  clog "--auto-safe: fase 2 pulada (sem prompts por desenho)"
+else
+  if [[ -t 0 && -t 1 ]] || (( ASSUME_YES == 1 )); then
+    fase2
+  else
+    echo
+    echo "  (sem TTY de pergunta: a fase 2 interativa fica para a próxima corrida com terminal — nada foi perguntado, nada foi removido)"
+    clog "fase 2: PULADA (sem TTY — as perguntas [s/N] exigem terminal; use --yes ou --auto-safe)"
+  fi
+fi
 
 depois="$(cache_mib)"
 liberado=$(( antes - depois ))
 (( liberado < 0 )) && liberado=0
+TOTAL_MIB=$(( TOTAL_MIB + liberado ))
 _sem_fim=0
-clog "fim: cache do pacman ${antes}→${depois} MiB · caches de usuário: ${lib_user} MiB · total liberado: $((liberado + lib_user)) MiB"
-printf '\n✔ limpo. cache do pacman: %s MiB → %s MiB (liberado: %s MiB)\n' "$antes" "$depois" "$liberado"
-printf '✔ caches de usuário (octopi/yay/thumbnails): %s MiB liberados (a fonte de cada número acima do passo dele)\n' "$lib_user"
-# E96 — O RELATÓRIO NÃO SOME (o relato do dono: "o botão de limpeza do
-# menu do sistema não funciona" — o item existia, o foot -e fechava na
-# hora e o dono via um flash sem conteúdo; e o passo principal vivia
-# pulado sem o paccache do pacman-contrib, que entra na ISO neste
-# commit). Interativo = pausa honesta: o dono LÊ o que a limpeza fez.
-# E110 — o modo `menu` (a ordem do dono no dump 114852) pausa SEM EXIGIR
-# de TTY: o terminal do menu fica aberto até o Enter MESMO que um passo
-# morra no meio — 'fecha na hora' extinto por construção.
+clog "fim: cache do pacman ${antes}→${depois} MiB · TOTAL LIBERADO: ${TOTAL_MIB} MiB"
+echo
+printf '✔ limpo. cache do pacman: %s MiB → %s MiB (liberado: %s MiB)\n' "$antes" "$depois" "$liberado"
+printf '✔ TOTAL LIBERADO (todas as fases): %s\n' "$(hum_gb "$TOTAL_MIB")"
+printf '   (a fonte de cada número está no passo dele acima e no papel ~/.cache/elite/clean.log)\n'
+# E96/E110 — o relatório não some: o modo menu pausa INCONDICIONAL.
 if (( MENU_HOLD == 1 )); then
   read -r -p 'Enter para fechar' _ || true
 elif (( ASSUME_YES == 0 )) && [[ -t 0 ]] && [[ -t 1 ]]; then
