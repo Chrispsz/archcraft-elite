@@ -3558,20 +3558,19 @@ else
 fi
 assert_grep "$P/airootfs/usr/local/bin/craft-pin-pick" '-u low -t 4000 "Dock"' "E103/central: o 'já estava fixado' desce para low (estado não sobe na tela — a tentativa repetida NUNCA vira pop-up em loop)"
 
-# ── o POLKIT SOB DEMANDA (idle ~1–2 MB, diálogo só no desafio) ──────────
-assert_file "$REPO/vendor/elite-polkit-listener.c" "E103/polkit: o C vendado existe (a fonte única — a gramática do craft-toplevel)"
-assert_grep "$REPO/vendor/elite-polkit-listener.c" 'polkit_agent_listener_register' "E103/polkit: o listener REGISTRA o agente da sessão (a perícia no fonte do polkit provou: o polkitd NUNCA D-Bus ativa agentes e REJEITA um segundo por sessão — registro é a única via)"
-assert_grep "$REPO/vendor/elite-polkit-listener.c" 'zenity' "E103/polkit: o diálogo só existe DURANTE o desafio (o corpo vivo é GDBus puro ~1–2 MB — sem Qt na RAM: a diretriz do dono)"
-assert_grep "$REPO/.ci/build.sh" 'gcc -O2 -Wall -Wextra -s -o elite-polkit-listener' "E103/polkit: o listener compila NO build do pacote único (a fonte única com sha pinado)"
-assert_grep "$REPO/.ci/build.sh" '50f70f8a2b29a4e274e881d78494a9aba01959e05308343e2d0588fc41a5d5cf' "E103→E121/polkit: o sha do C vendado PINADO no PKGBUILD (a lição E97.1 — pin que viaja junto; a E121 trocou o fonte — a corrida request↔diálogo curada — e o pin acompanhou)"
-LST_SHA="$(sha256sum "$REPO/vendor/elite-polkit-listener.c" 2>/dev/null | cut -d' ' -f1)"
-assert_eq "$LST_SHA" "50f70f8a2b29a4e274e881d78494a9aba01959e05308343e2d0588fc41a5d5cf" "E103→E121/polkit: o pin MORDE (o sha do arquivo é o do PKGBUILD — a fonte e o pacote não desincronizam)"
-assert_grep "$REPO/vendor/elite-polkit-listener.c" 'request_pending' "E121/polkit: o pedido pendente fica MARCADO (o helper pede em ms e o diálogo responde em segundos — a ordem request→senha era o hang sem nome)"
-assert_grep "$REPO/vendor/elite-polkit-listener.c" 'senha entregue ao pedido pendente' "E121/polkit: o zenity_done ENTREGA a resposta pendente (o réu do terminal em branco do dump 173257: a senha guardada e NINGUÉM respondendo — o pkexec congelado e o clean.log sem entrada uid:0 desde o nascimento)"
-assert_grep "$REPO/vendor/elite-polkit-listener.c" 'tentativas esgotadas' "E121/polkit: as tentativas esgotadas cancelam o desafio COM VOZ (nunca um helper esperando para sempre — o mesmo hang por outra porta)"
-assert_grep "$BARS101" 'elite-polkit-listener >/dev/null 2>&1' "E103/polkit: o supervisor ELEGE o listener (a fila nova: LISTENER idle-nulo → lxqt residente → hyprpolkitagent era-Qt → polkit-gnome)"
-assert_grep "$BARS101" 'perdedor aposentado \(lxqt-policykit-agent residente' "E103/polkit: o residente perdedor sai da sala quando o listener reina (dois agentes = duas caixas de senha por pedido — o E95 de pé)"
+# ── o POLKIT NATIVO (E132 — o lxqt-policykit-agent é o agente da casa) ──
+# E103→E132: o listener custom (C vendado, diálogo zenity) APOSENTOU — o
+# dump pós-1.0-78 fotografou os transient 'polkit-agent-helper@…'
+# FAILED ('Failed to start Authorization Manager Agent Helper') e o
+# desafio de senha morrendo na mão da camada própria. A ordem do dono: o
+# agente NATIVO compilado, compatível com o polkit 128 — o C saiu do
+# repo, o build não compila mais, o supervisor aposenta o fóssil vivo.
+assert_nofile "$REPO/vendor/elite-polkit-listener.c" "E132/polkit: o C vendado APOSENTOU do repo (a fonte única agora é o upstream lxqt — nada de camada própria entre o desafio e o PAM)"
+assert_nogrep "$REPO/.ci/build.sh" 'source=.*elite-polkit-listener' "E132/polkit: o listener NÃO viaja mais como fonte do pacote único (o pin E97.1/E121 aposentou com ele)"
+assert_grep "$BARS101" 'for pb in /usr/bin/lxqt-policykit-agent' "E132/polkit: o supervisor ELEGE o agente NATIVO na frente (a fila: lxqt nativo → hyprpolkitagent era-Qt → polkit-gnome legado)"
+assert_grep "$BARS101" 'usr/local/bin/elite-polkit-listener' "E132/polkit: o listener VIVO do rig da dose velha é APOSENTADO (o perdedor sai da sala — o E95 de pé, um trono só)"
 assert_nogrep "$P/airootfs/etc/skel/.config/labwc/autostart" 'polkit-gnome' "E103/polkit: o spawn residente do autostart MORREU (o bloco legacy que subia o polkit-gnome às cegas — o supervisor é o único lançador)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'lxqt-policykit-agent NATIVO' "E132/polkit: o autostart DOCUMENTA o agente nativo (o comentário da era E132 — nada sobe aqui, o craft-bars lança)"
 assert_grep "$P/airootfs/usr/local/bin/elite-gparted" 'pkexec' "E103/polkit: o gparted segue pelo pkexec (o desafio sobe o diálogo sob demanda — o caminho que o dono usa continua)"
 
 # ── o OSD (a barra acima da dock, flags atuais, mic com feedback) ───────
@@ -3622,6 +3621,26 @@ assert_grep "$REPO/.ci/build.sh" 'etc/gamemode.ini' "E103/game: o gamemode.ini v
 assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'craft-game' "E103/game: o menu raiz tem a porta (o botão do sistema que a missão pediu — 'mexer no governor' sem terminal; o comando resolve pelo PATH — o gate v1.6.3 sem fantasma)"
 assert_grep "$BARS101" 'craft-game watch' "E103/game: o watch entra na SUPERVISÃO (morre → volta em ≤5s; AUTO≠1 = ausência intencional — zero spam)"
 assert_grep "$REPO/elite/packages.add" '^gamemode$' "E103/game: o músculo nasce na ISO (gamemode+gamescope+mangohud desde a v1 — a cadeia completa do jogador)"
+
+# ── E132 — OS 3 BUGS CRÍTICOS DO DUMP PÓS-1.0-78 (a ordem do dono) ──────
+# (1) A GPU high da RX 7600 NUNCA subiu: o 'accept-residual' era invenção
+#     da casa — o parser do Feral só conhece "accept-responsibility" e o
+#     gamemoded RECUSAVA o bloco [gpu] inteiro (o dump: 'gamemoded: ERROR:
+#     apply_gpu_optimisations set to value other than "accept-responsibility"');
+# (2) jogos Proton GE/Hydra/UMU: a sonda /proc lê environ+cmdline com a
+#     lista de auxiliares do Wine bloqueada (o Stardew Valley do Hydra);
+# (3) o DEBOUNCE de 3s: pulo transitório do Hydra cancela em silêncio.
+assert_grep "$P/airootfs/etc/gamemode.ini" '^apply_gpu_optimisations=accept-responsibility$' "E132/game: o valor que o gamemoded ACEITA (o 'accept-residual' da era velha RECUSAVA o bloco [gpu] — a GPU high nunca subiu na RX 7600)"
+assert_nogrep "$P/airootfs/etc/gamemode.ini" '^apply_gpu_optimisations=accept-residual' "E132/game: o fóssil 'accept-residual' morreu como DIRETIVA no mestre (o comentário que conta a história é papel; a diretiva recusada pelo gamemoded não volta)"
+assert_grep "$P/airootfs/usr/local/bin/elite-post-transaction" 'apply_gpu_optimisations=accept-responsibility' "E132/game: o post-transaction REESCREVE o rig vivo (o fóssil de dono antigo cura em toda transação — idempotente, com linha no papel)"
+assert_grep "$CNG101" 'WINE_ENV_MARKS' "E132/game: a sonda do environ casa os runtimes (WINEPREFIX/STEAM_COMPAT_DATA_PATH/UMU_ID/PROTON_VERSION — o jogo do Hydra via Proton GE que nenhuma porta via)"
+assert_grep "$CNG101" 'WINE_HELPER_PATS' "E132/game: os auxiliares do Wine são bloqueados ANTES da sonda (wineserver/services.exe/explorer.exe/steamwebhelper/hydra-plus… carregam as MESMAS marcas — sem o filtro o modo nunca desligaria)"
+assert_grep "$CNG101" '\\.exe\$' "E132/game: a porta do .exe (o argv do jogo Proton termina em .exe — a terceira porta da família)"
+assert_grep "$CNG101" 'gm-hook-live' "E132/game: o fim só notifica sessão REAL (o token dos 3s confirmados — o 'Perfil normal restaurado' nunca sobe por pulo transitório)"
+assert_grep "$CNG101" 'gm-hook-cancel' "E132/game: o cancelamento da janela de 3s (o hook-stop antes dos 3s cala o INÍCIO pendente em silêncio — o fim do spam do Hydra)"
+assert_grep "$CNG101" 'sleep 3' "E132/game: a janela é DE 3 SEGUNDOS (a ordem literal do dono — o fantasma de 1s do D-Bus transitório não é notícia)"
+assert_nogrep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'Loja de apps' "E132/menu: o item 'Loja de apps' SAIU do botão direito (porta redundante — o Bazaar segue na gaveta/dock e o pacote flatpak segue no sistema)"
+assert_grep "$REPO/elite/packages.add" '^flatpak$' "E132/menu: o pacote FLATPAK SEGUE no sistema (o io.github.kolunmi.Bazaar é um Flatpak e DEPENDE dele — só o atalho duplicado do menu morreu)"
 
 # ── a DOSE QUE SE CURA (os contratos estáticos; as cenas vivem na 30-unit)
 assert_grep "$CUPD101" 'cura_orfao()' "E103/dose: a classe órfã CURA-SE (a lei do dono: atualização que chega INSTALA — o papel 10/nov provou a recusa com TRÊS comandos manuais)"

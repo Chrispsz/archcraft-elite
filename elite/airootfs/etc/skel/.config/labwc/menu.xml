@@ -132,13 +132,11 @@
          craft-display — ver o comentário E114 do cabeçalho; o CLI
          segue vivo para o socorro) -->
     <separator />
-    <!-- E126 — A LOJA NO BOTÃO DIREITO (a ordem do dono: 'uma loja gráfica
-         conectada ao Flathub para buscar, instalar e atualizar Flatpaks
-         visualmente' — a porta existia só pelo terminal). O rótulo curto
-         (a lei E125: palavra inteira, nunca tocando o cap de 200px). -->
-    <item label="Loja de apps">
-      <action name="Execute" command="craft-flatpak loja" />
-    </item>
+    <!-- E132 — A 'LOJA DE APPS' SAIU DO BOTÃO DIREITO (a ordem do dono,
+         dump pós-1.0-78: o item era porta redundante — o Bazaar continua
+         na gaveta/dock pelo .desktop dele e o pacote FLATPAK segue no
+         sistema: o io.github.kolunmi.Bazaar é um Flatpak e DEPENDE dele;
+         o que morre é só o atalho duplicado do menu, não a loja). -->
     <item label="Atualizar sistema">
       <action name="Execute" command="foot -e craft-update" />
     </item>

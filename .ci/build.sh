@@ -368,11 +368,13 @@ say "Gerando o PKGBUILD do elite-system (O PACOTE ÚNICO — E50)"
 mkdir -p /tmp/elite-src/elite-system/files/usr/local/bin
 mkdir -p /tmp/elite-src/elite-system/files/etc/systemd/system
 cp /work/vendor/craft-toplevel.c /tmp/elite-src/elite-system/
-# E103 — O AGENTE SOB DEMANDA viaja na MESMA fonte única (o C vendado com
-# sha256 pinado — a gramática do craft-toplevel; o listener compila NO
-# build do pacote e o binário sai pelo MANIFEST de exclusão, como o daemon):
-# registra o agente da sessão, idle ~1–2 MB, diálogo zenity só no desafio.
-cp /work/vendor/elite-polkit-listener.c /tmp/elite-src/elite-system/
+# E132 — O LISTENER CUSTOM APOSENTA (a ordem do dono, dump pós-1.0-78: os
+# transient services 'polkit-agent-helper@…' nasciam FAILED e o desafio
+# morria — o lxqt-policykit-agent NATIVO, compatível com o polkit 128,
+# é o agente da casa eleito no craft-bars; o C vendado não compila nem
+# viaja mais — o vendor/elite-polkit-listener.c sai do repo COM VOZ no
+# commit, o makedepends polkit sai junto: nada de toolchain que o pacote
+# não usa).
 # caminho ABSOLUTO: aqui o CWD é /tmp/elite-src/<pkg> (o cd da seção pywal
 # acima) — o relativo nasceria vazio (a lição vai no próprio comentário).
 for f in /work/elite/airootfs/usr/local/bin/*; do
@@ -2427,8 +2429,9 @@ arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
 license=(GPL3)
 depends=(bash python wayland wlopm)
-# E103 — o listener C precisa dos headers do polkit (libpolkit-agent-1)
-makedepends=(polkit)
+# E103 — o listener C aposentou (E132): o makedepends polkit sai junto
+# (nada compila contra o libpolkitagent neste pacote desde a E132)
+makedepends=()
 # E50 — A SUBSTITUIÇÃO DE ERA: conflita e substitui os DOIS veículos
 # legados — o -Syu do craft-update (alvo elite-system) remove o par e
 # instala o único na MESMA transação; configs de usuário (~) NUNCA são
@@ -2438,35 +2441,20 @@ conflicts=('elite-craft' 'craft-toplevel')
 # sem -debug (shell/python + binário já compilado com -s; nada a tirar
 # símbolo)
 options=(!debug !strip)
-source=("craft-toplevel.c" "elite-polkit-listener.c")
+source=("craft-toplevel.c")
 # E97.1 — O CANAL CAÇOU O QUE A SUÍTE NÃO VIU: o makepkg do canal recusou
 #     a fonte (run 42693926097: 'craft-toplevel.c ... FAILED') porque o
 #     E96 re-pinou SÓ a ponte (linha ~332) e deixou o template do pacote
 #     único com o sha da era E95. O mesmo C, DOIS pins — os dois têm que
-#     viajar JUNTOS (a peça da suíte agora cobre os DOIS).
-# E103 — o pin do listener viaja JUNTO (a mesma lição — a suíte cobra a
-#     sincronia dos TRÊS pins: ponte, pacote único e agente).
-sha256sums=('1a6aeea295db062e38e53b50bb525c6098eb4b436b4b2d8dfd8e84a174aedb11'
-            '50f70f8a2b29a4e274e881d78494a9aba01959e05308343e2d0588fc41a5d5cf')
+#     viajar JUNTOS (a peça da suíte cobria os DOIS; a E132 tirou o pin
+#     do listener aposentado — o C da ponte segue o único pinado).
+sha256sums=('1a6aeea295db062e38e53b50bb525c6098eb4b436b4b2d8dfd8e84a174aedb11')
 build() {{
     gcc -O2 -Wall -Wextra -s -o craft-toplevel craft-toplevel.c -lwayland-client
-    # E103 — o agente sob demanda (idle ~1–2 MB, diálogo zenity no desafio)
-    # E103.4 — O CFLAGS QUE NUNCA VEIO: o --libs ligava as bibliotecas, mas
-    # o --cflags (o -I/usr/include/polkit-1 — onde o polkitagent/ mora) era
-    # o FALSO: 'polkitagent/polkitagent.h: No such file or directory' na
-    # run #68 — a primeira build do listener morreu no gcc SEM include path
-    # (as runs #66/#67 nem chegaram aqui). pkg-config entrega os DOIS.
-    # E-auditoria (12/nov) — A SENTINELA DA API INSTÁVEL: o --cflags abriu
-    # a porta e o header COBROU a passagem — polkitagent.h:26 (#error):
-    # libpolkitagent é API instável e EXIGE o reconhecimento
-    # POLKIT_AGENT_I_KNOW_API_IS_SUBJECT_TO_CHANGE antes do include (run
-    # #69). O -D no gcc reconhece SEM tocar a fonte vendada — o sha
-    # pinado (89bf38bb…6d26) fica intacto, a fonte segue a que a suíte
-    # auditou.
-    gcc -O2 -Wall -Wextra -s -o elite-polkit-listener elite-polkit-listener.c \
-        -DPOLKIT_AGENT_I_KNOW_API_IS_SUBJECT_TO_CHANGE \
-        $(pkg-config --cflags polkit-agent-1 gobject-2.0) \
-        $(pkg-config --libs polkit-agent-1 gobject-2.0)
+    # E132 — o elite-polkit-listener NÃO COMPILE MAIS (a ordem do dono,
+    # dump pós-1.0-78: os transient 'polkit-agent-helper@…' FAILED — o
+    # lxqt-policykit-agent NATIVO, compatível com o polkit 128, é o agente
+    # da casa; a gcc daqui e o C vendado aposentaram no mesmo gesto)
 }}
 # ADOÇÃO (a herança do elite-craft): nos rigs, estes arquivos nasceram SEM
 # dono (overlay da ISO) — o pacman recusa sobrescrever não-dono ANTES de
@@ -2507,9 +2495,9 @@ package() {{
     # a fonte do daemon viaja no pacote (transparência — o mesmo papel que
     # ela tinha no craft-toplevel legado)
     install -Dm644 craft-toplevel.c "${{pkgdir}}/usr/local/share/elite/src/craft-toplevel.c"
-    # E103 — o agente sob demanda + a fonte dele (mesma transparência)
-    install -m755 elite-polkit-listener "${{pkgdir}}/usr/local/bin/elite-polkit-listener"
-    install -Dm644 elite-polkit-listener.c "${{pkgdir}}/usr/local/share/elite/src/elite-polkit-listener.c"
+    # E132 — o elite-polkit-listener NÃO viaja mais (o agente da casa é o
+    # lxqt-policykit-agent NATIVO, eleito no craft-bars; um bin a menos no
+    # pacote, um agente a menos na fila — o C vendado aposentou do repo)
 {unit_install}{hook_install}{ff_install}{lock_install}{rc_install}{osd_install}{menu_install}{pd_install}{gm_install}{doc_install}{gp_install}{pt_install}{ef_install}{flags_install}{waybar_install}{udev_install}{pk_install}{q6_install}{theo_install}{gtk_install}}}
 """
 (d / 'PKGBUILD').write_text(pkg)

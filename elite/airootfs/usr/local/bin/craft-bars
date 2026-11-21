@@ -450,33 +450,26 @@ while :; do
     # último recurso (aposentado no packages.remove da ISO). Fila única,
     # decisão provável no papel — quando o labwc aprender v5, uma linha
     # aqui devolve o agente nativo.
-    # E101 — O POLKIT SOB DEMANDA (a diretriz do dono: 'subir o prompt
-    # APENAS quando uma aplicação solicitar, encerrando logo em seguida —
-    # RAM nula em idle'). A perícia no fonte do polkit provou: o polkitd
-    # NUNCA D-Bus ativa agentes e REJEITA um segundo por sessão — o agente
-    # se REGISTRA e o prompt é DESAFIO. O elite-polkit-listener (C vendado,
-    # sha pinado, do pacote único) é o corpo SEMPRE VIVO MÍNIMO (GDBus,
-    # idle ~1–2 MB — sem Qt na RAM): registra o agente da sessão e abre o
-    # diálogo (zenity) SÓ quando um app pede privilégio, matando-o com o
-    # desafio. A fila da casa reorganiza: LISTENER (idle nulo) → lxqt
-    # (residente, fallback honesto) → hyprpolkitagent (era Qt) → polkit-gnome
-    # (legado). O TRONO segue um só (E95): com o listener eleito, TODOS os
-    # residentes se aposentam (o polkitd recusa o segundo registro —
-    # dois agentes = duas caixas de senha por pedido).
+    # E132 — O AGENTE NATIVO É A FRENTE (a ordem do dono, dump pós-1.0-78:
+    # os transient services 'polkit-agent-helper@…' nasciam FAILED no
+    # journal — 'Failed to start Authorization Manager Agent Helper' —
+    # e o desafio de senha morria na mão do listener custom da casa). O
+    # elite-polkit-listener APOSENTA: o lxqt-policykit-agent é o agente
+    # NATIVO COMPILADO (Qt6, WM-agnóstico, compatível com o polkit 128
+    # — o upstream mantém o registro e o helper contra o polkitd VIVO,
+    # nada de camada própria entre o desafio e o PAM). A fila segue com
+    # rede para o agente ausente: lxqt → hyprpolkitagent (era Qt) →
+    # polkit-gnome (legado); o TRONO continua UM SÓ (E95 — o polkitd
+    # rejeita o segundo registro por sessão).
     POLKIT_BIN=""
-    if command -v elite-polkit-listener >/dev/null 2>&1 \
-            && command -v zenity >/dev/null 2>&1; then
-        POLKIT_BIN=/usr/local/bin/elite-polkit-listener
-    else
-        for pb in /usr/bin/lxqt-policykit-agent \
-                  /usr/lib/hyprpolkitagent/hyprpolkitagent \
-                  /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1; do
-            [ -x "$pb" ] || continue
-            grep -q 'hyprtoolkit' "$pb" 2>/dev/null && continue
-            POLKIT_BIN="$pb"
-            break
-        done
-    fi
+    for pb in /usr/bin/lxqt-policykit-agent \
+              /usr/lib/hyprpolkitagent/hyprpolkitagent \
+              /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1; do
+        [ -x "$pb" ] || continue
+        grep -q 'hyprtoolkit' "$pb" 2>/dev/null && continue
+        POLKIT_BIN="$pb"
+        break
+    done
     # E95 — UM TRONO SÓ (o perdedor sai da sala): os homes VIVOS ainda
     # sobem o polkit-gnome às cegas pelo autostart do skel velho (home é
     # domínio do dono — update nenhum o toca), e quando o eleito chega
@@ -485,11 +478,12 @@ while :; do
     # em UM trono: o eleito sobe (o bloco de baixo), os demais que
     # estiverem VIVOS são aposentados na hora — o supervisor é quem
     # decide, e o home velho obedece.
-    # E101 — com o listener eleito, o lxqt-policykit-agent RESIDENTE também
-    # é aposentado (ele é o perdedor da fila nova; sem listener na máquina,
-    # ele é o eleito e NINGUÉM o toca — o fallback é a rede).
+    # E132 — o LISTENER VIVO também é aposentado (o rig da dose velha o
+    # carrega em memória: dois agentes registrados = dois desafios por
+    # pedido — o eleito novo manda na sala e o fóssil sai COM VOZ).
     for loser in /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 \
-                /usr/lib/hyprpolkitagent/hyprpolkitagent; do
+                /usr/lib/hyprpolkitagent/hyprpolkitagent \
+                /usr/local/bin/elite-polkit-listener; do
         [ "$loser" = "$POLKIT_BIN" ] && continue
         if pgrep -f "^$loser\$" >/dev/null 2>&1; then
             pkill -f "^$loser\$" 2>/dev/null || true
@@ -497,29 +491,9 @@ while :; do
                 "$(date '+%F %T')" "${loser##*/}" >>"$LOG"
         fi
     done
-    if [ "$POLKIT_BIN" = "/usr/local/bin/elite-polkit-listener" ]; then
-        # E106 — A APOSENTADORIA QUE JAMAIS MORDEU: 'pgrep -x lxqt-policykit-
-        # agent' casa o COMM — e o comm é CORTADO em 15 caracteres no kernel
-        # ('lxqt-policykit-' — a prova está no menus.log do dump, 'SIGTERM
-        # enviado — lxqt-policykit-'). O nome tem 21 chars: -x JAMAIS casa, o
-        # residente nunca era aposentado, o listener não conseguia registrar
-        # ('already exists'), morria 3× e a demissão E105 girava em falso.
-        # A forma honesta é -f com o cmdline ANCORADO (a doutrina E48).
-        if pgrep -f '^/usr/bin/lxqt-policykit-agent$' >/dev/null 2>&1; then
-            pkill -f '^/usr/bin/lxqt-policykit-agent$' 2>/dev/null || true
-            printf '[%s] polkit perdedor aposentado (lxqt-policykit-agent residente — o listener E101 reina com idle nulo)\n' \
-                "$(date '+%F %T')" >>"$LOG"
-        fi
-    fi
-    # E106 — A DEMOÇÃO HONESTA (a prova do dump 195332: o listener morrendo
-    # no arranque voltava a cada tick PARA SEMPRE — o supervisor relançava
-    # o mesmo perdedor a cada 5s e a sessão vivia SEM agente, com o lxqt
-    # aposentado antes: a rede ficou muda). O tempo de vida de cada saída
-    # vai para o papel (polkit-fails em XDG_RUNTIME_DIR — tmpfs por boot):
-    # três mortes curtas (≤5s) seguidas = o trono troca de rei (o fallback
-    # da fila assume) e o contador zera. Sucesso apaga o passado.
-    POLKIT_FAILS="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/elite/polkit-fails"
-    mkdir -p "${POLKIT_FAILS%/*}" 2>/dev/null || true
+    # (E106 — a demissão por COMM cortado a 15 chars morreu com o listener:
+    # o pgrep -f com o cmdline ANCORADO segue valendo para TODA a fila —
+    # a doutrina E48 da casa; 'lxqt-policykit-' no comm nunca casa -x)
     # E106 — O ASSUNTO QUE NÃO EXISTIA (o dump 20261112 do rig: o agente
     # morria em TODO arranque com 'polkit_agent_listener_register_with_
     # options: assertion POLKIT_IS_SUBJECT (subject) failed' no bars.log —
@@ -551,46 +525,15 @@ while :; do
         fi
         unset _pk_sid _pk_sid_file _s
     fi
-    if pgrep -f "^$POLKIT_BIN\$" >/dev/null 2>&1; then
-        : > "$POLKIT_FAILS" 2>/dev/null || true
-    fi
     if [ -x "$POLKIT_BIN" ] && ! pgrep -f "^$POLKIT_BIN\$" >/dev/null 2>&1; then
-        if [ "$POLKIT_BIN" = "/usr/local/bin/elite-polkit-listener" ] \
-                && [ "$(grep -c . "$POLKIT_FAILS" 2>/dev/null || echo 0)" -ge 3 ]; then
-            _novo=""
-            for pb in /usr/bin/lxqt-policykit-agent \
-                      /usr/lib/hyprpolkitagent/hyprpolkitagent \
-                      /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1; do
-                [ -x "$pb" ] || continue
-                grep -q 'hyprtoolkit' "$pb" 2>/dev/null && continue
-                _novo="$pb"
-                break
-            done
-            if [ -n "$_novo" ]; then
-                printf '[%s] polkit DEMOÇÃO: o listener morreu %s arranques seguidos em ≤5s — %s assume o trono (a fila é a rede, E105)\n' \
-                    "$(date '+%F %T')" "$(grep -c . "$POLKIT_FAILS" 2>/dev/null || echo '?')" "${_novo##*/}" >>"$LOG"
-                POLKIT_BIN="$_novo"
-                : > "$POLKIT_FAILS" 2>/dev/null || true
-                pkill -x elite-polkit-listener 2>/dev/null || true
-            else
-                : > "$POLKIT_FAILS" 2>/dev/null || true
-            fi
-        fi
         if [ "$seen_polkit" -eq 1 ]; then
             printf '[%s] polkit FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
         else
             printf '[%s] polkit iniciando (1ª vez — nada morreu)\n' "$(date '+%F %T')" >>"$LOG"
         fi
         (
-            _t0=$(date +%s)
             "$POLKIT_BIN" >>"$LOG" 2>&1
             st=$?
-            _d=$(( $(date +%s) - _t0 ))
-            if [ "$st" -ne 0 ] && [ "$_d" -le 5 ]; then
-                printf '%s\n' "$_d" >>"$POLKIT_FAILS" 2>/dev/null || true
-            else
-                : > "$POLKIT_FAILS" 2>/dev/null || true
-            fi
             printf '[%s] polkit SAIU exit=%d\n' "$(date '+%F %T')" "$st" >>"$LOG"
         ) 9>&- &
     fi

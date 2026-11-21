@@ -1596,7 +1596,7 @@ EU128="$REPO/elite/airootfs/usr/local/bin/elite-update"
 PK128="$REPO/elite/airootfs/etc/polkit-1/rules.d/50-elite-wheel.rules"
 assert_file "$EU128" "E128: o elite-update EXISTE (a lei §5 cita a porta — porta sem corpo é fantasma E45)"
 assert_grep "$EU128" 'craft-update --sistema' "E128: a porta executa a dose COMPLETA com snapshot PRE/POST (a rede de segurança snapper não se corta na era sob demanda)"
-assert_grep "$EU128" 'pkexec' "E128: a escalada é POLKIT (o agente da casa — elite-polkit-listener — é quem conversa com o dono; zero sudo no escuro)"
+assert_grep "$EU128" 'pkexec' "E128: a escalada é POLKIT (o agente da casa — lxqt-policykit-agent NATIVO desde a E132 — é quem conversa com o dono; zero sudo no escuro)"
 assert_grep "$EU128" 'id -u' "E128: como raiz ela executa DIRETO (a dose já é privilegiada — pkexec duplo seria teatro)"
 assert_file "$PK128" "E128: a regra polkit da casa existe na árvore (o 'Usuário não autorizado' do dono morre por DESPACHO, não por gambiarra de perms)"
 assert_grep "$PK128" 'org\.freedesktop\.policykit\.exec' "E128: a regra casa a ação do PKEXEC (a família lookup — o casamento é o caminho do binário)"
@@ -2191,18 +2191,19 @@ for fam in 'usr/local/share/elite/fastfetch' 'usr/local/share/applications'; do
 done
 
 
-# ── E105 — O DUMP 195332 PERICIADO (o polkit em loop, o avatar que era o
-#    wallpaper, o 60 Hz que o stamp escondia, o fantasma da top bar) ────
-assert_grep "$REPO/vendor/elite-polkit-listener.c" 'polkit_unix_session_new' \
-    "E105/polkit: o subject nasce EXPLÍCITO (o polkit do rolling cobra o subject — a forma simples morria na asserção POLKIT_IS_SUBJECT, dump 195332)"
-assert_grep "$REPO/vendor/elite-polkit-listener.c" '/proc/self/sessionid' \
-    "E105/polkit: a 1ª fila do subject é a sessão logind do kernel (XDG_SESSION_ID é o fallback)"
-assert_grep "$REPO/vendor/elite-polkit-listener.c" 'sem subject honesto' \
-    "E105/polkit: sem subject = exit 1 com mensagem clara (nunca loop cego — a fila assume o trono)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bars" 'polkit DEMOÇÃO' \
-    "E105/polkit: 3 arranques mortos (≤5s) = o fallback da fila assume o trono (o loop cego virou rede)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bars" 'polkit-fails' \
-    "E105/polkit: o tempo de vida de cada saída vai para o papel (XDG_RUNTIME_DIR; sucesso zera)"
+# ── E105→E132 — O LISTENER CUSTOM APOSENTOU (o dump pós-1.0-78: os    ────
+#    transient 'polkit-agent-helper@…' nasciam FAILED no journal e o
+#    desafio morria — a ordem do dono: o lxqt-policykit-agent NATIVO,
+#    compatível com o polkit 128, é a frente da fila; o C vendado saiu
+#    do repo INTEIRO e o craft-bars aposenta o fóssil VIVO do rig) ────
+assert_nofile "$REPO/vendor/elite-polkit-listener.c" \
+    "E132/polkit: o listener custom NÃO existe mais no repo (o agente nativo compilado assume — nada de camada própria entre o desafio e o PAM)"
+assert_nogrep "$REPO/.ci/build.sh" 'gcc .*-o elite-polkit-listener' \
+    "E132/polkit: o listener NÃO compila mais no build do pacote único (a gcc aposentou junto com o C — um bin a menos no pacote)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bars" '/usr/bin/lxqt-policykit-agent' \
+    "E132/polkit: o agente NATIVO é a frente da fila (Qt6, WM-agnóstico, compatível com o polkit 128 — o upstream mantém o registro e o helper)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bars" 'local/bin/elite-polkit-listener' \
+    "E132/polkit: o listener VIVO do rig da dose velha é APOSENTADO pelo supervisor (dois agentes = dois desafios por pedido — o E95 de pé)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-lock" '/\^background \{/,/\^}/ s\|' \
     "E105/lock: o sedito do wallpaper fica PRESO ao bloco background (o avatar E103 deixa de virar wallpaper)"
 assert_nogrep "$REPO/elite/airootfs/usr/local/bin/craft-lock" 'sed "s\|' \
@@ -2227,8 +2228,8 @@ assert_grep "$REPO/.ci/build.sh" 'pkgrel 49→50 NO MESMO COMMIT' \
     "E106/E41 (âncora histórica, refrescada na E107): a colheita do dump 161718 no heredoc do PKGBUILD (âncora do game watch, polkit com subject, a dupla senha do lock, o stamp honesto do display, o menu enxugado 21→17, o contador honesto, o fantasma morto em três mãos)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bars" '\^bash /usr/local/bin/craft-game watch\$\|\^/usr/bin/env bash /usr/local/bin/craft-game watch' \
     "E106/bars: a âncora do game watch casa o CMDLINE REAL (o shebang env-bash apresenta 'bash …' — o padrão '^/usr/local/bin/…' JAMAIS viu o processo vivo: 1540 restarts, 12 pares vivos no ps do dump, o log em loop de 5s desde o boot — E48 a 3ª vez na casa)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bars" 'pkill -f .\^/usr/bin/lxqt-policykit-agent' \
-    "E106/bars: a aposentadoria do lxqt por CMDLINE (o -x casa COMM e o comm é cortado em 15: 'lxqt-policykit-' — o residente nunca saía da sala e o listener não registrava; a fila E105 girava em falso)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bars" 'pkill -f "\^\$loser' \
+    "E106→E132/bars: a aposentadoria por CMDLINE ANCORADO vale para TODA a fila (o -x casa COMM e o comm é cortado em 15: 'lxqt-policykit-' — desde a E132 o lxqt é o ELEITO e quem sai por essa porta é o listener fóssil do rig velho; a doutrina E48 de pé)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bars" 'XDG_SESSION_ID="\$_pk_sid"' \
     "E106/bars: o lançador injeta o SUBJECT (o agente morria em TODO arranque com assertion POLKIT_IS_SUBJECT — XDG_SESSION_ID ausente na sessão SDDM+labwc; sem agente, TODO pedido de privilégio do menu morria calado)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bars" 'pgrep -x labwc' \

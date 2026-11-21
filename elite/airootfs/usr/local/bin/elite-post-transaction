@@ -361,4 +361,29 @@ if [ ! -e /run/archiso ] && command -v flatpak >/dev/null 2>&1; then
     fi
 fi
 
+# ── 11. O GAMEMODE.INI DA CASA REESCRITO (E132 — a ordem do dono: a     ────
+#       GPU high da RX 7600 NUNCA subiu). O dump pós-1.0-78 provou no log
+#       do rig: 'gamemoded: ERROR: apply_gpu_optimisations set to value
+#       other than "accept-responsibility" (accept-residual)' — o valor
+#       'accept-residual' era invenção da casa (o parser do Feral só
+#       conhece "accept-responsibility") e o gamemoded RECUSAVA o bloco
+#       [gpu] INTEIRO em toda sessão de jogo. O pacote entrega o mestre
+#       novo; ESTE gesto cura o rig vivo com o arquivo de dono ANTIGO em
+#       toda transação (idempotente: valor já certo = silêncio).
+if [ -f /etc/gamemode.ini ]; then
+    if grep -q '^apply_gpu_optimisations=' /etc/gamemode.ini 2>/dev/null \
+       && ! grep -q '^apply_gpu_optimisations=accept-responsibility$' /etc/gamemode.ini 2>/dev/null; then
+        if sed -i 's/^apply_gpu_optimisations=.*/apply_gpu_optimisations=accept-responsibility/' /etc/gamemode.ini 2>/dev/null; then
+            tlog "gamemode: apply_gpu_optimisations → accept-responsibility (o 'accept-residual' da era velha RECUSADO pelo gamemoded — a GPU high sobe na próxima sessão de jogo)"
+        else
+            tlog "gamemode: FALHOU reescrever apply_gpu_optimisations (réu nomeado no papel)"
+        fi
+    fi
+    # o nível da AMD acompanha (linha ausente no fóssil velho = nasce)
+    if ! grep -q '^amd_performance_level=high$' /etc/gamemode.ini 2>/dev/null; then
+        printf 'amd_performance_level=high\n' >> /etc/gamemode.ini 2>/dev/null \
+            && tlog "gamemode: amd_performance_level=high ACRESCENTADA (o fóssil não tinha a linha)"
+    fi
+fi
+
 exit 0

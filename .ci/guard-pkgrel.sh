@@ -58,13 +58,10 @@ check() { # $1=pacote  $2=delta (nomes de arquivo)
 fail=0
 # craft-toplevel (a PONTE E50): o C vendado É o conteúdo do pacote.
 # E103.2 — O DONO CERTO DA PEÇA: o listener do polkit (vendor/elite-
-# polkit-listener.c) NÃO é conteúdo do toplevel — ele compila NO build
-# do elite-system (o pacote único o consome e o MANIFEST o exclui do
-# toplevel) e a delta DELE já o conta abaixo. Mapear o listener para o
-# toplevel era cobrar pkgrel de quem não mudou (a falha da run #67: o
-# guard reprovou a E103 inteira porque 6 ≤ 6 — o toplevel intocado, o
-# elite-system com o bump certo 44→45). vendor/ aqui = o que NÃO é do
-# pacote único.
+# polkit-listener.c) NÃO era conteúdo do toplevel — ele compilava NO
+# build do elite-system. E132: o listener APOSENTOU (o agente da casa é
+# o lxqt-policykit-agent nativo, o C saiu do repo) — a exclusão segue
+# porque a DELEÇÃO é história do elite-system, não da ponte.
 # E131 — A MESMA LIÇÃO PARA O RUST: o workspace vendor/rust/ compila NO
 # build do elite-system (makedepends rust exclusivo — a fundação do
 # espreme-limão); a ponte craft-toplevel nunca o vê. Sem a exclusão o
@@ -76,8 +73,9 @@ check craft-toplevel "$VENDOR_TL_DELTA" || fail=1
 # elite-system (O PACOTE ÚNICO E50): todo o /usr/local/bin da casa (o
 # daemon de janelas COMPILADO agora viaja aqui — o C vendado conta) + as
 # units de sistema da casa (o payload /etc do pacote; unit mudada sem
-# pkgrel = o -Syu pula a cadência em silêncio) + o C vendado DO PACOTE
-# (o listener compila aqui — a fonte é conteúdo deste pacote)
+# pkgrel = o -Syu pula a cadência em silêncio) + o vendor/ inteiro (o C
+# da ponte, o workspace Rust da fundação E131 e — E132 — a DELEÇÃO do
+# listener aposentado, que é história deste pacote)
 BIN_DELTA="$(git diff --name-only "$LAST_TAG" HEAD -- elite/airootfs/usr/local/bin || true)"
 UNIT_DELTA="$(git diff --name-only "$LAST_TAG" HEAD -- 'elite/airootfs/etc/systemd/system/elite-*' || true)"
 VENDOR_FULL_DELTA="$(git diff --name-only "$LAST_TAG" HEAD -- vendor/ || true)"

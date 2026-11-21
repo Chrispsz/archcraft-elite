@@ -70,6 +70,18 @@ GAME_PATS='^wine6?-preload(er)?$|^gamescope$|^pcsx2$|^retroarch$|^duckstation$|^
 # ERE segue valendo para o jogo fora da Steam; as duas portas somam.
 STEAM_EXE_MARK='/steamapps/common/'
 
+# E132 — A TERCEIRA PORTA: Proton GE / Wine / Hydra / UMU (o dump
+# pós-1.0-78: o jogo do Hydra via Proton GE — Stardew Valley — rodava com
+# o comm DO .exe e nenhuma porta via: nem a ERE do comm nem o exe Steam
+# casam o jogo lançado por FORA da Steam). A sonda agora lê o /proc do
+# candidato: o ENVIRON carrega as marcas dos runtimes (WINEPREFIX=,
+# STEAM_COMPAT_DATA_PATH=, UMU_ID=, PROTON_VERSION=) e o CMDLINE termina
+# em .exe. A lista de AUXILIARES do Wine é bloqueada ANTES de qualquer
+# sonda (eles TAMBÉM carregam WINEPREFIX e .exe no cmdline — sem o filtro
+# o modo de jogo ligaria para o wineserver eternamente vivo).
+WINE_HELPER_PATS='^(wineserver|services\.exe|winedevice\.exe|plugplay\.exe|explorer\.exe|rpcss\.exe|svchost\.exe|conhost\.exe|tabtip\.exe|rundll32\.exe|wineboot\.exe|mscorsvw\.exe|steamwebhelper|hydra-plus)'
+WINE_ENV_MARKS='WINEPREFIX=|STEAM_COMPAT_DATA_PATH=|UMU_ID=|PROTON_VERSION='
+
 # o glifo de log único (o papel da casa — 256 KiB de teto, lei E36)
 glog() {
     mkdir -p "${LOG%/*}" 2>/dev/null || true
@@ -264,6 +276,7 @@ gm_watch() {
 
     local -A held=()   # pid → 1 (registrado por nós)
     local -A steamheld=()  # E126 — pid → 1 (o caminho do exe falou, o comm não)
+    local -A protonheld=() # E132 — pid → 1 (a sonda do environ/cmdline casou)
     local retire=0     # E126 — rodadas seguidas com NADA vivo e modo idle
     while :; do
         # 1) os REGISTRADOS que morreram: libera (o reaper de lá também
@@ -280,6 +293,13 @@ gm_watch() {
                 gm_unregister "$p" >/dev/null 2>&1 || true
                 unset "steamheld[$p]"
                 glog "watch: jogo Steam pid $p morreu — gamemode liberado (o governor volta)"
+            fi
+        done
+        for p in "${!protonheld[@]}"; do
+            if ! kill -0 "$p" 2>/dev/null; then
+                gm_unregister "$p" >/dev/null 2>&1 || true
+                unset "protonheld[$p]"
+                glog "watch: jogo Proton/Wine pid $p morreu — gamemode liberado (o governor volta)"
             fi
         done
         # 2) os jogos VIVOS da família que AINDA não estão registrados
@@ -299,22 +319,48 @@ gm_watch() {
         # E126 — A SEGUNDA PORTA: o exe dentro de steamapps/common (o
         # jogo Steam de verdade — nativo ou Proton — que o comm nunca
         # nomeia). 1 readlink por processo do usuário, na mesma rodada.
+        # E132 — A TERCEIRA PORTA na MESMA passada: environ com as marcas
+        # dos runtimes (WINEPREFIX/STEAM_COMPAT_DATA_PATH/UMU_ID/PROTON_
+        # VERSION) ou cmdline com .exe — o jogo do Hydra via Proton GE
+        # (Stardew Valley) que NENHUMA porta via. A lista de auxiliares
+        # do Wine é bloqueada ANTES (o wineserver vivo carrega as mesmas
+        # marcas — sem o filtro o modo nunca desligaria).
         _uid="$(id -u)"
         for _pdir in /proc/[0-9]*; do
             [ -r "$_pdir/status" ] || continue
             _p="${_pdir##*/}"
             [ "${held[$_p]:-}" = 1 ] && continue
             [ "${steamheld[$_p]:-}" = 1 ] && continue
+            [ "${protonheld[$_p]:-}" = 1 ] && continue
+            _c="$(cat "$_pdir/comm" 2>/dev/null || true)"
+            [ -n "$_c" ] || continue
+            printf '%s' "$_c" | grep -Eq "$WINE_HELPER_PATS" && continue
             _exe="$(readlink "$_pdir/exe" 2>/dev/null || true)"
+            _via=""
             case "$_exe" in
-                *"$STEAM_EXE_MARK"*)
-                    if gm_register "$_p" >/dev/null 2>&1; then
-                        steamheld["$_p"]=1
-                        glog "watch: jogo Steam detectado pelo exe (pid $_p · ${_exe##*common/}) — registrando no gamemode (performance ON)"
-                        note 'Modo de jogo' 'Governor performance + GPU high automáticos'
-                    fi
-                    ;;
+                *"$STEAM_EXE_MARK"*) _via="exe ${_exe##*common/}" ;;
             esac
+            if [ -z "$_via" ]; then
+                # o cmdline em linhas: QUALQUER token .exe casa (o argv[0]
+                # do jogo é o próprio .exe; no loader 'wine jogo.exe' é o
+                # argv[1] — as duas formas são o jogo, os auxiliares já
+                # morreram no filtro do comm acima)
+                _cmd="$(tr '\0' '\n' < "$_pdir/cmdline" 2>/dev/null || true)"
+                if printf '%s\n' "$_cmd" | grep -Eiq '\.exe$'; then
+                    _via="cmdline .exe (${_c})"
+                elif tr '\0' '\n' < "$_pdir/environ" 2>/dev/null \
+                        | grep -Eq "^($WINE_ENV_MARKS)"; then
+                    _via="environ do runtime (${_c})"
+                fi
+            fi
+            if [ -n "$_via" ] && gm_register "$_p" >/dev/null 2>&1; then
+                case "$_via" in
+                    exe\ *) steamheld["$_p"]=1 ;;
+                    *)      protonheld["$_p"]=1 ;;
+                esac
+                glog "watch: jogo detectado pela sonda /proc (pid $_p · $_via) — registrando no gamemode (performance ON)"
+                note 'Modo de jogo' 'Governor performance + GPU high automáticos'
+            fi
         done
         # E126 — A APOSENTADORIA DO DAEMON (o relato do dono: 'ao fechar o
         # jogo e até encerrar o Hydra, o serviço gamemode e o indicador
@@ -392,27 +438,53 @@ gm_whois() {
 # E126 — O LOOP DE NOTIFICAÇÕES MORRE (o game.log do rig fotografou SETE
 # pares INÍCIO/FIM NO MESMO SEGUNDO em volta da sessão do Hydra: um
 # registrante de fora ligava/desligava o modo em <1s e cada par subia
-# DOIS toasts na tela do dono). O start agora ESPERA 2s e confere o
-# D-Bus ANTES de notificar (o fantasma de meio segundo não é notícia);
-# o end desce para -u low (a história conta, a tela não pisca).
-# E130 — cada braço do hook fotografa os vivos da família (gm_whois) —
-# o par em 1s ganha RÉU com nome, pid e argumento no papel.
+# DOIS toasts na tela do dono).
+# E132 — O DEBOUNTE DE 3s DA ORDEM DO DONO (o fim do lag e do spam no
+# Hydra): o INÍCIO espera 3s EM FUNDO antes de notificar; se o FIM chega
+# DENTRO da janela (o pulo D-Bus transitório do Hydra), o INÍCIO é
+# CANCELADO em silêncio — sem notify-send, sem varredura de /proc, sem
+# gm_whois: o fantasma de 1s não é notícia. SÓ o FIM de uma sessão REAL
+# (>= 3s confirmados com o QueryStatus ATIVO) notifica 'Perfil normal
+# restaurado'. Os tokens moram no XDG_RUNTIME_DIR (tmpfs — morrem no
+# reboot, nunca viram lixo persistente).
 gm_hook() { # $1 = start|end
+    ensure_run_dir   # os tokens da janela de 3s moram no RUN_DIR (tmpfs)
     case "${1:-}" in
         start)
             glog "gamemode: INÍCIO (o hook nativo do gamemode.ini — governor/GPU já aplicados)"
             gm_whois
             (
-                sleep 2
+                # a janela abre LIMPA: um cancel velho de sessão passada
+                # não pode calar o jogo de hoje (o token é da JANELA)
+                rm -f "$RUN_DIR/gm-hook-cancel" 2>/dev/null
+                sleep 3
+                # o FIM chegou antes dos 3s — pulo transitório: silêncio
+                # absoluto (o próprio FIM apagou o token na leitura dele)
+                if [ -e "$RUN_DIR/gm-hook-cancel" ]; then
+                    rm -f "$RUN_DIR/gm-hook-cancel" 2>/dev/null
+                    exit 0
+                fi
                 if [ "$(gm_status "$$" 2>/dev/null)" = "1" ]; then
+                    : > "$RUN_DIR/gm-hook-live" 2>/dev/null
                     note 'Modo de jogo' 'Performance ativa (CPU governor + GPU high)'
                 fi
             ) >/dev/null 2>&1 </dev/null &
             ;;
         end)
-            glog "gamemode: FIM (o hook nativo devolveu o perfil da casa)"
-            gm_whois
-            NOTE_URGEN=low note 'Modo de jogo' 'Perfil normal restaurado'
+            if [ -e "$RUN_DIR/gm-hook-live" ]; then
+                # sessão REAL (os 3s confirmaram o modo ativo): o fim é
+                # notícia — com o retrato dos vivos no papel
+                rm -f "$RUN_DIR/gm-hook-live" 2>/dev/null
+                glog "gamemode: FIM (o hook nativo devolveu o perfil da casa)"
+                gm_whois
+                NOTE_URGEN=low note 'Modo de jogo' 'Perfil normal restaurado'
+            else
+                # dentro da janela de 3s (ou o início nunca confirmou): o
+                # cancelamento é MUDO — sem notificação, sem /proc, sem
+                # história de fantasma no papel (a linha seca conta o gesto)
+                : > "$RUN_DIR/gm-hook-cancel" 2>/dev/null
+                glog "gamemode: FIM transitório (<3s — o INÍCIO pendente cancelado em silêncio; nada notificado, nada varrido)"
+            fi
             ;;
     esac
     exit 0
