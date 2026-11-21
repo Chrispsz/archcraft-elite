@@ -75,7 +75,15 @@ use std::sync::mpsc::{Receiver, Sender, TryRecvError};
 use std::time::{Duration, Instant};
 
 use gtk4::prelude::*;
-use gtk4::{gdk, glib, gtk};
+use gtk4::{gdk, glib};
+// E-auditoria 2026-11-22 (a cura do Canal 44945339468): o crate gtk4 0.11
+// NÃO re-exporta um módulo `gtk` — os widgets moram na RAIZ do crate; o
+// alias abaixo mantém os ~120 caminhos `gtk::` do corpo intactos.
+use gtk4 as gtk;
+// E-auditoria: o gtk4-layer-shell 0.8 NÃO expõe funções livres — a API
+// é o trait LayerShell (init_layer_shell/set_layer/set_anchor/...) e o
+// is_supported continua função livre (re-export da raiz).
+use gtk4_layer_shell::LayerShell;
 
 /// Escala fixa de fábrica (spec M3.2 — o mesmo 36 do Python).
 const ICON_SIZE: i32 = 36;
@@ -187,12 +195,12 @@ fn build(app: &gtk::Application) {
     // tileadas respeitam a faixa ("como funciona as outras distros").
     // DIVERGÊNCIA nomeada no cabeçalho: Layer::Top (a ordem deste
     // degrau) em vez do BOTTOM do Python.
-    gtk4_layer_shell::init_for_window(&window);
-    gtk4_layer_shell::set_layer(&window, gtk4_layer_shell::Layer::Top);
-    gtk4_layer_shell::set_anchor(&window, gtk4_layer_shell::Edge::Bottom, true);
-    gtk4_layer_shell::auto_exclusive_zone_enable(&window);
-    gtk4_layer_shell::set_keyboard_mode(&window, gtk4_layer_shell::KeyboardMode::OnDemand);
-    gtk4_layer_shell::set_namespace(&window, Some("craft-dock"));
+    window.init_layer_shell();
+    window.set_layer(gtk4_layer_shell::Layer::Top);
+    window.set_anchor(gtk4_layer_shell::Edge::Bottom, true);
+    window.auto_exclusive_zone_enable();
+    window.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::OnDemand);
+    window.set_namespace(Some("craft-dock"));
 
     let pill = gtk::Box::new(gtk::Orientation::Horizontal, 0);
     pill.set_widget_name("dockbox");
@@ -267,7 +275,7 @@ fn build(app: &gtk::Application) {
     // indicadores (o scan /proc NÃO tem evento no kernel — é o preço).
     {
         let st = st.clone();
-        glib::timeout_add_seconds_local(TICK_S, move || {
+        glib::timeout_add_seconds_local(TICK_S as u32, move || {
             poll_tick(&st);
             glib::ControlFlow::Continue
         });
@@ -931,15 +939,19 @@ fn on_left(st: &Rc<RefCell<State>>, act: &Act) {
     if wids.is_empty() {
         // E71 — A PROVA NO LANÇAMENTO: abrir é o único verbo
         // irreversível e NUNCA parte de snapshot velho.
+        // E-auditoria 2026-11-22: list() já devolve Option<Snapshot> e o
+        // with_client envolve em OUTRA camada Option — o braço vivo é
+        // Some(Some(snap)); qualquer outro (conexão morta OU cmd falho)
+        // degrada ao fallback honesto.
         match with_client(|c| c.list()) {
-            Some(snap) => {
+            Some(Some(snap)) => {
                 let mut s = st.borrow_mut();
                 s.snap = snap;
                 s.tl_alive = true;
                 drop(s);
                 wids = windows_of_state(&st.borrow(), act, false);
             }
-            None => {
+            _ => {
                 // a conexão morreu NO MEIO do clique: degradar ao
                 // fallback honesto da v1 (launch com guard — nunca
                 // às cegas duplo)

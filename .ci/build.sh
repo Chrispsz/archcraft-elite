@@ -2493,6 +2493,31 @@ pkgver=1.0
 #     do workspace casa o build local com o CI (SÓ target-cpu=x86-64-v3).
 #     Bins com conteúdo mudado: craft-game, craft-bars. Mestres novos no
 #     pacote: daemon.conf (dc_install) + rust-workspace.tar.gz (fonte).
+# E-auditoria 2026-11-22 — A CURA DO CANAL 44945339468 (lei E41: o bump
+#     viaja NO MESMO COMMIT do conteúdo): a craft-dock-rs do E134 NUNCA
+#     compilou no CI (o Test Suite passa porque a camada lógica é
+#     std-only atrás da feature gui) — o ui.rs foi escrito contra API
+#     inexistente e a build do pacote morreu com 9 erros Rust:
+#     (1) 'use gtk4::{{gdk, glib, gtk}}' — o gtk4 0.11 NÃO re-exporta um
+#         módulo 'gtk' (os widgets moram na RAIZ do crate): o alias
+#         'use gtk4 as gtk' mantém os ~120 caminhos 'gtk::' do corpo;
+#     (2) o gtk4-layer-shell 0.8 NÃO expõe funções livres
+#         (init_for_window/set_layer/set_anchor/auto_exclusive_zone_enable/
+#         set_keyboard_mode/set_namespace tomavam &window) — a API é o
+#         TRAIT LayerShell com métodos no window (is_supported segue
+#         função livre, re-export da raiz; a fonte 0.8.1 baixada provou
+#         cada assinatura — set_namespace(Some(&str)) inclusive);
+#     (3) TICK_S (u64) → timeout_add_seconds_local espera u32 (o cast
+#         nomeado no ponto; os Duration::from_secs(TICK_S) inteiros);
+#     (4) o duplo Option de with_client(|c| c.list()) — list() já
+#         devolve Option<Snapshot> e o with_client envolve em OUTRA
+#         camada: o braço vivo é Some(Some(snap)), o resto degrada ao
+#         fallback honesto do lançamento (E71 intacta).
+#     Provas: shellcheck 0.11.0 0 avisos em 67 scripts; cargo test
+#     --no-default-features 51/51 (39 daemon + 12 dock); os 13 caminhos
+#     gtk:: e o trait verificados contra o fonte gtk4-0.11.5 e
+#     gtk4-layer-shell-0.8.1 baixados; o GO canônico da camada gui é o
+#     CI (sandbox sem pkg-config gtk4 — a lei do degrau do Cargo.toml).
 # E133 — O FECHAMENTO DO DONO (lei E41: o bump viaja NO MESMO COMMIT do
 #     conteúdo): a dose 1.0-79 foi PUBLICADA (o asset elite-system-1.0-79
 #     está na release v2.11.3 com o elite-local.db listando ela) — o
@@ -2503,7 +2528,7 @@ pkgver=1.0
 #     std-only + caches de jogo Steam/Lutris/Heroic/Hydra + adjacente ao
 #     binário) e a decoração de janela garantida no rc.xml (XWayland na
 #     tela cheia).
-pkgrel=81
+pkgrel=82
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da sessão; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
