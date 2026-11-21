@@ -3741,3 +3741,24 @@ assert_grep "$CLEAN133" 'fase 2 · ' "E133/b: a FASE 2 é nomeada em cada passo 
 assert_grep "$CLEAN133" 'EUID == 0' "E133/b: o srun sobreviveu à v6 (o modo pkexec é raiz direto; a sessão pede sudo com TTY — o passo pulado nunca é morte calada, E114/E118 intactas)"
 assert_grep "$CLEAN133" 'NUNCA tocar' "E133/b: a REGRA INVIOLÁVEL escrita no corpo (pastas pessoais, perfil de navegador e configurações de ~/.config nunca saem — a v6 nomeia a lei)"
 phase_end
+
+# ── E133-c: A CADEIA DE ÍCONES UNIVERSAL da craft-dock-rs (o fechamento) ──
+IC133="$REPO/vendor/rust/craft-dock-rs/src/icons.rs"
+PA133="$REPO/vendor/rust/craft-dock-rs/src/procapp.rs"
+UI133="$REPO/vendor/rust/craft-dock-rs/src/ui.rs"
+assert_grep "$IC133" 'pub fn game_cache_roots' "E133/c: os CACHES DE JOGO são raízes nomeadas (a ordem do dono: os ícones que Lutris/Heroic/Hydra/Steam já baixaram valem ANTES de extrair coisa alguma)"
+assert_grep "$IC133" '\.local/share/Steam/steam/games' "E133/c: o Steam entra nas raízes de jogo (steam/games + librarycache)"
+assert_grep "$IC133" '\.cache/lutris|\.local/share/lutris' "E133/c: o LUTRIS entra nas raízes de jogo"
+assert_grep "$IC133" '\.config/heroic|\.cache/heroic' "E133/c: o HEROIC entra nas raízes de jogo"
+assert_grep "$IC133" 'hydra' "E133/c: o HYDRA entra nas raízes de jogo (o launcher do dono)"
+assert_grep "$IC133" 'pub fn exe_icon_cache_path' "E133/c: o cache de ícones de .exe existe (<sha256[0..24]>.png — o mesmo desenho do appimage-icons)"
+assert_grep "$UI133" 'exeicon_cache_dir' "E133/c: a UI usa ~/.cache/elite/exe-icons (o destino do fechamento)"
+assert_grep "$IC133" 'pub fn extract_pe_icon_bytes' "E133/c: o leitor de PE/ICO é PURE (RT_GROUP_ICON → RT_ICON, o MAIOR vence; std-only, testado)"
+assert_grep "$IC133" 'pub fn extract_pe_icon' "E133/c: a casca lê o .exe e escreve o PNG no cache (a extração em thread não bloqueia a UI)"
+assert_grep "$PA133" 'pub fn proc_wine_exe' "E133/c: o .exe do jogo vem do /proc/<pid>/cmdline (Z:\\ traduzido para unix; a sonda nunca adivinha)"
+assert_grep "$PA133" 'pub fn adjacent_icon' "E133/c: o ícone ADJACENTE ao binário existe (jogos portable/Electron que carregam a própria cara)"
+assert_grep "$UI133" 'proc_wine_exe' "E133/c: o passo WINE/PROTON (6a) vive na cadeia da dock (cache → launchers → adjacente → extração PE em thread)"
+assert_grep "$UI133" 'proc_argv0_executable' "E133/c: o passo do BINÁRIO CUSTOM (6b) vive na cadeia (Electron/Snap/Nix — o exe que carrega a cara junto)"
+assert_grep "$IC133" 'png_encode|STORED' "E133/c: o PNG mínimo std-only existe (blocos zlib STORED + CRC32 — o DIB do .exe vira PNG de verdade, sem subprocesso)"
+assert_grep "$REPO/vendor/rust/craft-dock-rs/Cargo.toml" 'sha2 = "0.10"' "E133/c: o digest dos caches é o sha2 (os binários compartilham o desenho E130/E133)"
+phase_end

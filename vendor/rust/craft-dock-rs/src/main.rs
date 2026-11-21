@@ -27,7 +27,11 @@
 //     Lever → cache sha256 → .DirIcon do mount vivo → extração em
 //     THREAD com atualização via MainContext → glifo honesto) E o
 //     matching reverse-DNS dos Flatpaks com ícone oficial dos exports
-//     (E132 — a ordem do dono);
+//     (E132 — a ordem do dono); E133: o degrau WINE/PROTON (o .exe do
+//     cmdline → o cache exe-icons → os caches de jogo Steam/Lutris/
+//     Heroic/Hydra → o ícone adjacente → a extração do recurso PE
+//     embutido em THREAD) e o degrau BINÁRIO CUSTOM (ícone adjacente
+//     ao /proc/<pid>/exe de Electron/Snap/Nix/portables);
 //   ✓ o guard de lançamento de 8s (E71: o clique no vão não duplica)
 //     com a liberação no MAP (E88) e a ceifa dos filhos zumbis;
 //   ✓ a GRAÇA DO VAZIO E71 (LIST vazio válido que contradiz snapshot
@@ -134,6 +138,13 @@ pub fn log_path() -> PathBuf {
 /// craft-dock-gui: o ícone extraído por um serve ao outro).
 pub fn appicon_cache_dir() -> PathBuf {
     cache_dir().join("elite/appimage-icons")
+}
+
+/// ~/.cache/elite/exe-icons (E133 — o cache dos ícones extraídos do
+/// .exe Wine/Proton: <sha256-do-caminho>.png, o MESMO formato do
+/// appimage-icons; o recurso PE extraído uma vez serve para sempre).
+pub fn exeicon_cache_dir() -> PathBuf {
+    cache_dir().join("elite/exe-icons")
 }
 
 /// $XDG_RUNTIME_DIR/elite/toplevel.sock (o socket do craft-toplevel).
@@ -253,6 +264,7 @@ mod tests {
         assert!(css_path().ends_with("elite/dock.css"));
         assert!(log_path().ends_with("elite/dock.log"));
         assert!(appicon_cache_dir().ends_with("elite/appimage-icons"));
+        assert!(exeicon_cache_dir().ends_with("elite/exe-icons"));
         assert!(toplevel_sock().ends_with("elite/toplevel.sock"));
     }
 

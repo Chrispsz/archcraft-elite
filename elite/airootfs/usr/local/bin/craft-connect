@@ -132,33 +132,34 @@ main_rows() {
     nmcli radio wifi >"$T2" 2>/dev/null &
     wait
     eth="$(awk -F: '$2=="ethernet" && $1!="" && $1!="--" {print $1 "\t" $3}' "$T1" 2>/dev/null || true)"
-    if [ -n "$eth" ]; then
-        while read -r d s; do
-            [ -n "${d:-}" ] || continue
-            case "${s:-}" in
-                connected)
-                    rows="${rows}Desligar cabo ($d)
-" ;;
-                disconnected)
-                    rows="${rows}Ligar cabo ($d)
-" ;;
-                *)
-                    # unmanaged/unavailable (sem cabo na porta) — informativa
-                    rows="${rows}Cabo indisponível
-" ;;
-            esac
-        done <<EOF
-$eth
-EOF
+    # E133 — O RÓTULO HUMANO DO CABO (a ordem do fechamento 1.0-80: os
+    # nomes crus do kernel — enp7s0, wlan0 — SAEM das ações principais;
+    # o verbo é 'Ligar/Desligar cabo de rede' e a seleção entre placas
+    # múltiplas mora no 'Gerenciar conexões'). Máquina de UMA placa (o
+    # caso da casa): o verbo direto nela; múltiplas: o verbo age na
+    # 1ª placa no estado pedido e as demais ficam no Gerenciar.
+    eth_on="$(printf '%s\n' "$eth" | awk -F'\t' '$2=="connected" {print $1; exit}')"
+    eth_off="$(printf '%s\n' "$eth" | awk -F'\t' '$2=="disconnected" {print $1; exit}')"
+    eth_any="$(printf '%s\n' "$eth" | awk -F'\t' '{print $1; exit}')"
+    if [ -n "$eth_on" ]; then
+        rows="${rows}Desligar cabo de rede
+"
+    elif [ -n "$eth_off" ]; then
+        rows="${rows}Ligar cabo de rede
+"
+    elif [ -n "$eth_any" ]; then
+        # unmanaged/unavailable (sem cabo na porta) — informativa
+        rows="${rows}Cabo indisponível
+"
     fi
     wifi="$(cat "$T2" 2>/dev/null || true)"
     case "$wifi" in
         enabled)
-            rows="${rows}Wi-Fi: desligar
+            rows="${rows}Desligar Wi-Fi
 Redes Wi-Fi
 " ;;
         disabled)
-            rows="${rows}Wi-Fi: ligar
+            rows="${rows}Ligar Wi-Fi
 " ;;
     esac
     # E36 — a linha de Bluetooth SÓ nasce com adaptador (a linha antiga
@@ -167,12 +168,12 @@ Redes Wi-Fi
     # casa combate em todo o resto). /sys/class/bluetooth/hciN = o
     # adaptador de verdade, sem depender de ferramenta de userland.
     if [ -n "$(ls /sys/class/bluetooth 2>/dev/null)" ]; then
-        rows="${rows}Conexões salvas
+        rows="${rows}Gerenciar conexões
 Bluetooth: dispositivos
-Editor de conexões"
+Editar conexões"
     else
-        rows="${rows}Conexões salvas
-Editor de conexões"
+        rows="${rows}Gerenciar conexões
+Editar conexões"
     fi
     printf '%s\n' "$rows"
 }
@@ -336,6 +337,23 @@ EOF
 # ── as CONEXÕES SALVAS (reconectar / desconectar) ───────────────────────────
 known_menu() {
     : >"$MAP"
+    # E133 — PLACAS DE CABO MÚLTIPLAS: os verbos POR PLACA (com o nome
+    # técnico — AQUI dentro é informação, não ruído) moram no Gerenciar;
+    # a ação principal da central fica limpa ('Ligar/Desligar cabo de
+    # rede'). Uma placa só (o caso da casa): nenhum nome técnico visto.
+    dev_rows=""
+    n_eth="$(nmcli -t -f DEVICE,TYPE,STATE device status 2>/dev/null \
+        | awk -F: '$2=="ethernet" && $1!="" && $1!="--"' | wc -l | tr -d ' ')"
+    case "${n_eth:-0}" in
+        ''|0|1) ;;
+        *)
+            dev_rows="$(nmcli -t -f DEVICE,TYPE,STATE device status 2>/dev/null | awk -F: '
+                $2=="ethernet" && $1!="" && $1!="--" {
+                    if ($3=="connected") print "Desligar cabo (" $1 ")"
+                    else print "Ligar cabo (" $1 ")"
+                }')"
+            ;;
+    esac
     nmcli -g NAME,TYPE,DEVICE connection show 2>/dev/null | awk -F: '
         $2 == "802-3-ethernet" || $2 == "802-11-wireless" {
             name = $1; type = $2; dev = $3
@@ -343,11 +361,11 @@ known_menu() {
             mark = (dev != "" && dev != "--") ? "● " : "   "
             print mark name "\t" name "\t" type
         }' >"$MAP"
-    if [ ! -s "$MAP" ]; then
+    if [ ! -s "$MAP" ] && [ -z "$dev_rows" ]; then
         note -t 4000 'Rede' 'Nenhuma conexão salva.'
         return 0
     fi
-    rows="$(cut -f1 "$MAP")"
+    rows="$( { printf '%s\n' "$dev_rows"; cut -f1 "$MAP"; } )"
     open_menu --title='Conexões' --at=network <<EOF
 $rows
 EOF
@@ -358,6 +376,20 @@ EOF
         menu_fail "$_rc"
         return 0
     fi
+    # E133 — os verbos POR PLACA (multi-NIC) executam direto e voltam
+    case "$_c" in
+        'Ligar cabo ('*|'Desligar cabo ('*)
+            d="${_c#*cabo (}"
+            d="${d%)}"
+            mlog "Rede: verbo de placa '$d' (multi-NIC do Gerenciar)"
+            if nmcli device connect "$d" >/dev/null 2>&1 \
+                || nmcli device disconnect "$d" >/dev/null 2>&1; then
+                note -t 3000 'Rede' "Pronto ($d)."
+            else
+                note -u normal -t 8000 'Rede' "Falhou no cabo ($d)."
+            fi
+            return 0 ;;
+    esac
     name="$(awk -F'\t' -v r="$_c" '$1 == r { print $2; exit }' "$MAP")"
     [ -n "$name" ] || return 0
     ctype="$(awk -F'\t' -v r="$_c" '$1 == r { print $3; exit }' "$MAP")"
@@ -501,7 +533,7 @@ EOF
         exit 0
     fi
     case "$_c" in
-        'Wi-Fi: ligar')
+        'Ligar Wi-Fi')
             mlog "Rede: rádio Wi-Fi ON"
             if nmcli radio wifi on >/dev/null 2>&1; then
                 note -t 3000 'Rede' 'Wi-Fi ligado.'
@@ -509,7 +541,7 @@ EOF
                 note -u normal -t 8000 'Rede' 'Falhou ao ligar o Wi-Fi.'
             fi
             continue ;;
-        'Wi-Fi: desligar')
+        'Desligar Wi-Fi')
             mlog "Rede: rádio Wi-Fi OFF"
             if nmcli radio wifi off >/dev/null 2>&1; then
                 note -t 3000 'Rede' 'Wi-Fi desligado.'
@@ -517,24 +549,26 @@ EOF
                 note -u normal -t 8000 'Rede' 'Falhou ao desligar o Wi-Fi.'
             fi
             continue ;;
-        'Ligar cabo ('*)
-            d="${_c#Ligar cabo (}"
-            d="${d%)}"
-            mlog "Rede: ligar cabo ($d)"
-            if nmcli device connect "$d" >/dev/null 2>&1; then
-                note -t 3000 'Rede' "Cabo conectado ($d)."
+        'Ligar cabo de rede')
+            # E133 — o verbo age na 1ª placa desconectada (máquinas com
+            # várias placas escolhem qual no Gerenciar conexões)
+            d="$(nmcli -t -f DEVICE,TYPE,STATE device status 2>/dev/null \
+                | awk -F: '$2=="ethernet" && $3=="disconnected" {print $1; exit}')"
+            mlog "Rede: ligar cabo de rede"
+            if [ -n "$d" ] && nmcli device connect "$d" >/dev/null 2>&1; then
+                note -t 3000 'Rede' 'Cabo de rede conectado.'
             else
-                note -u normal -t 8000 'Rede' "Falhou ao ligar o cabo ($d)."
+                note -u normal -t 8000 'Rede' 'Falhou ao ligar o cabo de rede (cabo na porta?).'
             fi
             continue ;;
-        'Desligar cabo ('*)
-            d="${_c#Desligar cabo (}"
-            d="${d%)}"
-            mlog "Rede: desligar cabo ($d)"
-            if nmcli device disconnect "$d" >/dev/null 2>&1; then
-                note -t 3000 'Rede' "Cabo desligado ($d)."
+        'Desligar cabo de rede')
+            d="$(nmcli -t -f DEVICE,TYPE,STATE device status 2>/dev/null \
+                | awk -F: '$2=="ethernet" && $3=="connected" {print $1; exit}')"
+            mlog "Rede: desligar cabo de rede"
+            if [ -n "$d" ] && nmcli device disconnect "$d" >/dev/null 2>&1; then
+                note -t 3000 'Rede' 'Cabo de rede desligado.'
             else
-                note -u normal -t 8000 'Rede' "Falhou ao desligar o cabo ($d)."
+                note -u normal -t 8000 'Rede' 'Falhou ao desligar o cabo de rede.'
             fi
             continue ;;
         'Cabo indisponível'*)
@@ -547,7 +581,7 @@ EOF
             bg_rescan
             wifi_menu
             continue ;;
-        'Conexões salvas')
+        'Gerenciar conexões')
             known_menu
             continue ;;
         'Bluetooth: dispositivos')
@@ -561,7 +595,7 @@ EOF
                 exec blueman-manager
             fi
             exec foot -e bluetui ;;
-        'Editor de conexões')
+        'Editar conexões')
             # a CRIAÇÃO manual de redes mora no gerenciador gráfico do
             # sistema (a definição do próprio dono para o editor)
             mlog "Rede: abrindo o editor de conexões do sistema"

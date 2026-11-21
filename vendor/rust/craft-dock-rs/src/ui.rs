@@ -674,6 +674,12 @@ fn app_icon_image(st: &Rc<RefCell<State>>, entry: &icons::DesktopEntry) -> gtk::
 ///   (6) a EXTRAÇÃO EM THREAD de fundo (a UI não bloqueia no walk do
 ///       squashfs): o .DirIcon/maior PNG vai para o cache PERSISTENTE
 ///       e o botão vivo ganha a cara via canal (o dreno no idle aplica);
+///   (6a) E133 — WINE/PROTON: o .exe do cmdline → o cache exe-icons
+///       da casa → os caches de jogo (Steam/Lutris/Heroic/Hydra) → o
+///       ícone adjacente → a extração do recurso PE em THREAD;
+///   (6b) E133 — BINÁRIO CUSTOM (Electron/Snap/Nix/portable): o ícone
+///       adjacente ao /proc/<pid>/exe (as raízes por nome — pixmaps e
+///       ~/.local/share/icons incluídos — já caíram nos passos acima);
 ///   (7) o GLIFO honesto — sem NADA de verdade, a promessa é essa.
 fn make_raw_button(st: &Rc<RefCell<State>>, key: &str, name: &str) -> gtk::Button {
     let btn = gtk::Button::new();
@@ -766,6 +772,77 @@ fn make_raw_button(st: &Rc<RefCell<State>>, key: &str, name: &str) -> gtk::Butto
                     let _ = tx.send(Msg::IconReady { key, path: got });
                 }
             });
+        }
+    }
+    // (6a) E133 — WINE/PROTON: o .exe do cmdline + o ícone embutido. A
+    // ordem da casa: o CACHE da casa (extraindo 1x serve p/ sempre) →
+    // os CACHES DE JOGO que a loja já baixou (Steam/Lutris/Heroic/
+    // Hydra — o .ico/.jpg da capa vale antes de extrair) → o ícone
+    // ADJACENTE ao .exe (jogos portable) → a EXTRAÇÃO EM THREAD do
+    // recurso PE (RT_GROUP_ICON → RT_ICON; PNG como está, DIB → PNG).
+    if !done {
+        if let Some(exe) = procapp::proc_wine_exe(Path::new("/proc"), key, uid) {
+            let cached = icons::exe_icon_cache_path(&crate::exeicon_cache_dir(), &exe.to_string_lossy());
+            if cached.is_file() {
+                img.set_from_file(Some(&cached));
+                done = true;
+                log(&format!(
+                    "raw ícone: '{key}' veio do cache de exe ({})",
+                    cached.display()
+                ));
+            }
+            if !done {
+                let stem = exe
+                    .file_stem()
+                    .map(|s| s.to_string_lossy().into_owned())
+                    .unwrap_or_default();
+                let roots = icons::game_cache_roots(&home);
+                if let Some(hit) = icons::find_image_file(&stem, &roots) {
+                    img.set_from_file(Some(&hit));
+                    done = true;
+                    log(&format!(
+                        "raw ícone: '{key}' veio do cache de jogo ({})",
+                        hit.display()
+                    ));
+                }
+            }
+            if !done {
+                if let Some(hit) = procapp::adjacent_icon(&exe) {
+                    img.set_from_file(Some(&hit));
+                    done = true;
+                    log(&format!(
+                        "raw ícone: '{key}' ganhou o ícone adjacente ao .exe ({})",
+                        hit.display()
+                    ));
+                }
+            }
+            if !done {
+                let tx = tx.clone();
+                let key = key.to_string();
+                std::thread::spawn(move || {
+                    let dest = icons::exe_icon_cache_path(&crate::exeicon_cache_dir(), &exe.to_string_lossy());
+                    if let Some(got) = icons::extract_pe_icon(&exe, &dest) {
+                        let _ = tx.send(Msg::IconReady { key, path: got });
+                    }
+                });
+            }
+        }
+    }
+    // (6b) E133 — BINÁRIO CUSTOM (Electron/Snap/Nix/portable): o ícone
+    // ADJACENTE ao /proc/<pid>/exe — as raízes por NOME (tema, Gear
+    // Lever e a busca E132 com pixmaps e ~/.local/share/icons) já
+    // foram consultadas nos passos de cima; aqui é o exe que CARREGA
+    // a própria cara junto.
+    if !done {
+        if let Some(exe) = procapp::proc_argv0_executable(Path::new("/proc"), key, uid) {
+            if let Some(hit) = procapp::adjacent_icon(&exe) {
+                img.set_from_file(Some(&hit));
+                done = true;
+                log(&format!(
+                    "raw ícone: '{key}' ganhou o ícone adjacente ao binário ({})",
+                    hit.display()
+                ));
+            }
         }
     }
     // (7) o GLIFO honesto

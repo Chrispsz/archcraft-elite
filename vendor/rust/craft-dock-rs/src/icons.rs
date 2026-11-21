@@ -118,12 +118,33 @@ pub fn icon_roots(home: &Path) -> Vec<PathBuf> {
 /// Extensões de ícone que a casa aceita (mesma lista do Python E130).
 pub const ICON_EXTS: [&str; 3] = ["png", "svg", "svgz"];
 
+/// E133 — extensões de IMAGEM amplas para os CACHES DE JOGO (Steam/
+/// Lutris/Heroic/Hydra guardam .ico/.xpm/.jpg/.bmp que o GdkPixbuf
+/// lê de boa — a lista restrita ICON_EXTS vale para a busca de TEMA,
+/// onde só png/svg é convenção de verdade).
+pub const IMAGE_EXTS: [&str; 8] = ["png", "svg", "svgz", "ico", "xpm", "jpg", "jpeg", "bmp"];
+
 /// E130/E132 — o arquivo de ícone com o nome dado nas raízes (busca
 /// RECURSIVA — os exports do Flatpak e o hicolor são hierárquicos:
 /// <tema>/<tamanho>/apps/<nome>.png). O casamento é pelo fold (o
 /// '_'↔'-' da casa). Caminhada determinística (dirs ordenados) para o
 /// teste ser estável.
 pub fn find_icon_file(name: &str, roots: &[PathBuf]) -> Option<PathBuf> {
+    find_by_fold(name, roots, &ICON_EXTS)
+}
+
+/// E133 — a mesma busca por fold com a lista de imagens AMPLA (os
+/// caches de jogo: .ico do Steam, .jpg da librarycache, .xpm antigo —
+/// o GdkPixbuf exibe todos e o dono vê a capa que a loja já baixou).
+pub fn find_image_file(name: &str, roots: &[PathBuf]) -> Option<PathBuf> {
+    find_by_fold(name, roots, &IMAGE_EXTS)
+}
+
+/// O coração da busca (ICON_EXTS e IMAGE_EXTS são a MESMA máquina):
+/// caminhada por pilha com dirs ordenados; o casamento é o fold
+/// inteiro OU o ÚLTIMO segmento do domínio reverse-DNS (o arquivo
+/// oficial 'io.github.kolunmi.Bazaar.png' casa com a chave 'bazaar').
+fn find_by_fold(name: &str, roots: &[PathBuf], exts: &[&str]) -> Option<PathBuf> {
     let key = fold(name);
     if key.is_empty() {
         return None;
@@ -145,7 +166,7 @@ pub fn find_icon_file(name: &str, roots: &[PathBuf]) -> Option<PathBuf> {
                     .and_then(|s| s.to_str())
                     .map(|s| s.to_lowercase())
                     .unwrap_or_default();
-                if !ICON_EXTS.contains(&ext.as_str()) {
+                if !exts.contains(&ext.as_str()) {
                     continue;
                 }
                 // E132 — o MATCHING REVERSE-DNS (a ordem do dono): o arquivo
@@ -223,6 +244,359 @@ pub fn appicon_cache_path(cache_base: &Path, appimage: &str) -> PathBuf {
     let ext = if appimage.to_lowercase().ends_with(".svg") { "svg" } else { "png" };
     let _ = std::fs::create_dir_all(cache_base);
     cache_base.join(format!("{}.{}", &digest[..24], ext))
+}
+
+/// E133 — AS RAÍZES DOS CACHES DE JOGO (a ordem do dono: Lutris,
+/// Heroic, Hydra e Steam): onde cada loja/launcher GUARDA os ícones e
+/// capas que já baixou — o botão do .exe reaproveita antes de extrair
+/// coisa alguma. Raízes inexistentes são descartadas pelo chamador
+/// (busca barata, sem stat por candidato).
+pub fn game_cache_roots(home: &Path) -> Vec<PathBuf> {
+    vec![
+        // Steam: os .ico oficiais por appid e o cache da biblioteca
+        home.join(".local/share/Steam/steam/games"),
+        home.join(".local/share/Steam/appcache/librarycache"),
+        // Lutris: banners/capas baixados dos serviços
+        home.join(".cache/lutris"),
+        home.join(".local/share/lutris"),
+        // Heroic: os assets das bibliotecas conectadas
+        home.join(".config/heroic"),
+        home.join(".cache/heroic"),
+        // Hydra: o launcher do dono
+        home.join(".cache/hydra"),
+        home.join(".local/share/hydra"),
+    ]
+}
+
+/// E133 — o caminho CACHEADO do ícone extraído do .exe (Wine/Proton):
+/// <cache_base>/<sha256-do-caminho[0..24]>.png — o MESMO formato do
+/// appimage-icons (digest truncado em 24; os binários da casa
+/// compartilham o desenho). Cria o diretório (a extração depende dele).
+pub fn exe_icon_cache_path(cache_base: &Path, exe: &str) -> PathBuf {
+    let mut h = Sha256::new();
+    h.update(exe.as_bytes());
+    let digest = format!("{:x}", h.finalize());
+    let _ = std::fs::create_dir_all(cache_base);
+    cache_base.join(format!("{}.png", &digest[..24]))
+}
+
+// ── E133 — o leitor de PE/ICO: o ícone EMBUTIDO do .exe (Wine/Proton) ──
+// O recurso RT_GROUP_ICON (tipo 14) aponta os RT_ICON (tipo 3): o MAIOR
+// vence; PNG (muitos modernos) é copiado como está; DIB (BITMAPINFOHEADER
+// BGRA/BGR) é convertido para PNG AQUI, std-only — o PNG mínimo com
+// blocos zlib STORED é válido, determinístico e não pesa em 48px.
+
+/// CRC32 (IEEE) — o checksum de cada chunk do PNG (std-only, tabela
+/// gerada em tempo de build do processo — barato e puro).
+fn crc32(data: &[u8]) -> u32 {
+    let mut table = [0u32; 256];
+    for (i, t) in table.iter_mut().enumerate() {
+        let mut c = i as u32;
+        for _ in 0..8 {
+            c = if c & 1 != 0 { 0xEDB8_8320 ^ (c >> 1) } else { c >> 1 };
+        }
+        *t = c;
+    }
+    let mut crc = 0xFFFF_FFFFu32;
+    for &b in data {
+        crc = table[((crc ^ b as u32) & 0xFF) as usize] ^ (crc >> 8);
+    }
+    !crc
+}
+
+/// Adler32 — o checksum do stream zlib do IDAT (std-only).
+fn adler32(data: &[u8]) -> u32 {
+    let (mut a, mut b) = (1u32, 0u32);
+    for &x in data {
+        a = (a + x as u32) % 65521;
+        b = (b + a) % 65521;
+    }
+    (b << 16) | a
+}
+
+/// O PNG RGBA8 mínimo (std-only): filtro 0 por linha e zlib com blocos
+/// STORED (sem compressão — válido em qualquer decoder; o ícone de
+/// dock é 48px, os bytes a mais não doem). Puro: bytes INTEIROS em
+/// memória, o chamador escreve onde quiser.
+pub fn png_rgba_bytes(rgba: &[u8], w: u32, h: u32) -> Option<Vec<u8>> {
+    if w == 0 || h == 0 || rgba.len() != (w as usize) * (h as usize) * 4 {
+        return None;
+    }
+    let mut raw: Vec<u8> = Vec::with_capacity((w as usize * 4 + 1) * h as usize);
+    for y in 0..h as usize {
+        raw.push(0u8); // filtro None
+        let off = y * w as usize * 4;
+        raw.extend_from_slice(&rgba[off..off + w as usize * 4]);
+    }
+    // zlib: 0x78 0x01 (sem dicionário, o mais lento/mais simples) +
+    // blocos STORED de até 65535 bytes + adler32 do ORIGINAL
+    // (chunks — NÃO chunks_exact: o bloco final parcial é ícone também)
+    let mut idat: Vec<u8> = vec![0x78, 0x01];
+    let n = raw.len();
+    if n == 0 {
+        return None;
+    }
+    let nblocks = (n + 65534) / 65535;
+    for (i, c) in raw.chunks(65535).enumerate() {
+        idata_push_stored(&mut idat, i + 1 == nblocks, c);
+    }
+    idat.extend_from_slice(&adler32(&raw).to_be_bytes());
+    let mut out: Vec<u8> = vec![0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A];
+    let mut ihdr: Vec<u8> = Vec::with_capacity(13);
+    ihdr.extend_from_slice(&w.to_be_bytes());
+    ihdr.extend_from_slice(&h.to_be_bytes());
+    ihdr.extend_from_slice(&[8, 6, 0, 0, 0]); // depth 8, RGBA, defl, adam7 off
+    push_chunk(&mut out, b"IHDR", &ihdr);
+    push_chunk(&mut out, b"IDAT", &idat);
+    push_chunk(&mut out, b"IEND", &[]);
+    Some(out)
+}
+
+fn idata_push_stored(out: &mut Vec<u8>, last: bool, data: &[u8]) {
+    out.push(if last { 1 } else { 0 }); // BFINAL + BTYPE=00
+    let len = data.len() as u16;
+    out.extend_from_slice(&len.to_le_bytes());
+    out.extend_from_slice(&(!len).to_le_bytes());
+    out.extend_from_slice(data);
+}
+
+fn push_chunk(out: &mut Vec<u8>, kind: &[u8; 4], data: &[u8]) {
+    out.extend_from_slice(&(data.len() as u32).to_be_bytes());
+    let mut body = Vec::with_capacity(4 + data.len());
+    body.extend_from_slice(kind);
+    body.extend_from_slice(data);
+    out.extend_from_slice(&body);
+    out.extend_from_slice(&crc32(&body).to_be_bytes());
+}
+
+/// O DIB (BITMAPINFOHEADER) de um RT_ICON → RGBA. Suporta BI_RGB 24 e
+/// 32bpp, altura bottom-up (positiva — o XOR/AND vem DOBRADO na
+/// altura) e top-down (negativa); a máscara AND de 1bpp que segue o
+/// XOR é IGNORADA (o 32bpp já carrega alpha; no 24bpp o alpha nasce
+/// 255 — ícone é quadrado cheio, o recorte é do tema escuro da dock).
+pub fn dib_to_rgba(dib: &[u8]) -> Option<(Vec<u8>, u32, u32)> {
+    if dib.len() < 40 {
+        return None;
+    }
+    let _bi_size = rd_u32_at(dib, 0)?;
+    let w = i32::from_le_bytes(dib[4..8].try_into().ok()?);
+    let h_raw = i32::from_le_bytes(dib[8..12].try_into().ok()?);
+    let _planes = rd_u16_at(dib, 12)?;
+    let bpp = rd_u16_at(dib, 14)? as u32;
+    let compression = rd_u32_at(dib, 16)?;
+    if compression != 0 || (bpp != 24 && bpp != 32) || w <= 0 || h_raw == 0 {
+        return None;
+    }
+    let top_down = h_raw < 0;
+    let h = (h_raw.unsigned_abs() / 2).max(1) as u32;
+    let w = w as u32;
+    let row = ((bpp as usize * w as usize + 31) / 32) * 4;
+    let need = 40 + row * h as usize;
+    if dib.len() < need {
+        return None;
+    }
+    let mut out = vec![0u8; (w * h * 4) as usize];
+    for y in 0..h as usize {
+        let src_y = if top_down { y } else { h as usize - 1 - y };
+        let line = &dib[40 + src_y * row..40 + src_y * row + row];
+        for x in 0..w as usize {
+            let (b, g, r, a) = match bpp {
+                32 => (line[x * 4], line[x * 4 + 1], line[x * 4 + 2], line[x * 4 + 3]),
+                _ => (line[x * 3], line[x * 3 + 1], line[x * 3 + 2], 0xFF),
+            };
+            let o = (y * w as usize + x) * 4;
+            out[o] = r;
+            out[o + 1] = g;
+            out[o + 2] = b;
+            out[o + 3] = a;
+        }
+    }
+    Some((out, w, h))
+}
+
+fn rd_u16_at(b: &[u8], o: usize) -> Option<u16> {
+    Some(u16::from_le_bytes(b.get(o..o + 2)?.try_into().ok()?))
+}
+
+fn rd_u32_at(b: &[u8], o: usize) -> Option<u32> {
+    Some(u32::from_le_bytes(b.get(o..o + 4)?.try_into().ok()?))
+}
+
+/// As entradas de um diretório de recurso: (NameOrId, OffsetToData)
+/// com os bits altos já interpretados (is_dir, offset relativo à base
+/// do recurso).
+fn res_entries(b: &[u8], base: usize, off: usize) -> Option<Vec<(u32, bool, usize)>> {
+    let dir = base + off;
+    let named = rd_u16_at(b, dir + 12)? as usize;
+    let ids = rd_u16_at(b, dir + 14)? as usize;
+    let mut out = Vec::new();
+    for i in 0..(named + ids) {
+        let e = dir + 16 + i * 8;
+        let name = rd_u32_at(b, e)?;
+        let val = rd_u32_at(b, e + 4)?;
+        // nome STRING (bit alto): o ID puro é o caminho da casa — pula
+        // a entrada sem morte (ícone por nome é raro e jamais da casa)
+        if name & 0x8000_0000 != 0 {
+            continue;
+        }
+        let is_dir = val & 0x8000_0000 != 0;
+        let rel = (val & 0x7FFF_FFFF) as usize;
+        out.push((name, is_dir, rel));
+    }
+    Some(out)
+}
+
+/// A folha de dados de um recurso: (offset NO ARQUIVO, tamanho).
+fn res_data(b: &[u8], base: usize, sections: &[(u32, u32, u32, u32)], leaf_rel: usize) -> Option<(usize, usize)> {
+    let e = base + leaf_rel;
+    let rva = rd_u32_at(b, e)?;
+    let size = rd_u32_at(b, e + 4)? as usize;
+    let off = rva_to_off(sections, rva)?;
+    Some((off, size))
+}
+
+/// RVA → offset de arquivo pela tabela de seções
+/// ((virt_addr, virt_size, raw_size, raw_ptr)).
+fn rva_to_off(sections: &[(u32, u32, u32, u32)], rva: u32) -> Option<usize> {
+    for &(va, vsz, rsz, ptr) in sections {
+        let sz = vsz.max(rsz);
+        if rva >= va && rva < va + sz {
+            return Some((ptr + (rva - va)) as usize);
+        }
+    }
+    None
+}
+
+/// E133 — o ícone EMBUTIDO de um .exe em BYTES PNG (a função PURA —
+/// `extract_pe_icon` é a casca que lê o arquivo e escreve o destino).
+/// O caminho: DOS 'MZ' → PE → data dir de RECURSO (índice 2) →
+/// RT_GROUP_ICON (tipo 14, o maior pelo GRPICONDIRENTRY) → RT_ICON
+/// (tipo 3, id apontado) → PNG como está ou DIB→PNG. PE sem grupo
+/// tenta o RT_ICON direto. None em tudo que não é PE/sem ícone —
+/// a casa NUNCA adivinha ícone.
+pub fn extract_pe_icon_bytes(b: &[u8]) -> Option<Vec<u8>> {
+    if b.len() < 0x40 || &b[0..2] != b"MZ" {
+        return None;
+    }
+    let lfanew = rd_u32_at(b, 0x3C)? as usize;
+    if b.get(lfanew..lfanew + 4) != Some(b"PE\0\0") {
+        return None;
+    }
+    let coff = lfanew + 4;
+    let nsec = rd_u16_at(b, coff + 2)? as usize;
+    let size_opt = rd_u16_at(b, coff + 16)? as usize;
+    let opt = coff + 20;
+    let magic = rd_u16_at(b, opt)?;
+    let dd = match magic {
+        0x10B => opt + 96, // PE32
+        0x20B => opt + 112, // PE32+
+        _ => return None,
+    };
+    let rsrc_rva = rd_u32_at(b, dd + 16)?; // data dir [2] = RECURSO
+    if rsrc_rva == 0 {
+        return None;
+    }
+    let mut sections: Vec<(u32, u32, u32, u32)> = Vec::new();
+    for i in 0..nsec {
+        let s = opt + size_opt + i * 40;
+        let vsz = rd_u32_at(b, s + 8)?;
+        let va = rd_u32_at(b, s + 12)?;
+        let rsz = rd_u32_at(b, s + 16)?;
+        let ptr = rd_u32_at(b, s + 20)?;
+        sections.push((va, vsz, rsz, ptr));
+    }
+    let base = rva_to_off(&sections, rsrc_rva)?;
+
+    // L1: o tipo. RT_GROUP_ICON=14 primeiro; sem grupo, RT_ICON=3.
+    let l1 = res_entries(b, base, 0)?;
+    let find_dir = |t: u32| -> Option<usize> {
+        l1.iter().find(|(id, is_dir, _)| *id == t && *is_dir).map(|(_, _, rel)| *rel)
+    };
+    let read_icon = |l2_rel: usize| -> Option<Vec<u8>> {
+        let l2 = res_entries(b, base, l2_rel)?;
+        let (_, _, l3_rel) = l2.iter().find(|(_, is_dir, _)| *is_dir)?;
+        let l3 = res_entries(b, base, *l3_rel)?;
+        let leaf = l3
+            .iter()
+            .find(|(_, is_dir, _)| !*is_dir)
+            .map(|(_, _, leaf)| *leaf)?;
+        let (off, size) = res_data(b, base, &sections, leaf)?;
+        b.get(off..off + size).map(|s| s.to_vec())
+    };
+    // o grupo: o MAIOR ícone das entradas (width*height, bitcount
+    // desempata); cada GRPICONDIRENTRY aponta o id do RT_ICON
+    if let Some(g_rel) = find_dir(14) {
+        let grp_raw = read_icon(g_rel)?;
+        if grp_raw.len() >= 6 {
+            let count = u16::from_le_bytes([grp_raw[4], grp_raw[5]]) as usize;
+            let mut best: Option<(u32, u16)> = None;
+            for i in 0..count {
+                let e = 6 + i * 14;
+                if e + 14 > grp_raw.len() {
+                    break;
+                }
+                let w = grp_raw[e] as u32;
+                let h = grp_raw[e + 1] as u32;
+                let bc = u16::from_le_bytes([grp_raw[e + 6], grp_raw[e + 7]]) as u32;
+                let nid = u16::from_le_bytes([grp_raw[e + 12], grp_raw[e + 13]]);
+                let score = (if w == 0 { 256 } else { w }) * (if h == 0 { 256 } else { h }) * (bc.max(1));
+                if best.as_ref().map(|(s, _)| score > *s).unwrap_or(true) {
+                    best = Some((score, nid));
+                }
+            }
+            if let Some((_, nid)) = best {
+                // o RT_ICON com o ID apontado pelo grupo
+                if let Some(i_rel) = find_dir(3) {
+                    let l2 = res_entries(b, base, i_rel)?;
+                    for (id, is_dir, l3_rel) in l2 {
+                        if !is_dir || id != nid as u32 {
+                            continue;
+                        }
+                        let l3 = res_entries(b, base, l3_rel)?;
+                        for (_, d2, leaf) in l3 {
+                            if d2 {
+                                continue;
+                            }
+                            if let Some((off, size)) = res_data(b, base, &sections, leaf) {
+                                if let Some(png) = icon_bytes_to_png(&b[off..off + size]) {
+                                    return Some(png);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // sem grupo (ou grupo quebrado): o PRIMEIRO RT_ICON direto
+    if let Some(i_rel) = find_dir(3) {
+        if let Some(raw) = read_icon(i_rel) {
+            return icon_bytes_to_png(&raw);
+        }
+    }
+    None
+}
+
+/// PNG como está; DIB → PNG (a conversão std-only da casa).
+fn icon_bytes_to_png(raw: &[u8]) -> Option<Vec<u8>> {
+    if raw.starts_with(&[0x89, b'P', b'N', b'G']) {
+        return Some(raw.to_vec());
+    }
+    let (rgba, w, h) = dib_to_rgba(raw)?;
+    png_rgba_bytes(&rgba, w, h)
+}
+
+/// E133 — a CASCA de arquivo do extrator: lê o .exe, extrai o ícone
+/// em PNG e escreve no destino (criando o diretório). Devolve o
+/// destino ou None (o chamador decide o próximo degrau da cadeia).
+pub fn extract_pe_icon(exe: &Path, dest: &Path) -> Option<PathBuf> {
+    let b = std::fs::read(exe).ok()?;
+    let png = extract_pe_icon_bytes(&b)?;
+    if let Some(parent) = dest.parent() {
+        let _ = std::fs::create_dir_all(parent);
+    }
+    std::fs::write(dest, png).ok()?;
+    Some(dest.to_path_buf())
 }
 
 // ── o mini-parser de .desktop (E132 — os dinâmicos e os Flatpaks) ─────
@@ -713,5 +1087,237 @@ mod tests {
         // o hint explícito do pin vem PRIMEIRO (a 2ª coluna do dock-pins)
         let c2 = focus_candidates(&e, "kolunmi-bazaar");
         assert_eq!(c2[0], "kolunmi-bazaar");
+    }
+
+    // ── E133 — os helpers de arquivo dos testes do extrator PE ────────
+
+    fn poke16(v: &mut Vec<u8>, off: usize, x: u16) {
+        v[off..off + 2].copy_from_slice(&x.to_le_bytes());
+    }
+    fn poke32(v: &mut Vec<u8>, off: usize, x: u32) {
+        v[off..off + 4].copy_from_slice(&x.to_le_bytes());
+    }
+
+    /// Um diretório de recurso: cabeçalho de 16 bytes + entradas de ID
+    /// (name, val) — o FLAG de subdiretório já vem no val do chamador.
+    fn res_dir(v: &mut Vec<u8>, off: usize, entries: &[(u32, u32)]) {
+        poke16(v, off + 12, 0);
+        poke16(v, off + 14, entries.len() as u16);
+        for (i, (name, val)) in entries.iter().enumerate() {
+            let e = off + 16 + i * 8;
+            poke32(v, e, *name);
+            poke32(v, e + 4, *val);
+        }
+    }
+
+    /// Um .exe de MENTIRA com o recurso de ícone de verdade (a mesma
+    /// anatomia do PE real: seção .rsrc com RT_GROUP_ICON apontando o
+    /// RT_ICON — o molde do teste prova o extrator SEM binário de jogo).
+    fn build_test_pe(icon: &[u8]) -> Vec<u8> {
+        const FLAG: u32 = 0x8000_0000;
+        const RSRC_RVA: u32 = 0x1000;
+        const RAW_PTR: usize = 0x200;
+        // ── a seção de recurso (tudo relativo à base) ──
+        let mut r = vec![0u8; 0x500];
+        res_dir(&mut r, 0x000, &[(3, 0x100 | FLAG), (14, 0x200 | FLAG)]); // L1: tipos
+        res_dir(&mut r, 0x100, &[(1, 0x110 | FLAG)]); // RT_ICON: nome 1
+        res_dir(&mut r, 0x110, &[(0x409, 0x140)]); // língua → folha
+        poke32(&mut r, 0x140, RSRC_RVA + 0x300); // data entry do ícone
+        poke32(&mut r, 0x144, icon.len() as u32);
+        res_dir(&mut r, 0x200, &[(1, 0x210 | FLAG)]); // RT_GROUP_ICON: nome 1
+        res_dir(&mut r, 0x210, &[(0x409, 0x240)]);
+        poke32(&mut r, 0x240, RSRC_RVA + 0x400); // data entry do grupo
+        poke32(&mut r, 0x244, 20u32);
+        r[0x300..0x300 + icon.len()].copy_from_slice(icon);
+        // GRPICONDIR: reserved, type=1, count=1 + GRPICONDIRENTRY(14)
+        poke16(&mut r, 0x400, 0);
+        poke16(&mut r, 0x402, 1);
+        poke16(&mut r, 0x404, 1);
+        r[0x406] = 8; // bWidth
+        r[0x407] = 8; // bHeight
+        r[0x408] = 0; // bColorCount
+        r[0x409] = 0; // bReserved
+        poke16(&mut r, 0x40A, 1); // wPlanes
+        poke16(&mut r, 0x40C, 32); // wBitCount
+        poke32(&mut r, 0x40E, icon.len() as u32); // dwBytesInRes
+        poke16(&mut r, 0x412, 1); // nID → o RT_ICON de nome 1
+
+        // ── o esqueleto PE em volta ──
+        let mut pe = vec![0u8; RAW_PTR + r.len()];
+        pe[0..2].copy_from_slice(b"MZ");
+        poke32(&mut pe, 0x3C, 0x40); // e_lfanew
+        pe[0x40..0x44].copy_from_slice(b"PE\0\0");
+        let coff = 0x44;
+        poke16(&mut pe, coff + 2, 1); // 1 seção
+        poke16(&mut pe, coff + 16, 224); // optional header (PE32+16 dirs)
+        let opt = 0x58; // coff + 20
+        poke16(&mut pe, opt, 0x10B); // magic PE32
+        poke32(&mut pe, opt + 96 + 16, RSRC_RVA); // data dir [2] RECURSO
+        poke32(&mut pe, opt + 96 + 20, r.len() as u32);
+        let sh = opt + 224;
+        pe[sh..sh + 5].copy_from_slice(b".rsrc");
+        poke32(&mut pe, sh + 8, r.len() as u32); // VirtualSize
+        poke32(&mut pe, sh + 12, RSRC_RVA); // VirtualAddress
+        poke32(&mut pe, sh + 16, r.len() as u32); // SizeOfRawData
+        poke32(&mut pe, sh + 20, RAW_PTR as u32); // PointerToRawData
+        pe[RAW_PTR..RAW_PTR + r.len()].copy_from_slice(&r);
+        pe
+    }
+
+    /// Um DIB (BITMAPINFOHEADER BGRA) 2x2 bottom-up para o extrator.
+    fn build_test_dib() -> Vec<u8> {
+        let mut d = vec![0u8; 40 + 8 * 2];
+        poke32(&mut d, 0, 40); // biSize
+        poke32(&mut d, 4, 2); // biWidth
+        poke32(&mut d, 8, 4); // biHeight DOBRADO (XOR 2 + AND 2)
+        poke16(&mut d, 12, 1); // planes
+        poke16(&mut d, 14, 32); // 32bpp
+        poke32(&mut d, 16, 0); // BI_RGB
+        // linha 0 armazenada = LINHA DE BAIXO do ícone (bottom-up):
+        // (x=0,y=1)=B=0,G=1,R=128,A=255 · (x=1,y=1)=B=1,G=1,R=128,A=255
+        d[40..44].copy_from_slice(&[0, 1, 128, 255]);
+        d[44..48].copy_from_slice(&[1, 1, 128, 255]);
+        // linha 1 armazenada = linha de CIMA: (0,0) e (1,0)
+        d[48..52].copy_from_slice(&[0, 0, 128, 255]);
+        d[52..56].copy_from_slice(&[1, 0, 128, 255]);
+        d
+    }
+
+    #[test]
+    fn e133_png_minimo_e_crc32_pelos_vetores() {
+        // crc32 IEEE do vetor clássico "123456789" = 0xCBF43926
+        let mut table = [0u32; 256];
+        for (i, t) in table.iter_mut().enumerate() {
+            let mut c = i as u32;
+            for _ in 0..8 {
+                c = if c & 1 != 0 { 0xEDB8_8320 ^ (c >> 1) } else { c >> 1 };
+            }
+            *t = c;
+        }
+        // (o teste re-prova a tabela porque o crc32 é privado; o VETOR
+        // é o juiz de verdade: 0x CBF4 3926)
+        let mut c = 0xFFFF_FFFFu32;
+        for &b in b"123456789" {
+            c = table[((c ^ b as u32) & 0xFF) as usize] ^ (c >> 8);
+        }
+        assert_eq!(!c, 0xCBF4_3926);
+        // o PNG mínimo: assinatura + IHDR com as dimensões + IEND
+        let px = vec![255u8, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255];
+        let png = png_rgba_bytes(&px, 2, 2).unwrap();
+        assert_eq!(&png[0..8], &[0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A]);
+        // IHDR: len 13 + tipo + w,h BE + depth 8/RGBA
+        assert_eq!(&png[8..12], &13u32.to_be_bytes());
+        assert_eq!(&png[12..16], b"IHDR");
+        assert_eq!(&png[16..20], &2u32.to_be_bytes());
+        assert_eq!(&png[20..24], &2u32.to_be_bytes());
+        assert_eq!(&png[24..29], &[8, 6, 0, 0, 0]);
+        // termina em IEND
+        assert_eq!(&png[png.len() - 8..png.len() - 4], b"IEND");
+        // o IDAT decodifica como raw: 2 linhas × (filtro 0 + 2×RGBA)
+        assert_eq!(png[41], 0x78); // zlib CMF
+        assert_eq!(png[42], 0x01); // FLG (stored)
+        // dimensões erradas: None (a casa não fabrica PNG torto)
+        assert!(png_rgba_bytes(&px, 3, 2).is_none());
+        assert!(png_rgba_bytes(&px, 0, 2).is_none());
+    }
+
+    #[test]
+    fn e133_dib_32bpp_bottom_up_vira_rgba() {
+        let (rgba, w, h) = dib_to_rgba(&build_test_dib()).unwrap();
+        assert_eq!((w, h), (2, 2));
+        // topo-esquerda (x=0,y=0): R=128 G=0 B=0 A=255 (a linha de CIMA
+        // é a ÚLTIMA armazenada — bottom-up decodificado)
+        assert_eq!(&rgba[0..4], &[128, 0, 0, 255]);
+        // baixo-direita (x=1,y=1): B=1,G=1 → RGBA [128,1,1,255]
+        assert_eq!(&rgba[12..16], &[128, 1, 1, 255]);
+        // lixo curto/comprimido: None honesto
+        assert!(dib_to_rgba(&[0u8; 10]).is_none());
+        let mut comp = build_test_dib();
+        poke32(&mut comp, 16, 1); // BI_RLE: não suportado
+        assert!(dib_to_rgba(&comp).is_none());
+    }
+
+    #[test]
+    fn e133_extrator_pe_do_png_embutido() {
+        // o ícone PNG embutido volta BYTE A BYTE (sem re-codificação)
+        let px = vec![10u8, 20, 30, 255, 40, 50, 60, 255, 70, 80, 90, 255, 100, 110, 120, 255];
+        let png = png_rgba_bytes(&px, 2, 2).unwrap();
+        let pe = build_test_pe(&png);
+        let got = extract_pe_icon_bytes(&pe).unwrap();
+        assert_eq!(got, png);
+        // não-PE: None honesto (a casa nunca adivinha ícone)
+        assert!(extract_pe_icon_bytes(b"MZ lixo sem PE").is_none());
+        assert!(extract_pe_icon_bytes(b"#!/bin/sh\n").is_none());
+    }
+
+    #[test]
+    fn e133_extrator_pe_do_dib_vira_png() {
+        let pe = build_test_pe(&build_test_dib());
+        let got = extract_pe_icon_bytes(&pe).unwrap();
+        assert!(got.starts_with(&[0x89, b'P', b'N', b'G']));
+        // o IHDR carrega as dimensões do DIB (2x2)
+        assert_eq!(&got[16..20], &2u32.to_be_bytes());
+        assert_eq!(&got[20..24], &2u32.to_be_bytes());
+    }
+
+    #[test]
+    fn e133_extrator_pe_casca_de_arquivo() {
+        let root = tmpdir("pefile");
+        let png = png_rgba_bytes(&[1u8, 2, 3, 255], 1, 1).unwrap();
+        let exe = root.join("Jogo.exe");
+        std::fs::write(&exe, build_test_pe(&png)).unwrap();
+        let dest = root.join("cache/abc.png");
+        let got = extract_pe_icon(&exe, &dest).unwrap();
+        assert_eq!(got, dest);
+        assert_eq!(std::fs::read(&dest).unwrap(), png);
+        // exe inexistente: None (a thread da UI segue para o próximo degrau)
+        assert!(extract_pe_icon(&root.join("nao-tem.exe"), &dest).is_none());
+    }
+
+    #[test]
+    fn e133_cache_do_exe_e_as_raizes_de_jogo() {
+        // o mesmo formato do appimage: sha256-do-caminho[0..24] + .png
+        let cache = tmpdir("execache");
+        let p = exe_icon_cache_path(&cache, "/opt/games/Stardew Valley.exe");
+        assert!(p.extension().and_then(|e| e.to_str()) == Some("png"));
+        assert_eq!(p.file_name().unwrap().to_string_lossy().len(), 28); // 24 + '.png'
+        // DETERMINÍSTICO: o mesmo caminho, o mesmo nome
+        assert_eq!(p, exe_icon_cache_path(&cache, "/opt/games/Stardew Valley.exe"));
+        assert_ne!(p, exe_icon_cache_path(&cache, "/opt/games/Outro.exe"));
+        // as raízes da ordem do dono: Steam, Lutris, Heroic e Hydra
+        let home = PathBuf::from("/home/dono");
+        let roots = game_cache_roots(&home);
+        assert!(roots.contains(&home.join(".local/share/Steam/steam/games")));
+        assert!(roots.contains(&home.join(".local/share/Steam/appcache/librarycache")));
+        assert!(roots.contains(&home.join(".cache/lutris")));
+        assert!(roots.contains(&home.join(".config/heroic")));
+        assert!(roots.contains(&home.join(".cache/hydra")));
+    }
+
+    #[test]
+    fn e133_find_image_file_casa_o_ico_do_steam() {
+        let root = tmpdir("gamecache");
+        let games = root.join("steam/games");
+        std::fs::create_dir_all(&games).unwrap();
+        // o cache do Steam guarda <appid>/icon.ico e capsule jpgs
+        std::fs::write(games.join("413150.ico"), b"ico").unwrap();
+        std::fs::write(root.join("steam/capsule_231.jpg"), b"jpg").unwrap();
+        // a lista AMPLA casa .ico/.jpg que a ICON_EXTS recusaria
+        assert_eq!(
+            find_image_file("413150", &[root.join("steam/games")]),
+            Some(games.join("413150.ico"))
+        );
+        assert_eq!(
+            find_image_file("capsule_231", &[root.join("steam")]),
+            Some(root.join("steam/capsule_231.jpg"))
+        );
+        // a lista RESTRITA segue recusando .ico (a busca de TEMA é png/svg)
+        assert!(find_icon_file("413150", &[root.join("steam/games")]).is_none());
+        // fold: 'Stardew Valley' acha 'StardewValley.ico'
+        std::fs::write(games.join("StardewValley.ico"), b"ico2").unwrap();
+        assert_eq!(
+            find_image_file("Stardew Valley", &[root.join("steam/games")]),
+            Some(games.join("StardewValley.ico"))
+        );
     }
 }

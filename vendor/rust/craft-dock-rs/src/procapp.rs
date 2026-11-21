@@ -296,6 +296,91 @@ pub fn diricon_of_mount(mount_dir: &Path) -> Option<PathBuf> {
     best_mount_icon(mount_dir)
 }
 
+/// E133 — a tradução do caminho WINDOWS do Wine para o Unix: o drive
+/// Z: aponta para a raiz (convenção de prefixo padrão do Wine/Proton),
+/// '\' vira '/', a caixa desce. "Z:\games\jogo.exe" → "/games/jogo.exe".
+/// Caminho que não começa com drive Z: volta como veio (o chamador
+/// decide se é caminho unix legítimo). Puro, testado.
+pub fn wine_path_to_unix(raw: &str) -> String {
+    let s = raw.trim();
+    let lower = s.to_lowercase();
+    let stripped = if let Some(rest) = lower.strip_prefix("z:") {
+        // o s ORIGINAL fatiado pelo MESMO comprimento (a caixa do
+        // caminho unix preserva — o Wine não padroniza maiúsculas)
+        let cut = s.len() - rest.len();
+        s.get(cut..).unwrap_or("")
+    } else {
+        s
+    };
+    stripped.replace('\\', "/")
+}
+
+/// E133 — O .EXE WINE/PROTON sob esta chave (a ordem do dono: "Lê
+/// /proc/<pid>/cmdline para localizar o .exe em execução"): varre a
+/// raiz /proc (PARÂMETRO — o teste monta um layout falso), processos do
+/// uid dado, comm casando pela casca de 15; cada ARGV é traduzido
+/// (Z:\ → /) e o PRIMEIRO token terminado em .exe QUE EXISTE em disco
+/// vence (o argv[0] do jogo é o próprio exe — e o Steam/Proton o
+/// empurra completo no cmdline). Sem prova, None — a sonda não adivinha.
+pub fn proc_wine_exe(proc_root: &Path, key: &str, uid: u32) -> Option<PathBuf> {
+    let entries = fs::read_dir(proc_root).ok()?;
+    let mut pids: Vec<u32> = entries
+        .flatten()
+        .filter_map(|e| e.file_name().to_str()?.parse::<u32>().ok())
+        .collect();
+    pids.sort();
+    for pid in pids {
+        let dir = proc_root.join(pid.to_string());
+        if fs::metadata(&dir).map(|m| m.uid()).unwrap_or(u32::MAX) != uid {
+            continue;
+        }
+        let Ok(comm) = fs::read_to_string(dir.join("comm")) else {
+            continue;
+        };
+        if !comm_matches(&comm, key) {
+            continue;
+        }
+        let Ok(cmdline) = fs::read(dir.join("cmdline")) else {
+            continue;
+        };
+        for tok in cmdline.split(|&c| c == 0) {
+            if tok.is_empty() {
+                continue;
+            }
+            let t = String::from_utf8_lossy(tok).into_owned();
+            if !t.to_lowercase().ends_with(".exe") {
+                continue;
+            }
+            let cand = wine_path_to_unix(&t);
+            let p = Path::new(&cand);
+            if p.is_file() {
+                return Some(p.to_path_buf());
+            }
+        }
+    }
+    None
+}
+
+/// E133 — o ÍCONE ADJACENTE ao binário (o fallback dos binários
+/// customizados/Electron/Snap/Nix e dos jogos portable: quem carrega o
+/// próprio diretório costuma carregar o próprio ícone). Consulta o
+/// diretório do exe por: <stem>.{png,svg,xpm,ico}, icon.png,
+/// <stem>_icon.png, .DirIcon. Só arquivo REGULAR em disco — sem
+/// adivinhação.
+pub fn adjacent_icon(exe: &Path) -> Option<PathBuf> {
+    let dir = exe.parent()?;
+    let stem = exe.file_stem()?.to_string_lossy().into_owned();
+    let lower = stem.to_lowercase();
+    let mut cands: Vec<PathBuf> = Vec::new();
+    for ext in ["png", "svg", "xpm", "ico"] {
+        cands.push(dir.join(format!("{lower}.{ext}")));
+    }
+    cands.push(dir.join("icon.png"));
+    cands.push(dir.join(format!("{lower}_icon.png")));
+    cands.push(dir.join(".DirIcon"));
+    cands.into_iter().find(|c| c.is_file())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -442,5 +527,71 @@ mod tests {
         let mut comms = scan_user_comms(&root.join("proc"), current_uid());
         comms.sort();
         assert_eq!(comms, vec!["brave", "foot", "init"]);
+    }
+
+    #[test]
+    fn e133_traducao_do_caminho_windows_do_wine() {
+        // o drive Z: é a raiz — a caixa do caminho unix PRESERVA
+        assert_eq!(wine_path_to_unix(r"Z:\games\Stardew Valley.exe"), "/games/Stardew Valley.exe");
+        assert_eq!(wine_path_to_unix("z:\\Jogo\\jogo.exe"), "/Jogo/jogo.exe");
+        // caminho unix legítimo: volta como veio (só \→/ que não existia)
+        assert_eq!(wine_path_to_unix("/opt/games/jogo.exe"), "/opt/games/jogo.exe");
+        // outro drive (C: do prefixo): SEM a raiz Z, volta como veio —
+        // o chamador só aceita o que EXISTE em disco
+        assert_eq!(wine_path_to_unix(r"C:\Program Files\jogo.exe"), r"C:\Program Files\jogo.exe".replace('\\', "/"));
+        // espaços nas bordas não sobrevivem (o cmdline não os carrega)
+        assert_eq!(wine_path_to_unix("  /opt/x.exe  "), "/opt/x.exe");
+    }
+
+    #[test]
+    fn e133_proc_wine_exe_pelo_cmdline_do_layout_falso() {
+        let root = tmpdir("wineexe");
+        // o jogo em disco (o .exe que o Steam/Proton empurra no cmdline)
+        let jogo = root.join("prefixo/drive_c/jogo/StardewValley.exe");
+        fs::create_dir_all(jogo.parent().unwrap()).unwrap();
+        fs::write(&jogo, b"MZ...").unwrap();
+        // o processo wine: comm = a casca do jogo, cmdline com o caminho
+        // WINDOWS completo (Z: aponta para a raiz — a tradução vira o
+        // caminho real em disco)
+        let pid = root.join("proc/9001");
+        fs::create_dir_all(&pid).unwrap();
+        fs::write(pid.join("comm"), "StardewValley\n").unwrap();
+        let cmd = format!(
+            "C:\\windows\\system32\\winepath.exe\0Z:{}\0\0",
+            jogo.to_string_lossy().replace('/', "\\")
+        );
+        fs::write(pid.join("cmdline"), cmd.as_bytes()).unwrap();
+
+        let found = proc_wine_exe(&root.join("proc"), "stardewvalley", current_uid()).unwrap();
+        assert_eq!(found, jogo);
+        // chave errada: sem prova, None
+        assert!(proc_wine_exe(&root.join("proc"), "hollow-knight", current_uid()).is_none());
+        // uid errado: o processo é de OUTRO dono, a dock não enxerga
+        assert!(proc_wine_exe(&root.join("proc"), "stardewvalley", current_uid() + 1).is_none());
+    }
+
+    #[test]
+    fn e133_icone_adjacente_ao_binario() {
+        let root = tmpdir("adjacent");
+        let bin = root.join("apps/JogoPortable/jogo");
+        fs::create_dir_all(bin.parent().unwrap()).unwrap();
+        fs::write(&bin, b"ELF").unwrap();
+        // SEM ícone ao lado: None honesto
+        assert!(adjacent_icon(&bin).is_none());
+        // o <stem>.png ao lado vence na hora
+        fs::write(root.join("apps/JogoPortable/jogo.png"), b"png").unwrap();
+        assert_eq!(adjacent_icon(&bin), Some(root.join("apps/JogoPortable/jogo.png")));
+        // o Electron que carrega a pasta 'icon.png' própria
+        let bin2 = root.join("apps/ElectronApp/electron-app");
+        fs::create_dir_all(bin2.parent().unwrap()).unwrap();
+        fs::write(&bin2, b"ELF").unwrap();
+        fs::write(root.join("apps/ElectronApp/icon.png"), b"png2").unwrap();
+        assert_eq!(adjacent_icon(&bin2), Some(root.join("apps/ElectronApp/icon.png")));
+        // o AppDir completo: .DirIcon é o candidato nominal
+        let bin3 = root.join("apps/Outro.AppDir/usr/bin/outro");
+        fs::create_dir_all(bin3.parent().unwrap()).unwrap();
+        fs::write(&bin3, b"ELF").unwrap();
+        fs::write(root.join("apps/Outro.AppDir/usr/bin/.DirIcon"), b"png3").unwrap();
+        assert_eq!(adjacent_icon(&bin3), Some(root.join("apps/Outro.AppDir/usr/bin/.DirIcon")));
     }
 }

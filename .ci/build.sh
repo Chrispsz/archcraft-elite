@@ -2487,7 +2487,17 @@ pkgver=1.0
 #     do workspace casa o build local com o CI (SÓ target-cpu=x86-64-v3).
 #     Bins com conteúdo mudado: craft-game, craft-bars. Mestres novos no
 #     pacote: daemon.conf (dc_install) + rust-workspace.tar.gz (fonte).
-pkgrel=79
+# E133 — O FECHAMENTO DO DONO (lei E41: o bump viaja NO MESMO COMMIT do
+#     conteúdo): a dose 1.0-79 foi PUBLICADA (o asset elite-system-1.0-79
+#     está na release v2.11.3 com o elite-local.db listando ela) — o
+#     fechamento leva pkgrel 80: os rótulos PT-BR naturais de TODOS os
+#     menus (menu.xml/craft-power/craft-connect), o craft-clean v6 (DUAS
+#     FASES com perguntas [s/N] e --auto-safe), a cadeia de ícones
+#     UNIVERSAL da craft-dock-rs (.exe Wine/Proton com extrator PE/ICO
+#     std-only + caches de jogo Steam/Lutris/Heroic/Hydra + adjacente ao
+#     binário) e a decoração de janela garantida no rc.xml (XWayland na
+#     tela cheia).
+pkgrel=80
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da sessão; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
