@@ -186,7 +186,10 @@ fn build(app: &gtk::Application) {
         ));
         return;
     }
-    let window = gtk::ApplicationWindow::new(Some(app));
+    // E-auditoria 2026-11-22 (2ª camada da cura): o ApplicationWindow::new
+    // do gtk4 0.11 toma &impl IsA<Application> — o Option<&App> do gtk3
+    // era a API morta que a resolução abortada do 1º round escondeu.
+    let window = gtk::ApplicationWindow::new(app);
     window.set_widget_name("dockwindow");
     // A GEOMETRIA da casa (Python v2.3.4): ancorada SÓ na base — a
     // layer-shell centra no eixo não-ancorado e a superfície TEM o
@@ -628,7 +631,7 @@ fn app_icon_image(st: &Rc<RefCell<State>>, entry: &icons::DesktopEntry) -> gtk::
         Some(d) => d,
         None => {
             log("sem display GDK — o glifo honesto entra");
-            img.set_from_icon_name(Some("application-x-executable"));
+            img.set_icon_name(Some("application-x-executable"));
             return img;
         }
     };
@@ -641,7 +644,7 @@ fn app_icon_image(st: &Rc<RefCell<State>>, entry: &icons::DesktopEntry) -> gtk::
     names.extend(icons::reverse_dns_alternates(&entry.id));
     for n in &names {
         if theme.has_icon(n) {
-            img.set_from_icon_name(Some(n));
+            img.set_icon_name(Some(n));
             return img;
         }
     }
@@ -654,7 +657,7 @@ fn app_icon_image(st: &Rc<RefCell<State>>, entry: &icons::DesktopEntry) -> gtk::
         }
     }
     // o glifo honesto: sem ícone real, a promessa é a verdade
-    img.set_from_icon_name(Some("application-x-executable"));
+    img.set_icon_name(Some("application-x-executable"));
     img
 }
 
@@ -696,7 +699,7 @@ fn make_raw_button(st: &Rc<RefCell<State>>, key: &str, name: &str) -> gtk::Butto
     // (1) o TEMA com as variantes fold
     for cand in icons::theme_icon_candidates(key) {
         if theme.has_icon(&cand) {
-            img.set_from_icon_name(Some(&cand));
+            img.set_icon_name(Some(&cand));
             done = true;
             break;
         }
@@ -705,7 +708,7 @@ fn make_raw_button(st: &Rc<RefCell<State>>, key: &str, name: &str) -> gtk::Butto
     if !done {
         for cand in icons::steam_icon_candidates(key) {
             if theme.has_icon(&cand) {
-                img.set_from_icon_name(Some(&cand));
+                img.set_icon_name(Some(&cand));
                 done = true;
                 break;
             }
@@ -844,7 +847,7 @@ fn make_raw_button(st: &Rc<RefCell<State>>, key: &str, name: &str) -> gtk::Butto
     }
     // (7) o GLIFO honesto
     if !done {
-        img.set_from_icon_name(Some("application-x-executable"));
+        img.set_icon_name(Some("application-x-executable"));
     }
     btn.set_child(Some(&img));
     btn.set_tooltip_text(Some(&format!(
@@ -1289,7 +1292,11 @@ fn load_css() {
         DEFAULT_CSS.to_string()
     });
     let provider = gtk::CssProvider::new();
-    provider.load_from_string(&css);
+    // E-auditoria 2026-11-22: o load_from_string mora atrás da feature
+    // v4_12 no gtk4-rs 0.11 (o CI não liga features de versão) — o
+    // load_from_data é a via sempre-presente (deprecated apenas SOB a
+    // feature, que não está ligada).
+    provider.load_from_data(&css);
     if let Some(display) = gdk::Display::default() {
         gtk::style_context_add_provider_for_display(
             &display,
