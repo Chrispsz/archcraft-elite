@@ -953,7 +953,7 @@ assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" '"return-type": "js
 # v2.0 — a classe de leak morre DE VEZ: a dock nativa não tem exec JSON
 # por pin; o indicador é pgrep IN-PROCESS (timer GTK de 3s, um único
 # processo). O config.top segue 100% módulos nativos (contrato acima).
-assert_grep "$REPO/vendor/rust/craft-dock-rs/src/ui.rs" 'from_secs\\(TICK_S\\)' "v2.10.12→v2.10.26/E38: tick 5s de SEGURANÇA (o dono: 'delay pra atualizar' — a resposta à era 1s é o PUSH EVT do daemon: atualização por EVENTO, latência ~0, ~172.800 wakeups/dia extintos; o diff-guard mantém zero redraw quando nada muda)"
+assert_grep "$REPO/vendor/rust/craft-dock-rs/src/ui.rs" 'from_secs\(TICK_S\)' "v2.10.12→v2.10.26/E38: tick 5s de SEGURANÇA (o dono: 'delay pra atualizar' — a resposta à era 1s é o PUSH EVT do daemon: atualização por EVENTO, latência ~0, ~172.800 wakeups/dia extintos; o diff-guard mantém zero redraw quando nada muda)"
 # ── v2.10.26/E38 — O PUSH DA DOCK: o daemon fala, a dock escuta ─────────
 # (caminho COMPLETO: a variável $DOCK só nasce na seção da dock, :2309)
 assert_grep "$REPO/vendor/rust/craft-dock-rs/src/ui.rs" 'evt_handshake' "v2.10.26/E38: 2ª conexão dedicada a eventos (EVT ON = opt-in — o socket de pedidos segue limpo, cliente velho nunca recebe linha não pedida)"
@@ -2988,7 +2988,7 @@ assert_nogrep "$REPO/elite/airootfs/etc/skel/.config/elite/dock.css" '#dockmenu|
   "v2.10.8: o CSS do menu EXTINTO do tema do dono (dock.css termina no fio dos dinâmicos)"
 assert_nogrep "$DOCK" 'menu das janelas ON' \
   "v2.10.8: o log de nascimento não anuncia mais o menu (o que não existe não se apresenta)"
-assert_grep "$REPO/vendor/rust/craft-dock-rs/src/main.rs" 'comutador/menu EXTINTOS' \
+assert_grep "$REPO/vendor/rust/craft-dock-rs/src/ui.rs" 'o ESCOPO HONESTO mora' \
   "v2.10.8: o log de nascimento é HONESTO sobre a extinção (o dono lê no bars.log o que a dock deixou de ser)"
 assert_nogrep "$DOCK" '"CYCLE"' \
   "v2.10.3→8: o ciclo CEGO segue morto na dock — adivinhar o próximo não é escolher; o anel MRU ficou para o ciclo DENTRO do botão do app (o daemon o mantém)"
