@@ -1,0 +1,12 @@
+[Desktop Entry]
+# E134 — OVERRIDE NoDisplay (a ordem do dono, dump 1.0-80): utilitário
+# INTERNO não é app de menu — este arquivo sombreia o .desktop do pacote
+# em /usr/share/applications (o /usr/local vem ANTES no XDG_DATA_DIRS) e
+# o esconde do Launchpad/dock/gaveta SEM tocar em arquivo de terceiro.
+# O pacote e o binário seguem intactos — a UI é que não lista (E21).
+Type=Application
+Name=Qt Video Capture Utility
+GenericName=Qt Video Capture Utility
+Exec=qvidcap
+Icon=camera-video
+NoDisplay=true

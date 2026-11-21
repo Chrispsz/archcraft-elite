@@ -26,7 +26,7 @@ nvidia-settings
 ## ── v1.1 · PURGA DO APP-LAYER LEGADO (MEGA PROMPT do dono) ──────────
 ## Diretriz: stack 100% moderna e Wayland-native (Rust/GTK4). As contra-
 ## partes entram via packages.add: brave-origin (v1.4), papers,
-## pwvucontrol, bluetui, impala.
+## pwvucontrol, overskride (E134 — o Bluetooth GRÁFICO), impala.
 ## v1.2 (burn test do dono no rig B, evidência do squashfs): xgps/xgps-
 ## speed/gpsd APARECERAM no menu do live. Causa-raiz no pacman db da ISO:
 ## gpsd é dependência DURA do waybar 0.15 (módulo gps compilado — remover

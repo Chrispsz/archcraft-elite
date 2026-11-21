@@ -201,12 +201,12 @@ zenity
 fastfetch
 
 ## ── ELITE v1.0.4 · Desktop v2 (macOS-style, mouse-first) ──────────────
-## RUNTIME DA DOCK NATIVA (v2.0 — craft-dock-gui): a dock da Elite é um
-## programa GTK3 próprio no protocolo wlr-layer-shell (o mesmo mecanismo
-## do nwg-dock, sem a dependência do sway IPC — funciona no labwc).
-##   · python + python-gobject — o GUI é um único script PyGObject
-##     (mantível no repo, sem toolchain Go no build)
-##   · gtk-layer-shell — o protocolo (dep do nwg-drawer, aqui explícito)
+## RUNTIME DA DOCK NATIVA (v2.0→E134 — craft-dock-rs): a dock da Elite é
+## um binário Rust próprio (GTK4 + gtk4-layer-shell, compilado NO build
+## do elite-system — a era PyGObject do craft-dock-gui acabou; zero
+## interpretador Python residente). O gtk-layer-shell fica (dep do
+## nwg-drawer e do legado); python segue na base (o craft-dump/craft-drawer
+## o usam), mas a DOCK não paga mais os ~45–60 MB do interpretador vivo.
 ## E126 — O PAPPIRUS VOLTA (a ordem do dono 19/nov: "padronizar o tema de
 ## ícones do sistema para eliminar inconsistências visuais"). A v2.2 o
 ## tinha cortado por leveza — o preço foi a babel de ícones (cada app no
@@ -215,7 +215,6 @@ fastfetch
 ## vivos adotam pela dose (ADOCAO do craft-update), o ISO nasce com ele,
 ## e o E16 do customize agora o espera em vez de avisar.
 python
-python-gobject
 gtk-layer-shell
 
 ## nwg-drawer: o "Launchpad" — grade de apps em tela cheia com busca,
@@ -259,7 +258,9 @@ tealdeer
 ##   · papers (GTK4/libadwaita — leitor PDF, substitui zathura)
 ##   · pwvucontrol (GTK4/Rust — mixer PipeWire, substitui pavucontrol;
 ##     construído no build via estágio AUR → [elite-local])
-##   · bluetui (TUI Rust — Bluetooth, substitui blueman)
+##   · overskride (E134 — GTK4/libadwaita, Bluetooth GRÁFICO nativo
+##     Wayland no lugar do bluetui TUI; construído no build via estágio
+##     AUR → [elite-local] — a ordem do dono, dump 1.0-80)
 ##   · impala (TUI Rust — rede/iwd+NM, substitui nm-applet no dia-a-dia)
 ##   · brave-origin (v1.4, diretriz do dono: o navegador padrão passa a
 ##     ser o BRAVE ORIGIN — release oficial brave-origin-*.zip da Brave,
@@ -275,7 +276,7 @@ qalculate-gtk
 nwg-look
 papers
 pwvucontrol
-bluetui
+overskride
 impala
 brave-origin
 ## E114 — O EDITOR GRÁFICO DA CASA (a palavra do dono: o editor via
