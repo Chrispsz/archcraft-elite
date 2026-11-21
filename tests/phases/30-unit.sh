@@ -1678,7 +1678,18 @@ else
   fail "E47/lock: o hyprlock VIVO SOBREVIVE ao --if-needed" "o processo fake morreu — a corrida do PrepareForSleep renasceria"
 fi
 assert_nogrep "$STCL/hyprlock.log" '.' "E47/lock: nenhum hyprlock NOVO nasceu no caminho --if-needed com lock vivo (recriar o vivo é a init que congelava no meio)"
+# E134 — A MORTE ESPERADA da escola E98: o kill é assíncrono e o caso (2)
+# seguinte confere pgrep IMEDIATAMENTE — o fake moribundo ainda no procfs
+# fazia o --if-needed do caso (2) sair no-op e o contrato do lock-recircado
+# falhar POR CORRIDA (a classe de flake E47 documentada na E133-b; a cura
+# é esperar a morte, como o toggle da gaveta aprendeu).
 kill "$fkpid" 2>/dev/null || true
+_n=0
+while kill -0 "$fkpid" 2>/dev/null && [ "$_n" -lt 40 ]; do
+  sleep 0.05
+  _n=$((_n + 1))
+done
+unset _n
 
 # (2) lock MORTO + --if-needed: segue o fluxo COMPLETO (a promessa se auto-cura)
 rm -rf "$STCL"; mkdir -p "$STCL"
