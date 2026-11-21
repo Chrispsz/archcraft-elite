@@ -953,7 +953,7 @@ assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" '"return-type": "js
 # v2.0 — a classe de leak morre DE VEZ: a dock nativa não tem exec JSON
 # por pin; o indicador é pgrep IN-PROCESS (timer GTK de 3s, um único
 # processo). O config.top segue 100% módulos nativos (contrato acima).
-assert_grep "$REPO/vendor/rust/craft-dock-rs/src/ui.rs" 'from_secs(TICK_S)' "v2.10.12→v2.10.26/E38: tick 5s de SEGURANÇA (o dono: 'delay pra atualizar' — a resposta à era 1s é o PUSH EVT do daemon: atualização por EVENTO, latência ~0, ~172.800 wakeups/dia extintos; o diff-guard mantém zero redraw quando nada muda)"
+assert_grep "$REPO/vendor/rust/craft-dock-rs/src/ui.rs" 'from_secs\\(TICK_S\\)' "v2.10.12→v2.10.26/E38: tick 5s de SEGURANÇA (o dono: 'delay pra atualizar' — a resposta à era 1s é o PUSH EVT do daemon: atualização por EVENTO, latência ~0, ~172.800 wakeups/dia extintos; o diff-guard mantém zero redraw quando nada muda)"
 # ── v2.10.26/E38 — O PUSH DA DOCK: o daemon fala, a dock escuta ─────────
 # (caminho COMPLETO: a variável $DOCK só nasce na seção da dock, :2309)
 assert_grep "$REPO/vendor/rust/craft-dock-rs/src/ui.rs" 'evt_handshake' "v2.10.26/E38: 2ª conexão dedicada a eventos (EVT ON = opt-in — o socket de pedidos segue limpo, cliente velho nunca recebe linha não pedida)"
@@ -975,7 +975,7 @@ assert_nogrep "$P/airootfs/usr/local/bin/craft-dock-gui" '"exec"' "v2.0: o GUI n
 # escopo NOMEADO como não-portado no cabeçalho do main.rs (a GTK4 usa
 # texturas próprias; o diff-guard segue — a pílula só remonta quando o
 # CONJUNTO muda, zero flicker). Os contratos viram o escopo honesto.
-assert_grep "$MAIN" 'a transição suave v2.11 \(GtkRevealer\)' "v2.11/E48→E134: o Revealer é NOMEADO no escopo honesto (não-portado na v1 Rust — a casa não finge animação que não tem)"
+assert_grep "$REPO/vendor/rust/craft-dock-rs/src/main.rs" 'a transição suave v2.11 \(GtkRevealer\)' "v2.11/E48→E134: o Revealer é NOMEADO no escopo honesto (não-portado na v1 Rust — a casa não finge animação que não tem)"
 assert_grep "$REPO/vendor/rust/craft-dock-rs/src/ui.rs" 'if dyn_set == old_dyn && raw_set == old_raw' "v2.11/E48→E134: nada toca no GTK se nada mudou (o diff-guard das duas famílias — dinâmicos E raws — zero redraw por tick)"
 assert_grep "$REPO/vendor/rust/craft-dock-rs/src/ui.rs" 's.window.show' "v2.11/E48→E134: a pílula só é MOSTRADA quando o diff mexeu (o 'self.dyn or' antigo varria a árvore toda a cada tick — o show enxerga o diff)"
 # ── v4.2/E48 — O ENCERRAR HONESTO (o dono: 'tá pegando python 3, pactl e
@@ -2584,7 +2584,7 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin" '\$1 == id' "v2.7.0: 
 # nova é de AUSÊNCIA: a dock não tem superfície auxiliar NENHUMA — o que
 # ela não tem, ela não quebra. O dismiss é lei do rc.xml (craft-menu-dismiss).
 assert_nogrep "$DOCK" 'self\.cage|_cage_|cage_request|cagewindow|CAGE_CSS|ACK_FILE' "v2.9.0: ZERO código de gaiola na dock (a rede de cliques engoliu o mouse do sistema inteiro — classe de bug extinta por construção)"
-assert_nogrep "$DOCK" 'SIGRTMIN|input_shape_combine_region|Gdk\\.Region|KeyboardMode' "v2.9.0: dock sem superfície auxiliar — sem input region, sem layer extra, sem telefone de menus (o refresh da dock ao abrir menu era essa família)"
+assert_nogrep "$DOCK" 'SIGRTMIN|input_shape_combine_region|Gdk\\.Region' "v2.9.0: dock sem superfície auxiliar — sem input region, sem layer extra, sem telefone de menus (o refresh da dock ao abrir menu era essa família; E132: o KeyboardMode on-demand é lei da dock Rust, não superfície auxiliar)"
 assert_nogrep "$DOCK" 'elite-dock\\.|elite-cage\\.' "v2.9.0: dock não escreve pid-file nem ack (nenhum consumidor — o craft-menu-dismiss lê SÓ o state do craft-menu)"
 assert_grep "$DOCK" 'gtk4_layer_shell::Layer::Top' "v2.7.0→E132: a dock segue na layer TOP (a divergência documentada do degrau — a semântica de sumir sob tela cheia é do PROTOCOLO)"
 assert_grep "$DOCK" 'glib::ControlFlow::Continue' "v2.7.0: os timers da dock NUNCA morrem (a lição v2.5.0 virou lei da gramática gtk-rs — a dock surda não volta)"
@@ -2988,7 +2988,7 @@ assert_nogrep "$REPO/elite/airootfs/etc/skel/.config/elite/dock.css" '#dockmenu|
   "v2.10.8: o CSS do menu EXTINTO do tema do dono (dock.css termina no fio dos dinâmicos)"
 assert_nogrep "$DOCK" 'menu das janelas ON' \
   "v2.10.8: o log de nascimento não anuncia mais o menu (o que não existe não se apresenta)"
-assert_grep "$DOCK" 'comutador/menu EXTINTOS' \
+assert_grep "$REPO/vendor/rust/craft-dock-rs/src/main.rs" 'comutador/menu EXTINTOS' \
   "v2.10.8: o log de nascimento é HONESTO sobre a extinção (o dono lê no bars.log o que a dock deixou de ser)"
 assert_nogrep "$DOCK" '"CYCLE"' \
   "v2.10.3→8: o ciclo CEGO segue morto na dock — adivinhar o próximo não é escolher; o anel MRU ficou para o ciclo DENTRO do botão do app (o daemon o mantém)"
