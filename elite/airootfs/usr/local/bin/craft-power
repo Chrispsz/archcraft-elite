@@ -107,7 +107,11 @@ if command -v craft-menu >/dev/null 2>&1; then
     rm -f "$errf"
 else
     mlog "Sessão: craft-menu AUSENTE — fallback labnag"
-    # fallback: labnag — barra de botões no topo (Lock · Logout · Reboot …)
+    # fallback: labnag — barra de botões no topo. E133: os rótulos em
+    # inglês MORREM ('Lock' → 'Tela de bloqueio', 'Logout' → 'Encerrar
+    # sessão', 'Suspend' → 'Suspender', 'Reboot' → 'Reiniciar' — o dono:
+    # 'todos os textos dos menus em português natural… eliminando termos
+    # em inglês'; o fallback é porta do dono igual).
     if command -v labnag >/dev/null 2>&1; then
         exec labnag \
             -t 86400 \
@@ -121,10 +125,10 @@ else
             --button-text-color cdd6f4ff \
             --button-border-color 45475aff \
             --border-bottom-color cba6f7ff \
-            -Z 'Lock' 'craft-lock' \
-            -Z 'Logout' 'labwc --exit' \
-            -Z 'Suspend' 'systemctl suspend' \
-            -Z 'Reboot' 'systemctl reboot' \
+            -Z 'Tela de bloqueio' 'craft-lock' \
+            -Z 'Encerrar sessão' 'labwc --exit' \
+            -Z 'Suspender' 'systemctl suspend' \
+            -Z 'Reiniciar' 'systemctl reboot' \
             -Z 'Desligar' 'systemctl poweroff' \
             -Z 'Cancelar' 'true'
     fi

@@ -78,7 +78,11 @@
     <item label="Maximizar">
       <action name="ToggleMaximize" />
     </item>
-    <item label="Fullscreen">
+    <!-- E133 — O FECHAMENTO DO DONO (o pedido: 'todos os textos dos menus
+         em português natural, popular e autoexplicativo, eliminando termos
+         em inglês ou genéricos'): 'Fullscreen' era o último termo em
+         inglês do menu da janela — o verbo da casa agora é 'Tela cheia'. -->
+    <item label="Tela cheia">
       <action name="ToggleFullscreen" />
     </item>
     <item label="Decorações">
@@ -201,20 +205,27 @@
     <item label="Ajuda">
       <action name="Execute" command="foot -e craft-help" />
     </item>
-    <item label="Aplicativos">
+    <!-- E133 — OS RÓTULOS DO DONO, palavra por palavra ('Aplicativos' →
+         'Menu de aplicativos'; 'Lock' → 'Tela de bloqueio'; 'Logout' →
+         'Encerrar sessão'; 'Reboot' → 'Reiniciar'; 'Shutdown' →
+         'Desligar' — este já era o verbo da casa): português natural e
+         autoexplicativo, nenhum termo em inglês sobrando no menu da
+         casa. Os atalhos (W-l, W-Escape/W-x/C-A-Del) seguem byte a
+         byte — o que muda é a PALAVRA que o dono lê. -->
+    <item label="Menu de aplicativos">
       <action name="Execute" command="craft-drawer" />
     </item>
-    <item label="Lock">
+    <item label="Tela de bloqueio">
       <action name="Execute" command="craft-lock" />
     </item>
     <!-- E106 — O SAIR DIRETO (o dono: reboot e desligar já estão aqui —
          o que faltava era o SAIR). O menu gráfico completo do power
          segue vivo no ⏻ da topbar e nos atalhos (W-Escape/W-x/C-A-Del). -->
-    <item label="Sair da sessão">
+    <item label="Encerrar sessão">
       <action name="Execute" command="labwc --exit" />
     </item>
     <separator />
-    <item label="Reboot">
+    <item label="Reiniciar">
       <action name="Execute" command="systemctl reboot" />
     </item>
     <item label="Desligar">

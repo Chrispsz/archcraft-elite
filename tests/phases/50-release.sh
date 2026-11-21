@@ -14,7 +14,21 @@ source "$(dirname "${BASH_SOURCE[0]}")/../lib/core.sh"
 phase_start 5 "USO & RELEASE — o produto na mão"
 
 API="https://api.github.com/repos/Chrispsz/archcraft-elite"
-if ! curl -fsS --max-time 15 "$API/releases?per_page=5" -o "$WORK/releases.json" 2>/dev/null; then
+# E133 — A L3 NA PORTEIRA PRÓPRIA: a sonda da fase 5 era ANÔNIMA contra a
+# API do GitHub e engolia o rate-limit do IP compartilhado (60/h somem em
+# minutos — a classe nomeada na lei: 'O anônimo engole em IP compartilhado'),
+# pulando a fase INTEIRA num dia de rede viva. A escada do token (L1/§1.1,
+# FORA do Git): GH_TOKEN no ambiente → ~/.elite-gh-token → a cópia
+# persistente do my-project. Com token, a sonda é AUTENTICADA; sem, segue
+# anônima (o bimodal honesto permanece para quem não tem credencial).
+GH_AUTH=()
+if [ -z "${GH_TOKEN:-}" ]; then
+  for _t in "$HOME/.elite-gh-token" "/home/z/my-project/.elite-gh-token"; do
+    if [ -r "$_t" ] && [ -s "$_t" ]; then GH_TOKEN="$(tr -d '\n\r' < "$_t")"; break; fi
+  done
+fi
+[ -n "${GH_TOKEN:-}" ] && GH_AUTH=(-H "Authorization: Bearer $GH_TOKEN")
+if ! curl -fsS --max-time 15 "${GH_AUTH[@]}" "$API/releases?per_page=5" -o "$WORK/releases.json" 2>/dev/null; then
   skip "release: sem rede (fase inteira)" "a cadeia segue de pé — o resto já provou o essencial"
   phase_end
   return 2>/dev/null || exit 0

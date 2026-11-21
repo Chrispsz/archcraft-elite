@@ -473,8 +473,10 @@ adota_lojas() {
     # "mantendo apenas GNOME Papers + Bazaar" — o leitor da casa é o
     # Papers (papers, GTK4 — packages.add); o Okular era Qt inteiro no
     # Flathub (runtime ~1 GB de Qt quando é o único flatpak Qt) e a loja
-    # GRÁFICA da casa é o Bazaar (a porta 'Loja de apps' já o nomeia — o
-    # binário agora NASCE adotado). A remoção do okular (e dos runtimes
+    # GRÁFICA da casa é o Bazaar (nascido adotado aqui: a porta 'Loja de
+    # apps' do botão direito FOI APOSENTADA pela E132 — o Bazaar segue
+    # vivo na gaveta/dock pelo .desktop dele e o pacote flatpak segue no
+    # sistema porque o Bazaar É um flatpak; o binário agora NASCE adotado). A remoção do okular (e dos runtimes
     # órfãos --unused) roda no bloco logo abaixo — idempotente.)
     for nome in "Warehouse:io.github.flattool.Warehouse" "Gear Lever:it.mijorus.gearlever" "Bazaar:io.github.kolunmi.Bazaar"; do
         id="${nome#*:}"; nome="${nome%%:*}"
