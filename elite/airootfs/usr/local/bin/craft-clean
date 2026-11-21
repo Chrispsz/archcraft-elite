@@ -39,10 +39,55 @@
 #       automação e dos testes — o mesmo desenho honesto do --yes);
 #     · --yes: fase 1 + fase 2 SEM pergunta (a porta velha, preservada
 #       para scripts que já a chamam);
-#     · menu: raiz pelo pkexec com o HOME do dono, terminal de pé — as
-#       perguntas [s/N] funcionam no terminal do menu.
+#     · menu: terminal de pé — as perguntas [s/N] funcionam no terminal.
+#     · --as-root USUÁRIO HOME (E134): a porta do pkexec DIRETO — o
+#       alvo raiz do pkexec nasce com ambiente limpo, então o menu
+#       entrega o dono como ARGUMENTO (nada de `pkexec env HOME=…`,
+#       cujo lookup é /usr/bin/env e fica FORA da regra 50-elite-wheel
+#       — o réu dos transient polkit-agent-helper FAILED do dump
+#       1.0-80). Válido só como root: valida o usuário no passwd, o
+#       home existe, e o $HOME da corrida inteira vira o DELE (a
+#       lixeira e os caches de usuário certos).
 # ═══════════════════════════════════════════════════════════════════════
 set -euo pipefail
+
+# E134 — A PORTA DO PKEXEC DIRETO (--as-root USUÁRIO HOME): o pkexec
+# entrega ambiente LIMPO por lei — o HOME raiz seria /root e a lixeira
+# limpa seria a do root. O menu passa o DONO como argumento e a validação
+# é cinto triplo: só root, usuário presente no passwd, home existente.
+# Válida: $HOME (e $USER) da corrida inteira viram os DO dono — antes
+# do CLEAN_LOG e de qualquer uso de caminho de usuário.
+_asroot=0
+_args=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --as-root)
+      [ $# -ge 3 ] || { echo "craft-clean: --as-root exige USUÁRIO e HOME (a porta do pkexec do menu)" >&2; exit 2; }
+      _asroot=1
+      _ar_user="$2"
+      _ar_home="$3"
+      shift 3
+      ;;
+    *) _args+=("$1"); shift ;;
+  esac
+done
+set -- ${_args[@]+"${_args[@]}"}
+if [ "$_asroot" = 1 ]; then
+    if [ "$(id -u)" != 0 ]; then
+        echo "craft-clean: --as-root é porta de RAIZ (o pkexec do menu é quem chama)" >&2
+        exit 2
+    fi
+    if ! _ar_uid="$(id -u "$_ar_user" 2>/dev/null)"; then
+        echo "craft-clean: usuário '$_ar_user' não existe (o --as-root recusa)" >&2
+        exit 2
+    fi
+    if [ ! -d "$_ar_home" ]; then
+        echo "craft-clean: HOME '$_ar_home' não existe (o --as-root recusa)" >&2
+        exit 2
+    fi
+    export HOME="$_ar_home" USER="$_ar_user"
+fi
+unset _asroot _args _ar_user _ar_home _ar_uid
 
 # E109 — O PAPEL DA LIMPEZA (teto 256 KiB — a lei da família E36).
 CLEAN_LOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/clean.log"
@@ -63,8 +108,8 @@ for arg in "$@"; do
     -y|--yes) ASSUME_YES=1 ;;
     --auto-safe) AUTO_SAFE=1 ;;
     menu) MENU_HOLD=1 ;;
-    -h|--help) printf 'uso: craft-clean [--yes|--auto-safe|menu] — a limpeza em DUAS FASES (E133)\n\n'; sed -n '2,40p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
-    *) echo "craft-clean: arg desconhecido: $arg (use --yes ou --auto-safe)" >&2; exit 2 ;;
+    -h|--help) printf 'uso: craft-clean [--as-root USUÁRIO HOME] [--yes|--auto-safe|menu] — a limpeza em DUAS FASES (E133)\n\n'; sed -n '2,40p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) echo "craft-clean: arg desconhecido: $arg (use --yes, --auto-safe ou menu)" >&2; exit 2 ;;
   esac
 done
 

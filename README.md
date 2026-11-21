@@ -66,7 +66,7 @@ o driver do próprio hardware.
 |---|---|
 | Kernel | `linux-cachyos-bore` x86-64-v3 (único; rollback via snapshot btrfs no GRUB) |
 | Sessão | labwc (Wayland, única) + waybar + swaync + fuzzel + foot + nwg-drawer |
-| Dock | `craft-dock-gui` — GTK3 + wlr-layer-shell, ícones reais do tema, SEMPRE visível (layer BOTTOM + zona exclusiva — maximizadas respeitam a faixa); esconder em qualquer momento é **W-S-d**, inclusive em tela cheia |
+| Dock | `craft-dock-rs` — GTK4 + layer-shell em Rust (E134 — a era PyGObject acabou), ícones reais do tema, SEMPRE visível (zona exclusiva — maximizadas respeitam a faixa); esconder em qualquer momento é **W-S-d**, inclusive em tela cheia |
 | Top bar | menu bar estilo macOS — app focado, relógio, volume/rede/sessão + botão de apps em 2º plano (`craft-bgapps`, some quando não há nada a encerrar); conector Wi-Fi em TEXTO no menu de rede (`craft-connect`: redes do entorno + senha oculta — sem tray, sem applet) |
 | Diagnóstico | `craft-dump` — o "btop completão" v2.0: abre com o veredito da sessão (probe + units falhados) e traz a tabela REAL de janelas do toplevel, pins, driver da GPU em uso, monitores (wlr-randr), rede, áudio, temperaturas, boots, rollback, pacotes e logs num arquivo (com `--upload` p/ URL curta) |
 | Scheduler | `ananicy-cpp` com regras CachyOS — o scheduler é o BORE do kernel (scx userspace saiu na v2.2) |

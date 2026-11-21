@@ -272,5 +272,101 @@ loginctl list-users --no-legend 2>/dev/null | while read -r uid _; do
     fi
 done
 
+# ── 12. E134 — O FÓSSIL DA DOCK PYTHON MORRE E O SUPERVISOR RENASCE ──────
+#      A prova do dump 1.0-80: OITO craft-bars vivos no mesmo rig
+#      (BARS_RESTARTS=63), o flock segurado por órfãos de relogins
+#      antigos e o craft-dock-gui PYTHON respawnando sob o supervisor
+#      VELHO — a dose nova chegava e a sessão nem ficava sabendo (o
+#      craft-bars novo saía no-op no lock do órfão). A migração é em
+#      TRÊS gestos idempotentes, POR USUÁRIO DE SESSÃO VIVA:
+#        (a) o fóssil do arquivo sai do disco (a dose já não o embarca;
+#            o rm cobre o rig da era anterior — pacman deixa de ser dono
+#            dele NESTA transação);
+#        (b) TODO craft-bars do usuário morre (o órfão segurando o lock
+#            também — é exatamente ele o réu) e o processo Python da
+#            dock idem (o supervisor novo só lança o craft-dock-rs);
+#        (c) UM craft-bars novo nasce POR SESSÃO Wayland viva (o mesmo
+#            runuser do rice da seção 8) — ele ressuscita waybar, dock
+#            Rust, toplevel e idle em ≤5s, com o CÓDIGO NOVO.
+if [ ! -e /run/archiso ] && [ -e /usr/local/bin/craft-dock-gui ]; then
+    rm -f /usr/local/bin/craft-dock-gui 2>/dev/null \
+        && tlog "dock E134: fóssil Python /usr/local/bin/craft-dock-gui REMOVIDO (a dock da casa é o binário Rust craft-dock-rs)"
+fi
+loginctl list-users --no-legend 2>/dev/null | while read -r _uid _ _; do
+    [ -n "$_uid" ] || continue
+    [ "$_uid" -ge 1000 ] 2>/dev/null || continue
+    _home="$(getent passwd "$_uid" 2>/dev/null | cut -d: -f6)"
+    [ -n "$_home" ] && [ -d "$_home" ] || continue
+    # sem sessão Wayland viva não há o que renascer (o próximo login
+    # nasce com o código novo — o autostart é a porta)
+    _wd=""
+    for _w in /run/user/"$_uid"/wayland-*; do
+        [ -S "$_w" ] || continue
+        _wd="${_w##*/}"
+        break
+    done
+    [ -n "$_wd" ] || continue
+    if pgrep -u "$_uid" -f '^/usr/bin/python3 /usr/local/bin/craft-dock-gui$' >/dev/null 2>&1; then
+        pkill -u "$_uid" -f '^/usr/bin/python3 /usr/local/bin/craft-dock-gui$' 2>/dev/null || true
+        tlog "dock E134: processo Python da dock ENCERRADO (uid $_uid) — o supervisor novo lança o craft-dock-rs"
+    fi
+    if pgrep -u "$_uid" -f '/usr/local/bin/craft-bars' >/dev/null 2>&1; then
+        pkill -u "$_uid" -f '/usr/local/bin/craft-bars' 2>/dev/null || true
+        sleep 1
+        tlog "bars E134: supervisor(es) do uid $_uid ENCERRADO(S) — o órfão do lock morreu junto; UM novo nasce agora"
+    fi
+    runuser -u "#$_uid" -- env \
+        XDG_RUNTIME_DIR="/run/user/$_uid" \
+        WAYLAND_DISPLAY="$_wd" \
+        DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$_uid/bus" \
+        HOME="$_home" \
+        /usr/local/bin/craft-bars >/dev/null 2>&1 &
+    tlog "bars E134: craft-bars NOVO nascido na sessão do uid $_uid (waybar + dock Rust + toplevel + idle voltam em ≤5s, com o código da dose)"
+done
+
+# ── 13. E134 — O CHAVEIRO DO GNOME SAI DA CASA (a ordem do dono, dump ──
+#      1.0-80: 'gkr-pam: unable to locate daemon control file' no SDDM,
+#      CENTENAS de gcr-prompter no dock.log, senha pedida no Bazaar). A
+#      casa não é GNOME: o Secret Service não presta serviço aqui e só
+#      gera prompt fantasma. Idempotente em três gestos:
+#        (a) as units de USUÁRIO são MASCARADAS (global + o drop do
+#            ~/.config/systemd/user de cada usuário — symlink /dev/null,
+#            reversível com unmask) e as instâncias vivas são encerradas;
+#        (b) as linhas pam_gnome_keyring.so SAEM do /etc/pam.d/sddm e
+#            do /etc/pam.d/login (backup .bak- ao lado — a escola bak-);
+#        (c) o PACOTE sai pela higiene do craft-update --sistema (NUNCA
+#            aqui: o db.lck da própria transação mataria o pacman dentro
+#            de scriptlet — a lição E132 documentada na higiene_e132).
+#      Os apps Chromium/Electron usam --password-store=basic (o conf
+#      viaja pelo elite-post-transaction) — nenhuma senha a perder.
+systemctl --global mask gnome-keyring-daemon.service gnome-keyring-daemon.socket gcr-prompter.service >/dev/null 2>&1 \
+    && tlog "keyring E134: units de usuário gnome-keyring-daemon/gcr-prompter MASCARADAS globalmente (o daemon não nasce mais em NENHUM login)" \
+    || tlog "keyring E134: mask global falhou (réu nomeado — as unidades seguem; a próxima dose re-tenta)"
+for _pamd in /etc/pam.d/sddm /etc/pam.d/login; do
+    if [ -f "$_pamd" ] && grep -q 'pam_gnome_keyring.so' "$_pamd" 2>/dev/null; then
+        cp -p "$_pamd" "${_pamd}.bak-e134-$(date +%s)" 2>/dev/null || true
+        if sed -i '/pam_gnome_keyring\.so/d' "$_pamd" 2>/dev/null; then
+            tlog "keyring E134: pam_gnome_keyring.so SAIU do $_pamd (o 'gkr-pam: unable to locate daemon control file' do SDDM morre; o .bak- ao lado devolve)"
+        fi
+    fi
+done
+loginctl list-users --no-legend 2>/dev/null | while read -r _uid _ _; do
+    [ -n "$_uid" ] || continue
+    [ "$_uid" -ge 1000 ] 2>/dev/null || continue
+    _home="$(getent passwd "$_uid" 2>/dev/null | cut -d: -f6)"
+    [ -n "$_home" ] && [ -d "$_home" ] || continue
+    mkdir -p "$_home/.config/systemd/user" 2>/dev/null || true
+    for _u in gnome-keyring-daemon.service gnome-keyring-daemon.socket gcr-prompter.service; do
+        ln -sf /dev/null "$_home/.config/systemd/user/$_u" 2>/dev/null || true
+    done
+    chown -R "$_uid:$_uid" "$_home/.config/systemd/user" 2>/dev/null || true
+    for _proc in gnome-keyring-daemon gcr-prompter; do
+        if pgrep -u "$_uid" -x "$_proc" >/dev/null 2>&1; then
+            pkill -u "$_uid" -x "$_proc" 2>/dev/null || true
+            tlog "keyring E134: $_proc do uid $_uid ENCERRADO (o diálogo fantasma que pedia senha no Bazaar morre com ele)"
+        fi
+    done
+done
+
 tlog "post-upgrade: concluído (a migração é idempotente — rodar de novo é no-op com papel)"
 exit 0

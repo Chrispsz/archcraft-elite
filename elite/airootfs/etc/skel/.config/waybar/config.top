@@ -191,15 +191,23 @@
   // desktop; a gaiola da dock morreu, com prova, na v2.9.0).
   // Teclado segue: W-n (impala), W-S-b (bluetui).
   // v2.1: ícones FA BMP — escapes \uXXXX legíveis, sem surrogate pairs
-  // (network-wired = ethernet; unlink = sem conexão)
+  // (network-wired = ethernet). E134 — O ÍCONE NUNCA MAIS SOME (a causa
+  // provada do dump 1.0-80: ao clicar 'Desligar cabo de rede' com o Wi-Fi
+  // desligado, o módulo network sumia da barra — sem botão não há como
+  // reabrir o menu de rede): o glifo 󰤭 (\uf92d, o Wi-Fi desligado que
+  // o dono pediu) fixo na desconexão E o tooltip 'Sem conexão' nomeado —
+  // o assento existe em QUALQUER estado do hardware. Os tooltips sem
+  // nomes crus de interface (enp7s0/wlan0 moram no 'Gerenciar
+  // conexões' — a ordem do dono E133/E134).
   "network": {
     "format": "{icon}",
     "format-ethernet": "\uf6ff",
     "format-wifi": "\uf1eb",
     "format-linked": "\uf6ff",
-    "format-disconnected": "\uf127",
-    "tooltip-format-ethernet": "{ifname} · {ipaddr} — clique: ligar/desligar cabo, conectar redes",
+    "format-disconnected": "\uf92d",
+    "tooltip-format-ethernet": "Cabo conectado · {ipaddr} — clique: ligar/desligar cabo, conectar redes",
     "tooltip-format-wifi": "{essid} ({signalStrength}%) · {ipaddr} — clique: ligar/desligar Wi-Fi, conectar redes",
+    "tooltip-format-disconnected": "Sem conexão — clique para abrir",
     "on-click": "craft-connect"
   },
 

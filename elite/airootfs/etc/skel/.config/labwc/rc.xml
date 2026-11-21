@@ -20,7 +20,7 @@
     · W-q e W-c → fechar (o criador usa ambos) · A-F4 · W-i / A-F5 → minimizar
     · W-m / A-F10 → maximizar · A-F11 → fullscreen (fullscreen do criador!)
     · W-←/→/↑/↓ → snap em metades (mesma semântica do snap MoveResizeTo dele)
-    · W-n → rede (nm-connection-editor, GUI) · W-S-b → bluetooth (blueman-manager, GUI)
+    · W-n → rede (nm-connection-editor, GUI) · W-S-b → bluetooth (overskride, GUI E134)
     · W-x → menu de sessão (criador: rofi-powermenu; aqui: craft-logout)
     · C-A-Delete → sessão (criador: Exit com prompt; aqui: menu craft-logout)
     · C-S-R → Reconfigure (alias do W-S-r)
@@ -234,9 +234,10 @@
     <keybind key="W-n">
       <action name="Execute" command="nm-connection-editor" />
     </keybind>
-    <!-- Bluetooth (W-S-b · E132: o applet saiu — o bluetui TUI da casa) -->
+    <!-- Bluetooth (W-S-b · E134: o gerenciador GRÁFICO da casa —
+         overskride, GTK4/libadwaita/Wayland; o bluetui TUI saiu) -->
     <keybind key="W-S-b">
-      <action name="Execute" command="foot -e bluetui" />
+      <action name="Execute" command="overskride" />
     </keybind>
     <keybind key="W-s">
       <action name="Execute" command="foot -e btop" />

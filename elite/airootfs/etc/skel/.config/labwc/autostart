@@ -22,6 +22,25 @@ if [ -d "$_run_elite" ]; then
     find "$_run_elite" -mindepth 1 -maxdepth 1 \( -type s -o -type f \) -delete 2>/dev/null
 fi
 
+# --- Displays: O ARRANJO SALVO NASCE APLICADO NO FRAME 0 (E89→E129→E134)
+#     O relato do dono: "eu coloco 200 hertz e toda vez que eu reinicio o
+#     PC tem que estar colocando os 200 hertz… porque ele some". O modo é
+#     propriedade do compositor em RAM — nada na casa gravava a escolha.
+#     E129 — O APPLY-BOOT É SÍNCRONO (a ordem do dono: 'sem espera de
+#     27s/6 ticks no relogin'): UMA passada, a resolução nasce ANTES das
+#     barras (nada de waybar/dock nascendo a 60 Hz para trocar depois —
+#     o 'aplicou do nada' morre).
+#     E134 — A PRIMEIRA LINHA DA SESSÃO (a ordem do dono 1.0-81: 'execute
+#     craft-display apply sincronamente na primeira linha do autostart'):
+#     o display vem ANTES do wallpaper e de qualquer outro cliente — os
+#     200 Hz nascem com a primeira frame de tudo; o watch nasce junto
+#     (com o OUVIDOR do logind E134: Unlock/PrepareForSleep viram apply
+#     IMEDIATO) e o do_apply do supervisor mantém a rede por baixo.
+if command -v craft-display >/dev/null 2>&1; then
+    craft-display apply-boot >/dev/null 2>&1
+    craft-display watch >/dev/null 2>&1 &
+fi
+
 # --- Wallpaper: v1.7.1 — CURADORIA DA INTERNET (decisão do dono) ----------
 #     "Eu queria um wallpaper da internet mesmo, esses gerados são muito
 #     ruim" — o experimento IA da v1.7 saiu de cena. Fonte: Unsplash
@@ -51,21 +70,6 @@ if command -v swaybg >/dev/null 2>&1; then
         # sem imagem (ex.: skel parcial): preto AMOLED, zero decodificação
         swaybg -m fill -c '#000000' &
     fi
-fi
-
-# --- Displays: O ARRANJO SALVO NASCE APLICADO NO FRAME 0 (E89→E129) -----
-#     O relato do dono: "eu coloco 200 hertz e toda vez que eu reinicio o
-#     PC tem que estar colocando os 200 hertz… porque ele some". O modo é
-#     propriedade do compositor em RAM — nada na casa gravava a escolha.
-#     E129 — O APPLY-BOOT É SÍNCRONO (a ordem do dono: 'sem espera de
-#     27s/6 ticks no relogin'): UMA passada, a resolução nasce ANTES das
-#     barras (nada de waybar/dock nascendo a 60 Hz para trocar depois —
-#     o 'aplicou do nada' morre); os 6 ticks de retry são teatro no boot
-#     (o do_apply do supervisor mantém o teto E106 por baixo, e o watch
-#     segue gravando a escolha do dono por QUALQUER porta).
-if command -v craft-display >/dev/null 2>&1; then
-    craft-display apply-boot >/dev/null 2>&1
-    craft-display watch >/dev/null 2>&1 &
 fi
 
 # --- Janelas: daemon wlr-foreign-toplevel (v2.10.1 — a dock COMUTADORA) ---

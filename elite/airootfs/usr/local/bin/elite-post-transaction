@@ -224,7 +224,8 @@ fi
 #      do Linux'); quem JÁ escolheu o seu, fica com o seu (a escolha do
 #      dono é intocável).
 SRC_FLAGS=/usr/local/share/elite/chromium-flags/brave-flags.conf
-if [ ! -e /run/archiso ] && [ -r "$SRC_FLAGS" ]; then
+SRC_CODEFLAGS=/usr/local/share/elite/chromium-flags/code-flags.conf
+if [ ! -e /run/archiso ] && { [ -r "$SRC_FLAGS" ] || [ -r "$SRC_CODEFLAGS" ]; }; then
     while IFS=: read -r _u _p _uid _gid _g _h _s; do
         [ "$_uid" -ge 1000 ] 2>/dev/null || continue
         [ -d "$_h" ] || continue
@@ -236,6 +237,18 @@ if [ ! -e /run/archiso ] && [ -r "$SRC_FLAGS" ]; then
                 tlog "brave-flags: FALHOU sincronizar para $_u (réu nomeado no papel)"
             fi
         fi
+        # E134 — O CODE-FLAGS DO VSCODIUM (a ordem do dono 1.0-81: o
+        # --password-store=basic nos Electron da casa — zero chaveiro,
+        # zero popup; o conf viaja no pacote como o do Brave)
+        _ctgt="$_h/.config/code-flags.conf"
+        if [ -r "$SRC_CODEFLAGS" ] && ! cmp -s "$SRC_CODEFLAGS" "$_ctgt" 2>/dev/null; then
+            if install -Dm644 -o "$_uid" -g "$_gid" "$SRC_CODEFLAGS" "$_ctgt" 2>/dev/null; then
+                tlog "code-flags: conf da casa sincronizado para $_u (o password-store basic do E134 — o chaveiro nunca mais é acordado)"
+            else
+                tlog "code-flags: FALHOU sincronizar para $_u (réu nomeado no papel)"
+            fi
+        fi
+        unset _ctgt
         _mapps="$_h/.config/mimeapps.list"
         if ! grep -q "^text/plain=" "$_mapps" 2>/dev/null; then
             mkdir -p "${_mapps%/*}" 2>/dev/null || true

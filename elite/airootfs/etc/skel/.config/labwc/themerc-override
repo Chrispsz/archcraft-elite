@@ -94,6 +94,16 @@ menu.items.padding.x: 8
 menu.items.padding.y: 4
 menu.border.width: 1
 menu.border.color: #16161f
+# E134 — A LARGURA DO MENU SEM RECORTE (a ordem do dono 1.0-81: rótulos
+# curtos SEM truncamento — o cap default do labwc é menu.width.max 200,
+# o cortador do '(tela int…' da era E124): o piso SOBE para 200 (a
+# lista do menu da casa nunca nasce esquelética) e o teto vai a 280 (o
+# rótulo mais comprido da casa — 'Captura de tela', 'Limpeza do
+# sistema' — cabe INTEIRO). labwc-theme(5): 'A fixed width can be
+# achieved by setting .min and .max to the same value' — aqui min < max
+# de propósito: o menu respira COM O CONTEÚDO entre 200 e 280.
+menu.width.min: 200
+menu.width.max: 280
 menu.separator.width: 1
 menu.separator.color: #16161f
 menu.separator.padding.height: 4

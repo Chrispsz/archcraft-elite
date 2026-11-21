@@ -169,7 +169,7 @@ Redes Wi-Fi
     # adaptador de verdade, sem depender de ferramenta de userland.
     if [ -n "$(ls /sys/class/bluetooth 2>/dev/null)" ]; then
         rows="${rows}Gerenciar conexões
-Bluetooth: dispositivos
+Gerenciar Bluetooth
 Editar conexões"
     else
         rows="${rows}Gerenciar conexões
@@ -584,17 +584,22 @@ EOF
         'Gerenciar conexões')
             known_menu
             continue ;;
-        'Bluetooth: dispositivos')
-            # E132 — o applet blueman SAIU da casa (higiene da ordem do
-            # dono; o craft-update/craft-clean o removem dos rigs): o
-            # verbo é o bluetui TUI (o pareamento continua funcional; o
-            # rig com blueman ainda vivo o usa até a dose chegar)
+        'Gerenciar Bluetooth')
+            # E134 — O BLUETOOTH GRÁFICO DA CASA (a ordem do dono, dump
+            # 1.0-80: o gerenciador é o overskride — GTK4/libadwaita,
+            # nativo Wayland, adotado pela casa; o bluetui TUI saiu e o
+            # craft-update o remove dos rigs). Fallback honesto para o
+            # rig da dose anterior: o blueman que ainda viver serve até
+            # a dose chegar; por último o terminal do bluetoothctl.
             mlog "Rede: abrindo o gerenciador Bluetooth"
             rm -f "$MAP" "$T1" "$T2"   # v2.10.5: exec pula o trap — limpa na mão
+            if command -v overskride >/dev/null 2>&1; then
+                exec overskride
+            fi
             if command -v blueman-manager >/dev/null 2>&1; then
                 exec blueman-manager
             fi
-            exec foot -e bluetui ;;
+            exec foot -e bluetoothctl ;;
         'Editar conexões')
             # a CRIAÇÃO manual de redes mora no gerenciador gráfico do
             # sistema (a definição do próprio dono para o editor)

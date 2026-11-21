@@ -18,7 +18,9 @@
 #      chaveiro VELHO se perdem — no rig do dia-1 não há nada salvo).
 #   7. sudo de sessão no escuro (cura: craft-fix-keys novo — live only).
 #   8. corrida do /proc (cura: craft-bgapps novo).
-#   9. delay da dock (cura: craft-dock-gui novo — tick 1s).
+#   9. delay da dock (cura da ERA PYTHON: craft-dock-gui tick 1s. E134: a
+#      dock é o binário Rust craft-dock-rs — a peça de script não existe
+#      mais no repo; a reciclagem do epílogo cobre a transição).
 # Escola cura-viva (E25): cada peça PROVADA (bash -n + marcador) ANTES de
 # instalar, .bak do velho, sha256 impresso. Reversível: os .bak ficam ao lado.
 # ═══════════════════════════════════════════════════════════════════════════
@@ -61,20 +63,18 @@ say "CURA E26 — o papel completo falou; o rig obedece"
 
 # ── 1. Os 6 binários curados (bin → marcador de conteúdo) ──────────────────
 say "1/6 · BINÁRIOS (power, idle, fix-keys, bgapps, dock, elite-tune)"
-for piece in craft-power craft-idle craft-fix-keys craft-bgapps craft-dock-gui elite-tune; do
+for piece in craft-power craft-idle craft-fix-keys craft-bgapps elite-tune; do
     fetch "elite/airootfs/usr/local/bin/$piece" "$T/$piece" || die "falha ao baixar $piece (sem rede?)"
 done
 prove "$T/craft-power"      'v2.10.12' '|| can=""'
 prove "$T/craft-idle"       'Travar: 2 minutos' 'Suspender: 20 min'
 prove "$T/craft-fix-keys"   'A CAMADA DE SESSÃO SÓ AGE NO LIVE'
 prove "$T/craft-bgapps"     'A CORRIDA DO PROCESSO MORRENDO'
-prove "$T/craft-dock-gui"   'timeout_add(1000'
 prove "$T/elite-tune"       'O FANTASMA NO DRAWER'
 install_piece "$T/craft-power"      /usr/local/bin/craft-power      755 '|| can=""'
 install_piece "$T/craft-idle"       /usr/local/bin/craft-idle       755 'Travar: 2 minutos'
 install_piece "$T/craft-fix-keys"   /usr/local/bin/craft-fix-keys   755 'SÓ AGE NO LIVE'
 install_piece "$T/craft-bgapps"     /usr/local/bin/craft-bgapps     755 'CORRIDA DO PROCESSO'
-install_piece "$T/craft-dock-gui"   /usr/local/bin/craft-dock-gui   755 'timeout_add(1000'
 install_piece "$T/elite-tune"       /usr/local/bin/elite-tune       755 'FANTASMA NO DRAWER'
 
 # ── 2. A regra polkit (o -i sem prompt) ────────────────────────────────────
@@ -136,7 +136,8 @@ ok "no PRÓXIMO login o PAM cria o chaveiro com a senha do login (o mismatch mor
 # ── epílogo: a dock nova sobe supervisionada, o idle segue intocado ────────
 say "EPÍLOGO"
 pkill -f '^/usr/bin/python3 /usr/local/bin/craft-dock-gui$' 2>/dev/null || true
-ok "dock encerrada — o craft-bars a ressuscita com o código novo em ≤5s (tick 1s)"
+pkill -f '^/usr/local/bin/craft-dock-rs$' 2>/dev/null || true
+ok "dock encerrada (o fóssil Python e o binário Rust) — o craft-bars a ressuscita com o código novo em ≤5s (a era E134: a dock é o craft-dock-rs)"
 ok "idle.conf do dono NÃO foi tocado (LOCK/OFF/SUSPEND_MIN são escolha dele — o menu novo agora diz o que faz)"
 printf '\nCura E26 completa. Provas: marcadores + sha256 acima; reversão: os .bak ao lado de cada arquivo.\n'
 printf 'O próximo papel (sudo craft-dump --upload) já sai da main como v2.5 — com o fantasma e a E23 nomeáveis.\n'

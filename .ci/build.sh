@@ -545,6 +545,12 @@ EODCONF
 mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/chromium-flags
 cp -p /work/elite/airootfs/etc/skel/.config/brave-flags.conf \
       /tmp/elite-src/elite-system/files/usr/local/share/elite/chromium-flags/brave-flags.conf
+# E134 — O CODE-FLAGS TAMBÉM VIAJA (a ordem do dono 1.0-81: --password-store=
+# basic nos apps Chromium/Electron — Brave já tinha o flag da E115; o
+# VSCodium ganha o SEU conf de pacote e o elite-post-transaction sincroniza
+# ao home dos rigs vivos, a mesma escola do brave-flags).
+cp -p /work/elite/airootfs/etc/skel/.config/code-flags.conf \
+      /tmp/elite-src/elite-system/files/usr/local/share/elite/chromium-flags/code-flags.conf
 # E115 — AS SKINS DA TOPBAR NO PACOTE (a gramática E91 na 4ª pele): o
 # config.top/style.top.css moravam só no skel — rig vivo NUNCA recebia
 # (o assento do modo de jogo e o player melhorado eram promessa da ISO
@@ -694,8 +700,8 @@ menu_rm = '    [ -e "/usr/local/share/elite/labwc/menu.xml" ] && rm -f "/usr/loc
 # o hook sincronizador fazia [ -r $SRC_FLAGS ] falha silenciosa e o rig
 # do dono vivia sem --password-store=basic e sem os flags Ozone/GPU) —
 # a mesma dança da família E91 (caminho novo = criação limpa).
-flags_install = '    install -d "${pkgdir}/usr/local/share/elite/chromium-flags"\n    install -m644 "${startdir}/files/usr/local/share/elite/chromium-flags/brave-flags.conf" "${pkgdir}/usr/local/share/elite/chromium-flags/brave-flags.conf"\n'
-flags_rm = '    [ -e "/usr/local/share/elite/chromium-flags/brave-flags.conf" ] && rm -f "/usr/local/share/elite/chromium-flags/brave-flags.conf"\n'
+flags_install = '    install -d "${pkgdir}/usr/local/share/elite/chromium-flags"\n    install -m644 "${startdir}/files/usr/local/share/elite/chromium-flags/brave-flags.conf" "${pkgdir}/usr/local/share/elite/chromium-flags/brave-flags.conf"\n    install -m644 "${startdir}/files/usr/local/share/elite/chromium-flags/code-flags.conf" "${pkgdir}/usr/local/share/elite/chromium-flags/code-flags.conf"\n'
+flags_rm = '    [ -e "/usr/local/share/elite/chromium-flags/brave-flags.conf" ] && rm -f "/usr/local/share/elite/chromium-flags/brave-flags.conf"\n    [ -e "/usr/local/share/elite/chromium-flags/code-flags.conf" ] && rm -f "/usr/local/share/elite/chromium-flags/code-flags.conf"\n'
 # E115/E117 — AS SKINS DA TOPBAR EMBARCAM DE VERDADE (o mesmo réu-mãe:
 # staged e nunca installado — o craft-rice das skins lia um caminho que
 # o pacote nunca entregou ao rig vivo).
@@ -2497,7 +2503,7 @@ pkgver=1.0
 #     std-only + caches de jogo Steam/Lutris/Heroic/Hydra + adjacente ao
 #     binário) e a decoração de janela garantida no rc.xml (XWayland na
 #     tela cheia).
-pkgrel=80
+pkgrel=81
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da sessão; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
@@ -2548,15 +2554,18 @@ build() {{
     export RUSTFLAGS="-C target-cpu=x86-64-v3"
     mkdir -p rust
     tar -xzf rust-workspace.tar.gz -C rust
-    # E132 — o DAEMON é OBRIGATÓRIO (falha = build vermelha); a DOCK é o
-    # degrau novo em GTK (a UI só compila com pkg-config gtk4 + layer-
-    # shell no container): se ela tosse, o AVISO nomeia e a dose segue
-    # com a dock Python de fallback (o craft-bars prefere a Rust QUANDO
-    # o binário existe — a package() só instala o que nasceu; nunca a
-    # dose inteira refém do degrau mais novo)
+    # E132 — o DAEMON é OBRIGATÓRIO (falha = build vermelha); E134 — A
+    # DOCK TAMBÉM (a UI compila com o pkg-config gtk4 + layer-shell do
+    # makedepends; a dose sem dock é uma dose SEM DOCK — o fallback
+    # Python morreu com a migração definitiva da ordem do dono)
     cargo build --release --locked --manifest-path rust/Cargo.toml -p elite-daemon
-    cargo build --release --locked --manifest-path rust/Cargo.toml -p craft-dock-rs \\
-        || echo "E132 AVISO: craft-dock-rs não compilou — a dock Python segue no pacote (o daemon segue obrigatório)"
+    # E134 — A DOCK RUST É OBRIGATÓRIA: a dose 1.0-80 nasceu SEM o binário
+    # porque o '|| echo AVISO' deixava a build VERDE sem ele — e o rig
+    # seguiu na dock Python com o supervisor novo esperando o Rust (o dump
+    # 1.0-80 fotografou o /usr/bin/python3 craft-dock-gui VIVO). Sem o
+    # binário a build morre VERMELHA: não existe mais dock Python no
+    # pacote, uma dose sem o craft-dock-rs é uma dose SEM DOCK.
+    cargo build --release --locked --manifest-path rust/Cargo.toml -p craft-dock-rs
 }}
 # ADOÇÃO (a herança do elite-craft): nos rigs, estes arquivos nasceram SEM
 # dono (overlay da ISO) — o pacman recusa sobrescrever não-dono ANTES de
@@ -2597,10 +2606,10 @@ package() {{
     # a fonte do daemon viaja no pacote (transparência — o mesmo papel que
     # ela tinha no craft-toplevel legado)
     install -Dm644 craft-toplevel.c "${{pkgdir}}/usr/local/share/elite/src/craft-toplevel.c"
-    # E132 — os binários RUST da fundação: só instala o que a build do
-    # workspace DEVOLVEU (o craft-dock-rs é o crate do agente-irmão da
-    # orquestração — presente no tar, presente aqui; ausente, o loop
-    # pula sem erro e o pacote segue com o elite-daemon)
+    # E132 — os binários RUST da fundação. E134: o craft-dock-rs é
+    # OBRIGATÓRIO (a build dele falhou = build vermelha antes de chegar
+    # aqui; o fallback Python não existe mais — dose sem dock é build
+    # vermelha, e o install abaixo prova o arquivo com a verdade)
     for b in elite-daemon craft-dock-rs; do
         [ -f "rust/target/release/$b" ] && install -m755 "rust/target/release/$b" "${{pkgdir}}/usr/local/bin/$b"
     done
@@ -2931,6 +2940,18 @@ aur_build() { # $1 = nome do pacote AUR
 }
 if ! ls /var/cache/elite-local/pwvucontrol-*.pkg.tar.zst >/dev/null 2>&1; then
     aur_build pwvucontrol  || exit 1
+fi
+# E134 — OVERSKRIDE (o gerenciador Bluetooth GRÁFICO da casa, GTK4/
+# libadwaita/Wayland — a ordem do dono no lugar do bluetui TUI):
+# procedência provada na ENTRADA (a escola do pin — archlinux.org/
+# packages/search/json → ZERO resultados nos repos oficiais; AUR
+# 'overskride' 0.6.6 newest conferido via repology.org/api/v1/project/
+# overskride). Mesmo canal do pwvucontrol: clona o AUR, compila como
+# usuário descartável e o pacote entra no [elite-local] — a ISO nasce
+# com ele e o canal da release entrega ao rig (a ADOCAO do
+# craft-update resolve por pacman, sem AUR no rig).
+if ! ls /var/cache/elite-local/overskride-*.pkg.tar.zst >/dev/null 2>&1; then
+    aur_build overskride  || exit 1
 fi
 rm -f /etc/sudoers.d/builder
 

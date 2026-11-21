@@ -155,9 +155,19 @@
          achava o craft-clean e moria com 'No such file or directory'
          DEPOIS da senha aceita — e a mensagem de fallback MENTIA ('a
          senha não foi aceita'). O caminho ABSOLUTO mata a classe e a
-         mensagem agora fala o rc honesto + o papel. -->
+         mensagem agora fala o rc honesto + o papel.
+         E134 — O PKEXEC DIRETO, SEM /usr/bin/env (a causa provada dos
+         'polkit-agent-helper@… FAILED' do dump 1.0-80): `pkexec env
+         HOME=… craft-clean` tem o lookup em /usr/bin/env — FORA da
+         regra 50-elite-wheel.rules da casa, que autoriza EXATAMENTE
+         os caminhos da casa (polkit: strcmp do lookup). O pedido caía
+         na senha comum e o helper nascia FAILED no systemctl. Agora o
+         alvo É o craft-clean (o caminho da regra — sem senha para o
+         wheel local ativo) e o dono chega por ARGUMENTO: a porta
+         'as-root USUÁRIO HOME' do binário entrega a lixeira e os
+         caches do dono CERTOS, sem environment injection. -->
     <item label="Limpeza do sistema">
-      <action name="Execute" command="foot -e sh -c &apos;_rc=0; pkexec env HOME=&quot;$HOME&quot; /usr/local/bin/craft-clean menu || _rc=$?; [ &quot;$_rc&quot; -eq 0 ] || { printf &quot;\nLimpeza não completou (rc=%s) — a mensagem acima e o papel em ~/.cache/elite/clean.log dizem o porquê.\n&quot; &quot;$_rc&quot;; read -r _; }&apos;" />
+      <action name="Execute" command="foot -e sh -c &apos;_rc=0; pkexec /usr/local/bin/craft-clean --as-root &quot;$USER&quot; &quot;$HOME&quot; menu || _rc=$?; [ &quot;$_rc&quot; -eq 0 ] || { printf &quot;\nLimpeza não completou (rc=%s) — a mensagem acima e o papel em ~/.cache/elite/clean.log dizem o porquê.\n&quot; &quot;$_rc&quot;; read -r _; }&apos;" />
     </item>
     <separator />
     <!-- E109 — AppImages… e Flatpaks… SAÍRAM (a ordem do dono: menus de
@@ -205,17 +215,19 @@
     <item label="Ajuda">
       <action name="Execute" command="foot -e craft-help" />
     </item>
-    <!-- E133 — OS RÓTULOS DO DONO, palavra por palavra ('Aplicativos' →
-         'Menu de aplicativos'; 'Lock' → 'Tela de bloqueio'; 'Logout' →
-         'Encerrar sessão'; 'Reboot' → 'Reiniciar'; 'Shutdown' →
-         'Desligar' — este já era o verbo da casa): português natural e
-         autoexplicativo, nenhum termo em inglês sobrando no menu da
-         casa. Os atalhos (W-l, W-Escape/W-x/C-A-Del) seguem byte a
-         byte — o que muda é a PALAVRA que o dono lê. -->
-    <item label="Menu de aplicativos">
+    <!-- E133→E134 — OS RÓTULOS DO DONO, palavra por palavra (a lista
+         final do fechamento 1.0-81: 'Aplicativos', 'Terminal',
+         'Captura de tela', 'Atualizar sistema', 'Limpeza do sistema',
+         'Apps da dock', 'Modo de jogo', 'Trava automática', 'Ajuda',
+         'Bloquear tela', 'Encerrar sessão', 'Reiniciar', 'Desligar' —
+         nomes CURTOS e inteiros, nenhum termo em inglês e nenhum
+         recorte no cap do menu (themerc E134: menu.width.min 200 /
+         menu.width.max 280). Os atalhos (W-l, W-Escape/W-x/C-A-Del)
+         seguem byte a byte — o que muda é a PALAVRA que o dono lê. -->
+    <item label="Aplicativos">
       <action name="Execute" command="craft-drawer" />
     </item>
-    <item label="Tela de bloqueio">
+    <item label="Bloquear tela">
       <action name="Execute" command="craft-lock" />
     </item>
     <!-- E106 — O SAIR DIRETO (o dono: reboot e desligar já estão aqui —

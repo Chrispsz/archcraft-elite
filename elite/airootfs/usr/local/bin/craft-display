@@ -435,11 +435,23 @@ do_apply() {
                 rm -f "$RESUME_TICKS" 2>/dev/null || true
                 n_div=$(( $(cat "$DIVERGE" 2>/dev/null || echo 0) + 1 ))
                 printf '%s\n' "$n_div" > "$DIVERGE" 2>/dev/null || true
-                if [ "$n_div" -lt 6 ]; then
-                    dlog "apply: realidade diverge do conf salvo (tick $n_div/6) — esperando a estabilidade (a escolha do dono pode estar a caminho)"
+                # E134 — A ESPERA DE 6 TICKS (~30s) MORREU (a ordem do
+                # dono 1.0-81: 'display instantâneo'). A janela que
+                # SOBRA é de 2 heartbeats (~10s) e é CORRIDA, não
+                # espera: o watch precisa de 8s de estado ESTÁVEL
+                # (2 ticks de 4s) para gravar a escolha do dono feita
+                # no wdisplays — sem esta janela, o apply REVERTERIA a
+                # escolha no primeiro heartbeat divergente, antes de o
+                # conf dela existir (o dono mudaria o modo e o sistema
+                # desmancharia a mão dele 5s depois). 10s > 8s: o watch
+                # SEMPRE vence a corrida da escolha; a reversão de
+                # driver/replug (que NINGUÉM escolheu) re-aplica em
+                # ~10s em vez de ~30s.
+                if [ "$n_div" -lt 2 ]; then
+                    dlog "apply: realidade diverge do conf salvo (heartbeat $n_div/2 — a janela da corrida do watch: a escolha do dono no wdisplays grava em 8s; revertê-la antes seria desmanchar a mão dele)"
                     exit 0
                 fi
-                dlog "apply: realidade ≠ conf salvo há ~30s — REAPLICANDO o arranjo do dono (resume/replug?)"
+                dlog "apply: realidade ≠ conf salvo há ~10s e NINGUÉM escolheu isto (reversão/replug?) — REAPLICANDO o arranjo do dono (E134: a espera de 30s morreu)"
                 rm -f "$DIVERGE" 2>/dev/null || true
                 # cai no apply real abaixo (o stamp ok renasce do feito)
             fi
@@ -530,8 +542,49 @@ do_save() {
     return 0
 }
 
+# ── E134 — O OUVIDOR DO LOGIND: Unlock e PrepareForSleep(false) são ────
+#     EVENTOS, e evento não se espera por heartbeat. O ouvidor é um
+#     FILHO do watch (um processo por sessão, âncora própria no cmdline
+#     — o órfão da sessão anterior morre pelo pkill na nascença) e
+#     escuta o D-Bus do sistema (org.freedesktop.login1.Manager): ao
+#     DESTRAVAR a sessão ou VOLTAR do sono, toca a marca do resume (a
+#     reversão do driver não é escolha — E118) e chama o apply NA HORA
+#     (latência zero do 'display instantâneo' da ordem do dono 1.0-81;
+#     o sleep-hook elite-resume-display segue cobrindo o resume SEM
+#     watch vivo — as duas portas são idempotentes, o flock do apply
+#     serializa a corrida).
+login1_ouvidor() {
+    command -v dbus-monitor >/dev/null 2>&1 || return 0
+    # UM ouvidor por sessão (E30): o órfão do relogin morre pela âncora
+    # ANTES do nascimento — dois ouvidores seriam duas corridas de apply
+    # por evento (o flock seguraria, mas o papel contaria a dobradinha).
+    pkill -f "craft-display __login1-watch$" 2>/dev/null || true
+    ( /usr/local/bin/craft-display __login1-watch ) >/dev/null 2>&1 &
+}
+
+login1_watch() {
+    dbus-monitor --system "type='signal',interface='org.freedesktop.login1.Manager'" 2>/dev/null | awk '
+        /member=Unlock$/          { pend = "unlock"; next }
+        /member=PrepareForSleep$/ { pend = "sleep"; next }
+        pend == "sleep" && /boolean false/ { print "despertar"; fflush(); pend = "" }
+        pend == "sleep" && /boolean true/  { pend = "" }
+        pend == "unlock" && /^ *uint32 /   { print "destravar"; fflush(); pend = "" }
+    ' | while IFS= read -r _ev; do
+        case "$_ev" in
+            despertar|destravar)
+                : > "${XDG_RUNTIME_DIR:-/tmp}/elite/display-resume" 2>/dev/null || true
+                /usr/local/bin/craft-display apply >/dev/null 2>&1 || true
+                ;;
+        esac
+    done
+    exit 0
+}
+
 # ── watch: a escolha do dono grava sozinha (com o gate do arranjo) ───────
 do_watch() {
+    # E134 — o ouvidor do logind nasce com o watch (Unlock/PrepareForSleep
+    # viram apply IMEDIATO — a latência zero do 'display instantâneo')
+    login1_ouvidor
     # o watch nasce DEPOIS do apply (ordem do autostart): o primeiro
     # estado é fotografiado como base — só MUDANÇA estável depois dele
     # vira conf. Sem conf inicial, o estado atual É a base (nada é salvo
@@ -760,6 +813,7 @@ case "${1:-}" in
     apply-boot) apply_boot ;;
     save)   do_save; exit $? ;;
     watch)  do_watch ;;
+    __login1-watch) login1_watch ;;   # E134: o ouvidor do logind (filho do watch)
     status)
         # E106 — O STATUS QUE FALAVA SOZINHO: seções vazias ganham LINHA
         # NOMEADA e exit ≠ 0 quando a realidade não responde. E107 — o
