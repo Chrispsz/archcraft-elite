@@ -533,6 +533,37 @@ nomeia_fila_nova() {
     ulog "E111: o elite-system ${es_antes} → ${es_depois} chegou NESTA dose — mas ela rodou com o craft-update ANTERIOR: as filas novas do pacote (lojas da casa, adoção ampliada) entram na PRÓXIMA dose (a dose ao ligar já carrega o código novo — nada ficou para trás)"
 }
 
+# E132 — A HIGIENE DE PACOTES DA ORDEM DO DONO (dump pós-1.0-78): os
+# APPLETS redundantes saem (polkit-gnome — o agente é o lxqt-policykit
+# nativo; blueman — o bluetui fica; network-manager-applet — o
+# nm-connection-editor é pacote próprio) e os ÓRFÃOS de carteira saem
+# junto (pacman -Qtdq — o granite7 da era vala e tudo que perdeu o dono).
+# SOB DEMANDA (a constituição §5): a higiene corre NO FIM da dose
+# (--sistema — o lock da transação já liberou; JAMAIS dentro de
+# scriptlet/hook, onde o db.lck da própria transação mataria o pacman).
+# SEGURA por desenho: -Rns só derruba SEM dependentes; pacote com fila
+# fica (a próxima dose re-tenta) e o papel nomeia cada gesto.
+higiene_e132() {
+    local pkg _orfaos
+    for pkg in polkit-gnome blueman network-manager-applet; do
+        if pacman -Q "$pkg" >/dev/null 2>&1; then
+            if run_root pacman -Rns --noconfirm "$pkg" >>"$ULOG" 2>&1; then
+                ulog "higiene E132: $pkg REMOVIDO (redundante — a casa tem substituto; sem dependentes)"
+            else
+                ulog "higiene E132: $pkg TEM DEPENDENTES/recusou — mantido (a próxima dose re-tenta)"
+            fi
+        fi
+    done
+    _orfaos="$(pacman -Qtdq 2>/dev/null || true)"
+    if [ -n "$_orfaos" ]; then
+        if run_root pacman -Rns --noconfirm $_orfaos >>"$ULOG" 2>&1; then
+            ulog "higiene E132: órfãos removidos ($(printf '%s ' $_orfaos)— sem dono de carteira)"
+        else
+            ulog "higiene E132: parte dos órfãos recusou sair (dependentes?) — o craft-clean segura o resto"
+        fi
+    fi
+}
+
 # E88 — A ATUALIZAÇÃO ÁGIL: downloads paralelos no pacman.conf. O default
 # do pacote vem COMENTADO ('#ParallelDownloads = 5') — UM pacote por vez:
 # o -Syu que 'parecia travado' no pacote grande era ISTO. Idempotente e
@@ -1206,6 +1237,9 @@ if [[ "${1:-}" == "--sistema" ]]; then
     adota_lojas
     nomeia_fila_nova "$es_before"
     refresh_if_craft_changed "$es_before" "$ec_before" "$tl_before"
+    # E132 — a higiene no fim da dose (o lock já liberou; applets
+    # redundantes + órfãos saem com segurança — o POST fecha a história)
+    higiene_e132
     if [ -n "$PRE_N" ] && snapper -c root create -t post --pre-number "$PRE_N" \
             -d 'elite-sysupdate' >/dev/null 2>&1; then
         ulog "sistema: snapshot POST #$PRE_N criado (o par PRE/POST fecha a história)"
@@ -1311,6 +1345,10 @@ nomeia_fila_nova "$es_before"
 # 'atualizei e persistiu' morre aqui, na dock, no áudio, no idle e no
 # daemon de janelas — que agora viaja no pacote único)
 refresh_if_craft_changed "$es_before" "$ec_before" "$tl_before"
+
+# E132 — a higiene da ordem do dono também na porta manual (a mão do
+# dono limpa o que a dose semanal limparia — o craft-clean completa)
+higiene_e132
 
 # E46/E51 — o automatismo nasce aqui (idempotente): a cadência AO LIGAR
 # + a semanal ficam vivas depois da 1ª 'Atualizar sistema'. A morada das

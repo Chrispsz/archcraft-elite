@@ -1139,11 +1139,11 @@ assert_nogrep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'qalculate-gtk' "cur
 SKCFG="$P/airootfs/etc/skel/.config"
 # brave: flags Wayland + aceleração de GPU completa
 assert_file "$SKCFG/brave-flags.conf" "v1.1: brave-flags.conf no skel (lido pelo launcher do brave-origin — padrão chromium-flags)"
-assert_grep "$SKCFG/brave-flags.conf" '^--ozone-platform=wayland$' "v1.1: brave — janelas nativas do compositor (Ozone)"
+assert_grep "$SKCFG/brave-flags.conf" '^--ozone-platform-hint=auto$' "v1.1→E132: brave — janelas nativas do compositor (Ozone pelo HINT — a sessão decide)"
 assert_nogrep "$SKCFG/brave-flags.conf" 'DefaultANGLEVulkan' "E114: o réu do vídeo branco EXTINTO (o ANGLE sobre Vulkan da era v1.1 é a família do frame de vídeo que não desenha com o preview vivo — o compositing GL é o padrão estável; a Wayland nativa segue)"
 assert_nogrep "$SKCFG/brave-flags.conf" 'WaylandWindowDecorations' "E30: brave SEM CSD forçado (o labwc desenha SSD — os botões macOS da casa em TODAS as janelas, inclusive o navegador)"
 assert_grep "$SKCFG/brave-flags.conf" '^--ignore-gpu-blocklist$' "v1.1: brave — sem blocklist de software rendering"
-assert_grep "$SKCFG/brave-flags.conf" 'VaapiVideoDecodeLinuxGL' "v1.1: brave — VA-API documentado (comentado p/ rigs)"
+assert_grep "$SKCFG/brave-flags.conf" 'AcceleratedVideoDecodeLinuxGL' "v1.1→E132: brave — VA-API em PRODUÇÃO (o conjunto da ordem do dono: decode GL + ZeroCopy GL + a porta NVIDIA)"
 # mimeapps: os apps padrão são os novos
 assert_file "$SKCFG/mimeapps.list" "v1.1: mimeapps.list no skel"
 assert_grep "$SKCFG/mimeapps.list" 'x-scheme-handler/https=brave-browser\.desktop' "v1.1: https abre brave"
@@ -3187,19 +3187,42 @@ assert_grep "$E74BIN/craft-vigil" 'systemctl suspend -i' \
 assert_grep "$E74BIN/craft-idle" 'before-sleep' \
   "E74/F4: before-sleep trava no suspender (o ciclo lock→suspend→wake fecha sozinho)"
 
-# ── FASE 5: matemática de RAM (elite-optimize) ──
+# ── FASE 5: matemática de RAM (elite-optimize v2 — a régua E132) ──
 assert_file "$E74BIN/elite-optimize" \
-  "E74/F5: elite-optimize existe (a spec: 2-4 GB zram agressivo · 8 GB equilibrado · 16 GB+ prioriza cache)"
+  "E74/F5: elite-optimize existe (a spec: 2-4 GB zram agressivo · 8 GB equilibrado · 16 GB+ contido)"
 assert_grep "$E74BIN/elite-optimize" '99-elite-ram.conf' \
-  "E74/F5: o perfil vence por ORDEM LEXICAL (99-elite-ram > 99-elite) — a lei base fica intacta"
+  "E74→E132/F5: o fóssil da ORDEM LEXICAL é REMOVIDO com voz (o 99-elite-ram.conf vencia o 99-elite.conf e era o réu do drift 150≠180 — a lei única agora é o 99-elite.conf calibrado)"
 assert_grep "$E74BIN/elite-optimize" 'ELITE_MEMINFO' \
   "E74/F5: costura de teste honesta (o executor prova os 3 perfis sem raiz nem /proc do sandbox)"
 assert_grep "$E74BIN/elite-tune" 'run elite-optimize' \
   "E74/F5: o [5] chama a matemática (atualização = recalcula — a spec manda pós-instalação E atualização)"
-assert_grep "$E74BIN/elite-tune" 'elite-optimize --swappiness' \
-  "E74/F5: o 2i do firstboot PERGUNTA ao perfil em vez de adivinhar 180 (o número estático morreu)"
+assert_grep "$E74BIN/elite-tune" '99-elite\.conf' \
+  "E74→E132/F5: o 2i do firstboot lê a LEI DO CONF (o número vem do 99-elite.conf calibrado — a régua E132 é a única voz; o --swappiness do perfil velho aposentou como fonte)"
+assert_grep "$E74BIN/elite-tune" '_sw=180' \
+  "E132/F5: a régua calibrada no próprio corpo do tune (<=8 GiB → 180 · 16 GiB → 160 · >=32 GiB → 150 — a ordem do dono)"
 assert_grep "$E74PKGS" '^zram-generator$' \
   "E74/F5: reconciliação — o zram-generator.conf viajava na ISO SEM DONO; o pacote agora é da lista"
+# ── E132 — a otimização extrema da ordem do dono (kernel/sysctl/boot) ──
+assert_grep "$E74BIN/elite-tune" 'dirty_background_ratio = 5' \
+  "E132/tune: o par do dirty na lei do sysctl (escrita assentando cedo e em bloco pequeno)"
+assert_grep "$E74BIN/elite-tune" 'vm.compaction_proactiveness = 0' \
+  "E132/tune: a compactação proativa DESLIGADA (o kcompactd não acorda sem convite)"
+assert_grep "$E74BIN/elite-tune" 'ensure_thp_madvise' \
+  "E132/tune: o THP madvise no kernel VIVO + o tmpfiles de TODO boot (a função única chamada pelos dois modos)"
+assert_grep "$E74BIN/elite-tune" '99-elite-thp.conf' \
+  "E132/tune: o tmpfiles do THP nasce no tune (o /etc/tmpfiles.d é a memória que o GRUB não precisa dar)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-post-upgrade" 'NetworkManager-wait-online' \
+  "E132/post-upgrade: o NM-wait-online MASCARADO na dose (o userspace 65s → ~6s da ordem do dono; a rede segue viva — só a ESPERA morre)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-post-upgrade" '99-elite-ram.conf' \
+  "E132/post-upgrade: o fóssil da ordem lexical REMOVIDO na dose (o réu do drift morre no rig vivo)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-post-upgrade" 'vm.dirty_background_ratio = 5' \
+  "E132/post-upgrade: a régua regenerada na dose (o conf velho ganha as chaves novas + o swappiness calibrado da RAM)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-audio-route" 'auto_null' \
+  "E132/áudio: o roteador LIMPA o auto_null preso no WirePlumber (o Default Configured 'auto_null' do dump com placa física viva — a escolha persistente nasce)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-update" 'higiene_e132' \
+  "E132/higiene: a dose --sistema remove applets redundantes + órfãos (o lock já liberou — JAMAIS dentro de scriptlet; com voz no papel)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-clean" 'network-manager-applet' \
+  "E132/higiene: o craft-clean remove o trio redundante com segurança (-Rns recusa dependentes — o granite7 e órfãos seguem no passo velho)"
 
 # ── FASE 6: perfis de driver (elite-drivers) ──
 assert_file "$E74BIN/elite-drivers" \

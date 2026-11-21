@@ -229,13 +229,14 @@
     <keybind key="W-e">
       <action name="Execute" command="foot -e nano" />
     </keybind>
-    <!-- Rede (W-n · GUI v1.8.2 — áudio do dono: TUI não é pra ele) -->
+    <!-- Rede (W-n · o editor gráfico de conexões — E132: o applet saiu,
+         o editor é pacote próprio nm-connection-editor) -->
     <keybind key="W-n">
       <action name="Execute" command="nm-connection-editor" />
     </keybind>
-    <!-- Bluetooth (W-S-b · GUI v1.8.2 — blueman-manager) -->
+    <!-- Bluetooth (W-S-b · E132: o applet saiu — o bluetui TUI da casa) -->
     <keybind key="W-S-b">
-      <action name="Execute" command="blueman-manager" />
+      <action name="Execute" command="foot -e bluetui" />
     </keybind>
     <keybind key="W-s">
       <action name="Execute" command="foot -e btop" />

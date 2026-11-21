@@ -551,9 +551,10 @@ EOF
             known_menu
             continue ;;
         'Bluetooth: dispositivos')
-            # v2.6.0 — o verbo que o dono APROVOU no rig ("o de bluetooth é
-            # legal e funcional") segue: blueman-manager (GUI) com o
-            # bluetui de fallback
+            # E132 — o applet blueman SAIU da casa (higiene da ordem do
+            # dono; o craft-update/craft-clean o removem dos rigs): o
+            # verbo é o bluetui TUI (o pareamento continua funcional; o
+            # rig com blueman ainda vivo o usa até a dose chegar)
             mlog "Rede: abrindo o gerenciador Bluetooth"
             rm -f "$MAP" "$T1" "$T2"   # v2.10.5: exec pula o trap — limpa na mão
             if command -v blueman-manager >/dev/null 2>&1; then

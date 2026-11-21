@@ -301,11 +301,24 @@ apply_grub_tokens() { # tokens de kernel + grub-mkconfig ([4] firstboot / [3] in
 }
 
 write_elite_sysctl() { # a lei do sysctl ([2i] firstboot quando ausente / [5] interativo)
-  wfile /etc/sysctl.d/99-elite.conf <<'EOF'
-# ── ELITE: sysctl de gaming
+  # E132 — O SWAPPINESS É CALIBRADO PELA RAM REAL (a ordem do dono: a
+  # disputa 150×180 morre na RAIZ — o valor é FUNÇÃO da máquina, não
+  # dogma): <=8 GiB → 180 (a página vale ouro) · 16 GiB → 160 · >=32 GiB
+  # → 150 (a casa grande já raramente toca o swap; o zram absorve o pico).
+  # O drift pós-dose morre junto: o post_upgrade REGENERA este arquivo com
+  # a MESMA régua a cada dose (elite-post-upgrade) — o conf e o kernel
+  # nunca mais divergem por perfil velho.
+  local _mib
+  _mib=$(( $(awk '/^MemTotal:/ {print $2}' /proc/meminfo 2>/dev/null || echo 0) / 1024 ))
+  local _sw=160
+  if   (( _mib > 0 && _mib <= 8192 ));  then _sw=180
+  elif (( _mib >= 32768 ));             then _sw=150
+  fi
+  wfile /etc/sysctl.d/99-elite.conf <<EOF
+# ── ELITE: sysctl de gaming (E132 — calibrado pela RAM desta máquina)
 # v2.10.26/E38 — o trio zram abaixo é o MESMO do 99-elite.conf da ISO
 # (o espelho não pode divergir — a doença do swappiness 150×180 nunca mais)
-vm.swappiness = 180
+vm.swappiness = $_sw
 vm.vfs_cache_pressure = 50
 vm.page_lock_unfairness = 1
 vm.max_map_count = 2147483642
@@ -313,7 +326,34 @@ kernel.sched_autogroup_enabled = 1
 vm.page-cluster = 0
 vm.watermark_boost_factor = 0
 vm.watermark_scale_factor = 125
+# E132 — o par do dirty (a ordem do dono: escrita assentando cedo e em
+# bloco pequeno — o gargalo de I/O do -Syu/decompress não trava a sessão)
+vm.dirty_background_ratio = 5
+vm.dirty_ratio = 10
+# E132 — a compactação proativa DESLIGADA (compaction_proactiveness=0 —
+# o THP madvise só a quem pede e o kcompactd para de acordar sem convite)
+vm.compaction_proactiveness = 0
 EOF
+  say "sysctl: swappiness calibrado = $_sw (RAM de ${_mib} MiB — a régua E132)"
+}
+
+# E132 — O THP MADVISE AGORA (a ordem do dono): o cmdline do GRUB vale no
+# PRÓXIMO boot; o kernel VIVO recebe o madvise na hora (a escrita em
+# /sys é o mesmo gesto do systemd-sysctl) e o tmpfiles entrega o token a
+# CADA boot (o /etc/tmpfiles.d é a memória que o GRUB não precisa dar).
+ensure_thp_madvise() {
+  wfile /etc/tmpfiles.d/99-elite-thp.conf <<'EOF'
+# ── ELITE (E132): THP=madvise em TODO boot (o cmdline do GRUB cobre o
+# kernel desde o arranque; este tmpfiles reafirma no userspace para o
+# caso do token ausente/regressão de firmware — barato e idempotente)
+w /sys/kernel/mm/transparent_hugepage/enabled - - - - madvise
+EOF
+  if [ -w /sys/kernel/mm/transparent_hugepage/enabled ]; then
+    run sh -c 'echo madvise > /sys/kernel/mm/transparent_hugepage/enabled'
+    say "THP: madvise aplicado no kernel VIVO (o 'always' fragmenta; o madvise dá THP a quem pede — E129/E132)"
+  else
+    say "THP: /sys não gravável (live/contêiner?) — o tmpfiles e o GRUB cobrem o boot real"
+  fi
 }
 
 ensure_bbr() { # BBR+fq ([2c] firstboot / [5] interativo) — $1 = iso | graft
@@ -791,20 +831,19 @@ PYBRAVE
   #     /etc/sysctl.d, REAPLICA e CONFERE no kernel — o resultado vai ao
   #     log; se seguir divergente, o aviso nomeia o réu (o dump v2.5
   #     lista /etc/sysctl.d inteiro na seção 3 para o próximo papel).
-  if [[ ! -f /etc/sysctl.d/99-elite.conf ]]; then
-    say "sysctl: 99-elite.conf ausente no alvo — recriando (a lei da ISO)"
+  if [[ ! -f /etc/sysctl.d/99-elite.conf ]] \
+     || ! grep -q '^vm\.compaction_proactiveness' /etc/sysctl.d/99-elite.conf 2>/dev/null; then
+    say "sysctl: 99-elite.conf ausente ou da ERA VELHA (sem as chaves E132) — recriando com a régua calibrada"
     # E37: o conteúdo é lei ÚNICA (write_elite_sysctl) — a cópia local com
     # o cabeçalho 'restaurado pelo firstboot' era o espelho que divergia
     write_elite_sysctl
   fi
-  # E74 — Fase 5: o swappiness esperado é do PERFIL de RAM, não mais o
-  # 180 estático (o elite-optimize é a única fonte do número — o 2i passa
-  # a conferir o que a matemática manda, e aplica o perfil em seguida).
-  want_sw=180
-  if command -v elite-optimize >/dev/null 2>&1; then
-    p_sw="$(elite-optimize --swappiness 2>/dev/null || true)"
-    [[ "$p_sw" =~ ^[0-9]+$ ]] && want_sw="$p_sw"
-  fi
+  # E132 — O SWAPPINESS É A LEI DO CONF (a régua calibrada acabou de
+  # escrever /etc/sysctl.d/99-elite.conf pelo write_elite_sysctl — o
+  # elite-optimize da E74 aposenta como FONTE do número: a calibração
+  # E132 (<=8→180 · 16→160 · >=32→150) é a única voz da casa).
+  want_sw="$(sed -n 's/^vm\.swappiness *= *//p' /etc/sysctl.d/99-elite.conf 2>/dev/null | tail -1)"
+  [[ "$want_sw" =~ ^[0-9]+$ ]] || want_sw=180
   got_sw="$(sysctl -n vm.swappiness 2>/dev/null || true)"
   if [[ "$got_sw" != "$want_sw" ]]; then
     say "sysctl: kernel em vm.swappiness='${got_sw:-?}' (Elite pede $want_sw) — reaplicando sysctl.d"
@@ -825,6 +864,16 @@ PYBRAVE
   if (( ! DRY )) && command -v elite-optimize >/dev/null 2>&1; then
     elite-optimize || warn "elite-optimize: o perfil de RAM não aplicou (réu à vista no log)"
   fi
+
+  # E132 — O BOOT NÃO ESPERA REDE (a ordem do dono: o userspace 65s →
+  # ~6s): o NetworkManager-wait-online segura o fim do boot pela
+  # verificação de rede (a rede continue funcionando — só a ESPERA morre;
+  # o systemd-analyze nomeou o réu) e o systemd-time-wait-sync é o
+  # irmão-relógio (o NTP acerta depois, sem bloquear o desktop). Mascarar
+  # é idempotente e reversível (unmask devolve).
+  run systemctl mask NetworkManager-wait-online.service 2>/dev/null || true
+  run systemctl mask systemd-time-wait-sync.service 2>/dev/null || true
+  say "boot: NetworkManager-wait-online + systemd-time-wait-sync MASCARADOS (o desktop não espera rede/relógio — E132)"
 
   # 3. serviços de tuning
   # v4.7 (fusão 4→1): ananicy-cpp é o ÚNICO daemon de boost. O scheduler
@@ -858,6 +907,8 @@ PYBRAVE
 
   # 4. tokens de kernel (GRUB) — E37: apply_grub_tokens (o espelho morreu)
   apply_grub_tokens
+  # E132 — o THP madvise no kernel VIVO + o tmpfiles de TODO boot
+  ensure_thp_madvise
 
   # 5. self-disable + marker + aviso
   #    v4.5: marker/só-disable APENAS com driver garantido. Sem rede no 1º
@@ -963,6 +1014,7 @@ fi
 
 # ── [3] Boot params (E37: apply_grub_tokens — a função única) ─────
 apply_grub_tokens
+ensure_thp_madvise   # E132: o madvise no kernel VIVO + o tmpfiles de TODO boot
 
 # ── [4] GPU ─────────────────────────────────────────────────────────
 if [[ "$VENDOR" == "nvidia" ]]; then
@@ -1015,6 +1067,9 @@ run systemctl daemon-reload
 run systemctl start systemd-zram-setup@zram0.service || true
 
 write_elite_sysctl   # E37: a lei única (era cópia literal do bloco do firstboot)
+systemctl mask NetworkManager-wait-online.service >/dev/null 2>&1 || true
+systemctl mask systemd-time-wait-sync.service >/dev/null 2>&1 || true
+say "boot: wait-online + time-wait-sync MASCARADOS (o userspace não espera rede — E132)"
 
 # E74 — Fase 5 do protocolo: a matemática de RAM virou lei própria (o
 # 180 estático servia o rig de 16 GB e enforcava o de 2 GB). O perfil

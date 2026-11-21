@@ -109,6 +109,30 @@ def default_sink():
         return ""
 
 
+# E132 — O AUTO_NULL PRESO NO WIREPLUMBER (a ordem do dono, dump
+# pós-1.0-78: o wpctl fotografou 'Default Configured Devices: 0.
+# Audio/Sink auto_null' COM placa física viva — o pactl via um default
+# runtime escolhido à moda, mas o CONFIGURADO (o que sobrevive ao
+# próximo plug/boot) era NENHUM: a sessão renascia sem escolha). A cura
+# lê o status do WirePlumber e devolve o sink CONFIGURADO: 'auto_null'
+# aqui = a doença, mesmo com o runtime aparentando saúde.
+def configured_default_sink():
+    try:
+        out = run(["wpctl", "status"], timeout=10)
+    except Exception:
+        return ""
+    m = re.search(r"Default Configured Devices:(.*?)(?:\n\s*\n|\Z)",
+                  out, re.S)
+    if not m:
+        return ""
+    line = re.search(r"Audio/Sink\s+([^\n]+)", m.group(1))
+    if not line:
+        return ""
+    # '0. alsa_output.pci-… (HD Audio…)' → o NOME do node (índice e nick fora)
+    val = re.sub(r"^\d+\.\s*", "", line.group(1).strip())
+    return val.split("(")[0].strip()
+
+
 def classify(sink):
     props = sink.get("properties") or {}
     desc = "%s %s" % (sink.get("description", ""), sink.get("name", ""))
@@ -200,6 +224,26 @@ def evaluate(prev_names, trigger):
     names = {s.get("name", "") for s in sinks}
     dflt = default_sink()
     d = next((s for s in sinks if s.get("name") == dflt), None)
+
+    # E132 — O AUTO_NULL PRESO: o default CONFIGURADO do WirePlumber em
+    # nenhum (auto_null) com placa viva = a escolha persistente não
+    # existe; o set-default-sink por BAIXO reescreve o configurado (o
+    # WirePlumber implementa a porta PulseAudio e PERSISTE nela) — o
+    # boot seguinte nasce com a escolha da casa, não com a sorte.
+    conf_bad = (dflt == "auto_null" or dflt.startswith("auto_null")
+                or configured_default_sink() == "auto_null")
+    if conf_bad and d is not None:
+        # o runtime já aponta para um sink válido: SÓ reafirma o
+        # CONFIGURADO (o switch_to pularia — o nome é o mesmo)
+        try:
+            if subprocess.run(["pactl", "set-default-sink", d.get("name", "")],
+                              capture_output=True, timeout=10).returncode == 0:
+                log("AUTO_NULL (%s) → configurado reafirmado: %s"
+                    % ("runtime" if dflt.startswith("auto_null") else "WirePlumber",
+                       d.get("description", d.get("name", ""))))
+        except Exception as e:
+            log("FALHA reafirmar default contra auto_null: %s" % e)
+        return names
 
     # 1) o default sumiu (BT desconectou, USB saiu) → melhor remanescente
     if d is None:

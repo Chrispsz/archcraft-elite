@@ -60,9 +60,16 @@ systemctl daemon-reload >/dev/null 2>&1 && tlog "systemd: daemon-reload ok" || t
 # §5 do dono: o systemd-time-wait-sync segura o boot esperando rede
 # (o -31s de arranque que a máquina do dono pagou) — MASCARADO (o
 # systemd-networkd-wait-online é quem sobrou, e é da base, não da casa).
+# E132 — O IRMÃO DE REDE ENTRA JUNTO (a ordem do dono: userspace 65s →
+# ~6s): o NetworkManager-wait-online segura o fim do boot pela
+# verificação de rede — a REDE segue funcionando, só a ESPERA morre
+# (o systemd-analyze nomeou o réu; unmask devolve).
 systemctl mask systemd-time-wait-sync.service >/dev/null 2>&1 \
     && tlog "boot: systemd-time-wait-sync MASCARADO (o arranque não espera rede morta)" \
     || tlog "boot: mask do time-wait-sync falhou (no-op honesto)"
+systemctl mask NetworkManager-wait-online.service >/dev/null 2>&1 \
+    && tlog "boot: NetworkManager-wait-online MASCARADO (o desktop não espera a rede levantar — E132)" \
+    || tlog "boot: mask do NM-wait-online falhou (no-op honesto)"
 _cad=""
 for _u in elite-channel.timer elite-channel.service \
           elite-bootupdate.timer elite-bootupdate.service \
@@ -82,9 +89,73 @@ systemd-tmpfiles --create >/dev/null 2>&1 \
 
 # ── 4. O SYSCTL DA CASA NO KERNEL VIVO (a transação pode ter trazido ──
 #      conf de terceiro por cima — a E101 do post-transaction prova a classe)
+# E132 — O CONFI É REGENERADO COM A RÉGUA CALIBRADA PELA RAM (a ordem do
+#      dono: <=8 GiB → 180 · 16 GiB → 160 · >=32 GiB → 150 — o drift
+#      150≠180 morre na RAIZ; o fóssil 99-elite-ram.conf da era E74, que
+#      vencia a lei por ordem lexical, é REMOVIDO aqui com voz: a casa
+#      inteira fala UM número só). Regeneração idempotente: a régua da
+#      MESMA máquina gera o MESMO arquivo — rodar 2× = mesmo estado.
+_mib=$(( $(awk '/^MemTotal:/ {print $2}' /proc/meminfo 2>/dev/null || echo 0) / 1024 ))
+_sw=160
+[ "$_mib" -gt 0 ] 2>/dev/null && [ "$_mib" -le 8192 ] 2>/dev/null && _sw=180
+[ "$_mib" -ge 32768 ] 2>/dev/null && _sw=150
+if [ "$_mib" -gt 0 ] 2>/dev/null; then
+    _tem_chave=novas
+    grep -q '^vm\.compaction_proactiveness' /etc/sysctl.d/99-elite.conf 2>/dev/null || _tem_chave=velhas
+    _tem_sw=""
+    _tem_sw="$(sed -n 's/^vm\.swappiness *= *//p' /etc/sysctl.d/99-elite.conf 2>/dev/null | tail -1)"
+    if [ "$_tem_chave" = velhas ]; then
+        cp -p /etc/sysctl.d/99-elite.conf "/etc/sysctl.d/99-elite.conf.bak-e132-$(date +%s)" 2>/dev/null || true
+        printf '%s\n' \
+            "# ── ELITE: sysctl de gaming (E132 — regenerado pelo post_upgrade; régua calibrada da RAM de ${_mib} MiB)" \
+            "vm.swappiness = $_sw" \
+            "vm.vfs_cache_pressure = 50" \
+            "vm.page_lock_unfairness = 1" \
+            "vm.max_map_count = 2147483642" \
+            "kernel.sched_autogroup_enabled = 1" \
+            "vm.page-cluster = 0" \
+            "vm.watermark_boost_factor = 0" \
+            "vm.watermark_scale_factor = 125" \
+            "vm.dirty_background_ratio = 5" \
+            "vm.dirty_ratio = 10" \
+            "vm.compaction_proactiveness = 0" \
+            > /etc/sysctl.d/99-elite.conf 2>/dev/null \
+            && tlog "sysctl: 99-elite.conf REGENERADO com a régua E132 (RAM ${_mib} MiB → swappiness $_sw + dirty 5/10 + compaction 0)"
+    elif [ "$_tem_sw" != "$_sw" ]; then
+        sed -i "s/^vm\.swappiness *=.*/vm.swappiness = $_sw/" /etc/sysctl.d/99-elite.conf 2>/dev/null \
+            && tlog "sysctl: swappiness recalibrado → $_sw (RAM ${_mib} MiB — a régua E132 na dose)"
+    fi
+    unset _tem_chave _tem_sw
+fi
+unset _mib _sw
+# o FÓSSIL DA ORDEM LEXICAL morre (era o réu do drift: vencia a lei em toda aplicação)
+if [ -f /etc/sysctl.d/99-elite-ram.conf ]; then
+    rm -f /etc/sysctl.d/99-elite-ram.conf 2>/dev/null \
+        && tlog "sysctl: 99-elite-ram.conf REMOVIDO (o fóssil E74 que vencia a lei por ordem lexical — uma voz só, a régua E132)"
+fi
 sysctl --system >/dev/null 2>&1 \
     && tlog "sysctl: --system re-aplicou (o tuning da casa vale NA HORA, não no próximo boot)" \
     || tlog "sysctl: --system não aplicou (no-op honesto)"
+
+# ── 4b. E132 — O THP MADVISE NO KERNEL VIVO + O TMPFILES DE TODO BOOT ─────
+#      (o cmdline do GRUB (seção 5) cobre o PRÓXIMO boot; este gesto cobre
+#      o AGORA — e o tmpfiles reafirma em cada arranque, barato e à prova
+#      de regressão de firmware)
+if [ ! -e /etc/tmpfiles.d/99-elite-thp.conf ]; then
+    mkdir -p /etc/tmpfiles.d 2>/dev/null || true
+    printf '%s\n' \
+        "# ── ELITE (E132): THP=madvise em TODO boot (o GRUB cobre desde o arranque;" \
+        "# este tmpfiles reafirma no userspace — barato e idempotente)" \
+        "w /sys/kernel/mm/transparent_hugepage/enabled - - - - madvise" \
+        > /etc/tmpfiles.d/99-elite-thp.conf 2>/dev/null \
+        && tlog "THP: tmpfiles 99-elite-thp.conf nasceu (madvise em todo boot)"
+fi
+if [ -w /sys/kernel/mm/transparent_hugepage/enabled ] \
+   && ! grep -q '\[madvise\]' /sys/kernel/mm/transparent_hugepage/enabled 2>/dev/null; then
+    if echo madvise > /sys/kernel/mm/transparent_hugepage/enabled 2>/dev/null; then
+        tlog "THP: madvise aplicado no kernel VIVO (sem esperar reboot — a ordem do dono E132)"
+    fi
+fi
 
 # ── 5. GRUB: OS TOKENS DA CASA ENTRAM UMA VEZ; O REBUILD SÓ SE MUDOU ──
 # zswap.enabled=0: o zram da casa é o swap (zram-generator) — o zswap na

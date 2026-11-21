@@ -865,10 +865,12 @@ assert_nogrep "$CCON" "pkill -f 'fuzzel" \
 #      manual mora lá, como o dono mesmo definiu. O bug do picker v3
 #      morreu de vez: linha→SSID/segredo via MAPA escrito pelo mesmo awk
 #      que desenha a lista — o valor devolvido ao NM é o que o NM deu.
-assert_grep "$REPO/elite/packages.add" '^network-manager-applet$' \
-  "packages.add: network-manager-applet presente (o editor de conexões é dele — item do menu)"
-assert_grep "$REPO/elite/packages.add" '^blueman$' \
-  "packages.add: blueman presente (GUI de bluetooth)"
+assert_nogrep "$REPO/elite/packages.add" '^network-manager-applet$' \
+  "E132/higiene: network-manager-applet FORA das listas (o applet redundante saiu — o EDITOR é pacote próprio nm-connection-editor)"
+assert_nogrep "$REPO/elite/packages.add" '^blueman$' \
+  "E132/higiene: blueman FORA das listas (o bluetui TUI fica — a higiene da ordem do dono)"
+assert_grep "$REPO/elite/packages.add" '^nm-connection-editor$' \
+  "E132/higiene: o editor de conexões é pacote PRÓPRIO (o split do network-manager-applet 1.24+ — a árvore completa Wi-Fi/Ethernet/VPN em janela GTK segue na casa)"
 assert_grep "$CCON" 'nmcli radio wifi' \
   "craft-connect v5: Wi-Fi liga/desliga pelo rádio do NetworkManager (o dono: 'não consigo desligar/ligar... wi-fi')"
 assert_grep "$CCON" 'nmcli device connect' \
@@ -888,14 +890,14 @@ assert_grep "$CCON" 'elite-net\.' \
 assert_grep "$CCON" 'exec nm-connection-editor' \
   "craft-connect v5: o editor do SISTEMA segue (a criação manual mora lá — definição do próprio dono)"
 assert_grep "$CCON" 'blueman-manager' \
-  "craft-connect v5: o verbo Bluetooth que o dono APROVOU segue (GUI, TUI só fallback)"
+  "craft-connect v5→E132: o verbo Bluetooth segue com o fallback honesto (o applet saiu da casa — o rig que ainda o tem o usa até a dose; o bluetui é o verbo novo)"
 assert_grep "$CCON" '--at=network' \
   "craft-connect v5: o menu nasce SOB O BOTÃO de rede (âncora do craft-menu v4)"
 RCXML="$REPO/elite/airootfs/etc/skel/.config/labwc/rc.xml"
 assert_grep "$RCXML" 'command="nm-connection-editor"' \
   "rc.xml: W-n abre o editor de conexões (função avançada fora do menu de 2 itens)"
-assert_grep "$RCXML" 'command="blueman-manager"' \
-  "rc.xml: W-S-b abre GUI de bluetooth (era bluetui TUI)"
+assert_grep "$RCXML" 'foot -e bluetui' \
+  "E132/rc.xml: W-S-b abre o bluetui TUI (o applet blueman saiu da casa — a higiene da ordem do dono)"
 AUTO="$REPO/elite/airootfs/etc/skel/.config/labwc/autostart"
 assert_nogrep "$AUTO" 'nm-applet &' \
   "v2.3.6: nm-applet FORA do autostart — a história completa: v2.0 estética → v2.3.5 função (voltou) → v2.3.6 substituição → v2.3.7 o menu chama o gerenciador do sistema"
@@ -1293,7 +1295,7 @@ assert_grep "$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml" 'command="cra
 
 # H. BRAVE com os botões da casa: o flag que forçava CSD morre (SSD do labwc)
 assert_nogrep "$REPO/elite/airootfs/etc/skel/.config/brave-flags.conf" 'WaylandWindowDecorations' "E30: fim do CSD forçado (o labwc desenha SSD igual às outras janelas — os botões macOS do foot)"
-assert_grep  "$REPO/elite/airootfs/etc/skel/.config/brave-flags.conf" 'UseOzonePlatform' "E30: Wayland nativo do Brave preservado (só a decoração muda)"
+assert_grep  "$REPO/elite/airootfs/etc/skel/.config/brave-flags.conf" 'ozone-platform-hint=auto' "E30→E132: Wayland nativo do Brave preservado pelo HINT (a sessão decide — Wayland sob Wayland; a decoração segue do compositor)"
 
 # I. O INSTALADOR MORRE ANTES DO LOGIN (o dono clicou no fantasma às 16:12:21;
 #    o firstboot removeria às 16:14:4x — a janela de corrida vira impossível)
@@ -1479,8 +1481,8 @@ for fn in apply_grub_tokens write_elite_sysctl ensure_bbr ensure_btrfs_stack; do
 done
 assert_eq "$(grep -c 'ensure_cmdline_token /etc/default/grub nowatchdog' "$CTUNE" || true)" "1" \
   "E37: o token nowatchdog não tem mais cópia espelhada (era 2 — a doença do E33 morreu na estrutura)"
-assert_eq "$(grep -c 'vm\.swappiness = 180' "$CTUNE" || true)" "1" \
-  "E37: a lei do sysctl vive em write_elite_sysctl (era 2 cópias que podiam divergir)"
+assert_eq "$(grep -c 'vm\.swappiness = \$_sw' "$CTUNE" || true)" "1" \
+  "E37→E132: a lei do sysctl vive em write_elite_sysctl UMA vez (a régua calibrada — o 180 estático virou função da RAM; o espelho duplo segue morto)"
 assert_eq "$(grep -c 'grub-mkconfig -o /boot/grub/grub\.cfg' "$CTUNE" || true)" "1" \
   "E37: o grub-mkconfig vive em apply_grub_tokens (era 2 — o plano do kernel nascia em dois lugares)"
 # E37 + plano nº16: o epílogo do interativo conta a verdade
@@ -1687,9 +1689,9 @@ assert_grep "$CG129" 'def _release_pixbufs' "E129: a dock TEM o liberador de pix
 assert_grep "$CG129" '_release_pixbufs\(rev\)' "E129: a saída suave v2.11 devolve o pixbuf ANTES do destroy (a RAM volta na hora do fechar — a ordem do dono)"
 assert_grep "$CG129" '_release_pixbufs\(child\)' "E129: o rebuild também devolve (os pins rearmados não acumulam pixmap morto)"
 BF129="$REPO/elite/airootfs/etc/skel/.config/brave-flags.conf"
-assert_grep "$BF129" '^--enable-features=VaapiVideoDecodeLinuxGL,VaapiVideoEncoder$' "E129: as flags VA-API entram em PRODUÇÃO (decode por GPU de fábrica — a ordem do dono; a linha não é mais comentário)"
+assert_grep "$BF129" '^--enable-features=AcceleratedVideoDecodeLinuxGL,AcceleratedVideoDecodeLinuxZeroCopyGL,VaapiOnNvidiaGPUs$' "E129→E132: o conjunto VA-API da ordem do dono (decode GL + ZEROCOPY GL — o frame copiado UMA vez, direto ao scanout — e a porta NVIDIA para o dia do driver proprietário)"
 assert_grep "$BF129" '^--disable-features=UseChromeOSDirectVideoDecoder$' "E129: o decoder de software do Chromium FORA (a VA-API da casa é o caminho)"
-assert_nogrep "$BF129" '^#--enable-features=VaapiVideoDecodeLinuxGL' "E129: a linha comentada da era antiga EXTINTA (comentário que duplica flag viva é mentira E33)"
+assert_nogrep "$BF129" '^#--enable-features=AcceleratedVideoDecodeLinuxGL' "E132: a linha comentada da era antiga EXTINTA (comentário que duplica flag viva é mentira E33)"
 assert_nogrep "$BF129" '^--enable-features=.*Vulkan' "E114 ratificada: o compositing Vulkan NÃO VOLTA (o rig do dono provou o vídeo branco sobre RADV — decode ≠ compositing e o cargo fica escrito)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'transparent_hugepage=madvise' "E129: o tune crava o madvise (a porta do tune e o post_upgrade falam a MESMA lei)"
 assert_nogrep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'ensure_cmdline_token /etc/default/grub transparent_hugepage=always' "E129: o tune NÃO crava mais o 'always' (o fóssil da era E74 morre por escrito)"
@@ -1972,7 +1974,7 @@ assert_nogrep "$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml" 'label="Cal
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-idle" 'E114: idle suspend ADIADO — a vigília segue no ar' "E114: o braço suspend do idle DEFERE enquanto a vigília estiver no ar (o crime do papel: 17:27:42 o suspend na cara do dono que acabava de digitar a senha — o pgrep viu o lock morto, o stamp da vigília não existia; a lei E77 na letra inteira fecha a corrida pelo ESTADO)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-idle" 'sleep 1' "E114: o juiz E110 do sleep-hook re-consulta em 1s (o papel fotografou 'inactive' NO MEIO do sono real — o PrepareForSleep dispara antes do flip da unit; o zumbi de verdade segue inactive nas duas leituras)"
 assert_nogrep "$REPO/elite/airootfs/etc/skel/.config/brave-flags.conf" '^\-\-enable-features=.*Vulkan|DefaultANGLEVulkan' "E114: o réu do vídeo branco do YouTube EXTINTO do conf do navegador (o compositing Vulkan do Chromium sobre RADV é a família do frame que não desenha com o preview da timeline vivo — a assinatura exata do relato; o GL é o padrão estável; o contrato é sobre as FLAGS ativas, não a crônica do comentário)"
-assert_grep "$REPO/elite/airootfs/etc/skel/.config/brave-flags.conf" 'ozone-platform=wayland' "E114: a porta Wayland nativa do Brave segue de pé (a cura mata só o Vulkan — zero regressão de janelas/decoração)"
+assert_grep "$REPO/elite/airootfs/etc/skel/.config/brave-flags.conf" '^--ozone-platform-hint=auto$' "E114→E132: a porta Ozone pelo HINT (a ordem do dono — Wayland sob Wayland, X11 sob X11; a gramática atual do Chromium, mais resiliente que o fixo da era v1.2)"
 assert_grep "$REPO/.ci/build.sh" 'share/elite/chromium-flags/brave-flags.conf' "E114: o conf do navegador VIAJA NO PACOTE (o skel nunca alcança rig vivo — a cura sem veículo é promessa falsa)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-post-transaction" 'chromium-flags/brave-flags.conf' "E114: o elite-post-transaction sincroniza o conf do navegador ao home dos rigs vivos (a cura chega na PRÓXIMA dose, sem formatar)"
 assert_grep "$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml" 'pkexec env HOME' "E114: a limpeza do menu pede raiz pelo DIÁLOGO GRÁFICO (o sudo no escuro do terminal era a parede invisível — 'ele tenta até abrir uma tela, mas ele não executa uma limpeza no sistema realmente')"

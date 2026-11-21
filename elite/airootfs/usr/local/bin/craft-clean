@@ -154,6 +154,21 @@ else
 fi
 srun paccache -ruk1 2>/dev/null && clog "paccache -ruk1: OK" || clog "paccache -ruk1: pulado"
 
+step "redundantes (E132 — applets com substituto na casa)"
+# E132 — A HIGIENE DA ORDEM DO DONO: polkit-gnome (o agente é o
+# lxqt-policykit-agent nativo), blueman (o bluetui fica) e
+# network-manager-applet (o nm-connection-editor é pacote próprio) saem
+# COM SEGURANÇA: o -Rns recusa pacote com dependentes e o papel nomeia.
+for pkg in polkit-gnome blueman network-manager-applet; do
+  if pacman -Q "$pkg" >/dev/null 2>&1; then
+    if srun pacman -Rns --noconfirm "$pkg"; then
+      clog "redundante $pkg: removido (substituto da casa no lugar)"
+    else
+      skipped "remoção do $pkg (dependentes?)"
+    fi
+  fi
+done
+
 step "órfãos (pacman -Qtdq)"
 orphans="$(pacman -Qtdq 2>/dev/null || true)"
 if [[ -n "$orphans" ]]; then
