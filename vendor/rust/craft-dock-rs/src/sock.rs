@@ -103,6 +103,17 @@ pub fn case_variants(c: &str) -> Vec<String> {
     out
 }
 
+/// E134 — A NORMALIZAÇÃO DO TRAVESSÃO da casa para o CASAMENTO de
+/// janelas: minúsculas + '_' equivale a '-'. O caso cravado pelo dono
+/// (dump 1.0-80): o pin `hydra_plus.desktop` (stem "hydra_plus") e o
+/// app_id do compositor "hydra-plus" são O MESMO app — sem a norma, o
+/// exato e o near falham nos DOIS sentidos e o app aberto nascia botão
+/// RAW duplicado ao lado do pin. A norma é AQUI (camada de casamento)
+/// e não no fold do icons.rs (a chave de ÍCONE segue a gramática dela).
+pub fn norm(s: &str) -> String {
+    s.to_lowercase().replace('_', "-")
+}
+
 /// O title() do Python (cada palavra capitalizada, resto minúsculo).
 fn title_case(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
@@ -169,13 +180,16 @@ pub fn windows_of_key(
     display_name: &str,
     strict: bool,
 ) -> Vec<u64> {
-    let cands: Vec<String> = candidates.iter().map(|c| c.to_lowercase()).collect();
-    let name = display_name.trim().to_lowercase();
+    // E134 — o casamento NASCE NORMALIZADO ('_' == '-'): hydra_plus
+    // casa hydra-plus em TODAS as formas (exato, stem, near) — o
+    // agrupamento de pin + aberto em UM só ícone é a ordem do dono.
+    let cands: Vec<String> = candidates.iter().map(|c| norm(c)).collect();
+    let name = norm(display_name.trim());
     let mut out = Vec::new();
     for w in snap.windows.values() {
-        let a = w.app_id.to_lowercase();
-        let t = w.title.to_lowercase();
-        let stem = stem_of(&a);
+        let a = norm(&w.app_id);
+        let t = norm(&w.title);
+        let stem = norm(stem_of(&a));
         let near = cands.iter().any(|c| near_match(&a, c));
         if cands.iter().any(|c| c == &a)
             || (!stem.is_empty() && cands.iter().any(|c| c == &stem))
@@ -193,12 +207,14 @@ pub fn windows_of_key(
 /// OU stem == chave OU contenção com fronteira; sem app_id, a chave
 /// veio do título e casa no título (fora do strict — lei E36).
 pub fn raw_windows(snap: &Snapshot, key: &str, strict: bool) -> Vec<u64> {
-    let k = key.to_lowercase();
+    // E134 — a norma do travessão ('_' == '-') vale TAMBÉM no raw: a
+    // janela "hydra-plus" veste a chave "hydra_plus" que o comm cravou
+    let k = norm(key);
     let mut out = Vec::new();
     for w in snap.windows.values() {
-        let a = w.app_id.to_lowercase();
-        let t = w.title.to_lowercase();
-        let stem = stem_of(&a);
+        let a = norm(&w.app_id);
+        let t = norm(&w.title);
+        let stem = norm(stem_of(&a));
         // o RAW é EXATO por desenho (a lei E130 do botão cru): o app_id
         // inteiro OU o stem — o near_match de subdomínio ('kolunmi'
         // dentro de 'io.github.kolunmi.bazaar') NÃO casa: o raw não
@@ -242,15 +258,13 @@ pub fn cycle_next(snap: &Snapshot, wids: &[u64], last_act: Option<u64>) -> Optio
 /// o clique e a janela; mapeou = o vão acabou). O stem do desktop-id
 /// casa o app_id: exato OU contenção com fronteira (a mesma gramática).
 pub fn key_mapped(snap: &Snapshot, key: &str) -> bool {
-    let stem = key
-        .strip_suffix(".desktop")
-        .unwrap_or(key)
-        .to_lowercase();
+    // E134 — a norma do travessão aqui também (hydra_plus mapeia)
+    let stem = norm(key.strip_suffix(".desktop").unwrap_or(key));
     if stem.is_empty() {
         return false;
     }
     for w in snap.windows.values() {
-        let a = w.app_id.to_lowercase();
+        let a = norm(&w.app_id);
         if !a.is_empty() && (a == stem || near_match(&a, &stem)) {
             return true;
         }
@@ -424,6 +438,32 @@ mod tests {
         assert!(near_match("brave-browser-stable", "brave")); // dois sentidos
         assert!(!near_match("foot", "footclient")); // letra colada
         assert!(!near_match("ab", "abc")); // <4 chars
+    }
+
+    #[test]
+    fn e134_a_norma_do_travessao_agrupa_o_pin_com_o_aberto() {
+        // O CASO DO DONO (dump 1.0-80): hydra_plus.desktop ↔ app_id
+        // "hydra-plus" — '_' e '-' são O MESMO traço no casamento
+        assert_eq!(norm("Hydra_Plus"), "hydra-plus");
+        assert_eq!(norm("hydra-plus"), "hydra-plus");
+        // o snapshot de mentira com a janela do Hydra
+        let linhas: Vec<String> = vec![
+            "W|77|4|0|hydra-plus|Hydra".into(),
+            "OK|77".into(),
+        ];
+        let snap = parse_list(&linhas);
+        // o stem do pin (hydra_plus) casa a janela (hydra-plus) —
+        // pin + aberto são UM botão só (o exato normativo)
+        let cands = vec!["hydra_plus".to_string()];
+        assert_eq!(windows_of_key(&snap, &cands, "", true), vec![77]);
+        // o raw idem: a chave do comm com '_' veste o app_id com '-'
+        assert_eq!(raw_windows(&snap, "hydra_plus", true), vec![77]);
+        // e o guard do lançamento mapeia pelo desktop-id com '_'
+        assert!(key_mapped(&snap, "hydra_plus.desktop"));
+        // a NORMA não dissolve apps diferentes: foot ≠ foot-client no
+        // exato (o near com fronteira continua sendo a única ponte)
+        assert_eq!(norm("foot"), "foot");
+        assert!(windows_of_key(&snap, &["foot".to_string()], "", true).is_empty());
     }
 
     #[test]
