@@ -2574,7 +2574,7 @@ help_out="$(bash "$HELP90" 2>&1)"; help_rc=$?
 assert_eq "$help_rc" "0" "E90/craft-help: o mapa termina 0 (a porta de descoberta sempre abre)"
 assert_match "$help_out" 'O MAPA DOS COMANDOS' "E90/craft-help: o mapa se apresenta"
 dock_out="$(bash "$HELP90" dock 2>&1)"
-assert_match "$dock_out" 'craft-dock-gui' "E90/craft-help: o filtro por termo casa (craft-help dock devolve a dock)"
+assert_match "$dock_out" 'craft-dock-rs' "E90/craft-help: o filtro por termo casa (craft-help dock devolve a dock — E134: a linha é a dock Rust)"
 
 # (E90.4) craft-hello: o onboarding sobrevive sem fastfetch/pacman (o
 # pointer não pode matar o retrato — a cura pipefail do n=)
@@ -2650,52 +2650,19 @@ assert_nogrep "$STCU/manual-fail.out" 'cura-órfão' "E103/manual (controle): re
 # btop'). A cura é o exec_of — UM SÓ LUGAR, pins e dinâmicos nascem nele
 # — com a origem preservada no raw_of/binary_of (o casamento de janelas
 # fala o nome do APP, não o do foot que o carrega).
-CD94="$REPO/elite/airootfs/usr/local/bin/craft-dock-gui"
-e94_py="$(python3 - "$CD94" <<'PYEOF' 2>&1
-import ast, sys
-src = open(sys.argv[1]).read()
-tree = ast.parse(src)
-quero = ("raw_of", "exec_of", "binary_of")
-funcs = {n.name: n for n in ast.walk(tree)
-         if isinstance(n, ast.FunctionDef) and n.name in quero}
-faltam = set(quero) - set(funcs)
-if faltam:
-    print(f"FALTAM:{','.join(sorted(faltam))}")
-    sys.exit(0)
-body = [ast.fix_missing_locations(funcs[k]) for k in quero]
-mod = ast.Module(body=body, type_ignores=[])
-ns = {"re": __import__("re"), "shlex": __import__("shlex"), "os": __import__("os")}
-exec(compile(mod, "<elite>", "exec"), ns)
-
-class Info:
-    def __init__(self, cmd, term=False, boom=False):
-        self._c, self._t, self._b = cmd, term, boom
-    def get_commandline(self): return self._c
-    def get_boolean(self, k):
-        if self._b:
-            raise RuntimeError("desktop exótico")
-        return self._t if k == "Terminal" else False
-
-raw_of, exec_of, binary_of = ns["raw_of"], ns["exec_of"], ns["binary_of"]
-fails = []
-def chk(rot, got, want):
-    if got != want:
-        fails.append(f"{rot}={got!r}!={want!r}")
-
-chk("tui-wrap", exec_of(Info("btop", True)), "foot --app-id=btop /usr/bin/env -S btop")
-chk("tui-path", exec_of(Info("/usr/bin/gparted", True)), "foot --app-id=gparted /usr/bin/env -S /usr/bin/gparted")
-chk("gui-intacto", exec_of(Info("brave-browser %U")), "brave-browser")
-chk("vazio", exec_of(Info("")), "")
-chk("idempotente", exec_of(Info("foot -e btop", True)), "foot -e btop")
-chk("footclient", exec_of(Info("footclient -s x", True)), "footclient -s x")
-chk("exotico", exec_of(Info("btop", True, True)), "btop")
-chk("origem-tui", binary_of(Info("btop", True)), "btop")
-chk("origem-path", binary_of(Info("/usr/bin/gparted", True)), "gparted")
-chk("origem-gui", binary_of(Info("brave-browser %U")), "brave-browser")
-print("FAILS:" + ";".join(fails) if fails else "E94-OK")
-PYEOF
-)" || e94_py="PY-ERRO"
-assert_eq "$e94_py" "E94-OK" "E94/dock: exec_of veste o foot no TUI (Terminal=true, app-id determinístico) e binary_of/raw_of mantêm a origem — o btop ABRE pela dock e o toggle casa a janela certa"
+# E134 — a era PYTHON acabou: o exec_of/binary_of eram funções do
+# craft-dock-gui; a gramática inteira mora AGORA no icons.rs da dock Rust
+# (exec_ready/strip_field_codes/first_binary) e é TESTADA DENTRO DO CRATE
+# (cargo test — o teste e94_exec_ready_veste_o_foot_para_tui cobre o TUI
+# com app-id determinístico, o Exec cru do Terminal=false E o path
+# absoluto; o first_binary devolve o BASENAME para a origem). A peça
+# prova a FONTE e o TESTE VIVO — quem quebrar a gramática quebra o cargo
+# test do workspace (gate do CI desde a E132).
+ICONS94="$REPO/vendor/rust/craft-dock-rs/src/icons.rs"
+assert_grep "$ICONS94" 'fn e94_exec_ready_veste_o_foot_para_tui' "E94/dock: o teste VIVO do casaco de terminal existe no crate (cargo test do workspace — o btop ABRE pela dock)"
+assert_grep "$ICONS94" '"foot --app-id=btop /usr/bin/env -S btop"' "E94/dock: o foot da casa leva app-id DETERMINÍSTICO (o casamento de janelas fala o nome do app, não o do terminal — a mesma lição E89 das case-variants)"
+assert_grep "$ICONS94" 'pub fn first_binary' "E94/dock: a origem do app vive SEM o casaco (first_binary devolve o basename — o comm do /proc e o app_id falam o APP)"
+assert_grep "$ICONS94" 'pub fn strip_field_codes' "E94/dock: os field codes (%f %U…) saem do Exec ANTES do lançamento (E134: a linha de comando nasce limpa)"
 
 # ── Réu 2: a cabeça da fila E58 (lxqt-policykit) nunca chegou a rigs —
 # packages.add só nutre a ISO e o -Syu não instala o que não é dependência.

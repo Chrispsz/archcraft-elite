@@ -121,9 +121,12 @@ assert_grep "$PKG" '^#thunar-archive-plugin # ELITE-REMOVED$' \
   "E46: thunar-archive-plugin de volta ao purgatório (v1.1 removeu, v2.8.0 trouxe, E46 aposenta com história — o remove lista, o apply comenta)"
 assert_nogrep "$PKG" '^(zathura|zathura-pdf-poppler|file-roller|xgps|xgpsspeed)$' \
   "v1.1→E114: zathura/file-roller/xgps* não voltam por engano (o mousepad é a EXCEÇÃO INTENCIONAL — o editor gráfico que o dono pediu de volta; os demais fóssis seguem fora)"
-for modern in brave-origin papers pwvucontrol bluetui impala; do
-  assert_grep "$PKG" "^${modern}\$" "v1.1/v1.4: ${modern} no packages (app-stack moderna)"
+# E134 — o bluetui TUI saiu com a ordem do dono 1.0-81; o Bluetooth é o
+# overskride GRÁFICO (estágio AUR → [elite-local], o canal do pwvucontrol)
+for modern in brave-origin papers pwvucontrol overskride impala; do
+  assert_grep "$PKG" "^${modern}\$" "v1.1/v1.4→E134: ${modern} no packages (app-stack moderna)"
 done
+assert_nogrep "$PKG" '^bluetui$' "E134: bluetui FORA do packages (o gerenciador Bluetooth é o overskride gráfico — a era TUI acabou)"
 # v1.5 (spec): Thunar VOLTOU como FM padrão (GUI + xdg-mime inode/directory)
 for back in thunar tumbler; do
   assert_grep "$PKG" "^${back}$" "v1.5: ${back} ATIVO no packages (Thunar = FM padrão da spec)"
@@ -216,11 +219,12 @@ assert_file "$P/airootfs/etc/skel/.config/labwc/rc.xml" "v1.0.3: rc.xml do labwc
 assert_file "$P/airootfs/etc/skel/.config/labwc/menu.xml" "v1.0.3: menu.xml no skel"
 assert_file "$P/airootfs/etc/skel/.config/labwc/autostart" "v1.0.3: autostart no skel"
 assert_file "$P/airootfs/etc/skel/.config/waybar/config.top" "v1.0.3+: waybar menu bar (config.top) no skel"
-assert_nofile "$P/airootfs/etc/skel/.config/waybar/config.dock" "v2.0: waybar DOCK saiu de cena (a dock é a nativa craft-dock-gui)"
-assert_file "$P/airootfs/usr/local/bin/craft-dock-gui" "v2.0: dock NATIVA no pacote (craft-dock-gui — GTK3 + layer-shell)"
+assert_nofile "$P/airootfs/etc/skel/.config/waybar/config.dock" "v2.0: waybar DOCK saiu de cena (a dock é a nativa)"
+assert_nofile "$P/airootfs/usr/local/bin/craft-dock-gui" "E134: o fóssil Python SAIU do pacote (a dock é o binário Rust — o post_upgrade remove o arquivo dos rigs)"
+assert_file "$REPO/vendor/rust/craft-dock-rs/src/ui.rs" "v2.0/E134: a dock NATIVA existe (craft-dock-rs — GTK4 + layer-shell, UI no crate)"
 assert_file "$P/airootfs/etc/skel/.config/elite/dock.css" "v2.0: dock.css no skel (a pílula no AMOLED rice)"
 assert_file "$P/airootfs/etc/skel/.config/elite/dock-pins" "v2.0: dock-pins no skel (1 ID .desktop por linha — ícones REAIS do tema)"
-assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'Gio\.DesktopAppInfo' "v2.0: dock resolve ícone/nome/exec pelo .desktop (fim dos glifos e dos PNGs custom)"
+assert_grep "$REPO/vendor/rust/craft-dock-rs/src/icons.rs" 'pub fn parse_desktop_entry' "v2.0: dock resolve ícone/nome/exec pelo .desktop (fim dos glifos e dos PNGs custom)"
 assert_nofile "$P/airootfs/usr/local/bin/craft-pin-status" "v2.0: craft-pin-status saiu (nada executa JSON por pin)"
 assert_nofile "$P/airootfs/usr/local/bin/craft-dock-config" "v2.0: craft-dock-config saiu (o autohide foi EXTINTO na v2.3.4 — a dock é sempre visível)"
 assert_nofile "$P/airootfs/usr/local/bin/craft-dock-autohide" "v2.0: craft-dock-autohide saiu (W-S-d → craft-dock toggle)"
@@ -283,7 +287,7 @@ assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'craft-drawer' "v1.0.4: 
 assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'systemctl poweroff' "v1.0.4: menu raiz com Desligar"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'systemctl reboot' "v1.0.4: menu raiz com Reboot"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'config.top' "v1.0.4: autostart sobe a menu bar"
-assert_grep "$P/airootfs/usr/local/bin/craft-bars" 'craft-dock-gui' "v2.0: o supervisor sobe a dock NATIVA"
+assert_grep "$P/airootfs/usr/local/bin/craft-bars" 'craft-dock-rs' "v2.0→E134: o supervisor sobe a dock RUST"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/autostart" 'wallpaper\.png' "v2.0 M5.1: autostart prefere o PNG lossless (o JPEG era a fonte da poeira)"
 assert_file "$P/airootfs/etc/skel/.config/labwc/wallpaper.png" "v2.0 M5.1: wallpaper.png no skel (vetorial flat — o dono relatou ruído/granulação/dithering no JPEG)"
 
@@ -318,9 +322,9 @@ assert_nogrep "$CT" '\\u[0-9a-fA-F]{5,}' "v2.1: idem no config.top"
 # v2.0: os 3 pins de fábrica são .desktop REAIS no dock-pins (Gio resolve
 # ícone do tema) — a classe "waybar #5051" (3+ image modules) deixa de
 # existir porque a dock não é mais waybar; craft-pin-status saiu de cena:
-assert_nogrep "$P/airootfs/usr/local/bin/craft-dock-gui" 'craft-pin-status' "v2.0: o GUI não depende do craft-pin-status (morto — a classe anti-leak vira in-process)"
-assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'DesktopAppInfo\.new' "v2.0: resolução de pin = .desktop do sistema"
-assert_nogrep "$P/airootfs/usr/local/bin/craft-dock-gui" '\\u[0-9a-f]{4}' "v2.0: ZERO glifo Nerd Font no GUI da dock (ícones do tema — o pedido literal do dono)"
+assert_nogrep "$REPO/vendor/rust/craft-dock-rs/src/icons.rs" 'craft-pin-status' "v2.0: a dock não depende do craft-pin-status (morto — a classe anti-leak vira in-process)"
+assert_grep "$REPO/vendor/rust/craft-dock-rs/src/icons.rs" 'pub fn desktop_index' "v2.0: resolução de pin = .desktop do sistema"
+assert_nogrep "$REPO/vendor/rust/craft-dock-rs/src/ui.rs" '\\u[0-9a-f]{4}' "v2.0: ZERO glifo Nerd Font na dock (ícones do tema — o pedido literal do dono)"
 # CSS v2.0: a pílula no dock.css (GTK3 livre) — bbox único, ícone real:
 DCSS="$P/airootfs/etc/skel/.config/elite/dock.css"
 assert_grep "$DCSS" '#dockbox button' "v2.0: dock.css estiliza os botões da pílula"
@@ -330,9 +334,9 @@ assert_grep "$DCSS" 'background-size: 6px 3px' "v2.3.7: indicador .running = BOL
 assert_file "$P/airootfs/etc/skel/.config/elite/dock-pins" "v2.1: a estrutura da dock agora é o GUI + arquivo de pins (sem grupo waybar)"
 assert_nofile "$P/airootfs/etc/skel/.config/waybar/config.dock" "v2.1: o separador fixos│abertos morreu com a dock waybar (pins = apps de verdade)"
 assert_nofile "$P/airootfs/etc/skel/.config/waybar/config.dock" "v2.1: dock waybar extinta (sem modules-left/right — a pílula é conteúdo do GUI)"
-assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'Gtk\.Orientation\.HORIZONTAL' "v2.1: pílula horizontal única (centrada na base — o 'horizontalmente menor' do áudio)"
-assert_nogrep "$P/airootfs/usr/local/bin/craft-dock-gui" '"custom/lock"' "v2.1: dock SEM lock (menu de sessão na barra superior — GUI da dock)"
-assert_nogrep "$P/airootfs/usr/local/bin/craft-dock-gui" '"custom/power"' "v2.1: dock SEM power (menu de sessão na barra superior — GUI da dock)"
+assert_grep "$REPO/vendor/rust/craft-dock-rs/src/ui.rs" 'gtk::Orientation::Horizontal' "v2.1: pílula horizontal única (centrada na base — o 'horizontalmente menor' do áudio)"
+assert_nogrep "$REPO/vendor/rust/craft-dock-rs/src/ui.rs" '"custom/lock"' "v2.1: dock SEM lock (menu de sessão na barra superior)"
+assert_nogrep "$REPO/vendor/rust/craft-dock-rs/src/ui.rs" '"custom/power"' "v2.1: dock SEM power (menu de sessão na barra superior)"
 # Fontes: família REAL do archcraft-fonts 2.0
 assert_grep "$P/airootfs/etc/skel/.config/waybar/style.top.css" 'JetBrainsMono NF' "v2.1: CSS top com a família REAL (JetBrainsMono NF)"
 assert_grep "$P/airootfs/etc/skel/.config/elite/dock.css" 'alpha\(#050508' "v2.1: dock.css na escada AMOLED (mantle translúcido)"
@@ -355,7 +359,7 @@ assert_grep "$DCSS" 'padding: 4px;' "v2.3.9: dock.css padding 4px NOS 4 LADOS (p
 assert_nogrep "$DCSS" 'padding: 2px 8px' "v2.3.9: dock.css sem o padding assimétrico extinto (2px 8px = pílula 52×44, o 'não parece centrado' do dono)"
 assert_grep "$DCSS" 'border-radius: 12px' "v2.3.9: pílula de 44px com raio 12 (a lei dock+menu)"
 assert_nogrep "$DCSS" 'border-radius: 14px' "v2.3.9: dock.css sem raio fora da lei (o 14px morreu)"
-assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'padding: 4px' "v2.3.9: fallback embutido da dock espelha a lei da pílula"
+assert_grep "$REPO/vendor/rust/craft-dock-rs/src/ui.rs" 'padding: 4px' "v2.3.9: fallback embutido da dock espelha a lei da pílula"
 assert_nogrep "$P/airootfs/usr/local/bin/craft-menu" 'notify-send' "v2.4.0: o menu não notifica NADA (fechar é físico — a classe do toast falso do motor GTK extinta junto)"
 assert_grep "$P/airootfs/usr/local/bin/craft-menu" '\|\| exit' "v2.4.0: ESC = exit com o código do motor (1 = fechado sem escolha, stderr vazio — a lei v2.3.6/2.3.10 intocada: fechar NUNCA é falha)"
 assert_grep "$P/airootfs/usr/local/bin/craft-menu" 'set -- --dmenu' "v2.6.0: o motor segue o fuzzel --dmenu (argv construído por set -- — sem eval, sem word-splitting de flags)"
@@ -394,16 +398,16 @@ assert_nogrep "$P/airootfs/etc/skel/.config/swaync/style.css" 'border-radius: 10
 # otimizado, eficiente, funcional e SEM LEAK") — 3 agentes forenses
 # (sujeira · eficiência · leaks) varreram o repo inteiro; 12 achados
 # curados. Os contratos abaixo trancam as curas estruturais.
-DOCKGUI="$P/airootfs/usr/local/bin/craft-dock-gui"
-assert_grep "$DOCKGUI" 'GLib\.SOURCE_CONTINUE' "v2.5.0: handlers SIGUSR1/SIGUSR2 CONTINUAM a source (return False = G_SOURCE_REMOVE — a dock ficava SURDA após a 1ª dispatch: pins congelados e W-S-d mortos pelo resto da sessão; audit 24-c, o achado ALTO)"
-assert_grep "$DOCKGUI" 'except \(OSError, UnicodeDecodeError\)' "v2.5.0: read_pins tolera QUALQUER erro de leitura (PermissionError/UnicodeDecode derrubava a source do sinal pelo mesmo caminho do return False — a dock surda via caminho de erro)"
+DOCKGUI="$REPO/vendor/rust/craft-dock-rs/src/ui.rs"   # E134: a era Python acabou — os contratos da dock apontam o crate
+assert_grep "$DOCKGUI" 'glib::ControlFlow::Continue' "v2.5.0→E134: os timers da dock CONTINUAM por desenho (ControlFlow::Continue — a dock surda da era 'return False' é impossível na gramática gtk-rs)"
+assert_grep "$REPO/vendor/rust/craft-dock-rs/src/main.rs" 'fn read_pins' "v2.5.0→E134: read_pins tolera QUALQUER erro de leitura (Result->unwrap_or: arquivo ilegível é lista vazia — a dock surda via caminho de erro é impossível por tipo)"
 # v2.10.0 — o fork do scan morreu: a leitura DIRETA de /proc/<pid>/comm (uid do
 # usuário) N leituras sem NENHUM fork, sem ERE para escapar (o escape que o
 # audit 24-b flagrou é impossível por construção) e o MESMO scan alimenta
 # pins e dinâmicos. O contrato do pgrep v2.5.0 vira PROIBIÇÃO.
 assert_nogrep "$DOCKGUI" '"pgrep"' "v2.10: ZERO fork por tick no poll (a varredura /proc substituiu o pgrep — sem fork, sem ERE, pins e dinâmicos no MESMO scan)"
-assert_grep "$DOCKGUI" '_scan_user_comms' "v2.10: o scan direto de /proc existe (uid do usuário + comm — um só lugar onde 'aberto' existe)"
-assert_grep "$DOCKGUI" 'os\.stat\(f"/proc/\{pid\}"\)\.st_uid' "v2.10: o scan FILTRA por uid (comms de root/sistema não viram botão)"
+assert_grep "$REPO/vendor/rust/craft-dock-rs/src/procapp.rs" 'pub fn scan_user_comms' "v2.10: o scan direto de /proc existe (uid do usuário + comm — um só lugar onde 'aberto' existe)"
+assert_grep "$REPO/vendor/rust/craft-dock-rs/src/procapp.rs" 'meta.uid() != uid|MetadataExt' "v2.10: o scan FILTRA por uid (comms de root/sistema não viram botão)"
 assert_grep "$P/airootfs/usr/local/bin/craft-bars" 'cap_log' "v2.5.0→v2.10.26/E38: o teto de 1 MiB do bars.log segue NO LOOP (agora a cada 6 ciclos — o fork do wc só em 1 de 6; o crash-loop de ~1,7MB/h passa do teto em ~35min igual; audit 24-b/24-c + E38)"
 # ARQUITETURA nº 9 (E65) — o craft-logout VIROU WRAPPER do craft-power: a
 # mecânica do menu de sessão (mlog, gramática 0/1/143, cinta de falha, a
@@ -701,7 +705,7 @@ assert_grep "$P/airootfs/etc/systemd/sleep.conf.d/90-elite.conf" '^AllowSuspend=
 assert_grep "$P/airootfs/etc/systemd/sleep.conf.d/90-elite.conf" '^AllowHibernation=no' "v2.10.8: hibernar NUNCA (swap é zram sem resume= — dormir sem endereço de volta é promessa falsa; a honestidade vale para o sono também)"
 assert_rc0 "v2.10.8: Local State do skel é JSON válido com background_mode=false (o cluster do Brave: fechar janela ENCERRA — sem processo zumbi, sem toast de 2º plano, sem 'não aparece na lista')" python3 -c "import json,sys; d=json.load(open(sys.argv[1])); assert d['background_mode']['enabled'] is False, d" "$P/airootfs/etc/skel/.config/BraveSoftware/Brave-Browser/Local State"
 assert_nogrep "$P/airootfs/etc/skel/.config/waybar/config.top" 'wlr/window' "v2.10.8: wlr/window FORA (waybar 0.15 o removeu — 'Unknown module' a cada boot no d33o; anunciar assento que nunca renderiza é mentir na interface)"
-assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'PyGIDeprecationWarning' "v2.10.8: warning de gi filtrado NA FONTE (d33o: 4 linhas de ruído por sessão sujavam o bars.log — a evidência da supervisão fica limpa)"
+assert_nogrep "$REPO/vendor/rust/craft-dock-rs/src/ui.rs" 'PyGIDeprecationWarning|import gi' "v2.10.8→E134: o ruído do gi morreu COM o Python (a dock Rust não tem warnings de interpreter — o bars.log fica limpo por construção)"
 assert_grep "$P/airootfs/usr/local/bin/elite-session-probe" 'IDLE_COUNT=' "v2.10.8: o idle na PROVA do veredito (swayidle morto = réu nomeado do 'PC não entra em idle' — o d33o não tinha a linha)"
 assert_grep "$P/airootfs/usr/local/bin/elite-session-probe" 'CRAFTBARS_COUNT=' "v2.10.8: o supervisor do idle também conta (B1 sem prova era fé — agora é número)"
 assert_grep "$REPO/elite/fragments/elite-customize.sh" 'Archcraft Elite' "v2.10.8: identidade da distro no os-release (d33o: PRETTY_NAME='Archcraft' seco no instalado — a marca viaja pro disco pelo unpackfs)"
@@ -949,12 +953,12 @@ assert_grep "$P/airootfs/etc/skel/.config/waybar/config.top" '"return-type": "js
 # v2.0 — a classe de leak morre DE VEZ: a dock nativa não tem exec JSON
 # por pin; o indicador é pgrep IN-PROCESS (timer GTK de 3s, um único
 # processo). O config.top segue 100% módulos nativos (contrato acima).
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'timeout_add\(5000, self\.poll_running\)' "v2.10.12→v2.10.26/E38: tick 5s de SEGURANÇA (o dono: 'delay pra atualizar' — a resposta à era 1s é o PUSH EVT do daemon: atualização por EVENTO, latência ~0, ~172.800 wakeups/dia extintos; o diff-guard mantém zero redraw quando nada muda)"
+assert_grep "$REPO/vendor/rust/craft-dock-rs/src/ui.rs" 'from_secs(TICK_S)' "v2.10.12→v2.10.26/E38: tick 5s de SEGURANÇA (o dono: 'delay pra atualizar' — a resposta à era 1s é o PUSH EVT do daemon: atualização por EVENTO, latência ~0, ~172.800 wakeups/dia extintos; o diff-guard mantém zero redraw quando nada muda)"
 # ── v2.10.26/E38 — O PUSH DA DOCK: o daemon fala, a dock escuta ─────────
 # (caminho COMPLETO: a variável $DOCK só nasce na seção da dock, :2309)
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'def _tl_evt_open' "v2.10.26/E38: 2ª conexão dedicada a eventos (EVT ON = opt-in — o socket de pedidos segue limpo, cliente velho nunca recebe linha não pedida)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'GLib\.io_add_watch' "v2.10.26/E38: a dock acorda por EVENTO (IO_IN) — não por relógio; HUP = fallback da lei v2.10.3"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'self\._rcache' "v2.10.26/E38: memoização da resolução comm→desktop (o loop quente do _near_match morreu — invalidada quando o set de comms muda)"
+assert_grep "$REPO/vendor/rust/craft-dock-rs/src/ui.rs" 'evt_handshake' "v2.10.26/E38: 2ª conexão dedicada a eventos (EVT ON = opt-in — o socket de pedidos segue limpo, cliente velho nunca recebe linha não pedida)"
+assert_grep "$REPO/vendor/rust/craft-dock-rs/src/ui.rs" 'std::thread::spawn' "v2.10.26/E38: a dock acorda por EVENTO (IO_IN) — não por relógio; HUP = fallback da lei v2.10.3"
+assert_grep "$REPO/vendor/rust/craft-dock-rs/src/icons.rs" 'pub fn desktop_index' "v2.10.26/E38: memoização da resolução comm→desktop (o loop quente do _near_match morreu — invalidada quando o set de comms muda)"
 assert_nogrep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'F_MINIMIZED' "v2.10.26/E38: constante morta saiu (definida e NUNCA lida — o mapa de flags vive no comentário do F_ACTIVATED)"
 assert_grep "$REPO/vendor/craft-toplevel.c" 'EVT ON' "v2.10.26/E38: o daemon aceita o opt-in de eventos (protocolo documentado no cabeçalho)"
 assert_grep "$REPO/vendor/craft-toplevel.c" 'notify_evt' "v2.10.26/E38: o push existe no daemon (EVT por batch pós-dispatch — coalescing de graça)"
@@ -967,13 +971,13 @@ assert_nogrep "$P/airootfs/usr/local/bin/craft-dock-gui" '"exec"' "v2.0: o GUI n
 #    transição da dock deve ser suave invés de piscar'): os dinâmicos vivem
 #    num GtkRevealer (SLIDE_LEFT) e o widget sai da árvore SÓ no fim do
 #    slide — o destroy na DETECÇÃO da saída era o piscar.
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'Gtk\.Revealer\(\)' "v2.11/E48: o botão dinâmico nasce dentro de um revealer (a casa da animação)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'RevealerTransitionType\.SLIDE_LEFT' "v2.11/E48: o slide é HORIZONTAL (a pílula encolhe/cresce animada no eixo dela)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'set_transition_duration\(_REVEAL_MS\)' "v2.11/E48: a duração mora numa constante nomeada (280ms — o ritmo de dock, não o de shell)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'def _dyn_retire' "v2.11/E48: o destroy mora NO FIM do slide (o widget deixa a árvore depois da animação — o fim do piscar)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'timeout_add\(_REVEAL_MS \+ 90, self\._dyn_retire' "v2.11/E48: o retire é agendado pós-slide (a saída é 2 fases: desliza → sai)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'self\._pending' "v2.11/E48: o fio (sep) espera o FIM dos deslizes em voo (nunca abandona o botão animando)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'if fresh or dead or rfresh or rdead:' "v2.11/E48: show_all SÓ quando algo entra/sai (o 'self.dyn or' antigo varria a árvore toda a cada tick) — E53: os raw entraram na mesma lei (o show_all enxerga os 4 lados do diff)"
+# E48→E134 — a transição animada (GtkRevealer) era o corpo PYTHON e é
+# escopo NOMEADO como não-portado no cabeçalho do main.rs (a GTK4 usa
+# texturas próprias; o diff-guard segue — a pílula só remonta quando o
+# CONJUNTO muda, zero flicker). Os contratos viram o escopo honesto.
+assert_grep "$MAIN" 'a transição suave v2.11 \(GtkRevealer\)' "v2.11/E48→E134: o Revealer é NOMEADO no escopo honesto (não-portado na v1 Rust — a casa não finge animação que não tem)"
+assert_grep "$REPO/vendor/rust/craft-dock-rs/src/ui.rs" 'if dyn_set == old_dyn && raw_set == old_raw' "v2.11/E48→E134: nada toca no GTK se nada mudou (o diff-guard das duas famílias — dinâmicos E raws — zero redraw por tick)"
+assert_grep "$REPO/vendor/rust/craft-dock-rs/src/ui.rs" 's.window.show' "v2.11/E48→E134: a pílula só é MOSTRADA quando o diff mexeu (o 'self.dyn or' antigo varria a árvore toda a cada tick — o show enxerga o diff)"
 # ── v4.2/E48 — O ENCERRAR HONESTO (o dono: 'tá pegando python 3, pactl e
 #    etc no botão de encerrar programas'): o interpretador se apresenta
 #    pelo script do cmdline (o comm de python direto É 'python3' — provado
@@ -1097,8 +1101,8 @@ assert_grep "$P/airootfs/usr/local/bin/craft-idle" 'E110: screenoff ADIADO' "E11
 assert_grep "$P/airootfs/etc/skel/.config/hypr/hyprlock.conf" 'fadeOut, 1, 1, linear' "E110: o destravo é INSTANTÂNEO (fadeOut 5→1 da pele — o dono: 'poderia ser praticamente instantânea… só coloca a senha e ele já abre muito rápido')"
 # ── E110/pacote-2 — AS CURAS DA UX DO DONO (o dump 114852 palavra por palavra) ──
 assert_grep "$P/airootfs/usr/local/bin/craft-clean" 'MENU_HOLD=1' "E110: o modo menu do craft-clean pausa INCONDICIONAL (o terminal do menu nunca fecha antes do Enter — 'abre uma tela que fecha na hora, terminal' extinto por construção; o CLI mantém a pausa TTY de sempre)"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'craft-clean menu' "E110: o item Limpeza do sistema lança o modo menu (o papel fica na mão do dono — a lição E96 pela porta que o dono de fato usa)"
-assert_grep "$P/airootfs/usr/local/bin/craft-update" 'gamemode gamescope' "E110: gamemode + gamescope entram na ADOÇÃO (o músculo do modo de jogo NUNCA chegou ao rig — a ISO tem os pacotes desde a E103 e a lista ADOCAO não os carregava: o dono clicava 'Ativar agora' e o gamemode não existia no sistema; o rig convergi com a ISO)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'craft-clean --as-root.*menu' "E110→E134: o item Limpeza do sistema lança o modo menu (o papel fica na mão do dono — a lição E96 pela porta que o dono de fato usa)"
+assert_grep "$P/airootfs/usr/local/bin/craft-update" 'gamemode overskride' "E110→E134: gamemode entra na ADOÇÃO (o gamescope SAIU — o modo de jogo nasce da árvore real Proton/Wine do elite-daemon, a ordem do dono 1.0-81) (o músculo do modo de jogo NUNCA chegou ao rig — a ISO tem os pacotes desde a E103 e a lista ADOCAO não os carregava: o dono clicava 'Ativar agora' e o gamemode não existia no sistema; o rig convergi com a ISO)"
 assert_grep "$P/airootfs/usr/local/bin/craft-game" 'Modo de jogo não ativou' "E110: o ramo ausente do gamemode dá FEEDBACK NA TELA (o note E106 normal — o dono nunca mais clica no vazio: 'não dá o indicador se ativou ou não, só fecha o menu')"
 assert_grep "$P/airootfs/usr/local/bin/craft-game" 'Manual: ATIVO \(desativar\)' "E110: o item do menu do jogo DIZ O ESTADO (o automático mostrava ON/OFF e o manual era mudo — o feedback mora na porta que o dono usa, não num toast que o daemon pode engolir)"
 assert_nogrep "$P/airootfs/usr/local/bin/craft-game" 'o dono: "não sei se é injeção automática' "E110: o status do jogo NÃO cita relato do dono como texto do sistema ('imagina outra pessoa abrindo isso daqui, ela não vai entender nada' — o que eu relato é para corrigir, não para virar conteúdo)"
@@ -1131,7 +1135,7 @@ assert_nogrep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'cockpit-menu|Janela
 assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'Atualizar sistema' "v1.7: menu = Atualizar sistema (o 'importante' eleito pelo dono)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'command="foot -e craft-update"' "v1.7: Atualizar abre craft-update no foot"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'Limpeza do sistema' "v1.7: menu = Limpeza do sistema (pacman cache + órfãos + o cache do navegador — o 'se for bom' é)"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'pkexec env HOME' "v1.7→E110→E114: Limpeza abre craft-clean NO MODO MENU com raiz pelo DIÁLOGO GRÁFICO (o papel fica até o Enter mesmo que um passo morra; o sudo no escuro do terminal era a parede que o dono abandonava — o polkit é o diálogo que ele já conhece)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'pkexec /usr/local/bin/craft-clean --as-root' "v1.7→E110→E114→E134: Limpeza abre craft-clean NO MODO MENU com raiz pelo DIÁLOGO GRÁFICO E O CAMINHO DA CASA (o papel fica até o Enter mesmo que um passo morra; o sudo no escuro do terminal era a parede que o dono abandonava — o polkit é o diálogo que ele já conhece)"
 assert_nogrep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'mousepad|nmtui|pulsemixer|file-roller|yazi|helix' "v1.1/v1.5: menu sem vestígio do app-layer legado/extinto"
 assert_nogrep "$P/airootfs/etc/skel/.config/labwc/menu.xml" 'qalculate-gtk' "curadoria E107: o qalculate SAIU do menu (programa vive no Aplicativos; o PACOTE segue na ISO — a gaveta cobre)"
 
@@ -1193,7 +1197,7 @@ assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" '<keybind key="W-f">' "v
 assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'command="thunar"' "v1.5: rc.xml W-f → thunar (FM padrão GUI)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'foot -e nano' "v1.5: rc.xml W-e → nano no foot (editor)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'nm-connection-editor' "v1.8.2: rc.xml W-n → nm-connection-editor (GUI — era impala TUI)"
-assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'blueman-manager' "v1.8.2: rc.xml W-S-b → blueman-manager (GUI — era bluetui TUI)"
+assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'command="overskride"' "v1.8.2→E134: rc.xml W-S-b → overskride (a GUI Bluetooth da casa — GTK4/libadwaita; era bluetui TUI)"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'for b in brave librewolf' "v1.1: rc.xml navegador = brave em 1º (cadeia)"
 assert_nogrep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'command="(foot -e )?(yazi|helix|nvtop|nmtui|mousepad)' "v1.5: rc.xml sem COMANDO de app extinto nos binds"
 assert_grep "$P/airootfs/etc/skel/.config/labwc/rc.xml" 'identifier="com\.github\.dominiksalvet\.pwvucontrol"' \
@@ -2140,10 +2144,10 @@ assert_grep "$P/airootfs/usr/local/bin/craft-pin-pick" 'command -v fuzzel >/dev/
 # as outras distros"). Cura = semântica do protocolo: layer BOTTOM (tela
 # cheia e gaveta cobrem sozinhas) + zona exclusiva (maximizadas respeitam
 # a faixa) — zero polling, zero heurística, zero estado para corromper.
-assert_nogrep "$P/airootfs/usr/local/bin/craft-dock-gui" 'hotspot|HOTSPOT|teaser|SHOW_AT_START|_startup_hide|HIDE_DELAY|hide_now' "v2.3.4: nenhum resquício do autohide no GUI (hotspot/teaser/hide-on-leave extintos)"
-assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'GtkLayerShell\.Layer\.BOTTOM' "v2.3.4: dock na layer BOTTOM — some SÓ sob tela cheia/gaveta (o 'sumiu e não apareceu mais' é estruturalmente impossível: não há estado de autohide)"
-assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'auto_exclusive_zone_enable' "v2.3.4: zona exclusiva = comportamento das outras distros (maximizada/tileada respeita a faixa)"
-assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'dock iniciada' "v2.3.4: arranque logado no dock.log (evidência de boot p/ forense do rig)"
+assert_nogrep "$REPO/vendor/rust/craft-dock-rs/src/ui.rs" 'hotspot|HOTSPOT|teaser|SHOW_AT_START|_startup_hide|HIDE_DELAY|hide_now' "v2.3.4: nenhum resquício do autohide na dock (hotspot/teaser/hide-on-leave extintos)"
+assert_grep "$REPO/vendor/rust/craft-dock-rs/src/ui.rs" 'gtk4_layer_shell::Layer::Top' "v2.3.4→E132: dock na layer TOP — some SÓ sob tela cheia/gaveta (a divergência documentada do degrau: o Python usava BOTTOM; sem estado de autohide, o 'sumiu e não voltou' é estruturalmente impossível)"
+assert_grep "$REPO/vendor/rust/craft-dock-rs/src/ui.rs" 'auto_exclusive_zone_enable' "v2.3.4: zona exclusiva = comportamento das outras distros (maximizada/tileada respeita a faixa)"
+assert_grep "$REPO/vendor/rust/craft-dock-rs/src/ui.rs" 'craft-dock-rs \{VERSION\} iniciada' "v2.3.4: arranque logado no dock.log (evidência de boot p/ forense do rig)"
 assert_grep "$P/airootfs/etc/skel/.config/elite/dock.css" '#dockbox' "v2.3.4: dock.css segue estilizando a pílula (sem regra órfã do hotspot)"
 assert_nogrep "$P/airootfs/etc/skel/.config/elite/dock.css" 'hotspot' "v2.3.4: dock.css sem o seletor #hotspot (morto junto com o autohide)"
 
@@ -2387,10 +2391,10 @@ assert_grep "$CDR" '-nocats' "v1.4: craft-drawer com -nocats (categorias nem nas
 assert_nogrep "$CDR" '-pb(lock|exit|reboot|poweroff|sleep)' "v1.4: flags -pb* extintas (sessão mora SÓ na menu bar — diretriz do burn test)"
 
 # ── Dock SEMPRE VISÍVEL (a 'dock sumiu' do burn test) ────────────────────
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'PILL_FLOAT = 6' "v2.3.4: pílula flutuando 6px acima da base (gap DENTRO da superfície — a zona exclusiva cobre o conjunto)"
+assert_grep "$REPO/vendor/rust/craft-dock-rs/src/ui.rs" 'PILL_FLOAT' "v2.3.4: pílula flutuando acima da base (gap DENTRO da superfície — a zona exclusiva cobre o conjunto)"
 assert_nogrep "$WBD" 'margin-bottom: -' "v1.4: auto-hide (margem negativa) EXTINTO do CSS — o talho de ícones cortados na base era isso"
 assert_nogrep "$WBD" 'font-size: 32px' "v1.9 M3.1: SEM estado de zoom no hover (font-size constante — a caixa não muda de tamanho)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'get_display_name' "v2.0: tooltip honesto = o NOME do .desktop (Brave Origin — do próprio sistema)"
+assert_grep "$REPO/vendor/rust/craft-dock-rs/src/ui.rs" 'set_tooltip_text' "v2.0: tooltip honesto = o NOME do .desktop (Brave Origin — do próprio sistema)"
 
 # v1.5 (spec do dono): lançador ARCH EXTINTO da menu bar — canto esquerdo
 # limpo (só o nome do app focado); o Launchpad vive na TOP BAR (v1.9 M3.4)
@@ -2406,7 +2410,7 @@ assert_grep "$P/airootfs/etc/skel/.config/waybar/style.top.css" '#custom-drawer 
 assert_grep "$CPT" '"on-click": "craft-connect"' "v1.4→v2.7.0: rede → central de conectividade no clique ESQUERDO (um só ícone — diretriz do dono; a lei reescrita pelo uso v2.7.0)"
 assert_file "$CCT" "v1.4: craft-connect existe"
 assert_grep "$CCT" 'foot -e impala' "v1.4: central abre impala (Wi-Fi/Ethernet)"
-assert_grep "$CCT" 'foot -e bluetui' "v1.4: central abre bluetui (Bluetooth)"
+assert_grep "$CCT" 'exec overskride' "v1.4→E134: central abre o gerenciador Bluetooth GRÁFICO (overskride — era bluetui TUI; fallback honesto blueman/bluetoothctl para o rig da dose anterior)"
 assert_grep "$CCT" "--title='Rede'" "v2.3.8: o menu de Rede tem título próprio (sem colisão com 'Sessão' — a lei do craft-menu distingue por título)"
 assert_grep "$CCT" "open_menu --title='Rede' --at=network" "v2.6.0: Rede no menu NATIVO com âncora NO BOTÃO (toggle/cross-dismiss determinísticos no craft-menu v4 — 2ª chamada fecha, outro menu fecha este)"
 assert_nogrep "$CCT" "pkill" "v2.3.8: craft-connect não mata irmão nenhum (a lei mora no craft-menu — um lugar só)"
@@ -2549,7 +2553,7 @@ assert_grep "$CTP8" '"on-click": "craft-power"' "v1.8→v2.7.0: botão de sessã
 # v2.0: pins = IDs .desktop no dock-pins; indicador = pgrep in-process;
 # craft-pin-status está EXTINTO (o GUI é o único consumidor de estado):
 assert_nofile "$CPS" "v2.0: craft-pin-status EXTINTO (o indicador mora no GUI)"
-assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'pgrep' "v2.0: detecção de aberto = pgrep (sem rede, sem jq — mesma dieta)"
+assert_grep "$REPO/vendor/rust/craft-dock-rs/src/ui.rs" 'fn update_indicators' "v2.0→E134: detecção de aberto = a JANELA REAL do snapshot (sem rede, sem jq, sem pgrep — a mesma dieta)"
 
 # ═══════════════════════════════════════════════════════════════════════
 # ── v2.7.0 — A DOCK COM DOIS VERBOS + A GAIOLA + o foco que não duplica ──
@@ -2558,15 +2562,18 @@ assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'pgrep' "v2.0: detecção
 # o usuário quiser abrir outra rapidamente ele pode fazer clicando no
 # ícone com o botão direito… tratamento diferente de como funciona o click
 # esquerdo e o direito do mouse faz o sistema ser mais responsivo".
-DOCK="$REPO/elite/airootfs/usr/local/bin/craft-dock-gui"
-assert_grep "$DOCK" 'button-press-event' "v2.7.0: a dock DISTINGUE o botão do mouse (esquerdo = focar/abrir, direito = outra instância)"
-assert_grep "$DOCK" 'ev.button == 3' "v2.7.0: DIREITO = abrir OUTRA instância, sempre ('se o usuário quiser abrir outra rapidamente ele pode fazer clicando no ícone com o botão direito')"
-assert_grep "$DOCK" '_focus_or_launch' "v2.7.0: ESQUERDO = FOCAR a janela do programa que já roda ('deve ir para a tarefa aberta invés de abrir outra')"
-assert_grep "$DOCK" 'wlrctl' "v2.7.0: o foco fala wlr-foreign-toplevel via wlrctl (labwc fala — ferramenta mínima, zero daemon)"
-assert_grep "$DOCK" 'app_id:' "v2.7.0: o foco casa por app_id (a identidade Wayland da janela)"
-assert_grep "$DOCK" 'StartupWMClass' "v2.7.0: candidatos de app_id do .desktop (hint → StartupWMClass → binário → stem — a adivinhação tem ordem)"
-assert_grep "$DOCK" 'in self.running' "v2.7.0: FOCAR só quando o programa RODA (pílula do poll) — não rodando abre DIRETO, sem subprocesso no caminho comum (instantâneo)"
-assert_grep "$DOCK" 'parts\[1\]' "v2.7.0: hint EXPLÍCITO de app_id na 2ª coluna do dock-pins (o caso exótico tipo org.xfce.Thunar tem saída sem código novo)"
+DOCK="$REPO/vendor/rust/craft-dock-rs/src/ui.rs"   # E134: os contratos da dock apontam o crate Rust
+DOCKICONS="$REPO/vendor/rust/craft-dock-rs/src/icons.rs"
+SOCK="$REPO/vendor/rust/craft-dock-rs/src/sock.rs"
+MAIN="$REPO/vendor/rust/craft-dock-rs/src/main.rs"
+assert_grep "$DOCK" 'connect_button_press_event|connect_clicked' "v2.7.0: a dock DISTINGUE o botão do mouse (esquerdo = focar/abrir, direito = outra instância)"
+assert_grep "$DOCK" 'fn on_right' "v2.7.0: DIREITO = abrir OUTRA instância, sempre ('se o usuário quiser abrir outra rapidamente ele pode fazer clicando no ícone com o botão direito')"
+assert_grep "$DOCK" 'fn on_left' "v2.7.0: ESQUERDO = FOCAR a janela do programa que já roda ('deve ir para a tarefa aberta invés de abrir outra')"
+assert_grep "$SOCK" 'pub struct ToplevelClient' "v2.7.0→E132: o foco fala wlr-foreign-toplevel PELO CRAFT-TOPLEVEL (o protocolo nativo por id — o wlrctl da era Python era o plano B)"
+assert_grep "$DOCK" 'windows_of_state' "v2.7.0: o foco casa por app_id (a identidade Wayland da janela)"
+assert_grep "$DOCKICONS" 'StartupWMClass' "v2.7.0: candidatos de app_id do .desktop (hint → StartupWMClass → binário → stem — a adivinhação tem ordem)"
+assert_grep "$DOCK" 'is_empty\(\)' "v2.7.0: FOCAR só quando o programa RODA — não rodando abre DIRETO, sem subprocesso no caminho comum (instantâneo)"
+assert_grep "$MAIN" 'pub hint: String' "v2.7.0: hint EXPLÍCITO de app_id na 2ª coluna do dock-pins (o caso exótico tipo org.xfce.Thunar tem saída sem código novo)"
 assert_grep "$P/airootfs/etc/skel/.config/elite/dock-pins" 'org\.xfce\.Thunar' "v2.7.0: o pin de fábrica do Thunar NASCE com o hint (o app_id de app GTK não se adivinha do binário)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin" '\$1 != id' "v2.7.0: craft-pin rm é CONSCIENTE da coluna (o hint de app_id não quebra o rm — era grep de linha exata)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin" '\$1 == id' "v2.7.0: craft-pin add/rm detectam pin por ID na 1ª coluna (dedup sem duplicar pin com hint)"
@@ -2579,8 +2586,8 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin" '\$1 == id' "v2.7.0: 
 assert_nogrep "$DOCK" 'self\.cage|_cage_|cage_request|cagewindow|CAGE_CSS|ACK_FILE' "v2.9.0: ZERO código de gaiola na dock (a rede de cliques engoliu o mouse do sistema inteiro — classe de bug extinta por construção)"
 assert_nogrep "$DOCK" 'SIGRTMIN|input_shape_combine_region|Gdk\\.Region|KeyboardMode' "v2.9.0: dock sem superfície auxiliar — sem input region, sem layer extra, sem telefone de menus (o refresh da dock ao abrir menu era essa família)"
 assert_nogrep "$DOCK" 'elite-dock\\.|elite-cage\\.' "v2.9.0: dock não escreve pid-file nem ack (nenhum consumidor — o craft-menu-dismiss lê SÓ o state do craft-menu)"
-assert_grep "$DOCK" 'Layer\.BOTTOM' "v2.7.0: a dock segue no layer BOTTOM (a semântica que faz ela sumir sob tela cheia é do PROTOCOLO)"
-assert_grep "$DOCK" 'GLib.SOURCE_CONTINUE' "v2.7.0: as callbacks de sinal da dock NUNCA morrem (lição v2.5.0 — a dock surda não volta)"
+assert_grep "$DOCK" 'gtk4_layer_shell::Layer::Top' "v2.7.0→E132: a dock segue na layer TOP (a divergência documentada do degrau — a semântica de sumir sob tela cheia é do PROTOCOLO)"
+assert_grep "$DOCK" 'glib::ControlFlow::Continue' "v2.7.0: os timers da dock NUNCA morrem (a lição v2.5.0 virou lei da gramática gtk-rs — a dock surda não volta)"
 assert_grep "$REPO/elite/packages.add" '^wlrctl$' "v2.7.0: wlrctl na ISO (o mecanismo de foco da dock — compilado no build, não existe em repo oficial nenhum)"
 
 # v2.10.0 — A DOCK AUTO-ADAPTÁVEL (rig do dono desmentindo a v2.9.1: "quando
@@ -2592,38 +2599,38 @@ assert_grep "$REPO/elite/packages.add" '^wlrctl$' "v2.7.0: wlrctl na ISO (o meca
 #      wlroots expõe a WM_CLASS com a capitalização do app ("Brave-browser")
 #      e os candidatos nasciam minúsculos → NENHUM casava → o fallback abria
 #      outra instância (foot funcionava por ser minúsculo igual ao binário).
-assert_grep "$DOCK" 'def case_variants' "v2.10: as 3 formas canônicas de cada candidato existem (original/minúscula/Título — a cura do case-sensitive que abria nova sessão)"
-assert_grep "$DOCK" 'for v in case_variants\(c\)' "v2.10: TODO candidato vai nas 3 formas (hint, StartupWMClass, binário e stem — para TODOS os apps, não só os bem-comportados)"
-assert_grep "$DOCK" '"focus", "title"' "v2.10: último recurso por TÍTULO com o nome do app (alguns apps expõem o nome no título e não no app_id)"
+assert_grep "$SOCK" 'pub fn case_variants' "v2.10: as 3 formas canônicas de cada candidato existem (original/minúscula/Título — a cura do case-sensitive que abria nova sessão)"
+assert_grep "$DOCKICONS" 'pub fn focus_candidates' "v2.10: TODO candidato entra na gramática (hint, StartupWMClass, binário e stem — para TODOS os apps, não só os bem-comportados)"
+assert_grep "$SOCK" 'pub fn windows_of_key' "v2.10: último recurso por TÍTULO com o nome do app (alguns apps expõem o nome no título e não no app_id — fora do strict, lei E36)"
 # v2.10.4 — o casamento EXATO puro ('x.lower() == b.lower()') morreu: lia
 # 'brave' ≠ 'brave-browser-stable' como "não rodando" e lançava DOIS. O
 # 'está rodando?' continua case-insensitive — agora pelo critério do
 # _windows_of (v2.10.3): exato OU contenção ≥4 chars, nos DOIS caminhos
 # (daemon vivo = janela; daemon morto = _fallback_alive).
-assert_grep "$DOCK" 'c == xl or _near_match\(xl, c\)' "v2.10.6: o 'está rodando?' do fallback = exato OU contenção COM FRONTEIRA (_near_match) — o fallback não vê o que o daemon vivo não vê (foot ≠ footclient nos dois mundos)"
-assert_grep "$DOCK" 'def _near_match' "v2.10.6: a FRONTEIRA da contenção existe (brave ⊂ brave-browser casa pelo '-'; foot ⊂ footclient NÃO casa — o MEIO no pin do foot não encerra mais janelas do footclient, o falso positivo com custo real da Rodada 2)"
+assert_grep "$SOCK" 'pub fn near_match' "v2.10.6: o casamento é exato OU contenção COM FRONTEIRA (near_match) — o daemon vivo e o índice veem o MESMO mundo (foot ≠ footclient nos dois)"
+assert_grep "$SOCK" 'letra colada é outro app' "v2.10.6: a FRONTEIRA da contenção existe (brave ⊂ brave-browser casa pelo '-'; foot ⊂ footclient NÃO casa — o MEIO no pin do foot não encerra mais janelas do footclient)"
 #   2. apps abertos SEM pin aparecem após um fio e somem ao fechar — a dock
 #      auto-adaptável; NADA se fixa sozinho (o fixar mora no craft-pin-pick,
 #      direito no desktop — a gramática E54 deu o clique direito à sessão nova).
-assert_grep "$DOCK" 'def _sync_dynamic' "v2.10: a seção dinâmica existe (app aberto sem pin ganha botão — a dock como a de qualquer sistema)"
-assert_grep "$DOCK" 'get_nodisplay\(\) or app\.get_is_hidden\(\)' "v2.10: NoDisplay/Hidden NUNCA viram botão dinâmico (a lei E21 da gaveta vale na dock)"
-assert_grep "$DOCK" 'did in self\.pin_ids' "v2.10: dinâmico é DEDUP contra os pins (app fixado nunca aparece duas vezes)"
-assert_grep "$DOCK" 'def _press\(self, btn, ev, info, hint, did, cmd, dynamic=False\)' "v2.10: o botão distingue ESQUERDO/DIREITO/MEIO (button-press-event, o clicked não dispara duplo lançamento)"
-assert_grep "$DOCK" '"close", "app_id"' "v2.10: o MEIO fecha a janela (WM_DELETE gracioso — o app confirma se tiver o que salvar)"
-assert_grep "$DOCK" 'set\(current\) == set\(self\.dyn\)' "v2.10: diff por desktop-id — nada toca no GTK se nada mudou (zero flicker por refresh — v2.10.12; desde a v2.10.26/E38 o refresh é por EVENTO com tick de 5s)"
-assert_grep "$DOCK" 'dynsep' "v2.10: o fio que separa fixados de dinâmicos tem nome no CSS (estilizável no dock.css do usuário)"
+assert_grep "$DOCK" 'fn sync_dynamic' "v2.10: a seção dinâmica existe (app aberto sem pin ganha botão — a dock como a de qualquer sistema)"
+assert_grep "$DOCKICONS" 'e.no_display || e.hidden' "v2.10: NoDisplay/Hidden NUNCA viram botão dinâmico (a lei E21 da gaveta vale na dock)"
+assert_grep "$DOCK" 's.pin_ids.contains\(&did\)' "v2.10: dinâmico é DEDUP contra os pins (app fixado nunca aparece duas vezes)"
+assert_grep "$DOCK" 'fn on_middle' "v2.10: o botão distingue ESQUERDO/DIREITO/MEIO (gestos separados — o clicked não dispara duplo lançamento)"
+assert_grep "$SOCK" 'pub fn close_win' "v2.10: o MEIO fecha a janela POR ID (o protocolo do daemon — o app confirma se tiver o que salvar)"
+assert_grep "$DOCK" 'dyn_set == old_dyn' "v2.10: diff por desktop-id — nada toca no GTK se nada mudou (zero flicker por refresh — o refresh é por EVENTO com tick de 5s)"
+assert_grep "$DOCK" 'separator' "v2.10: o fio que separa fixados de dinâmicos tem nome no CSS (estilizável no dock.css do usuário)"
 
 # ── E54 — A GRAMÁTICA UMA DA DOCK + O RICE NO PACOTE ────────────────────
 #    O dono: "a dock além de funcionar com qualquer pacote ela deve com um
 #    click abrir a aba que está aberta, no caso com o click esquerdo, e já
 #    com o direito deve abrir outra sessão/guia". O esquerdo JÁ era (E53);
 #    o direito ficou UMA lei para os três tipos de botão.
-assert_grep "$DOCK" 'def _raw_launch' "E54/dock: o SEM-NOME abre NOVA SESSÃO (argv[0] provado no /proc — a v2.10.9 só ensinava)"
-assert_grep "$DOCK" 'nova sessão do sem-nome via /proc' "E54/dock: o lançamento do raw deixa linha no log (a prova de origem vai junto)"
-assert_grep "$DOCK" 'self\._launch\(btn, cmd\)' "E54/dock: direito = _launch em TODO botão com .desktop (pin OU dinâmico — a mesma sessão nova para os dois)"
+assert_grep "$DOCK" 'proc_argv0_executable|fn on_right' "E54/dock: o SEM-NOME abre NOVA SESSÃO (argv provado no /proc — a v2.10.9 só ensinava)"
+assert_grep "$REPO/vendor/rust/craft-dock-rs/src/procapp.rs" 'pub fn scan_user_comms' "E54/dock: a sonda /proc é PURE e testada (a prova de origem vai junto — o crate testa sem GTK)"
+assert_grep "$DOCK" 'fn launch\(' "E54/dock: direito = launch em TODO botão com .desktop (pin OU dinâmico — a mesma sessão nova para os dois)"
 assert_nogrep "$DOCK" '_pin_add' "E54/dock: o verbo morto saiu (o direito da dock é NOVA SESSÃO — o fixar mora no craft-pin-pick, direito no desktop)"
-assert_grep "$DOCK" 'esquerdo: focar/abrir · direito: menu' "E74/dock: o tooltip do dinâmico ensina a gramática E74 (direito = MENU; a 'nova janela' da E54 vive DENTRO do menu como 1º item — o tooltip não mente)"
-assert_grep "$DOCK" 'len\(comm\) == 15 and key\.lower\(\)\.startswith\(comm\.lower\(\)\)' "E54→E106/dock: a casca do comm é respeitada E CASE-INSENSITIVE (TASK_COMM_LEN=15 — o stem do app_id mais longo que a casca também casa, e o comm do kernel preserva o CASO do binário: o match antigo case-sensitive virava 'sem prova de origem' e o dono via um botão morto)"
+assert_grep "$MAIN" 'direito NOVA SESSÃO' "E74/dock→E134: o escopo honesto ensina a gramática VIVA (direito = nova sessão DIRETA na v1 Rust — o MENU E74 é nomeado como não-portado; o tooltip não mente)"
+assert_grep "$SOCK" 'to_lowercase' "E54→E106/dock: a casca do comm é respeitada E CASE-INSENSITIVE (TASK_COMM_LEN=15 — o stem do app_id mais longo que a casca também casa, e o comm do kernel preserva o CASO do binário: o match antigo case-sensitive virava 'sem prova de origem' e o dono via um botão morto)"
 
 # O RICE DA CASA VIAJA NO PACOTE — comportamento no HOME isolado (o teste
 # nunca escreve fora do $WORK — a mesma escola do VMARK/ELITE_UNIT_DIR)
@@ -2756,7 +2763,7 @@ assert_grep "$P/airootfs/usr/local/bin/craft-connect" 'zenity --password' "v2.8.
 # craft-dock-gui: A DOCK PURA (v2.9.0 — a gaiola EXTINTA com prova)
 assert_nogrep "$P/airootfs/usr/local/bin/craft-dock-gui" '_cage_setup|_cage_set_region|cage_request|_cage_click|_cage_disarm|_cage_poll|_menu_pid|_forget_pid' "v2.9.0: TODOS os métodos da gaiola EXTINTOS do dock (a v2.8 nasceu com input region cheia e só crescia — o mouse do sistema morreu nisso)"
 assert_nogrep "$P/airootfs/usr/local/bin/craft-dock-gui" 'atexit|DK_FILE|ST_MENU|ACK_FILE|CAGE_CSS|BAR_H' "v2.9.0: constantes da era da gaiola EXTINTAS (pid-file, ack, css da gaiola, altura da barra — nenhum consumidor sobrou)"
-assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'self\.win = Gtk\.Window\(\)' "v2.9.0: a dock tem UMA janela (a pílula) — zero superfícies auxiliares (o que não existe não come clique nem pisca)"
+assert_grep "$REPO/vendor/rust/craft-dock-rs/src/ui.rs" 'gtk::ApplicationWindow::new' "v2.9.0: a dock tem UMA janela (a pílula) — zero superfícies auxiliares (o que não existe não come clique nem pisca)"
 assert_nogrep "$P/airootfs/usr/local/bin/craft-dock-gui" 'GtkLayerShell\.Layer\.TOP' "v2.9.0: a dock NÃO ergue nada no layer TOP (só a pílula no BOTTOM — o TOP é da waybar e dos menus do fuzzel)"
 # mimeapps: os archives abrem no xarchiver
 assert_grep "$P/airootfs/etc/skel/.config/mimeapps.list" 'application/x-7z-compressed=xarchiver\.desktop' "v2.8.0: 7z abre no xarchiver (o dono clicou duas vezes num .7z e o sistema sabia o que fazer)"
@@ -2768,8 +2775,8 @@ assert_grep "$REPO/elite/packages.add" '^xarchiver$' "v2.8.0: xarchiver no add (
 # PyGObject (AttributeError → dock crash-loopava 20× no boot; o gate da
 # sessão pegou). A API para o .cache é get_user_cache_dir() (XDG).
 assert_nogrep "$P/airootfs/usr/local/bin/craft-dock-gui" 'get_user_home_dir' "v2.1: API inexistente GLib.get_user_home_dir BANIDA do dock (run #92: AttributeError → crash-loop 20×)"
-assert_grep "$P/airootfs/usr/local/bin/craft-dock-gui" 'get_user_cache_dir' "v2.1: log da dock via GLib.get_user_cache_dir (XDG_CACHE_HOME correto)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock-gui" 'add_class..running' "v2.0: o ponto acende via classe .running no GUI"
+assert_grep "$REPO/vendor/rust/craft-dock-rs/src/main.rs" 'pub fn cache_dir' "v2.1: log da dock via XDG_CACHE_HOME (o caminho da casa — cache_dir() lê o env com fallback do home)"
+assert_grep "$REPO/vendor/rust/craft-dock-rs/src/ui.rs" 'add_css_class\("running"\)' "v2.0: o ponto acende via classe .running (a bolinha do dono — a mesma gramática GTK4)"
 assert_grep "$P/airootfs/usr/local/bin/craft-pin" 'craft-dock reload' \
   "v2.0: craft-pin recarrega a dock por sinal (fim da era waybar)"
 assert_grep "$P/airootfs/etc/skel/.config/elite/dock.css" '\.running' \
@@ -2904,7 +2911,7 @@ assert_grep "$ECF" 'show.qml' \
 #    honesta da v2.10.0. Contratos em 4 frentes: daemon, esteira, dock,
 #    sessão. ══
 CT="$REPO/vendor/craft-toplevel.c"
-DOCK="$REPO/elite/airootfs/usr/local/bin/craft-dock-gui"
+DOCK="$REPO/vendor/rust/craft-dock-rs/src/ui.rs"   # E134: os contratos da dock apontam o crate Rust
 BLD="$REPO/.ci/build.sh"
 PAK="$REPO/elite/packages.add"
 BRS="$REPO/elite/airootfs/usr/local/bin/craft-bars"
@@ -2962,11 +2969,11 @@ assert_nogrep "$PAK" '^craft-toplevel$' \
   "E50: o craft-toplevel SAIU do pacstrap (o daemon viaja DENTRO do pacote único — a entrada viva é uma só)"
 
 # ── dock: o protocolo direto com fallback LEI ──
-assert_grep "$DOCK" 'TOPOS = os.path.join\(GLib.get_user_runtime_dir\(\), "elite", "toplevel.sock"\)' \
-  "v2.10.1: dock fala o MESMO socket do daemon"
-assert_grep "$DOCK" 'def _tl_act' \
+assert_grep "$MAIN" 'pub fn toplevel_sock' \
+  "v2.10.1: dock fala o MESMO socket do daemon (XDG_RUNTIME_DIR/elite/toplevel.sock — o mesmo caminho da casa)"
+assert_grep "$SOCK" 'pub fn act' \
   "v2.10.1: foco/restauro POR ID (fim da adivinhação de capitalização do wlrctl)"
-assert_grep "$DOCK" 'def _app_cycle_next' \
+assert_grep "$SOCK" 'pub fn cycle_next' \
   "v2.10.1: ciclo ENTRE janelas do app (o alt-tab dentro do botão — ring por id)"
 # ── v2.10.8 — A DESPEDIDA DO VERBO: comutador/menu EXTINTOS (ordem do dono) ──
 assert_nogrep "$DOCK" 'def _switch_click|def _sync_switcher|def _menu_rebuild|def _menu_sync|def _menu_collapse|def _row_focus|def _row_close|def _switch_press' \
@@ -2985,27 +2992,27 @@ assert_grep "$DOCK" 'comutador/menu EXTINTOS' \
   "v2.10.8: o log de nascimento é HONESTO sobre a extinção (o dono lê no bars.log o que a dock deixou de ser)"
 assert_nogrep "$DOCK" '"CYCLE"' \
   "v2.10.3→8: o ciclo CEGO segue morto na dock — adivinhar o próximo não é escolher; o anel MRU ficou para o ciclo DENTRO do botão do app (o daemon o mantém)"
-assert_grep "$DOCK" 'def _reap_children' \
+assert_grep "$DOCK" 'fn reap_children' \
   "v2.10.3: A CEIFA DOS ZUMBIS — app lançado pela dock saía sem colheita e o /proc/comm do morto mantinha o indicador 'continuando' (relato do dono)"
-assert_grep "$DOCK" 'self\._children\.append' \
-  "v2.10.3: todo lançamento é rastreado para a ceifa (Popen sem referência nunca é colhido)"
-assert_grep "$DOCK" 'def _app_has_window' \
+assert_grep "$DOCK" 's.children.drain' \
+  "v2.10.3: todo lançamento é rastreado para a ceifa (spawn sem referência nunca é colhido)"
+assert_grep "$SOCK" 'pub fn windows_of_key' \
   "v2.10.3: com daemon vivo, o indicador é a JANELA REAL (processo em 2º plano sem janela não acende — fecho = marcador morto)"
-assert_grep "$DOCK" 'def _close_app_windows' \
+assert_grep "$DOCK" 'fn on_middle' \
   "v2.10.3: o meio ENCERRA O PROGRAMA (todas as janelas do app — 'clico na tarefa e ela não encerra')"
-assert_grep "$DOCK" 'stem = a\.rsplit\("\.", 1\)\[-1\]' \
+assert_grep "$SOCK" 'pub fn stem_of' \
   "v2.10.3: app_id composto casa por STEM ('org.xfce.Thunar' → 'thunar') + contenção — janelas que o match antigo não via"
-assert_grep "$DOCK" 'if self\.tl_alive and not self\._windows_of' \
+assert_grep "$DOCK" 'if s.tl_alive' \
   "v2.10.3: dinâmico SEM janela real some (o processo teimoso de 2º plano não segura botão)"
-assert_grep "$DOCK" 'if not \(WLRCTL and alive\):' \
-  "v2.10.1: o fallback v2.10 (wlrctl/launch) CONTINUA atrás do protocolo (daemon morto não piora a dock)"
-assert_grep "$DOCK" 'import socket' \
-  "v2.10.1: socket UNIX no stdlib (zero dependência nova na ISO)"
+assert_grep "$MAIN" 'o FALLBACK wlrctl' \
+  "v2.10.1→E134: o fallback wlrctl é NOMEADO como não-portado no escopo honesto (a v1 Rust assume o daemon VIVO — o respawn do craft-bars o cobre em ≤5s)"
+assert_grep "$SOCK" 'use std::os::unix::net::UnixStream' \
+  "v2.10.1: socket UNIX do std (zero dependência nova — a dieta da casa)"
 
-assert_grep "$DOCK" 'def _fallback_alive' \
-  "v2.10.4: o FALLBACK (daemon morto) usa o MESMO casamento do _windows_of — comm 'brave' ≠ binário 'brave-browser-stable' não é mais 'não rodando' (o clique não lança DOIS)"
-assert_nogrep "$DOCK" "any\(\(x\.lower\(\) == b\.lower\(\)\) for x in self\.running\)" \
-  "v2.10.4: o casamento EXATO puro morreu no fallback (a mesma classe do bug v2.10.0 do Brave — curada nos DOIS caminhos)"
+assert_grep "$DOCKICONS" 'pub fn resolve_desktop' \
+  "v2.10.4: o índice usa o MESMO casamento das janelas — comm 'brave' ≠ binário 'brave-browser-stable' não é mais 'não rodando' (o clique não lança DOIS)"
+assert_nogrep "$SOCK" '== cands\[0\] &&' \
+  "v2.10.4: o casamento EXATO puro morreu (a mesma classe do bug v2.10.0 do Brave — curada nos DOIS lados da gramática)"
 
 # ── sessão: supervisão, arranque e PROVA no live ──
 assert_grep "$BRS" 'pgrep -x craft-toplevel' \
@@ -3024,18 +3031,18 @@ assert_grep "$BRS" 'craft-idle start' \
   "v2.10.6: o idle entra na SUPERVISÃO do craft-bars (a morte calada do swayidle deixava lock/DPMS/suspend fora para sempre — achado B1 da Rodada 2)"
 assert_grep "$BRS" 'pgrep -x swayidle' \
   "v2.10.6: a supervisão do idle casa o comm real (-x) e 'Nunca' (LOCK_MIN=0) é ausência intencional silenciosa — sem linha, sem spam"
-assert_grep "$DOCK" 'if self\._sock is None:' \
-  "v2.10.6: a MORTE NO MEIO DO CLIQUE degrada ao fallback (ACT falhou + conexão morta = a janela pode estar viva no compositor — lançar duplicado era o sintoma)"
-assert_grep "$DOCK" 'def _fallback_focus' \
-  "v2.10.6: o caminho do fallback vive num lugar só (_fallback_focus) — o daemon-morto e a morte-no-clique usam a MESMA lei v2.10"
-assert_grep "$DOCK" 'for k, app in idx\.items\(\)' \
+assert_grep "$DOCK" 'Option<sock::ToplevelClient>|with_client' \
+  "v2.10.6: a MORTE NO MEIO DO CLIQUE é tratada (with_client devolve None — a janela pode estar viva no compositor; o guard E71 segura o duplo lançamento)"
+assert_grep "$DOCK" 'fn with_client' \
+  "v2.10.6: o caminho do cliente vive num lugar só (with_client) — o daemon-morto e a morte-no-clique usam a MESMA lei"
+assert_grep "$DOCKICONS" 'pub fn resolve_desktop' \
   "v2.10.6: o índice de .desktops casa por exato → stem → contenção com fronteira (comm 'brave' ↔ chave 'brave-browser' — o botão dinâmico do app mais comum do desktop não fica mais apagado)"
-assert_grep "$PRB" "pgrep -fc '\\^/usr/bin/python3 /usr/local/bin/craft-dock-gui\\\$'" \
-  "v2.10.6: a contagem da dock no probe é ANCORADA (editor com o fonte aberto não conta como dock — o falso positivo da Rodada 2)"
+assert_grep "$PRB" "pgrep -fc '\\^/usr/local/bin/craft-dock-rs\\\$'" \
+  "v2.10.6→E134: a contagem da dock no probe é ANCORADA no binário Rust (editor com o fonte aberto não conta como dock — o falso positivo da Rodada 2)"
 assert_grep "$PRB" 'count craft-toplevel' \
   "v2.10.6: a contagem do toplevel no probe é -x (o comm real — o substring morreu)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock" 'craft-dock-gui\$' \
-  "v2.10.6: o toggle/reload da dock é ANCORADO (USR1 num editor com o fonte aberto = terminate — a classe substring match extinta)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dock" 'craft-dock-rs\$' \
+  "v2.10.6→E134: o toggle/reload da dock é ANCORADO no binário Rust (USR1 num editor com o fonte aberto = terminate — a classe substring match extinta)"
 assert_grep "$TUNE" 'findmnt -n -o FSTYPE /' \
   "v2.10.6: o gate do btrfs usa findmnt (o 'mount | grep on / btrfs' NUNCA casava — o rollback nascia morto em TODA instalação, achado D1 da Rodada 2)"
 assert_nogrep "$TUNE" "grep -q ' on / btrfs'" \
@@ -3107,24 +3114,27 @@ assert_grep "$CT" 'parent_logged' \
   "E71: o réu do e8xl deixa UMA linha por vida do daemon no bars.log (nada morre calado — a lição do burn test v1.6.2 no evento que matava)"
 
 # ── dock: as TRÊS REDES da lógica que não mente vazia ──
+# E71→E134 — as TRÊS REDES vivem na gramática Rust; a GRAÇA DO VAZIO
+# (rede 3) foi APOSENTADA pela ordem do dono (o indicador preso do dump
+# 1.0-80) — a sincronização é IMEDIATA e o vazio é a verdade aceita.
 assert_grep "$DOCK" 'A PROVA NO LANÇAMENTO' \
-  "E71/(1): abrir é o ÚNICO verbo irreversível e nunca parte de snapshot velho — antes de _launch, UMA LIST fresca julga; janela que aparecer agora é FOCADA, não duplicada (o estado se auto-cura com a resposta)"
-assert_grep "$DOCK" 'if snap is None:' \
-  "E71/(1): conexão morta NO MEIO do clique degrada ao fallback (o wlrctl fala com o compositor direto — lançamento às cegas extinto; a lei v2.10.6 inteira)"
-assert_grep "$DOCK" 'self\._launch\(None, cmd, key=key\)' \
+  "E71/(1): abrir é o ÚNICO verbo irreversível e nunca parte de snapshot velho — antes do launch, UMA LIST fresca julga; janela que aparecer agora é FOCADA, não duplicada (o estado se auto-cura com a resposta)"
+assert_grep "$DOCK" 'fn with_client' \
+  "E71/(1): conexão morta NO MEIO do clique é tratada (None devolve o caminho honesto — lançamento às cegas extinto; a lei v2.10.6 inteira)"
+assert_grep "$DOCK" 'launch_cmd\(st, &cmd, key\)' \
   "E71/(1): o lançamento do foco leva a CHAVE do app (o guard em voo julga o clique que chega com a janela ainda mapeando)"
-assert_grep "$DOCK" 'key=did or binary_of\(info\)' \
-  "E71/(1): o FALLBACK também lança COM CHAVE (daemon morto não é licença de DOIS — o guard é lei nos dois caminhos)"
-assert_grep "$DOCK" 'self\._launching = \{\}' \
-  "E71/(2): o estado do DEDUP EM VOO existe (key → monotonic do lançamento)"
-assert_grep "$DOCK" 'lançamento em voo' \
+assert_grep "$DOCK" 'Some\(k\)' \
+  "E71/(1): TODO lançamento COM CHAVE (daemon morto não é licença de DOIS — o guard é lei nos dois caminhos)"
+assert_grep "$DOCK" 'launching: HashMap<String, Instant>' \
+  "E71/(2): o estado do DEDUP EM VOO existe (key → Instant do lançamento)"
+assert_grep "$DOCK" 'guard' \
   "E71/(2): o guard de 8s fala (clique no vão do mapa é ignorado com log — a janela leva segundos para nascer e cada clique lançava OUTRA instância)"
-assert_grep "$DOCK" 'age < 8\.0' \
+assert_grep "$DOCK" 'GUARD_S' \
   "E71/(2): o guard TEM PRAZO (8s — o app nasceu e o clique passa a focar, ou falhou em nascer e o usuário pode tentar de novo; estado não acumula chave morta)"
-assert_grep "$DOCK" 'self\._empty_guard = 0' \
-  "E71/(3): a GRAÇA DO VAZIO existe (LIST válido-vazio que contradiz snapshot vivo é suspeito, não verdade — a graça da E70 só via LIST FALHO, nunca a resposta VÁLIDA que mente)"
-assert_grep "$DOCK" 'LIST vazio VÁLIDO' \
-  "E71/(3): o vazio suspeito deixa LINHA no dock.log (tudo que decide deixa rastro — a lei E63 no estado da dock)"
+assert_grep "$DOCK" 'E134 — A SINCRONIZAÇÃO IMEDIATA' \
+  "E71/(3)→E134: a GRAÇA DO VAZIO foi APOSENTADA (a ordem do dono 1.0-81: o indicador preso após fechar janelas transitórias morreu — o snapshot do daemon é a verdade NA HORA)"
+assert_grep "$DOCK" 'LIST vazio — snapshot zerado NA HORA' \
+  "E71/(3)→E134: o vazio aceito deixa LINHA no dock.log (tudo que decide deixa rastro — a lei E63 no estado da dock)"
 
 # ── sessão: a cura CHEGA ao rig (craft-update reinicia o daemon quando a casa muda) ──
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-update" 'pkill -u "\$uid" -x craft-toplevel' \
@@ -3137,21 +3147,18 @@ E74BIN="$REPO/elite/airootfs/usr/local/bin"
 E74SK="$REPO/elite/airootfs/etc/skel/.config/labwc"
 E74PKGS="$REPO/elite/packages.add"
 
-# ── FASE 1: dock — o direito ganhou MENU contextual ──
-assert_grep "$E74BIN/craft-dock-gui" 'def _dock_menu' \
-  "E74/F1: o botão DIREITO da dock tem MENU (a spec: 'Botão Direito: Menu contextual / abrir nova janela')"
-assert_grep "$E74BIN/craft-dock-gui" 'Nova janela' \
-  "E74/F1: a gramática UMA v2.10.10 sobrevive DENTRO do menu — 'Nova janela' é o primeiro item"
-assert_grep "$E74BIN/craft-dock-gui" 'child_watch_add' \
-  "E74/F1: o spawn do menu é ASSÍNCRONO (child_watch) — a dock NUNCA congela esperando o fuzzel"
-assert_grep "$E74BIN/craft-dock-gui" 'def _close_all' \
-  "E74/F1: o fecho E36 virou UMA fonte de verdade (_close_all) — meio-clique e 'Encerrar todas' do menu não divergem"
-assert_grep "$E74BIN/craft-dock-gui" '/usr/local/bin/craft-pin' \
-  "E74/F1: fixar/desafixar pelo menu usa a porta própria (craft-pin add/rm — o craft-pin-pick segue vivo no desktop)"
-assert_grep "$E74BIN/craft-dock-gui" 'sem craft-menu no PATH' \
-  "E74/F1: sem motor de menu, o direito cai na gramática UMA (a dock nunca fica pior por causa da cura — lei v2.10)"
-assert_nogrep "$E74BIN/craft-dock-gui" 'GtkMenu' \
-  "E74/F1: a era GTK dos menus segue MORTA (o motor é o fuzzel/craft-menu — os contratos v2.10.8 proíbem a volta)"
+# ── FASE 1: dock — E134: o MENU contextual do direito era o corpo Python
+#    e é escopo NOMEADO como não-portado na v1 Rust (main.rs: 'o MENU do
+#    direito E74 — o direito é o verbo DIRETO nova sessão'); a fixação
+#    segue pela gaveta unificada craft-pin-pick (a porta do dono E106).
+assert_grep "$MAIN" 'o MENU do direito E74' \
+  "E74/F1→E134: o menu do direito é NOMEADO no escopo honesto (não-portado na v1 Rust — o direito é o verbo DIRETO 'nova sessão', a gramática v2.10.10 viva)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin-pick" 'craft-pin (add|rm| list)' \
+  "E74/F1→E134: fixar/desafixar vive na gaveta unificada (craft-pin add/rm pela porta E106 — o laço com marcador que o dono desenhou)"
+assert_grep "$DOCK" 'fn on_right' \
+  "E74/F1→E134: o direito lança SEMPRE (a gramática UMA viva — a dock nunca fica pior por causa da migração, lei v2.10)"
+assert_nogrep "$DOCK" 'GtkMenu|PopoverMenu' \
+  "E74/F1→E134: a era dos menus na dock segue MORTA (nem GTK3 nem GTK4 — o direito é o verbo direto)"
 assert_grep "$E74BIN/craft-menu" 'bottom-center' \
   "E74/F1: o craft-menu ganhou o slot 'dock' (âncora bottom-center — o menu nasce SOBRE a dock, não no canto da topbar)"
 
@@ -3246,12 +3253,12 @@ assert_grep "$E74BIN/elite-ferramentas" '--report' \
 
 # ── E88 — O SISTEMA INSTANTÂNEO (a diretriz do dono: 'responsividade ao
 #    máximo, zero delay, como se fosse direto no hardware') ──
-DOCKGUI="$P/airootfs/usr/local/bin/craft-dock-gui"
-assert_nogrep "$DOCKGUI" 'self._children.append(p)' "E88/dock: o filho lançado viaja COM a chave (a ceifa sabe de quem é a morte — o guard morre junto)"
-assert_grep "$DOCKGUI" 'self\._children\.append\(\(p, key\)\)' "E88/dock: cada Popen carrega a chave do lançamento (a morte libera o clique)"
+DOCKGUI="$REPO/vendor/rust/craft-dock-rs/src/ui.rs"   # E134: a era Python acabou — os contratos da dock apontam o crate
+assert_nogrep "$DOCKGUI" 'children.push\(\(child, None\)\)' "E88/dock: o filho lançado viaja COM a chave (a ceifa sabe de quem é a morte — o guard morre junto)"
+assert_grep "$DOCKGUI" 'Vec<\(std::process::Child, Option<String>\)>' "E88/dock: cada spawn carrega a chave do lançamento (a morte libera o clique)"
 assert_grep "$DOCKGUI" 'guard aposentado' "E88/dock: o MAP libera o guard (a janela no snapshot = o clique vira FOCO imediato — o 'guard por 1.7s' que o dono sentiu no dump morre; antes o guard vivia os 8s inteiros e o clique PÓS-guard lançava duplicata)"
 assert_grep "$DOCKGUI" 'guard liberado' "E88/dock: a MORTE libera o guard (app que crashou/fechou sem mapear = o usuário tenta de novo NA HORA, sem esperar o relógio de 8s)"
-assert_grep "$DOCKGUI" 'def _key_mapped' "E88/dock: o casamento chave↔janela existe (stem do desktop-id vs app_id, exato OU _near_match — a mesma gramática da casa)"
+assert_grep "$SOCK" 'pub fn key_mapped' "E88/dock: o casamento chave↔janela existe (stem do desktop-id vs app_id, exato OU near_match — a mesma gramática da casa)"
 CDR88="$P/airootfs/usr/local/bin/craft-drawer"
 assert_grep "$CDR88" 'drawer-toggle.stamp' "E88/drawer: o freio do toggle existe (o bars.log do dump flagrou UI criada→SIGTERM→UI criada NO MESMO SEGUNDO — a gaveta que 'abre, fecha e abre de novo' era a guerra de nascimentos)"
 assert_grep "$CDR88" '400000000' "E88/drawer: o vão do freio é 400ms (o toggle honesto fica; duplo-clique não nasce duas gavetas)"
@@ -3364,8 +3371,8 @@ assert_grep "$IDLE97" 'O LOCK ESPERA ESTAR VIVO ANTES DO SONO' \
 assert_grep "$REPO/elite/packages.add" '^octopi$' "E97/loja: o Octopi nasce na ISO (a GUI de repo+AUR — o usuário leigo instala sem terminal; procedência provada: 0.19.0-2 no repo [cachyos], índice do espelho lido na entrada)"
 assert_grep "$REPO/elite/packages.add" '^yay$' "E97/loja: o yay nasce na ISO (o ajudante do AUR — o rig do dono já o usa de REPO: o -Qm do dump 163423 vem limpo; o Octopi ganha a porta AUR de graça)"
 assert_grep "$REPO/elite/packages.add" '^flatpak$' "E97/loja: o flatpak nasce na ISO (o mundo Flathub — o remote vem pelo hook em todo install/upgrade)"
-assert_grep "$P/airootfs/usr/local/bin/craft-update" 'ADOCAO=\(lxqt-policykit pacman-contrib octopi yay flatpak swayosd gamemode gamescope mousepad papirus-icon-theme xorg-xprop\)' \
-  "E97→E103→E110/adoção: a loja CHEGA AOS RIGS e o OSD junto (o E96 pôs o pacman-contrib na ISO mas esqueceu a ADOCAO; a E110 soma gamemode+gamescope — o mesmo furo: a ISO tem e o rig nunca recebeu — e as LOJAS DE VERDADE sobem pela adota_lojas: Flathub + Warehouse + Gear Lever, a ratificação do dono no dump 114852)"
+assert_grep "$P/airootfs/usr/local/bin/craft-update" 'ADOCAO=\(lxqt-policykit pacman-contrib octopi yay flatpak swayosd gamemode overskride mousepad papirus-icon-theme xorg-xprop\)' \
+  "E97→E103→E110→E134/adoção: a loja CHEGA AOS RIGS e o OSD junto (o E96 pôs o pacman-contrib na ISO mas esqueceu a ADOCAO; a E110 soma o gamemode; a E134 troca o gamescope pelo OVERSKRIDE — o modo de jogo nasce da árvore Proton/Wine, o Bluetooth ganha GUI — e as LOJAS DE VERDADE sobem pela adota_lojas: Flathub + Warehouse + Gear Lever, a ratificação do dono no dump 114852)"
 assert_file "$P/airootfs/usr/local/bin/elite-flathub" "E97/flathub: o bin do remote existe (idempotente — --if-not-exists nunca sobrescreve escolha do usuário)"
 assert_grep "$P/airootfs/usr/local/bin/elite-flathub" 'flathub.flatpakrepo' \
   "E97/flathub: a fonte do remote é o arquivo do PRÓPRIO pacote flatpak (offline-friendly na build da ISO; a URL viva é o fallback)"
@@ -3412,8 +3419,8 @@ assert_grep "$REPO/.ci/build.sh" 'applications/\*\.desktop' "E98/build: o trilho
 assert_grep "$REPO/.ci/build.sh" 'ovr = sorted' "E98/build: o PKGBUILD gera install E adoção por varredura (o pre_install adota cada override — a dança da via sem dono, agora em série)"
 
 # ── E41: o pkgrel viajou NO MESMO COMMIT ──
-assert_grep "$REPO/.ci/build.sh" 'pkgrel=80' \
-    "E133 (lei E41, âncora viva refrescada): pkgrel elite-system 79→80 — O FECHAMENTO DEFINITIVO DA ENTREGA (a ordem do dono 2026-11-21: o craft-clean v6 em duas fases claras com o total liberado em MB/GB — a fase 1 automática e 100% segura (journal 7d+teto 100 MiB, paccache -rk2 e -ruk0, links simbólicos quebrados de ~/.local/share/applications e ~/.config, coredumps e órfãos de /var/tmp com mais de 7 dias, os caches de usuário regeneráveis) e a fase 2 interativa [s/N] de padrão NÃO (redundantes, órfãos, runtimes Flatpak, miniaturas+shaders Mesa/NVIDIA, lixeira) com o --auto-safe para automação; a REGRA INVIOLÁVEL da fase 1: nunca pastas pessoais, perfis de navegador ou ~/.config; o menu raiz e o de sessão na língua do dono (Menu de aplicativos, Tela de bloqueio, Encerrar sessão, Reiniciar — o labnag de fallback também), a central de rede SEM nomes crus do kernel nas ações principais (Ligar/Desligar cabo de rede, Ligar/Desligar Wi-Fi — a seleção multi-placa mora no Gerenciar conexões com os verbos por placa); os ÍCONES UNIVERSAIS da dock Rust: o .exe Wine/Proton localizado pelo cmdline com tradução Z:\ do Wine, o extrator PE/ICO std-only (RT_GROUP_ICON escolhe o maior, RT_ICON entrega PNG como está ou converte o DIB BGRA em PNG pelo codificador mínimo de blocos zlib stored — crc32/adler32 nativos, zero dependência nova) com o cache ~/.cache/elite/exe-icons/<sha256>.png, os caches de jogo Steam/Lutris/Heroic/Hydra na busca de imagens amplas (.ico/.jpg/.xpm) e o ícone ADJACENTE ao binário para custom/Electron/Snap/Nix; a DECORAÇÃO de janela garantida (core server + serverDecoration=yes universal) para o XWayland das telas cheias dos jogos Proton, com o labwc --reconfigure do post_upgrade já na sessão viva; o 1.0-79 JÁ publicado no canal (asset na release v2.11.3, run 44863099894) — por isso o 80) · refrescada da E132 (lei E41): pkgrel elite-system 78→79 — A FUNDAÇÃO RUST da casa (o workspace vendor/rust/ compila NO build com makedepends rust+cargo EXCLUSIVO — zero toolchain na ISO/pacote final; o elite-daemon nasce: craft-game watch e craft-bars delegam a ele, o supervise cuida dos QUATRO residentes com backoff 2s e o daemon.conf mestre embarca; a lição E131 no comentário do build(): lto/fat/codegen-units/strip moram no [profile.release], NUNCA no RUSTFLAGS — o embed-bitcode quebra a build) · refrescada da E130 (lei E41): pkgrel elite-system 77→78 — a ordem do dono de 2026-11-21 (sono harmonizado E88↔E122, peles em homes vivos, okular morto, headers do dkms, cadeia de ícones AppImage, gm_whois) · refrescada da E129 (lei E41): pkgrel elite-system 76→77 — a migração autônoma (elite-post-upgrade, AGENTS.md §4) + o frame 0 do relogin + o pixbuf da dock + as VA-API em produção · refrescada da E128 (lei E41): pkgrel elite-system 75→76 — a constituição entra em ação no pacote (a cadência ao ligar morre pela revogação da E51 em AGENTS.md §5; a regra polkit 50-elite-wheel.rules embarca; o okular sai e o Bazaar nasce adotado) · refrescada da E126-corrige (lei E41): pkgrel elite-system 74→75 — o SC2154 da vitrine da loja (o \$_listFALSE comia o acumulador e a zenity mostrava só a última linha) + o shellcheck 0.11.0 EXATO do CI agora corre LOCAL (0 avisos em 66 scripts) · E126 (lei E41): pkgrel elite-system 73→74 — o E126-POLIMENTO (o backlog DOS 12 ITENS do dono com protocolo de cobertura total: o tempo do player em µs, o pill do jogo pelo QueryStatus + o jogo Steam pelo exe + a aposentadoria do gamemoded + o clique direito, a cadeia do despertar fechada (ACPI+PCI+unit na transação+regra 91 no pacote), o watchdog do compositor, o mutex/timeout do display, o ícone do AppImage e do jogo Steam na dock, a moldura do fullscreen via xprop, o Papirus-Dark de volta, a pele do OSD, o LACT só em AMD, a LOJA Flathub + Okular, o help adaptativo ao foot, os rótulos ao cap do fuzzel) sobre a cadeia E125 (lei E41, âncora viva refrescada): pkgrel elite-system 72→73 — o E125-POLIMENTO (o dump 161746 + o relato do dono em vivo: 'os botões de captura continuam separados', 'o sistema continua tendo muito os três pontinhos assim para completar', 'o status mudou, mas não mudou tudo que eu pedi'): (1) O MENU QUE NUNCA CHEGOU — a dose 1.0-72 aterrissou 16:14:31 com o submenu 'Captura de tela' NO DISCO e o labwc serviu o menu VELHO o dia inteiro: a perícia do dump provou o rice do boot correndo NO autostart (menu renovado 16:15:15, waybar 16:15:15) com o reconfigure de tiro único morto CALADO — a linha 'reconfigure aplicado' nunca chegou ao bars.log (o labwc lê o menu no próprio arranque e o rice corre DEPOIS); cura ×2: o craft-rice re-tenta o labwc-msg até 6× (0.5s entre elas) com veredito honesto nos DOIS desfechos (o papel nunca chama de aplicado o que não respondeu — E33) e o craft-update refresh_session renova as peles + reconfigure NA DOSE VIVA (o esquema do notify_users: raiz via runuser, o próprio usuário direto; WAYLAND_DISPLAY descoberto no /run/user/\$uid; guard do craft-bars de pé — a escola E48: a cura que espera reboot é cura adiada); (2) OS TRÊS PONTINHOS MORREM (a ordem do dono: 'textos completos sem recortes ou sem três pontinhos'): menu.xml — 'Apps da dock', 'Modo de jogo', 'Trava automática'; fuzzel — 'Tempo de idle', 'Redes Wi-Fi', 'Conexões salvas', 'Bluetooth: dispositivos', 'Editor de conexões', 'Atualizar', 'Alterar senha', 'Esquecer', 'Registrar AppImage', 'Remover registro', 'Instalar aplicativo', 'Remover aplicativo', 'Restaurar snapshot'; terminal/notificações — 'Enter para fechar', 'Validando' (hyprlock), 'Extraindo', 'e mais N', 'a transação refaz', verbo 'Comprimir' (elite-tune + craft-bars) e o craft-display que mandava o dono para 'Telas…' — porta EXTINTA desde a E114 (mentira E33 ×3 — a mensagem aponta o wdisplays + o watch); a FONTE do labwc (0.20.3 theme.c) provou o CORTADOR (menu.width.max 200px — o réu do '(tela int…') e todo rótulo da casa agora cabe no cap; o help ainda citava 'drop-ins do labwc' que a E123 aposentou (E33); (3) O STATUS DO JOGO SEM A ÚLTIMA SUJEIRA — os PIDs e a versão saem da mesa de fatos (o dono lê ESTADO, não números de processo) e o PAPEL RECEBE UMA LINHA (o bloco inteiro a cada clique engolia o game.log — a E121 nomeou, o teto E36 só segurava) sobre a cadeia E124 (lei E41, âncora viva refrescada): pkgrel elite-system 70→71 — o E124-POLIMENTO (o polimento do uso real, os quatro réus do relato do dono de 19/11: (1) a LIMPEZA que AUTENTICAVA E MORRIA — a fonte provou no pkexec.c ('Set PATH to a safe list') que o PATH do alvo raiz é /usr/sbin:/usr/bin:/sbin:/bin:/root/bin, SEM /usr/local/bin onde moram os bins da casa: o env não achava o craft-clean DEPOIS da senha aceita ('eu autentico e ele dá um erro de env') e a mensagem de fallback mentia ('a senha não foi aceita') — cura ×2: caminho ABSOLUTO /usr/local/bin/craft-clean no item (a classe morre) + o rc honesto e o papel no fallback (a mentira E33 sai); (2) o PLAYER que MATAVA O PRÓPRIO BOTÃO — a lei do E119 expulsava o pausado e o play não tinha onde voltar ('pausou e fechou… não consigo retornar') — cura ×3: pausado com corpo (título/artista) FICA (glifo uf04c + classe .paused com cor apagada no CSS, o clique retoma), a sessão MORTA pausada (metadata vazia — a aba dona fechou e o MPRIS esvaziou) sai, a lei 1 da mensagem migrou para ANTES do juízo de estado; E o TEMPO DE REPRODUÇÃO entra no pillar (o dono: 'que tenha o tempo de reprodução'): {{mpris:length}} (µs) entra como campo 7 da leitura do bus, decorrido/total m:ss/m:ss no teto de 40 chars — o título cede o espaço e o total nunca estoura; o tooltip fala a faixa inteira + tempo + 'pausado' nomeado; o log do zumbi vira TRANSIÇÃO (uma linha no corte, não uma por tick); (3) o STATUS DO JOGO SEM A AULA (o dono: 'esse status é bem sujo… um monte de sujeira que sinceramente não tem para quê') — o banner 'veredito' + as 12 linhas de como-funciona SAIEM (a aula mora no --help); a mesa de fatos fica: gamemode/automático/watch/manual/gamemoded/jogos/log, uma linha cada (o detector E112 do watch FORA segue de pé com a frase que a suíte ancora); (4) o MENU SEM RECORTE E SEM REDUNDÂNCIA (o dono: 'nomes curtos, resumidos e entendíveis') — 'Captura (tela inteira)' cortava em '(tela int…' e 'Ajuda — comandos da Elite' em 'comandos…' na largura do menu: os DOIS itens de captura viram UM submenu (Captura de tela → Região (arrastar) / Tela inteira; os contratos 'Captura de tela' e command=\"craft-shot\" seguem vivos), a ajuda é 'Ajuda', o idle é 'Trava automática…' e os 4 irmãos de referência (idle.conf, autostart, craft-idle ×2) seguem a nova voz, E33) sobre a cadeia E123 (lei E41, âncora viva refrescada): pkgrel elite-system 69→70 — o E123-POLIMENTO (a fila E120 fechada COM A FONTE que ela pediu e a fonte abriu um abismo: os três drop-ins rc.xml.d do craft-rice eram FICÇÃO — o labwc NUNCA leu o diretório (repo inteiro 0.20.3-12 sem uma ocorrência de rc.xml.d; a única porta para múltiplos rc.xml é o --merge-config, commit 698c7ace0 de 2024-01, que itera os dirs XDG — não é um .d), as regras eram REGEX num casador que é GLOB (fnmatch(3) com FNM_CASEFOLD no src/common/match.c; o man: 'shell wildcard patterns (see glob(7))' — '^steam_app_[0-9]+$', '^(brave-browser|…)$' e a 'universal' '.*' nunca casaram nenhum app_id; a universal de verdade é a regra SEM identifier — query_str_match sem condition devolve true) e o maximized é CRITÉRIO, não propriedade (quem maximiza é a AÇÃO Maximize no primeiro mapa — ON_FIRST_MAP é o único evento): AS TRÊS FERIDAS ORIGINAIS (E54 jogos sem botões, 06/nov janelas nuas, E70 área desorganizada) NUNCA foram curadas no rig — o papel celebrava arquivos que o compositor nunca abriu. CURA: as regras moram NO rc.xml mestre (skel v1.3 — serverDecoration=yes sem identifier + Maximize por ação para brave-browser e Code, o man citado no comentário) que a pele E101 renova; a LEI DE REMOÇÃO com o marcador como senha apaga os fósseis do rc.xml.d nos rigs COM VOZ; o ensure_fragment morto saiu) sobre a cadeia E122 (lei E41, âncora viva refrescada): pkgrel elite-system 68→69 — o E122-POLIMENTO (o relato do dono pós-dose-67: o player pegou recado de WhatsApp e ficou após o fecho da página — o craft-player NOVO com as três leis: mensagem não é mídia, o zumbi morre pelo tick congelado, o custo é o mesmo tick de 1s; E o despertar que não existia — /proc/acpi/wakeup todo *disabled pela era E24, o teclado que não acordava nada e o power button que desligava: craft-wake-guard v2 com A POLÍTICA do dono 'teclado acorda, mouse não', a regra udev v2 e a unit elite-wake-guard.service a cada boot; E a mentira E108 do papel curada pelo veredito do JOURNAL — a chamada é assíncrona, o sono era real; E o 'resultado: /bin/bash' do firstboot pela expansão $$) sobre a cadeia E121 (lei E41): pkgrel elite-system 67→68 — o E121-POLIMENTO (o dump 173257: o réu do terminal em branco na Limpeza era a CORRIDA no listener do polkit — o helper pede em ms e o diálogo responde em segundos, o on_request marcava nada e o zenity_done guardava a senha SEM responder: pkexec congelado, clean.log sem NENHUMA entrada uid:0 desde o nascimento do caminho pkexec; E o holder do craft-game que engasgava o manual — a \$( ) esperava o EOF de um holder que nunca soltava o stdout: 'Ativar agora' nunca rodou no rig, o game.log com auto ON/OFF e ZERO 'manual: ON' desde sempre) sobre a cadeia E120 (lei E41): pkgrel elite-system 66→67 — o E120-POLIMENTO (a varredura E33 do craft-rice: o uso que mentia por omissão, o contrato RETORNO violado pelo próprio código e o guard ausente no adopt) sobre a cadeia E119 (lei E41): pkgrel elite-system 63→66 em três passos — o E118+E118-CORRIGE (63→65, os réus do dump 210305) e o E119 (65→66): — o E118 (63→64, bf7f4a0) e a sua cura (64→65): o gate do shellcheck 0.11 do CI pegou o SC2154 do trap do craft-clean ('rc is referenced but not assigned' — o rc=$? dentro da STRING do trap não conta como atribuição; a suíte LOCAL pulara o gate por binário ausente — o shellcheck 0.11 agora corre LOCAL antes de qualquer push; o $? direto diz o mesmo número). O E118 — O DUMP 210305 PERICIADO (pós-dose-63, a casa SÃ — 0 units failed, suspend ×2 limpos, ACK ×6, dose no ar) e DOIS RÉUS NOVOS DE NOME: (1) O PÓS-SONO QUE DORMIA NO IMEDIATO — a ordem do dono no papel ('demorou um tempo aí para aplicar e aplicou do nada… deve reiniciar o que… fica imediato, fica fixo… e que nunca volte para o padrão, seja realmente a configuração que o usuário setou'): o reconcile do craft-display via a marca fresca do resume e DORMIA a janela de 45s inteira (exit 0 a cada heartbeat — o próprio comentário jurava 'o apply re-assegura o conf salvo' e o código só esperava) e ainda pagava os 6 ticks de estabilidade: o papel fotografou ~74s de tela errada (resume 20:27:00, diverge 20:27:11, REAPLICANDO 20:28:14, save 20:28:21); cura: a marca NOMEIA a divergência ('a reversão do driver não é escolha') e o reconcile REAPLICA no PRIMEIRO heartbeat divergente do pós-sono (≤10s — o imediato é lei), o apply falho re-tenta com UM tick de assento (RESUME_TICKS) e o teto E106 intacto, o save guarda a janela de 45s INTEIRA (a reversão nunca vira escolha do dono — 'nunca volte para o padrão' pela física do conf); o boot segue imediato (craft-bars chama apply no arranque; o papel 210305 provou o apply do boot 15:11 morrer 6/6 COM o flag morto e o 18:37:04 aplicar OK sem ele — E117). (2) O PAPEL SEM BURACO (craft-clean — DOIS 'iniciado' às 21:00:16/18 e ZERO trace depois): (a) a medida do cache sob set -euo pipefail podia matar o script ENTRE a abertura e o primeiro passo — hoje a medida falha e devolve 0; (b) MORTE DEIXA TESTEMUNHO — o trap EXIT registra qualquer saída que não passou pelo 'fim:' (cabeçalho órfão extinto); (c) A PORTA SE NOMEIA — ppid + cmdline do pai na abertura (o papel mostrou uid 1000 e NENHUMA porta da casa corre craft-clean como usuário — a próxima corrida entrega a porta no papel); (d) flock no dir do papel — o botão não empilha corridas, a segunda sai com testemunho. (3) O OLHO DA TOPBAR (craft-dump): o papel comparava o menu e ficava CEGO para a topbar — seção nova compara config.top/style.top.css do home vs o mestre do pacote + conta o custom/game na pele viva (o assento do modo de jogo ganha prova direta). CONFIRMAÇÕES DO PAPEL (ZERO réu novo nelas): dose 63 no ar às 18:37:00 com componentes renascidos ≤3s; E117-2 provado (apply 18:37:04 SEM o flag: 1 aplicado 0 falha); status salvo==agora 200Hz; game watch estável (pid 10248, AUTO=1); 0 units failed, 0 coredump; suspend ×2 limpos (selo E88, USB intacto); E110 (sysctl 180 vivo) e E101 confirmados; pywal 3.3.0-11 = esperado (a passada fina entrega 3.3.1-1 na dose 64); popups/YouTube = juiz segue sendo o 1º brave nascido APÓS a morte dos processos de 15:11 (reboot — os flags não mudam processo rodando); swaync ×5 do boot 15:11 foi PRÉ-mask (18:37) — o próximo boot prova; órfão granite7 nomeado; o item 'Telas' do menu segue EXTINTO (E114 ratificada pelo dono: 'já tem o programa lá para gerenciar isso'). A CADEIA ANTERIOR: E117 (63) — o dump 163548, a MÃE DOS RÉUS (o molde stageava chromium-flags/waybar e nunca os installou) + o flag adaptive morto + o parêntese do _want + o segundo trono do swaync + a passada fina da dose + o papel honesto. E116 (62) — o polimento de 17/11, E33 ×2 sem física (o rm fantasma do game-watch.pids + o contador de chamadores). E115 (61) — o dump 224713, os sete réus (assento do modo de jogo, player, skins, chaveiro, p11-kit, limpeza com trace, stamp que morre com a dose). E114 (60) — o dump 183150, os sete réus (suspend sob a senha, vídeo branco, limpeza sem raiz, porta das telas, mousepad, brave no canal, os olhos v2.13). E113 (59) — o dump 170720 (rc=127, tela do boot, narrativa do watch, senhas ×2). E110 (55) — o dump 181701 (a dupla senha morta pelo ESTADO do logind)."""
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=81' \
+    "E134 (lei E41, âncora viva refrescada): pkgrel elite-system 80→81 — A ENTREGA DO DUMP 1.0-80 (a dock Rust definitiva com build obrigatória e matching '_'=='-'; o overskride Bluetooth gráfico; o waybar sem ícone perdido; o chaveiro GNOME morto com máscaras+PAM+password-store basic no Brave E VSCodium; o pkexec direto sem /usr/bin/env; o modo de jogo pela árvore real Proton/Wine/UMU; o fim dos 8 craft-bars com o respawn do watch removido; o display instantâneo com ouvidor login1; o menu sem recorte no themerc 200–280 · refrescada da E133 (lei E41): pkgrel 79→80 — O FECHAMENTO (o craft-clean v6 em duas fases com o total liberado em MB/GB — a fase 1 automática e 100% segura (journal 7d+teto 100 MiB, paccache -rk2 e -ruk0, links simbólicos quebrados de ~/.local/share/applications e ~/.config, coredumps e órfãos de /var/tmp com mais de 7 dias, os caches de usuário regeneráveis) e a fase 2 interativa [s/N] de padrão NÃO (redundantes, órfãos, runtimes Flatpak, miniaturas+shaders Mesa/NVIDIA, lixeira) com o --auto-safe para automação; a REGRA INVIOLÁVEL da fase 1: nunca pastas pessoais, perfis de navegador ou ~/.config; o menu raiz e o de sessão na língua do dono (Menu de aplicativos, Tela de bloqueio, Encerrar sessão, Reiniciar — o labnag de fallback também), a central de rede SEM nomes crus do kernel nas ações principais (Ligar/Desligar cabo de rede, Ligar/Desligar Wi-Fi — a seleção multi-placa mora no Gerenciar conexões com os verbos por placa); os ÍCONES UNIVERSAIS da dock Rust: o .exe Wine/Proton localizado pelo cmdline com tradução Z:\ do Wine, o extrator PE/ICO std-only (RT_GROUP_ICON escolhe o maior, RT_ICON entrega PNG como está ou converte o DIB BGRA em PNG pelo codificador mínimo de blocos zlib stored — crc32/adler32 nativos, zero dependência nova) com o cache ~/.cache/elite/exe-icons/<sha256>.png, os caches de jogo Steam/Lutris/Heroic/Hydra na busca de imagens amplas (.ico/.jpg/.xpm) e o ícone ADJACENTE ao binário para custom/Electron/Snap/Nix; a DECORAÇÃO de janela garantida (core server + serverDecoration=yes universal) para o XWayland das telas cheias dos jogos Proton, com o labwc --reconfigure do post_upgrade já na sessão viva; o 1.0-79 JÁ publicado no canal (asset na release v2.11.3, run 44863099894) — por isso o 80) · refrescada da E132 (lei E41): pkgrel elite-system 78→79 — A FUNDAÇÃO RUST da casa (o workspace vendor/rust/ compila NO build com makedepends rust+cargo EXCLUSIVO — zero toolchain na ISO/pacote final; o elite-daemon nasce: craft-game watch e craft-bars delegam a ele, o supervise cuida dos QUATRO residentes com backoff 2s e o daemon.conf mestre embarca; a lição E131 no comentário do build(): lto/fat/codegen-units/strip moram no [profile.release], NUNCA no RUSTFLAGS — o embed-bitcode quebra a build) · refrescada da E130 (lei E41): pkgrel elite-system 77→78 — a ordem do dono de 2026-11-21 (sono harmonizado E88↔E122, peles em homes vivos, okular morto, headers do dkms, cadeia de ícones AppImage, gm_whois) · refrescada da E129 (lei E41): pkgrel elite-system 76→77 — a migração autônoma (elite-post-upgrade, AGENTS.md §4) + o frame 0 do relogin + o pixbuf da dock + as VA-API em produção · refrescada da E128 (lei E41): pkgrel elite-system 75→76 — a constituição entra em ação no pacote (a cadência ao ligar morre pela revogação da E51 em AGENTS.md §5; a regra polkit 50-elite-wheel.rules embarca; o okular sai e o Bazaar nasce adotado) · refrescada da E126-corrige (lei E41): pkgrel elite-system 74→75 — o SC2154 da vitrine da loja (o \$_listFALSE comia o acumulador e a zenity mostrava só a última linha) + o shellcheck 0.11.0 EXATO do CI agora corre LOCAL (0 avisos em 66 scripts) · E126 (lei E41): pkgrel elite-system 73→74 — o E126-POLIMENTO (o backlog DOS 12 ITENS do dono com protocolo de cobertura total: o tempo do player em µs, o pill do jogo pelo QueryStatus + o jogo Steam pelo exe + a aposentadoria do gamemoded + o clique direito, a cadeia do despertar fechada (ACPI+PCI+unit na transação+regra 91 no pacote), o watchdog do compositor, o mutex/timeout do display, o ícone do AppImage e do jogo Steam na dock, a moldura do fullscreen via xprop, o Papirus-Dark de volta, a pele do OSD, o LACT só em AMD, a LOJA Flathub + Okular, o help adaptativo ao foot, os rótulos ao cap do fuzzel) sobre a cadeia E125 (lei E41, âncora viva refrescada): pkgrel elite-system 72→73 — o E125-POLIMENTO (o dump 161746 + o relato do dono em vivo: 'os botões de captura continuam separados', 'o sistema continua tendo muito os três pontinhos assim para completar', 'o status mudou, mas não mudou tudo que eu pedi'): (1) O MENU QUE NUNCA CHEGOU — a dose 1.0-72 aterrissou 16:14:31 com o submenu 'Captura de tela' NO DISCO e o labwc serviu o menu VELHO o dia inteiro: a perícia do dump provou o rice do boot correndo NO autostart (menu renovado 16:15:15, waybar 16:15:15) com o reconfigure de tiro único morto CALADO — a linha 'reconfigure aplicado' nunca chegou ao bars.log (o labwc lê o menu no próprio arranque e o rice corre DEPOIS); cura ×2: o craft-rice re-tenta o labwc-msg até 6× (0.5s entre elas) com veredito honesto nos DOIS desfechos (o papel nunca chama de aplicado o que não respondeu — E33) e o craft-update refresh_session renova as peles + reconfigure NA DOSE VIVA (o esquema do notify_users: raiz via runuser, o próprio usuário direto; WAYLAND_DISPLAY descoberto no /run/user/\$uid; guard do craft-bars de pé — a escola E48: a cura que espera reboot é cura adiada); (2) OS TRÊS PONTINHOS MORREM (a ordem do dono: 'textos completos sem recortes ou sem três pontinhos'): menu.xml — 'Apps da dock', 'Modo de jogo', 'Trava automática'; fuzzel — 'Tempo de idle', 'Redes Wi-Fi', 'Conexões salvas', 'Bluetooth: dispositivos', 'Editor de conexões', 'Atualizar', 'Alterar senha', 'Esquecer', 'Registrar AppImage', 'Remover registro', 'Instalar aplicativo', 'Remover aplicativo', 'Restaurar snapshot'; terminal/notificações — 'Enter para fechar', 'Validando' (hyprlock), 'Extraindo', 'e mais N', 'a transação refaz', verbo 'Comprimir' (elite-tune + craft-bars) e o craft-display que mandava o dono para 'Telas…' — porta EXTINTA desde a E114 (mentira E33 ×3 — a mensagem aponta o wdisplays + o watch); a FONTE do labwc (0.20.3 theme.c) provou o CORTADOR (menu.width.max 200px — o réu do '(tela int…') e todo rótulo da casa agora cabe no cap; o help ainda citava 'drop-ins do labwc' que a E123 aposentou (E33); (3) O STATUS DO JOGO SEM A ÚLTIMA SUJEIRA — os PIDs e a versão saem da mesa de fatos (o dono lê ESTADO, não números de processo) e o PAPEL RECEBE UMA LINHA (o bloco inteiro a cada clique engolia o game.log — a E121 nomeou, o teto E36 só segurava) sobre a cadeia E124 (lei E41, âncora viva refrescada): pkgrel elite-system 70→71 — o E124-POLIMENTO (o polimento do uso real, os quatro réus do relato do dono de 19/11: (1) a LIMPEZA que AUTENTICAVA E MORRIA — a fonte provou no pkexec.c ('Set PATH to a safe list') que o PATH do alvo raiz é /usr/sbin:/usr/bin:/sbin:/bin:/root/bin, SEM /usr/local/bin onde moram os bins da casa: o env não achava o craft-clean DEPOIS da senha aceita ('eu autentico e ele dá um erro de env') e a mensagem de fallback mentia ('a senha não foi aceita') — cura ×2: caminho ABSOLUTO /usr/local/bin/craft-clean no item (a classe morre) + o rc honesto e o papel no fallback (a mentira E33 sai); (2) o PLAYER que MATAVA O PRÓPRIO BOTÃO — a lei do E119 expulsava o pausado e o play não tinha onde voltar ('pausou e fechou… não consigo retornar') — cura ×3: pausado com corpo (título/artista) FICA (glifo uf04c + classe .paused com cor apagada no CSS, o clique retoma), a sessão MORTA pausada (metadata vazia — a aba dona fechou e o MPRIS esvaziou) sai, a lei 1 da mensagem migrou para ANTES do juízo de estado; E o TEMPO DE REPRODUÇÃO entra no pillar (o dono: 'que tenha o tempo de reprodução'): {{mpris:length}} (µs) entra como campo 7 da leitura do bus, decorrido/total m:ss/m:ss no teto de 40 chars — o título cede o espaço e o total nunca estoura; o tooltip fala a faixa inteira + tempo + 'pausado' nomeado; o log do zumbi vira TRANSIÇÃO (uma linha no corte, não uma por tick); (3) o STATUS DO JOGO SEM A AULA (o dono: 'esse status é bem sujo… um monte de sujeira que sinceramente não tem para quê') — o banner 'veredito' + as 12 linhas de como-funciona SAIEM (a aula mora no --help); a mesa de fatos fica: gamemode/automático/watch/manual/gamemoded/jogos/log, uma linha cada (o detector E112 do watch FORA segue de pé com a frase que a suíte ancora); (4) o MENU SEM RECORTE E SEM REDUNDÂNCIA (o dono: 'nomes curtos, resumidos e entendíveis') — 'Captura (tela inteira)' cortava em '(tela int…' e 'Ajuda — comandos da Elite' em 'comandos…' na largura do menu: os DOIS itens de captura viram UM submenu (Captura de tela → Região (arrastar) / Tela inteira; os contratos 'Captura de tela' e command=\"craft-shot\" seguem vivos), a ajuda é 'Ajuda', o idle é 'Trava automática…' e os 4 irmãos de referência (idle.conf, autostart, craft-idle ×2) seguem a nova voz, E33) sobre a cadeia E123 (lei E41, âncora viva refrescada): pkgrel elite-system 69→70 — o E123-POLIMENTO (a fila E120 fechada COM A FONTE que ela pediu e a fonte abriu um abismo: os três drop-ins rc.xml.d do craft-rice eram FICÇÃO — o labwc NUNCA leu o diretório (repo inteiro 0.20.3-12 sem uma ocorrência de rc.xml.d; a única porta para múltiplos rc.xml é o --merge-config, commit 698c7ace0 de 2024-01, que itera os dirs XDG — não é um .d), as regras eram REGEX num casador que é GLOB (fnmatch(3) com FNM_CASEFOLD no src/common/match.c; o man: 'shell wildcard patterns (see glob(7))' — '^steam_app_[0-9]+$', '^(brave-browser|…)$' e a 'universal' '.*' nunca casaram nenhum app_id; a universal de verdade é a regra SEM identifier — query_str_match sem condition devolve true) e o maximized é CRITÉRIO, não propriedade (quem maximiza é a AÇÃO Maximize no primeiro mapa — ON_FIRST_MAP é o único evento): AS TRÊS FERIDAS ORIGINAIS (E54 jogos sem botões, 06/nov janelas nuas, E70 área desorganizada) NUNCA foram curadas no rig — o papel celebrava arquivos que o compositor nunca abriu. CURA: as regras moram NO rc.xml mestre (skel v1.3 — serverDecoration=yes sem identifier + Maximize por ação para brave-browser e Code, o man citado no comentário) que a pele E101 renova; a LEI DE REMOÇÃO com o marcador como senha apaga os fósseis do rc.xml.d nos rigs COM VOZ; o ensure_fragment morto saiu) sobre a cadeia E122 (lei E41, âncora viva refrescada): pkgrel elite-system 68→69 — o E122-POLIMENTO (o relato do dono pós-dose-67: o player pegou recado de WhatsApp e ficou após o fecho da página — o craft-player NOVO com as três leis: mensagem não é mídia, o zumbi morre pelo tick congelado, o custo é o mesmo tick de 1s; E o despertar que não existia — /proc/acpi/wakeup todo *disabled pela era E24, o teclado que não acordava nada e o power button que desligava: craft-wake-guard v2 com A POLÍTICA do dono 'teclado acorda, mouse não', a regra udev v2 e a unit elite-wake-guard.service a cada boot; E a mentira E108 do papel curada pelo veredito do JOURNAL — a chamada é assíncrona, o sono era real; E o 'resultado: /bin/bash' do firstboot pela expansão $$) sobre a cadeia E121 (lei E41): pkgrel elite-system 67→68 — o E121-POLIMENTO (o dump 173257: o réu do terminal em branco na Limpeza era a CORRIDA no listener do polkit — o helper pede em ms e o diálogo responde em segundos, o on_request marcava nada e o zenity_done guardava a senha SEM responder: pkexec congelado, clean.log sem NENHUMA entrada uid:0 desde o nascimento do caminho pkexec; E o holder do craft-game que engasgava o manual — a \$( ) esperava o EOF de um holder que nunca soltava o stdout: 'Ativar agora' nunca rodou no rig, o game.log com auto ON/OFF e ZERO 'manual: ON' desde sempre) sobre a cadeia E120 (lei E41): pkgrel elite-system 66→67 — o E120-POLIMENTO (a varredura E33 do craft-rice: o uso que mentia por omissão, o contrato RETORNO violado pelo próprio código e o guard ausente no adopt) sobre a cadeia E119 (lei E41): pkgrel elite-system 63→66 em três passos — o E118+E118-CORRIGE (63→65, os réus do dump 210305) e o E119 (65→66): — o E118 (63→64, bf7f4a0) e a sua cura (64→65): o gate do shellcheck 0.11 do CI pegou o SC2154 do trap do craft-clean ('rc is referenced but not assigned' — o rc=$? dentro da STRING do trap não conta como atribuição; a suíte LOCAL pulara o gate por binário ausente — o shellcheck 0.11 agora corre LOCAL antes de qualquer push; o $? direto diz o mesmo número). O E118 — O DUMP 210305 PERICIADO (pós-dose-63, a casa SÃ — 0 units failed, suspend ×2 limpos, ACK ×6, dose no ar) e DOIS RÉUS NOVOS DE NOME: (1) O PÓS-SONO QUE DORMIA NO IMEDIATO — a ordem do dono no papel ('demorou um tempo aí para aplicar e aplicou do nada… deve reiniciar o que… fica imediato, fica fixo… e que nunca volte para o padrão, seja realmente a configuração que o usuário setou'): o reconcile do craft-display via a marca fresca do resume e DORMIA a janela de 45s inteira (exit 0 a cada heartbeat — o próprio comentário jurava 'o apply re-assegura o conf salvo' e o código só esperava) e ainda pagava os 6 ticks de estabilidade: o papel fotografou ~74s de tela errada (resume 20:27:00, diverge 20:27:11, REAPLICANDO 20:28:14, save 20:28:21); cura: a marca NOMEIA a divergência ('a reversão do driver não é escolha') e o reconcile REAPLICA no PRIMEIRO heartbeat divergente do pós-sono (≤10s — o imediato é lei), o apply falho re-tenta com UM tick de assento (RESUME_TICKS) e o teto E106 intacto, o save guarda a janela de 45s INTEIRA (a reversão nunca vira escolha do dono — 'nunca volte para o padrão' pela física do conf); o boot segue imediato (craft-bars chama apply no arranque; o papel 210305 provou o apply do boot 15:11 morrer 6/6 COM o flag morto e o 18:37:04 aplicar OK sem ele — E117). (2) O PAPEL SEM BURACO (craft-clean — DOIS 'iniciado' às 21:00:16/18 e ZERO trace depois): (a) a medida do cache sob set -euo pipefail podia matar o script ENTRE a abertura e o primeiro passo — hoje a medida falha e devolve 0; (b) MORTE DEIXA TESTEMUNHO — o trap EXIT registra qualquer saída que não passou pelo 'fim:' (cabeçalho órfão extinto); (c) A PORTA SE NOMEIA — ppid + cmdline do pai na abertura (o papel mostrou uid 1000 e NENHUMA porta da casa corre craft-clean como usuário — a próxima corrida entrega a porta no papel); (d) flock no dir do papel — o botão não empilha corridas, a segunda sai com testemunho. (3) O OLHO DA TOPBAR (craft-dump): o papel comparava o menu e ficava CEGO para a topbar — seção nova compara config.top/style.top.css do home vs o mestre do pacote + conta o custom/game na pele viva (o assento do modo de jogo ganha prova direta). CONFIRMAÇÕES DO PAPEL (ZERO réu novo nelas): dose 63 no ar às 18:37:00 com componentes renascidos ≤3s; E117-2 provado (apply 18:37:04 SEM o flag: 1 aplicado 0 falha); status salvo==agora 200Hz; game watch estável (pid 10248, AUTO=1); 0 units failed, 0 coredump; suspend ×2 limpos (selo E88, USB intacto); E110 (sysctl 180 vivo) e E101 confirmados; pywal 3.3.0-11 = esperado (a passada fina entrega 3.3.1-1 na dose 64); popups/YouTube = juiz segue sendo o 1º brave nascido APÓS a morte dos processos de 15:11 (reboot — os flags não mudam processo rodando); swaync ×5 do boot 15:11 foi PRÉ-mask (18:37) — o próximo boot prova; órfão granite7 nomeado; o item 'Telas' do menu segue EXTINTO (E114 ratificada pelo dono: 'já tem o programa lá para gerenciar isso'). A CADEIA ANTERIOR: E117 (63) — o dump 163548, a MÃE DOS RÉUS (o molde stageava chromium-flags/waybar e nunca os installou) + o flag adaptive morto + o parêntese do _want + o segundo trono do swaync + a passada fina da dose + o papel honesto. E116 (62) — o polimento de 17/11, E33 ×2 sem física (o rm fantasma do game-watch.pids + o contador de chamadores). E115 (61) — o dump 224713, os sete réus (assento do modo de jogo, player, skins, chaveiro, p11-kit, limpeza com trace, stamp que morre com a dose). E114 (60) — o dump 183150, os sete réus (suspend sob a senha, vídeo branco, limpeza sem raiz, porta das telas, mousepad, brave no canal, os olhos v2.13). E113 (59) — o dump 170720 (rc=127, tela do boot, narrativa do watch, senhas ×2). E110 (55) — o dump 181701 (a dupla senha morta pelo ESTADO do logind)."""
 assert_grep "$REPO/.ci/build.sh" 'flags_install' \
     "E117/build: o conf do navegador EMBARCA DE VERDADE (a linha flags_install existe no molde — o staging E114 deixou de ser peso morto; o réu-mãe do dump 163548 morre)"
 assert_grep "$REPO/.ci/build.sh" 'waybar_install' \
@@ -3557,13 +3564,12 @@ CUPD101="$P/airootfs/usr/local/bin/craft-update"
 CNG101="$P/airootfs/usr/local/bin/craft-game"
 
 # ── a DOCK: fixar/desfixar os DOIS sentidos + o duping de daemonizado ──
-DOCK101="$P/airootfs/usr/local/bin/craft-dock-gui"
-assert_grep "$DOCK101" '"Fixar na dock"' "E103/dock: o menu contextual carrega o FIXAR (o dinâmico entra pela porta própria — o verbo bidirecional da missão)"
-assert_grep "$DOCK101" '"Remover fixação"' "E103/dock: o menu contextual carrega o DESFIXAR (o pin sai pela mesma porta — a remoção purga o pin e o craft-dock reload re-lê; o crash e o travamento não existem: spawn assíncrono child_watch)"
+DOCK101="$REPO/vendor/rust/craft-dock-rs/src/ui.rs"   # E134: o crate Rust
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-pin-pick" 'craft-pin rm' "E103/dock→E134: o FIXAR/DESFIXAR vive na gaveta unificada (o menu contextual do direito é escopo não-portado da v1 Rust — a porta E106 é o verbo bidirecional da missão)"
 assert_grep "$P/airootfs/usr/local/bin/craft-pin" 'exit 1' "E103/pin: duplicata NUNCA é sucesso (o rc 1 do 'já está fixado' é a verdade E36 — nenhuma tentativa repetida vira loop de notificação: o -u low da central guarda)"
-assert_grep "$DOCK101" 'guard delegado' "E103/dock: a classe DAEMONIZADA não mente com a morte do lançador (o papel 10/nov provou 'thunar.desktop morreu sem mapear (rc=0)' em LOOPS — o release instantâneo deixava o vão aberto e o clique lançava OUTRA)"
-assert_grep "$DOCK101" 'time.monotonic\(\)\n.*- \(8\.0 - 3\.0\)|- \(8\.0 - 3\.0\)' "E103/dock: a graça curta de 3s (o vão do Thunar não paga 8s e o duping não paga NADA — o meio-tempo do crash real)"
-assert_grep "$DOCK101" 'LIST fresca' "E103/dock: a morte consulta o MAPA antes de declarar falha (a janela que mapeou na corrida aposenta o guard como VENCEDOR)"
+assert_grep "$DOCK101" 'a LIST fresca da morte' "E103/dock: a classe DAEMONIZADA não mente com a morte do lançador (o papel 10/nov provou 'thunar.desktop morreu sem mapear (rc=0)' em LOOPS — o release instantâneo deixava o vão aberto e o clique lançava OUTRA)"
+assert_grep "$DOCK101" 'E101 \(1\) — a LIST fresca' "E103/dock: a morte consulta o MAPA antes de declarar falha (a janela que mapeou na corrida aposenta o guard como VENCEDOR)"
+assert_grep "$MAIN" 'a E101 completa \(a graça de 3s da classe daemonizada\)' "E103/dock→E134: o meio-tempo recursivo da E101 é NOMEADO no escopo honesto (o guard aposenta no MAP, no expiry de 8s ou na morte do lançador — sem o meio-tempo do Python)"
 
 # ── a CENTRAL: low→história (pop-up é lugar de normal/critical) ────────
 SWN101="$P/airootfs/etc/skel/.config/swaync/config.json"
@@ -3602,7 +3608,7 @@ assert_grep "$RCXML101" 'swayosd-client --output-volume raise' "E103/osd: o rais
 assert_grep "$RCXML101" 'swayosd-client --output-volume mute-toggle' "E103/osd: o mute de SAÍDA com barra (o estado é feedback)"
 assert_grep "$RCXML101" 'swayosd-client --input-volume mute-toggle' "E103/osd: o mute do MICROFONE ganha OSD (a diretriz: o estado do mute do mic é feedback, não segredo) com o pactl de queda"
 assert_grep "$REPO/elite/packages.add" '^swayosd$' "E103/osd: o pacote nasce na ISO (a E74 o pôs no bind mas não na lista — a barra nunca existiu de fábrica)"
-assert_grep "$CUPD101" 'ADOCAO=\(lxqt-policykit pacman-contrib octopi yay flatpak swayosd gamemode gamescope mousepad papirus-icon-theme xorg-xprop\)' "E103→E110→E126: a âncora chega ao RIG do dono (o dump 211627 provou o rig antigo; a E110 soma o gamemode/gamescope — o mesmo furo da swayosd: a ISO tem, a adoção não carregava, o rig nunca recebeu)"
+assert_grep "$CUPD101" 'ADOCAO=\(lxqt-policykit pacman-contrib octopi yay flatpak swayosd gamemode overskride mousepad papirus-icon-theme xorg-xprop\)' "E103→E110→E126→E134: a âncora chega ao RIG do dono (o dump 211627 provou o rig antigo; a E110 soma o gamemode; a E134 soma o OVERSKRIDE no lugar do gamescope — o mesmo furo da swayosd: a ISO tem, a adoção não carregava, o rig nunca recebeu)"
 assert_grep "$BARS101" 'swayosd-server FORA — reiniciando' "E103/osd: o daemon entra na SUPERVISÃO (a lição v2.10.6 do idle: a barra morta calada = volume cego para sempre; morre → volta em ≤5s)"
 assert_file "$P/airootfs/etc/skel/.config/swayosd/config.toml" "E103/osd: o config da casa existe (top_margin 0.86 = LOGO ACIMA da dock; show_percentage = a porcentagem exata; duration 900 = menos de 1 segundo)"
 assert_grep "$RICE103" 'OSD_SRC' "E103/osd: o config alcança rigs vivos pela gramática do rice (marcador/fóssil/personalizado — home é domínio do dono, a pele da casa é a exceção provada)"
@@ -3696,8 +3702,8 @@ phase_end
 
 # ── E133-a: O FECHAMENTO DO DONO — os rótulos PT-BR naturais de TODOS os menus ──
 MENU133="$P/airootfs/etc/skel/.config/labwc/menu.xml"
-assert_grep "$MENU133" 'label="Menu de aplicativos"' "E133/a: 'Aplicativos' → 'Menu de aplicativos' (a ordem do dono no fechamento: português natural, popular e autoexplicativo — nenhum termo genérico)"
-assert_grep "$MENU133" 'label="Tela de bloqueio"' "E133/a: 'Lock' → 'Tela de bloqueio' (termo em inglês morre da porta principal)"
+assert_grep "$MENU133" 'label="Aplicativos"' "E133/a→E134: 'Menu de aplicativos' → 'Aplicativos' (a lista FINAL do fechamento 1.0-81: nomes curtos e inteiros — o rótulo cabe no cap 200–280 do themerc sem recorte)"
+assert_grep "$MENU133" 'label="Bloquear tela"' "E133/a→E134: 'Tela de bloqueio' → 'Bloquear tela' (a lista final do dono — o verbo primeiro, porta principal igual)"
 assert_grep "$MENU133" 'label="Encerrar sessão"' "E133/a: 'Sair da sessão' → 'Encerrar sessão' (o verbo do dono, palavra por palavra)"
 assert_grep "$MENU133" 'label="Reiniciar"' "E133/a: 'Reboot' → 'Reiniciar' (o último termo em inglês do menu-raiz morre)"
 assert_grep "$MENU133" 'label="Tela cheia"' "E133/a: 'Fullscreen' → 'Tela cheia' (o menu da janela inteiro em PT-BR)"
@@ -3705,7 +3711,7 @@ assert_grep "$MENU133" 'label="Desligar"' "E133/a: 'Desligar' já era o verbo da
 assert_nogrep "$MENU133" 'label="Lock"' "E133/a: nenhum rótulo 'Lock' sobrando (a varredura do dono)"
 assert_nogrep "$MENU133" 'label="Reboot"' "E133/a: nenhum rótulo 'Reboot' sobrando"
 assert_nogrep "$MENU133" 'label="Loja de apps"' "E133/a: a 'Loja de apps' segue EXTINTA de todo menu (E132 confirmada pelo fechamento; o pacote flatpak segue — o Bazaar é um flatpak e depende dele)"
-assert_grep "$P/airootfs/usr/local/bin/craft-power" "'Tela de bloqueio'" "E133/a: o fallback labnag da sessão fala PT-BR ('Lock/Logout/Suspend/Reboot' morrem — porta do dono igual)"
+assert_grep "$P/airootfs/usr/local/bin/craft-power" "'Bloquear tela'" "E133/a→E134: o fallback labnag da sessão fala PT-BR ('Lock/Logout/Suspend/Reboot' morrem — porta do dono igual, rótulo final 'Bloquear tela')"
 assert_grep "$P/airootfs/usr/local/bin/craft-power" "'Encerrar sessão'" "E133/a: 'Logout' → 'Encerrar sessão' no fallback labnag"
 assert_grep "$P/airootfs/usr/local/bin/craft-power" "'Suspender'" "E133/a: 'Suspend' → 'Suspender' no fallback labnag"
 assert_grep "$P/airootfs/usr/local/bin/craft-power" "'Reiniciar'" "E133/a: 'Reboot' → 'Reiniciar' no fallback labnag"
