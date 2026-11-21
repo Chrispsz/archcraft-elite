@@ -24,13 +24,18 @@ if [[ "${PACKAGES_ONLY:-0}" == "1" ]]; then
     # instalado, senão a transação do canal morre em 'Missing dependencies'.
     # E103 — o polkit entra pelos HEADERS do listener (libpolkit-agent-1 —
     # o agente sob demanda da casa; sem o pacote, o makepkg morre igual).
+    # E132 — o RUST/CARGO entra pelo MAKENDEPENDS do elite-system (a ordem
+    # do dono: espremer o limão — o workspace compila NO build; o builder
+    # do makepkg abaixo não tem sudo NESTE trecho, o toolchain mora no
+    # container e ZERO Rust viaja na ISO ou no pacote final).
     pacman -Syu --noconfirm --needed git rsync curl base-devel sudo python \
-        wayland wayland-protocols libxkbcommon wlopm polkit
+        wayland wayland-protocols libxkbcommon wlopm polkit rust cargo \
+        gtk4 gtk4-layer-shell
 else
     pacman -Syu --noconfirm --needed \
         git rsync curl archiso xorriso mtools dosfstools \
         e2fsprogs squashfs-tools openssl arch-install-scripts \
-        base-devel sudo \
+        base-devel sudo rust cargo gtk4 gtk4-layer-shell \
         meson ninja wayland wayland-protocols libxkbcommon wlopm polkit
 fi
 
@@ -375,6 +380,24 @@ cp /work/vendor/craft-toplevel.c /tmp/elite-src/elite-system/
 # viaja mais — o vendor/elite-polkit-listener.c sai do repo COM VOZ no
 # commit, o makedepends polkit sai junto: nada de toolchain que o pacote
 # não usa).
+# E132 — O WORKSPACE RUST NO PACOTE ÚNICO (a ordem do dono: espremer o
+# limão): o daemon nativo compila NO build com makedepends rust+cargo
+# EXCLUSIVO — zero toolchain Rust na ISO ou no pacote final (o binário
+# compilado é o que viaja; o tar mantém o makepkg feliz: source=() não
+# aceita diretórios). O target/ e o .gitignore ficam FORA (o tar é a
+# fonte limpa — e o .cargo/ idem: os RUSTFLAGS do build vêm do próprio
+# PKGBUILD, a lição E131 do embed-bitcode). O RUST_CRATES é o guard da
+# orquestração: o agente-irmão cria o craft-dock-rs CONCORRENTEMENTE —
+# presente o crate, ele entra no tar; ausente, o workspace segue só com
+# o elite-daemon (a variável é a ponte entre os DOIS agentes).
+RUST_CRATES="elite-daemon"
+[ -d /work/vendor/rust/craft-dock-rs ] && RUST_CRATES="$RUST_CRATES craft-dock-rs"
+tar -C /work/vendor/rust \
+    --exclude='target' --exclude='.gitignore' --exclude='.cargo' \
+    -czf /tmp/elite-src/elite-system/rust-workspace.tar.gz \
+    $RUST_CRATES Cargo.toml Cargo.lock
+RUST_TAR_SHA="$(sha256sum /tmp/elite-src/elite-system/rust-workspace.tar.gz | cut -d' ' -f1)"
+export RUST_TAR_SHA   # o python do molde lê via os.environ (a sha entra no sha256sums=)
 # caminho ABSOLUTO: aqui o CWD é /tmp/elite-src/<pkg> (o cd da seção pywal
 # acima) — o relativo nasceria vazio (a lição vai no próprio comentário).
 for f in /work/elite/airootfs/usr/local/bin/*; do
@@ -497,6 +520,23 @@ cp -p /work/elite/airootfs/etc/polkit-1/rules.d/50-elite-wheel.rules \
 mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/qt6ct
 cp -p /work/elite/airootfs/usr/local/share/elite/qt6ct/qt6ct.conf \
       /tmp/elite-src/elite-system/files/usr/local/share/elite/qt6ct/qt6ct.conf
+# E132 — O CONF DO DAEMON NO PACOTE: o elite-daemon supervise lê
+# /usr/local/share/elite/daemon.conf (`nome::comando` por linha). O
+# arquivo viaja COM OS DEFAULTS COMENTADOS — os builtins da casa valem
+# quando ele não existe; presente, o dono edita à vontade (linhas '#'
+# e vazias são ignoradas pelo daemon). Mesma dança da família E91: o
+# pre_install adota a via sem dono antes da extração.
+mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite
+cat > /tmp/elite-src/elite-system/files/usr/local/share/elite/daemon.conf <<'EODCONF'
+# ── ELITE (E132): os residentes do elite-daemon supervise ──────────
+# Um residente por linha no formato `nome::comando`. Edite à vontade;
+# linhas '#' e vazias são ignoradas. SEM este arquivo os defaults da
+# casa valem (swaync, udiskie, swayosd, craft-audio-route).
+#swaync::swaync
+#udiskie::udiskie --automount --notify --no-tray
+#swayosd::swayosd-server
+#craft-audio-route::craft-audio-route
+EODCONF
 # E114 — O CONFO DO NAVEGADOR NO PACOTE: o brave-flags.conf era SKEL — rig
 # vivo nunca recebia (a cura do vídeo branco do YouTube — o réu Vulkan da
 # era v1.1 fora — morria sem veículo). Viaja em /usr/local/share/elite/
@@ -601,7 +641,11 @@ When = PostTransaction
 Exec = /usr/local/bin/elite-flathub
 EOFH
 python3 - /tmp/elite-src/elite-system <<'PYE50'
-import sys, pathlib
+import os, sys, pathlib
+# E132 — a sha do tar Rust viaja pelo ENV (a variável BASH não entra no
+# escopo do python; o export lá atrás no staging é a ponte — sem ela o
+# molde morre em KeyError, a build inteira depende do par)
+rust_sha = os.environ["RUST_TAR_SHA"]
 d = pathlib.Path(sys.argv[1])
 files = (d / 'files/MANIFEST').read_text().split()
 units = sorted(p.name for p in (d / 'files/etc/systemd/system').iterdir())
@@ -698,6 +742,11 @@ pk_rm = '    [ -e "/etc/polkit-1/rules.d/50-elite-wheel.rules" ] && ! pacman -Qo
 # E129 — o tema Qt da casa (mesma dança da família E91)
 q6_install = '    install -d "${pkgdir}/usr/local/share/elite/qt6ct"\n    install -m644 "${startdir}/files/usr/local/share/elite/qt6ct/qt6ct.conf" "${pkgdir}/usr/local/share/elite/qt6ct/qt6ct.conf"\n'
 q6_rm = '    [ -e "/usr/local/share/elite/qt6ct/qt6ct.conf" ] && rm -f "/usr/local/share/elite/qt6ct/qt6ct.conf"\n'
+# E132 — o conf dos residentes do elite-daemon supervise (mesma dança da
+# família E91: staging acima, install aqui, adoção no pre_install — o
+# caminho é NOVO em rig comum, o rm é cinto contra a via sem dono da ISO)
+dc_install = '    install -Dm644 "${startdir}/files/usr/local/share/elite/daemon.conf" "${pkgdir}/usr/local/share/elite/daemon.conf"\n'
+dc_rm = '    [ -e "/usr/local/share/elite/daemon.conf" ] && rm -f "/usr/local/share/elite/daemon.conf"\n'
 # E130 — o tema do labwc e os settings GTK da casa (mesma dança da família
 # E91: caminho NOVO em rig comum = criação limpa, sem dança de adoção)
 theo_install = '    install -d "${pkgdir}/usr/local/share/elite/labwc"\n    install -m644 "${startdir}/files/usr/local/share/elite/labwc/themerc-override" "${pkgdir}/usr/local/share/elite/labwc/themerc-override"\n'
@@ -2423,15 +2472,33 @@ pkgver=1.0
 #     craft-rice, elite-post-transaction, craft-game, elite-tune,
 #     elite-install-stage, craft-dock-gui. Mestres novos no pacote:
 #     themerc-override + settings GTK3/GTK4 (theo_install/gtk_install).
-pkgrel=78
+# E132 (lei E41, âncora viva refrescada): pkgrel 78→79 NO MESMO COMMIT
+#     (lei E41) — A FUNDAÇÃO RUST DA CASA (a ordem do dono: espremer o
+#     limão): o workspace vendor/rust/ compila NO build deste pacote
+#     (makedepends rust+cargo EXCLUSIVO — zero toolchain na ISO e no
+#     pacote final, o binário é o que viaja; o tar é a fonte do makepkg
+#     porque source=() não aceita diretórios; a lição E131 no comentário
+#     do build(): lto=fat/codegen-units=1/strip=symbols moram no
+#     [profile.release] do Cargo.toml, NUNCA no RUSTFLAGS — o
+#     embed-bitcode do lto quebra a build). O elite-daemon nasce:
+#     craft-game watch e craft-bars DELEGAM a ele (detecção /proc +
+#     GameMode + EPP + debounce de 3s; supervise dos QUATRO residentes
+#     com backoff 2s + o daemon.conf mestre no pacote). O .cargo/config.toml
+#     do workspace casa o build local com o CI (SÓ target-cpu=x86-64-v3).
+#     Bins com conteúdo mudado: craft-game, craft-bars. Mestres novos no
+#     pacote: daemon.conf (dc_install) + rust-workspace.tar.gz (fonte).
+pkgrel=79
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da sessão; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
 license=(GPL3)
 depends=(bash python wayland wlopm)
 # E103 — o listener C aposentou (E132): o makedepends polkit sai junto
-# (nada compila contra o libpolkitagent neste pacote desde a E132)
-makedepends=()
+# (nada compila contra o libpolkitagent neste pacote desde a E132).
+# E132 — o toolchain Rust entra como makedepends EXCLUSIVO do BUILD
+# (a ordem do dono: espremer o limão — compila AQUI e SOMENTE aqui;
+# zero rust na ISO e no pacote final: o binário é o que viaja)
+makedepends=(rust cargo gtk4 gtk4-layer-shell)
 # E50 — A SUBSTITUIÇÃO DE ERA: conflita e substitui os DOIS veículos
 # legados — o -Syu do craft-update (alvo elite-system) remove o par e
 # instala o único na MESMA transação; configs de usuário (~) NUNCA são
@@ -2441,20 +2508,45 @@ conflicts=('elite-craft' 'craft-toplevel')
 # sem -debug (shell/python + binário já compilado com -s; nada a tirar
 # símbolo)
 options=(!debug !strip)
-source=("craft-toplevel.c")
+# E132 — o WORKSPACE RUST como fonte em TAR (source=() não aceita
+# diretórios; o tar é gerado no estágio de staging com o guard do
+# craft-dock-rs — a sha viaja pelo env RUST_TAR_SHA, lida no python)
+source=("craft-toplevel.c" "rust-workspace.tar.gz")
 # E97.1 — O CANAL CAÇOU O QUE A SUÍTE NÃO VIU: o makepkg do canal recusou
 #     a fonte (run 42693926097: 'craft-toplevel.c ... FAILED') porque o
 #     E96 re-pinou SÓ a ponte (linha ~332) e deixou o template do pacote
 #     único com o sha da era E95. O mesmo C, DOIS pins — os dois têm que
 #     viajar JUNTOS (a peça da suíte cobria os DOIS; a E132 tirou o pin
-#     do listener aposentado — o C da ponte segue o único pinado).
-sha256sums=('1a6aeea295db062e38e53b50bb525c6098eb4b436b4b2d8dfd8e84a174aedb11')
+#     do listener aposentado — o C da ponte segue o único pinado; o tar
+#     do Rust é gerado NO MESMO build, a sha nasce junto dele).
+sha256sums=('1a6aeea295db062e38e53b50bb525c6098eb4b436b4b2d8dfd8e84a174aedb11' '{rust_sha}')
 build() {{
     gcc -O2 -Wall -Wextra -s -o craft-toplevel craft-toplevel.c -lwayland-client
     # E132 — o elite-polkit-listener NÃO COMPILE MAIS (a ordem do dono,
     # dump pós-1.0-78: os transient 'polkit-agent-helper@…' FAILED — o
     # lxqt-policykit-agent NATIVO, compatível com o polkit 128, é o agente
     # da casa; a gcc daqui e o C vendado aposentaram no mesmo gesto)
+    # E132 — O WORKSPACE RUST COMPILA AQUI (a ordem do dono: espremer o
+    # limão): o tar carrega os membros SEM diretório comum — a extração
+    # mora no subdir rust/ (tar de membros soltos no topo do srcdir
+    # sujaria a fonte do C). A LIÇÃO E131 MORA AQUI: o lto=fat, o
+    # codegen-units=1 e o strip=symbols moram no [profile.release] do
+    # Cargo.toml do workspace — NUNCA no RUSTFLAGS (o embed-bitcode do
+    # lto no RUSTFLAGS QUEBRA a build); o RUSTFLAGS leva SÓ o alvo da
+    # ISA (x86-64-v3 — o mesmo valor do .cargo/config.toml do workspace,
+    # o build local casa com o CI). --locked: o Cargo.lock viaja no tar.
+    export RUSTFLAGS="-C target-cpu=x86-64-v3"
+    mkdir -p rust
+    tar -xzf rust-workspace.tar.gz -C rust
+    # E132 — o DAEMON é OBRIGATÓRIO (falha = build vermelha); a DOCK é o
+    # degrau novo em GTK (a UI só compila com pkg-config gtk4 + layer-
+    # shell no container): se ela tosse, o AVISO nomeia e a dose segue
+    # com a dock Python de fallback (o craft-bars prefere a Rust QUANDO
+    # o binário existe — a package() só instala o que nasceu; nunca a
+    # dose inteira refém do degrau mais novo)
+    cargo build --release --locked --manifest-path rust/Cargo.toml -p elite-daemon
+    cargo build --release --locked --manifest-path rust/Cargo.toml -p craft-dock-rs \\
+        || echo "E132 AVISO: craft-dock-rs não compilou — a dock Python segue no pacote (o daemon segue obrigatório)"
 }}
 # ADOÇÃO (a herança do elite-craft): nos rigs, estes arquivos nasceram SEM
 # dono (overlay da ISO) — o pacman recusa sobrescrever não-dono ANTES de
@@ -2469,7 +2561,7 @@ pre_install() {{
     ; do
         [ -e "/usr/local/bin/$f" ] && rm -f "/usr/local/bin/$f"
     done
-{unit_loop}{hook_rm}{ff_rm}{lock_rm}{rc_rm}{osd_rm}{menu_rm}{gm_rm}{doc_rm}{gp_rm}{flags_rm}{waybar_rm}{pk_rm}{q6_rm}    return 0
+{unit_loop}{hook_rm}{ff_rm}{lock_rm}{rc_rm}{osd_rm}{menu_rm}{gm_rm}{doc_rm}{gp_rm}{flags_rm}{waybar_rm}{pk_rm}{q6_rm}{dc_rm}    return 0
 }}
 # E129 — A MIGRAÇÃO AUTÔNOMA (AGENTS.md §4, 2026-11-20): o usuário final
 # NUNCA roda comando manual de pós-instalação — toda correção de /etc,
@@ -2495,10 +2587,17 @@ package() {{
     # a fonte do daemon viaja no pacote (transparência — o mesmo papel que
     # ela tinha no craft-toplevel legado)
     install -Dm644 craft-toplevel.c "${{pkgdir}}/usr/local/share/elite/src/craft-toplevel.c"
+    # E132 — os binários RUST da fundação: só instala o que a build do
+    # workspace DEVOLVEU (o craft-dock-rs é o crate do agente-irmão da
+    # orquestração — presente no tar, presente aqui; ausente, o loop
+    # pula sem erro e o pacote segue com o elite-daemon)
+    for b in elite-daemon craft-dock-rs; do
+        [ -f "rust/target/release/$b" ] && install -m755 "rust/target/release/$b" "${{pkgdir}}/usr/local/bin/$b"
+    done
     # E132 — o elite-polkit-listener NÃO viaja mais (o agente da casa é o
     # lxqt-policykit-agent NATIVO, eleito no craft-bars; um bin a menos no
     # pacote, um agente a menos na fila — o C vendado aposentou do repo)
-{unit_install}{hook_install}{ff_install}{lock_install}{rc_install}{osd_install}{menu_install}{pd_install}{gm_install}{doc_install}{gp_install}{pt_install}{ef_install}{flags_install}{waybar_install}{udev_install}{pk_install}{q6_install}{theo_install}{gtk_install}}}
+{unit_install}{hook_install}{ff_install}{lock_install}{rc_install}{osd_install}{menu_install}{pd_install}{gm_install}{doc_install}{gp_install}{pt_install}{ef_install}{flags_install}{waybar_install}{udev_install}{pk_install}{q6_install}{theo_install}{gtk_install}{dc_install}}}
 """
 (d / 'PKGBUILD').write_text(pkg)
 PYE50

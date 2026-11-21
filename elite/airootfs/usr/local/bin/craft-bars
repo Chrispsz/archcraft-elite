@@ -29,6 +29,17 @@
 # morre COM o supervisor. (Achado do dump tg0b1: 5 'craft-bars' no ps —
 # 1 supervisor + 4 wrappers com o cmdline herdado; a contagem honesta
 # mora na posse do lock, não no cmdline.)
+# E132 — A DELEGAÇÃO AO MOTOR NATIVO: presente o binário elite-daemon
+# (compilado NO build do elite-system — zero toolchain Rust na ISO), este
+# supervisor DELEGA: o game watch vira o `elite-daemon` (detecção /proc
+# + GameMode + EPP + debounce de 3s em um processo) e os QUATRO
+# residentes voláteis (swaync, udiskie, swayosd, craft-audio-route)
+# viram FILHOS do `elite-daemon supervise` (backoff de 2s nativo, conf
+# em /usr/local/share/elite/daemon.conf). A lista daqui segue a verdade
+# da casa: waybar, dock, toplevel, idle, polkit e display continuam
+# DESTE supervisor (o watchdog do compositor NÃO é portado — escopo
+# honesto); sem o binário, TODOS os blocos bash seguem como fallback
+# intacto (ISO velha, rig pré-dose).
 # ═══════════════════════════════════════════════════════════════════════════
 # E90 — o --help que faltava (a lacuna nº 1 do UX-ROADMAP: a descoberta
 # dentro do sistema). O bars é o supervisor da SESSÃO — não é porta de mão.
@@ -143,7 +154,7 @@ ensure() {
 cyc=0
 # E43 — flags "já viu vivo": 0 = ainda não nasceu (o 1º ciclo loga
 # 'iniciando'); após o 1º ciclo = 1, e ausência vira morte real ('FORA').
-seen_top=0 seen_dock=0 seen_tl=0 seen_idle=0 seen_audio=0 seen_osd=0 seen_game=0 seen_swyn=0 seen_udiskie=0 seen_polkit=0 seen_display=0 seen_comp=0
+seen_top=0 seen_dock=0 seen_tl=0 seen_idle=0 seen_audio=0 seen_osd=0 seen_game=0 seen_swyn=0 seen_udiskie=0 seen_polkit=0 seen_display=0 seen_comp=0 seen_supervise=0
 # E126 — o placar do CÃO DE GUARDA do compositor (strikes de mudez do
 # labwc; 0 = saudável — reseta na primeira resposta)
 wedge=0
@@ -221,7 +232,25 @@ while :; do
     # ausência = morte real ('FORA — reiniciando').
     ensure "$seen_top" "$HOME/.config/waybar/config.top" "$HOME/.config/waybar/style.top.css"
     seen_top=1
-    if ! pgrep -f '^/usr/bin/python3 /usr/local/bin/craft-dock-gui$' >/dev/null 2>&1; then
+    # E132 — A DOCK NATIVA É A FRENTE (a ordem do dono: espremer o limão
+    # — o craft-dock-rs em gtk-rs economiza os ~45–60 MB do interpretador
+    # Python do craft-dock-gui, que segue como fallback da rede). O binário
+    # Rust viaja no pacote desde a 1.0-79; a âncora do pgrep casa o binário
+    # ELEITO (um trono só — a lei E95 da fila da casa).
+    if [ -x /usr/local/bin/craft-dock-rs ]; then
+        if ! pgrep -f '^/usr/local/bin/craft-dock-rs$' >/dev/null 2>&1; then
+            if [ "$seen_dock" -eq 1 ]; then
+                printf '[%s] dock craft-dock-rs FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
+            else
+                printf '[%s] dock craft-dock-rs iniciando (1ª vez — a dock nativa E132)\n' "$(date '+%F %T')" >>"$LOG"
+            fi
+            (
+                /usr/local/bin/craft-dock-rs >>"$LOG" 2>&1
+                st=$?
+                printf '[%s] dock craft-dock-rs SAIU exit=%d\n' "$(date '+%F %T')" "$st" >>"$LOG"
+            ) 9>&- &
+        fi
+    elif ! pgrep -f '^/usr/bin/python3 /usr/local/bin/craft-dock-gui$' >/dev/null 2>&1; then
         if [ "$seen_dock" -eq 1 ]; then
             printf '[%s] dock craft-dock-gui FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
         else
@@ -304,6 +333,37 @@ while :; do
         fi
     fi
     seen_idle=1
+    # E132 — O SUPERVISOR NATIVO DOS RESIDENTES: presente o binário, o
+    # `elite-daemon supervise` sobe UMA vez e os QUATRO da família
+    # (swaync, udiskie, swayosd, craft-audio-route) viram FILHOS dele —
+    # respawn com backoff de 2s e conf em /usr/local/share/elite/
+    # daemon.conf, nativos; morto o supervisor, ESTE tick o renasce (a
+    # mesma lei da família: quem morre volta em ≤5s). O guard
+    # SUPervise_VIVO dorme os slots individuais dos quatro enquanto o
+    # nativo cuida deles — spawn duplo seria duas casas brigando pelo
+    # mesmo residente. Sem o binário, os blocos bash seguem intactos.
+    SUPervise_VIVO=0
+    if [ -x /usr/local/bin/elite-daemon ]; then
+        if pgrep -f '^/usr/local/bin/elite-daemon supervise$' >/dev/null 2>&1; then
+            SUPervise_VIVO=1
+        else
+            if [ "$seen_supervise" -eq 1 ]; then
+                printf '[%s] elite-daemon supervise FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
+            else
+                printf '[%s] elite-daemon supervise iniciando (1ª vez — nada morreu)\n' "$(date '+%F %T')" >>"$LOG"
+            fi
+            (
+                /usr/local/bin/elite-daemon supervise >>"$LOG" 2>&1
+                st=$?
+                printf '[%s] elite-daemon supervise SAIU exit=%d\n' "$(date '+%F %T')" "$st" >>"$LOG"
+            ) 9>&- &
+            # recém-(re)nascido neste tick: os quatro já são filhos DELE
+            # desde já — o guard vale o tick inteiro (nada de corrida no
+            # fundo da subida, os filhos do daemon ainda nem existem)
+            SUPervise_VIVO=1
+        fi
+    fi
+    seen_supervise=1
     # E30 (v2.10.18) — O ROTEADOR DE ÁUDIO ENTRA NA SUPERVISÃO (dump p6aw:
     # o som do rig saía pelo SINK FANTASMA do microfone USB — o dono pediu
     # troca automática ao plugar fone/saída). Mesma lei da família: o
@@ -311,6 +371,11 @@ while :; do
     # calado deixaria a troca automática fora PARA SEMPRE. Saída 1 do
     # spawn = pactl/binário ausente (sem pilha de áudio) — a condição
     # abaixo não teria deixado nascer; morreu dentro = volta em ≤5s.
+    # E132 — o guard do supervise nativo: vivo o supervisor, o roteador
+    # é FILHO dele (o spawn daqui seria a segunda casa no mesmo
+    # residente); o bloco segue INTACTO como fallback para o env sem o
+    # binário.
+    if [ "$SUPervise_VIVO" != 1 ]; then
     if command -v craft-audio-route >/dev/null 2>&1 && command -v pactl >/dev/null 2>&1; then
         if ! pgrep -f '^/usr/bin/env python3 /usr/local/bin/craft-audio-route$|^python3 /usr/local/bin/craft-audio-route$' >/dev/null 2>&1; then
             if [ "$seen_audio" -eq 1 ]; then
@@ -326,6 +391,7 @@ while :; do
         fi
     fi
     seen_audio=1
+    fi   # E132: fim do guard do supervise (áudio)
     # E101 — O OSD ENTRA NA SUPERVISÃO (a lição v2.10.6 do idle aplicada ao
     # irmão): o spawn do autostart é do home VIVO (domínio do dono) — nos
     # rigs onde ele existe fica (o pgrep guarda a dupla nasceria); nos que
@@ -333,6 +399,9 @@ while :; do
     # morria calada e o volume voltava a ser cego). O pacote é a âncora
     # E94 (ADOCAO) — o rig do dono recebe o binário na dose e o daemon
     # sobe na hora, sem relogin.
+    # E132 — o guard do supervise nativo (o mesmo do áudio: OSD é FILHO
+    # do supervisor quando o binário existe; o bloco segue intacto).
+    if [ "$SUPervise_VIVO" != 1 ]; then
     if command -v swayosd-server >/dev/null 2>&1; then
         if ! pgrep -x swayosd-server >/dev/null 2>&1; then
             if [ "$seen_osd" -eq 1 ]; then
@@ -348,6 +417,7 @@ while :; do
         fi
     fi
     seen_osd=1
+    fi   # E132: fim do guard do supervise (OSD)
     # E101 — O WATCH DO MODO DE JOGO ENTRA NA SUPERVISÃO (o mesmo corpo da
     # família): AUTO=1 no ~/.config/elite/game.conf é o contrato — o daemon
     # SAI 0 sozinho quando AUTO≠1 (ausência intencional, lei do idle, zero
@@ -367,7 +437,40 @@ while :; do
     # áudio, agora o jogo). O padrão duplo segue a cura E106 do
     # craft-audio-route: o pós-exec ('bash …') na frente, o env
     # transitório atrás.
-    if command -v craft-game >/dev/null 2>&1; then
+    # E132 — O MOTOR NATIVO DO JOGO: presente o binário, o slot lança o
+    # elite-daemon — um processo cobre a detecção /proc (as três portas),
+    # o GameMode por D-Bus, o EPP dinâmico e o debounce de 3s. O GATE DO
+    # AUTO CONTINUA AQUI NO BASH: o daemon NÃO lê o game.conf — a porta
+    # do toggle do menu é da casa (AUTO=1 é o contrato; AUTO≠1 = ausência
+    # intencional, lei do idle, zero spam). O caminho bash do craft-game
+    # watch ABAIXO segue como fallback para o env sem o binário (a lição
+    # E106 da âncora do cmdline real continua valendo para ELE).
+    if [ -x /usr/local/bin/elite-daemon ]; then
+        auto="$(sed -n 's/^AUTO=//p' "$HOME/.config/elite/game.conf" 2>/dev/null | head -1)"
+        _gm_vivo="$(pgrep -f '^/usr/local/bin/elite-daemon$' 2>/dev/null | head -1)"
+        if [ "${auto:-0}" = 1 ] && [ -z "$_gm_vivo" ]; then
+            if [ "$seen_game" -eq 1 ]; then
+                printf '[%s] game watch FORA — reiniciando (elite-daemon E132)\n' "$(date '+%F %T')" >>"$LOG"
+            else
+                printf '[%s] game watch iniciando (1ª vez — nada morreu; elite-daemon E132)\n' "$(date '+%F %T')" >>"$LOG"
+            fi
+            (
+                /usr/local/bin/elite-daemon >>"$LOG" 2>&1
+                st=$?
+                printf '[%s] game watch SAIU exit=%d (elite-daemon E132)\n' "$(date '+%F %T')" "$st" >>"$LOG"
+            ) 9>&- &
+        elif [ "$seen_game" -eq 0 ]; then
+            # a mesma voz E113 do porquê (uma vez por boot): a ausência
+            # sem explicação é réu aparente demais — o papel assina a
+            # decisão da casa.
+            if [ "${auto:-0}" = 1 ]; then
+                printf '[%s] game watch: AUTO=1 e o pgrep vê o elite-daemon vivo (pid %s) — nada a fazer (o motor já está no ar)\n' "$(date '+%F %T')" "${_gm_vivo:-?}" >>"$LOG"
+            else
+                printf '[%s] game watch: AUTO≠1 no conf da casa — ausência intencional, o daemon não sobe (o toggle do menu é quem decide)\n' "$(date '+%F %T')" >>"$LOG"
+            fi
+        fi
+        unset _gm_vivo
+    elif command -v craft-game >/dev/null 2>&1; then
         auto="$(sed -n 's/^AUTO=//p' "$HOME/.config/elite/game.conf" 2>/dev/null | head -1)"
         _gm_vivo="$(pgrep -f '^bash /usr/local/bin/craft-game watch$|^/usr/bin/env bash /usr/local/bin/craft-game watch$' 2>/dev/null | head -1)"
         if [ "${auto:-0}" = 1 ] && [ -z "$_gm_vivo" ]; then
@@ -406,6 +509,9 @@ while :; do
     # (nenhum relançamento, nenhum log, nenhum gate). Mesma lei da família:
     # o autostart lança na 1ª vez; este ensure é a rede — pgrep vivo =
     # nada acontece (idempotente, sem corrida fork/exec da classe idle).
+    # E132 — o guard do supervise nativo: vivos o supervisor, a central e
+    # o montador são FILHOS dele; os blocos seguem INTACTOS como fallback.
+    if [ "$SUPervise_VIVO" != 1 ]; then
     if command -v swaync >/dev/null 2>&1 && ! pgrep -x swaync >/dev/null 2>&1; then
         if [ "$seen_swyn" -eq 1 ]; then
             printf '[%s] swaync FORA — reiniciando\n' "$(date '+%F %T')" >>"$LOG"
@@ -432,6 +538,7 @@ while :; do
         ) 9>&- &
     fi
     seen_udiskie=1
+    fi   # E132: fim do guard do supervise (swaync + udiskie)
     # E43 — O AGENTE POLKIT DA CASA: hyprpolkitagent (wlroots-nativo) na
     # frente; o polkit-gnome 0.105 (GTK2, 2010) fica como legado de
     # transição. O gparted do dono morreu no diálogo do velho com senha

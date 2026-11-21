@@ -1,8 +1,12 @@
-#!/usr/bin/env bash
+#!/bin/sh
 # craft-shot — screenshots defensivos (grim + slurp + wl-copy)
 # uso: craft-shot area   → região selecionada → clipboard + arquivo
 #      craft-shot full   → tela cheia → arquivo
-set -euo pipefail
+# E132 — POSIX PURO: o corpo nunca usou nada de bash (sem [[ ]], sem
+# arrays — a auditoria da conversão); o pipefail era um no-op do bash
+# (nenhum pipeline no corpo) e sai na troca do shebang — /bin/sh é a
+# mesma rede com um interpretador a menos na fila.
+set -eu
 mode="${1:-area}"
 for bin in grim wl-copy; do
   command -v "$bin" >/dev/null 2>&1 \

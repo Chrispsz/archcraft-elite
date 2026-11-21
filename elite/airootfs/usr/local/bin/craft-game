@@ -247,15 +247,31 @@ gm_off() {
 # Um jogo achado → o PID DELE vai pro gamemode (o reaper de lá sabe da
 # morte dele — zero estado duplicado); jogo nenhum → 5s de silêncio (um
 # pgrep de µs). O AUTO=0/ausente é AUSÊNCIA INTENCIONAL (lei do idle E36).
+# E132 — A DELEGAÇÃO AO MOTOR NATIVO (a ordem do dono: espremer o limão):
+# presente o binário elite-daemon (compilado NO build do elite-system,
+# makedepends rust exclusivo — zero toolchain na ISO), o watch É ELE: a
+# detecção /proc com as três portas (comm, exe, environ/cmdline), o
+# GameMode por D-Bus, o EPP dinâmico e o debounce de 3s moram em UM
+# processo nativo (o flock de instância única e o pid no game-watch.pid
+# são o compat — o status daqui continua vendo o daemon). O corpo bash
+# abaixo segue como FALLBACK honesto para o env sem o binário (ISO velha,
+# rig pré-dose): as duas portas são a mesma casa, o motor é um só.
 gm_watch() {
-    if ! has_gamemode; then
-        glog "watch: gamemode ausente — daemon sai (a âncora E94 traz o pacote)"
-        exit 0
-    fi
     local auto=""
     [ -r "$CONF" ] && auto="$(sed -n 's/^AUTO=//p' "$CONF" | head -1)"
     if [ "${auto:-0}" != "1" ]; then
         glog "watch: AUTO≠1 (config da casa) — ausência intencional, nada roda"
+        exit 0
+    fi
+    # E132 — o binário nativo assume ANTES de qualquer corpo bash (o gate
+    # do AUTO é da CASA: o daemon NÃO lê o game.conf — o toggle do menu
+    # continua sendo a única porta da decisão).
+    if [ -x /usr/local/bin/elite-daemon ]; then
+        glog "watch: delegando ao elite-daemon (o motor nativo E132 — detecção/GameMode/EPP/debounce em um processo)"
+        exec setsid /usr/local/bin/elite-daemon >/dev/null 2>&1 </dev/null
+    fi
+    if ! has_gamemode; then
+        glog "watch: gamemode ausente — daemon sai (a âncora E94 traz o pacote)"
         exit 0
     fi
     ensure_run_dir
@@ -511,12 +527,20 @@ gm_status_cmd() {
     # ON sem daemon vivo = o supervisor que não trouxe — a fila tem nome.
     if [ "${auto:-0}" = 1 ]; then
         _wp="$(cat "$RUN_DIR/game-watch.pid" 2>/dev/null || true)"
-        if [ -n "$_wp" ] && kill -0 "$_wp" 2>/dev/null \
-           && tr '\0' ' ' <"/proc/$_wp/cmdline" 2>/dev/null | grep -q 'craft-game watch'; then
-            # E125 — o pid é máquina e não vale a mesa (o dono lê estado,
-            # não números de processo; o pid do watch já tem linha no papel
-            # desde o nascimento dele — 'watch: no ar (pid N)')
-            printf 'watch               no ar\n'
+        # E132 — a prova aceita OS DOIS motores: o pid do arquivo é do
+        # craft-game watch (bash) OU do elite-daemon nativo (ele escreve
+        # o PRÓPRIO pid no game-watch.pid — o compat E132 do daemon); o
+        # case casa o cmdline de qualquer um dos dois.
+        if [ -n "$_wp" ] && kill -0 "$_wp" 2>/dev/null; then
+            case "$(tr '\0' ' ' <"/proc/$_wp/cmdline" 2>/dev/null)" in
+                *craft-game\ watch*|*elite-daemon*)
+                    # E125 — o pid é máquina e não vale a mesa (o dono lê
+                    # estado, não números de processo; o pid do watch já
+                    # tem linha no papel desde o nascimento dele)
+                    printf 'watch               no ar\n' ;;
+                *)
+                    printf 'watch               FORA — sem daemon vivo (o automático é só o conf)\n' ;;
+            esac
         else
             printf 'watch               FORA — sem daemon vivo (o automático é só o conf)\n'
         fi
@@ -577,7 +601,11 @@ gm_menu() {
         Automático*) 
             if [ "${auto:-0}" = 1 ]; then
                 printf 'AUTO=0\n' > "$CONF" 2>/dev/null
-                pkill -f '^bash /usr/local/bin/craft-game watch$|^/usr/bin/env bash /usr/local/bin/craft-game watch$' 2>/dev/null || true
+                # E132 — o toggle desliga OS DOIS motores: o watch bash
+                # (âncora dupla E106 do cmdline real) E o elite-daemon
+                # nativo (âncora exata — o 'supervise' NÃO casa: o padrão
+                # morre no $ e o supervisor dos residentes segue vivo).
+                pkill -f '^bash /usr/local/bin/craft-game watch$|^/usr/bin/env bash /usr/local/bin/craft-game watch$|^/usr/local/bin/elite-daemon$' 2>/dev/null || true
                 # E113 — O TOGGLE DEIXA LINHA NO PAPEL (o rig fotografou o
                 # watch FORA + supervisor calado + o último clique do menu
                 # em AUTO=0 — e o conf mudou SEM UMA linha no game.log: o
@@ -588,7 +616,13 @@ gm_menu() {
             else
                 mkdir -p "$CONF_DIR" 2>/dev/null || true
                 printf 'AUTO=1\n' > "$CONF" 2>/dev/null
-                setsid /usr/local/bin/craft-game watch >/dev/null 2>&1 </dev/null 9>&- &
+                # E132 — o binário nativo na frente (o mesmo motor que o
+                # gm_watch delega); sem ele, o watch bash clássico sobe.
+                if [ -x /usr/local/bin/elite-daemon ]; then
+                    setsid /usr/local/bin/elite-daemon >/dev/null 2>&1 </dev/null 9>&- &
+                else
+                    setsid /usr/local/bin/craft-game watch >/dev/null 2>&1 </dev/null 9>&- &
+                fi
                 glog "auto: ON (pelo menu — o watch nasce com a escolha)"
                 NOTE_URGEN=normal note 'Automático: ON' 'Performance entra sozinha quando um jogo abre'
             fi ;;

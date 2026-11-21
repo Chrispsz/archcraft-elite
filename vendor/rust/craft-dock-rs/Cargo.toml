@@ -1,0 +1,51 @@
+# ELITE · craft-dock-rs (E132) — a dock (taskbar) NATIVA em gtk-rs.
+# O 1º corpo do craft-dock-gui (PyGObject, 2137 linhas) traduzido para
+# Rust: o protocolo do craft-toplevel (toplevel.sock) em leitura
+# ASSÍNCRONA (thread de fundo + MainContext channel), o matching
+# reverse-DNS dos Flatpaks (io.github.kolunmi.Bazaar.desktop também
+# indexado como "bazaar" — nome "Bazaar" e ícone OFICIAL, nunca raw) e
+# a extração NATIVA de ícones de AppImage lendo /proc/<pid>/environ
+# (APPIMAGE=), cmdline e exe (o mount /tmp/.mount_* vale inclusive sob
+# --no-sandbox), buscando primeiro o que o Gear Lever já extraiu e
+# copiando o .DirIcon/maior PNG do squashfs montado para
+# ~/.cache/elite/appimage-icons/<sha256>.png.
+#
+# A ARQUITETURA DO SANDBOX (a lei do degrau): a camada de lógica
+# (icons/procapp/sock) é std-only e compila/testa em QUALQUER lugar; a
+# camada de UI (ui.rs) depende de gtk4 + gtk4-layer-shell e só
+# compila onde houver GTK dev — por isso vive atrás da feature "gui":
+#   · `cargo build  --no-default-features` → lógica pura (CI local);
+#   · `cargo test   --no-default-features` → os testes da casa;
+#   · `cargo build --release` (com gui)   → o binário de verdade (CI
+#     com pkg-config gtk4 — o makedepends do PKGBUILD).
+[package]
+name = "craft-dock-rs"
+version = "0.1.0"
+edition = "2021"
+description = "ELITE · a dock nativa da casa em GTK4 + layer-shell (o corpo Rust do craft-dock-gui, degrau E132)"
+license = "GPL-3.0"
+
+[features]
+# default = gui: o binário completo. Sem a feature, o main compila com
+# uma mensagem HONESTA e exit 1 (nunca uma dock fantasma silenciosa).
+default = ["gui"]
+gui = ["gtk4", "gtk4-layer-shell", "libc"]
+
+[dependencies]
+# sha2: o digest do CAMINHO do AppImage para o nome do cache de ícones
+# (~/.cache/elite/appimage-icons/<sha256[0..24]>.png — o mesmo formato
+# do craft-dock-gui E130: os caches são COMPARTILHADOS entre os dois).
+sha2 = "0.10"
+
+# libc (só na gui): o handler cru dos sinais da casa — SIGUSR1 (W-S-d
+# toggle) e SIGUSR2 (reload dos pins); a glib 0.22 NÃO traz
+# unix_signal_add (o atomic async-signal-safe + o idle de 200ms é a via).
+libc = { version = "0.2", optional = true }
+
+# A camada de UI (opcional — ver [features] acima). Versões travadas
+# pelo par do gtk4-layer-shell 0.8 (gtk4 0.11; o links="gtk-4" proíbe
+# cópias duplicadas do sys-crate — a resolução foi PROVADA no lock).
+gtk4 = { version = "0.11", optional = true }
+gtk4-layer-shell = { version = "0.8", optional = true }
+
+[dev-dependencies]

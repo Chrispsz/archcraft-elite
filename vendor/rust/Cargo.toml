@@ -13,11 +13,15 @@
 #   elite-daemon — o detector de jogo UNIFICADO (v1: o núcleo do
 #     craft-game watch — varredura de /proc sem fork por tick, D-Bus
 #     nativo com o GameMode, instância única por flock de arquivo).
-#     O craft-dock-rs (a dock em gtk-rs) entra como membro no degrau
-#     seguinte — nunca aqui pela metade.
+#   craft-dock-rs — a DOCK (taskbar) em gtk-rs (E132: o corpo do
+#     craft-dock-gui em GTK4 + layer-shell; leitura ASSÍNCRONA do
+#     toplevel.sock, Flatpak reverse-DNS com ícone oficial, cadeia de
+#     ícones E130 com extração de .DirIcon em thread; a lógica PURA
+#     testa sem GTK — `cargo test --no-default-features`; a feature
+#     "gui" é o que o CI do pacote liga com o pkg-config gtk4).
 [workspace]
 resolver = "2"
-members = ["elite-daemon"]
+members = ["elite-daemon", "craft-dock-rs"]
 
 [profile.release]
 lto = "fat"

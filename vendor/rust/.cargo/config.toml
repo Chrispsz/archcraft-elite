@@ -1,0 +1,7 @@
+# ── ELITE (E132): os RUSTFLAGS do workspace — o build local casa com o CI.
+# A lição E131 segue de pé: lto=fat/codegen-units=1/strip=symbols moram no
+# [profile.release] do Cargo.toml (NÃO aqui — o embed-bitcode do lto no
+# RUSTFLAGS quebra a build); aqui mora SÓ o target-cpu do alvo (x86-64-v3,
+# a ISA da ISO) + o opt-level já coberto pelo profile.
+[build]
+rustflags = ["-C", "target-cpu=x86-64-v3"]

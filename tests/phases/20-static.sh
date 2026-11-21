@@ -1696,7 +1696,7 @@ assert_nogrep "$BF129" '^--enable-features=.*Vulkan' "E114 ratificada: o composi
 assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'transparent_hugepage=madvise' "E129: o tune crava o madvise (a porta do tune e o post_upgrade falam a MESMA lei)"
 assert_nogrep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'ensure_cmdline_token /etc/default/grub transparent_hugepage=always' "E129: o tune NÃO crava mais o 'always' (o fóssil da era E74 morre por escrito)"
 assert_grep "$REPO/elite/airootfs/usr/local/share/elite/qt6ct/qt6ct.conf" 'icon_theme=Papirus-Dark' "E129: o mestre do qt6ct é o Papirus-Dark (o MESMO dos settings.ini GTK — zero babel de ícones)"
-assert_grep "$REPO/.ci/build.sh" 'pkgrel=78' "E130/E41: pkgrel elite-system 77→78 NO MESMO COMMIT (lei E41 — a ordem do dono em duas etapas: sono harmonizado, peles em homes vivos, okular morto, headers do dkms, cadeia de ícones; âncora refrescada — a lição E58/E59: o número atual é lei do guard do CI)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=79' "E132/E41: pkgrel elite-system 78→79 NO MESMO COMMIT (lei E41 — a FUNDAÇÃO RUST da casa: o workspace vendor/rust/ compila NO build com makedepends rust+cargo EXCLUSIVO (zero toolchain na ISO/pacote final), o elite-daemon nasce e craft-game/craft-bars DELEGAM a ele, o daemon.conf mestre embarca; âncora refrescada — a lição E58/E59: o número atual é lei do guard do CI)"
 # V5. O VEÍCULO NASCE INSTALADO (futuras ISOs não repetem a ferida da 28):
 # E50 — O PACOTE ÚNICO é a entrada viva (a era dos dois veículos encerrou):
 assert_grep "$REPO/elite/packages.add" '^elite-system$' "E50: o elite-system no packages.add — a ISO nasce com O PACOTE ÚNICO INSTALADO (a diretriz do dono: um só pacote atualiza todo o sistema)"

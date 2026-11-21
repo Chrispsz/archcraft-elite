@@ -1,10 +1,20 @@
-// ELITE · elite-daemon — a varredura de /proc (E131). Zero fork por
-// tick: cada processo é read(2) de /proc/<pid>/comm e /proc/<pid>/exe —
-// o bash pagava um pgrep + um readlink POR RODADA (fork ×2 no mínimo).
+// ELITE · elite-daemon — a varredura de /proc (E131→E132). Zero fork por
+// tick: cada processo é read(2) de /proc/<pid>/comm, /exe, /cmdline e
+// /environ — o bash pagava um pgrep + um readlink + um tr POR RODADA.
 // A família é a MESMA do craft-game (o padrão ERE do comm, traduzido
 // 1:1; a âncora ^…$ impede o falso casamento do corte a 15 chars) mais
-// a SEGUNDA PORTA: o exe de dentro de steamapps/common (o jogo Steam —
-// nativo ou Proton — que o comm nunca nomeia).
+// as portas que a E126/E132 acrescentaram:
+//   PORTA 1 (E131) — a família ERE sobre o comm;
+//   PORTA 2 (E126) — o exe de dentro de steamapps/common;
+//   PORTA 3 (E132) — o cmdline com token .exe (case-insensitive) OU o
+//     environ carregando as marcas dos runtimes (WINEPREFIX=,
+//     STEAM_COMPAT_DATA_PATH=, UMU_ID=, PROTON_VERSION=) — o jogo do
+//     Hydra via Proton GE que NENHUMA porta anterior via. Os
+//     AUXILIARES do Wine (wineserver, services.exe, explorer.exe,
+//     steamwebhelper, hydra-plus…) são BLOQUEADOS ANTES das sondas 2/3:
+//     eles TAMBÉM carregam as marcas e o .exe — sem o filtro o modo de
+//     jogo ligaria para o wineserver eternamente vivo (a lição E132 do
+//     craft-game, traduzida 1:1).
 use regex::Regex;
 use std::io::Read;
 use std::os::unix::fs::MetadataExt;
@@ -14,11 +24,25 @@ use zbus::blocking::Proxy;
 /// A família ERE sobre o comm (o GAME_PATS do craft-game, 1:1).
 pub const GAME_PATS: &str = r"^wine6?-preload(er)?$|^gamescope$|^pcsx2$|^retroarch$|^duckstation$|^dolphin-emu$|^melonds$|^citra-qt$|^ryujinx$|^PPSSPPSDL$|^rpcs3$|^osu!$|^Cemu$";
 pub const STEAM_EXE_MARK: &str = "/steamapps/common/";
+/// E132 — o BLOQUEIO dos auxiliares do Wine (o WINE_HELPER_PATS do
+/// craft-game, 1:1, ancorado — comm de processo, nunca substring).
+pub const WINE_HELPER_PATS: &str = r"^(wineserver|services\.exe|winedevice\.exe|plugplay\.exe|explorer\.exe|rpcss\.exe|svchost\.exe|conhost\.exe|tabtip\.exe|rundll32\.exe|wineboot\.exe|mscorsvw\.exe|steamwebhelper|hydra-plus)";
+/// E132 — as marcas dos runtimes no environ (o WINE_ENV_MARKS do
+/// craft-game, 1:1 — token INICIANDO com a marca, KEY=VALUE NUL-separado).
+pub const WINE_ENV_MARKS: [&str; 4] = [
+    "WINEPREFIX=",
+    "STEAM_COMPAT_DATA_PATH=",
+    "UMU_ID=",
+    "PROTON_VERSION=",
+];
 
 pub struct Jogo {
     pub pid: i32,
     pub comm: String,
     pub exe: String,
+    /// E132 — a porta que o viu ("comm" | "exe" | "cmdline" | "environ"
+    /// — o papel do daemon nomeia o porquê de cada registro).
+    pub via: &'static str,
 }
 
 fn read_trim(p: &Path) -> Option<String> {
@@ -30,10 +54,50 @@ fn read_trim(p: &Path) -> Option<String> {
     Some(s.trim_end().to_string())
 }
 
+/// Lê um arquivo de /proc com bytes crus (cmdline/environ são
+/// NUL-separados e NÃO são UTF-8 válido — read_to_string morreria).
+fn read_bytes(p: &Path) -> Option<Vec<u8>> {
+    let mut buf = Vec::new();
+    std::fs::File::open(p)
+        .ok()?
+        .read_to_end(&mut buf)
+        .ok()?;
+    Some(buf)
+}
+
+/// E132 — o bloqueio dos auxiliares do Wine (comm ancorado). Eles
+/// carregam as MESMAS marcas de environ/cmdline que o jogo — sem o
+/// filtro o modo de jogo ligaria para o wineserver eternamente vivo.
+pub fn eh_auxiliar_wine(comm: &str, re: &Regex) -> bool {
+    re.is_match(comm)
+}
+
+/// E132 — a PORTA 3a: QUALQUER token NUL-separado do cmdline terminando
+/// em ".exe" (case-insensitive — o argv[0] do jogo é o próprio .exe; no
+/// loader 'wine jogo.exe' é o argv[1]; as duas formas são o jogo).
+pub fn cmdline_tem_exe(cmd: &[u8]) -> bool {
+    cmd.split(|&b| b == 0).any(|tok| tem_sufixo_exe(tok))
+}
+
+/// o sufixo ".exe" em bytes, sem caixa (o grep -Ei do bash casa .EXE).
+fn tem_sufixo_exe(tok: &[u8]) -> bool {
+    tok.len() >= 4
+        && tok[tok.len() - 4..].eq_ignore_ascii_case(b".exe")
+}
+
+/// E132 — a PORTA 3b: QUALQUER token NUL-separado do environ INICIANDO
+/// com uma marca de runtime (WINEPREFIX=, STEAM_COMPAT_DATA_PATH=,
+/// UMU_ID=, PROTON_VERSION= — o molde do grep -Eq "^($MARKS)" do bash).
+pub fn environ_tem_marca(env: &[u8]) -> bool {
+    env.split(|&b| b == 0)
+        .any(|tok| WINE_ENV_MARKS.iter().any(|m| tok.starts_with(m.as_bytes())))
+}
+
 /// UMA rodada: os jogos vivos do usuário corrente.
 pub fn round() -> Vec<Jogo> {
     let uid = unsafe { libc::getuid() };
     let re = Regex::new(GAME_PATS).expect("GAME_PATS é ERE constante válida");
+    let re_helper = Regex::new(WINE_HELPER_PATS).expect("WINE_HELPER_PATS é ERE constante válida");
     let mut out = Vec::new();
     let dir = match std::fs::read_dir("/proc") {
         Ok(d) => d,
@@ -58,11 +122,14 @@ pub fn round() -> Vec<Jogo> {
         let exe = std::fs::read_link(base.join("exe"))
             .map(|p| p.to_string_lossy().into_owned())
             .unwrap_or_default();
-        out.push(Jogo { pid, comm, exe });
+        out.push(Jogo { pid, comm, exe, via: "comm" });
     }
 
-    // PORTA 2 (E126): o jogo Steam pelo CAMINHO do exe — inclui quem o
-    // comm nunca nomeia ('Stardew Valley' via Proton).
+    // PORTAS 2+3 (E126→E132) numa SÓ passada de /proc: o exe dentro de
+    // steamapps/common (o jogo Steam que o comm nunca nomeia) e a sonda
+    // cmdline/environ dos runtimes Proton/Wine/Hydra/UMU. O BLOQUEIO dos
+    // auxiliares vem ANTES de qualquer sonda (eles carregam as mesmas
+    // marcas — o molde E132 do craft-game, 1:1).
     for entry in &entries {
         let fname = entry.file_name();
         let Some(name) = fname.to_str() else { continue };
@@ -75,13 +142,27 @@ pub fn round() -> Vec<Jogo> {
         if meta.uid() != uid {
             continue;
         }
-        let exe = match std::fs::read_link(base.join("exe")) {
-            Ok(p) => p.to_string_lossy().into_owned(),
-            Err(_) => continue,
-        };
+        let comm = read_trim(&base.join("comm")).unwrap_or_default();
+        if comm.is_empty() || eh_auxiliar_wine(&comm, &re_helper) {
+            continue; // auxiliar do Wine: as marcas dele NÃO são jogo
+        }
+        let exe = std::fs::read_link(base.join("exe"))
+            .map(|p| p.to_string_lossy().into_owned())
+            .unwrap_or_default();
         if exe.contains(STEAM_EXE_MARK) {
-            let comm = read_trim(&base.join("comm")).unwrap_or_default();
-            out.push(Jogo { pid, comm, exe });
+            out.push(Jogo { pid, comm, exe, via: "exe" });
+            continue;
+        }
+        if let Some(cmd) = read_bytes(&base.join("cmdline")) {
+            if cmdline_tem_exe(&cmd) {
+                out.push(Jogo { pid, comm, exe, via: "cmdline" });
+                continue;
+            }
+        }
+        if let Some(env) = read_bytes(&base.join("environ")) {
+            if environ_tem_marca(&env) {
+                out.push(Jogo { pid, comm, exe, via: "environ" });
+            }
         }
     }
     out.sort_by_key(|j| j.pid);
@@ -170,6 +251,78 @@ mod tests {
                 .contains(STEAM_EXE_MARK)
         );
         assert!(!"/usr/bin/steam".contains(STEAM_EXE_MARK));
+    }
+
+    // ── E132 — o bloqueio dos auxiliares + as portas cmdline/environ ────
+
+    #[test]
+    fn bloqueio_casa_os_auxiliares_do_wine() {
+        let re = Regex::new(WINE_HELPER_PATS).unwrap();
+        // a lista do craft-game E132, 1:1 — os auxiliares que carregam as
+        // MESMAS marcas de environ/cmdline que o jogo
+        for aux in [
+            "wineserver",
+            "services.exe",
+            "winedevice.exe",
+            "plugplay.exe",
+            "explorer.exe",
+            "rpcss.exe",
+            "svchost.exe",
+            "conhost.exe",
+            "tabtip.exe",
+            "rundll32.exe",
+            "wineboot.exe",
+            "mscorsvw.exe",
+            "steamwebhelper",
+            "hydra-plus",
+        ] {
+            assert!(eh_auxiliar_wine(aux, &re), "deveria bloquear: {}", aux);
+        }
+        // o jogo de verdade NUNCA cai no bloqueio (a âncora ^ segura)
+        for vivo in [
+            "wine-preloader",
+            "gamescope",
+            "Stardew Valley", // o comm DO .exe que a porta 3 caça
+            "hydra",           // sem o sufixo -plus é OUTRO corpo
+            "pcsx2",
+        ] {
+            assert!(!eh_auxiliar_wine(vivo, &re), "não deveria bloquear: {}", vivo);
+        }
+    }
+
+    #[test]
+    fn cmdline_casa_qualquer_token_exe_sem_caixa() {
+        // o argv[0] do jogo É o .exe
+        assert!(cmdline_tem_exe(b"/home/user/Stardew Valley.exe\0--flag\0"));
+        // o loader: 'wine jogo.exe' — o .exe é o argv[1]
+        assert!(cmdline_tem_exe(b"wine\0jogo.exe\0"));
+        // sem caixa (o grep -Ei do bash casa .EXE também)
+        assert!(cmdline_tem_exe(b"wine\0JOGO.EXE\0"));
+        // NUL separa tokens: um .exe NO MEIO de token não é fim de token
+        assert!(!cmdline_tem_exe(b"jogo.exe.bak\0wine\0"));
+        // nenhum token termina em .exe
+        assert!(!cmdline_tem_exe(b"/usr/bin/wine\0preload\0"));
+        // cmdline vazio/so-NUL: resposta honesta é false
+        assert!(!cmdline_tem_exe(b""));
+        assert!(!cmdline_tem_exe(b"\0\0"));
+    }
+
+    #[test]
+    fn environ_casa_as_marcas_dos_runtimes() {
+        // as 4 marcas da E132 (o jogo do Hydra via Proton GE)
+        assert!(environ_tem_marca(b"PATH=/usr/bin\0WINEPREFIX=/home/user/.wine\0"));
+        assert!(environ_tem_marca(
+            b"STEAM_COMPAT_DATA_PATH=/home/user/.steam/steam/steamapps/compatdata/413150\0"
+        ));
+        assert!(environ_tem_marca(b"UMU_ID=stardewvalley\0"));
+        assert!(environ_tem_marca(b"PROTON_VERSION=GE-Proton9-27\0"));
+        // a marca tem que ser PREFIXO do token (KEY=VALUE, o molde ^$
+        // do grep do bash — 'WINEPREFIXX=' NÃO é WINEPREFIX=)
+        assert!(!environ_tem_marca(b"WINEPREFIXX=/outra\0"));
+        assert!(!environ_tem_marca(b"PATH=/usr/bin\0HOME=/home/user\0"));
+        // environ vazio: sem marcas, sem jogo
+        assert!(!environ_tem_marca(b""));
+        assert!(!environ_tem_marca(b"\0\0"));
     }
 
     #[test]
