@@ -221,8 +221,12 @@ fn build(app: &gtk::Application) {
     log(&format!("índice de .desktops: {} chave(s) resolvíveis", index.len()));
 
     // o canal da thread de fundo (a leitura ASSÍNCRONA do toplevel.sock)
+    // E-auditoria 2026-11-22 (3ª camada): o tx.clone() DENTRO da closure
+    // movia o tx e o Estado de baixo o usava de novo (E0382) — o clone
+    // nasce ANTES do spawn e a thread fica com a cópia dona.
     let (tx, rx) = std::sync::mpsc::channel::<Msg>();
-    std::thread::spawn(move || bg_reader(toplevel_sock(), tx.clone()));
+    let tx_bg = tx.clone();
+    std::thread::spawn(move || bg_reader(toplevel_sock(), tx_bg));
 
     let st = Rc::new(RefCell::new(State {
         window,
