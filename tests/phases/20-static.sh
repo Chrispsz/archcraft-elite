@@ -2294,7 +2294,7 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-idle" 'wake-cycle' \
     "E106/idle: o ciclo de wake é UM SÓ (mutex de 3s — três braços corriam o off→on em paralelo e a intercalação off(A) on(B) off(C) deixava a tela ESCURA com todos logando sucesso: o 'perde a imagem ao despertar')"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bgapps" 'swayosd\*\|lxqt-policykit\*' \
     "E106/bgapps: os daemons saem da lista de programas (o SwayOSD era o 'programa em primeiro plano que não sei para quê' — ressuscitado ≤5s pelo supervisor; o lxqt-policykit- com o comm cortado JAMAIS casava o prefixo polkit\* e o dono matava o agente pelo menu)"
-assert_grep "$REPO/elite/airootfs/etc/skel/.config/waybar/config.top" '"signal": 9'
+assert_grep "$REPO/elite/airootfs/etc/skel/.config/waybar/config.top" '"signal": 9' \
     "E135 (âncora E106/topbar refrescada): a pílula dos 2º planos é EVENTO (SIGRTMIN+9 do elite-daemon no NameOwnerChanged/EVT — o fork de craft-bgapps status a cada 5s era O réu de 25% CPU + zumbis pkill do dump 101339; a E106 baixou o interval 30→5 e o dump provou que até 5s era demais: a lei agora é ZERO interval)"
 assert_grep "$REPO/elite/airootfs/usr/lib/systemd/system-sleep/elite-resume-display" 'display-resume' \
     "E106/resume: o marco do resume (a fronteira ESCOLHA × REVERSÃO — o watch NÃO grava a reversão do driver: a escolha de 200 Hz do dono saía do disco PARA SEMPRE em ~8s, antes do reconcile acordar)"
