@@ -10,10 +10,13 @@ x-scheme-handler/chrome=brave-browser.desktop
 text/html=brave-browser.desktop
 application/xhtml+xml=brave-browser.desktop
 application/pdf=org.gnome.Papers.desktop
-# E114 — O EDITOR GRÁFICO DA CASA: clique duplo no texto abre o mousepad
-# (o nano segue para o terminal — EDITOR/VISUAL); rigs vivos recebem a
-# associação pelo elite-post-transaction quando não escolheram outra
-text/plain=mousepad.desktop
+# E136 — O EDITOR GRÁFICO DA CASA (a PARTE 2/2 do dono: 'Padronize
+# gnome-text-editor como editor gráfico leve padrão'): clique duplo no
+# texto abre o GNOME Text Editor (GTK4/libadwaita, Wayland-native — a
+# curadoria 'sem tralha legado' da casa; o nano segue para o terminal —
+# EDITOR/VISUAL); rigs vivos recebem a associação pelo
+# elite-post-transaction quando não escolheram outra
+text/plain=org.gnome.TextEditor.desktop
 image/png=imv.desktop
 image/jpeg=imv.desktop
 image/gif=imv.desktop

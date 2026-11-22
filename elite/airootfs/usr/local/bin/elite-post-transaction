@@ -43,7 +43,7 @@ set -u
 LOG=/var/log/elite-post-transaction.log
 STAMP=/var/lib/elite/kernel-seen
 KPKG=linux-cachyos-bore   # o kernel da casa (mesma constante do craft-update)
-ELITE_SYSCTL=/etc/sysctl.d/99-elite.conf
+ELITE_SYSCTL=/etc/sysctl.d/99-elite-performance.conf
 
 tlog() {
     mkdir -p "${LOG%/*}" 2>/dev/null || true
@@ -218,11 +218,10 @@ fi
 #      sincroniza ao home de cada usuário real — dono do arquivo é o
 #      usuário (o papai root não deixa lixo). Idempotente: só copia
 #      quando difere, com linha no papel.
-#      E o editor gráfico (mousepad — a adoção da E114): quem não tem
-#      associação text/plain ganha a porta moderna do dono ('saindo um
-#      pouco desse uso do terminal… trazendo a experiência mais moderna
-#      do Linux'); quem JÁ escolheu o seu, fica com o seu (a escolha do
-#      dono é intocável).
+#      E o editor gráfico (gnome-text-editor — E136): quem não tem
+#      associação text/plain ganha a porta moderna do dono ('padronize
+#      gnome-text-editor como editor gráfico leve padrão'); quem JÁ
+#      escolheu o seu, fica com o seu (a escolha do dono é intocável).
 SRC_FLAGS=/usr/local/share/elite/chromium-flags/brave-flags.conf
 SRC_CODEFLAGS=/usr/local/share/elite/chromium-flags/code-flags.conf
 if [ ! -e /run/archiso ] && { [ -r "$SRC_FLAGS" ] || [ -r "$SRC_CODEFLAGS" ]; }; then
@@ -253,13 +252,13 @@ if [ ! -e /run/archiso ] && { [ -r "$SRC_FLAGS" ] || [ -r "$SRC_CODEFLAGS" ]; };
         if ! grep -q "^text/plain=" "$_mapps" 2>/dev/null; then
             mkdir -p "${_mapps%/*}" 2>/dev/null || true
             if grep -q "^\[Default Applications\]" "$_mapps" 2>/dev/null; then
-                sed -i "/^\[Default Applications\]/a text/plain=mousepad.desktop" "$_mapps" 2>/dev/null || true
+                sed -i "/^\[Default Applications\]/a text/plain=org.gnome.TextEditor.desktop" "$_mapps" 2>/dev/null || true
             else
-                printf '[Default Applications]\ntext/plain=mousepad.desktop\n' >> "$_mapps" 2>/dev/null || true
+                printf '[Default Applications]\ntext/plain=org.gnome.TextEditor.desktop\n' >> "$_mapps" 2>/dev/null || true
             fi
             chown "$_uid:$_gid" "$_mapps" 2>/dev/null || true
             grep -q "^text/plain=" "$_mapps" 2>/dev/null && \
-                tlog "mimeapps: text/plain → mousepad para $_u (o editor gráfico da casa — o rig não tinha associação)"
+                tlog "mimeapps: text/plain → gnome-text-editor para $_u (o editor gráfico da casa E136 — o rig não tinha associação)"
         fi
         unset _tgt _mapps
     done < /etc/passwd

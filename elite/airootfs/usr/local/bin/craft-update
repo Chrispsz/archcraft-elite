@@ -277,19 +277,20 @@ HOUSE_OVERWRITE=(
 # degradavam ao pactl sem barra NUNCA). A adoção fecha o furo: sudo
 # craft-update → o daemon e a barra nascem na sessão viva (o craft-bars
 # supervisiona).
-# E114 — O EDITOR GRÁFICO DA CASA CHEGA AO RIG: mousepad entra na adoção
-# (a palavra do dono: 'o nosso próprio editor de texto também ser o
-# editor via terminal… o Nano… não é prático para a galera que é
-# iniciante… trazendo a experiência mais moderna do Linux') — rigs vivos
-# recebem na próxima dose; a associação text/plain (sem escolha anterior
-# do dono) vai pelo elite-post-transaction.
+# E136 — A PARTE 2/2 DO DONO: o EDITOR GRÁFICO DA CASA vira o
+# GNOME TEXT EDITOR ('padronize gnome-text-editor como editor gráfico
+# leve padrão, removendo editores pesados/legados redundantes' — o
+# mousepad da E114 volta ao packages.remove: GTK3 legado na casa que
+# já é GTK4/libadwaita). rigs vivos recebem na próxima dose; a
+# associação text/plain (sem escolha anterior do dono) vai pelo
+# elite-post-transaction.
 # E134 — GAMESCOPE SAI da adoção (a ordem do dono, dump 1.0-80: o modo
 #     de jogo nasce da ÁRVORE REAL Proton/Wine/UMU no elite-daemon — o
 #     compositor de jogos não é mais adotado pela casa) e o OVERSKRIDE
 #     ENTRA (o gerenciador Bluetooth GRÁFICO GTK4/libadwaita no lugar do
 #     bluetui TUI — a ordem do dono; nasce do [elite-local]: o build o
 #     compila do AUR 0.6.6 e o canal da release o entrega ao rig).
-ADOCAO=(lxqt-policykit pacman-contrib octopi yay flatpak swayosd gamemode overskride mousepad papirus-icon-theme xorg-xprop)
+ADOCAO=(lxqt-policykit pacman-contrib octopi yay flatpak swayosd gamemode overskride gnome-text-editor papirus-icon-theme xorg-xprop)
 
 ulog() {
     mkdir -p "$(dirname "$ULOG")" 2>/dev/null || true

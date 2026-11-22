@@ -512,9 +512,25 @@ for gone in "$U/scx-elite.service" "$U/fg-booster.service" "$U/fg-boost.slice" \
             "$U/graphical.target.wants/fg-booster.service"; do
   assert_nofile "$gone" "v2.2: fusão dos boosters — $(basename "$gone") EXTINTO do airootfs"
 done
-for p in '^scx-scheds$' '^scx-tools$' '^dmemcg-booster$' '^xdotool$'; do
+# E136 — O SCX VOLTOU (a MISSÃO PARTE 2/2 do dono): scx-scheds/scx-tools
+# deixam a lista dos banidos (agora são o par do scx_loader sob demanda —
+# a drop-in Condition evita o FAILED em kernel sem sched_ext); dmemcg e
+# xdotool seguem EXTINTOS para sempre.
+for p in '^dmemcg-booster$' '^xdotool$'; do
   assert_nogrep "$REPO/elite/packages.add" "$p" "v2.2: fusão dos boosters — pacote ${p#^} banido do packages.add"
 done
+assert_grep "$REPO/elite/packages.add" '^scx-scheds$' "E136: o scx-scheds VOLTA (a PARTE 2/2 do dono — scx_loader sob demanda com scx_lavd; a v2.2 o banira, a ordem nova decide)"
+assert_grep "$REPO/elite/packages.add" '^scx-tools$' "E136: o scx-tools volta junto (o utilitário do escalonador sob demanda)"
+assert_grep "$REPO/elite/packages.add" '^lm_sensors$' "E136: lm_sensors na ISO (nct6775 no boot + sensors-detect no firstboot — nenhum roda daemon)"
+assert_grep "$REPO/elite/packages.add" '^nvme-cli$' "E136: nvme-cli na ISO (SMART do NVMe on-demand)"
+assert_grep "$REPO/elite/packages.add" '^usbutils$' "E136: usbutils na ISO (lsusb on-demand)"
+assert_grep "$REPO/elite/packages.add" '^dmidecode$' "E136: dmidecode na ISO (o retrato DMI da placa on-demand)"
+assert_grep "$REPO/elite/packages.add" '^snap-pac$' "E136: snap-pac no Btrfs opt-in (os hooks pré/pós-pacman do snapper)"
+assert_grep "$REPO/elite/packages.add" '^btrfs-assistant$' "E136: btrfs-assistant volta (a GUI de mão do snapper — ZERO daemon ligado; a remoção antiga era duplicação, a ordem nova decide)"
+assert_grep "$REPO/elite/packages.add" '^gnome-text-editor$' "E136: o GNOME Text Editor é o editor gráfico padrão (GTK4/libadwaita — o mousepad sai)"
+assert_nogrep "$REPO/elite/packages.add" '^mousepad$' "E136: o mousepad GTK3 sai da ISO (o gnome-text-editor é o padrão novo da PARTE 2/2)"
+assert_grep "$REPO/elite/packages.remove" '^mousepad$' "E136: o mousepad no packages.remove (a curadoria 'sem tralha legado')"
+assert_nogrep "$REPO/elite/packages.remove" '^btrfs-assistant$' "E136: o btrfs-assistant SAI do remove (voltou ao add — sem esquizofrenia add∩remove)"
 for keep in '^cachyos-settings$' '^cachyos-ananicy-rules$' '^ananicy-cpp$'; do
   assert_grep "$REPO/elite/packages.add" "$keep" "v2.2: booster único — $(echo "$keep" | tr -d '^$') permanece no packages.add"
 done
@@ -532,7 +548,16 @@ assert_grep "$PR" "^ALL_kver='/boot/vmlinuz-linux-cachyos-bore'$" "preset: ALL_k
 assert_grep "$PR" '^archiso_image="/boot/initramfs-linux-cachyos-bore\.img"$' "preset: imagem archiso do BORE"
 
 # ── peças: configs embarcadas (o tuning assado na ISO) ──────────────
-SC="$REPO/elite/airootfs/etc/sysctl.d/99-elite.conf"
+# E136 — O SYSCTL CONSOLIDADO: 99-elite-performance.conf ÚNICO (a ordem
+# da PARTE 2/2 nomeou o arquivo; os dois fósseis da era anterior não
+# podem mais existir no airootfs — o post_upgrade os aposenta nos rigs)
+SC="$REPO/elite/airootfs/etc/sysctl.d/99-elite-performance.conf"
+assert_file "$SC" "E136: o consolidado existe (o nome é do dono — PARTE 2/2)"
+assert_nofile "$REPO/elite/airootfs/etc/sysctl.d/99-elite.conf" "E136: o fóssil 99-elite.conf saiu do airootfs (consolidado no performance.conf)"
+assert_nofile "$REPO/elite/airootfs/etc/sysctl.d/99-elite-net.conf" "E136: o fóssil 99-elite-net.conf saiu do airootfs (a rede mora NO consolidado)"
+assert_grep "$SC" '^vm\.swappiness = 15$' "E136: swappiness 15 (a ordem PARTE 2/2: '10, ou 15 com ZRAM zstd ativo' — a casa TEM zram0 zstd; a régua 180/160/150 morre)"
+assert_grep "$SC" '^net\.core\.default_qdisc = fq$' "E136: BBR+fq consolidado no performance.conf (a antiga 99-elite-net.conf)"
+assert_grep "$SC" '^net\.ipv4\.tcp_congestion_control = bbr$' "E136: bbr consolidado"
 for k in 'vm\.swappiness' 'vm\.vfs_cache_pressure' 'vm\.max_map_count' \
          'vm\.page-cluster' 'vm\.watermark_boost_factor' 'vm\.watermark_scale_factor'; do
   assert_grep "$SC" "^${k} = " "sysctl: $k presente (gaming)"
@@ -593,11 +618,76 @@ assert_grep "$DA/main.rs" 'fn gpu_aplica' "E135: o perfil de GPU (power_dpm_forc
 assert_grep "$DA/main.rs" 'GetDnd' "E135: o Não Perturbe do swaync é chamada D-Bus NATIVA simétrica (só toca quem estava desligado — o restauro é 1:1)"
 assert_grep "$DA/main.rs" '"Inhibit"' "E135: o inhibitor lock do logind é nativo (o lock/apagamento de tela não morre na partida — o fd solto é o fim)"
 assert_grep "$REPO/elite/airootfs/etc/skel/.config/waybar/config.top" '"signal": 9' "E135: a pílula dos 2º planos é EVENTO (SIGRTMIN+9 do daemon — o fork do craft-bgapps a cada 5s, 25% CPU + zumbis pkill do dump, morre)"
-assert_grep "$REPO/elite/airootfs/etc/systemd/zram-generator.conf" 'swappiness = 180' "E135: o drift 150≠180 morre NA FONTE (a opção do zram-generator é a última palavra no swapon — o systemd-zram-setup não recoloca o 150 depois do systemd-sysctl)"
+assert_grep "$REPO/elite/airootfs/etc/systemd/zram-generator.conf" 'swappiness = 15' "E135→E136: o drift morre NA FONTE e o número da lei vira 15 (a PARTE 2/2: '15 com ZRAM zstd ativo' — a opção do zram-generator é a última palavra no swapon; o MESMO 15 do consolidado, os DOIS donos do número falam UM número só)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-post-transaction" 'image-visibility' "E135: a chave morta do swaync SAI dos rigs (o Json-WARNING a cada arranque morre — o skel já nasce sem ela)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-audio-route" '"--once"' "E135: o roteador de áudio tem o disparo único por evento (o python residente morre; a lei de roteamento evaluate() fica 1:1)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-display" 'elite-daemon session é o ouvidor' "E135: o watch shell legado TEM O GUARD (vivo o daemon, o residente não nasce — o fallback só vale para rig sem binário)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-post-upgrade" 'residente legado' "E135: os órfãos da era anterior morrem NA DOSE (audio-route python, craft-display watch/login1-watch — pkill nomeado com linha no papel)"
+# ═══ E136 — A MISSÃO PARTE 2/2 DO DONO: O KERNEL MODERNO + A MESA ═══════
+# (os contratos estáticos da PARTE 2/2 — cada peça da ordem do dono com
+#  sua âncora; os dinâmicos vivem na 30-unit/40-integration)
+# ── ntsync: módulo no boot + o dispositivo 0666 ──────────────────────────
+assert_grep "$REPO/elite/airootfs/etc/modules-load.d/elite-ntsync.conf" '^ntsync$' "E136: ntsync carrega no boot (o Proton/Wine moderno sem esync/fsync — o overhead de toda partida morre)"
+assert_grep "$REPO/elite/airootfs/etc/udev/rules.d/60-ntsync.rules" 'KERNEL=="ntsync", MODE="0666"' "E136: /dev/ntsync 0666 (o jogo do usuário fala DIRETO — sem daemon, sem privilégio de root)"
+# ── sensores: nct6775 no boot + lm_sensors no firstboot ─────────────────
+assert_grep "$REPO/elite/airootfs/etc/modules-load.d/elite-sensors.conf" '^nct6775$' "E136: o Super I/O Nuvoton acorda no boot (temp/ventoinhas/PWM da placa-mãe ao lm_sensors)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'sensors-detect --auto' "E136: o sensors-detect mapeia a máquina no firstboot/graft (o --auto não pergunta nada — a função única E37)"
+# ── scx_loader: sob demanda, com o chão do BORE ──────────────────────────
+assert_grep "$REPO/elite/airootfs/etc/default/scx" '^SCX_SCHEDULER=scx_lavd$' "E136: o perfil é o scx_lavd (latência-first — o interativo/gaming da ordem do dono)"
+assert_grep "$REPO/elite/airootfs/etc/systemd/system/scx_loader.service.d/elite.conf" 'ConditionPathExists=/sys/kernel/sched_ext' "E136: a unit SÓ existe onde o kernel a sustenta (sem sched_ext = PULADA limpa, nunca FAILED — o 'sem travar a máquina' da ordem)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'enable --now scx_loader' "E136: o primeiroboot/graft liga o loader QUANDO a unit existe (o watchdog do loader é o cinto; o BORE do kernel é o chão)"
+# ── MGLRU + THP: o reclaim moderno reafirmado a cada boot ────────────────
+assert_grep "$REPO/elite/airootfs/etc/tmpfiles.d/elite-mglru.conf" 'w /sys/kernel/mm/lru_gen/enabled - - - - 7' "E136: MGLRU enabled=7 em TODO boot (o reclaim por gerações — o stutter sob pressão morre)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'lru_gen/enabled' "E136: o tune aplica o enabled=7 no kernel VIVO também (o mesmo desenho do THP E132)"
+# ── zram + swappiness 15: os DOIS donos falam UM número ──────────────────
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'swappiness = 15' "E136: o graft do tune escreve o 15 do gerador também (a última palavra no swapon — a lição E135 com o número novo)"
+# ── MangoHud: 3 perfis + o toggle de symlink ─────────────────────────────
+MH="$REPO/elite/airootfs/usr/local/share/elite/mangohud"
+for prof in minimal balanceado diagnostico; do
+  assert_file "$MH/${prof}.conf" "E136: o mestre ${prof}.conf viaja no pacote (a curadoria dos 3 perfis zero-config)"
+done
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-mangohud" 'ln -sfn' "E136: o toggle é SYMLINK (trocar perfil sem editar .conf na mão — a ordem da PARTE 2/2 literal)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-mangohud" 'MANGOHUD_CONFIGFILE' "E136: o modo run aponta o mestre pela env (uma partida no perfil X sem tocar no default do home)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-mangohud" 'bak-' "E136: config PERSONALIZADA do dono recebe backup antes da troca (a gramática E91 — nunca destrói)"
+assert_grep "$REPO/elite/airootfs/etc/skel/.config/MangoHud/MangoHud.conf" 'gpu_power' "E136: o default do skel é o BALANCEADO (uso/clock/temp/watts de CPU e GPU — o painel do dia a dia)"
+# ── OptiScaler: o wrapper honesto de prefixo ─────────────────────────────
+OS="$REPO/elite/airootfs/usr/local/bin/elite-optiscaler"
+assert_grep "$OS" 'WINEDLLOVERRIDES="dxgi=n,b"' "E136: o run entrega o override NATIVO do Proton (sem registro mexido — a env da casa)"
+assert_grep "$OS" 'elite-bak' "E136: o dxgi.dll original é SAGRADO (backup elite-bak; o remove restaura 1:1 — 'sem sujar pastas do sistema')"
+assert_nogrep "$OS" 'pacman -S|pacman -Sy|wget|curl' "E136: o wrapper NÃO instala nem baixa (o release do dono é a fonte — binário de terceiro nunca no pacote da casa)"
+assert_grep "$OS" 'compatdata' "E136: o list acha os prefixos Proton do Steam (o appid na mão também serve)"
+# ── a curadoria: editor + bluetooth + gparted ────────────────────────────
+assert_grep "$REPO/elite/airootfs/etc/skel/.config/labwc/rc.xml" 'gnome-text-editor' "E136: W-e abre o editor gráfico da casa (o atalho do desktop da ordem)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'enable --now bluetooth.service' "E136: o bluetooth.service limpo no primeiroboot (o par do overskride — GUI on-demand, zero applet residente)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-gparted" 'xhost \+SI:localuser:root' "E136: o cinto X11 do gparted (o repasse da PARTE 2/2 — root local só, ServerInterpreted sem wildcard)"
+# ── o menu ≤16 e os atalhos universais 60%/75% ───────────────────────────
+MENU="$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml"
+assert_grep "$MENU" '<item label="Atualizar">' "E136: 'Atualizar sistema' (17) vira 'Atualizar' (9) — a LEI DOS 16"
+assert_grep "$MENU" '<item label="Limpeza">' "E136: 'Limpeza do sistema' (18) vira 'Limpeza' (7) — a LEI DOS 16"
+assert_grep "$MENU" '<item label="Arrastar região">' "E136: 'Região (arrastar)' (17) vira 'Arrastar região' (15) — a LEI DOS 16"
+assert_nogrep "$MENU" 'Atualizar sistema|Limpeza do sistema|Região \(arrastar\)' "E136: nenhum rótulo fóssil dos 17+ fica no menu"
+RC="$REPO/elite/airootfs/etc/skel/.config/labwc/rc.xml"
+assert_grep "$RC" 'key="W-Print"' "E136: Super+Print captura região (teclado COM a tecla — o combo redundante da ordem)"
+assert_grep "$RC" 'key="W-S-s"' "E136: Super+Shift+s captura região (o combo do costume sem a tecla Print — Aula F75 Max)"
+assert_grep "$RC" 'key="W-bracketleft"' "E136: W-[ navega o workspace anterior (sem as teclas que o 60% não tem)"
+assert_grep "$RC" 'key="W-bracketright"' "E136: W-] navega o próximo workspace"
+assert_grep "$RC" 'key="W-S-Up"' "E136: W-S-Up sobe o volume (as teclas Fn sem as teclas Fn — o OSD do swayosd no fallback)"
+assert_grep "$RC" 'key="W-S-m"' "E136: W-S-m muda o mudo"
+assert_grep "$RC" 'key="W-S-space"' "E136: W-S-space play/pause (o playerctl sem a fila de Fn)"
+# ── o pulso da limpeza e o olho do dump ─────────────────────────────────
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-clean" 'systemctl --failed' "E136: a limpeza termina com o pulso do sistema (units FAILED apontadas no terminal E no papel — a ordem da PARTE 2/2)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'scx_loader.service' "E136: o dump fotografa o scx_loader (o status do sched_ext no papel)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" '/dev/ntsync' "E136: o dump fotografa o /dev/ntsync (a permissão 0666 provada no papel)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'lru_gen/enabled' "E136: o dump fotografa o MGLRU (o 7 vivo no papel)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'sensors' "E136: o dump fotografa o lm_sensors (a placa-mãe inteira no papel)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'tcp_congestion_control' "E136: o dump fotografa o BBR ativo (o sysctl vivo, não só o conf)"
+# ── a entrega no pacote (a lição E63: fora do pacote nunca chega ao rig) ─
+assert_grep "$REPO/.ci/build.sh" 'files/etc/sysctl.d/99-elite-performance.conf' "E136: o consolidado VIAJA NO PACOTE (o rig do canal recebe com dono; o post_upgrade aposenta os fósseis)"
+assert_grep "$REPO/.ci/build.sh" 'files/usr/local/share/elite/mangohud' "E136: os mestres do MangoHud viajam no pacote (o toggle dos rigs aponta para cá)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-post-upgrade" '99-elite-performance.conf' "E136: o post_upgrade REGENERA o consolidado com o 15 (a régua velha não volta na dose)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-post-upgrade" 'consolidado no 99-elite-performance' "E136: os fósseis 99-elite.conf/99-elite-net.conf saem COM VOZ na primeira dose (a ordem lexical nunca decide)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-post-transaction" '99-elite-performance' "E136: a vigília do sysctl lê o consolidado (o drift é julgado no arquivo novo)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-optimize" '99-elite-performance' "E136: o optimize lê a lei do consolidado (a régua 180/160/150 morreu nele também)"
 assert_grep "$GICONS" 'pub fn parse_desktop_entry' "v2.0: pins resolvidos por .desktop REAL — ícone/nome/exec do sistema (fim dos glifos)"
 assert_grep "$GUI" 'set_pixel_size\(ICON_SIZE\)' "v2.0: escala FIXA (spec M3.2 — ícone de tema, não glifo)"
 assert_grep "$GUI" 'gtk4_layer_shell::Layer::Top' "v2.3.4→E132: layer TOP — tela cheia/gaveta cobrem a dock sozinhas (a divergência documentada do degrau E132: o Python usava BOTTOM)"
@@ -1498,7 +1588,7 @@ assert_grep "$REPO/docs/gestao/ARQUITETURA.md" '100 questionamentos' "E36: o doc
 # ÚNICA chamada PELOS DOIS modos — espelho cravado como contagem (def 1×,
 # chamada 2×, zero cópia viva).
 CTUNE="$REPO/elite/airootfs/usr/local/bin/elite-tune"
-for fn in apply_grub_tokens write_elite_sysctl ensure_bbr ensure_btrfs_stack; do
+for fn in apply_grub_tokens write_elite_sysctl ensure_bbr ensure_btrfs_stack ensure_mglru ensure_kernel_modernos; do
   ND="$(grep -c "^${fn}() {" "$CTUNE" || true)"
   NC="$(grep -cE "^[[:space:]]*${fn}( |$)" "$CTUNE" || true)"
   assert_eq "$ND" "1" "E37: ${fn} definida UMA vez (a fonte única da verdade)"
@@ -1506,8 +1596,8 @@ for fn in apply_grub_tokens write_elite_sysctl ensure_bbr ensure_btrfs_stack; do
 done
 assert_eq "$(grep -c 'ensure_cmdline_token /etc/default/grub nowatchdog' "$CTUNE" || true)" "1" \
   "E37: o token nowatchdog não tem mais cópia espelhada (era 2 — a doença do E33 morreu na estrutura)"
-assert_eq "$(grep -c 'vm\.swappiness = \$_sw' "$CTUNE" || true)" "1" \
-  "E37→E132: a lei do sysctl vive em write_elite_sysctl UMA vez (a régua calibrada — o 180 estático virou função da RAM; o espelho duplo segue morto)"
+assert_eq "$(grep -c '^vm\.swappiness = 15$' "$CTUNE" || true)" "1" \
+  "E37→E136: a lei do sysctl vive em write_elite_sysctl UMA vez com o 15 LITERAL (a régua 180/160/150 morreu pela PARTE 2/2 — a função da RAM virou número da ordem nova; o espelho duplo segue morto)"
 assert_eq "$(grep -c 'grub-mkconfig -o /boot/grub/grub\.cfg' "$CTUNE" || true)" "1" \
   "E37: o grub-mkconfig vive em apply_grub_tokens (era 2 — o plano do kernel nascia em dois lugares)"
 # E37 + plano nº16: o epílogo do interativo conta a verdade
@@ -1726,7 +1816,7 @@ assert_nogrep "$BF129" '^--enable-features=.*Vulkan' "E114 ratificada: o composi
 assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'transparent_hugepage=madvise' "E129: o tune crava o madvise (a porta do tune e o post_upgrade falam a MESMA lei)"
 assert_nogrep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'ensure_cmdline_token /etc/default/grub transparent_hugepage=always' "E129: o tune NÃO crava mais o 'always' (o fóssil da era E74 morre por escrito)"
 assert_grep "$REPO/elite/airootfs/usr/local/share/elite/qt6ct/qt6ct.conf" 'icon_theme=Papirus-Dark' "E129: o mestre do qt6ct é o Papirus-Dark (o MESMO dos settings.ini GTK — zero babel de ícones)"
-assert_grep "$REPO/.ci/build.sh" 'pkgrel=83' "E134/E41: pkgrel elite-system 80→81 NO MESMO COMMIT (lei E41 — A ENTREGA 1.0-81 do dump 1.0-80: a DOCK RUST DEFINITIVA — o craft-dock-gui Python sai do pacote, o build do crate vira OBRIGATÓRIO (o '|| echo AVISO' publicou a 1.0-80 sem o binário) e o post_upgrade remove o fóssil e encerra o processo Python; o MATCHING '_'=='-' (hydra_plus ↔ hydra-plus) agrupa pin+aberto em UM ícone e a SINCRONIZAÇÃO IMEDIATA mata o indicador preso; o OVERSKRIDE Bluetooth gráfico no lugar do bluetui (estágio AUR 0.6.6 → [elite-local]); o WAYBAR nunca mais perde o ícone de rede (format-disconnected com tooltip 'Sem conexão'); o CHAVEIRO GNOME morto (máscaras + PAM fora + --password-store=basic no Brave E VSCodium); o PKEXEC DIRETO no menu (sem /usr/bin/env — a causa dos polkit-agent-helper FAILED); o MODO DE JOGO pela árvore real Proton/Wine/UMU (umu-run/srt-bwrap/pv-adverb/proton bloqueados, SteamGameId e steamapps/common no cmdline); o FIM dos 8 craft-bars (respawn do watch removido, pós-dose renasce UM por sessão), o DISPLAY instantâneo (diverge 30s→10s + ouvidor login1 Unlock/PrepareForSleep com apply imediato + apply-boot na PRIMEIRA linha do autostart), o menu sem recorte (themerc 200–280 + rótulos finais do dono) e os utilitários internos ocultos (avahi/bssh/bvnc/lstopo/qv4l2/qvidcap/xterm/uxterm/electron) do menu E da gaveta de fixação; âncora refrescada — a lição E58/E59: o número atual é lei do guard do CI) · refrescada da E133 (lei E41): pkgrel elite-system 79→80 — O FECHAMENTO (craft-clean v6 em duas fases, rótulos PT-BR, ícones universais .exe, decoração server) · refrescada da E132 (lei E41): 78→79 — a FUNDAÇÃO RUST (workspace no build, elite-daemon nasce)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=84' "E136/E41: pkgrel elite-system 83→84 NO MESMO COMMIT (lei E41 — A MISSÃO PARTE 2/2 do dono: a migração e a otimização extrema do sistema instalado — o KERNEL MODERNO (scx_loader com scx_lavd sob demanda + Condition sched_ext, ntsync no boot + udev 0666, nct6775+lm_sensors+sensors-detect, MGLRU enabled=7 no tmpfiles, THP madvise), O SYSCTL CONSOLIDADO 99-elite-performance.conf com swappiness 15 nos DOIS donos do número (conf e zram-generator — a régua 180/160/150 morta), MANGOHUD 3 perfis zero-config + o toggle elite-mangohud, o OPTISCALER elite-optiscaler (inject/remove/run, binário de terceiro NUNCA no pacote), a CURADORIA (gnome-text-editor padrão, mousepad fora, snap-pac+btrfs-assistant no Btrfs opt-in, lm_sensors/nvme-cli/usbutils/dmidecode), O MENU ≤16 e os ATALHOS UNIVERSAIS 60%/75% do Aula F75 Max no rc.xml, o craft-clean com o pulso --failed e o craft-dump fotografando o kernel moderno) · refrescada da E135 (lei E41): 82→83 — o motor nativo zero-latência · E134/E41: pkgrel elite-system 80→81 NO MESMO COMMIT (lei E41 — A ENTREGA 1.0-81 do dump 1.0-80: a DOCK RUST DEFINITIVA — o craft-dock-gui Python sai do pacote, o build do crate vira OBRIGATÓRIO (o '|| echo AVISO' publicou a 1.0-80 sem o binário) e o post_upgrade remove o fóssil e encerra o processo Python; o MATCHING '_'=='-' (hydra_plus ↔ hydra-plus) agrupa pin+aberto em UM ícone e a SINCRONIZAÇÃO IMEDIATA mata o indicador preso; o OVERSKRIDE Bluetooth gráfico no lugar do bluetui (estágio AUR 0.6.6 → [elite-local]); o WAYBAR nunca mais perde o ícone de rede (format-disconnected com tooltip 'Sem conexão'); o CHAVEIRO GNOME morto (máscaras + PAM fora + --password-store=basic no Brave E VSCodium); o PKEXEC DIRETO no menu (sem /usr/bin/env — a causa dos polkit-agent-helper FAILED); o MODO DE JOGO pela árvore real Proton/Wine/UMU (umu-run/srt-bwrap/pv-adverb/proton bloqueados, SteamGameId e steamapps/common no cmdline); o FIM dos 8 craft-bars (respawn do watch removido, pós-dose renasce UM por sessão), o DISPLAY instantâneo (diverge 30s→10s + ouvidor login1 Unlock/PrepareForSleep com apply imediato + apply-boot na PRIMEIRA linha do autostart), o menu sem recorte (themerc 200–280 + rótulos finais do dono) e os utilitários internos ocultos (avahi/bssh/bvnc/lstopo/qv4l2/qvidcap/xterm/uxterm/electron) do menu E da gaveta de fixação; âncora refrescada — a lição E58/E59: o número atual é lei do guard do CI) · refrescada da E133 (lei E41): pkgrel elite-system 79→80 — O FECHAMENTO (craft-clean v6 em duas fases, rótulos PT-BR, ícones universais .exe, decoração server) · refrescada da E132 (lei E41): 78→79 — a FUNDAÇÃO RUST (workspace no build, elite-daemon nasce)"
 # V5. O VEÍCULO NASCE INSTALADO (futuras ISOs não repetem a ferida da 28):
 # E50 — O PACOTE ÚNICO é a entrada viva (a era dos dois veículos encerrou):
 assert_grep "$REPO/elite/packages.add" '^elite-system$' "E50: o elite-system no packages.add — a ISO nasce com O PACOTE ÚNICO INSTALADO (a diretriz do dono: um só pacote atualiza todo o sistema)"
@@ -1968,7 +2058,7 @@ assert_grep "$CDOCK94" 'entry.terminal && !raw.starts_with\("foot"\)' "E94: o ex
 assert_grep "$CDOCK94" 'foot --app-id=' "E94: o foot da casa leva app-id DETERMINÍSTICO (o casamento de janelas fala o nome do app, não o do terminal — a mesma lição E89 das case-variants)"
 assert_grep "$CDOCK94" 'pub fn strip_field_codes' "E94: a origem do app vive SEM o casaco E SEM os field codes (strip_field_codes/first_binary — o comm do /proc e o app_id falam o APP; E134: %f %F %u %U… fora do lançamento)"
 CUPD94="$REPO/elite/airootfs/usr/local/bin/craft-update"
-assert_grep "$CUPD94" 'ADOCAO=\(lxqt-policykit pacman-contrib octopi yay flatpak swayosd gamemode overskride mousepad papirus-icon-theme xorg-xprop\)' "E94+E97→E103→E110→E126→E134: a ADOÇÃO DE ÂNCORAS tem FONTE ÚNICA no craft-update (packages.add só nutre a ISO — o rig nunca recebeu a cabeça da fila E58; a E97 soma a tríade da loja + pacman-contrib; a E103 soma o swayosd; a E110 soma o gamemode; a E134 TROCA o gamescope pelo OVERSKRIDE (o Bluetooth gráfico da casa — o modo de jogo nasce da árvore real Proton/Wine, não do compositor de jogo) e segue com o PAPYRUS e o XORG-XPROP)"
+assert_grep "$CUPD94" 'ADOCAO=\(lxqt-policykit pacman-contrib octopi yay flatpak swayosd gamemode overskride gnome-text-editor papirus-icon-theme xorg-xprop\)' "E94+E97→E103→E110→E126→E134→E136: a ADOÇÃO DE ÂNCORAS tem FONTE ÚNICA no craft-update (packages.add só nutre a ISO — o rig nunca recebeu a cabeça da fila E58; a E97 soma a tríade da loja + pacman-contrib; a E103 soma o swayosd; a E110 soma o gamemode; a E134 TROCA o gamescope pelo OVERSKRIDE; a E136 TROCA o mousepad pelo GNOME-TEXT-EDITOR (o editor gráfico GTK4 da PARTE 2/2 — o rig o recebe na dose))"
 assert_grep "$REPO/elite/packages.add" 'lxqt-policykit' "E94: a âncora do rig é a MESMA definição da ISO (sync contratado — a disciplina do pin aplicada à adoção)"
 n_sites="$(grep -cE '^[[:space:]]*adota_ancoras$' "$CUPD94" || true)"
 assert_eq "$n_sites" "3" "E94: a adoção corre nas TRÊS portas (canal, semanal, manual — uma função, nenhum escopo à mão)"
@@ -2012,8 +2102,8 @@ assert_grep "$REPO/.ci/build.sh" 'share/elite/chromium-flags/brave-flags.conf' "
 assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-post-transaction" 'chromium-flags/brave-flags.conf' "E114: o elite-post-transaction sincroniza o conf do navegador ao home dos rigs vivos (a cura chega na PRÓXIMA dose, sem formatar)"
 assert_grep "$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml" 'pkexec /usr/local/bin/craft-clean --as-root' "E114→E134: a limpeza do menu pede raiz pelo DIÁLOGO GRÁFICO E PELO CAMINHO DA CASA (o pkexec DIRETO casa na regra 50-elite-wheel — o 'pkexec env HOME' da era E124 tinha lookup em /usr/bin/env, FORA da regra: senha comum + polkit-agent-helper FAILED no systemctl; o dono agora chega por ARGUMENTO --as-root)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-clean" 'BraveSoftware' "E114: o MAIOR cache do disco entra na limpeza (1,6 GB no papel da seção 14 — só com o navegador fechado, só os regeneráveis Cache/Code Cache/GPUCache)"
-assert_grep "$REPO/elite/packages.add" '^mousepad$' "E114: o editor gráfico da casa na ISO (a palavra do dono: o nano 'não é prático para a galera que é iniciante' — a experiência moderna sem terminal; o nano FICA para o terminal)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-update" 'overskride mousepad' "E114→E134: mousepad na ADOÇÃO do canal (os rigs vivos recebem o editor na próxima dose — o mesmo veículo do swayosd da E101; a âncora acompanhou o overskride no lugar do gamescope)"
+assert_grep "$REPO/elite/packages.add" '^gnome-text-editor$' "E114→E136: o editor gráfico da casa é o GNOME TEXT EDITOR (a PARTE 2/2 do dono: 'padronize gnome-text-editor como editor gráfico leve padrão' — o mousepad da E114 volta ao remove; o nano FICA para o terminal)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-update" 'overskride gnome-text-editor' "E114→E134→E136: o editor da ADOÇÃO do canal é o gnome-text-editor (os rigs vivos recebem o GTK4 da casa na próxima dose — o mesmo veículo do swayosd da E101)"
 
 # ── E115 — O PACOTE DE CURA DO DUMP 224713 (a palavra do dono à noite) ──
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-game" 'pill) gm_pill' "E115: o verbo pill do craft-game (o assento da topbar consulta o ESTADO REAL — pgrep gamemoded: o daemon só vive com jogo OU manual, a física D-Bus do músculo; zero cache, zero conf)"
@@ -2035,7 +2125,7 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bgapps" 'gcr\*' "E115: a f
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-clean" 'passo: paccache iniciado' "E115: o papel conta o trace INTEIRO (clean.log do dump: 5 'iniciado' e ZERO 'fim' — o dono fechava a janela no meio do paccache calado de até 1 min; cada passo deixa linha ANTES de correr) · âncora refrescada da E133-b: a linha do v6 é 'passo: paccache iniciado' (o passo agora cobre o par -rk2/-ruk0 da fase 1)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-clean" 'uid: \$\(id -u\)' "E115: a abertura nomeia QUEM corre (uid/HOME no papel — o modo pkexec é raiz com o home do dono: legível, não presumido)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-post-transaction" 'display-applied' "E115: o stamp fail da tela morre com a dose (o rig passou o boot TODO em fail:6 — a cura E113 ficava presa atrás do stamp velho; o heartbeat re-aplica o conf salvo em ≤5s, SEM reboot)"
-assert_grep "$REPO/elite/airootfs/etc/skel/.config/mimeapps.list" 'text/plain=mousepad.desktop' "E114: clique duplo no texto abre o mousepad (a associação segue no skel e chega aos rigs vivos pelo elite-post-transaction QUANDO o dono não escolheu outra — a escolha existente é intocável)"
+assert_grep "$REPO/elite/airootfs/etc/skel/.config/mimeapps.list" 'text/plain=org.gnome.TextEditor.desktop' "E114→E136: clique duplo no texto abre o GNOME Text Editor (a associação segue no skel e chega aos rigs vivos pelo elite-post-transaction QUANDO o dono não escolheu outra — a escolha existente é intocável)"
 assert_grep "$REPO/.github/workflows/publish-packages.yml" 'brave-origin' "E114: o Brave NO CANAL DIÁRIO (o buraco nomeado pela E113 fechado: o pacote da casa entra no db — o rig sai do navegador velho permanente sem ISO nova)"
 assert_grep "$REPO/elite/../.ci/build.sh" 'PKG_ONLY_SKIP_REST' "E114.2: o fluxo do canal PARTE O BRAVE DO PIN (o asset da release era do estágio velho — a 1ª run provou: 'already existed' com 1.99.55 no papel; o pin parido vence o asset e o rig recebe o navegador vivo na dose)"
 assert_grep "$REPO/.github/workflows/publish-packages.yml" 'o db cobra O byte desta build' "E114.2: o asset do Brave SOBE SEMPRE que o db o adverte (a 1ª tentativa com skip-por-sha morreu no próprio papel — o selo comparado era o que a run acabara de subir e o builddate muda os bytes a cada build; o db é a autoridade do sha que o pacman cobra; a run vermelha da porteira E103 provou o desenho certo)"

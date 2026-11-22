@@ -1,0 +1,5 @@
+# ── ELITE (E136 — a MISSÃO PARTE 2/2): /dev/ntsync aberto ao jogador ──────
+# O Proton/Wine do usuário fala com o dispositivo DIRETO (sem daemon
+# intermediário); sem a permissão o ntsync era privilégio de root e o
+# jogo caía no futex — o oposto da ordem do dono.
+KERNEL=="ntsync", MODE="0666"

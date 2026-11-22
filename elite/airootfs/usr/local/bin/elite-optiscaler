@@ -1,0 +1,184 @@
+#!/usr/bin/env bash
+# ═══════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · elite-optiscaler (E136 — a MISSÃO PARTE 2/2 do dono)
+# ───────────────────────────────────────────────────────────────────────────
+# A ORDEM: "integração limpa do OptiScaler (wrapper/helper CLI
+# elite-optiscaler para injetar/remover FSR 3.1 / XeSS / FrameGen em
+# prefixos Proton/Wine sem sujar pastas do sistema)".
+#
+# O DESENHO (honesto por lei — E33):
+#   · o wrapper NÃO carrega binários de terceiro no pacote da casa (a
+#     ISO nasce dele; o OptiScaler é software de terceiro com a própria
+#     licença e o próprio calendário — a FONTE é o release que o DONO
+#     baixa: github.com/optiscaler/OptiScaler → o ZIP extraído num dir);
+#   · inject copia o OptiScaler.dll do dir-FONTE para o prefixo como
+#     dxgi.dll (a via oficial de instalação global em prefixo: o
+#     Windows/system32 do prefixo — NADA toca o sistema, a sujeira
+#     mora no prefixo e o remove devolve o backup);
+#   · o dxgi.dll ORIGINAL do prefixo é guardado como dxgi.dll.elite-bak
+#     (o remove restaura; o status prova o estado);
+#   · run lança o jogo COM a env da casa (WINEDLLOVERRIDES=dxgi=n,b —
+#     o override nativo, sem registro mexido).
+#
+# uso:  elite-optiscaler list                      (os prefixos Proton achados)
+#       elite-optiscaler status [PREFIXO]          (quem tem OptiScaler)
+#       elite-optiscaler inject PREFIXO --fonte DIR  (instala no prefixo)
+#       elite-optiscaler remove PREFIXO            (restaura o original)
+#       elite-optiscaler run PREFIXO -- COMANDO... (a partida com override)
+#   PREFIXO = caminho do prefixo Wine (drive_c dentro) ou o appid Steam
+#             (ex.: 1245620 — procura no steamapps/compatdata).
+# bin:  /usr/local/bin/elite-optiscaler
+# ═══════════════════════════════════════════════════════════════════════════
+set -euo pipefail
+
+STEAM_COMPAT="${STEAM_COMPATDATA:-$HOME/.local/share/Steam/steamapps/compatdata}"
+FONTE=""
+
+uso() {
+    sed -n '2,40p' "$0" | sed 's/^# \{0,1\}//'
+    exit 0
+}
+case "${1:-}" in -h|--help|uso) uso ;; esac
+
+erro() { printf 'elite-optiscaler: %s\n' "$*" >&2; exit 1; }
+diz()  { printf 'elite-optiscaler: %s\n' "$*"; }
+
+# ── o endereço do prefixo: caminho direto OU appid Steam ────────────────────
+resolve_prefixo() { # $1 → ecoa o caminho; falha com voz
+    local p="$1"
+    if [ -d "$p/drive_c/windows/system32" ]; then
+        printf '%s\n' "$p"
+        return 0
+    fi
+    # appid Steam (só dígitos): procura no compatdata da casa
+    if [[ "$p" =~ ^[0-9]+$ ]]; then
+        local cand="$STEAM_COMPAT/$p"
+        if [ -d "$cand/drive_c/windows/system32" ]; then
+            printf '%s\n' "$cand"
+            return 0
+        fi
+    fi
+    return 1
+}
+
+sistema_do_prefixo() { # $1 = prefixo → ecoa system32/syswow64 que existem
+    local s
+    for s in "$1/drive_c/windows/system32" "$1/drive_c/windows/syswow64"; do
+        [ -d "$s" ] && printf '%s\n' "$s"
+    done
+}
+
+cmd_list() {
+    local achou=0
+    if [ -d "$STEAM_COMPAT" ]; then
+        local d
+        for d in "$STEAM_COMPAT"/*/; do
+            [ -d "$d/drive_c" ] || continue
+            printf '  %s  (Proton)\n' "${d%/}"
+            achou=1
+        done
+    fi
+    if [ -n "${WINEPREFIX:-}" ] && [ -d "$WINEPREFIX/drive_c" ]; then
+        printf '  %s  (WINEPREFIX da sessão)\n' "$WINEPREFIX"
+        achou=1
+    fi
+    (( achou )) || diz "nenhum prefixo achado (compatdata vazio? passe o caminho na mão)"
+    return 0
+}
+
+cmd_status() { # $1 = prefixo resolvido
+    local p s inj=0
+    p="$(resolve_prefixo "${1:?uso: elite-optiscaler status PREFIXO}")" \
+        || erro "prefixo não achado: $1 (elite-optiscaler list mostra os caminhos)"
+    while IFS= read -r s; do
+        if [ -f "$s/dxgi.dll" ] && [ -f "$s/OptiScaler.ini" ]; then
+            if [ -f "$s/dxgi.dll.elite-bak" ]; then
+                printf '  %s: OptiScaler ATIVO (dxgi.dll + OptiScaler.ini, original em dxgi.dll.elite-bak)\n' "$s"
+            else
+                printf '  %s: OptiScaler ATIVO (dxgi.dll + OptiScaler.ini)\n' "$s"
+            fi
+            inj=1
+        fi
+    done < <(sistema_do_prefixo "$p")
+    (( inj )) || diz "prefixo limpo (sem OptiScaler): $p"
+    return 0
+}
+
+cmd_inject() { # $1 = prefixo, $FONTE = dir do release extraído
+    local p s fonte_dll ini
+    p="$(resolve_prefixo "$1")" || erro "prefixo não achado: $1 (elite-optiscaler list mostra os caminhos)"
+    [ -n "$FONTE" ] || erro "inject exige --fonte DIR (o release do OptiScaler extraído — o wrapper não baixa nem carrega binário de terceiro)"
+    fonte_dll="$FONTE/OptiScaler.dll"
+    [ -f "$fonte_dll" ] || erro "OptiScaler.dll ausente em $FONTE (a fonte é o release extraído do projeto)"
+    while IFS= read -r s; do
+        # o original é SAGRADO: guardado UMA vez, restaurável no remove
+        if [ -f "$s/dxgi.dll" ] && [ ! -f "$s/dxgi.dll.elite-bak" ]; then
+            cp -p "$s/dxgi.dll" "$s/dxgi.dll.elite-bak"
+            diz "guardado o dxgi.dll original: $s/dxgi.dll.elite-bak"
+        fi
+        cp -f "$fonte_dll" "$s/dxgi.dll"
+        diz "injetado: $s/dxgi.dll"
+        # o .ini do release viaja junto (as chaves FSR/XeSS/FrameGen do dono)
+        ini="$FONTE/OptiScaler.ini"
+        if [ -f "$ini" ]; then
+            cp -f "$ini" "$s/OptiScaler.ini"
+            diz "config: $s/OptiScaler.ini"
+        fi
+    done < <(sistema_do_prefixo "$p")
+    diz "pronto — lance com: elite-optiscaler run '$1' -- COMANDO... (o override dxgi=n,b é a env da casa)"
+    return 0
+}
+
+cmd_remove() { # $1 = prefixo
+    local p s
+    p="$(resolve_prefixo "$1")" || erro "prefixo não achado: $1 (elite-optiscaler list mostra os caminhos)"
+    while IFS= read -r s; do
+        if [ -f "$s/dxgi.dll.elite-bak" ]; then
+            mv -f "$s/dxgi.dll.elite-bak" "$s/dxgi.dll"
+            rm -f "$s/OptiScaler.ini" 2>/dev/null || true
+            diz "restaurado o dxgi.dll original: $s"
+        else
+            # injetado SEM original (o dxgi.dll era nosso): sai com o ini
+            if [ -f "$s/OptiScaler.ini" ]; then
+                rm -f "$s/dxgi.dll" "$s/OptiScaler.ini"
+                diz "removido o OptiScaler: $s"
+            fi
+        fi
+    done < <(sistema_do_prefixo "$p")
+    diz "prefixo limpo: $p"
+    return 0
+}
+
+cmd_run() { # $1 = prefixo; resto = comando após --
+    local p="$1"
+    resolve_prefixo "$p" >/dev/null || erro "prefixo não achado: $p"
+    shift
+    [ "${1:-}" = "--" ] || erro "a gramática é: elite-optiscaler run PREFIXO -- COMANDO..."
+    shift
+    [ "$#" -gt 0 ] || erro "faltou o COMANDO depois do --"
+    # a env da casa: override NATIVO (sem registro), o Proton respeita na hora
+    exec env WINEDLLOVERRIDES="dxgi=n,b" "$@"
+}
+
+# ── a leitura dos argumentos ────────────────────────────────────────────────
+cmd="${1:-}"; shift || true
+case "$cmd" in
+    list)   cmd_list ;;
+    status) cmd_status "${1:?uso: elite-optiscaler status PREFIXO}" ;;
+    inject)
+        _p=""
+        while [ "$#" -gt 0 ]; do
+            case "$1" in
+                --fonte) FONTE="${2:?}"; shift 2 ;;
+                *) _p="${_p:-$1}"; shift ;;
+            esac
+        done
+        [ -n "${_p:-}" ] || erro "inject exige PREFIXO e --fonte DIR"
+        cmd_inject "$_p"
+        unset _p
+        ;;
+    remove) cmd_remove "${1:?uso: elite-optiscaler remove PREFIXO}" ;;
+    run)    cmd_run "$@" ;;
+    "")     erro "falta o verbo (list | status | inject | remove | run) — o --help conta o desenho" ;;
+    *)      erro "verbo desconhecido: $cmd" ;;
+esac

@@ -9,11 +9,13 @@
 # aplicava os DOIS; o último vencia; a vigília do post-transaction via
 # 'drift' E NÃO SABIA QUE A CASA MESMA ERA O RÉU).
 #
-# E132 (a ordem do dono): o swappiness É LEI ÚNICA do 99-elite.conf
-# calibrado pela RAM (<=8 GiB → 180 · 16 GiB → 160 · >=32 GiB → 150,
-# vfs_cache_pressure=50 fixo — o write_elite_sysctl do elite-tune é a
-# FONTE). Este bin APOSENTA o 99-elite-ram.conf (remove o fóssil com voz)
-# e fica com o que a matemática de RAM tem de ÚNICO de verdade:
+# E132 (a ordem do dono): o swappiness É LEI ÚNICA do conf da casa
+# calibrado. E136 (a MISSÃO PARTE 2/2): o conf da casa é o CONSOLIDADO
+# 99-elite-performance.conf e o número da lei é 15 — '10, ou 15 com
+# ZRAM zstd ativo' (a casa TEM zram0 zstd: 15 em TODO perfil; a régua
+# 180/160/150 morre pela ordem nova). Este bin APOSENTA o
+# 99-elite-ram.conf (remove o fóssil com voz) e fica com o que a
+# matemática de RAM tem de ÚNICO de verdade:
 #   · o ZRAM dimensionado pela máquina (2-4 GB agressivo · 8 GB
 #     equilibrado · 16 GB+ contido);
 #   · o governor performance + EPP (E88 — o coração da responsividade).
@@ -25,9 +27,9 @@
 # Uso: elite-optimize            aplica (raiz)
 #      elite-optimize --status   lê sem mutar (a E33 manda poder conferir)
 #      elite-optimize --profile  imprime o nome do perfil
-#      elite-optimize --swappiness  imprime o swappiness da RÉGUA E132 (a
+#      elite-optimize --swappiness  imprime o 15 da lei E136 (a
 #                                porta segue viva pela compatibilidade —
-#                                a lei agora mora no 99-elite.conf)
+#                                a lei agora mora no 99-elite-performance.conf)
 # Costuras de teste: ELITE_MEMINFO / ELITE_SYSCTL_DIR / ELITE_ZRAM_CONF ·
 # ELITE_NO_ROOT_CHECK=1 (o executor de testes roda sem raiz) · ELITE_PROVA=0
 # (o kernel do ambiente de teste não carrega o perfil — a prova real é do
@@ -62,27 +64,26 @@ calc() {
     else
         PROFILE="abundante (16 GB+)"; ZRAM='min(ram / 2, 16384)'
     fi
-    # a régua E132 (a MESMA do write_elite_sysctl — uma só voz)
-    SW=160
-    (( m <= 8192 )) && SW=180
-    (( m >= 32768 )) && SW=150
+    # E136 — O NÚMERO DA LEI É 15 (a ordem PARTE 2/2: '15 com ZRAM zstd
+    # ativo' — a casa inteira fala UM número só, em TODO perfil de RAM)
+    SW=15
 }
 
-swappiness_da_lei() { # o número vive no 99-elite.conf — o conf é a fonte
-    sed -n 's/^vm\.swappiness *= *//p' "$SYSCTL_DIR/99-elite.conf" 2>/dev/null | tail -1
+swappiness_da_lei() { # o número vive no 99-elite-performance.conf — o conf é a fonte
+    sed -n 's/^vm\.swappiness *= *//p' "$SYSCTL_DIR/99-elite-performance.conf" 2>/dev/null | tail -1
 }
 
 status() {
     calc
     say "RAM física: ${MEM_MIB} MiB → perfil $PROFILE"
-    say "régua E132: swappiness=$SW (a lei vive no 99-elite.conf) · zram-size=$ZRAM (zstd)"
+    say "régua E136: swappiness=$SW (a lei vive no 99-elite-performance.conf) · zram-size=$ZRAM (zstd)"
     say "kernel hoje: vm.swappiness=$(sysctl -n vm.swappiness 2>/dev/null || echo '?')"
     if command -v zramctl >/dev/null 2>&1 && zramctl 2>/dev/null | grep -q zram0; then
         say "zram vivo: $(zramctl --output DISKSIZE,ALGORITHM 2>/dev/null | tail -1)"
     else
         say "zram: inativo (o systemd-zram-setup@zram0 sobe com o conf)"
     fi
-    say "arquivos: 99-elite-ram.conf $( [[ -f $SYSCTL_DIR/99-elite-ram.conf ]] && echo '(FÓSSIL da era E74 — o apply remove)' || echo '(ausente — a lei é o 99-elite.conf)' )"
+    say "arquivos: 99-elite-ram.conf $( [[ -f $SYSCTL_DIR/99-elite-ram.conf ]] && echo '(FÓSSIL da era E74 — o apply remove)' || echo '(ausente — a lei é o 99-elite-performance.conf)' )"
     # E88 — o governor no status (o 'responsivo?' se responde sem mutar)
     local g epp
     g="$(cat "$CPU_DIR/cpu0/cpufreq/scaling_governor" 2>/dev/null || echo '?')"
@@ -111,10 +112,10 @@ say "RAM física: ${MEM_MIB} MiB → perfil $PROFILE"
 #      é COM VOZ; sem o fóssil, nada a fazer (idempotente).
 if [[ -f "$SYSCTL_DIR/99-elite-ram.conf" ]]; then
     rm -f "$SYSCTL_DIR/99-elite-ram.conf" 2>/dev/null \
-        && say "sysctl: 99-elite-ram.conf REMOVIDO (o fóssil E74 que vencia a lei por ordem lexical — o 99-elite.conf calibrado E132 é a única voz)" \
+        && say "sysctl: 99-elite-ram.conf REMOVIDO (o fóssil E74 que vencia a lei por ordem lexical — o 99-elite-performance.conf consolidado E136 é a única voz)" \
         || say "sysctl: FALHOU remover 99-elite-ram.conf (réu nomeado — o drift segue até a próxima)"
 else
-    say "sysctl: nenhum 99-elite-ram.conf (a lei é o 99-elite.conf calibrado — E132)"
+    say "sysctl: nenhum 99-elite-ram.conf (a lei é o 99-elite-performance.conf consolidado — E136)"
 fi
 
 # ── 2. o zram SÓ quando o pacote existe (conf sem dono era doença) ─────────
@@ -122,11 +123,14 @@ if [[ -f "$ZRAM_CONF" ]]; then
     cat > "$ZRAM_CONF" <<EOF
 # ── ELITE: perfil de RAM (elite-optimize — E74) — vence o do cachyos-settings
 # MemTotal = ${MEM_MIB} MiB → perfil $PROFILE
+# E136 — o swappiness = 15 do gerador (a última palavra no swapon — a
+# lição E135; o MESMO número do 99-elite-performance.conf)
 [zram0]
 zram-size = ${ZRAM}
 compression-algorithm = zstd
+swappiness = 15
 EOF
-    say "zram: $ZRAM_CONF reescrito (zram-size = $ZRAM · zstd)"
+    say "zram: $ZRAM_CONF reescrito (zram-size = $ZRAM · zstd · swappiness 15)"
     systemctl daemon-reload 2>/dev/null || true
     systemctl try-restart systemd-zram-setup@zram0.service 2>/dev/null || true
 else
@@ -172,8 +176,9 @@ else
 fi
 
 # ── 4. aplica e PROVA no kernel (a lei 2i: conferir, não apostar) ──────────
-# E132: o veredito é o 99-elite.conf (a lei única) — o SW local é só a
-# régua para o say; se o conf da casa divergir do kernel, o réu é nomeado.
+# E132→E136: o veredito é o 99-elite-performance.conf (a lei única
+# consolidada) — o SW local (15) é só o eco para o say; se o conf da
+# casa divergir do kernel, o réu é nomeado.
 if [[ "${ELITE_PROVA:-1}" == "1" ]]; then
     sysctl --system >/dev/null 2>&1 || true
     _lei="$(swappiness_da_lei)"

@@ -69,6 +69,17 @@ fi
 # não atravessa. O ${VAR:-} é o cinto: sessão sem X11 (labwc puro) não tem
 # DISPLAY/XAUTHORITY nenhum, e a string VAZIA no env é inócua — a GDK
 # Wayland só fala mesmo com WAYLAND_DISPLAY + XDG_RUNTIME_DIR.
+# E136 — O CINTO X11 DA PARTE 2/2 (a ordem do dono: pkexec + repasse via
+# xhost): em sessão com X11/XWayland o root vestido ainda precisa do
+# COOKIE do servidor — o xhost +SI:localuser:root abre a porta SÓ ao
+# root LOCAL (ServerInterpreted: sem rede, sem wildcard, sem o xhost +
+# perigoso). Wayland puro (labwc): o DISPLAY vem vazio e o cinto é um
+# no-op silencioso — o fio que importa é o WAYLAND_DISPLAY que a
+# vestimenta de baixo entrega explícito.
+if [ -n "${DISPLAY:-}" ] && command -v xhost >/dev/null 2>&1; then
+    xhost +SI:localuser:root >/dev/null 2>&1 || true
+fi
+
 exec "$PKEXEC_BIN" env \
     DISPLAY="${DISPLAY:-}" \
     WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-}" \

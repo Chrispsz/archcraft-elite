@@ -123,8 +123,12 @@
          menu): os DOIS itens soltos viram UM submenu — o pai abre, os
          dois modos ficam nomeados por inteiro e o rótulo repetido
          ('Captura…') morre: redundância a menos no menu da casa -->
+    <!-- E136 — A LEI DOS 16 (a PARTE 2/2 do dono: rótulos de no máximo
+         16 CARACTERES por item, menu limpo e alinhado, sem quebra): o
+         rótulo do arrastar tinha 17 — o verbo da casa agora é
+         'Arrastar região' (15). -->
     <menu id="captura-menu" label="Captura de tela">
-      <item label="Região (arrastar)">
+      <item label="Arrastar região">
         <action name="Execute" command="craft-shot" />
       </item>
       <item label="Tela inteira">
@@ -141,7 +145,13 @@
          na gaveta/dock pelo .desktop dele e o pacote FLATPAK segue no
          sistema: o io.github.kolunmi.Bazaar é um Flatpak e DEPENDE dele;
          o que morre é só o atalho duplicado do menu, não a loja). -->
-    <item label="Atualizar sistema">
+    <!-- E136 — A LEI DOS 16 na prática: o rótulo do update tinha 17 e o
+         da limpeza 18 — os verbos curtos e INTEIROS da casa agora são
+         'Atualizar' (9) e 'Limpeza' (7): o menu alinha, nada
+         quebra linha, o dono lê a ação de uma vez (a lista E133/E134
+         ratificou os NOMES — a PARTE 2/2 aperta o TETO; o contrato da
+         suíte conta cada rótulo ≤16). -->
+    <item label="Atualizar">
       <action name="Execute" command="foot -e craft-update" />
     </item>
     <!-- E114 — A LIMPEZA COM RAIZ NO DIÁLOGO CERTO (pkexec, o diálogo
@@ -166,7 +176,7 @@
          wheel local ativo) e o dono chega por ARGUMENTO: a porta
          'as-root USUÁRIO HOME' do binário entrega a lixeira e os
          caches do dono CERTOS, sem environment injection. -->
-    <item label="Limpeza do sistema">
+    <item label="Limpeza">
       <action name="Execute" command="foot -e sh -c &apos;_rc=0; pkexec /usr/local/bin/craft-clean --as-root &quot;$USER&quot; &quot;$HOME&quot; menu || _rc=$?; [ &quot;$_rc&quot; -eq 0 ] || { printf &quot;\nLimpeza não completou (rc=%s) — a mensagem acima e o papel em ~/.cache/elite/clean.log dizem o porquê.\n&quot; &quot;$_rc&quot;; read -r _; }&apos;" />
     </item>
     <separator />
@@ -215,12 +225,12 @@
     <item label="Ajuda">
       <action name="Execute" command="foot -e craft-help" />
     </item>
-    <!-- E133→E134 — OS RÓTULOS DO DONO, palavra por palavra (a lista
-         final do fechamento 1.0-81: 'Aplicativos', 'Terminal',
-         'Captura de tela', 'Atualizar sistema', 'Limpeza do sistema',
-         'Apps da dock', 'Modo de jogo', 'Trava automática', 'Ajuda',
-         'Bloquear tela', 'Encerrar sessão', 'Reiniciar', 'Desligar' —
-         nomes CURTOS e inteiros, nenhum termo em inglês e nenhum
+    <!-- E133→E134→E136 — OS RÓTULOS DO DONO, palavra por palavra (a lista
+         final do fechamento 1.0-81 — 'Aplicativos', 'Terminal',
+         'Captura de tela', o update, a limpeza, 'Apps da dock', 'Modo
+         de jogo', 'Trava automática', 'Ajuda', 'Bloquear tela',
+         'Encerrar sessão', 'Reiniciar', 'Desligar' — nomes CURTOS e
+         inteiros, nenhum termo em inglês e nenhum
          recorte no cap do menu (themerc E134: menu.width.min 200 /
          menu.width.max 280). Os atalhos (W-l, W-Escape/W-x/C-A-Del)
          seguem byte a byte — o que muda é a PALAVRA que o dono lê. -->

@@ -19,7 +19,7 @@ for f in \
   elite/airootfs/etc/skel/.config/hypr/hyprlock.conf \
   elite/airootfs/etc/skel/.face.icon \
   elite/airootfs/etc/skel/.config/mimeapps.list \
-  elite/airootfs/etc/sysctl.d/99-elite-net.conf \
+  elite/airootfs/etc/sysctl.d/99-elite-performance.conf \
   elite/airootfs/etc/modules-load.d/elite-bbr.conf
 do
   assert_file "$REPO/$f" "inventário: $f"

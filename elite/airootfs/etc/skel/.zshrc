@@ -71,8 +71,9 @@ alias gp='git push'
 
 # sistema
 alias update='sudo pacman -Syu'
-# v2.10.5 — mousepad SAIU da ISO (packages.remove) — o atalho apontava
-# pra um editor que não existe; o editor da distro é o nano (W-e).
+# v2.10.5→E136 — o editor gráfico da casa é o gnome-text-editor (W-e,
+# a PARTE 2/2 do dono); no TERMINAL o nano segue sendo o da casa (este
+# alias edita o próprio .zshrc sem sair do shell).
 alias zshconfig='nano ~/.zshrc'
 
 # ── elite-hello-1 · Saudação: o terminal abre com o retrato do sistema ──

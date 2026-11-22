@@ -446,6 +446,18 @@ echo
 printf '✔ limpo. cache do pacman: %s MiB → %s MiB (liberado: %s MiB)\n' "$antes" "$depois" "$liberado"
 printf '✔ TOTAL LIBERADO (todas as fases): %s\n' "$(hum_gb "$TOTAL_MIB")"
 printf '   (a fonte de cada número está no passo dele acima e no papel ~/.cache/elite/clean.log)\n'
+# E136 — A VERIFICAÇÃO DE FALHAS (a PARTE 2/2 do dono): a limpeza termina
+# olhando o PULSO do sistema — units FAILED são o sintoma que sobra
+# depois de qualquer transação grande (o veredito no terminal E no papel;
+# o juiz é o systemctl, a limpeza não apaga o que não é dela — só APONTA).
+_failed="$(systemctl --failed --no-legend --plain 2>/dev/null | sed '/^[[:space:]]*$/d' || true)"
+if [ -n "$_failed" ]; then
+  printf '⚠ units FAILED (%s linha(s)) — olho neles:\n' "$(printf '%s\n' "$_failed" | wc -l)"
+  printf '%s\n' "$_failed" | sed 's/^/  /'
+  clog "saúde: units FAILED no fim da limpeza: $(printf '%s' "$_failed" | tr '\n' ';')"
+else
+  printf '✔ saúde: 0 units failed (systemctl --failed limpo)\n'
+fi
 # E96/E110 — o relatório não some: o modo menu pausa INCONDICIONAL.
 if (( MENU_HOLD == 1 )); then
   read -r -p 'Enter para fechar' _ || true

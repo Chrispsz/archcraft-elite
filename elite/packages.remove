@@ -52,10 +52,12 @@ firefox
 thunar-volman
 gufw
 ufw
-## E114 — O mousepad VOLTOU: o editor gráfico da casa (a palavra do dono:
-## o nano 'não é prático para a galera que é iniciante' — a experiência
-## moderna sem terminal). A era do debloat o tirou; a palavra do dono o
-## traz (packages.add; a associação text/plain segue no mimeapps).
+## E114→E136 — O EDITOR GRÁFICO DA CASA: o mousepad VOLTOU na E114 (a
+## palavra do dono da época) e VOLTA A SAIR na E136 (a PARTE 2/2: o
+## gnome-text-editor GTK4/libadwaita é o padrão novo — 'editores
+## pesados/legados redundantes' fora; a associação text/plain segue no
+## mimeapps.list da casa).
+mousepad
 vim
 zathura
 zathura-pdf-poppler
@@ -229,7 +231,7 @@ xorg-x11perf
 
 ## Apps específicos ou "simples demais" (não são uso geral de fábrica)
 simplescreenrecorder   # gravador X11 — diretriz do dono; OBS fica no cockpit
-geany                  # IDE-lite; o mousepad da casa cobre o editor simples (E114 — de volta ao packages.add)
+geany                  # IDE-lite; o gnome-text-editor da casa cobre o simples (E136 — o GTK4/libadwaita é o padrão novo)
 geany-plugins
 archcraft-config-geany # config do geany (sai com ele)
 meld                   # diff GUI (dev tool)
@@ -318,9 +320,10 @@ archcraft-config-qt    # config do qt5ct/kvantum (sai com eles)
 ## configurado e o craft-rollback v2 virou snapper; v2.10.14 = a promessa
 ## executada, o pacote timeshift entrou nesta lista (abaixo). Hoje: snapper
 ## + grub-btrfs vivem no packages.add, o craft-rollback v2 é a GUI da casa
-## e o btrfs-assistant (GUI do snapper que NÃO é a nossa) segue fora por
-## DUPLICAÇÃO de estratégia — não por ausência dela.
-btrfs-assistant
+## E136: o btrfs-assistant SAI desta lista (a MISSÃO PARTE 2/2 do dono
+## assume o par snapper + btrfs-assistant no Btrfs opt-in — o snapper é o
+## motor, o assistant é a janela de mão; a remoção antiga era por
+## DUPLICAÇÃO de estratégia, a ordem nova decide de outro jeito).
 
 ## ── v2.3 · AUDITORIA MINUCIOSA — o teto da limpeza (diretriz do dono:
 ##    "limpeza do que for inútil ou duplicado, foco no 64-bit, vá até o

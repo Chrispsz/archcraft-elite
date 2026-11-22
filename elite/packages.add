@@ -18,10 +18,21 @@ nvidia-open-dkms
 ## v2.2 (leveza radical — fusão 4→1): o scheduling é do KERNEL (BORE,
 ## custo zero em userspace) e o nice engine é o ananicy-cpp (regras
 ## oficiais CachyOS) — o ÚNICO daemon de boost do sistema. Saíram as
-## camadas que lutavam entre si: scx-scheds/scx-tools (scheduler em
-## userspace que SOBRESCREVE o BORE), dmemcg-booster (teto de memória
+## camadas que lutavam entre si: dmemcg-booster (teto de memória
 ## por cgroup) e o fg-booster próprio (poll com xdotool — o xdotool
 ## saiu junto). Boost sob demanda de jogo = gamemode (já na ISO).
+## E136 (a MISSÃO PARTE 2/2 do dono) — O SCX VOLTA, SOB DEMANDA: a
+## v2.2 cortou o scx-scheds/scx-tools (scheduler userspace por cima
+## do BORE); a ordem nova do dono restaura o par com o scx_loader em
+## modo automático e o scx_lavd de perfil (latência-first, o desktop
+## responsivo E o jogo). O travesseiro triplo contra a trava: a
+## drop-in elite condiciona a unit ao /sys/kernel/sched_ext (kernel
+## sem sched_ext = unit PULADA, não FAILED), o loader é o watchdog do
+## próprio scheduler (cai → o BORE do kernel segue) e o primeiroboot
+## só habilita quando a unit existe. Custo em idle: o loader dorme em
+## epoll (a filosofia zero-desperdício da casa segue INTACTA).
+scx-scheds
+scx-tools
 cachyos-settings
 cachyos-ananicy-rules
 ananicy-cpp
@@ -63,8 +74,28 @@ os-prober
 ## por padrão): o snapper cria config+subvolume no firstboot e o
 ## craft-rollback v2 cria/restaura snapshots de verdade. timeshift SAI
 ## (um rei só — debloat).
+## E136 (a MISSÃO PARTE 2/2 do dono) — O BTRFS OPT-IN COMPLETO: o
+## snap-pac fecha o par pré/pós-pacman (os hooks do snapper disparam
+## em CADA transação com o config do root) e o btrfs-assistant volta
+## como a GUI DE MÃO do dono (a remoção antiga era por duplicação de
+## estratégia; a ordem nova assume: snapper é o motor, o assistant é a
+## janela — ZERO daemon ligado, abre na mão). A Lei da casa segue:
+## ext4/xfs = nada disso acorda (o findmnt do elite-tune decide).
 snapper
+snap-pac
+btrfs-assistant
 pciutils
+## E136 — O DIAGNÓSTICO DE HARDWARE ON-DEMAND (a PARTE 2/2 do dono:
+## 'garanta lm_sensors, nvme-cli, pciutils, usbutils, dmidecode e
+## ethtool instalados — nenhum deles roda daemon em segundo plano'):
+## lm_sensors (com o nct6775 no boot + sensors-detect do firstboot —
+## temp/ventoinhas/PWM da placa-mãe), nvme-cli (a saúde SMART do NVMe),
+## usbutils (lsusb), dmidecode (o retrato DMI da placa). pciutils e
+## ethtool já moram na lista (E90/E74).
+lm_sensors
+nvme-cli
+usbutils
+dmidecode
 
 ## ── ELITE: substituições (upstream desatualizado) ──
 ## p7zip virou pacote virtual de '7zip' — nome explícito evita prompt
@@ -279,14 +310,16 @@ pwvucontrol
 overskride
 impala
 brave-origin
-## E114 — O EDITOR GRÁFICO DA CASA (a palavra do dono: o editor via
-## terminal (nano) 'não é prático para a galera que é iniciante e tal,
-## vai precisar editar um documento… trazendo a experiência mais moderna
-## do Linux'): o mousepad é o editor GUI do dia a dia — clique duplo no
-## Thunar abre o texto (a associação text/plain segue no mimeapps.list e
-## no elite-post-transaction para rigs vivos); o nano FICA para o
-## terminal (git/EDITOR — o TUI de sempre para quem o quiser).
-mousepad
+## E136 — O EDITOR GRÁFICO DA CASA (a PARTE 2/2 do dono: 'Padronize
+## gnome-text-editor como editor gráfico leve padrão, removendo
+## editores pesados/legados redundantes'): o GNOME Text Editor
+## (GTK4/libadwaita, Wayland-native — a mesma família do papers e do
+## pwvucontrol) vira o clique duplo do texto no Thunar (a associação
+## text/plain segue no mimeapps.list e no elite-post-transaction para
+## rigs vivos); o mousepad da E114 volta ao packages.remove (GTK3
+## legado na casa que já é GTK4); o nano FICA para o terminal
+## (git/EDITOR — o TUI de sempre para quem o quiser).
+gnome-text-editor
 
 ## E132 — A HIGIENE DA ORDEM DO DONO (dump pós-1.0-78): os APPLETS
 ## redundantes saem das listas (polkit-gnome/blueman/network-manager-

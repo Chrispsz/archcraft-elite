@@ -520,6 +520,42 @@ cp -p /work/elite/airootfs/etc/polkit-1/rules.d/50-elite-wheel.rules \
 mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/qt6ct
 cp -p /work/elite/airootfs/usr/local/share/elite/qt6ct/qt6ct.conf \
       /tmp/elite-src/elite-system/files/usr/local/share/elite/qt6ct/qt6ct.conf
+# E136 — O KERNEL MODERNO DA PARTE 2/2 NO PACOTE: os confs da casa viajam
+# COM DONO (a lição E63: fora do pacote nunca chega ao rig pelo canal) —
+# o sysctl consolidado (99-elite-performance.conf; o post_upgrade aposenta
+# os fósseis 99-elite.conf/99-elite-net.conf com voz), os módulos do boot
+# (ntsync + nct6775), a regra udev do /dev/ntsync (0666), o tmpfiles do
+# MGLRU, o /etc/default/scx (scx_lavd) e a drop-in da Condition (kernel
+# sem sched_ext = unit PULADA, nunca FAILED).
+mkdir -p /tmp/elite-src/elite-system/files/etc/sysctl.d \
+         /tmp/elite-src/elite-system/files/etc/modules-load.d \
+         /tmp/elite-src/elite-system/files/etc/udev/rules.d \
+         /tmp/elite-src/elite-system/files/etc/tmpfiles.d \
+         /tmp/elite-src/elite-system/files/etc/default \
+         /tmp/elite-src/elite-system/files/etc/systemd/system/scx_loader.service.d
+cp -p /work/elite/airootfs/etc/sysctl.d/99-elite-performance.conf \
+      /tmp/elite-src/elite-system/files/etc/sysctl.d/99-elite-performance.conf
+cp -p /work/elite/airootfs/etc/modules-load.d/elite-ntsync.conf \
+      /tmp/elite-src/elite-system/files/etc/modules-load.d/elite-ntsync.conf
+cp -p /work/elite/airootfs/etc/modules-load.d/elite-sensors.conf \
+      /tmp/elite-src/elite-system/files/etc/modules-load.d/elite-sensors.conf
+cp -p /work/elite/airootfs/etc/udev/rules.d/60-ntsync.rules \
+      /tmp/elite-src/elite-system/files/etc/udev/rules.d/60-ntsync.rules
+cp -p /work/elite/airootfs/etc/tmpfiles.d/elite-mglru.conf \
+      /tmp/elite-src/elite-system/files/etc/tmpfiles.d/elite-mglru.conf
+cp -p /work/elite/airootfs/etc/default/scx \
+      /tmp/elite-src/elite-system/files/etc/default/scx
+cp -p /work/elite/airootfs/etc/systemd/system/scx_loader.service.d/elite.conf \
+      /tmp/elite-src/elite-system/files/etc/systemd/system/scx_loader.service.d/elite.conf
+# E136 — OS MESTRES DO MANGOHUD NO PACOTE (os 3 perfis zero-config da
+# PARTE 2/2): /usr/local/share/elite/mangohud/*.conf — o elite-mangohud
+# troca o symlink do home para cá (o toggle sem editor; o skel nasce com
+# o balanceado de fábrica).
+mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/mangohud
+cp -p /work/elite/airootfs/usr/local/share/elite/mangohud/minimal.conf \
+      /work/elite/airootfs/usr/local/share/elite/mangohud/balanceado.conf \
+      /work/elite/airootfs/usr/local/share/elite/mangohud/diagnostico.conf \
+      /tmp/elite-src/elite-system/files/usr/local/share/elite/mangohud/
 # E132 — O CONF DO DAEMON NO PACOTE: o elite-daemon supervise lê
 # /usr/local/share/elite/daemon.conf (`nome::comando` por linha). O
 # arquivo viaja COM OS DEFAULTS COMENTADOS — os builtins da casa valem
@@ -2571,7 +2607,38 @@ pkgver=1.0
 #     std-only + caches de jogo Steam/Lutris/Heroic/Hydra + adjacente ao
 #     binário) e a decoração de janela garantida no rc.xml (XWayland na
 #     tela cheia).
-pkgrel=83
+# E136 — A MISSÃO PARTE 2/2 DO DONO (lei E41: o bump viaja NO MESMO
+#     COMMIT do conteúdo): a migração e a otimização extrema do sistema
+#     instalado, partindo do dump 101339 (a PARTE 1/2 do E135 entregou o
+#     motor nativo; ESTA fecha a mesa):
+#     (1) O KERNEL MODERNO — scx_loader com scx_lavd sob demanda (a
+#         drop-in ConditionPathExists=/sys/kernel/sched_ext: kernel sem
+#         sched_ext = unit PULADA, não FAILED; o loader é o watchdog, o
+#         BORE é o chão), ntsync no boot + udev 0666 (o Proton/Wine
+#         moderno sem esync/fsync), nct6775 + lm_sensors + sensors-detect
+#         no firstboot, MGLRU enabled=7 via tmpfiles e THP madvise (a
+#         E132 já o tinha; agora com o MGLRU ao lado);
+#     (2) O SYSCTL CONSOLIDADO — 99-elite-performance.conf ÚNICO (a ordem
+#         do dono nomeou o arquivo): swappiness 15 com zram zstd ativo,
+#         BBR+fq dentro, régua 180/160/150 MORTA pela ordem nova nos DOIS
+#         donos do número (conf e zram-generator — a lição E135 com 15);
+#     (3) MANGOHUD 3 PERFIS zero-config (minimalista/balanceado/
+#         diagnostico em /usr/local/share/elite/mangohud + o toggle
+#         elite-mangohud de symlink) e o OPTISCALER da casa (o wrapper
+#         elite-optiscaler inject/remove/run — binário de terceiro NUNCA
+#         no pacote, o release do dono é a fonte);
+#     (4) A CURADORIA — gnome-text-editor é o editor gráfico padrão
+#         (mousepad ao packages.remove), overskride+bluetooth.service
+#         limpos, lm_sensors/nvme-cli/usbutils/dmidecode na ISO, gparted
+#         com o cinto xhost X11, snap-pac+btrfs-assistant no Btrfs opt-in;
+#     (5) O MENU ≤16 (rótulos de no máximo 16 caracteres, a lei dos 16)
+#         e os ATALHOS UNIVERSAIS 60%/75% do Aula F75 Max (W-Print,
+#         W-S-s, W-bracketleft/right, W-S-Up/Down/m, W-S-space/Left/
+#         Right — nenhum gesto depende de tecla ausente);
+#     (6) O craft-clean ganha o pulso do fim (systemctl --failed) e o
+#         craft-dump fotografa o kernel moderno inteiro (scx/ntsync/
+#         sensores/MGLRU/BBR/cmdline).
+pkgrel=84
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da sessão; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

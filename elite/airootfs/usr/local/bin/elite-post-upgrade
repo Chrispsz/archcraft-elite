@@ -96,19 +96,17 @@ systemd-tmpfiles --create >/dev/null 2>&1 \
 #      inteira fala UM número só). Regeneração idempotente: a régua da
 #      MESMA máquina gera o MESMO arquivo — rodar 2× = mesmo estado.
 _mib=$(( $(awk '/^MemTotal:/ {print $2}' /proc/meminfo 2>/dev/null || echo 0) / 1024 ))
-_sw=160
-[ "$_mib" -gt 0 ] 2>/dev/null && [ "$_mib" -le 8192 ] 2>/dev/null && _sw=180
-[ "$_mib" -ge 32768 ] 2>/dev/null && _sw=150
+_sw=15
 if [ "$_mib" -gt 0 ] 2>/dev/null; then
     _tem_chave=novas
-    grep -q '^vm\.compaction_proactiveness' /etc/sysctl.d/99-elite.conf 2>/dev/null || _tem_chave=velhas
+    grep -q '^vm\.compaction_proactiveness' /etc/sysctl.d/99-elite-performance.conf 2>/dev/null || _tem_chave=velhas
     _tem_sw=""
-    _tem_sw="$(sed -n 's/^vm\.swappiness *= *//p' /etc/sysctl.d/99-elite.conf 2>/dev/null | tail -1)"
+    _tem_sw="$(sed -n 's/^vm\.swappiness *= *//p' /etc/sysctl.d/99-elite-performance.conf 2>/dev/null | tail -1)"
     if [ "$_tem_chave" = velhas ]; then
-        cp -p /etc/sysctl.d/99-elite.conf "/etc/sysctl.d/99-elite.conf.bak-e132-$(date +%s)" 2>/dev/null || true
+        cp -p /etc/sysctl.d/99-elite-performance.conf "/etc/sysctl.d/99-elite-performance.conf.bak-e136-$(date +%s)" 2>/dev/null || true
         printf '%s\n' \
-            "# ── ELITE: sysctl de gaming (E132 — regenerado pelo post_upgrade; régua calibrada da RAM de ${_mib} MiB)" \
-            "vm.swappiness = $_sw" \
+            "# ── ELITE: performance consolidado (E136 — regenerado pelo post_upgrade; a ordem PARTE 2/2: swappiness 15 com zram zstd)" \
+            "vm.swappiness = 15" \
             "vm.vfs_cache_pressure = 50" \
             "vm.page_lock_unfairness = 1" \
             "vm.max_map_count = 2147483642" \
@@ -119,11 +117,11 @@ if [ "$_mib" -gt 0 ] 2>/dev/null; then
             "vm.dirty_background_ratio = 5" \
             "vm.dirty_ratio = 10" \
             "vm.compaction_proactiveness = 0" \
-            > /etc/sysctl.d/99-elite.conf 2>/dev/null \
-            && tlog "sysctl: 99-elite.conf REGENERADO com a régua E132 (RAM ${_mib} MiB → swappiness $_sw + dirty 5/10 + compaction 0)"
+            > /etc/sysctl.d/99-elite-performance.conf 2>/dev/null \
+            && tlog "sysctl: 99-elite-performance.conf REGENERADO com a lei E136 (RAM ${_mib} MiB → swappiness 15 + dirty 5/10 + compaction 0)"
     elif [ "$_tem_sw" != "$_sw" ]; then
-        sed -i "s/^vm\.swappiness *=.*/vm.swappiness = $_sw/" /etc/sysctl.d/99-elite.conf 2>/dev/null \
-            && tlog "sysctl: swappiness recalibrado → $_sw (RAM ${_mib} MiB — a régua E132 na dose)"
+        sed -i "s/^vm\.swappiness *=.*/vm.swappiness = 15/" /etc/sysctl.d/99-elite-performance.conf 2>/dev/null \
+            && tlog "sysctl: swappiness recalibrado → 15 (a ordem PARTE 2/2 na dose — a régua 180/160/150 morre)"
     fi
     unset _tem_chave _tem_sw
 fi
@@ -131,8 +129,20 @@ unset _mib _sw
 # o FÓSSIL DA ORDEM LEXICAL morre (era o réu do drift: vencia a lei em toda aplicação)
 if [ -f /etc/sysctl.d/99-elite-ram.conf ]; then
     rm -f /etc/sysctl.d/99-elite-ram.conf 2>/dev/null \
-        && tlog "sysctl: 99-elite-ram.conf REMOVIDO (o fóssil E74 que vencia a lei por ordem lexical — uma voz só, a régua E132)"
+        && tlog "sysctl: 99-elite-ram.conf REMOVIDO (o fóssil E74 que vencia a lei por ordem lexical — uma voz só)"
 fi
+# E136 — A CONSOLIDAÇÃO chega aos rigs vivos: os DOIS confs da era
+# anterior (99-elite.conf da RAM + 99-elite-net.conf da rede) viram UM
+# (o 99-elite-performance.conf do dono). O pacote entrega o
+# consolidado; os fósseis saem COM VOZ (o systemd-sysctl nunca lê dois
+# donos do mesmo número — a lição E135 em arquivo novo).
+for _fossil in 99-elite.conf 99-elite-net.conf; do
+    if [ -f "/etc/sysctl.d/$_fossil" ]; then
+        rm -f "/etc/sysctl.d/$_fossil" 2>/dev/null \
+            && tlog "sysctl: $_fossil REMOVIDO (consolidado no 99-elite-performance.conf — E136, a ordem PARTE 2/2)"
+    fi
+done
+unset _fossil
 sysctl --system >/dev/null 2>&1 \
     && tlog "sysctl: --system re-aplicou (o tuning da casa vale NA HORA, não no próximo boot)" \
     || tlog "sysctl: --system não aplicou (no-op honesto)"

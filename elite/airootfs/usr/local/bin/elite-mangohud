@@ -1,0 +1,142 @@
+#!/usr/bin/env bash
+# ═══════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · elite-mangohud (E136 — a MISSÃO PARTE 2/2 do dono)
+# ───────────────────────────────────────────────────────────────────────────
+# A ORDEM: "estrutura limpa de 3 perfis do MangoHud em ~/.config/MangoHud/
+# e integração rápida (toggle/alternância sem precisar editar .conf na
+# mão)". OS PERFIS (a curadoria do dono, palavra por palavra):
+#   minimalista — "apenas FPS, frametime gráfico compacto e temperatura
+#                  CPU/GPU";
+#   balanceado  — "FPS, frametime, uso/clock/temp/watts de CPU e GPU,
+#                  VRAM/RAM e indicador de escalonador/Wine sync";
+#   diagnostico — "telemetria completa por núcleo, latência e consumo".
+#
+# O MECANISMO (zero-config de verdade): os mestres moram em
+# /usr/local/share/elite/mangohud/<perfil>.conf e o toggle troca um
+# SYMLINK — ~/.config/MangoHud/MangoHud.conf aponta para o perfil da
+# vez. O MangoHud lê o arquivo do dir de config em toda partida (o
+# `mangohud %command%` do Steam e o MangoApp pegam a troca SEM relance
+# de editor). A GRAMÁTICA DA CASA (E91/E33): config PERSONALIZADA do
+# dono é intocável — se o MangoHud.conf do home é arquivo REAL sem o
+# marcador da casa, o troca-guarda um .bak-<stamp> e AVISA (nunca
+# destrói); se é symlink nosso, troca limpo.
+#
+# uso:  elite-mangohud            menu no craft-menu (o motor da casa)
+#       elite-mangohud minimal|balanceado|diagnostico   troca direta
+#       elite-mangohud status     quem está ativo
+#       elite-mangohud run <perfil> -- COMANDO...  uma partida no perfil
+#                                                  (a env MANGOHUD_CONFIGFILE
+#                                                  aponta pro mestre; o
+#                                                  toggle do home não muda)
+# bin:  /usr/local/bin/elite-mangohud
+# ═══════════════════════════════════════════════════════════════════════════
+set -euo pipefail
+
+MASTERS="/usr/local/share/elite/mangohud"
+CONF_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/MangoHud"
+CONF="$CONF_DIR/MangoHud.conf"
+
+uso() {
+    printf '%s\n' \
+        'uso: elite-mangohud [minimal|balanceado|diagnostico|status]' \
+        '     elite-mangohud run <perfil> -- COMANDO...    (uma partida)' \
+        '' \
+        '  sem argumento: o menu do craft-menu escolhe o perfil da vez.' \
+        '  perfis: minimal (só FPS+frametime+temps) · balanceado (o' \
+        '  painel do dia a dia — default da casa) · diagnostico (a' \
+        '  telemetria por núcleo para a perícia do engasgo).'
+    exit 0
+}
+
+# ── o retrato: de quem é o MangoHud.conf do home ────────────────────────────
+perfil_ativo() {
+    [ -L "$CONF" ] || return 1
+    local alvo m
+    alvo="$(readlink -f "$CONF" 2>/dev/null || true)"
+    for m in "$MASTERS"/*.conf; do
+        [ -e "$m" ] || continue
+        [ "$m" = "$alvo" ] && { printf '%s\n' "${m##*/}"; return 0; }
+    done
+    return 1
+}
+
+troca() { # $1 = perfil; guarda o dono, troca o link, confere
+    local alvo="$MASTERS/$1.conf"
+    if [ ! -r "$alvo" ]; then
+        printf 'elite-mangohud: o mestre %s.conf não existe — perfis: minimal, balanceado, diagnostico\n' "$1" >&2
+        exit 1
+    fi
+    mkdir -p "$CONF_DIR"
+    # A GRAMÁTICA (E91): arquivo REAL sem o marcador da casa é obra do
+    # dono — backup COM VOZ antes da primeira troca (nunca destrói).
+    if [ -f "$CONF" ] && [ ! -L "$CONF" ]; then
+        if ! head -n 3 "$CONF" 2>/dev/null | grep -qF 'elite-mangohud'; then
+            local bak
+            bak="$CONF.bak-$(date +%Y%m%d-%H%M%S)"
+            cp -p "$CONF" "$bak"
+            printf 'elite-mangohud: config personalizada guardada em %s (a gramática da casa: nunca destrói)\n' "$bak"
+        fi
+    fi
+    ln -sfn "$alvo" "$CONF"
+    printf 'elite-mangohud: perfil ATIVO = %s (%s)\n' "$1" "$alvo"
+}
+
+status() {
+    local p
+    if p="$(perfil_ativo)"; then
+        printf 'elite-mangohud: perfil ativo = %s\n' "${p%.conf}"
+    elif [ -f "$CONF" ]; then
+        printf 'elite-mangohud: MangoHud.conf é arquivo próprio (sem symlink da casa — o dono manda; troque com backup manual)\n'
+    else
+        printf 'elite-mangohud: nenhum MangoHud.conf ainda (rode elite-mangohud balanceado para nascer com o default da casa)\n'
+    fi
+}
+
+case "${1:-}" in
+    -h|--help|uso) uso ;;
+    status) status; exit 0 ;;
+    minimal|balanceado|diagnostico|min|diag)
+        case "$1" in
+            min)   troca minimal ;;
+            diag)  troca diagnostico ;;
+            *)     troca "$1" ;;
+        esac
+        ;;
+    run)
+        # uma partida no perfil X sem tocar no default do home: a env
+        # MANGOHUD_CONFIGFILE aponta pro MESTRE (o MangoHud respeita a
+        # env acima do arquivo do dir de config).
+        [ "${2:-}" = minimal ] || [ "${2:-}" = balanceado ] || [ "${2:-}" = diagnostico ] || {
+            printf 'elite-mangohud: run exige o perfil (minimal|balanceado|diagnostico) antes do --\n' >&2
+            exit 1
+        }
+        [ "${3:-}" = "--" ] || {
+            printf 'elite-mangohud: a gramática é: elite-mangohud run <perfil> -- COMANDO...\n' >&2
+            exit 1
+        }
+        [ -r "$MASTERS/$2.conf" ] || { printf 'elite-mangohud: mestre %s.conf ausente\n' "$2" >&2; exit 1; }
+        shift 3
+        [ "$#" -gt 0 ] || { printf 'elite-mangohud: faltou o COMANDO depois do --\n' >&2; exit 1; }
+        exec env MANGOHUD_CONFIGFILE="$MASTERS/$2.conf" "$@"
+        ;;
+    "")
+        # O MENU (o motor da casa — o fuzzel que o dono já conhece)
+        if command -v craft-menu >/dev/null 2>&1; then
+            escolha="$(craft-menu --title=MangoHud --at=power \
+                'Minimalista' 'Jogo balanceado' 'Diagnóstico' 'Status')" || {
+                printf 'elite-mangohud: menu fechado sem escolha\n' >&2
+                exit 1
+            }
+            case "$escolha" in
+                Minimalista)     troca minimal ;;
+                'Jogo balanceado') troca balanceado ;;
+                'Diagnóstico')    troca diagnostico ;;
+                Status)          status ;;
+                *) printf 'elite-mangohud: escolha não reconhecida: %s\n' "$escolha" >&2; exit 1 ;;
+            esac
+        else
+            uso
+        fi
+        ;;
+    *)  printf 'elite-mangohud: modo desconhecido: %s\n' "$1" >&2; exit 1 ;;
+esac

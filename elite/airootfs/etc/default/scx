@@ -1,0 +1,11 @@
+# ── ELITE (E136 — a MISSÃO PARTE 2/2): scx_loader — sched_ext sob demanda ─
+# O scx_loader (pacote scx-scheds) acorda o escalonador userspace
+# sched_ext: o scx_lavd é o perfil da casa (latência-first, o da mesa
+# responsiva E DE jogo — a receita CachyOS/SteamOS para desktop
+# interativo). SOB DEMANDA E SEM TRAVAR: o loader é o watchdog — se o
+# sched_ext cai ou o kernel não o suporta, o BORE do kernel segue
+# escalonando (o fallback é o próprio kernel, nunca uma tela morta); a
+# drop-in elite.conf ainda condiciona a unit ao /sys/kernel/sched_ext
+# (kernel sem sched_ext = unit PULADA limpa, zero erro no boot).
+SCX_SCHEDULER=scx_lavd
+SCX_FLAGS=""

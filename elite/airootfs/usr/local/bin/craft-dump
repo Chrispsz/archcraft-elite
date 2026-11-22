@@ -295,6 +295,21 @@ fi
     # criação do dispositivo, DEPOIS do systemd-sysctl; sem o conf no
     # papel o réu nunca é nomeado)
     r "cat /etc/systemd/zram-generator.conf 2>/dev/null || echo '(sem zram-generator.conf — o 150×180 procura-se nos sysctl.d do /usr/lib)'" 4
+    # E136 — O KERNEL MODERNO DA PARTE 2/2 no papel: a ordem do dono pediu
+    # o status de scx_loader, /dev/ntsync, lm_sensors, MGLRU, BBR e os
+    # parâmetros ATIVOS do kernel — a perícia inteira num bloco só (cada
+    # linha degrada com voz: ausente ≠ vazio ≠ morto, a lição v2.0.1).
+    printf '\n── kernel moderno (E136: scx/ntsync/sensores/MGLRU/BBR/cmdline)\n'
+    r "cat /proc/cmdline" 3
+    r "systemctl is-active scx_loader.service 2>/dev/null || echo '(scx_loader ausente/pulada — ConditionPathExists=/sys/kernel/sched_ext decide)'" 2
+    r "cat /etc/default/scx 2>/dev/null || echo '(sem /etc/default/scx — o scx_lavd da casa não chegou a este rig)'" 4
+    r "ls -ld /sys/kernel/sched_ext 2>/dev/null || echo '(kernel sem sched_ext — o BORE segue sozinho)'" 2
+    r "ls -l /dev/ntsync 2>/dev/null || echo '(sem /dev/ntsync — módulo não carregado/não suportado; o Proton cai no futex)'" 2
+    r "lsmod | grep -E '^(ntsync|nct6775) ' || echo '(ntsync/nct6775 fora do lsmod — módulo ausente ou hardware sem o chip)'" 2
+    r "cat /sys/kernel/mm/lru_gen/enabled 2>/dev/null || echo '(kernel sem MGLRU/lru_gen)'" 2
+    r "cat /sys/kernel/mm/transparent_hugepage/enabled 2>/dev/null" 2
+    r "sysctl vm.swappiness net.ipv4.tcp_congestion_control net.core.default_qdisc 2>/dev/null" 4
+    r "sensors 2>/dev/null || echo '(lm_sensors ausente — ISO nova traz de fábrica (E136))'" 20
     printf '\n── temperaturas (sysfs do kernel — valor em m°C)\n'
     for z in /sys/class/thermal/thermal_zone*; do
         [ -d "$z" ] || continue

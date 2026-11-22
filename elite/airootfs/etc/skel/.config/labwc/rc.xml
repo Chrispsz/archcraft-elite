@@ -221,13 +221,15 @@
       <action name="Execute" command="sh -c 'for b in brave librewolf chromium thorium-browser qutebrowser; do command -v &quot;$b&quot; &gt;/dev/null &amp;&amp; exec &quot;$b&quot;; done; exec xdg-open https://archlinux.org'" />
     </keybind>
     <!-- Arquivos: W-f → Thunar (v1.5: FM padrão, GUI, xdg-mime
-         inode/directory=thunar.desktop) · Editor: W-e → nano (v1.5:
-         helix saiu da ISO — spec bloatware; EDITOR=nano) -->
+         inode/directory=thunar.desktop) · Editor: W-e → gnome-text-editor
+         (E136 — a PARTE 2/2 do dono: o GNOME Text Editor GTK4/libadwaita
+         é o editor gráfico LEVE padrão da casa, no atalho do desktop e no
+         clique duplo do Thunar; o nano FICA no terminal — EDITOR/git) -->
     <keybind key="W-f">
       <action name="Execute" command="thunar" />
     </keybind>
     <keybind key="W-e">
-      <action name="Execute" command="foot -e nano" />
+      <action name="Execute" command="gnome-text-editor" />
     </keybind>
     <!-- Rede (W-n · o editor gráfico de conexões — E132: o applet saiu,
          o editor é pacote próprio nm-connection-editor) -->
@@ -268,6 +270,49 @@
     </keybind>
     <keybind key="W-S-p">
       <action name="Execute" command="craft-shot full" />
+    </keybind>
+
+    <!-- ===== E136 — OS ATALHOS UNIVERSAIS 60%/75% (Aula F75 Max) =====
+         A PARTE 2/2 do dono: nenhum gesto pode depender de tecla que o
+         teclado compacto NÃO tem (Print/Fn-row ausentes). Tudo o que
+         importa ganha um COMBO de modificador — redundante com os
+         W-p/W-S-p de sempre, nunca no lugar deles:
+           · W-Print e W-S-s → captura de região (grim+slurp no
+             craft-shot; o W-S-s é o combo do costume Windows/GNOME);
+           · W-bracketleft/right → workspace anterior/próximo;
+           · W-S-Up/Down → volume +/- (OSD no swayosd, pactl no fallback);
+           · W-S-m → mudo;
+           · W-S-space → play/pause; W-S-Right/Left → faixa seguinte/
+             anterior (o playerctl das teclas Fn, sem as teclas Fn). -->
+    <keybind key="W-Print">
+      <action name="Execute" command="craft-shot area" />
+    </keybind>
+    <keybind key="W-S-s">
+      <action name="Execute" command="craft-shot area" />
+    </keybind>
+    <keybind key="W-bracketleft">
+      <action name="GoToDesktop" to="left" wrap="yes" />
+    </keybind>
+    <keybind key="W-bracketright">
+      <action name="GoToDesktop" to="right" wrap="yes" />
+    </keybind>
+    <keybind key="W-S-Up">
+      <action name="Execute" command="sh -c 'swayosd-client --output-volume raise || pactl set-sink-volume @DEFAULT_SINK@ +5%'" />
+    </keybind>
+    <keybind key="W-S-Down">
+      <action name="Execute" command="sh -c 'swayosd-client --output-volume lower || pactl set-sink-volume @DEFAULT_SINK@ -5%'" />
+    </keybind>
+    <keybind key="W-S-m">
+      <action name="Execute" command="sh -c 'swayosd-client --output-volume mute-toggle || pactl set-sink-mute @DEFAULT_SINK@ toggle'" />
+    </keybind>
+    <keybind key="W-S-space">
+      <action name="Execute" command="playerctl play-pause" />
+    </keybind>
+    <keybind key="W-S-Right">
+      <action name="Execute" command="playerctl next" />
+    </keybind>
+    <keybind key="W-S-Left">
+      <action name="Execute" command="playerctl previous" />
     </keybind>
 
     <!-- ===== Janelas (convenções do criador) ===== -->

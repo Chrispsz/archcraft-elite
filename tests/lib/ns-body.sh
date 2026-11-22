@@ -20,8 +20,9 @@
 #   MOCK_EXTRA  dir de mocks de cenário ($WORK/mocks-scoped) — vira frente
 #               do PATH: ls/grep transparentes p/ os guards NV_PREBUILT/BBR
 #               do v4.6, ligados por ELITE_SCOPED_NVLS / ELITE_SCOPED_BBR
-#   FB_BBR      1 → pré-assa /etc/sysctl.d/99-elite-net.conf + modules-load.d/
-#               elite-bbr.conf (como a ISO v1.1 entrega) p/ provar o guard BBR
+#   FB_BBR      1 → pré-assa o consolidado /etc/sysctl.d/99-elite-
+#               performance.conf + modules-load.d/elite-bbr.conf (como a
+#               ISO E136 entrega) p/ provar o guard BBR
 #
 # A evidência (FB_LOG) carrega: saída ANSI-stripada + RC + inventário de
 # arquivos escritos + conteúdo dos arquivos-chave — TODAS as asserções rodam
@@ -46,12 +47,13 @@ if [[ ! -f /etc/default/grub ]]; then
   printf 'GRUB_TIMEOUT=5\nGRUB_CMDLINE_LINUX_DEFAULT="quiet"\n' > /etc/default/grub
 fi
 
-# cenário BBR (v1.1): a ISO assa os DOIS arquivos de rede — o firstboot
-# v4.6 confirma o bbr do kernel ou LIMPA (kernel sem bbr ≠ sysctl morto)
+# cenário BBR (v1.1→E136): a ISO assa o CONSOLIDADO com a rede dentro —
+# o firstboot v4.6 confirma o bbr do kernel ou LIMPA (kernel sem bbr ≠
+# sysctl morto)
 if [[ "${FB_BBR:-0}" == 1 ]]; then
   mkdir -p /etc/sysctl.d /etc/modules-load.d
-  printf '# ── ELITE: rede — BBR + fq\nnet.core.default_qdisc = fq\nnet.ipv4.tcp_congestion_control = bbr\n' \
-    > /etc/sysctl.d/99-elite-net.conf
+  printf '# ── ELITE: performance consolidado (E136)\nvm.swappiness = 15\nvm.vfs_cache_pressure = 50\nnet.core.default_qdisc = fq\nnet.ipv4.tcp_congestion_control = bbr\n' \
+    > /etc/sysctl.d/99-elite-performance.conf
   printf '# ── ELITE: módulo BBR antes do systemd-sysctl\ntcp_bbr\n' \
     > /etc/modules-load.d/elite-bbr.conf
 fi
@@ -85,7 +87,7 @@ out=$(env LSPCI_FIXTURE="$FB_FIXTURE" ${smi_env[@]+"${smi_env[@]}"} \
   echo "=== SCX-UNIT ===";     cat /etc/systemd/system/scx-elite.service 2>/dev/null || true
   echo "=== MARKER ==="; [[ -f /var/lib/elite/firstboot-done ]] && echo yes || echo no
   echo "=== ISAMD ===";  grep -q AuthenticAMD /proc/cpuinfo && echo yes || echo no
-  echo "=== BBRCFG ==="; cat /etc/sysctl.d/99-elite-net.conf 2>/dev/null || echo MISSING
+  echo "=== BBRCFG ==="; cat /etc/sysctl.d/99-elite-performance.conf 2>/dev/null || echo MISSING
   echo "=== BBRMOD ==="; [[ -f /etc/modules-load.d/elite-bbr.conf ]] && echo yes || echo no
 } > "$FB_LOG"
 exit 0

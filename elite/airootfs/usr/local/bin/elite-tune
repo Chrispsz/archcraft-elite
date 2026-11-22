@@ -52,7 +52,7 @@
 #          e os .ko pré-compilados de /usr/lib/modules/*/updates/dkms
 #          (v1.1: o dkms viaja na ISO p/ ambos os rigs — quem não é NVIDIA
 #          não carrega nem um byte de driver alheio no disco).
-#        · rede: BBR+fq (sysctl.d 99-elite-net + modules-load tcp_bbr) —
+#        · rede: BBR+fq (o consolidado 99-elite-performance + o modules-load tcp_bbr) —
 #          firstboot CONFIRMA que o kernel oferece bbr; senão tira do
 #          sysctl.d (cubic fica) em vez de falhar silencioso.
 #
@@ -301,24 +301,27 @@ apply_grub_tokens() { # tokens de kernel + grub-mkconfig ([4] firstboot / [3] in
 }
 
 write_elite_sysctl() { # a lei do sysctl ([2i] firstboot quando ausente / [5] interativo)
-  # E132 — O SWAPPINESS É CALIBRADO PELA RAM REAL (a ordem do dono: a
-  # disputa 150×180 morre na RAIZ — o valor é FUNÇÃO da máquina, não
-  # dogma): <=8 GiB → 180 (a página vale ouro) · 16 GiB → 160 · >=32 GiB
-  # → 150 (a casa grande já raramente toca o swap; o zram absorve o pico).
-  # O drift pós-dose morre junto: o post_upgrade REGENERA este arquivo com
-  # a MESMA régua a cada dose (elite-post-upgrade) — o conf e o kernel
-  # nunca mais divergem por perfil velho.
-  local _mib
-  _mib=$(( $(awk '/^MemTotal:/ {print $2}' /proc/meminfo 2>/dev/null || echo 0) / 1024 ))
-  local _sw=160
-  if   (( _mib > 0 && _mib <= 8192 ));  then _sw=180
-  elif (( _mib >= 32768 ));             then _sw=150
+  # E136 — A MISSÃO PARTE 2/2 DO DONO: o arquivo ÚNICO consolidado. Os
+  # dois confs da era anterior (99-elite.conf da RAM + 99-elite-net.conf
+  # da rede) viram UM: 99-elite-performance.conf (o nome é do dono). E
+  # O SWAPPINESS VIRA 15 — a ordem nova: '10, ou 15 com ZRAM zstd
+  # ativo' (a casa TEM zram0 zstd de fábrica — o número da lei é 15).
+  # A régua E132/E135 (180/160/150 por perfil de RAM) MORRE pela ordem
+  # nova: o mesmo número em TODO perfil, no conf e no zram-generator
+  # (a lição E135 do drift segue viva — agora com 15 nos DOIS donos).
+  # A rede entra SÓ quando ESTE kernel oferece bbr (o conf nunca pede
+  # o que o kernel não tem — o systemd-sysctl fica mudo no boot).
+  local _net=""
+  if grep -qw bbr /proc/sys/net/ipv4/tcp_available_congestion_control 2>/dev/null; then
+    _net="# ── rede: BBR + fq (consolidado da antiga 99-elite-net.conf — a
+# lição v4.6 segue: o conf da casa só pede o que ESTE kernel oferece)
+net.core.default_qdisc = fq
+net.ipv4.tcp_congestion_control = bbr"
   fi
-  wfile /etc/sysctl.d/99-elite.conf <<EOF
-# ── ELITE: sysctl de gaming (E132 — calibrado pela RAM desta máquina)
-# v2.10.26/E38 — o trio zram abaixo é o MESMO do 99-elite.conf da ISO
-# (o espelho não pode divergir — a doença do swappiness 150×180 nunca mais)
-vm.swappiness = $_sw
+  wfile /etc/sysctl.d/99-elite-performance.conf <<EOF
+# ── ELITE: performance consolidado (E136 — regenerado pela lei única;
+# os fósseis 99-elite.conf/99-elite-net.conf saem com voz no post_upgrade)
+vm.swappiness = 15
 vm.vfs_cache_pressure = 50
 vm.page_lock_unfairness = 1
 vm.max_map_count = 2147483642
@@ -333,8 +336,11 @@ vm.dirty_ratio = 10
 # E132 — a compactação proativa DESLIGADA (compaction_proactiveness=0 —
 # o THP madvise só a quem pede e o kcompactd para de acordar sem convite)
 vm.compaction_proactiveness = 0
+${_net}
 EOF
-  say "sysctl: swappiness calibrado = $_sw (RAM de ${_mib} MiB — a régua E132)"
+  local _bbrdiz="ausente neste kernel"
+  if [ -n "$_net" ]; then _bbrdiz="INCLUIDO"; fi
+  say "sysctl: 99-elite-performance.conf com swappiness = 15 (a ordem PARTE 2/2 — zram zstd ativo; bbr ${_bbrdiz})"
 }
 
 # E132 — O THP MADVISE AGORA (a ordem do dono): o cmdline do GRUB vale no
@@ -356,32 +362,122 @@ EOF
   fi
 }
 
+ensure_mglru() { # MGLRU ligado em TODO boot (E136 — a ordem PARTE 2/2)
+  # O Multi-Gen LRU é o reclaim moderno: gerações de páginas em vez das
+  # duas listas — menos stutter sob pressão de memória. enabled=7 = as
+  # três opções (motor + refault file/anon). O mesmo desenho do THP:
+  # tmpfiles de TODO boot + a escrita VIVA quando /sys deixa.
+  wfile /etc/tmpfiles.d/elite-mglru.conf <<'EOF'
+# ── ELITE (E136): MGLRU reafirmado em TODO boot (kernel sem lru_gen: o
+# tmpfiles registra o caminho ausente e segue — nada trava, nada morre)
+w /sys/kernel/mm/lru_gen/enabled - - - - 7
+EOF
+  if [ -w /sys/kernel/mm/lru_gen/enabled ]; then
+    run sh -c 'echo 7 > /sys/kernel/mm/lru_gen/enabled'
+    say "MGLRU: lru_gen enabled=7 aplicado no kernel VIVO (o reclaim por gerações — o stutter sob pressão morre)"
+  else
+    say "MGLRU: lru_gen ausente neste kernel — o tmpfiles cobre o boot do kernel que o tiver"
+  fi
+}
+
+ensure_amd_vulkan_env() { # as vars Vulkan/RADV da casa (E136 — só família AMD)
+  # AMD_VULKAN_ICD=RADV: o ICD da casa Mesa (o firmware PRO driver NÃO
+  # mora aqui — sem a var, um rig com ambos instalados podia cair no
+  # errado). MESA_SHADER_CACHE_MAX_SIZE: o cache de shaders com teto
+  # GORDO (os jogos de 2026 comem o default 1G inteiro no primeiro boot;
+  # 2G segura a compilação sem recomeçar). RADV_PERFTEST: FORA por lei —
+  # as flags trocam de significado por geração de GPU (a 'segura' de
+  # ontem é a corruptora de hoje); quem quiser experimentar, exporta na
+  # sessão — a casa não carimba risco no /etc/environment.
+  backup /etc/environment
+  for v in AMD_VULKAN_ICD=RADV MESA_SHADER_CACHE_MAX_SIZE=2G; do
+    (( DRY )) || grep -qxF "$v" /etc/environment 2>/dev/null || echo "$v" >> /etc/environment
+  done
+  say "AMD: AMD_VULKAN_ICD=RADV + cache de shaders 2G no /etc/environment (o RADV_PERFTEST fica NA MÃO do dono — a casa não carimba risco)"
+}
+
+ensure_kernel_modernos() { # ntsync + sensores + scx_loader (E136 — PARTE 2/2) — $1 = iso | graft
+  # A MISSÃO PARTE 2/2: o kernel moderno inteiro serve à mesa — ntsync
+  # (Proton/Wine nativo, sem esync/fsync), lm_sensors da placa-mãe (o
+  # nct6775 acorda no boot) e o scx_loader (sched_ext sob demanda com o
+  # watchdog do próprio loader — módulo que falha NUNCA trava a máquina:
+  # o BORE do kernel segue escalonando). Idempotente nos DOIS modos.
+  wfile /etc/modules-load.d/elite-ntsync.conf <<'EOF'
+# ── ELITE (E136): ntsync no boot (kernel sem o módulo: aviso do
+# systemd-modules-load e o boot segue — o Proton cai no futex de sempre)
+ntsync
+EOF
+  wfile /etc/udev/rules.d/60-ntsync.rules <<'EOF'
+# ── ELITE (E136): /dev/ntsync 0666 (o jogo do usuário fala DIRETO com
+# o dispositivo — sem daemon intermediário, sem privilégio de root)
+KERNEL=="ntsync", MODE="0666"
+EOF
+  run udevadm control --reload 2>/dev/null || true
+  wfile /etc/modules-load.d/elite-sensors.conf <<'EOF'
+# ── ELITE (E136): o nct6775 (Nuvoton Super I/O) expõe temp/ventoinhas/
+# PWM da placa-mãe ao lm_sensors (hardware sem Nuvoton: driver registra
+# e não binda — carga inócua)
+nct6775
+EOF
+  # sensors-detect mapeia o resto da máquina (o --auto não pergunta nada;
+  # a saída é barulho — o papel fica no log do tune)
+  if command -v sensors-detect >/dev/null 2>&1; then
+    if (( DRY )); then
+      say "[dry] sensors-detect --auto (o mapa de sensores da placa-mãe)"
+    else
+      if yes '' | sensors-detect --auto >/dev/null 2>&1; then
+        say "sensores: sensors-detect aplicado (o lm_sensors agora vê a placa-mãe — 'sensors' na mão prova)"
+      else
+        say "sensores: sensors-detect não completou (rc=$?) — os módulos do boot cobrem o essencial"
+      fi
+    fi
+  else
+    say "sensores: lm_sensors ausente (pacote não instalado — ISO nova traz de fábrica)"
+  fi
+  # scx_loader: sched_ext sob demanda — a unit só existe onde o kernel a
+  # sustenta (ConditionPathExists=/sys/kernel/sched_ext na drop-in elite)
+  wfile /etc/default/scx <<'EOF'
+# ── ELITE (E136): scx_lavd — o perfil interativo/gaming (latência-first;
+# o loader é o watchdog: sched_ext cai → o BORE do kernel segue — nunca
+# tela morta)
+SCX_SCHEDULER=scx_lavd
+SCX_FLAGS=""
+EOF
+  if systemctl list-unit-files scx_loader.service >/dev/null 2>&1 \
+     && systemctl cat scx_loader.service >/dev/null 2>&1; then
+    run systemctl enable --now scx_loader.service 2>/dev/null || true
+    say "scx_loader: scx_lavd habilitado (sched_ext sob demanda — o watchdog do loader é o cinto, o BORE é o chão)"
+  else
+    say "scx_loader: unit ausente (scx-scheds não instalado — o BORE do kernel segue sozinho)"
+  fi
+}
+
 ensure_bbr() { # BBR+fq ([2c] firstboot / [5] interativo) — $1 = iso | graft
-  # iso: a ISO JÁ embarca 99-elite-net.conf + elite-bbr.conf — presente =
-  # confirma; ausente = LIMPA (o systemd-sysctl não pode reclamar a cada
-  # boot). graft: enxerto em sistema qualquer — presente = ESCREVE os
-  # arquivos; ausente = warn (cubic fica).
+  # iso: a ISO JÁ embarca o consolidado 99-elite-performance.conf +
+  # elite-bbr.conf — presente = confirma; ausente = LIMPA (o
+  # systemd-sysctl não pode reclamar a cada boot). graft: enxerto em
+  # sistema qualquer — presente = ESCREVE os arquivos; ausente = warn
+  # (cubic fica).
   if grep -qw bbr /proc/sys/net/ipv4/tcp_available_congestion_control 2>/dev/null; then
     if [[ "$1" == "graft" ]]; then
-      wfile /etc/sysctl.d/99-elite-net.conf <<'EOF'
-# ── ELITE: rede — BBR + fq (throughput em links de alta latência/perda)
-net.core.default_qdisc = fq
-net.ipv4.tcp_congestion_control = bbr
-EOF
+      # E136 — o sysctl da rede vive NO consolidado e o [5] ACABOU de
+      # escrevê-lo pela lei única (write_elite_sysctl é bbr-aware — E37:
+      # def 1×, chamada 2×, zero espelho); aqui só o MÓDULO é do loader.
       wfile /etc/modules-load.d/elite-bbr.conf <<'EOF'
 # ── ELITE: garante o módulo BBR antes do systemd-sysctl (kernel =m)
 tcp_bbr
 EOF
+      say "TCP: módulo tcp_bbr no loader (as linhas de rede já saíram no consolidado do [5] — a lei única E37)"
     else
-      say "TCP: bbr + fq ativos (sysctl.d da ISO) — throughput em links de alta latência"
+      say "TCP: bbr + fq ativos (99-elite-performance.conf da ISO) — throughput em links de alta latência"
     fi
   else
     if [[ "$1" == "iso" ]]; then
-      warn "bbr indisponível neste kernel — limpando sysctl.d/99-elite-net.conf (cubic fica)"
+      warn "bbr indisponível neste kernel — limpando as linhas de rede do 99-elite-performance.conf (cubic fica)"
       # v4.9: a limpeza respeita o DRY (dry é seco, v4.4 — o sed/rm rodavam
       # até seco; primeiroboot é unit, mas a promessa é da casa)
       (( DRY )) || sed -i -E '/^net\.(core\.default_qdisc|ipv4\.tcp_congestion_control)/d' \
-        /etc/sysctl.d/99-elite-net.conf 2>/dev/null || true
+        /etc/sysctl.d/99-elite-performance.conf 2>/dev/null || true
       (( DRY )) || rm -f /etc/modules-load.d/elite-bbr.conf 2>/dev/null || true
     else
       warn "kernel sem bbr — mantendo cubic (padrão do kernel)"
@@ -404,7 +500,15 @@ ensure_btrfs_stack() { # snapshots/grub-btrfsd/lactd-tail ([3] firstboot / [6] i
       run btrfs subvolume create /.snapshots || true
     fi
     run systemctl enable --now grub-btrfsd.service 2>/dev/null || true
+    # E136 — A PARTE 2/2 DO SNAPPER: o timeline tira o retrato de hora
+    # em hora (além do cleanup que já vigiava) e o snap-pac fecha o par
+    # pré/pós-pacman (os hooks disparam em CADA -Syu com o config do
+    # root vivo — snapshots de verdade na transação). O btrfs-assistant
+    # é a GUI de leitura/restauração (pacote na ISO; ZERO daemon ligado
+    # — abre na mão do dono, não mora no boot).
+    run systemctl enable --now snapper-timeline.timer 2>/dev/null || true
     run systemctl enable --now snapper-cleanup.timer 2>/dev/null || true
+    say "btrfs: snapper timeline+cleanup ligados · snap-pac pré/pós-pacman (E136) · btrfs-assistant é a GUI de mão"
   else
     say "raiz não é btrfs — snapshots/grub-btrfsd ficam de fora (rollback é lei do btrfs)"
   fi
@@ -497,7 +601,7 @@ if (( STATUS )); then
   printf '%-22s %s\n' "THP:" "$(cat /sys/kernel/mm/transparent_hugepage/enabled 2>/dev/null)"
   printf '%-22s %s\n' "repos cachyos:" "$(grep -oE '^\[cachyos[^]]*\]' $PACMAN_CONF 2>/dev/null | tr '\n' ' ')"
   echo ""
-  for s in ananicy-cpp grub-btrfsd lactd elite-firstboot; do
+  for s in ananicy-cpp grub-btrfsd lactd elite-firstboot scx_loader bluetooth; do
     printf 'service %-15s %s\n' "$s" "$(systemctl is-active $s.service 2>/dev/null || echo inactive)"
   done
   echo ""
@@ -656,6 +760,9 @@ options nvidia NVreg_PreserveVideoMemoryAllocations=1 NVreg_TemporaryFilePath=/v
 EOF
     run systemctl enable nvidia-suspend.service nvidia-resume.service nvidia-hibernate.service nvidia-persistenced.service || true
   fi
+  # E136 — as vars Vulkan/RADV da família AMD (a função única; a NVIDIA
+  # ganha as dela no [7] shader cache)
+  if [[ "${VENDOR:-}" == "amd" ]]; then ensure_amd_vulkan_env; fi
 
   # 2b. auto-limpeza: cada rig fica SÓ com os pacotes do SEU hardware
   #     (NVIDIA em AMD/Intel = ~500MB inertes; ICDs Vulkan alienígenas ~50MB)
@@ -831,19 +938,19 @@ PYBRAVE
   #     /etc/sysctl.d, REAPLICA e CONFERE no kernel — o resultado vai ao
   #     log; se seguir divergente, o aviso nomeia o réu (o dump v2.5
   #     lista /etc/sysctl.d inteiro na seção 3 para o próximo papel).
-  if [[ ! -f /etc/sysctl.d/99-elite.conf ]] \
-     || ! grep -q '^vm\.compaction_proactiveness' /etc/sysctl.d/99-elite.conf 2>/dev/null; then
-    say "sysctl: 99-elite.conf ausente ou da ERA VELHA (sem as chaves E132) — recriando com a régua calibrada"
+  if [[ ! -f /etc/sysctl.d/99-elite-performance.conf ]] \
+     || ! grep -q '^vm\.compaction_proactiveness' /etc/sysctl.d/99-elite-performance.conf 2>/dev/null; then
+    say "sysctl: 99-elite-performance.conf ausente ou da ERA VELHA (sem as chaves E132) — recriando com a lei consolidada"
     # E37: o conteúdo é lei ÚNICA (write_elite_sysctl) — a cópia local com
     # o cabeçalho 'restaurado pelo firstboot' era o espelho que divergia
     write_elite_sysctl
   fi
-  # E132 — O SWAPPINESS É A LEI DO CONF (a régua calibrada acabou de
-  # escrever /etc/sysctl.d/99-elite.conf pelo write_elite_sysctl — o
-  # elite-optimize da E74 aposenta como FONTE do número: a calibração
-  # E132 (<=8→180 · 16→160 · >=32→150) é a única voz da casa).
-  want_sw="$(sed -n 's/^vm\.swappiness *= *//p' /etc/sysctl.d/99-elite.conf 2>/dev/null | tail -1)"
-  [[ "$want_sw" =~ ^[0-9]+$ ]] || want_sw=180
+  # E132→E136 — O SWAPPINESS É A LEI DO CONF (o consolidado da PARTE 2/2
+  # acabou de escrever /etc/sysctl.d/99-elite-performance.conf pelo
+  # write_elite_sysctl — o 15 é a única voz da casa nos DOIS donos do
+  # número, conf e zram-generator).
+  want_sw="$(sed -n 's/^vm\.swappiness *= *//p' /etc/sysctl.d/99-elite-performance.conf 2>/dev/null | tail -1)"
+  [[ "$want_sw" =~ ^[0-9]+$ ]] || want_sw=15
   got_sw="$(sysctl -n vm.swappiness 2>/dev/null || true)"
   if [[ "$got_sw" != "$want_sw" ]]; then
     say "sysctl: kernel em vm.swappiness='${got_sw:-?}' (Elite pede $want_sw) — reaplicando sysctl.d"
@@ -880,6 +987,13 @@ PYBRAVE
   # é o BORE do kernel (nenhum scheduler userspace por cima) e o boost de
   # jogo sob demanda é o gamemode. scx-elite/dmemcg/fg-booster extintos.
   run systemctl enable --now ananicy-cpp.service || true
+  # E136 — O BLUETOOTH LIMPO E O SCX: o bluetooth.service é o par do
+  # overskride (GUI GTK4/libadwaita, ZERO applet residente — o serviço
+  # só acorda quando o dono abre o app); o scx_loader já subiu no
+  # ensure_kernel_modernos (o say de lá conta a história). Sem
+  # adaptador, o bluetoothd sobe limpo e espera (não é FAILED — é rede
+  # sem rádio).
+  run systemctl enable --now bluetooth.service 2>/dev/null || true
   # snapshots: o grub-btrfsd vigia /.snapshots — sem o subvolume a unit
   # nasce FAILED ('No directory found at /.snapshots' — o rig flagrou no
   # dump: active=failed). O snapper cria o subvolume junto com a config
@@ -909,6 +1023,10 @@ PYBRAVE
   apply_grub_tokens
   # E132 — o THP madvise no kernel VIVO + o tmpfiles de TODO boot
   ensure_thp_madvise
+  # E136 — O KERNEL MODERNO DA PARTE 2/2: MGLRU no reclaim + ntsync/
+  # sensores/scx_loader (a função única conta cada peça; modo 'iso')
+  ensure_mglru
+  ensure_kernel_modernos iso
 
   # 5. self-disable + marker + aviso
   #    v4.5: marker/só-disable APENAS com driver garantido. Sem rede no 1º
@@ -1052,16 +1170,23 @@ elif [[ "$VENDOR" == "amd" ]]; then
 options amdgpu ppfeaturemask=0xffffffff
 EOF
 fi
+# E136 — as vars Vulkan/RADV da família AMD no enxerto também (a função
+# única serve os DOIS modos — a doença do espelho E37 nunca nasce)
+if [[ "${VENDOR:-}" == "amd" ]]; then ensure_amd_vulkan_env; fi
 
 # ── [5] Memória + I/O (idempotente — na ISO já vêm assados) ───────
 # Auto-limpeza também no modo interativo (enxerto em sistema existente):
 gpu_cleanup_foreign "$VENDOR" "$HYBRID"
 ZMB=$(( MEM_GIB * 1024 )); (( ZMB > 8192 )) && ZMB=8192
-pacman_s zram-generator || note_fail "zram-generator (swappiness 180 sem zram segue funcional)"
+pacman_s zram-generator || note_fail "zram-generator (swappiness 15 sem zram segue funcional)"
 wfile /etc/systemd/zram-generator.conf <<EOF
+# E136 — o swappiness = 15 do gerador (a última palavra no swapon — a
+# lição E135; o MESMO número do 99-elite-performance.conf, os DOIS donos
+# do número falam UM número só)
 [zram0]
 zram-size = ${ZMB}M
 compression-algorithm = zstd
+swappiness = 15
 EOF
 run systemctl daemon-reload
 run systemctl start systemd-zram-setup@zram0.service || true
@@ -1085,10 +1210,16 @@ else
 fi
 
 # v4.6 — "internet rápida": BBR+fq quando o kernel oferece (enxerto em
-# sistema qualquer; no BORE da ISO já vem assado via 99-elite-net.conf +
-# elite-bbr.conf). E37: o par gêmeo vive em ensure_bbr — modo 'graft'.
+# sistema qualquer; no BORE da ISO já vem assado no consolidado
+# 99-elite-performance.conf + elite-bbr.conf). E37: o par gêmeo vive em
+# ensure_bbr — modo 'graft'.
 ensure_bbr graft
 run sysctl --system || true
+
+# E136 — O KERNEL MODERNO DA PARTE 2/2 (o mesmo bloco do firstboot — a
+# função única E37; modo 'graft' serve o enxerto em sistema qualquer)
+ensure_mglru
+ensure_kernel_modernos graft
 
 wfile /etc/udev/rules.d/60-io-elite.rules <<'EOF'
 ACTION=="add|change", KERNEL=="nvme[0-9]n[0-9]*", ATTR{queue/scheduler}="none"
