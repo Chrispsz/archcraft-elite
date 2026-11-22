@@ -528,11 +528,16 @@ cp -p /work/elite/airootfs/usr/local/share/elite/qt6ct/qt6ct.conf \
 # pre_install adota a via sem dono antes da extração.
 mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite
 cat > /tmp/elite-src/elite-system/files/usr/local/share/elite/daemon.conf <<'EODCONF'
-# ── ELITE (E132): os residentes do elite-daemon supervise ──────────
-# Um residente por linha no formato `nome::comando`. Edite à vontade;
-# linhas '#' e vazias são ignoradas. SEM este arquivo os defaults da
-# casa valem (swaync, udiskie, swayosd, craft-audio-route).
-#swaync::swaync
+# ── ELITE (E132→E135): os residentes do elite-daemon supervise ──────
+# Um residente por linha: `nome::comando` ou `nome::bus::comando` (a
+# gramática E135 — o nome no session bus que prova a posse: se o nome
+# TEM dono, a vaga é ADOTADA, nunca relançada por cima — o gate que
+# matou o loop de 809 relanças do swaync no dump 101339). Edite à
+# vontade; linhas '#' e vazias são ignoradas. SEM este arquivo os
+# defaults da casa valem (swaync com gate de bus, udiskie, swayosd,
+# craft-audio-route). Cada vaga também trava em flock exclusivo no
+# $XDG_RUNTIME_DIR/elite/resident-<nome>.lock — a posse dupla.
+#swaync::org.erikreider.swaync.cc::swaync
 #udiskie::udiskie --automount --notify --no-tray
 #swayosd::swayosd-server
 #craft-audio-route::craft-audio-route
@@ -2493,6 +2498,44 @@ pkgver=1.0
 #     do workspace casa o build local com o CI (SÓ target-cpu=x86-64-v3).
 #     Bins com conteúdo mudado: craft-game, craft-bars. Mestres novos no
 #     pacote: daemon.conf (dc_install) + rust-workspace.tar.gz (fonte).
+# E135 — A MISSÃO DO DONO (dump 101339, lei E41: o bump viaja NO MESMO
+#     COMMIT do conteúdo): o motor nativo zero-latência —
+#     (1) O LOOP DE 809 RELANÇAS MORRE: o supervise ganha O GATE DE
+#         POSSE (flock por vaga em $XDG_RUNTIME_DIR/elite/ + o nome no
+#         session bus pela gramática nova `nome::bus::comando` — o
+#         swaync dono de org.erikreider.swaync.cc é ADOTADO, nunca
+#         relançado por cima; a cura da chave morta image-visibility
+#         vai no skel E no elite-post-transaction dos rigs);
+#     (2) O LANÇADOR ÚNICO: a porta `elite-daemon session` (clientes de
+#         display + residentes na mesma vaga, gate duplo) — o craft-bars
+#         shell vira `exec elite-daemon session` (os 8 /bin/sh do ps
+#         morrem no exec(2); o corpo bash segue como fallback dos rigs
+#         sem o binário);
+#     (3) ZERO POLLING: os ouvidores NATIVOS dormem no daemon — netlink
+#         uevent (som → craft-audio-route --once; drm → craft-display
+#         apply), logind PrepareForSleep(false)/Unlock → craft-display
+#         apply, session bus NameOwnerChanged → SIGRTMIN+9 na waybar (o
+#         fork do craft-bgapps a cada 5s — 25% CPU + zumbis pkill do
+#         dump — morre; o módulo custom/bgapps vira signal 9/interval 0)
+#         e o toplevel.sock EVT acorda o loop do jogo (a detecção por
+#         EVENTO + inspeção única de /proc; o tick de 5s sobrevive só
+#         como cinto dos windowless);
+#     (4) O MODO DE JOGO COMPLETO NO NATIVO: GPU power_dpm_force_
+#         performance_level=high (o valor anterior devolvido ao sair),
+#         Não Perturbe do swaync por D-Bus nativo (GetDnd/ToggleDnd
+#         simétricos) e o inhibitor lock do logind (o lock/apagamento
+#         de tela não morre na partida — solto no fim);
+#     (5) O DRIFT 150≠180 MORRE NA FONTE: `swappiness = 180` no
+#         zram-generator.conf (a opção do gerador é a última palavra no
+#         swapon — o systemd-zram-setup não recoloca o 150 DEPOIS);
+#     (6) A DOCK: snapshot FRESCO antes da decisão ACT/MIN (os ACT
+#         repetidos e timeouts de 2s do toplevel.log do dump morrem), o
+#         backoff de reconexão 5→20→100ms no canal EVT e o flush
+#         síncrono do frame (queue_resize + display flush no mesmo
+#         ciclo do snapshot).
+#     Provas: cargo test 53/53 (39+14); cargo check da camada gui com
+#     GTK4 4.18.6 real (o prefixo pkg-config sem root); shellcheck 0
+#     avisos; suíte completa GO.
 # E-auditoria 2026-11-22 — A CURA DO CANAL 44945339468 (lei E41: o bump
 #     viaja NO MESMO COMMIT do conteúdo): a craft-dock-rs do E134 NUNCA
 #     compilou no CI (o Test Suite passa porque a camada lógica é
@@ -2528,7 +2571,7 @@ pkgver=1.0
 #     std-only + caches de jogo Steam/Lutris/Heroic/Hydra + adjacente ao
 #     binário) e a decoração de janela garantida no rc.xml (XWayland na
 #     tela cheia).
-pkgrel=82
+pkgrel=83
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da sessão; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

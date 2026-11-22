@@ -812,8 +812,26 @@ case "${1:-}" in
     apply)  do_apply ;;
     apply-boot) apply_boot ;;
     save)   do_save; exit $? ;;
-    watch)  do_watch ;;
-    __login1-watch) login1_watch ;;   # E134: o ouvidor do logind (filho do watch)
+    watch)
+        # E135 — O GUARD DO OUVIDOR LEGADO: o elite-daemon session é o
+        # dono dos eventos de display agora (netlink drm + logind — os
+        # threads dele dormem nos sinais). Vivo o daemon, este watch
+        # shell É O RESIDENTE QUE A ORDEM DO DONO MANDOU MATAR (o dump
+        # 101339: 3 processos craft-display residentes) — sai 0 sem
+        # tocar em nada (o fallback só vale para rig sem o binário).
+        if pgrep -f '^/usr/local/bin/elite-daemon session$' >/dev/null 2>&1; then
+            _l="${XDG_CACHE_HOME:-$HOME/.cache}/elite/display.log"
+            printf '[%s] watch: elite-daemon session é o ouvidor (E135) — residente shell não nasce
+' "$(date '+%F %T')" >>"$_l" 2>/dev/null
+            exit 0
+        fi
+        do_watch ;;
+    __login1-watch)
+        # E135 — idem: o daemon session tem o thread logind nativo.
+        if pgrep -f '^/usr/local/bin/elite-daemon session$' >/dev/null 2>&1; then
+            exit 0
+        fi
+        login1_watch ;;   # E134: o ouvidor do logind (filho do watch)
     status)
         # E106 — O STATUS QUE FALAVA SOZINHO: seções vazias ganham LINHA
         # NOMEADA e exit ≠ 0 quando a realidade não responde. E107 — o

@@ -312,9 +312,21 @@ loginctl list-users --no-legend 2>/dev/null | while read -r _uid _ _; do
     fi
     if pgrep -u "$_uid" -f '/usr/local/bin/craft-bars' >/dev/null 2>&1; then
         pkill -u "$_uid" -f '/usr/local/bin/craft-bars' 2>/dev/null || true
-        sleep 1
-        tlog "bars E134: supervisor(es) do uid $_uid ENCERRADO(S) — o órfão do lock morreu junto; UM novo nasce agora"
     fi
+    # E135 — OS RESIDENTES SHELL/PYTHON DA ERA ANTERIOR MORREM (a ordem
+    # do dono do dump 101339: zero /bin/sh e python3 residentes). O
+    # craft-bars NOVO (a dose em disco) execa o elite-daemon session;
+    # os órfãos de rotação (audio-route python residente, craft-display
+    # watch/login1-watch) morrem AQUI — os guards nos scripts evitam o
+    # renascimento (o daemon session é o ouvidor nativo deles).
+    for _velho in 'python3 /usr/local/bin/craft-audio-route'                   'craft-audio-route'                   'craft-display watch'                   'craft-display __login1-watch'; do
+        if pgrep -u "$_uid" -f "$_velho" >/dev/null 2>&1; then
+            pkill -u "$_uid" -f "$_velho" 2>/dev/null || true
+            tlog "E135: residente legado '$_velho' morto no uid $_uid (o elite-daemon session é o ouvidor nativo)"
+        fi
+    done
+    sleep 1
+    tlog "bars E134: supervisor(es) do uid $_uid ENCERRADO(S) — o órfão do lock morreu junto; UM novo nasce agora (exec elite-daemon session — E135)"
     runuser -u "#$_uid" -- env \
         XDG_RUNTIME_DIR="/run/user/$_uid" \
         WAYLAND_DISPLAY="$_wd" \

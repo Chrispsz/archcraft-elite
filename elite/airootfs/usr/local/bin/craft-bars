@@ -91,6 +91,28 @@ cap_log
 # rice (a barra é a missão aqui).
 craft-rice >>"$LOG" 2>&1 9>&- || true
 
+# ═══════════════════════════════════════════════════════════════════════════
+# E135 — A PORTA ÚNICA: o elite-daemon session é O LANÇADOR (a ordem do
+# dono do dump 101339: ZERO residentes em /bin/sh — os 8 craft-bars do ps
+# eram este script forkeando por componente). Presente o binário, ESTE
+# corpo inteiro (os loops pgrep de 5s de TODOS os componentes) é EXECUTADO
+# PELO SUBSTITUTO: o sh vira o daemon no exec(2) — nenhum /bin/sh sobra no
+# ps, os clientes de display (toplevel, waybar, dock, idle, polkit) e os
+# residentes (swaync com gate de bus, udiskie, swayosd) viram FILHOS com
+# o gate de posse (flock por vaga + nome no session bus — o loop de 809
+# relanças do swaync do dump morre na adoção), os EVENTOS (netlink
+# som/drm, logind sono/unlock, NameOwnerChanged, toplevel.sock EVT) ficam
+# ouvidos dormindo no daemon — zero polling. Os coredumps de componente
+# continuam no MESMO bars.log (o log_path do daemon é o mesmo arquivo).
+# Sem o binário (ISO velha, rig pré-dose), o corpo bash legacy abaixo
+# segue intacto — a lei do fallback nunca depende de recurso novo.
+# ═══════════════════════════════════════════════════════════════════════════
+if [ -x /usr/local/bin/elite-daemon ]; then
+    printf '[%s] craft-bars → exec elite-daemon session (E135 — o lançador único; o sh some do ps)
+' "$(date '+%F %T')" >>"$LOG" 2>/dev/null
+    exec /usr/local/bin/elite-daemon session
+fi
+
 # E134 — O BLOCO DO CHAVEIRO MORREU: a ordem do dono (dump 1.0-80) é o
 # fim do gnome-keyring na casa — 'gkr-pam: unable to locate daemon
 # control file' no SDDM, CENTENAS de gcr-prompter no dock.log e pedido

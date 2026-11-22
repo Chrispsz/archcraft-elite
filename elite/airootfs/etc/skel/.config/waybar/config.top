@@ -252,15 +252,16 @@
   // casca v2.4.0 e serviço não encerra (craft-bgapps v4). Menu nasce sob
   // o botão (âncora v4).
   "custom/bgapps": {
+    // E135 — O FORK DE 5s MORRE (o réu nº 2 do dump 101339: 25% de CPU
+    // e uma família de pkill <defunct> vivos — cada exec do waybar era
+    // sh + ps + grep sem colheita). O módulo agora é EVENTO: o
+    // elite-daemon ouve o session bus (NameOwnerChanged) e o canal EVT
+    // do toplevel e dispara SIGRTMIN+9 na MUDANÇA — este exec roda uma
+    // vez no arranque e DEPOIS DE CADA SINAL, nunca por intervalo.
     "exec": "craft-bgapps status",
     "return-type": "json",
-    // E106 — interval 30 → 5 (a denúncia do dono: "o contador também dos
-    // programas em primeiro plano não é muito atualizado… acusa um
-    // programa, você clica nele e não tem nada"). A pílula de 30s
-    // mentia por até meio ciclo inteiro — o status é 1 fork de ps
-    // (custo igual ao módulo pulseaudio da mesma barra, que já roda a
-    // cada segundo); e o ramo vazio do menu avisa (fim do clique mudo).
-    "interval": 5,
+    "signal": 9,
+    "interval": 0,
     "on-click": "craft-bgapps menu",
     "tooltip": true
   },

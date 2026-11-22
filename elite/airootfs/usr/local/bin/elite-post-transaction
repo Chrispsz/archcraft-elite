@@ -311,6 +311,26 @@ if [ ! -e /run/archiso ] && command -v systemctl >/dev/null 2>&1; then
 fi
 unset _mask
 
+# ── 8-b. A CHAVE MORTA DO SWAYNC SAI DOS RIGS (E135) ─────────────────────
+#      O dump 101339 crava: o config.json do home carrega
+#      "image-visibility" — chave que o swaync 0.12.6 NÃO deserializa
+#      (Json-WARNING a cada arranque) e o skel da casa já nasce sem ela.
+#      A cura percorre os homes vivos e apaga SÓ a linha morta (JSON de
+#      uma linha por chave — o sed honesto; o idempotente é não tocar o
+#      arquivo que não tem a chave).
+for _h in /home/*; do
+    _swc="$_h/.config/swaync/config.json"
+    if [ -f "$_swc" ] && grep -q '"image-visibility"' "$_swc" 2>/dev/null; then
+        if sed -i '/"image-visibility"/d' "$_swc"; then
+            chown --reference="${_h}" "$_swc" 2>/dev/null || true
+            tlog "swaync: chave morta 'image-visibility' REMOVIDA de $_swc (E135 — o Json-WARNING morre; o default do swaync é o when-available)"
+        else
+            tlog "swaync: FALHOU apagar a chave 'image-visibility' em $_swc (réu nomeado)"
+        fi
+    fi
+done
+unset _h _swc
+
 # ── 9. O TEMA DE ÍCONES É UM SÓ (E130 — a ordem do dono 2026-11-21) ────
 #      "Garanta Papirus-Dark nos settings.ini GTK dos usuários ativos e o
 #      qt6ct sincronizado." O E126 entregou o tema NO SKEL (veículo da

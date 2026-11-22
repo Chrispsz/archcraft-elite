@@ -300,13 +300,24 @@ fn bg_reader(sock_path: PathBuf, tx: Sender<Msg>) {
     let mut last_list = Instant::now()
         .checked_sub(Duration::from_secs(TICK_S + 1))
         .unwrap_or_else(Instant::now);
+    // E135 — O BACKOFF DA RECONEXÃO (a ordem do dono: o fallback lento
+    // morre — a reconexão é exponencial 5ms → 20ms → 100ms, teto na
+    // lei; daemon vivo de volta = canal EVT vivo em ≤100ms)
+    let mut back = 5u64;
     loop {
-        // (re)conecta o canal de eventos — daemon ausente custa µs
+        // (re)conecta o canal de eventos — daemon ausente custa o backoff
         if evt.is_none() {
-            if let Ok(mut s) = std::os::unix::net::UnixStream::connect(&sock_path) {
-                if sock::evt_handshake(&mut s) {
-                    let _ = s.set_read_timeout(Some(Duration::from_millis(200)));
-                    evt = Some(s);
+            match std::os::unix::net::UnixStream::connect(&sock_path) {
+                Ok(mut s) => {
+                    if sock::evt_handshake(&mut s) {
+                        let _ = s.set_read_timeout(Some(Duration::from_millis(200)));
+                        evt = Some(s);
+                        back = 5;
+                    }
+                }
+                Err(_) => {
+                    std::thread::sleep(Duration::from_millis(back));
+                    back = (back * 4).min(100);
                 }
             }
         }
@@ -314,7 +325,11 @@ fn bg_reader(sock_path: PathBuf, tx: Sender<Msg>) {
         if let Some(s) = evt.as_mut() {
             let mut buf = [0u8; 4096];
             match std::io::Read::read(s, &mut buf) {
-                Ok(0) | Err(_) => evt = None, // caiu: o giro seguinte reconecta
+                Ok(0) | Err(_) => {
+                    evt = None; // caiu: o backoff seguinte reconecta
+                    std::thread::sleep(Duration::from_millis(back));
+                    back = (back * 4).min(100);
+                }
                 Ok(n) => {
                     if sock::is_event(&buf[..n]) {
                         forced = true; // mudança de janelas: LIST NA HORA
@@ -350,6 +365,15 @@ fn drain(st: &Rc<RefCell<State>>, rx: &Receiver<Msg>) {
                 update_indicators(&s);
                 drop(s); // (o sync_dynamic pede o estado emprestado DE NOVO)
                 sync_dynamic(st);
+                // E135 — O FLUSH SÍNCRONO (a ordem do dono: toda ação de
+                // UI de pílula/indicadores completa NO MESMO ciclo): o
+                // layout é requeado e o display é drenado aqui — a
+                // surface layer-shell commita a nova largura no frame
+                // corrente, zero retângulo residual do frame velho.
+                st.borrow().pill.queue_resize();
+                if let Some(d) = gdk::Display::default() {
+                    d.flush();
+                }
             }
             Ok(Msg::IconReady { key, path }) => {
                 // o botão vivo ganha a cara nova (idle = main thread)
@@ -970,6 +994,16 @@ fn on_left(st: &Rc<RefCell<State>>, act: &Act) {
     if wids.is_empty() {
         launch(st, act, Some(&key));
         return;
+    }
+    // E135 — A PROVA NO CLIQUE (a ordem do dono do dump 101339: os
+    // ACT repetidos e os timeouts de 2s do toplevel.log nasciam de
+    // snapshot VELHO — o bitmask decidia MIN com estado de rodada
+    // passada): UMA list fresca decide (o socket unix local custa
+    // µs — o clique não espera nada; o fallback honesto segue).
+    if st.borrow().tl_alive {
+        if let Some(Some(snap)) = with_client(|c| c.list()) {
+            st.borrow_mut().snap = snap;
+        }
     }
     if wids.len() == 1 {
         let id = wids[0];

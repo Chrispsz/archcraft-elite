@@ -320,4 +320,15 @@ if __name__ == "__main__":
             "  mora em bars.log)."
         )
         _sys.exit(0)
+    # E135 — O DISPARO ÚNICO: o elite-daemon session chama este modo a
+    # CADA evento de som do netlink (hotplug de fone/BT/DAC/jack) — o
+    # roteamento é POR EVENTO e o python deixa de ser RESIDENTE (a
+    # ordem do dono do dump 101339: zero python3 residente na sessão;
+    # o daemon de roteamento residente morre, a LEI de roteamento é a
+    # MESMA — o evaluate() é o cérebro e fica 1:1).
+    if len(_sys.argv) > 1 and _sys.argv[1] == "--once":
+        log("once: roteamento por evento (E135 — o residente morreu)")
+        wait_audio()
+        evaluate(set(), "once")
+        _sys.exit(0)
     main()

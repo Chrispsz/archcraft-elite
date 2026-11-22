@@ -38,14 +38,16 @@ use std::collections::HashMap;
 use std::os::unix::fs::MetadataExt;
 use std::os::unix::io::AsRawFd;
 use std::path::PathBuf;
+use std::io::{Read, Write};
+use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::sync::{Arc, Condvar, Mutex};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 mod scan;
 mod supervise;
 
-const VERSION: &str = "2.0.0";
+const VERSION: &str = "2.1.0";
 
 /// E132 — a janela do debounce (o gm_hook do craft-game, 1:1): o INÍCIO
 /// espera 3s em fundo antes de notificar; o FIM de sessão <3s é pulo
@@ -68,14 +70,17 @@ fn instala_sinais() {
 }
 
 fn usage() -> &'static str {
-    "uso: elite-daemon [--once | supervise | --help | --version]\n\
+    "uso: elite-daemon [--once | supervise | session | --help | --version]\n\
      \x20 o detector de jogo unificado (E132) — registra a família no GameMode\n\
      \x20 por D-Bus nativo, aplica o EPP performance na sessão de jogo, sinaliza\n\
      \x20 a waybar (SIGRTMIN+8) e notifica com debounce de 3s; instância única\n\
      \x20 por flock; SIGTERM des-registra, devolve o EPP e sai limpo.\n\
      \x20 --once = uma rodada (a porta dos testes).\n\
      \x20 supervise = o supervisor dos residentes da sessão (swaync, udiskie,\n\
-     \x20 swayosd, craft-audio-route — respawn com backoff de 2s).\n"
+     \x20 swayosd — respawn com backoff de 2s).\n\
+     \x20 session = E135 — O LANÇADOR ÚNICO da sessão gráfica (clientes de\n\
+     \x20 display + residentes com o gate de posse; o craft-bars shell vira\n\
+     \x20 `exec elite-daemon session` — zero /bin/sh residente).\n"
 }
 
 fn main() {
@@ -104,6 +109,16 @@ fn main() {
             Ok(()) => std::process::exit(0),
             Err(e) => {
                 eprintln!("elite-daemon supervise: {}", e);
+                std::process::exit(1);
+            }
+        },
+        // E135 — a porta session: O LANÇADOR ÚNICO da sessão gráfica
+        // (clientes de display + residentes com o gate de posse E135;
+        // o craft-bars shell vira exec — o /bin/sh some do ps).
+        Some("session") => match supervise::run_session() {
+            Ok(()) => std::process::exit(0),
+            Err(e) => {
+                eprintln!("elite-daemon session: {}", e);
                 std::process::exit(1);
             }
         },
@@ -203,8 +218,17 @@ fn epp_aplica(valor: &str) -> usize {
 /// corrente (leitura de /proc + libc::kill — NENHUM fork de pgrep; o
 /// módulo waybar da casa relê o pill do modo no sinal).
 fn sinal_waybar() -> usize {
+    sinal_waybar_sig(8)
+}
+
+/// E135 — o sinal da topbar com NÚMERO parametrizável: SIGRTMIN+N em
+/// todo waybar do uid corrente. +8 = o pill do jogo; +9 = a pílula dos
+/// apps em 2º plano (o EVENTO dos 2º planos — o módulo custom/bgapps da
+/// casa relê no sinal: o fork de `craft-bgapps status` a cada 5s do réu
+/// do dump 101339 — 25% de CPU e zumbis pkill — morre).
+fn sinal_waybar_sig(offset: i32) -> usize {
     let uid = unsafe { libc::getuid() };
-    let sig = unsafe { libc::SIGRTMIN() } + 8;
+    let sig = unsafe { libc::SIGRTMIN() } + offset;
     let Ok(dir) = std::fs::read_dir("/proc") else { return 0 };
     let mut n = 0usize;
     for entry in dir.flatten() {
@@ -242,6 +266,290 @@ fn escreve_pid_watch() {
     let _ = std::fs::write(run_dir.join("game-watch.pid"), format!("{}\n", std::process::id()));
 }
 
+
+// ════════════════════════════════════════════════════════════════════════
+// E135 — OS OUVIDORES DE EVENTO (a lei do dono: ZERO polling — toda
+// supervisão, roteamento e display operam por sinal dentro do daemon):
+//   · netlink uevent (AF_NETLINK, KOBJECT_UEVENT) — SOM: hotplug de
+//     fone/BT/DAC/jack dispara UM `craft-audio-route --once` (o roteador
+//     python deixa de ser residente); DRM: hotplug de monitor dispara UM
+//     `craft-display apply` (o watch shell deixa de ser residente);
+//   · logind (D-Bus nativo) — PrepareForSleep(false) e Unlock disparam UM
+//     `craft-display apply` (o __login1-watch shell morre);
+//   · session bus NameOwnerChanged — SIGRTMIN+9 à waybar (a pílula dos
+//     apps em 2º plano é EVENTO, não fork de 5s em 5s);
+//   · toplevel.sock EVT — a mudança de janelas acorda o loop do jogo
+//     (a detecção é por EVENTO + inspeção única de /proc; o tick de 5s
+//     sobrevive só como cinto de segurança dos windowless).
+// Todos os dispara-um-comando são fork POR EVENTO (raro, não residencial
+// — a lei é contra RESIDENTES em sh/bash/python, nunca contra o fork
+// pontual que a infra shell da casa já sabe fazer).
+// ════════════════════════════════════════════════════════════════════════
+
+fn agora_ms() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+/// o fork pontual por evento: stdin/stdout/stderr nulos (nada de filho
+/// falando no papel do daemon).
+fn dispara(comando: &str, args: &[&str]) {
+    let _ = Command::new(comando)
+        .args(args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn();
+}
+
+/// o ouvidor de uevents do kernel (SOCK_RAW + NETLINK_KOBJECT_UEVENT,
+/// grupo 1 multicast — a fila de eventos da casa, zero dependência).
+fn thread_netlink() {
+    unsafe {
+        let fd = libc::socket(
+            libc::AF_NETLINK,
+            libc::SOCK_RAW | libc::SOCK_CLOEXEC,
+            libc::NETLINK_KOBJECT_UEVENT,
+        );
+        if fd < 0 {
+            eprintln!("elite-daemon: netlink indisponível — eventos de som/drm sem ouvidor");
+            return;
+        }
+        // nl_pad é campo PRIVADO no libc 0.2.191 — o zeroed é a via
+        // (os campos públicos recebem os valores depois)
+        let mut addr: libc::sockaddr_nl = std::mem::zeroed();
+        addr.nl_family = libc::AF_NETLINK as u16;
+        addr.nl_groups = 1;
+        if libc::bind(
+            fd,
+            &addr as *const _ as *const libc::sockaddr,
+            std::mem::size_of::<libc::sockaddr_nl>() as u32,
+        ) != 0
+        {
+            libc::close(fd);
+            return;
+        }
+        let mut buf = [0u8; 8192];
+        let mut last_snd = 0u64;
+        let mut last_drm = 0u64;
+        loop {
+            if STOP.load(Ordering::SeqCst) {
+                libc::close(fd);
+                return;
+            }
+            let n = libc::recv(
+                fd,
+                buf.as_mut_ptr() as *mut libc::c_void,
+                buf.len(),
+                0,
+            );
+            if n <= 0 {
+                std::thread::sleep(Duration::from_millis(500));
+                continue;
+            }
+            let data = String::from_utf8_lossy(&buf[..n as usize]);
+            let agora = agora_ms();
+            // SOM: hotplug de fone/BT/DAC/jack (o roteador decide o resto)
+            if (data.contains("/sound/") || data.contains("SUBSYSTEM=sound"))
+                && agora.saturating_sub(last_snd) > 800
+            {
+                last_snd = agora;
+                dispara("/usr/local/bin/craft-audio-route", &["--once"]);
+            }
+            // DRM: monitor plugado/desplugado → o arranjo do dono volta
+            if (data.contains("/drm") || data.contains("SUBSYSTEM=drm"))
+                && agora.saturating_sub(last_drm) > 800
+            {
+                last_drm = agora;
+                dispara("/usr/local/bin/craft-display", &["apply"]);
+            }
+        }
+    }
+}
+
+/// o ouvidor do logind: acordou OU desbloqueou → o arranjo do dono volta
+/// (o imediato é lei E118 — o fork é UM por evento, não residente).
+fn thread_logind(nome_sinal: &str, corpo_bool: bool) {
+    let Ok(c) = zbus::blocking::Connection::system() else {
+        return;
+    };
+    let Ok(p) = zbus::blocking::Proxy::new(
+        &c,
+        "org.freedesktop.login1",
+        "/org/freedesktop/login1",
+        "org.freedesktop.login1.Manager",
+    ) else {
+        return;
+    };
+    let Ok(mut sig) = p.receive_signal(nome_sinal) else {
+        return;
+    };
+    // o MessageIterator BLOCKING rende Message direto (o erro interno
+    // da conexão já é tratado pela própria camada blocking da zbus)
+    for m in sig {
+        if STOP.load(Ordering::SeqCst) {
+            return;
+        }
+        if corpo_bool {
+            // PrepareForSleep: o corpo é (b starting) — acordou é false
+            if let Ok((start,)) = m.body().deserialize::<(bool,)>() {
+                if !start {
+                    dispara("/usr/local/bin/craft-display", &["apply"]);
+                }
+            }
+        } else {
+            // Unlock/Lock: o corpo é (s interface) — qualquer um conta
+            let _ = m.body().deserialize::<(String,)>();
+            dispara("/usr/local/bin/craft-display", &["apply"]);
+        }
+    }
+}
+
+/// o ouvidor do session bus: o nome de QUALQUER app nasceu/morreu →
+/// SIGRTMIN+9 (a pílula dos 2º planos relê; debounce embutido nos
+/// rajadas de birth+death do mesmo app — o kill só sai após 200ms
+/// de silêncio, sem drenar a CPU em rajada de D-Bus).
+fn thread_bus_bgapps() {
+    let Ok(c) = zbus::blocking::Connection::session() else {
+        return;
+    };
+    let Ok(p) = zbus::blocking::Proxy::new(
+        &c,
+        "org.freedesktop.DBus",
+        "/org/freedesktop/DBus",
+        "org.freedesktop.DBus",
+    ) else {
+        return;
+    };
+    let Ok(mut sig) = p.receive_signal("NameOwnerChanged") else {
+        return;
+    };
+    let mut pendente = false;
+    let mut desde = Instant::now();
+    loop {
+        // um read com timeout curto drena o sinal; o debounce agrupa
+        std::thread::sleep(Duration::from_millis(50));
+        if STOP.load(Ordering::SeqCst) {
+            return;
+        }
+        if sig.next().is_some() {
+            if !pendente {
+                pendente = true;
+                desde = Instant::now();
+            }
+        }
+        if pendente && desde.elapsed() >= Duration::from_millis(200) {
+            pendente = false;
+            sinal_waybar_sig(9);
+        }
+    }
+}
+
+/// o ouvidor do toplevel.sock: o canal EVT do craft-toplevel acorda o
+/// loop do jogo (a detecção por EVENTO — o réu do loop 5s gravando no
+/// game.log morre; o tick sobrevive só como cinto dos windowless).
+/// A reconexão é backoff exponencial 5ms → 20ms → 100ms (a ordem do
+/// dono — o fallback de 5s morto não existe mais).
+fn thread_toplevel_evt(frete: Arc<(Mutex<bool>, Condvar)>) {
+    let caminho = std::env::var("XDG_RUNTIME_DIR")
+        .map(|d| PathBuf::from(d).join("elite/toplevel.sock"))
+        .unwrap_or_else(|_| PathBuf::from("/tmp/elite/toplevel.sock"));
+    let mut back = 5u64;
+    loop {
+        if STOP.load(Ordering::SeqCst) {
+            return;
+        }
+        match std::os::unix::net::UnixStream::connect(&caminho) {
+            Ok(mut s) => {
+                back = 5;
+                if s.write_all(b"EVT ON\n").is_err() {
+                    continue;
+                }
+                let _ = s.set_read_timeout(Some(Duration::from_secs(30)));
+                let mut buf = [0u8; 4096];
+                loop {
+                    match s.read(&mut buf) {
+                        Ok(n) if n > 0 => {
+                            if buf[..n].windows(3).any(|w| w == b"EVT") {
+                                let (l, cv) = &*frete;
+                                let mut vivo = l.lock().unwrap();
+                                *vivo = true;
+                                cv.notify_all();
+                            }
+                        }
+                        _ => break, // caiu: o giro seguinte reconecta
+                    }
+                    if STOP.load(Ordering::SeqCst) {
+                        return;
+                    }
+                }
+            }
+            Err(_) => {
+                // backoff exponencial 5 → 20 → 100ms (teto na lei)
+                std::thread::sleep(Duration::from_millis(back));
+                back = (back * 4).min(100);
+            }
+        }
+    }
+}
+
+/// E135 — o PERFIL DE GPU (amdgpu sysfs): power_dpm_force_performance_level
+/// → "high" na sessão de jogo, o valor ANTERIOR devolvido ao sair (a
+/// memória é a função pura abaixo, testada). LACT segue no ar para o
+/// resto — aqui só o perfil da sessão.
+fn gpu_aplica(valor: &str) -> Vec<(PathBuf, String)> {
+    let mut mem: Vec<(PathBuf, String)> = Vec::new();
+    let Ok(dir) = std::fs::read_dir("/sys/class/drm") else {
+        return mem;
+    };
+    for entry in dir.flatten() {
+        let nome = entry.file_name();
+        let Some(nome) = nome.to_str() else { continue };
+        if !nome.starts_with("card") || nome.contains('-') {
+            continue; // card1-DP-1 é conector — o perfil mora no card
+        }
+        let p = entry.path().join("device/power_dpm_force_performance_level");
+        let Ok(atual) = std::fs::read_to_string(&p) else { continue };
+        if atual.trim() == valor {
+            continue; // já é: idempotente
+        }
+        if std::fs::write(&p, valor).is_ok() {
+            mem.push((p, atual.trim().to_string()));
+        }
+    }
+    mem
+}
+
+fn gpu_restaura(mem: Vec<(PathBuf, String)>) -> usize {
+    let mut n = 0;
+    for (p, valor) in mem {
+        if std::fs::write(&p, &valor).is_ok() {
+            n += 1;
+        }
+    }
+    n
+}
+
+/// E135 — o Não Perturbe do swaync na sessão de jogo (D-Bus NATIVO do
+/// org.erikreider.swaync.cc — GetDnd primeiro: só TOGGLA quem estava
+/// desligado, o restauro é SIMÉTRICO; o dono que já dormia o swaync
+/// não acorda com o jogo). Sem bus/sem swaync = None (honesto).
+fn dnd_troca() -> Option<bool> {
+    let c = zbus::blocking::Connection::session().ok()?;
+    let p = zbus::blocking::Proxy::new(
+        &c,
+        "org.erikreider.swaync.cc",
+        "/org/erikreider/swaync/cc",
+        "org.erikreider.swaync.cc",
+    )
+    .ok()?;
+    let estava: bool = p.call::<_, _, bool>("GetDnd", &()).ok()?;
+    let _: Result<(), _> = p.call_noreply("ToggleDnd", &());
+    Some(estava)
+}
+
 fn daemon_loop() -> Result<(), String> {
     // instância única (E30): flock no arquivo — o 2º processo sai 0.
     let lock = PathBuf::from("/tmp/elite-daemon.lock");
@@ -258,8 +566,22 @@ fn daemon_loop() -> Result<(), String> {
     instala_sinais();
     escreve_pid_watch();
 
+    // E135 — os OUVIDORES DE EVENTO sobem com o daemon (o corpo é um só;
+    // cada thread é um epoll/read(2) dormindo — zero CPU em repouso):
+    let frete = Arc::new((Mutex::new(false), Condvar::new()));
+    {
+        let f = Arc::clone(&frete);
+        std::thread::spawn(move || thread_toplevel_evt(f));
+    }
+    std::thread::spawn(thread_netlink);
+    std::thread::spawn(|| thread_logind("PrepareForSleep", true));
+    std::thread::spawn(|| thread_logind("Unlock", false));
+    std::thread::spawn(thread_bus_bgapps);
+    eprintln!("elite-daemon: ouvidores no ar (toplevel EVT, netlink som/drm, logind sono/unlock, bus bgapps)");
+
     let mut held: HashMap<i32, String> = HashMap::new();
     let mut retire = 0u32;
+    let mut rodadas = 0u64;
     let conn = scan::gm_connect();
 
     // E132 — o estado da SESSÃO de jogo (a máquina das transições):
@@ -268,6 +590,13 @@ fn daemon_loop() -> Result<(), String> {
     // uma sessão confirmada é notícia; pulo transitório não é).
     let mut sessao_ativa = false;
     let mut iniciada_em = 0u64;
+    // E135 — a memória da SESSÃO: o perfil de GPU anterior (o sysfs
+    // devolve), o estado do DND do swaync e o inhibitor lock do logind
+    // (o lock/apagamento de tela NÃO morrem durante a partida — o fd
+    // solto é o fim da inibição; o dono suspender à mão segue livre).
+    let mut gpu_mem: Vec<(PathBuf, String)> = Vec::new();
+    let mut dnd_era: Option<bool> = None;
+    let mut inhibitor: Option<zbus::zvariant::OwnedFd> = None;
     // o token de geração cancela a thread de debounce pendente quando a
     // sessão cai dentro da janela (o AtomicBool 'confirmada' é escrita
     // PELA thread e lida pelo loop — o estado de 2 pontas, sem lock).
@@ -307,10 +636,33 @@ fn daemon_loop() -> Result<(), String> {
             // a thread do debounce (3s em fundo — o pulo transitório do
             // Hydra morre na janela, não na tela do dono)
             let n = epp_aplica("performance");
+            gpu_mem = gpu_aplica("high");
+            dnd_era = dnd_troca();
+            // o inhibitor do logind (nativo): o lock/apagamento dorme
+            {
+                if let Ok(c) = zbus::blocking::Connection::system() {
+                    if let Ok(p) = zbus::blocking::Proxy::new(
+                        &c,
+                        "org.freedesktop.login1",
+                        "/org/freedesktop/login1",
+                        "org.freedesktop.login1.Manager",
+                    ) {
+                        inhibitor = p
+                            .call::<_, _, zbus::zvariant::OwnedFd>(
+                                "Inhibit",
+                                &("idle", "elite", "Modo de jogo ativo", "block"),
+                            )
+                            .ok();
+                    }
+                }
+            }
             eprintln!(
-                "elite-daemon: sessão de jogo ATIVA — EPP performance em {} cpu(s) writável(is) + {} waybar(s) avisada(s)",
+                "elite-daemon: sessão de jogo ATIVA — EPP performance em {} cpu(s) + GPU high em {} card(s) + DND {} + {} waybar(s) avisada(s) + inhibitor logind {}",
                 n,
-                sinal_waybar()
+                gpu_mem.len(),
+                if dnd_era.is_some() { "ligado" } else { "indisponível" },
+                sinal_waybar(),
+                if inhibitor.is_some() { "ARMADO" } else { "sem (honesto)" }
             );
             iniciada_em = agora_epoch();
             confirmada.store(false, Ordering::SeqCst);
@@ -339,9 +691,16 @@ fn daemon_loop() -> Result<(), String> {
             token.fetch_add(1, Ordering::SeqCst); // cancela a thread da janela
             let confirmou = confirmada.load(Ordering::SeqCst);
             let n = epp_aplica("balance_performance");
+            let gpu_devolvida = gpu_restaura(std::mem::take(&mut gpu_mem));
+            if dnd_era.take() == Some(false) {
+                // só DEVOLVE quem a casa ligou (o toggles são simétricos)
+                let _ = dnd_troca();
+            }
+            drop(inhibitor.take());
             eprintln!(
-                "elite-daemon: sessão de jogo FIM — EPP balance_performance em {} cpu(s) writável(is) + {} waybar(s) avisada(s){}",
+                "elite-daemon: sessão de jogo FIM — EPP balance_performance em {} cpu(s) + GPU restaurada em {} card(s) + {} waybar(s) avisada(s){}",
                 n,
+                gpu_devolvida,
                 sinal_waybar(),
                 if confirmou { " (sessão confirmada — dono avisado)" } else { " (pulo transitório <3s: silêncio na notícia)" }
             );
@@ -372,15 +731,44 @@ fn daemon_loop() -> Result<(), String> {
             }
             if sessao_ativa {
                 let n = epp_aplica("balance_performance");
+                let gpu_devolvida = gpu_restaura(std::mem::take(&mut gpu_mem));
+                if dnd_era.take() == Some(false) {
+                    let _ = dnd_troca();
+                }
+                drop(inhibitor.take());
                 eprintln!(
-                    "elite-daemon: SIGTERM — {} jogo(s) liberado(s), EPP devolvido em {} cpu(s)",
+                    "elite-daemon: SIGTERM — {} jogo(s) liberado(s), EPP devolvido em {} cpu(s), GPU restaurada em {} card(s)",
                     held.len(),
-                    n
+                    n,
+                    gpu_devolvida
                 );
             }
             return Ok(());
         }
-        std::thread::sleep(std::time::Duration::from_secs(5));
+        // E135 — o SLEEP MORREU: o loop dorme no condvar e o canal EVT
+        // do toplevel.sock o acorda (a detecção é POR EVENTO — a janela
+        // que nasce é o jogo anunciando; o teto de 5s sobrevive como
+        // cinto dos processos windowless). Cada 6 rodadas de cinto
+        // (30s) a pílula dos 2º planos relê (a segurança dos apps que
+        // não tomam nome no bus — o EVENTO deles é o NameOwnerChanged).
+        let (l, cv) = &*frete;
+        let mut vivo = l.lock().unwrap();
+        let (guarda, _timeout) = cv
+            .wait_timeout(vivo, std::time::Duration::from_secs(5))
+            .unwrap();
+        vivo = guarda;
+        let acordou_por_evento = *vivo;
+        *vivo = false;
+        drop(vivo);
+        if acordou_por_evento {
+            // o rajada de EVT assenta 250ms antes da inspeção única de
+            // /proc (uma rodada por rajada, nunca uma por evento bruto)
+            std::thread::sleep(std::time::Duration::from_millis(250));
+        }
+        rodadas += 1;
+        if rodadas % 6 == 0 {
+            sinal_waybar_sig(9);
+        }
     }
 }
 
