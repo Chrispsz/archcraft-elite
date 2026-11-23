@@ -110,11 +110,22 @@ if [ -f /etc/udev/rules.d/90-elite-wake-guard.rules ] \
     fi
 fi
 tlog "wake-guard observado: ${armadas} fonte(s) ACPI armada(s) em /proc/acpi/wakeup (política E122: teclado acorda · mouse dorme)"
+# E137 — A REGRA DO SWAPPINESS NO AR: a 81-elite-zram (pacote) defende o
+# 180 do 30-zram.rules do vendor no EVENTO do zram0; o udevd relê AGORA
+# para a dose valer SEM reboot (idempotente — reload a mais é no-op)
+if [ -f /usr/lib/udev/rules.d/81-elite-zram.rules ] || [ -f /etc/udev/rules.d/81-elite-zram.rules ]; then
+    udevadm control --reload 2>/dev/null || true
+    tlog "zram-swappiness E137: regra 81-elite-zram no ar (o udevd relê — o 180 vence o 150 do vendor no próximo evento do zram0)"
+fi
 
-# ── 3. A VIGÍLIA DO SYSCTL DA CASA (E101) — o drift que outro pacote ────
-#     impõe por cima (prova do papel: swappiness 150 vs 180, 10/nov).
-#     Comparação por chave (o conf da casa é a FONTE; o kernel é o vivo):
-#     só chave presente NO CONF é julgada — nada da casa invadiu o alheio.
+# ── 3. A VIGÍLIA DO SYSCTL DA CASA (E101→E137) — o drift que outro ──────
+#     pacote impõe por cima. O RÉU TEM NOME desde o dump 201219: o
+#     30-zram.rules do cachyos-settings escreve vm.swappiness=150 NO
+#     EVENTO do zram0 (depois do systemd-sysctl); a regra 81-elite-zram
+#     do pacote o recoloca em 180 NO MESMO EVENTO (ordem lexical) — esta
+#     vigília é a REDE sob o mecanismo (cura na dose, confirmação no
+#     boot seguinte). Comparação por chave (o conf da casa é a FONTE; o
+#     kernel é o vivo): só chave presente NO CONF é julgada.
 if [ -r "$ELITE_SYSCTL" ]; then
     drift=""
     while IFS= read -r line; do

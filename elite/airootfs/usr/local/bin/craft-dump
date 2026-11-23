@@ -369,6 +369,14 @@ fi
     # arquivo — quem chama sysctl à mão (sysctl -w/--system/systemd-sysctl)
     # em bins da casa, units do sistema e hooks do sono é fotografado.
     r "grep -rns 'sysctl -w\|sysctl --system\|systemd-sysctl' /usr/local/bin/ /etc/systemd/system/ /usr/lib/systemd/system/ /usr/lib/systemd/system-sleep/ 2>/dev/null | head -15" 16
+    # E137 — O RÉU DO DRIFT TEM NOME E ENDEREÇO: o cachyos-settings navio
+    # /usr/lib/udev/rules.d/30-zram.rules escreve vm.swappiness=150 NO
+    # EVENTO DE INICIALIZAÇÃO do zram0 (DEPOIS do systemd-sysctl — a
+    # prova do dump 201219: kernel em 150 com /etc pedindo 180, só muda
+    # quando o post-transaction re-aplica). As regras udev do zram de
+    # TODOS os dir entram no papel — a 81 da casa precisa aparecer VIVA
+    # ao lado da 30 do vendor.
+    r "for f in /etc/udev/rules.d/*zram*.rules /usr/lib/udev/rules.d/*zram*.rules; do [ -f \"\$f\" ] && { echo \"── \$f\"; cat \"\$f\"; }; done; true" 10
     r "journalctl -b -u systemd-sysctl.service --no-pager 2>/dev/null | tail -5 || echo '(sem journal da unit — o boot não reclamou)'" 6
     r "cat /sys/kernel/mm/transparent_hugepage/enabled 2>/dev/null" 2
     r "sysctl net.ipv4.tcp_congestion_control net.core.default_qdisc 2>/dev/null" 3
@@ -437,18 +445,18 @@ fi
     # Xorg, NetworkManager — a dock e o swayidle do dono eram invisíveis)
     r "ps -u $DUMP_UID -o pid,pcpu,pmem,comm --sort=-pcpu | head -25" 30
     r "pgrep -a labwc | head -3" 4
-    # v2.10.6: contagem ANCORADA ('-f' solto somava editor com o fonte).
-    # E134 — a dock é o binário Rust craft-dock-rs (o Python aposentado);
-    # o fóssil Python da dose anterior AINDA conta (a migração nomeia os dois)
-    printf 'waybar=%s · dock_rs=%s · dock_python_fossil=%s (cmdline ancorada)\n' \
+    # E137 — O MOTOR DA SESSÃO NO PAPEL: a contagem fóssil morre (o
+    # dock_python_fossil contava um binário Python aposentado na E134 e o
+    # craft-bars pós-exec NUNCA aparece no ps — o número mentia 0 com a
+    # casa sã). O que importa: o LANÇADOR REAL (elite-daemon) + os
+    # componentes por COMM (a dock contada por cmdline completo dava 0
+    # com o spawn por PATH do daemon — o dump 201219 fotografou
+    # DOCK_COUNT=0 com a dock viva no ps ao lado).
+    printf 'waybar=%s · dock_rs=%s · elite_daemon=%s · swayidle=%s (comm exato)\n' \
         "$(pgrep -c waybar 2>/dev/null)" \
-        "$(pgrep -u "$DUMP_UID" -fc '^/usr/local/bin/craft-dock-rs$' 2>/dev/null)" \
-        "$(pgrep -u "$DUMP_UID" -fc '^/usr/bin/python3 /usr/local/bin/craft-dock-gui$' 2>/dev/null)"
-    # v2.10.8 — o idle na prova: swayidle (lock/DPMS/suspend) e o supervisor
-    # (a reclamação 'o PC não entra em idle' precisa de réu nomeado)
-    printf 'swayidle=%s · craft-bars=%s\n' \
-        "$(pgrep -c swayidle 2>/dev/null)" \
-        "$(pgrep -c craft-bars 2>/dev/null)"
+        "$(pgrep -c -x craft-dock-rs 2>/dev/null)" \
+        "$(pgrep -c -x elite-daemon 2>/dev/null)" \
+        "$(pgrep -c swayidle 2>/dev/null)"
     if [ -f "$UCACHE/elite/bars.log" ]; then
         r "grep -c 'SAIU exit' $UCACHE/elite/bars.log 2>/dev/null" 2
         printf '\n── supervisão: as últimas mortes/reinícios (o detalhe do count)\n'

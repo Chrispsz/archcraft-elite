@@ -502,7 +502,12 @@ cp -p /work/elite/airootfs/etc/skel/.config/swayosd/style.css \
 # rig pela ordem lexical do udev (nomes diferentes SOMAM, não substituem)
 # e o elite-post-transaction aposenta o fóssil com voz na 1ª dose.
 mkdir -p /tmp/elite-src/elite-system/files/usr/lib/udev/rules.d
-cp -p /work/elite/airootfs/etc/udev/rules.d/90-elite-wake-guard.rules \
+# E137 — A FONTE ÚNICA: a regra mora no airootfs já no caminho CANÔNICO
+# /usr/lib/udev/rules.d/91-* (a cópia /etc/90- do airootfs morreu — era
+# DUPLICATA na ISO: a 90 do overlay E a 91 do pacote rodavam JUNTAS no
+# mesmo evento; os fósseis /etc/90 dos rigs seguem aposentados pelo
+# post-transaction como sempre)
+cp -p /work/elite/airootfs/usr/lib/udev/rules.d/91-elite-wake-guard.rules \
       /tmp/elite-src/elite-system/files/usr/lib/udev/rules.d/91-elite-wake-guard.rules
 # E128 — A AUTORIZAÇÃO DA CASA NO PACOTE: a regra 50-elite-wheel.rules
 # (pkexec de craft-clean / elite-update / craft-update SEM senha para
@@ -535,6 +540,13 @@ mkdir -p /tmp/elite-src/elite-system/files/etc/sysctl.d \
          /tmp/elite-src/elite-system/files/etc/systemd/system/scx_loader.service.d
 cp -p /work/elite/airootfs/etc/sysctl.d/99-elite-performance.conf \
       /tmp/elite-src/elite-system/files/etc/sysctl.d/99-elite-performance.conf
+# E137 — A REGRA DO SWAPPINESS SEM DRIFT NO PACOTE: a 81-elite-zram.rules
+# (a /etc, COM DONO — o pacman a atualiza em toda dose) vence o
+# 30-zram.rules do cachyos-settings NO MESMO evento do zram0 por ordem
+# lexical (o réu do boot em 150 fotografado no dump 201219). O
+# post-transaction faz o udevd relê-la na hora — a dose vale sem reboot.
+cp -p /work/elite/airootfs/etc/udev/rules.d/81-elite-zram.rules \
+      /tmp/elite-src/elite-system/files/etc/udev/rules.d/81-elite-zram.rules
 cp -p /work/elite/airootfs/etc/modules-load.d/elite-ntsync.conf \
       /tmp/elite-src/elite-system/files/etc/modules-load.d/elite-ntsync.conf
 cp -p /work/elite/airootfs/etc/modules-load.d/elite-sensors.conf \
@@ -2638,7 +2650,7 @@ pkgver=1.0
 #     (6) O craft-clean ganha o pulso do fim (systemctl --failed) e o
 #         craft-dump fotografa o kernel moderno inteiro (scx/ntsync/
 #         sensores/MGLRU/BBR/cmdline).
-pkgrel=84
+pkgrel=85
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da sessão; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
@@ -3076,18 +3088,12 @@ aur_build() { # $1 = nome do pacote AUR
 if ! ls /var/cache/elite-local/pwvucontrol-*.pkg.tar.zst >/dev/null 2>&1; then
     aur_build pwvucontrol  || exit 1
 fi
-# E134 — OVERSKRIDE (o gerenciador Bluetooth GRÁFICO da casa, GTK4/
-# libadwaita/Wayland — a ordem do dono no lugar do bluetui TUI):
-# procedência provada na ENTRADA (a escola do pin — archlinux.org/
-# packages/search/json → ZERO resultados nos repos oficiais; AUR
-# 'overskride' 0.6.6 newest conferido via repology.org/api/v1/project/
-# overskride). Mesmo canal do pwvucontrol: clona o AUR, compila como
-# usuário descartável e o pacote entra no [elite-local] — a ISO nasce
-# com ele e o canal da release entrega ao rig (a ADOCAO do
-# craft-update resolve por pacman, sem AUR no rig).
-if ! ls /var/cache/elite-local/overskride-*.pkg.tar.zst >/dev/null 2>&1; then
-    aur_build overskride  || exit 1
-fi
+# E134→E137 — OVERSKRIDE APOSENTADO: o estágio AUR sai INTEIRO (a ordem
+# do dono, PROMPT 3/dump 201219: o pacote nunca resolveu no caminho dos
+# rigs — 'erro: alvo não encontrado: overskride' em TODA dose desde a
+# E134, e o build AUR era o elo que não fechava). O Bluetooth gráfico é
+# a PRÓPRIA central do craft-connect (menu fuzzel + bluetoothctl —
+# bluez/bluez-utils já na base; 100% GUI, zero terminal, zero AUR).
 rm -f /etc/sudoers.d/builder
 
 # E101 — O db NASCE DE NOVO TODO BUILD: o db restaurado do cache carrega

@@ -1,58 +1,69 @@
-#!/usr/bin/env bash
+#!/bin/sh
 # ═══════════════════════════════════════════════════════════════════════════
-# elite-gparted — O GPARTED QUE VESTE A SESSÃO (E95)
+# elite-gparted — O GPARTED QUE VESTE A SESSÃO (E95 → E137)
 # ───────────────────────────────────────────────────────────────────────────
-# A DOENÇA (relato do dono 08/11: "o gparted não vem funcionando por
-# padrão, ele não abre a interface mesmo depois de eu colocar a senha"):
-# o gparted 1.8 pede root ao pkexec INTERNAMENTE — o agente polkit pede a
-# senha (o dump 225119 prova o diálogo vivo: 'raw entrou: polkit-gnome-
-# authentication-agent-1'), a senha É aceita… e o gparted-root morre rc=1
-# SEM mapear janela nenhuma ('guard liberado: gparted.desktop morreu sem
-# mapear (rc=1)' — a mesma prova, duas vezes, no mesmo boot). O réu é a
-# LEI DO PKEXEC: a transação exec o root com ambiente LIMPO — o
-# WAYLAND_DISPLAY/XDG_RUNTIME_DIR da sessão NÃO atravessam, a GDK do
-# gparted-root não acha o compositor e morre ("cannot open display").
-# Em X11 isso era parcialmente contornado; na sessão labwc (Wayland puro)
-# a morte é na certa.
+# POR QUÊ: o pkexec entrega ao root um ambiente LIMPO por lei. Sem
+# DISPLAY/XAUTHORITY válidos, a GDK do gparted-root morre com "cannot
+# open display" ANTES de mapear janela — o clique MURO do dump 201219
+# (20:11:54 e 20:11:57, duas tentativas, zero janela, zero aviso). O
+# XWayland exige um COOKIE do usuário: sem XAUTHORITY o root não tem
+# credencial nenhuma, mesmo com DISPLAY correto (e o XAUTHORITY="" vazio
+# da versão anterior era lido como caminho inexistente — pior que nada).
 #
-# A CURA: vestir o root com a sessão ANTES de ele nascer — 'pkexec env
-# VAR=valor… gparted' entrega o fio Wayland EXPLICITAMENTE. Como o
-# gparted já acorda ROOT, o pkexec interno NEM DISPARA (o pedido de senha
-# que o usuário vê é o ÚNICO; o agente pergunta uma vez e a interface
-# ABRE — o comportamento padrão que faltava). O canal de chegada é o
-# override /usr/local/share/applications/gparted.desktop (XDG_DATA_DIRS
-# põe /usr/local/share NA FRENTE — a dock, a gaveta e o fuzzel lançam
-# TODOS por aqui; o upstream em /usr/share fica intocado).
+# A CURA (3 camadas, nesta ordem):
+#   1. DESCOBRIR o display XWayland ativo (env, senão o socket vivo em
+#      /tmp/.X11-unix/X*) e o XAUTHORITY do usuário (env, senão
+#      ~/.Xauthority, senão os candidatos do $XDG_RUNTIME_DIR, senão um
+#      cookie temporário via xauth em /run/user/$UID — tmpfs da sessão,
+#      nunca em disco);
+#   2. O CINTO xhost +SI:localuser:root — o servidor X aceita o root
+#      LOCAL sem cookie (ServerInterpreted: sem rede, sem wildcard)
+#      quando o xhost existe na máquina;
+#   3. `pkexec env DISPLAY=… XAUTHORITY=… … /usr/bin/gpartedbin` — o
+#      BINÁRIO REAL direto: o wrapper /usr/bin/gparted só decide
+#      ELEVAÇÃO e, já root, executaria gpartedbin do mesmo jeito (o
+#      alvo NUNCA é um .desktop e o guard abaixo recusa se resolver
+#      para ESTE bin — não há loop recursivo possível).
 #
-# uso:      elite-gparted [ARQUIVO] — a senha é pedida UMA vez (polkit),
-#           e a interface abre na sessão de quem pediu.
-# bin:      /usr/local/bin/elite-gparted (chamado pelo gparted.desktop da
-#           casa — o Exec é o contrato, o bin é o motor)
-# seam:     ELITE_PKEXEC_BIN (default pkexec) e ELITE_GPARTED_BIN (default
-#           /usr/bin/gparted) — as portas de prova da suíte: o teste
-#           aponta para stubs e julga o VESTIMENTA (env + alvo) sem
-#           precisar de polkit nem de gparted instalado.
+# FEEDBACK (a ordem do dono: "nunca deixando o clique mudo"): só erro
+# REAL gera notify-send — cancelamento do diálogo, display morto,
+# binário ausente. Sucesso é silêncio + a janela aberta na sessão.
+#
+# uso:      elite-gparted [ARQUIVO] — a senha é pedida UMA vez (polkit)
+# bin:      /usr/local/bin/elite-gparted (chamado pelo gparted.desktop
+#           da casa — dock, gaveta e fuzzel lançam todos por aqui)
+# seam:     ELITE_PKEXEC_BIN (default pkexec), ELITE_GPARTED_BIN (alvo
+#           explícito da suíte), ELITE_X11_UNIX_DIR (default
+#           /tmp/.X11-unix — o diretório de sockets do teste) e
+#           ELITE_NOTIFY_BIN (default notify-send) — as portas de prova
+#           que julgam a VESTIMENTA sem polkit nem gparted instalados.
 # ═══════════════════════════════════════════════════════════════════════════
-set -euo pipefail
+set -eu
 
 uso() {
     printf '%s\n' \
         'uso: elite-gparted [ARQUIVO] — abre o GParted como root na sessão' \
-        '     Wayland viva (o pkexec nu despe o ambiente e a GDK root' \
-        '     morre — este bin veste o root com o fio do compositor).' \
+        '     viva (Wayland e XWayland): display e cookie X descobertos na' \
+        '     HORA, o root nasce vestido com o fio do usuário.' \
         '' \
-        '  a senha é pedida UMA vez pelo agente polkit da sessão.' \
-        '  chamado pelo gparted.desktop da casa (dock/gaveta/fuzzel).'
+        '  a senha é pedida UMA vez pelo agente polkit da sessão;' \
+        '  falha real gera notificação — o clique nunca é mudo.'
     exit 0
 }
 case "${1:-}" in -h|--help|uso) uso ;; esac
 
+# ── o alvo: o BINÁRIO REAL primeiro (gpartedbin), o wrapper como queda ─────
 GPARTED_BIN="${ELITE_GPARTED_BIN:-}"
 if [ -z "$GPARTED_BIN" ]; then
-    for cand in /usr/bin/gparted /usr/local/bin/gparted; do
+    for cand in /usr/bin/gpartedbin /usr/bin/gparted /usr/local/bin/gparted; do
         [ -x "$cand" ] && GPARTED_BIN="$cand" && break
     done
 fi
+case "$GPARTED_BIN" in
+    */elite-gparted|elite-gparted)
+        printf 'elite-gparted: o alvo resolveu para este próprio bin — loop recusado\n' >&2
+        exit 1 ;;
+esac
 if [ -z "$GPARTED_BIN" ] || [ ! -x "$GPARTED_BIN" ]; then
     printf 'elite-gparted: o binário do gparted não existe — instale-o (pacman -S gparted)\n' >&2
     exit 1
@@ -64,26 +75,91 @@ if ! command -v "$PKEXEC_BIN" >/dev/null 2>&1; then
     exit 1
 fi
 
-# A VESTIMENTA (a cura inteira é esta linha): cada variável viaja EXPLÍCITA
-# porque o pkexec entrega um ambiente LIMPO por lei — o que não é nomeado
-# não atravessa. O ${VAR:-} é o cinto: sessão sem X11 (labwc puro) não tem
-# DISPLAY/XAUTHORITY nenhum, e a string VAZIA no env é inócua — a GDK
-# Wayland só fala mesmo com WAYLAND_DISPLAY + XDG_RUNTIME_DIR.
-# E136 — O CINTO X11 DA PARTE 2/2 (a ordem do dono: pkexec + repasse via
-# xhost): em sessão com X11/XWayland o root vestido ainda precisa do
-# COOKIE do servidor — o xhost +SI:localuser:root abre a porta SÓ ao
-# root LOCAL (ServerInterpreted: sem rede, sem wildcard, sem o xhost +
-# perigoso). Wayland puro (labwc): o DISPLAY vem vazio e o cinto é um
-# no-op silencioso — o fio que importa é o WAYLAND_DISPLAY que a
-# vestimenta de baixo entrega explícito.
-if [ -n "${DISPLAY:-}" ] && command -v xhost >/dev/null 2>&1; then
-    xhost +SI:localuser:root >/dev/null 2>&1 || true
+# ── O DISPLAY: o env da sessão vence; senão o socket VIVO do XWayland ─────
+# (o socket precisa existir AGORA — número gravado no /tmp não é prova)
+DISP="${DISPLAY:-}"
+if [ -z "$DISP" ]; then
+    X11DIR="${ELITE_X11_UNIX_DIR:-/tmp/.X11-unix}"
+    if [ -d "$X11DIR" ]; then
+        for s in "$X11DIR"/X*; do
+            [ -S "$s" ] || continue
+            n="${s##*/}"; n="${n#X}"
+            case "$n" in ''|*[!0-9]*) continue ;; esac
+            DISP=":$n"
+            break
+        done
+    fi
 fi
 
-exec "$PKEXEC_BIN" env \
-    DISPLAY="${DISPLAY:-}" \
-    WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-}" \
-    XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-}" \
-    XDG_SESSION_TYPE="${XDG_SESSION_TYPE:-}" \
-    XAUTHORITY="${XAUTHORITY:-}" \
-    "$GPARTED_BIN" "$@"
+# ── O XAUTHORITY: a credencial do USUÁRIO que o root vai vestir ───────────
+XA="${XAUTHORITY:-}"
+if [ -z "$XA" ] && [ -n "$DISP" ]; then
+    RT="${XDG_RUNTIME_DIR:-/run/user/$(id -u 2>/dev/null || echo 0)}"
+    for cand in "$HOME/.Xauthority" "$RT/.Xauthority"; do
+        [ -f "$cand" ] && { XA="$cand"; break; }
+    done
+    if [ -z "$XA" ]; then
+        for cand in "$RT"/.Xauthority-*; do
+            [ -f "$cand" ] && { XA="$cand"; break; }
+        done
+    fi
+    # último recurso: UM cookie extraído para o display vivo — tmpfs da
+    # sessão (/run/user/$UID), nunca em disco; o servidor pode recusar a
+    # geração (best-effort calado — o cinto xhost vem logo abaixo)
+    if [ -z "$XA" ] && command -v xauth >/dev/null 2>&1; then
+        mkdir -p "$RT/elite" 2>/dev/null || true
+        ck="$RT/elite/gparted.xauth"
+        if xauth -f "$ck" generate "$DISP" . trusted >/dev/null 2>&1 && [ -s "$ck" ]; then
+            XA="$ck"
+        else
+            rm -f "$ck" 2>/dev/null || true
+        fi
+    fi
+fi
+
+# ── O CINTO xhost: o root LOCAL entra no X sem cookie (no-op honesto sem
+# X11 ou sem o xhost instalado — o fio principal segue sendo o WAYLAND)
+if [ -n "$DISP" ] && command -v xhost >/dev/null 2>&1; then
+    DISPLAY="$DISP" xhost +SI:localuser:root >/dev/null 2>&1 || true
+fi
+
+# ── A VESTIMENTA: cada variável viaja EXPLÍCITA (o pkexec entrega um
+# ambiente LIMPO — o que não é nomeado não atravessa) e só entra na lista
+# o valor NÃO-VAZIO (string vazia no env é ruído que a GDK lê como
+# caminho inexistente — o réu do XAUTHORITY="" fotografado no dump).
+# A MONTAGEM é por PREPEND em ordem reversa: $@ nasce como os argumentos
+# do USUÁRIO (%f do .desktop) e cada peça entra NA FRENTE — no fim,
+# $@ = env DISPLAY=… … alvo args… (um só set -- por peça, sem perder os
+# argumentos originais em variável nenhuma).
+set -- "$GPARTED_BIN" "$@"
+[ -n "$XA" ]                   && set -- "XAUTHORITY=$XA" "$@"
+[ -n "${XDG_SESSION_TYPE:-}" ] && set -- "XDG_SESSION_TYPE=$XDG_SESSION_TYPE" "$@"
+[ -n "${XDG_RUNTIME_DIR:-}" ]  && set -- "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR" "$@"
+[ -n "${WAYLAND_DISPLAY:-}" ]  && set -- "WAYLAND_DISPLAY=$WAYLAND_DISPLAY" "$@"
+[ -n "$DISP" ]                 && set -- "DISPLAY=$DISP" "$@"
+set -- env "$@"
+
+# ── a chamada: ESPERA o rc — o clique nunca é mudo (feedback só no erro).
+# O stderr do root cai num mktemp do usuário (o root escreve, o dono lê).
+errf="$(mktemp "${TMPDIR:-/tmp}/elite-gparted.XXXXXX" 2>/dev/null)" || errf=/dev/null
+rc=0
+"$PKEXEC_BIN" "$@" 2>"$errf" || rc=$?
+if [ "$rc" -ne 0 ]; then
+    motivo="terminou com erro (rc=$rc)"
+    [ "$rc" -eq 126 ] && motivo="a senha foi cancelada ou o agente polkit não respondeu"
+    [ "$rc" -eq 127 ] && motivo="o binário não foi encontrado no PATH do root"
+    det=""
+    [ -s "$errf" ] && det="$(tail -c 200 "$errf" 2>/dev/null | tr '\n' ' ')"
+    NOT="${ELITE_NOTIFY_BIN:-notify-send}"
+    if command -v "$NOT" >/dev/null 2>&1; then
+        "$NOT" -u normal -t 6000 'GParted' \
+            "Não abriu: $motivo${det:+ · último erro: $det}" >/dev/null 2>&1 || true
+    fi
+    # o papel da família (uma linha por erro REAL — nunca spam por tick)
+    BL="${XDG_CACHE_HOME:-$HOME/.cache}/elite/bars.log"
+    ( mkdir -p "${BL%/*}" 2>/dev/null
+      printf '[%s] elite-gparted: FALHOU rc=%s · display=%s · xauth=%s\n' \
+          "$(date '+%F %T')" "$rc" "${DISP:-nenhum}" "${XA:-nenhum}" >>"$BL" ) 2>/dev/null || true
+fi
+[ "$errf" = /dev/null ] || rm -f "$errf" 2>/dev/null || true
+exit "$rc"

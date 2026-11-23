@@ -17,7 +17,19 @@
 # ═══════════════════════════════════════════════════════════════════════════
 PINS_DIR="$HOME/.config/elite"
 PINS="$PINS_DIR/dock-pins"
-DESKTOP_DIRS="${XDG_DATA_HOME:-$HOME/.local/share}/applications /usr/local/share/applications /usr/share/applications"
+# E137 — OS CINCO DIRETÓRIOS XDG (o dump 201219 provou o buraco: o app
+# Flatpak do usuário 'it.mijorus.gearlever.desktop' mora em
+# ~/.local/share/flatpak/exports/share/applications — fora da lista, o
+# craft-pin add recusava "nenhum app casa" e o dono não fixava NENHUM
+# app de loja). A ordem é a precedência XDG (usuário → flatpak do
+# usuário → flatpak do sistema → /usr/local → /usr) — a MESMA varredura
+# do índice da dock Rust (icons::desktop_dirs): quem a dock vê, o pin
+# fixa (paridade total, resolução e ícone).
+DESKTOP_DIRS="${XDG_DATA_HOME:-$HOME/.local/share}/applications \
+${XDG_DATA_HOME:-$HOME/.local/share}/flatpak/exports/share/applications \
+/var/lib/flatpak/exports/share/applications \
+/usr/local/share/applications \
+/usr/share/applications"
 
 ensure_file() {
     mkdir -p "$PINS_DIR" 2>/dev/null

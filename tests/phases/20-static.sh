@@ -226,6 +226,51 @@ assert_eq "$uout" "OK 5" "systemd: 5 units parseiam (3 de sistema + 2 user v1.6.
 
 assert_grep "$U/elite-firstboot.service" '^ExecStart=/' "systemd: elite-firstboot.service ExecStart com caminho absoluto"
 
+# ── E137 — O PARSE ESTÁTICO DOS CONFIGS DA UI (a lição do fuzzel.ini ──────
+#    QUEBRADO: um sed do diário 747d245 comeu o '[m' do '[main]' em
+#    11-19 e a ISO nasceu DIAS com INI sem seção — o único parse era o do
+#    probe NO RIG (que lia o arquivo VELHO do home; o skel ninguém via).
+#    O contrato agora é ESTÁTICO: o skel parseia antes de qualquer ISO.
+# ──────────────────────────────────────────────────────────────────────────
+FUZ="$REPO/elite/airootfs/etc/skel/.config/fuzzel/fuzzel.ini"
+fuz_out="$(python3 - "$FUZ" 2>&1 <<'PYEOF' || true
+import configparser, sys
+cp = configparser.ConfigParser(strict=True)
+cp.read(sys.argv[1], encoding='utf-8')
+want = {'main', 'colors', 'border'}
+missing = want - set(cp.sections())
+assert not missing, f'sem seção(ões) {missing} (a classe do [main] comido)'
+assert cp.get('main', 'font') == 'JetBrainsMono NF:weight=regular:size=12', 'font errada'
+assert cp.get('main', 'keyboard-focus') == 'on-demand', 'keyboard-focus'
+assert cp.get('main', 'exit-on-keyboard-focus-loss') == 'yes', 'o nome certo da opção'
+assert cp.get('main', 'icons-enabled') == 'yes', 'icons-enabled'
+assert cp.get('colors', 'background') == '000000f2', 'o véu AMOLED'
+assert cp.getint('border', 'width') == 2, 'border width'
+print('OK FUZZEL')
+PYEOF
+)"
+assert_match "$fuz_out" 'OK FUZZEL' "E137: o fuzzel.ini do skel PARSEIA com as seções main+colors+border (o INI quebrou em 11-19 e nenhum gate viu — o parse agora é da suíte, antes da ISO)"
+WB="$REPO/elite/airootfs/etc/skel/.config/waybar/config.top"
+wb_out="$(python3 - "$WB" 2>&1 <<'PYEOF' || true
+import json, re, sys
+raw = open(sys.argv[1], encoding='utf-8').read()
+# waybar aceita JSONC: comentários de linha inteira (o estilo da casa —
+# a suíte confere que NENHUM // inline exista, o strip fica simples e o
+# contrato do estilo fica no papel)
+lines = [ln for ln in raw.splitlines() if not ln.lstrip().startswith('//')]
+cfg = json.loads('\n'.join(lines))
+for m in ('modules-left', 'modules-center', 'modules-right'):
+    assert isinstance(cfg.get(m), list), f'{m} ausente'
+assert 'custom/player' in json.dumps(cfg), 'o módulo do player'
+assert cfg['custom/player']['on-click'] == 'craft-player play-pause', 'o clique pelo juízo E137'
+print('OK WAYBAR')
+PYEOF
+)"
+assert_match "$wb_out" 'OK WAYBAR' "E137: o config.top parseia como JSONC (comentários de linha inteira fora; o on-click do player é o craft-player — o juízo silencioso no clique)"
+HYP="$REPO/elite/airootfs/etc/skel/.config/hypr/hyprlock.conf"
+assert_file "$HYP" "E137: o hyprlock.conf do skel existe (a pele do lock — o parse do hyprland está no runtime, a existência é o contrato do repo)"
+assert_grep "$HYP" 'background' "E137: o hyprlock.conf tem a assinatura da pele (o screenshot+blur da tela de lock)"
+
 # ── v2.10.9 — A LEI DA COERÊNCIA DE HABILITAÇÃO ────────────────────────
 # O [Install] da unit diz WantedBy=graphical.target (cura v2.10.7), mas o
 # airootfs ainda a pré-habilitava em multi-user.target.wants — o rig (dump
@@ -288,15 +333,17 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-dump" 'pacman lê o banco:
 # prova S3 real — quem acorda é USB. Cura: regra udev desarma o wakeup de
 # TODO controlador USB PCI (class 0x0c03) no add — o PC dorme de verdade
 # e acorda pelo botão de power. Ferramenta manual + perícia + dump juiz.
-WG="$REPO/elite/airootfs/etc/udev/rules.d/90-elite-wake-guard.rules"
+WG="$REPO/elite/airootfs/usr/lib/udev/rules.d/91-elite-wake-guard.rules"
 [[ -f "$WG" ]] \
-  && ok "v2.10.11: regra udev 90-elite-wake-guard.rules presente (a cura do despertar no add/coldplug)" \
-  || fail "v2.10.11: 90-elite-wake-guard.rules" "ausente — o suspend volta a acordar sozinho (a doença do a4h8)"
+  && ok "E137: regra udev 91-elite-wake-guard.rules no caminho CANÔNICO /usr/lib (a cópia /etc/90- do airootfs morreu — era DUPLICATA na ISO: a 90 do overlay E a 91 do pacote rodavam JUNTAS no mesmo evento; a viva segue sendo a do pacote)" \
+  || fail "E137: 91-elite-wake-guard.rules em /usr/lib" "ausente — o suspend volta a acordar sozinho (a doença do a4h8)"
 assert_grep "$WG" 'ACTION=="add"' "v2.10.11/E122: regra atua no add (coldplug cobre o boot, hotplug cobre o encaixe a quente)"
 assert_grep "$WG" 'SUBSYSTEM=="pci"' "v2.10.11/E122: regra mira dispositivos PCI"
 assert_grep "$WG" 'ATTR\{class\}=="0x0c03\*"' "E122: a regra continua cirúrgica no class 0x0c03 (a família inteira nunca voltou)"
 assert_grep "$WG" 'ATTR\{power/wakeup\}="enabled"' "E122: A POLÍTICA DO DESPERTAR — o controlador fica ARMADO (a porta por onde o TECLADO fala; o mouse segue dormindo por DISPOSITIVO — o usb-apply decide; a era E24 que desarmava TUDO deixou o dono sem voz: 'nada despertava o computador' e o power button desligava)"
 assert_grep "$WG" 'usb-apply %p' "E122: o gancho RUN por usb_device na regra (a decisão de teclado/mouse é por DISPOSITIVO, não por controlador)"
+assert_nogrep "$REPO/elite/airootfs/etc/udev/rules.d/90-elite-wake-guard.rules" '.' \
+  "E137: o fóssil /etc/90-elite-wake-guard.rules do airootfs EXTINTO (o caminho canônico é o /usr/lib/91 do pacote; fósseis de rigs seguem aposentados pelo post-transaction)"
 index_exec "elite/airootfs/usr/local/bin/craft-wake-guard" \
   "v2.10.11: craft-wake-guard presente e executável (status/off/on — o comando manual da cura; modo 100755 do index — v2.10.26/E39)" \
   "ausente ou sem +x no index — o dono fica sem perícia/ajuste manual"
@@ -555,7 +602,7 @@ SC="$REPO/elite/airootfs/etc/sysctl.d/99-elite-performance.conf"
 assert_file "$SC" "E136: o consolidado existe (o nome é do dono — PARTE 2/2)"
 assert_nofile "$REPO/elite/airootfs/etc/sysctl.d/99-elite.conf" "E136: o fóssil 99-elite.conf saiu do airootfs (consolidado no performance.conf)"
 assert_nofile "$REPO/elite/airootfs/etc/sysctl.d/99-elite-net.conf" "E136: o fóssil 99-elite-net.conf saiu do airootfs (a rede mora NO consolidado)"
-assert_grep "$SC" '^vm\.swappiness = 15$' "E136: swappiness 15 (a ordem PARTE 2/2: '10, ou 15 com ZRAM zstd ativo' — a casa TEM zram0 zstd; a régua 180/160/150 morre)"
+assert_grep "$SC" '^vm\.swappiness = 180$' "E137: swappiness 180 (PROMPT 3 do dono — recalibra a ordem E136: zram0 zstd 8G + MGLRU de fábrica → estilo SteamOS; quem DEFENDE o número no boot é a regra udev 81-elite-zram.rules, não o conf)"
 assert_grep "$SC" '^net\.core\.default_qdisc = fq$' "E136: BBR+fq consolidado no performance.conf (a antiga 99-elite-net.conf)"
 assert_grep "$SC" '^net\.ipv4\.tcp_congestion_control = bbr$' "E136: bbr consolidado"
 for k in 'vm\.swappiness' 'vm\.vfs_cache_pressure' 'vm\.max_map_count' \
@@ -618,7 +665,18 @@ assert_grep "$DA/main.rs" 'fn gpu_aplica' "E135: o perfil de GPU (power_dpm_forc
 assert_grep "$DA/main.rs" 'GetDnd' "E135: o Não Perturbe do swaync é chamada D-Bus NATIVA simétrica (só toca quem estava desligado — o restauro é 1:1)"
 assert_grep "$DA/main.rs" '"Inhibit"' "E135: o inhibitor lock do logind é nativo (o lock/apagamento de tela não morre na partida — o fd solto é o fim)"
 assert_grep "$REPO/elite/airootfs/etc/skel/.config/waybar/config.top" '"signal": 9' "E135: a pílula dos 2º planos é EVENTO (SIGRTMIN+9 do daemon — o fork do craft-bgapps a cada 5s, 25% CPU + zumbis pkill do dump, morre)"
-assert_grep "$REPO/elite/airootfs/etc/systemd/zram-generator.conf" 'swappiness = 15' "E135→E136: o drift morre NA FONTE e o número da lei vira 15 (a PARTE 2/2: '15 com ZRAM zstd ativo' — a opção do zram-generator é a última palavra no swapon; o MESMO 15 do consolidado, os DOIS donos do número falam UM número só)"
+# E137 — A CHAVE MORTA SAI DO GERADOR: `swappiness` NÃO é opção do
+# zram-generator upstream (o config.rs do gerador: chave desconhecida →
+# warn+ignore — a alegação E135/E136 de "última palavra no swapon" era
+# FICÇÃO; a prova mora no fonte). O mecanismo REAL é a regra udev 81.
+assert_nogrep "$REPO/elite/airootfs/etc/systemd/zram-generator.conf" '^swappiness' \
+  "E137: a chave inexistente `swappiness` SAI do zram-generator.conf (o upstream a ignora com 'unknown key' no journal — erro real, não mecanismo)"
+assert_file "$REPO/elite/airootfs/etc/udev/rules.d/81-elite-zram.rules" \
+  "E137: a regra 81-elite-zram.rules existe (a defesa REAL do swappiness)"
+assert_grep "$REPO/elite/airootfs/etc/udev/rules.d/81-elite-zram.rules" 'KERNEL=="zram0".*SYSCTL{vm\.swappiness}="180"' \
+  "E137: a regra reescreve 180 NO EVENTO do zram0 (o 30-zram.rules do cachyos-settings escreve 150 DEPOIS do systemd-sysctl — a 81 da casa vence NO MESMO evento por ordem lexical: 81 > 30)"
+assert_grep "$REPO/.ci/build.sh" '81-elite-zram.rules' \
+  "E137: a regra 81 EMBARCA NO PACOTE (o pacman a entrega aos rigs com dono — o post-transaction faz o udevd relê-la sem reboot)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-post-transaction" 'image-visibility' "E135: a chave morta do swaync SAI dos rigs (o Json-WARNING a cada arranque morre — o skel já nasce sem ela)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-audio-route" '"--once"' "E135: o roteador de áudio tem o disparo único por evento (o python residente morre; a lei de roteamento evaluate() fica 1:1)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-display" 'elite-daemon session é o ouvidor' "E135: o watch shell legado TEM O GUARD (vivo o daemon, o residente não nasce — o fallback só vale para rig sem binário)"
@@ -640,7 +698,10 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'enable --now scx_lo
 assert_grep "$REPO/elite/airootfs/etc/tmpfiles.d/elite-mglru.conf" 'w /sys/kernel/mm/lru_gen/enabled - - - - 7' "E136: MGLRU enabled=7 em TODO boot (o reclaim por gerações — o stutter sob pressão morre)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'lru_gen/enabled' "E136: o tune aplica o enabled=7 no kernel VIVO também (o mesmo desenho do THP E132)"
 # ── zram + swappiness 15: os DOIS donos falam UM número ──────────────────
-assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'swappiness = 15' "E136: o graft do tune escreve o 15 do gerador também (a última palavra no swapon — a lição E135 com o número novo)"
+assert_nogrep "$REPO/elite/airootfs/usr/local/bin/elite-tune" '^swappiness = ' \
+  "E137: o graft do tune NÃO escreve a chave inexistente do gerador (a defesa do número é a regra udev 81; o tune escreve zram-size+zstd só)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'vm\.swappiness = 180' \
+  "E137: o write_elite_sysctl carrega o 180 LITERAL (a lei única E37 — o conf consolidado é a única voz)"
 # ── MangoHud: 3 perfis + o toggle de symlink ─────────────────────────────
 MH="$REPO/elite/airootfs/usr/local/share/elite/mangohud"
 for prof in minimal balanceado diagnostico; do
@@ -978,10 +1039,21 @@ assert_nogrep "$REPO/elite/packages.add" '^blueman$' \
   "E132/higiene: blueman FORA das listas (E134: o Bluetooth da casa é o overskride GRÁFICO — o bluetui TUI também saiu; a higiene da ordem do dono)"
 assert_nogrep "$REPO/elite/packages.add" '^bluetui$' \
   "E134/higiene: bluetui FORA das listas (o gerenciador Bluetooth é o overskride GTK4/libadwaita — a ordem do dono 1.0-81)"
-assert_grep "$REPO/elite/packages.add" '^overskride$' \
-  "E134/higiene: o overskride NA ISO (o Bluetooth gráfico da casa — estágio AUR 0.6.6 → [elite-local], o mesmo canal do pwvucontrol)"
-assert_grep "$REPO/.ci/build.sh" 'aur_build overskride' \
-  "E134/higiene: o build COMPILA o overskride do AUR (procedência provada na entrada: archlinux.org → ZERO nos repos oficiais; AUR 0.6.6 newest via repology — a escola do pin)"
+# E137 — O OVERSKRIDE MORREU DE VEZ (PROMPT 3, dump 201219: 'erro: alvo
+# não encontrado: overskride' em TODA dose desde a E134 — o AUR nunca o
+# entregou ao [elite-local] dos rigs; o clique 'Gerenciar Bluetooth' caía
+# no TERMINAL). O Bluetooth gráfico é a PRÓPRIA central do craft-connect
+# (menu fuzzel + bluetoothctl — 100% GUI, zero terminal, zero AUR).
+assert_nogrep "$REPO/elite/packages.add" '^overskride$' \
+  "E137: o overskride FORA da ISO (nunca chegou aos rigs — o Bluetooth é a central do craft-connect E137)"
+assert_nogrep "$REPO/.ci/build.sh" 'aur_build overskride' \
+  "E137: o estágio AUR do overskride EXTINTO do build (o elo que nunca fechou sai da cadeia — a dose para de cuspir 'alvo não encontrado')"
+assert_grep "$REPO/elite/packages.add" '^xorg-xauth$' \
+  "E137: xorg-xauth NA ISO (o cookie X do root vestido — o GParted do dump 201219 morria 'cannot open display' sem ele)"
+assert_grep "$REPO/elite/packages.add" '^xorg-xhost$' \
+  "E137: xorg-xhost NA ISO (o cinto +SI:localuser:root — o root LOCAL entra no XWayland sem cookie)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-connect" 'bt_gerenciar' \
+  "E137: o gerenciador Bluetooth é a PRÓPRIA central (menu + bluetoothctl: parear/conectar/esquecer/rádio — 100% GUI, zero terminal)"
 assert_grep "$REPO/elite/packages.add" '^nm-connection-editor$' \
   "E132/higiene: o editor de conexões é pacote PRÓPRIO (o split do network-manager-applet 1.24+ — a árvore completa Wi-Fi/Ethernet/VPN em janela GTK segue na casa)"
 assert_grep "$CCON" 'nmcli radio wifi' \
@@ -1009,8 +1081,10 @@ assert_grep "$CCON" '--at=network' \
 RCXML="$REPO/elite/airootfs/etc/skel/.config/labwc/rc.xml"
 assert_grep "$RCXML" 'command="nm-connection-editor"' \
   "rc.xml: W-n abre o editor de conexões (função avançada fora do menu de 2 itens)"
-assert_grep "$RCXML" 'command="overskride"' \
-  "E132→E134/rc.xml: W-S-b abre o gerenciador Bluetooth GRÁFICO da casa (overskride GTK4/libadwaita — o TUI bluetui saiu com a ordem do dono 1.0-81)"
+assert_grep "$RCXML" 'command="craft-connect --bluetooth"' \
+  "E132→E137/rc.xml: W-S-b abre o gerenciador Bluetooth da casa (a PORTA --bluetooth da própria central: menu fuzzel + bluetoothctl — o overskride AUR que nunca chegou ao rig saiu; 100% GUI)"
+assert_nogrep "$RCXML" 'overskride' \
+  "E137: nenhuma referência ao overskride no rc.xml (o binário não existe no canal — o bind morto dava clique mudo)"
 AUTO="$REPO/elite/airootfs/etc/skel/.config/labwc/autostart"
 assert_nogrep "$AUTO" 'nm-applet &' \
   "v2.3.6: nm-applet FORA do autostart — a história completa: v2.0 estética → v2.3.5 função (voltou) → v2.3.6 substituição → v2.3.7 o menu chama o gerenciador do sistema"
@@ -1229,7 +1303,18 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-connect" 'connection delet
 # I. supervisão: singleton + corrida do fork com veredito por prova:
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bars" 'flock -n 9' "v2.10.5: craft-bars é singleton (2 supervisores = barra duplicada no relogin)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-bars" '2ª instância saiu 0' "v2.10.5: corrida fork/exec não é óbito (BARS_EXITS não mente no gate do QEMU)"
-assert_grep "$SK/.config/labwc/autostart" 'command -v swaync' "v2.10.5: até a central de avisos nasce com guarda (fim do último spawn nu)"
+assert_nogrep "$SK/.config/labwc/autostart" 'command -v swaync' \
+  "E137: NENHUM spawn de swaync no autostart (o lançador único é o elite-daemon session/craft-bars — o spawn daqui era a causa do 'An instance of SwayNotificationCenter is already running!' no boot do dump 201219)"
+assert_nogrep "$SK/.config/labwc/autostart" 'craft-toplevel &' \
+  "E137: o spawn direto do craft-toplevel EXTINTO do autostart (a 'fechadura ocupada' do boot morre — UM só lançador)"
+assert_nogrep "$SK/.config/labwc/autostart" 'udiskie --automount' \
+  "E137: o udiskie NÃO nasce no autostart (filho do supervisor único — o gate de posse E135 decide)"
+assert_nogrep "$SK/.config/labwc/autostart" 'swayosd-server &' \
+  "E137: o swayosd NÃO nasce no autostart (filho do supervisor único)"
+assert_nogrep "$SK/.config/labwc/autostart" 'gnome-keyring-daemon' \
+  "E137: o bootstrap do chaveiro GNOME EXTINTO do autostart (o pacote morreu na E134 — bloco morto era código morto)"
+assert_grep "$SK/.config/labwc/autostart" 'craft-bars &' \
+  "E137: o SUPERVISOR ÚNICO no autostart (craft-bars — que execa o elite-daemon session; UM só lançador para TODA a família)"
 
 # J. udev: a regra só cospe no disco inteiro:
 assert_grep "$REPO/elite/airootfs/etc/udev/rules.d/60-io-elite.rules" 'TEST!="partition"' "v2.10.5: scheduler de NVMe não tenta escrever em partição (o '*' engolia o p1)"
@@ -1310,7 +1395,8 @@ assert_nogrep "$REPO/elite/airootfs/usr/local/bin/craft-idle" 'OFF_MIN=\$\(\(min
 # R6. O CHAVEIRO GNOME QUE O PAM JAMAIS DESBLOQUEIA: bootstrap com senha
 #     vazia corria na frente no sistema COM senha (gkr-pam 'couldn't
 #     unlock' em todo login — journal 22:31:35 do nl3z).
-assert_grep "$REPO/elite/airootfs/etc/skel/.config/labwc/autostart" '/run/archiso.*login\.keyring|login\.keyring.*run/archiso|SÓ NO LIVE' "v2.10.12: o bootstrap do keyring vazio é do LIVE (no instalado o PAM cria com a senha do login)"
+assert_nogrep "$REPO/elite/airootfs/etc/skel/.config/labwc/autostart" 'login\.keyring' \
+  "E137: o bootstrap do chaveiro vazio saiu do autostart INTEIRO (o gnome-keyring foi aposentado na E134 — o --password-store=basic dos Chromium é a casa; código morto não fica)"
 # R7. O RUÍDO DO SUDO DE SESSÃO (journal 22:31:36 'a password is
 #     required'): a camada de sessão só age no live; no instalado quem
 #     cura é o serviço root (E23).
@@ -1561,7 +1647,8 @@ assert_grep "$CBARS" 'pgrep -x swaync' "E36: o swaync — a superfície de TODOS
 assert_grep "$CBARS" 'pgrep -x udiskie' "E36: o udiskie tem rede no supervisor (USB automount morto calado não existe mais)"
 assert_grep "$CBARS" 'polkit-gnome-authentication-agent-1' "E36: o agente polkit tem rede no supervisor (pkexec sem agente = senha impossível)"
 assert_grep "$CBARS" '\^waybar -c' "E36: o ensure da waybar usa âncora ^ (a lição v2.10.6 da dock/toplevel chegou ao ensure mais velho — editor com o config aberto não mascara mais)"
-assert_grep "$CAUT" 'bars\.log.*2>&1 &|>>.*bars\.log.*2>&1 &' "E36: o spawn do swaync no autostart despeja o stderr no bars.log (o comentário que invocava 'a lei dos vizinhos' sobre um spawn nu era E33 — agora o código cumpre)"
+assert_nogrep "$CAUT" 'swaync ' \
+  "E137: nenhuma linha de spawn do swaync sobrou no autostart (o stderr dele vai ao bars.log PELO supervisor — a lei E36 vale no lançador único)"
 assert_nogrep "$CRXML" 'ToggleShowDesktop → preservada' "E36: rc.xml não conta mais a história da v1.2 como presente (a nota 'W-d → fuzzel/ToggleShowDesktop' era E33 — o código real é craft-drawer/toggle da dock)"
 assert_nogrep "$CTOP2" 'W-S-P' "E36: a barra fala a língua dos keysyms NOS COMENTÁRIOS também (o bug 'P maiúsculo implícita Shift' curado na v2.10.5 sobrevivia em 3 comentários — E33)"
 assert_grep "$CTOP2" 'W-S-p' "E36: os comentários da barra citam os atalhos REAIS (W-p/W-S-p minúsculos)"
@@ -1596,8 +1683,8 @@ for fn in apply_grub_tokens write_elite_sysctl ensure_bbr ensure_btrfs_stack ens
 done
 assert_eq "$(grep -c 'ensure_cmdline_token /etc/default/grub nowatchdog' "$CTUNE" || true)" "1" \
   "E37: o token nowatchdog não tem mais cópia espelhada (era 2 — a doença do E33 morreu na estrutura)"
-assert_eq "$(grep -c '^vm\.swappiness = 15$' "$CTUNE" || true)" "1" \
-  "E37→E136: a lei do sysctl vive em write_elite_sysctl UMA vez com o 15 LITERAL (a régua 180/160/150 morreu pela PARTE 2/2 — a função da RAM virou número da ordem nova; o espelho duplo segue morto)"
+assert_eq "$(grep -c '^vm\.swappiness = 180$' "$CTUNE" || true)" "1" \
+  "E37→E137: a lei do sysctl vive em write_elite_sysctl UMA vez com o 180 LITERAL (PROMPT 3 recalibra a ordem E136 — zram zstd + MGLRU de fábrica; o espelho duplo segue morto)"
 assert_eq "$(grep -c 'grub-mkconfig -o /boot/grub/grub\.cfg' "$CTUNE" || true)" "1" \
   "E37: o grub-mkconfig vive em apply_grub_tokens (era 2 — o plano do kernel nascia em dois lugares)"
 # E37 + plano nº16: o epílogo do interativo conta a verdade
@@ -1816,7 +1903,7 @@ assert_nogrep "$BF129" '^--enable-features=.*Vulkan' "E114 ratificada: o composi
 assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'transparent_hugepage=madvise' "E129: o tune crava o madvise (a porta do tune e o post_upgrade falam a MESMA lei)"
 assert_nogrep "$REPO/elite/airootfs/usr/local/bin/elite-tune" 'ensure_cmdline_token /etc/default/grub transparent_hugepage=always' "E129: o tune NÃO crava mais o 'always' (o fóssil da era E74 morre por escrito)"
 assert_grep "$REPO/elite/airootfs/usr/local/share/elite/qt6ct/qt6ct.conf" 'icon_theme=Papirus-Dark' "E129: o mestre do qt6ct é o Papirus-Dark (o MESMO dos settings.ini GTK — zero babel de ícones)"
-assert_grep "$REPO/.ci/build.sh" 'pkgrel=84' "E136/E41: pkgrel elite-system 83→84 NO MESMO COMMIT (lei E41 — A MISSÃO PARTE 2/2 do dono: a migração e a otimização extrema do sistema instalado — o KERNEL MODERNO (scx_loader com scx_lavd sob demanda + Condition sched_ext, ntsync no boot + udev 0666, nct6775+lm_sensors+sensors-detect, MGLRU enabled=7 no tmpfiles, THP madvise), O SYSCTL CONSOLIDADO 99-elite-performance.conf com swappiness 15 nos DOIS donos do número (conf e zram-generator — a régua 180/160/150 morta), MANGOHUD 3 perfis zero-config + o toggle elite-mangohud, o OPTISCALER elite-optiscaler (inject/remove/run, binário de terceiro NUNCA no pacote), a CURADORIA (gnome-text-editor padrão, mousepad fora, snap-pac+btrfs-assistant no Btrfs opt-in, lm_sensors/nvme-cli/usbutils/dmidecode), O MENU ≤16 e os ATALHOS UNIVERSAIS 60%/75% do Aula F75 Max no rc.xml, o craft-clean com o pulso --failed e o craft-dump fotografando o kernel moderno) · refrescada da E135 (lei E41): 82→83 — o motor nativo zero-latência · E134/E41: pkgrel elite-system 80→81 NO MESMO COMMIT (lei E41 — A ENTREGA 1.0-81 do dump 1.0-80: a DOCK RUST DEFINITIVA — o craft-dock-gui Python sai do pacote, o build do crate vira OBRIGATÓRIO (o '|| echo AVISO' publicou a 1.0-80 sem o binário) e o post_upgrade remove o fóssil e encerra o processo Python; o MATCHING '_'=='-' (hydra_plus ↔ hydra-plus) agrupa pin+aberto em UM ícone e a SINCRONIZAÇÃO IMEDIATA mata o indicador preso; o OVERSKRIDE Bluetooth gráfico no lugar do bluetui (estágio AUR 0.6.6 → [elite-local]); o WAYBAR nunca mais perde o ícone de rede (format-disconnected com tooltip 'Sem conexão'); o CHAVEIRO GNOME morto (máscaras + PAM fora + --password-store=basic no Brave E VSCodium); o PKEXEC DIRETO no menu (sem /usr/bin/env — a causa dos polkit-agent-helper FAILED); o MODO DE JOGO pela árvore real Proton/Wine/UMU (umu-run/srt-bwrap/pv-adverb/proton bloqueados, SteamGameId e steamapps/common no cmdline); o FIM dos 8 craft-bars (respawn do watch removido, pós-dose renasce UM por sessão), o DISPLAY instantâneo (diverge 30s→10s + ouvidor login1 Unlock/PrepareForSleep com apply imediato + apply-boot na PRIMEIRA linha do autostart), o menu sem recorte (themerc 200–280 + rótulos finais do dono) e os utilitários internos ocultos (avahi/bssh/bvnc/lstopo/qv4l2/qvidcap/xterm/uxterm/electron) do menu E da gaveta de fixação; âncora refrescada — a lição E58/E59: o número atual é lei do guard do CI) · refrescada da E133 (lei E41): pkgrel elite-system 79→80 — O FECHAMENTO (craft-clean v6 em duas fases, rótulos PT-BR, ícones universais .exe, decoração server) · refrescada da E132 (lei E41): 78→79 — a FUNDAÇÃO RUST (workspace no build, elite-daemon nasce)"
+assert_grep "$REPO/.ci/build.sh" 'pkgrel=85' "E137 (lei E41, âncora viva refrescada): pkgrel elite-system 84→85 — O PROMPT 3 DO DONO (dump 201219 periciado: a UI/UX 100% sem terminal + o extermínio do legado): O GPARTED DEFINITIVO (display XWayland e XAUTHORITY descobertos NA HORA pelo elite-gparted — o alvo é o gpartedbin direto, notify-send no erro real, xorg-xauth/xorg-xhost na ISO e na adoção: o clique mudo do rig morre), O CRAFT-PIN FLATPAK (os 5 diretórios XDG — o it.mijorus.gearlever.desktop da prova do dump fixa), A SESSÃO SEM CORRIDA (os spawns duplicados do autostart morrem: craft-toplevel/swaync/udiskie/swayosd são filhos do ÚNICO lançador elite-daemon session; o probe e o craft-dump auditam o daemon REAL — CRAFTBARS_COUNT e dock_python_fossil fósseis extintos, DOCK_COUNT por comm), O PLAYERCTL SILENCIOSO (os cliques da topbar passam pelo craft-player: sem player no bus o clique é no-op calado), O OVERSKRIDE MORTO (nunca chegou ao [elite-local] — 'alvo não encontrado' em toda dose; o Bluetooth é a PRÓPRIA central do craft-connect com menu fuzzel + bluetoothctl, 100% GUI), O SWAPPINESS 180 SEM DRIFT (o réu nomeado com prova na fonte: o 30-zram.rules do cachyos-settings escreve 150 no evento do zram0; a regra 81-elite-zram da casa recoloca o 180 NO MESMO evento por ordem lexical — e a chave inexistente `swappiness` do zram-generator sai do conf), O FUZZEL.INI REPARADO (o [main] comido por um sed do diário 747d245 desde 11-19 — a ISO nascia com INI sem seção; agora com parse estático na suíte), OS PAPÉIS NASCEM PODADOS (~/.cache/elite/*.log com os últimos 256 KiB no frame 0 — o bars.log de 980 KB do dump) e O WAKE-GUARD NO CAMINHO CANÔNICO (/usr/lib/91, sem a duplicata /etc/90 na ISO) · refrescada da E136 (lei E41): 83→84 NO MESMO COMMIT (lei E41 — A MISSÃO PARTE 2/2 do dono: a migração e a otimização extrema do sistema instalado — o KERNEL MODERNO (scx_loader com scx_lavd sob demanda + Condition sched_ext, ntsync no boot + udev 0666, nct6775+lm_sensors+sensors-detect, MGLRU enabled=7 no tmpfiles, THP madvise), O SYSCTL CONSOLIDADO 99-elite-performance.conf com swappiness 15 nos DOIS donos do número (conf e zram-generator — a régua 180/160/150 morta), MANGOHUD 3 perfis zero-config + o toggle elite-mangohud, o OPTISCALER elite-optiscaler (inject/remove/run, binário de terceiro NUNCA no pacote), a CURADORIA (gnome-text-editor padrão, mousepad fora, snap-pac+btrfs-assistant no Btrfs opt-in, lm_sensors/nvme-cli/usbutils/dmidecode), O MENU ≤16 e os ATALHOS UNIVERSAIS 60%/75% do Aula F75 Max no rc.xml, o craft-clean com o pulso --failed e o craft-dump fotografando o kernel moderno) · refrescada da E135 (lei E41): 82→83 — o motor nativo zero-latência · E134/E41: pkgrel elite-system 80→81 NO MESMO COMMIT (lei E41 — A ENTREGA 1.0-81 do dump 1.0-80: a DOCK RUST DEFINITIVA — o craft-dock-gui Python sai do pacote, o build do crate vira OBRIGATÓRIO (o '|| echo AVISO' publicou a 1.0-80 sem o binário) e o post_upgrade remove o fóssil e encerra o processo Python; o MATCHING '_'=='-' (hydra_plus ↔ hydra-plus) agrupa pin+aberto em UM ícone e a SINCRONIZAÇÃO IMEDIATA mata o indicador preso; o OVERSKRIDE Bluetooth gráfico no lugar do bluetui (estágio AUR 0.6.6 → [elite-local]); o WAYBAR nunca mais perde o ícone de rede (format-disconnected com tooltip 'Sem conexão'); o CHAVEIRO GNOME morto (máscaras + PAM fora + --password-store=basic no Brave E VSCodium); o PKEXEC DIRETO no menu (sem /usr/bin/env — a causa dos polkit-agent-helper FAILED); o MODO DE JOGO pela árvore real Proton/Wine/UMU (umu-run/srt-bwrap/pv-adverb/proton bloqueados, SteamGameId e steamapps/common no cmdline); o FIM dos 8 craft-bars (respawn do watch removido, pós-dose renasce UM por sessão), o DISPLAY instantâneo (diverge 30s→10s + ouvidor login1 Unlock/PrepareForSleep com apply imediato + apply-boot na PRIMEIRA linha do autostart), o menu sem recorte (themerc 200–280 + rótulos finais do dono) e os utilitários internos ocultos (avahi/bssh/bvnc/lstopo/qv4l2/qvidcap/xterm/uxterm/electron) do menu E da gaveta de fixação; âncora refrescada — a lição E58/E59: o número atual é lei do guard do CI) · refrescada da E133 (lei E41): pkgrel elite-system 79→80 — O FECHAMENTO (craft-clean v6 em duas fases, rótulos PT-BR, ícones universais .exe, decoração server) · refrescada da E132 (lei E41): 78→79 — a FUNDAÇÃO RUST (workspace no build, elite-daemon nasce)"
 # V5. O VEÍCULO NASCE INSTALADO (futuras ISOs não repetem a ferida da 28):
 # E50 — O PACOTE ÚNICO é a entrada viva (a era dos dois veículos encerrou):
 assert_grep "$REPO/elite/packages.add" '^elite-system$' "E50: o elite-system no packages.add — a ISO nasce com O PACOTE ÚNICO INSTALADO (a diretriz do dono: um só pacote atualiza todo o sistema)"
@@ -2058,7 +2145,7 @@ assert_grep "$CDOCK94" 'entry.terminal && !raw.starts_with\("foot"\)' "E94: o ex
 assert_grep "$CDOCK94" 'foot --app-id=' "E94: o foot da casa leva app-id DETERMINÍSTICO (o casamento de janelas fala o nome do app, não o do terminal — a mesma lição E89 das case-variants)"
 assert_grep "$CDOCK94" 'pub fn strip_field_codes' "E94: a origem do app vive SEM o casaco E SEM os field codes (strip_field_codes/first_binary — o comm do /proc e o app_id falam o APP; E134: %f %F %u %U… fora do lançamento)"
 CUPD94="$REPO/elite/airootfs/usr/local/bin/craft-update"
-assert_grep "$CUPD94" 'ADOCAO=\(lxqt-policykit pacman-contrib octopi yay flatpak swayosd gamemode overskride gnome-text-editor papirus-icon-theme xorg-xprop\)' "E94+E97→E103→E110→E126→E134→E136: a ADOÇÃO DE ÂNCORAS tem FONTE ÚNICA no craft-update (packages.add só nutre a ISO — o rig nunca recebeu a cabeça da fila E58; a E97 soma a tríade da loja + pacman-contrib; a E103 soma o swayosd; a E110 soma o gamemode; a E134 TROCA o gamescope pelo OVERSKRIDE; a E136 TROCA o mousepad pelo GNOME-TEXT-EDITOR (o editor gráfico GTK4 da PARTE 2/2 — o rig o recebe na dose))"
+assert_grep "$CUPD94" 'ADOCAO=\(lxqt-policykit pacman-contrib octopi yay flatpak swayosd gamemode gnome-text-editor papirus-icon-theme xorg-xprop xorg-xauth xorg-xhost\)' "E94+E97→E103→E110→E126→E136→E137: a ADOÇÃO DE ÂNCORAS tem FONTE ÚNICA no craft-update (packages.add só nutre a ISO — o rig nunca recebeu a cabeça da fila E58; a E136 trouxe o GNOME-TEXT-EDITOR; a E137 TIRA o OVERSKRIDE (nunca resolveu no [elite-local] — 'alvo não encontrado' em toda dose) e SOMA o PAR X do GParted (xorg-xauth + xorg-xhost: o root vestido precisa do cookie e do cinto)"
 assert_grep "$REPO/elite/packages.add" 'lxqt-policykit' "E94: a âncora do rig é a MESMA definição da ISO (sync contratado — a disciplina do pin aplicada à adoção)"
 n_sites="$(grep -cE '^[[:space:]]*adota_ancoras$' "$CUPD94" || true)"
 assert_eq "$n_sites" "3" "E94: a adoção corre nas TRÊS portas (canal, semanal, manual — uma função, nenhum escopo à mão)"
@@ -2103,7 +2190,7 @@ assert_grep "$REPO/elite/airootfs/usr/local/bin/elite-post-transaction" 'chromiu
 assert_grep "$REPO/elite/airootfs/etc/skel/.config/labwc/menu.xml" 'pkexec /usr/local/bin/craft-clean --as-root' "E114→E134: a limpeza do menu pede raiz pelo DIÁLOGO GRÁFICO E PELO CAMINHO DA CASA (o pkexec DIRETO casa na regra 50-elite-wheel — o 'pkexec env HOME' da era E124 tinha lookup em /usr/bin/env, FORA da regra: senha comum + polkit-agent-helper FAILED no systemctl; o dono agora chega por ARGUMENTO --as-root)"
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-clean" 'BraveSoftware' "E114: o MAIOR cache do disco entra na limpeza (1,6 GB no papel da seção 14 — só com o navegador fechado, só os regeneráveis Cache/Code Cache/GPUCache)"
 assert_grep "$REPO/elite/packages.add" '^gnome-text-editor$' "E114→E136: o editor gráfico da casa é o GNOME TEXT EDITOR (a PARTE 2/2 do dono: 'padronize gnome-text-editor como editor gráfico leve padrão' — o mousepad da E114 volta ao remove; o nano FICA para o terminal)"
-assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-update" 'overskride gnome-text-editor' "E114→E134→E136: o editor da ADOÇÃO do canal é o gnome-text-editor (os rigs vivos recebem o GTK4 da casa na próxima dose — o mesmo veículo do swayosd da E101)"
+assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-update" 'gamemode gnome-text-editor papirus-icon-theme' "E114→E134→E136→E137: o editor da ADOÇÃO do canal é o gnome-text-editor (os rigs vivos recebem o GTK4 da casa na próxima dose — o mesmo veículo do swayosd da E101)"
 
 # ── E115 — O PACOTE DE CURA DO DUMP 224713 (a palavra do dono à noite) ──
 assert_grep "$REPO/elite/airootfs/usr/local/bin/craft-game" 'pill) gm_pill' "E115: o verbo pill do craft-game (o assento da topbar consulta o ESTADO REAL — pgrep gamemoded: o daemon só vive com jogo OU manual, a física D-Bus do músculo; zero cache, zero conf)"
@@ -2180,8 +2267,12 @@ EGP="$REPO/elite/airootfs/usr/local/bin/elite-gparted"
 assert_file "$EGP" "E95: o bin elite-gparted existe (o motor do gparted que veste o root)"
 assert_grep "$EGP" 'ELITE_PKEXEC_BIN' "E95: o seam de prova do pkexec (o teste julga o VESTIMENTA sem polkit — a escola ELITE_*)"
 assert_grep "$EGP" 'ELITE_GPARTED_BIN' "E95: o seam de prova do alvo (hermético: nem gparted instalado o teste precisa)"
-assert_grep "$EGP" 'exec "\$PKEXEC_BIN" env' "E95: a vestimenta é 'pkexec env' (o pkexec despe o ambiente por LEI — WAYLAND_DISPLAY/XDG_RUNTIME_DIR nomeados EXPLICITAMENTE é a cura da GDK root morta)"
-assert_grep "$EGP" 'WAYLAND_DISPLAY="\$\{WAYLAND_DISPLAY:-\}"' "E95: o fio do compositor atravessa com o ${VAR:-} de cinto (sessão sem X11 não explode; Wayland puro é o terreno)"
+assert_grep "$EGP" '"\$PKEXEC_BIN" "\$@" 2>' "E137: a chamada ESPERA o rc (o clique nunca é mudo — notify-send só no erro REAL: cancelamento, display morto, binário ausente)"
+assert_grep "$EGP" 'set -- "WAYLAND_DISPLAY=\$WAYLAND_DISPLAY" "\$@"' "E95→E137: o fio do compositor atravessa (prepend explícito — sessão sem Wayland não explode; e o valor VAZIO nunca entra na lista, o XAUTHORITY='' do dump 201219 era lido como caminho inexistente)"
+assert_grep "$EGP" 'ELITE_X11_UNIX_DIR' "E137: a DESCIDA do display é DINÂMICA (env → socket vivo em /tmp/.X11-unix/X* — o XWayland ativo descoberto na HORA)"
+assert_grep "$EGP" 'gpartedbin' "E137: o alvo é o BINÁRIO REAL primeiro (o wrapper /usr/bin/gparted só decide elevação — chamá-lo de novo seria porta para elevação dupla)"
+assert_grep "$EGP" 'elite-gparted\|elite-gparted\)' "E137: o guard anti-loop recusa o alvo que resolver para ESTE bin (nenhuma recursão possível)"
+assert_grep "$EGP" 'ELITE_NOTIFY_BIN' "E137: a porta de prova da notificação (a suíte julga o aviso sem notify-send no ambiente)"
 assert_grep "$EGP" '\-h\|--help\|uso\)' "E95 (lei E66): o bin tem --help (nenhum bin da casa é mudo)"
 GPD="$REPO/elite/airootfs/usr/local/share/applications/gparted.desktop"
 assert_file "$GPD" "E95: o override gparted.desktop existe na FRENTE do XDG_DATA_DIRS (o environment da sessão põe /usr/local/share primeiro — dock, gaveta e fuzzel resolvem para AQUI)"

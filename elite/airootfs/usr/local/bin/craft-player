@@ -69,6 +69,13 @@
 #                         imprime o JSON do módulo (a porta do waybar)
 #   craft-player status   veredito humano (quem está no bus, quem venceu,
 #                         por quê) — a mesma escola do craft-game status
+#   craft-player play-pause|next|previous
+#                         E137 — OS CLIQUES DA BARRA (o waybar rodava
+#                         `playerctl play-pause` cru: sem player vivo o
+#                         stderr 'No player could handle this command'
+#                         caía no bars.log — o ruído do dump 201219).
+#                         Sem player no bus o clique é no-op CALADO; com
+#                         player, o comando viaja com stderr engolido.
 set -eu
 
 uso() {
@@ -93,6 +100,21 @@ uso() {
     exit 0
 }
 case "${1:-}" in -h|--help|uso) uso ;; esac
+
+# E137 — OS CLIQUES DA BARRA PASSAM PELO JUÍZO: o guarda `playerctl -l`
+# decide se há ALGUÉM no bus MPRIS ANTES de mandar comando nenhum (a
+# ordem do dono: saída limpa quando não há mídia tocando) e o stderr do
+# playerctl viaja engolido nos DOIS caminhos — erro real não vira ruído
+# de barra (a função state abaixo já fazia isso na LEITURA; agora o
+# CLIQUE também).
+case "${1:-}" in
+    play-pause|next|previous)
+        URUNTIME="${XDG_RUNTIME_DIR:-/run/user/$(id -u 2>/dev/null || echo 0)}"
+        if [ -n "$(env XDG_RUNTIME_DIR="$URUNTIME" playerctl -l 2>/dev/null)" ]; then
+            env XDG_RUNTIME_DIR="$URUNTIME" playerctl "$1" >/dev/null 2>&1 || true
+        fi
+        exit 0 ;;
+esac
 CMD="${1:-state}"
 
 # ── o juízo é EXTENSÍVEL (uma linha por app; o comentário diz o porquê) ──

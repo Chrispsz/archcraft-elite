@@ -2755,6 +2755,102 @@ bash "$EGPU" --help >/dev/null 2>&1
 assert_eq "$?" "0" "E95 (E66): o --help sai 0 (o mapa antes do motor — a lei de todos os bins da casa)"
 
 # ═══════════════════════════════════════════════════════════════════════
+# E137 — O GPARTED DEFINITIVO (dump 201219: dois cliques, zero janela,
+# zero aviso). As TRÊS curas julgadas pelo seam: o display XWayland
+# DESCOberto do socket vivo, o XAUTHORITY do usuário ATRAVESSANDO, e o
+# clique NUNCA mudo (notify-send no erro real + rc propagado). O guard
+# anti-loop completa (o alvo que resolve para ESTE bin é recusado).
+# ═══════════════════════════════════════════════════════════════════════
+# o socket de X de mentira (AF_UNIX REAL — o discovery exige socket vivo)
+mkdir -p "$WORK/e95/x11"
+python3 - "$WORK/e95/x11" <<'PYEOF'
+import socket, sys, os
+p=os.path.join(sys.argv[1], 'X7')
+try: os.unlink(p)
+except: pass
+s=socket.socket(socket.AF_UNIX); s.bind(p)
+PYEOF
+: > "$WORK/e95/argv"
+env -u DISPLAY -u XAUTHORITY \
+    E95_OUT="$WORK/e95/argv" \
+    ELITE_PKEXEC_BIN="$WORK/e95/pkexec" ELITE_GPARTED_BIN="$WORK/e95/gparted" \
+    ELITE_X11_UNIX_DIR="$WORK/e95/x11" HOME="$WORK/e95" \
+    bash "$EGPU" >/dev/null 2>&1
+assert_grep "$WORK/e95/argv" '^DISPLAY=:7$' \
+  "E137: o display XWayland DESCOberto do SOCKET VIVO (env vazio → /tmp/.X11-unix/X7 → :7 — o 'não abre nem com a senha' do rig era o display nunca nomeado)"
+# o XAUTHORITY do usuário atravessa 1:1 (o dump provou: o rig não tinha
+# cookie NENHUM para o root — o XAUTHORITY='' vazio era lido como caminho)
+: > "$WORK/e95/argv"
+E95_OUT="$WORK/e95/argv" \
+ELITE_PKEXEC_BIN="$WORK/e95/pkexec" ELITE_GPARTED_BIN="$WORK/e95/gparted" \
+DISPLAY=:0 XAUTHORITY="$WORK/e95/meu-cookie" WAYLAND_DISPLAY=wayland-9 \
+XDG_RUNTIME_DIR=/run/user/1000 HOME="$WORK/e95" \
+    bash "$EGPU" >/dev/null 2>&1
+assert_grep "$WORK/e95/argv" "^XAUTHORITY=$WORK/e95/meu-cookie$" \
+  "E137: o COOKIE do usuário atravessa inteiro (a credencial X do dono veste o root — sem ela o XWayland recusa 'cannot open display')"
+assert_grep "$WORK/e95/argv" '^DISPLAY=:0$' \
+  "E137: o DISPLAY do env vence (a descoberta é o fallback, nunca a substituição)"
+# o clique NUNCA é mudo: falha real → notify-send + rc propagado
+cat > "$WORK/e95/notify-send" <<'EOF'
+#!/bin/sh
+printf 'NOTIFY|%s\n' "$*" >> "${E95_NOTIFY_OUT:?}"
+exit 0
+EOF
+chmod +x "$WORK/e95/notify-send"
+printf '#!/bin/sh\nexit 126\n' > "$WORK/e95/pkexec-cancel"; chmod +x "$WORK/e95/pkexec-cancel"
+: > "$WORK/e95/notify"
+E95_NOTIFY_OUT="$WORK/e95/notify" E95_OUT="$WORK/e95/argv" \
+ELITE_PKEXEC_BIN="$WORK/e95/pkexec-cancel" ELITE_GPARTED_BIN="$WORK/e95/gparted" \
+ELITE_NOTIFY_BIN="$WORK/e95/notify-send" HOME="$WORK/e95" XDG_CACHE_HOME="$WORK/e95/.cache" \
+    bash "$EGPU" >/dev/null 2>&1
+e137_rc=$?
+assert_eq "$e137_rc" "126" "E137: o rc do pkexec PROPAGA (o cancelamento é 126 — a porta diz a verdade)"
+assert_grep "$WORK/e95/notify" 'cancelada' \
+  "E137: o cancelamento da senha AVISA na tela (o clique mudo morre — a ordem do dono: 'nunca deixando o clique mudo')"
+assert_grep "$WORK/e95/.cache/elite/bars.log" 'elite-gparted: FALHOU rc=126' \
+  "E137: o erro real deixa UMA linha no papel da família (a forense do clique no bars.log — nunca spam)"
+# o guard anti-loop: o alvo que resolve para ESTE bin é recusado
+ELITE_PKEXEC_BIN="$WORK/e95/pkexec" ELITE_GPARTED_BIN="/usr/local/bin/elite-gparted" \
+    bash "$EGPU" >/dev/null 2>&1
+assert_eq "$?" "1" "E137: o alvo que resolve para o próprio elite-gparted é RECUSADO (rc 1 — nenhuma recursão possível, o guard fala)"
+
+# ═══════════════════════════════════════════════════════════════════════
+# E137 — O PIN FLATPAK (a prova do dump: 'craft-pin add FALHOU rc=1 —
+# nenhum app casa com it.mijorus.gearlever.desktop'). O resolvedor agora
+# varre os CINCO diretórios XDG — o .desktop da loja de USUÁRIO fixa.
+# ═══════════════════════════════════════════════════════════════════════
+FP="$WORK/craft-pin-flatpak"
+FPAPPS="$FP/.local/share/flatpak/exports/share/applications"
+mkdir -p "$FPAPPS" "$FP/.local/share/applications"
+cat > "$FPAPPS/it.mijorus.gearlever.desktop" <<'EOF'
+[Desktop Entry]
+Name=Gear Lever
+Exec=flatpak run it.mijorus.gearlever
+Icon=it.mijorus.gearlever
+Type=Application
+EOF
+CPF() { env HOME="$FP" XDG_DATA_HOME="$FP/.local/share" bash "$REPO/elite/airootfs/usr/local/bin/craft-pin" "$@"; }
+out="$(CPF add it.mijorus.gearlever.desktop 2>&1)"; e137fp=$?
+assert_eq "$e137fp" "0" "E137/flatpak: o ID da loja fixa pelo nome COMPLETO (a prova exata do dump — 'it.mijorus.gearlever.desktop' entra rc 0)"
+assert_match "$out" 'it\.mijorus\.gearlever\.desktop fixado' "E137/flatpak: o pin da loja entra com o ID REAL"
+assert_grep "$FP/.config/elite/dock-pins" '^it\.mijorus\.gearlever\.desktop$' \
+  "E137/flatpak: o ID do Flatpak no dock-pins (a dock Rust resolve ícone/exec pelo MESMO índice de 5 dirs — paridade total)"
+out="$(CPF add gearlever 2>&1)"; e137fp2=$?
+assert_eq "$e137fp2" "1" "E137/flatpak: a duplicata segue recusada (rc ≠ 0 — a lei E36 intacta na era da loja)"
+assert_match "$out" 'já está fixado' "E137/flatpak: o veredito da duplicata nomeia o app da loja"
+CPF rm it.mijorus.gearlever.desktop >/dev/null 2>&1
+assert_nogrep "$FP/.config/elite/dock-pins" 'gearlever' \
+  "E137/flatpak: desafixar o app da loja também funciona (o rm pela coluna 1 do ID — fixar E desafixar na mesma moeda)"
+# o resolvedor fala os CINCO dirs (o contrato de paridade com a dock Rust)
+PINBIN="$REPO/elite/airootfs/usr/local/bin/craft-pin"
+assert_grep "$PINBIN" 'flatpak/exports/share/applications' \
+  "E137/flatpak: o craft-pin varre os EXPORTS do Flatpak (o dir do usuário que a prova do dump exigia)"
+assert_grep "$PINBIN" '/var/lib/flatpak/exports/share/applications' \
+  "E137/flatpak: o craft-pin varre os EXPORTS do SISTEMA (a mesma varredura do icons::desktop_dirs da dock)"
+assert_grep "$REPO/vendor/rust/craft-dock-rs/src/icons.rs" 'fn desktop_dirs' \
+  "E137/flatpak: o índice da dock continua a FONTE da paridade (5 diretórios XDG — quem a dock vê, o pin fixa)"
+
+# ═══════════════════════════════════════════════════════════════════════
 # E98 — A GAVETA QUE MORRE ANTES DE REABRIR: a prova comportamental do
 # toggle v1.7 com STUBS de PATH (a escola do seam, agora no /bin do
 # teste). O nwg-drawer de mentira assina o nascimento e dorme; o pgrep
@@ -3292,10 +3388,10 @@ assert_match "$out122" 'TECLADO acorda' \
 assert_rc0 "E122/wake: status sai 0 na árvore falsa (a perícia sem raiz é a prova da suíte)" \
     env WAKE_SYSFS="$W122/sys" WAKE_ACPI="$W122/nenhuma" bash "$WG122" status
 # contratos de instalação: a regra udev e a unit de boot
-assert_grep "$REPO/elite/airootfs/etc/udev/rules.d/90-elite-wake-guard.rules" '0x0c03\*.*power/wakeup\}="enabled"' \
-    "E122/wake: a regra udev v2 ARMA o controlador (a marreta 'disabled' da era E24 morre na ISO nova)"
-assert_grep "$REPO/elite/airootfs/etc/udev/rules.d/90-elite-wake-guard.rules" 'usb-apply %p' \
-    "E122/wake: o gancho RUN por usb_device entra na regra (coldplug + hotplug decidem por DISPOSITIVO)"
+assert_grep "$REPO/elite/airootfs/usr/lib/udev/rules.d/91-elite-wake-guard.rules" '0x0c03\*.*power/wakeup\}="enabled"' \
+    "E122/E137/wake: a regra udev v2 ARMA o controlador no caminho CANÔNICO /usr/lib/91 (a marreta 'disabled' da era E24 morre; a duplicata /etc/90 do airootfs saiu — um arquivo, um dono)"
+assert_grep "$REPO/elite/airootfs/usr/lib/udev/rules.d/91-elite-wake-guard.rules" 'usb-apply %p' \
+    "E122/E137/wake: o gancho RUN por usb_device entra na regra (coldplug + hotplug decidem por DISPOSITIVO)"
 assert_file "$REPO/elite/airootfs/etc/systemd/system/elite-wake-guard.service" \
     "E122/wake: a unit elite-wake-guard existe (o apply a cada boot — quem cura os rigs da era E24 cuja .rules velha segue no disco)"
 assert_file "$REPO/elite/airootfs/etc/systemd/system/multi-user.target.wants/elite-wake-guard.service" \

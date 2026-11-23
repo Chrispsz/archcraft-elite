@@ -151,11 +151,16 @@
     "exec": "craft-player state",
     "return-type": "json",
     "interval": 1,
-    "on-click": "playerctl play-pause",
-    "on-click-middle": "playerctl next",
-    "on-click-right": "playerctl previous",
-    "on-scroll-up": "playerctl next",
-    "on-scroll-down": "playerctl previous"
+    // E137 — os cliques passam PELO CRAFT-PLAYER: o juízo do módulo agora
+    // cobre também o COMANDO (sem player vivo o playerctl cru cuspiria
+    // 'No player could handle this command' no stderr herdado do waybar —
+    // o ruído do bars.log no dump 201219; o bin guarda com playerctl -l e
+    // engole o stderr nos dois caminhos).
+    "on-click": "craft-player play-pause",
+    "on-click-middle": "craft-player next",
+    "on-click-right": "craft-player previous",
+    "on-scroll-up": "craft-player next",
+    "on-scroll-down": "craft-player previous"
   },
 
   // Bateria (v2.10.5 — o notebook ENTROU na barra: a auditoria de

@@ -4,12 +4,9 @@ Documentation=https://wiki.cachyos.org
 # Só no sistema INSTALADO — na sessão live (/run/archiso existe) nunca roda
 ConditionPathExists=!/run/archiso
 ConditionPathExists=!/var/lib/elite/firstboot-done
-# v2.10.7 — DEPOIS do desktop, nunca refém dele (o 1º rig-install da 10.6
-# provou o custo: WantedBy=multi-user.target segurou o graphical.target por
-# 30min 9s — pacman lento (mirror 404 + wifi Intel 7260 empane no meio) até
-# o TimeoutStartSec=1800 matar o serviço; 'systemd-analyze' do dump 0qmq:
-# 'graphical.target reached after 30min 9.462s'). O desktop sobe primeiro; o
-# tuning termina em background — o mesmo trabalho, sem refém.
+# DEPOIS do desktop, nunca refém dele: com multi-user.target o boot ficou
+# 30min preso num pacman lento até o TimeoutStartSec matar o serviço. O
+# desktop sobe primeiro; o tuning termina em background.
 After=graphical.target network-online.target
 Wants=network-online.target
 
@@ -17,20 +14,13 @@ Wants=network-online.target
 Type=oneshot
 ExecStart=/usr/local/bin/elite-tune --firstboot
 TimeoutStartSec=1800
-# v2.10.7 — O EPÍLOGO É LEI: sucesso, falha OU timeout-kill registram o
-# resultado (no rig o serviço morreu aos 1800s e o log terminou no meio do
-# systemctl, sem contar história). ExecStopPost roda em TODOS os casos;
-# NÃO marca firstboot-done (a lei v4.5 do retry por rede/driver fica de pé
-# — sem rede o firstboot re-tenta no boot seguinte, agora sem travar nada).
-# E122 — O EPÍLOGO IMPRIMIA LIXO: o rig logou "[elite-firstboot] resultado:
-# /bin/bash (exit=/bin/bash)" (dump 184815) — a linha ${VAR} atravessa DUAS
-# camadas de expansão (a do systemd, antes do fork, e a do /bin/sh) e a
-# saída foi lixo nas duas posições. A cura é a gramática documentada do
-# systemd.service(5): "$$" manda o systemd entregar um '$' LITERAL ao sh —
+# O EPÍLOGO É LEI: sucesso, falha OU timeout-kill registram o resultado
+# (ExecStopPost roda em TODOS os casos; NÃO marca firstboot-done — sem
+# rede o firstboot re-tenta no boot seguinte, agora sem travar nada).
+# O "$$" entrega um '$' LITERAL ao sh (a gramática do systemd.service(5)):
 # a expansão vira UMA só (a do sh, que lê o env SERVICE_RESULT/EXIT_STATUS
-# que o systemd GARANTE ao ExecStopPost). A pergunta "por que /bin/bash?"
-# segue para o próximo dump com a cura já no ar (o papel nomeia o fato e a
-# mecânica nova — não inventa a causa que não viu).
+# garantido ao ExecStopPost — a linha com ${VAR} cruzava DUAS camadas de
+# expansão e virava lixo).
 ExecStopPost=/bin/sh -c 'printf "\n[elite-firstboot] resultado: %s (exit=%s)\n" "$$SERVICE_RESULT" "$$EXIT_STATUS" >> /var/log/elite-firstboot.log'
 StandardOutput=append:/var/log/elite-firstboot.log
 StandardError=append:/var/log/elite-firstboot.log

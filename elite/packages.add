@@ -183,6 +183,13 @@ slurp
 playerctl
 brightnessctl
 pulsemixer
+# E137 — O PAR X DO GPARTED: o root vestido pelo pkexec precisa do COOKIE
+# do usuário para falar com o XWayland (xorg-xauth extrai o cookie de
+# emergência; o xorg-xhost abre o cinto +SI:localuser:root — sem eles o
+# clique do GParted morria 'cannot open display' no rig 201219, que não
+# tinha NENHUM dos dois instalados)
+xorg-xauth
+xorg-xhost
 # v2.10.5 — libpulse EXPLÍCITO: o pactl dos volumes XF86Audio e o módulo
 # pulseaudio/pulseaudio#mic da waybar precisam da lib — dependia de cadeia
 # transitive que ninguém jurava (auditado na auditoria de simulações)
@@ -289,9 +296,11 @@ tealdeer
 ##   · papers (GTK4/libadwaita — leitor PDF, substitui zathura)
 ##   · pwvucontrol (GTK4/Rust — mixer PipeWire, substitui pavucontrol;
 ##     construído no build via estágio AUR → [elite-local])
-##   · overskride (E134 — GTK4/libadwaita, Bluetooth GRÁFICO nativo
-##     Wayland no lugar do bluetui TUI; construído no build via estágio
-##     AUR → [elite-local] — a ordem do dono, dump 1.0-80)
+##   · E137 — O BLUETOOTH SEM APP: o overskride AUR nunca chegou aos
+##     rigs ('alvo não encontrado' em toda dose) e saiu da casa — o
+##     gerenciador é a PRÓPRIA central (craft-connect: menu fuzzel +
+##     bluetoothctl, bluez/bluez-utils na base — 100% GUI, zero
+##     terminal, zero pacote AUR)
 ##   · impala (TUI Rust — rede/iwd+NM, substitui nm-applet no dia-a-dia)
 ##   · brave-origin (v1.4, diretriz do dono: o navegador padrão passa a
 ##     ser o BRAVE ORIGIN — release oficial brave-origin-*.zip da Brave,
@@ -307,7 +316,6 @@ qalculate-gtk
 nwg-look
 papers
 pwvucontrol
-overskride
 impala
 brave-origin
 ## E136 — O EDITOR GRÁFICO DA CASA (a PARTE 2/2 do dono: 'Padronize

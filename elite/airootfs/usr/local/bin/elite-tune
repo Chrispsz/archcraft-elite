@@ -301,14 +301,16 @@ apply_grub_tokens() { # tokens de kernel + grub-mkconfig ([4] firstboot / [3] in
 }
 
 write_elite_sysctl() { # a lei do sysctl ([2i] firstboot quando ausente / [5] interativo)
-  # E136 — A MISSÃO PARTE 2/2 DO DONO: o arquivo ÚNICO consolidado. Os
-  # dois confs da era anterior (99-elite.conf da RAM + 99-elite-net.conf
-  # da rede) viram UM: 99-elite-performance.conf (o nome é do dono). E
-  # O SWAPPINESS VIRA 15 — a ordem nova: '10, ou 15 com ZRAM zstd
-  # ativo' (a casa TEM zram0 zstd de fábrica — o número da lei é 15).
-  # A régua E132/E135 (180/160/150 por perfil de RAM) MORRE pela ordem
-  # nova: o mesmo número em TODO perfil, no conf e no zram-generator
-  # (a lição E135 do drift segue viva — agora com 15 nos DOIS donos).
+  # E136 → E137 — O ARQUIVO ÚNICO consolidado permanece: os dois confs
+  # da era anterior (99-elite.conf + 99-elite-net.conf) são UM só
+  # (99-elite-performance.conf, o nome do dono). O SWAPPINESS VIRA 180
+  # (E137/PROMPT 3 — recalibra a ordem E136): com zram0 zstd 8G de
+  # fábrica, o estilo SteamOS manda (swap em RAM comprimida = preferir
+  # anonymous pages; descomprimir é barato, reler disco é caro). QUEM
+  # GARANTE O NÚMERO NO BOOT é a regra udev 81-elite-zram.rules (o
+  # cachyos-settings escreve 150 no evento do zram0 e a 81 da casa
+  # recoloca o 180 NO MESMO EVENTO — a chave `swappiness` do
+  # zram-generator nunca existiu upstream e saiu do conf do gerador).
   # A rede entra SÓ quando ESTE kernel oferece bbr (o conf nunca pede
   # o que o kernel não tem — o systemd-sysctl fica mudo no boot).
   local _net=""
@@ -319,9 +321,9 @@ net.core.default_qdisc = fq
 net.ipv4.tcp_congestion_control = bbr"
   fi
   wfile /etc/sysctl.d/99-elite-performance.conf <<EOF
-# ── ELITE: performance consolidado (E136 — regenerado pela lei única;
+# ── ELITE: performance consolidado (E137 — regenerado pela lei única;
 # os fósseis 99-elite.conf/99-elite-net.conf saem com voz no post_upgrade)
-vm.swappiness = 15
+vm.swappiness = 180
 vm.vfs_cache_pressure = 50
 vm.page_lock_unfairness = 1
 vm.max_map_count = 2147483642
@@ -329,18 +331,14 @@ kernel.sched_autogroup_enabled = 1
 vm.page-cluster = 0
 vm.watermark_boost_factor = 0
 vm.watermark_scale_factor = 125
-# E132 — o par do dirty (a ordem do dono: escrita assentando cedo e em
-# bloco pequeno — o gargalo de I/O do -Syu/decompress não trava a sessão)
 vm.dirty_background_ratio = 5
 vm.dirty_ratio = 10
-# E132 — a compactação proativa DESLIGADA (compaction_proactiveness=0 —
-# o THP madvise só a quem pede e o kcompactd para de acordar sem convite)
 vm.compaction_proactiveness = 0
 ${_net}
 EOF
   local _bbrdiz="ausente neste kernel"
   if [ -n "$_net" ]; then _bbrdiz="INCLUIDO"; fi
-  say "sysctl: 99-elite-performance.conf com swappiness = 15 (a ordem PARTE 2/2 — zram zstd ativo; bbr ${_bbrdiz})"
+  say "sysctl: 99-elite-performance.conf com swappiness = 180 (E137 — zram zstd + MGLRU; sem drift pela regra udev 81-elite-zram; bbr ${_bbrdiz})"
 }
 
 # E132 — O THP MADVISE AGORA (a ordem do dono): o cmdline do GRUB vale no
@@ -945,12 +943,12 @@ PYBRAVE
     # o cabeçalho 'restaurado pelo firstboot' era o espelho que divergia
     write_elite_sysctl
   fi
-  # E132→E136 — O SWAPPINESS É A LEI DO CONF (o consolidado da PARTE 2/2
-  # acabou de escrever /etc/sysctl.d/99-elite-performance.conf pelo
-  # write_elite_sysctl — o 15 é a única voz da casa nos DOIS donos do
-  # número, conf e zram-generator).
+  # E132→E137 — O SWAPPINESS É A LEI DO CONF (o consolidado acabou de
+  # escrever /etc/sysctl.d/99-elite-performance.conf pelo
+  # write_elite_sysctl — o 180 é a única voz da casa; a regra udev
+  # 81-elite-zram o defende do 150 do cachyos-settings no boot).
   want_sw="$(sed -n 's/^vm\.swappiness *= *//p' /etc/sysctl.d/99-elite-performance.conf 2>/dev/null | tail -1)"
-  [[ "$want_sw" =~ ^[0-9]+$ ]] || want_sw=15
+  [[ "$want_sw" =~ ^[0-9]+$ ]] || want_sw=180
   got_sw="$(sysctl -n vm.swappiness 2>/dev/null || true)"
   if [[ "$got_sw" != "$want_sw" ]]; then
     say "sysctl: kernel em vm.swappiness='${got_sw:-?}' (Elite pede $want_sw) — reaplicando sysctl.d"
@@ -987,12 +985,11 @@ PYBRAVE
   # é o BORE do kernel (nenhum scheduler userspace por cima) e o boost de
   # jogo sob demanda é o gamemode. scx-elite/dmemcg/fg-booster extintos.
   run systemctl enable --now ananicy-cpp.service || true
-  # E136 — O BLUETOOTH LIMPO E O SCX: o bluetooth.service é o par do
-  # overskride (GUI GTK4/libadwaita, ZERO applet residente — o serviço
-  # só acorda quando o dono abre o app); o scx_loader já subiu no
-  # ensure_kernel_modernos (o say de lá conta a história). Sem
-  # adaptador, o bluetoothd sobe limpo e espera (não é FAILED — é rede
-  # sem rádio).
+  # E136→E137 — O BLUETOOTH LIMPO E O SCX: o bluetooth.service serve a
+  # CENTRAL da casa (craft-connect: menu fuzzel + bluetoothctl, ZERO
+  # applet residente); o scx_loader já subiu no ensure_kernel_modernos
+  # (o say de lá conta a história). Sem adaptador, o bluetoothd sobe
+  # limpo e espera (não é FAILED — é rede sem rádio).
   run systemctl enable --now bluetooth.service 2>/dev/null || true
   # snapshots: o grub-btrfsd vigia /.snapshots — sem o subvolume a unit
   # nasce FAILED ('No directory found at /.snapshots' — o rig flagrou no
@@ -1178,15 +1175,15 @@ if [[ "${VENDOR:-}" == "amd" ]]; then ensure_amd_vulkan_env; fi
 # Auto-limpeza também no modo interativo (enxerto em sistema existente):
 gpu_cleanup_foreign "$VENDOR" "$HYBRID"
 ZMB=$(( MEM_GIB * 1024 )); (( ZMB > 8192 )) && ZMB=8192
-pacman_s zram-generator || note_fail "zram-generator (swappiness 15 sem zram segue funcional)"
+pacman_s zram-generator || note_fail "zram-generator (o swap zstd da casa)"
 wfile /etc/systemd/zram-generator.conf <<EOF
-# E136 — o swappiness = 15 do gerador (a última palavra no swapon — a
-# lição E135; o MESMO número do 99-elite-performance.conf, os DOIS donos
-# do número falam UM número só)
+# E137 — o swappiness NÃO é chave do zram-generator (o upstream a ignora
+# com 'unknown key' — a prova mora no config.rs do gerador); quem fixa o
+# 180 no boot é a regra udev 81-elite-zram.rules, que roda DEPOIS do
+# 30-zram.rules do cachyos-settings no MESMO evento do zram0.
 [zram0]
 zram-size = ${ZMB}M
 compression-algorithm = zstd
-swappiness = 15
 EOF
 run systemctl daemon-reload
 run systemctl start systemd-zram-setup@zram0.service || true

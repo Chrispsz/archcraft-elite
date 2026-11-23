@@ -46,24 +46,29 @@ count() {
 wb_list="$(pgrep -a waybar 2>/dev/null | tr '\n' ';' | sed 's/;$//')"
 wb_count="$(count waybar)"
 sn_count="$(count swaync)"
-# v2.10.8 — O IDLE NA PROVA (o dono: 'o PC não entra em idle' — o dump d33o
-# não tinha réu nomeado): swayidle é o daemon do lock/DPMS/suspend e o
-# craft-bars é o supervisor que o ressuscita (B1). Morto aqui = resposta.
+# E137 — O PROBE AUDITA O LANÇADOR REAL: a sessão é filha do
+# `elite-daemon session` (o craft-bars execa o binário — E135). As
+# métricas fósseis morrem: o contador do craft-bars contava o NOME de um wrapper
+# que virou exec (o sh some do ps por desenho — o número mentia 0 com a
+# sessão viva, o dump 201219 fotografou o contador em 0 na casa sã) e
+# DOCK_COUNT ancorava o cmdline COMPLETO '^/usr/local/bin/craft-dock-rs$'
+# que o daemon nunca escreve (ele lança por PATH — argv[0]=
+# 'craft-dock-rs'; a dock VIVA era contada como 0 no mesmo dump). A
+# contagem agora é por COMM (-x), o nome que o kernel garante nos DOIS
+# mundos de spawn.
+dk_count="$(pgrep -c -x craft-dock-rs 2>/dev/null)"; [ -n "$dk_count" ] || dk_count=0
+# o motor: o daemon da sessão + a trava da porta session (a vaga é de
+# quem segura o flock — a mesma prova de posse do supervise)
+daemon_count="$(count elite-daemon)"
+daemon_session="LIVRE"
+flock -n /tmp/elite-daemon-session.lock true 2>/dev/null || daemon_session="ATIVO"
+# os residentes da família (o painel completo da sessão em números)
 idle_count="$(count swayidle)"
-cb_count="$(count craft-bars)"
-# v2.1.1: dock GTK contada por cmdline (comm = "python3" — pgrep -c puro
-# nunca acharia). Padrão do count(): sem '|| echo 0' (duplicaria a linha).
-# v2.10.6 — padrão ANCORADO: '-f' casava substring — um editor com o
-# fonte aberto ('vim …/craft-dock-rs') contava como DOCK (o falso
-# positivo da Rodada 2). A âncora pega só a dock de verdade.
-# E134 — a dock é o BINÁRIO RUST craft-dock-rs (o Python foi aposentado).
-dk_count="$(pgrep -fc '^/usr/local/bin/craft-dock-rs$' 2>/dev/null)"
-[ -n "$dk_count" ] || dk_count=0
+osd_count="$(count swayosd-server)"
+udiskie_count="$(count udiskie)"
+pk_count="$(pgrep -c -f 'lxqt-policykit-agent' 2>/dev/null)"; [ -n "$pk_count" ] || pk_count=0
 # v2.10.1: o daemon wlr-foreign-toplevel (a dock COMUTADORA) — vivo E
 # FALANDO (a prova é o PING no socket da sessão, não só o processo)
-# v2.10.6 — a contagem do toplevel virou -x (comm = 'craft-toplevel',
-# binário C — o casamento exato é possível e é o honesto; '-f' somava
-# editor com o fonte aberto).
 tp_count="$(count craft-toplevel)"
 tp_sock="DEAD"
 for s in /run/user/*/elite/toplevel.sock; do
@@ -104,15 +109,22 @@ say "TOPLEVEL_COUNT=$tp_count"
 say "TOPLEVEL_SOCKET=$tp_sock"
 say "SWAYNC_COUNT=$sn_count"
 say "IDLE_COUNT=$idle_count"
-say "CRAFTBARS_COUNT=$cb_count"
-# E43 — a contagem por cmdline soma os WRAPPERS (1 supervisor + N subshells
-# esperando o exit do filho para logar 'SAIU' — o ps mostra o MESMO cmdline
-# para todos; o dump tg0b1 leu 5 'craft-bars' com 1 só supervisor vivo). A
-# verdade da supervisão é a POSSE DO LOCK: ATIVO = o flock está segurado
-# (supervisor cuidando); LIVRE = ninguém cuidando (o que nunca pode dormir).
-cb_lock="LIVRE"
-flock -n "${XDG_RUNTIME_DIR:-/run/user/1000}/elite/bars.lock" true 2>/dev/null || cb_lock="ATIVO"
-say "CRAFTBARS_LOCK=$cb_lock"
+say "OSD_COUNT=$osd_count"
+say "UDISKIE_COUNT=$udiskie_count"
+say "POLICYKIT_COUNT=$pk_count"
+# E137 — O MOTOR NA PROVA: o elite-daemon (session/game/supervise) e a
+# TRAVA da porta session (posse provada por flock — a métrica que
+# substitui a fóssil do craft-bars; o gate do QEMU segue consumindo
+# os tokens de sempre, WAYBAR/DOCK/TOPLEVEL/BARS_EXITS)
+say "ELITE_DAEMON_COUNT=$daemon_count"
+say "DAEMON_SESSION=$daemon_session"
+# E43 — a verdade da supervisão é a POSSE DO LOCK: ATIVO = o flock está
+# segurado (o craft-bars segura e o exec para o daemon HERDA o fd — em
+# ambos os mundos a trava segue viva enquanto a sessão vive); LIVRE =
+# ninguém cuidando (o que nunca pode dormir).
+sup_lock="LIVRE"
+flock -n "${XDG_RUNTIME_DIR:-/run/user/1000}/elite/bars.lock" true 2>/dev/null || sup_lock="ATIVO"
+say "SUPERVISOR_LOCK=$sup_lock"
 say "BARS_RESTARTS=$restarts"
 say "BARS_EXITS=$exits"
 # E117 — O RÓTULO QUE JURAVA CONTAGEM E MOSTRAVA LISTA (dump 163548: o

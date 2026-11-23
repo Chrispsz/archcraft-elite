@@ -1,26 +1,46 @@
 #!/bin/sh
-# Archcraft ELITE ISO · labwc autostart — sessão ÚNICA do live e do sistema
-# instalado (v1.0.3+): openbox/bspwm foram removidos da ISO. Idêntico ao
-# autostart do zip Cockpit: quem instala a ISO já nasce no mesmo ambiente
-# de quem rodou o zip.
-# Executado no início da sessão LABWC — termine comandos com & para não bloquear.
+# Archcraft ELITE · labwc autostart — a sessão ÚNICA do live e do
+# sistema instalado. Executado no início da sessão LABWC — termine
+# comandos com & para não bloquear. Desktop estilo macOS, mouse-first:
+# menu bar no topo (waybar) + DOCK flutuante na base (craft-dock-rs) +
+# Launchpad (nwg-drawer via craft-drawer) + wallpaper.
 #
-# Desktop v2 (v1.0.4) — estilo macOS, mouse-first: menu bar no topo
-# (waybar config.top) + DOCK flutuante na base (craft-dock-gui — v2.0),
-# Launchpad (nwg-drawer via craft-drawer) e wallpaper de imagem.
+# E137 — O LANÇADOR ÚNICO (a ordem do dono, dump 201219): NENHUM daemon
+#     de sessão nasce AQUI. craft-toplevel, waybar, dock, idle, polkit,
+#     swaync, udiskie e swayosd são TODOS filhos do `elite-daemon
+#     session` (o craft-bars execa o daemon quando o binário existe; sem
+#     ele, o corpo bash do craft-bars assume — em AMBOS os mundos há UM
+#     só lançador). Os spawns diretos daqui morreram: eram a causa do
+#     'An instance of SwayNotificationCenter is already running!' e do
+#     'craft-toplevel: fechadura ocupada' no boot do rig.
 #
-# E129 — OS ÓRFÃOS DA SESSÃO ANTERIOR MORREM NO FRAME 0 (a ordem do dono):
-#     o ${XDG_RUNTIME_DIR:-/run/user/$UID}/elite/ é tmpfs da SESSÃO (morre
-#     com ela por desenho), mas o relogin rápido e o crash deixam fósseis:
-#     sockets mortos (o toplevel que ninguém escuta), stamps e locks de
-#     watch/apply/vigília que MENTEM à sessão nova. A sessão ÚNICA da casa
-#     (v1.0.3+) garante a segurança: no frame 0 do labwc NÃO há outra
-#     sessão viva — tudo que está aqui é órfão. Sockets e arquivos saem
-#     (o diretório fica — é a morada da sessão que nasce agora).
+# E129 — OS ÓRFÃOS DA SESSÃO ANTERIOR MORREM NO FRAME 0: o
+#     ${XDG_RUNTIME_DIR:-/run/user/$UID}/elite/ é tmpfs da SESSÃO, mas o
+#     relogin rápido e o crash deixam fósseis que MENTEM à sessão nova
+#     (sockets mortos, stamps, locks). No frame 0 do labwc não há outra
+#     sessão viva — tudo que está aqui é órfão e sai (o diretório fica:
+#     é a morada da sessão que nasce agora).
 _run_elite="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/elite"
 if [ -d "$_run_elite" ]; then
     find "$_run_elite" -mindepth 1 -maxdepth 1 \( -type s -o -type f \) -delete 2>/dev/null
 fi
+
+# --- E137 · OS PAPÉIS DA CASA NASCEM PODADOS: ~/.cache/elite/*.log cresce
+#     sem freio entre doses (o bars.log do rig estava em 980 KB em poucos
+#     dias — os tetos das funções seguram o MEIO da sessão, nada podava o
+#     ACÚMULO cross-boot). No frame 0 cada papel fica com os ÚLTIMOS
+#     256 KiB (a evidência recente vale mais que a história inteira) —
+#     uma passada síncrona de milissegundos, antes de qualquer daemon.
+_logdir="${XDG_CACHE_HOME:-$HOME/.cache}/elite"
+if [ -d "$_logdir" ]; then
+    for _l in "$_logdir"/*.log; do
+        [ -f "$_l" ] || continue
+        if [ "$(wc -c <"$_l" 2>/dev/null || echo 0)" -gt 262144 ]; then
+            tail -c 131072 "$_l" > "$_l.poda" 2>/dev/null && mv -f "$_l.poda" "$_l" 2>/dev/null
+        fi
+    done
+fi
+unset _logdir _l
 
 # --- Displays: O ARRANJO SALVO NASCE APLICADO NO FRAME 0 (E89→E129→E134)
 #     O relato do dono: "eu coloco 200 hertz e toda vez que eu reinicio o
@@ -72,28 +92,19 @@ if command -v swaybg >/dev/null 2>&1; then
     fi
 fi
 
-# --- Janelas: daemon wlr-foreign-toplevel (v2.10.1 — a dock COMUTADORA) ---
-#     O craft-toplevel fala o protocolo DIRETO com o labwc (janelas por id +
-#     anel MRU do alt-tab) e serve a dock num socket da sessão. Antes do
-#     craft-bars (que o supervisiona): a dock reconnecta sozinha no 1º tick,
-#     mas nascer com o socket pronto é a ordem certa. Sem WAYLAND_DISPLAY o
-#     daemon sai 0 por conta própria (a supervisão assume depois do boot).
-if command -v craft-toplevel >/dev/null 2>&1; then
-    craft-toplevel &
-fi
+# --- Janelas: daemon wlr-foreign-toplevel (a dock COMUTADORA) ──────────
+#     O craft-toplevel fala o protocolo DIRETO com o labwc (janelas por id
+#     + anel MRU do alt-tab) e serve a dock num socket da sessão. E137: o
+#     spawn DIRETO morreu — quem lança (e ressuscita) é o supervisor
+#     único (elite-daemon session / craft-bars); nascer dois era a causa
+#     do 'craft-toplevel: fechadura ocupada' no boot.
 
-# --- Barras (Desktop v2): menu bar no TOPO + DOCK na base ------------------
-#     v1.6.3 — SUPERVISÃO (burn test da v1.6.2: a sessão subiu SÓ com o
-#     wallpaper — as duas instâncias morreram caladas, sem deixar stderr;
-#     o gate do CI para no LOGIN, nunca vê a sessão gráfica). O craft-bars
-#     vigia as duas barras, reinicia em ≤5s e guarda o stderr em
-#     ~/.cache/elite/bars.log (teto 1 MiB) — fim da sessão muda, e se o
-#     waybar morrer de novo o log traz a mensagem EXATA dele.
-#     v1.7.1 — FIM DO SILÊNCIO DO GUARD: se o binário do waybar não
-#     existir no squashfs ou o craft-bars estiver sem +x, o guard abaixo
-#     falhava SEM NENHUM rastro (a classe "subiu só o wallpaper" que
-#     atravessou v1.6.2→v1.7.0). Agora TUDO que decide as barras deixa
-#     rastro no MESMO bars.log do supervisor.
+# --- Barras + dock + residentes: O SUPERVISOR ÚNICO (craft-bars) ─────────
+#     O craft-bars execa o elite-daemon session (o lançador único E135) e,
+#     sem o binário, o corpo bash dele assume — em ambos os mundos TODA a
+#     família nasce dele: waybar, dock, toplevel, idle, polkit, swaync,
+#     udiskie, swayosd. O guard abaixo só CLAMA no bars.log quando o motor
+#     não existe (a classe 'subiu só o wallpaper' nunca mais é muda).
 BARLOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/bars.log"
 if ! command -v waybar >/dev/null 2>&1; then
     mkdir -p "${BARLOG%/*}" 2>/dev/null
@@ -103,16 +114,6 @@ elif [ ! -x /usr/local/bin/craft-bars ]; then
     printf '[%s] AUTOSTART: craft-bars ausente/sem bit de execução — barras NÃO sobem (guard)\n' "$(date '+%F %T')" >>"$BARLOG" 2>/dev/null
 else
     craft-bars &
-fi
-
-# --- Central de notificações (SwayNC) — toggle no relógio da barra ---------
-# v2.10.5 — a central é a superfície de TODOS os avisos de erro dos craft-*.
-# E36 — HONESTIDADE (o comentário antigo invocava 'a lei dos vizinhos' mas
-# o spawn era NU — E33): o stderr agora vai para o bars.log (com a forense
-# da casa) e o craft-bars RELANÇA se morrer em sessão (pgrep vivo = nada
-# acontece; um só lançador na 1ª vez, rede de segurança para sempre).
-if command -v swaync >/dev/null 2>&1; then
-    swaync >>"${XDG_CACHE_HOME:-$HOME/.cache}/elite/bars.log" 2>&1 &
 fi
 
 # --- Diálogo de senha gráfico (polkit) — E132: O AGENTE NATIVO ────────────
@@ -128,86 +129,38 @@ fi
 #     agente da era antiga saiu daqui (a aposentadoria dos residentes é
 #     lei E58/E95 no craft-bars).
 
-# --- Rede/Bluetooth (v2.0 → v2.3.5 → v2.3.6 — a história, com as 3 evidências):
-#     v2.0 tirou os applets (estética: "um ícone antigo… e um de Bluetooth.
-#     Ambos ficaram meio quebrados"). O rig v2.3.2 provou o custo: o editor
-#     EDITA, não CONECTA → v2.3.5 devolveu o nm-applet como conector. O rig
-#     v2.3.5 provou o custo DO remédio: o ícone SNI de ethernet é bitmap de
-#     tema de ícones — desanda a família tipográfica da barra ("os ícones
-#     estão inconsistentes visualmente e espaçados"; o dono: "remove esse
-#     ícone feio de Pc… coloca a função… como texto escrito nela"). A cura
-#     final não é estética nem função — é as duas juntas: O CONECTOR É O
-#     PRÓPRIO craft-connect EM TEXTO ('Wi-Fi: conectar à rede…' → redes do
-#     entorno → senha oculta → conectado, tudo fuzzel+nmcli). Nada sobe na
-#     tray (udiskie roda --no-tray); edição avançada continua no W-n.
+# --- Rede/Bluetooth: NENHUM applet sobe (a decisão final da casa): o
+#     conector é o craft-connect EM TEXTO ('Wi-Fi: conectar à rede…' →
+#     redes do entorno → senha oculta → conectado, tudo fuzzel+nmcli) e o
+#     Bluetooth é a central do painel (bluez + bluez-utils). Edição
+#     avançada continua no W-n (nm-connection-editor).
 
-# --- USB: automount + notificação (udiskie — daemon próprio; o
-#     thunar-volman só age com o Thunar aberto)
-if command -v udiskie >/dev/null 2>&1; then
-    udiskie --automount --notify --no-tray &
-fi
+# --- USB (udiskie) e OSD (swayosd-server): filhos do SUPERVISOR ÚNICO —
+#     E137: os spawns diretos morreram (o udiskie e o swayosd-server eram
+#     lançados AQUI e também pelo elite-daemon session — o segundo nascia
+#     ou adotado ou morto no gate; agora UM só lançador). Os binds
+#     XF86Audio/MonBrightness falam com o swayosd-client; client sem
+#     daemon = fallback pactl/brightnessctl dentro do próprio bind (a
+#     barra some, a função NUNCA).
 
-# --- OSD (E74 — Fase 3 do protocolo): feedback visual de volume/brilho.
-#     O daemon é ÚNICO (swayosd-server) e os binds XF86Audio/MonBrightness
-#     falam com ele via swayosd-client; client sem daemon = fallback
-#     pactl/brightnessctl dentro do próprio bind (a barra some, a função
-#     NUNCA). Idempotente: pgrep guarda o re-spawn a cada sessão.
-if command -v swayosd-server >/dev/null 2>&1; then
-    pgrep -x swayosd-server >/dev/null 2>&1 || swayosd-server &
-fi  # elite-osd-1
+# --- Idle + lock: TEMPOS AJUSTÁVEIS PELO USUÁRIO — "consigo controlar em
+#     quanto tempo o Pc entra em idle?" (dono). Defaults no
+#     ~/.config/elite/idle.conf; o menu → "Trava automática…" (craft-idle)
+#     troca e reinicia o daemon NA HORA, sem relogin. Receita canônica da
+#     wiki do labwc (swayidle + wlopm). O lock é o hyprlock (~/.config/hypr/
+#     hyprlock.conf): screenshot + blur + dim + relógio + avatar. FLUXO:
+#     X min → lock; X+5 → tela APAGA (DPMS real); input → acorda JÁ no
+#     lock; before-sleep → lock no suspender. "Nunca" (LOCK_MIN=0) = sem
+#     daemon (W-l manual). Quem lança (e RELANÇA) é o supervisor da sessão
+#     (a morte calada do swayidle deixava lock/DPMS/suspend fora para
+#     sempre — o achado da Rodada 2 da auditoria).
 
-# --- Idle + lock (v1.6.1): TEMPOS AJUSTÁVEIS PELO USUÁRIO — "consigo
-#     controlar em quanto tempo o Pc entra em idle?" (dono). Defaults
-#     no ~/.config/elite/idle.conf (10 min lock · 15 min apagar); o
-#     menu do desktop → "Trava automática…" (craft-idle) troca
-#     e reinicia o daemon NA HORA, sem relogin. Receita canônica da
-#     wiki do labwc (labwc.github.io/integration §7: swayidle + wlopm —
-#     o wlr-randr --off re-arranha views; wlopm é o cliente do protocolo
-#     wlr-output-power-management-v1, que o labwc implementa).
-#     O lock é o hyprlock (~/.config/hypr/hyprlock.conf): screenshot +
-#     blur + dim + relógio + avatar + campo estilizado. FLUXO: X min →
-#     lock; X+5 → tela APAGA (DPMS real — o PC não fica ligado numa
-#     tela fixa); input → acorda JÁ no lock; before-sleep → lock no
-#     suspender. "Nunca" (LOCK_MIN=0) = sem daemon (W-l manual).
-#     v2.10.6 — O SPAWN SAIU DAQUI: quem lança (e RELANÇA — a morte
-#     calada do swayidle deixava lock/DPMS/suspend fora para sempre, o
-#     achado da Rodada 2 da auditoria) é o CRAFT-BARS, o supervisor da
-#     sessão (idle entra no loop de 5s com ausência intencional
-#     silenciosa quando "Nunca"). Um só lançador mata a corrida
-#     fork/exec: dois spawns próximos do idle se pkillariam (o
-#     pkill -x swayidle do começo do start) e o morto deixaria
-#     'SAIU exit=143' no gate do QEMU.
-
-# --- Keyring CachyOS (v1.5, camada 4): self-healing de runtime — os
-#     comandos LITERAIS da spec (init → populate → refresh de keyring)
+# --- Keyring CachyOS: self-healing de runtime (init → populate → refresh)
 #     em background, idempotentes, sudo -n (nunca pede senha no escuro).
-#     As camadas 1-3 (build E2b + E10 no alvo + pacman-init do live) já
-#     curam o essencial; esta cobre skew futuro e liveuser no live.
+#     O chaveiro GNOME morreu na casa (E134: máscaras + PAM fora +
+#     --password-store=basic nos Chromium) — nada de chaveiro aqui.
 if [ -x /usr/local/bin/craft-fix-keys ]; then
     /usr/local/bin/craft-fix-keys &
-fi
-
-# --- Keyring GNOME (v1.6 — a resposta ao "programas pedem a senha do
-#     keyring"): o chaveiro (gnome-keyring) guarda senhas de Wi-Fi e
-#     navegador via libsecret. No login COM senha o PAM do sddm já
-#     desbloqueia junto (linhas pam_gnome_keyring do upstream). No
-#     live/autologin não há senha — este bootstrap cria o chaveiro com
-#     senha VAZIA (gnome-keyring-daemon --unlock lê a senha do stdin;
-#     sem chaveiro, ele CRIA) — os apps (Brave, Wi-Fi, etc) param de
-#     pedir "desbloquear chaveiro". Uma vez só: o marcador é o próprio
-#     arquivo do chaveiro. No sistema INSTALADO com login por senha,
-#     o arquivo já existe e o PAM cuida — este bloco é no-op.
-if command -v gnome-keyring-daemon >/dev/null 2>&1; then
-    # v2.10.12 — SÓ NO LIVE (dump nl3z, journal 22:31:35: 'gkr-pam:
-    # couldn't unlock the login keyring' — e o PAM voltaria a falhar EM
-    # TODO login): no sistema INSTALADO com senha, o chaveiro não existe
-    # no 1º login e o PAM o cria COM A SENHA DO LOGIN — o bootstrap com
-    # senha VAZIA corria na frente e criava o login.keyring vazio, que o
-    # PAM jamais desbloqueia (senha ≠ vazio) = mismatch perpétuo. No
-    # live/autologin (sem senha pra o PAM usar) ele continua a cura.
-    if [ -e /run/archiso ] && [ ! -e "$HOME/.local/share/keyrings/login.keyring" ]; then
-        ( printf '' | gnome-keyring-daemon --unlock >/dev/null 2>&1 ) &
-    fi
 fi
 
 # --- Clipboard: histórico persistente (cliphist — receita oficial do
