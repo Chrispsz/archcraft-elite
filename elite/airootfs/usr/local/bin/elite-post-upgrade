@@ -324,9 +324,28 @@ loginctl list-users --no-legend 2>/dev/null | while read -r _uid _ _; do
         pkill -u "$_uid" -f '^/usr/bin/python3 /usr/local/bin/craft-dock-gui$' 2>/dev/null || true
         tlog "dock E134: processo Python da dock ENCERRADO (uid $_uid) — o supervisor novo lança o craft-dock-rs"
     fi
-    if pgrep -u "$_uid" -f '/usr/local/bin/craft-bars' >/dev/null 2>&1; then
-        pkill -u "$_uid" -f '/usr/local/bin/craft-bars' 2>/dev/null || true
+    # E139 — O SUPERVISOR DE VERDADE (a auditoria do 1.0-86: o pgrep de
+    #     craft-bars NUNCA MAIS casa desde a E135 — o craft-bars EXECA o
+    #     elite-daemon session e o /bin/sh sumiu do ps; o kill calado
+    #     deixava o daemon VELHO de pé segurando o flock da sessão e o
+    #     craft-bars novo nascia no-op: a dose NUNCA chegava à sessão
+    #     viva até relogin, e o papel clamava ENCERRADO(S) que nunca
+    #     aconteceu — o falso positivo do supervisor). As DUAS eras pelo
+    #     comm certo, o SIGTERM é o fim LIMPO (o daemon colhe os filhos
+    #     e sai — o desenho dele), e o log só fala quando ALGUÉM morreu.
+    _matou=0
+    if pgrep -u "$_uid" -x elite-daemon >/dev/null 2>&1; then
+        pkill -u "$_uid" -x elite-daemon 2>/dev/null || true
+        _matou=1
     fi
+    if pgrep -u "$_uid" -x craft-bars >/dev/null 2>&1; then
+        pkill -u "$_uid" -x craft-bars 2>/dev/null || true
+        _matou=1
+    fi
+    if [ "$_matou" = 1 ]; then
+        tlog "bars E139: supervisor do uid $_uid ENCERRADO de verdade (elite-daemon/craft-bars — SIGTERM limpo, os filhos colhidos pelo próprio daemon); UM novo nasce agora"
+    fi
+    unset _matou
     # E135 — OS RESIDENTES SHELL/PYTHON DA ERA ANTERIOR MORREM (a ordem
     # do dono do dump 101339: zero /bin/sh e python3 residentes). O
     # craft-bars NOVO (a dose em disco) execa o elite-daemon session;
@@ -340,7 +359,6 @@ loginctl list-users --no-legend 2>/dev/null | while read -r _uid _ _; do
         fi
     done
     sleep 1
-    tlog "bars E134: supervisor(es) do uid $_uid ENCERRADO(S) — o órfão do lock morreu junto; UM novo nasce agora (exec elite-daemon session — E135)"
     runuser -u "#$_uid" -- env \
         XDG_RUNTIME_DIR="/run/user/$_uid" \
         WAYLAND_DISPLAY="$_wd" \
@@ -409,8 +427,18 @@ done
 if systemctl list-unit-files scx_loader.service >/dev/null 2>&1 \
    && systemctl cat scx_loader.service >/dev/null 2>&1 \
    && [ -d /sys/kernel/sched_ext ]; then
-    systemctl enable --now scx_loader.service >/dev/null 2>&1 \
-        && tlog "scx_loader: scx_lavd habilitado na dose (sched_ext sob demanda — o dump v2.13 fotografou a unit 'inactive' com o kernel sustentando)"
+    # E139 — O ALINHAMENTO 100% (a auditoria do 1.0-86: unit habilitada
+    #     SEM /etc/default/scx = o loader arranca sem saber qual
+    #     escalonador a casa assinou — o scx_lavd do conf é a ordem
+    #     E136; conf ausente = o enable fica PARA O PRÓXIMO TUNE/dose
+    #     e o papel nomeia). Conf presente + a assinatura lida =
+    #     habilita e o papel prova o PAR (conf × unit).
+    if [ -s /etc/default/scx ] && grep -q '^SCX_SCHEDULER=' /etc/default/scx 2>/dev/null; then
+        systemctl enable --now scx_loader.service >/dev/null 2>&1 \
+            && tlog "scx_loader: habilitado na dose ALINHADO com /etc/default/scx ($(sed -n 's/^SCX_SCHEDULER=//p' /etc/default/scx | head -1) — sched_ext sob demanda; o BORE do kernel é o chão)"
+    else
+        tlog "scx_loader: /etc/default/scx ausente ou sem assinatura — o enable fica para a próxima dose (unit ligada sem escalonador assinado é o desalinhamento E139)"
+    fi
 fi
 if systemctl list-unit-files coolercontrold.service >/dev/null 2>&1 \
    && systemctl cat coolercontrold.service >/dev/null 2>&1; then
@@ -432,6 +460,79 @@ for _f81 in /etc/udev/rules.d/81-elite-zram.rules /usr/lib/udev/rules.d/81-elite
     fi
 done
 unset _f81
+
+# ── E139 — A GPU AMD VERIFICADA + A ROTAÇÃO DOS PAPÉIS + A CEIFA DOS ──────
+#      ATALHOS MORTOS (o fecho da auditoria do 1.0-86):
+#      (a) o ppfeaturemask=0xffffffff era ordem do CMDLINE da ISO
+#          (apply-overlay) e do elite-tune, mas o RIG ADOTADO sem ISO
+#          podia não ter o modprobe conf — o LACT abre sem os controles
+#          destravados. O conf nasce AQUI se ausente (a MESMA receita
+#          do elite-install-stage) e o initramfs re-constrói QUANDO
+#          NASCEU (o módulo lê o parâmetro no carregamento);
+#      (b) a ROTAÇÃO: os papéis da casa cresciam sem teto ENTRE um
+#          relogin e outro (o bars.log do rig em 980 KiB) — o frame 0
+#          do autostart poda no arranque e o craft-clean poda na mão do
+#          dono; a DOSE poda no meio do uptime (usuários + /var/log).
+#      (c) os atalhos appimage-*/gearlever-* cujo Exec aponta para
+#          AppImage que saiu do disco: entrada de menu que morre ao
+#          clique é sujeira — a ceifa é POR USUÁRIO, com réu no papel.
+if lspci 2>/dev/null | grep -q ' VGA compatible controller: .*AMD\|ATI' || [ -e /sys/module/amdgpu ]; then
+    if [ ! -s /etc/modprobe.d/00-elite-amdgpu.conf ]; then
+        printf '%s\n' '# ELITE: AMD - destrava undervolt/OC p/ LACT' 'options amdgpu ppfeaturemask=0xffffffff' > /etc/modprobe.d/00-elite-amdgpu.conf 2>/dev/null \
+            && tlog "amdgpu E139: 00-elite-amdgpu.conf nasceu (ppfeaturemask=0xffffffff — o LACT abre destravado no rig que a ISO nunca passou)"
+        if command -v mkinitcpio >/dev/null 2>&1; then
+            mkinitcpio -P >/dev/null 2>&1 \
+                && tlog "amdgpu E139: initramfs reconstruído (o conf novo vale no PRÓXIMO boot — o módulo lê o parâmetro no carregamento)" \
+                || tlog "amdgpu E139: mkinitcpio falhou (o conf ficou no disco; a próxima dose re-tenta)"
+        fi
+    else
+        tlog "amdgpu E139: ppfeaturemask VERIFICADO (00-elite-amdgpu.conf presente — 0xffffffff; o vivo o craft-dump fotografa)"
+    fi
+    if systemctl list-unit-files lactd.service >/dev/null 2>&1 \
+       && systemctl is-active --quiet lactd.service 2>/dev/null; then
+        tlog "lact E139: lactd VERIFICADA ativa (o painel AMD de pé — a dose E138 o habilitou e o estado confere)"
+    fi
+fi
+loginctl list-users --no-legend 2>/dev/null | while read -r _ruid _; do
+    [ -n "$_ruid" ] || continue
+    [ "$_ruid" -ge 1000 ] 2>/dev/null || continue
+    _rhome="$(getent passwd "$_ruid" 2>/dev/null | cut -d: -f6)"
+    [ -n "$_rhome" ] && [ -d "$_rhome" ] || continue
+    _podados=0
+    for _rl in "$_rhome/.cache/elite/"*.log; do
+        [ -f "$_rl" ] || continue
+        if [ "$(wc -c <"$_rl" 2>/dev/null || echo 0)" -gt 262144 ]; then
+            if tail -c 131072 "$_rl" > "$_rl.poda" 2>/dev/null && mv -f "$_rl.poda" "$_rl" 2>/dev/null; then
+                _podados=$((_podados + 1))
+            else
+                rm -f "$_rl.poda" 2>/dev/null || true
+            fi
+        fi
+    done
+    [ "$_podados" -gt 0 ] && tlog "rotação E139: $_podados papel(is) de ~/.cache/elite do uid $_ruid podado(s) para 256 KiB (o meio do uptime — o trio autostart/dose/craft-clean fecha)"
+    unset _podados _rl
+    # a ceifa dos atalhos mortos (o Exec sem alvo no disco)
+    _ceifados=0
+    for _d in "$_rhome/.local/share/applications/"appimage_*.desktop "$_rhome/.local/share/applications/"gearlever_*.desktop; do
+        [ -f "$_d" ] || continue
+        _alvo="$(sed -n 's/^Exec=[^ ]* *\"\?\([^\" ]*\)\"\?.*/\1/p' "$_d" 2>/dev/null | head -1)"
+        case "$_alvo" in
+            /*) [ -e "$_alvo" ] || { rm -f "$_d" 2>/dev/null && _ceifados=$((_ceifados + 1)); } ;;
+        esac
+    done
+    [ "$_ceifados" -gt 0 ] && tlog "ceifa E139: $_ceifados atalho(s) appimage/gearlever MORTO(S) do uid $_ruid removido(s) (Exec sem alvo — a entrada que morre ao clique sai do menu)"
+    unset _ceifados _d _alvo
+done
+for _vl in /var/log/elite-*.log; do
+    [ -f "$_vl" ] || continue
+    if [ "$(wc -c <"$_vl" 2>/dev/null || echo 0)" -gt 262144 ]; then
+        tail -c 131072 "$_vl" > "$_vl.poda" 2>/dev/null \
+            && mv -f "$_vl.poda" "$_vl" 2>/dev/null \
+            && tlog "rotação E139: $_vl podado para 256 KiB" \
+            || rm -f "$_vl.poda" 2>/dev/null || true
+    fi
+done
+unset _vl
 
 tlog "post-upgrade: concluído (a migração é idempotente — rodar de novo é no-op com papel)"
 exit 0

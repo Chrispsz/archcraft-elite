@@ -1036,6 +1036,10 @@ case "$1" in
         fi
         v="6.12.4-2"; [ -f "$ST/kernel-flip" ] && v="6.12.5-1"
         echo "linux-cachyos-bore $v"; exit 0 ;;
+  -Qu)  # E139: o precheck limpo pela base LOCAL (a escada de trás) —
+        # o cenário decide ($ST/pending = o que a base local conhece)
+        [ -f "$ST/pending" ] && cat "$ST/pending"
+        exit 0 ;;
   -Slq) [ -f "$ST/repo-fail" ] && exit 1
         # E50: o db da era nova — elite-system, a PONTE craft-toplevel, o
         # FÓSSIL elite-craft (o canal dele se livra) e os apps de terceiros
@@ -1051,6 +1055,18 @@ case "$1" in
         exit 0 ;;
   *)    exit 0 ;;
 esac
+EOF
+cat > "$MOCKCU/checkupdates" <<'EOF'
+#!/usr/bin/env bash
+# E139: o precheck limpo — a ferramenta de db TEMPORÁRIO no mundo de
+# mentira: o cenário decide ($ST/pending = as pendências do db fresco);
+# o no-checkupdates tira a ferramenta do PATH do cenário (a base LOCAL
+# responde pelo pacman -Qu — a mesma escada do produto)
+ST="${MOCK_DIR:?}"; touch "$ST/checkupdates.log"
+printf 'checkupdates %s\n' "$*" >> "$ST/checkupdates.log"
+[ -f "$ST/no-checkupdates" ] && exit 127
+if [ -f "$ST/pending" ]; then cat "$ST/pending"; exit 0; fi
+exit 0
 EOF
 cat > "$MOCKCU/snapper" <<'EOF'
 #!/usr/bin/env bash
@@ -1106,8 +1122,9 @@ cat > "$MOCKCU/pgrep" <<'EOF'
 ST="${MOCK_DIR:?}"; touch "$ST/pgrep.log"
 printf 'pgrep %s\n' "$*" >> "$ST/pgrep.log"
 case "$*" in
-  *craft-bars*) [ -f "$ST/bars-alive" ] && exit 0; exit 1 ;;
-  *)            exit 0 ;;
+  *craft-bars*)  [ -f "$ST/bars-alive" ] && exit 0; exit 1 ;;
+  *elite-daemon*) [ -f "$ST/daemon-alive" ] && exit 0; exit 1 ;;
+  *)             exit 0 ;;
 esac
 EOF
 cat > "$MOCKCU/pkill" <<'EOF'
@@ -1243,7 +1260,12 @@ assert_grep "$STCU/update.log" 'canal: sem rede' "E62/root: a dose do root aterr
 CU_EXTRA_PATH=""; unset ELITE_UPDATE_LOG
 
 # dose SEMANAL: PRE antes, transação, POST casado, kernel novo = REINICIE
+# E139: o precheck limpo faz a PERGUNTA antes de tudo — o cenário responde
+# com pendências (o db TEMPORÁRIO do checkupdates de mentira) e a dose
+# inteira corre; sem resposta = 'Sistema já atualizado.' e saída (cena E139
+# logo abaixo)
 rm -rf "$STCU"; mkdir -p "$STCU"
+printf 'brave-origin 1.99.57-1 -> 1.100.58-1\nlinux-cachyos-bore 6.12.4-2 -> 6.12.5-1\n' > "$STCU/pending"
 run_cu --sistema >/dev/null
 assert_grep "$STCU/snapper.log" 'create -t pre -p -d elite-sysupdate' "E46/sistema: o snapshot PRE é criado ANTES da transação (a rede de segurança arma antes do risco)"
 assert_grep "$STCU/snapper.log" 'create -t post --pre-number 41' "E46/sistema: o POST casa com o PRE (#41 — o par fecha a história)"
@@ -1255,6 +1277,7 @@ assert_grep "$STCU/update.log" 'REBOOT aplica' "E46/sistema: o kernel novo fica 
 # dose SEMANAL com pacman ocupado: a sentinela espera com teto (E64 — a
 # mesma cortesia da manual, agora nas 3 portas) e adia honesta ao estourar
 rm -rf "$STCU"; mkdir -p "$STCU"; touch "$STCU/pacman-lock"
+printf 'brave-origin 1.99.57-1 -> 1.100.58-1\nlinux-cachyos-bore 6.12.4-2 -> 6.12.5-1\n' > "$STCU/pending"
 ELITE_LOCK_WAIT=4 run_cu --sistema >/dev/null
 assert_nogrep "$STCU/pacman.log" '\-Syu' "E46/sistema: pacman ocupado = NENHUMA transação (o lock é respeitado — a semana volta)"
 assert_grep "$STCU/update.log" 'sistema: pacman ocupado' "E64/sistema: a sentinela ESPERA antes de adiar (a briga com o keyring aos 120s do boot não custa mais a semana — o teto é o limite, não o susto)"
@@ -1262,6 +1285,7 @@ assert_grep "$STCU/update.log" 'adiamento honesto' "E64/sistema: o teto estourad
 
 # dose SEMANAL com pacman recusando: rc 1 + o PRE nomeado como rollback
 rm -rf "$STCU"; mkdir -p "$STCU"; touch "$STCU/pacman-fail"
+printf 'brave-origin 1.99.57-1 -> 1.100.58-1\nlinux-cachyos-bore 6.12.4-2 -> 6.12.5-1\n' > "$STCU/pending"
 run_cu --sistema >/dev/null; rc=$?
 assert_eq "$rc" "1" "E46/sistema: transação recusada = rc 1 (o timer falha visível — nunca vermelho calado)"
 assert_grep "$STCU/update.log" 'FALHOU \(rc=3\)' "E46/sistema: o rc REAL no papel (capturado FORA da negação — dentro do if ! o status é o invertido; os parênteses são literais no ERE)"
@@ -1269,9 +1293,21 @@ assert_grep "$STCU/update.log" 'snapshot PRE #41 guarda o estado anterior' "E46/
 
 # dose SEMANAL sem snapper: segue SEM rede de segurança, com a verdade no papel
 rm -rf "$STCU"; mkdir -p "$STCU"; touch "$STCU/no-snapper"
+printf 'brave-origin 1.99.57-1 -> 1.100.58-1\nlinux-cachyos-bore 6.12.4-2 -> 6.12.5-1\n' > "$STCU/pending"
 run_cu --sistema >/dev/null
 assert_grep "$STCU/update.log" 'snapper indisponível' "E46/sistema: sem snapper a dose diz que segue SEM rede (nunca finge que o snapshot existe)"
 assert_grep "$STCU/pacman.log" '\-Syu' "E46/sistema: a dose semanal NÃO morre por falta de snapper (a atualização é a missão; o snapshot é a rede — a ausência fica no papel)"
+
+# dose SEMANAL SEM pendências (E139 — o precheck limpo): a pergunta é feita
+# ANTES do snapshot PRE — sem pendências a dose nem nasce (o réu da auditoria
+# do 1.0-86: snapshot PRE + -Syu INTEIRO para dizer 'nada a fazer')
+rm -rf "$STCU"; mkdir -p "$STCU"
+out="$(run_cu --sistema)"; rc=$?
+assert_eq "$rc" "0" "E139/sistema: nada a fazer = saída 0 (a pergunta barata antes da cirurgia — o rig paga ZERO snapshot e ZERO transação por um 'nada a fazer')"
+assert_match "$out" 'Sistema já atualizado' "E139/sistema: o dono recebe a RESPOSTA ('Sistema já atualizado.' — o clique tem resposta, não silêncio)"
+assert_eq "$(cat "$STCU/snapper.log" 2>/dev/null | wc -l)" "0" "E139/sistema: ZERO snapshot PRE gasto (o precheck corre ANTES do snapper)"
+assert_nogrep "$STCU/pacman.log" '\-Syu' "E139/sistema: ZERO transação (o -Syu inteiro para dizer 'nada a fazer' morreu)"
+assert_nogrep "$STCU/update.log" '.' "E139/sistema: o papel fica CALADO no no-op (a dose boa é do pacman.log — o log é a prova da FALHA, não o diário do sucesso)"
 
 # dose SEMANAL offline: a prova de rede FALHA PRIMEIRO = adiamento honesto
 # rc 0 (E64: sem rede a semanal NEM nasce — nenhum snapshot PRE desperdiçado
@@ -1363,7 +1399,7 @@ assert_grep "$STCU/update.log" 'já estava em dia' "E64/canal: checagem sem novi
 rm -rf "$STCU"; mkdir -p "$STCU"; touch "$STCU/user-flip" "$STCU/es-upgrade"
 run_cu --canal >/dev/null
 assert_grep "$STCU/update.log" 'casa: elite-system ausente → 1.0-1' "E64/canal: a casa mudou = o papel narra o delta (a única fonte do notify — checagem vazia nunca avisa)"
-assert_grep "$STCU/update.log" 'sessão: supervisor craft-bars AUSENTE' "E64/canal: sem supervisor vivo a sessão NÃO é pkilada (a lei E48 intacta — relogin aplica, dano nenhum)"
+assert_grep "$STCU/update.log" 'sessão: supervisor vivo AUSENTE' "E64/canal: sem supervisor vivo a sessão NÃO é pkilada (a lei E48 intacta — relogin aplica, dano nenhum) · refrescada da E139: o gate olha as DUAS eras pelo comm certo (elite-daemon ou craft-bars)"
 # (e) manual com o pacman recusando a transação: o rc REAL + mensagem honesta
 rm -rf "$STCU"; mkdir -p "$STCU/units"
 touch "$STCU/pacman-fail"
@@ -1525,9 +1561,10 @@ assert_nogrep "$STCU/pkill.log" 'swayidle' "E48/canal: sem delta NÃO há pkill 
 # sistema com supervisor AUSENTE: o pkill NÃO sai (matar sem quem ressuscita = dano)
 rm -rf "$STCU"; mkdir -p "$STCU"
 touch "$STCU/user-flip" "$STCU/es-upgrade"
+printf 'brave-origin 1.99.57-1 -> 1.100.58-1\n' > "$STCU/pending"
 run_cu --sistema >/dev/null
 assert_nogrep "$STCU/pkill.log" 'swayidle' "E48/sistema: SEM supervisor o pkill NÃO sai (matar o idle sem volta é dano, não cura — o relogin é a porta honesta)"
-assert_grep "$STCU/update.log" 'supervisor craft-bars AUSENTE' "E48/sistema: a verdade no papel (o rig sem craft-bars sabe que a sessão segue com a receita antiga)"
+assert_grep "$STCU/update.log" 'supervisor vivo AUSENTE' "E48/sistema: a verdade no papel (o rig sem supervisor sabe que a sessão segue com a receita antiga) · refrescada da E139: 'supervisor vivo AUSENTE' — as DUAS eras pelo comm certo"
 # manual com ADOÇÃO: o rig SEM elite-system instala (ausente → 1.0-1) = delta
 rm -rf "$STCU"; mkdir -p "$STCU/units"
 touch "$STCU/user-flip" "$STCU/bars-alive" "$STCU/es-upgrade"
@@ -1592,8 +1629,8 @@ assert_nogrep "$STCU/update.log" 'AUSENTE' "E49/adotar: com supervisor vivo NADA
 rm -rf "$STCU"; mkdir -p "$STCU/units"; touch "$STCU/update.log" "$STCU/pkill.log"
 touch "$STCU/user-flip" "$STCU/es-upgrade" "$STCU/tl-upgrade"
 run_adopt >/dev/null
-assert_nogrep "$STCU/pkill.log" 'pkill' "E49/adopt: SEM supervisor NENHUM daemon é morto (a lição E48 vale para os QUATRO — pkill sem volta é dano, não cura)"
-assert_grep "$STCU/update.log" 'supervisor craft-bars AUSENTE' "E49/adopt: a verdade no papel (o rig sabe que a sessão segue antiga até o relogin)"
+assert_nogrep "$STCU/pkill.log" 'pkill' "E49/adopt: SEM supervisor NENHUM daemon é morto (a lição E48 vale para os QUATRO — pkill sem volta é dano, não cura) · refrescada da E139: nem elite-daemon nem craft-bars = a sessão segue intacta"
+assert_grep "$STCU/update.log" 'supervisor vivo AUSENTE' "E49/adopt: a verdade no papel (o rig sabe que a sessão segue antiga até o relogin) · refrescada da E139: a mensagem fala as DUAS eras"
 assert_grep "$STCU/update.log" 'adoção concluída' "E49/adopt: os PACOTES chegam mesmo sem supervisor (a cura em arquivo é real, a de sessão é honesta)"
 
 # (4) o refresh POR DELTA e POR PACOTE: só o craft-toplevel mudou → só o
@@ -1684,6 +1721,7 @@ assert_nogrep "$STCL/hyprlock.log" '.' "E47/lock: nenhum hyprlock NOVO nasceu no
 # falhar POR CORRIDA (a classe de flake E47 documentada na E133-b; a cura
 # é esperar a morte, como o toggle da gaveta aprendeu).
 kill "$fkpid" 2>/dev/null || true
+wait "$fkpid" 2>/dev/null || true  # a COLHEITA: o zumbi sai do procfs (o pgrep -x do craft-lock o casava — E47/E134-h na raiz)
 _n=0
 while kill -0 "$fkpid" 2>/dev/null && [ "$_n" -lt 40 ]; do
   sleep 0.05
@@ -1695,6 +1733,16 @@ unset _n
 rm -rf "$STCL"; mkdir -p "$STCL"
 PATH="$MOCKCL:$PATH" MOCK_DIR="$STCL" bash "$CL" --if-needed >/dev/null 2>&1; rc=$?
 assert_eq "$rc" "0" "E47/lock: --if-needed com lock MORTO conclui com lock novo (o --if-needed NUNCA é pulo do lock: só poupando o vivo)"
+# E134/E133-b — A MESMA ESCOLA do caso acima: o lock novo nasce em FUNDO
+# (o exec do craft-lock) e a escrita no papel corre no filho — o assert
+# imediato perdia a corrida sob carga (a classe E47 documentada; a cura é
+# esperar o nascimento com teto, como a morte foi esperada).
+_n=0
+while ! grep -q 'hyprlock' "$STCL/hyprlock.log" 2>/dev/null && [ "$_n" -lt 40 ]; do
+  sleep 0.05
+  _n=$((_n + 1))
+done
+unset _n
 assert_grep "$STCL/hyprlock.log" 'hyprlock' "E47/lock: o lock morto foi RECRIADO (o acordar nunca fica sem lock — nem no caso do hyprlock que morreu sozinho)"
 
 # (3) caminho MANUAL sem flag: o reinício da E30 segue INTACTO (pkill no vivo)
@@ -1711,6 +1759,7 @@ else
 fi
 assert_grep "$STCL/hyprlock.log" 'hyprlock' "E47/lock: o manual nasceu lock NOVO (quem aperta W-l quer o lock na hora, não um fantasma)"
 kill "$fk2pid" 2>/dev/null || true
+wait "$fk2pid" 2>/dev/null || true  # a COLHEITA: o zumbi sai do procfs (o pgrep -x do craft-lock o casava — E47/E134-h na raiz)
 
 # ── E77 — O PORTÃO E A AUTORIDADE ÚNICA NO COMPORTAMENTO (a spec do
 #    dono: bloqueio/DPMS/suspensão são timers ESTRITAMENTE sequenciais e
@@ -1757,6 +1806,7 @@ e77_env() { XDG_RUNTIME_DIR="$RT77" XDG_CONFIG_HOME="$CF77" XDG_CACHE_HOME="$ST7
 # (A1) lock VIVO + vigília MORTA → DEFERE e RE-ARMA a vigília; ninguém dorme
 rm -rf "$ST77" "$RT77"; mkdir -p "$ST77" "$RT77"
 FK77="$WORK/fake-lock77"; mkdir -p "$FK77"; cp /bin/sleep "$FK77/hyprlock"
+kill "$fk77" 2>/dev/null || true; wait "$fk77" 2>/dev/null || true  # colhe a encarnação anterior antes de renascer (E47/E134-h)
 "$FK77/hyprlock" 30 & fk77=$!
 sleep 0.1
 e77_env suspend >/dev/null 2>&1; rc=$?
@@ -1766,9 +1816,11 @@ sleep 0.3   # a corrida do setsid: a parteira escreve o papel antes da perícia 
 assert_grep "$ST77/vigil.log" 'vigilia' "E77/idle: a vigília morta foi RE-ARMADA pelo braço (a parteira — o suspend prometido nunca fica órfão, mas é da vigília)"
 assert_grep "$ST77/elite/idle.log" 'RE-ARMADA' "E77/idle: o defer do vigia-morto deixa RÉU NOMEADO no papel (a lei E33/E44 do corpo)"
 kill "$fk77" 2>/dev/null || true
+wait "$fk77" 2>/dev/null || true  # a COLHEITA: o zumbi sai do procfs (o pgrep -x do craft-lock o casava — E47/E134-h na raiz)
 
 # (A2) lock VIVO + vigília VIVA → defer da E61 PRESERVADO (sem re-arme duplicado)
 rm -rf "$ST77" "$RT77"; mkdir -p "$ST77" "$RT77"
+kill "$fk77" 2>/dev/null || true; wait "$fk77" 2>/dev/null || true  # colhe a encarnação anterior antes de renascer (E47/E134-h)
 "$FK77/hyprlock" 30 & fk77=$!
 cp /bin/sleep "$FK77/craft-vigil"
 "$FK77/craft-vigil" 30 & fv77=$!
@@ -1778,6 +1830,8 @@ assert_eq "$rc" "0" "E77/idle: lock vivo + vigília viva conclui (o defer da E61
 assert_nogrep "$ST77/systemctl.log" 'suspend' "E77/idle: lock vivo + vigília viva = ninguém dorme (o tempo TRAVADO manda — o sintoma 'suspende quando digito a senha')"
 assert_nogrep "$ST77/vigil.log" 'vigilia' "E77/idle: vigília VIVA não é re-armada (a parteira só nasce vigia morto — zero duplicação de juiz)"
 kill "$fk77" "$fv77" 2>/dev/null || true
+wait "$fk77" 2>/dev/null || true  # a COLHEITA do zumbi (E47/E134-h na raiz)
+wait "$fv77" 2>/dev/null || true  # idem — a vigília
 
 # (B1) lock MORTO + portão FECHADO → defer (o pós-sono sem destravo não re-suspende)
 rm -rf "$ST77" "$RT77"; mkdir -p "$ST77" "$RT77/elite"
@@ -1806,6 +1860,7 @@ assert_nogrep "$ST77/vigil.log" 'vigilia' "E77/portão: lock morto NÃO re-arma 
 # (B4) screenon com lock VIVO NÃO abre o portão (o wake de DPMS não quebra o isolamento)
 rm -rf "$ST77" "$RT77"; mkdir -p "$ST77" "$RT77/elite"
 : > "$RT77/elite/idle-suspend-gate"
+kill "$fk77" 2>/dev/null || true; wait "$fk77" 2>/dev/null || true  # colhe a encarnação anterior antes de renascer (E47/E134-h)
 "$FK77/hyprlock" 30 & fk77=$!
 sleep 0.1
 e77_env screenon >/dev/null 2>&1; rc=$?
@@ -1814,9 +1869,11 @@ assert_file "$RT77/elite/idle-suspend-gate" "E77/portão: mouse na tela de bloqu
 sleep 0.3
 assert_grep "$ST77/vigil.log" 'vigilia' "E77/portão: o re-arme da vigília no resume segue lei (E63 preservada dentro da E77)"
 kill "$fk77" 2>/dev/null || true
+wait "$fk77" 2>/dev/null || true  # a COLHEITA: o zumbi sai do procfs (o pgrep -x do craft-lock o casava — E47/E134-h na raiz)
 
 # (B5) sleep-hook: o portão FECHA no instante do sono e o lock vivo sobrevive (E47 dentro do hook)
 rm -rf "$ST77" "$RT77"; mkdir -p "$ST77" "$RT77"
+kill "$fk77" 2>/dev/null || true; wait "$fk77" 2>/dev/null || true  # colhe a encarnação anterior antes de renascer (E47/E134-h)
 "$FK77/hyprlock" 30 & fk77=$!
 sleep 0.1
 e77_env sleep-hook >/dev/null 2>&1; rc=$?
@@ -1829,8 +1886,10 @@ else
 fi
 assert_nogrep "$ST77/hyprlock.log" '.' "E77/sono: nenhum hyprlock NOVO nasce com lock vivo (o --if-needed dentro do hook)"
 kill "$fk77" 2>/dev/null || true
+wait "$fk77" 2>/dev/null || true  # a COLHEITA: o zumbi sai do procfs (o pgrep -x do craft-lock o casava — E47/E134-h na raiz)
 
 # (B6) sleep-hook com lock MORTO: o lock RENASCE (acorda no lock — a promessa E47)
+wait 2>/dev/null || true  # a COLHEITA UNIVERSAL: nenhum zumbi de comm hyprlock na frente do pgrep do craft-lock (E47/E134-h)
 rm -rf "$ST77" "$RT77"; mkdir -p "$ST77" "$RT77"
 e77_env sleep-hook >/dev/null 2>&1; rc=$?
 assert_eq "$rc" "0" "E77/sono: o sleep-hook com lock morto conclui (o fork desapegado — o gesto do craft-power)"
@@ -1872,17 +1931,20 @@ FK78="$WORK/fake-lock78"; mkdir -p "$FK78"; cp /bin/sleep "$FK78/hyprlock"
 
 # (C1) O PAGAMENTO — o ciclo persistente existe de verdade
 rm -rf "$ST77" "$RT77"; mkdir -p "$ST77" "$RT77/elite"
+wait 2>/dev/null || true  # colheita universal antes do primeiro fake do E78 (E47/E134-h)
 "$FK78/hyprlock" 120 & fk78=$!
 sleep 0.1
 touch -d '10 seconds ago' "$RT77/elite/idle-suspend-gate"   # portão do sono ANTERIOR ao meu nascimento (o wake)
 e78_env >/dev/null 2>&1 & vig78=$!
 _pagou=""
 _w=0
-while [ "$_w" -lt 90 ] && [ -z "$_pagou" ]; do
+while [ "$_w" -lt 120 ] && [ -z "$_pagou" ]; do   # E107-cura 2: o teto do vigil (60s) + o tick 30s caem a 60–90s — a régua virava corrida sob carga (a classe E133-b; a paciência é a cura)
     sleep 1
     grep -q 'systemctl suspend -i' "$ST77/systemctl.log" 2>/dev/null && _pagou=1
     _w=$((_w + 1))
 done
+kill "$fk78" 2>/dev/null || true
+wait "$fk78" 2>/dev/null || true  # a COLHEITA do zumbi (o pgrep -x do craft-lock o casava — E47/E134-h na raiz)
 assert_eq "$_pagou" "1" "E78/pagamento: o wake travado PAGA o novo período completo — a vigília nascida DEPOIS do portão suspende no teto quieto (a prisão perpétua da E77 morre; o ciclo persiste)"
 assert_file "$RT77/elite/idle-suspend-gate" "E78/pagamento: o sono da vigília fecha o portão de novo (o próximo wake renasce a contagem — a persistência é ciclicamente honesta)"
 assert_grep "$ST77/elite/idle.log" 'PAGO' "E78/pagamento: o pagamento deixa linha no papel (o isolamento E77 termina legitimamente — tudo que decide registra)"
@@ -1921,11 +1983,13 @@ sleep 1.2
 mkdir -p "$RT77/elite"; : > "$RT77/elite/idle-suspend-gate"   # o sono DEPOIS do meu nascimento (menu/tampa)
 _aposentou=""
 _w=0
-while [ "$_w" -lt 90 ] && [ -z "$_aposentou" ]; do
+while [ "$_w" -lt 120 ] && [ -z "$_aposentou" ]; do   # idem — a margem do tick (E107-cura 2, a classe E133-b)
     sleep 1
     grep -q 'OBSOLETA' "$ST77/elite/idle.log" 2>/dev/null && _aposentou=1
     _w=$((_w + 1))
 done
+kill "$fk78b" 2>/dev/null || true
+wait "$fk78b" 2>/dev/null || true  # a COLHEITA do zumbi (o pgrep -x do craft-lock o casava — E47/E134-h na raiz)
 assert_eq "$_aposentou" "1" "E78/obsolescência: o sono SOB a minha vigília aposenta-me (contagem VOID — o ciclo não herda tempo pré-sono)"
 assert_nogrep "$ST77/systemctl.log" 'suspend' "E78/obsolescência: a vigília obsoleta NÃO dorme (tempo pago antes do sono não vale — quem conta é a sucessora)"
 sleep 0.5
@@ -1946,11 +2010,13 @@ sleep 1   # o primeiro tick quieto (quiet=1 — a mão que VOLTA é quem registr
 : > "$RT77/elite/idle-activity"   # mãos no lock (a marca do compositor — mundo A)
 _renovou=""
 _w=0
-while [ "$_w" -lt 45 ] && [ -z "$_renovou" ]; do
+while [ "$_w" -lt 75 ] && [ -z "$_renovou" ]; do   # idem — a margem do tick (E107-cura 2, a classe E133-b)
     sleep 1
     grep -q 'CONTAGEM RENOVADA' "$ST77/elite/idle.log" 2>/dev/null && _renovou=1
     _w=$((_w + 1))
 done
+kill "$fk78c" 2>/dev/null || true
+wait "$fk78c" 2>/dev/null || true  # a COLHEITA do zumbi (o pgrep -x do craft-lock o casava — E47/E134-h na raiz)
 assert_eq "$_renovou" "1" "E78/mãos: o episódio de mãos RENOVA a contagem (o papel registra a cura — T3 é período contínuo sem mãos)"
 assert_nogrep "$ST77/systemctl.log" 'suspend' "E78/mãos: ninguém dorme com mãos no lock (a E61 preservada dentro da E78 — a senha nunca é interrompida)"
 kill "$fk78c" "$vig78c" 2>/dev/null || true
@@ -2007,6 +2073,7 @@ fi
 # (Z3) o controle: braço VIVO (nascido agora) segue inteiro — a cura não
 #      amputou o caminho são (o sleep-hook vivo com lock morto RENASCE o
 #      lock, o contrato E47/B6 intacto)
+wait 2>/dev/null || true  # colheita universal (E47/E134-h — o zumbi casava o pgrep e o renascimento abortava)
 rm -rf "$ST77" "$RT77"; mkdir -p "$ST77" "$RT77"
 e77_env sleep-hook >/dev/null 2>&1 || true
 _w=0
@@ -3362,6 +3429,21 @@ M122="$W122/sys/bus/usb/devices/1-3"
 ST122="$W122/sys/bus/usb/devices/1-4"
 mkdir -p "$C122/power" "$K122/power" "$K122:1.0" "$K122:2.0" "$M122/power" "$M122:1.0" "$ST122/power" "$ST122:1.0"
 printf '0x0c0330\n' > "$C122/class";  printf 'disabled\n' > "$C122/power/wakeup"
+# E139 — A ÁRVORE DO CONTROLADOR (o gate por teclado precisa do busnum:
+# o root hub usbN nasce DENTRO do dir do PCI no sysfs real — o fixture
+# reproduz; os usb_device ganham o busnum que os liga ao seu bus)
+mkdir -p "$C122/usb1"
+printf '1\n' > "$C122/usb1/busnum"
+printf '1\n' > "$K122/busnum"; printf '1\n' > "$M122/busnum"; printf '1\n' > "$ST122/busnum"
+# E139 — O SEGUNDO CONTROLADOR SEM TECLADO (o XHC0 onde mora o Bluetooth
+# Intel): a era E122 o ARMava às cegas — o gate do dono DESARMA
+B122="$W122/sys/bus/pci/devices/0000:03:00.1"
+BT122="$W122/sys/bus/usb/devices/2-1"
+mkdir -p "$B122/power" "$B122/usb2" "$BT122/power" "$BT122:1.0"
+printf '0x0c0330\n' > "$B122/class"; printf 'enabled\n' > "$B122/power/wakeup"
+printf '2\n' > "$B122/usb2/busnum"
+printf 'e0\n' > "$BT122:1.0/bInterfaceClass"
+printf 'enabled\n' > "$BT122/power/wakeup"; printf '2\n' > "$BT122/busnum"
 printf '03\n' > "$K122:1.0/bInterfaceClass";     printf '01\n' > "$K122:1.0/bInterfaceProtocol"
 printf '03\n' > "$K122:2.0/bInterfaceClass";     printf '02\n' > "$K122:2.0/bInterfaceProtocol"
 printf 'enabled\n' > "$K122/power/wakeup"    # a era E24 deixou TUDO errado — o apply corrige
@@ -3382,14 +3464,24 @@ assert_eq "$(cat "$ST122/power/wakeup")" "disabled" \
 out122="$(env WAKE_SYSFS="$W122/sys" WAKE_ACPI="$W122/nenhuma" bash "$WG122" usb-apply /devices/pci0000:00/0000:02:00.0/usb1/1-3)"
 assert_eq "$(cat "$M122/power/wakeup")" "disabled" \
     "E122/wake: o gancho udev usb-apply (o %p da regra) decide UM dispositivo e mantém o mouse dormindo"
+assert_eq "$(cat "$B122/power/wakeup")" "disabled" \
+    "E139/wake: O GATE DO CONTROLADOR — o XHC0 SEM teclado na própria árvore DESARMA (a era E122 o armava às cegas: o Bluetooth não desperta nada — o ajuste cirúrgico do dono)"
+assert_eq "$(cat "$BT122/power/wakeup")" "disabled" \
+    "E139/wake: o dispositivo NÃO-teclado (Bluetooth/rádio, class e0) tem wakeup=disabled FORÇADO (dongle/receptor sem fio não desperta ninguém)"
+out122="$(env WAKE_SYSFS="$W122/sys" WAKE_ACPI="$W122/nenhuma" bash "$WG122" status)"
+assert_match "$out122" 'porta fechada' \
+    "E139/wake: o STATUS fala o gate por controlador (o craft-dump colhe 'sem teclado — porta fechada' no papel)"
+out122="$(env WAKE_SYSFS="$W122/sys" WAKE_ACPI="$W122/nenhuma" bash "$WG122" status)"
+assert_match "$out122" 'porta aberta' \
+    "E139/wake: o controlador COM teclado aparece como porta ABERTA no status (a vista inteira da política)"
 out122="$(env WAKE_SYSFS="$W122/sys" WAKE_ACPI="$W122/nenhuma" bash "$WG122" status)"
 assert_match "$out122" 'TECLADO acorda' \
     "E122/wake: o status DIZ a política (a vista que o craft-dump seção 10 colhe no rig)"
 assert_rc0 "E122/wake: status sai 0 na árvore falsa (a perícia sem raiz é a prova da suíte)" \
     env WAKE_SYSFS="$W122/sys" WAKE_ACPI="$W122/nenhuma" bash "$WG122" status
 # contratos de instalação: a regra udev e a unit de boot
-assert_grep "$REPO/elite/airootfs/usr/lib/udev/rules.d/91-elite-wake-guard.rules" '0x0c03\*.*power/wakeup\}="enabled"' \
-    "E122/E137/wake: a regra udev v2 ARMA o controlador no caminho CANÔNICO /usr/lib/91 (a marreta 'disabled' da era E24 morre; a duplicata /etc/90 do airootfs saiu — um arquivo, um dono)"
+assert_nogrep "$REPO/elite/airootfs/usr/lib/udev/rules.d/91-elite-wake-guard.rules" '0x0c03\*.*power/wakeup\}' \
+    "E139/wake: a regra udev NÃO mais ARMA o controlador às cegas (o gate do teclado é do craft-wake-guard — o XHC0 do Bluetooth desarma; o caminho CANÔNICO /usr/lib/91 e a morte da duplicata /etc/90 da E137 seguem de pé)"
 assert_grep "$REPO/elite/airootfs/usr/lib/udev/rules.d/91-elite-wake-guard.rules" 'usb-apply %p' \
     "E122/E137/wake: o gancho RUN por usb_device entra na regra (coldplug + hotplug decidem por DISPOSITIVO)"
 assert_file "$REPO/elite/airootfs/etc/systemd/system/elite-wake-guard.service" \

@@ -330,6 +330,31 @@ elif command -v gio >/dev/null 2>&1; then
 else
   echo "  (gio ausente — pulado)"
 fi
+
+# E139 — OS PAPÉIS DA CASA NASCEM PODADOS (a rotação da casa): o frame 0
+# do autostart e a DOSE (elite-post-upgrade) podam cada ~/.cache/elite/
+# *.log para os últimos 256 KiB — a Limpeza fecha o trio com o MESMO
+# gesto na mão do dono (uptimes longos sem relogin eram o buraco entre
+# os dois). A régua é a E36: evidência recente vale mais que história.
+step "fase 1 · papéis da Elite (logs podados para os últimos 256 KiB)"
+_podados=0
+for _l in "${XDG_CACHE_HOME:-$HOME/.cache}/elite/"*.log; do
+  [ -f "$_l" ] || continue
+  if [ "$(wc -c <"$_l" 2>/dev/null || echo 0)" -gt 262144 ]; then
+    if tail -c 131072 "$_l" > "$_l.poda" 2>/dev/null && mv -f "$_l.poda" "$_l" 2>/dev/null; then
+      _podados=$((_podados + 1))
+    else
+      rm -f "$_l.poda" 2>/dev/null || true
+    fi
+  fi
+done
+if [ "$_podados" -gt 0 ]; then
+  echo "  $_podados papel(is) da Elite podado(s) (bars/display/dock/… — os últimos 256 KiB ficam)"
+  clog "papéis: $_podados podado(s) para 256 KiB (a régua E36 na mão do dono — E139)"
+else
+  echo "  (nenhum papel da Elite passou do teto — a rotação do boot/dose segura)"
+fi
+unset _podados _l
 }
 
 # ═══════════════════════════════════════════════════════════════════════

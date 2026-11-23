@@ -309,15 +309,24 @@ if __name__ == "__main__":
     if len(_sys.argv) > 1 and _sys.argv[1] in ("-h", "--help", "uso"):
         print(
             "uso: craft-audio-route — roteamento automático de áudio\n"
-            "     (daemon interno da sessão; sem argumentos)\n"
+            "     (disparo por evento do elite-daemon; sem argumentos =\n"
+            "     daemon legado da era residente)\n"
             "\n"
             "  fone pluga → som troca de porta; sink novo (BT/USB/DAC) vira o\n"
             "  default na hora; default morre → melhor remanescente (a classe\n"
             "  microfone/webcam é PROIBIDA de ser default — o sink fantasma do\n"
-            "  dump p6aw). Não briga com escolha MANUAL do dono. Chamado pelo\n"
-            "  craft-bars no arranque; a prova das TROCAS mora em\n"
-            "  ~/.cache/elite/audio.log (a SUPERVISÃO — quem a lançou, stderr —\n"
-            "  mora em bars.log)."
+            "  dump p6aw). Não briga com escolha MANUAL do dono.\n"
+            "\n"
+            "  --once        UM evento de som (netlink): só QUEM CHEGOU vira\n"
+            "                default (o snapshot de conhecidos separa o novo\n"
+            "                do velho — E139)\n"
+            "  --sleep-save  a FOTO pré-sono do default (o daemon chama no\n"
+            "                PrepareForSleep(true), com colheita e teto)\n"
+            "  --resume      o PÓS-SONO: o default de antes volta se o HDMI/DP\n"
+            "                do monitor sequestrou o som no wake (E139)\n"
+            "\n"
+            "  a prova das TROCAS mora em ~/.cache/elite/audio.log; os\n"
+            "  snapshots de sessão em $XDG_RUNTIME_DIR/elite/."
         )
         _sys.exit(0)
     # E135 — O DISPARO ÚNICO: o elite-daemon session chama este modo a
@@ -327,8 +336,65 @@ if __name__ == "__main__":
     # o daemon de roteamento residente morre, a LEI de roteamento é a
     # MESMA — o evaluate() é o cérebro e fica 1:1).
     if len(_sys.argv) > 1 and _sys.argv[1] == "--once":
-        log("once: roteamento por evento (E135 — o residente morreu)")
+        # E139 — O SNAPSHOT DE CONHECIDOS: sem ele, TODO --once via
+        # prev=vazio → "chegou" era TODO MUNDO e o 1º sink target
+        # (fone/BT) roubava o default MESMO sem chegar (a escolha
+        # MANUAL do dono pisada a cada evento — a fronteira honesta do
+        # "não briga com a mão do dono"). Agora só QUEM CHEGOU vira.
+        log("once: roteamento por evento (E135/E139 — o residente morreu, o snapshot decide quem CHEGOU)")
         wait_audio()
-        evaluate(set(), "once")
+        prev = load_set(KNOWN)
+        names = evaluate(prev, "event" if prev else "once")
+        if names:
+            save_set(KNOWN, names)
+        _sys.exit(0)
+    # E139 — A FOTO PRÉ-SONO (o daemon chama com colheita e teto de 3s:
+    # o freeze vem aí — o pactl responde em ms quando o PipeWire vive;
+    # um filho congelado escreveria DEPOIS o default JÁ sequestrado)
+    if len(_sys.argv) > 1 and _sys.argv[1] == "--sleep-save":
+        d = default_sink()
+        if d:
+            try:
+                os.makedirs(RUN_DIR, exist_ok=True)
+                with open(PRE_SLEEP, "w") as f:
+                    f.write(d + "\n")
+                log("sleep-save: default pré-sono = %s (a foto para o resume)" % d)
+            except OSError as e:
+                log("FALHA sleep-save (%s): %s" % (PRE_SLEEP, e))
+        else:
+            log("sleep-save: sem default vivo — o resume decide pela lei (HDMI por último)")
+        _sys.exit(0)
+    # E139 — O PÓS-SONO ANTI-SEQUESTRO: o monitor HDMI/DP que re-registra
+    # no wake vira default calado (DPMS/S3 → o som "mudou sozinho"). O
+    # default de ANTES volta se ainda existe; o que se foi cai na LEI
+    # (melhor remanescente, HDMI por último — nunca o sequestrador).
+    if len(_sys.argv) > 1 and _sys.argv[1] == "--resume":
+        pre = ""
+        try:
+            with open(PRE_SLEEP) as f:
+                pre = f.read().strip()
+        except OSError:
+            pre = ""
+        wait_audio()
+        sinks = list_sinks()
+        names = {s.get("name", "") for s in sinks}
+        cur = default_sink()
+        if pre and cur and pre != cur and pre in names:
+            try:
+                if subprocess.run(["pactl", "set-default-sink", pre],
+                                  capture_output=True, timeout=10).returncode == 0:
+                    log("RESUME: default devolvido → %s (o HDMI/DP do monitor não rouba o som pós-sono — E139)" % pre)
+                    notify("Áudio", "Saída restaurada após o sono")
+                else:
+                    log("FALHA resume set-default-sink %s" % pre)
+            except Exception as e:
+                log("FALHA resume set-default-sink %s: %s" % (pre, e))
+        elif pre and cur and pre != cur and pre not in names:
+            log("resume: o default pré-sono (%s) não voltou do sono — a LEI decide (HDMI por último)" % pre)
+            evaluate(load_set(KNOWN), "start")
+        else:
+            log("resume: default intacto (%s) — nada a restaurar" % (cur or "?"))
+        if names:
+            save_set(KNOWN, names)
         _sys.exit(0)
     main()

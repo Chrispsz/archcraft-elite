@@ -755,6 +755,77 @@ pub fn resolve_desktop<'a>(
     best.map(|i| &entries[i])
 }
 
+/// E139 — A ESCADA DE NORMALIZAÇÃO ÚNICA DO PIN (a auditoria do 1.0-86:
+/// o pin "gearlever_Hydra" cujo arquivo real é "gearlever_9f2a_Hydra"
+/// era "ignorado (desktop inexistente)" para exibir E para julgar — o
+/// MESMO app resolvia por uma via e morria por outra, e o dock.log
+/// gritava o pin ignorado a cada arranque). A escada serve EXIBIR e
+/// JULGAR com a MESMA régua: quem ela acha, a dock mostra, atualiza no
+/// papel e MANTÉM; quem ela NÃO acha em passadas seguidas, morre de
+/// verdade (a poda só remove o .desktop que não existe em NENHUM dir
+/// XDG — nunca uma variação de caixa ou de prefixo). Degraus:
+///   1. o fold do id inteiro (o índice inteiro fala fold);
+///   2. o stem do id (sem .desktop — e o último segmento do id
+///      composto reverse-DNS);
+///   3. a CAUDA sem os prefixos de integração (gearlever-/appimage- no
+///      espaço do fold) dos DOIS lados: o pin pode ter chegado sem o
+///      hash que o Gear Lever assina ("gearlever_Hydra" ↔
+///      "gearlever_9f2a_Hydra") ou com ele quando o papel não tem;
+///   4. contenção com fronteira (near_match — 'brave' ⊂ 'brave-browser'
+///      casa; 'foot' ⊂ 'footclient' NÃO — a lei v2.10.6 intocada).
+pub fn resolve_pin<'a>(
+    idx: &HashMap<String, usize>,
+    entries: &'a [DesktopEntry],
+    id: &str,
+) -> Option<&'a DesktopEntry> {
+    let c = id.trim();
+    if c.is_empty() {
+        return None;
+    }
+    // (1) o fold do id inteiro
+    let f = fold(c);
+    if let Some(i) = idx.get(&f) {
+        return Some(&entries[*i]);
+    }
+    // (2) o stem: sem .desktop e o último segmento do id composto
+    let sem = f.strip_suffix(".desktop").unwrap_or(&f).to_string();
+    if let Some(i) = idx.get(&sem) {
+        return Some(&entries[*i]);
+    }
+    if let Some(ultimo) = sem.rsplit('.').next() {
+        if let Some(i) = idx.get(ultimo) {
+            return Some(&entries[*i]);
+        }
+    }
+    // (3) a cauda sem os prefixos de integração — os DOIS lados. O fold
+    //     já trocou '_' por '-' e baixou a caixa: os prefixos vivem no
+    //     espaço do fold ("gearlever-9f2a-hydra").
+    fn cauda(s: &str) -> &str {
+        for pref in ["gearlever-", "appimage-"] {
+            if let Some(r) = s.strip_prefix(pref) {
+                return r;
+            }
+        }
+        s
+    }
+    let agulha = cauda(&sem);
+    if let Some(i) = idx.get(agulha) {
+        return Some(&entries[*i]);
+    }
+    for (k, i) in idx {
+        if crate::sock::near_match(agulha, cauda(k)) {
+            return Some(&entries[*i]);
+        }
+    }
+    // (4) contenção com fronteira (a gramática do resolve_desktop)
+    for (k, i) in idx {
+        if crate::sock::near_match(&sem, k) {
+            return Some(&entries[*i]);
+        }
+    }
+    None
+}
+
 // ── os verbos do Exec (portados do raw_of/exec_of/binary_of) ──────────
 
 /// O Commandline do .desktop SEM os códigos de campo (%f %U …) e SEM
@@ -1319,5 +1390,58 @@ mod tests {
             find_image_file("Stardew Valley", &[root.join("steam/games")]),
             Some(games.join("StardewValley.ico"))
         );
+    }
+
+    /// E139 — a escada do pin: o juízo ÚNICO de exibir e podar.
+    fn indice_de_mentira(ids: &[&str]) -> (Vec<DesktopEntry>, HashMap<String, usize>) {
+        let entries: Vec<DesktopEntry> = ids
+            .iter()
+            .map(|id| DesktopEntry {
+                id: (*id).to_string(),
+                ..Default::default()
+            })
+            .collect();
+        let idx = desktop_index(&entries);
+        (entries, idx)
+    }
+
+    #[test]
+    fn e139_a_escada_do_pin_resolve_as_variantes_que_o_app_real_tem() {
+        // O CASO DO DONO (auditoria do 1.0-86): o Gear Lever assina o
+        // arquivo com hash (gearlever_9f2a_Hydra.desktop) e o pin pode
+        // ter chegado SEM ele (gearlever_Hydra) — ou com CAIXA variada.
+        let (entries, idx) = indice_de_mentira(&["gearlever_9f2a_Hydra.desktop", "foot.desktop"]);
+        // a variação de PREFIXO e de CAIXA resolve — nunca é "morto"
+        let hit = resolve_pin(&idx, &entries, "gearlever_Hydra");
+        assert!(hit.is_some(), "pin sem o hash resolve pela cauda");
+        assert_eq!(hit.unwrap().id, "gearlever_9f2a_Hydra.desktop");
+        let hit = resolve_pin(&idx, &entries, "GEARLEVER_9F2A_HYDRA.desktop");
+        assert!(hit.is_some(), "caixa variada resolve pelo fold");
+        assert_eq!(hit.unwrap().id, "gearlever_9f2a_Hydra.desktop");
+        let hit = resolve_pin(&idx, &entries, "hydra");
+        assert!(hit.is_some(), "o pin nu resolve o arquivo assinado (o reverso)");
+        assert_eq!(hit.unwrap().id, "gearlever_9f2a_Hydra.desktop");
+        // o exato continua o caminho feliz
+        let hit = resolve_pin(&idx, &entries, "gearlever_9f2a_Hydra.desktop");
+        assert_eq!(hit.unwrap().id, "gearlever_9f2a_Hydra.desktop");
+        // e o que NÃO existe em nenhum dir XDG continua morto de verdade
+        assert!(resolve_pin(&idx, &entries, "app-que-saiu-do-mundo.desktop").is_none());
+        assert!(resolve_pin(&idx, &entries, "").is_none());
+    }
+
+    #[test]
+    fn e139_a_fronteira_do_near_match_se_aplica_a_escada() {
+        // a lei v2.10.6 intocada: 'foot' ⊂ 'footclient' NÃO casa (letra
+        // colada é outro app) — a escada do pin não abre esta porta
+        let (entries, idx) = indice_de_mentira(&["footclient.desktop"]);
+        assert!(
+            resolve_pin(&idx, &entries, "foot.desktop").is_none(),
+            "foot NÃO vira footclient pela escada (a poda só mata o que realmente morreu)"
+        );
+        // e a contenção COM fronteira segue viva ('brave' ⊂ 'brave-browser')
+        let (entries, idx) = indice_de_mentira(&["brave-browser.desktop"]);
+        let hit = resolve_pin(&idx, &entries, "brave.desktop");
+        assert!(hit.is_some(), "a contenção com fronteira segue a lei");
+        assert_eq!(hit.unwrap().id, "brave-browser.desktop");
     }
 }

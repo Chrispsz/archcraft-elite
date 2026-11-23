@@ -244,6 +244,13 @@ fi
 
 {
     printf '══════════ ELITE DUMP v2.13 — diagnóstico completo ══════════\n'
+    # E139 — A FRONTEIRA DO PAPEL (a auditoria do 1.0-86: o dump misturava
+    # a história antiga com a sessão atual — 'separe o histórico velho da
+    # sessão corrente'). O Boot ID e a idade do boot definem QUEM fala;
+    # a versão do elite-system define COM QUE CÓDIGO. Uma linha, três
+    # âncoras — o leitor do papel sabe se um relato é DESTE boot.
+    _boot_id="$(cat /proc/sys/kernel/random/boot_id 2>/dev/null || echo '?')"
+    _es_ver="$(pacman -Q elite-system 2>/dev/null || echo 'AUSENTE')"
     if [ "$(id -un)" != "$DUMP_USER" ]; then
         printf 'gerado: %s · usuário: %s → sessão de %s (uid %s) · host: %s\n' \
             "$(date)" "$(id -un)" "$DUMP_USER" "$DUMP_UID" "$(uname -n 2>/dev/null || echo '?')"
@@ -251,6 +258,9 @@ fi
         printf 'gerado: %s · usuário: %s · host: %s\n' \
             "$(date)" "$(id -un)" "$(uname -n 2>/dev/null || echo '?')"
     fi
+    printf 'boot id: %s · uptime: %s · elite-system: %s\n' \
+        "${_boot_id%%-*}" "$(uptime -p 2>/dev/null || echo '?')" "$_es_ver"
+    unset _boot_id _es_ver
 
     printf '\n══════════ 0 · VEREDITO RÁPIDO ══════════\n'
     printf '(o sistema descrevendo a si mesmo — o detalhe mora nas seções 1-14)\n'
@@ -268,6 +278,20 @@ fi
     r "systemctl --failed --no-pager --plain" 8
     r "systemctl --user --failed --no-pager --plain" 8
     r "df -h / | tail -1" 2
+    # E139 — O RUNTIME DA CASA EM UM BLOCO (a auditoria do 1.0-86: a leitura
+    # DIRETA do kernel/sistema — o que a casa PEDE contra o que o hardware
+    # ENTREGA, na cara do papel, sem caçar conf por conf):
+    #   swappiness vivo × a lei 180 do conf · o zram real (zramctl) · o
+    #   scx_loader (ativo/pulada/ausente) · o ppfeaturemask vivo da AMD ·
+    #   o wake-guard (a política no kernel: controladores por gate) · a
+    #   família de sessão viva (labwc/waybar/dock/daemon)
+    printf '\n── O RUNTIME DA CASA (E139 — o kernel entregando o que o conf pede?)\n'
+    r "printf 'swappiness: lei '; sed -n 's/^vm\\.swappiness *= *//p' /etc/sysctl.d/99-elite-performance.conf 2>/dev/null | tail -1 | tr -d '\\n'; printf ' · kernel vivo '; sysctl -n vm.swappiness 2>/dev/null" 2
+    r "zramctl 2>/dev/null | head -3 || echo '(zram ausente — sem swap em RAM)'" 4
+    r "systemctl is-active scx_loader.service 2>/dev/null || echo '(scx_loader ausente/pulada — o /etc/default/scx assina qual?)'; grep '^SCX_SCHEDULER' /etc/default/scx 2>/dev/null || echo '(sem /etc/default/scx)'" 3
+    r "[ -r /sys/module/amdgpu/parameters/ppfeaturemask ] && printf 'amdgpu.ppfeaturemask vivo: 0x%x\\n' \$(cat /sys/module/amdgpu/parameters/ppfeaturemask) || echo '(sem amdgpu — NVIDIA/Intel ou driver não carregado)'" 2
+    r "[ -x /usr/local/bin/craft-wake-guard ] && /usr/local/bin/craft-wake-guard status 2>/dev/null | head -16 || echo '(craft-wake-guard ausente)'" 18
+    r "printf 'sessão: labwc=%d waybar=%d dock=%d daemon=%d\\n' \$(pgrep -c -x labwc 2>/dev/null) \$(pgrep -c -x waybar 2>/dev/null) \$(pgrep -c -x craft-dock-rs 2>/dev/null) \$(pgrep -c -f '^/usr/local/bin/elite-daemon session$' 2>/dev/null)" 2
 
     printf '\n══════════ 1 · IDENTIDADE ══════════\n'
     r "grep PRETTY /etc/os-release" 2

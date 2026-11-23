@@ -27,9 +27,14 @@
 //   · instância ÚNICA por flock de arquivo (a lei E30 — o 2º sai 0);
 //   · --once: UMA rodada de varredura (a porta dos testes);
 //   · SIGTERM/SIGINT: unregister de tudo, EPP devolvido e saída limpa.
-// NÃO É DEGRAU DESTA v2: o craft-display watch e as barras waybar/dock
-// SEGUIEM no craft-bars (a waybar só RECEBE o sinal daqui; a dock é
-// outro corpo — nenhum half-promise de unificação pela metade).
+// NÃO É DEGRAU DESTA v2: as barras waybar/dock SEGUIEM corpos próprios
+// (a waybar só RECEBE o sinal daqui; a dock é outro corpo — nenhum
+// half-promise de unificação pela metade).
+// E139 — REVISADO: os OUVIDORES de evento moram na PORTA session (a
+// sessão é quem SEMPRE está viva — o motor do jogo é vaga condicionada
+// ao AUTO do game.conf, e o rig com AUTO=0 não pode ficar cego) e o
+// craft-display watch-save é VAGA supervisionada da sessão (a escolha
+// do wdisplays grava de novo; caiu → volta em 2s).
 //
 // Custos medidos no desenho: zero fork por tick (a varredura é read(2)
 // de /proc); o D-Bus é conexão PERSISTENTE (não abre por chamada); o
@@ -115,13 +120,29 @@ fn main() {
         // E135 — a porta session: O LANÇADOR ÚNICO da sessão gráfica
         // (clientes de display + residentes com o gate de posse E135;
         // o craft-bars shell vira exec — o /bin/sh some do ps).
-        Some("session") => match supervise::run_session() {
-            Ok(()) => std::process::exit(0),
-            Err(e) => {
-                eprintln!("elite-daemon session: {}", e);
-                std::process::exit(1);
+        // E139 — OS OUVIDORES NASCEM AQUI (a sessão é quem SEMPRE está
+        // viva: netlink som/drm, logind sono/unlock, wake-guard
+        // pré-sono e bus bgapps — cada thread dorme num read(2)/sinal,
+        // zero CPU em repouso; a lei E135 dos residentes intocada). O
+        // rig com AUTO=0 não tem motor de jogo e não pode ficar cego.
+        Some("session") => {
+            std::thread::spawn(thread_netlink);
+            std::thread::spawn(|| thread_logind("PrepareForSleep", true));
+            std::thread::spawn(|| thread_logind("Unlock", false));
+            std::thread::spawn(thread_bus_bgapps);
+            std::thread::spawn(thread_wakeguard);
+            eprintln!(
+                "elite-daemon session: ouvidores no ar (netlink som/drm, logind \
+                 sono/unlock, wake-guard pré-sono, bus bgapps)"
+            );
+            match supervise::run_session() {
+                Ok(()) => std::process::exit(0),
+                Err(e) => {
+                    eprintln!("elite-daemon session: {}", e);
+                    std::process::exit(1);
+                }
             }
-        },
+        }
         Some(other) => {
             eprintln!("elite-daemon: porta desconhecida '{}'\n{}", other, usage());
             std::process::exit(2);
@@ -449,6 +470,39 @@ fn thread_bus_bgapps() {
     }
 }
 
+/// E139 — O PRÉ-SONO DO WAKE-GUARD (PrepareForSleep com start=true): UM
+/// `craft-wake-guard apply` no limiar de cada sono — a política do
+/// despertar é REAFIRMADA (os não-teclados disabled FORÇADOS de novo,
+/// o gate por controlador re-julgado com a árvore do momento; o
+/// hotplug do BT que dormiu na sessão não sobrevive ao sono). Um fork
+/// por sono, zero residente — a mesma lei dos irmãos.
+fn thread_wakeguard() {
+    let Ok(c) = zbus::blocking::Connection::system() else {
+        return;
+    };
+    let Ok(p) = zbus::blocking::Proxy::new(
+        &c,
+        "org.freedesktop.login1",
+        "/org/freedesktop/login1",
+        "org.freedesktop.login1.Manager",
+    ) else {
+        return;
+    };
+    let Ok(sig) = p.receive_signal("PrepareForSleep") else {
+        return;
+    };
+    for m in sig {
+        if STOP.load(Ordering::SeqCst) {
+            return;
+        }
+        if let Ok((start,)) = m.body().deserialize::<(bool,)>() {
+            if start {
+                dispara("/usr/local/bin/craft-wake-guard", &["apply"]);
+            }
+        }
+    }
+}
+
 /// o ouvidor do toplevel.sock: o canal EVT do craft-toplevel acorda o
 /// loop do jogo (a detecção por EVENTO — o réu do loop 5s gravando no
 /// game.log morre; o tick sobrevive só como cinto dos windowless).
@@ -568,18 +622,32 @@ fn daemon_loop() -> Result<(), String> {
     instala_sinais();
     escreve_pid_watch();
 
-    // E135 — os OUVIDORES DE EVENTO sobem com o daemon (o corpo é um só;
-    // cada thread é um epoll/read(2) dormindo — zero CPU em repouso):
+    // o frete do toplevel EVT é DESTE corpo (o loop do jogo acorda por
+    // evento — a detecção é EVENTO + inspeção única de /proc)
     let frete = Arc::new((Mutex::new(false), Condvar::new()));
     {
         let f = Arc::clone(&frete);
         std::thread::spawn(move || thread_toplevel_evt(f));
     }
-    std::thread::spawn(thread_netlink);
-    std::thread::spawn(|| thread_logind("PrepareForSleep", true));
-    std::thread::spawn(|| thread_logind("Unlock", false));
-    std::thread::spawn(thread_bus_bgapps);
-    eprintln!("elite-daemon: ouvidores no ar (toplevel EVT, netlink som/drm, logind sono/unlock, bus bgapps)");
+    // E139 — OS OUVIDORES MUDARAM PARA A PORTA DA SESSÃO (a vaga do jogo
+    // é condicionada ao AUTO do game.conf — o rig com AUTO=0 não tem
+    // daemon_loop e a sessão ficava CEGA: display sem apply no
+    // despertar, áudio sem roteamento no hotplug). A porta session é
+    // quem SEMPRE está viva e ela levanta os ouvidores. O CINTO: se
+    // NÃO há session vivo (rig legado, watch à mão), ESTE corpo os
+    // levanta — o peek no lock da sessão decide, nunca dois donos.
+    if supervise::peek_lock_livre(&PathBuf::from("/tmp/elite-daemon-session.lock")) {
+        std::thread::spawn(thread_netlink);
+        std::thread::spawn(|| thread_logind("PrepareForSleep", true));
+        std::thread::spawn(|| thread_logind("Unlock", false));
+        std::thread::spawn(thread_bus_bgapps);
+        std::thread::spawn(thread_wakeguard);
+        eprintln!(
+            "elite-daemon: sem session vivo — os ouvidores sobem AQUI (o \
+             cinto do modo game)"
+        );
+    }
+    eprintln!("elite-daemon: no ar (toplevel EVT no corpo; os ouvidores de sessão vivem na porta session — E139)");
 
     let mut held: HashMap<i32, String> = HashMap::new();
     let mut retire = 0u32;

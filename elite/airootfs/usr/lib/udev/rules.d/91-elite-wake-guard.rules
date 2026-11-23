@@ -1,5 +1,6 @@
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · 90-elite-wake-guard.rules (E122 — A POLÍTICA DO DESPERTAR)
+# Archcraft ELITE · 91-elite-wake-guard.rules (E122→E139 — A POLÍTICA DO
+# DESPERTAR)
 # ═══════════════════════════════════════════════════════════════════════════
 # A E24 (a cura do despertar imediato, dump a4h8: suspend 16:54:49 → retorno
 # 16:54:54) curou desarmando TODO controlador USB PCI — e cobrou o preço que
@@ -10,19 +11,23 @@
 #    necessariamente no mouse — o mouse é menos confiável, qualquer toque
 #    na mesa fica ativando o computador.'
 # A política é por DISPOSITIVO, não por classe de controlador:
-#   · controlador USB PCI (0x0c03): ARMADO — a porta por onde o teclado
-#     fala (o despertar-imediato era DISPOSITIVO: o sensor do mouse; o
-#     dispositivo-mouse segue DESARMADO no nível dele);
 #   · TECLADO USB (HID protocolo 01): ACORDA — a decisão mora no
 #     craft-wake-guard usb-apply (o gancho RUN), que lê as interfaces do
 #     dispositivo e decide; teclado composto (com leitor/touchpad) acorda;
 #   · MOUSE e TODO o resto do bus USB: DORMEM (o echo por dispositivo);
+#   · E139 — O ARMO CEGO DO CONTROLADOR MORREU: a linha ATTR{class}=
+#     "0x0c03*" → wakeup="enabled" da era E122 ARMAVA TODO controlador
+#     USB no add — inclusive o XHC0 onde mora o Bluetooth Intel (e as
+#     sobras PCIe despertavam a máquina sem teclado nenhum). O gate é do
+#     craft-wake-guard: o controlador só permanece ARMADO com TECLADO
+#     HID 01 na PRÓPRIA árvore (o apply de boot julga — a unit
+#     elite-wake-guard.service — e o teclado que chega quente arma a
+#     cadeia dele pelo usb-apply; quem não tem teclado DESARMA);
 #   · PS2K/PS2M e a re-aplicação de CADA boot: elite-wake-guard.service
 #     → craft-wake-guard apply (o /proc/acpi/wakeup não passa por udev).
 # A marreta antiga (`craft-wake-guard off|on`) segue viva como resgate.
-# Juiz da cura: o craft-dump (seção 10) mostra os controladores armados e
-# o elite-wake-guard.service na lista de units; o próximo sono real acorda
-# pelo TECLADO.
+# Juiz da cura: o craft-dump (seção 10 + o bloco RUNTIME DA CASA E139)
+# mostra os controladores com o gate por teclado e o status do
+# wake-guard; o próximo sono real acorda pelo TECLADO.
 # ═══════════════════════════════════════════════════════════════════════════
-ACTION=="add", SUBSYSTEM=="pci", ATTR{class}=="0x0c03*", ATTR{power/wakeup}="enabled"
 ACTION=="add", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", RUN+="/usr/local/bin/craft-wake-guard usb-apply %p"

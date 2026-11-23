@@ -2667,7 +2667,63 @@ pkgver=1.0
 #     (6) O craft-clean ganha o pulso do fim (systemctl --failed) e o
 #         craft-dump fotografa o kernel moderno inteiro (scx/ntsync/
 #         sensores/MGLRU/BBR/cmdline).
-pkgrel=86
+# E139 — A DOSE DA AUDITORIA DO 1.0-86 (lei E41: o bump viaja NO MESMO
+#     commit do conteúdo; as 8 freias da auditoria aprovada com os DOIS
+#     ajustes cirúrgicos do dono):
+#     (1) A DOCK QUE CURA OS PRÓPRIOS PINS (craft-dock-rs): a escada de
+#         normalização ÚNICA (resolve_pin: id fold → stem → cauda sem o
+#         prefixo gearlever_ → tokens com fronteira → O ARQUIVO REAL nos
+#         dirs XDG) serve EXIBIR E JULGAR — o pin "gearlever_Hydra" cujo
+#         .desktop real é "gearlever_9f2a_Hydra" resolve, ATUALIZA e
+#         MANTÉM (nunca podado); morto de verdade = 2 faltas seguidas e
+#         PODOADO com escrita atômica tmp+rename — o loop do 'pin
+#         ignorado (desktop inexistente)' morre; o unpin do craft-pin é
+#         respeitado NA HORA (re-leitura antes de escrever);
+#     (2) A DOSE SOBREVIVE AO TERMINAL (craft-update --sistema): o
+#         precheck limpo (checkupdates em db TEMPORÁRIO — sem pendências
+#         = 'Sistema já atualizado.' e SAÍDA, sem snapshot PRE gasto, sem
+#         -Syu, sem linha no log), trap '' HUP + wait (o pacman herda a
+#         surdez ao terminal que morreu) e o papel calado no sucesso (a
+#         dose boa é do pacman.log); o pavucontrol SAI da ADOCAO (pacote
+#         opcional não é âncora — a ISO já o traz e o botão tem fallback
+#         honesto);
+#     (3) A DETECÇÃO DE SESSÃO DE VERDADE (elite-post-upgrade +
+#         craft-update refresh_session): o pgrep -x craft-bars nunca
+#         casou desde a E135 (o craft-bars EXECA o elite-daemon) — o
+#         falso positivo 'supervisor AUSENTE' em toda dose e o respawn
+#         que não acontecia; agora as DUAS eras pelo comm certo, o
+#         SIGTERM limpo colhe o daemon com os filhos e UM novo nasce;
+#     (4) O SCX ALINHADO + (5) A TELA QUE LEMBRA SEMPRE: os ouvidores
+#         (netlink som/drm, logind sono/unlock, bus bgapps) mudam para a
+#         PORTA session (viviam SÓ no corpo do jogo, vaga condicionada
+#         ao AUTO — o rig com AUTO=0 acordava cego: display sem
+#         save/apply, áudio sem roteamento) e o watch-save é VAGA
+#         supervisionada (a escolha do wdisplays grava de novo);
+#     (6) O DESPERTAR CIRÚRGICO POR CONTROLADOR (craft-wake-guard v3 +
+#         regra 91 sem o armo cego): só PERMANECE armado o controlador
+#         0x0c03 com TECLADO HID 01 na própria árvore (o XHC0 do
+#         Bluetooth Intel desarma), os não-teclados USB disabled
+#         FORÇADOS no apply E reafirmados no pré-sono, o SELO de pontes
+#         (GP12/GP13/SWUS/SWDS) passa a valer NO BOOT e o WoL morre por
+#         FORÇA (sysfs + ethtool);
+#     (7) O SOM QUE NÃO SE DEIXA ROUBAR (craft-audio-route): o --once
+#         ganha snapshot de conhecidos (só QUEM CHEGOU vira default — a
+#         escolha manual do dono nunca é pisada) e a dupla nova
+#         --sleep-save/--resume devolve o default pré-sono quando o
+#         HDMI/DP do monitor sequestra o som no wake (o daemon dispara
+#         com colheita e teto de 3s antes do freeze); o ppfeaturemask
+#         AMD é VERIFICADO na dose (conf nasce se ausente + initramfs
+#         quando nasceu);
+#     (8) O PAPEL QUE SE CONHECE (craft-dump + a rotação): boot id +
+#         uptime + versão do elite-system na cabeça do papel (a
+#         fronteira entre a história velha e ESTA sessão), o bloco
+#         RUNTIME DA CASA (swappiness vivo × lei 180, zramctl,
+#         scx_loader, ppfeaturemask, o status do wake-guard com o gate
+#         por controlador, a família de sessão) e a ROTAÇÃO integrada:
+#         o post_upgrade poda ~/.cache/elite/*.log de cada usuário +
+#         /var/log/elite-*.log (256 KiB) e CEIFA os atalhos appimage-*
+#         mortos (Exec sem alvo); o craft-clean fecha o trio na mão.
+pkgrel=87
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da sessão; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

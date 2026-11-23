@@ -581,10 +581,7 @@ login1_watch() {
 }
 
 # ── watch: a escolha do dono grava sozinha (com o gate do arranjo) ───────
-do_watch() {
-    # E134 — o ouvidor do logind nasce com o watch (Unlock/PrepareForSleep
-    # viram apply IMEDIATO — a latência zero do 'display instantâneo')
-    login1_ouvidor
+do_watch_loop() {
     # o watch nasce DEPOIS do apply (ordem do autostart): o primeiro
     # estado é fotografiado como base — só MUDANÇA estável depois dele
     # vira conf. Sem conf inicial, o estado atual É a base (nada é salvo
@@ -656,6 +653,18 @@ do_watch() {
         base="$agora"
         estavel=0
     done
+}
+
+# E139 — O WATCH LEGADO (a porta de fora) volta a ter o OUVIDOR LOGIND:
+# o guard E135 manda o rig COM o daemon session sair 0 (o daemon é o
+# ouvidor nativo); nos rigs sem o binário, o ouvidor nasce aqui como
+# sempre nasceu — e o corpo do watch é o MESMO do_watch_loop (a escolha
+# grava sozinha).
+do_watch() {
+    # E134 — o ouvidor do logind nasce com o watch (Unlock/PrepareForSleep
+    # viram apply IMEDIATO — a latência zero do 'display instantâneo')
+    login1_ouvidor
+    do_watch_loop
 }
 
 # ── o MENU (craft-display nu): todos os modos do EDID, aplicado+salvo ────
@@ -826,6 +835,14 @@ case "${1:-}" in
             exit 0
         fi
         do_watch ;;
+    watch-save)
+        # E139 — A VAGA SUPERVISIONADA (a sessão é quem lança — o slot
+        # 'displaysave' do elite-daemon session): o MESMO corpo do watch
+        # (a escolha do wdisplays grava de novo) SEM o guard E135 e SEM
+        # o ouvidor logind próprio — o daemon session é o ouvidor
+        # nativo do resume (dois ouvidos = duas corridas de apply por
+        # evento). Caiu → o supervisor ressuscita em 2s.
+        do_watch_loop ;;
     __login1-watch)
         # E135 — idem: o daemon session tem o thread logind nativo.
         if pgrep -f '^/usr/local/bin/elite-daemon session$' >/dev/null 2>&1; then

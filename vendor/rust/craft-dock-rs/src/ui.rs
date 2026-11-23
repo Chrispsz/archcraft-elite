@@ -158,6 +158,14 @@ struct State {
     index: HashMap<String, usize>,
     pin_ids: HashSet<String>,
     pins_txt: String,
+    /// E139 — a chave estável do conjunto resolvido (o diff-guard dos
+    /// botões: remontagem SÓ quando o conjunto muda — zero recriação
+    /// por tick, a lei v2.10.0).
+    pins_chave: String,
+    /// E139 — as faltas CONSECUTIVAS de cada pin (2 passadas seguidas
+    /// sem resolver = morte real; um acerto no meio zera — a poda só
+    /// remove o .desktop que realmente não existe em nenhum dir XDG).
+    pin_misses: HashMap<String, u32>,
     // o snapshot da sessão (a JANELA é a verdade — v2.10.3)
     snap: sock::Snapshot,
     tl_alive: bool,
@@ -245,6 +253,8 @@ fn build(app: &gtk::Application) {
         last_act: HashMap::new(),
         launching: HashMap::new(),
         children: Vec::new(),
+        pins_chave: String::new(),
+        pin_misses: HashMap::new(),
         home,
         uid: procapp::current_uid(),
     }));
@@ -466,11 +476,11 @@ fn poll_tick(st: &Rc<RefCell<State>>) {
         s.launching
             .retain(|k, t| now.duration_since(*t).as_secs_f64() < GUARD_S);
     }
-    // os pins: re-leitura por tick — o CONJUNTO muda, a pílula remonta
-    let txt = std::fs::read_to_string(pins_path()).unwrap_or_default();
-    if txt != st.borrow().pins_txt {
-        rebuild_pins(st);
-    }
+    // os pins: re-julgamento POR TICK (E139 — a escada ÚNICA avalia,
+    // as faltas contam e a poda honesta cresce com o próprio tick; a
+    // remontagem lá dentro é diff-guard — só o conjunto mudando mexe
+    // nos widgets)
+    rebuild_pins(st);
     sync_dynamic(st);
     let s = st.borrow();
     update_indicators(&s);
@@ -517,59 +527,163 @@ fn reap_children(s: &mut State) {
 
 // ── os PINS e a pílula ────────────────────────────────────────────────
 
+/// E139 — A OPERAÇÃO NO PAPEL (dock-pins): o que a dock escreve quando o
+/// juízo manda. Atualiza troca o id da linha (o hint da 2ª coluna e
+/// qualquer comentário de cauda SOBREVIVEM); Remove poda a linha morta.
+enum PodaOp {
+    Atualiza { de: String, para: String },
+    Remove(String),
+}
+
+/// E139 — A ESCRITA ATÔMICA DO dock-pins com RE-LEITURA NA HORA: o papel
+/// é lido DE NOVO dentro da operação — o unpin do craft-pin que chegou
+/// enquanto a dock julgava é respeitado NA HORA (a operação corre sobre
+/// o conteúdo FRESCO; linha que o dono já tirou não é ressuscitada).
+/// tmp+rename no MESMO dir: o corte de luz nunca deixa o arquivo pela
+/// metade. Devolve true se o papel mudou.
+fn pins_aplica(op: &PodaOp) -> bool {
+    let path = pins_path();
+    let Ok(txt) = std::fs::read_to_string(&path) else {
+        return false;
+    };
+    let (alvo, nova): (&str, Option<&str>) = match op {
+        PodaOp::Atualiza { de, para } => (de, Some(para)),
+        PodaOp::Remove(id) => (id, None),
+    };
+    let mut out = String::new();
+    let mut achou = false;
+    for linha in txt.lines() {
+        let t = linha.trim();
+        let primeira = t.split_whitespace().next().unwrap_or("");
+        if primeira == alvo {
+            achou = true;
+            match nova {
+                Some(para) => {
+                    // o resto da linha (o hint na 2ª coluna, comentário de cauda)
+                    let resto = t.strip_prefix(primeira).unwrap_or("");
+                    out.push_str(para);
+                    out.push_str(resto);
+                    out.push('\n');
+                }
+                None => {} // a linha morta morre
+            }
+            continue;
+        }
+        out.push_str(linha);
+        out.push('\n');
+    }
+    if !achou {
+        return false; // o unpin do dono chegou antes — nada a reescrever
+    }
+    let tmp = path.with_extension("elite-tmp");
+    std::fs::write(&tmp, out.as_bytes()).is_ok() && std::fs::rename(&tmp, &path).is_ok()
+}
+
 /// Os PINS: re-lê o dock-pins (1 desktop-id por linha, 2ª coluna =
-/// hint de app_id, '#' é comentário), resolve cada id no índice e
-/// cria os botões NA ORDEM DO ARQUIVO. Pin sem .desktop é ignorado
-/// com log (a lei da run #93: pin ruim NUNCA derrubou a dock).
+/// hint de app_id, '#' é comentário), resolve cada id pela ESCADA ÚNICA
+/// (icons::resolve_pin — a MESMA régua que julga a poda) e cria os
+/// botões NA ORDEM DO ARQUIVO.
+///
+/// E139 — A DOCK QUE CURA OS PRÓPRIOS PINS: o id que a escada resolveu
+/// com o ARQUIVO REAL (variação de caixa ou de prefixo do Gear Lever) é
+/// ATUALIZADO no papel (tmp+rename com re-leitura fresca) e MANTÉM —
+/// nunca podado. O id que NÃO resolve em DUAS passadas seguidas é
+/// PODADO (o .desktop não existe em nenhum dir XDG — o loop do "pin
+/// ignorado (desktop inexistente)" morre por desenho). A remontagem é
+/// DIFF-GUARD: só quando o conjunto resolvido muda (zero recriação por
+/// tick — a lei v2.10.0).
 fn rebuild_pins(st: &Rc<RefCell<State>>) {
-    let txt = std::fs::read_to_string(pins_path()).unwrap_or_default();
-    // 1ª passada (borrow curto): resolve os entries — os botões nascem
-    // FORA do borrow (make_app_button pede o estado emprestado).
     let mut resolved: Vec<(icons::DesktopEntry, String)> = Vec::new();
+    let mut ops: Vec<PodaOp> = Vec::new();
+    let mut falhas: Vec<String> = Vec::new();
     {
         let s = st.borrow();
         for pin in read_pins(&pins_path()) {
-            let hit = icons::resolve_desktop(&s.index, &s.entries, &pin.desktop_id)
-                .or_else(|| {
-                    // o id exato (com .desktop) também é chave do índice
-                    s.index
-                        .get(&icons::fold(&pin.desktop_id))
-                        .map(|i| &s.entries[*i])
-                })
-                .cloned();
+            let hit = icons::resolve_pin(&s.index, &s.entries, &pin.desktop_id).cloned();
             match hit {
-                Some(e) => resolved.push((e, pin.hint)),
-                None => {
-                    log(&format!("pin ignorado (desktop inexistente): {}", pin.desktop_id))
+                Some(e) => {
+                    if e.id != pin.desktop_id {
+                        // a escada achou o ARQUIVO REAL: atualiza e mantém
+                        log(&format!(
+                            "pin resolvido pela escada: {} → {} (atualizado no papel, mantido — E139)",
+                            pin.desktop_id, e.id
+                        ));
+                        ops.push(PodaOp::Atualiza {
+                            de: pin.desktop_id.clone(),
+                            para: e.id.clone(),
+                        });
+                    }
+                    resolved.push((e, pin.hint));
                 }
+                None => falhas.push(pin.desktop_id.clone()),
             }
         }
     }
-    // 2ª passada: os botões (cada um com o seu gesto e o seu Act)
-    let mut rows: Vec<PinRow> = Vec::new();
-    let mut pin_ids = HashSet::new();
-    for (entry, hint) in resolved {
-        let btn = make_app_button(st, &entry, &hint);
-        pin_ids.insert(entry.id.clone());
-        rows.push(PinRow {
-            button: btn,
-            act: Act::App {
-                hint,
-                did: entry.id.clone(),
-                cmd: icons::exec_ready(&entry),
-                cands: icons::focus_candidates(&entry, ""),
-                name: entry.name.clone(),
-            },
-        });
+    // o juízo das faltas: 2 passadas seguidas sem resolver = a poda
+    // (fora do borrow — a escrita re-lê o papel fresco dentro dela)
+    for id in &falhas {
+        let n = {
+            let mut s = st.borrow_mut();
+            let n = s.pin_misses.entry(id.clone()).or_insert(0);
+            *n += 1;
+            *n
+        };
+        if n >= 2 {
+            log(&format!(
+                "pin morto podado: {id} (2 faltas seguidas — o .desktop não existe em nenhum dir XDG — E139)"
+            ));
+            ops.push(PodaOp::Remove(id.clone()));
+        } else {
+            log(&format!(
+                "pin ignorado (desktop inexistente): {id} (falta {n}/2 — a poda espera a 2ª passada)"
+            ));
+        }
     }
-    let mut s = st.borrow_mut();
-    s.pins = rows;
-    s.pin_ids = pin_ids;
-    s.pins_txt = txt;
-    repack(&s);
-    let n = s.pins.len();
-    s.window.show();
-    log(&format!("pins remontados: {n} fixado(s)"));
+    for (e, _) in &resolved {
+        st.borrow_mut().pin_misses.remove(&e.id);
+    }
+    for op in &ops {
+        pins_aplica(op);
+    }
+    // a remontagem é DIFF-GUARD: a chave estável do conjunto resolvido
+    let mut chave = String::new();
+    for (e, h) in &resolved {
+        chave.push_str(&e.id);
+        chave.push('\u{1}');
+        chave.push_str(h);
+        chave.push('\u{2}');
+    }
+    if st.borrow().pins_chave != chave {
+        let mut rows: Vec<PinRow> = Vec::new();
+        let mut pin_ids = HashSet::new();
+        for (entry, hint) in &resolved {
+            let btn = make_app_button(st, entry, hint);
+            pin_ids.insert(entry.id.clone());
+            rows.push(PinRow {
+                button: btn,
+                act: Act::App {
+                    hint: hint.clone(),
+                    did: entry.id.clone(),
+                    cmd: icons::exec_ready(entry),
+                    cands: icons::focus_candidates(entry, ""),
+                    name: entry.name.clone(),
+                },
+            });
+        }
+        let mut s = st.borrow_mut();
+        s.pins = rows;
+        s.pin_ids = pin_ids;
+        s.pins_chave = chave;
+        repack(&s);
+        let n = s.pins.len();
+        s.window.show();
+        log(&format!("pins remontados: {n} fixado(s)"));
+    } else {
+        st.borrow_mut().pins_chave = chave;
+    }
+    // o papel que a dock enxerga é o do DISCO (as ops acima podem ter
+    // mudado o arquivo — o estado segue a verdade, nunca a memória)
+    st.borrow_mut().pins_txt = std::fs::read_to_string(pins_path()).unwrap_or_default();
 }
 
 /// A pílula REMONTA em ordem canônica (pins · fio · dinâmicos · raws)

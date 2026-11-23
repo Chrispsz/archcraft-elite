@@ -210,7 +210,10 @@ fn auto_on() -> bool {
 /// ADOTADA sem spawn (o filho que nasceria morto pelo lock próprio
 /// viraria churn de respawn a cada 2s; o peek corta a classe inteira).
 /// O lock é PEGADO E SOLTO na hora (o filho pega o dele sozinho).
-fn peek_lock_livre(caminho: &std::path::Path) -> bool {
+/// E139 — PUB: o modo game também dá o peek no LOCK DA SESSÃO para
+/// decidir quem levanta os ouvidores (session vivo = ouvidores dele,
+/// nunca dois donos).
+pub fn peek_lock_livre(caminho: &std::path::Path) -> bool {
     let Ok(f) = std::fs::OpenOptions::new()
         .create(true)
         .truncate(false)
@@ -458,6 +461,25 @@ pub fn run_session() -> Result<(), String> {
         };
         specs.push(jogo);
     }
+    // E139 — A VAGA DO WATCH-SAVE (a tela que lembra SEMPRE): o
+    // craft-display watch é vaga supervisionada da SESSÃO — a escolha
+    // do wdisplays grava de novo sem depender do autostart ter nascido
+    // antes, e caiu → volta em 2s (o mesmo contrato dos irmãos). O
+    // verbo próprio tem o guard E135 intocado: a porta LEGADA `watch`
+    // segue saindo 0 com o session vivo — quem residia de verdade é
+    // ESTA vaga, pelo verbo watch-save.
+    specs.push(VagaSpec {
+        res: Residente {
+            nome: "displaysave".to_string(),
+            comando: "/usr/local/bin/craft-display watch-save".to_string(),
+            bus: None,
+        },
+        // NUNCA comm: o craft-display apply bifurca por evento e vive
+        // segundos — um gate por comm recusaria o spawn eternamente
+        comm: None,
+        cond: None,
+        peek_lock: None,
+    });
     supervisa("/tmp/elite-daemon-session.lock", specs, "session")
 }
 

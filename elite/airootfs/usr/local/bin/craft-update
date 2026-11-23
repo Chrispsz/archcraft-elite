@@ -294,13 +294,21 @@ HOUSE_OVERWRITE=(
 #     o AUR nunca o entregou ao [elite-local] dos rigs. O Bluetooth
 #     gráfico é a PRÓPRIA central (craft-connect: menu + bluetoothctl,
 #     bluez + bluez-utils na casa — 100% GUI, zero terminal).
-# E138 — O PAVUCONTROL E O COOLERCONTROL ENTRAM (a ordem do dono, dump
+# E138 — O PAVUCONTROL E O COOLERCONTROL ENTRARAM (a ordem do dono, dump
 #     v2.13): o mixer completo da central de áudio (pavucontrol — sem
 #     ele o botão 'Mixer completo' seria clique mudo no rig) e a
 #     ferramenta de curva de ventoinha (coolercontrol — o daemon liga
-#     pelo post_upgrade; o GUI é do dono). Ambos em repo oficial: a
-#     adoção converge em UMA dose, best-effort como toda a família.
-ADOCAO=(lxqt-policykit pacman-contrib octopi yay flatpak swayosd gamemode gnome-text-editor papirus-icon-theme xorg-xprop xorg-xauth xorg-xhost pavucontrol coolercontrol)
+#     pelo post_upgrade; o GUI é do dono). Ambos em repo oficial.
+# E139 — O PAVUCONTROL SAI DA LISTA (a auditoria do 1.0-86: pacote
+#     OPCIONAL não é âncora — a ISO já o traz pelo packages.add e o
+#     rig que o tem conserva; ver a nota abaixo da fila).
+ADOCAO=(lxqt-policykit pacman-contrib octopi yay flatpak swayosd gamemode gnome-text-editor papirus-icon-theme xorg-xprop xorg-xauth xorg-xhost coolercontrol)
+# E139 — O PAVUCONTROL SAI DA ADOÇÃO (a auditoria do 1.0-86: pacote
+#     OPCIONAL não é âncora — a adoção silenciosa instalava pacote que
+#     o dono não pediu em toda dose). A ISO já o traz (packages.add — a
+#     ordem E138 do botão da central de áudio vale) e o botão tem
+#     fallback honesto; o rig que o tem CONSERVA (a adoção é --needed,
+#     nunca remove).
 
 ulog() {
     mkdir -p "$(dirname "$ULOG")" 2>/dev/null || true
@@ -740,8 +748,17 @@ refresh_session() {
     [ "$casa_mudou" = 1 ] || [ "$tl_mudou" = 1 ] || return 0
     while read -r uid _; do
         [ -n "$uid" ] || continue
-        if ! pgrep -u "$uid" -x craft-bars >/dev/null 2>&1; then
-            ulog "sessão: supervisor craft-bars AUSENTE (uid $uid) — a sessão segue com o código antigo até relogin (pkill sem volta seria dano, não cura)"
+        # E139 — O GATE DO SUPERVISOR DE VERDADE: o pgrep -x craft-bars
+        # nunca mais casa desde a E135 (o craft-bars EXECA o
+        # elite-daemon session — o /bin/sh sumiu do ps) e o ramo AUSENTE
+        # acima recusava TODA a cura da sessão em toda dose (o respawn
+        # que não acontecia). As DUAS eras pelo comm certo: elite-daemon
+        # (a porta session é O supervisor — o corpo da sessão) ou
+        # craft-bars (o fallback bash dos rigs sem binário). Sem NENHUM
+        # dos dois: pkill sem volta é dano, não cura (a lei E48 mantida).
+        if ! pgrep -u "$uid" -x elite-daemon >/dev/null 2>&1 \
+           && ! pgrep -u "$uid" -x craft-bars >/dev/null 2>&1; then
+            ulog "sessão: supervisor vivo AUSENTE (uid $uid — nem elite-daemon nem craft-bars) — a sessão segue com o código antigo até relogin (pkill sem volta seria dano, não cura)"
             continue
         fi
         if { [ "$tl_mudou" = 1 ] || [ "$casa_mudou" = 1 ]; } && pgrep -u "$uid" -x craft-toplevel >/dev/null 2>&1; then
@@ -1214,28 +1231,58 @@ fi
 
 # ── dose SEMANAL: o sistema inteiro, com rede de segurança (elite-sysupdate.timer)
 if [[ "${1:-}" == "--sistema" ]]; then
-    ulog "sistema: iniciando (dose semanal completa)"
-    # E64 — A PROVA DE REDE ANTES DO PRE (AUD-B2 na irmã semanal): sem
-    # rede, o -Syu morreria DEPOIS de gastar um snapshot PRE à toa (e o
-    # notify CRITICAL soaria por doença que era silêncio). Prova de 8s:
-    # sem rede = adiamento honesto, NENHUM snapshot gasto, a semana volta.
+    # E64 — A PROVA DE REDE PRIMEIRO (AUD-B2 na irmã semanal): sem rede a
+    # pergunta não se faz (a base LOCAL pode estar velha — dizer 'já
+    # atualizado' offline seria mentira por desatualização). Sem rede =
+    # adiamento honesto, NENHUM snapshot gasto, a semana volta.
     if ! rede_viva; then
         ulog "sistema: sem rede — adiamento honesto (a semana volta; nenhum snapshot PRE desperdiçado)"
         exit 0
     fi
+    # E139 — O PRECHECK LIMPO (a auditoria do 1.0-86: a dose semanal
+    # gastava snapshot PRE, -Syu INTEIRO e linha no papel para dizer
+    # 'nada a fazer' — o réu era a ausência da PERGUNTA antes da
+    # cirurgia). A pergunta é feita SEM tocar a base real: o
+    # checkupdates (pacman-contrib) trabalha em db TEMPORÁRIO próprio
+    # (a rede decide o fresco); sem a ferramenta ou com ela falhando, a
+    # base LOCAL responde (pacman -Qu — leitura, sem lock). Zero
+    # pendências = 'Sistema já atualizado.', SAÍDA 0, ZERO snapshot,
+    # ZERO transação, papel CALADO (a dose boa é do pacman.log) e UM
+    # aviso baixo para o dono que clicou (a resposta ao clique não é
+    # ruído — é a resposta).
+    _pend=""
+    if command -v checkupdates >/dev/null 2>&1; then
+        if _cu="$(checkupdates 2>/dev/null)"; then
+            _pend="$(printf '%s\n' "$_cu" | grep -c . || true)"
+        fi
+    fi
+    if [ -z "$_pend" ] && command -v pacman >/dev/null 2>&1; then
+        _pend="$( { pacman -Qu 2>/dev/null || true; } | wc -l )"
+    fi
+    if [ "${_pend:-0}" -eq 0 ]; then
+        printf 'Sistema já atualizado.\n'
+        notify_users 'Elite: sistema em dia' 'Sistema já atualizado — nada a fazer.' || true
+        exit 0
+    fi
+    unset _pend _cu
     # E64 — A SENTINELA NA SEMANAL (AUD-B3): a mesma espera com teto das
     # portas irmãs — brigava com o keyring aos 120s do boot e com a dose
     # ao ligar; agora espera e segue, ou adia honesta (o timer volta).
     if ! sentinela_db auto sistema; then
         exit 0
     fi
+    # E139 — O TRAP DO HUP: a dose sobrevive ao terminal que morreu (o
+    # usuário fecha o foot no meio do -Syu e o SIGHUP NÃO mais mata a
+    # transação — o shell IGNORA e o pacman herda a surdez; a lei do
+    # pacman.log conta o fim da transação mesmo sem terminal). O pacman
+    # corre em primeiro plano: não há wait a colher — a surdez herdada
+    # é a proteção inteira.
+    trap '' HUP
     # pacman ocupado? — lei das TRÊS portas (a sentinela acima, E64)
     PRE_N=""
     if command -v snapper >/dev/null 2>&1 && snapper -c root list-configs >/dev/null 2>&1; then
         PRE_N="$(snapper -c root create -t pre -p -d 'elite-sysupdate' 2>/dev/null || true)"
-        if [ -n "$PRE_N" ]; then
-            ulog "sistema: snapshot PRE #$PRE_N — a rede de segurança está armada"
-        else
+        if [ -z "$PRE_N" ]; then
             ulog "sistema: snapper recusou o PRE — seguindo SEM rede (a prova fica no log)"
         fi
     else
@@ -1268,7 +1315,7 @@ if [[ "${1:-}" == "--sistema" ]]; then
     done
     rm -f "$ERRCAP"
     if [ "$sys_rc" -ne 0 ]; then
-        ulog "sistema: pacman FALHOU (rc=$sys_rc) — snapshot PRE #$PRE_N guarda o estado anterior"
+        ulog "sistema: pacman FALHOU (rc=$sys_rc)${PRE_N:+ — snapshot PRE #$PRE_N guarda o estado anterior}"
         # E93/E101 — a subclasse que a casa NÃO cura ensina no papel
         ensina_orfao "$ULOG"
         notify_users -u critical 'Atualização semanal falhou' \
@@ -1282,23 +1329,31 @@ if [[ "${1:-}" == "--sistema" ]]; then
     # E132 — a higiene no fim da dose (o lock já liberou; applets
     # redundantes + órfãos saem com segurança — o POST fecha a história)
     higiene_e132
-    if [ -n "$PRE_N" ] && snapper -c root create -t post --pre-number "$PRE_N" \
-            -d 'elite-sysupdate' >/dev/null 2>&1; then
-        ulog "sistema: snapshot POST #$PRE_N criado (o par PRE/POST fecha a história)"
+    if [ -n "$PRE_N" ]; then
+        snapper -c root create -t post --pre-number "$PRE_N" \
+            -d 'elite-sysupdate' >/dev/null 2>&1 || true
     fi
     kafter="$(pacman -Q "$KPKG" 2>/dev/null | awk '{print $2}' || true)"
     if [ -n "$kafter" ] && [ "$kafter" != "$kbefore" ]; then
+        # o delta REAL do kernel fica no papel (a comparação -Q
+        # antes/depois é a prova; o E46 contratou a linha — o aviso na
+        # sessão é o notify, o papel é o registro)
         ulog "sistema: kernel ${kbefore:-ausente} → $kafter — REBOOT aplica"
         notify_users 'Elite: sistema atualizado' \
             "Kernel novo ($kafter) — REINICIE para rodá-lo.${PRE_N:+ Snapshots: #$PRE_N}"
     else
-        ulog "sistema: OK (kernel intocado)"
+        # E139 — O PAPEL CALADO NO SUCESSO: a dose boa é do pacman.log
+        # (a auditoria do 1.0-86 — o elite-update.log não é diário de
+        # sucesso, é a prova da FALHA; o notify é a voz para o dono)
         notify_users 'Elite: sistema atualizado' 'Atualização semanal concluída.'
     fi
     exit 0
 fi
 
 # ── a porta MANUAL (o menu 'Atualizar sistema'): o -Syu completo ────────
+# E139 — O MESMO TRAP DO HUP da irmã semanal: o terminal do menu que
+# fecha no meio da transação não mata mais o pacman (a surdez herdada).
+trap '' HUP
 pacman_agil
 # kernel ANTES da transação (o -Syu pode tocá-lo; vazio = pacote ausente)
 kbefore="$(pacman -Q "$KPKG" 2>/dev/null | awk '{print $2}' || true)"
