@@ -28,9 +28,11 @@ if [[ "${PACKAGES_ONLY:-0}" == "1" ]]; then
     # do dono: espremer o limão — o workspace compila NO build; o builder
     # do makepkg abaixo não tem sudo NESTE trecho, o toolchain mora no
     # container e ZERO Rust viaja na ISO ou no pacote final).
+    # E138 — O PAR X É DEPENDÊNCIA DURA (a ordem do dono, dump v2.13): o
+    # cinto xhost + o cookie xauth do elite-gparted nascem COM o pacote.
     pacman -Syu --noconfirm --needed git rsync curl base-devel sudo python \
         wayland wayland-protocols libxkbcommon wlopm polkit rust cargo \
-        gtk4 gtk4-layer-shell
+        gtk4 gtk4-layer-shell xorg-xhost xorg-xauth
 else
     pacman -Syu --noconfirm --needed \
         git rsync curl archiso xorriso mtools dosfstools \
@@ -529,9 +531,14 @@ cp -p /work/elite/airootfs/usr/local/share/elite/qt6ct/qt6ct.conf \
 # COM DONO (a lição E63: fora do pacote nunca chega ao rig pelo canal) —
 # o sysctl consolidado (99-elite-performance.conf; o post_upgrade aposenta
 # os fósseis 99-elite.conf/99-elite-net.conf com voz), os módulos do boot
-# (ntsync + nct6775), a regra udev do /dev/ntsync (0666), o tmpfiles do
+# (ntsync + sensores), a regra udev do /dev/ntsync (0666), o tmpfiles do
 # MGLRU, o /etc/default/scx (scx_lavd) e a drop-in da Condition (kernel
 # sem sched_ext = unit PULADA, nunca FAILED).
+# E138 — O ESTÁGIO NÃO É PACOTE: a E136/E137 staged esta família em
+# files/etc/… e o MOLDE nunca a installou — o rig 1.0-85 provou no dump
+# v2.13 (sem 99-elite-performance.conf, sem /etc/default/scx, sem regra
+# zram: o canal entregava versões com a promessa empacotada no ar). O
+# install mora AGORA no package() do molde (mesma fonte única files/).
 mkdir -p /tmp/elite-src/elite-system/files/etc/sysctl.d \
          /tmp/elite-src/elite-system/files/etc/modules-load.d \
          /tmp/elite-src/elite-system/files/etc/udev/rules.d \
@@ -540,13 +547,14 @@ mkdir -p /tmp/elite-src/elite-system/files/etc/sysctl.d \
          /tmp/elite-src/elite-system/files/etc/systemd/system/scx_loader.service.d
 cp -p /work/elite/airootfs/etc/sysctl.d/99-elite-performance.conf \
       /tmp/elite-src/elite-system/files/etc/sysctl.d/99-elite-performance.conf
-# E137 — A REGRA DO SWAPPINESS SEM DRIFT NO PACOTE: a 81-elite-zram.rules
-# (a /etc, COM DONO — o pacman a atualiza em toda dose) vence o
-# 30-zram.rules do cachyos-settings NO MESMO evento do zram0 por ordem
-# lexical (o réu do boot em 150 fotografado no dump 201219). O
-# post-transaction faz o udevd relê-la na hora — a dose vale sem reboot.
-cp -p /work/elite/airootfs/etc/udev/rules.d/81-elite-zram.rules \
-      /tmp/elite-src/elite-system/files/etc/udev/rules.d/81-elite-zram.rules
+# E137→E138 — A REGRA DO SWAPPINESS SEM DRIFT NO PACOTE: a
+# 99-elite-zram.rules (a /etc, COM DONO — o pacman a atualiza em toda
+# dose; o nome 99 é A ORDEM do dono: vence o 30-zram/70-cachyos-settings
+# do vendor NO MESMO evento do zram0 por ordem lexical, em qualquer
+# versão do cachyos-settings). O post-transaction faz o udevd relê-la
+# na hora — a dose vale sem reboot.
+cp -p /work/elite/airootfs/etc/udev/rules.d/99-elite-zram.rules \
+      /tmp/elite-src/elite-system/files/etc/udev/rules.d/99-elite-zram.rules
 cp -p /work/elite/airootfs/etc/modules-load.d/elite-ntsync.conf \
       /tmp/elite-src/elite-system/files/etc/modules-load.d/elite-ntsync.conf
 cp -p /work/elite/airootfs/etc/modules-load.d/elite-sensors.conf \
@@ -812,6 +820,15 @@ theo_install = '    install -d "${pkgdir}/usr/local/share/elite/labwc"\n    inst
 theo_rm = '    [ -e "/usr/local/share/elite/labwc/themerc-override" ] && rm -f "/usr/local/share/elite/labwc/themerc-override"\n'
 gtk_install = '    install -d "${pkgdir}/usr/local/share/elite/gtk-3.0"\n    install -d "${pkgdir}/usr/local/share/elite/gtk-4.0"\n    install -m644 "${startdir}/files/usr/local/share/elite/gtk-3.0/settings.ini" "${pkgdir}/usr/local/share/elite/gtk-3.0/settings.ini"\n    install -m644 "${startdir}/files/usr/local/share/elite/gtk-4.0/settings.ini" "${pkgdir}/usr/local/share/elite/gtk-4.0/settings.ini"\n'
 gtk_rm = '    [ -e "/usr/local/share/elite/gtk-3.0/settings.ini" ] && rm -f "/usr/local/share/elite/gtk-3.0/settings.ini"\n    [ -e "/usr/local/share/elite/gtk-4.0/settings.ini" ] && rm -f "/usr/local/share/elite/gtk-4.0/settings.ini"\n'
+# E138 — A FAMÍLIA DO KERNEL MODERNO EMBARCA DE VERDADE (o estágio E136/E137
+# existia e o molde NUNCA installou — o dump v2.13 provou no rig 1.0-85:
+# sysctl consolidado ausente, /etc/default/scx ausente, regra zram ausente,
+# swappiness vivo em 150). Mesma escola das peles: staging em files/etc/…,
+# install AQUI, adoção no pre_install (rigs com a via sem dono da ISO: o
+# pacote adota antes da extração — a dança da casa; a ISO nova entrega os
+# caminhos SÓ pelo pacote, a remoção E138 do profile mata o par).
+kmod_install = '    install -d "${pkgdir}/etc/sysctl.d"\n    install -m644 "${startdir}/files/etc/sysctl.d/99-elite-performance.conf" "${pkgdir}/etc/sysctl.d/99-elite-performance.conf"\n    install -d "${pkgdir}/etc/udev/rules.d"\n    install -m644 "${startdir}/files/etc/udev/rules.d/99-elite-zram.rules" "${pkgdir}/etc/udev/rules.d/99-elite-zram.rules"\n    install -m644 "${startdir}/files/etc/udev/rules.d/60-ntsync.rules" "${pkgdir}/etc/udev/rules.d/60-ntsync.rules"\n    install -d "${pkgdir}/etc/modules-load.d"\n    install -m644 "${startdir}/files/etc/modules-load.d/elite-ntsync.conf" "${pkgdir}/etc/modules-load.d/elite-ntsync.conf"\n    install -m644 "${startdir}/files/etc/modules-load.d/elite-sensors.conf" "${pkgdir}/etc/modules-load.d/elite-sensors.conf"\n    install -d "${pkgdir}/etc/tmpfiles.d"\n    install -m644 "${startdir}/files/etc/tmpfiles.d/elite-mglru.conf" "${pkgdir}/etc/tmpfiles.d/elite-mglru.conf"\n    install -Dm644 "${startdir}/files/etc/default/scx" "${pkgdir}/etc/default/scx"\n'
+kmod_rm = '    for f in /etc/sysctl.d/99-elite-performance.conf /etc/udev/rules.d/99-elite-zram.rules /etc/udev/rules.d/60-ntsync.rules /etc/modules-load.d/elite-ntsync.conf /etc/modules-load.d/elite-sensors.conf /etc/tmpfiles.d/elite-mglru.conf /etc/default/scx; do\n        [ -e "$f" ] && rm -f "$f"\n    done\n'
 pkg = f"""pkgname=elite-system
 pkgver=1.0
 # E50 — O SISTEMA EM UM PACOTE SÓ (diretriz do dono). Todo o código de
@@ -2650,12 +2667,19 @@ pkgver=1.0
 #     (6) O craft-clean ganha o pulso do fim (systemctl --failed) e o
 #         craft-dump fotografa o kernel moderno inteiro (scx/ntsync/
 #         sensores/MGLRU/BBR/cmdline).
-pkgrel=85
+pkgrel=86
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da sessão; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
 license=(GPL3)
-depends=(bash python wayland wlopm)
+# E138 — O PAR X É DEPENDÊNCIA DURA (a ordem do dono, dump v2.13: o rc=127
+# do elite-gparted — a adoção best-effort só convergia quando o dono
+# rodava a dose; o pacote NASCE com o cinto). xorg-xhost abre o
+# +SI:localuser:root do XWayland; xorg-xauth extrai o cookie do usuário.
+depends=(bash python wayland wlopm xorg-xhost xorg-xauth)
+# E138 — o sysctl consolidado é EDITÁVEL pelo dono (a régua da casa o
+# regenera; a edição manual sobrevive como .pacnew, nunca perdida)
+backup=(etc/sysctl.d/99-elite-performance.conf)
 # E103 — o listener C aposentou (E132): o makedepends polkit sai junto
 # (nada compila contra o libpolkitagent neste pacote desde a E132).
 # E132 — o toolchain Rust entra como makedepends EXCLUSIVO do BUILD
@@ -2727,7 +2751,7 @@ pre_install() {{
     ; do
         [ -e "/usr/local/bin/$f" ] && rm -f "/usr/local/bin/$f"
     done
-{unit_loop}{hook_rm}{ff_rm}{lock_rm}{rc_rm}{osd_rm}{menu_rm}{gm_rm}{doc_rm}{gp_rm}{flags_rm}{waybar_rm}{pk_rm}{q6_rm}{dc_rm}    return 0
+{unit_loop}{hook_rm}{kmod_rm}{ff_rm}{lock_rm}{rc_rm}{osd_rm}{menu_rm}{gm_rm}{doc_rm}{gp_rm}{flags_rm}{waybar_rm}{pk_rm}{q6_rm}{dc_rm}    return 0
 }}
 # E129 — A MIGRAÇÃO AUTÔNOMA (AGENTS.md §4, 2026-11-20): o usuário final
 # NUNCA roda comando manual de pós-instalação — toda correção de /etc,
@@ -2763,7 +2787,7 @@ package() {{
     # E132 — o elite-polkit-listener NÃO viaja mais (o agente da casa é o
     # lxqt-policykit-agent NATIVO, eleito no craft-bars; um bin a menos no
     # pacote, um agente a menos na fila — o C vendado aposentou do repo)
-{unit_install}{hook_install}{ff_install}{lock_install}{rc_install}{osd_install}{menu_install}{pd_install}{gm_install}{doc_install}{gp_install}{pt_install}{ef_install}{flags_install}{waybar_install}{udev_install}{pk_install}{q6_install}{theo_install}{gtk_install}{dc_install}}}
+{unit_install}{hook_install}{kmod_install}{ff_install}{lock_install}{rc_install}{osd_install}{menu_install}{pd_install}{gm_install}{doc_install}{gp_install}{pt_install}{ef_install}{flags_install}{waybar_install}{udev_install}{pk_install}{q6_install}{theo_install}{gtk_install}{dc_install}}}
 """
 (d / 'PKGBUILD').write_text(pkg)
 PYE50
@@ -3020,80 +3044,15 @@ if [[ "$PKG_ONLY_SKIP_REST" == 1 ]]; then
     exit 0
 fi
 
-# ── v1.1: estágio AUR → [elite-local] (pwvucontrol) ──────────────────
-#  pwvucontrol não existe nos repos oficiais ( conferido via
-#  archlinux.org/packages/search). O build clona o AUR, compila como
-#  usuário descartável e o pacote entra no repo file:// — o pacstrap
-#  selado o resolve OFFLINE como qualquer outro. Falha de CDN/AUR após
-#  2 tentativas = abort com diagnóstico (mesma filosofia do preflight:
-#  fail loud no build, nunca no boot).
-#  v1.4: brave-bin SAIU daqui — o navegador agora é o brave-origin do
-#  estágio anterior (release oficial pinado; o AUR nem é consultado).
-say "Estágio AUR: pwvucontrol → /var/cache/elite-local/"
-# v2.1 — evidência de proveniência do AUR (supply-chain): HEAD commit e
-#  pkgver vão para o log de TODA run que consulta a fonte; cache hit
-#  (pkg persistido pelo Actions) pula o rebuild por completo.
-if ls /var/cache/elite-local/pwvucontrol-*.pkg.tar.zst >/dev/null 2>&1; then
-    say "  cache hit: $(ls /var/cache/elite-local/pwvucontrol-*.pkg.tar.zst | head -1 | xargs -n1 basename) — rebuild pulado"
-    sha256sum /var/cache/elite-local/pwvucontrol-*.pkg.tar.zst
-else
-    if git clone --depth=1 --quiet https://aur.archlinux.org/pwvucontrol.git /tmp/elite-src/aur/pwvucontrol-probe 2>/dev/null; then
-        say "  AUR HEAD: $(git -C /tmp/elite-src/aur/pwvucontrol-probe rev-parse HEAD)"
-        say "  AUR pkgver: $(grep -m1 '^pkgver=' /tmp/elite-src/aur/pwvucontrol-probe/PKGBUILD | cut -d= -f2)"
-    else
-        say "  (probe de evidência do AUR falhou — o aur_build abaixo registra a falha real, se houver)"
-    fi
-    mkdir -p /tmp/elite-src/aur
-fi
-# makepkg -s (syncdeps) instala deps de build via sudo — regra descartável
-printf 'builder ALL=(ALL) NOPASSWD: ALL\n' > /etc/sudoers.d/builder
-chmod 440 /etc/sudoers.d/builder
-aur_build() { # $1 = nome do pacote AUR
-    local pkg=$1 try logf
-    for try in 1 2; do
-        rm -rf "/tmp/elite-src/aur/$pkg"
-        logf="/tmp/elite-src/${pkg}-try${try}.log"
-        if git clone --depth=1 --quiet "https://aur.archlinux.org/${pkg}.git" "/tmp/elite-src/aur/$pkg"; then
-            chown -R builder "/tmp/elite-src/aur/$pkg"
-            # --skippgpcheck: PKGBUILDs de bin sem assinatura PGP própria;
-            #  sha256 do source continua verificado pelo makepkg
-            # v2.10.5 — A SAÍDA DA TENTATIVA VAI PRO ARQUIVO, NÃO PRO LOG
-            # PRINCIPAL: o 'target not found' da tentativa 1 manchava o log
-            # de um build que a tentativa 2 CURAVA — e o forense (que é
-            # CIÊNCIA desde a v1.4, onde 'target not found' foi o crime
-            # real) reprovava a ISO sã. A prova da cura é o makepkg ok +
-            # repo-add; na FALHA FINAL o log integral vai pro console
-            # (evidência completa) e o build morre honesto.
-            if runuser -l builder -c "cd /tmp/elite-src/aur/$pkg && makepkg -sf --noconfirm --skippgpcheck" >"$logf" 2>&1 \
-               && cp /tmp/elite-src/aur/$pkg/*.pkg.tar.zst /var/cache/elite-local/; then
-                say "  ok: $pkg (tentativa $try)"
-                return 0
-            fi
-            say "  makepkg falhou p/ $pkg (tentativa $try) — log integral em $logf"
-            # v2.10.6 — o tail da TENTATIVA 1 não vai mais pro log principal:
-            # o stderr do makepkg morto (ex. 'target not found' de CDN)
-            # manchava o log de um build que a tentativa 2 CURAVA e o
-            # forense (ciência desde a v1.4) reprovaria a ISO sã. O tail
-            # só sai na FALHA FINAL (tentativa 2), junto com o ELITE-FAIL.
-            if [ "$try" -eq 2 ]; then
-                tail -15 "$logf" 2>/dev/null || true
-            fi
-        else
-            say "  git clone do AUR falhou p/ $pkg (tentativa $try)"
-        fi
-    done
-    echo "ELITE-FAIL: não foi possível construir '$pkg' (AUR/CDN fora?) — 2 tentativas" >&2
-    return 1
-}
-if ! ls /var/cache/elite-local/pwvucontrol-*.pkg.tar.zst >/dev/null 2>&1; then
-    aur_build pwvucontrol  || exit 1
-fi
-# E134→E137 — OVERSKRIDE APOSENTADO: o estágio AUR sai INTEIRO (a ordem
-# do dono, PROMPT 3/dump 201219: o pacote nunca resolveu no caminho dos
-# rigs — 'erro: alvo não encontrado: overskride' em TODA dose desde a
-# E134, e o build AUR era o elo que não fechava). O Bluetooth gráfico é
-# a PRÓPRIA central do craft-connect (menu fuzzel + bluetoothctl —
-# bluez/bluez-utils já na base; 100% GUI, zero terminal, zero AUR).
+# E138 — O ESTÁGIO AUR MORRE DE VEZ (a ordem do dono, PROMPT 4/dump v2.13:
+#  'mantendo um botão direto para abrir o mixer completo (pavucontrol)' —
+#  o pwvucontrol era o ÚLTIMO filho do estágio AUR e não existe nos repos
+#  oficiais; o pavucontrol do [cachyos-extra-v3] cobre o roteamento/ajustes
+#  avançados SEM estágio de rede, SEM sudoers descartável, SEM elo frágil —
+#  a mesma morte do overskride na E137, agora completa: ZERO AUR no build.
+#  Rigs com pwvucontrol instalado o CONSERVAM (escolha do dono, nada de
+#  remoção forçada de app em uso — a higiene da casa nunca desinstala o
+#  que o dono abriu ontem).
 rm -f /etc/sudoers.d/builder
 
 # E101 — O db NASCE DE NOVO TODO BUILD: o db restaurado do cache carrega
@@ -3251,6 +3210,27 @@ if grep -qxF 'elite-system' "${PD_E57%profiledef.sh}packages.x86_64"; then
             echo "ELITE-FAIL: bin sobrevivente à remoção E57 ($b) — o pacstrap morreria nele (nunca seguir sabendo)" >&2; exit 1
         fi
     done < "$MF_E57"
+    # E138 — A FAMÍLIA DO KERNEL MODERNO NA LEI E57 (o mesmo buraco da E57
+    # original, agora nos /etc de tuning): o pacote passa a instalar o
+    # sysctl consolidado, a regra 99-elite-zram, os modules-load (ntsync +
+    # sensores), o tmpfiles do MGLRU e o /etc/default/scx — se o overlay
+    # seguir entregando os MESMOS caminhos, o pacstrap recusa não-dono em
+    # todos ('exists in filesystem', a doença E57 crua). UM dono por
+    # caminho: o overlay cala, o pacote entrega, quem sobreviver ABORTA.
+    # (A drop-in do scx_loader JÁ viajava pelo cp -a das units — a lei
+    # valia para ela desde a E136; os confs é que eram órfãos de install.)
+    kmod_e57=( "${PD_E57%profiledef.sh}"airootfs/etc/sysctl.d/99-elite-performance.conf \
+               "${PD_E57%profiledef.sh}"airootfs/etc/udev/rules.d/99-elite-zram.rules \
+               "${PD_E57%profiledef.sh}"airootfs/etc/udev/rules.d/60-ntsync.rules \
+               "${PD_E57%profiledef.sh}"airootfs/etc/modules-load.d/elite-ntsync.conf \
+               "${PD_E57%profiledef.sh}"airootfs/etc/modules-load.d/elite-sensors.conf \
+               "${PD_E57%profiledef.sh}"airootfs/etc/tmpfiles.d/elite-mglru.conf \
+               "${PD_E57%profiledef.sh}"airootfs/etc/default/scx )
+    say "E138: ${#kmod_e57[@]} confs de tuning saem do overlay (o pacote entrega a família do kernel moderno — um dono por caminho)"
+    rm -f "${kmod_e57[@]}"
+    for k in "${kmod_e57[@]}"; do
+        [[ ! -e "$k" ]] || { echo "ELITE-FAIL: conf de tuning sobreviveu à remoção E138 ($k) — o pacstrap morreria nele (nunca seguir sabendo)" >&2; exit 1; }
+    done
     python3 - "$PD_E57" "$MF_E57" <<'PYE57'
 import sys, pathlib
 pd, mf = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
@@ -3489,12 +3469,12 @@ preflight() {
             
 # v2.1 — REORG: o bloco AUR duplicado que re-clonava e recompilava o
 #  pwvucontrol aqui (~60 linhas copiadas do estágio principal, +4 min
-#  quando disparava) foi REMOVIDO. Os pkg.tar.zst de pwvucontrol e
-#  brave-origin JÁ estão em /var/cache/elite-local (estágio principal;
-#  persistidos entre runs pelo cache do Actions) — o repo-add abaixo
-#  re-registra tudo junto com os baselines injetados.
-ls /var/cache/elite-local/pwvucontrol-*.pkg.tar.zst >/dev/null 2>&1 \
-    || { echo "ELITE-FAIL: pwvucontrol ausente do [elite-local] (estágio principal)" >&2; exit 1; }
+#  quando disparava) foi REMOVIDO (E138: o estágio AUR inteiro morreu —
+#  o mixer da casa é o pavucontrol do [cachyos-extra-v3], em repo).
+#  Os pkg.tar.zst de brave-origin e wlrctl JÁ estão em
+#  /var/cache/elite-local (estágio principal; persistidos entre runs pelo
+#  cache do Actions) — o repo-add abaixo re-registra tudo junto com os
+#  baselines injetados.
 ls /var/cache/elite-local/brave-origin-*.pkg.tar.zst >/dev/null 2>&1 \
     || { echo "ELITE-FAIL: brave-origin ausente do [elite-local] (estágio principal)" >&2; exit 1; }
 # v2.7.0 — o foco da dock: a fonte vendada do wlrctl tem que ter virado

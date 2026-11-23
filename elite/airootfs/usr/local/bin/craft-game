@@ -605,25 +605,33 @@ gm_menu() {
                 # (âncora dupla E106 do cmdline real) E o elite-daemon
                 # nativo (âncora exata — o 'supervise' NÃO casa: o padrão
                 # morre no $ e o supervisor dos residentes segue vivo).
+                # E138 — a vaga do jogo da SESSÃO também morre AQUI: a
+                # condição AUTO é lida a cada ciclo (≤1s) e o filho do
+                # supervisor é encerrado pelo PRÓPRIO daemon — o pkill é
+                # o cinto para o motor solto de sessão sem supervisor.
                 pkill -f '^bash /usr/local/bin/craft-game watch$|^/usr/bin/env bash /usr/local/bin/craft-game watch$|^/usr/local/bin/elite-daemon$' 2>/dev/null || true
                 # E113 — O TOGGLE DEIXA LINHA NO PAPEL (o rig fotografou o
                 # watch FORA + supervisor calado + o último clique do menu
                 # em AUTO=0 — e o conf mudou SEM UMA linha no game.log: o
                 # toggle era invisível para a perícia; aqui o quem-quando
                 # entra — a ausência intencional fica assinada)
-                glog "auto: OFF (pelo menu — o watch sai; ausência intencional assinada no papel)"
+                glog "auto: OFF (pelo menu — o motor sai; a vaga da sessão vê o AUTO=0 e não relança)"
                 NOTE_URGEN=normal note 'Automático: OFF' 'O modo de jogo só entra pela porta manual (menu)'
             else
                 mkdir -p "$CONF_DIR" 2>/dev/null || true
                 printf 'AUTO=1\n' > "$CONF" 2>/dev/null
-                # E132 — o binário nativo na frente (o mesmo motor que o
-                # gm_watch delega); sem ele, o watch bash clássico sobe.
-                if [ -x /usr/local/bin/elite-daemon ]; then
-                    setsid /usr/local/bin/elite-daemon >/dev/null 2>&1 </dev/null 9>&- &
-                else
+                # E138 — O SPAWN MANUAL MORRE: o motor do jogo é VAGA da
+                # sessão (elite-daemon session lê o AUTO a cada ciclo —
+                # o dump v2.13 fotografou 'watch FORA' com AUTO=1 porque
+                # o exec do craft-bars matou o respawn do corpo bash; o
+                # setsid daqui só criaria o churn do filho-perdedor do
+                # lock: quem lança/relança é O SUPERVISOR, sempre).
+                # Cinto para o mundo bash (rig sem binário): o gm_watch
+                # do craft-bars assume como sempre assumiu.
+                if [ ! -x /usr/local/bin/elite-daemon ]; then
                     setsid /usr/local/bin/craft-game watch >/dev/null 2>&1 </dev/null 9>&- &
                 fi
-                glog "auto: ON (pelo menu — o watch nasce com a escolha)"
+                glog "auto: ON (pelo menu — o conf acende; o supervisor da sessão traz o motor em ≤1s)"
                 NOTE_URGEN=normal note 'Automático: ON' 'Performance entra sozinha quando um jogo abre'
             fi ;;
         *Manual*|*Ativar*)

@@ -228,7 +228,9 @@ fn sinal_waybar() -> usize {
 /// do dump 101339 — 25% de CPU e zumbis pkill — morre).
 fn sinal_waybar_sig(offset: i32) -> usize {
     let uid = unsafe { libc::getuid() };
-    let sig = unsafe { libc::SIGRTMIN() } + offset;
+    // E138 — SIGRTMIN é fn() const do libc (não macro unsafe nesta versão:
+    // o warning 'unnecessary unsafe' era a mentira do build sujo)
+    let sig = libc::SIGRTMIN() + offset;
     let Ok(dir) = std::fs::read_dir("/proc") else { return 0 };
     let mut n = 0usize;
     for entry in dir.flatten() {
@@ -383,7 +385,7 @@ fn thread_logind(nome_sinal: &str, corpo_bool: bool) {
     ) else {
         return;
     };
-    let Ok(mut sig) = p.receive_signal(nome_sinal) else {
+    let Ok(sig) = p.receive_signal(nome_sinal) else {
         return;
     };
     // o MessageIterator BLOCKING rende Message direto (o erro interno
@@ -589,7 +591,9 @@ fn daemon_loop() -> Result<(), String> {
     // confirmada = os 3s do debounce passaram com o modo ATIVO (o fim de
     // uma sessão confirmada é notícia; pulo transitório não é).
     let mut sessao_ativa = false;
-    let mut iniciada_em = 0u64;
+    // E138 — sem inicializador morto: o compilador PROVA que a 1ª leitura
+    // sempre vem depois da 1ª escrita (era `= 0u64` nunca lido — warning)
+    let mut iniciada_em: u64;
     // E135 — a memória da SESSÃO: o perfil de GPU anterior (o sysfs
     // devolve), o estado do DND do swaync e o inhibitor lock do logind
     // (o lock/apagamento de tela NÃO morrem durante a partida — o fd

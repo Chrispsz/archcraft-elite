@@ -102,6 +102,29 @@ for f in /root/.cache/elite/bars.log /home/*/.cache/elite/bars.log; do
     logf="$f"
 done
 
+# E138 — O MOTOR DO JOGO NA PROVA (a ordem do dono, dump v2.13: AUTO=1
+# ativo mas 'watch FORA — sem daemon vivo' — a vaga do jogo é filha da
+# sessão desde a E138; a métrica lê o game-watch.pid que o MOTOR escreve
+# e o AUTO do conf — ON = AUTO=1 E pid vivo; OFF = AUTO=0 (ausência
+# intencional); FORA = AUTO=1 sem motor (a doença do dump, nomeada)
+game_watch="FORA"
+_gw_auto=0
+for _gw_home in /home/* /root; do
+    [ -r "$_gw_home/.config/elite/game.conf" ] || continue
+    grep -qx 'AUTO=1' "$_gw_home/.config/elite/game.conf" 2>/dev/null && { _gw_auto=1; break; }
+done
+if [ "$_gw_auto" = 1 ]; then
+    game_watch="FORA"
+    for _gwp in /run/user/*/elite/game-watch.pid; do
+        [ -r "$_gwp" ] || continue
+        _gwd="$(cat "$_gwp" 2>/dev/null)"
+        [ -n "$_gwd" ] && [ -d "/proc/$_gwd" ] && { game_watch="ON"; break; }
+    done
+else
+    game_watch="OFF"
+fi
+unset _gw_auto _gw_home _gwp _gwd
+
 say "ELITE_PROBE_BEGIN"
 say "WAYBAR_COUNT=$wb_count"
 say "DOCK_COUNT=$dk_count"
@@ -118,6 +141,10 @@ say "POLICYKIT_COUNT=$pk_count"
 # os tokens de sempre, WAYBAR/DOCK/TOPLEVEL/BARS_EXITS)
 say "ELITE_DAEMON_COUNT=$daemon_count"
 say "DAEMON_SESSION=$daemon_session"
+# E138 — ON = AUTO=1 com o motor vivo (vaga da sessão); OFF = AUTO=0
+# (ausência intencional assinada); FORA = AUTO=1 SEM motor (o réu do
+# dump v2.13, agora visível no papel da casa)
+say "GAME_WATCH=$game_watch"
 # E43 — a verdade da supervisão é a POSSE DO LOCK: ATIVO = o flock está
 # segurado (o craft-bars segura e o exec para o daemon HERDA o fd — em
 # ambos os mundos a trava segue viva enquanto a sessão vive); LIVRE =

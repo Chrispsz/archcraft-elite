@@ -1,0 +1,25 @@
+# ── ELITE: o swappiness da casa SEM drift no boot (E137 → E138) ───────────
+# O RÉU (prova: dumps 201219 + v2.13, kernel vivo em 150 com o /etc pedindo
+# 180): o pacote cachyos-settings navega uma regra udev que escreve
+# vm.swappiness=150 NO EVENTO de inicialização do zram0 — DEPOIS do
+# systemd-sysctl (que já aplicara o 180 do 99-elite-performance.conf). O
+# nome do arquivo do vendor varia por versão (30-zram.rules; em versões
+# mais novas, 70-cachyos-settings*) — a ORDEM LEXICAL vence em qualquer
+# um dos dois: esta casa é 99, a ÚLTIMA palavra do evento em qualquer
+# árvore de regras que o vendor traga.
+# A CURA: a MESMA física, na ordem certa — o udev processa as regras em
+# ORDEM LEXICAL no mesmo evento; 99 > 81 (a era E137) > 70 > 30, esta
+# regra roda DEPOIS da do vendor e o 180 da casa é a última palavra no
+# exato instante em que o zram0 acorda. Zero daemon, zero timer, zero
+# re-run.
+# E138 — A EVIDÊNCIA QUE FALTOU NA E137: a regra viajava NO PACOTE
+# apenas no ESTÁGIO (files/etc/...) — o molde do PKGBUILD NUNCA a
+# installava: o rig 1.0-85 acordou sem ela e o 150 do vendor reinou
+# (dump v2.13, sysctl vm.swappiness=150). Agora o package() a entrega
+# COM DONO em /etc/udev/rules.d/99-* e o post-transaction faz o udevd
+# reler na hora — a dose vale sem reboot.
+# (A chave `swappiness` do zram-generator.conf NÃO existe upstream — o
+# gerador ignora chave desconhecida com warning; a alegação E135/E136
+# de que "o gerador tem a última palavra" nunca foi verdade. Esta regra
+# é o mecanismo real.)
+ACTION=="change", KERNEL=="zram0", ATTR{initstate}=="1", SYSCTL{vm.swappiness}="180"

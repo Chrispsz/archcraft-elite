@@ -5,7 +5,9 @@
 #   existe — o bloco fica pronto, mas calado enquanto paru não entra).
 # v2 (E32 — diretriz do dono: "deixe tudo atualizável, a distro não pode
 #   ficar velha"): o pacman.conf da Elite (E32) agora entrega o [elite-local]
-#   (brave-origin, pwvucontrol, craft-toplevel, wlrctl) com Server =
+#   (brave-origin, wlrctl — e o pwvucontrol da era AUR, se o rig ainda o
+#   tem instalado; a casa parou de publicá-lo na E138, o pacman segue
+#   sabendo o que o rig tem) com Server =
 #   releases/latest/download — o MESMO -Syu abaixo atualiza o navegador,
 #   que era o único pacote congelado. Este script soma duas verdades que o
 #   pacman não vê:
@@ -292,7 +294,13 @@ HOUSE_OVERWRITE=(
 #     o AUR nunca o entregou ao [elite-local] dos rigs. O Bluetooth
 #     gráfico é a PRÓPRIA central (craft-connect: menu + bluetoothctl,
 #     bluez + bluez-utils na casa — 100% GUI, zero terminal).
-ADOCAO=(lxqt-policykit pacman-contrib octopi yay flatpak swayosd gamemode gnome-text-editor papirus-icon-theme xorg-xprop xorg-xauth xorg-xhost)
+# E138 — O PAVUCONTROL E O COOLERCONTROL ENTRAM (a ordem do dono, dump
+#     v2.13): o mixer completo da central de áudio (pavucontrol — sem
+#     ele o botão 'Mixer completo' seria clique mudo no rig) e a
+#     ferramenta de curva de ventoinha (coolercontrol — o daemon liga
+#     pelo post_upgrade; o GUI é do dono). Ambos em repo oficial: a
+#     adoção converge em UMA dose, best-effort como toda a família.
+ADOCAO=(lxqt-policykit pacman-contrib octopi yay flatpak swayosd gamemode gnome-text-editor papirus-icon-theme xorg-xprop xorg-xauth xorg-xhost pavucontrol coolercontrol)
 
 ulog() {
     mkdir -p "$(dirname "$ULOG")" 2>/dev/null || true
@@ -399,7 +407,7 @@ cura_orfao() {
 }
 
 # E101 — A CLASSE 404 CURA-SE SOZINHA (a mesma prova do papel, 10/nov:
-# 'erro: falha ao obter o arquivo "pwvucontrol-debug-…"' — o db ADVERTISE
+# 'erro: falha ao obter o arquivo "…-debug-…"' — o db ADVERTISE
 # um pacote cujo arquivo NUNCA embarcou na release (a era dos -debug no
 # repo-add sem upload). A recusa perde a dose INTEIRA por causa de uma
 # peça que o rig NUNCA pediu. A cura: os nomes que o pacman nomeou saem
@@ -565,7 +573,12 @@ higiene_e132() {
     # centenas de gcr-prompter no dock.log, senha pedida no Bazaar — o
     # chaveiro não é da casa; o Bluetooth é a central E137). O -Rns
     # recusa dependentes: pacote com fila fica e o papel nomeia.
-    for pkg in polkit-gnome blueman network-manager-applet bluetui overskride gnome-keyring; do
+    # E138 — O IMPALA SAI COM VOZ (a ordem do dono, dump v2.13: 'Remova
+    # impala e overskride das listas de pacotes e adoção. Zero interface
+    # TUI em terminal' — a rede 100% gráfica é a central do craft-connect
+    # + o nm-connection-editor; o pulsemixer NÃO entra na higiene: não é
+    # da ordem e o dono pode querer o TUI à mão).
+    for pkg in polkit-gnome blueman network-manager-applet bluetui overskride impala gnome-keyring; do
         if pacman -Q "$pkg" >/dev/null 2>&1; then
             if run_root pacman -Rns --noconfirm "$pkg" >>"$ULOG" 2>&1; then
                 ulog "higiene E132: $pkg REMOVIDO (redundante — a casa tem substituto; sem dependentes)"
@@ -1040,7 +1053,7 @@ if [[ "${1:-}" == "--canal" ]]; then
             continue
         fi
         # E101 — o -debug fica FORA da dose SEMPRE (a prova do papel, 10/nov:
-        # 'pwvucontrol-debug/wlrctl-debug' nomeados na transação e 404 no
+        # 'wlrctl-debug' (ou qualquer -debug de casa) nomeado na transação e 404 no
         # download — o db ADVERTISE peças que NUNCA embarcaram na release;
         # o rig de produção NUNCA pede um -debug — são artefato de
         # desenvolvimento). Defense in depth: o canal da casa também para

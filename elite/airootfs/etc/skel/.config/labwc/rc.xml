@@ -245,8 +245,12 @@
     <keybind key="W-s">
       <action name="Execute" command="foot -e btop" />
     </keybind>
+    <!-- E138 — A CENTRAL DE ÁUDIO (a ordem do dono, dump v2.13: seletor
+         instantâneo de Saídas/Entradas com volume e mudo — FIM do TUI
+         pulsemixer no fluxo padrão; o mixer completo é item da própria
+         central) -->
     <keybind key="W-a">
-      <action name="Execute" command="foot -e pulsemixer" />
+      <action name="Execute" command="craft-audio" />
     </keybind>
     <!-- craft-hello: visão rápida do sistema (E73 — a saudação vive no
          .zshrc; ESTE verbo abre um foot com o retrato e CAI NO SHELL:
@@ -558,7 +562,7 @@
     <windowRule identifier="Code"><action name="Maximize" /></windowRule>
     <!-- Exemplo para o dono (COMENTADO — descomente para ativar; a sintaxe
          é glob(7): identifier exato, sem '^', sem '|'): <windowRule
-         identifier="com.github.dominiksalvet.pwvucontrol"><action
+         identifier="org.pulseaudio.pavucontrol"><action
          name="ToggleAlwaysOnTop" /></windowRule> -->
     <!-- Outro exemplo: <windowRule identifier="foot" skipTaskbar="yes" /> -->
   </windowRules>

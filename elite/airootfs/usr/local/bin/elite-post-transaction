@@ -110,22 +110,40 @@ if [ -f /etc/udev/rules.d/90-elite-wake-guard.rules ] \
     fi
 fi
 tlog "wake-guard observado: ${armadas} fonte(s) ACPI armada(s) em /proc/acpi/wakeup (política E122: teclado acorda · mouse dorme)"
-# E137 — A REGRA DO SWAPPINESS NO AR: a 81-elite-zram (pacote) defende o
-# 180 do 30-zram.rules do vendor no EVENTO do zram0; o udevd relê AGORA
-# para a dose valer SEM reboot (idempotente — reload a mais é no-op)
+# E137→E138 — A REGRA DO SWAPPINESS NO AR: a 99-elite-zram (pacote — o
+# nome 99 é A ORDEM do dono, vence o 30-zram/70-cachyos-settings do
+# vendor em qualquer versão) defende o 180 NO EVENTO do zram0; o udevd
+# relê AGORA para a dose valer SEM reboot (idempotente — reload a mais
+# é no-op). A era 81 morre com voz: fóssil de ISO 1.0-85 sai do disco.
 if [ -f /usr/lib/udev/rules.d/81-elite-zram.rules ] || [ -f /etc/udev/rules.d/81-elite-zram.rules ]; then
+    rm -f /etc/udev/rules.d/81-elite-zram.rules /usr/lib/udev/rules.d/81-elite-zram.rules 2>/dev/null \
+        && tlog "zram-swappiness E138: fóssil 81-elite-zram REMOVIDO (a 99 do pacote reina — um dono só)"
+fi
+if [ -f /etc/udev/rules.d/99-elite-zram.rules ]; then
     udevadm control --reload 2>/dev/null || true
-    tlog "zram-swappiness E137: regra 81-elite-zram no ar (o udevd relê — o 180 vence o 150 do vendor no próximo evento do zram0)"
+    tlog "zram-swappiness E138: regra 99-elite-zram no ar (o udevd relê — o 180 vence o 150 do vendor no próximo evento do zram0)"
 fi
 
-# ── 3. A VIGÍLIA DO SYSCTL DA CASA (E101→E137) — o drift que outro ──────
+# ── 3. A VIGÍLIA DO SYSCTL DA CASA (E101→E138) — o drift que outro ──────
 #     pacote impõe por cima. O RÉU TEM NOME desde o dump 201219: o
 #     30-zram.rules do cachyos-settings escreve vm.swappiness=150 NO
-#     EVENTO do zram0 (depois do systemd-sysctl); a regra 81-elite-zram
+#     EVENTO do zram0 (depois do systemd-sysctl); a regra 99-elite-zram
 #     do pacote o recoloca em 180 NO MESMO EVENTO (ordem lexical) — esta
 #     vigília é a REDE sob o mecanismo (cura na dose, confirmação no
 #     boot seguinte). Comparação por chave (o conf da casa é a FONTE; o
 #     kernel é o vivo): só chave presente NO CONF é julgada.
+#     E138 — OS FÓSSEIS MORREM TAMBÉM AQUI (dump v2.13: o rig 1.0-85
+#     acordou com 99-elite.conf + 99-elite-net.conf VIVOS e o consolidado
+#     AUSENTE — o post_upgrade da dose não rodou/não bastou; esta vigia
+#     roda em TODA transação e o papel do rig prova o disparo). O
+#     duplo dono do número morre na primeira transação que os veja.
+for _fossil in 99-elite.conf 99-elite-net.conf 99-elite-ram.conf; do
+    if [ -f "/etc/sysctl.d/$_fossil" ]; then
+        rm -f "/etc/sysctl.d/$_fossil" 2>/dev/null \
+            && tlog "sysctl: $_fossil REMOVIDO (consolidado no 99-elite-performance.conf do pacote — E138, um dono só por número)"
+    fi
+done
+unset _fossil
 if [ -r "$ELITE_SYSCTL" ]; then
     drift=""
     while IFS= read -r line; do

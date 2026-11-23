@@ -1,6 +1,6 @@
 #!/bin/sh
 # ═══════════════════════════════════════════════════════════════════════════
-# elite-gparted — O GPARTED QUE VESTE A SESSÃO (E95 → E137)
+# elite-gparted — O GPARTED QUE VESTE A SESSÃO (E95 → E137 → E138)
 # ───────────────────────────────────────────────────────────────────────────
 # POR QUÊ: o pkexec entrega ao root um ambiente LIMPO por lei. Sem
 # DISPLAY/XAUTHORITY válidos, a GDK do gparted-root morre com "cannot
@@ -10,7 +10,7 @@
 # credencial nenhuma, mesmo com DISPLAY correto (e o XAUTHORITY="" vazio
 # da versão anterior era lido como caminho inexistente — pior que nada).
 #
-# A CURA (3 camadas, nesta ordem):
+# A CURA (4 camadas, nesta ordem):
 #   1. DESCOBRIR o display XWayland ativo (env, senão o socket vivo em
 #      /tmp/.X11-unix/X*) e o XAUTHORITY do usuário (env, senão
 #      ~/.Xauthority, senão os candidatos do $XDG_RUNTIME_DIR, senão um
@@ -18,16 +18,22 @@
 #      nunca em disco);
 #   2. O CINTO xhost +SI:localuser:root — o servidor X aceita o root
 #      LOCAL sem cookie (ServerInterpreted: sem rede, sem wildcard)
-#      quando o xhost existe na máquina;
+#      quando o xhost existe na máquina — E138: o cinto é REVOGADO ao
+#      encerrar (a concessão vive só enquanto o gparted vive; a ordem do
+#      dono, dump v2.13);
 #   3. `pkexec env DISPLAY=… XAUTHORITY=… … /usr/bin/gpartedbin` — o
 #      BINÁRIO REAL direto: o wrapper /usr/bin/gparted só decide
 #      ELEVAÇÃO e, já root, executaria gpartedbin do mesmo jeito (o
 #      alvo NUNCA é um .desktop e o guard abaixo recusa se resolver
-#      para ESTE bin — não há loop recursivo possível).
+#      para ESTE bin — não há loop recursivo possível);
+#   4. O RC DE ACORDO COM O PRÓPRIO pkexec (E138, dump v2.13: o rc=127
+#      das 22:35:32 era o polkit recusando a senha — a mensagem antiga
+#      mentia "binário não encontrado"; 127 = autorização não obtida,
+#      126 = diálogo fechado — man pkexec é a fonte).
 #
 # FEEDBACK (a ordem do dono: "nunca deixando o clique mudo"): só erro
-# REAL gera notify-send — cancelamento do diálogo, display morto,
-# binário ausente. Sucesso é silêncio + a janela aberta na sessão.
+# REAL gera notify-send — senha recusada, diálogo fechado, display
+# morto, binário ausente. Sucesso é silêncio + a janela aberta na sessão.
 #
 # uso:      elite-gparted [ARQUIVO] — a senha é pedida UMA vez (polkit)
 # bin:      /usr/local/bin/elite-gparted (chamado pelo gparted.desktop
@@ -118,10 +124,22 @@ if [ -z "$XA" ] && [ -n "$DISP" ]; then
 fi
 
 # ── O CINTO xhost: o root LOCAL entra no X sem cookie (no-op honesto sem
-# X11 ou sem o xhost instalado — o fio principal segue sendo o WAYLAND)
+# X11 ou sem o xhost instalado — o fio principal segue sendo o WAYLAND).
+# E138 — O CINTO É FECHADO AO SAIR (a ordem do dono, dump v2.13: "revogue
+# xhost -SI:localuser:root ao encerrar"): a concessão vive APENAS durante
+# a execução do gparted — o trap cobre o caminho inteiro (sucesso, erro
+# real E o próprio encerramento do wrapper).
+_xhost_deu=0
 if [ -n "$DISP" ] && command -v xhost >/dev/null 2>&1; then
     DISPLAY="$DISP" xhost +SI:localuser:root >/dev/null 2>&1 || true
+    _xhost_deu=1
 fi
+revoke_xhost() {
+    [ "$_xhost_deu" -eq 1 ] || return 0
+    DISPLAY="$DISP" xhost -SI:localuser:root >/dev/null 2>&1 || true
+    _xhost_deu=0
+}
+trap revoke_xhost EXIT HUP INT TERM
 
 # ── A VESTIMENTA: cada variável viaja EXPLÍCITA (o pkexec entrega um
 # ambiente LIMPO — o que não é nomeado não atravessa) e só entra na lista
@@ -141,13 +159,21 @@ set -- env "$@"
 
 # ── a chamada: ESPERA o rc — o clique nunca é mudo (feedback só no erro).
 # O stderr do root cai num mktemp do usuário (o root escreve, o dono lê).
+# E138 — O RC DE ACORDO COM O PRÓPRIO pkexec (man pkexec: 127 = "não
+# autorizado OU a autorização não pôde ser obtida por autenticação OU
+# ocorreu um erro"; 126 = "o usuário FECHOU o diálogo"). O dump v2.13
+# provou na carne: às 22:35:32 o polkit-agent-helper falhou a conversa
+# PAM (senha recusada/agente não completou) e o pkexec devolveu 127 —
+# a mensagem da E137 dizia "binário não encontrado no PATH do root",
+# mentindo para o dono com o gparted INSTALADO. A verdade agora nomeia
+# cada rc pelo seu dono.
 errf="$(mktemp "${TMPDIR:-/tmp}/elite-gparted.XXXXXX" 2>/dev/null)" || errf=/dev/null
 rc=0
 "$PKEXEC_BIN" "$@" 2>"$errf" || rc=$?
 if [ "$rc" -ne 0 ]; then
     motivo="terminou com erro (rc=$rc)"
-    [ "$rc" -eq 126 ] && motivo="a senha foi cancelada ou o agente polkit não respondeu"
-    [ "$rc" -eq 127 ] && motivo="o binário não foi encontrado no PATH do root"
+    [ "$rc" -eq 126 ] && motivo="a senha foi cancelada (o diálogo foi fechado)"
+    [ "$rc" -eq 127 ] && motivo="a senha foi recusada ou a autorização foi negada — tente de novo"
     det=""
     [ -s "$errf" ] && det="$(tail -c 200 "$errf" 2>/dev/null | tr '\n' ' ')"
     NOT="${ELITE_NOTIFY_BIN:-notify-send}"
@@ -162,4 +188,6 @@ if [ "$rc" -ne 0 ]; then
           "$(date '+%F %T')" "$rc" "${DISP:-nenhum}" "${XA:-nenhum}" >>"$BL" ) 2>/dev/null || true
 fi
 [ "$errf" = /dev/null ] || rm -f "$errf" 2>/dev/null || true
+revoke_xhost
+trap - EXIT HUP INT TERM
 exit "$rc"

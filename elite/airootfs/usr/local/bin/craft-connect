@@ -656,13 +656,26 @@ EOF
 }
 
 # ── guardas de ausência (o fallback honesto das eras antigas) ───────────────
+# E138 — ZERO TUI (a ordem do dono, dump v2.13: 'Zero interface TUI em
+# terminal'): o fallback da era antiga era `foot -e impala` — o impala
+# saiu da casa e o fallback vira o EDITOR GRÁFICO do sistema (a janela
+# GTK que cobre a árvore inteira de conexões); sem o editor também, o
+# aviso nomeia a ausência (o clique nunca é mudo — mas nunca é terminal).
 if ! command -v nmcli >/dev/null 2>&1; then
-    mlog "Rede: nmcli AUSENTE — fallback impala"
-    exec foot -e impala
+    mlog "Rede: nmcli AUSENTE — fallback nm-connection-editor (GUI)"
+    if command -v nm-connection-editor >/dev/null 2>&1; then
+        exec nm-connection-editor
+    fi
+    note -u normal -t 8000 'Rede' 'O NetworkManager (nmcli) não está instalado — a central não pode operar.'
+    exit 1
 fi
 if ! command -v craft-menu >/dev/null 2>&1; then
-    mlog "Rede: craft-menu AUSENTE — fallback impala"
-    exec foot -e impala
+    mlog "Rede: craft-menu AUSENTE — fallback nm-connection-editor (GUI)"
+    if command -v nm-connection-editor >/dev/null 2>&1; then
+        exec nm-connection-editor
+    fi
+    note -u normal -t 8000 'Rede' 'O motor de menus (fuzzel/craft-menu) não está disponível.'
+    exit 1
 fi
 
 # ── o LOOP principal: cada ação reabre o menu com o estado NOVO ─────────────

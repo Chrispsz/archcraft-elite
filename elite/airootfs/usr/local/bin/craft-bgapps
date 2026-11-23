@@ -81,7 +81,8 @@
 #      programa; (b) o encanamento de ÁUDIO/MÍDIA da casa entra na
 #      casca (pactl/wpctl/playerctl/pulsemixer — o subscribe é filho
 #      permanente do daemon; playerctl vive nos bindings da topbar;
-#      pulsemixer é o W-a; wpctl é a sonda do PipeWire).
+#      wpctl é a sonda do PipeWire; pulsemixer segue casca se o dono o
+#      abrir à mão — o W-a é a central craft-audio desde a E138).
 #   2. 'O Brave não aparece' GANHA RÉU NOMEADO: quem é cortado como
 #      SOMBRA deixa linha no menus.log com QUEM o sombreou
 #      (BGAPPS_TRACE=1 nos verbos menu/list; o status de 30s NUNCA
@@ -164,8 +165,8 @@ is_protected() {
         # v4.2 — encanamento de ÁUDIO/MÍDIA da casa: o 'pactl subscribe' é
         # filho PERMANENTE do craft-audio-route (matar = matar o roteamento,
         # e o supervisor ressuscita o par — o dono matava e eles voltavam);
-        # playerctl vive nos bindings da topbar; pulsemixer é o W-a;
-        # wpctl é a sonda do PipeWire. Ferramenta de consulta/controle, não
+        # playerctl vive nos bindings da topbar; o W-a é a central
+        # craft-audio (E138); wpctl é a sonda do PipeWire. Ferramenta de consulta/controle, não
         # "programa do dono" (a mesma lei do dconf*/gvfs* da v2.6.0).
         pactl*|wpctl*|playerctl*|pulsemixer*)
             return 0 ;;

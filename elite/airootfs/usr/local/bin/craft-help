@@ -129,7 +129,7 @@ ATALHOS=(
 "W-d             | Launchpad · W-S-d alterna a dock"
 "C-A-space       | fuzzel (lançador por texto)"
 "W-w             | navegador · W-f arquivos · W-e editor · W-s btop"
-"W-a             | pulsemixer (áudio) · W-n rede · W-S-b bluetooth"
+"W-a             | central de áudio · W-n rede · W-S-b bluetooth"
 "W-v             | histórico da área de transferência"
 "W-p / W-S-p     | captura (região / tela inteira)"
 "W-l             | travar a tela · W-x/W-Escape menu Sessão"

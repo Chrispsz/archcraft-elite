@@ -51,6 +51,17 @@ gamescope
 mangohud
 vulkan-radeon
 vulkan-intel
+# E138 — A CAMADA DE HARDWARE DESTRAVADA (a diretriz arquitetural do dono,
+# dump v2.13: 'entregue toda a infraestrutura de kernel, módulos e
+# permissões já destravada no boot, com as ferramentas especializadas da
+# comunidade instaladas e prontas para o usuário calibrar seu próprio
+# hardware com precisão. NÃO crie presets genéricos impostos pelo
+# sistema'): LACT (painel AMD — lactd no boot desde a E136 +
+# amdgpu.ppfeaturemask=0xffffffff no cmdline) e COOLERCONTROL (curvas de
+# ventoinha da placa-mãe: coolercontrold no boot, os sensores PWM
+# destravados pela sondagem do firstboot — as CURVAS são do dono, no GUI,
+# zero preset da casa).
+coolercontrol
 # E74 — Fase 6 do protocolo: VAAPI Intel moderno (o vulkan-intel cobre o
 # Vulkan; o decodificador de vídeo em hardware era a lacuna do perfil Intel)
 intel-media-driver
@@ -139,7 +150,8 @@ which
 
 ## ── ELITE: sessão labwc (Wayland) — o desktop default da ISO ──────────
 ## Deps dos keybinds do rc.xml embutido: playerctl (mídia), brightnessctl
-## (notebooks), pulsemixer (W-a), pactl (libpipe, volume), craft-shot
+## (notebooks), pactl (libpipe, volume — o W-a é a central craft-audio,
+## E138: FIM do TUI pulsemixer no fluxo padrão), craft-shot
 ## (grim+slurp+wl-clipboard), craft-lock (hyprlock).
 ## v1.5 (spec do dono — lock/idle reformulado):
 ##   · swaylock SAIU (tela branca estática) → hyprlock: ext-session-lock-v1
@@ -182,7 +194,6 @@ grim
 slurp
 playerctl
 brightnessctl
-pulsemixer
 # E137 — O PAR X DO GPARTED: o root vestido pelo pkexec precisa do COOKIE
 # do usuário para falar com o XWayland (xorg-xauth extrai o cookie de
 # emergência; o xorg-xhost abre o cinto +SI:localuser:root — sem eles o
@@ -292,16 +303,23 @@ tealdeer
 ## GUI de uso geral — best-in-class 2026, GTK3 (temável Catppuccin):
 ## v1.1 (diretriz do dono — MEGA PROMPT): app-layer 100% moderna e
 ## Wayland-native. Sai o legado GTK3 herdado do upstream (mousepad,
-## zathura, file-roller, pavucontrol, blueman, thunar, firefox); entra:
+## zathura, file-roller, blueman, thunar, firefox); entra:
 ##   · papers (GTK4/libadwaita — leitor PDF, substitui zathura)
-##   · pwvucontrol (GTK4/Rust — mixer PipeWire, substitui pavucontrol;
-##     construído no build via estágio AUR → [elite-local])
+##   · E138 — O MIXER COMPLETO É O PAVUCONTROL (a ordem do dono, dump
+##     v2.13: 'botão direto para abrir o mixer completo (pavucontrol)')
+##     — em repo ([cachyos-extra-v3]), zero estágio AUR: o pwvucontrol
+##     era o ÚLTIMO filho do estágio AUR e morre com ele (rigs que o
+##     têm CONSERVAM — nada de remoção forçada de app em uso)
 ##   · E137 — O BLUETOOTH SEM APP: o overskride AUR nunca chegou aos
 ##     rigs ('alvo não encontrado' em toda dose) e saiu da casa — o
 ##     gerenciador é a PRÓPRIA central (craft-connect: menu fuzzel +
 ##     bluetoothctl, bluez/bluez-utils na base — 100% GUI, zero
 ##     terminal, zero pacote AUR)
-##   · impala (TUI Rust — rede/iwd+NM, substitui nm-applet no dia-a-dia)
+##   · E138 — O IMPALA SAI (a ordem do dono: 'Remova impala e overskride
+##     das listas — zero interface TUI em terminal'): a rede 100%
+##     gráfica é a central do craft-connect (Wi-Fi/cabo/VPN + editor
+##     nm-connection-editor); o craft-update retira o impala dos rigs
+##     com voz na primeira dose
 ##   · brave-origin (v1.4, diretriz do dono: o navegador padrão passa a
 ##     ser o BRAVE ORIGIN — release oficial brave-origin-*.zip da Brave,
 ##     empacotado no build com versão pinada + sha256 → [elite-local];
@@ -315,8 +333,7 @@ tealdeer
 qalculate-gtk
 nwg-look
 papers
-pwvucontrol
-impala
+pavucontrol
 brave-origin
 ## E136 — O EDITOR GRÁFICO DA CASA (a PARTE 2/2 do dono: 'Padronize
 ## gnome-text-editor como editor gráfico leve padrão, removendo
@@ -332,11 +349,11 @@ gnome-text-editor
 ## E132 — A HIGIENE DA ORDEM DO DONO (dump pós-1.0-78): os APPLETS
 ## redundantes saem das listas (polkit-gnome/blueman/network-manager-
 ## applet — o craft-update --sistema e o craft-clean os REMOVEM dos
-## rigs com segurança); a casa fica com os TUIs leves (bluetui, impala —
-## já acima) e o EDITOR gráfico de conexões, que é pacote PRÓPRIO desde
-## o split do network-manager-applet 1.24+ (a árvore completa de
-## conexões Wi-Fi/Ethernet/VPN em janela GTK: verbo 'Editor de
-## conexões…' do craft-connect + W-n no rc.xml).
+## rigs com segurança); E138: os TUIs de rede saem JUNTO (impala fora —
+## a central é 100% GUI) e fica o EDITOR gráfico de conexões, pacote
+## PRÓPRIO desde o split do network-manager-applet 1.24+ (a árvore
+## completa de conexões Wi-Fi/Ethernet/VPN em janela GTK: verbo 'Editor
+## de conexões…' do craft-connect + W-n no rc.xml).
 nm-connection-editor
 
 ## Satélites oficiais do labwc (docs labwc.github.io/integration):

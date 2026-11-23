@@ -217,34 +217,37 @@
   },
 
   // Volume (PipeWire) — SÓ ÍCONE (v2.1: sem porcentagem numérica — diretriz
-  // do dono; o valor exato mora no tooltip). Clique muta, scroll ajusta,
-  // dir abre o GERENCIADOR (pwvucontrol: mic, som, dispositivos — v2.3.6:
-  // o tooltip ENSINA o direito, que era descoberta escondida). Muto =
-  // vermelho via CSS (.muted).
+  // do dono; o valor exato mora no tooltip). E138 — A CENTRAL RÁPIDA:
+  // clique abre o craft-audio (seletor de saídas/entradas com volume e
+  // mudo — a ordem do dono, dump v2.13), MEIO muta, DIRETO o mixer
+  // completo (pavucontrol — roteamento por app e ajustes avançados).
+  // Muto = vermelho via CSS (.muted).
   "pulseaudio": {
     "format": "{icon}",
     "format-muted": "\uf026",
     "format-icons": {
       "default": ["\uf027", "\uf028"]
     },
-    "on-click": "pactl set-sink-mute @DEFAULT_SINK@ toggle",
-    "on-click-right": "pwvucontrol",
+    "on-click": "craft-audio",
+    "on-click-middle": "pactl set-sink-mute @DEFAULT_SINK@ toggle",
+    "on-click-right": "pavucontrol",
     "scroll-step": 5,
-    "tooltip-format": "{volume}% · {desc} — clique: mudo · direito: gerenciar"
+    "tooltip-format": "{volume}% · {desc} — clique: central · meio: mudo · direito: mixer"
   },
 
   // Microfone (v2.3.6 — paridade pedida pelo dono: "o de Mic é tão
-  // importante quanto o de áudio"). A MESMA gramática do volume: clique
-  // muta/desmuta o @DEFAULT_SOURCE@, direito abre o pwvucontrol, muto =
-  // vermelho (.source-muted no CSS). O waybar mostra o estado da fonte via
-  // format-source/format-source-muted — zero script, sistema nativo.
+  // importante quanto o de áudio"). E138 — A MESMA central, visão de
+  // ENTRADAS: clique abre o craft-audio --input (microfones com volume
+  // e mudo), MEIO muta a fonte padrão, DIRETO o pavucontrol. Muto =
+  // vermelho (.source-muted no CSS).
   "pulseaudio#mic": {
     "format": "{format_source}",
     "format-source": "\uf130",
     "format-source-muted": "\uf131",
-    "on-click": "pactl set-source-mute @DEFAULT_SOURCE@ toggle",
-    "on-click-right": "pwvucontrol",
-    "tooltip-format": "Microfone — clique: mudo · direito: gerenciar"
+    "on-click": "craft-audio --input",
+    "on-click-middle": "pactl set-source-mute @DEFAULT_SOURCE@ toggle",
+    "on-click-right": "pavucontrol",
+    "tooltip-format": "Microfone — clique: central · meio: mudo · direito: mixer"
   },
 
   // Apps em 2º plano (v2.3.4 — pedido do dono: "um botão tray na topbar

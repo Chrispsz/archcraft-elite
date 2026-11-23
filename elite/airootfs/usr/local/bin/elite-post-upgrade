@@ -95,7 +95,7 @@ systemd-tmpfiles --create >/dev/null 2>&1 \
 #      lexical, é REMOVIDO aqui com voz: a casa inteira fala UM número
 #      só. Regeneração idempotente: a régua da MESMA máquina gera o
 #      MESMO arquivo — rodar 2× = mesmo estado. QUEM DEFENDE O 180 NO
-#      BOOT é a regra udev 81-elite-zram.rules (o réu do drift 150≠180
+#      BOOT é a regra udev 99-elite-zram.rules (o réu do drift 150≠180
 #      tem nome desde o dump 201219: o 30-zram.rules do cachyos-settings
 #      escreve 150 no evento do zram0 e a 81 da casa recoloca o 180 no
 #      MESMO evento, por ordem lexical).
@@ -393,6 +393,45 @@ loginctl list-users --no-legend 2>/dev/null | while read -r _uid _ _; do
         fi
     done
 done
+
+# ── E138 — O KERNEL MODERNO NOS RIGS VIVOS (a ordem do dono, dump v2.13:
+#      o rig 1.0-85 acordou com sched_ext NO KERNEL (/sys/kernel/sched_ext
+#      vivo) e o scx_loader 'inactive' SEM /etc/default/scx — a família
+#      E136 morava só no estágio do pacote e o molde nunca a installou;
+#      AGORA o pacote entrega os confs e ESTA seção liga os serviços por
+#      dose, idempotente e condicionada (unit ausente = pulo honesto,
+#      nunca erro): scx_loader (scx_lavd — latência-first, o watchdog do
+#      loader é o cinto e o BORE é o chão), coolercontrold (as curvas de
+#      ventoinha da placa-mãe destravadas no boot — o CoolerControl é a
+#      ferramenta ESPECIALIZADA da comunidade, sem preset genérico da
+#      casa) e lactd (o painel AMD — belt do firstboot para o rig que
+#      nunca o viu).
+if systemctl list-unit-files scx_loader.service >/dev/null 2>&1 \
+   && systemctl cat scx_loader.service >/dev/null 2>&1 \
+   && [ -d /sys/kernel/sched_ext ]; then
+    systemctl enable --now scx_loader.service >/dev/null 2>&1 \
+        && tlog "scx_loader: scx_lavd habilitado na dose (sched_ext sob demanda — o dump v2.13 fotografou a unit 'inactive' com o kernel sustentando)"
+fi
+if systemctl list-unit-files coolercontrold.service >/dev/null 2>&1 \
+   && systemctl cat coolercontrold.service >/dev/null 2>&1; then
+    systemctl enable --now coolercontrold.service >/dev/null 2>&1 \
+        && tlog "coolercontrol: coolercontrold habilitado na dose (os sensores PWM da placa-mãe destravados — as curvas são do dono, no GUI)"
+fi
+if systemctl list-unit-files lactd.service >/dev/null 2>&1 \
+   && systemctl cat lactd.service >/dev/null 2>&1 \
+   && lspci 2>/dev/null | grep -q ' VGA compatible controller: .*AMD\|ATI'; then
+    systemctl enable --now lactd.service >/dev/null 2>&1 \
+        && tlog "lact: lactd habilitado na dose (o painel da GPU AMD — belt do firstboot)"
+fi
+# E138 — o fóssil 81-elite-zram da ISO 1.0-85 morre com voz (a 99 do
+# pacote reina no mesmo evento do zram0 — um dono só por número)
+for _f81 in /etc/udev/rules.d/81-elite-zram.rules /usr/lib/udev/rules.d/81-elite-zram.rules; do
+    if [ -f "$_f81" ]; then
+        rm -f "$_f81" 2>/dev/null \
+            && tlog "zram: fóssil 81-elite-zram.rules REMOVIDO (a 99-elite-zram do pacote é a última palavra do evento — E138)"
+    fi
+done
+unset _f81
 
 tlog "post-upgrade: concluído (a migração é idempotente — rodar de novo é no-op com papel)"
 exit 0

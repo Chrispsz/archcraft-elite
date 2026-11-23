@@ -181,7 +181,7 @@ assert_grep "$REPO/.ci/build.sh" 'pkgname=brave-origin' "contrato v1.4: build.sh
 assert_grep "$REPO/.ci/build.sh" 'brave-origin-.*linux-amd64' "contrato v1.4: source do brave-origin = release oficial da Brave"
 brsha="$(sed -n '/^pkgname=brave-origin$/,/^EOPKGBUILD$/p' "$REPO/.ci/build.sh" | grep -oE "'[0-9a-f]{64}'" | sed -n '3p' | tr -d "'")"
 assert_match "$brsha" '^[0-9a-f]{64}$' "contrato v1.4: sha256 do zip do brave-origin PINADO (64 hex na 3ª posição do source — o bump troca o VALOR, nunca a FORMA; cravar bytes aqui quebraria a suíte a cada bump)"
-assert_grep "$REPO/.ci/build.sh" 'aur_build pwvucontrol' "contrato v1.1: build.sh compila pwvucontrol do AUR → elite-local"
+assert_nogrep "$REPO/.ci/build.sh" 'aur_build' "E138: o estágio AUR morre INTEIRO (o pwvucontrol era o último filho — o mixer da casa é o pavucontrol do [cachyos-extra-v3]; zero AUR, zero sudoers descartável, zero elo de rede)"
 # v1.4 (lição da run #57: "install: cannot stat 'brave-origin.sh'"): os
 # sources LOCAIS precisam estar no source=() do PKGBUILD E os sha256
 # declarados têm que bater com os bytes REAIS dos heredocs — se alguém

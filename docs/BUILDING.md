@@ -27,7 +27,7 @@ Executados dentro de um container Arch Linux **privilegiado**
 | 2 | Chave CachyOS | keyserver → fallback `curl \| pacman-key --add` (âncora de confiança) |
 | 3 | `[elite-local]` | pywal (commit pinado), stub qt5, keyring/mirrorlist |
 | 4 | Brave Origin | release oficial 1.98.60, **sha256 dos 3 sources fixados** no PKGBUILD |
-| 5 | AUR | pwvucontrol (HEAD + pkgver registrados no log; rebuild pulado em cache hit) |
+| 5 | ~~AUR~~ | E138: o estágio AUR morreu INTEIRO (o pwvucontrol era o último filho — o mixer da casa é o pavucontrol do [cachyos-extra-v3]; zero AUR, zero sudoers descartável) |
 | 6 | Overlay | `scripts/apply-overlay.sh` sobre o clone fresco do upstream |
 | 7 | Preflight | `pacman -Syw` de TODA a closure com `--dbpath` vazio (visão do chroot), 3 rounds, sonda HEAD paralela, gêmeo de mirror, baseline injection + ELITE-BUMP |
 | 8 | Seal | repos `file://` + `SigLevel=Never` no pacstrap (mitigado: pacotes são hash-checados contra dbs sig-verificados no preflight) |
@@ -40,7 +40,7 @@ Executados dentro de um container Arch Linux **privilegiado**
 - `.ci-cache/pacman` → montado em `/var/cache/pacman/pkg` — os ~2 GB de
   tarballs baixados uma vez, reusados enquanto a lista de pacotes não muda.
 - `.ci-cache/elite-local` → montado em `/var/cache/elite-local` — os pacotes
-  construídos no build (brave-origin, pwvucontrol) pula download/rebuild
+  construídos no build (brave-origin, wlrctl) pula download/rebuild
   (−4 a −5 min) via *skip-if-present*.
 - Chave: `elite-pkgs-v1-<hash de packages.add/remove/pacman-repos.build.add>`
   com `restore-keys` — mudou a lista, cache novo aproveitando o que serve.

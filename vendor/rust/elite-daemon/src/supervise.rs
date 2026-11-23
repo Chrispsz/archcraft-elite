@@ -63,6 +63,7 @@ pub const CLIENTES_DISPLAY: &[(&str, &str)] = &[
 const CONF_PATH: &str = "/usr/local/share/elite/daemon.conf";
 const BACKOFF: Duration = Duration::from_secs(2);
 
+#[derive(Default)]
 pub struct Residente {
     pub nome: String,
     pub comando: String,
@@ -110,19 +111,116 @@ pub fn parse_conf(texto: &str) -> Vec<Residente> {
 /// instância do craft-bars velho ou do dono à mão é DONA legítima) e a
 /// trava prova quem a casa já escolheu; posse de outro = ADOTA (nunca
 /// relança por cima — o loop 809 morre aqui).
+// E138 — o veredito de posse é LEI DOS TESTES (o loop da produção inlina
+// os gates por desempenho de ciclo; esta função PURA é o contrato que a
+// suíte crava — cfg(test) livra o binário do warning de item morto).
+#[cfg(test)]
 pub enum Posse {
-    /// a casa pode spawnar (trava livre E nome sem dono)
+    /// a casa pode spawnar (trava livre E nome sem dono E sem comm vivo)
     Nossa,
-    /// instância viva de fora (nome com dono OU trava de irmão): adota
+    /// instância viva de fora (nome com dono, trava de irmão OU processo
+    /// com o comm da vaga): adota
     Adotada,
 }
 
-pub fn decide_posse(nome_tem_dono: bool, trava_livre: bool) -> Posse {
-    if nome_tem_dono || !trava_livre {
+/// E138 — a decisão estendida: o processo de FORA com o comm da vaga é
+/// o terceiro gate de adoção (o udiskie do autostart fóssil do dump
+/// v2.13: UDISKIE_COUNT=2 com a sessão viva — o autostart antigo do
+/// home lança E o daemon relançava por cima; agora quem já está de pé
+/// é ADOTADO, nunca duplicado).
+#[cfg(test)]
+pub fn decide_posse(nome_tem_dono: bool, trava_livre: bool, comm_vivo: bool) -> Posse {
+    if nome_tem_dono || !trava_livre || comm_vivo {
         Posse::Adotada
     } else {
         Posse::Nossa
     }
+}
+
+/// E138 — o COMM esperado cortado no limite do kernel (TASK_COMM_LEN:
+/// 15 chars + NUL — o comm de 'lxqt-policykit-agent' é
+/// 'lxqt-policykit-'; comparar a string inteira nunca casaria).
+pub fn comm_corta(esperado: &str) -> &str {
+    if esperado.len() > 15 {
+        &esperado[..15]
+    } else {
+        esperado
+    }
+}
+
+/// E138 — existe um processo VIVO (não-zumbi, do NOSSO uid) com este
+/// comm? A varredura é /proc pura (zero fork de pgrep — o daemon não
+/// paga processo por ciclo); o zombie NÃO conta como vivo (o <defunct>
+/// do dump não adota vaga nenhuma).
+pub fn comm_vivo(esperado: &str) -> bool {
+    let alvo = comm_corta(esperado);
+    let meu_uid = unsafe { libc::getuid() };
+    let Ok(dir) = std::fs::read_dir("/proc") else { return false };
+    for e in dir.flatten() {
+        let pid = match e.file_name().to_string_lossy().parse::<i32>() {
+            Ok(p) => p,
+            Err(_) => continue,
+        };
+        let Ok(comm) = std::fs::read_to_string(format!("/proc/{}/comm", pid)) else { continue };
+        if comm.trim() != alvo {
+            continue;
+        }
+        // estado: o 3º campo do stat (após o último ')' — o comm pode ter
+        // espaço/parêntese); 'Z' = zumbi, não é vida
+        let Ok(stat) = std::fs::read_to_string(format!("/proc/{}/stat", pid)) else { continue };
+        let Some(depois) = stat.rsplit(')').next() else { continue };
+        let estado = depois.trim().chars().next().unwrap_or('R');
+        if estado == 'Z' {
+            continue;
+        }
+        // dono: só o processo do NOSSO usuário prova a sessão daqui
+        let Ok(status) = std::fs::read_to_string(format!("/proc/{}/status", pid)) else { continue };
+        let uid_dele = status
+            .lines()
+            .find_map(|l| l.strip_prefix("Uid:").map(|r| r.to_string()))
+            .and_then(|r| r.split_whitespace().next().and_then(|u| u.parse::<u32>().ok()))
+            .unwrap_or(u32::MAX);
+        if uid_dele == meu_uid {
+            return true;
+        }
+    }
+    false
+}
+
+/// E138 — o AUTO do game.conf (a chave do modo de jogo automático — o
+/// toggle do craft-game escreve, ESTE ouvido lê): função PURA sobre o
+/// caminho para o teste cravar a gramática.
+pub fn auto_em(texto: &str) -> bool {
+    texto.lines().any(|l| l.trim() == "AUTO=1")
+}
+
+fn auto_on() -> bool {
+    let base = std::env::var("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| {
+            PathBuf::from(std::env::var("HOME").unwrap_or_default()).join(".config")
+        });
+    std::fs::read_to_string(base.join("elite/game.conf"))
+        .map(|t| auto_em(&t))
+        .unwrap_or(false)
+}
+
+/// E138 — o PEEK-LOCK do motor do jogo: o /tmp/elite-daemon.lock não
+/// travável = um elite-daemon (modo game) VIVO de fora — a vaga é
+/// ADOTADA sem spawn (o filho que nasceria morto pelo lock próprio
+/// viraria churn de respawn a cada 2s; o peek corta a classe inteira).
+/// O lock é PEGADO E SOLTO na hora (o filho pega o dele sozinho).
+fn peek_lock_livre(caminho: &std::path::Path) -> bool {
+    let Ok(f) = std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(caminho)
+    else {
+        return true; // inobservável = livre (honesto nos dois mundos)
+    };
+    let rc = unsafe { libc::flock(f.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
+    rc == 0 // 0 = ninguém segura (livre); != 0 = motor de fora vivo
 }
 
 /// a lista viva: o conf da casa quando existe e tem residentes; senão o
@@ -244,6 +342,60 @@ struct Vaga {
     nasceu: bool,
     /// binário ausente no sistema: sem respawn eterno de fantasma.
     ausente: bool,
+    /// E138 — processo de fora com este comm = vaga ADOTADA (o gate do
+    /// udiskie duplicado: autostart fóssil lança, a sessão NUNCA soma o
+    /// segundo — UDISKIE_COUNT=1 é lei).
+    comm: Option<String>,
+    /// E138 — condição de existência (falsa = sem spawn; filho nosso
+    /// vivo é encerrado — o toggle do jogo vale NA HORA).
+    cond: Option<Box<dyn Fn() -> bool + Send>>,
+    /// E138 — peek-lock: não-travável = motor de fora vivo (adota).
+    peek_lock: Option<PathBuf>,
+}
+
+/// E138 — A ESPECIFICAÇÃO DA VAGA (o que o conf não diz): os gates
+/// extras que a SESSÃO conhece de cada filho — o comm que prova uma
+/// instância de fora (adoção), a condição de existência (o jogo é vaga
+/// condicionada ao AUTO do game.conf) e o peek-lock do motor externo.
+/// `From<&Residente>` mantém a fila do conf com os gates de LARGA
+/// (comm = 1º token do comando; o idle é o caso especial: o craft-idle
+/// `exec` no swayidle — o comm que prova é o do daemon final).
+struct VagaSpec {
+    res: Residente,
+    /// processo de fora com este comm = vaga ADOTADA (E138)
+    comm: Option<String>,
+    /// falsa = a vaga não deve existir (spawn proibido, filho nosso
+    /// vivo é encerrado — o toggle do dono é imediato)
+    cond: Option<Box<dyn Fn() -> bool + Send>>,
+    /// lock não-travável = motor de fora vivo (peek: nunca spawn em cima)
+    peek_lock: Option<PathBuf>,
+}
+
+impl Default for VagaSpec {
+    fn default() -> Self {
+        VagaSpec {
+            res: Residente::default(),
+            comm: None,
+            cond: None,
+            peek_lock: None,
+        }
+    }
+}
+
+impl From<Residente> for VagaSpec {
+    fn from(res: Residente) -> Self {
+        let comm = res
+            .comando
+            .split_whitespace()
+            .next()
+            .map(|t| t.to_string());
+        VagaSpec {
+            res,
+            comm,
+            cond: None,
+            peek_lock: None,
+        }
+    }
 }
 
 /// E132 — a porta `supervise`: SÓ os residentes puros (a compat dos
@@ -251,7 +403,7 @@ struct Vaga {
 pub fn run() -> Result<(), String> {
     supervisa(
         "/tmp/elite-daemon-supervise.lock",
-        fila_residentes(),
+        fila_residentes().into_iter().map(VagaSpec::from).collect(),
         "supervise",
     )
 }
@@ -261,22 +413,57 @@ pub fn run() -> Result<(), String> {
 /// residentes puros, todos na MESMA vaga com o MESMO gate de posse.
 /// O craft-bars shell vira `exec elite-daemon session` — o /bin/sh
 /// some do ps (os 8 do dump morrem) e a supervisão inteira é um corpo.
+/// E138 — O MOTOR DO JOGO É VAGA DA SESSÃO (a ordem do dono, dump
+/// v2.13: AUTO=1 ativo no game.conf mas `craft-game status` dizia
+/// 'watch FORA — sem daemon vivo' — o `exec` do craft-bars MATOU o
+/// respawn do motor que o corpo bash fazia; a sessão agora CARREGA o
+/// loop: condicionado ao AUTO (o toggle do menu é imediato, sem
+/// relogin), supervisionado (caiu → volta em 2s), adotado por
+/// peek-lock quando um motor de fora vive).
 pub fn run_session() -> Result<(), String> {
-    let mut vagas: Vec<Residente> = CLIENTES_DISPLAY
+    let mut specs: Vec<VagaSpec> = CLIENTES_DISPLAY
         .iter()
-        .map(|(n, c)| Residente {
-            nome: (*n).to_string(),
-            comando: (*c).to_string(),
-            bus: None,
+        .map(|(n, c)| {
+            let mut s: VagaSpec = Residente {
+                nome: (*n).to_string(),
+                comando: (*c).to_string(),
+                bus: None,
+            }
+            .into();
+            // E138 — o idle é o caso do exec: o craft-idle start vira no
+            // swayidle (exec); o comm que prova a vaga é o do DAEMON final
+            if *n == "idle" {
+                s.comm = Some("swayidle".to_string());
+            }
+            s
         })
         .collect();
-    vagas.extend(fila_residentes());
-    supervisa("/tmp/elite-daemon-session.lock", vagas, "session")
+    specs.extend(fila_residentes().into_iter().map(VagaSpec::from));
+    // E138 — A VAGA DO JOGO: o próprio binário em modo game (sem args — o
+    // daemon_loop com o lock /tmp/elite-daemon.lock e o pid no
+    // game-watch.pid que o craft-game status lê). AUTO=0 = ausência
+    // intencional (a escolha do dono é a lei, lei do idle E36).
+    if let Ok(exe) = std::env::current_exe() {
+        let jogo = VagaSpec {
+            res: Residente {
+                nome: "game".to_string(),
+                comando: exe.to_string_lossy().to_string(),
+                bus: None,
+            },
+            // NUNCA comm: o comm 'elite-daemon' é O PRÓPRIO session — o
+            // gate certo é o peek no lock do modo game
+            comm: None,
+            cond: Some(Box::new(auto_on)),
+            peek_lock: Some(PathBuf::from("/tmp/elite-daemon.lock")),
+        };
+        specs.push(jogo);
+    }
+    supervisa("/tmp/elite-daemon-session.lock", specs, "session")
 }
 
 fn supervisa(
     lock_path: &str,
-    vagas_iniciais: Vec<Residente>,
+    vagas_iniciais: Vec<VagaSpec>,
     porta: &str,
 ) -> Result<(), String> {
     // instância única (E30): flock PRÓPRIO da porta — o modo game, o
@@ -307,13 +494,16 @@ fn supervisa(
 
     let mut vagas: Vec<Vaga> = vagas_iniciais
         .into_iter()
-        .map(|res| Vaga {
-            res,
+        .map(|spec| Vaga {
+            res: spec.res,
             filho: None,
             trava: None,
             desde: Instant::now(),
             nasceu: false,
             ausente: false,
+            comm: spec.comm,
+            cond: spec.cond,
+            peek_lock: spec.peek_lock,
         })
         .collect();
     eprintln!(
@@ -325,6 +515,25 @@ fn supervisa(
 
     loop {
         for v in &mut vagas {
+            // 0) E138 — A CONDIÇÃO DA VAGA: falsa = a vaga não deve
+            //    existir (spawn proibido; filho NOSSO vivo é encerrado
+            //    com SIGTERM e colhido — o AUTO=0 do jogo vale NA HORA,
+            //    sem relogin, sem órfão)
+            if let Some(cond) = v.cond.as_ref() {
+                if !cond() {
+                    if let Some(mut filho) = v.filho.take() {
+                        unsafe { libc::kill(filho.id() as i32, libc::SIGTERM) };
+                        let _ = filho.wait();
+                        v.trava = None;
+                        v.desde = Instant::now();
+                        eprintln!(
+                            "elite-daemon supervise: {} condição DESLIGADA — filho encerrado (a escolha do dono é imediata)",
+                            v.res.nome
+                        );
+                    }
+                    continue;
+                }
+            }
             // 1) a colheita: filho que MORREU é logado e vira vaga (a
             // trava da vaga solta junto — o nome no bus morre com ele)
             if let Some(filho) = v.filho.as_mut() {
@@ -361,6 +570,29 @@ fn supervisa(
                 .unwrap_or(false);
             if bus_dono {
                 continue; // adotada: nem log por ciclo (o papel não vira spam)
+            }
+            //    (a') E138 — o gate por COMM: um processo de FORA vivo
+            //        com o comm da vaga = instância adotada (o udiskie
+            //        do autostart fóssil do dump v2.13 — a sessão nunca
+            //        soma o segundo; UDISKIE_COUNT=1 é lei)
+            if v
+                .comm
+                .as_deref()
+                .map(comm_vivo)
+                .unwrap_or(false)
+            {
+                continue; // adotada de fora — o <defunct> não conta, o uid conta
+            }
+            //    (a'') E138 — o gate por PEEK-LOCK: o lock de motor
+            //        (modo game) não-travável = motor de fora VIVO →
+            //        adota (nunca spawn em cima de quem já é dono)
+            if v
+                .peek_lock
+                .as_deref()
+                .map(|p| !peek_lock_livre(p))
+                .unwrap_or(false)
+            {
+                continue;
             }
             //    (b) a trava em posse de irmão = o outro daemon da casa
             //        já criou o filho → adota silencioso (idem).
@@ -511,15 +743,76 @@ mod tests {
         // com a trava livre (o réu do loop 809 — swaync exit 1 relançado
         // às cegas — morre exatamente aqui)
         assert!(matches!(
-            decide_posse(true, true),
+            decide_posse(true, true, false),
             Posse::Adotada
         ));
         // a trava em posse de irmão (nosso 2º daemon): idem, adota
         assert!(matches!(
-            decide_posse(false, false),
+            decide_posse(false, false, false),
             Posse::Adotada
         ));
-        // nem nome nem trava: a vaga é NOSSA
-        assert!(matches!(decide_posse(false, true), Posse::Nossa));
+        // nem nome nem trava nem comm: a vaga é NOSSA
+        assert!(matches!(
+            decide_posse(false, true, false),
+            Posse::Nossa
+        ));
+    }
+
+    #[test]
+    fn e138_o_comm_de_fora_adota_a_vaga() {
+        // o udiskie do autostart fóssil do dump v2.13 (UDISKIE_COUNT=2):
+        // processo de fora vivo com o comm da vaga = ADOTADA, mesmo com
+        // trava livre e sem bus — a sessão NUNCA soma o segundo
+        assert!(matches!(
+            decide_posse(false, true, true),
+            Posse::Adotada
+        ));
+    }
+
+    #[test]
+    fn e138_o_comm_corta_no_limite_do_kernel() {
+        // TASK_COMM_LEN = 16 (15 chars + NUL): o comm do
+        // lxqt-policykit-agent nasce CORTADO — comparar a string inteira
+        // nunca casaria e a vaga duplicaria o agente
+        assert_eq!(comm_corta("udiskie"), "udiskie");
+        assert_eq!(comm_corta("swayosd-server"), "swayosd-server");
+        assert_eq!(comm_corta("lxqt-policykit-agent"), "lxqt-policykit-");
+        assert_eq!(comm_corta("craft-dock-rs"), "craft-dock-rs");
+    }
+
+    #[test]
+    fn e138_o_auto_do_game_conf_e_a_condicao_do_motor() {
+        // dump v2.13: AUTO=1 com o watch FORA — a vaga do jogo na sessão
+        // lê ESTE arquivo; a gramática é EXATA (AUTO=1, sem espaço extra)
+        assert!(auto_em("AUTO=1\n"), "AUTO=1 liga o motor");
+        assert!(auto_em("# comentário\nAUTO=1\n"), "comentário não atrapalha");
+        assert!(!auto_em("AUTO=0\n"), "AUTO=0 é ausência intencional");
+        assert!(!auto_em(""), "sem conf = ausência intencional (lei do idle E36)");
+        assert!(!auto_em("AUTO=10\n"), "AUTO=10 NÃO é AUTO=1 (match exato)");
+    }
+
+    #[test]
+    fn e138_a_sessao_carrega_o_jogo_com_condicao_e_peek() {
+        // a vaga do jogo NÃO usa o comm (o comm 'elite-daemon' é o
+        // PRÓPRIO session — o gate certo é o peek no lock do modo game):
+        // o spec da fila do conf ganha comm de LARGA (1º token) e NUNCA
+        // cond/peek (o conf não tem como expressá-los)
+        let r = Residente {
+            nome: "udiskie".into(),
+            comando: "udiskie --automount --notify --no-tray".into(),
+            bus: None,
+        };
+        let spec: VagaSpec = r.into();
+        assert_eq!(spec.comm.as_deref(), Some("udiskie"));
+        assert!(spec.cond.is_none(), "conf não tem condição");
+        assert!(spec.peek_lock.is_none(), "conf não tem peek");
+        // gramática com bus: o comm continua sendo o 1º token do comando
+        let r2 = Residente {
+            nome: "swaync".into(),
+            comando: "swaync".into(),
+            bus: Some("org.erikreider.swaync.cc".into()),
+        };
+        let spec2: VagaSpec = r2.into();
+        assert_eq!(spec2.comm.as_deref(), Some("swaync"));
     }
 }

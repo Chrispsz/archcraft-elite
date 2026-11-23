@@ -15,7 +15,7 @@
 # zram0 zstd de fábrica o estilo SteamOS manda (swap inteiro em RAM
 # comprimida: preferir anonymous pages; descomprimir é barato, reler
 # disco é caro). O número é defendido no boot pela regra udev
-# 81-elite-zram.rules (o cachyos-settings escreve 150 no evento do
+# 99-elite-zram.rules (o cachyos-settings escreve 150 no evento do
 # zram0 e a 81 da casa recoloca o 180 NO MESMO EVENTO — a chave
 # `swappiness` do zram-generator nunca existiu upstream). Este bin
 # APOSENTA o 99-elite-ram.conf (remove o fóssil com voz) e fica com o
@@ -129,12 +129,12 @@ if [[ -f "$ZRAM_CONF" ]]; then
 # MemTotal = ${MEM_MIB} MiB → perfil $PROFILE
 # E137 — o swappiness NÃO é chave do zram-generator (o upstream a
 # ignora com 'unknown key'); quem fixa o 180 no boot é a regra udev
-# 81-elite-zram.rules (depois da 30 do cachyos-settings, no MESMO evento)
+# 99-elite-zram.rules (depois da do vendor, no MESMO evento)
 [zram0]
 zram-size = ${ZRAM}
 compression-algorithm = zstd
 EOF
-    say "zram: $ZRAM_CONF reescrito (zram-size = $ZRAM · zstd · swappiness 180 pela regra 81-elite-zram)"
+    say "zram: $ZRAM_CONF reescrito (zram-size = $ZRAM · zstd · swappiness 180 pela regra 99-elite-zram)"
     systemctl daemon-reload 2>/dev/null || true
     systemctl try-restart systemd-zram-setup@zram0.service 2>/dev/null || true
 else

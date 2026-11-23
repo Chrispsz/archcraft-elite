@@ -21,7 +21,12 @@ TimeoutStartSec=1800
 # a expansão vira UMA só (a do sh, que lê o env SERVICE_RESULT/EXIT_STATUS
 # garantido ao ExecStopPost — a linha com ${VAR} cruzava DUAS camadas de
 # expansão e virava lixo).
-ExecStopPost=/bin/sh -c 'printf "\n[elite-firstboot] resultado: %s (exit=%s)\n" "$$SERVICE_RESULT" "$$EXIT_STATUS" >> /var/log/elite-firstboot.log'
+# E138 — A PROVA DO EPÍLOGO (a ordem do dono, dump v2.13: o log do rig
+# carregava 'resultado: /bin/bash (exit=/bin/bash)' — o %s de SPECIFIER
+# da unit da ISO de 3/nov virava o SHELL DO ROOT; o $$ atual é a cura e
+# o EXIT_CODE entra junto: signal-kill tem exit-status vazio e o código
+# mora nele — o timeout-kill do primeiro boot fica LEGÍVEL no papel).
+ExecStopPost=/bin/sh -c 'printf "\n[elite-firstboot] resultado: %s (exit=%s code=%s)\n" "$$SERVICE_RESULT" "$$EXIT_STATUS" "$$EXIT_CODE" >> /var/log/elite-firstboot.log'
 StandardOutput=append:/var/log/elite-firstboot.log
 StandardError=append:/var/log/elite-firstboot.log
 RemainAfterExit=yes

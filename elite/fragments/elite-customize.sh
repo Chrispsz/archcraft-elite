@@ -820,3 +820,52 @@ if [[ -f /usr/lib/os-release ]]; then
 else
     echo "E22 AVISO: /usr/lib/os-release ausente — identidade NÃO marcada" >&2
 fi
+
+
+## [E23] E138 — O ECOSSISTEMA GRÁFICO DE PACOTES PRÉ-INSTALADO (a ordem do
+##      dono, dump v2.13: 'Garanta Flathub habilitado por padrão e
+##      pré-instale Bazaar (loja moderna de Flatpaks), Warehouse (geren-
+##      ciador completo de pacotes, permissões e dados Flatpak) e Gear
+##      Lever (integração automática de AppImages ao menu e à dock)'). O
+##      remote do Flathub já nasce na ISO pelo hook elite-flathub (o
+##      pacstrap instala o flatpak → o hook dispara AQUI no chroot); o
+##      que FALTAVA eram os APPS de fábrica. Instalação --system: o live
+##      E o INSTALADO (o unpackfs copia /var/lib/flatpak inteiro) abrem
+##      a loja pronta; qualquer usuário vê os apps (a dock indexa
+##      /var/lib/flatpak/exports/share — o XDG_DATA_DIRS da sessão desde
+##      a v2.3.5). BEST-EFFORT por desenho: rede no build é conveniência,
+##      não contrato — falha de Flathub NUNCA mata a build (a adota_lojas
+##      do craft-update cobre os rigs na primeira dose; o papel da ISO
+##      registra a ausência).
+if command -v flatpak >/dev/null 2>&1; then
+    if flatpak remotes 2>/dev/null | grep -q '^flathub'; then
+        echo "E23: remote Flathub presente (hook elite-flathub do pacstrap)"
+        _e23_apps="io.github.kolunmi.Bazaar io.github.flattool.Warehouse it.mijorus.gearlever"
+        _e23_falhas=0
+        for _e23_app in $_e23_apps; do
+            if flatpak list --system --app --columns=application 2>/dev/null | grep -qx "$_e23_app"; then
+                echo "E23: $_e23_app já presente (idempotente)"
+                continue
+            fi
+            # --noninteractive: o chroot não tem TTY para perguntas; a
+            # instalação puxa o runtime GNOME compartilhado na 1ª vez
+            # (~1 GiB descomprimido — o custo da loja de fábrica)
+            if flatpak install --system --noninteractive -y flathub "$_e23_app" >/tmp/e23-flatpak.log 2>&1; then
+                echo "E23: $_e23_app instalado (--system — o live E o instalado abrem a loja pronta)"
+            else
+                _e23_falhas=$((_e23_falhas + 1))
+                echo "E23 AVISO: $_e23_app não instalou (rede do Flathub?) — log em /tmp/e23-flatpak.log; a adota_lojas cobre os rigs na 1ª dose"
+            fi
+        done
+        if (( _e23_falhas == 0 )); then
+            echo "E23: ecossistema Flatpak de fábrica COMPLETO (Bazaar + Warehouse + Gear Lever --system)"
+        else
+            echo "E23: $_e23_falhas app(s) ficaram para a 1ª dose do rig (best-effort — a ISO segue)"
+        fi
+        unset _e23_app _e23_apps _e23_falhas
+    else
+        echo "E23 AVISO: remote Flathub ausente no chroot (o hook do pacstrap não rodou?) — apps de fábrica PULADOS; a adota_lojas cobre os rigs" >&2
+    fi
+else
+    echo "E23 AVISO: flatpak ausente no chroot — ecossistema de fábrica PULADO" >&2
+fi

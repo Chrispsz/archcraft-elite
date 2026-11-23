@@ -307,7 +307,7 @@ write_elite_sysctl() { # a lei do sysctl ([2i] firstboot quando ausente / [5] in
   # (E137/PROMPT 3 — recalibra a ordem E136): com zram0 zstd 8G de
   # fábrica, o estilo SteamOS manda (swap em RAM comprimida = preferir
   # anonymous pages; descomprimir é barato, reler disco é caro). QUEM
-  # GARANTE O NÚMERO NO BOOT é a regra udev 81-elite-zram.rules (o
+  # GARANTE O NÚMERO NO BOOT é a regra udev 99-elite-zram.rules (o
   # cachyos-settings escreve 150 no evento do zram0 e a 81 da casa
   # recoloca o 180 NO MESMO EVENTO — a chave `swappiness` do
   # zram-generator nunca existiu upstream e saiu do conf do gerador).
@@ -338,7 +338,7 @@ ${_net}
 EOF
   local _bbrdiz="ausente neste kernel"
   if [ -n "$_net" ]; then _bbrdiz="INCLUIDO"; fi
-  say "sysctl: 99-elite-performance.conf com swappiness = 180 (E137 — zram zstd + MGLRU; sem drift pela regra udev 81-elite-zram; bbr ${_bbrdiz})"
+  say "sysctl: 99-elite-performance.conf com swappiness = 180 (E137→E138 — zram zstd + MGLRU; sem drift pela regra udev 99-elite-zram; bbr ${_bbrdiz})"
 }
 
 # E132 — O THP MADVISE AGORA (a ordem do dono): o cmdline do GRUB vale no
@@ -411,12 +411,60 @@ EOF
 KERNEL=="ntsync", MODE="0666"
 EOF
   run udevadm control --reload 2>/dev/null || true
-  wfile /etc/modules-load.d/elite-sensors.conf <<'EOF'
-# ── ELITE (E136): o nct6775 (Nuvoton Super I/O) expõe temp/ventoinhas/
-# PWM da placa-mãe ao lm_sensors (hardware sem Nuvoton: driver registra
-# e não binda — carga inócua)
-nct6775
-EOF
+  # ── E138 — A DETECÇÃO SEGURA DOS CHIPS DA PLACA-MÃE (a ordem do dono,
+  # dump v2.13: 'detecção automática e segura dos chips Super I/O ...
+  # carregamento automático de módulos como nct6775, it87, k10temp,
+  # coretemp em /etc/modules-load.d/elite-sensors.conf, livrando o
+  # usuário leigo de rodar sensors-detect no terminal'). A SONDAGEM é
+  # real: cada candidato sobe, o /sys/class/hwmon é recontado e quem
+  # NÃO trouxe sensor nenhum DESCE (modprobe -r) — o arquivo final carrega
+  # só o que a MÁQUINA tem (zero módulo pedestre em boot, zero guesswork).
+  # Os 4 candidatos cobrem as famílias comuns: Nuvoton (nct6775), ITE
+  # (it87) e os termômetros de CPU (k10temp=AMD, coretemp=Intel — estes
+  # bindam sempre que a CPU é da casa certa e são inócuos no outro).
+  _sens_conf=/etc/modules-load.d/elite-sensors.conf
+  if (( DRY )); then
+    say "[dry] sondagem de sensores (nct6775 it87 k10temp coretemp → $_sens_conf)"
+  else
+    _mods=""
+    _hwmon_before="$(ls /sys/class/hwmon 2>/dev/null | sort | tr '\n' ' ')"
+    for _m in nct6775 it87 k10temp coretemp; do
+      modprobe "$_m" >/dev/null 2>&1 || continue
+      _hwmon_now="$(ls /sys/class/hwmon 2>/dev/null | sort | tr '\n' ' ')"
+      if [ "$_hwmon_now" != "$_hwmon_before" ]; then
+        _mods="$_mods $_m"
+        _hwmon_before="$_hwmon_now"
+      else
+        # subiu e NÃO trouxe hwmon novo: o hardware não tem o chip —
+        # desce na hora (o driver ocioso não paga pedágio de boot)
+        modprobe -r "$_m" >/dev/null 2>&1 || true
+      fi
+    done
+    _mods="${_mods# }"
+    if [ -n "$_mods" ]; then
+      mkdir -p /etc/modules-load.d 2>/dev/null || true
+      {
+        printf '%s\n' \
+          '# ── ELITE (E138): os chips de sensor QUE ESTA MÁQUINA TEM — a' \
+          '# sondagem do firstboot provou cada módulo contra o' \
+          '# /sys/class/hwmon (subiu sem sensor novo = desceu). O' \
+          '# CoolerControl/lm_sensors leem daqui as ventoinhas/temperaturas' \
+          '# da placa-mãe; o sensors-detect abaixo mapeia o resto.'
+        printf '%s\n' $_mods
+      } > "$_sens_conf" 2>/dev/null \
+        && say "sensores: sondagem provou [$_mods] → elite-sensors.conf (as ventoinhas da placa-mãe nascem visíveis no boot — sem sensors-detect no terminal)"
+    else
+      # nenhum candidato bindou: sensores de CPU/vendor cobrem o básico
+      printf '%s\n' \
+        '# ── ELITE (E138): a sondagem do firstboot NÃO achou chip Super I/O' \
+        '# dedicado nesta máquina (nenhum candidato trouxe hwmon novo — os' \
+        '# termômetros de CPU/GPU do kernel seguem sozinhos). Reavalie' \
+        '# rodando o firstboot de novo após trocar de placa-mãe.' \
+        > "$_sens_conf" 2>/dev/null \
+        && say "sensores: nenhum chip Super I/O dedicado (k10temp/amdgpu cobrem o essencial — o arquivo assina a ausência)"
+    fi
+    unset _m _mods _hwmon_before _hwmon_now
+  fi
   # sensors-detect mapeia o resto da máquina (o --auto não pergunta nada;
   # a saída é barulho — o papel fica no log do tune)
   if command -v sensors-detect >/dev/null 2>&1; then
@@ -431,6 +479,23 @@ EOF
     fi
   else
     say "sensores: lm_sensors ausente (pacote não instalado — ISO nova traz de fábrica)"
+  fi
+  # ── E138 — O COOLERCONTROL (a ordem do dono, dump v2.13: 'Inclua e
+  # habilite CoolerControl (coolercontrold.service + interface gráfica)')
+  # com os SENSORES PWM já destravados (a sondagem acima + o daemon no
+  # boot): as CURVAS são do dono, montadas no GUI — a casa NÃO entrega
+  # preset genérico de ventoinha (a diretriz arquitetural: infraestrutura
+  # destravada, calibração do especialista em quem usa).
+  if (( DRY )); then
+    say "[dry] coolercontrold enable --now (as curvas de ventoinha no GUI do dono)"
+  else
+    if systemctl list-unit-files coolercontrold.service >/dev/null 2>&1 \
+       && systemctl cat coolercontrold.service >/dev/null 2>&1; then
+      run systemctl enable --now coolercontrold.service 2>/dev/null || true
+      say "coolercontrol: coolercontrold no ar (os PWM da placa-mãe nascem destravados — as curvas são do dono, no CoolerControl)"
+    else
+      say "coolercontrol: unit ausente (pacote não instalado — a ISO nova traz de fábrica)"
+    fi
   fi
   # scx_loader: sched_ext sob demanda — a unit só existe onde o kernel a
   # sustenta (ConditionPathExists=/sys/kernel/sched_ext na drop-in elite)
@@ -946,7 +1011,7 @@ PYBRAVE
   # E132→E137 — O SWAPPINESS É A LEI DO CONF (o consolidado acabou de
   # escrever /etc/sysctl.d/99-elite-performance.conf pelo
   # write_elite_sysctl — o 180 é a única voz da casa; a regra udev
-  # 81-elite-zram o defende do 150 do cachyos-settings no boot).
+  # 99-elite-zram o defende do 150 do cachyos-settings no boot).
   want_sw="$(sed -n 's/^vm\.swappiness *= *//p' /etc/sysctl.d/99-elite-performance.conf 2>/dev/null | tail -1)"
   [[ "$want_sw" =~ ^[0-9]+$ ]] || want_sw=180
   got_sw="$(sysctl -n vm.swappiness 2>/dev/null || true)"
@@ -1179,7 +1244,7 @@ pacman_s zram-generator || note_fail "zram-generator (o swap zstd da casa)"
 wfile /etc/systemd/zram-generator.conf <<EOF
 # E137 — o swappiness NÃO é chave do zram-generator (o upstream a ignora
 # com 'unknown key' — a prova mora no config.rs do gerador); quem fixa o
-# 180 no boot é a regra udev 81-elite-zram.rules, que roda DEPOIS do
+# 180 no boot é a regra udev 99-elite-zram.rules, que roda DEPOIS do
 # 30-zram.rules do cachyos-settings no MESMO evento do zram0.
 [zram0]
 zram-size = ${ZMB}M
