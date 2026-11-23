@@ -53,8 +53,7 @@ pub struct Snapshot {
 pub fn parse_list(lines: &[String]) -> Snapshot {
     let mut snap = Snapshot::default();
     for line in lines {
-        if let Some(rest) = line.strip_prefix("W|") {
-            let _ = rest;
+        if line.starts_with("W|") {
             let parts: Vec<&str> = line.splitn(6, '|').collect();
             if parts.len() == 6 {
                 if let (Ok(id), Ok(flags), Ok(rank)) =

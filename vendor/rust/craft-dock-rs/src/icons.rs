@@ -234,8 +234,8 @@ pub fn gearlever_icon(key: &str, home: &Path) -> Option<PathBuf> {
 
 /// E130 — o caminho CACHEADO do ícone extraído do AppImage:
 /// <cache_base>/<sha256-do-caminho[0..24]>.<png|svg> — o MESMO formato
-/// do craft-dock-gui (hexdigest truncado em 24): os dois binários
-/// COMPARTILHAM o cache (o ícone extraído por um serve ao outro).
+/// do craft-dock-gui aposentado E134 (hexdigest truncado em 24): os
+/// rigs conservam o cache que a era Python já extraiu.
 /// Cria o diretório (a extração depende dele).
 pub fn appicon_cache_path(cache_base: &Path, appimage: &str) -> PathBuf {
     let mut h = Sha256::new();

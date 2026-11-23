@@ -65,7 +65,8 @@ mod ui;
 
 use std::path::PathBuf;
 
-/// E132 — a versão do corpo Rust (a do Python segue em v2.10.x lá).
+/// E132 — a versão do corpo Rust (o corpo Python v2.10.x foi APOSENTADO
+/// pela E134: esta é a ÚNICA dock da casa).
 pub const VERSION: &str = "0.1.0";
 
 /// Um pin do dock-pins: o desktop-id (coluna 1) e o hint de app_id
@@ -98,8 +99,9 @@ pub fn read_pins(path: &std::path::Path) -> Vec<Pin> {
     pins
 }
 
-// ── os caminhos da casa (os MESMOS do craft-dock-gui — os dois
-//    binários compartilham pins, CSS, log e cache de ícones) ──────────
+// ── os caminhos da casa (os MESMOS que o craft-dock-gui APOSENTADO E134
+//    usava: pins, CSS, log e cache de ícones ficam nos lugares que os
+//    rigs já têm — nenhum outro binário os lê hoje) ───────────────────
 
 pub fn home_dir() -> PathBuf {
     std::env::var_os("HOME")
@@ -136,8 +138,9 @@ pub fn log_path() -> PathBuf {
     cache_dir().join("elite/dock.log")
 }
 
-/// ~/.cache/elite/appimage-icons (o cache E130 — compartilhado com o
-/// craft-dock-gui: o ícone extraído por um serve ao outro).
+/// ~/.cache/elite/appimage-icons (o cache E130 — o MESMO lugar que o
+/// craft-dock-gui aposentado E134 usava: os rigs conservam os ícones
+/// já extraídos pela era Python).
 pub fn appicon_cache_dir() -> PathBuf {
     cache_dir().join("elite/appimage-icons")
 }
@@ -260,8 +263,8 @@ mod tests {
 
     #[test]
     fn caminhos_sao_os_do_python() {
-        // pins/log/cache nos MESMOS lugares do craft-dock-gui (os dois
-        // binários dividem o estado da casa)
+        // pins/log/cache nos MESMOS lugares que o craft-dock-gui usava
+        // (a compatibilidade de estado sobreviveu à aposentadoria E134)
         assert!(pins_path().ends_with("elite/dock-pins"));
         assert!(css_path().ends_with("elite/dock.css"));
         assert!(log_path().ends_with("elite/dock.log"));

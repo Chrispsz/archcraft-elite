@@ -696,7 +696,7 @@ fn app_icon_image(st: &Rc<RefCell<State>>, entry: &icons::DesktopEntry) -> gtk::
 ///   (3) o que o GEAR LEVER já extraiu (~/.local/share/icons + o
 ///       Icon= do .desktop de usuário) e a BUSCA nas raízes E132;
 ///   (4) o CACHE da casa (~/.cache/elite/appimage-icons/<sha256-do-
-///       caminho> — COMPARTILHADO com o Python);
+///       caminho> — o lugar que a era Python usava; rigs conservam);
 ///   (5) o .DirIcon do mount VIVO (o squashfs montado é legível —
 ///       vale mesmo sob --no-sandbox, o /proc/exe aponta para dentro);
 ///   (6) a EXTRAÇÃO EM THREAD de fundo (a UI não bloqueia no walk do
