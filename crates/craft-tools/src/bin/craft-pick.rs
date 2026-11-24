@@ -21,6 +21,7 @@ fn main() {
 
 #[cfg(feature = "gui")]
 fn main() {
+    use gtk4::prelude::*; // (Canal 146: o connect_activate/run do main vestem o prelude)
     let args: Vec<String> = std::env::args().skip(1).collect();
     let (titulo, mut itens) = craft_tools::parse_pick_args(&args);
     // stdin é a interface dmenu (listas dinâmicas dos chamadores: os

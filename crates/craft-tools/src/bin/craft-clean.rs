@@ -17,6 +17,7 @@ fn main() {
 
 #[cfg(feature = "gui")]
 fn main() {
+    use gtk4::prelude::*; // (Canal 146: o connect_activate/run do main vestem o prelude)
     let app = gtk4::Application::new(Some("elite.craft.Clean"), Default::default());
     app.connect_activate(|app| build(app));
     app.run().get() as i32;
@@ -66,7 +67,7 @@ fn build(app: &gtk4::Application) {
     let rodando = std::rc::Rc::new(std::cell::Cell::new(false));
 
     let (tx, rx) = std::sync::mpsc::channel::<janela::Linha>();
-    let rx = std::rc::Rc::new(std::rc::RefCell::new(rx));
+    let rx = std::rc::Rc::new(std::cell::RefCell::new(rx));
     {
         let buffer = buffer.clone();
         let scroll = scroll.clone();
@@ -76,8 +77,8 @@ fn build(app: &gtk4::Application) {
         let buffer_c = buffer.clone();
         let scroll_c = scroll.clone();
         let fim: std::rc::Rc<
-            std::rc::RefCell<Option<Box<dyn FnOnce(i32) + 'static>>>,
-        > = std::rc::Rc::new(std::rc::RefCell::new(Some(Box::new(move |rc: i32| {
+            std::cell::RefCell<Option<Box<dyn FnOnce(i32) + 'static>>>,
+        > = std::rc::Rc::new(std::cell::RefCell::new(Some(Box::new(move |rc: i32| {
             pulso.stop();
             pulso.set_visible(false);
             btn.set_sensitive(true);

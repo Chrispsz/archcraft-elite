@@ -16,6 +16,7 @@ fn main() {
 
 #[cfg(feature = "gui")]
 fn main() {
+    use gtk4::prelude::*; // (Canal 146: o connect_activate/run do main vestem o prelude)
     let app = gtk4::Application::new(Some("elite.craft.Help"), Default::default());
     app.connect_activate(|app| build(app));
     app.run().get() as i32;
