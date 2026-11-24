@@ -108,15 +108,16 @@ fn build(app: &gtk4::Application) {
     {
         let tx = tx.clone();
         let rodando = rodando.clone();
-        let btn = btn.clone();
+        // (Canal 147: a cópia do closure ganha NOME PRÓPRIO — idem update)
+        let btn_c = btn.clone();
         let pulso = pulso.clone();
         btn.connect_clicked(move |_| {
             if rodando.get() {
                 return;
             }
             rodando.set(true);
-            btn.set_sensitive(false);
-            btn.set_label("Limpando…");
+            btn_c.set_sensitive(false);
+            btn_c.set_label("Limpando…");
             pulso.set_visible(true);
             pulso.start();
             let usuario = std::env::var("USER")

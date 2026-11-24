@@ -103,14 +103,16 @@ fn build(
         std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
 
     // o ESC: cancela (exit 1 — o contrato dos chamadores)
+    // (Canal 147: a cópia do closure ganha NOME PRÓPRIO — a sombra era
+    // movida pelo closure e emprestada pelo add_controller no mesmo fôlego)
     {
         let tx = tx.clone();
-        let win = win.clone();
+        let win_c = win.clone();
         let ec = gtk4::EventControllerKey::new();
         ec.connect_key_pressed(move |_, key, _, _| {
             if key == gtk4::gdk::Key::Escape {
                 let _ = tx.send(None);
-                win.close();
+                win_c.close();
                 return gtk4::glib::Propagation::Stop;
             }
             gtk4::glib::Propagation::Proceed

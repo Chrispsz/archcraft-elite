@@ -80,7 +80,7 @@ fn remonta(papel: &gtk4::Box, busca_txt: &str) {
     }
     for (secao, itens) in craft_tools::mapa_comandos() {
         // o alvo do filtro: comando + descrição (a busca acha os dois)
-        let visiveis: Vec<(&&str, &&str)> = itens
+        let visiveis: Vec<&(&str, &str)> = itens
             .iter()
             .filter(|(c, d)| {
                 let alvo = format!("{c} {d}");

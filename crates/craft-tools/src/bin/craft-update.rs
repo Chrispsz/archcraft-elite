@@ -106,15 +106,17 @@ fn build(app: &gtk4::Application) {
     {
         let tx = tx.clone();
         let rodando = rodando.clone();
-        let btn = btn.clone();
+        // (Canal 147: a cópia do closure ganha NOME PRÓPRIO — a sombra era
+        // movida pelo closure e emprestada pelo connect no mesmo fôlego)
+        let btn_c = btn.clone();
         let pulso = pulso.clone();
         btn.connect_clicked(move |_| {
             if rodando.get() {
                 return; // a dose já está no ar — o clique não re-sobe
             }
             rodando.set(true);
-            btn.set_sensitive(false);
-            btn.set_label("Atualizando…");
+            btn_c.set_sensitive(false);
+            btn_c.set_label("Atualizando…");
             pulso.set_visible(true);
             pulso.start();
             janela::executa(&craft_tools::args_atualizacao(), tx.clone());
