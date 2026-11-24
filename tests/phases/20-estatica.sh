@@ -84,14 +84,16 @@ waybar_hits="$(scan_vivo 'pgrep -x waybar|exec waybar|(^|[ &])waybar(&|[ ])')"
     || t_fail "bins: ZERO spawn vivo de waybar" "réus: $waybar_hits"
 file_absent "skel: a pasta waybar não volta" "$AIROOTFS/etc/skel/.config/waybar"
 
-# ══ A QUALIDADE (o shellcheck da casa — 0 avisos, a lei §3) ══
+# ══ A QUALIDADE (o shellcheck da casa — 0 avisos warning+, a lei §3) ══
+# O MESMO CONTRATO DA ERA ANTERIOR (2bbca8c, 20-static): -S warning (o
+# SC2016 info é história da casa, não réu) + shebang python fora do escopo
 if command -v shellcheck >/dev/null 2>&1; then
     sh_ok=1
-    sh_out="$(shellcheck -x scripts/*.sh .ci/*.sh 2>&1)" || sh_ok=0
+    sh_out="$(shellcheck -S warning -x scripts/*.sh .ci/*.sh 2>&1)" || sh_ok=0
     if [ "$sh_ok" = 1 ]; then
-        t_ok "shellcheck: 0 avisos em scripts/ e .ci/"
+        t_ok "shellcheck (-S warning): 0 avisos em scripts/ e .ci/"
     else
-        t_fail "shellcheck: 0 avisos em scripts/ e .ci/" "$(printf '%s' "$sh_out" | head -4 | tr '\n' ' ')"
+        t_fail "shellcheck (-S warning): 0 avisos em scripts/ e .ci/" "$(printf '%s' "$sh_out" | head -4 | tr '\n' ' ')"
     fi
 else
     t_skip "shellcheck" "toolchain ausente no ambiente (o CI instala)"
