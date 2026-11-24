@@ -84,11 +84,9 @@ use gtk4::{gdk, glib};
 // NÃO re-exporta um módulo `gtk` — os widgets moram na RAIZ do crate; o
 // alias abaixo mantém os ~120 caminhos `gtk::` do corpo intactos.
 use gtk4 as gtk;
-// o ActionMap (o add_action do SimpleActionGroup do popover E140) mora
-// na RAIZ do gio (gio::ActionMap — o re-export do auto::action_map; NÃO
-// está no prelude do gio 0.22 e o gtk4::prelude também não o re-exporta
-// — provado no Canal 45302713969, a lição E-auditoria da era E140)
-use gtk4::gio::ActionMap;
+// (2.0 E143-corrige: o import EXPLÍCITO do ActionMap saiu — o Canal 141
+// provou ele REDUNDANTE: o gtk4::prelude desta versão já veste o trait
+// do add_action; a lição E140-corrigido fica na história dos commits)
 // E-auditoria: o gtk4-layer-shell 0.8 NÃO expõe funções livres — a API
 // é o trait LayerShell (init_layer_shell/set_layer/set_anchor/...) e o
 // is_supported continua função livre (re-export da raiz).
@@ -135,17 +133,18 @@ enum Msg {
 
 /// O alvo dos cliques de um botão: um app COM .desktop (pin/dinâmico)
 /// ou um SEM-NOME (raw — AppImage/Steam sem .desktop instalado).
+/// (E143-corrige: os campos hint (App) e name (Raw) saíram — escritos e
+/// nunca lidos, o compilador do Canal nomeou; o tooltip nasce no botão)
 #[derive(Clone)]
 enum Act {
     App {
-        hint: String,
         did: String,
         cmd: String,
         cands: Vec<String>,
         name: String,
     },
     /// O SEM-NOME (AppImage sem .desktop): a chave é o stem do app_id.
-    Raw { key: String, name: String },
+    Raw { key: String },
 }
 
 struct PinRow {
@@ -277,8 +276,10 @@ fn build(app: &gtk::Application) {
 
     // os sinais da casa (W-S-d toggle · reload dos pins)
     unsafe {
-        libc::signal(SIGUSR1, on_signal as libc::sighandler_t);
-        libc::signal(SIGUSR2, on_signal as libc::sighandler_t);
+        // (E143-corrige: o lint function_casts — o salto via ponteiro é o
+        // caminho canônico do novo rustc)
+        libc::signal(SIGUSR1, on_signal as *const () as libc::sighandler_t);
+        libc::signal(SIGUSR2, on_signal as *const () as libc::sighandler_t);
     }
 
     rebuild_pins(&st);
@@ -656,7 +657,6 @@ fn rebuild_pins(st: &Rc<RefCell<State>>) {
             rows.push(PinRow {
                 button: btn,
                 act: Act::App {
-                    hint: hint.clone(),
                     did: entry.id.clone(),
                     cmd: icons::exec_ready(entry),
                     cands: icons::focus_candidates(entry, ""),
@@ -735,7 +735,6 @@ fn make_app_button(st: &Rc<RefCell<State>>, entry: &icons::DesktopEntry, hint: &
         "{name} — esquerdo: focar/abrir · direito: nova sessão · meio: encerrar programa"
     )));
     let act = Act::App {
-        hint: hint.to_string(),
         did: entry.id.clone(),
         cmd: icons::exec_ready(entry),
         cands: icons::focus_candidates(entry, hint),
@@ -989,7 +988,7 @@ fn make_raw_button(st: &Rc<RefCell<State>>, key: &str, name: &str) -> gtk::Butto
     btn.set_tooltip_text(Some(&format!(
         "{name} — esquerdo: focar/ciclar · direito: nova sessão · meio: encerrar"
     )));
-    wire_clicks(st, &btn, Act::Raw { key: key.to_string(), name: name.to_string() });
+    wire_clicks(st, &btn, Act::Raw { key: key.to_string() });
     btn
 }
 

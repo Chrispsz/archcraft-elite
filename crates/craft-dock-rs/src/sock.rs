@@ -24,7 +24,6 @@
 use std::collections::HashMap;
 use std::os::unix::net::UnixStream;
 use std::path::Path;
-use std::time::Duration;
 
 /// Flags do protocolo (o mapa do daemon — ver cabeçalho).
 /// (F_MAXIMIZED saiu na 2.0: réu E76 — nenhum leitor na árvore inteira,
@@ -88,6 +87,9 @@ pub fn de_bus_windows(windows: &[elite_core::WindowInfo]) -> Snapshot {
 /// v2.10 — as 3 formas canônicas de um candidato (original, minúscula,
 /// título): o match do wlrctl era exato e case-sensitive ("Brave-
 /// browser" nunca casava com "brave-browser"). Dedup na ordem.
+/// (2.0 E143-corrige: a gramática só veste os TESTES de casamento —
+/// a casa em produção casa pelo norm/resolve; cfg(test) com voz)
+#[cfg(test)]
 pub fn case_variants(c: &str) -> Vec<String> {
     let mut out: Vec<String> = Vec::new();
     for v in [c.to_string(), c.to_lowercase(), title_case(c)] {
@@ -110,6 +112,8 @@ pub fn norm(s: &str) -> String {
 }
 
 /// O title() do Python (cada palavra capitalizada, resto minúsculo).
+/// (idem E143-corrige: só veste os testes da gramática)
+#[cfg(test)]
 fn title_case(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     let mut cap = true;
@@ -549,7 +553,7 @@ mod tests {
         // Windows publicado (a remoção instantânea da Fase 2)
         let (_bg, rx_bg) = BusClient::connect(&sock, "craft-dock-rs-bg").unwrap();
         srv_bg.broadcast(&BusMsg::Windows { windows: vec![] });
-        let msg = rx_bg.recv_timeout(Duration::from_secs(2)).unwrap();
+        let msg = rx_bg.recv_timeout(std::time::Duration::from_secs(2)).unwrap();
         assert!(matches!(msg, BusMsg::Windows { .. }), "chegou {msg:?}");
         // socket ausente: None honesto (a dock nunca depende dele)
         assert!(ToplevelClient::connect(&dir.join("nao-existe.sock")).is_none());

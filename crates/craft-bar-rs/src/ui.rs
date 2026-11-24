@@ -38,7 +38,7 @@
 //     apanhava disso).
 use crate::state::{
     bt_ligado, civil_de_dias, dia_semana, dentro_janela_ms, estado_rede_nmcli, essid_nmcli,
-    glifo_mic, glifo_rede, glifo_volume, json_text, json_tooltip, le_bateria, agora_epoch,
+    glifo_mic, glifo_rede, glifo_volume, json_text, le_bateria, agora_epoch,
     media_pill, parse_volume_wpctl, relogio_ptbr, titulo_foco, tooltip_rede, workspace_pills,
     EstadoRede,
 };
@@ -55,10 +55,6 @@ use std::time::{Duration, Instant};
 
 use gtk4::prelude::*;
 use gtk4::{gdk, glib};
-// o ActionMap (o add_action do SimpleActionGroup) mora na RAIZ do gio
-// (gio::ActionMap — o re-export do auto::action_map; NÃO está no prelude
-// do gio 0.22 nem no gtk4::prelude — provado no Canal 45302713969)
-use gtk4::gio::ActionMap;
 use gtk4 as gtk;
 use gtk4_layer_shell::LayerShell;
 
@@ -486,7 +482,6 @@ fn build(app: &gtk::Application) {
         btn_bat.set_has_frame(false);
         btn_bat.set_tooltip_text(Some("Bateria — clique: o resumo falado"));
         {
-            let st = st.clone();
             clique_solto(&btn_bat, move |botao| {
                 if botao == 1 {
                     solta(&["craft-bat"]);
@@ -739,7 +734,7 @@ fn drena(st: &Rc<RefCell<State>>, rx: &Receiver<Msg>, tx: &Sender<Msg>) {
 fn aplica(st: &Rc<RefCell<State>>, msg: Msg) {
     match msg {
         Msg::Audio(par) => {
-            let mut s = st.borrow_mut();
+            let s = st.borrow_mut();
             if let Some((v, m)) = par {
                 s.btn_audio.set_label(glifo_volume(v, m));
                 if m {
@@ -755,7 +750,7 @@ fn aplica(st: &Rc<RefCell<State>>, msg: Msg) {
             }
         }
         Msg::Mic(par) => {
-            let mut s = st.borrow_mut();
+            let s = st.borrow_mut();
             if let Some((v, m)) = par {
                 s.btn_mic.set_label(glifo_mic(m));
                 if m {
@@ -779,7 +774,7 @@ fn aplica(st: &Rc<RefCell<State>>, msg: Msg) {
                 .set_tooltip_text(Some(&tooltip_rede(estado, essid.as_deref())));
         }
         Msg::Bt(estado) => {
-            let mut s = st.borrow_mut();
+            let s = st.borrow_mut();
             match estado {
                 Some(true) => {
                     s.btn_bt.remove_css_class("off");
@@ -796,7 +791,7 @@ fn aplica(st: &Rc<RefCell<State>>, msg: Msg) {
             }
         }
         Msg::Player(dados) => {
-            let mut s = st.borrow_mut();
+            let s = st.borrow_mut();
             match dados {
                 Some((txt, tip)) => {
                     s.player_label.set_text(&txt);
@@ -808,7 +803,7 @@ fn aplica(st: &Rc<RefCell<State>>, msg: Msg) {
         }
         Msg::Media(m) => {
             // 2.0 — o MPRIS pelo fio: o estado tipado vira pill
-            let mut s = st.borrow_mut();
+            let s = st.borrow_mut();
             match m.as_ref().and_then(media_pill) {
                 Some((txt, tip)) => {
                     s.player_label.set_text(&txt);
@@ -853,12 +848,12 @@ fn aplica(st: &Rc<RefCell<State>>, msg: Msg) {
             }
         }
         Msg::Foco(titulo) => {
-            let mut s = st.borrow_mut();
+            let s = st.borrow_mut();
             s.titulo_lbl.set_text(&titulo);
             s.titulo_lbl.set_visible(!titulo.is_empty());
         }
         Msg::BusGame(ativa) => {
-            let mut s = st.borrow_mut();
+            let s = st.borrow_mut();
             s.btn_game.set_visible(ativa);
         }
         Msg::Bus(cli) => {
@@ -866,11 +861,11 @@ fn aplica(st: &Rc<RefCell<State>>, msg: Msg) {
             *st.borrow_mut().bus_cli.borrow_mut() = Some(cli);
         }
         Msg::Game(txt) => {
-            let mut s = st.borrow_mut();
+            let s = st.borrow_mut();
             s.btn_game.set_visible(txt.is_some());
         }
         Msg::Bgapps(txt) => {
-            let mut s = st.borrow_mut();
+            let s = st.borrow_mut();
             match txt {
                 Some(t) => {
                     s.btn_bgapps.set_label(&t);

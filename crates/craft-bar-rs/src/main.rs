@@ -170,7 +170,7 @@ fn main() {
     }
     // 2.0 — sem gui, a mensagem honesta nomeia o fio da sessão (o contrato
     // do elite-core): onde a barra assina quando a gui existir
-    let uid = crate::state::uid_do_processo();
+    let uid = current_uid();
     println!(
         "elite-core: o bus da sessão vive em {:?}",
         elite_core::bus_sock_path(uid)
