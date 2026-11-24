@@ -88,6 +88,7 @@ pub fn windows_mru() -> Vec<WindowInfo> {
                 title: if r.title.is_empty() { None } else { Some(r.title.clone()) },
                 focused: r.focused,
                 minimized: r.minimized,
+                fullscreen: r.fullscreen,
             })
         })
         .collect()

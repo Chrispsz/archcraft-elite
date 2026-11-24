@@ -67,7 +67,7 @@
 //   press×click duplicava o verbo) e a assinatura EVT não falece por
 //   silêncio (timeout ≠ queda — zero espaço preto no fecho).
 use crate::{appicon_cache_dir, css_path, icons, log, pins_path, procapp, read_pins, sock,
-            toplevel_sock, VERSION};
+            bus_sock, VERSION};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::os::unix::process::CommandExt;
@@ -250,7 +250,7 @@ fn build(app: &gtk::Application) {
     // nasce ANTES do spawn e a thread fica com a cópia dona.
     let (tx, rx) = std::sync::mpsc::channel::<Msg>();
     let tx_bg = tx.clone();
-    std::thread::spawn(move || bg_reader(toplevel_sock(), tx_bg));
+    std::thread::spawn(move || bg_reader(bus_sock(), tx_bg));
 
     let st = Rc::new(RefCell::new(State {
         window,
@@ -330,76 +330,31 @@ fn build(app: &gtk::Application) {
 /// erro REAL são queda — o evento chega com latência ~0 e o dreno de
 /// 50ms remonta a pílula no mesmo frame do olho.
 fn bg_reader(sock_path: PathBuf, tx: Sender<Msg>) {
-    let mut evt: Option<std::os::unix::net::UnixStream> = None;
-    let mut last_list = Instant::now()
-        .checked_sub(Duration::from_secs(TICK_S + 1))
-        .unwrap_or_else(Instant::now);
-    // E135 — O BACKOFF DA RECONEXÃO (a ordem do dono: o fallback lento
-    // morre — a reconexão é exponencial 5ms → 20ms → 100ms, teto na
-    // lei; daemon vivo de volta = canal EVT vivo em ≤100ms)
-    let mut back = 5u64;
+    // 2.0 — A ASSINATURA DO BUS VIVO: o BusClient da fundação conecta,
+    // se apresenta ("craft-dock-rs") e lê QUADROS PARA SEMPRE com a
+    // reconexão honesta 5→20→100ms E135 EMBUTIDA (o daemon renasce, a
+    // dock reaparece — o Hello novo arranca as boas-vindas com o
+    // snapshot inteiro). Cada `Windows` publicado vira Snapshot no
+    // canal: o botão da janela que FECHOU some NO MESMO frame do evento
+    // (a fonte é o compositor — zero tick de segurança, zero espaço
+    // preto; o TCL de 5s morreu: o fio é push de verdade).
     loop {
-        // (re)conecta o canal de eventos — daemon ausente custa o backoff
-        if evt.is_none() {
-            match std::os::unix::net::UnixStream::connect(&sock_path) {
-                Ok(mut s) => {
-                    if sock::evt_handshake(&mut s) {
-                        let _ = s.set_read_timeout(Some(Duration::from_millis(200)));
-                        evt = Some(s);
-                        back = 5;
+        if let Some((_cli, rx)) = elite_core::bus::BusClient::connect(&sock_path, "craft-dock-rs") {
+            for msg in rx {
+                match msg {
+                    elite_core::BusMsg::Windows { windows } => {
+                        let snap = sock::de_bus_windows(&windows);
+                        if tx.send(Msg::Snapshot(Some(snap))).is_err() {
+                            return; // a UI morreu: a thread vai junto
+                        }
                     }
-                }
-                Err(_) => {
-                    std::thread::sleep(Duration::from_millis(back));
-                    back = (back * 4).min(100);
+                    _ => {} // os estados dos outros domínios não são da dock
                 }
             }
         }
-        let mut forced = false;
-        if let Some(s) = evt.as_mut() {
-            let mut buf = [0u8; 4096];
-            match std::io::Read::read(s, &mut buf) {
-                Ok(0) => {
-                    evt = None; // o daemon fechou: o giro seguinte reconecta
-                }
-                Err(e)
-                    if e.kind() == std::io::ErrorKind::WouldBlock
-                        || e.kind() == std::io::ErrorKind::TimedOut =>
-                {
-                    // E140 — TIMEOUT NÃO É QUEDA: a assinatura VIVE — o
-                    // próximo evento acorda EXATAMENTE aqui (sem
-                    // flap de reconexão, sem vão de 100ms)
-                }
-                Err(_) => {
-                    evt = None; // erro real: reconecta com o backoff
-                    std::thread::sleep(Duration::from_millis(back));
-                    back = (back * 4).min(100);
-                }
-                Ok(n) => {
-                    if sock::is_event(&buf[..n]) {
-                        forced = true; // mudança de janelas: LIST NA HORA
-                    }
-                }
-            }
-        }
-        if last_list.elapsed() >= Duration::from_secs(TICK_S) || forced {
-            let msg = match sock::ToplevelClient::connect(&sock_path)
-                .as_mut()
-                .and_then(|c| c.list())
-            {
-                Some(snap) => Msg::Snapshot(Some(snap)),
-                None => Msg::Snapshot(None), // transporte morto (a graça decide)
-            };
-            if tx.send(msg).is_err() {
-                return; // a UI morreu: a thread vai junto
-            }
-            last_list = Instant::now();
-        }
-        // conectado, o read de 200ms É o sono (a thread não frita a
-        // CPU com polling); desconectado, o backoff acima já dormiu
-        if evt.is_some() {
-            std::thread::sleep(Duration::from_millis(20));
-        }
+        // daemon ausente: o backoff de 100ms do BusClient já segurou a
+        // pressão; aqui um respiro maior evita a fila de reconexões
+        std::thread::sleep(Duration::from_millis(300));
     }
 }
 
@@ -539,7 +494,7 @@ fn reap_children(s: &mut State) {
             Ok(Some(_)) => {
                 if let Some(k) = &key {
                     // E101 (1) — a LIST fresca: mapeou na corrida?
-                    let mapped = sock::ToplevelClient::connect(&toplevel_sock())
+                    let mapped = sock::ToplevelClient::connect(&bus_sock())
                         .as_mut()
                         .and_then(|c| c.list())
                         .map(|snap| sock::key_mapped(&snap, k))
@@ -1238,7 +1193,7 @@ fn dismiss_overlays() {
 /// µs — a conexão PERSISTENTE é da thread de fundo; os verbos da UI
 /// usam a própria, curta e à prova de daemon morto).
 fn with_client<T>(f: impl FnOnce(&mut sock::ToplevelClient) -> T) -> Option<T> {
-    let mut c = sock::ToplevelClient::connect(&toplevel_sock())?;
+    let mut c = sock::ToplevelClient::connect(&bus_sock())?;
     Some(f(&mut c))
 }
 

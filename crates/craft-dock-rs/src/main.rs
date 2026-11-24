@@ -152,14 +152,16 @@ pub fn exeicon_cache_dir() -> PathBuf {
     cache_dir().join("elite/exe-icons")
 }
 
-/// $XDG_RUNTIME_DIR/elite/toplevel.sock (o socket do craft-toplevel).
-pub fn toplevel_sock() -> PathBuf {
+/// 2.0 — $XDG_RUNTIME_DIR/elite/bus.sock (O FIO VIVO do elite-daemon:
+/// o toplevel.sock morreu com o craft-toplevel.c — a dock assina o bus
+/// e os verbos viajam por Req/Ack).
+pub fn bus_sock() -> PathBuf {
     std::env::var_os("XDG_RUNTIME_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|| {
             format!("/run/user/{}", procapp::current_uid()).into()
         })
-        .join("elite/toplevel.sock")
+        .join("elite/bus.sock")
 }
 
 /// A evidência append-only no dock.log (teto 1 MiB — recente vale
@@ -273,7 +275,7 @@ mod tests {
         assert!(log_path().ends_with("elite/dock.log"));
         assert!(appicon_cache_dir().ends_with("elite/appimage-icons"));
         assert!(exeicon_cache_dir().ends_with("elite/exe-icons"));
-        assert!(toplevel_sock().ends_with("elite/toplevel.sock"));
+        assert!(bus_sock().ends_with("elite/bus.sock"));
     }
 
     #[test]

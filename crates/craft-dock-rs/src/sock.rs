@@ -1,27 +1,29 @@
-// ELITE · craft-dock-rs — sock.rs (E132). O protocolo do craft-toplevel
-// (vendor/craft-toplevel.c): a sessão de janelas REAIS servida linha a
-// linha no toplevel.sock, e a GRAMÁTICA DE CASAMENTO da casa.
+// ELITE · craft-dock-rs — sock.rs (2.0 Fase 2). O CLIENTE DO BUS VIVO:
+// o fio da dock é o /run/user/$UID/elite/bus.sock do elite-daemon (o
+// toplevel.sock do craft-toplevel.c morreu com o binário de C). O
+// protocolo no fio é o quadro da casa (4B LE + JSON da BusMsg) e a
+// LÍNGUA é a do elite-core: Windows (a ORDEM é o anel MRU — o rank
+// da dock nasce do índice), Req::Activate/Minimize/Close por id e o
+// Ack que ecoa o pedido.
 //
-// O porto do craft-dock-gui v2.10.26/E38:
-//   · LIST → "W|id|flags|rank|app_id|title"… + "OK|<focada>" — o
-//     snapshot com o anel MRU do alt-tab (rank 0 = topo);
-//   · ACT <id> / MIN <id> / CLOSE <id> — foco/restauro, o toggle de
-//     minimizar (E89) e o WM_DELETE gracioso, POR ID (fim da
-//     adivinhação de capitalização do wlrctl);
-//   · EVT ON → "EVT" a cada batch de mudanças (o CANAL DE PUSH — a
-//     leitura ASSÍNCRONA do toplevel.sock que o dono ordenou: uma
-//     thread de fundo dorme no read e o MainContext acorda a UI).
+// O PORTO DA DOCK v2:
+//   · a THREAD DE FUNDO da UI (ui.rs) assina o bus com o BusClient da
+//     fundação (Hello + reconexão 5→20→100ms E135 embutida): cada
+//     `Windows` publicado vira Snapshot no canal mpsc — o botão da
+//     janela que FECHOU some NO MESMO frame (o evento chega da fonte);
+//   · os VERBES do clique são clientes CURTOS (connect a unix socket
+//     custa µs — a gramática da casa desde o C): Hello + Req + Ack,
+//     morte em 1s — a LIST fresca no clique (a prova E135) e o verbo
+//     confirmado são round-trips síncronos de verdade.
 //
-// As flags do protocolo (o mapa completo, v2.10.26): 1=maximized ·
-// 2=minimized · 4=activated · 8=fullscreen.
-//
-// Tudo aqui é std-only (UnixStream) e TESTADO com um daemon FALSO em
-// temp dir — o parsing é função pura, o cliente fala com um listener
-// de mentira que responde o payload da casa.
+// As flags da casa seguem (1=maximized saiu na 2.0 réu E76 · 2=minimized
+// · 4=activated · 8=fullscreen) e a GRAMÁTICA DE CASAMENTO é a mesma
+// de sempre (a inteligência da dock não mudou de endereço).
+// Tudo aqui é std-only e TESTADO contra um daemon FALSO que fala o
+// protocolo do bus (o parsing é função pura).
 use std::collections::HashMap;
-use std::io::{Read, Write};
 use std::os::unix::net::UnixStream;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::time::Duration;
 
 /// Flags do protocolo (o mapa do daemon — ver cabeçalho).
@@ -49,44 +51,36 @@ pub struct Snapshot {
     pub focused: u64,
 }
 
-/// Parseia as linhas de resposta do LIST (puro — o teste alimenta o
-/// payload da casa direto). O título admite '|' (splitn de 6: o resto
-/// é título, como no Python). "OK|<id>" fecha com a focada.
-pub fn parse_list(lines: &[String]) -> Snapshot {
+/// Converte o `Windows` do bus em Snapshot da dock (puro — o teste
+/// alimenta a lista da casa direto). A ORDEM é o anel MRU (índice 0 =
+/// topo): o rank nasce da posição; a focada é a flag; o título vazio
+/// do bus (None) vira string vazia (a gramática interna da dock).
+pub fn de_bus_windows(windows: &[elite_core::WindowInfo]) -> Snapshot {
     let mut snap = Snapshot::default();
-    for line in lines {
-        if line.starts_with("W|") {
-            let parts: Vec<&str> = line.splitn(6, '|').collect();
-            if parts.len() == 6 {
-                if let (Ok(id), Ok(flags), Ok(rank)) =
-                    (parts[1].parse(), parts[2].parse(), parts[3].parse())
-                {
-                    snap.windows.insert(
-                        id,
-                        WindowEntry {
-                            id,
-                            flags,
-                            rank,
-                            app_id: parts[4].to_string(),
-                            title: parts[5].to_string(),
-                        },
-                    );
-                    continue;
-                }
-            }
-        } else if let Some(rest) = line.strip_prefix("OK|") {
-            if let Ok(f) = rest.trim().parse() {
-                snap.focused = f;
-            }
+    for (rank, w) in windows.iter().enumerate() {
+        let mut flags = 0u32;
+        if w.minimized {
+            flags |= F_MINIMIZED;
         }
+        if w.focused {
+            flags |= F_ACTIVATED;
+            snap.focused = w.id as u64;
+        }
+        if w.fullscreen {
+            flags |= F_FULLSCREEN;
+        }
+        snap.windows.insert(
+            w.id as u64,
+            WindowEntry {
+                id: w.id as u64,
+                flags,
+                rank: rank as u32,
+                app_id: w.app_id.clone(),
+                title: w.title.clone().unwrap_or_default(),
+            },
+        );
     }
     snap
-}
-
-/// O byte do daemon é um EVENTO de mudança de janelas? (o canal EVT —
-/// "EVT" em qualquer ponto do buffer acordado pela thread de fundo).
-pub fn is_event(data: &[u8]) -> bool {
-    data.windows(3).any(|w| w == b"EVT")
 }
 
 // ── a gramática de casamento da casa (v2.10.0→v2.10.6) ────────────────
@@ -273,112 +267,125 @@ pub fn key_mapped(snap: &Snapshot, key: &str) -> bool {
     false
 }
 
-// ── o cliente (std-only — o UnixStream da casa, SEM GTK) ──────────────
+// ── o cliente dos VERBES (std-only — curto, Hello+Req+Ack) ───────────
 
-/// Um pedido linha-a-linha com o daemon, resposta = linhas até
-/// OK*/ERR*/PONG. O _tl_cmd do Python: timeout de 1s, conexão
-/// persistente mantida por quem chama (a thread de fundo da UI).
-pub fn cmd_on(stream: &mut UnixStream, cmd: &str) -> Option<Vec<String>> {
-    let _ = stream.set_read_timeout(Some(Duration::from_secs(1)));
-    stream.write_all(format!("{cmd}\n").as_bytes()).ok()?;
-    let mut buf: Vec<u8> = Vec::new();
-    let mut chunk = [0u8; 4096];
-    loop {
-        let n = stream.read(&mut chunk).ok()?;
-        if n == 0 {
-            return None; // daemon fechou
-        }
-        buf.extend_from_slice(&chunk[..n]);
-        // resposta completa = termina em \n e a última linha é terminal
-        if buf.ends_with(b"\n") {
-            let lines: Vec<String> = buf
-                .split(|&b| b == b'\n')
-                .filter(|l| !l.is_empty())
-                .map(|l| String::from_utf8_lossy(l).into_owned())
-                .collect();
-            if let Some(last) = lines.last() {
-                if last.starts_with("OK") || last.starts_with("ERR") || last.starts_with("PONG") {
-                    return Some(lines);
-                }
-            }
-        }
-    }
-}
-
-/// O cliente do toplevel.sock (a gramática por-comando da casa). Morreu?
-/// O chamador reconstrói — a dock NUNCA depende dele.
+/// O cliente de VERBO da dock: UMA conexão curta que se apresenta,
+/// pede e espera o eco (a gramática da casa desde o C: conectar por
+/// comando custa µs; a conexão PERSISTENTE é da thread de fundo).
+/// O leitor é UMA thread de mentira de 1s de vida: lê os quadros do
+/// daemon (boas-vindas + Ack) e entrega no canal; o dono do round-trip
+/// filtra o que quer (Windows para a LIST, Ack para o verbo).
 pub struct ToplevelClient {
-    path: PathBuf,
+    out: UnixStream,
+    rx: std::sync::mpsc::Receiver<elite_core::BusMsg>,
+    next_id: u32,
 }
+
+/// o tempo de vida do round-trip (o clique não espera nada além disso).
+const RT_MS: u64 = 1000;
 
 impl ToplevelClient {
     pub fn connect(path: &Path) -> Option<Self> {
-        // a conexão é POR COMANDO (o molde do client Python: conecta,
-        // pede, lê, fecha — o daemon-toplevel atende cada pedido numa
-        // conexão própria). AQUI só se guarda o caminho: conectar sem
-        // pedir consumiria um atendimento do daemon à toa.
-        if !path.exists() {
-            return None;
-        }
-        Some(Self { path: path.to_path_buf() })
+        let mut stream = elite_core::ipc::connect_bus(path)?;
+        elite_core::ipc::send_frame(
+            &mut stream,
+            &elite_core::BusMsg::Hello { who: "craft-dock-rs".into() },
+        )
+        .ok()?;
+        let (tx, rx) = std::sync::mpsc::channel::<elite_core::BusMsg>();
+        let mut leitor = stream.try_clone().ok()?;
+        std::thread::spawn(move || {
+            // o leitor do round-trip: vive enquanto alguém drena o canal
+            // (o dono sai em ≤1s; o daemon morto fecha o fio sozinho)
+            loop {
+                match elite_core::ipc::recv_frame(&mut leitor) {
+                    Ok(Some(msg)) => {
+                        if tx.send(msg).is_err() {
+                            return;
+                        }
+                    }
+                    _ => return,
+                }
+            }
+        });
+        Some(Self { out: stream, rx, next_id: 1 })
     }
 
-    /// Um pedido qualquer (linhas cruas da resposta) — UMA conexão nova
-    /// por comando (a gramática do daemon: LIST/ACT/MIN/CLOSE vivem em
-    /// conexões independentes).
-    pub fn cmd(&mut self, cmd: &str) -> Option<Vec<String>> {
-        let mut s = UnixStream::connect(&self.path).ok()?;
-        cmd_on(&mut s, cmd)
+    fn pede(&mut self, req: elite_core::BusReq) -> Option<u32> {
+        let id = self.next_id;
+        self.next_id += 1;
+        elite_core::ipc::send_frame(
+            &mut self.out,
+            &elite_core::BusMsg::Req { id, req },
+        )
+        .ok()?;
+        Some(id)
     }
 
-    /// LIST → snapshot (None = transporte morto; vazio VÁLIDO é Some).
+    /// LIST (a prova fresca do clique E135): espera o Windows do
+    /// snapshot (as boas-vindas do Hello já contêm — o Req::Snapshot é
+    /// o cinto para o daemon de era nova que demora na cortesia).
     pub fn list(&mut self) -> Option<Snapshot> {
-        self.cmd("LIST").map(|lines| parse_list(&lines))
+        let _ = self.pede(elite_core::BusReq::Snapshot)?;
+        let limite = std::time::Duration::from_millis(RT_MS);
+        let inicio = std::time::Instant::now();
+        while inicio.elapsed() < limite {
+            match self.rx.recv_timeout(std::time::Duration::from_millis(100)) {
+                Ok(elite_core::BusMsg::Windows { windows }) => {
+                    return Some(de_bus_windows(&windows));
+                }
+                Ok(_) => continue, // boas-vindas demais: segue pescando
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => continue,
+                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => return None,
+            }
+        }
+        None
     }
 
-    /// Foco/restauro POR ID (unset_minimized + activate no daemon).
+    /// o verbo confirmado (o Ack ecoa o id; o efeito mora no snapshot
+    /// que o bus publica a seguir — a fonte da verdade é sempre ela).
+    fn verbo(&mut self, req: elite_core::BusReq) -> bool {
+        let Some(id) = self.pede(req) else { return false };
+        let limite = std::time::Duration::from_millis(RT_MS);
+        let inicio = std::time::Instant::now();
+        while inicio.elapsed() < limite {
+            match self.rx.recv_timeout(std::time::Duration::from_millis(100)) {
+                Ok(elite_core::BusMsg::Ack { id: eco, ok }) => {
+                    // Ack de pedidos ANTERIORES (o Snapshot do list) é
+                    // ruído honesto de fila: o eco que vale é o MEU id
+                    if eco == id {
+                        return ok;
+                    }
+                }
+                Ok(_) => continue,
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => continue,
+                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => return false,
+            }
+        }
+        false
+    }
+
+    /// Foco/restauro POR ID (activate + unset_minimized no daemon).
     pub fn act(&mut self, id: u64) -> bool {
-        self.ok(&format!("ACT {id}"))
+        self.verbo(elite_core::BusReq::Activate { id: id as u32 })
     }
 
-    /// E89 — o toggle: MIN por id (set_minimized; o 2º clique no app
-    /// focado minimiza, a gramática de toda dock do mundo).
+    /// o toggle: MIN por id (o 2º clique no app focado minimiza).
     pub fn min(&mut self, id: u64) -> bool {
-        self.ok(&format!("MIN {id}"))
+        self.verbo(elite_core::BusReq::Minimize { id: id as u32 })
     }
 
-    /// CLOSE por id (WM_DELETE gracioso — o app confirma se tiver o
-    /// que salvar).
+    /// CLOSE por id (o WM_DELETE gracioso — o clique do meio da dock).
     pub fn close_win(&mut self, id: u64) -> bool {
-        self.ok(&format!("CLOSE {id}"))
-    }
-
-    fn ok(&mut self, cmd: &str) -> bool {
-        self.cmd(cmd)
-            .map(|out| out.last().map(|l| l.starts_with("OK")).unwrap_or(false))
-            .unwrap_or(false)
-    }
-}
-
-/// E38 — o handshake do CANAL DE EVENTOS: "EVT ON\n" → "OK" (daemon
-/// velho responde outra coisa: o chamador fecha e segue no tick — a
-/// lei do fallback nunca depende de recurso novo).
-pub fn evt_handshake(stream: &mut UnixStream) -> bool {
-    let _ = stream.set_read_timeout(Some(Duration::from_millis(500)));
-    if stream.write_all(b"EVT ON\n").is_err() {
-        return false;
-    }
-    let mut buf = [0u8; 64];
-    match stream.read(&mut buf) {
-        Ok(n) if n > 0 => buf.starts_with(b"OK"),
-        _ => false,
+        self.verbo(elite_core::BusReq::Close { id: id as u32 })
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::os::unix::net::UnixListener;
+    use elite_core::bus::{BusClient, BusServer, Incoming};
+    use elite_core::{BusMsg, BusReq, WindowInfo};
     use std::path::PathBuf;
 
     fn tmpdir(tag: &str) -> PathBuf {
@@ -388,55 +395,57 @@ mod tests {
         d
     }
 
-    fn sample_lines() -> Vec<String> {
+    /// o WINDOWS de amostra da casa (a ordem é o anel MRU: 0 = topo).
+    fn sample_windows() -> Vec<WindowInfo> {
         vec![
-            "W|10|4|0|io.github.kolunmi.Bazaar|Bazaar — downloads".into(),
-            "W|11|0|1|foot|foot".into(),
-            // título com PIPE: o splitn(6) preserva o resto como título
-            "W|12|2|2|thunar|Arquivos — a|b|c".into(),
-            "W|lixo|1|1|x|y".into(), // id inválido: linha ignorada
-            "OK|10".into(),
+            WindowInfo { id: 10, app_id: "io.github.kolunmi.Bazaar".into(), title: Some("Bazaar — downloads".into()), focused: true, minimized: false, fullscreen: false },
+            WindowInfo { id: 11, app_id: "foot".into(), title: Some("foot".into()), focused: false, minimized: false, fullscreen: false },
+            WindowInfo { id: 12, app_id: "thunar".into(), title: Some("Arquivos — a|b|c".into()), focused: false, minimized: true, fullscreen: true },
         ]
     }
 
     #[test]
-    fn parse_do_list_da_casa() {
-        let snap = parse_list(&sample_lines());
+    fn o_windows_do_bus_vira_o_snapshot_da_dock() {
+        let snap = de_bus_windows(&sample_windows());
         assert_eq!(snap.windows.len(), 3);
         assert_eq!(snap.focused, 10);
         let b = &snap.windows[&10];
         assert_eq!(b.app_id, "io.github.kolunmi.Bazaar");
         assert_eq!(b.flags, F_ACTIVATED);
-        assert_eq!(b.rank, 0);
+        assert_eq!(b.rank, 0); // índice 0 = topo do MRU
+        let f = &snap.windows[&11];
+        assert_eq!(f.rank, 1);
         let t = &snap.windows[&12];
-        assert_eq!(t.title, "Arquivos — a|b|c"); // o pipe fica no título
-        assert_eq!(t.flags, F_MINIMIZED);
+        // o título com PIPE segue inteiro (None/Some é do fio, a dock
+        // vive de String)
+        assert_eq!(t.title, "Arquivos — a|b|c");
+        assert_eq!(t.flags, F_MINIMIZED | F_FULLSCREEN);
         // LIST vazio VÁLIDO: focada 0, sem janelas (a graça do vazio E71
         // mora em QUEM aplica o snapshot, não no parse)
-        let vazio = parse_list(&["OK|0".to_string()]);
+        let vazio = de_bus_windows(&[]);
         assert!(vazio.windows.is_empty());
         assert_eq!(vazio.focused, 0);
+        // o título None do fio vira vazio (a gramática interna)
+        let sem_titulo = de_bus_windows(&[WindowInfo { id: 1, app_id: "x".into(), title: None, focused: false, minimized: false, fullscreen: false }]);
+        assert_eq!(sem_titulo.windows[&1].title, "");
     }
 
     #[test]
-    fn evt_e_as_formas_canonicas() {
-        assert!(is_event(b"OK\nEVT\n"));
-        assert!(is_event(b"EVT"));
-        assert!(!is_event(b"W|1|0|0|foot|foot\nOK|1\n"));
+    fn as_formas_canonicas_do_casamento_seguinto_intactas() {
         assert_eq!(
             case_variants("brave-browser"),
             vec!["brave-browser", "Brave-Browser"]
         );
-        assert_eq!(
-            case_variants("foot"),
-            vec!["foot", "Foot"]
-        );
+        assert_eq!(case_variants("foot"), vec!["foot", "Foot"]);
+        assert!(near_match("brave", "brave-browser"));
+        assert!(near_match("brave-browser-stable", "brave"));
+        assert!(!near_match("foot", "footclient"));
+        assert!(!near_match("ab", "abc"));
     }
 
     #[test]
     fn near_match_com_fronteira() {
         assert!(near_match("brave", "brave-browser"));
-        assert!(near_match("brave-browser-stable", "brave")); // dois sentidos
         assert!(!near_match("foot", "footclient")); // letra colada
         assert!(!near_match("ab", "abc")); // <4 chars
     }
@@ -447,29 +456,18 @@ mod tests {
         // "hydra-plus" — '_' e '-' são O MESMO traço no casamento
         assert_eq!(norm("Hydra_Plus"), "hydra-plus");
         assert_eq!(norm("hydra-plus"), "hydra-plus");
-        // o snapshot de mentira com a janela do Hydra
-        let linhas: Vec<String> = vec![
-            "W|77|4|0|hydra-plus|Hydra".into(),
-            "OK|77".into(),
-        ];
-        let snap = parse_list(&linhas);
-        // o stem do pin (hydra_plus) casa a janela (hydra-plus) —
-        // pin + aberto são UM botão só (o exato normativo)
+        let snap = de_bus_windows(&[WindowInfo { id: 77, app_id: "hydra-plus".into(), title: Some("Hydra".into()), focused: true, minimized: false, fullscreen: false }]);
         let cands = vec!["hydra_plus".to_string()];
         assert_eq!(windows_of_key(&snap, &cands, "", true), vec![77]);
-        // o raw idem: a chave do comm com '_' veste o app_id com '-'
         assert_eq!(raw_windows(&snap, "hydra_plus", true), vec![77]);
-        // e o guard do lançamento mapeia pelo desktop-id com '_'
         assert!(key_mapped(&snap, "hydra_plus.desktop"));
-        // a NORMA não dissolve apps diferentes: foot ≠ foot-client no
-        // exato (o near com fronteira continua sendo a única ponte)
         assert_eq!(norm("foot"), "foot");
         assert!(windows_of_key(&snap, &["foot".to_string()], "", true).is_empty());
     }
 
     #[test]
     fn janelas_do_app_no_snapshot() {
-        let snap = parse_list(&sample_lines());
+        let snap = de_bus_windows(&sample_windows());
         // o Bazaar do Flatpak: o app_id COMPLETO e o stem "bazaar" casam
         let cands = vec!["bazaar".to_string()];
         assert_eq!(windows_of_key(&snap, &cands, "", true), vec![10]);
@@ -493,7 +491,7 @@ mod tests {
 
     #[test]
     fn ciclo_do_anel_por_id() {
-        let snap = parse_list(&sample_lines());
+        let snap = de_bus_windows(&sample_windows());
         let wids = vec![10u64, 11, 12];
         // sem memória: a focada (10, flag activated)
         assert_eq!(cycle_next(&snap, &wids, None), Some(10));
@@ -505,64 +503,56 @@ mod tests {
         assert_eq!(cycle_next(&snap, &[], Some(1)), None);
     }
 
+    /// O DAEMON FALSO que fala o protocolo do bus: Hello → boas-vindas
+    /// (Windows) + Req → Ack (o circuito inteiro da Fase 2 em miniatura).
     #[test]
-    fn cliente_contra_o_daemon_falso() {
-        let dir = tmpdir("mock");
-        let sock = dir.join("toplevel.sock");
-        let listener = UnixListener::bind(&sock).unwrap();
-        let servidor = std::thread::spawn(move || {
-            // um atendimento POR conexão (a gramática do client: cada
-            // comando vive numa conexão própria — LIST, ACT, MIN, CLOSE)
-            for _ in 0..4 {
-                let Ok((mut conn, _)) = listener.accept() else { break };
-                let mut buf = [0u8; 256];
-                let n = conn.read(&mut buf).unwrap();
-                let pedido = String::from_utf8_lossy(&buf[..n]).trim().to_string();
-                let resposta = if pedido == "LIST" {
-                    let mut s = String::new();
-                    for l in sample_lines() {
-                        s.push_str(&l);
-                        s.push('\n');
+    fn cliente_contra_o_daemon_falso_do_bus() {
+        let dir = tmpdir("bus");
+        let sock = dir.join("bus.sock");
+        let (srv, rx_nucleo) = BusServer::start(&sock).unwrap();
+        let srv_bg = std::sync::Arc::clone(&srv);
+        // o núcleo de mentira: boas-vindas com o snapshot + eco dos verbos
+        std::thread::spawn(move || {
+            for msg in rx_nucleo {
+                match msg {
+                    Incoming::Hello { id, who } => {
+                        // (a dock de mentira tem DOIS clientes: o do
+                        // verbo "craft-dock-rs" e o de fundo "-bg")
+                        assert!(who.starts_with("craft-dock-rs"), "quem é {who}?");
+                        srv.send_to(id, &BusMsg::Windows { windows: sample_windows() });
                     }
-                    s
-                } else {
-                    "OK\n".to_string()
-                };
-                conn.write_all(resposta.as_bytes()).unwrap();
+                    Incoming::Req { cliente, req_id, req } => {
+                        let ok = match req {
+                            BusReq::Activate { id } | BusReq::Minimize { id } | BusReq::Close { id } => id != 999,
+                            _ => true,
+                        };
+                        srv.send_to(cliente, &BusMsg::Ack { id: req_id, ok });
+                    }
+                }
             }
         });
+
+        // o LIST fresco do clique: as boas-vindas bastam
         let mut cli = ToplevelClient::connect(&sock).unwrap();
         let snap = cli.list().unwrap();
         assert_eq!(snap.windows.len(), 3);
         assert_eq!(snap.focused, 10);
+        assert_eq!(snap.windows[&12].flags, F_MINIMIZED | F_FULLSCREEN);
+
+        // os VERBOS confirmados (id 999 é o joker que falha de propósito)
         assert!(cli.act(10));
         assert!(cli.min(10));
         assert!(cli.close_win(12));
-        servidor.join().unwrap();
+        assert!(!cli.act(999));
+
+        // a thread de FUNDO da dock: o BusClient persistente recebe o
+        // Windows publicado (a remoção instantânea da Fase 2)
+        let (_bg, rx_bg) = BusClient::connect(&sock, "craft-dock-rs-bg").unwrap();
+        srv_bg.broadcast(&BusMsg::Windows { windows: vec![] });
+        let msg = rx_bg.recv_timeout(Duration::from_secs(2)).unwrap();
+        assert!(matches!(msg, BusMsg::Windows { .. }), "chegou {msg:?}");
         // socket ausente: None honesto (a dock nunca depende dele)
         assert!(ToplevelClient::connect(&dir.join("nao-existe.sock")).is_none());
-    }
-
-    #[test]
-    fn handshake_do_canal_de_eventos() {
-        let dir = tmpdir("evt");
-        let sock = dir.join("evt.sock");
-        let listener = UnixListener::bind(&sock).unwrap();
-        let servidor = std::thread::spawn(move || {
-            let (mut conn, _) = listener.accept().unwrap();
-            let mut buf = [0u8; 64];
-            let n = conn.read(&mut buf).unwrap();
-            assert_eq!(String::from_utf8_lossy(&buf[..n]).trim(), "EVT ON");
-            conn.write_all(b"OK\n").unwrap();
-            // o push do daemon: um EVT depois do handshake
-            std::thread::sleep(Duration::from_millis(50));
-            let _ = conn.write_all(b"EVT\n");
-        });
-        let mut s = UnixStream::connect(&sock).unwrap();
-        assert!(evt_handshake(&mut s));
-        let mut buf = [0u8; 64];
-        let n = s.read(&mut buf).unwrap();
-        assert!(is_event(&buf[..n]));
-        servidor.join().unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

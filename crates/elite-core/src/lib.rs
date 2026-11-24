@@ -107,14 +107,18 @@ pub struct GameModeState {
 }
 
 /// Janela: o toplevel visto pelo compositor (zwlr-foreign-toplevel).
+/// O `fullscreen` entra com serde default (o fio tolera quem não fala —
+/// a mesma lei dos campos novos como Option, sem quebrar leitores velhos).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct WindowInfo {
-    /// o id do protocolo (a dock comuta por ele)
+    /// o id da CASA (a dock comuta por ele)
     pub id: u32,
     pub app_id: String,
     pub title: Option<String>,
     pub focused: bool,
     pub minimized: bool,
+    #[serde(default)]
+    pub fullscreen: bool,
 }
 
 /// Workspace atual (o labwc expõe via wayland; a barra v2 mostra por IPC).
@@ -242,6 +246,7 @@ mod tests {
             title: Some("Stardew Valley".into()),
             focused: true,
             minimized: false,
+            fullscreen: false,
         };
         let msg = BusMsg::Windows { windows: vec![win.clone()] };
         let json = serde_json::to_string(&msg).unwrap();
@@ -322,9 +327,9 @@ mod tests {
         // contrato prova que a lista preserva a ordem no fio
         let snap = BusMsg::Windows {
             windows: vec![
-                WindowInfo { id: 1, app_id: "foot".into(), title: None, focused: true, minimized: false },
-                WindowInfo { id: 2, app_id: "brave-browser".into(), title: Some("Brave".into()), focused: false, minimized: false },
-                WindowInfo { id: 3, app_id: "foot".into(), title: None, focused: false, minimized: true },
+                WindowInfo { id: 1, app_id: "foot".into(), title: None, focused: true, minimized: false, fullscreen: false },
+                WindowInfo { id: 2, app_id: "brave-browser".into(), title: Some("Brave".into()), focused: false, minimized: false, fullscreen: false },
+                WindowInfo { id: 3, app_id: "foot".into(), title: None, focused: false, minimized: true, fullscreen: true },
             ],
         };
         let json = serde_json::to_string(&snap).unwrap();
@@ -334,5 +339,6 @@ mod tests {
         let BusMsg::Windows { windows } = back else { panic!("não é Windows") };
         assert_eq!(windows[0].id, 1);
         assert_eq!(windows[2].minimized, true);
+        assert_eq!(windows[2].fullscreen, true);
     }
 }
