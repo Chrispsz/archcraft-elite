@@ -17,6 +17,7 @@
 //     gráficos; aqui só a estrutura.
 // ═════════════════════════════════════════════════════════════════════════
 
+pub mod bus;
 pub mod ipc;
 pub mod persist;
 
@@ -127,6 +128,11 @@ pub struct WorkspaceInfo {
 
 /// A mensagem que cruza o bus (o único enum no fio — o daemon publica,
 /// os clientes assinam; novos verbos entram como variantes novas).
+///
+/// 2.0 Fase 2 — o fio agora é BIDIRECIONAL: além dos estados publicados,
+/// o cliente PEDE (`Req`) e o daemon confirma (`Ack`). O pedido viaja
+/// com um `id` crescente por cliente — o Ack casa o pedido sem precisar
+/// de correlação de conteúdo (o id é do cliente; o daemon ecoa cru).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "t", rename_all = "snake_case")]
 pub enum BusMsg {
@@ -136,11 +142,62 @@ pub enum BusMsg {
     Bluetooth(BluetoothState),
     GameMode(GameModeState),
     Window(WindowInfo),
-    /// o snapshot INTEIRO da dock (a lista cruza de uma vez)
+    /// o snapshot INTEIRO da dock (a lista cruza de uma vez — a ORDEM é
+    /// o anel MRU: índice 0 = janela mais recentemente focada; a dock v2
+    /// deriva o rank daqui, sem campo extra no fio)
     Windows { windows: Vec<WindowInfo> },
     Workspace(WorkspaceInfo),
     /// o cliente diz quem é (o daemon nomeia no papel do dump)
     Hello { who: String },
+    /// 2.0 — o veredito de um pedido do cliente (id do Req; ok = o
+    /// comando foi ACEITO — o efeito mora no estado publicado a seguir)
+    Ack { id: u32, ok: bool },
+    /// 2.0 — um pedido do cliente para o daemon (verbos da casa)
+    Req(BusReq),
+}
+
+/// Os verbos que o cliente pode pedir ao daemon (2.0). Janela é por id
+/// do protocolo (o mesmo id que viaja no `Windows`); mídia fala com o
+/// player MPRIS ativo; jogo é o modo manual; workspace é o pulo de
+/// mesa (a síntese do bind W-<n> — ver elite-daemon::workspace).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BusReq {
+    /// focar/restaurar a janela (activate + unset_minimized)
+    Activate { id: u32 },
+    /// minimizar a janela (o toggle do 2º clique da dock)
+    Minimize { id: u32 },
+    /// fechar a janela (WM_DELETE gracioso pelo handle Wayland)
+    Close { id: u32 },
+    /// pedir o snapshot INTEIRO agora (o daemon manda Windows + estados)
+    Snapshot,
+    /// os verbos do player MPRIS ativo (zero playerctl, zero polling)
+    Media(MediaCmd),
+    /// o modo de jogo manual (o pill da barra clica AQUI)
+    Game(GameCmd),
+    /// pular para a mesa N (1-based; a síntese é da casa)
+    Workspace { to: u32 },
+}
+
+/// Os verbos de mídia (MPRIS) no fio do bus.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MediaCmd {
+    PlayPause,
+    Next,
+    Previous,
+    /// trazer a janela do player para a frente (o clique direito)
+    Focus,
+}
+
+/// Os verbos do modo de jogo no fio do bus.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GameCmd {
+    On,
+    Off,
+    Toggle,
+    Status,
 }
 
 #[cfg(test)]
@@ -222,5 +279,58 @@ mod tests {
             );
         }
         assert!(!THEME_CSS.contains("waybar"), "a era waybar não volta");
+    }
+
+    #[test]
+    fn os_pedidos_e_acks_cruzam_o_fio_e_voltam_iguais() {
+        // 2.0 — o fio bidirecional: os verbos da casa (janela, mídia,
+        // jogo, mesa, snapshot) e o eco do veredito
+        let pedidos = vec![
+            BusReq::Activate { id: 42 },
+            BusReq::Minimize { id: 42 },
+            BusReq::Close { id: 7 },
+            BusReq::Snapshot,
+            BusReq::Media(MediaCmd::PlayPause),
+            BusReq::Media(MediaCmd::Next),
+            BusReq::Media(MediaCmd::Previous),
+            BusReq::Media(MediaCmd::Focus),
+            BusReq::Game(GameCmd::On),
+            BusReq::Game(GameCmd::Off),
+            BusReq::Game(GameCmd::Toggle),
+            BusReq::Game(GameCmd::Status),
+            BusReq::Workspace { to: 3 },
+        ];
+        for r in pedidos {
+            let msg = BusMsg::Req(r.clone());
+            let json = serde_json::to_string(&msg).unwrap();
+            let back: BusMsg = serde_json::from_str(&json).unwrap();
+            assert_eq!(back, msg, "o pedido não sobreviveu ao fio: {json}");
+        }
+        let ack = BusMsg::Ack { id: 9, ok: true };
+        let json = serde_json::to_string(&ack).unwrap();
+        let back: BusMsg = serde_json::from_str(&json).unwrap();
+        assert_eq!(back, ack);
+        // a tag do fio é a língua da casa (json minúsculo, sem Rust no fio)
+        assert!(json.contains("\"ack\""));
+    }
+
+    #[test]
+    fn a_ordem_do_windows_e_o_anel_mru_do_contrato() {
+        // a dock deriva o rank da ORDEM — índice 0 é o topo do MRU; o
+        // contrato prova que a lista preserva a ordem no fio
+        let snap = BusMsg::Windows {
+            windows: vec![
+                WindowInfo { id: 1, app_id: "foot".into(), title: None, focused: true, minimized: false },
+                WindowInfo { id: 2, app_id: "brave-browser".into(), title: Some("Brave".into()), focused: false, minimized: false },
+                WindowInfo { id: 3, app_id: "foot".into(), title: None, focused: false, minimized: true },
+            ],
+        };
+        let json = serde_json::to_string(&snap).unwrap();
+        // a ordem id 1,2,3 preservada no texto do fio
+        assert!(json.find("\"id\":1").unwrap() < json.find("\"id\":2").unwrap());
+        let back: BusMsg = serde_json::from_str(&json).unwrap();
+        let BusMsg::Windows { windows } = back else { panic!("não é Windows") };
+        assert_eq!(windows[0].id, 1);
+        assert_eq!(windows[2].minimized, true);
     }
 }
