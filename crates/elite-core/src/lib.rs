@@ -152,8 +152,10 @@ pub enum BusMsg {
     /// 2.0 — o veredito de um pedido do cliente (id do Req; ok = o
     /// comando foi ACEITO — o efeito mora no estado publicado a seguir)
     Ack { id: u32, ok: bool },
-    /// 2.0 — um pedido do cliente para o daemon (verbos da casa)
-    Req(BusReq),
+    /// 2.0 — um pedido do cliente para o daemon (verbos da casa). O
+    /// `id` é do CLIENTE (crescente por conexão) — o daemon ecoa no
+    /// Ack sem interpretar (a correlação é dever de quem pediu)
+    Req { id: u32, req: BusReq },
 }
 
 /// Os verbos que o cliente pode pedir ao daemon (2.0). Janela é por id
@@ -301,7 +303,7 @@ mod tests {
             BusReq::Workspace { to: 3 },
         ];
         for r in pedidos {
-            let msg = BusMsg::Req(r.clone());
+            let msg = BusMsg::Req { id: 77, req: r.clone() };
             let json = serde_json::to_string(&msg).unwrap();
             let back: BusMsg = serde_json::from_str(&json).unwrap();
             assert_eq!(back, msg, "o pedido não sobreviveu ao fio: {json}");

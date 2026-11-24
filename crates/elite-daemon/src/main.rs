@@ -43,14 +43,19 @@ use std::collections::HashMap;
 use std::os::unix::fs::MetadataExt;
 use std::os::unix::io::AsRawFd;
 use std::path::PathBuf;
-use std::io::{Read, Write};
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+mod audio;
+mod idle;
+mod mpris;
+mod nucleo;
 mod scan;
 mod supervise;
+mod wayland;
+mod workspace;
 
 const VERSION: &str = "2.1.0";
 
@@ -126,14 +131,25 @@ fn main() {
         // zero CPU em repouso; a lei E135 dos residentes intocada). O
         // rig com AUTO=0 não tem motor de jogo e não pode ficar cego.
         Some("session") => {
+            // 2.0 — O NÚCLEO VIVO: o bus.sock (a barra e a dock ganham
+            // o fio), o cliente Wayland NATIVO (o craft-toplevel.c morre
+            // — janelas, vigília e trava automática da casa), o MPRIS
+            // (zero playerctl-polling) e o roteador de áudio Rust (o
+            // python craft-audio-route morre com seu NameError herdado)
+            nucleo::liga_bus();
+            wayland::start();
+            std::thread::spawn(mpris::thread);
+            std::thread::spawn(audio::thread_subscribe);
+            std::thread::spawn(|| audio::rodada("start"));
             std::thread::spawn(thread_netlink);
             std::thread::spawn(|| thread_logind("PrepareForSleep", true));
             std::thread::spawn(|| thread_logind("Unlock", false));
             std::thread::spawn(thread_bus_bgapps);
             std::thread::spawn(thread_wakeguard);
             eprintln!(
-                "elite-daemon session: ouvidores no ar (netlink som/drm, logind \
-                 sono/unlock, wake-guard pré-sono, bus bgapps)"
+                "elite-daemon session: ouvidores no ar (bus.sock + wayland \
+                 nativo + mpris + áudio + netlink som/drm + logind sono/unlock \
+                 + wake-guard pré-sono + bus bgapps)"
             );
             match supervise::run_session() {
                 Ok(()) => std::process::exit(0),
@@ -309,9 +325,9 @@ fn escreve_pid_watch() {
 //     `craft-display apply` (o __login1-watch shell morre);
 //   · session bus NameOwnerChanged — SIGRTMIN+9 à waybar (a pílula dos
 //     apps em 2º plano é EVENTO, não fork de 5s em 5s);
-//   · toplevel.sock EVT — a mudança de janelas acorda o loop do jogo
-//     (a detecção é por EVENTO + inspeção única de /proc; o tick de 5s
-//     sobrevive só como cinto de segurança dos windowless).
+//   · wayland NATIVO (2.0) — a mudança de janelas acorda o loop do
+//     jogo (a detecção é por EVENTO + inspeção única de /proc; o tick
+//     de 5s sobrevive só como cinto de segurança dos windowless).
 // Todos os dispara-um-comando são fork POR EVENTO (raro, não residencial
 // — a lei é contra RESIDENTES em sh/bash/python, nunca contra o fork
 // pontual que a infra shell da casa já sabe fazer).
@@ -382,12 +398,14 @@ fn thread_netlink() {
             }
             let data = String::from_utf8_lossy(&buf[..n as usize]);
             let agora = agora_ms();
-            // SOM: hotplug de fone/BT/DAC/jack (o roteador decide o resto)
+            // SOM: hotplug de fone/BT/DAC/jack (o roteador decide o
+            // resto — 2.0: o motor é o audio.rs DESTE binário; o python
+            // craft-audio-route aposentou com o NameError herdado)
             if (data.contains("/sound/") || data.contains("SUBSYSTEM=sound"))
                 && agora.saturating_sub(last_snd) > 800
             {
                 last_snd = agora;
-                dispara("/usr/local/bin/craft-audio-route", &["--once"]);
+                std::thread::spawn(|| audio::rodada("event"));
             }
             // DRM: monitor plugado/desplugado → o arranjo do dono volta
             if (data.contains("/drm") || data.contains("SUBSYSTEM=drm"))
@@ -424,10 +442,13 @@ fn thread_logind(nome_sinal: &str, corpo_bool: bool) {
             return;
         }
         if corpo_bool {
-            // PrepareForSleep: o corpo é (b starting) — acordou é false
+            // PrepareForSleep: o corpo é (b starting) — acordou é false:
+            // o display volta E o som devolve o default pré-sono (a
+            // dupla E139 anti-sequestro do HDMI/DP do monitor)
             if let Ok((start,)) = m.body().deserialize::<(bool,)>() {
                 if !start {
                     dispara("/usr/local/bin/craft-display", &["apply"]);
+                    std::thread::spawn(audio::resume);
                 }
             }
         } else {
@@ -505,112 +526,81 @@ fn thread_wakeguard() {
         }
         if let Ok((start,)) = m.body().deserialize::<(bool,)>() {
             if start {
+                // o PRÉ-SONO ATÔMICO (a diretriz 2.0: "sincronizar
+                // bloqueio e retorno de forma atômica"): a foto do som
+                // ANTES do freeze (ms quando o PipeWire vive), a trava
+                // na tela no limiar do sono (o logind espera os
+                // inhibitors — o hyprlock nasce antes do mergulho) e o
+                // wake-guard reafirmado
+                audio::sleep_save();
+                idle::trava_pre_sono();
                 dispara("/usr/local/bin/craft-wake-guard", &["apply"]);
             }
         }
     }
 }
 
-/// o ouvidor do toplevel.sock: o canal EVT do craft-toplevel acorda o
-/// loop do jogo (a detecção por EVENTO — o réu do loop 5s gravando no
-/// game.log morre; o tick sobrevive só como cinto dos windowless).
-/// A reconexão é backoff exponencial 5ms → 20ms → 100ms (a ordem do
-/// dono — o fallback de 5s morto não existe mais).
 /// E140 — PORTA 5 — A JANELA É A PROVA (o dossiê 1.0-88: o Stardew
 /// Valley do Hydra abria como janela `steam_app_413150` e o watcher
 /// registrava SÓ o launcher <3s — a detecção por /proc é cega para o
-/// jogo que troca de comm no caminho do Proton). O cliente LIST mínimo
-/// do toplevel.sock: UMA conexão curta, "LIST\n", as linhas W| são
-/// filtradas pelo juízo puro do scan (steam_app_<dígitos>). Devolve os
-/// app_ids de jogo VIVOS — a sessão conta com eles MESMO sem processo
-/// caçado (o daemon é o PROXY no GameMode enquanto a janela existir).
+/// jogo que troca de comm no caminho do Proton).
+/// 2.0 — A PORTA 5 NATIVA: as janelas VIVAS do cliente Wayland DESTE
+/// daemon (o toplevel.sock morreu com o craft-toplevel.c — a prova do
+/// jogo invisível steam_app_* é o app_id no snapshot vivo).
 fn janelas_de_jogo() -> Vec<String> {
-    use std::io::{Read, Write};
-    let caminho = std::env::var("XDG_RUNTIME_DIR")
-        .map(|d| PathBuf::from(d).join("elite/toplevel.sock"))
-        .unwrap_or_else(|_| PathBuf::from("/tmp/elite/toplevel.sock"));
-    let Ok(mut s) = std::os::unix::net::UnixStream::connect(&caminho) else {
-        return Vec::new(); // daemon ausente: sem janelas, sem prova
-    };
-    if s.write_all(b"LIST\n").is_err() {
-        return Vec::new();
-    }
-    let _ = s.set_read_timeout(Some(Duration::from_millis(300)));
-    let mut buf: Vec<u8> = Vec::new();
-    let mut raw = [0u8; 4096];
-    // o protocolo da casa (o molde cmd_on do craft-dock-rs): resposta
-    // completa = a última linha é terminal (OK|/ERR) — o teto de bytes
-    // é o cinto de um daemon tagarela
-    while buf.len() < 64_000 {
-        match s.read(&mut raw) {
-            Ok(0) | Err(_) => break,
-            Ok(n) => buf.extend_from_slice(&raw[..n]),
-        }
-        if let Some(pos) = buf.iter().rposition(|&b| b == b'\n') {
-            let ate_agora = String::from_utf8_lossy(&buf[..pos]).trim_end().to_string();
-            if let Some(ult) = ate_agora.rsplit('\n').next() {
-                if ult.starts_with("OK") || ult.starts_with("ERR") {
-                    break;
-                }
-            }
-        }
-    }
-    String::from_utf8_lossy(&buf)
-        .lines()
-        .filter_map(|l| l.strip_prefix("W|"))
-        .filter_map(|l| l.split('|').nth(4))
-        .filter(|app| scan::eh_app_janela_jogo(app))
-        .map(str::to_string)
+    wayland::windows_mru()
+        .into_iter()
+        .filter(|w| scan::eh_app_janela_jogo(&w.app_id))
+        .map(|w| w.app_id)
         .collect()
 }
 
-fn thread_toplevel_evt(frete: Arc<(Mutex<bool>, Condvar)>) {
-    let caminho = std::env::var("XDG_RUNTIME_DIR")
-        .map(|d| PathBuf::from(d).join("elite/toplevel.sock"))
-        .unwrap_or_else(|_| PathBuf::from("/tmp/elite/toplevel.sock"));
-    let mut back = 5u64;
+/// 2.0 — A THREAD DO FRETE morreu: o canal de eventos do jogo é o
+/// cliente Wayland NATIVO (cada `Done`/`Closed` publica o snapshot no
+/// bus e o loop do jogo acorda no frete de sempre).
+fn thread_wakeup_frete(frete: Arc<(Mutex<bool>, Condvar)>) {
+    // o cinto dos windowless: um toque suave a cada 5s no condvar (o
+    // scan de /proc segue vivo para quem não tem janela) — as janelas
+    // acendem o frete pelo publicador do wayland.rs
     loop {
         if STOP.load(Ordering::SeqCst) {
             return;
         }
-        match std::os::unix::net::UnixStream::connect(&caminho) {
-            Ok(mut s) => {
-                back = 5;
-                if s.write_all(b"EVT ON\n").is_err() {
-                    continue;
-                }
-                let _ = s.set_read_timeout(Some(Duration::from_secs(30)));
-                let mut buf = [0u8; 4096];
-                loop {
-                    match s.read(&mut buf) {
-                        Ok(n) if n > 0 => {
-                            if buf[..n].windows(3).any(|w| w == b"EVT") {
-                                let (l, cv) = &*frete;
-                                let mut vivo = l.lock().unwrap();
-                                *vivo = true;
-                                cv.notify_all();
-                            }
-                        }
-                        _ => break, // caiu: o giro seguinte reconecta
-                    }
-                    if STOP.load(Ordering::SeqCst) {
-                        return;
-                    }
-                }
-            }
-            Err(_) => {
-                // backoff exponencial 5 → 20 → 100ms (teto na lei)
-                std::thread::sleep(Duration::from_millis(back));
-                back = (back * 4).min(100);
-            }
-        }
+        std::thread::sleep(Duration::from_secs(5));
+        let (l, cv) = &*frete;
+        let mut vivo = l.lock().unwrap();
+        *vivo = true;
+        cv.notify_all();
     }
 }
 
-/// E135 — o PERFIL DE GPU (amdgpu sysfs): power_dpm_force_performance_level
-/// → "high" na sessão de jogo, o valor ANTERIOR devolvido ao sair (a
-/// memória é a função pura abaixo, testada). LACT segue no ar para o
-/// resto — aqui só o perfil da sessão.
+/// o parse da tabela pp_power_profile_mode da AMD (a porta dos testes):
+/// devolve (índice do 3D_FULL_SCREEN, índice atual marcado com '*').
+/// A linha da casa: "  1  3D_FULL_SCREEN" / "  0  BOOTUP_DEFAULT *".
+pub fn pp_parse_tabela(texto: &str) -> (Option<u32>, Option<u32>) {
+    let mut alvo = None;
+    let mut atual = None;
+    for linha in texto.lines() {
+        let t = linha.trim();
+        let Some((idx, resto)) = t.split_once(char::is_whitespace) else { continue };
+        let Ok(_idx) = idx.trim().parse::<u32>() else { continue };
+        let nome = resto.trim();
+        if nome.ends_with('*') {
+            atual = Some(_idx);
+        }
+        if nome.starts_with("3D_FULL_SCREEN") {
+            alvo = Some(_idx);
+        }
+    }
+    (alvo, atual)
+}
+
+/// E135→2.0 — o PERFIL DE GPU (amdgpu sysfs): power_dpm_force_performance_level
+/// → "high" na sessão de jogo + o PERFIL 3D_FULL_SCREEN da tabela
+/// pp_power_profile_mode (a diretriz 2.0 — o perfil de jogo da AMD); os
+/// valores ANTERIORES devolvidos ao sair (a memória é a lista; o parse
+/// puro é testado). NVIDIA/Intel: os arquivos não existem — pulados em
+/// silêncio (compatibilidade segura por ausência).
 fn gpu_aplica(valor: &str) -> Vec<(PathBuf, String)> {
     let mut mem: Vec<(PathBuf, String)> = Vec::new();
     let Ok(dir) = std::fs::read_dir("/sys/class/drm") else {
@@ -635,6 +625,44 @@ fn gpu_aplica(valor: &str) -> Vec<(PathBuf, String)> {
 }
 
 fn gpu_restaura(mem: Vec<(PathBuf, String)>) -> usize {
+    let mut n = 0;
+    for (p, valor) in mem {
+        if std::fs::write(&p, &valor).is_ok() {
+            n += 1;
+        }
+    }
+    n
+}
+
+/// 2.0 — o PERFIL 3D_FULL_SCREEN da AMD (pp_power_profile_mode): aplica
+/// o índice do perfil de jogo em todo card da casa e devolve a memória
+/// (path + índice anterior) para o restauro simétrico. GPU sem a
+/// tabela (NVIDIA/Intel) devolve vazia — compatibilidade segura.
+fn gpu_profile_aplica() -> Vec<(PathBuf, String)> {
+    let mut mem: Vec<(PathBuf, String)> = Vec::new();
+    let Ok(dir) = std::fs::read_dir("/sys/class/drm") else {
+        return mem;
+    };
+    for entry in dir.flatten() {
+        let nome = entry.file_name();
+        let Some(nome) = nome.to_str() else { continue };
+        if !nome.starts_with("card") || nome.contains('-') {
+            continue; // card1-DP-1 é conector — o perfil mora no card
+        }
+        let p = entry.path().join("device/pp_power_profile_mode");
+        let Ok(tabela) = std::fs::read_to_string(&p) else { continue };
+        let (Some(alvo), Some(atual)) = pp_parse_tabela(&tabela) else { continue };
+        if alvo == atual {
+            continue; // já é: idempotente
+        }
+        if std::fs::write(&p, alvo.to_string()).is_ok() {
+            mem.push((p, atual.to_string()));
+        }
+    }
+    mem
+}
+
+fn gpu_profile_restaura(mem: Vec<(PathBuf, String)>) -> usize {
     let mut n = 0;
     for (p, valor) in mem {
         if std::fs::write(&p, &valor).is_ok() {
@@ -678,12 +706,12 @@ fn daemon_loop() -> Result<(), String> {
     instala_sinais();
     escreve_pid_watch();
 
-    // o frete do toplevel EVT é DESTE corpo (o loop do jogo acorda por
-    // evento — a detecção é EVENTO + inspeção única de /proc)
+    // o frete: o cinto dos windowless (o jogo SEM janela segue caçado
+    // no /proc; o evento das janelas chega pelo publicador do wayland)
     let frete = Arc::new((Mutex::new(false), Condvar::new()));
     {
         let f = Arc::clone(&frete);
-        std::thread::spawn(move || thread_toplevel_evt(f));
+        std::thread::spawn(move || thread_wakeup_frete(f));
     }
     // E139 — OS OUVIDORES MUDARAM PARA A PORTA DA SESSÃO (a vaga do jogo
     // é condicionada ao AUTO do game.conf — o rig com AUTO=0 não tem
@@ -692,6 +720,11 @@ fn daemon_loop() -> Result<(), String> {
     // quem SEMPRE está viva e ela levanta os ouvidores. O CINTO: se
     // NÃO há session vivo (rig legado, watch à mão), ESTE corpo os
     // levanta — o peek no lock da sessão decide, nunca dois donos.
+    // 2.0 — o modo game também liga o BUS e o cliente Wayland (as
+    // janelas do jogo são a PORTA 5 NATIVA agora; a barra acende o pill
+    // pelo fio além do sinal) — sem sessão viva, ESTE corpo é o dono
+    nucleo::liga_bus();
+    wayland::start();
     if supervise::peek_lock_livre(&PathBuf::from("/tmp/elite-daemon-session.lock")) {
         std::thread::spawn(thread_netlink);
         std::thread::spawn(|| thread_logind("PrepareForSleep", true));
@@ -729,6 +762,7 @@ fn daemon_loop() -> Result<(), String> {
     // (o lock/apagamento de tela NÃO morrem durante a partida — o fd
     // solto é o fim da inibição; o dono suspender à mão segue livre).
     let mut gpu_mem: Vec<(PathBuf, String)> = Vec::new();
+    let mut gpu_perf_mem: Vec<(PathBuf, String)> = Vec::new();
     let mut dnd_era: Option<bool> = None;
     let mut inhibitor: Option<zbus::zvariant::OwnedFd> = None;
     // o token de geração cancela a thread de debounce pendente quando a
@@ -792,6 +826,7 @@ fn daemon_loop() -> Result<(), String> {
             // Hydra morre na janela, não na tela do dono)
             let n = epp_aplica("performance");
             gpu_mem = gpu_aplica("high");
+            gpu_perf_mem = gpu_profile_aplica();
             dnd_era = dnd_troca();
             // o inhibitor do logind (nativo): o lock/apagamento dorme
             {
@@ -811,10 +846,17 @@ fn daemon_loop() -> Result<(), String> {
                     }
                 }
             }
+            // 2.0 — o pill da barra acende PELO FIO (o sinal é o cinto)
+            nucleo::pub_bus(&elite_core::BusMsg::GameMode(elite_core::GameModeState {
+                active: true,
+                game: held.values().next().cloned().or_else(|| janelas.first().cloned()),
+                gpu_performance: true,
+            }));
             eprintln!(
-                "elite-daemon: sessão de jogo ATIVA — EPP performance em {} cpu(s) + GPU high em {} card(s) + DND {} + {} waybar(s) avisada(s) + inhibitor logind {}",
+                "elite-daemon: sessão de jogo ATIVA — EPP performance em {} cpu(s) + GPU high em {} card(s) + perfil 3D_FULL_SCREEN em {} card(s) + DND {} + {} waybar(s) avisada(s) + inhibitor logind {}",
                 n,
                 gpu_mem.len(),
+                gpu_perf_mem.len(),
                 if dnd_era.is_some() { "ligado" } else { "indisponível" },
                 sinal_waybar(),
                 if inhibitor.is_some() { "ARMADO" } else { "sem (honesto)" }
@@ -847,15 +889,22 @@ fn daemon_loop() -> Result<(), String> {
             let confirmou = confirmada.load(Ordering::SeqCst);
             let n = epp_aplica("balance_performance");
             let gpu_devolvida = gpu_restaura(std::mem::take(&mut gpu_mem));
+            let perf_devolvida = gpu_profile_restaura(std::mem::take(&mut gpu_perf_mem));
+            nucleo::pub_bus(&elite_core::BusMsg::GameMode(elite_core::GameModeState {
+                active: false,
+                game: None,
+                gpu_performance: false,
+            }));
             if dnd_era.take() == Some(false) {
                 // só DEVOLVE quem a casa ligou (o toggles são simétricos)
                 let _ = dnd_troca();
             }
             drop(inhibitor.take());
             eprintln!(
-                "elite-daemon: sessão de jogo FIM — EPP balance_performance em {} cpu(s) + GPU restaurada em {} card(s) + {} waybar(s) avisada(s){}",
+                "elite-daemon: sessão de jogo FIM — EPP balance_performance em {} cpu(s) + GPU restaurada em {} card(s) + perfil devolvido em {} card(s) + {} waybar(s) avisada(s){}",
                 n,
                 gpu_devolvida,
+                perf_devolvida,
                 sinal_waybar(),
                 if confirmou { " (sessão confirmada — dono avisado)" } else { " (pulo transitório <3s: silêncio na notícia)" }
             );
@@ -891,21 +940,28 @@ fn daemon_loop() -> Result<(), String> {
             if sessao_ativa {
                 let n = epp_aplica("balance_performance");
                 let gpu_devolvida = gpu_restaura(std::mem::take(&mut gpu_mem));
+                let perf_devolvida = gpu_profile_restaura(std::mem::take(&mut gpu_perf_mem));
                 if dnd_era.take() == Some(false) {
                     let _ = dnd_troca();
                 }
                 drop(inhibitor.take());
+                nucleo::pub_bus(&elite_core::BusMsg::GameMode(elite_core::GameModeState {
+                    active: false,
+                    game: None,
+                    gpu_performance: false,
+                }));
                 eprintln!(
-                    "elite-daemon: SIGTERM — {} jogo(s) liberado(s), EPP devolvido em {} cpu(s), GPU restaurada em {} card(s)",
+                    "elite-daemon: SIGTERM — {} jogo(s) liberado(s), EPP devolvido em {} cpu(s), GPU restaurada em {} card(s), perfil devolvido em {} card(s)",
                     held.len(),
                     n,
-                    gpu_devolvida
+                    gpu_devolvida,
+                    perf_devolvida
                 );
             }
             return Ok(());
         }
-        // E135 — o SLEEP MORREU: o loop dorme no condvar e o canal EVT
-        // do toplevel.sock o acorda (a detecção é POR EVENTO — a janela
+        // E135 — o SLEEP MORREU: o loop dorme no condvar e o frete do
+        // cliente Wayland o acorda (a detecção é POR EVENTO — a janela
         // que nasce é o jogo anunciando; o teto de 5s sobrevive como
         // cinto dos processos windowless). Cada 6 rodadas de cinto
         // (30s) a pílula dos 2º planos relê (a segurança dos apps que
@@ -934,6 +990,24 @@ fn daemon_loop() -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_tabela_do_pp_da_amd_e_parseada_certa() {
+        // o papel REAL de um amdgpu (rig do dono): o BOOTUP_DEFAULT é o
+        // atual; o 3D_FULL_SCREEN é o alvo da diretriz 2.0
+        let tabela = "  0  BOOTUP_DEFAULT *\n  1  3D_FULL_SCREEN\n  2  POWER_SAVING\n  3  VIDEO\n  4  VR\n  5  COMPUTE\n  6  CUSTOM\n";
+        let (alvo, atual) = pp_parse_tabela(tabela);
+        assert_eq!(alvo, Some(1));
+        assert_eq!(atual, Some(0));
+        // com o 3D já marcado: idempotência de verdade
+        let tabela2 = tabela.replace("BOOTUP_DEFAULT *", "BOOTUP_DEFAULT").replace("3D_FULL_SCREEN", "3D_FULL_SCREEN *");
+        let (alvo2, atual2) = pp_parse_tabela(&tabela2);
+        assert_eq!(alvo2, Some(1));
+        assert_eq!(atual2, Some(1));
+        // sem a tabela (NVIDIA/Intel): nada — compat por ausência
+        assert_eq!(pp_parse_tabela(""), (None, None));
+        assert_eq!(pp_parse_tabela("lixo total\nsem numeros"), (None, None));
+    }
 
     #[test]
     fn debounce_o_inicio_espera_os_3s() {

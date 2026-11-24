@@ -55,11 +55,14 @@ pub const RESIDENTES_DEFAULT: &[(&str, &str, Option<&str>)] = &[
 /// MESMO PACOTE elite-system (a dose que traz um traz o outro — não
 /// existe o rig com o E140 sem a barra; a lei do fallback nunca
 /// dependeu de recurso que o próprio pacote carrega).
+/// 2.0 Fase 2 — a fila APOSA dois heróis de era: o "toplevel" (o C
+/// morreu — o cliente Wayland NATIVO mora no PRÓPRIO corpo deste
+/// daemon agora, nenhuma vaga externa) e o "idle" (o swayidle morre —
+/// a vigília ext-idle-notify + hyprlock é do daemon; o craft-idle vira
+/// o escritor do conf, sem daemon externo).
 pub const CLIENTES_DISPLAY: &[(&str, &str)] = &[
-    ("toplevel", "craft-toplevel"),
     ("topbar", "craft-bar-rs"),
     ("dock", "craft-dock-rs"),
-    ("idle", "craft-idle start"),
     ("policykit", "lxqt-policykit-agent"),
 ];
 
@@ -364,8 +367,8 @@ struct Vaga {
 /// instância de fora (adoção), a condição de existência (o jogo é vaga
 /// condicionada ao AUTO do game.conf) e o peek-lock do motor externo.
 /// `From<&Residente>` mantém a fila do conf com os gates de LARGA
-/// (comm = 1º token do comando; o idle é o caso especial: o craft-idle
-/// `exec` no swayidle — o comm que prova é o do daemon final).
+/// (comm = 1º token do comando; 2.0: o caso especial do idle morreu —
+/// a vigília é do PRÓPRIO daemon, o exec-swayidle é história).
 struct VagaSpec {
     res: Residente,
     /// processo de fora com este comm = vaga ADOTADA (E138)
@@ -430,17 +433,12 @@ pub fn run_session() -> Result<(), String> {
     let mut specs: Vec<VagaSpec> = CLIENTES_DISPLAY
         .iter()
         .map(|(n, c)| {
-            let mut s: VagaSpec = Residente {
+            let s: VagaSpec = Residente {
                 nome: (*n).to_string(),
                 comando: (*c).to_string(),
                 bus: None,
             }
             .into();
-            // E138 — o idle é o caso do exec: o craft-idle start vira no
-            // swayidle (exec); o comm que prova a vaga é o do DAEMON final
-            if *n == "idle" {
-                s.comm = Some("swayidle".to_string());
-            }
             s
         })
         .collect();
@@ -739,7 +737,7 @@ mod tests {
         // SEM waybar/dock (esses seguem no craft-bars: escopo honesto)
         for (nome, _, _) in RESIDENTES_DEFAULT {
             assert!(
-                !matches!(*nome, "craft-game" | "craft-display" | "waybar" | "craft-dock-gui" | "craft-toplevel"),
+                !matches!(*nome, "craft-game" | "craft-display" | "waybar" | "craft-dock-gui"),
                 "{} não é residente do supervise (escopo honesto)",
                 nome
             );
@@ -759,10 +757,17 @@ mod tests {
         // moram na fila própria da porta session (E140: a topbar é o
         // craft-bar-rs — o waybar aposentou pela ordem do dono)
         let display: Vec<&str> = CLIENTES_DISPLAY.iter().map(|(n, _)| *n).collect();
-        assert!(display.contains(&"toplevel") && display.contains(&"topbar") && display.contains(&"dock"),
-            "a porta session carrega os clientes de display (topbar E140 = craft-bar-rs)");
+        assert!(display.contains(&"topbar") && display.contains(&"dock") && display.contains(&"policykit"),
+            "a porta session carrega a família de display 2.0 (topbar + dock + polkit)");
         assert!(!display.contains(&"waybar"),
             "o waybar NÃO é mais cliente da sessão (E140 — a top bar é o craft-bar-rs)");
+        // 2.0 — o toplevel de C APOSENTOU: o cliente Wayland mora no
+        // PRÓPRIO daemon (a vaga externa morreu com o binário)
+        assert!(!display.contains(&"toplevel"),
+            "o craft-toplevel de C não é mais vaga (2.0: o wayland nativo é do daemon)");
+        // 2.0 — o idle APOSENTOU: a vigília é do daemon (ext-idle-notify)
+        assert!(!display.contains(&"idle"),
+            "o swayidle/craft-idle não é mais vaga (2.0: a vigília é do daemon)");
     }
 
     #[test]

@@ -48,8 +48,9 @@ pub enum Incoming {
     /// um cliente se apresentou (o snapshot de boas-vindas é pedido da
     /// porta — o núcleo manda o estado atual dirigido a ELE)
     Hello { id: u32, who: String },
-    /// um cliente pediu um verbo da casa (o eco do Ack é dever do núcleo)
-    Req { id: u32, req: BusReq },
+    /// um cliente pediu um verbo da casa (o eco do Ack é dever do
+    /// núcleo: o req_id volta cru no Ack — a correlação é do cliente)
+    Req { cliente: u32, req_id: u32, req: BusReq },
 }
 
 /// A ficha de um cliente conectado (a ponta de escrita + a identidade).
@@ -231,8 +232,8 @@ fn atende(inner: Arc<Inner>, id: u32, mut conn: UnixStream) {
             break; // o servidor morreu: o fio fecha com ele
         }
         match recv_frame(&mut conn) {
-            Ok(Some(BusMsg::Req(req))) => {
-                if inner.tx_incoming.send(Incoming::Req { id, req }).is_err() {
+            Ok(Some(BusMsg::Req { id: req_id, req })) => {
+                if inner.tx_incoming.send(Incoming::Req { cliente: id, req_id, req }).is_err() {
                     break; // o núcleo morreu: o fio inteiro cai junto
                 }
             }
@@ -358,7 +359,7 @@ impl BusClient {
     /// (a reconexão vem; o chamador decide repetir ou esperar estado).
     pub fn send_req(&self, req: BusReq) -> Option<u32> {
         let id = self.next_req_id.fetch_add(1, Ordering::Relaxed);
-        let msg = BusMsg::Req(req);
+        let msg = BusMsg::Req { id, req };
         let mut w = self.out.lock().unwrap();
         send_frame(&mut *w, &msg).ok()?;
         Some(id)
@@ -440,9 +441,10 @@ mod tests {
         // o PEDIDO da dock cruza e o Ack DIRIGIDO volta
         let id_ack = bar.send_req(BusReq::Close { id: 42 }).unwrap();
         match rx_nucleo.recv_timeout(Duration::from_secs(2)).unwrap() {
-            Incoming::Req { id, req: BusReq::Close { id: janela } } => {
+            Incoming::Req { cliente, req_id, req: BusReq::Close { id: janela } } => {
                 assert_eq!(janela, 42);
-                srv.send_to(id, &BusMsg::Ack { id: id_ack, ok: true });
+                assert_eq!(id_ack, req_id);
+                srv.send_to(cliente, &BusMsg::Ack { id: req_id, ok: true });
             }
             other => panic!("o pedido não chegou como esperado: {other:?}"),
         }
@@ -514,7 +516,7 @@ mod tests {
         let mut s = crate::ipc::connect_bus(&sock).unwrap();
         send_frame(
             &mut s,
-            &BusMsg::Req(BusReq::Activate { id: 99 }),
+            &BusMsg::Req { id: 1, req: BusReq::Activate { id: 99 } },
         )
         .unwrap();
         std::thread::sleep(Duration::from_millis(120));
