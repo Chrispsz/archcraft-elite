@@ -159,5 +159,37 @@ file_has "post-upgrade: mitigations=off no GRUB da dose" "$AIROOTFS/usr/local/bi
 file_has "tune: o scx-lavd direto também no painel" "$AIROOTFS/usr/local/bin/elite-tune" 'scx-lavd.service'
 file_has "probe: o lock privado também no probe da sessão" "$AIROOTFS/usr/local/bin/elite-session-probe" 'session.lock'
 
+# ══ 1.0-94 (E145 — A DOSE DOS TESTES REAIS DA 1.0-93) ══
+# a ARMADURA RT: o intervalo real-time INTEIRO handled no 1º instante
+file_has "bar: a armadura RT (o 'real-time event N' não mata mais a barra)" "crates/craft-bar-rs/src/ui.rs" 'fn arma_rt'
+file_has "dock: a armadura RT (a instabilidade visual morre na classe)" "crates/craft-dock-rs/src/ui.rs" 'fn arma_rt'
+# o DONO ÚNICO do bus: o modo game vira CLIENTE publicante
+file_has "daemon: o modo game sem posse vira CLIENTE do bus" "crates/elite-daemon/src/nucleo.rs" 'fn liga_cliente'
+file_has "daemon: o daemon_loop decide a posse ANTES do bind" "crates/elite-daemon/src/main.rs" 'nucleo::liga_cliente()'
+file_has "bus: a publicação de cliente retransmitida (sem eco ao remetente)" "crates/elite-core/src/bus.rs" 'fn publish'
+file_has "bus: a retransmissão exclui o remetente (o loop infinito morre)" "crates/elite-core/src/bus.rs" 'remetente não bebe o próprio eco'
+# o craft-clean sobe como raiz de verdade (o pkexec na frente)
+file_has "tools: o pkexec na frente do elite-clean (a porta --as-root é de raiz)" "crates/craft-tools/src/lib.rs" '"pkexec".to_string()'
+# o probe nunca mais CRIA o bars.lock do dono
+file_has "probe: o bars.lock só é conferido se EXISTE (o root:root morre)" "$AIROOTFS/usr/local/bin/elite-session-probe" '[ -e "$_bars_lock" ]'
+# os menus abrem PAINÉIS, não CLIs mudos
+file_has "menu: o Modo de jogo abre o painel (craft-game menu)" "elite/airootfs/etc/skel/.config/labwc/menu.xml" 'command="craft-game menu"'
+file_has "menu: a Trava automática abre o painel (craft-idle menu)" "elite/airootfs/etc/skel/.config/labwc/menu.xml" 'command="craft-idle menu"'
+file_has "idle: o verbo menu existe (o painel do dono)" "$AIROOTFS/usr/local/bin/craft-idle" 'craft-pick --title'
+# a gaveta com memória
+file_line_exact "apps: o craft-apps é bin da casa (a gaveta com toggle)" "$AIROOTFS/usr/local/bin/craft-apps" '#!/bin/sh'
+file_has "apps: o toggle mata a gaveta DO DONO pelo comm" "$AIROOTFS/usr/local/bin/craft-apps" 'nwg-drawer'
+file_has "rc: o W-d vira o craft-apps (o toggle de primeira classe)" "elite/airootfs/etc/skel/.config/labwc/rc.xml" 'command="craft-apps"'
+# o dump v2.1: os 3 estados do bus + a perícia dos benignos + as caudas
+file_has "dump: o bus de 3 estados (MORTO ≠ CALADO — dois réus distintos)" "crates/craft-dump-rs/src/lib.rs" 'pub enum ColheitaBus'
+file_has "dump: a perícia dos erros conhecidos do boot" "crates/craft-dump-rs/src/lib.rs" 'pub fn anota_conhecido'
+file_has "dump: as caudas da sessão no papel" "crates/craft-dump-rs/src/main.rs" 'as caudas da sessão'
+file_has "dump: o pactl veste o runtime do dono (o pkexec vê o PipeWire)" "crates/craft-dump-rs/src/main.rs" 'fn colhe_com_runtime'
+# o respawn visual nas trocas de monitor
+file_has "daemon: o DRM uevent re-sinaliza a dock/barra (o refresh de pele)" "crates/elite-daemon/src/main.rs" 'craft-dock-rs'
+# as permissões dos dirs casam com o distro (o aviso do pacman cala)
+file_has "build.sh: o sudoers.d veste 750 (o aviso de permissão cala)" "$BS" 'install -dm750 "${pkgdir}/etc/sudoers.d"'
+file_has "build.sh: o polkit rules.d veste 750 (idem)" "$BS" 'install -dm750 "${pkgdir}/etc/polkit-1/rules.d"'
+
 printf '%s\n' "$OK_COUNT $FAIL_COUNT $SKIP_COUNT" > "$WORK/fase20.txt"
 exit 0

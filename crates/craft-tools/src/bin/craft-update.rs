@@ -53,7 +53,30 @@ fn build(app: &gtk4::Application) {
     corpo_txt.set_wrap(true);
 
     let (scroll, buffer) = janela::bloco_texto();
-    buffer.set_text("— o diário da dose aparece aqui, linha por linha —\n");
+    // 1.0-94 — a TAG do veredito (o mesmo contraste de leitura da
+    // limpeza: a falha nasce vermelha viva, o sucesso verde suave)
+    let tag_erro = buffer
+        .create_tag(None, &[])
+        .expect("a tag do veredito nasce");
+    tag_erro.set_foreground_rgba(Some(&gtk4::gdk::RGBA::new(1.0, 0.44, 0.44, 1.0)));
+    let tag_ok = buffer
+        .create_tag(None, &[])
+        .expect("a tag do veredito nasce");
+    tag_ok.set_foreground_rgba(Some(&gtk4::gdk::RGBA::new(0.65, 0.85, 0.55, 1.0)));
+    // 1.0-94 — a VERSÃO ATUAL no papel (o dono sabe o que TEM antes de
+    // pedir o que VEM — o pacman fala; sem ele, calado)
+    if let Ok(versao) = std::process::Command::new("pacman")
+        .args(["-Q", "elite-system"])
+        .output()
+    {
+        if versao.status.success() {
+            let linha = String::from_utf8_lossy(&versao.stdout).trim().to_string();
+            buffer.set_text(&format!("— versão instalada: {linha} —\n"));
+        }
+    }
+    if buffer.char_count() == 0 {
+        buffer.set_text("— o diário da dose aparece aqui, linha por linha —\n");
+    }
 
     // o BOTÃO e o pulso de espera (discreto, nunca modal)
     let acoes = gtk4::Box::new(gtk4::Orientation::Horizontal, 10);
@@ -74,6 +97,8 @@ fn build(app: &gtk4::Application) {
         let btn = btn.clone();
         let buffer_c = buffer.clone();
         let scroll_c = scroll.clone();
+        let tag_erro = tag_erro.clone();
+        let tag_ok = tag_ok.clone();
         let fim: std::rc::Rc<
             std::cell::RefCell<Option<Box<dyn FnOnce(i32) + 'static>>>,
         > = std::rc::Rc::new(std::cell::RefCell::new(Some(Box::new(move |rc: i32| {
@@ -81,13 +106,31 @@ fn build(app: &gtk4::Application) {
             pulso.set_visible(false);
             btn.set_sensitive(true);
             btn.set_label("Atualizar de novo");
-            let veredito = if rc == 0 {
-                "✓ Sistema atualizado."
+            // 1.0-94 — o veredito com TAG e o porquê nomeado (126 = a
+            // senha foi negada; 127 = o motor não nasceu — o resto é o
+            // relatório do próprio motor acima)
+            let (veredito, ok) = if rc == 0 {
+                ("✓ Sistema atualizado — reinicie se a dose pediu kernel novo.", true)
+            } else if rc == 126 {
+                ("✗ A autorização foi negada (senha cancelada) — nada rodou.", false)
+            } else if rc == 127 {
+                ("✗ O motor não nasceu (pkexec/elite-update ausentes) — nada rodou.", false)
             } else {
-                "✗ A dose não completou — as linhas acima e ~/.cache/elite/update.log dizem o porquê."
+                (
+                    "✗ A dose não completou (código acima) — as linhas anteriores E \
+                     ~/.cache/elite/update.log dizem o porquê.",
+                    false,
+                )
             };
             let mut it = buffer_c.end_iter();
+            let inicio = it.offset();
             buffer_c.insert(&mut it, &format!("\n{veredito}\n"));
+            let fim_insercao = buffer_c.end_iter().offset();
+            buffer_c.apply_tag(
+                if ok { &tag_ok } else { &tag_erro },
+                &buffer_c.iter_at_offset(inicio),
+                &buffer_c.iter_at_offset(fim_insercao),
+            );
             janela::rola_para_o_fim(&scroll_c);
         }))));
         gtk4::glib::timeout_add_local(

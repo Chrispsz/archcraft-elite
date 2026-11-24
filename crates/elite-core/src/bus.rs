@@ -21,6 +21,16 @@
 //     pela MESMA conexão (full-duplex: o leitor é dono da ponta de
 //     leitura via try_clone, o escritor da de escrita).
 //
+// 1.0-94 — O DONO ÚNICO E A PUBLICAÇÃO DE CLIENTE (a cura do bus.sock
+// MORTO do rig da 1.0-93): o bind do servidor é de UM processo só — a
+// porta `session` do elite-daemon; o modo game (o filho da vaga ou o
+// `craft-game watch` de fora) NÃO rebinda (o bind antigo fazia
+// remove_file+bind e MATIA o socket do dono da sessão no caminho — o
+// fóssil que o dump nomeava MORTO com o daemon vivo). Em vez disso o
+// processo sem posse PUBLICA pelo fio: `BusClient::publish` envia um
+// quadro de ESTADO e o servidor RETRANSMITE a todos (o contrato antes
+// mudo agora fala: publicação de cliente é broadcast da casa).
+//
 // Leis que este módulo carrega:
 //   · std-first: nada de GTK, nada de async — a UI drena o Receiver;
 //   · o fio é o quadro do ipc.rs (4B LE + JSON, FRAME_MAX 1 MiB);
@@ -120,27 +130,9 @@ impl BusServer {
     /// UMA vez; quem morreu no meio sai da lista com voz nenhuma — EPIPE
     /// é evento de sessão, não erro para o núcleo).
     pub fn broadcast(&self, msg: &BusMsg) {
-        let json = match serde_json::to_vec(msg) {
-            Ok(j) => j,
-            Err(_) => return, // BugMsg serializável é contrato dos tipos
-        };
-        let mut mortos: Vec<u32> = Vec::new();
-        {
-            let guard = self.inner.clientes.lock().unwrap();
-            for (id, ficha) in guard.iter() {
-                let mut w = ficha.stream.lock().unwrap();
-                if write_quadro_cru(&mut *w, &json).is_err() {
-                    mortos.push(*id);
-                }
-            }
+        if let Ok(json) = serde_json::to_vec(msg) {
+            transmite(&self.inner, &json, None);
         }
-        if !mortos.is_empty() {
-            let mut guard = self.inner.clientes.lock().unwrap();
-            for id in mortos {
-                guard.remove(&id);
-            }
-        }
-        self.inner.n_quadros_enviados.fetch_add(1, Ordering::Relaxed);
     }
 
     /// Dirige UMA mensagem a UM cliente (o Ack e o snapshot de boas-
@@ -237,7 +229,21 @@ fn atende(inner: Arc<Inner>, id: u32, mut conn: UnixStream) {
                     break; // o núcleo morreu: o fio inteiro cai junto
                 }
             }
-            Ok(Some(_)) => {} // publicações do cliente: o contrato é mudo
+            // 1.0-94 — A PUBLICAÇÃO DE CLIENTE (o contrato que era mudo
+            // agora fala): um quadro de ESTADO de quem não é o dono do
+            // servidor vira broadcast da casa — o modo game publica as
+            // transições pelo fio em vez de roubar o bind. O REMETENTE
+            // fica FORA da retransmissão (o eco de volta ao leitor dele
+            // renasceria a publicação em loop infinito — a lição é do
+            // próprio desenho). Hello/Ack de cliente não são publicação
+            // (o Hello já foi dito na porta; o Ack é eco do servidor).
+            Ok(Some(msg)) => {
+                if !matches!(msg, BusMsg::Hello { .. } | BusMsg::Ack { .. }) {
+                    if let Ok(json) = serde_json::to_vec(&msg) {
+                        transmite(&inner, &json, Some(id));
+                    }
+                }
+            }
             Ok(None) => break, // fim de fio limpo
             Err(e) => {
                 // timeout de fatia é ESPERA (a vida é re-conferida no
@@ -252,6 +258,34 @@ fn atende(inner: Arc<Inner>, id: u32, mut conn: UnixStream) {
         }
     }
     inner.clientes.lock().unwrap().remove(&id);
+}
+
+/// A TRANSMISSÃO de um quadro já serializado a TODOS os vivos (o corpo
+/// comum do broadcast do servidor E da retransmissão das publicações de
+/// cliente — 1.0-94: a escrita é UMA, a lista fala a verdade). O
+/// `exceto` tira UM cliente da rota (o remetente da publicação — sem
+/// eco, sem loop).
+fn transmite(inner: &Arc<Inner>, json: &[u8], exceto: Option<u32>) {
+    let mut mortos: Vec<u32> = Vec::new();
+    {
+        let guard = inner.clientes.lock().unwrap();
+        for (id, ficha) in guard.iter() {
+            if Some(*id) == exceto {
+                continue; // o remetente não bebe o próprio eco
+            }
+            let mut w = ficha.stream.lock().unwrap();
+            if write_quadro_cru(&mut *w, json).is_err() {
+                mortos.push(*id);
+            }
+        }
+    }
+    if !mortos.is_empty() {
+        let mut guard = inner.clientes.lock().unwrap();
+        for id in mortos {
+            guard.remove(&id);
+        }
+    }
+    inner.n_quadros_enviados.fetch_add(1, Ordering::Relaxed);
 }
 
 /// O quadro cru (len + json já serializado — a serialização Única do
@@ -269,7 +303,7 @@ fn write_quadro_cru(w: &mut impl Write, json: &[u8]) -> std::io::Result<()> {
     w.flush()
 }
 
-// ── O CLIENTE (a barra, a dock, a telemetria) ───────────────────────────
+// ── O CLIENTE (a barra, a dock, a telemetria, o modo game) ─────────────
 
 /// O cliente do bus da sessão: uma thread de fundo lê quadros para
 /// sempre (com reconexão honesta) e entrega cada `BusMsg` no Receiver.
@@ -372,6 +406,15 @@ impl BusClient {
         send_frame(&mut *w, &msg).ok()?;
         Some(id)
     }
+
+    /// 1.0-94 — PUBLICA um estado pelo fio (o modo game sem posse do
+    /// servidor fala AQUI): o quadro cruza a MESMA conexão e o dono do
+    /// bus retransmite aos demais clientes (o eco NÃO volta — o
+    /// remetente já sabe o que publicou). `false` = fio morto agora.
+    pub fn publish(&self, msg: &BusMsg) -> bool {
+        let mut w = self.out.lock().unwrap();
+        send_frame(&mut *w, msg).is_ok()
+    }
 }
 
 #[cfg(test)]
@@ -468,6 +511,47 @@ mod tests {
         let (lig, quadros) = srv.contadores();
         assert!(lig >= 2 && quadros >= 3, "contadores: {lig}/{quadros}");
         assert!(srv.path().ends_with("bus.sock"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_publicacao_do_cliente_vira_broadcast_sem_eco() {
+        // 1.0-94 — o modo game (cliente SEM posse do servidor) publica
+        // GameMode pelo fio; a barra (outro cliente) recebe o estado;
+        // o game NÃO bebe o próprio eco (o eco re-publicado em loop
+        // infinito nasceria aí — o remetente fica fora da rota).
+        let dir = tmpdir("publica");
+        let sock = dir.join("bus.sock");
+        let (srv, rx_nucleo) = BusServer::start(&sock).unwrap();
+        let (game, rx_game) = BusClient::connect(&sock, "game").unwrap();
+        let (_bar, rx_bar) = BusClient::connect(&sock, "bar").unwrap();
+        // os dois Hellos assentam no servidor
+        let mut faltam = 2;
+        while faltam > 0 {
+            if let Ok(Incoming::Hello { .. }) = rx_nucleo.recv_timeout(Duration::from_secs(2)) {
+                faltam -= 1;
+            }
+        }
+        // as boas-vindas (snapshot dirigido) assentam nos DOIS canais
+        std::thread::sleep(Duration::from_millis(150));
+        while rx_game.try_recv().is_ok() {}
+        while rx_bar.try_recv().is_ok() {}
+        // o game publica; a barra recebe; o game não
+        assert!(game.publish(&BusMsg::GameMode(GameModeState {
+            active: true,
+            game: None,
+            gpu_performance: true,
+        })));
+        let msg = rx_bar.recv_timeout(Duration::from_secs(2)).expect("a publicação não alcançou a barra");
+        match msg {
+            BusMsg::GameMode(g) => assert!(g.active, "chegou {g:?}"),
+            other => panic!("a publicação não veio como estado: {other:?}"),
+        }
+        assert!(
+            rx_game.recv_timeout(Duration::from_millis(200)).is_err(),
+            "o eco voltou ao remetente — o loop infinito nasceria aí"
+        );
+        let _ = srv;
         let _ = std::fs::remove_dir_all(&dir);
     }
 

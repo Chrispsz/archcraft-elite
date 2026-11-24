@@ -33,8 +33,16 @@ pub fn args_atualizacao() -> Vec<String> {
 /// pergunta nenhuma: journal vacuum, paccache, órfãos de link, lixeira
 /// e caches regeneráveis; a fase 2 avançada é CLI de pé no terminal,
 /// nomeada no papel da janela — a GUI não mente escopo).
+/// 1.0-94 — O PKEXEC ENTRA NA FRENTE (o réu do rig da 1.0-93: a GUI
+/// chamava elite-clean --as-root DIRETO como usuário comum — a porta
+/// --as-root é de RAIZ e recusava na primeira linha, "Limpeza não
+/// completou" para sempre). A escalada é a MESMA do elite-update: a
+/// regra 50-elite-wheel libera EXATAMENTE o caminho para o wheel local
+/// ativo — o diálogo gráfico da sessão (lxqt-policykit-agent) pergunta
+/// UMA vez, o motor sobe como raiz com o DONO CERTO por argumento.
 pub fn args_limpeza(usuario: &str, home: &str) -> Vec<String> {
     vec![
+        "pkexec".to_string(),
         "/usr/local/bin/elite-clean".to_string(),
         "--as-root".to_string(),
         usuario.to_string(),
@@ -118,8 +126,9 @@ pub fn mapa_comandos() -> Vec<(&'static str, Vec<(&'static str, &'static str)>)>
                 ("craft-clean", "a limpeza com cara de casa (a fase 1 auto-segura; a avançada é CLI)"),
                 ("craft-help", "este mapa — os comandos da casa em pt_BR"),
                 ("craft-pick", "o seletor nativo da casa (as listas dos bins — a gramática dmenu em GTK4)"),
-                ("craft-idle", "a trava automática (os minutos no ~/.config/elite/idle.conf — 'craft-idle 10' muda na hora)"),
-                ("craft-game", "o modo de jogo (status/on/off/auto — o automático é o elite-daemon)"),
+                ("craft-idle", "a trava automática (os minutos no ~/.config/elite/idle.conf — 'craft-idle painel' é a janela, 'craft-idle 10' muda na hora)"),
+                ("craft-game", "o modo de jogo (status/on/off/auto — 'craft-game painel' é a janela; o automático é o elite-daemon)"),
+                ("craft-apps", "a gaveta de aplicativos com toggle (W-d abre · W-d de novo fecha — o nwg-drawer da casa com memória)"),
             ],
         ),
         (
@@ -209,11 +218,14 @@ mod tests {
         // o update: a porta canônica (a regra 50-elite-wheel casa EXATO)
         let up = args_atualizacao();
         assert_eq!(up, vec!["/usr/local/bin/elite-update".to_string()]);
-        // a limpeza: o elite-clean --as-root com o dono E o home dele
+        // a limpeza: o pkexec na frente + o elite-clean --as-root com o
+        // dono E o home dele (1.0-94 — sem o pkexec a porta --as-root
+        // recusava como usuário comum: "não completou" para sempre)
         let lim = args_limpeza("chris", "/home/chris");
         assert_eq!(
             lim,
             vec![
+                "pkexec".to_string(),
                 "/usr/local/bin/elite-clean".to_string(),
                 "--as-root".to_string(),
                 "chris".to_string(),
@@ -234,7 +246,7 @@ mod tests {
             .collect::<Vec<_>>()
             .join(" ");
         // a família 2.0 presente
-        for vivo in ["elite-daemon", "craft-bar-rs", "craft-dock-rs", "craft-update", "craft-pick", "craft-idle"] {
+        for vivo in ["elite-daemon", "craft-bar-rs", "craft-dock-rs", "craft-update", "craft-pick", "craft-idle", "craft-apps"] {
             assert!(tudo.contains(vivo), "o mapa não fala {vivo}");
         }
         // os fósseis NÃO voltam ao papel (a faxina da diretriz)

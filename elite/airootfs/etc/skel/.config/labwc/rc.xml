@@ -191,18 +191,19 @@
     <keybind key="C-A-t">
       <action name="Execute" command="foot" />
     </keybind>
-    <!-- Launcher: W-d → Launchpad (nwg-drawer DIRETO — 2.0: o wrapper
-         shell aposentou; o binário fecha sozinho no Esc/clique fora e
-         as flags são as da casa: sem categorias, grade de 8 colunas).
-         O fuzzel clássico fica no C-A-space p/ quem quer digitar. -->
+    <!-- Launcher: W-d → Launchpad (craft-apps — 1.0-94: a gaveta com
+         MEMÓRIA; W-d de novo FECHA, o ESC segue valendo dentro dela e
+         o botão Aplicativos da barra alterna igual. O relato do dono
+         da 1.0-93: só abria pelo menu — o toggle é porta de primeira
+         classe. O fuzzel clássico fica no C-A-space p/ quem quer digitar. -->
     <keybind key="W-d">
-      <action name="Execute" command="nwg-drawer -fm thunar -term foot -is 64 -c 8 -spacing 16 -nocats" />
+      <action name="Execute" command="craft-apps" />
     </keybind>
     <!-- v1.9 — spec M4.1 do dono: a tecla SUPER (Windows) SOZINHA aciona
          o menu de aplicativos (o mesmo Launchpad do botão Arch da barra
          superior — convenção GNOME/Windows: Super = apps). -->
     <keybind key="Super_L">
-      <action name="Execute" command="nwg-drawer -fm thunar -term foot -is 64 -c 8 -spacing 16 -nocats" />
+      <action name="Execute" command="craft-apps" />
     </keybind>
     <!-- v2.0/v2.3.4 — dock NATIVA (craft-dock-gui): SEMPRE VISÍVEL (layer
          BOTTOM + zona exclusiva — o hotspot/tira de 4px da v2.0 morreu no

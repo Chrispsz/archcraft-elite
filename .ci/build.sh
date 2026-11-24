@@ -621,7 +621,11 @@ for o in ovr:
 pt_install = '    install -Dm644 "${startdir}/elite-post-transaction.hook" "${pkgdir}/usr/share/libalpm/hooks/elite-post-transaction.hook"\n'
 # 1.0-93 — o sudoers da casa (dono pacman; arquivo de pacote — sem dança
 # de adoção, o caminho /etc/sudoers.d/99-elite-clean é NOVO nos rigs)
-sudoers_install = '    install -d "${pkgdir}/etc/sudoers.d"\n    install -m440 "${startdir}/files/etc/sudoers.d/99-elite-clean" "${pkgdir}/etc/sudoers.d/99-elite-clean"\n'
+# 1.0-94 — o DIR VESTE 750 (o rig da 1.0-93: o install -d nascia 755 e o
+# pacman avisava "directory permissions differ from filesystem" no
+# upgrade e na instalação do iwgtk — o /etc/sudoers.d do Arch é 750;
+# casar com o distro é calar o aviso SEM frouxar a permissão)
+sudoers_install = '    install -dm750 "${pkgdir}/etc/sudoers.d"\n    install -m440 "${startdir}/files/etc/sudoers.d/99-elite-clean" "${pkgdir}/etc/sudoers.d/99-elite-clean"\n'
 sudoers_rm = '    [ -e "/etc/sudoers.d/99-elite-clean" ] && rm -f "/etc/sudoers.d/99-elite-clean"\n'
 # E97 — o hook do flathub (mesma escola do post-transaction: heredoc no
 # build, dono ÚNICO no pacote — o libalpm remove sozinho na saída)
@@ -632,7 +636,9 @@ ef_install = '    install -Dm644 "${startdir}/elite-flathub.hook" "${pkgdir}/usr
 # com voz, nunca sobrescrito às cegas pelo pacman)
 udev_install = '    install -d "${pkgdir}/usr/lib/udev/rules.d"\n    install -m644 "${startdir}/files/usr/lib/udev/rules.d/91-elite-wake-guard.rules" "${pkgdir}/usr/lib/udev/rules.d/91-elite-wake-guard.rules"\n'
 # E128 — a regra polkit da casa (mesma dança da família E91/E98)
-pk_install = '    install -d "${pkgdir}/etc/polkit-1/rules.d"\n    install -m644 "${startdir}/files/etc/polkit-1/rules.d/50-elite-wheel.rules" "${pkgdir}/etc/polkit-1/rules.d/50-elite-wheel.rules"\n'
+# 1.0-94 — o DIR VESTE 750 (idem sudoers: o /etc/polkit-1/rules.d do
+# polkit é 750 no Arch — o aviso de permissão do pacman cala na fonte)
+pk_install = '    install -dm750 "${pkgdir}/etc/polkit-1/rules.d"\n    install -m644 "${startdir}/files/etc/polkit-1/rules.d/50-elite-wheel.rules" "${pkgdir}/etc/polkit-1/rules.d/50-elite-wheel.rules"\n'
 pk_rm = '    [ -e "/etc/polkit-1/rules.d/50-elite-wheel.rules" ] && ! pacman -Qo "/etc/polkit-1/rules.d/50-elite-wheel.rules" >/dev/null 2>&1 && rm -f "/etc/polkit-1/rules.d/50-elite-wheel.rules"\n'
 # E129 — o tema Qt da casa (mesma dança da família E91)
 q6_install = '    install -d "${pkgdir}/usr/local/share/elite/qt6ct"\n    install -m644 "${startdir}/files/usr/local/share/elite/qt6ct/qt6ct.conf" "${pkgdir}/usr/local/share/elite/qt6ct/qt6ct.conf"\n'
@@ -2607,7 +2613,23 @@ pkgver=1.0
 #      genérico); o post_upgrade migra o autostart dos homes vivos,
 #      aplica mitigations=off nowatchdog no GRUB, debloat waybar/gpsd e
 #      oculta os .desktop órfãos; o sudoers 99-elite-clean (!insults).
-pkgrel=93
+# 1.0-94 (E145 — a dose dos testes reais da 1.0-93 no rig do dono): a
+#      ARMADURA RT na barra/dock (todo SIGRTMIN..SIGRTMAX handled desde
+#      o 1º instante — a morte "real-time event" e o TOPBAR_COUNT=0 do
+#      respawn em loop); o DONO ÚNICO do bus (o modo game vira CLIENTE
+#      publicante: o bind duplo matava o socket da sessão no caminho —
+#      o "bus.sock MORTO" com os dois daemons vivos); o pkexec na
+#      frente do elite-clean da GUI (a porta --as-root recusava como
+#      usuário: "Limpeza não completou"); o probe nunca mais CRIA o
+#      bars.lock root:root no runtime do dono; os menus "Modo de jogo"/
+#      "Trava automática" abrem os PAINÉIS (craft-game menu já existia
+#      — o menu.xml chamava o toggle mudo; craft-idle menu nasce); o
+#      craft-apps dá à gaveta MEMÓRIA (W-d de novo fecha); o dump v2.1
+#      (bus de 3 estados, pactl/idle.conf do dono no pkexec, perícia
+#      dos erros benignos do boot, caudas dos papéis, lavd dorme
+#      nomeado); os dirs de sudoers/polkit vestem 750 (o aviso do
+#      pacman cala).
+pkgrel=94
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da sessão; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

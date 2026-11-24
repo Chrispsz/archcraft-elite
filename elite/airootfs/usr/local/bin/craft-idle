@@ -22,13 +22,14 @@ CONF="$CONF_DIR/idle.conf"
 
 uso() {
     printf '%s\n' \
-        'uso: craft-idle [N | cycle | status] — a trava automática da casa' \
+        'uso: craft-idle [N | cycle | menu | status] — a trava automática da casa' \
         '' \
         '  2.0: a vigília é do elite-daemon (ext-idle-notify nativo); este' \
         '  bin escreve ~/.config/elite/idle.conf e o daemon lê na ARMAÇÃO' \
         '  de cada ciclo — a mudança vale na hora, sem restart.' \
         '' \
         '  N        minutos de inatividade até TRAVAR E APAGAR (0 = nunca)' \
+        '  menu     o painel nativo com os presets (o item do menu do dono)' \
         '  cycle    o ciclo dos presets (5 → 10 → 15 → 30 → nunca)' \
         '  status   o conf vivo'
     exit 0
@@ -93,6 +94,39 @@ case "${1:-}" in
         exit 0
         ;;
 esac
+
+# ── menu: O PAINEL DO DONO (1.0-94 — a cura do "clico e não abre nada":
+# o cycle era mudo de janela — só a notificação; o item do menu agora
+# abre o seletor NATIVO da casa com os presets e o estado atual na
+# cabeça; a escolha escreve e a vigília arma NA HORA, como sempre).
+if [ "${1:-}" = "menu" ]; then
+    if ! command -v craft-pick >/dev/null 2>&1; then
+        # sem o seletor nativo: o cycle de sempre (a função nunca morre)
+        set -- cycle
+    else
+        _atual="$(le_lock)"
+        _titulo="Trava automática"
+        case "$_atual" in
+            0) _titulo="Trava automática — NUNCA sozinha (W-l manual manda)" ;;
+            *) _titulo="Trava automática — agora: ${_atual} min" ;;
+        esac
+        _rc=0
+        _escolha="$(printf '%s\n' "5 min" "10 min" "15 min" "30 min" "Nunca (manual)" \
+            | craft-pick --title="$_titulo")" || _rc=$?
+        # rc 1/2/143 = ESC/fora — a lei dos menus, benigno
+        if [ "$_rc" = 0 ]; then
+            case "$_escolha" in
+                "5 min")    escreve 5  ;;
+                "10 min")   escreve 10 ;;
+                "15 min")   escreve 15 ;;
+                "30 min")   escreve 30 ;;
+                "Nunca (manual)") escreve 0 ;;
+                *) exit 0 ;;
+            esac
+        fi
+        exit 0
+    fi
+fi
 
 # ── cycle: os presets da casa ────────────────────────────────────────────
 _atual="$(le_lock)"

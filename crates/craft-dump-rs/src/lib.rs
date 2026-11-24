@@ -153,19 +153,42 @@ bluetooth.service                            enabled         enabled
 
 // ── 2.0 Fase 2 — A COLETA PELO FIO (o bus vivo é a fonte da verdade) ─────
 
-/// O snapshot de boas-vindas: conecta, pede, colhe (None honesto quando
-/// o bus não responde — o papel NOMEIA a ausência, nunca inventa).
-pub fn colhe_do_bus(caminho: &std::path::Path) -> Option<BusColheita> {
-    let (cli, rx) = elite_core::bus::BusClient::connect(caminho, "craft-dump")?;
+// ── O FIO VIVO — o diagnóstico de 3 estados (1.0-94: o "MORTO" da
+//    1.0-93 escondia DOIS réus distintos — o fóssil sem dono e o
+//    daemon engasgado que aceita o connect e nunca responde) ─────────
+
+/// O veredito do fio: VIVO (o daemon atendeu), CALADO (conectou e não
+/// respondeu — o daemon está engasgado: o núcleo/despacho travado é o
+/// réu nomeado), RECUSADO (o connect falhou — fóssil de sessão morta
+/// ou dono caído: ninguém escuta o caminho).
+#[derive(Debug, Clone, PartialEq)]
+pub enum ColheitaBus {
+    /// o snapshot vivo (o daemon falou)
+    Vivo(BusColheita),
+    /// conectou, 2s sem uma linha (o réu: o núcleo do daemon engasgado)
+    Calado,
+    /// o connect recusou (o réu: o arquivo sem dono — fóssil ou queda)
+    Recusado,
+}
+
+/// O snapshot de boas-vindas: conecta, pede, colhe (o veredito tipado
+/// nomeia o réu — o papel nunca mente, nunca esconde a diferença entre
+/// "ninguém escuta" e "escuta e não fala").
+pub fn colhe_do_bus(caminho: &std::path::Path) -> ColheitaBus {
+    let Some((cli, rx)) = elite_core::bus::BusClient::connect(caminho, "craft-dump") else {
+        return ColheitaBus::Recusado;
+    };
     let _ = cli.send_req(elite_core::BusReq::Snapshot);
     // as boas-vindas + o snapshot chegam em sequência; o teto de 2s é o
     // juízo (o daemon vivo responde em ms; morto não responde nunca)
     let prazo = std::time::Duration::from_secs(2);
     let mut colheita = BusColheita::default();
+    let mut falou = false;
     let inicio = std::time::Instant::now();
     while inicio.elapsed() < prazo {
         match rx.recv_timeout(std::time::Duration::from_millis(200)) {
             Ok(elite_core::BusMsg::Windows { windows }) => {
+                falou = true;
                 colheita.janelas = windows.len() as u32;
                 colheita.titulo = windows
                     .iter()
@@ -173,31 +196,47 @@ pub fn colhe_do_bus(caminho: &std::path::Path) -> Option<BusColheita> {
                     .and_then(|w| w.title.clone());
             }
             Ok(elite_core::BusMsg::Workspace(ws)) => {
+                falou = true;
                 colheita.mesa = Some(ws);
             }
             Ok(elite_core::BusMsg::Media(m)) => {
+                falou = true;
                 colheita.midia = Some(m);
             }
             Ok(elite_core::BusMsg::GameMode(g)) => {
+                falou = true;
                 colheita.jogo = Some(g);
             }
             Ok(elite_core::BusMsg::Audio(a)) => {
+                falou = true;
                 colheita.audio = Some(a);
             }
             Ok(elite_core::BusMsg::Ack { .. }) => {
                 // o eco do Snapshot: a colheita já nasceu (as boas-vindas
                 // precedem) — fecha o papel
-                return Some(colheita);
+                return ColheitaBus::Vivo(colheita);
             }
             Ok(_) => {}
-            Err(_) => return Some(colheita),
+            Err(_) => return ColheitaBus::if_calado(falou, colheita),
         }
     }
-    Some(colheita)
+    ColheitaBus::if_calado(falou, colheita)
+}
+
+impl ColheitaBus {
+    /// a linha do prazo: falou algo = VIVO (mesmo sem Ack — o estado
+    /// parcial é verdade); mudo no teto = CALADO (o réu nomeado).
+    fn if_calado(falou: bool, colheita: BusColheita) -> ColheitaBus {
+        if falou {
+            ColheitaBus::Vivo(colheita)
+        } else {
+            ColheitaBus::Calado
+        }
+    }
 }
 
 /// o que o bus entregou (a cara do estado vivo da sessão).
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct BusColheita {
     pub janelas: u32,
     pub titulo: Option<String>,
@@ -351,6 +390,82 @@ pub fn nome_do_uid(uid: u32, passwd: &str) -> Option<String> {
         .and_then(|l| l.split(':').next().map(|s| s.to_string()))
 }
 
+/// 1.0-94 — O HOME do dono pelo uid (o dump sobe como raiz pelo pkexec:
+/// o $HOME da corrida é /root e os papéis da SESSÃO — bars.log,
+/// idle.conf, o cache — moram no home de QUEM pediu; None = sem passwd).
+pub fn home_do_uid(uid: u32, passwd: &str) -> Option<String> {
+    passwd
+        .lines()
+        .find(|l| {
+            let c: Vec<&str> = l.split(':').collect();
+            c.get(2).and_then(|u| u.parse::<u32>().ok()) == Some(uid)
+        })
+        .and_then(|l| l.split(':').nth(5).map(|s| s.to_string()))
+        .filter(|s| !s.is_empty())
+}
+
+/// 1.0-94 — A ANOTAÇÃO DOS ERROS CONHECIDOS do boot (a ordem do dono:
+/// o papel curto NÃO pode virar alarme falso — as linhas benignas do
+/// kernel/hardware ganham o veredito NA CARA; None = linha sem perícia
+/// conhecida, segue crua como sempre).
+pub fn anota_conhecido(linha: &str) -> Option<&'static str> {
+    if linha.contains("bluetoothd")
+        && (linha.contains("Refusing input device connect")
+            || linha.contains("Refusing connection from"))
+    {
+        return Some(
+            "→ conhecido: o bluetoothd recusando a reconexão antes do \
+             pareamento assentar no boot — o áudio BT conecta depois (benigno)",
+        );
+    }
+    if linha.contains("bluetoothd") && linha.contains("Fallback profile connection failed") {
+        return Some(
+            "→ conhecido: corrida bluetoothd×PipeWire no arranque (Device busy) \
+             — o perfil cai e o roteador da casa religa depois (benigno)",
+        );
+    }
+    if linha.contains("multicast RX registrations are not supported") {
+        return Some(
+            "→ conhecido: o driver sem registro multicast RX no nl80211 — o \
+             wpa_supplicant segue funcional (benigno do driver)",
+        );
+    }
+    if linha.contains("couldn't find an input interrupt endpoint") {
+        return Some(
+            "→ conhecido: interface de controle USB sem endpoint de \
+             interrupção (dispositivo composto, p.ex. o microfone) — o \
+             dispositivo segue funcional (benigno)",
+        );
+    }
+    if linha.contains("TDX not supported") {
+        return Some(
+            "→ conhecido: a sonda Intel TDX em CPU AMD — ruído do kernel \
+             (benigno em Ryzen)",
+        );
+    }
+    if linha.contains("Overdrive is enabled") {
+        return Some(
+            "→ esperado: o amdgpu.ppfeaturemask=0xffffffff da casa acende o \
+             overdrive (a lei do tuning, não defeito)",
+        );
+    }
+    None
+}
+
+/// 1.0-94 — A LINHA DO SCX (o interplay nomeado): unit presente +
+/// sched_ext ausente no kernel = o lavd DORME por desenho (a Condition
+/// pula; o BO/EEVDF do kernel CachyOS segue mandando — o papel não deixa
+/// o leitor achar que o escalonador quebrou).
+pub fn linha_scx(sched_ext_ok: bool, unit_presente: bool) -> Option<&'static str> {
+    if !sched_ext_ok && unit_presente {
+        return Some(
+            "  scx-lavd: DORME neste kernel (sem sched_ext a Condition pula a \
+             unit — o escalonador do kernel segue; não é defeito da casa)"
+        );
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests_profunda {
     use super::*;
@@ -381,16 +496,22 @@ mod tests_profunda {
 
     #[test]
     fn o_cpu_e_rss_do_processo_pela_conta_do_stat() {
-        // stat de mentira: comm com espaço (o rsplit(')') acerta),
+        // stat de mentira: comm com espaço (o rsplit(')') acerta);
         // utime=100 ticks, stime=100 ticks; uptime 100s, HZ 100 →
         // (100+100)/100/100*100 = 2% de CPU cumulativa
-        let stat = "1234 (elite-daemon) S 1 1234 1234 0 -1 4194560 0 0 0 100 100 0 0 20 0 1 0";
+        // 1.0-94 — O CAMPO FALTANTE (a mentira tinha TRÊS zeros no
+        // minflt..cmajflt — o utime comia o cmajflt e o stime o zero:
+        // 100 ticks lidos, 2% nunca saía; o teste nasceu quebrado na
+        // 1.0-93 e o CI nunca viu porque o Canal só COMPILA — a lição
+        // de lei: o teste da conta confere a CONTA, campo por campo)
+        let stat = "1234 (elite-daemon) S 1 1234 1234 0 -1 4194560 0 0 0 0 100 100 0 0 20 0 1 0";
         let status = "Name:\telite-daemon\nVmRSS:\t  10240 kB\n";
         let (cpu, rss) = proc_cpu_rss(stat, status, 100.0, 100.0);
         assert!((cpu - 2.0).abs() < 0.01, "cpu: {cpu}");
         assert!((rss - 10.0).abs() < 0.01, "rss: {rss}");
         // comm com parêntese dentro (o wine) — o rsplit ainda acerta
-        let stat2 = "99 (wine64-preload) R 1 99 99 0 -1 0 0 0 0 50 50 0 0 20 0 1 0";
+        // (idem 1.0-94: os QUATRO zeros do minflt..cmajflt, os 100 ticks)
+        let stat2 = "99 (wine64-preload) R 1 99 99 0 -1 0 0 0 0 0 50 50 0 0 20 0 1 0";
         let (cpu2, _) = proc_cpu_rss(stat2, "VmRSS:\t1 kB\n", 100.0, 100.0);
         assert!((cpu2 - 1.0).abs() < 0.01, "cpu2: {cpu2}");
         // sem uptime: 0 honesto (nunca NaN)
@@ -466,7 +587,9 @@ mod tests_fase2 {
                 }
             }
         });
-        let c = colhe_do_bus(&sock).expect("o bus falso responde");
+        let ColheitaBus::Vivo(c) = colhe_do_bus(&sock) else {
+            panic!("o bus falso não respondeu")
+        };
         assert_eq!(c.janelas, 2);
         assert_eq!(c.titulo.as_deref(), Some("Arch Wiki"));
         assert_eq!(c.mesa.as_ref().unwrap().current, 2);
@@ -481,8 +604,11 @@ mod tests_fase2 {
         assert!(tudo.contains("tocando"));
         assert!(tudo.contains("3D_FULL_SCREEN"));
         assert!(tudo.contains("Starship/Matisse"));
-        // bus morto: None honesto (o papel nomeia, nunca inventa)
-        assert!(colhe_do_bus(&dir.join("nao-existe.sock")).is_none());
+        // bus morto: RECUSADO honesto (o papel nomeia, nunca inventa)
+        assert_eq!(
+            colhe_do_bus(&dir.join("nao-existe.sock")),
+            ColheitaBus::Recusado
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -504,5 +630,58 @@ mod tests_fase2 {
             Some("alsa_output.pci-0000_14_0.analog-stereo")
         );
         assert!(pactl_default_sink("sem nada").is_none());
+    }
+
+    #[test]
+    fn os_erros_conhecidos_do_boot_ganham_o_veredito_na_cara() {
+        // 1.0-94 — o rig da 1.0-93: as linhas benignas do journal viravam
+        // alarme mudo no papel curto; a perícia conhecida entra NA CARA
+        assert!(anota_conhecido(
+            "bluetoothd[891]: Refusing input device connect: No such file or directory (2)"
+        )
+        .unwrap()
+            .contains("benigno"));
+        assert!(anota_conhecido(
+            "bluetoothd[891]: Refusing connection from ED:25:F0:0E:B7:A4: unknown device"
+        )
+        .is_some());
+        assert!(anota_conhecido(
+            "bluetoothd[891]: Fallback profile connection failed: Device or resource busy (16)"
+        )
+        .is_some());
+        assert!(anota_conhecido(
+            "wpa_supplicant[812]: nl80211: kernel reports: multicast RX registrations are not supported"
+        )
+        .is_some());
+        assert!(anota_conhecido(
+            "kernel: usbhid 3-4:1.4: couldn't find an input interrupt endpoint"
+        )
+        .is_some());
+        assert!(anota_conhecido("kernel: virt/tdx: TDX not supported by the host platform").is_some());
+        // o overdrive é a LEI da casa, não defeito
+        assert!(anota_conhecido("amdgpu: Overdrive is enabled").unwrap().contains("esperado"));
+        // linha desconhecida: None (segue crua — o papel não inventa)
+        assert!(anota_conhecido("systemd[1]: Failed to start FancyService.service").is_none());
+    }
+
+    #[test]
+    fn o_lavd_que_dorme_e_nomeado_nao_assustador() {
+        // unit presente + kernel sem sched_ext = o lavd dorme por DESENHO
+        assert!(linha_scx(false, true).unwrap().contains("DORME"));
+        // kernel com sched_ext: nada a dizer (o lavd sobe)
+        assert!(linha_scx(true, true).is_none());
+        // unit ausente: o papel do serviço já nomeou
+        assert!(linha_scx(false, false).is_none());
+    }
+
+    #[test]
+    fn o_home_do_dono_e_resolvido_no_passwd() {
+        // 1.0-94 — o dump do pkexec lê os papéis da SESSÃO de quem pediu
+        let passwd = "root:x:0:0:root:/root:/bin/bash\nchris:x:1000:1000:Chris:/home/chris:/bin/zsh\n";
+        assert_eq!(home_do_uid(1000, passwd).as_deref(), Some("/home/chris"));
+        assert_eq!(home_do_uid(0, passwd).as_deref(), Some("/root"));
+        assert!(home_do_uid(999, passwd).is_none());
+        // o nome segue na mesma gramática
+        assert_eq!(nome_do_uid(1000, passwd).as_deref(), Some("chris"));
     }
 }

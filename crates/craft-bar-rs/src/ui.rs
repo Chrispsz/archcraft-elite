@@ -147,9 +147,34 @@ struct State {
 }
 
 pub fn run() -> i32 {
+    arma_rt();
     let app = gtk::Application::new(Some("elite.craft.Bar"), Default::default());
     app.connect_activate(|app| build(app));
     app.run().get() as i32
+}
+
+/// 1.0-94 — A ARMADURA RT (a cura da morte "zsh: real-time event N" /
+/// TOPBAR_COUNT=0): TODO sinal do intervalo real-time (SIGRTMIN..
+/// SIGRTMAX) vira HANDLED no PRIMEIRO instante do processo. O padrão do
+/// Linux para RT é TERMINAR o processo — e o daemon sinaliza a barra
+/// (SIGRTMIN+8 jogo · +9 apps de 2º plano) a cada NameOwnerChanged do
+/// D-Bus com 200ms de debounce: a própria REGISTRAÇÃO do
+/// "elite.craft.Bar" no bus dispara o +9, e a barra morria ANTES de
+/// instalar os handlers no build() (a janela GTK-init era o cadafalso;
+/// o respawn em loop 2s → sinal → morte era o TOPBAR_COUNT=0 do rig da
+/// 1.0-93 — a era waybar era imune POR CONFIG, os módulos dela
+/// registravam os sinais). Os +8/+9 seguem HANDLED no drena; os demais
+/// RT viram ruído inofensivo na bandeira (a disposição padrão nunca
+/// mais mata a barra, venha o sinal de quem vier).
+pub fn arma_rt() {
+    unsafe {
+        let mut s = libc::SIGRTMIN();
+        let max = libc::SIGRTMAX();
+        while s <= max {
+            libc::signal(s, on_signal as libc::sighandler_t);
+            s += 1;
+        }
+    }
 }
 
 fn build(app: &gtk::Application) {
@@ -1235,9 +1260,14 @@ fn popover_rede(st: &Rc<RefCell<State>>, tx: Sender<Msg>) -> gtk::Popover {
     }
     corpo.append(&scroll);
 
-    // o AVANÇADO (o nm-connection-editor — a ferramenta completa)
+    // o AVANÇADO (o nm-connection-editor — a ferramenta completa) e o
+    // IWGTK (1.0-94 — a diretriz do dono: o rádio Wi-Fi de verdade em
+    // tela própria; instalado = botão, ausente = nem nasce, a barra
+    // nunca promete o que o sistema não tem)
     {
-        let avancado = gtk::Button::with_label("Configurações avançadas");
+        let ferramentas = gtk::Box::new(gtk4::Orientation::Horizontal, 8);
+        ferramentas.set_hexpand(true);
+        let avancado = gtk4::Button::with_label("Conexões avançadas");
         avancado.set_hexpand(true);
         avancado.set_tooltip_text(Some("Abrir o editor completo de conexões"));
         clique_solto(&avancado, move |botao| {
@@ -1245,7 +1275,19 @@ fn popover_rede(st: &Rc<RefCell<State>>, tx: Sender<Msg>) -> gtk::Popover {
                 solta(&["nm-connection-editor"]);
             }
         });
-        corpo.append(&avancado);
+        ferramentas.append(&avancado);
+        if std::path::Path::new("/usr/bin/iwgtk").exists() {
+            let iwgtk = gtk4::Button::with_label("Wi-Fi (iwgtk)");
+            iwgtk.set_hexpand(true);
+            iwgtk.set_tooltip_text(Some("Abrir o rádio Wi-Fi em tela própria"));
+            clique_solto(&iwgtk, move |botao| {
+                if botao == 1 {
+                    solta(&["iwgtk"]);
+                }
+            });
+            ferramentas.append(&iwgtk);
+        }
+        corpo.append(&ferramentas);
     }
     pop.set_child(Some(&corpo));
     pop

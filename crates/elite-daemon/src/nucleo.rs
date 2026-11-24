@@ -12,11 +12,18 @@
 //     motor de jogo — o craft-game CLI segue como o cérebro manual);
 //   · nada de lógica de domínio AQUI (o núcleo é a mesa de despacho —
 //     cada pedido nasce, é despachado e o Ack volta no mesmo giro).
+//
+// 1.0-94 — O DONO ÚNICO (a cura do bus.sock MORTO): `liga_bus` (o
+// bind) é da porta `session` — o processo que quer falar SEM a posse
+// chama `liga_cliente`: ele conecta como cliente ("elite-daemon-game")
+// e `pub_bus` publica PELO FIO (o servidor retransmite; o bind antigo
+// fazia remove_file+bind e matava o socket do dono no caminho — o
+// fóssil que o dump nomeava MORTO com os dois daemons vivos).
 // ═════════════════════════════════════════════════════════════════════════
 
 use std::sync::{Arc, OnceLock};
 
-use elite_core::bus::{BusServer, Incoming};
+use elite_core::bus::{BusClient, BusServer, Incoming};
 use elite_core::{bus_sock_path, BusMsg, BusReq};
 
 /// o estado global (o bus vivo da sessão).
@@ -26,8 +33,18 @@ pub struct Estado {
 
 static STATE: OnceLock<Estado> = OnceLock::new();
 
+/// o estado do lado CLIENTE (o modo game sem posse — 1.0-94).
+struct EstadoCliente {
+    cli: Arc<BusClient>,
+}
+
+static STATE_CLIENTE: OnceLock<EstadoCliente> = OnceLock::new();
+
 /// liga o bus da sessão (a porta session e o modo game chamam; o
 /// segundo chamador é no-op — UMA instância é a lei de sempre).
+/// 1.0-94 — O DONO É UM SÓ: o modo game com SESSÃO viva NÃO chama aqui
+/// (chama `liga_cliente`); o bind rebinda o caminho e mataria o fio do
+/// dono (a classe do bus.sock MORTO do rig da 1.0-93).
 pub fn liga_bus() {
     if STATE.get().is_some() {
         return;
@@ -46,11 +63,52 @@ pub fn liga_bus() {
         .ok();
 }
 
+/// 1.0-94 — liga como CLIENTE do bus da sessão (o modo game sem posse do
+/// servidor): conecta, se apresenta e guarda o punho — `pub_bus` publica
+/// pelo fio daqui. Sem sessão viva o chamador NUNCA chega aqui (o
+/// daemon_loop decide pela posse do lock da sessão); o bus ausente é
+/// silêncio honesto (o cinto SIGRTMIN+8 segue cobrindo a barra).
+pub fn liga_cliente() {
+    if STATE.get().is_some() || STATE_CLIENTE.get().is_some() {
+        return;
+    }
+    let uid = unsafe { libc::getuid() };
+    let caminho = bus_sock_path(uid);
+    let Some((cli, rx)) = BusClient::connect(&caminho, "elite-daemon-game") else {
+        eprintln!(
+            "elite-daemon: o bus da sessão não atende em {caminho:?} — o modo game publica pelo cinto do sinal (honesto)"
+        );
+        return;
+    };
+    STATE_CLIENTE
+        .set(EstadoCliente { cli: Arc::clone(&cli) })
+        .ok();
+    eprintln!(
+        "elite-daemon: modo game no bus como CLIENTE ({}) — o dono da sessão é o servidor",
+        caminho.display()
+    );
+    // o dreno: o canal do leitor não pode encher sem leitor — a thread
+    // dorme no recv PARA SEMPRE (o modo game não assina estado, só
+    // publica; manter o Receiver vivo mantém a thread leitora viva)
+    std::thread::Builder::new()
+        .name("elite-nucleo-cliente".into())
+        .spawn(move || {
+            for _msg in rx {}
+        })
+        .ok();
+}
+
 /// PUBLICA de qualquer thread da casa (a via curta dos módulos: o bus
 /// ausente é silêncio honesto — a sessão sem fio não trava ninguém).
+/// 1.0-94 — o lado CLIENTE publica PELO FIO quando não há posse do
+/// servidor (o dono retransmite; o sinal SIGRTMIN+8 segue de cinto).
 pub fn pub_bus(msg: &BusMsg) {
     if let Some(e) = STATE.get() {
         e.bus.broadcast(msg);
+        return;
+    }
+    if let Some(c) = STATE_CLIENTE.get() {
+        c.cli.publish(msg);
     }
 }
 

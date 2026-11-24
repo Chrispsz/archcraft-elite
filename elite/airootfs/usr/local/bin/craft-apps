@@ -1,0 +1,44 @@
+#!/bin/sh
+# ═══════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · craft-apps (1.0-94) — A GAVETA COM MEMÓRIA
+# ═══════════════════════════════════════════════════════════════════════════
+# O RELATO DO DONO (rig da 1.0-93): a gaveta de aplicativos (nwg-drawer)
+# só abria pelo menu/botão direito — apertar W-d de novo não fechava,
+# ESC era o único caminho. A 2.0 aposentou o wrapper craft-drawer da era
+# shell (o LEGADO da lista 2.0 é LITERAL no nome — este bin é OUTRO
+# corpo: um CLI de UM tiro, zero residente, a lei dos forks pontuais).
+#
+# O CORPO: o toggle é por comm no /proc do próprio uid (a MESMA
+# gramática da barra: mata a gaveta viva OU abre uma nova — o filho
+# nasce destacado com o setsid, o stderr morre no /dev/null porque os
+# grilos da gaveta não são evidência de nada).
+#
+# As portas de fecho da gaveta: W-d de novo (AQUI), o botão
+# "Aplicativos" da barra (o toggle da própria), ESC dentro dela — três
+# caminhos, nenhum mistério.
+# ═══════════════════════════════════════════════════════════════════════════
+set -u
+
+_uid="$(id -u)"
+_viva=0
+for _d in /proc/[0-9]*; do
+    _pid="${_d##*/}"
+    _comm="$(cat "$_d/comm" 2>/dev/null || true)"
+    [ "$_comm" = "nwg-drawer" ] || continue
+    # só a gaveta DO DONO (o comm é a prova, o uid é a cerca)
+    _dono="$(sed -n 's/^Uid: \([0-9]*\).*/\1/p' "$_d/status" 2>/dev/null | head -1)"
+    [ "${_dono:-}" = "$_uid" ] || continue
+    kill -TERM "$_pid" 2>/dev/null && _viva=1
+done
+
+if [ "$_viva" = 1 ]; then
+    # havia gaveta: o toggle FECHA (a memória da porta)
+    exit 0
+fi
+
+# nenhuma viva: abre (os argumentos da casa — a MESMA receita do menu,
+# da barra e do rc.xml: um só lugar de verdade seria melhor, mas o
+# labwc não expande variáveis no Execute; a receita viaja documentada)
+setsid nwg-drawer -fm thunar -term foot -is 64 -c 8 -spacing 16 -nocats \
+    >/dev/null 2>&1 </dev/null &
+exit 0

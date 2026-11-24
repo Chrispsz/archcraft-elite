@@ -192,9 +192,28 @@ struct State {
 }
 
 pub fn run() -> i32 {
+    arma_rt();
     let app = gtk::Application::new(Some("elite.craft.Dock"), Default::default());
     app.connect_activate(|app| build(app));
     app.run().get() as i32
+}
+
+/// 1.0-94 — A ARMADURA RT (a mesma cura da barra): TODO sinal do
+/// intervalo real-time (SIGRTMIN..SIGRTMAX) vira HANDLED no primeiro
+/// instante — a disposição padrão do Linux para RT é TERMINAR o
+/// processo, e nenhum sinal da casa (ou de fora) derruba mais a dock
+/// (a instabilidade visual das trocas de resolução/refresh do rig da
+/// 1.0-93 morria na mesma classe: qualquer RT perdido era processo
+/// morto renascendo com a pílula da era anterior).
+pub fn arma_rt() {
+    unsafe {
+        let mut s = libc::SIGRTMIN();
+        let max = libc::SIGRTMAX();
+        while s <= max {
+            libc::signal(s, on_signal as *const () as libc::sighandler_t);
+            s += 1;
+        }
+    }
 }
 
 fn build(app: &gtk::Application) {

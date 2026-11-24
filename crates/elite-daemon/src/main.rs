@@ -269,10 +269,15 @@ fn sinal_waybar() -> usize {
 /// o fork de `craft-bgapps status` a cada 5s do réu do dump 101339 —
 /// 25% de CPU e zumbis pkill — morre).
 fn sinal_waybar_sig(offset: i32) -> usize {
+    sinal_para_comms(&["craft-bar-rs", "waybar"], libc::SIGRTMIN() + offset)
+}
+
+/// 1.0-94 — O SINAL GENÉRICO da casa: um sinal a TODO processo vivo do
+/// uid corrente cujo comm está na lista (a leitura de /proc + libc::kill
+/// — NENHUM fork de pgrep; a barra e a dock vestem handlers/as armaduras
+/// RT, o sinal nunca mais mata ninguém por disposição padrão).
+fn sinal_para_comms(comms: &[&str], sig: i32) -> usize {
     let uid = unsafe { libc::getuid() };
-    // E138 — SIGRTMIN é fn() const do libc (não macro unsafe nesta versão:
-    // o warning 'unnecessary unsafe' era a mentira do build sujo)
-    let sig = libc::SIGRTMIN() + offset;
     let Ok(dir) = std::fs::read_dir("/proc") else { return 0 };
     let mut n = 0usize;
     for entry in dir.flatten() {
@@ -286,9 +291,7 @@ fn sinal_waybar_sig(offset: i32) -> usize {
         let base = std::path::Path::new("/proc").join(entry.file_name());
         let comm = std::fs::read_to_string(base.join("comm")).unwrap_or_default();
         let comm = comm.trim_end();
-        // E140 — o craft-bar-rs É a topbar da casa; o waybar segue na
-        // lista só pela janela de transição do relogin
-        if comm != "craft-bar-rs" && comm != "waybar" {
+        if !comms.contains(&comm) {
             continue;
         }
         let Ok(meta) = std::fs::metadata(base.join("stat")) else { continue };
@@ -408,11 +411,21 @@ fn thread_netlink() {
                 std::thread::spawn(|| audio::rodada("event"));
             }
             // DRM: monitor plugado/desplugado → o arranjo do dono volta
+            // 1.0-94 — e o RESPIRO DE PELE: o apply assenta (~400ms) e a
+            // dock/barra recebem SIGUSR2 — a dock REMONTA os pins com os
+            // ícones do modo novo (a dock preta/sem ícones do rig da
+            // 1.0-93 nas trocas de resolução/refresh era a pílula pintada
+            // no tamanho da era anterior) e a barra relê a pele CSS.
             if (data.contains("/drm") || data.contains("SUBSYSTEM=drm"))
                 && agora.saturating_sub(last_drm) > 800
             {
                 last_drm = agora;
                 dispara("/usr/local/bin/craft-display", &["apply"]);
+                std::thread::spawn(|| {
+                    std::thread::sleep(Duration::from_millis(400));
+                    sinal_para_comms(&["craft-dock-rs"], libc::SIGUSR2);
+                    sinal_para_comms(&["craft-bar-rs"], libc::SIGUSR2);
+                });
             }
         }
     }
@@ -720,33 +733,43 @@ fn daemon_loop() -> Result<(), String> {
     // quem SEMPRE está viva e ela levanta os ouvidores. O CINTO: se
     // NÃO há session vivo (rig legado, watch à mão), ESTE corpo os
     // levanta — o peek no lock da sessão decide, nunca dois donos.
-    // 2.0 — o modo game também liga o BUS e o cliente Wayland (as
-    // janelas do jogo são a PORTA 5 NATIVA agora; a barra acende o pill
-    // pelo fio além do sinal) — sem sessão viva, ESTE corpo é o dono
-    nucleo::liga_bus();
-    wayland::start();
+    // 1.0-94 — O DONO ÚNICO DO BUS (a cura do bus.sock MORTO do rig da
+    // 1.0-93): o peek no lock da sessão decide QUEM serve o fio. Sessão
+    // viva = o modo game vira CLIENTE ("elite-daemon-game" publica as
+    // transições pelo fio; o servidor retransmite) — o bind antigo fazia
+    // remove_file+bind e MATIA o socket do dono da sessão no caminho (o
+    // fóssil que o dump nomeava MORTO com os dois daemons vivos; pior: o
+    // craft-game watch de fora nascia depois e roubava o caminho —
+    // morrendo, deixava o fóssil no chão e a sessão cega para sempre).
+    // 2.0 — sem sessão viva, ESTE corpo é o dono: liga o servidor E o
+    // cliente Wayland (as janelas do jogo são a PORTA 5 NATIVA; a barra
+    // acende o pill pelo fio além do sinal).
     // 1.0-93 — o peek confere os DOIS endereços do lock da sessão (o
     // PRIVADO novo `$XDG_RUNTIME_DIR/elite/session.lock` E o fallback
     // /tmp da era legada — o session pode ter caído no fallback quando
     // o runtime privado não abriu; um dono só, em qualquer casa)
-    {
+    let (privado_livre, fallback_livre) = {
         let uid = unsafe { libc::getuid() };
-        let privado_livre =
-            supervise::peek_lock_livre(&elite_core::session_lock_path(uid));
-        let fallback_livre = supervise::peek_lock_livre(&PathBuf::from(
-            elite_core::SESSION_LOCK_FALLBACK,
-        ));
-        if privado_livre && fallback_livre {
-            std::thread::spawn(thread_netlink);
-            std::thread::spawn(|| thread_logind("PrepareForSleep", true));
-            std::thread::spawn(|| thread_logind("Unlock", false));
-            std::thread::spawn(thread_bus_bgapps);
-            std::thread::spawn(thread_wakeguard);
-            eprintln!(
-                "elite-daemon: sem session vivo — os ouvidores sobem AQUI (o \
-                 cinto do modo game)"
-            );
-        }
+        (
+            supervise::peek_lock_livre(&elite_core::session_lock_path(uid)),
+            supervise::peek_lock_livre(&PathBuf::from(elite_core::SESSION_LOCK_FALLBACK)),
+        )
+    };
+    if privado_livre && fallback_livre {
+        nucleo::liga_bus();
+        eprintln!(
+            "elite-daemon: sem session vivo — o bus E os ouvidores sobem AQUI (o cinto do modo game)"
+        );
+    } else {
+        nucleo::liga_cliente();
+    }
+    wayland::start();
+    if privado_livre && fallback_livre {
+        std::thread::spawn(thread_netlink);
+        std::thread::spawn(|| thread_logind("PrepareForSleep", true));
+        std::thread::spawn(|| thread_logind("Unlock", false));
+        std::thread::spawn(thread_bus_bgapps);
+        std::thread::spawn(thread_wakeguard);
     }
     eprintln!("elite-daemon: no ar (toplevel EVT no corpo; os ouvidores de sessão vivem na porta session — E139)");
 

@@ -153,6 +153,11 @@ fn main() {
             ));
         } else {
             say("  sched_ext: AUSENTE (kernel sem a interface)");
+            // 1.0-94 — o interplay nomeado: unit presente + kernel sem
+            // sched_ext = o lavd DORME por desenho (não é defeito)
+            if let Some(linha) = craft_dump_rs::linha_scx(false, true) {
+                say(linha);
+            }
         }
     }
 
@@ -216,40 +221,85 @@ fn main() {
     }
 
     // ── O FIO VIVO: o bus.sock (a fonte da verdade da sessão) ───────────
+    // 1.0-94 — O VEREDITO DE 3 ESTADOS (o "MORTO" da 1.0-93 escondia
+    // DOIS réus: o fóssil sem dono e o daemon engasgado)
     say("");
     let caminho = elite_core::bus_sock_path(uid);
+    let arquivo_existe = caminho.exists();
     match craft_dump_rs::colhe_do_bus(&caminho) {
-        Some(colheita) => {
+        craft_dump_rs::ColheitaBus::Vivo(colheita) => {
             say(&format!("bus.sock VIVO ({}):", caminho.display()));
             for linha in craft_dump_rs::linhas_bus(&colheita) {
                 say(&format!("  {linha}"));
             }
         }
-        None => say(&format!(
-            "bus.sock MORTO em {} — o daemon não atende (a sessão segue sem fio; nomeado, não inventado)",
-            caminho.display()
-        )),
+        craft_dump_rs::ColheitaBus::Calado => {
+            say(&format!(
+                "bus.sock CALADO em {} — conectou e o daemon NÃO respondeu \
+                 (o núcleo do elite-daemon está engasgado: o SIGTERM dele \
+                 renasce a sessão limpa; as caudas abaixo contam)",
+                caminho.display()
+            ));
+        }
+        craft_dump_rs::ColheitaBus::Recusado => {
+            if arquivo_existe {
+                say(&format!(
+                    "bus.sock MORTO em {} — o arquivo existe mas NINGUÉM \
+                     atende (fóssil de sessão morta ou o dono caiu — o \
+                     relogin renasce o fio)",
+                    caminho.display()
+                ));
+            } else {
+                say(&format!(
+                    "bus.sock AUSENTE em {} — o daemon nunca ligou o fio \
+                     nesta sessão (nomeado, não inventado)",
+                    caminho.display()
+                ));
+            }
+        }
     }
 
     // ── ÁUDIO DA MESA: o default + os sinks/sources do PipeWire ─────────
+    // 1.0-94 — O PACTL VESTE O RUNTIME DO DONO (o rig da 1.0-93: o dump
+    // do pkexec vinha RAIZ e o pactl ficava SEM RESPOSTA — o socket do
+    // PipeWire mora em /run/user/<uid>; o XDG_RUNTIME_DIR da corrida
+    // aponta pro dono certo e o áudio aparece no papel de raiz também)
     say("");
-    match colhe(&["pactl", "info"]).map(|s| craft_dump_rs::pactl_default_sink(&s)) {
-        Some(Some(sink)) => say(&format!("áudio: default do PipeWire = {sink}")),
-        _ => say("áudio: pactl indisponível/sem resposta (rig real julga)"),
+    let mut pactl_env = std::process::Command::new("pactl");
+    pactl_env.env("XDG_RUNTIME_DIR", format!("/run/user/{uid}"));
+    match pactl_env
+        .args(["info"])
+        .stdin(std::process::Stdio::null())
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
+        .and_then(|s| craft_dump_rs::pactl_default_sink(&s))
+    {
+        Some(sink) => say(&format!("áudio: default do PipeWire = {sink}")),
+        None => say("áudio: pactl indisponível/sem resposta (rig real julga)"),
     }
-    if let Some(sinks) = colhe(&["pactl", "list", "short", "sinks"]) {
+    if let Some(sinks) = colhe_com_runtime(&["pactl", "list", "short", "sinks"], uid) {
         for linha in sinks.lines().take(8) {
             say(&format!("  sink: {linha}"));
         }
     }
-    if let Some(sources) = colhe(&["pactl", "list", "short", "sources"]) {
+    if let Some(sources) = colhe_com_runtime(&["pactl", "list", "short", "sources"], uid) {
         for linha in sources.lines().take(8) {
             say(&format!("  source: {linha}"));
         }
     }
 
     // ── A VIGÍLIA: o conf vivo (o daemon arma com ESTES valores) ─────────
-    let conf_idle = elite_core::elite_config_dir().join("idle.conf");
+    // 1.0-94 — O CONF É DO DONO (o rig da 1.0-93: o dump do pkexec lia
+    // o idle.conf de /root e dizia "ausente"; o papel agora resolve o
+    // home de QUEM pediu — o LOCK_MIN=0 ganha também o significado)
+    let passwd = std::fs::read_to_string("/etc/passwd").unwrap_or_default();
+    let home_dono = craft_dump_rs::home_do_uid(uid, &passwd)
+        .or_else(|| std::env::var("HOME").ok())
+        .unwrap_or_else(|| "/root".into());
+    let conf_idle = std::path::PathBuf::from(&home_dono)
+        .join(".config/elite/idle.conf");
     match std::fs::read_to_string(&conf_idle) {
         Ok(papel_conf) => {
             let lock = papel_conf
@@ -257,14 +307,19 @@ fn main() {
                 .find(|l| l.starts_with("LOCK_MIN="))
                 .and_then(|l| l.split('=').nth(1))
                 .unwrap_or("?");
-            say(&format!(
-                "vigília: LOCK_MIN={lock} (o elite-daemon arma a trava com este papel)"
-            ));
+            if lock == "0" {
+                say("vigília: LOCK_MIN=0 — trava automática DESLIGADA (o menu \
+                     'Trava automática' ou 'craft-idle painel' religa)");
+            } else {
+                say(&format!(
+                    "vigília: LOCK_MIN={lock} (o elite-daemon arma a trava com este papel)"
+                ));
+            }
         }
         Err(_) => say("vigília: idle.conf ausente (a fábrica do daemon: 5 min)"),
     }
 
-    // ── 1.0-93 · OS MONITORES (o wlr-randr cru) ──────────────────────────
+    // ── 1.0-94 · OS MONITORES (o wlr-randr cru) ──────────────────────────
     if let Some(randr) = colhe(&["wlr-randr"]) {
         say("");
         say("monitores (wlr-randr):");
@@ -274,11 +329,41 @@ fn main() {
     }
 
     // ── 1.0-93 · OS ERROS DO BOOT (journalctl -p err -b) ─────────────────
+    // 1.0-94 — A PERÍCIA CONHECIDA NA CARA (o rig da 1.0-93 lia as linhas
+    // benignas do bluetoothd/wpa/tdx como alarme mudo; as anotações
+    // separam o benigno do réu de verdade)
     if let Some(journal) = colhe(&["journalctl", "-p", "err", "-b", "--no-pager", "-n", "30"]) {
         say("");
-        say("erros do boot (journalctl -p err -b, os últimos 30):");
+        say("erros do boot (journalctl -p err -b, os últimos 30 · os → são a perícia):");
         for linha in journal.lines() {
             say(&format!("  {linha}"));
+            if let Some(nota) = craft_dump_rs::anota_conhecido(linha) {
+                say(&format!("  {nota}"));
+            }
+        }
+    }
+
+    // ── 1.0-94 · AS CAUDAS DA SESSÃO (os papéis que o dono precisa ler ───
+    //    quando algo quebra — o dump curto da 1.0-93 escondia os gritos
+    //    do respawn da barra e o porquê da limpeza; caudas de 20 linhas,
+    //    teto honesto, a objetividade segue)
+    say("");
+    say("as caudas da sessão (~/.cache/elite · os últimos 20 de cada):");
+    let cache_dono = std::path::PathBuf::from(&home_dono).join(".cache/elite");
+    for nome in ["bars.log", "bar.log", "dock.log", "clean.log", "update.log"] {
+        let caminho_log = cache_dono.join(nome);
+        let Ok(txt) = std::fs::read_to_string(&caminho_log) else {
+            continue;
+        };
+        let linhas: Vec<&str> = txt.lines().collect();
+        let cauda: Vec<&str> = if linhas.len() > 20 {
+            linhas[linhas.len() - 20..].to_vec()
+        } else {
+            linhas
+        };
+        say(&format!("  ── {nome} (a cauda):"));
+        for l in cauda {
+            say(&format!("  {l}"));
         }
     }
 
@@ -334,6 +419,22 @@ fn uid_e_dono() -> (u32, Option<String>) {
 fn colhe(argv: &[&str]) -> Option<String> {
     let out = std::process::Command::new(argv[0])
         .args(&argv[1..])
+        .stdin(std::process::Stdio::null())
+        .output()
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    Some(String::from_utf8_lossy(&out.stdout).into_owned())
+}
+
+/// 1.0-94 — a colheita COM O RUNTIME DO DONO (o pactl como raiz sem o
+/// XDG_RUNTIME_DIR não vê o PipeWire de ninguém — o socket mora em
+/// /run/user/<uid> do dono da sessão).
+fn colhe_com_runtime(argv: &[&str], uid: u32) -> Option<String> {
+    let out = std::process::Command::new(argv[0])
+        .args(&argv[1..])
+        .env("XDG_RUNTIME_DIR", format!("/run/user/{uid}"))
         .stdin(std::process::Stdio::null())
         .output()
         .ok()?;

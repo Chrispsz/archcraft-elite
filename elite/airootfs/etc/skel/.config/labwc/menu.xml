@@ -214,13 +214,16 @@
          GPU high + rollback automático, RAM zero no idle). E106:
          ON/OFF/Automático/Status DEVOLvem feedback na tela. -->
     <item label="Modo de jogo">
-      <action name="Execute" command="craft-game toggle" />
+      <action name="Execute" command="craft-game menu" />
     </item>
     <!-- v1.6.1: presets do idle no fuzzel, efeito imediato, sem
          relogin. E124: 'Trava automática' entrou cortando o tempo;
-         E125: os três pontinhos morrem — a palavra fica INTEIRA. -->
+         E125: os três pontinhos morrem — a palavra fica INTEIRA.
+         1.0-94: o item abre o PAINEL NATIVO (craft-idle menu — o
+         relato do dono: 'clico e não abre nada'; o cycle mudo morre
+         como porta do menu, segue vivo no CLI). -->
     <item label="Trava automática">
-      <action name="Execute" command="craft-idle cycle" />
+      <action name="Execute" command="craft-idle menu" />
     </item>
     <separator />
     <!-- E90 — O MAPA DOS COMANDOS. E106 — a pausa do E96: a janela
@@ -240,7 +243,7 @@
          menu.width.max 280). Os atalhos (W-l, W-Escape/W-x/C-A-Del)
          seguem byte a byte — o que muda é a PALAVRA que o dono lê. -->
     <item label="Aplicativos">
-      <action name="Execute" command="nwg-drawer -fm thunar -term foot -is 64 -c 8 -spacing 16 -nocats" />
+      <action name="Execute" command="craft-apps" />
     </item>
     <item label="Bloquear tela">
       <action name="Execute" command="craft-lock" />

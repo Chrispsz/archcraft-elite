@@ -48,8 +48,9 @@ fn build(app: &gtk4::Application) {
          só com o navegador fechado.\n\
          NUNCA toca em pastas pessoais, perfis de navegador ou \
          configurações vivas.\n\
+         A senha é o diálogo gráfico da sessão (uma vez, para o wheel). \
          A fase avançada (órfãos, runtimes de Flatpak, miniaturas) segue \
-         sendo CLI: foot -e elite-clean --avancada.",
+         sendo CLI: o botão abaixo abre o terminal dela.",
     ));
     corpo_txt.add_css_class("body");
     corpo_txt.set_halign(gtk4::Align::Start);
@@ -57,6 +58,17 @@ fn build(app: &gtk4::Application) {
     corpo_txt.set_wrap(true);
 
     let (scroll, buffer) = janela::bloco_texto();
+    // 1.0-94 — a TAG do veredito (o rig da 1.0-93 lia o erro escuro no
+    // escuro: o texto de falha nasce VERMELHO vivo, o de sucesso verde
+    // suave — a casa é escura, o contraste é lei de leitura)
+    let tag_erro = buffer
+        .create_tag(None, &[])
+        .expect("a tag do veredito nasce");
+    tag_erro.set_foreground_rgba(Some(&gtk4::gdk::RGBA::new(1.0, 0.44, 0.44, 1.0)));
+    let tag_ok = buffer
+        .create_tag(None, &[])
+        .expect("a tag do veredito nasce");
+    tag_ok.set_foreground_rgba(Some(&gtk4::gdk::RGBA::new(0.65, 0.85, 0.55, 1.0)));
     buffer.set_text("— o relatório da limpeza aparece aqui —\n");
 
     let acoes = gtk4::Box::new(gtk4::Orientation::Horizontal, 10);
@@ -76,6 +88,8 @@ fn build(app: &gtk4::Application) {
         let btn = btn.clone();
         let buffer_c = buffer.clone();
         let scroll_c = scroll.clone();
+        let tag_erro = tag_erro.clone();
+        let tag_ok = tag_ok.clone();
         let fim: std::rc::Rc<
             std::cell::RefCell<Option<Box<dyn FnOnce(i32) + 'static>>>,
         > = std::rc::Rc::new(std::cell::RefCell::new(Some(Box::new(move |rc: i32| {
@@ -83,13 +97,33 @@ fn build(app: &gtk4::Application) {
             pulso.set_visible(false);
             btn.set_sensitive(true);
             btn.set_label("Limpar de novo");
-            let veredito = if rc == 0 {
-                "✓ Limpeza concluída — o total liberado está no relatório."
+            // 1.0-94 — o veredito com a TAG (contraste de leitura) E o
+            // porquê nomeado: 127 = o pkexec/motor não nasceu; 126 = a
+            // senha foi negada; o resto é o próprio relatório do motor
+            // (o rc e as linhas dizem — o papel segue em
+            // ~/.cache/elite/clean.log)
+            let (veredito, ok) = if rc == 0 {
+                ("✓ Limpeza concluída — o total liberado está no relatório.", true)
+            } else if rc == 127 {
+                ("✗ O motor não nasceu (pkexec/elite-clean ausentes no PATH) — nada rodou.", false)
+            } else if rc == 126 {
+                ("✗ A autorização foi negada (senha cancelada) — nada rodou.", false)
             } else {
-                "✗ A limpeza não completou — as linhas acima e ~/.cache/elite/clean.log dizem o porquê."
+                (
+                    "✗ A limpeza não completou (código acima) — as linhas anteriores E \
+                     ~/.cache/elite/clean.log dizem o porquê.",
+                    false,
+                )
             };
             let mut it = buffer_c.end_iter();
+            let inicio = it.offset();
             buffer_c.insert(&mut it, &format!("\n{veredito}\n"));
+            let fim_insercao = buffer_c.end_iter().offset();
+            buffer_c.apply_tag(
+                if ok { &tag_ok } else { &tag_erro },
+                &buffer_c.iter_at_offset(inicio),
+                &buffer_c.iter_at_offset(fim_insercao),
+            );
             janela::rola_para_o_fim(&scroll_c);
         }))));
         gtk4::glib::timeout_add_local(
@@ -129,6 +163,21 @@ fn build(app: &gtk4::Application) {
     }
     acoes.append(&btn);
     acoes.append(&pulso);
+    // 1.0-94 — a fase avançada a um clique (a CLI de pé nomeada no
+    // corpo: o terminal da casa abre com as perguntas [s/N] vivas)
+    {
+        let btn_avancada = gtk4::Button::with_label("Fase avançada (terminal)");
+        btn_avancada.add_css_class("secundario");
+        btn_avancada.connect_clicked(move |_| {
+            let _ = std::process::Command::new("foot")
+                .args(["-e", "/usr/local/bin/elite-clean", "menu"])
+                .stdin(std::process::Stdio::null())
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .spawn();
+        });
+        acoes.append(&btn_avancada);
+    }
 
     corpo.append(&titulo);
     corpo.append(&corpo_txt);

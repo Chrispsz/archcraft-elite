@@ -186,7 +186,17 @@ say "GAME_WATCH=$game_watch"
 # ambos os mundos a trava segue viva enquanto a sessão vive); LIVRE =
 # ninguém cuidando (o que nunca pode dormir).
 sup_lock="LIVRE"
-flock -n "${XDG_RUNTIME_DIR:-/run/user/1000}/elite/bars.lock" true 2>/dev/null || sup_lock="ATIVO"
+# 1.0-94 — O GUARD DE EXISTÊNCIA (o rig da 1.0-93: o flock(1) ABRE O
+# ARQUIVO EM MODO ESCRITA — rodando como root sem XDG_RUNTIME_DIR, o
+# probe CRIAVA /run/user/1000/elite/bars.lock root:root no tmpfs do
+# dono a cada boot; o arquivo morto confundia a sessão e a posse era
+# mentira). O lock fóssil da era craft-bars SÓ é conferido se JÁ
+# EXISTE — o probe é observador: NUNCA cria arquivo no runtime alheio.
+_bars_lock="${XDG_RUNTIME_DIR:-/run/user/1000}/elite/bars.lock"
+if [ -e "$_bars_lock" ]; then
+    flock -n "$_bars_lock" true 2>/dev/null || sup_lock="ATIVO"
+fi
+unset _bars_lock
 say "SUPERVISOR_LOCK=$sup_lock"
 say "BARS_RESTARTS=$restarts"
 say "BARS_EXITS=$exits"
