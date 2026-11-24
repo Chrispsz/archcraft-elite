@@ -167,6 +167,60 @@ Ao encerrar QUALQUER entrega, apresentar objetivamente:
 
 ---
 
+---
+
+## §7 · Filosofia 2.0 — A Reconstrução Nativa (diretriz do dono)
+
+A fase 2.0 do projeto é uma RECONSTRUÇÃO, não uma tradução. As leis
+desta seção operam dentro de §1–§6; em conflito, a harmonização é
+registrada no mesmo commit.
+
+- **Reprojetar, nunca clonar o legado:** o código antigo é estudado para
+  compreender o domínio (kernel, sysctl, udev, GPU sysfs, wake-guard) e
+  NUNCA portado linha a linha. A camada de interface, IPC e orquestração
+  é reescrita do zero em Rust.
+- **Sem fallback para o passado:** `waybar`, scripts Python de UI
+  (`craft-audio`, `craft-bars`), wrappers de `fuzzel` fingindo ser painel
+  de controle e `pkill` de sincronização morrem da árvore, do `PKGBUILD`
+  e da suíte quando os módulos nativos assumem. O enterro tem SUBSTITUTO
+  vivo antes da pá — nada é apagado sem destino (a faxina é segura ou
+  não sai).
+- **100% Rust na camada própria:** os binários da casa compilam com
+  `LTO=fat + strip + opt-level=3`, orientados a eventos reais (epoll,
+  procfs, sysfs, D-Bus `zbus`, protocolos Wayland nativos) — zero polling
+  pesado, zero colcha de retalhos.
+- **Workspace unificado (`crates/`):** `elite-core` é a fundação — os
+  contratos tipados do estado, o protocolo do bus.sock
+  (`/run/user/$UID/elite/bus.sock`) e a persistência atômica
+  (`~/.config/elite/`); `elite-daemon` é o orquestrador único da sessão;
+  `craft-bar-rs` e `craft-dock-rs` são as superfícies GTK4+
+  layer-shell; `craft-dump-rs` é a telemetria v2.
+- **Design System ELITE:** UMA folha mestra (`crates/elite-core/assets/
+  theme.css`) define a identidade (paleta, raios, estados, tipografia) e
+  viaja EMBUTIDA nos binários; `swaync` e `nwg-drawer` recebem a mesma
+  paleta pelos skins do pacote. Nenhum componente pode parecer um bloco
+  desconexo.
+- **Não reinventar o que o mundo já fez bem:** Rede = `iwgtk` +
+  `nm-connection-editor`; Bluetooth = `blueman`; Áudio (mixer) =
+  `pwvucontrol`; Notificações = `swaync`; Lojas/Flatpaks = `Bazaar` +
+  `Warehouse` + `Gear Lever`; Ventoinhas = `coolercontrol`. Nossa UI dá o
+  estado em tempo real, a ação de 1 clique e a porta para a tela certa.
+- **Enraizamento no compositor e no kernel:** `wlr-layer-shell`,
+  `zwlr-foreign-toplevel-management-v1`, D-Bus (`logind`, NetworkManager,
+  BlueZ, PipeWire, MPRIS) e `sysfs`/`procfs` — sem intermediários frágeis.
+- **Tuning de baixo nível é SAGRADO e PRESERVADO:** `/etc/default/grub`,
+  `sysctl.d`, `modprobe.d`, `udev/rules.d` e GPU `sysfs` da casa não são
+  substituídos por templates genéricos — só se SOMA (`mitigations=off`,
+  `nowatchdog`) quando a diretriz pede, sempre idempotente e com voz no
+  papel.
+- **Suíte real em 3 níveis:** (1) `cargo test --workspace` — os contratos
+  reais do núcleo (IPC, persistência, parsers); (2) `tests/session_smoke`
+  — a sessão viva (zero legado, família nativa conectada, serviços
+  críticos, sink analógico, boot params); (3) `iso/test-iso-qemu` — a ISO
+  bootada no QEMU com extração do dump. A suíte antiga de mocks morre
+  quando os níveis reais cobrem os contratos essenciais — o gate (L2)
+  NUNCA fica sem porteira.
+
 *Casa archcraft-elite · Constituição ratificada pelo dono em 2026-11-20 ·
 Fonte da verdade dos dados: `docs/gestao/PROTOCOL.md` (protocolo das 4
 tarefas) · Memória que sobrevive ao reset: os diários de `docs/gestao/` ·

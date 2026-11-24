@@ -2760,7 +2760,7 @@ pkgver=1.0
 #         o HDMI cede para a analógica com o piso de volume 40% no zero
 #         (o marcador audio-hdmi-ok respeita quem QUER o monitor); o
 #         mousepad sai dos rigs e o fóssil zram 150 de /usr/lib idem.
-pkgrel=89
+pkgrel=90
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da sessão; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

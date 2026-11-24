@@ -560,5 +560,17 @@ if [ -f /usr/lib/udev/rules.d/99-elite-zram.rules ]; then
         && tlog "E140: fóssil zram 99-elite-zram de /usr/lib REMOVIDO (a 99 do pacote mora em /etc — o rig do dump carregava o 150 fóssil de era antiga)"
 fi
 
+# ── 2.0 — OS FÓSSEIS DA FAXINA (o craft-bars e o craft-connect saem do
+#      repo: o autostart convoca o elite-daemon session DIRETO e as
+#      ferramentas dedicadas (iwgtk/nm-connection-editor/blueman) são as
+#      telas. O fóssil no rig morre COM VOZ) ──────────────────────────────
+for _fossil20 in /usr/local/bin/craft-bars /usr/local/bin/craft-connect; do
+    if [ -f "$_fossil20" ]; then
+        rm -f "$_fossil20" 2>/dev/null \
+            && tlog "2.0: fóssil $_fossil20 REMOVIDO (o orquestrador único é o elite-daemon session e as telas são as ferramentas dedicadas)"
+    fi
+done
+unset _fossil20
+
 tlog "post-upgrade: concluído (a migração é idempotente — rodar de novo é no-op com papel)"
 exit 0

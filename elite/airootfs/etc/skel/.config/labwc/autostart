@@ -2,7 +2,7 @@
 # Archcraft ELITE · labwc autostart — a sessão ÚNICA do live e do
 # sistema instalado. Executado no início da sessão LABWC — termine
 # comandos com & para não bloquear. Desktop estilo macOS, mouse-first:
-# menu bar no topo (waybar) + DOCK flutuante na base (craft-dock-rs) +
+# menu bar no topo (craft-bar-rs) + DOCK flutuante na base (craft-dock-rs) +
 # Launchpad (nwg-drawer via craft-drawer) + wallpaper.
 #
 # E137 — O LANÇADOR ÚNICO (a ordem do dono, dump 201219): NENHUM daemon
@@ -99,21 +99,21 @@ fi
 #     único (elite-daemon session / craft-bars); nascer dois era a causa
 #     do 'craft-toplevel: fechadura ocupada' no boot.
 
-# --- Barras + dock + residentes: O SUPERVISOR ÚNICO (craft-bars) ─────────
-#     O craft-bars execa o elite-daemon session (o lançador único E135) e,
-#     sem o binário, o corpo bash dele assume — em ambos os mundos TODA a
-#     família nasce dele: waybar, dock, toplevel, idle, polkit, swaync,
-#     udiskie, swayosd. O guard abaixo só CLAMA no bars.log quando o motor
-#     não existe (a classe 'subiu só o wallpaper' nunca mais é muda).
+# --- Barras + dock + residentes: O ORQUESTRADOR ÚNICO (2.0) ──────────────
+#     2.0 — O craft-bars APOSENTA (o supervisor sh da era waybar: o corpo
+#     bash dele era a cola do passado). O elite-daemon session é O
+#     lançador e o ÚNICO: top bar nativa (craft-bar-rs), dock (craft-
+#     dock-rs v2), craft-toplevel, idle, polkit, swaync, udiskie, swayosd
+#     e o roteador de áudio são TODOS filhos dele (o binário e o daemon
+#     viajam NO MESMO PACOTE — sem fallback por desenho). O guard abaixo
+#     só CLAMA no bars.log quando o motor não existe (a classe 'subiu só
+#     o wallpaper' nunca mais é muda).
 BARLOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/bars.log"
-if ! command -v waybar >/dev/null 2>&1; then
+if ! command -v elite-daemon >/dev/null 2>&1; then
     mkdir -p "${BARLOG%/*}" 2>/dev/null
-    printf '[%s] AUTOSTART: binário waybar AUSENTE no sistema — barras NÃO sobem (guard)\n' "$(date '+%F %T')" >>"$BARLOG" 2>/dev/null
-elif [ ! -x /usr/local/bin/craft-bars ]; then
-    mkdir -p "${BARLOG%/*}" 2>/dev/null
-    printf '[%s] AUTOSTART: craft-bars ausente/sem bit de execução — barras NÃO sobem (guard)\n' "$(date '+%F %T')" >>"$BARLOG" 2>/dev/null
+    printf '[%s] AUTOSTART: elite-daemon AUSENTE no sistema — a sessão NÃO sobe (guard 2.0)\n' "$(date '+%F %T')" >>"$BARLOG" 2>/dev/null
 else
-    craft-bars &
+    elite-daemon session &
 fi
 
 # --- Diálogo de senha gráfico (polkit) — E132: O AGENTE NATIVO ────────────
@@ -129,11 +129,11 @@ fi
 #     agente da era antiga saiu daqui (a aposentadoria dos residentes é
 #     lei E58/E95 no craft-bars).
 
-# --- Rede/Bluetooth: NENHUM applet sobe (a decisão final da casa): o
-#     conector é o craft-connect EM TEXTO ('Wi-Fi: conectar à rede…' →
-#     redes do entorno → senha oculta → conectado, tudo fuzzel+nmcli) e o
-#     Bluetooth é a central do painel (bluez + bluez-utils). Edição
-#     avançada continua no W-n (nm-connection-editor).
+# --- Rede/Bluetooth: NENHUM applet sobe (a decisão final da casa): os
+#     botões da craft-bar-rs abrem AS FERRAMENTAS DE VERDADE (2.0 — o
+#     craft-connect fuzzel aposentou): Wi-Fi no iwgtk, edição completa no
+#     nm-connection-editor (W-n), Bluetooth no blueman-manager (W-S-b).
+#     Os daemons (NetworkManager, bluetoothd) sobem por unit de sistema.
 
 # --- USB (udiskie) e OSD (swayosd-server): filhos do SUPERVISOR ÚNICO —
 #     E137: os spawns diretos morreram (o udiskie e o swayosd-server eram
