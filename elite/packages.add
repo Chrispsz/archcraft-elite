@@ -310,11 +310,14 @@ tealdeer
 ## Wayland-native. Sai o legado GTK3 herdado do upstream (mousepad,
 ## zathura, file-roller, blueman, thunar, firefox); entra:
 ##   · papers (GTK4/libadwaita — leitor PDF, substitui zathura)
-##   · E138 — O MIXER COMPLETO É O PAVUCONTROL (a ordem do dono, dump
-##     v2.13: 'botão direto para abrir o mixer completo (pavucontrol)')
-##     — em repo ([cachyos-extra-v3]), zero estágio AUR: o pwvucontrol
-##     era o ÚLTIMO filho do estágio AUR e morre com ele (rigs que o
-##     têm CONSERVAM — nada de remoção forçada de app em uso)
+##   · 2.0/E141 — O MIXER COMPLETO É O PWVUCONTROL (a diretriz da
+##     reconstrução: 'pwvucontrol para Áudio' — GTK4/PipeWire NATIVO; a
+##     barra abre no clique direito e o W-vol segue os binds). A era
+##     E138 pediu pavucontrol e a dose 1.0-88 rewired a casa para o
+##     pwvucontrol SEM a lista acompanhar — o réu que a porteira real
+##     pegou: a ISO nascia com o mixer que os binds não chamam. O
+##     pwvucontrol é de repo ([extra]/[cachyos-extra-v3]), zero AUR
+##     (rigs que têm o pavucontrol CONSERVAM — nada de remoção forçada)
 ##   · E137 — O BLUETOOTH SEM APP: o overskride AUR nunca chegou aos
 ##     rigs ('alvo não encontrado' em toda dose) e saiu da casa — o
 ##     gerenciador é a PRÓPRIA central (craft-connect: menu fuzzel +
@@ -338,7 +341,7 @@ tealdeer
 qalculate-gtk
 nwg-look
 papers
-pavucontrol
+pwvucontrol
 brave-origin
 ## E136 — O EDITOR GRÁFICO DA CASA (a PARTE 2/2 do dono: 'Padronize
 ## gnome-text-editor como editor gráfico leve padrão, removendo

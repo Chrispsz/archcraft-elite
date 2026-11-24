@@ -20,7 +20,7 @@ uso() {
         'uso: craft-bat — resumo da bateria em notificação (/sys puro, sem' \
         '     upower)' \
         '' \
-        '  chamado pelo clique no módulo de bateria da waybar (ou do terminal).' \
+        '  chamado pelo clique no botão de bateria da craft-bar-rs (ou do terminal).' \
         '  Sem bateria (desktop): recusa amigável com rc 1.'
     exit 0
 }

@@ -224,7 +224,7 @@ aplica_arranjo() {
         i=$((i + 1))
     done
     if [ "$i" -ge 8 ]; then
-        dlog "FALHA: wlr-randr não respondeu (8 sondas de até ${RANDR_T}s) — apply abortado (o conf fica salvo; o retry do heartbeat tenta de novo; compositor mudo há muito tempo = o watchdog do craft-bars toma a frente)"
+        dlog "FALHA: wlr-randr não respondeu (8 sondas de até ${RANDR_T}s) — apply abortado (o conf fica salvo; o retry do heartbeat tenta de novo; compositor mudo há muito tempo = o guard do orquestrador (elite-daemon) toma a frente)"
         return 1
     fi
     vivos="$(parse_state | cut -d'|' -f1)"

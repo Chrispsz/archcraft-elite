@@ -1,1 +1,0 @@
-01:00.0 VGA compatible controller: Matrox Electronics Systems Ltd. MGA G200E (rev 02)

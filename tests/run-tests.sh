@@ -1,43 +1,60 @@
 #!/usr/bin/env bash
-# tests/run-tests.sh — o quebra-cabeça completo, em cadeia:
-#   FASE 1 A MESA → 2 QUALIDADE ESTÁTICA → 3 UNIDADE → 4 CADEIA → 5 USO/RELEASE
-#   → VEREDICTO (a imagem completa)
-# Regra da cadeia: fase que QUEBRA interrompe as seguintes (BLOQUEADA);
-# o veredito só dá GO quando TODAS as peças encaixam. Exit 0 = GO.
+# tests/run-tests.sh — A PORTEIRA REAL (2.0)
+#
+# O quebra-cabeça em cadeia, nível REAL por nível (a diretriz do dono:
+# a suíte antiga de mocks que passavam enquanto a tela quebrava morre —
+# a porteira nova só contrata o que a árvore entrega DE VERDADE):
+#
+#   FASE 1  ESTRUTURA — o workspace 2.0 e os moradores (crates/, bins,
+#           moldes, o E41)
+#   FASE 2  ESTÁTICA REAL — os contratos sobre os ARQUIVOS: tuning
+#           sagrado (sysctl/udev/grub/modprobe), configs (menu/rc/
+#           autostart), pacotes da diretriz, legado AUSENTE, shellcheck
+#   FASE 3  NÚCLEO RUST — `cargo test --workspace` dos contratos reais
+#           (IPC/persistência/parsers) — com toolchain presente; sem ela,
+#           SKIP HONESTO (o juízo de compilação da gui é o Canal do CI,
+#           lei L6 da casa)
+#   FASE 4  VEREDICTO — GO exige todas as peças encaixadas (exit 0)
+#
+# Os níveis 2 e 3 da diretriz (session_smoke na sessão viva e a ISO no
+# QEMU) são Fase 2 da reconstrução — os esqueletos nomeam o contrato:
+#   tests/session_smoke/ · tests/iso-qemu/
 #
 # Uso: bash tests/run-tests.sh [--keep]
-#   --keep  preserva o dir de trabalho (mocks, logs, fixture) p/ inspeção
 set -uo pipefail
-cd "$(dirname "$0")" || exit 1
+cd "$(dirname "$0")/.." || exit 1
+REPO="$(pwd)"
+export REPO WORK
 
-source lib/core.sh
-source lib/setup.sh
-
-if [[ "${1:-}" == "--keep" ]]; then
-  KEEP=1
-else
-  KEEP="${ELITE_TESTS_KEEP:-0}"
-fi
+WORK="${ELITE_TESTS_WORK:-/tmp/elite-suite-2.0-$$}"
+KEEP="${ELITE_TESTS_KEEP:-0}"
+[[ "${1:-}" == "--keep" ]] && KEEP=1
 (( KEEP )) || trap 'rm -rf "$WORK" 2>/dev/null || true' EXIT
+mkdir -p "$WORK"
 
-: > "$WORK/summary.txt"
+# a suíte é sensível a ambiente sujo: os fakes órfãos de sessões mortas
+# e o __pycache__ legado saem no arranque (a lição E47/E134-h/a71414b)
+find tests -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
 
-printf '%s╭──────────────────────────────────────────────╮%s\n' "$C_BLD" "$C_RST"
-printf '%s│  ARCHCRAFT ELITE — SUÍTE DE TESTES EM CADEIA  │%s\n' "$C_BLD" "$C_RST"
-printf '%s╰──────────────────────────────────────────────╯%s\n' "$C_BLD" "$C_RST"
-printf '  repo: %s\n  work: %s\n%s' "$REPO" "$WORK" "$C_RST"
+printf '%b╭──────────────────────────────────────────────────╮%b\n' "\e[1m" "\e[0m"
+printf '%b│  ARCHCRAFT ELITE 2.0 — PORTEIRA REAL EM CADEIA     │%b\n' "\e[1m" "\e[0m"
+printf '%b╰──────────────────────────────────────────────────╯%b\n' "\e[1m" "\e[0m"
+printf '  repo: %s\n  work: %s\n\n' "$REPO" "$WORK"
 
-PHASES=(10-env 20-static 30-unit 40-integration 50-release)
 BROKEN=0
-for name in "${PHASES[@]}"; do
-  if (( BROKEN )); then
-    printf 'BLOQUEADA\t%s\t0\t0\t0\n' "$name" >> "$WORK/summary.txt"
-    printf '  %s▓▓ FASE %s — BLOQUEADA (a peça anterior quebrou a cadeia)%s\n' \
-      "$C_BAD" "$name" "$C_RST"
-    continue
-  fi
-  bash "phases/$name.sh" || BROKEN=1
+for name in 10-estrutura 20-estatica 30-cargo 60-veredito; do
+    if (( BROKEN )); then
+        printf '  ▓▓ FASE %s — BLOQUEADA (a peça anterior quebrou a cadeia)\n' "$name"
+        continue
+    fi
+    bash "tests/phases/$name.sh" || BROKEN=1
 done
 
-bash phases/60-verdict.sh
-exit $?
+# o veredito já foi impresso pelo tee do 60-veredito — aqui só o exit
+if [ -f "$WORK/verdict.txt" ]; then
+    verdict="$(grep -o 'GO\|NO-GO' "$WORK/verdict.txt" | tail -1)"
+    [ "$verdict" = "GO" ] || exit 1
+    exit 0
+fi
+echo "ERRO: veredito ausente (60-veredito não rodou)"
+exit 1

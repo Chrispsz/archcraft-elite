@@ -2760,7 +2760,7 @@ pkgver=1.0
 #         o HDMI cede para a analógica com o piso de volume 40% no zero
 #         (o marcador audio-hdmi-ok respeita quem QUER o monitor); o
 #         mousepad sai dos rigs e o fóssil zram 150 de /usr/lib idem.
-pkgrel=90
+pkgrel=91
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da sessão; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
@@ -2834,6 +2834,10 @@ build() {{
     # waybar aposentou — a dose sem o craft-bar-rs é uma dose SEM top
     # bar; a build morre vermelha antes do install mentir verde)
     cargo build --release --locked --manifest-path rust/Cargo.toml -p craft-bar-rs
+    # 2.0 — A TELEMETRIA v2 É OBRIGATÓRIA (o núcleo puro compila em
+    # qualquer lugar — std-only; a coleta completa é Fase 2, o bin
+    # honesto já nomeia era/serviços/boot)
+    cargo build --release --locked --manifest-path rust/Cargo.toml -p craft-dump-rs
 }}
 # ADOÇÃO (a herança do elite-craft): nos rigs, estes arquivos nasceram SEM
 # dono (overlay da ISO) — o pacman recusa sobrescrever não-dono ANTES de
@@ -2881,6 +2885,9 @@ package() {{
     for b in elite-daemon craft-dock-rs craft-bar-rs; do
         [ -f "rust/target/release/$b" ] && install -m755 "rust/target/release/$b" "${{pkgdir}}/usr/local/bin/$b"
     done
+    # 2.0 — a telemetria v2 instala ao lado do craft-dump v1 (a
+    # aposentadoria do v1 é Fase 2, com substituto de pé)
+    [ -f "rust/target/release/craft-dump-rs" ] && install -m755 "rust/target/release/craft-dump-rs" "${{pkgdir}}/usr/local/bin/craft-dump-rs"
     # E132 — o elite-polkit-listener NÃO viaja mais (o agente da casa é o
     # lxqt-policykit-agent NATIVO, eleito no craft-bars; um bin a menos no
     # pacote, um agente a menos na fila — o C vendado aposentou do repo)

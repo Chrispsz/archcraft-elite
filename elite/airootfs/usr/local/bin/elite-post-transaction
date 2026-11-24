@@ -332,7 +332,7 @@ if [ ! -e /run/archiso ] && command -v systemctl >/dev/null 2>&1; then
     if [ -e "$_mask" ] && [ "$(readlink -f "$_mask" 2>/dev/null)" = "/dev/null" ]; then
         :   # já mascarado por uma dose anterior — silêncio (o papel não repete história)
     elif systemctl --global mask swaync.service >/dev/null 2>&1; then
-        tlog "swaync: unit de usuário MASCARADA (E117) — o segundo trono morre; o swaync vivo é o do craft-bars (o journal deixa de nascer vermelho a cada boot)"
+        tlog "swaync: unit de usuário MASCARADA (E117) — o segundo trono morre; o swaync vivo é o do orquestrador (elite-daemon session — o journal deixa de nascer vermelho a cada boot)"
     else
         tlog "swaync: FALHOU mascarar a unit de usuário (réu nomeado no papel)"
     fi
