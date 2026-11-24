@@ -67,7 +67,7 @@ file_has "build.sh: elite-core entra na família" "$BS" 'RUST_CRATES="elite-core
 file_has "build.sh: craft-dump-rs entra se presente" "$BS" 'craft-dump-rs'
 file_has "build.sh: o MANIFEST nasce dos bins reais (2.0: os bins COMPILADOS pulam o overlay)" "$BS" 'craft-update|craft-clean|craft-help|craft-pick|craft-dump|elite-daemon|craft-bar-rs|craft-dock-rs) continue'
 file_has "build.sh: o CoolerControl viaja com o override --disable-gpu" "$BS" 'org.coolercontrol.CoolerControl.desktop'
-file_has "guard-pkgrel: o exclude acompanhou crates/" ".ci/guard-pkgrel.sh" 'crates/**'
+file_has "guard-pkgrel: o Rust é conteúdo do elite-system (crates/** no delta — a lei E41 pega a fundação)" ".ci/guard-pkgrel.sh" "crates/**"
 
 # ══ O LEGADO AUSENTE (a varredura nos caminhos ATIVOS) ══
 scan_vivo() { # scan_vivo <regex> — só linhas de CÓDIGO (não comentário),

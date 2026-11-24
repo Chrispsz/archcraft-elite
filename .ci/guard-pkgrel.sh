@@ -9,12 +9,16 @@
 # de ter subido o pkgrel DELE — comparado contra a ÚLTIMA TAG. Falhou =
 # push vermelho = o mantenedor sobe o pkgrel NO MESMO commit.
 #
-# O mapa conteúdo→pacote (E43→E50 — a era do PACOTE ÚNICO):
-#   vendor/craft-toplevel.c                                   → craft-toplevel (PONTE) + elite-system
-#   elite/airootfs/usr/local/bin/*                            → elite-system (o daemon COMPILADO também vive aqui)
+# O mapa conteúdo→pacote (E43→E50→2.0 Fase 2 — a era do PACOTE ÚNICO):
+#   elite/airootfs/usr/local/bin/*                            → elite-system (os bins COMPILADOS também vivem aqui)
 #   elite/airootfs/etc/systemd/system/elite-*                 → elite-system
-# (o elite-craft parou de existir: o replaces do elite-system o remove
-# dos rigs na transição; o guard não o cobra mais)
+#   vendor/                                                   → elite-system (história: a ponte velha e as deleções)
+#   crates/**                                                 → elite-system (E131: o workspace compila NO pacote —
+#                                                                mudou Rust, mudou conteúdo, sobe pkgrel — a lei E41)
+# (o elite-craft parou na E50 e o craft-toplevel parou na 2.0 Fase 2 —
+# o cliente Wayland é o próprio elite-daemon; o guard não cobra mais
+# NENHUM dos dois: o replaces do elite-system limpa o par legado dos
+# rigs na transição do pacman — a mesma lei do mapa antigo)
 #
 # Roda no publish-packages.yml (fetch-depth: 0 — precisa de história).
 # Sem tag ou sem delta do pacote → sai 0 (nada a cobrar).
@@ -56,30 +60,21 @@ check() { # $1=pacote  $2=delta (nomes de arquivo)
 }
 
 fail=0
-# craft-toplevel (a PONTE E50): o C vendado É o conteúdo do pacote.
-# E103.2 — O DONO CERTO DA PEÇA: o listener do polkit (vendor/elite-
-# polkit-listener.c) NÃO era conteúdo do toplevel — ele compilava NO
-# build do elite-system. E132: o listener APOSENTOU (o agente da casa é
-# o lxqt-policykit-agent nativo, o C saiu do repo) — a exclusão segue
-# porque a DELEÇÃO é história do elite-system, não da ponte.
-# E131 — A MESMA LIÇÃO PARA O RUST: o workspace crates/ compila NO
-# build do elite-system (makedepends rust exclusivo — a fundação do
-# espreme-limão); a ponte craft-toplevel nunca o vê. Sem a exclusão o
-# guard cobrou o pkgrel=6 da ponte pela fundação (run 44815642965 — o
-# réu nomeado pelo próprio log do CI).
-VENDOR_TL_DELTA="$(git diff --name-only "$LAST_TAG" HEAD -- vendor/ ':(exclude)vendor/elite-polkit-listener.c' ':(exclude)crates/**' 2>/dev/null || true)"
-check craft-toplevel "$VENDOR_TL_DELTA" || fail=1
-
-# elite-system (O PACOTE ÚNICO E50): todo o /usr/local/bin da casa (o
-# daemon de janelas COMPILADO agora viaja aqui — o C vendado conta) + as
-# units de sistema da casa (o payload /etc do pacote; unit mudada sem
-# pkgrel = o -Syu pula a cadência em silêncio) + o vendor/ inteiro (o C
-# da ponte, o workspace Rust da fundação E131 e — E132 — a DELEÇÃO do
-# listener aposentado, que é história deste pacote)
+# 2.0 Fase 2 — A PONTE MORREU (E143): o pacote craft-toplevel aposentou
+# com o C de 3 gerações (o cliente Wayland é o elite-daemon; o toplevel.
+# sock e o hook elite-adopt morreram juntos) — o check DELE sai do guard
+# (a mesma aposentadoria do elite-craft E50) e o vendor/ inteiro vira
+# HISTÓRIA do elite-system (a deleção da ponte conta pro ÚNICO, como a
+# do listener E132). O buraco que a E142 deixou aberto fecha junto: o
+# crates/ compila NO build do elite-system (a fundação E131) — Rust
+# mudando sem pkgrel é a MESMA lei E41 do shell; as doses E142a–d
+# passaram pelo guard porque crates/ não caía em delta NENHUM — agora
+# cai no do ÚNICO (pkgrel 92 da E143 cobre a era inteira contra a tag).
 BIN_DELTA="$(git diff --name-only "$LAST_TAG" HEAD -- elite/airootfs/usr/local/bin || true)"
 UNIT_DELTA="$(git diff --name-only "$LAST_TAG" HEAD -- 'elite/airootfs/etc/systemd/system/elite-*' || true)"
-VENDOR_FULL_DELTA="$(git diff --name-only "$LAST_TAG" HEAD -- vendor/ || true)"
-DELTA="$(printf '%s\n%s\n%s\n' "$BIN_DELTA" "$UNIT_DELTA" "$VENDOR_FULL_DELTA" | sed '/^$/d' | sort -u)"
+VENDOR_DELTA="$(git diff --name-only "$LAST_TAG" HEAD -- vendor/ || true)"
+RUST_DELTA="$(git diff --name-only "$LAST_TAG" HEAD -- 'crates/**' ':(exclude)crates/target/**' || true)"
+DELTA="$(printf '%s\n%s\n%s\n%s\n' "$BIN_DELTA" "$UNIT_DELTA" "$VENDOR_DELTA" "$RUST_DELTA" | sed '/^$/d' | sort -u)"
 check elite-system "$DELTA" || fail=1
 
 exit "$fail"
