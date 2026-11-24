@@ -39,9 +39,11 @@
 use crate::state::{
     bt_ligado, civil_de_dias, dia_semana, dentro_janela_ms, estado_rede_nmcli, essid_nmcli,
     glifo_mic, glifo_rede, glifo_volume, json_text, json_tooltip, le_bateria, agora_epoch,
-    parse_volume_wpctl, relogio_ptbr, tooltip_rede, EstadoRede,
+    media_pill, parse_volume_wpctl, relogio_ptbr, titulo_foco, tooltip_rede, workspace_pills,
+    EstadoRede,
 };
-use crate::{css_path, current_uid, log, VERSION};
+use crate::{bus_sock, css_path, current_uid, log, VERSION};
+use elite_core::{MediaState, WorkspaceInfo};
 use std::cell::{Cell, RefCell};
 use std::os::unix::fs::MetadataExt;
 use std::os::unix::process::CommandExt;
@@ -70,8 +72,7 @@ const DRAWER_MS: u64 = 150;
 /// clique (a ordem do dono — a mesma lei da dock v2).
 const ARRASTO_PX: f64 = 5.0;
 /// As cadências da thread de fundo (segundos — o belt do polling; os
-/// EVENTOS do daemon chegam por sinal, o belt é a rede de segurança).
-const POLL_PLAYER_S: u64 = 1;
+/// EVENTOS do daemon chegam por sinal/fio, o belt é a rede de segurança).
 const POLL_AUDIO_S: u64 = 2;
 const POLL_REDE_S: u64 = 5;
 const POLL_BT_S: u64 = 10;
@@ -102,6 +103,17 @@ enum Msg {
     Game(Option<String>),
     /// O texto dos 2º planos — None = apagado.
     Bgapps(Option<String>),
+    /// 2.0 — o estado MPRIS do bus (zero playerctl; o pill some sem mídia)
+    Media(Option<MediaState>),
+    /// 2.0 — a mesa corrente do bus (as pílulas da esquerda)
+    Mesa(WorkspaceInfo),
+    /// 2.0 — o título da janela focada (o "título ativo")
+    Foco(String),
+    /// 2.0 — o modo de jogo pelo FIO (o SIGRTMIN+8 é o cinto)
+    BusGame(bool),
+    /// 2.0 — o handle do bus vivo (o Arc do cliente — os cliques pedem
+    /// por ele; chega por mensagem porque o Rc da UI não cruza threads)
+    Bus(std::sync::Arc<elite_core::bus::BusClient>),
 }
 
 /// A barra inteira (os widgets que mudam + o filho do drawer).
@@ -127,6 +139,15 @@ struct State {
     minuto_desenhado: u32,
     rede: EstadoRede,
     essid: Option<String>,
+    /// 2.0 — a caixa das pílulas da mesa (remontada a cada Mudança)
+    ws_box: gtk::Box,
+    /// 2.0 — a última mesa conhecida (None = nada desenhado ainda)
+    ws_atual: Option<WorkspaceInfo>,
+    /// 2.0 — o rótulo do título ativo (a janela focada)
+    titulo_lbl: gtk::Label,
+    /// 2.0 — o handle do bus (o Arc do cliente vivo — os pedidos dos
+    /// cliques: PlayPause/Next/Focus/mesa/jogo)
+    bus_cli: Rc<RefCell<Option<std::sync::Arc<elite_core::bus::BusClient>>>>,
 }
 
 pub fn run() -> i32 {
@@ -193,6 +214,50 @@ fn build(app: &gtk::Application) {
             }
         }
     });
+    // 2.0 — O FIO VIVO: o BusClient persistente (Hello 'craft-bar-rs';
+    // a reconexão 5→20→100ms é da fundação — o daemon renasce e a barra
+    // reaparece com o snapshot das boas-vindas). O Arc fica com a UI
+    // (os pedidos dos cliques); a thread lê QUADROS PARA SEMPRE e veste
+    // cada estado na Msg da casa
+    {
+        let tx = tx.clone();
+        let caminho = bus_sock();
+        std::thread::spawn(move || {
+            loop {
+                if let Some((cli, rx)) =
+                    elite_core::bus::BusClient::connect(&caminho, "craft-bar-rs")
+                {
+                    // o Arc chega à UI por mensagem (o Rc não cruza
+                    // threads — a lei do GTK; o BusClient é Send+Sync)
+                    let _ = tx.send(Msg::Bus(std::sync::Arc::clone(&cli)));
+                    for msg in rx {
+                        match msg {
+                            elite_core::BusMsg::Media(m) => {
+                                let _ = tx.send(Msg::Media(if m.player.is_none() && m.title.is_none() {
+                                    None
+                                } else {
+                                    Some(m)
+                                }));
+                            }
+                            elite_core::BusMsg::Workspace(ws) => {
+                                let _ = tx.send(Msg::Mesa(ws));
+                            }
+                            elite_core::BusMsg::Windows { windows } => {
+                                let _ = tx.send(Msg::Foco(titulo_foco(&windows)));
+                            }
+                            elite_core::BusMsg::GameMode(gm) => {
+                                let _ = tx.send(Msg::BusGame(gm.active));
+                            }
+                            _ => {} // áudio/rede da casa seguem nos belts próprios
+                        }
+                    }
+                }
+                // daemon ausente: o BusClient da fundação já esperou o
+                // backoff dele; aqui o respiro evita a fila de renascimentos
+                std::thread::sleep(Duration::from_millis(300));
+            }
+        });
+    }
 
     let st = Rc::new(RefCell::new(State {
         clock_label: gtk::Label::new(None),
@@ -210,6 +275,10 @@ fn build(app: &gtk::Application) {
         minuto_desenhado: u32::MAX,
         rede: EstadoRede::Desligado,
         essid: None,
+        ws_box: gtk::Box::new(gtk::Orientation::Horizontal, 2),
+        ws_atual: None,
+        titulo_lbl: gtk::Label::new(None),
+        bus_cli: Rc::new(RefCell::new(None)),
     }));
 
     // ── ESQUERDA: o ARCH que abre o Launchpad (o modelo menu-bar) ────
@@ -223,6 +292,24 @@ fn build(app: &gtk::Application) {
         });
     }
     esq.append(&btn_apps);
+
+    // ── AS PÍLULAS DA MESA (2.0 — a esquerda da barra, do lado do
+    //    apps): o número da mesa clicável (o Req::Workspace viaja ao
+    //    daemon que sintetiza o W-<n>) e a ATUAL com realce; a caixa
+    //    é remontada a cada Mudança (o servidor manda o estado inteiro)
+    {
+        let s = st.borrow();
+        let ws_box = s.ws_box.clone();
+        let titulo = s.titulo_lbl.clone();
+        drop(s);
+        titulo.set_widget_name("titulolbl");
+        titulo.set_halign(gtk::Align::Start);
+        titulo.set_ellipsize(gtk::pango::EllipsizeMode::End);
+        titulo.set_max_width_chars(42);
+        ws_box.set_widget_name("wsbox");
+        esq.append(&ws_box);
+        esq.append(&titulo);
+    }
 
     // ── CENTRO: o relógio pt_BR que NUNCA muda de texto (a cura A2) ──
     let btn_clock = gtk::Button::new();
@@ -277,26 +364,37 @@ fn build(app: &gtk::Application) {
         });
         dir.append(&btn_game);
 
-        // O PLAYER da casa (E124: o texto com o tempo da faixa; E122:
-        // o juízo mensagem-não-é-mídia mora no craft-player).
+        // O PLAYER MPRIS NATIVO (2.0: o estado chega PELO FIO — o
+        // PropertiesChanged que o daemon escuta; zero playerctl, zero
+        // polling de 1s). As AÇÕES também viajam no fio: esquerdo =
+        // Play/Pause, meio = próxima, direito = FOCAR a janela do
+        // player (o match benigno do daemon), scroll = faixa
         btn_player.set_widget_name("playerbtn");
         btn_player.set_has_frame(false);
         btn_player.set_child(Some(&player_label));
         btn_player.set_visible(false);
-        clique_solto(&btn_player, move |botao| match botao {
-            1 => solta(&["craft-player", "play-pause"]),
-            2 => solta(&["craft-player", "next"]),
-            3 => solta(&["craft-player", "previous"]),
-            _ => {}
-        });
-        // o scroll do player: ↑ próxima · ↓ anterior (a era waybar)
-        scroll(&btn_player, move |dy| {
-            if dy < 0.0 {
-                solta(&["craft-player", "next"]);
-            } else {
-                solta(&["craft-player", "previous"]);
-            }
-        });
+        btn_player.set_tooltip_text(Some("Mídia — clique: play/pause · scroll: faixa · direito: focar o player"));
+        {
+            let bus = st.borrow().bus_cli.clone();
+            clique_solto(&btn_player, move |botao| {
+                pede_bus(&bus, match botao {
+                    1 => elite_core::MediaCmd::PlayPause,
+                    2 => elite_core::MediaCmd::Next,
+                    3 => elite_core::MediaCmd::Focus,
+                    _ => return,
+                });
+            });
+        }
+        {
+            let bus = st.borrow().bus_cli.clone();
+            scroll(&btn_player, move |dy| {
+                pede_bus(&bus, if dy < 0.0 {
+                    elite_core::MediaCmd::Next
+                } else {
+                    elite_core::MediaCmd::Previous
+                });
+            });
+        }
         dir.append(&btn_player);
 
         // O ÁUDIO pelo wpctl (a cura A3: o mute é INSTANTÂNEO no
@@ -461,9 +559,9 @@ fn build(app: &gtk::Application) {
     log(&format!(
         "craft-bar-rs {VERSION} no ar: relógio pt_BR fixo · áudio/mic wpctl · \
          rede persistente (iwgtk/nm-connection-editor) · bluetooth blueman · \
-         sessão popover nativo · SIGRTMIN+8/+9 do daemon ouvidos · clique \
-         EXCLUSIVAMENTE no released com tolerância de 5px (a cura do \
-         press×click da dock, E140)"
+         sessão popover nativo · MPRIS/mesa/título/jogo PELO FIO DO BUS · \
+         SIGRTMIN+8/+9 do daemon (o cinto) · clique EXCLUSIVAMENTE no \
+         released com tolerância de 5px (a cura do press×click da dock, E140)"
     ));
 
     // o DRENO do canal + os sinais (100ms — a latência dos estados)
@@ -511,22 +609,16 @@ fn build(app: &gtk::Application) {
 /// 10s · cinto 30s. Bloquear AQUI é de graça (a UI segue viva — a
 /// thread é dona dos subprocessos, nunca do GTK).
 fn poller(tx: Sender<Msg>) {
-    let mut t_player = Instant::now();
+    // 2.0 — O PLAYER NÃO MORA MAIS AQUI: o MPRIS chega pelo fio do bus
+    // (o daemon escuta o PropertiesChanged — o polling de 1s do
+    // craft-player morreu com o playerctl); aqui ficam os belts que
+    // NÃO têm evento ainda (áudio/mic/rede/bluetooth + o cinto do
+    // jogo/2º-planos — os EVENTOS seguem sendo donos do reflexo)
     let mut t_audio = Instant::now();
     let mut t_rede = Instant::now();
     let mut t_bt = Instant::now();
     let mut t_cinto = Instant::now();
     loop {
-        if t_player.elapsed() >= Duration::from_secs(POLL_PLAYER_S) {
-            t_player = Instant::now();
-            if let Some(t) = um_longo("craft-player", &["state"]) {
-                let _ = tx.send(Msg::Player(
-                    json_text(&t).map(|txt| (txt, json_tooltip(&t))),
-                ));
-            } else {
-                let _ = tx.send(Msg::Player(None));
-            }
-        }
         if t_audio.elapsed() >= Duration::from_secs(POLL_AUDIO_S) {
             t_audio = Instant::now();
             let _ = tx.send(Msg::Audio(
@@ -714,6 +806,65 @@ fn aplica(st: &Rc<RefCell<State>>, msg: Msg) {
                 None => s.btn_player.set_visible(false),
             }
         }
+        Msg::Media(m) => {
+            // 2.0 — o MPRIS pelo fio: o estado tipado vira pill
+            let mut s = st.borrow_mut();
+            match m.as_ref().and_then(media_pill) {
+                Some((txt, tip)) => {
+                    s.player_label.set_text(&txt);
+                    s.btn_player.set_tooltip_text(tip.as_deref());
+                    s.btn_player.set_visible(true);
+                }
+                None => s.btn_player.set_visible(false),
+            }
+        }
+        Msg::Mesa(ws) => {
+            // 2.0 — as pílulas da mesa: remonta a caixa inteira (o
+            // servidor manda o estado completo — nada de diff widget)
+            let mut s = st.borrow_mut();
+            let mudou = s.ws_atual.as_ref() != Some(&ws);
+            if mudou {
+                s.ws_atual = Some(ws.clone());
+                while let Some(filho) = s.ws_box.first_child() {
+                    s.ws_box.remove(&filho);
+                }
+                let bus = s.bus_cli.clone();
+                for (n, rotulo, atual) in workspace_pills(&ws) {
+                    let btn = gtk::Button::new();
+                    btn.set_widget_name("wsbtn");
+                    btn.set_label(&rotulo);
+                    btn.set_has_frame(false);
+                    if atual {
+                        btn.add_css_class("ws-atual");
+                    }
+                    btn.set_tooltip_text(Some(&format!("Mesa {n} — clique: pular")));
+                    {
+                        let bus = bus.clone();
+                        clique_solto(&btn, move |botao| {
+                            if botao == 1 {
+                                if let Some(cli) = bus.borrow().as_ref() {
+                                    let _ = cli.send_req(elite_core::BusReq::Workspace { to: n });
+                                }
+                            }
+                        });
+                    }
+                    s.ws_box.append(&btn);
+                }
+            }
+        }
+        Msg::Foco(titulo) => {
+            let mut s = st.borrow_mut();
+            s.titulo_lbl.set_text(&titulo);
+            s.titulo_lbl.set_visible(!titulo.is_empty());
+        }
+        Msg::BusGame(ativa) => {
+            let mut s = st.borrow_mut();
+            s.btn_game.set_visible(ativa);
+        }
+        Msg::Bus(cli) => {
+            // o fio (re)nasceu: o handle fica com a UI para os pedidos
+            *st.borrow_mut().bus_cli.borrow_mut() = Some(cli);
+        }
         Msg::Game(txt) => {
             let mut s = st.borrow_mut();
             s.btn_game.set_visible(txt.is_some());
@@ -900,6 +1051,17 @@ fn scroll<W: IsA<gtk::Widget>>(btn: &W, acao: impl Fn(f64) + 'static) {
 /// O filho FORK-AND-FORGET da casa: stdout/stderr no vazio, grupo
 /// próprio (o processo sobrevive à barra por desenho — ferramentas
 /// de verdade não são filhos que a barra colhe).
+/// 2.0 — o pedido MPRIS pelo fio (o verbo viaja ao daemon que fala
+/// D-Bus com o player ativo — zero playerctl na interface da casa).
+fn pede_bus(
+    bus: &Rc<RefCell<Option<std::sync::Arc<elite_core::bus::BusClient>>>>,
+    verbo: elite_core::MediaCmd,
+) {
+    if let Some(cli) = bus.borrow().as_ref() {
+        let _ = cli.send_req(elite_core::BusReq::Media(verbo));
+    }
+}
+
 fn solta(argv: &[&str]) {
     if argv.is_empty() {
         return;

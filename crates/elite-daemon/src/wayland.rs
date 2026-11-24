@@ -63,6 +63,7 @@ struct Rec {
     title: String,
     minimized: bool,
     focused: bool,
+    fullscreen: bool,
 }
 
 /// o lado compartilhado entre a despachante e as threads de verbo.
@@ -353,6 +354,7 @@ impl Dispatch<tl_mod::zwlr_foreign_toplevel_manager_v1::ZwlrForeignToplevelManag
                 title: String::new(),
                 minimized: false,
                 focused: false,
+                fullscreen: false,
             });
         }
     }

@@ -96,3 +96,53 @@ popover > contents separator {
   margin: 8px 7px;
   background: rgba(108, 112, 134, 0.45);
 }
+
+/* ── Fase 2 · as pílulas da mesa (craft-bar-rs) e o título ativo ──────── */
+#barbox button.wsbtn {
+  min-width: 22px;
+  padding: 2px 6px;
+  font-size: 13px;
+  color: @elite-text-dim;
+}
+#barbox button.wsbtn:hover { background: @elite-surface; }
+#barbox button.wsbtn.ws-atual {
+  color: @elite-text;
+  background: @elite-surface;
+  font-weight: 600;
+}
+#barbox #titulolbl {
+  color: @elite-text-dim;
+  font-size: 13px;
+  padding: 0 8px;
+}
+
+/* ── Fase 2 · as ferramentas da casa (craft-tools: update/clean/help/pick) ── */
+#toolswin, #pickwin { background: @elite-bg; }
+#toolswin box, #pickwin box { color: @elite-text; }
+#toolswin headerbar, #pickwin headerbar {
+  background: @elite-surface;
+  color: @elite-text;
+  border-bottom: 1px solid @elite-border;
+}
+#toolswin label.title {
+  font-size: 16px;
+  font-weight: 700;
+  color: @elite-text;
+}
+#toolswin label.body, #pickwin label.body { color: @elite-text-dim; }
+#toolswin button {
+  border-radius: 10px;
+  padding: 10px 22px;
+  font-weight: 600;
+}
+#toolswin button.executar { background: @elite-surface-strong; color: @elite-text; }
+#toolswin button.executar:hover { background: @elite-accent; }
+#toolswin button.destructivo { background: @elite-surface; color: @elite-danger; }
+#toolswin button.destructivo:hover { background: @elite-danger; }
+#toolswin scrolledwindow textview text { background: rgba(5, 5, 8, 0.75); color: @elite-text; caret-color: @elite-text; }
+#toolswin progressbar progress { background: @elite-accent; border-radius: 4px; }
+#toolswin progressbar trough { background: @elite-surface; border-radius: 4px; }
+#pickwin listview row { padding: 8px 14px; border-radius: 8px; color: @elite-text; }
+#pickwin listview row:hover { background: @elite-surface; }
+#pickwin listview row:selected { background: @elite-surface-strong; }
+#pickwin entry { background: @elite-surface; color: @elite-text; border-radius: 8px; }

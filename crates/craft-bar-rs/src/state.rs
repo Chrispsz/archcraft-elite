@@ -44,6 +44,71 @@
 
 use std::path::Path;
 
+use elite_core::{MediaState, WindowInfo, WorkspaceInfo};
+
+// ── O BUS 2.0 (os estados que o daemon publica — o juízo de VESTIR) ────
+
+/// O TEXTO DO PLAYER pelo estado do bus (a Fase 2: zero playerctl, o
+/// PropertiesChanged do MPRIS chega pelo fio; o pill some sem mídia).
+pub fn media_pill(m: &MediaState) -> Option<(String, Option<String>)> {
+    if m.player.is_none() && m.title.is_none() {
+        return None; // sem mídia: o botão SAI (o assento é da sessão)
+    }
+    let titulo = m.title.clone().unwrap_or_else(|| "mídia".into());
+    let artista = m.artist.clone().unwrap_or_default();
+    let texto = if artista.is_empty() {
+        titulo.clone()
+    } else {
+        format!("{titulo} — {artista}")
+    };
+    // a largura da barra: 28 chars (a faixa é de 34px — o pill não
+    // pode empurrar o relógio para fora da tela)
+    let curto: String = if texto.chars().count() > 28 {
+        let t: String = texto.chars().take(26).collect();
+        format!("{t}…")
+    } else {
+        texto
+    };
+    let glifo = if m.playing { "\u{f047b} " } else { "\u{f03e4} " };
+    let tooltip = m.player.as_ref().map(|p| {
+        format!("{titulo} · {p}{}", if m.playing { " (tocando)" } else { " (pausado)" })
+    });
+    Some((format!("{glifo}{curto}"), tooltip))
+}
+
+/// AS PÍLULAS DA MESA (o workspace da Fase 2): (número, rótulo, atual).
+pub fn workspace_pills(ws: &WorkspaceInfo) -> Vec<(u32, String, bool)> {
+    (1..=ws.count.max(1))
+        .map(|n| {
+            let rotulo = if ws.count == 1 {
+                "1".to_string()
+            } else if n == ws.current {
+                ws.label.clone().filter(|l| l.chars().count() <= 6).unwrap_or_else(|| n.to_string())
+            } else {
+                n.to_string()
+            };
+            (n, rotulo, n == ws.current)
+        })
+        .collect()
+}
+
+/// O TÍTULO DA JANELA FOCADA (o "título ativo" da Fase 2).
+pub fn titulo_foco(windows: &[WindowInfo]) -> String {
+    windows
+        .iter()
+        .find(|w| w.focused)
+        .and_then(|w| w.title.clone())
+        .map(|t| {
+            if t.chars().count() > 42 {
+                let c: String = t.chars().take(40).collect();
+                format!("{c}…")
+            } else {
+                t
+            }
+        })
+        .unwrap_or_default()
+}
+
 // ── O RELÓGIO pt_BR (a palavra é da casa, nunca do locale) ─────────────
 
 /// Os dias da semana ABREVIADOS em pt_BR (índice = dias-desde-época
@@ -465,35 +530,54 @@ mod tests {
         // doido nunca abre gaveta dupla)
         assert!(dentro_janela_ms(t0, t0 - 1, 150));
     }
-}
-
-/// O uid REAL do processo (procfs — a mesma leitura honesta da casa; o
-/// XDG_RUNTIME_DIR da sessão nasce do uid — o bus.sock é contrato do elite-core).
-pub fn uid_do_processo() -> u32 {
-    std::fs::read_to_string("/proc/self/status")
-        .ok()
-        .and_then(|s| {
-            s.lines()
-                .find(|l| l.starts_with("Uid:"))
-                .and_then(|l| l.split_whitespace().nth(1).and_then(|v| v.parse().ok()))
-        })
-        .unwrap_or(1000)
-}
-
-#[cfg(test)]
-mod elite_core_tests {
-    use super::*;
 
     #[test]
-    fn o_uid_cru_e_o_uid_do_papel() {
-        let uid = uid_do_processo();
-        // no sandbox e no rig o uid é > 0 (root = 0 é possível, mas a sessão
-        // da casa nunca roda como root — o guard é a própria sessão)
-        let paper = std::fs::read_to_string("/proc/self/status")
-            .expect("/proc/self/status existe em qualquer unix vivo");
-        assert!(paper.contains(&format!("Uid:\t{uid}")));
-        // o contrato do elite-core responde com o caminho da sessão
-        let bus = elite_core::bus_sock_path(uid);
-        assert!(bus.ends_with("elite/bus.sock"));
+    fn o_pill_da_midia_do_bus() {
+        let m = MediaState {
+            player: Some("org.mpris.MediaPlayer2.firefox".into()),
+            title: Some("Stardew OST".into()),
+            artist: Some("ConcernedApe".into()),
+            playing: true,
+        };
+        let (texto, tooltip) = media_pill(&m).unwrap();
+        assert!(texto.contains("Stardew OST — ConcernedApe"));
+        assert!(tooltip.unwrap().contains("firefox"));
+        let vazio = MediaState { player: None, title: None, artist: None, playing: false };
+        assert!(media_pill(&vazio).is_none());
+        let longo = MediaState {
+            player: Some("x".into()),
+            title: Some("Uma música muito comprida cujo nome não cabe na barra de jeito nenhum".into()),
+            artist: None,
+            playing: true,
+        };
+        let (curto, _) = media_pill(&longo).unwrap();
+        assert!(curto.trim_end_matches('…').chars().count() <= 30, "pill largo: {curto:?}");
+    }
+
+    #[test]
+    fn as_pilulas_da_mesa_da_fase_2() {
+        let ws = WorkspaceInfo { current: 2, count: 4, label: None };
+        let pills = workspace_pills(&ws);
+        assert_eq!(pills.len(), 4);
+        assert_eq!(pills[0], (1, "1".to_string(), false));
+        assert_eq!(pills[1], (2, "2".to_string(), true));
+        assert_eq!(pills[3], (4, "4".to_string(), false));
+        let ws2 = WorkspaceInfo { current: 2, count: 4, label: Some("Web".into()) };
+        assert_eq!(workspace_pills(&ws2)[1].1, "Web");
+        let ws3 = WorkspaceInfo { current: 1, count: 2, label: Some("Programação".into()) };
+        assert_eq!(workspace_pills(&ws3)[0].1, "1");
+    }
+
+    #[test]
+    fn o_titulo_da_janela_focada() {
+        let wins = vec![
+            WindowInfo { id: 1, app_id: "foot".into(), title: Some("foot — /tmp".into()), focused: false, minimized: false, fullscreen: false },
+            WindowInfo { id: 2, app_id: "brave-browser".into(), title: Some("Arch Wiki — labwc".into()), focused: true, minimized: false, fullscreen: false },
+        ];
+        assert_eq!(titulo_foco(&wins), "Arch Wiki — labwc");
+        assert_eq!(titulo_foco(&[]), "");
+        let longo: Vec<WindowInfo> = vec![WindowInfo { id: 1, app_id: "x".into(), title: Some("Um título de janela realmente muito comprido que passa dos quarenta e dois caracteres da barra".into()), focused: true, minimized: false, fullscreen: false }];
+        let t = titulo_foco(&longo);
+        assert!(t.ends_with('…') && t.chars().count() <= 43, "título: {t:?}");
     }
 }

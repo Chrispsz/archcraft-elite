@@ -84,6 +84,17 @@ pub fn cache_dir() -> PathBuf {
 /// ~/.config/elite/bar.css (a pele da barra — a MESMA gramática do
 /// dock.css: o skel traz a da casa, o dono edita a dele e ela vence;
 /// SIGUSR2 relê sem renascer).
+/// 2.0 — o BUS VIVO do elite-daemon (o mesmo contrato do elite-core):
+/// os estados (mesa, mídia, janelas, jogo) chegam pelo fio; os pedidos
+/// (PlayPause, workspace, jogo) voltam por Req.
+pub fn bus_sock() -> PathBuf {
+    std::env::var_os("XDG_RUNTIME_DIR")
+        .filter(|v| !v.is_empty())
+        .map(PathBuf::from)
+        .unwrap_or_else(|| format!("/run/user/{}", current_uid()).into())
+        .join("elite/bus.sock")
+}
+
 pub fn css_path() -> PathBuf {
     xdg_dir(".config").join("elite/bar.css")
 }
