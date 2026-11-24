@@ -53,10 +53,10 @@ use std::time::{Duration, Instant};
 
 use gtk4::prelude::*;
 use gtk4::{gdk, glib};
-// o ActionMap (o add_action do SimpleActionGroup) mora no prelude do
-// gio — o gtk4::prelude NÃO o re-exporta (a conferência no fonte
-// gtk4-0.11.5/gio-0.22.11, a lição do Canal E-auditoria)
-use gtk4::gio::prelude::ActionMap;
+// o ActionMap (o add_action do SimpleActionGroup) mora na RAIZ do gio
+// (gio::ActionMap — o re-export do auto::action_map; NÃO está no prelude
+// do gio 0.22 nem no gtk4::prelude — provado no Canal 45302713969)
+use gtk4::gio::ActionMap;
 use gtk4 as gtk;
 use gtk4_layer_shell::LayerShell;
 
@@ -490,8 +490,10 @@ fn build(app: &gtk::Application) {
     if st.borrow().btn_bat.is_some() {
         let st = st.clone();
         glib::timeout_add_seconds_local(POLL_CINTO_S as u32, move || {
-            let b = le_bateria(std::path::Path::new("/sys/class/power_supply/BAT0"));
-            if let (Some(btn), Some((cap, carregando))) = st.borrow().btn_bat.clone(), b {
+            // a TUPLA explícita casa o par (o botão pode ter nascido e a
+            // bateria ido — cada lado é julgado sozinho)
+            let bat = le_bateria(std::path::Path::new("/sys/class/power_supply/BAT0"));
+            if let (Some(btn), Some((cap, carregando))) = (st.borrow().btn_bat.clone(), bat) {
                 btn.set_label(&format!(
                     "{}% {}",
                     cap,

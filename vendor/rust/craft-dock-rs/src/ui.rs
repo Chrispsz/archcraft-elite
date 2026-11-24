@@ -85,9 +85,10 @@ use gtk4::{gdk, glib};
 // alias abaixo mantém os ~120 caminhos `gtk::` do corpo intactos.
 use gtk4 as gtk;
 // o ActionMap (o add_action do SimpleActionGroup do popover E140) mora
-// no prelude do gio — o gtk4::prelude NÃO o re-exporta (a conferência
-// no fonte gtk4-0.11.5/gio-0.22.11, a lição do Canal E-auditoria)
-use gtk4::gio::prelude::ActionMap;
+// na RAIZ do gio (gio::ActionMap — o re-export do auto::action_map; NÃO
+// está no prelude do gio 0.22 e o gtk4::prelude também não o re-exporta
+// — provado no Canal 45302713969, a lição E-auditoria da era E140)
+use gtk4::gio::ActionMap;
 // E-auditoria: o gtk4-layer-shell 0.8 NÃO expõe funções livres — a API
 // é o trait LayerShell (init_layer_shell/set_layer/set_anchor/...) e o
 // is_supported continua função livre (re-export da raiz).
@@ -512,7 +513,7 @@ fn poll_tick(st: &Rc<RefCell<State>>) {
         // o guard se aposenta e o estado não acumula chave morta.
         let now = Instant::now();
         s.launching
-            .retain(|k, t| now.duration_since(*t).as_secs_f64() < GUARD_S);
+            .retain(|_k, t| now.duration_since(*t).as_secs_f64() < GUARD_S);
     }
     // os pins: re-julgamento POR TICK (E139 — a escada ÚNICA avalia,
     // as faltas contam e a poda honesta cresce com o próprio tick; a
@@ -1087,7 +1088,7 @@ fn wire_clicks(st: &Rc<RefCell<State>>, btn: &gtk::Button, act: Act) {
                     3 => {
                         // o direito é o MENU agora (o verbo "nova
                         // sessão" mora no item dele)
-                        pop.set_menu_model(Some(&menu_do(st, &act)));
+                        pop.set_menu_model(Some(&menu_do(&st, &act)));
                         pop.popup();
                     }
                     _ => {}
@@ -1348,7 +1349,7 @@ fn on_left(st: &Rc<RefCell<State>>, act: &Act) {
 fn on_right_antigo(st: &Rc<RefCell<State>>, act: &Act) {
     dismiss_overlays();
     match act {
-        Act::App { cmd, .. } => launch(st, act, None),
+        Act::App { .. } => launch(st, act, None),
         Act::Raw { key, .. } => {
             let uid = st.borrow().uid;
             match procapp::proc_argv0_executable(Path::new("/proc"), key, uid) {
@@ -1412,7 +1413,7 @@ fn launch_cmd(st: &Rc<RefCell<State>>, cmd: &str, key: Option<&str>) {
         return;
     }
     if let Some(k) = key {
-        let mut s = st.borrow_mut();
+        let s = st.borrow_mut();
         if let Some(t0) = s.launching.get(k) {
             let age = t0.elapsed().as_secs_f64();
             if age < GUARD_S {
