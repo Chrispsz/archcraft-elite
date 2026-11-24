@@ -35,6 +35,16 @@ on:
     paths:
       - 'elite/airootfs/usr/local/bin/**'
       - 'vendor/**'
+      # E-auditoria 2026-11-24 (a cura do buraco da auditoria das 16:00):
+      # o fio Rust é conteúdo do ÚNICO (lei E143-corrige — crates/** no
+      # delta do elite-system, pkgrel sobe com Rust), mas o Canal estava
+      # CEGO a crates/: o push d2163b1 (E143-corrige2, 4 arquivos Rust)
+      # não gerou run NENHUMA — a cura do Canal 141 ficou sem revalidação
+      # e o Gate do push ficou só no cargo test local (--no-default-
+      # features, que NUNCA compila o corpo da gui — a classe exata que
+      # só o Canal pega). Agora o Canal enxerga crates/ e re-valida a GUI
+      # compilada em cada push do fio.
+      - 'crates/**'
       - '.ci/build.sh'
       - '.ci/guard-pkgrel.sh'
       - '.github/workflows/publish-packages.yml'
