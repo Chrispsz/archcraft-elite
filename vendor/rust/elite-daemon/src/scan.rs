@@ -22,7 +22,11 @@ use std::path::Path;
 use zbus::blocking::Proxy;
 
 /// A família ERE sobre o comm (o GAME_PATS do craft-game, 1:1).
-pub const GAME_PATS: &str = r"^wine6?-preload(er)?$|^gamescope$|^pcsx2$|^retroarch$|^duckstation$|^dolphin-emu$|^melonds$|^citra-qt$|^ryujinx$|^PPSSPPSDL$|^rpcs3$|^osu!$|^Cemu$";
+/// E140 — O WINE64 ENTRA (a ordem do dono do dossiê 1.0-88: o
+/// `wine64-preloader` era citado NOMINALMENTE como o invisível — a
+/// porta do .exe cobria o jogo, mas o LOADER de 64 bits é família
+/// também: o corte a 15 chars do kernel nunca esconde ele de novo).
+pub const GAME_PATS: &str = r"^wine(64)?6?-preload(er)?$|^wine64-preloader$|^gamescope$|^pcsx2$|^retroarch$|^duckstation$|^dolphin-emu$|^melonds$|^citra-qt$|^ryujinx$|^PPSSPPSDL$|^rpcs3$|^osu!$|^Cemu$";
 pub const STEAM_EXE_MARK: &str = "/steamapps/common/";
 /// E134 — o BLOQUEIO dos AUXILIARES do runtime Proton/Wine/UMU (a ordem
 /// do dono, dump 1.0-80 — menus.log: o Hydra roda jogos via
@@ -114,6 +118,19 @@ pub fn environ_tem_marca(env: &[u8]) -> bool {
 pub fn cmdline_tem_steam(cmd: &[u8]) -> bool {
     cmd.split(|&b| b == 0)
         .any(|tok| tok.windows(STEAM_EXE_MARK.len()).any(|w| w == STEAM_EXE_MARK.as_bytes()))
+}
+
+/// E140 — PORTA 5 — o app_id de JANELA é jogo? O padrão do Steam
+/// através do Proton (a prova do dossiê: a janela `steam_app_413150`
+/// do Stardew Valley via Hydra que o watcher antigo ignorava): o
+/// prefixo `steam_app_` seguido de AO MENOS UM DÍGITO. Estrito por
+/// desenho — app_id genérico NÃO é jogo (o brave não é, o foot não
+/// é; só a convenção do Steam conta).
+pub fn eh_app_janela_jogo(app_id: &str) -> bool {
+    let Some(resto) = app_id.strip_prefix("steam_app_") else {
+        return false;
+    };
+    !resto.is_empty() && resto.bytes().all(|b| b.is_ascii_digit())
 }
 
 /// UMA rodada: os jogos vivos do usuário corrente.
@@ -252,6 +269,8 @@ mod tests {
         for vivo in [
             "wine-preloader",
             "wine6-preloader", // a porta ERE cobre o wine6 (o wine64 só pela porta do exe)
+            "wine64-preloader", // E140 — a ordem nominal do dossiê: o loader de 64 é família
+            "wine64-preload",
             "gamescope",
             "pcsx2",
             "retroarch",
@@ -372,5 +391,26 @@ mod tests {
         // a porta dos testes: a varredura roda em ambiente sem jogos —
         // 0 achados é a resposta honesta, não um crash.
         let _ = round();
+    }
+
+    // ── E140 — PORTA 5: a janela steam_app_* é a prova ────────────────
+
+    #[test]
+    fn a_janela_steam_app_e_jogo_a_prova_do_dossie() {
+        // o caso NOMINAL do dossiê 1.0-88: o Stardew Valley do Hydra
+        assert!(eh_app_janela_jogo("steam_app_413150"));
+        // outros app_ids Steam
+        assert!(eh_app_janela_jogo("steam_app_730"));
+        assert!(eh_app_janela_jogo("steam_app_0"));
+        // o falso MAIS PERIGOSO: o prefixo sem o dígito (app de outro)
+        assert!(!eh_app_janela_jogo("steam_app_"));
+        // apps comuns da sessão NÃO são jogo (o padrão é ESTRITO)
+        assert!(!eh_app_janela_jogo("brave-browser"));
+        assert!(!eh_app_janela_jogo("foot"));
+        assert!(!eh_app_janela_jogo("steam"));
+        assert!(!eh_app_janela_jogo("steamapp_123"));
+        assert!(!eh_app_janela_jogo("steam_app_413150b")); // dígito no MEIO não: TODO o resto é dígito
+        assert!(!eh_app_janela_jogo(""));
+        assert!(!eh_app_janela_jogo("STEAM_APP_413150")); // maiúsculo não é a convenção
     }
 }

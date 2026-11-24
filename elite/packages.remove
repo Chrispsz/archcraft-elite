@@ -71,6 +71,12 @@ file-roller
 gpsd
 xgps
 xgpsspeed
+## E140 — O WAYBAR MORRE NA ISO TAMBÉM (a top bar da casa é o craft-bar-rs
+##   compilado NO pacote elite-system — a ordem do dono do dossiê 1.0-88;
+##   com a barra fora, a cadeia gpsd/xgps/xgpsspeed acima passa a sair de
+##   VERDADE — os overrides NoDisplay do E13 viram história: nada para
+##   esconder quando nada está instalado).
+waybar
 
 ## WM Wayland — o SWAY do Archcraft sai (é outra stack); a sessão Wayland
 ## da Elite é o LABWC (packages.add), com rice Catppuccin Mocha próprio.

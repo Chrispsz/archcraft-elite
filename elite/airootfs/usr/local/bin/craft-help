@@ -108,7 +108,6 @@ MAPA=(
 "craft-menu        | o motor dmenu dos menus craft-* (fuzzel + âncoras)"
 "craft-menu-dismiss| fecha qualquer menu/OSD aberto (lei de cross-dismiss)"
 "craft-pin         | fixar/remover/listar pins da dock"
-"craft-pin-pick    | picker gráfico para fixar apps na dock (botão direito → Apps da dock)"
 "craft-power       | menu de energia — sair/suspender/reiniciar/desligar"
 "craft-rescue-screen | a escotilha do monitor cego (resume sem sinal — de um TTY)"
 "craft-rollback    | snapshots snapper — criar/restaurar (a porta é o GRUB)"
@@ -121,7 +120,7 @@ MAPA=(
 
 # E109 — AS PORTAS DO DONO (a lista curta — o que vale a mão do dono; o
 # resto roda sozinho ou é braço de daemon, nada para decorar)
-PORTAS_DONO="craft-shot craft-update craft-clean craft-display craft-idle craft-pin-pick craft-game craft-drawer craft-lock craft-power craft-dump elite-status craft-help"
+PORTAS_DONO="craft-shot craft-update craft-clean craft-display craft-idle craft-game craft-drawer craft-lock craft-power craft-dump elite-status craft-help"
 
 # ── atalhos reais (a verdade do rc.xml — nada de atalho fantasma) ──────────
 ATALHOS=(
@@ -201,8 +200,9 @@ done
 
 # E109 — AS DUAS VOZES DO MAPA (a resposta honesta ao 'tanto comando'):
 # a mão do dono precisa de POUCO — o resto roda sozinho. O casamento é
-# por TOKEN exato (o grep -w comeria 'craft-pin' dentro de
-# 'craft-pin-pick' — o hífen é fronteira de palavra).
+# por TOKEN exato (o hífen é fronteira de palavra — a lição E109 nasceu
+# do par craft-pin/craft-pin-pick; o pick E140 aposentou, a fronteira
+# fica: nomes com hífen sempre casam INTEIROS).
 porta_do_dono() { # 0 = o nome é uma porta do dono (token exato)
     case " $PORTAS_DONO " in *" $1 "*) return 0 ;; *) return 1 ;; esac
 }

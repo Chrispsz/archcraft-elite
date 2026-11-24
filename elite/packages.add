@@ -160,8 +160,13 @@ which
 ##     relógio, avatar, campo com feedback Validando/Senha Incorreta)
 ##   · wlopm: cliente do wlr-output-power-management-v1 (DPMS da idle —
 ##     receita canônica da wiki do labwc; wlr-randr --off re-arranja views)
+## E140 — O WAYBAR SAI DA ISO (a ordem do dono, dossiê 1.0-88: a top
+##   bar é o craft-bar-rs, binário Rust GTK4+layer-shell COMPILADO NO
+##   build do elite-system — o pacote da casa carrega a própria barra;
+##   o waybar do repo (e a cadeia gpsd do módulo GPS compilado) sai da
+##   lista. A âncora iwgtk/blueman entra na ADOCAO do craft-update e
+##   aqui: as ferramentas DE VERDADE que os botões da barra abrem).
 labwc
-waybar
 swaync
 fuzzel
 foot
@@ -347,14 +352,23 @@ brave-origin
 gnome-text-editor
 
 ## E132 — A HIGIENE DA ORDEM DO DONO (dump pós-1.0-78): os APPLETS
-## redundantes saem das listas (polkit-gnome/blueman/network-manager-
-## applet — o craft-update --sistema e o craft-clean os REMOVEM dos
-## rigs com segurança); E138: os TUIs de rede saem JUNTO (impala fora —
-## a central é 100% GUI) e fica o EDITOR gráfico de conexões, pacote
+## redundantes saem das listas (polkit-gnome/network-manager-applet —
+## o craft-update --sistema e o craft-clean os REMOVEM dos rigs com
+## segurança); E138: os TUIs de rede saem JUNTO (impala fora — a
+## central é 100% GUI) e fica o EDITOR gráfico de conexões, pacote
 ## PRÓPRIO desde o split do network-manager-applet 1.24+ (a árvore
-## completa de conexões Wi-Fi/Ethernet/VPN em janela GTK: verbo 'Editor
-## de conexões…' do craft-connect + W-n no rc.xml).
+## completa de conexões Wi-Fi/Ethernet/VPN em janela GTK: o botão de
+## rede da craft-bar-rs o abre no clique DIREITO).
+## E140 — AS FERRAMENTAS DE VERDADE DA BARRA (a diretriz do dossiê
+##   1.0-88: os botões da craft-bar-rs ABREM os gerenciadores reais em
+##   vez de reimplementar o mundo em menus fuzzel): o iwgtk é o Wi-Fi
+##   (clique esquerdo no botão de rede) e o blueman VOLTA a ser da casa
+##   (o Bluetooth gráfico — 'overskride (ou blueman)': o overskride é
+##   AUR e nunca chegou ao repo; o blueman é o par oficial; sai da
+##   higiene E138 e a barra abre o blueman-manager).
 nm-connection-editor
+iwgtk
+blueman
 
 ## Satélites oficiais do labwc (docs labwc.github.io/integration):
 ## idle→lock, automount USB, clipboard history.

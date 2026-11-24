@@ -664,7 +664,10 @@ if (( STATUS )); then
   printf '%-22s %s\n' "THP:" "$(cat /sys/kernel/mm/transparent_hugepage/enabled 2>/dev/null)"
   printf '%-22s %s\n' "repos cachyos:" "$(grep -oE '^\[cachyos[^]]*\]' $PACMAN_CONF 2>/dev/null | tr '\n' ' ')"
   echo ""
-  for s in ananicy-cpp grub-btrfsd lactd elite-firstboot scx_loader bluetooth; do
+  # E140 — coolercontrold entra na mesa de status (a âncora da dose
+  # adota o pacote e o garante_ancoras_vivas sobe o daemon — o papel
+  # de certificação mostra o estado real dele junto da família)
+  for s in ananicy-cpp grub-btrfsd lactd elite-firstboot scx_loader bluetooth coolercontrold; do
     printf 'service %-15s %s\n' "$s" "$(systemctl is-active $s.service 2>/dev/null || echo inactive)"
   done
   echo ""

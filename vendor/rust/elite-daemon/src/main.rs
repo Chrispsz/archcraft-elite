@@ -235,18 +235,23 @@ fn epp_aplica(valor: &str) -> usize {
     n
 }
 
-/// E132 — o sinal da topbar: SIGRTMIN+8 a TODO processo 'waybar' do uid
-/// corrente (leitura de /proc + libc::kill — NENHUM fork de pgrep; o
-/// módulo waybar da casa relê o pill do modo no sinal).
+/// E132 — o sinal da topbar: SIGRTMIN+8 a TODO processo da BARRA do
+/// uid corrente (leitura de /proc + libc::kill — NENHUM fork de pgrep;
+/// o módulo relê o pill do modo no sinal).
+/// E140 — a topbar agora é o craft-bar-rs (o waybar aposentou): o
+/// sinal alcança OS DOIS comms — o rig da dose E140 já corre o
+/// binário novo; o nome antigo segue na lista por honestidade de
+/// transição (a barra velha de um relogin no meio da dose também
+/// acende — nunca dois mundos mudos).
 fn sinal_waybar() -> usize {
     sinal_waybar_sig(8)
 }
 
 /// E135 — o sinal da topbar com NÚMERO parametrizável: SIGRTMIN+N em
-/// todo waybar do uid corrente. +8 = o pill do jogo; +9 = a pílula dos
-/// apps em 2º plano (o EVENTO dos 2º planos — o módulo custom/bgapps da
-/// casa relê no sinal: o fork de `craft-bgapps status` a cada 5s do réu
-/// do dump 101339 — 25% de CPU e zumbis pkill — morre).
+/// toda a barra do uid corrente. +8 = o pill do jogo; +9 = a pílula dos
+/// apps em 2º plano (o EVENTO dos 2º planos — a barra relê no sinal:
+/// o fork de `craft-bgapps status` a cada 5s do réu do dump 101339 —
+/// 25% de CPU e zumbis pkill — morre).
 fn sinal_waybar_sig(offset: i32) -> usize {
     let uid = unsafe { libc::getuid() };
     // E138 — SIGRTMIN é fn() const do libc (não macro unsafe nesta versão:
@@ -264,7 +269,10 @@ fn sinal_waybar_sig(offset: i32) -> usize {
         };
         let base = std::path::Path::new("/proc").join(entry.file_name());
         let comm = std::fs::read_to_string(base.join("comm")).unwrap_or_default();
-        if comm.trim_end() != "waybar" {
+        let comm = comm.trim_end();
+        // E140 — o craft-bar-rs É a topbar da casa; o waybar segue na
+        // lista só pela janela de transição do relogin
+        if comm != "craft-bar-rs" && comm != "waybar" {
             continue;
         }
         let Ok(meta) = std::fs::metadata(base.join("stat")) else { continue };
@@ -508,6 +516,54 @@ fn thread_wakeguard() {
 /// game.log morre; o tick sobrevive só como cinto dos windowless).
 /// A reconexão é backoff exponencial 5ms → 20ms → 100ms (a ordem do
 /// dono — o fallback de 5s morto não existe mais).
+/// E140 — PORTA 5 — A JANELA É A PROVA (o dossiê 1.0-88: o Stardew
+/// Valley do Hydra abria como janela `steam_app_413150` e o watcher
+/// registrava SÓ o launcher <3s — a detecção por /proc é cega para o
+/// jogo que troca de comm no caminho do Proton). O cliente LIST mínimo
+/// do toplevel.sock: UMA conexão curta, "LIST\n", as linhas W| são
+/// filtradas pelo juízo puro do scan (steam_app_<dígitos>). Devolve os
+/// app_ids de jogo VIVOS — a sessão conta com eles MESMO sem processo
+/// caçado (o daemon é o PROXY no GameMode enquanto a janela existir).
+fn janelas_de_jogo() -> Vec<String> {
+    use std::io::{Read, Write};
+    let caminho = std::env::var("XDG_RUNTIME_DIR")
+        .map(|d| PathBuf::from(d).join("elite/toplevel.sock"))
+        .unwrap_or_else(|_| PathBuf::from("/tmp/elite/toplevel.sock"));
+    let Ok(mut s) = std::os::unix::net::UnixStream::connect(&caminho) else {
+        return Vec::new(); // daemon ausente: sem janelas, sem prova
+    };
+    if s.write_all(b"LIST\n").is_err() {
+        return Vec::new();
+    }
+    let _ = s.set_read_timeout(Some(Duration::from_millis(300)));
+    let mut buf: Vec<u8> = Vec::new();
+    let mut raw = [0u8; 4096];
+    // o protocolo da casa (o molde cmd_on do craft-dock-rs): resposta
+    // completa = a última linha é terminal (OK|/ERR) — o teto de bytes
+    // é o cinto de um daemon tagarela
+    while buf.len() < 64_000 {
+        match s.read(&mut raw) {
+            Ok(0) | Err(_) => break,
+            Ok(n) => buf.extend_from_slice(&raw[..n]),
+        }
+        if let Some(pos) = buf.iter().rposition(|&b| b == b'\n') {
+            let ate_agora = String::from_utf8_lossy(&buf[..pos]).trim_end().to_string();
+            if let Some(ult) = ate_agora.rsplit('\n').next() {
+                if ult.starts_with("OK") || ult.starts_with("ERR") {
+                    break;
+                }
+            }
+        }
+    }
+    String::from_utf8_lossy(&buf)
+        .lines()
+        .filter_map(|l| l.strip_prefix("W|"))
+        .filter_map(|l| l.split('|').nth(4))
+        .filter(|app| scan::eh_app_janela_jogo(app))
+        .map(str::to_string)
+        .collect()
+}
+
 fn thread_toplevel_evt(frete: Arc<(Mutex<bool>, Condvar)>) {
     let caminho = std::env::var("XDG_RUNTIME_DIR")
         .map(|d| PathBuf::from(d).join("elite/toplevel.sock"))
@@ -653,6 +709,12 @@ fn daemon_loop() -> Result<(), String> {
     let mut retire = 0u32;
     let mut rodadas = 0u64;
     let conn = scan::gm_connect();
+    // E140 — O PROXY DA PORTA 5: janela steam_app_* viva SEM processo
+    // caçado = o daemon registra o PRÓPRIO pid no GameMode (a sessão
+    // de jogo conta enquanto a janela existir; a janela que fecha é o
+    // unregister — o fim é por EVENTO do toplevel, o mesmo frete do
+    // jogo de processo)
+    let mut proxy = false;
 
     // E132 — o estado da SESSÃO de jogo (a máquina das transições):
     // ativa = jogo registrado OU QueryStatus 1 (o manual do dono conta);
@@ -698,10 +760,31 @@ fn daemon_loop() -> Result<(), String> {
             }
         }
 
+        // E140 — A PORTA 5 NO LOOP: a janela steam_app_* viva é a prova
+        // que o /proc não nomeou. O proxy só nasce quando NÃO há jogo
+        // caçado (quem o /proc viu já registrou o pid DELE — o proxy é
+        // o cinto do jogo invisível, nunca o segundo registro do visto)
+        let janelas = janelas_de_jogo();
+        if !janelas.is_empty() && held.is_empty() && !proxy {
+            if scan::gm_register(&conn, std::process::id() as i32) {
+                proxy = true;
+                eprintln!(
+                    "elite-daemon: janela de jogo VIVA ({} — a PORTA 5 do dossiê E140) → daemon PROXY no gamemode",
+                    janelas.join(", ")
+                );
+            }
+        }
+        if proxy && janelas.is_empty() && held.is_empty() {
+            scan::gm_unregister(&conn, std::process::id() as i32);
+            proxy = false;
+            eprintln!("elite-daemon: a janela de jogo fechou — proxy liberado");
+        }
+
         // E132 — a SESSÃO: ATIVA com jogo nosso OU modo aceso por fora
-        // (o manual do dono também é sessão — o EPP segue o estado REAL).
+        // (o manual do dono também é sessão — o EPP segue o estado REAL)
+        // E140 — ou janela steam_app_* viva (o proxy da PORTA 5).
         let status = scan::gm_status(&conn);
-        let ativa = !held.is_empty() || status == 1;
+        let ativa = !held.is_empty() || proxy || status == 1;
 
         if ativa && !sessao_ativa {
             // transição INATIVO→ATIVO: EPP performance, sinal à waybar e
@@ -796,10 +879,14 @@ fn daemon_loop() -> Result<(), String> {
         }
 
         // SIGTERM/SIGINT (o toggle do menu e o logout): unregister de
-        // tudo, EPP devolvido se a sessão estava acesa, saída limpa.
+        // tudo (o proxy também — a casa não deixa o gamemode aceso),
+        // EPP devolvido se a sessão estava acesa, saída limpa.
         if STOP.load(Ordering::SeqCst) {
             for pid in held.keys() {
                 scan::gm_unregister(&conn, *pid);
+            }
+            if proxy {
+                scan::gm_unregister(&conn, std::process::id() as i32);
             }
             if sessao_ativa {
                 let n = epp_aplica("balance_performance");

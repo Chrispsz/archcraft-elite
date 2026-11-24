@@ -291,7 +291,7 @@ fi
     r "systemctl is-active scx_loader.service 2>/dev/null || echo '(scx_loader ausente/pulada — o /etc/default/scx assina qual?)'; grep '^SCX_SCHEDULER' /etc/default/scx 2>/dev/null || echo '(sem /etc/default/scx)'" 3
     r "[ -r /sys/module/amdgpu/parameters/ppfeaturemask ] && printf 'amdgpu.ppfeaturemask vivo: 0x%x\\n' \$(cat /sys/module/amdgpu/parameters/ppfeaturemask) || echo '(sem amdgpu — NVIDIA/Intel ou driver não carregado)'" 2
     r "[ -x /usr/local/bin/craft-wake-guard ] && /usr/local/bin/craft-wake-guard status 2>/dev/null | head -16 || echo '(craft-wake-guard ausente)'" 18
-    r "printf 'sessão: labwc=%d waybar=%d dock=%d daemon=%d\\n' \$(pgrep -c -x labwc 2>/dev/null) \$(pgrep -c -x waybar 2>/dev/null) \$(pgrep -c -x craft-dock-rs 2>/dev/null) \$(pgrep -c -f '^/usr/local/bin/elite-daemon session$' 2>/dev/null)" 2
+    r "printf 'sessão: labwc=%d topbar=%d waybar=%d dock=%d daemon=%d\\n' \$(pgrep -c -x labwc 2>/dev/null) \$(pgrep -c -x craft-bar-rs 2>/dev/null) \$(pgrep -c -x waybar 2>/dev/null) \$(pgrep -c -x craft-dock-rs 2>/dev/null) \$(pgrep -c -f '^/usr/local/bin/elite-daemon session$' 2>/dev/null)" 2
 
     printf '\n══════════ 1 · IDENTIDADE ══════════\n'
     r "grep PRETTY /etc/os-release" 2
@@ -476,7 +476,8 @@ fi
     # componentes por COMM (a dock contada por cmdline completo dava 0
     # com o spawn por PATH do daemon — o dump 201219 fotografou
     # DOCK_COUNT=0 com a dock viva no ps ao lado).
-    printf 'waybar=%s · dock_rs=%s · elite_daemon=%s · swayidle=%s (comm exato)\n' \
+    printf 'topbar=%s · waybar=%s · dock_rs=%s · elite_daemon=%s · swayidle=%s (comm exato — E140: a barra nativa lidera)\n' \
+        "$(pgrep -c -x craft-bar-rs 2>/dev/null)" \
         "$(pgrep -c waybar 2>/dev/null)" \
         "$(pgrep -c -x craft-dock-rs 2>/dev/null)" \
         "$(pgrep -c -x elite-daemon 2>/dev/null)" \
@@ -603,7 +604,9 @@ PY
     # menu ganhou compare em 200537 e a topbar ficou CEGA — o config.top /
     # style.top.css do home vs o mestre do pacote dizem SE o assento do
     # modo de jogo (custom/game, E115) já chegou à pele viva da barra.
-    printf '\n── waybar config.top/style.top.css (E118 — a pele da topbar no rig)\n'
+    printf '\n── top bar E140 (a pele mora no binário; o override do dono em ~/.config/elite/bar.css)\n'
+    r "if [ -f \"\$UHOME/.config/elite/bar.css\" ]; then echo \"override do dono presente\"; wc -l \"\$UHOME/.config/elite/bar.css\" 2>/dev/null; else echo '(sem override — a pele da casa é a embutida no craft-bar-rs)'; fi" 4
+    printf '── waybar config.top/style.top.css (E118 — a fronteira das eras: rigs pré-E140)\n'
     r "if [ -f \"$UHOME/.config/waybar/config.top\" ] && [ -f /usr/local/share/elite/waybar/config.top ]; then cmp -s \"$UHOME/.config/waybar/config.top\" /usr/local/share/elite/waybar/config.top && echo 'config.top do home == mestre do pacote (o assento do modo de jogo viaja na pele)' || echo 'config.top do home ≠ mestre (renovação pendente ou pele do dono)'; sha256sum \"$UHOME/.config/waybar/config.top\" /usr/local/share/elite/waybar/config.top 2>/dev/null; else echo '(config.top ou mestre ausente — sistema anterior à E115)'; fi" 10
     r "if [ -f \"$UHOME/.config/waybar/style.top.css\" ] && [ -f /usr/local/share/elite/waybar/style.top.css ]; then cmp -s \"$UHOME/.config/waybar/style.top.css\" /usr/local/share/elite/waybar/style.top.css && echo 'style.top.css do home == mestre do pacote' || echo 'style.top.css do home ≠ mestre (renovação pendente ou pele do dono)'; fi" 8
     r "grep -c 'custom/game' \"$UHOME/.config/waybar/config.top\" 2>/dev/null | xargs -I{} echo 'assento do jogo na pele do home: {} menção(ões) ao custom/game' || true" 4

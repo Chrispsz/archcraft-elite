@@ -394,6 +394,7 @@ cp /work/vendor/craft-toplevel.c /tmp/elite-src/elite-system/
 # o elite-daemon (a variável é a ponte entre os DOIS agentes).
 RUST_CRATES="elite-daemon"
 [ -d /work/vendor/rust/craft-dock-rs ] && RUST_CRATES="$RUST_CRATES craft-dock-rs"
+[ -d /work/vendor/rust/craft-bar-rs ] && RUST_CRATES="$RUST_CRATES craft-bar-rs"
 tar -C /work/vendor/rust \
     --exclude='target' --exclude='.gitignore' --exclude='.cargo' \
     -czf /tmp/elite-src/elite-system/rust-workspace.tar.gz \
@@ -612,18 +613,17 @@ cp -p /work/elite/airootfs/etc/skel/.config/brave-flags.conf \
 # ao home dos rigs vivos, a mesma escola do brave-flags).
 cp -p /work/elite/airootfs/etc/skel/.config/code-flags.conf \
       /tmp/elite-src/elite-system/files/usr/local/share/elite/chromium-flags/code-flags.conf
-# E115 — AS SKINS DA TOPBAR NO PACOTE (a gramática E91 na 4ª pele): o
-# config.top/style.top.css moravam só no skel — rig vivo NUNCA recebia
-# (o assento do modo de jogo e o player melhorado eram promessa da ISO
-# nova). Viajam em /usr/local/share/elite/waybar/ e o craft-rice entrega
-# ao home (fóssil = a velha da casa → renova com backup; marcador =
-# renova; personalizado → intocável) e ressuscita o waybar com a pele
-# nova (o supervisor respawna em ≤5s).
-mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/waybar
-cp -p /work/elite/airootfs/etc/skel/.config/waybar/config.top \
-      /tmp/elite-src/elite-system/files/usr/local/share/elite/waybar/config.top
-cp -p /work/elite/airootfs/etc/skel/.config/waybar/style.top.css \
-      /tmp/elite-src/elite-system/files/usr/local/share/elite/waybar/style.top.css
+# E140 — O OVERRIDE DO COOLERCONTROL NO PACOTE (a ordem do dono, dossiê
+# 1.0-88: o CoolerControl de qt6-webengine abre em TELA BRANCA sob
+# Wayland/amdgpu sem o --disable-gpu — o override mora em /usr/local/
+# share/applications, que VENCE o /usr/share do pacote sem tocar no
+# arquivo do dono do pacote; o nwg-drawer indexa ESTE. As SKINS da
+# topbar morreram com o waybar: a top bar da casa é o craft-bar-rs — a
+# pele mora NO binário (DEFAULT_CSS) e o override do dono é arquivo
+# livre em ~/.config/elite/bar.css, sem pipeline de adoção).
+mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/applications
+cp -p /work/elite/airootfs/usr/local/share/applications/org.coolercontrol.CoolerControl.desktop \
+      /tmp/elite-src/elite-system/files/usr/local/share/applications/org.coolercontrol.CoolerControl.desktop
 # E103 — OS APPS PADRÃO COMO VARIÁVEIS (a abstração XDG): o profile.d da
 # casa crava TERMINAL/FILEMANAGER/EDITOR/VISUAL/BROWSER com os defaults —
 # o usuário vence exportando (a variável PRESENTE não é tocada).
@@ -766,8 +766,10 @@ flags_rm = '    [ -e "/usr/local/share/elite/chromium-flags/brave-flags.conf" ] 
 # E115/E117 — AS SKINS DA TOPBAR EMBARCAM DE VERDADE (o mesmo réu-mãe:
 # staged e nunca installado — o craft-rice das skins lia um caminho que
 # o pacote nunca entregou ao rig vivo).
-waybar_install = '    install -d "${pkgdir}/usr/local/share/elite/waybar"\n    install -m644 "${startdir}/files/usr/local/share/elite/waybar/config.top" "${pkgdir}/usr/local/share/elite/waybar/config.top"\n    install -m644 "${startdir}/files/usr/local/share/elite/waybar/style.top.css" "${pkgdir}/usr/local/share/elite/waybar/style.top.css"\n'
-waybar_rm = '    [ -e "/usr/local/share/elite/waybar/config.top" ] && rm -f "/usr/local/share/elite/waybar/config.top"\n    [ -e "/usr/local/share/elite/waybar/style.top.css" ] && rm -f "/usr/local/share/elite/waybar/style.top.css"\n'
+# E140 — O OVERRIDE DO COOLERCONTROL (o .desktop da casa com o
+# --disable-gpu que cura a tela branca do qt6-webengine no Wayland)
+apps_install = '    install -d "${pkgdir}/usr/local/share/applications"\n    install -m644 "${startdir}/files/usr/local/share/applications/org.coolercontrol.CoolerControl.desktop" "${pkgdir}/usr/local/share/applications/org.coolercontrol.CoolerControl.desktop"\n'
+apps_rm = '    [ -e "/usr/local/share/applications/org.coolercontrol.CoolerControl.desktop" ] && rm -f "/usr/local/share/applications/org.coolercontrol.CoolerControl.desktop"\n'
 # E103 — os defaults XDG (arquivo de pacote: dono único, sem dança de adoção)
 pd_install = '    install -d "${pkgdir}/etc/profile.d"\n    install -m644 "${startdir}/files/etc/profile.d/10-elite-defaults.sh" "${pkgdir}/etc/profile.d/10-elite-defaults.sh"\n'
 # E103 — o gamemode.ini (adoção: o rig com o arquivo SEM dono o perde no
@@ -2723,7 +2725,37 @@ pkgver=1.0
 #         o post_upgrade poda ~/.cache/elite/*.log de cada usuário +
 #         /var/log/elite-*.log (256 KiB) e CEIFA os atalhos appimage-*
 #         mortos (Exec sem alvo); o craft-clean fecha o trio na mão.
-pkgrel=87
+# E140 (a dose do DOSSIÊ 1.0-88 — o desktop nativo): pkgrel 87→88 NO
+#         MESMO COMMIT (lei E41). A TOP BAR É O CRAFT-BAR-RS (novo crate
+#         do workspace: relógio pt_BR FIXO que nunca muda de texto, o
+#         áudio pelo wpctl com mute instantâneo no clique, a rede com
+#         ícone PERSISTENTE abrindo iwgtk/nm-connection-editor, o
+#         bluetooth dedicado no blueman, o pill do jogo no SIGRTMIN+8 e
+#         a sessão em PopoverMenu NATIVO — o waybar aposenta: sai do
+#         packages.add, entra no remove, o daemon troca o cliente de
+#         display e o post_upgrade encerra o processo velho); A DOCK
+#         v2 (o clique EXCLUSIVAMENTE no released com tolerância de
+#         arrasto <5px — o press×click duplicava o verbo no mesmo
+#         segundo; a assinatura EVT não falece por silêncio — timeout
+#         NÃO é queda, o 'espaço preto' do dossiê morre; o botão
+#         direito ganha o popover Fixar/Desafixar/Nova janela/Fechar —
+#         a gaveta fuzzel dos pins aposenta com o craft-pin-pick); O
+#         JOGO VISTO PELA JANELA (a PORTA 5: steam_app_* viva no
+#         toplevel = o daemon é PROXY no GameMode — o Stardew do Hydra
+#         que o /proc não nomeava; o wine64-preloader entra na família
+#         ERE); O DESPERTAR SEM FALSO TECLADO (o áudio USB classe 01
+#         dorme SEMPRE — o Fifine com interface HID de volume armava o
+#         XHC0 inteiro); O COOLERCONTROL DE VERDADE (coolercontrold na
+#         dose + o override .desktop com --disable-gpu que cura a tela
+#         branca do qt6-webengine); O SCX QUE CHEGOU (scx-scheds na
+#         ADOCAO + garante_ancoras_vivas — a unit que a adoção acabou
+#         de trazer ganha o enable --now na MESMA corrida); O SUSPENDER
+#         NO MENU do desktop + o timing do sleep-hook (a vigília espera
+#         o veredito do journal ≤5s — o screenon não dispara no limbo);
+#         o HDMI cede para a analógica com o piso de volume 40% no zero
+#         (o marcador audio-hdmi-ok respeita quem QUER o monitor); o
+#         mousepad sai dos rigs e o fóssil zram 150 de /usr/lib idem.
+pkgrel=88
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da sessão; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
@@ -2793,6 +2825,10 @@ build() {{
     # binário a build morre VERMELHA: não existe mais dock Python no
     # pacote, uma dose sem o craft-dock-rs é uma dose SEM DOCK.
     cargo build --release --locked --manifest-path rust/Cargo.toml -p craft-dock-rs
+    # E140 — A TOP BAR É OBRIGATÓRIA (a ordem do dono, dossiê 1.0-88: o
+    # waybar aposentou — a dose sem o craft-bar-rs é uma dose SEM top
+    # bar; a build morre vermelha antes do install mentir verde)
+    cargo build --release --locked --manifest-path rust/Cargo.toml -p craft-bar-rs
 }}
 # ADOÇÃO (a herança do elite-craft): nos rigs, estes arquivos nasceram SEM
 # dono (overlay da ISO) — o pacman recusa sobrescrever não-dono ANTES de
@@ -2807,7 +2843,7 @@ pre_install() {{
     ; do
         [ -e "/usr/local/bin/$f" ] && rm -f "/usr/local/bin/$f"
     done
-{unit_loop}{hook_rm}{kmod_rm}{ff_rm}{lock_rm}{rc_rm}{osd_rm}{menu_rm}{gm_rm}{doc_rm}{gp_rm}{flags_rm}{waybar_rm}{pk_rm}{q6_rm}{dc_rm}    return 0
+{unit_loop}{hook_rm}{kmod_rm}{ff_rm}{lock_rm}{rc_rm}{osd_rm}{menu_rm}{gm_rm}{doc_rm}{gp_rm}{flags_rm}{apps_rm}{pk_rm}{q6_rm}{dc_rm}    return 0
 }}
 # E129 — A MIGRAÇÃO AUTÔNOMA (AGENTS.md §4, 2026-11-20): o usuário final
 # NUNCA roda comando manual de pós-instalação — toda correção de /etc,
@@ -2837,13 +2873,13 @@ package() {{
     # OBRIGATÓRIO (a build dele falhou = build vermelha antes de chegar
     # aqui; o fallback Python não existe mais — dose sem dock é build
     # vermelha, e o install abaixo prova o arquivo com a verdade)
-    for b in elite-daemon craft-dock-rs; do
+    for b in elite-daemon craft-dock-rs craft-bar-rs; do
         [ -f "rust/target/release/$b" ] && install -m755 "rust/target/release/$b" "${{pkgdir}}/usr/local/bin/$b"
     done
     # E132 — o elite-polkit-listener NÃO viaja mais (o agente da casa é o
     # lxqt-policykit-agent NATIVO, eleito no craft-bars; um bin a menos no
     # pacote, um agente a menos na fila — o C vendado aposentou do repo)
-{unit_install}{hook_install}{kmod_install}{ff_install}{lock_install}{rc_install}{osd_install}{menu_install}{pd_install}{gm_install}{doc_install}{gp_install}{pt_install}{ef_install}{flags_install}{waybar_install}{udev_install}{pk_install}{q6_install}{theo_install}{gtk_install}{dc_install}}}
+{unit_install}{hook_install}{kmod_install}{ff_install}{lock_install}{rc_install}{osd_install}{menu_install}{pd_install}{gm_install}{doc_install}{gp_install}{pt_install}{ef_install}{flags_install}{apps_install}{udev_install}{pk_install}{q6_install}{theo_install}{gtk_install}{dc_install}}}
 """
 (d / 'PKGBUILD').write_text(pkg)
 PYE50

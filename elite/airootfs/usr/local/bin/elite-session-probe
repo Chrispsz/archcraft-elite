@@ -43,8 +43,14 @@ count() {
     printf '%s' "$c"
 }
 
+# E140 — a top bar é o craft-bar-rs (o waybar aposentou); o token
+# WAYBAR_* segue no papel para a transição dos rigs (o perito lê
+# os DOIS: uma sessão E140 responde BAR e waybar=0; um rig velho
+# responde waybar e BAR=0 — a fronteira entre as eras é legível)
 wb_list="$(pgrep -a waybar 2>/dev/null | tr '\n' ';' | sed 's/;$//')"
 wb_count="$(count waybar)"
+tb_list="$(pgrep -a craft-bar-rs 2>/dev/null | tr '\n' ';' | sed 's/;$//')"
+tb_count="$(count craft-bar-rs)"
 sn_count="$(count swaync)"
 # E137 — O PROBE AUDITA O LANÇADOR REAL: a sessão é filha do
 # `elite-daemon session` (o craft-bars execa o binário — E135). As
@@ -170,6 +176,8 @@ fi
 mem="$(free -m 2>/dev/null | awk 'NR==2 {printf "%s/%sMB", $3, $2}')"
 say "MEM=$mem"
 say "WAYBAR_VER=$(waybar --version 2>/dev/null | head -1)"
+say "TOPBAR_COUNT=$tb_count"
+say "TOPBAR_LIST=$tb_list"
 say "LABWC_VER=$(labwc --version 2>/dev/null | head -1)"
 
 # ── v2.3.1 — MENUS: a família craft-* (Sessão/Rede/Fixar/Idle/Logout) ────

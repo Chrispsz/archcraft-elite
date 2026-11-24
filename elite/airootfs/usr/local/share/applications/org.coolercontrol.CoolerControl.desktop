@@ -1,0 +1,18 @@
+# ── ELITE E140 — O OVERRIDE DO COOLERCONTROL (a cura da TELA BRANCA) ────
+# A ordem do dono, dossiê 1.0-88: o CoolerControl abria em TELA BRANCA
+# PURA sob Wayland + amdgpu (RX 7600) — a UI dele é qt6-webengine
+# (Chromium embutido) e o stack RADV do Wayland derruba a aceleração
+# dele no compositing: sem a flag --disable-gpu o render morre branco.
+# Este arquivo vive em /usr/local/share/applications (XDG de maior
+# prioridade que /usr/share — o mesmo nome VENCE o do pacote sem tocar
+# no arquivo do dono do pacote, que qualquer update reescreveria).
+# O nwg-drawer e o menu indexam ESTE; o `coolercontrold` da dose cuida
+# do daemon (garante_ancoras_vivas — o E140 do craft-update).
+[Desktop Entry]
+Type=Application
+Name=CoolerControl
+Comment=Controle de ventoinhas e sensores da placa-mãe (GPU desligada no render — a cura da tela branca E140)
+Exec=env QTWEBENGINE_CHROMIUM_FLAGS=--disable-gpu coolercontrol
+Icon=org.coolercontrol.CoolerControl
+Terminal=false
+Categories=System;Monitor;

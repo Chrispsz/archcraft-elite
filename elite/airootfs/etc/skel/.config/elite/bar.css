@@ -1,0 +1,45 @@
+/* ── ELITE · bar.css (E140) — a pele OPCIONAL da top bar nativa ──────────
+ * A top bar é o craft-bar-rs: a pele da casa mora NO BINÁRIO
+ * (DEFAULT_CSS embutido — este arquivo NÃO é exigido por ninguém).
+ * Ele existe para o DONO: copie, edite, e a barra relê no SIGUSR2
+ * (kill -USR2 $(pgrep -x craft-bar-rs)) — ou no próximo nascimento.
+ * A gramática é CSS do GTK4: os seletores da casa estão abaixo,
+ * prontos para a sua mão.
+ */
+
+/* a faixa inteira (a largura é da tela; a zona exclusiva reserva 36px) */
+#barwindow { background: rgba(5, 5, 8, 0.92); }
+
+/* o corpo: esquerda (apps) · centro (relógio) · direita (status) */
+#barbox { padding: 2px 10px; min-height: 34px; }
+
+/* os botões da casa: glifos JetBrainsMono NF, a família da dock */
+#barbox > button, #barbox > menubutton {
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  padding: 2px 9px;
+  color: #cdd6f4;
+  font-family: "JetBrainsMono NF", "Symbols Nerd Font", monospace;
+  font-size: 15px;
+}
+#barbox button:hover, #barbox menubutton:hover {
+  background: rgba(49, 50, 68, 0.95);
+}
+#barbox button:active, #barbox menubutton:active {
+  background: rgba(88, 91, 112, 0.95);
+}
+
+/* a gramática de estado da casa: mudo = vermelho · off = apagado */
+#barbox button.muted { color: #f38ba8; }
+#barbox button.off   { color: #6c7086; }
+
+/* o player: o texto com o tempo da faixa (E124) em corpo menor */
+#barbox #playerbtn label { color: #a6adc8; font-size: 13px; }
+
+/* os 2º planos: o texto discreto do lado direito branco da casa (o
+ * botão só NASCE quando há programa rodando — o texto a6adc8, sem grito) */
+#barbox #bgappsbtn { color: #a6adc8; }
+
+/* o relógio pt_BR fixo (a palavra da casa — nunca muda ao clicar) */
+#barbox #clockbtn { font-weight: 600; }

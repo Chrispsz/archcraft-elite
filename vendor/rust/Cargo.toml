@@ -19,9 +19,16 @@
 #     ícones E130 com extração de .DirIcon em thread; a lógica PURA
 #     testa sem GTK — `cargo test --no-default-features`; a feature
 #     "gui" é o que o CI do pacote liga com o pkg-config gtk4).
+#   craft-bar-rs — a TOP BAR em gtk-rs (E140: a aposentadoria do
+#     waybar — relógio pt_BR FIXO que nunca muda de texto, áudio/mic
+#     pelo wpctl com mute instantâneo no clique, rede com ícone
+#     PERSISTENTE abrindo iwgtk/nm-connection-editor, bluetooth
+#     dedicado no blueman, pill do jogo no SIGRTMIN+8 do daemon e a
+#     sessão em PopoverMenu NATIVO sem fuzzel; a mesma lei do degrau:
+#     o núcleo state.rs é std-only e testa sem GTK).
 [workspace]
 resolver = "2"
-members = ["elite-daemon", "craft-dock-rs"]
+members = ["elite-daemon", "craft-dock-rs", "craft-bar-rs"]
 
 [profile.release]
 lto = "fat"

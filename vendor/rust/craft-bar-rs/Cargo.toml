@@ -1,0 +1,48 @@
+# ELITE · craft-bar-rs (E140) — a TOP BAR nativa da casa em gtk-rs.
+# A ordem do dono (dossiê 1.0-80→1.0-88): o waybar e os submenus
+# Python/Shell/fuzzel APOSENTAM — a barra é UM binário Rust falando
+# GTK4 + layer-shell, com o relógio pt_BR FIXO que nunca muda de texto,
+# o áudio pelo wpctl direto (mute instantâneo no clique), a rede com
+# ícone PERSISTENTE (não existe o estado "sem botão"), o Bluetooth
+# dedicado e a sessão em popover NATIVO (sem fuzzel, sem can-suspend:
+# AllowSuspend=yes é a palavra do sleep.conf da casa).
+#
+# A ARQUITETURA DO SANDBOX (a lei do degrau, herdada da dock E132):
+# a camada de lógica (state.rs — datas pt_BR, parsers do wpctl/nmcli/
+# bluetoothctl, o juízo dos glifos e o debounce do drawer) é std-only
+# e compila/testa em QUALQUER lugar; a camada de UI (ui.rs) depende de
+# gtk4 + gtk4-layer-shell e só compila onde houver GTK dev — por isso
+# vive atrás da feature "gui":
+#   · `cargo build  --no-default-features` → lógica pura (CI local);
+#   · `cargo test   --no-default-features` → os testes da casa;
+#   · `cargo build --release` (com gui)   → o binário de verdade (CI
+#     com pkg-config gtk4 — o makedepends do PKGBUILD).
+[package]
+name = "craft-bar-rs"
+version = "1.0.0"
+edition = "2021"
+description = "ELITE · a top bar nativa da casa em GTK4 + layer-shell (a aposentadoria do waybar, degrau E140)"
+license = "GPL-3.0"
+
+[features]
+# default = gui: o binário completo. Sem a feature, o main compila com
+# uma mensagem HONESTA e exit 1 (nunca uma barra fantasma silenciosa).
+default = ["gui"]
+gui = ["gtk4", "gtk4-layer-shell", "libc"]
+
+[dependencies]
+# libc (só na gui): o handler cru dos sinais da casa — SIGRTMIN+8 (o
+# pill do modo de jogo acende/apaga na transição que o elite-daemon
+# avisa) e SIGRTMIN+9 (a pílula dos apps em 2º plano, o evento
+# NameOwnerChanged do daemon); a glib 0.22 NÃO traz unix_signal_add (o
+# atomic async-signal-safe + o dreno do idle é a via da dock E132).
+libc = { version = "0.2", optional = true }
+
+# A camada de UI (opcional — ver [features] acima). Versões TRAVADAS
+# pelo par provado do craft-dock-rs (gtk4 0.11 + gtk4-layer-shell 0.8;
+# o links="gtk-4" proíbe cópias duplicadas do sys-crate — a resolução
+# já está no Cargo.lock do workspace).
+gtk4 = { version = "0.11", optional = true }
+gtk4-layer-shell = { version = "0.8", optional = true }
+
+[dev-dependencies]

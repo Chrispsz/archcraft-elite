@@ -162,6 +162,13 @@ def choose(sinks):
     return cands[0] if cands else None
 
 
+# E140 — O MARCADOR DO HDMI DELIBERADO: a ordem do dono do dossiê é a
+# analógica PRIORITÁRIA sobre o HDMI sem som; o dono que de VERDADE
+# quiser o som no monitor cria ~/.config/elite/audio-hdmi-ok (toque
+# vazio) e a casa respeita a escolha para sempre.
+HDMI_OK = os.path.expanduser("~/.config/elite/audio-hdmi-ok")
+
+
 def switch_to(sink, reason):
     name = sink.get("name", "")
     if not name or name == default_sink():
@@ -171,6 +178,29 @@ def switch_to(sink, reason):
                           capture_output=True, timeout=10).returncode == 0:
             log("TROCA (%s) → %s" % (reason, sink.get("description", name)))
             notify("Áudio", "Saída: %s" % sink.get("description", name))
+            # E140 — O PISO DO VOLUME: a analógica do dump nascia
+            # 'vol: 0.00' (nunca usada, nunca mexida) e o dono ficava
+            # sem som MESMO com a troca certa; quem chega ao trono com
+            # zero ganha voz (40%) — a lição do craft-audio E138: o
+            # '45%' do pactl vem com sufixo, o juízo mastiga os DOIS
+            # formatos (float cru OU percentual com %)
+            vol = (sink.get("volume") or {}).get("front-left") or {}
+            try:
+                v = float(str(vol.get("value", "1")).rstrip("%"))
+            except Exception:
+                v = 1.0
+            if v <= 0.001:
+                try:
+                    rc = subprocess.run(
+                        ["pactl", "set-sink-volume", name, "40%"],
+                        capture_output=True, timeout=10).returncode
+                    if rc == 0:
+                        log("VOLUME 0 → 40%% (%s — o piso da voz, E140)"
+                            % sink.get("description", name))
+                    else:
+                        log("FALHA set-sink-volume 40%% %s (rc=%d)" % (name, rc))
+                except Exception as e:
+                    log("FALHA set-sink-volume %s: %s" % (name, e))
         else:
             log("FALHA set-default-sink %s (%s)" % (name, reason))
     except Exception as e:
@@ -267,6 +297,20 @@ def evaluate(prev_names, trigger):
         best = choose(sinks)
         if best and best.get("name") != dflt:
             switch_to(best, "saída inválida")
+        return names
+    # 3.5) E140 — O HDMI SEM SOM CEDE (a ordem do dono, dossiê 1.0-88: o
+    # dump fotografou o default NO HDMI 'Navi 31' do monitor com a
+    # analógica Starship/Matisse em vol 0.00 — o monitor sem caixa de
+    # som roubava o áudio da mesa e o dono ficava mudo; a regra antiga
+    # só curava a classe 'bad', o HDMI default era ACEITO como estado
+    # legítimo). Agora: HDMI default + sink melhor (fone/analógico)
+    # existente = TROCA — salvo o marcador audio-hdmi-ok do dono que
+    # QUER o monitor (a escolha dele é a lei, a casa só não deixa a
+    # sorte decidir no boot)
+    if classify(d) == "hdmi" and not os.path.exists(HDMI_OK):
+        best = choose(sinks)
+        if best and best.get("name") != dflt:
+            switch_to(best, "HDMI sem som — a analógica tem prioridade (E140)")
     return names
 
 

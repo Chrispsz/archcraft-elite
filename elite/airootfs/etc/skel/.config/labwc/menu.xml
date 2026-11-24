@@ -198,11 +198,12 @@
          rótulo era convenção de diálogo e o dono leu como recorte;
          todo rótulo do menu da casa agora é palavra inteira, e curto
          o bastante para nunca tocar o cap de 200px do labwc —
-         theme.c: menu_max_width 200, o cortador do '(tela int…'). -->
-    <item label="Apps da dock">
-      <action name="Execute" command="craft-pin-pick" />
-    </item>
-    <!-- E103 — O MODO DE JOGO (a diretriz do dono: 'um botão em algum
+         theme.c: menu_max_width 200, o cortador do '(tela int…').
+         E140 — 'Apps da dock' SAI (a ordem do dono, dossiê 1.0-88:
+         fixar/desafixar mora no BOTÃO DIREITO do ícone da própria
+         dock — popover nativo; a gaveta fuzzel de texto com setas
+         morre inteira, o craft-pin CLI segue para quem quiser). -->
+    <separator />
          lugar do sistema para mexer no governor — e o automático que
          define performance quando entrar no jogo'): o craft-game é o
          cérebro, o gamemode do Feral o músculo (governor performance +
@@ -239,6 +240,16 @@
     </item>
     <item label="Bloquear tela">
       <action name="Execute" command="craft-lock" />
+    </item>
+    <!-- E140 — O SUSPENDER QUE FALTAVA (a ordem do dono, dossiê
+         1.0-88: o menu de clique direito do desktop NEM TINHA a
+         opção Suspender — o sono só existia pelo timeout do idle ou
+         pelo fuzzel da topbar; agora é verbo de primeira classe AO
+         LADO do Reiniciar, `systemctl suspend` DIRETO — sem
+         can-suspend, o sleep.conf da casa já disse AllowSuspend=yes
+         (E122) e o popover da craft-bar-rs fala a mesma língua). -->
+    <item label="Suspender">
+      <action name="Execute" command="systemctl suspend" />
     </item>
     <!-- E106 — O SAIR DIRETO (o dono: reboot e desligar já estão aqui —
          o que faltava era o SAIR). O menu gráfico completo do power

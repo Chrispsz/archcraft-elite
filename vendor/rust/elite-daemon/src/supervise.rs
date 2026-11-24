@@ -49,12 +49,15 @@ pub const RESIDENTES_DEFAULT: &[(&str, &str, Option<&str>)] = &[
 /// session` — zero /bin/sh residente, o réu dos 8 do dump 101339
 /// morre). Mesma vaga, mesmo gate, mesmo bars.log; o $HOME no comando
 /// é expandido no spawn (a fila é genérica, o home do dono não).
+/// E140 — A TOP BAR É O CRAFT-BAR-RS (a aposentadoria do waybar, a
+/// ordem do dono do dossiê 1.0-88: 100% Rust na interface própria).
+/// Sem fallback waybar POR DESENHO: o binário e ESTE daemon viajam NO
+/// MESMO PACOTE elite-system (a dose que traz um traz o outro — não
+/// existe o rig com o E140 sem a barra; a lei do fallback nunca
+/// dependeu de recurso que o próprio pacote carrega).
 pub const CLIENTES_DISPLAY: &[(&str, &str)] = &[
     ("toplevel", "craft-toplevel"),
-    (
-        "waybar",
-        "waybar -c $HOME/.config/waybar/config.top -s $HOME/.config/waybar/style.top.css",
-    ),
+    ("topbar", "craft-bar-rs"),
     ("dock", "craft-dock-rs"),
     ("idle", "craft-idle start"),
     ("policykit", "lxqt-policykit-agent"),
@@ -412,11 +415,11 @@ pub fn run() -> Result<(), String> {
 }
 
 /// E135 — a porta `session`: O LANÇADOR ÚNICO da sessão gráfica — os
-/// clientes de display (toplevel, waybar, dock, idle, polkit) + os
+/// clientes de display (toplevel, topbar E140, dock, idle, polkit) + os
 /// residentes puros, todos na MESMA vaga com o MESMO gate de posse.
 /// O craft-bars shell vira `exec elite-daemon session` — o /bin/sh
 /// some do ps (os 8 do dump morrem) e a supervisão inteira é um corpo.
-/// E138 — O MOTOR DO JOGO É VAGA DA SESSÃO (a ordem do dono, dump
+/// E138 — o motor do jogo é vaga da sessão (a ordem do dono, dump
 /// v2.13: AUTO=1 ativo no game.conf mas `craft-game status` dizia
 /// 'watch FORA — sem daemon vivo' — o `exec` do craft-bars MATOU o
 /// respawn do motor que o corpo bash fazia; a sessão agora CARREGA o
@@ -753,10 +756,13 @@ mod tests {
             "audio-route não é mais residente (E135 — evento --once)"
         );
         // e os clientes de display NUNCA foram residentes puros — agora
-        // moram na fila própria da porta session
+        // moram na fila própria da porta session (E140: a topbar é o
+        // craft-bar-rs — o waybar aposentou pela ordem do dono)
         let display: Vec<&str> = CLIENTES_DISPLAY.iter().map(|(n, _)| *n).collect();
-        assert!(display.contains(&"toplevel") && display.contains(&"waybar") && display.contains(&"dock"),
-            "a porta session carrega os clientes de display");
+        assert!(display.contains(&"toplevel") && display.contains(&"topbar") && display.contains(&"dock"),
+            "a porta session carrega os clientes de display (topbar E140 = craft-bar-rs)");
+        assert!(!display.contains(&"waybar"),
+            "o waybar NÃO é mais cliente da sessão (E140 — a top bar é o craft-bar-rs)");
     }
 
     #[test]

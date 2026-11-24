@@ -1408,127 +1408,29 @@ printf '%s\n' "$out" > "$STCU/saida.txt"
 assert_eq "$rc" "3" "E54/manual: o rc REAL do pacman chega ao script (capturado FORA da negação — a lição E46 agora também na porta manual)"
 assert_grep "$STCU/saida.txt" 'recusou a transação' "E54/manual: a recusa fala com o dono (NADA da casa mudou — e a saída nunca mais é o erro cru calado)"
 
-# ── 3.O craft-pin-pick EXECUTADO: os desfechos E36 de ponta a ponta
-#    (E76, reescrito na E106 para o LAÇO v4 com marcadores) ──────────────
-#  A v3 era um picker fuzzel cru one-shot; a v4 é o LAÇO da gaveta
-#  (craft-menu com marcadores ✓/· que alterna e REABRE — a ordem do dono).
-#  Os desfechos seguem os MESMOS: fixa / 'já estava' / falha real com
-#  rastro no papel. O stub agora é o craft-menu (o motor do laço) com
-#  ROTEIRO em arquivo: cada chamada consome uma linha; ESC encerra o
-#  laço. O craft-pin segue o REAL da casa; os falsos cobrem os ramos.
-PICKBIN="$REPO/elite/airootfs/usr/local/bin/craft-pin-pick"
-PICKW="$WORK/craft-pin-pick-home"
-PICKSTUBS="$WORK/pick-stubs"
-PICKFAIL="$WORK/pick-stubs-fail"
-PICKDATA="$PICKW/data"
-pick_reset() { # apaga SÓ o cenário do picker — a infra de stubs fica
-  rm -rf "$PICKW"
-  mkdir -p "$PICKW/.config/elite" "$PICKSTUBS" "$PICKFAIL" "$PICKDATA/applications"
-  printf '[Desktop Entry]\nType=Application\nName=Steam\nExec=steam\nIcon=steam\n' \
-    > "$PICKDATA/applications/steam.desktop"
-  : > "$PICKW/toasts.txt"
-  : > "$PICKW/menu-script"
-}
-# (o 1º pick_reset vem PRIMEIRO — a lição que a v3 já mordeu uma vez: o
-#  $WORK da suíte nasce vazio e os cat > dos stubs precisam dos dirs
-#  criados — sem a chamada, o stub nunca nasce e o picker morre no guard
-#  do fuzzel com rc 1 e UMA linha no papel: 'fuzzel AUSENTE')
-pick_reset
-# craft-menu stub (o motor do laço): consome UMA linha do roteiro por
-# chamada; 'ESC' vira exit 1 (o fechamento pelo usuário); linha vazia
-# depois do fim do roteiro também (o laço termina honesto)
-cat > "$PICKSTUBS/craft-menu" <<'EOF'
-#!/bin/sh
-cat >/dev/null
-n="$(head -1 "$PICK_MENU_SCRIPT" 2>/dev/null)"
-[ -n "$n" ] || exit 1
-tail -n +2 "$PICK_MENU_SCRIPT" > "$PICK_MENU_SCRIPT.tmp" && mv -f "$PICK_MENU_SCRIPT.tmp" "$PICK_MENU_SCRIPT"
-[ "$n" = "ESC" ] && exit 1
-printf '%s\n' "$n"
-exit 0
-EOF
-# fuzzel stub MÍNIMO (a v4 não o chama — o laço é craft-menu — mas o
-# guarda 'command -v fuzzel' do picker continua sendo a rede; no sandbox
-# da suíte o binário real não existe, o stub satisfaz o comando)
-cat > "$PICKSTUBS/fuzzel" <<'EOF'
-#!/bin/sh
-echo "uso: fuzzel [--anchor=CENTER] [--dmenu]"
-exit 0
-EOF
-# notify-send stub: o toast que SAIU é a prova (nada de screen real aqui)
-cat > "$PICKSTUBS/notify-send" <<'EOF'
-#!/bin/sh
-echo "TOAST: $*" >> "$PICK_TOASTS"
-EOF
-chmod +x "$PICKSTUBS/fuzzel" "$PICKSTUBS/craft-menu" "$PICKSTUBS/notify-send"
-# o craft-pin RUIM do fluxo C (falha real, rc≠0 SEM 'já está fixado')
-cat > "$PICKFAIL/craft-pin" <<'EOF'
-#!/bin/sh
-echo "craft-pin: kaboom inesperado"
-exit 3
-EOF
-chmod +x "$PICKFAIL/craft-pin"
-
-pick_run() { # $1 = dir do craft-pin que vence o PATH -> rc do picker
-  PICK_TOASTS="$PICKW/toasts.txt" PICK_MENU_SCRIPT="$PICKW/menu-script" \
-    PATH="$PICKSTUBS:$1:$PATH" \
-    HOME="$PICKW" XDG_DATA_HOME="$PICKDATA" XDG_CACHE_HOME="$PICKW/.cache" \
-    bash "$PICKBIN" >/dev/null 2>&1
-  echo $?
-}
-
-# fluxo A — o laço FIXA (e o dir do USUÁRIO alimenta a lista) e fecha no ESC
-pick_reset
-printf '· Steam\nESC\n' > "$PICKW/menu-script"
-rcA="$(pick_run "$REPO/elite/airootfs/usr/local/bin")"
-assert_eq "$rcA" "0" "E106/pick: o laço fecha 0 no ESC (a gaveta é laço — escolher REABRE; ESC encerra honesto)"
-assert_grep "$PICKW/.config/elite/dock-pins" '^steam\.desktop$' \
-  "E106/pick: o pin entrou no dock-pins (laço REAL → craft-menu stub → craft-pin REAL → arquivo)"
-assert_grep "$PICKW/toasts.txt" 'fixado na dock' \
-  "E106/pick: toast de sucesso no desfecho 1 (a prova é o toast que SAIU — o feedback que a v3 nunca deu)"
-assert_grep "$PICKW/.cache/elite/menus.log" 'fechado pelo usuário \(ESC\)' \
-  "E106/pick: o fechamento do laço deixa linha no papel (o ESC do dono não é morte calada)"
-
-# fluxo B — o marcador ✓ desfixa: a metade rm da unificação, pelo LAÇO
-pick_reset
-printf '✓ Steam\nESC\n' > "$PICKW/menu-script"
-mkdir -p "$PICKW/.config/elite"
-printf 'steam.desktop\n' > "$PICKW/.config/elite/dock-pins"
-rcB="$(pick_run "$REPO/elite/airootfs/usr/local/bin")"
-assert_eq "$rcB" "0" "E106/pick: o laço fecha 0 no desafixar também"
-assert_nogrep "$PICKW/.config/elite/dock-pins" '^steam\.desktop$' \
-  "E106/pick: o ✓ DESFIXOU (a unificação cobre os dois verbos — Fixar+Desafixar viraram UM item, a ordem do dono)"
-assert_grep "$PICKW/toasts.txt" 'saiu da dock' \
-  "E106/pick: toast do desafixar no papel"
-
-# fluxo C — 'já estava na dock' (o desfecho 2 do E36): o craft-pin
-# mentiroso lista VAZIO mas recusa o add com o texto do E36
-mkdir -p "$WORK/pick-stubs-dup"
-cat > "$WORK/pick-stubs-dup/craft-pin" <<'EOF'
-#!/bin/sh
-case "${1:-}" in
-  list) exit 0 ;;                       # lista vazia — o marcador vira ·
-  add)  echo "craft-pin: 'Steam' já está fixado"; exit 1 ;;
-esac
-exit 0
-EOF
-chmod +x "$WORK/pick-stubs-dup/craft-pin"
-pick_reset
-printf '· Steam\nESC\n' > "$PICKW/menu-script"
-rcB="$(pick_run "$WORK/pick-stubs-dup")"
-assert_grep "$PICKW/toasts.txt" 'já estava na dock' \
-  "E106/pick: o desfecho 2 do E36 continua ALCANÇÁVEL no laço (a condição de corrida list×add está coberta)"
-assert_eq "$rcB" "0" "E106/pick: duplicata é benigna para o laço (rc 0 — quem fala é o toast)"
-
-# fluxo D — falha REAL do craft-pin (rc≠0): o ramo else avisa e deixa rastro
-rm -f "$PICKW/.cache/elite/menus.log"
-pick_reset
-printf '· Steam\nESC\n' > "$PICKW/menu-script"
-rcC="$(pick_run "$PICKFAIL")"
-assert_grep "$PICKW/toasts.txt" 'Fixar falhou' \
-  "E106/pick: falha REAL do craft-pin avisa na tela (nenhum desfecho calado no laço)"
-assert_grep "$PICKW/.cache/elite/menus.log" 'craft-pin add FALHOU rc=3' \
-  "E106/pick: a falha real deixa rastro no menus.log (v2.3.1 no laço v4)"
+# ── 3.O E140 — O POPOVER DA DOCK (a gaveta fuzzel dos pins morreu com ──
+#    o craft-pin-pick: fixar/desafixar é o BOTÃO DIREITO do ícone, com
+#    escrita atômica e remontagem na hora; os contratos são ESTÁTICOS
+#    no ui.rs — a prova FUNCIONAL da gramática mora no cargo test do
+#    craft-dock-rs (pins_adiciona/pins_aplica são puras do crate) e no
+#    craft-pin CLI abaixo (que segue sendo a porta de terminal)
+DOCKUI="$REPO/vendor/rust/craft-dock-rs/src/ui.rs"
+assert_grep "$DOCKUI" 'fn menu_do' \
+  "E140/dock: o menu contextual EXISTE (Fixar/Desafixar conforme o estado vivo + Nova janela + Fechar — a ordem do dono, Parte 2 do dossiê)"
+assert_grep "$DOCKUI" '"Fixar na Dock"' \
+  "E140/dock: o verbo FIXAR pelo botão direito do próprio ícone (a gaveta de texto com setas do teclado morreu inteira)"
+assert_grep "$DOCKUI" '"Desafixar da Dock"' \
+  "E140/dock: o verbo DESAFIXAR alterna o rótulo pela leitura VIVA dos pins (o popover nasce certo a cada clique direito)"
+assert_grep "$DOCKUI" 'fn pins_adiciona' \
+  "E140/dock: a fixação é ATÔMICA (tmp+rename no MESMO dir — o par da pins_aplica E139; o corte de luz nunca deixa o dock-pins pela metade)"
+assert_grep "$DOCKUI" 'rebuild_pins\(&st\)' \
+  "E106/dock→E140: a ação REFLETE na hora (a remontagem é NO GESTO — o 'abrir o menu de novo para ver' morre aqui)"
+assert_grep "$DOCKUI" 'ARRASTO_PX' \
+  "E140/dock: o clique é EXCLUSIVAMENTE no released com tolerância de arrasto (o press×click duplicava o verbo — o dono tinha que SEGURAR o botão)"
+assert_grep "$DOCKUI" 'connect_released' \
+  "E140/dock: o verbo mora no release (o connect_pressed da era antiga era o primeiro dos DOIS verbos do mesmo clique)"
+assert_nogrep "$DOCKUI" 'connect_pressed\(move \|g, _n, _x, _y\| match g\.current_button' \
+  "E140/dock: o pressed NÃO carrega mais verbo NENHUM (só a marca do arrasto — o 'foco por id X' + 'toggle: minimizado por id X' do dock.log do dump morre por construção)"
 
 # e o help do craft-pin NÃO vaza mais código (E76 — o range mágico '2,22p'
 # imprimia PINS_DIR/DESKTOP_DIRS/ensure_file cru depois do ═ de fechamento)
@@ -2146,37 +2048,18 @@ e110_env screenoff >/dev/null 2>&1 || true
 unset ELITE_SLEEP_RETURNED
 assert_grep "$ST77/wlopm.log" 'wlopm' "E110/screenoff: carimbo VELHO = o apagar SEGUE (o dono saiu de sala — a economia de energia intacta)"
 
-# ── E109/pick — O MARCADOR QUE NUNCA ACENDIA (a metade do dono: 'só tá
-#    detectando que o Thunar tá na dock… se eu clico de novo, ele aparece
-#    já estava na dock, ou seja, ele não remove'): o case ' $pins ' contra
-#    o ARQUIVO INTEIRO (multilinha) nunca casava — o newline entre os pins
-#    matava o padrão. A prova: 2 pins (um COM coluna de hint) — o ✓ tem
-#    que acender para os DOIS; clicar num ✓ (via stub do motor) DESFIXA.
-pick_reset
-# os dois apps da cena do rig — o caminho testado é o NORMAL (o pin como
-# .desktop real, não o ramo órfão: o órfão acende ✓ por desenho e testaria
-# a outra metade do código)
-printf '[Desktop Entry]\nType=Application\nName=Foot\nExec=foot\nIcon=foot\n' > "$PICKDATA/applications/foot.desktop"
-printf '[Desktop Entry]\nType=Application\nName=Thunar\nExec=thunar\nIcon=thunar\n' > "$PICKDATA/applications/thunar.desktop"
-printf 'foot.desktop\nthunar.desktop org.xfce.Thunar\n' > "$PICKW/.config/elite/dock-pins"
-# o roteiro: a lista vem do craft-menu stub — 1ª volta escolhe o THUNAR
-# (✓ esperado, com hint na linha do pin), 2ª volta ESC encerra o laço
-printf '✓ Thunar\nESC\n' > "$PICKW/menu-script"
-rcB2="$(pick_run "$REPO/elite/airootfs/usr/local/bin")"
-assert_eq "$rcB2" "0" "E109/pick: o laço fecha 0 no cenário multilinha (a cena do rig: 2 pins, um com hint)"
-assert_nogrep "$PICKW/.config/elite/dock-pins" '^thunar\.desktop' \
-    "E109/pick: o ✓ acendeu e o DESFIXOU (o case multilinha nunca acendia o marcador — o dono não conseguia remover NADA; a comparação por linha no \$1 casa o pin COM hint)"
-# e o foot (pin SEM hint) também acende — o teste é do MARCADOR, a lista
-# que o stub recebe é a LISTA PRONTA: refaz com o foot alvo
-pick_reset
-printf '[Desktop Entry]\nType=Application\nName=Foot\nExec=foot\nIcon=foot\n' > "$PICKDATA/applications/foot.desktop"
-printf '[Desktop Entry]\nType=Application\nName=Thunar\nExec=thunar\nIcon=thunar\n' > "$PICKDATA/applications/thunar.desktop"
-printf 'foot.desktop\nthunar.desktop org.xfce.Thunar\n' > "$PICKW/.config/elite/dock-pins"
-printf '✓ Foot\nESC\n' > "$PICKW/menu-script"
-rcB3="$(pick_run "$REPO/elite/airootfs/usr/local/bin")"
-assert_eq "$rcB3" "0" "E109/pick: o laço fecha 0 no alvo sem hint"
-assert_nogrep "$PICKW/.config/elite/dock-pins" '^foot\.desktop' \
-    "E109/pick: o ✓ do pin SEM hint também desfixa (a prova empírica do rig: 3 pins = 0 marcadores acesos — o newline era o réu)"
+# ── E109/pick → E140 — O POPOVER HERDOU A CURA (o marcador que nunca
+#    acendia era a doença do craft-pin-pick: o case multilinha contra o
+#    arquivo inteiro. A gaveta fuzzel morreu; o popover da dock lê o
+#    pin_ids VIVO (HashSet) e o rótulo Fixar/Desafixar acende CERTO por
+#    construção — a prova é o CONTRATO ESTÁTICO no menu_do (a leitura do
+#    estado em tempo de clique) + o cargo test do crate (a escada E139
+#    resolve-atualiza-mantém é testada lá)
+DOCKUI="$REPO/vendor/rust/craft-dock-rs/src/ui.rs"
+assert_grep "$DOCKUI" 'pin_ids\.contains\(did\)' \
+  "E109→E140: o marcador acende pelo ESTADO VIVO (o contains no HashSet — o case multilinha contra o arquivo inteiro nunca mais existe; 'já estava na dock' é leitura, não parsing)"
+assert_grep "$DOCKUI" 'if fixado' \
+  "E109→E140: o popover ALTERNA o verbo pela verdade (Fixar ↔ Desafixar na leitura do clique — o dono remove na primeira tentativa, sempre)"
 
 # ── E109/display — A MORTE CALADA DO SINGLE-OUTPUT (o dono: 'Telas e
 #    resolução, eu clico e não acontece nada — nem abre uma janelinha'):

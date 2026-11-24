@@ -381,7 +381,32 @@ while alive; do
         if systemctl suspend -i; then
             _dur=$(( $(date +%s) - _t0 ))
             vlog "VIGÍLIA: systemctl suspend aceito (${_dur}s, rc=0) — a chamada é ASSÍNCRONA (E122); o veredito do sono é o que o journal mostra na janela:"
-            _j="$(journalctl -b -u systemd-suspend --since "@$_t0" -o short-epoch --no-pager 2>/dev/null || true)"
+            # E140 — A ESPERA DO VEREDITO (a ordem do dono, dossiê 1.0-88:
+            # 'corrigir o timing do sleep-hook' — o dump 192038 fotografou
+            # o E110 TARDIO e o 'tela: ACORDOU' NO MESMO SEGUNDO da
+            # chamada: o código antigo lia o journal na janela de 0s — o
+            # sono nem tinha COMEÇADO — e seguia em frente com o screenon
+            # e o rearme DENTRO do limbo entre a chamada e o S3. Agora: o
+            # olho espera o journal DIZER (≤5s, 1s por olhada — o logind
+            # demora ~1s para o 'Suspending system'): o sono começou =
+            # ESTE processo congela junto e o screenon roda DEPOIS do
+            # wake (a ordem certa de sempre); sono recusado/inibido = o
+            # veredito honesto vira a linha do papel e o ciclo rearma
+            # limpo, sem o fantasma que suspende de novo na cara do dono)
+            # o tamanho do olho: 3×0.7s — o S3 CONGELA este processo no
+            # meio do loop (o freeze É a espera); a janela cobre o ~1s do
+            # logind até o 'Suspending system' sem atrasar a sucessora do
+            # ciclo (a E79 do craft-idle espera 4s pela renascida)
+            _esp=0
+            _j=""
+            _ts=""
+            while [ "$_esp" -le 3 ]; do
+                _j="$(journalctl -b -u systemd-suspend --since "@$_t0" -o short-epoch --no-pager 2>/dev/null || true)"
+                _ts="$(printf '%s\n' "$_j" | grep -m1 'Suspending system' | cut -d' ' -f1 | cut -d. -f1)"
+                [ -n "$_ts" ] && break
+                sleep 0.7
+                _esp=$((_esp + 1))
+            done
             _ts="$(printf '%s\n' "$_j" | grep -m1 'Suspending system' | cut -d' ' -f1 | cut -d. -f1)"
             _ta="$(printf '%s\n' "$_j" | grep -m1 'Awake from suspend' | cut -d' ' -f1 | cut -d. -f1)"
             case "${_ts:-}" in ''|*[!0-9]*) _ts="" ;; esac

@@ -236,21 +236,22 @@
     <keybind key="W-n">
       <action name="Execute" command="nm-connection-editor" />
     </keybind>
-    <!-- Bluetooth (W-S-b · E137: o gerenciador é a PRÓPRIA central da
-         casa — a porta bluetooth do craft-connect: menu fuzzel +
-         bluetoothctl, parear/conectar/esquecer/rádio, 100% GUI) -->
+    <!-- Bluetooth (W-S-b · E140: o gerenciador gráfico DE VERDADE da
+         diretriz do dossiê — o blueman-manager, o mesmo que o botão
+         dedicado da craft-bar-rs abre; a casa não reimplementa o
+         Bluetooth em menu fuzzel) -->
     <keybind key="W-S-b">
-      <action name="Execute" command="craft-connect --bluetooth" />
+      <action name="Execute" command="blueman-manager" />
     </keybind>
     <keybind key="W-s">
       <action name="Execute" command="foot -e btop" />
     </keybind>
-    <!-- E138 — A CENTRAL DE ÁUDIO (a ordem do dono, dump v2.13: seletor
-         instantâneo de Saídas/Entradas com volume e mudo — FIM do TUI
-         pulsemixer no fluxo padrão; o mixer completo é item da própria
-         central) -->
+    <!-- E140 — O MIXER DE VERDADE (a ordem do dono, dossiê 1.0-88: o
+         craft-audio aposentou com o waybar — o mute instantâneo mora no
+         BOTÃO de áudio da craft-bar-rs e o mixer completo é o pwvucontrol,
+         o mesmo que o clique direito da barra abre) -->
     <keybind key="W-a">
-      <action name="Execute" command="craft-audio" />
+      <action name="Execute" command="pwvucontrol" />
     </keybind>
     <!-- craft-hello: visão rápida do sistema (E73 — a saudação vive no
          .zshrc; ESTE verbo abre um foot com o retrato e CAI NO SHELL:

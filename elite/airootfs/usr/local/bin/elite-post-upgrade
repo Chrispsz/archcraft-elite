@@ -346,6 +346,15 @@ loginctl list-users --no-legend 2>/dev/null | while read -r _uid _ _; do
         tlog "bars E139: supervisor do uid $_uid ENCERRADO de verdade (elite-daemon/craft-bars — SIGTERM limpo, os filhos colhidos pelo próprio daemon); UM novo nasce agora"
     fi
     unset _matou
+    # E140 — O WAYBAR VELHO MORRE COM A TROCA (a top bar da casa é o
+    # craft-bar-rs DESTA dose: o supervisor novo que nasce ergue a barra
+    # nativa no lugar dele. O daemon velho já colheu os filhos — este
+    # pkill é o CINTO do órfão que sobreviveu ao pai; os confs do home
+    # são ARQUIVO DO DONO: ficam no disco, inertes, sem dono que os leia)
+    if pgrep -u "$_uid" -x waybar >/dev/null 2>&1; then
+        pkill -u "$_uid" -x waybar 2>/dev/null || true
+        tlog "E140: waybar (uid $_uid) ENCERRADO — a top bar é o craft-bar-rs desta dose (o supervisor novo ergue a barra nativa em ≤5s)"
+    fi
     # E135 — OS RESIDENTES SHELL/PYTHON DA ERA ANTERIOR MORREM (a ordem
     # do dono do dump 101339: zero /bin/sh e python3 residentes). O
     # craft-bars NOVO (a dose em disco) execa o elite-daemon session;
@@ -533,6 +542,23 @@ for _vl in /var/log/elite-*.log; do
     fi
 done
 unset _vl
+
+# ── E140 — OS BINS APOSENTADOS DA DOSE (o craft-audio e o craft-pin-pick
+#      saem do repo: o áudio da barra é wpctl direto + pwvucontrol no
+#      direito, e fixar/desafixar é o popover do botão direito da dock.
+#      O fóssil no rig morre COM VOZ; o fóssil zram 150 de /usr/lib idem
+#      — a 99 da casa mora em /etc, um dono só por número) ──────────────
+for _fossil140 in /usr/local/bin/craft-audio /usr/local/bin/craft-pin-pick; do
+    if [ -f "$_fossil140" ]; then
+        rm -f "$_fossil140" 2>/dev/null \
+            && tlog "E140: fóssil $_fossil140 REMOVIDO (o wpctl da barra e o popover da dock tomaram o lugar — a dose não carrega mais o bin)"
+    fi
+done
+unset _fossil140
+if [ -f /usr/lib/udev/rules.d/99-elite-zram.rules ]; then
+    rm -f /usr/lib/udev/rules.d/99-elite-zram.rules 2>/dev/null \
+        && tlog "E140: fóssil zram 99-elite-zram de /usr/lib REMOVIDO (a 99 do pacote mora em /etc — o rig do dump carregava o 150 fóssil de era antiga)"
+fi
 
 tlog "post-upgrade: concluído (a migração é idempotente — rodar de novo é no-op com papel)"
 exit 0

@@ -47,8 +47,6 @@
 //     sem sinal — a rede a mais que o Python não tinha).
 //
 // ESCOPO HONESTO DESTA v1 (o que FALTA, nomeado — ver main.rs também):
-//   ✗ o MENU E74 do direito (craft-menu/fuzzel): o direito é o verbo
-//     DIRETO "nova sessão" — sem menu contextual nesta v1;
 //   ✗ o FALLBACK wlrctl (daemon morto = /proc + wlrctl): sem
 //     craft-toplevel os verbos de foco/fecho ficam sem rede NESTA v1
 //     (E134: o craft-dock-gui PYTHON saiu do pacote — sem fallback
@@ -62,6 +60,12 @@
 //   ✗ o indicador com daemon MORTO (o _fallback_alive do /proc): com
 //     o daemon morto o indicador fica APAGADO nesta v1 (honesto — não
 //     é a mentira de acender sem janela).
+// E140 — O QUE ENTROU (a Parte 2 do dossiê 1.0-88): o MENU E74 do
+//   direito é REAL (PopoverMenu nativo com Fixar/Desafixar da Dock +
+//   Nova janela + Fechar — a gaveta fuzzel dos pins morre), o clique
+//   é EXCLUSIVAMENTE no released com tolerância de arrasto <5px (o
+//   press×click duplicava o verbo) e a assinatura EVT não falece por
+//   silêncio (timeout ≠ queda — zero espaço preto no fecho).
 use crate::{appicon_cache_dir, css_path, icons, log, pins_path, procapp, read_pins, sock,
             toplevel_sock, VERSION};
 use std::cell::RefCell;
@@ -80,6 +84,10 @@ use gtk4::{gdk, glib};
 // NÃO re-exporta um módulo `gtk` — os widgets moram na RAIZ do crate; o
 // alias abaixo mantém os ~120 caminhos `gtk::` do corpo intactos.
 use gtk4 as gtk;
+// o ActionMap (o add_action do SimpleActionGroup do popover E140) mora
+// no prelude do gio — o gtk4::prelude NÃO o re-exporta (a conferência
+// no fonte gtk4-0.11.5/gio-0.22.11, a lição do Canal E-auditoria)
+use gtk4::gio::prelude::ActionMap;
 // E-auditoria: o gtk4-layer-shell 0.8 NÃO expõe funções livres — a API
 // é o trait LayerShell (init_layer_shell/set_layer/set_anchor/...) e o
 // is_supported continua função livre (re-export da raiz).
@@ -93,8 +101,15 @@ const PILL_FLOAT: i32 = 6;
 /// O tick de segurança (o push EVT domina a latência; 5s = scan /proc
 /// + ceifa + reload dos pins — o mesmo desenho v2.10.26 do Python).
 const TICK_S: u64 = 5;
-/// O dreno do canal da thread de fundo (e da bandeira de sinais).
-const DRAIN_MS: u64 = 200;
+/// O dreno do canal da thread de fundo (E140 — 200ms era o "frame
+/// seguinte" dos espaços pretos do dossiê: o evento de fecho chega
+/// com o LIST fresco e a pílula remonta no MESMO giro — 50ms é o
+/// dreno que o olho não vê, a mesma janela de um frame a 60Hz).
+const DRAIN_MS: u64 = 50;
+/// E140 — A TOLERÂNCIA DE ARRASTO: released a ≥5px do press é ARRASTO,
+/// não clique (a ordem do dono, Parte 2 do dossiê — a mesma lei da
+/// barra; o clique curto que o press×click duplicava nunca mais).
+const ARRASTO_PX: f64 = 5.0;
 /// E71 — o guard do lançamento em voo (o vão até a janela mapear).
 const GUARD_S: f64 = 8.0;
 
@@ -305,6 +320,14 @@ fn build(app: &gtk::Application) {
 /// handshake EVT (E38 — push com latência ~0) e o LIST de segurança de
 /// 5s. NUNCA toca GTK: tudo via canal mpsc. Morreu o daemon? O próximo
 /// giro reconecta — a dock NUNCA depende dele (a lei v2.10.3).
+/// E140 — A ASSINATURA NÃO FALECE POR SILÊNCIO: o read com timeout de
+/// 200ms devolvia WouldBlock a cada pausa e o código antigo tratava
+/// como QUEDA (evt=None → reconectar → handshake → +100ms de sono):
+/// a assinatura EVT flapeava ~5×/s e um evento no vão da reconexão
+/// esperava até o LIST de segurança DE 5s — o "espaço preto" do
+/// dossiê. Agora: timeout é ESPERA (a assinatura vive); só Ok(0) e o
+/// erro REAL são queda — o evento chega com latência ~0 e o dreno de
+/// 50ms remonta a pílula no mesmo frame do olho.
 fn bg_reader(sock_path: PathBuf, tx: Sender<Msg>) {
     let mut evt: Option<std::os::unix::net::UnixStream> = None;
     let mut last_list = Instant::now()
@@ -335,8 +358,19 @@ fn bg_reader(sock_path: PathBuf, tx: Sender<Msg>) {
         if let Some(s) = evt.as_mut() {
             let mut buf = [0u8; 4096];
             match std::io::Read::read(s, &mut buf) {
-                Ok(0) | Err(_) => {
-                    evt = None; // caiu: o backoff seguinte reconecta
+                Ok(0) => {
+                    evt = None; // o daemon fechou: o giro seguinte reconecta
+                }
+                Err(e)
+                    if e.kind() == std::io::ErrorKind::WouldBlock
+                        || e.kind() == std::io::ErrorKind::TimedOut =>
+                {
+                    // E140 — TIMEOUT NÃO É QUEDA: a assinatura VIVE — o
+                    // próximo evento acorda EXATAMENTE aqui (sem
+                    // flap de reconexão, sem vão de 100ms)
+                }
+                Err(_) => {
+                    evt = None; // erro real: reconecta com o backoff
                     std::thread::sleep(Duration::from_millis(back));
                     back = (back * 4).min(100);
                 }
@@ -360,11 +394,15 @@ fn bg_reader(sock_path: PathBuf, tx: Sender<Msg>) {
             }
             last_list = Instant::now();
         }
-        std::thread::sleep(Duration::from_millis(100));
+        // conectado, o read de 200ms É o sono (a thread não frita a
+        // CPU com polling); desconectado, o backoff acima já dormiu
+        if evt.is_some() {
+            std::thread::sleep(Duration::from_millis(20));
+        }
     }
 }
 
-/// O dreno (idle de 200ms): aplica snapshots, ícones extraídos em
+/// O dreno (idle de 50ms — E140): aplica snapshots, ícones extraídos em
 /// thread e a bandeira dos sinais (SIGUSR1 toggle · SIGUSR2 reload).
 fn drain(st: &Rc<RefCell<State>>, rx: &Receiver<Msg>) {
     loop {
@@ -999,31 +1037,167 @@ fn make_raw_button(st: &Rc<RefCell<State>>, key: &str, name: &str) -> gtk::Butto
     btn
 }
 
-/// A GRAMÁTICA DO CLIQUE (v2.10.10, UMA para pin/dinâmico/raw):
-/// esquerdo foca/cicla · direito nova sessão · meio encerra. O
-/// GestureClick com button=0 enxerga TODOS os botões (a GTK4
-/// aposentou o button-press-event da GTK3 — o current_button no
-/// instante do press é quem decide); o "clicked" segue para o teclado
-/// (Espaço/Enter = o mesmo verbo do esquerdo).
+/// A GRAMÁTICA DO CLIQUE (v2.10.10, UMA para pin/dinâmico/raw) —
+/// E140, REESCRITA PELO DOSSIÊ 1.0-88: o verbo dispara EXCLUSIVAMENTE
+/// no GestureClick::released com tolerância de arrasto < 5px — o
+/// conflito press×clicked (o verbo no `connect_pressed` E de novo no
+/// `connect_clicked` do release) era o "clique rápido que foca E
+/// minimiza no mesmo segundo" do dock.log: 'foco por id 10' seguido
+/// de 'toggle: minimizado por id 10' em toda tentativa de clique
+/// curto — o dono tinha que SEGURAR o botão para o release chegar
+/// antes do segundo verbo. O `connect_clicked` segue vivo SÓ para o
+/// TECLADO (Espaço/Enter): o eco do mouse morre na bandeira `eco`
+/// (o release do gesto marca; o clicked que vem logo atrás do mouse
+/// encontra a bandeira e sai — o do teclado encontra limpa e age).
 fn wire_clicks(st: &Rc<RefCell<State>>, btn: &gtk::Button, act: Act) {
-    let gesture = gtk::GestureClick::new();
-    gesture.set_button(0);
+    // E140 — O POPOVER NATIVO DO BOTÃO DIREITO (a gaveta fuzzel dos
+    // pins morre: Fixar/Desafixar mora AGORA no botão do próprio app,
+    // com Nova janela e Fechar — a ordem do dono, Parte 2 do dossiê).
+    // Nasce UMA vez por botão (filho do botão — morre com ele); o
+    // MODELO muda por clique (Fixar/Desafixar pela leitura do estado).
+    let pop = gtk::PopoverMenu::from_model(None::<&gtk::gio::MenuModel>);
+    pop.set_position(gtk::PositionType::Top);
+    pop.insert_action_group("dock", Some(&grupo_do_popover(st, &act)));
     {
+        let pop = pop.clone();
+        let press = std::rc::Rc::new(std::cell::Cell::new((0.0f64, 0.0f64)));
+        let eco = std::rc::Rc::new(std::cell::Cell::new(false));
+        let gesture = gtk::GestureClick::new();
+        gesture.set_button(0);
+        {
+            let press = press.clone();
+            gesture.connect_pressed(move |_g, _n, x, y| {
+                press.set((x, y));
+            });
+        }
+        {
+            let st = st.clone();
+            let act = act.clone();
+            let press = press.clone();
+            let eco = eco.clone();
+            gesture.connect_released(move |g, _n, x, y| {
+                let (px, py) = press.get();
+                if ((x - px) * (x - px) + (y - py) * (y - py)).sqrt() >= ARRASTO_PX {
+                    return; // ARRASTO, não clique (a tolerância do dossiê)
+                }
+                eco.set(true); // o eco do clicked do mouse morre aqui
+                match g.current_button() {
+                    1 => on_left(&st, &act),
+                    2 => on_middle(&st, &act),
+                    3 => {
+                        // o direito é o MENU agora (o verbo "nova
+                        // sessão" mora no item dele)
+                        pop.set_menu_model(Some(&menu_do(st, &act)));
+                        pop.popup();
+                    }
+                    _ => {}
+                }
+            });
+        }
+        btn.add_controller(gesture);
+        // o TECLADO segue (Espaço/Enter = o verbo do esquerdo): o
+        // clicked do mouse encontra a bandeira `eco` e sai calado
+        {
+            let st = st.clone();
+            let act = act.clone();
+            let eco = eco;
+            btn.connect_clicked(move |_| {
+                if eco.get() {
+                    eco.set(false);
+                    return; // o eco do release do mouse — o gesto já falou
+                }
+                on_left(&st, &act);
+            });
+        }
+    }
+    // o popover é FILHO do botão (a âncora do posicionamento GTK4 —
+    // nasce depois dos controllers para nunca cobrir o gesto)
+    pop.set_parent(btn);
+}
+
+/// E140 — o menu contextual do botão (Fixar/Desafixar conforme o
+/// estado VIVO dos pins + Nova janela + Fechar; no raw SEM .desktop o
+/// par de pins não existe — o raw não é fixável por desenho).
+fn menu_do(st: &Rc<RefCell<State>>, act: &Act) -> gtk::gio::Menu {
+    let m = gtk::gio::Menu::new();
+    if let Act::App { did, .. } = act {
+        let fixado = st.borrow().pin_ids.contains(did);
+        m.append(
+            Some(if fixado {
+                "Desafixar da Dock"
+            } else {
+                "Fixar na Dock"
+            }),
+            Some("dock.pin"),
+        );
+    }
+    m.append(Some("Nova janela"), Some("dock.new"));
+    m.append(Some("Fechar"), Some("dock.close"));
+    m
+}
+
+/// E140 — as ações do popover (o grupo vive NO popover: um por botão,
+/// o act viaja no closure — nada de grupo global com estado velho).
+fn grupo_do_popover(st: &Rc<RefCell<State>>, act: &Act) -> gtk::gio::SimpleActionGroup {
+    let grupo = gtk::gio::SimpleActionGroup::new();
+    // FIXAR/DESAFIXAR (só App tem .desktop; o raw é nomeado honesto)
+    if let Act::App { did, name, .. } = act {
+        let a_pin = gtk::gio::SimpleAction::new("pin", None);
         let st = st.clone();
-        let act = act.clone();
-        gesture.connect_pressed(move |g, _n, _x, _y| match g.current_button() {
-            1 => on_left(&st, &act),
-            2 => on_middle(&st, &act),
-            3 => on_right(&st, &act),
-            _ => {}
+        let did = did.clone();
+        let name = name.clone();
+        a_pin.connect_activate(move |_, _| {
+            let fixado = st.borrow().pin_ids.contains(&did);
+            if fixado {
+                if pins_aplica(&PodaOp::Remove(did.clone())) {
+                    log(&format!("pin: {name} DESAFIXADO pelo popover (E140 — escrita atômica + remontagem na hora)"));
+                    rebuild_pins(&st);
+                }
+            } else if pins_adiciona(&did) {
+                log(&format!("pin: {name} FIXADO pelo popover (E140 — a gaveta fuzzel dos pins morreu)"));
+                rebuild_pins(&st);
+            }
         });
+        grupo.add_action(&a_pin);
     }
-    btn.add_controller(gesture);
+    // NOVA JANELA (o verbo do direito antigo)
+    let a_new = gtk::gio::SimpleAction::new("new", None);
     {
         let st = st.clone();
         let act = act.clone();
-        btn.connect_clicked(move |_| on_left(&st, &act));
+        a_new.connect_activate(move |_, _| on_right_antigo(&st, &act));
     }
+    grupo.add_action(&a_new);
+    // FECHAR (o verbo do meio antigo — CLOSE gracioso por id)
+    let a_close = gtk::gio::SimpleAction::new("close", None);
+    {
+        let st = st.clone();
+        let act = act.clone();
+        a_close.connect_activate(move |_, _| on_middle(&st, &act));
+    }
+    grupo.add_action(&a_close);
+    grupo
+}
+
+/// E140 — A FIXAÇÃO ATÔMICA (o par da pins_aplica): lê o papel FRESCO,
+/// o id ausente entra NO FIM (a ordem do arquivo é a ordem da pílula),
+/// tmp+rename no MESMO dir — o corte de luz nunca deixa pela metade.
+/// false = já fixado ou papel inacessível (nada a reescrever).
+fn pins_adiciona(id: &str) -> bool {
+    let path = pins_path();
+    let mut txt = std::fs::read_to_string(&path).unwrap_or_default();
+    for linha in txt.lines() {
+        if linha.trim().split_whitespace().next() == Some(id) {
+            return false; // já fixado — o estado não mente
+        }
+    }
+    if !txt.is_empty() && !txt.ends_with('\n') {
+        txt.push('\n');
+    }
+    txt.push_str(id);
+    txt.push('\n');
+    let tmp = path.with_extension("elite-tmp");
+    std::fs::write(&tmp, txt.as_bytes()).is_ok() && std::fs::rename(&tmp, &path).is_ok()
 }
 
 // ── os VERBOS (a gramática UMA da casa) ───────────────────────────────
@@ -1165,12 +1339,13 @@ fn on_left(st: &Rc<RefCell<State>>, act: &Act) {
     launch(st, act, Some(&key));
 }
 
-/// O DIREITO — NOVA SESSÃO (a gramática UMA, v2.10.10): o verbo
-/// EXPLÍCITO de duplicar NÃO passa chave (o guard é para o vão do
-/// foco, não para o pedido claro do dono). No SEM-NOME, o argv[0] do
-/// processo vivo é a PROVA de origem — só lança o que existe e é
-/// executável; sem prova, o log ensina (nunca adivinha).
-fn on_right(st: &Rc<RefCell<State>>, act: &Act) {
+/// O DIREITO ANTIGO — NOVA SESSÃO (v2.10.10, agora o item "Nova
+/// janela" do popover E140): o verbo EXPLÍCITO de duplicar NÃO passa
+/// chave (o guard é para o vão do foco, não para o pedido claro do
+/// dono). No SEM-NOME, o argv[0] do processo vivo é a PROVA de
+/// origem — só lança o que existe e é executável; sem prova, o log
+/// ensina (nunca adivinha).
+fn on_right_antigo(st: &Rc<RefCell<State>>, act: &Act) {
     dismiss_overlays();
     match act {
         Act::App { cmd, .. } => launch(st, act, None),

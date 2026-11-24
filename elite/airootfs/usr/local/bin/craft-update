@@ -302,13 +302,23 @@ HOUSE_OVERWRITE=(
 # E139 — O PAVUCONTROL SAI DA LISTA (a auditoria do 1.0-86: pacote
 #     OPCIONAL não é âncora — a ISO já o traz pelo packages.add e o
 #     rig que o tem conserva; ver a nota abaixo da fila).
-ADOCAO=(lxqt-policykit pacman-contrib octopi yay flatpak swayosd gamemode gnome-text-editor papirus-icon-theme xorg-xprop xorg-xauth xorg-xhost coolercontrol)
+ADOCAO=(lxqt-policykit pacman-contrib octopi yay flatpak swayosd gamemode gnome-text-editor papirus-icon-theme xorg-xprop xorg-xauth xorg-xhost coolercontrol scx-scheds iwgtk blueman)
 # E139 — O PAVUCONTROL SAI DA ADOÇÃO (a auditoria do 1.0-86: pacote
 #     OPCIONAL não é âncora — a adoção silenciosa instalava pacote que
 #     o dono não pediu em toda dose). A ISO já o traz (packages.add — a
 #     ordem E138 do botão da central de áudio vale) e o botão tem
 #     fallback honesto; o rig que o tem CONSERVA (a adoção é --needed,
 #     nunca remove).
+# E140 — TRÊS ÂNCORAS NOVAS (a diretriz do dossiê 1.0-88): scx-scheds
+#     (o rig do dump 192038 tinha o /etc/default/scx assinado e o
+#     scx_loader 'inactive' — o PACOTE nunca chegou: sem a unit o enable
+#     do post_upgrade passa reto; a âncora traz o pacote E o garante_
+#     ancoras_vivas sobe o serviço NA MESMA dose), iwgtk (a GUI de Wi-Fi
+#     que o botão de rede da craft-bar-rs abre — o impala morreu na E138
+#     sem substituto gráfico) e blueman (o gerenciador Bluetooth da
+#     diretriz: 'overskride (ou blueman)' — o overskride é AUR e nunca
+#     chegou ao repo; o blueman é o par de repo, sai da higiene E138 e
+#     volta como âncora).
 
 ulog() {
     mkdir -p "$(dirname "$ULOG")" 2>/dev/null || true
@@ -437,6 +447,35 @@ lista_404() {
 # sincronizar o db — zero custo de rede a mais.
 # E109 — O PAPEL TEM O VEREDITO DE CADA ÂNCORA (presente/adotado/recusado
 # — a cura do ponto-cego que escondeu o pacman-contrib do rig por dias).
+# E140 — AS ÂNCORAS VIVAS NA MESMA DOSE (a cura da ORDEM do rig 192038:
+# o post_upgrade habilita scx_loader/coolercontrold QUANDO a unit existe
+# — mas a ADOÇÃO que instala o pacote corre DEPOIS do post_upgrade: a
+# unit não existia na hora do enable, o pacote chegava e o serviço
+# seguia 'inactive' para sempre (o scx_loader do dump: /etc/default/scx
+# assinado, sched_ext no kernel, zero pacote). Este passo roda LOGO
+# APÓS a adoção: a unit que ACABOU de nascer ganha o enable --now NA
+# MESMA corrida — idempotente, best-effort, com voz no papel.
+garante_ancoras_vivas() {
+    # scx_loader: só com o conf assinado (a lei E139 — unit ligada sem
+    # escalonador assinado é o desalinhamento)
+    if systemctl list-unit-files scx_loader.service >/dev/null 2>&1 \
+       && systemctl cat scx_loader.service >/dev/null 2>&1 \
+       && grep -q '^SCX_SCHEDULER=' /etc/default/scx 2>/dev/null; then
+        if run_root systemctl enable --now scx_loader.service >>"$ULOG" 2>&1; then
+            ulog "âncoras vivas: scx_loader de pé NA MESMA dose ($(sed -n 's/^SCX_SCHEDULER=//p' /etc/default/scx | head -1) — o pacote chegou pela adoção, o serviço não esperou a próxima)"
+        fi
+    fi
+    # coolercontrold: os PWM da placa-mãe destravados (as curvas são do
+    # dono, no GUI — a tela branca morre no override do .desktop)
+    if systemctl list-unit-files coolercontrold.service >/dev/null 2>&1 \
+       && systemctl cat coolercontrold.service >/dev/null 2>&1; then
+        if run_root systemctl enable --now coolercontrold.service >>"$ULOG" 2>&1; then
+            ulog "âncoras vivas: coolercontrold de pé NA MESMA dose (a adoção trouxe o pacote, o daemon não esperou o reboot)"
+        fi
+    fi
+    return 0
+}
+
 adota_ancoras() {
     local a
     for a in "${ADOCAO[@]}"; do
@@ -586,7 +625,12 @@ higiene_e132() {
     # TUI em terminal' — a rede 100% gráfica é a central do craft-connect
     # + o nm-connection-editor; o pulsemixer NÃO entra na higiene: não é
     # da ordem e o dono pode querer o TUI à mão).
-    for pkg in polkit-gnome blueman network-manager-applet bluetui overskride impala gnome-keyring; do
+    # E140 — O BLUEMAN SAI DA HIGIENE (voltou a SER da casa: o Bluetooth
+    # gráfico da diretriz do dossiê 1.0-88 — a barra abre o blueman-
+    # manager; a âncora ADOÇA, a higiene não contradiz a adoção no
+    # mesmo fôlego) E O MOUSEPAD ENTRA (a ordem do dono: redundante com
+    # o gnome-text-editor — a ISO já o corta; a dose alcança os rigs).
+    for pkg in polkit-gnome network-manager-applet bluetui overskride impala gnome-keyring mousepad; do
         if pacman -Q "$pkg" >/dev/null 2>&1; then
             if run_root pacman -Rns --noconfirm "$pkg" >>"$ULOG" 2>&1; then
                 ulog "higiene E132: $pkg REMOVIDO (redundante — a casa tem substituto; sem dependentes)"
@@ -1212,6 +1256,9 @@ if [[ "${1:-}" == "--canal" ]]; then
     fi
     adota_ancoras
     adota_lojas
+    # E140 — a unit que a adoção ACABOU de trazer ganha o enable --now
+    # na MESMA corrida (o scx_loader 'inactive' do dump morre aqui)
+    garante_ancoras_vivas
     nomeia_fila_nova "$es_before"
     refresh_if_craft_changed "$es_before" "$ec_before" "$tl_before"
     # E64 — CHECAGEM NÃO É NOTÍCIA: com o re-armamento horário do timer
@@ -1435,6 +1482,9 @@ rm -f "$ERRCAP"
 # separada nunca bloqueia a principal) e ANTES do refresh da sessão.
 adota_ancoras
 adota_lojas
+# E140 — a unit que a adoção ACABOU de trazer ganha o enable --now na
+# MESMA corrida (o post_upgrade passou ANTES do pacote existir)
+garante_ancoras_vivas
 nomeia_fila_nova "$es_before"
 
 # E48→E50 — a sessão do dono recebe o código novo NA HORA e INTEIRA (o

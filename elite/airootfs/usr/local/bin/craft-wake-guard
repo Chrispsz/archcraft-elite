@@ -184,8 +184,29 @@ arma_cadeia_do_dev() { # $1 = devpath do usb_device
 # TECLADO; protocolo 02 (mouse) e todo o resto = DORME. Um dispositivo
 # composto (teclado com leitor, com touchpad) ACORDA se tiver UMA
 # interface de teclado — o dono quer a MÃO de volta, não cada dedo.
+#
+# E140 — O ÁUDIO DORME SEMPRE (a ordem do dono do dossiê 1.0-88: o
+# microfone USB Fifine (3-3, 3142:a010) continuava `acorda` no status
+# E o controlador XHC0 da árvore dele era ARMADO como "teclado na
+# árvore" — o réu: o Fifine EXPÕE uma interface HID de controle de
+# volume com protocolo 01, e o juízo antigo contava isso como
+# TECLADO). A regra nova é ANTES de qualquer outra: dispositivo com
+# UMA interface de classe Áudio (bInterfaceClass 01) é ÁUDIO — dorme
+# com o PC, SEM olhar o HID dele (a mesinha que mexe no volume não é
+# a mão que acorda a máquina). O gate do controlador herda a cura na
+# hora: sem o Fifine "teclado", o XHC0 desarma sozinho.
 decide_usb() {
     local dev="$1" itf cls proto
+    # E140 — O ÁUDIO PRIMEIRO: interface classe 01 (Audio) = dorme
+    # incondicional (o Fifine nunca mais é teclado)
+    for itf in "$dev":*; do
+        [ -d "$itf" ] || continue
+        cls="$(cat "$itf/bInterfaceClass" 2>/dev/null || true)"
+        if [ "$cls" = "01" ]; then
+            printf '%s' "dorme"
+            return 0
+        fi
+    done
     local ret="dorme"
     for itf in "$dev":*; do
         [ -d "$itf" ] || continue
@@ -317,8 +338,9 @@ do_apply() {
 
 do_status() {
     local dev want cls
-    printf '── A POLÍTICA (E122+E139): TECLADO acorda · mouse e resto do USB dormem ·\n'
+    printf '── A POLÍTICA (E122+E139+E140): TECLADO acorda · mouse e resto do USB dormem ·\n'
     printf '   controlador só fica ARMADO com TECLADO HID 01 na própria árvore\n'
+    printf '── E140: áudio USB (classe 01) dorme SEMPRE — o Fifine não é teclado\n'
     printf '── a ordem do dono: "uma ação no teclado libere… não necessariamente no mouse"\n'
     printf '── controladores USB PCI (o gate por controlador — E139):\n'
     for dev in $(usb_pci_ctrls); do
