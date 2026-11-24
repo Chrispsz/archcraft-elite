@@ -292,7 +292,10 @@ impl BusClient {
     ) -> Option<(Arc<BusClient>, Receiver<BusMsg>)> {
         let mut stream = crate::ipc::connect_bus(path)?;
         send_frame(&mut stream, &BusMsg::Hello { who: who.to_string() }).ok()?;
-        let out = stream.try_clone().ok()?;
+        let mut out = stream.try_clone().ok()?;
+        // 1.0-93 — o teto da casa veste a ponta de escrita do clone
+        // também (o try_clone não herda os timeouts do original)
+        let _ = out.set_write_timeout(Duration::from_millis(crate::IPC_CONNECT_TETO_MS));
         let (tx, rx) = std::sync::mpsc::channel::<BusMsg>();
         let cli = Arc::new(BusClient {
             out: Mutex::new(out),
@@ -334,7 +337,11 @@ impl BusClient {
                                 .is_ok()
                                 {
                                     // a ponta de escrita troca junto
-                                    if let Ok(clone) = nova.try_clone() {
+                                    if let Ok(mut clone) = nova.try_clone() {
+                                        // (idem: o clone veste o teto)
+                                        let _ = clone.set_write_timeout(
+                                            Duration::from_millis(crate::IPC_CONNECT_TETO_MS),
+                                        );
                                         *cli.out.lock().unwrap() = clone;
                                     }
                                     s = nova;

@@ -70,6 +70,17 @@ jobs:
       - name: Lei E41 — conteúdo de casa mudou ⇒ pkgrel sobe (guard executável)
         run: bash .ci/guard-pkgrel.sh
 
+      # 1.0-93 — O CACHE CARGO (a ordem do dono: o target do workspace
+      # persiste entre runs — as deps do workspace pagam o compile 1x; a
+      # chave é o Cargo.lock, mudou a dependência = cache novo)
+      - name: Cache do Cargo (crates/target — o build das deps paga 1x)
+        uses: actions/cache@v4
+        with:
+          path: crates/target
+          key: canal-cargo-target-${{ hashFiles('crates/Cargo.lock') }}
+          restore-keys: |
+            canal-cargo-target-
+
       - name: Construir os pacotes da casa (container Arch privilegiado)
         run: |
           set -o pipefail

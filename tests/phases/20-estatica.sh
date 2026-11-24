@@ -112,8 +112,50 @@ fi
 file_has "AGENTS.md: a seção §7 (a filosofia 2.0 na constituição)" "AGENTS.md" '§7 · Filosofia 2.0'
 file_has "AGENTS.md: reprojetar, nunca clonar" "AGENTS.md" 'Reprojetar, nunca clonar o legado'
 file_has "AGENTS.md: o tuning sagrado preservado" "AGENTS.md" 'Tuning de baixo nível é SAGRADO'
+file_has "AGENTS.md: a lei do commit puro (§6.1 — sem Co-Authored-By)" "AGENTS.md" 'Co-Authored-By'
 file_has "PROTOCOL.md: a lei L2 (a porteira)" "docs/gestao/PROTOCOL.md" 'L2 · Suíte porteira'
 file_has "PROTOCOL.md: a lei L4 (nunca tag de trabalho diário)" "docs/gestao/PROTOCOL.md" 'L4 · Trabalho diário NUNCA pusha tag'
+
+# ══ 1.0-93 · A LEI DO COMMIT PURO EXECUTADA (§6.1: nenhum commit recente
+#    carrega o trailer Co-Authored-By: — o grep nos últimos 40; o push de
+#    commit contaminado morre NA PORTEIRA, antes do Canal) ══
+_coauth="$(git log -40 --pretty=%B 2>/dev/null | grep -c 'Co-Authored-By:' || true)"
+if [ "${_coauth:-0}" -eq 0 ]; then
+    t_ok "git: nenhum Co-Authored-By nos últimos 40 commits (a lei §6.1)"
+else
+    t_fail "git: nenhum Co-Authored-By nos últimos 40 commits (a lei §6.1)" "achado $_coauth trailer(s) — amend antes do push"
+fi
+
+# ══ 1.0-93 · OS NOVOS CONTRATOS DO PACOTE (scx-lavd direto, sudoers limpo,
+#    a paleta unificada na folha mestra) ══
+file_has "unit: o scx-lavd.service DIRETO (ExecStart=/usr/bin/scx_lavd)" "$AIROOTFS/etc/systemd/system/scx-lavd.service" 'ExecStart=/usr/bin/scx_lavd'
+file_has "unit: o scx-lavd só com sched_ext (PULADA, nunca FAILED)" "$AIROOTFS/etc/systemd/system/scx-lavd.service" 'ConditionPathExists=/sys/kernel/sched_ext'
+file_has "sudoers: os insults do sudo saem da casa" "$AIROOTFS/etc/sudoers.d/99-elite-clean" 'Defaults !insults'
+file_has "css: a paleta roxo/escuro ELITE (#13111c)" "crates/elite-core/assets/theme.css" '#13111c'
+file_has "css: o acento roxo #9d7cd8" "crates/elite-core/assets/theme.css" '#9d7cd8'
+file_has "css: o acento forte #bb9af7" "crates/elite-core/assets/theme.css" '#bb9af7'
+file_has "css: o texto #e6e4f0" "crates/elite-core/assets/theme.css" '#e6e4f0'
+file_has "bar: o CenterBox (o relógio exatamente no centro)" "crates/craft-bar-rs/src/ui.rs" 'CenterBox'
+file_has "bar: o relógio LOCAL (o glib now_local — o UTC morre)" "crates/craft-bar-rs/src/ui.rs" 'now_local'
+file_has "bar: o calendário GTK4 do hover" "crates/craft-bar-rs/src/ui.rs" 'gtk::Calendar'
+file_has "bar: o ícone real do bgapps (o f085 quebrado sai)" "crates/craft-bar-rs/src/ui.rs" 'system-run-symbolic'
+file_has "bar: o seletor rápido de rede (popover)" "crates/craft-bar-rs/src/ui.rs" 'popover_rede'
+file_has "bar: o botão Aplicativos com ícone GTK" "crates/craft-bar-rs/src/ui.rs" 'view-app-grid-symbolic'
+file_hasnt "bar: as pílulas da mesa não voltam (o scroll/atalho do labwc manda)" "crates/craft-bar-rs/src/ui.rs" 'wsbtn'
+file_hasnt "bar: o título ativo não volta (a moldura da janela manda)" "crates/craft-bar-rs/src/ui.rs" 'titulolbl'
+file_has "ipc: o lock da sessão no tmpfs do dono" "crates/elite-core/src/lib.rs" 'session_lock_path'
+file_has "ipc: o teto de 500ms na conexão (a classe dos 49s morre)" "crates/elite-core/src/ipc.rs" 'IPC_CONNECT_TETO_MS'
+file_has "daemon: o session usa o lock privado" "crates/elite-daemon/src/supervise.rs" 'session_lock_path'
+file_has "dock: o queue_draw no evento do toplevel (o fantasma morre)" "crates/craft-dock-rs/src/ui.rs" 'queue_draw'
+file_has "dump: o upload do termbin (o --upload)" "crates/craft-dump-rs/src/main.rs" 'termbin'
+file_has "dump: o SUDO_UID resolvido (o dono, não o root)" "crates/craft-dump-rs/src/main.rs" 'SUDO_UID'
+file_has "dump: o journal de erros do boot" "crates/craft-dump-rs/src/main.rs" 'journalctl'
+file_has "display: o verbo icc (perfis registrados, fronteira nomeada)" "$AIROOTFS/usr/local/bin/craft-display" '    icc)'
+file_has "post-upgrade: a migração do autostart dos homes vivos" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'elite-daemon session &'
+file_has "post-upgrade: o debloat waybar/gpsd com consulta de dependentes" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'Required By'
+file_has "post-upgrade: mitigations=off no GRUB da dose" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'mitigations=off'
+file_has "tune: o scx-lavd direto também no painel" "$AIROOTFS/usr/local/bin/elite-tune" 'scx-lavd.service'
+file_has "probe: o lock privado também no probe da sessão" "$AIROOTFS/usr/local/bin/elite-session-probe" 'session.lock'
 
 printf '%s\n' "$OK_COUNT $FAIL_COUNT $SKIP_COUNT" > "$WORK/fase20.txt"
 exit 0

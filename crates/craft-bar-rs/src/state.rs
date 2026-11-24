@@ -44,7 +44,7 @@
 
 use std::path::Path;
 
-use elite_core::{MediaState, WindowInfo, WorkspaceInfo};
+use elite_core::MediaState;
 
 // ── O BUS 2.0 (os estados que o daemon publica — o juízo de VESTIR) ────
 
@@ -76,38 +76,10 @@ pub fn media_pill(m: &MediaState) -> Option<(String, Option<String>)> {
     Some((format!("{glifo}{curto}"), tooltip))
 }
 
-/// AS PÍLULAS DA MESA (o workspace da Fase 2): (número, rótulo, atual).
-pub fn workspace_pills(ws: &WorkspaceInfo) -> Vec<(u32, String, bool)> {
-    (1..=ws.count.max(1))
-        .map(|n| {
-            let rotulo = if ws.count == 1 {
-                "1".to_string()
-            } else if n == ws.current {
-                ws.label.clone().filter(|l| l.chars().count() <= 6).unwrap_or_else(|| n.to_string())
-            } else {
-                n.to_string()
-            };
-            (n, rotulo, n == ws.current)
-        })
-        .collect()
-}
-
-/// O TÍTULO DA JANELA FOCADA (o "título ativo" da Fase 2).
-pub fn titulo_foco(windows: &[WindowInfo]) -> String {
-    windows
-        .iter()
-        .find(|w| w.focused)
-        .and_then(|w| w.title.clone())
-        .map(|t| {
-            if t.chars().count() > 42 {
-                let c: String = t.chars().take(40).collect();
-                format!("{c}…")
-            } else {
-                t
-            }
-        })
-        .unwrap_or_default()
-}
+// 1.0-93 — AS PÍLULAS DA MESA E O TÍTULO ATIVO SAIRAM DA BARRA (a ordem
+// do dono, rig da 1.0-92: os botões '1 2 3 4' duplicavam o scroll/atalhos
+// do labwc e o título duplicava a moldura da janela — a troca de mesa
+// mora no scroll/atalhos W-1..4 do rc.xml, a barra fica LIMPA).
 
 // ── O RELÓGIO pt_BR (a palavra é da casa, nunca do locale) ─────────────
 
@@ -275,12 +247,12 @@ pub fn glifo_rede(e: EstadoRede) -> &'static str {
 /// O tooltip do estado da rede (o que o dono lê ao parar o mouse).
 pub fn tooltip_rede(e: EstadoRede, essid: Option<&str>) -> String {
     match e {
-        EstadoRede::Cabo => "Cabo conectado — clique: iwgtk · direito: conexões".to_string(),
+        EstadoRede::Cabo => "Rede cabeada conectada — clique: seletor rápido · direito: conexões".to_string(),
         EstadoRede::Wifi => format!(
-            "{} — clique: iwgtk · direito: conexões",
+            "{} — clique: seletor rápido · direito: conexões",
             essid.unwrap_or("Wi-Fi conectado")
         ),
-        EstadoRede::Desligado => "Sem conexão — clique: iwgtk (o botão nunca sai)".to_string(),
+        EstadoRede::Desligado => "Sem conexão — clique: seletor rápido (o botão nunca sai)".to_string(),
     }
 }
 
@@ -335,6 +307,87 @@ pub fn json_tooltip(s: &str) -> Option<String> {
     }
 }
 
+// ── 1.0-93 · O SELETOR RÁPIDO DE REDE (a ordem do dono: o clique
+//    esquerdo abre um POPOVER GTK4 — toggle Wi-Fi, redes para conectar
+//    direto, status do cabo; o nm-connection-editor fica como botão
+//    avançado, o iwgtk sai da porta principal) ────────────────────────
+
+/// Uma rede Wi-Fi visível (o popover lista para conectar DIRETO).
+#[derive(Debug, Clone, PartialEq)]
+pub struct RedeWifi {
+    pub ssid: String,
+    /// sinal 0-100 (o nmcli devolve; a casa ordena por ele)
+    pub sinal: u8,
+    /// tem senha (WPA/RSN) — o cadeado do rótulo
+    pub segura: bool,
+}
+
+/// O PARSE da lista do `nmcli -t -f SSID,SIGNAL,SECURITY dev wifi list`
+/// (linhas "SSID:SINAL:SEGURANÇA"; a casa dedup por SSID e ordena por
+/// sinal — o mais forte no topo; o SSID vazio ('--' nos rigs) é
+/// filtrado honesto).
+pub fn parse_wifi_list(saida: &str) -> Vec<RedeWifi> {
+    let mut redes: Vec<RedeWifi> = Vec::new();
+    for linha in saida.lines() {
+        let c: Vec<&str> = linha.split(':').collect();
+        if c.is_empty() {
+            continue;
+        }
+        let ssid = c[0].trim();
+        if ssid.is_empty() || ssid == "--" {
+            continue;
+        }
+        let sinal: u8 = c.get(1).and_then(|s| s.trim().parse().ok()).unwrap_or(0);
+        let segura = c
+            .get(2)
+            .map(|s| {
+                let s = s.trim();
+                !s.is_empty() && s != "--" && s.to_lowercase() != "none"
+            })
+            .unwrap_or(false);
+        if let Some(ja) = redes.iter_mut().find(|r| r.ssid == ssid) {
+            if sinal > ja.sinal {
+                ja.sinal = sinal;
+            }
+            continue;
+        }
+        redes.push(RedeWifi {
+            ssid: ssid.to_string(),
+            sinal,
+            segura,
+        });
+    }
+    redes.sort_by(|a, b| b.sinal.cmp(&a.sinal).then(a.ssid.cmp(&b.ssid)));
+    redes
+}
+
+/// O PARSE do rádio do `nmcli radio wifi` ("enabled"/"disabled" — o
+/// estado do Switch do popover; a saída inesperada é None honesto).
+pub fn parse_wifi_radio(saida: &str) -> Option<bool> {
+    let t = saida.trim();
+    if t.eq_ignore_ascii_case("enabled") {
+        Some(true)
+    } else if t.eq_ignore_ascii_case("disabled") {
+        Some(false)
+    } else {
+        None
+    }
+}
+
+// ── 1.0-93 · O CONTAGEM LIMPO DOS 2º PLANOS (o craft-bgapps emite o
+//    JSON com o glifo quebrado '\uf085' no "text" — a barra veste o
+//    ÍCONE GTK de verdade e só o NÚMERO fica no rótulo) ───────────────
+
+/// O texto do bgapps SEM o glifo quebrado (o ícone real
+/// `system-run-symbolic` veste o botão; o label fica com a contagem
+/// limpa — "12", não "\uf085 12").
+pub fn bgapps_contagem(texto: &str) -> String {
+    texto
+        .replace('\u{f085}', "")
+        .trim()
+        .to_string()
+}
+
 // ── A BATERIA pelo /sys (a porta path-parametrizada dos testes) ────────
 
 /// (capacidade %, carregando) da fonte — None sem bateria (desktop:
@@ -377,6 +430,44 @@ mod tests {
         // índice — a UI nunca manda lixo, mas o núcleo não morre por ele)
         // 8 % 7 = 1 = Seg (o clamp do índice é honesto)
         assert_eq!(relogio_ptbr(8, 1, 1, 0, 0), "Seg, 01 Jan · 00:00");
+    }
+
+    #[test]
+    fn a_lista_de_wifi_vem_dedup_ordenada_e_filtrada() {
+        // 1.0-93 — o seletor rápido: o parse da lista do nmcli -t
+        let lista = "Minha Rede:92:WPA2\nMinha Rede:88:WPA2\n--:70:--\n \
+                     Vizinha:45:WPA1\nLivre:30:none\nCafé do Bairro:77:RSN\n";
+        let redes = parse_wifi_list(lista);
+        assert_eq!(redes.len(), 4, "dedup + '--' fora: {redes:?}");
+        // o dedup fica com o MAIOR sinal (92, não 88)
+        assert_eq!(redes[0].ssid, "Minha Rede");
+        assert_eq!(redes[0].sinal, 92);
+        assert!(redes[0].segura);
+        // ordenado por sinal: 92, 77, 45, 30
+        assert_eq!(
+            redes.iter().map(|r| r.ssid.as_str()).collect::<Vec<_>>(),
+            vec!["Minha Rede", "Café do Bairro", "Vizinha", "Livre"]
+        );
+        // a aberta é 'Livre' sem cadeado
+        assert!(!redes.iter().find(|r| r.ssid == "Livre").unwrap().segura);
+        // a lista vazia é honesta (o popover mostra 'nada encontrado')
+        assert!(parse_wifi_list("").is_empty());
+    }
+
+    #[test]
+    fn o_radio_do_wifi_e_lido_com_honestidade() {
+        assert_eq!(parse_wifi_radio("enabled"), Some(true));
+        assert_eq!(parse_wifi_radio("disabled\n"), Some(false));
+        assert_eq!(parse_wifi_radio("wi-fi habilitado?"), None);
+    }
+
+    #[test]
+    fn a_contagem_do_bgapps_perde_o_glifo_quebrado() {
+        // 1.0-93 — o '\uf085' do JSON vira ÍCONE GTK; o label fica limpo
+        assert_eq!(bgapps_contagem("\u{f085} 12"), "12");
+        assert_eq!(bgapps_contagem("\u{f085}12"), "12");
+        assert_eq!(bgapps_contagem("sem glifo"), "sem glifo");
+        assert_eq!(bgapps_contagem("  "), "");
     }
 
     #[test]
@@ -554,30 +645,4 @@ mod tests {
         assert!(curto.trim_end_matches('…').chars().count() <= 30, "pill largo: {curto:?}");
     }
 
-    #[test]
-    fn as_pilulas_da_mesa_da_fase_2() {
-        let ws = WorkspaceInfo { current: 2, count: 4, label: None };
-        let pills = workspace_pills(&ws);
-        assert_eq!(pills.len(), 4);
-        assert_eq!(pills[0], (1, "1".to_string(), false));
-        assert_eq!(pills[1], (2, "2".to_string(), true));
-        assert_eq!(pills[3], (4, "4".to_string(), false));
-        let ws2 = WorkspaceInfo { current: 2, count: 4, label: Some("Web".into()) };
-        assert_eq!(workspace_pills(&ws2)[1].1, "Web");
-        let ws3 = WorkspaceInfo { current: 1, count: 2, label: Some("Programação".into()) };
-        assert_eq!(workspace_pills(&ws3)[0].1, "1");
-    }
-
-    #[test]
-    fn o_titulo_da_janela_focada() {
-        let wins = vec![
-            WindowInfo { id: 1, app_id: "foot".into(), title: Some("foot — /tmp".into()), focused: false, minimized: false, fullscreen: false },
-            WindowInfo { id: 2, app_id: "brave-browser".into(), title: Some("Arch Wiki — labwc".into()), focused: true, minimized: false, fullscreen: false },
-        ];
-        assert_eq!(titulo_foco(&wins), "Arch Wiki — labwc");
-        assert_eq!(titulo_foco(&[]), "");
-        let longo: Vec<WindowInfo> = vec![WindowInfo { id: 1, app_id: "x".into(), title: Some("Um título de janela realmente muito comprido que passa dos quarenta e dois caracteres da barra".into()), focused: true, minimized: false, fullscreen: false }];
-        let t = titulo_foco(&longo);
-        assert!(t.ends_with('…') && t.chars().count() <= 43, "título: {t:?}");
-    }
 }

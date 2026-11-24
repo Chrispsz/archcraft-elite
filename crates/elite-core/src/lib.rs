@@ -46,6 +46,28 @@ pub fn bus_sock_path(uid: u32) -> std::path::PathBuf {
     bus_dir(uid).join("bus.sock")
 }
 
+/// O caminho do LOCK DA SESSÃO do elite-daemon (1.0-93 — a ordem do
+/// dono, rig da 1.0-92: o `/tmp/elite-daemon-session.lock` sofria
+/// `os error 13` — /tmp é MUNDO COMPARTILHADO, com sticky bit e donos
+/// de eras; o lock da sessão mora AGORA no tmpfs PRIVADO do dono:
+/// `$XDG_RUNTIME_DIR/elite/session.lock` (`/run/user/<uid>/elite/…`).
+/// O `ELITE_BUS_DIR` sobrepõe junto com o bus (os testes usam o mesmo
+/// endereço; o `/tmp/elite-daemon-session.lock` segue como FALLBACK de
+/// último recurso para ambientes sem XDG_RUNTIME_DIR — o daemon decide
+/// ao abrir, nunca aqui).
+pub fn session_lock_path(uid: u32) -> std::path::PathBuf {
+    bus_dir(uid).join("session.lock")
+}
+
+/// O FALLBACK de `/tmp` (o último recurso quando o runtime privado
+/// não abre — o mundo legado; quem lê decide qual está VIVO).
+pub const SESSION_LOCK_FALLBACK: &str = "/tmp/elite-daemon-session.lock";
+
+/// O teto de conexão ao bus (1.0-93 — a ordem do dono: nenhum cliente
+/// da casa trava esperando o daemon ocupado; o UDS local conecta em
+/// µs, o teto mata a classe dos 49s).
+pub const IPC_CONNECT_TETO_MS: u64 = 500;
+
 // ── Contratos de estado (a língua comum) ─────────────────────────────────
 
 /// Áudio: saída padrão + microfone (o wpctl é a fonte; o contrato é o tipo).
@@ -216,6 +238,17 @@ mod tests {
         let p = bus_sock_path(1000);
         assert!(p.ends_with("elite/bus.sock"), "caminho errado: {p:?}");
         assert!(p.starts_with("/run/user/1000"));
+    }
+
+    #[test]
+    fn o_lock_da_sessao_mora_no_tmpfs_do_dono() {
+        // 1.0-93 — o lock ISOLADO: /run/user/<uid>/elite/session.lock
+        // (o /tmp compartilhado era o os error 13 do rig)
+        let p = session_lock_path(1000);
+        assert!(p.ends_with("elite/session.lock"), "caminho errado: {p:?}");
+        assert!(p.starts_with("/run/user/1000"));
+        assert!(!SESSION_LOCK_FALLBACK.contains("run/user"));
+        assert_eq!(IPC_CONNECT_TETO_MS, 500);
     }
 
     #[test]

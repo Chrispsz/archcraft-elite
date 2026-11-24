@@ -1,0 +1,7 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# ELITE (1.0-93) — O SUDOERS LIMPO (a ordem do dono, rig da 1.0-92: os
+# "insults" do sudo — as piadas de senha errada da era upstream — saem
+# da casa; erro de senha é erro, não deboche).
+# O arquivo viaja no pacote (dono pacman); visudo -c confere na dose.
+# ═══════════════════════════════════════════════════════════════════════════
+Defaults !insults

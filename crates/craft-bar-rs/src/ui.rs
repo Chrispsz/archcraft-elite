@@ -37,13 +37,12 @@
 //     final — o busctl do dump devolvia vazio e o menu antigo
 //     apanhava disso).
 use crate::state::{
-    bt_ligado, civil_de_dias, dia_semana, dentro_janela_ms, estado_rede_nmcli, essid_nmcli,
-    glifo_mic, glifo_rede, glifo_volume, json_text, le_bateria, agora_epoch,
-    media_pill, parse_volume_wpctl, relogio_ptbr, titulo_foco, tooltip_rede, workspace_pills,
-    EstadoRede,
+    bt_ligado, bgapps_contagem, dentro_janela_ms, essid_nmcli, estado_rede_nmcli, glifo_mic,
+    glifo_rede, glifo_volume, json_text, le_bateria, media_pill, parse_wifi_list,
+    parse_wifi_radio, parse_volume_wpctl, relogio_ptbr, tooltip_rede, RedeWifi, EstadoRede,
 };
 use crate::{bus_sock, css_path, current_uid, log, VERSION};
-use elite_core::{MediaState, WorkspaceInfo};
+use elite_core::MediaState;
 use std::cell::{Cell, RefCell};
 use std::os::unix::fs::MetadataExt;
 use std::os::unix::process::CommandExt;
@@ -101,15 +100,17 @@ enum Msg {
     Bgapps(Option<String>),
     /// 2.0 — o estado MPRIS do bus (zero playerctl; o pill some sem mídia)
     Media(Option<MediaState>),
-    /// 2.0 — a mesa corrente do bus (as pílulas da esquerda)
-    Mesa(WorkspaceInfo),
-    /// 2.0 — o título da janela focada (o "título ativo")
-    Foco(String),
     /// 2.0 — o modo de jogo pelo FIO (o SIGRTMIN+8 é o cinto)
     BusGame(bool),
     /// 2.0 — o handle do bus vivo (o Arc do cliente — os cliques pedem
     /// por ele; chega por mensagem porque o Rc da UI não cruza threads)
     Bus(std::sync::Arc<elite_core::bus::BusClient>),
+    /// 1.0-93 — a LISTA de redes do seletor rápido (o nmcli em fundo;
+    /// vazia honesta quando não há nada ao alcance)
+    RedeLista(Vec<RedeWifi>),
+    /// 1.0-93 — o rádio do Wi-Fi (o estado do Switch do seletor; None
+    /// honesto quando o nmcli não fala)
+    RedeRadio(Option<bool>),
 }
 
 /// A barra inteira (os widgets que mudam + o filho do drawer).
@@ -124,6 +125,11 @@ struct State {
     player_label: gtk::Label,
     btn_bat: Option<gtk::Button>,
     btn_bgapps: gtk::Button,
+    /// 1.0-93 — o rótulo do nº de 2º planos (o ícone é GTK de verdade)
+    bgapps_lbl: gtk::Label,
+    /// 1.0-93 — o seletor rápido de rede: a lista e o Switch do popover
+    rede_lista: gtk::Box,
+    rede_switch: gtk::Switch,
     /// O FILHO do drawer (None = gaveta fechada ou aberta por fora —
     /// a varredura /proc do toggle cobre os dois mundos).
     drawer: Option<Child>,
@@ -135,12 +141,6 @@ struct State {
     minuto_desenhado: u32,
     rede: EstadoRede,
     essid: Option<String>,
-    /// 2.0 — a caixa das pílulas da mesa (remontada a cada Mudança)
-    ws_box: gtk::Box,
-    /// 2.0 — a última mesa conhecida (None = nada desenhado ainda)
-    ws_atual: Option<WorkspaceInfo>,
-    /// 2.0 — o rótulo do título ativo (a janela focada)
-    titulo_lbl: gtk::Label,
     /// 2.0 — o handle do bus (o Arc do cliente vivo — os pedidos dos
     /// cliques: PlayPause/Next/Focus/mesa/jogo)
     bus_cli: Rc<RefCell<Option<std::sync::Arc<elite_core::bus::BusClient>>>>,
@@ -177,16 +177,17 @@ fn build(app: &gtk::Application) {
     window.set_namespace(Some("craft-bar"));
     window.set_default_size(-1, ALTURA);
 
-    // O CORPO: esquerda (apps) · centro (relógio) · direita (status) —
-    // o mesmo arranjo da era waybar (a convenção v2.0 da casa).
-    let corpo = gtk::Box::new(gtk::Orientation::Horizontal, 4);
+    // O CORPO (1.0-93 — o CenterBox do dono: o RELÓGIO fica EXATAMENTE
+    // no centro da tela, independente da largura dos lados; esquerda
+    // minimalista · centro · direita funcional — a convenção 2.0 da casa)
+    let corpo = gtk::CenterBox::new();
     corpo.set_widget_name("barbox");
     let esq = caixa_lateral(gtk::Align::Start);
     let centro = caixa_lateral(gtk::Align::Center);
     let dir = caixa_lateral(gtk::Align::End);
-    corpo.append(&esq);
-    corpo.append(&centro);
-    corpo.append(&dir);
+    corpo.set_start_widget(Some(&esq));
+    corpo.set_center_widget(Some(&centro));
+    corpo.set_end_widget(Some(&dir));
     window.set_child(Some(&corpo));
 
     // o CANAL da thread de fundo (criado ANTES dos botões: o clique
@@ -235,12 +236,6 @@ fn build(app: &gtk::Application) {
                                     Some(m)
                                 }));
                             }
-                            elite_core::BusMsg::Workspace(ws) => {
-                                let _ = tx.send(Msg::Mesa(ws));
-                            }
-                            elite_core::BusMsg::Windows { windows } => {
-                                let _ = tx.send(Msg::Foco(titulo_foco(&windows)));
-                            }
                             elite_core::BusMsg::GameMode(gm) => {
                                 let _ = tx.send(Msg::BusGame(gm.active));
                             }
@@ -266,48 +261,33 @@ fn build(app: &gtk::Application) {
         player_label: gtk::Label::new(None),
         btn_bat: None,
         btn_bgapps: gtk::Button::new(),
+        bgapps_lbl: gtk::Label::new(None),
+        rede_lista: gtk::Box::new(gtk::Orientation::Vertical, 4),
+        rede_switch: gtk::Switch::new(),
         drawer: None,
         drawer_ns: 0,
         minuto_desenhado: u32::MAX,
         rede: EstadoRede::Desligado,
         essid: None,
-        ws_box: gtk::Box::new(gtk::Orientation::Horizontal, 2),
-        ws_atual: None,
-        titulo_lbl: gtk::Label::new(None),
         bus_cli: Rc::new(RefCell::new(None)),
     }));
 
-    // ── ESQUERDA: o ARCH que abre o Launchpad (o modelo menu-bar) ────
-    let btn_apps = botao_glifo("\u{f303}", "Aplicativos (W-d)");
-    {
-        let st = st.clone();
-        clique_solto(&btn_apps, move |botao| {
-            if botao == 1 {
-                toggle_drawer(&st);
-            }
-        });
-    }
+    // ── ESQUERDA (1.0-93 — minimalista, a ordem do dono): o botão de
+    //    apps com ÍCONE GTK de verdade + a palavra "Aplicativos" (sem
+    //    siglas técnicas); esquerdo abre a gaveta (nwg-drawer), direito
+    //    abre o MENU RÁPIDO do sistema em popover nativo. As pílulas da
+    //    mesa (`1 2 3 4`) e o título ativo SAÍRAM da barra: a troca de
+    //    mesa é o scroll/atalhos W-1..4 do labwc, o título mora na
+    //    moldura da própria janela — a barra fica LIMPA
+    let btn_apps = botao_apps(st.clone(), &window);
     esq.append(&btn_apps);
 
-    // ── AS PÍLULAS DA MESA (2.0 — a esquerda da barra, do lado do
-    //    apps): o número da mesa clicável (o Req::Workspace viaja ao
-    //    daemon que sintetiza o W-<n>) e a ATUAL com realce; a caixa
-    //    é remontada a cada Mudança (o servidor manda o estado inteiro)
-    {
-        let s = st.borrow();
-        let ws_box = s.ws_box.clone();
-        let titulo = s.titulo_lbl.clone();
-        drop(s);
-        titulo.set_widget_name("titulolbl");
-        titulo.set_halign(gtk::Align::Start);
-        titulo.set_ellipsize(gtk::pango::EllipsizeMode::End);
-        titulo.set_max_width_chars(42);
-        ws_box.set_widget_name("wsbox");
-        esq.append(&ws_box);
-        esq.append(&titulo);
-    }
-
-    // ── CENTRO: o relógio pt_BR que NUNCA muda de texto (a cura A2) ──
+    // ── CENTRO (1.0-93): o relógio em HORÁRIO LOCAL (a ordem do dono,
+    //    rig da 1.0-92: o epoch puro vestia UTC — o glib::DateTime
+    //    now_local veste o fuso DO SISTEMA), o TEXTO nunca muda ao
+    //    clicar (a cura A2 intacta), o CALENDÁRIO nasce em popover GTK4
+    //    no hover (a pele roxa/escuro da casa), esquerdo abre/fecha as
+    //    notificações e direito alterna o Não Perturbe
     let btn_clock = gtk::Button::new();
     btn_clock.set_widget_name("clockbtn");
     btn_clock.set_has_frame(false);
@@ -315,16 +295,66 @@ fn build(app: &gtk::Application) {
         let lbl = st.borrow().clock_label.clone();
         btn_clock.set_child(Some(&lbl));
     }
-    btn_clock.set_tooltip_text(Some("Notificações — clique: painel · direito: não perturbe"));
+    btn_clock.set_tooltip_text(Some(
+        "Notificações — clique: painel · hover: calendário · direito: não perturbe",
+    ));
+    // 1.0-93 — O CALENDÁRIO (a ordem do dono: popover GTK4 com o tema
+    // roxo/escuro ao passar o mouse; some quando o mouse sai — o clique
+    // do MEIO também alterna, para quem não quer hover)
+    let pop_cal = {
+        let cal = gtk::Calendar::new();
+        let pop = gtk::Popover::new();
+        pop.set_autohide(false);
+        pop.set_child(Some(&cal));
+        pop.set_parent(&btn_clock);
+        pop
+    };
+    // o hover: 350ms de cortesia, cancelado na saída
     {
+        let pop = pop_cal.clone();
+        let mostrar = Rc::new(Cell::new(true));
+        let motion = gtk::EventControllerMotion::new();
+        motion.connect_enter(move |_, _, _| {
+            let pop = pop.clone();
+            let mostrar = mostrar.clone();
+            mostrar.set(true);
+            // UMA vez (once — o timer de repetição acumularia a cada
+            // entrada; a cortesia é única)
+            glib::timeout_add_local_once(Duration::from_millis(350), move || {
+                if mostrar.get() {
+                    pop.popup();
+                }
+            });
+        });
+        {
+            let pop = pop.clone();
+            let mostrar = mostrar.clone();
+            motion.connect_leave(move |_| {
+                mostrar.set(false);
+                pop.popdown();
+            });
+        }
+        btn_clock.add_controller(motion);
+    }
+    // UM gesture só para TODOS os botões do relógio (a lição da dock:
+    // dois GestureClick no mesmo widget disputam a sequência)
+    {
+        let pop_cal = pop_cal.clone();
         clique_solto(&btn_clock, move |botao| {
             // esquerdo: o painel (toggle SEM sequestrar o foco -sw);
-            // direito: o DND. O TEXTO NÃO MUDA — o clique é ação, a
-            // data é a data (a cura do "alterna o texto exibido").
+            // direito: o DND (idem -sw); meio: o calendário. O TEXTO
+            // NÃO MUDA — o clique é ação, a data é a data (a cura do
+            // "alterna o texto exibido").
             if botao == 1 {
                 solta(&["swaync-client", "-t", "-sw"]);
             } else if botao == 3 {
-                solta(&["swaync-client", "-d"]);
+                solta(&["swaync-client", "-d", "-sw"]);
+            } else if botao == 2 {
+                if pop_cal.is_visible() {
+                    pop_cal.popdown();
+                } else {
+                    pop_cal.popup();
+                }
             }
         });
     }
@@ -436,15 +466,28 @@ fn build(app: &gtk::Application) {
 
         // A REDE PERSISTENTE (a cura A4: o botão NÃO EXISTE a estado
         // "sumido" — Cabo/Wi-Fi/Desligado, SEMPRE um glifo e um
-        // clique que abre a ferramenta DE VERDADE).
+        // clique que abre ferramenta DE VERDADE).
+        // 1.0-93 — O SELETOR RÁPIDO (a ordem do dono): clique esquerdo
+        // abre um POPOVER GTK4 — toggle Wi-Fi (Switch), redes ao
+        // alcance para conectar DIRETO, status do cabo; o
+        // nm-connection-editor fica como botão AVANÇADO opcional (o
+        // clique direito segue direto nele)
         btn_rede.set_has_frame(false);
         btn_rede.set_label(glifo_rede(EstadoRede::Desligado));
-        btn_rede.set_tooltip_text(Some("Sem conexão — clique: iwgtk (o botão nunca sai)"));
-        clique_solto(&btn_rede, move |botao| match botao {
-            1 => solta(&["iwgtk"]),
-            3 => solta(&["nm-connection-editor"]),
-            _ => {}
-        });
+        btn_rede.set_tooltip_text(Some("Rede — clique: seletor rápido · direito: conexões"));
+        {
+            let pop = popover_rede(st.clone(), tx.clone());
+            pop.set_parent(&btn_rede);
+            let tx = tx.clone();
+            clique_solto(&btn_rede, move |botao| match botao {
+                1 => {
+                    pop.popup();
+                    pede_rede_popover(&tx);
+                }
+                3 => solta(&["nm-connection-editor"]),
+                _ => {}
+            });
+        }
         dir.append(&btn_rede);
 
         // O BLUETOOTH DEDICADO (a diretriz: o gerenciador gráfico de
@@ -462,9 +505,24 @@ fn build(app: &gtk::Application) {
 
         // OS 2º PLANOS (o evento E135: o elite-daemon manda o
         // SIGRTMIN+9 no NameOwnerChanged; o belt de 30s é a rede).
+        // 1.0-93 — O GLIFO QUEBRADO '\uf085' SAI: o ícone é GTK DE
+        // VERDADE (system-run-symbolic) com tooltip descritivo e o
+        // rótulo fica com a CONTAGEM limpa; o clique abre o menu dos
+        // apps em 2º plano (o popover da lista viva)
         btn_bgapps.set_widget_name("bgappsbtn");
         btn_bgapps.set_has_frame(false);
         btn_bgapps.set_visible(false);
+        {
+            let s = st.borrow();
+            let img = gtk::Image::from_icon_name("system-run-symbolic");
+            img.set_pixel_size(16);
+            let linha = gtk::Box::new(gtk::Orientation::Horizontal, 5);
+            linha.append(&img);
+            linha.append(&s.bgapps_lbl.clone());
+            drop(s);
+            btn_bgapps.set_child(Some(&linha));
+        }
+        btn_bgapps.set_tooltip_text(Some("Aplicativos em segundo plano — clique: a lista"));
         clique_solto(&btn_bgapps, move |botao| {
             if botao == 1 {
                 solta(&["craft-bgapps", "menu"]);
@@ -552,11 +610,11 @@ fn build(app: &gtk::Application) {
     window.show();
 
     log(&format!(
-        "craft-bar-rs {VERSION} no ar: relógio pt_BR fixo · áudio/mic wpctl · \
-         rede persistente (iwgtk/nm-connection-editor) · bluetooth blueman · \
-         sessão popover nativo · MPRIS/mesa/título/jogo PELO FIO DO BUS · \
-         SIGRTMIN+8/+9 do daemon (o cinto) · clique EXCLUSIVAMENTE no \
-         released com tolerância de 5px (a cura do press×click da dock, E140)"
+        "craft-bar-rs {VERSION} no ar: relógio pt_BR LOCAL no CenterBox · calendário no \
+         hover · áudio/mic wpctl · seletor de rede em popover · bluetooth blueman · \
+         sessão popover nativo · MPRIS/jogo PELO FIO DO BUS · SIGRTMIN+8/+9 do \
+         daemon (o cinto) · clique EXCLUSIVAMENTE no released com tolerância \
+         de 5px (a cura do press×click da dock, E140)"
     ));
 
     // o DRENO do canal + os sinais (100ms — a latência dos estados)
@@ -813,45 +871,6 @@ fn aplica(st: &Rc<RefCell<State>>, msg: Msg) {
                 None => s.btn_player.set_visible(false),
             }
         }
-        Msg::Mesa(ws) => {
-            // 2.0 — as pílulas da mesa: remonta a caixa inteira (o
-            // servidor manda o estado completo — nada de diff widget)
-            let mut s = st.borrow_mut();
-            let mudou = s.ws_atual.as_ref() != Some(&ws);
-            if mudou {
-                s.ws_atual = Some(ws.clone());
-                while let Some(filho) = s.ws_box.first_child() {
-                    s.ws_box.remove(&filho);
-                }
-                let bus = s.bus_cli.clone();
-                for (n, rotulo, atual) in workspace_pills(&ws) {
-                    let btn = gtk::Button::new();
-                    btn.set_widget_name("wsbtn");
-                    btn.set_label(&rotulo);
-                    btn.set_has_frame(false);
-                    if atual {
-                        btn.add_css_class("ws-atual");
-                    }
-                    btn.set_tooltip_text(Some(&format!("Mesa {n} — clique: pular")));
-                    {
-                        let bus = bus.clone();
-                        clique_solto(&btn, move |botao| {
-                            if botao == 1 {
-                                if let Some(cli) = bus.borrow().as_ref() {
-                                    let _ = cli.send_req(elite_core::BusReq::Workspace { to: n });
-                                }
-                            }
-                        });
-                    }
-                    s.ws_box.append(&btn);
-                }
-            }
-        }
-        Msg::Foco(titulo) => {
-            let s = st.borrow_mut();
-            s.titulo_lbl.set_text(&titulo);
-            s.titulo_lbl.set_visible(!titulo.is_empty());
-        }
         Msg::BusGame(ativa) => {
             let s = st.borrow_mut();
             s.btn_game.set_visible(ativa);
@@ -868,10 +887,71 @@ fn aplica(st: &Rc<RefCell<State>>, msg: Msg) {
             let s = st.borrow_mut();
             match txt {
                 Some(t) => {
-                    s.btn_bgapps.set_label(&t);
+                    // 1.0-93 — o '\uf085' quebrado já saiu no parse; o
+                    // ícone GTK veste o botão e o rótulo é a contagem
+                    // (a msg já vem com o "text" do JSON extraído)
+                    s.bgapps_lbl.set_text(&bgapps_contagem(&t));
                     s.btn_bgapps.set_visible(true);
                 }
                 None => s.btn_bgapps.set_visible(false),
+            }
+        }
+        Msg::RedeLista(redes) => {
+            // 1.0-93 — o seletor rápido veste a lista (a thread de
+            // fundo colheu; a UI remonta os botões AGORA)
+            let s = st.borrow();
+            while let Some(filho) = s.rede_lista.first_child() {
+                s.rede_lista.remove(&filho);
+            }
+            if redes.is_empty() {
+                let aviso = gtk::Label::new(Some("Nenhuma rede Wi-Fi ao alcance"));
+                aviso.add_css_class("body");
+                s.rede_lista.append(&aviso);
+            }
+            for r in &redes {
+                let btn = gtk::Button::new();
+                btn.set_has_frame(false);
+                btn.set_hexpand(true);
+                let rotulo = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+                let nome = gtk::Label::new(Some(&format!(
+                    "{}{}",
+                    if r.segura { "🔒 " } else { "" },
+                    r.ssid
+                )));
+                nome.set_halign(gtk::Align::Start);
+                nome.set_hexpand(true);
+                nome.set_ellipsize(gtk::pango::EllipsizeMode::End);
+                let sinal = gtk::Label::new(Some(&format!("{}%", r.sinal)));
+                sinal.add_css_class("dim");
+                rotulo.append(&nome);
+                rotulo.append(&sinal);
+                btn.set_child(Some(&rotulo));
+                let ssid = r.ssid.clone();
+                let conectada = st.borrow().essid.as_deref() == Some(r.ssid.as_str());
+                if conectada {
+                    btn.add_css_class("suggested-action");
+                    btn.set_tooltip_text(Some("Rede conectada — clique: conectar de novo"));
+                } else {
+                    btn.set_tooltip_text(Some(&format!(
+                        "Conectar em {}{}",
+                        r.ssid,
+                        if r.segura { " (pede senha no diálogo do sistema)" } else { "" }
+                    )));
+                }
+                clique_solto(&btn, move |botao| {
+                    if botao == 1 {
+                        conecta_wifi(&ssid);
+                    }
+                });
+                s.rede_lista.append(&btn);
+            }
+        }
+        Msg::RedeRadio(estado) => {
+            // o Switch do popover veste o estado REAL do rádio (sem
+            // estado = calado, sem mentira)
+            let s = st.borrow();
+            if let Some(on) = estado {
+                s.rede_switch.set_active(on);
             }
         }
     }
@@ -879,19 +959,31 @@ fn aplica(st: &Rc<RefCell<State>>, msg: Msg) {
 
 // ── o RELÓGIO (a palavra pt_BR da casa, na virada do minuto) ───────────
 
+/// 1.0-93 — O HORA LOCAL DE VERDADE (a ordem do dono, rig da 1.0-92:
+/// o epoch puro vestia UTC — 3 horas erradas no Brasil): o
+/// `glib::DateTime::now_local()` veste o FUSO DO SISTEMA e a casa
+/// compõe a palavra pt_BR com as TABELAS de sempre ("Seg, 23 Nov ·
+/// 19:30"). O label só toca na virada do minuto (nenhum gesto por
+/// segundo); o calendário do hover nasce do MESMO relógio.
 fn desenha_relogio(st: &Rc<RefCell<State>>) {
-    let ep = agora_epoch() as i64;
-    let dias = ep.div_euclid(86_400);
-    let seg_dia = ep.rem_euclid(86_400);
-    let (h, m) = ((seg_dia / 3600) as u32, ((seg_dia % 3600) / 60) as u32);
-    let (ano, mes, dia) = civil_de_dias(dias);
-    let wd = dia_semana(dias);
+    let Ok(agora) = glib::DateTime::now_local() else {
+        return; // sem fuso conhecido a barra fica CALADA (nunca mente hora)
+    };
+    let m = agora.minute() as u32;
     let mut s = st.borrow_mut();
     if s.minuto_desenhado != m {
-        s.clock_label.set_text(&relogio_ptbr(wd, dia, mes, h, m));
+        s.clock_label.set_text(&relogio_ptbr(
+            u32::from(agora.day_of_week() % 7),
+            agora.day() as u32,
+            agora.month() as u32,
+            agora.hour() as u32,
+            m,
+        ));
         s.clock_label.set_tooltip_text(Some(&format!(
-            "{:02}/{:02}/{} — clique: notificações · direito: não perturbe",
-            dia, mes, ano
+            "{:02}/{:02}/{} — clique: notificações · hover: calendário · direito: não perturbe",
+            agora.day(),
+            agora.month(),
+            agora.year()
         )));
         s.minuto_desenhado = m;
     }
@@ -992,14 +1084,210 @@ fn caixa_lateral(halign: gtk::Align) -> gtk::Box {
     b
 }
 
-/// O botão-glifo da casa: sem moldura, com nome para o CSS e o
-/// tooltip informado.
-fn botao_glifo(glifo: &str, tooltip: &str) -> gtk::Button {
-    let b = gtk::Button::new();
-    b.set_label(glifo);
-    b.set_has_frame(false);
-    b.set_tooltip_text(Some(tooltip));
-    b
+/// 1.0-93 — O BOTÃO DE APPS (a ordem do dono): ícone GTK de verdade
+/// (`view-app-grid-symbolic`) + a palavra "Aplicativos" (sem siglas
+/// técnicas); esquerdo abre a GAVETA (nwg-drawer, o toggle com debounce
+/// de sempre), direito abre o MENU RÁPIDO do sistema em popover
+/// nativo (as ações canônicas da casa — a mesma gramática da sessão).
+fn botao_apps(st: &Rc<RefCell<State>>, window: &gtk::ApplicationWindow) -> gtk::Button {
+    let btn = gtk::Button::new();
+    btn.set_widget_name("appbtn");
+    btn.set_has_frame(false);
+    let linha = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+    let img = gtk::Image::from_icon_name("view-app-grid-symbolic");
+    img.set_pixel_size(16);
+    let lbl = gtk::Label::new(Some("Aplicativos"));
+    linha.append(&img);
+    linha.append(&lbl);
+    btn.set_child(Some(&linha));
+    btn.set_tooltip_text(Some("Aplicativos — clique: gaveta · direito: menu rápido"));
+    // o MENU RÁPIDO (o clique direito): as ações de 1 toque da casa —
+    // o mesmo padrão do popover da sessão (SimpleActionGroup +
+    // PopoverMenu, TODO do GTK — zero gesture nosso aqui)
+    let acoes = gtk::gio::SimpleActionGroup::new();
+    for (nome, cmd) in [
+        ("terminal", &["foot"][..]),
+        ("arquivos", &["thunar"][..]),
+        ("navegador", &["brave"][..]),
+        ("captura", &["craft-shot"][..]),
+        ("bloquear", &["craft-lock"][..]),
+        ("sair", &["labwc", "--exit"][..]),
+    ] {
+        let act = gtk::gio::SimpleAction::new(nome, None);
+        let cmd: Vec<String> = cmd.iter().map(|s| s.to_string()).collect();
+        act.connect_activate(move |_, _| {
+            let argv: Vec<&str> = cmd.iter().map(|s| s.as_str()).collect();
+            solta(&argv);
+        });
+        acoes.add_action(&act);
+    }
+    window.insert_action_group("aplicativos", Some(&acoes));
+    let menu = gtk::gio::Menu::new();
+    let s1 = gtk::gio::Menu::new();
+    s1.append(Some("Terminal"), Some("aplicativos.terminal"));
+    s1.append(Some("Arquivos"), Some("aplicativos.arquivos"));
+    s1.append(Some("Navegador"), Some("aplicativos.navegador"));
+    s1.append(Some("Captura de tela"), Some("aplicativos.captura"));
+    let s2 = gtk::gio::Menu::new();
+    s2.append(Some("Bloquear tela"), Some("aplicativos.bloquear"));
+    s2.append(Some("Encerrar sessão"), Some("aplicativos.sair"));
+    menu.append_section(None, &s1);
+    menu.append_section(None, &s2);
+    let pop = gtk::PopoverMenu::from_model(Some(&menu));
+    pop.set_parent(&btn);
+    // (UM gesture só: o clique esquerdo abre a gaveta, o direito o
+    // menu rápido — dois GestureClick no MESMO botão disputariam a
+    // sequência e o segundo nunca dispararia; a lição da dock B1)
+    {
+        let st = st.clone();
+        let pop = pop.clone();
+        clique_solto(&btn, move |botao| {
+            if botao == 1 {
+                toggle_drawer(&st);
+            } else if botao == 3 {
+                pop.popup();
+            }
+        });
+    }
+    btn
+}
+
+/// 1.0-93 — O SELETOR RÁPIDO DE REDE (a ordem do dono): popover GTK4
+/// com o Switch do Wi-Fi (nmcli radio), o STATUS do cabo, a LISTA de
+/// redes para conectar DIRETO e o botão AVANÇADO (nm-connection-
+/// editor). A lista é alimentada pela thread de fundo (Msg::RedeLista)
+/// e o clique pede o refresh na hora (pede_rede_popover).
+fn popover_rede(st: &Rc<RefCell<State>>, tx: Sender<Msg>) -> gtk::Popover {
+    let pop = gtk::Popover::new();
+    pop.set_autohide(true);
+    let corpo = gtk::Box::new(gtk::Orientation::Vertical, 8);
+    corpo.set_margin_top(10);
+    corpo.set_margin_bottom(10);
+    corpo.set_margin_start(10);
+    corpo.set_margin_end(10);
+    corpo.set_size_request(320, -1);
+
+    // a cabeça: o Switch do Wi-Fi + o rótulo
+    let cabeca = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+    let titulo = gtk::Label::new(Some("Rede"));
+    titulo.add_css_class("title");
+    titulo.set_hexpand(true);
+    titulo.set_halign(gtk::Align::Start);
+    {
+        let s = st.borrow();
+        let sw = s.rede_switch.clone();
+        sw.set_valign(gtk::Align::Center);
+        sw.set_tooltip_text(Some("Ligar ou desligar o Wi-Fi"));
+        {
+            let tx = tx.clone();
+            sw.connect_state_set(move |_, on| {
+                let cmd = if on { "on" } else { "off" };
+                std::thread::spawn(move || {
+                    let _ = Command::new("nmcli")
+                        .args(["radio", "wifi", cmd])
+                        .stdin(Stdio::null())
+                        .stdout(Stdio::null())
+                        .stderr(Stdio::null())
+                        .status();
+                    // o rádio trocou: a lista NOVA chega pelo canal
+                    pede_rede_popover(&tx);
+                });
+                glib::Propagation::Proceed
+            });
+        }
+        cabeca.append(&titulo);
+        cabeca.append(&sw);
+    }
+    corpo.append(&cabeca);
+
+    // o status do cabo (o texto vive da última leitura do belt)
+    {
+        let s = st.borrow();
+        let status = gtk::Label::new(None);
+        let txt = match s.rede {
+            EstadoRede::Cabo => "Rede cabeada conectada".to_string(),
+            EstadoRede::Wifi => format!(
+                "Wi-Fi conectado{}",
+                s.essid.as_deref().map(|e| format!(" · {e}")).unwrap_or_default()
+            ),
+            EstadoRede::Desligado => "Sem conexão".to_string(),
+        };
+        status.set_text(&txt);
+        status.add_css_class("body");
+        status.set_halign(gtk::Align::Start);
+        drop(s);
+        corpo.append(&status);
+    }
+
+    // a LISTA de redes (rolável — o max-h da casa para listas longas)
+    let scroll = gtk::ScrolledWindow::new();
+    scroll.set_max_content_height(280);
+    scroll.set_propagate_natural_height(true);
+    {
+        let s = st.borrow();
+        let lista = s.rede_lista.clone();
+        drop(s);
+        scroll.set_child(Some(&lista));
+    }
+    corpo.append(&scroll);
+
+    // o AVANÇADO (o nm-connection-editor — a ferramenta completa)
+    {
+        let avancado = gtk::Button::with_label("Configurações avançadas");
+        avancado.set_hexpand(true);
+        avancado.set_tooltip_text(Some("Abrir o editor completo de conexões"));
+        clique_solto(&avancado, move |botao| {
+            if botao == 1 {
+                solta(&["nm-connection-editor"]);
+            }
+        });
+        corpo.append(&avancado);
+    }
+    pop.set_child(Some(&corpo));
+    pop
+}
+
+/// Pede a lista de redes + o rádio AGORA (a thread de fundo colhe o
+/// nmcli e devolve por Msg — a UI NUNCA bloqueia, a lei de sempre).
+fn pede_rede_popover(tx: &Sender<Msg>) {
+    let tx = tx.clone();
+    std::thread::spawn(move || {
+        let lista = um_longo(
+            "nmcli",
+            &["-t", "-f", "SSID,SIGNAL,SECURITY", "device", "wifi", "list"],
+        )
+        .map(|t| parse_wifi_list(&t))
+        .unwrap_or_default();
+        let _ = tx.send(Msg::RedeLista(lista));
+        let radio = um_longo("nmcli", &["radio", "wifi"])
+            .and_then(|t| parse_wifi_radio(&t));
+        let _ = tx.send(Msg::RedeRadio(radio));
+    });
+}
+
+/// Conecta em UMA rede (a ordem do dono: conectar direto). O pedido
+/// corre em fundo; a rede com senha que o nmcli não sabe abre o
+/// EDITOR para o dono digitar (a senha nunca é pedida na cara).
+fn conecta_wifi(ssid: &str) {
+    let ssid = ssid.to_string();
+    std::thread::spawn(move || {
+        let ok = Command::new("nmcli")
+            .args(["device", "wifi", "connect", &ssid])
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false);
+        if !ok {
+            // sem senha salva: o editor assume (o diálogo dele é a via
+            // certa — a barra não inventa teclado de senha)
+            solta(&["nm-connection-editor"]);
+            log(&format!(
+                "rede: conectar em {ssid} direto não deu — o editor assumiu"
+            ));
+        }
+    });
 }
 
 /// A LEI DO CLIQUE (a cura B1): o verbo dispara EXCLUSIVAMENTE no
@@ -1082,7 +1370,7 @@ fn load_css() {
         gtk::style_context_add_provider_for_display(
             &display,
             &provider,
-            gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+            gtk::STYLE_PROVIDER_PRIORITY_USER,
         );
     }
 }

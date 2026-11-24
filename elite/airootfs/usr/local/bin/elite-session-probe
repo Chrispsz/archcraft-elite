@@ -67,7 +67,15 @@ dk_count="$(pgrep -c -x craft-dock-rs 2>/dev/null)"; [ -n "$dk_count" ] || dk_co
 # quem segura o flock — a mesma prova de posse do supervise)
 daemon_count="$(count elite-daemon)"
 daemon_session="LIVRE"
-flock -n /tmp/elite-daemon-session.lock true 2>/dev/null || daemon_session="ATIVO"
+# 1.0-93 — o lock da sessão mora no tmpfs PRIVADO do dono
+# ($XDG_RUNTIME_DIR/elite/session.lock); o /tmp segue como fallback
+# legado — o probe confere OS DOIS (a vaga é de quem segura o flock)
+_session_locks="/run/user/*/elite/session.lock /tmp/elite-daemon-session.lock"
+for _lk in $_session_locks; do
+    [ -e "$_lk" ] || continue
+    flock -n "$_lk" true 2>/dev/null || daemon_session="ATIVO"
+done
+unset _lk _session_locks
 # os residentes da família (o painel completo da sessão em números)
 # 2.0 — o swayidle APOSENTOU (a vigília é o ext-idle-notify nativo do
 # elite-daemon; o contador de era segue como fronteira legível dos

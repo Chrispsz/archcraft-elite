@@ -262,6 +262,151 @@ pub fn pactl_default_sink(texto: &str) -> Option<String> {
         .filter(|s| !s.is_empty())
 }
 
+// ── 1.0-93 — A TELEMETRIA PROFUNDA (a ordem do dono: o papel volta a
+//    se conhecer DE VERDADE — hardware/GPU/VRAM, cmdline, sysctl,
+//    RSS/CPU% dos processos, PipeWire, journal, pacman) ──────────────
+
+/// O MODELO da CPU (a primeira linha "model name" do /proc/cpuinfo).
+pub fn cpu_model(cpuinfo: &str) -> Option<String> {
+    cpuinfo
+        .lines()
+        .find(|l| l.trim_start().starts_with("model name"))
+        .and_then(|l| l.split_once(':'))
+        .map(|(_, v)| v.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
+/// (total, disponível) em GiB do /proc/meminfo (kB → GiB).
+pub fn meminfo_gib(meminfo: &str) -> Option<(f64, f64)> {
+    let val = |nome: &str| -> Option<f64> {
+        meminfo
+            .lines()
+            .find(|l| l.trim_start().starts_with(nome))
+            .and_then(|l| l.split_whitespace().nth(1))
+            .and_then(|v| v.parse::<f64>().ok())
+            .map(|kb| kb / 1_048_576.0)
+    };
+    Some((val("MemTotal:")?, val("MemAvailable:")?))
+}
+
+/// A VRAM da GPU amdgpu em MiB (o sysfs `mem_info_vram_total` em bytes;
+/// None = arquivo ausente — GPU de outro driver, nomeada honesta).
+pub fn vram_mib(bytes: &str) -> Option<u64> {
+    bytes.trim().parse::<u64>().ok().map(|b| b / 1_048_576)
+}
+
+/// O cmdline do /proc/<pid>/cmdline (NUL → espaço; o recorte de
+/// controle vira ponto — o papel é texto legível).
+pub fn cmdline_junta(cmdline: &str) -> String {
+    cmdline
+        .replace('\u{0}', " ")
+        .chars()
+        .map(|c| if c.is_control() { '·' } else { c })
+        .collect::<String>()
+        .trim()
+        .to_string()
+}
+
+/// (cpu%, rss_mib) de um processo: o /proc/<pid>/stat (utime+stime em
+/// ticks desde o boot — o CPU% é o CUMULATIVO do processo contra o
+/// uptime; honesto e barato, sem amostragem dupla) e o VmRSS do status.
+pub fn proc_cpu_rss(stat: &str, status: &str, uptime_s: f64, hz: f64) -> (f64, f64) {
+    // os campos do stat após o comm (que pode ter espaço — o parêntese
+    // fecha o campo 2; os ticks são os campos 14+15 contados de lá)
+    let ticks: f64 = stat
+        .rsplit(')')
+        .next()
+        .and_then(|depois| {
+            let c: Vec<&str> = depois.split_whitespace().collect();
+            // comm) state(1º) ppid... utime = c[11], stime = c[12]
+            let ut: f64 = c.get(11).and_then(|v| v.parse().ok()).unwrap_or(0.0);
+            let st: f64 = c.get(12).and_then(|v| v.parse().ok()).unwrap_or(0.0);
+            Some(ut + st)
+        })
+        .unwrap_or(0.0);
+    let cpu = if uptime_s > 0.0 && hz > 0.0 {
+        (ticks / hz / uptime_s * 100.0).min(999.0)
+    } else {
+        0.0
+    };
+    let rss_mib = status
+        .lines()
+        .find(|l| l.starts_with("VmRSS:"))
+        .and_then(|l| l.split_whitespace().nth(1))
+        .and_then(|v| v.parse::<f64>().ok())
+        .map(|kb| kb / 1024.0)
+        .unwrap_or(0.0);
+    (cpu, rss_mib)
+}
+
+/// O nome do dono pelo uid do SUDO_UID (o dump sobe pelo pkexec — o
+/// uid RAIZ colheria a sessão de ninguém; None = sem /etc/passwd).
+pub fn nome_do_uid(uid: u32, passwd: &str) -> Option<String> {
+    passwd
+        .lines()
+        .find(|l| {
+            let c: Vec<&str> = l.split(':').collect();
+            c.get(2).and_then(|u| u.parse::<u32>().ok()) == Some(uid)
+        })
+        .and_then(|l| l.split(':').next().map(|s| s.to_string()))
+}
+
+#[cfg(test)]
+mod tests_profunda {
+    use super::*;
+
+    #[test]
+    fn a_cpu_o_modelo_e_a_memoria_sao_lidos_do_papel() {
+        let cpuinfo = "processor\t: 0\nvendor_id : AuthenticAMD\nmodel name\t: AMD Ryzen 7 5800X3D 8-Core Processor\nprocessor\t: 1\n";
+        assert_eq!(
+            cpu_model(cpuinfo).as_deref(),
+            Some("AMD Ryzen 7 5800X3D 8-Core Processor")
+        );
+        assert!(cpu_model("nada").is_none());
+        let mem = "MemTotal:       32783448 kB\nMemFree:         1234560 kB\nMemAvailable:   24567892 kB\n";
+        let (tot, disp) = meminfo_gib(mem).unwrap();
+        assert!((tot - 31.3).abs() < 0.2, "total: {tot}");
+        assert!((disp - 23.4).abs() < 0.2, "disp: {disp}");
+        assert!(meminfo_gib("lixo").is_none());
+    }
+
+    #[test]
+    fn a_vram_da_amdgpu_e_o_cmdline_sao_mastigados() {
+        assert_eq!(vram_mib("8589934592\n"), Some(8192));
+        assert!(vram_mib("cat\n").is_none());
+        let cmd = "elite-daemon\0session\0";
+        assert_eq!(cmdline_junta(cmd), "elite-daemon session");
+        assert_eq!(cmdline_junta("craft-bar\0-rs"), "craft-bar -rs");
+    }
+
+    #[test]
+    fn o_cpu_e_rss_do_processo_pela_conta_do_stat() {
+        // stat de mentira: comm com espaço (o rsplit(')') acerta),
+        // utime=100 ticks, stime=100 ticks; uptime 100s, HZ 100 →
+        // (100+100)/100/100*100 = 2% de CPU cumulativa
+        let stat = "1234 (elite-daemon) S 1 1234 1234 0 -1 4194560 0 0 0 100 100 0 0 20 0 1 0";
+        let status = "Name:\telite-daemon\nVmRSS:\t  10240 kB\n";
+        let (cpu, rss) = proc_cpu_rss(stat, status, 100.0, 100.0);
+        assert!((cpu - 2.0).abs() < 0.01, "cpu: {cpu}");
+        assert!((rss - 10.0).abs() < 0.01, "rss: {rss}");
+        // comm com parêntese dentro (o wine) — o rsplit ainda acerta
+        let stat2 = "99 (wine64-preload) R 1 99 99 0 -1 0 0 0 0 50 50 0 0 20 0 1 0";
+        let (cpu2, _) = proc_cpu_rss(stat2, "VmRSS:\t1 kB\n", 100.0, 100.0);
+        assert!((cpu2 - 1.0).abs() < 0.01, "cpu2: {cpu2}");
+        // sem uptime: 0 honesto (nunca NaN)
+        let (cpu3, _) = proc_cpu_rss(stat, "", 0.0, 100.0);
+        assert_eq!(cpu3, 0.0);
+    }
+
+    #[test]
+    fn o_nome_do_dono_vem_do_uid_do_sudo() {
+        let passwd = "root:x:0:0:root:/root:/bin/bash\nchris:x:1000:1001::/home/chris:/bin/zsh\n";
+        assert_eq!(nome_do_uid(1000, passwd).as_deref(), Some("chris"));
+        assert_eq!(nome_do_uid(0, passwd).as_deref(), Some("root"));
+        assert!(nome_do_uid(9999, passwd).is_none());
+    }
+}
+
 #[cfg(test)]
 mod tests_fase2 {
     use super::*;

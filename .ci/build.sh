@@ -235,10 +235,16 @@ done < /tmp/elite-src/elite-system/files/MANIFEST
 # seguem de overlay.
 shopt -s nullglob
 for u in /work/elite/airootfs/etc/systemd/system/elite-*.service \
-         /work/elite/airootfs/etc/systemd/system/elite-*.timer; do
+         /work/elite/airootfs/etc/systemd/system/elite-*.timer \
+         /work/elite/airootfs/etc/systemd/system/scx-lavd.service; do
     cp -p "$u" /tmp/elite-src/elite-system/files/etc/systemd/system/
 done
 shopt -u nullglob
+# 1.0-93 — O SUDOERS LIMPO NO PACOTE (a ordem do dono: os 'insults' do
+# sudo saem da casa — Defaults !insults; dono pacman, visudo -c na dose)
+mkdir -p /tmp/elite-src/elite-system/files/etc/sudoers.d
+cp -p /work/elite/airootfs/etc/sudoers.d/99-elite-clean \
+      /tmp/elite-src/elite-system/files/etc/sudoers.d/99-elite-clean
 # E63 — A VOLTA DA IMAGEM viaja NO PACOTE: o hook de resume é a rede de
 # sistema que religa o display no wake (o monitor 'sem sinal, luz
 # vermelha' do dono) — fora do pacote ele NUNCA chegaria ao rig pelo
@@ -613,6 +619,10 @@ for o in ovr:
 # E75 — o hook libalpm da casa (dono ÚNICO no pacote; pacman remove sozinho
 # na desinstalação — arquivo pertence ao pacote, sem dança de adoção)
 pt_install = '    install -Dm644 "${startdir}/elite-post-transaction.hook" "${pkgdir}/usr/share/libalpm/hooks/elite-post-transaction.hook"\n'
+# 1.0-93 — o sudoers da casa (dono pacman; arquivo de pacote — sem dança
+# de adoção, o caminho /etc/sudoers.d/99-elite-clean é NOVO nos rigs)
+sudoers_install = '    install -d "${pkgdir}/etc/sudoers.d"\n    install -m440 "${startdir}/files/etc/sudoers.d/99-elite-clean" "${pkgdir}/etc/sudoers.d/99-elite-clean"\n'
+sudoers_rm = '    [ -e "/etc/sudoers.d/99-elite-clean" ] && rm -f "/etc/sudoers.d/99-elite-clean"\n'
 # E97 — o hook do flathub (mesma escola do post-transaction: heredoc no
 # build, dono ÚNICO no pacote — o libalpm remove sozinho na saída)
 ef_install = '    install -Dm644 "${startdir}/elite-flathub.hook" "${pkgdir}/usr/share/libalpm/hooks/elite-flathub.hook"\n'
@@ -2572,7 +2582,32 @@ pkgver=1.0
 #         o HDMI cede para a analógica com o piso de volume 40% no zero
 #         (o marcador audio-hdmi-ok respeita quem QUER o monitor); o
 #         mousepad sai dos rigs e o fóssil zram 150 de /usr/lib idem.
-pkgrel=92
+# E144 (a dose da RECONSTRUÇÃO VISUAL — pkgrel 93, a ordem do dono nos
+#      testes reais da 1.0-92): a identidade roxo/escuro ELITE unificada
+#      (THEME_CSS com a paleta #13111c/#1b1829/#3b3355/#9d7cd8/#bb9af7/
+#      #e6e4f0, carregada com STYLE_PROVIDER_PRIORITY_USER em barra,
+#      dock e craft-tools — nenhum cinza claro do GTK sobrevive); a top
+#      bar no CenterBox com relógio em HORÁRIO LOCAL (glib now_local —
+#      o epoch puro vestia UTC) + CALENDÁRIO GTK4 no hover + notificações
+#      no esquerdo e DND no direito; a esquerda minimalista (botão
+#      Aplicativos com ícone GTK + menu rápido no direito; as pílulas
+#      1 2 3 4 e o título ativo SAEM — a mesa é scroll/atalho do labwc,
+#      o título é da moldura); o seletor rápido de REDE em popover GTK4
+#      (toggle Wi-Fi, redes para conectar direto, status do cabo,
+#      nm-connection-editor avançado); o bgapps veste ícone real
+#      (system-run-symbolic — o '\uf085' quebrado sai); o IPC com lock
+#      de sessão no tmpfs PRIVADO ($XDG_RUNTIME_DIR/elite/session.lock —
+#      o os error 13 do /tmp morre) e teto de 500ms no connect (a classe
+#      dos 49s morre); a dock requeia draw+resize no evento do toplevel
+#      (o espaço preto fantasma morre); o craft-dump PROFUNDO de volta
+#      (hardware/GPU/VRAM, RSS/CPU%/cmdline, sysctl, scx-lavd, PipeWire,
+#      wlr-randr, journal -p err, pacman, SUDO_UID, --upload termbin);
+#      o scx-lavd.service DIRETO (o scx-scheds não traz .service — a
+#      unit da casa roda o /usr/bin/scx_lavd, desligando o loader
+#      genérico); o post_upgrade migra o autostart dos homes vivos,
+#      aplica mitigations=off nowatchdog no GRUB, debloat waybar/gpsd e
+#      oculta os .desktop órfãos; o sudoers 99-elite-clean (!insults).
+pkgrel=93
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da sessão; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
@@ -2667,7 +2702,7 @@ pre_install() {{
     ; do
         [ -e "/usr/local/bin/$f" ] && rm -f "/usr/local/bin/$f"
     done
-{unit_loop}{hook_rm}{kmod_rm}{ff_rm}{lock_rm}{rc_rm}{osd_rm}{menu_rm}{gm_rm}{doc_rm}{gp_rm}{flags_rm}{apps_rm}{pk_rm}{q6_rm}{dc_rm}    return 0
+{unit_loop}{hook_rm}{kmod_rm}{ff_rm}{lock_rm}{rc_rm}{osd_rm}{menu_rm}{gm_rm}{doc_rm}{gp_rm}{flags_rm}{apps_rm}{pk_rm}{q6_rm}{dc_rm}{sudoers_rm}    return 0
 }}
 # E129 — A MIGRAÇÃO AUTÔNOMA (AGENTS.md §4, 2026-11-20): o usuário final
 # NUNCA roda comando manual de pós-instalação — toda correção de /etc,
@@ -2698,18 +2733,18 @@ package() {{
     # aqui; o fallback Python não existe mais — dose sem dock é build
     # vermelha, e o install abaixo prova o arquivo com a verdade)
     for b in elite-daemon craft-dock-rs craft-bar-rs; do
-        [ -f "rust/target/release/$b" ] && install -m755 "rust/target/release/$b" "${{pkgdir}}/usr/local/bin/$b"
+        [ -f "${CARGO_TARGET_DIR:-rust/target}/release/$b" ] && install -m755 "${CARGO_TARGET_DIR:-rust/target}/release/$b" "${{pkgdir}}/usr/local/bin/$b"
     done
     # 2.0 Fase 2 — AS FERRAMENTAS NATIVAS + A TELEMETRIA v2: o
     # craft-dump v2 É o craft-dump (o shell v1 aposentou — a telemetria
     # da casa fala a língua nova: bus vivo, família nativa, boot flags)
     for b in craft-update craft-clean craft-help craft-pick craft-dump; do
-        [ -f "rust/target/release/$b" ] && install -m755 "rust/target/release/$b" "${{pkgdir}}/usr/local/bin/$b"
+        [ -f "${CARGO_TARGET_DIR:-rust/target}/release/$b" ] && install -m755 "${CARGO_TARGET_DIR:-rust/target}/release/$b" "${{pkgdir}}/usr/local/bin/$b"
     done
     # E132 — o elite-polkit-listener NÃO viaja mais (o agente da casa é o
     # lxqt-policykit-agent NATIVO, eleito no craft-bars; um bin a menos no
     # pacote, um agente a menos na fila — o C vendado aposentou do repo)
-{unit_install}{hook_install}{kmod_install}{ff_install}{lock_install}{rc_install}{osd_install}{menu_install}{pd_install}{gm_install}{doc_install}{gp_install}{pt_install}{ef_install}{flags_install}{apps_install}{udev_install}{pk_install}{q6_install}{theo_install}{gtk_install}{dc_install}}}
+{unit_install}{hook_install}{kmod_install}{ff_install}{lock_install}{rc_install}{osd_install}{menu_install}{pd_install}{gm_install}{doc_install}{gp_install}{pt_install}{ef_install}{flags_install}{apps_install}{udev_install}{pk_install}{q6_install}{theo_install}{gtk_install}{dc_install}{sudoers_install}}}
 """
 (d / 'PKGBUILD').write_text(pkg)
 PYE50
@@ -2717,6 +2752,15 @@ PYE50
 # makepkg se recusa a rodar como root — usuário builder descartável
 useradd -m builder 2>/dev/null || true
 chown -R builder /tmp/elite-src
+# 1.0-93 — O TARGET DO CARGO MORA NO WORKSPACE (a ordem do dono: cache
+# Cargo nos workflows — as deps pagam o compile 1x): o CARGO_TARGET_DIR
+# aponta para /work/crates/target (o volume MONTADO do runner — o actions/
+# cache persiste entre runs; a chave lá no workflow é o Cargo.lock). O
+# builder precisa da porta aberta (chown) e o runner recupera a posse no
+# fim (o bloco HOST_UID do fim da build).
+export ELITE_CARGO_TARGET_DIR="${ELITE_CARGO_TARGET_DIR:-/work/crates/target}"
+mkdir -p "$ELITE_CARGO_TARGET_DIR" 2>/dev/null || true
+chown -R builder "$ELITE_CARGO_TARGET_DIR" 2>/dev/null || true
 # E43 — PACKAGES_ONLY=1 (canal diário, publish-packages.yml): só os
 # pacotes de CÓDIGO DE CASA — pywal/qt5vk/wlrctl não mudam no dia a dia
 # (o repo completo do release vivo entra no job por download+repo-add).
@@ -2727,7 +2771,7 @@ if [[ "${PACKAGES_ONLY:-0}" == "1" ]]; then
     PKG_LIST=(elite-system)
 fi
 for pkgdir in "${PKG_LIST[@]}"; do
-    (cd "/tmp/elite-src/$pkgdir" && runuser -l builder -c "cd /tmp/elite-src/$pkgdir && makepkg -f --noconfirm") \
+    (cd "/tmp/elite-src/$pkgdir" && runuser -l builder -c "cd /tmp/elite-src/$pkgdir && CARGO_TARGET_DIR=${ELITE_CARGO_TARGET_DIR} makepkg -f --noconfirm") \
         || { echo "FALHA ao construir $pkgdir"; exit 1; }
     # E101 — O FÓSSIL DO CACHE MORRE ANTES DO PACOTE NOVO CHEGAR: o
     # .ci-cache restaurado de uma era anterior pode carregar versão VELHA
@@ -2752,6 +2796,11 @@ done
 PKG_ONLY_SKIP_REST=0
 if [[ "${PACKAGES_ONLY:-0}" == "1" ]]; then
     PKG_ONLY_SKIP_REST=1
+    # 1.0-93 — o target do cargo volta para o uid do runner AQUI TAMBÉM (o
+    # cache do Canal mora nele; sem o chown o actions/cache não salva)
+    if [[ -n "${HOST_UID:-}" ]]; then
+        chown -R "${HOST_UID}:${HOST_GID:-$HOST_UID}" "$ELITE_CARGO_TARGET_DIR" 2>/dev/null || true
+    fi
     say "PACKAGES_ONLY=1 — pacotes de casa prontos; o estágio do BRAVE segue (E114.2: o canal parte o pin) e a ISO não é construída"
 fi
 if [[ "$PKG_ONLY_SKIP_REST" != 1 ]]; then
@@ -3517,5 +3566,6 @@ ls -lh --si
 # 'Permission denied' em .part-00. chown p/ o uid/gid do runner.
 if [[ -n "${HOST_UID:-}" ]]; then
     chown -R "${HOST_UID}:${HOST_GID:-$HOST_UID}" /work/out 2>/dev/null || true
+    chown -R "${HOST_UID}:${HOST_GID:-$HOST_UID}" "$ELITE_CARGO_TARGET_DIR" 2>/dev/null || true
     say "out/ entregue ao uid do runner (${HOST_UID}) — steps de release podem escrever"
 fi

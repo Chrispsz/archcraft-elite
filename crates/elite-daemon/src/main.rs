@@ -725,16 +725,28 @@ fn daemon_loop() -> Result<(), String> {
     // pelo fio além do sinal) — sem sessão viva, ESTE corpo é o dono
     nucleo::liga_bus();
     wayland::start();
-    if supervise::peek_lock_livre(&PathBuf::from("/tmp/elite-daemon-session.lock")) {
-        std::thread::spawn(thread_netlink);
-        std::thread::spawn(|| thread_logind("PrepareForSleep", true));
-        std::thread::spawn(|| thread_logind("Unlock", false));
-        std::thread::spawn(thread_bus_bgapps);
-        std::thread::spawn(thread_wakeguard);
-        eprintln!(
-            "elite-daemon: sem session vivo — os ouvidores sobem AQUI (o \
-             cinto do modo game)"
-        );
+    // 1.0-93 — o peek confere os DOIS endereços do lock da sessão (o
+    // PRIVADO novo `$XDG_RUNTIME_DIR/elite/session.lock` E o fallback
+    // /tmp da era legada — o session pode ter caído no fallback quando
+    // o runtime privado não abriu; um dono só, em qualquer casa)
+    {
+        let uid = unsafe { libc::getuid() };
+        let privado_livre =
+            supervise::peek_lock_livre(&elite_core::session_lock_path(uid));
+        let fallback_livre = supervise::peek_lock_livre(&PathBuf::from(
+            elite_core::SESSION_LOCK_FALLBACK,
+        ));
+        if privado_livre && fallback_livre {
+            std::thread::spawn(thread_netlink);
+            std::thread::spawn(|| thread_logind("PrepareForSleep", true));
+            std::thread::spawn(|| thread_logind("Unlock", false));
+            std::thread::spawn(thread_bus_bgapps);
+            std::thread::spawn(thread_wakeguard);
+            eprintln!(
+                "elite-daemon: sem session vivo — os ouvidores sobem AQUI (o \
+                 cinto do modo game)"
+            );
+        }
     }
     eprintln!("elite-daemon: no ar (toplevel EVT no corpo; os ouvidores de sessão vivem na porta session — E139)");
 

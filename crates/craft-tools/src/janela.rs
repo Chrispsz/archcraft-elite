@@ -33,7 +33,7 @@ pub fn load_css() {
         gtk4::style_context_add_provider_for_display(
             &disp,
             &provider,
-            gtk4::STYLE_PROVIDER_PRIORITY_APPLICATION,
+            gtk4::STYLE_PROVIDER_PRIORITY_USER,
         );
     }
 }
@@ -184,6 +184,10 @@ pub fn bloco_texto() -> (gtk4::ScrolledWindow, gtk4::TextBuffer) {
     view.set_top_margin(10);
     view.set_left_margin(10);
     let scroll = gtk4::ScrolledWindow::new();
+    // 1.0-93 — o bloco EXPANDE (a ordem do dono: o botão de baixo fica
+    // SEMPRE visível — o corte da 1.0-92 era o bloco sem vexpand
+    // empurrando o rodapé para fora da janela)
+    scroll.set_vexpand(true);
     scroll.set_child(Some(&view));
     scroll.set_min_content_height(240);
     (scroll, buffer)

@@ -575,5 +575,96 @@ for _fossil20 in /usr/local/bin/craft-bars /usr/local/bin/craft-connect; do
 done
 unset _fossil20
 
+# ── 1.0-93 — O SCX_LAVD DE VERDADE (a ordem do dono: o scx-scheds
+#      instala /usr/bin/scx_lavd SEM .service nenhum — a unit nova da
+#      casa /etc/systemd/system/scx-lavd.service o roda DIRETO). A
+#      ConditionPathExists do unit segura kernel sem sched_ext (unit
+#      PULADA, nunca FAILED); aqui o enable só desce com a interface E
+#      o binário EM DISCO. O scx_loader genérico é DESLIGADO na mesma
+#      jogada (UM escalonador sched_ext por vez — quem sobe primeiro
+#      ganha; a dona é a unit nova) ─────────────────────────────────
+if [ -d /sys/kernel/sched_ext ] && [ -x /usr/bin/scx_lavd ]; then
+    if systemctl cat scx-lavd.service >/dev/null 2>&1; then
+        systemctl disable --now scx_loader.service >/dev/null 2>&1 \
+            && tlog "scx: scx_loader DESLIGADO (a unit nova scx-lavd.service é a dona do escalonador — 1.0-93)"
+        systemctl enable --now scx-lavd.service >/dev/null 2>&1 \
+            && tlog "scx: scx-lavd.service habilitado na dose (o lavd latência-first DIRETO, sem o loader genérico — 1.0-93)"
+    else
+        tlog "scx: a unit scx-lavd.service não chegou ao disco (o pacote traz — a próxima dose liga)"
+    fi
+else
+    tlog "scx: sched_ext ausente no kernel OU scx_lavd não instalado — o BORE do kernel segue como chão (a unit fica PULADA, nunca FAILED)"
+fi
+
+# ── 1.0-93 — O GRUB SEM MITIGAÇÕES E SEM WATCHDOG (a ordem do dono:
+#      desktop de jogo — mitigations=off + nowatchdog no
+#      GRUB_CMDLINE_LINUX_DEFAULT; o mkconfig só roda se MUDOU de
+#      verdade — o rebuild fantasma morre, a lei E130) ─────────────────
+_ensure_token /etc/default/grub mitigations=off       && { tlog "grub: mitigations=off entrou (a ordem 1.0-93 — o desktop de jogo sem o imposto de espectre/meltdown)"; _grub_mudou=1; }
+_ensure_token /etc/default/grub nowatchdog            && { tlog "grub: nowatchdog entrou (o watchdog de softlockup do desktop é custo sem serviço)"; _grub_mudou=1; }
+if [ "${_grub_mudou:-0}" = 1 ] && command -v grub-mkconfig >/dev/null 2>&1; then
+    if grub-mkconfig -o /boot/grub/grub.cfg >/dev/null 2>&1; then
+        tlog "grub: grub-mkconfig rodou (o cmdline 1.0-93 vale no PRÓXIMO boot)"
+    else
+        tlog "grub: grub-mkconfig falhou (os tokens ficaram no default/grub — o próximo tune/primeiro boot re-tenta)"
+    fi
+fi
+
+# ── 1.0-93 — O AUTOSTART DOS HOMES VIVOS (a ordem do dono: os rigs
+#      uid>=1000 que ainda carregam o autostart da era waybar/craft-bars
+#      migram para O LANÇADOR ÚNICO — `elite-daemon session &` — com
+#      backup .bak; idempotente: linha nova presente = casa em ordem) ──
+for _hdir in /home/*; do
+    [ -d "$_hdir" ] || continue
+    _auid="$(stat -c %u "$_hdir" 2>/dev/null || echo 0)"
+    case "$_auid" in
+        ''|0|*[!0-9]*) continue ;;
+    esac
+    [ "$_auid" -ge 1000 ] || continue
+    _auto="$_hdir/.config/labwc/autostart"
+    [ -f "$_auto" ] || continue
+    if grep -q 'elite-daemon session' "$_auto" 2>/dev/null; then
+        continue # já migrado (a casa em ordem — idempotente por linha)
+    fi
+    if cp -p "$_auto" "$_auto.bak" 2>/dev/null; then
+        {
+            grep -v -E '^\s*(craft-bars|waybar|craft-dock|craft-toplevel|swayidle)\b' "$_auto" 2>/dev/null || true
+            printf '\n# 1.0-93 — O LANÇADOR ÚNICO (migrado pela dose; o backup .bak guarda a era anterior)\nelite-daemon session &\n'
+        } > "$_auto.novo" 2>/dev/null \
+            && mv -f "$_auto.novo" "$_auto" 2>/dev/null \
+            && tlog "autostart 1.0-93: $_auto migrado para o elite-daemon session (backup .bak no lugar)"
+    fi
+done
+unset _hdir _auid _auto
+
+# ── 1.0-93 — O DEBLOAT DOS RIGS VIVOS (a ordem do dono): waybar e
+#      gpsd SAEM quando nenhum pacote depende deles (a consulta é no
+#      pacman; dependente vivo = o pacote fica, com voz no papel); os
+#      .desktop órfãos (xterm/uxterm/qv4l2/qvidcap/xgps/xgpsspeed)
+#      ganham o NoDisplay em /usr/local/share/applications (sombra da
+#      casa: o pacote e o binário seguem intactos, a UI é que não
+#      lista) ────────────────────────────────────────────────────────
+for _deb in waybar gpsd; do
+    if command -v pacman >/dev/null 2>&1 && pacman -Qq "$_deb" >/dev/null 2>&1; then
+        if pacman -Qi "$_deb" 2>/dev/null | grep -q '^Required By *: *None'; then
+            if pacman -Rns --noconfirm "$_deb" >/dev/null 2>&1; then
+                tlog "debloat 1.0-93: $_deb REMOVIDO (nenhum dependente — a barra é o craft-bar-rs)"
+            fi
+        else
+            tlog "debloat 1.0-93: $_deb FICA (há dependente no db — a remoção forçada quebraria a casa)"
+        fi
+    fi
+done
+unset _deb
+install -d /usr/local/share/applications 2>/dev/null || true
+for _ofan in xterm uxterm qv4l2 qvidcap xgps xgpsspeed; do
+    _alvo="/usr/local/share/applications/$_ofan.desktop"
+    if [ -f "/usr/share/applications/$_ofan.desktop" ] && [ ! -f "$_alvo" ]; then
+        printf '[Desktop Entry]\nType=Application\nName=%s\nExec=%s\nNoDisplay=true\n' "$_ofan" "$_ofan" > "$_alvo" 2>/dev/null \
+            && tlog "debloat 1.0-93: $_ofan.desktop ocultado (NoDisplay — utilitário interno não é app de menu)"
+    fi
+done
+unset _ofan _alvo
+
 tlog "post-upgrade: concluído (a migração é idempotente — rodar de novo é no-op com papel)"
 exit 0

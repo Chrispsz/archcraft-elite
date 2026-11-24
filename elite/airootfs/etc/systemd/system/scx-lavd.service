@@ -1,0 +1,32 @@
+[Unit]
+# ═══════════════════════════════════════════════════════════════════════════
+# ELITE (1.0-93) — O ESCALONADOR SCX_LAVD DE VERDADE (a ordem do dono).
+# ═══════════════════════════════════════════════════════════════════════════
+# O scx-scheds instala /usr/bin/scx_lavd SEM arquivo .service nenhum —
+# o rig ficava sem o escalonador latência-first que a casa assinou. O
+# scx_loader (scx-tools) era a ponte genérica, mas a ordem nova do dono
+# é DIRETA: esta unit roda o binário com o pid do systemd, Restart
+# moderado (o lavd que cai volta sozinho; attach falho em kernel sem
+# vaga = saída limpa, a Condition segura a entrada).
+#
+# A CONDIÇÃO: /sys/kernel/sched_ext é a interface do kernel — kernel
+# sem sched_ext PULA a unit (pulada, nunca FAILED; o BORE do kernel
+# CachyOS segue sendo o chão). O binário também é condição: scx-scheds
+# ausente = nada a ligar.
+#
+# O CONFLITO: UM escalonador sched_ext por vez — quem sobe primeiro
+# ganha. O enable da casa (post_install/post_upgrade/elite-tune)
+# DESLIGA o scx_loader na mesma jogada quando ESTA unit vira a dona.
+Conflicts=scx_loader.service
+ConditionPathExists=/sys/kernel/sched_ext
+ConditionPathExists=/usr/bin/scx_lavd
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/scx_lavd
+Restart=on-failure
+RestartSec=3s
+# o lavd fala o próprio estado no journal (o dump nomeia a seção)
+
+[Install]
+WantedBy=multi-user.target

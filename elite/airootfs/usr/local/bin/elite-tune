@@ -281,6 +281,10 @@ apply_grub_tokens() { # tokens de kernel + grub-mkconfig ([4] firstboot / [3] in
   fi
   ensure_cmdline_token /etc/default/grub nowatchdog && _mudou=1
   ensure_cmdline_token /etc/default/grub zswap.enabled=0 && _mudou=1
+  # 1.0-93 — a ordem do dono (desktop de jogo): as mitigações de
+  # espectre/meltdown saem do cmdline (o imposto de latência de um
+  # desktop doméstico sem multi-inquilino)
+  ensure_cmdline_token /etc/default/grub mitigations=off && _mudou=1
   # E129 — A ORDEM DO DONO (2026-11-20): transparent_hugepage=MADVISE
   # (o 'always' da era E74 fragmenta e trava o reclaim sob memória
   # apertada; madvise dá THP a quem pede). A MIGRAÇÃO SUBSTITUI: o fóssil
@@ -512,6 +516,18 @@ EOF
     say "scx_loader: scx_lavd habilitado (sched_ext sob demanda — o watchdog do loader é o cinto, o BORE é o chão)"
   else
     say "scx_loader: unit ausente (scx-scheds não instalado — o BORE do kernel segue sozinho)"
+  fi
+  # 1.0-93 — A UNIT DIRETA DA CASA (a ordem do dono: o scx-scheds instala
+  # o /usr/bin/scx_lavd SEM .service — a scx-lavd.service da casa o roda
+  # DIRETO; presente a interface E o binário, ela é a DONA e o loader
+  # genérico desliga — UM escalonador sched_ext por vez)
+  if [ -d /sys/kernel/sched_ext ] && [ -x /usr/bin/scx_lavd ] \
+     && systemctl cat scx-lavd.service >/dev/null 2>&1; then
+    run systemctl disable --now scx_loader.service 2>/dev/null || true
+    run systemctl enable --now scx-lavd.service 2>/dev/null || true
+    say "scx-lavd: a unit DIRETA da casa habilitada (o lavd latência-first sem o loader — 1.0-93)"
+  else
+    say "scx-lavd: sched_ext/scx_lavd/unit ausente (o BORE do kernel segue — a unit fica PULADA, nunca FAILED)"
   fi
 }
 

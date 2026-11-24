@@ -102,8 +102,25 @@ pub fn bind_bus(path: &Path) -> std::io::Result<UnixListener> {
 
 /// CONECTA como cliente (None = o daemon ainda não subiu — o cliente
 /// honesto reaparece; a casa não inventa estado).
+/// 1.0-93 — O TETO DE 500ms (a ordem do dono, rig da 1.0-92: nenhum
+/// CLI/cliente da casa pode TRAVAR esperando um daemon ocupado — o
+/// `connect_timeout` com o `IPC_CONNECT_TETO_MS` corta a classe dos
+/// 49s no osso; o UDS local sadio conecta em µs, o teto só morde o
+/// mundo doente). A ESCRITA também veste o teto: um daemon engasgado
+/// com o buffer cheio recebe `WouldBlock` honesto em vez de segurar o
+/// chamador para sempre (o leitor NÃO veste — o timeout de leitura
+/// seria lido como QUEDA pelo BusClient e viraria churn de reconexão).
 pub fn connect_bus(path: &Path) -> Option<UnixStream> {
-    UnixStream::connect(path).ok()
+    use std::time::Duration;
+    let teto = Duration::from_millis(crate::IPC_CONNECT_TETO_MS);
+    // (o SocketAddr::from_pathname é estável desde o 1.70; o caminho
+    // abstract/inválido cai no connect cru — o honesto de sempre)
+    let stream = match std::os::unix::net::SocketAddr::from_pathname(path) {
+        Ok(addr) => UnixStream::connect_timeout(&addr, teto).ok(),
+        Err(_) => UnixStream::connect(path).ok(),
+    }?;
+    let _ = stream.set_write_timeout(Some(teto));
+    Some(stream)
 }
 
 #[cfg(test)]

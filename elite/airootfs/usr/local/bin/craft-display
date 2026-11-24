@@ -877,5 +877,38 @@ case "${1:-}" in
             echo "   (sem stamp — o apply ainda não rodou nesta sessão)"
         fi
         exit "$_rc" ;;
+    icc)
+        # 1.0-93 — OS PERFIS ICC DA CASA (a ordem do dono: perfis .icc de
+        # ~/.local/share/icc/ carregados automaticamente no arranjo). A
+        # PERÍCIA HONESTA: o labwc AINDA não fala o protocolo
+        # color-management do Wayland (zwlr_output_color) — este verbo
+        # REGISTRA e VERIFICA os perfis do dono (nome, tamanho, data) e
+        # nomeia a fronteira: quando o compositor ganhar o protocolo, o
+        # apply veste o perfil de cada saída por aqui (a detecção já
+        # mora no comando: o wlr-randr do labwc rejeita --color-profile
+        # com rc≠0 e o papel fala). Nada de fingir calibração (L6).
+        _iccd="${XDG_DATA_HOME:-$HOME/.local/share}/icc"
+        echo "── perfis ICC (~/.local/share/icc)"
+        _n=0
+        if [ -d "$_iccd" ]; then
+            for _p in "$_iccd"/*.icc "$_iccd"/*.icm; do
+                [ -f "$_p" ] || continue
+                _sz="$(stat -c %s "$_p" 2>/dev/null || echo '?')"
+                _dt="$(stat -c %y "$_p" 2>/dev/null | cut -d' ' -f1 || echo '?')"
+                printf '   %s (%s bytes, %s)\n' "$(basename "$_p")" "$_sz" "$_dt"
+                _n=$((_n+1))
+            done
+        fi
+        [ "$_n" -gt 0 ] || echo "   (nenhum perfil — coloque os .icc em ~/.local/share/icc)"
+        # a fronteira nomeada: o protocolo de cor do compositor
+        if command -v wlr-randr >/dev/null 2>&1 \
+           && timeout "$RANDR_T" "$RANDR" --output X --color-profile teste 2>/dev/null; then
+            echo "── o compositor FALA color-profile: o apply veste o perfil de cada saída (a era nova chegou)"
+        else
+            echo "── o labwc ainda não fala o protocolo de cor do Wayland — os perfis ficam REGISTRADOS"
+            echo "   (a calibração de verdade é o perfil na mão do dono; quando o compositor abrir o"
+            echo "    protocolo, o apply da casa veste cada saída — nomeado, não fingido)"
+        fi
+        exit 0 ;;
     *)      do_menu ;;
 esac

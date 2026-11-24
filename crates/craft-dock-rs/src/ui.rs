@@ -375,7 +375,17 @@ fn drain(st: &Rc<RefCell<State>>, rx: &Receiver<Msg>) {
                 // layout é requeado e o display é drenado aqui — a
                 // surface layer-shell commita a nova largura no frame
                 // corrente, zero retângulo residual do frame velho.
-                st.borrow().pill.queue_resize();
+                // 1.0-93 — O ESPAÇO PRETO FANTASMA MORRE DUAS VEZES (a
+                // ordem do dono, rig da 1.0-92: o slot vazio travado
+                // até o screenshot forçar o repaint): a pílula ganha
+                // o queue_draw JUNTO do resize e a JANELA inteira
+                // requeia o layout — o frame do layer-shell nasce
+                // limpo no abrir, no fechar e na troca de app_id
+                let s = st.borrow();
+                s.pill.queue_draw();
+                s.pill.queue_resize();
+                s.window.queue_resize();
+                drop(s);
                 if let Some(d) = gdk::Display::default() {
                     d.flush();
                 }
@@ -1583,7 +1593,7 @@ fn load_css() {
         gtk::style_context_add_provider_for_display(
             &display,
             &provider,
-            gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+            gtk::STYLE_PROVIDER_PRIORITY_USER,
         );
     }
 }

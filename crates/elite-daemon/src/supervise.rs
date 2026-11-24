@@ -481,7 +481,19 @@ pub fn run_session() -> Result<(), String> {
         cond: None,
         peek_lock: None,
     });
-    supervisa("/tmp/elite-daemon-session.lock", specs, "session")
+    // 1.0-93 — O LOCK DA SESSÃO MUDA DE CASA (a ordem do dono, rig da
+    // 1.0-92: o `/tmp/elite-daemon-session.lock` sofria `os error 13` —
+    // /tmp é MUNDO COMPARTILHADO com donos de eras passadas; o lock
+    // mora AGORA no tmpfs PRIVADO do dono da sessão:
+    // `$XDG_RUNTIME_DIR/elite/session.lock` (/run/user/<uid>/elite).
+    // O FALLBACK `/tmp` só veste quando o runtime privado não abre
+    // (ambiente sem XDG_RUNTIME_DIR — o mundo legado), e o peek do
+    // daemon_loop confere OS DOIS caminhos (elite_core lê o contrato).
+    let uid = unsafe { libc::getuid() };
+    let lock_session = elite_core::session_lock_path(uid)
+        .to_string_lossy()
+        .into_owned();
+    supervisa(&lock_session, specs, "session")
 }
 
 fn supervisa(
@@ -492,12 +504,32 @@ fn supervisa(
     // instância única (E30): flock PRÓPRIO da porta — o modo game, o
     // supervise e o session são corpos distintos, locks distintos (o
     // 2º sai 0).
-    let lock = PathBuf::from(lock_path);
+    let mut lock = PathBuf::from(lock_path);
+    // 1.0-93 — o endereço PRIVADO precisa existir (o tmpfs do dono
+    // quase sempre já existe — o bind do bus cria; aqui o cinto)
+    if let Some(pai) = lock.parent() {
+        let _ = std::fs::create_dir_all(pai);
+    }
     let f = std::fs::OpenOptions::new()
         .create(true)
         .truncate(false)
         .write(true)
         .open(&lock)
+        .or_else(|_| {
+            // o runtime privado não abriu (o error 13 da era /tmp ao
+            // contrário): o FALLBACK de /tmp veste UMA vez, com a voz
+            // no papel — o peek do daemon_loop confere os DOIS
+            eprintln!(
+                "elite-daemon: o lock privado {} não abriu — o fallback /tmp veste (mundo sem XDG_RUNTIME_DIR)",
+                lock.display()
+            );
+            lock = PathBuf::from(elite_core::SESSION_LOCK_FALLBACK);
+            std::fs::OpenOptions::new()
+                .create(true)
+                .truncate(false)
+                .write(true)
+                .open(&lock)
+        })
         .map_err(|e| format!("lock {}: {}", lock.display(), e))?;
     let rc = unsafe { libc::flock(f.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
     if rc != 0 {

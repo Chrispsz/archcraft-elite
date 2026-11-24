@@ -165,6 +165,19 @@ Ao encerrar QUALQUER entrega, apresentar objetivamente:
    `sudo pacman -Syu` (o que ele deve VER/FAZER no rig — nunca passo
    manual de pós-instalação; o checklist confirma, não conserta).
 
+### §6.1 · A LEI DO COMMIT PURO (1.0-93 — proibição absoluta)
+
+**NENHUM commit do repo carrega linha `Co-Authored-By:`** — o autor do
+commit é o mantenedor da casa, ponto final: trailer de co-autoria
+enterrado em mensagem de commit é ruído de ferramenta que NÃO faz parte
+da autoria real e polui o `git log` que a auditoria E33 lê (a
+comparação mensagem×diff fica mais difícil com metadados de agente no
+meio). A suíte porteira CONTRATA esta lei (`tests/phases/20-estatica.sh`:
+o grep nos N commits recentes; commit com o trailer = porteira VERMELHA
+antes do push). A cura de um commit contaminado: `git commit --amend`
+retirando a linha (antes do push; depois disso, o commit fica — nunca
+force push, a lei L4).
+
 ---
 
 ---

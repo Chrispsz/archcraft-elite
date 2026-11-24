@@ -70,6 +70,16 @@ jobs:
       # index de verdade, que é o que o checkout e o squashfs herdam.
       - name: git confia no workspace (o safe.directory do checkout é temporário)
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      # 1.0-93 — O CACHE CARGO (a ordem do dono: cache do target no workflow
+      # — as deps pagam o compile 1x; a chave é o Cargo.lock, mudou a
+      # dependência = cache novo, o restore-key dá o incremental no meio)
+      - name: Cache do Cargo (crates/target — o compile das deps paga 1x)
+        uses: actions/cache@v4
+        with:
+          path: crates/target
+          key: cargo-target-${{ hashFiles('crates/Cargo.lock') }}
+          restore-keys: |
+            cargo-target-
       - name: Montar o quebra-cabeça (5 fases + veredito)
         run: bash tests/run-tests.sh
       - name: shfmt (informativo — não bloqueia)

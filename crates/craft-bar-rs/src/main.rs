@@ -155,10 +155,11 @@ fn main() {
              \x20    aposentadoria do waybar, E140; sem argumentos)\n\
              \n\
              \x20  esquerdo: o verbo principal de cada botão · direito: a ferramenta\n\
-             \x20  completa (pwvucontrol/iwgtk/nm-connection-editor/DND)\n\
-             \x20  · apps: abre/fecha a gaveta (150ms de debounce)\n\
-             \x20  · relógio: painel do swaync (esq) / DND (dir) — o texto NUNCA\n\
-             \x20    muda ao clicar\n\
+             \x20  completa (pwvucontrol/nm-connection-editor/DND)\n\
+             \x20  · Aplicativos (esq): a gaveta nwg-drawer · (dir): menu rápido\n\
+             \x20  · relógio (LOCAL): painel do swaync (esq) / DND (dir) / hover:\n\
+             \x20    calendário — o texto NUNCA muda ao clicar\n\
+             \x20  · rede (esq): seletor rápido — toggle Wi-Fi, redes, cabo\n\
              \x20  · áudio/mic: wpctl mute no clique · sessão: popover nativo\n\
              \x20  (Bloquear/Suspender/Reiniciar/Desligar/Encerrar)\n\
              \x20  SIGRTMIN+8: pill do modo de jogo (o elite-daemon avisa) ·\n\
