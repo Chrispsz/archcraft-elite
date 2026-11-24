@@ -311,23 +311,26 @@ fn build(app: &gtk::Application) {
     };
     // o hover: 350ms de cortesia, cancelado na saída
     {
-        let pop = pop_cal.clone();
         let mostrar = Rc::new(Cell::new(true));
         let motion = gtk::EventControllerMotion::new();
-        motion.connect_enter(move |_, _, _| {
-            let pop = pop.clone();
-            let mostrar = mostrar.clone();
-            mostrar.set(true);
-            // UMA vez (once — o timer de repetição acumularia a cada
-            // entrada; a cortesia é única)
-            glib::timeout_add_local_once(Duration::from_millis(350), move || {
-                if mostrar.get() {
-                    pop.popup();
-                }
-            });
-        });
         {
-            let pop = pop.clone();
+            let pop = pop_cal.clone();
+            let mostrar = mostrar.clone();
+            motion.connect_enter(move |_, _, _| {
+                mostrar.set(true);
+                // (o clone por chamada: o enter é Fn — o timeout_once
+                // move os SEUS clones, os capturados seguem reusáveis)
+                let pop = pop.clone();
+                let mostrar = mostrar.clone();
+                glib::timeout_add_local_once(Duration::from_millis(350), move || {
+                    if mostrar.get() {
+                        pop.popup();
+                    }
+                });
+            });
+        }
+        {
+            let pop = pop_cal.clone();
             let mostrar = mostrar.clone();
             motion.connect_leave(move |_| {
                 mostrar.set(false);
@@ -974,9 +977,9 @@ fn desenha_relogio(st: &Rc<RefCell<State>>) {
     if s.minuto_desenhado != m {
         s.clock_label.set_text(&relogio_ptbr(
             (agora.day_of_week().rem_euclid(7)) as u32,
-            agora.day_of_month(),
-            agora.month(),
-            agora.hour(),
+            agora.day_of_month() as u32,
+            agora.month() as u32,
+            agora.hour() as u32,
             m,
         ));
         s.clock_label.set_tooltip_text(Some(&format!(
