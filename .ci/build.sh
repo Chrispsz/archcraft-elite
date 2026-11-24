@@ -2733,13 +2733,13 @@ package() {{
     # aqui; o fallback Python não existe mais — dose sem dock é build
     # vermelha, e o install abaixo prova o arquivo com a verdade)
     for b in elite-daemon craft-dock-rs craft-bar-rs; do
-        [ -f "${CARGO_TARGET_DIR:-rust/target}/release/$b" ] && install -m755 "${CARGO_TARGET_DIR:-rust/target}/release/$b" "${{pkgdir}}/usr/local/bin/$b"
+        [ -f "${{CARGO_TARGET_DIR:-rust/target}}/release/$b" ] && install -m755 "${{CARGO_TARGET_DIR:-rust/target}}/release/$b" "${{pkgdir}}/usr/local/bin/$b"
     done
     # 2.0 Fase 2 — AS FERRAMENTAS NATIVAS + A TELEMETRIA v2: o
     # craft-dump v2 É o craft-dump (o shell v1 aposentou — a telemetria
     # da casa fala a língua nova: bus vivo, família nativa, boot flags)
     for b in craft-update craft-clean craft-help craft-pick craft-dump; do
-        [ -f "${CARGO_TARGET_DIR:-rust/target}/release/$b" ] && install -m755 "${CARGO_TARGET_DIR:-rust/target}/release/$b" "${{pkgdir}}/usr/local/bin/$b"
+        [ -f "${{CARGO_TARGET_DIR:-rust/target}}/release/$b" ] && install -m755 "${{CARGO_TARGET_DIR:-rust/target}}/release/$b" "${{pkgdir}}/usr/local/bin/$b"
     done
     # E132 — o elite-polkit-listener NÃO viaja mais (o agente da casa é o
     # lxqt-policykit-agent NATIVO, eleito no craft-bars; um bin a menos no
