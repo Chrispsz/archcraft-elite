@@ -304,6 +304,15 @@ cp -p /work/elite/airootfs/etc/skel/.config/labwc/menu.xml \
 mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/labwc
 cp -p /work/elite/airootfs/etc/skel/.config/labwc/themerc-override \
       /tmp/elite-src/elite-system/files/usr/local/share/elite/labwc/themerc-override
+# E146 — O AUTOSTART-MESTRE NO PACOTE (a ferida do rig 1.0-94: o sed cego
+# de um agente FORA do repo injetou `elite-daemon session &` 8× no meio
+# de comentários do autostart do home; o skel é veículo da ISO e NUNCA
+# alcança o rig instalado — a cura não tinha fonte de verdade no disco).
+# O mestre mora agora ao lado dos irmãos XML e o elite-heal-sessao o usa
+# para RECONSTRUIR o arquivo corrompido (backup único, sh -n de guarda).
+mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/labwc
+cp -p /work/elite/airootfs/etc/skel/.config/labwc/autostart \
+      /tmp/elite-src/elite-system/files/usr/local/share/elite/labwc/autostart
 mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/gtk-3.0
 cp -p /work/elite/airootfs/etc/skel/.config/gtk-3.0/settings.ini \
       /tmp/elite-src/elite-system/files/usr/local/share/elite/gtk-3.0/settings.ini
@@ -2629,7 +2638,40 @@ pkgver=1.0
 #      dos erros benignos do boot, caudas dos papéis, lavd dorme
 #      nomeado); os dirs de sudoers/polkit vestem 750 (o aviso do
 #      pacman cala).
-pkgrel=94
+# 1.0-95 (E146 — O RELATORIO-FINAL periciado, causa raiz por causa
+#      raiz): (1) A COVEIRA — os 6 <defunct> pendurados no pid da barra
+#      (swaync-client ×4, brave, craft-shot): a solta() abandonava o
+#      Child no Drop; a thread dedicada agora colhe o wait (o
+#      process_group segue — a ferramenta não morre com a coveira); o
+#      dismiss_overlays da dock idem (o pkill solto virava zumbi);
+#      (2) A CURA DOS ARQUIVOS DE SESSÃO — o autostart do home do dono
+#      com 8 lançadores `elite-daemon session &` injetados por sed cego
+#      FORA do repo (o literal com caminho completo NUNCA existiu no
+#      git — o pickaxe prova; o flock E30 segurou o dano em 1 dono):
+#      nasce o elite-heal-sessao (audita nº de lançadores + sh -n +
+#      XML; corrompido = reconstrução do MESTRE do pacote com prova
+#      pós-escrita e restauração em falha; o mestre do autostart
+#      viaja no pacote pela 1ª vez — skel é veículo da ISO); o
+#      post-upgrade chama por /home/* (a migração 1.0-93 por append
+#      morre: append não detecta corrupção); (3) O MENU — o texto
+#      órfão fora de tag desde o E103 (a abertura do comentário foi
+#      amputada por edição de era; periciado no fonte: o labwc
+#      PULA texto no parse — lab_xml_skip_text — mas a casa não
+#      entrega membro fora de tag): template curado + julgamento
+#      ESTrito no heal e na suíte (menu_ok); (4) A ROTAÇÃO — os 28
+#      .bak-* acumulados no rig (craft-rice nascia um por renovação):
+#      bak_unica (1 por base) + saneia_baks no heal; o xmllint vira o
+#      juiz principal do XML no rice (python3 fallback); (5) O RICE
+#      ALCANÇA TODO HOME — a lacuna loginctl list-users (dose com o
+#      dono deslogado = peles nunca renovadas — o menu do rig ficou
+#      UMA era atrás): /home/* uid>=1000 é a fonte; (6) O DUMP --full
+#      — o consolidado limpo (o script ad-hoc do rig enterrava os
+#      logs reais sob 16 mil linhas de .bak/Brave/PNG): whitelist
+#      estrita de configs ativas, logs COMPLETOS, journal user+
+#      system, veredito de XML, zumbis nomados, UM .txt + .tar.gz;
+#      (7) O GUARD COM VOZ — a 2ª instância do daemon sai 0 DEIXANDO
+#      PAPEL (a recusa repetida é a assinatura do autostart doente).
+pkgrel=95
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da sessão; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

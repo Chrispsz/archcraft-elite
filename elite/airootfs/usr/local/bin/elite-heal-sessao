@@ -1,0 +1,304 @@
+#!/bin/sh
+# ═══════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · elite-heal-sessao — A CURA DOS ARQUIVOS DE SESSÃO (E146)
+# ═══════════════════════════════════════════════════════════════════════════
+# A FERIDA (rig do dono, 1.0-94 — o RELATORIO-FINAL periciado):
+#   (1) o ~/.config/labwc/autostart chegou CORROMPIDO: um agente FORA do
+#       repo rodou sed cego que injetou `/usr/local/bin/elite-daemon
+#       session &` OITO VEZES no meio de blocos de comentário, amputando
+#       linhas (o literal com caminho completo NUNCA existiu no git da
+#       casa — o pickaxe prova; o corruptor era externo). O flock E30 do
+#       elite-daemon segurou o dano (UM dono de pé), mas o arquivo segue
+#       doente no disco;
+#   (2) o ~/.config/labwc/menu.xml com comentário CORTADO PELA METADE
+#       (texto solto fora de tag acima de "Modo de jogo") — o labwc
+#       rejeita o arquivo inteiro e o clique direito cai no menu de
+#       fábrica de 3 itens;
+#   (3) dezenas de menu.xml.bak-*/rc.xml.bak-* acumulados no dir.
+#
+# A CURA (esta ferramenta, chamada pelo elite-post-upgrade a cada dose —
+# idempotente por desenho: arquivo são = papel e no-op):
+#   · AUTOSTART: audita o nº de lançadores `elite-daemon session &` e a
+#     sintaxe (sh -n). Corrompido (nº ≠ 1 ou sintaxe quebrada):
+#     - arquivo DA CASA (cabeçalho Archcraft ELITE) → RECONSTRUÇÃO do
+#       mestre do pacote (/usr/local/share/elite/labwc/autostart);
+#     - arquivo PERSONALIZADO → cirúrgico: os lançadores espúrios saem,
+#       UM bloco marcado # BEGIN/END ELITE-DAEMON-SESSION entra no fim.
+#   · menu.xml / rc.xml: valida (xmllint; python3 como fallback; SEM
+#     juiz = não audita — nunca substitui sem prova). Inválido →
+#     substituição pelo mestre do pacote. Válido no fim → SIGHUP ao
+#     labwc do dono (o --reconfigure de verdade).
+#   · BACKUPS: rotação — no MÁXIMO 1 .bak-* por base (o mais recente);
+#     os fósseis acumulados saem com voz.
+#
+# NENHUM sed cego/in-place edita autostart/rc.xml/menu.xml nesta casa:
+# escrever é RECONSTRUIR de mestre (ou bloco marcado), sempre com backup
+# único, sempre com validação ANTES de sobrescrever e restauração em
+# falha. O arquivo ativo JAMAIS é escrito sem passar pela prova.
+#
+# uso (roda como root, invocado pelo post-upgrade):
+#   elite-heal-sessao <uid> [home]
+# Saída: papel em stdout (o chamador leva pro log da dose).
+# ═══════════════════════════════════════════════════════════════════════════
+set -u
+
+UID_ALVO="${1:-}"
+HOME_ALVO="${2:-}"
+
+if [ "$UID_ALVO" = "--help" ] || [ "$UID_ALVO" = "-h" ]; then
+    printf '%s\n' \
+        'uso: elite-heal-sessao <uid> [home] — cura autostart/menu.xml/rc.xml' \
+        '      do home do uid (roda como root; chamado pelo elite-post-upgrade)' \
+        '      idempotente: arquivo são = papel e no-op'
+    exit 0
+fi
+if [ -z "$UID_ALVO" ]; then
+    printf 'uso: elite-heal-sessao <uid> [home] (falta o uid)\n' >&2
+    exit 1
+fi
+
+# o home vem do /etc/passwd quando o chamador não trouxe
+if [ -z "$HOME_ALVO" ]; then
+    HOME_ALVO="$(awk -F: -v u="$UID_ALVO" '$3 == u {print $6; exit}' /etc/passwd 2>/dev/null)"
+fi
+if [ -z "$HOME_ALVO" ] || [ ! -d "$HOME_ALVO" ]; then
+    printf 'heal: uid %s sem home resolvível — nada a fazer\n' "$UID_ALVO"
+    exit 0
+fi
+
+LABWC="$HOME_ALVO/.config/labwc"
+MASTER_DIR="${ELITE_MASTER_DIR:-/usr/local/share/elite/labwc}"
+MUDOU_XML=0
+
+# o dono numérico (chown pós-cura; o gid do home é o par natural)
+DONO="$(stat -c '%u:%g' "$HOME_ALVO" 2>/dev/null || echo "$UID_ALVO:$UID_ALVO")"
+
+# ── A PROVA DE SINTAXE (sh POSIX do sistema; arquivo ilegível = doente) ──
+sh_ok() {
+    [ -r "$1" ] || return 1
+    sh -n "$1" >/dev/null 2>&1
+}
+
+# ── A PROVA DE XML (E107 do craft-rice, lida aqui de novo: xmllint é o
+#    juiz principal, python3 o fallback; SEM nenhum dos dois a auditoria
+#    XML NÃO ACONTECE — substituir sem juiz seria a cura cega que esta
+#    ferramenta existe para matar) ──────────────────────────────────────
+# E146 — O MENU É JULGADO ESTRICTO: libxml2/expat aceitam TEXTO ÓRFÃO
+# fora de tag (mixed content legal de XML) e o labwc até PULA o texto
+# no parse (lab_xml_skip_text, src/menu/menu.c 0.20.3 — periciado no
+# fonte), mas a GRAMÁTICA do menu da casa é "só elementos": texto
+# solto = arquivo amputado por edição de era (o rig carregava a
+# diretriz do jogo SEM a abertura do comentário desde o E103). O
+# rc.xml segue no juizo simples (textos LÁ são conteúdo legítimo:
+# <gap>10</gap>, <decoration>server</decoration>).
+xml_ok() {
+    [ -r "$1" ] || return 1
+    if command -v xmllint >/dev/null 2>&1; then
+        xmllint --noout "$1" >/dev/null 2>&1
+        return $?
+    fi
+    if command -v python3 >/dev/null 2>&1; then
+        python3 -c 'import sys, xml.etree.ElementTree as ET; ET.parse(sys.argv[1])' \
+            "$1" >/dev/null 2>&1
+        return $?
+    fi
+    return 0 # sem juiz no sistema: o arquivo segue (a casa não aposta)
+}
+
+# O juízo ESTRITO do menu: bem-formado E nenhum texto fora de tag
+menu_ok() {
+    [ -r "$1" ] || return 1
+    if command -v python3 >/dev/null 2>&1; then
+        python3 -c '
+import sys, xml.etree.ElementTree as ET
+try:
+    t = ET.parse(sys.argv[1])
+except Exception:
+    sys.exit(1)
+for el in t.getroot().iter():
+    if (el.text or "").strip() or (el.tail or "").strip():
+        sys.exit(1)  # texto órfão: membro fora de tag
+sys.exit(0)
+' "$1" >/dev/null 2>&1
+        return $?
+    fi
+    xml_ok "$1" # sem python: o juizo simples (nomeado no papel)
+}
+
+# ── O LANÇADOR: conta quantas linhas mandam o elite-daemon session
+#    subir (a variante com caminho completo conta igual — a da ferida) ──
+conta_lancadores() {
+    _cl_n="$(grep -cE '^[[:space:]]*(((/usr)?/local)?/bin/)?elite-daemon[[:space:]]+session.*&' "$1" 2>/dev/null || true)"
+    printf '%s' "${_cl_n:-0}"
+}
+
+# ── O BACKUP ÚNICO (rotação: o .bak-* velho sai antes do novo nascer ──
+#    — o dir do rig carregava 28 fósseis; a casa guarda UM, o mais novo)
+bak_unica() {
+    _bk_f="$1"
+    rm -f "$_bk_f".bak-* 2>/dev/null
+    cp -p "$_bk_f" "$_bk_f.bak-$(date +%Y%m%d-%H%M%S)" 2>/dev/null
+}
+
+# ── A ROTAÇÃO GERAL: no máx. 1 .bak-* por base (o mais recente fica) ───
+saneia_baks() {
+    _sb_dir="$1"
+    [ -d "$_sb_dir" ] || return 0
+    # as bases com backup carimbado no dir (ordem estável por nome = stamp)
+    _sb_bases="$(ls "$_sb_dir" 2>/dev/null | grep -E '\.bak-[0-9]{8}-[0-9]{6}$' \
+        | sed -E 's/\.bak-[0-9]{8}-[0-9]{6}$//' | sort -u)"
+    [ -z "$_sb_bases" ] && return 0
+    printf '%s\n' "$_sb_bases" | while IFS= read -r _sb_base; do
+        [ -n "$_sb_base" ] || continue
+        _sb_cands="$(ls -1 "$_sb_dir/$_sb_base".bak-* 2>/dev/null | sort)"
+        _sb_total="$(printf '%s\n' "$_sb_cands" | grep -c . || true)"
+        [ "${_sb_total:-0}" -le 1 ] && continue
+        # o MAIS RECENTE fica (sort lexical: o stamp fala a hora)
+        _sb_keep="$(printf '%s\n' "$_sb_cands" | tail -n 1)"
+        printf '%s\n' "$_sb_cands" | while IFS= read -r _sb_rm; do
+            [ "$_sb_rm" = "$_sb_keep" ] && continue
+            rm -f "$_sb_rm" 2>/dev/null \
+                && printf 'baks: %s removido (rotação — fica só o mais recente)\n' "$(basename "$_sb_rm")"
+        done
+    done
+}
+
+# ── A CURA DO AUTOSTART ──────────────────────────────────────────────────
+cura_autostart() {
+    _ca_f="$LABWC/autostart"
+    [ -f "$_ca_f" ] || return 0
+    _ca_n="$(conta_lancadores "$_ca_f")"
+
+    if [ "$_ca_n" -eq 1 ] && sh_ok "$_ca_f"; then
+        printf 'autostart: EM ORDEM (1 lançador elite-daemon session · sintaxe sã)\n'
+        return 0
+    fi
+
+    # o diagnóstico no papel ANTES da mão
+    if ! sh_ok "$_ca_f"; then
+        printf 'autostart: DOENTE — sintaxe quebrada (sh -n falhou) · %s lançador(es)\n' "$_ca_n"
+    else
+        printf 'autostart: DOENTE — %s lançador(es) elite-daemon session (a casa exige 1)\n' "$_ca_n"
+    fi
+
+    bak_unica "$_ca_f" || {
+        printf 'autostart: backup FALHOU — cura RECUSADA (o arquivo seu segue)\n'
+        return 1
+    }
+
+    # RAMO 1 — arquivo da CASA (cabeçalho da casa nas primeiras linhas):
+    # reconstrução do MESTRE do pacote (a fonte de verdade no disco)
+    if head -n 20 "$_ca_f" 2>/dev/null | grep -q 'Archcraft ELITE'; then
+        _ca_mestre="$MASTER_DIR/autostart"
+        if [ -r "$_ca_mestre" ] \
+           && [ "$(conta_lancadores "$_ca_mestre")" -eq 1 ] \
+           && sh_ok "$_ca_mestre"; then
+            if cp -p "$_ca_mestre" "$_ca_f" 2>/dev/null \
+               && chown "$DONO" "$_ca_f" 2>/dev/null \
+               && [ "$(conta_lancadores "$_ca_f")" -eq 1 ] \
+               && sh_ok "$_ca_f"; then
+                printf 'autostart: RECONSTRUÍDO do mestre do pacote (1 lançador, bloco BEGIN/END ELITE-DAEMON-SESSION · backup único ao lado)\n'
+                return 0
+            fi
+            printf 'autostart: a reconstrução FALHOU na prova — restaurando o backup\n'
+            _ca_bak="$(ls -1 "$_ca_f".bak-* 2>/dev/null | tail -n 1)"
+            [ -n "$_ca_bak" ] && cp -p "$_ca_bak" "$_ca_f" 2>/dev/null
+            return 1
+        fi
+        printf 'autostart: mestre ausente/inválido — caindo pro cirúrgico\n'
+    fi
+
+    # RAMO 2 — cirúrgico (arquivo personalizado ou mestre indisponível):
+    # os lançadores espúrios SAEM, UM bloco marcado entra no fim
+    {
+        grep -vE '^[[:space:]]*(((/usr)?/local)?/bin/)?elite-daemon[[:space:]]+session.*&' "$_ca_f" 2>/dev/null
+        printf '\n# BEGIN ELITE-DAEMON-SESSION (bloco gerenciado pela casa — E146)\nelite-daemon session &\n# END ELITE-DAEMON-SESSION\n'
+    } > "$_ca_f.novo" 2>/dev/null
+
+    if [ -s "$_ca_f.novo" ] && sh_ok "$_ca_f.novo" \
+       && [ "$(conta_lancadores "$_ca_f.novo")" -eq 1 ]; then
+        chmod --reference="$_ca_f" "$_ca_f.novo" 2>/dev/null || chmod 755 "$_ca_f.novo"
+        if mv -f "$_ca_f.novo" "$_ca_f" 2>/dev/null; then
+            chown "$DONO" "$_ca_f" 2>/dev/null
+            printf 'autostart: CURADO por cirurgia (lançadores espúrios fora, 1 bloco marcado no fim · backup único ao lado)\n'
+            return 0
+        fi
+    fi
+    rm -f "$_ca_f.novo" 2>/dev/null
+    printf 'autostart: a cirurgia FALHOU na prova — restaurando o backup\n'
+    _ca_bak="$(ls -1 "$_ca_f".bak-* 2>/dev/null | tail -n 1)"
+    [ -n "$_ca_bak" ] && cp -p "$_ca_bak" "$_ca_f" 2>/dev/null
+    return 1
+}
+
+# ── A CURA DOS XML (menu.xml / rc.xml) ───────────────────────────────────
+cura_xml() {
+    # $1 = nome do arquivo · $2 = juiz (menu_ok ou xml_ok)
+    _cx_f="$LABWC/$1"
+    _cx_mestre="$MASTER_DIR/$1"
+    _cx_juiz="$2"
+    [ -f "$_cx_f" ] || return 0
+
+    if "$_cx_juiz" "$_cx_f"; then
+        printf '%s: VÁLIDO (%s)\n' "$1" "$( [ "$_cx_juiz" = menu_ok ] && echo 'gramática estrita — só elementos' || echo 'parse sã')"
+        return 0
+    fi
+
+    printf '%s: DOENTE — XML inválido p/ a gramática da casa (o labwc pode rejeitar o arquivo inteiro; sintoma clássico: menu de fábrica de 3 itens)\n' "$1"
+
+    # sem juiz no sistema, a auditoria não aconteceu de verdade — não toca
+    if ! command -v xmllint >/dev/null 2>&1 \
+       && ! command -v python3 >/dev/null 2>&1; then
+        printf '%s: SEM juiz XML no sistema — cura adiada (nunca sem prova)\n' "$1"
+        return 1
+    fi
+
+    if [ ! -r "$_cx_mestre" ] || ! "$_cx_juiz" "$_cx_mestre"; then
+        printf '%s: mestre do pacote ausente/inválido — cura RECUSADA (a substituição seria tiro no escuro)\n' "$1"
+        return 1
+    fi
+
+    bak_unica "$_cx_f" || {
+        printf '%s: backup FALHOU — cura RECUSADA\n' "$1"
+        return 1
+    }
+    if cp -p "$_cx_mestre" "$_cx_f" 2>/dev/null && chown "$DONO" "$_cx_f" 2>/dev/null; then
+        if "$_cx_juiz" "$_cx_f"; then
+            printf '%s: RECONSTRUÍDO do mestre do pacote (prova re-feita pós-escrita · backup único ao lado)\n' "$1"
+            MUDOU_XML=1
+            return 0
+        fi
+        printf '%s: a prova pós-escrita FALHOU — restaurando o backup\n' "$1"
+        _cx_bak="$(ls -1 "$_cx_f".bak-* 2>/dev/null | tail -n 1)"
+        [ -n "$_cx_bak" ] && cp -p "$_cx_bak" "$_cx_f" 2>/dev/null
+        return 1
+    fi
+    return 1
+}
+
+# ═══════════════════════════ O FLUXO ════════════════════════════════════
+printf 'heal: sessão do uid %s (%s)\n' "$UID_ALVO" "$HOME_ALVO"
+
+saneia_baks "$LABWC"
+cura_autostart
+cura_xml "menu.xml" menu_ok
+cura_xml "rc.xml" xml_ok
+
+# a contagem de daemons no papel (o flock é a lei; a contagem alta = o
+# autostart ainda dispara demais — o papel denuncia)
+_da_n="$(pgrep -u "$UID_ALVO" -x elite-daemon 2>/dev/null | wc -l | tr -d ' ')"
+printf 'daemon: %s instância(s) elite-daemon vivas no uid %s (o flock E30 garante 1 dono por porta)\n' \
+    "${_da_n:-0}" "$UID_ALVO"
+
+# o XML curado vale NA HORA: SIGHUP ao labwc do dono é o --reconfigure
+# (labwc(1): o sinal manda o processo vivo reler rc.xml/menu.xml)
+if [ "$MUDOU_XML" -eq 1 ]; then
+    if pkill -HUP -u "$UID_ALVO" -x labwc 2>/dev/null; then
+        printf 'labwc: SIGHUP enviado (a pele curada vale na sessão viva — sem relogin)\n'
+    else
+        printf 'labwc: sem processo vivo — a pele curada vale no próximo login\n'
+    fi
+fi
+
+printf 'heal: concluído\n'
+exit 0

@@ -67,6 +67,22 @@ PYX
     then t_ok "$1"; else t_fail "$1" "XML mal-formado ou ausente: $2"; fi
 }
 
+# E146 — o MENU nasce SEM texto órfão fora de tag (a gramática da casa:
+# só elementos; o libxml2 até aceita mixed content e o labwc pula o
+# texto no parse, mas arquivo com membro fora de tag é arquivo amputado
+# — o órfão do E103 atravessou 4 eras porque o juízo era só bem-formado)
+menu_ok() { # menu_ok <desc> <arquivo>
+    if [ -f "$2" ] && python3 - "$2" << 'PYM' >/dev/null 2>&1
+import sys, xml.etree.ElementTree as ET
+t = ET.parse(sys.argv[1])
+for el in t.getroot().iter():
+    if (el.text or "").strip() or (el.tail or "").strip():
+        sys.exit(1)  # texto fora de tag: o membro órfão
+sys.exit(0)
+PYM
+    then t_ok "$1"; else t_fail "$1" "texto órfão fora de tag (ou XML quebrado): $2"; fi
+}
+
 # o INI nasce com seção (a lição do fuzzel.ini quebrado E137)
 ini_ok() { # ini_ok <desc> <arquivo>
     if [ -f "$2" ] && python3 - "$2" << 'PYI' >/dev/null 2>&1

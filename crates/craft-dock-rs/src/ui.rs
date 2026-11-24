@@ -1208,13 +1208,21 @@ fn act_key(act: &Act) -> String {
 
 /// E89 — a gaveta aberta não sobrepõe o que a dock acorda (o drawer é
 /// efêmero por desenho; sem gaveta viva é um fork de µs).
+/// E146/C — A COVEIRA (a mesma lição da solta da barra): o pkill
+/// abandonado no Drop virava <defunct> pendurado na dock; a thread
+/// dedicada colhe o exit ANTES do escopo morrer.
 fn dismiss_overlays() {
-    let _ = Command::new("pkill")
-        .args(["-x", "nwg-drawer"])
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .process_group(0)
-        .spawn();
+    std::thread::spawn(|| {
+        if let Ok(mut filho) = Command::new("pkill")
+            .args(["-x", "nwg-drawer"])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .process_group(0)
+            .spawn()
+        {
+            let _ = filho.wait();
+        }
+    });
 }
 
 /// Um cliente do toplevel.sock por verbo (connect a unix socket custa

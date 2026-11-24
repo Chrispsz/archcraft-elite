@@ -1391,17 +1391,44 @@ fn pede_bus(
     }
 }
 
+/// O filho FORK-AND-FORGET da casa: stdout/stderr no vazio, grupo
+/// próprio (o processo sobrevive à barra por desenho — ferramentas
+/// de verdade não são filhos que a barra colhe).
+/// E146/C — A COVEIRA: o Child abandonado no Drop virava <defunct>
+/// (o rig 1.0-94 fotografou 6 zumbis pendurados no pid da barra:
+/// swaync-client ×4, brave e craft-shot — o Linux deixa o morto na
+/// tabela até ALGUÉM colher). A thread dedicada é a coveira: spawn →
+/// wait — o exit status é colhido ANTES do Child morrer no escopo.
+/// O grupo próprio SEGUE (a ferramenta não morre com a coveira nem
+/// com a barra; o wait só COLHE, não espera viver).
 fn solta(argv: &[&str]) {
     if argv.is_empty() {
         return;
     }
-    let _ = Command::new(argv[0])
-        .args(&argv[1..])
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .process_group(0)
-        .spawn();
+    // argv emprestado não atravessa o move: a cópia própria da thread
+    let argv: Vec<String> = argv.iter().map(|s| (*s).to_string()).collect();
+    std::thread::Builder::new()
+        .name("solta-coveira".into())
+        .spawn(move || {
+            match Command::new(&argv[0])
+                .args(&argv[1..])
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .process_group(0)
+                .spawn()
+            {
+                Ok(mut filho) => {
+                    // A COLHEITA: sem este wait o kernel guarda o morto
+                    // como Z até a barra morrer (a tabela do ps inchava
+                    // a cada clique de notificação/print/app).
+                    let _ = filho.wait();
+                }
+                Err(e) => {
+                    crate::log(&format!("solta: {} não nasceu ({e})", argv[0]));
+                }
+            }
+        });
 }
 
 /// A pele da casa: ~/.config/elite/bar.css quando existe (o dono é o

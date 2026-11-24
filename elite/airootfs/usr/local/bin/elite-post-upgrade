@@ -240,11 +240,20 @@ fi
 #      dos settings.ini; o Qt6 para de ficar nu no meio do rice escuro).
 #      O labwc --reconfigure aplica NA SESSÃO VIVA (a descoberta do
 #      WAYLAND_DISPLAY no /run/user/$uid — a escola E126 do craft-update).
-loginctl list-users --no-legend 2>/dev/null | while read -r uid _; do
-    [ -n "$uid" ] || continue
-    [ "$uid" -ge 1000 ] 2>/dev/null || continue
-    _home="$(getent passwd "$uid" 2>/dev/null | cut -d: -f6)"
-    [ -n "$_home" ] && [ -d "$_home" ] || continue
+# 1.0-95 — O RICE ALCANÇA TODO HOME VIVO, NÃO SÓ O LOGADO (a lacuna que
+# deixou o menu do rig UMA ERA atrás: `loginctl list-users` só lista quem
+# tem SESSÃO ABERTA — a dose que corre com o dono deslogado (TTY, ssh,
+# cron) nunca renovava as peles; agora /home/* (uid>=1000) é a fonte —
+# o loginctl dizia QUEM está vivo, o /home diz QUEM EXISTE; o reconfigure
+# continua só para sessão viva (com o socket do compositor)).
+for _hdir in /home/*; do
+    [ -d "$_hdir" ] || continue
+    uid="$(stat -c %u "$_hdir" 2>/dev/null || echo 0)"
+    case "$uid" in
+        ''|0|*[!0-9]*) continue ;;
+    esac
+    [ "$uid" -ge 1000 ] || continue
+    _home="$_hdir"
     # qt6ct: a casa do tema Qt — cria se ausente, toca no que o dono tem
     if [ ! -e "$_home/.config/qt6ct/qt6ct.conf" ]; then
         if [ -r /usr/local/share/elite/qt6ct/qt6ct.conf ]; then
@@ -610,10 +619,15 @@ if [ "${_grub_mudou:-0}" = 1 ] && command -v grub-mkconfig >/dev/null 2>&1; then
     fi
 fi
 
-# ── 1.0-93 — O AUTOSTART DOS HOMES VIVOS (a ordem do dono: os rigs
-#      uid>=1000 que ainda carregam o autostart da era waybar/craft-bars
-#      migram para O LANÇADOR ÚNICO — `elite-daemon session &` — com
-#      backup .bak; idempotente: linha nova presente = casa em ordem) ──
+# ── 1.0-95 — A CURA DOS ARQUIVOS DE SESSÃO (E146 — o relato final do
+#      dono periciado): o autostart do home VIVO chegou CORROMPIDO (8
+#      lançadores `elite-daemon session &` injetados no meio de
+#      comentários por sed cego FORA do repo; o flock segurou o dano),
+#      o menu.xml carregava texto órfão fora de tag desde o E103 e os
+#      .bak-* acumulavam sem rotação. O elite-heal-sessao cura os
+#      três (reconstrução do mestre com prova pós-escrita, rotação,
+#      idempotente) — a migração 1.0-93 (append do lançador) morre
+#      SUBSTITUÍDA: append não detecta corrupção, o heal sim.
 for _hdir in /home/*; do
     [ -d "$_hdir" ] || continue
     _auid="$(stat -c %u "$_hdir" 2>/dev/null || echo 0)"
@@ -621,21 +635,17 @@ for _hdir in /home/*; do
         ''|0|*[!0-9]*) continue ;;
     esac
     [ "$_auid" -ge 1000 ] || continue
-    _auto="$_hdir/.config/labwc/autostart"
-    [ -f "$_auto" ] || continue
-    if grep -q 'elite-daemon session' "$_auto" 2>/dev/null; then
-        continue # já migrado (a casa em ordem — idempotente por linha)
-    fi
-    if cp -p "$_auto" "$_auto.bak" 2>/dev/null; then
-        {
-            grep -v -E '^\s*(craft-bars|waybar|craft-dock|craft-toplevel|swayidle)\b' "$_auto" 2>/dev/null || true
-            printf '\n# 1.0-93 — O LANÇADOR ÚNICO (migrado pela dose; o backup .bak guarda a era anterior)\nelite-daemon session &\n'
-        } > "$_auto.novo" 2>/dev/null \
-            && mv -f "$_auto.novo" "$_auto" 2>/dev/null \
-            && tlog "autostart 1.0-93: $_auto migrado para o elite-daemon session (backup .bak no lugar)"
+    if [ -x /usr/local/bin/elite-heal-sessao ]; then
+        _heal_out="$(/usr/local/bin/elite-heal-sessao "$_auid" "$_hdir" 2>/dev/null || true)"
+        # o papel do heal viaja no log da dose (veredito por arquivo)
+        while IFS= read -r _hl; do
+            [ -n "$_hl" ] && tlog "heal $_auid: $_hl"
+        done <<EOF
+$_heal_out
+EOF
     fi
 done
-unset _hdir _auid _auto
+unset _hdir _auid _heal_out _hl
 
 # ── 1.0-93 — O DEBLOAT DOS RIGS VIVOS (a ordem do dono): waybar e
 #      gpsd SAEM quando nenhum pacote depende deles (a consulta é no

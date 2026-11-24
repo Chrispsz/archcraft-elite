@@ -208,8 +208,14 @@
          dock — popover nativo; a gaveta fuzzel de texto com setas
          morre inteira, o craft-pin CLI segue para quem quiser). -->
     <separator />
+    <!-- E146 — O COMENTÁRIO RESSUSCITA: a abertura da diretriz do jogo
+         foi amputada por edição de era e o texto ficava ÓRFÃO fora de
+         tag desde o E103 (o labwc pula texto solto no parse, mas a
+         casa não entrega arquivo com membros fora de tag — XML é
+         contrato; a gramática estrita da E146 do heal o prova). -->
+    <!-- E103 — O MODO DE JOGO (a diretriz do dono: "um botão em algum
          lugar do sistema para mexer no governor — e o automático que
-         define performance quando entrar no jogo'): o craft-game é o
+         define performance quando entrar no jogo"): o craft-game é o
          cérebro, o gamemode do Feral o músculo (governor performance +
          GPU high + rollback automático, RAM zero no idle). E106:
          ON/OFF/Automático/Status DEVOLvem feedback na tela. -->

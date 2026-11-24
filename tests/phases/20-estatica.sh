@@ -32,6 +32,7 @@ else t_fail "grub: ppfeaturemask preservado" "achado $N_PP (< 2)"; fi
 
 # ══ OS CONFIGS DA SESSÃO (a interface nativa) ══
 xml_ok "menu.xml nasce bem-formado" "$AIROOTFS/etc/skel/.config/labwc/menu.xml"
+menu_ok "menu.xml nasce SEM texto órfão fora de tag (E146 — a gramática da casa)" "$AIROOTFS/etc/skel/.config/labwc/menu.xml"
 xml_ok "rc.xml nasce bem-formado" "$AIROOTFS/etc/skel/.config/labwc/rc.xml"
 ini_ok "fuzzel.ini nasce com seção (a lição E137)" "$AIROOTFS/etc/skel/.config/fuzzel/fuzzel.ini"
 
@@ -153,7 +154,19 @@ file_has "dump: o upload do termbin (o --upload)" "crates/craft-dump-rs/src/main
 file_has "dump: o SUDO_UID resolvido (o dono, não o root)" "crates/craft-dump-rs/src/main.rs" 'SUDO_UID'
 file_has "dump: o journal de erros do boot" "crates/craft-dump-rs/src/main.rs" 'journalctl'
 file_has "display: o verbo icc (perfis registrados, fronteira nomeada)" "$AIROOTFS/usr/local/bin/craft-display" '    icc)'
-file_has "post-upgrade: a migração do autostart dos homes vivos" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'elite-daemon session &'
+# E146 — A CURA DOS ARQUIVOS DE SESSÃO: a âncora antiga (migração por
+# append) foi SUBSTITUÍDA — o heal detecta corrupção (nº de lançadores
+# ≠ 1, XML órfão) e reconstrói do mestre com prova pós-escrita.
+file_has "post-upgrade: a cura dos arquivos de sessão mora no heal" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'elite-heal-sessao'
+file_has "heal: o bin da cura existe (E146)" "$AIROOTFS/usr/local/bin/elite-heal-sessao" 'BEGIN ELITE-DAEMON-SESSION'
+file_has "heal: o julgamento estrito do menu (texto órfão é defeito)" "$AIROOTFS/usr/local/bin/elite-heal-sessao" 'menu_ok'
+file_has "heal: a rotação dos backups (1 por base)" "$AIROOTFS/usr/local/bin/elite-heal-sessao" 'saneia_baks'
+file_has "rice: o backup único (a rotação E146)" "$AIROOTFS/usr/local/bin/craft-rice" 'bak_unica'
+file_has "rice: o xmllint é o juiz principal do XML" "$AIROOTFS/usr/local/bin/craft-rice" 'xmllint --noout'
+file_has "bar: a coveira dos filhos (o <defunct> morre colhido)" "crates/craft-bar-rs/src/ui.rs" 'solta-coveira'
+file_has "dock: a coveira do dismiss (o pkill não vira zumbi)" "crates/craft-dock-rs/src/ui.rs" 'dismiss_overlays'
+file_has "dump: o modo --full (o consolidado limpo E146)" "crates/craft-dump-rs/src/main.rs" 'modo_full'
+file_has "daemon: a 2ª instância sai 0 COM VOZ (a recusa deixa papel)" "crates/elite-daemon/src/supervise.rs" 'a 2ª instância sai 0'
 file_has "post-upgrade: o debloat waybar/gpsd com consulta de dependentes" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'Required By'
 file_has "post-upgrade: mitigations=off no GRUB da dose" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'mitigations=off'
 file_has "tune: o scx-lavd direto também no painel" "$AIROOTFS/usr/local/bin/elite-tune" 'scx-lavd.service'

@@ -112,7 +112,10 @@ if ! command -v elite-daemon >/dev/null 2>&1; then
     mkdir -p "${BARLOG%/*}" 2>/dev/null
     printf '[%s] AUTOSTART: elite-daemon AUSENTE no sistema — a sessão NÃO sobe (guard 2.0)\n' "$(date '+%F %T')" >>"$BARLOG" 2>/dev/null
 else
+    # BEGIN ELITE-DAEMON-SESSION (bloco gerenciado pela casa — E146:
+    # exatamente UM lançador; o elite-heal-sessao audita e renova)
     elite-daemon session &
+    # END ELITE-DAEMON-SESSION
 fi
 
 # --- Diálogo de senha gráfico (polkit) — E132: O AGENTE NATIVO ────────────

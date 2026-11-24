@@ -533,7 +533,25 @@ fn supervisa(
         .map_err(|e| format!("lock {}: {}", lock.display(), e))?;
     let rc = unsafe { libc::flock(f.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
     if rc != 0 {
-        return Ok(()); // o irmão está no ar — saída silenciosa e honesta
+        // E146 — A SAÍDA SILENCIOSA GANHA VOZ: o rig da 1.0-94 mostrou o
+        // AUTOSTART CORROMPIDO disparando `elite-daemon session &` OITO
+        // vezes (sed cego de agente fora do repo) — o flock segurou o
+        // dano (UM só dono de pé, os sete excedentes saíram 0 calados),
+        // mas o silêncio escondia o SINTOMA: agora cada recusa deixa a
+        // linha no papel do daemon — a contagem alta é a assinatura da
+        // corrupção que o elite-heal-sessao cura.
+        let log_r = log_path();
+        if let Ok(mut fh) = std::fs::OpenOptions::new().append(true).create(true).open(&log_r) {
+            use std::io::Write;
+            let _ = writeln!(
+                fh,
+                "elite-daemon: a porta {porta} já tem dono — a 2ª instância sai 0 (flock E30; recusas repetidas = autostart corrompido, o elite-heal-sessao cura)"
+            );
+        }
+        eprintln!(
+            "elite-daemon: a porta {porta} já tem dono — a 2ª instância sai 0 (flock E30)"
+        );
+        return Ok(()); // o irmão está no ar — a casa segue com UM dono
     }
     super::instala_sinais();
 

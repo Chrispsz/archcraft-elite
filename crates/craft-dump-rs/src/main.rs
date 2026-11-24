@@ -12,6 +12,13 @@
 // boot, o pacman recente, o SUDO_UID resolvido (o dump do pkexec
 // colhe a sessão do DONO, não do root) e o --upload (termbin.com —
 // PÚBLICO, avisado antes de subir).
+// 1.0-95 — O MODO --full (E146/D: o relato do dono — o script de
+// dump AD-HOC que rodava no rig concatenava *.bak-*, perfil do
+// navegador e até PNGs BINÁRIOS como "linhas", 16 mil linhas de
+// lixo que enterravam os logs de verdade; o modo --full é o
+// CONSOLIDADO LIMPO da casa: filtro estrito (SÓ configs ativas),
+// logs completos sem truncar, journal user+system, veredito de XML
+// e um ÚNICO .txt + .tar.gz no fim).
 // Roda no RIG e na sessão de prova — sem systemd/bus o papel NOMEIA
 // as ausências, nunca mente.
 // ═════════════════════════════════════════════════════════════════════════
@@ -19,6 +26,10 @@ use std::io::Write as _;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    if args.iter().any(|a| a == "--full") {
+        modo_full();
+        return;
+    }
     let quer_upload = args.iter().any(|a| a == "--upload");
     let mut papel = String::new();
     let mut say = |linha: &str| {
@@ -477,4 +488,386 @@ fn sobe_termbin(papel: &str) -> Result<String, String> {
     } else {
         Err("o termbin não devolveu URL".into())
     }
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// 1.0-95 · O MODO --full (E146/D) — O CONSOLIDADO LIMPO
+// ═════════════════════════════════════════════════════════════════════════
+// A FERIDA (o relato do dono): o dump ad-hoc do rig concatenava 28 arquivos
+// .bak-*, o perfil do Brave INTEIRO e até wallpaper.png/avatar.png como
+// "linhas" — 16.241 linhas de lixo que enterravam os logs reais antes da
+// metade. A LEI daqui (item por item do pedido):
+//   1. IGNORA ESTRITAMENTE *.bak*, *.old, dirs de navegador e binários;
+//   2. COLETA SÓ as configs ativas (labwc + elite);
+//   3. INTEIRO e sem truncar: git log -n 15 do repo (quando existe no
+//      disco), processos da sessão (com os <defunct> NOMADOS — a coveira
+//      E146/C é a cura, o papel é a prova), ~/.cache/elite/*.log COMPLETO,
+//      journalctl system + user err..warning, veredito XML;
+//   4. UM arquivo consolidado + UM .tar.gz (o tar da casa, sem dep).
+/// A família que o papel do --full fotografa (processos da sessão).
+const FAMILIA_FULL: &[&str] = &[
+    "labwc",
+    "elite-daemon",
+    "craft-bar-rs",
+    "craft-dock-rs",
+    "swaync",
+    "swaync-client",
+    "waybar",
+    "swayidle",
+    "swaybg",
+    "nwg-drawer",
+    "swayosd",
+    "swayosd-server",
+    "udiskie",
+    "pipewire",
+    "wireplumber",
+    "pipewire-pulse",
+    "lxqt-policykit-agent",
+    "craft-display",
+    "craft-shot",
+    "brave",
+    "fuzzel",
+];
+
+/// As configs ativas que viajam no papel (whitelist — nada além entra).
+const CONFIGS_ATIVAS: &[&str] = &[
+    "labwc/rc.xml",
+    "labwc/menu.xml",
+    "labwc/autostart",
+    "labwc/environment",
+    "labwc/themerc-override",
+    "elite/idle.conf",
+    "elite/game.conf",
+    "elite/dock-pins",
+    "elite/dock.css",
+    "elite/bar.css",
+    "elite/displays.conf",
+];
+
+fn modo_full() {
+    let (uid, dono) = uid_e_dono();
+    let home_dono = craft_dump_rs::home_do_uid(uid, &std::fs::read_to_string("/etc/passwd").unwrap_or_default())
+        .or_else(|| std::env::var("HOME").ok())
+        .unwrap_or_else(|| "/root".into());
+    let mut p = String::new();
+    let mut say = |l: &str| {
+        p.push_str(l);
+        p.push('\n');
+    };
+
+    say("═ ARCHCRAFT ELITE · craft-dump --full · o consolidado limpo (1.0-95/E146) ═");
+    say(&format!("gerado: {}", agora_iso()));
+    say(&format!("uid corrente: {} · sessão do dono: uid {uid} ({})", uid_corrente(), dono.as_deref().unwrap_or("?")));
+
+    // ── 1. IDENTIDADE & VERSÃO ──────────────────────────────────────────
+    say("");
+    say("═ 1. IDENTIDADE & VERSÃO ═");
+    say(&format!("kernel: {}", std::fs::read_to_string("/proc/version").unwrap_or_default().trim()));
+    for pkg in ["elite-system", "labwc", "fuzzel", "swaync", "pipewire", "wireplumber", "bluez", "networkmanager"] {
+        if let Some(v) = colhe(&["pacman", "-Q", pkg]) {
+            say(&format!("pacote: {}", v.trim()));
+        }
+    }
+    say("uptime:");
+    say(&format!("  {}", std::fs::read_to_string("/proc/uptime").unwrap_or_default().trim()));
+
+    // o git do repo (rastreabilidade — quando o clone mora no disco)
+    say("git do repo (git log -n 15 --oneline):");
+    let mut achou_git = false;
+    for cand in [
+        format!("{home_dono}/archcraft-elite"),
+        format!("{home_dono}/.local/src/archcraft-elite"),
+        format!("{home_dono}/src/archcraft-elite"),
+        "/root/archcraft-elite".to_string(),
+        "/srv/archcraft-elite".to_string(),
+    ] {
+        if !std::path::Path::new(&cand).join(".git").exists() {
+            continue;
+        }
+        if let Some(log) = colhe(&["git", "-C", &cand, "log", "-n", "15", "--oneline"]) {
+            say(&format!("  repo: {cand}"));
+            for l in log.lines() {
+                say(&format!("  {l}"));
+            }
+            achou_git = true;
+            break;
+        }
+    }
+    if !achou_git {
+        say("  clone do repo AUSENTE no disco (a versão acima é do pacman — a fronteira honesta)");
+    }
+
+    // ── 2. PROCESSOS DA SESSÃO (com os zumbis nomados) ──────────────────
+    say("");
+    say("═ 2. PROCESSOS DA SESSÃO (ps filtrado · <defunct> é réu nomado) ═");
+    let processos = processes_full();
+    for (pid, ppid, st, comm, cmdline) in &processos {
+        say(&format!(
+            "  pid {pid:>6} · ppid {ppid:>6} · {comm}{}",
+            if cmdline.is_empty() { String::new() } else { format!(" · {cmdline}") },
+        ));
+        if *st == 'Z' {
+            say("    ↑ ZUMBI (a coveira E146/C da barra colhe os filhos: o binário novo não gera mais)");
+        }
+    }
+
+    // ── 3. RUNTIME + 4. SOCKETS ─────────────────────────────────────────
+    say("");
+    say("═ 3. RUNTIME DA SESSÃO (/run/user/<uid>/elite) ═");
+    let run = format!("/run/user/{uid}/elite");
+    if let Ok(rd) = std::fs::read_dir(&run) {
+        for e in rd.flatten() {
+            let nome = e.file_name().to_string_lossy().to_string();
+            match e.metadata() {
+                Ok(m) => say(&format!("  {nome} · {} bytes", m.len())),
+                Err(_) => say(&format!("  {nome} · (metadata indisponível)")),
+            }
+        }
+    } else {
+        say("  ausente (o daemon nunca abriu o tmpfs da sessão)");
+    }
+    say("");
+    say("═ 4. SOCKETS ═");
+    if let Some(ss) = colhe(&["ss", "-xlnp"]) {
+        for l in ss.lines().filter(|l| l.contains("elite") || l.contains("wayland") || l.contains("bus.sock")) {
+            say(&format!("  {l}"));
+        }
+    } else {
+        say("  ss indisponível (a casa não inventa socket)");
+    }
+
+    // ── 5. CONFIGS ATIVAS (whitelist — .bak/old/binário JAMAIS) ────────
+    say("");
+    say("═ 5. CONFIGS ATIVAS (whitelist estrita: sem *.bak*, sem navegador) ═");
+    let conf_base = std::path::Path::new(&home_dono).join(".config");
+    for rel in CONFIGS_ATIVAS {
+        let caminho = conf_base.join(rel);
+        say(&format!(">>> {} <<<", caminho.display()));
+        // binário não é papel: NUL = não-texto (a lei do filtro E146)
+        if let Ok(bytes) = std::fs::read(&caminho) {
+            if bytes.contains(&0u8) {
+                say("  [ARQUIVO BINÁRIO — não viaja no papel (a lei do filtro E146)]");
+                continue;
+            }
+            let txt = String::from_utf8_lossy(&bytes);
+            for l in txt.lines() {
+                say(&format!("  {l}"));
+            }
+        } else {
+            say("  [AUSENTE]");
+        }
+    }
+
+    // ── 6. LOGS COMPLETOS (~/.cache/elite — inteiro, sem truncar) ───────
+    say("");
+    say("═ 6. LOGS COMPLETOS (~/.cache/elite — sem truncamento) ═");
+    let cache = std::path::Path::new(&home_dono).join(".cache/elite");
+    if let Ok(rd) = std::fs::read_dir(&cache) {
+        let mut logs: Vec<_> = rd.flatten().filter(|e| {
+            let n = e.file_name().to_string_lossy().to_string();
+            n.ends_with(".log") && !n.contains(".bak")
+        }).collect();
+        logs.sort_by_key(|e| e.file_name().to_string_lossy().to_string());
+        for e in logs {
+            let nome = e.file_name().to_string_lossy().to_string();
+            let Ok(txt) = std::fs::read_to_string(e.path()) else {
+                continue;
+            };
+            let n = txt.lines().count();
+            say(&format!(">>> {cache:?}/{nome} (linhas: {n}) <<<"));
+            for l in txt.lines() {
+                say(&format!("{l}"));
+            }
+            say("");
+        }
+    } else {
+        say("  ~/.cache/elite ausente");
+    }
+
+    // ── 7. JOURNAL (system + user) ──────────────────────────────────────
+    say("═ 7. JOURNAL DO BOOT (err..warning · system + sessão do dono) ═");
+    say("── journalctl -b -p err..warning --no-pager (system) ──");
+    if let Some(j) = colhe(&["journalctl", "-b", "-p", "err..warning", "--no-pager"]) {
+        for l in j.lines() {
+            say(l);
+        }
+    } else {
+        say("  [journalctl indisponível]");
+    }
+    say(&format!("── journalctl _UID={uid} -b -p err..warning --no-pager (sessão do dono) ──"));
+    if let Some(j) = colhe(&["journalctl", &format!("_UID={uid}"), "-b", "-p", "err..warning", "--no-pager"]) {
+        for l in j.lines() {
+            say(l);
+        }
+    } else {
+        say("  [journalctl indisponível]");
+    }
+
+    // ── 8. VEREDITO DE XML (xmllint ou python — a prova do heal) ────────
+    say("");
+    say("═ 8. VEREDITO DE XML (rc.xml · menu.xml) ═");
+    for f in ["rc.xml", "menu.xml"] {
+        let caminho = conf_base.join("labwc").join(f);
+        say(&format!("── {caminho:?} ──"));
+        if !caminho.exists() {
+            say("  [AUSENTE]");
+            continue;
+        }
+        let cstr = caminho.to_string_lossy().to_string();
+        if let Some(rc) = colhe_status(&["xmllint", "--noout", &cstr]) {
+            if rc == 0 {
+                say("  xmllint: VÁLIDO (exit 0, sem erros)");
+            } else {
+                say("  xmllint: INVÁLIDO — o heal E146 renova do mestre na próxima dose");
+            }
+        } else if let Some(rc) = colhe_status(&[
+            "python3", "-c", "import sys, xml.etree.ElementTree as ET; ET.parse(sys.argv[1])", &cstr,
+        ]) {
+            if rc == 0 {
+                say("  python ET: VÁLIDO (sem xmllint no sistema — o fallback julga)");
+            } else {
+                say("  python ET: INVÁLIDO — o heal E146 renova do mestre na próxima dose");
+            }
+        } else {
+            say("  [SEM JUIZ no sistema (nem xmllint nem python3) — não auditado]");
+        }
+    }
+
+    // ── 9. DISPLAY / ÁUDIO / BLUETOOTH / REDE ───────────────────────────
+    say("");
+    say("═ 9. DISPLAY, ÁUDIO, BLUETOOTH & REDE ═");
+    if let Some(r) = colhe(&["wlr-randr"]) {
+        for l in r.lines() {
+            say(l);
+        }
+    } else {
+        say("  [wlr-randr indisponível]");
+    }
+    say("");
+    if let Some(a) = colhe_com_runtime(&["pactl", "info"], uid) {
+        for l in a.lines() {
+            say(l);
+        }
+    }
+    if let Some(s) = colhe_com_runtime(&["pactl", "list", "short", "sinks"], uid) {
+        for l in s.lines() {
+            say(l);
+        }
+    }
+    say("");
+    if let Some(b) = colhe(&["bluetoothctl", "show"]) {
+        for l in b.lines() {
+            say(l);
+        }
+    }
+    say("");
+    if let Some(n) = colhe(&["nmcli", "-t", "-f", "STATE,CONNECTIVITY", "general", "status"]) {
+        say(&format!("nmcli: {n}"));
+    }
+    if let Some(n) = colhe(&["nmcli", "-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "device"]) {
+        for l in n.lines() {
+            say(l);
+        }
+    }
+
+    say("═ fim do consolidado — a sessão é o juiz, o papel é a testemunha ═");
+
+    // ── O ARQUIVO ÚNICO + O TAR.GZ ──────────────────────────────────────
+    let stamp = stamp_agora();
+    let txt = format!("/tmp/elite-dump-full-{stamp}.txt");
+    let tgz = format!("/tmp/elite-dump-full-{stamp}.tar.gz");
+    if std::fs::write(&txt, &p).is_err() {
+        println!("dump: FALHOU ao gravar {txt} (o consolidado completo segue no stdout)");
+        print!("{p}");
+        std::process::exit(1);
+    }
+    // o empacote é o tar da casa (gzip nativo do runner — zero dep nova)
+    let ok = std::process::Command::new("tar")
+        .args(["-czf", &tgz, "-C", "/tmp", &format!("elite-dump-full-{stamp}.txt")])
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false);
+    // o dono lê o próprio papel (o pkexec roda como root — o chown devolve)
+    if let Some(d) = &dono {
+        let _ = colhe(&["chown", &format!("{d}:{d}"), &txt]);
+        if ok {
+            let _ = colhe(&["chown", &format!("{d}:{d}"), &tgz]);
+        }
+    }
+    println!("dump --full: {txt}");
+    if ok {
+        println!("dump --full: {tgz} (o consolidado ÚNICO — sem .bak, sem navegador)");
+    } else {
+        println!("dump --full: o tar falhou — o .txt acima é o consolidado completo");
+    }
+}
+
+/// A hora local em ISO-ish (sem dep: os dígitos de /etc/localtime via `date`).
+fn agora_iso() -> String {
+    colhe(&["date", "+%Y-%m-%dT%H:%M:%S%:z"]).unwrap_or_else(|| "sem date no PATH".into()).trim().to_string()
+}
+
+fn stamp_agora() -> String {
+    colhe(&["date", "+%Y%m%d-%H%M%S"])
+        .map(|s| s.trim().to_string())
+        .unwrap_or_else(|| "sem-data".into())
+}
+
+fn uid_corrente() -> u32 {
+    std::fs::read_to_string("/proc/self/status")
+        .ok()
+        .and_then(|s| {
+            s.lines()
+                .find(|l| l.starts_with("Uid:"))
+                .and_then(|l| l.split_whitespace().nth(1).and_then(|v| v.parse().ok()))
+        })
+        .unwrap_or(0)
+}
+
+/// O status de UM comando (None se nem nasceu; Some(rc) quando rodou).
+fn colhe_status(argv: &[&str]) -> Option<i32> {
+    let out = std::process::Command::new(argv[0])
+        .args(&argv[1..])
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .output()
+        .ok()?;
+    Some(out.status.code().unwrap_or(-1))
+}
+
+/// A tabela de processos da sessão (pid, ppid, state, comm, cmdline) —
+/// a família + os zumbis pendurados nela (o ps aux filtrado da casa).
+fn processes_full() -> Vec<(u32, u32, char, String, String)> {
+    let mut v = Vec::new();
+    let Ok(rd) = std::fs::read_dir("/proc") else {
+        return v;
+    };
+    for e in rd.flatten() {
+        let Ok(pid) = e.file_name().to_string_lossy().parse::<u32>() else {
+            continue;
+        };
+        let Ok(stat) = std::fs::read_to_string(format!("/proc/{pid}/stat")) else {
+            continue;
+        };
+        // comm está entre parênteses (o parser honesto: o ÚLTIMO par)
+        let Some(abre) = stat.rfind('(') else { continue };
+        let Some(fecha) = stat[abre..].find(')') else { continue };
+        let comm = stat[abre + 1..abre + fecha].to_string();
+        let resto = &stat[abre + fecha + 2..];
+        let mut campos = resto.split_whitespace();
+        let state = campos.next().unwrap_or("?").chars().next().unwrap_or('?');
+        let ppid = campos.next().and_then(|s| s.parse().ok()).unwrap_or(0);
+        let familia = FAMILIA_FULL.contains(&comm.as_str());
+        let zumbi = state == 'Z';
+        if familia || zumbi {
+            let cmdline = std::fs::read_to_string(format!("/proc/{pid}/cmdline"))
+                .map(|c| c.replace('\0', " ").trim().to_string())
+                .unwrap_or_default();
+            let comm_exib = if zumbi { format!("[{comm}] <defunct>") } else { comm };
+            v.push((pid, ppid, state, comm_exib, cmdline));
+        }
+    }
+    v.sort_by_key(|(pid, _, _, _, _)| *pid);
+    v
 }
