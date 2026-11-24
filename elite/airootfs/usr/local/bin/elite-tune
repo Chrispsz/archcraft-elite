@@ -1053,9 +1053,11 @@ PYBRAVE
   # é o BORE do kernel (nenhum scheduler userspace por cima) e o boost de
   # jogo sob demanda é o gamemode. scx-elite/dmemcg/fg-booster extintos.
   run systemctl enable --now ananicy-cpp.service || true
-  # E136→E137 — O BLUETOOTH LIMPO E O SCX: o bluetooth.service serve a
-  # CENTRAL da casa (craft-connect: menu fuzzel + bluetoothctl, ZERO
-  # applet residente); o scx_loader já subiu no ensure_kernel_modernos
+  # E136→E141b — O BLUETOOTH LIMPO E O SCX: o bluetooth.service serve as
+  # FERRAMENTAS DE VERDADE da casa (o blueman-manager é a central — o
+  # botão de Bluetooth da barra e o bind W-S-b do rc.xml; a era
+  # craft-connect com menu fuzzel foi APOSENTADA pela E141b); o
+  # scx_loader já subiu no ensure_kernel_modernos
   # (o say de lá conta a história). Sem adaptador, o bluetoothd sobe
   # limpo e espera (não é FAILED — é rede sem rádio).
   run systemctl enable --now bluetooth.service 2>/dev/null || true
