@@ -100,8 +100,8 @@ fi
 
 # --- Barras + dock + residentes: O ORQUESTRADOR ÚNICO (2.0) ──────────────
 #     2.0 — O craft-bars APOSENTA (o supervisor sh da era waybar: o corpo
-#     bash dele era a cola do passado). O elite-daemon session é O
-#     lançador e o ÚNICO: top bar nativa (craft-bar-rs), dock (craft-
+#     bash dele era a cola do passado). O daemon da sessão (porta
+#     `session`) é O lançador e o ÚNICO: top bar nativa (craft-bar-rs), dock (craft-
 #     dock-rs v2), craft-toplevel, idle, polkit, swaync, udiskie, swayosd
 #     e o roteador de áudio são TODOS filhos dele (o binário e o daemon
 #     viajam NO MESMO PACOTE — sem fallback por desenho). O guard abaixo
@@ -139,7 +139,7 @@ fi
 
 # --- USB (udiskie) e OSD (swayosd-server): filhos do SUPERVISOR ÚNICO —
 #     E137: os spawns diretos morreram (o udiskie e o swayosd-server eram
-#     lançados AQUI e também pelo elite-daemon session — o segundo nascia
+#     lançados AQUI e também pelo daemon de sessão — o segundo nascia
 #     ou adotado ou morto no gate; agora UM só lançador). Os binds
 #     XF86Audio/MonBrightness falam com o swayosd-client; client sem
 #     daemon = fallback pactl/brightnessctl dentro do próprio bind (a
