@@ -22,11 +22,12 @@ use gtk4::prelude::*;
 pub fn load_css() {
     let provider = gtk4::CssProvider::new();
     let mestra = elite_core::THEME_CSS;
-    provider.load_from_data(mestra.as_bytes());
+    // (o Canal 145 ensinou: o load_from_data desta geração veste &str)
+    provider.load_from_data(mestra);
     // o override LIVRE do dono (se existe, soma — a mestra nunca sai)
-    let caminho = crate::caminho_override();
+    let caminho = caminho_override();
     if let Ok(extra) = std::fs::read_to_string(&caminho) {
-        provider.load_from_data(format!("{mestra}\n{extra}").as_bytes());
+        provider.load_from_data(&format!("{mestra}\n{extra}"));
     }
     if let Some(disp) = gtk4::gdk::Display::default() {
         gtk4::style_context_add_provider_for_display(
@@ -72,10 +73,22 @@ pub fn executa(
             Ok(f) => {
                 let pid = f.id();
                 // o dreno duplo (stdout E stderr): duas threads curtas,
-                // o Fim espera o processo e avisa UMA vez
+                // o Fim espera o processo e avisa UMA vez (o Canal 145
+                // ensinou: ChildStdout e ChildStderr são tipos IRMÃOS,
+                // não iguais — a caixa comum é o trait, não o array)
                 let mut asas = Vec::new();
-                for stream in [f.stdout, f.stderr] {
-                    if let Some(s) = stream {
+                let duplo: Vec<Box<dyn std::io::Read + Send>> = {
+                    let mut v = Vec::new();
+                    if let Some(s) = f.stdout {
+                        v.push(Box::new(s) as Box<dyn std::io::Read + Send>);
+                    }
+                    if let Some(s) = f.stderr {
+                        v.push(Box::new(s) as Box<dyn std::io::Read + Send>);
+                    }
+                    v
+                };
+                for s in duplo {
+                    {
                         let tx = tx.clone();
                         asas.push(std::thread::spawn(move || {
                             let leitor = BufReader::new(s);
@@ -161,7 +174,8 @@ pub fn janela_base(app: &gtk4::Application, nome: &str, titulo: &str) -> gtk4::A
 /// o bloco de texto vivo (o "terminal" da casa — monospace, escuro,
 /// a fonte da barra; o dono copia, o texto rola).
 pub fn bloco_texto() -> (gtk4::ScrolledWindow, gtk4::TextBuffer) {
-    let buffer = gtk4::TextBuffer::new(None::<gtk4::TextTagTable>);
+    // (o Canal 145: o TextBuffer::new veste Option<&TextTagTable>)
+    let buffer = gtk4::TextBuffer::new(None::<&gtk4::TextTagTable>);
     let view = gtk4::TextView::with_buffer(&buffer);
     view.set_editable(false);
     view.set_cursor_visible(false);
@@ -176,11 +190,11 @@ pub fn bloco_texto() -> (gtk4::ScrolledWindow, gtk4::TextBuffer) {
 }
 
 /// auto-scroll para o fim quando o texto cresce (o vadjustment do
-/// scrolled — a descida é cortesia visual).
+/// scrolled — a descida é cortesia visual; o Canal 145: NÃO é Option
+/// nesta geração — o adjustment vive SEMPRE).
 pub fn rola_para_o_fim(scroll: &gtk4::ScrolledWindow) {
-    if let Some(adj) = scroll.vadjustment() {
-        adj.set_value(adj.upper() - adj.page_size());
-    }
+    let adj = scroll.vadjustment();
+    adj.set_value(adj.upper() - adj.page_size());
 }
 
 /// o dreno do texto vivo (idle — a latência da casa).
