@@ -1506,7 +1506,6 @@ fn sync_dynamic(st: &Rc<RefCell<State>>) {
             PinRow {
                 button: btn,
                 act: Act::App {
-                    hint: String::new(),
                     did: did.clone(),
                     cmd: icons::exec_ready(&entry),
                     cands: icons::focus_candidates(&entry, ""),
