@@ -1,0 +1,16 @@
+# craft-dump-rs — a telemetria v2 da casa (2.0)
+[package]
+name = "craft-dump-rs"
+version = "2.0.0"
+edition = "2021"
+description = "ELITE · telemetria v2: era nativa, serviços, ausência de legado, boot — o papel que se conhece"
+license = "GPL-3.0"
+
+[[bin]]
+name = "craft-dump-rs"
+path = "src/main.rs"
+
+[dependencies]
+elite-core = { path = "../elite-core" }
+
+[dev-dependencies]

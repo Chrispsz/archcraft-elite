@@ -1,0 +1,98 @@
+/* ═════════════════════════════════════════════════════════════════════════
+ * Design System ELITE — A FOLHA MESTRA ÚNICA (2.0)
+ * ═════════════════════════════════════════════════════════════════════════
+ * A identidade visual de TODA a casa mora neste arquivo: a craft-bar-rs,
+ * a craft-dock-rs e os popovers nativos (GtkPopoverMenu) o embutem via
+ * elite-core::THEME_CSS (include_str! — a pele viaja NO BINÁRIO, sem
+ * drift entre eras); o swaync e o nwg-drawer recebem a MESMA paleta pelos
+ * skins do pacote (mesmos tokens, gramática própria de cada ferramenta).
+ *
+ * Override do dono: arquivo LIVRE (css_path da barra / dock), relido no
+ * SIGUSR2 — a folha mestra é o FALLBACK, nunca um arquivo vivo editável.
+ *
+ * Paleta: Catppuccin Mocha Mauve (a família do rice desde a origem).
+ * ═════════════════════════════════════════════════════════════════════════ */
+
+/* ── Tokens da casa (nomes, não valores, nas regras abaixo) ─────────────── */
+@define-color elite-bg rgba(5, 5, 8, 0.92);
+@define-color elite-bg-dock rgba(5, 5, 8, 0.88);
+@define-color elite-surface rgba(49, 50, 68, 0.95);
+@define-color elite-surface-strong rgba(88, 91, 112, 0.95);
+@define-color elite-border rgba(22, 22, 31, 0.8);
+@define-color elite-text #cdd6f4;
+@define-color elite-text-dim #a6adc8;
+@define-color elite-danger #f38ba8;
+@define-color elite-off #6c7086;
+@define-color elite-accent rgba(205, 214, 244, 0.9);
+
+/* ── Barra (craft-bar-rs · layer-shell topo) ────────────────────────────── */
+#barwindow { background: @elite-bg; }
+#barbox { padding: 2px 10px; min-height: 34px; }
+#barbox > button, #barbox > menubutton {
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  padding: 2px 9px;
+  color: @elite-text;
+  font-family: "JetBrainsMono NF", "Symbols Nerd Font", monospace;
+  font-size: 15px;
+}
+#barbox button:hover, #barbox menubutton:hover { background: @elite-surface; }
+#barbox button:active, #barbox menubutton:active { background: @elite-surface-strong; }
+#barbox button.muted { color: @elite-danger; }
+#barbox button.off { color: @elite-off; }
+#barbox #playerbtn label { color: @elite-text-dim; font-size: 13px; }
+#barbox #clockbtn { font-weight: 600; }
+
+/* ── Popovers nativos (sessão da barra — a mesma cara da barra) ─────────── */
+popover > contents {
+  background: @elite-bg;
+  border: 1px solid @elite-border;
+  border-radius: 12px;
+  padding: 6px;
+}
+popover > contents button {
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 14px;
+  color: @elite-text;
+}
+popover > contents button:hover { background: @elite-surface; }
+popover > contents button.destructive { color: @elite-danger; }
+popover > contents separator {
+  background: rgba(108, 112, 134, 0.45);
+  margin: 4px 6px;
+}
+
+/* ── Dock (craft-dock-rs v2 · layer-shell base) ─────────────────────────── */
+#dockwindow { background: transparent; }
+#dockbox {
+  background: @elite-bg-dock;
+  border: 1px solid @elite-border;
+  border-radius: 20px;
+  padding: 4px 10px;
+}
+#dockbox button {
+  padding: 4px;
+  min-height: 44px;
+  min-width: 44px;
+  border-radius: 12px;
+  background: transparent;
+  border: none;
+  transition: background 0.15s ease;
+}
+#dockbox button:hover { background: @elite-border; }
+#dockbox button:active { background: rgba(46, 46, 61, 0.95); }
+#dockbox button.running {
+  /* E36 — a BOLINHA 6x3px centrada do dono */
+  background-image: linear-gradient(@elite-accent, @elite-accent);
+  background-size: 6px 3px;
+  background-position: center bottom;
+  background-repeat: no-repeat;
+}
+#dockbox separator {
+  min-width: 1px;
+  margin: 8px 7px;
+  background: rgba(108, 112, 134, 0.45);
+}

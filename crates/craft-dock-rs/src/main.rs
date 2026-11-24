@@ -225,7 +225,10 @@ fn main() {
         "craft-dock-rs {VERSION} — compilado SEM a feature 'gui': este binário\n\
          \x20é só o núcleo de lógica (protocolo/ícones//proc) e os testes da\n\
          \x20casa. A dock de verdade nasce com `cargo build --release` (feature\n\
-         \x20gui ON — exige GTK4 dev no ambiente, o makedepends do PKGBUILD)."
+         \x20gui ON — exige GTK4 dev no ambiente, o makedepends do PKGBUILD).\n\
+         \x20elite-core: o bus da sessão vive em {:?} (o fio 2.0 que a dock\n\
+         \x20assina quando a gui existir).",
+        elite_core::bus_sock_path(uid_do_procfs())
     );
     std::process::exit(1);
 }
@@ -289,4 +292,17 @@ mod tests {
         let txt2 = std::fs::read_to_string(&f).unwrap();
         assert_eq!(txt2.lines().count(), 2);
     }
+}
+
+/// O uid REAL do processo (procfs — a mesma leitura honesta da casa).
+#[cfg(not(feature = "gui"))]
+fn uid_do_procfs() -> u32 {
+    std::fs::read_to_string("/proc/self/status")
+        .ok()
+        .and_then(|s| {
+            s.lines()
+                .find(|l| l.starts_with("Uid:"))
+                .and_then(|l| l.split_whitespace().nth(1).and_then(|v| v.parse().ok()))
+        })
+        .unwrap_or(1000)
 }

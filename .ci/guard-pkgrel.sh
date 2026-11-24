@@ -62,12 +62,12 @@ fail=0
 # build do elite-system. E132: o listener APOSENTOU (o agente da casa é
 # o lxqt-policykit-agent nativo, o C saiu do repo) — a exclusão segue
 # porque a DELEÇÃO é história do elite-system, não da ponte.
-# E131 — A MESMA LIÇÃO PARA O RUST: o workspace vendor/rust/ compila NO
+# E131 — A MESMA LIÇÃO PARA O RUST: o workspace crates/ compila NO
 # build do elite-system (makedepends rust exclusivo — a fundação do
 # espreme-limão); a ponte craft-toplevel nunca o vê. Sem a exclusão o
 # guard cobrou o pkgrel=6 da ponte pela fundação (run 44815642965 — o
 # réu nomeado pelo próprio log do CI).
-VENDOR_TL_DELTA="$(git diff --name-only "$LAST_TAG" HEAD -- vendor/ ':(exclude)vendor/elite-polkit-listener.c' ':(exclude)vendor/rust/**' 2>/dev/null || true)"
+VENDOR_TL_DELTA="$(git diff --name-only "$LAST_TAG" HEAD -- vendor/ ':(exclude)vendor/elite-polkit-listener.c' ':(exclude)crates/**' 2>/dev/null || true)"
 check craft-toplevel "$VENDOR_TL_DELTA" || fail=1
 
 # elite-system (O PACOTE ÚNICO E50): todo o /usr/local/bin da casa (o

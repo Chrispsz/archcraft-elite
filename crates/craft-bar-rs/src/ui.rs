@@ -930,29 +930,9 @@ fn load_css() {
     }
 }
 
-/// O fallback embutido (a cara escura da era waybar, na gramática
-/// GTK4 — o glifo é JetBrainsMono NF, a família da casa; o fundo é a
-/// faixa INTEIRA: a barra top do modelo menu-bar não é pílula).
-const DEFAULT_CSS: &str = "
-#barwindow { background: rgba(5, 5, 8, 0.92); }
-#barbox { padding: 2px 10px; min-height: 34px; }
-#barbox > button, #barbox > menubutton {
-  background: transparent;
-  border: none;
-  border-radius: 8px;
-  padding: 2px 9px;
-  color: #cdd6f4;
-  font-family: \"JetBrainsMono NF\", \"Symbols Nerd Font\", monospace;
-  font-size: 15px;
-}
-#barbox button:hover, #barbox menubutton:hover {
-  background: rgba(49, 50, 68, 0.95);
-}
-#barbox button:active, #barbox menubutton:active {
-  background: rgba(88, 91, 112, 0.95);
-}
-#barbox button.muted { color: #f38ba8; }
-#barbox button.off { color: #6c7086; }
-#barbox #playerbtn label { color: #a6adc8; font-size: 13px; }
-#barbox #clockbtn { font-weight: 600; }
-";
+/// O fallback embutido AGORA É A FOLHA MESTRA ÚNICA (2.0 — Design System
+/// ELITE): a pele da casa mora no elite-core (assets/theme.css) e a barra
+/// o embute — uma identidade só para barra, dock e popovers, zero drift;
+/// o override do dono segue arquivo LIVRE relido no SIGUSR2.
+const DEFAULT_CSS: &str = elite_core::THEME_CSS;
+

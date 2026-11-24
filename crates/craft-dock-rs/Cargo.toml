@@ -32,6 +32,9 @@ default = ["gui"]
 gui = ["gtk4", "gtk4-layer-shell", "libc"]
 
 [dependencies]
+# 2.0 — a FUNDAÇÃO da casa: os contratos tipados + a folha mestra única
+# (Theme CSS embutido via include_str do elite-core, zero drift de pele).
+elite-core = { path = "../elite-core" }
 # sha2: o digest do CAMINHO do AppImage para o nome do cache de ícones
 # (~/.cache/elite/appimage-icons/<sha256[0..24]>.png — o mesmo formato
 # do craft-dock-gui E130: os caches são COMPARTILHADOS entre os dois).

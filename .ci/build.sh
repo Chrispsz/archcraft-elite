@@ -392,10 +392,14 @@ cp /work/vendor/craft-toplevel.c /tmp/elite-src/elite-system/
 # orquestração: o agente-irmão cria o craft-dock-rs CONCORRENTEMENTE —
 # presente o crate, ele entra no tar; ausente, o workspace segue só com
 # o elite-daemon (a variável é a ponte entre os DOIS agentes).
-RUST_CRATES="elite-daemon"
-[ -d /work/vendor/rust/craft-dock-rs ] && RUST_CRATES="$RUST_CRATES craft-dock-rs"
-[ -d /work/vendor/rust/craft-bar-rs ] && RUST_CRATES="$RUST_CRATES craft-bar-rs"
-tar -C /work/vendor/rust \
+# 2.0 — o workspace mora em crates/ (a FASE 1 da reconstrução: a fundação
+# elite-core e a telemetria craft-dump-rs entram na família — o guard de
+# presença continua: crate presente entra no tar, ausente não quebra).
+RUST_CRATES="elite-core elite-daemon"
+[ -d /work/crates/craft-dock-rs ] && RUST_CRATES="$RUST_CRATES craft-dock-rs"
+[ -d /work/crates/craft-bar-rs ] && RUST_CRATES="$RUST_CRATES craft-bar-rs"
+[ -d /work/crates/craft-dump-rs ] && RUST_CRATES="$RUST_CRATES craft-dump-rs"
+tar -C /work/crates \
     --exclude='target' --exclude='.gitignore' --exclude='.cargo' \
     -czf /tmp/elite-src/elite-system/rust-workspace.tar.gz \
     $RUST_CRATES Cargo.toml Cargo.lock
@@ -2552,7 +2556,8 @@ pkgver=1.0
 #     themerc-override + settings GTK3/GTK4 (theo_install/gtk_install).
 # E132 (lei E41, âncora viva refrescada): pkgrel 78→79 NO MESMO COMMIT
 #     (lei E41) — A FUNDAÇÃO RUST DA CASA (a ordem do dono: espremer o
-#     limão): o workspace vendor/rust/ compila NO build deste pacote
+#     limão): o workspace crates/ compila NO build deste pacote (2.0: a
+#     fundação crates/elite-core + crates/craft-dump-rs entram com os irmãos)
 #     (makedepends rust+cargo EXCLUSIVO — zero toolchain na ISO e no
 #     pacote final, o binário é o que viaja; o tar é a fonte do makepkg
 #     porque source=() não aceita diretórios; a lição E131 no comentário
@@ -2755,7 +2760,7 @@ pkgver=1.0
 #         o HDMI cede para a analógica com o piso de volume 40% no zero
 #         (o marcador audio-hdmi-ok respeita quem QUER o monitor); o
 #         mousepad sai dos rigs e o fóssil zram 150 de /usr/lib idem.
-pkgrel=88
+pkgrel=89
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da sessão; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

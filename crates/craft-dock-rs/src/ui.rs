@@ -1197,8 +1197,9 @@ fn pins_adiciona(id: &str) -> bool {
     }
     txt.push_str(id);
     txt.push('\n');
-    let tmp = path.with_extension("elite-tmp");
-    std::fs::write(&tmp, txt.as_bytes()).is_ok() && std::fs::rename(&tmp, &path).is_ok()
+    // 2.0 — a escrita cruza o contrato do elite-core (tmp na MESMA pasta +
+    // fsync + rename; o mesmo gesto que cura os pins cura todo o estado)
+    elite_core::persist::write_atomic(&path, txt.as_bytes()).is_ok()
 }
 
 // ── os VERBOS (a gramática UMA da casa) ───────────────────────────────
@@ -1634,37 +1635,9 @@ fn load_css() {
     }
 }
 
-/// O fallback embutido (o DEFAULT_CSS do Python, na gramática GTK4 —
-/// os seletores #name e a bolinha do .running seguem os mesmos).
-const DEFAULT_CSS: &str = "
-#dockwindow { background: transparent; }
-#dockbox {
-  background: rgba(5, 5, 8, 0.88);
-  border: 1px solid rgba(22, 22, 31, 0.8);
-  border-radius: 20px;
-  padding: 4px 10px;
-}
-#dockbox button {
-  padding: 4px;
-  min-height: 44px;
-  min-width: 44px;
-  border-radius: 12px;
-  background: transparent;
-  border: none;
-  transition: background 0.15s ease;
-}
-#dockbox button:hover { background: rgba(22, 22, 31, 0.95); }
-#dockbox button:active { background: rgba(46, 46, 61, 0.95); }
-#dockbox button.running {
-  /* E36 — a BOLINHA 6x3px centrada do dono */
-  background-image: linear-gradient(rgba(205, 214, 244, 0.9), rgba(205, 214, 244, 0.9));
-  background-size: 6px 3px;
-  background-position: center bottom;
-  background-repeat: no-repeat;
-}
-#dockbox separator {
-  min-width: 1px;
-  margin: 8px 7px;
-  background: rgba(108, 112, 134, 0.45);
-}
-";
+/// O fallback embutido AGORA É A FOLHA MESTRA ÚNICA (2.0 — Design System
+/// ELITE): a pele da casa mora no elite-core (assets/theme.css) e a dock
+/// o embute — os seletores #name e a bolinha do .running seguem os
+/// mesmos, agora com os tokens da paleta unificada.
+const DEFAULT_CSS: &str = elite_core::THEME_CSS;
+

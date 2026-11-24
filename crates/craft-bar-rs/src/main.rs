@@ -157,6 +157,13 @@ fn main() {
         );
         return;
     }
+    // 2.0 — sem gui, a mensagem honesta nomeia o fio da sessão (o contrato
+    // do elite-core): onde a barra assina quando a gui existir
+    let uid = crate::state::uid_do_processo();
+    println!(
+        "elite-core: o bus da sessão vive em {:?}",
+        elite_core::bus_sock_path(uid)
+    );
     if std::env::var_os("WAYLAND_DISPLAY").is_none() {
         log("sem WAYLAND_DISPLAY — saindo (a barra só vive na sessão)");
         eprintln!("craft-bar: sem WAYLAND_DISPLAY — a barra só vive na sessão");

@@ -31,6 +31,9 @@ default = ["gui"]
 gui = ["gtk4", "gtk4-layer-shell", "libc"]
 
 [dependencies]
+# 2.0 — a FUNDAÇÃO da casa: os contratos tipados + a folha mestra única
+# (Theme CSS embutido via include_str do elite-core, zero drift de pele).
+elite-core = { path = "../elite-core" }
 # libc (só na gui): o handler cru dos sinais da casa — SIGRTMIN+8 (o
 # pill do modo de jogo acende/apaga na transição que o elite-daemon
 # avisa) e SIGRTMIN+9 (a pílula dos apps em 2º plano, o evento

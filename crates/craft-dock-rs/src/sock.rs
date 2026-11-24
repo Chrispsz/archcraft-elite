@@ -25,9 +25,11 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 /// Flags do protocolo (o mapa do daemon — ver cabeçalho).
-pub const F_MAXIMIZED: u32 = 1;
+/// (F_MAXIMIZED saiu na 2.0: réu E76 — nenhum leitor na árvore inteira,
+/// nem na gui; o maximizado não muda o verbo da dock.)
 pub const F_MINIMIZED: u32 = 2;
 pub const F_ACTIVATED: u32 = 4;
+#[cfg_attr(not(feature = "gui"), allow(dead_code))] // o leitor mora na ui.rs (gui)
 pub const F_FULLSCREEN: u32 = 8;
 
 /// Uma janela REAL da sessão (a entrada do snapshot).

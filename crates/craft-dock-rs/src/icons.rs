@@ -685,6 +685,9 @@ pub fn scan_desktop_dir(dir: &Path) -> Vec<DesktopEntry> {
 /// Os diretórios de .desktop que a casa varre (E132 — os EXPORTS do
 /// Flatpak ANTES do sistema: o Flatpak instalado pelo usuário mora no
 /// export dele, não em /usr/share/applications).
+/// (Consumidor único: a montagem da dock na gui — no núcleo sem gui a
+/// função descansa, a voz abaixo mantém a casa sem aviso nenhum.)
+#[cfg_attr(not(feature = "gui"), allow(dead_code))]
 pub fn desktop_dirs(home: &Path) -> Vec<PathBuf> {
     vec![
         PathBuf::from("/var/lib/flatpak/exports/share/applications"),

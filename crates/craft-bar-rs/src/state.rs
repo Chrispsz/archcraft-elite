@@ -466,3 +466,34 @@ mod tests {
         assert!(dentro_janela_ms(t0, t0 - 1, 150));
     }
 }
+
+/// O uid REAL do processo (procfs — a mesma leitura honesta da casa; o
+/// XDG_RUNTIME_DIR da sessão nasce do uid — o bus.sock é contrato do elite-core).
+pub fn uid_do_processo() -> u32 {
+    std::fs::read_to_string("/proc/self/status")
+        .ok()
+        .and_then(|s| {
+            s.lines()
+                .find(|l| l.starts_with("Uid:"))
+                .and_then(|l| l.split_whitespace().nth(1).and_then(|v| v.parse().ok()))
+        })
+        .unwrap_or(1000)
+}
+
+#[cfg(test)]
+mod elite_core_tests {
+    use super::*;
+
+    #[test]
+    fn o_uid_cru_e_o_uid_do_papel() {
+        let uid = uid_do_processo();
+        // no sandbox e no rig o uid é > 0 (root = 0 é possível, mas a sessão
+        // da casa nunca roda como root — o guard é a própria sessão)
+        let paper = std::fs::read_to_string("/proc/self/status")
+            .expect("/proc/self/status existe em qualquer unix vivo");
+        assert!(paper.contains(&format!("Uid:\t{uid}")));
+        // o contrato do elite-core responde com o caminho da sessão
+        let bus = elite_core::bus_sock_path(uid);
+        assert!(bus.ends_with("elite/bus.sock"));
+    }
+}
