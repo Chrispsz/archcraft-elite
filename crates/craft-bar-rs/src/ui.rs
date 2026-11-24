@@ -279,7 +279,7 @@ fn build(app: &gtk::Application) {
     //    mesa (`1 2 3 4`) e o título ativo SAÍRAM da barra: a troca de
     //    mesa é o scroll/atalhos W-1..4 do labwc, o título mora na
     //    moldura da própria janela — a barra fica LIMPA
-    let btn_apps = botao_apps(st.clone(), &window);
+    let btn_apps = botao_apps(&st, &window);
     esq.append(&btn_apps);
 
     // ── CENTRO (1.0-93): o relógio em HORÁRIO LOCAL (a ordem do dono,
@@ -476,7 +476,7 @@ fn build(app: &gtk::Application) {
         btn_rede.set_label(glifo_rede(EstadoRede::Desligado));
         btn_rede.set_tooltip_text(Some("Rede — clique: seletor rápido · direito: conexões"));
         {
-            let pop = popover_rede(st.clone(), tx.clone());
+            let pop = popover_rede(&st, tx.clone());
             pop.set_parent(&btn_rede);
             let tx = tx.clone();
             clique_solto(&btn_rede, move |botao| match botao {
@@ -973,15 +973,15 @@ fn desenha_relogio(st: &Rc<RefCell<State>>) {
     let mut s = st.borrow_mut();
     if s.minuto_desenhado != m {
         s.clock_label.set_text(&relogio_ptbr(
-            u32::from(agora.day_of_week() % 7),
-            agora.day() as u32,
-            agora.month() as u32,
-            agora.hour() as u32,
+            (agora.day_of_week().rem_euclid(7)) as u32,
+            agora.day_of_month(),
+            agora.month(),
+            agora.hour(),
             m,
         ));
         s.clock_label.set_tooltip_text(Some(&format!(
             "{:02}/{:02}/{} — clique: notificações · hover: calendário · direito: não perturbe",
-            agora.day(),
+            agora.day_of_month(),
             agora.month(),
             agora.year()
         )));
@@ -1182,6 +1182,7 @@ fn popover_rede(st: &Rc<RefCell<State>>, tx: Sender<Msg>) -> gtk::Popover {
             let tx = tx.clone();
             sw.connect_state_set(move |_, on| {
                 let cmd = if on { "on" } else { "off" };
+                let tx = tx.clone();
                 std::thread::spawn(move || {
                     let _ = Command::new("nmcli")
                         .args(["radio", "wifi", cmd])
