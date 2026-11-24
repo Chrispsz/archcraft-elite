@@ -124,6 +124,14 @@ has_gamemode() {
 # quer performance — o pid registrado é o DELE (off = unregister + ceifa)
 holder_pid_file() { printf '%s/game-holder.pid' "$RUN_DIR"; }
 
+# 2.0 — a sonda silenciosa do QueryStatus (o toggle pergunta; o papel
+# só fala no menu — zero stdout roubado do chamador; a pergunta é o
+# gm_status do PRÓPRIO pid — o daemon proxy conta, o manual idem)
+gm_status_quiet() {
+    has_gamemode || return 1
+    [ "$(gm_status $$)" = "1" ]
+}
+
 ensure_run_dir() { mkdir -p "$RUN_DIR" 2>/dev/null || true; }
 
 # ── E126 — A MOLDURA VOLTA AO SAIR DO FULLSCREEN (o item do dono: jogos
@@ -561,9 +569,9 @@ gm_status_cmd() {
     printf '\nlog: %s\n' "$LOG"
 }
 
-# ── o MENU (a porta mouse-first — o motor único craft-menu) ─────────────
+# ── o MENU (a porta mouse-first — o motor único 2.0 é o craft-pick) ─────
 gm_menu() {
-    command -v craft-menu >/dev/null 2>&1 || { gm_status_cmd; exit 0; }
+    command -v craft-pick >/dev/null 2>&1 || { gm_status_cmd; exit 0; }
     local auto=""
     [ -r "$CONF" ] && auto="$(sed -n 's/^AUTO=//p' "$CONF" | head -1)"
     local items=() choice
@@ -582,12 +590,12 @@ gm_menu() {
     # E119 — O PAPEL DA PORTA (o dump 221647: o dono clicou 'Ativar agora'
     # e o game.log NÃO TEM UMA linha — o gm_on tem quatro ramos e TODOS
     # logam, o que significa que o clique MORREU ANTES do despacho: o
-    # caminho entre o fuzzel e o case era cego (rc≠0 do craft-menu saía
+    # caminho entre o picker e o case era cego (rc≠0 do pick saía
     # no || exit 0 calado). O despacho entra no papel: o clique que chega
     # deixa a escolha; o fecho benigno segue na lei dos menus; o rc
     # anômalo fica nomeado — a próxima perícia vê onde a porta falhou.
     _gm_rc=0
-    choice="$(printf '%s\n' "${items[@]}" | craft-menu --title='Modo de jogo' --at=power)" || _gm_rc=$?
+    choice="$(printf '%s\n' "${items[@]}" | craft-pick --title='Modo de jogo')" || _gm_rc=$?
     if [ "$_gm_rc" = 0 ]; then
         glog "menu: escolha '$choice' (despacho = papel)"
     else
@@ -662,14 +670,25 @@ gm_menu() {
     esac
 }
 
+# 2.0 — O TOGGLE (o pill da barra pede pelo bus: ativo → desliga,
+# parado → liga; o estado REAL do holder é o juiz — o mesmo do menu)
+gm_toggle() {
+    if [ -r "$(holder_pid_file)" ] || gm_status_quiet; then
+        gm_off
+    else
+        gm_on
+    fi
+}
+
 case "${1:-menu}" in
     status) gm_status_cmd ;;
     pill) gm_pill ;;
     on) gm_on ;;
     off) gm_off ;;
+    toggle) gm_toggle ;;
     watch) gm_watch ;;
     hook) gm_hook "${2:-}" ;;
     menu|"") gm_menu ;;
     -h|--help|uso) sed -n '2,32p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
-    *) echo "uso: craft-game [status|on|off|watch|hook start|hook end|menu]" >&2; exit 2 ;;
+    *) echo "uso: craft-game [status|on|off|toggle|watch|hook start|hook end|menu]" >&2; exit 2 ;;
 esac

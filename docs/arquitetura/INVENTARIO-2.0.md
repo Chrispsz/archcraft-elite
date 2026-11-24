@@ -10,12 +10,13 @@ nada morre sem endereço. Fonte: a perícia da árvore na Fase 1
 | Peça (era 1.0) | Destino na 2.0 | Estado |
 |---|---|---|
 | `vendor/rust/` (morada) | `crates/` (git mv — a história preservada) | ✅ E141a |
-| `elite-daemon` | continua — o orquestrador único (session/game/supervise); módulos Wayland nativo/PipeWire/S3/game na Fase 2 | ✅ movido |
-| `craft-dock-rs` | continua — dock v2; pele = folha mestra; pins via `elite-core::persist` | ✅ movido |
-| `craft-bar-rs` | continua — top bar nativa; pele = folha mestra | ✅ movido |
-| `elite-core` | **NOVO** — contratos tipados, bus.sock IPC, persistência atômica, Design System | ✅ E141a |
-| `craft-dump-rs` | **NOVO** — telemetria v2 (núcleo puro; coleta completa na Fase 2) | ✅ E141a |
-| `craft-toplevel.c` | vive até o daemon consumir `zwlr-foreign-toplevel` nativamente via `wayland-client` | Fase 2 |
+| `elite-daemon` | continua — o orquestrador único (session/game/supervise); módulos Wayland nativo/PipeWire/S3/game na Fase 2 | ✅ E142b (wayland/idle/audio/mpris/workspace/nucleo nativos) |
+| `craft-dock-rs` | continua — dock v2; pele = folha mestra; pins via `elite-core::persist` | ✅ E142c (fala o bus) |
+| `craft-bar-rs` | continua — top bar nativa; pele = folha mestra | ✅ E142d (pílulas/título/mídia pelo fio) |
+| `elite-core` | **NOVO** — contratos tipados, bus.sock IPC, persistência atômica, Design System | ✅ E141a+E142a (bus bidirecional) |
+| `craft-dump-rs` | **NOVO** — telemetria v2 (núcleo puro; coleta completa na Fase 2) | ✅ E143 (o papel v2 completo: boot/serviços/família/bus/áudio/vigília) |
+| `craft-tools` | **NOVO (Fase 2)** — as janelas nativas craft-update/craft-clean/craft-help + o seletor craft-pick (a gramática dmenu em GTK4 na folha mestra) | ✅ E143 |
+| `craft-toplevel.c` | **MORTO E142b/E142c** — o daemon é o cliente `zwlr-foreign-toplevel` nativo; o pacote próprio, o hook elite-adopt e o toplevel.sock morreram juntos | ✅ sepultado |
 | DEFAULT_CSS duplicado (bar+dock) | `crates/elite-core/assets/theme.css` — A FOLHA MESTRA ÚNICA embutida nos dois | ✅ E141a |
 
 ## A faxina (os fósseis)
@@ -27,7 +28,11 @@ nada morre sem endereço. Fonte: a perícia da árvore na Fase 1
 | `craft-pin-pick` | morto na E140 — o popover da dock tomou o lugar | ✅ zero spawn vivo |
 | `craft-bars` (supervisor sh) | **aposentado E141b** — o autostart convoca `elite-daemon session` DIRETO (guard honesto no bars.log) | ✅ |
 | `craft-connect` (fuzzel rede/BT) | **aposentado E141b** — iwgtk / nm-connection-editor / blueman-manager são as telas | ✅ |
-| `craft-menu` + `craft-menu-dismiss` | **VIVOS nesta fase** (12 bins da casa invocam em ~30 linhas ativas — enterro sem rebobinar = função sem substituto); destino: popovers nativos + ferramentas dedicadas, rebobinados na Fase 2 | ⏳ Fase 2 |
+| `craft-menu` + `craft-menu-dismiss` | **MORTOS E143** — os 12 chamadores rebobinados: os menus de escolha viram `craft-pick` (dmenu nativo GTK4), update/limpeza/ajuda viram as janelas `craft-tools`, sessão é o menu `elite-sessao` do labwc e o dismiss é lei do próprio compositor | ✅ zero chamada viva |
+| `craft-player` (polling 1s) | **MORTO E143** — o MPRIS é nativo no daemon (zbus por evento) e a barra veste o `media_pill` pelo bus | ✅ |
+| `craft-power` + `craft-logout` | **MORTOS E143** — os verbos são itens do menu `elite-sessao` (labwc nativo) e o popover da barra | ✅ |
+| `craft-drawer` (wrapper) | **MORTO E143** — o W-d e o item Aplicativos convocam o `nwg-drawer` DIRETO | ✅ |
+| `craft-audio-route` (python) | **MORTO E142b** — o roteador é o `audio.rs` do daemon (as 4 classes, o piso da voz, o pactl subscribe) | ✅ |
 | `mousepad` | packages.remove (gnome-text-editor é o editor) | ✅ |
 | `craft-dock-gui` (dock Python) | morto na E134 — ceifa de migração viva no post_upgrade/craft-update | ✅ |
 
@@ -46,8 +51,12 @@ nada morre sem endereço. Fonte: a perícia da árvore na Fase 1
 
 `iwgtk` · `nm-connection-editor` · `blueman` · `pwvucontrol` · `swaync` ·
 `coolercontrol` · `nwg-drawer` · `gnome-text-editor` · `papers` ·
-`brave-origin` · `swayidle` · `udiskie` · `cliphist` · `swayosd` ·
+`brave-origin` · `udiskie` · `cliphist` · `swayosd` ·
 Flatpaks adotados: `Bazaar` · `Warehouse` · `Gear Lever`.
+
+O **swayidle** saiu da lista na Fase 2: a vigília (trava + DPMS +
+suspend + inibidores) é o `ext-idle-notify-v1` NATIVO do elite-daemon
+— o pacote vai ao packages.remove com voz (a fronteira é legível).
 
 Réu que a porteira REAL pegou: a E138 pediu pavucontrol, a E140 rewired
 a casa para **pwvucontrol** e a lista nunca acompanhou — a ISO nascia com
@@ -58,6 +67,6 @@ o mixer que os binds não chamam. ✅ curado (E141c).
 | Peça (era 1.0) | Destino na 2.0 | Estado |
 |---|---|---|
 | `tests/phases/30-unit.sh` + `40-integration.sh` (7k linhas de mocks) | **aposentados** — os mocks que passavam com a tela quebrada | ✅ E141c |
-| `tests/phases/10-estrutura` + `20-estatica` + `30-cargo` + `60-veredito` | **NOVA porteira real** (105 contratos sobre a árvore, zero mocks) | ✅ E141c |
-| `tests/session_smoke/` | Nível 2 — a sessão viva (Fase 2) | ⏳ esqueleto nomeado |
-| `tests/iso-qemu/` | Nível 3 — a ISO no QEMU (Fase 2) | ⏳ esqueleto nomeado |
+| `tests/phases/10-estrutura` + `20-estatica` + `30-cargo` + `60-veredito` | **NOVA porteira real** (contratos sobre a árvore, zero mocks — 125 na Fase 2) | ✅ E141c → E143 |
+| `tests/session_smoke/` | Nível 2 — a sessão viva: zero legado, família de pé, bus respondendo, áudio/tuning/boot no ferro | ✅ E143 (o run real é do rig/sessão de prova) |
+| `tests/iso-qemu/` | Nível 3 — a ISO no QEMU: marcos do boot + o PAPEL (craft-dump v2 + journal) colhido DE DENTRO da VM pelo serial | ✅ E143 (o run real pede a ISO construída) |

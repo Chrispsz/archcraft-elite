@@ -335,11 +335,11 @@ menu() {
         exit 0
     fi
 
-    mlog "Processos: abrindo (craft-menu)"
+    mlog "Processos: abrindo (craft-pick)"
     errf="$(mktemp)"
     ec=0
     # stdin = a interface dmenu do craft-menu (listas dinâmicas sem eval)
-    choice="$(printf '%s\n' "$entries" | craft-menu --title='Encerrar' --at=bgapps 2>"$errf")" || ec=$?
+    choice="$(printf '%s\n' "$entries" | craft-pick --title='Encerrar' 2>"$errf")" || ec=$?
     if [ "$ec" -eq 143 ]; then
         # SIGTERM = fechado de fora (cross-dismiss) — benigno.
         mlog "Processos: fechado de fora (SIGTERM — cross-dismiss) — benigno"
@@ -373,7 +373,7 @@ menu() {
         command -v notify-send >/dev/null 2>&1 && \
             timeout 5 notify-send -a 'Elite' -u normal -t 8000 \
                 'Menu de processos falhou' \
-                "craft-menu exit=$ec — detalhe em ~/.cache/elite/menus.log" || true
+                "craft-pick exit=$ec — o picker falhou (a lista acima diz o contexto)"
     fi
     rm -f "$errf"
 

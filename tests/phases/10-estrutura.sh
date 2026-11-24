@@ -6,10 +6,10 @@ source "$(dirname "$0")/../lib/core.sh"
 echo "  ── FASE 1 · ESTRUTURA — o workspace crates/ e a casa ──"
 
 # ── o workspace unificado (a fundação da diretriz) ──
-for crate in elite-core elite-daemon craft-dock-rs craft-bar-rs craft-dump-rs; do
+for crate in elite-core elite-daemon craft-dock-rs craft-bar-rs craft-dump-rs craft-tools; do
     file_exists "workspace: crates/$crate mora na casa" "crates/$crate/Cargo.toml"
 done
-file_has "workspace: os 5 membros no Cargo.toml" "crates/Cargo.toml" 'members = ["elite-core", "elite-daemon", "craft-dock-rs", "craft-bar-rs", "craft-dump-rs"]'
+file_has "workspace: os 6 membros no Cargo.toml (2.0: as ferramentas nativas entraram)" "crates/Cargo.toml" 'members = ["elite-core", "elite-daemon", "craft-dock-rs", "craft-bar-rs", "craft-dump-rs", "craft-tools"]'
 file_exists "elite-core: os contratos tipados + IPC + persistência" "crates/elite-core/src/lib.rs"
 file_exists "elite-core: o protocolo do bus.sock" "crates/elite-core/src/ipc.rs"
 file_exists "elite-core: a persistência atômica" "crates/elite-core/src/persist.rs"
@@ -33,14 +33,26 @@ file_has "elite-core: o quadro tem teto (FRAME_MAX)" "crates/elite-core/src/ipc.
 # ── os bins da casa (o que sobe na sessão) ──
 # (os bins RUST não moram no airootfs — nascem do cargo NO build do
 # pacote; os contratos deles moram no molde abaixo)
-for bin in craft-dump craft-update craft-wake-guard craft-lock craft-game craft-shot craft-idle elite-post-upgrade elite-install-stage elite-tune craft-menu craft-menu-dismiss; do
+# 2.0 Fase 2 — OS BINS COMPILADOS não moram no airootfs (nascem do cargo
+# NO build do pacote: craft-update/craft-clean/craft-help/craft-pick — as
+# janelas nativas da diretriz — e o craft-dump v2, a telemetria que usa o
+# NOME da casa de sempre); os MOTORES shell renomeados ficam na árvore
+for bin in elite-dose elite-clean craft-wake-guard craft-lock craft-game craft-shot craft-idle craft-appimage craft-bgapps craft-display craft-rollback elite-post-upgrade elite-install-stage elite-tune elite-update; do
     file_exists "bin da casa: $bin presente" "elite/airootfs/usr/local/bin/$bin"
 done
 # a família RUST OBRIGATÓRIA no molde (a fundação 2.0 no pacote):
 file_has "mold: a família rust OBRIGATÓRIA no install (daemon/dock/bar)" ".ci/build.sh" 'for b in elite-daemon craft-dock-rs craft-bar-rs; do'
 file_has "mold: a telemetria v2 compila (craft-dump-rs)" ".ci/build.sh" '-p craft-dump-rs'
-file_has "mold: a telemetria v2 instala ao lado do v1" ".ci/build.sh" 'craft-dump-rs" "${{pkgdir}}/usr/local/bin/craft-dump-rs'
-for fossil in craft-bars craft-connect craft-audio craft-pin-pick craft-dock-gui; do
+file_has "mold: as ferramentas nativas compilam (craft-tools)" ".ci/build.sh" '-p craft-tools'
+file_has "mold: as ferramentas + a telemetria v2 instalam com o nome da casa" ".ci/build.sh" 'for b in craft-update craft-clean craft-help craft-pick craft-dump; do'
+# 2.0 Fase 2 — O C DO TOPLEVEL MORREU: nenhuma fonte vendada, nenhum pacote
+file_hasnt "mold: o C do toplevel não volta (a fonte vendada morreu)" ".ci/build.sh" 'craft-toplevel.c'
+file_absent "vendor: o C de 3 gerações saiu do repo" "vendor/craft-toplevel.c"
+# 2.0 — os bins compilados saíram do overlay (a esteira Rust manda)
+for bin in craft-update craft-clean craft-help craft-dump; do
+    file_absent "bin compilado: $bin não mora no overlay (nasce do cargo)" "elite/airootfs/usr/local/bin/$bin"
+done
+for fossil in craft-bars craft-connect craft-audio craft-pin-pick craft-dock-gui craft-menu craft-menu-dismiss craft-player craft-power craft-logout craft-drawer craft-audio-route; do
     file_absent "fóssil aposentado ausente da árvore: $fossil" "elite/airootfs/usr/local/bin/$fossil"
 done
 

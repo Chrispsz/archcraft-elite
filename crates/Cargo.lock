@@ -295,6 +295,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "craft-tools"
+version = "2.0.0"
+dependencies = [
+ "elite-core",
+ "gtk4",
+ "libc",
+]
+
+[[package]]
 name = "crossbeam-utils"
 version = "0.8.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"

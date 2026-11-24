@@ -386,10 +386,12 @@ impl Dispatch<tl_mod::zwlr_foreign_toplevel_handle_v1::ZwlrForeignToplevelHandle
             E::State { state } => {
                 let mut min = false;
                 let mut act = false;
+                let mut full = false;
                 for byte in state {
                     match byte {
                         1 => min = true,
                         2 => act = true,
+                        3 => full = true,
                         _ => {}
                     }
                 }
@@ -400,6 +402,7 @@ impl Dispatch<tl_mod::zwlr_foreign_toplevel_handle_v1::ZwlrForeignToplevelHandle
                     let era_focado = r.focused;
                     r.minimized = min;
                     r.focused = act;
+                    r.fullscreen = full;
                     focou = act && !era_focado;
                 }
                 if act {

@@ -157,207 +157,11 @@ package() {
 }
 EOPKGBUILD
 
-# ── v2.10.1: CRAFT-TOPLEVEL (o alt-tab da dock) — FONTE NO PRÓPRIO REPO ──
-#  O dono pediu a v2.10 com "a dock tendo essa funcionalidade de alt tab
-#  perfeitamente pra navegar entre os programas abertos… ou até mesmo um
-#  atalho pra isso clicável na dock". O wlrctl não lista janelas (limitação
-#  honesta da v2.10.0) — a cura é o protocolo DIRETO: este daemon fala
-#  zwlr_foreign_toplevel_management_v1 com o labwc e serve LIST/ACT/CLOSE/
-#  CYCLE num socket UNIX da sessão. A fonte vem do REPO (vendor/), com o
-#  sha256 PINADO como manda a casa — mudou 1 byte, o makepkg PARA.
-#  Deps: só libwayland-client (os headers que o HOST usa para compilar o
-#  wlrctl servem — a esteira é a mesma, 4º pacote da fila).
-mkdir -p /tmp/elite-src/craft-toplevel
-cp /work/vendor/craft-toplevel.c /tmp/elite-src/craft-toplevel/
-
-# ═══ E50 — A PONTE PARA O PACOTE ÚNICO (a era dos dois veículos encerra) ═
-# O dono: 'a atualização do sistema como um todo deveria ser em um só
-# pacote — já atualizava todo o sistema com um só pacote'. O elite-system
-# (pkgname único, replaces/conflicts do par legado) é essa era nova. Mas
-# o rig que NUNCA teve pacote algum roda um craft-update sem alvos
-# explícitos: o -Syu atualiza o INSTALADO e NADA instala o pacote novo
-# sozinho. A ponte mora no ÚNICO pacote da casa que TODO rig tem (o
-# craft-toplevel): hook PostTransaction + elite-adopt em /usr/share/elite
-# puxam o elite-system — o pacman SUBSTITUI o par legado na MESMA
-# transação (replaces) e o rig salta DIRETO para a era de um pacote só.
-# Veículo único presente = calado para sempre; ausente = a adoção nasce
-# DESPRENDIDA (pacman NÃO roda dentro do hook — o lock da transação-mãe
-# ainda vive), espera o lock soltar e entrega a conclusão ao
-# craft-update --adotar: sessão inteira com o código novo
-# (dock/toplevel/áudio/idle) + cadência ligada, UMA rodada de update,
-# sem relogin — a resposta final ao 'atualizei e ficou igual'.
-cat > /tmp/elite-src/craft-toplevel/elite-adopt <<'EOADOPT'
-#!/bin/sh
-# elite-adopt — E50: A PONTE PARA O PACOTE ÚNICO (o salto de era).
-# O rig que nunca teve pacote algum roda um craft-update sem alvos
-# explícitos: o -Syu atualiza o INSTALADO e NADA instala o pacote novo
-# sozinho. O gatilho mora no hook PostTransaction do craft-toplevel (o
-# ÚNICO pacote da casa que TODO rig tem) e puxa o ELITE-SYSTEM — o
-# SISTEMA INTEIRO em um pacote (diretriz do dono); o pacman substitui o
-# par legado (elite-craft + craft-toplevel) na MESMA transação
-# (replaces/conflicts). Regras:
-#   · elite-system presente → calado para sempre (custo zero por
-#     transação — a era da ponte acabou, o hook nunca mais acorda);
-#   · elite-system ausente  → a adoção nasce DESPRENDIDA (pacman NÃO roda
-#     dentro do hook — o lock da transação que o pariu ainda vive),
-#     espera o lock soltar, puxa o pacote único e entrega a conclusão ao
-#     craft-update --adotar (sessão viva: dock/toplevel/áudio/idle +
-#     cadência — UMA rodada de update, sem relogin).
-# Papel: /var/log/elite-update.log com o teto E36. Portas de prova (a
-# mesma escola do VMARK/ELITE_UNIT_DIR do craft-update):
-#   ELITE_ADOPT_SYNC=1    o corpo corre ACOPLADO (a suíte observa
-#                         comportamento; o hook real nunca liga)
-#   ELITE_UPDATE_LOG      a morada do papel
-#   ELITE_CRAFT_UPDATE    o craft-update da conclusão (prova aponta o repo)
-#   ELITE_ADOPT_SETTLE    a espera inicial do lock (default 3s)
-#   ELITE_ADOPT_POLL      o passo da espera do lock (default 3s)
-LOG="${ELITE_UPDATE_LOG:-/var/log/elite-update.log}"
-CU="${ELITE_CRAFT_UPDATE:-/usr/local/bin/craft-update}"
-SETTLE="${ELITE_ADOPT_SETTLE:-3}"
-POLL="${ELITE_ADOPT_POLL:-3}"
-
-adopt_body() {
-    _ec="$1" _tl="$2"
-    sleep "$SETTLE"
-    # o lock da transação-mãe pode ainda viver — espera honesta com teto
-    _n=0
-    while [ "$_n" -lt 20 ]; do
-        command -v fuser >/dev/null 2>&1 || break
-        fuser /var/lib/pacman/db.lck >/dev/null 2>&1 || break
-        sleep "$POLL"
-        _n=$((_n + 1))
-    done
-    if [ -f "$LOG" ] && [ "$(wc -c <"$LOG" 2>/dev/null || echo 0)" -gt 262144 ]; then
-        tail -c 131072 "$LOG" >"$LOG.tmp" 2>/dev/null && mv -f "$LOG.tmp" "$LOG" || true
-    fi
-    printf '[%s] adotar: PACOTE ÚNICO elite-system ausente — a ponte puxa o sistema inteiro (hook do craft-toplevel, E50)\n' "$(date '+%F %T')" >>"$LOG" 2>/dev/null || true
-    # E92 — o 5º site do escopo (o hook é standalone no craft-toplevel
-    # velho — não importa o HOUSE_OVERWRITE do craft-update novo): as
-    # famílias novas do payload (system-sleep, share/elite, libalpm hooks)
-    # entram AQUI TAMBÉM, senão a adoção da ponte recusa a transação pelo
-    # MESMO 'existe no sistema de arquivos' que o rig flagrou no
-    # craft-update em 08/11. A lista é elite-* ou caminho da casa — zero
-    # risco a pacote de fora.
-    if ! pacman -Syu --needed --noconfirm --overwrite '/usr/local/bin/*' \
-            --overwrite '/etc/systemd/system/elite-*' \
-            --overwrite '/usr/lib/systemd/system-sleep/*' \
-            --overwrite '/usr/local/share/elite/*' \
-            --overwrite '/usr/local/share/applications/*' \
-            --overwrite '/usr/share/libalpm/hooks/elite-*' \
-            elite-system >>"$LOG" 2>&1; then
-        printf '[%s] adotar: pacman RECUSOU a adoção — a prova está acima no log (o próximo update tenta de novo)\n' "$(date '+%F %T')" >>"$LOG" 2>/dev/null || true
-        return 1
-    fi
-    # o craft-update no disco AGORA é o novo (veio no pacote único) — a
-    # sessão viva recebe a cura POR ELE (fonte única da lógica de refresh);
-    # os 'antes' capturados NO HOOK narram a transição: o pacote único vai
-    # VAZIO na frente (a ADOÇÃO já é a mudança), o par legado na sequência
-    "$CU" --adotar "" "$_ec" "$_tl" >>"$LOG" 2>&1 || true
-    printf '[%s] adotar: adoção concluída — o veículo vive e a sessão recebeu o código novo\n' "$(date '+%F %T')" >>"$LOG" 2>/dev/null || true
-}
-
-# a reentrada do corpo desprendido (o pai que forka passa --body)
-if [ "${1:-}" = "--body" ]; then
-    adopt_body "${2:-}" "${3:-}"
-    exit 0
-fi
-
-[ "$(id -u)" = 0 ] || exit 0
-command -v pacman >/dev/null 2>&1 || exit 0
-_es="$(pacman -Q elite-system 2>/dev/null | awk '{print $2}')"
-[ -n "$_es" ] && exit 0    # o PACOTE ÚNICO já vive — hook calado, custo zero
-_ec="$(pacman -Q elite-craft 2>/dev/null | awk '{print $2}')"
-_tl="$(pacman -Q craft-toplevel 2>/dev/null | awk '{print $2}')"
-
-if [ "${ELITE_ADOPT_SYNC:-0}" = "1" ]; then
-    adopt_body "$_ec" "$_tl"
-    exit 0
-fi
-setsid "$0" --body "$_ec" "$_tl" >/dev/null 2>&1 </dev/null &
-exit 0
-EOADOPT
-cat > /tmp/elite-src/craft-toplevel/elite-adopt.hook <<'EOHOOK'
-[Trigger]
-Operation = Install
-Operation = Upgrade
-Type = Package
-Target = craft-toplevel
-
-[Action]
-Description = Elite: a ponte puxa o PACOTE ÚNICO elite-system (o rig velho salta de era — E50)
-When = PostTransaction
-Exec = /usr/share/elite/elite-adopt
-EOHOOK
-
-cat > /tmp/elite-src/craft-toplevel/PKGBUILD <<'EOPKGBUILD'
-pkgname=craft-toplevel
-pkgver=1.0
-# v2.10.7 — O ACK HONESTO: o rig 1º-install da 10.6 flagrou ACT com ACK e
-# sem foco na tela (dump 0qmq) — o daemon agora cobra a prova do compositor
-# (state activated confirma; state alheio/timeout 2s denuncia) em toplevel.log
-# E41 — O PKGREL QUE NÃO SUBIU (achado 2026-11-03, pergunta do dono sobre a
-# marcação de programas abertos): a E38 trocou o C (PUSH EVT — o sha acima
-# é o conteúdo novo) e deixou pkgrel=2 — o MESMO 1.0-2 que os rigs
-# instalados já carregam (dump do dono 10-29: 'craft-toplevel 1.0-2').
-# pacman compara VERSÃO, nunca bytes: o -Syu do craft-update via
-# [elite-local] comparava 1.0-2 == 1.0-2 e PULAVA — o daemon do EVT nunca
-# chegaria a máquina instalada NENHUMA por update (a ISO nova não padece:
-# instalação fresca lê o repo ATUAL). A lei daqui em diante: conteúdo da
-# casa muda → pkgrel sobe NO MESMO commit.
-# E49 — o pacote carrega a ADOÇÃO DE UMA VIA (elite-adopt + hook): o rig
-# da era pré-E46 roda um craft-update sem alvos explícitos e NUNCA adota
-# o veículo por si — o gatilho viaja no ÚNICO pacote da casa que TODO rig
-# tem; UMA rodada de update fecha tudo (veículo + sessão viva + cadência).
-# E50 — A ÚLTIMA VERSÃO DO PAR: o pacote vira PONTE — o hook puxa o
-# ELITE-SYSTEM (o sistema inteiro em um pacote, replaces/conflicts do par
-# legado) e o rig salta de era na MESMA transação. O daemon continua
-# aqui (o rig cuja ponte falha offline segue funcional até a próxima
-# dose). Lei E41: pkgrel NO MESMO commit.
-# E71 — O PARENT QUE MATAVA A CONEXÃO (dump e8xl do dono: 'a dock ainda é
-#     bugada — o indicativo de aplicativos abertos somem do nada e as
-#     ações se comportam como se o programa não estivesse aberto'; 449
-#     mortes / 488 restarts em 1h36): o evento parent era declarado 'o'
-#     SECO — o XML oficial é allow-null="true" (desde a v2) e o
-#     labwc/wlroots manda parent(NULL) quando uma janela perde o pai. O
-#     demarshal da libwayland rejeita NULL em não-nulável ("NULL object
-#     received on non-nullable type, message parent(o)") e MATA a conexão
-#     inteira: o renascido servia '0 janelas' com a sessão CHEIA, a dock
-#     recebia LIST vazio VÁLIDO, apagava os indicadores e o clique
-#     lançava DUPLICADO — em loop. A cura é 1 caractere ('?o' nulável)
-#     + o evento nomeado no enum e ignorado de graça (a dock não o usa).
-#     pkgrel 5→6 NO MESMO COMMIT (lei E41 — o C do daemon mudou).
-pkgrel=6
-pkgdesc='Daemon wlr-foreign-toplevel da Elite — janelas por id (LIST/ACT/CLOSE/CYCLE + anel MRU) para a dock comutar de verdade'
-arch=(x86_64)
-url=https://github.com/Chrispsz/archcraft-elite
-license=(GPL3)
-depends=(wayland)
-# E43 — sem pacote -debug (gcc -s já entrega o binário limpo; o -debug
-# era asset gorduroso no release — o dono perguntou 'porque está saindo
-# tantos assets?')
-options=(!debug)
-source=("craft-toplevel.c")
-# E71 — o sha do C com o parent NULÁVEL ('?o') + EVT_PARENT no dispatcher
-# E96 — o sha re-pinado: o reply() do EAGAIN virou poll POLLOUT 2s (o canal
-#     da dock não cai mais no primeiro soluço de buffer)
-sha256sums=('1a6aeea295db062e38e53b50bb525c6098eb4b436b4b2d8dfd8e84a174aedb11')
-build() {
-    gcc -O2 -Wall -Wextra -s -o craft-toplevel craft-toplevel.c -lwayland-client
-}
-package() {
-    install -Dm755 craft-toplevel "${pkgdir}/usr/local/bin/craft-toplevel"
-    install -Dm644 craft-toplevel.c "${pkgdir}/usr/local/share/elite/src/craft-toplevel.c"
-    # E49 — a adoção de UMA VIA: hook + gatilho (fora de /usr/local/bin —
-    # o elite-craft reivindica os bins da casa; aqui não há briga de dono).
-    # Os gêmeos moram no STARTDIR (nascem ao lado do PKGBUILD, payload
-    # GERADO — não são source=() e não carregam sha256); o package() roda
-    # no srcdir — o CI desmentiu a 1ª forma (run 41893237128: 'A failure
-    # occurred in package()' — install sem caminho = arquivo não visto).
-    install -Dm755 "${startdir}/elite-adopt" "${pkgdir}/usr/share/elite/elite-adopt"
-    install -Dm644 "${startdir}/elite-adopt.hook" "${pkgdir}/usr/share/libalpm/hooks/elite-adopt.hook"
-}
-EOPKGBUILD
-
+# 2.0 Fase 2 — O CRAFT-TOPLEVEL APOSENTOU (o cliente Wayland é o
+#  PRÓPRIO elite-daemon agora: zwlr-foreign-toplevel v2 NATIVO no
+#  wayland.rs + o snapshot no bus.sock — o C de 3 gerações, o pacote
+#  próprio e o hook elite-adopt morreram juntos; os rigs que ainda o
+#  têm perdem o pacote na higiene da dose e o binário na ceifa).
 # ═════════════════════════════════════════════════════════════════════
 # E50 — O PACOTE ÚNICO: elite-system
 # O dono: "a atualização do sistema como um todo deveria ser em um só
@@ -374,7 +178,6 @@ EOPKGBUILD
 say "Gerando o PKGBUILD do elite-system (O PACOTE ÚNICO — E50)"
 mkdir -p /tmp/elite-src/elite-system/files/usr/local/bin
 mkdir -p /tmp/elite-src/elite-system/files/etc/systemd/system
-cp /work/vendor/craft-toplevel.c /tmp/elite-src/elite-system/
 # E132 — O LISTENER CUSTOM APOSENTA (a ordem do dono, dump pós-1.0-78: os
 # transient services 'polkit-agent-helper@…' nasciam FAILED e o desafio
 # morria — o lxqt-policykit-agent NATIVO, compatível com o polkit 128,
@@ -399,6 +202,10 @@ RUST_CRATES="elite-core elite-daemon"
 [ -d /work/crates/craft-dock-rs ] && RUST_CRATES="$RUST_CRATES craft-dock-rs"
 [ -d /work/crates/craft-bar-rs ] && RUST_CRATES="$RUST_CRATES craft-bar-rs"
 [ -d /work/crates/craft-dump-rs ] && RUST_CRATES="$RUST_CRATES craft-dump-rs"
+# 2.0 Fase 2 — AS FERRAMENTAS NATIVAS: craft-update/craft-clean/craft-help
+# (as janelas GTK4 da diretriz) e o craft-pick (o seletor dmenu nativo —
+# o motor craft-menu aposentou com o fuzzel)
+[ -d /work/crates/craft-tools ] && RUST_CRATES="$RUST_CRATES craft-tools"
 tar -C /work/crates \
     --exclude='target' --exclude='.gitignore' --exclude='.cargo' \
     -czf /tmp/elite-src/elite-system/rust-workspace.tar.gz \
@@ -409,9 +216,14 @@ export RUST_TAR_SHA   # o python do molde lê via os.environ (a sha entra no sha
 # acima) — o relativo nasceria vazio (a lição vai no próprio comentário).
 for f in /work/elite/airootfs/usr/local/bin/*; do
     b="${f##*/}"
-    # o daemon NÃO vem do overlay — nasce do C compilado no build()
-    # (fonte única vendada com sha256; o skip é cinto e suspensório)
-    [ "$b" = "craft-toplevel" ] && continue
+    # 2.0 — os bins COMPILADOS não vêm do overlay (nascem do cargo no
+    # build()): as ferramentas GTK4 (craft-update/craft-clean/craft-help/
+    # craft-pick) e a telemetria v2 (craft-dump). O elite-daemon e as
+    # superfícies (craft-bar-rs/craft-dock-rs) idem — o molde instala
+    # todos da esteira Rust lá embaixo.
+    case "$b" in
+        craft-update|craft-clean|craft-help|craft-pick|craft-dump|elite-daemon|craft-bar-rs|craft-dock-rs) continue ;;
+    esac
     printf '%s\n' "$b"
 done > /tmp/elite-src/elite-system/files/MANIFEST
 while read -r f; do
@@ -1092,7 +904,7 @@ pkgver=1.0
 #     allow-null="true") matava a conexão Wayland, e o renascido servia
 #     LIST vazio VÁLIDO em loop; a graça da E70 só cobria LIST FALHO,
 #     nunca a resposta VÁLIDA que mente. DUAS pontas NO MESMO COMMIT:
-#     (1) vendor/craft-toplevel.c: o parent vira '?o' (nulável — 1
+#     (1) vendor/ (o C do toplevel, era): o parent vira '?o' (nulável — 1
 #         caractere que acaba com a classe inteira) + EVT_PARENT nomeado
 #         no enum e ignorado de graça (log uma-vida);
 #     (2) craft-dock-gui v2.10.11 — as TRÊS REDES da lógica que não
@@ -1326,7 +1138,7 @@ pkgver=1.0
 #     vivo) e o BLUETOOTH re-assenta no wake (hci0 reset failed -19).
 #     (5) craft-idle: a ORDEM É LEI — SUSPEND ≤ LOCK não nasce mais no
 #     conf (o rig dormia DESBLOQUEADO e ACESO aos 5min com lock aos 30).
-#     pkgrel 32→33 NO MESMO COMMIT (lei E41 — craft-toplevel.c recompila,
+#     pkgrel 32→33 NO MESMO COMMIT (lei E41 — o C do toplevel recompila,
 #     craft-dock-gui/craft-idle mudaram de conteúdo, craft-display é bin
 #     novo, elite-resume-usb/autostart/menu.xml/packages.add mudaram).
 # E90/E91 — A ÁREA 4 DA ROTAÇÃO + AS CURAS DAS REGRESSÕES DO 1.0-33 (o
@@ -1484,7 +1296,7 @@ pkgver=1.0
 #     Três réus, todos do mantenedor: (1) o sha do C no TEMPLATE do
 #     elite-system ficou da era E95 (o E96 re-pinou só a PONTE — o mesmo
 #     C, dois pins, e um deles velho: o makepkg do canal recusou a fonte,
-#     run 42693926097 'craft-toplevel.c ... FAILED'); (2) o craft-appimage
+#     run 42693926097 da era: a fonte vendada FALHOU no makepkg); (2) o craft-appimage
 #     nasceu 100644 NO INDEX (a lição E95.1 pela SEGUNDA vez — arquivo em
 #     disco +x é inócuo se o index grava 100644: o CI e o squashfs herdam
 #     o modo do index — a suíte local não tem a peça exec contra ele
@@ -2760,7 +2572,7 @@ pkgver=1.0
 #         o HDMI cede para a analógica com o piso de volume 40% no zero
 #         (o marcador audio-hdmi-ok respeita quem QUER o monitor); o
 #         mousepad sai dos rigs e o fóssil zram 150 de /usr/lib idem.
-pkgrel=91
+pkgrel=92
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da sessão; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
@@ -2790,18 +2602,16 @@ conflicts=('elite-craft' 'craft-toplevel')
 options=(!debug !strip)
 # E132 — o WORKSPACE RUST como fonte em TAR (source=() não aceita
 # diretórios; o tar é gerado no estágio de staging com o guard do
-# craft-dock-rs — a sha viaja pelo env RUST_TAR_SHA, lida no python)
-source=("craft-toplevel.c" "rust-workspace.tar.gz")
-# E97.1 — O CANAL CAÇOU O QUE A SUÍTE NÃO VIU: o makepkg do canal recusou
-#     a fonte (run 42693926097: 'craft-toplevel.c ... FAILED') porque o
-#     E96 re-pinou SÓ a ponte (linha ~332) e deixou o template do pacote
-#     único com o sha da era E95. O mesmo C, DOIS pins — os dois têm que
-#     viajar JUNTOS (a peça da suíte cobria os DOIS; a E132 tirou o pin
-#     do listener aposentado — o C da ponte segue o único pinado; o tar
-#     do Rust é gerado NO MESMO build, a sha nasce junto dele).
-sha256sums=('1a6aeea295db062e38e53b50bb525c6098eb4b436b4b2d8dfd8e84a174aedb11' '{rust_sha}')
+# craft-dock-rs — a sha viaja pelo env RUST_TAR_SHA, lida no python).
+# 2.0 Fase 2 — A ÚNICA FONTE é o tar do workspace (o C do toplevel
+#     morreu com o C de 3 gerações: o cliente Wayland é o próprio
+#     elite-daemon — nada de fonte vendada, nada de sha dupla).
+source=("rust-workspace.tar.gz")
+sha256sums=('{rust_sha}')
 build() {{
-    gcc -O2 -Wall -Wextra -s -o craft-toplevel craft-toplevel.c -lwayland-client
+    # 2.0 Fase 2 — O gcc DO C MORREU (o C de 3 gerações
+    # aposentou: o cliente Wayland é o PRÓPRIO elite-daemon no wayland.rs;
+    # aqui só o toolchain Rust fala)
     # E132 — o elite-polkit-listener NÃO COMPILE MAIS (a ordem do dono,
     # dump pós-1.0-78: os transient 'polkit-agent-helper@…' FAILED — o
     # lxqt-policykit-agent NATIVO, compatível com o polkit 128, é o agente
@@ -2838,6 +2648,11 @@ build() {{
     # qualquer lugar — std-only; a coleta completa é Fase 2, o bin
     # honesto já nomeia era/serviços/boot)
     cargo build --release --locked --manifest-path rust/Cargo.toml -p craft-dump-rs
+    # 2.0 Fase 2 — AS FERRAMENTAS NATIVAS são OBRIGATÓRIAS (a diretriz:
+    # as janelas craft-update/craft-clean/craft-help e o craft-pick
+    # aposentam o craft-menu — dose sem ferramentas é dose SEM a face
+    # nova; a build morre vermelha antes do install mentir verde)
+    cargo build --release --locked --manifest-path rust/Cargo.toml -p craft-tools
 }}
 # ADOÇÃO (a herança do elite-craft): nos rigs, estes arquivos nasceram SEM
 # dono (overlay da ISO) — o pacman recusa sobrescrever não-dono ANTES de
@@ -2874,10 +2689,10 @@ post_upgrade() {{
 package() {{
     install -d "${{pkgdir}}/usr/local/bin"
     cp -a "${{startdir}}/files/usr/local/bin/." "${{pkgdir}}/usr/local/bin/"
-    install -m755 craft-toplevel "${{pkgdir}}/usr/local/bin/craft-toplevel"
-    # a fonte do daemon viaja no pacote (transparência — o mesmo papel que
-    # ela tinha no craft-toplevel legado)
-    install -Dm644 craft-toplevel.c "${{pkgdir}}/usr/local/share/elite/src/craft-toplevel.c"
+    # 2.0 Fase 2 — O C DO CRAFT-TOPLEVEL MORREU (o cliente Wayland é o
+    # PRÓPRIO elite-daemon: zwlr-foreign-toplevel v2 + ext-idle-notify
+    # nativos, o snapshot no bus.sock — a fonte de 3 gerações aposenta
+    # com o pacote próprio e o hook)
     # E132 — os binários RUST da fundação. E134: o craft-dock-rs é
     # OBRIGATÓRIO (a build dele falhou = build vermelha antes de chegar
     # aqui; o fallback Python não existe mais — dose sem dock é build
@@ -2885,9 +2700,12 @@ package() {{
     for b in elite-daemon craft-dock-rs craft-bar-rs; do
         [ -f "rust/target/release/$b" ] && install -m755 "rust/target/release/$b" "${{pkgdir}}/usr/local/bin/$b"
     done
-    # 2.0 — a telemetria v2 instala ao lado do craft-dump v1 (a
-    # aposentadoria do v1 é Fase 2, com substituto de pé)
-    [ -f "rust/target/release/craft-dump-rs" ] && install -m755 "rust/target/release/craft-dump-rs" "${{pkgdir}}/usr/local/bin/craft-dump-rs"
+    # 2.0 Fase 2 — AS FERRAMENTAS NATIVAS + A TELEMETRIA v2: o
+    # craft-dump v2 É o craft-dump (o shell v1 aposentou — a telemetria
+    # da casa fala a língua nova: bus vivo, família nativa, boot flags)
+    for b in craft-update craft-clean craft-help craft-pick craft-dump; do
+        [ -f "rust/target/release/$b" ] && install -m755 "rust/target/release/$b" "${{pkgdir}}/usr/local/bin/$b"
+    done
     # E132 — o elite-polkit-listener NÃO viaja mais (o agente da casa é o
     # lxqt-policykit-agent NATIVO, eleito no craft-bars; um bin a menos no
     # pacote, um agente a menos na fila — o C vendado aposentou do repo)
@@ -2902,9 +2720,11 @@ chown -R builder /tmp/elite-src
 # E43 — PACKAGES_ONLY=1 (canal diário, publish-packages.yml): só os
 # pacotes de CÓDIGO DE CASA — pywal/qt5vk/wlrctl não mudam no dia a dia
 # (o repo completo do release vivo entra no job por download+repo-add).
-PKG_LIST=(python-pywal qt5-virtualkeyboard wlrctl craft-toplevel elite-system)
+# 2.0 Fase 2 — O craft-toplevel SAIU DA FILA (o pacote morreu com o C:
+# o replaces do elite-system segue limpando o legado dos rigs velhos).
+PKG_LIST=(python-pywal qt5-virtualkeyboard wlrctl elite-system)
 if [[ "${PACKAGES_ONLY:-0}" == "1" ]]; then
-    PKG_LIST=(craft-toplevel elite-system)
+    PKG_LIST=(elite-system)
 fi
 for pkgdir in "${PKG_LIST[@]}"; do
     (cd "/tmp/elite-src/$pkgdir" && runuser -l builder -c "cd /tmp/elite-src/$pkgdir && makepkg -f --noconfirm") \

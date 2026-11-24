@@ -142,7 +142,7 @@ do_loja() {
             'Remover aplicativo' \
             'Limpar dados órfãos' \
             'Sair da loja' \
-            | craft-menu --title='Loja Flathub')" || break
+            | craft-pick --title='Loja Flathub')" || break
         case "$escolha" in
             Buscar*)    loja_buscar ;;
             Atualizar*) do_atualizar ;;
@@ -170,7 +170,7 @@ do_instalar() {
         avisa 'Flatpaks' "Nada achado para '$termo' — confira o nome ou a rede (flatpak search pede internet)"
         return 1
     fi
-    escolha="$(printf '%s\n' "$achados" | craft-menu --title='Flatpaks — qual instalar?')" || return 0
+    escolha="$(printf '%s\n' "$achados" | craft-pick --title='Flatpaks — qual instalar?')" || return 0
     [ -n "$escolha" ] || return 0
     ref="$(printf '%s' "$escolha" | awk -F'\t' '{print $1}')"
     [ -n "$ref" ] || ref="$escolha"
@@ -197,7 +197,7 @@ do_remover() {
         avisa 'Flatpaks' 'Nenhum app Flatpak instalado — nada a remover'
         return 0
     fi
-    escolha="$(printf '%s\n' "$apps" | craft-menu --title='Flatpaks — qual remover?')" || return 0
+    escolha="$(printf '%s\n' "$apps" | craft-pick --title='Flatpaks — qual remover?')" || return 0
     [ -n "$escolha" ] || return 0
     ref="$(printf '%s' "$escolha" | awk -F'\t' '{print $1}')"
     [ -n "$ref" ] || ref="$escolha"
@@ -255,7 +255,7 @@ do_atualizar() {
 
 # ── o MENU (a porta do botão direito — o motor único da casa) ────────────
 do_menu() {
-    if ! command -v craft-menu >/dev/null 2>&1; then
+    if ! command -v craft-pick >/dev/null 2>&1; then
         do_status
         exit 0
     fi
@@ -265,7 +265,7 @@ do_menu() {
         'Remover aplicativo' \
         'Limpar dados órfãos' \
         'Atualizar todos' \
-        | craft-menu --title='Flatpaks')" || exit 0
+        | craft-pick --title='Flatpaks')" || exit 0
     case "$escolha" in
         Status*)      do_status ;;
         Instalar*)    do_instalar ;;

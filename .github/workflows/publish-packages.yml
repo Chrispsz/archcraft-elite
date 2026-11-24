@@ -63,10 +63,11 @@ jobs:
       - name: Construir os pacotes da casa (container Arch privilegiado)
         run: |
           set -o pipefail
-          # o modo PACKAGES_ONLY de .ci/build.sh: makepkg de craft-toplevel +
-          # elite-system e SAÍDA — nenhuma ISO, nenhum pacstrap, minutos
-          # (o elite-craft parou de ser publicado na E50 — a era do pacote
-          # único; o cp/repo-add abaixo copia exatamente estes dois).
+          # o modo PACKAGES_ONLY de .ci/build.sh: makepkg de elite-system
+          # e SAÍDA — nenhuma ISO, nenhum pacstrap, minutos (o elite-craft
+          # parou na E50; o craft-toplevel parou na 2.0 Fase 2 — o C de 3
+          # gerações morreu, o cliente Wayland é o próprio elite-daemon).
+
           docker run --rm \
             -v "$PWD":/work \
             -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
@@ -107,7 +108,6 @@ jobs:
               done
               tar -czf elite-local.db.tar.gz -C db-prune $(ls db-prune)
               rm -rf db-prune
-              cp /work/out/pacotes/craft-toplevel-*.pkg.tar.zst .
               cp /work/out/pacotes/elite-system-*.pkg.tar.zst .
               # E114 — O BRAVE NO CANAL (o buraco nomeado pela E113: o canal
               # publicava SÓ elite-system (+ a ponte) e o rig ficava em
@@ -144,7 +144,7 @@ jobs:
               # recebe EXATAMENTE o conjunto que sobe; -debug e amigos que
               # o makepkg gerar ficam FORA (o rig de produção nunca os
               # pede — artefato de desenvolvimento).
-              PKGARGS="craft-toplevel-*.pkg.tar.zst elite-system-*.pkg.tar.zst"
+              PKGARGS="elite-system-*.pkg.tar.zst"
               [ -n "$BRAVE_NO_CANAL" ] && PKGARGS="$PKGARGS brave-origin-*.pkg.tar.zst"
               repo-add --quiet elite-local.db.tar.gz $PKGARGS
               # pacman consulta <repo>.db SEM sufixo (E32) — arquivo real, não symlink
@@ -153,14 +153,13 @@ jobs:
               # era anterior não sabia do brave): regenerado aqui sobre o
               # conjunto real; sem brave, o selo do makepkg segue valendo.
               if [ -n "$BRAVE_NO_CANAL" ]; then
-                sha256sum craft-toplevel-*.pkg.tar.zst elite-system-*.pkg.tar.zst brave-origin-*.pkg.tar.zst > sha256sums-pacotes.txt
+                sha256sum elite-system-*.pkg.tar.zst brave-origin-*.pkg.tar.zst > sha256sums-pacotes.txt
               else
                 cp /work/out/pacotes/sha256sums-pacotes.txt .
               fi
               echo "── selo da run:"
               cat sha256sums-pacotes.txt
               gh release upload "$TAG" elite-local.db elite-local.db.tar.gz \
-                craft-toplevel-*.pkg.tar.zst \
                 elite-system-*.pkg.tar.zst \
                 sha256sums-pacotes.txt \
                 --repo "$REPO" --clobber
@@ -186,7 +185,7 @@ jobs:
               # o resto morre como argumento solto — a run #63 provou: o
               # upload rodou, a dieta virou poeira e o step ficou VERDE.
               # O veneno era silencioso; agora é lei do papel).
-              for nm in elite-system craft-toplevel brave-origin; do
+              for nm in elite-system brave-origin; do
                   # E114 — o brave mora no CWD (baixado do asset), os outros
                   # dois em /work/out/pacotes: a busca cobre os dois endereços
                   keep="$(ls /work/out/pacotes/${nm}-*.pkg.tar.zst ./${nm}-*.pkg.tar.zst 2>/dev/null | head -1 | xargs -r -n1 basename)"
@@ -200,7 +199,7 @@ jobs:
               done
               echo "── assets de PACOTE da release viva após a run:"
               gh release view "$TAG" --repo "$REPO" --json assets --jq ".assets[].name" \
-                | grep -E "elite-system|craft-toplevel|brave-origin|elite-local\.db|sha256sums-pacotes" || true
+                | grep -E "elite-system|brave-origin|elite-local\.db|sha256sums-pacotes" || true
               # E103 — A VERIFICAÇÃO DO CANAL: CADA arquivo no db precisa
               # ter asset na release viva (a classe 404 é impossível — o
               # canal se prova antes de o rig pagar a recusa). O

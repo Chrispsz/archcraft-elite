@@ -432,3 +432,10 @@ archcraft-openbox-themes # temas OB de sessões mortas (o rice tem themerc-overr
 ## TLS; encanamento, escondido da lista de 2º plano pelo craft-bgapps).
 ## Se um pacote futuro voltar a precisar, o pacman o traz de novo sozinho.
 gnome-keyring
+
+## 2.0 Fase 2 — A VIGÍLIA É DO DAEMON: o swayidle aposentou (o
+## ext-idle-notify-v1 nativo do elite-daemon trava/apaga/suspende e
+## respeita os inibidores — a diretriz 2.0). O pacote craft-toplevel
+## (o C de 3 gerações) idem: o cliente Wayland é o próprio daemon.
+swayidle
+craft-toplevel

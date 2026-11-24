@@ -41,7 +41,7 @@ uso() {
         'uso: elite-mangohud [minimal|balanceado|diagnostico|status]' \
         '     elite-mangohud run <perfil> -- COMANDO...    (uma partida)' \
         '' \
-        '  sem argumento: o menu do craft-menu escolhe o perfil da vez.' \
+        '  sem argumento: o menu do craft-pick escolhe o perfil da vez.' \
         '  perfis: minimal (só FPS+frametime+temps) · balanceado (o' \
         '  painel do dia a dia — default da casa) · diagnostico (a' \
         '  telemetria por núcleo para a perícia do engasgo).'
@@ -121,8 +121,8 @@ case "${1:-}" in
         ;;
     "")
         # O MENU (o motor da casa — o fuzzel que o dono já conhece)
-        if command -v craft-menu >/dev/null 2>&1; then
-            escolha="$(craft-menu --title=MangoHud --at=power \
+        if command -v craft-pick >/dev/null 2>&1; then
+            escolha="$(craft-pick --title=MangoHud \
                 'Minimalista' 'Jogo balanceado' 'Diagnóstico' 'Status')" || {
                 printf 'elite-mangohud: menu fechado sem escolha\n' >&2
                 exit 1

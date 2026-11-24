@@ -69,26 +69,46 @@ daemon_count="$(count elite-daemon)"
 daemon_session="LIVRE"
 flock -n /tmp/elite-daemon-session.lock true 2>/dev/null || daemon_session="ATIVO"
 # os residentes da família (o painel completo da sessão em números)
+# 2.0 — o swayidle APOSENTOU (a vigília é o ext-idle-notify nativo do
+# elite-daemon; o contador de era segue como fronteira legível dos
+# rigs velhos — a mesma lei do WAYBAR_*)
 idle_count="$(count swayidle)"
 osd_count="$(count swayosd-server)"
 udiskie_count="$(count udiskie)"
 pk_count="$(pgrep -c -f 'lxqt-policykit-agent' 2>/dev/null)"; [ -n "$pk_count" ] || pk_count=0
-# v2.10.1: o daemon wlr-foreign-toplevel (a dock COMUTADORA) — vivo E
-# FALANDO (a prova é o PING no socket da sessão, não só o processo)
+# 2.0 Fase 2 — O CLIENTE WAYLAND É O PRÓPRIO elite-daemon (o
+# craft-toplevel.c morreu com o seu toplevel.sock): a prova de fala é o
+# BUS DA SESSÃO (/run/user/$UID/elite/bus.sock) — o Hello ganha o
+# SNAPSHOT DE BOAS-VINDAS (janelas/mesa/mídia/jogo/áudio): o quadro
+# que responder é o fio VIVO. O contador do toplevel de era segue como
+# fronteira legível (rig velho em migração o mostra vivo).
 tp_count="$(count craft-toplevel)"
-tp_sock="DEAD"
-for s in /run/user/*/elite/toplevel.sock; do
+bus_sock="DEAD"
+for s in /run/user/*/elite/bus.sock; do
     [ -S "$s" ] || continue
     if PYTHONDONTWRITEBYTECODE=1 python3 - "$s" <<'PY' 2>/dev/null
-import socket, sys
+import socket, struct, sys, json
 c = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
 c.settimeout(2)
 c.connect(sys.argv[1])
-c.sendall(b"PING\n")
-assert c.recv(64).startswith(b"PONG")
+hello = json.dumps({"Hello": {"who": "elite-session-probe"}}).encode()
+c.sendall(struct.pack("<I", len(hello)) + hello)
+def recvex(n):
+    buf = b""
+    while len(buf) < n:
+        chunk = c.recv(n - len(buf))
+        if not chunk:
+            return None
+        buf += chunk
+    return buf
+hdr = recvex(4)
+assert hdr, "bus calado (sem quadro de resposta ao Hello)"
+ln = struct.unpack("<I", hdr)[0]
+assert 0 < ln <= 1048576, "quadro fora da lei (FRAME_MAX)"
+assert recvex(ln), "quadro truncado"
 PY
     then
-        tp_sock="OK"
+        bus_sock="OK"
         break
     fi
 done
@@ -134,8 +154,10 @@ unset _gw_auto _gw_home _gwp _gwd
 say "ELITE_PROBE_BEGIN"
 say "WAYBAR_COUNT=$wb_count"
 say "DOCK_COUNT=$dk_count"
+# 2.0 — era legível: o C de 3 gerações morreu no E142c; o contador
+# segue para a fronteira dos rigs em migração (o fio VIVO é o bus.sock)
 say "TOPLEVEL_COUNT=$tp_count"
-say "TOPLEVEL_SOCKET=$tp_sock"
+say "BUS_SOCKET=$bus_sock"
 say "SWAYNC_COUNT=$sn_count"
 say "IDLE_COUNT=$idle_count"
 say "OSD_COUNT=$osd_count"

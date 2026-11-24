@@ -49,11 +49,14 @@ file_hasnt "autostart: o craft-bars não volta (a cola sh morreu)" "$AIROOTFS/et
 file_hasnt "autostart: nenhuma spawn direta de waybar" "$AIROOTFS/etc/skel/.config/labwc/autostart" 'waybar &'
 
 # ══ O PACOTE (as ferramentas dedicadas da diretriz, o debloat) ══
+# 2.0 Fase 2 — o swayidle APOSENTOU (a vigília é do elite-daemon nativo)
 PKG="elite/packages.add"
-for p in iwgtk blueman nm-connection-editor pwvucontrol coolercontrol swaync nwg-drawer gnome-text-editor papers brave-origin swayidle udiskie cliphist swayosd xorg-server; do
+for p in iwgtk blueman nm-connection-editor pwvucontrol coolercontrol swaync nwg-drawer gnome-text-editor papers brave-origin udiskie cliphist swayosd xorg-server; do
     file_line_exact "packages.add: a ferramenta dedicada $p" "$PKG" "$p"
 done
 file_hasnt "packages.add: o waybar NÃO volta (a top bar é nativa)" "$PKG" '^waybar$'
+file_line_exact "packages.remove: o swayidle aposentado (a vigília é do daemon)" "elite/packages.remove" 'swayidle'
+file_line_exact "packages.remove: o craft-toplevel aposentado (o C de 3 gerações)" "elite/packages.remove" 'craft-toplevel'
 file_has "packages.remove: o mousepad fica fora (gnome-text-editor é o editor)" "elite/packages.remove" 'mousepad'
 file_line_exact "packages.remove: o kernel stock continua fora (BORE único)" "elite/packages.remove" 'linux'
 
@@ -62,16 +65,17 @@ BS=".ci/build.sh"
 file_has "build.sh: o estágio Rust fala /work/crates" "$BS" 'tar -C /work/crates'
 file_has "build.sh: elite-core entra na família" "$BS" 'RUST_CRATES="elite-core elite-daemon"'
 file_has "build.sh: craft-dump-rs entra se presente" "$BS" 'craft-dump-rs'
-file_has "build.sh: o MANIFEST nasce dos bins reais (skip do craft-toplevel C)" "$BS" '[ "$b" = "craft-toplevel" ] && continue'
+file_has "build.sh: o MANIFEST nasce dos bins reais (2.0: os bins COMPILADOS pulam o overlay)" "$BS" 'craft-update|craft-clean|craft-help|craft-pick|craft-dump|elite-daemon|craft-bar-rs|craft-dock-rs) continue'
 file_has "build.sh: o CoolerControl viaja com o override --disable-gpu" "$BS" 'org.coolercontrol.CoolerControl.desktop'
 file_has "guard-pkgrel: o exclude acompanhou crates/" ".ci/guard-pkgrel.sh" 'crates/**'
 
 # ══ O LEGADO AUSENTE (a varredura nos caminhos ATIVOS) ══
 scan_vivo() { # scan_vivo <regex> — só linhas de CÓDIGO (não comentário),
     # fora dos peritos/ceifadores nomeados (craft-dump noma fósseis;
-    # elite-post-upgrade e craft-update os CEIFAM — migração, não uso)
+    # elite-post-upgrade e os motores elite-dose/elite-clean os CEIFAM
+    # — migração, não uso; os nomes mudaram na 2.0, a função continua)
     grep -rnE "$1" "$AIROOTFS/usr/local/bin" 2>/dev/null \
-        | awk -F: '$0 !~ /craft-dump|elite-session-probe|elite-post-upgrade|craft-update|craft-bgapps/ {
+        | awk -F: '$0 !~ /craft-dump|elite-session-probe|elite-post-upgrade|elite-dose|elite-clean|craft-bgapps/ {
             line=$3; gsub(/^[ \t]+/, "", line)
             if (line !~ /^#/) print $1":"$2
         }'
@@ -79,6 +83,11 @@ scan_vivo() { # scan_vivo <regex> — só linhas de CÓDIGO (não comentário),
 legacy_hits="$(scan_vivo 'craft-bars|craft-connect|craft-pin-pick|craft-dock-gui')"
 [ -z "$legacy_hits" ] && t_ok "bins: ZERO chamada de código vivo aos fósseis (craft-bars/connect/pin-pick/dock-gui)" \
     || t_fail "bins: ZERO chamada de código vivo aos fósseis" "réus: $legacy_hits"
+# 2.0 Fase 2 — os 12 chamadores do craft-menu APOSENTARAM (a diretriz:
+# popovers nativos + ferramentas dedicadas; o picker é o craft-pick)
+menu_hits="$(scan_vivo 'craft-menu |craft-menu$|craft-menu --|craft-player|craft-power|craft-logout|craft-drawer|craft-audio-route')"
+[ -z "$menu_hits" ] && t_ok "bins: ZERO chamada viva ao craft-menu e sua era (player/power/logout/drawer/audio-route)" \
+    || t_fail "bins: ZERO chamada viva ao craft-menu e sua era" "réus: $menu_hits"
 waybar_hits="$(scan_vivo 'pgrep -x waybar|exec waybar|(^|[ &])waybar(&|[ ])')"
 [ -z "$waybar_hits" ] && t_ok "bins: ZERO spawn vivo de waybar (o perito e as ceifas de migração são legítimos)" \
     || t_fail "bins: ZERO spawn vivo de waybar" "réus: $waybar_hits"

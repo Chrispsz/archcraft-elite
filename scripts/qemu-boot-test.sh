@@ -106,32 +106,31 @@ chk $? "binários Elite executáveis (sem 203/EXEC)" "203/EXEC no live: binário
 grep -q 'systemd.default_timeout_start_sec=90' "$ENTRY"
 chk $? "cmdline real com timeout 90s ([6.2] presente)" "ISO SEM timeout 90s no cmdline — fix [6.2] regrediu"
 
-# v1.7.1 — GATE DA SESSÃO: o que o dono vê NÃO é o login, é a sessão. Desde
-# a v2.0 a sessão é waybar top + dock NATIVA (craft-dock-gui, GTK) — o probe
-# reporta WAYBAR_COUNT e DOCK_COUNT, e o gate cobra os dois ≥1 e zero mortes
-# (BARS_EXITS conta os 'SAIU exit=' do craft-bars — cada morte deixa linha
-# com hora+exit code). O "-ge 2" da era waybar-dock era contrato defasado: a
-# #93 flagrou 1/2 com a dock crash-loopando por pin inexistente. Se o probe
-# NÃO chegou (QEMU headless sem sessão), informativo — o gate não cobra o
-# que não pode ver.
+# v1.7.1 — GATE DA SESSÃO: o que o dono vê NÃO é o login, é a sessão.
+# 2.0 Fase 2 — A FAMÍLIA NATIVA: top bar craft-bar-rs (E140 aposentou o
+# waybar) + dock craft-dock-rs + o elite-daemon (o cliente Wayland E o
+# bus.sock da sessão — o C craft-toplevel morreu no E142c com o socket
+# de era). O gate cobra TOPBAR/DOCK/DAEMON ≥1, o BUS respondendo e zero
+# mortes (BARS_EXITS). Se o probe NÃO chegou (QEMU headless sem
+# sessão), informativo — o gate não cobra o que não pode ver.
 if grep -q 'ELITE_PROBE_END' "$SERIAL" 2>/dev/null; then
   echo "── bloco do probe da sessão:"
   sed -n '/ELITE_PROBE_BEGIN/,/ELITE_PROBE_END/p' "$SERIAL" | sed 's/^/   /'
-  WC="$(sed 's/\x1b\[[0-9;]*m//g' "$SERIAL" | grep -oE 'WAYBAR_COUNT=[0-9]+' | head -1 | cut -d= -f2)"
+  TB="$(sed 's/\x1b\[[0-9;]*m//g' "$SERIAL" | grep -oE 'TOPBAR_COUNT=[0-9]+' | head -1 | cut -d= -f2)"
   DK="$(sed 's/\x1b\[[0-9;]*m//g' "$SERIAL" | grep -oE 'DOCK_COUNT=[0-9]+' | head -1 | cut -d= -f2)"
-  TP="$(sed 's/\x1b\[[0-9;]*m//g' "$SERIAL" | grep -oE 'TOPLEVEL_COUNT=[0-9]+' | head -1 | cut -d= -f2)"
-  TS="$(sed 's/\x1b\[[0-9;]*m//g' "$SERIAL" | grep -oE 'TOPLEVEL_SOCKET=[A-Z]+' | head -1 | cut -d= -f2)"
+  ED="$(sed 's/\x1b\[[0-9;]*m//g' "$SERIAL" | grep -oE 'ELITE_DAEMON_COUNT=[0-9]+' | head -1 | cut -d= -f2)"
+  BS="$(sed 's/\x1b\[[0-9;]*m//g' "$SERIAL" | grep -oE 'BUS_SOCKET=[A-Z]+' | head -1 | cut -d= -f2)"
   BE="$(sed 's/\x1b\[[0-9;]*m//g' "$SERIAL" | grep -oE 'BARS_EXITS=[0-9]+' | head -1 | cut -d= -f2)"
   FB="$(sed 's/\x1b\[[0-9;]*m//g' "$SERIAL" | grep -oE 'FUZZEL_BIN=(.+)$' | head -1 | cut -d= -f2)"
   FI="$(sed 's/\x1b\[[0-9;]*m//g' "$SERIAL" | grep -oE 'FUZZEL_INI=[A-Za-z()./ ]+' | head -1 | cut -d= -f2)"
-  [ -n "$WC" ] && [ "$WC" -ge 1 ] 2>/dev/null
-  chk $? "sessão gráfica VIVA: waybar top vivo (probe: WAYBAR_COUNT=${WC:-0})" "PROBLEMA REAL DE SESSÃO: waybar top não está vivo (${WC:-0}) — classe 'subiu só o wallpaper' (ver BARS| acima)"
+  [ -n "$TB" ] && [ "$TB" -ge 1 ] 2>/dev/null
+  chk $? "sessão gráfica VIVA: top bar nativa viva (probe: TOPBAR_COUNT=${TB:-0})" "PROBLEMA REAL DE SESSÃO: craft-bar-rs NÃO está vivo (${TB:-0}) — classe 'subiu só o wallpaper' (ver BARS| acima)"
   [ -n "$DK" ] && [ "$DK" -ge 1 ] 2>/dev/null
-  chk $? "sessão gráfica VIVA: dock nativa viva (probe: DOCK_COUNT=${DK:-0})" "PROBLEMA REAL DE SESSÃO: dock craft-dock-gui NÃO está viva (${DK:-0}) — pin quebrado/crash (ver BARS| acima)"
-  [ -n "$TP" ] && [ "$TP" -ge 1 ] 2>/dev/null
-  chk $? "sessão gráfica VIVA: daemon das janelas vivo (probe: TOPLEVEL_COUNT=${TP:-0})" "PROBLEMA REAL DE SESSÃO: craft-toplevel NÃO está vivo (${TP:-0}) — a dock comutadora fica no fallback v2.10 (ver BARS| acima)"
-  [ "$TS" = "OK" ] 2>/dev/null
-  chk $? "daemon das janelas FALANDO no socket da sessão (probe: TOPLEVEL_SOCKET=${TS:-AUSENTE})" "craft-toplevel vivo mas socket SEM PING (${TS:-AUSENTE}) — a dock comutadora não tem janelas reais (ver BARS| acima)"
+  chk $? "sessão gráfica VIVA: dock nativa viva (probe: DOCK_COUNT=${DK:-0})" "PROBLEMA REAL DE SESSÃO: dock craft-dock-rs NÃO está viva (${DK:-0}) — pin quebrado/crash (ver BARS| acima)"
+  [ -n "$ED" ] && [ "$ED" -ge 1 ] 2>/dev/null
+  chk $? "sessão gráfica VIVA: orquestrador elite-daemon vivo (probe: ELITE_DAEMON_COUNT=${ED:-0})" "PROBLEMA REAL DE SESSÃO: elite-daemon NÃO está vivo (${ED:-0}) — sem daemon não há sessão 2.0 (ver BARS| acima)"
+  [ "$BS" = "OK" ] 2>/dev/null
+  chk $? "o bus.sock da sessão FALANDO (probe: BUS_SOCKET=${BS:-AUSENTE})" "elite-daemon vivo mas o bus.sock SEM resposta ao Hello (${BS:-AUSENTE}) — a dock e a barra ficam sem o fio (ver BARS| acima)"
   [ -n "$BE" ] && [ "$BE" -eq 0 ] 2>/dev/null
   chk $? "barras sem NENHUMA morte na sessão (BARS_EXITS=${BE:-?})" "barra(s) morreram ${BE:-?}× na sessão — crash/race/pin quebrado (exit code no BARS| acima)"
   # v2.10.6 — os MENUS entram no gate local (o CI cobra desde a v2.3.1 —

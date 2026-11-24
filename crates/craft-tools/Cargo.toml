@@ -1,0 +1,35 @@
+[package]
+name = "craft-tools"
+version = "2.0.0"
+edition = "2021"
+description = "ELITE · as ferramentas nativas da casa 2.0: craft-update, craft-clean, craft-help e o craft-pick (o picker dmenu em GTK4 no Design System)"
+license = "GPL-3.0"
+
+[features]
+# a mesma lei do degrau da barra e da dock: default = gui (o binário de
+# verdade); sem a feature o núcleo std-only testa em qualquer lugar. O
+# elite-core só veste a GUI (a folha mestra THEME_CSS da janela) — sem
+# cara ele é dependência fantasma (a casa sem aviso nenhum).
+default = ["gui"]
+gui = ["gtk4", "libc", "elite-core"]
+
+[dependencies]
+elite-core = { path = "../elite-core", optional = true }
+libc = { version = "0.2", optional = true }
+gtk4 = { version = "0.11", optional = true }
+
+[[bin]]
+name = "craft-update"
+path = "src/bin/craft-update.rs"
+
+[[bin]]
+name = "craft-clean"
+path = "src/bin/craft-clean.rs"
+
+[[bin]]
+name = "craft-help"
+path = "src/bin/craft-help.rs"
+
+[[bin]]
+name = "craft-pick"
+path = "src/bin/craft-pick.rs"

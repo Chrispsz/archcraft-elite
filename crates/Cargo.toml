@@ -30,7 +30,7 @@
 resolver = "2"
 # 2.0 — a FUNDAÇÃO entra na família: elite-core (os contratos tipados,
 # o bus.sock e a folha mestra) e craft-dump-rs (a telemetria v2).
-members = ["elite-core", "elite-daemon", "craft-dock-rs", "craft-bar-rs", "craft-dump-rs"]
+members = ["elite-core", "elite-daemon", "craft-dock-rs", "craft-bar-rs", "craft-dump-rs", "craft-tools"]
 
 [profile.release]
 lto = "fat"

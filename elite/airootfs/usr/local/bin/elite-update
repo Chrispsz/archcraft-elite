@@ -26,14 +26,14 @@
 set -u
 
 if [ "$(id -u)" = 0 ]; then
-    exec /usr/local/bin/craft-update --sistema "$@"
+    exec /usr/local/bin/elite-dose --sistema "$@"
 fi
 
 if command -v pkexec >/dev/null 2>&1; then
-    exec pkexec /usr/local/bin/craft-update --sistema "$@"
+    exec pkexec /usr/local/bin/elite-dose --sistema "$@"
 fi
 
 # sem pkexec (ambiente de prova?): a porta recusa com a verdade — nunca
 # sobe dose privilegiada por caminho silencioso.
-printf 'elite-update: sem pkexec nesta máquina — rode "craft-update --sistema" com sudo.\n' >&2
+printf 'elite-update: sem pkexec nesta máquina — rode "elite-dose --sistema" com sudo.\n' >&2
 exit 1

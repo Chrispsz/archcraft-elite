@@ -488,43 +488,36 @@ sed -i -e 's|iso_name="archcraft"|iso_name="archcraft-elite"|' \
 #  O upstream só registra os PRÓPRIOS scripts (choose-mirror, xflock4).
 #  v1.0.3: + craft-* (keybinds do rc.xml labwc) + autostart do labwc
 #  (o skel→home do mkarchcraftiso preserva o modo → liveuser herda 0755).
+#  2.0 Fase 2 — A LISTA SÓ FALA OS BINS DO OVERLAY (zero fóssil): os
+#  binários COMPILADOS da família Rust (craft-update/craft-clean/craft-
+#  help/craft-pick/craft-dump/elite-daemon/craft-bar-rs/craft-dock-rs)
+#  nascem do cargo NO build do pacote (makepkg instala 755) e os
+#  aposentados (craft-menu/craft-player/craft-drawer/craft-logout/
+#  craft-power/craft-audio-route/craft-toplevel…) não existem mais.
 say "Registrando 0755 dos binários Elite no file_permissions do profiledef"
 PD="$PROFILE/profiledef.sh"
 if grep -q '^file_permissions=(' "$PD"; then
   for p in /usr/local/bin/elite-tune /usr/local/bin/elite-status \
-           /usr/local/bin/craft-hello /usr/local/bin/craft-update /usr/local/bin/craft-clean \
-           /usr/local/bin/craft-extract \
-           /usr/local/bin/exo-open \
-           /usr/local/bin/craft-rollback /usr/local/bin/craft-lock /usr/local/bin/craft-logout \
-           /usr/local/bin/craft-shot /usr/local/bin/craft-bat \
-           /usr/local/bin/craft-drawer /usr/local/bin/craft-power \
-           /usr/local/bin/craft-game /usr/local/bin/craft-pin \
-           /usr/local/bin/craft-connect /usr/local/bin/craft-pin-pick \
-           /usr/local/bin/craft-fix-keys /usr/local/bin/craft-idle \
-           /usr/local/bin/craft-vigil \
-           /usr/local/bin/craft-keyring-wait \
+           /usr/local/bin/elite-clean /usr/local/bin/elite-dose \
+           /usr/local/bin/elite-drivers /usr/local/bin/elite-ferramentas \
+           /usr/local/bin/elite-flathub /usr/local/bin/elite-gparted \
+           /usr/local/bin/elite-install-stage /usr/local/bin/elite-mangohud \
+           /usr/local/bin/elite-optimize /usr/local/bin/elite-optiscaler \
+           /usr/local/bin/elite-post-transaction /usr/local/bin/elite-post-upgrade \
+           /usr/local/bin/elite-session-probe /usr/local/bin/elite-sweep \
            /usr/local/bin/elite-update \
-           /usr/local/bin/elite-post-upgrade \
-           /usr/local/bin/craft-bars /usr/local/bin/elite-install-stage \
-           /usr/local/bin/elite-session-probe \
-           /usr/local/bin/craft-dock /usr/local/bin/craft-dock-gui \
-           /usr/local/bin/craft-rice \
-           /usr/local/bin/craft-bgapps \
-           /usr/local/bin/craft-menu /usr/local/bin/craft-menu-dismiss \
-           /usr/local/bin/craft-dump \
-           /usr/local/bin/craft-wake-guard \
-           /usr/local/bin/craft-audio-route /usr/local/bin/elite-sweep \
-           /usr/local/bin/elite-optimize /usr/local/bin/elite-drivers \
-           /usr/local/bin/elite-ferramentas \
-           /usr/local/bin/elite-gparted \
-           /usr/local/bin/craft-rescue-screen /usr/local/bin/elite-post-transaction \
+           /usr/local/bin/craft-appimage /usr/local/bin/craft-bat \
+           /usr/local/bin/craft-bgapps /usr/local/bin/craft-display \
+           /usr/local/bin/craft-dock /usr/local/bin/craft-extract \
+           /usr/local/bin/craft-fix-keys /usr/local/bin/craft-flatpak \
+           /usr/local/bin/craft-game /usr/local/bin/craft-hello \
+           /usr/local/bin/craft-idle /usr/local/bin/craft-keyring-wait \
+           /usr/local/bin/craft-lock /usr/local/bin/craft-pin \
+           /usr/local/bin/craft-rescue-screen /usr/local/bin/craft-rice \
+           /usr/local/bin/craft-rollback /usr/local/bin/craft-shot \
+           /usr/local/bin/craft-vigil /usr/local/bin/craft-wake-guard \
            /usr/local/bin/calamares-elite-log \
-           /usr/local/bin/craft-display \
-           /usr/local/bin/craft-help \
-           /usr/local/bin/elite-flathub /usr/local/bin/craft-appimage \
-           /usr/local/bin/craft-flatpak \
-           /usr/local/bin/craft-player \
-           /usr/local/bin/elite-mangohud /usr/local/bin/elite-optiscaler \
+           /usr/local/bin/exo-open \
            /usr/lib/systemd/system-sleep/elite-sleep-report \
            /etc/skel/.config/labwc/autostart; do
     grep -qF "[\"$p\"]" "$PD" || sed -i "s|^file_permissions=(|file_permissions=(\n  [\"$p\"]=\"0:0:755\"|" "$PD"

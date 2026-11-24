@@ -386,7 +386,6 @@ blueman
 ##     explícito aqui).
 xorg-server
 archcraft-cursor-qogirr
-swayidle
 udiskie
 cliphist
 # E74 — Fase 3 do protocolo: OSD de volume/brilho (a spec: "indicador

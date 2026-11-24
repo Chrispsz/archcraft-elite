@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# craft-update — atualiza TUDO que a Elite entrega (v6 — E103)
+# elite-dose (o motor da era craft-update 2.0) — atualiza TUDO que a Elite entrega (v6 — E103)
 # ═══════════════════════════════════════════════════════════════════════════
 # v1 (v2.10.5): 'sudo pacman -Syu' + cabeçalho honesto (paru prometido não
 #   existe — o bloco fica pronto, mas calado enquanto paru não entra).
@@ -121,7 +121,7 @@
 #   (idempotente nas DUAS portas) e o post_upgrade do pacote faz o mesmo
 #   no rig que só chega pelo pacman. A dose sob demanda ganhou a porta
 #   canônica elite-update (pkexec + a regra 50-elite-wheel.rules).
-# v5.2 (E54 — A SENTINELA DA BASE): o dono rodou 'craft-update' e colheu o
+# v5.2 (E54 — A SENTINELA DA BASE): o dono rodou 'elite-dose' e colheu o
 #   erro cru do pacman: "falha ao sincronizar todas as bases de dados (não
 #   foi possível travar a base de dados)". A raiz honesta tem DUAS caras:
 #   (1) a CASA CONTRA ELA MESMA — a dose ao ligar (elite-bootupdate,
@@ -144,7 +144,7 @@
 #   boot traz a dose (a mesma lei da --sistema, E46). Uma definição só
 #   (db_busy) serve as três portas — revisar uma é revisar todas.
 # v5.4 (E62 — O PAPEL É DO DONO TAMBÉM): a foto do rig, 05/nov —
-#   '/usr/local/bin/craft-update: linha 154: /var/log/elite-update.log:
+#   '/usr/local/bin/elite-dose: linha 154: /var/log/elite-update.log:
 #   Permissão negada' gritando na cara do dono logo após o 'nada para
 #   fazer'. A raiz é de DONO: o log nasce root:root 644 (a dose ao ligar
 #   é a primeira a escrever) e a porta MANUAL roda como o dono — o append
@@ -630,7 +630,10 @@ higiene_e132() {
     # manager; a âncora ADOÇA, a higiene não contradiz a adoção no
     # mesmo fôlego) E O MOUSEPAD ENTRA (a ordem do dono: redundante com
     # o gnome-text-editor — a ISO já o corta; a dose alcança os rigs).
-    for pkg in polkit-gnome network-manager-applet bluetui overskride impala gnome-keyring mousepad; do
+    # 2.0 Fase 2 — O SWAYIDLE E O CRAFT-TOPLEVEL entram (a vigília é do
+    # elite-daemon — ext-idle-notify nativo; o cliente Wayland idem — o
+    # C de 3 gerações aposentou com o pacote próprio)
+    for pkg in polkit-gnome network-manager-applet bluetui overskride impala gnome-keyring mousepad swayidle craft-toplevel; do
         if pacman -Q "$pkg" >/dev/null 2>&1; then
             if run_root pacman -Rns --noconfirm "$pkg" >>"$ULOG" 2>&1; then
                 ulog "higiene E132: $pkg REMOVIDO (redundante — a casa tem substituto; sem dependentes)"
@@ -831,14 +834,18 @@ refresh_session() {
             # roteador de áudio envelhecia no update até o relogin, calado.
             # A forma -f é a MESMA que o supervisor (craft-bars) usa no
             # próprio guard — supervisor e refresh enxergam o mesmo mundo.
+            # 2.0 — OS RESIDENTES DE ERA QUE MORRERAM: o roteador python
+            # (craft-audio-route) e o swayidle saem da sessão viva na dose
+            # (o elite-daemon É o roteador e a vigília agora — o próprio
+            # refresh da sessão abaixo renasce o daemon com o código novo)
             local aro_pat='^/usr/bin/env python3 /usr/local/bin/craft-audio-route$|^python3 /usr/local/bin/craft-audio-route$'
             if pgrep -u "$uid" -f "$aro_pat" >/dev/null 2>&1; then
                 pkill -u "$uid" -f "$aro_pat" 2>/dev/null || true
-                ulog "sessão: craft-audio-route (uid $uid) reiniciado — o roteamento de áudio segue com o código novo"
+                ulog "sessão: craft-audio-route python (uid $uid) ceifado — o roteador 2.0 é o elite-daemon (renasce no refresh abaixo)"
             fi
             if pgrep -u "$uid" -x swayidle >/dev/null 2>&1; then
                 pkill -u "$uid" -x swayidle 2>/dev/null || true
-                ulog "sessão: swayidle (uid $uid) reiniciado — o supervisor craft-bars ressuscita com a receita nova (idle/suspensão valem SEM relogin)"
+                ulog "sessão: swayidle (uid $uid) ceifado — a vigília 2.0 é o elite-daemon (ext-idle-notify nativo)"
             fi
             # E125 — AS PELES DA CASA CHEGAM VIVAS NA DOSE (a mesma escola
             # do E48: a cura que espera reboot é cura adiada). O dump

@@ -3,7 +3,7 @@
 # sistema instalado. Executado no início da sessão LABWC — termine
 # comandos com & para não bloquear. Desktop estilo macOS, mouse-first:
 # menu bar no topo (craft-bar-rs) + DOCK flutuante na base (craft-dock-rs) +
-# Launchpad (nwg-drawer via craft-drawer) + wallpaper.
+# Launchpad (nwg-drawer direto — 2.0: o wrapper shell aposentou) + wallpaper.
 #
 # E137 — O LANÇADOR ÚNICO (a ordem do dono, dump 201219): NENHUM daemon
 #     de sessão nasce AQUI. craft-toplevel, waybar, dock, idle, polkit,
@@ -92,12 +92,11 @@ if command -v swaybg >/dev/null 2>&1; then
     fi
 fi
 
-# --- Janelas: daemon wlr-foreign-toplevel (a dock COMUTADORA) ──────────
-#     O craft-toplevel fala o protocolo DIRETO com o labwc (janelas por id
-#     + anel MRU do alt-tab) e serve a dock num socket da sessão. E137: o
-#     spawn DIRETO morreu — quem lança (e ressuscita) é o supervisor
-#     único (elite-daemon session / craft-bars); nascer dois era a causa
-#     do 'craft-toplevel: fechadura ocupada' no boot.
+# --- Janelas: 2.0 — O CLIENTE WAYLAND É O PRÓPRIO elite-daemon (o
+#     craft-toplevel.c aposentou com o seu toplevel.sock): cada janela
+#     nasce/muda/fecha no protocolo zwlr-foreign-toplevel v2 NATIVO e o
+#     snapshot vive no BUS (/run/user/$UID/elite/bus.sock) — a dock e a
+#     barra assinam o MESMO fio (nada de socket de era, nada de C).
 
 # --- Barras + dock + residentes: O ORQUESTRADOR ÚNICO (2.0) ──────────────
 #     2.0 — O craft-bars APOSENTA (o supervisor sh da era waybar: o corpo
@@ -143,17 +142,17 @@ fi
 #     daemon = fallback pactl/brightnessctl dentro do próprio bind (a
 #     barra some, a função NUNCA).
 
-# --- Idle + lock: TEMPOS AJUSTÁVEIS PELO USUÁRIO — "consigo controlar em
-#     quanto tempo o Pc entra em idle?" (dono). Defaults no
-#     ~/.config/elite/idle.conf; o menu → "Trava automática…" (craft-idle)
-#     troca e reinicia o daemon NA HORA, sem relogin. Receita canônica da
-#     wiki do labwc (swayidle + wlopm). O lock é o hyprlock (~/.config/hypr/
-#     hyprlock.conf): screenshot + blur + dim + relógio + avatar. FLUXO:
-#     X min → lock; X+5 → tela APAGA (DPMS real); input → acorda JÁ no
-#     lock; before-sleep → lock no suspender. "Nunca" (LOCK_MIN=0) = sem
-#     daemon (W-l manual). Quem lança (e RELANÇA) é o supervisor da sessão
-#     (a morte calada do swayidle deixava lock/DPMS/suspend fora para
-#     sempre — o achado da Rodada 2 da auditoria).
+# --- Idle + lock: 2.0 — A VIGÍLIA É DO elite-daemon (o swayidle
+#     APOSENTOU): o ext-idle-notify-v1 nativo ouve a inatividade do
+#     compositor e a casa TRAVA E APAGA no MESMO gesto (hyprlock +
+#     wlopm — a lei E43), suspende de travado (a vigília E60) e
+#     RESPEITA os inibidores de jogo/mídia (a diretriz 2.0). Os
+#     minutos moram no ~/.config/elite/idle.conf e o daemon relê a
+#     CADA ARMAÇÃO (o craft-idle 2.0 escreve; "Lock Min=N" vale na
+#     hora, sem restart). O lock visual é o hyprlock (~/.config/hypr/
+#     hyprlock.conf) de sempre. O before-sleep atômico (travar antes
+#     do mergulho) também é do daemon — o craft-wake-guard reafirma o
+#     despertar logo atrás.
 
 # --- Keyring CachyOS: self-healing de runtime (init → populate → refresh)
 #     em background, idempotentes, sudo -n (nunca pede senha no escuro).
@@ -176,15 +175,15 @@ if command -v wl-paste >/dev/null 2>&1 && command -v cliphist >/dev/null 2>&1; t
     wl-paste --watch cliphist store &
 fi
 
-# --- Áudio: roteamento automático (E30 — v2.10.18) ---------------------------
+# --- Áudio: roteamento automático (E30 → 2.0: o motor é o elite-daemon) ----
 #     Dump p6aw: o default do rig era o SINK FANTASMA do microfone USB
 #     (fifine — o som "saía pelo microfone": silêncio real). O dono pediu
-#     a troca automática ao plugar fone/saída. QUEM LANÇA é o craft-bars
-#     (a lei v2.10.6: UM SÓ lançador mata a corrida fork/exec — o idle
-#     provou o custo de dois). O daemon é event-driven (pactl subscribe,
-#     zero polling): fone no jack muda a PORTA, BT/USB novo muda o
-#     DEFAULT, classe microfone JAMAIS é default, saída que some tem
-#     fallback honesto. Morre → volta em ≤5s pelo supervisor.
+#     a troca automática ao plugar fone/saída. 2.0: a LEI é a mesma mas o
+#     MOTOR é o audio.rs do elite-daemon (RUST — o python
+#     craft-audio-route aposentou; pactl subscribe por evento, fone no
+#     jack muda a PORTA, BT/USB novo muda o DEFAULT, classe microfone
+#     JAMAIS é default, a analógica vence o HDMI sem som, o piso de 40%
+#     para quem chega com 0.00 e o anti-sequestro pós-sono E139).
 
 # --- Tema escuro UNIVERSAL (E70 — o print do dono 20:46: LACT claro no
 #     meio do rice escuro): a libadwaita NÃO lê o settings.ini gtk-3/gtk-4

@@ -7,7 +7,10 @@ description = "ELITE · telemetria v2: era nativa, serviços, ausência de legad
 license = "GPL-3.0"
 
 [[bin]]
-name = "craft-dump-rs"
+# 2.0 Fase 2 — a telemetria v2 É o craft-dump (o shell v1 aposentou:
+# o nome da casa continua o mesmo, o corpo é Rust; o install do molde
+# busca ESTE nome no target/release)
+name = "craft-dump"
 path = "src/main.rs"
 
 [dependencies]

@@ -21,8 +21,9 @@
     · W-m / A-F10 → maximizar · A-F11 → fullscreen (fullscreen do criador!)
     · W-←/→/↑/↓ → snap em metades (mesma semântica do snap MoveResizeTo dele)
     · W-n → rede (nm-connection-editor, GUI) · W-S-b → bluetooth (blueman-manager, GUI 2.0)
-    · W-x → menu de sessão (criador: rofi-powermenu; aqui: craft-logout)
-    · C-A-Delete → sessão (criador: Exit com prompt; aqui: menu craft-logout)
+    · W-x → menu de sessão (criador: rori-powermenu da era; 2.0: o menu
+      elite-sessao NATIVO do labwc)
+    · C-A-Delete → sessão (criador: Exit com prompt; 2.0: menu elite-sessao)
     · C-S-R → Reconfigure (alias do W-S-r)
     · Teclas XF86 de volume/brilho/mídia (o criador também as usa)
 
@@ -190,17 +191,18 @@
     <keybind key="C-A-t">
       <action name="Execute" command="foot" />
     </keybind>
-    <!-- Launcher: W-d → Launchpad (craft-drawer · Desktop v2: grade de apps
-         com busca + barra de sessão — mouse-first). O fuzzel clássico fica
-         no C-A-space (app-menu do criador) p/ quem quer digitar. -->
+    <!-- Launcher: W-d → Launchpad (nwg-drawer DIRETO — 2.0: o wrapper
+         shell aposentou; o binário fecha sozinho no Esc/clique fora e
+         as flags são as da casa: sem categorias, grade de 8 colunas).
+         O fuzzel clássico fica no C-A-space p/ quem quer digitar. -->
     <keybind key="W-d">
-      <action name="Execute" command="craft-drawer" />
+      <action name="Execute" command="nwg-drawer -fm thunar -term foot -is 64 -c 8 -spacing 16 -nocats" />
     </keybind>
     <!-- v1.9 — spec M4.1 do dono: a tecla SUPER (Windows) SOZINHA aciona
          o menu de aplicativos (o mesmo Launchpad do botão Arch da barra
          superior — convenção GNOME/Windows: Super = apps). -->
     <keybind key="Super_L">
-      <action name="Execute" command="craft-drawer" />
+      <action name="Execute" command="nwg-drawer -fm thunar -term foot -is 64 -c 8 -spacing 16 -nocats" />
     </keybind>
     <!-- v2.0/v2.3.4 — dock NATIVA (craft-dock-gui): SEMPRE VISÍVEL (layer
          BOTTOM + zona exclusiva — o hotspot/tira de 4px da v2.0 morreu no
@@ -263,7 +265,7 @@
 
     <!-- ===== Clipboard: histórico no fuzzel (cliphist — receita labwc) ===== -->
     <keybind key="W-v">
-      <action name="Execute" command="sh -c 'cliphist list | fuzzel --dmenu | cliphist decode | wl-copy'" />
+      <action name="Execute" command="sh -c 'cliphist list | craft-pick --title=Clipboard | cliphist decode | wl-copy'" />
     </keybind>
 
     <!-- ===== Screenshot (F75 Max não tem Print → combos em p) =====
@@ -409,18 +411,21 @@
     <keybind key="W-Menu">
       <action name="ShowMenu" menu="root-menu" />
     </keybind>
-    <!-- Lock (W-l) e sessão: W-Escape · W-x (powermenu do criador) · C-A-Delete -->
+    <!-- Lock (W-l) e sessão: W-Escape · W-x (powermenu do criador) ·
+         C-A-Delete → o menu elite-sessao NATIVO do labwc (2.0: o
+         craft-logout/craft-power fuzzel aposentou — a tecla abre o
+         MESMO menu do botão direito, ZERO processo) -->
     <keybind key="W-l">
       <action name="Execute" command="craft-lock" />
     </keybind>
     <keybind key="W-Escape">
-      <action name="Execute" command="craft-logout" />
+      <action name="ShowMenu" menu="elite-sessao" />
     </keybind>
     <keybind key="W-x">
-      <action name="Execute" command="craft-logout" />
+      <action name="ShowMenu" menu="elite-sessao" />
     </keybind>
     <keybind key="C-A-Delete">
-      <action name="Execute" command="craft-logout" />
+      <action name="ShowMenu" menu="elite-sessao" />
     </keybind>
     <!-- Recarregar configs: W-S-r e C-S-R (convenção do criador) -->
     <keybind key="W-S-r">
@@ -488,36 +493,24 @@
            A lista de janelas do botão direito saiu na v1.7 (o dock já é
            o comutador de janelas). SCROLL no desktop segue trocando de
            workspace (o gesto que o dono prefere). -->
-      <!-- v2.9.0 — A LEI DO DISMISS NO COMPOSITOR (a gaiola morreu): o
-           rig do dono desmentiu a v2.8.0 NA CARNE ("matou o uso do mouse
-           no sistema… só topbar e dock funcionam" — nem o Calamares
-           recebia clique). A perícia provou o bug: a gaiola da dock
-           nascia com input region CHEIA (self.cage setado DEPOIS do
-           _cage_set_region — a chamada de boot não aplicava nada) e a
-           região só crescia — uma rede invisível engolindo o clique de
-           TODA janela. A cura é ESTRUTURAL: ZERO superfícies novas. O
-           clique fora do menu é entregue pelo labwc ao DESKTOP (este
-           contexto), e AQUI vira lei:
-             · ESQUERDO → craft-menu-dismiss: fecha o menu aberto e NÃO
-               abre nada (o "fechar clicando fora" do dono, sem vazar
-               pro menu-raiz). Sem menu aberto o script é um no-op de
-               ~1ms — o esquerdo continua MUDO na prática (a lei v2.7).
-               O Execute AQUI também CONSOME o clique (bind casado), o
-               default herdado do labwc fica sem vez;
-             · MÉDIO → None (limpa o ShowMenu do default — v2.8);
-             · DIREITO → dismiss + ShowMenu: fecha o menu aberto e abre
-               o menu-raiz NO LUGAR (substituição limpa — nunca dois
-               menus empilhados). Sem menu, é o direito de sempre.
+      <!-- 2.0 — O CLIQUE DO DESKTOP (a lei do dismiss era da era fuzzel:
+           o menu era um PROCESSO de fora que o compositor não fechava —
+           o craft-menu-dismiss morreu com o motor; o menu do labwc fecha
+           SOZINHO no clique fora, Lei do próprio compositor). AQUI fica
+           o essencial de sempre:
+             · ESQUERDO → None (mudo na prática — a lei v2.7 segue; sem
+               Execute o clique é consumido pelo bind casado);
+             · MÉDIO → None (limpa o default);
+             · DIREITO → ShowMenu root-menu (o menu-raiz no lugar).
            SCROLL no desktop segue trocando de workspace (o gesto que
            o dono prefere). -->
       <mousebind button="Left" action="Press">
-        <action name="Execute" command="craft-menu-dismiss" />
+        <action name="None" />
       </mousebind>
       <mousebind button="Middle" action="Press">
         <action name="None" />
       </mousebind>
       <mousebind button="Right" action="Press">
-        <action name="Execute" command="craft-menu-dismiss" />
         <action name="ShowMenu" menu="root-menu" />
       </mousebind>
       <mousebind direction="Up" action="Scroll">

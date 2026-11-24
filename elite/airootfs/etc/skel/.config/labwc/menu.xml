@@ -151,8 +151,12 @@
          quebra linha, o dono lê a ação de uma vez (a lista E133/E134
          ratificou os NOMES — a PARTE 2/2 aperta o TETO; o contrato da
          suíte conta cada rótulo ≤16). -->
+    <!-- 2.0 — AS JANELAS NATIVAS: o foot -e sai da porta do dono (a
+         diretriz 2.0: atualizar, limpar e ajudar são FACES da casa em
+         GTK4 com a pele mestra; a dose sobe pelo elite-update/pkexec
+         com o diálogo gráfico da sessão) -->
     <item label="Atualizar">
-      <action name="Execute" command="foot -e craft-update" />
+      <action name="Execute" command="craft-update" />
     </item>
     <!-- E114 — A LIMPEZA COM RAIZ NO DIÁLOGO CERTO (pkexec, o diálogo
          GRÁFICO que o octopi abre; o relatório fica no terminal e o
@@ -177,7 +181,7 @@
          'as-root USUÁRIO HOME' do binário entrega a lixeira e os
          caches do dono CERTOS, sem environment injection. -->
     <item label="Limpeza">
-      <action name="Execute" command="foot -e sh -c &apos;_rc=0; pkexec /usr/local/bin/craft-clean --as-root &quot;$USER&quot; &quot;$HOME&quot; menu || _rc=$?; [ &quot;$_rc&quot; -eq 0 ] || { printf &quot;\nLimpeza não completou (rc=%s) — a mensagem acima e o papel em ~/.cache/elite/clean.log dizem o porquê.\n&quot; &quot;$_rc&quot;; read -r _; }&apos;" />
+      <action name="Execute" command="craft-clean" />
     </item>
     <separator />
     <!-- E109 — AppImages… e Flatpaks… SAÍRAM (a ordem do dono: menus de
@@ -210,13 +214,13 @@
          GPU high + rollback automático, RAM zero no idle). E106:
          ON/OFF/Automático/Status DEVOLvem feedback na tela. -->
     <item label="Modo de jogo">
-      <action name="Execute" command="craft-game" />
+      <action name="Execute" command="craft-game toggle" />
     </item>
     <!-- v1.6.1: presets do idle no fuzzel, efeito imediato, sem
          relogin. E124: 'Trava automática' entrou cortando o tempo;
          E125: os três pontinhos morrem — a palavra fica INTEIRA. -->
     <item label="Trava automática">
-      <action name="Execute" command="craft-idle" />
+      <action name="Execute" command="craft-idle cycle" />
     </item>
     <separator />
     <!-- E90 — O MAPA DOS COMANDOS. E106 — a pausa do E96: a janela
@@ -224,7 +228,7 @@
     <!-- E124 — 'Ajuda — comandos da Elite' cortava em 'comandos…' na
          largura do menu: o nome curto abre o mapa completo -->
     <item label="Ajuda">
-      <action name="Execute" command="foot -e craft-help" />
+      <action name="Execute" command="craft-help" />
     </item>
     <!-- E133→E134→E136 — OS RÓTULOS DO DONO, palavra por palavra (a lista
          final do fechamento 1.0-81 — 'Aplicativos', 'Terminal',
@@ -236,7 +240,7 @@
          menu.width.max 280). Os atalhos (W-l, W-Escape/W-x/C-A-Del)
          seguem byte a byte — o que muda é a PALAVRA que o dono lê. -->
     <item label="Aplicativos">
-      <action name="Execute" command="craft-drawer" />
+      <action name="Execute" command="nwg-drawer -fm thunar -term foot -is 64 -c 8 -spacing 16 -nocats" />
     </item>
     <item label="Bloquear tela">
       <action name="Execute" command="craft-lock" />

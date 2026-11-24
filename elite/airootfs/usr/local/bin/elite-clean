@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# craft-clean — limpeza do sistema (v6 — E133, as DUAS FASES do fechamento)
+# elite-clean (o motor da era craft-clean 2.0) — limpeza do sistema (v6 — E133, as DUAS FASES do fechamento)
 # ═══════════════════════════════════════════════════════════════════════
 # v1: cache do pacman, órfãos e journal.
 # v2 (E88): UM relatório honesto — tamanhos antes/depois, lixeira, flatpak.
@@ -62,7 +62,7 @@ _args=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --as-root)
-      [ $# -ge 3 ] || { echo "craft-clean: --as-root exige USUÁRIO e HOME (a porta do pkexec do menu)" >&2; exit 2; }
+      [ $# -ge 3 ] || { echo "elite-clean: --as-root exige USUÁRIO e HOME (a porta do pkexec do menu)" >&2; exit 2; }
       _asroot=1
       _ar_user="$2"
       _ar_home="$3"
@@ -74,15 +74,15 @@ done
 set -- ${_args[@]+"${_args[@]}"}
 if [ "$_asroot" = 1 ]; then
     if [ "$(id -u)" != 0 ]; then
-        echo "craft-clean: --as-root é porta de RAIZ (o pkexec do menu é quem chama)" >&2
+        echo "elite-clean: --as-root é porta de RAIZ (o pkexec do menu é quem chama)" >&2
         exit 2
     fi
     if ! _ar_uid="$(id -u "$_ar_user" 2>/dev/null)"; then
-        echo "craft-clean: usuário '$_ar_user' não existe (o --as-root recusa)" >&2
+        echo "elite-clean: usuário '$_ar_user' não existe (o --as-root recusa)" >&2
         exit 2
     fi
     if [ ! -d "$_ar_home" ]; then
-        echo "craft-clean: HOME '$_ar_home' não existe (o --as-root recusa)" >&2
+        echo "elite-clean: HOME '$_ar_home' não existe (o --as-root recusa)" >&2
         exit 2
     fi
     export HOME="$_ar_home" USER="$_ar_user"
@@ -108,8 +108,8 @@ for arg in "$@"; do
     -y|--yes) ASSUME_YES=1 ;;
     --auto-safe) AUTO_SAFE=1 ;;
     menu) MENU_HOLD=1 ;;
-    -h|--help) printf 'uso: craft-clean [--as-root USUÁRIO HOME] [--yes|--auto-safe|menu] — a limpeza em DUAS FASES (E133)\n\n'; sed -n '2,40p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
-    *) echo "craft-clean: arg desconhecido: $arg (use --yes, --auto-safe ou menu)" >&2; exit 2 ;;
+    -h|--help) printf 'uso: elite-clean [--as-root USUÁRIO HOME] [--yes|--auto-safe|menu] — a limpeza em DUAS FASES (E133)\n\n'; sed -n '2,40p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) echo "elite-clean: arg desconhecido: $arg (use --yes, --auto-safe ou menu)" >&2; exit 2 ;;
   esac
 done
 
@@ -117,7 +117,7 @@ _modo="interativo"
 [ "$ASSUME_YES" = 1 ] && _modo="--yes"
 [ "$ASSUME_YES" != 1 ] && [ "$AUTO_SAFE" = 1 ] && _modo="--auto-safe"
 [ "$ASSUME_YES" != 1 ] && [ "$AUTO_SAFE" != 1 ] && [ "$MENU_HOLD" = 1 ] && _modo="menu"
-clog "═══ craft-clean iniciado (TTY: $([ -t 0 ] && echo sim || echo não) · modo: $_modo · uid: $(id -u) · HOME: ${HOME:-?})"
+clog "═══ elite-clean iniciado (TTY: $([ -t 0 ] && echo sim || echo não) · modo: $_modo · uid: $(id -u) · HOME: ${HOME:-?})"
 
 # E118 — a testemunha da porta + a morte deixa testemunho + o flock.
 _ppid="$(ps -o ppid= -p $$ 2>/dev/null | tr -d ' ')"

@@ -47,10 +47,10 @@ snap_list() {
         }'
 }
 
-mlog "Rollback: abrindo (craft-menu)"
+mlog "Rollback: abrindo (craft-pick)"
 errf="$(mktemp)"
 ec=0
-choice="$(craft-menu --title='Rollback' --at=power 'Criar snapshot agora' 'Restaurar snapshot' \
+choice="$(craft-pick --title='Rollback' 'Criar snapshot agora' 'Restaurar snapshot' \
     2>"$errf")" || ec=$?
 if [ "$ec" -eq 143 ]; then
     mlog "Rollback: fechado de fora (SIGTERM — toggle/cross-dismiss) — benigno"
@@ -81,7 +81,7 @@ if [ "$ec" -ne 0 ]; then
     mlog "Rollback: MENU FALHOU exit=$ec — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
     # v2.3.10 — falha REAL avisa e SOME (-u normal + timeout 5; o rótulo
     # era 'FUZZEL FALHOU' — a era do fuzzel acabou no menu de escolha).
-    note -u normal -t 8000 'Menu de Rollback falhou' "craft-menu exit=$ec — detalhe em ~/.cache/elite/menus.log"
+    note -u normal -t 8000 'Menu de Rollback falhou' "craft-pick exit=$ec — o picker falhou (o log do rollback diz o contexto)"
 fi
 rm -f "$errf"
 
@@ -122,7 +122,7 @@ case "$choice" in
         fi
         ec=0
         errf="$(mktemp)"
-        pick="$(printf '%s\n' "$list" | craft-menu --title='Restaurar' --at=power 2>"$errf")" || ec=$?
+        pick="$(printf '%s\n' "$list" | craft-pick --title='Restaurar' 2>"$errf")" || ec=$?
         if [ "$ec" -eq 143 ]; then
             mlog "Rollback: fechado de fora (SIGTERM — toggle/cross-dismiss) — benigno"
             rm -f "$errf"
@@ -144,7 +144,7 @@ case "$choice" in
         snap="$(printf '%s' "$pick" | cut -d' ' -f1)"
         ec=0
         errf="$(mktemp)"
-        ok="$(craft-menu --title='Confirmar' --at=power 'Cancelar' 'CONFIRMAR o retorno' \
+        ok="$(craft-pick --title='Confirmar' 'Cancelar' 'CONFIRMAR o retorno' \
             2>"$errf")" || ec=$?
         rm -f "$errf"
         if [ "$ec" -ne 0 ] || [ "$ok" != 'CONFIRMAR o retorno' ]; then

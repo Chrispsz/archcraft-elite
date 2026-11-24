@@ -7,12 +7,17 @@
 // ficam sem senha PARA QUEM PODE (usuário LOCAL ATIVO do grupo wheel);
 // todo o resto do sistema continua pedindo autenticação como sempre.
 //
-//   · /usr/local/bin/craft-clean  — a limpeza da casa (pkexec via menu);
-//   · /usr/local/bin/elite-update — a porta canônica da atualização sob
-//     demanda (constituição §5; o pkexec dela roda craft-update --sistema,
-//     por isso o lookup do craft-update entra na MESMA família);
-//   · /usr/local/bin/craft-update — o mesmo caminho executado direto por
-//     pkexec (a dose é uma só; a regra não briga com a porta).
+// 2.0 Fase 2 — A FAMÍLIA DOS MOTORES (as FACES agora são janelas GTK4:
+//   craft-update/craft-clean chamam pkexec por DENTRO; os motores é que
+//   sobem como raiz):
+//   · /usr/local/bin/elite-update — a porta canônica da dose (a GUI
+//     invoca; o diálogo gráfico da sessão pergunta UMA vez);
+//   · /usr/local/bin/elite-dose   — o motor da atualização (o corpo
+//     provado da era craft-update, renomeado — a porta sem senha é a
+//     mesma de sempre);
+//   · /usr/local/bin/elite-clean  — o motor da limpeza (o corpo da era
+//     craft-clean, renomeado — a GUI chama com --as-root USUÁRIO HOME,
+//     o caminho EXATO desta regra, sem env injection).
 //
 // O grupo wheel É o juiz (a casa não inventa grupo novo — sudo/pam_wheel
 // já decidem quem é admin neste rig; polkit apenas RESPEITA a decisão).
@@ -21,9 +26,9 @@
 // ═════════════════════════════════════════════════════════════════════════
 polkit.addRule(function(action, subject) {
     var casa = [
-        "/usr/local/bin/craft-clean",
         "/usr/local/bin/elite-update",
-        "/usr/local/bin/craft-update"
+        "/usr/local/bin/elite-dose",
+        "/usr/local/bin/elite-clean"
     ];
     if (action.id == "org.freedesktop.policykit.exec"
         && subject.isInGroup("wheel")

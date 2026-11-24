@@ -1,910 +1,111 @@
 #!/bin/sh
-# craft-idle — central de IDLE da Elite (v1.6.1)
-# ─────────────────────────────────────────────────────────────────────────
-# Diretriz do dono: "consigo controlar em quanto tempo o Pc entra em
-# idle?" — antes os tempos eram HARDCODED no autostart (10 min lock /
-# 15 min apagar). Agora vivem em ~/.config/elite/idle.conf e este script
-# é a interface: presets no fuzzel (mesma família do craft-power/
-# craft-connect), escrita no conf e REINÍCIO IMEDIATO do daemon —
-# trocar o tempo vale NA HORA, sem relogin.
-#
-# FLUXO do idle (E44 — O GESTO ÚNICO; a versão antiga deste comentário
-# vendia a janela 'X min trava → X+5 apaga' que o dono REJEITOU no rig:
-# 'o PC vai pra tela de bloqueio e fica infinitamente' — travado e ACESO):
-#   'X min de inatividade → TRAVA E APAGA no MESMO tick (hyprlock + wlopm
-#                          --off — acorda já no lock, escuro de fato)'
-# E60 — O BRAÇO DO LOCK É IDEMPOTENTE (--if-needed): o timeout do lock
-#   chamava 'craft-lock' cru — se o hyprlock vivo rearmar o relógio de
-#   idle do compositor (surface nova + grab = atividade), o tick voltava
-#   a 0 e o lock REEXECUTAVA: escrachador infinito de relock e o suspend
-#   (20min de idle) NUNCA disparava — o relato do dono ('bloqueia, passa
-#   o tempo, nada acontece', v2.10.28+). Agora: lock vivo = no-op (o tick
-#   re-ticado não recria NADA); lock morto = fluxo completo (E47 + E30
-#   preservados nos caminhos que os prometem). E O SUSPEND GARANTIDO
-#   ganhou a VIGÍLIA (craft-vigil — armada pelo próprio craft-lock): o
-#   tempo TRAVADO decide, o relógio de idle deixou de ser o único juiz.
-#   SUSPEND_MIN          → suspende ESCURO e TRAVADO (acorda no lock:
-#                          senha UMA vez e usa — nunca suspende com
-#                          alguém na frente; o conf legado X/Y é
-#                          normalizado pelo daemon, com aviso explícito)
-#   cada braço deixa linha no idle.log — 'a tela nunca apaga' e 'nunca
-#   entra em idle' ganham RÉU NOMEADO com rc no papel
-# E61 — O SUSPEND DO IDLE NÃO DORME SOB AS MÃOS (o dono esclareceu a
-#   ordem: ele suspendia DEPOIS da senha digitada, nunca enquanto
-#   travado): o braço idle DEFERE quando há lock vivo com vigília no ar
-#   — enquanto travado, quem manda é a vigília (o deadline de idle não
-#   vê digitação em compositor que não conta input travado). O resume
-#   renova a marca de atividade (idle-activity) que a vigília lê.
-# E77 — O PORTÃO E A AUTORIDADE ÚNICA (a spec do dono: bloqueio, DPMS e
-#   suspensão são timers ESTRITAMENTE SEQUENCIAIS E MUTUAMENTE EXCLUSIVOS
-#   — nenhum par corre ou dispara junto; resume não re-suspende até o
-#   destravo e um novo período completo de inatividade). Duas curas:
-#   (1) AUTORIDADE ÚNICA: com lock vivo, o braço idle NUNCA suspende —
-#       DEFERE SEMPRE e RE-ARMA a vigília se ela morreu (a parteira; a
-#       janela 'vigia morto + digitação' do E61 não tem mais suspend
-#       concorrente: quem dorme sob lock é SÓ a vigília, com orelhas).
-#   (2) O PORTÃO (idle-suspend-gate, XDG_RUNTIME_DIR — morre com a
-#       sessão): FECHA em TODO sono real do logind (before-sleep →
-#       sleep-hook, o choke point universal: vigília, braço idle, menu
-#       do craft-power, tampa) e no suspend de cada autoridade; ABRE no
-#       DESTRAVO (saída natural da vigília / screenon com lock morto).
-#       Fechado, NENHUM timer suspende — o wake fica travado e ACORDADO
-#       esperando a senha; o destravo abre e o ciclo recomeça do zero
-#       (T1 → lock novo → vigília nova → SUSPEND_MIN travado).
-#       O wake de DPMS puro (mouse na tela de bloqueio apagada) NÃO
-#       abre: screenon só abre com lock MORTO.
-#       E78 — A EMENDA DO DONO AO ISOLAMENTO (o ciclo persistente): o
-#       wake travado NÃO é prisão perpétua. A vigília RENASCIDA no wake
-#       nasce DEPOIS do portão — o período completo que ela conta É o
-#       'novo período de inatividade' da spec, e no teto com orelhas
-#       quietas ela PAGA o portão e suspende de novo (escuro e travado).
-#       Mãos renovam a contagem (T3 = período contínuo sem mãos — a
-#       senha nunca é interrompida); o destravo segue abrindo na hora.
-#       O portão segue fechando em TODO sono e intocável pelo screenon —
-#       quem o paga é a contagem nova, NUNCA o wake sozinho.
+# ═════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · craft-idle (2.0) — A TRAVA AUTOMÁTICA DA CASA
+# ═════════════════════════════════════════════════════════════════════════
+# 2.0 — O SWAYIDLE APOSENTOU: a vigília é do elite-daemon (o
+# ext-idle-notify-v1 nativo — trava + tela apagada no MESMO gesto E43,
+# o suspend de travado E60, os inibidores de jogo/mídia respeitados).
+# ESTE bin é o ESCRITOR do conf: os minutos moram em
+# ~/.config/elite/idle.conf e o daemon os lê NA ARMAÇÃO de cada ciclo —
+# a mudança vale na hora, SEM restart, SEM relogin (o menu do dono
+# continua mandando como sempre mandou).
 #
 # Uso:
-#   craft-idle           menu de presets (mouse-first — item do menu do
-#                        desktop: "Trava automática")
-#   craft-idle start     sobe o daemon com os valores do conf (o
-#                        autostart chama isto — única definição da
-#                        receita swayidle, zero duplicação)
-#   craft-idle status    mostra os valores vigentes
-#
-# E47 — O BEFORE-SLEEP SEM CORRIDA: o hook do suspend chama
-#   'craft-lock --if-needed' — o hyprlock que JÁ está na tela (nascido no
-#   timeout do LOCK_MIN, ou no 'Suspender' do menu) NÃO é morto e recriado
-#   dentro da janela de 5s do logind (InhibitDelayMaxSec): o blur do
-#   wallpaper demora segundos e o kernel congelava no meio da init — o
-#   acordar podia não ter lock (a denúncia recorrente do dono: a lógica
-#   do suspend/lock 'é burra'). Lock vivo sobrevive; lock morto recria
-#   (auto-cura); o manual (W-l) segue a E30.
-#
-# v2.3.1 — FIM DO SILÊNCIO (família craft-*): open/falha do fuzzel deixam
-# linha em ~/.cache/elite/menus.log — crash nunca mais é morte calada.
-set -eu
-
-# E90 — o --help que faltava (a lacuna nº 1 do UX-ROADMAP)
-uso() {
-    printf '%s\n' \
-        'uso: craft-idle — o daemon de idle (lock → apagar → suspender) e o' \
-        '     menu de presets: "Trava automática" (duas portas)' \
-        '' \
-        '  sem args abre o MENU (presets de minutos; efeito imediato, sem' \
-        '  relogin — a máquina de estados renasce com a nova receita). A' \
-        '  escolha persiste em ~/.config/elite/idle.conf (LOCK/OFF/SUSPEND_MIN).' \
-        '  A ORDEM É LEI (E89): SUSPEND ≤ LOCK não nasce — normaliza p/ LOCK+5.' \
-        '  o papel dos braços mora em ~/.cache/elite/idle.log.'
-    exit 0
-}
-case "${1:-}" in -h|--help|uso) uso ;; esac
-
-MLOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/menus.log"
-mlog() {
-    mkdir -p "${MLOG%/*}" 2>/dev/null
-    if [ -f "$MLOG" ] && [ "$(wc -c <"$MLOG" 2>/dev/null || echo 0)" -gt 262144 ]; then
-        : >"$MLOG"
-    fi
-    printf '[%s] %s\n' "$(date '+%F %T')" "$1" >>"$MLOG" 2>/dev/null
-    return 0
-}
+#   craft-idle            → cicla os presets (5 → 10 → 15 → 30 → nunca → 5)
+#   craft-idle N          → trava em N minutos (0 = nunca sozinho, W-l manda)
+#   craft-idle status     → o conf vivo e o que o daemon fará com ele
+# ═════════════════════════════════════════════════════════════════════════
+set -u
 
 CONF_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/elite"
 CONF="$CONF_DIR/idle.conf"
 
-# E44 — a evidência do fluxo em ~/.cache/elite/idle.log (teto 256 KiB — a
-# lei da família E36): apagar/acordar/suspende deixam linha com rc — o
-# 'nunca entra em idle sozinho' do dono ganha prova, não opinião.
-IDLE_LOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/idle.log"
-# E61 — a marca de atividade que o RESUME deixa e a VIGÍLIA lê (o mtime
-# é o último idle→ativo que o compositor viu — mundo A, onde input
-# travado CONTA como atividade). Vive no XDG_RUNTIME_DIR (morre com a
-# sessão — zero lixo em disco).
-ACT_EPOCH="${XDG_RUNTIME_DIR:-/tmp}/elite/idle-activity"
-# E77 — O PORTÃO do pós-sono: arquivo-PRESENÇA (existe = FECHADO =
-# nenhum timer suspende; ausente = ABERTO). Fecha no sono (sleep-hook do
-# before-sleep + cada autoridade antes do próprio suspend), abre no
-# DESTRAVO (saída natural da vigília / screenon com lock morto). Vive no
-# XDG_RUNTIME_DIR pela mesma lei da marca: morre com a sessão — um boot
-# novo nasce com o portão aberto, zero lixo em disco.
-GATE="${XDG_RUNTIME_DIR:-/tmp}/elite/idle-suspend-gate"
-gate_close() {
-    mkdir -p "${GATE%/*}" 2>/dev/null || true
-    : > "$GATE" 2>/dev/null || true
+uso() {
+    printf '%s\n' \
+        'uso: craft-idle [N | cycle | status] — a trava automática da casa' \
+        '' \
+        '  2.0: a vigília é do elite-daemon (ext-idle-notify nativo); este' \
+        '  bin escreve ~/.config/elite/idle.conf e o daemon lê na ARMAÇÃO' \
+        '  de cada ciclo — a mudança vale na hora, sem restart.' \
+        '' \
+        '  N        minutos de inatividade até TRAVAR E APAGAR (0 = nunca)' \
+        '  cycle    o ciclo dos presets (5 → 10 → 15 → 30 → nunca)' \
+        '  status   o conf vivo'
+    exit 0
 }
-gate_open() {
-    rm -f "$GATE" 2>/dev/null || true
-}
-# E106 — O TERMÔMETRO DO DESTRAVO (a MESMA gramática do craft-vigil, que
-# é quem toca o stamp): destravo com menos de $1 segundos = NINGUÉM
-# recria lock nem suspende — a corrida 'unlock × suspend em voo' do dump
-# 20261112 (a dupla senha) morre aqui. O stamp vive no XDG_RUNTIME_DIR.
-UNLOCK_STAMP="${XDG_RUNTIME_DIR:-/tmp}/elite/unlock.stamp"
-# E110 — O CARIMBO DO DESPERTAR (o elite-sleep-report escreve /run/elite/
-# sleep-returned no 'post'): os braços do idle julgam o mundo pós-wake pelo
-# ESTADO real do sono, não pelo relógio do processo (a dupla senha do dump
-# 114852 morre aqui — ver o sleep-hook abaixo). Seam de teste.
-SLEEP_RETURNED="${ELITE_SLEEP_RETURNED:-/run/elite/sleep-returned}"
-unlock_fresco() { # 0 = o destravo foi há MENOS de $1 segundos
-    _janela="${1:-15}"
-    [ -r "$UNLOCK_STAMP" ] || return 1
-    _marca="$(stat -c %Y "$UNLOCK_STAMP" 2>/dev/null || echo 0)"
-    _agora="$(date +%s)"
-    [ "$((_agora - _marca))" -lt "$_janela" ]
-}
-ilog() {
-    mkdir -p "${IDLE_LOG%/*}" 2>/dev/null || true
-    if [ -f "$IDLE_LOG" ] && [ "$(wc -c <"$IDLE_LOG" 2>/dev/null || echo 0)" -gt 262144 ]; then
-        tail -c 131072 "$IDLE_LOG" > "$IDLE_LOG.tmp" 2>/dev/null && mv -f "$IDLE_LOG.tmp" "$IDLE_LOG"
-    fi
-    if ! printf '[%s] %s\n' "$(date '+%F %T')" "$*" >>"$IDLE_LOG" 2>/dev/null; then
-        # E106 — O PAPEL QUE NÃO ACEITA ESCRITA NÃO É MAIS SILÊNCIO (o
-        # dump 20261112 fotografou o buraco preto: o boot inteiro SEM UMA
-        # linha no idle.log — os braços rodavam (spawn do lock às 15:56:17,
-        # sleep-hook às 16:09:58) e o papel ficou mudo; o 2>/dev/null da
-        # linha antiga engolia a falha — E33 na sua forma mais pura). A
-        # falha de escrita vai para um tmpfs SEMPRE gravável pelo dono.
-        printf '[%s] ilog FALHOU (%s): %s\n' "$(date '+%F %T')" "$IDLE_LOG" "$*" \
-            >>"${XDG_RUNTIME_DIR:-/tmp}/elite/idle-write-fail" 2>/dev/null || true
-    fi
-    return 0
-}
-# v2.10.8 — SUSPEND_MIN de fábrica 0 → 20: a 10.7 nascia com suspend OFF
-# ('a ISO não muda comportamento às escondidas') e o dono ficou com um PC
-# que NUNCA dormia — o dump d33o provou o kernel capaz ('freeze mem disk',
-# mem_sleep [deep]) e o idle.conf do skel ditando 'nunca'. O default agora
-# é o das outras distros (o que o dono pediu: 'consiga entrar em
-# idle/suspensão'); 0 continua valendo (off consciente, explícito).
-# E43 — fábrica = o gesto ÚNICO (trava E apaga no mesmo tick): 5 min.
-# O padrão antigo (10 → 15) e o do rig do dono (2 → 7) deixavam a tela
-# TRAVADA E ACESA no meio-caminho — o fluxo que o dono rejeitou no dump
-# tg0b1. Um só instante: hyprlock + wlopm --off juntos; acorda no lock.
-LOCK_MIN=5
-OFF_MIN=5
-SUSPEND_MIN=20  # auto-suspende APÓS X min de inatividade (o before-sleep
-                # já travou — acorda no lock; 0 = off, escolha explícita)
-# shellcheck disable=SC1090  # caminho dinâmico POR DESIGN: é o conf do
-# usuário (~/.config/elite/idle.conf) — o ajuste sem relogin da v1.6.1
-[ -r "$CONF" ] && . "$CONF"
+case "${1:-cycle}" in -h|--help|uso) uso ;; esac
 
-# v2.10.5 — CONFIANÇA NO CONFINO, MAS PROVA DO VALOR: conf editado à mão
-# com lixo ('LOCK_MIN=10min', linha vazia) não pode matar o daemon calado
-# sob o set -eu (o -eq do start_daemon morreria antes do primeiro timeout).
-# Valor ruim = padrão de fábrica, e o conf continua lá pra o usuário ver.
-case "${LOCK_MIN:-}"    in ''|*[!0-9]*) LOCK_MIN=5     ;; esac
-case "${OFF_MIN:-}"     in ''|*[!0-9]*) OFF_MIN=5      ;; esac
-case "${SUSPEND_MIN:-}" in ''|*[!0-9]*) SUSPEND_MIN=20 ;; esac
-
-# E109 — O RELÓGIO DE NASCIMENTO DO BRAÇO (a cura da DUPLA SENHA que o
-# dump 181701 fotografou de ponta a ponta): o sleep-hook do swayidle
-# nasceu às 17:20:50 no before-sleep e o S3 CONGELOU o processo antes do
-# primeiro ilog; ao acordar (18:01:06) o zumbi completou o corpo às
-# 18:01:16 — 10s DEPOIS do wake — e o termômetro do destravo ainda era
-# VELHO (a vigília só o tocou às 18:01:29): o unlock_fresco 15 deixou
-# passar, o `craft-lock --if-needed` rodou e RE-TRAVOU a tela em cima do
-# dono que ACABAVA de digitar a senha ('você coloca uma vez, ela volta
-# de novo, pede senha de novo'). O mesmo zumbi no braço `suspend`
-# explica o 'pc suspendendo depois de colocar a senha'. A cura é a
-# escola E108 levada à AÇÃO (não só ao log): o braço sabe QUANDO NASCEU;
-# se o relógio de parede andou mais que a janela de decisão entre o
-# nascimento e o momento de agir, o processo atravessou um sono — é um
-# zumbi do antes-sono e NADA do que ele decidiu lá atrás vale no mundo
-# novo. A seam ELITE_T_INICIO existe para a prova funcional da suíte
-# (a mesma escola do ELITE_RANDR).
-T_INICIO="${ELITE_T_INICIO:-$(date +%s)}"
-zumbi() { # 0 = este processo atravessou um sono (a mão chegou tarde demais)
-    [ "$(( $(date +%s) - T_INICIO ))" -ge 10 ]
+le_lock() {
+    [ -r "$CONF" ] || return 0
+    _l="$(grep -m1 '^LOCK_MIN=' "$CONF" 2>/dev/null | cut -d= -f2)"
+    case "${_l:-}" in ''|*[!0-9]*) echo 5 ;; *) echo "$_l" ;; esac
+}
+le_suspend() {
+    [ -r "$CONF" ] || return 0
+    _s="$(grep -m1 '^SUSPEND_MIN=' "$CONF" 2>/dev/null | cut -d= -f2)"
+    case "${_s:-}" in ''|*[!0-9]*) echo 20 ;; *) echo "$_s" ;; esac
 }
 
-# E44 — A NORMALIZAÇÃO DO FLUXO (o rig do dono: 2/7 = a janela 'travada e
-# acesa' que ele denunciou — 'fica infinitamente na tela de bloqueio').
-# Conf legado com LOCK>0 e OFF_MIN ≠ LOCK_MIN é a janela morta: o daemon
-# REESCREVE o conf EXPLICITAMENTE (linha no idle.log + notificação — nada
-# às escondidas, a lei da casa) e o gesto único vira o estado real. O
-# update NUNCA pisa config de usuário — mas o FLUXO que a janela criava é
-# 'uso burro' por definição do dono, e aqui ele morre com a prova no papel.
-if [ "${LOCK_MIN:-0}" -gt 0 ] && [ "${OFF_MIN:-0}" -ne "${LOCK_MIN}" ]; then
-    _off_velho="$OFF_MIN"
-    OFF_MIN="$LOCK_MIN"
+escreve() {
+    _lock="$1"
+    _susp="$(le_suspend)"
     mkdir -p "$CONF_DIR" 2>/dev/null || true
-    printf 'LOCK_MIN=%s\nOFF_MIN=%s\nSUSPEND_MIN=%s\n' "$LOCK_MIN" "$OFF_MIN" "${SUSPEND_MIN:-0}" > "$CONF"
-    ilog "E44: conf legado normalizado — OFF_MIN ${_off_velho}→${OFF_MIN} (o gesto único: trava e apaga juntos; a janela 'travada e acesa' morre)"
-    command -v notify-send >/dev/null 2>&1 && \
-        timeout 5 notify-send -a 'Elite' -u normal -t 8000 'Idle · fluxo novo' \
-            "Travar e apagar agora é UM gesto (${LOCK_MIN}min — era ${LOCK_MIN}/${_off_velho}). Ajuste no menu se quiser." || true
-fi
+    _tmp="$CONF.$$.tmp"
+    printf '# Archcraft ELITE · tempo de idle (escrito pelo craft-idle 2.0)\n# O daemon arma a vigília com ESTES valores a cada ciclo.\nLOCK_MIN=%s\nOFF_MIN=%s\nSUSPEND_MIN=%s\n' \
+        "$_lock" "$_lock" "$_susp" >"$_tmp" 2>/dev/null \
+        && mv -f "$_tmp" "$CONF" 2>/dev/null \
+        || { rm -f "$_tmp" 2>/dev/null; echo "craft-idle: não consegui escrever $CONF" >&2; exit 1; }
+}
 
-# E89 — A ORDEM É LEI (a spec E77 falada com números): suspend DEPOIS do
-#   lock, nunca antes. O conf do rig (dump 190719) provou a janela ilegal:
-#   LOCK_MIN=30 com SUSPEND_MIN=5 — aos 5min de idle o braço suspende um
-#   desktop DESBLOQUEADO e ACESO (o wake das 18:14:37 com sessão ativa é o
-#   flagrante), e o lock dos 30min nunca chega a mandar. O menu deixava
-#   essa combinação nascer (os knobs eram independentes). A normalização:
-#   SUSPEND > 0 com LOCK > 0 e SUSPEND < LOCK vira LOCK+5 — o mesmo gesto
-#   do E44 (prova no papel + aviso na central, nada às escondidas). Com
-#   LOCK=0 (travar é manual) o suspend é livre — não há ordem a respeitar.
-if [ "${LOCK_MIN:-0}" -gt 0 ] && [ "${SUSPEND_MIN:-0}" -gt 0 ] \
-   && [ "${SUSPEND_MIN}" -le "${LOCK_MIN}" ]; then
-    _susp_velho="$SUSPEND_MIN"
-    SUSPEND_MIN=$((LOCK_MIN + 5))
-    mkdir -p "$CONF_DIR" 2>/dev/null || true
-    printf 'LOCK_MIN=%s\nOFF_MIN=%s\nSUSPEND_MIN=%s\n' "$LOCK_MIN" "$OFF_MIN" "$SUSPEND_MIN" > "$CONF"
-    ilog "E89: ordem do ciclo restaurada — SUSPEND_MIN ${_susp_velho}→${SUSPEND_MIN} (suspende DEPOIS do lock: com lock aos ${LOCK_MIN}min, o suspend aos ${_susp_velho}min era um PC que dormia desbloqueado e aceso)"
-    command -v notify-send >/dev/null 2>&1 && \
-        timeout 5 notify-send -a 'Elite' -u normal -t 8000 'Idle · ordem do ciclo' \
-            "Suspender agora vem DEPOIS do bloqueio (${LOCK_MIN}min → ${SUSPEND_MIN}min — era ${_susp_velho}min, antes do lock)." || true
-fi
+nota() {
+    _msg="$1"
+    command -v notify-send >/dev/null 2>&1 \
+        && notify-send -a 'Elite · Trava automática' -u low -t 4000 'Trava automática' "$_msg" &
+}
 
-# ── start: a receita inteira do swayidle num lugar só ────────────────────
-start_daemon() {
-    # E30 (v2.10.18) — MUTEX DO SPAWN (dump p6aw: DOIS swayidle vivos no
-    # mesmo rig — pid 937 com o conf velho 10min e pid 21282 com o novo
-    # 15min: o pkill+exec sem exclusão mútua deixa dois spawners
-    # atravessarem — quem pkillou ANTES do outro exec não vê ninguém vivo
-    # e ambos sobram; o lock de 10min dispara junto com o de 15min).
-    # O lock mora no XDG_RUNTIME_DIR (morre com a sessão) e guarda o PID
-    # do spawn em curso — após o exec, o MESMO pid É o swayidle, e o
-    # /proc/$pid/comm distingue: 'sh' = spawn em voo (rival sai — o
-    # vencedor da corrida serve a sessão); 'swayidle' = daemon vivo
-    # (o rival é um RESTART legítimo, do menu do dono, e prossegue).
-    LK="${XDG_RUNTIME_DIR:-/tmp}/elite/idle-start.lock"
-    mkdir -p "${LK%/*}" 2>/dev/null || true
-    if [ -f "$LK" ]; then
-        lpid="$(cat "$LK" 2>/dev/null || true)"
-        case "$lpid" in
-            ''|*[!0-9]*)
-                rm -f "$LK" ;;                       # lixo no lock — reescreve
-            *)
-                if kill -0 "$lpid" 2>/dev/null; then
-                    lcomm=""
-                    [ -r "/proc/$lpid/comm" ] && lcomm="$(cat "/proc/$lpid/comm" 2>/dev/null || true)"
-                    if [ "$lcomm" != "swayidle" ]; then
-                        exit 0   # spawn em voo — não nasce daemon duplo
-                    fi
-                else
-                    rm -f "$LK"   # lock velho — o dono morreu
-                fi
-                ;;
-        esac
-    fi
-    echo $$ > "$LK"
-    # v2.5.0 (N4, audit 24-r): o lock por idle passa pelo CRAFT-LOCK (o
-    # resolvedor de wallpaper png→jpg) — chamar hyprlock direto ignorava
-    # a cadeia e dava fundo errado para quem usa só jpg.
-    pkill -x swayidle 2>/dev/null || true
-    i=0
-    while [ "$i" -lt 20 ] && pgrep -x swayidle >/dev/null 2>&1; do
-        sleep 0.1
-        i=$((i + 1))
-    done
-    # E36 (audit de arquitetura — sessão Q4): o exit calado morria ANTES do
-    # ramo do SUSPEND — "Travar: Nunca + Suspender: 20 min" gravava o conf,
-    # dava pkill e não subia NADA: o usuário PERDIA um suspend que
-    # funcionava, sem um aviso (o menu vende Travar e Suspender como
-    # escolhas independentes — o daemon passou a respeitar a independência).
-    if [ "${LOCK_MIN:-0}" -eq 0 ] && [ "${SUSPEND_MIN:-0}" -eq 0 ]; then
-        rm -f "$LK"
-        exit 0   # "Nunca" nos dois: ausência INTENCIONAL — sem daemon
-    fi
-    # E36 — o -i do craft-power (v2.10.12) espelhado no idle: inibidores
-    # IGNORADOS — navegador com vídeo segurando o inibidor de sono deixava
-    # o PC trancar e NUNCA dormir (o bug exato que o dono denunciou).
-    # v2.3.5 — SUSPEND_MIN > 0 = auto-suspender depois de X min de idle
-    # (o padrão das outras distros; o antes-sleep já trava — acorda no lock).
-    if [ "${LOCK_MIN:-0}" -gt 0 ]; then
-        if [ "${SUSPEND_MIN:-0}" -gt 0 ]; then
-            exec swayidle -w \
-                timeout $((LOCK_MIN * 60)) 'craft-lock --if-needed' \
-                timeout $((OFF_MIN * 60)) 'craft-idle screenoff' \
-                resume 'craft-idle screenon' \
-                timeout $((SUSPEND_MIN * 60)) 'craft-idle suspend' \
-                before-sleep 'craft-idle sleep-hook'
+# ── status: o papel vivo ─────────────────────────────────────────────────
+if [ "${1:-}" = "status" ]; then
+    _lock="$(le_lock)"; _susp="$(le_suspend)"
+    if [ "$_lock" = "0" ]; then
+        printf 'trava automática: NUNCA sozinha (W-l manual manda)\n'
+    else
+        printf 'trava automática: %s min de inatividade → trava e apaga (a mesa E43)\n' "$_lock"
+        if [ "$_susp" != "0" ]; then
+            printf 'sono de travado:   %s min depois da trava (a vigília E60)\n' "$_susp"
+        else
+            printf 'sono de travado:   desligado (SUSPEND_MIN=0)\n'
         fi
-        exec swayidle -w \
-            timeout $((LOCK_MIN * 60)) 'craft-lock --if-needed' \
-            timeout $((OFF_MIN * 60)) 'craft-idle screenoff' \
-            resume 'craft-idle screenon' \
-            before-sleep 'craft-idle sleep-hook'
     fi
-    # E36 — LOCK_MIN=0 com SUSPEND_MIN>0: sem lock automático ("Nunca" é a
-    # escolha EXPLÍCITA do dono — nem before-sleep trava; quem quiser
-    # privacidade no wake trava à mão com W-l). O suspend prometido é
-    # ENTREGUE, o DPMS segue (apagar tela ≠ travar).
-    exec swayidle -w \
-        timeout $((OFF_MIN * 60)) 'craft-idle screenoff' \
-        resume 'craft-idle screenon' \
-        timeout $((SUSPEND_MIN * 60)) 'craft-idle suspend'
-}
+    printf 'conf: %s (o daemon relê na próxima armação — sem restart)\n' "$CONF"
+    exit 0
+fi
 
+# ── N direto: o dono cravou o número ─────────────────────────────────────
 case "${1:-}" in
-    start)  start_daemon ;;
-    status)
-        # E36 — o status conta a verdade nos 4 estados (o "nunca" antigo
-        # escondia o suspend que a combinação Nunca+20min AGORA entrega).
-        if [ "${LOCK_MIN:-0}" -eq 0 ]; then
-            if [ "${SUSPEND_MIN:-0}" -gt 0 ]; then
-                echo "idle: suspend aos ${SUSPEND_MIN}min (travar é manual — W-l)"
-            else
-                echo "idle: nunca (travar é manual — W-l)"
-            fi
+    ''|*[!0-9]*) : ;;  # (cycle cai no ramo abaixo)
+    *)
+        escreve "$1"
+        if [ "$1" = "0" ]; then
+            nota "Nunca sozinha — o W-l manda na mão"
         else
-            # E43 — o gesto único: quando trava e apaga é o MESMO instante, o
-            # status diz a verdade sem fingir dois eventos.
-            if [ "${LOCK_MIN}" -eq "${OFF_MIN}" ]; then
-                echo "idle: trava e apaga aos ${LOCK_MIN}min · suspend: ${SUSPEND_MIN:-0}"
-            else
-                echo "idle: trava aos ${LOCK_MIN}min · tela apaga aos ${OFF_MIN}min · suspend: ${SUSPEND_MIN:-0}"
-            fi
-        fi
-        exit 0
-        ;;
-    # E44 — os BRAÇOS OBSERVÁVEIS do fluxo: o swayidle executa ESTES
-    # subcomandos (não os binários crus) — todo resultado deixa linha com
-    # rc no idle.log. 'A tela nunca apaga' e 'nunca entra em idle' viram
-    # réu nomeado, não reclamação sem corpo (a lei E33 no papel).
-    # E61 — E SAEM DE IMEDIATO: os braços são callbacks do DAEMON — cair
-    # no menu interativo depois da ação pendurava o callback num 'read'
-    # com stdin vivo (achado do smoke test da E61: 'craft-idle suspend'
-    # bloqueado 120s — o filho do swayidle herdaria o stdin da sessão).
-    screenoff)
-        # E106 — O APAGAR NÃO TOCA O DONO (o OFF_MIN=2 com LOCK_MIN=2 — o
-        # gesto único — dispara os DOIS no mesmo tick; num compositor que
-        # não conta input travado, o tick vence COM O DONO DIGITANDO A
-        # SENHA: a tela apaga na cara dele, o mouse renova (resume), o
-        # ciclo off→on pisca — o 'lógica doida' do dump). Atividade do
-        # compositor com menos de 30s = mãos de verdade: o apagar adia —
-        # o próximo tick de quietude cumpre o gesto.
-        if [ -r "$ACT_EPOCH" ]; then
-            _marca="$(stat -c %Y "$ACT_EPOCH" 2>/dev/null || echo 0)"
-            _agora="$(date +%s)"
-            if [ "$((_agora - _marca))" -lt 30 ]; then
-                ilog "E106: screenoff ADIADO — atividade do compositor há $((_agora - _marca))s (o dono está na frente; o gesto único espera o quieto)"
-                exit 0
-            fi
-        fi
-        # E110 — O MUNDO PÓS-WAKE NÃO APAGA A TELA QUE O RESUME ACENDEU (o
-        # dump 114852 fotografou o ciclo APAGOU+ACORDOU às 11:48:25: o
-        # timer do OFF_MIN pendente no thaw apagou a tela 19s DEPOIS do
-        # wake, COM O DONO digitando a senha — o 'escurece por um tempo e
-        # abre'). O carimbo do elite-sleep-report (sleep-returned) diz
-        # QUANDO o PC voltou; retorno recente = o ciclo de tela pertence a
-        # quem acordou no tempo (o elite-resume-display é o dono). O
-        # próximo tick de quietude cumpre o gesto (o MESMO contrato do
-        # guard E106 acima — adiar nunca é matar).
-        if [ -r "$SLEEP_RETURNED" ]; then
-            _wake="$(cat "$SLEEP_RETURNED" 2>/dev/null || echo 0)"
-            case "$_wake" in ''|*[!0-9]*) _wake=0 ;; esac
-            if [ "$_wake" -gt 0 ] && [ "$(( $(date +%s) - _wake ))" -lt 120 ]; then
-                ilog "E110: screenoff ADIADO — o sono voltou há $(( $(date +%s) - _wake ))s (o ciclo de tela pertence a quem acordou no tempo; o próximo tick de quietude cumpre o gesto)"
-                exit 0
-            fi
-        fi
-        if wlopm --off '*'; then
-            ilog "tela: APAGOU (wlopm rc=0) — gesto único do lock cumprido"
-        else
-            ilog "FALHA: wlopm --off rc=$? — a tela NÃO apagou (réu nomeado no papel)"
-        fi
-        exit 0
-        ;;
-    screenon)
-        # E61 — A ORELHA DO COMPOSITOR: TODO idle→ativo renova a marca
-        # (mtime) ANTES de qualquer efeito — a VIGÍLIA lê este arquivo e
-        # ADIA o suspend com mãos no lock. Em compositor que conta input
-        # travado, a digitação da senha renova a marca a cada tecla.
-        mkdir -p "${ACT_EPOCH%/*}" 2>/dev/null || true
-        : > "$ACT_EPOCH" 2>/dev/null || true
-        # E63 — A VOLTA DA IMAGEM: acordar deixou de ser UM tiro único.
-        # Relato do dono (06/nov): suspendeu, voltou — e o monitor ficou
-        # SEM SINAL (luz vermelha) até o clique no power desligar o PC.
-        # O wlopm de UMA vez corre a corrida contra a re-inicialização do
-        # driver/compositor no resume e perde: o output morre DESLIGADO no
-        # DRM com o sistema já de pé (e o logind, com HandlePowerKey
-        # default, desliga no segundo aperto — o poder de decisão ficou
-        # com o estado de pânico do dono). Sondagem: até 6 tentativas a
-        # cada 2s — a re-init do driver dá conta; o primeiro rc=0 vence.
-        # E75 — O CICLO QUE O --ON SOZINHO NÃO FAZ (o relato recorrente:
-        # 'suspende, volta e o monitor fica SEM SINAL — PC e periféricos
-        # vivos, só o vídeo morto'): o wlopm --on em output que o
-        # compositor JÁ crê aceso é NO-OP com rc=0 — e no wake esse é o
-        # estado comum (o labwc re-habilita outputs na atividade de input
-        # que volta com o rebind do elite-resume-usb, e o 'Suspender' do
-        # menu não apaga a tela antes de dormir). Quando a doença mora no
-        # DRM (o driver não re-assentou o link no resume — a classe
-        # amdgpu/KMS que o craft-dump seção 10 caça), o rc=0 do no-op
-        # convive com o monitor morto PARA SEMPRE: os dois caminhos de
-        # cura reportam sucesso e NENHUM estado muda. A cura é a TROCA
-        # REAL DE ESTADO: --off força o compositor a commitar o output
-        # DESLIGADO; 1s de trevas (o re-sync do monitor precisa do tempo
-        # mínimo de DPMS off); --on re-commita LIGADO — o wlroots refaz o
-        # DPMS no nível DRM e o link do monitor re-treina. Custo honesto:
-        # 1 blink no resume SADIO (na doença a tela já está preta — o
-        # custo real é zero). Idempotente com o hook de sistema
-        # (elite-resume-display, o MESMO ciclo) e com a vigília.
-        # E88 — O BLINK SOB AS MÃOS NÃO EXISTE MAIS: a flag dark do
-        # elite-resume-display (pré-sono, sysfs — a única conversa que o
-        # hook pode ter) conta a verdade do sono: suspendeu ESCURO (o
-        # ciclo do idle) = o off→on é INVISÍVEL e continua sendo a cura
-        # E75; suspendeu ACESO (menu do power, tampa) = o --off aqui
-        # seria um blink na cara do dono já de pé — a cura é o --on
-        # SOZINHO, na mesma sondagem. Um fato (a flag), três caminhos
-        # (swayidle resume, vigia sobrevivente, hook de sistema) — a
-        # gramática E63 de zerar briga, agora com ZERO custo visível no
-        # caminho sadio.
-        dark=1
-        DARK_FLAG="${ELITE_DARK_FLAG:-/run/elite/sleep-dark}"
-        [ -r "$DARK_FLAG" ] && dark="$(cat "$DARK_FLAG" 2>/dev/null)"
-        [ "$dark" = "1" ] || dark=0
-        # E106 — O CICLO DE WAKE É UM SÓ (o dump: 'tela: APAGOU... tela:
-        # ACORDOU' em DOBRÓO ~1s — TRÊS braços (swayidle resume, o vigia
-        # pós-suspend, o hook elite-resume-display) correm o MESMO ciclo
-        # off→on em paralelo; a intercalação off(A) on(B) off(C) deixa o
-        # output ESCURO com os três logando sucesso — e é exatamente o
-        # 'perde a imagem no monitor ao despertar'). O mutex de 3s no
-        # XDG_RUNTIME_DIR: quem correu o ciclo AGORA fecha a porta; os
-        # outros braços só seguem com o resto (registro/vigília/portão).
-        WAKE_MTX="${XDG_RUNTIME_DIR:-/tmp}/elite/wake-cycle"
-        _wm="0"
-        [ -e "$WAKE_MTX" ] && _wm="$(stat -c %Y "$WAKE_MTX" 2>/dev/null || echo 0)"
-        _agora="$(date +%s)"
-        # E109 — O ZUMBI NÃO PISCA A TELA: um screenon congelado pelo sono
-        # que completa 10s+ depois do wake re-corria o ciclo off→on SOB o
-        # dono já de pé (o blink na cara). O registro/vigília/portão
-        # seguem idempotentes; o ciclo de wlopm pertence a quem acordou
-        # NO TEMPO (o hook de sistema ou um braço vivo).
-        if zumbi; then
-            ilog "E109: screenon ZUMBI (atrasado $(( $(date +%s) - T_INICIO ))s pelo sono) — segue só com o registro/vigília/portão; o ciclo de tela é de quem acordou no tempo"
-            i=99
-            rc=0
-        elif [ "$((_agora - _wm))" -lt 3 ]; then
-            ilog "E106: ciclo de wake EM CURSO por outro braço (mutex 3s) — este segue só com o registro/vigília (fim da corrida off/on)"
-            i=99   # pula o ciclo — o outro braço é a mão na tela agora
-            rc=0
-        else
-            : > "$WAKE_MTX" 2>/dev/null || true
-            i=0
-            rc=0
-            while [ "$i" -lt 6 ]; do
-                rc=0
-                if [ "$dark" -eq 1 ]; then
-                    wlopm --off '*' >/dev/null 2>&1 || true
-                    sleep 1
-                fi
-                wlopm --on '*' || rc=$?
-                if [ "$rc" -eq 0 ]; then
-                    ilog "tela: ACORDOU (ciclo off→on E75, wlopm rc=0, tentativa $((i + 1)))"
-                    break
-                fi
-                i=$((i + 1))
-                sleep 2
-            done
-            if [ "$rc" -ne 0 ]; then
-                ilog "FALHA: ciclo off→on rc=$rc após 6 tentativas — a tela NÃO acordou (réu nomeado no papel; o driver/compositor contam no craft-dump seção 10; a escotilha SEM reboot é o craft-rescue-screen a partir de um TTY)"
-            fi
-        fi
-        # E63 — A VIGÍLIA RENASCE NO RESUME: ela MORRE depois do suspend
-        # que ela mesma disparou (missão cumprida — exit 0) e o braço idle
-        # do suspend SÓ DEFERE com vigia no ar (E61). Lock vivo com vigia
-        # morto no wake = o dono na frente do lock (tela preta, senha
-        # pendente) e a rede de fundo ABLE de dormir sob as mãos de novo
-        # — o bug que a E61 curou, reintroduzido pelo próprio ciclo de
-        # sono. Re-armar aqui fecha o ciclo: o wake renova a marca,
-        # religa a tela e re-embaralha o vigia — lock vivo tem autoridade
-        # de novo. (E79 — A VERDADE DO PGREP: o vigia que chama ESTE
-        # screenon após o SEU próprio suspend ainda está VIVO — o pgrep
-        # vê o CHAMADOR, nunca um sucessor (o comm do script é o próprio
-        # nome, provado na E78): este ramo NUNCA arma para o próprio
-        # ciclo. A sucessora do wake-pagamento nasce na E79, no fim do
-        # ciclo do craft-vigil; ESTE ramo cobre os wakes em que a vigília
-        # NÃO sobreviveu ao sono — a rede dos vigias que morreram.)
-        if pgrep -x hyprlock >/dev/null 2>&1 && ! pgrep -x craft-vigil >/dev/null 2>&1; then
-            setsid craft-vigil >/dev/null 2>&1 &
-            ilog "VIGÍLIA: re-armada no resume (lock vivo, vigia morto — o braço idle volta a DEFERIR)"
-        fi
-        # E77 — O PORTÃO ABRE NO DESTRAVO (a rede dos vigias que nunca
-        # nasceram ou morreram no sono): lock morto no screenon = a sessão
-        # NÃO está travada — o resume não pode segurar o próximo ciclo
-        # para sempre. Com lock VIVO o portão é INTOCÁVEL aqui: o wake de
-        # DPMS puro (mouse na tela de bloqueio apagada) não abre o que o
-        # sono fechou — quem abre é o DESTRAVO (saída natural da vigília)
-        # ou este ramo quando o lock já não existe.
-        if ! pgrep -x hyprlock >/dev/null 2>&1 && [ -e "$GATE" ]; then
-            gate_open
-            ilog "E77: portão ABERTO (lock morto no resume/atividade — o ciclo pode recomeçar)"
-        fi
-        exit 0
-        ;;
-    sleep-hook)
-        # E110 — O JUÍZ É O ESTADO DO LOGIND (a cura da dupla senha que o
-        # dump elite-dump-20261115-114852 fotografou com a prova do byte:
-        # o fork do swayidle foi CONGELADO pelo S3 antes de executar UMA
-        # linha do hook — o script rodou T_INICIO=$(date +%s) SÓ NO THAW
-        # (relógio FRESCO, 11:48:25) e o zumbi do E109 (relógio de processo)
-        # ficou CEGO ao réu real: o hook fechou o portão e convocou
-        # craft-lock --if-needed no MESMO segundo do fini do hyprlock
-        # original — o lock renasceu e a senha foi pedida DE NOVO. A
-        # verdade que o relógio do processo não alcança: o PrepareForSleep
-        # que convocou este hook é do PASSADO quando o
-        # systemd-suspend.service já saiu de cena. active/activating = o
-        # sono é AGORA (hook legítimo — o trabalho segue); inactive =
-        # carta do passado — NADA a fazer (o portão e o lock pertencem a
-        # quem acordou no tempo). A consulta falha (sem bus) = sem juiz:
-        # o E109 abaixo decide (defesa em camadas, o relógio ainda pega o
-        # zumbi que RODOU linhas antes de congelar).
-        _susp="$(timeout 3 systemctl is-active systemd-suspend.service 2>/dev/null || true)"
-        # E114 — O JUIZ PODIA SER CONVOCADO CEDO DEMAIS (o papel 183150,
-        # 17:27:43: 'TARDIO ... systemd-suspend.service=inactive' fotografado
-        # NO MEIO do sono real — o PrepareForSleep do logind dispara ANTES de
-        # a unit entrar em 'activating'). Um retry único de 1s separa o
-        # INÍCIO do sono (a 2ª leitura acha active/activating) do zumbi de
-        # verdade (que segue inactive nas DUAS leituras) — o juiz para de
-        # condenar sono legítimo e a cura da dupla senha não nasce com
-        # falsa confissão.
-        if [ -n "$_susp" ] && [ "$_susp" != "active" ] && [ "$_susp" != "activating" ]; then
-            sleep 1
-            _susp="$(timeout 3 systemctl is-active systemd-suspend.service 2>/dev/null || true)"
-        fi
-        if [ -n "$_susp" ] && [ "$_susp" != "active" ] && [ "$_susp" != "activating" ]; then
-            ilog "E110: sleep-hook TARDIO (o PrepareForSleep que o convocou JÁ passou — systemd-suspend.service=$_susp) — nada a fazer: o portão e o lock pertencem ao mundo pós-wake (a dupla senha morre pelo ESTADO do logind, não pelo relógio do processo)"
-            exit 0
-        fi
-        # E109 — O ZUMBI PRIMEIRO DE TUDO: este hook nasceu no
-        # before-sleep (PrepareForSleep true) e o S3 pode tê-lo congelado
-        # no meio — o zumbi que acorda DEPOIS do wake (a dupla senha do
-        # dump 181701 fotografou exatamente isto: nascimento 17:20:50,
-        # completação 18:01:16, re-travada em cima do destravo fresco).
-        # Nada do que ele decidiu antes de dormir vale no mundo novo: o
-        # portão segue como o pós-wake deixou e o lock NÃO é recriado
-        # (o destravo/screenon/craft-vigil são os donos do agora).
-        if zumbi; then
-            ilog "E109: sleep-hook ZUMBI (nasceu no antes-sono e acordou com o relógio adiantado $(( $(date +%s) - T_INICIO ))s) — nada a fazer: o portão e o lock pertencem ao mundo pós-wake (a dupla senha morre aqui)"
-            exit 0
-        fi
-        # E77 — O CHOKE POINT UNIVERSAL DO SONO: TODO suspend real do
-        # logind atravessa o PrepareForSleep (vigília, braço idle, menu do
-        # craft-power, tampa do notebook) e chega AQUI pelo before-sleep.
-        # UM handler só, ordem determinística: o portão FECHA primeiro
-        # (nenhum timer suspende no pós-sono até o destravo — a spec da
-        # E77), depois o lock --if-needed da E47 (o vivo sobrevive, o
-        # morto renasce — acorda no lock). Múltiplos before-sleep não são
-        # contrato do swayidle: os dois gestos moram num braço só. O lock
-        # nasce DESAPEGADO (o craft-lock executa o hyprlock — esperá-lo em
-        # primeiro plano penduraria o hook até o destravo) mas o hook
-        # ESPERA o lock VIVO antes de devolver a mão ao logind (a cura
-        # E97 abaixo: o desapegado puro perdia a corrida contra o S3).
-        gate_close
-        ilog "E77: sono chegando — portão FECHADO (PrepareForSleep: nenhum timer suspende no pós-sono até o destravo)"
-        if command -v craft-lock >/dev/null 2>&1; then
-            # E97 — O LOCK ESPERA ESTAR VIVO ANTES DO SONO (o rig provou a
-            # doença no dump 163423: às 16:33:56 o braço idle suspendeu 5min
-            # após o último input do dono, o hook lançou o craft-lock
-            # DESAPEGADO '( & )', o hyprlock perdeu a corrida contra o S3 e
-            # NASCEU DEPOIS DO WAKE — a máquina dormiu na cara do dono,
-            # acordou, travou-se sozinha na frente dele e ele digitou a
-            # senha DE NOVO: 'só suspende quando eu coloco a senha... tenho
-            # que ligar para depois colocar a senha', palavra por palavra).
-            # O before-sleep é SÍNCRONO no logind (InhibitDelayMaxSec=5s de
-            # fábrica): o hook espera o hyprlock VIVO (o pgrep, não o map
-            # completo — o E47 provou que lock vivo SOBREVIVE ao
-            # congelamento e termina de mapear no wake) e devolve a mão em
-            # ≤3s: no caminho comum (lock já vivo do idle) o craft-lock
-            # --if-needed devolve na hora e o pgrep passa no 1º tiro —
-            # custo zero; no caminho raro (sono manual sem lock) o lock
-            # nasce E chega vivo ao freeze. Acorda no lock, senha UMA vez —
-            # a promessa vira fato.)
-            # E106 — O RECHECK DO DESTRAVO FRESCO (a prova do dump 20261112:
-            # spawn do lock às 16:09:58, um segundo DEPOIS do 'Unlocked,
-            # exiting!' — o suspend em voo recriou o lock na cara do dono
-            # e a máquina congelou pedindo a senha DUAS vezes). Destravo
-            # com menos de 15s (o craft-vigil toca o stamp) = o dono está
-            # saindo: NINGUÉM recria lock para um sono que chegou tarde
-            # demais. O portão segue FECHADO (o sono real segue isolado).
-            if unlock_fresco 15; then
-                ilog "E106: sleep-hook NÃO recria lock — o destravo foi há <15s (a corrida unlock × suspend em voo do dump morre aqui; o portão segue fechado para o isolamento do sono)"
-                exit 0
-            fi
-            ( craft-lock --if-needed >/dev/null 2>&1 & ) || true
-            w=0
-            while [ "$w" -lt 10 ] && ! pgrep -x hyprlock >/dev/null 2>&1; do
-                sleep 0.3
-                w=$((w + 1))
-            done
-        fi
-        exit 0
-        ;;
-    suspend)
-        # E109 — O ZUMBI PRIMEIRO (o 'pc suspendendo depois de colocar a
-        # senha'): o braço nasceu no timeout de 20min do swayidle, o sono
-        # congelou-o no meio e ele completou DEPOIS do destravo — sem
-        # lock, com o termômetro do destravo velho: suspendia o PC na
-        # cara do dono que acabou de digitar a senha. Zumbi NÃO suspende:
-        # a decisão pertence a um braço vivo, no mundo novo.
-        if zumbi; then
-            ilog "E109: suspend ZUMBI (congelado pelo sono, acordou $(( $(date +%s) - T_INICIO ))s atrasado) — nada a fazer: quem decide o sono agora é um braço vivo (o 'suspende depois da senha' morre aqui)"
-            exit 0
-        fi
-        # E61 — O SUSPEND DO IDLE NÃO DORME SOB AS MÃOS (a ordem certa,
-        # esclarecida pelo dono: ele suspendia DEPOIS da senha digitada —
-        # nunca enquanto travado). A arma era ESTE braço: o deadline de
-        # idle não vê a digitação quando o compositor não conta input
-        # travado como atividade — o timeout vencia com a senha no meio e
-        # o PC dormia em vez de desbloquear.
-        # E77 — AUTORIDADE ÚNICA (a regra de ouro da spec: timers
-        # mutuamente exclusivos): com lock VIVO este braço NUNCA suspende
-        # — o tempo travado é EXCLUSIVIDADE da vigília. O E61 deferia só
-        # com vigia no ar; a janela 'vigia morto' suspendia NO MEIO da
-        # senha (dois juízes para o mesmo T3). Agora: vigília morta =
-        # RE-ARMADA aqui (a parteira — o gesto do screenon) e o braço
-        # sai; quem dorme sob lock é SÓ a vigília, com orelhas e ticks
-        # quietos. O suspend prometido nunca fica órfão (o caso 'dono
-        # foi embora com vigia morto': sem atividade não há screenon —
-        # o braço dispara, re-arma e a vigília cumpre o E60).
-        if pgrep -x hyprlock >/dev/null 2>&1; then
-            if pgrep -x craft-vigil >/dev/null 2>&1; then
-                ilog "idle: suspend DEFERIDO — lock vivo com vigília no ar (o tempo TRAVADO manda; o sintoma 'suspende quando digito a senha' era este braço)"
-            else
-                setsid craft-vigil >/dev/null 2>&1 &
-                ilog "E77: suspend DEFERIDO — lock vivo com vigília MORTA: vigília RE-ARMADA pelo braço (autoridade única do tempo travado; a janela 'suspende no meio da senha' morre aqui)"
-            fi
-            exit 0
-        fi
-        # E77 — O PORTÃO: fechado = o último sono ainda não foi pago com
-        # um destravo (isolamento de resume — a spec: nenhum timer de
-        # inatividade suspende de novo até a sessão desbloquear e correr
-        # um novo período completo). O braço DEFERE e sai; a primeira
-        # atividade abre (screenon com lock morto) e o ciclo renasce.
-        # E106 — O MESMO GESTO PARA O DESTRAVO FRESCO (o sintoma 'suspende
-        # quando digito a senha' tinha UMA janela que as E61/E77 não
-        # fechavam: o destravo satisfaz o guard do lock e o braço SEM lock
-        # suspendia 1s depois — o deadline de idle venceu sob o lock, o
-        # guard só conhecia o lock, nunca as mãos). Destravo <15s = o dono
-        # está AQUI: defere, e o próximo tick quieto cumpre o sono.
-        if unlock_fresco 15; then
-            ilog "E106: suspend ADIADO — o destravo foi há <15s (o guard antigo só via o lock; agora vê as mãos também)"
-            exit 0
-        fi
-        if [ -e "$GATE" ]; then
-            ilog "E77: idle suspend DEFERIDO — portão fechado no pós-sono (resume sem destravo; a primeira atividade reabre o ciclo)"
-            exit 0
-        fi
-        # E114 — A VIGÍLIA NO AR É O PORTÃO VIVO (o crime do papel 183150
-        # fotografado de ponta a ponta: 17:18:07 o dono digitando no lock
-        # (+12 jiffies), 17:27:42 o deadline deste braço chegou NO MESMO
-        # segundo em que o hyprlock morreu (a senha aceita) — o pgrep do
-        # topo viu o lock MORTO, o stamp do destravo ainda não existia (a
-        # vigília tica a cada 30s), o portão aberto, e o systemctl
-        # suspendeu o PC na cara do dono que ACABAVA de digitar a senha
-        # ('colocar a senha e o sistema suspender na tela de bloqueio',
-        # palavra por palavra). A lei E77 em sua letra inteira: enquanto a
-        # vigília estiver NO AR, o tempo travado é DELA — nem o lock morto
-        # libera este braço, porque quem formaliza o destravo é a vigília
-        # (stamp + portão + saída do laço); o próximo período COMPLETO de
-        # inatividade suspende. O dono ausente de verdade nunca fica sem
-        # sono: o lock vivo não morre sem ele e a vigília suspende no
-        # próprio teto — o custo é zero, a corrida morre pelo ESTADO.
-        if pgrep -x craft-vigil >/dev/null 2>&1; then
-            ilog "E114: idle suspend ADIADO — a vigília segue no ar (o lock morreu DENTRO da janela desta decisão: o destravo é DELA; o 'suspende quando digito a senha' morre pelo estado da vigília)"
-            exit 0
-        fi
-        ilog "suspendindo (idle ${SUSPEND_MIN:-?}min — escuro e travado: acorda no lock, senha UMA vez)"
-        gate_close   # E77 — cinto-e-suspensório do sleep-hook (swayidle morto também fica coberto)
-        # E108→E122 — O VEREDICTO É O QUE O JOURNAL MOSTRA (o papel do rig
-        # mentiu dias a fio: 'systemctl voltou em 0s SEM sono' seguido 1s
-        # depois de 'tela: ACORDOU' — a chamada é ASSÍNCRONA, o sono acontece
-        # por conta do logind; 'voltou em 0s' nunca provou insônia. O
-        # julgamento é por JANELA de journal — Suspending→Awake, parede real).
-        _t0="$(date +%s)"
-        if systemctl suspend -i; then
-            _t1="$(date +%s)"; _dur=$((_t1 - _t0))
-            ilog "suspend: systemctl aceito (${_dur}s, rc=0) — a chamada é ASSÍNCRONA (E122); o veredito do sono é o que o journal mostra na janela:"
-            _j="$(journalctl -b -u systemd-suspend --since "@$_t0" -o short-epoch --no-pager 2>/dev/null || true)"
-            _ts="$(printf '%s\n' "$_j" | grep -m1 'Suspending system' | cut -d' ' -f1 | cut -d. -f1)"
-            _ta="$(printf '%s\n' "$_j" | grep -m1 'Awake from suspend' | cut -d' ' -f1 | cut -d. -f1)"
-            case "${_ts:-}" in ''|*[!0-9]*) _ts="" ;; esac
-            case "${_ta:-}" in ''|*[!0-9]*) _ta="" ;; esac
-            if [ -n "$_ts" ] && [ -n "$_ta" ]; then
-                ilog "suspend: sono REAL confirmado pelo journal ($((_ta - _ts))s de S3 — Suspending→Awake, 1º ciclo da janela)"
-            elif [ -n "$_ts" ]; then
-                ilog "suspend: journal confirma o INÍCIO do sono sem o despertar na janela vista — quem conta o fim é o journal (o papel não chuta)"
-            else
-                ilog "suspend: journal SEM sono na janela da chamada (${_dur}s) — se o logind dormir depois, quem conta é o journal; o papel não chuta (E122)"
-            fi
-        else
-            ilog "FALHA: systemctl suspend -i rc=$? — o PC NÃO dormiu (réu nomeado no papel)"
+            nota "Trava e apaga em $1 minuto(s) de inatividade"
         fi
         exit 0
         ;;
 esac
 
-# ── menu de presets (fuzzel · mesma âncora da família craft-*) ───────────
-CUR="${LOCK_MIN}min"
-[ "${LOCK_MIN:-0}" -eq 0 ] && CUR='nunca'
-
-# v2.10.12 — AS ETIQUETAS FALAVAM MEIO BAJO (relato do dono: 'mudei o
-# tempo de tela para 2 minutos e a tela bloqueou invés de suspender —
-# essa lógica está toda errada'): o menu dizia só '2 minutos' e era o
-# TEMPO DE TRAVAR (o lock vem primeiro — acorda já travado é a lei
-# v1.6.1) — e o SUSPENDER não tinha knob nenhum (SUSPEND_MIN=20 fixo de
-# fábrica, invisível). Agora cada item nomeia o que faz e o suspender é
-# escolha do dono no MESMO menu (SUSPEND_MIN=0 = nunca, suportado no
-# start desde a v2.3.5).
-# E43 — O GESTO ÚNICO NO MENU: 'Travar: N minutos' virou 'Idle: N min
-# (trava e apaga)' — o item nomeia o que acontece de verdade (lock+off no
-# MESMO instante; a janela 'travada e acesa' dos presets antigos, que o
-# dono rejeitou ('as montagens do bloquear e do suspender fazendo mais
-# sentido'), morre aqui). O 'Suspender: 5 min' entra porque o dono o
-# flutuou — o padrão fica em 20 (5min suspende um desktop com trabalho
-# vivo; a escolha de 5 é um clique, não uma edição).
-# E46 — O MENU EM DUAS PORTAS (o dono: "organiza melhor o de tempo de idle
-# e etc"): a parede de 13 itens (7 de tela + 6 de suspend numa lista só)
-# virou DUAS SEÇÕES NOMEADAS — a 1ª porta diz o que controla E mostra o
-# valor ATUAL no próprio item ('Tela: trava e apaga — 5 min'); o 2º nível
-# lista só os valores da seção, com a marca '← atual'. O fallback de
-# terminal também aprendeu o gesto único: ele AINDA escrevia OFF_MIN=
-# mins+5 — a janela 'travada e acesa' que a E43 matou no menu sobrevivia
-# no terminal (E33 de espelho, achado da própria ordem E46).
-# v2.10.26/E38 — o MENU órfão saiu: era definido aqui e INCONDICIONALMENTE
-# sobrescrito dentro do if do craft-menu (o else terminal usa read/prompt,
-# nunca $MENU) — 12 linhas mortas que a suíte teria que carregar para
-# sempre. O MENU vivo é o de dentro do if (com a marca '← atual').
-
-if command -v craft-menu >/dev/null 2>&1; then
-    # v2.3.8 — o menu NATIVO (título centrado, sem linha de digitação —
-    # o dono: "remover a barra que fica").
-    # E46 — o pick com a gramática COMPLETA do craft-menu (143/2/1/erro)
-    # mora numa função só: as TRÊS portas (seção, tela, suspender) falam
-    # a mesma gramática sem tríplicar o tratamento. Os itens entram por
-    # STDIN (um por linha — o espaço dentro do item nunca vira separador).
-    idle_pick() {
-        _ip_title="$1"
-        errf="$(mktemp)"
-        ec=0
-        choice="$(craft-menu --title="$_ip_title" --at=power 2>"$errf")" || ec=$?
-        if [ "$ec" -eq 143 ]; then
-            mlog "Idle: fechado de fora (SIGTERM — cross-dismiss) — benigno"
-            rm -f "$errf"
-            exit 0
-        fi
-        if [ "$ec" -eq 2 ]; then
-            mlog "Idle: toggle — 2ª chamada fechou o menu — benigno"
-            rm -f "$errf"
-            exit 0
-        fi
-        if [ "$ec" -eq 1 ]; then
-            # v2.3.10 — fechar NUNCA é erro, COM OU SEM stderr (o gate velho
-            # '! -s "$errf"' gritava FALHOU em fechamento normal — a pilha
-            # de notificações eternas da foto do dono). stderr vai pro log.
-            if [ -s "$errf" ]; then
-                mlog "Idle: fechado pelo usuário (ESC) — benigno — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
-            else
-                mlog "Idle: fechado pelo usuário (ESC) — benigno"
-            fi
-            rm -f "$errf"
-            exit 0
-        fi
-        if [ "$ec" -ne 0 ]; then
-            mlog "Idle: MENU FALHOU exit=$ec — stderr: $(head -c 200 "$errf" | tr '\n' ';')"
-            # v2.10.5 — FIM DO ÚLTIMO LOG-ONLY: todo irmão (power/rollback/
-            # connect) avisa na central; o idle era o único que falhava calado
-            # para quem está na tela.
-            command -v notify-send >/dev/null 2>&1 && \
-                timeout 5 notify-send -a 'Elite' -u normal -t 6000 'Idle' \
-                    "Menu do idle falhou (exit=$ec) — log: ~/.cache/elite/menus.log" || true
-        fi
-        rm -f "$errf"
-        printf '%s' "$choice" | sed 's/ ← atual$//'
-    }
-    # o valor corrente na LÍNGUA DO MENU (o item EXATO — a marca nunca
-    # falha por divergência de texto; herdeiro do audit 24-c)
-    cur_lock_item() {
-        case "${LOCK_MIN:-0}" in
-            0)  printf 'Nunca (só W-l)' ;;
-            60) printf '1 hora' ;;
-            *)  printf '%s min' "${LOCK_MIN:-0}" ;;
-        esac
-    }
-    cur_susp_item() {
-        case "${SUSPEND_MIN:-0}" in
-            0)  printf 'Nunca' ;;
-            20) printf '20 min (padrão)' ;;
-            60) printf '1 hora' ;;
-            *)  printf '%s min' "${SUSPEND_MIN:-0}" ;;
-        esac
-    }
-    lock_txt="$(cur_lock_item)"
-    susp_txt="$(cur_susp_item)"
-    mlog "Idle: abrindo (craft-menu — duas portas)"
-    secao="$(printf '%s\n' \
-        "Tela — $lock_txt" \
-        "Suspender — $susp_txt" | idle_pick 'Idle')" || exit 0
-    case "$secao" in
-        'Tela —'*)
-            # E43/E46 — o gesto único: os valores AQUI são LOCK=OFF (a
-            # janela 'travada e acesa' não tem mais porta em nenhum menu)
-            itens="$(printf '%s\n' '2 min' '5 min' '10 min' '15 min' '30 min' '1 hora' 'Nunca (só W-l)' \
-                | sed "s|^${lock_txt}\$|& ← atual|")"
-            choice="$(printf '%s\n' "$itens" | idle_pick 'Tela (trava e apaga)')" || exit 0
-            case "$choice" in
-                '2 min')          LOCK_MIN=2;  OFF_MIN=2  ;;
-                '5 min')          LOCK_MIN=5;  OFF_MIN=5  ;;
-                '10 min')         LOCK_MIN=10; OFF_MIN=10 ;;
-                '15 min')         LOCK_MIN=15; OFF_MIN=15 ;;
-                '30 min')         LOCK_MIN=30; OFF_MIN=30 ;;
-                '1 hora')         LOCK_MIN=60; OFF_MIN=60 ;;
-                'Nunca (só W-l)') LOCK_MIN=0;  OFF_MIN=0  ;;
-                *)                exit 0 ;;
-            esac ;;
-        'Suspender —'*)
-            itens="$(printf '%s\n' '5 min' '10 min' '20 min (padrão)' '30 min' '1 hora' 'Nunca' \
-                | sed "s|^${susp_txt}\$|& ← atual|")"
-            choice="$(printf '%s\n' "$itens" | idle_pick 'Suspender')" || exit 0
-            case "$choice" in
-                '5 min')           SUSPEND_MIN=5  ;;
-                '10 min')          SUSPEND_MIN=10 ;;
-                '20 min (padrão)') SUSPEND_MIN=20 ;;
-                '30 min')          SUSPEND_MIN=30 ;;
-                '1 hora')          SUSPEND_MIN=60 ;;
-                'Nunca')           SUSPEND_MIN=0  ;;
-                *)                 exit 0 ;;
-            esac ;;
-        *) exit 0 ;;
-    esac
+# ── cycle: os presets da casa ────────────────────────────────────────────
+_atual="$(le_lock)"
+case "$_atual" in
+    5)  _novo=10 ;;
+    10) _novo=15 ;;
+    15) _novo=30 ;;
+    30) _novo=0  ;;
+    *)  _novo=5  ;;
+esac
+escreve "$_novo"
+if [ "$_novo" = "0" ]; then
+    nota "Nunca sozinha — o W-l manda na mão (o ciclo volta a 5 no próximo clique)"
 else
-    mlog "Idle: fuzzel AUSENTE — fallback terminal"
-    # sem fuzzel: prompt de terminal (foot -e) — não trava o ajuste
-    printf 'Idle — minutos até travar (atual: %s; vazio = cancela): ' "$CUR"
-    read -r mins || mins=''   # v2.10.5: EOF/set -e não mata calado — vazio = cancela
-    case "$mins" in
-        ''|*[!0-9]*) exit 0 ;;
-        # E46 — o gesto único vale TAMBÉM no terminal (OFF=LOCK): o fallback
-        # ainda escrevia OFF=mins+5 — a janela 'travada e acesa' que a E43
-        # matou no menu sobrevivia aqui. E o 0 AGORA persiste (antes: o
-        # 'Nunca' do terminal cavia no `*)` do case antigo e saía sem
-        # escrever — ajuste que o usuário fez e o conf nunca soube).
-        *)  LOCK_MIN="$mins"; OFF_MIN="$mins"
-            mkdir -p "$CONF_DIR"
-            printf 'LOCK_MIN=%s\nOFF_MIN=%s\nSUSPEND_MIN=%s\n' "$LOCK_MIN" "$OFF_MIN" "${SUSPEND_MIN:-0}" > "$CONF"
-            setsid craft-idle start >/dev/null 2>&1 &
-            exit 0 ;;
-    esac
+    nota "Trava e apaga em $_novo minuto(s) de inatividade"
 fi
-
-# E89 — A ORDEM É LEI TAMBÉM NO MENU: escolha que viola a sequência
-#   (suspend ≤ lock) não chega a nascer no conf — o clamp fala no item e
-#   o aviso diz por quê (a mesma gramática da normalização do start).
-if [ "${LOCK_MIN:-0}" -gt 0 ] && [ "${SUSPEND_MIN:-0}" -gt 0 ] \
-   && [ "${SUSPEND_MIN}" -le "${LOCK_MIN}" ]; then
-    _susp_velho="$SUSPEND_MIN"
-    SUSPEND_MIN=$((LOCK_MIN + 5))
-    ilog "E89: escolha do menu normalizada — suspend ${_susp_velho}→${SUSPEND_MIN}min (suspende DEPOIS do lock aos ${LOCK_MIN}min; ordem é lei)"
-    command -v notify-send >/dev/null 2>&1 && \
-        timeout 5 notify-send -a 'Elite' -u normal -t 8000 'Idle · ordem do ciclo' \
-            "Suspender vem depois do bloqueio: ${_susp_velho}min → ${SUSPEND_MIN}min." || true
-fi
-# persiste e reinicia o daemon JÁ (efeito imediato, sem relogin)
-# v2.10.5 — SUSPEND_MIN VIAJA NO REESCRITO: o menu regravava SÓ lock/off
-# e o suspend opt-in do usuário MORRIA na primeira troca de tempo de lock
-# (mudança de comportamento silenciosa — a lei proíbe).
-mkdir -p "$CONF_DIR"
-printf 'LOCK_MIN=%s\nOFF_MIN=%s\nSUSPEND_MIN=%s\n' "$LOCK_MIN" "$OFF_MIN" "${SUSPEND_MIN:-0}" > "$CONF"
-setsid craft-idle start >/dev/null 2>&1 &
-exit 0
