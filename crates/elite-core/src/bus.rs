@@ -294,8 +294,9 @@ impl BusClient {
         send_frame(&mut stream, &BusMsg::Hello { who: who.to_string() }).ok()?;
         let mut out = stream.try_clone().ok()?;
         // 1.0-93 — o teto da casa veste a ponta de escrita do clone
-        // também (o try_clone não herda os timeouts do original)
-        let _ = out.set_write_timeout(Duration::from_millis(crate::IPC_CONNECT_TETO_MS));
+        // também (o try_clone não herda os timeouts do original; o
+        // set_write_timeout pede Option — o None seria SEM teto)
+        let _ = out.set_write_timeout(Some(Duration::from_millis(crate::IPC_CONNECT_TETO_MS)));
         let (tx, rx) = std::sync::mpsc::channel::<BusMsg>();
         let cli = Arc::new(BusClient {
             out: Mutex::new(out),
@@ -340,7 +341,7 @@ impl BusClient {
                                     if let Ok(mut clone) = nova.try_clone() {
                                         // (idem: o clone veste o teto)
                                         let _ = clone.set_write_timeout(
-                                            Duration::from_millis(crate::IPC_CONNECT_TETO_MS),
+                                            Some(Duration::from_millis(crate::IPC_CONNECT_TETO_MS)),
                                         );
                                         *cli.out.lock().unwrap() = clone;
                                     }

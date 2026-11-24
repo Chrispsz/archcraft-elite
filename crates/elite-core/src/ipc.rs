@@ -113,12 +113,20 @@ pub fn bind_bus(path: &Path) -> std::io::Result<UnixListener> {
 pub fn connect_bus(path: &Path) -> Option<UnixStream> {
     use std::time::Duration;
     let teto = Duration::from_millis(crate::IPC_CONNECT_TETO_MS);
-    // (o SocketAddr::from_pathname é estável desde o 1.70; o caminho
-    // abstract/inválido cai no connect cru — o honesto de sempre)
-    let stream = match std::os::unix::net::SocketAddr::from_pathname(path) {
-        Ok(addr) => UnixStream::connect_timeout(&addr, teto).ok(),
-        Err(_) => UnixStream::connect(path).ok(),
-    }?;
+    // (o std NÃO traz connect_timeout para UDS — o TcpStream tem, o
+    // Unix NÃO; o teto nasce do CANAL: uma thread curta conecta e o
+    // chamador espera NO MÁXIMO o teto — o UDS sadio conecta em µs, o
+    // doente fica no teto sem segurar ninguém; a thread que chega
+    // tarde morre sozinha com o canal fechado, a conexão órfã cai no
+    // Drop dela)
+    let alvo = path.to_path_buf();
+    let (tx, rx) = std::sync::mpsc::channel::<UnixStream>();
+    std::thread::spawn(move || {
+        if let Ok(s) = UnixStream::connect(&alvo) {
+            let _ = tx.send(s);
+        }
+    });
+    let stream = rx.recv_timeout(teto).ok()?;
     let _ = stream.set_write_timeout(Some(teto));
     Some(stream)
 }
