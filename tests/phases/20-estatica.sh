@@ -117,13 +117,15 @@ file_has "PROTOCOL.md: a lei L2 (a porteira)" "docs/gestao/PROTOCOL.md" 'L2 · S
 file_has "PROTOCOL.md: a lei L4 (nunca tag de trabalho diário)" "docs/gestao/PROTOCOL.md" 'L4 · Trabalho diário NUNCA pusha tag'
 
 # ══ 1.0-93 · A LEI DO COMMIT PURO EXECUTADA (§6.1: nenhum commit recente
-#    carrega o trailer Co-Authored-By: — o grep nos últimos 40; o push de
-#    commit contaminado morre NA PORTEIRA, antes do Canal) ══
-_coauth="$(git log -40 --pretty=%B 2>/dev/null | grep -c 'Co-Authored-By:' || true)"
+#    carrega o TRAILER Co-Authored-By: — o grep é ÂNCORADO em início de
+#    linha porque a MENÇÃO da lei no corpo de um commit de cura é texto
+#    legítimo, não trailer; o push de commit contaminado morre NA
+#    PORTEIRA, antes do Canal) ══
+_coauth="$(git log -40 --pretty=%B 2>/dev/null | grep -c '^[[:space:]]*Co-Authored-By:' || true)"
 if [ "${_coauth:-0}" -eq 0 ]; then
-    t_ok "git: nenhum Co-Authored-By nos últimos 40 commits (a lei §6.1)"
+    t_ok "git: nenhum trailer Co-Authored-By nos últimos 40 commits (a lei §6.1)"
 else
-    t_fail "git: nenhum Co-Authored-By nos últimos 40 commits (a lei §6.1)" "achado $_coauth trailer(s) — amend antes do push"
+    t_fail "git: nenhum trailer Co-Authored-By nos últimos 40 commits (a lei §6.1)" "achado $_coauth trailer(s) — amend antes do push"
 fi
 
 # ══ 1.0-93 · OS NOVOS CONTRATOS DO PACOTE (scx-lavd direto, sudoers limpo,
