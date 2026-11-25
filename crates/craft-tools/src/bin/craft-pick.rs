@@ -260,6 +260,7 @@ fn caminho_override() -> std::path::PathBuf {
 /// mestra conhece — a mesma gramática das janelas da casa).
 #[cfg(feature = "gui")]
 fn janela_base(app: &gtk4::Application, nome: &str, titulo: &str) -> gtk4::ApplicationWindow {
+    use gtk4::prelude::*;
     let win = gtk4::ApplicationWindow::new(app);
     win.set_widget_name(nome);
     win.set_title(Some(titulo));
