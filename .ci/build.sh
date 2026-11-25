@@ -2839,7 +2839,49 @@ pkgver=1.0
 #      pkgrel 97→98 NO MESMO COMMIT (lei E41 — peles de conteúdo mudado:
 #      hyprlock.conf v8 no skel E mestre do pacote + theme.conf do
 #      greeter mestre novo; bins: craft-rice e elite-post-upgrade).
-pkgrel=98
+# E151 (ONDA FINAL 2/2 — a diretriz do dono sobre a base 1.0-98): pkgrel
+#      98→99 NO MESMO CICLO (lei E41, o bump no fecho da era como sempre):
+#      (1) A IDENTIDADE OBSIDIANA (docs/skills/06): a barra 28px veste a
+#          MESMA superfície da dock (#0d0d12/#13131a, borda mauve
+#          rgba(203,166,247,.16)), TODOS os itens no brilho da casa
+#          (#cdd6f4/#f8fafc), o estado ativo no acento suave #cba6f7 e
+#          o mutado/desligado no perigo #f38ba8; Áudio (saída) e
+#          MICROFONE (entrada) em assentos próprios (o mudo do mic deixa
+#          de ser o clique do meio escondido); o relógio veste
+#          tabular-nums e abre/fecha o painel swaync; o calendário
+#          header veste #f8fafc; ZERO vazamento de tema GTK4 (a pálida
+#          do foco: focus_on_click/can_focus false + :checked/:focus
+#          com background-image none/box-shadow none no MenuButton — o
+#          seletor roxo travado e o quadrado branco morrem pela raiz).
+#      (2) A DOCK INSTANTÂNEA: o flush_superficie ÚNICO em TODO evento
+#          (Closed/Minimize/Maximize/Pin/Unpin/abertura — o dreno comita
+#          o recálculo SEMPRE, o evento de flags não espera outra ação
+#          na tela) e o clique do MEIO morto com direito (o Fechar mora
+#          no menu completo do direito).
+#      (3) O DEBLOAT EXTREMO: o greeter do SDDM veste WAYLAND NATIVO
+#          (elite_wayland.conf: DisplayServer=wayland +
+#          CompositorCommand=labwc, entregue SÓ com labwc em disco — a
+#          rede anti-tela-preta); o xorg-server sai da ISO (os rigs
+#          conservam como rede); o POLKIT ÚNICO (lxqt-policykit eleito,
+#          hyprpolkitagent fora, o autostart duplicado amordaçado por
+#          Hidden=true por usuário); o UDISKIE morre (58,5 MB de Python
+#          residente) pelo trio udev/unit/bin elite-automount (oneshot
+#          por plug, mount no usuário ativo); NoExtract man/doc/gtk-doc
+#          na ISO e no sistema; ISO em zstd -19 -T0 (o xz -9e aposenta);
+#          ParallelDownloads=10 e a cache_enxuga (paccache -rk1) nas
+#          duas portas da dose; a regra 99-elite-io.rules (NVMe none,
+#          SSD mq-deadline); panic=abort no release; blur do lock em
+#          CACHE por evento (wall-blur.png); gtk-decoration-layout com
+#          os botões à direita; os mestres do mangohud EMBARCAM de
+#          verdade (mh_install — a classe E103 da era) e a classe E57
+#          latente (overlay↔pacote) curada antes de custar pacstrap.
+#      (4) AS SKILLS PERMANENTES: docs/skills/05-filosofia-extrema.md e
+#          06-ui-ux-gtk4-wayland.md + a LEI DE ENTRADA no README das
+#          skills e o §0 na constituição (ler docs/skills antes de
+#          editar); a MANUTENÇÃO MENSAL no CI (maintenance.yml, dia 1:
+#          cargo check --all-features + a suíte contra o Arch do dia).
+#      Notas da era: docs/releases/1.0-99.md.
+pkgrel=99
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da sessão; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
