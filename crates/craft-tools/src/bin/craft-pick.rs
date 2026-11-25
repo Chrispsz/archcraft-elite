@@ -23,6 +23,16 @@ fn main() {
 fn main() {
     use gtk4::prelude::*; // (Canal 146: o connect_activate/run do main vestem o prelude)
     let args: Vec<String> = std::env::args().skip(1).collect();
+    if craft_tools::pede_ajuda(
+        &args,
+        "uso: craft-pick [--title=TÍTULO] [itens...] — o seletor nativo da casa\n\
+         \
+         \x20  itens por argv OU stdin (1 linha = 1 item); Enter devolve o\n\
+         \x20  ESCOLHIDO no stdout + exit 0; Esc fecha com exit 1.\n\
+         \x20  -h | --help | uso  este papel",
+    ) {
+        return; // a ajuda sai ANTES de qualquer GTK (lei E90)
+    }
     let (titulo, mut itens) = craft_tools::parse_pick_args(&args);
     // stdin é a interface dmenu (listas dinâmicas dos chamadores: os
     // processos vivos do craft-bgapps, os snapshots do rollback)

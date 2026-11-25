@@ -8,8 +8,22 @@
 // do mapa; o CLI de 255 linhas vira carne nova).
 // ═════════════════════════════════════════════════════════════════════════
 
+const USO: &str = "uso: craft-help — o mapa dos comandos da casa (janela nativa)\n\
+\
+\x20  (sem argumentos)  abre o mapa com busca (filtro acento-írito)\n\
+\x20  -h | --help | uso  este papel\n\
+\
+\x20  A FONTE do mapa é o craft_tools::mapa_comandos (puro, testado — o\
+ contrato\
+\x20  da suíte 35-ajuda cobra que 100% dos comandos nele existem de\
+ verdade).\n";
+
 #[cfg(not(feature = "gui"))]
 fn main() {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if craft_tools::pede_ajuda(&args, USO) {
+        return;
+    }
     eprintln!("craft-help: a GUI precisa da feature 'gui' (o CI do pacote liga — a lei L6)");
     std::process::exit(1);
 }
@@ -17,6 +31,10 @@ fn main() {
 #[cfg(feature = "gui")]
 fn main() {
     use gtk4::prelude::*; // (Canal 146: o connect_activate/run do main vestem o prelude)
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if craft_tools::pede_ajuda(&args, USO) {
+        return; // a ajuda sai ANTES de qualquer GTK (lei E90)
+    }
     let app = gtk4::Application::new(Some("elite.craft.Help"), Default::default());
     app.connect_activate(|app| build(app));
     app.run().get() as i32;
