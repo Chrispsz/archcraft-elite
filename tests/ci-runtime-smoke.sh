@@ -79,7 +79,7 @@ if ! command -v labwc >/dev/null 2>&1; then
     # o réu era o AMBIENTE, não o produto; o rig real tem gtk4 por
     # packages.add). gtk4 + gtk-layer-shell = as libs dos bins da casa;
     # labwc + temas = o compositor e os ícones que a barra pede.
-    if ! pacman -Syu --noconfirm --needed labwc gtk4 gtk-layer-shell \
+    if ! pacman -Syu --noconfirm --needed labwc gtk4 gtk4-layer-shell \
          adwaita-icon-theme hicolor-icon-theme >/dev/null 2>&1; then
         printf '  □ SKIP: labwc/gtk4 não instalou neste container (réu nomeado no log)\n'
         rm -rf "$STAGE"; exit 0
