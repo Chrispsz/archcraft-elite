@@ -138,7 +138,12 @@ jobs:
       - name: Smoke de runtime sobre o pacote (labwc headless — o portão do db)
         run: |
           set -o pipefail
-          docker run --rm \
+          # --privileged é o regime do compositor (a 1ª corrida provou: sem
+          # privilégio o exec do labwc morre 'Operation not permitted' e o
+          # smoke faz o SKIP honesto — o portão só fecha DE VERDADE com o
+          # mesmo regime do build da ISO; a contraprova fica no log da run
+          # 45586913853, passo do smoke)
+          docker run --rm --privileged \
             -v "$PWD":/work \
             -w /work \
             archlinux:base-devel \
