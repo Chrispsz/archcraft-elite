@@ -104,6 +104,11 @@ pub fn relogio_ptbr(wday: u32, dia: u32, mes: u32, hora: u32, min: u32) -> Strin
 /// O civil (ano, mês, dia) a partir dos dias-desde-época (a via
 /// canônica de Hinnant — a era antes de 1970 nunca é pedida aqui, mas
 /// o algoritmo cobre; o teste crava as datas conhecidas).
+/// E151 — cfg(test): o binário da barra lê o relógio do glib
+/// (DateTime::now_local) — a aritmética civil é dos CONTRATOS (o teste
+/// crava as datas conhecidas); no release ela não existe (zero
+/// dead_code na gui, a diretriz do dono).
+#[cfg(test)]
 pub fn civil_de_dias(z: i64) -> (i64, u32, u32) {
     let z = z + 719_468;
     let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
@@ -119,18 +124,11 @@ pub fn civil_de_dias(z: i64) -> (i64, u32, u32) {
 
 /// O dia da semana (0-6, Dom=0) dos dias-desde-época: 1970-01-01 foi
 /// quinta (4); o resto é a aritmética do calendário.
+/// E151 — cfg(test) idem (o comentário da acima: os contratos são o
+/// consumidor; o release não carrega aritmética que ninguém chama).
+#[cfg(test)]
 pub fn dia_semana(dias: i64) -> u32 {
     ((dias + 4).rem_euclid(7)) as u32
-}
-
-/// O INSTANTE INTEIRO em segundos-desde-época (a porta única da UI —
-/// sem a feature "gui" ninguém chama: o allow é a cortesia do degrau).
-#[cfg_attr(not(feature = "gui"), allow(dead_code))]
-pub fn agora_epoch() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0)
 }
 
 // ── O ÁUDIO pelo wpctl (a cura A3 do lado da barra) ────────────────────

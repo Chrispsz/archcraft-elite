@@ -190,7 +190,7 @@ pub fn arma_rt() {
         let mut s = libc::SIGRTMIN();
         let max = libc::SIGRTMAX();
         while s <= max {
-            libc::signal(s, on_signal as libc::sighandler_t);
+            libc::signal(s, on_signal as *const () as libc::sighandler_t);
             s += 1;
         }
     }
@@ -710,8 +710,8 @@ fn build(app: &gtk::Application) {
     // inteiro segue armado pela arma_rt: venha o sinal de quem vier,
     // a barra NUNCA morre pela disposição padrão)
     unsafe {
-        libc::signal(libc::SIGRTMIN() + 8, on_signal as libc::sighandler_t);
-        libc::signal(libc::SIGUSR2, on_signal as libc::sighandler_t);
+        libc::signal(libc::SIGRTMIN() + 8, on_signal as *const () as libc::sighandler_t);
+        libc::signal(libc::SIGUSR2, on_signal as *const () as libc::sighandler_t);
     }
 
     load_css();
@@ -1230,7 +1230,10 @@ fn solta(argv: &[&str]) {
     }
     // argv emprestado não atravessa o move: a cópia própria da thread
     let argv: Vec<String> = argv.iter().map(|s| (*s).to_string()).collect();
-    std::thread::Builder::new()
+    // E151 — o Result do spawn é IGNORADO DE PROPÓSITO (a coveira é
+    // best-effort: sem thread, o fork nem nasce — o log de baixo já
+    // diz); o let _ cala o unused_must_use sem esconder nada.
+    let _ = std::thread::Builder::new()
         .name("solta-coveira".into())
         .spawn(move || {
             match Command::new(&argv[0])

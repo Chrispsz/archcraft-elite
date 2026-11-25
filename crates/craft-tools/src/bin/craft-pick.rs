@@ -149,9 +149,14 @@ fn build(
     // zumbi de ~24 MB da telemetria). O leave do EventControllerFocus é
     // a porta: stdin calado, stdout calado, exit 1 NO MESMO INSTANTE.
     {
+        // E151-cura — a cópia ganha NOME PRÓPRIO ANTES do closure (a
+        // mesma cura do Canal 147 no ESC de cima: o tx movido pelo
+        // closure deixava o clone de baixo emprestando morto — o E0382
+        // que o 1º build da era fotografou).
+        let tx_leave = tx.clone();
         let fc = gtk4::EventControllerFocus::new();
         fc.connect_leave(move |_| {
-            let _ = tx.send(None);
+            let _ = tx_leave.send(None);
             std::process::exit(1);
         });
         win.add_controller(fc);
