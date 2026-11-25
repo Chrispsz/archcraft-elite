@@ -26,6 +26,21 @@ use std::io::Write as _;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    // a lei E90 — a descoberta antes de qualquer colheita (o papel do
+    // contrato 35-ajuda: 100% do mapa responde verbo seguro)
+    if args.iter().any(|a| a == "-h" || a == "--help" || a == "uso") {
+        println!(
+            "uso: craft-dump [--full] [--upload] — o papel que se conhece (telemetria v2)\n\
+             \n\
+             \x20  (sem argumentos)  o retrato rápido da sessão (read-only)\n\
+             \x20  --full            o consolidado limpo — configs ativas, logs\n\
+             \x20                    completos, um .txt + um .tar.gz no fim\n\
+             \x20  --upload          sobe o papel no termbin.com (PÚBLICO —\n\
+             \x20                    avisado antes de subir)\n\
+             \x20  -h | --help | uso  este papel"
+        );
+        return;
+    }
     if args.iter().any(|a| a == "--full") {
         modo_full();
         return;
