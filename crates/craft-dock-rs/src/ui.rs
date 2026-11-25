@@ -412,11 +412,14 @@ fn drain(st: &Rc<RefCell<State>>, rx: &Receiver<Msg>) {
                 update_indicators(&s);
                 drop(s); // (o sync_dynamic pede o estado emprestado DE NOVO)
                 sync_dynamic(st);
-                // E135/E149 — O FLUSH SÍNCRONO UNIVERSAL (o recálculo
-                // real da superfície Wayland mora na função única
-                // recalcula_superficie — chamada no fim de TODO repack
-                // e aqui; o fecho de janela vale no frame corrente
-                // em TODOS os caminhos, não só no snapshot)
+                // E135/E151 — O FLUSH SÍNCRONO UNIVERSAL no fim de TODA
+                // rodada do dreno (o recálculo real da superfície mora
+                // na função única flush_superficie): TODO evento de
+                // janela (Closed · Minimize · Maximize · abertura) vale
+                // no frame corrente INDEPENDENTE de o conjunto ter
+                // mudado — o Minimize/Maximize só move flags e o flush
+                // segue acontecendo (nenhum atraso esperando outra
+                // ação na tela)
                 recalcula_superficie(st);
             }
             Ok(Msg::IconReady { key, path }) => {
@@ -772,13 +775,28 @@ fn repack(s: &State) {
         pill.append(&s.raws[&key].button);
     }
     pill.show();
-    // E149 — o fecho do repack É o recálculo universal (o flush do
-    // display mora na função única; todo caminho que remonta — tick
-    // de 5s, SIGUSR2, pin do popover, snapshot do bus — sai com a
-    // surface commitada no frame corrente)
-    s.pill.queue_draw();
-    s.pill.queue_resize();
-    s.window.queue_resize();
+    // E151 — o fecho do repack É o flush ÚNICO (o recálculo da superfície
+    // mora numa função só; todo caminho que mexe na pílula — tick de 5s,
+    // SIGUSR2, pin do popover, snapshot do bus, abertura/fecho — sai com
+    // a surface commitada no MESMO frame)
+    flush_superficie(pill, &s.window);
+}
+
+/// E151 — O FLUSH ÚNICO DA SUPERFÍCIE (a diretriz: recálculo síncrono em
+/// TODO evento de janela — Closed · Minimize · Maximize · Pin · Unpin ·
+/// abertura): queue_draw + queue_resize da pílula E da janela + o ajuste
+/// imediato da largura natural (a layer-shell só redimensiona quando a
+/// árvore GTK comita — o trio no MESMO frame) e o flush do display. OS
+/// CAMINHOS: o snapshot do bus (Closed/Minimize/Maximize — o dreno
+/// chama recalcula_superficie SEMPRE, mesmo quando o conjunto não mudou:
+/// o evento de flags NÃO pode esperar por outra ação na tela), o repack
+/// (Pin/Unpin/abertura — os dinâmicos/pins remontam) e o ouvidor de
+/// monitores (geometria/escala) — todos terminam AQUI, sem faixa preta
+/// nem pílula defasada (a lei E144: resize é commit, não animação).
+fn flush_superficie(pill: &gtk::Box, window: &gtk::ApplicationWindow) {
+    pill.queue_draw();
+    pill.queue_resize();
+    window.queue_resize();
     if let Some(d) = gdk::Display::default() {
         d.flush();
     }
@@ -794,13 +812,7 @@ fn repack(s: &State) {
 /// velho respirar até o próximo repaint).
 fn recalcula_superficie(st: &Rc<RefCell<State>>) {
     let s = st.borrow();
-    s.pill.queue_draw();
-    s.pill.queue_resize();
-    s.window.queue_resize();
-    drop(s);
-    if let Some(d) = gdk::Display::default() {
-        d.flush();
-    }
+    flush_superficie(&s.pill, &s.window);
 }
 
 /// ── BLOCO 3 — O OUVIDOR DO MONITOR (a ordem do dono: GdkMonitor/
@@ -820,17 +832,12 @@ fn ouve_monitores(window: &gtk::ApplicationWindow, pill: &gtk::Box) {
     let Some(disp) = gdk::Display::default() else {
         return;
     };
-    // o re-afirmar ÚNICO (âncora base + zona exclusiva + o MESMO fecho
-    // da pílula E144: queue_draw/queue_resize/flush)
+    // o re-afirmar ÚNICO (âncora base + zona exclusiva + o MESMO flush
+    // da pílula E151: queue_draw/queue_resize/flush)
     let reafirma = move |window: &gtk::ApplicationWindow, pill: &gtk::Box| {
         window.set_anchor(gtk4_layer_shell::Edge::Bottom, true);
         window.auto_exclusive_zone_enable();
-        pill.queue_draw();
-        pill.queue_resize();
-        window.queue_resize();
-        if let Some(d) = gdk::Display::default() {
-            d.flush();
-        }
+        flush_superficie(pill, window);
     };
     // os monitores VIVOS no arranque: o invalidate é o sinal de
     // geometria/escala do wl_output (a troca de modo chega AQUI)
@@ -913,7 +920,7 @@ fn make_app_button(st: &Rc<RefCell<State>>, entry: &icons::DesktopEntry, hint: &
     btn.set_child(Some(&img));
     let name = if entry.name.is_empty() { entry.id.clone() } else { entry.name.clone() };
     btn.set_tooltip_text(Some(&format!(
-        "{name} — esquerdo: focar/abrir · direito: nova sessão · meio: encerrar programa"
+        "{name} — esquerdo: focar/abrir · direito: menu (fixar · nova janela · fechar)"
     )));
     let act = Act::App {
         did: entry.id.clone(),
@@ -1167,7 +1174,7 @@ fn make_raw_button(st: &Rc<RefCell<State>>, key: &str, name: &str) -> gtk::Butto
     }
     btn.set_child(Some(&img));
     btn.set_tooltip_text(Some(&format!(
-        "{name} — esquerdo: focar/ciclar · direito: nova sessão · meio: encerrar"
+        "{name} — esquerdo: focar/ciclar · direito: menu (nova janela · fechar)"
     )));
     wire_clicks(st, &btn, Act::Raw { key: key.to_string() });
     btn
@@ -1219,7 +1226,6 @@ fn wire_clicks(st: &Rc<RefCell<State>>, btn: &gtk::Button, act: Act) {
                 eco.set(true); // o eco do clicked do mouse morre aqui
                 match g.current_button() {
                     1 => on_left(&st, &act),
-                    2 => on_middle(&st, &act),
                     3 => {
                         // o direito é o MENU agora (o verbo "nova
                         // sessão" mora no item dele)
@@ -1228,6 +1234,11 @@ fn wire_clicks(st: &Rc<RefCell<State>>, btn: &gtk::Button, act: Act) {
                     }
                     _ => {}
                 }
+                // E151 — O MEIO MORREU COM DIREITO: o verbo "encerrar"
+                // escondido num clique do meio era redundância (o mesmo
+                // verbo mora no item "Fechar" do menu completo do
+                // direito — um destino = um lugar, a lição do dump);
+                // cliques do meio não fazem NADA na dock da casa.
             });
         }
         btn.add_controller(gesture);

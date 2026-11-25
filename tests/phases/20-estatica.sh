@@ -358,6 +358,9 @@ file_has "bar: o relógio esquerdo alterna o painel swaync (a ordem do dono)" "c
 file_has "skel: a pele viva da barra veste a obsidiana" "elite/airootfs/etc/skel/.config/elite/bar.css" 'rgba(13, 13, 18, 0.96)'
 file_has "skel: a pele viva da dock veste a obsidiana" "elite/airootfs/etc/skel/.config/elite/dock.css" 'rgba(19, 19, 26, 0.92)'
 file_has "post-upgrade: a pele de fábrica 1.0-98 sai do home (a E151 veste embaixo)" "elite/airootfs/usr/local/bin/elite-post-upgrade" 'elite/bar.css:rgba(17, 17, 27, 0.96'
+file_has "dock: o flush ÚNICO da superfície (todo evento comita no frame)" "crates/craft-dock-rs/src/ui.rs" 'fn flush_superficie'
+file_has "dock: o dreno comita o flush em TODA rodada (flags não esperam outra ação)" "crates/craft-dock-rs/src/ui.rs" 'recalcula_superficie(st);'
+file_hasnt "dock: o clique do MEIO não encerra (o Fechar mora no menu completo)" "crates/craft-dock-rs/src/ui.rs" '2 => on_middle'
 
 printf '%s\n' "$OK_COUNT $FAIL_COUNT $SKIP_COUNT" > "$WORK/fase20.txt"
 exit 0
