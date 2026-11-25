@@ -1,7 +1,7 @@
 #!/bin/sh
-# ═══════════════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════════════════════════
 # Archcraft ELITE · craft-display (E89 — A TELA QUE LEMBRA)
-# ═══════════════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════════════════════════
 # O RELATO DO DONO (07/nov): "o sistema não tem uma persistência, por
 #   exemplo, da resolução, dos hertz… Eu coloco 200 hertz e toda vez que eu
 #   reinicio o PC tem que estar colocando os 200 hertz na minha tela porque
@@ -72,7 +72,7 @@
 #      assentado (stamp ok) — o conf salvo é a fonte da verdade até o
 #      arranjo de pé; a escolha explícita do MENU grava sempre (é a mão
 #      do dono, com o stamp ok nela).
-# ═══════════════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════════════════════════
 set -u
 
 CONF_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/elite"
@@ -817,6 +817,26 @@ do_menu() {
     esac
 }
 
+# E90 — O VERBO SEGURO ANTES DE QUALQUER AÇÃO (o contrato 35-ajuda: o
+# desconhecido NUNCA cai no menu fuzzel — a descoberta sai 0 sem tocar
+# em display nenhum)
+case "${1:-}" in
+    -h|--help|uso)
+        printf '%s\n' \
+            'uso: craft-display [apply|apply-boot|save|watch|status|menu|icc] — a tela que lembra' \
+            '' \
+            '  apply        aplica e GRAVA o arranjo atual (o watch chama depois)' \
+            '  apply-boot   o arranjo salvo nasce aplicado (a 1ª linha da sessão)' \
+            '  save         fotografa o AGORA no displays.conf' \
+            '  watch        grava a mudança ESTÁVEL do dono feita por QUALQUER porta' \
+            '  status       salvo vs atual (+ o stamp da sessão)' \
+            '  menu         o menu fuzzel com TODOS os modos do EDID' \
+            '  icc          registra/lista perfis de cor (.icc — fronteira nomeada:' \
+            '               o labwc sem protocolo de cor não veste, não finge)' \
+            '  -h | --help | uso   este papel'
+        exit 0 ;;
+esac
+
 case "${1:-}" in
     apply)  do_apply ;;
     apply-boot) apply_boot ;;
@@ -830,8 +850,7 @@ case "${1:-}" in
         # tocar em nada (o fallback só vale para rig sem o binário).
         if pgrep -f '^/usr/local/bin/elite-daemon session$' >/dev/null 2>&1; then
             _l="${XDG_CACHE_HOME:-$HOME/.cache}/elite/display.log"
-            printf '[%s] watch: elite-daemon session é o ouvidor (E135) — residente shell não nasce
-' "$(date '+%F %T')" >>"$_l" 2>/dev/null
+            printf '[%s] watch: elite-daemon session é o ouvidor (E135) — residente shell não nasce\n' "$(date '+%F %T')" >>"$_l" 2>/dev/null
             exit 0
         fi
         do_watch ;;
