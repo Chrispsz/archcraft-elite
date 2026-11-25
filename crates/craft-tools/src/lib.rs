@@ -19,6 +19,20 @@
 // é o motor, a GUI é a porta.
 // ═════════════════════════════════════════════════════════════════════════
 
+/// A LEI E90 das ferramentas (a descoberta não depende de biblioteca
+/// gráfica): `-h`/`--help`/`uso` imprime o uso e devolve true — o main
+/// imprime e sai 0 ANTES de qualquer GTK (o craft-help é janela, mas o
+/// terminal do dono nunca fica sem resposta; o contrato da suíte 35-ajuda
+/// cobra o verbo seguro em 100% do mapa).
+pub fn pede_ajuda(args: &[String], uso: &str) -> bool {
+    if args.iter().any(|a| a == "-h" || a == "--help" || a == "uso") {
+        println!("{uso}");
+        true
+    } else {
+        false
+    }
+}
+
 /// O pedido de update que a GUI executa (o construtor dos argumentos
 /// é puro — os testes provam o caminho certo).
 pub fn args_atualizacao() -> Vec<String> {
@@ -152,7 +166,7 @@ pub fn mapa_comandos() -> Vec<(&'static str, Vec<(&'static str, &'static str)>)>
                 ("W-d", "a gaveta de aplicativos (nwg-drawer)"),
                 ("W-1..4", "as mesas de trabalho"),
                 ("W-l", "travar a tela"),
-                ("W-Escape / W-x / C-A-Del", "o menu da sessão (bloquear, suspender, sair)"),
+                ("W-Escape / W-x / C-A-Delete", "o menu da sessão (bloquear, suspender, sair)"),
                 ("W-a", "o mixer de verdade (pwvucontrol)"),
                 ("W-n", "o editor de redes (nm-connection-editor)"),
                 ("W-S-b", "o bluetooth (blueman-manager)"),
@@ -166,6 +180,19 @@ pub fn mapa_comandos() -> Vec<(&'static str, Vec<(&'static str, &'static str)>)>
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn o_verbo_de_ajuda_e_seguro_em_qualquer_bin() {
+        // -h/--help/uso devolvem true (o main imprime e sai 0)
+        for verbo in ["-h", "--help", "uso"] {
+            assert!(pede_ajuda(&[verbo.to_string()], "uso: teste"), "o verbo {verbo} não acordou a ajuda");
+        }
+        // qualquer outro argumento: false (o fluxo normal segue)
+        assert!(!pede_ajuda(&["--title=x".to_string()], "uso: teste"));
+        assert!(!pede_ajuda(&[], "uso: teste"));
+        // nada explode com argv vazio
+        assert!(!pede_ajuda(&[], ""));
+    }
 
     #[test]
     fn o_filtro_do_pick_casa_onde_o_dono_digita() {

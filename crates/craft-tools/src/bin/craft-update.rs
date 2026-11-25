@@ -8,8 +8,21 @@
 // E128; a GUI é a FACE, a delegação é a lei §4: o pacman é o motor).
 // ═════════════════════════════════════════════════════════════════════════
 
+const USO: &str = "uso: craft-update — a atualização com cara de casa (janela nativa)\n\
+\
+\x20  (sem argumentos)  abre a janela da dose — o motor é o elite-update\
+ (pkexec,\
+\x20                    diálogo gráfico de senha) com snapshot PRE/POST do snapper\n\
+\x20  -h | --help | uso  este papel\n";
+
 #[cfg(not(feature = "gui"))]
 fn main() {
+    // a lei E90 primeiro (a descoberta não depende de GTK), depois a
+    // mensagem honesta do degrau
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if craft_tools::pede_ajuda(&args, USO) {
+        return;
+    }
     // a lei do degrau: sem GTK não há face — a mensagem honesta e
     // exit 1 (nunca uma janela fantasma silenciosa)
     eprintln!("craft-update: a GUI precisa da feature 'gui' (o CI do pacote liga — a lei L6)");
@@ -19,6 +32,10 @@ fn main() {
 #[cfg(feature = "gui")]
 fn main() {
     use gtk4::prelude::*; // (Canal 146: o connect_activate/run do main vestem o prelude)
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if craft_tools::pede_ajuda(&args, USO) {
+        return; // a ajuda sai ANTES de qualquer GTK (lei E90)
+    }
     let app = gtk4::Application::new(Some("elite.craft.Update"), Default::default());
     app.connect_activate(|app| build(app));
     app.run().get() as i32;
