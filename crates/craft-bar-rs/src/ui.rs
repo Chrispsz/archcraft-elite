@@ -941,7 +941,7 @@ fn aplica(st: &Rc<RefCell<State>>, msg: Msg) {
             let Some(d) = detalhe else {
                 return; // wpctl engasgou — o estado anterior CONSERVADO
             };
-            let mut s = st.borrow_mut();
+            let s = st.borrow_mut();
             // o ÍCONE do botão da barra (muted/low/high pela verdade)
             if let Some(sink) = d.sink.as_ref() {
                 s.audio_img.set_icon_name(Some(icone_volume(sink.vol, sink.mudo)));
@@ -1591,17 +1591,20 @@ fn popover_audio(st: &Rc<RefCell<State>>, tx: Sender<Msg>) -> gtk::Popover {
         esc.set_tooltip_text(Some("Volume da saída — 0 a 100"));
         // o commit do slider: debounce de 150ms — UM wpctl por pausa
         // do gesto (o arrastar contínuo não enfileira forks; o release
-        // confirma o valor final NA HORA)
+        // confirma o valor final NA HORA). A cópia que mora no closure
+        // é OUTRA variável — o método conectado empresta o original (a
+        // lição do Canal 151: o closure `move` e o borrow do método
+        // não dividem o MESMO binding).
         {
             let pende = s.pende_sink.clone();
-            let esc = esc.clone();
+            let esc_commit = esc.clone();
             esc.connect_value_changed(move |_e| {
                 if let Some(id) = pende.borrow_mut().take() {
                     id.remove();
                 }
-                let esc = esc.clone();
+                let e = esc_commit.clone();
                 let novo = glib::timeout_add_local_once(Duration::from_millis(150), move || {
-                    let v = esc.value() / 100.0;
+                    let v = e.value() / 100.0;
                     solta(&[
                         "wpctl",
                         "set-volume",
@@ -1614,22 +1617,22 @@ fn popover_audio(st: &Rc<RefCell<State>>, tx: Sender<Msg>) -> gtk::Popover {
                 *pende.borrow_mut() = Some(novo);
             });
         }
-        // a bandeira de ARRASTO (o belt nunca briga com a mão do dono)
+        // a bandeira de ARRASTO (o belt nunca briga com a mão do dono;
+        // o release confirma o valor final NA HORA — o debounce
+        // pendente morre e o wpctl novo leva o valor certo)
         {
             let arr = s.arrasta_sink.clone();
             let ges = gtk::GestureClick::new();
             ges.connect_pressed(move |_, _, _, _| arr.set(true));
             let arr = s.arrasta_sink.clone();
-            let esc = esc.clone();
+            let esc_rel = esc.clone();
             let pende = s.pende_sink.clone();
             ges.connect_released(move |_, _, _, _| {
                 arr.set(false);
-                // o release confirma o valor final NA HORA (o debounce
-                // pendente morre — o wpctl novo já leva o valor certo)
                 if let Some(id) = pende.borrow_mut().take() {
                     id.remove();
                 }
-                let v = esc.value() / 100.0;
+                let v = esc_rel.value() / 100.0;
                 solta(&[
                     "wpctl",
                     "set-volume",
@@ -1691,14 +1694,14 @@ fn popover_audio(st: &Rc<RefCell<State>>, tx: Sender<Msg>) -> gtk::Popover {
         esc.set_tooltip_text(Some("Volume do microfone — 0 a 100"));
         {
             let pende = s.pende_fonte.clone();
-            let esc = esc.clone();
+            let esc_commit = esc.clone();
             esc.connect_value_changed(move |_e| {
                 if let Some(id) = pende.borrow_mut().take() {
                     id.remove();
                 }
-                let esc = esc.clone();
+                let e = esc_commit.clone();
                 let novo = glib::timeout_add_local_once(Duration::from_millis(150), move || {
-                    let v = esc.value() / 100.0;
+                    let v = e.value() / 100.0;
                     solta(&[
                         "wpctl",
                         "set-volume",
@@ -1716,14 +1719,14 @@ fn popover_audio(st: &Rc<RefCell<State>>, tx: Sender<Msg>) -> gtk::Popover {
             let ges = gtk::GestureClick::new();
             ges.connect_pressed(move |_, _, _, _| arr.set(true));
             let arr = s.arrasta_fonte.clone();
-            let esc = esc.clone();
+            let esc_rel = esc.clone();
             let pende = s.pende_fonte.clone();
             ges.connect_released(move |_, _, _, _| {
                 arr.set(false);
                 if let Some(id) = pende.borrow_mut().take() {
                     id.remove();
                 }
-                let v = esc.value() / 100.0;
+                let v = esc_rel.value() / 100.0;
                 solta(&[
                     "wpctl",
                     "set-volume",
