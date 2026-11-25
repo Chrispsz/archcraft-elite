@@ -402,6 +402,9 @@ file_has "skills: a LEI DE ENTRADA (ler docs/skills antes de editar)" "docs/skil
 file_has "constituição: o §0 manda ler as skills antes de qualquer código" "AGENTS.md" '§0 · A LEITURA OBRIGATÓRIA DAS SKILLS'
 file_has "skills 06: a superfície obsidiana ÚNICA documentada" "docs/skills/06-ui-ux-gtk4-wayland.md" 'rgba(13, 13, 18, 0.96)'
 file_has "skills 05: o udiskie morto com substituto nomeado" "docs/skills/05-filosofia-extrema.md" 'elite-automount'
+file_exists "ci: o workflow de manutenção mensal existe" ".github/workflows/maintenance.yml"
+file_has "ci: o cron mensal é o dia 1 (a vigilância sem dedo do dono)" ".github/workflows/maintenance.yml" '0 7 1 *'
+file_has "ci: o check das features completas contra o Arch do dia (a quebra upstream nomeada 1 mês antes)" ".github/workflows/maintenance.yml" 'cargo check --workspace --all-features --locked'
 
 printf '%s\n' "$OK_COUNT $FAIL_COUNT $SKIP_COUNT" > "$WORK/fase20.txt"
 exit 0

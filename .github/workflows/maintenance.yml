@@ -1,0 +1,75 @@
+name: Manutenção Mensal
+
+# ═══════════════════════════════════════════════════════════════════════════
+# E151 · A MANUTENÇÃO AUTOMATIZADA (docs/skills/05-filosofia-extrema.md §3)
+# ═══════════════════════════════════════════════════════════════════════════
+# A diretriz do dono: detecção ANTECIPADA de quebra upstream de
+# gdk4/gtk4-layer-shell (e de qualquer dependência da casa) SEM exigir
+# vigilância manual semanal. Todo dia 1 de cada mês este workflow:
+#   1. atualiza o container Arch INTEIRO (pacman -Syu — Arch é rolling
+#      inteiro; o snapshot diário da imagem sem o -Syu testa o PASSADO);
+#   2. instala o toolchain REAL do pacote (rust + gtk4 + gtk4-layer-shell
+#      — o makedepends do elite-system, a mesma fila do Canal);
+#   3. roda `cargo check --workspace --locked` com as features COMPLETAS
+#      (a camada gui compila de verdade contra o gdk4/gtk4-layer-shell do
+#      DIA — o E0599 da classe 'método que não existe na versão do gir'
+#      é nomeado AQUI, um mês antes de custar uma dose vermelha);
+#   4. roda `cargo test --workspace --locked` (os contratos reais do
+#      núcleo — IPC/persistência/parsers — sobre o toolchain novo);
+#   5. roda a SUÍTE PORTEIRA completa (as 7 fases — a fase 30 sai do SKIP
+#      honesto e vira prova real, porque o cargo existe neste container).
+# O Cargo.lock viaja no repo (--locked): o workflow julga as VERSÕES
+# PINADAS contra o sistema NOVO — exatamente o que o build do pacote
+# vai encontrar no próximo ciclo mensal de ISO.
+#
+# A vermelha deste workflow é cura imediata (o réu vem nomeado no log do
+# cargo) — ou nomeada com run id para a próxima sessão (réu escondido é
+# proibido, §3 da constituição).
+
+on:
+  schedule:
+    # dia 1 de cada mês, 07:00 UTC (04:00 em America/Fortaleza — antes do
+    # expediente do dono; a vermelha do dia chega com o café)
+    - cron: '0 7 1 * *'
+  workflow_dispatch:
+
+# menor privilégio (a lei da casa: a suíte lê, nunca escreve)
+permissions:
+  contents: read
+
+concurrency:
+  group: manutencao-mensal-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  porteira-mensal:
+    runs-on: ubuntu-24.04
+    container: archlinux:base-devel
+    steps:
+      - name: Atualizar o Arch INTEIRO e vestir o toolchain do pacote
+        run: |
+          pacman-key --init
+          # rolling inteiro (a lição #266/#267: -Sy sem -u testa o passado)
+          pacman -Syu --noconfirm --needed \
+            git rsync shellcheck python rust cargo \
+            pkgconf gtk4 gtk4-layer-shell
+      - uses: actions/checkout@v5
+      - name: git confia no workspace (o safe.directory do checkout é temporário)
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: Cache do Cargo (crates/target — o compile das deps paga 1x)
+        uses: actions/cache@v4
+        with:
+          path: crates/target
+          key: cargo-target-mensal-${{ hashFiles('crates/Cargo.lock') }}
+          restore-keys: |
+            cargo-target-mensal-
+      # O JUÍZO ANTECIPADO: as features completas (gui) contra as versões
+      # do DIA — o réu upstream vem nomeado no E0599/versão do gir.
+      - name: cargo check --workspace --locked (features completas, Arch do dia)
+        working-directory: crates
+        run: cargo check --workspace --all-features --locked
+      - name: cargo test --workspace --locked (os contratos reais do núcleo)
+        working-directory: crates
+        run: cargo test --workspace --no-default-features --locked
+      - name: A suíte porteira completa (7 fases — a 30 agora é prova real)
+        run: bash tests/run-tests.sh
