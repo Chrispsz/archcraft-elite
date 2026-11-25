@@ -719,7 +719,7 @@ fn build(app: &gtk::Application) {
     // E151 — A PÁLIDA DO FOCO corre sobre a ÁRVORE PRONTA (todos os
     // botões/menubuttons já nasceram): nenhum tema externo veste
     // contorno/seleção aqui nunca mais.
-    apaga_foco_da_barra(&corpo);
+    apaga_foco_da_barra(corpo.upcast_ref());
     window.show();
 
     log(&format!(
