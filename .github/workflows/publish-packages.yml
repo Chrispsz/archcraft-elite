@@ -70,16 +70,44 @@ jobs:
       - name: Lei E41 — conteúdo de casa mudou ⇒ pkgrel sobe (guard executável)
         run: bash .ci/guard-pkgrel.sh
 
+      # FASE 2 — O GUARDA DO MODO (o bit 0755 VIAJA NO GIT: o checkout da
+      # suíte e o cp -a do package() herdam o index — a classe 'craft-apps
+      # sem +x no rig' nasce em push que derruba o bit, ex.: conteúdo
+      # escrito por API). O Canal recoloca o bit da casa ANTES de
+      # empacotar e devolve o commit ao main — a suíte 50-runtime-ipc
+      # julga o index, o pacman entrega o modo certo.
+      - name: Guarda do modo 0755 (o bit é conteúdo — recoloca e volta)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          chmod 755 elite/airootfs/usr/local/bin/* 2>/dev/null || true
+          chmod 755 scripts/*.sh 2>/dev/null || true
+          if ! git diff --quiet; then
+            git add elite/airootfs/usr/local/bin scripts
+            git commit -m "guarda-do-modo: o bit 0755 da casa recolocado (push externo derrubou o modo via API — a lei: bins/scripts da casa nascem 0755 no git, o cp -a do package carrega)"
+            git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}" HEAD:main
+            echo "── modo recolocado e commitado (a próxima tests.yml julga o index corrigido)"
+          else
+            echo "── modos da casa íntegros (nada a recolocar)"
+          fi
+
       # 1.0-93 — O CACHE CARGO (a ordem do dono: o target do workspace
       # persiste entre runs — as deps do workspace pagam o compile 1x; a
       # chave é o Cargo.lock, mudou a dependência = cache novo)
+      # FASE 2 — A CHAVE UNIFICADA (o diagnóstico da Fase 2: a suíte e o
+      # Canal carregavam DOIS caches gêmeos que nunca se falavam —
+      # cargo-target-* vs canal-cargo-target-* = o compile das deps pago
+      # DUAS vezes a cada push de fio. Uma chave só: quem compila primeiro
+      # alimenta o outro pelo restore-key).
       - name: Cache do Cargo (crates/target — o build das deps paga 1x)
         uses: actions/cache@v4
         with:
           path: crates/target
-          key: canal-cargo-target-${{ hashFiles('crates/Cargo.lock') }}
+          key: cargo-target-${{ hashFiles('crates/Cargo.lock') }}
           restore-keys: |
-            canal-cargo-target-
+            cargo-target-
 
       - name: Construir os pacotes da casa (container Arch privilegiado)
         run: |
@@ -96,6 +124,25 @@ jobs:
             -w /work \
             archlinux:base-devel \
             bash .ci/build.sh 2>&1 | tee pacotes-output.log
+
+      # ── FASE 2 — O SMOKE DE RUNTIME (o portão antes do db) ──────────────
+      # A ordem nova: pacote parido → SESSÃO BOOTED → só então repo-add/
+      # upload. O pacote sobe num labwc headless DENTRO do container (a
+      # gui já compilada com o gtk4 do makepkg): bus.sock VIVO, 2ª
+      # instância sai 0 com papel, barra+dock de pé SEM Gtk-WARNING nem
+      # "still has children" nem \uXXXX, craft-game/craft-idle respondendo
+      # e o --help dos 8 compilados (E90 executiva). Contrato quebrado =
+      # run vermelha = NADA sobe para o rig (a classe 'dose cega no rig'
+      # morre na origem). Compositor que não sobe NO CONTAINER = SKIP
+      # honesto nomeado (o juízo de ambiente, nunca um verde de cortesia).
+      - name: Smoke de runtime sobre o pacote (labwc headless — o portão do db)
+        run: |
+          set -o pipefail
+          docker run --rm \
+            -v "$PWD":/work \
+            -w /work \
+            archlinux:base-devel \
+            bash tests/ci-runtime-smoke.sh 2>&1 | tee smoke-runtime.log
 
       - name: Repo completo do release vivo → repo-add → upload --clobber
         env:

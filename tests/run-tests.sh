@@ -17,10 +17,6 @@
 #           lei L6 da casa)
 #   FASE 4  VEREDICTO — GO exige todas as peças encaixadas (exit 0)
 #
-#   (TRANSITÓRIO — FASE 2 DO DONO EM LANDING: a cadeia volta a 7 fases
-#    no commit final, quando as três fases novas (35-ajuda · 40-compositor
-#    · 50-runtime-ipc) e o guarda do modo 0755 do Canal estiverem no
-#    tronco — a porteira NUNCA enxerga fase que o tronco não tem.)
 #
 # Os níveis da Fase 2 que exigem AMBIENTE VIVO:
 #   - tests/ci-runtime-smoke.sh — o pacote do Canal sobe a sessão no
@@ -50,7 +46,7 @@ printf '%b╰──────────────────────�
 printf '  repo: %s\n  work: %s\n\n' "$REPO" "$WORK"
 
 BROKEN=0
-for name in 10-estrutura 20-estatica 30-cargo 60-veredito; do
+for name in 10-estrutura 20-estatica 30-cargo 35-ajuda 40-compositor 50-runtime-ipc 60-veredito; do
     if (( BROKEN )); then
         printf '  ▓▓ FASE %s — BLOQUEADA (a peça anterior quebrou a cadeia)\n' "$name"
         continue

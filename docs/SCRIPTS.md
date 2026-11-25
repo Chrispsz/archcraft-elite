@@ -73,6 +73,8 @@ a tornou verdade: 39 bins + scripts de repo; o craft-compress morreu com honra n
 | `scripts/check-brave.sh` | guard do pin do Brave (nunca rebaixa; atualiza pin+sha juntos) |
 | `scripts/log-forensics.sh` | forense determinística do log de build (padrões fatais que já passaram em silêncio) |
 | `scripts/qemu-boot-test.sh` | boot-test da ISO no QEMU com a cmdline REAL (probe da sessão viva) |
+| `scripts/dev-sync.sh` | O HOT-RELOAD da casa (Fase 2): compila só o que mudou (o cargo é o juiz), instala em `~/.local/bin` (o pacote continua dono de `/usr/local/bin`) e reinicia APENAS barra/dock na sessão viva — o daemon adota pela lei E138; `bar`/`dock`/`--all`/`--restart-only`/`--daemon`/`--smoke` |
+| `tests/ci-runtime-smoke.sh` | o SMOKE DE RUNTIME do Canal (Fase 2): o pacote recém-parido sobe a sessão num labwc headless do CI (bus VIVO, 2ª instância sai 0 com papel, barra/dock SEM Gtk-WARNING/órfão/mojibake, painéis respondendo, `--help` dos compilados) — roda ANTES do repo-add/upload: pacote que não prova sessão não entra no db |
 | `scripts/live/cura-*.sh` | curas de campo para o rig instalado, sem reinstalar (padrão cura-viva) |
 | `.ci/build.sh` | o build da ISO (preflight offline, pacotes da casa, mkarchiso) |
 | `.ci/validate-calamares.py` | validador do config do Calamares (YAML + resolução de instâncias @id) |
@@ -136,6 +138,33 @@ elite-tune --status            # certificação (sem root) — alias: elite-stat
 **Reverter:** inexistente por design — cada execução começa de um clone fresco (`rm -rf elite-build` se quiser).
 
 **Depende de:** git, rsync, curl.
+
+---
+
+## dev-sync.sh (Fase 2) — `scripts/dev-sync.sh` (repo, no rig)
+
+**O quê:** o hot-reload da camada de UI. Compila apenas os binários Rust
+alterados (o cargo decide pelo mtime — build incremental, sem lista dupla),
+instala em `~/.local/bin` (NUNCA em `/usr/local/bin` — o pacote elite-system
+continua dono do sistema e o `pacman -Syu` não apaga o experimento) e
+reinicia APENAS a barra e a dock na sessão Wayland ativa. A troca é quieta:
+SIGTERM no comm velho → spawn do bin novo pelo caminho explícito → o
+elite-daemon ADOTA pela lei E138 (comm vivo + vaga com dono = Adotada;
+zero respawn, zero duplicata). elite-core mudou? A gui inteira recompila
+(todos bebem dele).
+
+**Como rodar:** dentro da sessão labwc (o `WAYLAND_DISPLAY` é requisito):
+`dev-sync` (barra+dock) · `dev-sync bar` / `dev-sync dock` · `dev-sync --all`
+(+ tools/dump/daemon) · `--restart-only` (sem build) · `--daemon` (reinicia
+também o `elite-daemon session` — os filhos vivos são adotados, nada de
+relogin) · `--smoke` (roda o session_smoke no fim).
+
+**Requisitos (uma vez):** rustup/cargo no PATH; os headers já estão na ISO
+(gtk4, gtk-layer-shell). Zero root.
+
+**Como reverter:** o binário do pacote continua intacto em `/usr/local/bin`;
+`rm ~/.local/bin/craft-bar-rs ~/.local/bin/craft-dock-rs` + reiniciar a
+sessão devolve o pacote.
 
 ---
 

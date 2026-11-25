@@ -229,6 +229,11 @@ done > /tmp/elite-src/elite-system/files/MANIFEST
 while read -r f; do
     cp -p "/work/elite/airootfs/usr/local/bin/$f" /tmp/elite-src/elite-system/files/usr/local/bin/
 done < /tmp/elite-src/elite-system/files/MANIFEST
+# FASE 2 — O MODO É CONTEÚDO DUAS VEZES: o bit viaja no git (o guarda do
+# modo do Canal recoloca) E é reforçado AQUI no empacotamento — o rig
+# recebe 0755 MESMO que um push externo derrube o bit no index (a classe
+# craft-apps sem +x do rig do dono morre na fonte e no destino).
+chmod 755 /tmp/elite-src/elite-system/files/usr/local/bin/* 2>/dev/null || true
 # as units de SISTEMA da casa entram no pacote: sem elas, o rig instalado
 # nunca recebe a cadência — a mesma classe da ferida dos bins. Só as
 # units de topo da casa (elite-*); wants symlinks e drop-ins de terceiros
@@ -2721,7 +2726,7 @@ pkgver=1.0
 #          features 144/144 ZERO avisos (rustc 1.100.0 no sandbox),
 #          bash -n nos scripts, XML parseando, pkgrel 95→96 NO MESMO
 #          COMMIT (E41). Sem tag (L4).
-pkgrel=96
+pkgrel=97
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da sessão; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

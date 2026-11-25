@@ -149,6 +149,20 @@ jobs:
           restore-keys: |
             elite-pkgs-v1-
 
+      # FASE 2 — O CACHE CARGO DA ISO (a chave UNIFICADA da casa): a ISO
+      # recompilava o workspace INTEIRO a cada tag (o /work/crates/target
+      # era efêmero no runner) — as deps da ISO agora pagam o compile 1x;
+      # a mesma chave da suíte/Canal (cargo-target-*) herda de quem rodou
+      # antes no MESMO Cargo.lock. Os .db do pacman NUNCA são cacheados
+      # (mirror skew, lição #17) — só o cargo aluga o cache aqui.
+      - name: Cache do Cargo (crates/target — as deps da ISO pagam 1x)
+        uses: actions/cache@v4
+        with:
+          path: crates/target
+          key: cargo-target-${{ hashFiles('crates/Cargo.lock') }}
+          restore-keys: |
+            cargo-target-
+
       - name: Construir ISO (container Arch privilegiado)
         # v1.5.2: o log da build é EVIDÊNCIA — capturado (tee) e auditado
         # (log-forensics.sh) no passo seguinte. pipefail: quem quebra a
