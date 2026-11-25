@@ -39,11 +39,22 @@
       tecla Print (criador usa Print → ob-screenshot, que é X11)
     · labwc ganha de graça: <core><gap>, cornerRadius, dropShadows, snapping
       overlay — não existem no Openbox do criador
+    · BLOCO 3 (1.0-98) — A SESSÃO COSMIC: o arraste magnético nasce de
+      VERDADE (o range da v1.6 era lido como atributo e o parser espera
+      CONTEÚDO — range 0 = snap de arraste morto no rig); quadrantes em
+      <regions> (arraste com modificador segurado + ciclo W-Left/W-Right);
+      W-Setas viram ToggleSnapToEdge (divide/desencaixa na mesma tecla);
+      W-S-Setas move a janela entre workspaces (o volume/faixa migra
+      para C-A-Setas); cornerRange migrado para <resize> onde o parser
+      o lê. Preview roxo 150ms, topMaximize e notifyClient intactos
     · RICE PRÓPRIO (v1.0.4): themerc-override Catppuccin Mocha — traffic
       lights, borda ativa mauve, sombras 60/40, menu/OSD coerentes. Zero
       dependência de pacote de tema: o "tema OB Catppuccin" citado em
       versões anteriores NUNCA existiu (tema fantasma) — era a causa do
       visual "cru" das titlebars; corrigido de vez com o override)
+    · v1.7 do themerc-override (Bloco 3): a escada OFICIAL — titlebar
+      #11111b elevada (o #000000 chapado morre), ativa borda 2px
+      #a855f7 / inativa 1px #262637, menu/OSD na mesma base
 
   Teclado alvo: AULA F75 MAX (75% ANSI US · 80 teclas + knob de volume
   metálico + tela TFT · gasket · tri-mode). O knob é HID puro → envia
@@ -142,15 +153,51 @@
   </resistance>
 
   <snapping>
-    <range inner="10" outer="10" />
-    <cornerRange>50</cornerRange>
+    <!-- BLOCO 3 — O ARRASTE MAGNÉTICO NASCE DE VERDADE (a cura do bug
+         silencioso da v1.6): o parser do labwc (rcxml.c 0.9.1) lê range
+         como CONTEÚDO do elemento ('range.snapping' → atoi(content)) —
+         a forma antiga <range inner="10" outer="10"/> produzia
+         nodenames 'inner.range.snapping'/'outer.range.snapping' que
+         nenhum ramo do parser casa → atoi("") = 0 → range 0 = o
+         edge_from_cursor() devolvia INVALID ANTES DE TUDO e o arraste
+         para as bordas NUNCA snapava no rig (só os atalhos de teclado
+         funcionavam). O 14px é o íman COSMIC (o screenEdgeStrength 20
+         da resistência continua na frente). -->
+    <range>14</range>
+    <!-- O preview sobe NO GESTO (era 500ms — a suavidade COSMIC é
+         aparecer imediato; o delay é só anti-falso-positivo) -->
     <overlay enabled="yes">
-      <delay inner="500" outer="500" />
+      <delay inner="150" outer="150" />
       <placement>below</placement>
     </overlay>
     <topMaximize>yes</topMaximize>
     <notifyClient>always</notifyClient>
   </snapping>
+
+  <!-- BLOCO 3 — O IMÃ DE CANTO DO RESIZE (cornerRange é filho de
+         <resize>, NÃO de <snapping> — o parser só casa
+         'cornerRange.resize' (rcxml.c): a v1.6 o deixava sob
+         <snapping>, o nodename 'cornerrange.snapping' casava com NADA e
+         o valor caía no default titlebar_height/2 (~14px). 50px: agarrar
+         o canto para redimensionar fica fácil em Full HD. -->
+  <resize>
+    <cornerRange>50</cornerRange>
+  </resize>
+
+  <!-- BLOCO 3 — OS QUADRANTES COSMIC (regiões snapáveis): 50%×50% da
+         área ÚTIL (o labwc calcula sobre o espaço SEM a barra/dock e o
+         rc.gap 10 entra DEPOIS — view_apply_region_geometry ajusta o
+         conf para margem limpa). O gesto é do compositor: ARRASTE com
+         MODIFICADOR segurado (Ctrl/Alt/Shift/Logo) snapa no quadrante
+         sob o cursor (labwc-config(5) §REGIONS) — as metades seguem no
+         arraste simples com o preview roxo (themerc-override), e o
+         teclado ganha o ciclo W-Setas abaixo. -->
+  <regions>
+    <region name="quadrante-esq-cima" x="0%" y="0%" width="50%" height="50%" />
+    <region name="quadrante-dir-cima" x="50%" y="0%" width="50%" height="50%" />
+    <region name="quadrante-esq-baixo" x="0%" y="50%" width="50%" height="50%" />
+    <region name="quadrante-dir-baixo" x="50%" y="50%" width="50%" height="50%" />
+  </regions>
 
   <focus>
     <followMouse>no</followMouse>
@@ -289,10 +336,12 @@
            · W-Print e W-S-s → captura de região (grim+slurp no
              craft-shot; o W-S-s é o combo do costume Windows/GNOME);
            · W-bracketleft/right → workspace anterior/próximo;
-           · W-S-Up/Down → volume +/- (OSD no swayosd, pactl no fallback);
-           · W-S-m → mudo;
-           · W-S-space → play/pause; W-S-Right/Left → faixa seguinte/
-             anterior (o playerctl das teclas Fn, sem as teclas Fn). -->
+           · W-S-space → play/pause; W-S-m → mudo.
+         BLOCO 3 — A MIGRAÇÃO DAS SETAS: o Super+Shift+Setas é AGORA o
+         mover-entre-workspaces da janela (a ordem do dono acima) — o
+         volume e a faixa migram para o Ctrl+Alt+Setas (o MESMO papel,
+         o combo irmão de 60/75%); as XF86 continuam mandando no knob
+         do F75 e nas teclas Fn de notebook/fone. -->
     <keybind key="W-Print">
       <action name="Execute" command="craft-shot area" />
     </keybind>
@@ -305,23 +354,23 @@
     <keybind key="W-bracketright">
       <action name="GoToDesktop" to="right" wrap="yes" />
     </keybind>
-    <keybind key="W-S-Up">
+    <keybind key="C-A-Up">
       <action name="Execute" command="sh -c 'swayosd-client --output-volume raise || pactl set-sink-volume @DEFAULT_SINK@ +5%'" />
     </keybind>
-    <keybind key="W-S-Down">
+    <keybind key="C-A-Down">
       <action name="Execute" command="sh -c 'swayosd-client --output-volume lower || pactl set-sink-volume @DEFAULT_SINK@ -5%'" />
+    </keybind>
+    <keybind key="C-A-Right">
+      <action name="Execute" command="playerctl next" />
+    </keybind>
+    <keybind key="C-A-Left">
+      <action name="Execute" command="playerctl previous" />
     </keybind>
     <keybind key="W-S-m">
       <action name="Execute" command="sh -c 'swayosd-client --output-volume mute-toggle || pactl set-sink-mute @DEFAULT_SINK@ toggle'" />
     </keybind>
     <keybind key="W-S-space">
       <action name="Execute" command="playerctl play-pause" />
-    </keybind>
-    <keybind key="W-S-Right">
-      <action name="Execute" command="playerctl next" />
-    </keybind>
-    <keybind key="W-S-Left">
-      <action name="Execute" command="playerctl previous" />
     </keybind>
 
     <!-- ===== Janelas (convenções do criador) ===== -->
@@ -361,18 +410,66 @@
     <keybind key="W-S-f">
       <action name="ToggleDecorations" />
     </keybind>
-    <!-- Snap em metades/terços — mesma semântica do snap do criador (W-setas) -->
+    <!-- Snap COSMIC — BLOCO 3 (W-setas dividem/encaixam; o segundo
+         toque DESENCAIXA — ToggleSnapToEdge devolve a geometria
+         natural, a mesma tecla divide e solta). W-Left/W-Right têm o
+         ciclo de quadrantes (If de UM nível — o labwc recusa If aninhado
+         em branch: "action 'If' cannot be a child action",
+         rcxml.c): já tileado na metade → sobe pro QUADRANTE superior da
+         mesma metade (a região do rc.xml <regions>); senão → a metade.
+         O query <tiled> casa o estado do compositor (view->tiled) e o
+         SnapToRegion é validado no arranque (região inexistente =
+         'Invalid SnapToRegion id' no log do labwc). -->
     <keybind key="W-Left">
-      <action name="SnapToEdge" direction="left" combine="yes" />
+      <action name="If">
+        <query>
+          <tiled>left</tiled>
+        </query>
+        <then>
+          <action name="SnapToRegion" region="quadrante-esq-cima" />
+        </then>
+        <else>
+          <action name="SnapToEdge" direction="left" />
+        </else>
+      </action>
     </keybind>
     <keybind key="W-Right">
-      <action name="SnapToEdge" direction="right" combine="yes" />
+      <action name="If">
+        <query>
+          <tiled>right</tiled>
+        </query>
+        <then>
+          <action name="SnapToRegion" region="quadrante-dir-cima" />
+        </then>
+        <else>
+          <action name="SnapToEdge" direction="right" />
+        </else>
+      </action>
     </keybind>
     <keybind key="W-Up">
-      <action name="SnapToEdge" direction="up" combine="yes" />
+      <action name="ToggleSnapToEdge" direction="up" />
     </keybind>
     <keybind key="W-Down">
-      <action name="SnapToEdge" direction="down" combine="yes" />
+      <action name="ToggleSnapToEdge" direction="down" />
+    </keybind>
+
+    <!-- BLOCO 3 — SUPER + SHIFT + SETAS MOVEM A JANELA ENTRE WORKSPACES
+         (a ordem do dono: a janela em foco viaja e a sessão SEGUE —
+         follow=yes; o wrap devolve no fim da fila). O eixo da casa é 1D
+         (4 desktops em fila): esquerda/direita andam UMA, cima/baixo
+         pulam para a anterior/próxima OCUPADA (workspaces_find:
+         left-occupied/right-occupied, labwc 0.9). -->
+    <keybind key="W-S-Left">
+      <action name="SendToDesktop" to="left" wrap="yes" follow="yes" />
+    </keybind>
+    <keybind key="W-S-Right">
+      <action name="SendToDesktop" to="right" wrap="yes" follow="yes" />
+    </keybind>
+    <keybind key="W-S-Up">
+      <action name="SendToDesktop" to="left-occupied" wrap="yes" follow="yes" />
+    </keybind>
+    <keybind key="W-S-Down">
+      <action name="SendToDesktop" to="right-occupied" wrap="yes" follow="yes" />
     </keybind>
 
     <!-- ===== Desktops (criador: W-1..5; aqui 1..4) ===== -->

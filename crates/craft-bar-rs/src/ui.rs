@@ -213,6 +213,10 @@ fn build(app: &gtk::Application) {
     window.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::OnDemand);
     window.set_namespace(Some("craft-bar"));
     window.set_default_size(-1, ALTURA);
+    // BLOCO 3 — O OUVIDOR DO MONITOR (a ordem do dono: GdkMonitor/
+    // wl_output por EVENTO, zero polling ocioso): resolução/Hz/escala/
+    // hotplug recalculam âncoras e zona exclusiva NO EVENTO.
+    ouve_monitores(&window);
 
     // O CORPO (1.0-93 — o CenterBox do dono: o RELÓGIO fica EXATAMENTE
     // no centro da tela, independente da largura dos lados; esquerda
@@ -1169,6 +1173,72 @@ fn solta(argv: &[&str]) {
                 }
             }
         });
+}
+
+/// ── BLOCO 3 — O OUVIDOR DO MONITOR (a ordem do dono: GdkMonitor/
+/// wl_output por EVENTO, zero polling ocioso) ──────────────────────
+/// O gesto é EVENTO, nunca poll: `monitor-added`/`monitor-removed`/
+/// `monitors-changed` (o display) e `invalidate` (CADA monitor — o sinal
+/// de GEOMETRIA/ESCALA do wl_output; docs GDK: "emitted when the
+/// monitor's geometry or scale changes") re-afirmam as âncoras e a zona
+/// exclusiva e commit o resize NO MESMO frame (a lei E144: resize é
+/// commit, não animação) — a barra recalcula geometria em troca de
+/// resolução/Hz/escala e em hotplug sem renascer (o DRM uevent do
+/// elite-daemon SIGUSR2 cuida do refresh de pele; ESTE ouvidor cuida da
+/// GEOMETRIA). O frame pacing segue o frame clock do compositor (frame
+/// callbacks do Wayland) — alinhado ao Hz nativo por desenho do
+/// protocolo, sem timer nenhum.
+fn reafirma_geometria(window: &gtk::ApplicationWindow) {
+    window.set_anchor(gtk4_layer_shell::Edge::Top, true);
+    window.set_anchor(gtk4_layer_shell::Edge::Left, true);
+    window.set_anchor(gtk4_layer_shell::Edge::Right, true);
+    window.auto_exclusive_zone_enable();
+    window.queue_resize();
+}
+
+fn ouve_monitores(window: &gtk::ApplicationWindow) {
+    let Some(disp) = gdk::Display::default() else {
+        return;
+    };
+    // os monitores VIVOS no arranque: o invalidate é o sinal de
+    // geometria/escala do wl_output (a troca de modo chega AQUI)
+    let lista = disp.monitors();
+    for i in 0..lista.n_items() {
+        let Some(mon) = lista.item(i).and_downcast::<gdk::Monitor>() else {
+            continue;
+        };
+        let w = window.clone();
+        mon.connect_invalidate(move |_| reafirma_geometria(&w));
+    }
+    // hotplug: o monitor NOVO ganha o próprio ouvidor de invalidate
+    {
+        let w = window.clone();
+        disp.connect_monitor_added(move |_, mon| {
+            let novo = w.clone();
+            mon.connect_invalidate(move |_| reafirma_geometria(&novo));
+            reafirma_geometria(&w);
+            log("GdkMonitor: monitor adicionado — âncoras/zona exclusiva re-afirmadas");
+        });
+    }
+    // a saída de um monitor: a âncora sobrevive no output que fica
+    {
+        let w = window.clone();
+        disp.connect_monitor_removed(move |_, _mon| {
+            reafirma_geometria(&w);
+            log("GdkMonitor: monitor removido — âncoras/zona exclusiva re-afirmadas");
+        });
+    }
+    // o gatilho do CHURN do conjunto de outputs (o Wayland emite
+    // monitors-changed na troca de arranjo; deprecated SÓ sob a feature
+    // v4_16 — a casa não liga features de versão, o gtk4-rs 0.11 o
+    // entrega sem aviso)
+    {
+        let w = window.clone();
+        disp.connect_monitors_changed(move |_| {
+            reafirma_geometria(&w);
+            log("GdkDisplay: monitors-changed — geometria re-afirmada");
+        });
+    }
 }
 
 /// A pele da casa: ~/.config/elite/bar.css quando existe (o dono é o

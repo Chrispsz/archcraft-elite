@@ -1,5 +1,5 @@
 /* ═════════════════════════════════════════════════════════════════════════
- * Design System ELITE — A FOLHA MESTRA ÚNICA (2.0)
+ * Design System ELITE — A FOLHA MESTRA ÚNICA (2.0 · paleta oficial 1.0-98)
  * ═════════════════════════════════════════════════════════════════════════
  * A identidade visual de TODA a casa mora neste arquivo: a craft-bar-rs,
  * a craft-dock-rs e os popovers nativos (GtkPopoverMenu) o embutem via
@@ -10,24 +10,36 @@
  * Override do dono: arquivo LIVRE (css_path da barra / dock), relido no
  * SIGUSR2 — a folha mestra é o FALLBACK, nunca um arquivo vivo editável.
  *
- * Paleta (1.0-93 — a ordem do dono, a identidade roxo/escuro ELITE
- * unificada): fundo #13111c / #1b1829 · bordas #3b3355 · destaque
- * #9d7cd8 / #bb9af7 · texto #e6e4f0 — nenhuma janela, popover ou caixa
- * de log da casa nasce com o cinza claro padrão do GTK.
+ * PALETA OFICIAL (Diretriz Mestre, Bloco 3 — os 7 tokens #HEX da ordem do
+ * dono com os ratios WCAG 2.1 MEDIDOS por script em 2026-11-25, guia 02):
+ *   base #11111b (Mocha crust) · ilha #181825 (mantle) · acento #a855f7
+ *   (purple-500, texto sobre ela 4.74:1 AA) · acento suave #cba6f7 (mauve)
+ *   · grafite #262637 (borda/hover) · texto #cdd6f4 (12.97:1 AAA sobre a
+ *   base) · texto nítido #f8fafc (17.92:1 — relógio e títulos).
+ *   Mantidos de casa: perigo #f38ba8 · desligado #6c7086 · dim #a9a3c2.
+ *   PROIBIDO: #000000 chapado em superfície (escola elevada GNOME/COSMIC)
+ *   e hover claro (a cura do hover-branco-sobre-branco — guia 03 R3).
+ *   Transparência = alpha no token (barra 0.96 · dock 0.92 · popovers
+ *   quase opacos) — blur NUNCA (o labwc não faz e shader custa GPU).
+ *
+ * DISCIPLINA DO TOKEN ÚNICO (R1 — o grep é o juiz): nenhuma regra abaixo
+ * escreve HEX/rgba literal — só @define-color define e só @elite-* consome.
  * ═════════════════════════════════════════════════════════════════════════ */
 
-/* ── Tokens da casa (nomes, não valores, nas regras abaixo) ─────────────── */
-@define-color elite-bg rgba(19, 17, 28, 0.96);
-@define-color elite-bg-dock rgba(27, 24, 41, 0.92);
-@define-color elite-surface rgba(27, 24, 41, 0.95);
-@define-color elite-surface-strong rgba(59, 51, 85, 0.95);
-@define-color elite-border rgba(59, 51, 85, 0.9);
-@define-color elite-text #e6e4f0;
+/* ── Os 13 tokens oficiais (nomes, não valores, nas regras abaixo) ─────── */
+@define-color elite-bg rgba(17, 17, 27, 0.96);
+@define-color elite-bg-dock rgba(24, 24, 37, 0.92);
+@define-color elite-base #11111b;
+@define-color elite-surface rgba(38, 38, 55, 0.95);
+@define-color elite-surface-strong rgba(46, 46, 61, 0.97);
+@define-color elite-border rgba(38, 38, 55, 0.9);
+@define-color elite-text #cdd6f4;
+@define-color elite-text-bright #f8fafc;
 @define-color elite-text-dim #a9a3c2;
 @define-color elite-danger #f38ba8;
 @define-color elite-off #6c7086;
-@define-color elite-accent #9d7cd8;
-@define-color elite-accent-strong #bb9af7;
+@define-color elite-accent #a855f7;
+@define-color elite-accent-strong #cba6f7;
 
 /* ── Barra (craft-bar-rs · layer-shell topo) ────────────────────────────── */
 #barwindow { background: @elite-bg; }
@@ -41,12 +53,15 @@
   font-family: "JetBrainsMono NF", "Symbols Nerd Font", monospace;
   font-size: 15px;
 }
+/* R3 — hover sobe um degrau (grafite), o texto NUNCA muda de cor */
 #barbox button:hover, #barbox menubutton:hover { background: @elite-surface; }
 #barbox button:active, #barbox menubutton:active { background: @elite-surface-strong; }
 #barbox button.muted { color: @elite-danger; }
 #barbox button.off { color: @elite-off; }
 #barbox #playerbtn label { color: @elite-text-dim; font-size: 13px; }
-#barbox #clockbtn { font-weight: 600; }
+/* A cura do "relógio apagado em cinza" do dump: o token MAIS NÍTIDO da
+ * casa (#f8fafc, 17.92:1 AAA sobre a base) no texto do centro exato. */
+#barbox #clockbtn { font-weight: 600; color: @elite-text-bright; }
 
 /* ── Popovers nativos (sessão da barra — a mesma cara da barra) ─────────── */
 popover > contents {
@@ -55,17 +70,34 @@ popover > contents {
   border-radius: 12px;
   padding: 6px;
 }
-popover > contents button {
+/* A cura dos "itens apagados sem contraste" do menu de energia (guia 01
+ * §1: o item e o fundo tinham o MESMO degrau): o GtkModelButton dos menus
+ * nativos veste a gramática da casa — repouso transparente sobre a ilha
+ * (texto #cdd6f4 = 12.97:1 AAA) e hover SOBE um degrau (R3). */
+popover > contents button, popover > contents modelbutton {
   background: transparent;
   border: none;
   border-radius: 8px;
   padding: 7px 14px;
   color: @elite-text;
 }
-popover > contents button:hover { background: @elite-surface; }
+popover > contents button:hover, popover > contents modelbutton:hover {
+  background: @elite-surface;
+}
+popover > contents button:active, popover > contents modelbutton:active {
+  background: @elite-surface-strong;
+}
 popover > contents button.destructive { color: @elite-danger; }
+/* R5 — foco de teclado VISÍVEL (acessibilidade MANDATÓRIA da casa): o
+ * outline negativo mantém o raio da borda em toda superfície interativa. */
+#barbox button:focus, #barbox menubutton:focus, #dockbox button:focus,
+popover > contents button:focus, popover > contents modelbutton:focus,
+#toolswin button:focus, #pickwin button:focus {
+  outline: 2px solid @elite-accent-strong;
+  outline-offset: -2px;
+}
 popover > contents separator {
-  background: rgba(108, 112, 134, 0.45);
+  background: alpha(@elite-off, 0.45);
   margin: 4px 6px;
 }
 
@@ -87,7 +119,7 @@ popover > contents separator {
   transition: background 0.15s ease;
 }
 #dockbox button:hover { background: @elite-border; }
-#dockbox button:active { background: rgba(46, 46, 61, 0.95); }
+#dockbox button:active { background: @elite-surface-strong; }
 #dockbox button.running {
   /* E36 — a BOLINHA 6x3px centrada do dono */
   background-image: linear-gradient(@elite-accent, @elite-accent);
@@ -98,7 +130,7 @@ popover > contents separator {
 #dockbox separator {
   min-width: 1px;
   margin: 8px 7px;
-  background: rgba(108, 112, 134, 0.45);
+  background: alpha(@elite-off, 0.45);
 }
 
 /* ── 1.0-93 · o botão de apps (ícone + palavra) e o calendário ─────────── */
@@ -116,7 +148,9 @@ popover > contents calendar {
   border: none;
   padding: 6px;
 }
-popover > contents calendar:selected { background: @elite-accent; color: #13111c; }
+/* R4 — seleção com "hover invertido": fundo acento suave, texto da base
+ * (#11111b sobre #cba6f7 = 9.23:1 AAA medido — o padrão libadwaita). */
+popover > contents calendar:selected { background: @elite-accent-strong; color: @elite-base; }
 popover > contents calendar header button { color: @elite-accent-strong; }
 
 /* ── 1.0-93 · o seletor rápido de rede (popover da barra) ──────────────── */
@@ -137,7 +171,7 @@ popover > contents switch:checked { background: @elite-accent; }
 #toolswin label.title {
   font-size: 16px;
   font-weight: 700;
-  color: @elite-text;
+  color: @elite-text-bright;
 }
 #toolswin label.body, #pickwin label.body { color: @elite-text-dim; }
 #toolswin button {
@@ -145,14 +179,16 @@ popover > contents switch:checked { background: @elite-accent; }
   padding: 10px 22px;
   font-weight: 600;
 }
-#toolswin button.executar { background: @elite-accent; color: #13111c; }
+#toolswin button.executar { background: @elite-accent; color: @elite-base; }
 #toolswin button.executar:hover { background: @elite-accent-strong; }
 #toolswin button.executar:disabled { background: @elite-surface-strong; color: @elite-text-dim; }
 #toolswin button.destructivo { background: @elite-surface; color: @elite-danger; }
 #toolswin button.destructivo:hover { background: @elite-danger; }
 #toolswin scrolledwindow, #pickwin scrolledwindow { background: @elite-bg; }
+/* Leitura densa ganha opacidade CHEIA (guia 02 §2.4 — o alpha não vive
+ * em lista de texto longo): o token sólido da base, nunca #000000. */
 #toolswin scrolledwindow textview text {
-  background: #13111c;
+  background: @elite-base;
   color: @elite-text;
   caret-color: @elite-text;
 }
@@ -160,7 +196,10 @@ popover > contents switch:checked { background: @elite-accent; }
 #toolswin progressbar trough { background: @elite-surface; border-radius: 4px; }
 #pickwin listview row { padding: 8px 14px; border-radius: 8px; color: @elite-text; }
 #pickwin listview row:hover { background: @elite-surface; }
-#pickwin listview row:selected { background: @elite-surface-strong; }
+/* R4/R5 na espinha do craft-pick (teclado-primeiro): seleção veste o
+ * acento suave com texto da base (9.23:1 AAA) e o foco é VISÍVEL. */
+#pickwin listview row:selected { background: @elite-accent-strong; color: @elite-base; }
+#pickwin listview row:focus { outline: 2px solid @elite-accent-strong; outline-offset: -2px; }
 #pickwin entry { background: @elite-surface; color: @elite-text; border-radius: 8px; }
 
 /* ── E147 · a reconstrução da UI da barra: a central de áudio (saída +
@@ -170,7 +209,7 @@ popover > contents switch:checked { background: @elite-accent; }
 popover > contents label.title {
   font-weight: 700;
   font-size: 14px;
-  color: @elite-text;
+  color: @elite-text-bright;
 }
 popover > contents label.dim {
   color: @elite-text-dim;

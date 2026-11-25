@@ -1,11 +1,12 @@
-/* Archcraft ELITE · dock.css (v2.0) — a pílula da dock nativa
- * (craft-dock-gui) no AMOLED rice v1.3 — a mesma escada de superfícies
- * da waybar (Mocha com o backlight desligado). GTK3 CSS de verdade:
- * alpha(), border-radius, box-shadow inset — sem o modo estrito do
- * waybar 0.15, e sem NENHUMA propriedade inventada.
- * v2.3.6 — o indicador de aberto é NEUTRO (texto da barra): o roxo-
- * lavanda do Mocha leu como "efeito estranho" no rig do dono — destaque
- * por luz, não por cor.
+/* Archcraft ELITE · dock.css (v2.0 · v2.1 paleta oficial 1.0-98) — a pílula
+ * da dock nativa (craft-dock-rs). GTK CSS de verdade: alpha(),
+ * border-radius, background-image — sem NENHUMA propriedade inventada.
+ * BLOCO 3 — A ESCADA OFICIAL do guia 02 (os MESMOS números da folha
+ * mestra embutida): base #11111b elevada @ 92% (o #050508 da era AMOLED
+ * morre com a Diretriz Mestre), hover sobe UM degrau ao grafite
+ * #262637, degrau ativo #2e2e3d, e a bolinha de execução veste O
+ * ACENTO (guia 01 §2 — estados por ACENTO, não por brilho; a v2.3.6
+ * neutra morre com a paleta unificada).
  * v2.3.9 — A LEI DA PÍLULA (diretriz do dono: "ficar atento aos espaços,
  * desenhos, tamanho e consistência — tudo padronizado"): o hover abraça
  * o ícone com o MESMO respiro nos 4 lados. Antes: padding 2px 8px com
@@ -20,8 +21,8 @@
  * visual da dock antiga, agora abraçando o conteúdo (largura natural,
  * centrada na base: a dock "horizontalmente menor e centralizada"). */
 #dockbox {
-  background: alpha(#050508, 0.88);
-  border: 1px solid alpha(#16161f, 0.8);
+  background: alpha(#11111b, 0.92);
+  border: 1px solid alpha(#262637, 0.9);
   border-radius: 20px;
   padding: 4px 10px;
 }
@@ -39,8 +40,8 @@
   border: none;
   transition: background 0.15s ease;
 }
-#dockbox button:hover { background: alpha(#16161f, 0.95); }
-#dockbox button:active { background: alpha(#2e2e3d, 0.95); }
+#dockbox button:hover { background: alpha(#262637, 0.95); }
+#dockbox button:active { background: alpha(#2e2e3d, 0.97); }
 
 /* Indicador de aberto (v2.3.7 — a BOLINHA do dono: "tira essa barrinha
  * branca… selar só a bolinha abaixo, algum tipo de indicador mais
@@ -48,16 +49,18 @@
  * via background-image + size/position (GTK3 não tem pseudo-elemento;
  * box-shadow inset = a barrinha full-width que ele rejeitou). A regra
  * vive DEPOIS dos :hover/:active — background-image declarado aqui
- * sobrevive ao shorthand dos estados. v2.3.6: tom NEUTRO mantido. */
+ * sobrevive ao shorthand dos estados. BLOCO 3: A bolinha veste O
+ * ACENTO PRIMÁRIO #a855f7 (guia 01 §2 — estados por ACENTO; o mesmo
+ * token da folha mestra embutida — zero drift entre peles). */
 #dockbox button.running {
-  background-image: linear-gradient(alpha(#cdd6f4, 0.9), alpha(#cdd6f4, 0.9));
+  background-image: linear-gradient(alpha(#a855f7, 0.9), alpha(#a855f7, 0.9));
   background-size: 6px 3px;
   background-position: center bottom;
   background-repeat: no-repeat;
 }
 
 /* v2.10.0 — o FIO dos dinâmicos: separa os fixados dos apps abertos que
- * não são pin (a dock auto-adaptável). Fio 1px vertical, tom neutro do
+ * não são pin (a dock auto-adaptável). Fio 1px vertical, tom do
  * overlay0 na metade da força — presente sem competir com os ícones.
  * Some sozinho quando não há dinâmicos (a dock volta a ser só os pins). */
 #dockbox separator {

@@ -602,13 +602,15 @@ fi
 
 sync_skel() {
     # sync_skel <home> <uid> — entrega do /etc/skel/.config o que o rig
-    # NÃO tem (swaync, gtk-3.0, gtk-4.0, fuzzel — as peles da diretriz
-    # UI/UX; E149: o game.conf do modo de jogo — a vaga automática é a
-    # fábrica); arquivo presente = domínio do dono, NUNCA tocado.
+    # NÃO tem (swaync, gtk-3.0, gtk-4.0, fuzzel, nwg-drawer, swayosd —
+    # as peles da diretriz UI/UX; E149: o game.conf do modo de jogo — a
+    # vaga automática é a fábrica; BLOCO 3: o drawer e o OSD entram na
+    # lista — a paleta oficial os veste no rig sem pele); arquivo
+    # presente = domínio do dono, NUNCA tocado.
     _sh="$1"
     _suid="$2"
     _entregues=0
-    for _cfg in swaync gtk-3.0 gtk-4.0 fuzzel; do
+    for _cfg in swaync gtk-3.0 gtk-4.0 fuzzel nwg-drawer swayosd; do
         [ -d "/etc/skel/.config/$_cfg" ] || continue
         for _sf in "/etc/skel/.config/$_cfg"/*; do
             [ -f "$_sf" ] || continue
@@ -707,6 +709,41 @@ EOF
     # E147 — AS PELES DO SKEL CHEGAM AO RIG VIVO (a ordem do dono: as
     # configs visuais de /etc/skel/.config para usuários já instalados,
     # sem comando manual e sem tocar o personalizado)
+    # BLOCO 3 (1.0-98) — A MIGRAÇÃO DAS PELES AMOLED (a ordem do dono:
+    # a paleta oficial do guia 02 chega ao rig VIVO): o skin que ainda É
+    # O DE FÁBRICA da era anterior (o marcador AMOLED no byte — nenhum
+    # toque do dono) SAI com voz; logo abaixo o sync_skel re-veste o
+    # oficial (swaync/fuzzel/drawer/osd) e a FOLHA MESTRA NO BINÁRIO
+    # regra bar/dock (o override deles morre com a pele velha). O dono
+    # que editou a pele PRÓPRIA fica intocado (presente ≠ fábrica =
+    # domínio dele — a lei das peles).
+    for _pele in "elite/bar.css:rgba(5, 5, 8" \
+                 "elite/dock.css:alpha(#050508" \
+                 "swaync/style.css:#0a0a12" \
+                 "nwg-drawer/drawer.css:#16161f" \
+                 "fuzzel/fuzzel.ini:background=000000f2" \
+                 "swayosd/style.css:rgba(0, 0, 0, 0.88"; do
+        _pele_path="${_pele%%:*}"
+        _pele_marcador="${_pele#*:}"
+        _palvo="$_sh/.config/$_pele_path"
+        if [ -f "$_palvo" ] && grep -qF "$_pele_marcador" "$_palvo" 2>/dev/null; then
+            rm -f "$_palvo" 2>/dev/null || true
+            tlog "skel $_suid: $_pele_path AMOLED de fábrica REMOVIDO (o oficial 1.0-98 veste embaixo — a paleta da Diretriz Mestre chega sem relogin de pele)"
+        fi
+    done
+    # o foot.ini é CONF da casa (não pele): o de fábrica AMOLED é
+    # RE-VESTIDO do skel (o shell zsh, a fonte e a geometria E126 nunca
+    # ficam sem dono); o dono que editou o dele (sem o marcador) fica
+    # intocado.
+    _falvo="$_sh/.config/foot/foot.ini"
+    if [ -f "$_falvo" ] && grep -qF 'background = 000000' "$_falvo" 2>/dev/null \
+        && [ -f /etc/skel/.config/foot/foot.ini ]; then
+        if cp -p /etc/skel/.config/foot/foot.ini "$_falvo" 2>/dev/null; then
+            chown "$_suid:$(stat -c %g "$_sh" 2>/dev/null || echo "$_suid")" "$_falvo" 2>/dev/null || true
+            tlog "skel $_suid: foot/foot.ini AMOLED de fábrica RE-VESTIDO do skel (a base oficial #11111b do guia 02 — o dono que editou o dele fica intocado)"
+        fi
+    fi
+    unset _pele _pele_path _pele_marcador _palvo _falvo
     sync_skel "$_hdir" "$_auid"
 done
 unset _hdir _auid _heal_out _hl

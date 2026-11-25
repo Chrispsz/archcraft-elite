@@ -1,8 +1,11 @@
-/* Archcraft ELITE · nwg-drawer CSS — o "Launchpad" · AMOLED rice v1.4
+/* Archcraft ELITE · nwg-drawer CSS — o "Launchpad" · paleta oficial 1.0-98
  * Seletores oficiais do upstream (drawer.css do repo nwg-piotr/nwg-drawer):
  * window, entry, button, image, #category-button, #pinned-box, #files-box,
  * #math-label. Lido de ~/.config/nwg-drawer/drawer.css.
- * Tokens em @define-color (GTK CSS) — zero hex cru, mesma paleta do rice.
+ * Tokens em @define-color (GTK CSS) — zero hex cru, a MESMA escada
+ * oficial do guia 02 (os MESMOS valores da folha mestra e do swaync:
+ * base #11111b elevada — o #000000 chapado morreu com a Diretriz
+ * Mestre; hover sobe um degrau ao grafite #262637, nunca claro).
  *
  * v1.3 · RODAPÉ MORTO: o upstream gera na base o "N entries (+M hidden)"
  * (#status-label dentro de #status-line-wrapper — tools.go:429/main.go:725
@@ -18,11 +21,11 @@
  *   · flags -pb* REMOVIDAS do craft-drawer: a barra de sessão da base
  *     não existe mais (a sessão mora na menu bar — craft-power) */
 
-@define-color crust    #000000;
-@define-color mantle   #050508;
-@define-color base     #0a0a12;
-@define-color surface0 #16161f;
-@define-color surface1 #22222e;
+@define-color crust    #11111b;
+@define-color mantle   #181825;
+@define-color base     #11111b;
+@define-color surface0 #262637;
+@define-color surface1 #2e2e3d;
 @define-color text     #cdd6f4;
 @define-color subtext0 #a6adc8;
 @define-color mauve    #cba6f7;

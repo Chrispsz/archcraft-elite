@@ -251,6 +251,11 @@ fn build(app: &gtk::Application) {
     pill.set_widget_name("dockbox");
     pill.set_margin_bottom(PILL_FLOAT);
     window.set_child(Some(&pill));
+    // BLOCO 3 — O OUVIDOR DO MONITOR (a ordem do dono: GdkMonitor/
+    // wl_output por EVENTO, zero polling): entra com a pílula já viva —
+    // o ouvidor captura a janela e a pílula direto (o State ainda não
+    // existe neste ponto).
+    ouve_monitores(&window, &pill);
 
     // E149 — O TEARDOWN SEM ÓRFÃOS (a classe inteira do 'still has
     // children left: GtkPopoverMenu': o repack já enterrou os botões
@@ -795,6 +800,81 @@ fn recalcula_superficie(st: &Rc<RefCell<State>>) {
     drop(s);
     if let Some(d) = gdk::Display::default() {
         d.flush();
+    }
+}
+
+/// ── BLOCO 3 — O OUVIDOR DO MONITOR (a ordem do dono: GdkMonitor/
+/// wl_output por EVENTO, zero polling ocioso) ──────────────────────
+/// O gesto é EVENTO, nunca poll: `monitor-added`/`monitor-removed`/
+/// `monitors-changed` (o display) e `invalidate` (CADA monitor — o sinal
+/// de GEOMETRIA/ESCALA do wl_output; docs GDK: "emitted when the
+/// monitor's geometry or scale changes") re-afirmam a âncora base e a
+/// zona exclusiva e commit o resize NO MESMO frame via
+/// recalcula_superficie (a lei E144: resize é commit, não animação) —
+/// a pílula recalcula geometria em troca de resolução/Hz/escala e em
+/// hotplug sem renascer (o DRM uevent do elite-daemon SIGUSR2 cuida do
+/// refresh dos pins; ESTE ouvidor cuida da GEOMETRIA). O frame pacing
+/// segue o frame clock do compositor (frame callbacks do Wayland) —
+/// alinhado ao Hz nativo por desenho do protocolo, sem timer nenhum.
+fn ouve_monitores(window: &gtk::ApplicationWindow, pill: &gtk::Box) {
+    let Some(disp) = gdk::Display::default() else {
+        return;
+    };
+    // o re-afirmar ÚNICO (âncora base + zona exclusiva + o MESMO fecho
+    // da pílula E144: queue_draw/queue_resize/flush)
+    let reafirma = move |window: &gtk::ApplicationWindow, pill: &gtk::Box| {
+        window.set_anchor(gtk4_layer_shell::Edge::Bottom, true);
+        window.auto_exclusive_zone_enable();
+        pill.queue_draw();
+        pill.queue_resize();
+        window.queue_resize();
+        if let Some(d) = gdk::Display::default() {
+            d.flush();
+        }
+    };
+    // os monitores VIVOS no arranque: o invalidate é o sinal de
+    // geometria/escala do wl_output (a troca de modo chega AQUI)
+    let lista = disp.monitors();
+    for i in 0..lista.n_items() {
+        let Some(mon) = lista.item(i).and_downcast::<gdk::Monitor>() else {
+            continue;
+        };
+        let w = window.clone();
+        let p = pill.clone();
+        mon.connect_invalidate(move |_| reafirma(&w, &p));
+    }
+    // hotplug: o monitor NOVO ganha o próprio ouvidor de invalidate
+    {
+        let w = window.clone();
+        let p = pill.clone();
+        disp.connect_monitor_added(move |_, mon| {
+            let novo_w = w.clone();
+            let novo_p = p.clone();
+            mon.connect_invalidate(move |_| reafirma(&novo_w, &novo_p));
+            reafirma(&w, &p);
+            log("GdkMonitor: monitor adicionado — âncora/zona exclusiva re-afirmadas");
+        });
+    }
+    // a saída de um monitor: a âncora sobrevive no output que fica
+    {
+        let w = window.clone();
+        let p = pill.clone();
+        disp.connect_monitor_removed(move |_, _mon| {
+            reafirma(&w, &p);
+            log("GdkMonitor: monitor removido — âncora/zona exclusiva re-afirmadas");
+        });
+    }
+    // o gatilho do CHURN do conjunto de outputs (o Wayland emite
+    // monitors-changed na troca de arranjo; deprecated SÓ sob a feature
+    // v4_16 — a casa não liga features de versão, o gtk4-rs 0.11 o
+    // entrega sem aviso)
+    {
+        let w = window.clone();
+        let p = pill.clone();
+        disp.connect_monitors_changed(move |_| {
+            reafirma(&w, &p);
+            log("GdkDisplay: monitors-changed — geometria re-afirmada");
+        });
     }
 }
 

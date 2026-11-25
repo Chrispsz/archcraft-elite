@@ -30,7 +30,8 @@ XCURSOR_SIZE=24
 # nativo = a janela negocia xdg-decoration e a regra universal da casa
 # (rc.xml mestre, E123: <windowRule serverDecoration="yes"/> — o ÚNICO
 # arquivo de regras que o labwc lê) entrega a moldura do COMPOSITOR.
-ELECTRON_OZONE_PLATFORM_HINT=auto
+# Bloco 3: o valor agora é wayland FIXO (o bloco dos backends puros no
+# fim deste arquivo é O dono da chave).
 
 # E74 — FASE 2 (a spec: "SSD e CSD unificados para TODAS as janelas"): o
 # GTK3 respeita o GTK_CSD=0 e entrega a decoração ao COMPOSITOR — a mesma
@@ -39,3 +40,23 @@ ELECTRON_OZONE_PLATFORM_HINT=auto
 # realidade do protocolo, documentada honestamente) — a regra universal
 # do compositor segue sendo a lei geral.
 GTK_CSD=0
+
+# ── BLOCO 3 (1.0-98) — OS BACKENDS WAYLAND PUROS (a ordem do dono) ────────
+# A sessão é Wayland nativa de ponta a ponta: zero toolkit caindo no
+# XWayland por omissão, zero camada de tradução, o frame pacing segue o
+# frame clock do compositor NO Hz NATIVO da tela (200 Hz nasce 200 Hz).
+#   · GDK_BACKEND   — GTK3/4 falam Wayland direto (sem o fallback x11);
+#   · QT_QPA_PLATFORM — Qt5/6 idem (o lxqt-policykit-agent Qt6 incluído);
+#   · MOZ_ENABLE_WAYLAND — o Firefox-family (quando hospedar um) nativo;
+#   · ELECTRON_OZONE_PLATFORM_HINT=wayland — o hint DECIDE (era auto):
+#     todo Electron ≥28 nasce ozone-wayland determinístico — a ordem do
+#     Bloco 3 fecha o "auto" que podia escolher x11; o Chromium-family da
+#     casa já nasce nativo pelos flags (code-flags.conf:
+#     --ozone-platform=wayland; brave-flags.conf: o hint E132 do dono).
+#   · QT_WAYLAND_DISABLE_WINDOWDECORATION — a moldura ÚNICA E123 também
+#     no Qt: nenhuma janela desenha CSD próprio, o labwc manda na moldura.
+GDK_BACKEND=wayland
+QT_QPA_PLATFORM=wayland
+QT_WAYLAND_DISABLE_WINDOWDECORATION=1
+MOZ_ENABLE_WAYLAND=1
+ELECTRON_OZONE_PLATFORM_HINT=wayland

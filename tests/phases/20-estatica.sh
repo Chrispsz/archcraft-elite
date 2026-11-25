@@ -134,10 +134,14 @@ fi
 file_has "unit: o scx-lavd.service DIRETO (ExecStart=/usr/bin/scx_lavd)" "$AIROOTFS/etc/systemd/system/scx-lavd.service" 'ExecStart=/usr/bin/scx_lavd'
 file_has "unit: o scx-lavd só com sched_ext (PULADA, nunca FAILED)" "$AIROOTFS/etc/systemd/system/scx-lavd.service" 'ConditionPathExists=/sys/kernel/sched_ext'
 file_has "sudoers: os insults do sudo saem da casa" "$AIROOTFS/etc/sudoers.d/99-elite-clean" 'Defaults !insults'
-file_has "css: a paleta roxo/escuro ELITE (#13111c)" "crates/elite-core/assets/theme.css" '#13111c'
-file_has "css: o acento roxo #9d7cd8" "crates/elite-core/assets/theme.css" '#9d7cd8'
-file_has "css: o acento forte #bb9af7" "crates/elite-core/assets/theme.css" '#bb9af7'
-file_has "css: o texto #e6e4f0" "crates/elite-core/assets/theme.css" '#e6e4f0'
+# BLOCO 3 (1.0-98) — A PALETA OFICIAL DO GUIA 02 substitui os 4 hexes da
+# era 1.0-93 (os antigos #13111c/#9d7cd8/#bb9af7/#e6e4f0 MORREM — os
+# novos são os 7 tokens medidos WCAG da Diretriz Mestre; a substituição
+# é 4 por 4 — o GO continua COM mais prova, não menos)
+file_has "css: a base oficial #11111b (guia 02 — superfície elevada)" "crates/elite-core/assets/theme.css" '#11111b'
+file_has "css: o acento primário #a855f7 (purple-500)" "crates/elite-core/assets/theme.css" '#a855f7'
+file_has "css: o acento suave #cba6f7 (mauve)" "crates/elite-core/assets/theme.css" '#cba6f7'
+file_has "css: o texto nítido #f8fafc (relógio/títulos)" "crates/elite-core/assets/theme.css" '#f8fafc'
 file_has "bar: o CenterBox (o relógio exatamente no centro)" "crates/craft-bar-rs/src/ui.rs" 'CenterBox'
 file_has "bar: o relógio LOCAL (o glib now_local — o UTC morre)" "crates/craft-bar-rs/src/ui.rs" 'now_local'
 file_has "bar: o calendário GTK4 do hover" "crates/craft-bar-rs/src/ui.rs" 'gtk::Calendar'

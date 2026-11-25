@@ -758,6 +758,24 @@ do_menu() {
         exit 1
     fi
     cur_label="$(printf '%s' "$cur" | sed 's/@/ @ /; s/$/ Hz/')"
+    # BLOCO 3 — NITIDEZ ABSOLUTA (a ordem do dono: "priorizando nitidez
+    # absoluta em Full HD (1920x1080) com escala inteira 1.0 em telas
+    # 24"+"): o item nasce quando o EDID do monitor oferece 1920x1080 —
+    # aplica O MAIOR Hz disponível na resolução + escala INTEIRA 1.0
+    # (pixel 1:1, zero blur de escala fracionária) e grava no MESMO gesto
+    # (stamp ok + save — o 1080p@melhor-Hz nasce aplicado em todo boot
+    # pelo apply-boot E129 e reaplicado por rede/logind/heartbeat).
+    # A string do modo é a INTEIRA do EDID (WxH@T com as casas do float —
+    # a lei E96: o que o EDID imprimiu é o que volta, sem reformat %.3f).
+    nitidez_modo="$(printf '%s\n' "$modos" | awk '
+        $1 == "1920x1080" {
+            r = ""
+            for (i = 1; i <= NF; i++) if ($i ~ /^[0-9.]+$/) r = $i
+            if (r + 0 > melhor + 0) { melhor = r; linha = $1 "@" r }
+        }
+        END { print linha }')"
+    nitidez=""
+    [ -n "$nitidez_modo" ] && nitidez="Nitidez máxima (1080p · escala 1.0)"
     # E110 — O MENU QUE O DONO LÊ (o dump 114852: 'a tela é bem poluída e
     # não é fácil ter os indicadores do que está marcado'): a lista nascia
     # do sort -u ALFABÉTICO — '1024x768' antes de '1920x1080', as taxas
@@ -781,12 +799,32 @@ do_menu() {
                 if ($1 == "1") chave = chave * 1000 + 999999; else chave = chave * 1000 + hz*10;
                 printf "%015d\t%s\n", chave, $2
             }' | sort -r | cut -f2-)"
+    if [ -n "$nitidez" ]; then
+        itens="$(printf '%s\n' "$itens" "$nitidez")"
+    fi
     itens="$(printf '%s\n' "$itens" \
         "Melhor qualidade do monitor" \
         "Duas telas: posição/escala (avançado)" \
         "Guardar como está agora (para os próximos boots)")"
     escolha="$(printf '%s\n' "$itens" | menu_pick "Displays — $alvo")" || exit 0
     case "$escolha" in
+        'Nitidez máxima (1080p · escala 1.0)')
+            # BLOCO 3 — a escala INTEIRA 1.0 vai na MESMA linha do modo
+            # (a bandeira local do E113 — o wlr-randr da máquina aceita o
+            # que aceita): nitidez pixel a pixel, sem cair no 60 Hz e sem
+            # escala fracionária; o stamp ok nasce do FEITO (E106).
+            if timeout "$RANDR_T" "$RANDR" --output "$alvo" --mode "$nitidez_modo" $RANDR_SCALE_FLAG 1 >/dev/null 2>&1; then
+                printf 'ok\n' > "$STAMP" 2>/dev/null || true
+                if do_save; then
+                    dnotify "$alvo: 1080p no maior Hz · escala 1.0 — nitidez pixel a pixel, salvo para os próximos boots"
+                else
+                    dnotify "$alvo: 1080p · escala 1.0 aplicado — o registro assenta quando a tela parar (o watch grava)"
+                fi
+            else
+                dnotify "Falhou aplicar a nitidez máxima (log: ~/.cache/elite/display.log)"
+                dlog "FALHA: menu nitidez $alvo --mode $nitidez_modo"
+            fi
+            exit 0 ;;
         'Melhor qualidade do monitor')
             if timeout "$RANDR_T" "$RANDR" --output "$alvo" --preferred >/dev/null 2>&1; then
                 printf 'ok\n' > "$STAMP" 2>/dev/null || true
@@ -831,6 +869,7 @@ case "${1:-}" in
             '  watch        grava a mudança ESTÁVEL do dono feita por QUALQUER porta' \
             '  status       salvo vs atual (+ o stamp da sessão)' \
             '  menu         o menu fuzzel com TODOS os modos do EDID' \
+            '               (+ Nitidez máxima: 1080p no maior Hz · escala inteira 1.0)' \
             '  icc          registra/lista perfis de cor (.icc — fronteira nomeada:' \
             '               o labwc sem protocolo de cor não veste, não finge)' \
             '  -h | --help | uso   este papel'
