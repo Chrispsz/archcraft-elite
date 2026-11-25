@@ -22,16 +22,24 @@ use std::path::PathBuf;
 /// o conf da vigília (os nomes do papel da casa — compat total).
 #[derive(Debug, Clone, PartialEq)]
 pub struct Conf {
-    /// minutos de inatividade até TRAVAR E APAGAR (0 = nunca sozinho)
+    /// minutos de inatividade até TRAVAR (0 = nunca sozinho)
     pub lock_min: u32,
+    /// minutos de inatividade até APAGAR a tela (E150 — o gesto
+    /// separado: fábrica 10; MENOR que o lock colapsa no MESMO gesto —
+    /// a lei E43 de sempre)
+    pub off_min: u32,
     /// minutos TRAVADO até SUSPENDER de verdade (0 = off)
     pub suspend_min: u32,
 }
 
 /// o parser do idle.conf (puro, tolerante a lixo — a lição do craft-idle:
 /// linha com sufixo ('10min') não pode matar o daemon calado).
+/// E150 — OFF_MIN é TEMPO PRÓPRIO agora (a ordem do dono, base 1.0-98:
+/// a fábrica 5/10 — trava em 5, apaga em 10); MENOR/igual ao LOCK = o
+/// gesto único E43 (um só instante, trava E apaga).
 pub fn parse_conf(texto: &str) -> Conf {
     let mut lock = 5u32; // a fábrica da casa
+    let mut off = 0u32; // 0 = segue o lock (o gesto único)
     let mut susp = 20u32;
     for linha in texto.lines() {
         let Some((chave, valor)) = linha.split_once('=') else { continue };
@@ -41,18 +49,16 @@ pub fn parse_conf(texto: &str) -> Conf {
         let Ok(n) = numero.parse::<u32>() else { continue };
         match chave {
             "LOCK_MIN" => lock = n,
-            "OFF_MIN" => {
-                // E43: mantém IGUAL ao LOCK (um só gesto); um valor
-                // diferente é ignorado com honra (o papel documenta)
-                if n != lock && lock == 0 {
-                    lock = n;
-                }
-            }
+            "OFF_MIN" => off = n,
             "SUSPEND_MIN" => susp = n,
             _ => {}
         }
     }
-    Conf { lock_min: lock, suspend_min: susp }
+    // E43 viva: apagar ANTES de travar não existe — colapsa no gesto único
+    if off < lock {
+        off = lock;
+    }
+    Conf { lock_min: lock, off_min: off, suspend_min: susp }
 }
 
 /// o caminho do papel (~/.config/elite/idle.conf).
@@ -72,11 +78,22 @@ pub fn conf_vivo() -> Conf {
 /// (não mata o hyprlock vivo — o "nascido no timeout" segue) e o wlopm
 /// desliga as saídas DEPOIS (a tela escura não come o unlock).
 pub fn trava_e_apaga() {
+    trava();
+    apaga();
+}
+
+/// E150 — O GESTO SEPARADO: a TRAVA sozinha (o OFF_MIN maior faz a tela
+/// apagar no TEMPO DELE — o dono trava em 5 e apaga em 10).
+pub fn trava() {
     let _ = std::process::Command::new("/usr/local/bin/craft-lock")
         .arg("--if-needed")
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
         .status();
+}
+
+/// E150 — O APAGAR sozinho (o segundo tempo do gesto separado).
+pub fn apaga() {
     // o wlopm fala com o compositor pela interface wlr-output-power
     let _ = std::process::Command::new("wlopm")
         .arg("--off")
@@ -133,7 +150,7 @@ mod tests {
     fn o_conf_da_fabrica_quando_o_papel_falta() {
         assert_eq!(
             parse_conf(""),
-            Conf { lock_min: 5, suspend_min: 20 }
+            Conf { lock_min: 5, off_min: 5, suspend_min: 20 }
         );
     }
 
@@ -142,7 +159,7 @@ mod tests {
         let papel = "# o papel da casa\nLOCK_MIN=15\nOFF_MIN=15\nSUSPEND_MIN=40\n";
         assert_eq!(
             parse_conf(papel),
-            Conf { lock_min: 15, suspend_min: 40 }
+            Conf { lock_min: 15, off_min: 15, suspend_min: 40 }
         );
     }
 
@@ -153,6 +170,7 @@ mod tests {
         let papel = "LOCK_MIN=10min\nSUSPEND_MIN=\n\nOFF_MIN=zzz\n";
         let c = parse_conf(papel);
         assert_eq!(c.lock_min, 10); // '10min' mastigado
+        assert_eq!(c.off_min, 10); // lixo → o gesto único E43
         assert_eq!(c.suspend_min, 20); // vazio → a fábrica
     }
 
@@ -166,12 +184,23 @@ mod tests {
     }
 
     #[test]
-    fn o_off_min_de_valor_diferente_e_ignorado_com_honra() {
-        // E43: um só gesto — o OFF_MIN diferente não vira janela morta;
-        // o LOCK manda (o papel da casa documenta a regra)
-        let c = parse_conf("LOCK_MIN=5\nOFF_MIN=5\n");
-        assert_eq!(c.lock_min, 5);
-        let c2 = parse_conf("LOCK_MIN=5\nOFF_MIN=30\n");
-        assert_eq!(c2.lock_min, 5); // o OFF divergente NÃO sobe o LOCK
+    fn e150_o_off_min_e_tempo_proprio_quando_maior() {
+        // a fábrica nova da ordem do dono: trava em 5, apaga em 10 — o
+        // APAGAR ganha tempo PRÓPRIO (o relógio conta da INATIVIDADE,
+        // não do lock)
+        let c = parse_conf("LOCK_MIN=5\nOFF_MIN=10\nSUSPEND_MIN=20\n");
+        assert_eq!(c, Conf { lock_min: 5, off_min: 10, suspend_min: 20 });
+        // o papel SEM OFF_MIN: o gesto único de sempre (5/5)
+        let c2 = parse_conf("LOCK_MIN=5\nSUSPEND_MIN=20\n");
+        assert_eq!(c2.off_min, 5, "sem OFF_MIN o apagar vem junto do lock");
+    }
+
+    #[test]
+    fn e43_viva_o_off_menor_que_o_lock_colapsa_no_gesto_unico() {
+        // apagar ANTES de travar não existe: OFF_MIN < LOCK_MIN = o MESMO
+        // instante do lock (um só gesto — o defeito da janela morta não
+        // volta nem por papel digitado errado)
+        let c = parse_conf("LOCK_MIN=15\nOFF_MIN=2\n");
+        assert_eq!(c.off_min, 15, "OFF_MIN menor colapsa no LOCK");
     }
 }

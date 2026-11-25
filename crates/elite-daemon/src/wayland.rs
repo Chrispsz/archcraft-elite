@@ -56,6 +56,72 @@ fn proximo_id() -> u32 {
 
 static NEXT_ID: AtomicU32 = AtomicU32::new(1);
 
+// ── E150 — A VIGÍLIA REARMÁVEL DE FORA ────────────────────────────
+// O ouvido externo (logind: PrepareForSleep(false) e Unlock) precisa
+// RENASCER o relógio de idle sem esperar evento do compositor: o
+// tempo DORMIDO contava como inatividade e o desktop acordava para
+// travar na cara do dono. O CONTROLE vive aqui: o notifier/seat/qh
+// registados pela despachante + o registro das notificações VIVAS —
+// o reset desarma TODAS (destroy honesto, sem fóssil de objeto) e
+// arma a do LOCK de novo. As requisições wayland são thread-safe
+// (o backend trava sozinho); o flush acorda o fio na hora.
+struct IdleCtl {
+    notifier: idle_mod::ext_idle_notifier_v1::ExtIdleNotifierV1,
+    seat: wayland_client::protocol::wl_seat::WlSeat,
+    qh: QueueHandle<Estado>,
+}
+
+static IDLE_CTL: OnceLock<IdleCtl> = OnceLock::new();
+
+/// o registro das notificações VIVAS (lock/off/suspend — quem arma,
+/// registra; quem dispara, desarma a sua; quem reseta, desarma todas).
+static IDLE_ARMAS: Mutex<Vec<idle_mod::ext_idle_notification_v1::ExtIdleNotificationV1>> =
+    Mutex::new(Vec::new());
+
+/// E150 — arma UMA notificação (timeout em ms; tipo 0=lock 1=off
+/// 2=suspend) e registra no controle. Ok=false = sem despachante (o
+/// daemon de teste/probe — a vigília mora na sessão de verdade).
+fn arma_idle_ms(timeout_ms: u32, tipo: u8) -> bool {
+    let Some(ctl) = IDLE_CTL.get() else { return false };
+    let notif = ctl
+        .notifier
+        .get_idle_notification(timeout_ms, &ctl.seat, &ctl.qh, tipo);
+    IDLE_ARMAS.lock().unwrap().push(notif);
+    if let Some(sh) = SHARED.get() {
+        let _ = sh.conn.flush();
+    }
+    true
+}
+
+/// E150 — O RESET DA VIGÍLIA (a porta do logind: acordou do sono OU o
+/// hyprlock encerrou): desarma TUDO que contava (o sono não é
+/// inatividade — o contador antigo travava a cara do dono no despertar)
+/// e rearma a cadeia do LOCK do zero. Conf 0 (nunca sozinho) desarma
+/// e cala — a escolha do dono é a lei.
+pub fn reseta_idle() {
+    if IDLE_CTL.get().is_none() {
+        return; // sem despachante não há relógio (honesto)
+    }
+    {
+        let mut armas = IDLE_ARMAS.lock().unwrap();
+        for n in armas.drain(..) {
+            n.destroy();
+        }
+    }
+    let conf = casa_idle::conf_vivo();
+    if conf.lock_min > 0 {
+        arma_idle_ms(conf.lock_min * 60 * 1000, 0);
+    }
+}
+
+/// desarma UMA notificação (o dono do evento desarma a sua — o registro
+/// nunca aponta para objeto morto).
+fn desarma_idle(notif: &idle_mod::ext_idle_notification_v1::ExtIdleNotificationV1) {
+    let id = notif.id();
+    IDLE_ARMAS.lock().unwrap().retain(|n| n.id() != id);
+    notif.destroy();
+}
+
 /// Um toplevel vivo da sessão (o handle mora MUDO aqui dentro).
 struct Rec {
     handle: tl_mod::zwlr_foreign_toplevel_handle_v1::ZwlrForeignToplevelHandleV1,
@@ -180,9 +246,15 @@ pub fn start() -> Option<()> {
     queue.roundtrip(&mut estado).ok()?;
     let manager = estado.manager.clone()?;
     let seat = estado.seat.clone()?;
+    // E150 — O NOTIFIER E O SEAT ATRAVESSAM O SPAWN: a era perdia os dois
+    // no `..Default::default()` (a despachante nascia SEM o ouvido do
+    // ext-idle-notify — a armação era um no-op eterno e a trava
+    // automática da casa nunca armou de verdade; o pre-sleep do logind
+    // era a única trava que o dono via). Agora a vigília nasce ARMADA.
+    let notifier = estado.notifier.clone()?;
     let shared = Arc::new(Wl {
         conn: conn.clone(),
-        seat,
+        seat: seat.clone(),
         windows: Mutex::new(HashMap::new()),
         mru: Mutex::new(Vec::new()),
     });
@@ -191,8 +263,21 @@ pub fn start() -> Option<()> {
     std::thread::Builder::new()
         .name("elite-wayland".into())
         .spawn(move || {
+            // E150 — o CONTROLE da vigília registra AQUI (notifier + seat
+            // + qh): o reseta_idle de FORA (logind) arma por estes
+            // punhos — as requisições são thread-safe e o flush acorda
+            // a despachante.
+            IDLE_CTL
+                .set(IdleCtl {
+                    notifier: notifier.clone(),
+                    seat: seat.clone(),
+                    qh: qh.clone(),
+                })
+                .ok();
             let mut estado = Estado {
                 manager: Some(manager),
+                seat: Some(seat),
+                notifier: Some(notifier),
                 ..Default::default()
             };
             loop {
@@ -201,7 +286,7 @@ pub fn start() -> Option<()> {
                 }
                 if arma_inicial {
                     arma_inicial = false;
-                    estado.arma_idle(&qh);
+                    reseta_idle();
                 }
                 match queue.blocking_dispatch(&mut estado) {
                     Ok(_) => {}
@@ -273,18 +358,11 @@ impl Estado {
         }
     }
 
-    /// A VIGÍLIA: (re)arma a notificação de idle com o conf VIVO (o
-    /// dono muda LOCK_MIN no menu — a próxima armação já obedece; o
-    /// conf é barato de ler por ciclo, zero watcher).
-    fn arma_idle(&mut self, qh: &QueueHandle<Self>) {
-        let Some(notifier) = &self.notifier else { return };
-        let Some(seat) = &self.seat else { return };
-        let conf = casa_idle::conf_vivo();
-        if conf.lock_min == 0 {
-            return; // nunca sozinho (W-l manual — a escolha explícita)
-        }
-        let _ = notifier.get_idle_notification(conf.lock_min * 60 * 1000, seat, qh, false);
-    }
+    // A VIGÍLIA mora no controle global (E150): `reseta_idle` arma a
+    // cadeia com o conf VIVO de qualquer thread (o dono muda LOCK_MIN
+    // no menu — o próximo reset/Resumed já obedece; o conf é barato de
+    // ler, zero watcher). O método por-Estado morreu com o no-op da era
+    // (o notifier nunca atravessava o spawn — ver start()).
 }
 
 impl Dispatch<wl_registry::WlRegistry, ()> for Estado {
@@ -413,6 +491,13 @@ impl Dispatch<tl_mod::zwlr_foreign_toplevel_handle_v1::ZwlrForeignToplevelHandle
                 }
                 if focou {
                     estado.aprende_mesa();
+                    // E150 — A GAVETA DESCE COM O PALCO: uma janela que
+                    // GANHA foco com o nwg-drawer vivo = o dono escolheu
+                    // outro endereço (alt-tab, dock, janela nova — o
+                    // overlay da gaveta nunca fica por cima da casa). O
+                    // drawer que lançou app já se foi sozinho (MainQuit
+                    // nativo); o SIGTERM aqui só colhe quem ficou.
+                    crate::gaveta_desce();
                 }
             }
             // o marco de consistência: publica o snapshot do momento
@@ -448,43 +533,57 @@ impl Dispatch<idle_mod::ext_idle_notifier_v1::ExtIdleNotifierV1, ()> for Estado 
     }
 }
 
-/// udata da notificação: false = a do LOCK; true = a do SUSPEND-de-travado.
-impl Dispatch<idle_mod::ext_idle_notification_v1::ExtIdleNotificationV1, bool> for Estado {
+/// udata da notificação (E150 — a cadeia agora tem TRÊS tempos):
+/// 0 = o LOCK (LOCK_MIN) · 1 = o APAGAR (OFF_MIN > LOCK_MIN — o gesto
+/// separado da fábrica nova 5/10) · 2 = o SUSPEND de travado (E60).
+impl Dispatch<idle_mod::ext_idle_notification_v1::ExtIdleNotificationV1, u8> for Estado {
     fn event(
         estado: &mut Estado,
         notif: &idle_mod::ext_idle_notification_v1::ExtIdleNotificationV1,
         event: idle_mod::ext_idle_notification_v1::Event,
-        suspende: &bool,
+        tipo: &u8,
         _conn: &Connection,
-        qh: &QueueHandle<Self>,
+        _qh: &QueueHandle<Self>,
     ) {
         match event {
-            idle_mod::ext_idle_notification_v1::Event::Idled => {
-                if !*suspende {
-                    // A VIGÍLIA BATEU: trava + apaga NO MESMO GESTO (E43)
-                    // se os inibidores deixarem (jogo/mídia seguram)
+            idle_mod::ext_idle_notification_v1::Event::Idled => match tipo {
+                0 => {
+                    // A VIGÍLIA BATEU (LOCK_MIN): os inibidores de
+                    // jogo/mídia seguram (a espera é a lei); sem eles:
+                    // o LOCK agora — e o APAGAR no tempo DELE (OFF_MIN
+                    // > LOCK_MIN = o gesto separado; igual = o MESMO
+                    // instante, a lei E43 de sempre)
                     if casa_idle::inibidores_seguram() {
                         eprintln!("elite-daemon: idle batido — inibidores de jogo/mídia seguram (a trava espera)");
                     } else {
-                        casa_idle::trava_e_apaga();
-                        estado.trava_armada = true;
-                        // o próximo degrau: SUSPEND_MIN de TRAVADO (E60)
                         let conf = casa_idle::conf_vivo();
+                        if conf.off_min > conf.lock_min {
+                            casa_idle::trava();
+                            // o próximo tempo: o APAGAR sozinho
+                            arma_idle_ms(conf.off_min * 60 * 1000, 1);
+                        } else {
+                            casa_idle::trava_e_apaga();
+                        }
+                        estado.trava_armada = true;
+                        // o degrau de sempre: SUSPEND_MIN de travado (E60)
                         if conf.suspend_min > 0 {
-                            if let (Some(notifier), Some(seat)) = (&estado.notifier, &estado.seat) {
-                                let _ = notifier.get_idle_notification(
-                                    conf.suspend_min * 60 * 1000,
-                                    seat,
-                                    qh,
-                                    true,
-                                );
-                            }
+                            arma_idle_ms(conf.suspend_min * 60 * 1000, 2);
                         }
                     }
-                    notif.destroy();
-                    // rearma o relógio do LOCK (o ciclo continua)
-                    estado.arma_idle(qh);
-                } else {
+                    desarma_idle(notif);
+                    // NÃO rearma o LOCK aqui: o timer já passou do
+                    // limite — a rearmação nasce do RESUMED (o input do
+                    // dono zera o relógio do compositor) ou do reset
+                    // externo (E150); rearmar no Idled seria o loop
+                    // imediato do lock na cara do dono.
+                }
+                1 => {
+                    // OFF_MIN bateu (o gesto separado): a tela apaga — o
+                    // lock já está de pé desde o LOCK_MIN
+                    casa_idle::apaga();
+                    desarma_idle(notif);
+                }
+                _ => {
                     // TRAVADO há SUSPEND_MIN: dorme de verdade (E60)
                     if estado.trava_armada && !casa_idle::inibidores_seguram() {
                         eprintln!(
@@ -497,18 +596,19 @@ impl Dispatch<idle_mod::ext_idle_notification_v1::ExtIdleNotificationV1, bool> f
                             .stderr(std::process::Stdio::null())
                             .status();
                     }
-                    notif.destroy();
+                    desarma_idle(notif);
                     estado.trava_armada = false;
-                    estado.arma_idle(qh);
                 }
-            }
-            // VOLTOU da inatividade (o input acordou): rearma o relógio
+            },
+            // VOLTOU da inatividade (o input acordou): o relógio do
+            // compositor zera — a cadeia RENASCE inteira do LOCK (o
+            // reset desarma o resto que contava velho)
             idle_mod::ext_idle_notification_v1::Event::Resumed => {
-                if !*suspende {
+                if *tipo == 0 {
                     estado.trava_armada = false;
                 }
-                notif.destroy();
-                estado.arma_idle(qh);
+                desarma_idle(notif);
+                reseta_idle();
             }
             _ => {}
         }

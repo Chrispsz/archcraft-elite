@@ -14,8 +14,11 @@
 # grilos da gaveta não são evidência de nada).
 #
 # As portas de fecho da gaveta: W-d de novo (AQUI), o botão
-# "Aplicativos" da barra (o toggle da própria), ESC dentro dela — três
-# caminhos, nenhum mistério.
+# "Aplicativos" da barra (o toggle da própria), ESC dentro dela — e
+# E150 — O PALCO: o elite-daemon desce a gaveta no instante em que
+# OUTRA janela ganha foco (alt-tab, dock, janela nova) e o drawer já
+# desce sozinho ao ABRIR um app (MainQuit nativo do corpo dele). O
+# overlay nunca fica sobre janelas ou menus da barra.
 # ═════════════════════════════════════════════════════════════════════════
 set -u
 

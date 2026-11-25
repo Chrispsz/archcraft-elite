@@ -327,6 +327,69 @@ for GF in "$PROFILE/grub/grub.cfg" "$PROFILE/grub/loopback.cfg"; do
     && say "AVISO: bloco archcraftos NÃO removido (padrão upstream mudou?) — conferir"
 done
 
+# ── [6.1d] E150 — O TEMA GRUB DA CASA NA ISO (a pele roxa no boot) ──
+#  O menu de boot da ISO era CONSOLE puro (o loadfont do upstream falha:
+#  ${prefix}/fonts/unicode.pf2 nunca existiu na ISO — o if engole e
+#  segue texto). A casa entrega a fonte + o tema archcraft (o MESMO
+#  wallpaper roxo da sessão — o arquivo do skel — e a barra de seleção
+#  #a855f7 decodificada do select_bar.png.b64) em $PROFILE/grub/themes/
+#  archcraft — o mkarchcraftiso copia TODO o $PROFILE/grub/!*.cfg para
+#  /boot/grub da ISO (files_to_copy do _make_bootmode_uefi.grub) — e
+#  veste gfxterm + theme nos cfgs (o serial é re-anexado no MESMO
+#  bloco). O rootfs live ganha /usr/share/grub/themes/archcraft
+#  MATERIALIZADO (wallpaper + barra decodificada — o unpackfs carrega
+#  pro sistema instalado; o elite-install-stage entrega no /boot alvo).
+#  O git fica TEXT-ONLY: o PNG só existe MATERIALIZADO (a mesma escola
+#  do skel wallpaper — UMA fonte binária de sempre).
+GRUBTHEME_SRC="elite/airootfs/usr/share/grub/themes/archcraft"
+SKELWALL_SRC="elite/airootfs/etc/skel/.config/labwc/wallpaper.png"
+materializa_tema() {
+  # $1 = dir destino (recebe theme.txt + wallpaper.png + select_bar.png)
+  local dst="$1"
+  mkdir -p "$dst"
+  cp -p "$GRUBTHEME_SRC/theme.txt" "$dst/theme.txt"
+  if [[ -f "$SKELWALL_SRC" ]]; then
+    cp -p "$SKELWALL_SRC" "$dst/wallpaper.png"
+  else
+    say "AVISO: wallpaper do skel ausente — o tema veste o desktop-color #11111b"
+  fi
+  base64 -d "$GRUBTHEME_SRC/select_bar.png.b64" > "$dst/select_bar.png" 2>/dev/null \
+    || say "AVISO: select_bar.png.b64 não decodificou (a barra cai no estilo de cor)"
+}
+if [[ -f "$GRUBTHEME_SRC/theme.txt" && -f /usr/share/grub/unicode.pf2 ]]; then
+  # a cópia do MENU de boot (profile/grub → /boot/grub da ISO)
+  mkdir -p "$PROFILE/grub/fonts"
+  cp /usr/share/grub/unicode.pf2 "$PROFILE/grub/fonts/unicode.pf2"
+  materializa_tema "$PROFILE/grub/themes/archcraft"
+  # a cópia do ROOTFS (airootfs → /usr/share do live e do instalado)
+  materializa_tema "$PROFILE/airootfs/usr/share/grub/themes/archcraft"
+  for GF in "$PROFILE/grub/grub.cfg" "$PROFILE/grub/loopback.cfg"; do
+    [[ -f "$GF" ]] || continue
+    grep -q 'themes/archcraft/theme.txt' "$GF" && continue
+    awk '/^# Get a human readable platform identifier$/ && !feito {
+      print "# E150 — a pele da casa no menu de boot (gfxterm + tema archcraft)"
+      print "if [ -e \"${prefix}/fonts/unicode.pf2\" ]; then"
+      print "    loadfont \"${prefix}/fonts/unicode.pf2\""
+      print "    insmod all_video"
+      print "    insmod png"
+      print "    set gfxmode=auto"
+      print "    terminal_output gfxterm"
+      print "    set theme=\"${prefix}/themes/archcraft/theme.txt\""
+      print "    export theme"
+      print "    serial --unit=0 --speed=115200 || true"
+      print "    terminal_output --append serial || true"
+      print "fi"
+      print ""
+      feito = 1
+    }
+    { print }' "$GF" > "$GF.tmp" && mv "$GF.tmp" "$GF"
+    say "grub: tema da casa injetado em $(basename "$GF") (gfxterm + wallpaper roxo + barra #a855f7; o serial re-anexado no mesmo bloco)"
+  done
+else
+  say "AVISO: tema GRUB não injetado (theme.txt do airootfs OU unicode.pf2 do grub ausentes — o menu segue texto)"
+fi
+unset GRUBTHEME_SRC SKELWALL_SRC
+
 # guarda de sanidade: NENHUMA entrada pode ter sobrado apontando pro kernel
 # stock (ele não existe mais na ISO — boot de entrada órfã = kernel panic)
 for f in "$PROFILE/grub/grub.cfg" "$PROFILE/grub/loopback.cfg" \

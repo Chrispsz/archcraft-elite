@@ -32,8 +32,9 @@
 #      126 = diálogo fechado — man pkexec é a fonte).
 #
 # FEEDBACK (a ordem do dono: "nunca deixando o clique mudo"): só erro
-# REAL gera notify-send — senha recusada, diálogo fechado, display
-# morto, binário ausente. Sucesso é silêncio + a janela aberta na sessão.
+# REAL gera notify-send — senha recusada, display morto, binário
+# ausente. Cancelar o diálogo (rc 126) é ESCOLHA do dono: silêncio.
+# Sucesso é silêncio + a janela aberta na sessão.
 #
 # uso:      elite-gparted [ARQUIVO] — a senha é pedida UMA vez (polkit)
 # bin:      /usr/local/bin/elite-gparted (chamado pelo gparted.desktop
@@ -157,8 +158,8 @@ set -- "$GPARTED_BIN" "$@"
 [ -n "$DISP" ]                 && set -- "DISPLAY=$DISP" "$@"
 set -- env "$@"
 
-# ── a chamada: ESPERA o rc — o clique nunca é mudo (feedback só no erro).
-# O stderr do root cai num mktemp do usuário (o root escreve, o dono lê).
+# ── a chamada: ESPERA o rc — o clique nunca é mudo (feedback só no erro
+# REAL). O stderr do root cai num mktemp do usuário (o root escreve, o dono lê).
 # E138 — O RC DE ACORDO COM O PRÓPRIO pkexec (man pkexec: 127 = "não
 # autorizado OU a autorização não pôde ser obtida por autenticação OU
 # ocorreu um erro"; 126 = "o usuário FECHOU o diálogo"). O dump v2.13
@@ -167,12 +168,16 @@ set -- env "$@"
 # a mensagem da E137 dizia "binário não encontrado no PATH do root",
 # mentindo para o dono com o gparted INSTALADO. A verdade agora nomeia
 # cada rc pelo seu dono.
+# E150 — O CANCELAMENTO É SILENCIO (a ordem do dono, base 1.0-98: fechar
+# o diálogo de senha NÃO é erro — o dono desistiu, ponto; o toast vermelho
+# no swaync pela desistência dele é RUÍDO, não feedback). rc=126 sai
+# calado: sem notify-send, sem papel — erro REAL (127, display morto,
+# binário ausente) segue falando.
 errf="$(mktemp "${TMPDIR:-/tmp}/elite-gparted.XXXXXX" 2>/dev/null)" || errf=/dev/null
 rc=0
 "$PKEXEC_BIN" "$@" 2>"$errf" || rc=$?
-if [ "$rc" -ne 0 ]; then
+if [ "$rc" -ne 0 ] && [ "$rc" -ne 126 ]; then
     motivo="terminou com erro (rc=$rc)"
-    [ "$rc" -eq 126 ] && motivo="a senha foi cancelada (o diálogo foi fechado)"
     [ "$rc" -eq 127 ] && motivo="a senha foi recusada ou a autorização foi negada — tente de novo"
     det=""
     [ -s "$errf" ] && det="$(tail -c 200 "$errf" 2>/dev/null | tr '\n' ' ')"
@@ -181,7 +186,8 @@ if [ "$rc" -ne 0 ]; then
         "$NOT" -u normal -t 6000 'GParted' \
             "Não abriu: $motivo${det:+ · último erro: $det}" >/dev/null 2>&1 || true
     fi
-    # o papel da família (uma linha por erro REAL — nunca spam por tick)
+    # o papel da família (uma linha por erro REAL — nunca spam por tick;
+    # o 126 calado nem chega aqui)
     BL="${XDG_CACHE_HOME:-$HOME/.cache}/elite/bars.log"
     ( mkdir -p "${BL%/*}" 2>/dev/null
       printf '[%s] elite-gparted: FALHOU rc=%s · display=%s · xauth=%s\n' \

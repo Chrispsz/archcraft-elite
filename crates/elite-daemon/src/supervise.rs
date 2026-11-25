@@ -443,6 +443,123 @@ impl From<Residente> for VagaSpec {
 
 /// E132 — a porta `supervise`: SÓ os residentes puros (a compat dos
 /// rigs que chamam o daemon direto).
+/// E150 — O RELOGIN LIMPO (a ordem do dono, base 1.0-98): o `labwc
+/// --exit` deixava o daemon da sessão ANTERIOR vivo por instantes
+/// (órfão de relogin — o SIGHUP da era matava sem a saída limpa) e o
+/// `/run/user/$UID/elite` carregava locks/sockets órfãos que MENTIAM
+/// à sessão nova: o `elite-daemon session` recusado pelo flock do
+/// irmão morto-vivo saía 0 e o desktop acordava VAZIO (só o menu.xml).
+/// A colheita é DUPLO:
+///   · o DAEMON ÓRFÃO: o lock da sessão traz o PID do dono — se o
+///     dono do flock é um elite-daemon VIVO cujo WAYLAND_DISPLAY já é
+///     OUTRO (a sessão dele morreu), ele recebe SIGTERM (a saída limpa
+///     dele despeja os filhos e solta a trava) e a espera curta (3s)
+///     confere a entrega;
+///   · os FÓSSEIS do chão: com o lock NOSSO na mão, o resto órfão do
+///     dir (bus.sock, resident-*.lock, *.pid) é de sessão MORTA por
+///     definição — sai (o bind do bus refaz o fio; os residentes ganham
+///     locks novos no próximo spawn). A varredura corre ANTES do
+///     liga_bus da própria sessão (o sweep não pode comer o fio que
+///     ainda nem nasceu) e PRESERVA os stamps display-* do frame 0
+///     (o apply-boot desta sessão acabou de escrevê-los — a máquina de
+///     estados do craft-display confia neles).
+/// Err = o irmão recusa morrer (sessão REALMENTE viva — a 2ª instância
+/// sai 0 como sempre, o papel do supervise.rs já fala isso).
+pub fn colhe_relogin() -> Result<(), String> {
+    let uid = unsafe { libc::getuid() };
+    let lock = elite_core::session_lock_path(uid);
+    // o lock PRIVADO não existe ainda? o chão pode TER fóssil de crash
+    // (o daemon morreu sem saída limpa) — a varredura segue do mesmo
+    // jeito (não há dono vivo para mentir)
+    if lock.exists() && !peek_lock_livre(&lock) {
+        // o NOSSO WAYLAND_DISPLAY é a prova da sessão VIVA: sem ele
+        // (CLI/probe/teste) ninguém aqui pode julgar o dono do lock —
+        // a recusa honesta vale (a 2ª instância sai 0 como sempre)
+        let nosso = crate::wayland_pronto_nome();
+        if nosso.is_empty() {
+            return Err(format!(
+                "o lock {} tem dono e este corpo não é sessão gráfica — sai 0 (flock E30)",
+                lock.display()
+            ));
+        }
+        // o dono do flock: lê o PID que ele deixou no arquivo
+        let pid = std::fs::read_to_string(&lock)
+            .ok()
+            .and_then(|t| t.trim().parse::<i32>().ok());
+        let mut colhido = false;
+        if let Some(pid) = pid {
+            if pid > 1
+                && unsafe { libc::kill(pid, 0) } == 0
+                && comm_do_pid(pid) == "elite-daemon"
+                && wayland_do_pid(pid) != nosso
+            {
+                // o irmão órfão: SIGTERM e a espera curta
+                eprintln!(
+                    "elite-daemon: o irmão pid {pid} segurava o lock de uma sessão morta — SIGTERM (a saída limpa dele entrega a vaga)"
+                );
+                unsafe { libc::kill(pid, libc::SIGTERM) };
+                for _ in 0..30 {
+                    if peek_lock_livre(&lock) {
+                        colhido = true;
+                        break;
+                    }
+                    std::thread::sleep(Duration::from_millis(100));
+                }
+            }
+        }
+        if !colhido && !peek_lock_livre(&lock) {
+            return Err(format!(
+                "o lock {} segue com dono vivo — a 2ª instância sai 0 (flock E30; a sessão REAL não é colhida)",
+                lock.display()
+            ));
+        }
+    }
+    // o chão é NOSSO: varre os fósseis (bus.sock, resident-*.lock,
+    // *.pid — os stamps display-* do frame 0 desta sessão ficam)
+    let mut varridos = 0usize;
+    if let Ok(dir) = std::fs::read_dir(run_dir()) {
+        for e in dir.flatten() {
+            let nome = e.file_name();
+            let nome = nome.to_string_lossy().to_string();
+            if nome == "session.lock" || nome.starts_with("display-") {
+                continue;
+            }
+            if std::fs::remove_file(e.path()).is_ok() {
+                varridos += 1;
+            }
+        }
+    }
+    if varridos > 0 {
+        eprintln!(
+            "elite-daemon: {varridos} fóssil(eis) da sessão anterior varrido(s) de {} (bus.sock/locks/pid — o relogin nasce limpo)",
+            run_dir().display()
+        );
+    }
+    Ok(())
+}
+
+/// o comm de um PID (vazio = inobservável).
+fn comm_do_pid(pid: i32) -> String {
+    std::fs::read_to_string(format!("/proc/{pid}/comm"))
+        .unwrap_or_default()
+        .trim_end()
+        .to_string()
+}
+
+/// o WAYLAND_DISPLAY de um PID (vazio = inobservável; o root e o morto
+/// não têm — o imune de sempre).
+fn wayland_do_pid(pid: i32) -> String {
+    let Ok(bytes) = std::fs::read(format!("/proc/{pid}/environ")) else {
+        return String::new();
+    };
+    bytes
+        .split(|b| *b == 0)
+        .filter_map(|kv| std::str::from_utf8(kv).ok())
+        .find_map(|kv| kv.strip_prefix("WAYLAND_DISPLAY="))
+        .unwrap_or("")
+        .to_string()
+}
+
 pub fn run() -> Result<(), String> {
     supervisa(
         "/tmp/elite-daemon-supervise.lock",
@@ -512,6 +629,36 @@ pub fn run_session() -> Result<(), String> {
         // NUNCA comm: o craft-display apply bifurca por evento e vive
         // segundos — um gate por comm recusaria o spawn eternamente
         comm: None,
+        cond: None,
+        peek_lock: None,
+    });
+    // E150 — A VAGA DO WALLPAPER (a garantia de TODO login): o swaybg
+    // deixou de ser spawn do autostart (UM lançador só — a lei E137 de
+    // sempre) e vira vaga supervisionada: caiu → volta em 2s, o guard
+    // por comm ADOTA o que já está de pé (a sessão nunca soma o
+    // segundo) e o comando nasce do MESMO endereço de sempre — o PNG
+    // curado da casa, o JPG do dono como queda e o preto AMOLED de
+    // fábrica quando nenhum existe (a gramática do autostart velho,
+    // agora supervisionada).
+    let home = std::env::var("HOME").unwrap_or_default();
+    let comando_wall = if !home.is_empty()
+        && PathBuf::from(&home).join(".config/labwc/wallpaper.png").exists()
+    {
+        "swaybg -m fill -i $HOME/.config/labwc/wallpaper.png".to_string()
+    } else if !home.is_empty()
+        && PathBuf::from(&home).join(".config/labwc/wallpaper.jpg").exists()
+    {
+        "swaybg -m fill -i $HOME/.config/labwc/wallpaper.jpg".to_string()
+    } else {
+        "swaybg -m fill -c #000000".to_string()
+    };
+    specs.push(VagaSpec {
+        res: Residente {
+            nome: "wallpaper".to_string(),
+            comando: comando_wall,
+            bus: None,
+        },
+        comm: Some("swaybg".to_string()),
         cond: None,
         peek_lock: None,
     });
@@ -586,6 +733,16 @@ fn supervisa(
             "elite-daemon: a porta {porta} já tem dono — a 2ª instância sai 0 (flock E30)"
         );
         return Ok(()); // o irmão está no ar — a casa segue com UM dono
+    }
+    // E150 — O PID NO LOCK (a identidade do dono da vaga: o relogin
+    // lê este número para julgar o órfão — ver colhe_relogin; a
+    // varredura dos fósseis do chão já correu LÁ, antes do liga_bus).
+    if porta == "session" {
+        use std::io::Write;
+        let _ = f.set_len(0);
+        if let Ok(mut fh) = f.try_clone() {
+            let _ = write!(fh, "{}\n", std::process::id());
+        }
     }
     super::instala_sinais();
 

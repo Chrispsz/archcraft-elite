@@ -42,5 +42,21 @@ fn main() {
             "ELITE · a dose NÃO subiu (rc={rc}) — a verdade acima é do motor; o papel em ~/.cache/elite/update.log."
         );
     }
+    // E150 — A PAUSA DO `foot -e` (a ordem do dono, base 1.0-98: o terminal
+    // do menu fechava JUNTO com o processo — inclusive SEM atualizações,
+    // o veredito sumia antes de ser lido). Só veste com stdin TTY (o foot
+    // é TTY; o pipe da prova nunca espera Enter).
+    pausa_enter();
     std::process::exit(rc);
+}
+
+/// E150 — a pausa do terminal do menu (TTY = `foot -e`; pipe = segue).
+fn pausa_enter() {
+    use std::io::IsTerminal;
+    if !std::io::stdin().is_terminal() {
+        return;
+    }
+    println!("Pressione Enter para fechar…");
+    let mut s = String::new();
+    let _ = std::io::stdin().read_line(&mut s);
 }

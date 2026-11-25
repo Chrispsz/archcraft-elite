@@ -570,6 +570,20 @@ gm_status_cmd() {
 }
 
 # ── o MENU (a porta mouse-first — o motor único 2.0 é o craft-pick) ─────
+# E150 — O PICK VESTE AS FLAGS REAIS DE `craft-pick --help` (a prova do
+#      rig da 1.0-98: o menu abortava com 'Opção --title=... desconhecida'
+#      quando o binário do rig não conhecia a flag — chamador de uma era,
+#      binário de outra, o MENU morto no meio). O título só entra quando o
+#      craft-pick INSTALADO o anuncia no papel de ajuda — sem ele, o painel
+#      segue sem título e o contrato 0/1 intacto.
+gm_pick() {
+    if craft-pick --help 2>/dev/null | grep -q -- '--title='; then
+        craft-pick --title="$1"
+    else
+        craft-pick
+    fi
+}
+
 gm_menu() {
     command -v craft-pick >/dev/null 2>&1 || { gm_status_cmd; exit 0; }
     local auto=""
@@ -595,7 +609,7 @@ gm_menu() {
     # deixa a escolha; o fecho benigno segue na lei dos menus; o rc
     # anômalo fica nomeado — a próxima perícia vê onde a porta falhou.
     _gm_rc=0
-    choice="$(printf '%s\n' "${items[@]}" | craft-pick --title='Modo de jogo')" || _gm_rc=$?
+    choice="$(printf '%s\n' "${items[@]}" | gm_pick 'Modo de jogo')" || _gm_rc=$?
     if [ "$_gm_rc" = 0 ]; then
         glog "menu: escolha '$choice' (despacho = papel)"
     else

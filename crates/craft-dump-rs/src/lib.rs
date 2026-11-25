@@ -468,6 +468,218 @@ pub fn linha_scx(sched_ext_ok: bool, unit_presente: bool) -> Option<&'static str
     None
 }
 
+// ═════════════════════════════════════════════════════════════════════════
+// E150 — A AUDITORIA SISTÊMICA (a ordem do dono, base 1.0-98: o dump
+// conectado a TODOS os subsistemas ativos — um relatório único). Tudo
+// aqui é PURO sobre o texto colhido (free/zramctl/pacman/wlr-randr/
+// displays.conf/procfs): a mão que colhe mora no main, o juízo mora AQUI.
+// ═════════════════════════════════════════════════════════════════════════
+
+/// E150 — o parse do `free -m` (MiB): devolve (total, used, buff_cache,
+/// available, swap_total, swap_used) — o consumo GLOBAL que o dono lê.
+pub fn parse_free_m(texto: &str) -> Option<(u64, u64, u64, u64, u64, u64)> {
+    let mut mem = None;
+    let mut swap = None;
+    for linha in texto.lines() {
+        let c: Vec<&str> = linha.split_whitespace().collect();
+        if c.first() == Some(&"Mem:") && c.len() >= 7 {
+            // total used free shared buff/cache available
+            mem = Some((
+                c[1].parse().ok()?, c[2].parse().ok()?, c[5].parse().ok()?, c[6].parse().ok()?,
+            ));
+        } else if c.first() == Some(&"Swap:") && c.len() >= 4 {
+            swap = Some((c[1].parse().ok()?, c[2].parse().ok()?));
+        }
+    }
+    let (t, u, bc, a) = mem?;
+    let (st, su) = swap.unwrap_or((0, 0));
+    Some((t, u, bc, a, st, su))
+}
+
+/// E150 — os campos do `zramctl` (a linha de dados): devolve
+/// (disksize, data, total) — o zram VIVO comprimindo ou None honesto.
+pub fn zramctl_campos(texto: &str) -> Option<(String, String, String)> {
+    // cabeça: NAME DISKSIZE DATA COMPR TOTAL STREAMS MOUNTPOINT
+    let linha = texto.lines().nth(1)?;
+    let c: Vec<&str> = linha.split_whitespace().collect();
+    if c.len() < 5 {
+        return None;
+    }
+    Some((c[1].to_string(), c[2].to_string(), c[4].to_string()))
+}
+
+/// E150 — o RSS (KiB) de um /proc/<pid>/status (0 = zumbi/kernel thread).
+pub fn rss_kib_do_status(status: &str) -> u64 {
+    status
+        .lines()
+        .find(|l| l.starts_with("VmRSS:"))
+        .and_then(|l| l.split_whitespace().nth(1))
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(0)
+}
+
+/// E150 — o ranking RSS (desc, empate pelo pid; n primeiros): a lista
+/// de (pid, comm, rss_kib) vira o top do papel.
+pub fn rank_rss(mut v: Vec<(u32, String, u64)>, n: usize) -> Vec<(u32, String, u64)> {
+    v.sort_by(|a, b| b.2.cmp(&a.2).then(a.0.cmp(&b.0)));
+    v.truncate(n);
+    v
+}
+
+/// E150 — a contagem de pacotes (as linhas não-vazias do pacman -Q/-Qe/-Qm).
+pub fn conta_linhas(texto: &str) -> usize {
+    texto.lines().filter(|l| !l.trim().is_empty()).count()
+}
+
+/// E150 — o modo ATUAL de cada output no wlr-randr (a marca "(current)"
+/// da 0.5 — o mesmo parser de verdade do craft-display, agora no papel):
+/// devolve (nome_do_output, "WxH@RATE") por tela viva.
+pub fn randr_modos_atuais(randr: &str) -> Vec<(String, String)> {
+    let mut out = Vec::new();
+    let mut atual = String::new();
+    for linha in randr.lines() {
+        if linha.starts_with(char::is_whitespace) {
+            if linha.contains("(current)") {
+                if let Some(tok) = linha.split_whitespace().find(|t| modo_parece(t)) {
+                    if !atual.is_empty() {
+                        out.push((atual.clone(), tok.to_string()));
+                    }
+                }
+            }
+            continue;
+        }
+        // cabeça de output: o primeiro token sem indent é o NOME
+        if let Some(nome) = linha.split_whitespace().next() {
+            if !nome.is_empty() && !nome.contains(':') {
+                atual = nome.to_string();
+            }
+        }
+    }
+    out
+}
+
+/// o token parece um modo? (WxH@RATE — os dígitos conferidos)
+fn modo_parece(t: &str) -> bool {
+    let Some((wh, r)) = t.split_once('@') else { return false };
+    let Some((w, h)) = wh.split_once('x') else { return false };
+    !w.is_empty()
+        && !h.is_empty()
+        && !r.is_empty()
+        && w.bytes().all(|b| b.is_ascii_digit())
+        && h.bytes().all(|b| b.is_ascii_digit())
+}
+
+/// E150 — os modos SALVOS do displays.conf (linha canônica
+/// `NOME|mode:WxH@RATE|…` — o mesmo formato que o do_save escreve).
+pub fn displays_conf_modos(conf: &str) -> Vec<(String, String)> {
+    let mut out = Vec::new();
+    for linha in conf.lines() {
+        let t = linha.trim();
+        if t.is_empty() || t.starts_with('#') {
+            continue;
+        }
+        let c: Vec<&str> = t.split('|').collect();
+        if c.len() < 2 || c[0].is_empty() {
+            continue;
+        }
+        let modo = c[1].strip_prefix("mode:").unwrap_or("-");
+        out.push((c[0].to_string(), modo.to_string()));
+    }
+    out
+}
+
+/// E150 — O CASAMENTO DA PERSISTÊNCIA (o juízo do '60 Hz sempre volta'):
+/// cada modo SALVO no displays.conf contra o VIVO do wlr-randr — CONFERE
+/// (os Hz do dono de pé), DIVERGE (o apply/boot re-estabelece) ou
+/// AUSENTE (tela desplugada / randr calado). Conf vazio = nada salvo.
+pub fn veredito_display(conf: &str, randr: &str) -> Vec<String> {
+    let salvos = displays_conf_modos(conf);
+    if salvos.is_empty() {
+        return vec![
+            "persistência: displays.conf vazio/ausente (nada salvo — o EDID manda; o menu do craft-display guarda o primeiro arranjo)".into(),
+        ];
+    }
+    let vivos = randr_modos_atuais(randr);
+    let mut linhas = Vec::new();
+    for (nome, salvo) in salvos {
+        if salvo == "-" {
+            linhas.push(format!(
+                "  {nome}: conf DOENTE (mode:- no papel — o E108 do craft-display: o save novo cura)"
+            ));
+            continue;
+        }
+        match vivos.iter().find(|(n, _)| *n == nome) {
+            Some((_, vivo)) if vivo == &salvo => linhas.push(format!(
+                "  {nome}: CONFERE ({salvo} aplicado — os Hz escolhidos vivos no boot)"
+            )),
+            Some((_, vivo)) => linhas.push(format!(
+                "  {nome}: DIVERGE (salvo {salvo} · vivo {vivo} — o apply-boot/E150 do daemon re-estabelece)"
+            )),
+            None => linhas.push(format!(
+                "  {nome}: tela ausente no wlr-randr (desplugada ou randr calado — nomeado, não inventado)"
+            )),
+        }
+    }
+    linhas
+}
+
+/// E150 — o source padrão do pactl info (a ENTRADA de áudio da casa —
+/// o papel tinha só a saída; o microfone importa na perícia).
+pub fn pactl_default_source(texto: &str) -> Option<String> {
+    texto
+        .lines()
+        .find(|l| l.starts_with("Default Source:"))
+        .map(|l| l["Default Source:".len()..].trim().to_string())
+}
+
+/// E150 — os três tempos da vigília no papel (LOCK/OFF/SUSPEND — a
+/// fábrica 5/10/20 e o gesto separado; o 0 é NUNCA, nomeado).
+pub fn idle_conf_tres(conf: &str) -> Vec<String> {
+    let mut valores: [Option<&str>; 3] = [None, None, None];
+    for linha in conf.lines() {
+        for (i, chave) in ["LOCK_MIN", "OFF_MIN", "SUSPEND_MIN"].iter().enumerate() {
+            if let Some(v) = linha.trim().strip_prefix(&format!("{chave}=")) {
+                valores[i] = Some(v.trim());
+            }
+        }
+    }
+    let mut out = Vec::new();
+    match valores[0] {
+        Some("0") => out.push("  trava: NUNCA sozinha (LOCK_MIN=0 — o W-l manual manda)".to_string()),
+        Some(l) => out.push(format!("  trava: LOCK_MIN={l} min de inatividade")),
+        None => out.push("  trava: (LOCK_MIN ausente — a fábrica do daemon: 5)".to_string()),
+    }
+    match valores[1] {
+        Some(o) if o != valores[0].unwrap_or("") => out.push(format!("  apaga: OFF_MIN={o} (o gesto separado E150)")),
+        Some(o) => out.push(format!("  apaga: OFF_MIN={o} (junto do lock — o gesto único E43)")),
+        None => out.push("  apaga: (OFF_MIN ausente — junto do lock)".to_string()),
+    }
+    match valores[2] {
+        Some("0") => out.push("  sono: SUSPEND_MIN=0 (desligado)".to_string()),
+        Some(s) => out.push(format!("  sono: SUSPEND_MIN={s} de travado (a vigília E60)")),
+        None => out.push("  sono: (SUSPEND_MIN ausente — a fábrica: 20)".to_string()),
+    }
+    out
+}
+
+/// E150 — os campos vivos do $XDG_RUNTIME_DIR (nome · tipo · dono): a
+/// função PURA recebe a lista (nome, e_socket, e_dir) já colhida.
+pub fn linhas_runtime_dir(entradas: &[(String, bool, bool)]) -> Vec<String> {
+    entradas
+        .iter()
+        .map(|(nome, socket, dir)| {
+            let tipo = if *socket {
+                "socket"
+            } else if *dir {
+                "dir"
+            } else {
+                "arquivo"
+            };
+            format!("  {nome} · {tipo}")
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests_profunda {
     use super::*;
@@ -685,5 +897,140 @@ mod tests_fase2 {
         assert!(home_do_uid(999, passwd).is_none());
         // o nome segue na mesma gramática
         assert_eq!(nome_do_uid(1000, passwd).as_deref(), Some("chris"));
+    }
+}
+
+#[cfg(test)]
+mod tests_e150_sistemico {
+    use super::*;
+
+    #[test]
+    fn e150_o_free_m_e_parseado_nos_6_campos() {
+        let papel = "               total        used        free      shared  buff/cache   available\n\
+                     Mem:          15920        4510        9800         220        1610       10850\n\
+                     Swap:          7679         200        7479\n";
+        let (t, u, bc, a, st, su) = parse_free_m(papel).unwrap();
+        assert_eq!((t, u, bc, a, st, su), (15920, 4510, 1610, 10850, 7679, 200));
+        // sem Swap (rig sem zram): o zero honesto, a Mem segue
+        let so_mem = "Mem: 100 10 80 1 9 90\n";
+        let (t, _, _, _, st, _) = parse_free_m(so_mem).unwrap();
+        assert_eq!(t, 100);
+        assert_eq!(st, 0, "sem linha Swap o papel não inventa swap");
+        // lixo: None
+        assert!(parse_free_m("lixo total\n").is_none());
+    }
+
+    #[test]
+    fn e150_o_zramctl_fala_os_campos_vivos() {
+        let papel = "NAME       DISKSIZE   DATA  COMPR  TOTAL STREAMS MOUNTPOINT\n\
+                     /dev/zram0     7.5G 120.4M  21.3M  32.5M      16 [SWAP]\n";
+        let (disk, data, total) = zramctl_campos(papel).unwrap();
+        assert_eq!((disk.as_str(), data.as_str(), total.as_str()), ("7.5G", "120.4M", "32.5M"));
+        // sem zram montado (zramctl vazio): None honesto
+        assert!(zramctl_campos("").is_none());
+    }
+
+    #[test]
+    fn e150_o_ranking_rss_ordena_e_corta() {
+        let v = vec![
+            (1, "a".into(), 100u64),
+            (2, "b".into(), 900u64),
+            (3, "c".into(), 500u64),
+        ];
+        let top = rank_rss(v, 2);
+        assert_eq!(top[0].0, 2, "o maior RSS primeiro");
+        assert_eq!(top.len(), 2, "o corte de N");
+        // empate: o pid menor na frente (estabilidade legível)
+        let v2 = vec![(9, "x".into(), 50u64), (4, "y".into(), 50u64)];
+        let top2 = rank_rss(v2, 5);
+        assert_eq!(top2[0].0, 4);
+    }
+
+    #[test]
+    fn e150_o_rss_do_status_e_o_vmrss() {
+        let status = "Name: brave\nVmPeak: 1000 kB\nVmRSS: 24000 kB\n";
+        assert_eq!(rss_kib_do_status(status), 24000);
+        // zumbi/kernel thread: 0 (sem VmRSS)
+        assert_eq!(rss_kib_do_status("Name: kworker\n"), 0);
+    }
+
+    #[test]
+    fn e150_a_contagem_de_pacotas_conta_linhas_vivas() {
+        assert_eq!(conta_linhas("a 1\nb 2\nc 3\n"), 3);
+        assert_eq!(conta_linhas("\n\na\n\n"), 1);
+        assert_eq!(conta_linhas(""), 0);
+    }
+
+    #[test]
+    fn e150_os_modos_atuais_do_randr_pela_marca_current() {
+        // o papel REAL do wlr-randr 0.5 (a marca da casa é "(current)",
+        // isolada — a mesma gramática que o awk do craft-display casa)
+        let randr = "DP-1 (AMD Radeon RX 7600 [DRM])\n  Physical: 530x300 mm\n  Enabled: yes\n  Modes:\n    1920x1080@60.000\n    1920x1080@200.000 (current) (preferred)\n  Position: 0,0\n  Transform: normal\n  Scale: 1.000000\n  Adaptive sync: enabled\n";
+        let vivos = randr_modos_atuais(randr);
+        assert_eq!(vivos.len(), 1);
+        assert_eq!(vivos[0], ("DP-1".to_string(), "1920x1080@200.000".to_string()));
+        // duas telas, uma sem modo atual: só a com marca entra
+        let dois = "DP-1 (A)\n  Modes:\n    1920x1080@144.000 (current)\nHDMI-A-1 (B)\n  Modes:\n    1920x1080@60.000\n";
+        assert_eq!(randr_modos_atuais(dois).len(), 1);
+        // a 0.4 (Current mode: na linha própria): o parser honesto não casa
+        // (a casa toda casa a 0.5 do rig — a fronteira nomeada no modo_parece)
+        let v04 = "DP-1 (A)\n  Current mode: 1920x1080@144.000\n";
+        assert_eq!(randr_modos_atuais(v04).len(), 0);
+        // sem randr: vazio (a ausência é nomeada no main)
+        assert!(randr_modos_atuais("").is_empty());
+    }
+
+    #[test]
+    fn e150_o_veredito_da_persistencia_casa_salvo_com_vivo() {
+        let conf = "# cabeça da casa\nDP-1|mode:1920x1080@200.000|pos:0,0|scale:1|transform:normal|adaptive:enabled\n";
+        let conf_doente = "DP-2|mode:-|pos:0,0\n";
+        let randr = "DP-1 (A)\n  Modes:\n    1920x1080@200.000 (current)\n";
+        let v = veredito_display(conf, randr);
+        assert!(v.iter().any(|l| l.contains("CONFERE")), "o Hz salvo aplicado: {v:?}");
+        // divergiu (o 60 Hz do boot frio antes da re-aplicação)
+        let randr_60 = "DP-1 (A)\n  Modes:\n    1920x1080@60.000 (current)\n";
+        let v2 = veredito_display(conf, randr_60);
+        assert!(v2.iter().any(|l| l.contains("DIVERGE")), "{v2:?}");
+        // conf doente nomeado
+        let v3 = veredito_display(conf_doente, randr);
+        assert!(v3.iter().any(|l| l.contains("DOENTE")), "{v3:?}");
+        // conf vazio
+        assert!(veredito_display("", randr)[0].contains("vazio/ausente"));
+    }
+
+    #[test]
+    fn e150_os_tres_tempos_da_vigilia_no_papel() {
+        let conf = "LOCK_MIN=5\nOFF_MIN=10\nSUSPEND_MIN=20\n";
+        let l = idle_conf_tres(conf);
+        assert!(l.iter().any(|x| x.contains("LOCK_MIN=5")));
+        assert!(l.iter().any(|x| x.contains("OFF_MIN=10") && x.contains("gesto separado")));
+        // o gesto único de sempre
+        let l2 = idle_conf_tres("LOCK_MIN=5\nOFF_MIN=5\n");
+        assert!(l2.iter().any(|x| x.contains("junto do lock")));
+        // nunca sozinho
+        let l3 = idle_conf_tres("LOCK_MIN=0\n");
+        assert!(l3.iter().any(|x| x.contains("NUNCA")));
+    }
+
+    #[test]
+    fn e150_o_source_padrao_do_pactl() {
+        let info = "Server Name: PulseAudio (on PipeWire 1.0.0)\nDefault Sink: alsa_output.pci-0000_11_00.4.analog-stereo\nDefault Source: alsa_input.usb-Fifine_Microphone_0000\n";
+        assert_eq!(
+            pactl_default_source(info).as_deref(),
+            Some("alsa_input.usb-Fifine_Microphone_0000")
+        );
+        assert!(pactl_default_source("sem nada").is_none());
+    }
+
+    #[test]
+    fn e150_as_linhas_do_runtime_dir_dizem_o_tipo() {
+        let l = linhas_runtime_dir(&[
+            ("wayland-0".into(), true, false),
+            ("pipewire-0".into(), true, false),
+            ("dconf".into(), false, true),
+            ("elite".into(), false, true),
+        ]);
+        assert!(l.iter().any(|x| x.contains("wayland-0 · socket")));
+        assert!(l.iter().any(|x| x.contains("dconf · dir")));
     }
 }

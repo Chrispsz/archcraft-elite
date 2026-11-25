@@ -210,11 +210,12 @@ file_has "menu: o Modo de jogo abre o painel (craft-game menu)" "elite/airootfs/
 file_has "menu: a Trava automática abre o painel (craft-idle menu)" "elite/airootfs/etc/skel/.config/labwc/menu.xml" 'command="craft-idle menu"'
 file_has "idle: o verbo menu existe (o painel do dono)" "$AIROOTFS/usr/local/bin/craft-idle" 'craft-pick --title'
 # E149 — A FÁBRICA DA VAGA AUTOMÁTICA E DA TRAVA (a diretriz: o modo
-# jogo volta a nascer ligado e o idle fica 5/5/20 — lock=apaga num só
-# gesto, suspende em 20; o skel cobre a ISO nova, o post_upgrade cobre
-# o rig que antecedeu a dose)
+# jogo volta a nascer ligado; o skel cobre a ISO nova, o post_upgrade
+# cobre o rig que antecedeu a dose)
 file_has "jogo: o AUTO=1 nasce na casa (a vaga automática do skel)" "elite/airootfs/etc/skel/.config/elite/game.conf" 'AUTO=1'
-file_has "trava: a fábrica do idle é 5/5/20 (lock=apaga num só gesto, suspende 20)" "elite/airootfs/etc/skel/.config/elite/idle.conf" 'LOCK_MIN=5'
+file_has "trava: a fábrica do idle trava em 5 (LOCK_MIN da casa)" "elite/airootfs/etc/skel/.config/elite/idle.conf" 'LOCK_MIN=5'
+# E150 — o gesto separado: a tela APAGA no tempo PRÓPRIO (fábrica 10)
+file_has "trava: a fábrica do idle apaga em 10 (o gesto separado E150)" "elite/airootfs/etc/skel/.config/elite/idle.conf" 'OFF_MIN=10'
 file_has "daemon: a pele do swaync chega do skel ANTES do fork (o Config not found! morre)" "crates/elite-daemon/src/supervise.rs" 'fn entrega_pele_swaync'
 # a gaveta com memória
 file_line_exact "apps: o craft-apps é bin da casa (a gaveta com toggle)" "$AIROOTFS/usr/local/bin/craft-apps" '#!/bin/sh'
@@ -272,6 +273,71 @@ file_hasnt "monitor: o trio morto do gdk4 0.11 não volta (connect_monitor_added
 file_hasnt "monitor: o trio morto do gdk4 0.11 não volta (dock idem)" "crates/craft-dock-rs/src/ui.rs" 'connect_monitor_added'
 file_has "monitor: o ouvidor vivo é o items-changed do GListModel (barra)" "crates/craft-bar-rs/src/ui.rs" 'connect_items_changed'
 file_has "monitor: o ouvidor vivo é o items-changed do GListModel (dock)" "crates/craft-dock-rs/src/ui.rs" 'connect_items_changed'
+
+# ══ E150 — A ONDA FINAL 1/2 (base 1.0-98): RELOGIN LIMPO, BOOT FRIO DOS
+# HZ, SDDM/GRUB REAIS, DUMP SISTÊMICO, GAVETA E PALCO, PAUSAS E 126 ══
+# O RELOGIN LIMPO (o SIGHUP da sessão velha + a colheita do órfão + a
+# espera do compositor + a re-aplicação do monitor no boot frio):
+file_has "relogin: o SIGHUP veste a saída limpa (o flock não fica retido)" "crates/elite-daemon/src/main.rs" 'libc::signal(libc::SIGHUP'
+file_has "relogin: a colheita do irmão órfão (o lock traz o PID do dono)" "crates/elite-daemon/src/supervise.rs" 'pub fn colhe_relogin'
+file_has "relogin: o pid da vaga gravado no lock (a identidade do dono)" "crates/elite-daemon/src/supervise.rs" 'std::process::id()'
+file_has "relogin: a sessão espera o WAYLAND_DISPLAY registrar (teto 10s)" "crates/elite-daemon/src/main.rs" 'fn espera_wayland'
+file_has "relogin: o fóssil de crash varrido antes do liga_bus" "crates/elite-daemon/src/supervise.rs" 'display-'
+# o vídeo pós-suspensão e o idle que renasce no despertar:
+file_has "resume: o wlopm --on religa as saídas no despertar" "crates/elite-daemon/src/main.rs" 'wlopm'
+file_has "resume: o idle renasce no PrepareForSleep(false)/Unlock" "crates/elite-daemon/src/wayland.rs" 'pub fn reseta_idle'
+# a vigília armada DE VERDADE (o notifier atravessa o spawn):
+file_has "idle: o notifier atravessa o spawn (a vigília nasce armada)" "crates/elite-daemon/src/wayland.rs" 'IDLE_CTL'
+file_has "idle: o APAGAR é tempo próprio (a fábrica 5/10 no daemon)" "crates/elite-daemon/src/idle.rs" 'off_min'
+# o wallpaper é vaga da sessão (UM lançador — a lei E137):
+file_has "wallpaper: o swaybg é vaga supervisionada da sessão" "crates/elite-daemon/src/supervise.rs" 'swaybg -m fill'
+file_hasnt "autostart: NENHUM spawn/comentário de era (o waybar morreu)" "elite/airootfs/etc/skel/.config/labwc/autostart" 'waybar'
+file_hasnt "autostart: o craft-bars de era não volta nem em comentário" "elite/airootfs/etc/skel/.config/labwc/autostart" 'craft-bars'
+# a gaveta desce com o palco (o overlay nunca fica por cima da casa):
+file_has "gaveta: o daemon desce o nwg-drawer quando outra janela ganha foco" "crates/elite-daemon/src/wayland.rs" 'gaveta_desce'
+file_has "gaveta: o sinal do daemon colhe o drawer do uid" "crates/elite-daemon/src/main.rs" 'pub(crate) fn gaveta_desce'
+# o seletor nunca vira zumbi (~24 MB): perdeu o foco = exit imediato
+file_has "pick: o EventControllerFocus desce o seletor no leave (zero zumbi)" "crates/craft-tools/src/bin/craft-pick.rs" 'connect_leave'
+# as flags reais do craft-pick --help (a cura do 'Opção --title=... desconhecida'):
+file_has "pick: o craft-idle sonda o --help antes do --title (a flag de era não mata o painel)" "$AIROOTFS/usr/local/bin/craft-idle" 'craft-pick --help'
+file_has "pick: o craft-game sonda o --help antes do --title (idem)" "$AIROOTFS/usr/local/bin/craft-game" 'craft-pick --help'
+# as pausas do foot -e (o terminal do menu não some com o veredito):
+file_has "terminal: o craft-help pausa no Enter (o mapa não some)" "crates/craft-tools/src/bin/craft-help.rs" 'Pressione Enter para fechar'
+file_has "terminal: o craft-update pausa no Enter (o veredito não some)" "crates/craft-tools/src/bin/craft-update.rs" 'Pressione Enter para fechar'
+# o cancelamento do pkexec é silêncio (o 126 não é erro):
+file_has "pkexec: o rc 126 (senha cancelada) sai calado — sem toast no swaync" "$AIROOTFS/usr/local/bin/elite-gparted" 'ne 126'
+# o greeter REAL no rig (cmp manda, sem trava de SHA único) + o cursor:
+file_has "greeter: o juízo é POR CONTEÚDO (cmp — o SHA único morreu)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'cmp -s "$_GREET_SRC" "$_GREET_DST"'
+file_has "greeter: o kde_settings.conf do Bibata viaja no pacote" "$BS" '/usr/local/share/elite/sddm/kde_settings.conf'
+file_has "greeter: a dose entrega o cursor no /etc/sddm.conf.d (preservando o papel do dono)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" '/etc/sddm.conf.d/kde_settings.conf'
+# O TEMA GRUB DA CASA (a pele roxa no boot — ISO, install e dose; o git
+# TEXT-ONLY: o wallpaper bebe do skel e a barra viaja em base64):
+file_exists "grub: o theme.txt da casa existe no overlay" "elite/airootfs/usr/share/grub/themes/archcraft/theme.txt"
+file_exists "grub: a barra de seleção viaja em base64 (o git text-only)" "elite/airootfs/usr/share/grub/themes/archcraft/select_bar.png.b64"
+file_has "grub: o tema veste o wallpaper da casa e a barra #a855f7" "elite/airootfs/usr/share/grub/themes/archcraft/theme.txt" 'selected_item_pixmap_style = "select_bar.png"'
+file_has "grub: a ISO decodifica a barra e bebe o wallpaper do skel" "scripts/apply-overlay.sh" 'base64 -d'
+file_has "grub: a ISO materializa o tema no rootfs do live (unpackfs carrega)" "scripts/apply-overlay.sh" '$PROFILE/airootfs/usr/share/grub/themes/archcraft'
+file_has "grub: o GRUB_DISTRIBUTOR da casa (os títulos batizados)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'GRUB_DISTRIBUTOR="Archcraft ELITE"'
+file_has "grub: o install-stage crava GRUB_THEME+DISTRIBUTOR no primeiro menu" "$AIROOTFS/usr/local/bin/elite-install-stage" 'GRUB_THEME='
+file_has "grub: o mestre do tema viaja no pacote (elite/grub)" "$BS" '/usr/local/share/elite/grub/theme.txt'
+file_has "grub: o pacote bebe o wallpaper do skel (UMA fonte binária)" "$BS" '/work/elite/airootfs/etc/skel/.config/labwc/wallpaper.png'
+file_has "grub: a ISO injeta o tema no menu de boot (apply-overlay)" "scripts/apply-overlay.sh" 'themes/archcraft/theme.txt'
+file_has "grub: a dose entrega em /usr/share E /boot/grub/themes" "$AIROOTFS/usr/local/bin/elite-post-upgrade" '/boot/grub/themes/archcraft'
+# O DUMP SISTÊMICO (a ordem do dono: todos os subsistemas no papel curto):
+file_has "dump: o consumo GLOBAL (free -m parseado nos 6 campos)" "crates/craft-dump-rs/src/lib.rs" 'pub fn parse_free_m'
+file_has "dump: o zramctl vivo no papel" "crates/craft-dump-rs/src/main.rs" 'zramctl'
+file_has "dump: o top RSS ranqueado (rank_rss puro)" "crates/craft-dump-rs/src/lib.rs" 'pub fn rank_rss'
+file_has "dump: o top RSS do sistema E da interface no papel" "crates/craft-dump-rs/src/main.rs" 'top RSS'
+file_has "dump: timers e unidades failed do systemd" "crates/craft-dump-rs/src/main.rs" 'list-timers'
+file_has "dump: o total de pacotes (instalados/explícitos/locais)" "crates/craft-dump-rs/src/main.rs" 'pacotes:'
+file_has "dump: o veredito da persistência do monitor (displays.conf × wlr-randr)" "crates/craft-dump-rs/src/lib.rs" 'pub fn veredito_display'
+file_has "dump: os sockets do XDG_RUNTIME_DIR com o tipo" "crates/craft-dump-rs/src/lib.rs" 'pub fn linhas_runtime_dir'
+file_has "dump: a ENTRADA de áudio (default source) no papel" "crates/craft-dump-rs/src/lib.rs" 'pub fn pactl_default_source'
+file_has "dump: os três tempos da vigília no papel" "crates/craft-dump-rs/src/lib.rs" 'pub fn idle_conf_tres'
+file_has "dump: o wake-guard audita a política de despertar" "crates/craft-dump-rs/src/main.rs" 'craft-wake-guard'
+file_has "dump: o veredito de XML no papel CURTO (não só no --full)" "crates/craft-dump-rs/src/main.rs" 'XML da sessão'
+# as últimas falhas do journal com as unidades failed nomeadas:
+file_has "dump: as unidades failed nomeadas antes do journal" "crates/craft-dump-rs/src/main.rs" '--failed'
 
 printf '%s\n' "$OK_COUNT $FAIL_COUNT $SKIP_COUNT" > "$WORK/fase20.txt"
 exit 0

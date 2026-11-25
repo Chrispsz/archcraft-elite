@@ -646,7 +646,7 @@ sync_skel() {
     fi
 }
 
-# ── BLOCO 4 (1.0-98) — A PELE DO GREETER NOS RIGS VIVOS ────────────────
+# ── BLOCO 4 (1.0-98 → E150) — A PELE DO GREETER NOS RIGS VIVOS ────────
 #      O theme.conf do tema `archcraft` do SDDM morava SÓ no upstream
 #      (a paleta antiga #D8D8D8/#5294E2/#E06B74) e na ISO (o overlay do
 #      airootfs) — o rig INSTALADO ficava no greeter da era em que nasceu,
@@ -654,11 +654,17 @@ sync_skel() {
 #      A cura: o MESTRE da pele viaja NO PACOTE
 #      (/usr/local/share/elite/sddm/theme.conf — a mesma escola do
 #      fastfetch E73 / lock E91 / menu E104) e ESTA seção entrega na
-#      transação. Domínio de SISTEMA (/usr/share — o dono não edita o
-#      greeter): a gramática é FÓSSIL OU AUSENTE = renova com backup
-#      (.bak-<stamp>, a rotação E146); outro conteúdo = INTOCÁVEL + papel
-#      honesto (a lei do domínio v3 — até no /usr/share o arquivo
-#      desconhecido não é tocado). Idempotente: mestre == destino = silêncio.
+#      transação.
+#      E150 — O SHA ÚNICO MORRE (a prova do dono na 1.0-98: o post-upgrade
+#      'falhou' em renovar o theme.conf porque o hash do destino não era
+#      o FÓSSIL upstream catalogado — o rig com a v1 da casa caía no ramo
+#      'PERSONALIZADO — intocável' e o greeter seguia cinza/"Welcome!"
+#      azul para sempre; a lista de fósseis por SHA é manutenção mentirosa
+#      — cada pele nova esqueceria o hash da anterior). O JUÍZO agora é
+#      POR CONTEÚDO (cmp): destino == mestre = no-op; diferente = RENOVA
+#      com backup .bak (UMA cópia da pele anterior ao lado — o dono que
+#      personalizou à mão pode recuperar; a pele OFICIAL da casa é o
+#      estado de sistema, não arquivo de dono). Idempotente de verdade.
 _GREET_SRC="/usr/local/share/elite/sddm/theme.conf"
 _GREET_DST="/usr/share/sddm/themes/archcraft/theme.conf"
 if [ -r "$_GREET_SRC" ] && [ -d "/usr/share/sddm/themes/archcraft" ]; then
@@ -668,35 +674,51 @@ if [ -r "$_GREET_SRC" ] && [ -d "/usr/share/sddm/themes/archcraft" ]; then
         else
             tlog "greeter: FALHA ao gravar o theme.conf ausente (o cp recusou) — o greeter segue com a pele que tem"
         fi
-    else
-        _greet_hash="$(sha256sum "$_GREET_DST" 2>/dev/null | cut -d' ' -f1)"
-        case " 7c3d94fff2275516a3ac31fa2b4306338555bf9ef92c1e48ff781cadc43012fc " in
-            *" $_greet_hash "*)
-                # o ÚNICO fóssil real: o theme.conf UPSTREAM
-                # (archcraft-sddm-theme 2.0, sha256 7c3d94ff… — o que TODO
-                # rig que nunca recebeu a casa carrega). A nossa v1 É o
-                # mestre de hoje: mestre == destino cai no no-op abaixo e
-                # nunca precisa de fóssil. Se um dia a pele v2 nascer, o
-                # sha da v1 entra AQUI (shas reais apenas — o fake não é
-                # lei nesta casa).
-                if cmp -s "$_GREET_SRC" "$_GREET_DST"; then
-                    :   # mestre == fóssil: nada a fazer (idempotência)
-                else
-                    cp -p "$_GREET_DST" "$_GREET_DST.bak-$(date +%Y%m%d%H%M%S)" 2>/dev/null || true
-                    if cp -p "$_GREET_SRC" "$_GREET_DST" 2>/dev/null; then
-                        tlog "greeter: theme.conf RENOVADO (fóssil reconhecido — a paleta oficial da casa chega à tela de login; backup ao lado)"
-                    else
-                        tlog "greeter: FALHA ao renovar o theme.conf (o cp recusou) — a pele antiga segue no lugar"
-                    fi
-                fi
-                ;;
-            *)
-                tlog "greeter: theme.conf PERSONALIZADO — intocável (a lei do domínio v3 vale até no /usr/share; o mestre da casa aguarda em /usr/local/share/elite/sddm/)"
-                ;;
-        esac
+    elif ! cmp -s "$_GREET_SRC" "$_GREET_DST"; then
+        # o conteúdo diverge do mestre: guarda UMA cópia .bak da pele
+        # atual (a rotação por stamp acumularia backups de backups —
+        # E150: a pele ANTERIOR ao mestre vivo é a única que importa)
+        # e instala o mestre roxo (sem juízo de SHA — conteúdo manda)
+        [ -e "$_GREET_DST.bak" ] || cp -p "$_GREET_DST" "$_GREET_DST.bak" 2>/dev/null || true
+        if cp -p "$_GREET_SRC" "$_GREET_DST" 2>/dev/null; then
+            tlog "greeter: theme.conf RENOVADO (cmp divergia do mestre — a paleta oficial chega à tela de login; backup .bak ao lado — E150)"
+        else
+            tlog "greeter: FALHA ao renovar o theme.conf (o cp recusou) — a pele antiga segue no lugar"
+        fi
     fi
 fi
-unset _GREET_SRC _GREET_DST _greet_hash
+unset _GREET_SRC _GREET_DST
+
+# E150 — O CURSOR DO GREETER CHEGA JUNTO (a ordem do dono: o
+# kde_settings.conf do Bibata viaja no pacote e a dose entrega): o
+# arquivo INTEIRO só nasce se NENHUM existe (a instalação limpa); com
+# o arquivo do rig VIVO, a dose garante só as LINHAS da casa (Current
+# e CursorTheme — o Autologin/Relogin do dono é domínio DELE, intocável
+# pela dose; a v1 do liveuser nunca vira autologin de rig instalado).
+_KS_SRC="/usr/local/share/elite/sddm/kde_settings.conf"
+_KS_DST="/etc/sddm.conf.d/kde_settings.conf"
+if [ -r "$_KS_SRC" ]; then
+    if [ ! -e "$_KS_DST" ]; then
+        if mkdir -p "${_KS_DST%/*}" 2>/dev/null \
+            && cp -p "$_KS_SRC" "$_KS_DST" 2>/dev/null; then
+            tlog "greeter: kde_settings.conf ENTREGUE (cursor Bibata + tema archcraft — o greeter nasce vestido)"
+        fi
+    else
+        _ks_tocou=0
+        if ! grep -q '^CursorTheme=Bibata' "$_KS_DST" 2>/dev/null; then
+            cp -p "$_KS_DST" "$_KS_DST.bak" 2>/dev/null || true
+            if grep -q '^CursorTheme=' "$_KS_DST" 2>/dev/null; then
+                sed -i 's|^CursorTheme=.*|CursorTheme=Bibata|' "$_KS_DST" 2>/dev/null && _ks_tocou=1
+            else
+                printf 'CursorTheme=Bibata\n' >> "$_KS_DST" 2>/dev/null && _ks_tocou=1
+            fi
+        fi
+        if [ "$_ks_tocou" = 1 ]; then
+            tlog "greeter: CursorTheme=Bibata cravado no kde_settings.conf vivo (o resto do papel do dono intocado — backup .bak ao lado)"
+        fi
+    fi
+fi
+unset _KS_SRC _KS_DST _ks_tocou
 
 # ── 1.0-93 — O SCX_LAVD DE VERDADE (a ordem do dono: o scx-scheds
 #      instala /usr/bin/scx_lavd SEM .service nenhum — a unit nova da
@@ -732,6 +754,74 @@ if [ "${_grub_mudou:-0}" = 1 ] && command -v grub-mkconfig >/dev/null 2>&1; then
         tlog "grub: grub-mkconfig falhou (os tokens ficaram no default/grub — o próximo tune/primeiro boot re-tenta)"
     fi
 fi
+
+# ── E150 — O TEMA GRUB DA CASA NOS RIGS VIVOS (a ordem do dono, base
+#      1.0-98: o menu de boot cinza do tema upstream veste o wallpaper
+#      escuro/roxo da casa com a barra de seleção #a855f7): o MESTRE
+#      viaja no pacote (/usr/local/share/elite/grub/ — a mesma escola
+#      do greeter) e a dose entrega em DOIS endereços —
+#      /usr/share/grub/themes/archcraft (o estado do sistema que o
+#      grub-mkconfig lê pelo GRUB_THEME) E /boot/grub/themes/archcraft
+#      (a cópia do menu de boot — o GRUB lê do /boot no arranque).
+#      GRUB_DISTRIBUTOR="Archcraft ELITE" batiza os títulos gerados. O
+#      grub-mkconfig SÓ roda quando algo MUDOU de verdade (a lei E130 —
+#      sem rebuild fantasma).
+_GRUBTHEME_SRC="/usr/local/share/elite/grub"
+_GRUBTHEME_DST="/usr/share/grub/themes/archcraft"
+_grub_tema_mudou=0
+if [ -f "${_GRUBTHEME_SRC}/theme.txt" ]; then
+    _entregar_tema() {
+        _alvo="$1"
+        [ -f "${_GRUBTHEME_SRC}/theme.txt" ] || return 1
+        mkdir -p "$_alvo" 2>/dev/null || return 1
+        _diff=0
+        for _peca in theme.txt wallpaper.png select_bar.png; do
+            [ -f "${_GRUBTHEME_SRC}/$_peca" ] || continue
+            if ! cmp -s "${_GRUBTHEME_SRC}/$_peca" "${_alvo}/$_peca" 2>/dev/null; then
+                _diff=1
+                cp -p "${_GRUBTHEME_SRC}/$_peca" "${_alvo}/$_peca" 2>/dev/null || true
+            fi
+        done
+        [ "$_diff" = 1 ]
+    }
+    if _entregar_tema "$_GRUBTHEME_DST"; then
+        tlog "grub: tema da casa entregue em $_GRUBTHEME_DST (wallpaper roxo + barra #a855f7)"
+        _grub_tema_mudou=1
+    fi
+    # o /boot/grub (a cópia que o menu de boot lê — só quando o /boot é
+    # gravável pela dose; montagem separada sem permissão é pulo honesto)
+    if [ -d /boot/grub ] && _entregar_tema /boot/grub/themes/archcraft; then
+        tlog "grub: tema da casa entregue em /boot/grub/themes/archcraft (a cópia do menu de boot)"
+        _grub_tema_mudou=1
+    fi
+    # os TOKENS do /etc/default/grub (GRUB_THEME + GRUB_DISTRIBUTOR)
+    [ -f /etc/default/grub ] || printf 'GRUB_CMDLINE_LINUX_DEFAULT="quiet"\n' > /etc/default/grub
+    if ! grep -q '^GRUB_THEME=' /etc/default/grub 2>/dev/null; then
+        printf 'GRUB_THEME="/usr/share/grub/themes/archcraft/theme.txt"\n' >> /etc/default/grub
+        tlog "grub: GRUB_THEME cravado (o mkconfig nasce com a pele da casa)"
+        _grub_tema_mudou=1
+    fi
+    if grep -q '^GRUB_DISTRIBUTOR=' /etc/default/grub 2>/dev/null; then
+        if ! grep -q '^GRUB_DISTRIBUTOR="Archcraft ELITE"' /etc/default/grub; then
+            cp -p /etc/default/grub "/etc/default/grub.bak-post-upgrade-$(date +%s)" 2>/dev/null || true
+            sed -i 's|^GRUB_DISTRIBUTOR=.*|GRUB_DISTRIBUTOR="Archcraft ELITE"|' /etc/default/grub
+            tlog "grub: GRUB_DISTRIBUTOR renomeado para \"Archcraft ELITE\" (os títulos do menu nascem batizados)"
+            _grub_tema_mudou=1
+        fi
+    else
+        printf 'GRUB_DISTRIBUTOR="Archcraft ELITE"\n' >> /etc/default/grub
+        tlog "grub: GRUB_DISTRIBUTOR=\"Archcraft ELITE\" cravado no default/grub"
+        _grub_tema_mudou=1
+    fi
+    if [ "$_grub_tema_mudou" = 1 ] && command -v grub-mkconfig >/dev/null 2>&1; then
+        if grub-mkconfig -o /boot/grub/grub.cfg >/dev/null 2>&1; then
+            tlog "grub: grub-mkconfig rodou com a pele nova (o menu roxo vale no PRÓXIMO boot)"
+        else
+            tlog "grub: grub-mkconfig falhou (o tema e os tokens ficaram — o próximo tune/primeiro boot re-tenta)"
+        fi
+    fi
+fi
+unset _GRUBTHEME_SRC _GRUBTHEME_DST _grub_tema_mudou _alvo _peca _diff
 
 # ── 1.0-95 — A CURA DOS ARQUIVOS DE SESSÃO (E146 — o relato final do
 #      dono periciado): o autostart do home VIVO chegou CORROMPIDO (8

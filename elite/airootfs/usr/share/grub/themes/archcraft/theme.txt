@@ -1,0 +1,68 @@
+# Archcraft ELITE — tema GRUB da casa (E150 · a pele roxa no boot)
+# ─────────────────────────────────────────────────────────────────────────
+# O fundo cinza do tema upstream morre: o wallpaper escuro/roxo da casa
+# (a MESMA onda de seda da sessão — o arquivo do skel, entregue pelos
+# veículos da casa; o GRUB estica o desktop-image por default, o 16:9
+# nativo cobre a tela) veste o menu de boot. A barra de seleção é o
+# roxo oficial #a855f7 com a borda #cba6f7 (select_bar.png — styled box
+# 9-slice: o centro uniforme estica limpo; o PNG viaja como
+# select_bar.png.b64 e cada veículo decodifica com o base64 -d do
+# coreutils — o git da casa fica TEXT-ONLY). Sem pixmap de janela: o
+# menu é transparente sobre o wallpaper (o peso do tema é O wallpaper).
+#
+# GRUB_DISTRIBUTOR="Archcraft ELITE" (cravado no /etc/default/grub pela
+# dose) é quem batiza os títulos gerados — o theme.txt não mexe neles.
+# As fontes são o "Unknown Regular" do unicode.pf2 (o que o grub-mkconfig
+# carrega com GRUB_THEME — nada de DejaVu que o boot não tem garantido).
+
+# o fundo da casa
+desktop-image: "wallpaper.png"
+desktop-color: "#11111b"
+terminal-font: "Unknown Regular 16"
+
+# o título da casa (Mauve da paleta oficial — contraste medido sobre a onda)
+title-text: "Archcraft ELITE"
+title-color: "#cba6f7"
+title-font: "Unknown Regular 16"
+
+# o menu de boot: itens nítidos, seleção roxa
++ boot_menu {
+    left = 18%
+    width = 64%
+    top = 24%
+    item_font = "Unknown Regular 16"
+    item_color = "#cdd6f4"
+    selected_item_font = "Unknown Regular 16"
+    selected_item_color = "#11111b"
+    item_height = 46
+    item_padding = 8
+    item_spacing = 8
+    item_icon_space = 0
+    selected_item_pixmap_style = "select_bar.png"
+    scrollbar = false
+}
+
+# a legenda do rodapé (a voz da casa no boot — discreta e legível)
++ label {
+    top = 88%
+    left = 20%
+    width = 60%
+    height = 24
+    align = "center"
+    text = "Enter inicia · e edita · c consola GRUB"
+    color = "#a6adc8"
+    font = "Unknown Regular 16"
+}
+
+# a contagem do timeout (a voz do grub com a roupa da casa)
++ label {
+    top = 84%
+    left = 25%
+    width = 50%
+    height = 24
+    align = "center"
+    id = "__timeout__"
+    text = "Iniciando em %d segundos"
+    color = "#cba6f7"
+    font = "Unknown Regular 16"
+}

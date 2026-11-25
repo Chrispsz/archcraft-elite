@@ -288,13 +288,33 @@ cp -p /work/elite/airootfs/etc/skel/.config/hypr/hyprlock.conf \
 # BLOCO 4 (1.0-98) — A PELE DO GREETER NO PACOTE: o theme.conf da casa
 # (a paleta oficial no tema archcraft do SDDM) viaja como mestre em
 # /usr/local/share/elite/sddm/ e o elite-post-upgrade o entrega ao rig
-# vivo em /usr/share/sddm/themes/archcraft/theme.conf (fóssil upstream =
-# renova; personalizado = intocável). Na ISO a mesma fonte chega pelo
-# overlay do airootfs (usr/share/sddm/themes/archcraft/theme.conf) —
-# UMA fonte, dois veículos, zero drift.
+# vivo em /usr/share/sddm/themes/archcraft/theme.conf (cmp divergente =
+# renova com .bak; igual = no-op — E150). O kde_settings.conf do cursor
+# Bibata viaja JUNTO (a dose entrega em /etc/sddm.conf.d preservando o
+# Autologin do dono). Na ISO a mesma fonte chega pelo overlay do airootfs
+# (usr/share/sddm/themes/archcraft/theme.conf) — UMA fonte, dois
+# veículos, zero drift.
 mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/sddm
 cp -p /work/elite/airootfs/usr/share/sddm/themes/archcraft/theme.conf \
       /tmp/elite-src/elite-system/files/usr/local/share/elite/sddm/theme.conf
+cp -p /work/elite/airootfs/etc/sddm.conf.d/kde_settings.conf \
+      /tmp/elite-src/elite-system/files/usr/local/share/elite/sddm/kde_settings.conf
+# E150 — O TEMA GRUB DA CASA NO PACOTE (a pele roxa no boot: o wallpaper
+# escuro/roxo + a barra de seleção #a855f7): o mestre mora em
+# /usr/local/share/elite/grub/ e o elite-post-upgrade entrega ao rig
+# vivo em /usr/share/grub/themes/archcraft E /boot/grub/themes/archcraft
+# (+ GRUB_THEME/GRUB_DISTRIBUTOR no /etc/default/grub, com o mkconfig
+# guardado pela lei E130). O WALLPAPER bebe do skel (a MESMA fonte
+# binária da sessão — UMA fonte, zero binário novo no git) e a BARRA
+# viaja decodificada do select_bar.png.b64 do overlay (o git da casa é
+# TEXT-ONLY; o base64 -d do coreutils materializa no staging).
+mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/grub
+cp -p /work/elite/airootfs/usr/share/grub/themes/archcraft/theme.txt \
+      /tmp/elite-src/elite-system/files/usr/local/share/elite/grub/theme.txt
+cp -p /work/elite/airootfs/etc/skel/.config/labwc/wallpaper.png \
+      /tmp/elite-src/elite-system/files/usr/local/share/elite/grub/wallpaper.png
+base64 -d /work/elite/airootfs/usr/share/grub/themes/archcraft/select_bar.png.b64 \
+      > /tmp/elite-src/elite-system/files/usr/local/share/elite/grub/select_bar.png
 # E103 — AS PELES rc.xml + swayosd NO PACOTE (a gramática E91 generalizada):
 # o rc.xml do rig (binds E103 do OSD) e o config.toml do swayosd (a barra
 # acima da dock) alcançam homes vivos via craft-rice (marcador/fóssil) —
@@ -596,8 +616,12 @@ lock_install = '    install -d "${pkgdir}/usr/local/share/elite/hyprlock"\n    i
 lock_rm = '    [ -e "/usr/local/share/elite/hyprlock/hyprlock.conf" ] && rm -f "/usr/local/share/elite/hyprlock/hyprlock.conf"\n'
 # BLOCO 4 (1.0-98) — a pele do greeter (mesma dança da família E91;
 # caminho novo = criação limpa, sem dança de pre_install)
-sddm_install = '    install -d "${pkgdir}/usr/local/share/elite/sddm"\n    install -m644 "${startdir}/files/usr/local/share/elite/sddm/theme.conf" "${pkgdir}/usr/local/share/elite/sddm/theme.conf"\n'
-sddm_rm = '    [ -e "/usr/local/share/elite/sddm/theme.conf" ] && rm -f "/usr/local/share/elite/sddm/theme.conf"\n'
+sddm_install = '    install -d "${pkgdir}/usr/local/share/elite/sddm"\n    install -m644 "${startdir}/files/usr/local/share/elite/sddm/theme.conf" "${pkgdir}/usr/local/share/elite/sddm/theme.conf"\n    install -m644 "${startdir}/files/usr/local/share/elite/sddm/kde_settings.conf" "${pkgdir}/usr/local/share/elite/sddm/kde_settings.conf"\n'
+sddm_rm = '    [ -e "/usr/local/share/elite/sddm/theme.conf" ] && rm -f "/usr/local/share/elite/sddm/theme.conf"\n    [ -e "/usr/local/share/elite/sddm/kde_settings.conf" ] && rm -f "/usr/local/share/elite/sddm/kde_settings.conf"\n'
+# E150 — o tema GRUB da casa (mesma dança da família E91: mestre no
+# pacote, o post-upgrade entrega ao rig)
+grub_install = '    install -d "${pkgdir}/usr/local/share/elite/grub"\n    install -m644 "${startdir}/files/usr/local/share/elite/grub/theme.txt" "${pkgdir}/usr/local/share/elite/grub/theme.txt"\n    install -m644 "${startdir}/files/usr/local/share/elite/grub/wallpaper.png" "${pkgdir}/usr/local/share/elite/grub/wallpaper.png"\n    install -m644 "${startdir}/files/usr/local/share/elite/grub/select_bar.png" "${pkgdir}/usr/local/share/elite/grub/select_bar.png"\n'
+grub_rm = '    [ -e "/usr/local/share/elite/grub/theme.txt" ] && rm -f "/usr/local/share/elite/grub/theme.txt"\n    [ -e "/usr/local/share/elite/grub/wallpaper.png" ] && rm -f "/usr/local/share/elite/grub/wallpaper.png"\n    [ -e "/usr/local/share/elite/grub/select_bar.png" ] && rm -f "/usr/local/share/elite/grub/select_bar.png"\n'
 # E103 — as peles rc.xml + swayosd (mesma dança da adoção E43)
 rc_install = '    install -d "${pkgdir}/usr/local/share/elite/labwc"\n    install -m644 "${startdir}/files/usr/local/share/elite/labwc/rc.xml" "${pkgdir}/usr/local/share/elite/labwc/rc.xml"\n'
 rc_rm = '    [ -e "/usr/local/share/elite/labwc/rc.xml" ] && rm -f "/usr/local/share/elite/labwc/rc.xml"\n'
@@ -2927,7 +2951,7 @@ package() {{
     # E132 — o elite-polkit-listener NÃO viaja mais (o agente da casa é o
     # lxqt-policykit-agent NATIVO, eleito no craft-bars; um bin a menos no
     # pacote, um agente a menos na fila — o C vendado aposentou do repo)
-{unit_install}{hook_install}{kmod_install}{ff_install}{lock_install}{sddm_install}{rc_install}{osd_install}{menu_install}{pd_install}{gm_install}{doc_install}{gp_install}{pt_install}{ef_install}{flags_install}{apps_install}{udev_install}{pk_install}{q6_install}{theo_install}{gtk_install}{dc_install}{sudoers_install}}}
+{unit_install}{hook_install}{kmod_install}{ff_install}{lock_install}{sddm_install}{grub_install}{rc_install}{osd_install}{menu_install}{pd_install}{gm_install}{doc_install}{gp_install}{pt_install}{ef_install}{flags_install}{apps_install}{udev_install}{pk_install}{q6_install}{theo_install}{gtk_install}{dc_install}{sudoers_install}}}
 """
 (d / 'PKGBUILD').write_text(pkg)
 PYE50

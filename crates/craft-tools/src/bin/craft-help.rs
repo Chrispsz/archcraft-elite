@@ -21,6 +21,20 @@ const ANSI_TITULO: &str = "\x1b[1;38;5;183m";
 const ANSI_COMANDO: &str = "\x1b[1m";
 const ANSI_FIM: &str = "\x1b[0m";
 
+/// E150 — A PAUSA DO `foot -e` (a ordem do dono, base 1.0-98: o terminal
+/// aberto pelo menu fechava JUNTO com o processo — o mapa sumia da tela
+/// antes de ser lido). Só veste quando o stdin é TTY (o `foot -e` é TTY;
+/// o pipe dos testes não espera ninguém — a prova nunca trava).
+fn pausa_enter() {
+    use std::io::IsTerminal;
+    if !std::io::stdin().is_terminal() {
+        return; // pipe/prova: sem pausa (a suíte nunca espera Enter)
+    }
+    println!("Pressione Enter para fechar…");
+    let mut s = String::new();
+    let _ = std::io::stdin().read_line(&mut s);
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     if craft_tools::pede_ajuda(&args, USO) {
@@ -44,4 +58,5 @@ fn main() {
     println!(
         "Atualizar e limpar de pé: {c}craft-update{f} · {c}craft-clean{f} — o diálogo de senha pergunta UMA vez."
     );
+    pausa_enter();
 }

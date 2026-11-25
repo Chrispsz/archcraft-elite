@@ -9,6 +9,15 @@
 // o clique fora é lei do gerenciador de janelas do GTK, não estado
 // gravado em /run).
 //
+// E150 — O PROCESSO NUNCA FICA ZUMBI: a telemetria do dono (base
+// 1.0-98) fotografou craft-pick parado na RAM (~24 MB) com a janela
+// esquecida — o Enter/Esc/clique já escapavam IMEDIATO (exit(0) dentro
+// do closure), mas PERDER O FOCO deixava o corpo vivo para sempre. A
+// lei agora é QUATRO portas de fuga: escolheu (stdout+0), Esc (1),
+// PERDEU O FOCO (1 — o EventControllerFocus na janela) e o fim do
+// app.run() sem escolha (1). Nenhum caminho espera o GTK: o processo
+// morre no MESMO instante da decisão.
+//
 // E149 — a PELE é autocontida AQUI (o módulo janela.rs morreu com as
 // janelas GUI do update/clean/help): o padrão da casa é o da bar/dock
 // — o load_css privado que embute a folha mestra do elite-core e soma
@@ -134,6 +143,18 @@ fn build(
             gtk4::glib::Propagation::Proceed
         });
         win.add_controller(ec);
+    }
+    // E150 — PERDEU O FOCO: a janela de ESCOLHA não sobrevive ao palco
+    // de outra — o dono clicou fora/alt-tab (o seletor que ficava era o
+    // zumbi de ~24 MB da telemetria). O leave do EventControllerFocus é
+    // a porta: stdin calado, stdout calado, exit 1 NO MESMO INSTANTE.
+    {
+        let fc = gtk4::EventControllerFocus::new();
+        fc.connect_leave(move |_| {
+            let _ = tx.send(None);
+            std::process::exit(1);
+        });
+        win.add_controller(fc);
     }
     // o Enter na busca: escolhe o PRIMEIRO visível (o dmenu de sempre)
     {

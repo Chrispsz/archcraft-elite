@@ -2,24 +2,23 @@
 # Archcraft ELITE · labwc autostart — a sessão ÚNICA do live e do
 # sistema instalado. Executado no início da sessão LABWC — termine
 # comandos com & para não bloquear. Desktop estilo macOS, mouse-first:
-# menu bar no topo (craft-bar-rs) + DOCK flutuante na base (craft-dock-rs) +
-# Launchpad (nwg-drawer direto — 2.0: o wrapper shell aposentou) + wallpaper.
+# menu bar no topo (craft-bar-rs) + DOCK flutuante na base (craft-dock-rs)
+# + Launchpad (nwg-drawer pelo craft-apps) + wallpaper.
 #
-# E137 — O LANÇADOR ÚNICO (a ordem do dono, dump 201219): NENHUM daemon
-#     de sessão nasce AQUI. craft-toplevel, waybar, dock, idle, polkit,
-#     swaync, udiskie e swayosd são TODOS filhos do `elite-daemon
-#     session` (o craft-bars execa o daemon quando o binário existe; sem
-#     ele, o corpo bash do craft-bars assume — em AMBOS os mundos há UM
-#     só lançador). Os spawns diretos daqui morreram: eram a causa do
-#     'An instance of SwayNotificationCenter is already running!' e do
-#     'craft-toplevel: fechadura ocupada' no boot do rig.
+# E137 — O LANÇADOR ÚNICO: NENHUM daemon de sessão nasce AQUI. top bar,
+# dock, wallpaper (swaybg), idle, polkit, notificações (swaync), udiskie
+# e swayosd são TODOS filhos do `elite-daemon session` — UM só corpo,
+# zero spawns diretos (a era do painel duplicado e das vagas gemeadas
+# morreu com o gate E135). E150 — os blocos legados mortos de era saíram
+# do papel DE TODO (nenhum comentário de era, nenhum spawn fóssil).
 #
 # E129 — OS ÓRFÃOS DA SESSÃO ANTERIOR MORREM NO FRAME 0: o
 #     ${XDG_RUNTIME_DIR:-/run/user/$UID}/elite/ é tmpfs da SESSÃO, mas o
 #     relogin rápido e o crash deixam fósseis que MENTEM à sessão nova
 #     (sockets mortos, stamps, locks). No frame 0 do labwc não há outra
 #     sessão viva — tudo que está aqui é órfão e sai (o diretório fica:
-#     é a morada da sessão que nasce agora).
+#     é a morada da sessão que nasce agora; o elite-daemon session
+#     re-varre no arranque dele — E150, o cinto da segunda porta).
 _run_elite="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/elite"
 if [ -d "$_run_elite" ]; then
     find "$_run_elite" -mindepth 1 -maxdepth 1 \( -type s -o -type f \) -delete 2>/dev/null
@@ -46,67 +45,41 @@ unset _logdir _l
 #     O relato do dono: "eu coloco 200 hertz e toda vez que eu reinicio o
 #     PC tem que estar colocando os 200 hertz… porque ele some". O modo é
 #     propriedade do compositor em RAM — nada na casa gravava a escolha.
-#     E129 — O APPLY-BOOT É SÍNCRONO (a ordem do dono: 'sem espera de
-#     27s/6 ticks no relogin'): UMA passada, a resolução nasce ANTES das
-#     barras (nada de waybar/dock nascendo a 60 Hz para trocar depois —
-#     o 'aplicou do nada' morre).
-#     E134 — A PRIMEIRA LINHA DA SESSÃO (a ordem do dono 1.0-81: 'execute
-#     craft-display apply sincronamente na primeira linha do autostart'):
-#     o display vem ANTES do wallpaper e de qualquer outro cliente — os
-#     200 Hz nascem com a primeira frame de tudo; o watch nasce junto
-#     (com o OUVIDOR do logind E134: Unlock/PrepareForSleep viram apply
-#     IMEDIATO) e o do_apply do supervisor mantém a rede por baixo.
+#     E129 — O APPLY-BOOT É SÍNCRONO: UMA passada, a resolução nasce ANTES
+#     das barras (nada de dock nascendo a 60 Hz para trocar depois).
+#     E134 — A PRIMEIRA LINHA DA SESSÃO: o display vem ANTES do wallpaper
+#     e de qualquer outro cliente — os 200 Hz nascem com a primeira frame
+#     de tudo; o watch nasce junto (com o OUVIDOR do logind E134:
+#     Unlock/PrepareForSleep viram apply IMEDIATO) e o do_apply do
+#     supervisor mantém a rede por baixo.
+#     E150 — O CINTO DO BOOT FRIO: o elite-daemon session re-aplica o
+#     arranjo COM RETRY logo após o WAYLAND_DISPLAY registrar (o amdgpu
+#     acorda depois do frame 0 — os Hz escolhidos valem em TODO boot).
 if command -v craft-display >/dev/null 2>&1; then
     craft-display apply-boot >/dev/null 2>&1
     craft-display watch >/dev/null 2>&1 &
 fi
 
-# --- Wallpaper: v1.7.1 — CURADORIA DA INTERNET (decisão do dono) ----------
-#     "Eu queria um wallpaper da internet mesmo, esses gerados são muito
-#     ruim" — o experimento IA da v1.7 saiu de cena. Fonte: Unsplash
-#     (licença Unsplash — uso livre, sem atribuição obrigatória),
-#     abstrato 3D de ondas de seda roxo/preto. Nativo 3000x1688 →
-#     3840x2160 (Lanczos + UnsharpMask leve), JPEG q93 = 0.43 MB (o PNG
-#     de 10.7 MB da v1.7 engordava a ISO ~19 MB no squashfs). Métricas
-#     medidas e contratos na suíte: 0.24% de preto puro (não esmaga o
-#     IPS), luma média 32.6 (dark premium), strip do topo luma 5.7 <<
-#     média (a menu bar assenta em zona escura — texto branco legível).
-#     Fallback: wallpaper.png (legado/custom do usuário) → preto.
-if command -v swaybg >/dev/null 2>&1; then
-    # v1.9 — spec M5.1 do dono: o wallpaper JPEG tinha ruído/granulação de
-    # compressão ("impressão de poeira"). PADRÃO: PNG lossless.
-    # v2.8.0 — a curadoria da INTERNET volta (pedido do dono: "esse
-    # wallpaper dá pra arrumar melhor na internet… mais vivo em IPS, de
-    # forma minimalista, sem destrair ou machucar a visão"): ondas de seda
-    # roxo/violeta da Unsplash (triada por VLM entre 3 candidatas), PNG
-    # lossless 2812×1582 com blur 0.4px no fonte — a poeira não volta
-    # (luma 30.1, 0% preto puro, gradiente medido suave — contratos na
-    # suíte). O lock (craft-lock/hyprlock) bebe do MESMO arquivo.
-    if [ -r "$HOME/.config/labwc/wallpaper.png" ]; then
-        swaybg -m fill -i "$HOME/.config/labwc/wallpaper.png" &
-    elif [ -r "$HOME/.config/labwc/wallpaper.jpg" ]; then
-        swaybg -m fill -i "$HOME/.config/labwc/wallpaper.jpg" &
-    else
-        # sem imagem (ex.: skel parcial): preto AMOLED, zero decodificação
-        swaybg -m fill -c '#000000' &
-    fi
-fi
+# --- Wallpaper: VAGA DO elite-daemon session (E150 — UM lançador só:
+#     a lei E137 de sempre; o spawn direto daqui aposentou). O curadorio
+#     segue o MESMO endereço de sempre — o PNG da casa
+#     (~/.config/labwc/wallpaper.png), o JPG do dono como queda e o
+#     preto AMOLED quando nenhum existe; caiu → o supervisor reergue em
+#     2s. O lock (craft-lock/hyprlock) bebe do MESMO arquivo.
 
 # --- Janelas: 2.0 — O CLIENTE WAYLAND É O PRÓPRIO elite-daemon (o
 #     craft-toplevel.c aposentou com o seu toplevel.sock): cada janela
 #     nasce/muda/fecha no protocolo zwlr-foreign-toplevel v2 NATIVO e o
 #     snapshot vive no BUS (/run/user/$UID/elite/bus.sock) — a dock e a
-#     barra assinam o MESMO fio (nada de socket de era, nada de C).
+#     barra assinam o MESMO fio.
 
 # --- Barras + dock + residentes: O ORQUESTRADOR ÚNICO (2.0) ──────────────
-#     2.0 — O craft-bars APOSENTA (o supervisor sh da era waybar: o corpo
-#     bash dele era a cola do passado). O daemon da sessão (porta
-#     `session`) é O lançador e o ÚNICO: top bar nativa (craft-bar-rs), dock (craft-
-#     dock-rs v2), craft-toplevel, idle, polkit, swaync, udiskie, swayosd
-#     e o roteador de áudio são TODOS filhos dele (o binário e o daemon
-#     viajam NO MESMO PACOTE — sem fallback por desenho). O guard abaixo
-#     só CLAMA no bars.log quando o motor não existe (a classe 'subiu só
-#     o wallpaper' nunca mais é muda).
+#     O daemon da sessão (porta `session`) é O lançador e o ÚNICO: top bar
+#     nativa (craft-bar-rs), dock (craft-dock-rs v2), wallpaper (swaybg),
+#     polkit, swaync, udiskie, swayosd e o roteador de áudio são TODOS
+#     filhos dele (o binário e o daemon viajam NO MESMO PACOTE). O guard
+#     abaixo só CLAMA no bars.log quando o motor não existe (a classe
+#     'subiu só o wallpaper' nunca mais é muda).
 BARLOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/bars.log"
 if ! command -v elite-daemon >/dev/null 2>&1; then
     mkdir -p "${BARLOG%/*}" 2>/dev/null
@@ -120,42 +93,27 @@ fi
 
 # --- Diálogo de senha gráfico (polkit) — E132: O AGENTE NATIVO ────────────
 #     NADA sobe aqui: o agente da casa é o lxqt-policykit-agent NATIVO
-#     (Qt6, compatível com o polkit 128 — o listener custom da E101
-#     aposentou com os transient services 'polkit-agent-helper@…'
-#     FAILED do dump pós-1.0-78), lançado e SUPERVISIONADO pelo
-#     craft-bars (a lei do um-só-lançador: registra o agente da sessão e
-#     o polkitd vivo faz o desafio — o pkexec de gparted/octopi/menu
-#     nasce com o diálogo GRÁFICO de fábrica). A perícia no fonte do
-#     polkit provou que o polkitd NUNCA D-Bus ativa agentes (o agente se
-#     REGISTRA) e recusa um segundo por sessão — o spawn residente do
-#     agente da era antiga saiu daqui (a aposentadoria dos residentes é
-#     lei E58/E95 no craft-bars).
+#     (Qt6, compatível com o polkit 128), lançado e SUPERVISIONADO pelo
+#     elite-daemon session (a lei do um-só-lançador: registra o agente da
+#     sessão e o polkitd vivo faz o desafio — o pkexec de gparted/octopi/
+#     menu nasce com o diálogo GRÁFICO de fábrica).
 
 # --- Rede/Bluetooth: NENHUM applet sobe (a decisão final da casa): os
-#     botões da craft-bar-rs abrem AS FERRAMENTAS DE VERDADE (2.0 — o
-#     craft-connect fuzzel aposentou): Wi-Fi no iwgtk, edição completa no
-#     nm-connection-editor (W-n), Bluetooth no blueman-manager (W-S-b).
-#     Os daemons (NetworkManager, bluetoothd) sobem por unit de sistema.
-
-# --- USB (udiskie) e OSD (swayosd-server): filhos do SUPERVISOR ÚNICO —
-#     E137: os spawns diretos morreram (o udiskie e o swayosd-server eram
-#     lançados AQUI e também pelo daemon de sessão — o segundo nascia
-#     ou adotado ou morto no gate; agora UM só lançador). Os binds
-#     XF86Audio/MonBrightness falam com o swayosd-client; client sem
-#     daemon = fallback pactl/brightnessctl dentro do próprio bind (a
-#     barra some, a função NUNCA).
+#     botões da craft-bar-rs abrem AS FERRAMENTAS DE VERDADE: Wi-Fi no
+#     iwgtk, edição completa no nm-connection-editor (W-n), Bluetooth no
+#     blueman-manager (W-S-b). Os daemons (NetworkManager, bluetoothd)
+#     sobem por unit de sistema.
 
 # --- Idle + lock: 2.0 — A VIGÍLIA É DO elite-daemon (o swayidle
 #     APOSENTOU): o ext-idle-notify-v1 nativo ouve a inatividade do
-#     compositor e a casa TRAVA E APAGA no MESMO gesto (hyprlock +
-#     wlopm — a lei E43), suspende de travado (a vigília E60) e
-#     RESPEITA os inibidores de jogo/mídia (a diretriz 2.0). Os
-#     minutos moram no ~/.config/elite/idle.conf e o daemon relê a
-#     CADA ARMAÇÃO (o craft-idle 2.0 escreve; "Lock Min=N" vale na
-#     hora, sem restart). O lock visual é o hyprlock (~/.config/hypr/
-#     hyprlock.conf) de sempre. O before-sleep atômico (travar antes
-#     do mergulho) também é do daemon — o craft-wake-guard reafirma o
-#     despertar logo atrás.
+#     compositor, TRAVA no LOCK_MIN e APAGA no OFF_MIN (E150 — o gesto
+#     separado da fábrica 5/10), suspende de travado (a vigília E60) e
+#     RESPEITA os inibidores de jogo/mídia. Os minutos moram no
+#     ~/.config/elite/idle.conf e o daemon relê a CADA ARMAÇÃO (o
+#     craft-idle 2.0 escreve; a mudança vale na hora, sem restart). O
+#     lock visual é o hyprlock (~/.config/hypr/hyprlock.conf). O
+#     before-sleep atômico também é do daemon — o craft-wake-guard
+#     reafirma o despertar logo atrás.
 
 # --- Keyring CachyOS: self-healing de runtime (init → populate → refresh)
 #     em background, idempotentes, sudo -n (nunca pede senha no escuro).
@@ -179,23 +137,17 @@ if command -v wl-paste >/dev/null 2>&1 && command -v cliphist >/dev/null 2>&1; t
 fi
 
 # --- Áudio: roteamento automático (E30 → 2.0: o motor é o elite-daemon) ----
-#     Dump p6aw: o default do rig era o SINK FANTASMA do microfone USB
-#     (fifine — o som "saía pelo microfone": silêncio real). O dono pediu
-#     a troca automática ao plugar fone/saída. 2.0: a LEI é a mesma mas o
-#     MOTOR é o audio.rs do elite-daemon (RUST — o python
-#     craft-audio-route aposentou; pactl subscribe por evento, fone no
-#     jack muda a PORTA, BT/USB novo muda o DEFAULT, classe microfone
-#     JAMAIS é default, a analógica vence o HDMI sem som, o piso de 40%
-#     para quem chega com 0.00 e o anti-sequestro pós-sono E139).
+#     2.0: a LEI é a mesma mas o MOTOR é o audio.rs do elite-daemon (RUST
+#     — pactl subscribe por evento, fone no jack muda a PORTA, BT/USB novo
+#     muda o DEFAULT, classe microfone JAMAIS é default, a analógica vence
+#     o HDMI sem som, o piso de 40% e o anti-sequestro pós-sono E139).
 
-# --- Tema escuro UNIVERSAL (E70 — o print do dono 20:46: LACT claro no
-#     meio do rice escuro): a libadwaita NÃO lê o settings.ini gtk-3/gtk-4
-#     — ela lê o color-scheme do dconf (via portal; sem portal, via
-#     gsettings). O gsettings crava o escuro na sessão inteira
-#     (libadwaita + portal + Qt6 + GTK3-dconf); o gtk-theme é o espelho
-#     do settings.ini (Catppuccin Mocha Mauve — a mesma família do rice).
-#     Roda a cada boot: o padrão da casa é escuro (idempotente por
-#     natureza — escreve o mesmo valor).
+# --- Tema escuro UNIVERSAL (E70): a libadwaita lê o color-scheme do
+#     dconf (via portal; sem portal, via gsettings). O gsettings crava o
+#     escuro na sessão inteira (libadwaita + portal + Qt6 + GTK3-dconf);
+#     o gtk-theme é o espelho do settings.ini (Catppuccin Mocha Mauve —
+#     a mesma família do rice). Roda a cada boot: o padrão da casa é
+#     escuro (idempotente por natureza — escreve o mesmo valor).
 if command -v gsettings >/dev/null 2>&1; then
     gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark' >/dev/null 2>&1 &
     gsettings set org.gnome.desktop.interface gtk-theme 'Catppuccin-Mocha-Standard-Mauve-Dark' >/dev/null 2>&1 &

@@ -50,6 +50,10 @@ le_suspend() {
 escreve() {
     _lock="$1"
     _susp="$(le_suspend)"
+    # E150 — o menu é o gesto ÚNICO de sempre (LOCK=OFF no mesmo papel:
+    # o preset do painel trava E apaga no MESMO minuto — a fábrica 5/10
+    # separada fica no skel para quem edita o papel à mão; o daemon lê
+    # os DOIS de qualquer jeito)
     mkdir -p "$CONF_DIR" 2>/dev/null || true
     _tmp="$CONF.$$.tmp"
     printf '# Archcraft ELITE · tempo de idle (escrito pelo craft-idle 2.0)\n# O daemon arma a vigília com ESTES valores a cada ciclo.\nLOCK_MIN=%s\nOFF_MIN=%s\nSUSPEND_MIN=%s\n' \
@@ -64,13 +68,28 @@ nota() {
         && notify-send -a 'Elite · Trava automática' -u low -t 4000 'Trava automática' "$_msg" &
 }
 
+# E150 — O PICK VESTE AS FLAGS REAIS DO `craft-pick --help` (a prova do
+# rig da 1.0-98: o painel abortava com 'Opção --title=... desconhecida'
+# quando o binário do rig não conhecia a flag — o chamador e o binário
+# de eras diferentes MATEM o menu). O título só entra quando o
+# craft-pick INSTALADO o anuncia no papel de ajuda; sem ele, o painel
+# segue sem título (o contrato 0/1 intacto — o menu nunca morre por
+# flag de era).
+_pick() {
+    if craft-pick --help 2>/dev/null | grep -q -- '--title='; then
+        craft-pick --title="$1"
+    else
+        craft-pick
+    fi
+}
+
 # ── status: o papel vivo ─────────────────────────────────────────────────
 if [ "${1:-}" = "status" ]; then
     _lock="$(le_lock)"; _susp="$(le_suspend)"
     if [ "$_lock" = "0" ]; then
         printf 'trava automática: NUNCA sozinha (W-l manual manda)\n'
     else
-        printf 'trava automática: %s min de inatividade → trava e apaga (a mesa E43)\n' "$_lock"
+        printf 'trava automática: %s min de inatividade → trava (a tela apaga no OFF_MIN do papel)\n' "$_lock"
         if [ "$_susp" != "0" ]; then
             printf 'sono de travado:   %s min depois da trava (a vigília E60)\n' "$_susp"
         else
@@ -112,7 +131,7 @@ if [ "${1:-}" = "menu" ]; then
         esac
         _rc=0
         _escolha="$(printf '%s\n' "5 min" "10 min" "15 min" "30 min" "Nunca (manual)" \
-            | craft-pick --title="$_titulo")" || _rc=$?
+            | _pick "$_titulo")" || _rc=$?
         # rc 1/2/143 = ESC/fora — a lei dos menus, benigno
         if [ "$_rc" = 0 ]; then
             case "$_escolha" in

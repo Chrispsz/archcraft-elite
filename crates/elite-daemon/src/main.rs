@@ -40,7 +40,7 @@
 // de /proc); o D-Bus é conexão PERSISTENTE (não abre por chamada); o
 // notify-send só nas TRANSIÇÕES confirmadas (zero toast de fantasma).
 use std::collections::HashMap;
-use std::os::unix::fs::MetadataExt;
+use std::os::unix::fs::{FileTypeExt, MetadataExt};
 use std::os::unix::io::AsRawFd;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
@@ -76,6 +76,15 @@ fn instala_sinais() {
     unsafe {
         libc::signal(libc::SIGTERM, h);
         libc::signal(libc::SIGINT, h);
+        // E150 — O SIGHUP DO RELOGIN: o labwc --exit despede os filhos do
+        // autostart por SIGHUP (o terminal morre junto); o handler padrão
+        // MATA na hora, mas o flock do session fica retido até o exit — e
+        // a sessão NOVA que nasce no segundo seguinte topa o dono VELHO
+        // ainda segurando a trava → 'elite-daemon session' sai 0 e o
+        // desktop acorda vazio (só o menu.xml). O SIGHUP agora veste a
+        // MESMA saída limpa do SIGTERM: unregister, EPP devolvido, filhos
+        // colhidos, lock solto — o relogin nasce limpo.
+        libc::signal(libc::SIGHUP, h);
     }
 }
 
@@ -138,6 +147,20 @@ fn main() {
             // — janelas, vigília e trava automática da casa), o MPRIS
             // (zero playerctl-polling) e o roteador de áudio Rust (o
             // python craft-audio-route morre com seu NameError herdado)
+            // E150 — O RELOGIN LIMPO ANTES DE TUDO: o modo session COLHE
+            // o fóssil da sessão anterior (daemon órfão que segurava o
+            // lock) e só então veste o fio — a ordem importa (o bind do
+            // bus no chão de um dono vivo seria o 'MORTO' de novo).
+            if let Err(e) = supervise::colhe_relogin() {
+                eprintln!("elite-daemon session: {e}");
+            }
+            // E150 — ESPERA O COMPOSITOR: o autostart pode nascer antes do
+            // socket do labwc registrar (relogin rápido, boot frio); os
+            // clientes de display morreriam no primeiro spawn e pagariam
+            // o backoff inteiro. O teto é honesto (10s) e a espera é
+            // barata (stat a cada 100ms) — a sessão só descola quando o
+            // WAYLAND_DISPLAY EXISTE de verdade.
+            espera_wayland(10);
             nucleo::liga_bus();
             wayland::start();
             std::thread::spawn(mpris::thread);
@@ -147,10 +170,19 @@ fn main() {
             std::thread::spawn(|| thread_logind("PrepareForSleep", true));
             std::thread::spawn(|| thread_logind("Unlock", false));
             std::thread::spawn(thread_wakeguard);
+            // E150 — A REAPLICAÇÃO DO MONITOR LOGO APÓS O WAYLAND (a cura
+            // do '60 Hz no boot frio'): o apply-boot do autostart corre
+            // no frame 0, mas no COLD BOOT as saídas podem registrar DEPOIS
+            // dele (o amdgpu acorda lento) — o estado residual do driver
+            // segurava os Hz no relogin e o boot frio perdia. ESTA thread é
+            // o cinto: espera o socket, confere o arranjo vivo e re-aplica
+            // com retry curto (3 passadas de 1.5s — o do_apply reconcilia
+            // por dentro; a passada extra é no-op quando tudo confere).
+            std::thread::spawn(thread_display_boot);
             eprintln!(
                 "elite-daemon session: ouvidores no ar (bus.sock + wayland \
                  nativo + mpris + áudio + netlink som/drm + logind sono/unlock \
-                 + wake-guard pré-sono)"
+                 + wake-guard pré-sono + re-aplicação do monitor do boot)"
             );
             match supervise::run_session() {
                 Ok(()) => std::process::exit(0),
@@ -276,7 +308,9 @@ fn sinal_waybar_sig(offset: i32) -> usize {
 /// uid corrente cujo comm está na lista (a leitura de /proc + libc::kill
 /// — NENHUM fork de pgrep; a barra e a dock vestem handlers/as armaduras
 /// RT, o sinal nunca mais mata ninguém por disposição padrão).
-fn sinal_para_comms(comms: &[&str], sig: i32) -> usize {
+/// E150 — pub(crate): a gaveta desce por ELE (o nwg-drawer vivo do uid
+/// quando OUTRA janela ganha o palco — ver wayland.rs).
+pub(crate) fn sinal_para_comms(comms: &[&str], sig: i32) -> usize {
     let uid = unsafe { libc::getuid() };
     let Ok(dir) = std::fs::read_dir("/proc") else { return 0 };
     let mut n = 0usize;
@@ -352,6 +386,106 @@ fn dispara(comando: &str, args: &[&str]) {
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn();
+}
+
+/// E150 — O NOME do WAYLAND_DISPLAY corrente ("" = sem sessão gráfica:
+/// CLI/probe/teste — a identidade que julga o órfão do relogin).
+pub fn wayland_pronto_nome() -> String {
+    std::env::var("WAYLAND_DISPLAY").unwrap_or_default()
+}
+
+/// E150 — A GAVETA DESCE COM O PALCO (a ordem do dono, base 1.0-98: o
+/// nwg-drawer nunca fica sobreposto a janelas ou menus da barra): o
+/// SIGTERM ao drawer vivo do uid (o nwg-drawer já desce sozinho ao
+/// ABRIR app — MainQuit nativo; aqui é o caminho "perdeu o palco":
+/// alt-tab, dock, janela nova). Um sinal por evento, zero residente.
+pub(crate) fn gaveta_desce() {
+    let n = sinal_para_comms(&["nwg-drawer"], libc::SIGTERM);
+    if n > 0 {
+        eprintln!(
+            "elite-daemon: a gaveta desceu com o palco ({n} nwg-drawer colhido(s) — o overlay nunca fica por cima da casa)"
+        );
+    }
+}
+
+/// E150 — O SOCKET DO COMPOSITOR EXISTE? ($XDG_RUNTIME_DIR/$WAYLAND_DISPLAY
+/// — o caminho absoluto também conta; sem WAYLAND_DISPLAY é a sessão de
+/// teste, sempre pronta). Função PURA de ambiente — a porta dos testes.
+pub fn wayland_pronto() -> bool {
+    let Ok(nome) = std::env::var("WAYLAND_DISPLAY") else {
+        return true; // sem variável = sem compositor esperado (prova)
+    };
+    if nome.starts_with('/') {
+        return PathBuf::from(&nome).exists();
+    }
+    let runtime = std::env::var("XDG_RUNTIME_DIR")
+        .unwrap_or_else(|_| format!("/run/user/{}", unsafe { libc::getuid() }));
+    let socket = PathBuf::from(runtime).join(&nome);
+    socket.metadata().map(|m| m.file_type().is_socket()).unwrap_or(false)
+}
+
+/// E150 — espera o compositor registrar o socket (teto em segundos,
+/// sonda de 100ms — barata por desenho: um stat(2)).
+fn espera_wayland(teto_s: u64) {
+    let inicio = std::time::Instant::now();
+    while !wayland_pronto() {
+        if inicio.elapsed().as_secs() >= teto_s {
+            eprintln!(
+                "elite-daemon session: WAYLAND_DISPLAY não registrou em {teto_s}s — a sessão segue (os filhos pagam o backoff honesto)"
+            );
+            return;
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+}
+
+/// E150 — O CINTO DO BOOT FRIO: o arranjo do monitor re-aplicado COM RETRY
+/// logo após as saídas Wayland registrarem (o apply-boot do frame 0 pode
+/// ter corrido antes do amdgpu acordar — o modo era RAM do driver e o 60
+/// Hz voltava). Três passadas espaçadas; o `do_apply` reconcilia por
+/// dentro (arranjo certo = no-op silencioso, arranjo divergente = aplica).
+fn thread_display_boot() {
+    let teto = std::time::Instant::now();
+    while !wayland_pronto() && teto.elapsed().as_secs() < 10 {
+        std::thread::sleep(Duration::from_millis(200));
+    }
+    if !wayland_pronto() {
+        return; // sem compositor não há wlr-randr que valha (honesto)
+    }
+    for tentativa in 1..=3 {
+        if STOP.load(Ordering::SeqCst) {
+            return;
+        }
+        let ok = Command::new("/usr/local/bin/craft-display")
+            .arg("apply")
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false);
+        if ok {
+            if tentativa > 1 {
+                eprintln!(
+                    "elite-daemon session: arranjo do monitor aplicado na {tentativa}ª passada do boot (o 60 Hz do boot frio morre)"
+                );
+            }
+            return;
+        }
+        std::thread::sleep(Duration::from_millis(1500));
+    }
+    eprintln!("elite-daemon session: a re-aplicação do arranjo não fechou (o watch e o heartbeat seguem de pé — a verdade mora no display.log)");
+}
+
+/// E150 — O DESPERTAR DE VERDADE: PrepareForSleep(false) OU Unlock (o
+/// hyprlock encerrou) → as saídas RELIGAM EXPLICITAMENTE (wlopm --on — o
+/// amdgpu perde o sinal no freeze e o modo de DPMS não volta sozinho) e
+/// o relógio de idle RENASCE do zero (o tempo DORMIDO não conta como
+/// inatividade — o lock logo após o acordar era a mentira do contador).
+fn despertar() {
+    dispara("/usr/local/bin/craft-display", &["apply"]);
+    dispara("wlopm", &["--on", "*"]);
+    wayland::reseta_idle();
 }
 
 /// o ouvidor de uevents do kernel (SOCK_RAW + NETLINK_KOBJECT_UEVENT,
@@ -457,17 +591,20 @@ fn thread_logind(nome_sinal: &str, corpo_bool: bool) {
         if corpo_bool {
             // PrepareForSleep: o corpo é (b starting) — acordou é false:
             // o display volta E o som devolve o default pré-sono (a
-            // dupla E139 anti-sequestro do HDMI/DP do monitor)
+            // dupla E139 anti-sequestro do HDMI/DP do monitor) E as saídas
+            // religam + o idle renasce (E150 — o vídeo pós-suspensão)
             if let Ok((start,)) = m.body().deserialize::<(bool,)>() {
                 if !start {
-                    dispara("/usr/local/bin/craft-display", &["apply"]);
                     std::thread::spawn(audio::resume);
+                    despertar();
                 }
             }
         } else {
-            // Unlock/Lock: o corpo é (s interface) — qualquer um conta
+            // Unlock/Lock: o corpo é (s interface) — o hyprlock encerrou
+            // (Unlock): o arranjo volta, as saídas religam, o idle renasce
+            // (E150 — 'ao encerrar o hyprlock' é aqui)
             let _ = m.body().deserialize::<(String,)>();
-            dispara("/usr/local/bin/craft-display", &["apply"]);
+            despertar();
         }
     }
 }
@@ -1038,5 +1175,21 @@ mod tests {
         assert!(!v.inicio && v.fim, "fim de sessão de 5s é notícia");
         let v = veredito_debounce(100, 200, false);
         assert!(v.fim, "fim de sessão longa é notícia");
+    }
+
+    #[test]
+    fn e150_o_socket_wayland_e_julgado_pelo_tipo() {
+        // sem WAYLAND_DISPLAY (prova/CLI): sempre pronto (nada a esperar)
+        // — e o NOME vazio (a identidade do relogin julga por ele)
+        std::env::remove_var("WAYLAND_DISPLAY");
+        assert!(wayland_pronto());
+        assert_eq!(wayland_pronto_nome(), "");
+        // caminho absoluto: o próprio arquivo é a prova
+        let t = std::env::temp_dir().join("elite-prova-wayland-socket");
+        std::fs::write(&t, b"").unwrap();
+        std::env::set_var("WAYLAND_DISPLAY", &t);
+        assert!(wayland_pronto());
+        std::fs::remove_file(&t).ok();
+        std::env::remove_var("WAYLAND_DISPLAY");
     }
 }

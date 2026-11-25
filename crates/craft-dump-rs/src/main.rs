@@ -5,6 +5,14 @@
 // família nativa de pé, LEGADO ausente (a lista 2.0 inteira), o FIO
 // vivo (bus.sock: janelas, mesa, mídia, jogo, áudio) e o áudio da
 // mesa (o default do PipeWire).
+// E150 — A AUDITORIA SISTÊMICA (a ordem do dono, base 1.0-98): o dump
+// conectado a TODOS os subsistemas ativos — consumo GLOBAL de RAM/zram
+// (free/swapon/zramctl), top RSS do sistema E da interface, timers e
+// unidades failed do systemd, contagem total de pacotes, sockets do
+// $XDG_RUNTIME_DIR, o CASAMENTO da persistência do monitor (displays.
+// conf × wlr-randr com veredito), a ENTRADA de áudio (default source),
+// os três tempos da vigília, o wake-guard e o veredito de XML do
+// menu/rc no papel CURTO (não só no --full).
 // 1.0-93 — A TELEMETRIA PROFUNDA DE VOLTA (a ordem do dono, rig da
 // 1.0-92): hardware (CPU/memória/GPU/VRAM), o cmdline e o RSS/CPU%
 // dos processos da sessão, o sysctl vivo, o scx-lavd REAL, os
@@ -152,7 +160,44 @@ fn main() {
         say("  tuning: zram0 AUSENTE (o réu nomeado no papel)");
     }
 
-    // ── SERVIÇOS: o systemctl colhido cru ────────────────────────────────
+    // ── E150 · O CONSUMO GLOBAL (free/swapon/zramctl — o mundo inteiro,
+    //    não só a família): a RAM usada/cache/disponível, o swap com
+    //    swapon e o zramctl VIVO (comprimindo de verdade?) ─────────────
+    say("");
+    say("consumo global (free -m · swapon · zramctl):");
+    if let Some(free) = colhe(&["free", "-m"]) {
+        if let Some((t, u, bc, a, st, su)) = craft_dump_rs::parse_free_m(&free) {
+            say(&format!(
+                "  RAM: {u} MiB usados · {bc} MiB cache · {a} MiB disponíveis (de {t} MiB)"
+            ));
+            if st > 0 {
+                say(&format!(
+                    "  swap: {su} MiB em uso de {st} MiB (o zram da casa, swappiness 180)"
+                ));
+            } else {
+                say("  swap: NENHUM ativo (sem zram montado — nomeado, não inventado)");
+            }
+        } else {
+            say("  free: formato inesperado (o papel cru segue calado — não mente)");
+        }
+    } else {
+        say("  free indisponível (rig real julga)");
+    }
+    if let Some(sw) = colhe(&["swapon", "--show", "--bytes"]) {
+        for linha in sw.lines() {
+            say(&format!("  swapon: {linha}"));
+        }
+    }
+    if let Some(zc) = colhe(&["zramctl"]) {
+        match craft_dump_rs::zramctl_campos(&zc) {
+            Some((disk, data, total)) => say(&format!(
+                "  zramctl: disksize {disk} · dados {data} · comprimido em {total} (o zram trabalhando)"
+            )),
+            None => say("  zramctl: sem zram vivo (a colheita acima do sysfs nomeia o réu)"),
+        }
+    }
+
+    // ── SERVIÇOS: o systemctl colhido cru ──────────────────────────────
     let saida = colhe(&["systemctl", "--no-legend", "--all", "list-unit-files"])
         .unwrap_or_default();
     if saida.is_empty() {
@@ -183,6 +228,39 @@ fn main() {
             // sched_ext = o lavd DORME por desenho (não é defeito)
             if let Some(linha) = craft_dump_rs::linha_scx(false, true) {
                 say(linha);
+            }
+        }
+    }
+
+    // ── E150 · TIMERS E FALHAS DO SYSTEMD (a ordem do dono: serviços E
+    //    timers RODANDO + as unidades failed nomeadas) ─────────────────
+    if !saida.is_empty() {
+        say("");
+        say("timers da casa (list-timers · os próximos 8):");
+        if let Some(timers) = colhe(&["systemctl", "list-timers", "--all", "--no-pager"]) {
+            let mut n = 0;
+            for linha in timers.lines() {
+                if linha.starts_with(' ') || linha.is_empty() {
+                    continue; // as rodapés alinhados não são timers
+                }
+                say(&format!("  {linha}"));
+                n += 1;
+                if n >= 8 {
+                    break;
+                }
+            }
+        } else {
+            say("  list-timers indisponível (nomeado, não inventado)");
+        }
+        if let Some(failed) = colhe(&["systemctl", "--failed", "--no-legend", "--plain"]) {
+            let n_fail = failed.lines().filter(|l| !l.trim().is_empty()).count();
+            if n_fail == 0 {
+                say("unidades failed: NENHUMA (o boot limpo de sempre)");
+            } else {
+                say(&format!("unidades failed: {n_fail} (os réus: \u{2014} o journal abaixo conta o porquê)"));
+                for linha in failed.lines() {
+                    say(&format!("  {linha}"));
+                }
             }
         }
     }
@@ -244,6 +322,55 @@ fn main() {
         say(&format!(
             "legado: AINDA VIVO — {legados_vivos:?} (o réu nomeado; a cura é a dose)"
         ));
+    }
+
+    // ── E150 · O TOP RSS (a ordem do dono: interface E sistema — o
+    //    consumo que importa, ranqueado; 2 coletas: TODOS os processos
+    //    e os do UID da SESSÃO) ─────────────────────────────────────
+    say("");
+    {
+        let mut sistema: Vec<(u32, String, u64)> = Vec::new();
+        let mut interface: Vec<(u32, String, u64)> = Vec::new();
+        if let Ok(rd) = std::fs::read_dir("/proc") {
+            for entry in rd.flatten() {
+                let Ok(pid) = entry.file_name().to_string_lossy().parse::<u32>() else {
+                    continue;
+                };
+                let Ok(comm) = std::fs::read_to_string(format!("/proc/{pid}/comm")) else {
+                    continue;
+                };
+                let comm = comm.trim().to_string();
+                if comm.is_empty() {
+                    continue;
+                }
+                let status =
+                    std::fs::read_to_string(format!("/proc/{pid}/status")).unwrap_or_default();
+                let rss = craft_dump_rs::rss_kib_do_status(&status);
+                if rss == 0 {
+                    continue; // zumbi/kernel thread não paga RAM de usuário
+                }
+                sistema.push((pid, comm.clone(), rss));
+                // a INTERFACE: os processos do DONO da sessão (o uid de
+                // cima — o mesmo juízo da família: sessão de quem pediu)
+                let uid_dele = status
+                    .lines()
+                    .find(|l| l.starts_with("Uid:"))
+                    .and_then(|l| l.split_whitespace().nth(1))
+                    .and_then(|v| v.parse::<u32>().ok())
+                    .unwrap_or(u32::MAX);
+                if uid_dele == uid {
+                    interface.push((pid, comm, rss));
+                }
+            }
+        }
+        say("top RSS · o SISTEMA inteiro (os 10 maiores):");
+        for (pid, comm, rss) in craft_dump_rs::rank_rss(sistema, 10) {
+            say(&format!("  · pid {pid:>6} ({comm}): {:.0} MiB", rss as f64 / 1024.0));
+        }
+        say("top RSS · a INTERFACE (os processos do dono, os 10 maiores):");
+        for (pid, comm, rss) in craft_dump_rs::rank_rss(interface, 10) {
+            say(&format!("  · pid {pid:>6} ({comm}): {:.0} MiB", rss as f64 / 1024.0));
+        }
     }
 
     // ── O FIO VIVO: o bus.sock (a fonte da verdade da sessão) ───────────
@@ -315,42 +442,120 @@ fn main() {
             say(&format!("  source: {linha}"));
         }
     }
+    // E150 — a ENTRADA padrão também importa (o microfone da perícia:
+    // o default source do pactl info, o mesmo parser da saída)
+    let mut pactl_env2 = std::process::Command::new("pactl");
+    pactl_env2.env("XDG_RUNTIME_DIR", format!("/run/user/{uid}"));
+    match pactl_env2
+        .args(["info"])
+        .stdin(std::process::Stdio::null())
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
+        .and_then(|s| craft_dump_rs::pactl_default_source(&s))
+    {
+        Some(source) => say(&format!("áudio: default de ENTRADA = {source}")),
+        None => say("áudio: default de entrada indisponível (o pactl acima fala o resto)"),
+    }
 
     // ── A VIGÍLIA: o conf vivo (o daemon arma com ESTES valores) ─────────
     // 1.0-94 — O CONF É DO DONO (o rig da 1.0-93: o dump do pkexec lia
     // o idle.conf de /root e dizia "ausente"; o papel agora resolve o
-    // home de QUEM pediu — o LOCK_MIN=0 ganha também o significado)
+    // home de QUEM pediu). E150 — os TRÊS tempos no papel (LOCK/OFF/
+    // SUSPEND — a fábrica 5/10/20 e o gesto separado; o 0 é NUNCA)
     let passwd = std::fs::read_to_string("/etc/passwd").unwrap_or_default();
     let home_dono = craft_dump_rs::home_do_uid(uid, &passwd)
         .or_else(|| std::env::var("HOME").ok())
         .unwrap_or_else(|| "/root".into());
     let conf_idle = std::path::PathBuf::from(&home_dono)
         .join(".config/elite/idle.conf");
+    say("");
+    say("vigília (idle.conf do dono · os três tempos):");
     match std::fs::read_to_string(&conf_idle) {
         Ok(papel_conf) => {
-            let lock = papel_conf
-                .lines()
-                .find(|l| l.starts_with("LOCK_MIN="))
-                .and_then(|l| l.split('=').nth(1))
-                .unwrap_or("?");
-            if lock == "0" {
-                say("vigília: LOCK_MIN=0 — trava automática DESLIGADA (o menu \
-                     'Trava automática' ou 'craft-idle painel' religa)");
-            } else {
-                say(&format!(
-                    "vigília: LOCK_MIN={lock} (o elite-daemon arma a trava com este papel)"
-                ));
+            for linha in craft_dump_rs::idle_conf_tres(&papel_conf) {
+                say(&linha);
             }
+            say(&format!("  conf: {conf_idle:?} (o daemon relê a cada armação)"));
         }
-        Err(_) => say("vigília: idle.conf ausente (a fábrica do daemon: 5 min)"),
+        Err(_) => say("  idle.conf ausente (a fábrica do daemon: trava 5 · apaga 10 · suspende 20)"),
     }
 
-    // ── 1.0-94 · OS MONITORES (o wlr-randr cru) ──────────────────────────
-    if let Some(randr) = colhe(&["wlr-randr"]) {
+    // ── 1.0-94 · OS MONITORES (o wlr-randr cru) + E150 · O CASAMENTO DA
+    //    PERSISTÊNCIA (displays.conf × wlr-randr — o juízo do '60 Hz
+    //    sempre volta': CONFERE / DIVERGE / AUSENTE por tela) ─────────
+    let randr = colhe(&["wlr-randr"]).unwrap_or_default();
+    if !randr.is_empty() {
         say("");
-        say("monitores (wlr-randr):");
+        say("monitores (wlr-randr · os primeiros 30):");
         for linha in randr.lines().take(30) {
             say(&format!("  {linha}"));
+        }
+    }
+    say("");
+    say("persistência do monitor (displays.conf × wlr-randr):");
+    let conf_display = std::path::PathBuf::from(&home_dono)
+        .join(".config/elite/displays.conf");
+    let papel_display = std::fs::read_to_string(&conf_display).unwrap_or_default();
+    if !papel_display.is_empty() {
+        for linha in papel_display.lines().filter(|l| !l.starts_with('#') && !l.trim().is_empty()) {
+            say(&format!("  salvo: {linha}"));
+        }
+        for linha in craft_dump_rs::veredito_display(&papel_display, &randr) {
+            say(&linha);
+        }
+        // o stamp do apply (a máquina de estados do craft-display)
+        let stamp = std::path::PathBuf::from(format!("/run/user/{uid}/elite/display-applied"));
+        match std::fs::read_to_string(&stamp) {
+            Ok(s) => say(&format!("  stamp: {} ({:?})", s.trim(), stamp)),
+            Err(_) => say("  stamp: ausente (o apply desta sessão ainda não escreveu — nomeado)"),
+        }
+    } else {
+        for linha in craft_dump_rs::veredito_display("", &randr) {
+            say(&linha);
+        }
+    }
+
+    // ── E150 · O WAKE-GUARD (a política de despertar — a vista do
+    //    próprio bin da casa; teclado acorda, o resto dorme) ─────────
+    say("");
+    say("wake-guard (a política de quem acorda a máquina):");
+    if let Some(wg) = colhe(&["/usr/local/bin/craft-wake-guard", "status"]) {
+        for linha in wg.lines().take(12) {
+            say(&format!("  {linha}"));
+        }
+    } else {
+        say("  craft-wake-guard status indisponível (rig de prova sem o bin — nomeado)");
+    }
+
+    // ── E150 · OS SOCKETS DO $XDG_RUNTIME_DIR (o chão da sessão: wayland,
+    //    pipewire, o elite/ da casa — o fóssil que mente é réu nomeado) ─
+    say("");
+    say(&format!("runtime da sessão ($XDG_RUNTIME_DIR = /run/user/{uid}):"));
+    {
+        let dir = std::path::PathBuf::from(format!("/run/user/{uid}"));
+        let mut entradas: Vec<(String, bool, bool)> = Vec::new();
+        if let Ok(rd) = std::fs::read_dir(&dir) {
+            for e in rd.flatten() {
+                let nome = e.file_name().to_string_lossy().to_string();
+                let (sock, is_dir) = match e.metadata() {
+                    Ok(m) => {
+                        use std::os::unix::fs::FileTypeExt;
+                        (m.file_type().is_socket(), m.is_dir())
+                    }
+                    Err(_) => (false, false),
+                };
+                entradas.push((nome, sock, is_dir));
+            }
+        }
+        if entradas.is_empty() {
+            say("  ausente/vazio (sessão de prova sem systemd — nomeado, não inventado)");
+        } else {
+            entradas.sort();
+            for linha in craft_dump_rs::linhas_runtime_dir(&entradas) {
+                say(&linha);
+            }
         }
     }
 
@@ -393,12 +598,62 @@ fn main() {
         }
     }
 
-    // ── 1.0-93 · O PACMAN RECENTE (as doses que chegaram) ────────────────
+    // ── 1.0-93 · O PACMAN RECENTE (as doses que chegaram) + E150 · O
+    //    TOTAL DE PACOTES (o retrato do sistema: instaladas, explícitas,
+    //    locais — a contagem que o dono lê) ─────────────────────────
+    say("");
+    {
+        let q = colhe(&["pacman", "-Q"]).unwrap_or_default();
+        let qe = colhe(&["pacman", "-Qe"]).unwrap_or_default();
+        let qm = colhe(&["pacman", "-Qm"]).unwrap_or_default();
+        if q.is_empty() {
+            say("pacotes: pacman indisponível (rig de prova — nomeado)");
+        } else {
+            say(&format!(
+                "pacotes: {} instalados · {} explícitos · {} locais/AUR",
+                craft_dump_rs::conta_linhas(&q),
+                craft_dump_rs::conta_linhas(&qe),
+                craft_dump_rs::conta_linhas(&qm)
+            ));
+        }
+    }
     if let Ok(log_pacman) = std::fs::read_to_string("/var/log/pacman.log") {
-        say("");
         say("pacman (as linhas recentes):");
         for linha in log_pacman.lines().rev().take(15).collect::<Vec<_>>() {
             say(&format!("  {linha}"));
+        }
+    }
+
+    // ── E150 · O VEREDITO DE XML no papel CURTO (o menu.xml/rc.xml do
+    //    dono: xmllint com o fallback python — o mesmo juiz do --full;
+    //    o labwc REJEITA o menu inteiro quando o XML quebra) ─────────
+    say("");
+    say("XML da sessão (rc.xml · menu.xml):");
+    for f in ["rc.xml", "menu.xml"] {
+        let caminho = std::path::PathBuf::from(&home_dono)
+            .join(".config/labwc")
+            .join(f);
+        if !caminho.exists() {
+            say(&format!("  {f}: AUSENTE (o skel entrega na próxima dose)"));
+            continue;
+        }
+        let cstr = caminho.to_string_lossy().to_string();
+        if let Some(rc) = colhe_status(&["xmllint", "--noout", &cstr]) {
+            if rc == 0 {
+                say(&format!("  {f}: VÁLIDO (xmllint exit 0)"));
+            } else {
+                say(&format!("  {f}: INVÁLIDO — o heal E146 renova do mestre na próxima dose"));
+            }
+        } else if let Some(rc) = colhe_status(&[
+            "python3", "-c", "import sys, xml.etree.ElementTree as ET; ET.parse(sys.argv[1])", &cstr,
+        ]) {
+            if rc == 0 {
+                say(&format!("  {f}: VÁLIDO (python ET — o fallback julga)"));
+            } else {
+                say(&format!("  {f}: INVÁLIDO — o heal E146 renova do mestre na próxima dose"));
+            }
+        } else {
+            say(&format!("  {f}: SEM JUIZ no sistema (nem xmllint nem python3) — não auditado"));
         }
     }
 
@@ -614,7 +869,7 @@ fn modo_full() {
 
     // ── 2. PROCESSOS DA SESSÃO (com os zumbis nomados) ──────────────────
     say("");
-    say("═ 2. PROCESSOS DA SESSÃO (ps filtrado · <defunct> é réu nomado) ═");
+    say("═ 2. PROCESSOS DA SESSÃO (ps filtrado · <defunct> é réu nomeado) ═");
     let processos = processes_full();
     for (pid, ppid, st, comm, cmdline) in &processos {
         say(&format!(

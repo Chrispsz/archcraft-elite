@@ -388,6 +388,28 @@ if [ -f "${ROOT}/boot/vmlinuz-linux-cachyos-bore" ] &&
         sed -i 's|^#GRUB_DISABLE_OS_PROBER=false|GRUB_DISABLE_OS_PROBER=false|' "${ROOT}/etc/default/grub"
         echo "ELITE: os-prober habilitado (GRUB 2.12+ vem com o knob desligado — dual-boot entra no menu)"
     fi
+    # E150 — A PELE ROXA NASCE NO PRIMEIRO MENU (a ordem do dono: o tema
+    # GRUB da casa em /usr/share/grub/themes/archcraft (veio pelo unpackfs
+    # do live) + /boot/grub/themes/archcraft (a cópia do menu de boot) +
+    # os tokens do /etc/default/grub do alvo (GRUB_THEME e
+    # GRUB_DISTRIBUTOR="Archcraft ELITE") — o primeiro grub.cfg JÁ nasce
+    # com o wallpaper roxo da casa e a barra de seleção #a855f7.
+    if [ -d "${ROOT}/usr/share/grub/themes/archcraft" ] &&
+        [ -f "${ROOT}/usr/share/grub/themes/archcraft/theme.txt" ]; then
+        mkdir -p "${GRUBDIR}/themes/archcraft"
+        cp -p "${ROOT}"/usr/share/grub/themes/archcraft/* "${GRUBDIR}/themes/archcraft/" 2>/dev/null || true
+        echo "ELITE: [M1.1] tema GRUB da casa entregue em /boot/grub/themes/archcraft (wallpaper roxo + barra #a855f7)"
+        _gdf="${ROOT}/etc/default/grub"
+        [ -f "$_gdf" ] || printf 'GRUB_CMDLINE_LINUX_DEFAULT="quiet"\n' > "$_gdf"
+        grep -q '^GRUB_THEME=' "$_gdf" 2>/dev/null || \
+            printf 'GRUB_THEME="/usr/share/grub/themes/archcraft/theme.txt"\n' >> "$_gdf"
+        if grep -q '^GRUB_DISTRIBUTOR=' "$_gdf" 2>/dev/null; then
+            sed -i 's|^GRUB_DISTRIBUTOR=.*|GRUB_DISTRIBUTOR="Archcraft ELITE"|' "$_gdf"
+        else
+            printf 'GRUB_DISTRIBUTOR="Archcraft ELITE"\n' >> "$_gdf"
+        fi
+        echo "ELITE: [M1.1] GRUB_THEME + GRUB_DISTRIBUTOR=Archcraft ELITE cravados no /etc/default/grub do alvo"
+    fi
     echo "ELITE: [M1.1] grub-mkconfig no alvo (re-geração completa do menu)"
     if arch-chroot "$ROOT" grub-mkconfig -o /boot/grub/grub.cfg; then
         if [ -s "${ROOT}/boot/grub/grub.cfg" ] &&
