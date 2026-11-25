@@ -72,8 +72,16 @@ fi
 # ── 1. o labwc headless (o juízo de ambiente vem PRIMEIRO) ───────────────
 if ! command -v labwc >/dev/null 2>&1; then
     printf '  (instalando o juiz: labwc + temas de ícone no container…)\n'
-    if ! pacman -Syu --noconfirm --needed labwc adwaita-icon-theme hicolor-icon-theme >/dev/null 2>&1; then
-        printf '  □ SKIP: labwc não instalou neste container (réu nomeado no log)\n'
+    # FASE 2 — O RUNTIME GTK É DO JUÍZO (a contraprova da run 45588152562:
+    # o container do smoke é OUTRO container — o build tinha gtk4 como
+    # makedepends e este não; os 6 bins GUI morriam no LOADER (exit 127,
+    # 'error while loading shared libraries') e a família nascia-morria —
+    # o réu era o AMBIENTE, não o produto; o rig real tem gtk4 por
+    # packages.add). gtk4 + gtk-layer-shell = as libs dos bins da casa;
+    # labwc + temas = o compositor e os ícones que a barra pede.
+    if ! pacman -Syu --noconfirm --needed labwc gtk4 gtk-layer-shell \
+         adwaita-icon-theme hicolor-icon-theme >/dev/null 2>&1; then
+        printf '  □ SKIP: labwc/gtk4 não instalou neste container (réu nomeado no log)\n'
         rm -rf "$STAGE"; exit 0
     fi
 fi
@@ -161,7 +169,7 @@ fi
 # ── 5. os logs SEM warnings críticos (o pilare 3 da diretriz) ────────────
 bar_log="$HOME_SMOKE/.cache/elite/bars.log"
 dock_log="$HOME_SMOKE/.cache/elite/dock.log"
-criticos="$(grep -hE 'Gtk-WARNING|still has children|GLib-GObject-WARNING|\\\\u[0-9a-fA-F]{4}' \
+criticos="$(grep -hE 'Gtk-WARNING|still has children|GLib-GObject-WARNING|error while loading shared libraries|\\\\u[0-9a-fA-F]{4}' \
     "$bar_log" "$dock_log" 2>/dev/null | head -3 || true)"
 if [ -z "$criticos" ]; then
     t_ok "logs da sessão: ZERO Gtk-WARNING / órfão de popover / \\uXXXX mojibake"
@@ -178,12 +186,14 @@ for par in craft-game craft-idle; do
     fi
 done
 
-# ── 7. a lei E90 executiva nos compilados ────────────────────────────────
+# ── 7. a lei E90 executiva nos compilados (o réu carrega O ERRO REAL:
+#    morte de loader = a classe 'o pacote nasceu sem a lib do runtime') ──
 for b in elite-daemon craft-bar-rs craft-dock-rs craft-dump craft-update craft-clean craft-help craft-pick; do
+    _err="$(timeout 10 "$BIN_STAGED/$b" --help 2>&1 >/dev/null | head -1)"
     if timeout 10 "$BIN_STAGED/$b" --help >/dev/null 2>&1; then
         t_ok "--help: $b"
     else
-        t_fail "--help: $b" "o verbo seguro não sai 0 (E90 violada no binário)"
+        t_fail "--help: $b" "rc!=0 — ${_err:-stderr vazio (E90 violada no binário?)}"
     fi
 done
 
