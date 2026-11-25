@@ -381,11 +381,12 @@ blueman
 ##     DisplayServer=wayland); driver = modesetting EMBUTIDO (os DDX
 ##     xf86-video-* saíram). Xwayland segue vivo via dep do gtk4 — apps
 ##     X11 continuam funcionando dentro do labwc.
-##   · archcraft-cursor-qogirr — CursorTheme=Qogirr do greeter (vinha do
-##     grupo archcraft-cursors, que saiu inteiro; o Bibata do rice já era
-##     explícito aqui).
+##   · archcraft-cursor-qogirr — SAIU (BLOCO 4, o último sotaque do
+##     ponteiro: o greeter vestia Qogirr e a sessão inteira Bibata —
+##     cursor A na senha, cursor B no desktop; o CursorTheme do
+##     kde_settings.conf veste Bibata como a casa inteira e o pacote
+##     se aposenta — a filosofia enxuta: nenhum pacote de cursor órfão).
 xorg-server
-archcraft-cursor-qogirr
 udiskie
 cliphist
 # E74 — Fase 3 do protocolo: OSD de volume/brilho (a spec: "indicador

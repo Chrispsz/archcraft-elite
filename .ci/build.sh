@@ -285,6 +285,16 @@ cp -p /work/elite/airootfs/usr/local/share/elite/fastfetch/config.jsonc \
 mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/hyprlock
 cp -p /work/elite/airootfs/etc/skel/.config/hypr/hyprlock.conf \
       /tmp/elite-src/elite-system/files/usr/local/share/elite/hyprlock/hyprlock.conf
+# BLOCO 4 (1.0-98) — A PELE DO GREETER NO PACOTE: o theme.conf da casa
+# (a paleta oficial no tema archcraft do SDDM) viaja como mestre em
+# /usr/local/share/elite/sddm/ e o elite-post-upgrade o entrega ao rig
+# vivo em /usr/share/sddm/themes/archcraft/theme.conf (fóssil upstream =
+# renova; personalizado = intocável). Na ISO a mesma fonte chega pelo
+# overlay do airootfs (usr/share/sddm/themes/archcraft/theme.conf) —
+# UMA fonte, dois veículos, zero drift.
+mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/sddm
+cp -p /work/elite/airootfs/usr/share/sddm/themes/archcraft/theme.conf \
+      /tmp/elite-src/elite-system/files/usr/local/share/elite/sddm/theme.conf
 # E103 — AS PELES rc.xml + swayosd NO PACOTE (a gramática E91 generalizada):
 # o rc.xml do rig (binds E103 do OSD) e o config.toml do swayosd (a barra
 # acima da dock) alcançam homes vivos via craft-rice (marcador/fóssil) —
@@ -584,6 +594,10 @@ ff_rm = '    [ -e "/usr/local/share/elite/fastfetch/config.jsonc" ] && rm -f "/u
 # o caminho sem dono — o pre_install adota antes da extração)
 lock_install = '    install -d "${pkgdir}/usr/local/share/elite/hyprlock"\n    install -m644 "${startdir}/files/usr/local/share/elite/hyprlock/hyprlock.conf" "${pkgdir}/usr/local/share/elite/hyprlock/hyprlock.conf"\n'
 lock_rm = '    [ -e "/usr/local/share/elite/hyprlock/hyprlock.conf" ] && rm -f "/usr/local/share/elite/hyprlock/hyprlock.conf"\n'
+# BLOCO 4 (1.0-98) — a pele do greeter (mesma dança da família E91;
+# caminho novo = criação limpa, sem dança de pre_install)
+sddm_install = '    install -d "${pkgdir}/usr/local/share/elite/sddm"\n    install -m644 "${startdir}/files/usr/local/share/elite/sddm/theme.conf" "${pkgdir}/usr/local/share/elite/sddm/theme.conf"\n'
+sddm_rm = '    [ -e "/usr/local/share/elite/sddm/theme.conf" ] && rm -f "/usr/local/share/elite/sddm/theme.conf"\n'
 # E103 — as peles rc.xml + swayosd (mesma dança da adoção E43)
 rc_install = '    install -d "${pkgdir}/usr/local/share/elite/labwc"\n    install -m644 "${startdir}/files/usr/local/share/elite/labwc/rc.xml" "${pkgdir}/usr/local/share/elite/labwc/rc.xml"\n'
 rc_rm = '    [ -e "/usr/local/share/elite/labwc/rc.xml" ] && rm -f "/usr/local/share/elite/labwc/rc.xml"\n'
@@ -2726,7 +2740,57 @@ pkgver=1.0
 #          features 144/144 ZERO avisos (rustc 1.100.0 no sandbox),
 #          bash -n nos scripts, XML parseando, pkgrel 95→96 NO MESMO
 #          COMMIT (E41). Sem tag (L4).
-pkgrel=97
+# BLOCO 4 (1.0-98) — A TELA DE BLOQUEIO E A TELA DE LOGIN VESTEM A PALETA
+#      OFICIAL (a diretriz: unificar lock + greeter com a linguagem do
+#      desktop/docs/skills/ e publicar a 1.0-98):
+#      (1) A LOCK SKIN v8 — o hyprlock.conf aposenta a aproximação da era
+#          v5/v7 (a paleta antiga do theme.conf do SDDM: #D8D8D8/#ABB2BF/
+#          #5a6477/#1E2128/#5294E2/#E06B74) e veste OS TOKENS OFICIAIS
+#          (docs/skills/02-paleta-oficial.md): relógio #f8fafc (o mesmo
+#          do relógio da barra) · data e texto #cdd6f4 · campo na ilha
+#          #181825 translúcida com borda INATIVA #262637 e
+#          foco/validando #a855f7 (o acento é PONTO) · erro #f38ba8 ·
+#          rodapé #a9a3c2 · sombras #11111b (nunca preto puro) · RAIO 20
+#          (O RAIO DA DOCK — a pílula-27 da era greeter antigo se
+#          aposenta). A lei do sinal E100 e o blur leve (3 passes/size 8)
+#          intactos; a fonte Iosevka NF mantida.
+#      (2) A PELE DO GREETER — theme.conf OVERRIDE do tema archcraft do
+#          SDDM (o stack NATIVO mantido: sddm-git Qt6 + greeter X11 +
+#          xorg-server modesetting; NENHUM daemon novo, NENHUMA dep
+#          extra — a filosofia enxuta): estrutura COMPLETA do upstream
+#          2.0 (todas as chaves — nada órfão no QML) com os MESMOS
+#          valores da paleta: TimeTextColor #f8fafc · DateTextColor
+#          #cdd6f4 · campos transparentes com borda inativa #262637 e
+#          A BORDA ROXA ATIVA em foco (HighlightBorderColor #a855f7 —
+#          verificado no Components/Input.qml: activeFocus ? Highlight
+#          BorderColor : *FieldBorderColor) · WarningColor #f38ba8 ·
+#          botão de login #a855f7 com texto #11111b (4.74:1 AA) ·
+#          hover em #cba6f7 (NUNCA inverte para claro) · RoundCorners 20
+#          (o raio da dock) · PopupRadius 12 (o raio dos popovers) ·
+#          HeaderText vazio (zero saudação — uma voz por tela) ·
+#          FullBlur true + Blur 1.0/BlurMax 64 + DimBackground 0.3 (o
+#          blur leve — custo só do instante do greeter, zero residual) ·
+#          UseRealName/ForceLastUser/PasswordFocus intactos ·
+#          HourFormat HH:mm + DateFormat "dddd, MMMM d" (o esquema que o
+#          dono aplaudiou) · sessão labwc direta (Session=labwc +
+#          state.conf — sem ruído de seletor). Fonte ÚNICA: a ISO veste
+#          pelo overlay do airootfs, o rig vivo pelo MESTRE no pacote
+#          (/usr/local/share/elite/sddm/theme.conf) entregue pelo
+#          elite-post-upgrade (fóssil upstream = renova com backup;
+#          personalizado = intocável — a lei do domínio v3 até no
+#          /usr/share).
+#      (3) O ÚLTIMO SOTAQUE DO PONTEIRO MORRE — o CursorTheme do greeter
+#          veste Bibata (kde_settings.conf): a era E36 mantinha Qogirr
+#          "por ser outro domínio" — a paleta unificou as telas, o cursor
+#          idem; o archcraft-cursor-qogirr sai da ISO (packages.add, com
+#          voz) e o environment documenta o fim.
+#      (4) A ENTREGA: craft-rice ganha o fóssil da v7 (6e459724 — quem
+#          adotou a v7 renova para a v8 PELO FÓSSIL, sem --lock-adopt);
+#          o post-upgrade entrega o theme.conf do greeter na transação.
+#      pkgrel 97→98 NO MESMO COMMIT (lei E41 — peles de conteúdo mudado:
+#      hyprlock.conf v8 no skel E mestre do pacote + theme.conf do
+#      greeter mestre novo; bins: craft-rice e elite-post-upgrade).
+pkgrel=98
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da sessão; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
@@ -2821,7 +2885,7 @@ pre_install() {{
     ; do
         [ -e "/usr/local/bin/$f" ] && rm -f "/usr/local/bin/$f"
     done
-{unit_loop}{hook_rm}{kmod_rm}{ff_rm}{lock_rm}{rc_rm}{osd_rm}{menu_rm}{gm_rm}{doc_rm}{gp_rm}{flags_rm}{apps_rm}{pk_rm}{q6_rm}{dc_rm}{sudoers_rm}    return 0
+{unit_loop}{hook_rm}{kmod_rm}{ff_rm}{lock_rm}{sddm_rm}{rc_rm}{osd_rm}{menu_rm}{gm_rm}{doc_rm}{gp_rm}{flags_rm}{apps_rm}{pk_rm}{q6_rm}{dc_rm}{sudoers_rm}    return 0
 }}
 # E129 — A MIGRAÇÃO AUTÔNOMA (AGENTS.md §4, 2026-11-20): o usuário final
 # NUNCA roda comando manual de pós-instalação — toda correção de /etc,
@@ -2863,7 +2927,7 @@ package() {{
     # E132 — o elite-polkit-listener NÃO viaja mais (o agente da casa é o
     # lxqt-policykit-agent NATIVO, eleito no craft-bars; um bin a menos no
     # pacote, um agente a menos na fila — o C vendado aposentou do repo)
-{unit_install}{hook_install}{kmod_install}{ff_install}{lock_install}{rc_install}{osd_install}{menu_install}{pd_install}{gm_install}{doc_install}{gp_install}{pt_install}{ef_install}{flags_install}{apps_install}{udev_install}{pk_install}{q6_install}{theo_install}{gtk_install}{dc_install}{sudoers_install}}}
+{unit_install}{hook_install}{kmod_install}{ff_install}{lock_install}{sddm_install}{rc_install}{osd_install}{menu_install}{pd_install}{gm_install}{doc_install}{gp_install}{pt_install}{ef_install}{flags_install}{apps_install}{udev_install}{pk_install}{q6_install}{theo_install}{gtk_install}{dc_install}{sudoers_install}}}
 """
 (d / 'PKGBUILD').write_text(pkg)
 PYE50

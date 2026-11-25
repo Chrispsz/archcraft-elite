@@ -646,6 +646,58 @@ sync_skel() {
     fi
 }
 
+# ── BLOCO 4 (1.0-98) — A PELE DO GREETER NOS RIGS VIVOS ────────────────
+#      O theme.conf do tema `archcraft` do SDDM morava SÓ no upstream
+#      (a paleta antiga #D8D8D8/#5294E2/#E06B74) e na ISO (o overlay do
+#      airootfs) — o rig INSTALADO ficava no greeter da era em que nasceu,
+#      a mesma ferida que o E104 curou no menu e o E91 na lock skin.
+#      A cura: o MESTRE da pele viaja NO PACOTE
+#      (/usr/local/share/elite/sddm/theme.conf — a mesma escola do
+#      fastfetch E73 / lock E91 / menu E104) e ESTA seção entrega na
+#      transação. Domínio de SISTEMA (/usr/share — o dono não edita o
+#      greeter): a gramática é FÓSSIL OU AUSENTE = renova com backup
+#      (.bak-<stamp>, a rotação E146); outro conteúdo = INTOCÁVEL + papel
+#      honesto (a lei do domínio v3 — até no /usr/share o arquivo
+#      desconhecido não é tocado). Idempotente: mestre == destino = silêncio.
+_GREET_SRC="/usr/local/share/elite/sddm/theme.conf"
+_GREET_DST="/usr/share/sddm/themes/archcraft/theme.conf"
+if [ -r "$_GREET_SRC" ] && [ -d "/usr/share/sddm/themes/archcraft" ]; then
+    if [ ! -e "$_GREET_DST" ]; then
+        if cp -p "$_GREET_SRC" "$_GREET_DST" 2>/dev/null; then
+            tlog "greeter: theme.conf ENTREGUE (a paleta oficial da casa no greeter ausente — BLOCO 4)"
+        else
+            tlog "greeter: FALHA ao gravar o theme.conf ausente (o cp recusou) — o greeter segue com a pele que tem"
+        fi
+    else
+        _greet_hash="$(sha256sum "$_GREET_DST" 2>/dev/null | cut -d' ' -f1)"
+        case " 7c3d94fff2275516a3ac31fa2b4306338555bf9ef92c1e48ff781cadc43012fc " in
+            *" $_greet_hash "*)
+                # o ÚNICO fóssil real: o theme.conf UPSTREAM
+                # (archcraft-sddm-theme 2.0, sha256 7c3d94ff… — o que TODO
+                # rig que nunca recebeu a casa carrega). A nossa v1 É o
+                # mestre de hoje: mestre == destino cai no no-op abaixo e
+                # nunca precisa de fóssil. Se um dia a pele v2 nascer, o
+                # sha da v1 entra AQUI (shas reais apenas — o fake não é
+                # lei nesta casa).
+                if cmp -s "$_GREET_SRC" "$_GREET_DST"; then
+                    :   # mestre == fóssil: nada a fazer (idempotência)
+                else
+                    cp -p "$_GREET_DST" "$_GREET_DST.bak-$(date +%Y%m%d%H%M%S)" 2>/dev/null || true
+                    if cp -p "$_GREET_SRC" "$_GREET_DST" 2>/dev/null; then
+                        tlog "greeter: theme.conf RENOVADO (fóssil reconhecido — a paleta oficial da casa chega à tela de login; backup ao lado)"
+                    else
+                        tlog "greeter: FALHA ao renovar o theme.conf (o cp recusou) — a pele antiga segue no lugar"
+                    fi
+                fi
+                ;;
+            *)
+                tlog "greeter: theme.conf PERSONALIZADO — intocável (a lei do domínio v3 vale até no /usr/share; o mestre da casa aguarda em /usr/local/share/elite/sddm/)"
+                ;;
+        esac
+    fi
+fi
+unset _GREET_SRC _GREET_DST _greet_hash
+
 # ── 1.0-93 — O SCX_LAVD DE VERDADE (a ordem do dono: o scx-scheds
 #      instala /usr/bin/scx_lavd SEM .service nenhum — a unit nova da
 #      casa /etc/systemd/system/scx-lavd.service o roda DIRETO). A

@@ -215,8 +215,10 @@ LOCK_SRC="${ELITE_LOCK_SRC:-/usr/local/share/elite/hyprlock/hyprlock.conf}"
 LOCK_DST="${XDG_CONFIG_HOME:-$HOME/.config}/hypr/hyprlock.conf"
 # fósseis do lock: v2.8.0 (6e9cf53) · v2.5.0 (5c6c3dd) · v2.3.0/v2.1.1
 # (e96bec4) · v4 (E97, e53fbf2c) · v5 (E100, a37c7c13 — quem adotou a v5
-# renova para a v6 PELO FÓSSIL, sem --lock-adopt). O git da casa é a fonte.
-LOCK_FOSSILS="8db51ea1b3f1538ff8205da0acfee007ad09f45a312680f4c7584259ee7a254c 3b12babe69f16e40edd5dd1c8a4680e2b32d116821f7c3aad138d803a3ef5407 67e7a7da7ded2b55bbfe3b0090ce6801a902a8d89f410c9e8155ff435f095711 e53fbf2c5fa2779c0881141d8b0f9198e09b6dfbb1be8937da00c5a6e4669717 a37c7c13e6f51b0fe912ecccff2dcb0f5ab0a430eb144e80041fe751617ef9f9"
+# renova para a v6 PELO FÓSSIL, sem --lock-adopt) · v7 (E106,
+# 6e459724 — a paleta antiga do greeter: quem está na v7 renova para a
+# v8 PELO FÓSSIL, sem --lock-adopt). O git da casa é a fonte.
+LOCK_FOSSILS="8db51ea1b3f1538ff8205da0acfee007ad09f45a312680f4c7584259ee7a254c 3b12babe69f16e40edd5dd1c8a4680e2b32d116821f7c3aad138d803a3ef5407 67e7a7da7ded2b55bbfe3b0090ce6801a902a8d89f410c9e8155ff435f095711 e53fbf2c5fa2779c0881141d8b0f9198e09b6dfbb1be8937da00c5a6e4669717 a37c7c13e6f51b0fe912ecccff2dcb0f5ab0a430eb144e80041fe751617ef9f9 6e4597244cb625dde1ed33f419afabb8bf9270230a4218311c9c4acf9919b0ea"
 
 # E101 — AS SKINS DA CASA (a gramática E91 generalizada): o rc.xml e o
 # swayosd/config.toml adotam a MESMA lei da lock skin. O rc.xml de rig vivo

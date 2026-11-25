@@ -231,5 +231,38 @@ file_has "daemon: o DRM uevent re-sinaliza a dock/barra (o refresh de pele)" "cr
 file_has "build.sh: o sudoers.d veste 750 (o aviso de permissão cala)" "$BS" 'install -dm750 "${pkgdir}/etc/sudoers.d"'
 file_has "build.sh: o polkit rules.d veste 750 (idem)" "$BS" 'install -dm750 "${pkgdir}/etc/polkit-1/rules.d"'
 
+# ══ BLOCO 4 (1.0-98) — LOCK + GREETER NA PALETA OFICIAL (docs/skills/02) ══
+# A LOCK SKIN v8: os tokens oficiais substituem a aproximação da era v5/v7
+# (a paleta antiga do theme.conf do SDDM) — os rgba velhos MORREM do código:
+file_has "lock v8: o foco/digitação veste o acento #a855f7" "$AIROOTFS/etc/skel/.config/hypr/hyprlock.conf" 'rgba(168, 85, 247'
+file_has "lock v8: o erro veste o #f38ba8 (elite-danger)" "$AIROOTFS/etc/skel/.config/hypr/hyprlock.conf" 'rgba(243, 139, 168'
+file_has "lock v8: o relógio veste o nítido #f8fafc" "$AIROOTFS/etc/skel/.config/hypr/hyprlock.conf" 'rgba(248, 250, 252'
+file_has "lock v8: a borda inativa veste o grafite #262637" "$AIROOTFS/etc/skel/.config/hypr/hyprlock.conf" 'rgba(38, 38, 55'
+file_has "lock v8: o campo veste a ilha #181825" "$AIROOTFS/etc/skel/.config/hypr/hyprlock.conf" 'rgba(24, 24, 37'
+file_has "lock v8: o raio de canto é O RAIO DA DOCK (rounding = 20)" "$AIROOTFS/etc/skel/.config/hypr/hyprlock.conf" 'rounding = 20'
+file_hasnt "lock v8: a paleta antiga do greeter MORRE do código (a era #D8D8D8 não volta)" "$AIROOTFS/etc/skel/.config/hypr/hyprlock.conf" 'rgba(216, 216, 216'
+file_hasnt "lock v8: o azul de validação da era antiga não volta (#5294E2)" "$AIROOTFS/etc/skel/.config/hypr/hyprlock.conf" 'rgba(82, 148, 226'
+# A PELE DO GREETER (theme.conf override do tema archcraft do SDDM — o
+# stack NATIVO, zero daemon/dep nova):
+file_has "greeter: a pele override veste a BORDA ROXA ATIVA em foco" "$AIROOTFS/usr/share/sddm/themes/archcraft/theme.conf" 'HighlightBorderColor="#a855f7"'
+file_has "greeter: o relógio do login veste o nítido #f8fafc" "$AIROOTFS/usr/share/sddm/themes/archcraft/theme.conf" 'TimeTextColor="#f8fafc"'
+file_has "greeter: a data veste o #cdd6f4" "$AIROOTFS/usr/share/sddm/themes/archcraft/theme.conf" 'DateTextColor="#cdd6f4"'
+file_has "greeter: o erro do login veste o #f38ba8" "$AIROOTFS/usr/share/sddm/themes/archcraft/theme.conf" 'WarningColor="#f38ba8"'
+file_has "greeter: os campos veste o raio da dock (RoundCorners 20)" "$AIROOTFS/usr/share/sddm/themes/archcraft/theme.conf" 'RoundCorners="20"'
+file_has "greeter: o blur leve está ligado (FullBlur true, custo só do instante)" "$AIROOTFS/usr/share/sddm/themes/archcraft/theme.conf" 'FullBlur="true"'
+file_has "greeter: ZERO saudação (HeaderText vazio — uma voz por tela)" "$AIROOTFS/usr/share/sddm/themes/archcraft/theme.conf" 'HeaderText=""'
+file_has "greeter: o hover NUNCA inverte para claro (acento suave #cba6f7)" "$AIROOTFS/usr/share/sddm/themes/archcraft/theme.conf" 'HoverSessionButtonTextColor="#cba6f7"'
+# A SESSÃO DE ENTRADA: cursor único, sessão labwc direta:
+file_has "greeter: o cursor do login é Bibata (o último sotaque do ponteiro morre)" "$AIROOTFS/etc/sddm.conf.d/kde_settings.conf" 'CursorTheme=Bibata'
+file_has "greeter: a sessão do autologin é labwc (sem ruído de seletor)" "$AIROOTFS/etc/sddm.conf.d/kde_settings.conf" 'Session=labwc'
+file_hasnt "packages.add: o archcraft-cursor-qogirr não volta (pacote órfão aposentado)" "$PKG" '^archcraft-cursor-qogirr$'
+# A ENTREGA (uma fonte, dois veículos — ISO via overlay, rig via mestre):
+file_has "build.sh: o mestre do greeter viaja no pacote (elite/sddm)" "$BS" '/usr/local/share/elite/sddm/theme.conf'
+file_has "build.sh: o mestre do greeter nasce DA MESMA FONTE do overlay" "$BS" '/work/elite/airootfs/usr/share/sddm/themes/archcraft/theme.conf'
+file_has "post-upgrade: a pele do greeter chega ao rig vivo na dose" "$AIROOTFS/usr/local/bin/elite-post-upgrade" '/usr/share/sddm/themes/archcraft/theme.conf'
+file_has "rice: o fóssil da v7 na rede do lock (quem adotou a v7 renova à v8)" "$AIROOTFS/usr/local/bin/craft-rice" '6e4597244cb625dde1ed33f419afabb8bf9270230a4218311c9c4acf9919b0ea'
+# O MOLDE veste o pkgrel 98 (lei E41 — o guard cobra)
+file_has "build.sh: o pkgrel da era é 98 (elite-system 1.0-98)" "$BS" 'pkgrel=98'
+
 printf '%s\n' "$OK_COUNT $FAIL_COUNT $SKIP_COUNT" > "$WORK/fase20.txt"
 exit 0

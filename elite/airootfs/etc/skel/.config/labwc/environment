@@ -19,8 +19,9 @@ XDG_DATA_DIRS=/usr/local/share:/usr/share:/var/lib/flatpak/exports/share
 # compositor/foot/Qt — três personalidades num só boot. O Bibata já é o tema
 # da ISO (archcraft-cursor-bibata) e dos GTK: agora É o tema da SESSÃO inteira
 # (o XCURSOR_* cobre os clientes; o themerc-override crava o cursor.theme
-# para o próprio compositor). O greeter Qogirr é a face pública do SDDM —
-# decisão consciente de manter (o rice do greeter é outro domínio).
+# para o próprio compositor). BLOCO 4: o greeter também veste Bibata
+# (kde_settings.conf CursorTheme) — o último sotaque do ponteiro morre:
+# UM cursor do greeter ao desktop.
 XCURSOR_THEME=Bibata
 XCURSOR_SIZE=24
 

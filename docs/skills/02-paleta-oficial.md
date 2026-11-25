@@ -69,6 +69,23 @@ direto — só `@define-color` define e só `@elite-*` consome. Os skins externo
 do cabeçalho da folha mestra, hoje cumprida à mão — manter sincronizado neste
 mapa a cada mudança).
 
+## 3b. Os consumidores fora do GTK (BLOCO 4, 1.0-98) — as DUAS TELAS DE ENTRADA
+
+O lock e o greeter vestem a MESMA paleta (a promessa dos skins externos
+estendida às telas de entrada da sessão):
+
+| Superfície | Arquivo | Consumo |
+|---|---|---|
+| Lock (hyprlock v8) | `elite/airootfs/etc/skel/.config/hypr/hyprlock.conf` | relógio `#f8fafc` · data/campo `#cdd6f4` · ilha `rgba(24,24,37,…)` (#181825) · borda inativa `#262637` · foco/validando `#a855f7` · erro `#f38ba8` · rodapé `#a9a3c2` · raio 20 (o raio da dock) |
+| Greeter (SDDM archcraft) | `elite/airootfs/usr/share/sddm/themes/archcraft/theme.conf` | relógio `#f8fafc` · data/campos `#cdd6f4` · borda inativa `#262637` · **borda roxa ATIVA em foco** `HighlightBorderColor #a855f7` · erro `#f38ba8` · botão/seleção `#a855f7` com texto `#11111b` · hover `#cba6f7` (nunca inverte para claro) · RoundCorners 20 / PopupRadius 12 |
+
+Regras BLOCO 4: `HeaderText` vazio (uma voz por tela — zero saudação);
+blur leve (lock: 3 passes/size 8 · greeter: FullBlur 1.0/BlurMax 64) — o
+custo é do instante da tela, zero consumo residual na sessão ativa;
+cursor único Bibata do greeter ao desktop (`kde_settings.conf`). A fonte
+única dos valores é ESTE mapa: mudou aqui, mudam os dois arquivos no
+MESMO commit.
+
 ## 4. Contraste: as 4 leis numéricas
 
 1. Corpo de texto: **≥ 4.5:1** (AA) — todos os pares oficiais passam (mínimo
