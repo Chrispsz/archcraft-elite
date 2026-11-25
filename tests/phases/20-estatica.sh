@@ -142,8 +142,15 @@ file_has "bar: o CenterBox (o relógio exatamente no centro)" "crates/craft-bar-
 file_has "bar: o relógio LOCAL (o glib now_local — o UTC morre)" "crates/craft-bar-rs/src/ui.rs" 'now_local'
 file_has "bar: o calendário GTK4 do hover" "crates/craft-bar-rs/src/ui.rs" 'gtk::Calendar'
 # E147 — A RECONSTRUÇÃO DA UI: os contratos novos substituem os da era
-file_has "bar: a central de áudio unificada (popover)" "crates/craft-bar-rs/src/ui.rs" 'popover_audio'
-file_has "bar: o painel de bluetooth (power + dispositivos)" "crates/craft-bar-rs/src/ui.rs" 'popover_bt'
+# E149 — O MAPA DIRETO: o ESQUERDO abre a FERRAMENTA de verdade, o
+# DIREITO é a AÇÃO RÁPIDA sem janela (a era popover customizado morre —
+# os 3 contratos da central/painel/seletor de popover são SUBSTITUÍDOS)
+file_has "bar: o mapa E149 do áudio — o ESQUERDO abre o pwvucontrol" "crates/craft-bar-rs/src/ui.rs" 'pwvucontrol'
+file_has "bar: o mute RÁPIDO no direito (wpctl set-mute na hora, sem janela)" "crates/craft-bar-rs/src/ui.rs" 'set-mute'
+file_has "bar: o mapa E149 do bluetooth — o ESQUERDO abre o blueman-manager" "crates/craft-bar-rs/src/ui.rs" 'blueman-manager'
+file_has "bar: o mapa E149 da rede — o ESQUERDO abre o iwgtk (o editor técnico é a queda honesta)" "crates/craft-bar-rs/src/ui.rs" 'iwgtk'
+file_has "bar: o direito da rede alterna o RÁDIO Wi-Fi na hora" "crates/craft-bar-rs/src/ui.rs" '["radio", "wifi"]'
+file_has "bar: a sessão é O endereço único de Bloquear/Encerrar (o dedupe da diretriz)" "crates/craft-bar-rs/src/ui.rs" 'bar.logout'
 file_has "bar: o ícone por NOME GTK (o glifo Nerd quebrado morre)" "crates/craft-bar-rs/src/ui.rs" 'audio-volume-high-symbolic'
 file_has "bar: o juízo do ícone de volume pelo estado (o núcleo nomeia)" "crates/craft-bar-rs/src/state.rs" 'audio-volume-muted-symbolic'
 file_hasnt "bar: o bgapps NÃO VOLTA (a ordem do dono: fora da interface e do código)" "crates/craft-bar-rs/src/ui.rs" 'craft-bgapps'
@@ -152,7 +159,6 @@ file_hasnt "daemon: o ouvidor bus bgapps não volta (nenhum emissor do +9)" "cra
 file_has "post-upgrade: o fóssil craft-bgapps morre com voz" "elite/airootfs/usr/local/bin/elite-post-upgrade" 'craft-bgapps'
 file_has "elite-clean: o blueman NÃO é mais removido (o gerenciador da interface fica)" "elite/airootfs/usr/local/bin/elite-clean" 'blueman: DEVOLVIDO ao sistema'
 file_has "post-upgrade: a sincronização de peles do skel" "elite/airootfs/usr/local/bin/elite-post-upgrade" 'sync_skel'
-file_has "bar: o seletor rápido de rede (popover)" "crates/craft-bar-rs/src/ui.rs" 'popover_rede'
 file_has "bar: o botão Aplicativos com ícone GTK" "crates/craft-bar-rs/src/ui.rs" 'view-app-grid-symbolic'
 file_hasnt "bar: as pílulas da mesa não voltam (o scroll/atalho do labwc manda)" "crates/craft-bar-rs/src/ui.rs" 'wsbtn'
 file_hasnt "bar: o título ativo não volta (a moldura da janela manda)" "crates/craft-bar-rs/src/ui.rs" 'titulolbl'
@@ -199,6 +205,13 @@ file_has "probe: o bars.lock só é conferido se EXISTE (o root:root morre)" "$A
 file_has "menu: o Modo de jogo abre o painel (craft-game menu)" "elite/airootfs/etc/skel/.config/labwc/menu.xml" 'command="craft-game menu"'
 file_has "menu: a Trava automática abre o painel (craft-idle menu)" "elite/airootfs/etc/skel/.config/labwc/menu.xml" 'command="craft-idle menu"'
 file_has "idle: o verbo menu existe (o painel do dono)" "$AIROOTFS/usr/local/bin/craft-idle" 'craft-pick --title'
+# E149 — A FÁBRICA DA VAGA AUTOMÁTICA E DA TRAVA (a diretriz: o modo
+# jogo volta a nascer ligado e o idle fica 5/5/20 — lock=apaga num só
+# gesto, suspende em 20; o skel cobre a ISO nova, o post_upgrade cobre
+# o rig que antecedeu a dose)
+file_has "jogo: o AUTO=1 nasce na casa (a vaga automática do skel)" "elite/airootfs/etc/skel/.config/elite/game.conf" 'AUTO=1'
+file_has "trava: a fábrica do idle é 5/5/20 (lock=apaga num só gesto, suspende 20)" "elite/airootfs/etc/skel/.config/elite/idle.conf" 'LOCK_MIN=5'
+file_has "daemon: a pele do swaync chega do skel ANTES do fork (o Config not found! morre)" "crates/elite-daemon/src/supervise.rs" 'fn entrega_pele_swaync'
 # a gaveta com memória
 file_line_exact "apps: o craft-apps é bin da casa (a gaveta com toggle)" "$AIROOTFS/usr/local/bin/craft-apps" '#!/bin/sh'
 file_has "apps: o toggle mata a gaveta DO DONO pelo comm" "$AIROOTFS/usr/local/bin/craft-apps" 'nwg-drawer'

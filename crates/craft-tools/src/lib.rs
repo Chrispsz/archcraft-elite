@@ -1,22 +1,17 @@
 // ═════════════════════════════════════════════════════════════════════════
-// craft-tools — lib.rs (2.0 Fase 2). O NÚCLEO PURO das ferramentas
-// nativas da casa: os argumentos, os filtros e o MAPA que o craft-help
-// veste. std-only e testado em qualquer lugar (a lei do degrau — a
-// pele GTK4 mora nos bins atrás da feature "gui").
+// craft-tools — lib.rs (E149). O NÚCLEO PURO das ferramentas nativas
+// da casa: os argumentos, os filtros e o MAPA que o craft-help veste.
+// std-only e testado em qualquer lugar (a lei do degrau — a pele GTK4
+// mora no craft-pick atrás da feature "gui").
 //
-// A DIRETRIZ QUE ESTE CRATE CUMPRE: "substitua os 12 chamadores do
-// craft-menu por utilitários nativos em Rust + GTK4 no mesmo THEME_CSS
-// (craft-update, craft-clean, craft-help) e aposente de vez o
-// craft-menu". A face do dono deixa de ser foot+terminal: atualizar,
-// limpar, ajudar e ESCOLHER são JANELAS da casa — a mesma pele da
-// barra e da dock (o THEME_CSS embutido do elite-core).
-//
-// O ESCOPO HONESTO: os MOTORES continuam sendo os já provados em
-// campo (elite-dose/elite-clean/elite-update — o pkexec sobe a dose
-// pela regra 50-elite-wheel; o craft-help carrega o mapa). AQUI mora
-// a FACE: janela, botão, o fluxo do output em texto vivo e o veredito
-// no fim. A diretriz §4: "delegar às ferramentas dedicadas" — o pacman
-// é o motor, a GUI é a porta.
+// A DIRETRIZ QUE ESTE CRATE CUMPRE AGORA (E149 — a simplificação radical):
+// ajuda, atualização e limpeza são EXECUÇÃO DIRETA no terminal (o
+// `craft-update`/`craft-clean`/`craft-help` SEM argumentos disparam a
+// tarefa na hora — stdio herdado, exit code honesto; o `-h`/`--help`
+// segue o contrato E90). As janelas GUI intermediárias morreram — o
+// motor é o mesmo já provado em campo (elite-update/elite-clean pelo
+// pkexec da regra 50-elite-wheel). O craft-pick fica: o seletor dmenu
+// é a face GTK4 da casa (W-v, craft-game menu, craft-idle menu).
 // ═════════════════════════════════════════════════════════════════════════
 
 /// A LEI E90 das ferramentas (a descoberta não depende de biblioteca
@@ -33,8 +28,8 @@ pub fn pede_ajuda(args: &[String], uso: &str) -> bool {
     }
 }
 
-/// O pedido de update que a GUI executa (o construtor dos argumentos
-/// é puro — os testes provam o caminho certo).
+/// O pedido de update que o TERMINAL executa (o construtor dos
+/// argumentos é puro — os testes provam o caminho certo).
 pub fn args_atualizacao() -> Vec<String> {
     // a porta canônica da constituição §5: o pkexec elite-update (a
     // regra da casa libera EXATAMENTE este caminho para o wheel local
@@ -43,10 +38,10 @@ pub fn args_atualizacao() -> Vec<String> {
     vec!["/usr/local/bin/elite-update".to_string()]
 }
 
-/// O pedido de limpeza que a GUI executa (a FASE 1 AUTO-SEGURA — sem
-/// pergunta nenhuma: journal vacuum, paccache, órfãos de link, lixeira
-/// e caches regeneráveis; a fase 2 avançada é CLI de pé no terminal,
-/// nomeada no papel da janela — a GUI não mente escopo).
+/// O pedido de limpeza que o TERMINAL executa (a FASE 1 AUTO-SEGURA —
+/// sem pergunta nenhuma: journal vacuum, paccache, órfãos de link,
+/// lixeira e caches regeneráveis; a fase 2 avançada é CLI de pé no
+/// terminal — `elite-clean menu`).
 /// 1.0-94 — O PKEXEC ENTRA NA FRENTE (o réu do rig da 1.0-93: a GUI
 /// chamava elite-clean --as-root DIRETO como usuário comum — a porta
 /// --as-root é de RAIZ e recusava na primeira linha, "Limpeza não
@@ -118,10 +113,8 @@ pub fn parse_pick_args(args: &[String]) -> (String, Vec<String>) {
 
 /// O MAPA DOS COMANDOS da casa 2.0 (o conteúdo que o craft-help veste —
 /// a família viva, sem fóssil: o craft-menu/craft-player/craft-drawer
-/// de era NÃO moram mais no papel). (seção, [(comando, descrição)]).
-#[cfg(feature = "gui")]
-pub mod janela;
-
+/// de era NÃO moram mais no papel; o craft-pick é a face GTK4 da casa —
+/// a pele dele viaja pelo elite-core). (seção, [(comando, descrição)]).
 pub fn mapa_comandos() -> Vec<(&'static str, Vec<(&'static str, &'static str)>)> {
     vec![
         (
@@ -136,9 +129,9 @@ pub fn mapa_comandos() -> Vec<(&'static str, Vec<(&'static str, &'static str)>)>
         (
             "As ferramentas (as portas de 1 clique)",
             vec![
-                ("craft-update", "a atualização com cara de casa (a janela nativa; a dose sobe pelo elite-update com diálogo de senha gráfico)"),
-                ("craft-clean", "a limpeza com cara de casa (a fase 1 auto-segura; a avançada é CLI)"),
-                ("craft-help", "este mapa — os comandos da casa em pt_BR"),
+                ("craft-update", "a dose direto no terminal (o elite-update corre vivo na tela; o diálogo de senha pergunta UMA vez)"),
+                ("craft-clean", "a limpeza direto no terminal (a fase 1 auto-segura; a avançada é elite-clean menu)"),
+                ("craft-help", "este mapa — os comandos da casa em pt_BR (direto no terminal)"),
                 ("craft-pick", "o seletor nativo da casa (as listas dos bins — a gramática dmenu em GTK4)"),
                 ("craft-idle", "a trava automática (os minutos no ~/.config/elite/idle.conf — 'craft-idle painel' é a janela, 'craft-idle 10' muda na hora)"),
                 ("craft-game", "o modo de jogo (status/on/off/auto — 'craft-game painel' é a janela; o automático é o elite-daemon)"),

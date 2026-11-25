@@ -152,11 +152,11 @@
          ratificou os NOMES — a PARTE 2/2 aperta o TETO; o contrato da
          suíte conta cada rótulo ≤16). -->
     <!-- 2.0 — AS JANELAS NATIVAS: o foot -e sai da porta do dono (a
-         diretriz 2.0: atualizar, limpar e ajudar são FACES da casa em
-         GTK4 com a pele mestra; a dose sobe pelo elite-update/pkexec
-         com o diálogo gráfico da sessão) -->
+         diretriz E149: atualizar, limpar e ajudar são EXECUÇÃO DIRETA
+         no terminal (foot -e dispara a tarefa na hora; o motor é o
+         mesmo elite-update/pkexec com o diálogo gráfico da sessão) -->
     <item label="Atualizar">
-      <action name="Execute" command="craft-update" />
+      <action name="Execute" command="foot -e craft-update" />
     </item>
     <!-- E114 — A LIMPEZA COM RAIZ NO DIÁLOGO CERTO (pkexec, o diálogo
          GRÁFICO que o octopi abre; o relatório fica no terminal e o
@@ -181,7 +181,7 @@
          'as-root USUÁRIO HOME' do binário entrega a lixeira e os
          caches do dono CERTOS, sem environment injection. -->
     <item label="Limpeza">
-      <action name="Execute" command="craft-clean" />
+      <action name="Execute" command="foot -e craft-clean" />
     </item>
     <separator />
     <!-- E109 — AppImages… e Flatpaks… SAÍRAM (a ordem do dono: menus de
@@ -237,7 +237,7 @@
     <!-- E124 — 'Ajuda — comandos da Elite' cortava em 'comandos…' na
          largura do menu: o nome curto abre o mapa completo -->
     <item label="Ajuda">
-      <action name="Execute" command="craft-help" />
+      <action name="Execute" command="foot -e craft-help" />
     </item>
     <!-- E133→E134→E136 — OS RÓTULOS DO DONO, palavra por palavra (a lista
          final do fechamento 1.0-81 — 'Aplicativos', 'Terminal',

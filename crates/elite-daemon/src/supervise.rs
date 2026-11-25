@@ -347,6 +347,30 @@ fn lanca(comando: &str, log: &PathBuf, nome_vaga: &str) -> io::Result<Child> {
     cmd.spawn()
 }
 
+/// E149 — A PELE DO RESIDENTE ANTES DO FORK (a cura do "Config not
+/// found!" do dump): o rig que antecedeu a dose acorda o swaync SEM o
+/// conf do dono — o painel nasce cego e o journal nasce vermelho. O
+/// daemon session é o ÚLTIMO portão antes do spawn: o conf do skel é
+/// entregue UMA vez; o PRESENTE é domínio do dono e NUNCA tocado (a
+/// mesma lei do sync_skel do post-upgrade). Função PURA sobre caminhos
+/// (a porta do contrato) — 0 entregas = nada mudou, nada no papel.
+fn entrega_pele_swaync(skel_dir: &std::path::Path, conf_dir: &std::path::Path) -> usize {
+    let mut entregues = 0;
+    for arquivo in ["config.json", "style.css"] {
+        let alvo = conf_dir.join(arquivo);
+        if alvo.exists() {
+            continue; // o dono veste o que é dele
+        }
+        let Ok(bytes) = std::fs::read(skel_dir.join(arquivo)) else {
+            continue; // skel sem a peça = casa calada (honesto)
+        };
+        if std::fs::create_dir_all(conf_dir).is_ok() && std::fs::write(&alvo, &bytes).is_ok() {
+            entregues += 1;
+        }
+    }
+    entregues
+}
+
 struct Vaga {
     res: Residente,
     filho: Option<Child>,
@@ -693,6 +717,27 @@ fn supervisa(
                 // durante o backoff — nenhum irmão entra no meio)
                 v.trava = trava;
                 continue;
+            }
+            //    (c') E149 — a pele do swaync ANTES do fork: o rig que
+            //        antecedeu a dose acorda o painel SEM o conf — o
+            //        "Config not found!" do dump morre no ÚLTIMO portão
+            //        (o skel entrega; o presente do dono nunca é tocado).
+            if v.res.nome == "swaync" {
+                let conf_base = std::env::var("XDG_CONFIG_HOME")
+                    .map(PathBuf::from)
+                    .unwrap_or_else(|_| {
+                        PathBuf::from(std::env::var("HOME").unwrap_or_default()).join(".config")
+                    });
+                let entregues = entrega_pele_swaync(
+                    &PathBuf::from("/etc/skel/.config/swaync"),
+                    &conf_base.join("swaync"),
+                );
+                if entregues > 0 {
+                    eprintln!(
+                        "elite-daemon supervise: swaync pele ENTREGUE do skel ({}) — o \"Config not found!\" morre no último portão",
+                        entregues
+                    );
+                }
             }
             match lanca(&v.res.comando, &log, &v.res.nome) {
                 Ok(filho) => {

@@ -603,7 +603,8 @@ fi
 sync_skel() {
     # sync_skel <home> <uid> — entrega do /etc/skel/.config o que o rig
     # NÃO tem (swaync, gtk-3.0, gtk-4.0, fuzzel — as peles da diretriz
-    # UI/UX); arquivo presente = domínio do dono, NUNCA tocado.
+    # UI/UX; E149: o game.conf do modo de jogo — a vaga automática é a
+    # fábrica); arquivo presente = domínio do dono, NUNCA tocado.
     _sh="$1"
     _suid="$2"
     _entregues=0
@@ -621,8 +622,25 @@ sync_skel() {
             fi
         done
     done
+    # E149 — O MODO DE JOGO VOLTA A SER A FÁBRICA: o game.conf AUSENTE
+    # no rig recebe o do skel (AUTO=1 — a vaga do motor no elite-daemon
+    # session); o PRESENTE é domínio do dono e NUNCA tocado (a mesma
+    # lei das peles; o toggle do menu continua sendo a porta da escolha,
+    # sem relogin). O skel cobre a instalação nova; ESTE bloco cobre o
+    # rig que antecedeu a dose.
+    if [ -f "/etc/skel/.config/elite/game.conf" ]; then
+        _galvo="$_sh/.config/elite/game.conf"
+        if [ ! -e "$_galvo" ]; then
+            mkdir -p "$_sh/.config/elite" 2>/dev/null || true
+            if cp -p "/etc/skel/.config/elite/game.conf" "$_galvo" 2>/dev/null; then
+                chown "$_suid:$(stat -c %g "$_sh" 2>/dev/null || echo "$_suid")" "$_galvo" 2>/dev/null || true
+                _entregues=$((_entregues + 1))
+                tlog "skel $_suid: game.conf ENTREGUE (AUTO=1 — a vaga automática do modo jogo é a fábrica; o dono escolhe pelo menu, sem relogin)"
+            fi
+        fi
+    fi
     if [ "$_entregues" -gt 0 ]; then
-        tlog "skel $_suid: $_entregues arquivo(s) de peles ENTREGUE(S) (swaync/gtk-3.0/gtk-4.0/fuzzel ausentes no rig — a pele da casa chega pela dose; o personalizado é intocável)"
+        tlog "skel $_suid: $_entregues arquivo(s) de peles ENTREGUE(S) (swaync/gtk-3.0/gtk-4.0/fuzzel/game.conf ausentes no rig — a pele e a vaga da casa chegam pela dose; o personalizado é intocável)"
     fi
 }
 

@@ -4,10 +4,17 @@
 // MORRE AQUI: a gramática dmenu vira GTK4 com a pele da casa — itens
 // por argv OU stdin (1 linha = 1 item), a busca filtra no tugar
 // (normalização acento-írito), Enter devolve o ESCOLHIDO no stdout e
-// exit 0, Esc fecha com exit 1 (o contrato 0/1 que os 12 chamadores
+// exit 0, Esc fecha com exit 1 (o contrato 0/1 que os chamadores
 // conhecem — SEM toggle de pid, SEM cross-dismiss: a janela É o foco;
 // o clique fora é lei do gerenciador de janelas do GTK, não estado
 // gravado em /run).
+//
+// E149 — a PELE é autocontida AQUI (o módulo janela.rs morreu com as
+// janelas GUI do update/clean/help): o padrão da casa é o da bar/dock
+// — o load_css privado que embute a folha mestra do elite-core e soma
+// o override livre do dono (~/.config/elite/tools.css, o caminho de
+// sempre). O craft-pick é a ÚNICA face GTK4 do crate — a janela-base
+// local carrega o widget_name "pickwin" que a folha conhece.
 // ═════════════════════════════════════════════════════════════════════════
 
 #[cfg(feature = "gui")]
@@ -80,11 +87,10 @@ fn build(
     itens: &[String],
     tx: std::sync::mpsc::Sender<Option<String>>,
 ) {
-    use craft_tools::janela;
     use gtk4::prelude::*;
 
-    janela::load_css();
-    let win = janela::janela_base(app, "pickwin", titulo);
+    load_css();
+    let win = janela_base(app, "pickwin", titulo);
     win.set_default_size(560, 420);
     let corpo = gtk4::Box::new(gtk4::Orientation::Vertical, 10);
     corpo.set_margin_top(14);
@@ -215,4 +221,47 @@ fn build(
 #[cfg(feature = "gui")]
 fn atty_stdin() -> bool {
     unsafe { libc::isatty(0) == 1 }
+}
+
+/// E149 — A PELE AUTOCONTIDA do seletor (o padrão bar/dock): a folha
+/// mestra do elite-core embutida + o override LIVRE do dono somado
+/// (~/.config/elite/tools.css — o caminho de sempre do crate; a mestra
+/// nunca sai, o load_from_data é a via sempre-presente do gtk4-rs 0.11).
+#[cfg(feature = "gui")]
+fn load_css() {
+    let mestra = elite_core::THEME_CSS;
+    let provider = gtk4::CssProvider::new();
+    let css = std::fs::read_to_string(caminho_override())
+        .map(|extra| format!("{mestra}\n{extra}"))
+        .unwrap_or_else(|_| mestra.to_string());
+    provider.load_from_data(&css);
+    if let Some(disp) = gtk4::gdk::Display::default() {
+        gtk4::style_context_add_provider_for_display(
+            &disp,
+            &provider,
+            gtk4::STYLE_PROVIDER_PRIORITY_USER,
+        );
+    }
+}
+
+/// o caminho do override (~/.config/elite/tools.css — o dono veste).
+#[cfg(feature = "gui")]
+fn caminho_override() -> std::path::PathBuf {
+    let base = std::env::var("XDG_CONFIG_HOME")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| {
+            std::path::PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/root".into()))
+                .join(".config")
+        });
+    base.join("elite/tools.css")
+}
+
+/// a janela-base do seletor (o widget_name "pickwin" que a folha
+/// mestra conhece — a mesma gramática das janelas da casa).
+#[cfg(feature = "gui")]
+fn janela_base(app: &gtk4::Application, nome: &str, titulo: &str) -> gtk4::ApplicationWindow {
+    let win = gtk4::ApplicationWindow::new(app);
+    win.set_widget_name(nome);
+    win.set_title(Some(titulo));
+    win
 }

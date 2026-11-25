@@ -300,79 +300,14 @@ pub fn json_text(s: &str) -> Option<String> {
     }
 }
 
-/// O valor de "tooltip" do mesmo JSON (None = sem tooltip, o botão
-/// fica calado).
-pub fn json_tooltip(s: &str) -> Option<String> {
-    let i = s.find("\"tooltip\"")?;
-    let resto = &s[i + "\"tooltip\"".len()..];
-    let dp = resto.find(':')?;
-    let depois = &resto[dp + 1..];
-    let abre = depois.find('"')?;
-    let conteudo = &depois[abre + 1..];
-    let fecha = conteudo.find('"')?;
-    if conteudo[..fecha].is_empty() {
-        None
-    } else {
-        Some(conteudo[..fecha].to_string())
-    }
-}
+// ── E149 · O MAPA DIRETO (a diretriz do dono: o clique ESQUERDO abre
+//    a FERRAMENTA de verdade do módulo — pwvucontrol/iwgtk/blueman — e
+//    o DIREITO a ação rápida; os popovers customizados da casa morrem
+//    com os seus parsers de LISTA — o rádio fica, o toggle o usa) ──
 
-// ── 1.0-93 · O SELETOR RÁPIDO DE REDE (a ordem do dono: o clique
-//    esquerdo abre um POPOVER GTK4 — toggle Wi-Fi, redes para conectar
-//    direto, status do cabo; o nm-connection-editor fica como botão
-//    avançado, o iwgtk sai da porta principal) ────────────────────────
-
-/// Uma rede Wi-Fi visível (o popover lista para conectar DIRETO).
-#[derive(Debug, Clone, PartialEq)]
-pub struct RedeWifi {
-    pub ssid: String,
-    /// sinal 0-100 (o nmcli devolve; a casa ordena por ele)
-    pub sinal: u8,
-    /// tem senha (WPA/RSN) — o cadeado do rótulo
-    pub segura: bool,
-}
-
-/// O PARSE da lista do `nmcli -t -f SSID,SIGNAL,SECURITY dev wifi list`
-/// (linhas "SSID:SINAL:SEGURANÇA"; a casa dedup por SSID e ordena por
-/// sinal — o mais forte no topo; o SSID vazio ('--' nos rigs) é
-/// filtrado honesto).
-pub fn parse_wifi_list(saida: &str) -> Vec<RedeWifi> {
-    let mut redes: Vec<RedeWifi> = Vec::new();
-    for linha in saida.lines() {
-        let c: Vec<&str> = linha.split(':').collect();
-        if c.is_empty() {
-            continue;
-        }
-        let ssid = c[0].trim();
-        if ssid.is_empty() || ssid == "--" {
-            continue;
-        }
-        let sinal: u8 = c.get(1).and_then(|s| s.trim().parse().ok()).unwrap_or(0);
-        let segura = c
-            .get(2)
-            .map(|s| {
-                let s = s.trim();
-                !s.is_empty() && s != "--" && s.to_lowercase() != "none"
-            })
-            .unwrap_or(false);
-        if let Some(ja) = redes.iter_mut().find(|r| r.ssid == ssid) {
-            if sinal > ja.sinal {
-                ja.sinal = sinal;
-            }
-            continue;
-        }
-        redes.push(RedeWifi {
-            ssid: ssid.to_string(),
-            sinal,
-            segura,
-        });
-    }
-    redes.sort_by(|a, b| b.sinal.cmp(&a.sinal).then(a.ssid.cmp(&b.ssid)));
-    redes
-}
-
-/// O PARSE do rádio do `nmcli radio wifi` ("enabled"/"disabled" — o
-/// estado do Switch do popover; a saída inesperada é None honesto).
+/// O PARSE do rádio do `nmcli radio wifi` ("enabled"/"disabled" — a
+/// verdade que o toggle rápido do clique direito lê antes de inverter;
+/// a saída inesperada é None honesto).
 pub fn parse_wifi_radio(saida: &str) -> Option<bool> {
     let t = saida.trim();
     if t.eq_ignore_ascii_case("enabled") {
@@ -384,17 +319,16 @@ pub fn parse_wifi_radio(saida: &str) -> Option<bool> {
     }
 }
 
-// ── 1.0-95/E147 · A CENTRAL DE ÁUDIO E O BLUETOOTH NATIVOS (a ordem do
-//    dono: o clique esquerdo de CADA módulo abre o controle principal —
-//    o painel unificado de Saída+Entrada para o áudio, o painel de
-//    dispositivos para o Bluetooth. Estes parsers são o NÚCLEO PURO
-//    que alimenta os popovers — testados aqui, vestidos na ui.rs) ──────
+// ── E149 · A FOTO DE ÁUDIO (o NÚCLEO PURO que alimenta o ÍCONE do
+//    botão e os toggles rápidos — o mixer completo mora no pwvucontrol,
+//    a ferramenta dedicada que o clique esquerdo abre; os defaults dos
+//    dois lados seguem sendo a verdade que a barra veste) ────────────
 
-/// Um dispositivo de áudio do `wpctl status` (id PipeWire, nome do nó,
-/// volume, mudo, é o padrão?).
+/// Um dispositivo de áudio do `wpctl status` (nome do nó, volume,
+/// mudo, é o padrão? — o id PipeWire era da era das listas; o ícone
+/// da barra só veste os defaults, E149).
 #[derive(Debug, Clone, PartialEq)]
 pub struct DispositivoAudio {
-    pub id: u32,
     pub nome: String,
     pub vol: f64,
     pub mudo: bool,
@@ -472,13 +406,13 @@ pub fn parse_linha_dispositivo(linha: &str) -> Option<DispositivoAudio> {
     if i >= chars.len() {
         return None;
     }
-    let ini = i;
     while i < chars.len() && chars[i].is_ascii_digit() {
         i += 1;
     }
-    let id: u32 = chars[ini..i].iter().collect::<String>().parse().ok()?;
     // o ponto + o espaço fecham o id ("76. "); sem eles é lixo (ex.: um
-    // número no meio de um cabeçalho)
+    // número no meio de um cabeçalho). O NÚMERO em si era o id PipeWire
+    // das listas — o ícone da barra não o usa mais (E149), mas a
+    // VALIDAÇÃO do formato segue: o ponto é a fronteira honesta.
     if i + 1 > chars.len() || chars.get(i) != Some(&'.') {
         return None;
     }
@@ -509,76 +443,11 @@ pub fn parse_linha_dispositivo(linha: &str) -> Option<DispositivoAudio> {
         return None;
     }
     Some(DispositivoAudio {
-        id,
         nome,
         vol,
         mudo,
         padrao,
     })
-}
-
-/// O RÓTULO HUMANO do nó de áudio (a lei §5 da casa: NENHUM nome cru de
-/// hardware no menu — 'alsa_output.pci-0000_0c_00.4.analog-stereo' é
-/// UID de engenheiro, o dono quer ler o que aperta). As regras da
-/// família: interno analógico, HDMI, USB, Bluetooth; o nome não casado
-/// segue o QUEM É (nomeado honesto, nunca inventado).
-pub fn rotulo_dispositivo(nome: &str) -> String {
-    if nome.starts_with("bluez_output.") || nome.starts_with("bluez_input.") {
-        return "Bluetooth".to_string();
-    }
-    if nome.contains(".hdmi") {
-        return "HDMI".to_string();
-    }
-    if nome.starts_with("alsa_output.usb-") {
-        return "Saída USB".to_string();
-    }
-    if nome.starts_with("alsa_input.usb-") {
-        return "Microfone USB".to_string();
-    }
-    if nome.starts_with("alsa_output.pci-") && nome.contains(".analog") {
-        return "Áudio interno (analógico)".to_string();
-    }
-    if nome.starts_with("alsa_input.pci-") && nome.contains(".analog") {
-        return "Microfone interno (analógico)".to_string();
-    }
-    nome.to_string()
-}
-
-/// Um dispositivo Bluetooth pareado (a linha `Device MAC Nome` do
-/// `bluetoothctl devices Paired`).
-#[derive(Debug, Clone, PartialEq)]
-pub struct BtDispositivo {
-    pub mac: String,
-    pub nome: String,
-}
-
-/// O PARSE do `bluetoothctl devices Paired` (e do `devices Connected` —
-/// o mesmo formato; o segundo alimenta o conjunto de MACs vivos).
-pub fn parse_bt_devices(saida: &str) -> Vec<BtDispositivo> {
-    let mut devs = Vec::new();
-    for linha in saida.lines() {
-        let t = linha.trim();
-        let Some(resto) = t.strip_prefix("Device ") else {
-            continue;
-        };
-        let mut pedacos = resto.splitn(2, ' ');
-        let mac = pedacos.next().unwrap_or("").trim();
-        let nome = pedacos.next().unwrap_or("").trim();
-        if mac.is_empty() || nome.is_empty() {
-            continue;
-        }
-        devs.push(BtDispositivo {
-            mac: mac.to_string(),
-            nome: nome.to_string(),
-        });
-    }
-    devs
-}
-
-/// Os MACs CONECTADOS do `bluetoothctl devices Connected` (a verdade do
-/// indicador de cada linha do painel).
-pub fn bt_conectados(saida: &str) -> Vec<String> {
-    parse_bt_devices(saida).into_iter().map(|d| d.mac).collect()
 }
 
 // ── A BATERIA pelo /sys (a porta path-parametrizada dos testes) ────────
@@ -626,28 +495,6 @@ mod tests {
     }
 
     #[test]
-    fn a_lista_de_wifi_vem_dedup_ordenada_e_filtrada() {
-        // 1.0-93 — o seletor rápido: o parse da lista do nmcli -t
-        let lista = "Minha Rede:92:WPA2\nMinha Rede:88:WPA2\n--:70:--\n \
-                     Vizinha:45:WPA1\nLivre:30:none\nCafé do Bairro:77:RSN\n";
-        let redes = parse_wifi_list(lista);
-        assert_eq!(redes.len(), 4, "dedup + '--' fora: {redes:?}");
-        // o dedup fica com o MAIOR sinal (92, não 88)
-        assert_eq!(redes[0].ssid, "Minha Rede");
-        assert_eq!(redes[0].sinal, 92);
-        assert!(redes[0].segura);
-        // ordenado por sinal: 92, 77, 45, 30
-        assert_eq!(
-            redes.iter().map(|r| r.ssid.as_str()).collect::<Vec<_>>(),
-            vec!["Minha Rede", "Café do Bairro", "Vizinha", "Livre"]
-        );
-        // a aberta é 'Livre' sem cadeado
-        assert!(!redes.iter().find(|r| r.ssid == "Livre").unwrap().segura);
-        // a lista vazia é honesta (o popover mostra 'nada encontrado')
-        assert!(parse_wifi_list("").is_empty());
-    }
-
-    #[test]
     fn o_radio_do_wifi_e_lido_com_honestidade() {
         assert_eq!(parse_wifi_radio("enabled"), Some(true));
         assert_eq!(parse_wifi_radio("disabled\n"), Some(false));
@@ -690,17 +537,15 @@ mod tests {
         assert_eq!(sinks.len(), 2, "monitor NUNCA entra em sinks");
         assert_eq!(fontes.len(), 1, "o Monitor of é o eco da saída — fora");
         let padrao = sinks.iter().find(|d| d.padrao).unwrap();
-        assert_eq!(padrao.id, 80);
         assert_eq!(
             padrao.nome,
             "alsa_output.pci-0000_0c_00.4.analog-stereo"
         );
         assert_eq!(padrao.vol, 0.60);
         let hdmi = sinks.iter().find(|d| !d.padrao).unwrap();
-        assert_eq!(hdmi.id, 76);
+        assert!(hdmi.nome.contains("hdmi-stereo-extra3"));
         assert!(!hdmi.padrao);
         let mic = &fontes[0];
-        assert_eq!(mic.id, 1101);
         assert!(mic.nome.contains("fifine"));
     }
 
@@ -719,53 +564,7 @@ mod tests {
         assert!(s.is_empty() && f.is_empty());
     }
 
-    #[test]
-    fn rotulos_humanos_dos_dispositivos() {
-        // a lei §5: NENHUM nome cru de hardware no menu do dono
-        assert_eq!(
-            rotulo_dispositivo("alsa_output.pci-0000_0c_00.4.analog-stereo"),
-            "Áudio interno (analógico)"
-        );
-        assert_eq!(
-            rotulo_dispositivo("alsa_output.pci-0000_0a_00.1.hdmi-stereo-extra3"),
-            "HDMI"
-        );
-        assert_eq!(
-            rotulo_dispositivo(
-                "alsa_input.usb-MV-SILICON_fifine_Microphone_20190808-00.mono-fallback"
-            ),
-            "Microfone USB"
-        );
-        assert_eq!(
-            rotulo_dispositivo("bluez_output.ED_25_F0_0E_B7_A4.1"),
-            "Bluetooth"
-        );
-        assert_eq!(
-            rotulo_dispositivo("alsa_input.pci-0000_0c_00.6.analog-stereo"),
-            "Microfone interno (analógico)"
-        );
-        // o não casado segue o QUEM É (honesto)
-        assert_eq!(rotulo_dispositivo("EasyEffects Sink"), "EasyEffects Sink");
-    }
-
-    #[test]
-    fn bluetooth_os_pares_e_os_conectados() {
-        let pares = "Device F0:42:1C:62:5A:BF Teclado Logi\nDevice ED:25:F0:0E:B7:A4 JBL Clip\nNão sou device\nDevice Sozinho\n";
-        let devs = parse_bt_devices(pares);
-        assert_eq!(devs.len(), 2);
-        assert_eq!(devs[0].mac, "F0:42:1C:62:5A:BF");
-        assert_eq!(devs[0].nome, "Teclado Logi");
-        assert_eq!(devs[1].nome, "JBL Clip");
-        assert!(parse_bt_devices("").is_empty());
-        let vivos = "Device ED:25:F0:0E:B7:A4 JBL Clip\n";
-        assert_eq!(
-            bt_conectados(vivos),
-            vec!["ED:25:F0:0E:B7:A4".to_string()]
-        );
-        assert!(bt_conectados("No default controller available").is_empty());
-    }
-
-    // ── o wpctl: volume + MUDO em uma linha ───────────────────────────
+    // ── o wpctl: volume + MUDO em uma linha ─────────────────────────
 
     #[test]
     fn wpctl_volume_e_mudo_nas_duas_caras() {
@@ -853,21 +652,17 @@ mod tests {
     fn json_da_familia_text_e_tooltip() {
         let jogo_on = r#"{"text":"🎮","class":"on","tooltip":"Modo de jogo ativo"}"#;
         assert_eq!(json_text(jogo_on).as_deref(), Some("🎮"));
-        assert_eq!(json_tooltip(jogo_on).as_deref(), Some("Modo de jogo ativo"));
         // text vazio = o pill SAI (o assento só existe com conteúdo)
         let off = r#"{"text":"","class":"","tooltip":""}"#;
         assert_eq!(json_text(off), None);
-        assert_eq!(json_tooltip(off), None);
         // sem o campo: None honesto
         assert_eq!(json_text("não é json"), None);
-        assert_eq!(json_tooltip("não é json"), None);
         // o player com o tempo no texto (a gramática da E124)
         let player = r#"{"text":" ♪ Faixa 1 · 1:23/3:45","class":"playing","tooltip":"Artista — Faixa"}"#;
         assert!(json_text(player).unwrap().contains("1:23/3:45"));
         // chaves fora de ordem (o contrato é o PAR, não a posição)
         let trocado = r#"{"class":"on","tooltip":"T","text":"X"}"#;
         assert_eq!(json_text(trocado).as_deref(), Some("X"));
-        assert_eq!(json_tooltip(trocado).as_deref(), Some("T"));
     }
 
     // ── a bateria pelo /sys ────────────────────────────────────────────

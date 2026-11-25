@@ -252,6 +252,24 @@ fn build(app: &gtk::Application) {
     pill.set_margin_bottom(PILL_FLOAT);
     window.set_child(Some(&pill));
 
+    // E149 — O TEARDOWN SEM ÓRFÃOS (a classe inteira do 'still has
+    // children left: GtkPopoverMenu': o repack já enterrou os botões
+    // mortos com popdown+unparent — o EXIT do processo era a porta que
+    // faltava: os botões VIVOS finalizavam com o popover ainda filho):
+    // o close_request dispensa os popovers de TODOS os botões antes do
+    // fechamento (o pkill TERM da casa passa por aqui).
+    {
+        let pill = pill.clone();
+        window.connect_close_request(move |_| {
+            let mut w = pill.first_child();
+            while let Some(c) = w {
+                w = c.next_sibling();
+                dispensa_popovers(&c);
+            }
+            glib::Propagation::Proceed
+        });
+    }
+
     // o índice de .desktops (com os EXPORTS do Flatpak e as chaves
     // reverse-DNS — o "bazaar" do io.github.kolunmi.Bazaar.desktop)
     let home = crate::home_dir();
@@ -389,25 +407,12 @@ fn drain(st: &Rc<RefCell<State>>, rx: &Receiver<Msg>) {
                 update_indicators(&s);
                 drop(s); // (o sync_dynamic pede o estado emprestado DE NOVO)
                 sync_dynamic(st);
-                // E135 — O FLUSH SÍNCRONO (a ordem do dono: toda ação de
-                // UI de pílula/indicadores completa NO MESMO ciclo): o
-                // layout é requeado e o display é drenado aqui — a
-                // surface layer-shell commita a nova largura no frame
-                // corrente, zero retângulo residual do frame velho.
-                // 1.0-93 — O ESPAÇO PRETO FANTASMA MORRE DUAS VEZES (a
-                // ordem do dono, rig da 1.0-92: o slot vazio travado
-                // até o screenshot forçar o repaint): a pílula ganha
-                // o queue_draw JUNTO do resize e a JANELA inteira
-                // requeia o layout — o frame do layer-shell nasce
-                // limpo no abrir, no fechar e na troca de app_id
-                let s = st.borrow();
-                s.pill.queue_draw();
-                s.pill.queue_resize();
-                s.window.queue_resize();
-                drop(s);
-                if let Some(d) = gdk::Display::default() {
-                    d.flush();
-                }
+                // E135/E149 — O FLUSH SÍNCRONO UNIVERSAL (o recálculo
+                // real da superfície Wayland mora na função única
+                // recalcula_superficie — chamada no fim de TODO repack
+                // e aqui; o fecho de janela vale no frame corrente
+                // em TODOS os caminhos, não só no snapshot)
+                recalcula_superficie(st);
             }
             Ok(Msg::IconReady { key, path }) => {
                 // o botão vivo ganha a cara nova (idle = main thread)
@@ -762,11 +767,35 @@ fn repack(s: &State) {
         pill.append(&s.raws[&key].button);
     }
     pill.show();
-    // E148 — o RECALCULO IMEDIATO (a ordem do dono: "recálculo imediato
-    // de tamanho (queue_resize) no gtk4-layer-shell" — o fecho do ciclo
-    // no mesmo frame; o drain da foto segue com o flush do display)
-    pill.queue_resize();
+    // E149 — o fecho do repack É o recálculo universal (o flush do
+    // display mora na função única; todo caminho que remonta — tick
+    // de 5s, SIGUSR2, pin do popover, snapshot do bus — sai com a
+    // surface commitada no frame corrente)
+    s.pill.queue_draw();
+    s.pill.queue_resize();
     s.window.queue_resize();
+    if let Some(d) = gdk::Display::default() {
+        d.flush();
+    }
+}
+
+/// E149 — O RECALCULO UNIVERSAL DA SUPERFÍCIE (a diretriz: force o
+/// recálculo real da wl_surface ao fechar/remover ícones — a pílula
+/// encolhe NO FRAME do evento, sem espaço preto à direita): o
+/// queue_draw + o queue_resize da pílula E da janela e o flush do
+/// display numa função única — o repack do tick de 5s, o SIGUSR2, a
+/// ação do popover e o snapshot do bus partilham o MESMO fecho (o
+/// flush era só do caminho do snapshot — os outros deixavam o frame
+/// velho respirar até o próximo repaint).
+fn recalcula_superficie(st: &Rc<RefCell<State>>) {
+    let s = st.borrow();
+    s.pill.queue_draw();
+    s.pill.queue_resize();
+    s.window.queue_resize();
+    drop(s);
+    if let Some(d) = gdk::Display::default() {
+        d.flush();
+    }
 }
 
 /// E148 — O ENTERRO LIMPO DE UM WIDGET COM POPUP: fecha (popdown) e
