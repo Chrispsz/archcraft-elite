@@ -107,8 +107,24 @@ note_fail() { # E37/n16: pendência anunciada NA HORA e no epílogo
 
 DRY=0; YES=0; FIRSTBOOT=0; APPS=0; STATUS=0
 FAILURES=()   # E37/n16: memória de pendências do modo interativo (epílogo honesto)
+# E90 — O VERBO SEGURO ANTES DE QUALQUER JUÍZO (o contrato 35-ajuda: a
+# descoberta não pede root nem sudo — o -h sai 0 como usuário comum, a
+# porta de leitura é o --status e o resto é sudo)
 for a in "$@"; do
   case $a in
+    -h|--help|uso)
+      echo "uso: elite-tune [--dry-run|--yes|--firstboot|--apps|--status] — o painel de tuning da casa"
+      echo ""
+      echo "  (sudo, sem flags)   o menu interativo de tuning (hardware detectado)"
+      echo "  --firstboot         o graft do primeiro boot (pacotes/atalhos/lib32)"
+      echo "  --apps              o menu de apps (baixo só o que vou usar)"
+      echo "  --status            a certificação READ-ONLY (sem sudo: kernel, zram,"
+      echo "                      cmdline, repos, serviços, GPU, firstboot)"
+      echo "  --dry-run / --yes   o ensaio / a confirmação do menu"
+      echo "  -h | --help | uso   este papel"
+      echo ""
+      echo "  o alias de leitura é o elite-status (a mesma porta --status)"
+      exit 0 ;;
     --dry-run)  DRY=1 ;;
     --yes)      YES=1 ;;
     --firstboot) FIRSTBOOT=1 ;;
