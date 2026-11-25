@@ -2992,7 +2992,7 @@ fi  # fim do pulo do PACKAGES_ONLY (keyring/mirrorlist ficam para o build comple
 #  antigo de qualquer jeito (a run #153 flagrou: 'cache hit:
 #  brave-origin-1.98.63' com o pin em 1.99.55). O pin manda: cache serve
 #  quando É o pin; fóssil de outra era morre.
-BRAVE_PIN="1.100.58"
+BRAVE_PIN="1.100.59"
 BRAVE_PKG="brave-origin-${BRAVE_PIN}-1-x86_64.pkg.tar.zst"
 say "Estágio Brave ORIGIN ${BRAVE_PIN} (release oficial) → /var/cache/elite-local/"
 # v2.1 — cache do Actions persiste /var/cache/elite-local entre runs
@@ -3012,7 +3012,7 @@ else
 mkdir -p /tmp/elite-src/brave-origin
 cat > /tmp/elite-src/brave-origin/PKGBUILD <<'EOPKGBUILD'
 pkgname=brave-origin
-pkgver=1.100.58
+pkgver=1.100.59
 pkgrel=1
 pkgdesc='Brave Origin — navegador que bloqueia ads e trackers por padrão (release oficial brave-origin)'
 arch=(x86_64)
@@ -3036,7 +3036,7 @@ source=(brave-origin.sh
 noextract=("${_brave_zip}")
 sha256sums=('ba01b127ffbedae6956b8e0f1565170cdecfbba9c19f3fcf76cbf7d6a566bea4'
             '2187fb69be1ebfbc29f8dbd55d2c98d7b5a8b677f247258b43480b894cdac82b'
-            'c10bb3951e03b430263024f35ae4356fe092e93cf7e5df54162b8982992baba2')
+            '1b07d2dca20d8bc49dc00c9f22e8b9138feb71ca12b450cf8607f7d6497e9ad7')
 
 prepare() {
     mkdir -p brave
