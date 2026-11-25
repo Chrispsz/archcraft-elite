@@ -1,36 +1,29 @@
-/* Archcraft ELITE · dock.css (v2.0 · v2.1 paleta oficial 1.0-98) — a pílula
+/* Archcraft ELITE · dock.css (E151 · identidade OBSIDIANA) — a pílula
  * da dock nativa (craft-dock-rs). GTK CSS de verdade: alpha(),
  * border-radius, background-image — sem NENHUMA propriedade inventada.
- * BLOCO 3 — A ESCADA OFICIAL do guia 02 (os MESMOS números da folha
- * mestra embutida): base #11111b elevada @ 92% (o #050508 da era AMOLED
- * morre com a Diretriz Mestre), hover sobe UM degrau ao grafite
- * #262637, degrau ativo #2e2e3d, e a bolinha de execução veste O
- * ACENTO (guia 01 §2 — estados por ACENTO, não por brilho; a v2.3.6
- * neutra morre com a paleta unificada).
- * v2.3.9 — A LEI DA PÍLULA (diretriz do dono: "ficar atento aos espaços,
- * desenhos, tamanho e consistência — tudo padronizado"): o hover abraça
- * o ícone com o MESMO respiro nos 4 lados. Antes: padding 2px 8px com
- * ícone 36px = pílula 52×44 (8px nas laterais, 4px em cima/embaixo — o
- * destaque do mouse "não parecia bem centrado"). Agora: padding 4px =
- * 36+8 = 44 nos DOIS eixos — pílula QUADRADA 44×44, ícone morto no
- * centro. Raio 12px = o padrão das pílulas de hover em alvos de 44px
- * (dock e menu, a mesma escada). */
+ * E151 — A ORDEM DO DONO: UMA superfície obsidiana entre barra e dock —
+ * a pílula veste rgba(19,19,26,.92) (#13131a) com a MESMA borda sutil
+ * mauve rgba(203,166,247,.16) da barra; o hover sobe UM degrau ao
+ * grafite #262637 (nunca claro — guia 03 R3) e a bolinha de execução
+ * veste O ACENTO (guia 01 §2 — estados por ACENTO).
+ * A LEI DA PÍLULA (v2.3.9): o hover abraça o ícone com o MESMO respiro
+ * nos 4 lados — pílula QUADRADA 44×44, ícone morto no centro, raio 12px
+ * (o padrão das pílulas de hover em alvos de 44px). */
 #dockwindow { background: transparent; }
 
 /* A pílula: fundo translúcido escuro, borda sutil, cantos 20px — o
  * visual da dock antiga, agora abraçando o conteúdo (largura natural,
  * centrada na base: a dock "horizontalmente menor e centralizada"). */
 #dockbox {
-  background: alpha(#11111b, 0.92);
-  border: 1px solid alpha(#262637, 0.9);
+  background: rgba(19, 19, 26, 0.92);
+  border: 1px solid rgba(203, 166, 247, 0.16);
   border-radius: 20px;
   padding: 4px 10px;
 }
 
 /* Botões: ícone REAL do app (hicolor via .desktop — fallback do GTK), caixa única
  * 44px — padding 4px NOS 4 LADOS: ícone 36 + 8 = 44 nos dois eixos, a
- * pílula de hover nasce QUADRADA e o ícone mora no centro exato
- * (spec M3.1 + lei da pílula v2.3.9). */
+ * pílula de hover nasce QUADRADA e o ícone mora no centro exato. */
 #dockbox button {
   padding: 4px;
   min-height: 44px;
@@ -40,20 +33,16 @@
   border: none;
   transition: background 0.15s ease;
 }
-#dockbox button:hover { background: alpha(#262637, 0.95); }
-#dockbox button:active { background: alpha(#2e2e3d, 0.97); }
+#dockbox button:hover { background: rgba(38, 38, 55, 0.95); }
+#dockbox button:active { background: rgba(46, 46, 61, 0.97); }
 
-/* Indicador de aberto (v2.3.7 — a BOLINHA do dono: "tira essa barrinha
- * branca… selar só a bolinha abaixo, algum tipo de indicador mais
- * discreto… centralizada no meio"): pílula 6×3px CENTRADA sob o ícone
- * via background-image + size/position (GTK3 não tem pseudo-elemento;
- * box-shadow inset = a barrinha full-width que ele rejeitou). A regra
+/* Indicador de aberto (v2.3.7 — a BOLINHA do dono): pílula 6×3px
+ * CENTRADA sob o ícone via background-image + size/position. A regra
  * vive DEPOIS dos :hover/:active — background-image declarado aqui
- * sobrevive ao shorthand dos estados. BLOCO 3: A bolinha veste O
- * ACENTO PRIMÁRIO #a855f7 (guia 01 §2 — estados por ACENTO; o mesmo
- * token da folha mestra embutida — zero drift entre peles). */
+ * sobrevive ao shorthand dos estados. E151: a bolinha veste O ACENTO
+ * PRIMÁRIO #a855f7 (guia 01 §2 — estados por ACENTO). */
 #dockbox button.running {
-  background-image: linear-gradient(alpha(#a855f7, 0.9), alpha(#a855f7, 0.9));
+  background-image: linear-gradient(rgba(168, 85, 247, 0.9), rgba(168, 85, 247, 0.9));
   background-size: 6px 3px;
   background-position: center bottom;
   background-repeat: no-repeat;
@@ -61,10 +50,9 @@
 
 /* v2.10.0 — o FIO dos dinâmicos: separa os fixados dos apps abertos que
  * não são pin (a dock auto-adaptável). Fio 1px vertical, tom do
- * overlay0 na metade da força — presente sem competir com os ícones.
- * Some sozinho quando não há dinâmicos (a dock volta a ser só os pins). */
+ * overlay0 na metade da força — presente sem competir com os ícones. */
 #dockbox separator {
   min-width: 1px;
   margin: 8px 7px;
-  background: alpha(#6c7086, 0.45);
+  background: rgba(108, 112, 134, 0.45);
 }

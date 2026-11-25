@@ -339,5 +339,25 @@ file_has "dump: o veredito de XML no papel CURTO (não só no --full)" "crates/c
 # as últimas falhas do journal com as unidades failed nomeadas:
 file_has "dump: as unidades failed nomeadas antes do journal" "crates/craft-dump-rs/src/main.rs" '--failed'
 
+# ══ E151 — A ONDA FINAL 2/2: A IDENTIDADE OBSIDIANA DA UI ══
+# UMA superfície escura entre barra e dock (a ordem do dono), a barra
+# 28px, Áudio e Microfone separados, foco de tema morto e calendário
+# legível:
+file_has "css: a barra veste a obsidiana #0d0d12 (a ilha do dono)" "crates/elite-core/assets/theme.css" 'rgba(13, 13, 18'
+file_has "css: a dock veste a obsidiana #13131a (a MESMA superfície)" "crates/elite-core/assets/theme.css" 'rgba(19, 19, 26'
+file_has "css: a borda sutil mauve rgba(203, 166, 247, 0.16)" "crates/elite-core/assets/theme.css" 'rgba(203, 166, 247, 0.16)'
+file_has "css: o MenuButton de energia fica SOLTO (background-image none no :checked)" "crates/elite-core/assets/theme.css" 'background-image: none'
+file_has "css: o cabeçalho do calendário veste o #f8fafc (mês e ano legíveis)" "crates/elite-core/assets/theme.css" 'calendar > header'
+file_has "css: o relógio veste tabular-nums (os dígitos não dançam)" "crates/elite-core/assets/theme.css" 'font-variant-numeric: tabular-nums'
+file_has "bar: a faixa é 28px (a proporção obsidiana do dono)" "crates/craft-bar-rs/src/ui.rs" 'const ALTURA: i32 = 28'
+file_has "bar: o microfone é ASSENTO PRÓPRIO (o fim do clique do meio escondido)" "crates/craft-bar-rs/src/ui.rs" 'set_widget_name("micbtn")'
+file_has "bar: o ícone do mudo do MIC é o próprio do microfone" "crates/craft-bar-rs/src/state.rs" 'microphone-sensitivity-muted-symbolic'
+file_has "bar: o foco do tema morre nos botões (focus_on_click false)" "crates/craft-bar-rs/src/ui.rs" 'set_focus_on_click(false)'
+file_has "bar: a pálida do foco corre na árvore pronta (apaga_foco_da_barra)" "crates/craft-bar-rs/src/ui.rs" 'apaga_foco_da_barra'
+file_has "bar: o relógio esquerdo alterna o painel swaync (a ordem do dono)" "crates/craft-bar-rs/src/ui.rs" '"swaync-client", "-t", "-sw"'
+file_has "skel: a pele viva da barra veste a obsidiana" "elite/airootfs/etc/skel/.config/elite/bar.css" 'rgba(13, 13, 18, 0.96)'
+file_has "skel: a pele viva da dock veste a obsidiana" "elite/airootfs/etc/skel/.config/elite/dock.css" 'rgba(19, 19, 26, 0.92)'
+file_has "post-upgrade: a pele de fábrica 1.0-98 sai do home (a E151 veste embaixo)" "elite/airootfs/usr/local/bin/elite-post-upgrade" 'elite/bar.css:rgba(17, 17, 27, 0.96'
+
 printf '%s\n' "$OK_COUNT $FAIL_COUNT $SKIP_COUNT" > "$WORK/fase20.txt"
 exit 0

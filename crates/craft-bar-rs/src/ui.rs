@@ -75,8 +75,9 @@ use gtk4::{gdk, glib};
 use gtk4 as gtk;
 use gtk4_layer_shell::LayerShell;
 
-/// A altura da faixa (o mesmo 36 da era waybar — a zona exclusiva).
-const ALTURA: i32 = 36;
+/// A altura da faixa (E151 — a ordem do dono: 28px, a proporção da
+/// barra obsidiana; a zona exclusiva segue automática e honesta).
+const ALTURA: i32 = 28;
 /// O dreno do canal da thread de fundo (latência dos estados ≤100ms).
 const DRAIN_MS: u64 = 100;
 /// O DEBOUNCE do drawer (a ordem do dono: 150ms, zero bloqueio).
@@ -135,6 +136,12 @@ struct State {
     /// E147 — o ícone de volume do botão (Image::from_icon_name — o
     /// glifo Nerd morreu com a fonte que não o tinha).
     audio_img: gtk::Image,
+    /// E151 — O MICROFONE É ASSENTO PRÓPRIO (a diretriz do dono: Áudio
+    /// (saída) e Microfone (entrada) SEPARADOS, ícones de mudo
+    /// distintos — o mudo do mic não é mais o clique do meio).
+    btn_mic: gtk::Button,
+    /// E151 — o ícone do microfone (microphone-sensitivity-*).
+    mic_img: gtk::Image,
     btn_rede: gtk::Button,
     /// E147 — o ícone de rede (Image::from_icon_name).
     rede_img: gtk::Image,
@@ -293,6 +300,8 @@ fn build(app: &gtk::Application) {
         clock_label: gtk::Label::new(None),
         btn_audio: gtk::Button::new(),
         audio_img: gtk::Image::from_icon_name("audio-volume-high-symbolic"),
+        btn_mic: gtk::Button::new(),
+        mic_img: gtk::Image::from_icon_name(crate::state::icone_mic(false)),
         btn_rede: gtk::Button::new(),
         rede_img: gtk::Image::from_icon_name(icone_rede(EstadoRede::Desligado)),
         btn_bt: gtk::Button::new(),
@@ -310,8 +319,16 @@ fn build(app: &gtk::Application) {
     // os ícones da barra nascem no tamanho do assento (16px — a unidade
     // visual da casa; o label Nerd nunca mais entra aqui)
     st.borrow().audio_img.set_pixel_size(16);
+    st.borrow().mic_img.set_pixel_size(16);
     st.borrow().rede_img.set_pixel_size(16);
     st.borrow().bt_img.set_pixel_size(16);
+
+    // E151 — ZERO VAZAMENTO DE TEMA GTK4 (a diretriz do dono: o seletor
+    // roxo travado e o quadrado branco morrem pela RAIZ): nenhum botão
+    // da barra fica com foco persistente (focus_on_click(false) +
+    // can_focus(false)) — o contorno do tema nunca pinta; a reação é
+    // EXCLUSIVAMENTE o :hover suave da pele da casa. A aplicação corre
+    // sobre a árvore pronta no fim do build (apaga_foco_da_barra).
 
     // ── ESQUERDA (E149 — minimalista, a ordem do dono): o botão de
     //    apps com ÍCONE GTK de verdade + a palavra "Aplicativos" (sem
@@ -406,7 +423,7 @@ fn build(app: &gtk::Application) {
     centro.append(&btn_clock);
 
     // ── DIREITA (E147 — o contrato mouse-first: game → player → áudio →
-    //    rede → bluetooth → bateria → sessão; o bgapps SAIOU da barra) ──
+    //    microfone (E151) → rede → bluetooth → bateria → sessão) ──
     {
         let s = st.borrow();
         let btn_game = s.btn_game.clone();
@@ -414,6 +431,8 @@ fn build(app: &gtk::Application) {
         let player_label = s.player_label.clone();
         let btn_audio = s.btn_audio.clone();
         let audio_img = s.audio_img.clone();
+        let btn_mic = s.btn_mic.clone();
+        let mic_img = s.mic_img.clone();
         let btn_rede = s.btn_rede.clone();
         let rede_img = s.rede_img.clone();
         let btn_bt = s.btn_bt.clone();
@@ -478,24 +497,20 @@ fn build(app: &gtk::Application) {
         }
         dir.append(&btn_player);
 
-        // E149 — O MAPA DIRETO DO ÁUDIO (a diretriz do dono: o clique
-        // ESQUERDO abre a FERRAMENTA dedicada — o pwvucontrol é o mixer
-        // de verdade, a central de controle completa; o DIREITO é a ação
-        // imediata: mute/desmute da SAÍDA; o MEIO, o do MICROFONE; o
-        // scroll ajusta o volume sem abrir nada).
+        // E149/E151 — O MAPA DIRETO DO ÁUDIO: SAÍDA é o botão de
+        // cima; o ESQUERDO abre a FERRAMENTA dedicada (pwvucontrol), o
+        // DIREITO alterna o mudo da SAÍDA, o SCROLL ajusta o volume —
+        // o mudo do MICROFONE morou no clique do meio e MORRE (o mic
+        // ganhou assento próprio abaixo).
         btn_audio.set_has_frame(false);
         btn_audio.set_child(Some(&audio_img));
         btn_audio.set_tooltip_text(Some(
-            "Áudio — clique: pwvucontrol · scroll: volume · direito: mudo da saída · meio: mudo do microfone",
+            "Áudio (saída) — clique: pwvucontrol · scroll: volume · direito: mudo",
         ));
         {
             let tx = tx.clone();
             clique_solto(&btn_audio, move |botao| match botao {
                 1 => abre_mixer(),
-                2 => {
-                    solta(&["wpctl", "set-mute", "@DEFAULT_AUDIO_SOURCE@", "toggle"]);
-                    pede_audio_detalhe(&tx);
-                }
                 3 => {
                     solta(&["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle"]);
                     pede_audio_detalhe(&tx);
@@ -508,6 +523,34 @@ fn build(app: &gtk::Application) {
             solta(&["wpctl", "set-volume", "--limit", "1.5", "@DEFAULT_AUDIO_SINK@", passo]);
         });
         dir.append(&btn_audio);
+
+        // E151 — O MICROFONE É ASSENTO PRÓPRIO (a diretriz: Áudio e
+        // Microfone SEPARADOS com ícones de mudo distintos): o ESQUERDO
+        // abre o mesmo mixer (aba de entrada), o DIREITO alterna o mudo
+        // da ENTRADA, o SCROLL ajusta o ganho — nada do segundo lado
+        // escondido num clique do meio que ninguém descobre.
+        btn_mic.set_widget_name("micbtn");
+        btn_mic.set_has_frame(false);
+        btn_mic.set_child(Some(&mic_img));
+        btn_mic.set_tooltip_text(Some(
+            "Microfone (entrada) — clique: pwvucontrol · scroll: ganho · direito: mudo",
+        ));
+        {
+            let tx = tx.clone();
+            clique_solto(&btn_mic, move |botao| match botao {
+                1 => abre_mixer(),
+                3 => {
+                    solta(&["wpctl", "set-mute", "@DEFAULT_AUDIO_SOURCE@", "toggle"]);
+                    pede_audio_detalhe(&tx);
+                }
+                _ => {}
+            });
+        }
+        scroll(&btn_mic, move |dy| {
+            let passo = if dy < 0.0 { "3%+" } else { "3%-" };
+            solta(&["wpctl", "set-volume", "--limit", "1.5", "@DEFAULT_AUDIO_SOURCE@", passo]);
+        });
+        dir.append(&btn_mic);
 
         // A REDE PERSISTENTE (a cura A4: o botão NUNCA sai — Cabo/
         // Wi-Fi/Desligado com ÍCONE GTK SEMPRE). E149 — O MAPA DIRETO:
@@ -673,16 +716,18 @@ fn build(app: &gtk::Application) {
 
     load_css();
     desenha_relogio(&st); // o frame 0 já nasce com a hora certa
+    // E151 — A PÁLIDA DO FOCO corre sobre a ÁRVORE PRONTA (todos os
+    // botões/menubuttons já nasceram): nenhum tema externo veste
+    // contorno/seleção aqui nunca mais.
+    apaga_foco_da_barra(&corpo);
     window.show();
 
     log(&format!(
-        "craft-bar-rs {VERSION} no ar (E149 — o mapa direto): clique ESQUERDO abre a FERRAMENTA \
-         de verdade (pwvucontrol · iwgtk · blueman-manager) · DIREITO é a ação rápida (mudo, \
-         rádio Wi-Fi, power do Bluetooth) · MEIO muda o microfone · popovers customizados \
-         REMOVIDOS (as ferramentas dedicadas mandam) · a gaveta tem UM dono (craft-apps, a \
-         mesma porta do W-d) · ícones SÓ por nome de ícone GTK · relógio pt_BR + calendário \
-         no hover · sessão popover nativo · MPRIS/jogo PELO FIO DO BUS · clique EXCLUSIVAMENTE \
-         no released (tolerância 5px, E140)"
+        "craft-bar-rs {VERSION} no ar (E151 — a barra obsidiana): 28px · a MESMA ilha escura da dock · \
+         SAÍDA e MICROFONE em assentos próprios (esquerdo abre o pwvucontrol · direito muda) · \
+         foco de tema DESATIVADO nos botões (zero seletor travado/quadrado branco — só hover) · \
+         relógio esquerdo abre/fecha o painel swaync · rede/Bluetooth sob demanda (iwgtk · blueman) · \
+         relógio pt_BR + calendário · MPRIS/jogo PELO FIO DO BUS"
     ));
 
     // o DRENO do canal + os sinais (100ms — a latência dos estados)
@@ -878,12 +923,10 @@ fn aplica(st: &Rc<RefCell<State>>, msg: Msg) {
                 return; // wpctl engasgou — o estado anterior CONSERVADO
             };
             let s = st.borrow_mut();
-            // o ÍCONE do botão da barra (muted/low/high pela verdade) +
-            // o tooltip com o estado dos DOIS lados (E149 — o resto é
-            // do pwvucontrol que o esquerdo abre)
-            let mic_txt = d.fonte.as_ref().map(|f| {
-                format!(" · mic {}", if f.mudo { "MUDO" } else { "ativo" })
-            });
+            // E151 — OS DOIS ASSENTOS VESTEM JUNTOS: a SAÍDA (ícone de
+            // volume + classe .muted própria) e a ENTRADA (ícone de mic
+            // + classe própria) — um lado mudo NUNCA mais pinta o
+            // botão do outro.
             if let Some(sink) = d.sink.as_ref() {
                 s.audio_img.set_icon_name(Some(icone_volume(sink.vol, sink.mudo)));
                 if sink.mudo {
@@ -892,10 +935,22 @@ fn aplica(st: &Rc<RefCell<State>>, msg: Msg) {
                     s.btn_audio.remove_css_class("muted");
                 }
                 s.btn_audio.set_tooltip_text(Some(&format!(
-                    "Áudio {}%{}{} — clique: pwvucontrol · scroll: volume · direito: mudo · meio: mudo do microfone",
+                    "Áudio {}%{} — clique: pwvucontrol · scroll: volume · direito: mudo",
                     (sink.vol * 100.0).round() as i64,
                     if sink.mudo { " · MUDO" } else { "" },
-                    mic_txt.as_deref().unwrap_or("")
+                )));
+            }
+            if let Some(fonte) = d.fonte.as_ref() {
+                s.mic_img.set_icon_name(Some(crate::state::icone_mic(fonte.mudo)));
+                if fonte.mudo {
+                    s.btn_mic.add_css_class("muted");
+                } else {
+                    s.btn_mic.remove_css_class("muted");
+                }
+                s.btn_mic.set_tooltip_text(Some(&format!(
+                    "Microfone {}%{} — clique: pwvucontrol · scroll: ganho · direito: mudo",
+                    (fonte.vol * 100.0).round() as i64,
+                    if fonte.mudo { " · MUDO" } else { "" },
                 )));
             }
         }
@@ -1050,6 +1105,30 @@ fn caixa_lateral(halign: gtk::Align) -> gtk::Box {
     b.set_halign(halign);
     b.set_valign(gtk::Align::Center);
     b
+}
+
+/// E151 — A PÁLIDA DO FOCO (zero vazamento de tema GTK4): corre sobre
+/// a árvore da barra e DESATIVA o foco persistente em TODO botão —
+/// `focus_on_click(false)` (o clique não rouba a Banana do tema) e
+/// `can_focus(false)` (o contorno `:focus` do tema externo nunca
+/// pinta). O seletor roxo travado do popover de energia e o quadrado
+/// branco do MenuButton `:checked` morrem aqui E no CSS (os estados
+/// `:checked`/`:active`/`:focus` veste `background-image: none` +
+/// `box-shadow: none`). A barra reage EXCLUSIVAMENTE ao `:hover`.
+fn apaga_foco_da_barra(raiz: &gtk::Widget) {
+    if let Ok(b) = raiz.clone().downcast::<gtk::Button>() {
+        b.set_focus_on_click(false);
+        b.set_can_focus(false);
+    }
+    if let Ok(mb) = raiz.clone().downcast::<gtk::MenuButton>() {
+        mb.set_focus_on_click(false);
+        mb.set_can_focus(false);
+    }
+    let mut c = raiz.first_child();
+    while let Some(filho) = c {
+        c = filho.next_sibling();
+        apaga_foco_da_barra(&filho);
+    }
 }
 
 /// E149 — O BOTÃO DE APPS (ícone GTK + palavra). UM dono do toggle: o

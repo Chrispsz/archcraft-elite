@@ -1,5 +1,5 @@
 /* ═════════════════════════════════════════════════════════════════════════
- * Design System ELITE — A FOLHA MESTRA ÚNICA (2.0 · paleta oficial 1.0-98)
+ * Design System ELITE — A FOLHA MESTRA ÚNICA (E151 · identidade OBSIDIANA)
  * ═════════════════════════════════════════════════════════════════════════
  * A identidade visual de TODA a casa mora neste arquivo: a craft-bar-rs,
  * a craft-dock-rs e os popovers nativos (GtkPopoverMenu) o embutem via
@@ -10,29 +10,41 @@
  * Override do dono: arquivo LIVRE (css_path da barra / dock), relido no
  * SIGUSR2 — a folha mestra é o FALLBACK, nunca um arquivo vivo editável.
  *
- * PALETA OFICIAL (Diretriz Mestre, Bloco 3 — os 7 tokens #HEX da ordem do
- * dono com os ratios WCAG 2.1 MEDIDOS por script em 2026-11-25, guia 02):
- *   base #11111b (Mocha crust) · ilha #181825 (mantle) · acento #a855f7
- *   (purple-500, texto sobre ela 4.74:1 AA) · acento suave #cba6f7 (mauve)
- *   · grafite #262637 (borda/hover) · texto #cdd6f4 (12.97:1 AAA sobre a
- *   base) · texto nítido #f8fafc (17.92:1 — relógio e títulos).
- *   Mantidos de casa: perigo #f38ba8 · desligado #6c7086 · dim #a9a3c2.
+ * PALETA OFICIAL (E151 — a ordem do dono: UMA superfície obsidiana entre
+ * barra e dock, o mesmo fundo escuro nas duas faixas):
+ *   bar (faixa topo) #0d0d12 @ 0.96 · dock (ilha base) #13131a @ 0.92 ·
+ *   borda sutil rgba(203,166,247,0.16) (mauve — a MESMA nas duas) ·
+ *   acento primário #a855f7 (purple-500) · acento suave/ativo #cba6f7
+ *   · texto #cdd6f4 (12.97:1 AAA sobre a obsidiana) · texto nítido
+ *   #f8fafc (relógio e títulos) · mutado/desligado #f38ba8.
+ *   Mantidos: base sólida #11111b (textview de leitura densa) · hover
+ *   grafite rgba(38,38,55) (hover sobe UM degrau, NUNCA claro — guia 03
+ *   R3) · dim #a9a3c2 nos textos de leitura.
  *   PROIBIDO: #000000 chapado em superfície (escola elevada GNOME/COSMIC)
  *   e hover claro (a cura do hover-branco-sobre-branco — guia 03 R3).
  *   Transparência = alpha no token (barra 0.96 · dock 0.92 · popovers
  *   quase opacos) — blur NUNCA (o labwc não faz e shader custa GPU).
  *
+ * E151 — A LEI DO FOCO MORTO NA BARRA (zero vazamento de tema GTK4):
+ *   os botões da barra nascem com focus_on_click(false)+can_focus(false)
+ *   (o Rust anda o mesmo gesto) e o CSS NÃO define contorno :focus para
+ *   eles — nenhum seletor roxo travado, nenhum quadrado branco de tema
+ *   externo. O MenuButton de energia veste background-image: none e
+ *   box-shadow: none nos estados :checked/:active/:focus (o foco do
+ *   popover fechando nunca deixa o quadrado preso). A reação da barra é
+ *   EXCLUSIVAMENTE o :hover suave.
+ *
  * DISCIPLINA DO TOKEN ÚNICO (R1 — o grep é o juiz): nenhuma regra abaixo
  * escreve HEX/rgba literal — só @define-color define e só @elite-* consome.
  * ═════════════════════════════════════════════════════════════════════════ */
 
-/* ── Os 13 tokens oficiais (nomes, não valores, nas regras abaixo) ─────── */
-@define-color elite-bg rgba(17, 17, 27, 0.96);
-@define-color elite-bg-dock rgba(24, 24, 37, 0.92);
+/* ── Os tokens oficiais (nomes, não valores, nas regras abaixo) ────────── */
+@define-color elite-bg rgba(13, 13, 18, 0.96);
+@define-color elite-bg-dock rgba(19, 19, 26, 0.92);
 @define-color elite-base #11111b;
 @define-color elite-surface rgba(38, 38, 55, 0.95);
 @define-color elite-surface-strong rgba(46, 46, 61, 0.97);
-@define-color elite-border rgba(38, 38, 55, 0.9);
+@define-color elite-border rgba(203, 166, 247, 0.16);
 @define-color elite-text #cdd6f4;
 @define-color elite-text-bright #f8fafc;
 @define-color elite-text-dim #a9a3c2;
@@ -41,27 +53,38 @@
 @define-color elite-accent #a855f7;
 @define-color elite-accent-strong #cba6f7;
 
-/* ── Barra (craft-bar-rs · layer-shell topo) ────────────────────────────── */
+/* ── Barra (craft-bar-rs · layer-shell topo · E151 obsidiana 28px) ──────── */
 #barwindow { background: @elite-bg; }
-#barbox { padding: 2px 10px; min-height: 34px; }
-#barbox > button, #barbox > menubutton {
+#barbox { padding: 1px 8px; min-height: 26px; }
+#barbox button, #barbox menubutton, #barbox > button, #barbox > menubutton {
   background: transparent;
   border: none;
   border-radius: 8px;
-  padding: 2px 9px;
+  padding: 1px 8px;
   color: @elite-text;
   font-family: "JetBrainsMono NF", "Symbols Nerd Font", monospace;
-  font-size: 15px;
+  font-size: 14px;
 }
-/* R3 — hover sobe um degrau (grafite), o texto NUNCA muda de cor */
+/* R3 — hover sobe um degrau (grafite), o texto NUNCA muda de cor.
+ * E151: a barra NÃO tem contorno de foco (a pálida do foco vive no
+ * Rust — apaga_foco_da_barra — e aqui não nasce regra :focus). */
 #barbox button:hover, #barbox menubutton:hover { background: @elite-surface; }
 #barbox button:active, #barbox menubutton:active { background: @elite-surface-strong; }
-#barbox button.muted { color: @elite-danger; }
-#barbox button.off { color: @elite-off; }
-#barbox #playerbtn label { color: @elite-text-dim; font-size: 13px; }
+/* E151 — O ESTADO ATIVO É O ACENTO SUAVE (a ordem do dono: acento
+ * #cba6f7 no ativo, perigo #f38ba8 no mutado/desligado — os ícones
+ * cinza-apagados morrem). */
+#barbox button:checked, #barbox menubutton:checked { color: @elite-accent-strong; }
+#barbox button.muted, #barbox button.off { color: @elite-danger; }
+#barbox #playerbtn label { color: @elite-text; font-size: 13px; }
 /* A cura do "relógio apagado em cinza" do dump: o token MAIS NÍTIDO da
- * casa (#f8fafc, 17.92:1 AAA sobre a base) no texto do centro exato. */
-#barbox #clockbtn { font-weight: 600; color: @elite-text-bright; }
+ * casa (#f8fafc) no texto do centro exato + tabular-nums (a ordem do
+ * dono E151 — os dígitos do relógio não dançam na virada do minuto). */
+#barbox #clockbtn {
+  font-weight: 600;
+  color: @elite-text-bright;
+  font-variant-numeric: tabular-nums;
+}
+#barbox #appbtn label { color: @elite-text; }
 
 /* ── Popovers nativos (sessão da barra — a mesma cara da barra) ─────────── */
 popover > contents {
@@ -73,7 +96,7 @@ popover > contents {
 /* A cura dos "itens apagados sem contraste" do menu de energia (guia 01
  * §1: o item e o fundo tinham o MESMO degrau): o GtkModelButton dos menus
  * nativos veste a gramática da casa — repouso transparente sobre a ilha
- * (texto #cdd6f4 = 12.97:1 AAA) e hover SOBE um degrau (R3). */
+ * (texto #cdd6f4) e hover SOBE um degrau (R3). */
 popover > contents button, popover > contents modelbutton {
   background: transparent;
   border: none;
@@ -88,9 +111,11 @@ popover > contents button:active, popover > contents modelbutton:active {
   background: @elite-surface-strong;
 }
 popover > contents button.destructive { color: @elite-danger; }
-/* R5 — foco de teclado VISÍVEL (acessibilidade MANDATÓRIA da casa): o
- * outline negativo mantém o raio da borda em toda superfície interativa. */
-#barbox button:focus, #barbox menubutton:focus, #dockbox button:focus,
+/* R5 — foco de teclado VISÍVEL nas superfícies onde o teclado CHEGA
+ * (popovers/janelas/dock). A barra é mouse-first com foco morto (E151):
+ * ela sai desta lista DE PROPÓSITO — nenhum contorno roxo preso no
+ * botão que o dono clicou. */
+#dockbox button:focus,
 popover > contents button:focus, popover > contents modelbutton:focus,
 #toolswin button:focus, #pickwin button:focus {
   outline: 2px solid @elite-accent-strong;
@@ -101,7 +126,7 @@ popover > contents separator {
   margin: 4px 6px;
 }
 
-/* ── Dock (craft-dock-rs v2 · layer-shell base) ─────────────────────────── */
+/* ── Dock (craft-dock-rs v2 · layer-shell base · E151 obsidiana) ────────── */
 #dockwindow { background: transparent; }
 #dockbox {
   background: @elite-bg-dock;
@@ -118,7 +143,7 @@ popover > contents separator {
   border: none;
   transition: background 0.15s ease;
 }
-#dockbox button:hover { background: @elite-border; }
+#dockbox button:hover { background: @elite-surface; }
 #dockbox button:active { background: @elite-surface-strong; }
 #dockbox button.running {
   /* E36 — a BOLINHA 6x3px centrada do dono */
@@ -135,23 +160,27 @@ popover > contents separator {
 
 /* ── 1.0-93 · o botão de apps (ícone + palavra) e o calendário ─────────── */
 #barbox #appbtn {
-  padding: 2px 12px;
+  padding: 1px 10px;
   border-radius: 9px;
 }
 #barbox #appbtn:hover { background: @elite-surface; }
 #barbox #appbtn:active { background: @elite-surface-strong; }
-#barbox #appbtn label { color: @elite-text-dim; font-size: 13px; }
-#barbox #appbtn:hover label { color: @elite-text; }
+#barbox #appbtn:hover label { color: @elite-text-bright; }
+/* E151 — O CALENDÁRIO LEGÍVEL (a diretriz: o cabeçalho mês/ano veste o
+ * #f8fafc — o "mês e ano invisíveis" do dump morrem). */
 popover > contents calendar {
   background: @elite-bg;
   color: @elite-text;
   border: none;
   padding: 6px;
 }
+popover > contents calendar > header {
+  color: @elite-text-bright;
+}
+popover > contents calendar header button { color: @elite-text-bright; }
 /* R4 — seleção com "hover invertido": fundo acento suave, texto da base
  * (#11111b sobre #cba6f7 = 9.23:1 AAA medido — o padrão libadwaita). */
 popover > contents calendar:selected { background: @elite-accent-strong; color: @elite-base; }
-popover > contents calendar header button { color: @elite-accent-strong; }
 
 /* ── 1.0-93 · o seletor rápido de rede (popover da barra) ──────────────── */
 popover > contents listview row { color: @elite-text; }
@@ -202,10 +231,7 @@ popover > contents switch:checked { background: @elite-accent; }
 #pickwin listview row:focus { outline: 2px solid @elite-accent-strong; outline-offset: -2px; }
 #pickwin entry { background: @elite-surface; color: @elite-text; border-radius: 8px; }
 
-/* ── E147 · a reconstrução da UI da barra: a central de áudio (saída +
-   entrada com mute/volume/dispositivos) e o painel de bluetooth
-   (power + pareados) — os rótulos e o slider seguem os MESMOS tokens
-   da folha mestra; NENHUM componente desconexo ────────────────────────── */
+/* ── E151 · os rótulos dos popovers nativos (mesma gramática da folha) ──── */
 popover > contents label.title {
   font-weight: 700;
   font-size: 14px;
@@ -236,3 +262,24 @@ popover > contents switch {
 }
 popover > contents switch:checked { background: @elite-accent; }
 #barbox button image { -gtk-icon-style: symbolic; }
+
+/* ── E151 · O SELETOR DE ENERGIA NUNCA MAIS FICA PRESO ──────────────────── */
+/* O GtkMenuButton de energia é um ToggleButton por dentro: o tema externo
+ * pinta `:checked`/`:focus` com fundo de seleção e sombra — o quadrado
+ * branco que o dono fotografou. Os estados veste NADA aqui: o fundo
+ * transparente da ilha + o :hover suave são a gramática inteira; fechou
+ * o popover, o botão volta ao repouso sem nenhum resíduo. */
+#barbox menubutton:checked,
+#barbox menubutton:active,
+#barbox menubutton:focus,
+#barbox menubutton > button:checked,
+#barbox menubutton > button:active,
+#barbox menubutton > button:focus {
+  background: transparent;
+  background-image: none;
+  box-shadow: none;
+  outline: none;
+}
+/* o hover continua suave MESMO nos estados (o degrau é a única reação) */
+#barbox menubutton:hover,
+#barbox menubutton > button:hover { background: @elite-surface; }
