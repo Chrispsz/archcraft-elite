@@ -97,6 +97,19 @@ if [ ! -s /etc/machine-id ]; then
         || { uuidgen >/etc/machine-id 2>/dev/null; }
     printf '  (ambiente: machine-id provisionado para o juízo — o rig tem de fábrica)\n'
 fi
+# E o BUS DA SESSÃO (o réu seguinte do mesmo papel, run 45592616772:
+# 'Cannot autolaunch D-Bus without X11' — no rig o systemd --user fornece
+# o bus de fábrica; o container nu não tem NENHUM). O juízo levanta o
+# bus da sessão no tmpfs próprio — o mesmo papel que o /run/user/UID/bus
+# do rig veste.
+if ! pacman -Qs '^dbus$' >/dev/null 2>&1; then
+    pacman -S --noconfirm --needed dbus >/dev/null 2>&1 || true
+fi
+if command -v dbus-daemon >/dev/null 2>&1 && [ ! -S "$XDG/session-bus" ]; then
+    dbus-daemon --session --fork --address="unix:path=$XDG/session-bus" >/dev/null 2>&1 \
+        && export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG/session-bus" \
+        && printf '  (ambiente: session bus provisionado — o systemd --user do rig o tem de fábrica)\n'
+fi
 
 # os verbot descomplicados: o caminho do compositor é o único juízo de
 # ambiente — se o socket não nascer em 15s, SKIP honesto
