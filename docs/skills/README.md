@@ -1,12 +1,20 @@
 # docs/skills — Fundação Visual do Archcraft Elite
 
-> Bloco 1/3 da Diretriz Mestre (sobre `c8e0035`, era 1.0-97). Pesquisa em
-> fontes REAIS da comunidade + a fundação visual fixada em números, não
-> opinião. Nada aqui é improviso genérico: cada guia cita arquivos e
-> crates reais desta casa (`crates/elite-core/assets/theme.css`,
-> `crates/craft-bar-rs`, `crates/craft-dock-rs`, `crates/craft-tools`,
+> Bloco 1/3 da Diretriz Mestre (sobre `c8e0035`, era 1.0-97) + os guias
+> permanentes da era E151 (onda final 2/2). Pesquisa em fontes REAIS da
+> comunidade + a fundação visual fixada em números, não opinião. Nada aqui
+> é improviso genérico: cada guia cita arquivos e crates reais desta casa
+> (`crates/elite-core/assets/theme.css`, `crates/craft-bar-rs`,
+> `crates/craft-dock-rs`, `crates/craft-tools`,
 > `elite/airootfs/etc/skel/.config/labwc/`) e bugs reais do rig do dono
 > (`dump_1_0_96.txt` + capturas).
+>
+> **A LEI DE ENTRADA (E151):** qualquer agente ou mantenedor DEVE ler
+> TODOS os arquivos `docs/skills/*.md` (e a `AGENTS.md` da raiz) ANTES de
+> editar qualquer código deste repositório — a paleta, a tipografia e as
+> regras inegociáveis (zero `--` em comentário XML, itens do menu em
+> texto puro, botões de janela à direita, zero `Co-Authored-By`, zero
+> tag de trabalho) moram aqui e na constituição.
 
 ## Os guias
 
@@ -16,6 +24,13 @@
 | [`02-paleta-oficial.md`](02-paleta-oficial.md) | A paleta oficial em `#HEX` (com ratios de contraste WCAG medidos + mapa de migração do `theme.css` atual) |
 | [`03-css-gtk4-alto-contraste.md`](03-css-gtk4-alto-contraste.md) | As regras de CSS GTK4 de alto contraste — incluindo a cura dos bugs de contraste do dump |
 | [`04-janelas-wayland.md`](04-janelas-wayland.md) | Organização de janelas e otimização Wayland (layer-shell, foreign-toplevel, zero-polling, transparência de custo zero) |
+| [`05-filosofia-extrema.md`](05-filosofia-extrema.md) | **E151** — o zero desperdício: pacotes sob demanda = 0 MB idle, instância única, zero Xorg/Python ocioso, enterro com substituto e manutenção automatizada |
+| [`06-ui-ux-gtk4-wayland.md`](06-ui-ux-gtk4-wayland.md) | **E151** — a superfície obsidiana ÚNICA entre barra e dock, o reset de estados GTK4 (`:checked`/`:focus`), o redimensionamento síncrono `gtk4-layer-shell` e a convenção de clique esquerdo vs. direito |
+
+> **Divergência entre guias:** o guia mais recente vence (02 fixou a
+> paleta Mocha da era 1.0-98; 06 fixa a identidade OBSIDIANA da E151 —
+> os tokens `elite-bg`/`elite-bg-dock`/`elite-border` da folha mestra
+> (`crates/elite-core/assets/theme.css`) são a FONTE DE VERDADE VIVA).
 
 ## O método (por que estas fontes e não outras)
 

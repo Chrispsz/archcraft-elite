@@ -395,5 +395,13 @@ file_has "iso: o NoExtract poda doc/man/gtk-doc na ISO (o apply-overlay)" "scrip
 file_has "iso: a compressão da ISO é zstd alto (o profiledef)" "scripts/apply-overlay.sh" 'COMPRESSION="zstd"'
 file_has "lock: o blur é CACHE por evento (wall-blur.png — zero blur por lock)" "$AIROOTFS/usr/local/bin/craft-lock" 'wall-blur.png'
 
+# ══ E151-d — AS SKILLS PERMANENTES E A LEI DE ENTRADA ══
+file_exists "skills: a filosofia extrema é guia permanente (05)" "docs/skills/05-filosofia-extrema.md"
+file_exists "skills: a UI/UX obsidiana é guia permanente (06)" "docs/skills/06-ui-ux-gtk4-wayland.md"
+file_has "skills: a LEI DE ENTRADA (ler docs/skills antes de editar)" "docs/skills/README.md" 'A LEI DE ENTRADA'
+file_has "constituição: o §0 manda ler as skills antes de qualquer código" "AGENTS.md" '§0 · A LEITURA OBRIGATÓRIA DAS SKILLS'
+file_has "skills 06: a superfície obsidiana ÚNICA documentada" "docs/skills/06-ui-ux-gtk4-wayland.md" 'rgba(13, 13, 18, 0.96)'
+file_has "skills 05: o udiskie morto com substituto nomeado" "docs/skills/05-filosofia-extrema.md" 'elite-automount'
+
 printf '%s\n' "$OK_COUNT $FAIL_COUNT $SKIP_COUNT" > "$WORK/fase20.txt"
 exit 0

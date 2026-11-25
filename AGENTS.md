@@ -7,6 +7,19 @@
 > estas leis; em conflito percebido, **este arquivo prevalece** e a
 > divergência deve ser registrada e harmonizada no mesmo commit.
 >
+> **§0 · A LEITURA OBRIGATÓRIA DAS SKILLS (E151):** antes de editar
+> QUALQUER código, skin, menu ou pacote deste repo, ler TODOS os arquivos
+> `docs/skills/*.md` (a fundação visual e as skills permanentes —
+> hierarquia, paleta, CSS GTK4, janelas Wayland, filosofia extrema,
+> UI/UX GTK4+Wayland) e aplicar as regras inegociáveis que eles fixam:
+> zero `--` dentro de comentário XML em `menu.xml`/`rc.xml`; itens do
+> `menu.xml` em texto puro SEM atributo de ícone; botões de janela
+> SEMPRE à direita (rc.xml + `gtk-decoration-layout`); zero
+> `Co-Authored-By` em commit; zero tag de trabalho (L4). Em conflito
+> entre guia e código, a folha mestra viva
+> (`crates/elite-core/assets/theme.css`) é a fonte de verdade da pele;
+> em conflito entre guia e constituição, a constituição vence.
+>
 > **Regra de segredos (válida para todas as seções abaixo):** NUNCA escrever
 > o valor bruto de nenhum token/credencial dentro deste arquivo ou de
 > QUALQUER arquivo rastreado pelo Git — o GitHub Secret Scanning revoga
