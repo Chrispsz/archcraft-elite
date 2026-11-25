@@ -263,6 +263,15 @@ file_has "post-upgrade: a pele do greeter chega ao rig vivo na dose" "$AIROOTFS/
 file_has "rice: o fóssil da v7 na rede do lock (quem adotou a v7 renova à v8)" "$AIROOTFS/usr/local/bin/craft-rice" '6e4597244cb625dde1ed33f419afabb8bf9270230a4218311c9c4acf9919b0ea'
 # O MOLDE veste o pkgrel 98 (lei E41 — o guard cobra)
 file_has "build.sh: o pkgrel da era é 98 (elite-system 1.0-98)" "$BS" 'pkgrel=98'
+# A CURA DO CANAL VERMELHO (#45632905510 — o E0599 pela 2ª era): o gdk4
+# 0.11.5 NÃO gera monitor-added/removed/monitors-changed (deprecated desde
+# o GTK 4.16, fora de DisplayExt) — a via viva é o items-changed do
+# GListModel de monitors(); o comentário da era que dizia 'o 0.11 o
+# entrega sem aviso' MENTIA (a classe E33 morre junto):
+file_hasnt "monitor: o trio morto do gdk4 0.11 não volta (connect_monitor_added é E0599)" "crates/craft-bar-rs/src/ui.rs" 'connect_monitor_added'
+file_hasnt "monitor: o trio morto do gdk4 0.11 não volta (dock idem)" "crates/craft-dock-rs/src/ui.rs" 'connect_monitor_added'
+file_has "monitor: o ouvidor vivo é o items-changed do GListModel (barra)" "crates/craft-bar-rs/src/ui.rs" 'connect_items_changed'
+file_has "monitor: o ouvidor vivo é o items-changed do GListModel (dock)" "crates/craft-dock-rs/src/ui.rs" 'connect_items_changed'
 
 printf '%s\n' "$OK_COUNT $FAIL_COUNT $SKIP_COUNT" > "$WORK/fase20.txt"
 exit 0

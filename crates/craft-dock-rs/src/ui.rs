@@ -843,37 +843,36 @@ fn ouve_monitores(window: &gtk::ApplicationWindow, pill: &gtk::Box) {
         let p = pill.clone();
         mon.connect_invalidate(move |_| reafirma(&w, &p));
     }
-    // hotplug: o monitor NOVO ganha o próprio ouvidor de invalidate
+    // hotplug/churn — O SUBSTITUTO CANÔNICO (a cura do Canal vermelho
+    // #45632905510: o gdk4 0.11.5 NÃO gera os sinais monitor-added/
+    // monitor-removed/monitors-changed — deprecated desde o GTK 4.16, o
+    // gir do 0.11 os deixou FORA de DisplayExt e o E0599 julgou; o
+    // comentário da era que dizia 'deprecated SÓ sob a feature v4_16, o
+    // 0.11 o entrega sem aviso' MENTIA — a classe E33 morre junto). A
+    // via viva do GDK ≥4.16 é o GListModel de monitors(): o items-changed
+    // cobre hotplug E churn num ouvidor só (docs GDK: "use the list model
+    // and monitor changes" — o mesmo modelo que a casa já percorre acima).
     {
         let w = window.clone();
         let p = pill.clone();
-        disp.connect_monitor_added(move |_, mon| {
-            let novo_w = w.clone();
-            let novo_p = p.clone();
-            mon.connect_invalidate(move |_| reafirma(&novo_w, &novo_p));
-            reafirma(&w, &p);
-            log("GdkMonitor: monitor adicionado — âncora/zona exclusiva re-afirmadas");
-        });
-    }
-    // a saída de um monitor: a âncora sobrevive no output que fica
-    {
-        let w = window.clone();
-        let p = pill.clone();
-        disp.connect_monitor_removed(move |_, _mon| {
-            reafirma(&w, &p);
-            log("GdkMonitor: monitor removido — âncora/zona exclusiva re-afirmadas");
-        });
-    }
-    // o gatilho do CHURN do conjunto de outputs (o Wayland emite
-    // monitors-changed na troca de arranjo; deprecated SÓ sob a feature
-    // v4_16 — a casa não liga features de versão, o gtk4-rs 0.11 o
-    // entrega sem aviso)
-    {
-        let w = window.clone();
-        let p = pill.clone();
-        disp.connect_monitors_changed(move |_| {
-            reafirma(&w, &p);
-            log("GdkDisplay: monitors-changed — geometria re-afirmada");
+        let l = lista.clone();
+        l.connect_items_changed(move |model, pos, removidos, adicionados| {
+            // cada monitor NOVO ganha o próprio ouvidor de invalidate
+            // (o gesto de GEOMETRIA/escala chega por ele, não por aqui)
+            for i in pos..pos + adicionados {
+                let Some(mon) = model.item(i).and_downcast::<gdk::Monitor>() else {
+                    continue;
+                };
+                let novo_w = w.clone();
+                let novo_p = p.clone();
+                mon.connect_invalidate(move |_| reafirma(&novo_w, &novo_p));
+            }
+            if removidos > 0 || adicionados > 0 {
+                // a saída de um monitor: a âncora sobrevive no output que
+                // fica; o churn reafirma de qualquer forma
+                reafirma(&w, &p);
+                log("GdkDisplay: items-changed no modelo de monitores — âncora/zona exclusiva re-afirmadas");
+            }
         });
     }
 }
