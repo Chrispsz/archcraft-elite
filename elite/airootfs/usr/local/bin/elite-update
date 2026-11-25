@@ -1,8 +1,8 @@
 #!/bin/sh
-# ═══════════════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════════════════════════
 # Archcraft ELITE · elite-update — A PORTA CANÔNICA DA ATUALIZAÇÃO SOB
 # DEMANDA (E128 — a constituição do dono, AGENTS.md §5, 2026-11-20)
-# ═══════════════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════════════════════════
 # POR QUÊ EXISTE: a constituição do projeto ("Boot instantâneo e zero
 # auto-update no boot") aposentou a cadência ao ligar (E51/E46 — os timers
 # elite-bootupdate/elite-sysupdate morreram no MESMO commit) e nomeou a lei
@@ -22,8 +22,28 @@
 # sobe nada. O craft-update continua a porta de entrada pelo menu/terminal
 # (sudo) — esta aqui é a mesma dose com o nome da lei e a autorização
 # gráfica do polkit.
-# ═══════════════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════════════════════════
 set -u
+
+# E90 — O VERBO SEGURO ANTES DE QUALQUER ESCALADA (o contrato 35-ajuda +
+# o cinto do suíte: -h NUNCA sobe dose, nem por pkexec, nem como raiz —
+# a descoberta do comando é barata e a surpresa de um pkexec sem pedir
+# era a armadilha do terminal)
+case "${1:-}" in
+    -h|--help|uso)
+        printf '%s\n' \
+            'uso: elite-update [-h | --help | uso] — a porta canônica da dose' \
+            '' \
+            '  (sem argumentos)  a dose COMPLETA do sistema (elite-dose --sistema' \
+            '                    via pkexec — diálogo gráfico de senha para o wheel)' \
+            '                    com snapshot PRE/POST do snapper' \
+            '  -h | --help | uso  este papel' \
+            '' \
+            '  A janela da casa é o craft-update (menu Ajuda); esta porta é a' \
+            '  mesma dose com o nome da lei e a autorização do polkit.'
+        exit 0
+        ;;
+esac
 
 if [ "$(id -u)" = 0 ]; then
     exec /usr/local/bin/elite-dose --sistema "$@"

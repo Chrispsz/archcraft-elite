@@ -1,7 +1,7 @@
 #!/bin/sh
-# ═══════════════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════════════════════════
 # Archcraft ELITE · craft-apps (1.0-94) — A GAVETA COM MEMÓRIA
-# ═══════════════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════════════════════════
 # O RELATO DO DONO (rig da 1.0-93): a gaveta de aplicativos (nwg-drawer)
 # só abria pelo menu/botão direito — apertar W-d de novo não fechava,
 # ESC era o único caminho. A 2.0 aposentou o wrapper craft-drawer da era
@@ -16,8 +16,24 @@
 # As portas de fecho da gaveta: W-d de novo (AQUI), o botão
 # "Aplicativos" da barra (o toggle da própria), ESC dentro dela — três
 # caminhos, nenhum mistério.
-# ═══════════════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════════════════════════
 set -u
+
+# E90 — o verbo seguro antes de qualquer toggle (o contrato 35-ajuda: a
+# descoberta não depende da gaveta; o -h nunca abre nem mata nada)
+case "${1:-}" in
+    -h|--help|uso)
+        printf '%s\n' \
+            'uso: craft-apps [-h | --help | uso] — a gaveta de aplicativos com toggle' \
+            '' \
+            '  (sem argumentos)  gaveta viva? FECHA (W-d de novo) · nenhuma? ABRE' \
+            '  -h | --help | uso  este papel' \
+            '' \
+            '  As portas de fecho da gaveta: W-d de novo (aqui), o botão' \
+            '  "Aplicativos" da barra e o ESC dentro dela.'
+        exit 0
+        ;;
+esac
 
 _uid="$(id -u)"
 _viva=0

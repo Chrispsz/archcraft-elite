@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # craft-rollback — snapshots e restauração (v2 — snapper)
-# ═══════════════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════════════════════════
 # v1 (v1.0.4): launcher do timeshift — "a ÚNICA estratégia de snapshot".
 # v2 (v2.3.6 — o dump do rig flagrou): o timeshift JAMAIS foi configurado
 # (sem config, sem snapshot — a promessa do rollback era pela metade) e o
@@ -16,7 +16,7 @@
 # o ambiente vazio). Lista também: o --no-dbus lê o config direto.
 # Gramática da família: stderr capturado, ESC/143 benignos, mlog sem
 # alarme falso.
-# ═══════════════════════════════════════════════════════════════════════════
+# ═════════════════════════════════════════════════════════════════════════
 set -euo pipefail
 
 MLOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/menus.log"
@@ -29,6 +29,22 @@ mlog() {
     return 0
 }
 note() { command -v notify-send >/dev/null 2>&1 && timeout 5 notify-send -a 'Elite' "$@" || true; }
+
+# E90 — O VERBO SEGURO ANTES DE QUALQUER MENU (o contrato 35-ajuda: o
+# desconhecido NUNCA abre o fuzzel do rollback — a descoberta sai 0
+# sem tocar em snapshot nenhum)
+case "${1:-}" in
+    -h|--help|uso)
+        printf '%s\n' \
+            'uso: craft-rollback [-h | --help | uso] — os snapshots do sistema (snapper)' \
+            '' \
+            '  (sem argumentos)  o menu: criar snapshot agora / restaurar' \
+            '  -h | --help | uso  este papel' \
+            '' \
+            '  ext4/xfs não pagam nada (o findmnt decide — a lei da casa);' \
+            '  a entrada de restauração de emergência mora no GRUB (grub-btrfs).'
+        exit 0 ;;
+esac
 
 command -v snapper >/dev/null 2>&1 || {
     mlog "Rollback: snapper AUSENTE"

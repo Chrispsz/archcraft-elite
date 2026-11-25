@@ -7,6 +7,19 @@
 # (nenhum pipeline no corpo) e sai na troca do shebang — /bin/sh é a
 # mesma rede com um interpretador a menos na fila.
 set -eu
+# E90 — o verbo seguro antes de qualquer captura (o contrato 35-ajuda:
+# 100% do mapa do craft-help responde; a descoberta não depende de grim)
+case "${1:-}" in
+  -h|--help|uso)
+    printf '%s\n' \
+      'uso: craft-shot [area|full] — captura de tela da casa' \
+      '' \
+      '  area (default)  região selecionada → clipboard + arquivo' \
+      '  full            tela inteira → arquivo' \
+      '  -h | --help | uso  este papel'
+    exit 0
+    ;;
+esac
 mode="${1:-area}"
 for bin in grim wl-copy; do
   command -v "$bin" >/dev/null 2>&1 \
