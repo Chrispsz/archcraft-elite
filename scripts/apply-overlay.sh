@@ -181,6 +181,17 @@ fi
 # do sistema instalado é reescrito pelo E3 com os defaults do pacman)
 sed -i -E 's|^#?ParallelDownloads = .*|ParallelDownloads = 10|' "$PC"
 
+# ── [5.4] E151 · NoExtract — a ISO NÃO extrai o que nunca lê ─────
+#  A faxina da ISO (a diretriz do debloat extremo): páginas de man,
+#  docs de pacote e gtk-doc não têm leitor no live (o man-db já saiu no
+#  packages.remove — manter os ARQUIVOS é peso duplo no squashfs). O
+#  E15 já poda /usr/share/man do DISCO no customize; o NoExtract evita
+#  escrever para depois apagar — menos I/O no pacstrap, squashfs menor.
+if ! grep -q '^NoExtract' "$PC"; then
+  sed -i '/^XferCommand/a NoExtract = usr/share/man/* usr/share/doc/* usr/share/gtk-doc/* usr/share/info/*' "$PC"
+fi
+
+
 # ── [5.1] (CI/root) mirrorlist do repo [archcraft] p/ o ambiente de build
 #          (o conf do profile referencia via Include; o pacstrap resolve)
 if [[ $EUID -eq 0 && ! -f /etc/pacman.d/archcraft-mirrorlist ]]; then
@@ -540,6 +551,18 @@ sed -i -e 's|iso_name="archcraft"|iso_name="archcraft-elite"|' \
        -e 's|iso_application="Archcraft Live/Installation/Rescue CD"|iso_application="Archcraft Elite Edition - Gaming Tuned Live/Installer"|' \
        "$PROFILE/profiledef.sh"
 
+# ── [9.1] E151 · A compressão da ISO = zstd ALTO ─────────────────
+#  A diretriz do debloat extremo: o xz -9e da era upstream paga horas
+#  de CPU por ~5% a menos de tamanho — o zstd nível 19 comprime
+#  comparável com descompressão MUITO mais rápida (o boot do live e o
+#  copy-to-RAM aceleram por causa do descompressor) e o build cai de
+#  horas para minutos. multithread (-T0) usa o runner inteiro.
+say "Compressão da ISO: zstd nível 19 multithread (o xz -9e aposenta)"
+sed -i -e 's|^COMPRESSION=.*|COMPRESSION="zstd"|' \
+       -e 's|^COMPRESSION_OPTIONS=.*|COMPRESSION_OPTIONS=(-19 -T0)|' \
+       "$PROFILE/profiledef.sh"
+grep -E '^COMPRESSION' "$PROFILE/profiledef.sh"
+
 # ── [9b] Permissões exec dos binários Elite (fix diag-boot2: 203/EXEC)
 #  O mkarchcraftiso copia o airootfs custom com `cp --no-preserve=mode`
 #  (mkarchcraftiso:318) → TODO arquivo custom vira 0644 no squashfs. Sem
@@ -571,6 +594,7 @@ if grep -q '^file_permissions=(' "$PD"; then
            /usr/local/bin/elite-update \
            /usr/local/bin/craft-appimage /usr/local/bin/craft-bat \
            /usr/local/bin/craft-display \
+           /usr/local/bin/elite-automount \
            /usr/local/bin/craft-dock /usr/local/bin/craft-extract \
            /usr/local/bin/craft-fix-keys /usr/local/bin/craft-flatpak \
            /usr/local/bin/craft-game /usr/local/bin/craft-hello \

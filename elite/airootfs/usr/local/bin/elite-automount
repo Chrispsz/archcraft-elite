@@ -1,0 +1,52 @@
+#!/bin/sh
+# ═══════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · elite-automount — o mount do pendrive SEM daemon (E151)
+# ═══════════════════════════════════════════════════════════════════════════
+# A diretriz do debloat extremo: o udiskie Python (58,5 MB residentes)
+# morre. Este helper é ONESHOT (a unit elite-automount@.service o roda
+# uma vez por plug — a regra 91-elite-automount o agenda): resolve o
+# usuário ATIVO da sessão GRÁFICA e pede ao udisksd (nativo, dbus) o
+# mount DELE → /run/media/<usuário>/<rótulo>, o caminho que o Thunar
+# espera e o que o mount do root nunca daria.
+# USO: elite-automount <device-basename>   (ex.: elite-automount sdb1)
+#      elite-automount --help
+# Idempotente: já montado = sucesso calado (o plug repetido não erra).
+# ═══════════════════════════════════════════════════════════════════════════
+set -u
+
+uso() {
+    sed -n '2,20p' "$0" | grep '^#' | sed 's/^# \{0,1\}//'
+    exit 0
+}
+case "${1:-}" in -h|--help|uso) uso ;; esac
+
+DEV="${1:-}"
+[ -n "$DEV" ] || { echo "uso: elite-automount <device> (ex.: sdb1) — veja --help" >&2; exit 2; }
+case "$DEV" in
+    */*) [ -e "$DEV" ] || { echo "elite-automount: device '$DEV' não existe" >&2; exit 1; } ;;
+    *) DEV="/dev/$DEV"; [ -e "$DEV" ] || exit 0 ;; # o plug morreu antes de nós: nada a fazer
+esac
+
+# o usuário ATIVO da sessão GRÁFICA (wayland/x11 no seat — os consoles
+# de texto e sessões greeter não recebem mount)
+USUARIO=""
+for _s in $(loginctl --no-legend list-sessions 2>/dev/null | awk '{print $1}'); do
+    _info="$(loginctl show-session "$_s" -p Active -p Type -p Name 2>/dev/null)" || continue
+    case "$_info" in
+        *Active=yes*)
+            case "$_info" in
+                *Type=wayland*|*Type=x11*)
+                    _u="$(printf '%s\n' "$_info" | sed -n 's/^Name=//p' | head -1)"
+                    [ -n "$_u" ] && USUARIO="$_u"
+                    ;;
+            esac
+            ;;
+    esac
+done
+[ -n "$USUARIO" ] || exit 0  # ninguém logado no gráfico: nada a montar
+
+# idempotência: o udisksctl mount em device já montado é no-op com
+# "Mounted ..." — rc 0. Qualquer falha é silêncio honesto (o Thunar
+# monta na mão se o usuário pedir; nunca um erro na cara do dono).
+runuser -u "$USUARIO" -- udisksctl mount -b "$DEV" >/dev/null 2>&1 || true
+exit 0

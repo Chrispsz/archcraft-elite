@@ -52,10 +52,18 @@ file_hasnt "autostart: nenhuma spawn direta de waybar" "$AIROOTFS/etc/skel/.conf
 # ══ O PACOTE (as ferramentas dedicadas da diretriz, o debloat) ══
 # 2.0 Fase 2 — o swayidle APOSENTOU (a vigília é do elite-daemon nativo)
 PKG="elite/packages.add"
-for p in iwgtk blueman nm-connection-editor pwvucontrol coolercontrol swaync nwg-drawer gnome-text-editor papers brave-origin udiskie cliphist swayosd xorg-server; do
+for p in iwgtk blueman nm-connection-editor pwvucontrol coolercontrol swaync nwg-drawer gnome-text-editor papers brave-origin cliphist swayosd lxqt-policykit; do
     file_line_exact "packages.add: a ferramenta dedicada $p" "$PKG" "$p"
 done
 file_hasnt "packages.add: o waybar NÃO volta (a top bar é nativa)" "$PKG" '^waybar$'
+# E151 — O DEBLOAT EXTREMO: o Xorg ocioso e o udiskie Python saem da ISO
+file_hasnt "packages.add: o xorg-server NÃO volta (o greeter é wayland nativo)" "$PKG" '^xorg-server$'
+file_hasnt "packages.add: o udiskie NÃO volta (o automount é regra udev)" "$PKG" '^udiskie$'
+file_hasnt "packages.add: o hyprpolkitagent NÃO volta (o polkit é ÚNICO)" "$PKG" '^hyprpolkitagent$'
+file_line_exact "packages.remove: o xorg-server aposentado (o greeter veste wayland — E151)" "elite/packages.remove" 'xorg-server'
+file_line_exact "packages.remove: o udiskie aposentado (o Python residente morre — E151)" "elite/packages.remove" 'udiskie'
+file_line_exact "packages.remove: o hyprpolkitagent aposentado (o lxqt-policykit é o ÚNICO)" "elite/packages.remove" 'hyprpolkitagent'
+file_has "packages.remove: os legados i3-wm/feh/openbox/i3status vedados (a faxina E151)" "elite/packages.remove" 'feh'
 file_line_exact "packages.remove: o swayidle aposentado (a vigília é do daemon)" "elite/packages.remove" 'swayidle'
 file_line_exact "packages.remove: o craft-toplevel aposentado (o C de 3 gerações)" "elite/packages.remove" 'craft-toplevel'
 file_has "packages.remove: o mousepad fica fora (gnome-text-editor é o editor)" "elite/packages.remove" 'mousepad'
@@ -361,6 +369,31 @@ file_has "post-upgrade: a pele de fábrica 1.0-98 sai do home (a E151 veste emba
 file_has "dock: o flush ÚNICO da superfície (todo evento comita no frame)" "crates/craft-dock-rs/src/ui.rs" 'fn flush_superficie'
 file_has "dock: o dreno comita o flush em TODA rodada (flags não esperam outra ação)" "crates/craft-dock-rs/src/ui.rs" 'recalcula_superficie(st);'
 file_hasnt "dock: o clique do MEIO não encerra (o Fechar mora no menu completo)" "crates/craft-dock-rs/src/ui.rs" '2 => on_middle'
+
+# ══ E151-c — O DEBLOAT EXTREMO NA ÁRVORE (o greeter wayland, o polkit
+# ÚNICO, o automount sem daemon e o motor da dose ágil) ══
+file_exists "sddm: o drop-in wayland da casa existe no overlay" "$AIROOTFS/etc/sddm.conf.d/elite_wayland.conf"
+file_has "sddm: o DisplayServer é WAYLAND (o fim do Xorg ocioso)" "$AIROOTFS/etc/sddm.conf.d/elite_wayland.conf" 'DisplayServer=wayland'
+file_has "sddm: o compositor do greeter é o LABWC (zero pacote novo)" "$AIROOTFS/etc/sddm.conf.d/elite_wayland.conf" 'CompositorCommand=labwc'
+file_has "post-upgrade: o drop-in wayland só desce com o labwc no disco (a rede anti-tela-preta)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" '/usr/bin/labwc'
+file_has "automount: a regra udev 91 existe (o udiskie morreu com substituto)" "$AIROOTFS/usr/lib/udev/rules.d/91-elite-automount.rules" 'elite-automount@'
+file_exists "automount: a unit oneshot por evento existe" "$AIROOTFS/etc/systemd/system/elite-automount@.service"
+file_line_exact "automount: o helper é bin da casa (0755, E90)" "$AIROOTFS/usr/local/bin/elite-automount" '#!/bin/sh'
+file_has "automount: o mount é do USUÁRIO ATIVO (nunca um mount de root)" "$AIROOTFS/usr/local/bin/elite-automount" 'runuser -u'
+file_has "daemon: o udiskie SAIU da fila de residentes (o Python não nasce)" "crates/elite-daemon/src/supervise.rs" 'RESIDENTES_DEFAULT'
+file_hasnt "daemon: o residente udiskie não volta (a diretriz E151)" "crates/elite-daemon/src/supervise.rs" '("udiskie",'
+file_has "daemon: a mordaca do autostart duplicado do agente (Hidden=true por usuário)" "crates/elite-daemon/src/supervise.rs" 'entrega_mordaca_polkit'
+file_has "skel: o supressor XDG do agente duplicado nasce na casa" "$AIROOTFS/etc/skel/.config/autostart/lxqt-policykit-agent.desktop" 'Hidden=true'
+file_has "post-upgrade: o udiskie sai dos rigs vivos na dose (a higiene com dependentes)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'for _deb in waybar gpsd udiskie'
+file_has "io: o escalonador do NVMe é none (a revisão de hardware E151)" "$AIROOTFS/etc/udev/rules.d/99-elite-io.rules" 'ATTR{queue/scheduler}="none"'
+file_has "io: o SSD SATA veste mq-deadline (o HDD não é tocado)" "$AIROOTFS/etc/udev/rules.d/99-elite-io.rules" 'mq-deadline'
+file_has "gtk: os botões de janela nascem À DIREITA (a lei da casa no GTK3)" "$AIROOTFS/etc/skel/.config/gtk-3.0/settings.ini" 'gtk-decoration-layout=:minimize,maximize,close'
+file_has "gtk: os botões de janela nascem À DIREITA (idem GTK4)" "$AIROOTFS/etc/skel/.config/gtk-4.0/settings.ini" 'gtk-decoration-layout=:minimize,maximize,close'
+file_has "dose: o pacman_agil sobe para 10 downloads paralelos (o -Syu ágil E151)" "$AIROOTFS/usr/local/bin/elite-dose" 'ParallelDownloads = 10'
+file_has "dose: a limpeza do cache antigo após a dose (paccache -rk1)" "$AIROOTFS/usr/local/bin/elite-dose" 'cache_enxuga'
+file_has "iso: o NoExtract poda doc/man/gtk-doc na ISO (o apply-overlay)" "scripts/apply-overlay.sh" 'usr/share/doc/*'
+file_has "iso: a compressão da ISO é zstd alto (o profiledef)" "scripts/apply-overlay.sh" 'COMPRESSION="zstd"'
+file_has "lock: o blur é CACHE por evento (wall-blur.png — zero blur por lock)" "$AIROOTFS/usr/local/bin/craft-lock" 'wall-blur.png'
 
 printf '%s\n' "$OK_COUNT $FAIL_COUNT $SKIP_COUNT" > "$WORK/fase20.txt"
 exit 0

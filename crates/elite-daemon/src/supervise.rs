@@ -35,13 +35,17 @@ use std::time::{Duration, Instant};
 /// E135 — o craft-audio-route SAI da fila: roteador de áudio vira
 /// DISPARO POR EVENTO (o netlink uevent de som dispara um `--once` —
 /// residente em python na sessão é a ordem do dono que morre).
+/// E151 — O UDISKIE SAI DA FILA (a diretriz do debloat extremo: o
+/// interpretador Python residente de 58,5 MB morre — o automount é a
+/// regra udev 91-elite-automount + a unit elite-automount@.service:
+/// oneshot POR EVENTO de plug, zero daemon, o udisksctl do usuário
+/// ativo monta em /run/media/$USER via o udisksd nativo).
 pub const RESIDENTES_DEFAULT: &[(&str, &str, Option<&str>)] = &[
     (
         "swaync",
         "swaync",
         Some("org.erikreider.swaync.cc"),
     ),
-    ("udiskie", "udiskie --automount --notify --no-tray", None),
     ("swayosd", "swayosd-server", None),
 ];
 
@@ -369,6 +373,38 @@ fn entrega_pele_swaync(skel_dir: &std::path::Path, conf_dir: &std::path::Path) -
         }
     }
     entregues
+}
+
+/// E151 — A MORDAÇA DO AUTOSTART DUPLICADO DO AGENTE POLKIT (a diretriz
+/// do polkit ÚNICO): o lxqt-policykit instala o
+/// /etc/xdg/autostart/lxqt-policykit-agent.desktop e o XDG autostart
+/// lança um SEGUNDO agente ao lado do supervisionado (~37,7 MB de Qt6
+/// vivo à toa). A cura é o SUPRESSOR POR USUÁRIO da gramática XDG:
+/// ~/.config/autostart/lxqt-policykit-agent.desktop com Hidden=true —
+/// o mesmo basename vence o do sistema e o lança-agente pula a entrada;
+/// o arquivo DO PACOTE nunca é tocado (zero conflito pacman, zero sed
+/// em /etc na sessão). O AGENTE da casa é o da vaga supervisionada —
+/// UM só. true = o supressor foi gravado (idempotente: presente = no-op).
+fn entrega_mordaca_polkit(conf_base: &std::path::Path) -> bool {
+    let alvo = conf_base.join("autostart").join("lxqt-policykit-agent.desktop");
+    if alvo.exists() {
+        return false; // já amordaçado (ou o dono escreveu o dele — intocado)
+    }
+    let corpo = "[Desktop Entry]\n\
+                Type=Application\n\
+                Name=lxqt-policykit-agent\n\
+                Hidden=true\n\
+                NoDisplay=true\n\
+                X-GNOME-Autostart-enabled=false\n\
+                # E151 (archcraft-elite): o agente polkit da casa é o da\n\
+                # vaga supervisionada do elite-daemon — UM só na sessão.\n";
+    if std::fs::create_dir_all(conf_base.join("autostart")).is_ok()
+        && std::fs::write(&alvo, corpo).is_ok()
+    {
+        true
+    } else {
+        false
+    }
 }
 
 struct Vaga {
@@ -896,6 +932,27 @@ fn supervisa(
                     );
                 }
             }
+            //    (c'') E151 — A MORDAÇA DO AUTOSTART DO AGENTE (a diretriz
+            //        do polkit ÚNICO): o lxqt-policykit traz o
+            //        /etc/xdg/autostart/lxqt-policykit-agent.desktop —
+            //        a sessão nascia com DOIS agentes (o do XDG autostart
+            //        + o supervisionado, ~37 MB de Qt6 duplicado). O
+            //        supressor POR USUÁRIO (~/.config/autostart com o
+            //        MESMO basename e Hidden=true — a gramática XDG) mata
+            //        o duplo SEM tocar o arquivo do pacote (zero conflito
+            //        pacman); o AGENTE da casa é o da vaga supervisionada.
+            if v.res.nome == "policykit" {
+                let conf_base = std::env::var("XDG_CONFIG_HOME")
+                    .map(PathBuf::from)
+                    .unwrap_or_else(|_| {
+                        PathBuf::from(std::env::var("HOME").unwrap_or_default()).join(".config")
+                    });
+                if entrega_mordaca_polkit(&conf_base) {
+                    eprintln!(
+                        "elite-daemon supervise: agente polkit ÚNICO (o autostart duplicado do lxqt-policykit amordaçado por usuário — E151)"
+                    );
+                }
+            }
             match lanca(&v.res.comando, &log, &v.res.nome) {
                 Ok(filho) => {
                     eprintln!(
@@ -957,13 +1014,13 @@ mod tests {
             "# a fila da casa (E132)\n\
              \n\
              swaync::swaync\n\
-             udiskie::udiskie --automount --notify --no-tray\n",
+             swayosd::swayosd-server\n",
         );
         assert_eq!(r.len(), 2, "comentário e linha vazia não são residentes");
         assert_eq!(r[0].nome, "swaync");
         assert_eq!(r[0].comando, "swaync");
         assert_eq!(r[0].bus, None, "gramática velha = sem gate de bus");
-        assert_eq!(r[1].comando, "udiskie --automount --notify --no-tray");
+        assert_eq!(r[1].comando, "swayosd-server");
     }
 
     #[test]
@@ -1006,8 +1063,14 @@ mod tests {
         }
         let nomes: Vec<&str> = RESIDENTES_DEFAULT.iter().map(|(n, _, _)| *n).collect();
         assert!(nomes.contains(&"swaync"));
-        assert!(nomes.contains(&"udiskie"));
         assert!(nomes.contains(&"swayosd"));
+        // E151 — o udiskie SAI da fila (o debloat extremo: o Python
+        // residente de 58,5 MB morre — o automount é a regra udev
+        // 91-elite-automount, oneshot POR EVENTO, zero daemon)
+        assert!(
+            !nomes.contains(&"udiskie"),
+            "udiskie não é mais residente (E151 — automount por regra udev)"
+        );
         // E135 — o roteador de áudio SAI da fila (disparo por evento:
         // netlink uevent de som → `craft-audio-route --once` — residente
         // python na sessão é a ordem do dono que morre)

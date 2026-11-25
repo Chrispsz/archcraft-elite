@@ -1,0 +1,15 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · escalonador de I/O por classe de disco (E151)
+# ═══════════════════════════════════════════════════════════════════════════
+# A revisão de hardware da diretriz: o NVMe NÃO precisa de escalonador
+# (a fila dele já é paralela no hardware — 'none' é a recomendação do
+# próprio kernel para NVMe rápido), e o SSD SATA fica com o mq-deadline
+# (o default do kernel para rotationals=0 — o que evita o starvation sob
+# carga de jogo). HDD (rotational=1) NÃO é tocado — o mq-deadline de
+# fábrica é o certo para disco girante. Idempotente por natureza: roda
+# no coldplug e em todo plug.
+# NVMe (o /dev/nvme*n*): sem escalonador
+ACTION=="add|change", SUBSYSTEM=="block", KERNEL=="nvme*[0-9]n*[0-9]", ATTR{queue/scheduler}="none"
+# SSD SATA (rotationals=0 e NÃO nvme — o nvme já saiu acima): mq-deadline
+ACTION=="add|change", SUBSYSTEM=="block", KERNEL=="sd*[a-z]", \
+  ATTR{queue/rotational}=="0", ATTR{queue/scheduler}="mq-deadline"

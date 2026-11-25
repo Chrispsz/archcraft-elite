@@ -439,3 +439,37 @@ gnome-keyring
 ## (o C de 3 gerações) idem: o cliente Wayland é o próprio daemon.
 swayidle
 craft-toplevel
+
+## ── E151 · O DEBLOAT EXTREMO (a diretriz do dono, onda final 2/2) ─────
+##   · XORG-SERVER — o greeter do SDDM veste WAYLAND NATIVO
+##     (etc/sddm.conf.d/elite_wayland.conf: DisplayServer=wayland +
+##     CompositorCommand=labwc): o servidor X OCIOSO atrás do greeter
+##     (~91 MB de RAM pagos por nada) morre. O Xwayland segue vivo via
+##     dep do gtk4 (apps X11/GParted continuam abrindo) e o par X
+##     (xorg-xauth/xorg-xhost) fica. Rigs existentes conservam o
+##     xorg-server como rede de segurança — a ISO é que para de nascer
+##     com ele (a linha saiu do packages.add no MESMO commit).
+##   · UDISKIE — o interpretador Python residente (58,5 MB) morre: o
+##     automount é a regra udev 91-elite-automount + unit
+##     elite-automount@.service + helper elite-automount (oneshot por
+##     evento, mount no usuário ativo). O elite-dose o REMOVE dos rigs
+##     com voz na próxima dose (o post-upgrade aposenta o residente).
+xorg-server
+udiskie
+##   · HYPRPOLKITAGENT — o POLKIT ÚNICO (a diretriz): UM agente leve na
+##     sessão — o lxqt-policykit (Qt6, WM-agnóstico, roda no labwc v4;
+##     o hyprpolkitagent 0.2 é hyprtoolkit e binda layer-shell v5 que o
+##     labwc 0.20 não oferece — era o skip do probe E58). O agente da
+##     casa é o da vaga supervisionada do elite-daemon; o autostart
+##     duplicado do lxqt-policykit é amordaçado por usuário (skel +
+##     daemon + post-upgrade — o /etc/xdg nunca é tocado).
+hyprpolkitagent
+##   · A FAXINA DOS LEGADOS QUE O UPSTREAM TROUXE (a diretriz: Openbox,
+##     bspwm, i3, polybar, rofi, picom, feh, nitrogen — WMs/barras/
+##     lançadores/compositores X11 de sessões mortas; os craft-*/labwc
+##     da casa cobrem tudo). polybar/rofi/picom/nitrogen já vedados
+##     acima (v1.0.3); os que faltavam entram AGORA:
+openbox              # o binário direto (o metapacote archcraft-openbox já sai; o labwc lê o tema OB mas nunca o binário)
+feh                  # setter de wallpaper X11 (o swaybg da casa)
+i3-wm                # o WM tile X11 (sessão morta no labwc)
+i3status             # a barra do i3 (a top bar é o craft-bar-rs)

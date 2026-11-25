@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=lxqt-policykit-agent
+Hidden=true
+NoDisplay=true
+X-GNOME-Autostart-enabled=false
+# E151 (archcraft-elite): o agente polkit da casa é o da vaga
+# supervisionada do elite-daemon — UM só na sessão. Este supressor
+# (gramática XDG: mesmo basename + Hidden=true vence o do sistema)
+# amordaça o autostart duplicado que o pacote lxqt-policykit instala
+# em /etc/xdg/autostart — sem tocar o arquivo do pacote.

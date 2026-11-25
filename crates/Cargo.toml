@@ -37,3 +37,11 @@ lto = "fat"
 codegen-units = 1
 strip = "symbols"
 opt-level = 3
+# E151 — A CALIBRAGEM COMPLETA (a diretriz do dono): panic="abort" no
+# RELEASE — os binários da casa não desenrolam pilha em produção (o
+# pânico da casa é morte limpa + respawn do supervisor, nunca unwind
+# pago em tamanho de binário e em landing pads); os TESTES seguem no
+# perfil dev/test (unwind intacto — o harness precisa). lto=fat +
+# codegen-units=1 + strip=symbols continuam aqui (a lição E131: JAMAIS
+# no RUSTFLAGS — o embed-bitcode quebra a build).
+panic = "abort"

@@ -299,6 +299,12 @@ cp -p /work/elite/airootfs/usr/share/sddm/themes/archcraft/theme.conf \
       /tmp/elite-src/elite-system/files/usr/local/share/elite/sddm/theme.conf
 cp -p /work/elite/airootfs/etc/sddm.conf.d/kde_settings.conf \
       /tmp/elite-src/elite-system/files/usr/local/share/elite/sddm/kde_settings.conf
+# E151 — O MESTRE DO GREETER WAYLAND VIAJA JUNTO (o drop-in
+# DisplayServer=wayland + CompositorCommand=labwc — o post-upgrade o
+# entrega em /etc/sddm.conf.d SÓ com o labwc em disco; sem ele o SDDM
+# volta ao X11 de sempre — a rede anti-tela-preta é a lei)
+cp -p /work/elite/airootfs/etc/sddm.conf.d/elite_wayland.conf \
+      /tmp/elite-src/elite-system/files/usr/local/share/elite/sddm/elite_wayland.conf
 # E150 — O TEMA GRUB DA CASA NO PACOTE (a pele roxa no boot: o wallpaper
 # escuro/roxo + a barra de seleção #a855f7): o mestre mora em
 # /usr/local/share/elite/grub/ e o elite-post-upgrade entrega ao rig
@@ -378,6 +384,18 @@ mkdir -p /tmp/elite-src/elite-system/files/usr/lib/udev/rules.d
 # post-transaction como sempre)
 cp -p /work/elite/airootfs/usr/lib/udev/rules.d/91-elite-wake-guard.rules \
       /tmp/elite-src/elite-system/files/usr/lib/udev/rules.d/91-elite-wake-guard.rules
+# E151 — A REGRA DO AUTOMOUNT EMBARCA (o substituto do udiskie: a regra
+# agenda a unit elite-automount@.service no evento do plug — a unit viaja
+# pelo varredura elite-*.service do staging de cima; o helper viaja no
+# MANIFEST dos bins)
+mkdir -p /tmp/elite-src/elite-system/files/usr/lib/udev/rules.d
+cp -p /work/elite/airootfs/usr/lib/udev/rules.d/91-elite-automount.rules \
+      /tmp/elite-src/elite-system/files/usr/lib/udev/rules.d/91-elite-automount.rules
+# E151 — A REVISÃO DE I/O EMBARCA (o escalonador por classe de disco:
+# NVMe none · SSD SATA mq-deadline · HDD intocado)
+mkdir -p /tmp/elite-src/elite-system/files/etc/udev/rules.d
+cp -p /work/elite/airootfs/etc/udev/rules.d/99-elite-io.rules \
+      /tmp/elite-src/elite-system/files/etc/udev/rules.d/99-elite-io.rules
 # E128 — A AUTORIZAÇÃO DA CASA NO PACOTE: a regra 50-elite-wheel.rules
 # (pkexec de craft-clean / elite-update / craft-update SEM senha para
 # usuário LOCAL ATIVO do grupo wheel — narrow por desenho, sem wildcard)
@@ -457,11 +475,12 @@ cat > /tmp/elite-src/elite-system/files/usr/local/share/elite/daemon.conf <<'EOD
 # TEM dono, a vaga é ADOTADA, nunca relançada por cima — o gate que
 # matou o loop de 809 relanças do swaync no dump 101339). Edite à
 # vontade; linhas '#' e vazias são ignoradas. SEM este arquivo os
-# defaults da casa valem (swaync com gate de bus, udiskie, swayosd,
-# craft-audio-route). Cada vaga também trava em flock exclusivo no
+# defaults da casa valem (swaync com gate de bus, swayosd,
+# craft-audio-route — o udiskie SAIU da fila na E151: o automount é a
+# regra udev 91-elite-automount, oneshot por evento, zero daemon). Cada
+# vaga também trava em flock exclusivo no
 # $XDG_RUNTIME_DIR/elite/resident-<nome>.lock — a posse dupla.
 #swaync::org.erikreider.swaync.cc::swaync
-#udiskie::udiskie --automount --notify --no-tray
 #swayosd::swayosd-server
 #craft-audio-route::craft-audio-route
 EODCONF
@@ -616,8 +635,8 @@ lock_install = '    install -d "${pkgdir}/usr/local/share/elite/hyprlock"\n    i
 lock_rm = '    [ -e "/usr/local/share/elite/hyprlock/hyprlock.conf" ] && rm -f "/usr/local/share/elite/hyprlock/hyprlock.conf"\n'
 # BLOCO 4 (1.0-98) — a pele do greeter (mesma dança da família E91;
 # caminho novo = criação limpa, sem dança de pre_install)
-sddm_install = '    install -d "${pkgdir}/usr/local/share/elite/sddm"\n    install -m644 "${startdir}/files/usr/local/share/elite/sddm/theme.conf" "${pkgdir}/usr/local/share/elite/sddm/theme.conf"\n    install -m644 "${startdir}/files/usr/local/share/elite/sddm/kde_settings.conf" "${pkgdir}/usr/local/share/elite/sddm/kde_settings.conf"\n'
-sddm_rm = '    [ -e "/usr/local/share/elite/sddm/theme.conf" ] && rm -f "/usr/local/share/elite/sddm/theme.conf"\n    [ -e "/usr/local/share/elite/sddm/kde_settings.conf" ] && rm -f "/usr/local/share/elite/sddm/kde_settings.conf"\n'
+sddm_install = '    install -d "${pkgdir}/usr/local/share/elite/sddm"\n    install -m644 "${startdir}/files/usr/local/share/elite/sddm/theme.conf" "${pkgdir}/usr/local/share/elite/sddm/theme.conf"\n    install -m644 "${startdir}/files/usr/local/share/elite/sddm/kde_settings.conf" "${pkgdir}/usr/local/share/elite/sddm/kde_settings.conf"\n    install -m644 "${startdir}/files/usr/local/share/elite/sddm/elite_wayland.conf" "${pkgdir}/usr/local/share/elite/sddm/elite_wayland.conf"\n'
+sddm_rm = '    [ -e "/usr/local/share/elite/sddm/theme.conf" ] && rm -f "/usr/local/share/elite/sddm/theme.conf"\n    [ -e "/usr/local/share/elite/sddm/kde_settings.conf" ] && rm -f "/usr/local/share/elite/sddm/kde_settings.conf"\n    [ -e "/usr/local/share/elite/sddm/elite_wayland.conf" ] && rm -f "/usr/local/share/elite/sddm/elite_wayland.conf"\n'
 # E150 — o tema GRUB da casa (mesma dança da família E91: mestre no
 # pacote, o post-upgrade entrega ao rig)
 grub_install = '    install -d "${pkgdir}/usr/local/share/elite/grub"\n    install -m644 "${startdir}/files/usr/local/share/elite/grub/theme.txt" "${pkgdir}/usr/local/share/elite/grub/theme.txt"\n    install -m644 "${startdir}/files/usr/local/share/elite/grub/wallpaper.png" "${pkgdir}/usr/local/share/elite/grub/wallpaper.png"\n    install -m644 "${startdir}/files/usr/local/share/elite/grub/select_bar.png" "${pkgdir}/usr/local/share/elite/grub/select_bar.png"\n'
@@ -686,7 +705,7 @@ ef_install = '    install -Dm644 "${startdir}/elite-flathub.hook" "${pkgdir}/usr
 # install aqui; caminho NOVO em rig comum = criação limpa, sem dança de
 # adoção — o fóssil /etc/90-* do rig é aposentado pelo elite-post-transaction
 # com voz, nunca sobrescrito às cegas pelo pacman)
-udev_install = '    install -d "${pkgdir}/usr/lib/udev/rules.d"\n    install -m644 "${startdir}/files/usr/lib/udev/rules.d/91-elite-wake-guard.rules" "${pkgdir}/usr/lib/udev/rules.d/91-elite-wake-guard.rules"\n'
+udev_install = '    install -d "${pkgdir}/usr/lib/udev/rules.d"\n    install -m644 "${startdir}/files/usr/lib/udev/rules.d/91-elite-wake-guard.rules" "${pkgdir}/usr/lib/udev/rules.d/91-elite-wake-guard.rules"\n    install -m644 "${startdir}/files/usr/lib/udev/rules.d/91-elite-automount.rules" "${pkgdir}/usr/lib/udev/rules.d/91-elite-automount.rules"\n    install -m644 "${startdir}/files/etc/udev/rules.d/99-elite-io.rules" "${pkgdir}/etc/udev/rules.d/99-elite-io.rules"\n'
 # E128 — a regra polkit da casa (mesma dança da família E91/E98)
 # 1.0-94 — o DIR VESTE 750 (idem sudoers: o /etc/polkit-1/rules.d do
 # polkit é 750 no Arch — o aviso de permissão do pacman cala na fonte)
@@ -700,6 +719,12 @@ q6_rm = '    [ -e "/usr/local/share/elite/qt6ct/qt6ct.conf" ] && rm -f "/usr/loc
 # caminho é NOVO em rig comum, o rm é cinto contra a via sem dono da ISO)
 dc_install = '    install -Dm644 "${startdir}/files/usr/local/share/elite/daemon.conf" "${pkgdir}/usr/local/share/elite/daemon.conf"\n'
 dc_rm = '    [ -e "/usr/local/share/elite/daemon.conf" ] && rm -f "/usr/local/share/elite/daemon.conf"\n'
+# E151 — OS MESTRES DO MANGOHUD EMBARCAM DE VERDADE (staged desde a E136 e
+# NUNCA installados — a classe E103: o overlay era o único dono na ISO e o
+# rig vivo seguia sem os perfis; agora o molde instala E o overlay cala —
+# um dono por caminho)
+mh_install = '    install -d "${pkgdir}/usr/local/share/elite/mangohud"\n    install -m644 "${startdir}/files/usr/local/share/elite/mangohud/minimal.conf" "${pkgdir}/usr/local/share/elite/mangohud/minimal.conf"\n    install -m644 "${startdir}/files/usr/local/share/elite/mangohud/balanceado.conf" "${pkgdir}/usr/local/share/elite/mangohud/balanceado.conf"\n    install -m644 "${startdir}/files/usr/local/share/elite/mangohud/diagnostico.conf" "${pkgdir}/usr/local/share/elite/mangohud/diagnostico.conf"\n'
+mh_rm = '    [ -e "/usr/local/share/elite/mangohud/minimal.conf" ] && rm -f "/usr/local/share/elite/mangohud/minimal.conf"\n    [ -e "/usr/local/share/elite/mangohud/balanceado.conf" ] && rm -f "/usr/local/share/elite/mangohud/balanceado.conf"\n    [ -e "/usr/local/share/elite/mangohud/diagnostico.conf" ] && rm -f "/usr/local/share/elite/mangohud/diagnostico.conf"\n'
 # E130 — o tema do labwc e os settings GTK da casa (mesma dança da família
 # E91: caminho NOVO em rig comum = criação limpa, sem dança de adoção)
 theo_install = '    install -d "${pkgdir}/usr/local/share/elite/labwc"\n    install -m644 "${startdir}/files/usr/local/share/elite/labwc/themerc-override" "${pkgdir}/usr/local/share/elite/labwc/themerc-override"\n'
@@ -714,7 +739,7 @@ gtk_rm = '    [ -e "/usr/local/share/elite/gtk-3.0/settings.ini" ] && rm -f "/us
 # pacote adota antes da extração — a dança da casa; a ISO nova entrega os
 # caminhos SÓ pelo pacote, a remoção E138 do profile mata o par).
 kmod_install = '    install -d "${pkgdir}/etc/sysctl.d"\n    install -m644 "${startdir}/files/etc/sysctl.d/99-elite-performance.conf" "${pkgdir}/etc/sysctl.d/99-elite-performance.conf"\n    install -d "${pkgdir}/etc/udev/rules.d"\n    install -m644 "${startdir}/files/etc/udev/rules.d/99-elite-zram.rules" "${pkgdir}/etc/udev/rules.d/99-elite-zram.rules"\n    install -m644 "${startdir}/files/etc/udev/rules.d/60-ntsync.rules" "${pkgdir}/etc/udev/rules.d/60-ntsync.rules"\n    install -d "${pkgdir}/etc/modules-load.d"\n    install -m644 "${startdir}/files/etc/modules-load.d/elite-ntsync.conf" "${pkgdir}/etc/modules-load.d/elite-ntsync.conf"\n    install -m644 "${startdir}/files/etc/modules-load.d/elite-sensors.conf" "${pkgdir}/etc/modules-load.d/elite-sensors.conf"\n    install -d "${pkgdir}/etc/tmpfiles.d"\n    install -m644 "${startdir}/files/etc/tmpfiles.d/elite-mglru.conf" "${pkgdir}/etc/tmpfiles.d/elite-mglru.conf"\n    install -Dm644 "${startdir}/files/etc/default/scx" "${pkgdir}/etc/default/scx"\n'
-kmod_rm = '    for f in /etc/sysctl.d/99-elite-performance.conf /etc/udev/rules.d/99-elite-zram.rules /etc/udev/rules.d/60-ntsync.rules /etc/modules-load.d/elite-ntsync.conf /etc/modules-load.d/elite-sensors.conf /etc/tmpfiles.d/elite-mglru.conf /etc/default/scx; do\n        [ -e "$f" ] && rm -f "$f"\n    done\n'
+kmod_rm = '    for f in /etc/sysctl.d/99-elite-performance.conf /etc/udev/rules.d/99-elite-zram.rules /etc/udev/rules.d/60-ntsync.rules /etc/udev/rules.d/99-elite-io.rules /usr/lib/udev/rules.d/91-elite-automount.rules /etc/modules-load.d/elite-ntsync.conf /etc/modules-load.d/elite-sensors.conf /etc/tmpfiles.d/elite-mglru.conf /etc/default/scx; do\n        [ -e "$f" ] && rm -f "$f"\n    done\n'
 pkg = f"""pkgname=elite-system
 pkgver=1.0
 # E50 — O SISTEMA EM UM PACOTE SÓ (diretriz do dono). Todo o código de
@@ -2909,7 +2934,7 @@ pre_install() {{
     ; do
         [ -e "/usr/local/bin/$f" ] && rm -f "/usr/local/bin/$f"
     done
-{unit_loop}{hook_rm}{kmod_rm}{ff_rm}{lock_rm}{sddm_rm}{rc_rm}{osd_rm}{menu_rm}{gm_rm}{doc_rm}{gp_rm}{flags_rm}{apps_rm}{pk_rm}{q6_rm}{dc_rm}{sudoers_rm}    return 0
+{unit_loop}{hook_rm}{kmod_rm}{mh_rm}{ff_rm}{lock_rm}{sddm_rm}{rc_rm}{osd_rm}{menu_rm}{gm_rm}{doc_rm}{gp_rm}{flags_rm}{apps_rm}{pk_rm}{q6_rm}{dc_rm}{sudoers_rm}    return 0
 }}
 # E129 — A MIGRAÇÃO AUTÔNOMA (AGENTS.md §4, 2026-11-20): o usuário final
 # NUNCA roda comando manual de pós-instalação — toda correção de /etc,
@@ -2951,7 +2976,7 @@ package() {{
     # E132 — o elite-polkit-listener NÃO viaja mais (o agente da casa é o
     # lxqt-policykit-agent NATIVO, eleito no craft-bars; um bin a menos no
     # pacote, um agente a menos na fila — o C vendado aposentou do repo)
-{unit_install}{hook_install}{kmod_install}{ff_install}{lock_install}{sddm_install}{grub_install}{rc_install}{osd_install}{menu_install}{pd_install}{gm_install}{doc_install}{gp_install}{pt_install}{ef_install}{flags_install}{apps_install}{udev_install}{pk_install}{q6_install}{theo_install}{gtk_install}{dc_install}{sudoers_install}}}
+{unit_install}{hook_install}{kmod_install}{mh_install}{ff_install}{lock_install}{sddm_install}{grub_install}{rc_install}{osd_install}{menu_install}{pd_install}{gm_install}{doc_install}{gp_install}{pt_install}{ef_install}{flags_install}{apps_install}{udev_install}{pk_install}{q6_install}{theo_install}{gtk_install}{dc_install}{sudoers_install}}}
 """
 (d / 'PKGBUILD').write_text(pkg)
 PYE50
@@ -3402,15 +3427,26 @@ if grep -qxF 'elite-system' "${PD_E57%profiledef.sh}packages.x86_64"; then
     kmod_e57=( "${PD_E57%profiledef.sh}"airootfs/etc/sysctl.d/99-elite-performance.conf \
                "${PD_E57%profiledef.sh}"airootfs/etc/udev/rules.d/99-elite-zram.rules \
                "${PD_E57%profiledef.sh}"airootfs/etc/udev/rules.d/60-ntsync.rules \
+               "${PD_E57%profiledef.sh}"airootfs/etc/udev/rules.d/99-elite-io.rules \
+               "${PD_E57%profiledef.sh}"airootfs/usr/lib/udev/rules.d/91-elite-wake-guard.rules \
+               "${PD_E57%profiledef.sh}"airootfs/usr/lib/udev/rules.d/91-elite-automount.rules \
+               "${PD_E57%profiledef.sh}"airootfs/etc/sudoers.d/99-elite-clean \
+               "${PD_E57%profiledef.sh}"airootfs/etc/polkit-1/rules.d/50-elite-wheel.rules \
+               "${PD_E57%profiledef.sh}"airootfs/usr/local/share/elite/qt6ct/qt6ct.conf \
                "${PD_E57%profiledef.sh}"airootfs/etc/modules-load.d/elite-ntsync.conf \
                "${PD_E57%profiledef.sh}"airootfs/etc/modules-load.d/elite-sensors.conf \
                "${PD_E57%profiledef.sh}"airootfs/etc/tmpfiles.d/elite-mglru.conf \
                "${PD_E57%profiledef.sh}"airootfs/etc/default/scx )
-    say "E138: ${#kmod_e57[@]} confs de tuning saem do overlay (o pacote entrega a família do kernel moderno — um dono por caminho)"
+    say "E138: ${#kmod_e57[@]} confs de tuning saem do overlay (o pacote entrega a família do kernel moderno + as regras udev 91/99 + sudoers + polkit + qt6ct — um dono por caminho)"
     rm -f "${kmod_e57[@]}"
+    # E151 — O MANGOHUD ENTRA NA LEI E57 (os 3 mestres staged desde a E136
+    # estavam SEM install no molde — o réu-mãe E103 da era: e o overlay
+    # entregava os MESMOS caminhos; agora o pacote instala E o overlay cala)
+    rm -rf "${PD_E57%profiledef.sh}airootfs/usr/local/share/elite/mangohud"
     for k in "${kmod_e57[@]}"; do
         [[ ! -e "$k" ]] || { echo "ELITE-FAIL: conf de tuning sobreviveu à remoção E138 ($k) — o pacstrap morreria nele (nunca seguir sabendo)" >&2; exit 1; }
     done
+    [[ ! -e "${PD_E57%profiledef.sh}airootfs/usr/local/share/elite/mangohud" ]] || { echo "ELITE-FAIL: mangohud sobreviveu à remoção E151 — o pacstrap morreria nele (nunca seguir sabendo)" >&2; exit 1; }
     python3 - "$PD_E57" "$MF_E57" <<'PYE57'
 import sys, pathlib
 pd, mf = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])

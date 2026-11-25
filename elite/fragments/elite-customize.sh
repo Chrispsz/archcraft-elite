@@ -160,6 +160,13 @@ grep -q '^ParallelDownloads' /tmp/elite-pc-options \
     || printf 'ParallelDownloads = 5\n' >> /tmp/elite-pc-options
 grep -q '^Color' /tmp/elite-pc-options \
     || printf 'Color\n' >> /tmp/elite-pc-options
+
+# [E151] A FAXINA DE ENTRADA: o NoExtract poda na ORIGEM o que o sistema
+# da casa nunca lê — páginas de man (o man-db já saiu no packages.remove;
+# manter os ARQUIVOS é peso duplo), docs de pacote e gtk-doc. O E15 poda
+# /usr/share/man do DISCO; este evita escrever para depois apagar.
+grep -q '^NoExtract' /tmp/elite-pc-options \
+    || printf 'NoExtract = usr/share/man/* usr/share/doc/* usr/share/gtk-doc/* usr/share/info/*\n' >> /tmp/elite-pc-options
 {
     cat /tmp/elite-pc-options
     cat <<'EOL'

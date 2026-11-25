@@ -167,6 +167,23 @@ if command -v hyprlock >/dev/null 2>&1; then
     fi
     bg="$HOME/.config/labwc/wallpaper.png"
     [ -r "$bg" ] || bg="$HOME/.config/labwc/wallpaper.jpg"
+    # E151 — O CACHE DO BLUR POR EVENTO (a diretriz: o blur do wallpaper
+    # é caro no nascimento do lock — o hyprlock pagava 3 passes a CADA
+    # lock, segundos em GPU fraca). O borrão é gerado UMA vez por
+    # mudança de wallpaper (mtime) e mora em ~/.cache/elite/wall-blur.png;
+    # o lock nasce com blur_passes=0 lendo o CACHE (o custo some do
+    # caminho crítico do suspend). ffmpeg ausente/falho = o caminho antigo
+    # (o hyprlock borra ele mesmo — honesto, como sempre).
+    blur="$HOME/.cache/elite/wall-blur.png"
+    if [ -r "$bg" ] && command -v ffmpeg >/dev/null 2>&1; then
+        if [ ! -r "$blur" ] || [ "$bg" -nt "$blur" ]; then
+            mkdir -p "${blur%/*}" 2>/dev/null || true
+            ffmpeg -y -loglevel error -i "$bg" \
+                -vf "gblur=sigma=10:steps=3" \
+                "$blur" >/dev/null 2>&1 || true
+        fi
+    fi
+    [ -r "$blur" ] && [ -r "$bg" ] && bg="$blur" && blur_off=1 || blur_off=0
     conf="${XDG_RUNTIME_DIR:-/tmp}/elite-hyprlock.conf"
     if [ -r "$bg" ]; then
       # v2.5.0-fix: a linha path é INDENTADA no conf (bloco background) —
@@ -176,8 +193,16 @@ if command -v hyprlock >/dev/null 2>&1; then
       # E105/E106 — O SED DE ESCOPO: a troca fica PRESA ao bloco
       # background (a parede). A pele v7 não tem mais bloco avatar —
       # o escopo segue como cinto (a gramática do hyprlock manda).
+      # E151 — o blur vem do CACHE: blur_passes=0 no MESMO escopo (a
+      # parede) — o hyprlock só pinta, nunca borra.
       bg_esc=$(printf '%s' "$bg" | sed 's/[&|\\]/\\&/g')
-      sed "/^background {/,/^}/ s|^[[:space:]]*path = .*|    path = $bg_esc|" "$src" > "$conf"
+      if [ "$blur_off" = 1 ]; then
+        sed -e "/^background {/,/^}/ s|^[[:space:]]*path = .*|    path = $bg_esc|" \
+            -e "/^background {/,/^}/ s|^[[:space:]]*blur_passes = .*|    blur_passes = 0|" \
+            "$src" > "$conf"
+      else
+        sed "/^background {/,/^}/ s|^[[:space:]]*path = .*|    path = $bg_esc|" "$src" > "$conf"
+      fi
     else
       # sem wallpaper: path vazio → o color do bloco assume (preto);
       # mesmo escopo E105: só o bloco background

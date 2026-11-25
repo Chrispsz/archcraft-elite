@@ -720,6 +720,59 @@ if [ -r "$_KS_SRC" ]; then
 fi
 unset _KS_SRC _KS_DST _ks_tocou
 
+# ── E151 — O GREETER EM WAYLAND NATIVO (a diretriz do debloat: o Xorg
+#      ocioso de ~91 MB morre): o drop-in da casa
+#      (/usr/local/share/elite/sddm/elite_wayland.conf — mestre no
+#      pacote) entrega em /etc/sddm.conf.d SÓ quando o compositor que
+#      ele nomeia EXISTE em disco (/usr/bin/labwc — a rede anti-tela-
+#      preta: greeter sem compositor é login morto). Sem labwc, o
+#      drop-in REMONTADO de uma dose anterior sai (o SDDM volta ao X11
+#      de sempre; nos rigs que têm o xorg-server a rede segue viva —
+#      a ISO é que para de nascer com o Xorg). Cmp manda (E150):
+#      destino == mestre = no-op; divergente = renova com .bak.
+_EW_SRC="/usr/local/share/elite/sddm/elite_wayland.conf"
+_EW_DST="/etc/sddm.conf.d/elite_wayland.conf"
+if [ -x /usr/bin/labwc ] && [ -r "$_EW_SRC" ]; then
+    if [ ! -e "$_EW_DST" ]; then
+        if mkdir -p "${_EW_DST%/*}" 2>/dev/null \
+            && cp -p "$_EW_SRC" "$_EW_DST" 2>/dev/null; then
+            tlog "greeter: elite_wayland.conf ENTREGUE (DisplayServer=wayland + CompositorCommand=labwc — o fim do Xorg ocioso; o labwc existe no disco)"
+        fi
+    elif ! cmp -s "$_EW_SRC" "$_EW_DST"; then
+        [ -e "$_EW_DST.bak" ] || cp -p "$_EW_DST" "$_EW_DST.bak" 2>/dev/null || true
+        if cp -p "$_EW_SRC" "$_EW_DST" 2>/dev/null; then
+            tlog "greeter: elite_wayland.conf RENOVADO (cmp divergia do mestre — E151; backup .bak ao lado)"
+        fi
+    fi
+else
+    if [ -e "$_EW_DST" ]; then
+        rm -f "$_EW_DST" 2>/dev/null || true
+        tlog "greeter: elite_wayland.conf REMOVIDO (labwc ausente — o greeter volta ao X11 de sempre; a rede anti-tela-preta é a lei E151)"
+    fi
+fi
+unset _EW_SRC _EW_DST
+
+# ── E151 — A MORDAÇA DO AUTOSTART DUPLICADO NOS HOMES VIVOS (o polkit
+#      ÚNICO): o mesmo supressor que o skel entrega à ISO e o daemon
+#      grava na sessão, agora na dose para TODO usuário já instalado
+#      (o lxqt-policykit instala /etc/xdg/autostart/… que o XDG lança
+#      ao lado do agente supervisionado — ~37 MB de Qt6 em dobro).
+for _hdir2 in /home/*; do
+    [ -d "$_hdir2" ] || continue
+    _auid2="$(stat -c %u "$_hdir2" 2>/dev/null || echo 0)"
+    case "$_auid2" in ''|0|*[!0-9]*) continue ;; esac
+    [ "$_auid2" -ge 1000 ] || continue
+    _morca="$_hdir2/.config/autostart/lxqt-policykit-agent.desktop"
+    if [ ! -f "$_morca" ]; then
+        mkdir -p "${_morca%/*}" 2>/dev/null || continue
+        if printf '[Desktop Entry]\nType=Application\nName=lxqt-policykit-agent\nHidden=true\nNoDisplay=true\nX-GNOME-Autostart-enabled=false\n' > "$_morca" 2>/dev/null; then
+            chown "$_auid2:$(stat -c %g "$_hdir2" 2>/dev/null || echo "$_auid2")" "$_morca" 2>/dev/null || true
+            tlog "skel $_auid2: agente polkit ÚNICO (o autostart duplicado do lxqt-policykit amordaçado por usuário — E151)"
+        fi
+    fi
+done
+unset _hdir2 _auid2 _morca
+
 # ── 1.0-93 — O SCX_LAVD DE VERDADE (a ordem do dono: o scx-scheds
 #      instala /usr/bin/scx_lavd SEM .service nenhum — a unit nova da
 #      casa /etc/systemd/system/scx-lavd.service o roda DIRETO). A
@@ -892,14 +945,17 @@ EOF
 done
 unset _hdir _auid _heal_out _hl
 
-# ── 1.0-93 — O DEBLOAT DOS RIGS VIVOS (a ordem do dono): waybar e
-#      gpsd SAEM quando nenhum pacote depende deles (a consulta é no
-#      pacman; dependente vivo = o pacote fica, com voz no papel); os
+# ── 1.0-93 → E151 — O DEBLOAT DOS RIGS VIVOS (a ordem do dono):
+#      waybar, gpsd e o UDISKIE (E151 — o interpretador Python residente
+#      de 58,5 MB morre; o automount é a regra udev 91-elite-automount +
+#      a unit elite-automount@.service, oneshot POR EVENTO de plug) SAEM
+#      quando nenhum pacote depende deles (a consulta é no pacman;
+#      dependente vivo = o pacote fica, com voz no papel); os
 #      .desktop órfãos (xterm/uxterm/qv4l2/qvidcap/xgps/xgpsspeed)
 #      ganham o NoDisplay em /usr/local/share/applications (sombra da
 #      casa: o pacote e o binário seguem intactos, a UI é que não
 #      lista) ────────────────────────────────────────────────────────
-for _deb in waybar gpsd; do
+for _deb in waybar gpsd udiskie; do
     if command -v pacman >/dev/null 2>&1 && pacman -Qq "$_deb" >/dev/null 2>&1; then
         if pacman -Qi "$_deb" 2>/dev/null | grep -q '^Required By *: *None'; then
             if pacman -Rns --noconfirm "$_deb" >/dev/null 2>&1; then

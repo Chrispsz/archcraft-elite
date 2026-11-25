@@ -662,9 +662,27 @@ pacman_agil() {
     local PC=/etc/pacman.conf
     [ -r "$PC" ] || return 0
     if ! run_root grep -q '^ParallelDownloads' "$PC" 2>/dev/null; then
-        if run_root sed -i '/^\[options\]$/a ParallelDownloads = 5' "$PC" 2>/dev/null; then
-            ulog "E88: pacman.conf ganhou ParallelDownloads = 5 (downloads paralelos — o -Syu ágil)"
+        if run_root sed -i '/^\[options\]$/a ParallelDownloads = 10' "$PC" 2>/dev/null; then
+            ulog "E88/E151: pacman.conf ganhou ParallelDownloads = 10 (downloads paralelos — o mesmo teto do conf de BUILD; o -Syu ágil)"
         fi
+    fi
+}
+
+# E151 — A LIMPEZA DO CACHE ANTIGO APÓS A DOSE (a diretriz do otimizar
+# craft-update): cada -Syu deixa a versão ANTERIOR de cada pacote no
+# /var/cache/pacman/pkg (a rede de rollback do pacman — útil 1 era, peso
+# morto além disso). O paccache (pacman-contrib, na ISO e na ADOCAO)
+# corta para 1 versão viva de cada pacote — o rollback imediato segue
+# possível e o disco não vira coleção de eras. Best-effort e calado:
+# paccache ausente = pulo honesto (o craft-clean segue cobrindo na mão).
+cache_enxuga() {
+    command -v paccache >/dev/null 2>&1 || return 0
+    local antes depois
+    antes="$(du -sm /var/cache/pacman/pkg 2>/dev/null | awk '{print $1}')"
+    run_root paccache -rk1 --nocolor >>"$ULOG" 2>&1 || true
+    depois="$(du -sm /var/cache/pacman/pkg 2>/dev/null | awk '{print $1}')"
+    if [ -n "$antes" ] && [ -n "$depois" ] && [ "$depois" -lt "$antes" ] 2>/dev/null; then
+        ulog "E151: cache do pacman enxugado (paccache -rk1 — ${antes}MB → ${depois}MB; a versão anterior de cada pacote segue como rede de rollback)"
     fi
 }
 
@@ -1383,6 +1401,9 @@ if [[ "${1:-}" == "--sistema" ]]; then
     # E132 — a higiene no fim da dose (o lock já liberou; applets
     # redundantes + órfãos saem com segurança — o POST fecha a história)
     higiene_e132
+    # E151 — a faxina do cache velho (1 versão por pacote; a rede de
+    # rollback de uma era segue viva, o peso morto sai)
+    cache_enxuga
     if [ -n "$PRE_N" ]; then
         snapper -c root create -t post --pre-number "$PRE_N" \
             -d 'elite-sysupdate' >/dev/null 2>&1 || true
@@ -1503,6 +1524,9 @@ refresh_if_craft_changed "$es_before" "$ec_before" "$tl_before"
 # E132 — a higiene da ordem do dono também na porta manual (a mão do
 # dono limpa o que a dose semanal limparia — o craft-clean completa)
 higiene_e132
+# E151 — a faxina do cache velho na porta manual (o mesmo gesto da irmã
+# semanal: 1 versão viva por pacote, o disco não vira coleção de eras)
+cache_enxuga
 
 # E46/E51 — o automatismo nasce aqui (idempotente): a cadência AO LIGAR
 # + a semanal ficam vivas depois da 1ª 'Atualizar sistema'. A morada das

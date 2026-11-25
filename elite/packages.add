@@ -210,17 +210,16 @@ xorg-xhost
 # pulseaudio/pulseaudio#mic da waybar precisam da lib — dependia de cadeia
 # transitive que ninguém jurava (auditado na auditoria de simulações)
 libpulse
-# E43: agente polkit wlroots-nativo — o polkit-gnome 0.105 é GTK2 de 2010 e
-# foi o diálogo dele que matou o gparted do dono com senha VIVA provada no
-# dump tg0b1 (a aposentadoria dele mora no packages.remove)
-hyprpolkitagent
-## E58 — O AGENTE QUE RODA HOJE (verify da ISO 05/nov: 17 mortes na sessão):
-## o hyprpolkitagent 0.2.0 (02/nov) nasceu REESCRITO em hyprtoolkit — o
-## hyprtoolkit binda zwlr_layer_shell_v1 v5 e o labwc 0.20.2 do live oferece
-## v4 ('expected at most 4, got 5'). O craft-bars escolhe por CONTEÚDO
-## (probe 'hyprtoolkit' dentro do binário) e este pacote dá à ISO um agente
-## que roda AGORA (lxqt-policykit 2.4, Qt6, WM-agnóstico, no extra desde
-## abr/26). O hyprpolkitagent segue na lista como fallback (era Qt dos rigs).
+# E151 — O POLKIT ÚNICO (a diretriz do debloat extremo): UM agente leve
+# na sessão — o lxqt-policykit (Qt6, WM-agnóstico, roda AGORA no labwc
+# v4; o hyprpolkitagent 0.2 é hyprtoolkit e binda layer-shell v5, que o
+# labwc 0.20 não oferece). O hyprpolkitagent SAI (packages.remove) e o
+# autostart duplicado do lxqt-policykit é amordaçado por usuário (skel
+# autostart/Hidden=true + o daemon + o post-upgrade — o /etc/xdg não é
+# tocado, zero conflito pacman).
+# E58 — O AGENTE QUE RODA HOJE (verify da ISO 05/nov: 17 mortes na sessão):
+# o lxqt-policykit 2.4, Qt6, WM-agnóstico, no extra desde abr/26 — o
+# AGENTE ELEITO da casa, lançado e supervisionado pelo elite-daemon.
 lxqt-policykit
 xdg-desktop-portal-wlr
 mpv
@@ -373,21 +372,22 @@ nm-connection-editor
 iwgtk
 blueman
 
-## Satélites oficiais do labwc (docs labwc.github.io/integration):
-## idle→lock, automount USB, clipboard history.
-## v2.3 (auditoria minuciosa): reposição cirúrgica do que os GRUPOS do
-## upstream traziam de graça e a limpeza cortou:
-##   · xorg-server — o greeter do SDDM roda em X11 (o conf não define
-##     DisplayServer=wayland); driver = modesetting EMBUTIDO (os DDX
-##     xf86-video-* saíram). Xwayland segue vivo via dep do gtk4 — apps
-##     X11 continuam funcionando dentro do labwc.
-##   · archcraft-cursor-qogirr — SAIU (BLOCO 4, o último sotaque do
-##     ponteiro: o greeter vestia Qogirr e a sessão inteira Bibata —
-##     cursor A na senha, cursor B no desktop; o CursorTheme do
-##     kde_settings.conf veste Bibata como a casa inteira e o pacote
-##     se aposenta — a filosofia enxuta: nenhum pacote de cursor órfão).
-xorg-server
-udiskie
+## ── E151 · O FIM DO XORG OCIOSO E DO UDISKIE PYTHON (o debloat extremo,
+##    a diretriz do dono) ──
+##   · XORG-SERVER SAI DA ISO (~91 MB de RAM no login): o greeter do SDDM
+##     veste WAYLAND NATIVO (etc/sddm.conf.d/elite_wayland.conf —
+##     DisplayServer=wayland + CompositorCommand=labwc, o compositor que
+##     JÁ viaja na ISO); o xorg-server não é mais trazido de fábrica (o
+##     Xwayland segue vivo via dep do gtk4 — apps X11/GParted continuam
+##     abrindo; o xorg-xauth/xorg-xhost do par X ficam). Nos RIGS já
+##     instalados o post-upgrade conserva o xorg-server como rede de
+##     segurança e só entrega o drop-in wayland quando o labwc existe.
+##   · UDISKIE SAI (58,5 MB de interpretador Python residente): o
+##     automount é a regra udev 91-elite-automount + unit
+##     elite-automount@.service + o helper elite-automount — oneshot POR
+##     EVENTO de plug, mount no usuário ativo via udisksctl, zero daemon.
+##   · CLIPHIST/swayosd FICAM (a casa usa). A linha histórica dos
+##     satélites de então segue no remove.
 cliphist
 # E74 — Fase 3 do protocolo: OSD de volume/brilho (a spec: "indicador
 # visual flutuante com barra percentual precisa"). O daemon é único
