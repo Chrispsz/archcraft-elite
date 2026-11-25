@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# ══════════════════════════════════════════════════════════════════════════
 # tests/run-tests.sh — A PORTEIRA REAL (2.0)
 #
 # O quebra-cabeça em cadeia, nível REAL por nível (a diretriz do dono:
@@ -14,11 +15,23 @@
 #           (IPC/persistência/parsers) — com toolchain presente; sem ela,
 #           SKIP HONESTO (o juízo de compilação da gui é o Canal do CI,
 #           lei L6 da casa)
-#   FASE 4  VEREDICTO — GO exige todas as peças encaixadas (exit 0)
+#   FASE 3.5 CONTRATO DO CRAFT-HELP (Fase 2 do dono) — 100% do mapa do
+#           craft-help existe, nasce 0755 no git, passa em sh -n e responde
+#           verbo seguro; os atalhos vivem nos keybinds reais do rc.xml
+#   FASE 4  INTEGRIDADE DO COMPOSITOR (Fase 2) — XML estrito de menu/rc
+#           + TODO Execute aponta binário REAL (sem fantasma craft-drawer,
+#           sem ícone em item, sem fóssil de era)
+#   FASE 5  SAÚDE DE RUNTIME & IPC (Fase 2) — 0755 sweep de toda a casa,
+#           lançador ÚNICO no autostart-template, bus.sock UMA fonte,
+#           instância única no fonte, ZERO glifo Nerd, popovers fechando
+#           o ciclo, painéis respondendo
+#   FASE 6  VEREDICTO — GO exige todas as peças encaixadas (exit 0)
 #
-# Os níveis 2 e 3 da diretriz (session_smoke na sessão viva e a ISO no
-# QEMU) são Fase 2 da reconstrução — os esqueletos nomeam o contrato:
-#   tests/session_smoke/ · tests/iso-qemu/
+# Os níveis da Fase 2 que exigem AMBIENTE VIVO:
+#   - tests/ci-runtime-smoke.sh — o pacote do Canal sobe a sessão no
+#     labwc headless do CI (barra/dock SEM Gtk-WARNING, bus RESPONDENDO,
+#     a 2ª instância sai 0 — executivo, sobre o pacote que vai subir);
+#   - tests/session_smoke/run.sh — o rig do dono (a sessão de verdade).
 #
 # Uso: bash tests/run-tests.sh [--keep]
 set -uo pipefail
@@ -42,7 +55,7 @@ printf '%b╰──────────────────────�
 printf '  repo: %s\n  work: %s\n\n' "$REPO" "$WORK"
 
 BROKEN=0
-for name in 10-estrutura 20-estatica 30-cargo 60-veredito; do
+for name in 10-estrutura 20-estatica 30-cargo 35-ajuda 40-compositor 50-runtime-ipc 60-veredito; do
     if (( BROKEN )); then
         printf '  ▓▓ FASE %s — BLOQUEADA (a peça anterior quebrou a cadeia)\n' "$name"
         continue
