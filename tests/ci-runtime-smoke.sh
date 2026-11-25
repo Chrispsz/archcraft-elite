@@ -86,6 +86,18 @@ if ! command -v labwc >/dev/null 2>&1; then
     fi
 fi
 
+# FASE 2 — O AMBIENTE VESTE O QUE O RIG TEM DE FÁBRICA: o systemd garante
+# /etc/machine-id em TODO sistema instalado (a ISO inclui); o container nu
+# não tem — sem ele o GTK grita 'Unable to acquire session bus' em TODO
+# app da casa (o réu da run 45591814205: 15 ok · 1 falha, o warning que
+# era ARTEFATO do juízo, não do produto). Provisionar o ambiente é a
+# honestidade de pé (o scan de warnings NUNCA é afrouxado para caber).
+if [ ! -s /etc/machine-id ]; then
+    systemd-machine-id-setup >/dev/null 2>&1 \
+        || { uuidgen >/etc/machine-id 2>/dev/null; }
+    printf '  (ambiente: machine-id provisionado para o juízo — o rig tem de fábrica)\n'
+fi
+
 # os verbot descomplicados: o caminho do compositor é o único juízo de
 # ambiente — se o socket não nascer em 15s, SKIP honesto
 export XDG_RUNTIME_DIR="$XDG"
