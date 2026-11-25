@@ -162,3 +162,38 @@ popover > contents switch:checked { background: @elite-accent; }
 #pickwin listview row:hover { background: @elite-surface; }
 #pickwin listview row:selected { background: @elite-surface-strong; }
 #pickwin entry { background: @elite-surface; color: @elite-text; border-radius: 8px; }
+
+/* ── E147 · a reconstrução da UI da barra: a central de áudio (saída +
+   entrada com mute/volume/dispositivos) e o painel de bluetooth
+   (power + pareados) — os rótulos e o slider seguem os MESMOS tokens
+   da folha mestra; NENHUM componente desconexo ────────────────────────── */
+popover > contents label.title {
+  font-weight: 700;
+  font-size: 14px;
+  color: @elite-text;
+}
+popover > contents label.dim {
+  color: @elite-text-dim;
+  font-size: 12px;
+}
+popover > contents label.body { color: @elite-text; font-size: 13px; }
+popover > contents scale {
+  padding: 2px 0;
+}
+popover > contents scale trough {
+  background: @elite-surface;
+  border-radius: 4px;
+}
+popover > contents scale slider {
+  background: @elite-surface-strong;
+  border-radius: 4px;
+}
+popover > contents scale trough highlight {
+  background: @elite-accent;
+  border-radius: 4px;
+}
+popover > contents switch {
+  background: @elite-surface-strong;
+}
+popover > contents switch:checked { background: @elite-accent; }
+#barbox button image { -gtk-icon-style: symbolic; }

@@ -25,6 +25,8 @@ pub const LEGADO: &[&str] = &[
     "craft-menu-dismiss",// o fechar-por-pid — o GTK/labwc fecham sozinhos
     "craft-audio-route", // 2.0: o roteador Python — o audio.rs do daemon tomou
     "craft-toplevel",    // 2.0: o C de 3 gerações — o wayland.rs do daemon tomou
+    "craft-bgapps",      // E147: o indicador de 2º planos — a ordem do dono o
+                         // tirou da interface E do código (o post-upgrade o ceifa)
     "swayidle",          // 2.0: a vigília é do daemon (ext-idle-notify nativo)
 ];
 

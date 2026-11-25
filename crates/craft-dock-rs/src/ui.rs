@@ -714,12 +714,33 @@ fn rebuild_pins(st: &Rc<RefCell<State>>) {
 /// v2.10.0 do diff-guard na forma que a GTK4 simplifica: widgets são
 /// REORDENADOS, nunca recriados — o flicker da recriação é o que o
 /// dono rejeitou). A transição ANIMADA v2.11 é degrau seguinte.
+/// E148 — O CICLO DE VIDA DOS POPOVERS (a evidência do dono: o
+/// 'Gtk-WARNING: Finalizing dockbtn … still has children left:
+/// GtkPopoverMenu' e os ESPAÇOS PRETOS ÓRFÃOS na dock — o botão
+/// morria com o popover AINDA FILHO dele e o GTK avisava/lia vazando):
+/// antes da REMOÇÃO de qualquer botão morto, o popover dele é
+/// popdown() + unparent() — a remoção limpa, sem aviso e sem órfão.
+/// O queue_resize da pílula E da JANELA fecha o ciclo no MESMO frame
+/// (a largura nova do layer-shell nasce sem espaço residual).
 fn repack(s: &State) {
     let pill = &s.pill;
+    // o conjunto de widgets que SOBREVIVEM a esta remontagem (os vivos
+    // nas maps — só os FORA delas morrem e ganham o enterro limpo)
+    let vivos: Vec<gtk::Widget> = s
+        .pins
+        .iter()
+        .map(|r| r.button.clone().upcast::<gtk::Widget>())
+        .chain(s.dyns.values().map(|r| r.button.clone().upcast::<gtk::Widget>()))
+        .chain(s.raws.values().map(|r| r.button.clone().upcast::<gtk::Widget>()))
+        .collect();
     // solta todos (os widgets vivem nas maps — só a ORDEM muda)
     let kids: Vec<gtk::Widget> = std::iter::successors(pill.first_child(), |w| w.next_sibling())
         .collect();
     for w in kids {
+        let morre = !vivos.iter().any(|v| v == &w);
+        if morre {
+            dispensa_popovers(&w);
+        }
         pill.remove(&w);
     }
     for row in &s.pins {
@@ -741,6 +762,29 @@ fn repack(s: &State) {
         pill.append(&s.raws[&key].button);
     }
     pill.show();
+    // E148 — o RECALCULO IMEDIATO (a ordem do dono: "recálculo imediato
+    // de tamanho (queue_resize) no gtk4-layer-shell" — o fecho do ciclo
+    // no mesmo frame; o drain da foto segue com o flush do display)
+    pill.queue_resize();
+    s.window.queue_resize();
+}
+
+/// E148 — O ENTERRO LIMPO DE UM WIDGET COM POPUP: fecha (popdown) e
+/// DESANEXA (unparent) qualquer Popover ainda filho do widget que
+/// morre — o aviso 'still has children left' e o espaço preto órfão
+/// morrem pela RAIZ (a evidência do dono era a classe inteira).
+fn dispensa_popovers(w: &gtk::Widget) {
+    let mut filho = w.first_child();
+    while let Some(c) = filho {
+        filho = c.next_sibling();
+        // PopoverMenu É um Popover na hierarquia do GTK4 (a herança
+        // segura o par inteiro com um downcast só; o c já foi avançado
+        // — o downcast consome o clone seguro do iterador)
+        if let Ok(pop) = c.clone().downcast::<gtk::Popover>() {
+            pop.popdown();
+            pop.unparent();
+        }
+    }
 }
 
 /// As chaves de uma map de linhas, ORDENADAS (a ordem canônica da

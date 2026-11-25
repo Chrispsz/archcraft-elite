@@ -25,6 +25,7 @@
 // ou `nome::bus::comando`; linhas # e vazias ignoradas).
 use std::io;
 use std::os::unix::io::AsRawFd;
+use std::os::unix::process::CommandExt;
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
@@ -313,7 +314,13 @@ fn tenta_trava(nome: &str) -> io::Result<std::fs::File> {
 /// (tokens por espaço — SEM shell no meio; o parser segue o contrato).
 /// E135 — o $HOME inicial de cada token é expandido (a fila de display
 /// é genérica; nenhum sh no meio para expandir por nós).
-fn lanca(comando: &str, log: &PathBuf) -> io::Result<Child> {
+/// E147 — O ARGV0 HONESTO DA VAGA DO JOGO: o motor do modo game é o
+/// PRÓPRIO binário elite-daemon em modo game — e o ps do rig mostrava
+/// DOIS 'elite-daemon' (a duplicidade que o dono fotografou). O spawn
+/// da vaga `game` veste argv0 "elite-daemon-game": o ps/comm dizem o
+/// PAPEL (session × motor de jogo), o dono lê a árvore SEM dívida,
+/// e o flock E30/peek de lock seguem provando a instância única.
+fn lanca(comando: &str, log: &PathBuf, nome_vaga: &str) -> io::Result<Child> {
     let home = std::env::var("HOME").unwrap_or_default();
     let partes: Vec<String> = comando
         .split_whitespace()
@@ -329,12 +336,15 @@ fn lanca(comando: &str, log: &PathBuf) -> io::Result<Child> {
     let prog = it.next().cloned().unwrap_or_default();
     let args: Vec<&str> = it.map(String::as_str).collect();
     let f = std::fs::OpenOptions::new().create(true).append(true).open(log)?;
-    Command::new(prog)
-        .args(args)
+    let mut cmd = Command::new(prog);
+    cmd.args(args)
         .stdin(Stdio::null())
         .stdout(Stdio::from(f.try_clone()?))
-        .stderr(Stdio::from(f))
-        .spawn()
+        .stderr(Stdio::from(f));
+    if nome_vaga == "game" {
+        cmd.arg0("elite-daemon-game");
+    }
+    cmd.spawn()
 }
 
 struct Vaga {
@@ -684,7 +694,7 @@ fn supervisa(
                 v.trava = trava;
                 continue;
             }
-            match lanca(&v.res.comando, &log) {
+            match lanca(&v.res.comando, &log, &v.res.nome) {
                 Ok(filho) => {
                     eprintln!(
                         "elite-daemon supervise: {} no ar (pid {})",

@@ -1,45 +1,62 @@
-// ELITE · craft-bar-rs — ui.rs (E140). A camada GTK4 + gtk4-layer-shell
-// da top bar. Este módulo SÓ compila com a feature "gui" (exige o GTK
-// dev do ambiente de build do pacote — o CI valida; o sandbox sem GTK
+// ELITE · craft-bar-rs — ui.rs (E147 — A RECONSTRUÇÃO DA CAMADA DE UI,
+// a ordem do dono do dossiê UI/UX: "abandone o que não funcionou e
+// refaça a camada de interface, controles rápidos e integração de
+// sessão com uma arquitetura limpa, coesa e bem pensada de UI/UX").
+// Este módulo SÓ compila com a feature "gui" (exige o GTK dev do
+// ambiente de build do pacote — o CI valida; o sandbox sem GTK
 // compila/testa o NÚCLEO: state/main).
 //
-// O DESENHO (a diretriz do dossiê 1.0-88, item por item):
-//   · A FAIXA: layer-shell ancorada Top+Left+Right (a largura é da
-//     tela; a zona exclusiva automática reserva os 36px — as janelas
-//     maximizadas NASCEM abaixo da barra, como o waybar fazia);
-//   · A LEI DO CLIQUE (a cura B1, da licção da dock): TODO botão
-//     dispara EXCLUSIVAMENTE no GestureClick::released com tolerância
-//     de arrasto < 5px — o conflito press/release que obrigava a
-//     "segurar" o clique morre por construção (a dock ligava o verbo
-//     no pressed E no clicked: clique rápido = dois verbos no mesmo
-//     segundo, o dock.log do dump provou);
-//   · O DRAWER (a cura A1): o filho é NOSSO (Option<Child>), o toggle
-//     é por pid com varredura /proc de cortesia (a gaveta do W-d, da
-//     porta do craft-drawer, também conta) e o eco do clique morre no
-//     debounce de 150ms do state.rs. O stderr da gaveta vai para
-//     /dev/null: o spawn/SIGTERM a cada 1-2s do bars.log do dump era
-//     o grito da era shell, não evidência de nada;
-//   · O RELÓGIO (a cura A2): UM Label com a palavra pt_BR da casa
-//     ("Seg, 23 Nov · 19:30") — não existe texto alternativo, não existe
-//     texto que muda ao clicar. Esquerdo = painel do swaync, direito
-//     = DND;
-//   · OS FILHOS CURTOS: wpctl/nmcli/bluetoothctl/craft-* rodam numa
-//     ÚNICA thread de fundo (a UI NUNCA bloqueia — a lei da casa
-//     desde a E132) e chegam como Msg pelo canal mpsc;
-//   · OS SINAIS DO DAEMON: SIGRTMIN+8 acende/apaga o pill do modo de
-//     jogo (o elite-daemon avisa a transição — o polling de 3s da
-//     era waybar morre), SIGRTMIN+9 refresca os 2º planos, SIGUSR2
-//     relê o bar.css;
-//   · A SESSÃO (a cura A5): MenuButton + PopoverMenu NATIVO com
-//     Bloquear / Suspender / Reiniciar / Desligar / Encerrar sessão —
-//     sem fuzzel, sem can-suspend (AllowSuspend=yes é a palavra do
-//     sleep.conf da casa, E122; o `systemctl suspend` é a palavra
-//     final — o busctl do dump devolvia vazio e o menu antigo
-//     apanhava disso).
+// O CONTRATO DE INTERAÇÃO ÚNICO (a lei nova da casa, válida para
+// TODOS os módulos sem exceção):
+//   · CLIQUE ESQUERDO = o CONTROLE PRINCIPAL — SEMPRE um popover
+//     nativo GTK4 ancorado no próprio botão (áudio, rede, bluetooth,
+//     notificações, sessão, apps). Nunca um fork cego, nunca um menu
+//     de texto no terminal;
+//   · CLIQUE DIREITO = a FERRAMENTA AVANÇADA de verdade (pwvucontrol,
+//     nm-connection-editor, blueman-manager, DND) quando existe;
+//   · SCROLL = o gesto de ajuste fino (volume);
+//   · HOVER = o feedback visual da pele (theme.css) + o tooltip que
+//     diz o que o clique faz.
+//
+// O QUE MORREU NESTA RECONSTRUÇÃO (o enterro com prova):
+//   · O GLIFO NERD FONT NO LABEL (o '\uf085 2' da tela do dono era o
+//     codepoint que a fonte GTK padrão não tem — Inter/Adwaita Sans não
+//     fala Nerd): TODOS os ícones da barra são AGORA Image::from_icon_name
+//     (audio-volume-*, network-*, bluetooth-*, input-gaming, battery-*
+//     — o Papirus/GNOME da casa tem todos, o render NUNCA mais quebra);
+//   · O MÓDULO DE 2º PLANOS (a pílula dos aplicativos de fundo): a ordem do dono
+//     ("deve ser completamente removido — já havia sido solicitado
+//     para sair, mas permaneceu na interface e no código") — o botão,
+//     a Msg, o belt e o SIGRTMIN+9 saem daqui E do elite-daemon E do
+//     pacote (o fóssil morre no post_upgrade com voz);
+//   · OS DOIS BOTÕES DE ÁUDIO SOLTO (mute no esquerdo, mixer no
+//     direito, zero seleção de dispositivo): o par veste UM botão que
+//     abre A CENTRAL DE ÁUDIO unificada — Saída + Entrada com mute
+//     imediato, volume por slider, troca de dispositivo a um clique e
+//     o mixer completo (pwvucontrol) a um botão;
+//   · O BLUETOOTH MUDO (o clique chamava o blueman-manager que o
+//     elite-clean REMOVIA do sistema — o conflito estrutural que o
+//     dono nomeou): o botão abre o PAINEL de dispositivos (power,
+//     conectar/desconectar a um clique, pareados pelo bluetoothctl) e
+//     o elite-clean PARA de remover o blueman (o gerenciador volta a
+//     existir e o direito o abre).
+//
+// O QUE FICA (prova de campo da 1.0-94/95 — não se quebra o que funciona):
+//   · a FAIXA layer-shell + a LEI DO CLIQUE no released (5px de
+//     tolerância de arrasto);
+//   · o DRAWER com debounce de 150ms e filho nosso (a gaveta nwg-drawer);
+//   · o RELÓGIO pt_BR que nunca muda de texto + o calendário no hover;
+//   · o SELETOR RÁPIDO DE REDE (Switch Wi-Fi, redes ao alcance, iwgtk,
+//     nm-connection-editor);
+//   · o MPRIS/jogo PELO FIO DO BUS + os sinais SIGRTMIN+8 (jogo) e
+//     SIGUSR2 (a pele);
+//   · a SESSÃO em PopoverMenu nativo e a COVEIRA dos filhos curtos
+//     (E146/C — o spawn→wait, zero <defunct>).
 use crate::state::{
-    bt_ligado, bgapps_contagem, dentro_janela_ms, essid_nmcli, estado_rede_nmcli, glifo_mic,
-    glifo_rede, glifo_volume, json_text, le_bateria, media_pill, parse_wifi_list,
-    parse_wifi_radio, parse_volume_wpctl, relogio_ptbr, tooltip_rede, RedeWifi, EstadoRede,
+    bt_conectados, bt_ligado, dentro_janela_ms, essid_nmcli, estado_rede_nmcli, icone_mic,
+    icone_rede, icone_volume, json_text, le_bateria, media_pill, parse_bt_devices,
+    parse_volume_wpctl, parse_wifi_list, parse_wifi_radio, parse_wpctl_status, relogio_ptbr,
+    rotulo_dispositivo, tooltip_rede, BtDispositivo, DispositivoAudio, EstadoRede, RedeWifi,
 };
 use crate::{bus_sock, css_path, current_uid, log, VERSION};
 use elite_core::MediaState;
@@ -83,21 +100,20 @@ extern "C" fn on_signal(sig: i32) {
 /// As mensagens da thread de fundo para a UI (a thread NUNCA toca
 /// GTK — a lei da casa; a UI drena no idle de 100ms).
 enum Msg {
-    /// (volume, mudo) do sink padrão (None = wpctl engasgado — o
-    /// estado anterior CONSERVADO, a barra não pisca no vácuo).
-    Audio(Option<(f64, bool)>),
-    /// (volume, mudo) da fonte padrão (o microfone).
-    Mic(Option<(f64, bool)>),
+    /// A FOTO COMPLETA do áudio (E147 — a central unificada): o padrão
+    /// de saída e de entrada + as LISTAS dos dois lados. None = o wpctl
+    /// engasgou — o estado anterior CONSERVADO, a barra não pisca no
+    /// vácuo.
+    AudioDet(Option<AudioDetalhe>),
     /// (estado, essid) da rede — o assento é PERSISTENTE por desenho.
     Rede(EstadoRede, Option<String>),
     /// Powered do adaptador (None = bluetoothctl ausente/sem adaptador).
     Bt(Option<bool>),
-    /// (texto, tooltip) do player — None = o pill SAI da barra.
-    Player(Option<(String, Option<String>)>),
+    /// E147 — a LISTA dos dispositivos pareados + os MACs conectados
+    /// (o painel de Bluetooth do clique esquerdo).
+    BtLista(Vec<BtDispositivo>, Vec<String>),
     /// O texto do pill do modo de jogo — None = apagado.
     Game(Option<String>),
-    /// O texto dos 2º planos — None = apagado.
-    Bgapps(Option<String>),
     /// 2.0 — o estado MPRIS do bus (zero playerctl; o pill some sem mídia)
     Media(Option<MediaState>),
     /// 2.0 — o modo de jogo pelo FIO (o SIGRTMIN+8 é o cinto)
@@ -113,20 +129,60 @@ enum Msg {
     RedeRadio(Option<bool>),
 }
 
+/// A FOTO COMPLETA do áudio da casa (o padrão de SAÍDA e o de ENTRADA
+/// mais as LISTAS dos dois lados — a central unificada do E147 veste
+/// tudo de uma vez, sem meio estado).
+struct AudioDetalhe {
+    sink: Option<DispositivoAudio>,
+    fonte: Option<DispositivoAudio>,
+    sinks: Vec<DispositivoAudio>,
+    fontes: Vec<DispositivoAudio>,
+}
+
 /// A barra inteira (os widgets que mudam + o filho do drawer).
 struct State {
     clock_label: gtk::Label,
     btn_audio: gtk::Button,
-    btn_mic: gtk::Button,
+    /// E147 — o ícone de volume do botão (Image::from_icon_name — o
+    /// glifo Nerd morreu com a fonte que não o tinha).
+    audio_img: gtk::Image,
     btn_rede: gtk::Button,
+    /// E147 — o ícone de rede (Image::from_icon_name).
+    rede_img: gtk::Image,
     btn_bt: gtk::Button,
+    /// E147 — o ícone de bluetooth (Image::from_icon_name).
+    bt_img: gtk::Image,
     btn_game: gtk::Button,
     btn_player: gtk::Button,
     player_label: gtk::Label,
     btn_bat: Option<gtk::Button>,
-    btn_bgapps: gtk::Button,
-    /// 1.0-93 — o rótulo do nº de 2º planos (o ícone é GTK de verdade)
-    bgapps_lbl: gtk::Label,
+    // ── E147 · a CENTRAL DE ÁUDIO (os widgets do popover unificado) ──
+    /// o rótulo do sink padrão (o rótulo humano da lei §5)
+    rot_sink: gtk::Label,
+    /// o rótulo do source padrão (o microfone)
+    rot_fonte: gtk::Label,
+    /// os sliders 0-100 dos dois lados (a verdade do belt só veste
+    /// quando o dono NÃO está arrastando)
+    esc_sink: gtk::Scale,
+    esc_fonte: gtk::Scale,
+    /// as bandeiras de ARRASTO (o belt nunca briga com a mão do dono)
+    arrasta_sink: Rc<Cell<bool>>,
+    arrasta_fonte: Rc<Cell<bool>>,
+    /// os debounces pendentes dos sliders (150ms — o wpctl corre UM
+    /// vez por pausa do gesto, nunca por pixel)
+    pende_sink: Rc<RefCell<Option<glib::SourceId>>>,
+    pende_fonte: Rc<RefCell<Option<glib::SourceId>>>,
+    /// as LISTAS de dispositivos dos dois lados (remontadas por foto)
+    lista_sinks: gtk::Box,
+    lista_fontes: gtk::Box,
+    /// os ícones dos botões MUTE (a classe .muted é a gramática vermelha)
+    img_mute_sink: gtk::Image,
+    img_mute_fonte: gtk::Image,
+    // ── E147 · o PAINEL DE BLUETOOTH (os widgets do popover) ────────
+    /// a lista de pareados (remontada por foto)
+    bt_lista: gtk::Box,
+    /// o Switch do POWER (a verdade do bluetoothctl show)
+    bt_switch: gtk::Switch,
     /// 1.0-93 — o seletor rápido de rede: a lista e o Switch do popover
     rede_lista: gtk::Box,
     rede_switch: gtk::Switch,
@@ -157,15 +213,15 @@ pub fn run() -> i32 {
 /// TOPBAR_COUNT=0): TODO sinal do intervalo real-time (SIGRTMIN..
 /// SIGRTMAX) vira HANDLED no PRIMEIRO instante do processo. O padrão do
 /// Linux para RT é TERMINAR o processo — e o daemon sinaliza a barra
-/// (SIGRTMIN+8 jogo · +9 apps de 2º plano) a cada NameOwnerChanged do
-/// D-Bus com 200ms de debounce: a própria REGISTRAÇÃO do
-/// "elite.craft.Bar" no bus dispara o +9, e a barra morria ANTES de
-/// instalar os handlers no build() (a janela GTK-init era o cadafalso;
-/// o respawn em loop 2s → sinal → morte era o TOPBAR_COUNT=0 do rig da
-/// 1.0-93 — a era waybar era imune POR CONFIG, os módulos dela
-/// registravam os sinais). Os +8/+9 seguem HANDLED no drena; os demais
-/// RT viram ruído inofensivo na bandeira (a disposição padrão nunca
-/// mais mata a barra, venha o sinal de quem vier).
+/// (SIGRTMIN+8: a transição do modo de jogo) e a própria REGISTRAÇÃO
+/// do "elite.craft.Bar" no bus dispara sinais ANTES do build() armar os
+/// handlers (a janela GTK-init era o cadafalso; o respawn em loop 2s →
+/// sinal → morte era o TOPBAR_COUNT=0 do rig da 1.0-93 — a era waybar
+/// era imune POR CONFIG, os módulos dela registravam os sinais).
+/// E147 — o +9 dos 2º planos NÃO TEM mais emissor (o módulo morreu) e
+/// o +8 segue HANDLED no drena; os demais RT viram ruído inofensivo na
+/// bandeira (a disposição padrão nunca mais mata a barra, venha o
+/// sinal de quem vier).
 pub fn arma_rt() {
     unsafe {
         let mut s = libc::SIGRTMIN();
@@ -222,17 +278,15 @@ fn build(app: &gtk::Application) {
         let tx = tx.clone();
         move || poller(tx)
     });
-    // o frame 0 do jogo/2º-planos: thread curta própria (o arranque
-    // do daemon pode demorar um instante — 300ms de cortesia)
+    // o frame 0 do jogo: thread curta própria (o arranque do daemon pode
+    // demorar um instante — 300ms de cortesia). E147: o bgapps saiu do
+    // frame 0 junto com o próprio módulo (a ordem do dono).
     std::thread::spawn({
         let tx = tx.clone();
         move || {
             std::thread::sleep(Duration::from_millis(300));
             if let Some(t) = um_longo("craft-game", &["pill"]) {
                 let _ = tx.send(Msg::Game(json_text(&t)));
-            }
-            if let Some(t) = um_longo("craft-bgapps", &["status"]) {
-                let _ = tx.send(Msg::Bgapps(json_text(&t)));
             }
         }
     });
@@ -278,15 +332,29 @@ fn build(app: &gtk::Application) {
     let st = Rc::new(RefCell::new(State {
         clock_label: gtk::Label::new(None),
         btn_audio: gtk::Button::new(),
-        btn_mic: gtk::Button::new(),
+        audio_img: gtk::Image::from_icon_name("audio-volume-high-symbolic"),
         btn_rede: gtk::Button::new(),
+        rede_img: gtk::Image::from_icon_name(icone_rede(EstadoRede::Desligado)),
         btn_bt: gtk::Button::new(),
+        bt_img: gtk::Image::from_icon_name("bluetooth-disabled-symbolic"),
         btn_game: gtk::Button::new(),
         btn_player: gtk::Button::new(),
         player_label: gtk::Label::new(None),
         btn_bat: None,
-        btn_bgapps: gtk::Button::new(),
-        bgapps_lbl: gtk::Label::new(None),
+        rot_sink: gtk::Label::new(Some("Sem saída")),
+        rot_fonte: gtk::Label::new(Some("Sem entrada")),
+        esc_sink: gtk::Scale::with_range(gtk::Orientation::Horizontal, 0.0, 100.0, 5.0),
+        esc_fonte: gtk::Scale::with_range(gtk::Orientation::Horizontal, 0.0, 100.0, 5.0),
+        arrasta_sink: Rc::new(Cell::new(false)),
+        arrasta_fonte: Rc::new(Cell::new(false)),
+        pende_sink: Rc::new(RefCell::new(None)),
+        pende_fonte: Rc::new(RefCell::new(None)),
+        lista_sinks: gtk::Box::new(gtk::Orientation::Vertical, 2),
+        lista_fontes: gtk::Box::new(gtk::Orientation::Vertical, 2),
+        img_mute_sink: gtk::Image::from_icon_name("audio-volume-high-symbolic"),
+        img_mute_fonte: gtk::Image::from_icon_name("microphone-sensitivity-high-symbolic"),
+        bt_lista: gtk::Box::new(gtk::Orientation::Vertical, 2),
+        bt_switch: gtk::Switch::new(),
         rede_lista: gtk::Box::new(gtk::Orientation::Vertical, 4),
         rede_switch: gtk::Switch::new(),
         drawer: None,
@@ -296,6 +364,11 @@ fn build(app: &gtk::Application) {
         essid: None,
         bus_cli: Rc::new(RefCell::new(None)),
     }));
+    // os ícones da barra nascem no tamanho do assento (16px — a unidade
+    // visual da casa; o label Nerd nunca mais entra aqui)
+    st.borrow().audio_img.set_pixel_size(16);
+    st.borrow().rede_img.set_pixel_size(16);
+    st.borrow().bt_img.set_pixel_size(16);
 
     // ── ESQUERDA (1.0-93 — minimalista, a ordem do dono): o botão de
     //    apps com ÍCONE GTK de verdade + a palavra "Aplicativos" (sem
@@ -388,32 +461,40 @@ fn build(app: &gtk::Application) {
     }
     centro.append(&btn_clock);
 
-    // ── DIREITA: game → player → áudio → mic → bateria → rede →
-    //    bluetooth → 2º planos → sessão ──────────────────────────────
+    // ── DIREITA (E147 — o contrato mouse-first: game → player → áudio →
+    //    rede → bluetooth → bateria → sessão; o bgapps SAIOU da barra) ──
     {
         let s = st.borrow();
         let btn_game = s.btn_game.clone();
         let btn_player = s.btn_player.clone();
         let player_label = s.player_label.clone();
         let btn_audio = s.btn_audio.clone();
-        let btn_mic = s.btn_mic.clone();
+        let audio_img = s.audio_img.clone();
         let btn_rede = s.btn_rede.clone();
+        let rede_img = s.rede_img.clone();
         let btn_bt = s.btn_bt.clone();
-        let btn_bgapps = s.btn_bgapps.clone();
+        let bt_img = s.bt_img.clone();
         drop(s);
 
         // O MODO DE JOGO (E115/E126 intactos: o estado REAL do
         // GameMode no pill, clique DIREITO desliga na hora) — acende
-        // no SIGRTMIN+8 que o elite-daemon manda na transição.
-        btn_game.set_label("\u{f11b}");
+        // no SIGRTMIN+8 que o elite-daemon manda na transição. O ícone
+        // é Image de ÍCONE (input-gaming — o tema da casa tem).
+        {
+            let img = gtk::Image::from_icon_name("input-gaming-symbolic");
+            img.set_pixel_size(16);
+            btn_game.set_child(Some(&img));
+        }
         btn_game.set_has_frame(false);
         btn_game.set_visible(false);
-        btn_game.set_tooltip_text(Some("Modo de jogo ativo — clique: central · direito: desligar"));
+        btn_game.set_tooltip_text(Some(
+            "Modo de jogo ativo — clique: o painel · direito: desligar",
+        ));
         clique_solto(&btn_game, move |botao| {
             if botao == 3 {
                 solta(&["craft-game", "off"]);
             } else if botao == 1 {
-                solta(&["craft-game"]);
+                solta(&["craft-game", "menu"]);
             }
         });
         dir.append(&btn_game);
@@ -427,7 +508,9 @@ fn build(app: &gtk::Application) {
         btn_player.set_has_frame(false);
         btn_player.set_child(Some(&player_label));
         btn_player.set_visible(false);
-        btn_player.set_tooltip_text(Some("Mídia — clique: play/pause · scroll: faixa · direito: focar o player"));
+        btn_player.set_tooltip_text(Some(
+            "Mídia — clique: play/pause · scroll: faixa · direito: focar o player",
+        ));
         {
             let bus = st.borrow().bus_cli.clone();
             clique_solto(&btn_player, move |botao| {
@@ -451,21 +534,28 @@ fn build(app: &gtk::Application) {
         }
         dir.append(&btn_player);
 
-        // O ÁUDIO pelo wpctl (a cura A3: o mute é INSTANTÂNEO no
-        // clique — nenhum menu de texto no caminho; o mixer de
-        // verdade é o pwvucontrol no direito).
+        // E147 — A CENTRAL DE ÁUDIO & MICROFONE (a ordem do dono: "um
+        // painel unificado de Áudio (Saída + Entrada)… mute/desmute
+        // imediato, controle de volume, seleção rápida de dispositivo e
+        // acesso direto ao mixer completo"). O botão abre o popover
+        // unificado no ESQUERDO; o direito leva ao pwvucontrol (o mixer
+        // de verdade); o scroll ajusta a saída sem abrir nada.
         btn_audio.set_has_frame(false);
-        btn_audio.set_label("\u{f027}");
-        btn_audio.set_tooltip_text(Some("Volume — clique: mudo · scroll: volume · direito: pwvucontrol"));
+        btn_audio.set_child(Some(&audio_img));
+        btn_audio.set_tooltip_text(Some(
+            "Áudio — clique: a central (saída + microfone) · scroll: volume · direito: mixer",
+        ));
         {
+            let pop = popover_audio(&st, tx.clone());
+            pop.set_parent(&btn_audio);
             let tx = tx.clone();
-            clique_solto(&btn_audio, move |botao| {
-                if botao == 3 {
-                    solta(&["pwvucontrol"]);
-                } else if botao == 1 {
-                    solta(&["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle"]);
-                    pede_audio(&tx); // a resposta é o gesto, não o belt
+            clique_solto(&btn_audio, move |botao| match botao {
+                1 => {
+                    pop.popup();
+                    pede_audio_detalhe(&tx);
                 }
+                3 => abre_mixer(),
+                _ => {}
             });
         }
         scroll(&btn_audio, move |dy| {
@@ -474,34 +564,11 @@ fn build(app: &gtk::Application) {
         });
         dir.append(&btn_audio);
 
-        // O MICROFONE (a paridade v2.3.6: mudo instantâneo + realce
-        // .muted quando mudo — a gramática vermelha da casa).
-        btn_mic.set_has_frame(false);
-        btn_mic.set_label("\u{f130}");
-        btn_mic.set_tooltip_text(Some("Microfone — clique: mudo · direito: pwvucontrol"));
-        {
-            let tx = tx.clone();
-            clique_solto(&btn_mic, move |botao| {
-                if botao == 3 {
-                    solta(&["pwvucontrol"]);
-                } else if botao == 1 {
-                    solta(&["wpctl", "set-mute", "@DEFAULT_AUDIO_SOURCE@", "toggle"]);
-                    pede_audio(&tx);
-                }
-            });
-        }
-        dir.append(&btn_mic);
-
-        // A REDE PERSISTENTE (a cura A4: o botão NÃO EXISTE a estado
-        // "sumido" — Cabo/Wi-Fi/Desligado, SEMPRE um glifo e um
-        // clique que abre ferramenta DE VERDADE).
-        // 1.0-93 — O SELETOR RÁPIDO (a ordem do dono): clique esquerdo
-        // abre um POPOVER GTK4 — toggle Wi-Fi (Switch), redes ao
-        // alcance para conectar DIRETO, status do cabo; o
-        // nm-connection-editor fica como botão AVANÇADO opcional (o
-        // clique direito segue direto nele)
+        // A REDE PERSISTENTE (a cura A4: o botão NUNCA sai — Cabo/
+        // Wi-Fi/Desligado com ÍCONE GTK SEMPRE; o esquerdo é o seletor
+        // rápido em popover, o direito o editor de conexões).
         btn_rede.set_has_frame(false);
-        btn_rede.set_label(glifo_rede(EstadoRede::Desligado));
+        btn_rede.set_child(Some(&rede_img));
         btn_rede.set_tooltip_text(Some("Rede — clique: seletor rápido · direito: conexões"));
         {
             let pop = popover_rede(&st, tx.clone());
@@ -518,50 +585,47 @@ fn build(app: &gtk::Application) {
         }
         dir.append(&btn_rede);
 
-        // O BLUETOOTH DEDICADO (a diretriz: o gerenciador gráfico de
-        // verdade — o blueman-manager, que a dose adota; a barra só
-        // mostra o estado e abre a porta).
+        // E147 — O BLUETOOTH QUE RESPONDE (a ordem do dono: "Bluetooth
+        // não responde a nada… alinhando de vez os pacotes instalados
+        // com o elite-clean e o rc.xml para que nenhum script apague o
+        // gerenciador usado pela interface"). O esquerdo abre o PAINEL
+        // (power + conectar/desconectar a um clique); o direito abre o
+        // blueman-manager SE ele existir — e o elite-clean PARA de
+        // removê-lo (a cura do conflito está no script da casa).
         btn_bt.set_has_frame(false);
-        btn_bt.set_label("\u{f293}");
-        btn_bt.set_tooltip_text(Some("Bluetooth — clique: blueman"));
-        clique_solto(&btn_bt, move |botao| {
-            if botao == 1 {
-                solta(&["blueman-manager"]);
-            }
-        });
-        dir.append(&btn_bt);
-
-        // OS 2º PLANOS (o evento E135: o elite-daemon manda o
-        // SIGRTMIN+9 no NameOwnerChanged; o belt de 30s é a rede).
-        // 1.0-93 — O GLIFO QUEBRADO '\uf085' SAI: o ícone é GTK DE
-        // VERDADE (system-run-symbolic) com tooltip descritivo e o
-        // rótulo fica com a CONTAGEM limpa; o clique abre o menu dos
-        // apps em 2º plano (o popover da lista viva)
-        btn_bgapps.set_widget_name("bgappsbtn");
-        btn_bgapps.set_has_frame(false);
-        btn_bgapps.set_visible(false);
+        btn_bt.set_child(Some(&bt_img));
+        btn_bt.set_tooltip_text(Some(
+            "Bluetooth — clique: o painel de dispositivos · direito: gerenciar (blueman)",
+        ));
         {
-            let s = st.borrow();
-            let img = gtk::Image::from_icon_name("system-run-symbolic");
-            img.set_pixel_size(16);
-            let linha = gtk::Box::new(gtk::Orientation::Horizontal, 5);
-            linha.append(&img);
-            linha.append(&s.bgapps_lbl.clone());
-            drop(s);
-            btn_bgapps.set_child(Some(&linha));
+            let pop = popover_bt(&st, tx.clone());
+            pop.set_parent(&btn_bt);
+            let tx = tx.clone();
+            clique_solto(&btn_bt, move |botao| match botao {
+                1 => {
+                    pop.popup();
+                    pede_bt_detalhe(&tx);
+                }
+                3 => {
+                    if std::path::Path::new("/usr/bin/blueman-manager").exists() {
+                        solta(&["blueman-manager"]);
+                    } else {
+                        // sem blueman (rig antigo que a dose ainda não
+                        // curou): o painel É o gerenciador disponível
+                        pop.popup();
+                        pede_bt_detalhe(&tx);
+                    }
+                }
+                _ => {}
+            });
         }
-        btn_bgapps.set_tooltip_text(Some("Aplicativos em segundo plano — clique: a lista"));
-        clique_solto(&btn_bgapps, move |botao| {
-            if botao == 1 {
-                solta(&["craft-bgapps", "menu"]);
-            }
-        });
-        dir.append(&btn_bgapps);
+        dir.append(&btn_bt);
     }
 
     // A BATERIA (só quando EXISTE — desktop não paga o assento): o
     // frame 0 já nasce cheio, o belt de 30s renova pelo /sys (sem
-    // fork nenhum — o /sys é barato).
+    // fork nenhum — o /sys é barato). E147: ícone GTK + percentual
+    // (o glifo Nerd f0e7 morre com a fonte que não o tinha).
     if le_bateria(std::path::Path::new("/sys/class/power_supply/BAT0")).is_some() {
         let btn_bat = gtk::Button::new();
         btn_bat.set_widget_name("batbtn");
@@ -574,12 +638,18 @@ fn build(app: &gtk::Application) {
                 }
             });
         }
-        if let Some((cap, carregando)) = le_bateria(std::path::Path::new("/sys/class/power_supply/BAT0")) {
-            btn_bat.set_label(&format!(
-                "{}% {}",
-                cap,
-                if carregando { "\u{f0e7}" } else { "\u{f240}" }
-            ));
+        {
+            let linha = gtk::Box::new(gtk::Orientation::Horizontal, 5);
+            let img = gtk::Image::from_icon_name("battery-good-symbolic");
+            img.set_pixel_size(16);
+            let rot = gtk::Label::new(None);
+            if let Some((cap, _car)) = le_bateria(std::path::Path::new("/sys/class/power_supply/BAT0")) {
+                rot.set_text(&format!("{cap}%"));
+                img.set_icon_name(Some(bat_icone(cap)));
+            }
+            linha.append(&img);
+            linha.append(&rot);
+            btn_bat.set_child(Some(&linha));
         }
         dir.append(&btn_bat);
         st.borrow_mut().btn_bat = Some(btn_bat);
@@ -587,10 +657,12 @@ fn build(app: &gtk::Application) {
 
     // ── A SESSÃO em popover NATIVO (a cura A5: sem fuzzel, sem
     //    can-suspend — o MenuButton é o par canônico do PopoverMenu;
-    //    o clique/dismiss é TODO do GTK, zero gesture nosso aqui) ────
+    //    o clique/dismiss é TODO do GTK, zero gesture nosso aqui).
+    //    E147: o ícone é Image de ÍCONE (system-shutdown — nunca mais
+    //    codepoint Nerd no label) ─────────────────────────────────────
     let btn_power = gtk::MenuButton::new();
     btn_power.set_widget_name("powerbtn");
-    btn_power.set_label("\u{f011}");
+    btn_power.set_icon_name("system-shutdown-symbolic");
     btn_power.set_tooltip_text(Some("Sessão — Bloquear / Suspender / Reiniciar / Desligar / Encerrar"));
     {
         // as AÇÕES da casa (o grupo mora na window; o menu nomeia)
@@ -626,10 +698,12 @@ fn build(app: &gtk::Application) {
     }
     dir.append(&btn_power);
 
-    // os SINAIS da casa (SIGRTMIN+8 jogo · +9 2º planos · SIGUSR2 CSS)
+    // os SINAIS da casa (SIGRTMIN+8 jogo · SIGUSR2 CSS; o +9 dos 2º
+    // planos morreu com o módulo E147 — o handler do intervalo RT
+    // inteiro segue armado pela arma_rt: venha o sinal de quem vier,
+    // a barra NUNCA morre pela disposição padrão)
     unsafe {
         libc::signal(libc::SIGRTMIN() + 8, on_signal as libc::sighandler_t);
-        libc::signal(libc::SIGRTMIN() + 9, on_signal as libc::sighandler_t);
         libc::signal(libc::SIGUSR2, on_signal as libc::sighandler_t);
     }
 
@@ -638,11 +712,13 @@ fn build(app: &gtk::Application) {
     window.show();
 
     log(&format!(
-        "craft-bar-rs {VERSION} no ar: relógio pt_BR LOCAL no CenterBox · calendário no \
-         hover · áudio/mic wpctl · seletor de rede em popover · bluetooth blueman · \
-         sessão popover nativo · MPRIS/jogo PELO FIO DO BUS · SIGRTMIN+8/+9 do \
-         daemon (o cinto) · clique EXCLUSIVAMENTE no released com tolerância \
-         de 5px (a cura do press×click da dock, E140)"
+        "craft-bar-rs {VERSION} no ar (E147 — a UI reconstruída): contrato mouse-first \
+         (esquerdo = popover nativo · direito = ferramenta avançada) · ícones SÓ por nome \
+         de ícone GTK (o glifo Nerd quebrado morreu) · central de áudio unificada \
+         (saída+mic: mute, volume, dispositivos, mixer) · painel de bluetooth com power \
+         e conectar/desconectar · bgapps REMOVIDO da barra e do código · relógio pt_BR \
+         + calendário no hover · rede persistente · sessão popover nativo · MPRIS/jogo \
+         PELO FIO DO BUS · clique EXCLUSIVAMENTE no released (tolerância 5px, E140)"
     ));
 
     // o DRENO do canal + os sinais (100ms — a latência dos estados)
@@ -670,14 +746,25 @@ fn build(app: &gtk::Application) {
         let st = st.clone();
         glib::timeout_add_seconds_local(POLL_CINTO_S as u32, move || {
             // a TUPLA explícita casa o par (o botão pode ter nascido e a
-            // bateria ido — cada lado é julgado sozinho)
+            // bateria ido — cada lado é julgado sozinho); o ícone e o
+            // percentual vestem juntos (Image + Label do filho)
             let bat = le_bateria(std::path::Path::new("/sys/class/power_supply/BAT0"));
             if let (Some(btn), Some((cap, carregando))) = (st.borrow().btn_bat.clone(), bat) {
-                btn.set_label(&format!(
-                    "{}% {}",
-                    cap,
-                    if carregando { "\u{f0e7}" } else { "\u{f240}" }
-                ));
+                let linha = btn.child();
+                if let Some(boxx) = linha.and_downcast::<gtk::Box>() {
+                    let filhos: Vec<gtk::Widget> =
+                        std::iter::successors(boxx.first_child(), |w| w.next_sibling()).collect();
+                    if let Some(img) = filhos.first().and_then(|w| w.clone().downcast::<gtk::Image>().ok()) {
+                        img.set_icon_name(Some(if carregando {
+                            "battery-full-charging-symbolic"
+                        } else {
+                            bat_icone(cap)
+                        }));
+                    }
+                    if let Some(rot) = filhos.get(1).and_then(|w| w.clone().downcast::<gtk::Label>().ok()) {
+                        rot.set_text(&format!("{cap}%"));
+                    }
+                }
             }
             glib::ControlFlow::Continue
         });
@@ -686,15 +773,17 @@ fn build(app: &gtk::Application) {
 
 // ── a THREAD DE FUNDO (os filhos curtos nas cadências belt) ───────────
 
-/// Roda PARA SEMPRE: player 1s · áudio/mic 2s · rede 5s · bluetooth
-/// 10s · cinto 30s. Bloquear AQUI é de graça (a UI segue viva — a
-/// thread é dona dos subprocessos, nunca do GTK).
+/// Roda PARA SEMPRE: áudio 2s · rede 5s · bluetooth 10s · cinto 30s.
+/// Bloquear AQUI é de graça (a UI segue viva — a thread é dona dos
+/// subprocessos, nunca do GTK). E147: o áudio manda A FOTO COMPLETA
+/// (wpctl status + a verdade do padrão) e o cinto só carrega o jogo
+/// (o bgapps morreu com o próprio módulo).
 fn poller(tx: Sender<Msg>) {
     // 2.0 — O PLAYER NÃO MORA MAIS AQUI: o MPRIS chega pelo fio do bus
     // (o daemon escuta o PropertiesChanged — o polling de 1s do
     // craft-player morreu com o playerctl); aqui ficam os belts que
-    // NÃO têm evento ainda (áudio/mic/rede/bluetooth + o cinto do
-    // jogo/2º-planos — os EVENTOS seguem sendo donos do reflexo)
+    // NÃO têm evento ainda (áudio/rede/bluetooth + o cinto do jogo —
+    // os EVENTOS seguem sendo donos do reflexo)
     let mut t_audio = Instant::now();
     let mut t_rede = Instant::now();
     let mut t_bt = Instant::now();
@@ -702,14 +791,7 @@ fn poller(tx: Sender<Msg>) {
     loop {
         if t_audio.elapsed() >= Duration::from_secs(POLL_AUDIO_S) {
             t_audio = Instant::now();
-            let _ = tx.send(Msg::Audio(
-                um_longo("wpctl", &["get-volume", "@DEFAULT_AUDIO_SINK@"])
-                    .and_then(|t| parse_volume_wpctl(&t)),
-            ));
-            let _ = tx.send(Msg::Mic(
-                um_longo("wpctl", &["get-volume", "@DEFAULT_AUDIO_SOURCE@"])
-                    .and_then(|t| parse_volume_wpctl(&t)),
-            ));
+            let _ = tx.send(Msg::AudioDet(foto_audio()));
         }
         if t_rede.elapsed() >= Duration::from_secs(POLL_REDE_S) {
             t_rede = Instant::now();
@@ -731,9 +813,6 @@ fn poller(tx: Sender<Msg>) {
             if let Some(t) = um_longo("craft-game", &["pill"]) {
                 let _ = tx.send(Msg::Game(json_text(&t)));
             }
-            if let Some(t) = um_longo("craft-bgapps", &["status"]) {
-                let _ = tx.send(Msg::Bgapps(json_text(&t)));
-            }
         }
         std::thread::sleep(Duration::from_millis(200));
     }
@@ -754,19 +833,63 @@ fn um_longo(prog: &str, args: &[&str]) -> Option<String> {
     Some(String::from_utf8_lossy(&out.stdout).into_owned())
 }
 
-/// A UI pede o refresh de áudio/mic NA HORA (o clique de mute não
-/// espera o belt de 2s — a resposta é o gesto; o belt é a rede).
-fn pede_audio(tx: &Sender<Msg>) {
+/// A FOTO COMPLETA do áudio (E147): o `wpctl status` alimenta as
+/// LISTAS e o `wpctl get-volume` dá A VERDADE do mudo/volume dos dois
+/// padrões (o status pode não marcar o MUTED — a porta que sempre
+/// falou verdade vence). None no todo = wpctl ausente/engasgado (a UI
+/// CONSERVA o estado anterior).
+fn foto_audio() -> Option<AudioDetalhe> {
+    let saida = um_longo("wpctl", &["status"])?;
+    let (mut sinks, mut fontes) = parse_wpctl_status(&saida);
+    if let Some((v, m)) = um_longo("wpctl", &["get-volume", "@DEFAULT_AUDIO_SINK@"])
+        .and_then(|t| parse_volume_wpctl(&t))
+    {
+        if let Some(d) = sinks.iter_mut().find(|d| d.padrao) {
+            d.vol = v;
+            d.mudo = m;
+        }
+    }
+    if let Some((v, m)) = um_longo("wpctl", &["get-volume", "@DEFAULT_AUDIO_SOURCE@"])
+        .and_then(|t| parse_volume_wpctl(&t))
+    {
+        if let Some(d) = fontes.iter_mut().find(|d| d.padrao) {
+            d.vol = v;
+            d.mudo = m;
+        }
+    }
+    let sink = sinks.iter().find(|d| d.padrao).cloned();
+    let fonte = fontes.iter().find(|d| d.padrao).cloned();
+    Some(AudioDetalhe {
+        sink,
+        fonte,
+        sinks,
+        fontes,
+    })
+}
+
+/// A UI pede a FOTO do áudio NA HORA (o clique de mute/slide/dispositivo
+/// não espera o belt de 2s — a resposta é o gesto; o belt é a rede).
+fn pede_audio_detalhe(tx: &Sender<Msg>) {
     let tx = tx.clone();
     std::thread::spawn(move || {
-        let _ = tx.send(Msg::Audio(
-            um_longo("wpctl", &["get-volume", "@DEFAULT_AUDIO_SINK@"])
-                .and_then(|t| parse_volume_wpctl(&t)),
-        ));
-        let _ = tx.send(Msg::Mic(
-            um_longo("wpctl", &["get-volume", "@DEFAULT_AUDIO_SOURCE@"])
-                .and_then(|t| parse_volume_wpctl(&t)),
-        ));
+        let _ = tx.send(Msg::AudioDet(foto_audio()));
+    });
+}
+
+/// A UI pede a FOTO do Bluetooth na hora (a lista de pareados + os
+/// conectados + o Powered — a verdade de três chamadas curtas).
+fn pede_bt_detalhe(tx: &Sender<Msg>) {
+    let tx = tx.clone();
+    std::thread::spawn(move || {
+        let ligado = um_longo("bluetoothctl", &["show"]).map(|t| bt_ligado(&t));
+        let _ = tx.send(Msg::Bt(ligado));
+        let pares = um_longo("bluetoothctl", &["devices", "Paired"])
+            .map(|t| parse_bt_devices(&t))
+            .unwrap_or_default();
+        let vivos = um_longo("bluetoothctl", &["devices", "Connected"])
+            .map(|t| bt_conectados(&t))
+            .unwrap_or_default();
+        let _ = tx.send(Msg::BtLista(pares, vivos));
     });
 }
 
@@ -778,7 +901,6 @@ fn drena(st: &Rc<RefCell<State>>, rx: &Receiver<Msg>, tx: &Sender<Msg>) {
     let sig = SIG.swap(0, Ordering::SeqCst);
     if sig != 0 {
         let sig8 = libc::SIGRTMIN() + 8;
-        let sig9 = libc::SIGRTMIN() + 9;
         if sig == sig8 {
             let tx = tx.clone();
             std::thread::spawn(move || {
@@ -786,17 +908,13 @@ fn drena(st: &Rc<RefCell<State>>, rx: &Receiver<Msg>, tx: &Sender<Msg>) {
                     let _ = tx.send(Msg::Game(json_text(&t)));
                 }
             });
-        } else if sig == sig9 {
-            let tx = tx.clone();
-            std::thread::spawn(move || {
-                if let Some(t) = um_longo("craft-bgapps", &["status"]) {
-                    let _ = tx.send(Msg::Bgapps(json_text(&t)));
-                }
-            });
         } else if sig == libc::SIGUSR2 {
             load_css();
             log("bar.css relido (SIGUSR2 — a pele da casa sem renascer)");
         }
+        // E147: o SIGRTMIN+9 dos 2º planos NÃO TEM mais consumidor (o
+        // módulo morreu com a ordem do dono) — o sinal é engolido
+        // silenciosamente (a arma_rt já impediu a morte pela disposição).
     }
     // o FILHO do drawer: colhido se já saiu (zero zumbi na barra)
     {
@@ -819,43 +937,65 @@ fn drena(st: &Rc<RefCell<State>>, rx: &Receiver<Msg>, tx: &Sender<Msg>) {
 /// clone, nunca no borrow aninhado; a lição da dock E-auditoria).
 fn aplica(st: &Rc<RefCell<State>>, msg: Msg) {
     match msg {
-        Msg::Audio(par) => {
-            let s = st.borrow_mut();
-            if let Some((v, m)) = par {
-                s.btn_audio.set_label(glifo_volume(v, m));
-                if m {
+        Msg::AudioDet(detalhe) => {
+            let Some(d) = detalhe else {
+                return; // wpctl engasgou — o estado anterior CONSERVADO
+            };
+            let mut s = st.borrow_mut();
+            // o ÍCONE do botão da barra (muted/low/high pela verdade)
+            if let Some(sink) = d.sink.as_ref() {
+                s.audio_img.set_icon_name(Some(icone_volume(sink.vol, sink.mudo)));
+                if sink.mudo {
                     s.btn_audio.add_css_class("muted");
                 } else {
                     s.btn_audio.remove_css_class("muted");
                 }
                 s.btn_audio.set_tooltip_text(Some(&format!(
-                    "Volume {}%{} — clique: mudo · scroll: volume · direito: pwvucontrol",
-                    (v * 100.0).round() as i64,
-                    if m { " · MUDO" } else { "" }
+                    "Áudio {}%{} — clique: a central · scroll: volume · direito: mixer",
+                    (sink.vol * 100.0).round() as i64,
+                    if sink.mudo { " · MUDO" } else { "" }
                 )));
             }
-        }
-        Msg::Mic(par) => {
-            let s = st.borrow_mut();
-            if let Some((v, m)) = par {
-                s.btn_mic.set_label(glifo_mic(m));
-                if m {
-                    s.btn_mic.add_css_class("muted");
-                } else {
-                    s.btn_mic.remove_css_class("muted");
+            // A CENTRAL: os dois sliders (SÓ sem mão do dono no gesto)
+            if let Some(sink) = d.sink.as_ref() {
+                s.rot_sink.set_text(&rotulo_dispositivo(&sink.nome));
+                s.img_mute_sink.set_icon_name(Some(icone_volume(sink.vol, sink.mudo)));
+                s.rot_sink.set_sensitive(true);
+                if !s.arrasta_sink.get() {
+                    let alvo = (sink.vol * 100.0).clamp(0.0, 100.0);
+                    if (s.esc_sink.value() - alvo).abs() > 0.5 {
+                        s.esc_sink.set_value(alvo);
+                    }
                 }
-                s.btn_mic.set_tooltip_text(Some(&format!(
-                    "Microfone {}%{} — clique: mudo · direito: pwvucontrol",
-                    (v * 100.0).round() as i64,
-                    if m { " · MUDO" } else { "" }
-                )));
+            } else {
+                s.rot_sink.set_text("Sem saída");
+                s.rot_sink.set_sensitive(false);
             }
+            if let Some(fonte) = d.fonte.as_ref() {
+                s.rot_fonte.set_text(&rotulo_dispositivo(&fonte.nome));
+                s.img_mute_fonte
+                    .set_icon_name(Some(icone_mic(fonte.mudo)));
+                s.rot_fonte.set_sensitive(true);
+                if !s.arrasta_fonte.get() {
+                    let alvo = (fonte.vol * 100.0).clamp(0.0, 100.0);
+                    if (s.esc_fonte.value() - alvo).abs() > 0.5 {
+                        s.esc_fonte.set_value(alvo);
+                    }
+                }
+            } else {
+                s.rot_fonte.set_text("Sem entrada");
+                s.rot_fonte.set_sensitive(false);
+            }
+            // as LISTAS de dispositivos (remontadas por foto — a UI
+            // remove o filho morto antes de vestir o novo)
+            remonta_dispositivos(&s.lista_sinks, &d.sinks);
+            remonta_dispositivos(&s.lista_fontes, &d.fontes);
         }
         Msg::Rede(estado, essid) => {
             let mut s = st.borrow_mut();
             s.rede = estado;
             s.essid = essid.clone();
-            s.btn_rede.set_label(glifo_rede(estado));
+            s.rede_img.set_icon_name(Some(icone_rede(estado)));
             s.btn_rede
                 .set_tooltip_text(Some(&tooltip_rede(estado, essid.as_deref())));
         }
@@ -863,28 +1003,75 @@ fn aplica(st: &Rc<RefCell<State>>, msg: Msg) {
             let s = st.borrow_mut();
             match estado {
                 Some(true) => {
+                    s.bt_img.set_icon_name(Some("bluetooth-active-symbolic"));
                     s.btn_bt.remove_css_class("off");
-                    s.btn_bt.set_tooltip_text(Some("Bluetooth ligado — clique: blueman"));
+                    s.bt_switch.set_active(true);
+                    s.bt_switch.set_sensitive(true);
+                    s.btn_bt.set_tooltip_text(Some(
+                        "Bluetooth ligado — clique: o painel · direito: gerenciar (blueman)",
+                    ));
                 }
                 Some(false) => {
+                    s.bt_img.set_icon_name(Some("bluetooth-disabled-symbolic"));
                     s.btn_bt.add_css_class("off");
-                    s.btn_bt.set_tooltip_text(Some("Bluetooth desligado — clique: blueman"));
+                    s.bt_switch.set_active(false);
+                    s.bt_switch.set_sensitive(true);
+                    s.btn_bt.set_tooltip_text(Some(
+                        "Bluetooth desligado — clique: o painel · direito: gerenciar (blueman)",
+                    ));
                 }
                 None => {
+                    s.bt_img.set_icon_name(Some("bluetooth-disabled-symbolic"));
                     s.btn_bt.add_css_class("off");
+                    s.bt_switch.set_sensitive(false);
                     s.btn_bt.set_tooltip_text(Some("Sem adaptador Bluetooth"));
                 }
             }
         }
-        Msg::Player(dados) => {
-            let s = st.borrow_mut();
-            match dados {
-                Some((txt, tip)) => {
-                    s.player_label.set_text(&txt);
-                    s.btn_player.set_tooltip_text(tip.as_deref());
-                    s.btn_player.set_visible(true);
+        Msg::BtLista(pares, vivos) => {
+            // E147 — o painel veste a lista (a thread colheu; a UI
+            // remonta AGORA; o conectado acende sugerido + o clique
+            // alterna a conexão)
+            let s = st.borrow();
+            while let Some(filho) = s.bt_lista.first_child() {
+                s.bt_lista.remove(&filho);
+            }
+            if pares.is_empty() {
+                let aviso = gtk::Label::new(Some("Nenhum dispositivo pareado"));
+                aviso.add_css_class("body");
+                s.bt_lista.append(&aviso);
+            }
+            for dev in &pares {
+                let btn = gtk::Button::new();
+                btn.set_has_frame(false);
+                btn.set_hexpand(true);
+                let rotulo = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+                let nome = gtk::Label::new(Some(&dev.nome));
+                nome.set_halign(gtk::Align::Start);
+                nome.set_hexpand(true);
+                nome.set_ellipsize(gtk::pango::EllipsizeMode::End);
+                rotulo.append(&nome);
+                let vivo = vivos.contains(&dev.mac);
+                let estado_lbl = gtk::Label::new(Some(if vivo { "conectado" } else { "" }));
+                estado_lbl.add_css_class("dim");
+                rotulo.append(&estado_lbl);
+                btn.set_child(Some(&rotulo));
+                if vivo {
+                    btn.add_css_class("suggested-action");
                 }
-                None => s.btn_player.set_visible(false),
+                let mac = dev.mac.clone();
+                btn.set_tooltip_text(Some(if vivo {
+                    "Conectado — clique: desconectar"
+                } else {
+                    "Pareado — clique: conectar"
+                }));
+                clique_solto(&btn, move |botao| {
+                    if botao == 1 {
+                        let verb = if vivo { "disconnect" } else { "connect" };
+                        solta(&["bluetoothctl", verb, &mac]);
+                    }
+                });
+                s.bt_lista.append(&btn);
             }
         }
         Msg::Media(m) => {
@@ -910,19 +1097,6 @@ fn aplica(st: &Rc<RefCell<State>>, msg: Msg) {
         Msg::Game(txt) => {
             let s = st.borrow_mut();
             s.btn_game.set_visible(txt.is_some());
-        }
-        Msg::Bgapps(txt) => {
-            let s = st.borrow_mut();
-            match txt {
-                Some(t) => {
-                    // 1.0-93 — o '\uf085' quebrado já saiu no parse; o
-                    // ícone GTK veste o botão e o rótulo é a contagem
-                    // (a msg já vem com o "text" do JSON extraído)
-                    s.bgapps_lbl.set_text(&bgapps_contagem(&t));
-                    s.btn_bgapps.set_visible(true);
-                }
-                None => s.btn_bgapps.set_visible(false),
-            }
         }
         Msg::RedeLista(redes) => {
             // 1.0-93 — o seletor rápido veste a lista (a thread de
@@ -982,6 +1156,73 @@ fn aplica(st: &Rc<RefCell<State>>, msg: Msg) {
                 s.rede_switch.set_active(on);
             }
         }
+    }
+}
+
+/// E147 — a remontagem de UMA lista de dispositivos da central (o
+/// rótulo é o humano da lei §5; o padrão acende sugerido; o clique
+/// troca o default pelo id e pede a foto na hora).
+fn remonta_dispositivos(lista: &gtk::Box, devs: &[DispositivoAudio]) {
+    while let Some(filho) = lista.first_child() {
+        lista.remove(&filho);
+    }
+    if devs.is_empty() {
+        let aviso = gtk::Label::new(Some("Nenhum dispositivo"));
+        aviso.add_css_class("dim");
+        aviso.set_halign(gtk::Align::Start);
+        lista.append(&aviso);
+        return;
+    }
+    for d in devs {
+        let btn = gtk::Button::new();
+        btn.set_has_frame(false);
+        btn.set_hexpand(true);
+        let rotulo = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+        let nome = gtk::Label::new(Some(&rotulo_dispositivo(&d.nome)));
+        nome.set_halign(gtk::Align::Start);
+        nome.set_hexpand(true);
+        nome.set_ellipsize(gtk::pango::EllipsizeMode::End);
+        let vol = gtk::Label::new(Some(&format!(
+            "{}%",
+            (d.vol * 100.0).round() as i64
+        )));
+        vol.add_css_class("dim");
+        rotulo.append(&nome);
+        rotulo.append(&vol);
+        btn.set_child(Some(&rotulo));
+        if d.padrao {
+            btn.add_css_class("suggested-action");
+        }
+        let id = d.id;
+        clique_solto(&btn, move |botao| {
+            if botao == 1 {
+                solta(&["wpctl", "set-default", &id.to_string()]);
+            }
+        });
+        lista.append(&btn);
+    }
+}
+
+/// E147 — O MIXER COMPLETO da central (a diretriz: pwvucontrol é a
+/// ferramenta de verdade; pavucontrol é o irmão que o rig pode ter —
+/// a barra nunca promete o que o sistema não tem).
+fn abre_mixer() {
+    if std::path::Path::new("/usr/bin/pwvucontrol").exists() {
+        solta(&["pwvucontrol"]);
+    } else if std::path::Path::new("/usr/bin/pavucontrol").exists() {
+        solta(&["pavucontrol"]);
+    } else {
+        log("mixer: nem pwvucontrol nem pavucontrol no sistema — nada a abrir (honesto)");
+    }
+}
+
+/// O ícone da bateria pelo nível (os nomes do tema — nunca glifo Nerd).
+fn bat_icone(cap: u8) -> &'static str {
+    match cap {
+        0..=15 => "battery-empty-symbolic",
+        16..=35 => "battery-low-symbolic",
+        36..=70 => "battery-good-symbolic",
+        _ => "battery-full-symbolic",
     }
 }
 
@@ -1288,6 +1529,319 @@ fn popover_rede(st: &Rc<RefCell<State>>, tx: Sender<Msg>) -> gtk::Popover {
             ferramentas.append(&iwgtk);
         }
         corpo.append(&ferramentas);
+    }
+    pop.set_child(Some(&corpo));
+    pop
+}
+
+/// E147 — A CENTRAL DE ÁUDIO & MICROFONE (a ordem do dono: "um painel
+/// unificado de Áudio (Saída + Entrada)… mute/desmute imediato,
+/// controle de volume, seleção rápida de dispositivo e acesso direto
+/// ao mixer completo"). Um popover, duas seções espelhadas:
+///   · SAÍDA — mute a um clique (o ícone é a verdade), slider 0-100
+///     com commit debounce de 150ms (um wpctl por pausa do gesto) e a
+///     lista dos sinks para trocar o padrão a um clique;
+///   · ENTRADA — o mesmo para o microfone (o Fifine do dump do dono
+///     troca de assento aqui, não no pavucontrol);
+///   · MIXER — o pwvucontrol de verdade (pavucontrol é o irmão que o
+///     rig pode ter; a barra nunca promete o que o sistema não tem).
+/// A FOTO (Msg::AudioDet) veste TUDO: rótulos, ícones, sliders (só
+/// sem a mão do dono no gesto) e listas.
+fn popover_audio(st: &Rc<RefCell<State>>, tx: Sender<Msg>) -> gtk::Popover {
+    let pop = gtk::Popover::new();
+    pop.set_autohide(true);
+    let corpo = gtk::Box::new(gtk::Orientation::Vertical, 8);
+    corpo.set_margin_top(12);
+    corpo.set_margin_bottom(12);
+    corpo.set_margin_start(12);
+    corpo.set_margin_end(12);
+    corpo.set_size_request(340, -1);
+
+    // o cabeçalho: o título da central
+    let titulo = gtk::Label::new(Some("Áudio"));
+    titulo.add_css_class("title");
+    titulo.set_halign(gtk::Align::Start);
+    corpo.append(&titulo);
+
+    // ── SAÍDA ─────────────────────────────────────────────────────────
+    let sec_sink = gtk::Label::new(Some("Saída"));
+    sec_sink.add_css_class("dim");
+    sec_sink.set_halign(gtk::Align::Start);
+    corpo.append(&sec_sink);
+
+    let linha_sink = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+    {
+        let s = st.borrow();
+        let btn_mute = gtk::Button::new();
+        btn_mute.set_has_frame(false);
+        let img = s.img_mute_sink.clone();
+        btn_mute.set_child(Some(&img));
+        btn_mute.set_tooltip_text(Some("Mudo/desmudo da saída"));
+        let tx = tx.clone();
+        clique_solto(&btn_mute, move |botao| {
+            if botao == 1 {
+                solta(&["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle"]);
+                pede_audio_detalhe(&tx);
+            }
+        });
+        linha_sink.append(&btn_mute);
+        let esc = s.esc_sink.clone();
+        esc.set_hexpand(true);
+        esc.set_valign(gtk::Align::Center);
+        esc.set_tooltip_text(Some("Volume da saída — 0 a 100"));
+        // o commit do slider: debounce de 150ms — UM wpctl por pausa
+        // do gesto (o arrastar contínuo não enfileira forks; o release
+        // confirma o valor final NA HORA)
+        {
+            let pende = s.pende_sink.clone();
+            let esc = esc.clone();
+            esc.connect_value_changed(move |_e| {
+                if let Some(id) = pende.borrow_mut().take() {
+                    id.remove();
+                }
+                let esc = esc.clone();
+                let novo = glib::timeout_add_local_once(Duration::from_millis(150), move || {
+                    let v = esc.value() / 100.0;
+                    solta(&[
+                        "wpctl",
+                        "set-volume",
+                        "--limit",
+                        "1.5",
+                        "@DEFAULT_AUDIO_SINK@",
+                        &format!("{v:.2}"),
+                    ]);
+                });
+                *pende.borrow_mut() = Some(novo);
+            });
+        }
+        // a bandeira de ARRASTO (o belt nunca briga com a mão do dono)
+        {
+            let arr = s.arrasta_sink.clone();
+            let ges = gtk::GestureClick::new();
+            ges.connect_pressed(move |_, _, _, _| arr.set(true));
+            let arr = s.arrasta_sink.clone();
+            let esc = esc.clone();
+            let pende = s.pende_sink.clone();
+            ges.connect_released(move |_, _, _, _| {
+                arr.set(false);
+                // o release confirma o valor final NA HORA (o debounce
+                // pendente morre — o wpctl novo já leva o valor certo)
+                if let Some(id) = pende.borrow_mut().take() {
+                    id.remove();
+                }
+                let v = esc.value() / 100.0;
+                solta(&[
+                    "wpctl",
+                    "set-volume",
+                    "--limit",
+                    "1.5",
+                    "@DEFAULT_AUDIO_SINK@",
+                    &format!("{v:.2}"),
+                ]);
+            });
+            esc.add_controller(ges);
+        }
+        linha_sink.append(&esc);
+        drop(s);
+    }
+    corpo.append(&linha_sink);
+    {
+        let s = st.borrow();
+        let rot = s.rot_sink.clone();
+        rot.add_css_class("dim");
+        rot.set_halign(gtk::Align::Start);
+        rot.set_ellipsize(gtk::pango::EllipsizeMode::End);
+        let sc = gtk::ScrolledWindow::new();
+        sc.set_max_content_height(110);
+        sc.set_propagate_natural_height(true);
+        let lista = s.lista_sinks.clone();
+        sc.set_child(Some(&lista));
+        drop(s);
+        corpo.append(&rot);
+        corpo.append(&sc);
+    }
+
+    // ── ENTRADA (o microfone — a mesma gramática espelhada) ───────────
+    let sep1 = gtk::Separator::new(gtk::Orientation::Horizontal);
+    corpo.append(&sep1);
+    let sec_fonte = gtk::Label::new(Some("Entrada (microfone)"));
+    sec_fonte.add_css_class("dim");
+    sec_fonte.set_halign(gtk::Align::Start);
+    corpo.append(&sec_fonte);
+
+    let linha_fonte = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+    {
+        let s = st.borrow();
+        let btn_mute = gtk::Button::new();
+        btn_mute.set_has_frame(false);
+        let img = s.img_mute_fonte.clone();
+        btn_mute.set_child(Some(&img));
+        btn_mute.set_tooltip_text(Some("Mudo/desmudo do microfone"));
+        let tx = tx.clone();
+        clique_solto(&btn_mute, move |botao| {
+            if botao == 1 {
+                solta(&["wpctl", "set-mute", "@DEFAULT_AUDIO_SOURCE@", "toggle"]);
+                pede_audio_detalhe(&tx);
+            }
+        });
+        linha_fonte.append(&btn_mute);
+        let esc = s.esc_fonte.clone();
+        esc.set_hexpand(true);
+        esc.set_valign(gtk::Align::Center);
+        esc.set_tooltip_text(Some("Volume do microfone — 0 a 100"));
+        {
+            let pende = s.pende_fonte.clone();
+            let esc = esc.clone();
+            esc.connect_value_changed(move |_e| {
+                if let Some(id) = pende.borrow_mut().take() {
+                    id.remove();
+                }
+                let esc = esc.clone();
+                let novo = glib::timeout_add_local_once(Duration::from_millis(150), move || {
+                    let v = esc.value() / 100.0;
+                    solta(&[
+                        "wpctl",
+                        "set-volume",
+                        "--limit",
+                        "1.5",
+                        "@DEFAULT_AUDIO_SOURCE@",
+                        &format!("{v:.2}"),
+                    ]);
+                });
+                *pende.borrow_mut() = Some(novo);
+            });
+        }
+        {
+            let arr = s.arrasta_fonte.clone();
+            let ges = gtk::GestureClick::new();
+            ges.connect_pressed(move |_, _, _, _| arr.set(true));
+            let arr = s.arrasta_fonte.clone();
+            let esc = esc.clone();
+            let pende = s.pende_fonte.clone();
+            ges.connect_released(move |_, _, _, _| {
+                arr.set(false);
+                if let Some(id) = pende.borrow_mut().take() {
+                    id.remove();
+                }
+                let v = esc.value() / 100.0;
+                solta(&[
+                    "wpctl",
+                    "set-volume",
+                    "--limit",
+                    "1.5",
+                    "@DEFAULT_AUDIO_SOURCE@",
+                    &format!("{v:.2}"),
+                ]);
+            });
+            esc.add_controller(ges);
+        }
+        linha_fonte.append(&esc);
+        drop(s);
+    }
+    corpo.append(&linha_fonte);
+    {
+        let s = st.borrow();
+        let rot = s.rot_fonte.clone();
+        rot.add_css_class("dim");
+        rot.set_halign(gtk::Align::Start);
+        rot.set_ellipsize(gtk::pango::EllipsizeMode::End);
+        let sc = gtk::ScrolledWindow::new();
+        sc.set_max_content_height(110);
+        sc.set_propagate_natural_height(true);
+        let lista = s.lista_fontes.clone();
+        sc.set_child(Some(&lista));
+        drop(s);
+        corpo.append(&rot);
+        corpo.append(&sc);
+    }
+
+    // ── MIXER (a porta da ferramenta completa) ────────────────────────
+    let sep2 = gtk::Separator::new(gtk::Orientation::Horizontal);
+    corpo.append(&sep2);
+    let mixer = gtk::Button::with_label(if std::path::Path::new("/usr/bin/pwvucontrol").exists() {
+        "Mixer completo (pwvucontrol)"
+    } else {
+        "Mixer completo"
+    });
+    mixer.set_hexpand(true);
+    mixer.set_tooltip_text(Some("Abrir o mixer completo do sistema"));
+    clique_solto(&mixer, move |botao| {
+        if botao == 1 {
+            abre_mixer();
+        }
+    });
+    corpo.append(&mixer);
+
+    pop.set_child(Some(&corpo));
+    pop
+}
+
+/// E147 — O PAINEL DE BLUETOOTH (a ordem do dono: "Bluetooth não
+/// responde a nada" — a cura é DUPLA: o popover nativo com power e
+/// conectar/desconectar a um clique PELO bluetoothctl, e o elite-clean
+/// PARANDO de remover o blueman-manager que o direito abre). A FOTO
+/// (Msg::BtLista) veste a lista; o Switch veste o Powered verdadeiro.
+fn popover_bt(st: &Rc<RefCell<State>>, tx: Sender<Msg>) -> gtk::Popover {
+    let pop = gtk::Popover::new();
+    pop.set_autohide(true);
+    let corpo = gtk::Box::new(gtk::Orientation::Vertical, 8);
+    corpo.set_margin_top(12);
+    corpo.set_margin_bottom(12);
+    corpo.set_margin_start(12);
+    corpo.set_margin_end(12);
+    corpo.set_size_request(320, -1);
+
+    // a cabeça: o título + o Switch do POWER (a verdade do show)
+    let cabeca = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+    let titulo = gtk::Label::new(Some("Bluetooth"));
+    titulo.add_css_class("title");
+    titulo.set_hexpand(true);
+    titulo.set_halign(gtk::Align::Start);
+    {
+        let s = st.borrow();
+        let sw = s.bt_switch.clone();
+        sw.set_valign(gtk::Align::Center);
+        sw.set_tooltip_text(Some("Ligar ou desligar o Bluetooth"));
+        let tx = tx.clone();
+        sw.connect_state_set(move |_, on| {
+            let cmd = if on { "on" } else { "off" };
+            let tx = tx.clone();
+            std::thread::spawn(move || {
+                solta(&["bluetoothctl", "power", cmd]);
+                pede_bt_detalhe(&tx);
+            });
+            glib::Propagation::Proceed
+        });
+        cabeca.append(&titulo);
+        cabeca.append(&sw);
+    }
+    corpo.append(&cabeca);
+
+    // a LISTA de pareados (rolável; o conectado acende e o clique
+    // alterna a conexão pelo bluetoothctl — a ação DE VERDADE)
+    let sc = gtk::ScrolledWindow::new();
+    sc.set_max_content_height(200);
+    sc.set_propagate_natural_height(true);
+    {
+        let s = st.borrow();
+        let lista = s.bt_lista.clone();
+        drop(s);
+        sc.set_child(Some(&lista));
+    }
+    corpo.append(&sc);
+
+    // o AVANÇADO: o gerenciador de verdade QUANDO existe (o elite-clean
+    // da cura não o remove mais — o rig da dose o tem de volta)
+    if std::path::Path::new("/usr/bin/blueman-manager").exists() {
+        let ger = gtk::Button::with_label("Gerenciar dispositivos (blueman)");
+        ger.set_hexpand(true);
+        ger.set_tooltip_text(Some("Abrir o gerenciador completo do Bluetooth"));
+        clique_solto(&ger, move |botao| {
+            if botao == 1 {
+                solta(&["blueman-manager"]);
+            }
+        });
+        corpo.append(&ger);
     }
     pop.set_child(Some(&corpo));
     pop

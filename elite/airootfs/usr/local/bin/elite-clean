@@ -216,8 +216,18 @@ else
   clog "journal: PULADO (sudo indisponível)"
 fi
 
-step "fase 1 · redundantes (E132 — applets com substituto na casa)"
-for pkg in polkit-gnome blueman network-manager-applet; do
+step "fase 1 · redundantes (E132; E147 — o BLUEMAN SAIU DA LISTA)"
+# E147 — A CURA DO CONFLITO ESTRUTURAL (a evidência do dono: "há
+# conflito estrutural onde o rc.xml chama blueman-manager, enquanto o
+# elite-clean remove o pacote blueman do sistema" — o clique de
+# bluetooth da barra chamava um gerenciador QUE A PRÓPRIA CASA APAGOU:
+# "não responde a nada"). A constituição §5/§7 nomeou o blueman COMO a
+# ferramenta de Bluetooth da casa (Rede = iwgtk + nm-connection-editor;
+# Bluetooth = blueman) — nenhum script da casa apaga mais o gerenciador
+# que a interface usa. Os SUBSTITUTOS reais seguem: o polkit-gnome
+# aposentou pelo lxqt-policykit-agent e o network-manager-applet
+# aposentou pelos botões da própria barra.
+for pkg in polkit-gnome network-manager-applet; do
   if pacman -Q "$pkg" >/dev/null 2>&1; then
     if srun pacman -Rns --noconfirm "$pkg"; then
       clog "redundante $pkg: removido (substituto da casa no lugar)"
@@ -226,6 +236,18 @@ for pkg in polkit-gnome blueman network-manager-applet; do
     fi
   fi
 done
+# E147 — O REPARO DO RIG QUE JÁ PERDEU O BLUEMAN (a dose 1.0-93/95 o
+# removeu do rig do dono): se o pacote não está e nenhum dependente o
+# prende, ELE VOLTA — o gerenciador que a interface usa nasce de novo
+# pela atualização, sem comando manual (a lei §4). Sem rede = a
+# instalação falha e o papel registra (a próxima dose re-tenta).
+if ! pacman -Q blueman >/dev/null 2>&1 && command -v pacman >/dev/null 2>&1; then
+  if srun pacman -S --noconfirm --needed blueman; then
+    clog "blueman: DEVOLVIDO ao sistema (E147 — o gerenciador da interface não pode estar ausente; o conflito com o rc.xml morre)"
+  else
+    clog "blueman: não voltou nesta corrida (rede/dependentes — a próxima dose re-tenta)"
+  fi
+fi
 
 step "fase 1 · links quebrados em applications e config"
 # E133 — o find -xtype l: o link cujo ALVO morreu (aplicativo desinstalado

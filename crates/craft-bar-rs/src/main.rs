@@ -12,37 +12,38 @@
 //   · ui.rs    — a camada GTK4/layer-shell (feature "gui" — o CI do
 //     pacote valida; o sandbox sem GTK testa o núcleo).
 //
-// O QUE A BARRA FAZ (a diretriz do dossiê, item por item):
+// O QUE A BARRA FAZ (E147 — o contrato mouse-first reconstruído):
 //   · APPS (nwg-drawer): abre/fecha NO released com debounce real de
-//     150ms — o toggle é pelo FILHO próprio (nada de pgrep às cegas;
-//     o stderr da gaveta vai para /dev/null: o spawn/kill a cada 1-2s
-//     do bars.log do dump era o ECO da era shell, não a gaveta);
+//     150ms — o toggle é pelo FILHO próprio (o craft-apps do W-d é a
+//     mesma gaveta; o stderr vai para /dev/null);
 //   · RELÓGIO pt_BR FIXO ("Seg, 23 Nov · 19:30") que NUNCA muda de
 //     texto ao clicar: esquerdo alterna o painel do swaync, direito
-//     alterna o DND — o texto é UM só;
-//   · ÁUDIO pelo wpctl: esquerdo = MUTE instantâneo do sink padrão,
-//     scroll = volume, direito = pwvucontrol (o mixer de verdade);
-//   · MIC: esquerdo = mute instantâneo da fonte padrão (realce .muted
-//     quando mudo), direito = pwvucontrol;
+//     alterna o DND, hover abre o calendário GTK4 — o texto é UM só;
+//   · ÁUDIO (A CENTRAL UNIFICADA E147): esquerdo abre o painel
+//     Saída+Entrada — mute imediato dos dois lados, volume por slider
+//     (commit debounce de 150ms), troca de dispositivo a um clique
+//     (wpctl status parseado com rótulo humano §5) e o mixer completo
+//     (pwvucontrol) no rodapé; direito = pwvucontrol; scroll = volume;
 //   · REDE PERSISTENTE: o botão NÃO EXISTE a estado "sumido" — Cabo /
-//     Wi-Fi / Desligado têm glifo e tooltip SEMPRE; esquerdo abre o
-//     iwgtk, direito o nm-connection-editor;
-//   · BLUETOOTH dedicado: o estado pelo bluetoothctl, o clique abre o
-//     blueman-manager (as ferramentas de verdade da diretriz);
+//     Wi-Fi / Desligado têm ÍCONE GTK e tooltip SEMPRE; esquerdo abre
+//     o seletor rápido (Switch Wi-Fi + redes ao alcance + iwgtk),
+//     direito o nm-connection-editor;
+//   · BLUETOOTH (E147 — o painel que RESPONDE): esquerdo abre o painel
+//     com o Switch do power e conectar/desconectar a um clique pelo
+//     bluetoothctl; direito o blueman-manager (que o elite-clean NÃO
+//     remove mais — o conflito estrutural morreu);
 //   · MODO DE JOGO: pill que acende no SIGRTMIN+8 do elite-daemon (o
 //     mesmo contrato da era waybar — o daemon avisa, a barra acende);
-//   · PLAYER: o craft-player state a cada 1s (a casa E124, intacta);
-//   · 2º PLANOS: craft-bgapps no SIGRTMIN+9 (o evento E135, intacto);
+//   · PLAYER: o MPRIS PELO FIO DO BUS (o PropertiesChanged do daemon);
 //   · SESSÃO: GtkPopoverMenu NATIVO — Bloquear / Suspender / Reiniciar
 //     / Desligar / Encerrar sessão. SEM fuzzel e SEM can-suspend: o
 //     sleep.conf da casa já disse AllowSuspend=yes (E122), o
 //     `systemctl suspend` é a palavra final.
+//   · TODOS os ícones são NOMES DE ÍCONE GTK (Image::from_icon_name) —
+//     o glifo Nerd quebrado ('\uf085 2') morreu pela raiz (a fonte GTK
+//     padrão não fala Nerd; o tema da casa tem todos os nomes).
 //
-// ESCOPO HONESTO DESTA v1 (o que FALTA, nomeado):
-//   ✗ o CALENDÁRIO do tooltip do relógio (o swaync tem o próprio
-//     painel com calendário — o clique esquerdo o abre; o tooltip da
-//     barra mostra a data completa em pt_BR, sem o <tt>{calendar}</tt>
-//     que era do waybar);
+// ESCOPO HONESTO (o que FALTA, nomeado):
 //   ✗ a TRAY SNI (a v2.3.6 aposentou por inconsistência de glifos —
 //     o nm-applet era o único inquilino; a rede agora é botão próprio
 //     com ferramentas de verdade);
@@ -151,21 +152,30 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() > 1 && ["-h", "--help", "uso"].contains(&args[1].as_str()) {
         println!(
-            "uso: craft-bar-rs — a TOP BAR nativa da casa (GTK4 + layer-shell; a\n\
-             \x20    aposentadoria do waybar, E140; sem argumentos)\n\
+            "uso: craft-bar-rs — a TOP BAR nativa da casa (GTK4 + layer-shell; sem argumentos)\n\
              \n\
-             \x20  esquerdo: o verbo principal de cada botão · direito: a ferramenta\n\
-             \x20  completa (pwvucontrol/nm-connection-editor/DND)\n\
+             \x20  E147 — O CONTRATO DE INTERAÇÃO ÚNICO (a UI reconstruída):\n\
+             \x20  · clique ESQUERDO = o controle principal (popover nativo GTK4);\n\
+             \x20  · clique DIREITO = a ferramenta avançada de verdade;\n\
+             \x20  · scroll = ajuste fino (volume).\n\
+             \n\
              \x20  · Aplicativos (esq): a gaveta nwg-drawer · (dir): menu rápido\n\
              \x20  · relógio (LOCAL): painel do swaync (esq) / DND (dir) / hover:\n\
              \x20    calendário — o texto NUNCA muda ao clicar\n\
+             \x20  · ÁUDIO (esq): a CENTRAL unificada — saída + microfone com\n\
+             \x20    mute imediato, volume por slider, troca de dispositivo a um\n\
+             \x20    clique e o mixer completo (pwvucontrol) · (dir): o mixer\n\
              \x20  · rede (esq): seletor rápido — toggle Wi-Fi, redes, cabo\n\
-             \x20  · áudio/mic: wpctl mute no clique · sessão: popover nativo\n\
-             \x20  (Bloquear/Suspender/Reiniciar/Desligar/Encerrar)\n\
+             \x20  · bluetooth (esq): painel — power, conectar/desconectar\n\
+             \x20    a um clique · (dir): blueman-manager (o elite-clean NÃO o\n\
+             \x20    remove mais — o conflito E147 morreu)\n\
+             \x20  · sessão: popover nativo (Bloquear/Suspender/Reiniciar/\n\
+             \x20    Desligar/Encerrar) · bateria: o resumo (quando existe)\n\
+             \x20  · os ícones são SÓ nomes de ícone GTK — NUNCA mais glifo Nerd\n\
+             \x20    quebrado (o '\\uf085' foi a evidência do dono)\n\
              \x20  SIGRTMIN+8: pill do modo de jogo (o elite-daemon avisa) ·\n\
-             \x20  SIGRTMIN+9: apps em 2º plano · SIGUSR2: relê o bar.css.\n\
-             \x20  Chamada pelo elite-daemon session; rodar na mão nasce barra\n\
-             \x20  duplicada (lei E30)."
+             \x20  SIGUSR2: relê o bar.css. Chamada pelo elite-daemon session;\n\
+             \x20  rodar na mão nasce barra duplicada (lei E30)."
         );
         return;
     }

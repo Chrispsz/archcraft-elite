@@ -2671,7 +2671,57 @@ pkgver=1.0
 #      system, veredito de XML, zumbis nomados, UM .txt + .tar.gz;
 #      (7) O GUARD COM VOZ — a 2ª instância do daemon sai 0 DEIXANDO
 #      PAPEL (a recusa repetida é a assinatura do autostart doente).
-pkgrel=95
+# E147 (A DOSE 1.0-96 — A RECONSTRUÇÃO DA CAMADA DE UI/UX, a ordem do
+#      dono: "abandone o que não funcionou e refaça a camada de
+#      interface, controles rápidos e integração de sessão com uma
+#      arquitetura limpa, coesa e bem pensada de UI/UX"):
+#      (1) O CONTRATO DE INTERAÇÃO ÚNICO da craft-bar-rs — clique
+#          ESQUERDO abre SEMPRE o popover nativo do módulo (a central
+#          de áudio unificada Saída+Entrada com mute imediato, slider
+#          com commit debounce de 150ms, troca de dispositivo a um
+#          clique e o mixer completo; o painel de Bluetooth com power
+#          e conectar/desconectar a um clique pelo bluetoothctl) e o
+#          DIREITO abre a ferramenta avançada de verdade (pwvucontrol,
+#          nm-connection-editor, blueman-manager);
+#      (2) O GLIFO NERD QUEBRADO MORRE PELA RAIZ — a fonte GTK padrão
+#          não fala Nerd (o texto de escape na barra era o codepoint
+#          sem fonte): TODOS os ícones da barra vêm AGORA de
+#          Image::from_icon_name (audio-volume-*, network-*,
+#          bluetooth-*, input-gaming, battery-*, system-shutdown);
+#      (3) O MÓDULO DE 2º PLANOS MORRE INTEIRO (a ordem do dono: "deve
+#          ser completamente removido") — o botão e a Msg da barra, o
+#          ouvidor bus bgapps e o SIGRTMIN+9 do daemon, o bin
+#          craft-bgapps do pacote (o post-upgrade ceifa o fóssil com
+#          voz e a suíte proíbe a volta);
+#      (4) O CONFLITO BLUEMAN MORRE — o elite-clean PARA de remover o
+#          blueman (a constituição §7 o nomeou como a ferramenta de
+#          Bluetooth da casa; o rc.xml e a barra o chamam) e DEVOLVE o
+#          pacote ao rig que já o perdeu (pacman -S --needed; o rig do
+#          dump o tinha AUSENTE e o clique não respondia a nada);
+#      (5) A DOCK VESTE O CICLO DE VIDA DOS POPOVERS (a evidência: o
+#          'Gtk-WARNING: Finalizing dockbtn … still has children left:
+#          GtkPopoverMenu' e os espaços pretos órfãos) — o repack
+#          popdown()+unparent() o popover de TODO botão morto antes da
+#          remoção e queue_resize() fecha o ciclo no mesmo frame;
+#      (6) O PS HONESTO — o motor do modo game veste argv0
+#          "elite-daemon-game" (a duplicidade 'elite-daemon x2' do
+#          rig era o session + o motor com o MESMO nome: o ps agora
+#          diz o papel de cada um);
+#      (7) AS PELES DO SKEL CHEGAM AOS RIGS VIVOS — o post-upgrade
+#          entrega o que o dono NÃO tem de /etc/skel/.config (swaync,
+#          gtk-3.0, gtk-4.0, fuzzel), arquivo presente = intocável,
+#          idempotente por desenho; os bins craft-apps e
+#          elite-heal-sessao vestem 0755 no git (o pacote copiava o
+#          modo 644 — o craft-apps sem +x do rig do dono era ESTE
+#          buraco); os 2º planos saem da ajuda nativa e do dump;
+#      (8) A SUÍTE veste os contratos novos: parse do wpctl status
+#          (a central), dispositivos BT, rótulos humanos §5, ícones
+#          por nome, bgapps proibido de voltar, skel sync, blueman
+#          devolvido. Provas: cargo test --workspace --no-default-
+#          features 144/144 ZERO avisos (rustc 1.100.0 no sandbox),
+#          bash -n nos scripts, XML parseando, pkgrel 95→96 NO MESMO
+#          COMMIT (E41). Sem tag (L4).
+pkgrel=96
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da sessão; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

@@ -507,7 +507,7 @@ if grep -q '^file_permissions=(' "$PD"; then
            /usr/local/bin/elite-session-probe /usr/local/bin/elite-sweep \
            /usr/local/bin/elite-update \
            /usr/local/bin/craft-appimage /usr/local/bin/craft-bat \
-           /usr/local/bin/craft-bgapps /usr/local/bin/craft-display \
+           /usr/local/bin/craft-display \
            /usr/local/bin/craft-dock /usr/local/bin/craft-extract \
            /usr/local/bin/craft-fix-keys /usr/local/bin/craft-flatpak \
            /usr/local/bin/craft-game /usr/local/bin/craft-hello \

@@ -136,7 +136,6 @@ pub fn mapa_comandos() -> Vec<(&'static str, Vec<(&'static str, &'static str)>)>
             vec![
                 ("craft-display", "o arranjo do monitor (apply/watch/save — a persistência dos Hz entre boots)"),
                 ("craft-rollback", "os snapshots do sistema (criar/restaurar)"),
-                ("craft-bgapps", "os apps em 2º plano (status/menu)"),
                 ("craft-flatpak", "o CLI do Flatpak (as lojas de verdade: Bazaar e Warehouse)"),
                 ("craft-appimage", "o CLI do AppImage (o gerenciador de verdade: Gear Lever)"),
                 ("craft-lock", "travar a tela agora (W-l)"),

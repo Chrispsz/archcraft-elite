@@ -37,7 +37,7 @@ file_has "elite-core: o quadro tem teto (FRAME_MAX)" "crates/elite-core/src/ipc.
 # NO build do pacote: craft-update/craft-clean/craft-help/craft-pick — as
 # janelas nativas da diretriz — e o craft-dump v2, a telemetria que usa o
 # NOME da casa de sempre); os MOTORES shell renomeados ficam na árvore
-for bin in elite-dose elite-clean craft-wake-guard craft-lock craft-game craft-shot craft-idle craft-appimage craft-bgapps craft-display craft-rollback elite-post-upgrade elite-install-stage elite-tune elite-update; do
+for bin in elite-dose elite-clean craft-wake-guard craft-lock craft-game craft-shot craft-idle craft-appimage craft-display craft-rollback elite-post-upgrade elite-install-stage elite-tune elite-update; do
     file_exists "bin da casa: $bin presente" "elite/airootfs/usr/local/bin/$bin"
 done
 # a família RUST OBRIGATÓRIA no molde (a fundação 2.0 no pacote):

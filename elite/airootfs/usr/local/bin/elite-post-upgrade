@@ -584,6 +584,48 @@ for _fossil20 in /usr/local/bin/craft-bars /usr/local/bin/craft-connect; do
 done
 unset _fossil20
 
+# ── E147 — O FÓSSIL DOS 2º PLANOS + AS PELES DO SKEL NOS RIGS VIVOS ────
+#      (a diretriz do dono: "Mantém um módulo/indicador de aplicativos
+#      em segundo plano que deve ser completamente removido — já havia
+#      sido solicitado para sair, mas permaneceu na interface e no
+#      código"; e "Falta de sincronização de configs visuais do
+#      /etc/skel/.config/ (swaync, gtk-3.0, gtk-4.0, fuzzel) para
+#      usuários já instalados no post_upgrade"). O bin morre COM VOZ
+#      (não tem mais consumidor: a barra E147 removeu o módulo e o
+#      daemon removeu o ouvidor do +9); as peles AUSENTES chegam pela
+#      dose (a gramática do domínio v3: o arquivo do dono é INTOCÁVEL
+#      — só o que NÃO existe é entregue, idempotente por desenho).
+if [ -f /usr/local/bin/craft-bgapps ]; then
+    rm -f /usr/local/bin/craft-bgapps 2>/dev/null \
+        && tlog "E147: fóssil craft-bgapps REMOVIDO (o indicador de 2º planos saiu da barra pela ordem do dono — o bin não tem consumidor)"
+fi
+
+sync_skel() {
+    # sync_skel <home> <uid> — entrega do /etc/skel/.config o que o rig
+    # NÃO tem (swaync, gtk-3.0, gtk-4.0, fuzzel — as peles da diretriz
+    # UI/UX); arquivo presente = domínio do dono, NUNCA tocado.
+    _sh="$1"
+    _suid="$2"
+    _entregues=0
+    for _cfg in swaync gtk-3.0 gtk-4.0 fuzzel; do
+        [ -d "/etc/skel/.config/$_cfg" ] || continue
+        for _sf in "/etc/skel/.config/$_cfg"/*; do
+            [ -f "$_sf" ] || continue
+            _alvo="$_sh/.config/$_cfg/$(basename "$_sf")"
+            if [ ! -e "$_alvo" ]; then
+                mkdir -p "$_sh/.config/$_cfg" 2>/dev/null || true
+                if cp -p "$_sf" "$_alvo" 2>/dev/null; then
+                    chown "$_suid:$(stat -c %g "$_sh" 2>/dev/null || echo "$_suid")" "$_alvo" 2>/dev/null || true
+                    _entregues=$((_entregues + 1))
+                fi
+            fi
+        done
+    done
+    if [ "$_entregues" -gt 0 ]; then
+        tlog "skel $_suid: $_entregues arquivo(s) de peles ENTREGUE(S) (swaync/gtk-3.0/gtk-4.0/fuzzel ausentes no rig — a pele da casa chega pela dose; o personalizado é intocável)"
+    fi
+}
+
 # ── 1.0-93 — O SCX_LAVD DE VERDADE (a ordem do dono: o scx-scheds
 #      instala /usr/bin/scx_lavd SEM .service nenhum — a unit nova da
 #      casa /etc/systemd/system/scx-lavd.service o roda DIRETO). A
@@ -644,6 +686,10 @@ for _hdir in /home/*; do
 $_heal_out
 EOF
     fi
+    # E147 — AS PELES DO SKEL CHEGAM AO RIG VIVO (a ordem do dono: as
+    # configs visuais de /etc/skel/.config para usuários já instalados,
+    # sem comando manual e sem tocar o personalizado)
+    sync_skel "$_hdir" "$_auid"
 done
 unset _hdir _auid _heal_out _hl
 

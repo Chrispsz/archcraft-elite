@@ -46,7 +46,7 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 mod audio;
 mod idle;
@@ -127,9 +127,11 @@ fn main() {
         // o craft-bars shell vira exec — o /bin/sh some do ps).
         // E139 — OS OUVIDORES NASCEM AQUI (a sessão é quem SEMPRE está
         // viva: netlink som/drm, logind sono/unlock, wake-guard
-        // pré-sono e bus bgapps — cada thread dorme num read(2)/sinal,
-        // zero CPU em repouso; a lei E135 dos residentes intocada). O
-        // rig com AUTO=0 não tem motor de jogo e não pode ficar cego.
+        // pré-sono — cada thread dorme num read(2)/sinal, zero CPU em
+        // repouso; a lei E135 dos residentes intocada). E147: o ouvidor
+        // bus bgapps MORREU com o próprio módulo (a ordem do dono: o
+        // indicador de 2º planos saiu da interface E do código). O rig
+        // com AUTO=0 não tem motor de jogo e não pode ficar cego.
         Some("session") => {
             // 2.0 — O NÚCLEO VIVO: o bus.sock (a barra e a dock ganham
             // o fio), o cliente Wayland NATIVO (o craft-toplevel.c morre
@@ -144,12 +146,11 @@ fn main() {
             std::thread::spawn(thread_netlink);
             std::thread::spawn(|| thread_logind("PrepareForSleep", true));
             std::thread::spawn(|| thread_logind("Unlock", false));
-            std::thread::spawn(thread_bus_bgapps);
             std::thread::spawn(thread_wakeguard);
             eprintln!(
                 "elite-daemon session: ouvidores no ar (bus.sock + wayland \
                  nativo + mpris + áudio + netlink som/drm + logind sono/unlock \
-                 + wake-guard pré-sono + bus bgapps)"
+                 + wake-guard pré-sono)"
             );
             match supervise::run_session() {
                 Ok(()) => std::process::exit(0),
@@ -264,10 +265,9 @@ fn sinal_waybar() -> usize {
 }
 
 /// E135 — o sinal da topbar com NÚMERO parametrizável: SIGRTMIN+N em
-/// toda a barra do uid corrente. +8 = o pill do jogo; +9 = a pílula dos
-/// apps em 2º plano (o EVENTO dos 2º planos — a barra relê no sinal:
-/// o fork de `craft-bgapps status` a cada 5s do réu do dump 101339 —
-/// 25% de CPU e zumbis pkill — morre).
+/// toda a barra do uid corrente. +8 = o pill do jogo (E147: o +9 dos
+/// 2º planos MORREU com o próprio módulo — nenhum da casa manda mais
+/// o +9; a função segue parametrizada para o futuro nomeado).
 fn sinal_waybar_sig(offset: i32) -> usize {
     sinal_para_comms(&["craft-bar-rs", "waybar"], libc::SIGRTMIN() + offset)
 }
@@ -472,46 +472,13 @@ fn thread_logind(nome_sinal: &str, corpo_bool: bool) {
     }
 }
 
-/// o ouvidor do session bus: o nome de QUALQUER app nasceu/morreu →
-/// SIGRTMIN+9 (a pílula dos 2º planos relê; debounce embutido nos
-/// rajadas de birth+death do mesmo app — o kill só sai após 200ms
-/// de silêncio, sem drenar a CPU em rajada de D-Bus).
-fn thread_bus_bgapps() {
-    let Ok(c) = zbus::blocking::Connection::session() else {
-        return;
-    };
-    let Ok(p) = zbus::blocking::Proxy::new(
-        &c,
-        "org.freedesktop.DBus",
-        "/org/freedesktop/DBus",
-        "org.freedesktop.DBus",
-    ) else {
-        return;
-    };
-    let Ok(mut sig) = p.receive_signal("NameOwnerChanged") else {
-        return;
-    };
-    let mut pendente = false;
-    let mut desde = Instant::now();
-    loop {
-        // um read com timeout curto drena o sinal; o debounce agrupa
-        std::thread::sleep(Duration::from_millis(50));
-        if STOP.load(Ordering::SeqCst) {
-            return;
-        }
-        if sig.next().is_some() {
-            if !pendente {
-                pendente = true;
-                desde = Instant::now();
-            }
-        }
-        if pendente && desde.elapsed() >= Duration::from_millis(200) {
-            pendente = false;
-            sinal_waybar_sig(9);
-        }
-    }
-}
-
+/// E147 — O OUVIDOR BUS BGAPPS MORREU (o corpo removido): o ouvidor do
+/// session bus mandava o SIGRTMIN+9 na transição de QUALQUER app do
+/// bus (o consumidor era a pílula dos 2º planos da barra) — a ordem
+/// do dono tirou o módulo da interface E do código: nenhuma thread,
+/// nenhum fork de signal, nenhum consumidor. A armadura RT das barras
+/// segue de pé para sinal de quem vier.
+///
 /// E139 — O PRÉ-SONO DO WAKE-GUARD (PrepareForSleep com start=true): UM
 /// `craft-wake-guard apply` no limiar de cada sono — a política do
 /// despertar é REAFIRMADA (os não-teclados disabled FORÇADOS de novo,
@@ -768,14 +735,12 @@ fn daemon_loop() -> Result<(), String> {
         std::thread::spawn(thread_netlink);
         std::thread::spawn(|| thread_logind("PrepareForSleep", true));
         std::thread::spawn(|| thread_logind("Unlock", false));
-        std::thread::spawn(thread_bus_bgapps);
         std::thread::spawn(thread_wakeguard);
     }
     eprintln!("elite-daemon: no ar (toplevel EVT no corpo; os ouvidores de sessão vivem na porta session — E139)");
 
     let mut held: HashMap<i32, String> = HashMap::new();
     let mut retire = 0u32;
-    let mut rodadas = 0u64;
     let conn = scan::gm_connect();
     // E140 — O PROXY DA PORTA 5: janela steam_app_* viva SEM processo
     // caçado = o daemon registra o PRÓPRIO pid no GameMode (a sessão
@@ -998,9 +963,7 @@ fn daemon_loop() -> Result<(), String> {
         // E135 — o SLEEP MORREU: o loop dorme no condvar e o frete do
         // cliente Wayland o acorda (a detecção é POR EVENTO — a janela
         // que nasce é o jogo anunciando; o teto de 5s sobrevive como
-        // cinto dos processos windowless). Cada 6 rodadas de cinto
-        // (30s) a pílula dos 2º planos relê (a segurança dos apps que
-        // não tomam nome no bus — o EVENTO deles é o NameOwnerChanged).
+        // cinto dos processos windowless).
         let (l, cv) = &*frete;
         let mut vivo = l.lock().unwrap();
         let (guarda, _timeout) = cv
@@ -1015,10 +978,9 @@ fn daemon_loop() -> Result<(), String> {
             // /proc (uma rodada por rajada, nunca uma por evento bruto)
             std::thread::sleep(std::time::Duration::from_millis(250));
         }
-        rodadas += 1;
-        if rodadas % 6 == 0 {
-            sinal_waybar_sig(9);
-        }
+        // E147: o relê de 6 rodadas dos 2º planos (SIGRTMIN+9 a cada
+        // 30s) MORREU com o próprio módulo — o cinto de 5s do loop é
+        // só dos processos windowless do jogo, nada mais.
     }
 }
 

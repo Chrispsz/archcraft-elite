@@ -18,12 +18,13 @@
 //     em UMA linha), `nmcli -t device` (o estado da rede SEM ícone que
 //     some — Cabo/Wi-Fi/Desligado é SEMPRE um dos três, o botão é
 //     PERSISTENTE por construção), `bluetoothctl show` (Powered:),
-//     `craft-game pill` / `craft-player state` / `craft-bgapps
-//     status` (o JSON mínimo do waybar: text/class/tooltip — o
-//     contrato é ESTE e a barra é cliente dele, sem serde: o par
+//     `craft-game pill` (o JSON mínimo do waybar: text/class/tooltip —
+//     o contrato é ESTE e a barra é cliente dele, sem serde: o par
 //     aspas-vírgula do "text" é o contrato estável da família).
-//   · O JUÍZO DOS GLIFOS (Nerd Font, os MESMOS codepoints da era
-//     waybar — a família visual sobrevive à troca do motor).
+//   · O JUÍZO DOS ÍCONES (E147 — NOMES DE ÍCONE GTK em vez dos
+//     codepoints Nerd Font: a fonte GTK padrão não fala Nerd e o
+//     '\uf085 2' da tela do dono era o réu — o tema Papirus/GNOME da
+//     casa tem todos os nomes, o render NUNCA mais quebra).
 //   · O DEBOUNCE DO DRAWER (a cura A1): o clique que abre a gaveta
 //     nunca renasce a gaveta — 150ms de janela, contados do RELEASE
 //     (o dossiê: "debounce real de 150ms, zero bloqueio"; o freio de
@@ -153,25 +154,34 @@ pub fn parse_volume_wpctl(s: &str) -> Option<(f64, bool)> {
     Some((v, mudo))
 }
 
-/// O glifo do VOLUME (Nerd Font, os codepoints da era waybar):
-/// mudo = uf026 · baixo (<0.34) = uf027 · alto = uf028.
-pub fn glifo_volume(v: f64, mudo: bool) -> &'static str {
+// E147 — O FIM DOS GLIFOS NERD FONT NA BARRA (a evidência do dono: o
+// '\uf085 2' na tela era o NOME do codepoint que a fonte GTK padrão
+// não contém — Inter/Adwaita Sans não fala Nerd Font; o waybar da era
+// antiga só acertava porque o CSS dele pede JetBrainsMono NF por
+// nome). A casa agora veste SÓ NOMES DE ÍCONE GTK (Image::from_icon_name)
+// — o Papirus/GNOME da casa tem todos os nomes abaixo, o render NUNCA
+// quebra de novo, e a fonte da barra é a do sistema sem juramento de
+// glyph.
+
+/// O ÍCONE do VOLUME (nome de ícone GTK, não glifo): mudo = muted ·
+/// baixo (<0.34) = low · alto = high.
+pub fn icone_volume(v: f64, mudo: bool) -> &'static str {
     if mudo {
-        "\u{f026}"
+        "audio-volume-muted-symbolic"
     } else if v < 0.34 {
-        "\u{f027}"
+        "audio-volume-low-symbolic"
     } else {
-        "\u{f028}"
+        "audio-volume-high-symbolic"
     }
 }
 
-/// O glifo do MICROFONE: vivo = uf130 · mudo = uf131 (o realce visual
-/// do mudo é a classe .muted do CSS — a mesma gramática vermelha).
-pub fn glifo_mic(mudo: bool) -> &'static str {
+/// O ÍCONE do MICROFONE: vivo = sensitivity-high · mudo = muted (o
+/// realce visual do mudo é a classe .muted do CSS — a gramática vermelha).
+pub fn icone_mic(mudo: bool) -> &'static str {
     if mudo {
-        "\u{f131}"
+        "microphone-sensitivity-muted-symbolic"
     } else {
-        "\u{f130}"
+        "microphone-sensitivity-high-symbolic"
     }
 }
 
@@ -234,13 +244,13 @@ pub fn essid_nmcli(saida: &str) -> Option<String> {
     None
 }
 
-/// O glifo do estado da rede (os codepoints da era waybar — a família
-/// visual sobrevive).
-pub fn glifo_rede(e: EstadoRede) -> &'static str {
+/// O ÍCONE do estado da rede (nomes GTK — a família visual sobrevive
+/// sem Nerd Font: o cabo tem fio, o Wi-Fi tem sinal, o off é o offline).
+pub fn icone_rede(e: EstadoRede) -> &'static str {
     match e {
-        EstadoRede::Cabo => "\u{f6ff}",
-        EstadoRede::Wifi => "\u{f1eb}",
-        EstadoRede::Desligado => "\u{f92d}",
+        EstadoRede::Cabo => "network-wired-symbolic",
+        EstadoRede::Wifi => "network-wireless-signal-excellent-symbolic",
+        EstadoRede::Desligado => "network-wireless-offline-symbolic",
     }
 }
 
@@ -267,7 +277,7 @@ pub fn bt_ligado(saida: &str) -> bool {
         .any(|l| l.trim().eq_ignore_ascii_case("powered: yes"))
 }
 
-// ── O JSON MÍNIMO da família (game/player/bgapps) ──────────────────────
+// ── O JSON MÍNIMO da família (game) ──────────────────────
 
 /// O valor de "text" do JSON do waybar que a família craft-* emite
 /// ({"text": "…", "class": "…", "tooltip": "…"} — sem serde: o par
@@ -374,18 +384,201 @@ pub fn parse_wifi_radio(saida: &str) -> Option<bool> {
     }
 }
 
-// ── 1.0-93 · O CONTAGEM LIMPO DOS 2º PLANOS (o craft-bgapps emite o
-//    JSON com o glifo quebrado '\uf085' no "text" — a barra veste o
-//    ÍCONE GTK de verdade e só o NÚMERO fica no rótulo) ───────────────
+// ── 1.0-95/E147 · A CENTRAL DE ÁUDIO E O BLUETOOTH NATIVOS (a ordem do
+//    dono: o clique esquerdo de CADA módulo abre o controle principal —
+//    o painel unificado de Saída+Entrada para o áudio, o painel de
+//    dispositivos para o Bluetooth. Estes parsers são o NÚCLEO PURO
+//    que alimenta os popovers — testados aqui, vestidos na ui.rs) ──────
 
-/// O texto do bgapps SEM o glifo quebrado (o ícone real
-/// `system-run-symbolic` veste o botão; o label fica com a contagem
-/// limpa — "12", não "\uf085 12").
-pub fn bgapps_contagem(texto: &str) -> String {
-    texto
-        .replace('\u{f085}', "")
-        .trim()
-        .to_string()
+/// Um dispositivo de áudio do `wpctl status` (id PipeWire, nome do nó,
+/// volume, mudo, é o padrão?).
+#[derive(Debug, Clone, PartialEq)]
+pub struct DispositivoAudio {
+    pub id: u32,
+    pub nome: String,
+    pub vol: f64,
+    pub mudo: bool,
+    pub padrao: bool,
+}
+
+/// O PARSE do `wpctl status` (as seções Sinks: e Sources: da árvore;
+/// as linhas de dados têm a forma `│ ├─ * 76. nome [vol: 0.60]` — o
+/// '*' é o padrão, o id é o primeiro número do texto, o nome vai até o
+/// `[vol:`; `[MUTED]` quando presente é a verdade do mudo). As linhas
+/// "Monitor of" (loopback de sink dentro de Sources) SAEM — não são
+/// dispositivo escolhível, é o eco da saída.
+pub fn parse_wpctl_status(saida: &str) -> (Vec<DispositivoAudio>, Vec<DispositivoAudio>) {
+    let mut sinks: Vec<DispositivoAudio> = Vec::new();
+    let mut fontes: Vec<DispositivoAudio> = Vec::new();
+    let mut secao = 0u8; // 0 = fora · 1 = Sinks · 2 = Sources
+    for linha in saida.lines() {
+        let t = linha.trim();
+        // a árvore do wpctl veste os dois lados da linha (│ ├─ … ─): o
+        // CABEÇALHO é julgado pelos glifos FORA (os dados entram pela
+        // porta da parse_linha_dispositivo, que lê a linha crua)
+        let fim = t
+            .trim_start_matches(|c: char| {
+                c == '│' || c == '├' || c == '└' || c == '─' || c == ' '
+            })
+            .trim_end_matches(|c: char| {
+                c == '│' || c == '├' || c == '└' || c == '─' || c == ' '
+            });
+        let fim = fim.trim();
+        if fim == "Sinks:" {
+            secao = 1;
+            continue;
+        }
+        if fim == "Sources:" {
+            secao = 2;
+            continue;
+        }
+        if fim == "Devices:"
+            || fim == "Endpoints:"
+            || fim == "Streams:"
+            || fim == "Audio"
+            || fim == "Video"
+            || fim == "Settings"
+        {
+            secao = 0;
+            continue;
+        }
+        if secao == 0 {
+            continue;
+        }
+        if let Some(d) = parse_linha_dispositivo(linha) {
+            if d.nome.starts_with("Monitor of") {
+                continue;
+            }
+            if secao == 1 {
+                sinks.push(d);
+            } else {
+                fontes.push(d);
+            }
+        }
+    }
+    (sinks, fontes)
+}
+
+/// UMA linha de dispositivo do wpctl status (a porta dos testes):
+/// devolve o DispositivoAudio ou None quando a linha não é de dados.
+pub fn parse_linha_dispositivo(linha: &str) -> Option<DispositivoAudio> {
+    // o id é o PRIMEIRO número seguido de ponto (os glifos da árvore
+    // nunca são dígitos — a fronteira é honesta)
+    let chars: Vec<char> = linha.chars().collect();
+    let mut i = 0usize;
+    while i < chars.len() && !chars[i].is_ascii_digit() {
+        i += 1;
+    }
+    if i >= chars.len() {
+        return None;
+    }
+    let ini = i;
+    while i < chars.len() && chars[i].is_ascii_digit() {
+        i += 1;
+    }
+    let id: u32 = chars[ini..i].iter().collect::<String>().parse().ok()?;
+    // o ponto + o espaço fecham o id ("76. "); sem eles é lixo (ex.: um
+    // número no meio de um cabeçalho)
+    if i + 1 > chars.len() || chars.get(i) != Some(&'.') {
+        return None;
+    }
+    i += 1; // o ponto
+    while i < chars.len() && chars[i] == ' ' {
+        i += 1;
+    }
+    let limite = chars[..i].iter().map(|c| c.len_utf8()).sum::<usize>();
+    let padrao = linha[..limite.min(linha.len())].contains('*');
+    let resto: String = chars[i..].iter().collect();
+    let resto = resto.trim();
+    // o nome vai até o "[vol:" (sem ele a linha não é de dispositivo)
+    let (nome, vol, mudo) = if let Some(k) = resto.find("[vol:") {
+        let nome = resto[..k].trim();
+        let depois = &resto[k..];
+        let mudo = depois.contains("[MUTED]");
+        let num: String = depois
+            .trim_start_matches("[vol:")
+            .trim_start()
+            .chars()
+            .take_while(|c| c.is_ascii_digit() || *c == '.')
+            .collect();
+        (nome.to_string(), num.parse::<f64>().unwrap_or(0.0), mudo)
+    } else {
+        return None;
+    };
+    if nome.is_empty() {
+        return None;
+    }
+    Some(DispositivoAudio {
+        id,
+        nome,
+        vol,
+        mudo,
+        padrao,
+    })
+}
+
+/// O RÓTULO HUMANO do nó de áudio (a lei §5 da casa: NENHUM nome cru de
+/// hardware no menu — 'alsa_output.pci-0000_0c_00.4.analog-stereo' é
+/// UID de engenheiro, o dono quer ler o que aperta). As regras da
+/// família: interno analógico, HDMI, USB, Bluetooth; o nome não casado
+/// segue o QUEM É (nomeado honesto, nunca inventado).
+pub fn rotulo_dispositivo(nome: &str) -> String {
+    if nome.starts_with("bluez_output.") || nome.starts_with("bluez_input.") {
+        return "Bluetooth".to_string();
+    }
+    if nome.contains(".hdmi") {
+        return "HDMI".to_string();
+    }
+    if nome.starts_with("alsa_output.usb-") {
+        return "Saída USB".to_string();
+    }
+    if nome.starts_with("alsa_input.usb-") {
+        return "Microfone USB".to_string();
+    }
+    if nome.starts_with("alsa_output.pci-") && nome.contains(".analog") {
+        return "Áudio interno (analógico)".to_string();
+    }
+    if nome.starts_with("alsa_input.pci-") && nome.contains(".analog") {
+        return "Microfone interno (analógico)".to_string();
+    }
+    nome.to_string()
+}
+
+/// Um dispositivo Bluetooth pareado (a linha `Device MAC Nome` do
+/// `bluetoothctl devices Paired`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct BtDispositivo {
+    pub mac: String,
+    pub nome: String,
+}
+
+/// O PARSE do `bluetoothctl devices Paired` (e do `devices Connected` —
+/// o mesmo formato; o segundo alimenta o conjunto de MACs vivos).
+pub fn parse_bt_devices(saida: &str) -> Vec<BtDispositivo> {
+    let mut devs = Vec::new();
+    for linha in saida.lines() {
+        let t = linha.trim();
+        let Some(resto) = t.strip_prefix("Device ") else {
+            continue;
+        };
+        let mut pedacos = resto.splitn(2, ' ');
+        let mac = pedacos.next().unwrap_or("").trim();
+        let nome = pedacos.next().unwrap_or("").trim();
+        if mac.is_empty() || nome.is_empty() {
+            continue;
+        }
+        devs.push(BtDispositivo {
+            mac: mac.to_string(),
+            nome: nome.to_string(),
+        });
+    }
+    devs
+}
+
+/// Os MACs CONECTADOS do `bluetoothctl devices Connected` (a verdade do
+/// indicador de cada linha do painel).
+pub fn bt_conectados(saida: &str) -> Vec<String> {
+    parse_bt_devices(saida).into_iter().map(|d| d.mac).collect()
 }
 
 // ── A BATERIA pelo /sys (a porta path-parametrizada dos testes) ────────
@@ -462,15 +655,6 @@ mod tests {
     }
 
     #[test]
-    fn a_contagem_do_bgapps_perde_o_glifo_quebrado() {
-        // 1.0-93 — o '\uf085' do JSON vira ÍCONE GTK; o label fica limpo
-        assert_eq!(bgapps_contagem("\u{f085} 12"), "12");
-        assert_eq!(bgapps_contagem("\u{f085}12"), "12");
-        assert_eq!(bgapps_contagem("sem glifo"), "sem glifo");
-        assert_eq!(bgapps_contagem("  "), "");
-    }
-
-    #[test]
     fn civil_e_dia_semana_as_datas_conhecidas() {
         // 1970-01-01 (quinta) até 2026-11-23 (segunda): o par civil ×
         // dia-da-semana provado nas duas pontas e no bissexto 2024
@@ -487,6 +671,98 @@ mod tests {
         assert_eq!(civil_de_dias(10_956), (1999, 12, 31));
         assert_eq!(civil_de_dias(10_957), (2000, 1, 1));
         assert_eq!(dia_semana(10_957), 6); // sábado
+    }
+
+    // ── E147 · o wpctl status: a central de áudio pelo parse PURO ──────
+
+    #[test]
+    fn wpctl_status_o_parse_dos_dois_lados() {
+        // o cenário DO DUMP do dono (20261124-204130): analógico interno,
+        // HDMI e o sink do microfone USB; fonte mono do Fifine
+        let saida = "Audio\n ├─ API: v4\n │\n ├─ Sinks:\n │  │\n \
+            │  ├─ * 80. alsa_output.pci-0000_0c_00.4.analog-stereo [vol: 0.60]\n \
+            │  ├─ 76. alsa_output.pci-0000_0a_00.1.hdmi-stereo-extra3 [vol: 0.74]\n \
+            │  │\n ├─ Sources:\n │  │\n \
+            │  ├─ * 1101. alsa_input.usb-MV-SILICON_fifine_Microphone_20190808-00.mono-fallback [vol: 0.80]\n \
+            │  ├─ 1102. Monitor of alsa_output.pci-0000_0c_00.4.analog-stereo [vol: 0.60]\n \
+            │  │\n ├─ Devices:\n │\n └─ Settings:";
+        let (sinks, fontes) = parse_wpctl_status(saida);
+        assert_eq!(sinks.len(), 2, "monitor NUNCA entra em sinks");
+        assert_eq!(fontes.len(), 1, "o Monitor of é o eco da saída — fora");
+        let padrao = sinks.iter().find(|d| d.padrao).unwrap();
+        assert_eq!(padrao.id, 80);
+        assert_eq!(
+            padrao.nome,
+            "alsa_output.pci-0000_0c_00.4.analog-stereo"
+        );
+        assert_eq!(padrao.vol, 0.60);
+        let hdmi = sinks.iter().find(|d| !d.padrao).unwrap();
+        assert_eq!(hdmi.id, 76);
+        assert!(!hdmi.padrao);
+        let mic = &fontes[0];
+        assert_eq!(mic.id, 1101);
+        assert!(mic.nome.contains("fifine"));
+    }
+
+    #[test]
+    fn wpctl_status_o_mudo_e_a_arvore_vazia() {
+        let saida = "Sinks:\n * 9. nome [vol: 0.50] [MUTED]\n 10. outro [vol: 1.50]\n";
+        let (sinks, fontes) = parse_wpctl_status(saida);
+        assert!(fontes.is_empty());
+        assert_eq!(sinks.len(), 2);
+        assert!(sinks[0].mudo);
+        assert_eq!(sinks[0].vol, 0.50);
+        assert_eq!(sinks[1].vol, 1.50);
+        assert!(!sinks[1].mudo);
+        // linhas de cabeçalho/árvore nunca viram dispositivo
+        let (s, f) = parse_wpctl_status("Sinks:\n │  │\n\nSources:\n");
+        assert!(s.is_empty() && f.is_empty());
+    }
+
+    #[test]
+    fn rotulos_humanos_dos_dispositivos() {
+        // a lei §5: NENHUM nome cru de hardware no menu do dono
+        assert_eq!(
+            rotulo_dispositivo("alsa_output.pci-0000_0c_00.4.analog-stereo"),
+            "Áudio interno (analógico)"
+        );
+        assert_eq!(
+            rotulo_dispositivo("alsa_output.pci-0000_0a_00.1.hdmi-stereo-extra3"),
+            "HDMI"
+        );
+        assert_eq!(
+            rotulo_dispositivo(
+                "alsa_input.usb-MV-SILICON_fifine_Microphone_20190808-00.mono-fallback"
+            ),
+            "Microfone USB"
+        );
+        assert_eq!(
+            rotulo_dispositivo("bluez_output.ED_25_F0_0E_B7_A4.1"),
+            "Bluetooth"
+        );
+        assert_eq!(
+            rotulo_dispositivo("alsa_input.pci-0000_0c_00.6.analog-stereo"),
+            "Microfone interno (analógico)"
+        );
+        // o não casado segue o QUEM É (honesto)
+        assert_eq!(rotulo_dispositivo("EasyEffects Sink"), "EasyEffects Sink");
+    }
+
+    #[test]
+    fn bluetooth_os_pares_e_os_conectados() {
+        let pares = "Device F0:42:1C:62:5A:BF Teclado Logi\nDevice ED:25:F0:0E:B7:A4 JBL Clip\nNão sou device\nDevice Sozinho\n";
+        let devs = parse_bt_devices(pares);
+        assert_eq!(devs.len(), 2);
+        assert_eq!(devs[0].mac, "F0:42:1C:62:5A:BF");
+        assert_eq!(devs[0].nome, "Teclado Logi");
+        assert_eq!(devs[1].nome, "JBL Clip");
+        assert!(parse_bt_devices("").is_empty());
+        let vivos = "Device ED:25:F0:0E:B7:A4 JBL Clip\n";
+        assert_eq!(
+            bt_conectados(vivos),
+            vec!["ED:25:F0:0E:B7:A4".to_string()]
+        );
+        assert!(bt_conectados("No default controller available").is_empty());
     }
 
     // ── o wpctl: volume + MUDO em uma linha ───────────────────────────
@@ -508,12 +784,12 @@ mod tests {
     }
 
     #[test]
-    fn glifos_de_audio_e_mic() {
-        assert_eq!(glifo_volume(0.45, true), "\u{f026}");
-        assert_eq!(glifo_volume(0.20, false), "\u{f027}");
-        assert_eq!(glifo_volume(0.80, false), "\u{f028}");
-        assert_eq!(glifo_mic(false), "\u{f130}");
-        assert_eq!(glifo_mic(true), "\u{f131}");
+    fn icones_de_audio_e_mic_sao_nomes_gtk() {
+        assert_eq!(icone_volume(0.45, true), "audio-volume-muted-symbolic");
+        assert_eq!(icone_volume(0.20, false), "audio-volume-low-symbolic");
+        assert_eq!(icone_volume(0.80, false), "audio-volume-high-symbolic");
+        assert_eq!(icone_mic(false), "microphone-sensitivity-high-symbolic");
+        assert_eq!(icone_mic(true), "microphone-sensitivity-muted-symbolic");
     }
 
     // ── a rede: TRÊS estados, o botão NUNCA some ──────────────────────
@@ -545,10 +821,16 @@ mod tests {
     }
 
     #[test]
-    fn glifos_e_tooltips_da_rede() {
-        assert_eq!(glifo_rede(EstadoRede::Cabo), "\u{f6ff}");
-        assert_eq!(glifo_rede(EstadoRede::Wifi), "\u{f1eb}");
-        assert_eq!(glifo_rede(EstadoRede::Desligado), "\u{f92d}");
+    fn icones_e_tooltips_da_rede() {
+        assert_eq!(icone_rede(EstadoRede::Cabo), "network-wired-symbolic");
+        assert_eq!(
+            icone_rede(EstadoRede::Wifi),
+            "network-wireless-signal-excellent-symbolic"
+        );
+        assert_eq!(
+            icone_rede(EstadoRede::Desligado),
+            "network-wireless-offline-symbolic"
+        );
         assert!(tooltip_rede(EstadoRede::Wifi, Some("Casa 5G")).starts_with("Casa 5G"));
         assert!(tooltip_rede(EstadoRede::Desligado, None).contains("nunca sai"));
     }
