@@ -93,7 +93,18 @@ pub fn xml_bem_formado(texto: &str) -> bool {
                 }
                 // CDATA é texto legítimo dentro do root
             }
-            Ok(Event::Comment(_) | Event::PI(_)) => {}
+            // 1.0-105 — O COMENTÁRIO TAMBÉM É EXAMINADO (a lição E156/8
+            // vira lei do juiz: o quick-xml TOLERA '--' dentro de
+            // comentário e o xmllint do Canal reprova 'not well-formed'
+            // — a regra da ESPECIFICAÇÃO XML (comentário NÃO contém
+            // '--') entra no juiz de casa: o réu morre na porteira,
+            // nunca mais no Canal).
+            Ok(Event::Comment(c)) => {
+                if c.as_ref().windows(2).any(|w| w == b"--") {
+                    return false; // '--' dentro de comentário: a spec nega
+                }
+            }
+            Ok(Event::PI(_)) => {}
             Ok(Event::Decl(_)) => {
                 if profundidade != 0 || ja_fechou {
                     return false; // declaração só antes do root
@@ -719,6 +730,13 @@ mod tests {
         assert!(!xml_bem_formado("<a>")); // root aberto
         assert!(xml_bem_formado("<a>&amp;&#231;</a>")); // entidades legítimas
         assert!(!xml_bem_formado("<a>&amp</a>")); // entidade sem fechar
+        // 1.0-105 — A LEI E156/8 NO JUIZ DE CASA (o quick-xml tolerava e o
+        // xmllint do Canal reprovava: '--' dentro de comentário é réu da
+        // ESPECIFICAÇÃO — o juiz de casa pega o réu ANTES do Canal)
+        assert!(xml_bem_formado("<!-- comentário honesto --><a />"));
+        assert!(!xml_bem_formado(
+            "<!-- o foot não aceita --title=VALOR colado --><a />"
+        ));
     }
 
     #[test]

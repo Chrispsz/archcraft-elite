@@ -155,9 +155,9 @@
          diretriz E149: atualizar, limpar e ajudar são EXECUÇÃO DIRETA
          no terminal (foot -e dispara a tarefa na hora; o motor é o
          mesmo elite-update/pkexec com o diálogo gráfico da sessão).
-         1.0-105 — O TÍTULO DA JANELA pelo -T do foot (COM ESPAÇO — o
-         foot NÃO aceita --title=VALOR colado): a janela nasce com o
-         NOME da tarefa na moldura (foot -T "...") -->
+         1.0-105 — O TÍTULO DA JANELA pelo -T do foot (COM ESPAÇO — a
+         forma COLADA de era do título não vale no foot): a janela nasce
+         com o NOME da tarefa na moldura (foot -T "...") -->
     <item label="Atualizar">
       <action name="Execute" command="foot -T 'Atualizar o sistema' -e craft-update" />
     </item>
