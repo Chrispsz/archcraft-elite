@@ -208,7 +208,9 @@ file_has "bar: o calendário GTK4 do hover" "crates/craft-bar-rs/src/ui.rs" 'gtk
 file_has "bar: o mapa E149 do áudio — o ESQUERDO abre o pwvucontrol" "crates/craft-bar-rs/src/ui.rs" 'pwvucontrol'
 file_has "bar: o mute RÁPIDO no direito (wpctl set-mute na hora, sem janela)" "crates/craft-bar-rs/src/ui.rs" 'set-mute'
 file_has "bar: o mapa E149 do bluetooth — o ESQUERDO abre o blueman-manager" "crates/craft-bar-rs/src/ui.rs" 'blueman-manager'
-file_has "bar: o mapa E149 da rede — o ESQUERDO abre o iwgtk (o editor técnico é a queda honesta)" "crates/craft-bar-rs/src/ui.rs" 'iwgtk'
+# 1.0-105 — o esquerdo da rede é o FRONT-END GRÁFICO do NetworkManager
+# (a distro é NetworkManager; o iwgtk cede o assento do clique)
+file_has "bar: o mapa E149 da rede — o ESQUERDO abre o nm-connection-editor (1.0-105)" "crates/craft-bar-rs/src/ui.rs" 'nm-connection-editor'
 file_has "bar: o direito da rede alterna o RÁDIO Wi-Fi na hora" "crates/craft-bar-rs/src/ui.rs" '["radio", "wifi"]'
 file_has "bar: a sessão é O endereço único de Bloquear/Encerrar (o dedupe da diretriz)" "crates/craft-bar-rs/src/ui.rs" 'bar.logout'
 file_has "bar: o ícone por NOME GTK (o glifo Nerd quebrado morre)" "crates/craft-bar-rs/src/ui.rs" 'audio-volume-high-symbolic'

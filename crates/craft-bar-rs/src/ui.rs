@@ -9,12 +9,18 @@
 // botões da barra):
 //   · CLIQUE ESQUERDO = a FERRAMENTA DEDICADA abre DIRETO — áudio →
 //     pwvucontrol (pavucontrol honesto quando só ele existe), rede →
-//     iwgtk (sem ele, o nm-connection-editor assume — nunca botão
-//     morto), bluetooth → blueman-manager, notificações → o painel
-//     swaync, apps → a gaveta (craft-apps), bateria → craft-bat;
+//     nm-connection-editor (1.0-105: o front-end GRÁFICO do
+//     NetworkManager — a distro é NetworkManager, o iwgtk cede), 
+//     bluetooth → blueman-manager, notificações → o painel swaync,
+//     apps → a gaveta (craft-apps), bateria → craft-bat;
 //   · CLIQUE DIREITO = a AÇÃO RÁPIDA sem janela nenhuma — mute/desmute
 //     da SAÍDA, rádio Wi-Fi liga/desliga, power do Bluetooth, Não
 //     Perturbe;
+//   · 1.0-105 — O ESQUERDO VESTE O `clicked` DO PRÓPRIO GtkButton: o
+//     GestureClick externo NUNCA via o botão 1 (o botão consome o
+//     gesto interno e emite `clicked` — o mesmo caminho do botão
+//     Sessão que SEMPRE funcionou). O GestureClick fica EXCLUSIVO do
+//     direito/meio e o EventControllerScroll da rolagem;
 //   · CLIQUE DO MEIO = o segundo lado (mudo do MICROFONE) / o
 //     calendário;
 //   · SCROLL = o gesto de ajuste fino (volume, faixa do player);
@@ -425,21 +431,27 @@ fn build(app: &gtk::Application) {
         }
         btn_clock.add_controller(motion);
     }
-    // UM gesture só para TODOS os botões do relógio (a lição da dock:
-    // dois GestureClick no mesmo widget disputam a sequência)
+    // 1.0-105 — O ESQUERDO PELO `clicked` DO PRÓPRIO BOTÃO (o GestureClick
+    // externo nunca via o botão 1 — o GtkButton consome o gesto interno;
+    // o esquerdo abre/fecha o painel do swaync SEM sequestrar o foco -sw)
+    {
+        btn_clock.connect_clicked(move |_| {
+            solta(&["swaync-client", "-t", "-sw"]);
+        });
+    }
+    // UM gesture só para os botões do MEIO/DIREITO do relógio (a lição da
+    // dock: dois GestureClick no mesmo widget disputam a sequência — e o
+    // botão 1 é do `clicked`, nunca do gesture)
     {
         let pop_cal = pop_cal.clone();
         let tx = tx.clone();
         clique_solto(&btn_clock, move |botao| {
-            // esquerdo: o painel (toggle SEM sequestrar o foco -sw);
             // direito: o DND (idem -sw) COM o sino cortado acendendo NA
             // HORA (1.0-104: a thread lê o estado REAL do swaync e a
             // barra veste — o feedback nunca é o palpite, é o fato);
             // meio: o calendário. O TEXTO NÃO MUDA — o clique é ação, a
             // data é a data (a cura do "alterna o texto exibido").
-            if botao == 1 {
-                solta(&["swaync-client", "-t", "-sw"]);
-            } else if botao == 3 {
+            if botao == 3 {
                 solta(&["swaync-client", "-d", "-sw"]);
                 pede_dnd(&tx);
             } else if botao == 2 {
@@ -506,11 +518,14 @@ fn build(app: &gtk::Application) {
         btn_game.set_tooltip_text(Some(
             "Modo de jogo ativo — clique: o painel · direito: desligar",
         ));
+        // 1.0-105 — o ESQUERDO pelo `clicked` (o painel do jogo); o
+        // DIREITO no gesture (desliga na hora)
+        btn_game.connect_clicked(move |_| {
+            solta(&["craft-game", "menu"]);
+        });
         clique_solto(&btn_game, move |botao| {
             if botao == 3 {
                 solta(&["craft-game", "off"]);
-            } else if botao == 1 {
-                solta(&["craft-game", "menu"]);
             }
         });
         dir.append(&btn_game);
@@ -540,15 +555,23 @@ fn build(app: &gtk::Application) {
         btn_player.set_tooltip_text(Some(
             "Mídia — clique: play/pause · scroll: faixa · direito: focar o player",
         ));
+        // 1.0-105 — o ESQUERDO (Play/Pause) pelo `clicked`; o MEIO/DIREITO
+        // seguem no gesture (próxima faixa / focar o player)
+        {
+            let bus = st.borrow().bus_cli.clone();
+            btn_player.connect_clicked(move |_| {
+                pede_bus(&bus, elite_core::MediaCmd::PlayPause);
+            });
+        }
         {
             let bus = st.borrow().bus_cli.clone();
             clique_solto(&btn_player, move |botao| {
-                pede_bus(&bus, match botao {
-                    1 => elite_core::MediaCmd::PlayPause,
+                let verbo = match botao {
                     2 => elite_core::MediaCmd::Next,
                     3 => elite_core::MediaCmd::Focus,
                     _ => return,
-                });
+                };
+                pede_bus(&bus, verbo);
             });
         }
         {
@@ -579,12 +602,12 @@ fn build(app: &gtk::Application) {
         }
         btn_next.set_visible(false);
         btn_next.set_tooltip_text(Some("Mídia — próxima faixa"));
+        // 1.0-105 — o ESQUERDO pelo `clicked` (o gesture nunca via o
+        // botão 1 — o botão de UM verbo só veste o caminho nativo)
         {
             let bus = st.borrow().bus_cli.clone();
-            clique_solto(&btn_next, move |botao| {
-                if botao == 1 {
-                    pede_bus(&bus, elite_core::MediaCmd::Next);
-                }
+            btn_next.connect_clicked(move |_| {
+                pede_bus(&bus, elite_core::MediaCmd::Next);
             });
         }
         dir.append(&btn_next);
@@ -599,15 +622,18 @@ fn build(app: &gtk::Application) {
         btn_audio.set_tooltip_text(Some(
             "Áudio (saída) — clique: pwvucontrol · scroll: volume · direito: mudo",
         ));
+        // 1.0-105 — o ESQUERDO (o mixer dedicado) pelo `clicked`; o
+        // DIREITO (mudo da saída) segue no gesture
+        {
+            btn_audio.connect_clicked(move |_| {
+                abre_mixer();
+            });
+        }
         {
             let tx = tx.clone();
-            clique_solto(&btn_audio, move |botao| match botao {
-                1 => abre_mixer(),
-                3 => {
-                    solta(&["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle"]);
-                    pede_audio_detalhe(&tx);
-                }
-                _ => {}
+            clique_solto(&btn_audio, move |botao| if botao == 3 {
+                solta(&["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle"]);
+                pede_audio_detalhe(&tx);
             });
         }
         {
@@ -635,15 +661,18 @@ fn build(app: &gtk::Application) {
         btn_mic.set_tooltip_text(Some(
             "Microfone (entrada) — clique: pwvucontrol · scroll: ganho · direito: mudo",
         ));
+        // 1.0-105 — idem do áudio: o ESQUERDO (o mixer, aba de
+        // entrada) pelo `clicked`; o DIREITO (mudo do mic) no gesture
+        {
+            btn_mic.connect_clicked(move |_| {
+                abre_mixer();
+            });
+        }
         {
             let tx = tx.clone();
-            clique_solto(&btn_mic, move |botao| match botao {
-                1 => abre_mixer(),
-                3 => {
-                    solta(&["wpctl", "set-mute", "@DEFAULT_AUDIO_SOURCE@", "toggle"]);
-                    pede_audio_detalhe(&tx);
-                }
-                _ => {}
+            clique_solto(&btn_mic, move |botao| if botao == 3 {
+                solta(&["wpctl", "set-mute", "@DEFAULT_AUDIO_SOURCE@", "toggle"]);
+                pede_audio_detalhe(&tx);
             });
         }
         {
@@ -658,59 +687,51 @@ fn build(app: &gtk::Application) {
         dir.append(&btn_mic);
 
         // A REDE PERSISTENTE (a cura A4: o botão NUNCA sai — Cabo/
-        // Wi-Fi/Desligado com ÍCONE GTK SEMPRE). 1.0-101 — O MAPA DO
-        // AUDIT 99: o ESQUERDO abre o gerenciador de conexões de
-        // VERDADE — "craft-connect se funcional, ou nm-connection-
-        // editor como fallback GARANTIDO": o craft-connect é o fóssil
-        // da era fuzzel (a E141b o aposentou; o disco não o tem mais),
-        // então a barra PERGUNTA AO DISCO e o editor completo do
-        // NetworkManager assume — nunca um botão morto. O DIREITO
-        // segue a ação imediata: alterna o RÁDIO Wi-Fi.
+        // Wi-Fi/Desligado com ÍCONE GTK SEMPRE). 1.0-105 — O ESQUERDO
+        // É O FRONT-END GRÁFICO DO NETWORKMANAGER (a ordem do dono:
+        // nm-connection-editor — a distro É NetworkManager; o iwgtk
+        // cede o assento: o editor cobre Wi-Fi, cabo, VPN e banda
+        // larga, sem exigir perfil na mão do dono — dependência dura
+        // do pacote, nunca botão morto). O DIREITO segue a ação
+        // imediata: alterna o RÁDIO Wi-Fi (a leitura do estado re-lê
+        // o rádio E as placas no frame seguinte — mesmo com o cabo
+        // ligado, quem desligou lê o feito no tooltip).
         btn_rede.set_has_frame(false);
         btn_rede.set_child(Some(&rede_img));
         btn_rede.set_tooltip_text(Some(
-            "Rede — clique: gerenciar as conexões · direito: ligar/desligar o Wi-Fi",
+            "Rede — clique: gerenciar as conexões (NetworkManager) · direito: ligar/desligar o Wi-Fi",
         ));
+        {
+            btn_rede.connect_clicked(move |_| {
+                // 1.0-105 — O EDITOR COMPLETO DO NETWORKMANAGER é o
+                // esquerdo da rede (Wi-Fi, cabo, VPN e banda larga —
+                // dependência dura do pacote: nunca botão morto)
+                solta(&["nm-connection-editor"]);
+            });
+        }
         clique_solto(&btn_rede, {
             // 1.0-104 — o clone do canal NASCE ANTES do move (a resposta da
             // rede é o gesto: o clique direito re-lê o rádio E as placas)
             let tx = tx.clone();
-            move |botao| match botao {
-                1 => {
-                    // 1.0-104 — O GERENCIADOR COMPLETO E AMIGÁVEL (a ordem do
-                    // dono: o esquerdo abre o seletor NATIVO — sem exigir a
-                    // criação manual de perfil: o iwgtk é o Wi-Fi da casa
-                    // (AGENTS §5, GTK nativo, redes ao alcance + conexões de
-                    // um clique); sem ele, o editor completo do NetworkManager
-                    // (Wi-Fi, cabo, VPN e banda larga) assume — nunca botão
-                    // morto, nunca perfil na mão do dono).
-                    if std::path::Path::new("/usr/bin/iwgtk").exists() {
-                        solta(&["iwgtk"]);
-                    } else {
-                        solta(&["nm-connection-editor"]);
+            move |botao| if botao == 3 {
+                std::thread::spawn(|| {
+                    let on = um_longo("nmcli", &["radio", "wifi"])
+                        .and_then(|t| parse_wifi_radio(&t));
+                    if let Some(on) = on {
+                        let cmd = if on { "off" } else { "on" };
+                        let _ = Command::new("nmcli")
+                            .args(["radio", "wifi", cmd])
+                            .stdin(Stdio::null())
+                            .stdout(Stdio::null())
+                            .stderr(Stdio::null())
+                            .status();
                     }
-                }
-                3 => {
-                    std::thread::spawn(|| {
-                        let on = um_longo("nmcli", &["radio", "wifi"])
-                            .and_then(|t| parse_wifi_radio(&t));
-                        if let Some(on) = on {
-                            let cmd = if on { "off" } else { "on" };
-                            let _ = Command::new("nmcli")
-                                .args(["radio", "wifi", cmd])
-                                .stdin(Stdio::null())
-                                .stdout(Stdio::null())
-                                .stderr(Stdio::null())
-                                .status();
-                        }
-                    });
-                    // 1.0-104 — O TOOLTIP REFLETE O GESTO NA HORA (a thread
-                    // curta re-lê o rádio + o estado das placas e o dreno
-                    // veste o ícone/tooltip no frame seguinte — quem desligou
-                    // o Wi-Fi com o cabo ligado lê o feito no MESMO instante)
-                    pede_rede_foto(&tx);
-                }
-                _ => {}
+                });
+                // 1.0-104 — O TOOLTIP REFLETE O GESTO NA HORA (a thread
+                // curta re-lê o rádio + o estado das placas e o dreno
+                // veste o ícone/tooltip no frame seguinte — quem desligou
+                // o Wi-Fi com o cabo ligado lê o feito no MESMO instante)
+                pede_rede_foto(&tx);
             }
         });
         dir.append(&btn_rede);
@@ -725,27 +746,28 @@ fn build(app: &gtk::Application) {
             "Bluetooth — clique: gerenciar dispositivos (blueman) · direito: ligar/desligar",
         ));
         {
+            // 1.0-105 — o ESQUERDO (blueman-manager) pelo `clicked` do
+            // próprio botão; o DIREITO (power) segue no gesture
+            btn_bt.connect_clicked(move |_| {
+                if std::path::Path::new("/usr/bin/blueman-manager").exists() {
+                    solta(&["blueman-manager"]);
+                } else {
+                    log("bluetooth: blueman-manager ausente — o pacote chega pelo elite-update (a cura da casa)");
+                }
+            });
+        }
+        {
             let tx = tx.clone();
-            clique_solto(&btn_bt, move |botao| match botao {
-                1 => {
-                    if std::path::Path::new("/usr/bin/blueman-manager").exists() {
-                        solta(&["blueman-manager"]);
-                    } else {
-                        log("bluetooth: blueman-manager ausente — o pacote chega pelo elite-update (a cura da casa)");
+            clique_solto(&btn_bt, move |botao| if botao == 3 {
+                let tx = tx.clone();
+                std::thread::spawn(move || {
+                    let ligado = um_longo("bluetoothctl", &["show"]).map(|t| bt_ligado(&t));
+                    if let Some(on) = ligado {
+                        let cmd = if on { "off" } else { "on" };
+                        solta(&["bluetoothctl", "power", cmd]);
+                        let _ = tx.send(Msg::Bt(Some(!on)));
                     }
-                }
-                3 => {
-                    let tx = tx.clone();
-                    std::thread::spawn(move || {
-                        let ligado = um_longo("bluetoothctl", &["show"]).map(|t| bt_ligado(&t));
-                        if let Some(on) = ligado {
-                            let cmd = if on { "off" } else { "on" };
-                            solta(&["bluetoothctl", "power", cmd]);
-                            let _ = tx.send(Msg::Bt(Some(!on)));
-                        }
-                    });
-                }
-                _ => {}
+                });
             });
         }
         dir.append(&btn_bt);
@@ -760,13 +782,10 @@ fn build(app: &gtk::Application) {
         btn_bat.set_widget_name("batbtn");
         btn_bat.set_has_frame(false);
         btn_bat.set_tooltip_text(Some("Bateria — clique: o resumo falado"));
-        {
-            clique_solto(&btn_bat, move |botao| {
-                if botao == 1 {
-                    solta(&["craft-bat"]);
-                }
-            });
-        }
+        // 1.0-105 — o ESQUERDO pelo `clicked` (o resumo falado da bateria)
+        btn_bat.connect_clicked(move |_| {
+            solta(&["craft-bat"]);
+        });
         {
             let linha = gtk::Box::new(gtk::Orientation::Horizontal, 5);
             let img = gtk::Image::from_icon_name("battery-good-symbolic");
@@ -1358,18 +1377,25 @@ fn botao_apps(st: &Rc<RefCell<State>>) -> gtk::Button {
     ));
     {
         let st = st.clone();
-        clique_solto(&btn, move |botao| {
-            if botao == 1 {
-                toggle_gaveta(&st);
-            }
+        // 1.0-105 — o ESQUERDO pelo `clicked` DO PRÓPRIO BOTÃO (o
+        // GestureClick externo nunca via o botão 1: o GtkButton consome
+        // o gesto interno — a gaveta abre pelo MESMO caminho do botão
+        // Sessão, que sempre funcionou)
+        btn.connect_clicked(move |_| {
+            toggle_gaveta(&st);
         });
     }
     btn
 }
 
-/// A LEI DO CLIQUE (a cura B1): o verbo dispara EXCLUSIVAMENTE no
-/// GestureClick::released com tolerância de arrasto < 10px — nunca no
-/// press, nunca no clicked (o par press×clicked era o duplo verbo).
+/// A LEI DO CLIQUE (a cura B1 + 1.0-105): o verbo do MEIO/DIREITO
+/// dispara EXCLUSIVAMENTE no GestureClick::released com tolerância
+/// de arrasto < 10px — nunca no press, nunca no clicked (o par
+/// press×clicked era o duplo verbo). O ESQUERDO NÃO MORA AQUI: o
+/// GtkButton consome o botão 1 no gesto INTERNO e emite `clicked` —
+/// o esquerdo de toda a barra veste `connect_clicked` (o MESMO
+/// caminho do botão Sessão de sempre; o gesture externo nunca via o
+/// botão 1 e o clique esquerdo morria calado).
 fn clique_solto<W: IsA<gtk::Widget>>(btn: &W, acao: impl Fn(u32) + 'static) {
     let gesture = gtk::GestureClick::new();
     gesture.set_button(0);
