@@ -30,21 +30,22 @@ if [[ "${PACKAGES_ONLY:-0}" == "1" ]]; then
     # container e ZERO Rust viaja na ISO ou no pacote final).
     # E138 — O PAR X É DEPENDÊNCIA DURA (a ordem do dono, dump v2.13): o
     # cinto xhost + o cookie xauth do elite-gparted nascem COM o pacote.
-    # 1.0-104 — AS FERRAMENTAS DA BARRA SÃO depends= (pwvucontrol/blueman/
-    # iwgtk): o makepkg CONFERE o depends contra o AMBIENTE DE BUILD —
-    # o trio entra no cinto do container (os dois ramos — o canal do
-    # pacote e o da ISO usam o MESMO molde).
+    # 1.0-104 — O BLUEMAN É depends= DO PACOTE (o gerenciador Bluetooth
+    # da barra é de repo oficial [extra]: resolve no rig E no container
+    # do canal — o makepkg confere o depends contra o AMBIENTE DE BUILD e
+    # o blueman entra no cinto dos DOIS ramos; pwvucontrol/iwgtk são de
+    # repo CachyOS/AUR — a garantia deles é a ADOCAO da dose no rig e a
+    # lista da ISO: depends= deles mataria o canal do pacote no
+    # container Arch puro, 'target not found').
     pacman -Syu --noconfirm --needed git rsync curl base-devel sudo python \
         wayland wayland-protocols libxkbcommon wlopm polkit rust cargo \
-        gtk4 gtk4-layer-shell xorg-xhost xorg-xauth \
-        pwvucontrol blueman iwgtk
+        gtk4 gtk4-layer-shell xorg-xhost xorg-xauth blueman
 else
     pacman -Syu --noconfirm --needed \
         git rsync curl archiso xorriso mtools dosfstools \
         e2fsprogs squashfs-tools openssl arch-install-scripts \
         base-devel sudo rust cargo gtk4 gtk4-layer-shell \
-        meson ninja wayland wayland-protocols libxkbcommon wlopm polkit \
-        pwvucontrol blueman iwgtk
+        meson ninja wayland wayland-protocols libxkbcommon wlopm polkit blueman
 fi
 
 say "Importando chave CachyOS (ambiente de build)"
@@ -3093,7 +3094,7 @@ license=(GPL3)
 # do elite-gparted — a adoção best-effort só convergia quando o dono
 # rodava a dose; o pacote NASCE com o cinto). xorg-xhost abre o
 # +SI:localuser:root do XWayland; xorg-xauth extrai o cookie do usuário.
-depends=(bash wayland wlopm xorg-xhost xorg-xauth pwvucontrol blueman iwgtk)
+depends=(bash wayland wlopm xorg-xhost xorg-xauth blueman)
 # E138 — o sysctl consolidado é EDITÁVEL pelo dono (a régua da casa o
 # regenera; a edição manual sobrevive como .pacnew, nunca perdida)
 backup=(etc/sysctl.d/99-elite-performance.conf)

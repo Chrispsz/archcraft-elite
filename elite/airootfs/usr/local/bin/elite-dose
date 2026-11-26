@@ -302,11 +302,12 @@ HOUSE_OVERWRITE=(
 # E139 — O PAVUCONTROL SAI DA LISTA (a auditoria do 1.0-86: pacote
 #     OPCIONAL não é âncora — a ISO já o traz pelo packages.add e o
 #     rig que o tem conserva; ver a nota abaixo da fila).
-# 1.0-104 — O PWVUCONTROL/BLUEMAN/IWGTK SÃO DEPENDÊNCIA DURA (a ordem do
-#     dono: o clique esquerdo da barra abre o pwvucontrol e o blueman
-#     SEM botão morto — o depends= do elite-system é o cinto PRIMEIRO,
-#     o pacote NASCE com eles; a adoção aqui é o cinto do rig que o
-#     removeu à mão).
+# 1.0-104 — O BLUEMAN É depends= DIRETO (o gerenciador Bluetooth da
+#     diretriz é de repo oficial [extra] — o pacote NASCE com ele; a
+#     lente do Canal provou a fronteira: pwvucontrol/iwgtk são de repo
+#     CachyOS/AUR e depends= deles MATA o canal do pacote no container
+#     Arch puro — a garantia deles é ESTA adoção no rig com os repos
+#     CachyOS + a lista da ISO).
 ADOCAO=(lxqt-policykit pacman-contrib octopi yay flatpak swayosd gamemode gnome-text-editor papirus-icon-theme xorg-xprop xorg-xauth xorg-xhost coolercontrol scx-scheds iwgtk blueman pwvucontrol)
 # E139 — O PAVUCONTROL SAI DA ADOÇÃO (a auditoria do 1.0-86: pacote
 #     OPCIONAL não é âncora — a adoção silenciosa instalava pacote que
