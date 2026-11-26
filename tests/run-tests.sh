@@ -36,14 +36,32 @@ KEEP="${ELITE_TESTS_KEEP:-0}"
 (( KEEP )) || trap 'rm -rf "$WORK" 2>/dev/null || true' EXIT
 mkdir -p "$WORK"
 
-# a suíte é sensível a ambiente sujo: os fakes órfãos de sessões mortas
-# e o __pycache__ legado saem no arranque (a lição E47/E134-h/a71414b)
-find tests -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
 
 printf '%b╭──────────────────────────────────────────────────╮%b\n' "\e[1m" "\e[0m"
 printf '%b│  ARCHCRAFT ELITE 2.0 — PORTEIRA REAL EM CADEIA     │%b\n' "\e[1m" "\e[0m"
 printf '%b╰──────────────────────────────────────────────────╯%b\n' "\e[1m" "\e[0m"
 printf '  repo: %s\n  work: %s\n\n' "$REPO" "$WORK"
+
+# ── 1.0-103 — O PRE-BUILD DO JUIZ DE CASA (a erradicação do python): a
+#    suíte julgava XML/INI/Execute por heredocs python — agora o juiz é o
+#    craft-audit (núcleo std do craft-tools), PRE-BUILDADO uma única vez no
+#    arranque da porteira e exportado como $ELITE_JUDGE para as fases. Sem
+#    cargo no ambiente (e sem xmllint): t_skip HONESTO nas peças de juízo.
+export ELITE_JUDGE="${ELITE_JUDGE:-}"
+if [ -z "$ELITE_JUDGE" ]; then
+    if command -v cargo >/dev/null 2>&1; then
+        export PATH="$HOME/.cargo/bin:$PATH"
+        # o target COMPARTILHADO com a fase 30 (o cargo compila UMA vez)
+        export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-/tmp/elite-suite-cargo}"
+        if cargo build -q -p craft-tools --no-default-features --bin craft-audit 2>/dev/null \
+           && [ -x "$CARGO_TARGET_DIR/debug/craft-audit" ]; then
+            ELITE_JUDGE="$CARGO_TARGET_DIR/debug/craft-audit"
+            export ELITE_JUDGE
+            printf '  juiz de casa: craft-audit pré-buildado (%s)\n' "$ELITE_JUDGE"
+        fi
+    fi
+fi
+[ -n "$ELITE_JUDGE" ] || printf '  juiz de casa: AUSENTE (cargo fora do ambiente — as peças de juízo pulam HONESTO)\n'
 
 BROKEN=0
 for name in 10-estrutura 20-estatica 30-cargo 35-ajuda 40-compositor 50-runtime-ipc 60-veredito; do

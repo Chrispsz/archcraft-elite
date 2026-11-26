@@ -391,7 +391,7 @@ mod tests {
         let back: BusMsg = serde_json::from_str(&json).unwrap();
         let BusMsg::Windows { windows } = back else { panic!("não é Windows") };
         assert_eq!(windows[0].id, 1);
-        assert_eq!(windows[2].minimized, true);
-        assert_eq!(windows[2].fullscreen, true);
+        assert!(windows[2].minimized);
+        assert!(windows[2].fullscreen);
     }
 }

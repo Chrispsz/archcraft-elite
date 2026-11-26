@@ -49,7 +49,7 @@ pub const SERVICOS_CRITICOS: &[&str] = &[
 /// EXATO (não prefixo): o réu 'craft-audio' (a UI aposentada) não pode
 /// comer o 'craft-audio-route' (o roteador — tuning vivo da casa).
 pub fn e_legado(comm: &str) -> bool {
-    LEGADO.iter().any(|l| comm == *l)
+    LEGADO.contains(&comm)
 }
 
 /// O relatório de um serviço: presente/ausente a partir do texto do
@@ -58,8 +58,8 @@ pub fn servico_presente(saida_systemctl: &str, unit: &str) -> bool {
     saida_systemctl.lines().any(|l| {
         let cabeca = l.split_whitespace().next().unwrap_or("");
         // o unit pode nascer 'coolercontrold.service' ou com o caminho cheio
-        let nome = cabeca.split('/').last().unwrap_or(cabeca);
-        nome == unit || nome == &format!("{unit}.service") || cabeca == &format!("{unit}.service")
+        let nome = cabeca.split('/').next_back().unwrap_or(cabeca);
+        nome == unit || nome == format!("{unit}.service") || cabeca == format!("{unit}.service")
     })
 }
 
@@ -165,8 +165,9 @@ bluetooth.service                            enabled         enabled
 /// ou dono caído: ninguém escuta o caminho).
 #[derive(Debug, Clone, PartialEq)]
 pub enum ColheitaBus {
-    /// o snapshot vivo (o daemon falou)
-    Vivo(BusColheita),
+    /// o snapshot vivo (o daemon falou) — Boxed: a variante grande não
+    /// engorda as irmãs no stack (1.0-103, a lente da auditoria)
+    Vivo(Box<BusColheita>),
     /// conectou, 2s sem uma linha (o réu: o núcleo do daemon engasgado)
     Calado,
     /// o connect recusou (o réu: o arquivo sem dono — fóssil ou queda)
@@ -216,7 +217,7 @@ pub fn colhe_do_bus(caminho: &std::path::Path) -> ColheitaBus {
             Ok(elite_core::BusMsg::Ack { .. }) => {
                 // o eco do Snapshot: a colheita já nasceu (as boas-vindas
                 // precedem) — fecha o papel
-                return ColheitaBus::Vivo(colheita);
+                return ColheitaBus::Vivo(Box::new(colheita));
             }
             Ok(_) => {}
             Err(_) => return ColheitaBus::if_calado(falou, colheita),
@@ -230,7 +231,7 @@ impl ColheitaBus {
     /// parcial é verdade); mudo no teto = CALADO (o réu nomeado).
     fn if_calado(falou: bool, colheita: BusColheita) -> ColheitaBus {
         if falou {
-            ColheitaBus::Vivo(colheita)
+            ColheitaBus::Vivo(Box::new(colheita))
         } else {
             ColheitaBus::Calado
         }
@@ -357,12 +358,12 @@ pub fn proc_cpu_rss(stat: &str, status: &str, uptime_s: f64, hz: f64) -> (f64, f
     let ticks: f64 = stat
         .rsplit(')')
         .next()
-        .and_then(|depois| {
+        .map(|depois| {
             let c: Vec<&str> = depois.split_whitespace().collect();
             // comm) state(1º) ppid... utime = c[11], stime = c[12]
             let ut: f64 = c.get(11).and_then(|v| v.parse().ok()).unwrap_or(0.0);
             let st: f64 = c.get(12).and_then(|v| v.parse().ok()).unwrap_or(0.0);
-            Some(ut + st)
+            ut + st
         })
         .unwrap_or(0.0);
     let cpu = if uptime_s > 0.0 && hz > 0.0 {

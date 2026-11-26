@@ -92,7 +92,7 @@ pub fn eh_auxiliar_wine(comm: &str, re: &Regex) -> bool {
 /// em ".exe" (case-insensitive — o argv[0] do jogo é o próprio .exe; no
 /// loader 'wine jogo.exe' é o argv[1]; as duas formas são o jogo).
 pub fn cmdline_tem_exe(cmd: &[u8]) -> bool {
-    cmd.split(|&b| b == 0).any(|tok| tem_sufixo_exe(tok))
+    cmd.split(|&b| b == 0).any(tem_sufixo_exe)
 }
 
 /// o sufixo ".exe" em bytes, sem caixa (o grep -Ei do bash casa .EXE).

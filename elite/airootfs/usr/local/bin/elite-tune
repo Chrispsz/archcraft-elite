@@ -966,7 +966,7 @@ EOF
   #     firstboot patcha PERFIS EXISTENTES (o rig que instalou a 10.7
   #     recebe no próximo boot — firstboot ainda pendente lá, dump d33o).
   #     Idempotente (a chave false não é reescrita), JSON de verdade
-  #     (python3 — sed em Local State é tiro no escuro), dono do arquivo
+  #     (craft-audit, o juiz NATIVO — sed em Local State é tiro no escuro), dono do arquivo
   #     PRESERVADO (root escreve, uid/gid volta).
   if (( ! DRY )); then
     # v2.10.8.1 — o espaço em "Local State" É um caractere do nome: o glob
@@ -974,28 +974,10 @@ EOF
     # nunca acharia o arquivo (o patch morreria calado — a lei proíbe).
     for bs in /home/*/.config/BraveSoftware/Brave-Browser/Local\ State; do
       [[ -f "$bs" ]] || continue
+      # 1.0-103 — o heredoc python morre; o JUIZ DE CASA veste o patch
+      # (exit 1 = já curado · 2 = patch aplicado · 3 = exótico: sem tocar)
       rc=0
-      PYTHONDONTWRITEBYTECODE=1 python3 - "$bs" <<'PYBRAVE' 2>/dev/null || rc=$?
-import json, os, sys
-p = sys.argv[1]
-try:
-    with open(p, encoding="utf-8") as fh:
-        d = json.load(fh)
-except Exception:
-    raise SystemExit(3)          # perfil exótico/corrompido: sem tocar
-bm = d.get("background_mode")
-if isinstance(bm, dict) and bm.get("enabled") is False:
-    raise SystemExit(1)          # já curado — nada a fazer (idempotente)
-if not isinstance(bm, dict):
-    bm = {}
-bm["enabled"] = False
-d["background_mode"] = bm
-tmp = p + ".elite-tmp"
-with open(tmp, "w", encoding="utf-8") as fh:
-    json.dump(d, fh)
-os.replace(tmp, p)
-raise SystemExit(2)              # patch aplicado
-PYBRAVE
+      craft-audit brave-bg "$bs" 2>/dev/null || rc=$?
       case "$rc" in
         1) say "Brave: background_mode já é false em $bs — ok" ;;
         2)
@@ -1616,32 +1598,10 @@ E74OSD
     say "OSD ($u): binds de volume/brilho → swayosd-client (com fallback pactl/brightnessctl)"
     if (( ! DRY )); then
       backup "$RXML"
-      if python3 - "$RXML" <<'E74BINDS'
-import sys
-p = sys.argv[1]
-s = open(p).read()
-M = {
- 'command="pactl set-sink-volume @DEFAULT_SINK@ +5%"':
-   'command="sh -c \'swayosd-client --volume +5 || pactl set-sink-volume @DEFAULT_SINK@ +5%\'"',
- 'command="pactl set-sink-volume @DEFAULT_SINK@ -5%"':
-   'command="sh -c \'swayosd-client --volume -5 || pactl set-sink-volume @DEFAULT_SINK@ -5%\'"',
- 'command="pactl set-sink-mute @DEFAULT_SINK@ toggle"':
-   'command="sh -c \'swayosd-client --volume mute-toggle || pactl set-sink-mute @DEFAULT_SINK@ toggle\'"',
- 'command="brightnessctl set +10%"':
-   'command="sh -c \'swayosd-client --brightness +10% || brightnessctl set +10%\'"',
- 'command="brightnessctl set 10%-"':
-   'command="sh -c \'swayosd-client --brightness -10% || brightnessctl set 10%-\'"',
-}
-n = 0
-for k, v in M.items():
-    if k in s:
-        s = s.replace(k, v)
-        n += 1
-open(p, "w").write(s)
-print(f"E74: {n}/5 binds reescritos")
-sys.exit(0 if n else 3)
-E74BINDS
-      then
+      # 1.0-103 — o heredoc python morre; o JUIZ DE CASA veste as 5
+      # reescritas EXATAS E74 (swayosd-client com fallback — o RXML é
+      # reescrito, o número vem no stdout; exit 3 = nada a reescrever)
+      if craft-audit binds-osd "$RXML"; then
         chmod --reference="$RXML" "$RXML" 2>/dev/null || true
         chown "$(stat -c '%U:%G' "$h")" "$RXML" 2>/dev/null || true
         say "OSD ($u): binds reescritos (labwc-msg reconfigure pelo próprio usuário: C-S-R)"

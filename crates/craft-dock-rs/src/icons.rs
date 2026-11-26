@@ -336,7 +336,7 @@ pub fn png_rgba_bytes(rgba: &[u8], w: u32, h: u32) -> Option<Vec<u8>> {
     if n == 0 {
         return None;
     }
-    let nblocks = (n + 65534) / 65535;
+    let nblocks = n.div_ceil(65535);
     for (i, c) in raw.chunks(65535).enumerate() {
         idata_push_stored(&mut idat, i + 1 == nblocks, c);
     }
@@ -388,9 +388,9 @@ pub fn dib_to_rgba(dib: &[u8]) -> Option<(Vec<u8>, u32, u32)> {
         return None;
     }
     let top_down = h_raw < 0;
-    let h = (h_raw.unsigned_abs() / 2).max(1) as u32;
+    let h = (h_raw.unsigned_abs() / 2).max(1);
     let w = w as u32;
-    let row = ((bpp as usize * w as usize + 31) / 32) * 4;
+    let row = (bpp as usize * w as usize).div_ceil(32) * 4;
     let need = 40 + row * h as usize;
     if dib.len() < need {
         return None;
@@ -840,7 +840,7 @@ pub fn strip_field_codes(raw: &str) -> String {
     while let Some(c) = chars.next() {
         if c == '%' {
             // %X (um código de campo) some junto com o espaço ANTES dele
-            if chars.peek().map_or(false, |n| n.is_ascii_alphabetic()) {
+            if chars.peek().is_some_and(|n| n.is_ascii_alphabetic()) {
                 chars.next();
                 // o espaço precedente só é comido se existia
                 if out.ends_with(' ') {
@@ -1024,7 +1024,7 @@ mod tests {
         std::fs::write(dir.join("io.github.kolunmi.Bazaar.png"), b"png").unwrap();
         std::fs::write(dir.join("outra-coisa.svg"), b"svg").unwrap();
         // o nome com caixa/underline diferente acha o oficial do Flatpak
-        let hit = find_icon_file("bazaar", &[root.clone()]);
+        let hit = find_icon_file("bazaar", std::slice::from_ref(&root));
         assert_eq!(hit, Some(dir.join("io.github.kolunmi.Bazaar.png")));
         assert!(find_icon_file("nao-existe", &[root]).is_none());
     }
@@ -1165,16 +1165,16 @@ mod tests {
 
     // ── E133 — os helpers de arquivo dos testes do extrator PE ────────
 
-    fn poke16(v: &mut Vec<u8>, off: usize, x: u16) {
+    fn poke16(v: &mut [u8], off: usize, x: u16) {
         v[off..off + 2].copy_from_slice(&x.to_le_bytes());
     }
-    fn poke32(v: &mut Vec<u8>, off: usize, x: u32) {
+    fn poke32(v: &mut [u8], off: usize, x: u32) {
         v[off..off + 4].copy_from_slice(&x.to_le_bytes());
     }
 
     /// Um diretório de recurso: cabeçalho de 16 bytes + entradas de ID
     /// (name, val) — o FLAG de subdiretório já vem no val do chamador.
-    fn res_dir(v: &mut Vec<u8>, off: usize, entries: &[(u32, u32)]) {
+    fn res_dir(v: &mut [u8], off: usize, entries: &[(u32, u32)]) {
         poke16(v, off + 12, 0);
         poke16(v, off + 14, entries.len() as u16);
         for (i, (name, val)) in entries.iter().enumerate() {

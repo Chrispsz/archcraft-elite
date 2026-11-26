@@ -96,11 +96,11 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq qemu-system-x86 p7zip-full btrfs-progs \
             arch-install-scripts rsync squashfs-tools >/dev/null
-          # v1.2: PyYAML p/ o gate [1b/8] — o Calamares real PARSEIA os .conf;
-          # YAML inválido = "module could not be loaded" no rig do dono (v1.1)
-          python3 -c 'import yaml' 2>/dev/null \
-            || sudo apt-get install -y -qq python3-yaml >/dev/null
-          python3 -c 'import yaml; print("PyYAML", yaml.__version__)'
+          # 1.0-103 — o PyYAML morre: o gate do Calamares é o JUIZ DE CASA
+          # (craft-audit calamares — o MESMO código que roda na suíte local,
+          # compilado do crates/ no próprio runner; um caminho só)
+          sudo apt-get install -y -qq cargo >/dev/null
+          cargo --version
           qemu-system-x86_64 --version | head -1
           mkfs.btrfs --version | head -1
           if [ -e /dev/kvm ]; then echo "KVM presente: $(ls -la /dev/kvm)"; else echo "KVM ausente — TCG (lento)"; fi
@@ -211,9 +211,12 @@ jobs:
           # nunca o parseou como o Calamares real faz. YAML inválido = módulo
           # "could not be loaded" no rig do dono (shellprocess@btrfs, ISO v1.1:
           # printfs com \n partido em coluna 0 matavam o block scalar).
-          # O validador vive no repo (.ci/validate-calamares.py) — o MESMO
-          # código roda na suíte local (20-static), um caminho só.
-          python3 "$GITHUB_WORKSPACE/.ci/validate-calamares.py" rootfs || exit 1
+          # 1.0-103 — o validador de casa agora é o craft-audit (o .py morreu
+          # com a erradicação do python) — compilado AQUI e rodando no rootfs:
+          cargo build -q --release -p craft-tools --no-default-features --bin craft-audit \
+            --manifest-path "$GITHUB_WORKSPACE/crates/Cargo.toml" \
+            --target-dir /tmp/elite-judge-target
+          /tmp/elite-judge-target/release/craft-audit calamares rootfs || exit 1
 
           echo "── [1c/8] copytoram × unpackfs: o launch.sh REESCREVE o conf no live"
           # v1.6 — O GATE QUE FALTAVA (forense do burn test v1.5 do dono):

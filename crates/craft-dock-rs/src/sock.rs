@@ -150,13 +150,14 @@ pub fn near_match(a: &str, c: &str) -> bool {
         return false;
     }
     for (x, y) in [(c, a), (a, c)] {
+        // 1.0-103 — while let duplo (a clippy-lente da auditoria): os
+        // dois breaks viram a condição do laço
         let mut from = 0usize;
-        loop {
-            let Some(hay) = y.get(from..) else { break };
-            let Some(rel) = hay.find(x) else { break };
+        while let (Some(hay), Some(rel)) = (y.get(from..), y.get(from..).and_then(|h| h.find(x))) {
             let i = from + rel;
-            let before_ok = y[..i].chars().next_back().map_or(true, |ch| !ch.is_alphanumeric());
-            let after_ok = y[i + x.len()..].chars().next().map_or(true, |ch| !ch.is_alphanumeric());
+            let _ = hay; // a fatia do par (o juízo usa y direto abaixo)
+            let before_ok = y[..i].chars().next_back().is_none_or(|ch| !ch.is_alphanumeric());
+            let after_ok = y[i + x.len()..].chars().next().is_none_or(|ch| !ch.is_alphanumeric());
             if before_ok && after_ok {
                 return true;
             }

@@ -15,5 +15,9 @@ path = "src/main.rs"
 
 [dependencies]
 elite-core = { path = "../elite-core" }
+# 1.0-103 — O JUIZ EMBUTIDO: o craft-dump julga o XML da sessão DENTRO do
+# binário (o par xmllint/python3 de subprocesso morre com a erradicação do
+# python — default-features = false: só o núcleo std do juiz, sem gtk)
+craft-tools = { path = "../craft-tools", default-features = false }
 
 [dev-dependencies]

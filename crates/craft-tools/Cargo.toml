@@ -2,21 +2,34 @@
 name = "craft-tools"
 version = "2.0.0"
 edition = "2021"
-description = "ELITE · as ferramentas nativas da casa 2.0: craft-update, craft-clean, craft-help e o craft-pick (o picker dmenu em GTK4 no Design System)"
+description = "ELITE · as ferramentas nativas da casa 2.0: craft-update, craft-clean, craft-help, craft-pick, craft-audit (o juiz embutido da dose 1.0-103) e o picker dmenu em GTK4 no Design System"
 license = "GPL-3.0"
 
 [features]
 # a mesma lei do degrau da barra e da dock: default = gui (o binário de
 # verdade); sem a feature o núcleo std-only testa em qualquer lugar. O
-# elite-core só veste a GUI (a folha mestra THEME_CSS da janela) — sem
-# cara ele é dependência fantasma (a casa sem aviso nenhum).
+# elite-core veste a GUI (a folha mestra THEME_CSS da janela) — mas a
+# FUNDAÇÃO agora é direta: o juiz audit fala o protocolo do bus.sock e a
+# persistência atômica (1.0-103 — a erradicação do python: o juiz é casa).
 default = ["gui"]
-gui = ["gtk4", "libc", "elite-core"]
+gui = ["gtk4", "libc"]
 
 [dependencies]
-elite-core = { path = "../elite-core", optional = true }
+# 1.0-103 — A FUNDAÇÃO É DIRETA (não mais da feature gui): o módulo audit
+# aperta a mão do bus.sock (hello) e escreve atômico (brave-bg) — os
+# contratos tipados e o IPC da casa em TODO lugar que o juiz mora.
+elite-core = { path = "../elite-core" }
 libc = { version = "0.2", optional = true }
 gtk4 = { version = "0.11", optional = true }
+# O JUIZ NATIVO (1.0-103 — o porte dos heredocs python):
+#   quick-xml   — o bem-formado + a gramática E146 do menu + os Execute
+#   yaml-rust2  — o gate da v1.1 (Calamares) + o branding.desc
+#   serde_json  — o patch do Local State do Brave (background_mode)
+#   regex       — a resolução de Execute (as cadeias do molde/TERMINAL)
+quick-xml = "0.36"
+yaml-rust2 = "0.10"
+serde_json = { version = "1", features = ["preserve_order"] }
+regex = "1"
 
 [[bin]]
 name = "craft-update"
@@ -33,3 +46,7 @@ path = "src/bin/craft-help.rs"
 [[bin]]
 name = "craft-pick"
 path = "src/bin/craft-pick.rs"
+
+[[bin]]
+name = "craft-audit"
+path = "src/bin/craft-audit.rs"

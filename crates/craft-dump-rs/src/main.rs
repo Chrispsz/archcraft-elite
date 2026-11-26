@@ -637,23 +637,19 @@ fn main() {
             say(&format!("  {f}: AUSENTE (o skel entrega na próxima dose)"));
             continue;
         }
-        let cstr = caminho.to_string_lossy().to_string();
-        if let Some(rc) = colhe_status(&["xmllint", "--noout", &cstr]) {
-            if rc == 0 {
-                say(&format!("  {f}: VÁLIDO (xmllint exit 0)"));
-            } else {
+        // 1.0-103 — O JUIZ EMBUTIDO (a erradicação do python: o fallback
+        // ElementTree morre; o craft_tools::audit julga DENTRO do binário —
+        // zero subprocesso, o juiz viaja NO pacote)
+        match std::fs::read_to_string(&caminho) {
+            Ok(texto) if craft_tools::audit::xml_bem_formado(&texto) => {
+                say(&format!("  {f}: VÁLIDO (juiz embutido da casa)"));
+            }
+            Ok(_) => {
                 say(&format!("  {f}: INVÁLIDO — o heal E146 renova do mestre na próxima dose"));
             }
-        } else if let Some(rc) = colhe_status(&[
-            "python3", "-c", "import sys, xml.etree.ElementTree as ET; ET.parse(sys.argv[1])", &cstr,
-        ]) {
-            if rc == 0 {
-                say(&format!("  {f}: VÁLIDO (python ET — o fallback julga)"));
-            } else {
-                say(&format!("  {f}: INVÁLIDO — o heal E146 renova do mestre na próxima dose"));
+            Err(_) => {
+                say(&format!("  {f}: ILEGÍVEL — o heal E146 renova do mestre na próxima dose"));
             }
-        } else {
-            say(&format!("  {f}: SEM JUIZ no sistema (nem xmllint nem python3) — não auditado"));
         }
     }
 
@@ -946,7 +942,7 @@ fn modo_full() {
             let n = txt.lines().count();
             say(&format!(">>> {cache:?}/{nome} (linhas: {n}) <<<"));
             for l in txt.lines() {
-                say(&format!("{l}"));
+                say(l);
             }
             say("");
         }
@@ -983,23 +979,18 @@ fn modo_full() {
             say("  [AUSENTE]");
             continue;
         }
-        let cstr = caminho.to_string_lossy().to_string();
-        if let Some(rc) = colhe_status(&["xmllint", "--noout", &cstr]) {
-            if rc == 0 {
-                say("  xmllint: VÁLIDO (exit 0, sem erros)");
-            } else {
-                say("  xmllint: INVÁLIDO — o heal E146 renova do mestre na próxima dose");
+        // 1.0-103 — O JUIZ EMBUTIDO (o mesmo da sessão: zero subprocesso,
+        // o python ET aposenta com a erradicação da dose)
+        match std::fs::read_to_string(&caminho) {
+            Ok(texto) if craft_tools::audit::xml_bem_formado(&texto) => {
+                say("  VÁLIDO (juiz embutido da casa — sem erros)");
             }
-        } else if let Some(rc) = colhe_status(&[
-            "python3", "-c", "import sys, xml.etree.ElementTree as ET; ET.parse(sys.argv[1])", &cstr,
-        ]) {
-            if rc == 0 {
-                say("  python ET: VÁLIDO (sem xmllint no sistema — o fallback julga)");
-            } else {
-                say("  python ET: INVÁLIDO — o heal E146 renova do mestre na próxima dose");
+            Ok(_) => {
+                say("  INVÁLIDO — o heal E146 renova do mestre na próxima dose");
             }
-        } else {
-            say("  [SEM JUIZ no sistema (nem xmllint nem python3) — não auditado]");
+            Err(_) => {
+                say("  [ILEGÍVEL — o heal E146 renova do mestre na próxima dose]");
+            }
         }
     }
 
@@ -1092,18 +1083,6 @@ fn uid_corrente() -> u32 {
                 .and_then(|l| l.split_whitespace().nth(1).and_then(|v| v.parse().ok()))
         })
         .unwrap_or(0)
-}
-
-/// O status de UM comando (None se nem nasceu; Some(rc) quando rodou).
-fn colhe_status(argv: &[&str]) -> Option<i32> {
-    let out = std::process::Command::new(argv[0])
-        .args(&argv[1..])
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .output()
-        .ok()?;
-    Some(out.status.code().unwrap_or(-1))
 }
 
 /// A tabela de processos da sessão (pid, ppid, state, comm, cmdline) —

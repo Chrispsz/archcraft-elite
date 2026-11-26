@@ -55,7 +55,8 @@ jobs:
           # overlay morreu com 'error while loading shared libraries'
           # (900 peças em cascata, o réu invisível até o stderr viajar
           # inteiro). Arch é rolling INTEIRO: -Syu ou nada.
-          pacman -Syu --noconfirm --needed git rsync shellcheck python-yaml python-pillow shfmt bun
+          # 1.0-103 — o python-yaml/python-pillow saem (a suíte julga pelo craft-audit de casa); o rust entra: a porteira PRÉ-BUILDA o juiz no arranque
+          pacman -Syu --noconfirm --needed git rsync shellcheck rust shfmt bun
       - uses: actions/checkout@v5
       # v2.10.26/E39 — GIT VIVO NO PASSO DA SUÍTE: o set-safe-directory do
       # checkout é config GLOBAL TEMPORÁRIA (env GIT_CONFIG_GLOBAL do passo

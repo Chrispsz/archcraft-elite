@@ -82,12 +82,44 @@ file_line_exact "packages.remove: o craft-toplevel aposentado (o C de 3 geraçõ
 file_has "packages.remove: o mousepad fica fora (gnome-text-editor é o editor)" "elite/packages.remove" 'mousepad'
 file_line_exact "packages.remove: o kernel stock continua fora (BORE único)" "elite/packages.remove" 'linux'
 
+# ══ 1.0-103 — A ERRADICAÇÃO DO PYTHON (a radiografia de linguagens) ══
+BS=".ci/build.sh"
+# o repo NÃO carrega mais NENHUM arquivo .py (o último foi o gate do
+# Calamares — portado ao juiz de casa craft-audit). A lista é do INDEX do
+# git (E35.1/E39: a árvore de trabalho pode carregar fósseis de fora —
+# o repo é o que o git rastreia):
+PY_FILES="$(git ls-files '*.py' 2>/dev/null || true)"
+if [ -z "$PY_FILES" ]; then
+    t_ok "repo: ZERO arquivo .py no index (o gate do Calamares agora é craft-audit calamares)"
+else
+    t_fail "repo: ZERO arquivo .py no index" "fósseis: $(printf '%s' "$PY_FILES" | head -3 | tr '\n' ' ')"
+fi
+# e nenhum CÓDIGO python embutido nos scripts da casa (os comentários que
+# NARRAM a morte do python são legítimos; heredoc python = réu):
+PY_HD="$(grep -rn "<<'PY" elite/airootfs tests .ci/build.sh scripts 2>/dev/null | grep -v 'PYE50\|PYE57' | head -3 || true)"
+if [ -z "$PY_HD" ]; then
+    t_ok "repo: ZERO heredoc python vivo (o juiz é o craft-audit de casa)"
+else
+    t_fail "repo: ZERO heredoc python vivo" "réus: $PY_HD"
+fi
+# o heredoc do molde PKGBUILD agora é COTADO com @marcas@ (o f-string morreu):
+file_has "build.sh: o molde PKGBUILD é sh puro com marcas" "$BS" "<<'MOLDE_PKGBUILD'"
+file_has "build.sh: a substituição do molde é expansão de parâmetro" "$BS" 'linha="${linha//@$marca@/$esc}"'
+file_has "build.sh: o juiz craft-audit embarca com a família de bins" "$BS" 'craft-update craft-clean craft-help craft-pick craft-dump craft-audit; do'
+# o juiz de casa existe e fala todos os verbos:
+file_has "craft-audit: o núcleo do juiz vive no craft-tools" "crates/craft-tools/src/audit.rs" 'pub fn xml_bem_formado'
+file_has "craft-audit: a gramática E146 do menu" "crates/craft-tools/src/audit.rs" 'pub fn menu_sem_orfao'
+file_has "craft-audit: o gate do Calamares portado" "crates/craft-tools/src/audit.rs" 'pub fn calamares_confere'
+file_has "craft-audit: o aperto de mão do bus.sock" "crates/craft-tools/src/audit.rs" 'pub fn hello_bus'
+file_has "craft-audit: a resolução de Execute da fase 40" "crates/craft-tools/src/audit.rs" 'pub fn resolve_exec'
+file_has "craft-audit: o bin da linha de comando" "crates/craft-tools/src/bin/craft-audit.rs" 'exec-resolve'
+
 # ══ O MOLDE DO PACOTE (a ponte crates/ → elite-system) ══
 BS=".ci/build.sh"
 file_has "build.sh: o estágio Rust fala /work/crates" "$BS" 'tar -C /work/crates'
 file_has "build.sh: elite-core entra na família" "$BS" 'RUST_CRATES="elite-core elite-daemon"'
 file_has "build.sh: craft-dump-rs entra se presente" "$BS" 'craft-dump-rs'
-file_has "build.sh: o MANIFEST nasce dos bins reais (2.0: os bins COMPILADOS pulam o overlay)" "$BS" 'craft-update|craft-clean|craft-help|craft-pick|craft-dump|elite-daemon|craft-bar-rs|craft-dock-rs) continue'
+file_has "build.sh: o MANIFEST nasce dos bins reais (2.0: os bins COMPILADOS pulam o overlay)" "$BS" 'craft-update|craft-clean|craft-help|craft-pick|craft-dump|craft-audit|elite-daemon|craft-bar-rs|craft-dock-rs) continue'
 file_has "build.sh: o CoolerControl viaja com o override --disable-gpu" "$BS" 'org.coolercontrol.CoolerControl.desktop'
 file_has "guard-pkgrel: o Rust é conteúdo do elite-system (crates/** no delta — a lei E41 pega a fundação)" ".ci/guard-pkgrel.sh" "crates/**"
 
@@ -286,9 +318,9 @@ file_has "build.sh: o mestre do greeter viaja no pacote (elite/sddm)" "$BS" '/us
 file_has "build.sh: o mestre do greeter nasce DA MESMA FONTE do overlay" "$BS" '/work/elite/airootfs/usr/share/sddm/themes/archcraft/theme.conf'
 file_has "post-upgrade: a pele do greeter chega ao rig vivo na dose" "$AIROOTFS/usr/local/bin/elite-post-upgrade" '/usr/share/sddm/themes/archcraft/theme.conf'
 file_has "rice: o fóssil da v7 na rede do lock (quem adotou a v7 renova à v8)" "$AIROOTFS/usr/local/bin/craft-rice" '6e4597244cb625dde1ed33f419afabb8bf9270230a4218311c9c4acf9919b0ea'
-# O MOLDE veste o pkgrel 102 (lei E41 — o guard cobra)
-# (1.0-102 — a âncora viva da era: cada dose sobe o número NO MESMO commit)
-file_has "build.sh: o pkgrel da era é 102 (elite-system 1.0-102)" "$BS" 'pkgrel=102'
+# O MOLDE veste o pkgrel 103 (lei E41 — o guard cobra)
+# (1.0-103 — a âncora viva da era: cada dose sobe o número NO MESMO commit)
+file_has "build.sh: o pkgrel da era é 103 (elite-system 1.0-103)" "$BS" 'pkgrel=103'
 # A CURA DO CANAL VERMELHO (#45632905510 — o E0599 pela 2ª era): o gdk4
 # 0.11.5 NÃO gera monitor-added/removed/monitors-changed (deprecated desde
 # o GTK 4.16, fora de DisplayExt) — a via viva é o items-changed do

@@ -742,11 +742,14 @@ EOQML
         else
             sed -i '/^slideshowAPI:/i slideshow: "show.qml"' "$CC/branding/archcraft/branding.desc"
         fi
-        if python3 -c 'import yaml,sys; yaml.safe_load(open(sys.argv[1]))' \
-            "$CC/branding/archcraft/branding.desc" 2>/dev/null; then
+        # 1.0-103 — o heredoc pyyaml morre; o JUIZ DE CASA veste o gate
+        # (craft-audit viaja no pacote — o pacstrap o instala ANTES do
+        # customize rodar no chroot)
+        if command -v craft-audit >/dev/null 2>&1 \
+           && craft-audit yaml "$CC/branding/archcraft/branding.desc" 2>/dev/null; then
             echo "E19c: slideshow do Calamares = banner único estático (branding.desc YAML válido)"
         else
-            echo "E19c AVISO: branding.desc não parseou como YAML (pyyaml ausente ou mudou?) — conferir no build" >&2
+            echo "E19c AVISO: branding.desc não parseou como YAML (juiz ausente ou mudou?) — conferir no build" >&2
         fi
     else
         echo "E19c: show.qml mínimo escrito (branding.desc ausente — upstream mudou o layout?)"

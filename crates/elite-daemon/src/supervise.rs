@@ -250,6 +250,7 @@ pub fn peek_lock_livre(caminho: &std::path::Path) -> bool {
 ///      legada deixava 0 bytes): PID existente em /proc = conservador
 ///      NÃO toca (a lei do dono: só sai o órfão cujo PID não existe
 ///      mais, ou o arquivo vazio de era sem dono algum).
+///
 /// Quem chama: a porta `session` ANTES do colhe_relogin (o chão do
 /// /tmp sem dono nenhum — nenhum filho de vaga nasceu ainda, a corrida
 /// de µs entre varredura e spawn não existe) e o daemon_loop ANTES do
@@ -478,13 +479,7 @@ fn entrega_mordaca_polkit(conf_base: &std::path::Path) -> bool {
                 X-GNOME-Autostart-enabled=false\n\
                 # E151 (archcraft-elite): o agente polkit da casa é o da\n\
                 # vaga supervisionada do elite-daemon — UM só na sessão.\n";
-    if std::fs::create_dir_all(conf_base.join("autostart")).is_ok()
-        && std::fs::write(&alvo, corpo).is_ok()
-    {
-        true
-    } else {
-        false
-    }
+    std::fs::create_dir_all(conf_base.join("autostart")).is_ok() && std::fs::write(&alvo, corpo).is_ok()
 }
 
 struct Vaga {
@@ -519,6 +514,7 @@ struct Vaga {
 /// `From<&Residente>` mantém a fila do conf com os gates de LARGA
 /// (comm = 1º token do comando; 2.0: o caso especial do idle morreu —
 /// a vigília é do PRÓPRIO daemon, o exec-swayidle é história).
+#[derive(Default)]
 struct VagaSpec {
     res: Residente,
     /// processo de fora com este comm = vaga ADOTADA (E138)
@@ -530,16 +526,6 @@ struct VagaSpec {
     peek_lock: Option<PathBuf>,
 }
 
-impl Default for VagaSpec {
-    fn default() -> Self {
-        VagaSpec {
-            res: Residente::default(),
-            comm: None,
-            cond: None,
-            peek_lock: None,
-        }
-    }
-}
 
 impl From<Residente> for VagaSpec {
     fn from(res: Residente) -> Self {
@@ -918,7 +904,7 @@ fn supervisa(
         use std::io::Write;
         let _ = f.set_len(0);
         if let Ok(mut fh) = f.try_clone() {
-            let _ = write!(fh, "{}\n", std::process::id());
+            let _ = writeln!(fh, "{}", std::process::id());
         }
     }
     super::instala_sinais();
@@ -1056,10 +1042,7 @@ fn supervisa(
             }
             //    (b) a trava em posse de irmão = o outro daemon da casa
             //        já criou o filho → adota silencioso (idem).
-            let trava = match tenta_trava(&v.res.nome) {
-                Ok(f) => Some(f),
-                Err(_) => None,
-            };
+            let trava = tenta_trava(&v.res.nome).ok();
             if trava.is_none() {
                 continue;
             }

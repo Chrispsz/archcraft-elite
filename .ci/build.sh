@@ -222,7 +222,7 @@ for f in /work/elite/airootfs/usr/local/bin/*; do
     # superfícies (craft-bar-rs/craft-dock-rs) idem — o molde instala
     # todos da esteira Rust lá embaixo.
     case "$b" in
-        craft-update|craft-clean|craft-help|craft-pick|craft-dump|elite-daemon|craft-bar-rs|craft-dock-rs) continue ;;
+        craft-update|craft-clean|craft-help|craft-pick|craft-dump|craft-audit|elite-daemon|craft-bar-rs|craft-dock-rs) continue ;;
     esac
     printf '%s\n' "$b"
 done > /tmp/elite-src/elite-system/files/MANIFEST
@@ -619,164 +619,181 @@ Description = Elite: remote Flathub no flatpak (idempotente)
 When = PostTransaction
 Exec = /usr/local/bin/elite-flathub
 EOFH
-python3 - /tmp/elite-src/elite-system <<'PYE50'
-import os, sys, pathlib
-# E132 — a sha do tar Rust viaja pelo ENV (a variável BASH não entra no
-# escopo do python; o export lá atrás no staging é a ponte — sem ela o
-# molde morre em KeyError, a build inteira depende do par)
-rust_sha = os.environ["RUST_TAR_SHA"]
-d = pathlib.Path(sys.argv[1])
-files = (d / 'files/MANIFEST').read_text().split()
-units = sorted(p.name for p in (d / 'files/etc/systemd/system').iterdir())
-# E63 — os hooks de system-sleep que o pacote entrega (fonte única: o
-# que está em files/, o mesmo padrão das units)
-hooks = sorted(p.name for p in (d / 'files/usr/lib/systemd/system-sleep').iterdir())
-names = chr(10).join(f'        "{f}" \\' for f in files)   # cada item com \ de continuação — a lista do for NÃO aceita quebra simples
-unames = chr(10).join(f'        "/etc/systemd/system/{u}" \\' for u in units)
-unit_loop = f"""    for f in \\
-{unames}
+# ─────────────────────────────────────────────────────────────────────
+# 1.0-103 — O MOLDE EM SH PURO (a erradicação do Python): o heredoc
+# PYE50 de 2500 linhas de python morre — a LÓGICA vira sh nativo (as
+# listas do MANIFEST, as units, os hooks, os overrides) e o TEMPLATE do
+# PKGBUILD viaja em heredoc COTADO com @marcas@ substituídas pela
+# expansão de parâmetro do próprio bash (zero subprocesso, zero python,
+# byte a byte o mesmo PKGBUILD — provado no diff da dose).
+molde_pkbuild() { # molde_pkbuild <staging-dir> — o PKGBUILD nasce AQUI
+    local d="$1"
+    # E132 — a sha do tar Rust viaja pelo ENV (exportada lá atrás no staging)
+    local rust_sha="${RUST_TAR_SHA:?o molde morre sem RUST_TAR_SHA (a sha do tar Rust)}"
+    local files=() units=() hooks=() ovr=()
+    local f u h o sep
+    # os arquivos do MANIFEST (a lista inteira, na ordem do arquivo)
+    mapfile -t files < <(tr -s '[:space:]' '\n' < "$d/files/MANIFEST" | sed '/^$/d')
+    # as units e os hooks de system-sleep (fonte única: o que está em files/)
+    if [ -d "$d/files/etc/systemd/system" ]; then
+        while IFS= read -r u; do units+=("$u"); done \
+            < <(LC_ALL=C find "$d/files/etc/systemd/system" -mindepth 1 -maxdepth 1 -printf '%f\n' | LC_ALL=C sort)
+    fi
+    if [ -d "$d/files/usr/lib/systemd/system-sleep" ]; then
+        while IFS= read -r h; do hooks+=("$h"); done \
+            < <(LC_ALL=C find "$d/files/usr/lib/systemd/system-sleep" -mindepth 1 -maxdepth 1 -printf '%f\n' | LC_ALL=C sort)
+    fi
+    # E98 — TODO .desktop de applications/ embarca sozinho (a varredura)
+    if [ -d "$d/files/usr/local/share/applications" ]; then
+        while IFS= read -r o; do ovr+=("$o"); done \
+            < <(LC_ALL=C find "$d/files/usr/local/share/applications" -maxdepth 1 -name '*.desktop' -printf '%f\n' | LC_ALL=C sort)
+    fi
+    # as listas do backup=() — cada item com \ de continuação (a lista do
+    # for do shell NÃO aceita quebra simples)
+    local names='' unames='' hnames=''
+    sep=''; for f in "${files[@]}"; do names+="${sep}        \"$f\" \\"; sep=$'\n'; done
+    sep=''; for u in "${units[@]}"; do unames+="${sep}        \"/etc/systemd/system/$u\" \\"; sep=$'\n'; done
+    sep=''; for h in "${hooks[@]}"; do hnames+="${sep}        \"/usr/lib/systemd/system-sleep/$h\" \\"; sep=$'\n'; done
+    local unit_loop='' unit_install='' hook_rm='' hook_install=''
+    if ((${#units[@]})); then
+        unit_loop="    for f in \\
+${unames}
     ; do
+        [ -e \"\$f\" ] && rm -f \"\$f\"
+    done
+"
+        unit_install='    install -d "${pkgdir}/etc/systemd/system"
+    cp -a "${startdir}/files/etc/systemd/system/." "${pkgdir}/etc/systemd/system/"
+'
+    fi
+    if ((${#hooks[@]})); then
+        hook_rm="    for f in \\
+${hnames}
+    ; do
+        [ -e \"\$f\" ] && rm -f \"\$f\"
+    done
+"
+        hook_install='    install -d "${pkgdir}/usr/lib/systemd/system-sleep"
+    cp -a "${startdir}/files/usr/lib/systemd/system-sleep/." "${pkgdir}/usr/lib/systemd/system-sleep/"
+'
+    fi
+    # ── as danças literais de cada pele (install/rm no pacote) ──
+    apps_install='    install -d "${pkgdir}/usr/local/share/applications"
+    install -m644 "${startdir}/files/usr/local/share/applications/org.coolercontrol.CoolerControl.desktop" "${pkgdir}/usr/local/share/applications/org.coolercontrol.CoolerControl.desktop"'$'\n'
+    apps_rm='    [ -e "/usr/local/share/applications/org.coolercontrol.CoolerControl.desktop" ] && rm -f "/usr/local/share/applications/org.coolercontrol.CoolerControl.desktop"'$'\n'
+    dc_install='    install -Dm644 "${startdir}/files/usr/local/share/elite/daemon.conf" "${pkgdir}/usr/local/share/elite/daemon.conf"'$'\n'
+    dc_rm='    [ -e "/usr/local/share/elite/daemon.conf" ] && rm -f "/usr/local/share/elite/daemon.conf"'$'\n'
+    doc_install='    install -d "${pkgdir}/usr/local/share/elite/docs"
+    install -m644 "${startdir}/files/usr/local/share/elite/docs/SCRIPTS.md" "${pkgdir}/usr/local/share/elite/docs/SCRIPTS.md"'$'\n'
+    doc_rm='    [ -e "/usr/local/share/elite/docs/SCRIPTS.md" ] && rm -f "/usr/local/share/elite/docs/SCRIPTS.md"'$'\n'
+    ef_install='    install -Dm644 "${startdir}/elite-flathub.hook" "${pkgdir}/usr/share/libalpm/hooks/elite-flathub.hook"'$'\n'
+    ff_install='    install -d "${pkgdir}/usr/local/share/elite/fastfetch"
+    install -m644 "${startdir}/files/usr/local/share/elite/fastfetch/config.jsonc" "${pkgdir}/usr/local/share/elite/fastfetch/config.jsonc"'$'\n'
+    ff_rm='    [ -e "/usr/local/share/elite/fastfetch/config.jsonc" ] && rm -f "/usr/local/share/elite/fastfetch/config.jsonc"'$'\n'
+    flags_install='    install -d "${pkgdir}/usr/local/share/elite/chromium-flags"
+    install -m644 "${startdir}/files/usr/local/share/elite/chromium-flags/brave-flags.conf" "${pkgdir}/usr/local/share/elite/chromium-flags/brave-flags.conf"
+    install -m644 "${startdir}/files/usr/local/share/elite/chromium-flags/code-flags.conf" "${pkgdir}/usr/local/share/elite/chromium-flags/code-flags.conf"'$'\n'
+    flags_rm='    [ -e "/usr/local/share/elite/chromium-flags/brave-flags.conf" ] && rm -f "/usr/local/share/elite/chromium-flags/brave-flags.conf"
+    [ -e "/usr/local/share/elite/chromium-flags/code-flags.conf" ] && rm -f "/usr/local/share/elite/chromium-flags/code-flags.conf"'$'\n'
+    gm_install='    install -Dm644 "${startdir}/files/etc/gamemode.ini" "${pkgdir}/etc/gamemode.ini"'$'\n'
+    gm_rm='    [ -e "/etc/gamemode.ini" ] && ! pacman -Qo "/etc/gamemode.ini" >/dev/null 2>&1 && rm -f "/etc/gamemode.ini"'$'\n'
+    grub_install='    install -d "${pkgdir}/usr/local/share/elite/grub"
+    install -m644 "${startdir}/files/usr/local/share/elite/grub/theme.txt" "${pkgdir}/usr/local/share/elite/grub/theme.txt"
+    install -m644 "${startdir}/files/usr/local/share/elite/grub/wallpaper.png" "${pkgdir}/usr/local/share/elite/grub/wallpaper.png"
+    install -m644 "${startdir}/files/usr/local/share/elite/grub/select_bar.png" "${pkgdir}/usr/local/share/elite/grub/select_bar.png"'$'\n'
+    gtk_install='    install -d "${pkgdir}/usr/local/share/elite/gtk-3.0"
+    install -d "${pkgdir}/usr/local/share/elite/gtk-4.0"
+    install -m644 "${startdir}/files/usr/local/share/elite/gtk-3.0/settings.ini" "${pkgdir}/usr/local/share/elite/gtk-3.0/settings.ini"
+    install -m644 "${startdir}/files/usr/local/share/elite/gtk-4.0/settings.ini" "${pkgdir}/usr/local/share/elite/gtk-4.0/settings.ini"'$'\n'
+    kmod_install='    install -d "${pkgdir}/etc/sysctl.d"
+    install -m644 "${startdir}/files/etc/sysctl.d/99-elite-performance.conf" "${pkgdir}/etc/sysctl.d/99-elite-performance.conf"
+    install -d "${pkgdir}/etc/udev/rules.d"
+    install -m644 "${startdir}/files/etc/udev/rules.d/99-elite-zram.rules" "${pkgdir}/etc/udev/rules.d/99-elite-zram.rules"
+    install -m644 "${startdir}/files/etc/udev/rules.d/60-ntsync.rules" "${pkgdir}/etc/udev/rules.d/60-ntsync.rules"
+    install -d "${pkgdir}/etc/modules-load.d"
+    install -m644 "${startdir}/files/etc/modules-load.d/elite-ntsync.conf" "${pkgdir}/etc/modules-load.d/elite-ntsync.conf"
+    install -m644 "${startdir}/files/etc/modules-load.d/elite-sensors.conf" "${pkgdir}/etc/modules-load.d/elite-sensors.conf"
+    install -d "${pkgdir}/etc/tmpfiles.d"
+    install -m644 "${startdir}/files/etc/tmpfiles.d/elite-mglru.conf" "${pkgdir}/etc/tmpfiles.d/elite-mglru.conf"
+    install -Dm644 "${startdir}/files/etc/default/scx" "${pkgdir}/etc/default/scx"'$'\n'
+    kmod_rm='    for f in /etc/sysctl.d/99-elite-performance.conf /etc/udev/rules.d/99-elite-zram.rules /etc/udev/rules.d/60-ntsync.rules /etc/udev/rules.d/99-elite-io.rules /usr/lib/udev/rules.d/91-elite-automount.rules /etc/modules-load.d/elite-ntsync.conf /etc/modules-load.d/elite-sensors.conf /etc/tmpfiles.d/elite-mglru.conf /etc/default/scx; do
+        [ -e "$f" ] && rm -f "$f"
+    done'$'\n'
+    lock_install='    install -d "${pkgdir}/usr/local/share/elite/hyprlock"
+    install -m644 "${startdir}/files/usr/local/share/elite/hyprlock/hyprlock.conf" "${pkgdir}/usr/local/share/elite/hyprlock/hyprlock.conf"'$'\n'
+    lock_rm='    [ -e "/usr/local/share/elite/hyprlock/hyprlock.conf" ] && rm -f "/usr/local/share/elite/hyprlock/hyprlock.conf"'$'\n'
+    menu_install='    install -d "${pkgdir}/usr/local/share/elite/labwc"
+    install -m644 "${startdir}/files/usr/local/share/elite/labwc/menu.xml" "${pkgdir}/usr/local/share/elite/labwc/menu.xml"'$'\n'
+    menu_rm='    [ -e "/usr/local/share/elite/labwc/menu.xml" ] && rm -f "/usr/local/share/elite/labwc/menu.xml"'$'\n'
+    mh_install='    install -d "${pkgdir}/usr/local/share/elite/mangohud"
+    install -m644 "${startdir}/files/usr/local/share/elite/mangohud/minimal.conf" "${pkgdir}/usr/local/share/elite/mangohud/minimal.conf"
+    install -m644 "${startdir}/files/usr/local/share/elite/mangohud/balanceado.conf" "${pkgdir}/usr/local/share/elite/mangohud/balanceado.conf"
+    install -m644 "${startdir}/files/usr/local/share/elite/mangohud/diagnostico.conf" "${pkgdir}/usr/local/share/elite/mangohud/diagnostico.conf"'$'\n'
+    mh_rm='    [ -e "/usr/local/share/elite/mangohud/minimal.conf" ] && rm -f "/usr/local/share/elite/mangohud/minimal.conf"
+    [ -e "/usr/local/share/elite/mangohud/balanceado.conf" ] && rm -f "/usr/local/share/elite/mangohud/balanceado.conf"
+    [ -e "/usr/local/share/elite/mangohud/diagnostico.conf" ] && rm -f "/usr/local/share/elite/mangohud/diagnostico.conf"'$'\n'
+    osd_install='    install -d "${pkgdir}/usr/local/share/elite/swayosd"
+    install -m644 "${startdir}/files/usr/local/share/elite/swayosd/config.toml" "${pkgdir}/usr/local/share/elite/swayosd/config.toml"
+    install -m644 "${startdir}/files/usr/local/share/elite/swayosd/style.css" "${pkgdir}/usr/local/share/elite/swayosd/style.css"'$'\n'
+    osd_rm='    [ -e "/usr/local/share/elite/swayosd/config.toml" ] && rm -f "/usr/local/share/elite/swayosd/config.toml"
+    [ -e "/usr/local/share/elite/swayosd/style.css" ] && rm -f "/usr/local/share/elite/swayosd/style.css"'$'\n'
+    pd_install='    install -d "${pkgdir}/etc/profile.d"
+    install -m644 "${startdir}/files/etc/profile.d/10-elite-defaults.sh" "${pkgdir}/etc/profile.d/10-elite-defaults.sh"'$'\n'
+    pk_install='    install -dm750 "${pkgdir}/etc/polkit-1/rules.d"
+    install -m644 "${startdir}/files/etc/polkit-1/rules.d/50-elite-wheel.rules" "${pkgdir}/etc/polkit-1/rules.d/50-elite-wheel.rules"'$'\n'
+    pk_rm='    [ -e "/etc/polkit-1/rules.d/50-elite-wheel.rules" ] && ! pacman -Qo "/etc/polkit-1/rules.d/50-elite-wheel.rules" >/dev/null 2>&1 && rm -f "/etc/polkit-1/rules.d/50-elite-wheel.rules"'$'\n'
+    pt_install='    install -Dm644 "${startdir}/elite-post-transaction.hook" "${pkgdir}/usr/share/libalpm/hooks/elite-post-transaction.hook"'$'\n'
+    q6_install='    install -d "${pkgdir}/usr/local/share/elite/qt6ct"
+    install -m644 "${startdir}/files/usr/local/share/elite/qt6ct/qt6ct.conf" "${pkgdir}/usr/local/share/elite/qt6ct/qt6ct.conf"'$'\n'
+    q6_rm='    [ -e "/usr/local/share/elite/qt6ct/qt6ct.conf" ] && rm -f "/usr/local/share/elite/qt6ct/qt6ct.conf"'$'\n'
+    rc_install='    install -d "${pkgdir}/usr/local/share/elite/labwc"
+    install -m644 "${startdir}/files/usr/local/share/elite/labwc/rc.xml" "${pkgdir}/usr/local/share/elite/labwc/rc.xml"'$'\n'
+    rc_rm='    [ -e "/usr/local/share/elite/labwc/rc.xml" ] && rm -f "/usr/local/share/elite/labwc/rc.xml"'$'\n'
+    sddm_install='    install -d "${pkgdir}/usr/local/share/elite/sddm"
+    install -m644 "${startdir}/files/usr/local/share/elite/sddm/theme.conf" "${pkgdir}/usr/local/share/elite/sddm/theme.conf"
+    install -m644 "${startdir}/files/usr/local/share/elite/sddm/kde_settings.conf" "${pkgdir}/usr/local/share/elite/sddm/kde_settings.conf"
+    install -m644 "${startdir}/files/usr/local/share/elite/sddm/elite_wayland.conf" "${pkgdir}/usr/local/share/elite/sddm/elite_wayland.conf"'$'\n'
+    sddm_rm='    [ -e "/usr/local/share/elite/sddm/theme.conf" ] && rm -f "/usr/local/share/elite/sddm/theme.conf"
+    [ -e "/usr/local/share/elite/sddm/kde_settings.conf" ] && rm -f "/usr/local/share/elite/sddm/kde_settings.conf"
+    [ -e "/usr/local/share/elite/sddm/elite_wayland.conf" ] && rm -f "/usr/local/share/elite/sddm/elite_wayland.conf"'$'\n'
+    sudoers_install='    install -dm750 "${pkgdir}/etc/sudoers.d"
+    install -m440 "${startdir}/files/etc/sudoers.d/99-elite-clean" "${pkgdir}/etc/sudoers.d/99-elite-clean"'$'\n'
+    sudoers_rm='    [ -e "/etc/sudoers.d/99-elite-clean" ] && rm -f "/etc/sudoers.d/99-elite-clean"'$'\n'
+    swc_install='    install -d "${pkgdir}/usr/local/share/elite/swaync"
+    install -m644 "${startdir}/files/usr/local/share/elite/swaync/config.json" "${pkgdir}/usr/local/share/elite/swaync/config.json"
+    install -m644 "${startdir}/files/usr/local/share/elite/swaync/style.css" "${pkgdir}/usr/local/share/elite/swaync/style.css"
+    install -d "${pkgdir}/etc/xdg/swaync"
+    install -m644 "${startdir}/files/etc/xdg/swaync/config.json" "${pkgdir}/etc/xdg/swaync/config.json"
+    install -m644 "${startdir}/files/etc/xdg/swaync/style.css" "${pkgdir}/etc/xdg/swaync/style.css"'$'\n'
+    swc_rm='    for f in /usr/local/share/elite/swaync/config.json /usr/local/share/elite/swaync/style.css; do
         [ -e "$f" ] && rm -f "$f"
     done
-""" if units else ""
-unit_install = f"""    install -d "${{pkgdir}}/etc/systemd/system"
-    cp -a "${{startdir}}/files/etc/systemd/system/." "${{pkgdir}}/etc/systemd/system/"
-""" if units else ""
-hnames = chr(10).join(f'        "/usr/lib/systemd/system-sleep/{h}" \\' for h in hooks)
-hook_rm = f"""    for f in \\
-{hnames}
-    ; do
-        [ -e "$f" ] && rm -f "$f"
+    for f in /etc/xdg/swaync/config.json /etc/xdg/swaync/style.css; do
+        [ -e "$f" ] && ! pacman -Qo "$f" >/dev/null 2>&1 && rm -f "$f"
+    done'$'\n'
+    theo_install='    install -d "${pkgdir}/usr/local/share/elite/labwc"
+    install -m644 "${startdir}/files/usr/local/share/elite/labwc/themerc-override" "${pkgdir}/usr/local/share/elite/labwc/themerc-override"'$'\n'
+    tum_install='    install -Dm644 "${startdir}/files/etc/xdg/tumbler/tumbler.rc" "${pkgdir}/etc/xdg/tumbler/tumbler.rc"'$'\n'
+    tum_rm='    [ -e "/etc/xdg/tumbler/tumbler.rc" ] && ! pacman -Qo "/etc/xdg/tumbler/tumbler.rc" >/dev/null 2>&1 && rm -f "/etc/xdg/tumbler/tumbler.rc"'$'\n'
+    udev_install='    install -d "${pkgdir}/usr/lib/udev/rules.d"
+    install -m644 "${startdir}/files/usr/lib/udev/rules.d/91-elite-wake-guard.rules" "${pkgdir}/usr/lib/udev/rules.d/91-elite-wake-guard.rules"
+    install -m644 "${startdir}/files/usr/lib/udev/rules.d/91-elite-automount.rules" "${pkgdir}/usr/lib/udev/rules.d/91-elite-automount.rules"
+    install -m644 "${startdir}/files/etc/udev/rules.d/99-elite-io.rules" "${pkgdir}/etc/udev/rules.d/99-elite-io.rules"'$'\n'
+    # E95/E98 — os overrides de .desktop: cada um com a sua linha de
+    # install E a sua linha de adoção (zero cirurgia no template)
+    local gp_install='    install -d "${pkgdir}/usr/local/share/applications"'$'\n'
+    local gp_rm=''
+    local gp_linha
+    for o in "${ovr[@]}"; do
+        printf -v gp_linha '    install -m644 "${startdir}/files/usr/local/share/applications/%s" "${pkgdir}/usr/local/share/applications/%s"' "$o" "$o"
+        gp_install+="$gp_linha"$'\n'
+        printf -v gp_linha '    [ -e "/usr/local/share/applications/%s" ] && rm -f "/usr/local/share/applications/%s"' "$o" "$o"
+        gp_rm+="$gp_linha"$'\n'
     done
-""" if hooks else ""
-hook_install = f"""    install -d "${{pkgdir}}/usr/lib/systemd/system-sleep"
-    cp -a "${{startdir}}/files/usr/lib/systemd/system-sleep/." "${{pkgdir}}/usr/lib/systemd/system-sleep/"
-""" if hooks else ""
-# E73 — o config do retrato (instalação + a remoção da via sem dono da
-# ISO no pre_install — a mesma dança dos bins desde a adoção E43)
-ff_install = '    install -d "${pkgdir}/usr/local/share/elite/fastfetch"\n    install -m644 "${startdir}/files/usr/local/share/elite/fastfetch/config.jsonc" "${pkgdir}/usr/local/share/elite/fastfetch/config.jsonc"\n'
-ff_rm = '    [ -e "/usr/local/share/elite/fastfetch/config.jsonc" ] && rm -f "/usr/local/share/elite/fastfetch/config.jsonc"\n'
-# E91 — a lock skin (mesma dança do fastfetch: o rig da ISO velha pode ter
-# o caminho sem dono — o pre_install adota antes da extração)
-lock_install = '    install -d "${pkgdir}/usr/local/share/elite/hyprlock"\n    install -m644 "${startdir}/files/usr/local/share/elite/hyprlock/hyprlock.conf" "${pkgdir}/usr/local/share/elite/hyprlock/hyprlock.conf"\n'
-lock_rm = '    [ -e "/usr/local/share/elite/hyprlock/hyprlock.conf" ] && rm -f "/usr/local/share/elite/hyprlock/hyprlock.conf"\n'
-# BLOCO 4 (1.0-98) — a pele do greeter (mesma dança da família E91;
-# caminho novo = criação limpa, sem dança de pre_install)
-sddm_install = '    install -d "${pkgdir}/usr/local/share/elite/sddm"\n    install -m644 "${startdir}/files/usr/local/share/elite/sddm/theme.conf" "${pkgdir}/usr/local/share/elite/sddm/theme.conf"\n    install -m644 "${startdir}/files/usr/local/share/elite/sddm/kde_settings.conf" "${pkgdir}/usr/local/share/elite/sddm/kde_settings.conf"\n    install -m644 "${startdir}/files/usr/local/share/elite/sddm/elite_wayland.conf" "${pkgdir}/usr/local/share/elite/sddm/elite_wayland.conf"\n'
-sddm_rm = '    [ -e "/usr/local/share/elite/sddm/theme.conf" ] && rm -f "/usr/local/share/elite/sddm/theme.conf"\n    [ -e "/usr/local/share/elite/sddm/kde_settings.conf" ] && rm -f "/usr/local/share/elite/sddm/kde_settings.conf"\n    [ -e "/usr/local/share/elite/sddm/elite_wayland.conf" ] && rm -f "/usr/local/share/elite/sddm/elite_wayland.conf"\n'
-# E150 — o tema GRUB da casa (mesma dança da família E91: mestre no
-# pacote, o post-upgrade entrega ao rig)
-grub_install = '    install -d "${pkgdir}/usr/local/share/elite/grub"\n    install -m644 "${startdir}/files/usr/local/share/elite/grub/theme.txt" "${pkgdir}/usr/local/share/elite/grub/theme.txt"\n    install -m644 "${startdir}/files/usr/local/share/elite/grub/wallpaper.png" "${pkgdir}/usr/local/share/elite/grub/wallpaper.png"\n    install -m644 "${startdir}/files/usr/local/share/elite/grub/select_bar.png" "${pkgdir}/usr/local/share/elite/grub/select_bar.png"\n'
-grub_rm = '    [ -e "/usr/local/share/elite/grub/theme.txt" ] && rm -f "/usr/local/share/elite/grub/theme.txt"\n    [ -e "/usr/local/share/elite/grub/wallpaper.png" ] && rm -f "/usr/local/share/elite/grub/wallpaper.png"\n    [ -e "/usr/local/share/elite/grub/select_bar.png" ] && rm -f "/usr/local/share/elite/grub/select_bar.png"\n'
-# E103 — as peles rc.xml + swayosd (mesma dança da adoção E43)
-rc_install = '    install -d "${pkgdir}/usr/local/share/elite/labwc"\n    install -m644 "${startdir}/files/usr/local/share/elite/labwc/rc.xml" "${pkgdir}/usr/local/share/elite/labwc/rc.xml"\n'
-rc_rm = '    [ -e "/usr/local/share/elite/labwc/rc.xml" ] && rm -f "/usr/local/share/elite/labwc/rc.xml"\n'
-osd_install = '    install -d "${pkgdir}/usr/local/share/elite/swayosd"\n    install -m644 "${startdir}/files/usr/local/share/elite/swayosd/config.toml" "${pkgdir}/usr/local/share/elite/swayosd/config.toml"\n    install -m644 "${startdir}/files/usr/local/share/elite/swayosd/style.css" "${pkgdir}/usr/local/share/elite/swayosd/style.css"\n'
-osd_rm = '    [ -e "/usr/local/share/elite/swayosd/config.toml" ] && rm -f "/usr/local/share/elite/swayosd/config.toml"\n    [ -e "/usr/local/share/elite/swayosd/style.css" ] && rm -f "/usr/local/share/elite/swayosd/style.css"\n'
-# E104 — a pele do menu (mesma dança da família E91)
-menu_install = '    install -d "${pkgdir}/usr/local/share/elite/labwc"\n    install -m644 "${startdir}/files/usr/local/share/elite/labwc/menu.xml" "${pkgdir}/usr/local/share/elite/labwc/menu.xml"\n'
-menu_rm = '    [ -e "/usr/local/share/elite/labwc/menu.xml" ] && rm -f "/usr/local/share/elite/labwc/menu.xml"\n'
-# E114/E117 — O CONFO DO NAVEGADOR EMBARCA DE VERDADE: o staging existia
-# desde a E114 e o molde NUNCA o installou (o réu-mãe do dump 163548 —
-# o hook sincronizador fazia [ -r $SRC_FLAGS ] falha silenciosa e o rig
-# do dono vivia sem --password-store=basic e sem os flags Ozone/GPU) —
-# a mesma dança da família E91 (caminho novo = criação limpa).
-flags_install = '    install -d "${pkgdir}/usr/local/share/elite/chromium-flags"\n    install -m644 "${startdir}/files/usr/local/share/elite/chromium-flags/brave-flags.conf" "${pkgdir}/usr/local/share/elite/chromium-flags/brave-flags.conf"\n    install -m644 "${startdir}/files/usr/local/share/elite/chromium-flags/code-flags.conf" "${pkgdir}/usr/local/share/elite/chromium-flags/code-flags.conf"\n'
-flags_rm = '    [ -e "/usr/local/share/elite/chromium-flags/brave-flags.conf" ] && rm -f "/usr/local/share/elite/chromium-flags/brave-flags.conf"\n    [ -e "/usr/local/share/elite/chromium-flags/code-flags.conf" ] && rm -f "/usr/local/share/elite/chromium-flags/code-flags.conf"\n'
-# E115/E117 — AS SKINS DA TOPBAR EMBARCAM DE VERDADE (o mesmo réu-mãe:
-# staged e nunca installado — o craft-rice das skins lia um caminho que
-# o pacote nunca entregou ao rig vivo).
-# E140 — O OVERRIDE DO COOLERCONTROL (o .desktop da casa com o
-# --disable-gpu que cura a tela branca do qt6-webengine no Wayland)
-apps_install = '    install -d "${pkgdir}/usr/local/share/applications"\n    install -m644 "${startdir}/files/usr/local/share/applications/org.coolercontrol.CoolerControl.desktop" "${pkgdir}/usr/local/share/applications/org.coolercontrol.CoolerControl.desktop"\n'
-apps_rm = '    [ -e "/usr/local/share/applications/org.coolercontrol.CoolerControl.desktop" ] && rm -f "/usr/local/share/applications/org.coolercontrol.CoolerControl.desktop"\n'
-# E103 — os defaults XDG (arquivo de pacote: dono único, sem dança de adoção)
-pd_install = '    install -d "${pkgdir}/etc/profile.d"\n    install -m644 "${startdir}/files/etc/profile.d/10-elite-defaults.sh" "${pkgdir}/etc/profile.d/10-elite-defaults.sh"\n'
-# E103 — o gamemode.ini (adoção: o rig com o arquivo SEM dono o perde no
-# pre_install e o pacote o entrega com dono — a dança E43 da casa)
-gm_install = '    install -Dm644 "${startdir}/files/etc/gamemode.ini" "${pkgdir}/etc/gamemode.ini"\n'
-tum_install = '    install -Dm644 "${startdir}/files/etc/xdg/tumbler/tumbler.rc" "${pkgdir}/etc/xdg/tumbler/tumbler.rc"\n'
-tum_rm = '    [ -e "/etc/xdg/tumbler/tumbler.rc" ] && ! pacman -Qo "/etc/xdg/tumbler/tumbler.rc" >/dev/null 2>&1 && rm -f "/etc/xdg/tumbler/tumbler.rc"\n'
-# 1.0-102 — A CONFIG PADRÃO DO SWAYNC: o mestre da dose (a cadeia do
-# entrega_pele_swaync do elite-daemon lê PRIMEIRO — veste o $HOME antes
-# do fork) e o fallback de sistema /etc/xdg/swaync (a cadeia XDG que o
-# próprio swaync lê sem o $HOME ter nada — o "Config not found!" do
-# audit 102 morre nas duas portas).
-swc_install = '    install -d "${pkgdir}/usr/local/share/elite/swaync"\n    install -m644 "${startdir}/files/usr/local/share/elite/swaync/config.json" "${pkgdir}/usr/local/share/elite/swaync/config.json"\n    install -m644 "${startdir}/files/usr/local/share/elite/swaync/style.css" "${pkgdir}/usr/local/share/elite/swaync/style.css"\n    install -d "${pkgdir}/etc/xdg/swaync"\n    install -m644 "${startdir}/files/etc/xdg/swaync/config.json" "${pkgdir}/etc/xdg/swaync/config.json"\n    install -m644 "${startdir}/files/etc/xdg/swaync/style.css" "${pkgdir}/etc/xdg/swaync/style.css"\n'
-swc_rm = '    for f in /usr/local/share/elite/swaync/config.json /usr/local/share/elite/swaync/style.css; do\n        [ -e "$f" ] && rm -f "$f"\n    done\n    for f in /etc/xdg/swaync/config.json /etc/xdg/swaync/style.css; do\n        [ -e "$f" ] && ! pacman -Qo "$f" >/dev/null 2>&1 && rm -f "$f"\n    done\n'
-gm_rm = '    [ -e "/etc/gamemode.ini" ] && ! pacman -Qo "/etc/gamemode.ini" >/dev/null 2>&1 && rm -f "/etc/gamemode.ini"\n'
-pd_rm = ''
-# E90 — o mapa dos comandos (SCRIPTS.md no pacote — mesma dança)
-doc_install = '    install -d "${pkgdir}/usr/local/share/elite/docs"\n    install -m644 "${startdir}/files/usr/local/share/elite/docs/SCRIPTS.md" "${pkgdir}/usr/local/share/elite/docs/SCRIPTS.md"\n'
-doc_rm = '    [ -e "/usr/local/share/elite/docs/SCRIPTS.md" ] && rm -f "/usr/local/share/elite/docs/SCRIPTS.md"\n'
-# E95 — o override do gparted (mesma dança: o rig da ISO velha pode ter
-# um gparted.desktop sem dono por lá — o pre_install adota antes da
-# extração; caminho NOVO em rig comum = criação limpa).
-# E98 — O TRILHO VIROU VARREDURA: TODO .desktop em files/usr/local/share/
-# applications/ embarca sozinho (gparted E95 + octopi-notifier,
-# octopi-repoeditor, qt6ct, nwg-look E98) com a sua linha de install E a
-# sua linha de adoção no pre_install — a lição E95 generalizada: override
-# novo é arquivo novo no dir, zero cirurgia neste PKGBUILD.
-ovr = sorted(p.name for p in (d / 'files/usr/local/share/applications').glob('*.desktop'))
-gp_install = '    install -d "${pkgdir}/usr/local/share/applications"\n'
-gp_rm = ''
-for o in ovr:
-    gp_install += f'    install -m644 "${{startdir}}/files/usr/local/share/applications/{o}" "${{pkgdir}}/usr/local/share/applications/{o}"\n'
-    gp_rm += f'    [ -e "/usr/local/share/applications/{o}" ] && rm -f "/usr/local/share/applications/{o}"\n'
-# E75 — o hook libalpm da casa (dono ÚNICO no pacote; pacman remove sozinho
-# na desinstalação — arquivo pertence ao pacote, sem dança de adoção)
-pt_install = '    install -Dm644 "${startdir}/elite-post-transaction.hook" "${pkgdir}/usr/share/libalpm/hooks/elite-post-transaction.hook"\n'
-# 1.0-93 — o sudoers da casa (dono pacman; arquivo de pacote — sem dança
-# de adoção, o caminho /etc/sudoers.d/99-elite-clean é NOVO nos rigs)
-# 1.0-94 — o DIR VESTE 750 (o rig da 1.0-93: o install -d nascia 755 e o
-# pacman avisava "directory permissions differ from filesystem" no
-# upgrade e na instalação do iwgtk — o /etc/sudoers.d do Arch é 750;
-# casar com o distro é calar o aviso SEM frouxar a permissão)
-sudoers_install = '    install -dm750 "${pkgdir}/etc/sudoers.d"\n    install -m440 "${startdir}/files/etc/sudoers.d/99-elite-clean" "${pkgdir}/etc/sudoers.d/99-elite-clean"\n'
-sudoers_rm = '    [ -e "/etc/sudoers.d/99-elite-clean" ] && rm -f "/etc/sudoers.d/99-elite-clean"\n'
-# E97 — o hook do flathub (mesma escola do post-transaction: heredoc no
-# build, dono ÚNICO no pacote — o libalpm remove sozinho na saída)
-ef_install = '    install -Dm644 "${startdir}/elite-flathub.hook" "${pkgdir}/usr/share/libalpm/hooks/elite-flathub.hook"\n'
-# E126 — a regra udev do despertar (mesma escola das peles: staging acima,
-# install aqui; caminho NOVO em rig comum = criação limpa, sem dança de
-# adoção — o fóssil /etc/90-* do rig é aposentado pelo elite-post-transaction
-# com voz, nunca sobrescrito às cegas pelo pacman)
-udev_install = '    install -d "${pkgdir}/usr/lib/udev/rules.d"\n    install -m644 "${startdir}/files/usr/lib/udev/rules.d/91-elite-wake-guard.rules" "${pkgdir}/usr/lib/udev/rules.d/91-elite-wake-guard.rules"\n    install -m644 "${startdir}/files/usr/lib/udev/rules.d/91-elite-automount.rules" "${pkgdir}/usr/lib/udev/rules.d/91-elite-automount.rules"\n    install -m644 "${startdir}/files/etc/udev/rules.d/99-elite-io.rules" "${pkgdir}/etc/udev/rules.d/99-elite-io.rules"\n'
-# E128 — a regra polkit da casa (mesma dança da família E91/E98)
-# 1.0-94 — o DIR VESTE 750 (idem sudoers: o /etc/polkit-1/rules.d do
-# polkit é 750 no Arch — o aviso de permissão do pacman cala na fonte)
-pk_install = '    install -dm750 "${pkgdir}/etc/polkit-1/rules.d"\n    install -m644 "${startdir}/files/etc/polkit-1/rules.d/50-elite-wheel.rules" "${pkgdir}/etc/polkit-1/rules.d/50-elite-wheel.rules"\n'
-pk_rm = '    [ -e "/etc/polkit-1/rules.d/50-elite-wheel.rules" ] && ! pacman -Qo "/etc/polkit-1/rules.d/50-elite-wheel.rules" >/dev/null 2>&1 && rm -f "/etc/polkit-1/rules.d/50-elite-wheel.rules"\n'
-# E129 — o tema Qt da casa (mesma dança da família E91)
-q6_install = '    install -d "${pkgdir}/usr/local/share/elite/qt6ct"\n    install -m644 "${startdir}/files/usr/local/share/elite/qt6ct/qt6ct.conf" "${pkgdir}/usr/local/share/elite/qt6ct/qt6ct.conf"\n'
-q6_rm = '    [ -e "/usr/local/share/elite/qt6ct/qt6ct.conf" ] && rm -f "/usr/local/share/elite/qt6ct/qt6ct.conf"\n'
-# E132 — o conf dos residentes do elite-daemon supervise (mesma dança da
-# família E91: staging acima, install aqui, adoção no pre_install — o
-# caminho é NOVO em rig comum, o rm é cinto contra a via sem dono da ISO)
-dc_install = '    install -Dm644 "${startdir}/files/usr/local/share/elite/daemon.conf" "${pkgdir}/usr/local/share/elite/daemon.conf"\n'
-dc_rm = '    [ -e "/usr/local/share/elite/daemon.conf" ] && rm -f "/usr/local/share/elite/daemon.conf"\n'
-# E151 — OS MESTRES DO MANGOHUD EMBARCAM DE VERDADE (staged desde a E136 e
-# NUNCA installados — a classe E103: o overlay era o único dono na ISO e o
-# rig vivo seguia sem os perfis; agora o molde instala E o overlay cala —
-# um dono por caminho)
-mh_install = '    install -d "${pkgdir}/usr/local/share/elite/mangohud"\n    install -m644 "${startdir}/files/usr/local/share/elite/mangohud/minimal.conf" "${pkgdir}/usr/local/share/elite/mangohud/minimal.conf"\n    install -m644 "${startdir}/files/usr/local/share/elite/mangohud/balanceado.conf" "${pkgdir}/usr/local/share/elite/mangohud/balanceado.conf"\n    install -m644 "${startdir}/files/usr/local/share/elite/mangohud/diagnostico.conf" "${pkgdir}/usr/local/share/elite/mangohud/diagnostico.conf"\n'
-mh_rm = '    [ -e "/usr/local/share/elite/mangohud/minimal.conf" ] && rm -f "/usr/local/share/elite/mangohud/minimal.conf"\n    [ -e "/usr/local/share/elite/mangohud/balanceado.conf" ] && rm -f "/usr/local/share/elite/mangohud/balanceado.conf"\n    [ -e "/usr/local/share/elite/mangohud/diagnostico.conf" ] && rm -f "/usr/local/share/elite/mangohud/diagnostico.conf"\n'
-# E130 — o tema do labwc e os settings GTK da casa (mesma dança da família
-# E91: caminho NOVO em rig comum = criação limpa, sem dança de adoção)
-theo_install = '    install -d "${pkgdir}/usr/local/share/elite/labwc"\n    install -m644 "${startdir}/files/usr/local/share/elite/labwc/themerc-override" "${pkgdir}/usr/local/share/elite/labwc/themerc-override"\n'
-theo_rm = '    [ -e "/usr/local/share/elite/labwc/themerc-override" ] && rm -f "/usr/local/share/elite/labwc/themerc-override"\n'
-gtk_install = '    install -d "${pkgdir}/usr/local/share/elite/gtk-3.0"\n    install -d "${pkgdir}/usr/local/share/elite/gtk-4.0"\n    install -m644 "${startdir}/files/usr/local/share/elite/gtk-3.0/settings.ini" "${pkgdir}/usr/local/share/elite/gtk-3.0/settings.ini"\n    install -m644 "${startdir}/files/usr/local/share/elite/gtk-4.0/settings.ini" "${pkgdir}/usr/local/share/elite/gtk-4.0/settings.ini"\n'
-gtk_rm = '    [ -e "/usr/local/share/elite/gtk-3.0/settings.ini" ] && rm -f "/usr/local/share/elite/gtk-3.0/settings.ini"\n    [ -e "/usr/local/share/elite/gtk-4.0/settings.ini" ] && rm -f "/usr/local/share/elite/gtk-4.0/settings.ini"\n'
-# E138 — A FAMÍLIA DO KERNEL MODERNO EMBARCA DE VERDADE (o estágio E136/E137
-# existia e o molde NUNCA installou — o dump v2.13 provou no rig 1.0-85:
-# sysctl consolidado ausente, /etc/default/scx ausente, regra zram ausente,
-# swappiness vivo em 150). Mesma escola das peles: staging em files/etc/…,
-# install AQUI, adoção no pre_install (rigs com a via sem dono da ISO: o
-# pacote adota antes da extração — a dança da casa; a ISO nova entrega os
-# caminhos SÓ pelo pacote, a remoção E138 do profile mata o par).
-kmod_install = '    install -d "${pkgdir}/etc/sysctl.d"\n    install -m644 "${startdir}/files/etc/sysctl.d/99-elite-performance.conf" "${pkgdir}/etc/sysctl.d/99-elite-performance.conf"\n    install -d "${pkgdir}/etc/udev/rules.d"\n    install -m644 "${startdir}/files/etc/udev/rules.d/99-elite-zram.rules" "${pkgdir}/etc/udev/rules.d/99-elite-zram.rules"\n    install -m644 "${startdir}/files/etc/udev/rules.d/60-ntsync.rules" "${pkgdir}/etc/udev/rules.d/60-ntsync.rules"\n    install -d "${pkgdir}/etc/modules-load.d"\n    install -m644 "${startdir}/files/etc/modules-load.d/elite-ntsync.conf" "${pkgdir}/etc/modules-load.d/elite-ntsync.conf"\n    install -m644 "${startdir}/files/etc/modules-load.d/elite-sensors.conf" "${pkgdir}/etc/modules-load.d/elite-sensors.conf"\n    install -d "${pkgdir}/etc/tmpfiles.d"\n    install -m644 "${startdir}/files/etc/tmpfiles.d/elite-mglru.conf" "${pkgdir}/etc/tmpfiles.d/elite-mglru.conf"\n    install -Dm644 "${startdir}/files/etc/default/scx" "${pkgdir}/etc/default/scx"\n'
-kmod_rm = '    for f in /etc/sysctl.d/99-elite-performance.conf /etc/udev/rules.d/99-elite-zram.rules /etc/udev/rules.d/60-ntsync.rules /etc/udev/rules.d/99-elite-io.rules /usr/lib/udev/rules.d/91-elite-automount.rules /etc/modules-load.d/elite-ntsync.conf /etc/modules-load.d/elite-sensors.conf /etc/tmpfiles.d/elite-mglru.conf /etc/default/scx; do\n        [ -e "$f" ] && rm -f "$f"\n    done\n'
-pkg = f"""pkgname=elite-system
+    # ── O TEMPLATE (heredoc cotado: nada expande aqui — só as @marcas@) ──
+    local molde
+    molde="$(cat <<'MOLDE_PKGBUILD'
+pkgname=elite-system
 pkgver=1.0
 # E50 — O SISTEMA EM UM PACOTE SÓ (diretriz do dono). Todo o código de
 # casa viaja aqui: os scripts, o daemon de janelas compilado do C vendado
@@ -1700,7 +1717,7 @@ pkgver=1.0
 #     craft-game — o Status ABRE O PAPEL INTEIRO no foot (o dono: 'clico
 #     em status, ele gera um log… não sei como funciona isso') + o resumo
 #     honesto de como o gamemode funciona. Lição nova da periciagem (sem
-#     cura cega): o padrao "\\[multilib\\]" do build/apply-overlay/packages.add
+#     cura cega): o padrao "\[multilib\]" do build/apply-overlay/packages.add
 #     SEMPRE esteve inteiro no disco — o 'ultilib]' era ARTEFATO DE
 #     EXIBIÇÃO (a renderização come a sequência colchete-m; od provou; o
 #     POLIMENTO 4nsos já dizia e a cura de hoje quase quebrou código
@@ -1825,7 +1842,7 @@ pkgver=1.0
 #     família E33 na cura; o padrão do firstboot (systemctl restart
 #     systemd-sysctl.service || sysctl --system) assume + VERIFICAÇÃO por
 #     chave no kernel vivo (o valor VIVO é o veredito, não o rc) + o
-#     '0\\n? fonte(s)' do wake-guard morre (o '|| echo ?' disparava em
+#     '0\n? fonte(s)' do wake-guard morre (o '|| echo ?' disparava em
 #     zero-matches do grep -c). (2) A TELA QUE O BOOT ESQUECE — o
 #     craft-display aplicava '--scale-exact' e o wlr-randr do rig NÃO
 #     TEM (unrecognized option, 6 FALHAS por boot, o dono a 60 Hz até
@@ -2129,8 +2146,8 @@ pkgver=1.0
 #         desconhecido renderizava VAZIO e o mapa player-icons era
 #         config morta DE NOVO (o rig: 'ele não tem o íconezinho que
 #         indica do que é que ele está tocando'). Cura: o token
-#         player_icon no format e no format-paused — o mapa acende (brave \uf268,
-#         mpv/vlc \uf04b, spotify \uf1bc, default \uf001).
+#         player_icon no format e no format-paused — o mapa acende (brave ,
+#         mpv/vlc , spotify , default ).
 #     (2) O PILLAR QUE NÃO FICA (a ordem do dono: 'quando fechar abas
 #         que reproduzem mídias ele suma… só quando ele for chamado e
 #         quando for encerrado também ser encerrado na hora'): o
@@ -2255,7 +2272,7 @@ pkgver=1.0
 #     O JOURNAL MOSTRA NA JANELA (Suspending→Awake com duração de parede —
 #     'voltou em 0s' nunca provou insônia). E a pécela que o E121 deixou
 #     nomeada: o ExecStopPost do elite-firstboot imprimia 'resultado:
-#     /bin/bash (exit=/bin/bash)' no rig (dump 184815) — a linha ${{VAR}}
+#     /bin/bash (exit=/bin/bash)' no rig (dump 184815) — a linha ${VAR}
 #     atravessava duas expansões; '$$' entrega '$' literal ao sh (uma
 #     expansão só, a que lê o env que o systemd.service(5) garante).
 #     Bins com conteúdo mudado: craft-wake-guard, craft-vigil, craft-idle,
@@ -2311,7 +2328,7 @@ pkgver=1.0
 #     não é mídia) migrou para ANTES do juízo de estado (o recado pausado
 #     continua não sendo mídia). E o TEMPO DE REPRODUÇÃO entra no pillar
 #     (o dono: 'que tenha, por exemplo, o tempo de reprodução'):
-#     {{mpris:length}} (µs) entra como campo 7 da leitura do bus,
+#     {mpris:length} (µs) entra como campo 7 da leitura do bus,
 #     decorrido/total 'm:ss/m:ss' no teto de 40 chars — o título cede o
 #     espaço, o total nunca estoura a largura; tooltip fala a faixa
 #     inteira + tempo + 'pausado' nomeado. O log do zumbi vira TRANSIÇÃO
@@ -2402,7 +2419,7 @@ pkgver=1.0
 #     Tests: âncoras 'Apps da dock'/'Comprimir' refrescadas ×4.
 # E126 — O POLIMENTO DOS 12 ITENS (o backlog do dono com protocolo de
 #     cobertura total: o print decodificou o tempo do player — o
-#     {{position}} do playerctl é MICROSEGUNDO, o '1517519:46' era
+#     {position} do playerctl é MICROSEGUNDO, o '1517519:46' era
 #     91051186µs = 1:31 de uma faixa de 2:15; o pill do jogo consultava
 #     'pgrep gamemoded' e o daemon que sobrevive ao último cliente deixava
 #     o ícone aceso SEM jogo — agora o QueryStatus manda, o watch registra
@@ -2554,7 +2571,7 @@ pkgver=1.0
 #     compilou no CI (o Test Suite passa porque a camada lógica é
 #     std-only atrás da feature gui) — o ui.rs foi escrito contra API
 #     inexistente e a build do pacote morreu com 9 erros Rust:
-#     (1) 'use gtk4::{{gdk, glib, gtk}}' — o gtk4 0.11 NÃO re-exporta um
+#     (1) 'use gtk4::{gdk, glib, gtk}' — o gtk4 0.11 NÃO re-exporta um
 #         módulo 'gtk' (os widgets moram na RAIZ do crate): o alias
 #         'use gtk4 as gtk' mantém os ~120 caminhos 'gtk::' do corpo;
 #     (2) o gtk4-layer-shell 0.8 NÃO expõe funções livres
@@ -2714,7 +2731,7 @@ pkgver=1.0
 #      o título é da moldura); o seletor rápido de REDE em popover GTK4
 #      (toggle Wi-Fi, redes para conectar direto, status do cabo,
 #      nm-connection-editor avançado); o bgapps veste ícone real
-#      (system-run-symbolic — o '\uf085' quebrado sai); o IPC com lock
+#      (system-run-symbolic — o '' quebrado sai); o IPC com lock
 #      de sessão no tmpfs PRIVADO ($XDG_RUNTIME_DIR/elite/session.lock —
 #      o os error 13 do /tmp morre) e teto de 500ms no connect (a classe
 #      dos 49s morre); a dock requeia draw+resize no evento do toplevel
@@ -2951,7 +2968,7 @@ pkgver=1.0
 #      polkit ÚNICO segue o E151 (verificado, intacto); o TUMBLER
 #      para de gritar: tumbler.rc da casa DESLIGA gepub/odf/raw (os
 #      três plugs ausentes do debloat); (6) O BAIXO NÍVEL — udev NVMe
-#      restrito ao DISCO PAI (ENV{{DEVTYPE}}=="disk": o
+#      restrito ao DISCO PAI (ENV{DEVTYPE}=="disk": o
 #      queue/scheduler não existe em nvme0n1p1/p2 e o udev gritava a
 #      cada evento), modules-load AMDRY: só k10temp (coretemp é
 #      Intel e it87 é o Super-I/O legado — dois módulos nascendo
@@ -3026,7 +3043,7 @@ pkgver=1.0
 #      --no-default-features (o núcleo std-first; o juízo da gui é o
 #      Canal — lei L6). Notas da dose: docs/releases/1.0-102.md.
 #      pkgrel 101→102 NO MESMO COMMIT (lei E41 — o guard cobra).
-pkgrel=102
+pkgrel=103
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da sessão; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
@@ -3061,8 +3078,8 @@ options=(!debug !strip)
 #     morreu com o C de 3 gerações: o cliente Wayland é o próprio
 #     elite-daemon — nada de fonte vendada, nada de sha dupla).
 source=("rust-workspace.tar.gz")
-sha256sums=('{rust_sha}')
-build() {{
+sha256sums=('@rust_sha@')
+build() {
     # 2.0 Fase 2 — O gcc DO C MORREU (o C de 3 gerações
     # aposentou: o cliente Wayland é o PRÓPRIO elite-daemon no wayland.rs;
     # aqui só o toolchain Rust fala)
@@ -3107,22 +3124,22 @@ build() {{
     # aposentam o craft-menu — dose sem ferramentas é dose SEM a face
     # nova; a build morre vermelha antes do install mentir verde)
     cargo build --release --locked --manifest-path rust/Cargo.toml -p craft-tools
-}}
+}
 # ADOÇÃO (a herança do elite-craft): nos rigs, estes arquivos nasceram SEM
 # dono (overlay da ISO) — o pacman recusa sobrescrever não-dono ANTES de
 # qualquer scriptlet; o pre_install remove exatamente os caminhos que
 # ESTE pacote entrega (a lista vem do MANIFEST de geração — fonte única).
 # O par legado INSTALADO não entra nesta dança: o replaces do pacman o
 # remove ANTES da extração deste pacote (remoções precedem instalações).
-pre_install() {{
+pre_install() {
     local f
-    for f in \\
-{names}
+    for f in \
+@names@
     ; do
         [ -e "/usr/local/bin/$f" ] && rm -f "/usr/local/bin/$f"
     done
-{unit_loop}{hook_rm}{kmod_rm}{mh_rm}{ff_rm}{lock_rm}{sddm_rm}{rc_rm}{osd_rm}{menu_rm}{gm_rm}{tum_rm}{swc_rm}{doc_rm}{gp_rm}{flags_rm}{apps_rm}{pk_rm}{q6_rm}{dc_rm}{sudoers_rm}    return 0
-}}
+@unit_loop@@hook_rm@@kmod_rm@@mh_rm@@ff_rm@@lock_rm@@sddm_rm@@rc_rm@@osd_rm@@menu_rm@@gm_rm@@tum_rm@@swc_rm@@doc_rm@@gp_rm@@flags_rm@@apps_rm@@pk_rm@@q6_rm@@dc_rm@@sudoers_rm@    return 0
+}
 # E129 — A MIGRAÇÃO AUTÔNOMA (AGENTS.md §4, 2026-11-20): o usuário final
 # NUNCA roda comando manual de pós-instalação — toda correção de /etc,
 # Polkit, systemd, sysctl, GRUB, Flatpaks e dotfiles corre AQUI, no
@@ -3130,19 +3147,19 @@ pre_install() {{
 # inicial). O corpo mora no elite-post-upgrade (bin do pacote — o
 # post_upgrade corre DEPOIS da extração, o bin novo já vive) e é
 # IDEMPOTENTE por desenho (rodar 2× = mesmo estado final, §4).
-post_install() {{
+post_install() {
     if [ -x /usr/local/bin/elite-post-upgrade ]; then
         /usr/local/bin/elite-post-upgrade post_install || true
     fi
-}}
-post_upgrade() {{
+}
+post_upgrade() {
     if [ -x /usr/local/bin/elite-post-upgrade ]; then
         /usr/local/bin/elite-post-upgrade post_upgrade || true
     fi
-}}
-package() {{
-    install -d "${{pkgdir}}/usr/local/bin"
-    cp -a "${{startdir}}/files/usr/local/bin/." "${{pkgdir}}/usr/local/bin/"
+}
+package() {
+    install -d "${pkgdir}/usr/local/bin"
+    cp -a "${startdir}/files/usr/local/bin/." "${pkgdir}/usr/local/bin/"
     # 2.0 Fase 2 — O C DO CRAFT-TOPLEVEL MORREU (o cliente Wayland é o
     # PRÓPRIO elite-daemon: zwlr-foreign-toplevel v2 + ext-idle-notify
     # nativos, o snapshot no bus.sock — a fonte de 3 gerações aposenta
@@ -3152,21 +3169,45 @@ package() {{
     # aqui; o fallback Python não existe mais — dose sem dock é build
     # vermelha, e o install abaixo prova o arquivo com a verdade)
     for b in elite-daemon craft-dock-rs craft-bar-rs; do
-        [ -f "${{CARGO_TARGET_DIR:-rust/target}}/release/$b" ] && install -m755 "${{CARGO_TARGET_DIR:-rust/target}}/release/$b" "${{pkgdir}}/usr/local/bin/$b"
+        [ -f "${CARGO_TARGET_DIR:-rust/target}/release/$b" ] && install -m755 "${CARGO_TARGET_DIR:-rust/target}/release/$b" "${pkgdir}/usr/local/bin/$b"
     done
     # 2.0 Fase 2 — AS FERRAMENTAS NATIVAS + A TELEMETRIA v2: o
     # craft-dump v2 É o craft-dump (o shell v1 aposentou — a telemetria
     # da casa fala a língua nova: bus vivo, família nativa, boot flags)
-    for b in craft-update craft-clean craft-help craft-pick craft-dump; do
-        [ -f "${{CARGO_TARGET_DIR:-rust/target}}/release/$b" ] && install -m755 "${{CARGO_TARGET_DIR:-rust/target}}/release/$b" "${{pkgdir}}/usr/local/bin/$b"
+    for b in craft-update craft-clean craft-help craft-pick craft-dump craft-audit; do
+        [ -f "${CARGO_TARGET_DIR:-rust/target}/release/$b" ] && install -m755 "${CARGO_TARGET_DIR:-rust/target}/release/$b" "${pkgdir}/usr/local/bin/$b"
     done
     # E132 — o elite-polkit-listener NÃO viaja mais (o agente da casa é o
     # lxqt-policykit-agent NATIVO, eleito no craft-bars; um bin a menos no
     # pacote, um agente a menos na fila — o C vendado aposentou do repo)
-{unit_install}{hook_install}{kmod_install}{mh_install}{ff_install}{lock_install}{sddm_install}{grub_install}{rc_install}{osd_install}{menu_install}{pd_install}{gm_install}{tum_install}{swc_install}{doc_install}{gp_install}{pt_install}{ef_install}{flags_install}{apps_install}{udev_install}{pk_install}{q6_install}{theo_install}{gtk_install}{dc_install}{sudoers_install}}}
-"""
-(d / 'PKGBUILD').write_text(pkg)
-PYE50
+@unit_install@@hook_install@@kmod_install@@mh_install@@ff_install@@lock_install@@sddm_install@@grub_install@@rc_install@@osd_install@@menu_install@@pd_install@@gm_install@@tum_install@@swc_install@@doc_install@@gp_install@@pt_install@@ef_install@@flags_install@@apps_install@@udev_install@@pk_install@@q6_install@@theo_install@@gtk_install@@dc_install@@sudoers_install@}
+MOLDE_PKGBUILD
+)"$'\n'
+    molde="${molde%$'\n'}"   # o <<< recoloca o \n final: byte a byte
+    # ── A SUBSTITUIÇÃO: cada @marca@ vira o valor da variável de mesmo
+    # nome (expansão de parâmetro — zero subprocesso, zero escape)
+    local marcas=(rust_sha names unames unit_loop unit_install hook_rm hook_install gp_install gp_rm)
+    marcas+=(apps_install apps_rm dc_install dc_rm doc_install doc_rm ef_install ff_install ff_rm flags_install flags_rm gm_install gm_rm grub_install gtk_install kmod_install kmod_rm lock_install lock_rm menu_install menu_rm mh_install mh_rm osd_install osd_rm pd_install pk_install pk_rm pt_install q6_install q6_rm rc_install rc_rm sddm_install sddm_rm sudoers_install sudoers_rm swc_install swc_rm theo_install tum_install tum_rm udev_install)
+    local linha marca esc
+    while IFS= read -r linha; do
+        if [[ "$linha" == *'@'* ]]; then
+            for marca in "${marcas[@]}"; do
+                if [[ "$linha" == *"@$marca@"* ]]; then
+                    # o & do valor é O CASAMENTO na expansão do bash (a
+                    # lição da dose: \\ e & do valor saem ESCAPADOS — a
+                    # substituição devolve o valor ÍNTEGRO, byte a byte)
+                    esc="${!marca}"
+                    esc="${esc//\\/\\\\}"
+                    esc="${esc//&/\\&}"
+                    linha="${linha//@$marca@/$esc}"
+                fi
+            done
+        fi
+        printf '%s\n' "$linha"
+    done <<< "$molde" > "$d/PKGBUILD"
+}
+
+molde_pkbuild /tmp/elite-src/elite-system
 
 # makepkg se recusa a rodar como root — usuário builder descartável
 useradd -m builder 2>/dev/null || true
@@ -3634,15 +3675,31 @@ if grep -qxF 'elite-system' "${PD_E57%profiledef.sh}packages.x86_64"; then
         [[ ! -e "$k" ]] || { echo "ELITE-FAIL: conf de tuning sobreviveu à remoção E138 ($k) — o pacstrap morreria nele (nunca seguir sabendo)" >&2; exit 1; }
     done
     [[ ! -e "${PD_E57%profiledef.sh}airootfs/usr/local/share/elite/mangohud" ]] || { echo "ELITE-FAIL: mangohud sobreviveu à remoção E151 — o pacstrap morreria nele (nunca seguir sabendo)" >&2; exit 1; }
-    python3 - "$PD_E57" "$MF_E57" <<'PYE57'
-import sys, pathlib
-pd, mf = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
-bins = {'["/usr/local/bin/%s"]="0:0:755"' % b for b in mf.read_text().split()}
-linhas = pd.read_text().splitlines(True)
-out = [l for l in linhas if l.strip() not in bins]
-pd.write_text(''.join(out))
-print(f"E57: {len(linhas) - len(out)} entrada(s) file_permissions virou responsabilidade do elite-system (profiledef limpo — sem 35 avisos por desenho)")
-PYE57
+    # 1.0-103 — A PODA EM SH PURO (o heredoc python morre): cada linha
+    # file_permissions cujo strip bateria num `["/usr/local/bin/BIN"]="0:0:755"`
+    # do MANIFEST sai do profiledef (a responsabilidade é do elite-system).
+    # O strip da casa: os espaços e tabs de indentação do profiledef saem
+    # antes do julgamento (o python fazia l.strip() — a indentação não
+    # salva a linha da poda)
+    e57_foram=0
+    while IFS= read -r e57_l || [ -n "$e57_l" ]; do
+        e57_t="${e57_l// /}"
+        e57_t="${e57_t//$'\t'/}"
+        e57_podada=0
+        while IFS= read -r e57_b; do
+            if [ "$e57_t" = '["/usr/local/bin/'"$e57_b"'"]="0:0:755"' ]; then
+                e57_podada=1
+                break
+            fi
+        done < "$MF_E57"
+        if [ "$e57_podada" = 1 ]; then
+            e57_foram=$((e57_foram + 1))
+            continue
+        fi
+        printf '%s\n' "$e57_l"
+    done < "$PD_E57" > "$PD_E57.elite-new"
+    mv "$PD_E57.elite-new" "$PD_E57"
+    echo "E57: $e57_foram entrada(s) file_permissions virou responsabilidade do elite-system (profiledef limpo — sem 35 avisos por desenho)"
 else
     say "E57: elite-system fora do pacstrap — overlay fica inteiro (sem pacote único a ISO não teria quem entregue os bins)"
 fi

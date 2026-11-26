@@ -49,6 +49,10 @@
 //     com ferramentas de verdade);
 //   ✗ o MODO CLARO/ESCURO dinâmico (a pele é o bar.css da casa, o
 //     dono edita ~/.config/elite/bar.css e a barra relê no SIGUSR2).
+// 1.0-103 — A AUDITORIA BYTE A BYTE: o stub sem-gui NÃO carrega o núcleo
+// (o binário honesto de exit 1 não tem o state — zero dead_code no alvo;
+// o núcleo existe para o TESTE (cfg(test)) e para a GUI (feature "gui"))
+#[cfg(any(test, feature = "gui"))]
 mod state;
 
 #[cfg(feature = "gui")]

@@ -443,7 +443,8 @@ pub fn parse_linha_dispositivo(linha: &str) -> Option<DispositivoAudio> {
     let resto: String = chars[i..].iter().collect();
     let resto = resto.trim();
     // o nome vai até o "[vol:" (sem ele a linha não é de dispositivo)
-    let (nome, vol, mudo) = if let Some(k) = resto.find("[vol:") {
+    let (nome, vol, mudo) = {
+        let k = resto.find("[vol:")?;
         let nome = resto[..k].trim();
         let depois = &resto[k..];
         let mudo = depois.contains("[MUTED]");
@@ -454,8 +455,6 @@ pub fn parse_linha_dispositivo(linha: &str) -> Option<DispositivoAudio> {
             .take_while(|c| c.is_ascii_digit() || *c == '.')
             .collect();
         (nome.to_string(), num.parse::<f64>().unwrap_or(0.0), mudo)
-    } else {
-        return None;
     };
     if nome.is_empty() {
         return None;

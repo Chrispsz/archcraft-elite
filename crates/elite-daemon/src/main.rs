@@ -334,23 +334,22 @@ fn note(corpo: &str) {
     // o spawn ABANDONADO no escopo virava <defunct> no ps do rig (o
     // audit 99 nomeou os zumbis da sessão; notify-send é filho curto
     // do daemon — nasce, fala, morre e É COLHIDO na thread própria).
-    match std::process::Command::new("notify-send")
+    // 1.0-103 — if let (a clippy-lente da auditoria byte a byte): o braço
+    // vazio do Err não paga um match inteiro
+    if let Ok(mut filho) = std::process::Command::new("notify-send")
         .args(["-a", "Elite · Jogo", "-u", "low", "-t", "8000", "Modo de jogo", corpo])
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
         .spawn()
     {
-        Ok(mut filho) => {
-            std::thread::Builder::new()
-                .name("elite-coveira-note".into())
-                .spawn(move || {
-                    let _ = filho.wait();
-                })
-                .ok();
-        }
-        Err(_) => {} // o fork falhou: aviso perdido, honesto
-    }
+        std::thread::Builder::new()
+            .name("elite-coveira-note".into())
+            .spawn(move || {
+                let _ = filho.wait();
+            })
+            .ok();
+    } // o fork falhou: aviso perdido, honesto
 }
 
 /// E132 — EPP dinâmico: escreve `valor` em todo cpu*/cpufreq/
@@ -486,27 +485,25 @@ fn agora_ms() -> u64 {
 fn dispara(comando: &str, args: &[&str]) {
     let cmd = comando.to_string();
     let owned: Vec<String> = args.iter().map(|a| a.to_string()).collect();
-    match Command::new(&cmd)
+    // 1.0-103 — if let (a clippy-lente): o braço vazio do Err não paga match
+    if let Ok(mut filho) = Command::new(&cmd)
         .args(&owned)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()
     {
-        Ok(mut filho) => {
-            // a COVEIRA: o wait acontece NUMA thread de 1 filho — o
-            // processo curto é colhido na hora da morte e o zumbi
-            // <defunct> do audit 99 não nasce mais (o daemon não
-            // trava esperando: o spawn segue pontual por evento)
-            std::thread::Builder::new()
-                .name("elite-coveira".into())
-                .spawn(move || {
-                    let _ = filho.wait();
-                })
-                .ok();
-        }
-        Err(_) => {} // o fork falhou: evento perdido, papel honesto acima
-    }
+        // a COVEIRA: o wait acontece NUMA thread de 1 filho — o
+        // processo curto é colhido na hora da morte e o zumbi
+        // <defunct> do audit 99 não nasce mais (o daemon não
+        // trava esperando: o spawn segue pontual por evento)
+        std::thread::Builder::new()
+            .name("elite-coveira".into())
+            .spawn(move || {
+                let _ = filho.wait();
+            })
+            .ok();
+    } // o fork falhou: evento perdido, papel honesto acima
 }
 
 /// E150 — O NOME do WAYLAND_DISPLAY corrente ("" = sem sessão gráfica:
@@ -557,6 +554,7 @@ pub fn wayland_pronto() -> bool {
 ///   3. o vigia de teto: se algum filho recusar morrer e o supervisor
 ///      pendurar no wait, ESTE processo finaliza sozinho (exit 0) — o
 ///      chão nunca fica com o dono morto-vivo segurando a trava.
+///
 /// O modo NÃO-session (jogo puro, supervise) segue o comportamento de
 /// sempre: o fio morre honesto e o corpo segue vivo para as outras
 /// portas (o motor de jogo é vaga supervisionada da sessão — quem o
@@ -1143,15 +1141,14 @@ fn daemon_loop() -> Result<(), String> {
             vivo
         });
         for p in &achados {
-            if !held.contains_key(&p.pid) {
-                if scan::gm_register(&conn, p.pid) {
+            if !held.contains_key(&p.pid)
+                && scan::gm_register(&conn, p.pid) {
                     eprintln!(
                         "elite-daemon: jogo pid {} (via {}) registrado no gamemode",
                         p.pid, p.via
                     );
                     held.insert(p.pid, p.comm.clone());
                 }
-            }
         }
 
         // E140 — A PORTA 5 NO LOOP: a janela steam_app_* viva é a prova
@@ -1159,15 +1156,14 @@ fn daemon_loop() -> Result<(), String> {
         // caçado (quem o /proc viu já registrou o pid DELE — o proxy é
         // o cinto do jogo invisível, nunca o segundo registro do visto)
         let janelas = janelas_de_jogo();
-        if !janelas.is_empty() && held.is_empty() && !proxy {
-            if scan::gm_register(&conn, std::process::id() as i32) {
+        if !janelas.is_empty() && held.is_empty() && !proxy
+            && scan::gm_register(&conn, std::process::id() as i32) {
                 proxy = true;
                 eprintln!(
                     "elite-daemon: janela de jogo VIVA ({} — a PORTA 5 do dossiê E140) → daemon PROXY no gamemode",
                     janelas.join(", ")
                 );
             }
-        }
         if proxy && janelas.is_empty() && held.is_empty() {
             scan::gm_unregister(&conn, std::process::id() as i32);
             proxy = false;

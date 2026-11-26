@@ -44,12 +44,12 @@ done
 file_has "mold: a família rust OBRIGATÓRIA no install (daemon/dock/bar)" ".ci/build.sh" 'for b in elite-daemon craft-dock-rs craft-bar-rs; do'
 file_has "mold: a telemetria v2 compila (craft-dump-rs)" ".ci/build.sh" '-p craft-dump-rs'
 file_has "mold: as ferramentas nativas compilam (craft-tools)" ".ci/build.sh" '-p craft-tools'
-file_has "mold: as ferramentas + a telemetria v2 instalam com o nome da casa" ".ci/build.sh" 'for b in craft-update craft-clean craft-help craft-pick craft-dump; do'
+file_has "mold: as ferramentas + o juiz + a telemetria v2 instalam com o nome da casa" ".ci/build.sh" 'for b in craft-update craft-clean craft-help craft-pick craft-dump craft-audit; do'
 # 2.0 Fase 2 — O C DO TOPLEVEL MORREU: nenhuma fonte vendada, nenhum pacote
 file_hasnt "mold: o C do toplevel não volta (a fonte vendada morreu)" ".ci/build.sh" 'craft-toplevel.c'
 file_absent "vendor: o C de 3 gerações saiu do repo" "vendor/craft-toplevel.c"
 # 2.0 — os bins compilados saíram do overlay (a esteira Rust manda)
-for bin in craft-update craft-clean craft-help craft-dump; do
+for bin in craft-update craft-clean craft-help craft-audit craft-dump; do
     file_absent "bin compilado: $bin não mora no overlay (nasce do cargo)" "elite/airootfs/usr/local/bin/$bin"
 done
 for fossil in craft-bars craft-connect craft-audio craft-pin-pick craft-dock-gui craft-menu craft-menu-dismiss craft-player craft-power craft-logout craft-drawer craft-audio-route; do

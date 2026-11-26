@@ -105,17 +105,12 @@ if command -v pactl >/dev/null 2>&1 && pactl info >/dev/null 2>&1; then
         t_fail "áudio: a analógica é o default" "default atual: ${SINK:-?}"
     fi
     VOL="$(wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null | awk '{print $2}')"
-    if command -v python3 >/dev/null 2>&1; then
-        python3 - "$VOL" <<'PYV' && t_ok "áudio: volume > 0 (o piso da voz)" || t_fail "áudio: volume > 0 (o piso da voz)" "vol=${VOL:-?}"
-import sys
-try:
-    v = float(sys.argv[1].rstrip('%'))
-    sys.exit(0 if v > 0.001 else 1)
-except Exception:
-    sys.exit(1)
-PYV
+    # 1.0-103 — o heredoc python morre: o awk julga o float (v > 0.001 é
+    # o piso da voz — o mesmo contrato do juízo antigo)
+    if printf '%s' "${VOL:-}" | awk '{ v = $1; gsub(/%/, "", v); exit (v + 0 > 0.001) ? 0 : 1 }'; then
+        t_ok "áudio: volume > 0 (o piso da voz)"
     else
-        case "${VOL:-}" in 0.00|0.0|"") t_fail "áudio: volume > 0" "vol=${VOL:-?}" ;; *) t_ok "áudio: volume > 0 ($VOL)" ;; esac
+        t_fail "áudio: volume > 0 (o piso da voz)" "vol=${VOL:-?}"
     fi
 else
     printf '  ⚠ pactl indisponível — áudio pulado HONESTO (rig real julga)\n'

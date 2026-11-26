@@ -56,8 +56,15 @@
 // pacote e da árvore (a migração da ordem do dono — o craft-bars lança
 // SÓ o binário Rust; o post_upgrade remove o arquivo velho e encerra o
 // processo Python vivo dos rigs da dose anterior).
+// 1.0-103 — A AUDITORIA BYTE A BYTE: o stub sem-gui NÃO carrega o núcleo
+// (o binário honesto de exit 1 não tem os módulos — zero dead_code no
+// alvo; os módulos existem para o TESTE (cfg(test)) e para a GUI de
+// verdade (feature "gui") — a lei do degrau sem um allow na casa)
+#[cfg(any(test, feature = "gui"))]
 mod icons;
+#[cfg(any(test, feature = "gui"))]
 mod procapp;
+#[cfg(any(test, feature = "gui"))]
 mod sock;
 
 #[cfg(feature = "gui")]
@@ -87,7 +94,7 @@ pub fn read_pins(path: &std::path::Path) -> Vec<Pin> {
         return pins; // arquivo ausente/ilegível: dock VIVA e vazia
     };
     for line in txt.lines() {
-        let parts: Vec<&str> = line.trim().split_whitespace().collect();
+        let parts: Vec<&str> = line.split_whitespace().collect();
         if parts.is_empty() || parts[0].starts_with('#') {
             continue;
         }
@@ -154,12 +161,18 @@ pub fn exeicon_cache_dir() -> PathBuf {
 
 /// 2.0 — $XDG_RUNTIME_DIR/elite/bus.sock (O FIO VIVO do elite-daemon:
 /// o toplevel.sock morreu com o craft-toplevel.c — a dock assina o bus
-/// e os verbos viajam por Req/Ack).
+/// e os verbos viajam por Req/Ack). 1.0-103: cfg(any(test, gui)) — o
+/// núcleo procapp não carrega no stub sem-gui (a auditoria byte a byte).
+#[cfg(any(test, feature = "gui"))]
 pub fn bus_sock() -> PathBuf {
     std::env::var_os("XDG_RUNTIME_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|| {
-            format!("/run/user/{}", procapp::current_uid()).into()
+            #[cfg(any(test, feature = "gui"))]
+            let uid = procapp::current_uid();
+            #[cfg(not(any(test, feature = "gui")))]
+            let uid = u32::MAX;
+            format!("/run/user/{uid}").into()
         })
         .join("elite/bus.sock")
 }
@@ -235,6 +248,19 @@ fn main() {
     std::process::exit(1);
 }
 
+/// O uid REAL do processo (procfs — a mesma leitura honesta da casa).
+#[cfg(not(feature = "gui"))]
+fn uid_do_procfs() -> u32 {
+    std::fs::read_to_string("/proc/self/status")
+        .ok()
+        .and_then(|s| {
+            s.lines()
+                .find(|l| l.starts_with("Uid:"))
+                .and_then(|l| l.split_whitespace().nth(1).and_then(|v| v.parse().ok()))
+        })
+        .unwrap_or(1000)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -294,17 +320,4 @@ mod tests {
         let txt2 = std::fs::read_to_string(&f).unwrap();
         assert_eq!(txt2.lines().count(), 2);
     }
-}
-
-/// O uid REAL do processo (procfs — a mesma leitura honesta da casa).
-#[cfg(not(feature = "gui"))]
-fn uid_do_procfs() -> u32 {
-    std::fs::read_to_string("/proc/self/status")
-        .ok()
-        .and_then(|s| {
-            s.lines()
-                .find(|l| l.starts_with("Uid:"))
-                .and_then(|l| l.split_whitespace().nth(1).and_then(|v| v.parse().ok()))
-        })
-        .unwrap_or(1000)
 }

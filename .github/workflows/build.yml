@@ -49,24 +49,19 @@ jobs:
       - name: shellcheck (gate — warning ou acima; infos são intencionais e documentadas)
         run: |
           shopt -s globstar
-          # v2.0.1 — run #88 em flagrante: o glob craft-* pegou o
-          # craft-dock-gui, que é PYTHON (#!/usr/bin/python3) — shellcheck
-          # só aceita sh/bash/dash/ksh (SC1071 = erro). O gate varre a
-          # lista e PULA qualquer shebang python: novos scripts Python no
-          # bin/ não quebram o lint, e nada sai da cobertura shell.
           rc=0
           # v2.3.1 — a lista é ENUMERADA DO DISCO (não hardcoded): o
           # 'fg-booster' fixo aqui derrubou as builds #95 E #96 inteiras
           # (o binário foi deletado na v2.2 — a lista continuou cobrando;
           # 'head: cannot open ... fg-booster' = lint vermelho antes do
           # build nem começar). Elite-tune + craft-* + autostart cobrem os
-          # shell; os python (craft-dock-gui) são pulados pelo shebang.
+          # shell — e desde a 1.0-103 NÃO EXISTE mais shebang python na
+          # casa (a erradicação do python: o gate cobre TUDO, sem pulo).
           for f in scripts/*.sh .ci/*.sh elite/fragments/*.sh \
                    elite/airootfs/usr/local/bin/elite-tune \
                    elite/airootfs/usr/local/bin/elite-status \
                    elite/airootfs/usr/local/bin/craft-* \
                    elite/airootfs/etc/skel/.config/labwc/autostart; do
-            head -n1 "$f" | grep -q '^#!.*python' && continue
             shellcheck -S warning -x "$f" || rc=1
           done
           exit $rc
@@ -89,7 +84,8 @@ jobs:
           pacman-key --init
           # E101.1 — -Syu: partial upgrade é Frankenstein (o rsync da #267
           # nasceu sem a libcrypto dele — container se atualiza INTEIRO)
-          pacman -Syu --noconfirm --needed git rsync shellcheck python-yaml python-pillow shfmt bun
+          # 1.0-103 — python-yaml/python-pillow saem (a erradicação do python: o juiz é o craft-audit de casa); o rust entra (o craft-dump julga XML EMBUTIDO)
+          pacman -Syu --noconfirm --needed git rsync shellcheck rust shfmt bun
       - uses: actions/checkout@v5
         # v2.10.6 — o token NÃO dorme no .git/config: o checkout entra num
         # container --privileged (pacstrap monta /proc) — credencial

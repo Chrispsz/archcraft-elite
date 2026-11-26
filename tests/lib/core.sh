@@ -58,13 +58,34 @@ file_hasnt() { # file_hasnt <desc> <arquivo> <agulha>
     else t_fail "$1" "'$3' AINDA em $2"; fi
 }
 
+# ── 1.0-103 — O JUIZ DE CASA (a erradicação do python): o craft-audit
+#    (núcleo std do craft-tools) é o juiz de XML/INI da suíte — a porteira
+#    o PRE-BUILDA no arranque (tests/run-tests.sh, quando há cargo no
+#    ambiente) e o exporta como $ELITE_JUDGE; xmllint segue como rede.
+julga() { # julga <verbo> <arquivo> — o juiz de casa, com a rede do xmllint
+    if [ -n "${ELITE_JUDGE:-}" ] && [ -x "$ELITE_JUDGE" ]; then
+        "$ELITE_JUDGE" "$1" "$2"
+    elif command -v craft-audit >/dev/null 2>&1; then
+        craft-audit "$1" "$2"
+    elif [ "$1" = "xml" ] && command -v xmllint >/dev/null 2>&1; then
+        xmllint --noout "$2" >/dev/null 2>&1
+    else
+        echo "  □ (julga: juiz ausente — cargo/xmllint fora do ambiente)" >&2
+        return 2 # sem juiz: o chamador veste t_skip
+    fi
+}
+
 # o XML nasce bem-formado (menu/rc da casa)
 xml_ok() { # xml_ok <desc> <arquivo>
-    if [ -f "$2" ] && python3 - "$2" << 'PYX' >/dev/null 2>&1
-import sys, xml.dom.minidom
-xml.dom.minidom.parse(sys.argv[1])
-PYX
-    then t_ok "$1"; else t_fail "$1" "XML mal-formado ou ausente: $2"; fi
+    julga xml "$2" 2>/dev/null
+    local rc=$?
+    if [ "$rc" = "2" ]; then
+        t_skip "$1" "juiz XML ausente (sem cargo e sem xmllint no ambiente)"
+    elif [ -f "$2" ] && [ "$rc" = "0" ]; then
+        t_ok "$1"
+    else
+        t_fail "$1" "XML mal-formado ou ausente: $2"
+    fi
 }
 
 # E146 — o MENU nasce SEM texto órfão fora de tag (a gramática da casa:
@@ -72,26 +93,28 @@ PYX
 # texto no parse, mas arquivo com membro fora de tag é arquivo amputado
 # — o órfão do E103 atravessou 4 eras porque o juízo era só bem-formado)
 menu_ok() { # menu_ok <desc> <arquivo>
-    if [ -f "$2" ] && python3 - "$2" << 'PYM' >/dev/null 2>&1
-import sys, xml.etree.ElementTree as ET
-t = ET.parse(sys.argv[1])
-for el in t.getroot().iter():
-    if (el.text or "").strip() or (el.tail or "").strip():
-        sys.exit(1)  # texto fora de tag: o membro órfão
-sys.exit(0)
-PYM
-    then t_ok "$1"; else t_fail "$1" "texto órfão fora de tag (ou XML quebrado): $2"; fi
+    julga menu "$2" 2>/dev/null
+    local rc=$?
+    if [ "$rc" = "2" ]; then
+        t_skip "$1" "juiz do menu ausente (sem cargo no ambiente)"
+    elif [ -f "$2" ] && [ "$rc" = "0" ]; then
+        t_ok "$1"
+    else
+        t_fail "$1" "texto órfão fora de tag (ou XML quebrado): $2"
+    fi
 }
 
 # o INI nasce com seção (a lição do fuzzel.ini quebrado E137)
 ini_ok() { # ini_ok <desc> <arquivo>
-    if [ -f "$2" ] && python3 - "$2" << 'PYI' >/dev/null 2>&1
-import sys, configparser
-cp = configparser.ConfigParser(strict=False)
-cp.read(sys.argv[1])
-sys.exit(0 if cp.sections() else 1)
-PYI
-    then t_ok "$1"; else t_fail "$1" "INI sem seção ou ausente: $2"; fi
+    julga ini "$2" 2>/dev/null
+    local rc=$?
+    if [ "$rc" = "2" ]; then
+        t_skip "$1" "juiz INI ausente (sem cargo no ambiente)"
+    elif [ -f "$2" ] && [ "$rc" = "0" ]; then
+        t_ok "$1"
+    else
+        t_fail "$1" "INI sem seção ou ausente: $2"
+    fi
 }
 
 # a linha EXATA mora no arquivo (grep -x — âncoras regex não confundem)

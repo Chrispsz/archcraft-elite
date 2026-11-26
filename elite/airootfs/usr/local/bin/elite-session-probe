@@ -94,28 +94,10 @@ tp_count="$(count craft-toplevel)"
 bus_sock="DEAD"
 for s in /run/user/*/elite/bus.sock; do
     [ -S "$s" ] || continue
-    if PYTHONDONTWRITEBYTECODE=1 python3 - "$s" <<'PY' 2>/dev/null
-import socket, struct, sys, json
-c = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-c.settimeout(2)
-c.connect(sys.argv[1])
-hello = json.dumps({"Hello": {"who": "elite-session-probe"}}).encode()
-c.sendall(struct.pack("<I", len(hello)) + hello)
-def recvex(n):
-    buf = b""
-    while len(buf) < n:
-        chunk = c.recv(n - len(buf))
-        if not chunk:
-            return None
-        buf += chunk
-    return buf
-hdr = recvex(4)
-assert hdr, "bus calado (sem quadro de resposta ao Hello)"
-ln = struct.unpack("<I", hdr)[0]
-assert 0 < ln <= 1048576, "quadro fora da lei (FRAME_MAX)"
-assert recvex(ln), "quadro truncado"
-PY
-    then
+    # 1.0-103 — o aperto de mão pelo JUIZ DE CASA (o heredoc python
+    # morre; o craft-audit hello fala o protocolo do elite-core de
+    # verdade: conecta, Hello, exige o quadro de volta no teto de 2s)
+    if craft-audit hello "$s" >/dev/null 2>&1; then
         bus_sock="OK"
         break
     fi
@@ -226,7 +208,7 @@ say "LABWC_VER=$(labwc --version 2>/dev/null | head -1)"
 # probe consegue colher sem abrir janela nenhuma:
 #   FUZZEL_BIN/FUZZEL_VER — binário presente e executável;
 #   FUZZEL_INI           — o fuzzel.ini DO USUÁRIO parseado de verdade
-#                          (configparser strict; seção principal+cores é
+#                          (juiz estrito; seção principal+cores é
 #                          contrato — config corrompida = todos os 5 menus
 #                          mortos antes de desenhar);
 #   MENUS|/DOCK|         — caudas dos logs de runtime (vazio = nada
@@ -234,16 +216,12 @@ say "LABWC_VER=$(labwc --version 2>/dev/null | head -1)"
 say "FUZZEL_BIN=$(command -v fuzzel 2>/dev/null || echo AUSENTE)"
 say "FUZZEL_VER=$(fuzzel --version 2>/dev/null | head -1)"
 ini_ok="skip"
-if command -v python3 >/dev/null 2>&1; then
+# 1.0-103 — o configparser python morre; o JUIZ DE CASA veste o estrito
+# (seções main/colors/border — o contrato dos 5 menus do fuzzel)
+if command -v craft-audit >/dev/null 2>&1; then
     for f in /root/.config/fuzzel/fuzzel.ini /home/*/.config/fuzzel/fuzzel.ini; do
         [ -f "$f" ] || continue
-        if PYTHONDONTWRITEBYTECODE=1 python3 - "$f" <<'PY' 2>/dev/null
-import configparser, sys
-cp = configparser.ConfigParser(strict=True)
-cp.read(sys.argv[1])
-assert {'main', 'colors', 'border'} <= set(cp.sections())
-PY
-        then
+        if craft-audit ini --estrito --secoes main,colors,border "$f" >/dev/null 2>&1; then
             ini_ok="OK"
         else
             ini_ok="BAD($f)"

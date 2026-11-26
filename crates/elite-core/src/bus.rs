@@ -349,14 +349,9 @@ impl BusClient {
                     let mut s = stream;
                     let mut back = 5u64;
                     'conexao: loop {
-                        loop {
-                            match recv_frame(&mut s) {
-                                Ok(Some(msg)) => {
-                                    if cli.envia_canal(&tx, msg).is_err() {
-                                        return; // a UI foi embora: fim
-                                    }
-                                }
-                                Ok(None) | Err(_) => break, // o fio caiu
+                        while let Ok(Some(msg)) = recv_frame(&mut s) {
+                            if cli.envia_canal(&tx, msg).is_err() {
+                                return; // a UI foi embora: fim
                             }
                         }
                         // reconexão honesta: o fio renasce quando o

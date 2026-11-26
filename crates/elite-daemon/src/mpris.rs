@@ -39,7 +39,7 @@ pub fn tocando() -> bool {
 /// o JUÍZO puro de qual player é o ativo (a porta dos testes): o último
 /// que tocou; sem tocando, o último vivo; sem player, nada.
 #[cfg(test)]
-pub fn escolhe_ativo<'a>(players: &'a [(String, bool, Option<MediaState>)]) -> Option<&'a (String, bool, Option<MediaState>)> {
+pub fn escolhe_ativo(players: &[(String, bool, Option<MediaState>)]) -> Option<&(String, bool, Option<MediaState>)> {
     players
         .iter()
         .rev()
@@ -60,7 +60,6 @@ pub struct PropsRaw {
 impl PropsRaw {
     /// o dict VIVO do zvariant (OwnedValue: string OU array de string).
     pub fn do_dict(dict: &std::collections::HashMap<String, zbus::zvariant::OwnedValue>) -> Self {
-        let dict = dict;
         let texto = |k: &str| -> Option<String> {
             match dict.get(k) {
                 Some(v) => v.downcast_ref::<String>().ok(),

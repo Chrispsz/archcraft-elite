@@ -43,116 +43,24 @@ else
     t_ok "menu: nenhum item carrega atributo de ícone (v2.2 — texto puro)"
 fi
 
-# ── a resolução executiva de TODO Execute (python = a gramática inteira:
-#    sh -c, for b in, foot -e, pipes — os wrappers não enganam o juízo) ──
-RESOLUCAO="$(python3 - "$MENU" "$RC" "$BIN" "$PKGS" "$BS" <<'PYC'
-import re, shlex, sys, xml.etree.ElementTree as ET
-from pathlib import Path
-
-menu, rc, bindir, pkgfile, buildfile = sys.argv[1:6]
-
-airootfs = {p.name for p in Path(bindir).iterdir()} if Path(bindir).is_dir() else set()
-pacotes = {ln.split()[0] for ln in Path(pkgfile).read_text(encoding="utf-8").splitlines()
-           if ln.strip() and not ln.strip().startswith("#")}
-compilados = {"elite-daemon", "craft-bar-rs", "craft-dock-rs", "craft-dump",
-              "craft-update", "craft-clean", "craft-help", "craft-pick"}
-src = Path(buildfile).read_text(encoding="utf-8")
-for m in re.finditer(r"for b in ([a-z0-9 \-]+) do", src):
-    compilados |= set(m.group(1).split())
-aliases = {
-    "blueman-manager": "blueman", "blueman-adapters": "blueman",
-    "wl-copy": "wl-clipboard", "wl-paste": "wl-clipboard",
-    "pactl": "libpulse", "swayosd-client": "swayosd", "brave": "brave-origin",
-    "xauth": "xorg-xauth", "xhost": "xorg-xhost", "7z": "7zip",
-    "paccache": "pacman-contrib",
-}
-base = {"sh", "systemctl", "xdg-open", "zsh", "gsettings", "loginctl", "env"}
-
-def resolve(b):
-    return (b in airootfs or b in compilados or b in pacotes
-            or b in aliases and aliases[b] in pacotes or b in base)
-
-PALAVRAS = {"for", "in", "do", "done", "if", "then", "else", "elif", "fi",
-            "exec", "export", "command", "local", "return", "while", "case", "esac"}
-
-def candidatos(cmd):
-    cmd = cmd.strip()
-    toks = shlex.split(cmd)
-    # foot sozinho É o binário; foot -e ... : o terminal é wrapper, o
-    # alvo é o resto (a aspa é SAGRADA — o strip("'\"") comia o fechamento
-    # do exec "${TERMINAL:-foot}" e o shlex morria: lição da run local)
-    if toks and toks[0] == "foot":
-        if len(toks) == 1:
-            yield "foot"
-            return
-        toks = toks[1:]
-        if toks and toks[0] == "-e":
-            toks = toks[1:]
-    corpo = " ".join(toks)
-    m = re.match(r"sh\s+-c\s+(.*)$", corpo)
-    if m:
-        corpo = m.group(1)
-    # a indireção do terminal da casa: ${TERMINAL:-foot} — o default é
-    # o binário real (a variável é wrapper, o foot é a promessa)
-    term = re.search(r"\$\{TERMINAL:-(\w[\w\-]*)\}", corpo)
-    if term:
-        yield term.group(1)
-        return
-    # cadeia de fallback (for b in X Y Z): o PRIMEIRO da lista é a casa
-    chain = re.search(r"for\s+\w+\s+in\s+([\w\.\-]+(?:\s+[\w\.\-]+)*)\s*;", corpo)
-    if chain:
-        yield chain.group(1).split()[0]
-        return
-    # senão: o primeiro token que não é gramática do shell
-    for t in shlex.split(corpo.replace("&&", " ").replace("||", " ").replace(";", " ").replace("|", " ")):
-        if t in PALAVRAS or t.startswith("-") or "=" in t or "/" in t or t.startswith("$"):
-            continue
-        yield t
-        return
-    yield None
-
-réus, comandos = [], 0
-for arq in (menu, rc):
-    try:
-        root = ET.parse(arq).getroot()
-    except Exception as e:
-        réus.append(f"{Path(arq).name}: XML quebrado ({e})")
-        continue
-    for a in root.iter("action"):
-        if a.get("name") != "Execute":
-            continue
-        cmd = a.get("command") or ""
-        comandos += 1
-        prim = next(candidatos(cmd), None)
-        if prim is None:
-            réus.append(f"{Path(arq).name}: Execute sem binário principal: {cmd[:60]}")
-        elif not resolve(prim):
-            réus.append(f"{Path(arq).name}: '{prim}' não existe na casa (command='{cmd[:60]}')")
-
-FOSSEIS = ("craft-drawer", "craft-bars", "craft-connect", "craft-menu",
-           "craft-player", "craft-power", "craft-logout", "craft-audio-route",
-           "craft-dock-gui", "craft-pin-pick", "craft-toplevel")
-for arq in (menu, rc):
-    texto = Path(arq).read_text(encoding="utf-8")
-    for f in FOSSEIS:
-        for m in re.finditer(rf'command="([^"]*\b{f}\b[^"]*)"', texto):
-            réus.append(f"{Path(arq).name}: fóssil '{f}' em Execute (command='{m.group(1)[:50]}')")
-
-print(f"EXECUTED={comandos}")
-print("\n".join(réus) if réus else "CLEAN")
-sys.exit(1 if réus else 0)
-PYC
-)"
-if python3 -c "import sys" >/dev/null 2>&1 && printf '%s' "$RESOLUCAO" | head -1 | grep -q '^EXECUTED='; then
-    total="$(printf '%s\n' "$RESOLUCAO" | head -1 | cut -d= -f2)"
-    if printf '%s\n' "$RESOLUCAO" | tail -n +2 | head -1 | grep -q '^CLEAN$'; then
-        t_ok "integridade de Execute: $total comandos, TODOS resolvem binário real (menu ∪ rc)"
+# ── a resolução executiva de TODO Execute (1.0-103 — o heredoc python
+#    morre; o JUIZ DE CASA veste a gramática inteira: sh -c, for b in,
+#    foot -e, pipes — os wrappers não enganam o juízo) ────────────────
+if [ -n "${ELITE_JUDGE:-}" ]; then
+    RESOLUCAO="$("$ELITE_JUDGE" exec-resolve "$MENU" "$RC" "$BIN" "$PKGS" "$BS" 2>/dev/null)"
+    if printf '%s' "$RESOLUCAO" | head -1 | grep -q '^EXECUTED='; then
+        total="$(printf '%s\n' "$RESOLUCAO" | head -1 | cut -d= -f2)"
+        if printf '%s\n' "$RESOLUCAO" | tail -n +2 | head -1 | grep -q '^CLEAN$'; then
+            t_ok "integridade de Execute: $total comandos, TODOS resolvem binário real (menu ∪ rc)"
+        else
+            réus="$(printf '%s\n' "$RESOLUCAO" | tail -n +2 | head -6 | tr '\n' ' · ')"
+            t_fail "integridade de Execute: $total comandos apontam para binário real" "$réus"
+        fi
     else
-        réus="$(printf '%s\n' "$RESOLUCAO" | tail -n +2 | head -6 | tr '\n' ' · ')"
-        t_fail "integridade de Execute: $total comandos apontam para binário real" "$réus"
+        t_fail "integridade de Execute (o juiz de casa correu)" "falha no resolvedor: $(printf '%s' "$RESOLUCAO" | head -2)"
     fi
 else
-    t_fail "integridade de Execute (o juízo python correu)" "falha no resolvedor: $(printf '%s' "$RESOLUCAO" | head -2)"
+    t_skip "integridade de Execute (o juiz de casa)" "craft-audit ausente no ambiente (cargo fora — juízo do CI)"
 fi
 
 # ── o fantasma clássico NUNCA volta (a mordaça explícita do réu histórico)

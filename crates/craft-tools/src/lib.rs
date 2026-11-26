@@ -14,6 +14,12 @@
 // é a face GTK4 da casa (W-v, craft-game menu, craft-idle menu).
 // ═════════════════════════════════════════════════════════════════════════
 
+// 1.0-103 — O JUIZ NATIVO DA CASA: todo julgamento/parsing de config
+// (XML/INI/YAML/JSON), o aperto de mão do bus.sock e a resolução de
+// Execute do menu/rc que viviam em heredocs python moram AQUI — std-only
+// (a lei do degrau), com contratos cravados em teste.
+pub mod audit;
+
 /// A LEI E90 das ferramentas (a descoberta não depende de biblioteca
 /// gráfica): `-h`/`--help`/`uso` imprime o uso e devolve true — o main
 /// imprime e sai 0 ANTES de qualquer GTK (o craft-help é janela, mas o

@@ -64,17 +64,14 @@ tem_bin() { # tem_bin <nome> — resolve no universo da casa
     return 1
 }
 
-# ── o mapa (extraído do FONTE — a fonte única, sem lista dupla) ──────────
-MAPA="$(python3 - "$LIB" <<'PYM'
-import re, sys
-src = open(sys.argv[1], encoding="utf-8").read()
-m = re.search(r"pub fn mapa_comandos\(\).*?vec!\[(.*?)\n    \]", src, re.S)
-if not m:
-    sys.exit(3)
-pares = re.findall(r'\("([^"]+)", "', m.group(1))
-print("\n".join(pares))
-PYM
-)"
+# ── o mapa (extraído do FONTE — a fonte única, sem lista dupla; 1.0-103:
+#    o heredoc python morre, o awk extrai os pares do vec! — do parêntese
+#    de abertura até o fecho de chave, o primeiro texto citado de cada linha)
+MAPA="$(awk '
+    /pub fn mapa_comandos/ { dentro = 1; next }
+    dentro && /^    \]/ { exit }
+    dentro && /\("/ { linha = $0; sub(/^.*\("/, "", linha); sub(/", ".*$/, "", linha); print linha }
+' "$LIB")"
 if [ "$(printf '%s\n' "$MAPA" | grep -c .)" -lt 20 ]; then
     t_fail "o mapa do craft-help é extraído do fonte" "extraído $(printf '%s\n' "$MAPA" | grep -c .) entradas (< 20) — o mapa encolheu?"
 fi
@@ -149,7 +146,7 @@ while IFS= read -r cmd; do
         verbo_ok=1; porque=""
         case "$shb" in
             *bash) bash -n "$BIN/$cmd" 2>/dev/null || { verbo_ok=0; porque="bash -n reprovou"; } ;;
-            *sh|*python*) sh -n "$BIN/$cmd" 2>/dev/null || { verbo_ok=0; porque="sh -n reprovou"; } ;;
+            *sh) sh -n "$BIN/$cmd" 2>/dev/null || { verbo_ok=0; porque="sh -n reprovou"; } ;;
         esac
         if [ "$verbo_ok" = 1 ]; then
             t_ok "sintaxe ok: $cmd"
@@ -204,9 +201,9 @@ while IFS= read -r cmd; do
 done <<< "$MAPA"
 
 # ── os bins COMPILADOS também nascem 0755 no molde (install -m755) ───────
-# (o template vive dentro do f-string python: ${CARGO_TARGET_DIR} nasce
-# com CHAVES DUPLAS — o grep veste as duas)
-if grep -qE 'install -m755 "[^{]*[{]+CARGO_TARGET_DIR[^"}]*[}]+/release/' "$BS"; then
+# (1.0-103 — o template viaja em heredoc COTADO: o ${CARGO_TARGET_DIR}
+# mora LITERAL — o grep da casa veste as chaves simples dele)
+if grep -qF 'install -m755 "${CARGO_TARGET_DIR:-rust/target}/release/' "$BS"; then
     t_ok "molde: os compilados nascem com install -m755"
 else
     t_fail "molde: os compilados nascem com install -m755" "build.sh sem install -m755 do target"
