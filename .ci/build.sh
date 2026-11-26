@@ -30,15 +30,21 @@ if [[ "${PACKAGES_ONLY:-0}" == "1" ]]; then
     # container e ZERO Rust viaja na ISO ou no pacote final).
     # E138 — O PAR X É DEPENDÊNCIA DURA (a ordem do dono, dump v2.13): o
     # cinto xhost + o cookie xauth do elite-gparted nascem COM o pacote.
+    # 1.0-104 — AS FERRAMENTAS DA BARRA SÃO depends= (pwvucontrol/blueman/
+    # iwgtk): o makepkg CONFERE o depends contra o AMBIENTE DE BUILD —
+    # o trio entra no cinto do container (os dois ramos — o canal do
+    # pacote e o da ISO usam o MESMO molde).
     pacman -Syu --noconfirm --needed git rsync curl base-devel sudo python \
         wayland wayland-protocols libxkbcommon wlopm polkit rust cargo \
-        gtk4 gtk4-layer-shell xorg-xhost xorg-xauth
+        gtk4 gtk4-layer-shell xorg-xhost xorg-xauth \
+        pwvucontrol blueman iwgtk
 else
     pacman -Syu --noconfirm --needed \
         git rsync curl archiso xorriso mtools dosfstools \
         e2fsprogs squashfs-tools openssl arch-install-scripts \
         base-devel sudo rust cargo gtk4 gtk4-layer-shell \
-        meson ninja wayland wayland-protocols libxkbcommon wlopm polkit
+        meson ninja wayland wayland-protocols libxkbcommon wlopm polkit \
+        pwvucontrol blueman iwgtk
 fi
 
 say "Importando chave CachyOS (ambiente de build)"
