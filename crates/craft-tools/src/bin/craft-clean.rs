@@ -11,11 +11,11 @@
 
 const USO: &str = "uso: craft-clean — a limpeza do sistema, direto no terminal\n\
 \n\
-\x20  (sem argumentos)  roda a FASE 1 auto-segura AGORA (pkexec elite-clean — o diálogo pergunta UMA vez)\n\
+\x20  (sem argumentos)  roda a limpeza segura AGORA (pkexec elite-clean — o diálogo pergunta UMA vez)\n\
 \x20  -h | --help | uso  este papel\n\
 \n\
-\x20  A fase segura NUNCA toca pastas pessoais, perfis de navegador ou confs vivas.\n\
-\x20  A fase AVANÇADA (órfãos, runtimes de Flatpak, miniaturas) é de pé:\n\
+\x20  A limpeza segura NUNCA toca pastas pessoais, perfis de navegador ou confs vivas.\n\
+\x20  A limpeza AVANÇADA (órfãos, runtimes de Flatpak, miniaturas) é de pé:\n\
 \x20  elite-clean menu — as perguntas [s/N] vivas no terminal.\n\
 \x20  O papel mora em ~/.cache/elite/clean.log.\n";
 
@@ -32,7 +32,7 @@ fn main() {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/root".into());
     let argv = craft_tools::args_limpeza(&usuario, &home);
     println!(
-        "ELITE · limpeza do sistema (fase 1 auto-segura — dono: {usuario}) — o diálogo de senha pergunta UMA vez…"
+        "ELITE · Limpeza do Sistema — removendo caches e pacotes órfãos com segurança"
     );
     let rc = std::process::Command::new(&argv[0])
         .args(&argv[1..])

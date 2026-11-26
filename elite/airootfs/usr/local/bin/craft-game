@@ -30,9 +30,9 @@
 #   craft-game            menu (Ativar agora / Desativar / Automático / Status)
 #   craft-game status     a mesa de fatos (sem palestra — a aula mora no --help)
 #   craft-game on|off     manual (o PERFIL COMPLETO da 1.0-104: holder próprio
-#                         no gamemode + DND do swaync lembrado/devolvido +
-#                         inibidor de ocioso no logind + o estado no FILO do
-#                         elite-daemon — a barra acende o pill NO mesmo clique)
+#                         no gamemode + inibidor de ocioso no logind + o
+#                         estado no FILO do elite-daemon — a barra acende o
+#                         pill NO mesmo clique)
 #   craft-game watch      o daemon da sessão (AUTO=1 em ~/.config/elite/game.conf;
 #                         AUTO=0/ausente = sai 0 — ausência intencional, lei do idle)
 #   craft-game hook       os [custom] do gamemode.ini (inicio/fim do modo)
@@ -99,7 +99,7 @@ glog() {
 # E106 — A EXCEÇÃO QUE O DONO MANDOU: ação DELE no menu (on/off/Automático)
 # que não deixava NENHUM feedback — o menu fechava e NADA aparecia (o
 # dump: 'clico em ativar agora e eu não vejo nada se ele está on ou off').
-# A política -u low do swaync MATA toda urgência low (notification-visibility
+# A política da central MATA toda urgência low no histórico (pop-up
 # muted) — o feedback da ação do dono usa -u normal: sobe na tela, some em
 # 8s (nunca critical — a doutrina da casa fica). Eventos AUTOMÁTICOS
 # (jogo detectado/saído) seguem -u low — a lei C101 fica de pé.
@@ -179,37 +179,17 @@ decor_fix() {
     return 0
 }
 
-# ── 1.0-104 — O PERFIL COMPLETO DO MANUAL (governor + DND + inibidor +
-#      o estado no elite-daemon): o gamemoded veste o governor; a casa
-#      soma o resto — o DND do swaync (a notificação não interrompe a
-#      partida; o estado ANTERIOR é lembrado e devolvido SIMÉTRICO) e o
-#      INIBIDOR de ocioso (o logind segura a trava automática enquanto
+# ── 1.0-104 — O PERFIL COMPLETO DO MANUAL (governor + inibidor + o
+#      estado no elite-daemon): o gamemoded veste o governor; a casa soma
+#      o INIBIDOR de ocioso (o logind segura a trava automática enquanto
 #      o modo viver — a vigília do elite-daemon respeita o inhibitor,
 #      a lei E43 de sempre).
-dnd_liga() {
-    command -v swaync-client >/dev/null 2>&1 || return 0
-    _era="$(swaync-client -D 2>/dev/null || true)"
-    case "$_era" in
-        *true*)  return 0 ;;   # o dono JÁ dormia: o jogo não acorda o swaync
-        *false*) : ;;          # acordado: a casa adormece E LEMBRA o gesto
-        *) return 0 ;;         # swaync calado: sem estado para mentir
-    esac
-    # a lembrança mora no RUN_DIR (tmpfs — morre no reboot, nunca vira
-    # estado persistente); o -dn é DETERMINÍSTICO (nunca o toggle às cegas)
-    if swaync-client -dn -sw >/dev/null 2>&1; then
-        : > "$RUN_DIR/game-dnd-antes" 2>/dev/null || true
-        glog "manual: DND ligado (estava desligado — a lembrança devolve no off)"
-    fi
-}
-
-dnd_devolve() {
-    command -v swaync-client >/dev/null 2>&1 || return 0
-    [ -e "$RUN_DIR/game-dnd-antes" ] || return 0
-    rm -f "$RUN_DIR/game-dnd-antes" 2>/dev/null || true
-    swaync-client -df -sw >/dev/null 2>&1 || true
-    glog "manual: DND devolvido (o jogo o tinha ligado — o -df é determinístico)"
-}
-
+# E106/2 — O DND MORREU POR ORDEM DO DONO: a chamada da central de
+#      notificações caía SEM dono D-Bus ativo ANTES de registrar o
+#      estado no papel (o 'manual: ON' ficava devendo e o pill roxo
+#      nunca acendia) — a lembrança e o Não Perturbe saíram do corpo
+#      do jogo de vez; o estado no game.log e o fio do elite-daemon
+#      seguem SEM depender de notificação nenhuma.
 # o estado novo no FILO do elite-daemon (a barra acende o pill roxo NO
 # MESMO instante do clique — o cinto do 30s é a rede, o fio é o gesto)
 bus_notifica() {
@@ -261,15 +241,14 @@ gm_on() {
     fi
     printf '%s\n' "$hpid" > "$file" 2>/dev/null || true
     if gm_register "$hpid" >/dev/null 2>&1; then
-        dnd_liga
+        # E106/2 — O ESTADO PRIMEIRO (a ordem que o dono pediu): o papel
+        # assina o 'manual: ON' no MESMO instante do registro no
+        # gamemode; o fio do elite-daemon (bus_notifica) acende o pill
+        # roxo DEPOIS — nenhuma porta estranha entre o clique e a
+        # assinatura pode mais cair no meio do caminho.
+        glog "manual: ON (holder pid $hpid no gamemode + inhibitor logind armado)"
         bus_notifica
-        if [ -e "$RUN_DIR/game-dnd-antes" ]; then
-            _dnd="ligado (devolvido no off)"
-        else
-            _dnd="do dono (intocado)"
-        fi
-        glog "manual: ON (holder pid $hpid no gamemode + DND $_dnd + inhibitor logind armado)"
-        NOTE_URGEN=normal note 'Modo de jogo ATIVO' 'Governor performance + GPU high + Não Perturbe (desligue no menu ou craft-game off)'
+        NOTE_URGEN=normal note 'Modo de jogo ATIVO' 'Governor performance + GPU high + inibidor de ocioso (desligue no menu ou craft-game off)'
         echo "==> modo de jogo ATIVO (governor performance + GPU high + inibidor de ocioso)"
         return 0
     fi
@@ -292,10 +271,10 @@ gm_off() {
         # o inibidor/sleep órfão segurando o logind)
         kill -- -"$hpid" 2>/dev/null || kill "$hpid" 2>/dev/null || true
         rm -f "$file" 2>/dev/null || true
-        dnd_devolve
+        # E106/2 — o estado PRIMEIRO no papel; o fio do pill vem depois
+        glog "manual: OFF (holder pid $hpid liberado — o gamemode devolve o governor, o inhibitor morre com o grupo)"
         bus_notifica
-        glog "manual: OFF (holder pid $hpid liberado — o gamemode devolve o governor, o DND volta, o inhibitor morre com o grupo)"
-        NOTE_URGEN=normal note 'Modo de jogo DESATIVADO' 'Perfil normal restaurado (governor/GPU/DND da casa)'
+        NOTE_URGEN=normal note 'Modo de jogo DESATIVADO' 'Perfil normal restaurado (governor/GPU da casa)'
         echo "==> modo de jogo DESATIVADO (o governor volta ao perfil da casa)"
         return 0
     fi
@@ -640,11 +619,19 @@ gm_status_cmd() {
 #      a forma da casa é o -T "..." COM ESPAÇO). O título só entra quando
 #      o craft-pick INSTALADO anuncia o -T no papel de ajuda — sem ele, o
 #      painel segue sem título e o contrato 0/1 intacto.
+# E106/2 — DOIS CONSERTOS da sessão nativa (o item do menu roda SEM foot —
+#      o craft-pick é a ÚNICA janela): (1) a sonda do -T agora casa o
+#      traço também colado ao COLCHETE do uso ('[-T TÍTULO' — a âncora de
+#      espaço/linha da era JAMAIS casava o papel real e o painel nascia
+#      SEM título de boa-fé); (2) o stderr do craft-pick desce no vazio
+#      (os avisos de portal do GTK não mancham a sessão nativa) SEM
+#      tocar no contrato 0/1 — o exit code do pick continua o juiz das
+#      ações, sempre.
 gm_pick() {
-    if craft-pick --help 2>/dev/null | grep -qE -- '(^|[[:space:]])-T([[:space:]]|$)'; then
-        craft-pick -T "$1"
+    if craft-pick --help 2>/dev/null | grep -qE -- '(^|[^[:alnum:]])-T[[:space:]]'; then
+        craft-pick -T "$1" 2>/dev/null
     else
-        craft-pick
+        craft-pick 2>/dev/null
     fi
 }
 

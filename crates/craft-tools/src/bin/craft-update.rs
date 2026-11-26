@@ -7,14 +7,14 @@
 // ~/.cache/elite/update.log — a memória do motor não muda).
 // ═════════════════════════════════════════════════════════════════════════
 
-const USO: &str = "uso: craft-update — a dose do sistema, direto no terminal\n\
+const USO: &str = "uso: craft-update — a atualização do sistema, direto no terminal\n\
 \n\
-\x20  (sem argumentos)  roda a dose AGORA (pkexec elite-update — o diálogo pergunta UMA vez)\n\
+\x20  (sem argumentos)  roda a atualização AGORA (pkexec elite-update — o diálogo pergunta UMA vez)\n\
 \x20  -h | --help | uso  este papel\n\
 \n\
 \x20  O MOTOR é o elite-update já provado em campo; este bin é a porta direta —\n\
-\x20  o exit code dele é a verdade (0 = a dose subiu; o papel do motor mora em\n\
-\x20  ~/.cache/elite/update.log).\n";
+\x20  o exit code dele é a verdade (0 = a atualização concluiu; o papel do motor\n\
+\x20  mora em ~/.cache/elite/update.log).\n";
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -22,7 +22,7 @@ fn main() {
         return; // a ajuda sai ANTES de qualquer elevação (lei E90)
     }
     let argv = craft_tools::args_atualizacao();
-    println!("ELITE · subindo a dose (elite-update) — o diálogo de senha pergunta UMA vez…");
+    println!("ELITE · Atualização do Sistema — digite sua senha para continuar");
     let rc = std::process::Command::new(&argv[0])
         .args(&argv[1..])
         .status()
@@ -34,12 +34,12 @@ fn main() {
             127
         });
     if rc == 0 {
-        println!("ELITE · dose NO AR — o sistema está atualizado.");
+        println!("ELITE · o sistema está atualizado.");
     } else if rc == 126 {
         eprintln!("ELITE · a autorização foi NEGADA (senha cancelada) — nada rodou.");
     } else {
         eprintln!(
-            "ELITE · a dose NÃO subiu (rc={rc}) — a verdade acima é do motor; o papel em ~/.cache/elite/update.log."
+            "ELITE · a atualização NÃO concluiu (rc={rc}) — a verdade acima é do motor; o papel em ~/.cache/elite/update.log."
         );
     }
     // E150 — A PAUSA DO `foot -e` (a ordem do dono, base 1.0-98: o terminal

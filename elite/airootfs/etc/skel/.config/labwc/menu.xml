@@ -222,11 +222,12 @@
          cérebro, o gamemode do Feral o músculo (governor performance +
          GPU high + rollback automático, RAM zero no idle). E106:
          ON/OFF/Automático/Status DEVOLvem feedback na tela. -->
-        <!-- 1.0-101: o painel abre em JANELA INTERATIVA (foot -e, a mesma
-         porta de Atualizar e Limpeza; o audit 99 fotografou a falha
-         calada do painel fora de palco) -->
+        <!-- E106 — A EXECUÇÃO NATIVA (a ordem do dono: o painel do jogo
+         roda como processo gráfico NATIVO — o craft-pick é a ÚNICA
+         janela; o terminal foot preto de era, com o aviso de portal
+         e o sinal de hangup no fechar, sai da porta do dono de vez) -->
 <item label="Modo de jogo">
-      <action name="Execute" command="foot -T 'Modo de jogo' -e craft-game menu" />
+      <action name="Execute" command="craft-game menu" />
     </item>
     <!-- v1.6.1: presets do idle no fuzzel, efeito imediato, sem
          relogin. E124: 'Trava automática' entrou cortando o tempo;
@@ -234,10 +235,10 @@
          1.0-94: o item abre o PAINEL NATIVO (craft-idle menu — o
          relato do dono: 'clico e não abre nada'; o cycle mudo morre
          como porta do menu, segue vivo no CLI). -->
-        <!-- 1.0-101: idem, painel INTERATIVO no foot (a falha silenciosa
-         do audit 99 morre: erro visível é erro diagnosticável) -->
+        <!-- E106 — idem: o painel da trava roda NATIVO (sem foot atrás;
+         o craft-pick é a única janela e a escolha vale na hora) -->
 <item label="Trava automática">
-      <action name="Execute" command="foot -T 'Trava automática' -e craft-idle menu" />
+      <action name="Execute" command="craft-idle menu" />
     </item>
     <separator />
     <!-- E90 — O MAPA DOS COMANDOS. E106 — a pausa do E96: a janela

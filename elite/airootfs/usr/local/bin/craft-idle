@@ -78,11 +78,18 @@ nota() {
 # INSTALADO anuncia o -T no papel de ajuda; sem ele, o painel segue
 # sem título (o contrato 0/1 intacto — o menu nunca morre por flag de
 # era).
+# E106/2 — DOIS CONSERTOS da sessão nativa (o item do menu roda SEM foot —
+# o craft-pick é a ÚNICA janela): (1) a sonda do -T casa o traço também
+# colado ao COLCHETE do uso ('[-T TÍTULO' — a âncora de espaço/linha da
+# era JAMAIS casava o papel real e o painel nascia SEM título de
+# boa-fé); (2) o stderr do craft-pick desce no vazio (os avisos de
+# portal do GTK não mancham a sessão nativa) SEM tocar no contrato 0/1 —
+# o exit code do pick continua o juiz da escolha, sempre.
 _pick() {
-    if craft-pick --help 2>/dev/null | grep -qE -- '(^|[[:space:]])-T([[:space:]]|$)'; then
-        craft-pick -T "$1"
+    if craft-pick --help 2>/dev/null | grep -qE -- '(^|[^[:alnum:]])-T[[:space:]]'; then
+        craft-pick -T "$1" 2>/dev/null
     else
-        craft-pick
+        craft-pick 2>/dev/null
     fi
 }
 

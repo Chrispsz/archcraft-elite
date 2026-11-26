@@ -298,17 +298,32 @@ popover > contents switch:checked { background: @elite-accent; }
 }
 #pickwin label.body { color: @elite-text-dim; }
 #pickwin button {
+  background: transparent;
+  color: @elite-text;
   border-radius: 10px;
   padding: 10px 22px;
   font-weight: 600;
 }
+/* E106 — O ITEM DA LISTA ESCURO DE VERDADE (a prova do rig: a lista do
+ * seletor nascia com o fundo CLARO do tema externo no hover — os botões
+ * sem regra de fundo deixavam o tema de fora pintar). O repouso é a
+ * obsidiana transparente, o hover sobe UM degrau (grafite R3) e o
+ * ativo veste a superfície forte — o clique único do dono sempre tem
+ * resposta visível, SEM hex cruso novo (só token da casa). */
+#pickwin button:hover { background: @elite-surface; }
+#pickwin button:active { background: @elite-surface-strong; }
 #pickwin scrolledwindow { background: @elite-bg; }
-#pickwin listview row { padding: 8px 14px; border-radius: 8px; color: @elite-text; }
-#pickwin listview row:hover { background: @elite-surface; }
+/* E106 — o nó REAL da lista é o `list` do GtkListBox (o `listview` de
+ * era casava com NADA: as linhas de hover/seleção nunca vestiram a
+ * pele da casa); o fundo mora na obsidiana, o hover sobe o degrau e a
+ * seleção veste o acento de sempre (R4/R5 abaixo) */
+#pickwin list { background: @elite-bg; }
+#pickwin list row { padding: 8px 14px; border-radius: 8px; color: @elite-text; }
+#pickwin list row:hover { background: @elite-surface; }
 /* R4/R5 na espinha do craft-pick (teclado-primeiro): seleção veste o
  * acento suave com texto da base (9.23:1 AAA) e o foco é VISÍVEL. */
-#pickwin listview row:selected { background: @elite-accent-strong; color: @elite-base; }
-#pickwin listview row:focus { outline: 2px solid @elite-accent-strong; outline-offset: -2px; }
+#pickwin list row:selected { background: @elite-accent-strong; color: @elite-base; }
+#pickwin list row:focus { outline: 2px solid @elite-accent-strong; outline-offset: -2px; }
 #pickwin entry { background: @elite-surface; color: @elite-text; border-radius: 8px; }
 
 /* ── E151 · os rótulos dos popovers nativos (mesma gramática da folha) ──── */

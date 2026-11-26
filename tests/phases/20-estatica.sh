@@ -263,9 +263,11 @@ file_has "bus: a retransmissão exclui o remetente (o loop infinito morre)" "cra
 file_has "tools: o pkexec na frente do elite-clean (a porta --as-root é de raiz)" "crates/craft-tools/src/lib.rs" '"pkexec".to_string()'
 # o probe nunca mais CRIA o bars.lock do dono
 file_has "probe: o bars.lock só é conferido se EXISTE (o root:root morre)" "$AIROOTFS/usr/local/bin/elite-session-probe" '[ -e "$_bars_lock" ]'
-# os menus abrem PAINÉIS, não CLIs mudos
-file_has "menu: o Modo de jogo abre o painel (craft-game menu)" "elite/airootfs/etc/skel/.config/labwc/menu.xml" "command=\"foot -T 'Modo de jogo' -e craft-game menu\""
-file_has "menu: a Trava automática abre o painel (craft-idle menu)" "elite/airootfs/etc/skel/.config/labwc/menu.xml" "command=\"foot -T 'Trava automática' -e craft-idle menu\""
+# os menus abrem PAINÉIS, não CLIs mudos — E106/2: a execução é
+# NATIVA (o craft-pick é a ÚNICA janela; o foot preto de era, com o
+# aviso de portal e o hangup no fechar, morre da porta do dono)
+file_has "menu: o Modo de jogo roda NATIVO (craft-game menu — sem foot)" "elite/airootfs/etc/skel/.config/labwc/menu.xml" "command=\"craft-game menu\""
+file_has "menu: a Trava automática roda NATIVA (craft-idle menu — sem foot)" "elite/airootfs/etc/skel/.config/labwc/menu.xml" "command=\"craft-idle menu\""
 # 1.0-105 — a forma do foot (com espaço) é a bandeira do seletor: o -T
 # com ESPAÇO no craft-pick e nos wrappers da casa (o --title= colado morre)
 file_has "idle: o verbo menu existe (o painel do dono — forma do foot -T)" "$AIROOTFS/usr/local/bin/craft-idle" 'craft-pick -T "$1"'
@@ -359,7 +361,9 @@ file_has "probe: o contador de era craft-toplevel NÃO volta (o fio vivo é o bu
 # --title=VALOR colado morre nos wrappers da casa):
 file_has "pick: o parser do seletor veste a forma do foot (-T título)" "crates/craft-tools/src/lib.rs" 'a == "-T"'
 file_has "pick: o parser da forma longa de sempre segue viva (--title=)" "crates/craft-tools/src/lib.rs" 'strip_prefix("--title=")'
-file_has "menu: as janelas do menu nascem com TÍTULO (foot -T)" "elite/airootfs/etc/skel/.config/labwc/menu.xml" "foot -T 'Modo de jogo' -e craft-game menu"
+# E106/2 — o título do foot fica nas janelas de TERMINAL do menu (update/
+# clean seguem no foot — os painéis nativos vestem o -T do craft-pick)
+file_has "menu: as janelas de terminal do menu nascem com TÍTULO (foot -T)" "elite/airootfs/etc/skel/.config/labwc/menu.xml" "foot -T 'Atualizar o sistema' -e craft-update"
 # a dock JAMAIS rouba o foco de teclado (o primeiro clique abre o app —
 # não acorda a dock) e o anel roxo de foco morre no CSS:
 file_has "dock: o teclado NUNCA é da dock (KeyboardMode::None — 1.0-105)" "crates/craft-dock-rs/src/ui.rs" 'KeyboardMode::None'
@@ -434,6 +438,23 @@ file_has "pick: o EventControllerFocus desce o seletor no leave (zero zumbi)" "c
 # — 1.0-105: a forma do foot -T com espaço é a bandeira da casa):
 file_has "pick: o craft-idle sonda o --help antes do -T (a flag de era não mata o painel)" "$AIROOTFS/usr/local/bin/craft-idle" 'craft-pick --help'
 file_has "pick: o craft-game sonda o --help antes do -T (idem)" "$AIROOTFS/usr/local/bin/craft-game" 'craft-pick --help'
+# E106/2 — o pick calado no stderr (os avisos de portal do GTK não mancham
+# a sessão nativa; o contrato 0/1 do exit code segue INTACTO — o juiz é
+# o rc, nunca o eco)
+file_has "game: o pick do jogo desce calado no stderr (contrato 0/1 intacto)" "$AIROOTFS/usr/local/bin/craft-game" 'craft-pick -T "$1" 2>/dev/null'
+file_has "idle: o pick da trava desce calado no stderr (idem)" "$AIROOTFS/usr/local/bin/craft-idle" 'craft-pick -T "$1" 2>/dev/null'
+# E106/2 — o DND morreu por ordem do dono: o corpo do jogo NÃO toca na
+# central de notificações (o 'manual: ON/OFF' do papel vem ANTES do fio
+# do pill roxo — o estado nunca fica devendo a porta estranha nenhuma)
+file_hasnt "game: o swaync-client MORREU do corpo do jogo (o DND de era não volta)" "$AIROOTFS/usr/local/bin/craft-game" 'swaync-client'
+file_hasnt "game: a lembrança do DND não volta nem em comentário" "$AIROOTFS/usr/local/bin/craft-game" 'game-dnd-antes'
+file_has "game: o estado manual assinado ANTES do fio do pill (bus_notifica depois do glog)" "$AIROOTFS/usr/local/bin/craft-game" 'glog "manual: ON'
+# E106/2 — a lista do seletor veste a pele escura de verdade: o botão do
+# item ganha hover/ativo escuros e o nó REAL do GtkListBox veste as
+# linhas (o listview de era casava com NADA — o fundo claro do tema
+# externo era o réu da lista branca do rig)
+file_has "css: o item do seletor veste o hover escuro (R3 no botão da lista)" "crates/elite-core/assets/theme.css" '#pickwin button:hover'
+file_has "css: a lista do seletor veste o nó real do ListBox (o listview de era casava com nada)" "crates/elite-core/assets/theme.css" '#pickwin list row:hover'
 # as pausas do foot -e (o terminal do menu não some com o veredito):
 file_has "terminal: o craft-help pausa no Enter (o mapa não some)" "crates/craft-tools/src/bin/craft-help.rs" 'Pressione Enter para fechar'
 file_has "terminal: o craft-update pausa no Enter (o veredito não some)" "crates/craft-tools/src/bin/craft-update.rs" 'Pressione Enter para fechar'
