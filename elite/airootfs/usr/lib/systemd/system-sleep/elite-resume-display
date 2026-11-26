@@ -166,6 +166,33 @@ waiter() {
             else
                 logger -t elite-resume-display "outputs confirmados pós-sono (--on direto E88 — a tela nunca dormiu ACESA sob este sono; usuários/sockets:$feito)"
             fi
+            # 1.0-104 — A RESTAURAÇÃO DO ÁUDIO NO RETORNO DO DISPLAYPORT
+            #    (AMDGPU: o sink HDMI/DP do monitor some no re-bind do
+            #    conector e o PipeWire às vezes não devolve o default — a
+            #    pergunta calada não é prova: o wpctl pergunta; SEM
+            #    resposta = sem default = o servidor de som renasce).
+            #    O usuário ativo (o dono do socket wayland que acaba de
+            #    religar) fala com o PRÓPRIO systemd --user pelo setpriv
+            #    (a mesma porta SEM PAM da E88 — zero runuser, zero
+            #    UnitAllocationFailed; DBUS_SESSION_BUS_ADDRESS do
+            #    runtime tmpfs do usuário). Best-effort com teto: 8s.
+            if command -v setpriv >/dev/null 2>&1; then
+                for uhome in /home/*; do
+                    u="${uhome##*/}"
+                    uid="$(id -u "$u" 2>/dev/null)" || continue
+                    gid="$(id -g "$u" 2>/dev/null)" || continue
+                    [ -S "/run/user/$uid/bus" ] || continue
+                    timeout 3 setpriv --reuid="$uid" --regid="$gid" --init-groups \
+                        env XDG_RUNTIME_DIR="/run/user/$uid" \
+                        DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" \
+                        wpctl get-volume @DEFAULT_AUDIO_SINK@ >/dev/null 2>&1 \
+                        || timeout 8 setpriv --reuid="$uid" --regid="$gid" --init-groups \
+                            env XDG_RUNTIME_DIR="/run/user/$uid" \
+                            DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" \
+                            systemctl --user restart pipewire wireplumber 2>/dev/null \
+                            && logger -t elite-resume-display "áudio restaurado no wake (u:$u — o wpctl não viu default sink: pipewire+wireplumber renasceram pelo setpriv, teto 8s)"
+                done
+            fi
             exit 0
         fi
         sleep 2

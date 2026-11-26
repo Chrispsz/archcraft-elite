@@ -144,7 +144,16 @@
     </fields>
   </windowSwitcher>
 
-  <!-- Resistência do criador: screen_edge_strength 20 -->
+  <!-- Resistência do criador: screen_edge_strength 20
+       1.0-104 — A RESTAURAÇÃO POR ARRASTE É LEI DA FÍSICA da casa
+       (labwc-config(5) 0.20.3 §RESISTANCE): <unSnapThreshold> 20 e
+       <unMaximizeThreshold> 150 são os TRAVÕES do arraste pela barra
+       de título — arrastar uma janela MAXIMIZADA ou ENCAIXADA (snap)
+       além do limiar devolve o tamanho FLUTUANTE ANTERIOR na HORA do
+       gesto (o labwc lembra a geometria pré-maximização; Move é ação
+       do compositor, não pedido do cliente — zero loop de ConfigureRequest).
+       O arrasto de 10px da barra (ARRASTO_PX do craft-bar-rs) não morde:
+       o limiar é do MOVIMENTO do cursor, não do clique. -->
   <resistance>
     <screenEdgeStrength>20</screenEdgeStrength>
     <windowEdgeStrength>20</windowEdgeStrength>
@@ -152,6 +161,15 @@
     <unMaximizeThreshold>150</unMaximizeThreshold>
   </resistance>
 
+  <!-- 1.0-104 — A CALIBRAÇÃO DO SNAP RESPEITA AS ZONAS EXCLUSIVAS
+       (labwc-config(5) 0.20.3 §WINDOW SNAPPING/§REGIONS): o snap de
+       borda e as regiões de quadrante são calculados sobre a ÁREA
+       ÚTIL do output — "space not exclusively used by layershell
+       clients" — a top bar (28px, zona exclusiva da craft-bar-rs) e
+       a dock (zona exclusiva da craft-dock-rs) JAMAIS ficam por
+       baixo da janela snapada; o range 14 é o íman da borda ÚTIL
+       (não da borda crua do painel) e o overlay desenha sobre a
+       área ÚTIL. -->
   <snapping>
     <!-- BLOCO 3 — O ARRASTE MAGNÉTICO NASCE DE VERDADE (a cura do bug
          silencioso da v1.6): o parser do labwc (rcxml.c 0.9.1) lê range
@@ -674,6 +692,23 @@
          ON_FIRST_MAP). Dois identifiers exatos: glob não tem alternância. -->
     <windowRule identifier="brave-browser"><action name="Maximize" /></windowRule>
     <windowRule identifier="Code"><action name="Maximize" /></windowRule>
+    <!-- 1.0-104 — OS CLIENTES XWAYLAND/PROTON DA CASA (labwc 0.20.3,
+         labwc-config(5) §WINDOW RULES: identifier = WM_CLASS do XWayland —
+         o "steam_app_<id>" do Steam através do Proton e o "<jogo>.exe" do
+         Wine/Hydra). O contrato do jogo:
+           · serverDecoration="yes" — a moldura CONSISTENTE no primeiro
+             mapa (o E126 cura o hint nua ao SAIR do fullscreen; ESTA
+             regra cura o NASCIMENTO decorado);
+           · ignoreConfigureRequest="yes" — o jogo X11 NÃO se posiciona e
+             não se dimensiona sozinho (o man: "prevents a X11 window to
+             position and size itself"): o LOOP DE PISCADA dos jogos
+             MonoGame/SDL ao maximizar morre na raiz — o jogo pedia o
+             tamanho da tela, o labwc maximizava, o jogo via o tamanho
+             diferente do pedido e pedia DE NOVO (ConfigureRequest em
+             círculo); o ToggleFullscreen REAL é do COMPOSITOR (A-F11,
+             a ação labwc — nunca a auto-maximização do cliente). -->
+    <windowRule identifier="steam_app_*" serverDecoration="yes" ignoreConfigureRequest="yes" />
+    <windowRule identifier="*.exe" serverDecoration="yes" ignoreConfigureRequest="yes" />
     <!-- Exemplo para o dono (COMENTADO — descomente para ativar; a sintaxe
          é glob(7): identifier exato, sem '^', sem '|'): <windowRule
          identifier="org.pulseaudio.pavucontrol"><action

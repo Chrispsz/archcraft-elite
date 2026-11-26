@@ -1601,10 +1601,15 @@ E74OSD
       # 1.0-103 — o heredoc python morre; o JUIZ DE CASA veste as 5
       # reescritas EXATAS E74 (swayosd-client com fallback — o RXML é
       # reescrito, o número vem no stdout; exit 3 = nada a reescrever)
+      # 1.0-104 — O EXIT 3 TEM VOZ PRÓPRIA (o rig cujo rc.xml já veste
+      # os binds do swayosd NÃO é alarme: zero reescritas = já curado;
+      # o falso 'falhou' da era anterior mentia no papel a cada tune)
       if craft-audit binds-osd "$RXML"; then
         chmod --reference="$RXML" "$RXML" 2>/dev/null || true
         chown "$(stat -c '%U:%G' "$h")" "$RXML" 2>/dev/null || true
         say "OSD ($u): binds reescritos (labwc-msg reconfigure pelo próprio usuário: C-S-R)"
+      elif [ "$?" -eq 3 ]; then
+        say "OSD ($u): binds já vestem o swayosd-client (exit 3 = nada a reescrever — já curado)"
       else
         warn "OSD ($u): a reescrita dos binds falhou — os XF86 seguem no pactl (sem barra, com função)"
       fi
