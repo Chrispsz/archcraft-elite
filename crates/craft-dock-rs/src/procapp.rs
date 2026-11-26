@@ -211,6 +211,27 @@ pub fn proc_argv0_executable(proc_root: &Path, key: &str, uid: u32) -> Option<Pa
     None
 }
 
+/// E106/5 — o EXEC provável do sem-nome (a PROVA de origem para o
+/// .desktop local da fixação): o argv[0] EXECUTÁVEL do processo vivo →
+/// o AppImage do environ APPIMAGE= (o duplo-clique lança o .AppImage
+/// e o argv[0] às vezes veste o mount do runtime — o environ carrega o
+/// CAMINHO de verdade). Sem prova, None: a casa NUNCA fixa o que não
+/// lança (o item "Fixar na Dock" nem nasce no menu).
+pub fn raw_exec_provavel(proc_root: &Path, key: &str, uid: u32) -> Option<String> {
+    if let Some(argv0) = proc_argv0_executable(proc_root, key, uid) {
+        return Some(argv0.to_string_lossy().into_owned());
+    }
+    let (appimg, _) = proc_appimage(proc_root, key, uid)?;
+    use std::os::unix::fs::PermissionsExt;
+    let executavel = fs::metadata(&appimg)
+        .map(|m| m.is_file() && m.permissions().mode() & 0o111 != 0)
+        .unwrap_or(false);
+    if executavel {
+        return Some(appimg.to_string_lossy().into_owned());
+    }
+    None
+}
+
 /// Os comms VIVOS do usuário (o poll dos indicadores — um só lugar
 /// onde "aberto" existe; zero fork, N leituras).
 pub fn scan_user_comms(proc_root: &Path, uid: u32) -> Vec<String> {
@@ -417,6 +438,63 @@ mod tests {
         // 14 chars não é casca truncada: tem que casar inteiro
         assert!(!comm_matches("hydraplusviewe", "hydraplusviewerlongkey"));
         assert!(!comm_matches("", "x"));
+    }
+
+    #[test]
+    fn e106_o_exec_provavel_do_sem_nome() {
+        // (1) o argv[0] executável é a prova direta (o duplo-clique)
+        let root = tmpdir("execprov");
+        let bin = root.join("apps/Hydra");
+        fs::create_dir_all(bin.parent().unwrap()).unwrap();
+        fs::write(&bin, b"ELF").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&bin, fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        let pid = root.join("proc/31");
+        fs::create_dir_all(&pid).unwrap();
+        fs::write(pid.join("comm"), "hydra\n").unwrap();
+        let mut cmd = bin.to_string_lossy().into_owned().into_bytes();
+        cmd.push(0);
+        fs::write(pid.join("cmdline"), &cmd).unwrap();
+        assert_eq!(
+            raw_exec_provavel(&root.join("proc"), "hydra", current_uid()),
+            Some(bin.to_string_lossy().into_owned())
+        );
+        // (2) o argv[0] morto (mount que já era) cai no environ APPIMAGE=
+        // (um /proc À PARTE: a sonda devolve a 1ª prova que acha)
+        let root2 = tmpdir("execprov2");
+        let appimg = root2.join("apps/Hydra Plus.AppImage");
+        fs::create_dir_all(appimg.parent().unwrap()).unwrap();
+        fs::write(&appimg, b"ELF").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&appimg, fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        let pid2 = root2.join("proc/32");
+        fs::create_dir_all(&pid2).unwrap();
+        fs::write(pid2.join("comm"), "hydra\n").unwrap();
+        let mut env = b"HOME=/home/dono\0".to_vec();
+        env.extend_from_slice(
+            format!("APPIMAGE={}", appimg.to_string_lossy()).as_bytes(),
+        );
+        env.push(0);
+        fs::write(pid2.join("environ"), &env).unwrap();
+        // o argv[0] aponta para o mount que NÃO existe em disco: a
+        // sonda cai no environ e devolve o .AppImage de verdade
+        fs::write(
+            pid2.join("cmdline"),
+            b"/tmp/.mount_JaEra/usr/bin/hydra\0",
+        )
+        .unwrap();
+        assert_eq!(
+            raw_exec_provavel(&root2.join("proc"), "hydra", current_uid()),
+            Some(appimg.to_string_lossy().into_owned())
+        );
+        // (3) sem processo vivo: sem prova, None (nada fixa o que não lança)
+        assert!(raw_exec_provavel(&root2.join("proc"), "fantasma", current_uid()).is_none());
     }
 
     #[test]

@@ -78,6 +78,9 @@ fi
 file_has "bus: o elite-core fala elite/bus.sock" "crates/elite-core/src/lib.rs" 'elite/bus.sock'
 file_has "bus: a barra fala o MESMO fio" "crates/craft-bar-rs/src/main.rs" 'elite/bus.sock'
 file_has "bus: a dock fala o MESMO fio" "crates/craft-dock-rs/src/main.rs" 'elite/bus.sock'
+# E106/2 — A REGRESSÃO DA SEGUNDA INSTÂNCIA: com a janela do app no
+# snapshot o clique é VERBO (Activate/Minimize por id), nunca launch:
+file_has "dock: a regressão do verbo nunca-lançamento (janela no snapshot = foco)" "crates/craft-dock-rs/src/sock.rs" 'fn e106_o_clique_com_janela_e_verbo_nunca_lancamento'
 
 # ── 5. a instância única é lei do FONTE ──────────────────────────────────
 file_has "ipc: o flock da sessão (a 2ª instância sai 0 com papel)" \

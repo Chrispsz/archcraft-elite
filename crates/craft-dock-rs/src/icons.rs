@@ -726,28 +726,76 @@ pub fn desktop_dirs(home: &Path) -> Vec<PathBuf> {
     ]
 }
 
+/// E106/3 — O .desktop AUXILIAR não é app de identidade: os nomes que
+/// o ambiente Xfce/thunar deixa ao lado do dono (`thunar-bulk-rename`,
+/// os `*-settings`, a família `exo-*`) carregam o MESMO StartupWMClass
+/// do app de verdade — indexá-los rouba a chave do dono (o rig provou:
+/// clicar no botão do gerenciador de arquivos abria "Renomear em massa"
+/// porque o bulk-rename, que ordena ANTES no alfabeto, registrava
+/// "thunar" primeiro). O auxiliar só veste a PRÓPRIA identidade (o
+/// stem do id dele) no índice — o jogo steam_app_* NoDisplay NÃO é
+/// auxiliar e segue indexado inteiro (a identidade dos jogos é a lei
+/// 1.0-104, intocada).
+pub fn desktop_eh_auxiliar(e: &DesktopEntry) -> bool {
+    let id = fold(e.id.trim_end_matches(".desktop"));
+    if id.starts_with("exo-") {
+        return true;
+    }
+    if id.ends_with("-bulk-rename") || id.ends_with("-settings") {
+        return true;
+    }
+    // o Exec claramente auxiliar (o exo-* que o item de menu carrega)
+    first_binary(&strip_field_codes(&e.exec))
+        .map(|b| b.to_lowercase().starts_with("exo-"))
+        .unwrap_or(false)
+}
+
 /// E132 — o ÍNDICE de .desktops: chave (fold) → entrada. As chaves de
 /// cada entrada: StartupWMClass, o 1º binário do Exec, o id sem o
 /// .desktop E as alternativas REVERSE-DNS ("bazaar" para o
 /// io.github.kolunmi.Bazaar.desktop — a ordem do dono). A PRIMEIRA
-/// chave vence (setdefault do Python).
+/// chave vence (setdefault do Python), com DUAS leis E106/3 por cima:
+///   · o AUXILIAR só veste o próprio id (o StartupWMClass/binário dele
+///     nunca roubam a chave do dono — thunar.desktop vence para Thunar);
+///   · o OCULTO (NoDisplay/Hidden) nunca rouba a chave do VISÍVEL: o
+///     foot-server.desktop NoDisplay da casa carrega Exec=foot --server
+///     e a chave "foot" era DELE (o /usr/local ordena antes do
+///     /usr/share) — o clique no comm "foot" lançava o DAEMON do
+///     terminal em vez do terminal. O visível desocupa o oculto; entre
+///     iguais, a primeira continua vencendo (o steam_app_* NoDisplay
+///     segue dono das chaves DELE — ninguém visível as quer).
 pub fn desktop_index(entries: &[DesktopEntry]) -> HashMap<String, usize> {
     let mut idx: HashMap<String, usize> = HashMap::new();
+    let oculto = |e: &DesktopEntry| e.no_display || e.hidden;
     for (i, e) in entries.iter().enumerate() {
         let mut keys: Vec<String> = Vec::new();
-        if !e.wm_class.is_empty() {
-            keys.push(fold(&e.wm_class));
-        }
-        let bin = first_binary(&strip_field_codes(&e.exec));
-        if let Some(b) = bin {
-            keys.push(fold(&b));
+        // E106/3 — o auxiliar só assina o PRÓPRIO nome (o stem do id)
+        if !desktop_eh_auxiliar(e) {
+            if !e.wm_class.is_empty() {
+                keys.push(fold(&e.wm_class));
+            }
+            let bin = first_binary(&strip_field_codes(&e.exec));
+            if let Some(b) = bin {
+                keys.push(fold(&b));
+            }
         }
         keys.extend(reverse_dns_alternates(&e.id).iter().map(|k| fold(k)));
         for k in keys {
             if k.is_empty() {
                 continue;
             }
-            idx.entry(k).or_insert(i);
+            match idx.get(&k) {
+                // vaga livre: a primeira lei de sempre
+                None => {
+                    idx.insert(k, i);
+                }
+                // o dono atual é OCULTO e o novo é VISÍVEL: desocupa
+                Some(&j) if oculto(&entries[j]) && !oculto(e) => {
+                    idx.insert(k, i);
+                }
+                // em todo o resto a PRIMEIRA chave segue vencendo
+                _ => {}
+            }
         }
     }
     idx
@@ -936,11 +984,22 @@ pub fn exec_ready(entry: &DesktopEntry) -> String {
     raw
 }
 
-/// O 1º binário do commandline (shlex do Python: aqui, um split
-/// simples por espaço — os Exec da casa não citam o 1º token).
+/// O 1º binário do commandline (shlex do Python: aqui, um split simples
+/// por espaço — os Exec da casa não citam o 1º token). E106/5 — o token
+/// CITADO é o binário inteiro: o .desktop LOCAL gerado pela fixação do
+/// sem-nome cita o caminho com espaço (Exec="/opt/Apps/Hydra
+/// Plus.AppImage") e o split cru partiria a citação no meio.
 pub fn first_binary(raw: &str) -> Option<String> {
-    let first = raw.split_whitespace().next()?;
-    Some(Path::new(first).file_name()?.to_string_lossy().into_owned())
+    let s = raw.trim();
+    let tok = if s.starts_with('"') {
+        // entre aspas: o caminho com espaço é UM token só
+        s.split('"').nth(1).filter(|t| !t.is_empty())?
+    } else if s.starts_with('\'') {
+        s.split('\'').nth(1).filter(|t| !t.is_empty())?
+    } else {
+        s.split_whitespace().next()?
+    };
+    Some(Path::new(tok).file_name()?.to_string_lossy().into_owned())
 }
 
 // ── a chave do botão RAW (E106 — a denylist dos diálogos de daemon) ──
@@ -1029,6 +1088,56 @@ pub fn focus_candidates(entry: &DesktopEntry, hint: &str) -> Vec<String> {
         }
     }
     out
+}
+
+// ── E106/5 — o .desktop LOCAL do sem-nome (a fixação que gera endereço) ──
+
+/// E106/5 — o ID do .desktop LOCAL do sem-nome: `elite-<chave>.desktop`
+/// em ~/.local/share/applications (o papel é do DONO, nunca do sistema).
+/// A chave veste o fold da casa e o que não é letra/número vira traço
+/// (nome de ARQUIVO não carrega espaço; o StartupWMClass lá dentro
+/// segue com a chave CRUA para casar a janela na gramática de sempre).
+pub fn elite_desktop_id(key: &str) -> String {
+    let limpo: String = fold(key)
+        .chars()
+        .map(|c| if c.is_alphanumeric() || c == '-' { c } else { '-' })
+        .collect();
+    format!("elite-{limpo}.desktop")
+}
+
+/// E106/5 — o CORPO do .desktop do sem-nome (puro, testado): Name = o
+/// nome do botão, Exec = a PROVA de origem que o botão raw usa no
+/// "Nova janela" (argv[0]/AppImage do /proc — o caminho com espaço veste
+/// aspas, a spec manda e o sh da casa entende), StartupWMClass = a
+/// chave crua (a janela casa na hora), Terminal=false e NoDisplay=false
+/// (o dono QUER ver o que fixou). Icon só quando há caminho resolvido
+/// em disco — sem ícone, o campo OMITE (nunca glifo mentiroso).
+pub fn desktop_do_raw(key: &str, name: &str, exec: &str, icon: Option<&Path>) -> String {
+    let mut out = String::new();
+    out.push_str("# elite-dock: gerado pela dock (E106) — o sem-nome ganhou endereço\n");
+    out.push_str("[Desktop Entry]\n");
+    out.push_str("Type=Application\n");
+    out.push_str(&format!("Name={name}\n"));
+    if exec.contains(' ') {
+        out.push_str(&format!("Exec=\"{exec}\"\n"));
+    } else {
+        out.push_str(&format!("Exec={exec}\n"));
+    }
+    if let Some(p) = icon {
+        out.push_str(&format!("Icon={}\n", p.display()));
+    }
+    out.push_str(&format!("StartupWMClass={key}\n"));
+    out.push_str("Terminal=false\n");
+    out.push_str("NoDisplay=false\n");
+    out
+}
+
+/// E106/5 — o .desktop é DA CASA? A assinatura da primeira linha é o
+/// contrato: o desafixar só APAGA o arquivo que a própria dock gerou —
+/// o .desktop do dono, colocado à mão com o mesmo nome, fica (o papel
+/// é dele).
+pub fn eh_desktop_da_casa(txt: &str) -> bool {
+    txt.trim_start().starts_with("# elite-dock:")
 }
 
 #[cfg(test)]
@@ -1589,5 +1698,158 @@ mod tests {
         // o nome sem .desktop na lista: nada
         let idx_vazio: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
         assert!(resolve_por_titulo(&idx_vazio, &entries, "Foot").is_none());
+    }
+
+    #[test]
+    fn e106_o_auxiliar_nao_rouba_o_wmclass_do_dono() {
+        // O CASO DO RIG: thunar-bulk-rename.desktop ordena ANTES no
+        // alfabeto e carrega o MESMO StartupWMClass=Thunar — sem a lei,
+        // o índice cravava o bulk-rename na chave "thunar" e o clique no
+        // botão do gerenciador de arquivos abria "Renomear em massa"
+        let entries = vec![
+            parse_desktop_entry(
+                "thunar-bulk-rename.desktop",
+                "[Desktop Entry]\nName=Bulk Rename\nExec=thunar --bulk-rename\nStartupWMClass=Thunar\n",
+            ),
+            parse_desktop_entry(
+                "thunar.desktop",
+                "[Desktop Entry]\nName=Thunar\nExec=thunar\nStartupWMClass=Thunar\n",
+            ),
+        ];
+        let idx = desktop_index(&entries);
+        let hit = resolve_desktop(&idx, &entries, "thunar").unwrap();
+        assert_eq!(hit.id, "thunar.desktop", "o WMClass Thunar é do DONO");
+        // o auxiliar segue resolvível pelo PRÓPRIO id (um pin direto
+        // dele não morre podado na 2ª passada)
+        let hit = resolve_desktop(&idx, &entries, "thunar-bulk-rename").unwrap();
+        assert_eq!(hit.id, "thunar-bulk-rename.desktop");
+        // a família exo-* e os *-settings são auxiliares idem (pelo id
+        // e pelo Exec que carrega exo-*)
+        assert!(desktop_eh_auxiliar(&parse_desktop_entry(
+            "exo-file-manager.desktop",
+            "[Desktop Entry]\nName=File Manager\nExec=exo-open --launch FileManager\n",
+        )));
+        assert!(desktop_eh_auxiliar(&parse_desktop_entry(
+            "thunar-settings.desktop",
+            "[Desktop Entry]\nName=Thunar Settings\nExec=thunar-settings\n",
+        )));
+        assert!(desktop_eh_auxiliar(&parse_desktop_entry(
+            "foo.desktop",
+            "[Desktop Entry]\nName=Foo\nExec=exo-desktop-item-edit --type=Application\n",
+        )));
+        // o app de verdade e o jogo Steam NÃO são auxiliares (a
+        // identidade dos jogos NoDisplay é a lei 1.0-104, intocada)
+        assert!(!desktop_eh_auxiliar(&parse_desktop_entry(
+            "thunar.desktop",
+            "[Desktop Entry]\nName=Thunar\nExec=thunar\nStartupWMClass=Thunar\n",
+        )));
+        assert!(!desktop_eh_auxiliar(&parse_desktop_entry(
+            "steam_app_413150.desktop",
+            "[Desktop Entry]\nName=Stardew Valley\nExec=proton run\nIcon=steam_icon_413150\nNoDisplay=true\n",
+        )));
+    }
+
+    #[test]
+    fn e106_o_jogo_nodisplay_do_steam_segue_indexado() {
+        // a lei 1.0-104 intocada pela E106/3: o jogo NoDisplay segue no
+        // índice com TODAS as chaves dele (o stem do id + o binário)
+        let entries = vec![parse_desktop_entry(
+            "steam_app_413150.desktop",
+            "[Desktop Entry]\nName=Stardew Valley\nExec=proton run\nIcon=steam_icon_413150\nNoDisplay=true\n",
+        )];
+        let idx = desktop_index(&entries);
+        assert_eq!(
+            idx.get("steam-app-413150").map(|i| entries[*i].id.as_str()),
+            Some("steam_app_413150.desktop"),
+            "a identidade NoDisplay do jogo segue viva no índice"
+        );
+    }
+
+    #[test]
+    fn e106_o_oculto_nunca_rouba_a_chave_do_visivel() {
+        // O CASO DA CASA: foot-server.desktop (NoDisplay, no /usr/local
+        // que ordena ANTES) carrega Exec=foot --server — o 1º binário é
+        // "foot" e a chave era DELE; o clique no comm "foot" lançava o
+        // DAEMON do terminal em vez do terminal
+        let entries = vec![
+            parse_desktop_entry(
+                "foot-server.desktop",
+                "[Desktop Entry]\nName=Foot Server\nExec=foot --server\nNoDisplay=true\n",
+            ),
+            parse_desktop_entry(
+                "footclient.desktop",
+                "[Desktop Entry]\nName=Foot Client\nExec=footclient\nNoDisplay=true\n",
+            ),
+            parse_desktop_entry(
+                "foot.desktop",
+                "[Desktop Entry]\nName=Foot\nExec=foot\n",
+            ),
+        ];
+        let idx = desktop_index(&entries);
+        // a chave "foot" é do TERMINAL de verdade, nunca do daemon
+        let hit = resolve_desktop(&idx, &entries, "foot").unwrap();
+        assert_eq!(hit.id, "foot.desktop");
+        assert_eq!(hit.exec, "foot");
+        // SEM o foot de verdade na lista, o oculto continua sendo a
+        // identidade (o visível desocupa; ninguém APAGA o oculto)
+        let so_ocultos = vec![
+            parse_desktop_entry(
+                "foot-server.desktop",
+                "[Desktop Entry]\nName=Foot Server\nExec=foot --server\nNoDisplay=true\n",
+            ),
+        ];
+        let idx2 = desktop_index(&so_ocultos);
+        assert_eq!(
+            idx2.get("foot").map(|i| so_ocultos[*i].id.as_str()),
+            Some("foot-server.desktop")
+        );
+    }
+
+    #[test]
+    fn e106_o_primeiro_binario_entende_aspas() {
+        // o Exec CITADO é um token só (o .desktop local do sem-nome cita
+        // o caminho com espaço — o split cru partiria a citação)
+        assert_eq!(
+            first_binary("\"/opt/Apps/Hydra Plus.AppImage\" --flag"),
+            Some("Hydra Plus.AppImage".to_string())
+        );
+        assert_eq!(first_binary("thunar --bulk-rename"), Some("thunar".to_string()));
+        assert_eq!(first_binary(""), None);
+    }
+
+    #[test]
+    fn e106_o_desktop_local_do_sem_nome() {
+        // o id da casa: elite-<chave>.desktop (o lixo vira traço)
+        assert_eq!(elite_desktop_id("hydra-plus"), "elite-hydra-plus.desktop");
+        assert_eq!(elite_desktop_id("Meu Jogo"), "elite-meujogo.desktop");
+        // o corpo: Name/Exec/StartupWMClass/Terminal/NoDisplay e a
+        // assinatura da primeira linha (o desafixar só apaga O QUE A
+        // CASA GEROU)
+        let corpo = desktop_do_raw(
+            "hydra-plus",
+            "Hydra",
+            "/opt/Apps/Hydra Plus.AppImage",
+            Some(Path::new("/home/dono/.cache/elite/appimage-icons/abc.png")),
+        );
+        assert!(eh_desktop_da_casa(&corpo));
+        assert!(corpo.contains("[Desktop Entry]\n"));
+        assert!(corpo.contains("Name=Hydra\n"));
+        assert!(corpo.contains("Exec=\"/opt/Apps/Hydra Plus.AppImage\"\n"));
+        assert!(corpo.contains("StartupWMClass=hydra-plus\n"));
+        assert!(corpo.contains("Terminal=false\n"));
+        assert!(corpo.contains("NoDisplay=false\n"));
+        assert!(corpo.contains("Icon=/home/dono/.cache/elite/appimage-icons/abc.png\n"));
+        // SEM ícone: o campo OMITE (nunca glifo mentiroso)
+        let sem_icone = desktop_do_raw("bazaar", "Bazaar", "/opt/bazaar", None);
+        assert!(!sem_icone.contains("Icon="));
+        // Exec sem espaço: sem aspas (a forma crua da casa)
+        assert!(sem_icone.contains("Exec=/opt/bazaar\n"));
+        // o papel do DONO nunca é apagado sem a assinatura
+        assert!(!eh_desktop_da_casa("[Desktop Entry]\nName=x\n"));
+        // e o corpo GERADO parseia de volta (a dock mesma é consumidora)
+        let volta = parse_desktop_entry("elite-hydra-plus.desktop", &corpo);
+        assert_eq!(volta.wm_class, "hydra-plus");
+        assert_eq!(volta.exec, "\"/opt/Apps/Hydra Plus.AppImage\"");
+        assert!(!volta.no_display && !volta.terminal);
     }
 }

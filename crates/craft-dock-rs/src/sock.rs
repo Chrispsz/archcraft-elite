@@ -461,6 +461,49 @@ mod tests {
         assert!(near_match("brave", "brave-browser"));
         assert!(!near_match("foot", "footclient")); // letra colada
         assert!(!near_match("ab", "abc")); // <4 chars
+        // 1.0-106 — o HÍFEN é fronteira: 'foot' casa 'foot-server' (a
+        // mesma família de terminal — o WMClass/comm do daemon casa o
+        // botão do foot para o AGRUPAMENTO), mas a letra colada do
+        // footclient continua sendo OUTRO app
+        assert!(near_match("foot", "foot-server"));
+    }
+
+    /// E106/2 — A REGRESSÃO DA SEGUNDA INSTÂNCIA: com a janela do app no
+    /// snapshot, o esquerdo é VERBO de foco (Activate/Minimize por id),
+    /// NUNCA um lançamento — a cadeia que decide no on_left: janela
+    /// presente no snapshot + guard aposentado pelo MAP. O launch só mora
+    /// no ramo do VAZIO comprovado (a LIST fresca E135 no clique).
+    #[test]
+    fn e106_o_clique_com_janela_e_verbo_nunca_lancamento() {
+        let snap = de_bus_windows(&[WindowInfo {
+            id: 21,
+            app_id: "thunar".into(),
+            title: Some("Arquivos — a|b".into()),
+            focused: true,
+            minimized: false,
+            fullscreen: false,
+            desk: None,
+        }]);
+        let cands = vec!["thunar".to_string()];
+        // a janela do app está no snapshot: o esquerdo veste o verbo de
+        // foco — o clique NÃO passa pelo launch (nada de 2ª instância)
+        assert_eq!(windows_of_key(&snap, &cands, "Thunar", false), vec![21]);
+        assert_eq!(windows_of_key(&snap, &cands, "Thunar", true), vec![21]);
+        // a focada + não minimizada: o TOGGLE E89 manda MIN por id
+        assert!(snap.windows[&21].flags & F_ACTIVATED != 0);
+        assert!(snap.windows[&21].flags & F_MINIMIZED == 0);
+        // o guard E88 aposenta (mapeou = o vão acabou): o clique seguinte
+        // é foco imediato, nunca um novo processo
+        assert!(key_mapped(&snap, "thunar.desktop"));
+        // o SEM-NOME idem: a janela cravada é a prova (o raw nunca lança
+        // às cegas — o Act::Raw sem janela é o log que ensina)
+        assert_eq!(raw_windows(&snap, "thunar", false), vec![21]);
+        assert_eq!(raw_windows(&snap, "thunar", true), vec![21]);
+        // o VAZIO comprovado é o ÚNICO caminho de lançamento: sem janela
+        // no snapshot fresco, o guard E71 protege o vão de 8s
+        let vazio = de_bus_windows(&[]);
+        assert!(windows_of_key(&vazio, &cands, "Thunar", false).is_empty());
+        assert!(!key_mapped(&vazio, "thunar.desktop"));
     }
 
     #[test]

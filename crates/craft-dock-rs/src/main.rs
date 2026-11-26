@@ -5,7 +5,7 @@
 // A ARQUITETURA (a lei do degrau — ver Cargo.toml):
 //   · icons.rs  — identidade e ícone (PURE, testado local);
 //   · procapp.rs — a sonda /proc do AppImage (PURE, testado local);
-//   · sock.rs   — o protocolo do craft-toplevel + a gramática de
+//   · sock.rs   — o protocolo do bus.sock + a gramática de
 //     casamento de janelas (PURE + cliente UnixStream, testado local);
 //   · ui.rs     — a camada GTK4/layer-shell (feature "gui" — compila
 //     só onde há GTK dev; o CI do pacote é quem a valida).
@@ -18,9 +18,11 @@
 //     app focado, E89) · direito NOVA SESSÃO (o Exec do .desktop; no
 //     raw, o argv[0] provado no /proc) · meio encerra (CLOSE por id,
 //     strict E36);
-//   ✓ o snapshot do toplevel.sock em leitura ASSÍNCRONA (thread de
-//     fundo + glib MainContext channel — LIST de 5s de segurança E o
-//     canal de eventos EVT do E38 com latência ~0);
+//   ✓ o snapshot do bus.sock por ASSINATURA (thread de fundo com o
+//     BusClient persistente do elite-core — Hello + reconexão honesta
+//     5→20→100ms E135; cada `Windows` publicado é push com latência
+//     ~0; o tick de 5s vivo cuida de ceifa/guard/pins — o toplevel.sock
+//     de era morreu com o C de 3 gerações);
 //   ✓ indicador "running" pela JANELA REAL (v2.10.3), dinâmicos com o
 //     índice comm→.desktop, botões RAW com a denylist E106;
 //   ✓ A CADEIA DE ÍCONES E130 completa (tema/fold → steam → Gear
@@ -42,7 +44,7 @@
 //   ✗ o MENU do direito E74 (craft-menu/fuzzel): o direito é o verbo
 //     DIRETO "nova sessão" da gramática v2.10.10 — sem menu nesta v1;
 //   ✗ o FALLBACK wlrctl (daemon morto = /proc + wlrctl com as 3
-//     formas canônicas): a dock Rust assume o craft-toplevel VIVO —
+//     formas canônicas): a dock Rust fala o bus.sock do elite-daemon —
 //     sem daemon os verbos de foco/fecho ficam sem rede NESTA v1;
 //   ✗ a E101 completa (a graça de 3s da classe daemonizada): o guard
 //     aposenta no MAP, no expiry de 8s ou na morte do lançador — sem

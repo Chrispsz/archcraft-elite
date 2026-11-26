@@ -8,15 +8,18 @@
 //     superfície TEM o tamanho da pílula, nada de faixa invisível
 //     full-width comendo clique; zona exclusiva AUTOMÁTICA para as
 //     maximizadas/tileadas). DIVERGÊNCIA HONESTA nomeada: a ordem
-//     deste degrau pediu Layer::TOP + teclado on-demand (o Python usa
-//     Layer::BOTTOM — com BOTTOM a tela cheia do app COBRE a dock).
-//     O selo é de quem ordenou; se o rig reclamar do fullscreen, é
-//     trocar UMA constante aqui;
-//   · a leitura ASSÍNCRONA do toplevel.sock (a ordem do dono): UMA
-//     thread de fundo é a DONA do socket — conecta, faz o handshake
-//     "EVT ON" (E38, push com latência ~0) e serve o LIST de segurança
-//     de 5s; a UI acorda por um canal mpsc drenado num idle de 200ms
-//     (thread NUNCA toca GTK — a lei da casa);
+//     deste degrau pediu Layer::TOP (o Python usa Layer::BOTTOM — com
+//     BOTTOM a tela cheia do app COBRE a dock; 1.0-105: o teclado
+//     NUNCA é da dock — KeyboardMode::None, o anel roxo morreu no
+//     CSS). O selo é de quem ordenou; se o rig reclamar do fullscreen,
+//     é trocar UMA constante aqui;
+//   · a assinatura do bus.sock (2.0 — o fio vivo do elite-daemon):
+//     UMA thread de fundo é a DONA do BusClient persistente (Hello +
+//     reconexão honesta 5→20→100ms E135 — o daemon renasce, a dock
+//     reaparece); cada `Windows` publicado vira Snapshot num canal
+//     mpsc (push de latência ~0; o toplevel.sock de era e o handshake
+//     "EVT ON" E38 morreram com o C de 3 gerações); a UI acorda no
+//     dreno de 50ms (thread NUNCA toca GTK — a lei da casa);
 //   · a gramática UMA do clique (v2.10.10): esquerdo foca/cicla (1
 //     janela do app E ela é a FOCADA = MINIMIZA, o toggle E89) ·
 //     direito NOVA SESSÃO (o Exec do .desktop; no raw, o argv[0]
@@ -40,8 +43,8 @@
 //     E106 e o indicador "running" pela JANELA REAL (v2.10.3);
 //   · SIGUSR1 (W-S-d toggle) e SIGUSR2 (reload dos pins): a glib 0.22
 //     NÃO tem unix_signal_add — o handler cru (libc::signal + atomic
-//     async-signal-safe) escreve a bandeira e o idle de 200ms drena
-//     (latência ≤200ms, documentada);
+//     async-signal-safe) escreve a bandeira e o dreno de 50ms colhe
+//     (latência ≤50ms, documentada no DRAIN_MS);
 //   · os pins são RE-LIDOS a cada tick e a pílula só remonta quando o
 //     CONJUNTO muda (o craft-pin add/rm reflete no tick seguinte mesmo
 //     sem sinal — a rede a mais que o Python não tinha).
@@ -64,8 +67,9 @@
 //   direito é REAL (PopoverMenu nativo com Fixar/Desafixar da Dock +
 //   Nova janela + Fechar — a gaveta fuzzel dos pins morre), o clique
 //   é EXCLUSIVAMENTE no released com tolerância de arrasto <5px (o
-//   press×click duplicava o verbo) e a assinatura EVT não falece por
-//   silêncio (timeout ≠ queda — zero espaço preto no fecho).
+//   press×click duplicava o verbo) e a assinatura do fio não falece por
+//   silêncio (o BusClient de hoje reconecta sozinho — zero espaço
+//   preto no fecho; o "EVT ON" de era morreu com o toplevel.sock).
 use crate::{appicon_cache_dir, css_path, icons, log, pins_path, procapp, read_pins, sock,
             bus_sock, VERSION};
 use std::cell::RefCell;
@@ -97,8 +101,9 @@ const ICON_SIZE: i32 = 36;
 /// O float da pílula DENTRO da superfície (margem GTK — a zona
 /// exclusiva cobre pílula + vão).
 const PILL_FLOAT: i32 = 6;
-/// O tick de segurança (o push EVT domina a latência; 5s = scan /proc
-/// + ceifa + reload dos pins — o mesmo desenho v2.10.26 do Python).
+/// O tick de segurança (o push do bus domina a latência do snapshot;
+/// 5s = ceifa dos filhos + guard + reload dos pins — o mesmo desenho
+/// v2.10.26 do Python, SEM o LIST de snapshot de era: o fio é push).
 const TICK_S: u64 = 5;
 /// O dreno do canal da thread de fundo (E140 — 200ms era o "frame
 /// seguinte" dos espaços pretos do dossiê: o evento de fecho chega
@@ -123,9 +128,9 @@ extern "C" fn on_signal(sig: i32) {
 }
 
 /// As mensagens da thread de fundo para a UI (canal mpsc — a thread
-/// NUNCA toca GTK; a UI drena no idle de 200ms).
+/// NUNCA toca GTK; a UI drena a cada 50ms).
 enum Msg {
-    /// Um LIST respondido (None = transporte morto — a graça decide).
+    /// Um snapshot do bus (None = transporte morto — a graça decide).
     Snapshot(Option<sock::Snapshot>),
     /// A extração em thread terminou: o ícone do raw está no cache.
     IconReady { key: String, path: PathBuf },
@@ -138,8 +143,9 @@ enum Msg {
 
 /// O alvo dos cliques de um botão: um app COM .desktop (pin/dinâmico)
 /// ou um SEM-NOME (raw — AppImage/Steam sem .desktop instalado).
-/// (E143-corrige: os campos hint (App) e name (Raw) saíram — escritos e
-/// nunca lidos, o compilador do Canal nomeou; o tooltip nasce no botão)
+/// (E143-corrige: o hint (App) saiu — escrito e nunca lido; E106/5
+/// DEVOLVE o name (Raw): a fixação do sem-nome gera o .desktop LOCAL
+/// com o NOME DO BOTÃO — o tooltip nasce no botão, o pin nasce aqui)
 #[derive(Clone)]
 enum Act {
     App {
@@ -149,7 +155,7 @@ enum Act {
         name: String,
     },
     /// O SEM-NOME (AppImage sem .desktop): a chave é o stem do app_id.
-    Raw { key: String },
+    Raw { key: String, name: String },
 }
 
 struct PinRow {
@@ -229,6 +235,41 @@ pub fn arma_rt() {
     }
 }
 
+/// E106/5 — A VARREDURA FRESCA dos .desktops (com os EXPORTS do
+/// Flatpak e o ~/.local do dono, NoDisplay INCLUÍDO — a lei 1.0-104 da
+/// identidade dos jogos): devolve as entradas e os DOIS índices (o de
+/// chave/comm e o de nome/título). O arranque chama UMA vez; a fixação
+/// do sem-nome chama DE NOVO na hora (o .desktop LOCAL gerado precisa
+/// entrar no índice NO MESMO clique — nunca podado na 2ª passada).
+fn varre_desktops(
+    home: &Path,
+) -> (
+    Vec<icons::DesktopEntry>,
+    HashMap<String, usize>,
+    HashMap<String, usize>,
+) {
+    let mut entries = Vec::new();
+    for dir in icons::desktop_dirs(home) {
+        entries.extend(icons::scan_desktop_dir_todos(&dir));
+    }
+    let index = icons::desktop_index(&entries);
+    let name_index = icons::name_index(&entries);
+    (entries, index, name_index)
+}
+
+/// E106/5 — A RE-INDEXAÇÃO NA HORA (o par da fixação do sem-nome): o
+/// .desktop LOCAL que acabou de nascer entra no índice ANTES do
+/// rebuild_pins julgar o pin novo — o estado segue a verdade do disco,
+/// nunca a memória do arranque.
+fn reindexa_desktops(st: &Rc<RefCell<State>>) {
+    let home = st.borrow().home.clone();
+    let (entries, index, name_index) = varre_desktops(&home);
+    let mut s = st.borrow_mut();
+    s.entries = entries;
+    s.index = index;
+    s.name_index = name_index;
+}
+
 fn build(app: &gtk::Application) {
     if !gtk4_layer_shell::is_supported() {
         // o labwc fala layer-shell; se isto aparecer, a sessão mudou.
@@ -301,19 +342,15 @@ fn build(app: &gtk::Application) {
     // NoDisplay entra no índice e a janela aberta veste o ÍCONE de
     // verdade) + O ÍNDICE POR NOME (a rede do título da janela)
     let home = crate::home_dir();
-    let mut entries = Vec::new();
-    for dir in icons::desktop_dirs(&home) {
-        entries.extend(icons::scan_desktop_dir_todos(&dir));
-    }
-    let index = icons::desktop_index(&entries);
-    let name_index = icons::name_index(&entries);
+    let (entries, index, name_index) = varre_desktops(&home);
     log(&format!(
         "índice de .desktops: {} chave(s) resolvíveis + {} nome(s) de título",
         index.len(),
         name_index.len()
     ));
 
-    // o canal da thread de fundo (a leitura ASSÍNCRONA do toplevel.sock)
+    // o canal da thread de fundo (a assinatura do bus.sock — o fio vivo
+    // do elite-daemon; o toplevel.sock de era morreu com o C)
     // E-auditoria 2026-11-22 (3ª camada): o tx.clone() DENTRO da closure
     // movia o tx e o Estado de baixo o usava de novo (E0382) — o clone
     // nasce ANTES do spawn e a thread fica com a cópia dona.
@@ -361,17 +398,19 @@ fn build(app: &gtk::Application) {
     st.borrow().window.show();
 
     log(&format!(
-        "craft-dock-rs {VERSION} iniciada: {} pin(s) · leitura ASSÍNCRONA do \
-         toplevel.sock (thread de fundo + EVT push + tick de 5s) · cadeia de \
+        "craft-dock-rs {VERSION} iniciada: {} pin(s) · bus.sock (BusClient \
+         persistente com reconexão 5→20→100ms E135 + Windows por push + \
+         verbos Req/Ack no mesmo fio · tick de segurança de 5s para \
+         ceifa/guard/pins) · cadeia de \
          ícones E130/E132 ON (Flatpak reverse-DNS + Gear Lever + cache + \
-         .DirIcon + extração em thread) · Layer::Top com teclado on-demand \
-         (a ordem do degrau — o Python usa BOTTOM) · o ESCOPO HONESTO mora \
+         .DirIcon + extração em thread) · Layer::Top com teclado NUNCA \
+         da dock (KeyboardMode::None — 1.0-105) · o ESCOPO HONESTO mora \
          no cabeçalho deste arquivo",
         st.borrow().pins.len(),
     ));
 
-    // o dreno do canal + a bandeira de sinais (200ms — latência do
-    // push EVT e do W-Sd, documentada)
+    // o dreno do canal + a bandeira de sinais (50ms — a latência do
+    // push do bus e do W-Sd, documentada no DRAIN_MS)
     {
         let st = st.clone();
         glib::timeout_add_local(Duration::from_millis(DRAIN_MS), move || {
@@ -390,20 +429,20 @@ fn build(app: &gtk::Application) {
     }
 }
 
-// ── a THREAD DE FUNDO — a dona do toplevel.sock ───────────────────────
+// ── a THREAD DE FUNDO — a dona do bus.sock ─────────────────────
 
-/// A leitura ASSÍNCRONA (a ordem do dono): mantém a conexão, o
-/// handshake EVT (E38 — push com latência ~0) e o LIST de segurança de
-/// 5s. NUNCA toca GTK: tudo via canal mpsc. Morreu o daemon? O próximo
-/// giro reconecta — a dock NUNCA depende dele (a lei v2.10.3).
-/// E140 — A ASSINATURA NÃO FALECE POR SILÊNCIO: o read com timeout de
-/// 200ms devolvia WouldBlock a cada pausa e o código antigo tratava
-/// como QUEDA (evt=None → reconectar → handshake → +100ms de sono):
-/// a assinatura EVT flapeava ~5×/s e um evento no vão da reconexão
-/// esperava até o LIST de segurança DE 5s — o "espaço preto" do
-/// dossiê. Agora: timeout é ESPERA (a assinatura vive); só Ok(0) e o
-/// erro REAL são queda — o evento chega com latência ~0 e o dreno de
-/// 50ms remonta a pílula no mesmo frame do olho.
+/// A assinatura do bus.sock (2.0 — o fio vivo do elite-daemon): o
+/// BusClient da fundação conecta, se apresenta ("craft-dock-rs") e lê
+/// quadros PARA SEMPRE com a reconexão honesta 5→20→100ms E135
+/// EMBUTIDA — o daemon renasce, a dock reaparece; o Hello novo arranca
+/// as boas-vindas com o snapshot inteiro. Cada `Windows` publicado é
+/// push de latência ~0; o snapshot NÃO tem tick nenhum (o tick de 5s
+/// VIVO mora no poll_tick: ceifa dos filhos, guard, reload dos pins).
+/// NUNCA toca GTK: tudo via canal mpsc. Morreu o fio? O próximo giro
+/// reconecta — a dock NUNCA depende dele (a lei v2.10.3). (O
+/// toplevel.sock de era — handshake "EVT ON" E38, LIST de segurança
+/// de 5s, o espaço preto E140 da reconexão — morreu com o C de 3
+/// gerações; a história mora nos commits.)
 fn bg_reader(sock_path: PathBuf, tx: Sender<Msg>) {
     // 2.0 — A ASSINATURA DO BUS VIVO: o BusClient da fundação conecta,
     // se apresenta ("craft-dock-rs") e lê QUADROS PARA SEMPRE com a
@@ -411,8 +450,8 @@ fn bg_reader(sock_path: PathBuf, tx: Sender<Msg>) {
     // dock reaparece — o Hello novo arranca as boas-vindas com o
     // snapshot inteiro). Cada `Windows` publicado vira Snapshot no
     // canal: o botão da janela que FECHOU some NO MESMO frame do evento
-    // (a fonte é o compositor — zero tick de segurança, zero espaço
-    // preto; o TCL de 5s morreu: o fio é push de verdade).
+    // (a fonte é o compositor — zero poll de snapshot, zero espaço
+    // preto; o tick de 5s VIVO mora no poll_tick: ceifa/guard/pins).
     loop {
         if let Some((_cli, rx)) = elite_core::bus::BusClient::connect(&sock_path, "craft-dock-rs") {
             for msg in rx {
@@ -516,10 +555,9 @@ fn drain(st: &Rc<RefCell<State>>, rx: &Receiver<Msg>) {
 /// (dump 1.0-80): o indicador de app ficava PRESO quando janelas
 /// transitórias fechavam — o botão seguia "aberto" depois do fecho
 /// porque a dock segurava o snapshot velho POR DESENHO. O snapshot do
-/// craft-toplevel é a FONTE: o que ele diz É o estado, na hora —
-/// janela que fechou, indicador que apaga no mesmo frame do evento
-/// (o canal EVT entrega o LIST fresco com latência ~0; o tick de 5s
-/// é a rede de segurança). Socket morto = sessão sem janelas
+/// bus é a FONTE: o que ele diz É o estado, na hora — janela que
+/// fechou, indicador que apaga no mesmo frame do evento (o bus entrega
+/// o Windows fresco com latência ~0). Fio morto = sessão sem janelas
 /// conhecidas: indicadores apagados, tl_alive falso (a dock segue
 /// VIVA — o respawn do craft-bars a devolve ao ar em ≤5s).
 fn apply_snapshot(s: &mut State, opt: Option<sock::Snapshot>) {
@@ -541,9 +579,11 @@ fn apply_snapshot(s: &mut State, opt: Option<sock::Snapshot>) {
     }
 }
 
-/// O TICK de 5s (segurança — o push EVT domina a latência): ceifa os
-/// filhos, aposenta os guards mapeados, EXPIRA os guards velhos,
-/// re-lê os pins (a rede que o Python não tinha) e sincroniza tudo.
+/// O TICK de 5s (segurança — o push do bus domina a latência do
+/// snapshot; aqui mora a ceifa dos filhos, o guard e o reload dos
+/// pins): ceifa os filhos, aposenta os guards mapeados, EXPIRA os
+/// guards velhos, re-lê os pins (a rede que o Python não tinha) e
+/// sincroniza tudo.
 fn poll_tick(st: &Rc<RefCell<State>>) {
     {
         let mut s = st.borrow_mut();
@@ -1251,9 +1291,13 @@ fn make_raw_button(st: &Rc<RefCell<State>>, key: &str, name: &str) -> gtk::Butto
     }
     btn.set_child(Some(&img));
     btn.set_tooltip_text(Some(&format!(
-        "{name} — esquerdo: focar/ciclar · direito: menu (nova janela · fechar)"
+        "{name} — esquerdo: focar/ciclar · direito: menu (fixar · nova janela · fechar)"
     )));
-    wire_clicks(st, &btn, Act::Raw { key: key.to_string() });
+    wire_clicks(
+        st,
+        &btn,
+        Act::Raw { key: key.to_string(), name: name.to_string() },
+    );
     btn
 }
 
@@ -1338,21 +1382,42 @@ fn wire_clicks(st: &Rc<RefCell<State>>, btn: &gtk::Button, act: Act) {
     pop.set_parent(btn);
 }
 
-/// E140 — o menu contextual do botão (Fixar/Desafixar conforme o
-/// estado VIVO dos pins + Nova janela + Fechar; no raw SEM .desktop o
-/// par de pins não existe — o raw não é fixável por desenho).
+/// E140 — o menu contextual do botão (Fixar/Desafixar conforme o estado
+/// VIVO dos pins + Nova janela + Fechar). E106/5 — O SEM-NOME TAMBÉM
+/// FIXA: com a PROVA de origem do /proc (ou já fixado pelo .desktop
+/// LOCAL gerado), o par de pins nasce no raw — a fixação gera o
+/// endereço e segue o fluxo normal; SEM prova o item SOME (o menu não
+/// promete o que não lança — honestidade).
 fn menu_do(st: &Rc<RefCell<State>>, act: &Act) -> gtk::gio::Menu {
     let m = gtk::gio::Menu::new();
-    if let Act::App { did, .. } = act {
-        let fixado = st.borrow().pin_ids.contains(did);
-        m.append(
-            Some(if fixado {
-                "Desafixar da Dock"
-            } else {
-                "Fixar na Dock"
-            }),
-            Some("dock.pin"),
-        );
+    match act {
+        Act::App { did, .. } => {
+            let fixado = st.borrow().pin_ids.contains(did);
+            m.append(
+                Some(if fixado {
+                    "Desafixar da Dock"
+                } else {
+                    "Fixar na Dock"
+                }),
+                Some("dock.pin"),
+            );
+        }
+        // E106/5 — o par de pins do SEM-NOME (a prova do /proc decide)
+        Act::Raw { key, .. } => {
+            let id_local = icons::elite_desktop_id(key);
+            if st.borrow().pin_ids.contains(&id_local) {
+                m.append(Some("Desafixar da Dock"), Some("dock.pin"));
+            } else if procapp::raw_exec_provavel(
+                Path::new("/proc"),
+                key,
+                st.borrow().uid,
+            )
+            .is_some()
+            {
+                m.append(Some("Fixar na Dock"), Some("dock.pin"));
+            }
+            // sem prova de lançamento: o item NEM NASCE
+        }
     }
     m.append(Some("Nova janela"), Some("dock.new"));
     m.append(Some("Fechar"), Some("dock.close"));
@@ -1363,7 +1428,7 @@ fn menu_do(st: &Rc<RefCell<State>>, act: &Act) -> gtk::gio::Menu {
 /// o act viaja no closure — nada de grupo global com estado velho).
 fn grupo_do_popover(st: &Rc<RefCell<State>>, act: &Act) -> gtk::gio::SimpleActionGroup {
     let grupo = gtk::gio::SimpleActionGroup::new();
-    // FIXAR/DESAFIXAR (só App tem .desktop; o raw é nomeado honesto)
+    // FIXAR/DESAFIXAR (o App tem .desktop; o raw GERA o local — E106/5)
     if let Act::App { did, name, .. } = act {
         let a_pin = gtk::gio::SimpleAction::new("pin", None);
         let st = st.clone();
@@ -1379,6 +1444,44 @@ fn grupo_do_popover(st: &Rc<RefCell<State>>, act: &Act) -> gtk::gio::SimpleActio
             } else if pins_adiciona(&did) {
                 log(&format!("pin: {name} FIXADO pelo popover (E140 — a gaveta fuzzel dos pins morreu)"));
                 rebuild_pins(&st);
+            }
+        });
+        grupo.add_action(&a_pin);
+    }
+    // E106/5 — FIXAR/DESAFIXAR do SEM-NOME (a fixação gera o .desktop
+    // LOCAL no ~/.local do dono e segue o fluxo normal; o desafixar
+    // tira o pin E o arquivo QUE A CASA GEROU — a assinatura da
+    // primeira linha é o contrato do apagar)
+    if let Act::Raw { key, name } = act {
+        let a_pin = gtk::gio::SimpleAction::new("pin", None);
+        let st = st.clone();
+        let key = key.clone();
+        let name = name.clone();
+        a_pin.connect_activate(move |_, _| {
+            let id_local = icons::elite_desktop_id(&key);
+            let fixado = st.borrow().pin_ids.contains(&id_local);
+            if fixado {
+                if pins_aplica(&PodaOp::Remove(id_local.clone())) {
+                    remove_desktop_gerado(&st, &id_local);
+                    log(&format!(
+                        "pin: {name} DESAFIXADO pelo popover (o .desktop local gerado \
+                         saiu junto — E106/5, escrita atômica + remontagem na hora)"
+                    ));
+                    reindexa_desktops(&st);
+                    rebuild_pins(&st);
+                }
+            } else if fixa_raw(&st, &key, &name) {
+                log(&format!(
+                    "pin: {name} FIXADO pelo popover (o sem-nome ganhou .desktop \
+                     local — E106/5, o AppImage virou app de verdade)"
+                ));
+                reindexa_desktops(&st);
+                rebuild_pins(&st);
+            } else {
+                log(&format!(
+                    "pin do sem-nome sem prova de origem ({key}) — nada fixado \
+                     (E106/5; instale o .desktop do app e ele vira dinâmico completo)"
+                ));
             }
         });
         grupo.add_action(&a_pin);
@@ -1424,6 +1527,72 @@ fn pins_adiciona(id: &str) -> bool {
     elite_core::persist::write_atomic(&path, txt.as_bytes()).is_ok()
 }
 
+/// E106/5 — A FIXAÇÃO DO SEM-NOME: gera o .desktop LOCAL em
+/// ~/.local/share/applications/elite-<chave>.desktop (Name = o nome do
+/// botão, Exec = a PROVA de origem do /proc — o MESMO lançamento que o
+/// "Nova janela" usa, Icon = o ícone já colhido nos caches da casa
+/// quando existe, StartupWMClass = a chave, NoDisplay=false) e fixa
+/// pelo FLUXO NORMAL (pins_adiciona com o id novo). O papel é do DONO
+/// (~/.local), nunca do sistema; sem prova de lançamento a fixação NEM
+/// acontece (o item do menu já não nasce).
+fn fixa_raw(st: &Rc<RefCell<State>>, key: &str, name: &str) -> bool {
+    let (home, uid) = {
+        let s = st.borrow();
+        (s.home.clone(), s.uid)
+    };
+    let Some(exec) = procapp::raw_exec_provavel(Path::new("/proc"), key, uid) else {
+        return false; // sem prova: a casa nunca fixa o que não lança
+    };
+    let id_local = icons::elite_desktop_id(key);
+    let dir = home.join(".local/share/applications");
+    let _ = std::fs::create_dir_all(&dir);
+    let icon = raw_icon_caminho(key, uid);
+    let corpo = icons::desktop_do_raw(key, name, &exec, icon.as_deref());
+    // 2.0 — a escrita cruza o contrato do elite-core (tmp na MESMA pasta
+    // + fsync + rename; o mesmo gesto que cura os pins cura o endereço)
+    elite_core::persist::write_atomic(&dir.join(&id_local), corpo.as_bytes()).is_ok()
+        && pins_adiciona(&id_local)
+}
+
+/// E106/5 — o ÍCONE do sem-nome para o .desktop gerado: o que a casa
+/// JÁ colheu nos caches (o appimage-icons do AppImage · o icons do
+/// .exe Wine/Proton) — o caminho de ARQUIVO vira Icon=; sem colheita o
+/// campo omite (a cadeia completa mora no make_raw_button; aqui é só
+/// o que o papel consegue prometer com verdade).
+fn raw_icon_caminho(key: &str, uid: u32) -> Option<PathBuf> {
+    if let Some((ai, _)) = procapp::proc_appimage(Path::new("/proc"), key, uid) {
+        let c = icons::appicon_cache_path(&appicon_cache_dir(), &ai.to_string_lossy());
+        if c.is_file() {
+            return Some(c);
+        }
+    }
+    if let Some(exe) = procapp::proc_wine_exe(Path::new("/proc"), key, uid) {
+        let c = crate::exeicon_cache_lookup(&exe.to_string_lossy());
+        if c.is_file() {
+            return Some(c);
+        }
+    }
+    None
+}
+
+/// E106/5 — O DESAFIXAR APAGA SÓ O QUE A CASA GEROU: o .desktop local
+/// com a assinatura da primeira linha sai com o pin; o .desktop do
+/// dono, colocado à mão com o mesmo nome, FICA (o papel é dele — a
+/// assinatura é o contrato).
+fn remove_desktop_gerado(st: &Rc<RefCell<State>>, id_local: &str) {
+    let path = st
+        .borrow()
+        .home
+        .join(".local/share/applications")
+        .join(id_local);
+    match std::fs::read_to_string(&path) {
+        Ok(txt) if icons::eh_desktop_da_casa(&txt) => {
+            let _ = std::fs::remove_file(&path);
+        }
+        _ => {} // não é da casa (ou já saiu): o papel do dono fica
+    }
+}
+
 // ── os VERBOS (a gramática UMA da casa) ───────────────────────────────
 
 /// As janelas REAIS de um alvo no snapshot atual (strict = o verbo
@@ -1464,7 +1633,7 @@ fn dismiss_overlays() {
     });
 }
 
-/// Um cliente do toplevel.sock por verbo (connect a unix socket custa
+/// Um cliente do bus.sock por verbo (connect a unix socket custa
 /// µs — a conexão PERSISTENTE é da thread de fundo; os verbos da UI
 /// usam a própria, curta e à prova de daemon morto).
 fn with_client<T>(f: impl FnOnce(&mut sock::ToplevelClient) -> T) -> Option<T> {
@@ -1574,8 +1743,9 @@ fn on_left(st: &Rc<RefCell<State>>, act: &Act) {
 /// O DIREITO ANTIGO — NOVA SESSÃO (v2.10.10, agora o item "Nova
 /// janela" do popover E140): o verbo EXPLÍCITO de duplicar NÃO passa
 /// chave (o guard é para o vão do foco, não para o pedido claro do
-/// dono). No SEM-NOME, o argv[0] do processo vivo é a PROVA de
-/// origem — só lança o que existe e é executável; sem prova, o log
+/// dono). No SEM-NOME, a PROVA de origem do /proc é quem lança (o
+/// argv[0] executável → o AppImage do environ — E106/5: o MESMO
+/// Exec que o .desktop local da fixação carrega); sem prova, o log
 /// ensina (nunca adivinha).
 fn on_right_antigo(st: &Rc<RefCell<State>>, act: &Act) {
     dismiss_overlays();
@@ -1583,11 +1753,10 @@ fn on_right_antigo(st: &Rc<RefCell<State>>, act: &Act) {
         Act::App { .. } => launch(st, act, None),
         Act::Raw { key, .. } => {
             let uid = st.borrow().uid;
-            match procapp::proc_argv0_executable(Path::new("/proc"), key, uid) {
-                Some(argv0) => {
-                    log(&format!("nova sessão do sem-nome via /proc: {}", argv0.display()));
-                    let cmd = argv0.to_string_lossy().into_owned();
-                    launch_cmd(st, &cmd, None);
+            match procapp::raw_exec_provavel(Path::new("/proc"), key, uid) {
+                Some(exec) => {
+                    log(&format!("nova sessão do sem-nome via /proc: {exec}"));
+                    launch_cmd(st, &exec, None);
                 }
                 None => log(&format!(
                     "nova sessão sem prova de origem ({key}) — instale o \

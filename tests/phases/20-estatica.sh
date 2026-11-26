@@ -380,6 +380,28 @@ file_has "rc.xml: o Thunar segue vivo no C-A-f (um destino = um lugar)" "elite/a
 file_has "dock: o resolvedor busca os ícones no ~/.config/hydra do dono" "crates/craft-dock-rs/src/icons.rs" '".config/hydra"'
 file_has "dock: o cache dos ícones de .exe veste o caminho da dose (~/.cache/elite/icons)" "crates/craft-dock-rs/src/main.rs" 'fn exeicon_cache_lookup'
 
+# ══ E106/3 — O ÍNDICE NÃO ROUBA A IDENTIDADE DO DONO E O SEM-NOME FIXA ══
+# o .desktop AUXILIAR (o bulk-rename que carrega o MESMO StartupWMClass,
+# os *-settings, a família exo-*) nunca fica com a chave do app de
+# verdade — thunar.desktop vence para WMClass Thunar:
+file_has "dock: o índice ignora o .desktop AUXILIAR (o bulk-rename não rouba o WMClass)" "crates/craft-dock-rs/src/icons.rs" 'pub fn desktop_eh_auxiliar'
+# o OCULTO (NoDisplay do foot-server da casa, que ordena ANTES no
+# /usr/local) nunca rouba a chave do VISÍVEL (a chave "foot" é do
+# foot.desktop do terminal — nunca do daemon):
+file_has "dock: o OCULTO nunca rouba a chave do VISÍVEL (foot → foot.desktop)" "crates/craft-dock-rs/src/icons.rs" 'oculto(&entries[j]) && !oculto(e)'
+# o SEM-NOME fixa gerando .desktop LOCAL no ~/.local do dono (Elite
+# nunca escreve no sistema) e o desafixar apaga SÓ o que a casa gerou:
+file_has "dock: o raw FIXA gerando .desktop local (elite-<chave>.desktop)" "crates/craft-dock-rs/src/ui.rs" 'fn fixa_raw'
+file_has "dock: o corpo do .desktop do sem-nome é puro e testado (Name/Exec/WMClass)" "crates/craft-dock-rs/src/icons.rs" 'pub fn desktop_do_raw'
+file_has "dock: o desafixar do raw apaga SÓ o .desktop gerado pela casa" "crates/craft-dock-rs/src/ui.rs" 'fn remove_desktop_gerado'
+file_has "dock: a prova de origem do sem-nome é o mesmo Exec da fixação (argv0 → AppImage)" "crates/craft-dock-rs/src/procapp.rs" 'pub fn raw_exec_provavel'
+file_has "dock: a re-indexação na hora (o pin do .desktop novo nasce resolve)" "crates/craft-dock-rs/src/ui.rs" 'fn reindexa_desktops'
+# o log de arranque fala o fio REAL (bus.sock com BusClient persistente
+# — o toplevel.sock de era é história narrada, nunca presente mentido):
+file_has "dock: o log de arranque fala o bus.sock (o fio vivo da verdade)" "crates/craft-dock-rs/src/ui.rs" 'bus.sock (BusClient'
+file_hasnt "dock: NENHUMA mentira de presente sobre o toplevel.sock na dock" "crates/craft-dock-rs/src/ui.rs" 'leitura ASSÍNCRONA do toplevel.sock'
+file_hasnt "dock: o log de arranque não acorda o EVT morto (a era é história)" "crates/craft-dock-rs/src/ui.rs" 'EVT push'
+
 # ══ E150 — A ONDA FINAL 1/2 (base 1.0-98): RELOGIN LIMPO, BOOT FRIO DOS
 # HZ, SDDM/GRUB REAIS, DUMP SISTÊMICO, GAVETA E PALCO, PAUSAS E 126 ══
 # O RELOGIN LIMPO (o SIGHUP da sessão velha + a colheita do órfão + a
