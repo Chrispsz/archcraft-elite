@@ -324,7 +324,7 @@ file_has "post-upgrade: a pele do greeter chega ao rig vivo na dose" "$AIROOTFS/
 file_has "rice: o fóssil da v7 na rede do lock (quem adotou a v7 renova à v8)" "$AIROOTFS/usr/local/bin/craft-rice" '6e4597244cb625dde1ed33f419afabb8bf9270230a4218311c9c4acf9919b0ea'
 # O MOLDE veste o pkgrel 103 (lei E41 — o guard cobra)
 # (1.0-103 — a âncora viva da era: cada dose sobe o número NO MESMO commit)
-file_has "build.sh: o pkgrel da era é 104 (elite-system 1.0-104)" "$BS" 'pkgrel=104'
+file_has "build.sh: o pkgrel da era é 105 (elite-system 1.0-105)" "$BS" 'pkgrel=105'
 # A CURA DO CANAL VERMELHO (#45632905510 — o E0599 pela 2ª era): o gdk4
 # 0.11.5 NÃO gera monitor-added/removed/monitors-changed (deprecated desde
 # o GTK 4.16, fora de DisplayExt) — a via viva é o items-changed do

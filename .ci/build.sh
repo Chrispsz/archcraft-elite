@@ -3092,7 +3092,27 @@ pkgver=1.0
 #      session.lock VIVO e as ferramentas da barra (pwvucontrol/
 #      blueman/iwgtk) são DEPENDÊNCIA DURA.
 #      pkgrel 103→104 NO MESMO COMMIT (lei E41 — o guard cobra).
-pkgrel=104
+# 1.0-105 — A CORREÇÃO CIRÚRGICA PÓS-1.0-104 (a dose E157, quatro
+#      partes): o ESQUERDO da barra veste o `clicked` DO PRÓPRIO
+#      GtkButton (o GestureClick externo nunca via o botão 1 — TODOS os
+#      módulos respondem no primeiro clique) e a REDE é o
+#      nm-connection-editor (o front-end gráfico do NetworkManager — o
+#      iwgtk cede), o SWAYNC é ÚNICO e veste a PELE DO DONO (o
+#      lançamento é EXPLÍCITO -c/-s nos arquivos do $HOME: o
+#      /etc/xdg/swaync do upstream nunca é rede — o CSS não some; a
+#      fila única ceifa os extras — o SWAYNC_COUNT=5 morre), o conflito
+#      do /etc/default/scx MORRE (o caminho é do scx-scheds oficial: a
+#      escolha do lavd viaja na UNIT DIRETA + no drop-in
+#      scx.service.d/override.conf), o TOPLEVEL_COUNT lê o fio VIVO
+#      (craft-audit windows drena o snapshot do bus), a FORMA DO FOOT
+#      (-T com espaço) veste o seletor e os wrappers, a DOCK não rouba
+#      foco nem acende ANEL (KeyboardMode::None + outline/box-shadow
+#      none; foot-server/footclient na denylist), o FULLSCREEN do
+#      compositor é de primeira classe (W-f / A-Return / A-F11 — o
+#      Thunar segue em C-A-f) e os ÍCONES DE JOGO vestem o Hydra de
+#      ~/.config/hydra + o cache ~/.cache/elite/icons.
+#      pkgrel 104→105 NO MESMO COMMIT (lei E41 — o guard cobra).
+pkgrel=105
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da sessão; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
