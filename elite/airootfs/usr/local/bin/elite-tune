@@ -517,22 +517,31 @@ EOF
       say "coolercontrol: unit ausente (pacote não instalado — a ISO nova traz de fábrica)"
     fi
   fi
-  # scx_loader: sched_ext sob demanda — a unit só existe onde o kernel a
-  # sustenta (ConditionPathExists=/sys/kernel/sched_ext na drop-in elite)
-  wfile /etc/default/scx <<'EOF'
-# ── ELITE (E136): scx_lavd — o perfil interativo/gaming (latência-first;
-# o loader é o watchdog: sched_ext cai → o BORE do kernel segue — nunca
-# tela morta)
-SCX_SCHEDULER=scx_lavd
-SCX_FLAGS=""
+  # 1.0-105 — O SCX SEM O CAMINHO DO ALHEIO (o /etc/default/scx é do
+  # pacote OFICIAL scx-scheds: o pacote da casa NUNCA o disputa — dois
+  # pacotes no mesmo arquivo é --overwrite em todo pacman -Syu, a mesma
+  # classe do /etc/xdg/swaync da 1.0-104). A escolha do escalonador
+  # viaja em DOIS lugares da casa, NENHUM deles do alheio:
+  #   · o DROP-IN systemd do scx.service upstream (override.conf — a
+  #     gramática de override: o ExecStart= vazio LIMPA o original e o
+  #     seguinte veste o lavd latência-first da casa);
+  #   · a UNIT DIRETA scx-lavd.service (o ExecStart=/usr/bin/scx_lavd É
+  #     a assinatura — o bloco abaixo a habilita e desliga o loader).
+  wfile /etc/systemd/system/scx.service.d/override.conf <<'EOF'
+# ── ELITE (E136→1.0-105): o lavd direto, SEM o /etc/default/scx do
+# alheio (o caminho é do pacote oficial scx-scheds — a escolha da casa
+# viaja no drop-in e na unit própria, nunca no arquivo disputado).
+[Unit]
+# kernel sem sched_ext = a unit é PULADA, nunca FAILED (o BORE é o chão)
+ConditionPathExists=/sys/kernel/sched_ext
+
+[Service]
+# a gramática de override: o ExecStart= vazio LIMPA o original, o
+# seguinte veste o lavd latência-first (interativo/gaming)
+ExecStart=
+ExecStart=/usr/bin/scx_lavd
 EOF
-  if systemctl list-unit-files scx_loader.service >/dev/null 2>&1 \
-     && systemctl cat scx_loader.service >/dev/null 2>&1; then
-    run systemctl enable --now scx_loader.service 2>/dev/null || true
-    say "scx_loader: scx_lavd habilitado (sched_ext sob demanda — o watchdog do loader é o cinto, o BORE é o chão)"
-  else
-    say "scx_loader: unit ausente (scx-scheds não instalado — o BORE do kernel segue sozinho)"
-  fi
+  say "scx: o lavd configurado pelo drop-in do scx.service (1.0-105 — o /etc/default/scx do scx-scheds NUNCA é disputado; o loader genérico é do upstream)"
   # 1.0-93 — A UNIT DIRETA DA CASA (a ordem do dono: o scx-scheds instala
   # o /usr/bin/scx_lavd SEM .service — a scx-lavd.service da casa o roda
   # DIRETO; presente a interface E o binário, ela é a DONA e o loader

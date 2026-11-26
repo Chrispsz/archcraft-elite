@@ -333,6 +333,24 @@ file_hasnt "monitor: o trio morto do gdk4 0.11 não volta (dock idem)" "crates/c
 file_has "monitor: o ouvidor vivo é o items-changed do GListModel (barra)" "crates/craft-bar-rs/src/ui.rs" 'connect_items_changed'
 file_has "monitor: o ouvidor vivo é o items-changed do GListModel (dock)" "crates/craft-dock-rs/src/ui.rs" 'connect_items_changed'
 
+# ══ 1.0-105 — O SWAYNC ÚNICO COM A PELE DO DONO, O SCX SEM O ALHEIO E O
+#    TOPLEVEL_COUNT DO FIO VIVO ══
+# o lançamento EXPLÍCITO da casa: o -c E o -s apontam nos arquivos do
+# dono (o /etc/xdg/swaync do upstream nunca é rede — o CSS não some):
+file_has "daemon: o swaync sobe com -c E -s nos arquivos do dono (1.0-105)" "crates/elite-daemon/src/supervise.rs" '-c $HOME/.config/swaync/config.json -s $HOME/.config/swaync/style.css'
+# a trava de instância única do painel (o SWAYNC_COUNT=5 do rig):
+file_has "daemon: a fila única do swaync (o mais velho fica, extras caem)" "crates/elite-daemon/src/supervise.rs" 'fn swaync_instancia_unica'
+file_has "heal: a cura do swaync (pele entregue + extras ceifados)" "elite/airootfs/usr/local/bin/elite-heal-sessao" 'cura_swaync'
+file_has "update: a fila única do swaync antes da dose (a rede da porta)" "elite/airootfs/usr/local/bin/elite-update" 'pgrep -x swaync'
+# o conflito do /etc/default/scx morre (o caminho é do scx-scheds oficial):
+file_hasnt "pkg: o /etc/default/scx NÃO viaja no pacote (o caminho é do scx-scheds — zero conflito)" ".ci/build.sh" 'files/etc/default/scx'
+file_absent "airootfs: o /etc/default/scx não existe mais (o dono é o scx-scheds)" "elite/airootfs/etc/default/scx"
+file_has "tune: o scheduler via DROP-IN do scx.service (nunca o arquivo do alheio)" "elite/airootfs/usr/local/bin/elite-tune" 'scx.service.d/override.conf'
+# o TOPLEVEL_COUNT lê o bus VIVO (o toplevel.sock de era morreu):
+file_has "probe: o TOPLEVEL_COUNT drena o snapshot do bus (craft-audit windows)" "elite/airootfs/usr/local/bin/elite-session-probe" 'craft-audit windows'
+file_has "audit: o juiz de casa conta as janelas do snapshot de boas-vindas" "crates/craft-tools/src/audit.rs" 'pub fn conta_janelas'
+file_has "probe: o contador de era craft-toplevel NÃO volta (o fio vivo é o bus)" "elite/airootfs/usr/local/bin/elite-session-probe" 'tp_count=0'
+
 # ══ E150 — A ONDA FINAL 1/2 (base 1.0-98): RELOGIN LIMPO, BOOT FRIO DOS
 # HZ, SDDM/GRUB REAIS, DUMP SISTÊMICO, GAVETA E PALCO, PAUSAS E 126 ══
 # O RELOGIN LIMPO (o SIGHUP da sessão velha + a colheita do órfão + a

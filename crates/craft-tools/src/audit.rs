@@ -316,6 +316,32 @@ pub fn hello_bus(sock: &Path) -> bool {
     matches!(elite_core::ipc::recv_frame(&mut fio), Ok(Some(_)))
 }
 
+/// 1.0-105 — A LISTA DE JANELAS ABERTAS do bus vivo (o juízo do
+/// TOPLEVEL_COUNT do probe): conecta, Hello e drena o SNAPSHOT de
+/// boas-vindas até o quadro `Windows` (o daemon manda a lista inteira —
+/// janelas/mesa/mídia/jogo — no aperto de mão; teto de 2s no total).
+/// Some(n) = a contagem das janelas abertas; None = daemon calado (o
+/// chamador veste o honesto — nunca palpite).
+pub fn conta_janelas(sock: &Path) -> Option<usize> {
+    let mut fio = elite_core::ipc::connect_bus(sock)?;
+    let _ = fio.set_read_timeout(Some(Duration::from_secs(2)));
+    let _ = fio.set_write_timeout(Some(Duration::from_secs(2)));
+    let hello = elite_core::BusMsg::Hello {
+        who: "craft-audit".to_string(),
+    };
+    elite_core::ipc::send_frame(&mut fio, &hello).ok()?;
+    // o snapshot de boas-vindas: drena até o quadro Windows (a ordem dos
+    // quadros é do daemon — mesa/mídia/jogo chegam junto; o teto segura)
+    for _ in 0..16 {
+        match elite_core::ipc::recv_frame(&mut fio).ok()? {
+            Some(elite_core::BusMsg::Windows { windows }) => return Some(windows.len()),
+            Some(_) => continue,   // o outro quadro do snapshot segue
+            None => return None,   // o fio morreu sem a lista
+        }
+    }
+    None
+}
+
 // ── Brave: o patch background_mode (JSON de verdade, idempotente) ───────
 
 /// Os códigos do contrato original: 1 = já curado (nada a fazer) ·

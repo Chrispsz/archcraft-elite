@@ -66,6 +66,29 @@ if [ -d /usr/local/share/elite/swaync ]; then
     unset _sc_home _sc_f
 fi
 
+# 1.0-105 — A TRAVA DE INSTÂNCIA ÚNICA DO SWAYNC ANTES DA DOSE (o
+# SWAYNC_COUNT=5 do rig: instâncias extra disputam o MESMO bus e o
+# painel): o MAIS VELHO fica (o dono legítimo dos nomes do bus — o
+# menor starttime do /proc/<pid>/stat), os EXTRAS caem com SIGTERM. A
+# dose que muda a casa renasce o painel pelo supervisor do daemon — o
+# lançamento dele é EXPLÍCITO (-c e -s nos arquivos do dono) e o ciclo
+# dele ceifa extras; esta passada é a rede da PORTA da dose.
+_sc_best=""
+_sc_best_t=""
+for _sc_p in $(pgrep -x swaync 2>/dev/null); do
+    [ -r "/proc/$_sc_p/stat" ] || continue
+    _sc_t="$(sed 's/^.*) //' "/proc/$_sc_p/stat" 2>/dev/null | awk '{print $20}')"
+    case "${_sc_t:-}" in ''|*[!0-9]*) continue ;; esac
+    if [ -z "$_sc_best" ] || [ "$_sc_t" -lt "$_sc_best_t" ]; then
+        [ -n "$_sc_best" ] && kill "$_sc_best" 2>/dev/null
+        _sc_best="$_sc_p"
+        _sc_best_t="$_sc_t"
+    else
+        kill "$_sc_p" 2>/dev/null
+    fi
+done
+unset _sc_p _sc_t _sc_best _sc_best_t
+
 if command -v pkexec >/dev/null 2>&1; then
     exec pkexec /usr/local/bin/elite-dose --sistema "$@"
 fi

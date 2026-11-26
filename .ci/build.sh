@@ -424,18 +424,24 @@ cp -p /work/elite/airootfs/usr/local/share/elite/qt6ct/qt6ct.conf \
 # o sysctl consolidado (99-elite-performance.conf; o post_upgrade aposenta
 # os fósseis 99-elite.conf/99-elite-net.conf com voz), os módulos do boot
 # (ntsync + sensores), a regra udev do /dev/ntsync (0666), o tmpfiles do
-# MGLRU, o /etc/default/scx (scx_lavd) e a drop-in da Condition (kernel
-# sem sched_ext = unit PULADA, nunca FAILED).
+# MGLRU e a drop-in da Condition (kernel sem sched_ext = unit PULADA,
+# nunca FAILED).
+# 1.0-105 — O /etc/default/scx SAI DO PACOTE (o caminho é do pacote
+# OFICIAL scx-scheds: dois pacotes no mesmo arquivo é --overwrite em
+# TODO pacman -Syu — a mesma classe do /etc/xdg/swaync da 1.0-104): a
+# escolha do escalonador viaja na UNIT DIRETA da casa
+# (scx-lavd.service: o ExecStart=/usr/bin/scx_lavd É a assinatura) e no
+# drop-in systemd (scx.service.d/override.conf do elite-tune) — nunca no
+# arquivo do alheio.
 # E138 — O ESTÁGIO NÃO É PACOTE: a E136/E137 staged esta família em
 # files/etc/… e o MOLDE nunca a installou — o rig 1.0-85 provou no dump
-# v2.13 (sem 99-elite-performance.conf, sem /etc/default/scx, sem regra
+# v2.13 (sem 99-elite-performance.conf, sem regra
 # zram: o canal entregava versões com a promessa empacotada no ar). O
 # install mora AGORA no package() do molde (mesma fonte única files/).
 mkdir -p /tmp/elite-src/elite-system/files/etc/sysctl.d \
          /tmp/elite-src/elite-system/files/etc/modules-load.d \
          /tmp/elite-src/elite-system/files/etc/udev/rules.d \
          /tmp/elite-src/elite-system/files/etc/tmpfiles.d \
-         /tmp/elite-src/elite-system/files/etc/default \
          /tmp/elite-src/elite-system/files/etc/systemd/system/scx_loader.service.d
 cp -p /work/elite/airootfs/etc/sysctl.d/99-elite-performance.conf \
       /tmp/elite-src/elite-system/files/etc/sysctl.d/99-elite-performance.conf
@@ -455,8 +461,6 @@ cp -p /work/elite/airootfs/etc/udev/rules.d/60-ntsync.rules \
       /tmp/elite-src/elite-system/files/etc/udev/rules.d/60-ntsync.rules
 cp -p /work/elite/airootfs/etc/tmpfiles.d/elite-mglru.conf \
       /tmp/elite-src/elite-system/files/etc/tmpfiles.d/elite-mglru.conf
-cp -p /work/elite/airootfs/etc/default/scx \
-      /tmp/elite-src/elite-system/files/etc/default/scx
 cp -p /work/elite/airootfs/etc/systemd/system/scx_loader.service.d/elite.conf \
       /tmp/elite-src/elite-system/files/etc/systemd/system/scx_loader.service.d/elite.conf
 # E136 — OS MESTRES DO MANGOHUD NO PACOTE (os 3 perfis zero-config da
@@ -482,12 +486,16 @@ cat > /tmp/elite-src/elite-system/files/usr/local/share/elite/daemon.conf <<'EOD
 # TEM dono, a vaga é ADOTADA, nunca relançada por cima — o gate que
 # matou o loop de 809 relanças do swaync no dump 101339). Edite à
 # vontade; linhas '#' e vazias são ignoradas. SEM este arquivo os
-# defaults da casa valem (swaync com gate de bus, swayosd,
-# craft-audio-route — o udiskie SAIU da fila na E151: o automount é a
-# regra udev 91-elite-automount, oneshot por evento, zero daemon). Cada
-# vaga também trava em flock exclusivo no
-# $XDG_RUNTIME_DIR/elite/resident-<nome>.lock — a posse dupla.
-#swaync::org.erikreider.swaync.cc::swaync
+# defaults da casa valem (swaync com gate de bus e lançamento
+# EXPLÍCITO -c/-s nos arquivos do $HOME do dono — 1.0-105: o
+# /etc/xdg/swaync do upstream nunca é rede; o $HOME nos tokens é
+# expandido no spawn, swayosd, craft-audio-route — o udiskie SAIU da
+# fila na E151: o automount é a regra udev 91-elite-automount,
+# oneshot por evento, zero daemon). Cada vaga também trava em flock
+# exclusivo no $XDG_RUNTIME_DIR/elite/resident-<nome>.lock — a posse
+# dupla (e o ciclo ceifa instâncias extra do swaync: o mais velho
+# fica, o SWAYNC_COUNT=5 do rig morre).
+#swaync::org.erikreider.swaync.cc::swaync -c $HOME/.config/swaync/config.json -s $HOME/.config/swaync/style.css
 #swayosd::swayosd-server
 #craft-audio-route::craft-audio-route
 EODCONF
@@ -729,9 +737,8 @@ ${hnames}
     install -m644 "${startdir}/files/etc/modules-load.d/elite-ntsync.conf" "${pkgdir}/etc/modules-load.d/elite-ntsync.conf"
     install -m644 "${startdir}/files/etc/modules-load.d/elite-sensors.conf" "${pkgdir}/etc/modules-load.d/elite-sensors.conf"
     install -d "${pkgdir}/etc/tmpfiles.d"
-    install -m644 "${startdir}/files/etc/tmpfiles.d/elite-mglru.conf" "${pkgdir}/etc/tmpfiles.d/elite-mglru.conf"
-    install -Dm644 "${startdir}/files/etc/default/scx" "${pkgdir}/etc/default/scx"'$'\n'
-    MOLDE[kmod_rm]='    for f in /etc/sysctl.d/99-elite-performance.conf /etc/udev/rules.d/99-elite-zram.rules /etc/udev/rules.d/60-ntsync.rules /etc/udev/rules.d/99-elite-io.rules /usr/lib/udev/rules.d/91-elite-automount.rules /etc/modules-load.d/elite-ntsync.conf /etc/modules-load.d/elite-sensors.conf /etc/tmpfiles.d/elite-mglru.conf /etc/default/scx; do
+    install -m644 "${startdir}/files/etc/tmpfiles.d/elite-mglru.conf" "${pkgdir}/etc/tmpfiles.d/elite-mglru.conf"'$'\n'
+    MOLDE[kmod_rm]='    for f in /etc/sysctl.d/99-elite-performance.conf /etc/udev/rules.d/99-elite-zram.rules /etc/udev/rules.d/60-ntsync.rules /etc/udev/rules.d/99-elite-io.rules /usr/lib/udev/rules.d/91-elite-automount.rules /etc/modules-load.d/elite-ntsync.conf /etc/modules-load.d/elite-sensors.conf /etc/tmpfiles.d/elite-mglru.conf; do
         [ -e "$f" ] && rm -f "$f"
     done'$'\n'
     MOLDE[lock_install]='    install -d "${pkgdir}/usr/local/share/elite/hyprlock"
@@ -3697,7 +3704,7 @@ if grep -qxF 'elite-system' "${PD_E57%profiledef.sh}packages.x86_64"; then
     # E138 — A FAMÍLIA DO KERNEL MODERNO NA LEI E57 (o mesmo buraco da E57
     # original, agora nos /etc de tuning): o pacote passa a instalar o
     # sysctl consolidado, a regra 99-elite-zram, os modules-load (ntsync +
-    # sensores), o tmpfiles do MGLRU e o /etc/default/scx — se o overlay
+    # sensores) e o tmpfiles do MGLRU — se o overlay
     # seguir entregando os MESMOS caminhos, o pacstrap recusa não-dono em
     # todos ('exists in filesystem', a doença E57 crua). UM dono por
     # caminho: o overlay cala, o pacote entrega, quem sobreviver ABORTA.
@@ -3714,8 +3721,7 @@ if grep -qxF 'elite-system' "${PD_E57%profiledef.sh}packages.x86_64"; then
                "${PD_E57%profiledef.sh}"airootfs/usr/local/share/elite/qt6ct/qt6ct.conf \
                "${PD_E57%profiledef.sh}"airootfs/etc/modules-load.d/elite-ntsync.conf \
                "${PD_E57%profiledef.sh}"airootfs/etc/modules-load.d/elite-sensors.conf \
-               "${PD_E57%profiledef.sh}"airootfs/etc/tmpfiles.d/elite-mglru.conf \
-               "${PD_E57%profiledef.sh}"airootfs/etc/default/scx )
+               "${PD_E57%profiledef.sh}"airootfs/etc/tmpfiles.d/elite-mglru.conf )
     say "E138: ${#kmod_e57[@]} confs de tuning saem do overlay (o pacote entrega a família do kernel moderno + as regras udev 91/99 + sudoers + polkit + qt6ct — um dono por caminho)"
     rm -f "${kmod_e57[@]}"
     # E151 — O MANGOHUD ENTRA NA LEI E57 (os 3 mestres staged desde a E136

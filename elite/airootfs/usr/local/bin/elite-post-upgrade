@@ -445,21 +445,19 @@ done
 #      ferramenta ESPECIALIZADA da comunidade, sem preset genérico da
 #      casa) e lactd (o painel AMD — belt do firstboot para o rig que
 #      nunca o viu).
-if systemctl list-unit-files scx_loader.service >/dev/null 2>&1 \
-   && systemctl cat scx_loader.service >/dev/null 2>&1 \
-   && [ -d /sys/kernel/sched_ext ]; then
-    # E139 — O ALINHAMENTO 100% (a auditoria do 1.0-86: unit habilitada
-    #     SEM /etc/default/scx = o loader arranca sem saber qual
-    #     escalonador a casa assinou — o scx_lavd do conf é a ordem
-    #     E136; conf ausente = o enable fica PARA O PRÓXIMO TUNE/dose
-    #     e o papel nomeia). Conf presente + a assinatura lida =
-    #     habilita e o papel prova o PAR (conf × unit).
-    if [ -s /etc/default/scx ] && grep -q '^SCX_SCHEDULER=' /etc/default/scx 2>/dev/null; then
-        systemctl enable --now scx_loader.service >/dev/null 2>&1 \
-            && tlog "scx_loader: habilitado na dose ALINHADO com /etc/default/scx ($(sed -n 's/^SCX_SCHEDULER=//p' /etc/default/scx | head -1) — sched_ext sob demanda; o BORE do kernel é o chão)"
-    else
-        tlog "scx_loader: /etc/default/scx ausente ou sem assinatura — o enable fica para a próxima dose (unit ligada sem escalonador assinado é o desalinhamento E139)"
-    fi
+if [ -d /sys/kernel/sched_ext ] && [ -x /usr/bin/scx_lavd ] \
+   && systemctl cat scx-lavd.service >/dev/null 2>&1; then
+    # 1.0-105 — O CONFLITO DO /etc/default/scx MORRE (o caminho é do
+    #     pacote OFICIAL scx-scheds: dois pacotes no mesmo arquivo é
+    #     --overwrite em TODO pacman -Syu — a mesma classe do
+    #     /etc/xdg/swaync da 1.0-104). A escolha do escalonador viaja na
+    #     UNIT DIRETA da casa (scx-lavd.service: o ExecStart É a
+    #     assinatura — E139 sem arquivo alheio) e no drop-in do
+    #     scx.service (elite-tune); o loader genérico desliga — UM
+    #     escalonador sched_ext por vez.
+    systemctl disable --now scx_loader.service >/dev/null 2>&1 || true
+    systemctl enable --now scx-lavd.service >/dev/null 2>&1 \
+        && tlog "scx-lavd: a unit DIRETA da casa habilitada na dose (o lavd latência-first — a escolha viaja na unit, nunca no /etc/default/scx do scx-scheds)"
 fi
 if systemctl list-unit-files coolercontrold.service >/dev/null 2>&1 \
    && systemctl cat coolercontrold.service >/dev/null 2>&1; then

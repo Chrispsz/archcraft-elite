@@ -353,6 +353,63 @@ cura_xml() {
     return 1
 }
 
+# ── 1.0-105 — A CURA DO SWAYNC (instância única + a pele no lugar) ──────
+#     O rig fotografou SWAYNC_COUNT=5 (instâncias de eras/relançamentos
+#     disputando o MESMO bus e o MESMO painel) e o "COULD NOT FIND CSS
+#     FILE!" (o style.css ausente no home — o /etc/xdg/swaync do upstream
+#     saiu do pacote na 1.0-104 e nunca foi rede de ninguém da casa).
+#     A cura é DUPLA e idempotente:
+#       1. A PELE NO LUGAR: config.json E style.css entregues do mestre
+#          da dose (o presente do dono nunca é tocado — a mesma
+#          gramática do entrega_pele_swaync do daemon);
+#       2. A FILA ÚNICA: o MAIS VELHO fica (o dono legítimo dos nomes
+#          do bus — o menor starttime do /proc), os extras recebem
+#          SIGTERM (o supervisor do daemon re-assina o gesto a cada
+#          ciclo; AQUI é a rede de cura do relogin).
+cura_swaync() {
+    # (1) a pele: os DOIS arquivos, do mestre da dose, só quando faltam
+    _sw_home="${XDG_CONFIG_HOME:-$HOME_ALVO/.config}/swaync"
+    _sw_entregues=0
+    for _sw_f in config.json style.css; do
+        [ -e "$_sw_home/$_sw_f" ] && continue
+        if [ -f "/usr/local/share/elite/swaync/$_sw_f" ]; then
+            mkdir -p "$_sw_home" 2>/dev/null || continue
+            if cp -p "/usr/local/share/elite/swaync/$_sw_f" "$_sw_home/$_sw_f" 2>/dev/null; then
+                _sw_entregues=$((_sw_entregues + 1))
+            fi
+        fi
+    done
+    [ "$_sw_entregues" -eq 0 ] \
+        || printf 'swaync: pele entregue (%s arquivo(s) do mestre da dose — o "COULD NOT FIND CSS FILE!" morre)\n' "$_sw_entregues"
+
+    # (2) a fila única: o mais velho fica, os extras caem (o starttime é
+    # o campo 20 contando do depois-')' do /proc/<pid>/stat — o comm
+    # pode ter parêntese, o corte é na ÚLTIMA fechadura)
+    _sw_melhor=""
+    _sw_melhor_t=""
+    _sw_extras=""
+    for _sw_p in $(pgrep -u "$UID_ALVO" -x swaync 2>/dev/null); do
+        [ -r "/proc/$_sw_p/stat" ] || continue
+        _sw_t="$(sed 's/^.*) //' "/proc/$_sw_p/stat" 2>/dev/null | awk '{print $20}')"
+        case "${_sw_t:-}" in ''|*[!0-9]*) continue ;; esac
+        if [ -z "$_sw_melhor" ] || [ "$_sw_t" -lt "$_sw_melhor_t" ]; then
+            [ -n "$_sw_melhor" ] && _sw_extras="$_sw_extras $_sw_melhor"
+            _sw_melhor="$_sw_p"
+            _sw_melhor_t="$_sw_t"
+        else
+            _sw_extras="$_sw_extras $_sw_p"
+        fi
+    done
+    if [ -n "$_sw_extras" ]; then
+        # shellcheck disable=SC2086 # a lista é de pids sem espaço interno
+        kill $_sw_extras 2>/dev/null
+        printf 'swaync: instância ÚNICA — extras ceifados (%s — o mais velho pid %s fica: o dono do bus)\n' \
+            "${_sw_extras# }" "${_sw_melhor:-?}"
+    fi
+    unset _sw_home _sw_f _sw_entregues _sw_p _sw_t _sw_melhor _sw_melhor_t _sw_extras
+    return 0
+}
+
 # ═══════════════════════════ O FLUXO ════════════════════════════════════
 printf 'heal: sessão do uid %s (%s)\n' "$UID_ALVO" "$HOME_ALVO"
 
@@ -360,6 +417,7 @@ saneia_baks "$LABWC"
 cura_autostart
 cura_xml "menu.xml" menu_ok
 cura_xml "rc.xml" xml_ok
+cura_swaync
 
 # a contagem de daemons no papel (o flock é a lei; a contagem alta = o
 # autostart ainda dispara demais — o papel denuncia)

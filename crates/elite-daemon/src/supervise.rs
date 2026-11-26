@@ -43,7 +43,14 @@ use std::time::{Duration, Instant};
 pub const RESIDENTES_DEFAULT: &[(&str, &str, Option<&str>)] = &[
     (
         "swaync",
-        "swaync",
+        // 1.0-105 — O LANÇAMENTO EXPLÍCITO DA CASA (a cura do
+        // "COULD NOT FIND CSS FILE!" e do /etc/xdg/swaync alheio): o
+        // painel SOBE com o -c E o -s APONTANDO nos arquivos do dono
+        // ($HOME expandido no spawn — a pele é entregue/sincronizada
+        // pelos mestres ANTES do fork no ramo do swaync) — o
+        // /etc/xdg/swaync/style.css do upstream NUNCA mais é rede de
+        // ninguém da casa.
+        "swaync -c $HOME/.config/swaync/config.json -s $HOME/.config/swaync/style.css",
         Some("org.erikreider.swaync.cc"),
     ),
     ("swayosd", "swayosd-server", None),
@@ -235,6 +242,75 @@ pub fn peek_lock_livre(caminho: &std::path::Path) -> bool {
     };
     let rc = unsafe { libc::flock(f.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
     rc == 0 // 0 = ninguém segura (livre); != 0 = motor de fora vivo
+}
+
+/// 1.0-105 — OS PID VIVOS de um comm com o NASCIMENTO (o SWAYNC_COUNT=5
+/// do rig): a mesma varredura /proc pura do comm_vivo (zero fork de
+/// pgrep — zumbi não conta, dono é o NOSSO uid), mas devolvendo a LISTA
+/// com o instante de nascimento de cada um (/proc/<pid>/stat campo 22
+/// APÓS o último ')' — o starttime em jiffies desde o boot: menor =
+/// mais velho). A porta de teste é a função pura de baixo.
+fn comms_pids_nascimento(esperado: &str) -> Vec<(i32, u64)> {
+    let alvo = comm_corta(esperado);
+    let meu_uid = unsafe { libc::getuid() };
+    let mut out = Vec::new();
+    let Ok(dir) = std::fs::read_dir("/proc") else { return out };
+    for e in dir.flatten() {
+        let pid = match e.file_name().to_string_lossy().parse::<i32>() {
+            Ok(p) => p,
+            Err(_) => continue,
+        };
+        let Ok(comm) = std::fs::read_to_string(format!("/proc/{pid}/comm")) else { continue };
+        if comm.trim() != alvo {
+            continue;
+        }
+        let Ok(stat) = std::fs::read_to_string(format!("/proc/{pid}/stat")) else { continue };
+        let Some(depois) = stat.rsplit(')').next() else { continue };
+        // estado (1º) + starttime (20º, contando do depois-')' — o comm
+        // pode ter espaço/parêntese, o rsplit corta na ÚLTIMA fechadura)
+        let mut campos = depois.split_whitespace();
+        let estado = campos.next().unwrap_or("R");
+        if estado == "Z" {
+            continue; // zumbi não é vida
+        }
+        let nascimento: u64 = campos.nth(18).and_then(|t| t.parse().ok()).unwrap_or(0);
+        // dono: só o processo do NOSSO usuário prova a sessão daqui
+        let Ok(status) = std::fs::read_to_string(format!("/proc/{pid}/status")) else { continue };
+        let uid_dele = status
+            .lines()
+            .find_map(|l| l.strip_prefix("Uid:").map(|r| r.to_string()))
+            .and_then(|r| r.split_whitespace().next().and_then(|u| u.parse::<u32>().ok()))
+            .unwrap_or(u32::MAX);
+        if uid_dele == meu_uid {
+            out.push((pid, nascimento));
+        }
+    }
+    out
+}
+
+/// 1.0-105 — A TRAVA DE INSTÂNCIA ÚNICA (o SWAYNC_COUNT=5 do rig: o
+/// painel de notificações é UM por sessão — instâncias extra nascem de
+/// eras/relançamentos manuais e cada uma disputa o bus e o painel).
+/// Dados os pids vivos com nascimento, o MAIS VELHO FICA (o dono
+/// legítimo dos nomes do bus) e os EXTRAS recebem SIGTERM — função
+/// PURA sobre a lista (a porta dos testes); o chamador é quem sinaliza.
+fn extras_da_fila(pids: &[(i32, u64)]) -> Vec<i32> {
+    let mut ordenados = pids.to_vec();
+    ordenados.sort_unstable_by_key(|(_, t)| *t);
+    ordenados.into_iter().skip(1).map(|(p, _)| p).collect()
+}
+
+/// 1.0-105 — O GESTO da trava de instância única do swaync (a peça do
+/// ciclo do supervise): varre os pids vivos e sinaliza os extras
+/// (SIGTERM — a passada seguinte do ciclo colhe quem teimar; o dono do
+/// bus, o mais velho, segue de pé). Devolve os pids mortos (para o
+/// papel do supervisor — 0 = nada a fazer).
+fn swaync_instancia_unica() -> Vec<i32> {
+    let extras = extras_da_fila(&comms_pids_nascimento("swaync"));
+    for p in &extras {
+        unsafe { libc::kill(*p, libc::SIGTERM) };
+    }
+    extras
 }
 
 /// 1.0-100 — A VARREDURA DOS LOCKS ÓRFÃOS DE /tmp (o audit-99.txt §2
@@ -1002,6 +1078,24 @@ fn supervisa(
                     }
                 }
             }
+            // 1.0-105 — A TRAVA DE INSTÂNCIA ÚNICA DO SWAYNC (o
+            // SWAYNC_COUNT=5 do rig: instâncias extra disputam o MESMO
+            // bus e o painel — o MAIS VELHO fica (o dono legítimo dos
+            // nomes do bus), os extras caem com SIGTERM no MESMO ciclo.
+            // A peça só caminha no /proc da vaga do swaync — a MESMA
+            // escola do gate de comm de baixo; cobre os DOIS caminhos:
+            // o filho NOSSO vivo E o caminho de spawn (o gate adota o
+            // sobrevivente, nunca relança por cima de quem ficou).
+            if v.res.nome == "swaync" {
+                let extras = swaync_instancia_unica();
+                if !extras.is_empty() {
+                    eprintln!(
+                        "elite-daemon supervise: swaync instância ÚNICA — {} extra(s) sinalizado(s) {:?} (o mais velho fica: o dono do bus)",
+                        extras.len(),
+                        extras
+                    );
+                }
+            }
             if v.filho.is_some() || v.ausente {
                 continue;
             }
@@ -1054,10 +1148,15 @@ fn supervisa(
                 v.trava = trava;
                 continue;
             }
-            //    (c') E149 — a pele do swaync ANTES do fork: o rig que
-            //        antecedeu a dose acorda o painel SEM o conf — o
-            //        "Config not found!" do dump morre no ÚLTIMO portão
-            //        (o skel entrega; o presente do dono nunca é tocado).
+            //    (c') E149→1.0-105 — A PELE DO SWAYNC SINCRONIZADA ANTES
+            //        DE SUBIR: o lançamento da casa é EXPLÍCITO (-c E -s
+            //        nos arquivos do $HOME do dono) — os DOIS arquivos
+            //        (config.json E style.css) são entregues pelos
+            //        mestres ANTES do fork (o rig que antecedeu a dose
+            //        acorda o painel SEM o conf; o presente do dono
+            //        nunca é tocado); o /etc/xdg/swaync do upstream sai
+            //        da rede de TODO lançamento da casa (o "COULD NOT
+            //        FIND CSS FILE!" morre no ÚLTIMO portão).
             if v.res.nome == "swaync" {
                 let conf_base = std::env::var("XDG_CONFIG_HOME")
                     .map(PathBuf::from)
@@ -1077,7 +1176,7 @@ fn supervisa(
                 let entregues = entrega_pele_swaync(&mestres, &conf_base.join("swaync"));
                 if entregues > 0 {
                     eprintln!(
-                        "elite-daemon supervise: swaync pele ENTREGUE do mestre da dose ({}) — o \"Config not found!\" morre no último portão",
+                        "elite-daemon supervise: swaync pele ENTREGUE do mestre da dose ({}) — config.json E style.css no lugar ANTES do fork explícito (-c e -s)",
                         entregues
                     );
                 }
@@ -1292,6 +1391,33 @@ mod tests {
             decide_posse(false, true, true),
             Posse::Adotada
         ));
+    }
+
+    #[test]
+    fn e157_o_swaync_sobe_com_a_pele_explicita_do_dono() {
+        // 1.0-105 — o lançamento EXPLÍCITO: o -c E o -s apontam nos
+        // arquivos do $HOME do dono (a pele entregue pelos mestres
+        // ANTES do fork) — o /etc/xdg/swaync/style.css do upstream
+        // NUNCA mais é rede (o "COULD NOT FIND CSS FILE!" morre); o
+        // 1º token segue "swaync" (o comm do gate de posse adota a
+        // instância viva de fora, nunca duplica)
+        let swaync = RESIDENTES_DEFAULT
+            .iter()
+            .find(|(n, _, _)| *n == "swaync")
+            .expect("o swaync é residente default da casa");
+        assert_eq!(swaync.1.split_whitespace().next(), Some("swaync"));
+        assert!(swaync.1.contains("-c $HOME/.config/swaync/config.json"));
+        assert!(swaync.1.contains("-s $HOME/.config/swaync/style.css"));
+    }
+
+    #[test]
+    fn e157_a_fila_unica_ceifa_so_os_extras() {
+        // 1.0-105 — o SWAYNC_COUNT=5 morre: o MAIS VELHO fica (o dono
+        // legítimo dos nomes do bus — menor starttime), os EXTRAS caem
+        let extras = extras_da_fila(&[(30, 900), (10, 100), (20, 500)]);
+        assert_eq!(extras, vec![20, 30], "o mais velho (10) fica");
+        assert!(extras_da_fila(&[(10, 100)]).is_empty(), "um só = nada a ceifar");
+        assert!(extras_da_fila(&[]).is_empty(), "nenhum = silêncio");
     }
 
     #[test]

@@ -88,9 +88,13 @@ pk_count="$(pgrep -c -f 'lxqt-policykit-agent' 2>/dev/null)"; [ -n "$pk_count" ]
 # craft-toplevel.c morreu com o seu toplevel.sock): a prova de fala é o
 # BUS DA SESSÃO (/run/user/$UID/elite/bus.sock) — o Hello ganha o
 # SNAPSHOT DE BOAS-VINDAS (janelas/mesa/mídia/jogo/áudio): o quadro
-# que responder é o fio VIVO. O contador do toplevel de era segue como
-# fronteira legível (rig velho em migração o mostra vivo).
-tp_count="$(count craft-toplevel)"
+# que responder é o fio VIVO.
+# 1.0-105 — A LISTA DE JANELAS ABERTAS VEM DO BUS VIVO (a ordem do dono:
+# o contador de ERA contava o craft-toplevel do socket legado
+# toplevel.sock — o C de 3 gerações que NÃO EXISTE mais na sessão 2.0;
+# agora o juiz de casa drena o SNAPSHOT do bus e conta o que o daemon
+# VÊ de verdade; sem juiz/bus = 0 honesto, nunca o palpite da era).
+tp_count=0
 bus_sock="DEAD"
 for s in /run/user/*/elite/bus.sock; do
     [ -S "$s" ] || continue
@@ -99,9 +103,16 @@ for s in /run/user/*/elite/bus.sock; do
     # verdade: conecta, Hello, exige o quadro de volta no teto de 2s)
     if craft-audit hello "$s" >/dev/null 2>&1; then
         bus_sock="OK"
+        # 1.0-105 — o TOPLEVEL_COUNT do fio VIVO: o snapshot de
+        # boas-vindas traz a LISTA de janelas abertas do daemon
+        if command -v craft-audit >/dev/null 2>&1; then
+            _tp="$(craft-audit windows "$s" 2>/dev/null)" \
+                && case "$_tp" in ''|*[!0-9]*) : ;; *) tp_count="$_tp" ;; esac
+        fi
         break
     fi
 done
+unset s _tp
 
 # barras.log de TODOS os usuários (live=liveuser; instalado=dono do login)
 restarts=0
@@ -144,8 +155,9 @@ unset _gw_auto _gw_home _gwp _gwd
 say "ELITE_PROBE_BEGIN"
 say "WAYBAR_COUNT=$wb_count"
 say "DOCK_COUNT=$dk_count"
-# 2.0 — era legível: o C de 3 gerações morreu no E142c; o contador
-# segue para a fronteira dos rigs em migração (o fio VIVO é o bus.sock)
+# 1.0-105 — o TOPLEVEL_COUNT é a LISTA DE JANELAS ABERTAS do fio VIVO
+# (o snapshot de boas-vindas do bus.sock do elite-daemon — o socket
+# legado toplevel.sock morreu com o C de 3 gerações E142c)
 say "TOPLEVEL_COUNT=$tp_count"
 say "BUS_SOCKET=$bus_sock"
 say "SWAYNC_COUNT=$sn_count"

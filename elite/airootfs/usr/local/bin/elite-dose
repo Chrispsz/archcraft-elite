@@ -462,13 +462,16 @@ lista_404() {
 # APÓS a adoção: a unit que ACABOU de nascer ganha o enable --now NA
 # MESMA corrida — idempotente, best-effort, com voz no papel.
 garante_ancoras_vivas() {
-    # scx_loader: só com o conf assinado (a lei E139 — unit ligada sem
-    # escalonador assinado é o desalinhamento)
-    if systemctl list-unit-files scx_loader.service >/dev/null 2>&1 \
-       && systemctl cat scx_loader.service >/dev/null 2>&1 \
-       && grep -q '^SCX_SCHEDULER=' /etc/default/scx 2>/dev/null; then
-        if run_root systemctl enable --now scx_loader.service >>"$ULOG" 2>&1; then
-            ulog "âncoras vivas: scx_loader de pé NA MESMA dose ($(sed -n 's/^SCX_SCHEDULER=//p' /etc/default/scx | head -1) — o pacote chegou pela adoção, o serviço não esperou a próxima)"
+    # 1.0-105 — scx-lavd: a UNIT DIRETA da casa (o /etc/default/scx é do
+    # pacote OFICIAL scx-scheds — a casa NUNCA o disputa: dois pacotes no
+    # mesmo arquivo é --overwrite em todo pacman -Syu, a classe do
+    # /etc/xdg/swaync da 1.0-104; a escolha do lavd viaja NO ExecStart da
+    # unit, nunca no arquivo do alheio)
+    if [ -d /sys/kernel/sched_ext ] && [ -x /usr/bin/scx_lavd ] \
+       && systemctl cat scx-lavd.service >/dev/null 2>&1; then
+        if run_root systemctl enable --now scx-lavd.service >>"$ULOG" 2>&1; then
+            run_root systemctl disable --now scx_loader.service >>"$ULOG" 2>&1 || true
+            ulog "âncoras vivas: scx-lavd DIRETO de pé NA MESMA dose (o ExecStart=/usr/bin/scx_lavd é a assinatura — o pacote chegou pela adoção, o serviço não esperou a próxima)"
         fi
     fi
     # coolercontrold: os PWM da placa-mãe destravados (as curvas são do

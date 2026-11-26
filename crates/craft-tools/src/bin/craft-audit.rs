@@ -12,12 +12,14 @@
 //   craft-audit yaml <arquivo>                      — YAML bem-formado
 //   craft-audit calamares <raiz>                     — confs + sequência
 //   craft-audit hello <bus.sock>                    — o daemon responde?
+//   craft-audit windows <bus.sock>                   — quantas janelas abertas?
 //   craft-audit brave-bg <Local State>               — background_mode=false
 //   craft-audit binds-osd <rc.xml>                   — as 5 reescritas E74
 //   craft-audit exec-resolve <menu> <rc> <bindir> <packages> <build.sh>
 //
 // Contratos de saída (a suíte e os scripts da casa leem ESTES códigos):
 //   xml/menu/ini/yaml/hello  → 0 válido · 1 inválido
+//   windows                 → stdout = a contagem · 0 com lista · 1 calado
 //   calamares               → 0 com o resumo · 1 com o réu
 //   brave-bg                → 1 já curado · 2 patch aplicado · 3 sem tocar
 //   binds-osd               → 0 (n/5 reescritos, o número no stdout) · 3 zero
@@ -35,6 +37,7 @@ fn uso() -> String {
   yaml <arquivo>           YAML bem-formado
   calamares <raiz>         todos os confs do Calamares + a sequência
   hello <bus.sock>          o bus.sock responde ao Hello
+  windows <bus.sock>        quantas janelas abertas (o snapshot do bus)
   brave-bg <Local State>   background_mode.enabled=false (idempotente)
   binds-osd <rc.xml>        as 5 reescritas E74 (swayosd com fallback)
   exec-resolve <menu> <rc> <bindir> <packages.add> <build.sh>
@@ -59,6 +62,7 @@ fn main() {
         "ini" => cmd_ini(&resto),
         "calamares" => cmd_calamares(&resto),
         "hello" => cmd_hello(&resto),
+        "windows" => cmd_windows(&resto),
         "brave-bg" => cmd_brave_bg(&resto),
         "binds-osd" => cmd_binds_osd(&resto),
         "exec-resolve" => cmd_exec_resolve(&resto),
@@ -161,6 +165,23 @@ fn cmd_hello(args: &[String]) -> i32 {
         0
     } else {
         1
+    }
+}
+
+/// 1.0-105 — a contagem de janelas abertas do bus vivo (o TOPLEVEL_COUNT
+/// do probe lê AQUI — o socket legado toplevel.sock morreu com o C de 3
+/// gerações): stdout = o número, exit 0; daemon calado = exit 1.
+fn cmd_windows(args: &[String]) -> i32 {
+    let Some(sock) = args.first() else {
+        eprintln!("uso: windows <bus.sock>");
+        return 2;
+    };
+    match craft_tools::audit::conta_janelas(Path::new(sock)) {
+        Some(n) => {
+            println!("{n}");
+            0
+        }
+        None => 1,
     }
 }
 
