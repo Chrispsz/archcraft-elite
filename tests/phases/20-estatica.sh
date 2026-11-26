@@ -48,6 +48,19 @@ file_hasnt "rc.xml: o mousepad legado não volta" "$AIROOTFS/etc/skel/.config/la
 file_has "autostart: o orquestrador ÚNICO é o elite-daemon session" "$AIROOTFS/etc/skel/.config/labwc/autostart" 'elite-daemon session'
 file_hasnt "autostart: o craft-bars não volta (a cola sh morreu)" "$AIROOTFS/etc/skel/.config/labwc/autostart" 'craft-bars &'
 file_hasnt "autostart: nenhuma spawn direta de waybar" "$AIROOTFS/etc/skel/.config/labwc/autostart" 'waybar &'
+# 1.0-102 — O AUTOSTART MINIMALISTA (audit 102 §2): nenhum residente
+# nasce no autostart (linha VIVA, fora de comentário) — quem lança é o
+# elite-daemon session; o corpo congelado de dose antiga é fóssil que o
+# elite-heal-sessao reconstrói do mestre
+_nao_residente="$(grep -vE '^[[:space:]]*(#|$)' "$AIROOTFS/etc/skel/.config/labwc/autostart" 2>/dev/null \
+    | grep -cE '(^|[[:space:]/])(swaync|swaybg|swayosd-server|lxqt-policykit-agent|polkit-gnome|udiskie)([[:space:]]|&|$)' || true)"
+if [ "${_nao_residente:-0}" -eq 0 ]; then
+    t_ok "autostart: ZERO residente nascendo fora do orquestrador (1.0-102 — o corpo é minimalista)"
+else
+    t_fail "autostart: ZERO residente nascendo fora do orquestrador" \
+        "$_nao_residente spawn(s) fóssil(is) em linha viva — o lançador ÚNICO é o elite-daemon session"
+fi
+unset _nao_residente
 
 # ══ O PACOTE (as ferramentas dedicadas da diretriz, o debloat) ══
 # 2.0 Fase 2 — o swayidle APOSENTOU (a vigília é do elite-daemon nativo)
@@ -82,9 +95,12 @@ file_has "guard-pkgrel: o Rust é conteúdo do elite-system (crates/** no delta 
 scan_vivo() { # scan_vivo <regex> — só linhas de CÓDIGO (não comentário),
     # fora dos peritos/ceifadores nomeados (craft-dump noma fósseis;
     # elite-post-upgrade e os motores elite-dose/elite-clean os CEIFAM
-    # — migração, não uso; os nomes mudaram na 2.0, a função continua)
+    # — migração, não uso; os nomes mudaram na 2.0, a função continua.
+    # 1.0-102 — o elite-heal-sessao entra na lista: o juízo do FÓSSIL DE
+    # SPAWN NOMEA os fósseis para os CAÇAR no autostart doente — o
+    # grep dele é a perícia, nunca o uso)
     grep -rnE "$1" "$AIROOTFS/usr/local/bin" 2>/dev/null \
-        | awk -F: '$0 !~ /craft-dump|elite-session-probe|elite-post-upgrade|elite-dose|elite-clean|craft-bgapps/ {
+        | awk -F: '$0 !~ /craft-dump|elite-session-probe|elite-post-upgrade|elite-dose|elite-clean|craft-bgapps|elite-heal-sessao/ {
             line=$3; gsub(/^[ \t]+/, "", line)
             if (line !~ /^#/) print $1":"$2
         }'
@@ -270,8 +286,9 @@ file_has "build.sh: o mestre do greeter viaja no pacote (elite/sddm)" "$BS" '/us
 file_has "build.sh: o mestre do greeter nasce DA MESMA FONTE do overlay" "$BS" '/work/elite/airootfs/usr/share/sddm/themes/archcraft/theme.conf'
 file_has "post-upgrade: a pele do greeter chega ao rig vivo na dose" "$AIROOTFS/usr/local/bin/elite-post-upgrade" '/usr/share/sddm/themes/archcraft/theme.conf'
 file_has "rice: o fóssil da v7 na rede do lock (quem adotou a v7 renova à v8)" "$AIROOTFS/usr/local/bin/craft-rice" '6e4597244cb625dde1ed33f419afabb8bf9270230a4218311c9c4acf9919b0ea'
-# O MOLDE veste o pkgrel 100 (lei E41 — o guard cobra)
-file_has "build.sh: o pkgrel da era é 101 (elite-system 1.0-101)" "$BS" 'pkgrel=101'
+# O MOLDE veste o pkgrel 102 (lei E41 — o guard cobra)
+# (1.0-102 — a âncora viva da era: cada dose sobe o número NO MESMO commit)
+file_has "build.sh: o pkgrel da era é 102 (elite-system 1.0-102)" "$BS" 'pkgrel=102'
 # A CURA DO CANAL VERMELHO (#45632905510 — o E0599 pela 2ª era): o gdk4
 # 0.11.5 NÃO gera monitor-added/removed/monitors-changed (deprecated desde
 # o GTK 4.16, fora de DisplayExt) — a via viva é o items-changed do
@@ -301,6 +318,29 @@ file_has "idle: o APAGAR é tempo próprio (a fábrica 5/10 no daemon)" "crates/
 file_has "wallpaper: o swaybg é vaga supervisionada da sessão" "crates/elite-daemon/src/supervise.rs" 'swaybg -m fill'
 file_hasnt "autostart: NENHUM spawn/comentário de era (o waybar morreu)" "elite/airootfs/etc/skel/.config/labwc/autostart" 'waybar'
 file_hasnt "autostart: o craft-bars de era não volta nem em comentário" "elite/airootfs/etc/skel/.config/labwc/autostart" 'craft-bars'
+
+# ══ 1.0-102 — O CICLO DE VIDA DO RELOGIN (audit 102 + dump 094140) ══
+# o Broken pipe do fio Wayland não pode mais deixar o dono vivo no lock:
+file_has "daemon: o fim_da_sessao desce a casa no EPIPE/EOF do compositor" "crates/elite-daemon/src/main.rs" 'fn fim_da_sessao'
+file_has "daemon: o fio Wayland chama o fim da sessão no erro do dispatch" "crates/elite-daemon/src/wayland.rs" 'fim_da_sessao'
+file_has "daemon: a porta session sai com o lock FORA do chão (saída limpa)" "crates/elite-daemon/src/supervise.rs" 'session.lock fora do chão'
+file_has "daemon: o cão de guarda do socket no supervisa (a 2ª via do fim)" "crates/elite-daemon/src/supervise.rs" 'SUMIU do chão'
+# o julgamento do órfão pela IDENTIDADE da sessão (o wayland-0 de mesmo
+# nome não mente mais):
+file_has "daemon: o relogin julga o órfão pela identidade (XDG_SESSION_ID)" "crates/elite-daemon/src/supervise.rs" 'julga_orfao_relogin'
+file_has "daemon: o lock do órfão teimoso é assumido na hora" "crates/elite-daemon/src/supervise.rs" 'ASSUME'
+# a config padrão do swaync viaja na DOSE (o "Config not found!" do
+# audit 102 morre nas duas portas):
+file_has "pkg: o mestre do swaync viaja no pacote (a cadeia do daemon lê 1º)" ".ci/build.sh" 'files/usr/local/share/elite/swaync/config.json'
+file_has "pkg: o fallback de sistema /etc/xdg/swaync viaja no pacote" ".ci/build.sh" 'files/etc/xdg/swaync/config.json'
+file_has "skel-etc: o fallback /etc/xdg/swaync nasce no airootfs" "elite/airootfs/etc/xdg/swaync/config.json" 'positionX'
+file_has "daemon: a cadeia de mestres do entrega_pele_swaync (pacote 1º)" "crates/elite-daemon/src/supervise.rs" 'usr/local/share/elite/swaync'
+# o heal ganha o juízo do FÓSSIL DE SPAWN (o corpo congelado de dose
+# antiga com residente de era nascendo é reconstruído do mestre):
+file_has "heal: o juízo do FÓSSIL DE SPAWN (audit 102 §2)" "elite/airootfs/usr/local/bin/elite-heal-sessao" 'FÓSSIL DE SPAWN'
+# a DOCK ATÔMICA (a duplicação transitória do pin morre no mesmo ciclo):
+file_has "dock: a reconciliação ATÔMICA do rebuild_pins (pin · dinâmico · indicador no MESMO ciclo)" "crates/craft-dock-rs/src/ui.rs" 'A RECONCILIAÇÃO ATÔMICA'
+file_has "dock: os dinâmicos resolvem pelos app_ids das JANELAS (a régua unificada)" "crates/craft-dock-rs/src/ui.rs" 'A FONTE UNIFICADA'
 # a gaveta desce com o palco (o overlay nunca fica por cima da casa):
 file_has "gaveta: o daemon desce o nwg-drawer quando outra janela ganha foco" "crates/elite-daemon/src/wayland.rs" 'gaveta_desce'
 file_has "gaveta: o sinal do daemon colhe o drawer do uid" "crates/elite-daemon/src/main.rs" 'pub(crate) fn gaveta_desce'

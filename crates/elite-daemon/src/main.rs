@@ -67,6 +67,17 @@ const JANELA_DEBOUNCE_S: u64 = 3;
 // ── o sinal de parada (SIGTERM/SIGINT → saída limpa) ─────────────────────
 static STOP: AtomicBool = AtomicBool::new(false);
 
+// 1.0-102 — A PORTEIRA SABE QUEM É: o modo `session` é o único que
+// desce a casa INTEIRA quando o compositor cai (o audit 102: o daemon
+// da sessão registrava `Broken pipe (os error 32)` no fio do Wayland e
+// SEGUIA VIVO — ppid 1 — segurando o session.lock, os filhos morriam
+// com `Lost connection to Wayland compositor` e o supervisor os
+// RELANÇAVA às cegas a cada 2s; no login seguinte a instância nova
+// batia no flock, saía 0 e o desktop acordava VAZIO). O jogo/supervise
+// puros seguem o comportamento de sempre (o fio morre honesto, o
+// corpo segue para as outras portas).
+pub(crate) static PORTA_SESSION: AtomicBool = AtomicBool::new(false);
+
 extern "C" fn ao_sinal(_sig: i32) {
     STOP.store(true, Ordering::SeqCst);
 }
@@ -195,6 +206,11 @@ fn main() {
         // indicador de 2º planos saiu da interface E do código). O rig
         // com AUTO=0 não tem motor de jogo e não pode ficar cego.
         Some("session") => {
+            // 1.0-102 — A PORTEIRA SABE QUEM É: este corpo é a SESSÃO
+            // (o único que desce a casa inteira quando o compositor cai
+            // — ver fim_da_sessao; o audit 102: o Broken pipe do fio
+            // Wayland não podia mais deixar o dono vivo no lock).
+            PORTA_SESSION.store(true, Ordering::SeqCst);
             // 2.0 — O NÚCLEO VIVO: o bus.sock (a barra e a dock ganham
             // o fio), o cliente Wayland NATIVO (o craft-toplevel.c morre
             // — janelas, vigília e trava automática da casa), o MPRIS
@@ -527,6 +543,70 @@ pub fn wayland_pronto() -> bool {
         .unwrap_or_else(|_| format!("/run/user/{}", unsafe { libc::getuid() }));
     let socket = PathBuf::from(runtime).join(&nome);
     socket.metadata().map(|m| m.file_type().is_socket()).unwrap_or(false)
+}
+
+/// 1.0-102 — O FIM DA SESSÃO NO GESTO DO COMPOSITOR (a cura central do
+/// audit 102): ao labwc encerrar, o fio Wayland deste daemon morre com
+/// EPIPE/EOF — e o corpo da sessão desce JUNTO, GRACIOSAMENTE:
+///   1. STOP acende (o supervisor da sessão vê no ciclo de ≤1s: SIGTERM
+///      aos filhos NOSSOS via handle — craft-bar-rs, craft-dock-rs,
+///      swayosd-server, agente polkit, swaync, wallpaper, watch-save, o
+///      motor de jogo — e os COLHE com wait);
+///   2. o sinal por COMM é o cinto imediato (o filho que nasceu fora do
+///      mapa do supervisor na janela da queda também é alcançado);
+///   3. o vigia de teto: se algum filho recusar morrer e o supervisor
+///      pendurar no wait, ESTE processo finaliza sozinho (exit 0) — o
+///      chão nunca fica com o dono morto-vivo segurando a trava.
+/// O modo NÃO-session (jogo puro, supervise) segue o comportamento de
+/// sempre: o fio morre honesto e o corpo segue vivo para as outras
+/// portas (o motor de jogo é vaga supervisionada da sessão — quem o
+/// colhe é o STOP do pai).
+pub(crate) fn fim_da_sessao(motivo: &str) {
+    if !PORTA_SESSION.load(Ordering::SeqCst) {
+        // o corpo de sempre (modo jogo/supervise): o fio morre honesto,
+        // o daemon segue para as outras portas
+        eprintln!(
+            "elite-daemon: {motivo} — o fio morre honesto (o supervisor reergue a sessão)"
+        );
+        return;
+    }
+    eprintln!(
+        "elite-daemon: {motivo} — o COMPOSITOR caiu: a sessão desce INTEIRA e LIMPA \
+         (STOP → filhos encerrados → session.lock fora do chão → exit 0 — 1.0-102)"
+    );
+    STOP.store(true, Ordering::SeqCst);
+    // o cinto imediato por comm (o comm do agente lxqt é cortado pelo
+    // kernel em 15: 'lxqt-policykit-' — TASK_COMM_LEN de sempre)
+    let n = sinal_para_comms(
+        &[
+            "craft-bar-rs",
+            "craft-dock-rs",
+            "swayosd-server",
+            "swaync",
+            "lxqt-policykit-",
+            "swaybg",
+            "craft-display",
+        ],
+        libc::SIGTERM,
+    );
+    eprintln!(
+        "elite-daemon: fim da sessão — SIGTERM aos filhos gerenciados ({n} sinalizado(s) por comm; o supervisor colhe os NOSSOS pelo handle no ciclo seguinte)"
+    );
+    // o vigia de teto: o supervisor (STOP no ciclo de ≤1s) encerra os
+    // filhos, remove o session.lock e sai 0; se um filho recusar morrer
+    // e o wait dele pendurar o supervisor, o teto de 8s finaliza o
+    // processo NA MESMA SAÍDA (exit 0 — o chão nunca fica retido)
+    std::thread::Builder::new()
+        .name("elite-fim-sessao".into())
+        .spawn(|| {
+            std::thread::sleep(Duration::from_secs(8));
+            eprintln!(
+                "elite-daemon: o teto do fim de sessão bateu (8s) — exit 0 com o flock \
+                 solto (o lock do chão saiu pelo caminho do supervisor ou sai no relogin)"
+            );
+            std::process::exit(0);
+        })
+        .ok();
 }
 
 /// E150 — espera o compositor registrar o socket (teto em segundos,

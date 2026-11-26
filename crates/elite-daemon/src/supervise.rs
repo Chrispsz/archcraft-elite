@@ -430,18 +430,26 @@ fn lanca(comando: &str, log: &PathBuf, nome_vaga: &str) -> io::Result<Child> {
 /// entregue UMA vez; o PRESENTE é domínio do dono e NUNCA tocado (a
 /// mesma lei do sync_skel do post-upgrade). Função PURA sobre caminhos
 /// (a porta do contrato) — 0 entregas = nada mudou, nada no papel.
-fn entrega_pele_swaync(skel_dir: &std::path::Path, conf_dir: &std::path::Path) -> usize {
+/// 1.0-102 — A CADEIA DE MESTRES (a cura do "Config not found!" do
+/// audit 102): o skel é VEÍCULO DA ISO — o rig instalado NEM O TEM em
+/// /etc/skel; o mestre que VIAJA NA DOSE é o do pacote
+/// (/usr/local/share/elite/swaync), com o /etc/xdg/swaync da casa e o
+/// skel como redes (nessa ordem — o primeiro que TEM a peça veste).
+fn entrega_pele_swaync(mestres: &[PathBuf], conf_dir: &std::path::Path) -> usize {
     let mut entregues = 0;
     for arquivo in ["config.json", "style.css"] {
         let alvo = conf_dir.join(arquivo);
         if alvo.exists() {
             continue; // o dono veste o que é dele
         }
-        let Ok(bytes) = std::fs::read(skel_dir.join(arquivo)) else {
-            continue; // skel sem a peça = casa calada (honesto)
-        };
-        if std::fs::create_dir_all(conf_dir).is_ok() && std::fs::write(&alvo, &bytes).is_ok() {
-            entregues += 1;
+        for mestre in mestres {
+            let Ok(bytes) = std::fs::read(mestre.join(arquivo)) else {
+                continue; // este mestre sem a peça: a rede seguinte veste
+            };
+            if std::fs::create_dir_all(conf_dir).is_ok() && std::fs::write(&alvo, &bytes).is_ok() {
+                entregues += 1;
+            }
+            break; // o primeiro mestre com a peça decidiu (vestiu OU falhou na escrita — as redes não reescrevem)
         }
     }
     entregues
@@ -595,31 +603,60 @@ pub fn colhe_relogin() -> Result<(), String> {
             .ok()
             .and_then(|t| t.trim().parse::<i32>().ok());
         let mut colhido = false;
+        // 1.0-102 — O JULGAMENTO PELA IDENTIDADE DA SESSÃO (audit 102: a
+        // sessão nova batia no flock do irmão de sessão MORTA e acordava
+        // VAZIA): o XDG_SESSION_ID é a identidade de verdade — muda a
+        // CADA login; no mesmo rig o WAYLAND_DISPLAY é wayland-0 EM
+        // TODAS as sessões e o julgamento só dele deixava o órfão vivo).
+        // Órfão de sessão encerrada = SIGTERM (a saída limpa dele entrega
+        // a vaga); teimoso = o lock do chão SAI (a trava é do inode, o
+        // ARQUIVO não pode mentir à sessão nova — assumir imediatamente).
+        let mut orfao = false;
         if let Some(pid) = pid {
             if pid > 1
                 && unsafe { libc::kill(pid, 0) } == 0
                 && comm_do_pid(pid) == "elite-daemon"
-                && wayland_do_pid(pid) != nosso
             {
-                // o irmão órfão: SIGTERM e a espera curta
-                eprintln!(
-                    "elite-daemon: o irmão pid {pid} segurava o lock de uma sessão morta — SIGTERM (a saída limpa dele entrega a vaga)"
+                let veredito = julga_orfao_relogin(
+                    &var_do_pid(pid, "XDG_SESSION_ID"),
+                    &std::env::var("XDG_SESSION_ID").unwrap_or_default(),
+                    &wayland_do_pid(pid),
+                    &nosso,
                 );
-                unsafe { libc::kill(pid, libc::SIGTERM) };
-                for _ in 0..30 {
-                    if peek_lock_livre(&lock) {
-                        colhido = true;
-                        break;
+                if veredito {
+                    orfao = true;
+                    eprintln!(
+                        "elite-daemon: o irmão pid {pid} segurava o lock de uma sessão ENCERRADA (identidade divergente) — SIGTERM (a saída limpa dele entrega a vaga)"
+                    );
+                    unsafe { libc::kill(pid, libc::SIGTERM) };
+                    for _ in 0..30 {
+                        if peek_lock_livre(&lock) {
+                            colhido = true;
+                            break;
+                        }
+                        std::thread::sleep(Duration::from_millis(100));
                     }
-                    std::thread::sleep(Duration::from_millis(100));
                 }
             }
         }
         if !colhido && !peek_lock_livre(&lock) {
-            return Err(format!(
-                "o lock {} segue com dono vivo — a 2ª instância sai 0 (flock E30; a sessão REAL não é colhida)",
-                lock.display()
-            ));
+            if orfao {
+                // 1.0-102 — O ÓRFÃO TEIMOSO: a sessão dele MORREU (a
+                // identidade divergiu) — o lock do chão sai e a sessão
+                // NOVA o assume imediatamente (o flock velho morre com o
+                // inode velho; o irmão já recebeu o SIGTERM e desce pelo
+                // fim_da_sessao dele)
+                let _ = std::fs::remove_file(&lock);
+                eprintln!(
+                    "elite-daemon: o irmão órfão não soltou em 3s — o lock {} saiu do chão e a sessão nova o ASSUME (audit 102)",
+                    lock.display()
+                );
+            } else {
+                return Err(format!(
+                    "o lock {} segue com dono vivo da MESMA sessão — a 2ª instância sai 0 (flock E30; a sessão REAL não é colhida)",
+                    lock.display()
+                ));
+            }
         }
     }
     // o chão é NOSSO: varre os fósseis (bus.sock, resident-*.lock,
@@ -654,18 +691,50 @@ fn comm_do_pid(pid: i32) -> String {
         .to_string()
 }
 
-/// o WAYLAND_DISPLAY de um PID (vazio = inobservável; o root e o morto
-/// não têm — o imune de sempre).
-fn wayland_do_pid(pid: i32) -> String {
-    let Ok(bytes) = std::fs::read(format!("/proc/{pid}/environ")) else {
-        return String::new();
-    };
+/// 1.0-102 — o valor de CHAVE no environ NUL-separado de um PID (vazio =
+/// ausente/inobservável; o root e o morto não têm — o imune de sempre).
+fn var_do_pid(pid: i32, chave: &str) -> String {
+    match std::fs::read(format!("/proc/{pid}/environ")) {
+        Ok(bytes) => var_de_environ(&bytes, chave),
+        Err(_) => String::new(),
+    }
+}
+
+/// 1.0-102 — o parse do environ de um PID (função PURA, a porta dos
+/// testes): NUL-separado, CHAVE=valor, o primeiro casamento vence.
+pub fn var_de_environ(bytes: &[u8], chave: &str) -> String {
+    let prefix = format!("{chave}=");
     bytes
         .split(|b| *b == 0)
         .filter_map(|kv| std::str::from_utf8(kv).ok())
-        .find_map(|kv| kv.strip_prefix("WAYLAND_DISPLAY="))
+        .find_map(|kv| kv.strip_prefix(&prefix))
         .unwrap_or("")
         .to_string()
+}
+
+/// o WAYLAND_DISPLAY de um PID (vazio = inobservável; o root e o morto
+/// não têm — o imune de sempre).
+fn wayland_do_pid(pid: i32) -> String {
+    var_do_pid(pid, "WAYLAND_DISPLAY")
+}
+
+/// 1.0-102 — O VEREDITO DO ÓRFÃO DO RELOGIN (função PURA, a porta dos
+/// testes): o dono do lock é órfão quando a IDENTIDADE da sessão dele
+/// diverge da nossa.
+///   · o XDG_SESSION_ID é a identidade de verdade: muda a CADA login (o
+///     logind crava um por sessão); PRESENTE nos dois lados e DIVERGENTE
+///     = a sessão do dono do lock ENCERROU — o relogin do mesmo rig é
+///     sessão OUTRA, mesmo com o WAYLAND_DISPLAY de mesmo nome;
+///   · o WAYLAND_DISPLAY é a REDE da era E150: no mesmo rig o nome é
+///     wayland-0 em TODAS as sessões (o julgamento só dele era o buraco
+///     que o audit 102 fotografou — o órfão ficava vivo no lock e a
+///     sessão nova nascia vazia); identidade AUSENTA de um lado = o
+///     mundo sem logind/ambiente e a régua de sempre manda (só o fio).
+pub fn julga_orfao_relogin(dele_sessao: &str, nosso_sessao: &str, dele_wl: &str, nosso_wl: &str) -> bool {
+    if !dele_sessao.is_empty() && !nosso_sessao.is_empty() {
+        return dele_sessao != nosso_sessao;
+    }
+    dele_wl != nosso_wl
 }
 
 pub fn run() -> Result<(), String> {
@@ -885,7 +954,26 @@ fn supervisa(
         log.display()
     );
 
+    // 1.0-102 — O CÃO DE GUARDA DO COMPOSITOR (a 2ª via do fim da sessão):
+    // a 1ª via é o EPIPE/EOF do fio Wayland (fim_da_sessao no wayland.rs);
+    // ESTA é a rede — o fio pode morrer SEM erro visível (dispatch que
+    // não acorda, sessão nascida antes do socket) e o socket do
+    // WAYLAND_DISPLAY SUMIR do chão é a prova do chão: visto VIVO uma
+    // vez, o sumiço é o compositor encerrado — a casa desce INTEIRA
+    // (relogin limpo: filhos encerrados, lock fora do chão, exit 0).
+    let mut viu_wayland = crate::wayland_pronto();
+
     loop {
+        if porta == "session" {
+            if crate::wayland_pronto() {
+                viu_wayland = true;
+            } else if viu_wayland {
+                crate::fim_da_sessao(
+                    "o socket do WAYLAND_DISPLAY SUMIU do chão (compositor encerrado)",
+                );
+                viu_wayland = false; // o vigia de teto do fim já nasceu
+            }
+        }
         for v in &mut vagas {
             // 0) E138 — A CONDIÇÃO DA VAGA: falsa = a vaga não deve
             //    existir (spawn proibido; filho NOSSO vivo é encerrado
@@ -993,13 +1081,18 @@ fn supervisa(
                     .unwrap_or_else(|_| {
                         PathBuf::from(std::env::var("HOME").unwrap_or_default()).join(".config")
                     });
-                let entregues = entrega_pele_swaync(
-                    &PathBuf::from("/etc/skel/.config/swaync"),
-                    &conf_base.join("swaync"),
-                );
+                // 1.0-102 — A CADEIA DE MESTRES: o pacote primeiro (o
+                // skel é veículo da ISO — o rig instalado nem o tem),
+                // o /etc/xdg da casa e o skel como redes
+                let mestres = [
+                    PathBuf::from("/usr/local/share/elite/swaync"),
+                    PathBuf::from("/etc/xdg/swaync"),
+                    PathBuf::from("/etc/skel/.config/swaync"),
+                ];
+                let entregues = entrega_pele_swaync(&mestres, &conf_base.join("swaync"));
                 if entregues > 0 {
                     eprintln!(
-                        "elite-daemon supervise: swaync pele ENTREGUE do skel ({}) — o \"Config not found!\" morre no último portão",
+                        "elite-daemon supervise: swaync pele ENTREGUE do mestre da dose ({}) — o \"Config not found!\" morre no último portão",
                         entregues
                     );
                 }
@@ -1056,8 +1149,13 @@ fn supervisa(
                 }
             }
         }
-        // SIGTERM/SIGINT: SIGTERM aos filhos NOSSOS, espera a colheita,
-        // sai limpo (os adotados morrem com a sessão — não são filhos).
+        // SIGTERM/SIGINT (e o SIGHUP do relogin E150, e o STOP do
+        // fim_da_sessao 1.0-102): SIGTERM aos filhos NOSSOS, espera a
+        // colheita, e — na porta session — o LOCK SAI DO CHÃO (a
+        // sentença do audit 102: o flock é estado do INODE, o processo
+        // morto solta a trava, mas o ARQUIVO parado no chão MENTIA à
+        // sessão nova; a saída limpa remove o que criou), sai limpo
+        // (os adotados morrem com a sessão — não são filhos).
         if super::STOP.load(std::sync::atomic::Ordering::SeqCst) {
             for v in &mut vagas {
                 if let Some(filho) = v.filho.as_ref() {
@@ -1069,7 +1167,19 @@ fn supervisa(
                     let _ = filho.wait();
                 }
             }
-            eprintln!("elite-daemon supervise: SIGTERM — filhos encerrados, saída limpa");
+            if porta == "session" {
+                // 1.0-102 — o lock da SESSÃO sai do CHÃO na saída limpa
+                // (o path REAL que esta porta travou — privado OU o
+                // fallback; o fim_da_sessao do audit 102 pediu o chão
+                // varrido para o relogin que nasce no segundo seguinte)
+                let _ = std::fs::remove_file(&lock);
+                eprintln!(
+                    "elite-daemon session: saída limpa — filhos encerrados, session.lock fora do chão ({} — 1.0-102)",
+                    lock.display()
+                );
+            } else {
+                eprintln!("elite-daemon supervise: SIGTERM — filhos encerrados, saída limpa");
+            }
             return Ok(());
         }
         std::thread::sleep(Duration::from_secs(1));
@@ -1312,5 +1422,51 @@ mod tests {
         assert_eq!(saidos, 0, "PID vivo registrado = conservador não toca");
         assert!(caminho.exists());
         let _ = std::fs::remove_dir_all(&d);
+    }
+
+    // ── 1.0-102 — O JULGAMENTO DO ÓRFÃO DO RELOGIN (audit 102) ──────────
+
+    #[test]
+    fn e102_o_environ_do_pid_e_parseado_nul_separado() {
+        // o environ do kernel é NUL-separado: a chave certa vence, a
+        // ausente é vazia, o valor vazio não inventa
+        let env = b"HOME=/home/dono\0XDG_SESSION_ID=42\0WAYLAND_DISPLAY=wayland-0\0\0";
+        assert_eq!(var_de_environ(env, "XDG_SESSION_ID"), "42");
+        assert_eq!(var_de_environ(env, "WAYLAND_DISPLAY"), "wayland-0");
+        assert_eq!(var_de_environ(env, "DBUS_SESSION_BUS_ADDRESS"), "");
+        assert_eq!(var_de_environ(b"", "XDG_SESSION_ID"), "");
+    }
+
+    #[test]
+    fn e102_o_relogin_de_mesmo_wayland_e_orfao_pela_identidade() {
+        // O CASO do audit 102: no mesmo rig o WAYLAND_DISPLAY é
+        // wayland-0 EM TODAS as sessões — só o XDG_SESSION_ID distingue
+        // a sessão morta da viva (muda a cada login)
+        assert!(
+            julga_orfao_relogin("41", "42", "wayland-0", "wayland-0"),
+            "sessão de IDENTIDADE outra = órfão, mesmo wayland-0 nos dois lados"
+        );
+        // a MESMA sessão (identidade igual): o dono é legítimo — nunca colhido
+        assert!(
+            !julga_orfao_relogin("42", "42", "wayland-0", "wayland-0"),
+            "identidade IGUAL = a MESMA sessão: o flock E30 manda (2ª instância sai 0)"
+        );
+    }
+
+    #[test]
+    fn e102_sem_identidade_a_regua_do_wayland_manda() {
+        // o mundo sem logind (identidade ausente de um lado): a régua da
+        // era E150 decide sozinha — o WAYLAND_DISPLAY divergente é órfão
+        assert!(
+            julga_orfao_relogin("", "42", "wayland-1", "wayland-0"),
+            "sem identidade + WAYLAND outro = órfão (a régua de sempre)"
+        );
+        assert!(
+            !julga_orfao_relogin("41", "", "wayland-0", "wayland-0"),
+            "sem identidade + mesmo WAYLAND = o dono segue vivo e legítimo"
+        );
+        // a sessão de teste (sem nada): o WAYLAND vazio do irmão de CLI
+        // segue divergente como na era de sempre
+        assert!(julga_orfao_relogin("", "", "", "wayland-0"));
     }
 }

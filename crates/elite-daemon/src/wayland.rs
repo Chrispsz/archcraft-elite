@@ -295,7 +295,17 @@ pub fn start() -> Option<()> {
                 match queue.blocking_dispatch(&mut estado) {
                     Ok(_) => {}
                     Err(e) => {
-                        eprintln!("elite-daemon: wayland dispatch {e} — o fio morre honesto (o supervisor reergue a sessão)");
+                        // 1.0-102 — O COMPOSITOR CAIU (EPIPE/Broken pipe,
+                        // EOF, desconexão): o fio morria "honesto" e o
+                        // CORPO seguia vivo segurando o session.lock — o
+                        // audit 102 fotografou o relogin vazio (a sessão
+                        // nova batia no flock do morto-vivo e saía 0). O
+                        // erro do fio agora é a SENTENÇA da sessão: o
+                        // fim_da_sessao acende o STOP, encerra os filhos
+                        // gerenciados (bar, dock, swayosd, polkit, swaync,
+                        // wallpaper, jogo), remove o session.lock do chão
+                        // e finaliza (exit 0) — o relogin nasce LIMPO.
+                        crate::fim_da_sessao(&format!("wayland dispatch {e}"));
                         return;
                     }
                 }

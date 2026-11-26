@@ -213,14 +213,33 @@ cura_autostart() {
         printf 'autostart: DOENTE — corpo da ERA LEGADA (nenhum elite-daemon session; o guard do binário morto da era tomba o arranque — audit 99 §7)\n'
     fi
 
-    if [ "$_ca_era" -eq 0 ] && [ "$_ca_n" -eq 1 ] && sh_ok "$_ca_f"; then
-        printf 'autostart: EM ORDEM (1 lançador elite-daemon session · sintaxe sã)\n'
+    # 1.0-102 — O JUÍZO DO FÓSSIL DE SPAWN (a cura do audit 102 §2): o
+    # autostart DO $HOME pode estar CONGELADO na versão de dose antiga
+    # — com o lançador do daemon EM ORDEM e a sintaxe sã — e ainda
+    # assim DOENTE: spawns de residentes da era morta na mesma linha
+    # de comando (craft-bars removido, polkit-gnome removido, swaync
+    # duplicado fora do orquestrador, udiskie debloatado, waybar
+    # aposentado, craft-toplevel/swayidle de C/era). O skel novo é
+    # MINIMALISTA: nenhum residente nasce no autostart — quem lança é
+    # o elite-daemon session (UM corpo, gate E135). Spawn fóssil em
+    # linha VIVA (fora de comentário) = reconstrução do mestre.
+    _ca_fossil=0
+    if [ "$_ca_era" -eq 0 ] \
+        && head -n 20 "$_ca_f" 2>/dev/null | grep -q 'Archcraft ELITE' \
+        && grep -vE '^[[:space:]]*(#|$)' "$_ca_f" 2>/dev/null \
+            | grep -qE '(^|[[:space:]/])(craft-bars|polkit-gnome|waybar|craft-toplevel|swayidle|swaync|udiskie|swayosd|swaybg)([[:space:]]|&|$)'; then
+        _ca_fossil=1
+        printf 'autostart: DOENTE — FÓSSIL DE SPAWN de era (residente da era morta nascendo no autostart; o lançador ÚNICO é o elite-daemon session — audit 102 §2)\n'
+    fi
+
+    if [ "$_ca_era" -eq 0 ] && [ "$_ca_fossil" -eq 0 ] && [ "$_ca_n" -eq 1 ] && sh_ok "$_ca_f"; then
+        printf 'autostart: EM ORDEM (1 lançador elite-daemon session · sintaxe sã · zero spawn fóssil)\n'
         return 0
     fi
 
     # o diagnóstico no papel ANTES da mão (o fóssil de era já se
     # nomeou acima — este bloco cobre os outros dois réus)
-    if [ "$_ca_era" -eq 0 ]; then
+    if [ "$_ca_era" -eq 0 ] && [ "$_ca_fossil" -eq 0 ]; then
         if ! sh_ok "$_ca_f"; then
             printf 'autostart: DOENTE — sintaxe quebrada (sh -n falhou) · %s lançador(es)\n' "$_ca_n"
         else

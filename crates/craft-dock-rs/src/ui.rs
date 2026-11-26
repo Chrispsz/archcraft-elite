@@ -547,11 +547,11 @@ fn poll_tick(st: &Rc<RefCell<State>>) {
     // os pins: re-julgamento POR TICK (E139 — a escada ÚNICA avalia,
     // as faltas contam e a poda honesta cresce com o próprio tick; a
     // remontagem lá dentro é diff-guard — só o conjunto mudando mexe
-    // nos widgets)
+    // nos widgets). 1.0-102 — o rebuild É o ciclo ATÔMICO: a
+    // reconciliação com os dinâmicos/raws/indicadores mora DENTRO dele
+    // (o pin de app aberto promove in-place, o duplicado transitório
+    // morreu) — o tick não chama mais as partes separadas.
     rebuild_pins(st);
-    sync_dynamic(st);
-    let s = st.borrow();
-    update_indicators(&s);
 }
 
 /// A ceifa dos zumbis (v2.10.3): todo app lançado pela dock é filho
@@ -751,6 +751,18 @@ fn rebuild_pins(st: &Rc<RefCell<State>>) {
     // o papel que a dock enxerga é o do DISCO (as ops acima podem ter
     // mudado o arquivo — o estado segue a verdade, nunca a memória)
     st.borrow_mut().pins_txt = std::fs::read_to_string(pins_path()).unwrap_or_default();
+    // 1.0-102 — A RECONCILIAÇÃO ATÔMICA DO CICLO (a duplicação
+    // transitória do pin morre aqui): o pin promovido e o dinâmico que
+    // o representava são julgados NO MESMO ciclo de renderização — o
+    // sync_dynamic lê o pin_ids NOVO (o dinâmico do app fixado SAI da
+    // pílula no mesmo frame, nunca dois botões do mesmo app por alguns
+    // instantes) e o update_indicators acende o .running no botão NOVO
+    // NA HORA (o indicador de estado aberto não espera o tick de 5s).
+    // Todo caminho que remonta os pins — o popover (Fixar/Desafixar),
+    // o SIGUSR2 (craft-pin de fora), o tick de segurança — sai daqui
+    // com a pílula COERENTE com o snapshot vivo, num ciclo só.
+    sync_dynamic(st);
+    update_indicators(&st.borrow());
 }
 
 /// A pílula REMONTA em ordem canônica (pins · fio · dinâmicos · raws)
@@ -1652,17 +1664,33 @@ fn launch_cmd(st: &Rc<RefCell<State>>, cmd: &str, key: Option<&str>) {
 /// diff por CONJUNTO — nada remonta a pílula quando nada mudou (a lei
 /// v2.10.0; a animação v2.11 é degrau seguinte, nomeada).
 fn sync_dynamic(st: &Rc<RefCell<State>>) {
-    // (1) os comms vivos do usuário (o MESMO scan alimenta tudo)
+    // (1) AS CHAVES VIVAS: os comms do usuário E os app_ids das JANELAS
+    // do snapshot (1.0-102 — A FONTE UNIFICADA: a JANELA é a verdade do
+    // "aberto", o comm é o proxy; o app cujo comm não casa com nenhum
+    // .desktop (casca truncada de 15, nome de runtime) mas cujo app_id
+    // casa (StartupWMClass indexado, lowercase no fold, alternativas
+    // reverse-DNS, stems de id composto) agora resolve NA HORA — a
+    // MESMA régua do matching do ícone fixado: o botão do app aberto
+    // nasce do evento da janela no frame seguinte, sem esperar o
+    // scan de /proc do tick).
     let uid = st.borrow().uid;
-    let comms = procapp::scan_user_comms(Path::new("/proc"), uid);
+    let mut chaves: Vec<String> = procapp::scan_user_comms(Path::new("/proc"), uid);
+    {
+        let s = st.borrow();
+        for w in s.snap.windows.values() {
+            if !w.app_id.is_empty() && !chaves.contains(&w.app_id) {
+                chaves.push(w.app_id.clone());
+            }
+        }
+    }
     // (2) current: did → (entry, comm) — resolve PELO ÍNDICE (o
     // comm "bazaar" acha o io.github.kolunmi.Bazaar.desktop: nome
     // "Bazaar", ícone oficial, NUNCA raw — a ordem do dono E132)
     let mut current: Vec<(String, icons::DesktopEntry)> = Vec::new();
     {
         let s = st.borrow();
-        for comm in &comms {
-            let Some(entry) = icons::resolve_desktop(&s.index, &s.entries, comm) else {
+        for chave in &chaves {
+            let Some(entry) = icons::resolve_desktop(&s.index, &s.entries, chave) else {
                 continue;
             };
             let did = entry.id.clone();
