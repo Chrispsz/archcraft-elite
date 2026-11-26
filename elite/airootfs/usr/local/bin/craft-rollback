@@ -66,7 +66,7 @@ snap_list() {
 mlog "Rollback: abrindo (craft-pick)"
 errf="$(mktemp)"
 ec=0
-choice="$(craft-pick --title='Rollback' 'Criar snapshot agora' 'Restaurar snapshot' \
+choice="$(craft-pick -T 'Rollback' 'Criar snapshot agora' 'Restaurar snapshot' \
     2>"$errf")" || ec=$?
 if [ "$ec" -eq 143 ]; then
     mlog "Rollback: fechado de fora (SIGTERM — toggle/cross-dismiss) — benigno"
@@ -138,7 +138,7 @@ case "$choice" in
         fi
         ec=0
         errf="$(mktemp)"
-        pick="$(printf '%s\n' "$list" | craft-pick --title='Restaurar' 2>"$errf")" || ec=$?
+        pick="$(printf '%s\n' "$list" | craft-pick -T 'Restaurar' 2>"$errf")" || ec=$?
         if [ "$ec" -eq 143 ]; then
             mlog "Rollback: fechado de fora (SIGTERM — toggle/cross-dismiss) — benigno"
             rm -f "$errf"
@@ -160,7 +160,7 @@ case "$choice" in
         snap="$(printf '%s' "$pick" | cut -d' ' -f1)"
         ec=0
         errf="$(mktemp)"
-        ok="$(craft-pick --title='Confirmar' 'Cancelar' 'CONFIRMAR o retorno' \
+        ok="$(craft-pick -T 'Confirmar' 'Cancelar' 'CONFIRMAR o retorno' \
             2>"$errf")" || ec=$?
         rm -f "$errf"
         if [ "$ec" -ne 0 ] || [ "$ok" != 'CONFIRMAR o retorno' ]; then

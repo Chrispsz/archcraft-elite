@@ -262,8 +262,11 @@ pub fn game_cache_roots(home: &Path) -> Vec<PathBuf> {
         // Heroic: os assets das bibliotecas conectadas
         home.join(".config/heroic"),
         home.join(".cache/heroic"),
-        // Hydra: o launcher do dono
+        // Hydra: o launcher do dono (1.0-105 — o DIR DE CONFIG entra
+        // na rede: o Hydra guarda capas/ícones em ~/.config/hydra
+        // também — a varredura veste o que a loja já baixou)
         home.join(".cache/hydra"),
+        home.join(".config/hydra"),
         home.join(".local/share/hydra"),
     ]
 }
@@ -945,13 +948,19 @@ pub fn first_binary(raw: &str) -> Option<String> {
 /// E106 — janela de DAEMON/diálogo de sistema não é aplicativo: o
 /// diálogo do chaveiro (gcr-prompter), os agentes polkit, o zenity e
 /// o OSD NUNCA ganham botão na dock (a mesa é de PROGRAMAS).
-pub const RAW_DENY_STEMS: [&str; 6] = [
+/// 1.0-105 — O SERVIDOR/CLIENTE DO TERMINAL idem (a ordem do dono: o
+/// foot-server é o daemon do foot (nunca janela de app) e o footclient
+/// é a PONTE do cliente (a janela é do foot de sempre — o client só
+/// poluiria os ícones abertos com o glifo genérico da ponte).
+pub const RAW_DENY_STEMS: [&str; 8] = [
     "gcr-prompter",
     "lxqt-policykit",
     "polkit-gnome",
     "zenity",
     "swayosd",
     "hyprpolkitagent",
+    "foot-server",
+    "footclient",
 ];
 
 /// A chave do SEM-NOME (o _raw_key do Python, 1:1): app_id em
@@ -1202,6 +1211,11 @@ mod tests {
         assert!(raw_key("org.freedesktop.polkit", "polkit-gnome-agent").is_none());
         assert!(raw_key("", "zenity — pergunta").is_none());
         assert!(raw_key("", "").is_none());
+        // 1.0-105 — o SERVIDOR/CLIENTE do terminal idem (a ponte nunca
+        // é app; o FOOT de sempre segue botão de primeira classe)
+        assert!(raw_key("foot-server", "foot-server").is_none());
+        assert!(raw_key("footclient", "footclient").is_none());
+        assert!(raw_key("foot", "foot").is_some());
     }
 
     #[test]
@@ -1429,6 +1443,9 @@ mod tests {
         assert!(roots.contains(&home.join(".cache/lutris")));
         assert!(roots.contains(&home.join(".config/heroic")));
         assert!(roots.contains(&home.join(".cache/hydra")));
+        // 1.0-105 — o DIR DE CONFIG do Hydra também (as capas/ícones do
+        // launcher moram em ~/.config/hydra — a rede cobre os dois)
+        assert!(roots.contains(&home.join(".config/hydra")));
     }
 
     #[test]

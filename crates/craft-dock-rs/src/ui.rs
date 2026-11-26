@@ -257,7 +257,13 @@ fn build(app: &gtk::Application) {
     window.set_layer(gtk4_layer_shell::Layer::Top);
     window.set_anchor(gtk4_layer_shell::Edge::Bottom, true);
     window.auto_exclusive_zone_enable();
-    window.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::OnDemand);
+    // 1.0-105 — O TECLADO NUNCA É DA DOCK (KeyboardMode::None — a ordem
+    // do dono: a dock JAMAIS rouba o foco de teclado no primeiro clique;
+    // o OnDemand de era roubava o foco da janela real e o primeiro clique
+    // só "acordava" a dock — o app abria no SEGUNDO. Os menus/popovers
+    // da dock são mouse-first; o contorno :focus/:focus-visible morre
+    // no CSS (outline/box-shadow none) e o anel roxo nunca mais acende).
+    window.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::None);
     window.set_namespace(Some("craft-dock"));
 
     let pill = gtk::Box::new(gtk::Orientation::Horizontal, 0);
@@ -1174,7 +1180,9 @@ fn make_raw_button(st: &Rc<RefCell<State>>, key: &str, name: &str) -> gtk::Butto
     // recurso PE (RT_GROUP_ICON → RT_ICON; PNG como está, DIB → PNG).
     if !done {
         if let Some(exe) = procapp::proc_wine_exe(Path::new("/proc"), key, uid) {
-            let cached = icons::exe_icon_cache_path(&crate::exeicon_cache_dir(), &exe.to_string_lossy());
+            // 1.0-105 — a rede de era primeiro (quem já colheu não
+            // re-extrai) e o MISS veste o caminho novo da dose
+            let cached = crate::exeicon_cache_lookup(&exe.to_string_lossy());
             if cached.is_file() {
                 img.set_from_file(Some(&cached));
                 done = true;

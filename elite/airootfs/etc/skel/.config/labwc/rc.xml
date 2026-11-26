@@ -15,10 +15,16 @@
     · C-A-t → terminal (alias) · W-Return → terminal (foot no lugar de alacritty)
     · W-w → navegador (brave em 1º — Wayland-native, v1.1)
     · W-b mantido como alias do navegador
-    · W-f → gerenciador de arquivos (Thunar, v1.5: FM padrão xdg-mime)
+    · 1.0-105 — W-f → ToggleFullscreen do compositor · C-A-f → arquivos
+      (Thunar, v1.5: FM padrão xdg-mime)
     · W-e → editor (nano no foot, v1.5: helix saiu — EDITOR=nano)
     · W-q e W-c → fechar (o criador usa ambos) · A-F4 · W-i / A-F5 → minimizar
     · W-m / A-F10 → maximizar · A-F11 → fullscreen (fullscreen do criador!)
+    · 1.0-105 — W-f / A-Return / A-F11 → ToggleFullscreen DO COMPOSITOR
+      (a ordem do dono dos jogos Proton/XWayland: com o
+      ignoreConfigureRequest=yes o jogo X11 NÃO se dimensiona sozinho — o
+      fullscreen REAL é do compositor; o A-Return é o clássico Alt+Enter
+      dos jogos); o Thunar (gerenciador de arquivos) muda para C-A-f
     · W-←/→/↑/↓ → snap em metades (mesma semântica do snap MoveResizeTo dele)
     · W-n → rede (nm-connection-editor, GUI) · W-S-b → bluetooth (blueman-manager, GUI 2.0)
     · W-x → menu de sessão (criador: rori-powermenu da era; 2.0: o menu
@@ -288,13 +294,28 @@
     <keybind key="W-b">
       <action name="Execute" command="sh -c 'for b in brave librewolf chromium thorium-browser qutebrowser; do command -v &quot;$b&quot; &gt;/dev/null &amp;&amp; exec &quot;$b&quot;; done; exec xdg-open https://archlinux.org'" />
     </keybind>
-    <!-- Arquivos: W-f → Thunar (v1.5: FM padrão, GUI, xdg-mime
-         inode/directory=thunar.desktop) · Editor: W-e → gnome-text-editor
-         (E136 — a PARTE 2/2 do dono: o GNOME Text Editor GTK4/libadwaita
-         é o editor gráfico LEVE padrão da casa, no atalho do desktop e no
-         clique duplo do Thunar; o nano FICA no terminal — EDITOR/git) -->
-    <keybind key="W-f">
+    <!-- Arquivos: 1.0-105 — o Thunar MUDA PARA C-A-f (a ordem do dono dos
+         jogos: o W-f é o ToggleFullscreen DO COMPOSITOR — o clássico dos
+         jogos em tela cheia; o gerenciador de arquivos segue em C-A-f) ·
+         Editor: W-e → gnome-text-editor (E136 — a PARTE 2/2 do dono: o
+         GNOME Text Editor GTK4/libadwaita é o editor gráfico LEVE padrão
+         da casa, no atalho do desktop e no clique duplo do Thunar; o
+         nano FICA no terminal — EDITOR/git) -->
+    <keybind key="C-A-f">
       <action name="Execute" command="thunar" />
+    </keybind>
+    <!-- 1.0-105 — O FULLSCREEN DO COMPOSITOR em PRIMEIRA CLASSE (a ordem
+         do dono dos jogos Proton/XWayland: o W-f e o A-Return (o clássico
+         Alt+Enter dos jogos) acionam o ToggleFullscreen REAL do labwc —
+         com o ignoreConfigureRequest=yes das windowRules de steam_app_*/
+         *.exe o jogo X11 NÃO se posiciona/dimensiona sozinho, o pedido
+         dele morre no compositor e ESTE atalho é a tela cheia de
+         verdade — a moldura não desalinha o mouse ao sair) -->
+    <keybind key="W-f">
+      <action name="ToggleFullscreen" />
+    </keybind>
+    <keybind key="A-Return">
+      <action name="ToggleFullscreen" />
     </keybind>
     <keybind key="W-e">
       <action name="Execute" command="gnome-text-editor" />
@@ -331,7 +352,7 @@
 
     <!-- ===== Clipboard: histórico no fuzzel (cliphist — receita labwc) ===== -->
     <keybind key="W-v">
-      <action name="Execute" command="sh -c 'cliphist list | craft-pick --title=Clipboard | cliphist decode | wl-copy'" />
+      <action name="Execute" command="sh -c 'cliphist list | craft-pick -T Clipboard | cliphist decode | wl-copy'" />
     </keybind>
 
     <!-- ===== Screenshot (F75 Max não tem Print → combos em p) =====
@@ -706,6 +727,7 @@
              tamanho da tela, o labwc maximizava, o jogo via o tamanho
              diferente do pedido e pedia DE NOVO (ConfigureRequest em
              círculo); o ToggleFullscreen REAL é do COMPOSITOR (A-F11,
+             W-f e A-Return — os atalhos de primeira classe da 1.0-105,
              a ação labwc — nunca a auto-maximização do cliente). -->
     <windowRule identifier="steam_app_*" serverDecoration="yes" ignoreConfigureRequest="yes" />
     <windowRule identifier="*.exe" serverDecoration="yes" ignoreConfigureRequest="yes" />

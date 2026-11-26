@@ -264,9 +264,11 @@ file_has "tools: o pkexec na frente do elite-clean (a porta --as-root é de raiz
 # o probe nunca mais CRIA o bars.lock do dono
 file_has "probe: o bars.lock só é conferido se EXISTE (o root:root morre)" "$AIROOTFS/usr/local/bin/elite-session-probe" '[ -e "$_bars_lock" ]'
 # os menus abrem PAINÉIS, não CLIs mudos
-file_has "menu: o Modo de jogo abre o painel (craft-game menu)" "elite/airootfs/etc/skel/.config/labwc/menu.xml" 'command="foot -e craft-game menu"'
-file_has "menu: a Trava automática abre o painel (craft-idle menu)" "elite/airootfs/etc/skel/.config/labwc/menu.xml" 'command="foot -e craft-idle menu"'
-file_has "idle: o verbo menu existe (o painel do dono)" "$AIROOTFS/usr/local/bin/craft-idle" 'craft-pick --title'
+file_has "menu: o Modo de jogo abre o painel (craft-game menu)" "elite/airootfs/etc/skel/.config/labwc/menu.xml" "command=\"foot -T 'Modo de jogo' -e craft-game menu\""
+file_has "menu: a Trava automática abre o painel (craft-idle menu)" "elite/airootfs/etc/skel/.config/labwc/menu.xml" "command=\"foot -T 'Trava automática' -e craft-idle menu\""
+# 1.0-105 — a forma do foot (com espaço) é a bandeira do seletor: o -T
+# com ESPAÇO no craft-pick e nos wrappers da casa (o --title= colado morre)
+file_has "idle: o verbo menu existe (o painel do dono — forma do foot -T)" "$AIROOTFS/usr/local/bin/craft-idle" 'craft-pick -T "$1"'
 # E149 — A FÁBRICA DA VAGA AUTOMÁTICA E DA TRAVA (a diretriz: o modo
 # jogo volta a nascer ligado; o skel cobre a ISO nova, o post_upgrade
 # cobre o rig que antecedeu a dose)
@@ -351,6 +353,29 @@ file_has "probe: o TOPLEVEL_COUNT drena o snapshot do bus (craft-audit windows)"
 file_has "audit: o juiz de casa conta as janelas do snapshot de boas-vindas" "crates/craft-tools/src/audit.rs" 'pub fn conta_janelas'
 file_has "probe: o contador de era craft-toplevel NÃO volta (o fio vivo é o bus)" "elite/airootfs/usr/local/bin/elite-session-probe" 'tp_count=0'
 
+# ══ 1.0-105 — A FORMA DO FOOT (-T COM ESPAÇO), A DOCK SEM ANEL ROXO E O
+#    FULLSCREEN DO COMPOSITOR EM PRIMEIRA CLASSE ══
+# o seletor da casa fala a forma do foot (-T "título" COM ESPAÇO — o
+# --title=VALOR colado morre nos wrappers da casa):
+file_has "pick: o parser do seletor veste a forma do foot (-T título)" "crates/craft-tools/src/lib.rs" 'a == "-T"'
+file_has "pick: o parser da forma longa de sempre segue viva (--title=)" "crates/craft-tools/src/lib.rs" 'strip_prefix("--title=")'
+file_has "menu: as janelas do menu nascem com TÍTULO (foot -T)" "elite/airootfs/etc/skel/.config/labwc/menu.xml" "foot -T 'Modo de jogo' -e craft-game menu"
+# a dock JAMAIS rouba o foco de teclado (o primeiro clique abre o app —
+# não acorda a dock) e o anel roxo de foco morre no CSS:
+file_has "dock: o teclado NUNCA é da dock (KeyboardMode::None — 1.0-105)" "crates/craft-dock-rs/src/ui.rs" 'KeyboardMode::None'
+file_has "css: o ANEL ROXO de foco da dock morre (outline/box-shadow none)" "crates/elite-core/assets/theme.css" '#dockbox button:focus-visible'
+# o servidor/cliente do terminal nunca poluem os ícones abertos:
+file_has "dock: o foot-server/footclient na DENYLIST (a ponte não é app)" "crates/craft-dock-rs/src/icons.rs" '"foot-server"'
+# o fullscreen DO COMPOSITOR é de primeira classe (os jogos
+# Proton/XWayland com ignoreConfigureRequest pedem o atalho real):
+file_has "rc.xml: o W-f é o ToggleFullscreen DO COMPOSITOR (1.0-105)" "elite/airootfs/etc/skel/.config/labwc/rc.xml" '<keybind key="W-f">'
+file_has "rc.xml: o A-Return idem (o clássico Alt+Enter dos jogos)" "elite/airootfs/etc/skel/.config/labwc/rc.xml" '<keybind key="A-Return">'
+file_has "rc.xml: o Thunar segue vivo no C-A-f (um destino = um lugar)" "elite/airootfs/etc/skel/.config/labwc/rc.xml" '<keybind key="C-A-f">'
+# o resolvedor de ícones vestem o Hydra de ~/.config/hydra e o cache
+# unificado ~/.cache/elite/icons (a extração PE serve para sempre):
+file_has "dock: o resolvedor busca os ícones no ~/.config/hydra do dono" "crates/craft-dock-rs/src/icons.rs" '".config/hydra"'
+file_has "dock: o cache dos ícones de .exe veste o caminho da dose (~/.cache/elite/icons)" "crates/craft-dock-rs/src/main.rs" 'fn exeicon_cache_lookup'
+
 # ══ E150 — A ONDA FINAL 1/2 (base 1.0-98): RELOGIN LIMPO, BOOT FRIO DOS
 # HZ, SDDM/GRUB REAIS, DUMP SISTÊMICO, GAVETA E PALCO, PAUSAS E 126 ══
 # O RELOGIN LIMPO (o SIGHUP da sessão velha + a colheita do órfão + a
@@ -405,9 +430,10 @@ file_has "gaveta: o daemon desce o nwg-drawer quando outra janela ganha foco" "c
 file_has "gaveta: o sinal do daemon colhe o drawer do uid" "crates/elite-daemon/src/main.rs" 'pub(crate) fn gaveta_desce'
 # o seletor nunca vira zumbi (~24 MB): perdeu o foco = exit imediato
 file_has "pick: o EventControllerFocus desce o seletor no leave (zero zumbi)" "crates/craft-tools/src/bin/craft-pick.rs" 'connect_leave'
-# as flags reais do craft-pick --help (a cura do 'Opção --title=... desconhecida'):
-file_has "pick: o craft-idle sonda o --help antes do --title (a flag de era não mata o painel)" "$AIROOTFS/usr/local/bin/craft-idle" 'craft-pick --help'
-file_has "pick: o craft-game sonda o --help antes do --title (idem)" "$AIROOTFS/usr/local/bin/craft-game" 'craft-pick --help'
+# as flags reais do craft-pick --help (a cura do 'Opção --title=... desconhecida'
+# — 1.0-105: a forma do foot -T com espaço é a bandeira da casa):
+file_has "pick: o craft-idle sonda o --help antes do -T (a flag de era não mata o painel)" "$AIROOTFS/usr/local/bin/craft-idle" 'craft-pick --help'
+file_has "pick: o craft-game sonda o --help antes do -T (idem)" "$AIROOTFS/usr/local/bin/craft-game" 'craft-pick --help'
 # as pausas do foot -e (o terminal do menu não some com o veredito):
 file_has "terminal: o craft-help pausa no Enter (o mapa não some)" "crates/craft-tools/src/bin/craft-help.rs" 'Pressione Enter para fechar'
 file_has "terminal: o craft-update pausa no Enter (o veredito não some)" "crates/craft-tools/src/bin/craft-update.rs" 'Pressione Enter para fechar'

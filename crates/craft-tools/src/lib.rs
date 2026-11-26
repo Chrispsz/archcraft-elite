@@ -102,17 +102,28 @@ pub fn normaliza(s: &str) -> String {
         .collect()
 }
 
-/// o parser do craft-pick: --title=TÍTULO (a identidade, não exibida),
-/// itens por argv; sem argv, o stdin é a lista (a interface dmenu).
+/// o parser do craft-pick: -T TÍTULO (a forma do foot, com espaço —
+/// 1.0-105) ou --title=TÍTULO (a identidade, não exibida), itens por
+/// argv; sem argv, o stdin é a lista (a interface dmenu).
 pub fn parse_pick_args(args: &[String]) -> (String, Vec<String>) {
     let mut titulo = "Escolher".to_string();
     let mut itens: Vec<String> = Vec::new();
-    for a in args {
+    let mut i = 0;
+    while i < args.len() {
+        let a = args[i].as_str();
         if let Some(t) = a.strip_prefix("--title=") {
             titulo = t.to_string();
+        } else if a == "-T" {
+            // 1.0-105 — A FORMA DO FOOT (com espaço): o título vive no
+            // ARGUMENTO SEGUINTE (sem ele, a forma longa de sempre vale)
+            if let Some(t) = args.get(i + 1) {
+                titulo = t.clone();
+                i += 1;
+            }
         } else if !a.trim().is_empty() {
-            itens.push(a.clone());
+            itens.push(a.to_string());
         }
+        i += 1;
     }
     (titulo, itens)
 }
@@ -170,6 +181,8 @@ pub fn mapa_comandos() -> Vec<(&'static str, Vec<(&'static str, &'static str)>)>
                 ("W-n", "o editor de redes (nm-connection-editor)"),
                 ("W-S-b", "o bluetooth (blueman-manager)"),
                 ("W-v", "o histórico do clipboard (cliphist)"),
+                ("W-f / A-Return / A-F11", "tela cheia — o ToggleFullscreen DO COMPOSITOR (os jogos Proton/XWayland incluídos; 1.0-105)"),
+                ("C-A-f", "o gerenciador de arquivos (thunar)"),
                 ("W-p / W-S-p", "captura de região / tela inteira"),
             ],
         ),
@@ -236,6 +249,19 @@ mod tests {
         // linha vazia no argv não é item (a fantasma do fuzzel morre)
         let (_, itens3) = parse_pick_args(&["  ".to_string()]);
         assert!(itens3.is_empty());
+        // 1.0-105 — A FORMA DO FOOT (com espaço): -T TÍTULO no argumento
+        // SEGUINTE (o título NUNCA vira item da lista)
+        let (t4, i4) = parse_pick_args(&[
+            "-T".to_string(),
+            "Modo de jogo".to_string(),
+            "Ativar agora".to_string(),
+        ]);
+        assert_eq!(t4, "Modo de jogo");
+        assert_eq!(i4, vec!["Ativar agora".to_string()]);
+        // o -T SEM argumento seguinte não vira item (a forma longa vale)
+        let (t5, i5) = parse_pick_args(&["-T".to_string()]);
+        assert_eq!(t5, "Escolher");
+        assert!(i5.is_empty());
     }
 
     #[test]

@@ -154,9 +154,12 @@
     <!-- 2.0 — AS JANELAS NATIVAS: o foot -e sai da porta do dono (a
          diretriz E149: atualizar, limpar e ajudar são EXECUÇÃO DIRETA
          no terminal (foot -e dispara a tarefa na hora; o motor é o
-         mesmo elite-update/pkexec com o diálogo gráfico da sessão) -->
+         mesmo elite-update/pkexec com o diálogo gráfico da sessão).
+         1.0-105 — O TÍTULO DA JANELA pelo -T do foot (COM ESPAÇO — o
+         foot NÃO aceita --title=VALOR colado): a janela nasce com o
+         NOME da tarefa na moldura (foot -T "...") -->
     <item label="Atualizar">
-      <action name="Execute" command="foot -e craft-update" />
+      <action name="Execute" command="foot -T 'Atualizar o sistema' -e craft-update" />
     </item>
     <!-- E114 — A LIMPEZA COM RAIZ NO DIÁLOGO CERTO (pkexec, o diálogo
          GRÁFICO que o octopi abre; o relatório fica no terminal e o
@@ -181,7 +184,7 @@
          'as-root USUÁRIO HOME' do binário entrega a lixeira e os
          caches do dono CERTOS, sem environment injection. -->
     <item label="Limpeza">
-      <action name="Execute" command="foot -e craft-clean" />
+      <action name="Execute" command="foot -T 'Limpar o sistema' -e craft-clean" />
     </item>
     <separator />
     <!-- E109 — AppImages… e Flatpaks… SAÍRAM (a ordem do dono: menus de
@@ -223,7 +226,7 @@
          porta de Atualizar e Limpeza; o audit 99 fotografou a falha
          calada do painel fora de palco) -->
 <item label="Modo de jogo">
-      <action name="Execute" command="foot -e craft-game menu" />
+      <action name="Execute" command="foot -T 'Modo de jogo' -e craft-game menu" />
     </item>
     <!-- v1.6.1: presets do idle no fuzzel, efeito imediato, sem
          relogin. E124: 'Trava automática' entrou cortando o tempo;
@@ -234,7 +237,7 @@
         <!-- 1.0-101: idem, painel INTERATIVO no foot (a falha silenciosa
          do audit 99 morre: erro visível é erro diagnosticável) -->
 <item label="Trava automática">
-      <action name="Execute" command="foot -e craft-idle menu" />
+      <action name="Execute" command="foot -T 'Trava automática' -e craft-idle menu" />
     </item>
     <separator />
     <!-- E90 — O MAPA DOS COMANDOS. E106 — a pausa do E96: a janela
@@ -247,7 +250,7 @@
            largura default do foot — a janela do mapa nasce com a GEOMETRIA
            SUFICIENTE (foot W 115x28: 115 colunas × 28 linhas, a flag de
            tamanho em CARACTERES do próprio foot) para o mapa caber INTEIRO -->
-      <action name="Execute" command="foot -W 115x28 -e craft-help" />
+      <action name="Execute" command="foot -W 115x28 -T 'Ajuda — comandos da Elite' -e craft-help" />
     </item>
     <!-- E133→E134→E136 — OS RÓTULOS DO DONO, palavra por palavra (a lista
          final do fechamento 1.0-81 — 'Aplicativos', 'Terminal',

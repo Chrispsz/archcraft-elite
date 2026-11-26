@@ -82,7 +82,7 @@ choice="$(printf '%s\n' \
     "Loja Octopi (pacotes/AUR)" \
     "Registrar AppImage" \
     "Relatório do sistema" \
-    | craft-pick --title=ferramentas)" || exit 0
+    | craft-pick -T ferramentas)" || exit 0
 
 case "$choice" in
     *Octopi*) do_loja ;;

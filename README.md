@@ -89,7 +89,8 @@ pacote, com justificativa e comando de restauração: [docs/CHANGES.md](docs/CHA
 |---|---|
 | `Super` | Launchpad (grade de aplicativos) |
 | `W-Enter` | Terminal (foot) |
-| `W-f` | Gerenciador de arquivos |
+| `W-f` / `Alt-Enter` / `A-F11` | Tela cheia (ToggleFullscreen do compositor — os jogos Proton/XWayland incluídos) |
+| `C-A-f` | Gerenciador de arquivos (Thunar) |
 | `W-n` | Editor de conexões de rede (edição avançada) |
 | `W-Shift-b` | Bluetooth (blueman-manager) |
 | `W-a` | Mixer de áudio |

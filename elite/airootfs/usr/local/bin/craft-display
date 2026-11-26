@@ -672,7 +672,7 @@ menu_pick() {
     _mp_title="$1"
     errf="$(mktemp)"
     ec=0
-    choice="$(craft-pick --title="$_mp_title" 2>"$errf")" || ec=$?
+    choice="$(craft-pick -T "$_mp_title" 2>"$errf")" || ec=$?
     rm -f "$errf"
     # 143 (cross-dismiss) e 2 (toggle) e 1 (ESC) = fechamentos benignos —
     # a mesma gramática do craft-idle (E46/v2.3.10)

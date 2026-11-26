@@ -632,15 +632,17 @@ gm_status_cmd() {
 }
 
 # ── o MENU (a porta mouse-first — o motor único 2.0 é o craft-pick) ─────
-# E150 — O PICK VESTE AS FLAGS REAIS DE `craft-pick --help` (a prova do
-#      rig da 1.0-98: o menu abortava com 'Opção --title=... desconhecida'
-#      quando o binário do rig não conhecia a flag — chamador de uma era,
-#      binário de outra, o MENU morto no meio). O título só entra quando o
-#      craft-pick INSTALADO o anuncia no papel de ajuda — sem ele, o painel
-#      segue sem título e o contrato 0/1 intacto.
+# E150→1.0-105 — O PICK VESTE AS FLAGS REAIS DE `craft-pick --help` E A
+#      FORMA DO FOOT (a prova do rig da 1.0-98: o menu abortava com
+#      'Opção --title=... desconhecida' quando o binário do rig não
+#      conhecia a flag — chamador de uma era, binário de outra, o MENU
+#      morto no meio; e o terminal foot NÃO aceita --title=VALOR colado:
+#      a forma da casa é o -T "..." COM ESPAÇO). O título só entra quando
+#      o craft-pick INSTALADO anuncia o -T no papel de ajuda — sem ele, o
+#      painel segue sem título e o contrato 0/1 intacto.
 gm_pick() {
-    if craft-pick --help 2>/dev/null | grep -q -- '--title='; then
-        craft-pick --title="$1"
+    if craft-pick --help 2>/dev/null | grep -qE -- '(^|[[:space:]])-T([[:space:]]|$)'; then
+        craft-pick -T "$1"
     else
         craft-pick
     fi

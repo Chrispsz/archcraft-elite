@@ -122,7 +122,7 @@ case "${1:-}" in
     "")
         # O MENU (o motor da casa — o fuzzel que o dono já conhece)
         if command -v craft-pick >/dev/null 2>&1; then
-            escolha="$(craft-pick --title=MangoHud \
+            escolha="$(craft-pick -T "MangoHud" \
                 'Minimalista' 'Jogo balanceado' 'Diagnóstico' 'Status')" || {
                 printf 'elite-mangohud: menu fechado sem escolha\n' >&2
                 exit 1

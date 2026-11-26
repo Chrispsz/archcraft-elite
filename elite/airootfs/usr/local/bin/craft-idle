@@ -69,16 +69,18 @@ nota() {
         && notify-send -a 'Elite · Trava automática' -u low -t 4000 'Trava automática' "$_msg" &
 }
 
-# E150 — O PICK VESTE AS FLAGS REAIS DO `craft-pick --help` (a prova do
-# rig da 1.0-98: o painel abortava com 'Opção --title=... desconhecida'
-# quando o binário do rig não conhecia a flag — o chamador e o binário
-# de eras diferentes MATEM o menu). O título só entra quando o
-# craft-pick INSTALADO o anuncia no papel de ajuda; sem ele, o painel
-# segue sem título (o contrato 0/1 intacto — o menu nunca morre por
-# flag de era).
+# E150→1.0-105 — O PICK VESTE AS FLAGS REAIS DO `craft-pick --help` E A
+# FORMA DO FOOT (a prova do rig da 1.0-98: o painel abortava com 'Opção
+# --title=... desconhecida' quando o binário do rig não conhecia a flag
+# — o chamador e o binário de eras diferentes MATAM o menu; e o terminal
+# foot NÃO aceita --title=VALOR colado: a forma da casa é o -T "..."
+# COM ESPAÇO — 1.0-105). O título só entra quando o craft-pick
+# INSTALADO anuncia o -T no papel de ajuda; sem ele, o painel segue
+# sem título (o contrato 0/1 intacto — o menu nunca morre por flag de
+# era).
 _pick() {
-    if craft-pick --help 2>/dev/null | grep -q -- '--title='; then
-        craft-pick --title="$1"
+    if craft-pick --help 2>/dev/null | grep -qE -- '(^|[[:space:]])-T([[:space:]]|$)'; then
+        craft-pick -T "$1"
     else
         craft-pick
     fi

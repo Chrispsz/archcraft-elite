@@ -157,14 +157,21 @@ popover > contents modelbutton:active {
   color: @elite-base;
 }
 /* R5 — foco de teclado VISÍVEL nas superfícies onde o teclado CHEGA
- * (popovers/janelas/dock). A barra é mouse-first com foco morto (E151):
+ * (popovers/janelas). A barra é mouse-first com foco morto (E151):
  * ela sai desta lista DE PROPÓSITO — nenhum contorno roxo preso no
- * botão que o dono clicou. */
-#dockbox button:focus,
+ * botão que o dono clicou. 1.0-105 — A DOCK SAI TAMBÉM (a ordem do
+ * dono: a dock é KeyboardMode::None — o teclado JAMAIS é dela, o
+ * primeiro clique nunca rouba foco; o ANEL ROXO de foco morre no
+ * outline/box-shadow NONE dos estados :focus/:focus-visible). */
 popover > contents button:focus, popover > contents modelbutton:focus,
 #pickwin button:focus {
   outline: 2px solid @elite-accent-strong;
   outline-offset: -2px;
+}
+#dockbox button:focus,
+#dockbox button:focus-visible {
+  outline: none;
+  box-shadow: none;
 }
 popover > contents separator {
   background: alpha(@elite-off, 0.45);

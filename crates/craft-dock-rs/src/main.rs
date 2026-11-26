@@ -174,11 +174,28 @@ pub fn appicon_cache_dir() -> PathBuf {
     cache_dir().join("elite/appimage-icons")
 }
 
-/// ~/.cache/elite/exe-icons (E133 — o cache dos ícones extraídos do
-/// .exe Wine/Proton: <sha256-do-caminho>.png, o MESMO formato do
-/// appimage-icons; o recurso PE extraído uma vez serve para sempre).
+/// ~/.cache/elite/icons (E133→1.0-105 — o cache UNIFICADO dos ícones
+/// extraídos de executáveis Wine/Proton: <sha256-do-caminho>.png, o
+/// MESMO formato do appimage-icons; o recurso PE extraído uma vez
+/// serve para sempre — a dose 1.0-105 trouxe o caminho da ordem do
+/// dono: `~/.cache/elite/icons/`; o dir de era `exe-icons` segue como
+/// rede legível de QUEM JÁ tem o ícone extraído (nunca re-extrai o
+/// que a era já colheu — o lookup corre os DOIS, a ESCRITA é nova).
 pub fn exeicon_cache_dir() -> PathBuf {
-    cache_dir().join("elite/exe-icons")
+    cache_dir().join("elite/icons")
+}
+
+/// 1.0-105 — o caminho CACHEADO de um .exe (a rede de era primeiro:
+/// quem JÁ tem o ícone em ~/.cache/elite/exe-icons não paga a extração
+/// de novo; o MISS é o caminho novo da dose).
+#[cfg(any(test, feature = "gui"))]
+pub fn exeicon_cache_lookup(exe: &str) -> PathBuf {
+    let legado = cache_dir().join("elite/exe-icons");
+    let candidato = icons::exe_icon_cache_path(&legado, exe);
+    if candidato.is_file() {
+        return candidato;
+    }
+    icons::exe_icon_cache_path(&exeicon_cache_dir(), exe)
 }
 
 /// 2.0 — $XDG_RUNTIME_DIR/elite/bus.sock (O FIO VIVO do elite-daemon:
@@ -337,8 +354,29 @@ mod tests {
         assert!(css_path().ends_with("elite/dock.css"));
         assert!(log_path().ends_with("elite/dock.log"));
         assert!(appicon_cache_dir().ends_with("elite/appimage-icons"));
-        assert!(exeicon_cache_dir().ends_with("elite/exe-icons"));
+        // 1.0-105 — o cache UNIFICADO da dose: ~/.cache/elite/icons (o
+        // dir de era exe-icons segue como rede LEGÍVEL do lookup)
+        assert!(exeicon_cache_dir().ends_with("elite/icons"));
         assert!(bus_sock().ends_with("elite/bus.sock"));
+    }
+
+    #[test]
+    fn e157_o_lookup_do_exeicone_veste_a_rede_de_era() {
+        // 1.0-105 — quem JÁ tem o ícone no dir de era (exe-icons) não
+        // paga a extração de novo: o lookup devolve o caminho de era
+        // quando o arquivo EXISTE; o MISS cai no caminho novo da dose
+        let legado = cache_dir().join("elite/exe-icons");
+        let antigo = icons::exe_icon_cache_path(&legado, "/opt/jogo/A.exe");
+        let novo = exeicon_cache_lookup("/opt/jogo/A.exe");
+        if antigo.is_file() {
+            assert_eq!(novo, antigo, "o ícone de ERA veste — zero re-extração");
+        } else {
+            assert_eq!(
+                novo,
+                icons::exe_icon_cache_path(&exeicon_cache_dir(), "/opt/jogo/A.exe"),
+                "o MISS veste o caminho novo da dose"
+            );
+        }
     }
 
     #[test]

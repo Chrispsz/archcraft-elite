@@ -41,7 +41,7 @@ fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     if craft_tools::pede_ajuda(
         &args,
-        "uso: craft-pick [--title=TÍTULO] [itens...] — o seletor nativo da casa\n\
+        "uso: craft-pick [-T TÍTULO | --title=TÍTULO] [itens...] — o seletor nativo da casa\n\
          \
          \x20  itens por argv OU stdin (1 linha = 1 item); Enter devolve o\n\
          \x20  ESCOLHIDO no stdout + exit 0; Esc fecha com exit 1.\n\

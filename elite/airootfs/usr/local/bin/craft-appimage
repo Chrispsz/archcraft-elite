@@ -122,7 +122,7 @@ if [ "${1:-}" = "menu" ]; then
         'Registrar AppImage (seletor de arquivos)' \
         'Remover registro (o ícone sai; o arquivo fica)' \
         'Ver registrados (terminal)' \
-        | craft-pick --title="AppImages — ${reg} registrado(s)")" || exit 0
+        | craft-pick -T "AppImages — ${reg} registrado(s)")" || exit 0
     case "$escolha" in
         Registrar*)
             # cai no fluxo abaixo com o seletor zenity — a variável MENU
@@ -141,7 +141,7 @@ if [ "${1:-}" = "menu" ]; then
                 lista="${lista}${nome_:-?} (${stem_})
 "
             done
-            escolha2="$(printf '%s' "$lista" | craft-pick --title='AppImages — qual registro sai?')" || exit 0
+            escolha2="$(printf '%s' "$lista" | craft-pick -T 'AppImages — qual registro sai?')" || exit 0
             id_="$(printf '%s' "$escolha2" | sed 's/.* (\([^)]*\))$/\1/')"
             [ -n "$id_" ] || exit 0
             rm -f "$APPS_DIR/appimage-$id_.desktop"
