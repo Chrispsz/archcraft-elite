@@ -82,9 +82,11 @@ const ALTURA: i32 = 28;
 const DRAIN_MS: u64 = 100;
 /// O DEBOUNCE do drawer (a ordem do dono: 150ms, zero bloqueio).
 const DRAWER_MS: u64 = 150;
-/// A tolerância de arrasto: released a >5px do press é ARRASTO, não
-/// clique (a ordem do dono — a mesma lei da dock v2).
-const ARRASTO_PX: f64 = 5.0;
+/// A tolerância de arrasto: released a >10px do press é ARRASTO, não
+/// clique (a cura 1.0-101 do audit 99: 5px descartava cliques REAIS em
+/// telas de 120Hz — o jitter do pointer entre pressed e released passa
+/// da metade do frame; 10px é a folga que o dono pediu).
+const ARRASTO_PX: f64 = 10.0;
 /// As cadências da thread de fundo (segundos — o belt do polling; os
 /// EVENTOS do daemon chegam por sinal/fio, o belt é a rede de segurança).
 const POLL_AUDIO_S: u64 = 2;
@@ -150,6 +152,9 @@ struct State {
     bt_img: gtk::Image,
     btn_game: gtk::Button,
     btn_player: gtk::Button,
+    /// 1.0-101 — o ÍCONE DE STATUS da mídia (media-playback-start/pause
+    /// — o glifo Nerd da pílula morre com a fonte que não o tem).
+    player_img: gtk::Image,
     player_label: gtk::Label,
     btn_bat: Option<gtk::Button>,
     /// O instante do último release ACEITO na gaveta (o eco morre na
@@ -308,6 +313,7 @@ fn build(app: &gtk::Application) {
         bt_img: gtk::Image::from_icon_name("bluetooth-disabled-symbolic"),
         btn_game: gtk::Button::new(),
         btn_player: gtk::Button::new(),
+        player_img: gtk::Image::from_icon_name("media-playback-start-symbolic"),
         player_label: gtk::Label::new(None),
         btn_bat: None,
         drawer_ns: 0,
@@ -428,6 +434,7 @@ fn build(app: &gtk::Application) {
         let s = st.borrow();
         let btn_game = s.btn_game.clone();
         let btn_player = s.btn_player.clone();
+        let player_img = s.player_img.clone();
         let player_label = s.player_label.clone();
         let btn_audio = s.btn_audio.clone();
         let audio_img = s.audio_img.clone();
@@ -465,11 +472,24 @@ fn build(app: &gtk::Application) {
         // O PLAYER MPRIS NATIVO (2.0: o estado chega PELO FIO — o
         // PropertiesChanged que o daemon escuta; zero playerctl, zero
         // polling de 1s). As AÇÕES também viajam no fio: esquerdo =
-        // Play/Pause, meio = próxima, direito = FOCAR a janela do
-        // player (o match benigno do daemon), scroll = faixa
+        // Play/Pause, scroll cima/baixo = próxima/anterior, direito =
+        // FOCAR a janela do player (o match benigno do daemon).
+        // 1.0-101 — A PÍLULA REFINADA: ícone de STATUS + "Artista -
+        // Título" truncado (≤28 — o juízo mora no state::pilula_midia);
+        // oculta (0px) sem player no bus, visível tocando OU pausado.
         btn_player.set_widget_name("playerbtn");
         btn_player.set_has_frame(false);
-        btn_player.set_child(Some(&player_label));
+        btn_player.set_valign(gtk::Align::Center);
+        {
+            let linha = gtk::Box::new(gtk::Orientation::Horizontal, 5);
+            player_img.set_pixel_size(14);
+            player_img.set_valign(gtk::Align::Center);
+            player_label.set_valign(gtk::Align::Center);
+            linha.set_valign(gtk::Align::Center);
+            linha.append(&player_img);
+            linha.append(&player_label);
+            btn_player.set_child(Some(&linha));
+        }
         btn_player.set_visible(false);
         btn_player.set_tooltip_text(Some(
             "Mídia — clique: play/pause · scroll: faixa · direito: focar o player",
@@ -553,24 +573,26 @@ fn build(app: &gtk::Application) {
         dir.append(&btn_mic);
 
         // A REDE PERSISTENTE (a cura A4: o botão NUNCA sai — Cabo/
-        // Wi-Fi/Desligado com ÍCONE GTK SEMPRE). E149 — O MAPA DIRETO:
-        // o ESQUERDO abre o gerenciador PRÁTICO do dia a dia (o iwgtk,
-        // a janela de redes própria da casa; ausente = o editor de
-        // conexões assume — honesto, nunca um botão morto) e o DIREITO
-        // alterna o RÁDIO Wi-Fi na hora (a ação imediata — nada de
-        // editor técnico como fluxo principal).
+        // Wi-Fi/Desligado com ÍCONE GTK SEMPRE). 1.0-101 — O MAPA DO
+        // AUDIT 99: o ESQUERDO abre o gerenciador de conexões de
+        // VERDADE — "craft-connect se funcional, ou nm-connection-
+        // editor como fallback GARANTIDO": o craft-connect é o fóssil
+        // da era fuzzel (a E141b o aposentou; o disco não o tem mais),
+        // então a barra PERGUNTA AO DISCO e o editor completo do
+        // NetworkManager assume — nunca um botão morto. O DIREITO
+        // segue a ação imediata: alterna o RÁDIO Wi-Fi.
         btn_rede.set_has_frame(false);
         btn_rede.set_child(Some(&rede_img));
         btn_rede.set_tooltip_text(Some(
-            "Rede — clique: gerenciar as redes (iwgtk) · direito: ligar/desligar o Wi-Fi",
+            "Rede — clique: gerenciar as conexões · direito: ligar/desligar o Wi-Fi",
         ));
         clique_solto(&btn_rede, move |botao| match botao {
             1 => {
-                if std::path::Path::new("/usr/bin/iwgtk").exists() {
-                    solta(&["iwgtk"]);
+                if std::path::Path::new("/usr/local/bin/craft-connect").exists() {
+                    solta(&["craft-connect"]);
                 } else {
-                    // rig sem iwgtk (a dose entrega via pacote — mas a
-                    // barra nunca promete o que o sistema não tem)
+                    // o fallback GARANTIDO da diretriz (Wi-Fi, cabo, VPN,
+                    // banda larga — o editor completo do NetworkManager)
                     solta(&["nm-connection-editor"]);
                 }
             }
@@ -987,12 +1009,15 @@ fn aplica(st: &Rc<RefCell<State>>, msg: Msg) {
             }
         }
         Msg::Media(m) => {
-            // 2.0 — o MPRIS pelo fio: o estado tipado vira pill
+            // 2.0 — o MPRIS pelo fio: o estado tipado vira a pílula
+            // 1.0-101 (ícone de STATUS + Artista - Título ≤28; sem
+            // player no bus o assento SAI — oculto 0px)
             let s = st.borrow_mut();
             match m.as_ref().and_then(media_pill) {
-                Some((txt, tip)) => {
-                    s.player_label.set_text(&txt);
-                    s.btn_player.set_tooltip_text(tip.as_deref());
+                Some(pill) => {
+                    s.player_img.set_icon_name(Some(pill.icone));
+                    s.player_label.set_text(&pill.texto);
+                    s.btn_player.set_tooltip_text(Some(&pill.tooltip));
                     s.btn_player.set_visible(true);
                 }
                 None => s.btn_player.set_visible(false),
@@ -1137,30 +1162,47 @@ fn apaga_foco_da_barra(raiz: &gtk::Widget) {
 /// a gaveta, o craft-apps a matava). O menu rápido do clique direito
 /// MORRE (as ações dele já moram no menu do desktop e no de energia —
 /// o dedupe da diretriz: "Bloquear tela" e "Encerrar sessão" tinham
-/// dois endereços); o direito alterna IGUAL.
+/// dois endereços).
+/// 1.0-101 — O GESTO É O CLIQUE ESQUERDO (a cura do audit 99: o toggle
+/// disparava em QUALQUER botão — o direito (contexto de menu) abria a
+/// gaveta sem o dono pedir; agora só o botão 1 manda). O alinhamento
+/// vive nos 28px da faixa: Box verticalmente CENTRADO, ícone 16px e
+/// label sem margem própria (o padding da pele manda — theme.css).
 fn botao_apps(st: &Rc<RefCell<State>>) -> gtk::Button {
     let btn = gtk::Button::new();
     btn.set_widget_name("appbtn");
     btn.set_has_frame(false);
+    btn.set_valign(gtk::Align::Center);
     let linha = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+    linha.set_valign(gtk::Align::Center);
     let img = gtk::Image::from_icon_name("view-app-grid-symbolic");
     img.set_pixel_size(16);
+    img.set_valign(gtk::Align::Center);
+    img.set_margin_top(0);
+    img.set_margin_bottom(0);
     let lbl = gtk::Label::new(Some("Aplicativos"));
+    lbl.set_valign(gtk::Align::Center);
+    lbl.set_margin_top(0);
+    lbl.set_margin_bottom(0);
     linha.append(&img);
     linha.append(&lbl);
     btn.set_child(Some(&linha));
-    btn.set_tooltip_text(Some("Aplicativos — clique: abre/fecha a gaveta (toggle de verdade)"));
+    btn.set_tooltip_text(Some(
+        "Aplicativos — clique esquerdo: abre/fecha a gaveta (toggle de verdade)",
+    ));
     {
         let st = st.clone();
-        clique_solto(&btn, move |_| {
-            toggle_gaveta(&st);
+        clique_solto(&btn, move |botao| {
+            if botao == 1 {
+                toggle_gaveta(&st);
+            }
         });
     }
     btn
 }
 
 /// A LEI DO CLIQUE (a cura B1): o verbo dispara EXCLUSIVAMENTE no
-/// GestureClick::released com tolerância de arrasto < 5px — nunca no
+/// GestureClick::released com tolerância de arrasto < 10px — nunca no
 /// press, nunca no clicked (o par press×clicked era o duplo verbo).
 fn clique_solto<W: IsA<gtk::Widget>>(btn: &W, acao: impl Fn(u32) + 'static) {
     let gesture = gtk::GestureClick::new();

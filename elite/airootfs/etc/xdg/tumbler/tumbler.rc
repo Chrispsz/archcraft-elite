@@ -1,0 +1,26 @@
+; ═══════════════════════════════════════════════════════════════════════
+; Archcraft ELITE · tumbler.rc — a higiene dos miniaturizadores (1.0-101)
+; ═══════════════════════════════════════════════════════════════════════
+; O audit 99 fotografou o tumblerd do Thunar gritando no journal por
+; TRÊS plugins que a dose NÃO instala (o debloat os levou e o tumblerd
+; continua tentando carregá-los a cada abertura de pasta — erro no
+; journal e memória à toa por plug em falta). A cura: os três são
+; DESLIGADOS POR NOME aqui — a sintaxe é a do upstream (seção por
+; plugin + Disabled=true; o tumblerd pula o carregamento e o journal
+; fica limpo; abrir o Thunar fica mais barato em RAM).
+; Plugins AUSENTES no sistema da casa (não é regressão: nunca chegaram
+; — epub/odf/raw não são mídia do rig da casa):
+;   · tumbler-gepub-thumbnailer (ePub — capas de ebook)
+;   · tumbler-odf-thumbnailer  (ODF — documentos LibreOffice)
+;   · tumbler-raw-thumbnailer  (RAW — negativos fotográficos)
+; Os que FICAM (fotos/palettes/vídeos/fontes/desktop): sem seção
+; aqui = default do upstream (ligado).
+
+[GepubThumbnailer]
+Disabled=true
+
+[OdfThumbnailer]
+Disabled=true
+
+[RawThumbnailer]
+Disabled=true

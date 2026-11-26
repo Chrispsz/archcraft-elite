@@ -8,8 +8,13 @@
 # carga de jogo). HDD (rotational=1) NÃO é tocado — o mq-deadline de
 # fábrica é o certo para disco girante. Idempotente por natureza: roda
 # no coldplug e em todo plug.
-# NVMe (o /dev/nvme*n*): sem escalonador
-ACTION=="add|change", SUBSYSTEM=="block", KERNEL=="nvme*[0-9]n*[0-9]", ATTR{queue/scheduler}="none"
+# 1.0-101: a regra vale SÓ para o DISCO PAI (ENV{DEVTYPE}=="disk"):
+# ATTR{queue/scheduler} não existe em PARTIÇÃO (nvme0n1p1/p2) e o
+# udev gritava "No such file or directory" a cada evento do filho
+# (o audit 99 fotografou). O juiz é o DEVTYPE (a partição nasce com
+# DEVTYPE=partition); o KERNEL aperta o formato do namespace
+# (nvme<n>n<...>) para nunca vestr nenhum sd*/dm-*.
+ACTION=="add|change", SUBSYSTEM=="block", ENV{DEVTYPE}=="disk", KERNEL=="nvme[0-9]*n[0-9]*", ATTR{queue/scheduler}="none"
 # SSD SATA (rotationals=0 e NÃO nvme — o nvme já saiu acima): mq-deadline
 ACTION=="add|change", SUBSYSTEM=="block", KERNEL=="sd*[a-z]", \
   ATTR{queue/rotational}=="0", ATTR{queue/scheduler}="mq-deadline"

@@ -314,12 +314,27 @@ fn agora_epoch() -> u64 {
 /// pop-up não é lugar de estado). Os argumentos são os MESMOS do
 /// craft-game, 1:1 (o gm_hook é a referência).
 fn note(corpo: &str) {
-    let _ = std::process::Command::new("notify-send")
+    // 1.0-101 — A COVEIRA do aviso (a mesma cura da dispara, o E152):
+    // o spawn ABANDONADO no escopo virava <defunct> no ps do rig (o
+    // audit 99 nomeou os zumbis da sessão; notify-send é filho curto
+    // do daemon — nasce, fala, morre e É COLHIDO na thread própria).
+    match std::process::Command::new("notify-send")
         .args(["-a", "Elite · Jogo", "-u", "low", "-t", "8000", "Modo de jogo", corpo])
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
-        .spawn();
+        .spawn()
+    {
+        Ok(mut filho) => {
+            std::thread::Builder::new()
+                .name("elite-coveira-note".into())
+                .spawn(move || {
+                    let _ = filho.wait();
+                })
+                .ok();
+        }
+        Err(_) => {} // o fork falhou: aviso perdido, honesto
+    }
 }
 
 /// E132 — EPP dinâmico: escreve `valor` em todo cpu*/cpufreq/

@@ -49,32 +49,52 @@ use elite_core::MediaState;
 
 // ── O BUS 2.0 (os estados que o daemon publica — o juízo de VESTIR) ────
 
-/// O TEXTO DO PLAYER pelo estado do bus (a Fase 2: zero playerctl, o
+/// O TEXTO DO PLAYER pelo estado do bus (2.0: zero playerctl, o
 /// PropertiesChanged do MPRIS chega pelo fio; o pill some sem mídia).
-pub fn media_pill(m: &MediaState) -> Option<(String, Option<String>)> {
+/// 1.0-101 — A PÍLULA REFINADA do audit 99: ícone de STATUS como NOME
+/// de ícone GTK (media-playback-start/pause — o glifo Nerd \u{f047b}
+/// era o réu da era E147 e morre aqui também: a fonte GTK não o tem),
+/// o rótulo é "Artista - Título" (a ordem que o dono lê) TRUNCADO em
+/// 28 caracteres com o texto INTEIRO no tooltip do hover.
+pub struct PilulaMidia {
+    /// o ícone de status GTK (tocando/pausado) para o Image da barra.
+    pub icone: &'static str,
+    /// "Artista - Título" ≤ 28 chars (a largura da barra manda).
+    pub texto: String,
+    /// o texto COMPLETO (a lei da casa: nada de recorte no tooltip).
+    pub tooltip: String,
+}
+
+pub fn media_pill(m: &MediaState) -> Option<PilulaMidia> {
     if m.player.is_none() && m.title.is_none() {
         return None; // sem mídia: o botão SAI (o assento é da sessão)
     }
     let titulo = m.title.clone().unwrap_or_else(|| "mídia".into());
     let artista = m.artist.clone().unwrap_or_default();
-    let texto = if artista.is_empty() {
+    let inteiro = if artista.is_empty() {
         titulo.clone()
     } else {
-        format!("{titulo} — {artista}")
+        format!("{artista} - {titulo}")
     };
-    // a largura da barra: 28 chars (a faixa é de 34px — o pill não
-    // pode empurrar o relógio para fora da tela)
-    let curto: String = if texto.chars().count() > 28 {
-        let t: String = texto.chars().take(26).collect();
+    // a largura da barra: 28 chars no TOTAL (o pill não empurra o
+    // relógio para fora da tela; o hover diz o inteiro)
+    let texto = if inteiro.chars().count() > 28 {
+        let t: String = inteiro.chars().take(27).collect();
         format!("{t}…")
     } else {
-        texto
+        inteiro.clone()
     };
-    let glifo = if m.playing { "\u{f047b} " } else { "\u{f03e4} " };
-    let tooltip = m.player.as_ref().map(|p| {
-        format!("{titulo} · {p}{}", if m.playing { " (tocando)" } else { " (pausado)" })
-    });
-    Some((format!("{glifo}{curto}"), tooltip))
+    let icone = if m.playing {
+        "media-playback-start-symbolic"
+    } else {
+        "media-playback-pause-symbolic"
+    };
+    let estado = if m.playing { "tocando" } else { "pausado" };
+    let tooltip = match m.player.as_deref() {
+        Some(p) => format!("{inteiro} · {p} ({estado})"),
+        None => format!("{inteiro} ({estado})"),
+    };
+    Some(PilulaMidia { icone, texto, tooltip })
 }
 
 // 1.0-93 — AS PÍLULAS DA MESA E O TÍTULO ATIVO SAIRAM DA BARRA (a ordem
@@ -705,19 +725,30 @@ mod tests {
             artist: Some("ConcernedApe".into()),
             playing: true,
         };
-        let (texto, tooltip) = media_pill(&m).unwrap();
-        assert!(texto.contains("Stardew OST — ConcernedApe"));
-        assert!(tooltip.unwrap().contains("firefox"));
+        let pill = media_pill(&m).unwrap();
+        // 1.0-101 — a ordem é "Artista - Título" e o ícone é GTK
+        assert!(pill.texto.contains("ConcernedApe - Stardew OST"));
+        assert_eq!(pill.icone, "media-playback-start-symbolic");
+        assert!(pill.tooltip.contains("firefox"));
+        assert!(pill.tooltip.contains("Stardew OST"));
+        // pausado: o estado tem voz no ícone e no tooltip
+        let pausado = MediaState { playing: false, ..m.clone() };
+        let pill2 = media_pill(&pausado).unwrap();
+        assert_eq!(pill2.icone, "media-playback-pause-symbolic");
+        assert!(pill2.tooltip.contains("pausado"));
+        // sem mídia: o pill NÃO NASCE (o botão sai da barra)
         let vazio = MediaState { player: None, title: None, artist: None, playing: false };
         assert!(media_pill(&vazio).is_none());
+        // o texto é truncado em 28; o tooltip guarda o INTEIRO
         let longo = MediaState {
             player: Some("x".into()),
             title: Some("Uma música muito comprida cujo nome não cabe na barra de jeito nenhum".into()),
             artist: None,
             playing: true,
         };
-        let (curto, _) = media_pill(&longo).unwrap();
-        assert!(curto.trim_end_matches('…').chars().count() <= 30, "pill largo: {curto:?}");
+        let pill3 = media_pill(&longo).unwrap();
+        assert!(pill3.texto.chars().count() <= 28, "pill largo: {:?}", pill3.texto);
+        assert!(pill3.tooltip.contains("de jeito nenhum"));
     }
 
 }

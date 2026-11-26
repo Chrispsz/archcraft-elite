@@ -521,6 +521,14 @@ cp -p /work/elite/airootfs/etc/profile.d/10-elite-defaults.sh \
 # pacote (sem conflito); o rig com arquivo sem dono adota no pre_install.
 cp -p /work/elite/airootfs/etc/gamemode.ini \
       /tmp/elite-src/elite-system/files/etc/gamemode.ini
+# 1.0-101 — A HIGIENE DO THUMBNAILER no pacote: o tumbler.rc da casa
+# DESLIGA os três plugins que a dose NÃO instala (gepub/odf/raw) —
+# o tumblerd para de gritar no journal e de gastar RAM por plug em
+# falta a cada pasta aberta no Thunar (adote: rig com o arquivo SEM
+# dono o perde no pre_install, o mesmo gesto do gamemode.ini).
+mkdir -p /tmp/elite-src/elite-system/files/etc/xdg/tumbler
+cp -p /work/elite/airootfs/etc/xdg/tumbler/tumbler.rc \
+      /tmp/elite-src/elite-system/files/etc/xdg/tumbler/tumbler.rc
 # E90 — O MAPA VIAJA NO PACOTE: a doc completa (SCRIPTS.md — a linha de
 # cada peça) morava só no repo; o craft-help aponta para ela e o dono
 # ganha o mapa DENTRO do sistema (a fonte única continua sendo o repo —
@@ -668,6 +676,8 @@ pd_install = '    install -d "${pkgdir}/etc/profile.d"\n    install -m644 "${sta
 # E103 — o gamemode.ini (adoção: o rig com o arquivo SEM dono o perde no
 # pre_install e o pacote o entrega com dono — a dança E43 da casa)
 gm_install = '    install -Dm644 "${startdir}/files/etc/gamemode.ini" "${pkgdir}/etc/gamemode.ini"\n'
+tum_install = '    install -Dm644 "${startdir}/files/etc/xdg/tumbler/tumbler.rc" "${pkgdir}/etc/xdg/tumbler/tumbler.rc"\n'
+tum_rm = '    [ -e "/etc/xdg/tumbler/tumbler.rc" ] && ! pacman -Qo "/etc/xdg/tumbler/tumbler.rc" >/dev/null 2>&1 && rm -f "/etc/xdg/tumbler/tumbler.rc"\n'
 gm_rm = '    [ -e "/etc/gamemode.ini" ] && ! pacman -Qo "/etc/gamemode.ini" >/dev/null 2>&1 && rm -f "/etc/gamemode.ini"\n'
 pd_rm = ''
 # E90 — o mapa dos comandos (SCRIPTS.md no pacote — mesma dança)
@@ -2881,6 +2891,54 @@ pkgver=1.0
 #          editar); a MANUTENÇÃO MENSAL no CI (maintenance.yml, dia 1:
 #          cargo check --all-features + a suíte contra o Arch do dia).
 #      Notas da era: docs/releases/1.0-99.md.
+# 1.0-101 (A DOSE DA TOPBAR, DOS MENUS E DA HIGIENE — o audit 99 na
+#      LENTE DE AUMENTO: craft-bar-rs, menu.xml, coveira e kernel/
+#      udev; escopo NEGATIVO respeitado: craft-dock-rs, SDDM e GRUB
+#      INTACTOS): (1) A LEI DO CLIQUE da barra — o botão Aplicativos
+#      abre a gaveta EXCLUSIVAMENTE no ESQUERDO (o direito disparava
+#      o toggle sem o dono pedir), o alinhamento vive CENTRALIZADO
+#      nos 28px (ícone 16px + label sem margem própria; padding da
+#      pele como único respiro) e a tolerância de arrasto sobe 5→10px
+#      (o jitter do ponteiro em telas de 120Hz descartava cliques
+#      REAIS); (2) O MAPA DA DIREITA com o que o sistema TEM — rede
+#      esquerdo = craft-connect se funcional, senão nm-connection-
+#      editor GARANTIDO (o craft-connect é o fóssil da era fuzzel —
+#      a E141b o aposentou e a barra PERGUNTA AO DISCO), áudio =
+#      pwvucontrol, bluetooth = blueman-manager (intactos por já
+#      honestos); (3) A PÍLULA MPRIS REFINADA — ícone de STATUS
+#      media-playback-start/pause (o glifo Nerd U+f047b da fonte
+#      que não o tem morre), rótulo "Artista - Título" truncado em 28
+#      com o inteiro no tooltip, oculta 0px sem player e visível
+#      tocando OU pausado, controles pelo FIO (esquerdo PlayPause ·
+#      scroll cima/baixo Next/Previous · direito Focus); (4) OS
+#      MENUS QUE FALHAVAM CALADOS — "Modo de jogo" e "Trava
+#      automática" abrem em JANELA INTERATIVA via foot -e (a MESMA
+#      porta de Atualizar/Limpeza/Ajuda; o painel fora de palco
+#      morria sem voz — erro visível é erro diagnosticável); (5) A
+#      HIGIENE DE PROCESSOS — a coveira do notify-send no daemon (o
+#      spawn abandonado do note() virava <defunct>; o mesmo gesto da
+#      dispara E152) e o SWAYNC SEM MÁSCARA D-Bus: a máscara E117 da
+#      unit de usuário era o réu do "masked" no dbus-broker a cada
+#      pedido do org.freedesktop.Notifications — revogada (unmask) e
+#      substituída por disable global (sem auto-start, MAS
+#      carregável; o dono único é o gate E135 do elite-daemon); o
+#      polkit ÚNICO segue o E151 (verificado, intacto); o TUMBLER
+#      para de gritar: tumbler.rc da casa DESLIGA gepub/odf/raw (os
+#      três plugs ausentes do debloat); (6) O BAIXO NÍVEL — udev NVMe
+#      restrito ao DISCO PAI (ENV{{DEVTYPE}}=="disk": o
+#      queue/scheduler não existe em nvme0n1p1/p2 e o udev gritava a
+#      cada evento), modules-load AMDRY: só k10temp (coretemp é
+#      Intel e it87 é o Super-I/O legado — dois módulos nascendo
+#      mortos no Ryzen), gamemode gpu_device=1 (o card0 é o SIMPLEDRM
+#      sem vendor file — a RX 7600 mora no card1; o erro
+#      "Couldn't open vendor file" morre; o rig vivo ganha a linha
+#      na transação) e CoolerControl com liquidctl_integration=false
+#      (o liqctld Python nascia só para morrer — zero dispositivos
+#      liquidctl no rig; hwmon da placa segue no GUI, cura entregue
+#      no post-transaction com try-restart honesto).
+#      Suíte: barra/dock compilam e os contratos passam; menu.xml
+#      parseia; scripts com sh -n limpo. pkgrel 100→101 NO MESMO
+#      COMMIT (a lei E41). Sem tag (L4). Sem Co-Authored-By.
 # 1.0-100 (AS 4 CURAS ESTRUTURAIS DO AUDIT 99 — a diretriz do dono):
 #      (1) O AUTOSTART E O RELOGIN: o heal-sessao julga o FÓSSIL DE ERA
 #          (arquivo da casa sem elite-daemon session = corpo legado do
@@ -2916,7 +2974,7 @@ pkgver=1.0
 #      (o núcleo std-first; o juízo da gui é o Canal — lei L6).
 #      Notas da dose: docs/releases/1.0-100.md.
 #      pkgrel 99→100 NO MESMO COMMIT (lei E41).
-pkgrel=100
+pkgrel=101
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da sessão; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
@@ -3011,7 +3069,7 @@ pre_install() {{
     ; do
         [ -e "/usr/local/bin/$f" ] && rm -f "/usr/local/bin/$f"
     done
-{unit_loop}{hook_rm}{kmod_rm}{mh_rm}{ff_rm}{lock_rm}{sddm_rm}{rc_rm}{osd_rm}{menu_rm}{gm_rm}{doc_rm}{gp_rm}{flags_rm}{apps_rm}{pk_rm}{q6_rm}{dc_rm}{sudoers_rm}    return 0
+{unit_loop}{hook_rm}{kmod_rm}{mh_rm}{ff_rm}{lock_rm}{sddm_rm}{rc_rm}{osd_rm}{menu_rm}{gm_rm}{tum_rm}{doc_rm}{gp_rm}{flags_rm}{apps_rm}{pk_rm}{q6_rm}{dc_rm}{sudoers_rm}    return 0
 }}
 # E129 — A MIGRAÇÃO AUTÔNOMA (AGENTS.md §4, 2026-11-20): o usuário final
 # NUNCA roda comando manual de pós-instalação — toda correção de /etc,
@@ -3053,7 +3111,7 @@ package() {{
     # E132 — o elite-polkit-listener NÃO viaja mais (o agente da casa é o
     # lxqt-policykit-agent NATIVO, eleito no craft-bars; um bin a menos no
     # pacote, um agente a menos na fila — o C vendado aposentou do repo)
-{unit_install}{hook_install}{kmod_install}{mh_install}{ff_install}{lock_install}{sddm_install}{grub_install}{rc_install}{osd_install}{menu_install}{pd_install}{gm_install}{doc_install}{gp_install}{pt_install}{ef_install}{flags_install}{apps_install}{udev_install}{pk_install}{q6_install}{theo_install}{gtk_install}{dc_install}{sudoers_install}}}
+{unit_install}{hook_install}{kmod_install}{mh_install}{ff_install}{lock_install}{sddm_install}{grub_install}{rc_install}{osd_install}{menu_install}{pd_install}{gm_install}{tum_install}{doc_install}{gp_install}{pt_install}{ef_install}{flags_install}{apps_install}{udev_install}{pk_install}{q6_install}{theo_install}{gtk_install}{dc_install}{sudoers_install}}}
 """
 (d / 'PKGBUILD').write_text(pkg)
 PYE50

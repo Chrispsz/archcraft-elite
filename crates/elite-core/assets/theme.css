@@ -85,6 +85,21 @@
   font-variant-numeric: tabular-nums;
 }
 #barbox #appbtn label { color: @elite-text; }
+/* 1.0-101 — O ALINHAMENTO DOS 28px (a cura do audit 99: o botão
+ * Aplicativos e a pílula de mídia nascem CENTRALIZADOS na faixa — o
+ * ícone/label sem margem própria (o padding da pele é o ÚNICO
+ * respiro) e o min-height nunca passa da barra de 28px). */
+#barbox #appbtn, #barbox #playerbtn {
+  padding: 0 8px;
+  min-height: 24px;
+}
+#barbox #appbtn image, #barbox #appbtn label,
+#barbox #playerbtn image, #barbox #playerbtn label {
+  margin: 0;
+  padding: 0;
+}
+#barbox #playerbtn label { font-size: 13px; }
+#barbox #playerbtn image { color: @elite-accent-strong; }
 
 /* ── Popovers nativos (sessão da barra — a mesma cara da barra) ─────────── */
 popover > contents {

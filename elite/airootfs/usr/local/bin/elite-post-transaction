@@ -315,26 +315,32 @@ for _d in /run/user/[0-9]*; do
     unset _st
 done
 
-# ── 8. O SEGUNDO TRONO DO SWAYNC MORRE (E117 — um trono só, E58) ────────
-#      O journal do dump 163548 fotografa CINCO 'Failed to start Swaync
-#      notification daemon' a CADA boot (15:11:31–33, 4s após o boot —
-#      a unit de usuário do pacote sobe ANTES da sessão existir, falha
-#      sem display e o systemd repete). O swaync VIVO é filho do
-#      craft-bars (o supervisor da casa, que sobe com a sessão e carrega
-#      o config do usuário — o ps do mesmo dump crava). Dois tronos para
-#      um daemon é a doença que a E58 abomina — e as cinco linhas
-#      vermelhas por boot são ruído que a perícia leria como defeito.
-#      Cura: a unit de usuário é MASCARADA globalmente (o auto-start e
-#      a ativação dbus morrem; o arquivo vive em /etc/systemd/user/ —
-#      fora do pacote, sobrevive a doses, reversível com unmask).
+# ── 8. O SEGUNDO TRONO DO SWAYNC MORRE DE OUTRA FORMA (E117 → 1.0-101) ──
+#      O journal do dump 163548 fotografou CINCO 'Failed to start Swaync
+#      notification daemon' por boot: a unit de usuário subia ANTES da
+#      sessão existir e o systemd repetia. A cura E117 MASCAROU a unit
+#      e o audit 99 fotografou o EFEITO COLATERAL: com a unit mascarada,
+#      a ATIVAÇÃO D-BUS que o dbus-broker tenta (org.freedesktop.
+#      Notifications / org.erikreider.swaync.cc) falha com "masked" a
+#      cada pedido sem dono — o journal nasce vermelho de novo, agora
+#      pela máscara. A cura 1.0-101: a máscara legada é REVOGADA (unmask
+#      + remoção do elo /dev/null) e a unit é DESABILITADA globalmente
+#      (disable: sem auto-start do systemd --user, MAS carregável — a
+#      ativação D-Bus fica LIMPA). O dono único segue a Lei E135: o
+#      elite-daemon session adota o nome no bus e o flock impede o
+#      segundo trono.
 _mask="/etc/systemd/user/swaync.service"
 if [ ! -e /run/archiso ] && command -v systemctl >/dev/null 2>&1; then
     if [ -e "$_mask" ] && [ "$(readlink -f "$_mask" 2>/dev/null)" = "/dev/null" ]; then
-        :   # já mascarado por uma dose anterior — silêncio (o papel não repete história)
-    elif systemctl --global mask swaync.service >/dev/null 2>&1; then
-        tlog "swaync: unit de usuário MASCARADA (E117) — o segundo trono morre; o swaync vivo é o do orquestrador (elite-daemon session — o journal deixa de nascer vermelho a cada boot)"
-    else
-        tlog "swaync: FALHOU mascarar a unit de usuário (réu nomeado no papel)"
+        if systemctl --global unmask swaync.service >/dev/null 2>&1; then
+            rm -f "$_mask" 2>/dev/null || true
+            tlog "swaync: máscara E117 REVOGADA (1.0-101 — a ativação D-Bus do org.freedesktop.Notifications fica LIMPA no dbus-broker; o dono único é o gate E135 do elite-daemon)"
+        else
+            tlog "swaync: FALHOU revogar a máscara da unit de usuário (réu nomeado no papel)"
+        fi
+    fi
+    if systemctl --global disable swaync.service >/dev/null 2>&1; then
+        tlog "swaync: unit de usuário DESABILITADA globalmente (sem auto-start, sem máscara — o swaync vivo é o do orquestrador elite-daemon session)"
     fi
 fi
 unset _mask
@@ -445,6 +451,57 @@ if [ -f /etc/gamemode.ini ]; then
         printf 'amd_performance_level=high\n' >> /etc/gamemode.ini 2>/dev/null \
             && tlog "gamemode: amd_performance_level=high ACRESCENTADA (o fóssil não tinha a linha)"
     fi
+    # 1.0-101 — O DISPOSITIVO DA GPU (a cura do "Couldn't open vendor
+    # file at /sys/class/drm/card0/device/vendor" do audit 99: o card0
+    # do rig é o SIMPLEDRM do console — sem arquivo vendor; a RX 7600
+    # mora no card1). O rig vivo com o gamemode.ini de dono ANTIGO
+    # ganha o gpu_device=1 na transação (idempotente: linha presente
+    # = silêncio; o dono que apontou OUTRO índice no dele é respeitado).
+    if ! grep -q '^gpu_device=' /etc/gamemode.ini 2>/dev/null; then
+        printf 'gpu_device=1\n' >> /etc/gamemode.ini 2>/dev/null \
+            && tlog "gamemode: gpu_device=1 ACRESCENTADA (1.0-101 — o probe duro no card0/simpledrm morre; a GPU AMD do rig é a do card1)"
+    fi
 fi
+
+# ── 9. O LIQUIDCTL DO COOLERCONTROL SAI DO BOOT (1.0-101) ────────────────
+#      O audit 99 fotografou o liqctld (Python do liquidctl) FALHANDO
+#      no boot do rig (o daemon do CoolerControl o acorda e o rig não
+#      tem NENHUM dispositivo USB de AIO/hub que o liquidctl fale —
+#      Python nascendo para morrer, RAM e journal à toa). A cura: o
+#      config.toml do daemon é o PORTEIRO OFICIAL (docs CoolerControl:
+#      [settings] liquidctl_integration=false impede TODA comunicação
+#      com o liquidctl; os dispositivos hwmon da placa-mãe ficam — as
+#      curvas do dono no GUI não mudam). Idempotente: valor já false =
+#      silêncio; reinício do daemon SÓ quando o papel mudou de verdade.
+_cc=/etc/coolercontrol/config.toml
+_cc_mudou=0
+if [ -f "$_cc" ]; then
+    if grep -Eq '^[[:space:]]*liquidctl_integration[[:space:]]*=' "$_cc" 2>/dev/null; then
+        if ! grep -Eq '^[[:space:]]*liquidctl_integration[[:space:]]*=[[:space:]]*false' "$_cc" 2>/dev/null; then
+            if sed -i 's/^[[:space:]]*liquidctl_integration[[:space:]]*=.*/liquidctl_integration = false/' "$_cc"; then
+                _cc_mudou=1
+                tlog "coolercontrol: liquidctl_integration = false (1.0-101 — o liqctld Python morre no boot; hwmon da placa segue no GUI)"
+            fi
+        fi
+    elif ! grep -q 'liquidctl_integration' "$_cc" 2>/dev/null; then
+        # o papel legado SEM a chave: a seção [settings] existe no
+        # default do upstream; sem ela, a chave abre a seção nova
+        if grep -q '^\[settings\]' "$_cc" 2>/dev/null; then
+            printf 'liquidctl_integration = false\n' >> "$_cc" 2>/dev/null && _cc_mudou=1
+        else
+            printf '\n[settings]\nliquidctl_integration = false\n' >> "$_cc" 2>/dev/null && _cc_mudou=1
+        fi
+        [ "$_cc_mudou" = 1 ] \
+            && tlog "coolercontrol: liquidctl_integration = false ACRESCENTADA (o rig legado não tinha a chave — a cura vale na próxima subida do daemon)" \
+            || tlog "coolercontrol: FALHOU escrever o config.toml (réu nomeado no papel)"
+    fi
+    if [ "$_cc_mudou" = 1 ] \
+       && systemctl list-unit-files coolercontrold.service >/dev/null 2>&1 \
+       && systemctl is-active --quiet coolercontrold.service 2>/dev/null; then
+        systemctl try-restart coolercontrold.service >/dev/null 2>&1 \
+            && tlog "coolercontrol: daemon REINICIADO para a cura valer já nesta sessão (o systemd nunca derruba o dono: try-restart só se ativo)"
+    fi
+fi
+unset _cc _cc_mudou
 
 exit 0
