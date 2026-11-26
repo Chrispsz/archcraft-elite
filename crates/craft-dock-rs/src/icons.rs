@@ -658,6 +658,26 @@ pub fn parse_desktop_entry(id: &str, text: &str) -> DesktopEntry {
 /// exports do Flatpak). NoDisplay/Hidden NUNCA entram (a lei E21 da
 /// gaveta, herdada: helper rodando não é app de dock).
 pub fn scan_desktop_dir(dir: &Path) -> Vec<DesktopEntry> {
+    varre_desktops(dir, false)
+}
+
+/// 1.0-104 — A VARREDURA COMPLETA (com NoDisplay/Hidden) para a
+/// IDENTIDADE da dock (a lei E21 é da GAVETA, não da dock: o jogo
+/// Steam/Hydra deixa o .desktop com NoDisplay=true em
+/// ~/.local/share/applications — o steam_app_413150.desktop do
+/// Stardew Valley — e o índice da dock precisa dele para casar a
+/// JANELA aberta pelo app_id e vestir o ÍCONE de verdade; a gaveta
+/// (nwg-drawer) continua com a varredura LIMPA — quem é NoDisplay não
+/// é app de LANÇAR, mas é identidade de MOSTRAR).
+/// (Consumidor único: a montagem da dock na gui — como o `desktop_dirs`
+/// ao lado, o allow do stub sem-gui é a mesma escola; o teste é o
+/// outro consumidor do núcleo puro.)
+#[cfg_attr(not(feature = "gui"), allow(dead_code))]
+pub fn scan_desktop_dir_todos(dir: &Path) -> Vec<DesktopEntry> {
+    varre_desktops(dir, true)
+}
+
+fn varre_desktops(dir: &Path, incluir_ocultos: bool) -> Vec<DesktopEntry> {
     let mut out = Vec::new();
     let Ok(entries) = std::fs::read_dir(dir) else {
         return out;
@@ -674,7 +694,7 @@ pub fn scan_desktop_dir(dir: &Path) -> Vec<DesktopEntry> {
         };
         let id = p.file_name().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
         let e = parse_desktop_entry(&id, &txt);
-        if e.no_display || e.hidden {
+        if !incluir_ocultos && (e.no_display || e.hidden) {
             continue;
         }
         out.push(e);
@@ -723,6 +743,44 @@ pub fn desktop_index(entries: &[DesktopEntry]) -> HashMap<String, usize> {
         }
     }
     idx
+}
+
+/// 1.0-104 — O ÍNDICE POR NOME (a rede do título da janela: o fold do
+/// Name do .desktop → entrada — o "Stardew Valley" da janela casa o
+/// "Stardew Valley" do .desktop que nenhum app_id nomeia; a PRIMEIRA
+/// chave vence, a mesma lei do índice de comm).
+/// (Consumidor único: a montagem da dock na gui — o allow do stub
+/// sem-gui é a escola do `desktop_dirs`; o teste é o outro consumidor.)
+#[cfg_attr(not(feature = "gui"), allow(dead_code))]
+pub fn name_index(entries: &[DesktopEntry]) -> HashMap<String, usize> {
+    let mut idx: HashMap<String, usize> = HashMap::new();
+    for (i, e) in entries.iter().enumerate() {
+        if e.name.is_empty() {
+            continue;
+        }
+        idx.entry(fold(&e.name)).or_insert(i);
+    }
+    idx
+}
+
+/// 1.0-104 — A RESOLUÇÃO PELO TÍTULO DA JANELA (o juízo EXATO do fold:
+/// o título inteiro normalizado casa o Name inteiro normalizado — sem
+/// contenção, o título "Stardew Valley — Notificações" NÃO é o jogo;
+/// a janela de jogo tem o título DO JOGO). None = o título não é nome
+/// de nenhum app conhecido.
+/// (Consumidor único: a montagem da dock na gui — o allow do stub
+/// sem-gui é a escola do `desktop_dirs`; o teste é o outro consumidor.)
+#[cfg_attr(not(feature = "gui"), allow(dead_code))]
+pub fn resolve_por_titulo<'a>(
+    idx: &HashMap<String, usize>,
+    entries: &'a [DesktopEntry],
+    titulo: &str,
+) -> Option<&'a DesktopEntry> {
+    let t = fold(titulo);
+    if t.is_empty() {
+        return None;
+    }
+    idx.get(&t).map(|i| &entries[*i])
 }
 
 /// Resolve uma chave (comm, app_id, stem) no índice — a gramática do
@@ -1446,5 +1504,68 @@ mod tests {
         let hit = resolve_pin(&idx, &entries, "brave.desktop");
         assert!(hit.is_some(), "a contenção com fronteira segue a lei");
         assert_eq!(hit.unwrap().id, "brave-browser.desktop");
+    }
+
+    // ── 1.0-104 — o índice por NOME e a varredura COMPLETA ────────────
+
+    #[test]
+    fn a_varredura_completa_leva_o_nodisplay_do_jogo() {
+        // o cenário DO DONO: o jogo Steam/Hydra deixa o .desktop com
+        // NoDisplay=true em ~/.local/share/applications — a GAVETA não o
+        // mostra (a lei E21), mas a IDENTIDADE da dock precisa dele
+        let dir = tmpdir("desktops-todos");
+        std::fs::write(
+            dir.join("steam_app_413150.desktop"),
+            "[Desktop Entry]\nName=Stardew Valley\nExec=proton run\nIcon=steam_icon_413150\nNoDisplay=true\n",
+        )
+        .unwrap();
+        std::fs::write(
+            dir.join("foot.desktop"),
+            "[Desktop Entry]\nName=Foot\nExec=foot\n",
+        )
+        .unwrap();
+        // a varredura LIMPA (a gaveta): só o foot
+        assert_eq!(scan_desktop_dir(&dir).len(), 1, "NoDisplay não é app de LANEÇAR");
+        // a varredura COMPLETA (a dock): o jogo ENTRA como identidade
+        let todos = scan_desktop_dir_todos(&dir);
+        assert_eq!(todos.len(), 2, "NoDisplay é identidade de MOSTRAR");
+        assert!(todos.iter().any(|e| e.id == "steam_app_413150.desktop"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn o_titulo_da_janela_resolve_o_nome_do_desktop() {
+        // a rede do título: o "Stardew Valley" da JANELA casa o Name do
+        // .desktop que nenhum app_id nomeia (o caso do jogo via Hydra)
+        let entries = vec![
+            DesktopEntry {
+                id: "foot.desktop".into(),
+                name: "Foot".into(),
+                exec: "foot".into(),
+                ..Default::default()
+            },
+            DesktopEntry {
+                id: "steam_app_413150.desktop".into(),
+                name: "Stardew Valley".into(),
+                exec: "proton run".into(),
+                icon: "steam_icon_413150".into(),
+                ..Default::default()
+            },
+        ];
+        let idx = name_index(&entries);
+        // o título EXATO (normalizado) casa — o ícone de verdade nasce
+        let hit = resolve_por_titulo(&idx, &entries, "Stardew Valley");
+        assert_eq!(hit.map(|e| e.id.as_str()), Some("steam_app_413150.desktop"));
+        // a caixa/acento são da casa (o fold mastiga)
+        let hit = resolve_por_titulo(&idx, &entries, "stardew valley");
+        assert_eq!(hit.map(|e| e.id.as_str()), Some("steam_app_413150.desktop"));
+        // a contenção NÃO casa (o juízo é EXATO: o título com sufixo é
+        // OUTRA janela — "Stardew Valley — Notificações" não é o jogo)
+        assert!(resolve_por_titulo(&idx, &entries, "Stardew Valley — Notificações").is_none());
+        // título vazio: nada honesto
+        assert!(resolve_por_titulo(&idx, &entries, "  ").is_none());
+        // o nome sem .desktop na lista: nada
+        let idx_vazio: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+        assert!(resolve_por_titulo(&idx_vazio, &entries, "Foot").is_none());
     }
 }

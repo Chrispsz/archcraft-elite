@@ -1,61 +1,15 @@
-/* ── ELITE · bar.css (E151 · identidade OBSIDIANA) — a pele OPCIONAL da
- * top bar nativa ─────────────────────────────────────────────────────────
- * A top bar é o craft-bar-rs: a pele da casa mora NO BINÁRIO (DEFAULT_CSS
- * embutido — este arquivo NÃO é exigido por ninguém). Ele existe para o
- * DONO: copie, edite, e a barra relê no SIGUSR2 (kill -USR2 $(pgrep -x
- * craft-bar-rs)) — ou no próximo nascimento.
- * E151: a MESMA obsidiana da dock (fundo rgba(13,13,18,.96) #0d0d12,
- * borda sutil rgba(203,166,247,.16)), 28px de altura, TODOS os itens em
- * #cdd6f4/#f8fafc (acento ativo #cba6f7 · mutado/desligado #f38ba8) e
- * NENHUM contorno :focus (o Rust desliga o foco nos botões — a barra só
- * reage ao :hover suave).
+/* ── ELITE · bar.css (1.0-104) — a pele OPCIONAL da top bar nativa ────────
+ * A top bar é o craft-bar-rs: a pele da casa mora NO BINÁRIO (a FOLHA
+ * MESTRA única do elite-core, embutida — theme.css). Este arquivo é
+ * LIVRE e NÃO é exigido por ninguém: a mestra veste SEMPRE (o override
+ * dela SOMA POR BAIXO do cascade — o dono vence os empates, a mestra
+ * nunca morre).
+ *
+ * O DONO EDITA AQUI (relê no SIGUSR2: kill -USR2 $(pgrep -x
+ * craft-bar-rs)) — apague o comentário da regra de exemplo e veste:
+ *
+ * #barbox button:hover { background: rgba(38, 38, 55, 0.95); }
+ *
+ * A mestra cobre tudo (faixa, botões, relógio, player, popovers,
+ * calendário) — só o que for escrito AQUI vence por cima.
  */
-
-/* a faixa inteira (a largura é da tela; a zona exclusiva reserva 28px) */
-#barwindow { background: rgba(13, 13, 18, 0.96); }
-
-/* o corpo: esquerda (apps) · centro (relógio) · direita (status) */
-#barbox { padding: 1px 8px; min-height: 26px; }
-
-/* os botões da casa: glifos JetBrainsMono NF, a família da dock */
-#barbox button, #barbox menubutton, #barbox > button, #barbox > menubutton {
-  background: transparent;
-  border: none;
-  border-radius: 8px;
-  padding: 1px 8px;
-  color: #cdd6f4;
-  font-family: "JetBrainsMono NF", "Symbols Nerd Font", monospace;
-  font-size: 14px;
-}
-#barbox button:hover, #barbox menubutton:hover,
-#barbox menubutton > button:hover { background: rgba(38, 38, 55, 0.95); }
-#barbox button:active, #barbox menubutton:active {
-  background: rgba(46, 46, 61, 0.97);
-}
-/* E151 — o MenuButton de energia NUNCA fica preso: nenhum fundo de
- * seleção, nenhuma sombra nos estados de tema externo. */
-#barbox menubutton:checked,
-#barbox menubutton:active,
-#barbox menubutton:focus,
-#barbox menubutton > button:checked,
-#barbox menubutton > button:active,
-#barbox menubutton > button:focus {
-  background: transparent;
-  background-image: none;
-  box-shadow: none;
-  outline: none;
-}
-
-/* a gramática de estado da casa E151: mutado/desligado = perigo #f38ba8 */
-#barbox button.muted, #barbox button.off { color: #f38ba8; }
-
-/* o player: o texto com o tempo da faixa (E124) no brilho da casa */
-#barbox #playerbtn label { color: #cdd6f4; font-size: 13px; }
-
-/* o relógio pt_BR fixo (a palavra da casa — nunca muda ao clicar);
- * E151: #f8fafc + tabular-nums (os dígitos não dançam na virada) */
-#barbox #clockbtn {
-  font-weight: 600;
-  color: #f8fafc;
-  font-variant-numeric: tabular-nums;
-}

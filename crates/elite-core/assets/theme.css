@@ -143,6 +143,19 @@ popover > contents button:active, popover > contents modelbutton:active {
   background: @elite-surface-strong;
 }
 popover > contents button.destructive { color: @elite-danger; }
+/* 1.0-104 — O MENU DE CONTEXTO DA DOCK (PopoverMenu: Desafixar/Nova
+ * janela/Fechar): a paleta escura da casa, NUNCA o fundo branco do tema
+ * externo — o item do menu (modelbutton) veste o texto claro da casa e
+ * o HOVER ROXO do acento primário (#a855f7) com o texto da base (R4 —
+ * 9.23:1 AAA, o padrão libadwaita de seleção da casa). */
+popover > contents modelbutton:hover {
+  background: @elite-accent;
+  color: @elite-base;
+}
+popover > contents modelbutton:active {
+  background: @elite-accent-strong;
+  color: @elite-base;
+}
 /* R5 — foco de teclado VISÍVEL nas superfícies onde o teclado CHEGA
  * (popovers/janelas/dock). A barra é mouse-first com foco morto (E151):
  * ela sai desta lista DE PROPÓSITO — nenhum contorno roxo preso no

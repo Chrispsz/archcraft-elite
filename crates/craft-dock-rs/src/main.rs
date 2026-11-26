@@ -85,9 +85,28 @@ pub struct Pin {
     pub hint: String,
 }
 
+/// 1.0-104 — O PIN DO LAUNCHER-HELPER NÃO É APP (a ordem do dono: o
+/// 'hydra_plus.desktop' de era nascia botão de glifo genérico na dock
+/// — o launcher é a PONTE do jogo, não um app; quem quiser o jogo
+/// clica no JOGO — o índice da dock casa a janela dele pelo app_id
+/// steam_app_* ou pelo título. O juízo é o stem do id, minúsculo, com
+/// o traço da casa ('_' == '-')).
+pub fn pin_eh_helper(desktop_id: &str) -> bool {
+    let n: String = desktop_id
+        .trim()
+        .trim_end_matches(".desktop")
+        .to_lowercase()
+        .chars()
+        .map(|c| if c == '_' { '-' } else { c })
+        .collect();
+    n == "hydra-plus"
+}
+
 /// Lê o arquivo de pins (PURE — o teste alimenta um arquivo de mentira
 /// em temp dir). Pin inválido não derruba a dock: linha ruim é pulada,
 /// '#' é comentário, arquivo ilegível = lista vazia (v2.1.1/v2.5.0).
+/// 1.0-104 — o pin de LAUNCHER-HELPER é pulado com o mesmo silêncio
+/// (a ponte não é app — o jogo é o app).
 pub fn read_pins(path: &std::path::Path) -> Vec<Pin> {
     let mut pins = Vec::new();
     let Ok(txt) = std::fs::read_to_string(path) else {
@@ -97,6 +116,9 @@ pub fn read_pins(path: &std::path::Path) -> Vec<Pin> {
         let parts: Vec<&str> = line.split_whitespace().collect();
         if parts.is_empty() || parts[0].starts_with('#') {
             continue;
+        }
+        if pin_eh_helper(parts[0]) {
+            continue; // launcher-helper: a ponte não é app de dock
         }
         pins.push(Pin {
             desktop_id: parts[0].to_string(),
@@ -279,10 +301,13 @@ mod tests {
              \n\
              # um comentário no meio\n\
              io.github.kolunmi.Bazaar.desktop\n\
+             hydra_plus.desktop\n\
              linha-invalida-sem-ponto   \n",
         )
         .unwrap();
         let pins = read_pins(&f);
+        // 1.0-104 — o pin do LAUNCHER-HELPER é pulado (a ponte do jogo
+        // não é app de dock — o glifo genérico de era morre na raiz)
         assert_eq!(pins.len(), 4);
         assert_eq!(pins[0].desktop_id, "foot.desktop");
         assert_eq!(pins[0].hint, "");
@@ -290,6 +315,18 @@ mod tests {
         assert_eq!(pins[3].desktop_id, "linha-invalida-sem-ponto");
         // arquivo ausente: lista VAZIA (a dock vive — run #93 nunca mais)
         assert!(read_pins(&dir.join("nao-existe")).is_empty());
+    }
+
+    #[test]
+    fn o_pin_do_launcher_helper_nao_e_app() {
+        // a ponte do jogo NÃO é app de dock (a forma com '_' e com '-')
+        assert!(pin_eh_helper("hydra_plus.desktop"));
+        assert!(pin_eh_helper("Hydra-Plus.desktop"));
+        // o jogo e os apps da casa SEGUEM na fila
+        assert!(!pin_eh_helper("steam_app_413150.desktop"));
+        assert!(!pin_eh_helper("foot.desktop"));
+        assert!(!pin_eh_helper("hydra.desktop"));
+        assert!(!pin_eh_helper(""));
     }
 
     #[test]

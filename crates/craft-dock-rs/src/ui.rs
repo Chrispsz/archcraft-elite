@@ -176,6 +176,10 @@ struct State {
     raws: HashMap<String, RawRow>,
     entries: Vec<icons::DesktopEntry>,
     index: HashMap<String, usize>,
+    /// 1.0-104 — o índice POR NOME (o fold do Name do .desktop → a
+    /// rede do título da janela: o "Stardew Valley" da janela casa o
+    /// Name do .desktop que nenhum app_id nomeia).
+    name_index: HashMap<String, usize>,
     pin_ids: HashSet<String>,
     pins_txt: String,
     /// E139 — a chave estável do conjunto resolvido (o diff-guard dos
@@ -286,13 +290,22 @@ fn build(app: &gtk::Application) {
 
     // o índice de .desktops (com os EXPORTS do Flatpak e as chaves
     // reverse-DNS — o "bazaar" do io.github.kolunmi.Bazaar.desktop)
+    // 1.0-104 — A VARREDURA COMPLETA (com NoDisplay: a lei E21 é da
+    // GAVETA, não da dock — o steam_app_413150.desktop do jogo Steam
+    // NoDisplay entra no índice e a janela aberta veste o ÍCONE de
+    // verdade) + O ÍNDICE POR NOME (a rede do título da janela)
     let home = crate::home_dir();
     let mut entries = Vec::new();
     for dir in icons::desktop_dirs(&home) {
-        entries.extend(icons::scan_desktop_dir(&dir));
+        entries.extend(icons::scan_desktop_dir_todos(&dir));
     }
     let index = icons::desktop_index(&entries);
-    log(&format!("índice de .desktops: {} chave(s) resolvíveis", index.len()));
+    let name_index = icons::name_index(&entries);
+    log(&format!(
+        "índice de .desktops: {} chave(s) resolvíveis + {} nome(s) de título",
+        index.len(),
+        name_index.len()
+    ));
 
     // o canal da thread de fundo (a leitura ASSÍNCRONA do toplevel.sock)
     // E-auditoria 2026-11-22 (3ª camada): o tx.clone() DENTRO da closure
@@ -312,6 +325,7 @@ fn build(app: &gtk::Application) {
         raws: HashMap::new(),
         entries,
         index,
+        name_index,
         pin_ids: HashSet::new(),
         pins_txt: String::new(),
         snap: sock::Snapshot::default(),
@@ -1716,6 +1730,48 @@ fn sync_dynamic(st: &Rc<RefCell<State>>) {
             current.push((did, entry.clone()));
         }
     }
+    // (2b) 1.0-104 — O TÍTULO NORMALIZADO DA JANELA (a rede dos jogos
+    // Proton/Hydra: quando NEM o comm NEM o app_id casam — o app_id
+    // steam_app_* casa o .desktop NoDisplay do ~/.local/share/
+    // applications pelo índice de cima; o que SOBRA casa o TÍTULO da
+    // janela pelo Name do .desktop — o "Stardew Valley" da janela é a
+    // identidade de verdade e o ícone de verdade nasce dela)
+    {
+        let s = st.borrow();
+        if s.tl_alive {
+            for w in s.snap.windows.values() {
+                if w.title.trim().is_empty() {
+                    continue;
+                }
+                let Some(entry) =
+                    icons::resolve_por_titulo(&s.name_index, &s.entries, &w.title)
+                else {
+                    continue;
+                };
+                let did = entry.id.clone();
+                if did.is_empty()
+                    || entry.exec.is_empty()
+                    || s.pin_ids.contains(&did)
+                    || current.iter().any(|(d, _)| d == &did)
+                {
+                    continue;
+                }
+                // v2.10.3 — daemon vivo: SEM janela real não é "aberto"
+                // (o windows_of_key casa título×nome no não-strict)
+                if sock::windows_of_key(
+                    &s.snap,
+                    &icons::focus_candidates(entry, ""),
+                    &entry.name,
+                    false,
+                )
+                .is_empty()
+                {
+                    continue;
+                }
+                current.push((did, entry.clone()));
+            }
+        }
+    }
     // (3) os RAW: janelas do snapshot não cobertas por pin/dinâmico
     let mut raws: Vec<(String, String)> = Vec::new();
     {
@@ -1886,14 +1942,23 @@ fn update_indicators(s: &State) {
 
 // ── a pele (o MESMO CSS da casa — ~/.config/elite/dock.css) ───────────
 
-/// A pele da pílula: o CSS do usuário (~/.config/elite/dock.css) ou o
-/// fallback embutido (espelho do skel — a bolinha 6x3px centrada que
-/// o dono desenhou, E36).
+/// A pele da pílula: o CSS do usuário (~/.config/elite/dock.css) veste
+/// POR CIMA da folha mestra embutida (elite-core::THEME_CSS — a MESMA
+/// fundação de bar/pick: a mestra nunca sai, o override SOMA por baixo
+/// do cascade — o dono vence em empate, a casa nunca fica pelada).
+/// 1.0-104 — A MESTRA NUNCA MAIS MORRE NO OVERRIDE (a cura do menu de
+/// contexto BRANCO: o dock.css de era SUBSTITUÍA a folha inteira e as
+/// regras `popover > contents` da mestra — a pele escura dos menus —
+/// morriam com ela; o menu de clique direito nascia com o fundo DEFAULT
+/// do tema externo. A mestra entra PRIMEIRO, o override vence os
+/// empates — o popover é da casa em QUALQUER rig, com ou sem override).
 fn load_css() {
-    let css = std::fs::read_to_string(css_path()).unwrap_or_else(|_| {
-        log(&format!("CSS ausente ({}) — usando fallback embutido", css_path().display()));
-        DEFAULT_CSS.to_string()
-    });
+    let mestra = elite_core::THEME_CSS;
+    let css = std::fs::read_to_string(css_path()).map(|extra| format!("{mestra}\n{extra}"));
+    if css.is_err() {
+        log(&format!("CSS ausente ({}) — usando a folha mestra embutida", css_path().display()));
+    }
+    let css = css.unwrap_or_else(|_| mestra.to_string());
     let provider = gtk::CssProvider::new();
     // E-auditoria 2026-11-22: o load_from_string mora atrás da feature
     // v4_12 no gtk4-rs 0.11 (o CI não liga features de versão) — o
@@ -1908,10 +1973,4 @@ fn load_css() {
         );
     }
 }
-
-/// O fallback embutido AGORA É A FOLHA MESTRA ÚNICA (2.0 — Design System
-/// ELITE): a pele da casa mora no elite-core (assets/theme.css) e a dock
-/// o embute — os seletores #name e a bolinha do .running seguem os
-/// mesmos, agora com os tokens da paleta unificada.
-const DEFAULT_CSS: &str = elite_core::THEME_CSS;
 

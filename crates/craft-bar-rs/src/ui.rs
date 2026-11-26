@@ -1535,12 +1535,19 @@ fn ouve_monitores(window: &gtk::ApplicationWindow) {
     }
 }
 
-/// A pele da casa: ~/.config/elite/bar.css quando existe (o dono é o
-/// dono), senão o DEFAULT embutido (a MESMA gramática do dock.css —
-/// o load_from_data é a via sempre-presente do gtk4-rs 0.11, a lição
-/// da E-auditoria do Canal: o load_from_string mora atrás da v4_12).
+/// A pele da casa: a FOLHA MESTRA embutida (elite-core) entra PRIMEIRO e
+/// o override LIVRE do dono (~/.config/elite/bar.css) SOMA POR BAIXO do
+/// cascade — o dono vence os empates, a mestra nunca morre (1.0-104 — a
+/// MESMA cura da dock: o override de era SUBSTITUÍA a folha inteira e as
+/// regras `popover > contents` da mestra — a pele escura do calendário e
+/// do menu de sessão — morriam com ele; a mestra entra primeiro, o
+/// popover é da casa em QUALQUER rig, com ou sem override). SIGUSR2
+/// relê no mesmo gesto.
 fn load_css() {
-    let css = std::fs::read_to_string(css_path()).unwrap_or_else(|_| DEFAULT_CSS.to_string());
+    let mestra = elite_core::THEME_CSS;
+    let css = std::fs::read_to_string(css_path())
+        .map(|extra| format!("{mestra}\n{extra}"))
+        .unwrap_or_else(|_| mestra.to_string());
     let provider = gtk::CssProvider::new();
     provider.load_from_data(&css);
     if let Some(display) = gdk::Display::default() {
@@ -1551,10 +1558,4 @@ fn load_css() {
         );
     }
 }
-
-/// O fallback embutido AGORA É A FOLHA MESTRA ÚNICA (2.0 — Design System
-/// ELITE): a pele da casa mora no elite-core (assets/theme.css) e a barra
-/// o embute — uma identidade só para barra, dock e popovers, zero drift;
-/// o override do dono segue arquivo LIVRE relido no SIGUSR2.
-const DEFAULT_CSS: &str = elite_core::THEME_CSS;
 

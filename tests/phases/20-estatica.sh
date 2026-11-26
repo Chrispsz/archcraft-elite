@@ -424,7 +424,8 @@ file_has "dump: as unidades failed nomeadas antes do journal" "crates/craft-dump
 # 28px, Áudio e Microfone separados, foco de tema morto e calendário
 # legível:
 file_has "css: a barra veste a obsidiana #0d0d12 (a ilha do dono)" "crates/elite-core/assets/theme.css" 'rgba(13, 13, 18'
-file_has "css: a dock veste a obsidiana #13131a (a MESMA superfície)" "crates/elite-core/assets/theme.css" 'rgba(19, 19, 26'
+file_has "css: a dock veste a MESMA obsidiana da barra (1.0-104 — os tokens alinhados)" "crates/elite-core/assets/theme.css" 'background: @elite-bg;'
+file_has "css: a borda interna de luz da dock (1px rgba(255,255,255,0.12) — ícones escuros não somem)" "crates/elite-core/assets/theme.css" 'rgba(255, 255, 255, 0.12)'
 file_has "css: a borda sutil mauve rgba(203, 166, 247, 0.16)" "crates/elite-core/assets/theme.css" 'rgba(203, 166, 247, 0.16)'
 file_has "css: o MenuButton de energia fica SOLTO (background-image none no :checked)" "crates/elite-core/assets/theme.css" 'background-image: none'
 file_has "css: o cabeçalho do calendário veste o #f8fafc (mês e ano legíveis)" "crates/elite-core/assets/theme.css" 'calendar > header'
@@ -435,8 +436,8 @@ file_has "bar: o ícone do mudo do MIC é o próprio do microfone" "crates/craft
 file_has "bar: o foco do tema morre nos botões (focus_on_click false)" "crates/craft-bar-rs/src/ui.rs" 'set_focus_on_click(false)'
 file_has "bar: a pálida do foco corre na árvore pronta (apaga_foco_da_barra)" "crates/craft-bar-rs/src/ui.rs" 'apaga_foco_da_barra'
 file_has "bar: o relógio esquerdo alterna o painel swaync (a ordem do dono)" "crates/craft-bar-rs/src/ui.rs" '"swaync-client", "-t", "-sw"'
-file_has "skel: a pele viva da barra veste a obsidiana" "elite/airootfs/etc/skel/.config/elite/bar.css" 'rgba(13, 13, 18, 0.96)'
-file_has "skel: a pele viva da dock veste a obsidiana" "elite/airootfs/etc/skel/.config/elite/dock.css" 'rgba(19, 19, 26, 0.92)'
+file_has "skel: a pele da barra é a MESTRA NO BINÁRIO (o override SOMA — 1.0-104)" "elite/airootfs/etc/skel/.config/elite/bar.css" 'SOMA POR BAIXO do cascade'
+file_has "skel: a pele da dock é a MESTRA NO BINÁRIO (o override SOMA — 1.0-104)" "elite/airootfs/etc/skel/.config/elite/dock.css" 'SOMA POR BAIXO do cascade'
 file_has "post-upgrade: a pele de fábrica 1.0-98 sai do home (a E151 veste embaixo)" "elite/airootfs/usr/local/bin/elite-post-upgrade" 'elite/bar.css:rgba(17, 17, 27, 0.96'
 file_has "dock: o flush ÚNICO da superfície (todo evento comita no frame)" "crates/craft-dock-rs/src/ui.rs" 'fn flush_superficie'
 file_has "dock: o dreno comita o flush em TODA rodada (flags não esperam outra ação)" "crates/craft-dock-rs/src/ui.rs" 'recalcula_superficie(st);'
