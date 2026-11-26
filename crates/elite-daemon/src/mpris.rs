@@ -15,6 +15,7 @@
 // wayland.rs (o match benigno).
 // ═════════════════════════════════════════════════════════════════════════
 
+use std::collections::HashMap;
 use std::sync::Mutex;
 
 use elite_core::{BusMsg, MediaState};
@@ -25,6 +26,21 @@ static MEDIA: Mutex<Option<MediaState>> = Mutex::new(None);
 
 /// o nome de bus do player ativo (org.mpris.MediaPlayer2.<id>).
 static PLAYER_ATIVO: Mutex<Option<String>> = Mutex::new(None);
+
+/// 1.0-104 — O TRADUTOR ÚNICO→BEM-CONHECIDO (a cura do MPRIS MUDO): o
+/// barramento D-Bus REESCREVE o campo sender dos sinais para o nome
+/// ÚNICO do remetente (":1.42" — a especificação manda, o nome bem-
+/// conhecido é um ALIASE do dono, não o envelope), então o juízo de
+/// "starts_with(org.mpris.MediaPlayer2.)" sobre o sender NUNCA casou:
+/// TODO PropertiesChanged de TODO player morria na porta e a barra
+/// vivia sem mídia. A casa mantém o tradutor: o nome MPRIS mora na
+/// POSSE (GetNameOwner), não no envelope — e os nomes com SUFIXO DE
+/// INSTÂNCIA (org.mpris.MediaPlayer2.brave.instance10559 — o
+/// YouTube Music no Brave) são o contrato do próprio MPRIS para
+/// múltiplas instâncias: TODOS casam, nenhum é recusado. O cache é
+/// permanente por desenho: nomes únicos não são reusados no barramento
+/// e a fila de players de uma sessão é minúscula.
+static NOMES_DE_BUS: Mutex<Option<HashMap<String, String>>> = Mutex::new(None);
 
 /// o estado atual (para o snapshot de boas-vindas e a vigília).
 pub fn estado() -> Option<MediaState> {
@@ -219,7 +235,9 @@ pub fn thread() {
 }
 
 /// uma mensagem de PropertiesChanged (o corpo é (interface, dict) — o
-/// dict do zvariant vira os campos crus da casa).
+/// dict do zvariant vira os campos crus da casa; o PLAYER é o nome
+/// MPRIS traduzido do sender ÚNICO do envelope — 1.0-104: sem o
+/// tradutor, NENHUM sinal casava e a barra vivia sem mídia).
 fn on_props(msg: &zbus::Message) {
     let Ok(corpo) = msg
         .body()
@@ -231,15 +249,18 @@ fn on_props(msg: &zbus::Message) {
     if iface != "org.mpris.MediaPlayer2.Player" {
         return;
     }
-    // o player é o SENDER (org.mpris.MediaPlayer2.<id>)
-    let player = msg
-        .header()
-        .sender()
-        .map(|s| s.to_string())
-        .unwrap_or_default();
-    if !player.starts_with("org.mpris.MediaPlayer2.") {
+    // o player é o REMETENTE traduzido (o barramento assina o envelope
+    // com o nome ÚNICO ":1.N" — o nome org.mpris.MediaPlayer2.<id>.
+    // [<instância>] mora na POSSE do nome, não no envelope do sinal)
+    let Some(sender) = msg.header().sender().map(|s| s.to_string()) else {
         return;
-    }
+    };
+    let Ok(c) = zbus::blocking::Connection::session() else {
+        return;
+    };
+    let Some(player) = nome_do_player(&c, &sender) else {
+        return;
+    };
     let raw = PropsRaw::do_dict(&dict);
     if let Some(estado) = estado_de_props(&player, &raw) {
         *PLAYER_ATIVO.lock().unwrap() = Some(player);
@@ -266,6 +287,77 @@ pub fn varre_players() {
         *PLAYER_ATIVO.lock().unwrap() = None;
         publica(None);
     }
+}
+
+/// O JUÍZO PURO da tradução (a porta dos testes): dado o sender ÚNICO
+/// (":1.42") e a lista de (nome MPRIS → dono único) que o barramento
+/// responde, devolve o NOME DO PLAYER dele — inclusive os nomes com
+/// sufixo de instância (o contrato do MPRIS: o brave.instance10559 é
+/// um player COMO QUALQUER OUTRO).
+pub fn traduz_sender<'a>(
+    sender: &str,
+    nomes_com_dono: &[(&'a str, &str)],
+) -> Option<&'a str> {
+    // o envelope já veio com o nome MPRIS (o remetente assinou com o
+    // próprio nome — o barramento é quem costuma sobrescrever):
+    if sender.starts_with("org.mpris.MediaPlayer2.") {
+        return nomes_com_dono
+            .iter()
+            .find(|(n, _)| *n == sender)
+            .map(|(n, _)| *n);
+    }
+    nomes_com_dono
+        .iter()
+        .find(|(_, dono)| *dono == sender)
+        .map(|(nome, _)| *nome)
+}
+
+/// a lista (nome MPRIS, dono único) do barramento vivo — o GetNameOwner
+/// de CADA org.mpris.MediaPlayer2.* (o nome mora na posse, não no
+/// envelope do sinal).
+fn nomes_com_dono(c: &zbus::blocking::Connection) -> Vec<(String, String)> {
+    let Ok(proxy) = zbus::blocking::fdo::DBusProxy::new(c) else {
+        return Vec::new();
+    };
+    let Ok(nomes) = proxy.list_names() else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    for n in nomes {
+        // o zbus 4 entrega OwnedBusName (a casa veste String — o nome é
+        // dado, não tipo de fio; o get_name_owner casa por BusName<'_>)
+        let n = n.to_string();
+        if !n.starts_with("org.mpris.MediaPlayer2.") {
+            continue;
+        }
+        if let Ok(bus) = zbus::names::BusName::try_from(n.as_str()) {
+            if let Ok(dono) = proxy.get_name_owner(bus) {
+                out.push((n, dono.to_string()));
+            }
+        }
+    }
+    out
+}
+
+/// o NOME do player que emitiu a mensagem (o tradutor com cache: o
+/// cache da casa responde; omissão → a lista + o GetNameOwner vestem
+/// e a resposta entra no cache para os próximo sinais — a tradução
+/// custa UMA vez por player vivo, não uma por PropertiesChanged).
+fn nome_do_player(c: &zbus::blocking::Connection, sender: &str) -> Option<String> {
+    let mut cache = NOMES_DE_BUS.lock().unwrap();
+    if let Some(nome) = cache.as_ref().and_then(|m| m.get(sender)) {
+        return Some(nome.clone());
+    }
+    let lista = nomes_com_dono(c);
+    let pares: Vec<(&str, &str)> = lista
+        .iter()
+        .map(|(n, d)| (n.as_str(), d.as_str()))
+        .collect();
+    let nome = traduz_sender(sender, &pares)?.to_string();
+    cache
+        .get_or_insert_with(HashMap::new)
+        .insert(sender.to_string(), nome.clone());
+    Some(nome)
 }
 
 #[cfg(test)]
@@ -327,5 +419,40 @@ mod tests {
         assert_eq!(escolhe_ativo(&calados).unwrap().0, "a");
         // vazio total: nada (o botão da barra some)
         assert!(escolhe_ativo(&[]).is_none());
+    }
+
+    // ── 1.0-104 — o TRADUTOR do envelope (o sender único → nome MPRIS) ──
+
+    #[test]
+    fn o_tradutor_casa_o_nome_pela_posse() {
+        // o cenário DO DND do rig: o barramento assina o envelope com o
+        // nome ÚNICO ":1.42" — o nome MPRIS mora na posse (GetNameOwner)
+        let pares = [
+            ("org.mpris.MediaPlayer2.firefox", ":1.42"),
+            ("org.mpris.MediaPlayer2.brave.instance10559", ":1.77"),
+            ("org.mpris.MediaPlayer2.mpv", ":1.90"),
+        ];
+        // o nome com SUFIXO DE INSTÂNCIA é o CONTRATO do MPRIS para
+        // múltiplas instâncias (o YouTube Music no Brave): casa COMO
+        // QUALQUER OUTRO — nenhum player é recusado por ter instância
+        assert_eq!(
+            traduz_sender(":1.77", &pares),
+            Some("org.mpris.MediaPlayer2.brave.instance10559")
+        );
+        // o player comum idem (a posse é o juízo, nunca o envelope)
+        assert_eq!(
+            traduz_sender(":1.42", &pares),
+            Some("org.mpris.MediaPlayer2.firefox")
+        );
+        // o envelope JÁ assinado com o nome MPRIS (o remetente mandou):
+        // o nome é a própria identidade — devolve o nome CONFIRMADO
+        assert_eq!(
+            traduz_sender("org.mpris.MediaPlayer2.mpv", &pares),
+            Some("org.mpris.MediaPlayer2.mpv")
+        );
+        // o sender que não é dono de NENHUM player MPRIS: nada honesto
+        assert_eq!(traduz_sender(":1.99", &pares), None);
+        // lista vazia (o bus sem players): nada — a barra segue sem mídia
+        assert_eq!(traduz_sender(":1.42", &[]), None);
     }
 }

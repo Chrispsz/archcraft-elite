@@ -273,14 +273,47 @@ pub fn icone_rede(e: EstadoRede) -> &'static str {
 }
 
 /// O tooltip do estado da rede (o que o dono lê ao parar o mouse).
-pub fn tooltip_rede(e: EstadoRede, essid: Option<&str>) -> String {
+/// 1.0-104 — O RÁDIO DO Wi-Fi TEM VOZ MESMO COM O CABO LIGADO (a ordem
+/// do dono: o estado do rádio aparece no tooltip MESMO quando o fio é o
+/// caminho — quem desliga o Wi-Fi pelo clique direito lê o resultado no
+/// mesmo instante, sem adivinhar sob o ícone do cabo).
+pub fn tooltip_rede(e: EstadoRede, essid: Option<&str>, wifi_on: Option<bool>) -> String {
+    let radio = match wifi_on {
+        Some(true) => " · Wi-Fi ligado",
+        Some(false) => " · Wi-Fi DESLIGADO",
+        None => "",
+    };
     match e {
-        EstadoRede::Cabo => "Rede cabeada conectada — clique: seletor rápido · direito: conexões".to_string(),
+        EstadoRede::Cabo => format!(
+            "Rede cabeada conectada{radio} — clique: gerenciar redes · direito: ligar/desligar o Wi-Fi"
+        ),
         EstadoRede::Wifi => format!(
-            "{} — clique: seletor rápido · direito: conexões",
+            "{}{radio} — clique: gerenciar redes · direito: ligar/desligar o Wi-Fi",
             essid.unwrap_or("Wi-Fi conectado")
         ),
-        EstadoRede::Desligado => "Sem conexão — clique: seletor rápido (o botão nunca sai)".to_string(),
+        EstadoRede::Desligado => match wifi_on {
+            Some(false) => "Wi-Fi desligado — clique: gerenciar redes · direito: LIGAR o Wi-Fi".to_string(),
+            _ => format!(
+                "Sem conexão{radio} — clique: gerenciar redes (o botão nunca sai)"
+            ),
+        },
+    }
+}
+
+// ── O NÃO PERTURBE DO SWAYNC (o clique direito do relógio alterna) ────
+
+/// 1.0-104 — O PARSE da saída do `swaync-client -D` ("true"/"false" — o
+/// papel de ajuda do swaync: "Print the current dnd state"; tolerante a
+/// caixa/espaço, a linha de lixo devolve None HONESTO e a barra conserva
+/// o estado anterior — o mesmo contrato dos parsers da casa).
+pub fn parse_dnd_swaync(saida: &str) -> Option<bool> {
+    let t = saida.trim();
+    if t.eq_ignore_ascii_case("true") {
+        Some(true)
+    } else if t.eq_ignore_ascii_case("false") {
+        Some(false)
+    } else {
+        None
     }
 }
 
@@ -647,8 +680,39 @@ mod tests {
             icone_rede(EstadoRede::Desligado),
             "network-wireless-offline-symbolic"
         );
-        assert!(tooltip_rede(EstadoRede::Wifi, Some("Casa 5G")).starts_with("Casa 5G"));
-        assert!(tooltip_rede(EstadoRede::Desligado, None).contains("nunca sai"));
+        assert!(tooltip_rede(EstadoRede::Wifi, Some("Casa 5G"), None).starts_with("Casa 5G"));
+        assert!(tooltip_rede(EstadoRede::Desligado, None, None).contains("nunca sai"));
+        // 1.0-104 — O RÁDIO DO Wi-Fi TEM VOZ MESMO COM O CABO (o dono lê o
+        // estado do rádio no tooltip do ícone do fio — sem adivinhar)
+        let cabo_wifi_off = tooltip_rede(EstadoRede::Cabo, None, Some(false));
+        assert!(cabo_wifi_off.contains("Wi-Fi DESLIGADO"), "{cabo_wifi_off}");
+        let cabo_wifi_on = tooltip_rede(EstadoRede::Cabo, None, Some(true));
+        assert!(cabo_wifi_on.contains("Wi-Fi ligado"), "{cabo_wifi_on}");
+        // sem a verdade do rádio (nmcli calado): o tooltip segue honesto —
+        // sem AFIRMAR estado do rádio (só o gesto de sempre segue na frase)
+        assert!(
+            !tooltip_rede(EstadoRede::Cabo, None, None).contains("Wi-Fi ligado"),
+            "sem leitura não há afirmação"
+        );
+        assert!(
+            !tooltip_rede(EstadoRede::Cabo, None, None).contains("Wi-Fi DESLIGADO"),
+            "sem leitura não há afirmação"
+        );
+        // o off com o rádio desligado NOMEIA o réu (quem clicou lê o feito)
+        let off_radio = tooltip_rede(EstadoRede::Desligado, None, Some(false));
+        assert!(off_radio.contains("Wi-Fi desligado"), "{off_radio}");
+    }
+
+    // ── o DND do swaync: o papel fala true/false ─────────────────────
+
+    #[test]
+    fn o_dnd_do_swaync_e_lido_com_honestidade() {
+        assert_eq!(parse_dnd_swaync("true\n"), Some(true));
+        assert_eq!(parse_dnd_swaync("False"), Some(false));
+        assert_eq!(parse_dnd_swaync("  true  "), Some(true));
+        // lixo absoluto (swaync ausente): None (o estado anterior CONSERVA)
+        assert_eq!(parse_dnd_swaync(""), None);
+        assert_eq!(parse_dnd_swaync("swaync is not running"), None);
     }
 
     // ── o Bluetooth: só o estado, o gerenciador é o blueman ───────────

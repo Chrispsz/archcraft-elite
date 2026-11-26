@@ -57,7 +57,7 @@
 //     filhos curtos (E146/C — o spawn→wait, zero <defunct>).
 use crate::state::{
     bt_ligado, dentro_janela_ms, essid_nmcli, estado_rede_nmcli, icone_rede, icone_volume,
-    json_text, le_bateria, media_pill, parse_volume_wpctl, parse_wifi_radio,
+    json_text, le_bateria, media_pill, parse_dnd_swaync, parse_volume_wpctl, parse_wifi_radio,
     parse_wpctl_status, relogio_ptbr, tooltip_rede, DispositivoAudio, EstadoRede,
 };
 use crate::{bus_sock, css_path, log, VERSION};
@@ -109,8 +109,10 @@ enum Msg {
     /// None = o wpctl engasgou — o estado anterior CONSERVADO, a barra
     /// não pisca no vácuo.
     AudioDet(Option<AudioDetalhe>),
-    /// (estado, essid) da rede — o assento é PERSISTENTE por desenho.
-    Rede(EstadoRede, Option<String>),
+    /// (estado, essid, rádio do Wi-Fi) da rede — o assento é
+    /// PERSISTENTE por desenho; o rádio tem voz no tooltip MESMO com o
+    /// cabo ligado (1.0-104).
+    Rede(EstadoRede, Option<String>, Option<bool>),
     /// Powered do adaptador (None = bluetoothctl ausente/sem adaptador).
     Bt(Option<bool>),
     /// O texto do pill do modo de jogo — None = apagado.
@@ -122,6 +124,10 @@ enum Msg {
     /// 2.0 — o handle do bus vivo (o Arc do cliente — os cliques pedem
     /// por ele; chega por mensagem porque o Rc da UI não cruza threads)
     Bus(std::sync::Arc<elite_core::bus::BusClient>),
+    /// 1.0-104 — o DND REAL do swaync (`swaync-client -D`): o sino
+    /// cortado acende/colore na barra no mesmo instante do clique
+    /// direito (None = swaync calado — o estado anterior conserva).
+    Dnd(Option<bool>),
 }
 
 /// A FOTO do áudio da casa (o padrão de SAÍDA e o de ENTRADA — os dois
@@ -156,6 +162,17 @@ struct State {
     /// — o glifo Nerd da pílula morre com a fonte que não o tem).
     player_img: gtk::Image,
     player_label: gtk::Label,
+    /// 1.0-104 — O BOTÃO DE PRÓXIMA FAIXA (a ordem do dono: o pill do
+    /// player mostra o título curto COM os botões de Play/Pause e
+    /// Próxima faixa — o Próximo é assento próprio ao lado do pill,
+    /// nasce e morre JUNTO com ele).
+    btn_next: gtk::Button,
+    /// 1.0-104 — O SINO CORTADO do Não Perturbe (visível quando o DND
+    /// REAL do swaync está LIGADO — a mensagem do clique direito).
+    dnd_img: gtk::Image,
+    /// 1.0-104 — o rádio do Wi-Fi (None = nmcli calado — o tooltip não
+    /// inventa o que não leu).
+    wifi_radio: Option<bool>,
     btn_bat: Option<gtk::Button>,
     /// O instante do último release ACEITO na gaveta (o eco morre na
     /// janela de 150ms — state::dentro_janela_ms é o juiz).
@@ -315,6 +332,9 @@ fn build(app: &gtk::Application) {
         btn_player: gtk::Button::new(),
         player_img: gtk::Image::from_icon_name("media-playback-start-symbolic"),
         player_label: gtk::Label::new(None),
+        btn_next: gtk::Button::new(),
+        dnd_img: gtk::Image::from_icon_name("notification-disabled-symbolic"),
+        wifi_radio: None,
         btn_bat: None,
         drawer_ns: 0,
         minuto_desenhado: u32::MAX,
@@ -328,6 +348,7 @@ fn build(app: &gtk::Application) {
     st.borrow().mic_img.set_pixel_size(16);
     st.borrow().rede_img.set_pixel_size(16);
     st.borrow().bt_img.set_pixel_size(16);
+    st.borrow().dnd_img.set_pixel_size(14);
 
     // E151 — ZERO VAZAMENTO DE TEMA GTK4 (a diretriz do dono: o seletor
     // roxo travado e o quadrado branco morrem pela RAIZ): nenhum botão
@@ -408,15 +429,19 @@ fn build(app: &gtk::Application) {
     // dois GestureClick no mesmo widget disputam a sequência)
     {
         let pop_cal = pop_cal.clone();
+        let tx = tx.clone();
         clique_solto(&btn_clock, move |botao| {
             // esquerdo: o painel (toggle SEM sequestrar o foco -sw);
-            // direito: o DND (idem -sw); meio: o calendário. O TEXTO
-            // NÃO MUDA — o clique é ação, a data é a data (a cura do
-            // "alterna o texto exibido").
+            // direito: o DND (idem -sw) COM o sino cortado acendendo NA
+            // HORA (1.0-104: a thread lê o estado REAL do swaync e a
+            // barra veste — o feedback nunca é o palpite, é o fato);
+            // meio: o calendário. O TEXTO NÃO MUDA — o clique é ação, a
+            // data é a data (a cura do "alterna o texto exibido").
             if botao == 1 {
                 solta(&["swaync-client", "-t", "-sw"]);
             } else if botao == 3 {
                 solta(&["swaync-client", "-d", "-sw"]);
+                pede_dnd(&tx);
             } else if botao == 2 {
                 if pop_cal.is_visible() {
                     pop_cal.popdown();
@@ -426,7 +451,24 @@ fn build(app: &gtk::Application) {
             }
         });
     }
-    centro.append(&btn_clock);
+    // 1.0-104 — O SINO CORTADO AO LADO DO RELÓGIO (o feedback visual do
+    // DND REAL do swaync: o ícone mora no CENTRO junto da hora — quem
+    // alterna o Não Perturbe lê o resultado no MESMO lugar do clique;
+    // o estado chega pelo fio de fundo no frame seguinte ao gesto).
+    {
+        let dnd_img = st.borrow().dnd_img.clone();
+        dnd_img.set_widget_name("dndimg");
+        dnd_img.set_valign(gtk::Align::Center);
+        dnd_img.set_visible(false);
+        let caixa_rel = gtk::Box::new(gtk::Orientation::Horizontal, 4);
+        caixa_rel.set_valign(gtk::Align::Center);
+        caixa_rel.append(&btn_clock);
+        caixa_rel.append(&dnd_img);
+        centro.append(&caixa_rel);
+        // o frame 0 do DND (a thread pergunta ao swaync e a resposta veste
+        // o sino — sem palpite, o estado REAL)
+        pede_dnd(&tx);
+    }
 
     // ── DIREITA (E147 — o contrato mouse-first: game → player → áudio →
     //    microfone (E151) → rede → bluetooth → bateria → sessão) ──
@@ -449,12 +491,15 @@ fn build(app: &gtk::Application) {
         // O MODO DE JOGO (E115/E126 intactos: o estado REAL do
         // GameMode no pill, clique DIREITO desliga na hora) — acende
         // no SIGRTMIN+8 que o elite-daemon manda na transição. O ícone
-        // é Image de ÍCONE (input-gaming — o tema da casa tem).
+        // é Image de ÍCONE (input-gaming — o tema da casa tem) e veste
+        // o ROXO da paleta (#a855f7 — 1.0-104: o assento do jogo é o
+        // acento da casa, o indicador persistente lê-se de longe).
         {
             let img = gtk::Image::from_icon_name("input-gaming-symbolic");
             img.set_pixel_size(16);
             btn_game.set_child(Some(&img));
         }
+        btn_game.set_widget_name("gamebtn");
         btn_game.set_has_frame(false);
         btn_game.set_visible(false);
         btn_game.set_tooltip_text(Some(
@@ -517,6 +562,32 @@ fn build(app: &gtk::Application) {
         }
         dir.append(&btn_player);
 
+        // 1.0-104 — O BOTÃO DE PRÓXIMA FAIXA (a ordem do dono: o pill do
+        // player mostra o título curto COM os botões de Play/Pause e
+        // Próxima faixa). O play/pause é o clique do pill DE ALWAYS; o
+        // PRÓXIMO é assento próprio — ícone media-skip-forward, nasce e
+        // morre JUNTO com o pill (uma pílula só de mídia em cena).
+        btn_next.set_widget_name("nextbtn");
+        btn_next.set_has_frame(false);
+        btn_next.set_valign(gtk::Align::Center);
+        {
+            let img = gtk::Image::from_icon_name("media-skip-forward-symbolic");
+            img.set_pixel_size(14);
+            img.set_valign(gtk::Align::Center);
+            btn_next.set_child(Some(&img));
+        }
+        btn_next.set_visible(false);
+        btn_next.set_tooltip_text(Some("Mídia — próxima faixa"));
+        {
+            let bus = st.borrow().bus_cli.clone();
+            clique_solto(&btn_next, move |botao| {
+                if botao == 1 {
+                    pede_bus(&bus, elite_core::MediaCmd::Next);
+                }
+            });
+        }
+        dir.append(&btn_next);
+
         // E149/E151 — O MAPA DIRETO DO ÁUDIO: SAÍDA é o botão de
         // cima; o ESQUERDO abre a FERRAMENTA dedicada (pwvucontrol), o
         // DIREITO alterna o mudo da SAÍDA, o SCROLL ajusta o volume —
@@ -538,10 +609,18 @@ fn build(app: &gtk::Application) {
                 _ => {}
             });
         }
-        scroll(&btn_audio, move |dy| {
-            let passo = if dy < 0.0 { "5%+" } else { "5%-" };
-            solta(&["wpctl", "set-volume", "--limit", "1.5", "@DEFAULT_AUDIO_SINK@", passo]);
-        });
+        {
+            let tx = tx.clone();
+            scroll(&btn_audio, move |dy| {
+                let passo = if dy < 0.0 { "5%+" } else { "5%-" };
+                solta(&["wpctl", "set-volume", "--limit", "1.5", "@DEFAULT_AUDIO_SINK@", passo]);
+                // 1.0-104 — O ÍCONE/PERCENTUAL VESTE NO GESTO (a ordem do
+                // dono: a atualização é INSTANTÂNEA no scroll — sem
+                // esperar o cinto de 2s; a thread curta pergunta ao wpctl
+                // e o dreno veste no frame seguinte)
+                pede_audio_detalhe(&tx);
+            });
+        }
         dir.append(&btn_audio);
 
         // E151 — O MICROFONE É ASSENTO PRÓPRIO (a diretriz: Áudio e
@@ -566,10 +645,15 @@ fn build(app: &gtk::Application) {
                 _ => {}
             });
         }
-        scroll(&btn_mic, move |dy| {
-            let passo = if dy < 0.0 { "3%+" } else { "3%-" };
-            solta(&["wpctl", "set-volume", "--limit", "1.5", "@DEFAULT_AUDIO_SOURCE@", passo]);
-        });
+        {
+            let tx = tx.clone();
+            scroll(&btn_mic, move |dy| {
+                let passo = if dy < 0.0 { "3%+" } else { "3%-" };
+                solta(&["wpctl", "set-volume", "--limit", "1.5", "@DEFAULT_AUDIO_SOURCE@", passo]);
+                // 1.0-104 — idem do áudio: o ganho veste NO GESTO
+                pede_audio_detalhe(&tx);
+            });
+        }
         dir.append(&btn_mic);
 
         // A REDE PERSISTENTE (a cura A4: o botão NUNCA sai — Cabo/
@@ -586,32 +670,47 @@ fn build(app: &gtk::Application) {
         btn_rede.set_tooltip_text(Some(
             "Rede — clique: gerenciar as conexões · direito: ligar/desligar o Wi-Fi",
         ));
-        clique_solto(&btn_rede, move |botao| match botao {
-            1 => {
-                if std::path::Path::new("/usr/local/bin/craft-connect").exists() {
-                    solta(&["craft-connect"]);
-                } else {
-                    // o fallback GARANTIDO da diretriz (Wi-Fi, cabo, VPN,
-                    // banda larga — o editor completo do NetworkManager)
-                    solta(&["nm-connection-editor"]);
-                }
-            }
-            3 => {
-                std::thread::spawn(|| {
-                    let on = um_longo("nmcli", &["radio", "wifi"])
-                        .and_then(|t| parse_wifi_radio(&t));
-                    if let Some(on) = on {
-                        let cmd = if on { "off" } else { "on" };
-                        let _ = Command::new("nmcli")
-                            .args(["radio", "wifi", cmd])
-                            .stdin(Stdio::null())
-                            .stdout(Stdio::null())
-                            .stderr(Stdio::null())
-                            .status();
+        clique_solto(&btn_rede, {
+            // 1.0-104 — o clone do canal NASCE ANTES do move (a resposta da
+            // rede é o gesto: o clique direito re-lê o rádio E as placas)
+            let tx = tx.clone();
+            move |botao| match botao {
+                1 => {
+                    // 1.0-104 — O GERENCIADOR COMPLETO E AMIGÁVEL (a ordem do
+                    // dono: o esquerdo abre o seletor NATIVO — sem exigir a
+                    // criação manual de perfil: o iwgtk é o Wi-Fi da casa
+                    // (AGENTS §5, GTK nativo, redes ao alcance + conexões de
+                    // um clique); sem ele, o editor completo do NetworkManager
+                    // (Wi-Fi, cabo, VPN e banda larga) assume — nunca botão
+                    // morto, nunca perfil na mão do dono).
+                    if std::path::Path::new("/usr/bin/iwgtk").exists() {
+                        solta(&["iwgtk"]);
+                    } else {
+                        solta(&["nm-connection-editor"]);
                     }
-                });
+                }
+                3 => {
+                    std::thread::spawn(|| {
+                        let on = um_longo("nmcli", &["radio", "wifi"])
+                            .and_then(|t| parse_wifi_radio(&t));
+                        if let Some(on) = on {
+                            let cmd = if on { "off" } else { "on" };
+                            let _ = Command::new("nmcli")
+                                .args(["radio", "wifi", cmd])
+                                .stdin(Stdio::null())
+                                .stdout(Stdio::null())
+                                .stderr(Stdio::null())
+                                .status();
+                        }
+                    });
+                    // 1.0-104 — O TOOLTIP REFLETE O GESTO NA HORA (a thread
+                    // curta re-lê o rádio + o estado das placas e o dreno
+                    // veste o ícone/tooltip no frame seguinte — quem desligou
+                    // o Wi-Fi com o cabo ligado lê o feito no MESMO instante)
+                    pede_rede_foto(&tx);
+                }
+                _ => {}
             }
-            _ => {}
         });
         dir.append(&btn_rede);
 
@@ -830,8 +929,16 @@ fn poller(tx: Sender<Msg>) {
                 "nmcli",
                 &["-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "device", "status"],
             ) {
-                let _ = tx.send(Msg::Rede(estado_rede_nmcli(&t), essid_nmcli(&t)));
+                let radio = um_longo("nmcli", &["radio", "wifi"])
+                    .and_then(|r| parse_wifi_radio(&r));
+                let _ = tx.send(Msg::Rede(estado_rede_nmcli(&t), essid_nmcli(&t), radio));
             }
+            // 1.0-104 — o DND REAL junto do cinto da rede (5s: quem alterna
+            // pelo PAINEL do swaync também veste o sino na hora certa — o
+            // belt é a rede de segurança, o clique é o gesto imediato)
+            let _ = tx.send(Msg::Dnd(
+                um_longo("swaync-client", &["-D"]).and_then(|t| parse_dnd_swaync(&t)),
+            ));
         }
         if t_bt.elapsed() >= Duration::from_secs(POLL_BT_S) {
             t_bt = Instant::now();
@@ -903,6 +1010,37 @@ fn pede_audio_detalhe(tx: &Sender<Msg>) {
     });
 }
 
+/// 1.0-104 — A FOTO DA REDE NA HORA (o clique direito do rádio Wi-Fi não
+/// espera o cinto de 5s — a resposta é o gesto): as placas E o rádio numa
+/// resposta só (o tooltip do cabo fala do Wi-Fi no MESMO frame).
+fn pede_rede_foto(tx: &Sender<Msg>) {
+    let tx = tx.clone();
+    std::thread::spawn(move || {
+        let Some(t) = um_longo(
+            "nmcli",
+            &["-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "device", "status"],
+        ) else {
+            return;
+        };
+        let radio = um_longo("nmcli", &["radio", "wifi"])
+            .and_then(|r| parse_wifi_radio(&r));
+        let _ = tx.send(Msg::Rede(estado_rede_nmcli(&t), essid_nmcli(&t), radio));
+    });
+}
+
+/// 1.0-104 — A PERGUNTA DO DND (o clique direito do relógio responde na
+/// hora): a thread curta pergunta ao swaync (`-D`) e o dreno veste o sino
+/// cortado no frame seguinte — o feedback é o estado REAL, nunca o
+/// palpite do gesto (None = swaync calado: o estado anterior conserva).
+fn pede_dnd(tx: &Sender<Msg>) {
+    let tx = tx.clone();
+    std::thread::spawn(move || {
+        let _ = tx.send(Msg::Dnd(
+            um_longo("swaync-client", &["-D"]).and_then(|t| parse_dnd_swaync(&t)),
+        ));
+    });
+}
+
 // ── o DRENO (as mensagens viram widgets) ──────────────────────────────
 
 fn drena(st: &Rc<RefCell<State>>, rx: &Receiver<Msg>, tx: &Sender<Msg>) {
@@ -956,11 +1094,14 @@ fn aplica(st: &Rc<RefCell<State>>, msg: Msg) {
                 } else {
                     s.btn_audio.remove_css_class("muted");
                 }
-                s.btn_audio.set_tooltip_text(Some(&format!(
-                    "Áudio {}%{} — clique: pwvucontrol · scroll: volume · direito: mudo",
-                    (sink.vol * 100.0).round() as i64,
-                    if sink.mudo { " · MUDO" } else { "" },
-                )));
+                veste_tooltip(
+                    &s.btn_audio,
+                    &format!(
+                        "Áudio {}%{} — clique: pwvucontrol · scroll: volume · direito: mudo",
+                        (sink.vol * 100.0).round() as i64,
+                        if sink.mudo { " · MUDO" } else { "" },
+                    ),
+                );
             }
             if let Some(fonte) = d.fonte.as_ref() {
                 s.mic_img.set_icon_name(Some(crate::state::icone_mic(fonte.mudo)));
@@ -969,20 +1110,23 @@ fn aplica(st: &Rc<RefCell<State>>, msg: Msg) {
                 } else {
                     s.btn_mic.remove_css_class("muted");
                 }
-                s.btn_mic.set_tooltip_text(Some(&format!(
-                    "Microfone {}%{} — clique: pwvucontrol · scroll: ganho · direito: mudo",
-                    (fonte.vol * 100.0).round() as i64,
-                    if fonte.mudo { " · MUDO" } else { "" },
-                )));
+                veste_tooltip(
+                    &s.btn_mic,
+                    &format!(
+                        "Microfone {}%{} — clique: pwvucontrol · scroll: ganho · direito: mudo",
+                        (fonte.vol * 100.0).round() as i64,
+                        if fonte.mudo { " · MUDO" } else { "" },
+                    ),
+                );
             }
         }
-        Msg::Rede(estado, essid) => {
+        Msg::Rede(estado, essid, radio) => {
             let mut s = st.borrow_mut();
             s.rede = estado;
             s.essid = essid.clone();
+            s.wifi_radio = radio;
             s.rede_img.set_icon_name(Some(icone_rede(estado)));
-            s.btn_rede
-                .set_tooltip_text(Some(&tooltip_rede(estado, essid.as_deref())));
+            veste_tooltip(&s.btn_rede, &tooltip_rede(estado, essid.as_deref(), radio));
         }
         Msg::Bt(estado) => {
             let s = st.borrow_mut();
@@ -1012,6 +1156,9 @@ fn aplica(st: &Rc<RefCell<State>>, msg: Msg) {
             // 2.0 — o MPRIS pelo fio: o estado tipado vira a pílula
             // 1.0-101 (ícone de STATUS + Artista - Título ≤28; sem
             // player no bus o assento SAI — oculto 0px)
+            // 1.0-104 — o PRÓXIMO nasce com o pill (a ordem do dono:
+            // Play/Pause no clique do pill + Próxima faixa no assento
+            // próprio — os DOIS botões da mídia em cena)
             let s = st.borrow_mut();
             match m.as_ref().and_then(media_pill) {
                 Some(pill) => {
@@ -1019,13 +1166,25 @@ fn aplica(st: &Rc<RefCell<State>>, msg: Msg) {
                     s.player_label.set_text(&pill.texto);
                     s.btn_player.set_tooltip_text(Some(&pill.tooltip));
                     s.btn_player.set_visible(true);
+                    s.btn_next.set_visible(true);
                 }
-                None => s.btn_player.set_visible(false),
+                None => {
+                    s.btn_player.set_visible(false);
+                    s.btn_next.set_visible(false);
+                }
             }
         }
         Msg::BusGame(ativa) => {
             let s = st.borrow_mut();
             s.btn_game.set_visible(ativa);
+        }
+        Msg::Dnd(estado) => {
+            // 1.0-104 — O SINO CORTADO VESTE O FATO REAL (`swaync-client -D`):
+            // Some(true) = o Não Perturbe LIGADO (o sino acende no centro);
+            // Some(false) = desligado (o sino some); None = swaync calado
+            // (o estado anterior conserva — a barra nunca palpite o DND)
+            let s = st.borrow_mut();
+            s.dnd_img.set_visible(estado == Some(true));
         }
         Msg::Bus(cli) => {
             // o fio (re)nasceu: o handle fica com a UI para os pedidos
@@ -1048,6 +1207,16 @@ fn abre_mixer() {
         solta(&["pavucontrol"]);
     } else {
         log("mixer: nem pwvucontrol nem pavucontrol no sistema — nada a abrir (honesto)");
+    }
+}
+
+/// 1.0-104 — O TOOLTIP SÓ VESTE QUANDO MUDA (a ordem do dono: estável
+/// enquanto o ponteiro mora no botão — o texto IGUAL não re-pincha o
+/// popover do GTK a cada belt de 2s; o que muda veste, o que é igual
+/// fica quieto no hover).
+fn veste_tooltip<W: IsA<gtk::Widget>>(w: &W, texto: &str) {
+    if w.tooltip_text().as_deref() != Some(texto) {
+        w.set_tooltip_text(Some(texto));
     }
 }
 
