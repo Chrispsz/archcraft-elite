@@ -29,8 +29,9 @@ uso() {
         '  de cada ciclo — a mudança vale na hora, sem restart.' \
         '' \
         '  N        minutos de inatividade até TRAVAR E APAGAR (0 = nunca)' \
-        '  menu     o painel nativo com os presets (o item do menu do dono)' \
-        '  cycle    o ciclo dos presets (5 → 10 → 15 → 30 → nunca)' \
+        '  menu     o painel nativo com os presets (5/15/30 min, 1 hora,' \
+        '           Desativado e Travar agora — o item do menu do dono)' \
+        '  cycle    o ciclo dos presets (5 → 15 → 30 → 1 hora → Desativado)' \
         '  status   o conf vivo'
     exit 0
 }
@@ -127,19 +128,29 @@ if [ "${1:-}" = "menu" ]; then
         _titulo="Trava automática"
         case "$_atual" in
             0) _titulo="Trava automática — NUNCA sozinha (W-l manual manda)" ;;
+            60) _titulo="Trava automática — agora: 1 hora" ;;
             *) _titulo="Trava automática — agora: ${_atual} min" ;;
         esac
+        # 1.0-104 — OS PRESETS DO DONO (5 min, 15 min, 30 min, 1 hora,
+        # Desativado) + O BLOQUEIO IMEDIATO (Travar agora — o craft-lock
+        # da casa, o mesmo W-l; a vigília do elite-daemon segue armada
+        # com o conf atual: o travar-agora é o GESTO, nunca o desligar)
         _rc=0
-        _escolha="$(printf '%s\n' "5 min" "10 min" "15 min" "30 min" "Nunca (manual)" \
+        _escolha="$(printf '%s\n' "5 min" "15 min" "30 min" "1 hora" "Desativado" "Travar agora" \
             | _pick "$_titulo")" || _rc=$?
         # rc 1/2/143 = ESC/fora — a lei dos menus, benigno
         if [ "$_rc" = 0 ]; then
             case "$_escolha" in
-                "5 min")    escreve 5  ;;
-                "10 min")   escreve 10 ;;
-                "15 min")   escreve 15 ;;
-                "30 min")   escreve 30 ;;
-                "Nunca (manual)") escreve 0 ;;
+                "5 min")       escreve 5  ;;
+                "15 min")      escreve 15 ;;
+                "30 min")      escreve 30 ;;
+                "1 hora")      escreve 60 ;;
+                "Desativado")   escreve 0  ;;
+                "Travar agora")
+                    if command -v craft-lock >/dev/null 2>&1; then
+                        craft-lock >/dev/null 2>&1 &
+                    fi
+                    ;;
                 *) exit 0 ;;
             esac
         fi
@@ -147,18 +158,21 @@ if [ "${1:-}" = "menu" ]; then
     fi
 fi
 
-# ── cycle: os presets da casa ────────────────────────────────────────────
+# ── cycle: os presets da casa (1.0-104 — o ciclo VESTE os presets do
+#    menu: 5 → 15 → 30 → 1 hora → Desativado → 5) ──────────────────────
 _atual="$(le_lock)"
 case "$_atual" in
-    5)  _novo=10 ;;
-    10) _novo=15 ;;
+    5)  _novo=15 ;;
     15) _novo=30 ;;
-    30) _novo=0  ;;
+    30) _novo=60 ;;
+    60) _novo=0  ;;
     *)  _novo=5  ;;
 esac
 escreve "$_novo"
 if [ "$_novo" = "0" ]; then
     nota "Nunca sozinha — o W-l manda na mão (o ciclo volta a 5 no próximo clique)"
+elif [ "$_novo" = "60" ]; then
+    nota "Trava e apaga em 1 hora de inatividade"
 else
     nota "Trava e apaga em $_novo minuto(s) de inatividade"
 fi

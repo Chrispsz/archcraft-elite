@@ -540,8 +540,24 @@ pub fn resolve_exec(
                 return Some("foot".to_string());
             }
             toks.remove(0);
-            if toks.first().map(String::as_str) == Some("-e") {
-                toks.remove(0);
+            // 1.0-104 — AS FLAGS DO foot CAEM ANTES DO -e (o menu vestiu
+            // o craft-help com a GEOMETRIA `foot -W 115x28 -e`: o juízo
+            // antigo parava no VALOR da flag como se fosse binário):
+            // o -e é o TERMINADOR — as outras flags caem com o VALOR
+            // colado (o token seguinte que não começa com '-')
+            while let Some(t) = toks.first().cloned() {
+                if t == "-e" {
+                    toks.remove(0);
+                    break;
+                }
+                if t.starts_with('-') {
+                    toks.remove(0);
+                    if !toks.is_empty() && !toks[0].starts_with('-') {
+                        toks.remove(0); // o valor da flag (115x28 do -W)
+                    }
+                    continue;
+                }
+                break; // corpo direto sem -e: o token é o alvo
             }
         }
         let mut corpo = toks.join(" ");
@@ -807,7 +823,8 @@ mod tests {
             &menu,
             "<menu><item label=\"Fechar\"><action name=\"Execute\" command=\"craft-lock\" /></item>\
              <item label=\"Terminal\"><action name=\"Execute\" command=\"foot\" /></item>\
-             <item label=\"Jogo\"><action name=\"Execute\" command=\"foot -e craft-game menu\" /></item></menu>",
+             <item label=\"Jogo\"><action name=\"Execute\" command=\"foot -e craft-game menu\" /></item>\
+             <item label=\"Ajuda\"><action name=\"Execute\" command=\"foot -W 115x28 -e craft-help\" /></item></menu>",
         )
         .unwrap();
         std::fs::write(
@@ -817,11 +834,11 @@ mod tests {
         )
         .unwrap();
         let pkgf = dir.join("packages.add");
-        std::fs::write(&pkgf, "# comentário\nfoot\nswayosd\nlibpulse\ncraft-game\n").unwrap();
+        std::fs::write(&pkgf, "# comentário\nfoot\nswayosd\nlibpulse\ncraft-game\ncraft-help\n").unwrap();
         let buildf = dir.join("build.sh");
         std::fs::write(&buildf, "    for b in craft-update craft-clean do\n        :\n    done\n").unwrap();
         let (total, reus) = resolve_exec(&menu, &rc, &bin, &pkgf, &buildf);
-        assert_eq!(total, 5);
+        assert_eq!(total, 6);
         assert!(reus.is_empty(), "réus inesperados: {reus:?}");
         // binário inexistente é réu:
         std::fs::write(

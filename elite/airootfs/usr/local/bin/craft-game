@@ -29,7 +29,10 @@
 # Uso:
 #   craft-game            menu (Ativar agora / Desativar / Automático / Status)
 #   craft-game status     a mesa de fatos (sem palestra — a aula mora no --help)
-#   craft-game on|off     manual (holder próprio, conta no gamemode)
+#   craft-game on|off     manual (o PERFIL COMPLETO da 1.0-104: holder próprio
+#                         no gamemode + DND do swaync lembrado/devolvido +
+#                         inibidor de ocioso no logind + o estado no FILO do
+#                         elite-daemon — a barra acende o pill NO mesmo clique)
 #   craft-game watch      o daemon da sessão (AUTO=1 em ~/.config/elite/game.conf;
 #                         AUTO=0/ausente = sai 0 — ausência intencional, lei do idle)
 #   craft-game hook       os [custom] do gamemode.ini (inicio/fim do modo)
@@ -176,6 +179,44 @@ decor_fix() {
     return 0
 }
 
+# ── 1.0-104 — O PERFIL COMPLETO DO MANUAL (governor + DND + inibidor +
+#      o estado no elite-daemon): o gamemoded veste o governor; a casa
+#      soma o resto — o DND do swaync (a notificação não interrompe a
+#      partida; o estado ANTERIOR é lembrado e devolvido SIMÉTRICO) e o
+#      INIBIDOR de ocioso (o logind segura a trava automática enquanto
+#      o modo viver — a vigília do elite-daemon respeita o inhibitor,
+#      a lei E43 de sempre).
+dnd_liga() {
+    command -v swaync-client >/dev/null 2>&1 || return 0
+    _era="$(swaync-client -D 2>/dev/null || true)"
+    case "$_era" in
+        *true*)  return 0 ;;   # o dono JÁ dormia: o jogo não acorda o swaync
+        *false*) : ;;          # acordado: a casa adormece E LEMBRA o gesto
+        *) return 0 ;;         # swaync calado: sem estado para mentir
+    esac
+    # a lembrança mora no RUN_DIR (tmpfs — morre no reboot, nunca vira
+    # estado persistente); o -dn é DETERMINÍSTICO (nunca o toggle às cegas)
+    if swaync-client -dn -sw >/dev/null 2>&1; then
+        : > "$RUN_DIR/game-dnd-antes" 2>/dev/null || true
+        glog "manual: DND ligado (estava desligado — a lembrança devolve no off)"
+    fi
+}
+
+dnd_devolve() {
+    command -v swaync-client >/dev/null 2>&1 || return 0
+    [ -e "$RUN_DIR/game-dnd-antes" ] || return 0
+    rm -f "$RUN_DIR/game-dnd-antes" 2>/dev/null || true
+    swaync-client -df -sw >/dev/null 2>&1 || true
+    glog "manual: DND devolvido (o jogo o tinha ligado — o -df é determinístico)"
+}
+
+# o estado novo no FILO do elite-daemon (a barra acende o pill roxo NO
+# MESMO instante do clique — o cinto do 30s é a rede, o fio é o gesto)
+bus_notifica() {
+    [ -x /usr/local/bin/elite-daemon ] || return 0
+    /usr/local/bin/elite-daemon game-notify >/dev/null 2>&1 || true
+}
+
 gm_on() {
     if ! has_gamemode; then
         glog "manual: gamemode/dbus-send ausente — nada a fazer (honesto)"
@@ -208,15 +249,31 @@ gm_on() {
     # ON' — o dono: 'modo de jogo não sei se funciona'). A cura é o
     # desprendimento TOTAL do holder (stdin/stdout/stderr em /dev/null):
     # a substituição recebe só o echo $! e o EOF chega na hora.
-    hpid="$(setsid sh -c 'while :; do sleep 30; done' </dev/null >/dev/null 2>&1 & echo $!)"
+    # 1.0-104 — O HOLDER SEGURA O INIBIDOR DE OCIOSO (systemd-inhibit é o
+    # vestido: o logind segura a trava automática enquanto o modo viver;
+    # o pid registrado é o DELE — o gm_off mata o GRUPO inteiro, o
+    # inibidor morre JUNTO, sem órfão de sleep). Sem systemd-inhibit no
+    # sistema, o corpo nu de sempre segue dormindo sozinho.
+    if command -v systemd-inhibit >/dev/null 2>&1; then
+        hpid="$(setsid systemd-inhibit --what=idle --who=Elite --why='Modo de jogo ativo' --mode=block sh -c 'while :; do sleep 30; done' </dev/null >/dev/null 2>&1 & echo $!)"
+    else
+        hpid="$(setsid sh -c 'while :; do sleep 30; done' </dev/null >/dev/null 2>&1 & echo $!)"
+    fi
     printf '%s\n' "$hpid" > "$file" 2>/dev/null || true
     if gm_register "$hpid" >/dev/null 2>&1; then
-        glog "manual: ON (holder pid $hpid registrado no gamemode)"
-        NOTE_URGEN=normal note 'Modo de jogo ATIVO' 'Governor performance + GPU high (gamemode) — desligue no menu ou craft-game off'
-        echo "==> modo de jogo ATIVO (governor performance + GPU high — gamemode)"
+        dnd_liga
+        bus_notifica
+        if [ -e "$RUN_DIR/game-dnd-antes" ]; then
+            _dnd="ligado (devolvido no off)"
+        else
+            _dnd="do dono (intocado)"
+        fi
+        glog "manual: ON (holder pid $hpid no gamemode + DND $_dnd + inhibitor logind armado)"
+        NOTE_URGEN=normal note 'Modo de jogo ATIVO' 'Governor performance + GPU high + Não Perturbe (desligue no menu ou craft-game off)'
+        echo "==> modo de jogo ATIVO (governor performance + GPU high + inibidor de ocioso)"
         return 0
     fi
-    kill "$hpid" 2>/dev/null || true
+    kill -- -"$hpid" 2>/dev/null || kill "$hpid" 2>/dev/null || true
     rm -f "$file" 2>/dev/null || true
     glog "manual: o gamemode RECUSOU o registro (dbus?) — nada mudou"
     NOTE_URGEN=normal note 'Modo de jogo não ativou' "O gamemode não respondeu — prova em $LOG"
@@ -230,10 +287,15 @@ gm_off() {
     if [ -r "$file" ]; then
         hpid="$(cat "$file" 2>/dev/null)"
         gm_unregister "$hpid" >/dev/null 2>&1 || true
-        kill "$hpid" 2>/dev/null || true
+        # 1.0-104 — o GRUPO inteiro morre (o holder é setsid: o grupo DELE
+        # é systemd-inhibit + o corpo do sleep — matar só o pid deixaria
+        # o inibidor/sleep órfão segurando o logind)
+        kill -- -"$hpid" 2>/dev/null || kill "$hpid" 2>/dev/null || true
         rm -f "$file" 2>/dev/null || true
-        glog "manual: OFF (holder pid $hpid liberado — o gamemode devolve o governor)"
-        NOTE_URGEN=normal note 'Modo de jogo DESATIVADO' 'Perfil normal restaurado (governor/GPU da casa)'
+        dnd_devolve
+        bus_notifica
+        glog "manual: OFF (holder pid $hpid liberado — o gamemode devolve o governor, o DND volta, o inhibitor morre com o grupo)"
+        NOTE_URGEN=normal note 'Modo de jogo DESATIVADO' 'Perfil normal restaurado (governor/GPU/DND da casa)'
         echo "==> modo de jogo DESATIVADO (o governor volta ao perfil da casa)"
         return 0
     fi

@@ -242,7 +242,12 @@
     <!-- E124 — 'Ajuda — comandos da Elite' cortava em 'comandos…' na
          largura do menu: o nome curto abre o mapa completo -->
     <item label="Ajuda">
-      <action name="Execute" command="foot -e craft-help" />
+      <!-- 1.0-104 — A GEOMETRIA QUE NÃO QUEBRA PALAVRAS (a ordem do dono:
+           o mapa quebrava as palavras no meio ('rot eamento', 'mí dia') na
+           largura default do foot — a janela do mapa nasce com a GEOMETRIA
+           SUFICIENTE (foot -W 115x28: 115 colunas × 28 linhas, o
+           --window-size-chars do próprio foot) para o mapa caber INTEIRO -->
+      <action name="Execute" command="foot -W 115x28 -e craft-help" />
     </item>
     <!-- E133→E134→E136 — OS RÓTULOS DO DONO, palavra por palavra (a lista
          final do fechamento 1.0-81 — 'Aplicativos', 'Terminal',

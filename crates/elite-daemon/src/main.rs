@@ -100,7 +100,7 @@ fn instala_sinais() {
 }
 
 fn usage() -> &'static str {
-    "uso: elite-daemon [--once | supervise | session | --help | --version]\n\
+    "uso: elite-daemon [--once | supervise | session | game-notify | --help | --version]\n\
      \x20 o detector de jogo unificado (E132) — registra a família no GameMode\n\
      \x20 por D-Bus nativo, aplica o EPP performance na sessão de jogo, sinaliza\n\
      \x20 a waybar (SIGRTMIN+8) e notifica com debounce de 3s; instância única\n\
@@ -111,6 +111,9 @@ fn usage() -> &'static str {
      \x20 session = E135 — O LANÇADOR ÚNICO da sessão gráfica (clientes de\n\
      \x20 display + residentes com o gate de posse; o craft-bars shell vira\n\
      \x20 `exec elite-daemon session` — zero /bin/sh residente).\n\
+     \x20 game-notify = 1.0-104 — o craft-game CLI reporta o toggle manual: publica\n\
+     \x20 o estado REAL (QueryStatus) no bus da sessão e a barra acende o pill\n\
+     \x20 do jogo no MESMO instante (o cinto do 30s é a rede, o fio é o gesto).\n\
      \x20 desk N|left|right|left-occupied|right-occupied = o SYNC da mesa\n\
      \x20 (1.0-100 — o rc.xml registra a troca; a dock veste .other-workspace).\n"
 }
@@ -194,6 +197,32 @@ fn main() {
                 }
             }
             std::process::exit(if ok { 0 } else { 1 });
+        }
+        // 1.0-104 — O CLI DO TOGGLE MANUAL (a ordem do dono: o craft-game
+        // on/off reporta o PERFIL COMPLETO — governor, DND, inibidor de
+        // ocioso — e o ESTADO viaja no fio do elite-daemon: a barra acende
+        // o pill roxo no MESMO instante do clique, sem esperar o cinto de
+        // 30s do craft-game pill). CORPO CURTO como o desk: conecta no
+        // bus.sock COMO CLIENTE, consulta o QueryStatus REAL (gamemode é
+        // o juiz de sempre) e PUBLICA o GameMode — zero residente, zero
+        // lock (a lei E30 não tem dono aqui: o aviso é mensagem, não
+        // vaga). Sem bus vivo = saída 0 honesta (a barra segue com o
+        // cinto; o estado é o mesmo, só o timing degrada).
+        Some("game-notify") => {
+            let uid = unsafe { libc::getuid() };
+            let sock = elite_core::bus_sock_path(uid);
+            if let Some((cli, _rx)) =
+                elite_core::bus::BusClient::connect(&sock, "elite-daemon-game")
+            {
+                let conn = scan::gm_connect();
+                let ativo = scan::gm_status(&conn) == 1;
+                cli.publish(&elite_core::BusMsg::GameMode(elite_core::GameModeState {
+                    active: ativo,
+                    game: None,
+                    gpu_performance: ativo,
+                }));
+            }
+            std::process::exit(0);
         }
         // E135 — a porta session: O LANÇADOR ÚNICO da sessão gráfica
         // (clientes de display + residentes com o gate de posse E135;
