@@ -12,3 +12,8 @@ elite/airootfs/var/cache/
 tests/image
 .ci-cache/
 __pycache__/
+
+# 1.0-103 — o token do GitHub vive FORA do git (a escada §1.1 do AGENTS.md:
+# nunca rastreado, nunca impresso)
+.elite-gh-token
+.elite-gh-token.*

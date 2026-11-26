@@ -85,8 +85,10 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 100
     steps:
-      # v1.2: o gate [1b/8] usa .ci/validate-calamares.py do repo (o MESMO
-      # validador da suíte local — um caminho só). Shallow: só este arquivo.
+      # 1.0-103 — o gate [1b/8] compila o JUIZ DE CASA do repo (craft-audit
+      # calamares — o validador .py morreu com a erradicação do python; o
+      # MESMO código da suíte local, um caminho só). Shallow: só este
+      # arquivo (o checkout alimenta o cargo build do gate).
       - uses: actions/checkout@v5
         with:
           fetch-depth: 1

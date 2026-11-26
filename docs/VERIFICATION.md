@@ -6,11 +6,9 @@ prova, a evidência que deixa no log e os limites que NÃO cobre.
 
 ## lint (build.yml)
 
-**Prova:** todos os scripts shell passam em `shellcheck -S warning`. Scripts
-Python (shebang python) são pulados explicitamente (v2.0.1 — o craft-dock-gui
-é PyGObject).
-
-**Não prova:** comportamento em runtime; scripts Python inteiros.
+**Prova:** todos os scripts shell passam em `shellcheck -S warning`
+(1.0-103 — sem pulo nenhum: a erradicação do python acabou com a era dos
+shebangs de fora da casa; a cobertura é INTEIRA).
 
 ## Suíte de contratos (tests.yml)
 

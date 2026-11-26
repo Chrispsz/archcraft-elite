@@ -75,9 +75,8 @@ a tornou verdade: 39 bins + scripts de repo; o craft-compress morreu com honra n
 | `scripts/qemu-boot-test.sh` | boot-test da ISO no QEMU com a cmdline REAL (probe da sessão viva) |
 | `scripts/dev-sync.sh` | O HOT-RELOAD da casa (Fase 2): compila só o que mudou (o cargo é o juiz), instala em `~/.local/bin` (o pacote continua dono de `/usr/local/bin`) e reinicia APENAS barra/dock na sessão viva — o daemon adota pela lei E138; `bar`/`dock`/`--all`/`--restart-only`/`--daemon`/`--smoke` |
 | `tests/ci-runtime-smoke.sh` | o SMOKE DE RUNTIME do Canal (Fase 2): o pacote recém-parido sobe a sessão num labwc headless do CI (bus VIVO, 2ª instância sai 0 com papel, barra/dock SEM Gtk-WARNING/órfão/mojibake, painéis respondendo, `--help` dos compilados) — roda ANTES do repo-add/upload: pacote que não prova sessão não entra no db |
-| `scripts/live/cura-*.sh` | curas de campo para o rig instalado, sem reinstalar (padrão cura-viva) |
 | `.ci/build.sh` | o build da ISO (preflight offline, pacotes da casa, mkarchiso) |
-| `.ci/validate-calamares.py` | validador do config do Calamares (YAML + resolução de instâncias @id) |
+| `craft-audit` | O JUIZ DE CASA (1.0-103): `xml` · `menu` (gramática E146) · `ini [--estrito] [--secoes a,b,c]` · `yaml` · `calamares <raiz>` (o porte do validador antigo) · `hello <bus.sock>` · `brave-bg <Local State>` · `binds-osd <rc.xml>` · `exec-resolve <menu> <rc> <bindir> <packages.add> <build.sh>` — o núcleo std em `crates/craft-tools/src/audit.rs`, viaja NO pacote |
 
 ---
 

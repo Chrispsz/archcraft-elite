@@ -25,9 +25,8 @@ archcraft-elite/
 ├── .ci/                        ← A ESTEIRA
 │   ├── build.sh                    FONTE ÚNICA dos PKGBUILDs (elite-system
 │   │                               nasce aqui; nada de template solto)
-│   ├── guard-pkgrel.sh             a lei E41 executável (conteúdo mudou
-│   │                               ⇒ pkgrel subiu, ou o push é vermelho)
-│   └── validate-calamares.py       porteira do instalador
+│   └── guard-pkgrel.sh             a lei E41 executável (conteúdo mudou
+│                                   ⇒ pkgrel subiu, ou o push é vermelho)
 ├── .github/workflows/          ← OS PORTÕES
 │   ├── tests.yml                   a suíte (nada entra sem ela)
 │   ├── build.yml                   a ISO mensal (a tag constrói)
@@ -42,7 +41,11 @@ archcraft-elite/
 │   │                               byte, o makepkg PARA)
 ├── scripts/                    ← FERRAMENTAS DO MANTENEDOR
 │   ├── apply-overlay.sh            a ponte repo → airootfs
-│   └── …                           forense, qemu, brave, curas vivas
+│   └── …                           forense, qemu, brave, dev-sync
+│                                   (1.0-103 — as CURAS VIVAS de migração
+│                                   saíram: o rig de verdade há doses só
+│                                   recebe o canal; a história vive nos
+│                                   diários de docs/gestao/)
 ├── docs/                       ← O PAPEL
 │   ├── ESTRUTURA.md                este mapa
 │   ├── FUTURO.md                   o brainstorm da evolução (E53)
@@ -75,7 +78,8 @@ archcraft-elite/
 | Pergunta | Resposta |
 |---|---|
 | "Onde mexo num script de casa?" | `elite/airootfs/usr/local/bin/<script>` |
-| "Onde está o PKGBUILD do elite-system?" | Dentro do `.ci/build.sh` (bloco PYE50 — gerado, fonte única) |
+| "Onde está o PKGBUILD do elite-system?" | Dentro do `.ci/build.sh` (o molde `molde_pkbuild` — 1.0-103: sh puro com `@marcas@`, o heredoc python morreu; fonte única) |
+| "Onde vive o juiz de XML/INI/YAML da casa?" | `crates/craft-tools/src/audit.rs` + o bin `craft-audit` (viaja no pacote — o rig nunca fica sem juiz) |
 | "Onde habilito/desabilito algo da ISO?" | `elite/packages.add` / `elite/packages.remove` |
 | "Onde a cadência atualiza?" | `elite/airootfs/etc/systemd/system/elite-bootupdate.timer` (ao LIGAR) + `elite-sysupdate.timer` (semanal) |
 | "Por que meu push ficou vermelho?" | A suíte ou o guard E41 — a mensagem do assert nomeia o réu |

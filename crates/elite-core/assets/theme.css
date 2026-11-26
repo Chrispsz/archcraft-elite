@@ -132,7 +132,7 @@ popover > contents button.destructive { color: @elite-danger; }
  * botão que o dono clicou. */
 #dockbox button:focus,
 popover > contents button:focus, popover > contents modelbutton:focus,
-#toolswin button:focus, #pickwin button:focus {
+#pickwin button:focus {
   outline: 2px solid @elite-accent-strong;
   outline-offset: -2px;
 }
@@ -214,40 +214,24 @@ popover > contents listview row:selected { background: @elite-surface-strong; }
 popover > contents switch { background: @elite-surface-strong; }
 popover > contents switch:checked { background: @elite-accent; }
 
-/* ── 1.0-93 · as ferramentas da casa (craft-tools: update/clean/help/pick) ── */
-#toolswin, #pickwin { background: @elite-bg; }
-#toolswin box, #pickwin box { color: @elite-text; }
-#toolswin headerbar, #pickwin headerbar {
+/* ── 1.0-93 · as ferramentas da casa (craft-tools) · 1.0-103: o #toolswin
+ * MORTO sepultado — desde a E149 update/clean/help executam DIRETO no
+ * terminal; o craft-pick é a ÚNICA janela da família (zero seletor
+ * órfão na folha mestra — a auditoria byte a byte da dose) ── */
+#pickwin { background: @elite-bg; }
+#pickwin box { color: @elite-text; }
+#pickwin headerbar {
   background: @elite-surface;
   color: @elite-text;
   border-bottom: 1px solid @elite-border;
 }
-#toolswin label.title {
-  font-size: 16px;
-  font-weight: 700;
-  color: @elite-text-bright;
-}
-#toolswin label.body, #pickwin label.body { color: @elite-text-dim; }
-#toolswin button {
+#pickwin label.body { color: @elite-text-dim; }
+#pickwin button {
   border-radius: 10px;
   padding: 10px 22px;
   font-weight: 600;
 }
-#toolswin button.executar { background: @elite-accent; color: @elite-base; }
-#toolswin button.executar:hover { background: @elite-accent-strong; }
-#toolswin button.executar:disabled { background: @elite-surface-strong; color: @elite-text-dim; }
-#toolswin button.destructivo { background: @elite-surface; color: @elite-danger; }
-#toolswin button.destructivo:hover { background: @elite-danger; }
-#toolswin scrolledwindow, #pickwin scrolledwindow { background: @elite-bg; }
-/* Leitura densa ganha opacidade CHEIA (guia 02 §2.4 — o alpha não vive
- * em lista de texto longo): o token sólido da base, nunca #000000. */
-#toolswin scrolledwindow textview text {
-  background: @elite-base;
-  color: @elite-text;
-  caret-color: @elite-text;
-}
-#toolswin progressbar progress { background: @elite-accent; border-radius: 4px; }
-#toolswin progressbar trough { background: @elite-surface; border-radius: 4px; }
+#pickwin scrolledwindow { background: @elite-bg; }
 #pickwin listview row { padding: 8px 14px; border-radius: 8px; color: @elite-text; }
 #pickwin listview row:hover { background: @elite-surface; }
 /* R4/R5 na espinha do craft-pick (teclado-primeiro): seleção veste o
