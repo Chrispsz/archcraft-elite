@@ -3048,7 +3048,37 @@ pkgver=1.0
 #      --no-default-features (o núcleo std-first; o juízo da gui é o
 #      Canal — lei L6). Notas da dose: docs/releases/1.0-102.md.
 #      pkgrel 101→102 NO MESMO COMMIT (lei E41 — o guard cobra).
-pkgrel=103
+# 1.0-103 — A ERRADICAÇÃO DO PYTHON, A LENTE BYTE A BYTE E O JUIZ DE
+#      CASA (três partes E155): o craft-audit nasce no craft-tools (o
+#      molde PYE50 morre em sh puro, o heredoc python morre nos scripts,
+#      a suíte e o CI vestem o juiz — zero .py no index) e a lente
+#      clippy -D warnings viste o núcleo inteiro.
+#      pkgrel 102→103 NO MESMO COMMIT (lei E41).
+# 1.0-104 — AS CORREÇÕES FUNCIONAIS PÓS-1.0-103 (a dose E156, seis
+#      partes): o MPRIS MUDO MORRE (o barramento assina sinais com o
+#      nome ÚNICO — o tradutor GetNameOwner casa o nome MPRIS da POSSE,
+#      os .instance* inclusos), o player ganha o BOTÃO DE PRÓXIMA
+#      FAIXA, o DND REAL acende o SINO CORTADO no centro (o clique
+#      direito responde com o FATO), o tooltip do CABO fala do Wi-Fi,
+#      o iwgtk é o gerenciador esquerdo, o scroll veste NO GESTO, o
+#      calendário veste o ROXO no DIA (label.day-number:selected), o
+#      MANUAL do jogo é PERFIL COMPLETO (DND lembrado/devolvido +
+#      inibidor de ocioso + game-notify no fio), o craft-idle veste os
+#      presets do dono (5/15/30/1h/Desativado + Travar agora), o
+#      craft-help cabe INTEIRO (foot -W 115x28), a MESTRA SOMA no
+#      override (o menu de contexto da dock veste a ESCURIDÃO com hover
+#      ROXO — nunca mais fundo branco), a dock VÊ O JOGO (varredura
+#      NoDisplay + índice por NOME/título + pin do launcher-helper
+#      morto), o COMPOSITOR assina o contrato do XWayland/Proton
+#      (steam_app_*/*.exe: decoração + ignoreConfigureRequest — o loop
+#      de piscada MonoGame/SDL morre), o WAKE traz o ÁUDIO de volta
+#      (DisplayPort/AMDGPU), o PACOTE não disputa o /etc/xdg/swaync do
+#      alheio (zero --overwrite; o mestre + o skel do rig bastam), o
+#      elite-update veste a pele ANTES da dose, o PROBE lê o
+#      session.lock VIVO e as ferramentas da barra (pwvucontrol/
+#      blueman/iwgtk) são DEPENDÊNCIA DURA.
+#      pkgrel 103→104 NO MESMO COMMIT (lei E41 — o guard cobra).
+pkgrel=104
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da sessão; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

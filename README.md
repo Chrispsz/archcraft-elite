@@ -65,15 +65,15 @@ o driver do próprio hardware.
 | Camada | Componente |
 |---|---|
 | Kernel | `linux-cachyos-bore` x86-64-v3 (único; rollback via snapshot btrfs no GRUB) |
-| Sessão | labwc (Wayland, única) + waybar + swaync + fuzzel + foot + nwg-drawer |
+| Sessão | labwc (Wayland, única) + **craft-bar-rs** (top bar nativa) + **craft-dock-rs** (dock nativa) + swaync + fuzzel + foot + nwg-drawer |
 | Dock | `craft-dock-rs` — GTK4 + layer-shell em Rust (E134 — a era PyGObject acabou), ícones reais do tema, SEMPRE visível (zona exclusiva — maximizadas respeitam a faixa); esconder em qualquer momento é **W-S-d**, inclusive em tela cheia |
-| Top bar | menu bar estilo macOS — app focado, relógio, volume/rede/sessão + botão de apps em 2º plano (`craft-bgapps`, some quando não há nada a encerrar); conector Wi-Fi em TEXTO no menu de rede (`craft-connect`: redes do entorno + senha oculta — sem tray, sem applet) |
+| Top bar | `craft-bar-rs` (GTK4 + layer-shell, Rust): relógio pt_BR + calendário hover, player MPRIS pelo fio (Play/Pause no clique · Próxima faixa em assento próprio · nomes com instância `.instance*` inclusos), DND com sino cortado sincronizado, áudio/mic com mute e scroll instantâneos (mixer `pwvucontrol` no esquerdo), rede com o rádio do Wi-Fi no tooltip (seletor `iwgtk` no esquerdo), Bluetooth (`blueman`), bateria e sessão — tudo nativo, zero waybar |
 | Diagnóstico | `craft-dump` — o "btop completão" v2.0: abre com o veredito da sessão (probe + units falhados) e traz a tabela REAL de janelas do toplevel, pins, driver da GPU em uso, monitores (wlr-randr), rede, áudio, temperaturas, boots, rollback, pacotes e logs num arquivo (com `--upload` p/ URL curta) |
 | Scheduler | `ananicy-cpp` com regras CachyOS — o scheduler é o BORE do kernel (scx userspace saiu na v2.2) |
 | Tuning | `cachyos-settings`, zram zstd, sysctl/udev próprios, BBR + fq |
 | Gaming | gamemode, gamescope, mangohud, Vulkan RADV/Intel (lib32 sobe on-demand no firstboot), LACT, btop |
 | GPU | NVIDIA open pré-compilado no build (rig A) / RADV (rig B) |
-| Arquivos | Thunar + tumbler (GUI), craft-connect para rede/bluetooth, craft-extract para extrair (verbo da casa — o thunar-archive-plugin saiu na E46; o Comprimir saiu na E72 por ordem do dono; xarchiver fica para abrir/gerenciar) |
+| Arquivos | Thunar + tumbler (GUI), iwgtk/blueman para rede/bluetooth, craft-extract para extrair (verbo da casa — o thunar-archive-plugin saiu na E46; o Comprimir saiu na E72 por ordem do dono; xarchiver fica para abrir/gerenciar) |
 | Navegador | Brave Origin (release oficial, versão e sha256 fixados no build) |
 | Rollback | btrfs + snapper + grub-btrfs (snapshot no menu do GRUB — a porta do rollback; a estratégia snapper-only é da v2.3.6, o pacote timeshift saiu da ISO na v2.10.14: um rei só na estratégia de snapshot) |
 
@@ -98,8 +98,10 @@ pacote, com justificativa e comando de restauração: [docs/CHANGES.md](docs/CHA
 | `W-Shift-d` | Dock: mostrar/esconder (a dock é SEMPRE visível — esconder é escolha do usuário, v2.3.4) |
 | `Alt-Tab` | Alternar janelas |
 
-Menu bar: lançador + app focado à esquerda, relógio no centro exato,
-volume/rede/sessão à direita.
+Top bar: botão de Aplicativos à esquerda (abre/fecha a gaveta), relógio no
+centro exato (clique: painel do swaync · direito: Não Perturbe com o sino
+acendendo · hover: calendário), game/player/áudio/mic/rede/bluetooth/bateria/
+sessão à direita — clique esquerdo abre a ferramenta, direito é a ação rápida.
 
 ## Gerenciamento e rollback
 

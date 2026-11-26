@@ -166,9 +166,21 @@ bak_unica() {
 saneia_baks() {
     _sb_dir="$1"
     [ -d "$_sb_dir" ] || return 0
-    # as bases com backup carimbado no dir (ordem estável por nome = stamp)
-    _sb_bases="$(ls "$_sb_dir" 2>/dev/null | grep -E '\.bak-[0-9]{8}-[0-9]{6}$' \
-        | sed -E 's/\.bak-[0-9]{8}-[0-9]{6}$//' | sort -u)"
+    # as bases com backup carimbado no dir (ordem estável por nome = stamp;
+    # 1.0-104 — o GLOB da casa casa o carimbo: o ls|grep de era era réu da
+    # lente SC2010 e quebrava em nome com espaço — o glob é a via do shellcheck)
+    for _sb_arq in "$_sb_dir"/*.bak-[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-[0-9][0-9][0-9][0-9][0-9][0-9]; do
+        [ -e "$_sb_arq" ] || continue
+        _sb_base="${_sb_arq##*/}"
+        _sb_base="${_sb_base%.bak-*}"
+        # a base sem dono anterior (dict de mentira via linha única; o sort -u
+        # de era mora no acúmulo do loop: a fila deduplica no próximo passo)
+        case " $_sb_vistas " in
+            *" $_sb_base "*) continue ;;
+        esac
+        _sb_vistas="$_sb_vistas $_sb_base "
+    done
+    _sb_bases="$(printf '%s' "${_sb_vistas:-}" | tr ' ' '\n' | sed -n '/./p' | sort)"
     [ -z "$_sb_bases" ] && return 0
     printf '%s\n' "$_sb_bases" | while IFS= read -r _sb_base; do
         [ -n "$_sb_base" ] || continue

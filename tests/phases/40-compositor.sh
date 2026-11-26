@@ -53,8 +53,11 @@ if [ -n "${ELITE_JUDGE:-}" ]; then
         if printf '%s\n' "$RESOLUCAO" | tail -n +2 | head -1 | grep -q '^CLEAN$'; then
             t_ok "integridade de Execute: $total comandos, TODOS resolvem binário real (menu ∪ rc)"
         else
-            réus="$(printf '%s\n' "$RESOLUCAO" | tail -n +2 | head -6 | tr '\n' ' · ')"
-            t_fail "integridade de Execute: $total comandos apontam para binário real" "$réus"
+            reus="$(printf '%s\n' "$RESOLUCAO" | tail -n +2 | head -6 | tr '\n' ' · ')"
+            # 1.0-104 — o nome ASCII (a lente 0.11 lê "réus" como ${r}éus:
+            # SC2154 + o réu cortado no meio da expansão — o nome da casa
+            # veste ASCII no código, o sotaque fica na prosa)
+            t_fail "integridade de Execute: $total comandos apontam para binário real" "$reus"
         fi
     else
         t_fail "integridade de Execute (o juiz de casa correu)" "falha no resolvedor: $(printf '%s' "$RESOLUCAO" | head -2)"
