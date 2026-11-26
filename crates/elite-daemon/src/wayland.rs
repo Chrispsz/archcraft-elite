@@ -143,6 +143,9 @@ struct Wl {
 static SHARED: OnceLock<Arc<Wl>> = OnceLock::new();
 
 /// O ponto de vista do bus: os windows em ORDEM MRU (índice 0 = topo).
+/// 1.0-100 — cada janela leva a MESA APRENDIDA (workspace::mesa_da_janela
+/// — None quando a casa nunca a viu focar; o dock veste .other-workspace
+/// só com mesa CONHECIDA ≠ a corrente: o desconhecido é presumido vivo).
 pub fn windows_mru() -> Vec<WindowInfo> {
     let Some(sh) = SHARED.get() else { return Vec::new() };
     let mru = sh.mru.lock().unwrap().clone();
@@ -156,6 +159,7 @@ pub fn windows_mru() -> Vec<WindowInfo> {
                 focused: r.focused,
                 minimized: r.minimized,
                 fullscreen: r.fullscreen,
+                desk: crate::workspace::mesa_da_janela(*id),
             })
         })
         .collect()

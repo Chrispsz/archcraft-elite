@@ -129,6 +129,11 @@ enum Msg {
     Snapshot(Option<sock::Snapshot>),
     /// A extração em thread terminou: o ícone do raw está no cache.
     IconReady { key: String, path: PathBuf },
+    /// 1.0-100 — A MESA CORRENTE mudou (o sync do rc.xml → o daemon
+    /// publica `Workspace`): as classes .other-workspace re-julgadas
+    /// NO MESMO idle, sem remontagem nenhuma (estado é classe, não
+    /// árvore — a lei E139 do diff-guard).
+    Mesa(u32),
 }
 
 /// O alvo dos cliques de um botão: um app COM .desktop (pin/dinâmico)
@@ -184,6 +189,10 @@ struct State {
     // o snapshot da sessão (a JANELA é a verdade — v2.10.3)
     snap: sock::Snapshot,
     tl_alive: bool,
+    /// 1.0-100 — a mesa corrente da sessão (o bus `Workspace`): a régua
+    /// do .other-workspace (audit 99 §4 — a dock isola visualmente as
+    /// janelas das outras mesas).
+    mesa: u32,
     last_act: HashMap<String, u64>,
     launching: HashMap<String, Instant>,
     children: Vec<(std::process::Child, Option<String>)>,
@@ -307,6 +316,9 @@ fn build(app: &gtk::Application) {
         pins_txt: String::new(),
         snap: sock::Snapshot::default(),
         tl_alive: false,
+        // 1.0-100 — a mesa inicial é a 1 (o labwc nasce na primeira;
+        // o primeiro Workspace do bus corrige na hora)
+        mesa: 1,
         last_act: HashMap::new(),
         launching: HashMap::new(),
         children: Vec::new(),
@@ -391,6 +403,15 @@ fn bg_reader(sock_path: PathBuf, tx: Sender<Msg>) {
                             return; // a UI morreu: a thread vai junto
                         }
                     }
+                    // 1.0-100 — A MESA CORRENTE (audit 99 §4): o sync do
+                    // rc.xml publica Workspace — a dock veste/.desnuda o
+                    // .other-workspace no idle seguinte (classes, nunca
+                    // remontagem)
+                    elite_core::BusMsg::Workspace(w) => {
+                        if tx.send(Msg::Mesa(w.current)).is_err() {
+                            return;
+                        }
+                    }
                     _ => {} // os estados dos outros domínios não são da dock
                 }
             }
@@ -433,6 +454,16 @@ fn drain(st: &Rc<RefCell<State>>, rx: &Receiver<Msg>) {
                         path.display()
                     ));
                 }
+            }
+            Ok(Msg::Mesa(n)) => {
+                // 1.0-100 — A MESA NOVA (sync do rc.xml): só CLASSES —
+                // zero remontagem (o diff-guard E139 manda: o conjunto
+                // de botões não mudou, a árvore é a mesma)
+                {
+                    let mut s = st.borrow_mut();
+                    s.mesa = n.max(1);
+                }
+                update_indicators(&st.borrow());
             }
             Err(TryRecvError::Empty) | Err(TryRecvError::Disconnected) => break,
         }
@@ -796,6 +827,17 @@ fn repack(s: &State) {
 fn flush_superficie(pill: &gtk::Box, window: &gtk::ApplicationWindow) {
     pill.queue_draw();
     pill.queue_resize();
+    // 1.0-100 — O RESIZE REAL DA SUPERFÍCIE (audit 99 §3 — a FAIXA
+    // PRETA ao fechar apps): o gtk4-layer-shell SÓ comita o tamanho
+    // novo quando a GtkWindow refaz o layout dela — e uma largura
+    // explícita (set_default_size de era ou a última alocação
+    // memorizada pela GTK) SEGURA a superfície no tamanho velho mesmo
+    // com os ícones já fora. O par canônico da casa: set_default_size
+    // (-1, -1) devolve a largura ao NATURAL da árvore e o queue_resize
+    // força o relayout — o commit do layer-shell encolhe a superfície
+    // NO MESMO frame da remoção (o flush de baixo dá a garantia de
+    // pedido ao servidor; a lei E144 intacta: resize é commit).
+    window.set_default_size(-1, -1);
     window.queue_resize();
     if let Some(d) = gdk::Display::default() {
         d.flush();
@@ -1750,15 +1792,66 @@ fn update_indicators(s: &State) {
     if !s.tl_alive {
         for row in s.pins.iter().chain(s.dyns.values()) {
             row.button.remove_css_class("running");
+            row.button.remove_css_class("other-workspace");
+        }
+        for row in s.raws.values() {
+            row.button.remove_css_class("running");
+            row.button.remove_css_class("other-workspace");
         }
         return;
     }
     for row in s.pins.iter().chain(s.dyns.values()) {
-        let on = !windows_of_state(s, &row.act, false).is_empty();
+        let wids = windows_of_state(s, &row.act, false);
+        let on = !wids.is_empty();
         if on {
             row.button.add_css_class("running");
         } else {
             row.button.remove_css_class("running");
+        }
+        // 1.0-100 — O ISOLAMENTO VISUAL DE MESA (audit 99 §4): o botão
+        // veste .other-workspace quando TEM janelas e TODAS elas moram
+        // em mesa CONHECIDA ≠ a corrente (o desconhecido não mentiu —
+        // None é presumido vivo aqui, a dock nunca apaga por falta de
+        // informação). O clique segue COERENTE: ativa a janela e o
+        // compositor traz a mesa dela para a frente (a tag da casa
+        // acerta no foco que chega — workspace::aprende).
+        let outra = on
+            && wids.iter().all(|id| {
+                s.snap
+                    .windows
+                    .get(id)
+                    .and_then(|w| w.desk)
+                    .map(|d| d != s.mesa)
+                    .unwrap_or(false)
+            });
+        if outra {
+            row.button.add_css_class("other-workspace");
+        } else {
+            row.button.remove_css_class("other-workspace");
+        }
+    }
+    // os RAW também julgam (a mesma régua da casa)
+    for (key, row) in s.raws.iter() {
+        let wids = sock::raw_windows(&s.snap, key, false);
+        let on = !wids.is_empty();
+        if on {
+            row.button.add_css_class("running");
+        } else {
+            row.button.remove_css_class("running");
+        }
+        let outra = on
+            && wids.iter().all(|id| {
+                s.snap
+                    .windows
+                    .get(id)
+                    .and_then(|w| w.desk)
+                    .map(|d| d != s.mesa)
+                    .unwrap_or(false)
+            });
+        if outra {
+            row.button.add_css_class("other-workspace");
+        } else {
+            row.button.remove_css_class("other-workspace");
         }
     }
 }

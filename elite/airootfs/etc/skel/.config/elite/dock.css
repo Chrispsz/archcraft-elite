@@ -48,6 +48,17 @@
   background-repeat: no-repeat;
 }
 
+/* 1.0-100 — O ISOLAMENTO DE MESA (audit 99 §4): a janela que mora em
+ * OUTRA workspace é reconhecível no olhar — o ícone SEMIAPAGADO (o
+ * app segue aberto, não é fantasma) e a bolinha de execução veste o
+ * tom MUTADO (a bolinha diz "vivo"; o tom diz "não está nesta mesa").
+ * O clique segue o verbo de sempre: ativa a janela e o compositor
+ * traz a mesa dela para a frente. */
+#dockbox button.other-workspace { opacity: 0.45; }
+#dockbox button.other-workspace.running {
+  background-image: linear-gradient(rgba(108, 112, 134, 0.9), rgba(108, 112, 134, 0.9));
+}
+
 /* v2.10.0 — o FIO dos dinâmicos: separa os fixados dos apps abertos que
  * não são pin (a dock auto-adaptável). Fio 1px vertical, tom do
  * overlay0 na metade da força — presente sem competir com os ícones. */

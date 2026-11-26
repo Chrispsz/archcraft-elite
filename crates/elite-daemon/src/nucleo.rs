@@ -158,6 +158,13 @@ fn despacho(bus: Arc<BusServer>, rx: std::sync::mpsc::Receiver<Incoming>) {
                     BusReq::Media(verb) => crate::mpris::cmd(verb),
                     BusReq::Game(verb) => jogo_manual(verb),
                     BusReq::Workspace { to } => crate::workspace::pula(to),
+                    // 1.0-100 — O SYNC DA MESA (audit 99 §4): o rc.xml
+                    // fez a troca (GoToDesktop/SendToDesktop + Execute do
+                    // sync) e a casa SÓ registra e publica — nunca
+                    // sintetiza tecla (o Workspace de cima é A síntese;
+                    // sintetizar aqui fechava o loop W-<n> → sync → W-<n>)
+                    BusReq::DeskSet { to } => crate::workspace::define(to),
+                    BusReq::DeskStep { dir } => crate::workspace::passo(&dir),
                 };
                 bus.send_to(cliente, &BusMsg::Ack { id: req_id, ok });
             }

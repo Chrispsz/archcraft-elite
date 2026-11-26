@@ -141,6 +141,15 @@ pub struct WindowInfo {
     pub minimized: bool,
     #[serde(default)]
     pub fullscreen: bool,
+    /// 1.0-100 — A MESA APRENDIDA da janela (a melhor hipótese da casa:
+    /// o labwc não fala protocolo de mesas — o daemon marca a mesa onde
+    /// a janela foi focada; None = nunca vista em mesa conhecida). O
+    /// dock veste `.other-workspace` quando TODAS as janelas do botão
+    /// têm mesa CONHECIDA ≠ a corrente; None é presumida visível (o
+    /// desconhecido não mentiu). O `default` mantém o fio tolerante
+    /// (daemon velho sem a mesa não quebra o dock novo e vice-versa).
+    #[serde(default)]
+    pub desk: Option<u32>,
 }
 
 /// Workspace atual (o labwc expõe via wayland; a barra v2 mostra por IPC).
@@ -205,6 +214,16 @@ pub enum BusReq {
     Game(GameCmd),
     /// pular para a mesa N (1-based; a síntese é da casa)
     Workspace { to: u32 },
+    /// 1.0-100 — O SYNC DA MESA (o audit 99 §4): o labwc fez a troca
+    /// (bind do rc.xml com o Execute do sync) — o daemon REGISTRA e
+    /// publica, NUNCA sintetiza tecla (o Workspace de cima É a síntese;
+    /// sintetizar aqui fechava o loop W-n → sync → W-n para sempre).
+    DeskSet { to: u32 },
+    /// 1.0-100 — O passo RELATIVO da mesa ("left" | "right" |
+    /// "left-occupied" | "right-occupied"): quem sabe a mesa corrente
+    /// é o daemon (o CLI do rc.xml não sabe) — o cálculo com wrap e a
+    /// ocupação aprendida moram no workspace.rs.
+    DeskStep { dir: String },
 }
 
 /// Os verbos de mídia (MPRIS) no fio do bus.
@@ -280,6 +299,7 @@ mod tests {
             focused: true,
             minimized: false,
             fullscreen: false,
+            desk: Some(3),
         };
         let msg = BusMsg::Windows { windows: vec![win.clone()] };
         let json = serde_json::to_string(&msg).unwrap();
@@ -360,9 +380,9 @@ mod tests {
         // contrato prova que a lista preserva a ordem no fio
         let snap = BusMsg::Windows {
             windows: vec![
-                WindowInfo { id: 1, app_id: "foot".into(), title: None, focused: true, minimized: false, fullscreen: false },
-                WindowInfo { id: 2, app_id: "brave-browser".into(), title: Some("Brave".into()), focused: false, minimized: false, fullscreen: false },
-                WindowInfo { id: 3, app_id: "foot".into(), title: None, focused: false, minimized: true, fullscreen: true },
+                WindowInfo { id: 1, app_id: "foot".into(), title: None, focused: true, minimized: false, fullscreen: false, desk: None },
+                WindowInfo { id: 2, app_id: "brave-browser".into(), title: Some("Brave".into()), focused: false, minimized: false, fullscreen: false, desk: None },
+                WindowInfo { id: 3, app_id: "foot".into(), title: None, focused: false, minimized: true, fullscreen: true, desk: None },
             ],
         };
         let json = serde_json::to_string(&snap).unwrap();

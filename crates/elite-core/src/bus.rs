@@ -592,6 +592,7 @@ mod tests {
             focused: false,
             minimized: false,
             fullscreen: false,
+            desk: None,
         }));
         assert!(rx_bar.recv_timeout(Duration::from_secs(2)).is_ok());
         let _ = bar; // a barra segue viva até aqui

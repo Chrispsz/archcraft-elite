@@ -41,6 +41,13 @@ pub struct WindowEntry {
     pub rank: u32,
     pub app_id: String,
     pub title: String,
+    /// 1.0-100 — a mesa APRENDIDA da janela (None = desconhecida — o
+    /// dock presume visível; o .other-workspace só veste com mesa
+    /// CONHECIDA ≠ a corrente: o botão nunca se esconde por falta de
+    /// informação). O consumidor mora na ui.rs (feature gui — o núcleo
+    /// sem gui carrega o atributo de cortesia da casa).
+    #[cfg_attr(not(feature = "gui"), allow(dead_code))]
+    pub desk: Option<u32>,
 }
 
 /// O snapshot LIST: janelas por id + a janela focada (0 = nenhuma).
@@ -76,6 +83,7 @@ pub fn de_bus_windows(windows: &[elite_core::WindowInfo]) -> Snapshot {
                 rank: rank as u32,
                 app_id: w.app_id.clone(),
                 title: w.title.clone().unwrap_or_default(),
+                desk: w.desk,
             },
         );
     }
@@ -402,9 +410,9 @@ mod tests {
     /// o WINDOWS de amostra da casa (a ordem é o anel MRU: 0 = topo).
     fn sample_windows() -> Vec<WindowInfo> {
         vec![
-            WindowInfo { id: 10, app_id: "io.github.kolunmi.Bazaar".into(), title: Some("Bazaar — downloads".into()), focused: true, minimized: false, fullscreen: false },
-            WindowInfo { id: 11, app_id: "foot".into(), title: Some("foot".into()), focused: false, minimized: false, fullscreen: false },
-            WindowInfo { id: 12, app_id: "thunar".into(), title: Some("Arquivos — a|b|c".into()), focused: false, minimized: true, fullscreen: true },
+            WindowInfo { id: 10, app_id: "io.github.kolunmi.Bazaar".into(), title: Some("Bazaar — downloads".into()), focused: true, minimized: false, fullscreen: false, desk: None },
+            WindowInfo { id: 11, app_id: "foot".into(), title: Some("foot".into()), focused: false, minimized: false, fullscreen: false, desk: None },
+            WindowInfo { id: 12, app_id: "thunar".into(), title: Some("Arquivos — a|b|c".into()), focused: false, minimized: true, fullscreen: true, desk: None },
         ]
     }
 
@@ -430,7 +438,7 @@ mod tests {
         assert!(vazio.windows.is_empty());
         assert_eq!(vazio.focused, 0);
         // o título None do fio vira vazio (a gramática interna)
-        let sem_titulo = de_bus_windows(&[WindowInfo { id: 1, app_id: "x".into(), title: None, focused: false, minimized: false, fullscreen: false }]);
+        let sem_titulo = de_bus_windows(&[WindowInfo { id: 1, app_id: "x".into(), title: None, focused: false, minimized: false, fullscreen: false, desk: None }]);
         assert_eq!(sem_titulo.windows[&1].title, "");
     }
 
@@ -460,7 +468,7 @@ mod tests {
         // "hydra-plus" — '_' e '-' são O MESMO traço no casamento
         assert_eq!(norm("Hydra_Plus"), "hydra-plus");
         assert_eq!(norm("hydra-plus"), "hydra-plus");
-        let snap = de_bus_windows(&[WindowInfo { id: 77, app_id: "hydra-plus".into(), title: Some("Hydra".into()), focused: true, minimized: false, fullscreen: false }]);
+        let snap = de_bus_windows(&[WindowInfo { id: 77, app_id: "hydra-plus".into(), title: Some("Hydra".into()), focused: true, minimized: false, fullscreen: false, desk: None }]);
         let cands = vec!["hydra_plus".to_string()];
         assert_eq!(windows_of_key(&snap, &cands, "", true), vec![77]);
         assert_eq!(raw_windows(&snap, "hydra_plus", true), vec![77]);

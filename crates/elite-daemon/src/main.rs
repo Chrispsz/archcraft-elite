@@ -99,7 +99,9 @@ fn usage() -> &'static str {
      \x20 swayosd — respawn com backoff de 2s).\n\
      \x20 session = E135 — O LANÇADOR ÚNICO da sessão gráfica (clientes de\n\
      \x20 display + residentes com o gate de posse; o craft-bars shell vira\n\
-     \x20 `exec elite-daemon session` — zero /bin/sh residente).\n"
+     \x20 `exec elite-daemon session` — zero /bin/sh residente).\n\
+     \x20 desk N|left|right|left-occupied|right-occupied = o SYNC da mesa\n\
+     \x20 (1.0-100 — o rc.xml registra a troca; a dock veste .other-workspace).\n"
 }
 
 fn main() {
@@ -131,6 +133,57 @@ fn main() {
                 std::process::exit(1);
             }
         },
+        // 1.0-100 — O CLI DO SYNC DA MESA (audit 99 §4): `elite-daemon
+        // desk N|left|right|left-occupied|right-occupied` — o rc.xml
+        // chama nos binds de mesa (o Execute ao lado do GoToDesktop/
+        // SendToDesktop) e o daemon da sessão REGISTRA a mesa corrente
+        // e publica no bus (a dock veste .other-workspace na hora).
+        // CORPO CURTO: conecta no bus.sock, manda UM Req, espera o Ack
+        // (teto de 1s) e sai — zero residente, zero lock (a lei E30 não
+        // tem dono aqui: o sync é mensagem, não vaga).
+        Some("desk") => {
+            let alvo = args.get(2).map(String::as_str).unwrap_or("");
+            let req = match alvo {
+                "left" | "right" | "left-occupied" | "right-occupied" => {
+                    elite_core::BusReq::DeskStep { dir: alvo.to_string() }
+                }
+                other => match other.parse::<u32>() {
+                    Ok(n) => elite_core::BusReq::DeskSet { to: n },
+                    Err(_) => {
+                        eprintln!(
+                            "uso: elite-daemon desk <N|left|right|left-occupied|right-occupied>"
+                        );
+                        std::process::exit(2);
+                    }
+                },
+            };
+            // o round-trip curto: conecta no bus da sessão, manda o
+            // pedido, espera o Ack com teto de 1s e MORRE — zero
+            // residente, zero lock. Sem bus (relogin cedo, daemon
+            // renascendo) = saída 0 honesta: o sync não pode travar
+            // nunca (o GoToDesktop do labwc já fez o feito visível).
+            let uid = unsafe { libc::getuid() };
+            let sock = elite_core::bus_sock_path(uid);
+            let Some((cli, rx)) =
+                elite_core::bus::BusClient::connect(&sock, "elite-daemon-desk")
+            else {
+                std::process::exit(0);
+            };
+            let _ = cli.send_req(req);
+            let teto = std::time::Instant::now() + std::time::Duration::from_millis(1000);
+            let mut ok = false;
+            while std::time::Instant::now() < teto {
+                match rx.recv_timeout(std::time::Duration::from_millis(100)) {
+                    Ok(elite_core::BusMsg::Ack { ok: veredito, .. }) => {
+                        ok = veredito;
+                        break;
+                    }
+                    Ok(_) => continue, // boas-vindas do frame 0: segue
+                    Err(_) => break,   // o fio caiu: o estado publicado decide
+                }
+            }
+            std::process::exit(if ok { 0 } else { 1 });
+        }
         // E135 — a porta session: O LANÇADOR ÚNICO da sessão gráfica
         // (clientes de display + residentes com o gate de posse E135;
         // o craft-bars shell vira exec — o /bin/sh some do ps).
@@ -147,6 +200,20 @@ fn main() {
             // — janelas, vigília e trava automática da casa), o MPRIS
             // (zero playerctl-polling) e o roteador de áudio Rust (o
             // python craft-audio-route morre com seu NameError herdado)
+            // 1.0-100 — OS LOCKS ÓRFÃOS DE /tmp SAEM PRIMEIRO (o audit
+            // 99 §2: `/tmp/elite-daemon.lock` e o fallback da sessão
+            // parados no chão entre relogins — flock é estado do inode,
+            // o arquivo fica): a varredura flock-gated roda ANTES do
+            // colhe_relogin (nenhum filho de vaga nasceu — a corrida de
+            // µs não existe; o dono vivo de qualquer lock é PULADO pelo
+            // portão do flock, ele nem sente a varredura).
+            let orfos = supervise::limpa_locks_orfos();
+            if orfos > 0 {
+                eprintln!(
+                    "elite-daemon session: {orfos} lock(s) órfão(s) de /tmp saíram \
+                     (flock livre + PID ausente em /proc — o audit 99 §2 morre)"
+                );
+            }
             // E150 — O RELOGIN LIMPO ANTES DE TUDO: o modo session COLHE
             // o fóssil da sessão anterior (daemon órfão que segurava o
             // lock) e só então veste o fio — a ordem importa (o bind do
@@ -379,13 +446,36 @@ fn agora_ms() -> u64 {
 
 /// o fork pontual por evento: stdin/stdout/stderr nulos (nada de filho
 /// falando no papel do daemon).
+/// 1.0-100 — A COVEIRA (o audit 99 §1 fotografou DOIS
+/// `[craft-display] <defunct>` pendurados como filhos DESTE daemon): o
+/// spawn sem colheita deixa o filho morto esperando wait(2) para
+/// sempre — zumbi no ps de cada boot. A thread dedicada colhe o exit
+/// ANTES de morrer (o mesmo gesto da dock E146/C): o processo curto
+/// nasce, roda, é COLHIDO — o ps da sessão fica limpo.
 fn dispara(comando: &str, args: &[&str]) {
-    let _ = Command::new(comando)
-        .args(args)
+    let cmd = comando.to_string();
+    let owned: Vec<String> = args.iter().map(|a| a.to_string()).collect();
+    match Command::new(&cmd)
+        .args(&owned)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
-        .spawn();
+        .spawn()
+    {
+        Ok(mut filho) => {
+            // a COVEIRA: o wait acontece NUMA thread de 1 filho — o
+            // processo curto é colhido na hora da morte e o zumbi
+            // <defunct> do audit 99 não nasce mais (o daemon não
+            // trava esperando: o spawn segue pontual por evento)
+            std::thread::Builder::new()
+                .name("elite-coveira".into())
+                .spawn(move || {
+                    let _ = filho.wait();
+                })
+                .ok();
+        }
+        Err(_) => {} // o fork falhou: evento perdido, papel honesto acima
+    }
 }
 
 /// E150 — O NOME do WAYLAND_DISPLAY corrente ("" = sem sessão gráfica:
@@ -483,8 +573,23 @@ fn thread_display_boot() {
 /// o relógio de idle RENASCE do zero (o tempo DORMIDO não conta como
 /// inatividade — o lock logo após o acordar era a mentira do contador).
 fn despertar() {
-    dispara("/usr/local/bin/craft-display", &["apply"]);
+    // 1.0-100 — A ORDEM DO DESPERTAR (o audit 99 §4: ao acordar do
+    // suspend às 20:35 a sessão caiu para o greeter do SDDM — o
+    // despertar precisa RELIGAR o vídeo sem nunca derrubar o display
+    // Wayland nem o labwc):
+    //   1º  wlopm --on '*'  — o DPMS volta ANTES de qualquer mudança de
+    //       modo: wlr-randr contra saída desligada no-opa/falha e o
+    //       apply da casa perderia a rodada;
+    //   2º  craft-display apply — o arranjo do dono (Hz/escala/pos)
+    //       re-aplicado COM o output já de pé (o E118 do craft-display
+    //       re-aplica na divergência do pós-sono; o stamp dele decide);
+    //   3º  reseta_idle — o tempo DORMIDO não é inatividade (o lock na
+    //       cara do dono logo após acordar era a mentira do contador).
+    // NENHUM destes gestos mata o compositor: wlopm fala o protocolo
+    // wlr-output-power (estado de DPMS), o apply fala wlr-randr (modos)
+    // — os dois são clientes Wayland comuns; o labwc continua de pé.
     dispara("wlopm", &["--on", "*"]);
+    dispara("/usr/local/bin/craft-display", &["apply"]);
     wayland::reseta_idle();
 }
 
@@ -810,7 +915,21 @@ fn dnd_troca() -> Option<bool> {
 fn daemon_loop() -> Result<(), String> {
     // instância única (E30): flock no arquivo — o 2º processo sai 0.
     let lock = PathBuf::from("/tmp/elite-daemon.lock");
-    let f = std::fs::OpenOptions::new()
+    // 1.0-100 — A VARREDURA antes do lock próprio: o peek do supervisor
+    // disse LIVRE (não há segundo corpo disputando) — os fósseis do
+    // /tmp (lock de sessão morta, lock de motor era anterior) saem com
+    // os DOIS portões (flock recusa o arquivo de dono vivo; PID morto
+    // em /proc é o órfão da lei). O LOCK PRÓPRIO ganha o PID no corpo
+    // (a era legada deixava 0 bytes — o julgamento do órfão precisa do
+    // número; o audit 99 §2 fotografou os vazios).
+    let orfos = supervise::limpa_locks_orfos();
+    if orfos > 0 {
+        eprintln!(
+            "elite-daemon: {orfos} lock(s) órfão(s) de /tmp saíram na entrada \
+             do motor de jogo (flock livre + PID ausente em /proc)"
+        );
+    }
+    let mut f = std::fs::OpenOptions::new()
         .create(true)
         .truncate(false)
         .write(true)
@@ -819,6 +938,15 @@ fn daemon_loop() -> Result<(), String> {
     let rc = unsafe { libc::flock(f.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
     if rc != 0 {
         return Ok(()); // o irmão está no ar — saída silenciosa e honesta
+    }
+    // 1.0-100 — o PID no lock do motor (a identidade do dono: a
+    // varredura do relogin julga o órfão POR ESTE número — o 0 bytes
+    // da era legada era o buraco que o audit nomeou).
+    {
+        use std::io::Write;
+        let _ = f.set_len(0);
+        let _ = writeln!(f, "{}", std::process::id());
+        let _ = f.sync_all();
     }
     instala_sinais();
     escreve_pid_watch();

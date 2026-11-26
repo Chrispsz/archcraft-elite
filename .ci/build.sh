@@ -2881,7 +2881,42 @@ pkgver=1.0
 #          editar); a MANUTENÇÃO MENSAL no CI (maintenance.yml, dia 1:
 #          cargo check --all-features + a suíte contra o Arch do dia).
 #      Notas da era: docs/releases/1.0-99.md.
-pkgrel=99
+# 1.0-100 (AS 4 CURAS ESTRUTURAIS DO AUDIT 99 — a diretriz do dono):
+#      (1) O AUTOSTART E O RELOGIN: o heal-sessao julga o FÓSSIL DE ERA
+#          (arquivo da casa sem elite-daemon session = corpo legado do
+#          guard waybar — audit §7; a cura anterior não o via com o
+#          bloco anexado) e reconstrói do mestre COM O SKEL COMO REDE
+#          (o mestre do pacote nunca existiu no disco — o buraco
+#          fotográfico); o elite-daemon varre os locks órfãos de /tmp
+#          (flock livre + PID ausente em /proc — audit §2) na porta
+#          session e no motor de jogo, e o lock do motor registra o
+#          PID; o dispara() colhe os filhos curtos (os 2 <defunct> do
+#          audit §1 morrem).
+#      (2) O SUSPEND/RESUME: o despertar (PrepareForSleep(false)/Unlock)
+#          religa o vídeo em ORDEM — wlopm --on '*' PRIMEIRO (DPMS antes
+#          de modo: wlr-randr contra saída desligada perde a rodada),
+#          craft-display apply depois (audit §4 — sem derrubar o display
+#          Wayland nem o labwc).
+#      (3) A DOCK: o flush_superficie faz set_default_size(-1,-1) +
+#          queue_resize na GtkWindow (a largura memorizada segurava o
+#          commit do layer-shell — a faixa preta do fecho morre, audit
+#          §3); o vazamento GtkPopoverMenu segue coberto pelo enterro
+#          E148 (contratos da porteira) e o estado por CLASSE (E139)
+#          nunca remonta a barra.
+#      (4) AS MESAS: o rc.xml carrega Execute `elite-daemon desk` em
+#          TODO bind de troca (o labwc não fala protocolo de mesas — o
+#          daemon aprende por este fio e publica no bus.sock, audit §4);
+#          BusReq DeskSet/DeskStep novos (registram, nunca sintetizam
+#          tecla — o loop W-n→sync→W-n não nasce); WindowInfo ganha a
+#          mesa aprendida (desk, fio tolerante) e a dock veste
+#          .other-workspace (ícone semiapagado + bolinha mutada; o
+#          desconhecido é presumido visível; o clique ativa e o
+#          compositor traz a mesa).
+#      Suíte: GO 422 · 0 · 1 (porteira local) · cargo test 163 · 0
+#      (o núcleo std-first; o juízo da gui é o Canal — lei L6).
+#      Notas da dose: docs/releases/1.0-100.md.
+#      pkgrel 99→100 NO MESMO COMMIT (lei E41).
+pkgrel=100
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da sessão; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

@@ -774,8 +774,8 @@ mod tests_fase2 {
                         assert!(who.starts_with("craft"));
                         srv.send_to(id, &BusMsg::Windows {
                             windows: vec![
-                                WindowInfo { id: 1, app_id: "foot".into(), title: Some("foot".into()), focused: false, minimized: false, fullscreen: false },
-                                WindowInfo { id: 2, app_id: "brave-browser".into(), title: Some("Arch Wiki".into()), focused: true, minimized: false, fullscreen: false },
+                                WindowInfo { id: 1, app_id: "foot".into(), title: Some("foot".into()), focused: false, minimized: false, fullscreen: false, desk: None },
+                                WindowInfo { id: 2, app_id: "brave-browser".into(), title: Some("Arch Wiki".into()), focused: true, minimized: false, fullscreen: false, desk: None },
                             ],
                         });
                         srv.send_to(id, &BusMsg::Workspace(elite_core::WorkspaceInfo {

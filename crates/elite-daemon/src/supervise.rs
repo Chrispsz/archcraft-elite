@@ -237,6 +237,78 @@ pub fn peek_lock_livre(caminho: &std::path::Path) -> bool {
     rc == 0 // 0 = ninguém segura (livre); != 0 = motor de fora vivo
 }
 
+/// 1.0-100 — A VARREDURA DOS LOCKS ÓRFÃOS DE /tmp (o audit-99.txt §2
+/// fotografou `/tmp/elite-daemon.lock` e `/tmp/elite-daemon-session.lock`
+/// parados no chão entre relogins): o flock é estado do INODE — o dono
+/// morre, a trava se solta, mas o ARQUIVO continua no /tmp mundial
+/// (sticky bit, donos de eras) mentindo à sessão nova e ao probe. A
+/// varredura é SEGURA por dois portões:
+///   1. o FLOCK primeiro: travável = ninguém vivo segura — o arquivo é
+///      fóssil por definição (dono vivo = flock recusa = PULA, o dono
+///      nem sente);
+///   2. o PID registrado (as gerações novas deixam o número; a era
+///      legada deixava 0 bytes): PID existente em /proc = conservador
+///      NÃO toca (a lei do dono: só sai o órfão cujo PID não existe
+///      mais, ou o arquivo vazio de era sem dono algum).
+/// Quem chama: a porta `session` ANTES do colhe_relogin (o chão do
+/// /tmp sem dono nenhum — nenhum filho de vaga nasceu ainda, a corrida
+/// de µs entre varredura e spawn não existe) e o daemon_loop ANTES do
+/// lock próprio (o peek do supervisor disse LIVRE — não há segundo
+/// corpo para disputar o arquivo).
+/// Devolve quantos fósseis saíram (o papel nomeia).
+pub fn limpa_locks_orfos() -> usize {
+    limpa_locks_orfos_em(std::path::Path::new("/tmp"))
+}
+
+/// O corpo parametrizado (a porta dos testes — o teste alimenta um dir
+/// de mentira e crava o veredito sem tocar o /tmp de ninguém).
+pub fn limpa_locks_orfos_em(dir: &std::path::Path) -> usize {
+    let Ok(leitura) = std::fs::read_dir(dir) else {
+        return 0;
+    };
+    let mut saidos = 0usize;
+    for e in leitura.flatten() {
+        let nome = e.file_name();
+        let nome = nome.to_string_lossy();
+        // a família inteira da casa: elite-daemon*.lock (o motor, o
+        // fallback da sessão, o do supervise — era legada inclusive)
+        if !(nome.starts_with("elite-daemon") && nome.ends_with(".lock")) {
+            continue;
+        }
+        let caminho = e.path();
+        // portão 1 — o FLOCK (abre SEM create: arquivo que não abre é
+        // de outro dono ou sumiu; os dois casos pulam sem drama)
+        let Ok(f) = std::fs::OpenOptions::new()
+            .truncate(false)
+            .write(true)
+            .open(&caminho)
+        else {
+            continue;
+        };
+        let rc = unsafe { libc::flock(f.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
+        if rc != 0 {
+            continue; // dono VIVO segurando — o arquivo é dele, de pé
+        }
+        // portão 2 — o PID: registrado e vivo = conservador (não toca);
+        // vazio (era legada) ou PID morto em /proc = o órfão da lei
+        let pid = std::fs::read_to_string(&caminho)
+            .ok()
+            .and_then(|t| t.trim().parse::<i32>().ok());
+        let vivo = pid
+            .map(|p| p > 1 && std::path::Path::new(&format!("/proc/{p}")).exists())
+            .unwrap_or(false);
+        if vivo {
+            continue;
+        }
+        if std::fs::remove_file(&caminho).is_ok() {
+            saidos += 1;
+        }
+        // o fd morre no fim do escopo: o flock de varredura se solta
+        // junto (o arquivo já saiu do chão — o inode morre com ele)
+    }
+    saidos
+}
+
 /// a lista viva: o conf da casa quando existe e tem residentes; senão o
 /// DEFAULT (o mesmo critério de "presente" do craft-bars — o arquivo
 /// lido é a fonte única).
@@ -1172,5 +1244,73 @@ mod tests {
         };
         let spec2: VagaSpec = r2.into();
         assert_eq!(spec2.comm.as_deref(), Some("swaync"));
+    }
+
+    // ── 1.0-100 — A VARREDURA DOS LOCKS ÓRFÃOS (audit 99 §2) ─────────
+
+    fn dir_teste(tag: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!(
+            "elite-lock-orfao-{tag}-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    #[test]
+    fn a_varredura_tira_o_orfao_vazio_e_o_pid_morto() {
+        // as DUAS classes do audit 99: o lock vazio da era legada
+        // (0 bytes, dono já morto) e o lock com PID que não existe mais
+        let d = dir_teste("vazio-morto");
+        std::fs::write(d.join("elite-daemon-session.lock"), b"").unwrap();
+        std::fs::write(d.join("elite-daemon.lock"), b"999999\n").unwrap(); // PID improvável
+        // um NÃO-da-casa no mesmo dir: não é da família, fica
+        std::fs::write(d.join("outro.lock"), b"").unwrap();
+        let saidos = limpa_locks_orfos_em(&d);
+        assert_eq!(saidos, 2, "vazio + PID morto saem; o estranho fica");
+        assert!(!d.join("elite-daemon-session.lock").exists());
+        assert!(!d.join("elite-daemon.lock").exists());
+        assert!(d.join("outro.lock").exists());
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn a_varredura_respeita_o_dono_vivo() {
+        // um lock FLOCKADO por este mesmo processo: portão 1 recusa —
+        // o arquivo fica (mesmo com o PID de outro morto dentro)
+        let d = dir_teste("dono-vivo");
+        let caminho = d.join("elite-daemon.lock");
+        let f = std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .write(true)
+            .open(&caminho)
+            .unwrap();
+        let rc = unsafe { libc::flock(f.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
+        assert_eq!(rc, 0);
+        std::fs::write(&caminho, b"999999\n").unwrap();
+        let saidos = limpa_locks_orfos_em(&d);
+        assert_eq!(saidos, 0, "dono vivo = intocado");
+        assert!(caminho.exists());
+        drop(f); // o flock morre com o fd
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn a_varredura_respeita_o_pid_vivo_registrado() {
+        // lock TRAVÁVEL (sem dono de flock) mas com o PID de um processo
+        // VIVO (este teste): o portão 2 é conservador — não toca
+        let d = dir_teste("pid-vivo");
+        let caminho = d.join("elite-daemon-game.lock");
+        std::fs::write(&caminho, format!("{}\n", std::process::id())).unwrap();
+        let saidos = limpa_locks_orfos_em(&d);
+        assert_eq!(saidos, 0, "PID vivo registrado = conservador não toca");
+        assert!(caminho.exists());
+        let _ = std::fs::remove_dir_all(&d);
     }
 }

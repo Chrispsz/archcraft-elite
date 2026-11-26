@@ -21,9 +21,19 @@
 #   · AUTOSTART: audita o nº de lançadores `elite-daemon session &` e a
 #     sintaxe (sh -n). Corrompido (nº ≠ 1 ou sintaxe quebrada):
 #     - arquivo DA CASA (cabeçalho Archcraft ELITE) → RECONSTRUÇÃO do
-#       mestre do pacote (/usr/local/share/elite/labwc/autostart);
+#       mestre do pacote (/usr/local/share/elite/labwc/autostart;
+#       1.0-100: SEM mestre no pacote, o mestre do skel /etc/skel vale
+#       — o audit 99 §7 fotografou o rig com o autostart DA ERA LEGADA
+#       vivo porque o mestre do pacote nunca existiu no disco);
 #     - arquivo PERSONALIZADO → cirúrgico: os lançadores espúrios saem,
 #       UM bloco marcado # BEGIN/END ELITE-DAEMON-SESSION entra no fim.
+#   1.0-100 — O FÓSSIL DE ERA (a 2ª cura do audit 99 §7): o autostart
+#     DA CASA que não menciona `elite-daemon session` em lugar nenhum é
+#     da ERA LEGADA (o guard `command -v waybar` abortava as barras;
+#     o craft-bars/spawn direto morreram com o E137) — mesmo com 1
+#     lançador e sintaxe são, o corpo velho é DOENTE: o guard morto
+#     tomba o arranque no rig de era antiga. RECONSTRUÇÃO do mestre
+#     (o corpo da casa E137+ é o único que a casa aceita em pé).
 #   · menu.xml / rc.xml: valida (xmllint; python3 como fallback; SEM
 #     juiz = não audita — nunca substitui sem prova). Inválido →
 #     substituição pelo mestre do pacote. Válido no fim → SIGHUP ao
@@ -68,6 +78,25 @@ fi
 
 LABWC="$HOME_ALVO/.config/labwc"
 MASTER_DIR="${ELITE_MASTER_DIR:-/usr/local/share/elite/labwc}"
+# 1.0-100 — O MESTRE DO SKEL É A REDE (o audit 99 §7 fotografou o rig
+# com o autostart da ERA LEGADA vivo porque o mestre do pacote
+# (/usr/local/share/elite/labwc) nunca chegou ao disco — a
+# reconstrução caía no cirúrgico e o guard waybar da era velha
+# sobrevivia por cima do bloco anexado). O skel SEMPRE viaja na dose
+# (pacote + ISO): quando o mestre do pacote falta, o arquivo DO SKEL
+# assume o MESMO juízo (mesma prova de sintaxe/nº de lançadores) —
+# o autostart da casa é UM só, skel e mestre são cópias.
+SKEL_DIR="${ELITE_SKEL_DIR:-/etc/skel/.config/labwc}"
+mestre_de() {
+    _md_nome="$1"
+    if [ -r "$MASTER_DIR/$_md_nome" ]; then
+        printf '%s' "$MASTER_DIR/$_md_nome"
+    elif [ -r "$SKEL_DIR/$_md_nome" ]; then
+        printf '%s' "$SKEL_DIR/$_md_nome"
+    else
+        printf ''
+    fi
+}
 MUDOU_XML=0
 
 # o dono numérico (chown pós-cura; o gid do home é o par natural)
@@ -169,16 +198,34 @@ cura_autostart() {
     [ -f "$_ca_f" ] || return 0
     _ca_n="$(conta_lancadores "$_ca_f")"
 
-    if [ "$_ca_n" -eq 1 ] && sh_ok "$_ca_f"; then
+    # 1.0-100 — O JUÍZO DO FÓSSIL DE ERA (a cura do audit 99 §7): o
+    # autostart DA CASA (cabeçalho da casa) que não menciona
+    # `elite-daemon session` em linha nenhuma é corpo da ERA LEGADA —
+    # o guard `command -v waybar` mandava no arranque e o waybar saiu
+    # do sistema (debloat E140/E151): o guard aborta as barras E o
+    # `craft-bars` nem existe mais no disco. Com o bloco anexado da
+    # cura anterior, o arquivo até TEM 1 lançador e sintaxe sã — mas
+    # o corpo velho segue DOENTE (o guard morto na frente do arranque).
+    _ca_era=0
+    if head -n 20 "$_ca_f" 2>/dev/null | grep -q 'Archcraft ELITE' \
+        && ! grep -q 'elite-daemon[[:space:]][[:space:]]*session' "$_ca_f" 2>/dev/null; then
+        _ca_era=1
+        printf 'autostart: DOENTE — corpo da ERA LEGADA (nenhum elite-daemon session; o guard do binário morto da era tomba o arranque — audit 99 §7)\n'
+    fi
+
+    if [ "$_ca_era" -eq 0 ] && [ "$_ca_n" -eq 1 ] && sh_ok "$_ca_f"; then
         printf 'autostart: EM ORDEM (1 lançador elite-daemon session · sintaxe sã)\n'
         return 0
     fi
 
-    # o diagnóstico no papel ANTES da mão
-    if ! sh_ok "$_ca_f"; then
-        printf 'autostart: DOENTE — sintaxe quebrada (sh -n falhou) · %s lançador(es)\n' "$_ca_n"
-    else
-        printf 'autostart: DOENTE — %s lançador(es) elite-daemon session (a casa exige 1)\n' "$_ca_n"
+    # o diagnóstico no papel ANTES da mão (o fóssil de era já se
+    # nomeou acima — este bloco cobre os outros dois réus)
+    if [ "$_ca_era" -eq 0 ]; then
+        if ! sh_ok "$_ca_f"; then
+            printf 'autostart: DOENTE — sintaxe quebrada (sh -n falhou) · %s lançador(es)\n' "$_ca_n"
+        else
+            printf 'autostart: DOENTE — %s lançador(es) elite-daemon session (a casa exige 1)\n' "$_ca_n"
+        fi
     fi
 
     bak_unica "$_ca_f" || {
@@ -186,11 +233,14 @@ cura_autostart() {
         return 1
     }
 
-    # RAMO 1 — arquivo da CASA (cabeçalho da casa nas primeiras linhas):
-    # reconstrução do MESTRE do pacote (a fonte de verdade no disco)
+    # RAMO 1 — arquivo da CASA (cabeçalho da casa nas primeiras linhas,
+    # fóssil de era incluído — o cabeçalho era o MESMO): reconstrução do
+    # MESTRE do pacote com o SKEL como rede (1.0-100: o mestre do
+    # pacote pode não existir no disco de rigs antigos — era exatamente
+    # o buraco do audit; o skel SEMPRE viaja na dose)
     if head -n 20 "$_ca_f" 2>/dev/null | grep -q 'Archcraft ELITE'; then
-        _ca_mestre="$MASTER_DIR/autostart"
-        if [ -r "$_ca_mestre" ] \
+        _ca_mestre="$(mestre_de autostart)"
+        if [ -n "$_ca_mestre" ] \
            && [ "$(conta_lancadores "$_ca_mestre")" -eq 1 ] \
            && sh_ok "$_ca_mestre"; then
             if cp -p "$_ca_mestre" "$_ca_f" 2>/dev/null \
@@ -235,7 +285,10 @@ cura_autostart() {
 cura_xml() {
     # $1 = nome do arquivo · $2 = juiz (menu_ok ou xml_ok)
     _cx_f="$LABWC/$1"
-    _cx_mestre="$MASTER_DIR/$1"
+    # 1.0-100 — o mestre com o SKEL como rede (o mesmo gesto do
+    # autostart: o mestre do pacote pode não existir no disco; o skel
+    # sempre viaja — mestre_de devolve o primeiro que existir)
+    _cx_mestre="$(mestre_de "$1")"
     _cx_juiz="$2"
     [ -f "$_cx_f" ] || return 0
 

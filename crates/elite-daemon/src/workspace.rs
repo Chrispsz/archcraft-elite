@@ -20,6 +20,7 @@
 
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 
 use elite_core::BusMsg;
@@ -101,11 +102,50 @@ pub fn atual() -> u32 {
     MESA.lock().unwrap().as_ref().map(|m| m.atual).unwrap_or(1)
 }
 
+/// 1.0-100 — A MESA APRENDIDA DE UMA JANELA (o rastreamento que o bus
+/// publica: `WindowInfo.desk`). None = a janela nunca foi focada sob
+/// o olhar da casa — o consumidor presume visível (o desconhecido não
+/// mentiu; a dock NUNCA apaga botão por falta de informação).
+pub fn mesa_da_janela(janela: u32) -> Option<u32> {
+    MESA.lock()
+        .unwrap()
+        .as_ref()
+        .and_then(|m| m.por_janela.get(&janela).copied())
+}
+
+/// o instante do ÚLTIMO SET/STEP do sync (ms do boot da casa — o
+/// aprendizado OBEDECE ao sync na janela curta: a tag velha da janela
+/// movida entre mesas não arrasta a corrente para trás).
+static SYNC_EM: AtomicU64 = AtomicU64::new(0);
+
+fn agora_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+fn sync_fresco() -> bool {
+    let t = SYNC_EM.load(Ordering::Relaxed);
+    t != 0 && agora_ms().saturating_sub(t) < 1500
+}
+
 /// o APRENDIZADO: a janela focada crava a mesa dela (chamado pelo
-/// wayland.rs quando o foco segue um pulo sintetizado).
+/// wayland.rs quando o foco muda).
+/// 1.0-100 — A JANELA DO SYNC MANDA: dentro de 1,5s de um set/step do
+/// rc.xml, o foco que chega é a prova da mesa NOVA — a janela ganha a
+/// tag da mesa corrente (a tag velha dela morre; o arrasto para trás
+/// que a tag movida criaria morre com ela). Fora da janela do sync, a
+/// regra de sempre: tag conhecida ≠ corrente arrasta a corrente (o
+/// cinto dos binds `<default/>` do labwc que a casa não vê).
 pub fn aprende(janela: u32) {
     let mut guard = MESA.lock().unwrap();
     let mesa = guard.get_or_insert_with(|| Mesa { atual: 1, por_janela: HashMap::new() });
+    if sync_fresco() {
+        // o sync é a autoridade: a janela focada MORA na mesa corrente
+        mesa.por_janela.insert(janela, mesa.atual);
+        return;
+    }
     if let Some(&m) = mesa.por_janela.get(&janela) {
         if m != mesa.atual {
             mesa.atual = m;
@@ -118,10 +158,89 @@ pub fn aprende(janela: u32) {
     }
 }
 
+/// 1.0-100 — O SYNC ABSOLUTO (o BusReq::DeskSet; o CLI `elite-daemon
+/// desk N` do rc.xml): o labwc JÁ fez a troca (o Execute do bind corre
+/// junto do GoToDesktop) — a casa registra a mesa, marca o instante do
+/// sync e publica. NUNCA sintetiza tecla (o loop W-<n> fechava aqui).
+/// Fora da faixa = recusa honesta (a tag da casa não mente).
+pub fn define(n: u32) -> bool {
+    let total_mesas = total();
+    if n < 1 || n > total_mesas {
+        return false;
+    }
+    SYNC_EM.store(agora_ms(), Ordering::Relaxed);
+    {
+        let mut guard = MESA.lock().unwrap();
+        let mesa = guard.get_or_insert_with(|| Mesa { atual: 1, por_janela: HashMap::new() });
+        mesa.atual = n;
+    }
+    publica();
+    true
+}
+
+/// 1.0-100 — AS MESAS OCUPADAS CONHECIDAS (as mesas onde janelas
+/// APRENDIDAS moram, excluindo a corrente — a base do passo `-occupied`).
+fn ocupadas_excluindo(atual: u32) -> Vec<u32> {
+    let guard = MESA.lock().unwrap();
+    let Some(mesa) = guard.as_ref() else { return Vec::new() };
+    let mut ms: Vec<u32> = mesa
+        .por_janela
+        .values()
+        .copied()
+        .filter(|&m| m >= 1 && m != atual)
+        .collect();
+    ms.sort_unstable();
+    ms.dedup();
+    ms
+}
+
+/// o PASSO com wrap no eixo 1D (left/right a partir da corrente).
+fn passo_wrap(atual: u32, total: u32, esquerda: bool) -> u32 {
+    if esquerda {
+        if atual <= 1 { total } else { atual - 1 }
+    } else if atual >= total {
+        1
+    } else {
+        atual + 1
+    }
+}
+
+/// 1.0-100 — O SYNC RELATIVO (o BusReq::DeskStep; os binds left/right e
+/// os `-occupied` do rc.xml): quem sabe a mesa corrente é A CASA — o
+/// cálculo com wrap mora aqui e a ocupação aprendida decide o
+/// `-occupied` (a mesa anterior/seguinte que tem janela marcada; sem
+/// nenhuma marcada, o passo simples honesto).
+pub fn passo(dir: &str) -> bool {
+    let total_mesas = total();
+    let cur = atual();
+    let alvo = match dir {
+        "left" => passo_wrap(cur, total_mesas, true),
+        "right" => passo_wrap(cur, total_mesas, false),
+        "left-occupied" | "right-occupied" => {
+            let esquerda = dir == "left-occupied";
+            let ocupadas = ocupadas_excluindo(cur);
+            let caída = if esquerda {
+                // a maior mesa ocupada ANTES da corrente (wrap: a maior
+                // de todas quando não há nenhuma antes)
+                ocupadas.iter().rev().find(|&&m| m < cur).copied()
+            } else {
+                // a menor mesa ocupada DEPOIS da corrente (wrap: a
+                // menor de todas quando não há nenhuma depois)
+                ocupadas.iter().find(|&&m| m > cur).copied()
+            };
+            caída.unwrap_or_else(|| passo_wrap(cur, total_mesas, esquerda))
+        }
+        _ => return false, // direção desconhecida = recusa honesta
+    };
+    define(alvo)
+}
+
 /// O PULO (a barra pede, a casa sintetiza o bind W-<n>): o wlrctl
 /// aperta Super+N no teclado VIRTUAL do labwc — o compositor faz o
 /// resto (a mesma porta que o teclado do dono usa). Um fork por
 /// clique (raro por desenho — a lei dos eventos).
+/// 1.0-100 — O PULO TAMBÉM MARCA O SYNC (o foco que chega é prova da
+/// mesa nova — a mesma janela de obediência do set/step do rc.xml).
 pub fn pula(n: u32) -> bool {
     let total_mesas = total();
     if n < 1 || n > total_mesas {
@@ -129,6 +248,10 @@ pub fn pula(n: u32) -> bool {
     }
     // marca o instante do pulo (o wayland.rs aprende com o foco que vem)
     crate::wayland::marca_pulo();
+    // 1.0-100 — o pulo também marca o SYNC (a janela de obediência do
+    // aprendizado: o foco que chega é prova da mesa nova, não arrasto
+    // da tag velha)
+    SYNC_EM.store(agora_ms(), Ordering::Relaxed);
     // a mesa cravada AGORA (o foco que chega confirma; se nenhum vem,
     // a hipótese segue — o teclado do dono é a fonte final)
     {
@@ -202,5 +325,105 @@ mod tests {
         assert_eq!(nomes.len(), 4);
         // o índice 3 → a 4ª mesa (1-based na cara do dono)
         assert_eq!(nomes[3], "4");
+    }
+
+    // ── 1.0-100 — O SYNC DA MESA (o rastreamento e o passo) ─────────
+
+    /// helper do teste: planta o estado da mesa direto (as funções de
+    /// sync operam sobre o MESA global — o teste planta, o veredito
+    /// julga, o estado morre com o processo de teste).
+    /// A TRAVA: os testes do estado correm em PARALELO no mesmo
+    /// processo e o MESA é um global — sem ela, o planta de um teste
+    /// pisoteia o veredito do outro (a corrida que nomeou os 2 falsos
+    /// vermelhos da 1ª rodada). Cada teste de estado segura a trava
+    /// pelo BLOCO INTEIRO (planta + gesto + juízo).
+    static TRAVA_TESTE: Mutex<()> = Mutex::new(());
+
+    fn planta(atual: u32, por_janela: &[(u32, u32)]) {
+        let mut guard = MESA.lock().unwrap();
+        *guard = Some(Mesa {
+            atual,
+            por_janela: por_janela.iter().copied().collect(),
+        });
+    }
+
+    #[test]
+    fn o_passo_wrap_anda_no_eixo_1d() {
+        // o eixo da casa é 1D (4 mesas em fila): left da 1 com wrap na 4,
+        // right da 4 com wrap na 1 — o MESMO wrap que o rc.xml manda
+        assert_eq!(passo_wrap(1, 4, true), 4);
+        assert_eq!(passo_wrap(2, 4, true), 1);
+        assert_eq!(passo_wrap(3, 4, false), 4);
+        assert_eq!(passo_wrap(4, 4, false), 1);
+    }
+
+    #[test]
+    fn a_mesa_da_janela_e_a_tag_aprendida_ou_none() {
+        let _t = TRAVA_TESTE.lock().unwrap();
+        planta(2, &[(7, 1), (9, 3)]);
+        assert_eq!(mesa_da_janela(7), Some(1));
+        assert_eq!(mesa_da_janela(9), Some(3));
+        assert_eq!(mesa_da_janela(5), None, "desconhecida = None honesto");
+    }
+
+    #[test]
+    fn o_define_fora_da_faixa_recusa_honesto() {
+        let _t = TRAVA_TESTE.lock().unwrap();
+        planta(1, &[]);
+        assert!(!define(0), "mesa 0 não existe");
+        assert!(!define(9), "mesa 9 não existe na fábrica de 4");
+    }
+
+    #[test]
+    fn o_passo_occupied_escolhe_a_mesa_com_janela_marcada() {
+        let _t = TRAVA_TESTE.lock().unwrap();
+        // corrente = 3; janelas marcadas nas mesas 1 e 4: o left-occupied
+        // vai para a 1 (a maior ocupada ANTES), o right-occupied vai
+        // para a 4 (a menor ocupada DEPOIS). O publica() sem bus na casa
+        // é silêncio honesto — o ESTADO é o juízo aqui.
+        planta(3, &[(10, 1), (11, 4)]);
+        assert!(passo("left-occupied"));
+        {
+            let guard = MESA.lock().unwrap();
+            let mesa = guard.as_ref().unwrap();
+            assert_eq!(mesa.atual, 1, "left-occupied com ocupadas 1,4 e corrente 3 → mesa 1");
+        }
+        planta(3, &[(10, 1), (11, 4)]);
+        assert!(passo("right-occupied"));
+        {
+            let guard = MESA.lock().unwrap();
+            assert_eq!(guard.as_ref().unwrap().atual, 4, "right-occupied → mesa 4");
+        }
+    }
+
+    #[test]
+    fn o_passo_occupied_sem_ocupadas_cai_no_wrap_simples() {
+        let _t = TRAVA_TESTE.lock().unwrap();
+        planta(2, &[]);
+        assert!(passo("left-occupied"));
+        {
+            let guard = MESA.lock().unwrap();
+            assert_eq!(guard.as_ref().unwrap().atual, 1, "sem marcadas: o wrap simples manda");
+        }
+    }
+
+    #[test]
+    fn o_aprendizado_obedece_ao_sync_fresco() {
+        let _t = TRAVA_TESTE.lock().unwrap();
+        // com o SYNC fresco (define acabou de correr), a janela focada
+        // ganha a tag da mesa corrente — a tag velha dela NÃO arrasta
+        planta(2, &[(42, 1)]);
+        assert!(define(4));
+        aprende(42);
+        {
+            let guard = MESA.lock().unwrap();
+            let mesa = guard.as_ref().unwrap();
+            assert_eq!(mesa.atual, 4, "o sync não é desfeito pela tag velha");
+            assert_eq!(
+                mesa.por_janela.get(&42),
+                Some(&4),
+                "a janela movida ganha a tag da mesa nova"
+            );
+        }
     }
 }
