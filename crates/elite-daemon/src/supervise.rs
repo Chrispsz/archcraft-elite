@@ -1064,13 +1064,15 @@ fn supervisa(
                     .unwrap_or_else(|_| {
                         PathBuf::from(std::env::var("HOME").unwrap_or_default()).join(".config")
                     });
-                // 1.0-102 — A CADEIA DE MESTRES: o pacote primeiro (o
-                // skel é veículo da ISO — o rig instalado nem o tem),
-                // o /etc/xdg da casa e o skel como redes
+                // 1.0-102→1.0-104 — A CADEIA DE MESTRES: o pacote primeiro
+                // (o mestre da dose), o skel do rig de segundo (o pacote
+                // o entrega desde a 1.0-104) e o /etc/xdg como a ÚLTIMA
+                // rede (o DEFAULT do próprio swaync upstream — a casa
+                // não disputa o caminho do alheio, mas quem existe veste)
                 let mestres = [
                     PathBuf::from("/usr/local/share/elite/swaync"),
-                    PathBuf::from("/etc/xdg/swaync"),
                     PathBuf::from("/etc/skel/.config/swaync"),
+                    PathBuf::from("/etc/xdg/swaync"),
                 ];
                 let entregues = entrega_pele_swaync(&mestres, &conf_base.join("swaync"));
                 if entregues > 0 {

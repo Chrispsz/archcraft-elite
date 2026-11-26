@@ -362,11 +362,18 @@ file_has "daemon: o cão de guarda do socket no supervisa (a 2ª via do fim)" "c
 file_has "daemon: o relogin julga o órfão pela identidade (XDG_SESSION_ID)" "crates/elite-daemon/src/supervise.rs" 'julga_orfao_relogin'
 file_has "daemon: o lock do órfão teimoso é assumido na hora" "crates/elite-daemon/src/supervise.rs" 'ASSUME'
 # a config padrão do swaync viaja na DOSE (o "Config not found!" do
-# audit 102 morre nas duas portas):
+# audit 102 morre; 1.0-104 — o CONFLITO do /etc/xdg morre junto: o
+# caminho é do swaync upstream, dois pacotes no mesmo arquivo é
+# --overwrite em TODA dose — o mestre da casa + o skel do rig bastam):
 file_has "pkg: o mestre do swaync viaja no pacote (a cadeia do daemon lê 1º)" ".ci/build.sh" 'files/usr/local/share/elite/swaync/config.json'
-file_has "pkg: o fallback de sistema /etc/xdg/swaync viaja no pacote" ".ci/build.sh" 'files/etc/xdg/swaync/config.json'
-file_has "skel-etc: o fallback /etc/xdg/swaync nasce no airootfs" "elite/airootfs/etc/xdg/swaync/config.json" 'positionX'
-file_has "daemon: a cadeia de mestres do entrega_pele_swaync (pacote 1º)" "crates/elite-daemon/src/supervise.rs" 'usr/local/share/elite/swaync'
+file_has "pkg: o SKEL do swaync viaja no pacote (o rig recém-nascido já veste)" ".ci/build.sh" 'files/etc/skel/.config/swaync/config.json'
+file_hasnt "pkg: o /etc/xdg/swaync NÃO viaja no pacote (o caminho é do swaync upstream — zero conflito de arquivo)" ".ci/build.sh" 'files/etc/xdg/swaync'
+file_hasnt "skel-etc: o gêmeo /etc/xdg/swaync do airootfs NÃO existe mais (1.0-104)" "elite/airootfs/etc/xdg/swaync/config.json" 'positionX'
+file_has "daemon: a cadeia de mestres do entrega_pele_swaync (pacote 1º, skel 2º)" "crates/elite-daemon/src/supervise.rs" 'usr/local/share/elite/swaync'
+file_has "update: a pele do swaync (config E estilo) veste o $HOME ANTES da dose" "elite/airootfs/usr/local/bin/elite-update" 'config.json style.css'
+# 1.0-104 — O PROBE LÊ O LOCK VIVO (o SUPERVISOR_LOCK reflete o
+# session.lock do elite-daemon — o bars.lock fóssil nunca mais mente):
+file_has "probe: o SUPERVISOR_LOCK julga pelo session.lock do elite-daemon" "elite/airootfs/usr/local/bin/elite-session-probe" 'elite/session.lock'
 # o heal ganha o juízo do FÓSSIL DE SPAWN (o corpo congelado de dose
 # antiga com residente de era nascendo é reconstruído do mestre):
 file_has "heal: o juízo do FÓSSIL DE SPAWN (audit 102 §2)" "elite/airootfs/usr/local/bin/elite-heal-sessao" 'FÓSSIL DE SPAWN'

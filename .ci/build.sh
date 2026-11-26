@@ -529,25 +529,28 @@ cp -p /work/elite/airootfs/etc/gamemode.ini \
 mkdir -p /tmp/elite-src/elite-system/files/etc/xdg/tumbler
 cp -p /work/elite/airootfs/etc/xdg/tumbler/tumbler.rc \
       /tmp/elite-src/elite-system/files/etc/xdg/tumbler/tumbler.rc
-# 1.0-102 — A CONFIG PADRÃO DO SWAYNC NO PACOTE (a cura do "Config not
-# found! Using default config..." do audit 102): o conf da casa era
-# VEÍCULO DA ISO (só o skel) — o rig instalado NEM O TINHA em /etc/skel
-# e o painel acordava com a pele DEFAULT do upstream. Entrega em DUAS
-# moradas: o MESTRE da dose (/usr/local/share/elite/swaync — a cadeia
-# do entrega_pele_swaync do elite-daemon lê primeiro; caiu → o daemon
-# veste o $HOME antes do fork) e o FALLBACK DE SISTEMA (/etc/xdg/swaync
-# — o segundo endereço da cadeia XDG que o próprio swaync lê quando o
-# $HOME não tem nada; sem mestre, sem skel, o painel ainda veste a casa).
+# 1.0-102→1.0-104 — A CONFIG PADRÃO DO SWAYNC NO PACOTE (a cura do
+# "Config not found! Using default config..." do audit 102): o conf da
+# casa era VEÍCULO DA ISO (só o skel) — o rig instalado NEM O TINHA.
+# Entrega em DUAS moradas: o MESTRE da dose (/usr/local/share/elite/
+# swaync — a cadeia do entrega_pele_swaync do elite-daemon lê primeiro;
+# caiu → o daemon veste o $HOME antes do fork) e o SKEL DO RIG
+# (/etc/skel/.config/swaync — o recém-nascido do archinstall já veste).
+# 1.0-104 — O /etc/xdg/swaync SAI DO PACOTE (a cura do --overwrite do
+# pacman -Syu: o swaync UPSTREAM é o dono de /etc/xdg/swaync/config.json
+# — dois pacotes reclamando o mesmo caminho é conflito de arquivo em
+# TODA dose; o mestre da casa entrega ANTES do fork, o fallback de
+# sistema é o DEFAULT do próprio swaync — a casa não disputa o alheio).
 mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/swaync
 cp -p /work/elite/airootfs/etc/skel/.config/swaync/config.json \
       /tmp/elite-src/elite-system/files/usr/local/share/elite/swaync/config.json
 cp -p /work/elite/airootfs/etc/skel/.config/swaync/style.css \
       /tmp/elite-src/elite-system/files/usr/local/share/elite/swaync/style.css
-mkdir -p /tmp/elite-src/elite-system/files/etc/xdg/swaync
+mkdir -p /tmp/elite-src/elite-system/files/etc/skel/.config/swaync
 cp -p /work/elite/airootfs/etc/skel/.config/swaync/config.json \
-      /tmp/elite-src/elite-system/files/etc/xdg/swaync/config.json
+      /tmp/elite-src/elite-system/files/etc/skel/.config/swaync/config.json
 cp -p /work/elite/airootfs/etc/skel/.config/swaync/style.css \
-      /tmp/elite-src/elite-system/files/etc/xdg/swaync/style.css
+      /tmp/elite-src/elite-system/files/etc/skel/.config/swaync/style.css
 # E90 — O MAPA VIAJA NO PACOTE: a doc completa (SCRIPTS.md — a linha de
 # cada peça) morava só no repo; o craft-help aponta para ela e o dono
 # ganha o mapa DENTRO do sistema (a fonte única continua sendo o repo —
@@ -767,13 +770,10 @@ ${hnames}
     MOLDE[swc_install]='    install -d "${pkgdir}/usr/local/share/elite/swaync"
     install -m644 "${startdir}/files/usr/local/share/elite/swaync/config.json" "${pkgdir}/usr/local/share/elite/swaync/config.json"
     install -m644 "${startdir}/files/usr/local/share/elite/swaync/style.css" "${pkgdir}/usr/local/share/elite/swaync/style.css"
-    install -d "${pkgdir}/etc/xdg/swaync"
-    install -m644 "${startdir}/files/etc/xdg/swaync/config.json" "${pkgdir}/etc/xdg/swaync/config.json"
-    install -m644 "${startdir}/files/etc/xdg/swaync/style.css" "${pkgdir}/etc/xdg/swaync/style.css"'$'\n'
-    MOLDE[swc_rm]='    for f in /usr/local/share/elite/swaync/config.json /usr/local/share/elite/swaync/style.css; do
-        [ -e "$f" ] && rm -f "$f"
-    done
-    for f in /etc/xdg/swaync/config.json /etc/xdg/swaync/style.css; do
+    install -d "${pkgdir}/etc/skel/.config/swaync"
+    install -m644 "${startdir}/files/etc/skel/.config/swaync/config.json" "${pkgdir}/etc/skel/.config/swaync/config.json"
+    install -m644 "${startdir}/files/etc/skel/.config/swaync/style.css" "${pkgdir}/etc/skel/.config/swaync/style.css"'$'\n'
+    MOLDE[swc_rm]='    for f in /usr/local/share/elite/swaync/config.json /usr/local/share/elite/swaync/style.css /etc/skel/.config/swaync/config.json /etc/skel/.config/swaync/style.css; do
         [ -e "$f" ] && ! pacman -Qo "$f" >/dev/null 2>&1 && rm -f "$f"
     done'$'\n'
     MOLDE[theo_install]='    install -d "${pkgdir}/usr/local/share/elite/labwc"
@@ -3057,7 +3057,7 @@ license=(GPL3)
 # do elite-gparted — a adoção best-effort só convergia quando o dono
 # rodava a dose; o pacote NASCE com o cinto). xorg-xhost abre o
 # +SI:localuser:root do XWayland; xorg-xauth extrai o cookie do usuário.
-depends=(bash python wayland wlopm xorg-xhost xorg-xauth)
+depends=(bash wayland wlopm xorg-xhost xorg-xauth pwvucontrol blueman iwgtk)
 # E138 — o sysctl consolidado é EDITÁVEL pelo dono (a régua da casa o
 # regenera; a edição manual sobrevive como .pacnew, nunca perdida)
 backup=(etc/sysctl.d/99-elite-performance.conf)

@@ -49,6 +49,23 @@ if [ "$(id -u)" = 0 ]; then
     exec /usr/local/bin/elite-dose --sistema "$@"
 fi
 
+# 1.0-104 — A PELE DO SWAYNC ANTES DA DOSE (a ordem do dono: o painel
+# renasce com a config E o estilo da casa — tanto o config.json quanto o
+# style.css — ANTES de qualquer respawn: o mestre da dose
+# (/usr/local/share/elite/swaync) veste o $HOME do dono da sessão no
+# MESMO gesto desta porta; o arquivo PRESENTE é domínio do dono e
+# NUNCA é tocado — a mesma gramática do entrega_pele_swaync do daemon).
+if [ -d /usr/local/share/elite/swaync ]; then
+    _sc_home="${XDG_CONFIG_HOME:-$HOME/.config}/swaync"
+    mkdir -p "$_sc_home" 2>/dev/null || true
+    for _sc_f in config.json style.css; do
+        if [ ! -e "$_sc_home/$_sc_f" ] && [ -f "/usr/local/share/elite/swaync/$_sc_f" ]; then
+            cp -p "/usr/local/share/elite/swaync/$_sc_f" "$_sc_home/$_sc_f" 2>/dev/null || true
+        fi
+    done
+    unset _sc_home _sc_f
+fi
+
 if command -v pkexec >/dev/null 2>&1; then
     exec pkexec /usr/local/bin/elite-dose --sistema "$@"
 fi
