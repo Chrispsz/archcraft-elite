@@ -67,7 +67,7 @@ use std::os::unix::process::CommandExt;
 use std::process::{Command, Stdio};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicI32, Ordering};
-use std::sync::mpsc::{Receiver, Sender, TryRecvError};
+use std::sync::mpsc::{Receiver, Sender};
 use std::time::{Duration, Instant};
 
 use gtk4::prelude::*;
@@ -190,7 +190,7 @@ struct State {
 pub fn run() -> i32 {
     arma_rt();
     let app = gtk::Application::new(Some("elite.craft.Bar"), Default::default());
-    app.connect_activate(|app| build(app));
+    app.connect_activate(build);
     app.run().get() as i32
 }
 
@@ -476,6 +476,7 @@ fn build(app: &gtk::Application) {
         let s = st.borrow();
         let btn_game = s.btn_game.clone();
         let btn_player = s.btn_player.clone();
+        let btn_next = s.btn_next.clone();
         let player_img = s.player_img.clone();
         let player_label = s.player_label.clone();
         let btn_audio = s.btn_audio.clone();
@@ -976,7 +977,6 @@ fn um_longo(prog: &str, args: &[&str]) -> Option<String> {
 /// padrões (o status pode não marcar o MUTED — a porta que sempre
 /// falou verdade vence). None no todo = wpctl ausente/engasgado (a UI
 /// CONSERVA o estado anterior).
-
 fn foto_audio() -> Option<AudioDetalhe> {
     let saida = um_longo("wpctl", &["status"])?;
     let (mut sinks, mut fontes) = parse_wpctl_status(&saida);
@@ -1066,11 +1066,8 @@ fn drena(st: &Rc<RefCell<State>>, rx: &Receiver<Msg>, tx: &Sender<Msg>) {
     }
     // o FILHO do drawer não mora mais aqui (E149 — a gaveta é do
     // craft-apps, um processo de UM tiro: o solta() é o coveiro dele)
-    loop {
-        match rx.try_recv() {
-            Ok(msg) => aplica(st, msg),
-            Err(TryRecvError::Empty) | Err(TryRecvError::Disconnected) => break,
-        }
+    while let Ok(msg) = rx.try_recv() {
+        aplica(st, msg);
     }
 }
 
@@ -1393,7 +1390,7 @@ fn clique_solto<W: IsA<gtk::Widget>>(btn: &W, acao: impl Fn(u32) + 'static) {
             }
             let botao = g.current_button();
             if botao != 0 {
-                acao(botao as u32);
+                acao(botao);
             }
         });
     }

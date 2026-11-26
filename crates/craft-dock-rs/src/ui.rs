@@ -207,7 +207,7 @@ struct State {
 pub fn run() -> i32 {
     arma_rt();
     let app = gtk::Application::new(Some("elite.craft.Dock"), Default::default());
-    app.connect_activate(|app| build(app));
+    app.connect_activate(build);
     app.run().get() as i32
 }
 
@@ -420,12 +420,15 @@ fn bg_reader(sock_path: PathBuf, tx: Sender<Msg>) {
                     // 1.0-100 — A MESA CORRENTE (audit 99 §4): o sync do
                     // rc.xml publica Workspace — a dock veste/.desnuda o
                     // .other-workspace no idle seguinte (classes, nunca
-                    // remontagem)
-                    elite_core::BusMsg::Workspace(w) => {
-                        if tx.send(Msg::Mesa(w.current)).is_err() {
-                            return;
-                        }
+                    // remontagem). O GUARD do match é o juízo da casa (a
+                    // lente clippy o cobra): o envio que FALHA casa o
+                    // braço e a thread sai — o braço seguinte é o silêncio.
+                    elite_core::BusMsg::Workspace(w)
+                        if tx.send(Msg::Mesa(w.current)).is_err() =>
+                    {
+                        return; // a UI morreu: a thread vai junto
                     }
+                    elite_core::BusMsg::Workspace(_) => {}
                     _ => {} // os estados dos outros domínios não são da dock
                 }
             }
@@ -639,15 +642,13 @@ fn pins_aplica(op: &PodaOp) -> bool {
         let primeira = t.split_whitespace().next().unwrap_or("");
         if primeira == alvo {
             achou = true;
-            match nova {
-                Some(para) => {
-                    // o resto da linha (o hint na 2ª coluna, comentário de cauda)
-                    let resto = t.strip_prefix(primeira).unwrap_or("");
-                    out.push_str(para);
-                    out.push_str(resto);
-                    out.push('\n');
-                }
-                None => {} // a linha morta morre
+            // o resto da linha (o hint na 2ª coluna, comentário de cauda)
+            // — a linha morta morre (o None da era era um braço vazio)
+            if let Some(para) = nova {
+                let resto = t.strip_prefix(primeira).unwrap_or("");
+                out.push_str(para);
+                out.push_str(resto);
+                out.push('\n');
             }
             continue;
         }
@@ -1315,7 +1316,6 @@ fn wire_clicks(st: &Rc<RefCell<State>>, btn: &gtk::Button, act: Act) {
         {
             let st = st.clone();
             let act = act.clone();
-            let eco = eco;
             btn.connect_clicked(move |_| {
                 if eco.get() {
                     eco.set(false);
@@ -1402,7 +1402,7 @@ fn pins_adiciona(id: &str) -> bool {
     let path = pins_path();
     let mut txt = std::fs::read_to_string(&path).unwrap_or_default();
     for linha in txt.lines() {
-        if linha.trim().split_whitespace().next() == Some(id) {
+        if linha.split_whitespace().next() == Some(id) {
             return false; // já fixado — o estado não mente
         }
     }

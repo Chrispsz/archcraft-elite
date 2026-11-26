@@ -655,8 +655,13 @@ pub fn parse_desktop_entry(id: &str, text: &str) -> DesktopEntry {
 }
 
 /// Varre um diretório de .desktops (ex.: /usr/share/applications ou os
-/// exports do Flatpak). NoDisplay/Hidden NUNCA entram (a lei E21 da
-/// gaveta, herdada: helper rodando não é app de dock).
+/// exports do Flatpak) NO MODO LIMPO: NoDisplay/Hidden NUNCA entram (a
+/// lei E21 da gaveta, herdada: helper rodando não é app de dock). A
+/// dock veste a COMPLETA (`scan_desktop_dir_todos` — 1.0-104, a
+/// identidade dos jogos NoDisplay); a LIMPA é o CONTRATO DOS TESTES (a
+/// prova viva de que a lei E21 continua na varredura da casa — o
+/// consumidor de GUI é a completa, o de gaveta é o nwg-drawer FORA daqui).
+#[cfg(test)]
 pub fn scan_desktop_dir(dir: &Path) -> Vec<DesktopEntry> {
     varre_desktops(dir, false)
 }
