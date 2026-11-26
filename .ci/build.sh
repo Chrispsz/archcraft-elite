@@ -677,35 +677,40 @@ ${hnames}
     cp -a "${startdir}/files/usr/lib/systemd/system-sleep/." "${pkgdir}/usr/lib/systemd/system-sleep/"
 '
     fi
+    # ── A MOLDE: mapa marca→valor (1.0-103 — a lente do shellcheck não
+    #    segue a indireção ${!marca} de um array de NOMES: as constantes
+    #    moram em ELEMENTOS de array associativo e as dinâmicas entram
+    #    EXPANDIDAS no fim — cada variável com uso de verdade, zero SC2034)
+    local -A MOLDE
     # ── as danças literais de cada pele (install/rm no pacote) ──
-    apps_install='    install -d "${pkgdir}/usr/local/share/applications"
+    MOLDE[apps_install]='    install -d "${pkgdir}/usr/local/share/applications"
     install -m644 "${startdir}/files/usr/local/share/applications/org.coolercontrol.CoolerControl.desktop" "${pkgdir}/usr/local/share/applications/org.coolercontrol.CoolerControl.desktop"'$'\n'
-    apps_rm='    [ -e "/usr/local/share/applications/org.coolercontrol.CoolerControl.desktop" ] && rm -f "/usr/local/share/applications/org.coolercontrol.CoolerControl.desktop"'$'\n'
-    dc_install='    install -Dm644 "${startdir}/files/usr/local/share/elite/daemon.conf" "${pkgdir}/usr/local/share/elite/daemon.conf"'$'\n'
-    dc_rm='    [ -e "/usr/local/share/elite/daemon.conf" ] && rm -f "/usr/local/share/elite/daemon.conf"'$'\n'
-    doc_install='    install -d "${pkgdir}/usr/local/share/elite/docs"
+    MOLDE[apps_rm]='    [ -e "/usr/local/share/applications/org.coolercontrol.CoolerControl.desktop" ] && rm -f "/usr/local/share/applications/org.coolercontrol.CoolerControl.desktop"'$'\n'
+    MOLDE[dc_install]='    install -Dm644 "${startdir}/files/usr/local/share/elite/daemon.conf" "${pkgdir}/usr/local/share/elite/daemon.conf"'$'\n'
+    MOLDE[dc_rm]='    [ -e "/usr/local/share/elite/daemon.conf" ] && rm -f "/usr/local/share/elite/daemon.conf"'$'\n'
+    MOLDE[doc_install]='    install -d "${pkgdir}/usr/local/share/elite/docs"
     install -m644 "${startdir}/files/usr/local/share/elite/docs/SCRIPTS.md" "${pkgdir}/usr/local/share/elite/docs/SCRIPTS.md"'$'\n'
-    doc_rm='    [ -e "/usr/local/share/elite/docs/SCRIPTS.md" ] && rm -f "/usr/local/share/elite/docs/SCRIPTS.md"'$'\n'
-    ef_install='    install -Dm644 "${startdir}/elite-flathub.hook" "${pkgdir}/usr/share/libalpm/hooks/elite-flathub.hook"'$'\n'
-    ff_install='    install -d "${pkgdir}/usr/local/share/elite/fastfetch"
+    MOLDE[doc_rm]='    [ -e "/usr/local/share/elite/docs/SCRIPTS.md" ] && rm -f "/usr/local/share/elite/docs/SCRIPTS.md"'$'\n'
+    MOLDE[ef_install]='    install -Dm644 "${startdir}/elite-flathub.hook" "${pkgdir}/usr/share/libalpm/hooks/elite-flathub.hook"'$'\n'
+    MOLDE[ff_install]='    install -d "${pkgdir}/usr/local/share/elite/fastfetch"
     install -m644 "${startdir}/files/usr/local/share/elite/fastfetch/config.jsonc" "${pkgdir}/usr/local/share/elite/fastfetch/config.jsonc"'$'\n'
-    ff_rm='    [ -e "/usr/local/share/elite/fastfetch/config.jsonc" ] && rm -f "/usr/local/share/elite/fastfetch/config.jsonc"'$'\n'
-    flags_install='    install -d "${pkgdir}/usr/local/share/elite/chromium-flags"
+    MOLDE[ff_rm]='    [ -e "/usr/local/share/elite/fastfetch/config.jsonc" ] && rm -f "/usr/local/share/elite/fastfetch/config.jsonc"'$'\n'
+    MOLDE[flags_install]='    install -d "${pkgdir}/usr/local/share/elite/chromium-flags"
     install -m644 "${startdir}/files/usr/local/share/elite/chromium-flags/brave-flags.conf" "${pkgdir}/usr/local/share/elite/chromium-flags/brave-flags.conf"
     install -m644 "${startdir}/files/usr/local/share/elite/chromium-flags/code-flags.conf" "${pkgdir}/usr/local/share/elite/chromium-flags/code-flags.conf"'$'\n'
-    flags_rm='    [ -e "/usr/local/share/elite/chromium-flags/brave-flags.conf" ] && rm -f "/usr/local/share/elite/chromium-flags/brave-flags.conf"
+    MOLDE[flags_rm]='    [ -e "/usr/local/share/elite/chromium-flags/brave-flags.conf" ] && rm -f "/usr/local/share/elite/chromium-flags/brave-flags.conf"
     [ -e "/usr/local/share/elite/chromium-flags/code-flags.conf" ] && rm -f "/usr/local/share/elite/chromium-flags/code-flags.conf"'$'\n'
-    gm_install='    install -Dm644 "${startdir}/files/etc/gamemode.ini" "${pkgdir}/etc/gamemode.ini"'$'\n'
-    gm_rm='    [ -e "/etc/gamemode.ini" ] && ! pacman -Qo "/etc/gamemode.ini" >/dev/null 2>&1 && rm -f "/etc/gamemode.ini"'$'\n'
-    grub_install='    install -d "${pkgdir}/usr/local/share/elite/grub"
+    MOLDE[gm_install]='    install -Dm644 "${startdir}/files/etc/gamemode.ini" "${pkgdir}/etc/gamemode.ini"'$'\n'
+    MOLDE[gm_rm]='    [ -e "/etc/gamemode.ini" ] && ! pacman -Qo "/etc/gamemode.ini" >/dev/null 2>&1 && rm -f "/etc/gamemode.ini"'$'\n'
+    MOLDE[grub_install]='    install -d "${pkgdir}/usr/local/share/elite/grub"
     install -m644 "${startdir}/files/usr/local/share/elite/grub/theme.txt" "${pkgdir}/usr/local/share/elite/grub/theme.txt"
     install -m644 "${startdir}/files/usr/local/share/elite/grub/wallpaper.png" "${pkgdir}/usr/local/share/elite/grub/wallpaper.png"
     install -m644 "${startdir}/files/usr/local/share/elite/grub/select_bar.png" "${pkgdir}/usr/local/share/elite/grub/select_bar.png"'$'\n'
-    gtk_install='    install -d "${pkgdir}/usr/local/share/elite/gtk-3.0"
+    MOLDE[gtk_install]='    install -d "${pkgdir}/usr/local/share/elite/gtk-3.0"
     install -d "${pkgdir}/usr/local/share/elite/gtk-4.0"
     install -m644 "${startdir}/files/usr/local/share/elite/gtk-3.0/settings.ini" "${pkgdir}/usr/local/share/elite/gtk-3.0/settings.ini"
     install -m644 "${startdir}/files/usr/local/share/elite/gtk-4.0/settings.ini" "${pkgdir}/usr/local/share/elite/gtk-4.0/settings.ini"'$'\n'
-    kmod_install='    install -d "${pkgdir}/etc/sysctl.d"
+    MOLDE[kmod_install]='    install -d "${pkgdir}/etc/sysctl.d"
     install -m644 "${startdir}/files/etc/sysctl.d/99-elite-performance.conf" "${pkgdir}/etc/sysctl.d/99-elite-performance.conf"
     install -d "${pkgdir}/etc/udev/rules.d"
     install -m644 "${startdir}/files/etc/udev/rules.d/99-elite-zram.rules" "${pkgdir}/etc/udev/rules.d/99-elite-zram.rules"
@@ -716,66 +721,66 @@ ${hnames}
     install -d "${pkgdir}/etc/tmpfiles.d"
     install -m644 "${startdir}/files/etc/tmpfiles.d/elite-mglru.conf" "${pkgdir}/etc/tmpfiles.d/elite-mglru.conf"
     install -Dm644 "${startdir}/files/etc/default/scx" "${pkgdir}/etc/default/scx"'$'\n'
-    kmod_rm='    for f in /etc/sysctl.d/99-elite-performance.conf /etc/udev/rules.d/99-elite-zram.rules /etc/udev/rules.d/60-ntsync.rules /etc/udev/rules.d/99-elite-io.rules /usr/lib/udev/rules.d/91-elite-automount.rules /etc/modules-load.d/elite-ntsync.conf /etc/modules-load.d/elite-sensors.conf /etc/tmpfiles.d/elite-mglru.conf /etc/default/scx; do
+    MOLDE[kmod_rm]='    for f in /etc/sysctl.d/99-elite-performance.conf /etc/udev/rules.d/99-elite-zram.rules /etc/udev/rules.d/60-ntsync.rules /etc/udev/rules.d/99-elite-io.rules /usr/lib/udev/rules.d/91-elite-automount.rules /etc/modules-load.d/elite-ntsync.conf /etc/modules-load.d/elite-sensors.conf /etc/tmpfiles.d/elite-mglru.conf /etc/default/scx; do
         [ -e "$f" ] && rm -f "$f"
     done'$'\n'
-    lock_install='    install -d "${pkgdir}/usr/local/share/elite/hyprlock"
+    MOLDE[lock_install]='    install -d "${pkgdir}/usr/local/share/elite/hyprlock"
     install -m644 "${startdir}/files/usr/local/share/elite/hyprlock/hyprlock.conf" "${pkgdir}/usr/local/share/elite/hyprlock/hyprlock.conf"'$'\n'
-    lock_rm='    [ -e "/usr/local/share/elite/hyprlock/hyprlock.conf" ] && rm -f "/usr/local/share/elite/hyprlock/hyprlock.conf"'$'\n'
-    menu_install='    install -d "${pkgdir}/usr/local/share/elite/labwc"
+    MOLDE[lock_rm]='    [ -e "/usr/local/share/elite/hyprlock/hyprlock.conf" ] && rm -f "/usr/local/share/elite/hyprlock/hyprlock.conf"'$'\n'
+    MOLDE[menu_install]='    install -d "${pkgdir}/usr/local/share/elite/labwc"
     install -m644 "${startdir}/files/usr/local/share/elite/labwc/menu.xml" "${pkgdir}/usr/local/share/elite/labwc/menu.xml"'$'\n'
-    menu_rm='    [ -e "/usr/local/share/elite/labwc/menu.xml" ] && rm -f "/usr/local/share/elite/labwc/menu.xml"'$'\n'
-    mh_install='    install -d "${pkgdir}/usr/local/share/elite/mangohud"
+    MOLDE[menu_rm]='    [ -e "/usr/local/share/elite/labwc/menu.xml" ] && rm -f "/usr/local/share/elite/labwc/menu.xml"'$'\n'
+    MOLDE[mh_install]='    install -d "${pkgdir}/usr/local/share/elite/mangohud"
     install -m644 "${startdir}/files/usr/local/share/elite/mangohud/minimal.conf" "${pkgdir}/usr/local/share/elite/mangohud/minimal.conf"
     install -m644 "${startdir}/files/usr/local/share/elite/mangohud/balanceado.conf" "${pkgdir}/usr/local/share/elite/mangohud/balanceado.conf"
     install -m644 "${startdir}/files/usr/local/share/elite/mangohud/diagnostico.conf" "${pkgdir}/usr/local/share/elite/mangohud/diagnostico.conf"'$'\n'
-    mh_rm='    [ -e "/usr/local/share/elite/mangohud/minimal.conf" ] && rm -f "/usr/local/share/elite/mangohud/minimal.conf"
+    MOLDE[mh_rm]='    [ -e "/usr/local/share/elite/mangohud/minimal.conf" ] && rm -f "/usr/local/share/elite/mangohud/minimal.conf"
     [ -e "/usr/local/share/elite/mangohud/balanceado.conf" ] && rm -f "/usr/local/share/elite/mangohud/balanceado.conf"
     [ -e "/usr/local/share/elite/mangohud/diagnostico.conf" ] && rm -f "/usr/local/share/elite/mangohud/diagnostico.conf"'$'\n'
-    osd_install='    install -d "${pkgdir}/usr/local/share/elite/swayosd"
+    MOLDE[osd_install]='    install -d "${pkgdir}/usr/local/share/elite/swayosd"
     install -m644 "${startdir}/files/usr/local/share/elite/swayosd/config.toml" "${pkgdir}/usr/local/share/elite/swayosd/config.toml"
     install -m644 "${startdir}/files/usr/local/share/elite/swayosd/style.css" "${pkgdir}/usr/local/share/elite/swayosd/style.css"'$'\n'
-    osd_rm='    [ -e "/usr/local/share/elite/swayosd/config.toml" ] && rm -f "/usr/local/share/elite/swayosd/config.toml"
+    MOLDE[osd_rm]='    [ -e "/usr/local/share/elite/swayosd/config.toml" ] && rm -f "/usr/local/share/elite/swayosd/config.toml"
     [ -e "/usr/local/share/elite/swayosd/style.css" ] && rm -f "/usr/local/share/elite/swayosd/style.css"'$'\n'
-    pd_install='    install -d "${pkgdir}/etc/profile.d"
+    MOLDE[pd_install]='    install -d "${pkgdir}/etc/profile.d"
     install -m644 "${startdir}/files/etc/profile.d/10-elite-defaults.sh" "${pkgdir}/etc/profile.d/10-elite-defaults.sh"'$'\n'
-    pk_install='    install -dm750 "${pkgdir}/etc/polkit-1/rules.d"
+    MOLDE[pk_install]='    install -dm750 "${pkgdir}/etc/polkit-1/rules.d"
     install -m644 "${startdir}/files/etc/polkit-1/rules.d/50-elite-wheel.rules" "${pkgdir}/etc/polkit-1/rules.d/50-elite-wheel.rules"'$'\n'
-    pk_rm='    [ -e "/etc/polkit-1/rules.d/50-elite-wheel.rules" ] && ! pacman -Qo "/etc/polkit-1/rules.d/50-elite-wheel.rules" >/dev/null 2>&1 && rm -f "/etc/polkit-1/rules.d/50-elite-wheel.rules"'$'\n'
-    pt_install='    install -Dm644 "${startdir}/elite-post-transaction.hook" "${pkgdir}/usr/share/libalpm/hooks/elite-post-transaction.hook"'$'\n'
-    q6_install='    install -d "${pkgdir}/usr/local/share/elite/qt6ct"
+    MOLDE[pk_rm]='    [ -e "/etc/polkit-1/rules.d/50-elite-wheel.rules" ] && ! pacman -Qo "/etc/polkit-1/rules.d/50-elite-wheel.rules" >/dev/null 2>&1 && rm -f "/etc/polkit-1/rules.d/50-elite-wheel.rules"'$'\n'
+    MOLDE[pt_install]='    install -Dm644 "${startdir}/elite-post-transaction.hook" "${pkgdir}/usr/share/libalpm/hooks/elite-post-transaction.hook"'$'\n'
+    MOLDE[q6_install]='    install -d "${pkgdir}/usr/local/share/elite/qt6ct"
     install -m644 "${startdir}/files/usr/local/share/elite/qt6ct/qt6ct.conf" "${pkgdir}/usr/local/share/elite/qt6ct/qt6ct.conf"'$'\n'
-    q6_rm='    [ -e "/usr/local/share/elite/qt6ct/qt6ct.conf" ] && rm -f "/usr/local/share/elite/qt6ct/qt6ct.conf"'$'\n'
-    rc_install='    install -d "${pkgdir}/usr/local/share/elite/labwc"
+    MOLDE[q6_rm]='    [ -e "/usr/local/share/elite/qt6ct/qt6ct.conf" ] && rm -f "/usr/local/share/elite/qt6ct/qt6ct.conf"'$'\n'
+    MOLDE[rc_install]='    install -d "${pkgdir}/usr/local/share/elite/labwc"
     install -m644 "${startdir}/files/usr/local/share/elite/labwc/rc.xml" "${pkgdir}/usr/local/share/elite/labwc/rc.xml"'$'\n'
-    rc_rm='    [ -e "/usr/local/share/elite/labwc/rc.xml" ] && rm -f "/usr/local/share/elite/labwc/rc.xml"'$'\n'
-    sddm_install='    install -d "${pkgdir}/usr/local/share/elite/sddm"
+    MOLDE[rc_rm]='    [ -e "/usr/local/share/elite/labwc/rc.xml" ] && rm -f "/usr/local/share/elite/labwc/rc.xml"'$'\n'
+    MOLDE[sddm_install]='    install -d "${pkgdir}/usr/local/share/elite/sddm"
     install -m644 "${startdir}/files/usr/local/share/elite/sddm/theme.conf" "${pkgdir}/usr/local/share/elite/sddm/theme.conf"
     install -m644 "${startdir}/files/usr/local/share/elite/sddm/kde_settings.conf" "${pkgdir}/usr/local/share/elite/sddm/kde_settings.conf"
     install -m644 "${startdir}/files/usr/local/share/elite/sddm/elite_wayland.conf" "${pkgdir}/usr/local/share/elite/sddm/elite_wayland.conf"'$'\n'
-    sddm_rm='    [ -e "/usr/local/share/elite/sddm/theme.conf" ] && rm -f "/usr/local/share/elite/sddm/theme.conf"
+    MOLDE[sddm_rm]='    [ -e "/usr/local/share/elite/sddm/theme.conf" ] && rm -f "/usr/local/share/elite/sddm/theme.conf"
     [ -e "/usr/local/share/elite/sddm/kde_settings.conf" ] && rm -f "/usr/local/share/elite/sddm/kde_settings.conf"
     [ -e "/usr/local/share/elite/sddm/elite_wayland.conf" ] && rm -f "/usr/local/share/elite/sddm/elite_wayland.conf"'$'\n'
-    sudoers_install='    install -dm750 "${pkgdir}/etc/sudoers.d"
+    MOLDE[sudoers_install]='    install -dm750 "${pkgdir}/etc/sudoers.d"
     install -m440 "${startdir}/files/etc/sudoers.d/99-elite-clean" "${pkgdir}/etc/sudoers.d/99-elite-clean"'$'\n'
-    sudoers_rm='    [ -e "/etc/sudoers.d/99-elite-clean" ] && rm -f "/etc/sudoers.d/99-elite-clean"'$'\n'
-    swc_install='    install -d "${pkgdir}/usr/local/share/elite/swaync"
+    MOLDE[sudoers_rm]='    [ -e "/etc/sudoers.d/99-elite-clean" ] && rm -f "/etc/sudoers.d/99-elite-clean"'$'\n'
+    MOLDE[swc_install]='    install -d "${pkgdir}/usr/local/share/elite/swaync"
     install -m644 "${startdir}/files/usr/local/share/elite/swaync/config.json" "${pkgdir}/usr/local/share/elite/swaync/config.json"
     install -m644 "${startdir}/files/usr/local/share/elite/swaync/style.css" "${pkgdir}/usr/local/share/elite/swaync/style.css"
     install -d "${pkgdir}/etc/xdg/swaync"
     install -m644 "${startdir}/files/etc/xdg/swaync/config.json" "${pkgdir}/etc/xdg/swaync/config.json"
     install -m644 "${startdir}/files/etc/xdg/swaync/style.css" "${pkgdir}/etc/xdg/swaync/style.css"'$'\n'
-    swc_rm='    for f in /usr/local/share/elite/swaync/config.json /usr/local/share/elite/swaync/style.css; do
+    MOLDE[swc_rm]='    for f in /usr/local/share/elite/swaync/config.json /usr/local/share/elite/swaync/style.css; do
         [ -e "$f" ] && rm -f "$f"
     done
     for f in /etc/xdg/swaync/config.json /etc/xdg/swaync/style.css; do
         [ -e "$f" ] && ! pacman -Qo "$f" >/dev/null 2>&1 && rm -f "$f"
     done'$'\n'
-    theo_install='    install -d "${pkgdir}/usr/local/share/elite/labwc"
+    MOLDE[theo_install]='    install -d "${pkgdir}/usr/local/share/elite/labwc"
     install -m644 "${startdir}/files/usr/local/share/elite/labwc/themerc-override" "${pkgdir}/usr/local/share/elite/labwc/themerc-override"'$'\n'
-    tum_install='    install -Dm644 "${startdir}/files/etc/xdg/tumbler/tumbler.rc" "${pkgdir}/etc/xdg/tumbler/tumbler.rc"'$'\n'
-    tum_rm='    [ -e "/etc/xdg/tumbler/tumbler.rc" ] && ! pacman -Qo "/etc/xdg/tumbler/tumbler.rc" >/dev/null 2>&1 && rm -f "/etc/xdg/tumbler/tumbler.rc"'$'\n'
-    udev_install='    install -d "${pkgdir}/usr/lib/udev/rules.d"
+    MOLDE[tum_install]='    install -Dm644 "${startdir}/files/etc/xdg/tumbler/tumbler.rc" "${pkgdir}/etc/xdg/tumbler/tumbler.rc"'$'\n'
+    MOLDE[tum_rm]='    [ -e "/etc/xdg/tumbler/tumbler.rc" ] && ! pacman -Qo "/etc/xdg/tumbler/tumbler.rc" >/dev/null 2>&1 && rm -f "/etc/xdg/tumbler/tumbler.rc"'$'\n'
+    MOLDE[udev_install]='    install -d "${pkgdir}/usr/lib/udev/rules.d"
     install -m644 "${startdir}/files/usr/lib/udev/rules.d/91-elite-wake-guard.rules" "${pkgdir}/usr/lib/udev/rules.d/91-elite-wake-guard.rules"
     install -m644 "${startdir}/files/usr/lib/udev/rules.d/91-elite-automount.rules" "${pkgdir}/usr/lib/udev/rules.d/91-elite-automount.rules"
     install -m644 "${startdir}/files/etc/udev/rules.d/99-elite-io.rules" "${pkgdir}/etc/udev/rules.d/99-elite-io.rules"'$'\n'
@@ -3186,17 +3191,26 @@ MOLDE_PKGBUILD
     molde="${molde%$'\n'}"   # o <<< recoloca o \n final: byte a byte
     # ── A SUBSTITUIÇÃO: cada @marca@ vira o valor da variável de mesmo
     # nome (expansão de parâmetro — zero subprocesso, zero escape)
-    local marcas=(rust_sha names unames unit_loop unit_install hook_rm hook_install gp_install gp_rm)
-    marcas+=(apps_install apps_rm dc_install dc_rm doc_install doc_rm ef_install ff_install ff_rm flags_install flags_rm gm_install gm_rm grub_install gtk_install kmod_install kmod_rm lock_install lock_rm menu_install menu_rm mh_install mh_rm osd_install osd_rm pd_install pk_install pk_rm pt_install q6_install q6_rm rc_install rc_rm sddm_install sddm_rm sudoers_install sudoers_rm swc_install swc_rm theo_install tum_install tum_rm udev_install)
+    # as DINÂMICAS entram EXPANDIDAS na MOLDE (o uso de verdade que a
+    # lente exige; o valor é o MESMO dos blocos acima)
+    MOLDE[rust_sha]="$rust_sha"
+    MOLDE[names]="$names"
+    MOLDE[unames]="$unames"
+    MOLDE[unit_loop]="$unit_loop"
+    MOLDE[unit_install]="$unit_install"
+    MOLDE[hook_rm]="$hook_rm"
+    MOLDE[hook_install]="$hook_install"
+    MOLDE[gp_install]="$gp_install"
+    MOLDE[gp_rm]="$gp_rm"
     local linha marca esc
     while IFS= read -r linha; do
         if [[ "$linha" == *'@'* ]]; then
-            for marca in "${marcas[@]}"; do
+            for marca in "${!MOLDE[@]}"; do
                 if [[ "$linha" == *"@$marca@"* ]]; then
                     # o & do valor é O CASAMENTO na expansão do bash (a
                     # lição da dose: \\ e & do valor saem ESCAPADOS — a
                     # substituição devolve o valor ÍNTEGRO, byte a byte)
-                    esc="${!marca}"
+                    esc="${MOLDE[$marca]}"
                     esc="${esc//\\/\\\\}"
                     esc="${esc//&/\\&}"
                     linha="${linha//@$marca@/$esc}"
