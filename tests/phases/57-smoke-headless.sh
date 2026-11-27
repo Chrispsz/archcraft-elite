@@ -132,6 +132,9 @@ export WLR_LIBINPUT_NO_DEVICES=1
 export WLR_RENDERER=pixman
 export GSK_RENDERER=cairo
 export NO_AT_BRIDGE=1
+# 1.0-109 — o GTK4 sem o bus de acessibilidade do runner (a casa não usa
+# o a11y no juízo; sem isso o GtkApplication chora o bus ausente)
+export GTK_A11Y=none
 
 mata() { # mata <pid> — a árvore inteira (o labwc e os filhos)
     [ -n "${1:-}" ] || return 0
@@ -161,12 +164,48 @@ if [ "$_sock_ok" != 1 ]; then
 fi
 t_ok "labwc headless no ar (WLR_BACKENDS=headless, pixman/cairo)"
 
+# 1.0-109 — OS MESTRES DO SKEL NO $HOME (a validação REAL da diretriz:
+# o config.json/style.css do swaync e o style.css do swayosd são julgados
+# EM CARNE — inválido = o residente morre = o contrato da fase falha; o
+# 'swaync SAIU exit status: 1' e o 'COULD NOT FIND CSS FILE!' do dump
+# morrem aqui, com as peles do pacote na mesa)
+mkdir -p "$HOMES/.config/swaync" "$HOMES/.config/swayosd"
+cp -p "$REPO/elite/airootfs/etc/skel/.config/swaync/config.json" \
+      "$HOMES/.config/swaync/config.json" 2>/dev/null || true
+cp -p "$REPO/elite/airootfs/etc/skel/.config/swaync/style.css" \
+      "$HOMES/.config/swaync/style.css" 2>/dev/null || true
+cp -p "$REPO/elite/airootfs/etc/skel/.config/swayosd/style.css" \
+      "$HOMES/.config/swayosd/style.css" 2>/dev/null || true
+
 # a sessão da casa (o daemon lança a família toda — o spawn da barra
 # pode falhar sem layer-shell aqui, a sessão SEGUE de pé: o contrato
 # desta fase é o DAEMON)
 daemon_err="$SMOKE/daemon.err"
-elite-daemon session >"$daemon_err" 2>&1 &
-DAEMON_PID=$!
+# 1.0-109 — A SESSÃO VESTE O BUS DE VERDADE (o juízo do swaync dono de
+# org.freedesktop.Notifications e do ✓ ambiente do doctor precisa de uma
+# session bus REAL): o dbus-run-session nasce o bus, o endereço mora no
+# papel (as provas de fora falam com ELE) e o systemd do usuário (quando
+# o runner o deixa subir) recebe o ambiente pelo
+# dbus-update-activation-environment — a MESMA ordem do autostart da casa
+TEM_DBUS=0
+if command -v dbus-run-session >/dev/null 2>&1; then
+    dbus-run-session -- bash -c '
+        printf "%s\n" "$DBUS_SESSION_BUS_ADDRESS" > '"$XDG"'/dbus.addr
+        # o MEJOR equivalente do berço no container (o systemd --user
+        # recusa fora do boot dele: "not booted with systemd" — no rig
+        # real o autostart veste o --systemd; aqui a ativação do dbus
+        # recebe o ambiente da sessão — a MESMA ordem do arranque)
+        dbus-update-activation-environment --systemd \
+            WAYLAND_DISPLAY XDG_CURRENT_DESKTOP=labwc:wlroots \
+            >/dev/null 2>&1 || true
+        exec elite-daemon session
+    ' >"$daemon_err" 2>&1 &
+    DAEMON_PID=$!
+    TEM_DBUS=1
+else
+    elite-daemon session >"$daemon_err" 2>&1 &
+    DAEMON_PID=$!
+fi
 bus_sock="$XDG/elite/bus.sock"
 _sock_ok=0
 for _ in $(seq 1 40); do
@@ -176,6 +215,13 @@ for _ in $(seq 1 40); do
 done
 if [ "$_sock_ok" = 1 ]; then
     t_ok "elite-daemon session: o bus.sock ligou no headless"
+    # 1.0-109 — O ENDEREÇO DO BUS na mão de TODO o resto da fase (o GTK
+    # dos seletores precisa da session bus do dbus-run-session — sem ela
+    # o GtkApplication tenta o autolaunch do X11 e morre)
+    if [ "$TEM_DBUS" = 1 ] && [ -f "$XDG/dbus.addr" ]; then
+        export DBUS_SESSION_BUS_ADDRESS
+        DBUS_SESSION_BUS_ADDRESS="$(cat "$XDG/dbus.addr")"
+    fi
 else
     t_fail "elite-daemon session: o bus.sock ligou" "ausente em 20s (stderr: $(tail -3 "$daemon_err" 2>/dev/null | tr '\n' ' '))"
 fi
@@ -246,7 +292,42 @@ abre_e_fecha "pick: o seletor direto (-T Teste)" "$BINS/craft-pick" -T "Teste" "
 abre_e_fecha "game: o menu do modo de jogo" craft-game menu
 abre_e_fecha "idle: o menu da trava automática" craft-idle menu
 
-# O CRAFT-DOCTOR na sessão viva (o elo argv0 vira o diagnóstico)
+# O CRAFT-DOCTOR na sessão viva (o elo argv0 vira o diagnóstico). Com o
+# BUS DE VERDADE de pé, os diagnósticos da dose são VERDES NA CARNE: o
+# ✓ ambiente (a canônica do systemctl/propriedade — o réu do dump) e o
+# ✓ notify (o swaync dono das notificações) são CONTRATADOS
+if [ "$TEM_DBUS" = 1 ] && [ -f "$XDG/dbus.addr" ]; then
+    export DBUS_SESSION_BUS_ADDRESS
+    DBUS_SESSION_BUS_ADDRESS="$(cat "$XDG/dbus.addr" 2>/dev/null || printf '%s' "$DBUS_SESSION_BUS_ADDRESS")"
+    # o juízo do ambiente exige o systemd do usuário de pé (o container
+    # do runner NÃO tem um — "not booted with systemd"; o rig real tem:
+    # o contrato veste onde o juiz existe, o pulo é honesto onde não)
+    if systemctl --user show-environment >/dev/null 2>&1; then
+        _doc_out="$(craft-doctor 2>/dev/null || true)"
+        case "$_doc_out" in
+            *"✓ ambiente"*)
+                t_ok "doctor: ✓ ambiente no bus de verdade (WAYLAND_DISPLAY/XDG_CURRENT_DESKTOP lidos — o réu do dump morre)"
+                ;;
+            *)
+                t_fail "doctor: ✓ ambiente no bus de verdade" "a sonda não leu o ambiente: $(printf '%s' "$_doc_out" | grep ambiente | head -1)"
+                ;;
+        esac
+    else
+        t_skip "doctor: ✓ ambiente no bus de verdade" "sem systemd do usuário neste container (o rig real veste o juízo — o autostart exporta no boot dele)"
+    fi
+    _doc_out="$(craft-doctor 2>/dev/null || true)"
+    case "$_doc_out" in
+        *"✓ notify"*)
+            t_ok "doctor: ✓ notify (org.freedesktop.Notifications tem dono — o swaync supervisionado)"
+            ;;
+        *"✗ notify"*)
+            t_fail "doctor: ✓ notify" "$(printf '%s' "$_doc_out" | grep notify | head -1)"
+            ;;
+        *)
+            t_skip "doctor: ✓ notify" "sem linha de notify no relatório (o ambiente não deixou)"
+            ;;
+    esac
+fi
 if craft-doctor >/dev/null 2>&1; then
     t_ok "craft-doctor: rc 0 na sessão headless (a saúde inteira de pé)"
 else
@@ -258,11 +339,127 @@ else
     fi
 fi
 
+# ── 4. O TOGGLE DA INSTÂNCIA ÚNICA DO PICK (a diretriz 1.0-109: outro
+#      pick VIVO cai com SIGTERM — MESMO título = toggle que sai LIMPO,
+#      OUTRO menu = substituição na hora) ─────────────────────────────────
+"$BINS/craft-pick" -T "Teste" a b >/dev/null 2>&1 &
+for _ in $(seq 1 40); do pgrep -x craft-pick >/dev/null 2>&1 && break; sleep 0.25; done
+if pgrep -x craft-pick >/dev/null 2>&1; then
+    _tog_rc=0
+    "$BINS/craft-pick" -T "Teste" a b >/dev/null 2>&1 || _tog_rc=$?
+    sleep 0.4
+    if [ "$_tog_rc" = 0 ] && ! pgrep -x craft-pick >/dev/null 2>&1; then
+        t_ok "pick: o MESMO título é TOGGLE (o 2º fecha o 1º e sai limpo exit 0 — zero pick no /proc)"
+    else
+        t_fail "pick: o MESMO título é toggle" "rc=$_tog_rc e $(pgrep -x craft-pick | wc -l | tr -d ' ') pick(s) vivo(s) — o toggle da diretriz não vestiu"
+        pkill -TERM -x craft-pick 2>/dev/null || true
+    fi
+else
+    t_fail "pick: o TOGGLE parte do 1º vivo" "o pick de mesmo título não nasceu (o contrato de abertura acima nomeia o réu)"
+fi
+# OUTRO título: SUBSTITUI — o velho cai, o novo fica VIVO na tela
+"$BINS/craft-pick" -T "Teste" a b >/dev/null 2>&1 &
+for _ in $(seq 1 40); do pgrep -x craft-pick >/dev/null 2>&1 && break; sleep 0.25; done
+"$BINS/craft-pick" -T "OutroMenu" c d >/dev/null 2>&1 &
+sleep 0.8
+if pgrep -x craft-pick >/dev/null 2>&1; then
+    t_ok "pick: OUTRO menu é SUBSTITUIÇÃO (o velho cai, o novo veste na hora)"
+    pkill -TERM -x craft-pick 2>/dev/null || true
+else
+    t_fail "pick: OUTRO menu é substituição" "nenhum pick vivo após o 2º pedido de outro título"
+fi
+sleep 0.4
+
+# ── 5. O HYPRLOCK VIVO NO HEADLESS (a auditoria das flags de 1.0-109
+#      paga o juízo EXECUTIVO: o réu do idle.log era a flag inválida que
+#      abortava ANTES de mapear — 'lock não nasceu em 15s'. O labwc fala
+#      ext-session-lock-v1: o craft-lock tem que pôr o hyprlock VIVO no
+#      /proc com as flags auditadas do --help) ───────────────────────────
+if command -v hyprlock >/dev/null 2>&1; then
+    # a AUDITORIA em si (o --help do binário responde — o juiz das flags)
+    if hyprlock --help >/dev/null 2>&1; then
+        t_ok "lock: o hyprlock --help responde (o juiz das flags auditadas)"
+    else
+        t_fail "lock: o hyprlock --help responde" "o juiz das flags nem nasceu (hyprlock quebrado no runner?)"
+    fi
+    craft-lock >/dev/null 2>&1 &
+    _lock_vivo=0
+    for _ in $(seq 1 32); do
+        if pgrep -x hyprlock >/dev/null 2>&1; then _lock_vivo=1; break; fi
+        sleep 0.25
+    done
+    if [ "$_lock_vivo" = 1 ]; then
+        t_ok "lock: o hyprlock MAPA no headless (as flags auditadas não abortam — o 'lock não nasceu em 15s' do dump morre)"
+        # o assento da superfície (o mesmo juízo do craft-suspend) e a
+        # colheita limpa da família do lock
+        sleep 0.6
+        pkill -TERM -x hyprlock 2>/dev/null || true
+        pkill -TERM -x craft-vigil 2>/dev/null || true
+        sleep 0.4
+    else
+        pkill -TERM -x craft-vigil 2>/dev/null || true
+        t_fail "lock: o hyprlock MAPA no headless" "não nasceu em 8s (lock.log: $(tail -2 "$HOMES/.cache/elite/lock.log" 2>/dev/null | tr '\n' ' '))"
+    fi
+else
+    t_skip "lock: o hyprlock vivo no headless" "hyprlock ausente — o Canal veste o juízo (tests.yml)"
+fi
+
+# ── 6. O SWAYNC DONO DAS NOTIFICAÇÕES NO BUS DE VERDADE (a diretriz:
+#      validar em labwc headless até o busctl --user get-name-owner
+#      responder SEM exit status 1 — o 'swaync SAIU exit status: 1' do
+#      dump morre com as peles do skel julgadas em carne) ──────────────────
+if [ "$TEM_DBUS" = 1 ] && [ -f "$XDG/dbus.addr" ]; then
+    export DBUS_SESSION_BUS_ADDRESS
+    DBUS_SESSION_BUS_ADDRESS="$(cat "$XDG/dbus.addr" 2>/dev/null || printf '%s' "$DBUS_SESSION_BUS_ADDRESS")"
+    if ! command -v busctl >/dev/null 2>&1; then
+        t_skip "swaync: dono das notificações" "busctl ausente (o systemd do runner traz — o Canal veste o juízo)"
+    elif command -v swaync >/dev/null 2>&1; then
+        # o dono do nome (o residente supervisionado subiu com as peles do
+        # skel — o config.json inválido o mataria e o nome ficaria órfão)
+        _dono=1
+        for _ in $(seq 1 40); do
+            if busctl --user get-name-owner org.freedesktop.Notifications >/dev/null 2>&1; then
+                _dono=0
+                break
+            fi
+            sleep 0.5
+        done
+        if [ "$_dono" = 0 ]; then
+            t_ok "swaync: DONO de org.freedesktop.Notifications no bus de verdade (o config.json/style.css do skel são VÁLIDOS — a central não morre)"
+        else
+            t_fail "swaync: dono de org.freedesktop.Notifications" "busctl --user get-name-owner segue rc≠0 em 20s (stderr do daemon: $(tail -2 "$daemon_err" 2>/dev/null | tr '\n' ' '))"
+        fi
+    else
+        t_skip "swaync: dono das notificações" "swaync ausente — o Canal veste o juízo (tests.yml)"
+    fi
+    # o OSD com a PELE (o --style do $HOME só nasce quando o arquivo
+    # existe — o 'COULD NOT FIND CSS FILE!' do dump é a ausência de pele)
+    if command -v swayosd-server >/dev/null 2>&1; then
+        sleep 1
+        if pgrep -x swayosd-server >/dev/null 2>&1; then
+            if grep -q "COULD NOT FIND CSS FILE" "$HOMES/.cache/elite/bars.log" 2>/dev/null; then
+                t_fail "swayosd: o OSD vivo SEM o lamento do CSS" "o bars.log carrega o COULD NOT FIND CSS FILE de era"
+            else
+                t_ok "swayosd: o OSD vivo com a PELE do $HOME (o --style existe — o lamento do dump morre)"
+            fi
+        else
+            t_skip "swayosd: o OSD vivo" "o swayosd-server não subiu neste ambiente (o daemon segue de pé)"
+        fi
+    fi
+else
+    t_skip "swaync: dono das notificações" "dbus-run-session ausente — o Canal veste o juízo (tests.yml)"
+fi
+
 # a limpeza SEM órfãos (a lição do ci-runtime-smoke)
 mata "$DAEMON_PID" 2>/dev/null || true
 pkill -TERM -x craft-bar-rs 2>/dev/null || true
 pkill -TERM -x craft-dock-rs 2>/dev/null || true
 pkill -TERM -x craft-pick 2>/dev/null || true
+pkill -TERM -x craft-net 2>/dev/null || true
+pkill -TERM -x swaync 2>/dev/null || true
+pkill -TERM -x swayosd-server 2>/dev/null || true
+pkill -TERM -x hyprlock 2>/dev/null || true
+pkill -TERM -x craft-vigil 2>/dev/null || true
 mata "$LABWC_PID" 2>/dev/null || true
 sleep 0.5
 rm -rf "$SMOKE"

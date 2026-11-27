@@ -68,7 +68,9 @@ fn main() {
         gtk4::gio::ApplicationFlags::NON_UNIQUE,
     );
     app.connect_activate(build);
-    let _ = app.run();
+    // 1.0-109 — os argumentos são da CASA (o argv do processo NUNCA vai
+    // ao parser do GLib: uma palavra torta de fora não mata o seletor)
+    let _ = app.run_with_args::<&str>(&[]);
     sai(1); // o app terminou sem gesto: a saída única colhe o pidfile
 }
 

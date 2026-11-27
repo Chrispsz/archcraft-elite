@@ -651,6 +651,13 @@ file_has "pick: o pidfile da instância única mora no XDG_RUNTIME_DIR/elite (a 
 file_has "pick: o MESMO título vivo é toggle (fecha o velho e sai limpo)" "crates/craft-tools/src/lib.rs" 'InstanciaPick::Toggle'
 file_has "pick: OUTRO menu vivo é substituição na hora" "crates/craft-tools/src/lib.rs" 'InstanciaPick::Substitui'
 file_has "pick: a saída única colhe o pidfile do dono (nenhum invisível captura ponteiro)" "crates/craft-tools/src/bin/craft-pick.rs" 'fn sai(codigo: i32)'
+# 1.0-109 — OS ARGUMENTOS SÃO DA CASA, NÃO DO GLIB (a descoberta da
+# prova executiva local: o app.run() de era passava o argv inteiro ao
+# g_application_run e o parser do GLib RECUSAVA o '-T' ("Unknown
+# option -T" — o menu morria na porta do GTK); o parser da casa já
+# consumiu tudo — ao GLib sobra SOMENTE a palavra do processo):
+file_has "pick: o argv NUNCA vai ao parser do GLIB (o -T é da casa)" "crates/craft-tools/src/bin/craft-pick.rs" 'run_with_args::<&str>(&[])'
+file_has "net: o argv NUNCA vai ao parser do GLIB (palavra torta não mata o seletor)" "crates/craft-tools/src/bin/craft-net.rs" 'run_with_args::<&str>(&[])'
 # o ESC sai LIMPO (exit 0 — a diretriz da instância única): os
 # chamadores julgam pelo CONTEÚDO (vazio = cancelado benigno)
 file_has "rollback: a descrição vazia é cancelamento benigno (o juízo é o conteúdo)" "$AIROOTFS/usr/local/bin/craft-rollback" 'descrição vazia/cancelada'

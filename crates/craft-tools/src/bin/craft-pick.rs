@@ -213,7 +213,12 @@ fn main() {
             build(app, &titulo_c, &itens_c, tx.clone(), &ja, &nasc);
         });
     }
-    let codigo = app.run();
+    // 1.0-109 — OS ARGUMENTOS SÃO DO PICK, NÃO DO GLIB: o app.run() de
+    // era passava o argv inteiro ao g_application_run e o parser do GLib
+    // RECUSAVA o '-T' ("Unknown option -T" — o menu morria na porta do
+    // GTK em versões que abortam; o parser da CASA já consumiu tudo —
+    // ao GLib sobra SOMENTE a palavra do processo)
+    let codigo = app.run_with_args::<&str>(&[]);
     // o veredito: Some(escolha) → stdout + 0; None → 1 (o contrato)
     let escolha = rx.recv().ok().flatten();
     let _ = codigo;

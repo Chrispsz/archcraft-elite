@@ -70,8 +70,16 @@ jobs:
           # headless: gtk4 + gtk4-layer-shell = as libs dos bins da casa,
           # labwc = o compositor juiz, os temas = os ícones que a barra
           # pede — o mesmo vestuário do ci-runtime-smoke do Canal)
+          # 1.0-109 — O JUÍZO DA NOTIFICAÇÃO E DO LOCK: dbus = a session
+          # bus de verdade do dbus-run-session (o swaync dono de
+          # org.freedesktop.Notifications), swaync + swayosd = os
+          # residentes da casa com as PELES do skel julgadas em carne (o
+          # 'swaync SAIU exit status: 1' e o 'COULD NOT FIND CSS FILE!'
+          # do dump morrem AQUI), hyprlock = o lock vivo no ext-session-
+          # lock-v1 do labwc (a auditoria das FLAGS reais paga o juízo)
           pacman -Syu --noconfirm --needed git rsync shellcheck rust shfmt bun \
-              gtk4 gtk4-layer-shell labwc adwaita-icon-theme hicolor-icon-theme
+              gtk4 gtk4-layer-shell labwc adwaita-icon-theme hicolor-icon-theme \
+              dbus swaync swayosd hyprlock
       - uses: actions/checkout@v5
       # v2.10.26/E39 — GIT VIVO NO PASSO DA SUÍTE: o set-safe-directory do
       # checkout é config GLOBAL TEMPORÁRIA (env GIT_CONFIG_GLOBAL do passo
