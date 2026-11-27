@@ -141,7 +141,9 @@ popover > contents button:hover, popover > contents modelbutton:hover {
 popover > contents button:active, popover > contents modelbutton:active {
   background: @elite-surface-strong;
 }
-popover > contents button.destructive { color: @elite-danger; }
+/* 1.0-107.3 — O SELETOR DESTRUTIVO de era saiu: a E147 o vestiu para os
+ * popovers CUSTOMIZADOS que a E149 enterrou — nenhum widget da casa
+ * casa a classe hoje (a auditoria seletor a seletor da folha mestra). */
 /* 1.0-104 — O MENU DE CONTEXTO DA DOCK (PopoverMenu: Desafixar/Nova
  * janela/Fechar): a paleta escura da casa, NUNCA o fundo branco do tema
  * externo — o item do menu (modelbutton) veste o texto claro da casa e
@@ -277,25 +279,25 @@ popover > contents calendar > grid > label.day-number:checked {
   background: @elite-surface-strong;
 }
 
-/* ── 1.0-93 · o seletor rápido de rede (popover da barra) ──────────────── */
-popover > contents listview row { color: @elite-text; }
-popover > contents listview row:hover { background: @elite-surface; }
-popover > contents listview row:selected { background: @elite-surface-strong; }
-popover > contents switch { background: @elite-surface-strong; }
-popover > contents switch:checked { background: @elite-accent; }
+/* ── 1.0-93 · o seletor rápido de rede (popover da barra) — SEPULTADO na
+ * 1.0-107.3: os `listview row` e `switch` vestiam o popover customizado
+ * de rede que a E149 enterrou (o grep da árvore confirma: nenhum
+ * ListView/Switch/Scale vivo nos widgets da casa) ── */
 
 /* ── 1.0-93 · as ferramentas da casa (craft-tools) · 1.0-103: o #toolswin
  * MORTO sepultado — desde a E149 update/clean/help executam DIRETO no
  * terminal; o craft-pick é a ÚNICA janela da família (zero seletor
- * órfão na folha mestra — a auditoria byte a byte da dose) ── */
+ * órfão na folha mestra — a auditoria byte a byte da dose) ──
+ * 1.0-107.3 — a auditoria de CSS MORTO da folha inteira sepultou junto:
+ * o seletor de headerbar do pick (a janela é ApplicationWindow nua,
+ * sem titlebar), o seletor de label de corpo do pick (a lista é de
+ * botões, sem label), o bloco `listview`/`switch` do seletor de rede
+ * de era e os rótulos/switches/scales dos popovers customizados da
+ * E147 — a E149 enterrou os popovers e a folha continuou vestindo
+ * fantasmas (o seletor de switch de popover vivia DUPLICADO, de
+ * 1.0-93 e E151). */
 #pickwin { background: @elite-bg; }
 #pickwin box { color: @elite-text; }
-#pickwin headerbar {
-  background: @elite-surface;
-  color: @elite-text;
-  border-bottom: 1px solid @elite-border;
-}
-#pickwin label.body { color: @elite-text-dim; }
 #pickwin button {
   background: transparent;
   color: @elite-text;
@@ -325,36 +327,6 @@ popover > contents switch:checked { background: @elite-accent; }
 #pickwin list row:focus { outline: 2px solid @elite-accent-strong; outline-offset: -2px; }
 #pickwin entry { background: @elite-surface; color: @elite-text; border-radius: 8px; }
 
-/* ── E151 · os rótulos dos popovers nativos (mesma gramática da folha) ──── */
-popover > contents label.title {
-  font-weight: 700;
-  font-size: 14px;
-  color: @elite-text-bright;
-}
-popover > contents label.dim {
-  color: @elite-text-dim;
-  font-size: 12px;
-}
-popover > contents label.body { color: @elite-text; font-size: 13px; }
-popover > contents scale {
-  padding: 2px 0;
-}
-popover > contents scale trough {
-  background: @elite-surface;
-  border-radius: 4px;
-}
-popover > contents scale slider {
-  background: @elite-surface-strong;
-  border-radius: 4px;
-}
-popover > contents scale trough highlight {
-  background: @elite-accent;
-  border-radius: 4px;
-}
-popover > contents switch {
-  background: @elite-surface-strong;
-}
-popover > contents switch:checked { background: @elite-accent; }
 #barbox button image { -gtk-icon-style: symbolic; }
 
 /* ── E151 · O SELETOR DE ENERGIA NUNCA MAIS FICA PRESO ──────────────────── */

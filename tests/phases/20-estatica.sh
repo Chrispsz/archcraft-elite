@@ -589,6 +589,14 @@ file_has "css: a borda sutil mauve rgba(203, 166, 247, 0.16)" "crates/elite-core
 file_has "css: o MenuButton de energia fica SOLTO (background-image none no :checked)" "crates/elite-core/assets/theme.css" 'background-image: none'
 file_has "css: o cabeçalho do calendário veste o #f8fafc (mês e ano legíveis)" "crates/elite-core/assets/theme.css" 'calendar > header'
 file_has "css: o relógio veste tabular-nums (os dígitos não dançam)" "crates/elite-core/assets/theme.css" 'font-variant-numeric: tabular-nums'
+# ══ 1.0-107.3 — A AUDITORIA DE CSS MORTO (seletor a seletor: a E149
+#    enterrou os popovers customizados e a folha seguiu vestindo fantasmas) ══
+file_hasnt "css: os rótulos de popover da E147 mortos não voltam (nenhum label.title na folha)" "crates/elite-core/assets/theme.css" 'popover > contents label.title'
+file_hasnt "css: os switches de popover mortos não voltam (o customizado morreu com a E149)" "crates/elite-core/assets/theme.css" 'popover > contents switch'
+file_hasnt "css: o scale de popover morto não volta (o slider era da central de áudio)" "crates/elite-core/assets/theme.css" 'popover > contents scale'
+file_hasnt "css: o headerbar do pick morto não volta (a janela é ApplicationWindow nua)" "crates/elite-core/assets/theme.css" '#pickwin headerbar'
+file_hasnt "css: o button.destructive de era não volta (sem consumidor na árvore)" "crates/elite-core/assets/theme.css" 'button.destructive'
+file_hasnt "swaync: a grade de botões morta não volta (o config veste title/dnd/notifications)" "elite/airootfs/etc/skel/.config/swaync/style.css" '.widget-buttons-grid'
 file_has "bar: a faixa é 28px (a proporção obsidiana do dono)" "crates/craft-bar-rs/src/ui.rs" 'const ALTURA: i32 = 28'
 file_has "bar: o microfone é ASSENTO PRÓPRIO (o fim do clique do meio escondido)" "crates/craft-bar-rs/src/ui.rs" 'set_widget_name("micbtn")'
 file_has "bar: o ícone do mudo do MIC é o próprio do microfone" "crates/craft-bar-rs/src/state.rs" 'microphone-sensitivity-muted-symbolic'

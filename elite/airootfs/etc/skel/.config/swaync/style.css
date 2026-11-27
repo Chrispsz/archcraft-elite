@@ -165,28 +165,11 @@
   border-radius: 999px;
 }
 
-/* Grade de botões (toggles WiFi/BT etc.) */
-.widget-buttons-grid {
-  margin: 8px;
-}
-
-.widget-button {
-  background: @surface0;
-  color: @text;
-  border-radius: 12px;
-  font-weight: 600;
-}
-
-.widget-button:hover {
-  background: @surface1;
-}
-
-/* Toggle ativo — classe documentada: ".toggle:checked" — fundo acento
- * suave com texto da base (R4: #11111b sobre #cba6f7 = 9.23:1 AAA) */
-.widget-button.toggle:checked {
-  background: @mauve;
-  color: @crust;
-}
+/* Grade de botões (toggles WiFi/BT etc.) — SEPULTADA na 1.0-107.3: o
+ * config.json da casa só veste "title"/"dnd"/"notifications" — a
+ * grade de botões de era vestia widgets que NENHUMA configuração da
+ * casa instancia (a auditoria seletor a seletor do ciclo; restaura
+ * quem ativar a grade no widget-config). */
 
 /* Lista de notificações */
 .widget-notifications {
