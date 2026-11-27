@@ -393,14 +393,17 @@ while alive; do
             # wake (a ordem certa de sempre); sono recusado/inibido = o
             # veredito honesto vira a linha do papel e o ciclo rearma
             # limpo, sem o fantasma que suspende de novo na cara do dono)
-            # o tamanho do olho: 3×0.7s — o S3 CONGELA este processo no
-            # meio do loop (o freeze É a espera); a janela cobre o ~1s do
-            # logind até o 'Suspending system' sem atrasar a sucessora do
-            # ciclo (a E79 do craft-idle espera 4s pela renascida)
+            # o tamanho do olho: 8×0.7s (≈5.6s) — o logind da casa
+            # espera os inhibitors delay por até InhibitDelayMaxSec=5s
+            # ANTES do 'Suspending system' (E106/5a: o olho antigo de 3×0.7s
+            # via a janela FECHAR antes do logind dizer a palavra e o papel
+            # mentia 'SEM sono' para sono a caminho — o journal conta, o
+            # papel não chuta); o S3 CONGELA este processo no meio do loop
+            # (o freeze É a espera) e a sucessora do ciclo nasce depois
             _esp=0
             _j=""
             _ts=""
-            while [ "$_esp" -le 3 ]; do
+            while [ "$_esp" -le 8 ]; do
                 _j="$(journalctl -b -u systemd-suspend --since "@$_t0" -o short-epoch --no-pager 2>/dev/null || true)"
                 _ts="$(printf '%s\n' "$_j" | grep -m1 'Suspending system' | cut -d' ' -f1 | cut -d. -f1)"
                 [ -n "$_ts" ] && break
@@ -419,14 +422,22 @@ while alive; do
                 vlog "VIGÍLIA: journal SEM sono na janela da chamada (${_dur}s) — se o logind dormir depois, quem conta é o journal; o papel não chuta (E122)"
             fi
             # E63 — A VOLTA DA IMAGEM: quem chamou o sono SOBREVIVE a ele
-            # e é um dos primeiros processos de usuário de pé no wake —
-            # o screenon (sondagem 6×2s + rearmamento da vigília sucessora)
-            # roda AQUI também. O callback resume do swayidle pode perder
-            # a corrida contra a re-inicialização do driver (o monitor
-            # 'sem sinal, luz vermelha' do dono, 06/nov) — um caminho só
-            # não é rede; são três: swayidle resume, ESTA chamada e o
-            # hook de sistema elite-resume-display (todos idempotentes).
-            craft-idle screenon >/dev/null 2>&1 || true
+            # e é um dos primeiros processos de usuário de pé no wake — o
+            # recover (ciclo off→on COM o modo salvo, para TODAS as saídas
+            # vivas) roda AQUI também. O callback resume do swayidle pode
+            # perder a corrida contra a re-inicialização do driver (o
+            # monitor 'sem sinal, luz vermelha' do dono, 06/nov) — um
+            # caminho só não é rede; são QUATRO agora: o despertar do
+            # elite-daemon (PrepareForSleep(false)/Unlock), ESTA chamada,
+            # o hook de sistema elite-resume-display e o pós-unlock do
+            # craft-lock (todos idempotentes — o guard de 10s do recover
+            # deixa UM dono por veredito).
+            # E106/5a — o verbo 'screenon' do craft-idle MORREU com o
+            # swayidle (não existe mais na v2.0 e a chamada caía no CYCLE
+            # dos presets: cada sono MUDAVA o LOCK_MIN do dono às
+            # escondidas — o bug mais quieto do dossiê). O recover do
+            # craft-display é o herdeiro da rede de imagem.
+            craft-display recover >/dev/null 2>&1 || true
         else
             vlog "FALHA: vigília systemctl suspend -i rc=$? — o PC NÃO dormiu (réu nomeado no papel)"
         fi

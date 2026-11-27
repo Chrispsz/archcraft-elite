@@ -66,6 +66,23 @@ pub fn conf_path() -> PathBuf {
     elite_core::elite_config_dir().join("idle.conf")
 }
 
+/// E106/5a — O RESTO DO RELÓGIO (puro): a notificação ext-idle-notify é
+/// ARMADA no instante em que o degrau anterior bate (o LOCK às
+/// LOCK_MIN de idleness) e o protocolo conta o SEU timeout DA ARMAÇÃO —
+/// armada com o tempo INTEIRO, o degrau dispara LOCK_MIN TARDE (o
+/// SUSPEND_MIN=20 batia aos 30min de ociosidade, 10min após o lock; a
+/// receita swayidle da casa sempre contou LOCK/SUSPEND do MESMO zero —
+/// a suspensão DEVE acontecer aos SUSPEND_MIN de ociosidade). A cura é
+/// armar com o QUE FALTA: alvo − já_idle. Alvo já batido = 1s (o
+/// degrau dispara na hora — a semântica swayidle de sempre).
+pub fn faltam_ms(alvo_min: u32, ja_idle_min: u32) -> u32 {
+    if alvo_min <= ja_idle_min {
+        1_000
+    } else {
+        (alvo_min - ja_idle_min) * 60 * 1_000
+    }
+}
+
 /// o conf VIVO (lido na ARMAÇÃO de cada ciclo — barato, zero watcher;
 /// o dono muda no menu e a próxima trava já obedece).
 pub fn conf_vivo() -> Conf {
@@ -202,5 +219,22 @@ mod tests {
         // volta nem por papel digitado errado)
         let c = parse_conf("LOCK_MIN=15\nOFF_MIN=2\n");
         assert_eq!(c.off_min, 15, "OFF_MIN menor colapsa no LOCK");
+    }
+
+    #[test]
+    fn e106_5a_o_resto_do_relogio_armado_no_degrau() {
+        // o CASO DO RIG (LOCK=10/OFF=10/SUSPEND=20): o tipo-2 é armado
+        // quando o lock bate (idle=10) — com o tempo INTEIRO (20min) o
+        // protocolo disparava aos 30min de ociosidade; com o QUE FALTA
+        // dispara aos 20min (a semântica swayidle da casa: LOCK/SUSPEND
+        // do MESMO zero)
+        assert_eq!(faltam_ms(20, 10), 10 * 60 * 1_000);
+        // o APAGAR separado idem: trava em 5, apaga em 10 → o tipo-1
+        // armado no lock com 5min (dispara aos 10min de idleness)
+        assert_eq!(faltam_ms(10, 5), 5 * 60 * 1_000);
+        // alvo já batido pelo degrau de baixo: 1s (dispara na hora —
+        // SUSPEND_MIN ≤ LOCK_MIN nunca foi pausa extra no swayidle)
+        assert_eq!(faltam_ms(10, 10), 1_000);
+        assert_eq!(faltam_ms(5, 10), 1_000);
     }
 }

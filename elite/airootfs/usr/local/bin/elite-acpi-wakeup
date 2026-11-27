@@ -1,0 +1,64 @@
+#!/bin/sh
+# ═════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · elite-acpi-wakeup (E106/5a) — OS GATILHOS ESPÚRIOS
+# ═════════════════════════════════════════════════════════════════════════
+# O RELATO DO RIG (journalctl -b -p 0..4, placa AM4 desktop): a máquina
+# "acordava" sozinha do S3 — os suspeitos nomeados no journal eram os
+# GATILHOS de ACPI da placa: GPP0/GPP8 (portas físicas PCIe — GPU/rede),
+# XHC0/XHC1/XHCI (controladores USB), PTXH (hub USB da AMD). Nenhum deles
+# é a MÃO do dono: o teclado da casa acorda pela POLÍTICA do
+# craft-wake-guard (o controlador 0x0c03 da árvore do teclado é rearmado
+# por ele em TODO boot e em TODO PrepareForSleep — a E122 é a lei do
+# despertar; este script não pisa na política DELE).
+#
+# O OFÍCIO aqui é o resto da fila: os gatilhos que NINGUÉM escolheu ficam
+# *disabled no /proc/acpi/wakeup (o arquivo é TOGGLE — escrever o nome
+# inverte o estado; escrever o de quem já dorme REARMARIA o espúrio, por
+# isso o grep ANTES de cada escrita). Idempotente por desenho: já
+# disabled = silêncio (nada no papel, nada na porta).
+#
+# Seam de teste: ELITE_ACPI_WAKEUP aponta pra uma tabela fake (a suíte
+# prova o toggle e a idempotência 2× sem /proc de verdade). Em produção
+# nada é setado — /proc/acpi/wakeup é o caminho vivo.
+# ═════════════════════════════════════════════════════════════════════════
+WAKEUP="${ELITE_ACPI_WAKEUP:-/proc/acpi/wakeup}"
+# a fila dos espúrios do rig (o journal nomeou: GPP0/GPP8/XHC0/XHC1/XHCI/
+# PTXH — portas PCIe e controladores USB que NÃO são a mão de ninguém)
+ALVOS="GPP0 GPP8 XHC0 XHC1 XHCI PTXH"
+
+LOG_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/elite"
+LOG="$LOG_DIR/acpi-wakeup.log"
+
+wlog() {
+    mkdir -p "$LOG_DIR" 2>/dev/null || true
+    if [ -f "$LOG" ] && [ "$(wc -c <"$LOG" 2>/dev/null || echo 0)" -gt 262144 ]; then
+        tail -c 131072 "$LOG" > "$LOG.tmp" 2>/dev/null && mv -f "$LOG.tmp" "$LOG"
+    fi
+    printf '[%s] %s\n' "$(date '+%F %T')" "$*" >>"$LOG" 2>/dev/null
+    return 0
+}
+
+[ -r "$WAKEUP" ] || exit 0   # sem a tabela ACPI (container/exótico): silêncio honesto
+
+# o estado do gatilho: 0 = *enabled (acorda a máquina)
+enabled() {
+    # a linha do gatilho: 'GPP0      S4    *enabled   pci:0000:00:xx.x'
+    awk -v n="$1" '$1 == n { print ($3 ~ /^\*enabled/) ? "1" : "0"; exit }' "$WAKEUP" 2>/dev/null
+}
+
+apagou=0
+for nome in $ALVOS; do
+    if [ "$(enabled "$nome")" = "1" ]; then
+        # o TOGGLE: escrever o nome INVERTE — só escreve quem está ACORDANDO
+        # a máquina sem ninguém ter pedido
+        if printf '%s\n' "$nome" >>"$WAKEUP" 2>/dev/null; then
+            wlog "acpi-wakeup: $nome *enabled → desarmado (gatilho espúrio do journal — ninguém escolheu esta mão)"
+            apagou=$((apagou + 1))
+        else
+            wlog "acpi-wakeup: FALHA ao desarmar $nome (a porta /proc não aceitou a escrita)"
+        fi
+    fi
+done
+# já todo dormindo: zero linha no papel (o silêncio é a idempotência)
+[ "$apagou" -gt 0 ] && wlog "acpi-wakeup: varredura fechada ($apagou gatilho(s) desarmado(s) nesta passada)"
+exit 0

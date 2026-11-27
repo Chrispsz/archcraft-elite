@@ -542,6 +542,103 @@ do_save() {
     return 0
 }
 
+# ── E106/5a — recover: O CICLO DO LINK POR SAÍDA VIVA (a cura do DP sem
+#     sinal pós-resume/pós-unlock). O relato do rig: na volta do S3 o
+#     DisplayPort ficava "sem sinal de entrada" — o wlopm --on do hook
+#     acorda o DPMS, mas o LINK do amdgpu às vezes só re-treina com uma
+#     troca REAL de modo. A receita da casa é o ciclo do hook E75
+#     (--off → pausa de estabilização → --on COM o modo persistido NO
+#     displays.conf) — agora POR SAÍDA e DINÂMICO: nenhuma saída é
+#     hardcoded (a varredura lê TUDO que o wlr-randr entrega: DP-*,
+#     HDMI-A-*, HDMI-*, eDP-* … o que vier).
+RECOVER_GUARD="$RUN_E/display-recover-guard"
+
+# a varredura DINÂMICA: todo output que o wlr-randr mostra com vida
+# (linha Enabled: ou lista de modos — o conector desconectado não tem
+# nenhum dos dois e fica FORA; nenhum nome é chutado na mão)
+todas_saidas() {
+    timeout "$RANDR_T" "$RANDR" 2>/dev/null | awk '
+        function flush() {
+            if (nome != "" && (viu_enabled || viu_modes)) print nome
+        }
+        /^[A-Za-z0-9-]+[ \t]+"/ {
+            flush()
+            nome=$1; viu_enabled=0; viu_modes=0
+        }
+        /Enabled:/          { viu_enabled=1 }
+        /^[ \t]*Modes:/      { viu_modes=1 }
+        END { flush() }
+    '
+}
+
+# o modo PERSISTIDO da saída no displays.conf (vazio = sem escolha salva)
+modo_do_conf() {
+    [ -s "$CONF" ] || return 0
+    awk -F'|' -v n="$1" '$1 == n {
+        m=$2; sub(/^mode:/, "", m); if (m != "-") print m; exit
+    }' "$CONF" 2>/dev/null
+}
+
+# o modo ATUAL da saída no estado vivo (a rede quando o conf não fala)
+modo_do_estado() {
+    parse_state | awk -F'|' -v n="$1" '$1 == n {
+        m=$2; sub(/^mode:/, "", m); if (m != "-") print m; exit
+    }'
+}
+
+do_recover() {
+    # UM dono por veredito: as QUATRO redes da casa (daemon no
+    # PrepareForSleep(false) e no Unlock, pós-unlock do craft-lock, hook
+    # de sistema e a volta do próprio sono no craft-vigil) disparam o
+    # recover no MESMO instante — o guard de 10s deixa a PRIMEIRA contar
+    # e as demais saírem 0 em silêncio (o flock do apply serializa o
+    # resto).
+    if [ -r "$RECOVER_GUARD" ]; then
+        _idade=$(( $(date +%s) - $(stat -c %Y "$RECOVER_GUARD" 2>/dev/null || echo 0) ))
+        if [ "$_idade" -lt 10 ]; then
+            dlog "recover: já correu há ${_idade}s — sai (a rede viva já fez o ciclo; o guard decide)"
+            return 0
+        fi
+    fi
+    mkdir -p "${RECOVER_GUARD%/*}" 2>/dev/null || true
+    : > "$RECOVER_GUARD" 2>/dev/null || true
+    nomes="$(todas_saidas)"
+    if [ -z "$nomes" ]; then
+        dlog "FALHA: recover sem saídas vivas (wlr-randr mudo — o guard do orquestrador toma a frente)"
+        return 1
+    fi
+    printf '%s\n' "$nomes" | while IFS= read -r nome; do
+        [ -n "$nome" ] || continue
+        # o modo: o PERSISTIDO no conf manda; sem conf, o atual do estado
+        # (o EDID já entregou esse modo uma vez — re-aplicar o mesmo
+        # re-treina o link sem inventar resolução)
+        modo="$(modo_do_conf "$nome")"
+        [ -n "$modo" ] || modo="$(modo_do_estado "$nome")"
+        # 1) OFF — best-effort (o ciclo é a cura, não o estado final)
+        timeout "$RANDR_T" "$RANDR" --output "$nome" --off >/dev/null 2>&1 || true
+        # 2) A PAUSA DE ESTABILIZAÇÃO do link (a MESMA de 1s do ciclo
+        #    off→on do hook E75 — a constante da casa, respeitada)
+        sleep 1
+        # 3) ON com o modo (persistido ou atual) — o link re-treina com
+        #    uma troca REAL de modo, a resolução e os Hz do dono voltam
+        if [ -n "$modo" ]; then
+            if timeout "$RANDR_T" "$RANDR" --output "$nome" --on --mode "$modo" >/dev/null 2>&1; then
+                dlog "recover: $nome — ciclo off→1s→on --mode $modo (o link re-treina com o modo do dono)"
+            else
+                dlog "FALHA: recover $nome --on --mode $modo (rc≠0 — o modo pode ter saído do EDID; o apply da casa segue de rede)"
+            fi
+        else
+            if timeout "$RANDR_T" "$RANDR" --output "$nome" --on >/dev/null 2>&1; then
+                dlog "recover: $nome — ciclo off→1s→on (sem modo salvo: o EDID manda o preferido)"
+            else
+                dlog "FALHA: recover $nome --on (rc≠0 — nomeado; a escotilha manual é o craft-rescue-screen)"
+            fi
+        fi
+    done
+    dlog "recover: ciclo fechado ($(printf '%s\n' "$nomes" | grep -c .) saída(s) varrida(s) dinamicamente)"
+    return 0
+}
+
 # ── E134 — O OUVIDOR DO LOGIND: Unlock e PrepareForSleep(false) são ────
 #     EVENTOS, e evento não se espera por heartbeat. O ouvidor é um
 #     FILHO do watch (um processo por sessão, âncora própria no cmdline
@@ -861,12 +958,15 @@ do_menu() {
 case "${1:-}" in
     -h|--help|uso)
         printf '%s\n' \
-            'uso: craft-display [apply|apply-boot|save|watch|status|menu|icc] — a tela que lembra' \
+            'uso: craft-display [apply|apply-boot|save|watch|recover|status|menu|icc] — a tela que lembra' \
             '' \
             '  apply        aplica e GRAVA o arranjo atual (o watch chama depois)' \
             '  apply-boot   o arranjo salvo nasce aplicado (a 1ª linha da sessão)' \
             '  save         fotografa o AGORA no displays.conf' \
             '  watch        grava a mudança ESTÁVEL do dono feita por QUALQUER porta' \
+            '  recover      ciclo off→1s→on COM o modo salvo, POR SAÍDA VIVA (a cura' \
+            '               do DP sem sinal no pós-resume/pós-unlock — dinâmico,' \
+            '               nenhuma saída hardcoded; guard de 10s = um dono só)' \
             '  status       salvo vs atual (+ o stamp da sessão)' \
             '  menu         o menu fuzzel com TODOS os modos do EDID' \
             '               (+ Nitidez máxima: 1080p no maior Hz · escala inteira 1.0)' \
@@ -880,6 +980,11 @@ case "${1:-}" in
     apply)  do_apply ;;
     apply-boot) apply_boot ;;
     save)   do_save; exit $? ;;
+    # E106/5a — a rede do recover (a cura do DP sem sinal): o daemon no
+    # PrepareForSleep(false)/Unlock, o pós-unlock do craft-lock, o hook de
+    # sistema e a volta do sono no craft-vigil — o guard de 10s casa UM
+    # dono por veredito e TODAS saem idempotentes.
+    recover) do_recover; exit 0 ;;
     watch)
         # E135 — O GUARD DO OUVIDOR LEGADO: o elite-daemon session é o
         # dono dos eventos de display agora (netlink drm + logind — os

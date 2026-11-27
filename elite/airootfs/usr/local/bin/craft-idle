@@ -101,7 +101,11 @@ if [ "${1:-}" = "status" ]; then
     else
         printf 'trava automática: %s min de inatividade → trava (a tela apaga no OFF_MIN do papel)\n' "$_lock"
         if [ "$_susp" != "0" ]; then
-            printf 'sono de travado:   %s min depois da trava (a vigília E60)\n' "$_susp"
+            # E106/5a — o mesmo zero da receita swayidle da casa: o daemon
+            # arma o sono com o QUE FALTA a partir da trava, e o alvo conta
+            # da ÚLTIMA ATIVIDADE (LOCK=10/SUSPEND=20 → dorme aos 20min de
+            # ociosidade, 10 depois da trava)
+            printf 'sono de travado:   %s min de inatividade (o mesmo zero da trava — a vigília E60)\n' "$_susp"
         else
             printf 'sono de travado:   desligado (SUSPEND_MIN=0)\n'
         fi

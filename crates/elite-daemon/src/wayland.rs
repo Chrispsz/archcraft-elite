@@ -573,15 +573,24 @@ impl Dispatch<idle_mod::ext_idle_notification_v1::ExtIdleNotificationV1, u8> for
                         let conf = casa_idle::conf_vivo();
                         if conf.off_min > conf.lock_min {
                             casa_idle::trava();
-                            // o próximo tempo: o APAGAR sozinho
-                            arma_idle_ms(conf.off_min * 60 * 1000, 1);
+                            // o próximo tempo: o APAGAR sozinho — armado com
+                            // o QUE FALTA (E106/5a: o tipo-1 nasce no instante
+                            // LOCK_MIN de idleness; armado com o tempo inteiro
+                            // disparava LOCK_MIN TARDE — o protocolo conta da
+                            // ARMAÇÃO, o alvo conta do ÚLTIMO INPUT)
+                            arma_idle_ms(casa_idle::faltam_ms(conf.off_min, conf.lock_min), 1);
                         } else {
                             casa_idle::trava_e_apaga();
                         }
                         estado.trava_armada = true;
-                        // o degrau de sempre: SUSPEND_MIN de travado (E60)
+                        // o degrau de sempre: SUSPEND_MIN de travado (E60) — o
+                        // MESMO juízo do tipo-1: armado com o QUE FALTA, o sono
+                        // acontece aos SUSPEND_MIN de OCIOSIDADE (a semântica
+                        // swayidle da casa — LOCK/SUSPEND do MESMO zero; o
+                        // rig provou: SUSPEND_MIN=20 com LOCK_MIN=10 nunca
+                        // dormia aos 20min)
                         if conf.suspend_min > 0 {
-                            arma_idle_ms(conf.suspend_min * 60 * 1000, 2);
+                            arma_idle_ms(casa_idle::faltam_ms(conf.suspend_min, conf.lock_min), 2);
                         }
                     }
                     desarma_idle(notif);

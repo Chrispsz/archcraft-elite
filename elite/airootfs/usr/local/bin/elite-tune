@@ -313,6 +313,17 @@ apply_grub_tokens() { # tokens de kernel + grub-mkconfig ([4] firstboot / [3] in
     _mudou=1
   fi
   ensure_cmdline_token /etc/default/grub transparent_hugepage=madvise && _mudou=1
+  # E106/5a — O S3 DEEP SÓ QUANDO O HARDWARE O ENTREGA (o rig do dono,
+  # AM4 casa ASUS: 'asus_wmi: failed to register LPS0 sleep handler' no
+  # journal → o kernel NÃO tem s2idle, o deep é o ÚNICO sono; sem o token
+  # o systemd pode apontar o default pra s2idle e o 'sono' vira wake
+  # espúrio). O MESMO caminho dos irmãos sagrados (SOMA idempotente) —
+  # a única diferença é o OUVIR o hardware antes: /sys/power/mem_sleep
+  # lista os modos suportados; 'deep' ausente (notebook s2idle de série)
+  # = o token NÃO entra.
+  if [ -r /sys/power/mem_sleep ] && grep -q 'deep' /sys/power/mem_sleep 2>/dev/null; then
+    ensure_cmdline_token /etc/default/grub mem_sleep_default=deep && _mudou=1
+  fi
   if (( _mudou )); then
     run grub-mkconfig -o /boot/grub/grub.cfg
   else

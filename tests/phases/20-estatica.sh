@@ -438,6 +438,37 @@ file_has "relogin: o fóssil de crash varrido antes do liga_bus" "crates/elite-d
 # o vídeo pós-suspensão e o idle que renasce no despertar:
 file_has "resume: o wlopm --on religa as saídas no despertar" "crates/elite-daemon/src/main.rs" 'wlopm'
 file_has "resume: o idle renasce no PrepareForSleep(false)/Unlock" "crates/elite-daemon/src/wayland.rs" 'pub fn reseta_idle'
+# ══ E106/5a — O S3 DEEP, OS GATILHOS ESPÚRIOS E A RECUPERAÇÃO DE VÍDEO ══
+# o deep hardware-aware nos TRÊS caminhos da casa (install-stage, tune e
+# a dose do post-upgrade — o mesmo juízo: /sys/power/mem_sleep com deep):
+file_has "grub: o S3 deep hardware-aware no install-stage (o único sono do rig sem LPS0)" "$AIROOTFS/usr/local/bin/elite-install-stage" 'mem_sleep_default=deep'
+file_has "grub: o S3 deep hardware-aware no tune (deep no /sys/power/mem_sleep)" "$AIROOTFS/usr/local/bin/elite-tune" 'mem_sleep_default=deep'
+file_has "grub: o S3 deep chega ao rig na dose (post-upgrade _ensure_token)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'mem_sleep_default=deep'
+# a varredura dos gatilhos espúrios (GPP0/GPP8/XHC0/XHC1/XHCI/PTXH):
+file_has "acpi: a fila dos espúrios nomeada no script da casa" "$AIROOTFS/usr/local/bin/elite-acpi-wakeup" 'GPP0 GPP8 XHC0 XHC1 XHCI PTXH'
+file_has "acpi: o TOGGLE só escreve quem está *enabled (idempotente por desenho)" "$AIROOTFS/usr/local/bin/elite-acpi-wakeup" 'printf '
+file_has "acpi: a unit nasce DEPOIS do wake-guard (a política do teclado vence)" "$AIROOTFS/etc/systemd/system/elite-acpi-wakeup.service" 'After=elite-wake-guard.service'
+file_exists "acpi: o wants do multi-user liga a varredura no primeiro boot" "$AIROOTFS/etc/systemd/system/multi-user.target.wants/elite-acpi-wakeup.service"
+file_has "acpi: a varredura habilitada na dose (enable idempotente do post-upgrade)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'elite-acpi-wakeup.service'
+# o sono NO TEMPO CONFIGURADO (o relógio rearma com o QUE FALTA):
+file_has "idle: o relógio rearma com o QUE FALTA (o sono aos SUSPEND_MIN de ociosidade)" "crates/elite-daemon/src/idle.rs" 'pub fn faltam_ms'
+file_has "idle: o tipo-2 (o sono) armado com o resto do relógio" "crates/elite-daemon/src/wayland.rs" 'faltam_ms(conf.suspend_min, conf.lock_min)'
+file_has "idle: o tipo-1 (o apagar) armado com o resto do relógio" "crates/elite-daemon/src/wayland.rs" 'faltam_ms(conf.off_min, conf.lock_min)'
+file_has "vigil: o olho do journal cobre o InhibitDelayMaxSec da casa (8 sondagens)" "$AIROOTFS/usr/local/bin/craft-vigil" '_esp" -le 8'
+file_hasnt "vigil: o verbo MORTO craft-idle screenon não volta (caía no cycle dos presets)" "$AIROOTFS/usr/local/bin/craft-vigil" 'craft-idle screenon'
+# a recuperação de vídeo DINÂMICA (o DP sem sinal do pós-resume/pós-unlock):
+file_has "display: o recover é verbo da casa (a rede do DP sem sinal)" "$AIROOTFS/usr/local/bin/craft-display" '    recover) do_recover; exit 0 ;;'
+file_has "display: a varredura DAS saídas é DINÂMICA (nada hardcoded — DP-*/HDMI-*/eDP-*)" "$AIROOTFS/usr/local/bin/craft-display" 'todas_saidas()'
+file_has "display: o modo do recover vem do displays.conf persistido" "$AIROOTFS/usr/local/bin/craft-display" 'modo_do_conf()'
+file_has "display: o guard de 10s do recover (um dono por veredito entre as redes)" "$AIROOTFS/usr/local/bin/craft-display" 'display-recover-guard'
+file_has "display: a pausa de estabilização do ciclo (a constante da casa)" "$AIROOTFS/usr/local/bin/craft-display" 'off→1s→on --mode'
+file_has "lock: o pós-unlock dispara o recover (a rede da imagem na porta da senha)" "$AIROOTFS/usr/local/bin/craft-lock" 'craft-display recover'
+file_has "vigil: a volta do sono dispara o recover (a rede de imagem)" "$AIROOTFS/usr/local/bin/craft-vigil" 'craft-display recover'
+file_has "hook: o resume-display dispara o recover por usuário (com o modo salvo)" "elite/airootfs/usr/lib/systemd/system-sleep/elite-resume-display" 'craft-display recover'
+file_has "daemon: o despertar dispara o recover (PrepareForSleep(false)/Unlock)" "crates/elite-daemon/src/main.rs" '"recover"]'
+# o áudio pós-resume sem o fone BT (o HDMI do monitor nunca fica mudo):
+file_has "audio: o juízo do resume é PURO (o BT morto no sono não deixa o HDMI)" "crates/elite-daemon/src/audio.rs" 'pub fn julga_resume'
+file_has "audio: o auto_null preso NÃO reafirma o HDMI do monitor (a lei E140)" "crates/elite-daemon/src/audio.rs" 'pub fn julga_autonull'
 # a vigília armada DE VERDADE (o notifier atravessa o spawn):
 file_has "idle: o notifier atravessa o spawn (a vigília nasce armada)" "crates/elite-daemon/src/wayland.rs" 'IDLE_CTL'
 file_has "idle: o APAGAR é tempo próprio (a fábrica 5/10 no daemon)" "crates/elite-daemon/src/idle.rs" 'off_min'

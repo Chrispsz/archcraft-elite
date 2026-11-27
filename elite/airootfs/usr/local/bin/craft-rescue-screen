@@ -5,8 +5,8 @@
 # O RELATO DO DONO (a classe que atravessou E63/E68): suspendeu, voltou —
 # e o monitor ficou SEM SINAL (standby/DPMS), com PC e periféricos vivos;
 # até hoje o único caminho era a reinicialização forçada. A cura
-# automática agora é o CICLO off→on (E75, no craft-idle screenon e no
-# elite-resume-display). ESTE comando é a ESCOTILHA MANUAL para o pior
+# automática agora é o CICLO off→on (E75, no craft-display recover da
+# era 2.0 e no elite-resume-display). ESTE comando é a ESCOTILHA MANUAL para o pior
 # caso — quando nem a rede de sistema alcançou o réu:
 #
 #   1. Ctrl+Alt+F3          (um TTY — o console de texto INDEPENDENTE do

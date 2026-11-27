@@ -248,6 +248,16 @@ if [ "$ELITE_GPU" = "amd" ]; then
             sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT=/s/"$/ mitigations=off"/' "${ROOT}/etc/default/grub"
         grep -q 'nowatchdog' "${ROOT}/etc/default/grub" ||
             sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT=/s/"$/ nowatchdog"/' "${ROOT}/etc/default/grub"
+        # E106/5a — O S3 DEEP É O ÚNICO SONO DO RIG SEM LPS0 (kernel:
+        # 'asus_wmi: failed to register LPS0 sleep handler' → sem s2idle;
+        # sem o token o systemd chuta o default da era e o sono vira
+        # s2idle-fantasma). SÓ quando o HARDWARE oferece o deep (o
+        # /sys/power/mem_sleep da MÁQUINA — o alvo é ela mesma em
+        # instalação bare-metal); idempotente como os vizinhos sagrados.
+        if [ -r /sys/power/mem_sleep ] && grep -q 'deep' /sys/power/mem_sleep 2>/dev/null; then
+            grep -q 'mem_sleep_default=deep' "${ROOT}/etc/default/grub" ||
+                sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT=/s/"$/ mem_sleep_default=deep"/' "${ROOT}/etc/default/grub"
+        fi
     fi
 elif [ "$ELITE_GPU" = "nvidia" ]; then
     # E126 — O LACT É DA FAMÍLIA AMD (a ordem do dono: pacotes de um
@@ -286,6 +296,13 @@ elif [ "$ELITE_GPU" = "nvidia" ]; then
             sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT=/s/"$/ mitigations=off"/' "${ROOT}/etc/default/grub"
         grep -q 'nowatchdog' "${ROOT}/etc/default/grub" ||
             sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT=/s/"$/ nowatchdog"/' "${ROOT}/etc/default/grub"
+        # E106/5a — O S3 DEEP É O ÚNICO SONO DO RIG SEM LPS0 (o MESMO
+        # juízo do ramo AMD: hardware-aware no /sys/power/mem_sleep da
+        # máquina, idempotente no grep antes do sed).
+        if [ -r /sys/power/mem_sleep ] && grep -q 'deep' /sys/power/mem_sleep 2>/dev/null; then
+            grep -q 'mem_sleep_default=deep' "${ROOT}/etc/default/grub" ||
+                sed -i '/^GRUB_CMDLINE_LINUX_DEFAULT=/s/"$/ mem_sleep_default=deep"/' "${ROOT}/etc/default/grub"
+        fi
     fi
 else
     # E126 — Intel/desconhecida: o mesmo princípio (LACT sem amdgpu não é

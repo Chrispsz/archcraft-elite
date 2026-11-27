@@ -715,6 +715,17 @@ fn despertar() {
     // wlr-output-power (estado de DPMS), o apply fala wlr-randr (modos)
     // — os dois são clientes Wayland comuns; o labwc continua de pé.
     dispara("wlopm", &["--on", "*"]);
+    // E106/5a — O CICLO DO LINK COM O MODO DO DONO: o relato do rig — na
+    // volta do S3 o DisplayPort ficava "sem sinal de entrada" e o wlopm
+    // --on sozinho não re-treinava o link do amdgpu. O recover do
+    // craft-display faz o ciclo off→1s→on COM o modo persistido no
+    // displays.conf, POR SAÍDA VIVA, varrida DINÂMICA do wlr-randr
+    // (nenhuma saída hardcoded). Este corpo corre nas DUAS portas —
+    // PrepareForSleep(false) (o retorno do sono, ainda travado) e o
+    // Unlock (o pós-senha) — e o guard de 10s do recover casa UM dono por
+    // veredito com as outras redes (craft-lock pós-unlock, hook de
+    // sistema, craft-vigil).
+    dispara("/usr/local/bin/craft-display", &["recover"]);
     dispara("/usr/local/bin/craft-display", &["apply"]);
     wayland::reseta_idle();
 }

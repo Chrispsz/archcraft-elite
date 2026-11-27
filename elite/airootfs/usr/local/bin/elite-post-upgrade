@@ -202,6 +202,16 @@ if grep -q 'transparent_hugepage=always' /etc/default/grub 2>/dev/null; then
 fi
 _ensure_token /etc/default/grub zswap.enabled=0         && { tlog "grub: zswap.enabled=0 entrou (o zram é o swap da casa — compressão dupla morre)"; _grub_mudou=1; }
 _ensure_token /etc/default/grub transparent_hugepage=madvise && { tlog "grub: transparent_hugepage=madvise entrou (a ordem do dono E129 substitui o 'always' — THP a quem pede)"; _grub_mudou=1; }
+# E106/5a — O S3 DEEP DO RIG SEM LPS0 (o caminho da DOSE: o rig instalado
+# recebe o token AQUI — 'asus_wmi: failed to register LPS0 sleep handler'
+# no journal = kernel sem s2idle, o deep é o ÚNICO sono de verdade).
+# Hardware-aware como o tune/install-stage: SÓ entra quando o
+# /sys/power/mem_sleep DA MÁQUINA lista o deep (notebook s2idle fica fora);
+# idempotente pelo _ensure_token (o grep antes do sed, SEMPRE).
+if [ -r /sys/power/mem_sleep ] && grep -q 'deep' /sys/power/mem_sleep 2>/dev/null; then
+    _ensure_token /etc/default/grub mem_sleep_default=deep \
+        && { tlog "grub: mem_sleep_default=deep entrou (o hardware entrega o deep e o kernel não tem s2idle — o único sono vira o default)"; _grub_mudou=1; }
+fi
 if [ "$_grub_mudou" = 1 ] && command -v grub-mkconfig >/dev/null 2>&1; then
     if grub-mkconfig -o /boot/grub/grub.cfg >/dev/null 2>&1; then
         tlog "grub: grub-mkconfig rodou (o cmdline novo vale no PRÓXIMO boot — o atual segue de pé)"
@@ -469,6 +479,18 @@ if systemctl list-unit-files lactd.service >/dev/null 2>&1 \
    && lspci 2>/dev/null | grep -q ' VGA compatible controller: .*AMD\|ATI'; then
     systemctl enable --now lactd.service >/dev/null 2>&1 \
         && tlog "lact: lactd habilitado na dose (o painel da GPU AMD — belt do firstboot)"
+fi
+# E106/5a — A VARREDURA DOS GATILHOS ESPÚRIOS (o rig do dono, journal
+# -b -p 0..4: GPP0/GPP8/XHC0/XHCI/PTXH acordando a máquina do S3 sem
+# mão nenhuma). O MESMO molde dos irmãos de dose: unit presente no
+# pacote (guard do systemctl cat — ausente = pulo honesto, nunca erro),
+# enable idempotente (o systemd responde igual pro repetido). No rig
+# VIVO é o systemctl RAIZ de verdade (post_upgrade roda como root —
+# sem chroot: o alvo é ESTA máquina).
+if [ -x /usr/local/bin/elite-acpi-wakeup ] \
+   && systemctl cat elite-acpi-wakeup.service >/dev/null 2>&1; then
+    systemctl enable --now elite-acpi-wakeup.service >/dev/null 2>&1 \
+        && tlog "acpi-wakeup: a varredura dos gatilhos espúrios habilitada na dose (GPP0/GPP8/XHC0/XHC1/XHCI/PTXH desarmados no boot — depois do wake-guard, a política do teclado segue de pé)"
 fi
 # E138 — o fóssil 81-elite-zram da ISO 1.0-85 morre com voz (a 99 do
 # pacote reina no mesmo evento do zram0 — um dono só por número)

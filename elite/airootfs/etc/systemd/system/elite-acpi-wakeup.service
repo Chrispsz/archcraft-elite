@@ -1,0 +1,24 @@
+[Unit]
+# ═══════════════════════════════════════════════════════════════════════════
+# ELITE (E106/5a) — A VARREDURA DOS GATILHOS ESPÚRIOS DE WAKE, a cada boot.
+# ═══════════════════════════════════════════════════════════════════════════
+# O rig do dono (AM4 desktop) fotografou o journal -b -p 0..4 com wakes
+# espúrios nomeados: GPP0/GPP8 (portas PCIe), XHC0/XHC1/XHCI/PTXH
+# (controladores USB) — gatilhos que NINGUÉM escolheu acordando a máquina
+# do S3. O elite-acpi-wakeup desarma a fila no /proc/acpi/wakeup (TOGGLE
+# idempotente: só escreve quem está *enabled).
+#
+# A ORDEM é a LEI da casa: DEPOIS do elite-wake-guard (a política do
+# DESPERTAR de verdade — o teclado acorda, o resto dorme — re-arma o
+# controlador da árvore do teclado em TODO boot e TODO PrepareForSleep
+# pela E122). Este unit só desarma o que a política DELE não protege;
+# quem corre depois vence o toggle — o teclado continua acordando.
+ConditionPathExists=/usr/local/bin/elite-acpi-wakeup
+After=elite-wake-guard.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/elite-acpi-wakeup
+
+[Install]
+WantedBy=multi-user.target

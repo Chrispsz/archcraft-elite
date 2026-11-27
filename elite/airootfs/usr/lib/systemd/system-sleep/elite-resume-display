@@ -107,7 +107,7 @@ waiter() {
         exit 0
     fi
     if ! command -v setpriv >/dev/null 2>&1; then
-        logger -t elite-resume-display "FALHA: setpriv AUSENTE — a lei zero-PAM não tem executor (o réu é o pacote util-linux; a rede user-side do craft-idle screenon continua de pé)"
+        logger -t elite-resume-display "FALHA: setpriv AUSENTE — a lei zero-PAM não tem executor (o réu é o pacote util-linux; a rede user-side do craft-display recover continua de pé)"
         exit 0
     fi
 
@@ -165,6 +165,32 @@ waiter() {
                 logger -t elite-resume-display "outputs religados pós-sono (ciclo off→on E75, waiter desapegado E88, sessão JÁ descongelada; usuários/sockets:$feito)"
             else
                 logger -t elite-resume-display "outputs confirmados pós-sono (--on direto E88 — a tela nunca dormiu ACESA sob este sono; usuários/sockets:$feito)"
+            fi
+            # 1.0-106 — O CICLO DO LINK COM O MODO DO DONO (a evidência do
+            #     rig: o DisplayPort ficava "sem sinal de entrada" na volta
+            #     do S3 — o wlopm --on acorda o DPMS mas o link do amdgpu
+            #     às vezes só re-treina com uma troca REAL de modo). O
+            #     recover do craft-display varre as saídas VIVAS do
+            #     wlr-randr (dinâmico, nada hardcoded) e faz o ciclo
+            #     off→1s→on COM o modo persistido no displays.conf. A
+            #     MESMA porta SEM PAM da E88 (setpriv já provado no passo 2
+            #     acima, timeout — o daemon do usuário dispara a rede dele
+            #     no PrepareForSleep(false); o guard de 10s do recover casa
+            #     UM dono por veredito entre as redes).
+            if [ -x /usr/local/bin/craft-display ]; then
+                for uhome in /home/*; do
+                    u="${uhome##*/}"
+                    uid="$(id -u "$u" 2>/dev/null)" || continue
+                    gid="$(id -g "$u" 2>/dev/null)" || continue
+                    for sock in /run/user/"$uid"/wayland-*; do
+                        [ -S "$sock" ] || continue
+                        timeout 20 setpriv --reuid="$uid" --regid="$gid" --init-groups \
+                            env HOME="$uhome" XDG_RUNTIME_DIR="/run/user/$uid" \
+                            WAYLAND_DISPLAY="${sock##*/}" \
+                            /usr/local/bin/craft-display recover >/dev/null 2>&1 || true
+                    done
+                done
+                logger -t elite-resume-display "recover do craft-display disparado por usuário (ciclo off→on COM o modo salvo — o link re-treina com a resolução/Hz do dono; guard de 10s = um dono por veredito entre as redes)"
             fi
             # 1.0-104 — A RESTAURAÇÃO DO ÁUDIO NO RETORNO DO DISPLAYPORT
             #    (AMDGPU: o sink HDMI/DP do monitor some no re-bind do

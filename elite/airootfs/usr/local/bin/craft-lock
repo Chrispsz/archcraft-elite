@@ -211,9 +211,30 @@ if command -v hyprlock >/dev/null 2>&1; then
     # E106 — o exec solta a porteira (9>&-): o flock é do PARTO, não da
     # vida do lock — o próximo --if-needed adquire a porta de imediato e
     # decide com pgrep FRESCO (a janela da dupla senha fecha aqui).
-    exec hyprlock -c "$conf" 9>&-
+    # E106/5a — O PÓS-UNLOCK É DA CASA (o relato do rig: digitava a senha
+    # no hyprlock e o DisplayPort ficava "sem sinal de entrada" — o
+    # unlock acordava a sessão e NINGUÉM re-treinava o link). O exec
+    # virou ESPERA: o hyprlock encerrou (bem-sucedido ou não — crash
+    # também precisa de imagem) = o dono destravou = o recover do
+    # craft-display dispara o ciclo off→1s→on COM O MODO SALVO para
+    # TODAS as saídas vivas (a rede é QUADRA: daemon no Unlock, o hook de
+    # sistema, a volta do sono no craft-vigil e ESTA porta; o guard de
+    # 10s do recover casa um dono só por veredito — a senha nunca é
+    # pedida DUAS vezes: o hyprlock que encerrou é o MESMO da tela, o
+    # recover só mexe no LINK do monitor).
+    _rc=0
+    hyprlock -c "$conf" 9>&- || _rc=$?
+    if command -v craft-display >/dev/null 2>&1; then
+        craft-display recover >/dev/null 2>&1 || true
+    fi
+    exit "$_rc"
   fi
-  exec hyprlock 9>&-
+  _rc=0
+  hyprlock 9>&- || _rc=$?
+  if command -v craft-display >/dev/null 2>&1; then
+      craft-display recover >/dev/null 2>&1 || true
+  fi
+  exit "$_rc"
 fi
 if command -v loginctl >/dev/null 2>&1; then
   exec loginctl lock-session
