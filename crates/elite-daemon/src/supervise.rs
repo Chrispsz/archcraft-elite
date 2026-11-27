@@ -830,6 +830,71 @@ pub fn run_session() -> Result<(), String> {
     supervisa(&lock_session, specs, "session")
 }
 
+/// 1.0-107.2 — O GUARDA DO BUS (a corrida que o craft-doctor nomeou no
+/// smoke do Canal, run 46001730365): o `liga_bus` de era corria ANTES
+/// do flock da sessão — a 2ª instância BINDAVA o bus.sock POR CIMA do
+/// dono vivo e saía pela recusa do flock: o socket novo morria com o
+/// processo e o CAMINHO apontava pra NINGUÉM (o bus do dono ficava
+/// morto pelo path — bar/dock reconectando para sempre num arquivo
+/// surdo; o dossiê do smoke provou: daemon VIVO, bus.sock no chão,
+/// handshake RECUSADO). O guarda JULGA o lock ANTES do bind: porta
+/// ocupada = o pretendente sai 0 NA HORA, com o papel da recusa no
+/// bars.log, SEM tocar o chão do bus do dono. A AUTORIDADE segue no
+/// flock do supervisa (a janela de µs entre o guarda e o trono é a
+/// mesma lei E30 de sempre).
+pub fn guarda_bus() -> bool {
+    let uid = unsafe { libc::getuid() };
+    // o espelho da ESCADA do supervisa: o privado primeiro, o fallback
+    // de /tmp SÓ quando o privado não abre (o guarda que tocasse o /tmp
+    // com o privado vivo plantaria fóssil no chão de todos)
+    let privado = elite_core::session_lock_path(uid);
+    let locks: Vec<PathBuf> = match std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(&privado)
+    {
+        Ok(_) => vec![privado],
+        Err(_) => vec![PathBuf::from(elite_core::SESSION_LOCK_FALLBACK)],
+    };
+    for lock in &locks {
+        let Ok(f) = std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .write(true)
+            .open(lock)
+        else {
+            continue; // sem chão pra julgar: o trono do supervisa decide
+        };
+        let rc = unsafe { libc::flock(f.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
+        if rc != 0 {
+            // o dono vivo segura a porta: o papel da recusa NA HORA (a
+            // mensagem casa com a do trono — o smoke confere o papel)
+            let log_r = log_path();
+            if let Some(pai) = log_r.parent() {
+                let _ = std::fs::create_dir_all(pai);
+            }
+            if let Ok(mut fh) =
+                std::fs::OpenOptions::new().append(true).create(true).open(&log_r)
+            {
+                use std::io::Write;
+                let _ = writeln!(
+                    fh,
+                    "elite-daemon: a porta session já tem dono — a 2ª instância sai 0 ANTES de tocar o bus (flock E30; o bind de era matava o socket do dono — 1.0-107.2)"
+                );
+            }
+            eprintln!(
+                "elite-daemon: a porta session já tem dono — a 2ª instância sai 0 \
+                 ANTES de tocar o bus (flock E30; o bind de era matava o socket do dono — 1.0-107.2)"
+            );
+            return true; // ocupada (o File do guarda cai no return — o lock solta)
+        }
+        // livre: segue julgando o próximo caminho (o flock do guarda
+        // solta no Drop — o trono de verdade veste no supervisa)
+    }
+    false
+}
+
 fn supervisa(
     lock_path: &str,
     vagas_iniciais: Vec<VagaSpec>,
@@ -1494,6 +1559,45 @@ mod tests {
         std::fs::write(&log, b"pequeno").unwrap();
         cap_log(&log);
         assert_eq!(std::fs::metadata(&log).unwrap().len(), 7, "abaixo do teto, nada muda");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn e1072_o_guarda_do_bus_respeita_o_dono_do_lock() {
+        // 1.0-107.2 — a corrida nomeada pelo craft-doctor: um irmão
+        // segurando o flock = porta OCUPADA (o guarda devolve true e o
+        // pretendente sai ANTES de tocar o bus do dono); lock livre =
+        // passa (o trono do supervisa decide o resto)
+        let dir = std::env::temp_dir().join(format!("elite-prova-guarda-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::env::set_var("XDG_RUNTIME_DIR", &dir);
+        // o papel da recusa mora no cache: o temp dir veste o chão do
+        // teste (nada de linha de teste no home do dev)
+        std::env::set_var("XDG_CACHE_HOME", dir.join("cache"));
+        std::fs::create_dir_all(dir.join("cache/elite")).ok();
+        // o dono de verdade: um flock LOCK_EX num fd ABERTO (o flock é
+        // por fd: o do guarda CONFLITA com o do dono no MESMO processo)
+        // — o CAMINHO é o da fundação: $XDG_RUNTIME_DIR/elite/session.lock
+        std::fs::create_dir_all(dir.join("elite")).ok();
+        let dono = std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .write(true)
+            .open(dir.join("elite/session.lock"))
+            .unwrap();
+        let rc = unsafe { libc::flock(dono.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
+        assert_eq!(rc, 0, "o dono precisa do lock pra provar a corrida");
+        assert!(guarda_bus(), "o dono vivo segura a porta — o guarda devolve true");
+        drop(dono); // o dono solta: o guarda passa
+        assert!(!guarda_bus(), "lock livre — o guarda deixa o pretendente seguir");
+        // o papel da recusa caiu no chão do teste (o cache do temp dir)
+        let papel = std::fs::read_to_string(dir.join("cache/elite/bars.log")).unwrap_or_default();
+        assert!(
+            papel.contains("a 2ª instância sai 0 ANTES de tocar o bus"),
+            "o guarda deixa o papel da recusa no bars.log: {papel:?}"
+        );
+        std::env::remove_var("XDG_RUNTIME_DIR");
+        std::env::remove_var("XDG_CACHE_HOME");
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

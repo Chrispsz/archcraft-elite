@@ -412,6 +412,13 @@ fn main() {
             // barata (stat a cada 100ms) — a sessão só descola quando o
             // WAYLAND_DISPLAY EXISTE de verdade.
             espera_wayland(10);
+            // 1.0-107.2 — O GUARDA DO BUS: o pretendente com a porta
+            // ocupada sai 0 ANTES do liga_bus (o bind de era da 2ª
+            // instância matava o socket do dono PELO PATH — o
+            // craft-doctor nomeou o réu no smoke do Canal)
+            if supervise::guarda_bus() {
+                std::process::exit(0);
+            }
             nucleo::liga_bus();
             wayland::start();
             // 1.0-106 — o MPRIS nasce com o CENSO INICIAL (o pill acende no

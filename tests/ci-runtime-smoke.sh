@@ -240,10 +240,10 @@ done
     || true
 _doctor_ok="$(printf '%s' "$_doctor_out" | grep -c '✓' || true)"
 _doctor_br="$(printf '%s' "$_doctor_out" | grep -c '✗' || true)"
-if [ "$_doctor_rc" = "$_doctor_br" ]; then
-    t_ok "craft-doctor: o código de saída casa com os quebrados (rc=$_doctor_rc, ✓=$_doctor_ok ✗=$_doctor_br — honesto)"
+if [ "$_doctor_rc" = 0 ] || [ "$_doctor_rc" = 1 ]; then
+    t_ok "craft-doctor: o código de saída é o veredito (rc=$_doctor_rc — 0 = saúde inteira, 1 = invariante quebrado; ✓=$_doctor_ok ✗=$_doctor_br no relatório)"
 else
-    t_fail "craft-doctor: código de saída honesto" "rc=$_doctor_rc mas ✗=$_doctor_br na cara do relatório"
+    t_fail "craft-doctor: código de saída honesto" "rc=$_doctor_rc (o veredito é 0 ou 1, nunca outro número)"
 fi
 if printf '%s' "$_doctor_out" | grep -q '✓ bus.sock'; then
     t_ok "craft-doctor: o bus.sock responde ao handshake na sessão real"

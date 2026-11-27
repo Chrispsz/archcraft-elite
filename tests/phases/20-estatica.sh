@@ -338,6 +338,10 @@ file_has "doctor: o pactl SÓ nasce com o socket do PipeWire no chão (o stat an
 file_has "doctor: o agente polkit é lido em /proc comm (zero fork de pgrep)" "crates/elite-daemon/src/doctor.rs" 'lxqt-policykit-'
 file_has "doctor: a porta doctor do elite-daemon" "crates/elite-daemon/src/main.rs" 'Some("doctor") => {'
 file_has "doctor: o elo craft-doctor chega pelo argv0 (o symlink do pacote)" "crates/elite-daemon/src/main.rs" 'argv0 == Some("craft-doctor")'
+# 1.0-107.2 — O GUARDA DO BUS (a corrida da 2ª instância: o bind de era
+# matava o socket do dono PELO PATH — o craft-doctor nomeou o réu no Canal)
+file_has "daemon: o guarda do bus julga o lock ANTES do liga_bus" "crates/elite-daemon/src/main.rs" 'if supervise::guarda_bus() {'
+file_has "supervise: o guarda existe e escreve o papel da recusa" "crates/elite-daemon/src/supervise.rs" 'pub fn guarda_bus() -> bool'
 # A CURA DO CANAL VERMELHO (#45632905510 — o E0599 pela 2ª era): o gdk4
 # 0.11.5 NÃO gera monitor-added/removed/monitors-changed (deprecated desde
 # o GTK 4.16, fora de DisplayExt) — a via viva é o items-changed do
