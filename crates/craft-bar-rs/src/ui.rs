@@ -392,9 +392,12 @@ fn build(app: &gtk::Application) {
         let lbl = st.borrow().clock_label.clone();
         btn_clock.set_child(Some(&lbl));
     }
-    btn_clock.set_tooltip_text(Some(
-        "Calendário — clique: abrir/fechar · hover: calendário",
-    ));
+    // 1.0-107 — O TOOLTIP DO RELÓGIO MORRE (a diretriz §9: "remover o
+    // tooltip redundante de calendário no hover (tooltip: false),
+    // mantendo a abertura do calendário exclusivamente no clique"): o
+    // hover do botão é a CORTESIA do popover (350ms), o texto flutuante
+    // era o redundante — a pele do hover (theme.css) fica como sempre.
+    btn_clock.set_has_tooltip(false);
     // 1.0-93 — O CALENDÁRIO (a ordem do dono: popover GTK4 com o tema
     // roxo/escuro ao passar o mouse; some quando o mouse sai — o clique
     // do MEIO também alterna, para quem não quer hover)

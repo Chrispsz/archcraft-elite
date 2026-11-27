@@ -14,16 +14,17 @@
 // esquecida — o Enter/Esc/clique já escapavam IMEDIATO (exit(0) dentro
 // do closure), mas PERDER O FOCO deixava o corpo vivo para sempre. A
 // lei agora é QUATRO portas de fuga: escolheu (stdout+0), Esc (1),
-// PERDEU O FOCO (1 — o EventControllerFocus na janela) e o fim do
+// PERDEU O FOCO (1 — o notify::is-active da janela) e o fim do
 // app.run() sem escolha (1). Nenhum caminho espera o GTK: o processo
 // morre no MESMO instante da decisão.
 //
-// E149 — a PELE é autocontida AQUI (o módulo janela.rs morreu com as
-// janelas GUI do update/clean/help): o padrão da casa é o da bar/dock
-// — o load_css privado que embute a folha mestra do elite-core e soma
-// o override livre do dono (~/.config/elite/tools.css, o caminho de
-// sempre). O craft-pick é a ÚNICA face GTK4 do crate — a janela-base
-// local carrega o widget_name "pickwin" que a folha conhece.
+// 1.0-107 — O SELETOR NÃO-BLOQUEANTE (a cura dos menus travados: o
+// craft-idle/craft-game/etc. abriam o pick e o SEGUNDO pedido nascia
+// MORTO — a instância única `elite.craft.Pick` deixava o 2º chamador
+// sem janela e o menu da casa parecia travado): o GtkApplication nasce
+// G_APPLICATION_NON_UNIQUE — cada pedido é UM processo com a própria
+// janela; o foco decide quem vive (o is-active FALSE do de cima o
+// colhe NA HORA, exit 1 com o stdout fechado — SEM zumbi pendurado).
 // ═════════════════════════════════════════════════════════════════════════
 
 #[cfg(feature = "gui")]
@@ -67,7 +68,15 @@ fn main() {
         std::process::exit(0);
     }
 
-    let app = gtk4::Application::new(Some("elite.craft.Pick"), Default::default());
+    // 1.0-107 — NON_UNIQUE (a cura dos menus travados): a instância única
+    // `elite.craft.Pick` matava o SEGUNDO pedido na hora (o craft-idle
+    // aberto + o clique no craft-game = menu morto que parecia travado).
+    // Cada pedido é UM processo com a própria janela — o app_id segue o
+    // mesmo (a pele e as regras de janela da casa não mudam).
+    let app = gtk4::Application::new(
+        Some("elite.craft.Pick"),
+        gtk4::gio::ApplicationFlags::NON_UNIQUE,
+    );
     // o resultado viaja pelo canal do application (o exit code é DELE)
     let (tx, rx) = std::sync::mpsc::channel::<Option<String>>();
     let itens_c = itens.clone();
@@ -144,22 +153,28 @@ fn build(
         });
         win.add_controller(ec);
     }
-    // E150 — PERDEU O FOCO: a janela de ESCOLHA não sobrevive ao palco
-    // de outra — o dono clicou fora/alt-tab (o seletor que ficava era o
-    // zumbi de ~24 MB da telemetria). O leave do EventControllerFocus é
-    // a porta: stdin calado, stdout calado, exit 1 NO MESMO INSTANTE.
+    // E150 → 1.0-107 — PERDEU O PALCO (o notify::is-active da JANELA, não
+    // o focus-controller do widget — a ordem do dono, palavra por
+    // palavra): a janela de ESCOLHA não sobrevive ao palco de outra — o
+    // dono clicou fora/alt-tab (o seletor que ficava era o zumbi de
+    // ~24 MB da telemetria; o EventControllerFocus de era só via o
+    // leave do WIDGET — a janela que NASCIA sem foco ou que o compositor
+    // rebaixava em silêncio ficava viva para sempre). O is-active é a
+    // VERDADE do compositor: FALSE = o palco é de outro = stdin calado,
+    // stdout calado, exit 1 NO MESMO INSTANTE (sem zumbi pendurado).
     {
         // E151-cura — a cópia ganha NOME PRÓPRIO ANTES do closure (a
         // mesma cura do Canal 147 no ESC de cima: o tx movido pelo
         // closure deixava o clone de baixo emprestando morto — o E0382
-        // que o 1º build da era fotografou).
+        // que o 1º build da era fotografou). O 1º argumento do notify É
+        // a própria janela — o is_active DELE é a verdade do compositor.
         let tx_leave = tx.clone();
-        let fc = gtk4::EventControllerFocus::new();
-        fc.connect_leave(move |_| {
-            let _ = tx_leave.send(None);
-            std::process::exit(1);
+        win.connect_notify_local(Some("is-active"), move |w, _| {
+            if !w.is_active() {
+                let _ = tx_leave.send(None);
+                std::process::exit(1);
+            }
         });
-        win.add_controller(fc);
     }
     // o Enter na busca: escolhe o PRIMEIRO visível (o dmenu de sempre)
     {
