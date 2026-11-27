@@ -422,15 +422,20 @@ run_wakeup() { # run_wakeup <num>
     local h="$r/home/dono"
     mkdir -p "$h/.cache/elite"
 
-    # a tabela ACPI do rig (6 gatilhos *enabled + a mão do dono + o botão)
+    # a tabela ACPI do rig (1.0-107: a família INTEIRA por padrão — 9
+    # gatilhos *enabled, incluindo os padrões de era GP30/X161/X1_1 que a
+    # fila FIXA de 6 nomes da 1.0-106 nunca via + a mão do dono + o botão)
     cat > "$r/wakeup" <<'EOF'
 Device  S-state   Status          Sysfs node
 GPP0      S4      *enabled  pci:0000:00:01.1
 GPP8      S4      *enabled  pci:0000:00:01.2
+GP30      S4      *enabled  pci:0000:00:01.3
 XHC0      S4      *enabled  pci:0000:00:12.0
 XHC1      S4      *enabled  pci:0000:00:12.1
 XHCI      S4      *enabled  pci:0000:00:12.2
 PTXH      S4      *enabled  pci:0000:00:12.3
+X161      S4      *enabled  pci:0000:00:13.1
+X1_1      S4      *enabled  pci:0000:00:13.2
 PS2K      S3      *enabled  pnp:00:04
 PWRB      S4      *enabled  button
 EOF
@@ -439,33 +444,36 @@ EOF
 
     # a 1ª passada: os 6 nomes no papel da tabela (o toggle do kernel)
     local n
-    n="$(tail -n +10 "$r/wakeup" | grep -cE '^(GPP0|GPP8|XHC0|XHC1|XHCI|PTXH)$' || true)"
-    [ "$n" = 6 ] \
-        && emit_ok "P$num wakeup: a 1ª passada desarma os 6 gatilhos do journal (uma escrita cada)" \
-        || emit_fail "P$num wakeup: a 1ª passada desarma os 6 gatilhos" "foram $n/6 escritas na tabela"
+    n="$(tail -n +13 "$r/wakeup" | grep -cE '^(GPP0|GPP8|GP30|XHC0|XHC1|XHCI|PTXH|X161|X1_1)$' || true)"
+    [ "$n" = 9 ] \
+        && emit_ok "P$num wakeup: a 1ª passada desarma os 9 gatilhos da família (XHC*/GPP*/GP[0-9]*/X1* — o padrão, não a lista)" \
+        || emit_fail "P$num wakeup: a 1ª passada desarma os 9 gatilhos" "foram $n/9 escritas na tabela"
 
     # o kernel da casa falsa aplica o toggle (a escrita INVERTE o estado)
     local d
-    for d in GPP0 GPP8 XHC0 XHC1 XHCI PTXH; do
+    for d in GPP0 GPP8 GP30 XHC0 XHC1 XHCI PTXH X161 X1_1; do
         sed -i "/^$d / s/\*enabled/*disabled/" "$r/wakeup"
     done
-    sed -i '/^\(GPP0\|GPP8\|XHC0\|XHC1\|XHCI\|PTXH\)$/d' "$r/wakeup"
+    sed -i '/^\(GPP0\|GPP8\|GP30\|XHC0\|XHC1\|XHCI\|PTXH\|X161\|X1_1\)$/d' "$r/wakeup"
 
     cat > "$HW/esp-$num/wakeup" <<'EOF'
 Device  S-state   Status          Sysfs node
 GPP0      S4      *disabled  pci:0000:00:01.1
 GPP8      S4      *disabled  pci:0000:00:01.2
+GP30      S4      *disabled  pci:0000:00:01.3
 XHC0      S4      *disabled  pci:0000:00:12.0
 XHC1      S4      *disabled  pci:0000:00:12.1
 XHCI      S4      *disabled  pci:0000:00:12.2
 PTXH      S4      *disabled  pci:0000:00:12.3
+X161      S4      *disabled  pci:0000:00:13.1
+X1_1      S4      *disabled  pci:0000:00:13.2
 PS2K      S3      *enabled  pnp:00:04
 PWRB      S4      *enabled  button
 EOF
-    cmp_bytes "P$num wakeup: os 6 espúrios *disabled na tabela (desarmados no boot)" \
+    cmp_bytes "P$num wakeup: os 9 espúrios da família *disabled na tabela (desarmados no boot)" \
         "$r/wakeup" "$HW/esp-$num/wakeup"
     grep -Eq '^PS2K +S3 +\*enabled' "$r/wakeup" \
-        && emit_ok "P$num wakeup: a mão do dono PS2K segue *enabled (o wake-guard é a política)" \
+        && emit_ok "P$num wakeup: a mão do dono PS2K segue *enabled (o allowlist da 1.0-107)" \
         || emit_fail "P$num wakeup: a mão do dono PS2K segue *enabled" "a linha PS2K mudou na tabela"
 
     # a 2ª passada: NADA no papel (idempotente — o grep antes de escrever)
@@ -477,8 +485,8 @@ EOF
     [ "$sha_antes" = "$sha_depois" ] \
         && emit_ok "P$num wakeup: a 2ª passada é silêncio (byte-idêntica — rearmar o dormendo morre)" \
         || emit_fail "P$num wakeup: a 2ª passada é silêncio" "a tabela mudou na 2ª corrida"
-    count_is "P$num wakeup: o papel da casa conta os 6 desarmados" \
-        "$h/.cache/elite/acpi-wakeup.log" 'desarmado (gatilho espúrio' 6
+    count_is "P$num wakeup: o papel da casa conta os 9 desarmados" \
+        "$h/.cache/elite/acpi-wakeup.log" 'desarmado (gatilho espúrio' 9
 }
 
 # ═════════════════════════════════════════════════════════════════════

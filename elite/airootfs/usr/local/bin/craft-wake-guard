@@ -1,74 +1,40 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · craft-wake-guard (E122) — A POLÍTICA DO DESPERTAR
+# Archcraft ELITE · craft-wake-guard (E122 → 1.0-107) — A POLÍTICA DO DESPERTAR
 # ═══════════════════════════════════════════════════════════════════════════
-# O relato do dono (dump 182602, seção 10 — e a ordem dele no mesmo fôlego):
-#   'eu tentava fazer ação no teclado, ação no mouse e nada despertava o
-#    computador, fazendo com que eu clicasse no botão de power e aí o
-#    computador desligou' · 'nesses casos do monitor suspender, etc., que
-#    uma ação, por exemplo, no teclado libere, né? Ative o monitor. Não
-#    necessariamente no mouse… o mouse é menos confiável, pode ser que
-#    tenha pessoas que tenham mouse mais sensível e qualquer toque na mesa
-#    fica ativando o computador'.
-#
-# A PERÍCIA: o /proc/acpi/wakeup do rig mostrava XHC0, PTXH, X161, X162,
-# X1_1, X1_2, PS2K, PS2M, GP30, GP31 — TODOS *disabled. A E24 (a cura do
-# despertar imediato) desarmou TODO controlador USB PCI e a casa aceitou
-# a troca ('acordar = botão de power') — até o dono fotografar o preço:
-# dormiu e NADA acordava; o único despertar vivo era o power button, que o
-# logind atende como HandlePowerKey=poweroff — o wake e o desligamento no
-# MESMO aperto. O E108 do idle.log ('systemctl voltou em 0s SEM sono')
-# enganava: a chamada é assíncrona (a máquina DORMIA — 'tela: ACORDOU' 1s
-# depois em toda linha; o sonho era real, só ninguém podia acordá-la).
-#
-# A POLÍTICA (E122) — cirúrgica, a ordem literal do dono:
-#   · TECLADO USB (HID, interface protocolo 01) → ACORDA
-#   · PS2K (teclado PS/2)                        → ACORDA
-#   · MOUSE USB (protocolo 02) e TODO o resto do bus USB → DORME
-#   · PS2M                                       → DORME
-#   · controlador USB PCI (class 0x0c03)         → ARMADO **SÓ COM
-#     TECLADO NA PRÓPRIA ÁRVORE** (E139 — o ajuste cirúrgico do dono:
-#     o controlador é a porta do teclado; onde NÃO há teclado HID 01
-#     na árvore dele — o XHC0 do Bluetooth Intel, por exemplo — ele
-#     DESARMA; um controlador armado às cegas acorda com o que não é
-#     a mão do dono),
-#   · TODO dispositivo USB que não é teclado (Bluetooth, dongles
-#     genéricos, receptores sem fio) → wakeup=disabled FORÇADO no
-#     apply E REAFIRMADO no pré-sono (o elite-daemon session chama
-#     UM apply a cada PrepareForSleep(true) — E139),
-#   · WoL segue morto POR FORÇA (sysfs + ethtool — E139) e as pontes
-#     PCIe espúrias que o ACPI expõe (GP12/GP13/SWUS/SWDS) ganham o
-#     SELO no apply de boot (o despertar-fantasma da mesa morre).
-#
-# E126 — O ELO ACPI QUE FALTAVA (o dump 173137 fotografou a cadeia
-#   QUEBRADA no meio: controlador 0c:00.3 wakeup=disabled no sysfs E
-#   XHC0 *disabled no /proc/acpi/wakeup — o dispositivo-teclado 3-3
-#   estava enabled SOZINHO, gritando para um ouvido fechado; o dono
-#   dormiu, apertou teclado e NADA, botão de power). O despertar USB em
-#   S3 é uma CORRENTE: dispositivo → controlador PCI → fonte ACPI. O
-#   apply agora arma os TRÊS elos: dispositivo (HID 01), controlador
-#   (0x0c03 sysfs) E a fonte ACPI que aponta para o MESMO endereço PCI
-#   do controlador (a linha 'XHC0 S4 *disabled pci:0000:0c:00.3' do
-#   /proc/acpi/wakeup vira *enabled — o arquivo é TOGGLE: escrever o
-#   nome inverte o estado). PS2K/PS2M seguem na mesma dança.
+# 1.0-107 — A POLÍTICA NOVA (a ordem do dono, palavra por palavra: "o PC
+#   acordar sozinho logo após suspender" — o dongle 2.4G do rig expunha uma
+#   interface HID de teclado FALSA e o gate de era E122/E139 ("teclado na
+#   árvore do controlador arma o controlador") julgava o FINGIDOR como a
+#   mão do dono: o XHC0 rearmava em todo boot e em todo pré-sono, o
+#   elite-acpi-wakeup desarmava, o sono nascia com a porta aberta e o
+#   dongle acordava a máquina num pigarro). A lei agora é a da diretriz:
+#   "mantendo o despertar apenas pelo botão Power (e dispositivos
+#   explicitamente desejados)":
+#     · TODO dispositivo USB dorme (teclado incluso — o dongle fingidor
+#       matou a exceção; a MÃO de verdade do dono é o botão do power e
+#       o PS/2 de sempre — dongle nenhum finge ser PS2K);
+#     · TODO controlador USB PCI (class 0x0c03) dorme — o elo ACPI dele
+#       idem (ninguém REARMA o que o elite-acpi-wakeup desarma: as duas
+#       leis da casa agora dizem a MESMA coisa);
+#     · PS2K (teclado PS/2) acorda — o dispositivo EXPLICITAMENTE
+#       desejado da E122, que dongle nenhum consegue fingir;
+#     · PS2M e TODO o resto do ACPI dorme; WoL segue morto POR FORÇA.
 #
 # QUEM APLICA: a regra udev da casa (ISO: 90-elite-wake-guard.rules;
-# pacote: /usr/lib/udev/rules.d/91-elite-wake-guard.rules — a E126 —
-# coldplug + hotplug — este script é o gancho RUN do usb_device) E a unit
-# elite-wake-guard.service a CADA boot (`craft-wake-guard apply`) — a
-# varredura de boot é quem cura os rigs da era E24, cuja .rules velha
-# (tudo desarmado) segue no disco: a política aplicada DEPOIS do coldplug
-# vence, e suspende só minutos depois (não há corrida).
+# pacote: /usr/lib/udev/rules.d/91-elite-wake-guard.rules — coldplug +
+# hotplug) E a unit elite-wake-guard.service a CADA boot (`craft-wake-guard
+# apply`) E o elite-daemon session a cada PrepareForSleep(true) — o gate é
+# REAFIRMADO no limiar de cada sono (o dongle plugado depois não vira voz).
 #
-# Custo honesto do teclado acordando: o teclado USB volta a poder acordar
-# o PC — é EXATAMENTE o que o dono pediu; qualquer alarme falso dele é o
-# preço da porta que ele quis aberta.
+# Custo honesto: acordar o PC é apertar o botão do power (ou ter um
+# teclado PS/2) — é EXATAMENTE o que a diretriz 1.0-107 pediu; o dongle
+# sensível que acordava a mesa a cada vibrada morre com a porta fechada.
 #
 # Uso:
 #   craft-wake-guard              = status (a vista da política agora)
 #   craft-wake-guard apply        APLICA a política (varredura completa)
 #   craft-wake-guard usb-apply P  gancho udev: um usb_device (por %p)
-#   craft-wake-guard status       a vista detalhada
 #   craft-wake-guard off|on       A MARRETA E24 (legado/resgate): desarma
 #                                 ou arma TODA a família serial bus 0x0c0x
 # WAKE_SYSFS / WAKE_ACPI (ambiente): raiz alternativa de /sys e /proc para
@@ -84,8 +50,8 @@ TEST_MODE=0
 [ -n "${WAKE_SYSFS:-}" ] && TEST_MODE=1
 
 usb_pci_ctrls() {
-    # SÓ a classe USB 0x0c03 agora (a política é do despertar por INPUT —
-    # as irmãs 0x0c00-0x0c07 não falam por teclado e a E24 as tocava por
+    # SÓ a classe USB 0x0c03 (a política é do despertar por USB — as
+    # irmãs 0x0c00-0x0c07 não falam por teclado e a E24 as tocava por
     # excesso; a marreta `off` legada mantém a família inteira)
     for d in "$S"/bus/pci/devices/*; do
         [ -r "$d/power/wakeup" ] || continue
@@ -96,39 +62,11 @@ usb_pci_ctrls() {
     done
 }
 
-# E139 — os busnum dos root hubs DESTE controlador: no sysfs de verdade
-# o root hub usbN nasce DENTRO do dir do dispositivo PCI
-# (/sys/devices/.../0000:0c:00.3/usb3/busnum) — na árvore falsa da
-# suíte, o fixture cria o usbN/busnum dentro do dir do controlador.
-ctrl_busnums() { # $1 = devpath do controlador
-    for f in "$1"/usb*/busnum; do
-        [ -r "$f" ] && cat "$f" 2>/dev/null
-    done
-}
-
-# E139 — O GATE DO CONTROLADOR: há TECLADO HID 01 (interface class 03
-# + protocolo 01) na PRÓPRIA árvore deste controlador? A árvore é o
-# bus inteiro: os root hubs usbN que nascem dentro dele e TODO
-# usb_device cujo busnum casa. Um acerto devolve 0 (o controlador é a
-# porta da mão do dono); nenhum teclado = 1 (o Bluetooth de dentro do
-# XHC0 NÃO desperta nada — desarma).
-ctrl_tem_teclado() { # $1 = devpath do controlador PCI 0x0c03
-    local bn dev
-    for bn in $(ctrl_busnums "$1"); do
-        for dev in "$S"/bus/usb/devices/*; do
-            case "${dev##*/}" in *:*) continue ;; esac
-            [ -r "$dev/busnum" ] || continue
-            [ "$(cat "$dev/busnum" 2>/dev/null)" = "$bn" ] || continue
-            [ "$(decide_usb "$dev")" = "acorda" ] && return 0
-        done
-    done
-    return 1
-}
-
-# E126 → E139 — O ELO ACPI do controlador ($1 = devpath) com o valor
-# pedido ($2 = enabled|disabled): o /proc/acpi/wakeup é TOGGLE — só
-# escreve quando o estado atual é o CONTRÁRIO do pedido. A linha do
-# controlador casa pelo endereço pci:AAAA:BB:CC.D.
+# 1.0-107 — O ELO ACPI do controlador ($1 = devpath) SEMPRE DORME (a
+# política do teclado de era morreu — o dongle 2.4G fingia a mão do dono
+# e o controlador rearmado abria a porta do sono a cada boot). O
+# /proc/acpi/wakeup é TOGGLE — só escreve quando o estado atual é o
+# CONTRÁRIO do pedido (o elo do controlador desarmado é silêncio).
 _acpi_elo() {
     [ -f "$ACPI_TABLE" ] && [ "$TEST_MODE" -eq 0 ] || return 0
     local addr="pci:${1##*/}" aclinha aname
@@ -136,87 +74,12 @@ _acpi_elo() {
                || grep -m1 "$addr" "$ACPI_TABLE" 2>/dev/null || true)"
     aname="$(printf '%s' "$aclinha" | awk '{print $1}')"
     [ -n "$aname" ] || return 0
-    case "$2" in
-        enabled)
-            if printf '%s' "$aclinha" | grep -q '\*disabled'; then
-                if printf '%s' "$aname" > "$ACPI_TABLE" 2>/dev/null; then
-                    printf '  ACPI       ARMADO  %s (%s — o gatilho S3 do controlador)\n' "$aname" "$addr"
-                fi
-            fi ;;
-        disabled)
-            if printf '%s' "$aclinha" | grep -q '\*enabled'; then
-                if printf '%s' "$aname" > "$ACPI_TABLE" 2>/dev/null; then
-                    printf '  ACPI       DORME   %s (%s — sem teclado, sem voz)\n' "$aname" "$addr"
-                fi
-            fi ;;
-    esac
+    if printf '%s' "$aclinha" | grep -q '\*enabled'; then
+        if printf '%s' "$aname" > "$ACPI_TABLE" 2>/dev/null; then
+            printf '  ACPI       DORME   %s (%s — o controlador USB não é porta de ninguém — 1.0-107)\n' "$aname" "$addr"
+        fi
+    fi
     return 0
-}
-
-# E139 — a CADEIA DE UM TECLADO QUE CHEGOU QUENTE (o gancho usb-apply):
-# o teclado plugado DEPOIS do boot arma o PRÓPRIO controlador (o pai
-# PCI 0x0c03 na ancestralidade do sysfs) + o elo ACPI dele — o dono
-# pluga o dongle do teclado e o sono seguinte JÁ acorda.
-arma_cadeia_do_dev() { # $1 = devpath do usb_device
-    [ "$TEST_MODE" -eq 0 ] || return 0
-    local real c cls
-    real="$(readlink -f "$1" 2>/dev/null)" || return 0
-    [ -n "$real" ] || return 0
-    c="$(dirname "$real")"
-    while [ "$c" != "/" ] && [ -n "$c" ]; do
-        if [ -r "$c/class" ]; then
-            cls="$(cat "$c/class" 2>/dev/null)"
-            case "$cls" in
-                0x0c03*)
-                    set_wakeup "$c/power/wakeup" enabled >/dev/null 2>&1 || true
-                    _acpi_elo "$c" enabled
-                    return 0 ;;
-            esac
-        fi
-        c="$(dirname "$c")"
-    done
-    return 0
-}
-
-# a DECISÃO por dispositivo: teclado acorda, todo o resto dorme. Lê as
-# interfaces HID do usb_device ($1 = devpath absoluto, udev %p ou caminho
-# em $S): bInterfaceClass 03 (HID) + bInterfaceProtocol 01 (keyboard) =
-# TECLADO; protocolo 02 (mouse) e todo o resto = DORME. Um dispositivo
-# composto (teclado com leitor, com touchpad) ACORDA se tiver UMA
-# interface de teclado — o dono quer a MÃO de volta, não cada dedo.
-#
-# E140 — O ÁUDIO DORME SEMPRE (a ordem do dono do dossiê 1.0-88: o
-# microfone USB Fifine (3-3, 3142:a010) continuava `acorda` no status
-# E o controlador XHC0 da árvore dele era ARMADO como "teclado na
-# árvore" — o réu: o Fifine EXPÕE uma interface HID de controle de
-# volume com protocolo 01, e o juízo antigo contava isso como
-# TECLADO). A regra nova é ANTES de qualquer outra: dispositivo com
-# UMA interface de classe Áudio (bInterfaceClass 01) é ÁUDIO — dorme
-# com o PC, SEM olhar o HID dele (a mesinha que mexe no volume não é
-# a mão que acorda a máquina). O gate do controlador herda a cura na
-# hora: sem o Fifine "teclado", o XHC0 desarma sozinho.
-decide_usb() {
-    local dev="$1" itf cls proto
-    # E140 — O ÁUDIO PRIMEIRO: interface classe 01 (Audio) = dorme
-    # incondicional (o Fifine nunca mais é teclado)
-    for itf in "$dev":*; do
-        [ -d "$itf" ] || continue
-        cls="$(cat "$itf/bInterfaceClass" 2>/dev/null || true)"
-        if [ "$cls" = "01" ]; then
-            printf '%s' "dorme"
-            return 0
-        fi
-    done
-    local ret="dorme"
-    for itf in "$dev":*; do
-        [ -d "$itf" ] || continue
-        cls="$(cat "$itf/bInterfaceClass" 2>/dev/null || true)"
-        proto="$(cat "$itf/bInterfaceProtocol" 2>/dev/null || true)"
-        if [ "$cls" = "03" ] && [ "$proto" = "01" ]; then
-            ret="acorda"; break
-        fi
-    done
-    printf '%s' "$ret"
 }
 
 set_wakeup() { # $1=arquivo power/wakeup  $2=valor → 0 se escreveu
@@ -228,89 +91,61 @@ set_wakeup() { # $1=arquivo power/wakeup  $2=valor → 0 se escreveu
 }
 
 usb_apply_one() { # $1 = devpath (absoluto sob $S) — o gancho udev
-    local dev="$1" want
+    local dev="$1"
     [ -d "$dev" ] || return 0
     [ -f "$dev/power/wakeup" ] || return 0
-    want="$(decide_usb "$dev")"
-    case "$want" in
-        acorda)
-            set_wakeup "$dev/power/wakeup" enabled  >/dev/null 2>&1 || true
-            # E139 — o teclado que chegou quente arma a PRÓPRIA cadeia
-            arma_cadeia_do_dev "$dev" ;;
-        dorme)  set_wakeup "$dev/power/wakeup" disabled >/dev/null 2>&1 || true ;;
-    esac
+    # 1.0-107 — TODO dispositivo USB dorme (teclado incluso: o dongle
+    # 2.4G que fingia a mão do dono matou a exceção de era)
+    set_wakeup "$dev/power/wakeup" disabled >/dev/null 2>&1 || true
     return 0
 }
 
 do_apply() {
-    local n_on=0 n_off=0 n_ctrl=0 n_acpi=0 dev want
-    # (1) controladores USB PCI: O GATE DO TECLADO (E139 — o ajuste
-    #     cirúrgico do dono). Só permanece ARMADO o controlador 0x0c03
-    #     com TECLADO HID 01 na PRÓPRIA árvore (o XHC0 onde mora o
-    #     Bluetooth Intel DESARMA); sem teclado = dorme, o elo ACPI
-    #     dele idem. A porta só fica aberta onde a mão do dono fala.
+    local n_off=0 n_ctrl=0 dev
+    # (1) controladores USB PCI: TODOS dormem (o gate do teclado de era
+    #     morreu — o dongle fingidor provou que a interface HID 01 não
+    #     é prova de mão) + o elo ACPI de cada um dorme junto
     for dev in $(usb_pci_ctrls); do
-        if ctrl_tem_teclado "$dev"; then
-            if set_wakeup "$dev/power/wakeup" enabled; then
-                printf '  controlador ARMADO  %s (TECLADO HID 01 na própria árvore — E139)\n' "${dev##*/}"
-            fi
-            _acpi_elo "$dev" enabled && n_acpi=$((n_acpi + 1))
-            n_ctrl=$((n_ctrl + 1))
-        else
-            if set_wakeup "$dev/power/wakeup" disabled; then
-                printf '  controlador DORME   %s (sem teclado na árvore — o Bluetooth não desperta nada — E139)\n' "${dev##*/}"
-            fi
-            _acpi_elo "$dev" disabled
-            n_ctrl=$((n_ctrl + 1))
+        if set_wakeup "$dev/power/wakeup" disabled; then
+            printf '  controlador DORME   %s (todo USB dorme — 1.0-107: despertar só no power/PS2K)\n' "${dev##*/}"
         fi
+        _acpi_elo "$dev"
+        n_ctrl=$((n_ctrl + 1))
     done
-    # (2) dispositivos USB: a decisão por dispositivo — TECLADO acorda;
-    #     TODO o resto (Bluetooth, dongles, receptores sem fio, mouse,
-    #     storage) tem wakeup=disabled FORÇADO (o pré-sono do daemon
-    #     reafirma — E139)
+    # (2) dispositivos USB: TODO o resto tem wakeup=disabled FORÇADO
+    #     (o pré-sono do daemon reafirma — o hotplug não abre porta)
     for dev in "$S"/bus/usb/devices/*; do
         case "${dev##*/}" in *:*) continue ;; esac   # interfaces (:x.y) não são dispositivos
         [ -f "$dev/power/wakeup" ] || continue
-        want="$(decide_usb "$dev")"
-        case "$want" in
-            acorda)
-                if set_wakeup "$dev/power/wakeup" enabled; then
-                    printf '  TECLADO   acorda    %s\n' "${dev##*/}"
-                    n_on=$((n_on + 1))
-                fi ;;
-            *)
-                if set_wakeup "$dev/power/wakeup" disabled; then
-                    printf '  resto     dorme     %s (não é teclado — disabled forçado — E139)\n' "${dev##*/}"
-                    n_off=$((n_off + 1))
-                fi ;;
-        esac
+        if set_wakeup "$dev/power/wakeup" disabled; then
+            printf '  usb        dorme     %s (não é a mão do dono — disabled forçado — 1.0-107)\n' "${dev##*/}"
+            n_off=$((n_off + 1))
+        fi
     done
-    # (3) ACPI: PS2K acorda, PS2M dorme (o /proc/acpi/wakeup é TOGGLE —
-    #     escrever só quando o estado não é o desejado)
+    # (3) ACPI: PS2K acorda (a MÃO de sempre — dongle nenhum finge ser
+    #     PS/2), PS2M dorme (o /proc/acpi/wakeup é TOGGLE — escrever
+    #     só quando o estado não é o desejado)
     if [ -f "$ACPI_TABLE" ] && [ "$TEST_MODE" -eq 0 ]; then
         if grep -qE '^PS2K.*\*disabled' "$ACPI_TABLE" 2>/dev/null; then
             printf 'PS2K' > "$ACPI_TABLE" 2>/dev/null || true
-            printf '  PS2K      acorda (ACPI rearmado)\n'
-            n_on=$((n_on + 1))
+            printf '  PS2K      acorda (ACPI rearmado — o teclado PS/2 é a mão explicitamente desejada)\n'
         fi
         if grep -qE '^PS2M.*\*enabled' "$ACPI_TABLE" 2>/dev/null; then
             printf 'PS2M' > "$ACPI_TABLE" 2>/dev/null || true
             printf '  PS2M      dorme (ACPI desarmado)\n'
-            n_off=$((n_off + 1))
         fi
     fi
-    # (4) E139 — O SELO DAS PONTES + O WoL MORTO POR FORÇA: as sobras
-    #     PCIe que o ACPI expõe (GP12/GP13/SWUS/SWDS) e a rede (WoL por
-    #     sysfs E ethtool) NÃO despertam a máquina — o despertar é da
-    #     mão do teclado, de ninguém mais. Vale no apply de boot (a
-    #     unit) e é re-julgado em cada pré-sono do daemon.
+    # (4) O SELO DAS PONTES + O WoL MORTO POR FORÇA: as sobras PCIe que
+    #     o ACPI expõe e a rede (WoL por sysfs E ethtool) NÃO despertam
+    #     a máquina — o despertar é do botão do power e do PS2K, de
+    #     ninguém mais. Vale no apply de boot (a unit) e é re-julgado
+    #     em cada pré-sono do daemon.
     if [ -f "$ACPI_TABLE" ] && [ "$TEST_MODE" -eq 0 ]; then
         local _b
         for _b in GP12 GP13 SWUS SWDS; do
             if grep -qE "^${_b} .*\\*enabled" "$ACPI_TABLE" 2>/dev/null; then
                 if printf '%s' "$_b" > "$ACPI_TABLE" 2>/dev/null; then
                     printf '  ponte      dorme    %s (o selo ACPI das sobras PCIe — E139)\n' "$_b"
-                    n_off=$((n_off + 1))
                 fi
             fi
         done
@@ -331,34 +166,28 @@ do_apply() {
             done
         fi
     fi
-    printf '  ── política aplicada: %d acordam (teclados) · %d dorme (mouse/resto/pontes/rede) · %d controlador(es) julgado(s) pelo gate do teclado\n' "$n_on" "$n_off" "$n_ctrl"
+    printf '  ── política aplicada: %d usb dorme · %d controlador(es) desarmado(s) · despertar = power/PS2K (1.0-107)\n' "$n_off" "$n_ctrl"
     [ "$TEST_MODE" -eq 1 ] && printf '  (modo perícia WAKE_SYSFS=%s — nada real foi tocado)\n' "$S"
     return 0
 }
 
 do_status() {
-    local dev want cls
-    printf '── A POLÍTICA (E122+E139+E140): TECLADO acorda · mouse e resto do USB dormem ·\n'
-    printf '   controlador só fica ARMADO com TECLADO HID 01 na própria árvore\n'
-    printf '── E140: áudio USB (classe 01) dorme SEMPRE — o Fifine não é teclado\n'
-    printf '── a ordem do dono: "uma ação no teclado libere… não necessariamente no mouse"\n'
-    printf '── controladores USB PCI (o gate por controlador — E139):\n'
+    local dev cls
+    printf '── A POLÍTICA (1.0-107): TODO o USB dorme (teclado incluso — o dongle 2.4G fingidor\n'
+    printf '   matou a exceção de era); despertar SÓ no botão do power e no PS2K (a mão\n'
+    printf '   explicitamente desejada — dongle nenhum finge ser PS/2)\n'
+    printf '── controladores USB PCI (todos dormem — o elo ACPI de cada um idem):\n'
     for dev in $(usb_pci_ctrls); do
         cls="$(cat "$dev/class" 2>/dev/null)"
-        if ctrl_tem_teclado "$dev"; then
-            printf '  %-12s class=%s wakeup=%s (TECLADO na árvore — porta aberta)\n' "${dev##*/}" "$cls" "$(cat "$dev/power/wakeup" 2>/dev/null)"
-        else
-            printf '  %-12s class=%s wakeup=%s (sem teclado — porta fechada; o Bluetooth dorme)\n' "${dev##*/}" "$cls" "$(cat "$dev/power/wakeup" 2>/dev/null)"
-        fi
+        printf '  %-12s class=%s wakeup=%s (dorme — o elite-acpi-wakeup sela o elo ACPI)\n' "${dev##*/}" "$cls" "$(cat "$dev/power/wakeup" 2>/dev/null)"
     done
-    printf '── dispositivos USB (a decisão por dispositivo):\n'
+    printf '── dispositivos USB (todos dormem):\n'
     for dev in "$S"/bus/usb/devices/*; do
         case "${dev##*/}" in *:*) continue ;; esac
         [ -f "$dev/power/wakeup" ] || continue
-        want="$(decide_usb "$dev")"
-        printf '  %-12s %s (wakeup=%s)\n' "${dev##*/}" "$want" "$(cat "$dev/power/wakeup" 2>/dev/null)"
+        printf '  %-12s dorme (wakeup=%s)\n' "${dev##*/}" "$(cat "$dev/power/wakeup" 2>/dev/null)"
     done
-    printf '── ACPI (o que o hardware oferece):\n'
+    printf '── ACPI (o que o hardware oferece — PS2K/PWRB são a mão do dono):\n'
     grep -E '\*enabled' "$ACPI_TABLE" 2>/dev/null | sed 's/^/  /' \
         || printf '  (nenhuma armada — tudo desarmado)\n'
     printf '── mem_sleep (o modo que o hardware entrega)\n'
@@ -384,7 +213,7 @@ do_set() { # $1 = enabled|disabled — A MARRETA LEGADA (família 0x0c0x inteira
 case "${1:-status}" in
     apply)
         [ "$TEST_MODE" -eq 1 ] || [ "$(id -u)" -eq 0 ] || { printf '%s: aplicar a política precisa root (sudo %s apply)\n' "$PROG" "$PROG" >&2; exit 1; }
-        printf 'Aplicando a política do despertar (E122+E139 — teclado acorda, o resto dorme; controlador só com teclado na árvore):\n'
+        printf 'Aplicando a política do despertar (1.0-107 — todo USB dorme; despertar só no power/PS2K):\n'
         do_apply
         ;;
     usb-apply)
