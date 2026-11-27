@@ -22,8 +22,6 @@
 // Tudo aqui é std-only e TESTADO contra um daemon FALSO que fala o
 // protocolo do bus (o parsing é função pura).
 use std::collections::HashMap;
-use std::os::unix::net::UnixStream;
-use std::path::Path;
 
 /// Flags do protocolo (o mapa do daemon — ver cabeçalho).
 /// (F_MAXIMIZED saiu na 2.0: réu E76 — nenhum leitor na árvore inteira,
@@ -280,119 +278,17 @@ pub fn key_mapped(snap: &Snapshot, key: &str) -> bool {
     false
 }
 
-// ── o cliente dos VERBES (std-only — curto, Hello+Req+Ack) ───────────
-
-/// O cliente de VERBO da dock: UMA conexão curta que se apresenta,
-/// pede e espera o eco (a gramática da casa desde o C: conectar por
-/// comando custa µs; a conexão PERSISTENTE é da thread de fundo).
-/// O leitor é UMA thread de mentira de 1s de vida: lê os quadros do
-/// daemon (boas-vindas + Ack) e entrega no canal; o dono do round-trip
-/// filtra o que quer (Windows para a LIST, Ack para o verbo).
-pub struct ToplevelClient {
-    out: UnixStream,
-    rx: std::sync::mpsc::Receiver<elite_core::BusMsg>,
-    next_id: u32,
-}
-
-/// o tempo de vida do round-trip (o clique não espera nada além disso).
-const RT_MS: u64 = 1000;
-
-impl ToplevelClient {
-    pub fn connect(path: &Path) -> Option<Self> {
-        let mut stream = elite_core::ipc::connect_bus(path)?;
-        elite_core::ipc::send_frame(
-            &mut stream,
-            &elite_core::BusMsg::Hello { who: "craft-dock-rs".into() },
-        )
-        .ok()?;
-        let (tx, rx) = std::sync::mpsc::channel::<elite_core::BusMsg>();
-        let mut leitor = stream.try_clone().ok()?;
-        std::thread::spawn(move || {
-            // o leitor do round-trip: vive enquanto alguém drena o canal
-            // (o dono sai em ≤1s; o daemon morto fecha o fio sozinho)
-            loop {
-                match elite_core::ipc::recv_frame(&mut leitor) {
-                    Ok(Some(msg)) => {
-                        if tx.send(msg).is_err() {
-                            return;
-                        }
-                    }
-                    _ => return,
-                }
-            }
-        });
-        Some(Self { out: stream, rx, next_id: 1 })
-    }
-
-    fn pede(&mut self, req: elite_core::BusReq) -> Option<u32> {
-        let id = self.next_id;
-        self.next_id += 1;
-        elite_core::ipc::send_frame(
-            &mut self.out,
-            &elite_core::BusMsg::Req { id, req },
-        )
-        .ok()?;
-        Some(id)
-    }
-
-    /// LIST (a prova fresca do clique E135): espera o Windows do
-    /// snapshot (as boas-vindas do Hello já contêm — o Req::Snapshot é
-    /// o cinto para o daemon de era nova que demora na cortesia).
-    pub fn list(&mut self) -> Option<Snapshot> {
-        let _ = self.pede(elite_core::BusReq::Snapshot)?;
-        let limite = std::time::Duration::from_millis(RT_MS);
-        let inicio = std::time::Instant::now();
-        while inicio.elapsed() < limite {
-            match self.rx.recv_timeout(std::time::Duration::from_millis(100)) {
-                Ok(elite_core::BusMsg::Windows { windows }) => {
-                    return Some(de_bus_windows(&windows));
-                }
-                Ok(_) => continue, // boas-vindas demais: segue pescando
-                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => continue,
-                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => return None,
-            }
-        }
-        None
-    }
-
-    /// o verbo confirmado (o Ack ecoa o id; o efeito mora no snapshot
-    /// que o bus publica a seguir — a fonte da verdade é sempre ela).
-    fn verbo(&mut self, req: elite_core::BusReq) -> bool {
-        let Some(id) = self.pede(req) else { return false };
-        let limite = std::time::Duration::from_millis(RT_MS);
-        let inicio = std::time::Instant::now();
-        while inicio.elapsed() < limite {
-            match self.rx.recv_timeout(std::time::Duration::from_millis(100)) {
-                Ok(elite_core::BusMsg::Ack { id: eco, ok }) => {
-                    // Ack de pedidos ANTERIORES (o Snapshot do list) é
-                    // ruído honesto de fila: o eco que vale é o MEU id
-                    if eco == id {
-                        return ok;
-                    }
-                }
-                Ok(_) => continue,
-                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => continue,
-                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => return false,
-            }
-        }
-        false
-    }
-
-    /// Foco/restauro POR ID (activate + unset_minimized no daemon).
-    pub fn act(&mut self, id: u64) -> bool {
-        self.verbo(elite_core::BusReq::Activate { id: id as u32 })
-    }
-
-    /// o toggle: MIN por id (o 2º clique no app focado minimiza).
-    pub fn min(&mut self, id: u64) -> bool {
-        self.verbo(elite_core::BusReq::Minimize { id: id as u32 })
-    }
-
-    /// CLOSE por id (o WM_DELETE gracioso — o clique do meio da dock).
-    pub fn close_win(&mut self, id: u64) -> bool {
-        self.verbo(elite_core::BusReq::Close { id: id as u32 })
-    }
-}
+// ── 1.0-109 — O CLIENTE DOS VERBES APOSENTA (com substituto vivo) ──────
+// A EVIDÊNCIA DO DUMP 1.0-108: o bus.log do daemon fotografou
+// `bus.cliente 3..7` — cada CLIQUE da dock abria um ToplevelClient NOVO
+// (conexão curta + thread leitora de 1s + round-trip de até 1s BLOQUEANDO
+// a main thread do GTK). O SUBSTITUTO VIVO é o BusClient PERSISTENTE da
+// fundação (elite-core::bus): a thread de fundo da UI conecta UMA vez,
+// entrega o Arc à UI e o BusClient RECONECTA sozinho quando o daemon
+// renasce; os verbos viajam por send_req (fire-and-forget, teto de
+// escrita de 500ms — NUNCA um round-trip no clique) e o eco chega pelo
+// MESMO fio como Ack (nomeado no papel pelo dreno da UI). A prova viva
+// mora no teste `cliente_contra_o_daemon_falso_do_bus` abaixo.
 
 #[cfg(test)]
 mod tests {
@@ -588,27 +484,52 @@ mod tests {
             }
         });
 
-        // o LIST fresco do clique: as boas-vindas bastam
-        let mut cli = ToplevelClient::connect(&sock).unwrap();
-        let snap = cli.list().unwrap();
+        // 1.0-109 — O FIO PERSISTENTE da fundação (a diretriz: UMA conexão
+        // para a vida da dock — o ToplevelClient por clique morreu com a
+        // evidência `bus.cliente 3..7`): as boas-vindas entregam o snapshot
+        let (cli, rx) = BusClient::connect(&sock, "craft-dock-rs").unwrap();
+        let mut snap = None;
+        for _ in 0..4 {
+            match rx.recv_timeout(std::time::Duration::from_secs(2)).unwrap() {
+                BusMsg::Windows { windows } => {
+                    snap = Some(de_bus_windows(&windows));
+                    break;
+                }
+                _ => continue,
+            }
+        }
+        let snap = snap.expect("as boas-vindas do fio persistente entregaram o snapshot");
         assert_eq!(snap.windows.len(), 3);
         assert_eq!(snap.focused, 10);
         assert_eq!(snap.windows[&12].flags, F_MINIMIZED | F_FULLSCREEN);
 
-        // os VERBOS confirmados (id 999 é o joker que falha de propósito)
-        assert!(cli.act(10));
-        assert!(cli.min(10));
-        assert!(cli.close_win(12));
-        assert!(!cli.act(999));
+        // os VERBOS fire-and-forget PELO MESMO FIO (id 999 é o joker que
+        // falha de propósito): o send_req devolve o id do pedido (a
+        // escrita atravessou) e o eco chega pelo MESMO canal
+        let id_act = cli.send_req(BusReq::Activate { id: 10 }).unwrap();
+        let id_min = cli.send_req(BusReq::Minimize { id: 10 }).unwrap();
+        let id_close = cli.send_req(BusReq::Close { id: 12 }).unwrap();
+        let id_falha = cli.send_req(BusReq::Activate { id: 999 }).unwrap();
+        let mut acks = std::collections::HashMap::new();
+        while acks.len() < 4 {
+            match rx.recv_timeout(std::time::Duration::from_secs(2)).unwrap() {
+                BusMsg::Ack { id, ok } => {
+                    acks.insert(id, ok);
+                }
+                _ => continue,
+            }
+        }
+        assert_eq!(acks.get(&id_act), Some(&true), "o eco do foco chegou pelo fio");
+        assert_eq!(acks.get(&id_min), Some(&true), "o eco do min chegou pelo fio");
+        assert_eq!(acks.get(&id_close), Some(&true), "o eco do close chegou");
+        assert_eq!(acks.get(&id_falha), Some(&false), "o joker falhou de propósito");
 
-        // a thread de FUNDO da dock: o BusClient persistente recebe o
-        // Windows publicado (a remoção instantânea da Fase 2)
-        let (_bg, rx_bg) = BusClient::connect(&sock, "craft-dock-rs-bg").unwrap();
+        // o broadcast do daemon chega no MESMO fio (a remoção instantânea
+        // da Fase 2 segue viva — o snapshot da UI é o push)
         srv_bg.broadcast(&BusMsg::Windows { windows: vec![] });
-        let msg = rx_bg.recv_timeout(std::time::Duration::from_secs(2)).unwrap();
+        let msg = rx.recv_timeout(std::time::Duration::from_secs(2)).unwrap();
         assert!(matches!(msg, BusMsg::Windows { .. }), "chegou {msg:?}");
-        // socket ausente: None honesto (a dock nunca depende dele)
-        assert!(ToplevelClient::connect(&dir.join("nao-existe.sock")).is_none());
+        let _ = cli; // (o Arc vive na UI — o fio é dela)
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

@@ -502,6 +502,18 @@ file_has "menu: as janelas de terminal do menu nascem com TÍTULO (foot -T)" "el
 # a dock JAMAIS rouba o foco de teclado (o primeiro clique abre o app —
 # não acorda a dock) e o anel roxo de foco morre no CSS:
 file_has "dock: o teclado NUNCA é da dock (KeyboardMode::None — 1.0-105)" "crates/craft-dock-rs/src/ui.rs" 'KeyboardMode::None'
+# 1.0-109 — A CONEXÃO PERSISTENTE ÚNICA (a evidência do dump 1.0-108:
+# bus.cliente 3..7 — um ToplevelClient NOVO por clique, cada round-trip
+# de até 1s BLOQUEANDO a main thread do GTK; a diretriz: uma única
+# conexão persistente, zero IPC bloqueante no clique):
+file_has "dock: o fio persistente nasce no bus (a thread de fundo entrega o Arc à UI)" "crates/craft-dock-rs/src/ui.rs" 'Bus(std::sync::Arc<elite_core::bus::BusClient>)'
+file_has "dock: os VERBOS viajam pelo fio persistente (fire-and-forget — nunca round-trip)" "crates/craft-dock-rs/src/ui.rs" 'fn pede_verbo'
+file_has "dock: o eco do verbo chega pelo MESMO fio (o Ack nomeado no papel)" "crates/craft-dock-rs/src/ui.rs" 'Ok(Msg::Ack { ok })'
+file_has "dock: o snapshot do clique é o PUSH (o round-trip de LIST de era morre)" "crates/craft-dock-rs/src/ui.rs" 'A PROVA NO CLIQUE É O PUSH'
+file_has "dock: o Estado guarda o fio único (bus: Option<Arc<BusClient>>)" "crates/craft-dock-rs/src/ui.rs" 'bus: Option<std::sync::Arc<elite_core::bus::BusClient>>'
+file_hasnt "dock: o ToplevelClient por clique MORREU (o réu do bus.cliente 3..7)" "crates/craft-dock-rs/src/sock.rs" 'pub struct ToplevelClient'
+file_hasnt "dock: NENHUM with_client abre fio no clique" "crates/craft-dock-rs/src/ui.rs" 'fn with_client'
+
 file_has "css: o ANEL ROXO de foco da dock morre (outline/box-shadow none)" "crates/elite-core/assets/theme.css" '#dockbox button:focus-visible'
 # o servidor/cliente do terminal nunca poluem os ícones abertos:
 file_has "dock: o foot-server/footclient na DENYLIST (a ponte não é app)" "crates/craft-dock-rs/src/icons.rs" '"foot-server"'

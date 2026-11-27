@@ -132,6 +132,14 @@ extern "C" fn on_signal(sig: i32) {
 enum Msg {
     /// Um snapshot do bus (None = transporte morto — a graça decide).
     Snapshot(Option<sock::Snapshot>),
+    /// 1.0-109 — O FIO PERSISTENTE nasceu (a thread de fundo entrega o
+    /// Arc do BusClient à UI: os VERBOS dos cliques viajam por ELE —
+    /// uma conexão única para a vida da dock, zero `bus.cliente 3..7`
+    /// por clique, zero IPC bloqueando a thread do GTK).
+    Bus(std::sync::Arc<elite_core::bus::BusClient>),
+    /// 1.0-109 — o eco do verbo (o Ack chega pelo fio persistente e a
+    /// UI nomeia o resultado no papel — o clique nunca ESPEROU por ele).
+    Ack { ok: bool },
     /// A extração em thread terminou: o ícone do raw está no cache.
     IconReady { key: String, path: PathBuf },
     /// 1.0-100 — A MESA CORRENTE mudou (o sync do rc.xml → o daemon
@@ -208,6 +216,11 @@ struct State {
     children: Vec<(std::process::Child, Option<String>)>,
     home: PathBuf,
     uid: u32,
+    /// 1.0-109 — O FIO PERSISTENTE (o Arc do BusClient da thread de
+    /// fundo: os cliques pedem os verbos POR ELE — fire-and-forget com
+    /// o teto de escrita de 500ms da fundação, NUNCA um round-trip
+    /// bloqueando a main thread do GTK).
+    bus: Option<std::sync::Arc<elite_core::bus::BusClient>>,
 }
 
 pub fn run() -> i32 {
@@ -378,6 +391,7 @@ fn build(app: &gtk::Application) {
         mesa: 1,
         last_act: HashMap::new(),
         launching: HashMap::new(),
+        bus: None,
         children: Vec::new(),
         pins_chave: String::new(),
         pin_misses: HashMap::new(),
@@ -453,13 +467,28 @@ fn bg_reader(sock_path: PathBuf, tx: Sender<Msg>) {
     // (a fonte é o compositor — zero poll de snapshot, zero espaço
     // preto; o tick de 5s VIVO mora no poll_tick: ceifa/guard/pins).
     loop {
-        if let Some((_cli, rx)) = elite_core::bus::BusClient::connect(&sock_path, "craft-dock-rs") {
+        if let Some((cli, rx)) = elite_core::bus::BusClient::connect(&sock_path, "craft-dock-rs") {
+            // 1.0-109 — O FIO PERSISTENTE NASCE: a UI guarda o Arc e os
+            // VERBOS dos cliques viajam POR ELE (a conexão ÚNICA da dock
+            // — o `bus.cliente 3..7` do dump era um ToplevelClient novo
+            // POR CLIQUE; o BusClient da fundação RECONECTA sozinho quando
+            // o daemon renasce: a mesma conexão para sempre)
+            if tx.send(Msg::Bus(std::sync::Arc::clone(&cli))).is_err() {
+                return; // a UI morreu: a thread vai junto
+            }
             for msg in rx {
                 match msg {
                     elite_core::BusMsg::Windows { windows } => {
                         let snap = sock::de_bus_windows(&windows);
                         if tx.send(Msg::Snapshot(Some(snap))).is_err() {
                             return; // a UI morreu: a thread vai junto
+                        }
+                    }
+                    // 1.0-109 — o eco do verbo chega pelo MESMO fio: a UI
+                    // nomeia o resultado no papel (o clique NUNCA esperou)
+                    elite_core::BusMsg::Ack { ok, .. } => {
+                        if tx.send(Msg::Ack { ok }).is_err() {
+                            return;
                         }
                     }
                     // 1.0-100 — A MESA CORRENTE (audit 99 §4): o sync do
@@ -504,6 +533,18 @@ fn drain(st: &Rc<RefCell<State>>, rx: &Receiver<Msg>) {
                 // segue acontecendo (nenhum atraso esperando outra
                 // ação na tela)
                 recalcula_superficie(st);
+            }
+            Ok(Msg::Bus(cli)) => {
+                // 1.0-109 — o fio persistente vestiu a UI: os cliques
+                // daqui em diante falam por ELE (uma conexão só)
+                st.borrow_mut().bus = Some(cli);
+            }
+            Ok(Msg::Ack { ok }) => {
+                log(if ok {
+                    "verbo ecoado pelo daemon (ok — o fio persistente falou)"
+                } else {
+                    "verbo RECUSADO pelo daemon (o id não casa com janela viva — o snapshot corrige no frame seguinte)"
+                });
             }
             Ok(Msg::IconReady { key, path }) => {
                 // o botão vivo ganha a cara nova (idle = main thread)
@@ -630,16 +671,16 @@ fn reap_children(s: &mut State) {
         match child.try_wait() {
             Ok(Some(_)) => {
                 if let Some(k) = &key {
-                    // E101 (1) — a LIST fresca: mapeou na corrida?
-                    let mapped = sock::ToplevelClient::connect(&bus_sock())
-                        .as_mut()
-                        .and_then(|c| c.list())
-                        .map(|snap| sock::key_mapped(&snap, k))
-                        .unwrap_or(false);
+                    // E101 (1) → 1.0-109 — A LIST FRESCA É O PUSH (o
+                    // snapshot do Estado é sempre o ÚLTIMO quadro do
+                    // compositor por EVENTO — a conexão de CLIQUE de era
+                    // morreu com o with_client: a ceifa NUNCA abre fio
+                    // nem espera IPC na main thread)
+                    let mapped = sock::key_mapped(&s.snap, k);
                     if mapped {
                         log(&format!(
-                            "guard aposentado: {k} mapeou (a LIST fresca da morte \
-                             do lançador) — clique é foco imediato"
+                            "guard aposentado: {k} mapeou (o push da morte do \
+                             lançador) — clique é foco imediato"
                         ));
                         continue; // (o guard segue — o MAP do tick aposenta)
                     }
@@ -1633,12 +1674,25 @@ fn dismiss_overlays() {
     });
 }
 
-/// Um cliente do bus.sock por verbo (connect a unix socket custa
-/// µs — a conexão PERSISTENTE é da thread de fundo; os verbos da UI
-/// usam a própria, curta e à prova de daemon morto).
-fn with_client<T>(f: impl FnOnce(&mut sock::ToplevelClient) -> T) -> Option<T> {
-    let mut c = sock::ToplevelClient::connect(&bus_sock())?;
-    Some(f(&mut c))
+/// 1.0-109 — O VERBO PELO FIO PERSISTENTE (a diretriz da dose: UMA
+/// conexão única para a vida da dock — o `bus.cliente 3..7` do dump era
+/// um ToplevelClient NOVO por clique, cada um com a própria thread
+/// leitora de 1s; e NENHUMA operação de IPC bloqueia a thread
+/// principal do GTK durante os cliques). O send_req da fundação é
+/// fire-and-forget com o teto de ESCRITA de 500ms (o fio surdo não
+/// congela o lock do bus e o shutdown limpo envenena nada); o eco chega
+/// pelo MESMO fio como Msg::Ack (nomeado no papel pelo dreno) e o daemon
+/// publica o snapshot NOVO a seguir — quem corrige um verbo perdido é
+/// sempre o frame seguinte, nunca uma espera do clique.
+fn pede_verbo(st: &Rc<RefCell<State>>, req: elite_core::BusReq) -> bool {
+    let Some(cli) = st.borrow().bus.clone() else {
+        return false; // o daemon ainda não nasceu (o belt de 5s cobre)
+    };
+    let ok = cli.send_req(req).is_some();
+    if !ok {
+        log("o fio persistente recusou a escrita (a reconexão E135 já vem — o clique segue pelo snapshot)");
+    }
+    ok
 }
 
 /// O ESQUERDO — foca/cicla (v2.10.1 + E71 + E89): 1 janela →
@@ -1649,7 +1703,7 @@ fn with_client<T>(f: impl FnOnce(&mut sock::ToplevelClient) -> T) -> Option<T> {
 fn on_left(st: &Rc<RefCell<State>>, act: &Act) {
     dismiss_overlays();
     let key = act_key(act);
-    let mut wids = windows_of_state(&st.borrow(), act, false);
+    let wids = windows_of_state(&st.borrow(), act, false);
     if !st.borrow().tl_alive {
         // daemon morto: o fallback wlrctl é ESCOPO NÃO PORTADO (ver
         // cabeçalho) — o lançar segue, o focar degrada honesto com log
@@ -1657,42 +1711,14 @@ fn on_left(st: &Rc<RefCell<State>>, act: &Act) {
         return;
     }
     if wids.is_empty() {
-        // E71 — A PROVA NO LANÇAMENTO: abrir é o único verbo
-        // irreversível e NUNCA parte de snapshot velho.
-        // E-auditoria 2026-11-22: list() já devolve Option<Snapshot> e o
-        // with_client envolve em OUTRA camada Option — o braço vivo é
-        // Some(Some(snap)); qualquer outro (conexão morta OU cmd falho)
-        // degrada ao fallback honesto.
-        match with_client(|c| c.list()) {
-            Some(Some(snap)) => {
-                let mut s = st.borrow_mut();
-                s.snap = snap;
-                s.tl_alive = true;
-                drop(s);
-                wids = windows_of_state(&st.borrow(), act, false);
-            }
-            _ => {
-                // a conexão morreu NO MEIO do clique: degradar ao
-                // fallback honesto da v1 (launch com guard — nunca
-                // às cegas duplo)
-                launch(st, act, Some(&key));
-                return;
-            }
-        }
-    }
-    if wids.is_empty() {
+        // 1.0-109 — A PROVA NO CLIQUE É O PUSH (a ordem E135 contra o
+        // snapshot VELHO nasce CURADA por desenho: o daemon publica
+        // `Windows` por EVENTO — o snap da dock é sempre o último
+        // quadro do compositor, não uma leitura de rodada passada; o
+        // round-trip de LIST de era bloqueava a main thread até 1s).
+        // O guard E71 do lançamento segue sendo a rede do vão de foco.
         launch(st, act, Some(&key));
         return;
-    }
-    // E135 — A PROVA NO CLIQUE (a ordem do dono do dump 101339: os
-    // ACT repetidos e os timeouts de 2s do toplevel.log nasciam de
-    // snapshot VELHO — o bitmask decidia MIN com estado de rodada
-    // passada): UMA list fresca decide (o socket unix local custa
-    // µs — o clique não espera nada; o fallback honesto segue).
-    if st.borrow().tl_alive {
-        if let Some(Some(snap)) = with_client(|c| c.list()) {
-            st.borrow_mut().snap = snap;
-        }
     }
     if wids.len() == 1 {
         let id = wids[0];
@@ -1710,14 +1736,14 @@ fn on_left(st: &Rc<RefCell<State>>, act: &Act) {
         if flags & sock::F_ACTIVATED != 0
             && flags & sock::F_MINIMIZED == 0
             && flags & sock::F_FULLSCREEN == 0
-            && with_client(|c| c.min(id)).unwrap_or(false)
+            && pede_verbo(st, elite_core::BusReq::Minimize { id: id as u32 })
         {
-            log(&format!("toggle: minimizado por id {id}"));
+            log(&format!("toggle: minimizado por id {id} (o eco chega pelo fio — o clique não esperou)"));
             return;
         }
-        if with_client(|c| c.act(id)).unwrap_or(false) {
+        if pede_verbo(st, elite_core::BusReq::Activate { id: id as u32 }) {
             st.borrow_mut().last_act.insert(key, id);
-            log(&format!("foco por id {id}"));
+            log(&format!("foco por id {id} (fire-and-forget no fio persistente)"));
             return;
         }
         // v2.10.6 — a morte no meio do clique degrada ao fallback da
@@ -1731,9 +1757,9 @@ fn on_left(st: &Rc<RefCell<State>>, act: &Act) {
         sock::cycle_next(&s.snap, &wids, s.last_act.get(&key).copied())
     };
     if let Some(n) = nxt {
-        if with_client(|c| c.act(n)).unwrap_or(false) {
+        if pede_verbo(st, elite_core::BusReq::Activate { id: n as u32 }) {
             st.borrow_mut().last_act.insert(key.clone(), n);
-            log(&format!("ciclo do app: id {n} ({} janelas)", wids.len()));
+            log(&format!("ciclo do app: id {n} ({} janelas — pelo fio persistente)", wids.len()));
             return;
         }
     }
@@ -1777,18 +1803,17 @@ fn on_middle(st: &Rc<RefCell<State>>, act: &Act) {
         log("encerrar sem janelas do app — nada feito (strict)");
         return;
     }
-    let ok = with_client(|c| {
-        let mut any = false;
-        for id in &wids {
-            if c.close_win(*id) {
-                any = true;
-                log(&format!("encerrado por id {id}"));
-            }
+    // 1.0-109 — os verbos viajam PELO FIO PERSISTENTE (um por janela,
+    // fire-and-forget: o clique nunca espera o Ack — o daemon publica o
+    // snapshot novo e os botões somem no MESMO frame do evento)
+    if !st.borrow().tl_alive {
+        log("encerrar: sem fio do daemon (o wlrctl é degrau seguinte)");
+        return;
+    }
+    for id in &wids {
+        if pede_verbo(st, elite_core::BusReq::Close { id: *id as u32 }) {
+            log(&format!("encerrado por id {id} (o eco chega pelo fio)"));
         }
-        any
-    });
-    if !ok.unwrap_or(false) {
-        log("encerrar: o daemon não respondeu (o wlrctl é degrau seguinte)");
     }
 }
 
