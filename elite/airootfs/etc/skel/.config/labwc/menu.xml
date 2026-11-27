@@ -284,7 +284,7 @@
          o que faltava era o SAIR). O menu gráfico completo do power
          segue vivo no ⏻ da topbar e nos atalhos (W-Escape/W-x/C-A-Del). -->
     <!-- 1.0-108 — O ENCERRAR ORDEIRO (a família da casa cai em ORDEM
-         antes do labwc --exit — o fóssil de /run/user/$UID/elite morre) -->
+         antes do exit do labwc: o fóssil de /run/user/$UID/elite morre) -->
     <item label="Encerrar sessão">
       <action name="Execute" command="craft-logout" />
     </item>

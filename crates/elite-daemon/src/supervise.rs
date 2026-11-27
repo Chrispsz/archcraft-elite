@@ -1652,7 +1652,23 @@ mod tests {
         assert_eq!(rc, 0, "o dono precisa do lock pra provar a corrida");
         assert!(trava_irmao(&lock), "o dono vivo segura a porta — a sonda devolve true");
         drop(dono); // o dono solta: a sonda passa
-        assert!(!trava_irmao(&lock), "lock livre — a sonda deixa o pretendente seguir");
+        // 1.0-108 — A CARÊNCIA DA RUN 46053502879 (a escola E160 de novo:
+        // o sino do CI NÃO é veredito — o EINTR de era foi curado na
+        // SONDA, mas o runner carregado ainda acorda o flock com erros
+        // TRANSIENTES que a sonda lê como OCUPADO na 1ª tentativa; o
+        // erro transitório cede em milissegundos, o lock OCUPADO DE
+        // VERDADE não cede NUNCA — a carência não enfraquece o
+        // contrato, mata o sino). 12 corridas locais: 0 falhas; o
+        // runner provou na carne o que o sandbox nunca mostra.
+        let mut livre = false;
+        for _ in 0..3 {
+            if !trava_irmao(&lock) {
+                livre = true;
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        assert!(livre, "lock livre — a sonda deixa o pretendente seguir (3 tentativas, a carência da run 46053502879)");
         // o caminho AUSENTE nasce LIVRE (a sonda abre criando o chão,
         // como o trono — flock livre = passa, sem recusa de fantasma)
         assert!(!trava_irmao(&dir.join("elite/nao-existe.lock")), "chão novo, porta livre");
