@@ -23,8 +23,9 @@
 //
 // 1.0-94 — O DONO ÚNICO E A PUBLICAÇÃO DE CLIENTE (a cura do bus.sock
 // MORTO do rig da 1.0-93): o bind do servidor é de UM processo só — a
-// porta `session` do elite-daemon; o modo game (o filho da vaga ou o
-// `craft-game watch` de fora) NÃO rebinda (o bind antigo fazia
+// porta `session` do elite-daemon; o modo game (o CLI `game-notify` do
+// craft-game manual — 1.0-107: o watcher de era morreu) NÃO rebinda (o
+// bind antigo fazia
 // remove_file+bind e MATIA o socket do dono da sessão no caminho — o
 // fóssil que o dump nomeava MORTO com o daemon vivo). Em vez disso o
 // processo sem posse PUBLICA pelo fio: `BusClient::publish` envia um

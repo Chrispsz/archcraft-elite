@@ -1,43 +1,43 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · craft-game (E101 — O MODO DE JOGO DA CASA)
+# Archcraft ELITE · craft-game (E101 → 1.0-107) — O MODO DE JOGO MANUAL
 # ═══════════════════════════════════════════════════════════════════════════
-# A diretriz do dono: "tem o modo de jogo do CachyOS ou do feral, o que for
-# melhor, que vai abrir automaticamente e definir o performance no CPU
-# quando entrar no jogo — ou um botão em algum lugar do sistema para
-# conseguir mexer no governor". A resposta da casa é OS DOIS NO MESMO
-# CORPO, sem daemon novo:
+# 1.0-107 — O AUTOMÁTICO MORREU POR ORDEM DO DONO (a diretriz §6:
+# "remover integralmente o modo automático" — o watcher de sessão, a
+# chave de conf que o ligava, a leitura contínua de /proc, os filtros
+# de auxiliares do Wine, a perícia do hook e a lógica de aposentadoria
+# do gamemoded; deixar o elite-daemon LIVRE de varredura de
+# processos). O corpo de era (o watch bash de 5s, a sonda /proc das
+# três portas, a aposentadoria do gamemoded, o hook [custom] e a
+# perícia do início/fim) sai INTEIRO — os daemons de heurística
+# desnecessários são a dívida que a diretriz 1.0-107 cobra.
 #
-#   · O MÚSCULO é o gamemode do Feral (JÁ NA ISO/ADOÇÃO — zero pacote
-#     novo): o gamemoded sobe por D-BUS ACTIVATION só quando há jogo
-#     (idle = ZERO RAM — o mesmo princípio do polkit E101), aplica o
-#     governor performance (EPP incluso no amd-pstate-epp), o
-#     amd_performance_level high na GPU (power_dpm_force_performance_
-#     level), inibe o screensaver e morre com o jogo — TUDO NATIVO, com
-#     rede de segurança própria (reaper) erollback automático.
-#   · O CÉREBRO é este script: o WATCH detecta o jogo (pgrep da família —
-#     Steam sem gamemoderun, emuladores, Wine) e REGISTRA O PID DO JOGO no
-#     gamemode (o reaper DELE sabe quando o pid morre — a casa não conta
-#     nada duas vezes); o MANUAL (menu) registra um HOLDER próprio; os
-#     hooks [custom] do gamemode.ini avisam o dono (-u low — pop-up não é
-#     lugar de estado, a lei C101 da casa).
-#
-#   O CachyOS-Settings (ananicy-cpp + kernel BORE) já dá o scheduling de
-#   fundo — o gamemode entra POR CIMA só no jogo: nenhuma camada luta com
-#   outra (a lição v2.2 da leveza radical).
+# O MODO É O MANUAL (o PERFIL COMPLETO na mão do dono):
+#   · o MÚSCULO é o gamemode do Feral (JÁ NA ISO): o `on` registra um
+#     HOLDER próprio no gamemoded — o governor performance (EPP incluso
+#     no amd-pstate-epp) e o amd_performance_level high na GPU são DELE
+#     (nativos, com rollback próprio na liberação);
+#   · o INIBIDOR de ocioso/sono: o holder prende um
+#     `systemd-inhibit --what=idle:sleep` no GRUPO dele (a diretriz:
+#     "prender inibidor systemd-inhibit --what=idle:sleep no grupo do
+#     holder para impedir bloqueio/suspensão durante a jogatina") — a
+#     vigília do elite-daemon honra o inhibitor (idle OU sleep, modo
+#     block: o logind é o juiz);
+#   · o ÍCONE na top bar: o fio do elite-daemon (`game-notify`) acende
+#     o pill roxo NO MESMO instante do clique — o clique ESQUERDO no
+#     ícone abre este menu, o DIREITO desliga na hora;
+#   · o FEEDBACK: toast -u normal na ação do dono (a diretriz: ações
+#     manuais exibem confirmação objetiva).
 #
 # Uso:
-#   craft-game            menu (Ativar agora / Desativar / Automático / Status)
+#   craft-game            menu (Ativar modo de jogo / Desativar modo de
+#                         jogo — conforme o estado atual — e Status)
 #   craft-game status     a mesa de fatos (sem palestra — a aula mora no --help)
-#   craft-game on|off     manual (o PERFIL COMPLETO da 1.0-104: holder próprio
-#                         no gamemode + inibidor de ocioso no logind + o
-#                         estado no FILO do elite-daemon — a barra acende o
-#                         pill NO mesmo clique)
-#   craft-game watch      o daemon da sessão (AUTO=1 em ~/.config/elite/game.conf;
-#                         AUTO=0/ausente = sai 0 — ausência intencional, lei do idle)
-#   craft-game hook       os [custom] do gamemode.ini (inicio/fim do modo)
-#   craft-game pill       JSON para o módulo custom/game da topbar (E115):
-#                         o assento só existe QUANDO o modo está ATIVO de
+#   craft-game on|off     manual direto (o perfil completo acima)
+#   craft-game toggle     o pill da barra pede pelo bus: ativo → desliga,
+#                         parado → liga (o estado REAL é o juiz)
+#   craft-game pill       JSON para o módulo game da topbar (E115): o
+#                         assento só existe QUANDO o modo está ATIVO de
 #                         verdade (E126: o estado é o QueryStatus do D-Bus,
 #                         não a vida do daemon — o rig fotografou o ícone
 #                         aceso SEM jogo nenhum porque o gamemoded sobrevive
@@ -45,45 +45,13 @@
 # ═══════════════════════════════════════════════════════════════════════════
 set -u
 
-CONF_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/elite"
-CONF="$CONF_DIR/game.conf"
 RUN_DIR="${XDG_RUNTIME_DIR:-/tmp}/elite"
 LOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/game.log"
 
-# a família de JOGOS da casa (ERE sobre o COMM, ancorada — pgrep SEM -x).
-# Steam nativo, Wine/Proton (preloader), emuladores e clients conhecidos.
-# E106 — O COMM QUE NUNCA CASOU (a doutrina E48 na família do jogo): o
-# kernel corta o comm em 15 caracteres — 'wine64-preloader' (17) chega
-# como 'wine64-preload' e o 'pgrep -x wine64-preloader' da lista antiga
-# JAMAIS viu o jogo Wine/Proton 64-bit: o modo automático nasceu CEGO
-# para a família mais comum do dono. A lista agora é ERE sobre o comm
-# (pgrep sem -x casa regex) com âncoras ^…$ — o corte do kernel entra
-# no padrão ('wine6?-preload(er)?' casa 14 e 17 chars), e a âncora
-# impede que um 'gamescope-helper' hipotético passe por 'gamescope'.
+# a família de JOGOS da casa (ERE sobre o COMM, ancorada) — SÓ PARA O
+# STATUS listar os vivos do momento (uma leitura PONTUAL por consulta,
+# nunca o loop contínuo de era: o 1.0-107 matou a varredura).
 GAME_PATS='^wine6?-preload(er)?$|^gamescope$|^pcsx2$|^retroarch$|^duckstation$|^dolphin-emu$|^melonds$|^citra-qt$|^ryujinx$|^PPSSPPSDL$|^rpcs3$|^osu!$|^Cemu$'
-
-# E126 — O EXE QUE O COMM NÃO CONTA (o relato do dono: 'abrir o jogo real
-# não ativa o modo' — o Stardew Valley via Proton roda com o comm DO .exe
-# ('Stardew Valley'), que NENHUMA ERE da casa casa: a família por comm é
-# fechada por construção e o jogo Steam de verdade escapa dela TODA. A
-# segunda porta é o CAMINHO do executável: todo jogo Steam (nativo OU
-# Proton) roda de dentro de steamapps/common — ler o /proc/<pid>/exe do
-# usuário e casar o caminho é detector GERAL, de graça (1 readlink por
-# processo vivo, na MESMA rodada de 5s do pgrep). O wine-preloader da
-# ERE segue valendo para o jogo fora da Steam; as duas portas somam.
-STEAM_EXE_MARK='/steamapps/common/'
-
-# E132 — A TERCEIRA PORTA: Proton GE / Wine / Hydra / UMU (o dump
-# pós-1.0-78: o jogo do Hydra via Proton GE — Stardew Valley — rodava com
-# o comm DO .exe e nenhuma porta via: nem a ERE do comm nem o exe Steam
-# casam o jogo lançado por FORA da Steam). A sonda agora lê o /proc do
-# candidato: o ENVIRON carrega as marcas dos runtimes (WINEPREFIX=,
-# STEAM_COMPAT_DATA_PATH=, UMU_ID=, PROTON_VERSION=) e o CMDLINE termina
-# em .exe. A lista de AUXILIARES do Wine é bloqueada ANTES de qualquer
-# sonda (eles TAMBÉM carregam WINEPREFIX e .exe no cmdline — sem o filtro
-# o modo de jogo ligaria para o wineserver eternamente vivo).
-WINE_HELPER_PATS='^(wineserver|services\.exe|winedevice\.exe|plugplay\.exe|explorer\.exe|rpcss\.exe|svchost\.exe|conhost\.exe|tabtip\.exe|rundll32\.exe|wineboot\.exe|mscorsvw\.exe|steamwebhelper|hydra-plus)'
-WINE_ENV_MARKS='WINEPREFIX=|STEAM_COMPAT_DATA_PATH=|UMU_ID=|PROTON_VERSION='
 
 # o glifo de log único (o papel da casa — 256 KiB de teto, lei E36)
 glog() {
@@ -94,17 +62,11 @@ glog() {
     printf '[%s] %s\n' "$(date '+%F %T')" "$*" >>"$LOG" 2>/dev/null || true
 }
 
-# o aviso para o dono: -u low por padrão (a lei do pop-up: estado não sobe
-# na tela — a central/histórico guarda; pop-up é lugar de normal/critical).
-# E106 — A EXCEÇÃO QUE O DONO MANDOU: ação DELE no menu (on/off/Automático)
-# que não deixava NENHUM feedback — o menu fechava e NADA aparecia (o
-# dump: 'clico em ativar agora e eu não vejo nada se ele está on ou off').
-# A política da central MATA toda urgência low no histórico (pop-up
-# muted) — o feedback da ação do dono usa -u normal: sobe na tela, some em
-# 8s (nunca critical — a doutrina da casa fica). Eventos AUTOMÁTICOS
-# (jogo detectado/saído) seguem -u low — a lei C101 fica de pé.
+# o aviso para o dono: a ação MANUAL do dono usa -u normal (a diretriz
+# 1.0-107 §1: "ações manuais do usuário exibem confirmação objetiva") —
+# sobe na tela, some em 8s (nunca critical — a doutrina da casa fica).
 note() {
-    local urgen="${NOTE_URGEN:-low}"
+    local urgen="${NOTE_URGEN:-normal}"
     command -v notify-send >/dev/null 2>&1 || return 0
     timeout 5 notify-send -a 'Elite · Jogo' -u "$urgen" -t 8000 "$@" >/dev/null 2>&1 || true
 }
@@ -137,59 +99,6 @@ gm_status_quiet() {
 
 ensure_run_dir() { mkdir -p "$RUN_DIR" 2>/dev/null || true; }
 
-# ── E126 — A MOLDURA VOLTA AO SAIR DO FULLSCREEN (o item do dono: jogos
-# Proton como o Stardew Valley 'abrem com a barra de título e os 3 botões
-# intactos, mas ao entrar em tela cheia e voltar para modo janela, retornam
-# SEM a decoração'). A mecânica do crime: janelas XWayland são decoradas
-# PELO labwc seguindo o _MOTIF_WM_HINTS do X — o jogo em fullscreen pede
-# janela nua (hint de decoração zerado) e, ao VOLTAR ao modo janela, o
-# hint segue zerado (o jogo não restaura): a titlebar nunca mais desenha.
-# A regra universal serverDecoration="yes" do rc.xml vale NO PRIMEIRO
-# MAPA — a transição fullscreen→janela não remapeia, a regra não re-dispara.
-# A cura lê o próprio X: janela de jogo Steam (WM_CLASS steam_app_*) FORA
-# do fullscreen com hint de decoração ZERADO → a propriedade é APAGADA
-# (xprop -remove) → o PropertyNotify acorda o XWayland, o hint volta ao
-# DEFAULT (decorado) e o labwc redesenha a moldura. De graça, na mesma
-# rodada de 5s do watch — e uma vez por janela (o log assina o gesto).
-decor_fix() {
-    command -v xprop >/dev/null 2>&1 || return 0
-    _clients="$(timeout 3 xprop -root _NET_CLIENT_LIST 2>/dev/null || true)"
-    case "$_clients" in *window\ id*) ;; *) return 0 ;; esac
-    _ids="$(printf '%s' "$_clients" | sed 's/.*, //; s/^window id # //; s/, /\n/g' | grep -E '^0x[0-9a-f]+$' || true)"
-    [ -n "$_ids" ] || return 0
-    printf '%s\n' "$_ids" | while IFS= read -r _id; do
-        [ -n "$_id" ] || continue
-        _cls="$(timeout 3 xprop -id "$_id" WM_CLASS 2>/dev/null || true)"
-        case "$_cls" in
-            *steam_app_*) ;;
-            *) continue ;;
-        esac
-        _st="$(timeout 3 xprop -id "$_id" _NET_WM_STATE 2>/dev/null || true)"
-        case "$_st" in *FULLSCREEN*) continue ;; esac
-        _hints="$(timeout 3 xprop -id "$_id" _MOTIF_WM_HINTS 2>/dev/null || true)"
-        # o 3º campo é o flag de decoração: 0x0 = PEDIDA NUA
-        case "$_hints" in
-            *'= 0x'*', 0x'*', 0x0, 0x'*','*)
-                if timeout 3 xprop -id "$_id" -remove _MOTIF_WM_HINTS >/dev/null 2>&1; then
-                    glog "watch: moldura devolvida ($_id ${_cls##*\"} — saiu do fullscreen com hint de janela nua; a propriedade morreu, o default do labwc é a titlebar)"
-                fi
-                ;;
-        esac
-    done
-    return 0
-}
-
-# ── 1.0-104 — O PERFIL COMPLETO DO MANUAL (governor + inibidor + o
-#      estado no elite-daemon): o gamemoded veste o governor; a casa soma
-#      o INIBIDOR de ocioso (o logind segura a trava automática enquanto
-#      o modo viver — a vigília do elite-daemon respeita o inhibitor,
-#      a lei E43 de sempre).
-# E106/2 — O DND MORREU POR ORDEM DO DONO: a chamada da central de
-#      notificações caía SEM dono D-Bus ativo ANTES de registrar o
-#      estado no papel (o 'manual: ON' ficava devendo e o pill roxo
-#      nunca acendia) — a lembrança e o Não Perturbe saíram do corpo
-#      do jogo de vez; o estado no game.log e o fio do elite-daemon
-#      seguem SEM depender de notificação nenhuma.
 # o estado novo no FILO do elite-daemon (a barra acende o pill roxo NO
 # MESMO instante do clique — o cinto do 30s é a rede, o fio é o gesto)
 bus_notifica() {
@@ -197,16 +106,14 @@ bus_notifica() {
     /usr/local/bin/elite-daemon game-notify >/dev/null 2>&1 || true
 }
 
+# ── 1.0-107 — O MANUAL COMPLETO: gamemoded + inibidor idle:sleep + ────────
+#      o pill na hora (CPU governor performance + GPU high são do
+#      gamemoded NATIVO; o inibidor prende bloqueio E suspensão no grupo
+#      do holder; o fio do daemon acende o ícone da top bar no clique).
 gm_on() {
     if ! has_gamemode; then
         glog "manual: gamemode/dbus-send ausente — nada a fazer (honesto)"
         echo "✖ O pacote gamemode não está instalado — Atualizar o sistema (menu) traz e o modo passa a funcionar" >&2
-        # E110 — O FEEDBACK QUE O RIG DO DONO NUNCA VIU (o dump 114852:
-        # 'clico para ativar agora manual e ele não dá o indicador se
-        # ativou ou não, só fecha o menu... o manual fica com um risquinho
-        # na janela do status' — o ramo ausente só ecoava no fuzzel
-        # sumido e NENHUM note subia: o dono clicava no vazio). A ação
-        # DELE pede resposta NA TELA (a lei E106 do feedback normal).
         NOTE_URGEN=normal note 'Modo de jogo não ativou' 'O pacote gamemode falta neste sistema — Atualizar o sistema (menu) adota e o modo passa a funcionar'
         return 1
     fi
@@ -214,42 +121,31 @@ gm_on() {
     local hpid file
     file="$(holder_pid_file)"
     if [ -r "$file" ] && kill -0 "$(cat "$file" 2>/dev/null)" 2>/dev/null; then
-        # E119 — este ramo também deixa linha (o único sem papel era ele:
-        # o eco ia para o fuzzel sumido e o papel não contava o já-ativo)
         glog "manual: já estava ATIVO (holder pid $(cat "$file" 2>/dev/null) vivo) — nada mudou"
         echo "o modo de jogo JÁ está ativo (manual)" >&2
         return 1
     fi
-    # E121 — O HOLDER QUE ENGASGAVA O MANUAL: o hpid nasce de uma
-    # substituição $(setsid sh -c '…' & echo $!) — o holder DE FUNDO
-    # herdava o stdout da substituição e NUNCA o fechava: a $( ) espera
-    # EOF para terminar e o EOF nunca vinha — o 'Ativar agora' TRAVAVA
-    # para sempre (sem notificação, sem linha no papel; o dump 173257
-    # corrobora: game.log com auto ON/OFF desde sempre e ZERO 'manual:
-    # ON' — o dono: 'modo de jogo não sei se funciona'). A cura é o
-    # desprendimento TOTAL do holder (stdin/stdout/stderr em /dev/null):
-    # a substituição recebe só o echo $! e o EOF chega na hora.
-    # 1.0-104 — O HOLDER SEGURA O INIBIDOR DE OCIOSO (systemd-inhibit é o
-    # vestido: o logind segura a trava automática enquanto o modo viver;
-    # o pid registrado é o DELE — o gm_off mata o GRUPO inteiro, o
-    # inibidor morre JUNTO, sem órfão de sleep). Sem systemd-inhibit no
-    # sistema, o corpo nu de sempre segue dormindo sozinho.
+    # E121 — O HOLDER DESPRENDIDO: stdin/stdout/stderr em /dev/null (a
+    # substituição $(…) espera EOF e o EOF nunca chegava — o 'Ativar
+    # agora' TRAVAVA para sempre; o desprendimento TOTAL fecha a janela).
+    # 1.0-107 — O INIBIDOR É idle:sleep (a diretriz: "impedir bloqueio/
+    # suspensão durante a jogatina" — o sleep entra na trava junto com
+    # o idle: a vigília do daemon honra os DOIS lados do logind).
     if command -v systemd-inhibit >/dev/null 2>&1; then
-        hpid="$(setsid systemd-inhibit --what=idle --who=Elite --why='Modo de jogo ativo' --mode=block sh -c 'while :; do sleep 30; done' </dev/null >/dev/null 2>&1 & echo $!)"
+        hpid="$(setsid systemd-inhibit --what=idle:sleep --who=Elite --why='Modo de jogo ativo' --mode=block sh -c 'while :; do sleep 30; done' </dev/null >/dev/null 2>&1 & echo $!)"
     else
         hpid="$(setsid sh -c 'while :; do sleep 30; done' </dev/null >/dev/null 2>&1 & echo $!)"
     fi
     printf '%s\n' "$hpid" > "$file" 2>/dev/null || true
     if gm_register "$hpid" >/dev/null 2>&1; then
-        # E106/2 — O ESTADO PRIMEIRO (a ordem que o dono pediu): o papel
-        # assina o 'manual: ON' no MESMO instante do registro no
-        # gamemode; o fio do elite-daemon (bus_notifica) acende o pill
-        # roxo DEPOIS — nenhuma porta estranha entre o clique e a
-        # assinatura pode mais cair no meio do caminho.
-        glog "manual: ON (holder pid $hpid no gamemode + inhibitor logind armado)"
+        # o estado PRIMEIRO (a ordem que o dono pediu): o papel assina o
+        # 'manual: ON' no MESMO instante do registro no gamemode; o fio
+        # do elite-daemon acende o pill roxo DEPOIS — nenhuma porta
+        # estranha entre o clique e a assinatura.
+        glog "manual: ON (holder pid $hpid no gamemode + inhibitor logind idle:sleep armado — governador performance + GPU high)"
         bus_notifica
-        NOTE_URGEN=normal note 'Modo de jogo ATIVO' 'Governor performance + GPU high + inibidor de ocioso (desligue no menu ou craft-game off)'
-        echo "==> modo de jogo ATIVO (governor performance + GPU high + inibidor de ocioso)"
+        NOTE_URGEN=normal note 'Modo de jogo ATIVO' 'Governor performance + GPU high + inibidor de ocioso/sono (desligue no menu ou craft-game off)'
+        echo "==> modo de jogo ATIVO (governor performance + GPU high + inibidor de ocioso/sono)"
         return 0
     fi
     kill -- -"$hpid" 2>/dev/null || kill "$hpid" 2>/dev/null || true
@@ -266,333 +162,44 @@ gm_off() {
     if [ -r "$file" ]; then
         hpid="$(cat "$file" 2>/dev/null)"
         gm_unregister "$hpid" >/dev/null 2>&1 || true
-        # 1.0-104 — o GRUPO inteiro morre (o holder é setsid: o grupo DELE
-        # é systemd-inhibit + o corpo do sleep — matar só o pid deixaria
+        # o GRUPO inteiro morre (o holder é setsid: o grupo DELE é
+        # systemd-inhibit + o corpo do sleep — matar só o pid deixaria
         # o inibidor/sleep órfão segurando o logind)
         kill -- -"$hpid" 2>/dev/null || kill "$hpid" 2>/dev/null || true
         rm -f "$file" 2>/dev/null || true
-        # E106/2 — o estado PRIMEIRO no papel; o fio do pill vem depois
+        # o estado PRIMEIRO no papel; o fio do pill vem depois
         glog "manual: OFF (holder pid $hpid liberado — o gamemode devolve o governor, o inhibitor morre com o grupo)"
         bus_notifica
         NOTE_URGEN=normal note 'Modo de jogo DESATIVADO' 'Perfil normal restaurado (governor/GPU da casa)'
         echo "==> modo de jogo DESATIVADO (o governor volta ao perfil da casa)"
         return 0
     fi
-    # o modo MANUAL não estava ativo; os registros do WATCH (se houver
-    # jogo vivo) moram na MEMÓRIA do próprio daemon e saem SOZINHOS com o
-    # jogo (o reaper do gamemode + a rodada do watch liberam na morte) —
-    # o off não inventa fila que não existe: o rm do game-watch.pids
-    # apagava um arquivo que NUNCA foi escrito (a fila nunca foi arquivo)
-    # e o log jurava uma 'limpa' que não aconteceu — a E33 no papel cura.
-    if [ -r "$RUN_DIR/game-watch.pid" ]; then
-        glog "manual: OFF sem holder — registros do watch (se houver) saem sozinhos com o jogo"
-    fi
     NOTE_URGEN=normal note 'Modo de jogo' 'Não estava ativo — nada a desativar'
     echo "o modo de jogo não está ativo (nada a desativar)" >&2
     return 1
 }
 
-# ── o WATCH (o detector da família — daemon da sessão, pgrep barato) ────
-# Um jogo achado → o PID DELE vai pro gamemode (o reaper de lá sabe da
-# morte dele — zero estado duplicado); jogo nenhum → 5s de silêncio (um
-# pgrep de µs). O AUTO=0/ausente é AUSÊNCIA INTENCIONAL (lei do idle E36).
-# E132 — A DELEGAÇÃO AO MOTOR NATIVO (a ordem do dono: espremer o limão):
-# presente o binário elite-daemon (compilado NO build do elite-system,
-# makedepends rust exclusivo — zero toolchain na ISO), o watch É ELE: a
-# detecção /proc com as três portas (comm, exe, environ/cmdline), o
-# GameMode por D-Bus, o EPP dinâmico e o debounce de 3s moram em UM
-# processo nativo (o flock de instância única e o pid no game-watch.pid
-# são o compat — o status daqui continua vendo o daemon). O corpo bash
-# abaixo segue como FALLBACK honesto para o env sem o binário (ISO velha,
-# rig pré-dose): as duas portas são a mesma casa, o motor é um só.
-gm_watch() {
-    local auto=""
-    [ -r "$CONF" ] && auto="$(sed -n 's/^AUTO=//p' "$CONF" | head -1)"
-    if [ "${auto:-0}" != "1" ]; then
-        glog "watch: AUTO≠1 (config da casa) — ausência intencional, nada roda"
-        exit 0
-    fi
-    # E132 — o binário nativo assume ANTES de qualquer corpo bash (o gate
-    # do AUTO é da CASA: o daemon NÃO lê o game.conf — o toggle do menu
-    # continua sendo a única porta da decisão).
-    if [ -x /usr/local/bin/elite-daemon ]; then
-        glog "watch: delegando ao elite-daemon (o motor nativo E132 — detecção/GameMode/EPP/debounce em um processo)"
-        exec setsid /usr/local/bin/elite-daemon >/dev/null 2>&1 </dev/null
-    fi
-    if ! has_gamemode; then
-        glog "watch: gamemode ausente — daemon sai (a âncora E94 traz o pacote)"
-        exit 0
-    fi
-    ensure_run_dir
-    # E106 — O SINGLETON QUE O SUPERVISOR CEGO EXIGE (o dump 20261112: a
-    # âncora quebrada do craft-bars spawnou UM watch novo a cada 5s — 12
-    # pares vivos no ps, 1540 restarts no papel). A âncora do supervisor
-    # está curada (E106 lá), mas a defesa final é DO CORPO: o flock no
-    # XDG_RUNTIME_DIR decide no KERNEL — o 2º watch sai 0 em silêncio,
-    # mesmo que alguém o lance na mão ou um supervisor antigo (versão
-    # velha em memória) continue cego. O fd morre com o processo — sem
-    # órfão segurando a porta (a lição E43 do craft-bars).
-    exec 9>"$RUN_DIR/game-watch.lock" 2>/dev/null || true
-    if command -v flock >/dev/null 2>&1 && ! flock -n 9 2>/dev/null; then
-        exit 0
-    fi
-    printf '%s\n' "$$" > "$RUN_DIR/game-watch.pid" 2>/dev/null || true
-    glog "watch: no ar (pid $$ — família ERE sobre o comm, ${#GAME_PATS} chars de padrões)"
-
-    local -A held=()   # pid → 1 (registrado por nós)
-    local -A steamheld=()  # E126 — pid → 1 (o caminho do exe falou, o comm não)
-    local -A protonheld=() # E132 — pid → 1 (a sonda do environ/cmdline casou)
-    local retire=0     # E126 — rodadas seguidas com NADA vivo e modo idle
-    while :; do
-        # 1) os REGISTRADOS que morreram: libera (o reaper de lá também
-        #    sabe — o unregister é o cinto)
-        for p in "${!held[@]}"; do
-            if ! kill -0 "$p" 2>/dev/null; then
-                gm_unregister "$p" >/dev/null 2>&1 || true
-                unset "held[$p]"
-                glog "watch: jogo pid $p morreu — gamemode liberado (o governor volta)"
-            fi
-        done
-        for p in "${!steamheld[@]}"; do
-            if ! kill -0 "$p" 2>/dev/null; then
-                gm_unregister "$p" >/dev/null 2>&1 || true
-                unset "steamheld[$p]"
-                glog "watch: jogo Steam pid $p morreu — gamemode liberado (o governor volta)"
-            fi
-        done
-        for p in "${!protonheld[@]}"; do
-            if ! kill -0 "$p" 2>/dev/null; then
-                gm_unregister "$p" >/dev/null 2>&1 || true
-                unset "protonheld[$p]"
-                glog "watch: jogo Proton/Wine pid $p morreu — gamemode liberado (o governor volta)"
-            fi
-        done
-        # 2) os jogos VIVOS da família que AINDA não estão registrados
-        # (E106: pgrep SEM -x — a família é ERE sobre o comm cortado; a
-        # lista antiga nunca viu o Wine 64-bit)
-        while IFS= read -r p; do
-            [ -n "$p" ] || continue
-            [ "${held[$p]:-}" = 1 ] && continue
-            if gm_register "$p" >/dev/null 2>&1; then
-                held["$p"]=1
-                glog "watch: jogo detectado (pid $p) — registrando no gamemode (performance ON)"
-                note 'Modo de jogo' 'Governor performance + GPU high automáticos'
-            else
-                glog "watch: jogo pid $p detectado mas o registro recusou (dbus?) — próxima rodada tenta de novo"
-            fi
-        done < <(pgrep -u "$(id -u)" "$GAME_PATS" 2>/dev/null || true)
-        # E126 — A SEGUNDA PORTA: o exe dentro de steamapps/common (o
-        # jogo Steam de verdade — nativo ou Proton — que o comm nunca
-        # nomeia). 1 readlink por processo do usuário, na mesma rodada.
-        # E132 — A TERCEIRA PORTA na MESMA passada: environ com as marcas
-        # dos runtimes (WINEPREFIX/STEAM_COMPAT_DATA_PATH/UMU_ID/PROTON_
-        # VERSION) ou cmdline com .exe — o jogo do Hydra via Proton GE
-        # (Stardew Valley) que NENHUMA porta via. A lista de auxiliares
-        # do Wine é bloqueada ANTES (o wineserver vivo carrega as mesmas
-        # marcas — sem o filtro o modo nunca desligaria).
-        _uid="$(id -u)"
-        for _pdir in /proc/[0-9]*; do
-            [ -r "$_pdir/status" ] || continue
-            _p="${_pdir##*/}"
-            [ "${held[$_p]:-}" = 1 ] && continue
-            [ "${steamheld[$_p]:-}" = 1 ] && continue
-            [ "${protonheld[$_p]:-}" = 1 ] && continue
-            _c="$(cat "$_pdir/comm" 2>/dev/null || true)"
-            [ -n "$_c" ] || continue
-            printf '%s' "$_c" | grep -Eq "$WINE_HELPER_PATS" && continue
-            _exe="$(readlink "$_pdir/exe" 2>/dev/null || true)"
-            _via=""
-            case "$_exe" in
-                *"$STEAM_EXE_MARK"*) _via="exe ${_exe##*common/}" ;;
-            esac
-            if [ -z "$_via" ]; then
-                # o cmdline em linhas: QUALQUER token .exe casa (o argv[0]
-                # do jogo é o próprio .exe; no loader 'wine jogo.exe' é o
-                # argv[1] — as duas formas são o jogo, os auxiliares já
-                # morreram no filtro do comm acima)
-                _cmd="$(tr '\0' '\n' < "$_pdir/cmdline" 2>/dev/null || true)"
-                if printf '%s\n' "$_cmd" | grep -Eiq '\.exe$'; then
-                    _via="cmdline .exe (${_c})"
-                elif tr '\0' '\n' < "$_pdir/environ" 2>/dev/null \
-                        | grep -Eq "^($WINE_ENV_MARKS)"; then
-                    _via="environ do runtime (${_c})"
-                fi
-            fi
-            if [ -n "$_via" ] && gm_register "$_p" >/dev/null 2>&1; then
-                case "$_via" in
-                    exe\ *) steamheld["$_p"]=1 ;;
-                    *)      protonheld["$_p"]=1 ;;
-                esac
-                glog "watch: jogo detectado pela sonda /proc (pid $_p · $_via) — registrando no gamemode (performance ON)"
-                note 'Modo de jogo' 'Governor performance + GPU high automáticos'
-            fi
-        done
-        # E126 — A APOSENTADORIA DO DAEMON (o relato do dono: 'ao fechar o
-        # jogo e até encerrar o Hydra, o serviço gamemode e o indicador
-        # permanecem ativos' — ele teve que matar o gamemoded NA MÃO pelo
-        # menu de processos). O gamemoded é ativado por D-Bus e NÃO morre
-        # com o último cliente — com o modo IDLE (QueryStatus 0) por 2
-        # rodadas seguidas SEM jogo vivo e SEM manual, o watch o encerra
-        # COM VOZ: ele renasce sozinho por ativação D-Bus no próximo jogo
-        # (zero custo de trazer de volta, RAM zero enquanto aposentado).
-        if pgrep -x gamemoded >/dev/null 2>&1 \
-           && [ "${#held[@]}" -eq 0 ] && [ "${#steamheld[@]}" -eq 0 ] \
-           && [ ! -r "$(holder_pid_file)" ] \
-           && [ "$(gm_status "$$" 2>/dev/null)" != "1" ]; then
-            retire=$((retire + 1))
-        else
-            retire=0
-        fi
-        if [ "$retire" -ge 2 ]; then
-            if pkill -x gamemoded 2>/dev/null; then
-                glog "watch: gamemoded APOSENTADO (idle 2 rodadas sem jogo e sem manual — renasce por D-Bus no próximo jogo; o indicador some com ele)"
-            fi
-            retire=0
-        fi
-        # E126 — a ronda da moldura (jogo Steam saindo do fullscreen ganha
-        # a titlebar de volta — a leitura do X só toca janelas steam_app_*)
-        decor_fix
-        sleep 5
-    done
-}
-
-# ── o PILL (o assento da topbar — E115, o dono: 'não sei se é injeção
-# automática como na Steam' DUAS VEZES: o estado que não se vê não existe
-# para quem usa). E126 — O ESTADO É O QUERYSTATUS, NÃO O PGREP (o print
-# do dono fotografou o ícone aceso SEM jogo: o gamemoded é um daemon
-# D-Bus que SOBREVIVE ao último cliente — 'pgrep gamemoded' acende o
-# assento para sempre; o rig provou com o dono matando o daemon na mão).
-# O D-Bus é o juiz: QueryStatus 1 = modo ATIVO (jogo da família, jogo
-# Steam ou manual); 0/sem resposta = assento vazio, ZERO pixel. O
-# pgrep de servidor morto (dbus-send falha) também é vazio — o assento
-# nunca acende por engano de processo vivo.
+# ── o PILL (o assento da topbar — E115: o estado é o QUERYSTATUS, ──────────
+#      NÃO o pgrep do daemon: o gamemoded é ativado por D-Bus e SOBREVIVE
+#      ao último cliente — 'pgrep gamemoded' acenderia o assento para
+#      sempre. O D-Bus é o juiz: QueryStatus 1 = modo ATIVO (o holder
+#      manual conta); 0/sem resposta = assento vazio, ZERO pixel.
 gm_pill() {
     if [ "$(gm_status "$$" 2>/dev/null)" = "1" ]; then
-        printf '{"text":"\\uf11b","class":"game-on","tooltip":"Modo de jogo ATIVO — governor performance + GPU high (sai sozinho com o jogo; esq: menu · dir: desativar)"}\n'
+        printf '{"text":"\\uf11b","class":"game-on","tooltip":"Modo de jogo ATIVO — governor performance + GPU high (desligue no menu · clique direito: desativar)"}\n'
     else
         printf '{"text":"","class":"","tooltip":""}\n'
     fi
 }
 
-# ── E130 — O RÉU DO PAR EM 1s (a ordem do dono): o game.log do rig
-# fotografou SETE pares INÍCIO/FIM no mesmo segundo em volta da sessão do
-# Hydra e NINGUÉM sabia QUEM registrava. O hook fotografa os vivos da
-# família (GameMode / Wine / Steam / Hydra — comm + o padrão da casa) com
-# PID + comm + argumento principal, nos DOIS braços (start e end: quem
-# entrou e quem saiu) — o papel nomeia o registrante na hora.
-gm_whois() {
-    _wi=""
-    for _d in /proc/[0-9]*; do
-        _p="${_d##*/}"
-        _c="$(cat "$_d/comm" 2>/dev/null || true)"
-        [ -n "$_c" ] || continue
-        printf '%s' "$_c" | grep -Eqi 'gamemoded|wine|steam|hydra|gamescope|preload' \
-            || printf '%s' "$_c" | grep -Eq "$GAME_PATS" || continue
-        _a="$(tr '\0' ' ' < "$_d/cmdline" 2>/dev/null | cut -c1-120)"
-        _wi="$_wi [pid $_p comm $_c arg: ${_a:-—}]"
-    done
-    if [ -n "$_wi" ]; then
-        glog "gamemode: vivos da família no hook:$_wi"
-    else
-        glog "gamemode: vivos da família no hook: NENHUM casou (o registrante não é da família — réu anônimo no /proc)"
-    fi
-    return 0
-}
-
-# ── o HOOK (o [custom] do gamemode.ini — início/fim NATIVO do modo) ─────
-# E126 — O LOOP DE NOTIFICAÇÕES MORRE (o game.log do rig fotografou SETE
-# pares INÍCIO/FIM NO MESMO SEGUNDO em volta da sessão do Hydra: um
-# registrante de fora ligava/desligava o modo em <1s e cada par subia
-# DOIS toasts na tela do dono).
-# E132 — O DEBOUNTE DE 3s DA ORDEM DO DONO (o fim do lag e do spam no
-# Hydra): o INÍCIO espera 3s EM FUNDO antes de notificar; se o FIM chega
-# DENTRO da janela (o pulo D-Bus transitório do Hydra), o INÍCIO é
-# CANCELADO em silêncio — sem notify-send, sem varredura de /proc, sem
-# gm_whois: o fantasma de 1s não é notícia. SÓ o FIM de uma sessão REAL
-# (>= 3s confirmados com o QueryStatus ATIVO) notifica 'Perfil normal
-# restaurado'. Os tokens moram no XDG_RUNTIME_DIR (tmpfs — morrem no
-# reboot, nunca viram lixo persistente).
-gm_hook() { # $1 = start|end
-    ensure_run_dir   # os tokens da janela de 3s moram no RUN_DIR (tmpfs)
-    case "${1:-}" in
-        start)
-            glog "gamemode: INÍCIO (o hook nativo do gamemode.ini — governor/GPU já aplicados)"
-            gm_whois
-            (
-                # a janela abre LIMPA: um cancel velho de sessão passada
-                # não pode calar o jogo de hoje (o token é da JANELA)
-                rm -f "$RUN_DIR/gm-hook-cancel" 2>/dev/null
-                sleep 3
-                # o FIM chegou antes dos 3s — pulo transitório: silêncio
-                # absoluto (o próprio FIM apagou o token na leitura dele)
-                if [ -e "$RUN_DIR/gm-hook-cancel" ]; then
-                    rm -f "$RUN_DIR/gm-hook-cancel" 2>/dev/null
-                    exit 0
-                fi
-                if [ "$(gm_status "$$" 2>/dev/null)" = "1" ]; then
-                    : > "$RUN_DIR/gm-hook-live" 2>/dev/null
-                    note 'Modo de jogo' 'Performance ativa (CPU governor + GPU high)'
-                fi
-            ) >/dev/null 2>&1 </dev/null &
-            ;;
-        end)
-            if [ -e "$RUN_DIR/gm-hook-live" ]; then
-                # sessão REAL (os 3s confirmaram o modo ativo): o fim é
-                # notícia — com o retrato dos vivos no papel
-                rm -f "$RUN_DIR/gm-hook-live" 2>/dev/null
-                glog "gamemode: FIM (o hook nativo devolveu o perfil da casa)"
-                gm_whois
-                NOTE_URGEN=low note 'Modo de jogo' 'Perfil normal restaurado'
-            else
-                # dentro da janela de 3s (ou o início nunca confirmou): o
-                # cancelamento é MUDO — sem notificação, sem /proc, sem
-                # história de fantasma no papel (a linha seca conta o gesto)
-                : > "$RUN_DIR/gm-hook-cancel" 2>/dev/null
-                glog "gamemode: FIM transitório (<3s — o INÍCIO pendente cancelado em silêncio; nada notificado, nada varrido)"
-            fi
-            ;;
-    esac
-    exit 0
-}
-
-# ── o STATUS (a mesa de fatos — E124: o dono leu o banner 'veredito' +
-# a aula de como funciona e falou 'um monte de sujeira que sinceramente
-# não tem para quê': a explicação mora no --help; o status é FATOS, uma
-# linha cada, sem discurso) ──────────────────────────────────────
+# ── o STATUS (a mesa de FATOS — E124: sem palestra, a aula mora no ─────────
+#      --help; uma linha cada)
 gm_status_cmd() {
     printf '%s\n' '═══ Modo de jogo ═══'
     if has_gamemode; then
-        # E125 — a versão do pacote é sujeira para quem lê (o dono: 'um
-        # monte de sujeira que sinceramente não tem para quê' — a mesa é
-        # de FATOS do MODO, não de inventário; a versão mora no pacman)
         printf 'gamemode            instalado\n'
     else
         printf 'gamemode            AUSENTE — Atualizar o sistema (menu) traz o pacote\n'
-    fi
-    local auto=""
-    [ -r "$CONF" ] && auto="$(sed -n 's/^AUTO=//p' "$CONF" | head -1)"
-    printf 'automático          %s\n' "$([ "${auto:-0}" = 1 ] && echo ON || echo OFF)"
-    # E112 — o veredito do WATCH (o status julga o PROCESSO, não o conf):
-    # ON sem daemon vivo = o supervisor que não trouxe — a fila tem nome.
-    if [ "${auto:-0}" = 1 ]; then
-        _wp="$(cat "$RUN_DIR/game-watch.pid" 2>/dev/null || true)"
-        # E132 — a prova aceita OS DOIS motores: o pid do arquivo é do
-        # craft-game watch (bash) OU do elite-daemon nativo (ele escreve
-        # o PRÓPRIO pid no game-watch.pid — o compat E132 do daemon); o
-        # case casa o cmdline de qualquer um dos dois.
-        if [ -n "$_wp" ] && kill -0 "$_wp" 2>/dev/null; then
-            case "$(tr '\0' ' ' <"/proc/$_wp/cmdline" 2>/dev/null)" in
-                *craft-game\ watch*|*elite-daemon*)
-                    # E125 — o pid é máquina e não vale a mesa (o dono lê
-                    # estado, não números de processo; o pid do watch já
-                    # tem linha no papel desde o nascimento dele)
-                    printf 'watch               no ar\n' ;;
-                *)
-                    printf 'watch               FORA — sem daemon vivo (o automático é só o conf)\n' ;;
-            esac
-        else
-            printf 'watch               FORA — sem daemon vivo (o automático é só o conf)\n'
-        fi
     fi
     if [ -r "$(holder_pid_file)" ]; then
         printf 'manual              ATIVO\n'
@@ -601,7 +208,7 @@ gm_status_cmd() {
     fi
     if has_gamemode; then
         st="$(gm_status "$$" 2>/dev/null)"
-        [ "$st" = "1" ] && printf 'gamemoded           ATIVO\n' || printf 'gamemoded           idle (sobe sozinho só com jogo)\n'
+        [ "$st" = "1" ] && printf 'gamemoded           ATIVO\n' || printf 'gamemoded           idle (sobe sozinho só com registro)\n'
     fi
     printf 'jogos vivos agora   '
     pgrep -u "$(id -u)" "$GAME_PATS" >/dev/null 2>&1 \
@@ -610,23 +217,18 @@ gm_status_cmd() {
     printf '\nlog: %s\n' "$LOG"
 }
 
-# ── o MENU (a porta mouse-first — o motor único 2.0 é o craft-pick) ─────
+# ── o MENU (a porta mouse-first — o motor único é o craft-pick) ───────────
 # E150→1.0-105 — O PICK VESTE AS FLAGS REAIS DE `craft-pick --help` E A
 #      FORMA DO FOOT (a prova do rig da 1.0-98: o menu abortava com
 #      'Opção --title=... desconhecida' quando o binário do rig não
 #      conhecia a flag — chamador de uma era, binário de outra, o MENU
-#      morto no meio; e o terminal foot NÃO aceita --title=VALOR colado:
-#      a forma da casa é o -T "..." COM ESPAÇO). O título só entra quando
-#      o craft-pick INSTALADO anuncia o -T no papel de ajuda — sem ele, o
-#      painel segue sem título e o contrato 0/1 intacto.
-# E106/2 — DOIS CONSERTOS da sessão nativa (o item do menu roda SEM foot —
-#      o craft-pick é a ÚNICA janela): (1) a sonda do -T agora casa o
-#      traço também colado ao COLCHETE do uso ('[-T TÍTULO' — a âncora de
-#      espaço/linha da era JAMAIS casava o papel real e o painel nascia
-#      SEM título de boa-fé); (2) o stderr do craft-pick desce no vazio
-#      (os avisos de portal do GTK não mancham a sessão nativa) SEM
-#      tocar no contrato 0/1 — o exit code do pick continua o juiz das
-#      ações, sempre.
+#      morto no meio; e o terminal foot NÃO aceita --title=VALOR
+#      colado: a forma da casa é o -T "..." COM ESPAÇO).
+# E106/2 — (1) a sonda do -T casa o traço também colado ao COLCHETE do
+#      uso ('[-T TÍTULO' — a âncora de espaço/linha da era JAMAIS casava
+#      o papel real e o painel nascia SEM título de boa-fé); (2) o
+#      stderr do craft-pick desce no vazio (os avisos de portal do GTK
+#      não mancham a sessão nativa) SEM tocar no contrato 0/1.
 gm_pick() {
     if craft-pick --help 2>/dev/null | grep -qE -- '(^|[^[:alnum:]])-T[[:space:]]'; then
         craft-pick -T "$1" 2>/dev/null
@@ -637,28 +239,18 @@ gm_pick() {
 
 gm_menu() {
     command -v craft-pick >/dev/null 2>&1 || { gm_status_cmd; exit 0; }
-    local auto=""
-    [ -r "$CONF" ] && auto="$(sed -n 's/^AUTO=//p' "$CONF" | head -1)"
     local items=() choice
-    [ "${auto:-0}" = 1 ] && items+=("Automático: ON (desligar)") || items+=("Automático: OFF (ligar)")
-    # E110 — O MANUAL DIZ O ESTADO (o dono no dump 114852: o item estático
-    # não dava indicador — 'só fecha o menu'; o automático mostrava ON/OFF
-    # e o manual era mudo). O item segue o estado real do holder: reabrir
-    # o menu mostra ATIVO ou não — o feedback mora na porta que o dono
-    # usa, não num toast que o daemon pode engolir.
+    # 1.0-107 — O ITEM DIZ O ESTADO (a diretriz §6: "Ativar modo de
+    # jogo / Desativar modo de jogo (conforme o estado atual)"): o
+    # holder vivo vira a porta de SAÍDA do modo.
     if [ -r "$(holder_pid_file)" ]; then
-        items+=("Manual: ATIVO (desativar)")
+        items+=("Desativar modo de jogo")
     else
-        items+=("Ativar agora (manual)")
+        items+=("Ativar modo de jogo")
     fi
-    items+=("Status" )
-    # E119 — O PAPEL DA PORTA (o dump 221647: o dono clicou 'Ativar agora'
-    # e o game.log NÃO TEM UMA linha — o gm_on tem quatro ramos e TODOS
-    # logam, o que significa que o clique MORREU ANTES do despacho: o
-    # caminho entre o picker e o case era cego (rc≠0 do pick saía
-    # no || exit 0 calado). O despacho entra no papel: o clique que chega
-    # deixa a escolha; o fecho benigno segue na lei dos menus; o rc
-    # anômalo fica nomeado — a próxima perícia vê onde a porta falhou.
+    items+=("Status")
+    # E119 — O PAPEL DA PORTA (o clique que chega deixa a escolha; o
+    # fecho benigno segue na lei dos menus; o rc anômalo fica nomeado).
     _gm_rc=0
     choice="$(printf '%s\n' "${items[@]}" | gm_pick 'Modo de jogo')" || _gm_rc=$?
     if [ "$_gm_rc" = 0 ]; then
@@ -671,66 +263,18 @@ gm_menu() {
         exit 0
     fi
     case "$choice" in
-        Automático*) 
-            if [ "${auto:-0}" = 1 ]; then
-                printf 'AUTO=0\n' > "$CONF" 2>/dev/null
-                # E132 — o toggle desliga OS DOIS motores: o watch bash
-                # (âncora dupla E106 do cmdline real) E o elite-daemon
-                # nativo (âncora exata — o 'supervise' NÃO casa: o padrão
-                # morre no $ e o supervisor dos residentes segue vivo).
-                # E138 — a vaga do jogo da SESSÃO também morre AQUI: a
-                # condição AUTO é lida a cada ciclo (≤1s) e o filho do
-                # supervisor é encerrado pelo PRÓPRIO daemon — o pkill é
-                # o cinto para o motor solto de sessão sem supervisor.
-                pkill -f '^bash /usr/local/bin/craft-game watch$|^/usr/bin/env bash /usr/local/bin/craft-game watch$|^/usr/local/bin/elite-daemon$' 2>/dev/null || true
-                # E113 — O TOGGLE DEIXA LINHA NO PAPEL (o rig fotografou o
-                # watch FORA + supervisor calado + o último clique do menu
-                # em AUTO=0 — e o conf mudou SEM UMA linha no game.log: o
-                # toggle era invisível para a perícia; aqui o quem-quando
-                # entra — a ausência intencional fica assinada)
-                glog "auto: OFF (pelo menu — o motor sai; a vaga da sessão vê o AUTO=0 e não relança)"
-                NOTE_URGEN=normal note 'Automático: OFF' 'O modo de jogo só entra pela porta manual (menu)'
-            else
-                mkdir -p "$CONF_DIR" 2>/dev/null || true
-                printf 'AUTO=1\n' > "$CONF" 2>/dev/null
-                # E138 — O SPAWN MANUAL MORRE: o motor do jogo é VAGA da
-                # sessão (elite-daemon session lê o AUTO a cada ciclo —
-                # o dump v2.13 fotografou 'watch FORA' com AUTO=1 porque
-                # o exec do craft-bars matou o respawn do corpo bash; o
-                # setsid daqui só criaria o churn do filho-perdedor do
-                # lock: quem lança/relança é O SUPERVISOR, sempre).
-                # Cinto para o mundo bash (rig sem binário): o gm_watch
-                # do craft-bars assume como sempre assumiu.
-                if [ ! -x /usr/local/bin/elite-daemon ]; then
-                    setsid /usr/local/bin/craft-game watch >/dev/null 2>&1 </dev/null 9>&- &
-                fi
-                glog "auto: ON (pelo menu — o conf acende; o supervisor da sessão traz o motor em ≤1s)"
-                NOTE_URGEN=normal note 'Automático: ON' 'Performance entra sozinha quando um jogo abre'
-            fi ;;
-        *Manual*|*Ativar*)
-            # E110 — o item dinâmico: ATIVO → o clique DESATIVA (o mesmo
-            # gesto do automático; a porta nunca engana o estado)
-            if [ -r "$(holder_pid_file)" ]; then gm_off; else gm_on; fi ;;
+        *Ativar*) gm_on ;;
         *Desativar*) gm_off ;;
         *Status*)
-            # E106 — o status sobe na tela; E124 — a mesa de FATOS (a
-            # palestra saiu — o dono a nomeou de sujeira; a explicação
-            # mora no --help). foot existe na ISO (é o terminal do menu);
-            # sem foot, o toast clássico segue.
-            # E125 — O PAPEL RECEBE UMA LINHA (o bloco INTEIRO a cada
-            # clique engolia o game.log — a E121 nomeou o réu e o teto
-            # E36 só segurava o tamanho: o dono folheou o papel cheio de
-            # blocos repetidos e viu sujeira onde devia ler história). O
-            # estado completo sobe NA TELA; o papel guarda a frase que
-            # cabe (os pids nem entram — o status novo não os mostra).
+            # E125 — O PAPEL RECEBE UMA LINHA (o estado completo sobe NA
+            # TELA; o papel guarda a frase que cabe).
             glog "status: consultado ($(gm_status_cmd 2>/dev/null | grep -v '^═══' | grep -v '^$' | tr '\n' ' ' | sed 's/  */ /g; s/ $//'))"
             if command -v foot >/dev/null 2>&1; then
                 foot -e sh -c 'craft-game status; echo; read -r -p "Enter para fechar" _' &
             else
-                _st_auto="OFF"; [ "${auto:-0}" = 1 ] && _st_auto="ON"
-                _st_gm="idle (sobe sozinho com jogo — RAM zero)"
+                _st_gm="idle (sobe sozinho só com registro — RAM zero)"
                 if [ -r "$(holder_pid_file)" ]; then _st_gm="ATIVO (manual)"; fi
-                NOTE_URGEN=normal note "Automático: $_st_auto · gamemoded: $_st_gm" "Completo no papel: ~/.cache/elite/game.log"
+                NOTE_URGEN=normal note "gamemoded: $_st_gm" "Completo no papel: ~/.cache/elite/game.log"
             fi ;;
     esac
 }
@@ -751,9 +295,7 @@ case "${1:-menu}" in
     on) gm_on ;;
     off) gm_off ;;
     toggle) gm_toggle ;;
-    watch) gm_watch ;;
-    hook) gm_hook "${2:-}" ;;
     menu|"") gm_menu ;;
-    -h|--help|uso) sed -n '2,32p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
-    *) echo "uso: craft-game [status|on|off|toggle|watch|hook start|hook end|menu]" >&2; exit 2 ;;
+    -h|--help|uso) sed -n '2,40p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) echo "uso: craft-game [status|on|off|toggle|menu|pill]" >&2; exit 2 ;;
 esac

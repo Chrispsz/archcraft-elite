@@ -216,12 +216,12 @@
          tag desde o E103 (o labwc pula texto solto no parse, mas a
          casa não entrega arquivo com membros fora de tag — XML é
          contrato; a gramática estrita da E146 do heal o prova). -->
-    <!-- E103 — O MODO DE JOGO (a diretriz do dono: "um botão em algum
-         lugar do sistema para mexer no governor — e o automático que
-         define performance quando entrar no jogo"): o craft-game é o
-         cérebro, o gamemode do Feral o músculo (governor performance +
-         GPU high + rollback automático, RAM zero no idle). E106:
-         ON/OFF/Automático/Status DEVOLvem feedback na tela. -->
+    <!-- E103 → 1.0-107 — O MODO DE JOGO (a diretriz do dono: "um botão em
+         algum lugar do sistema para mexer no governor"): o craft-game é o
+         cérebro MANUAL (Ativar/Desativar conforme o estado + Status), o
+         gamemode do Feral o músculo (governor performance + GPU high +
+         inibidor idle:sleep + rollback no fim, RAM zero no idle). E106:
+         as ações DEVOLVEM feedback na tela (-u normal). -->
         <!-- E106 — A EXECUÇÃO NATIVA (a ordem do dono: o painel do jogo
          roda como processo gráfico NATIVO — o craft-pick é a ÚNICA
          janela; o terminal foot preto de era, com o aviso de portal

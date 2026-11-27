@@ -1,51 +1,43 @@
-// ELITE · elite-daemon v2 (E131→E132) — o núcleo do craft-game watch como
-// serviço NATIVO. A ordem do dono ("espremer o limão"): os loops
-// residentes de shell viram UM daemon em Rust — zero fork por tick, a
-// leitura direta de /proc, o D-Bus nativo com o GameMode.
+// ELITE · elite-daemon v2 (E131→E132→1.0-107) — O ORQUESTRADOR ÚNICO DA
+// SESSÃO. A ordem do dono ("espremer o limão"): os loops residentes de
+// shell viram UM daemon em Rust — zero fork por tick, eventos de verdade
+// (netlink, D-Bus, Wayland, ext-idle-notify).
 //
-// ESCOPO HONESTO DA v2 (o degrau é incrementado, a lei AGENTS.md §2):
-//   · a DETECÇÃO de jogo E132 COMPLETA (a família ERE do comm + a porta
-//     do exe Steam + a sonda cmdline/environ dos runtimes Proton/Wine/
-//     Hydra/UMU com o bloqueio dos auxiliares — tudo no scan.rs);
-//   · o REGISTRO/DESREGISTRO no GameMode por D-Bus NATIVO (zbus) — o
-//     reaper do gamemoded continua sabendo da morte do jogo;
-//   · EPP DINÂMICO na transição da sessão de jogo: ATIVA → performance
-//     em todo cpu*/cpufreq/energy_performance_preference WRITÁVEL;
-//     INATIVA → balance_performance de volta (escrita idempotente —
-//     só toca o arquivo quando o valor DIFERE, zero spam);
-//   · SINAL à waybar (SIGRTMIN+8) em CADA transição — a topbar relê o
-//     pill do modo sem esperar o intervalo dela (leitura de /proc do
-//     uid corrente + libc::kill — NENHUM fork de pgrep);
-//   · DEBOUNCE de 3s nas notificações (a lição E132 do gm_hook: pulo
-//     transitório do Hydra não é notícia — o INÍCIO só sobe depois de
-//     3s com o QueryStatus ATIVO; o FIM só notifica sessões CONFIRMADAS;
-//     a decisão mora numa função PURA com teste de unidade);
-//   · `supervise` — o supervisor dos RESIDENTES da sessão (swayosd,
-//     craft-audio-route) com try_wait nativo e backoff de 2s (o módulo
-//     supervise.rs — o craft-bars passa a delegar quando
-//     este binário existe);
+// 1.0-107 — O MODO DE JOGO AUTOMÁTICO MORREU (a diretriz §6: "remover
+// integralmente o modo automático… deixar o daemon LIVRE de varredura
+// de processos"): o daemon_loop de era (a detecção /proc de jogo E132,
+// o EPP dinâmico, o perfil de GPU, o debounce de 3s, a aposentadoria do
+// gamemoded e o --once) sai INTEIRO com o watcher — o modo de jogo é o
+// MANUAL do craft-game (menu + ícone da top bar: gamemoded holder +
+// inhibitor idle:sleep + o pill pelo fio), e o daemon só PUBLICA o
+// estado que o craft-game reporta (`game-notify` — o QueryStatus REAL
+// no bus da sessão, a barra acende no MESMO instante do clique).
+//
+// ESCOPO HONESTO (o degrau é incrementado, a lei AGENTS.md §2):
+//   · `session` — O LANÇADOR ÚNICO da sessão gráfica (clientes de
+//     display + residentes com gate de posse E135; o craft-bars shell
+//     vira `exec elite-daemon session` — zero /bin/sh residente) e os
+//     OUVIDORES de evento (netlink som/drm, logind sono/unlock, o
+//     wake-guard pré-sono, MPRIS, BlueZ, áudio);
+//   · `supervise` — o supervisor dos residentes da sessão (swayosd,
+//     swaync com dono único 1.0-107) com try_wait nativo e backoff de 2s;
+//   · `game-notify` — o CLI do toggle manual do craft-game (publica o
+//     QueryStatus REAL no bus — o pill da barra acende no mesmo clique);
+//   · `desk N|left|right|…` — o SYNC da mesa (o rc.xml registra a
+//     troca; a dock veste .other-workspace na hora);
 //   · instância ÚNICA por flock de arquivo (a lei E30 — o 2º sai 0);
-//   · --once: UMA rodada de varredura (a porta dos testes);
-//   · SIGTERM/SIGINT: unregister de tudo, EPP devolvido e saída limpa.
+//   · SIGTERM/SIGINT/SIGHUP: filhos colhidos, locks soltos, saída limpa.
 // NÃO É DEGRAU DESTA v2: as barras waybar/dock SEGUIEM corpos próprios
 // (a waybar só RECEBE o sinal daqui; a dock é outro corpo — nenhum
 // half-promise de unificação pela metade).
-// E139 — REVISADO: os OUVIDORES de evento moram na PORTA session (a
-// sessão é quem SEMPRE está viva — o motor do jogo é vaga condicionada
-// ao AUTO do game.conf, e o rig com AUTO=0 não pode ficar cego) e o
-// craft-display watch-save é VAGA supervisionada da sessão (a escolha
-// do wdisplays grava de novo; caiu → volta em 2s).
 //
-// Custos medidos no desenho: zero fork por tick (a varredura é read(2)
-// de /proc); o D-Bus é conexão PERSISTENTE (não abre por chamada); o
-// notify-send só nas TRANSIÇÕES confirmadas (zero toast de fantasma).
-use std::collections::HashMap;
+// Custos medidos no desenho: zero fork por tick; o D-Bus é conexão
+// PERSISTENTE (não abre por chamada); o notify-send só nas notícias de
+// verdade (zero toast de fantasma).
 use std::os::unix::fs::{FileTypeExt, MetadataExt};
-use std::os::unix::io::AsRawFd;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, Condvar, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 mod audio;
@@ -58,12 +50,7 @@ mod supervise;
 mod wayland;
 mod workspace;
 
-const VERSION: &str = "2.1.0";
-
-/// E132 — a janela do debounce (o gm_hook do craft-game, 1:1): o INÍCIO
-/// espera 3s em fundo antes de notificar; o FIM de sessão <3s é pulo
-/// transitório e não sobe NADA.
-const JANELA_DEBOUNCE_S: u64 = 3;
+const VERSION: &str = "2.2.0";
 
 // ── o sinal de parada (SIGTERM/SIGINT → saída limpa) ─────────────────────
 static STOP: AtomicBool = AtomicBool::new(false);
@@ -101,17 +88,16 @@ fn instala_sinais() {
 }
 
 fn usage() -> &'static str {
-    "uso: elite-daemon [--once | supervise | session | game-notify | --help | --version]\n\
-     \x20 o detector de jogo unificado (E132) — registra a família no GameMode\n\
-     \x20 por D-Bus nativo, aplica o EPP performance na sessão de jogo, sinaliza\n\
-     \x20 a waybar (SIGRTMIN+8) e notifica com debounce de 3s; instância única\n\
-     \x20 por flock; SIGTERM des-registra, devolve o EPP e sai limpo.\n\
-     \x20 --once = uma rodada (a porta dos testes).\n\
-     \x20 supervise = o supervisor dos residentes da sessão (swayosd —\n\
-     \x20 respawn com backoff de 2s).\n\
+    "uso: elite-daemon [session | supervise | game-notify | desk … | --help | --version]\n\
+     \x20 o orquestrador ÚNICO da sessão (1.0-107 — o daemon LIVRE de varredura\n\
+     \x20 de processos: o modo de jogo é o MANUAL do craft-game, o daemon só\n\
+     \x20 publica o estado que o CLI reporta no bus da sessão).\n\
      \x20 session = E135 — O LANÇADOR ÚNICO da sessão gráfica (clientes de\n\
      \x20 display + residentes com o gate de posse; o craft-bars shell vira\n\
-     \x20 `exec elite-daemon session` — zero /bin/sh residente).\n\
+     \x20 `exec elite-daemon session` — zero /bin/sh residente) e os ouvidores\n\
+     \x20 de evento (bus.sock + wayland + mpris + áudio + netlink + logind).\n\
+     \x20 supervise = o supervisor dos residentes da sessão (swayosd, swaync\n\
+     \x20 — respawn com backoff de 2s).\n\
      \x20 game-notify = 1.0-104 — o craft-game CLI reporta o toggle manual: publica\n\
      \x20 o estado REAL (QueryStatus) no bus da sessão e a barra acende o pill\n\
      \x20 do jogo no MESMO instante (o cinto do 30s é a rede, o fio é o gesto).\n\
@@ -130,17 +116,11 @@ fn main() {
             println!("elite-daemon {}", VERSION);
             std::process::exit(0);
         }
-        Some("--once") => {
-            let achados = scan::round();
-            for p in &achados {
-                println!(
-                    "jogo: pid {} comm {} via {} exe {}",
-                    p.pid, p.comm, p.via, p.exe
-                );
-            }
-            println!("rodada única: {} jogo(s) da família", achados.len());
-            std::process::exit(0);
-        }
+        // 1.0-107 — O MODO AUTOMÁTICO MORREU COM O WATCHER (a diretriz
+        // §6: "--once" era a porta dos testes da varredura de /proc que
+        // NÃO existe mais — sem corpo de detecção, a porta vira eco
+        // honesto do uso; o gamemoded sobe por D-Bus activation na mão
+        // do craft-game `on`, nunca mais por varredura).
         Some("supervise") => match supervise::run() {
             Ok(()) => std::process::exit(0),
             Err(e) => {
@@ -314,126 +294,20 @@ fn main() {
             std::process::exit(2);
         }
         None => {
-            // modo daemon: o loop de 5s + flock + sinais + EPP + sinal.
-            match daemon_loop() {
-                Ok(()) => std::process::exit(0),
-                Err(e) => {
-                    eprintln!("elite-daemon: {}", e);
-                    std::process::exit(1);
-                }
-            }
+            // 1.0-107 — O CORPO NÚ (o daemon_loop de era) MORREU COM O
+            // MODO AUTOMÁTICO (a diretriz §6: "deixando o daemon livre
+            // de varredura de processos"): SEM porta nomeada não há
+            // ofício — o eco é o USO com a verdade (a sessão é
+            // `elite-daemon session`, o supervisor é `supervise`).
+            eprintln!("{}", usage());
+            std::process::exit(2);
         }
     }
 }
 
-// ── E132 — o veredito do debounce (função PURA, a porta dos testes) ──────
-// Dado o instante em que a sessão LIGOU (epoch s), o agora e o QueryStatus
-// vivo, decide o que notifica. O pulo transitório do Hydra (<3s) não é
-// notícia: nem início, nem fim — silêncio absoluto.
-pub struct VereditoDebounce {
-    pub inicio: bool,
-    pub fim: bool,
-}
-
-pub fn veredito_debounce(iniciada_em: u64, agora: u64, status_ativo: bool) -> VereditoDebounce {
-    let duracao = agora.saturating_sub(iniciada_em);
-    if status_ativo {
-        // a sessão seguiu viva pela janela: o INÍCIO é notícia (uma vez)
-        VereditoDebounce {
-            inicio: duracao >= JANELA_DEBOUNCE_S,
-            fim: false,
-        }
-    } else {
-        // o FIM só é notícia de sessão REAL (>= 3s confirmados); pulo
-        // transitório não notifica NADA (nem início, nem fim)
-        VereditoDebounce {
-            inicio: false,
-            fim: duracao >= JANELA_DEBOUNCE_S,
-        }
-    }
-}
-
-fn agora_epoch() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0)
-}
-
-/// O aviso para o dono (a lei C101: eventos automáticos são -u low —
-/// pop-up não é lugar de estado). Os argumentos são os MESMOS do
-/// craft-game, 1:1 (o gm_hook é a referência).
-fn note(corpo: &str) {
-    // 1.0-101 — A COVEIRA do aviso (a mesma cura da dispara, o E152):
-    // o spawn ABANDONADO no escopo virava <defunct> no ps do rig (o
-    // audit 99 nomeou os zumbis da sessão; notify-send é filho curto
-    // do daemon — nasce, fala, morre e É COLHIDO na thread própria).
-    // 1.0-103 — if let (a clippy-lente da auditoria byte a byte): o braço
-    // vazio do Err não paga um match inteiro
-    if let Ok(mut filho) = std::process::Command::new("notify-send")
-        .args(["-a", "Elite · Jogo", "-u", "low", "-t", "8000", "Modo de jogo", corpo])
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .spawn()
-    {
-        std::thread::Builder::new()
-            .name("elite-coveira-note".into())
-            .spawn(move || {
-                let _ = filho.wait();
-            })
-            .ok();
-    } // o fork falhou: aviso perdido, honesto
-}
-
-/// E132 — EPP dinâmico: escreve `valor` em todo cpu*/cpufreq/
-/// energy_performance_preference WRITÁVEL cujo valor atual DIFERE
-/// (idempotente — só a mudança toca o disco, zero log spam). O sysfs em
-/// geral é do root: o cpufreq sem permissão é PULADO em silêncio
-/// (o gamemoded segue mandando no governor — escopo honesto).
-fn epp_aplica(valor: &str) -> usize {
-    let Ok(dir) = std::fs::read_dir("/sys/devices/system/cpu") else {
-        return 0;
-    };
-    let mut n = 0usize;
-    for entry in dir.flatten() {
-        let nome = entry.file_name();
-        let Some(nome) = nome.to_str() else { continue };
-        let Some(resto) = nome.strip_prefix("cpu") else { continue };
-        if resto.is_empty() || !resto.bytes().all(|b| b.is_ascii_digit()) {
-            continue; // cpuidle/cpufreq globais não são cpuN
-        }
-        let p = entry.path().join("cpufreq/energy_performance_preference");
-        let Ok(atual) = std::fs::read_to_string(&p) else { continue };
-        if atual.trim() == valor {
-            continue; // já é o valor: idempotência de verdade
-        }
-        if std::fs::write(&p, valor).is_ok() {
-            n += 1;
-        }
-    }
-    n
-}
-
-/// E132 — o sinal da topbar: SIGRTMIN+8 a TODO processo da BARRA do
-/// uid corrente (leitura de /proc + libc::kill — NENHUM fork de pgrep;
-/// o módulo relê o pill do modo no sinal).
-/// E140 — a topbar agora é o craft-bar-rs (o waybar aposentou): o
-/// sinal alcança OS DOIS comms — o rig da dose E140 já corre o
-/// binário novo; o nome antigo segue na lista por honestidade de
-/// transição (a barra velha de um relogin no meio da dose também
-/// acende — nunca dois mundos mudos).
-fn sinal_waybar() -> usize {
-    sinal_waybar_sig(8)
-}
-
-/// E135 — o sinal da topbar com NÚMERO parametrizável: SIGRTMIN+N em
-/// toda a barra do uid corrente. +8 = o pill do jogo (E147: o +9 dos
-/// 2º planos MORREU com o próprio módulo — nenhum da casa manda mais
-/// o +9; a função segue parametrizada para o futuro nomeado).
-fn sinal_waybar_sig(offset: i32) -> usize {
-    sinal_para_comms(&["craft-bar-rs", "waybar"], libc::SIGRTMIN() + offset)
-}
+// ── 1.0-107 — O DEBOUNCE DE ERA MORREU COM O MODO AUTOMÁTICO (o juiz
+// das transições do watcher de /proc; o manual do dono notifica NA HORA
+// no clique do craft-game — não há transição fantasma para julgar) ──
 
 /// 1.0-94 — O SINAL GENÉRICO da casa: um sinal a TODO processo vivo do
 /// uid corrente cujo comm está na lista (a leitura de /proc + libc::kill
@@ -468,17 +342,6 @@ pub(crate) fn sinal_para_comms(comms: &[&str], sig: i32) -> usize {
         }
     }
     n
-}
-
-/// E132 — o compat do craft-game: o daemon escreve o PRÓPRIO pid no
-/// game-watch.pid do RUN_DIR (o status 'watch no ar' do craft-game lê
-/// este arquivo e aceita o cmdline 'elite-daemon' na prova).
-fn escreve_pid_watch() {
-    let run_dir = std::env::var("XDG_RUNTIME_DIR")
-        .map(|d| PathBuf::from(d).join("elite"))
-        .unwrap_or_else(|_| PathBuf::from("/tmp/elite"));
-    let _ = std::fs::create_dir_all(&run_dir);
-    let _ = std::fs::write(run_dir.join("game-watch.pid"), format!("{}\n", std::process::id()));
 }
 
 
@@ -706,28 +569,53 @@ fn despertar() {
     //   1º  wlopm --on '*'  — o DPMS volta ANTES de qualquer mudança de
     //       modo: wlr-randr contra saída desligada no-opa/falha e o
     //       apply da casa perderia a rodada;
-    //   2º  craft-display apply — o arranjo do dono (Hz/escala/pos)
-    //       re-aplicado COM o output já de pé (o E118 do craft-display
-    //       re-aplica na divergência do pós-sono; o stamp dele decide);
-    //   3º  reseta_idle — o tempo DORMIDO não é inatividade (o lock na
+    //   2º  o BACKOFF do link (1.0-107 — a ordem do dono, palavra por
+    //       palavra: "reativar explicitamente as saídas… com pequeno
+    //       backoff de estabilização de link HDMI/DP para GPU AMD"):
+    //       o amdgpu precisa do assento entre o DPMS acordar e o
+    //       re-treino do link — o recover correndo COLADO no wlopm
+    //       nascia antes da saída aceitar o modo (o "DisplayPort sem
+    //       sinal de entrada" pós-unlock de era);
+    //   3º  craft-display recover + apply — o ciclo off→1s→on COM O
+    //       MODO PERSISTIDO por saída viva (E106/5a), varredura
+    //       DINÂMICA do wlr-randr (zero hardcoded) e o guard de 10s
+    //       casa UM dono por veredito com as outras redes;
+    //   4º  O LOCK DE PÉ (1.0-107: "garantir que o hyprlock esteja
+    //       ativo e recebendo foco de teclado para desbloqueio
+    //       imediato"): o hyprlock sobrevive ao freeze pelo protocolo
+    //       ext-session-lock-v1 (o foco de teclado é DELE por lei do
+    //       compositor); se ele MORREU no sono (crash raro), o
+    //       --if-needed renasce NA HORA — a tela nunca acorda nua;
+    //   5º  reseta_idle — o tempo DORMIDO não é inatividade (o lock na
     //       cara do dono logo após acordar era a mentira do contador).
     // NENHUM destes gestos mata o compositor: wlopm fala o protocolo
     // wlr-output-power (estado de DPMS), o apply fala wlr-randr (modos)
     // — os dois são clientes Wayland comuns; o labwc continua de pé.
-    dispara("wlopm", &["--on", "*"]);
-    // E106/5a — O CICLO DO LINK COM O MODO DO DONO: o relato do rig — na
-    // volta do S3 o DisplayPort ficava "sem sinal de entrada" e o wlopm
-    // --on sozinho não re-treinava o link do amdgpu. O recover do
-    // craft-display faz o ciclo off→1s→on COM o modo persistido no
-    // displays.conf, POR SAÍDA VIVA, varrida DINÂMICA do wlr-randr
-    // (nenhuma saída hardcoded). Este corpo corre nas DUAS portas —
-    // PrepareForSleep(false) (o retorno do sono, ainda travado) e o
-    // Unlock (o pós-senha) — e o guard de 10s do recover casa UM dono por
-    // veredito com as outras redes (craft-lock pós-unlock, hook de
-    // sistema, craft-vigil).
-    dispara("/usr/local/bin/craft-display", &["recover"]);
-    dispara("/usr/local/bin/craft-display", &["apply"]);
-    wayland::reseta_idle();
+    std::thread::spawn(|| {
+        dispara("wlopm", &["--on", "*"]);
+        // o assento do link DP/HDMI do amdgpu (a GPU precisa dele entre
+        // o DPMS acordar e o re-treino do modo)
+        std::thread::sleep(Duration::from_millis(800));
+        dispara("/usr/local/bin/craft-display", &["recover"]);
+        dispara("/usr/local/bin/craft-display", &["apply"]);
+        // 1.0-107 — A REDE REAVALIADA NO ACORDAR (a ordem do dono: "no
+        // evento PrepareForSleep(false)… o estado de conectividade
+        // seja reavaliado SEM travar o módulo da barra"): o check é um
+        // fork PONTUAL por evento (nunca residente — a lei E135), o
+        // NetworkManager re-avalia os perfis e o estado publicado no
+        // bus veste o ícone da barra NO CICLO dela (o módulo nunca
+        // espera o nmcli — a fila é do daemon).
+        dispara("nmcli", &["networking", "connectivity", "check"]);
+        // o lock de pé no acordar (o hyprlock vivo segue vivo; o morto
+        // no sono renasce — a tela nunca acorda sem a trava)
+        if !supervise::comm_vivo("hyprlock") {
+            eprintln!(
+                "elite-daemon: o hyprlock não sobreviveu ao sono — o --if-needed renasce o lock NA HORA (a tela nunca acorda nua)"
+            );
+            idle::trava();
+        }
+        wayland::reseta_idle();
+    });
 }
 
 /// o ouvidor de uevents do kernel (SOCK_RAW + NETLINK_KOBJECT_UEVENT,
@@ -899,519 +787,17 @@ fn thread_wakeguard() {
     }
 }
 
-/// E140 — PORTA 5 — A JANELA É A PROVA (o dossiê 1.0-88: o Stardew
-/// Valley do Hydra abria como janela `steam_app_413150` e o watcher
-/// registrava SÓ o launcher <3s — a detecção por /proc é cega para o
-/// jogo que troca de comm no caminho do Proton).
-/// 2.0 — A PORTA 5 NATIVA: as janelas VIVAS do cliente Wayland DESTE
-/// daemon (o toplevel.sock morreu com o craft-toplevel.c — a prova do
-/// jogo invisível steam_app_* é o app_id no snapshot vivo).
-fn janelas_de_jogo() -> Vec<String> {
-    wayland::windows_mru()
-        .into_iter()
-        .filter(|w| scan::eh_app_janela_jogo(&w.app_id))
-        .map(|w| w.app_id)
-        .collect()
-}
-
-/// 2.0 — A THREAD DO FRETE morreu: o canal de eventos do jogo é o
-/// cliente Wayland NATIVO (cada `Done`/`Closed` publica o snapshot no
-/// bus e o loop do jogo acorda no frete de sempre).
-fn thread_wakeup_frete(frete: Arc<(Mutex<bool>, Condvar)>) {
-    // o cinto dos windowless: um toque suave a cada 5s no condvar (o
-    // scan de /proc segue vivo para quem não tem janela) — as janelas
-    // acendem o frete pelo publicador do wayland.rs
-    loop {
-        if STOP.load(Ordering::SeqCst) {
-            return;
-        }
-        std::thread::sleep(Duration::from_secs(5));
-        let (l, cv) = &*frete;
-        let mut vivo = l.lock().unwrap();
-        *vivo = true;
-        cv.notify_all();
-    }
-}
-
-/// o parse da tabela pp_power_profile_mode da AMD (a porta dos testes):
-/// devolve (índice do 3D_FULL_SCREEN, índice atual marcado com '*').
-/// A linha da casa: "  1  3D_FULL_SCREEN" / "  0  BOOTUP_DEFAULT *".
-pub fn pp_parse_tabela(texto: &str) -> (Option<u32>, Option<u32>) {
-    let mut alvo = None;
-    let mut atual = None;
-    for linha in texto.lines() {
-        let t = linha.trim();
-        let Some((idx, resto)) = t.split_once(char::is_whitespace) else { continue };
-        let Ok(_idx) = idx.trim().parse::<u32>() else { continue };
-        let nome = resto.trim();
-        if nome.ends_with('*') {
-            atual = Some(_idx);
-        }
-        if nome.starts_with("3D_FULL_SCREEN") {
-            alvo = Some(_idx);
-        }
-    }
-    (alvo, atual)
-}
-
-/// E135→2.0 — o PERFIL DE GPU (amdgpu sysfs): power_dpm_force_performance_level
-/// → "high" na sessão de jogo + o PERFIL 3D_FULL_SCREEN da tabela
-/// pp_power_profile_mode (a diretriz 2.0 — o perfil de jogo da AMD); os
-/// valores ANTERIORES devolvidos ao sair (a memória é a lista; o parse
-/// puro é testado). NVIDIA/Intel: os arquivos não existem — pulados em
-/// silêncio (compatibilidade segura por ausência).
-fn gpu_aplica(valor: &str) -> Vec<(PathBuf, String)> {
-    let mut mem: Vec<(PathBuf, String)> = Vec::new();
-    let Ok(dir) = std::fs::read_dir("/sys/class/drm") else {
-        return mem;
-    };
-    for entry in dir.flatten() {
-        let nome = entry.file_name();
-        let Some(nome) = nome.to_str() else { continue };
-        if !nome.starts_with("card") || nome.contains('-') {
-            continue; // card1-DP-1 é conector — o perfil mora no card
-        }
-        let p = entry.path().join("device/power_dpm_force_performance_level");
-        let Ok(atual) = std::fs::read_to_string(&p) else { continue };
-        if atual.trim() == valor {
-            continue; // já é: idempotente
-        }
-        if std::fs::write(&p, valor).is_ok() {
-            mem.push((p, atual.trim().to_string()));
-        }
-    }
-    mem
-}
-
-fn gpu_restaura(mem: Vec<(PathBuf, String)>) -> usize {
-    let mut n = 0;
-    for (p, valor) in mem {
-        if std::fs::write(&p, &valor).is_ok() {
-            n += 1;
-        }
-    }
-    n
-}
-
-/// 2.0 — o PERFIL 3D_FULL_SCREEN da AMD (pp_power_profile_mode): aplica
-/// o índice do perfil de jogo em todo card da casa e devolve a memória
-/// (path + índice anterior) para o restauro simétrico. GPU sem a
-/// tabela (NVIDIA/Intel) devolve vazia — compatibilidade segura.
-fn gpu_profile_aplica() -> Vec<(PathBuf, String)> {
-    let mut mem: Vec<(PathBuf, String)> = Vec::new();
-    let Ok(dir) = std::fs::read_dir("/sys/class/drm") else {
-        return mem;
-    };
-    for entry in dir.flatten() {
-        let nome = entry.file_name();
-        let Some(nome) = nome.to_str() else { continue };
-        if !nome.starts_with("card") || nome.contains('-') {
-            continue; // card1-DP-1 é conector — o perfil mora no card
-        }
-        let p = entry.path().join("device/pp_power_profile_mode");
-        let Ok(tabela) = std::fs::read_to_string(&p) else { continue };
-        let (Some(alvo), Some(atual)) = pp_parse_tabela(&tabela) else { continue };
-        if alvo == atual {
-            continue; // já é: idempotente
-        }
-        if std::fs::write(&p, alvo.to_string()).is_ok() {
-            mem.push((p, atual.to_string()));
-        }
-    }
-    mem
-}
-
-fn gpu_profile_restaura(mem: Vec<(PathBuf, String)>) -> usize {
-    let mut n = 0;
-    for (p, valor) in mem {
-        if std::fs::write(&p, &valor).is_ok() {
-            n += 1;
-        }
-    }
-    n
-}
-
-fn daemon_loop() -> Result<(), String> {
-    // instância única (E30): flock no arquivo — o 2º processo sai 0.
-    let lock = PathBuf::from("/tmp/elite-daemon.lock");
-    // 1.0-100 — A VARREDURA antes do lock próprio: o peek do supervisor
-    // disse LIVRE (não há segundo corpo disputando) — os fósseis do
-    // /tmp (lock de sessão morta, lock de motor era anterior) saem com
-    // os DOIS portões (flock recusa o arquivo de dono vivo; PID morto
-    // em /proc é o órfão da lei). O LOCK PRÓPRIO ganha o PID no corpo
-    // (a era legada deixava 0 bytes — o julgamento do órfão precisa do
-    // número; o audit 99 §2 fotografou os vazios).
-    let orfos = supervise::limpa_locks_orfos();
-    if orfos > 0 {
-        eprintln!(
-            "elite-daemon: {orfos} lock(s) órfão(s) de /tmp saíram na entrada \
-             do motor de jogo (flock livre + PID ausente em /proc)"
-        );
-    }
-    let mut f = std::fs::OpenOptions::new()
-        .create(true)
-        .truncate(false)
-        .write(true)
-        .open(&lock)
-        .map_err(|e| format!("lock {}: {}", lock.display(), e))?;
-    let rc = unsafe { libc::flock(f.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
-    if rc != 0 {
-        return Ok(()); // o irmão está no ar — saída silenciosa e honesta
-    }
-    // 1.0-100 — o PID no lock do motor (a identidade do dono: a
-    // varredura do relogin julga o órfão POR ESTE número — o 0 bytes
-    // da era legada era o buraco que o audit nomeou).
-    {
-        use std::io::Write;
-        let _ = f.set_len(0);
-        let _ = writeln!(f, "{}", std::process::id());
-        let _ = f.sync_all();
-    }
-    instala_sinais();
-    escreve_pid_watch();
-
-    // o frete: o cinto dos windowless (o jogo SEM janela segue caçado
-    // no /proc; o evento das janelas chega pelo publicador do wayland)
-    let frete = Arc::new((Mutex::new(false), Condvar::new()));
-    {
-        let f = Arc::clone(&frete);
-        std::thread::spawn(move || thread_wakeup_frete(f));
-    }
-    // E139 — OS OUVIDORES MUDARAM PARA A PORTA DA SESSÃO (a vaga do jogo
-    // é condicionada ao AUTO do game.conf — o rig com AUTO=0 não tem
-    // daemon_loop e a sessão ficava CEGA: display sem apply no
-    // despertar, áudio sem roteamento no hotplug). A porta session é
-    // quem SEMPRE está viva e ela levanta os ouvidores. O CINTO: se
-    // NÃO há session vivo (rig legado, watch à mão), ESTE corpo os
-    // levanta — o peek no lock da sessão decide, nunca dois donos.
-    // 1.0-94 — O DONO ÚNICO DO BUS (a cura do bus.sock MORTO do rig da
-    // 1.0-93): o peek no lock da sessão decide QUEM serve o fio. Sessão
-    // viva = o modo game vira CLIENTE ("elite-daemon-game" publica as
-    // transições pelo fio; o servidor retransmite) — o bind antigo fazia
-    // remove_file+bind e MATIA o socket do dono da sessão no caminho (o
-    // fóssil que o dump nomeava MORTO com os dois daemons vivos; pior: o
-    // craft-game watch de fora nascia depois e roubava o caminho —
-    // morrendo, deixava o fóssil no chão e a sessão cega para sempre).
-    // 2.0 — sem sessão viva, ESTE corpo é o dono: liga o servidor E o
-    // cliente Wayland (as janelas do jogo são a PORTA 5 NATIVA; a barra
-    // acende o pill pelo fio além do sinal).
-    // 1.0-93 — o peek confere os DOIS endereços do lock da sessão (o
-    // PRIVADO novo `$XDG_RUNTIME_DIR/elite/session.lock` E o fallback
-    // /tmp da era legada — o session pode ter caído no fallback quando
-    // o runtime privado não abriu; um dono só, em qualquer casa)
-    let (privado_livre, fallback_livre) = {
-        let uid = unsafe { libc::getuid() };
-        (
-            supervise::peek_lock_livre(&elite_core::session_lock_path(uid)),
-            supervise::peek_lock_livre(&PathBuf::from(elite_core::SESSION_LOCK_FALLBACK)),
-        )
-    };
-    if privado_livre && fallback_livre {
-        nucleo::liga_bus();
-        eprintln!(
-            "elite-daemon: sem session vivo — o bus E os ouvidores sobem AQUI (o cinto do modo game)"
-        );
-    } else {
-        nucleo::liga_cliente();
-    }
-    wayland::start();
-    if privado_livre && fallback_livre {
-        std::thread::spawn(thread_netlink);
-        std::thread::spawn(|| thread_logind("PrepareForSleep", true));
-        std::thread::spawn(|| thread_logind("Unlock", false));
-        std::thread::spawn(thread_wakeguard);
-    }
-    eprintln!("elite-daemon: no ar (toplevel EVT no corpo; os ouvidores de sessão vivem na porta session — E139)");
-
-    let mut held: HashMap<i32, String> = HashMap::new();
-    let mut retire = 0u32;
-    let conn = scan::gm_connect();
-    // E140 — O PROXY DA PORTA 5: janela steam_app_* viva SEM processo
-    // caçado = o daemon registra o PRÓPRIO pid no GameMode (a sessão
-    // de jogo conta enquanto a janela existir; a janela que fecha é o
-    // unregister — o fim é por EVENTO do toplevel, o mesmo frete do
-    // jogo de processo)
-    let mut proxy = false;
-
-    // E132 — o estado da SESSÃO de jogo (a máquina das transições):
-    // ativa = jogo registrado OU QueryStatus 1 (o manual do dono conta);
-    // confirmada = os 3s do debounce passaram com o modo ATIVO (o fim de
-    // uma sessão confirmada é notícia; pulo transitório não é).
-    let mut sessao_ativa = false;
-    // E138 — sem inicializador morto: o compilador PROVA que a 1ª leitura
-    // sempre vem depois da 1ª escrita (era `= 0u64` nunca lido — warning)
-    let mut iniciada_em: u64;
-    // E135 — a memória da SESSÃO: o perfil de GPU anterior (o sysfs
-    // devolve) e o inhibitor lock do logind (o lock/apagamento de tela
-    // NÃO morrem durante a partida — o fd solto é o fim da inibição; o
-    // dono suspender à mão segue livre). 1.0-106 — o Não Perturbe de era
-    // morreu com a central de notificações (dispensada pelo dono).
-    let mut gpu_mem: Vec<(PathBuf, String)> = Vec::new();
-    let mut gpu_perf_mem: Vec<(PathBuf, String)> = Vec::new();
-    let mut inhibitor: Option<zbus::zvariant::OwnedFd> = None;
-    // o token de geração cancela a thread de debounce pendente quando a
-    // sessão cai dentro da janela (o AtomicBool 'confirmada' é escrita
-    // PELA thread e lida pelo loop — o estado de 2 pontas, sem lock).
-    let token = Arc::new(AtomicU64::new(0));
-    let confirmada = Arc::new(AtomicBool::new(false));
-
-    loop {
-        let achados = scan::round();
-        // os registrados que morreram: libera (o reaper do gamemoded
-        // também sabe — o unregister é o cinto)
-        held.retain(|pid, _| {
-            let vivo = unsafe { libc::kill(*pid, 0) } == 0;
-            if !vivo {
-                scan::gm_unregister(&conn, *pid);
-            }
-            vivo
-        });
-        for p in &achados {
-            if !held.contains_key(&p.pid)
-                && scan::gm_register(&conn, p.pid) {
-                    eprintln!(
-                        "elite-daemon: jogo pid {} (via {}) registrado no gamemode",
-                        p.pid, p.via
-                    );
-                    held.insert(p.pid, p.comm.clone());
-                }
-        }
-
-        // E140 — A PORTA 5 NO LOOP: a janela steam_app_* viva é a prova
-        // que o /proc não nomeou. O proxy só nasce quando NÃO há jogo
-        // caçado (quem o /proc viu já registrou o pid DELE — o proxy é
-        // o cinto do jogo invisível, nunca o segundo registro do visto)
-        let janelas = janelas_de_jogo();
-        if !janelas.is_empty() && held.is_empty() && !proxy
-            && scan::gm_register(&conn, std::process::id() as i32) {
-                proxy = true;
-                eprintln!(
-                    "elite-daemon: janela de jogo VIVA ({} — a PORTA 5 do dossiê E140) → daemon PROXY no gamemode",
-                    janelas.join(", ")
-                );
-            }
-        if proxy && janelas.is_empty() && held.is_empty() {
-            scan::gm_unregister(&conn, std::process::id() as i32);
-            proxy = false;
-            eprintln!("elite-daemon: a janela de jogo fechou — proxy liberado");
-        }
-
-        // E132 — a SESSÃO: ATIVA com jogo nosso OU modo aceso por fora
-        // (o manual do dono também é sessão — o EPP segue o estado REAL)
-        // E140 — ou janela steam_app_* viva (o proxy da PORTA 5).
-        let status = scan::gm_status(&conn);
-        let ativa = !held.is_empty() || proxy || status == 1;
-
-        if ativa && !sessao_ativa {
-            // transição INATIVO→ATIVO: EPP performance, sinal à waybar e
-            // a thread do debounce (3s em fundo — o pulo transitório do
-            // Hydra morre na janela, não na tela do dono)
-            let n = epp_aplica("performance");
-            gpu_mem = gpu_aplica("high");
-            gpu_perf_mem = gpu_profile_aplica();
-            // o inhibitor do logind (nativo): o lock/apagamento dorme
-            {
-                if let Ok(c) = zbus::blocking::Connection::system() {
-                    if let Ok(p) = zbus::blocking::Proxy::new(
-                        &c,
-                        "org.freedesktop.login1",
-                        "/org/freedesktop/login1",
-                        "org.freedesktop.login1.Manager",
-                    ) {
-                        inhibitor = p
-                            .call::<_, _, zbus::zvariant::OwnedFd>(
-                                "Inhibit",
-                                &("idle", "elite", "Modo de jogo ativo", "block"),
-                            )
-                            .ok();
-                    }
-                }
-            }
-            // 2.0 — o pill da barra acende PELO FIO (o sinal é o cinto)
-            nucleo::pub_bus(&elite_core::BusMsg::GameMode(elite_core::GameModeState {
-                active: true,
-                game: held.values().next().cloned().or_else(|| janelas.first().cloned()),
-                gpu_performance: true,
-            }));
-            eprintln!(
-                "elite-daemon: sessão de jogo ATIVA — EPP performance em {} cpu(s) + GPU high em {} card(s) + perfil 3D_FULL_SCREEN em {} card(s) + {} waybar(s) avisada(s) + inhibitor logind {}",
-                n,
-                gpu_mem.len(),
-                gpu_perf_mem.len(),
-                sinal_waybar(),
-                if inhibitor.is_some() { "ARMADO" } else { "sem (honesto)" }
-            );
-            iniciada_em = agora_epoch();
-            confirmada.store(false, Ordering::SeqCst);
-            let tok = token.fetch_add(1, Ordering::SeqCst) + 1;
-            let confirmada_t = Arc::clone(&confirmada);
-            let token_t = Arc::clone(&token);
-            let iniciada = iniciada_em;
-            std::thread::spawn(move || {
-                std::thread::sleep(Duration::from_secs(JANELA_DEBOUNCE_S));
-                // a sessão caiu DENTRO da janela: cancelada em silêncio
-                if token_t.load(Ordering::SeqCst) != tok {
-                    return;
-                }
-                let conn_t = scan::gm_connect();
-                if scan::gm_status(&conn_t) == 1
-                    && veredito_debounce(iniciada, agora_epoch(), true).inicio
-                {
-                    confirmada_t.store(true, Ordering::SeqCst);
-                    note("Governor performance + GPU high automáticos");
-                }
-            });
-            sessao_ativa = true;
-        } else if !ativa && sessao_ativa {
-            // transição ATIVO→INATIVO: cancela o pendente, devolve o EPP,
-            // sinaliza a waybar; o FIM só notifica sessão CONFIRMADA
-            token.fetch_add(1, Ordering::SeqCst); // cancela a thread da janela
-            let confirmou = confirmada.load(Ordering::SeqCst);
-            let n = epp_aplica("balance_performance");
-            let gpu_devolvida = gpu_restaura(std::mem::take(&mut gpu_mem));
-            let perf_devolvida = gpu_profile_restaura(std::mem::take(&mut gpu_perf_mem));
-            nucleo::pub_bus(&elite_core::BusMsg::GameMode(elite_core::GameModeState {
-                active: false,
-                game: None,
-                gpu_performance: false,
-            }));
-            drop(inhibitor.take());
-            eprintln!(
-                "elite-daemon: sessão de jogo FIM — EPP balance_performance em {} cpu(s) + GPU restaurada em {} card(s) + perfil devolvido em {} card(s) + {} waybar(s) avisada(s){}",
-                n,
-                gpu_devolvida,
-                perf_devolvida,
-                sinal_waybar(),
-                if confirmou { " (sessão confirmada — dono avisado)" } else { " (pulo transitório <3s: silêncio na notícia)" }
-            );
-            if confirmou {
-                note("Perfil normal restaurado");
-            }
-            sessao_ativa = false;
-            confirmada.store(false, Ordering::SeqCst);
-        }
-
-        // a aposentadoria do daemon ocioso (a física do watch bash: 2
-        // rodadas sem jogo e sem manual — o gamemoded renasce por D-Bus)
-        if held.is_empty() && status == 0 {
-            retire += 1;
-        } else {
-            retire = 0;
-        }
-        if retire >= 2 {
-            scan::gm_quit(&conn);
-            retire = 0;
-        }
-
-        // SIGTERM/SIGINT (o toggle do menu e o logout): unregister de
-        // tudo (o proxy também — a casa não deixa o gamemode aceso),
-        // EPP devolvido se a sessão estava acesa, saída limpa.
-        if STOP.load(Ordering::SeqCst) {
-            for pid in held.keys() {
-                scan::gm_unregister(&conn, *pid);
-            }
-            if proxy {
-                scan::gm_unregister(&conn, std::process::id() as i32);
-            }
-            if sessao_ativa {
-                let n = epp_aplica("balance_performance");
-                let gpu_devolvida = gpu_restaura(std::mem::take(&mut gpu_mem));
-                let perf_devolvida = gpu_profile_restaura(std::mem::take(&mut gpu_perf_mem));
-                drop(inhibitor.take());
-                nucleo::pub_bus(&elite_core::BusMsg::GameMode(elite_core::GameModeState {
-                    active: false,
-                    game: None,
-                    gpu_performance: false,
-                }));
-                eprintln!(
-                    "elite-daemon: SIGTERM — {} jogo(s) liberado(s), EPP devolvido em {} cpu(s), GPU restaurada em {} card(s), perfil devolvido em {} card(s)",
-                    held.len(),
-                    n,
-                    gpu_devolvida,
-                    perf_devolvida
-                );
-            }
-            return Ok(());
-        }
-        // E135 — o SLEEP MORREU: o loop dorme no condvar e o frete do
-        // cliente Wayland o acorda (a detecção é POR EVENTO — a janela
-        // que nasce é o jogo anunciando; o teto de 5s sobrevive como
-        // cinto dos processos windowless).
-        let (l, cv) = &*frete;
-        let mut vivo = l.lock().unwrap();
-        let (guarda, _timeout) = cv
-            .wait_timeout(vivo, std::time::Duration::from_secs(5))
-            .unwrap();
-        vivo = guarda;
-        let acordou_por_evento = *vivo;
-        *vivo = false;
-        drop(vivo);
-        if acordou_por_evento {
-            // o rajada de EVT assenta 250ms antes da inspeção única de
-            // /proc (uma rodada por rajada, nunca uma por evento bruto)
-            std::thread::sleep(std::time::Duration::from_millis(250));
-        }
-        // E147: o relê de 6 rodadas dos 2º planos (SIGRTMIN+9 a cada
-        // 30s) MORREU com o próprio módulo — o cinto de 5s do loop é
-        // só dos processos windowless do jogo, nada mais.
-    }
-}
+// ── 1.0-107 — O MOTOR DE JOGO DE ERA MORREU INTEIRO (a diretriz §6:
+//    a detecção /proc PORTA 5 (janelas steam_app_*), o freto do condvar,
+//    o parse do pp_power_profile_mode, o EPP/GPU dinâmico e o
+//    daemon_loop INTEIRO saem com o modo automático — o daemon é o
+//    orquestrador da SESSÃO, nunca um detetive de processos; o perfil
+//    de jogo (CPU governor performance + GPU amd_performance_level
+//    high) é o gamemoded NATIVO na mão do craft-game `on`) ──────────
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn a_tabela_do_pp_da_amd_e_parseada_certa() {
-        // o papel REAL de um amdgpu (rig do dono): o BOOTUP_DEFAULT é o
-        // atual; o 3D_FULL_SCREEN é o alvo da diretriz 2.0
-        let tabela = "  0  BOOTUP_DEFAULT *\n  1  3D_FULL_SCREEN\n  2  POWER_SAVING\n  3  VIDEO\n  4  VR\n  5  COMPUTE\n  6  CUSTOM\n";
-        let (alvo, atual) = pp_parse_tabela(tabela);
-        assert_eq!(alvo, Some(1));
-        assert_eq!(atual, Some(0));
-        // com o 3D já marcado: idempotência de verdade
-        let tabela2 = tabela.replace("BOOTUP_DEFAULT *", "BOOTUP_DEFAULT").replace("3D_FULL_SCREEN", "3D_FULL_SCREEN *");
-        let (alvo2, atual2) = pp_parse_tabela(&tabela2);
-        assert_eq!(alvo2, Some(1));
-        assert_eq!(atual2, Some(1));
-        // sem a tabela (NVIDIA/Intel): nada — compat por ausência
-        assert_eq!(pp_parse_tabela(""), (None, None));
-        assert_eq!(pp_parse_tabela("lixo total\nsem numeros"), (None, None));
-    }
-
-    #[test]
-    fn debounce_o_inicio_espera_os_3s() {
-        // a sessão LIGOU e seguiu viva: antes dos 3s NADA sobe (a janela
-        // ainda pode ser cancelada pelo pulo transitório do Hydra)
-        let v = veredito_debounce(100, 101, true);
-        assert!(!v.inicio && !v.fim, "1s de sessão ativa não é notícia");
-        let v = veredito_debounce(100, 102, true);
-        assert!(!v.inicio && !v.fim, "2s de sessão ativa ainda é janela");
-        // os 3s fecharam com o QueryStatus ATIVO: o INÍCIO sobe (1 vez)
-        let v = veredito_debounce(100, 103, true);
-        assert!(v.inicio && !v.fim, "3s confirmados com modo ativo = notícia");
-        let v = veredito_debounce(100, 130, true);
-        assert!(v.inicio, "sessão longa segue sendo notícia no instante da prova");
-    }
-
-    #[test]
-    fn debounce_o_pulo_transitorio_e_silencio_absoluto() {
-        // a sessão caiu DENTRO da janela (o pulo D-Bus do Hydra): nem
-        // início, nem fim — o fantasma de 1s não é notícia (E132)
-        let v = veredito_debounce(100, 101, false);
-        assert!(!v.inicio && !v.fim, "pulo de 1s não notifica NADA");
-        let v = veredito_debounce(100, 102, false);
-        assert!(!v.inicio && !v.fim, "pulo de 2s não notifica NADA");
-    }
-
-    #[test]
-    fn debounce_o_fim_de_sessao_real_e_noticia() {
-        // sessão CONFIRMADA (>=3s ativos) que acabou: o FIM sobe
-        let v = veredito_debounce(100, 105, false);
-        assert!(!v.inicio && v.fim, "fim de sessão de 5s é notícia");
-        let v = veredito_debounce(100, 200, false);
-        assert!(v.fim, "fim de sessão longa é notícia");
-    }
 
     #[test]
     fn e150_o_socket_wayland_e_julgado_pelo_tipo() {

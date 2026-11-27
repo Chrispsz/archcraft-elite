@@ -28,7 +28,6 @@
 // ou `nome::bus::comando`; linhas # e vazias ignoradas).
 use std::io;
 use std::os::unix::io::AsRawFd;
-use std::os::unix::process::CommandExt;
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
@@ -66,7 +65,6 @@ pub const RESIDENTES_DEFAULT: &[(&str, &str, Option<&str>)] = &[
 pub const CLIENTES_DISPLAY: &[(&str, &str)] = &[
     ("topbar", "craft-bar-rs"),
     ("dock", "craft-dock-rs"),
-    ("policykit", "lxqt-policykit-agent"),
 ];
 
 const CONF_PATH: &str = "/usr/local/share/elite/daemon.conf";
@@ -196,23 +194,11 @@ pub fn comm_vivo(esperado: &str) -> bool {
     false
 }
 
-/// E138 — o AUTO do game.conf (a chave do modo de jogo automático — o
-/// toggle do craft-game escreve, ESTE ouvido lê): função PURA sobre o
-/// caminho para o teste cravar a gramática.
-pub fn auto_em(texto: &str) -> bool {
-    texto.lines().any(|l| l.trim() == "AUTO=1")
-}
-
-fn auto_on() -> bool {
-    let base = std::env::var("XDG_CONFIG_HOME")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| {
-            PathBuf::from(std::env::var("HOME").unwrap_or_default()).join(".config")
-        });
-    std::fs::read_to_string(base.join("elite/game.conf"))
-        .map(|t| auto_em(&t))
-        .unwrap_or(false)
-}
+// 1.0-107 — O AUTO do game.conf e a vaga do JOGO morreram com o modo
+// automático (a diretriz §6: o motor de era era o PRÓPRIO binário em
+// modo game com o lock /tmp/elite-daemon.lock e o pid no
+// game-watch.pid — todo o corpo dele saiu com o watcher; o daemon fica
+// LIVRE de varredura de processos e o papel AUTO=1 não é mais lido).
 
 /// E138 — o PEEK-LOCK do motor do jogo: o /tmp/elite-daemon.lock não
 /// travável = um elite-daemon (modo game) VIVO de fora — a vaga é
@@ -389,12 +375,10 @@ fn tenta_trava(nome: &str) -> io::Result<std::fs::File> {
 /// (tokens por espaço — SEM shell no meio; o parser segue o contrato).
 /// E135 — o $HOME inicial de cada token é expandido (a fila de display
 /// é genérica; nenhum sh no meio para expandir por nós).
-/// E147 — O ARGV0 HONESTO DA VAGA DO JOGO: o motor do modo game é o
-/// PRÓPRIO binário elite-daemon em modo game — e o ps do rig mostrava
-/// DOIS 'elite-daemon' (a duplicidade que o dono fotografou). O spawn
-/// da vaga `game` veste argv0 "elite-daemon-game": o ps/comm dizem o
-/// PAPEL (session × motor de jogo), o dono lê a árvore SEM dívida,
-/// e o flock E30/peek de lock seguem provando a instância única.
+/// E147 → 1.0-107 — o argv0 da vaga do jogo de era morreu com o motor
+/// (não há mais vaga "game" — o daemon é um corpo só na sessão); o
+/// parâmetro segue pelo contrato histórico do chamador (a assinatura é
+/// a mesma — o nome da vaga só nomeia o papel no papel).
 fn lanca(comando: &str, log: &PathBuf, nome_vaga: &str) -> io::Result<Child> {
     let home = std::env::var("HOME").unwrap_or_default();
     let partes: Vec<String> = comando
@@ -416,9 +400,7 @@ fn lanca(comando: &str, log: &PathBuf, nome_vaga: &str) -> io::Result<Child> {
         .stdin(Stdio::null())
         .stdout(Stdio::from(f.try_clone()?))
         .stderr(Stdio::from(f));
-    if nome_vaga == "game" {
-        cmd.arg0("elite-daemon-game");
-    }
+    let _ = nome_vaga; // o papel entra no papel (o argv0 de era morreu com a vaga)
     cmd.spawn()
 }
 
@@ -723,24 +705,76 @@ pub fn run_session() -> Result<(), String> {
         })
         .collect();
     specs.extend(fila_residentes().into_iter().map(VagaSpec::from));
-    // E138 — A VAGA DO JOGO: o próprio binário em modo game (sem args — o
-    // daemon_loop com o lock /tmp/elite-daemon.lock e o pid no
-    // game-watch.pid que o craft-game status lê). AUTO=0 = ausência
-    // intencional (a escolha do dono é a lei, lei do idle E36).
-    if let Ok(exe) = std::env::current_exe() {
-        let jogo = VagaSpec {
-            res: Residente {
-                nome: "game".to_string(),
-                comando: exe.to_string_lossy().to_string(),
-                bus: None,
-            },
-            // NUNCA comm: o comm 'elite-daemon' é O PRÓPRIO session — o
-            // gate certo é o peek no lock do modo game
-            comm: None,
-            cond: Some(Box::new(auto_on)),
-            peek_lock: Some(PathBuf::from("/tmp/elite-daemon.lock")),
+    // 1.0-107 — O AGENTE POLKIT DA MÁQUINA (a ordem do dono: a chamada
+    // cega de UM agente virava ausência em quem não o tinha — o pkexec
+    // do craft-update/elite-update ficava SEM diálogo e a senha nunca
+    // chegava). A vaga agora SABE a máquina: o lxqt-policykit-agent é
+    // o agente da casa; quando ELE falta, o polkit-gnome clássico
+    // (/usr/lib/polkit-gnome/...) veste; SEM nenhum dos dois a vaga
+    // nem nasce (honesto: sem agente instalado não há elevação
+    // gráfica — o `pkexec` recusa no terminal com a verdade dele).
+    {
+        let agente = if PathBuf::from("/usr/bin/lxqt-policykit-agent").exists() {
+            Some("lxqt-policykit-agent")
+        } else if PathBuf::from(
+            "/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1",
+        )
+        .exists()
+        {
+            Some("/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1")
+        } else {
+            None
         };
-        specs.push(jogo);
+        if let Some(cmd) = agente {
+            specs.push(VagaSpec {
+                res: Residente {
+                    nome: "policykit".to_string(),
+                    comando: cmd.to_string(),
+                    bus: None,
+                },
+                comm: None,
+                cond: None,
+                peek_lock: None,
+            });
+        } else {
+            eprintln!(
+                "elite-daemon session: NENHUM agente polkit instalado — a vaga não nasce (o pkexec pede no terminal; a dose traz o lxqt-policykit)"
+            );
+        }
+    }
+    // 1.0-107 — O SWAYNC COM DONO ÚNICO (a volta da central por ordem do
+    // dono, agora SEM o crash-loop da era): o unit `swaync.service` do
+    // systemd --user é MASCARADO globalmente (/etc/systemd/user →
+    // /dev/null — o start-limit-hit morre sem gatilho) e o SUPERVISOR
+    // DESTA sessão é o ÚNICO dono: a vaga sobe o swaync com o `-c` E o
+    // `-s` APONTANDO nos arquivos do $HOME (o `COULD NOT FIND CSS
+    // FILE!` morre com o style.css EXISTENTE — o skel e o sync_skel
+    // da dose entregam os dois arquivos); sem os arquivos no $HOME a
+    // vaga veste o binário puro (o upstream /etc/xdg é a última rede).
+    // O gate é o NOME NO BUS: outro daemon de notificações vivo
+    // (mako/dunst de fora) é ADOTADO — a casa não soma centros.
+    {
+        let home = std::env::var("HOME").unwrap_or_default();
+        let conf = format!("{home}/.config/swaync/config.json");
+        let css = format!("{home}/.config/swaync/style.css");
+        let comando = if !home.is_empty()
+            && PathBuf::from(&conf).exists()
+            && PathBuf::from(&css).exists()
+        {
+            format!("swaync -c {conf} -s {css}")
+        } else {
+            "swaync".to_string()
+        };
+        specs.push(VagaSpec {
+            res: Residente {
+                nome: "swaync".to_string(),
+                comando,
+                bus: Some("org.freedesktop.Notifications".to_string()),
+            },
+            comm: None,
+            cond: None,
+            peek_lock: None,
+        });
     }
     // E139 — A VAGA DO WATCH-SAVE (a tela que lembra SEMPRE): o
     // craft-display watch é vaga supervisionada da SESSÃO — a escolha
@@ -1192,10 +1226,13 @@ mod tests {
         );
         // e os clientes de display NUNCA foram residentes puros — agora
         // moram na fila própria da porta session (E140: a topbar é o
-        // craft-bar-rs — o waybar aposentou pela ordem do dono)
+        // craft-bar-rs — o waybar aposentou pela ordem do dono;
+        // 1.0-107: o policykit nasce DINÂMICO na run_session — o agente
+        // da máquina é o lxqt, o polkit-gnome é a queda honesta)
         let display: Vec<&str> = CLIENTES_DISPLAY.iter().map(|(n, _)| *n).collect();
-        assert!(display.contains(&"topbar") && display.contains(&"dock") && display.contains(&"policykit"),
-            "a porta session carrega a família de display 2.0 (topbar + dock + polkit)");
+        assert!(display.contains(&"topbar") && display.contains(&"dock")
+            && !display.contains(&"policykit"),
+            "a porta session carrega a família de display 2.0 (topbar + dock; o policykit é vaga dinâmica 1.0-107)");
         assert!(!display.contains(&"waybar"),
             "o waybar NÃO é mais cliente da sessão (E140 — a top bar é o craft-bar-rs)");
         // 2.0 — o toplevel de C APOSENTOU: o cliente Wayland mora no
@@ -1249,17 +1286,6 @@ mod tests {
         assert_eq!(comm_corta("swayosd-server"), "swayosd-server");
         assert_eq!(comm_corta("lxqt-policykit-agent"), "lxqt-policykit-");
         assert_eq!(comm_corta("craft-dock-rs"), "craft-dock-rs");
-    }
-
-    #[test]
-    fn e138_o_auto_do_game_conf_e_a_condicao_do_motor() {
-        // dump v2.13: AUTO=1 com o watch FORA — a vaga do jogo na sessão
-        // lê ESTE arquivo; a gramática é EXATA (AUTO=1, sem espaço extra)
-        assert!(auto_em("AUTO=1\n"), "AUTO=1 liga o motor");
-        assert!(auto_em("# comentário\nAUTO=1\n"), "comentário não atrapalha");
-        assert!(!auto_em("AUTO=0\n"), "AUTO=0 é ausência intencional");
-        assert!(!auto_em(""), "sem conf = ausência intencional (lei do idle E36)");
-        assert!(!auto_em("AUTO=10\n"), "AUTO=10 NÃO é AUTO=1 (match exato)");
     }
 
     #[test]

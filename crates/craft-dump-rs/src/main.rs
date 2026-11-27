@@ -803,7 +803,6 @@ const CONFIGS_ATIVAS: &[&str] = &[
     "labwc/environment",
     "labwc/themerc-override",
     "elite/idle.conf",
-    "elite/game.conf",
     "elite/dock-pins",
     "elite/dock.css",
     "elite/bar.css",

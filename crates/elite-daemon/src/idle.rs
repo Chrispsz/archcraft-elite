@@ -99,14 +99,50 @@ pub fn trava_e_apaga() {
     apaga();
 }
 
-/// E150 — O GESTO SEPARADO: a TRAVA sozinha (o OFF_MIN maior faz a tela
-/// apagar no TEMPO DELE — o dono trava em 5 e apaga em 10).
+/// E150 — a TRAVA sozinha (o OFF_MIN maior faz a tela apagar no TEMPO
+/// DELE — o dono trava em 5 e apaga em 10).
 pub fn trava() {
-    let _ = std::process::Command::new("/usr/local/bin/craft-lock")
+    // 1.0-107 — O NASCIMENTO DO LOCK SEM ESPERA MORTA: o craft-lock espera
+    // o hyprlock DELE morrer (a senha do dono) — o `.status()` de era
+    // pendurava o fio do chamador NO LOCK INTEIRO (o Idled do wayland e o
+    // PrepareForSleep do logind viviam presos enquanto o dono não
+    // digitasse). O spawn solto segue a vida DELE — e a COVEIRA colhe o
+    // exit NA HORA da morte (o filho de vida longa nunca vira <defunct>
+    // pendurado no daemon — a lei E152 da casa).
+    if let Ok(mut filho) = std::process::Command::new("/usr/local/bin/craft-lock")
         .arg("--if-needed")
+        .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
-        .status();
+        .spawn()
+    {
+        std::thread::Builder::new()
+            .name("elite-coveira-lock".into())
+            .spawn(move || {
+                let _ = filho.wait();
+            })
+            .ok();
+    }
+}
+
+/// 1.0-107 — A ESPERA DA SUPERFÍCIE DO LOCK (a ordem do dono, palavra
+/// por palavra: "acionar o hyprlock e aguardar ele mapear a superfície
+/// ANTES de apagar as saídas com wlopm --off"): o hyprlock VIVO (comm
+/// no /proc — o `--if-needed` de um lock já na tela sai 0 sem nascer
+/// nada) + o assento de 400ms para o mapeamento do ext-session-lock-v1
+/// (o lock PINTA antes do freeze — acordar no lock de verdade, nunca
+/// numa tela preta nua). Teto de 3s: o logind só espera
+/// InhibitDelayMaxSec (5s) pelos inhibitors do limiar do sono.
+pub fn lock_mapeado() -> bool {
+    let teto = std::time::Instant::now() + std::time::Duration::from_secs(3);
+    while std::time::Instant::now() < teto {
+        if crate::supervise::comm_vivo("hyprlock") {
+            std::thread::sleep(std::time::Duration::from_millis(400));
+            return true;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+    false
 }
 
 /// E150 — O APAGAR sozinho (o segundo tempo do gesto separado).
@@ -120,23 +156,35 @@ pub fn apaga() {
         .status();
 }
 
-/// o PRÉ-SONO ATÔMICO (PrepareForSleep(true)): trava ANTES do freeze.
-/// O logind segura o sono pelos inhibitors (a casa tem 5s de
-/// InhibitDelayMaxSec); o hyprlock nasce na tela no mesmo instante.
+/// O PRÉ-SONO ATÔMICO (PrepareForSleep(true)): trava ANTES do freeze —
+/// e 1.0-107, A SEQUÊNCIA SEGURA da ordem do dono: hyprlock NASCE →
+/// espera a SUPERFÍCIE mapeada (lock_mapeado — o teto de 3s cobre o
+/// blur do wallpaper do cache E151) → SÓ ENTÃO o wlopm --off apaga as
+/// saídas (apagar antes do mapeamento congelava o link DP/HDMI sem a
+/// pintura do lock — o acordar sem sinal de era).
 pub fn trava_pre_sono() {
-    trava_e_apaga();
+    trava();
+    lock_mapeado();
+    apaga();
 }
 
-/// OS INIBIDORES seguram a trava? (jogo = inhibitor "idle" block no
-/// logind — o daemon ARMA um na sessão de jogo; mídia = MPRIS tocando
-/// — o pedido do dono da diretriz, palavra por palavra). O logind
+/// OS INIBIDORES seguram a trava? (mídia = MPRIS tocando; jogo manual
+/// = inhibitor "idle:sleep" block no logind — o holder do craft-game
+/// arma OS DOIS na 1.0-107; a diretriz: "honrar rigorosamente os
+/// inibidores ativos do systemd-logind (idle / sleep — reprodução de
+/// vídeo no navegador e modo de jogo manual)"). O logind
 /// ListInhibitors é a verdade do SISTEMA (jogos de fora também contam).
+/// 1.0-107 — O WHAT COMPOSTO: "idle:sleep" chega como UMA string com
+/// dois nomes — o contains casa os DOIS lados ("idle" acha "idle:sleep"
+/// e "sleep" idem; um inhibitor de "sleep" PURO também segura a vigília
+/// da casa: quem proibiu dormir não pode ser travado e deitado).
 pub fn inibidores_seguram() -> bool {
     // 1) a mídia da casa (MPRIS tocando)
     if crate::mpris::tocando() {
         return true;
     }
-    // 2) os inhibitors "idle" do logind (o jogo da casa E o de fora)
+    // 2) os inhibitors "idle"/"sleep" do logind (o jogo manual da casa
+    //    E o de fora — modo block, delay não segura)
     let Ok(c) = zbus::blocking::Connection::system() else {
         return false;
     };
@@ -155,7 +203,8 @@ pub fn inibidores_seguram() -> bool {
     lista
         .iter()
         .any(|(what, _, _, mode)| {
-            (what == "idle" || what.contains("idle")) && mode != "delay"
+            let segura = what.split(':').any(|w| w == "idle" || w == "sleep");
+            segura && mode != "delay"
         })
 }
 

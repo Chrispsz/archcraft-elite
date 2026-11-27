@@ -1,7 +1,7 @@
 #!/bin/sh
-# ═════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · craft-idle (2.0) — A TRAVA AUTOMÁTICA DA CASA
-# ═════════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · craft-idle (2.0 → 1.0-107) — A VIGÍLIA DA CASA
+# ═══════════════════════════════════════════════════════════════════════════
 # 2.0 — O SWAYIDLE APOSENTOU: a vigília é do elite-daemon (o
 # ext-idle-notify-v1 nativo — trava + tela apagada no MESMO gesto E43,
 # o suspend de travado E60, os inibidores de jogo/mídia respeitados).
@@ -10,11 +10,22 @@
 # a mudança vale na hora, SEM restart, SEM relogin (o menu do dono
 # continua mandando como sempre mandou).
 #
+# 1.0-107 — A CONFIGURAÇÃO UNIFICADA (a diretriz §7: "Gerenciar LOCK_MIN
+# (travar + apagar tela) e SUSPEND_MIN (suspender após inatividade
+# prolongada)… Quando o usuário selecionar Desativado (0), zerar TANTO
+# o bloqueio automático QUANTO a suspensão automática"): o menu veste o
+# estado COMPLETO no título e nos presets (o preset mostra o tempo de
+# TRAVA e o de SUSPENSÃO associado), o "Desativado" zera OS DOIS (o
+# sistema NUNCA suspende sozinho — W-l e o menu mandam na mão) e nascem
+# os gestos imediatos "Travar agora" e "Suspender agora". O daemon honra
+# os inibidores do logind (idle/sleep block — vídeo no navegador e modo
+# de jogo manual seguram a vigília).
+#
 # Uso:
-#   craft-idle            → cicla os presets (5 → 10 → 15 → 30 → nunca → 5)
+#   craft-idle            → cicla os presets (5 → 15 → 30 → 1 hora → nunca → 5)
 #   craft-idle N          → trava em N minutos (0 = nunca sozinho, W-l manda)
 #   craft-idle status     → o conf vivo e o que o daemon fará com ele
-# ═════════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════════
 set -u
 
 CONF_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/elite"
@@ -24,13 +35,14 @@ uso() {
     printf '%s\n' \
         'uso: craft-idle [N | cycle | menu | status] — a trava automática da casa' \
         '' \
-        '  2.0: a vigília é do elite-daemon (ext-idle-notify nativo); este' \
+        '  1.0-107: a vigília é do elite-daemon (ext-idle-notify nativo); este' \
         '  bin escreve ~/.config/elite/idle.conf e o daemon lê na ARMAÇÃO' \
         '  de cada ciclo — a mudança vale na hora, sem restart.' \
         '' \
         '  N        minutos de inatividade até TRAVAR E APAGAR (0 = nunca)' \
         '  menu     o painel nativo com os presets (5/15/30 min, 1 hora,' \
-        '           Desativado e Travar agora — o item do menu do dono)' \
+        '           Desativado, Travar agora e Suspender agora — cada preset' \
+        '           mostra o tempo de suspensão associado)' \
         '  cycle    o ciclo dos presets (5 → 15 → 30 → 1 hora → Desativado)' \
         '  status   o conf vivo'
     exit 0
@@ -48,16 +60,33 @@ le_suspend() {
     case "${_s:-}" in ''|*[!0-9]*) echo 20 ;; *) echo "$_s" ;; esac
 }
 
+# 1.0-107 — A SUSPENSÃO ASSOCIADA ao preset (a diretriz §7: "feedback
+# visual claro da configuração aplicada (incluindo o tempo de suspensão
+# automática associado)"): trava em N, dorme aos N + 15 (a escada da
+# fábrica 5/20 — quem trava cedo dorme cedo, quem trava tarde dorme
+# logo depois; nunca MENOS que o lock + 10, o sono é sempre degrau).
+suspend_do_preset() { # $1 = lock
+    case "$1" in
+        0) echo 0 ;;
+        *) echo $(( $1 + 15 )) ;;
+    esac
+}
+
 escreve() {
     _lock="$1"
-    _susp="$(le_suspend)"
-    # E150 — o menu é o gesto ÚNICO de sempre (LOCK=OFF no mesmo papel:
-    # o preset do painel trava E apaga no MESMO minuto — a fábrica 5/10
-    # separada fica no skel para quem edita o papel à mão; o daemon lê
-    # os DOIS de qualquer jeito)
+    # 1.0-107 — O PRESET ESCREVE OS DOIS TEMPOS (a diretriz §7: o menu
+    # configura "bloqueio e suspensão automática de forma COORDENADA"):
+    # o LOCK apaga junto no MESMO minuto (o gesto único E43 de sempre) e
+    # a SUSPENSÃO é a associada ao preset — 0/Desativado zera OS DOIS
+    # (o sistema NUNCA dorme sozinho sem o dono pedir).
+    if [ "$#" -ge 2 ]; then
+        _susp="$2"
+    else
+        _susp="$(suspend_do_preset "$_lock")"
+    fi
     mkdir -p "$CONF_DIR" 2>/dev/null || true
     _tmp="$CONF.$$.tmp"
-    printf '# Archcraft ELITE · tempo de idle (escrito pelo craft-idle 2.0)\n# O daemon arma a vigília com ESTES valores a cada ciclo.\nLOCK_MIN=%s\nOFF_MIN=%s\nSUSPEND_MIN=%s\n' \
+    printf '# Archcraft ELITE · tempo de idle (escrito pelo craft-idle 1.0-107)\n# O daemon arma a vigília com ESTES valores a cada ciclo.\nLOCK_MIN=%s\nOFF_MIN=%s\nSUSPEND_MIN=%s\n' \
         "$_lock" "$_lock" "$_susp" >"$_tmp" 2>/dev/null \
         && mv -f "$_tmp" "$CONF" 2>/dev/null \
         || { rm -f "$_tmp" 2>/dev/null; echo "craft-idle: não consegui escrever $CONF" >&2; exit 1; }
@@ -66,25 +95,16 @@ escreve() {
 nota() {
     _msg="$1"
     command -v notify-send >/dev/null 2>&1 \
-        && notify-send -a 'Elite · Trava automática' -u low -t 4000 'Trava automática' "$_msg" &
+        && notify-send -a 'Elite · Trava automática' -u normal -t 4000 'Trava automática' "$_msg" &
 }
 
 # E150→1.0-105 — O PICK VESTE AS FLAGS REAIS DO `craft-pick --help` E A
-# FORMA DO FOOT (a prova do rig da 1.0-98: o painel abortava com 'Opção
-# --title=... desconhecida' quando o binário do rig não conhecia a flag
-# — o chamador e o binário de eras diferentes MATAM o menu; e o terminal
-# foot NÃO aceita --title=VALOR colado: a forma da casa é o -T "..."
-# COM ESPAÇO — 1.0-105). O título só entra quando o craft-pick
-# INSTALADO anuncia o -T no papel de ajuda; sem ele, o painel segue
-# sem título (o contrato 0/1 intacto — o menu nunca morre por flag de
-# era).
-# E106/2 — DOIS CONSERTOS da sessão nativa (o item do menu roda SEM foot —
-# o craft-pick é a ÚNICA janela): (1) a sonda do -T casa o traço também
-# colado ao COLCHETE do uso ('[-T TÍTULO' — a âncora de espaço/linha da
-# era JAMAIS casava o papel real e o painel nascia SEM título de
-# boa-fé); (2) o stderr do craft-pick desce no vazio (os avisos de
-# portal do GTK não mancham a sessão nativa) SEM tocar no contrato 0/1 —
-# o exit code do pick continua o juiz da escolha, sempre.
+# FORMA DO FOOT (o painel abortava com 'Opção --title=... desconhecida'
+# quando o binário do rig não conhecia a flag; e o foot NÃO aceita
+# --title=VALOR colado: a forma da casa é o -T "..." COM ESPAÇO).
+# E106/2 — DOIS CONSERTOS da sessão nativa: (1) a sonda do -T casa o
+# traço também colado ao COLCHETE do uso ('[-T TÍTULO'); (2) o stderr do
+# craft-pick desce no vazio SEM tocar no contrato 0/1.
 _pick() {
     if craft-pick --help 2>/dev/null | grep -qE -- '(^|[^[:alnum:]])-T[[:space:]]'; then
         craft-pick -T "$1" 2>/dev/null
@@ -93,21 +113,34 @@ _pick() {
     fi
 }
 
+# 1.0-107 — O RÓTULO DO ESTADO no título (a diretriz §7: "exibir o
+# estado atual no título do craft-pick"): o lock E o sono de Travado,
+# uma frase só.
+rotulo_estado() {
+    _l="$(le_lock)"; _s="$(le_suspend)"
+    if [ "$_l" = "0" ]; then
+        printf 'Trava automática — DESATIVADA (W-l manual; o sistema nunca dorme sozinho)'
+    else
+        if [ "$_s" = "0" ]; then
+            printf 'Trava automática — agora: %s min (o sono automático está desligado)' "$_l"
+        else
+            printf 'Trava automática — agora: %s min · dorme aos %s min' "$_l" "$_s"
+        fi
+    fi
+}
+
 # ── status: o papel vivo ─────────────────────────────────────────────────
 if [ "${1:-}" = "status" ]; then
     _lock="$(le_lock)"; _susp="$(le_suspend)"
     if [ "$_lock" = "0" ]; then
         printf 'trava automática: NUNCA sozinha (W-l manual manda)\n'
+        printf 'sono automático:   DESLIGADO (Desativado zera OS DOIS — 1.0-107)\n'
     else
-        printf 'trava automática: %s min de inatividade → trava (a tela apaga no OFF_MIN do papel)\n' "$_lock"
+        printf 'trava automática: %s min de inatividade → trava (a tela apaga junto)\n' "$_lock"
         if [ "$_susp" != "0" ]; then
-            # E106/5a — o mesmo zero da receita swayidle da casa: o daemon
-            # arma o sono com o QUE FALTA a partir da trava, e o alvo conta
-            # da ÚLTIMA ATIVIDADE (LOCK=10/SUSPEND=20 → dorme aos 20min de
-            # ociosidade, 10 depois da trava)
-            printf 'sono de travado:   %s min de inatividade (o mesmo zero da trava — a vigília E60)\n' "$_susp"
+            printf 'sono automático:  %s min de inatividade (o mesmo zero da trava — a vigília E60)\n' "$_susp"
         else
-            printf 'sono de travado:   desligado (SUSPEND_MIN=0)\n'
+            printf 'sono automático:  desligado (SUSPEND_MIN=0)\n'
         fi
     fi
     printf 'conf: %s (o daemon relê na próxima armação — sem restart)\n' "$CONF"
@@ -120,48 +153,52 @@ case "${1:-}" in
     *)
         escreve "$1"
         if [ "$1" = "0" ]; then
-            nota "Nunca sozinha — o W-l manda na mão"
+            nota "Desativado — W-l manda na mão e o sistema NUNCA dorme sozinho"
         else
-            nota "Trava e apaga em $1 minuto(s) de inatividade"
+            nota "Trava em $1 min · dorme aos $(suspend_do_preset "$1") min de inatividade"
         fi
         exit 0
         ;;
 esac
 
-# ── menu: O PAINEL DO DONO (1.0-94 — a cura do "clico e não abre nada":
-# o cycle era mudo de janela — só a notificação; o item do menu agora
-# abre o seletor NATIVO da casa com os presets e o estado atual na
-# cabeça; a escolha escreve e a vigília arma NA HORA, como sempre).
+# ── menu: O PAINEL DO DONO (1.0-107 — os presets COM o sono associado ────
+#      + os gestos imediatos "Travar agora" e "Suspender agora")
 if [ "${1:-}" = "menu" ]; then
     if ! command -v craft-pick >/dev/null 2>&1; then
         # sem o seletor nativo: o cycle de sempre (a função nunca morre)
         set -- cycle
     else
-        _atual="$(le_lock)"
-        _titulo="Trava automática"
-        case "$_atual" in
-            0) _titulo="Trava automática — NUNCA sozinha (W-l manual manda)" ;;
-            60) _titulo="Trava automática — agora: 1 hora" ;;
-            *) _titulo="Trava automática — agora: ${_atual} min" ;;
-        esac
-        # 1.0-104 — OS PRESETS DO DONO (5 min, 15 min, 30 min, 1 hora,
-        # Desativado) + O BLOQUEIO IMEDIATO (Travar agora — o craft-lock
-        # da casa, o mesmo W-l; a vigília do elite-daemon segue armada
-        # com o conf atual: o travar-agora é o GESTO, nunca o desligar)
+        _titulo="$(rotulo_estado)"
         _rc=0
-        _escolha="$(printf '%s\n' "5 min" "15 min" "30 min" "1 hora" "Desativado" "Travar agora" \
+        # cada preset VESTE o sono associado (a diretriz: o feedback
+        # inclui o tempo de suspensão automática — o dono VÊ o que
+        # escolheu antes de fechar o menu)
+        _e5="5 min (dorme aos 20 min)"
+        _e15="15 min (dorme aos 30 min)"
+        _e30="30 min (dorme aos 45 min)"
+        _e60="1 hora (dorme aos 75 min)"
+        _ed="Desativado (nunca sozinho)"
+        _escolha="$(printf '%s\n' "$_e5" "$_e15" "$_e30" "$_e60" "$_ed" "Travar agora" "Suspender agora" \
             | _pick "$_titulo")" || _rc=$?
         # rc 1/2/143 = ESC/fora — a lei dos menus, benigno
         if [ "$_rc" = 0 ]; then
             case "$_escolha" in
-                "5 min")       escreve 5  ;;
-                "15 min")      escreve 15 ;;
-                "30 min")      escreve 30 ;;
-                "1 hora")      escreve 60 ;;
-                "Desativado")   escreve 0  ;;
+                "$_e5")  escreve 5  ;;
+                "$_e15") escreve 15 ;;
+                "$_e30") escreve 30 ;;
+                "$_e60") escreve 60 ;;
+                "$_ed")  escreve 0  ;;
                 "Travar agora")
                     if command -v craft-lock >/dev/null 2>&1; then
                         craft-lock >/dev/null 2>&1 &
+                    fi
+                    ;;
+                "Suspender agora")
+                    # a diretriz §5: o sono pela porta SEGURA (o
+                    # PrepareForSleep trava ANTES do freeze — acorda no
+                    # lock, com o sinal de vídeo estável no retorno)
+                    if command -v systemctl >/dev/null 2>&1; then
+                        systemctl suspend >/dev/null 2>&1 &
                     fi
                     ;;
                 *) exit 0 ;;
@@ -171,8 +208,7 @@ if [ "${1:-}" = "menu" ]; then
     fi
 fi
 
-# ── cycle: os presets da casa (1.0-104 — o ciclo VESTE os presets do
-#    menu: 5 → 15 → 30 → 1 hora → Desativado → 5) ──────────────────────
+# ── cycle: os presets da casa (5 → 15 → 30 → 1 hora → Desativado → 5) ────
 _atual="$(le_lock)"
 case "$_atual" in
     5)  _novo=15 ;;
@@ -183,9 +219,9 @@ case "$_atual" in
 esac
 escreve "$_novo"
 if [ "$_novo" = "0" ]; then
-    nota "Nunca sozinha — o W-l manda na mão (o ciclo volta a 5 no próximo clique)"
+    nota "Desativado — W-l manda na mão (o ciclo volta a 5 no próximo clique)"
 elif [ "$_novo" = "60" ]; then
-    nota "Trava e apaga em 1 hora de inatividade"
+    nota "Trava em 1 hora · dorme aos $(suspend_do_preset 60) min de inatividade"
 else
-    nota "Trava e apaga em $_novo minuto(s) de inatividade"
+    nota "Trava em $_novo min · dorme aos $(suspend_do_preset "$_novo") min de inatividade"
 fi
