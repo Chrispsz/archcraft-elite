@@ -254,6 +254,64 @@ registrada no mesmo commit.
 
 ---
 
+## §8 · Dose 1.0-108 → 1.0-109 — o registro vivo (a interface que o labwc não matava, o seletor de rede de 1 clique, o lock que mapeia e o bus que não multiplica)
+
+> **1.0-109 · Etapa 1 (correções críticas de funcionamento) — o
+> registro vivo:** a evidência real do dump 1.0-108 dirigiu a dose
+> inteira. **O PICK VESTE A CAMADA**: 24 processos craft-pick presos em
+> background (~24 MB cada) e NENHUM menu na tela — o
+> GtkApplicationWindow comum não recebe sobreposição nem foco no labwc;
+> o pick veste o gtk4-layer-shell (Layer::Overlay ·
+> KeyboardMode::Exclusive · centralizado como o calendário da top bar),
+> a instância única mora no `elite/craft-pick.pid` (MESMO título =
+> toggle que sai limpo com exit 0; OUTRO menu = substituição na hora;
+> o comm do /proc decide quem vive — decide_instancia é contrato PURO),
+> o ESC sai LIMPO e os CHAMADORES julgam pelo CONTEÚDO (a escolha
+> vazia é o cancelamento benigno), e o argv NUNCA mais vai ao parser
+> do GLIB (`run_with_args(&[])` — o "Unknown option -T" matava o menu
+> na porta do GTK). **O SELETOR DE REDE DE 1 CLIQUE (craft-net)**: o
+> esquerdo do ícone de Rede não executava ação nenhuma e o
+> nm-connection-editor exige criar perfis — a LEI DA CONEXÃO PRINCIPAL
+> desceu para a FUNDAÇÃO (elite-core::rede: a ethernet vence · o par
+> (DEVICE, CONNECTION) no last-net.state · a queda é `nmcli device
+> disconnect`, NUNCA `ip link set down`) e o craft-net lista as redes
+> Wi-Fi próximas com sinal/cadeado/marca ✓, conecta com 1 clique e pede
+> a senha em diálogo LIMPO apenas para a protegida sem perfil salvo
+> (a entrada "Gerenciador de Rede" mora na grade do craft-apps — a
+> paridade com o Bluetooth). **O HYPRLOCK QUE MAPA**: o idle.log do
+> dump registrou "lock não nasceu em 15s" porque a flag/chave de
+> 1.0-108 era inválida para a versão instalada (o `--immediate` virou
+> INTEIRO deprecated no 0.9.7 — sem valor o parser morre; o
+> `general:no_fade_in` saiu das chaves válidas no 0.8+) — o juiz agora
+> é o `--help` do PRÓPRIO binário instalado (hyprlock_flags audita em
+> cada nascimento: --no-fade-in · --immediate-render · --grace 0 com a
+> queda honesta para o --immediate bool de 0.6-0.8) e o conf veste SÓ
+> chaves válidas em toda a família. **O CHÃO GARANTIDO**: a regra
+> polkit 49-elite.rules viaja TAMBÉM como mestre no pacote
+> (/usr/local/share/elite/polkit/) com o cinto do elite-post-upgrade
+> (ausente nasce com 0644 · divergente renova · igual é no-op — o rig
+> do dump seguia sem ela), e o tema de ícones GTK é o que a MÁQUINA
+> garante (Adwaita no skel GTK3/GTK4 + a cura_gtk do heal veste a
+> AUSÊNCIA no home — o "Fallback Icon Theme (Oxygen)" do journal morre).
+> **O BUS QUE NÃO MULTIPLICA**: o bus.cliente 3..7 do dump era um
+> ToplevelClient NOVO por clique (round-trip de até 1s na main thread
+> do GTK) — a dock conecta o BusClient da fundação UMA vez (a thread
+> de fundo entrega o Arc à UI; os verbos viajam send_req
+> fire-and-forget com o eco Ack pelo MESMO fio; o snapshot do clique é
+> o PUSH do daemon). **O DOCTOR HONESTO PARA O AM4**: o botão físico
+> de ligar é ACPI Fixed Hardware (o /proc/acpi/wakeup fica sem
+> *enabled com os espúrios desligados — a mesa sã nascia réu) — a
+> saúde aceita a mão armada NA TABELA ou o driver do botão NO KERNEL
+> (/sys/bus/acpi/drivers/button · /proc/acpi/button/power); o ambiente
+> lê o `systemctl --user show-environment` PRIMEIRO (a canônica da
+> diretriz) com a propriedade D-Bus de queda. **A FASE 57** veste o
+> juízo executivo: a sessão nasce no dbus-run-session com os mestres
+> do skel no \$HOME (o swaync dono de org.freedesktop.Notifications
+> sem exit status 1, o swayosd com a pele SEM o lamento do CSS), o
+> toggle/substituição do pick, o hyprlock VIVO no ext-session-lock-v1
+> e o ✓ ambiente/✓ notify contratados onde o juiz existe (o container
+> sem systemd de usuário pula HONESTO — o rig real veste).
+
 ## §8 · Dose 1.0-107 → 1.0-108 — o registro vivo (o motor, o zero-touch, o polkit e o hardware)
 
 > **1.0-108 · Etapa 1 (motor/infra) — o registro vive no ciclo:** a cura

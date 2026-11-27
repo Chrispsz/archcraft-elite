@@ -6,6 +6,31 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **1.0-109 · Etapa 1 — CORREÇÕES CRÍTICAS DE FUNCIONAMENTO (a perícia do
+  dump 1.0-108)**: **o pick veste a camada** (24 processos presos em
+  background e NENHUM menu na tela: gtk4-layer-shell Overlay +
+  teclado exclusivo + centralizado; instância única com toggle no
+  `craft-pick.pid`; o ESC sai limpo e os chamadores julgam pelo
+  conteúdo; o argv nunca mais vai ao parser do GLib — o "Unknown
+  option -T" matava o menu na porta), **o craft-net** (o seletor de
+  rede de 1 clique: Ethernet com o botão da Lei da Conexão Principal
+  — que desceu para `elite-core::rede` —, redes Wi-Fi próximas com
+  sinal/cadeado/✓, conexão com 1 clique e a senha em diálogo limpo
+  apenas para a protegida sem perfil; a entrada "Gerenciador de Rede"
+  na grade), **o hyprlock que mapa** (a auditoria das flags reais pelo
+  `--help` do próprio binário — o `--immediate` de era é inteiro
+  deprecated e o `no_fade_in` de conf saiu das chaves válidas; só
+  chaves válidas em toda a família 0.6→0.9), **o chão garantido** (a
+  regra polkit viaja como mestre com o cinto do post-upgrade; o tema
+  de ícones GTK é o Adwaita que a máquina garante), **o bus que não
+  multiplica** (um BusClient persistente único na dock — zero
+  ToplevelClient por clique, zero IPC bloqueante na main thread), **o
+  doctor honesto para o AM4** (o botão físico é ACPI Fixed Hardware:
+  a saúde aceita a mão armada na tabela OU o driver do botão no
+  kernel; o ambiente lê o systemctl primeiro) e **a fase 57 do juízo
+  executivo** (a sessão no dbus-run-session com os mestres do skel na
+  mesa: swaync dono das notificações, swayosd com a pele, o toggle do
+  pick e o hyprlock vivo no labwc headless).
 - **1.0-108 — O MOTOR, O ZERO-TOUCH, O POLKIT, O HARDWARE E A CAMADA
   VISUAL (a dose completa em duas etapas sobre a perícia do rig
   1.0-107.3)**: a Etapa 1 curou o MOTOR (o daemon em SPIN de 95,6% de CPU
