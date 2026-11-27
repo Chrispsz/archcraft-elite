@@ -18,6 +18,7 @@ on:
     tags: ['v*']
     paths:
       - 'elite/**'
+      - 'crates/**'
       - 'scripts/**'
       - '.ci/**'
       - 'tests/**'
@@ -26,6 +27,7 @@ on:
   pull_request:
     paths:
       - 'elite/**'
+      - 'crates/**'
       - 'scripts/**'
       - '.ci/**'
       - 'tests/**'
