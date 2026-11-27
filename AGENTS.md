@@ -301,6 +301,41 @@ registrada no mesmo commit.
 > UMA fonte do dono armada (o desktop USB-only sem PS2K/LID não é
 > réu). O pkgrel 108 veste a DOSE COMPLETA (Etapa 2 — a camada visual:
 > lei E41, conteúdo e número no MESMO commit).
+>
+> **1.0-108 · Etapa 2 (camada visual) — o registro vive no ciclo:** a
+> cura da perícia do rig na INTERFACE: o **SELETOR QUE O LABWC NÃO
+> MATA** (as QUATRO formas do `-T`/`--title` no parser — a flag
+> inválida é ERRO NOMEADO + `exit 2` ANTES de qualquer GTK: zero nos
+> 22 processos presos de ~530 MB — e a GUARDA DE FOCO: o
+> `notify::is-active = false` do PRIMEIRO FRAME do GTK4 é CORTESIA — a
+> janela só cai com foco REAL (`ja_teve_foco`) + carência de 300ms;
+> o ESC segue imediato), a **GAVETA ÚNICA** (o botão Aplicativos abre
+> o `craft-apps` — a MESMA porta da tecla Windows — e o calendário
+> abre EXCLUSIVAMENTE no clique: o `EventControllerMotion` de era morre
+> inteiro), os **ATALHOS RÁPIDOS no menu da barra** (Modo de jogo ·
+> Trava automática · Monitores/120 Hz · Atualizar · Limpar ·
+> Snapshots/Rollback + Bloquear/Suspender/Reiniciar/Desligar/
+> Encerrar), a **LEI DA CONEXÃO PRINCIPAL** (o direito da rede: a
+> ethernet VENCE, o par `(DEVICE, CONNECTION)` vive no
+> `${XDG_RUNTIME_DIR}/elite/last-net.state`, a queda é `nmcli device
+> disconnect` — NUNCA `ip link set down` — e a volta é `ip link up` +
+> `managed yes` + `connection up`/`device connect`; o `nmcli
+> networking` de era NÃO EXISTE mais na casa), a **PARIDADE COM O
+> BLUETOOTH** (o override do `nm-connection-editor` VISÍVEL na grade do
+> craft-apps — o .desktop upstream nasce escondido), o **LOCK
+> INSTANTÂNEO** (`hyprlock --immediate` + `no_fade_in` + o wallpaper
+> ESTÁTICO SEM passada lenta antes do map — o blur cache veste SÓ
+> fresco, o ffmpeg renasce DESAPEGADO em setsid), o **CRAFT-SUSPEND**
+> (o lock MAPEADO antes do `systemctl suspend` — hyprlock vivo +
+> assento de 400ms, teto 3s) e o **CRAFT-LOGOUT** (o encerrar
+> ORDEIRO: daemon → superfícies → agentes, cada um com o PRÓPRIO
+> SIGTERM, o fóssil do /run varrido ANTES do `labwc --exit`). A fase
+> **57** da porteira veste o SMOKE REAL dos binários COMPILADOS
+> (`target/release/`: o `--help` exit 0 instantâneo, a flag inválida
+> exit 2 em <1s SEM processo vivo, o `elite-daemon session` com CPU
+> <5% medida no `/proc` após 3s de idle, os menus abrindo/fechando no
+> `WLR_BACKENDS=headless` e o `craft-doctor`; o `tests.yml` veste o
+> toolchain do juízo — gtk4+layer-shell+labwc).
 
 ## §8 · Dose 1.0-106 → 1.0-107 — o registro vivo (a matriz, o sono e a consolidação)
 

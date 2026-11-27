@@ -15,7 +15,7 @@
 |---|---|
 | **`elite-core`** | a fundação: contratos tipados do estado, o protocolo do `bus.sock`, persistência atômica e o Design System (a folha mestra embutida) |
 | **`elite-daemon`** | o orquestrador único da sessão (`elite-daemon session`): supervisiona as superfícies, escuta Wayland/D-Bus/netlink nativamente e publica o estado no bus |
-| **`craft-bar-rs`** | a top bar GTK4 + layer-shell (pílulas, título, mídia, relógio/calendário, rádio de rede) |
+| **`craft-bar-rs`** | a top bar GTK4 + layer-shell (pílulas, mídia, relógio/calendário SÓ no clique, rede com a Lei da Conexão Principal, a gaveta única do `craft-apps` e os atalhos rápidos no menu de sessão) |
 | **`craft-dock-rs`** | a dock GTK4 + layer-shell (ícones, pins, popover do botão direito) |
 | **`craft-tools`** | as janelas nativas (`craft-update`, `craft-clean`, `craft-help`, o seletor `craft-pick`) + o juiz `craft-audit` |
 | **`craft-dump-rs`** | a telemetria v2 (o retrato do rig para o diagnóstico da casa) |
@@ -50,7 +50,9 @@ vestem a MESMA pele). `nwg-drawer`, `swayosd` e o `swaync` (de volta na
 `systemd --user` mascarado, lançamento explícito `-c`/`-s` nos arquivos
 do `$HOME`) recebem os mesmos valores nos formatos deles. Nenhum
 componente parece bloco desconexo; o relógio é hora/calendário com o
-tooltip **desligado** (o calendário abre EXCLUSIVAMENTE no clique).
+tooltip **desligado** e o calendário abre EXCLUSIVAMENTE no clique (1.0-108:
+o hover/enter de era morreu inteiro — nenhum `EventControllerMotion` mora no
+relógio).
 
 ## 4 · O fluxo de boot da sessão
 
@@ -82,6 +84,33 @@ O greeter é o tema `/usr/share/sddm/themes/elite` (QML puro, fundo
 `/etc/sddm.conf.d/99-elite.conf` (1.0-108: `InputMethod=` vazio +
 `CursorTheme=Adwaita` garantido pelo `adwaita-icon-theme` +
 `ReuseSession=false` — um dono por chave).
+
+### 4.1 · Os verbos da interface 1.0-108 (o mapa do clique)
+
+- **a gaveta é ÚNICA**: o botão Aplicativos abre o `craft-apps` (a MESMA
+  porta da tecla Windows — o fuzzel segue vivo como launcher de
+  terminal); o calendário do relógio abre EXCLUSIVAMENTE no clique;
+- **os atalhos rápidos do menu de sessão da barra**: Modo de jogo
+  (`craft-game menu`) · Trava automática (`craft-idle menu`) ·
+  Monitores/120 Hz (`wdisplays`) · Atualizar sistema (`craft-update`) ·
+  Limpar sistema (`craft-clean`) · Snapshots/Rollback (`craft-rollback`)
+  — ao lado de Bloquear/Suspender/Reiniciar/Desligar/Encerrar;
+- **a Lei da Conexão Principal** (o direito do botão de rede): a
+  ethernet conectada VENCE; ao desligar o par `(DEVICE, CONNECTION)` é
+  guardado em `${XDG_RUNTIME_DIR}/elite/last-net.state` e a queda é pelo
+  `nmcli device disconnect` (NUNCA `ip link set down`); ao religar o par
+  guardado (ou a ethernet com cabo, senão a Wi-Fi) volta com `ip link
+  set up` + `nmcli device set managed yes` + `nmcli connection up` /
+  `nmcli device connect`. O esquerdo abre o seletor rápido
+  (`craft-pick -T "Rede"`); o editor `nm-connection-editor` é VISÍVEL
+  na grade (o override `/usr/local/share/applications` — paridade com o
+  blueman);
+- **o seletor `craft-pick` é juiz estrito**: as QUATRO formas do título
+  (`-T T · -TT · --title T · --title=T`) e a flag inválida é **exit 2
+  ANTES de qualquer GTK** (erro nomeado no stderr, zero processo vivo);
+  a janela só cai por perda de foco DEPOIS do foco real + 300ms de
+  carência (o primeiro frame do labwc é cortesia) — o ESC é imediato
+  desde sempre.
 
 ## 5 · O sono S3 (a máquina que dorme e NÃO acorda sozinha)
 
@@ -115,7 +144,14 @@ O greeter é o tema `/usr/share/sddm/themes/elite` (QML puro, fundo
    nasce e o daemon espera a SUPERFÍCIE mapeada antes do `wlopm --off`;
    no retorno, o `wlopm --on` espera o backoff de 800ms do link DP/HDMI
    ANTES do recover (o hyprlock morto no sono renasce `--if-needed` — a
-   tela nunca acorda nua).
+   tela nunca acorda nua). 1.0-108 — O SUSPEND MANUAL VESTE A MESMA LEI:
+   o `craft-suspend` (novo) trava a tela e SÓ chama o `systemctl
+   suspend` com o lock PINTADO (hyprlock vivo + assento de 400ms, teto
+   3s); o lock nasce INSTANTÂNEO (`hyprlock --immediate` + `no_fade_in` +
+   o wallpaper estático SEM passada lenta antes do map — a piscada preta
+   morre) e o `craft-logout` (novo) encerra a família em ORDEM (daemon →
+   superfícies → agentes, fóssil do /run varrido) ANTES do `labwc
+   --exit`.
 
 ## 6 · A política de pacotes
 
@@ -134,7 +170,7 @@ O greeter é o tema `/usr/share/sddm/themes/elite` (QML puro, fundo
 | Porta | O que exige |
 |---|---|
 | **cargo · 2 portas** | `cargo test/clippy --workspace` no núcleo (sem gui) E com `--features gui` (prefix GTK4 do toolchain) — clippy `-D warnings` zero é lei |
-| **porteira GO** | `bash tests/run-tests.sh` — cadeia de fases (estrutura → estática → cargo → ajuda → compositor → runtime/IPC → **hardware** → veredito); GO = zero falhas |
+| **porteira GO** | `bash tests/run-tests.sh` — cadeia de fases (estrutura → estática → cargo → ajuda → compositor → runtime/IPC → **hardware** → **smoke dos binários compilados (fase 57, 1.0-108)** → veredito); GO = zero falhas |
 | **CI (GitHub)** | `tests.yml` (a suíte), `build.yml` (a ISO estável de tag), `publish-packages.yml` (o canal testing), `promover-testing.yml` (a promoção a estável) — nada entra sem porteira |
 | **smoke vivo** | `tests/session_smoke` (o rig do dono) e `tests/iso-qemu` (a ISO bootada) |
 

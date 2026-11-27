@@ -6,6 +6,40 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **1.0-108 — O MOTOR, O ZERO-TOUCH, O POLKIT, O HARDWARE E A CAMADA
+  VISUAL (a dose completa em duas etapas sobre a perícia do rig
+  1.0-107.3)**: a Etapa 1 curou o MOTOR (o daemon em SPIN de 95,6% de CPU
+  em idle — a vaga morta-ADOTADA vivia em limbo com `poll(2)` timeout
+  ZERO; a dock reconectando dezenas de vezes — o `read_timeout` FATIAVA
+  o quadro do bus), o ZERO-TOUCH (o heal abortando sob `set -u`, os
+  logs root:root, o swayosd sem CSS, o Qt6 claro), o POLKIT (a
+  `49-elite.rules` dos CINCO motores sem senha + a guarda do pkexec
+  órfão) e o HARDWARE (a LEI PURA do `/proc/acpi/wakeup`, o doctor pela
+  propriedade `Environment`, o chão técnico do SDDM). A Etapa 2 veste a
+  camada visual: **o seletor que o labwc não mata** (as QUATRO formas do
+  `-T`/`--title`, a flag inválida é exit 2 ANTES do GTK — zero nos 22
+  processos presos de ~530 MB — e a guarda de foco: o FALSE do primeiro
+  frame do GTK4 é cortesia, a janela só cai com foco real + carência de
+  300ms), **a gaveta única** (o botão Aplicativos abre o `craft-apps` —
+  a MESMA porta da tecla Windows — e o calendário abre EXCLUSIVAMENTE
+  no clique, o hover morre), **os atalhos rápidos no menu da barra**
+  (Modo de jogo · Trava automática · Monitores/120 Hz · Atualizar ·
+  Limpar · Snapshots/Rollback), **a Lei da Conexão Principal** (o
+  direito da rede guarda `(DEVICE, CONNECTION)` no `last-net.state` e
+  desconecta SÓ a principal pelo `nmcli device disconnect` — o cabo
+  "não disponível" sem volta de era morre; a ethernet vence, a volta é
+  `ip link up` + `managed yes` + `connection up`), **a paridade com o
+  Bluetooth** (o override do `nm-connection-editor` VISÍVEL na grade do
+  craft-apps), **o lock instantâneo** (`--immediate` + `no_fade_in` + o
+  wallpaper estático SEM passada lenta antes do map), **o
+  `craft-suspend`** (o lock MAPEADO antes do freeze) e **o
+  `craft-logout`** (a família cai em ORDEM antes do `labwc --exit` —
+  daemon, superfícies, agentes, o fóssil do /run varrido). A fase 57 da
+  porteira veste o SMOKE REAL dos binários compilados (o exit 2 em <1s
+  sem zumbi, a CPU <5% medida no /proc, os menus abrindo/fechando no
+  labwc headless). Detalhe:
+  `docs/releases/1.0-108.md`.
+
 - **1.0-107.3 — A AUDITORIA TOTAL (pacotes do sistema, lógicas de borda,
   zero dead code e arquitetura impecável)**: a perícia do **conjunto
   final da ISO** (234 pacotes simulados byte a byte contra o
