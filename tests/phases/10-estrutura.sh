@@ -44,6 +44,10 @@ done
 file_has "mold: a família rust OBRIGATÓRIA no install (daemon/dock/bar)" ".ci/build.sh" 'for b in elite-daemon craft-dock-rs craft-bar-rs; do'
 file_has "mold: a telemetria v2 compila (craft-dump-rs)" ".ci/build.sh" '-p craft-dump-rs'
 file_has "mold: as ferramentas nativas compilam (craft-tools)" ".ci/build.sh" '-p craft-tools'
+# 1.0-107.2 — O ELO CRAFT-DOCTOR (o diagnóstico em 1 comando: o MESMO
+# binário do elite-daemon, o argv0 decide a porta — um symlink, zero
+# arquivo duplicado viajando)
+file_has "mold: o elo craft-doctor nasce symlink do elite-daemon" ".ci/build.sh" 'ln -sfn elite-daemon "${pkgdir}/usr/local/bin/craft-doctor"'
 file_has "mold: as ferramentas + o juiz + a telemetria v2 instalam com o nome da casa" ".ci/build.sh" 'for b in craft-update craft-clean craft-help craft-pick craft-dump craft-audit; do'
 # 2.0 Fase 2 — O C DO TOPLEVEL MORREU: nenhuma fonte vendada, nenhum pacote
 file_hasnt "mold: o C do toplevel não volta (a fonte vendada morreu)" ".ci/build.sh" 'craft-toplevel.c'

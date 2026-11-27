@@ -327,6 +327,17 @@ file_has "supervise: o loop dorme nos eventos com o teto do respawn" "crates/eli
 file_has "supervise: o keepalive da adoção é honesto e nomeado (15s)" "crates/elite-daemon/src/supervise.rs" 'const KEEPALIVE_MS: i32 = 15_000;'
 file_has "supervise: o teto do papel do bars.log (256 KiB, rabiço 128 KiB)" "crates/elite-daemon/src/supervise.rs" 'fn cap_log(log: &std::path::Path)'
 file_hasnt "supervise: o tick de 1s de era não volta (a espera é evento)" "crates/elite-daemon/src/supervise.rs" 'std::thread::sleep(Duration::from_secs(1));'
+
+# ══ 1.0-107.2 — O DIAGNÓSTICO EM 1 COMANDO (o craft-doctor: os
+#    invariantes vitais da máquina real julgados em <50ms, zero bloat) ══
+file_has "doctor: o módulo do diagnóstico mora no daemon (a corrida de 1 tiro)" "crates/elite-daemon/src/doctor.rs" 'pub fn run() -> i32'
+file_has "doctor: o julgo da tabela wakeup é o MESMO do elite-acpi-wakeup (uma lei só)" "crates/elite-daemon/src/doctor.rs" 'pub fn julga_wakeup'
+file_has "doctor: o relatório nomeia o réu com o código de saída honesto" "crates/elite-daemon/src/doctor.rs" 'pub fn relatorio(diags: &[Diag]) -> (String, i32)'
+file_has "doctor: o handshake do bus.sock usa o teto da fundação (zero thread)" "crates/elite-daemon/src/doctor.rs" 'connect_bus'
+file_has "doctor: o pactl SÓ nasce com o socket do PipeWire no chão (o stat antes do fork)" "crates/elite-daemon/src/doctor.rs" 'pipewire-0'
+file_has "doctor: o agente polkit é lido em /proc comm (zero fork de pgrep)" "crates/elite-daemon/src/doctor.rs" 'lxqt-policykit-'
+file_has "doctor: a porta doctor do elite-daemon" "crates/elite-daemon/src/main.rs" 'Some("doctor") => {'
+file_has "doctor: o elo craft-doctor chega pelo argv0 (o symlink do pacote)" "crates/elite-daemon/src/main.rs" 'argv0 == Some("craft-doctor")'
 # A CURA DO CANAL VERMELHO (#45632905510 — o E0599 pela 2ª era): o gdk4
 # 0.11.5 NÃO gera monitor-added/removed/monitors-changed (deprecated desde
 # o GTK 4.16, fora de DisplayExt) — a via viva é o items-changed do

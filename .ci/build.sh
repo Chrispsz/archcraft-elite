@@ -3291,6 +3291,10 @@ package() {
     for b in elite-daemon craft-dock-rs craft-bar-rs; do
         [ -f "${CARGO_TARGET_DIR:-rust/target}/release/$b" ] && install -m755 "${CARGO_TARGET_DIR:-rust/target}/release/$b" "${pkgdir}/usr/local/bin/$b"
     done
+    # 1.0-107.2 — O ELO CRAFT-DOCTOR (o diagnóstico em 1 comando é a
+    # MESMA cara do elite-daemon: o argv0 decide a porta — um symlink,
+    # zero arquivo duplicado viajando no pacote)
+    ln -sfn elite-daemon "${pkgdir}/usr/local/bin/craft-doctor"
     # 2.0 Fase 2 — AS FERRAMENTAS NATIVAS + A TELEMETRIA v2: o
     # craft-dump v2 É o craft-dump (o shell v1 aposentou — a telemetria
     # da casa fala a língua nova: bus vivo, família nativa, boot flags)

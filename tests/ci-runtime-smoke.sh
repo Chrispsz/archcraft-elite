@@ -211,6 +211,30 @@ for par in craft-game craft-idle; do
     fi
 done
 
+# ── 6.5 o CRAFT-DOCTOR na sessão viva (1.0-107.2 — o diagnóstico prova os
+#      invariantes que ESTE smoke garante: ambiente + bus.sock; o polkit/
+#      pipewire do container headless NÃO são promessa daqui — o doctor os
+#      nomeia honesto, o smoke exige o que a sessão dele TEM) ─────────────
+_t0="$(date +%s%N)"
+_doctor_out="$("$BIN_STAGED/craft-doctor" 2>&1 || true)"
+_t1="$(date +%s%N)"
+_ms=$(( (_t1 - _t0) / 1000000 ))
+if printf '%s' "$_doctor_out" | grep -q '✓ ambiente'; then
+    t_ok "craft-doctor: o ambiente Wayland julgado VIVO no D-Bus da sessão real"
+else
+    t_fail "craft-doctor: ambiente Wayland" "saída: $(printf '%s' "$_doctor_out" | tr '\n' ' ')"
+fi
+if printf '%s' "$_doctor_out" | grep -q '✓ bus.sock'; then
+    t_ok "craft-doctor: o bus.sock responde ao handshake na sessão real"
+else
+    t_fail "craft-doctor: bus.sock" "o handshake não voltou (saída: $(printf '%s' "$_doctor_out" | tr '\n' ' '))"
+fi
+if [ "$_ms" -lt 2000 ]; then
+    t_ok "craft-doctor: o tiro é rápido (${_ms}ms — o contrato é <50ms no hardware, o container paga a folga)"
+else
+    t_fail "craft-doctor: tiro rápido" "demorou ${_ms}ms (o contrato é <50ms no hardware)"
+fi
+
 # ── 7. a lei E90 executiva nos compilados (o réu carrega O ERRO REAL:
 #    morte de loader = a classe 'o pacote nasceu sem a lib do runtime') ──
 for b in elite-daemon craft-bar-rs craft-dock-rs craft-dump craft-update craft-clean craft-help craft-pick; do

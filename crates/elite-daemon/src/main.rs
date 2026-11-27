@@ -42,6 +42,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 mod audio;
 mod bluetooth;
+mod doctor;
 mod idle;
 mod mpris;
 mod nucleo;
@@ -241,11 +242,23 @@ fn usage() -> &'static str {
      \x20 o estado REAL (QueryStatus) no bus da sessão e a barra acende o pill\n\
      \x20 do jogo no MESMO instante (o cinto do 30s é a rede, o fio é o gesto).\n\
      \x20 desk N|left|right|left-occupied|right-occupied = o SYNC da mesa\n\
-     \x20 (1.0-100 — o rc.xml registra a troca; a dock veste .other-workspace).\n"
+     \x20 (1.0-100 — o rc.xml registra a troca; a dock veste .other-workspace).\n\
+     \x20 doctor = 1.0-107.2 — O DIAGNÓSTICO EM 1 COMANDO (o elo craft-doctor é\n\
+     \x20 este mesmo binário): julga os invariantes vitais da máquina real —\n\
+     \x20 o ambiente Wayland no D-Bus, o bus.sock, o agente Polkit, o dono\n\
+     \x20 único das notificações, a tabela /proc/acpi/wakeup, o default do\n\
+     \x20 PipeWire e o gamemoded — em <50ms, zero overhead em idle.\n"
 }
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    // 1.0-107.2 — O ELO CRAFT-DOCTOR (o symlink do pacote veste este mesmo
+    // binário: o argv0 decide a porta — um arquivo a menos viajando, a
+    // mesma face de sempre)
+    let argv0 = args.first().map(|s| s.rsplit('/').next().unwrap_or(s));
+    if argv0 == Some("craft-doctor") {
+        std::process::exit(doctor::run());
+    }
     match args.get(1).map(String::as_str) {
         Some("--help") | Some("-h") => {
             print!("{}", usage());
@@ -254,6 +267,12 @@ fn main() {
         Some("--version") | Some("-V") => {
             println!("elite-daemon {}", VERSION);
             std::process::exit(0);
+        }
+        // 1.0-107.2 — O DIAGNÓSTICO EM 1 COMANDO: os invariantes vitais
+        // da máquina real julgados em <50ms (o elo craft-doctor chega
+        // aqui pelo argv0)
+        Some("doctor") => {
+            std::process::exit(doctor::run());
         }
         // 1.0-107 — O MODO AUTOMÁTICO MORREU COM O WATCHER (a diretriz
         // §6: "--once" era a porta dos testes da varredura de /proc que
