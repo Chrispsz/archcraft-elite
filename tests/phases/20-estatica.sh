@@ -349,7 +349,7 @@ file_has "rice: o fóssil da v7 na rede do lock (quem adotou a v7 renova à v8)"
 # (1.0-107.3 — a auditoria total dos pacotes: pkgrel com ponto, o 108
 #  fica reservado ao ciclo pós-validação no hardware; a âncora viva
 #  sobe junto NO MESMO COMMIT do conteúdo)
-file_has "build.sh: o pkgrel da dose é 107.3 (elite-system 1.0-107.3)" "$BS" 'pkgrel=107.3'
+file_has "build.sh: o pkgrel da dose é 108 (elite-system 1.0-108 — a dose completa: motor/infra da Etapa 1 + camada visual da Etapa 2, lei E41 no MESMO commit)" "$BS" 'pkgrel=108'
 
 # ══ 1.0-107.3 — A PERÍCIA DO CONJUNTO FINAL DA ISO (as 4 redundâncias
 #    que a debloat de eras não via + o backend de portais que faltava) ══
@@ -424,8 +424,21 @@ file_has "bluetooth: o Powered do adaptador no D-Bus nativo (o ícone nasce cert
 file_has "bar: o esquerdo da rede abre o SELETOR RÁPIDO (craft-pick da casa)" "crates/craft-bar-rs/src/ui.rs" '"craft-pick"'
 file_has "bar: o direito da rede liga/desliga a conexão ativa (nmcli)" "crates/craft-bar-rs/src/ui.rs" 'alterna_nmcli(&["networking"])'
 file_has "bar: o meio da rede abre o editor completo (nm-connection-editor)" "crates/craft-bar-rs/src/ui.rs" 'solta(&["nm-connection-editor"])'
-file_has "bar: o botão de aplicativos dispara o fuzzel DIRETO (1.0-106)" "crates/craft-bar-rs/src/ui.rs" 'solta(&["fuzzel"])'
+# 1.0-108 — A EVIDÊNCIA DO RIG 1.0-107.3: o botão Aplicativos abria o
+# FUZZEL enquanto a tecla Windows abria a grade do craft-apps (a casa
+# tem UMA gaveta), e o relógio abria o calendário ao PASSAR O MOUSE:
+file_has "bar: o botão de aplicativos dispara o CRAFT-APPS (a MESMA porta da tecla Windows)" "crates/craft-bar-rs/src/ui.rs" 'solta(&["craft-apps"])'
+file_hasnt "bar: o fuzzel NÃO mora mais no botão de apps (a gaveta é do craft-apps)" "crates/craft-bar-rs/src/ui.rs" 'solta(&["fuzzel"])'
 file_has "bar: o relógio é HORA/CALENDÁRIO (o clique abre o popover da casa)" "crates/craft-bar-rs/src/ui.rs" 'abre_calendario'
+file_hasnt "bar: o hover do relógio MORREU (nenhum enter/leave abre o calendário — só o clique)" "crates/craft-bar-rs/src/ui.rs" 'connect_enter'
+# 1.0-108 — OS ATALHOS RÁPIDOS do menu da barra (a ordem do dono: Modo de
+# jogo, Trava automática, Monitores/120 Hz, Atualizar, Limpar, Snapshots):
+file_has "bar: o menu da barra veste o MODO DE JOGO (craft-game menu)" "crates/craft-bar-rs/src/ui.rs" '("game", &["craft-game", "menu"][..])'
+file_has "bar: o menu da barra veste a TRAVA AUTOMÁTICA (craft-idle menu)" "crates/craft-bar-rs/src/ui.rs" '("idle", &["craft-idle", "menu"][..])'
+file_has "bar: o menu da barra veste os MONITORES/120Hz (wdisplays)" "crates/craft-bar-rs/src/ui.rs" '("displays", &["wdisplays"][..])'
+file_has "bar: o menu da barra veste o ATUALIZAR sistema (craft-update)" "crates/craft-bar-rs/src/ui.rs" '("update", &["craft-update"][..])'
+file_has "bar: o menu da barra veste o LIMPAR sistema (craft-clean)" "crates/craft-bar-rs/src/ui.rs" '("clean", &["craft-clean"][..])'
+file_has "bar: o menu da barra veste os SNAPSHOTS (craft-rollback)" "crates/craft-bar-rs/src/ui.rs" '("rollback", &["craft-rollback"][..])'
 file_hasnt "bar: o painel do notificador de era NÃO volta ao relógio" "crates/craft-bar-rs/src/ui.rs" 'swaync-client'
 # o conflito do /etc/default/scx morre (o caminho é do scx-scheds oficial):
 file_hasnt "pkg: o /etc/default/scx NÃO viaja no pacote (o caminho é do scx-scheds — zero conflito)" ".ci/build.sh" 'files/etc/default/scx'

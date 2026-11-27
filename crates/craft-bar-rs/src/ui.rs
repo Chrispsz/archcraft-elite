@@ -12,8 +12,8 @@
 //     o SELETOR RÁPIDO da casa (craft-pick — 1.0-106: toggles de
 //     Wi-Fi/Ethernet + redes ao alcance com sinal + a porta do editor
 //     no fim; a conexão em 1 CLIQUE pelo nmcli), bluetooth →
-//     blueman-manager, apps → o FUZZEL DIRETO (1.0-106 — sem wrapper
-//     de gaveta no caminho do botão), bateria → craft-bat;
+//     blueman-manager, apps → o CRAFT-APPS (1.0-108 — a MESMA gaveta
+//     da tecla Windows), bateria → craft-bat;
 //   · CLIQUE DIREITO = a AÇÃO RÁPIDA sem janela nenhuma — mute/desmute
 //     da SAÍDA, a CONEXÃO ATIVA liga/desliga (networking para o cabo,
 //     rádio para o Wi-Fi — 1.0-106), power do Bluetooth;
@@ -61,11 +61,10 @@
 // funciona):
 //   · a FAIXA layer-shell + a LEI DO CLIQUE no released (5px de
 //     tolerância de arrasto, E140);
-//   · o FUZZEL DIRETO no botão de apps (1.0-106 — o wrapper de gaveta
-//     sai do caminho do botão; o craft-apps segue vivo para o W-d do
-//     rc.xml, o debounce de gaveta morre junto);
-//   · o RELÓGIO pt_BR que nunca muda de texto + o calendário no clique
-//     e no hover;
+//   · O CRAFT-APPS no botão de apps (1.0-108 — a MESMA gaveta da tecla
+//     Windows; o fuzzel de era segue vivo como launcher de terminal);
+//   · o RELÓGIO pt_BR que nunca muda de texto + o calendário SÓ no
+//     clique (1.0-108 — o hover de era morreu);
 //   · o MPRIS/jogo PELO FIO DO BUS + os sinais SIGRTMIN+8 (jogo) e
 //     SIGUSR2 (a pele);
 //   · a SESSÃO em PopoverMenu NATIVO (o MenuButton canônico do GTK — o
@@ -369,9 +368,11 @@ fn build(app: &gtk::Application) {
 
     // ── ESQUERDA (E149 — minimalista, a ordem do dono): o botão de
     //    apps com ÍCONE GTK de verdade + a palavra "Aplicativos" (sem
-    //    siglas técnicas); o clique dispara o FUZZEL DIRETO (1.0-106 —
-    //    sem wrapper de gaveta no caminho do botão; o craft-apps segue
-    //    para o W-d do rc.xml). As pílulas da mesa (`1 2 3 4`) e o
+    //    siglas técnicas); o clique dispara o CRAFT-APPS (1.0-108 — A
+    //    MESMA PORTA DA TECLA WINDOWS: o botão abria o fuzzel enquanto o
+    //    W-d abria a grade visual do craft-apps — a evidência do rig
+    //    1.0-107.3; a casa tem UMA gaveta, o fuzzel segue vivo para quem
+    //    o quiser no terminal). As pílulas da mesa (`1 2 3 4`) e o
     //    título ativo SAÍRAM da barra: a troca de mesa é o
     //    scroll/atalhos W-1..4 do labwc, o título mora na moldura da
     //    própria janela — a barra fica LIMPA
@@ -382,7 +383,7 @@ fn build(app: &gtk::Application) {
     //    rig da 1.0-92: o epoch puro vestia UTC — o glib::DateTime
     //    now_local veste o fuso DO SISTEMA), o TEXTO nunca muda ao
     //    clicar (a cura A2 intacta), o CALENDÁRIO nasce em popover GTK4
-    //    (a pele roxa/escuro da casa) no clique E no hover — o relógio é
+    //    (a pele roxa/escuro da casa) EXCLUSIVAMENTE NO CLIQUE — o relógio é
     //    HORA/CALENDÁRIO (1.0-106: a central de era morreu sem
     //    substituto, nenhum notificador no caminho do clique)
     let btn_clock = gtk::Button::new();
@@ -392,15 +393,16 @@ fn build(app: &gtk::Application) {
         let lbl = st.borrow().clock_label.clone();
         btn_clock.set_child(Some(&lbl));
     }
-    // 1.0-107 — O TOOLTIP DO RELÓGIO MORRE (a diretriz §9: "remover o
+    // 1.0-107/108 — O TOOLTIP DO RELÓGIO MORRE (a diretriz §9: "remover o
     // tooltip redundante de calendário no hover (tooltip: false),
-    // mantendo a abertura do calendário exclusivamente no clique"): o
-    // hover do botão é a CORTESIA do popover (350ms), o texto flutuante
-    // era o redundante — a pele do hover (theme.css) fica como sempre.
+    // mantendo a abertura do calendário exclusivamente no clique") e
+    // 1.0-108 — O HOVER MORRE JUNTO: nenhum EventControllerMotion mora
+    // no relógio (nenhuma cortesia de 350ms, nenhum popover por
+    // proximidade do ponteiro — o clique é o ÚNICO gesto que abre o
+    // calendário; a pele do hover do theme.css segue como sempre)
     btn_clock.set_has_tooltip(false);
     // 1.0-93 — O CALENDÁRIO (a ordem do dono: popover GTK4 com o tema
-    // roxo/escuro ao passar o mouse; some quando o mouse sai — o clique
-    // do MEIO também alterna, para quem não quer hover)
+    // roxo/escuro da casa; 1.0-108 — EXCLUSIVAMENTE NO CLIQUE)
     let pop_cal = {
         let cal = gtk::Calendar::new();
         let pop = gtk::Popover::new();
@@ -409,41 +411,13 @@ fn build(app: &gtk::Application) {
         pop.set_parent(&btn_clock);
         pop
     };
-    // o hover: 350ms de cortesia, cancelado na saída
-    {
-        let mostrar = Rc::new(Cell::new(true));
-        let motion = gtk::EventControllerMotion::new();
-        {
-            let pop = pop_cal.clone();
-            let mostrar = mostrar.clone();
-            motion.connect_enter(move |_, _, _| {
-                mostrar.set(true);
-                // (o clone por chamada: o enter é Fn — o timeout_once
-                // move os SEUS clones, os capturados seguem reusáveis)
-                let pop = pop.clone();
-                let mostrar = mostrar.clone();
-                glib::timeout_add_local_once(Duration::from_millis(350), move || {
-                    if mostrar.get() {
-                        pop.popup();
-                    }
-                });
-            });
-        }
-        {
-            let pop = pop_cal.clone();
-            let mostrar = mostrar.clone();
-            motion.connect_leave(move |_| {
-                mostrar.set(false);
-                pop.popdown();
-            });
-        }
-        btn_clock.add_controller(motion);
-    }
     // 1.0-106 — O ESQUERDO ABRE O CALENDÁRIO (a ordem do dono: o relógio é
     // HORA/CALENDÁRIO — a central de notificações morreu SEM substituto, o
     // popover que já existia no clique do meio é PROMOVIDO ao esquerdo; o
     // `clicked` do próprio botão é o caminho de sempre, ZERO D-Bus no
     // caminho — nenhum notificador trava o clique)
+    // 1.0-108: o clique é o ÚNICO gesto — o hover/enter de era
+    // (o popover que saltava ao encostar o mouse) morreu inteiro
     {
         let pop_cal = pop_cal.clone();
         btn_clock.connect_clicked(move |_| {
@@ -791,6 +765,10 @@ fn build(app: &gtk::Application) {
     //    o clique/dismiss é TODO do GTK, zero gesture nosso aqui).
     //    E147: o ícone é Image de ÍCONE (system-shutdown — nunca mais
     //    codepoint Nerd no label) ─────────────────────────────────────
+    // 1.0-108 — OS ATALHOS RÁPIDOS NO TOPO (a ordem do dono: Modo de
+    //    jogo, Trava automática, Monitores/120 Hz, Atualizar, Limpar e
+    //    Snapshots ganham PORTA DIRETA no menu — os essenciais de 1
+    //    clique, sem terminal e sem gaveta no caminho)
     let btn_power = gtk::MenuButton::new();
     btn_power.set_widget_name("powerbtn");
     btn_power.set_icon_name("system-shutdown-symbolic");
@@ -804,6 +782,15 @@ fn build(app: &gtk::Application) {
             ("reboot", &["systemctl", "reboot"][..]),
             ("poweroff", &["systemctl", "poweroff"][..]),
             ("logout", &["labwc", "--exit"][..]),
+            // 1.0-108 — OS ATALHOS RÁPIDOS DA ORDEM DO DONO (os essenciais
+            // de UM clique no menu da barra: Modo de jogo, Trava
+            // automática, Monitores/120 Hz, Atualizar, Limpar, Snapshots)
+            ("game", &["craft-game", "menu"][..]),
+            ("idle", &["craft-idle", "menu"][..]),
+            ("displays", &["wdisplays"][..]),
+            ("update", &["craft-update"][..]),
+            ("clean", &["craft-clean"][..]),
+            ("rollback", &["craft-rollback"][..]),
         ] {
             let act = gtk::gio::SimpleAction::new(nome, None);
             let cmd: Vec<String> = cmd.iter().map(|s| s.to_string()).collect();
@@ -815,6 +802,18 @@ fn build(app: &gtk::Application) {
         }
         window.insert_action_group("bar", Some(&acoes));
         let menu = gtk::gio::Menu::new();
+        // 1.0-108 — A SEÇÃO DOS ATALHOS (a ordem do dono: acesso direto
+        // às funções essenciais no menu da barra superior — Modo de jogo,
+        // Trava automática, Monitores / 120 Hz, Atualizar sistema, Limpar
+        // sistema, Snapshots / Rollback; as ferramentas já existiam, o
+        // menu é a PORTA de 1 clique delas)
+        let s0 = gtk::gio::Menu::new();
+        s0.append(Some("Modo de jogo"), Some("bar.game"));
+        s0.append(Some("Trava automática"), Some("bar.idle"));
+        s0.append(Some("Monitores (120 Hz)"), Some("bar.displays"));
+        s0.append(Some("Atualizar sistema"), Some("bar.update"));
+        s0.append(Some("Limpar sistema"), Some("bar.clean"));
+        s0.append(Some("Snapshots (Rollback)"), Some("bar.rollback"));
         let s1 = gtk::gio::Menu::new();
         s1.append(Some("Bloquear tela"), Some("bar.lock"));
         s1.append(Some("Suspender"), Some("bar.suspend"));
@@ -822,6 +821,7 @@ fn build(app: &gtk::Application) {
         s2.append(Some("Reiniciar"), Some("bar.reboot"));
         s2.append(Some("Desligar"), Some("bar.poweroff"));
         s2.append(Some("Encerrar sessão"), Some("bar.logout"));
+        menu.append_section(None, &s0);
         menu.append_section(None, &s1);
         menu.append_section(None, &s2);
         let pop = gtk::PopoverMenu::from_model(Some(&menu));
@@ -851,7 +851,7 @@ fn build(app: &gtk::Application) {
          SAÍDA e MICROFONE em assentos próprios (esquerdo abre o pwvucontrol · direito muda) · \
          foco de tema DESATIVADO nos botões (zero seletor travado/quadrado branco — só hover) · \
          relógio HORA/CALENDÁRIO (o clique abre o calendário — zero notificador no caminho) · \
-         apps no FUZZEL direto · rede com SELETOR rápido (craft-pick) + editor no meio · \
+         apps no CRAFT-APPS (a gaveta da tecla Windows) · rede com SELETOR rápido (craft-pick) + editor no meio · \
          Bluetooth vestindo o fio do daemon + o belt próprio · relógio pt_BR + calendário · \
          MPRIS/jogo PELO FIO DO BUS"
     ));
@@ -1432,11 +1432,11 @@ fn apaga_foco_da_barra(raiz: &gtk::Widget) {
     }
 }
 
-/// E149 — O BOTÃO DE APPS (ícone GTK + palavra). 1.0-106 — O CLIQUE
-/// DISPARA O FUZZEL DIRETO (a ordem do dono: sem wrapper de gaveta no
-/// caminho do botão — o craft-apps segue vivo para o W-d do rc.xml, a
-/// barra não empurra gaveta nenhuma; o fuzzel é de UM tiro, sem toggle
-/// nenhum para preservar). O menu rápido do clique direito MORREU (as
+/// E149 — O BOTÃO DE APPS (ícone GTK + palavra). 1.0-108 — O CLIQUE
+/// DISPARA O CRAFT-APPS (a evidência do rig 1.0-107.3: o botão abria o
+/// fuzzel enquanto a tecla Windows abria a grade visual do craft-apps —
+/// a casa tem UMA gaveta; o fuzzel segue vivo como launcher de
+/// terminal, a barra veste a MESMA porta da tecla Windows). O menu rápido do clique direito MORREU (as
 /// ações dele moram no menu do desktop e no de energia — o dedupe da
 /// diretriz). O alinhamento vive nos 28px da faixa: Box verticalmente
 /// CENTRADO, ícone 16px e label sem margem própria (o padding da pele
@@ -1461,14 +1461,15 @@ fn botao_apps() -> gtk::Button {
     linha.append(&lbl);
     btn.set_child(Some(&linha));
     btn.set_tooltip_text(Some(
-        "Aplicativos — clique: o fuzzel (o lançador direto da casa)",
+        "Aplicativos — clique: a grade de apps (a MESMA porta da tecla Windows)",
     ));
     {
-        // 1.0-106 — O FUZZEL DIRETO pelo `clicked` DO PRÓPRIO BOTÃO (o
-        // launcher de UM tiro, sem wrapper de gaveta no caminho — quem
-        // quer a gaveta tem o W-d do rc.xml no craft-apps de sempre)
+        // 1.0-108 — O CRAFT-APPS pelo `clicked` DO PRÓPRIO BOTÃO (a
+        // MESMA gaveta da tecla Windows — a evidência do rig: o botão
+        // abria o fuzzel enquanto o W-d abria a grade visual; UMA casa,
+        // UMA gaveta; o fuzzel segue vivo como launcher de terminal)
         btn.connect_clicked(move |_| {
-            solta(&["fuzzel"]);
+            solta(&["craft-apps"]);
         });
     }
     btn
