@@ -26,7 +26,11 @@ echo "  ── FASE 5.7 · SMOKE REAL — os binários compilados em carne ─�
 
 REPO="$(pwd)"
 CRATES="$REPO/crates"
-BINS="$CRATES/target/release"
+# 1.0-108 — O ALVO DO JUÍZO (a prova da run 46054558327: a porteira exporta
+# CARGO_TARGET_DIR para o cache do build compartilhado das fases — o build
+# release daqui NASCE nele, não no target/ do repo; quem pergunta pelo
+# binário honra o alvo do cargo que o pariu)
+BINS="${CARGO_TARGET_DIR:-$CRATES/target}/release"
 
 # ── 0. o toolchain (o gui é makedepends do Canal — lei L6) ───────────────
 export PATH="$HOME/.cargo/bin:$PATH"
