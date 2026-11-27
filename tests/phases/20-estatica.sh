@@ -559,7 +559,18 @@ file_has "gaveta: o daemon desce o nwg-drawer quando outra janela ganha foco" "c
 file_has "gaveta: o sinal do daemon colhe o drawer do uid" "crates/elite-daemon/src/main.rs" 'pub(crate) fn gaveta_desce'
 # o seletor nunca vira zumbi (~24 MB): perdeu o foco = exit imediato
 file_has "pick: o notify::is-active desce o seletor quando o palco é de outro (1.0-107 — zero zumbi)" "crates/craft-tools/src/bin/craft-pick.rs" 'is-active'
-file_has "pick: o NON_UNIQUE destrava o 2º menu (a instância única matava o pedido novo)" "crates/craft-tools/src/bin/craft-pick.rs" 'NON_UNIQUE' 
+file_has "pick: o NON_UNIQUE destrava o 2º menu (a instância única matava o pedido novo)" "crates/craft-tools/src/bin/craft-pick.rs" 'NON_UNIQUE'
+# 1.0-108 — A EVIDÊNCIA DO RIG 1.0-107.3: `craft-pick -T "Teste"` morreu
+# com "opção -T desconhecida" no binário de ERA e deixou 22 processos
+# presos (~530 MB) — o parser agora aceita as QUATRO formas e a flag
+# inválida é exit 2 ANTES do GTK (zero processo vivo), e o FALSE do
+# primeiro frame do labwc (o GTK4 dispara is-active=false antes de
+# ativar a janela) não mata mais o menu dos chamadores:
+file_has "pick: as QUATRO formas do título (-T T · -TT · --title T · --title=T)" "crates/craft-tools/src/lib.rs" '-TTÍTULO'
+file_has "pick: a flag inválida é ERRO NOMEADO (nunca item fantasma do zumbi)" "crates/craft-tools/src/lib.rs" 'opção desconhecida'
+file_has "pick: o exit 2 fecha a porta ANTES de qualquer GTK (o juiz antes do init)" "crates/craft-tools/src/bin/craft-pick.rs" 'std::process::exit(2)'
+file_has "pick: a guarda de foco do labwc (ja_teve_foco — o primeiro frame é cortesia)" "crates/craft-tools/src/bin/craft-pick.rs" 'ja_teve_foco'
+file_has "pick: a carência inicial de 300ms após o present() (o frame 0..1 do compositor)" "crates/craft-tools/src/bin/craft-pick.rs" 'from_millis(300)'
 # as flags reais do craft-pick --help (a cura do 'Opção --title=... desconhecida'
 # — 1.0-105: a forma do foot -T com espaço é a bandeira da casa):
 file_has "pick: o craft-idle sonda o --help antes do -T (a flag de era não mata o painel)" "$AIROOTFS/usr/local/bin/craft-idle" 'craft-pick --help'

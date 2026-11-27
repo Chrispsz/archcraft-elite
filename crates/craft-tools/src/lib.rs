@@ -155,10 +155,16 @@ pub fn normaliza(s: &str) -> String {
         .collect()
 }
 
-/// o parser do craft-pick: -T TÍTULO (a forma do foot, com espaço —
-/// 1.0-105) ou --title=TÍTULO (a identidade, não exibida), itens por
-/// argv; sem argv, o stdin é a lista (a interface dmenu).
-pub fn parse_pick_args(args: &[String]) -> (String, Vec<String>) {
+/// 1.0-108 — o parser do craft-pick vira JUIZ ESTRITO (a evidência do
+/// rig 1.0-107.3: `craft-pick -T "Teste"` morreu com "opção -T
+/// desconhecida" no BINÁRIO DE ERA e deixou 22 processos presos em
+/// background (~530 MB) — o parser de era ENGOLIA a flag inválida em
+/// silêncio e a janela nascia zumbi na mão dos chamadores). A lei nova:
+/// as QUATRO formas do título (-T TÍTULO · -TTÍTULO · --title TÍTULO ·
+/// --title=TÍTULO) e TODO o resto é ERRO NOMEADO — quem julga devolve
+/// Err e o main sai exit 2 ANTES de qualquer GTK (zero processo vivo).
+/// Itens por argv; sem argv, o stdin é a lista (a interface dmenu).
+pub fn parse_pick_args(args: &[String]) -> Result<(String, Vec<String>), String> {
     let mut titulo = "Escolher".to_string();
     let mut itens: Vec<String> = Vec::new();
     let mut i = 0;
@@ -166,19 +172,39 @@ pub fn parse_pick_args(args: &[String]) -> (String, Vec<String>) {
         let a = args[i].as_str();
         if let Some(t) = a.strip_prefix("--title=") {
             titulo = t.to_string();
+        } else if a == "--title" {
+            // 1.0-108 — a forma longa COM ESPAÇO (a paridade completa:
+            // quem escreve --title "Rede" é o mesmo dono do -T "Rede")
+            let Some(t) = args.get(i + 1) else {
+                return Err("--title sem o valor seguinte".to_string());
+            };
+            titulo = t.clone();
+            i += 1;
         } else if a == "-T" {
             // 1.0-105 — A FORMA DO FOOT (com espaço): o título vive no
-            // ARGUMENTO SEGUINTE (sem ele, a forma longa de sempre vale)
-            if let Some(t) = args.get(i + 1) {
-                titulo = t.clone();
-                i += 1;
-            }
+            // ARGUMENTO SEGUINTE (sem ele, ERRO NOMEADO — a forma longa
+            // de era "vale silêncio" jurava escolha e nascia "Escolher")
+            let Some(t) = args.get(i + 1) else {
+                return Err("-T sem o valor seguinte".to_string());
+            };
+            titulo = t.clone();
+            i += 1;
+        } else if let Some(t) = a.strip_prefix("-T") {
+            // 1.0-108 — a forma COLADA (-TTeste — a evidência do rig:
+            // quem digita -TTeste não pode perder o menu por grafia)
+            titulo = t.to_string();
+        } else if a.starts_with('-') && a != "-" {
+            // 1.0-108 — A FLAG DESCONHECIDA É ERRO, NÃO ITEM: o "-" solto
+            // segue item (a convenção dmenu de stdin), todo o resto com
+            // hífen inicial que não casa acima é flag inválida — o
+            // chamador VÊ o nome e o exit 2 fecha a porta ANTES do GTK
+            return Err(format!("opção desconhecida: {a}"));
         } else if !a.trim().is_empty() {
             itens.push(a.to_string());
         }
         i += 1;
     }
-    (titulo, itens)
+    Ok((titulo, itens))
 }
 
 /// O MAPA DOS COMANDOS da casa 2.0 (o conteúdo que o craft-help veste —
@@ -292,15 +318,17 @@ mod tests {
             "--title=Rollback".to_string(),
             "Criar snapshot agora".to_string(),
             "Cancelar".to_string(),
-        ]);
+        ])
+        .expect("a forma colada de sempre");
         assert_eq!(titulo, "Rollback");
         assert_eq!(itens.len(), 2);
         // sem --title: o padrão honesto
-        let (titulo2, itens2) = parse_pick_args(&["um".to_string(), "dois".to_string()]);
+        let (titulo2, itens2) =
+            parse_pick_args(&["um".to_string(), "dois".to_string()]).expect("argv puro");
         assert_eq!(titulo2, "Escolher");
         assert_eq!(itens2.len(), 2);
         // linha vazia no argv não é item (a fantasma do fuzzel morre)
-        let (_, itens3) = parse_pick_args(&["  ".to_string()]);
+        let (_, itens3) = parse_pick_args(&["  ".to_string()]).expect("vazio");
         assert!(itens3.is_empty());
         // 1.0-105 — A FORMA DO FOOT (com espaço): -T TÍTULO no argumento
         // SEGUINTE (o título NUNCA vira item da lista)
@@ -308,13 +336,51 @@ mod tests {
             "-T".to_string(),
             "Modo de jogo".to_string(),
             "Ativar agora".to_string(),
-        ]);
+        ])
+        .expect("-T com espaço");
         assert_eq!(t4, "Modo de jogo");
         assert_eq!(i4, vec!["Ativar agora".to_string()]);
-        // o -T SEM argumento seguinte não vira item (a forma longa vale)
-        let (t5, i5) = parse_pick_args(&["-T".to_string()]);
-        assert_eq!(t5, "Escolher");
-        assert!(i5.is_empty());
+        // 1.0-108 — A FORMA COLADA (-TTeste): o título viaja grudado
+        let (t6, i6) = parse_pick_args(&[
+            "-TTeste".to_string(),
+            "Ativar agora".to_string(),
+        ])
+        .expect("-T colado");
+        assert_eq!(t6, "Teste");
+        assert_eq!(i6, vec!["Ativar agora".to_string()]);
+        // 1.0-108 — A FORMA LONGA COM ESPAÇO (--title Teste)
+        let (t7, i7) = parse_pick_args(&[
+            "--title".to_string(),
+            "Rede".to_string(),
+            "Wi-Fi LIGADO".to_string(),
+        ])
+        .expect("--title com espaço");
+        assert_eq!(t7, "Rede");
+        assert_eq!(i7, vec!["Wi-Fi LIGADO".to_string()]);
+        // o "-" solto segue ITEM (a convenção dmenu de stdin — não flag)
+        let (_, i8) = parse_pick_args(&["-".to_string()]).expect("- item");
+        assert_eq!(i8, vec!["-".to_string()]);
+    }
+
+    /// 1.0-108 — A LEI DO EXIT 2: flag inválida é ERRO NOMEADO (o rig
+    /// 1.0-107.3 viu 22 processos presos por uma flag que o binário de
+    /// era não conhecia — o silêncio de era era o zumbi de ~530 MB).
+    #[test]
+    fn os_args_invalidos_do_pick_sao_erro_nomeado() {
+        // a flag desconhecida de era (o réu da evidência)
+        assert!(
+            parse_pick_args(&["-x".to_string(), "um".to_string()]).is_err(),
+            "flag desconhecida = Err (nunca item fantasma)"
+        );
+        // -T SEM o valor seguinte: a forma longa de era "valia silêncio" —
+        // hoje é erro (o chamador vê o nome, nunca a escolha fantasma)
+        assert!(parse_pick_args(&["-T".to_string()]).is_err(), "-T sem valor = Err");
+        // --title SEM o valor seguinte: idem
+        assert!(parse_pick_args(&["--title".to_string()]).is_err(), "--title sem valor = Err");
+        // a mensagem NOMEIA a flag (o réu na cara do chamador)
+        let err = parse_pick_args(&["--floripa".to_string()]).unwrap_err();
+        assert!(err.contains("--floripa"), "a mensagem nomeia o réu: {err}");
+        // o help NÃO passa por aqui (o pede_ajuda acorda ANTES do parser)
     }
 
     #[test]

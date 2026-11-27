@@ -3203,7 +3203,13 @@ pkgver=1.0
 #      app Flatpak pede; o portal-wlr sozinho só fala ScreenCast).
 #      pkgrel 107.2→107.3 NO MESMO COMMIT (lei E41 — o 108 segue
 #      reservado ao ciclo pós-validação no hardware).
-pkgrel=107.3
+#      1.0-108 — A DOSE COMPLETA EM DUAS ETAPAS (motor/infra na Etapa 1,
+#      camada visual na Etapa 2 — o número veste a dose inteira): o
+#      pkgrel 107.3→108 NA MESMA DOSE DA CAMADA VISUAL (Etapa 2: a
+#      diretriz do dono — conteúdo e número no MESMO commit; a Etapa 1
+#      comitou o conteúdo de INFRA local sem número por desenho, o 108
+#      veste a release completa que o rig recebe pelo botão Atualizar).
+pkgrel=108
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da sessão; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
