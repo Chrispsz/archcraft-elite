@@ -256,6 +256,16 @@ registrada no mesmo commit.
 
 ## §8 · Dose 1.0-106 → 1.0-107 — o registro vivo (a matriz, o sono e a consolidação)
 
+> **1.0-107.2 — o registro do ciclo da filosofia ao extremo** vive em
+> `docs/releases/1.0-107.2.md`: o supervisor EVENTO puro (self-pipe
+> SIGCHLD + vigia inotify), o teto do `bars.log` (256 KiB), o allowlist
+> ACPI UNIVERSAL (`PWRB`/`SLPB`/`PBTN`/`PS2K`/`LID` armados no boot), o
+> **craft-doctor** (o diagnóstico em 1 comando, <50ms — o elo é symlink
+> do `elite-daemon`, o argv0 decide a porta) e o cache máximo do Cargo
+> na esteira (registry/git junto do target, `CARGO_HOME` do container
+> no repo montado; a promessa E103.1 do gatilho `branches: [main]`
+> vestida de verdade).
+
 - **A matriz de hardware é contrato vivo:** `tests/hardware/run.sh` +
   a fase 55 da porteira (`tests/phases/55-hardware.sh`) simulam os 6
   perfis reais (2 de entrada, 2 intermediários, 2 high-end — um deles é
@@ -271,13 +281,22 @@ registrada no mesmo commit.
 - **O sono S3:** `mem_sleep_default=deep` (hardware-aware, 1×) +
   `elite-acpi-wakeup` (1.0-107: desarma a FAMÍLIA INTEIRA por padrão —
   `XHC*`/`PTXH`/`GPP*`/`GP[0-9]*`/`X1*`; o allowlist da mão do dono é
-  `PWRB`/`PS2K`/`LID`; idempotente) + `craft-wake-guard` veste a MESMA
+  `PWRB`/`SLPB`/`PBTN`/`PS2K`/`LID` — **1.0-107.2: o UNIVERSAL** de
+  desktop E notebook em qualquer placa AMD/Intel, ARMADO no boot pelo
+  cinto: o firmware que entrega o botão dormindo de fábrica não rouba
+  o despertar do dono; idempotente) + `craft-wake-guard` veste a MESMA
   lei (TODO o USB dorme — a exceção de teclado de era morreu com o
   dongle 2.4G fingidor) + `craft-display recover` em 4 gatilhos (daemon,
   `craft-lock`, hook de sistema, `craft-vigil`) com guard de 10s = um
   dono por veredito. 1.0-107: a sequência do sono é LEI (hyprlock
   MAPEADO antes do `wlopm --off`; o retorno com backoff de 800ms do
   link antes do recover).
+- **A espera é EVENTO puro do kernel (1.0-107.2):** o supervisor de era
+  acordava 1×/s para adivinhar — o loop agora dorme em `poll(2)` com o
+  **self-pipe do SIGCHLD** (um filho que morre toca a campainha no
+  instante) + a **vigia inotify** do socket do compositor + o teto do
+  respawn (o backoff restante da vaga morta) e o keepalive HONESTO de
+  15s da adoção (nomeado no KEEPALIVE_MS) — zero tick, custo −93%.
 - **O modo de jogo é MANUAL (1.0-107):** o watcher de `/proc` morreu
   INTEIRO (no craft-game E no elite-daemon — o daemon é LIVRE de
   varredura de processos); o manual prende `systemd-inhibit

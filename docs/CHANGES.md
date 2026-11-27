@@ -6,6 +6,23 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **1.0-107.2 — A FILOSOFIA AO EXTREMO (auditoria integral, hardware
+  moderno, inovação zero-bloat e otimização máxima)**: o supervisor
+  vira **EVENTO puro do kernel** (SIGCHLD via self-pipe + vigia inotify
+  do socket do compositor — o tick de 1s morre, custo −93% syscalls/dia,
+  os filhos e o STOP no zero), o `bars.log` ganha teto (256 KiB),
+  o **allowlist ACPI universal** arma desktop E notebook em qualquer
+  placa AMD/Intel (`PWRB`/`SLPB`/`PBTN`/`PS2K`/`LID` — o cinto veste o
+  botão que o firmware entrega dormindo de fábrica; a família espúria
+  segue dormindo), nasce o **`craft-doctor`** (o diagnóstico em 1
+  comando, <50ms, symlink do elite-daemon — os 7 invariantes vitais
+  com o réu nomeado no relatório) e a esteira veste o **cache máximo
+  do Cargo** (registry/git junto do target na mesma chave; `CARGO_HOME`
+  do container no repo montado) e a **promessa E103.1 vestida** (o
+  typo `branches: ain]` da E43 no gatilho do Canal nunca casava nada —
+  agora `branches: [main]` de verdade). Detalhe:
+  `docs/releases/1.0-107.2.md`.
+
 - **1.0-107.1 — O CICLO INTERMEDIÁRIO (auditoria, build & organização)**:
   a forense byte a byte da base (zero fósseis: o zumbi `cond/peek_lock`
   do supervise, o watch legado do craft-display, os tokens de era do

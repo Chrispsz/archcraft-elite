@@ -61,7 +61,9 @@ SDDM (tema elite, 100% pt_BR — Bem-vindo!/Entrar/Desligar…)
           ├─ topbar  (craft-bar-rs)
           ├─ dock    (craft-dock-rs)
           └─ residentes + vagas supervisionadas (respawn 2s, try_wait
-             nativo — o supervisor shell de era morreu)
+             nativo — o supervisor shell de era morreu; 1.0-107.2: a
+             espera é EVENTO puro do kernel — SIGCHLD via self-pipe +
+             vigia inotify do socket do compositor, zero tick de 1s)
 ```
 
 O greeter é o tema `/usr/share/sddm/themes/elite` (QML puro, fundo
@@ -75,16 +77,20 @@ O greeter é o tema `/usr/share/sddm/themes/elite` (QML puro, fundo
    o único sono; notebook s2idle fica fora). Idempotente, 1× — a dose
    (`elite-post-upgrade`) e o `elite-tune`/`elite-install-stage` ouvem
    o MESMO `/sys`.
-2. **`elite-acpi-wakeup`** (1.0-107) — desarma no boot a FAMÍLIA
+2. **`elite-acpi-wakeup`** (1.0-107 → 1.0-107.2) — desarma no boot a FAMÍLIA
    INTEIRA de gatilhos espúrios por PADRÃO (`XHC*`/`PTXH`/`GPP*`/
    `GP[0-9]*`/`X1[0-9]*`/`X1_[0-9]*` — controladores USB e pontes PCIe;
    o dongle 2.4G que acordava a máquina num pigarro não é a mão de
    ninguém) em `/proc/acpi/wakeup` (o arquivo é toggle: só escreve quem
-   está `*enabled`; a 2ª passada é silêncio). O allowlist da mão do dono
-   é explícito: `PWRB` (o botão do power), `PS2K` (o teclado PS/2) e
-   `LID` (a tampa) — o `craft-wake-guard` veste a MESMA lei (TODO o USB
-   dorme, ninguém rearma o que aqui desarma; a exceção de teclado de era
-   morreu com o dongle fingidor).
+   está `*enabled`; a 2ª passada é silêncio). O allowlist UNIVERSAL da
+   mão do dono (1.0-107.2 — desktop E notebook em qualquer placa
+   AMD/Intel) é explícito e ARMADO no boot: `PWRB`/`PBTN` (as duas
+   grafias do botão do power), `SLPB` (o botão de sleep físico), `PS2K`
+   (o teclado PS/2) e `LID` (a tampa) — o firmware que entrega o botão
+   dormindo de fábrica não rouba o despertar do dono; o
+   `craft-wake-guard` veste a MESMA lei (TODO o USB dorme, o mesmo
+   cinto de 5 nomes rearmado no boot e re-julgado no limiar de cada
+   sono; a exceção de teclado de era morreu com o dongle fingidor).
 3. **`craft-display recover`** — o DisplayPort que volta sem sinal é
    curado com o ciclo `--off → 1s → --on --mode <persistido>` POR SAÍDA
    VIVA (varredura dinâmica do wlr-randr; o modo vem do
