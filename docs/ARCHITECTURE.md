@@ -45,10 +45,12 @@ Uma fonte de verdade, um enum no fio (`elite-core::BusMsg`):
 
 `crates/elite-core/assets/theme.css` é a **folha mestra** — paleta,
 raios, estados, tipografia — **embutida** nos binários (barra e dock
-vestem a MESMA pele). `nwg-drawer` e `swayosd` recebem os mesmos
-valores nos formatos deles. Nenhum componente parece bloco desconexo; o
-relógio é hora/calendário (o sino DND morreu com o swaync — dispensado
-pelo dono, nunca volta à árvore).
+vestem a MESMA pele). `nwg-drawer`, `swayosd` e o `swaync` (de volta na
+1.0-107 com dono único: vaga supervisionada da sessão, unit do
+`systemd --user` mascarado, lançamento explícito `-c`/`-s` nos arquivos
+do `$HOME`) recebem os mesmos valores nos formatos deles. Nenhum
+componente parece bloco desconexo; o relógio é hora/calendário com o
+tooltip **desligado** (o calendário abre EXCLUSIVAMENTE no clique).
 
 ## 4 · O fluxo de boot da sessão
 
@@ -73,11 +75,16 @@ O greeter é o tema `/usr/share/sddm/themes/elite` (QML puro, fundo
    o único sono; notebook s2idle fica fora). Idempotente, 1× — a dose
    (`elite-post-upgrade`) e o `elite-tune`/`elite-install-stage` ouvem
    o MESMO `/sys`.
-2. **`elite-acpi-wakeup`** — desarma no boot os gatilhos espúrios do
-   journal (`GPP0 GPP8 XHC0 XHC1 XHCI PTXH`) em `/proc/acpi/wakeup` (o
-   arquivo é toggle: só escreve quem está `*enabled`; a 2ª passada é
-   silêncio). O teclado é a mão do dono: a política do `craft-wake-guard`
-   (E122) rearma o controlador dele — nunca tocada aqui.
+2. **`elite-acpi-wakeup`** (1.0-107) — desarma no boot a FAMÍLIA
+   INTEIRA de gatilhos espúrios por PADRÃO (`XHC*`/`PTXH`/`GPP*`/
+   `GP[0-9]*`/`X1[0-9]*`/`X1_[0-9]*` — controladores USB e pontes PCIe;
+   o dongle 2.4G que acordava a máquina num pigarro não é a mão de
+   ninguém) em `/proc/acpi/wakeup` (o arquivo é toggle: só escreve quem
+   está `*enabled`; a 2ª passada é silêncio). O allowlist da mão do dono
+   é explícito: `PWRB` (o botão do power), `PS2K` (o teclado PS/2) e
+   `LID` (a tampa) — o `craft-wake-guard` veste a MESMA lei (TODO o USB
+   dorme, ninguém rearma o que aqui desarma; a exceção de teclado de era
+   morreu com o dongle fingidor).
 3. **`craft-display recover`** — o DisplayPort que volta sem sinal é
    curado com o ciclo `--off → 1s → --on --mode <persistido>` POR SAÍDA
    VIVA (varredura dinâmica do wlr-randr; o modo vem do
@@ -85,12 +92,17 @@ O greeter é o tema `/usr/share/sddm/themes/elite` (QML puro, fundo
    disparam (daemon em `PrepareForSleep(false)` e `Unlock`, pós-unlock
    do `craft-lock`, hook `elite-resume-display`, pós-sono do
    `craft-vigil`) com guard de 10s = **um dono por veredito**.
+   1.0-107 — A SEQUÊNCIA É LEI: no `PrepareForSleep(true)` o hyprlock
+   nasce e o daemon espera a SUPERFÍCIE mapeada antes do `wlopm --off`;
+   no retorno, o `wlopm --on` espera o backoff de 800ms do link DP/HDMI
+   ANTES do recover (o hyprlock morto no sono renasce `--if-needed` — a
+   tela nunca acorda nua).
 
 ## 6 · A política de pacotes
 
 - **`elite/packages.add` / `elite/packages.remove`** — o manifesto da
-  ISO e o veto (o que nunca mais volta: waybar, swayidle, swaync,
-  linux stock, okular…);
+  ISO e o veto (o que nunca mais volta: waybar, swayidle, linux stock,
+  okular…; o swaync VOLTOU na 1.0-107 com dono único);
 - **`elite-dose`** — a adoção de flatpaks e pacotes de rig
   (Bazaar/Warehouse/Gear Lever, mangohud/goverlay, rtkit, garantias
   `--needed` idempotentes);

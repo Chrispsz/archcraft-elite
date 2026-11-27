@@ -249,7 +249,7 @@ registrada no mesmo commit.
 
 ---
 
-## §8 · Dose 1.0-106 — o registro vivo (a matriz de hardware e o sono)
+## §8 · Dose 1.0-106 → 1.0-107 — o registro vivo (a matriz, o sono e a consolidação)
 
 - **A matriz de hardware é contrato vivo:** `tests/hardware/run.sh` +
   a fase 55 da porteira (`tests/phases/55-hardware.sh`) simulam os 6
@@ -264,15 +264,31 @@ registrada no mesmo commit.
   por saída com o modo persistido. O mapa canônico:
   `docs/ARCHITECTURE.md`.
 - **O sono S3:** `mem_sleep_default=deep` (hardware-aware, 1×) +
-  `elite-acpi-wakeup` (desarma os gatilhos espúrios
-  GPP0/GPP8/XHC0/XHC1/XHCI/PTXH em `/proc/acpi/wakeup` — idempotente;
-  a mão do dono é a política do `craft-wake-guard`) + `craft-display
-  recover` em 4 gatilhos (daemon, `craft-lock`, hook de sistema,
-  `craft-vigil`) com guard de 10s = um dono por veredito.
-- **O `swaync` morreu por ordem do dono** (dispensou central de
-  notificações e DND): fora do `packages.add`, fora do skel, fora do
-  build — o relógio é hora/calendário. **NUNCA volta à árvore**
-  (âncoras de ausência na porteira guardam o túmulo).
+  `elite-acpi-wakeup` (1.0-107: desarma a FAMÍLIA INTEIRA por padrão —
+  `XHC*`/`PTXH`/`GPP*`/`GP[0-9]*`/`X1*`; o allowlist da mão do dono é
+  `PWRB`/`PS2K`/`LID`; idempotente) + `craft-wake-guard` veste a MESMA
+  lei (TODO o USB dorme — a exceção de teclado de era morreu com o
+  dongle 2.4G fingidor) + `craft-display recover` em 4 gatilhos (daemon,
+  `craft-lock`, hook de sistema, `craft-vigil`) com guard de 10s = um
+  dono por veredito. 1.0-107: a sequência do sono é LEI (hyprlock
+  MAPEADO antes do `wlopm --off`; o retorno com backoff de 800ms do
+  link antes do recover).
+- **O modo de jogo é MANUAL (1.0-107):** o watcher de `/proc` morreu
+  INTEIRO (no craft-game E no elite-daemon — o daemon é LIVRE de
+  varredura de processos); o manual prende `systemd-inhibit
+  --what=idle:sleep` no grupo do holder e o pill acende pelo
+  `bus.sock` no mesmo clique. A vigília honra `idle`/`sleep` block do
+  logind (a diretriz 1.0-107 §7).
+- **O `swaync` MORREU na 1.0-106 e VOLTOU CURADO na 1.0-107** (a ordem
+  nova do dono: a central volta SEM o crash-loop da era): o unit do
+  systemd --user é MASCARADO globalmente (`/etc/systemd/user/swaync.service`
+  → `/dev/null` — o `start-limit-hit` morre sem gatilho), o SUPERVISOR da
+  sessão é o dono ÚNICO do processo (vaga supervisionada, gate pelo nome
+  `org.freedesktop.Notifications`, lançamento EXPLÍCITO `-c`/`-s` nos
+  arquivos do `$HOME` — o `style.css` EXISTE, o `COULD NOT FIND CSS
+  FILE!` não renasce) e os mestres viajam no pacote (`craft-rice` entrega
+  na ausência, `sync_skel` cobre o rig vivo). O relógio segue
+  hora/calendário (ZERO D-Bus de notificações no clique).
 - **O seletor de rede e o `craft-pick`:** o esquerdo do módulo de rede
   abre o seletor nativo GTK4 (toggles Wi-Fi/Ethernet + redes ao alcance
   + conexão em 1 clique pelo `nmcli`), o meio abre o

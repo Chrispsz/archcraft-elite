@@ -258,8 +258,8 @@ file_has "probe: o lock privado também no probe da sessão" "$AIROOTFS/usr/loca
 file_has "bar: a armadura RT (o 'real-time event N' não mata mais a barra)" "crates/craft-bar-rs/src/ui.rs" 'fn arma_rt'
 file_has "dock: a armadura RT (a instabilidade visual morre na classe)" "crates/craft-dock-rs/src/ui.rs" 'fn arma_rt'
 # o DONO ÚNICO do bus: o modo game vira CLIENTE publicante
-file_has "daemon: o modo game sem posse vira CLIENTE do bus" "crates/elite-daemon/src/nucleo.rs" 'fn liga_cliente'
-file_has "daemon: o daemon_loop decide a posse ANTES do bind" "crates/elite-daemon/src/main.rs" 'nucleo::liga_cliente()'
+file_has "daemon: a publicação é broadcast do dono do bus (o game-notify publica pelo fio)" "crates/elite-daemon/src/nucleo.rs" 'e.bus.broadcast(msg)' 
+file_has "daemon: o CLI game-notify publica o QueryStatus REAL no bus (o pill acende no clique)" "crates/elite-daemon/src/main.rs" 'cli.publish(&elite_core::BusMsg::GameMode' 
 file_has "bus: a publicação de cliente retransmitida (sem eco ao remetente)" "crates/elite-core/src/bus.rs" 'fn publish'
 file_has "bus: a retransmissão exclui o remetente (o loop infinito morre)" "crates/elite-core/src/bus.rs" 'remetente não bebe o próprio eco'
 # o craft-clean sobe como raiz de verdade (o pkexec na frente)
@@ -277,7 +277,7 @@ file_has "idle: o verbo menu existe (o painel do dono — forma do foot -T)" "$A
 # E149 — A FÁBRICA DA VAGA AUTOMÁTICA E DA TRAVA (a diretriz: o modo
 # jogo volta a nascer ligado; o skel cobre a ISO nova, o post_upgrade
 # cobre o rig que antecedeu a dose)
-file_has "jogo: o AUTO=1 nasce na casa (a vaga automática do skel)" "elite/airootfs/etc/skel/.config/elite/game.conf" 'AUTO=1'
+file_absent "jogo: o game.conf morreu com o modo automático (o manual é o único)" "elite/airootfs/etc/skel/.config/elite/game.conf"
 file_has "trava: a fábrica do idle trava em 5 (LOCK_MIN da casa)" "elite/airootfs/etc/skel/.config/elite/idle.conf" 'LOCK_MIN=5'
 # E150 — o gesto separado: a tela APAGA no tempo PRÓPRIO (fábrica 10)
 file_has "trava: a fábrica do idle apaga em 10 (o gesto separado E150)" "elite/airootfs/etc/skel/.config/elite/idle.conf" 'OFF_MIN=10'
@@ -328,7 +328,7 @@ file_has "post-upgrade: a pele do greeter chega ao rig vivo na dose" "$AIROOTFS/
 file_has "rice: o fóssil da v7 na rede do lock (quem adotou a v7 renova à v8)" "$AIROOTFS/usr/local/bin/craft-rice" '6e4597244cb625dde1ed33f419afabb8bf9270230a4218311c9c4acf9919b0ea'
 # O MOLDE veste o pkgrel 106 (lei E41 — o guard cobra)
 # (1.0-106 — a âncora viva da era: cada dose sobe o número NO MESMO commit)
-file_has "build.sh: o pkgrel da era é 106 (elite-system 1.0-106)" "$BS" 'pkgrel=106'
+file_has "build.sh: o pkgrel da dose é 107 (elite-system 1.0-107)" "$BS" 'pkgrel=107'
 # A CURA DO CANAL VERMELHO (#45632905510 — o E0599 pela 2ª era): o gdk4
 # 0.11.5 NÃO gera monitor-added/removed/monitors-changed (deprecated desde
 # o GTK 4.16, fora de DisplayExt) — a via viva é o items-changed do
@@ -344,9 +344,9 @@ file_has "monitor: o ouvidor vivo é o items-changed do GListModel (dock)" "crat
 # o swaync MORREU por ordem do dono (o relógio é hora/calendário; a
 # casa não carrega notificador NENHUM): AUSENTE da árvore, do pacote e
 # do fluxo vivo do build:
-file_absent "skel: o skel swaync NÃO existe mais na árvore (a pele morreu com o dono)" "elite/airootfs/etc/skel/.config/swaync"
+file_exists "skel: o skel swaync VOLTOU com dono único (o style.css existente mata o COULD NOT FIND CSS FILE!)" "elite/airootfs/etc/skel/.config/swaync/style.css"
 file_hasnt "pkg: o staging da pele do swaync NÃO viaja no build.sh (1.0-106)" "$BS" 'files/etc/skel/.config/swaync'
-file_hasnt "pkg: o molde swc_install NÃO viaja no PKGBUILD (zero costura de peça morta)" "$BS" 'MOLDE[swc'
+file_has "pkg: o molde swc_install volta ao PKGBUILD (os mestres da central com dono único)" "$BS" 'MOLDE[swc_install]' 
 file_hasnt "daemon: o residente swaync NÃO volta à fila (RESIDENTES_DEFAULT limpa)" "crates/elite-daemon/src/supervise.rs" '("swaync",'
 file_hasnt "heal: a cura do swaync NÃO volta (o morto não se cura)" "elite/airootfs/usr/local/bin/elite-heal-sessao" 'cura_swaync'
 file_hasnt "update: a porta da dose NÃO relança/ceifa o swaync (1.0-106)" "elite/airootfs/usr/local/bin/elite-update" 'swaync'
@@ -500,7 +500,8 @@ file_has "dock: os dinâmicos resolvem pelos app_ids das JANELAS (a régua unifi
 file_has "gaveta: o daemon desce o nwg-drawer quando outra janela ganha foco" "crates/elite-daemon/src/wayland.rs" 'gaveta_desce'
 file_has "gaveta: o sinal do daemon colhe o drawer do uid" "crates/elite-daemon/src/main.rs" 'pub(crate) fn gaveta_desce'
 # o seletor nunca vira zumbi (~24 MB): perdeu o foco = exit imediato
-file_has "pick: o EventControllerFocus desce o seletor no leave (zero zumbi)" "crates/craft-tools/src/bin/craft-pick.rs" 'connect_leave'
+file_has "pick: o notify::is-active desce o seletor quando o palco é de outro (1.0-107 — zero zumbi)" "crates/craft-tools/src/bin/craft-pick.rs" 'is-active'
+file_has "pick: o NON_UNIQUE destrava o 2º menu (a instância única matava o pedido novo)" "crates/craft-tools/src/bin/craft-pick.rs" 'NON_UNIQUE' 
 # as flags reais do craft-pick --help (a cura do 'Opção --title=... desconhecida'
 # — 1.0-105: a forma do foot -T com espaço é a bandeira da casa):
 file_has "pick: o craft-idle sonda o --help antes do -T (a flag de era não mata o painel)" "$AIROOTFS/usr/local/bin/craft-idle" 'craft-pick --help'
@@ -656,6 +657,67 @@ file_has "snapshot: o findmnt na raiz decide (a lei do btrfs)" "$AIROOTFS/usr/lo
 file_has "snapshot: o config do root nasce guardado (idempotente)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" '/etc/snapper/configs/root'
 file_has "snapshot: grub-btrfsd ligado SÓ no btrfs" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'grub-btrfsd.service'
 file_has "snapshot: snapper-cleanup.timer vigiado no btrfs" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'snapper-cleanup.timer'
+
+
+# ══ 1.0-107 — CONSOLIDAÇÃO, ESTABILIDADE E POLIMENTO (a dose nova) ══
+# §2 — O BOOT DA SESSÃO: o ambiente Wayland no dbus/userd ANTES de tudo
+file_has "boot: o dbus-update-activation-environment nasce ANTES da casa (o cold boot vazio morre)" "$AIROOTFS/etc/skel/.config/labwc/autostart" 'dbus-update-activation-environment --systemd'
+file_has "boot: o XDG_CURRENT_DESKTOP=wlroots no ambiente exportado" "$AIROOTFS/etc/skel/.config/labwc/autostart" 'XDG_CURRENT_DESKTOP=wlroots'
+# §2 — O AGENTE POLKIT DA MÁQUINA (o lxqt primeiro, o polkit-gnome de queda)
+file_has "polkit: a vaga sabe a máquina (o lxqt-policykit-agent é o agente da casa)" "crates/elite-daemon/src/supervise.rs" '/usr/bin/lxqt-policykit-agent'
+file_has "polkit: o polkit-gnome clássico é a queda honesta" "crates/elite-daemon/src/supervise.rs" '/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1'
+# §2 — O DONO ÚNICO DO SWAYNC (a volta da central sem o crash-loop)
+file_has "swaync: a vaga supervisionada sobe com -c E -s (o CSS EXISTENTE)" "crates/elite-daemon/src/supervise.rs" 'swaync -c {conf} -s {css}'
+file_has "swaync: o gate é o nome org.freedesktop.Notifications no bus (a casa não soma centros)" "crates/elite-daemon/src/supervise.rs" 'org.freedesktop.Notifications'
+file_has "swaync: o unit do systemd --user MASCARADO na dose (o start-limit-hit morre)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'systemctl --global mask swaync.service'
+file_exists "swaync: a mask /etc/systemd/user/swaync.service → /dev/null na árvore (o pacote carrega)" "$AIROOTFS/etc/systemd/user/swaync.service"
+file_has "swaync: o craft-rice entrega a pele na AUSÊNCIA (o presente é do dono)" "$AIROOTFS/usr/local/bin/craft-rice" 'swaync_skin'
+file_has "swaync: o sync_skel entrega a central ao rig vivo" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'gtk-3.0 gtk-4.0 fuzzel nwg-drawer swayosd swaync'
+file_line_exact "packages.add: swaync volta com dono único (a central da casa)" "$PKG" 'swaync'
+# §3 — SDDM: estabilidade técnica (o visual nativo segue)
+file_has "sddm: InputMethod vazio (o stub qtvirtualkeyboard morre)" "$AIROOTFS/etc/sddm.conf.d/elite.conf" 'InputMethod='
+file_has "sddm: ReuseSession=false (o logout/login nasce sessão limpa)" "$AIROOTFS/etc/sddm.conf.d/elite.conf" 'ReuseSession=false'
+# §4 — O SELETOR NÃO-BLOQUEANTE
+file_has "pick: o NON_UNIQUE destrava o 2º menu (a instância única matava o pedido novo)" "crates/craft-tools/src/bin/craft-pick.rs" 'NON_UNIQUE'
+file_has "pick: o notify::is-active desce o seletor quando o palco é de outro (1.0-107 — zero zumbi)" "crates/craft-tools/src/bin/craft-pick.rs" 'is-active'
+# §5 — OS WAKEUPS ESPÚRIOS POR PADRÃO (a família inteira, a mão do dono no allowlist)
+file_has "acpi: a família espúria por PADRÃO (XHC*/PTXH/GPP* — o dongle 2.4G não é mão)" "$AIROOTFS/usr/local/bin/elite-acpi-wakeup" 'XHC*|PTXH|GPP*|GP[0-9]*|X1[0-9]*|X1_[0-9]*'
+file_has "acpi: o allowlist da mão do dono (PWRB/PS2K/LID acordam)" "$AIROOTFS/usr/local/bin/elite-acpi-wakeup" 'MANTEM="PWRB PS2K LID"'
+file_hasnt "wake: o gate do teclado de era MORREU (o dongle fingidor o vencia)" "$AIROOTFS/usr/local/bin/craft-wake-guard" 'ctrl_tem_teclado'
+file_hasnt "wake: a exceção de teclado USB morre com o fingidor (todo USB dorme)" "$AIROOTFS/usr/local/bin/craft-wake-guard" 'HID 01 na própria árvore'
+file_has "wake: TODO o USB dorme na política nova (o despertar é do power/PS2K)" "$AIROOTFS/usr/local/bin/craft-wake-guard" 'despertar = power/PS2K'
+# §5 — A SEQUÊNCIA SEGURA DO SONO (hyprlock mapeado ANTES do wlopm --off)
+file_has "sono: a espera da superfície do lock ANTES do apagar (a ordem da diretriz)" "crates/elite-daemon/src/idle.rs" 'fn lock_mapeado'
+file_has "sono: o backoff do link DP/HDMI entre o wlopm --on e o recover (o amdgpu assenta)" "crates/elite-daemon/src/main.rs" 'from_millis(800)'
+file_has "sono: o hyprlock renasce se morreu no sono (a tela nunca acorda nua)" "crates/elite-daemon/src/main.rs" 'não sobreviveu ao sono'
+# §6 — O MODO DE JOGO MANUAL (o automático morreu inteiro)
+file_hasnt "game: o watch morreu com o automático (a varredura contínua é dívida)" "$AIROOTFS/usr/local/bin/craft-game" 'gm_watch'
+file_hasnt "game: o AUTO=1 morreu (o conf de era não é lido)" "$AIROOTFS/usr/local/bin/craft-game" 'AUTO='
+file_hasnt "game: o filtro WINE_HELPER_PATS morreu (a heurística de /proc é de era)" "$AIROOTFS/usr/local/bin/craft-game" 'WINE_HELPER_PATS'
+file_hasnt "game: o gm_whois morreu (a perícia de /proc do hook de era)" "$AIROOTFS/usr/local/bin/craft-game" 'gm_whois'
+file_has "game: o inibidor prende idle:sleep (bloqueio E suspensão na jogatina)" "$AIROOTFS/usr/local/bin/craft-game" '--what=idle:sleep'
+file_has "game: o item do menu diz o estado (Ativar/Desativar conforme o momento)" "$AIROOTFS/usr/local/bin/craft-game" 'Desativar modo de jogo'
+file_has "daemon: a vaga do jogo morreu com o watcher (o daemon livre de /proc)" "crates/elite-daemon/src/supervise.rs" 'a vaga do JOGO morreram com o modo'
+file_hasnt "daemon: a varredura round() de /proc morreu (o scan é só o cliente GameMode)" "crates/elite-daemon/src/scan.rs" 'pub fn round'
+file_has "game.ini: os hooks [custom] morreram com o watcher (o manual notifica na hora)" "$AIROOTFS/etc/gamemode.ini" 'HOOKS [custom] MORRERAM'
+file_hasnt "game.ini: o hook start de era não aponta mais pro craft-game" "$AIROOTFS/etc/gamemode.ini" 'craft-game hook'
+# §7 — A VIGÍLIA COORDENADA (o idle.conf unificado)
+file_has "idle: o Desativado zera OS DOIS (o sistema nunca dorme sozinho)" "$AIROOTFS/usr/local/bin/craft-idle" 'escreve 0  ;;
+'
+file_has "idle: o preset veste o sono associado (o dono VÊ o que escolheu)" "$AIROOTFS/usr/local/bin/craft-idle" 'dorme aos 20 min'
+file_has "idle: o Suspender agora nasce no menu (o gesto imediato)" "$AIROOTFS/usr/local/bin/craft-idle" 'Suspender agora'
+file_has "idle: o título veste o estado (trava E sono na mesma frase)" "$AIROOTFS/usr/local/bin/craft-idle" 'rotulo_estado'
+file_has "daemon: a vigília honra o what COMPOSTO idle:sleep (split nos lados)" "crates/elite-daemon/src/idle.rs" "what.split(':')"
+# §8 — O FEEDBACK HONESTO (cancelamento é silêncio, resumo é real)
+file_has "tools: o cancelamento da senha é silêncio (rc 126/127 sem alarme falso)" "crates/craft-tools/src/bin/craft-update.rs" 'rc == 126 || rc == 127'
+file_has "tools: o cancelamento da limpeza é silêncio idem" "crates/craft-tools/src/bin/craft-clean.rs" 'rc == 126 || rc == 127'
+file_has "dose: o censo checkupdates veste o resumo REAL (N pacotes)" "$AIROOTFS/usr/local/bin/elite-dose" 'checkupdates'
+file_has "dose: a conclusão notifica com o N e o conselho de reboot SÓ no kernel novo" "$AIROOTFS/usr/local/bin/elite-dose" 'Elite: atualização concluída'
+file_has "clean: o resumo real notificado à sessão (o total liberado em MiB/GB)" "$AIROOTFS/usr/local/bin/elite-clean" 'Total liberado'
+# §9 — O RELÓGIO SEM TOOLTIP (o calendário é do clique)
+file_has "bar: o tooltip do relógio morre (o calendário é EXCLUSIVO do clique)" "crates/craft-bar-rs/src/ui.rs" 'set_has_tooltip(false)'
+# §9 — a rede reavaliada no retorno do sono (sem travar o módulo)
+file_has "rede: o connectivity check no retorno do sono (fork pontual por evento)" "crates/elite-daemon/src/main.rs" '"networking", "connectivity", "check"'
 
 printf '%s\n' "$OK_COUNT $FAIL_COUNT $SKIP_COUNT" > "$WORK/fase20.txt"
 exit 0
