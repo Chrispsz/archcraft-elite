@@ -46,7 +46,14 @@ permissions:
 jobs:
   puzzle:
     runs-on: ubuntu-24.04
-    container: archlinux:base-devel
+    # 1.0-108 — O REGIME DO COMPOSITOR (a lição do Canal provada na run
+    # 45586913853: sem privilégio o exec do labwc headless morre 'Operation
+    # not permitted' e o smoke faz o pulo honesto — a fase 57 da porteira
+    # sobe a sessão NO labwc de verdade, o juízo precisa do MESMO regime
+    # do build da ISO)
+    container:
+      image: archlinux:base-devel
+      options: --privileged
     steps:
       - name: Preparar container (mesa, ferramentas)
         run: |
