@@ -261,7 +261,11 @@ registrada no mesmo commit.
 > SIGCHLD + vigia inotify), o teto do `bars.log` (256 KiB), o allowlist
 > ACPI UNIVERSAL (`PWRB`/`SLPB`/`PBTN`/`PS2K`/`LID` armados no boot), o
 > **craft-doctor** (o diagnóstico em 1 comando, <50ms — o elo é symlink
-> do `elite-daemon`, o argv0 decide a porta) e o cache máximo do Cargo
+> do `elite-daemon`, o argv0 decide a porta; a caça dele nomeou e curou O
+> GUARDA DO BUS: o `liga_bus` de era corria ANTES do flock da sessão e a
+> 2ª instância matava o socket do dono PELO PATH — agora o `guarda_bus`
+> julga o lock antes do bind, autoridade no flock do `supervisa`) e o
+> cache máximo do Cargo
 > na esteira (registry/git junto do target, `CARGO_HOME` do container
 > no repo montado; a promessa E103.1 do gatilho `branches: [main]`
 > vestida de verdade).
