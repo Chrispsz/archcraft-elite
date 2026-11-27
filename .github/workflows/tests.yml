@@ -58,7 +58,13 @@ jobs:
           # (900 peças em cascata, o réu invisível até o stderr viajar
           # inteiro). Arch é rolling INTEIRO: -Syu ou nada.
           # 1.0-103 — o python-yaml/python-pillow saem (a suíte julga pelo craft-audit de casa); o rust entra: a porteira PRÉ-BUILDA o juiz no arranque
-          pacman -Syu --noconfirm --needed git rsync shellcheck rust shfmt bun
+          # 1.0-108 — O TOOLCHAIN DO SMOKE REAL (a fase 57 da porteira
+          # compila o workspace RELEASE e sobe a sessão no labwc
+          # headless: gtk4 + gtk4-layer-shell = as libs dos bins da casa,
+          # labwc = o compositor juiz, os temas = os ícones que a barra
+          # pede — o mesmo vestuário do ci-runtime-smoke do Canal)
+          pacman -Syu --noconfirm --needed git rsync shellcheck rust shfmt bun \
+              gtk4 gtk4-layer-shell labwc adwaita-icon-theme hicolor-icon-theme
       - uses: actions/checkout@v5
       # v2.10.26/E39 — GIT VIVO NO PASSO DA SUÍTE: o set-safe-directory do
       # checkout é config GLOBAL TEMPORÁRIA (env GIT_CONFIG_GLOBAL do passo

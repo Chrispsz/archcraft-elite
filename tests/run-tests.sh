@@ -64,7 +64,10 @@ fi
 [ -n "$ELITE_JUDGE" ] || printf '  juiz de casa: AUSENTE (cargo fora do ambiente — as peças de juízo pulam HONESTO)\n'
 
 BROKEN=0
-for name in 10-estrutura 20-estatica 30-cargo 35-ajuda 40-compositor 50-runtime-ipc 55-hardware 60-veredito; do
+# 1.0-108 — a fase 57 (smoke headless dos binários compilados) roda DEPOIS
+# do hardware: o juízo executivo do rig (o CPU <5% do idle e os menus do
+# pick) é o ÚLTIMO degrau antes do veredito
+for name in 10-estrutura 20-estatica 30-cargo 35-ajuda 40-compositor 50-runtime-ipc 55-hardware 57-smoke-headless 60-veredito; do
     if (( BROKEN )); then
         printf '  ▓▓ FASE %s — BLOQUEADA (a peça anterior quebrou a cadeia)\n' "$name"
         continue
