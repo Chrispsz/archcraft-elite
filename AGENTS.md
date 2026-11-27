@@ -247,6 +247,43 @@ registrada no mesmo commit.
   quando os níveis reais cobrem os contratos essenciais — o gate (L2)
   NUNCA fica sem porteira.
 
+---
+
+## §8 · Dose 1.0-106 — o registro vivo (a matriz de hardware e o sono)
+
+- **A matriz de hardware é contrato vivo:** `tests/hardware/run.sh` +
+  a fase 55 da porteira (`tests/phases/55-hardware.sh`) simulam os 6
+  perfis reais (2 de entrada, 2 intermediários, 2 high-end — um deles é
+  o rig do dono) num sandbox de root falso (`unshare -rm` + bind mounts
+  + stubs no PATH; seams da casa `ELITE_ACPI_WAKEUP`/`ELITE_RANDR`) e
+  validam BYTE A BYTE, dose 2× idempotente, o que cada hardware recebe:
+  `mem_sleep_default=deep` só quando o `/sys/power/mem_sleep` lista,
+  snapper/grub-btrfsd só no btrfs (ext4 colhe), `elite-sensors.conf`
+  só com o chip que PROVOU hwmon, `coolercontrol` com
+  `liquidctl_integration = false` sem o pacote, e o recover de displays
+  por saída com o modo persistido. O mapa canônico:
+  `docs/ARCHITECTURE.md`.
+- **O sono S3:** `mem_sleep_default=deep` (hardware-aware, 1×) +
+  `elite-acpi-wakeup` (desarma os gatilhos espúrios
+  GPP0/GPP8/XHC0/XHC1/XHCI/PTXH em `/proc/acpi/wakeup` — idempotente;
+  a mão do dono é a política do `craft-wake-guard`) + `craft-display
+  recover` em 4 gatilhos (daemon, `craft-lock`, hook de sistema,
+  `craft-vigil`) com guard de 10s = um dono por veredito.
+- **O `swaync` morreu por ordem do dono** (dispensou central de
+  notificações e DND): fora do `packages.add`, fora do skel, fora do
+  build — o relógio é hora/calendário. **NUNCA volta à árvore**
+  (âncoras de ausência na porteira guardam o túmulo).
+- **O seletor de rede e o `craft-pick`:** o esquerdo do módulo de rede
+  abre o seletor nativo GTK4 (toggles Wi-Fi/Ethernet + redes ao alcance
+  + conexão em 1 clique pelo `nmcli`), o meio abre o
+  `nm-connection-editor`, o direito liga/desliga a conexão ativa; menus
+  de escolha da casa são `craft-pick` (a gramática dmenu em GTK4 na
+  folha mestra).
+- **O tema SDDM `elite` é 100% pt_BR** (`/usr/share/sddm/themes/elite`,
+  QML puro, zero binário no repo), fixado por
+  `/etc/sddm.conf.d/elite.conf` (`Current=elite` +
+  `CursorTheme=Bibata`).
+
 *Casa archcraft-elite · Constituição ratificada pelo dono em 2026-11-20 ·
 Fonte da verdade dos dados: `docs/gestao/PROTOCOL.md` (protocolo das 4
 tarefas) · Memória que sobrevive ao reset: os diários de `docs/gestao/` ·

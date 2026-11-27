@@ -64,7 +64,7 @@ fi
 [ -n "$ELITE_JUDGE" ] || printf '  juiz de casa: AUSENTE (cargo fora do ambiente — as peças de juízo pulam HONESTO)\n'
 
 BROKEN=0
-for name in 10-estrutura 20-estatica 30-cargo 35-ajuda 40-compositor 50-runtime-ipc 60-veredito; do
+for name in 10-estrutura 20-estatica 30-cargo 35-ajuda 40-compositor 50-runtime-ipc 55-hardware 60-veredito; do
     if (( BROKEN )); then
         printf '  ▓▓ FASE %s — BLOQUEADA (a peça anterior quebrou a cadeia)\n' "$name"
         continue
