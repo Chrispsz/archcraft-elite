@@ -295,21 +295,37 @@ pub fn limpa_locks_orfos_em(dir: &std::path::Path) -> usize {
 /// a lista viva: o conf da casa quando existe e tem residentes; senão o
 /// DEFAULT (o mesmo critério de "presente" do craft-bars — o arquivo
 /// lido é a fonte única).
+/// 1.0-108 — O ESTILO DO OSD NO COMANDO (a diretriz do hardware: o
+/// `swayosd-server` de era nascia NU e o papel do rig carregava o
+/// `COULD NOT FIND CSS FILE!` em TODO boot — o OSD vestia o tema
+/// CLARO de fábrica no meio do rice escuro). O `--style` APONTA no
+/// arquivo do `$HOME` (o skel e o sync_skel da dose entregam o
+/// style.css; ausente no disco o comando segue NU — honesto).
 fn fila_residentes() -> Vec<Residente> {
-    if let Ok(texto) = std::fs::read_to_string(CONF_PATH) {
-        let r = parse_conf(&texto);
-        if !r.is_empty() {
-            return r;
+    let do_default = || {
+        RESIDENTES_DEFAULT
+            .iter()
+            .map(|(n, c, b)| Residente {
+                nome: (*n).to_string(),
+                comando: (*c).to_string(),
+                bus: (*b).map(str::to_string),
+            })
+            .collect::<Vec<Residente>>()
+    };
+    let mut fila = match std::fs::read_to_string(CONF_PATH) {
+        Ok(texto) if !parse_conf(&texto).is_empty() => parse_conf(&texto),
+        _ => do_default(),
+    };
+    let home = std::env::var("HOME").unwrap_or_default();
+    let css = format!("{home}/.config/swayosd/style.css");
+    if !home.is_empty() && PathBuf::from(&css).exists() {
+        for r in &mut fila {
+            if r.nome == "swayosd" && r.comando == "swayosd-server" {
+                r.comando = format!("swayosd-server --style {css}");
+            }
         }
     }
-    RESIDENTES_DEFAULT
-        .iter()
-        .map(|(n, c, b)| Residente {
-            nome: (*n).to_string(),
-            comando: (*c).to_string(),
-            bus: (*b).map(str::to_string),
-        })
-        .collect()
+    fila
 }
 
 /// o papel da casa: $XDG_CACHE_HOME/elite/bars.log (ou ~/.cache/...) —
@@ -464,6 +480,20 @@ struct Vaga {
     nasceu: bool,
     /// binário ausente no sistema: sem respawn eterno de fantasma.
     ausente: bool,
+    /// 1.0-108 — A VAGA ADOTADA (o réu do spin de 95,6% de CPU em idle):
+    /// o filho nosso MORREU e o gate diz que ALGUÉM DE FORA serve a vaga
+    /// (nome no bus com dono, comm vivo, trava de irmão) — a vaga de era
+    /// ficava em estado LIMBO (filho None, nasceu true, desde velho) e o
+    /// `teto_respawn` devolvia 0 (backoff vencido) PARA SEMPRE: o
+    /// `espera_evento(0)` é `poll(2)` com timeout ZERO — retorno
+    /// imediato, o loop re-julgava os gates, dormia 0ms e recomeçava: o
+    /// spin de um núcleo inteiro em IDLE (cada giro ainda pagava a
+    /// varredura de /proc do comm_vivo e o RPC do bus — o prejuizo
+    /// dobrava). A vaga ADOTADA agora é estado DECLARADO: o teto a
+    /// ignora e o keepalive de 15s da adoção é quem re-acorda o
+    /// julgamento (o desenho de SEMPRE documentava isso — o bug era o
+    /// limbo que o teto não sabia ver).
+    adotada: bool,
     /// E138 — processo de fora com este comm = vaga ADOTADA (o gate do
     /// udiskie duplicado: autostart fóssil lança, a sessão NUNCA soma o
     /// segundo — UDISKIE_COUNT=1 é lei).
@@ -702,38 +732,31 @@ pub fn run_session() -> Result<(), String> {
         })
         .collect();
     specs.extend(fila_residentes().into_iter().map(VagaSpec::from));
-    // 1.0-107 — O AGENTE POLKIT DA MÁQUINA (a ordem do dono: a chamada
-    // cega de UM agente virava ausência em quem não o tinha — o pkexec
-    // do craft-update/elite-update ficava SEM diálogo e a senha nunca
-    // chegava). A vaga agora SABE a máquina: o lxqt-policykit-agent é
-    // o agente da casa; quando ELE falta, o polkit-gnome clássico
-    // (/usr/lib/polkit-gnome/...) veste; SEM nenhum dos dois a vaga
-    // nem nasce (honesto: sem agente instalado não há elevação
-    // gráfica — o `pkexec` recusa no terminal com a verdade dele).
+    // 1.0-108 — O AGENTE POLKIT SAI DA FILA (a diretriz do arranque limpo:
+    // o lxqt-policykit-agent nasce no AUTOSTART do labwc com guard pgrep —
+    // o frame 0 da sessão, SEM depender do supervisor; a vaga de era
+    // DUPLICARIA o agente (sem gate de bus/comm para o lxqt, o daemon
+    // somaria o segundo — o guard de sempre da gramática E151 veste
+    // O AUTOSTART agora). O que a sessão garante aqui é a MORDAÇA do
+    // /etc/xdg/autostart (o supressor por usuário — UM agente só na
+    // máquina) e a voz no papel quando o agente do arranque não existe.
     {
-        let agente = if PathBuf::from("/usr/bin/lxqt-policykit-agent").exists() {
-            Some("lxqt-policykit-agent")
-        } else if PathBuf::from(
-            "/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1",
-        )
-        .exists()
-        {
-            Some("/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1")
-        } else {
-            None
-        };
-        if let Some(cmd) = agente {
-            specs.push(VagaSpec {
-                res: Residente {
-                    nome: "policykit".to_string(),
-                    comando: cmd.to_string(),
-                    bus: None,
-                },
-                comm: None,
+        let conf_base = std::env::var("XDG_CONFIG_HOME")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| {
+                PathBuf::from(std::env::var("HOME").unwrap_or_default()).join(".config")
             });
-        } else {
+        if !PathBuf::from("/usr/bin/lxqt-policykit-agent").exists()
+            && !PathBuf::from("/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1")
+                .exists()
+        {
             eprintln!(
-                "elite-daemon session: NENHUM agente polkit instalado — a vaga não nasce (o pkexec pede no terminal; a dose traz o lxqt-policykit)"
+                "elite-daemon session: NENHUM agente polkit instalado — o pkexec pede no terminal (a dose traz o lxqt-policykit)"
+            );
+        }
+        if entrega_mordaca_polkit(&conf_base) {
+            eprintln!(
+                "elite-daemon session: agente polkit ÚNICO (o autostart duplicado do lxqt-policykit amordaçado por usuário — E151/1.0-108)"
             );
         }
     }
@@ -1004,6 +1027,7 @@ fn supervisa(
             desde: Instant::now(),
             nasceu: false,
             ausente: false,
+            adotada: false,
             comm: spec.comm,
         })
         .collect();
@@ -1067,6 +1091,11 @@ fn supervisa(
             // 2) E135 — O GATE DE POSSE antes de QUALQUER fork:
             //    (a) o nome no bus com dono = instância de fora VIVA →
             //        adota (o respawn cego que gerou o loop 809 morre);
+            //        1.0-108 — a adoção é ESTADO da vaga (adotada=true):
+            //        sem o estado, a vaga morta-adotada vivia em LIMBO
+            //        (nasceu, sem filho, backoff vencido) e o teto do
+            //        respawn devolvia 0 PARA SEMPRE — o spin de 95,6%
+            //        de CPU em idle (poll com timeout ZERO em laço)
             let bus_dono = v
                 .res
                 .bus
@@ -1074,6 +1103,7 @@ fn supervisa(
                 .map(|b| nome_tem_dono(&bus_conn, b))
                 .unwrap_or(false);
             if bus_dono {
+                v.adotada = true;
                 continue; // adotada: nem log por ciclo (o papel não vira spam)
             }
             //    (a') E138 — o gate por COMM: um processo de FORA vivo
@@ -1086,12 +1116,14 @@ fn supervisa(
                 .map(comm_vivo)
                 .unwrap_or(false)
             {
+                v.adotada = true;
                 continue; // adotada de fora — o <defunct> não conta, o uid conta
             }
             //    (b) a trava em posse de irmão = o outro daemon da casa
             //        já criou o filho → adota silencioso (idem).
             let trava = tenta_trava(&v.res.nome).ok();
             if trava.is_none() {
+                v.adotada = true;
                 continue;
             }
             //    (c) a vaga é NOSSA: a 1ª subida é IMEDIATA; da morte em
@@ -1101,27 +1133,6 @@ fn supervisa(
                 // durante o backoff — nenhum irmão entra no meio)
                 v.trava = trava;
                 continue;
-            }
-            //    (c') E151 — A MORDAÇA DO AUTOSTART DO AGENTE (a diretriz
-            //        do polkit ÚNICO): o lxqt-policykit traz o
-            //        /etc/xdg/autostart/lxqt-policykit-agent.desktop —
-            //        a sessão nascia com DOIS agentes (o do XDG autostart
-            //        + o supervisionado, ~37 MB de Qt6 duplicado). O
-            //        supressor POR USUÁRIO (~/.config/autostart com o
-            //        MESMO basename e Hidden=true — a gramática XDG) mata
-            //        o duplo SEM tocar o arquivo do pacote (zero conflito
-            //        pacman); o AGENTE da casa é o da vaga supervisionada.
-            if v.res.nome == "policykit" {
-                let conf_base = std::env::var("XDG_CONFIG_HOME")
-                    .map(PathBuf::from)
-                    .unwrap_or_else(|_| {
-                        PathBuf::from(std::env::var("HOME").unwrap_or_default()).join(".config")
-                    });
-                if entrega_mordaca_polkit(&conf_base) {
-                    eprintln!(
-                        "elite-daemon supervise: agente polkit ÚNICO (o autostart duplicado do lxqt-policykit amordaçado por usuário — E151)"
-                    );
-                }
             }
             match lanca(&v.res.comando, &log) {
                 Ok(filho) => {
@@ -1133,6 +1144,7 @@ fn supervisa(
                     v.filho = Some(filho);
                     v.trava = trava;
                     v.nasceu = true;
+                    v.adotada = false; // filho NOSSO no ar: a adoção acabou
                 }
                 Err(e) if e.kind() == io::ErrorKind::NotFound => {
                     // ausência intencional da casa: o pacote não trouxe o
@@ -1209,11 +1221,19 @@ const KEEPALIVE_MS: i32 = 15_000;
 /// RESTANTE entre as vagas mortas (filho None, já nasceu ao menos uma
 /// vez, não ausente) — o instante em que uma vaga pode renascer. -1 =
 /// sem vaga esperando: dorme até o KERNEL falar (zero wake-up).
+/// 1.0-108 — A ADOTADA NÃO É MORTA (a cura do spin de 95,6% de CPU em
+/// idle): a vaga cujo gate diz "alguém de fora serve" vivia em LIMBO
+/// (nasceu, sem filho, backoff vencido) e o teto devolvia 0 PARA SEMPRE
+/// — `espera_evento(0)` é poll com timeout ZERO: retorno imediato, o
+/// loop re-julgava os gates, dormia 0ms e recomeçava (um núcleo inteiro
+/// em idle, cada giro pagando a varredura /proc do comm_vivo e o RPC
+/// do bus). A adotada agora é INVISÍVEL ao teto — o keepalive de 15s é
+/// quem re-acorda o julgamento dela (o desenho de sempre, SEM o limbo).
 fn teto_respawn(vagas: &[Vaga]) -> i32 {
     let mut teto: i32 = -1;
     for v in vagas {
-        if v.filho.is_some() || v.ausente || !v.nasceu {
-            continue; // viva, ausente ou nunca-nascida: nada à espera
+        if v.filho.is_some() || v.ausente || !v.nasceu || v.adotada {
+            continue; // viva, ausente, nunca-nascida ou ADOTADA: nada à espera
         }
         let resta = BACKOFF
             .saturating_sub(v.desde.elapsed())
@@ -1521,8 +1541,40 @@ mod tests {
             desde,
             nasceu,
             ausente,
+            adotada: false,
             comm: None,
         }
+    }
+
+    #[test]
+    fn e108_a_vaga_adotada_nao_e_morta_o_teto_nao_spinna() {
+        // 1.0-108 — O LIMBO DE ERA (o réu do spin de 95,6% de CPU em
+        // idle): a vaga que NASCEU nossa, MORREU e foi ADOTADA por um
+        // processo de fora (nome no bus/comm vivo/trava de irmão) vivia
+        // em estado (nasceu=true, filho=None, desde=VELHO) — o teto de
+        // era via "backoff vencido" e devolvia 0 PARA SEMPRE: o poll com
+        // timeout ZERO retornava imediato e o loop girava sem dormir.
+        // O estado `adotada` agora é INVISÍVEL ao teto: o keepalive de
+        // 15s é quem a re-acorda (o desenho documentado de sempre)
+        let adotada = Vaga {
+            adotada: true,
+            ..vaga_teste(true, Instant::now() - Duration::from_secs(600), false)
+        };
+        assert_eq!(
+            teto_respawn(&[adotada]),
+            -1,
+            "adotada é LIMBO, não morte: o teto a ignora (senão poll(0) em laço = spin)"
+        );
+        // a MORTA de verdade (sem adoção) segue com o backoff contando
+        let morta = vaga_teste(true, Instant::now() - Duration::from_secs(3), false);
+        assert_eq!(teto_respawn(&[morta]), 0, "a morta sem dono renasce já");
+        // a adotada NÃO contamina as irmãs: a morta urgente ainda vence
+        let adotada = Vaga {
+            adotada: true,
+            ..vaga_teste(true, Instant::now() - Duration::from_secs(600), false)
+        };
+        let morta = vaga_teste(true, Instant::now() - Duration::from_secs(3), false);
+        assert_eq!(teto_respawn(&[adotada, morta]), 0, "a irmã morta segue no relogio dela");
     }
 
     #[test]

@@ -11,5 +11,8 @@ license = "GPL-3.0"
 # do craft-dump e estável entre versões — novos campos são opcionais).
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# 1.0-108 — o poll(2) do atendente do bus (a leitura de quadros é EVENTO
+# do kernel — o timeout de leitura de era fatiava quadros; ver bus.rs)
+libc = "0.2"
 
 [dev-dependencies]

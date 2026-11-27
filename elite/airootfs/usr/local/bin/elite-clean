@@ -41,7 +41,7 @@
 #     · --as-root USUÁRIO HOME (E134): a porta do pkexec DIRETO — o
 #       alvo raiz do pkexec nasce com ambiente limpo, então o menu
 #       entrega o dono como ARGUMENTO (nada de `pkexec env HOME=…`,
-#       cujo lookup é /usr/bin/env e fica FORA da regra 50-elite-wheel
+#       cujo lookup é /usr/bin/env e fica FORA da regra 49-elite
 #       — o réu dos transient polkit-agent-helper FAILED do dump
 #       1.0-80). Válido só como root: valida o usuário no passwd, o
 #       home existe, e o $HOME da corrida inteira vira o DELE (a
@@ -92,10 +92,23 @@ unset _asroot _args _ar_user _ar_home _ar_uid
 
 # E109 — O PAPEL DA LIMPEZA (teto 256 KiB — a lei da família E36).
 CLEAN_LOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/clean.log"
+# 1.0-108 — A HERANÇA DO DONO (o relato do rig 1.0-107.3: o elite-clean
+# de raiz recriava os papéis podados em ~/.cache/elite com dono
+# root:root — o boot seguinte nascia com Permission denied no papel da
+# casa): TODO arquivo que nasce no $HOME do dono durante a limpeza
+# herda o uid:gid do ORIGINAL (chown --reference — nunca root:root).
+herda_dono() { # $1 = referência (o arquivo/diretório do dono)  $2 = o novo
+    [ "$(id -u)" = 0 ] || return 0
+    [ -e "$1" ] && [ -e "$2" ] || return 0
+    chown --reference="$1" "$2" 2>/dev/null || true
+}
 clog() {
     mkdir -p "${CLEAN_LOG%/*}" 2>/dev/null || true
     if [ -f "$CLEAN_LOG" ] && [ "$(wc -c <"$CLEAN_LOG" 2>/dev/null || echo 0)" -gt 262144 ]; then
-        tail -c 131072 "$CLEAN_LOG" > "$CLEAN_LOG.tmp" 2>/dev/null && mv -f "$CLEAN_LOG.tmp" "$CLEAN_LOG" || true
+        if tail -c 131072 "$CLEAN_LOG" > "$CLEAN_LOG.tmp" 2>/dev/null; then
+            herda_dono "$CLEAN_LOG" "$CLEAN_LOG.tmp"
+            mv -f "$CLEAN_LOG.tmp" "$CLEAN_LOG" || true
+        fi
     fi
     printf '[%s] %s\n' "$(date '+%F %T')" "$*" >>"$CLEAN_LOG" 2>/dev/null || true
     return 0
@@ -124,6 +137,11 @@ clog "porta: ppid=$_ppid pai: ${_pai:-?}"
 _sem_fim=1
 trap 'if [ "${_sem_fim:-0}" = 1 ]; then clog "MORTE no meio (rc=$? — set -e, kill ou janela fechada): o último passo antes da morte é o último passo logado acima"; fi' EXIT
 if exec 9>>"${CLEAN_LOG%/*}/clean.lock" 2>/dev/null && command -v flock >/dev/null 2>&1; then
+  if [ "$(id -u)" = 0 ] && [ -d "${CLEAN_LOG%/*}" ]; then
+    # o lock recém-nascido (a 1ª corrida de raiz) herda o dono do dir do
+    # dono — o boot do usuário nunca tropeça no lock de root (1.0-108)
+    chown --reference="${CLEAN_LOG%/*}" "${CLEAN_LOG%/*}/clean.lock" 2>/dev/null || true
+  fi
   if ! flock -n 9; then
     _sem_fim=0
     clog "saiu: já há uma limpeza a correr — este clique não empilha (a corrida viva é a dona do papel)"
@@ -361,8 +379,13 @@ _podados=0
 for _l in "${XDG_CACHE_HOME:-$HOME/.cache}/elite/"*.log; do
   [ -f "$_l" ] || continue
   if [ "$(wc -c <"$_l" 2>/dev/null || echo 0)" -gt 262144 ]; then
-    if tail -c 131072 "$_l" > "$_l.poda" 2>/dev/null && mv -f "$_l.poda" "$_l" 2>/dev/null; then
-      _podados=$((_podados + 1))
+    if tail -c 131072 "$_l" > "$_l.poda" 2>/dev/null; then
+      # o papel podado herda o dono do original — o modo --as-root de
+      # raiz JAMAIS deixa root:root no ~/.cache/elite do dono (1.0-108)
+      herda_dono "$_l" "$_l.poda"
+      if mv -f "$_l.poda" "$_l" 2>/dev/null; then
+        _podados=$((_podados + 1))
+      fi
     else
       rm -f "$_l.poda" 2>/dev/null || true
     fi

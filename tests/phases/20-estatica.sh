@@ -48,17 +48,31 @@ file_hasnt "rc.xml: o mousepad legado não volta" "$AIROOTFS/etc/skel/.config/la
 file_has "autostart: o orquestrador ÚNICO é o elite-daemon session" "$AIROOTFS/etc/skel/.config/labwc/autostart" 'elite-daemon session'
 file_hasnt "autostart: o craft-bars não volta (a cola sh morreu)" "$AIROOTFS/etc/skel/.config/labwc/autostart" 'craft-bars &'
 file_hasnt "autostart: nenhuma spawn direta de waybar" "$AIROOTFS/etc/skel/.config/labwc/autostart" 'waybar &'
-# 1.0-102 — O AUTOSTART MINIMALISTA (audit 102 §2): nenhum residente
-# nasce no autostart (linha VIVA, fora de comentário) — quem lança é o
-# elite-daemon session; o corpo congelado de dose antiga é fóssil que o
-# elite-heal-sessao reconstrói do mestre
+# 1.0-108 — O ARRANQUE LIMPO (a diretriz do dono palavra por palavra):
+# o autostart é o berço do FRAME 0 — o AMBIENTE no D-Bus (labwc:wlroots),
+# os ALICERCES que não dependem do supervisor (swaybg, agente polkit com
+# guard pgrep, udiskie --automount --notify --no-tray, fix-keys,
+# cliphist) e UM SÓ orquestrador (elite-daemon session no bloco
+# BEGIN/END). O daemon doente de 1.0-107.3 levava o berço junto — agora
+# o frame 0 nasce de pé por conta própria.
+file_has "autostart: o AMBIENTE no D-Bus antes de tudo (labwc:wlroots da diretriz)" "$AIROOTFS/etc/skel/.config/labwc/autostart" 'XDG_CURRENT_DESKTOP=labwc:wlroots'
+file_has "autostart: o swaybg é alicerce de frame 0 (não depende do motor)" "$AIROOTFS/etc/skel/.config/labwc/autostart" 'swaybg -m fill'
+file_has "autostart: o agente polkit nasce com guard pgrep (UM só na sessão)" "$AIROOTFS/etc/skel/.config/labwc/autostart" 'pgrep -x lxqt-policykit-agent'
+file_has "autostart: o automount é o udiskie da diretriz (--notify --no-tray)" "$AIROOTFS/etc/skel/.config/labwc/autostart" 'udiskie --automount --notify --no-tray'
+file_has "autostart: o keyring de sempre (craft-fix-keys)" "$AIROOTFS/etc/skel/.config/labwc/autostart" 'craft-fix-keys'
+file_has "autostart: o clipboard de sempre (cliphist)" "$AIROOTFS/etc/skel/.config/labwc/autostart" 'cliphist store'
+file_has "autostart: o bloco gerenciado do orquestrador (E146)" "$AIROOTFS/etc/skel/.config/labwc/autostart" 'BEGIN ELITE-DAEMON-SESSION'
+# PROIBIDO no autostart (linha VIVA): o swaync é do SUPERVISOR (a lei
+# 1.0-107 — o elite-daemon session é o ÚNICO dono da central) e o
+# resto é fóssil de era; o corpo congelado de dose antiga é fóssil que
+# o elite-heal-sessao reconstrói do mestre
 _nao_residente="$(grep -vE '^[[:space:]]*(#|$)' "$AIROOTFS/etc/skel/.config/labwc/autostart" 2>/dev/null \
-    | grep -cE '(^|[[:space:]/])(swaync|swaybg|swayosd-server|lxqt-policykit-agent|polkit-gnome|udiskie)([[:space:]]|&|$)' || true)"
+    | grep -cE '(^|[[:space:]/])(swaync|swayosd-server|polkit-gnome|waybar|craft-bars|craft-toplevel|swayidle)([[:space:]]|&|$)' || true)"
 if [ "${_nao_residente:-0}" -eq 0 ]; then
-    t_ok "autostart: ZERO residente nascendo fora do orquestrador (1.0-102 — o corpo é minimalista)"
+    t_ok "autostart: ZERO residente proibido em linha viva (o swaync é do supervisor — 1.0-108)"
 else
-    t_fail "autostart: ZERO residente nascendo fora do orquestrador" \
-        "$_nao_residente spawn(s) fóssil(is) em linha viva — o lançador ÚNICO é o elite-daemon session"
+    t_fail "autostart: ZERO residente proibido em linha viva" \
+        "$_nao_residente spawn(s) fóssil(is) — o swaync/swayosd são do supervisor, os outros são de era morta"
 fi
 unset _nao_residente
 
@@ -68,15 +82,16 @@ PKG="elite/packages.add"
 for p in iwgtk blueman nm-connection-editor pwvucontrol coolercontrol nwg-drawer gnome-text-editor papers brave-origin cliphist swayosd lxqt-policykit; do
     file_line_exact "packages.add: a ferramenta dedicada $p" "$PKG" "$p"
 done
-# E151 — O DEBLOAT EXTREMO: o Xorg ocioso e o udiskie Python saem da ISO
-# (a LINHA INTEIRA é o contrato — a âncora ^nome$ de era nunca casava
-# no file_hasnt -qF: contratos vacuos morrem com o file_line_absent)
+# 1.0-108 — O ARRANQUE LIMPO NOS PACOTES (a reversão da E151 pela
+# diretriz: o udiskie é o automounter do frame 0 de novo — o par udev
+# oneshot de era aposentou; a LINHA INTEIRA é o contrato)
 file_line_absent "packages.add: o waybar NÃO volta (a top bar é nativa)" "$PKG" 'waybar'
 file_line_absent "packages.add: o xorg-server NÃO volta (o greeter é wayland nativo)" "$PKG" 'xorg-server'
-file_line_absent "packages.add: o udiskie NÃO volta (o automount é regra udev)" "$PKG" 'udiskie'
+file_line_exact "packages.add: o udiskie VOLTA (o automounter do arranque limpo)" "$PKG" 'udiskie'
+file_line_exact "packages.add: o adwaita-icon-theme garante o cursor do greeter (CursorTheme=Adwaita)" "$PKG" 'adwaita-icon-theme'
 file_line_absent "packages.add: o hyprpolkitagent NÃO volta (o polkit é ÚNICO)" "$PKG" 'hyprpolkitagent'
 file_line_exact "packages.remove: o xorg-server aposentado (o greeter veste wayland — E151)" "elite/packages.remove" 'xorg-server'
-file_line_exact "packages.remove: o udiskie aposentado (o Python residente morre — E151)" "elite/packages.remove" 'udiskie'
+file_line_absent "packages.remove: o udiskie NÃO sai mais (a reversão 1.0-108 — o arranque limpo é o dono do automount)" "elite/packages.remove" 'udiskie'
 file_line_exact "packages.remove: o hyprpolkitagent aposentado (o lxqt-policykit é o ÚNICO)" "elite/packages.remove" 'hyprpolkitagent'
 file_has "packages.remove: os legados i3-wm/feh/openbox/i3status vedados (a faxina E151)" "elite/packages.remove" 'feh'
 file_line_exact "packages.remove: o swayidle aposentado (a vigília é do daemon)" "elite/packages.remove" 'swayidle'
@@ -312,9 +327,18 @@ file_has "greeter: os campos veste o raio da dock (RoundCorners 20)" "$AIROOTFS/
 file_has "greeter: o blur leve está ligado (FullBlur true, custo só do instante)" "$AIROOTFS/usr/share/sddm/themes/archcraft/theme.conf" 'FullBlur="true"'
 file_has "greeter: ZERO saudação (HeaderText vazio — uma voz por tela)" "$AIROOTFS/usr/share/sddm/themes/archcraft/theme.conf" 'HeaderText=""'
 file_has "greeter: o hover NUNCA inverte para claro (acento suave #cba6f7)" "$AIROOTFS/usr/share/sddm/themes/archcraft/theme.conf" 'HoverSessionButtonTextColor="#cba6f7"'
-# A SESSÃO DE ENTRADA: cursor único, sessão labwc direta:
-file_has "greeter: o cursor do login é Bibata (o último sotaque do ponteiro morre)" "$AIROOTFS/etc/sddm.conf.d/elite.conf" 'CursorTheme=Bibata'
+# A SESSÃO DE ENTRADA + O CHÃO TÉCNICO 1.0-108 (99-elite.conf — as três
+# chaves da diretriz: InputMethod vazio, CursorTheme=Adwaita garantido
+# no disco pelo adwaita-icon-theme, ReuseSession=false; um dono por
+# chave — o elite.conf segue dono SÓ do Current):
+file_has "greeter 99: o InputMethod vazio (o stub do teclado virtual de era morre)" "$AIROOTFS/etc/sddm.conf.d/99-elite.conf" 'InputMethod='
+file_has "greeter 99: o cursor é Adwaita (o tema que a MÁQUINA garante — 'Could not setup default cursor' morre)" "$AIROOTFS/etc/sddm.conf.d/99-elite.conf" 'CursorTheme=Adwaita'
+file_has "greeter 99: o ReuseSession=false (a sessão reciclada das dores de relogin morre)" "$AIROOTFS/etc/sddm.conf.d/99-elite.conf" 'ReuseSession=false'
+file_has "greeter: o elite.conf segue dono SÓ do Current (um dono por chave)" "$AIROOTFS/etc/sddm.conf.d/elite.conf" 'Current=elite'
+file_hasnt "greeter: o elite.conf NÃO veste mais o chão do 99 (dois donos pela mesma chave não)" "$AIROOTFS/etc/sddm.conf.d/elite.conf" 'InputMethod='
 file_has "greeter: a sessão do autologin é labwc (sem ruído de seletor)" "$AIROOTFS/etc/sddm.conf.d/kde_settings.conf" 'Session=labwc'
+file_has "build.sh: o mestre 99-elite.conf viaja no pacote" "$BS" '/usr/local/share/elite/sddm/99-elite.conf'
+file_has "post-upgrade: o 99-elite.conf chega ao rig vivo na dose (escola E150)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" '/etc/sddm.conf.d/99-elite.conf'
 file_line_absent "packages.add: o archcraft-cursor-qogirr não volta (pacote órfão aposentado)" "$PKG" 'archcraft-cursor-qogirr'
 # A ENTREGA (uma fonte, dois veículos — ISO via overlay, rig via mestre):
 file_has "build.sh: o mestre do greeter viaja no pacote (elite/sddm)" "$BS" '/usr/local/share/elite/sddm/theme.conf'
@@ -474,9 +498,16 @@ file_has "resume: o idle renasce no PrepareForSleep(false)/Unlock" "crates/elite
 file_has "grub: o S3 deep hardware-aware no install-stage (o único sono do rig sem LPS0)" "$AIROOTFS/usr/local/bin/elite-install-stage" 'mem_sleep_default=deep'
 file_has "grub: o S3 deep hardware-aware no tune (deep no /sys/power/mem_sleep)" "$AIROOTFS/usr/local/bin/elite-tune" 'mem_sleep_default=deep'
 file_has "grub: o S3 deep chega ao rig na dose (post-upgrade _ensure_token)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'mem_sleep_default=deep'
-# a varredura dos gatilhos espúrios (GPP0/GPP8/XHC0/XHC1/XHCI/PTXH):
-file_has "acpi: a fila dos espúrios nomeada no script da casa" "$AIROOTFS/usr/local/bin/elite-acpi-wakeup" 'GPP0 GPP8 XHC0 XHC1 XHCI PTXH'
-file_has "acpi: o TOGGLE só escreve quem está *enabled (idempotente por desenho)" "$AIROOTFS/usr/local/bin/elite-acpi-wakeup" 'printf '
+# a varredura dos gatilhos: A LEI PURA 1.0-108 (ler a tabela DIRETAMENTE
+# e alternar TODO *enabled FORA da allowlist — GP12/GP13/SWUS/SWDS/XHC*/
+# PTXH e qualquer nome novo; a lista FIXA de família de era morreu com
+# os fora-da-lista acordados; o PS2K ausente do hardware é pulo, nunca
+# erro — a MESMA allowlist universal do craft-wake-guard e do doctor):
+file_has "acpi: a allowlist universal é a MÃO do dono (PWRB/SLPB/PBTN/PS2K/LID)" "$AIROOTFS/usr/local/bin/elite-acpi-wakeup" 'MANTEM="PWRB SLPB PBTN PS2K LID"'
+file_hasnt "acpi: a fila FIXA de família de era não volta (a lei PURA cobre TODO nome novo)" "$AIROOTFS/usr/local/bin/elite-acpi-wakeup" 'GPP0 GPP8 XHC0 XHC1 XHCI PTXH'
+file_has "acpi: o TOGGLE só escreve quem está fora da lei (idempotente por desenho)" "$AIROOTFS/usr/local/bin/elite-acpi-wakeup" 'printf '
+file_has "wake-guard: a MESMA allowlist universal (uma lei só na casa)" "$AIROOTFS/usr/local/bin/craft-wake-guard" 'MANTEM_ALLOW="PWRB SLPB PBTN PS2K LID"'
+file_has "wake-guard: a lei PURA na tabela (todo *enabled fora da allowlist dorme)" "$AIROOTFS/usr/local/bin/craft-wake-guard" 'fora da mão do dono'
 file_has "acpi: a unit nasce DEPOIS do wake-guard (a política do teclado vence)" "$AIROOTFS/etc/systemd/system/elite-acpi-wakeup.service" 'After=elite-wake-guard.service'
 file_exists "acpi: o wants do multi-user liga a varredura no primeiro boot" "$AIROOTFS/etc/systemd/system/multi-user.target.wants/elite-acpi-wakeup.service"
 file_has "acpi: a varredura habilitada na dose (enable idempotente do post-upgrade)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'elite-acpi-wakeup.service'
@@ -627,15 +658,41 @@ file_exists "sddm: o drop-in wayland da casa existe no overlay" "$AIROOTFS/etc/s
 file_has "sddm: o DisplayServer é WAYLAND (o fim do Xorg ocioso)" "$AIROOTFS/etc/sddm.conf.d/elite_wayland.conf" 'DisplayServer=wayland'
 file_has "sddm: o compositor do greeter é o LABWC (zero pacote novo)" "$AIROOTFS/etc/sddm.conf.d/elite_wayland.conf" 'CompositorCommand=labwc'
 file_has "post-upgrade: o drop-in wayland só desce com o labwc no disco (a rede anti-tela-preta)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" '/usr/bin/labwc'
-file_has "automount: a regra udev 91 existe (o udiskie morreu com substituto)" "$AIROOTFS/usr/lib/udev/rules.d/91-elite-automount.rules" 'elite-automount@'
-file_exists "automount: a unit oneshot por evento existe" "$AIROOTFS/etc/systemd/system/elite-automount@.service"
-file_line_exact "automount: o helper é bin da casa (0755, E90)" "$AIROOTFS/usr/local/bin/elite-automount" '#!/bin/sh'
-file_has "automount: o mount é do USUÁRIO ATIVO (nunca um mount de root)" "$AIROOTFS/usr/local/bin/elite-automount" 'runuser -u'
-file_has "daemon: o udiskie SAIU da fila de residentes (o Python não nasce)" "crates/elite-daemon/src/supervise.rs" 'RESIDENTES_DEFAULT'
-file_hasnt "daemon: o residente udiskie não volta (a diretriz E151)" "crates/elite-daemon/src/supervise.rs" '("udiskie",'
+# 1.0-108 — O AUTOMOUNT VOLTOU AO ARRANQUE LIMPO (a reversão da E151 pela
+# diretriz do dono: o udiskie --automount --notify --no-tray é alicoe de
+# frame 0; o par udev oneshot de era APOSENTOU — um dono por domínio, a
+# colheita dos fósseis na dose com voz)
+file_absent "automount: a regra udev 91 de era APOSENTOU (o udiskie é o dono)" "$AIROOTFS/usr/lib/udev/rules.d/91-elite-automount.rules"
+file_absent "automount: a unit oneshot de era APOSENTOU" "$AIROOTFS/etc/systemd/system/elite-automount@.service"
+file_absent "automount: o helper elite-automount de era APOSENTOU (nada de fóssil na árvore)" "$AIROOTFS/usr/local/bin/elite-automount"
+file_has "post-upgrade: os fósseis do par udev de era COLHIDOS na dose (com voz)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'fóssil de era $_fossil_automount'
+file_has "post-upgrade: o udiskie FORA da lista de debloat (o automounter da casa)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'for _deb in waybar gpsd; do'
+file_has "daemon: o udiskie segue FORA da fila do supervisor (o autostart é o dono)" "crates/elite-daemon/src/supervise.rs" 'RESIDENTES_DEFAULT'
+file_hasnt "daemon: o residente udiskie não volta à fila (o arranque limpo é o dono)" "crates/elite-daemon/src/supervise.rs" '("udiskie",'
 file_has "daemon: a mordaca do autostart duplicado do agente (Hidden=true por usuário)" "crates/elite-daemon/src/supervise.rs" 'entrega_mordaca_polkit'
 file_has "skel: o supressor XDG do agente duplicado nasce na casa" "$AIROOTFS/etc/skel/.config/autostart/lxqt-policykit-agent.desktop" 'Hidden=true'
-file_has "post-upgrade: o udiskie sai dos rigs vivos na dose (a higiene com dependentes)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'for _deb in waybar gpsd udiskie'
+# 1.0-108 — O AGENTE POLKIT É DO ARRANQUE (a vaga do daemon morreu — o
+# frame 0 não depende do motor; o daemon só entrega a mordaca)
+file_hasnt "daemon: a VAGA policykit morreu (o agente é do autostart — o guard pgrep manda)" "crates/elite-daemon/src/supervise.rs" 'nome: "policykit".to_string()'
+file_has "daemon: o swayosd veste o --style do $HOME (o COULD NOT FIND CSS FILE! morre)" "crates/elite-daemon/src/supervise.rs" 'swayosd-server --style'
+file_has "daemon: o teto ignora a vaga ADOTADA (a cura do spin de 95,6% de CPU)" "crates/elite-daemon/src/supervise.rs" '|| v.adotada'
+file_has "bus: o atendente lê por POLL, nunca timeout de leitura no meio do quadro" "crates/elite-core/src/bus.rs" 'poll(pfd.as_mut_ptr(), 1, 500)'
+file_has "bus: o fio envenenado morre LIMPO (shutdown no erro de escrita)" "crates/elite-core/src/bus.rs" 'w.shutdown(std::net::Shutdown::Both)'
+file_has "daemon: o fd morto sai do poll e do chão (POLLERR/POLLHUP/POLLNVAL)" "crates/elite-daemon/src/main.rs" 'POLLERR | libc::POLLHUP | libc::POLLNVAL'
+file_has "doctor: o ambiente lê a PROPRIEDADE Environment (com o systemctl de queda)" "crates/elite-daemon/src/doctor.rs" '"Environment"'
+file_has "polkit: a regra 49-elite.rules autoriza OS MOTORES da casa sem senha" "$AIROOTFS/etc/polkit-1/rules.d/49-elite.rules" 'elite-acpi-wakeup'
+file_has "polkit: a regra casa pelo lookup EXATO do programa (sem wildcard)" "$AIROOTFS/etc/polkit-1/rules.d/49-elite.rules" 'action.lookup("program")'
+file_has "polkit: o wheel ATIVO é o juiz" "$AIROOTFS/etc/polkit-1/rules.d/49-elite.rules" 'subject.isInGroup("wheel") && subject.active'
+file_absent "polkit: a regra 50-elite-wheel de era saiu da árvore (um dono por regra)" "$AIROOTFS/etc/polkit-1/rules.d/50-elite-wheel.rules"
+file_has "qt: o QT_QPA_PLATFORMTHEME veste o qt6ct (o Oxygen de fallback morre)" "$AIROOTFS/etc/skel/.config/labwc/environment" 'QT_QPA_PLATFORMTHEME=qt6ct'
+file_has "qt: o esquema ESCURO da casa viaja no pacote (custom_palette + scheme)" "$AIROOTFS/usr/local/share/elite/qt6ct/qt6ct.conf" 'color_scheme_path=/usr/local/share/elite/qt6ct/elite-dark.conf'
+file_exists "qt: o esquema elite-dark.conf existe (a paleta Catppuccin-Mocha do Qt)" "$AIROOTFS/usr/local/share/elite/qt6ct/elite-dark.conf"
+file_has "update: a GUARDA do pkexec órfão veste o craft-update (HUP/INT/TERM)" "crates/craft-tools/src/lib.rs" 'pub fn corre_com_guarda'
+file_has "heal: a linha 178 curada (_sb_vistas nasce vazio — set -u nunca aborta)" "$AIROOTFS/usr/local/bin/elite-heal-sessao" '_sb_vistas=""'
+file_has "heal: o fóssil de spawn veste a lei 1.0-108 (swaybg/udiskie são alicerces; swaync NÃO)" "$AIROOTFS/usr/local/bin/elite-heal-sessao" 'swayosd|swaync|swaync-client'
+file_has "post-upgrade: o _sh/_suid nascem na PORTA do loop (o aborto de era morre)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" '_sh="$_hdir"'
+file_has "post-upgrade: o ZERO-TOUCH devolve o cache/config ao dono (chown -R uid:gid)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'chown -R "$_auid:$_agid"'
+file_has "clean: o papel podado herda o dono do original (chown --reference)" "$AIROOTFS/usr/local/bin/elite-clean" 'herda_dono'
 file_has "io: o escalonador do NVMe é none (a revisão de hardware E151)" "$AIROOTFS/etc/udev/rules.d/99-elite-io.rules" 'ATTR{queue/scheduler}="none"'
 file_has "io: o SSD SATA veste mq-deadline (o HDD não é tocado)" "$AIROOTFS/etc/udev/rules.d/99-elite-io.rules" 'mq-deadline'
 file_has "gtk: os botões de janela nascem À DIREITA (a lei da casa no GTK3)" "$AIROOTFS/etc/skel/.config/gtk-3.0/settings.ini" 'gtk-decoration-layout=:minimize,maximize,close'
@@ -659,7 +716,7 @@ file_exists "skills: a UI/UX obsidiana é guia permanente (06)" "docs/skills/06-
 file_has "skills: a LEI DE ENTRADA (ler docs/skills antes de editar)" "docs/skills/README.md" 'A LEI DE ENTRADA'
 file_has "constituição: o §0 manda ler as skills antes de qualquer código" "AGENTS.md" '§0 · A LEITURA OBRIGATÓRIA DAS SKILLS'
 file_has "skills 06: a superfície obsidiana ÚNICA documentada" "docs/skills/06-ui-ux-gtk4-wayland.md" 'rgba(13, 13, 18, 0.96)'
-file_has "skills 05: o udiskie morto com substituto nomeado" "docs/skills/05-filosofia-extrema.md" 'elite-automount'
+file_has "skills 05: o automount do arranque limpo nomeado na filosofia (1.0-108)" "docs/skills/05-filosofia-extrema.md" 'arranque limpo'
 file_exists "ci: o workflow de manutenção mensal existe" ".github/workflows/maintenance.yml"
 file_has "ci: o cron mensal é o dia 1 (a vigilância sem dedo do dono)" ".github/workflows/maintenance.yml" '0 7 1 *'
 file_has "ci: o check das features completas contra o Arch do dia (a quebra upstream nomeada 1 mês antes)" ".github/workflows/maintenance.yml" 'cargo check --workspace --all-features --locked'
@@ -677,7 +734,7 @@ file_has "greeter elite: a data do topo usa o locale pt_BR nativo" "$AIROOTFS/us
 file_has "greeter elite: o login fala com o sddm (sessão incluída)" "$AIROOTFS/usr/share/sddm/themes/elite/Main.qml" 'sddm.login('
 file_has "greeter elite: o desligar fala com o sddm" "$AIROOTFS/usr/share/sddm/themes/elite/Main.qml" 'sddm.powerOff()'
 file_has "greeter elite: o conf da casa veste o tema" "$AIROOTFS/etc/sddm.conf.d/elite.conf" 'Current=elite'
-file_has "greeter elite: o cursor é o Bibata da casa (o default morto)" "$AIROOTFS/etc/sddm.conf.d/elite.conf" 'CursorTheme=Bibata'
+file_has "greeter elite: o cursor é o Adwaita GARANTIDO da casa (o 'Could not setup default cursor' morto — 1.0-108)" "$AIROOTFS/etc/sddm.conf.d/99-elite.conf" 'CursorTheme=Adwaita'
 file_hasnt "greeter elite: UM dono por chave (kde_settings sem a chave de tema)" "$AIROOTFS/etc/sddm.conf.d/kde_settings.conf" 'Current='
 file_hasnt "greeter elite: UM dono por chave (kde_settings sem a chave de cursor)" "$AIROOTFS/etc/sddm.conf.d/kde_settings.conf" 'CursorTheme='
 file_has "greeter elite: o Main.qml viaja no pacote (mestre sddm/elite)" "$BS" '/usr/local/share/elite/sddm/elite/Main.qml'
@@ -704,7 +761,7 @@ file_has "snapshot: snapper-cleanup.timer vigiado no btrfs" "$AIROOTFS/usr/local
 # ══ 1.0-107 — CONSOLIDAÇÃO, ESTABILIDADE E POLIMENTO (a dose nova) ══
 # §2 — O BOOT DA SESSÃO: o ambiente Wayland no dbus/userd ANTES de tudo
 file_has "boot: o dbus-update-activation-environment nasce ANTES da casa (o cold boot vazio morre)" "$AIROOTFS/etc/skel/.config/labwc/autostart" 'dbus-update-activation-environment --systemd'
-file_has "boot: o XDG_CURRENT_DESKTOP=wlroots no ambiente exportado" "$AIROOTFS/etc/skel/.config/labwc/autostart" 'XDG_CURRENT_DESKTOP=wlroots'
+file_has "boot: o XDG_CURRENT_DESKTOP=labwc:wlroots no ambiente exportado (a grafia da diretriz 1.0-108)" "$AIROOTFS/etc/skel/.config/labwc/autostart" 'XDG_CURRENT_DESKTOP=labwc:wlroots'
 # §2 — O AGENTE POLKIT DA MÁQUINA (o lxqt primeiro, o polkit-gnome de queda)
 file_has "polkit: a vaga sabe a máquina (o lxqt-policykit-agent é o agente da casa)" "crates/elite-daemon/src/supervise.rs" '/usr/bin/lxqt-policykit-agent'
 file_has "polkit: o polkit-gnome clássico é a queda honesta" "crates/elite-daemon/src/supervise.rs" '/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1'
@@ -717,20 +774,20 @@ file_has "swaync: o craft-rice entrega a pele na AUSÊNCIA (o presente é do don
 file_has "swaync: o sync_skel entrega a central ao rig vivo" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'gtk-3.0 gtk-4.0 fuzzel nwg-drawer swayosd swaync'
 file_line_exact "packages.add: swaync volta com dono único (a central da casa)" "$PKG" 'swaync'
 # §3 — SDDM: estabilidade técnica (o visual nativo segue)
-file_has "sddm: InputMethod vazio (o stub qtvirtualkeyboard morre)" "$AIROOTFS/etc/sddm.conf.d/elite.conf" 'InputMethod='
+file_has "sddm: InputMethod vazio (o stub qtvirtualkeyboard morre — o dono é o 99-elite.conf)" "$AIROOTFS/etc/sddm.conf.d/99-elite.conf" 'InputMethod='
 file_has "sddm: ReuseSession=false (o logout/login nasce sessão limpa)" "$AIROOTFS/etc/sddm.conf.d/elite.conf" 'ReuseSession=false'
 # §4 — O SELETOR NÃO-BLOQUEANTE
 file_has "pick: o NON_UNIQUE destrava o 2º menu (a instância única matava o pedido novo)" "crates/craft-tools/src/bin/craft-pick.rs" 'NON_UNIQUE'
 file_has "pick: o notify::is-active desce o seletor quando o palco é de outro (1.0-107 — zero zumbi)" "crates/craft-tools/src/bin/craft-pick.rs" 'is-active'
 # §5 — OS WAKEUPS ESPÚRIOS POR PADRÃO (a família inteira, a mão do dono no allowlist)
-file_has "acpi: a família espúria por PADRÃO (XHC*/PTXH/GPP* — o dongle 2.4G não é mão)" "$AIROOTFS/usr/local/bin/elite-acpi-wakeup" 'XHC*|PTXH|GPP*|GP[0-9]*|X1[0-9]*|X1_[0-9]*'
+file_hasnt "acpi: a família FIXA de era não volta (a LEI PURA 1.0-108: TODO *enabled fora da allowlist dorme)" "$AIROOTFS/usr/local/bin/elite-acpi-wakeup" 'XHC*|PTXH|GPP*|GP[0-9]*|X1[0-9]*|X1_[0-9]*'
 file_hasnt "wake: o gate do teclado de era MORREU (o dongle fingidor o vencia)" "$AIROOTFS/usr/local/bin/craft-wake-guard" 'ctrl_tem_teclado'
 file_hasnt "wake: a exceção de teclado USB morre com o fingidor (todo USB dorme)" "$AIROOTFS/usr/local/bin/craft-wake-guard" 'HID 01 na própria árvore'
-file_has "wake: TODO o USB dorme na política nova (o despertar é da mão do dono universal)" "$AIROOTFS/usr/local/bin/craft-wake-guard" 'despertar = power/sleep/PS2K/LID (1.0-107.2)'
+file_has "wake: TODO o USB dorme na política nova (o despertar é da mão do dono universal — a lei PURA 1.0-108)" "$AIROOTFS/usr/local/bin/craft-wake-guard" 'despertar = power/sleep/PS2K/LID (a lei PURA 1.0-108'
 # 1.0-107.2 — O ALLOWLIST UNIVERSAL (desktop E notebook em qualquer AMD/Intel)
 file_has "acpi: o allowlist universal da mão do dono (PWRB/SLPB/PBTN/PS2K/LID)" "$AIROOTFS/usr/local/bin/elite-acpi-wakeup" 'MANTEM="PWRB SLPB PBTN PS2K LID"'
 file_has "acpi: o cinto ARMA o allowlist dormindo de fábrica (a outra face da lei)" "$AIROOTFS/usr/local/bin/elite-acpi-wakeup" 'O CINTO DO DESPERTAR'
-file_has "wake: o cinto universal veste as DUAS grafias do power e o sleep físico" "$AIROOTFS/usr/local/bin/craft-wake-guard" 'for _m in PWRB SLPB PBTN PS2K LID; do'
+file_has "wake: a allowlist universal veste as DUAS grafias do power e o sleep físico" "$AIROOTFS/usr/local/bin/craft-wake-guard" 'MANTEM_ALLOW="PWRB SLPB PBTN PS2K LID"'
 # §5 — A SEQUÊNCIA SEGURA DO SONO (hyprlock mapeado ANTES do wlopm --off)
 file_has "sono: a espera da superfície do lock ANTES do apagar (a ordem da diretriz)" "crates/elite-daemon/src/idle.rs" 'fn lock_mapeado'
 file_has "sono: o backoff do link DP/HDMI entre o wlopm --on e o recover (o amdgpu assenta)" "crates/elite-daemon/src/main.rs" 'from_millis(800)'

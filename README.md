@@ -131,7 +131,7 @@ constituição do dono (`AGENTS.md` §5) aposentou a cadência ao ligar
 (`elite-bootupdate`) e a semanal (`elite-sysupdate`): boot instantâneo, sem
 gargalo de I/O no arranque, sem briga de lock, sem partial upgrade escondido.
 A atualização é 100% sob demanda e o usuário de `wheel` sobe a dose sem
-senha (regra `50-elite-wheel.rules` — polkit narrow, sem wildcard).
+senha (regra `49-elite.rules` — polkit narrow, sem wildcard).
 
 O fim do "erros persistem após atualizar" continua sendo o canal: a cura no
 repositório chega à sua máquina no próximo `craft-update`, sem formatar, sem

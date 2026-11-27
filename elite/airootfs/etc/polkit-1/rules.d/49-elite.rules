@@ -1,0 +1,43 @@
+// ═════════════════════════════════════════════════════════════════════════
+// Archcraft ELITE · 49-elite.rules — O ELEVADOR DA CASA SEM SENHA (1.0-108)
+// ═════════════════════════════════════════════════════════════════════════
+// O RELATO DO RIG 1.0-107.3: NENHUMA regra da casa autorizava o pkexec dos
+// motores — o dono do wheel digitava senha para atualizar/limpar a própria
+// máquina (e o terminal fechado no meio deixava o pkexec órfão travando o
+// diálogo do polkit na tela — a cura da janela órfã veste o binário, esta
+// é a cura da senha: a ação NEM pede).
+//
+// O JUÍZO (a diretriz do dono, palavra por palavra): polkit.Result.YES
+// quando subject.isInGroup("wheel") && subject.active e a ação é o
+// org.freedesktop.policykit.exec do CAMINHO EXATO da casa —
+//   · /usr/local/bin/elite-dose         — o motor da atualização;
+//   · /usr/local/bin/elite-update       — a porta canônica da dose;
+//   · /usr/local/bin/elite-clean        — o motor da limpeza (--as-root);
+//   · /usr/local/bin/elite-acpi-wakeup  — a varredura de gatilhos ACPI;
+//   · /usr/local/bin/craft-rollback     — o resgate do snapper.
+//
+// O grupo wheel É o juiz (sudo/pam_wheel já decidem quem é admin neste
+// rig; o polkit apenas RESPEITA a decisão — a casa não inventa grupo
+// novo). O casamento é EXATO por caminho (strcmp do polkit): path
+// diferente = regra não casa = senha normal. NADA de wildcard — fora
+// desta lista o sistema segue pedindo autenticação como sempre.
+//
+// 1.0-108 — A POSIÇÃO 49: esta regra SUBSTITUI a 50-elite-wheel de era
+// (um dono por regra — o 49 avalia primeiro e a YES fecha o julgamento;
+// a 50 de era virou eco morto e saiu da árvore no mesmo commit).
+// ═════════════════════════════════════════════════════════════════════════
+polkit.addRule(function(action, subject) {
+    var casa = [
+        "/usr/local/bin/elite-dose",
+        "/usr/local/bin/elite-update",
+        "/usr/local/bin/elite-clean",
+        "/usr/local/bin/elite-acpi-wakeup",
+        "/usr/local/bin/craft-rollback"
+    ];
+    if (action.id == "org.freedesktop.policykit.exec"
+        && subject.isInGroup("wheel")
+        && subject.active
+        && casa.indexOf(action.lookup("program")) >= 0) {
+        return polkit.Result.YES;
+    }
+});

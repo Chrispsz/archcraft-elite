@@ -10,7 +10,7 @@
 // tarefa na hora — stdio herdado, exit code honesto; o `-h`/`--help`
 // segue o contrato E90). As janelas GUI intermediárias morreram — o
 // motor é o mesmo já provado em campo (elite-update/elite-clean pelo
-// pkexec da regra 50-elite-wheel). O craft-pick fica: o seletor dmenu
+// pkexec da regra 49-elite). O craft-pick fica: o seletor dmenu
 // é a face GTK4 da casa (W-v, craft-game menu, craft-idle menu).
 // ═════════════════════════════════════════════════════════════════════════
 
@@ -52,7 +52,7 @@ pub fn args_atualizacao() -> Vec<String> {
 /// chamava elite-clean --as-root DIRETO como usuário comum — a porta
 /// --as-root é de RAIZ e recusava na primeira linha, "Limpeza não
 /// completou" para sempre). A escalada é a MESMA do elite-update: a
-/// regra 50-elite-wheel libera EXATAMENTE o caminho para o wheel local
+/// regra 49-elite libera EXATAMENTE o caminho para o wheel local
 /// ativo — o diálogo gráfico da sessão (lxqt-policykit-agent) pergunta
 /// UMA vez, o motor sobe como raiz com o DONO CERTO por argumento.
 pub fn args_limpeza(usuario: &str, home: &str) -> Vec<String> {
@@ -64,6 +64,59 @@ pub fn args_limpeza(usuario: &str, home: &str) -> Vec<String> {
         home.to_string(),
         "--auto-safe".to_string(),
     ]
+}
+
+// ── 1.0-108 — A GUARDA DO PKEXEC ÓRFÃO (a diretriz do hardware) ──────────
+// O RELATO DO RIG: fechar o terminal de Atualizar/Limpar SEM digitar a
+// senha deixava o `pkexec` filho ÓRFÃO — o diálogo branco do
+// lxqt-policykit-agent travado na tela até o logout. O trap
+// `pkill -P $$ … EXIT HUP INT TERM` da casa veste o binário: o pid do
+// filho mora num atomic e o handler de SIGHUP/SIGINT/SIGTERM mata o
+// pkexec NA HORA e desce calado (o "EXIT" do trap é o próprio exit do
+// processo — o filho já morreu antes; a transação do pacman, se já
+// corria, segue até o fim pelo motor raiz — nunca morta no meio).
+
+/// o pid do filho privilegiado (-1 = nenhum vivo).
+static FILHO_PRIV: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(-1);
+
+extern "C" fn ao_sinal_priv(_sig: libc::c_int) {
+    let pid = FILHO_PRIV.load(std::sync::atomic::Ordering::SeqCst);
+    if pid > 0 {
+        unsafe {
+            libc::kill(pid, libc::SIGTERM);
+        }
+    }
+    // o handler desce O PROCESSO na hora (o exit do trap de sempre): o
+    // filho órfão morreu ANTES de qualquer saída
+    std::process::exit(0);
+}
+
+/// A CORRIDA COM GUARDA (a porta dos bins craft-update/craft-clean):
+/// instala os handlers de SIGHUP/SIGINT/SIGTERM, sobe o motor e espera
+/// a verdade dele — o terminal que morrer no meio leva o pkexec JUNTO.
+/// Devolve o exit code do filho (127 = o motor nem nasceu, com a voz
+/// do chamador no eprintln de `nasceu_falhou`).
+pub fn corre_com_guarda(argv: &[String], quem: &str) -> i32 {
+    unsafe {
+        libc::signal(libc::SIGHUP, ao_sinal_priv as *const () as usize);
+        libc::signal(libc::SIGINT, ao_sinal_priv as *const () as usize);
+        libc::signal(libc::SIGTERM, ao_sinal_priv as *const () as usize);
+    }
+    match std::process::Command::new(&argv[0]).args(&argv[1..]).spawn() {
+        Ok(mut filho) => {
+            FILHO_PRIV.store(filho.id() as i32, std::sync::atomic::Ordering::SeqCst);
+            let st = filho.wait();
+            FILHO_PRIV.store(-1, std::sync::atomic::Ordering::SeqCst);
+            match st {
+                Ok(s) => s.code().unwrap_or(1),
+                Err(_) => 1,
+            }
+        }
+        Err(e) => {
+            eprintln!("{quem}: o motor não nasceu ({e}) — o binário viaja no pacote da casa");
+            127
+        }
+    }
 }
 
 /// O FILTRO do craft-pick (a inteligência do dmenu em Rust): a busca
@@ -266,7 +319,7 @@ mod tests {
 
     #[test]
     fn os_args_das_ferramentas_sao_os_caminhos_da_regra() {
-        // o update: a porta canônica (a regra 50-elite-wheel casa EXATO)
+        // o update: a porta canônica (a regra 49-elite casa EXATO)
         let up = args_atualizacao();
         assert_eq!(up, vec!["/usr/local/bin/elite-update".to_string()]);
         // a limpeza: o pkexec na frente + o elite-clean --as-root com o

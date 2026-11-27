@@ -182,6 +182,13 @@ foot
 swaybg
 hyprlock
 wlopm
+# 1.0-108 — O AUTOMOUNTER DO ARRANQUE LIMPO (a ordem do dono — a
+# reversão da E151): o udiskie --automount --notify --no-tray nasce no
+# autostart do labwc como alicoe de frame 0 — o pen drive monta no
+# clique com a notificação na cara, SEM bandeja e SEM daemon de root.
+# O par udev oneshot de era (regra 91 + elite-automount@.service)
+# aposentou no mesmo commit (um dono por domínio — zero corrida).
+udiskie
 # 1.0-107 — A CENTRAL DE NOTIFICAÇÕES VOLTA COM DONO ÚNICO (a ordem do
 # dono, revisão da 1.0-106): o swaync é o da casa (AGENTS.md §7 — "Não
 # reinventar o que o mundo já fez bem"); o crash-loop da era morre no
@@ -308,6 +315,12 @@ catppuccin-gtk-theme-mocha
 papirus-icon-theme
 gtk-engine-murrine
 archcraft-cursor-bibata
+# 1.0-108 — O CURSOR QUE O GREETER GARANTE (a diretriz do chão técnico:
+# o 99-elite.conf veste CursorTheme=Adwaita — o tema que SEMPRE existe
+# no disco de qualquer install GNOME-adjacente; o pacote entra pra
+# garantir: o "Could not setup default cursor" do journal morre com o
+# tema REAL, o Bibata segue sendo o ponteiro da SESSÃO).
+adwaita-icon-theme
 
 ## ── ELITE v1.0.3 CURADORIA "BRABOS 2026" ──────────────────────────────
 ## Diretriz do dono: só o REALMENTE ÚTIL de fábrica (email, gravador de
@@ -407,10 +420,9 @@ blueman
 ##     abrindo; o xorg-xauth/xorg-xhost do par X ficam). Nos RIGS já
 ##     instalados o post-upgrade conserva o xorg-server como rede de
 ##     segurança e só entrega o drop-in wayland quando o labwc existe.
-##   · UDISKIE SAI (58,5 MB de interpretador Python residente): o
-##     automount é a regra udev 91-elite-automount + unit
-##     elite-automount@.service + o helper elite-automount — oneshot POR
-##     EVENTO de plug, mount no usuário ativo via udisksctl, zero daemon.
+##   · UDISKIE VOLTOU (1.0-108 — o arranque limpo do dono: o automount
+##     --notify --no-tray é do frame 0; a E151 o tirou e a dose o
+##     recoloca — o par udev oneshot de era aposentou junto).
 ##   · CLIPHIST/swayosd FICAM (a casa usa). A linha histórica dos
 ##     satélites de então segue no remove.
 cliphist

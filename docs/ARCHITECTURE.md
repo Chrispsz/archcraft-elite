@@ -55,20 +55,33 @@ tooltip **desligado** (o calendário abre EXCLUSIVAMENTE no clique).
 ## 4 · O fluxo de boot da sessão
 
 ```
-SDDM (tema elite, 100% pt_BR — Bem-vindo!/Entrar/Desligar…)
+SDDM (tema elite, 100% pt_BR — Bem-vindo!/Entrar/Desligar…;
+      o chão técnico do 99-elite.conf: InputMethod vazio,
+      CursorTheme=Adwaita, ReuseSession=false — 1.0-108)
   └─ labwc (compositor; menu elite-sessao; W-f fullscreen)
-      └─ autostart: elite-daemon session &   ← o ÚNICO lançador (E146)
-          ├─ topbar  (craft-bar-rs)
-          ├─ dock    (craft-dock-rs)
-          └─ residentes + vagas supervisionadas (respawn 2s, try_wait
-             nativo — o supervisor shell de era morreu; 1.0-107.2: a
-             espera é EVENTO puro do kernel — SIGCHLD via self-pipe +
-             vigia inotify do socket do compositor, zero tick de 1s)
+      └─ autostart — O ARRANQUE LIMPO 1.0-108 (o berço do frame 0):
+          ├─ dbus-update-activation-environment (labwc:wlroots)
+          ├─ ALICERCES do frame 0 (não dependem do supervisor): swaybg,
+          │  lxqt-policykit-agent (guard pgrep),
+          │  udiskie --automount --notify --no-tray, craft-fix-keys,
+          │  cliphist
+          └─ elite-daemon session &   ← o ÚNICO ORQUESTRADOR (E146)
+              ├─ topbar  (craft-bar-rs)
+              ├─ dock    (craft-dock-rs)
+              ├─ swaync (dono único pelo gate de bus — NUNCA no autostart)
+              ├─ swayosd (com --style do $HOME — 1.0-108)
+              └─ residentes + vagas supervisionadas (respawn 2s, try_wait
+                 nativo — 1.0-107.2: EVENTO puro do kernel; 1.0-108: a
+                 vaga ADOTADA é invisível ao teto do respawn — o spin de
+                 95,6% de CPU em idle morreu com o limbo)
 ```
 
 O greeter é o tema `/usr/share/sddm/themes/elite` (QML puro, fundo
 `#111116`, acento `#a855f7`, zero binário no repo) fixado por
-`/etc/sddm.conf.d/elite.conf` (`Current=elite` + `CursorTheme=Bibata`).
+`/etc/sddm.conf.d/elite.conf` (`Current=elite`) com o chão técnico no
+`/etc/sddm.conf.d/99-elite.conf` (1.0-108: `InputMethod=` vazio +
+`CursorTheme=Adwaita` garantido pelo `adwaita-icon-theme` +
+`ReuseSession=false` — um dono por chave).
 
 ## 5 · O sono S3 (a máquina que dorme e NÃO acorda sozinha)
 

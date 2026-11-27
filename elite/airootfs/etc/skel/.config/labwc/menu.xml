@@ -176,7 +176,7 @@
          E134 — O PKEXEC DIRETO, SEM /usr/bin/env (a causa provada dos
          'polkit-agent-helper@… FAILED' do dump 1.0-80): `pkexec env
          HOME=… craft-clean` tem o lookup em /usr/bin/env — FORA da
-         regra 50-elite-wheel.rules da casa, que autoriza EXATAMENTE
+         regra 49-elite.rules da casa, que autoriza EXATAMENTE
          os caminhos da casa (polkit: strcmp do lookup). O pedido caía
          na senha comum e o helper nascia FAILED no systemctl. Agora o
          alvo É o craft-clean (o caminho da regra — sem senha para o

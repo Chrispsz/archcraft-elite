@@ -16,7 +16,7 @@
 #
 # A ESCALADA É POLKIT (o agente da casa é o lxqt-policykit-agent nativo —
 # E132: o listener custom aposentou): pkexec sobe a dose como raiz e a
-# regra da casa 50-elite-wheel.rules libera
+# regra da casa 49-elite.rules libera
 # EXATAMENTE este caminho (e o craft-clean) para usuário LOCAL ATIVO do
 # grupo wheel — o dono do wheel clique sem senha, ninguém fora do wheel
 # sobe nada. O craft-update continua a porta de entrada pelo menu/terminal

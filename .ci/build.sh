@@ -340,6 +340,12 @@ cp -p /work/elite/airootfs/usr/share/sddm/themes/elite/Main.qml \
       /tmp/elite-src/elite-system/files/usr/local/share/elite/sddm/elite/Main.qml
 cp -p /work/elite/airootfs/etc/sddm.conf.d/elite.conf \
       /tmp/elite-src/elite-system/files/usr/local/share/elite/sddm/elite.conf
+# 1.0-108 — O CHÃO TÉCNICO DO GREETER NO PACOTE (as três chaves da
+# diretriz: InputMethod= vazio · CursorTheme=Adwaita · ReuseSession=false
+# — UM dono por chave, o 99 vence a ordem alfabética e é o único a
+# falar delas; o elite.conf segue dono do Current)
+cp -p /work/elite/airootfs/etc/sddm.conf.d/99-elite.conf \
+      /tmp/elite-src/elite-system/files/usr/local/share/elite/sddm/99-elite.conf
 # E150 — O TEMA GRUB DA CASA NO PACOTE (a pele roxa no boot: o wallpaper
 # escuro/roxo + a barra de seleção #a855f7): o mestre mora em
 # /usr/local/share/elite/grub/ e o elite-post-upgrade entrega ao rig
@@ -430,27 +436,27 @@ mkdir -p /tmp/elite-src/elite-system/files/usr/lib/udev/rules.d
 # post-transaction como sempre)
 cp -p /work/elite/airootfs/usr/lib/udev/rules.d/91-elite-wake-guard.rules \
       /tmp/elite-src/elite-system/files/usr/lib/udev/rules.d/91-elite-wake-guard.rules
-# E151 — A REGRA DO AUTOMOUNT EMBARCA (o substituto do udiskie: a regra
-# agenda a unit elite-automount@.service no evento do plug — a unit viaja
-# pelo varredura elite-*.service do staging de cima; o helper viaja no
-# MANIFEST dos bins)
-mkdir -p /tmp/elite-src/elite-system/files/usr/lib/udev/rules.d
-cp -p /work/elite/airootfs/usr/lib/udev/rules.d/91-elite-automount.rules \
-      /tmp/elite-src/elite-system/files/usr/lib/udev/rules.d/91-elite-automount.rules
+# 1.0-108 — O PAR UDEV AUTOMOUNT DE ERA APOSENTOU (a diretriz do
+# ARRANQUE LIMPO: o udiskie --automount --notify --no-tray é o
+# automounter do frame 0 de novo — o dono reverteu a E151; a regra 91 e
+# a unit oneshot saíram da árvore no mesmo commit e o post-upgrade
+# colhe os fósseis dos rigs com voz na dose)
 # E151 — A REVISÃO DE I/O EMBARCA (o escalonador por classe de disco:
 # NVMe none · SSD SATA mq-deadline · HDD intocado)
 mkdir -p /tmp/elite-src/elite-system/files/etc/udev/rules.d
 cp -p /work/elite/airootfs/etc/udev/rules.d/99-elite-io.rules \
       /tmp/elite-src/elite-system/files/etc/udev/rules.d/99-elite-io.rules
-# E128 — A AUTORIZAÇÃO DA CASA NO PACOTE: a regra 50-elite-wheel.rules
-# (pkexec de craft-clean / elite-update / craft-update SEM senha para
-# usuário LOCAL ATIVO do grupo wheel — narrow por desenho, sem wildcard)
-# viaja NO elite-system: rig que só chega pelo pacman recebe a regra com
-# dono — a dança E43 de adoção (o pre_install remove o caminho sem dono
-# antes da extração).
+# E128 → 1.0-108 — A AUTORIZAÇÃO DA CASA NO PACOTE: a regra
+# 49-elite.rules (o pkexec DOS MOTORES da casa — elite-dose/elite-update/
+# elite-clean/elite-acpi-wakeup/craft-rollback — SEM senha para o grupo
+# wheel ATIVO, caminho EXATO por strcmp, sem wildcard) viaja NO
+# elite-system: rig que só chega pelo pacman recebe a regra com dono —
+# a dança E43 de adoção (o pre_install remove o caminho sem dono antes
+# da extração). A 50-elite-wheel de era saiu da árvore (um dono por
+# regra — o 49 avalia primeiro e a YES dele fecha o julgamento).
 mkdir -p /tmp/elite-src/elite-system/files/etc/polkit-1/rules.d
-cp -p /work/elite/airootfs/etc/polkit-1/rules.d/50-elite-wheel.rules \
-      /tmp/elite-src/elite-system/files/etc/polkit-1/rules.d/50-elite-wheel.rules
+cp -p /work/elite/airootfs/etc/polkit-1/rules.d/49-elite.rules \
+      /tmp/elite-src/elite-system/files/etc/polkit-1/rules.d/49-elite.rules
 # E129 — O TEMA QT VESTE O RICE: o qt6ct.conf da casa viaja no pacote
 # (icon_theme=Papirus-Dark — o MESMO dos settings.ini GTK) e o
 # elite-post-upgrade o entrega aos homes vivos SE AUSENTE (personalizado
@@ -458,6 +464,11 @@ cp -p /work/elite/airootfs/etc/polkit-1/rules.d/50-elite-wheel.rules \
 mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/qt6ct
 cp -p /work/elite/airootfs/usr/local/share/elite/qt6ct/qt6ct.conf \
       /tmp/elite-src/elite-system/files/usr/local/share/elite/qt6ct/qt6ct.conf
+# 1.0-108 — O ESQUEMA ESCURO viaja junto (o qt6ct.conf aponta pra ele:
+# custom_palette + color_scheme_path — a paleta Catppuccin-Mocha do
+# Qt no pacote, espaço de sistema)
+cp -p /work/elite/airootfs/usr/local/share/elite/qt6ct/elite-dark.conf \
+      /tmp/elite-src/elite-system/files/usr/local/share/elite/qt6ct/elite-dark.conf
 # E136 — O KERNEL MODERNO DA PARTE 2/2 NO PACOTE: os confs da casa viajam
 # COM DONO (a lição E63: fora do pacote nunca chega ao rig pelo canal) —
 # o sysctl consolidado (99-elite-performance.conf; o post_upgrade aposenta
@@ -526,10 +537,10 @@ cat > /tmp/elite-src/elite-system/files/usr/local/share/elite/daemon.conf <<'EOD
 # matou o loop de 809 relanças do dump 101339). Edite à
 # vontade; linhas '#' e vazias são ignoradas. SEM este arquivo os
 # defaults da casa valem (swayosd — o $HOME nos tokens é expandido no
-# spawn; o udiskie SAIU da fila na E151: o automount é a regra udev
-# 91-elite-automount, oneshot por evento, zero daemon; a central de
-# notificações da era morreu na 1.0-106 — o dono dispensou o
-# notificador). Cada vaga também trava em flock exclusivo no
+# spawn; 1.0-108 — o arranque limpo: o udiskie voltou ao AUTOSTART do
+# labwc (a diretriz do dono — alicoe de frame 0), a central de
+# notificações segue do supervisor 1.0-107). Cada vaga também trava em
+# flock exclusivo no
 # $XDG_RUNTIME_DIR/elite/resident-<nome>.lock — a posse dupla.
 #swayosd::swayosd-server
 #craft-audio-route::craft-audio-route
@@ -775,12 +786,15 @@ ${hnames}
     MOLDE[pd_install]='    install -d "${pkgdir}/etc/profile.d"
     install -m644 "${startdir}/files/etc/profile.d/10-elite-defaults.sh" "${pkgdir}/etc/profile.d/10-elite-defaults.sh"'$'\n'
     MOLDE[pk_install]='    install -dm750 "${pkgdir}/etc/polkit-1/rules.d"
-    install -m644 "${startdir}/files/etc/polkit-1/rules.d/50-elite-wheel.rules" "${pkgdir}/etc/polkit-1/rules.d/50-elite-wheel.rules"'$'\n'
-    MOLDE[pk_rm]='    [ -e "/etc/polkit-1/rules.d/50-elite-wheel.rules" ] && ! pacman -Qo "/etc/polkit-1/rules.d/50-elite-wheel.rules" >/dev/null 2>&1 && rm -f "/etc/polkit-1/rules.d/50-elite-wheel.rules"'$'\n'
+    install -m644 "${startdir}/files/etc/polkit-1/rules.d/49-elite.rules" "${pkgdir}/etc/polkit-1/rules.d/49-elite.rules"'$'\n'
+    MOLDE[pk_rm]='    [ -e "/etc/polkit-1/rules.d/49-elite.rules" ] && ! pacman -Qo "/etc/polkit-1/rules.d/49-elite.rules" >/dev/null 2>&1 && rm -f "/etc/polkit-1/rules.d/49-elite.rules"
+    [ -e "/etc/polkit-1/rules.d/50-elite-wheel.rules" ] && ! pacman -Qo "/etc/polkit-1/rules.d/50-elite-wheel.rules" >/dev/null 2>&1 && rm -f "/etc/polkit-1/rules.d/50-elite-wheel.rules"'$'\n'
     MOLDE[pt_install]='    install -Dm644 "${startdir}/elite-post-transaction.hook" "${pkgdir}/usr/share/libalpm/hooks/elite-post-transaction.hook"'$'\n'
     MOLDE[q6_install]='    install -d "${pkgdir}/usr/local/share/elite/qt6ct"
-    install -m644 "${startdir}/files/usr/local/share/elite/qt6ct/qt6ct.conf" "${pkgdir}/usr/local/share/elite/qt6ct/qt6ct.conf"'$'\n'
-    MOLDE[q6_rm]='    [ -e "/usr/local/share/elite/qt6ct/qt6ct.conf" ] && rm -f "/usr/local/share/elite/qt6ct/qt6ct.conf"'$'\n'
+    install -m644 "${startdir}/files/usr/local/share/elite/qt6ct/qt6ct.conf" "${pkgdir}/usr/local/share/elite/qt6ct/qt6ct.conf"
+    install -m644 "${startdir}/files/usr/local/share/elite/qt6ct/elite-dark.conf" "${pkgdir}/usr/local/share/elite/qt6ct/elite-dark.conf"'$'\n'
+    MOLDE[q6_rm]='    [ -e "/usr/local/share/elite/qt6ct/qt6ct.conf" ] && rm -f "/usr/local/share/elite/qt6ct/qt6ct.conf"
+    [ -e "/usr/local/share/elite/qt6ct/elite-dark.conf" ] && rm -f "/usr/local/share/elite/qt6ct/elite-dark.conf"'$'\n'
     MOLDE[rc_install]='    install -d "${pkgdir}/usr/local/share/elite/labwc"
     install -m644 "${startdir}/files/usr/local/share/elite/labwc/rc.xml" "${pkgdir}/usr/local/share/elite/labwc/rc.xml"'$'\n'
     MOLDE[rc_rm]='    [ -e "/usr/local/share/elite/labwc/rc.xml" ] && rm -f "/usr/local/share/elite/labwc/rc.xml"'$'\n'
@@ -792,12 +806,14 @@ ${hnames}
     install -m644 "${startdir}/files/usr/local/share/elite/sddm/elite/metadata.desktop" "${pkgdir}/usr/local/share/elite/sddm/elite/metadata.desktop"
     install -m644 "${startdir}/files/usr/local/share/elite/sddm/elite/theme.conf" "${pkgdir}/usr/local/share/elite/sddm/elite/theme.conf"
     install -m644 "${startdir}/files/usr/local/share/elite/sddm/elite/Main.qml" "${pkgdir}/usr/local/share/elite/sddm/elite/Main.qml"
-    install -m644 "${startdir}/files/usr/local/share/elite/sddm/elite.conf" "${pkgdir}/usr/local/share/elite/sddm/elite.conf"'$'\n'
+    install -m644 "${startdir}/files/usr/local/share/elite/sddm/elite.conf" "${pkgdir}/usr/local/share/elite/sddm/elite.conf"
+    install -m644 "${startdir}/files/usr/local/share/elite/sddm/99-elite.conf" "${pkgdir}/usr/local/share/elite/sddm/99-elite.conf"'$'\n'
     MOLDE[sddm_rm]='    [ -e "/usr/local/share/elite/sddm/theme.conf" ] && rm -f "/usr/local/share/elite/sddm/theme.conf"
     [ -e "/usr/local/share/elite/sddm/kde_settings.conf" ] && rm -f "/usr/local/share/elite/sddm/kde_settings.conf"
     [ -e "/usr/local/share/elite/sddm/elite_wayland.conf" ] && rm -f "/usr/local/share/elite/sddm/elite_wayland.conf"
     [ -e "/usr/local/share/elite/sddm/elite" ] && rm -rf "/usr/local/share/elite/sddm/elite"
-    [ -e "/usr/local/share/elite/sddm/elite.conf" ] && rm -f "/usr/local/share/elite/sddm/elite.conf"'$'\n'
+    [ -e "/usr/local/share/elite/sddm/elite.conf" ] && rm -f "/usr/local/share/elite/sddm/elite.conf"
+    [ -e "/usr/local/share/elite/sddm/99-elite.conf" ] && rm -f "/usr/local/share/elite/sddm/99-elite.conf"'$'\n'
     MOLDE[sudoers_install]='    install -dm750 "${pkgdir}/etc/sudoers.d"
     install -m440 "${startdir}/files/etc/sudoers.d/99-elite-clean" "${pkgdir}/etc/sudoers.d/99-elite-clean"'$'\n'
     MOLDE[sudoers_rm]='    [ -e "/etc/sudoers.d/99-elite-clean" ] && rm -f "/etc/sudoers.d/99-elite-clean"'$'\n'
@@ -821,7 +837,6 @@ ${hnames}
     MOLDE[tum_rm]='    [ -e "/etc/xdg/tumbler/tumbler.rc" ] && ! pacman -Qo "/etc/xdg/tumbler/tumbler.rc" >/dev/null 2>&1 && rm -f "/etc/xdg/tumbler/tumbler.rc"'$'\n'
     MOLDE[udev_install]='    install -d "${pkgdir}/usr/lib/udev/rules.d"
     install -m644 "${startdir}/files/usr/lib/udev/rules.d/91-elite-wake-guard.rules" "${pkgdir}/usr/lib/udev/rules.d/91-elite-wake-guard.rules"
-    install -m644 "${startdir}/files/usr/lib/udev/rules.d/91-elite-automount.rules" "${pkgdir}/usr/lib/udev/rules.d/91-elite-automount.rules"
     install -m644 "${startdir}/files/etc/udev/rules.d/99-elite-io.rules" "${pkgdir}/etc/udev/rules.d/99-elite-io.rules"'$'\n'
     # E95/E98 — os overrides de .desktop: cada um com a sua linha de
     # install E a sua linha de adoção (zero cirurgia no template)
@@ -2508,7 +2523,7 @@ pkgver=1.0
 #     do craft-update (toda porta) e pelo elite-post-upgrade (o post_upgrade
 #     do pacote, commit seguinte) — a revogação da E51 por AGENTS.md §5;
 #     a dose sob demanda ganha a porta canônica elite-update (pkexec);
-#     (2) A REGRA POLKIT DA CASA embarca (50-elite-wheel.rules — wheel
+#     (2) A REGRA POLKIT DA CASA embarca (49-elite.rules — wheel
 #     local ativo sobe craft-clean/elite-update SEM senha, sem wildcard);
 #     (3) O OKULAR SAI e o BAZAAR NASCE adotado (apenas Papers + Bazaar
 #     moram na casa — org.kde.okular uninstall + --unused idempotentes).
@@ -3815,9 +3830,8 @@ if grep -qxF 'elite-system' "${PD_E57%profiledef.sh}packages.x86_64"; then
                "${PD_E57%profiledef.sh}"airootfs/etc/udev/rules.d/60-ntsync.rules \
                "${PD_E57%profiledef.sh}"airootfs/etc/udev/rules.d/99-elite-io.rules \
                "${PD_E57%profiledef.sh}"airootfs/usr/lib/udev/rules.d/91-elite-wake-guard.rules \
-               "${PD_E57%profiledef.sh}"airootfs/usr/lib/udev/rules.d/91-elite-automount.rules \
                "${PD_E57%profiledef.sh}"airootfs/etc/sudoers.d/99-elite-clean \
-               "${PD_E57%profiledef.sh}"airootfs/etc/polkit-1/rules.d/50-elite-wheel.rules \
+               "${PD_E57%profiledef.sh}"airootfs/etc/polkit-1/rules.d/49-elite.rules \
                "${PD_E57%profiledef.sh}"airootfs/usr/local/share/elite/qt6ct/qt6ct.conf \
                "${PD_E57%profiledef.sh}"airootfs/etc/modules-load.d/elite-ntsync.conf \
                "${PD_E57%profiledef.sh}"airootfs/etc/modules-load.d/elite-sensors.conf \

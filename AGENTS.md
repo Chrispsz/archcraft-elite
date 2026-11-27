@@ -254,6 +254,54 @@ registrada no mesmo commit.
 
 ---
 
+## §8 · Dose 1.0-107 → 1.0-108 — o registro vivo (o motor, o zero-touch, o polkit e o hardware)
+
+> **1.0-108 · Etapa 1 (motor/infra) — o registro vive no ciclo:** a cura
+> do **spin de 95,6% de CPU em idle** (a vaga morta-ADOTADA vivia em
+> LIMBO — nasceu, sem filho, backoff vencido — e o `teto_respawn`
+> devolvia 0 PARA SEMPRE: `espera_evento(0)` é `poll(2)` com timeout
+> ZERO, retorno imediato em laço; o estado `adotada` agora é DECLARADO
+> e invisível ao teto — o keepalive de 15s re-acorda o julgamento) e a
+> **reconexão da dock** (`bus.cliente 3..24`: o atendente do bus lia
+> com `set_read_timeout(500ms)` — o `read_exact` do CORPO mapeia
+> timeout para `Truncated` e FATIAVA o quadro sob starvation (o lixo
+> de alinhamento seguinte fechava o fio; agora a leitura é `poll(2)`,
+> o quadro só é lido com bytes COMPLETOS à espera; a escrita da ficha
+> veste teto de 500ms — cliente surdo não congela o lock do bus — e o
+> `send_req`/`publish` que morre no meio ENVENENA o fio com shutdown:
+> o leitor renasce LIMPO); o **fd morto sai do poll e do chão**
+> (POLLERR/POLLHUP/POLLNVAL — poll em fd quebrado é spin por desenho).
+> O **ARRANQUE LIMPO** (a diretriz do dono: o berço do frame 0 —
+> `dbus-update-activation-environment` com `labwc:wlroots`, swaybg,
+> agente polkit com guard `pgrep`, `udiskie --automount --notify
+> --no-tray`, craft-fix-keys, cliphist e o orquestrador único; o
+> daemon doente de 1.0-107.3 levava o berço junto — NUNCA MAIS; o
+> PROIBIDO segue o swaync: o supervisor é o ÚNICO dono da central) —
+> a E151 do udiskie FOI REVERTIDA (o par udev oneshot de era
+> aposentou com voz na dose). O **ZERO-TOUCH**: o elite-heal-sessao
+> nunca mais aborta sob `set -u` (`_sb_vistas` nasce vazio; o
+> `_sh/_suid` do post-upgrade nascem na PORTA do loop), a dose
+> devolve `~/.cache/elite`, `~/.config/{labwc,swaync,elite}` ao DONO
+> (`chown -R uid:gid`), o elite-clean preserva o dono em toda poda
+> (`chown --reference`), o swayosd veste `--style` do `$HOME` e o Qt6
+> veste o escuro de verdade (`QT_QPA_PLATFORMTHEME=qt6ct` + o esquema
+> `elite-dark.conf` Catppuccin-Mocha + Papirus-Dark — o
+> "Fallback Icon Theme (Oxygen)" do journal morre). O **POLKIT**:
+> `49-elite.rules` (os CINCO motores — elite-dose/elite-update/
+> elite-clean/elite-acpi-wakeup/craft-rollback — sem senha para o
+> wheel ATIVO, caminho EXATO) e a GUARDA do pkexec órfão no
+> craft-update/craft-clean (HUP/INT/TERM mata o filho — o diálogo
+> branco não fica mais travado). O **HARDWARE**: a LEI PURA do
+> `/proc/acpi/wakeup` (TODO `*enabled` fora da allowlist universal
+> `PWRB/SLPB/PBTN/PS2K/LID` dorme — GP12/GP13/SWUS/SWDS/XHC*/PTXH e
+> QUALQUER nome novo; o PS2K ausente do hardware é pulo, nunca erro;
+> uma lei só: elite-acpi-wakeup + craft-wake-guard + craft-doctor), o
+> doctor lê a PROPRIEDADE `Environment` (com `systemctl --user
+> show-environment` de queda) e a saúde do despertar exige PELO MENOS
+> UMA fonte do dono armada (o desktop USB-only sem PS2K/LID não é
+> réu). O pkgrel 108 veste a DOSE COMPLETA (Etapa 2 — a camada visual:
+> lei E41, conteúdo e número no MESMO commit).
+
 ## §8 · Dose 1.0-106 → 1.0-107 — o registro vivo (a matriz, o sono e a consolidação)
 
 > **1.0-107.3 — o registro do ciclo da auditoria total** vive em

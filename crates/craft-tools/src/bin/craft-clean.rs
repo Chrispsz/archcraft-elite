@@ -3,7 +3,7 @@
 // A diretriz do dono: execução direta e ágil, sem janela intermediária —
 // o bin sobe a FASE 1 AUTO-SEGURA (journal, paccache, órfãos de link,
 // lixeira, caches regeneráveis — o escopo honesto de sempre) pelo
-// pkexec da regra 50-elite-wheel com stdio HERDADO. A FASE 2 avançada
+// pkexec da regra 49-elite com stdio HERDADO. A FASE 2 avançada
 // (órfãos/runtimes/miniaturas com perguntas [s/N]) segue de pé: o
 // próprio elite-clean menu no terminal (o mesmo caminho que a janela
 // nomeava — agora a porta principal É o terminal).
@@ -34,16 +34,10 @@ fn main() {
     println!(
         "ELITE · Limpeza do Sistema — removendo caches e pacotes órfãos com segurança"
     );
-    let rc = std::process::Command::new(&argv[0])
-        .args(&argv[1..])
-        .status()
-        .map(|s| s.code().unwrap_or(1))
-        .unwrap_or_else(|e| {
-            eprintln!(
-                "craft-clean: o motor não nasceu ({e}) — o elite-clean viaja no pacote da casa"
-            );
-            127
-        });
+    // 1.0-108 — A GUARDA DO PKEXEC ÓRFÃO: o terminal que morrer no meio
+    // (HUP/INT/TERM) leva o pkexec filho JUNTO — o diálogo branco do
+    // polkit nunca mais fica travado na tela (ver craft_tools::corre_com_guarda)
+    let rc = craft_tools::corre_com_guarda(&argv, "craft-clean");
     // 1.0-107 — O CANCELAMENTO É SILÊNCIO (a diretriz §8: "se o usuário
     // cancelar ou fechar a janela de senha do Polkit (rc=126 ou 127),
     // encerrar silenciosamente sem exibir alerta de falha" — a senha

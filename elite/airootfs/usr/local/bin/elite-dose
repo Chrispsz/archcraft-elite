@@ -120,7 +120,7 @@
 #   E timer) sai da árvore, é DISABLED e MASCARADA pela elite_cadencia
 #   (idempotente nas DUAS portas) e o post_upgrade do pacote faz o mesmo
 #   no rig que só chega pelo pacman. A dose sob demanda ganhou a porta
-#   canônica elite-update (pkexec + a regra 50-elite-wheel.rules).
+#   canônica elite-update (pkexec + a regra 49-elite.rules).
 # v5.2 (E54 — A SENTINELA DA BASE): o dono rodou 'elite-dose' e colheu o
 #   erro cru do pacman: "falha ao sincronizar todas as bases de dados (não
 #   foi possível travar a base de dados)". A raiz honesta tem DUAS caras:
@@ -928,7 +928,7 @@ refresh_session() {
 # caminho (órfãos de overlay e do pacote antigo) → MÁSCARA (o systemd
 # recusa até o start manual dessas unidades — o fóssil de rig antigo não
 # renasce). A atualização vive SÓ sob demanda: craft-update (menu/sudo) e
-# elite-update (a porta canônica com a regra 50-elite-wheel.rules).
+# elite-update (a porta canônica com a regra 49-elite.rules).
 elite_cadencia() {
     UNITDIR="${ELITE_UNIT_DIR:-/etc/systemd/system}"
     local t

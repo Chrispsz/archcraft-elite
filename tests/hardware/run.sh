@@ -511,10 +511,13 @@ EOF
     [ "$sha_antes" = "$sha_depois" ] \
         && emit_ok "P$num wakeup: a 2ª passada é silêncio (byte-idêntica — rearmar o dormendo morre)" \
         || emit_fail "P$num wakeup: a 2ª passada é silêncio" "a tabela mudou na 2ª corrida"
-    count_is "P$num wakeup: o papel da casa conta os 9 desarmados" \
-        "$h/.cache/elite/acpi-wakeup.log" 'desarmado (gatilho espúrio' 9
+    # 1.0-108 — o papel veste a LEI PURA: "fora da mão do dono" é o novo
+    # nome do espúrio (a família fixa morreu — TODO *enabled fora da
+    # allowlist é desarmado, QUALQUER nome)
+    count_is "P$num wakeup: o papel da casa conta os 9 desarmados (a lei PURA: fora da mão do dono)" \
+        "$h/.cache/elite/acpi-wakeup.log" 'desarmado (fora da mão do dono' 9
     count_is "P$num wakeup: o papel conta os 2 do cinto universal rearmados (SLPB/PBTN)" \
-        "$h/.cache/elite/acpi-wakeup.log" '→ rearmado (o allowlist' 2
+        "$h/.cache/elite/acpi-wakeup.log" '→ rearmado (a allowlist da mão do dono' 2
 }
 
 # ═════════════════════════════════════════════════════════════════════

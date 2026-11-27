@@ -2,7 +2,7 @@
 // craft-update (E149) — A DOSE DIRETO NO TERMINAL.
 // A diretriz do dono: execução direta e ágil, sem janela intermediária —
 // o bin sobe o MOTOR já provado em campo (elite-update) pelo pkexec da
-// regra 50-elite-wheel com stdio HERDADO: o output do motor corre VIVO
+// regra 49-elite com stdio HERDADO: o output do motor corre VIVO
 // no terminal e o exit code é a verdade (o papel segue em
 // ~/.cache/elite/update.log — a memória do motor não muda).
 // ═════════════════════════════════════════════════════════════════════════
@@ -23,16 +23,10 @@ fn main() {
     }
     let argv = craft_tools::args_atualizacao();
     println!("ELITE · Atualização do Sistema — digite sua senha para continuar");
-    let rc = std::process::Command::new(&argv[0])
-        .args(&argv[1..])
-        .status()
-        .map(|s| s.code().unwrap_or(1))
-        .unwrap_or_else(|e| {
-            eprintln!(
-                "craft-update: o motor não nasceu ({e}) — o elite-update viaja no pacote da casa"
-            );
-            127
-        });
+    // 1.0-108 — A GUARDA DO PKEXEC ÓRFÃO: o terminal que morrer no meio
+    // (HUP/INT/TERM) leva o pkexec filho JUNTO — o diálogo branco do
+    // polkit nunca mais fica travado na tela (ver craft_tools::corre_com_guarda)
+    let rc = craft_tools::corre_com_guarda(&argv, "craft-update");
     // 1.0-107 — O CANCELAMENTO É SILÊNCIO (a diretriz §8: "se o usuário
     // cancelar ou fechar a janela de senha do Polkit (rc=126 ou 127),
     // encerrar silenciosamente sem exibir alerta de falha" — a senha

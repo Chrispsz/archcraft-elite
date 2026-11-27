@@ -24,6 +24,13 @@
 #       nenhum consegue fingir) e LID (a tampa do notebook) — o cinto
 #       ARMA o que o firmware entrega dormindo de fábrica;
 #     · PS2M e TODO o resto do ACPI dorme; WoL segue morto POR FORÇA.
+# 1.0-108 — A LEI PURA (a diretriz do dono: ler /proc/acpi/wakeup
+#   DIRETAMENTE e alternar TODO *enabled FORA da allowlist para
+#   *disabled — a lista FIXA de nomes (GP12/GP13/SWUS/SWDS/XHC*) morre
+#   com os fora-da-lista acordados: qualquer nome que a placa imprimir
+#   amanhã já nasce coberto; o PS2K ausente do hardware é pulo, nunca
+#   erro) — A MESMA LEI do elite-acpi-wakeup e do craft-doctor (uma lei
+#   só na casa).
 #
 # QUEM APLICA: a regra udev da casa (ISO: 90-elite-wake-guard.rules;
 # pacote: /usr/lib/udev/rules.d/91-elite-wake-guard.rules — coldplug +
@@ -50,6 +57,9 @@ set -u
 PROG="${0##*/}"
 S="${WAKE_SYSFS:-/sys}"
 ACPI_TABLE="${WAKE_ACPI:-/proc/acpi/wakeup}"
+# 1.0-108 — A MÃO DO DONO (a MESMA allowlist universal do
+# elite-acpi-wakeup/craft-doctor — uma lei só na casa)
+MANTEM_ALLOW="PWRB SLPB PBTN PS2K LID"
 TEST_MODE=0
 [ -n "${WAKE_SYSFS:-}" ] && TEST_MODE=1
 
@@ -126,43 +136,46 @@ do_apply() {
             n_off=$((n_off + 1))
         fi
     done
-    # (3) ACPI — O CINTO UNIVERSAL DA MÃO DO DONO (1.0-107.2 — a diretriz
-    #     do hardware moderno: desktop E notebook em QUALQUER AMD/Intel):
-    #     PWRB/PBTN (as duas grafias do botão do power), SLPB (o botão de
-    #     sleep físico), PS2K (teclado PS/2 — dongle nenhum finge) e LID
-    #     (a tampa) ACORDAM — o firmware que entrega o botão DORMINDO de
-    #     fábrica não rouba o despertar do dono; PS2M e TODO o resto do
-    #     ACPI dorme (o /proc/acpi/wakeup é TOGGLE — escrever só quando o
-    #     estado não é o desejado; a mesma família do elite-acpi-wakeup)
+    # (3) 1.0-108 — ACPI: A LEI PURA (a diretriz do dono: ler a tabela
+    #     DIRETAMENTE e alternar TODO *enabled FORA da allowlist para
+    #     *disabled — GP12/GP13/SWUS/SWDS/XHC*/PTXH e QUALQUER nome novo
+    #     que a placa imprimir; a lista fixa de nomes de era morreu com
+    #     os fora-da-lista acordados). O cinto veste a OUTRA FACE no
+    #     mesmo giro: o nome da allowlist presente e DORMINDO acorda (o
+    #     firmware que entrega o botão *disabled de fábrica não rouba o
+    #     despertar do dono); o PS2K AUSENTE do hardware é pulo, nunca
+    #     erro (desktop USB-only — a MESMA lei do elite-acpi-wakeup e do
+    #     craft-doctor).
     if [ -f "$ACPI_TABLE" ] && [ "$TEST_MODE" -eq 0 ]; then
-        local _m
-        for _m in PWRB SLPB PBTN PS2K LID; do
-            if grep -qE "^${_m} .*\*disabled" "$ACPI_TABLE" 2>/dev/null; then
-                if printf '%s' "$_m" > "$ACPI_TABLE" 2>/dev/null; then
-                    printf '  %-10s acorda (o cinto do allowlist universal — a mão do dono 1.0-107.2)\n' "$_m"
-                fi
+        local _anome _aestado _ast _aresto _atog
+        while read -r _anome _aestado _ast _aresto; do
+            [ -n "${_anome:-}" ] || continue
+            case "$_ast" in
+                '*enabled')
+                    case " $MANTEM_ALLOW " in
+                        *" $_anome "*) continue ;;
+                    esac
+                    _atog="$_anome"
+                    ;;
+                '*disabled')
+                    case " $MANTEM_ALLOW " in
+                        *" $_anome "*) _atog="$_anome" ;;
+                        *) continue ;;
+                    esac
+                    ;;
+                *) continue ;;
+            esac
+            if printf '%s' "$_atog" > "$ACPI_TABLE" 2>/dev/null; then
+                [ "$_ast" = '*enabled' ] \
+                    && printf '  ACPI       dorme   %s (fora da mão do dono — a lei PURA 1.0-108)\n' "$_anome" \
+                    || printf '  %-10s acorda (a allowlist da mão do dono — 1.0-108)\n' "$_anome"
             fi
-        done
-        if grep -qE '^PS2M.*\*enabled' "$ACPI_TABLE" 2>/dev/null; then
-            printf 'PS2M' > "$ACPI_TABLE" 2>/dev/null || true
-            printf '  PS2M      dorme (ACPI desarmado)\n'
-        fi
+        done <"$ACPI_TABLE" 2>/dev/null
     fi
-    # (4) O SELO DAS PONTES + O WoL MORTO POR FORÇA: as sobras PCIe que
-    #     o ACPI expõe e a rede (WoL por sysfs E ethtool) NÃO despertam
-    #     a máquina — o despertar é do botão do power e do PS2K, de
-    #     ninguém mais. Vale no apply de boot (a unit) e é re-julgado
-    #     em cada pré-sono do daemon.
-    if [ -f "$ACPI_TABLE" ] && [ "$TEST_MODE" -eq 0 ]; then
-        local _b
-        for _b in GP12 GP13 SWUS SWDS; do
-            if grep -qE "^${_b} .*\\*enabled" "$ACPI_TABLE" 2>/dev/null; then
-                if printf '%s' "$_b" > "$ACPI_TABLE" 2>/dev/null; then
-                    printf '  ponte      dorme    %s (o selo ACPI das sobras PCIe — E139)\n' "$_b"
-                fi
-            fi
-        done
-    fi
+    # (4) O SELO DO WoL MORTO POR FORÇA: a rede (WoL por sysfs E
+    #     ethtool) NÃO desperta a máquina — o despertar é do botão do
+    #     power e da mão do dono, de ninguém mais. Vale no apply de boot
+    #     (a unit) e é re-julgado em cada pré-sono do daemon.
     if [ "$TEST_MODE" -eq 0 ]; then
         local _n _devw
         for _n in "$S"/class/net/*; do
@@ -179,14 +192,14 @@ do_apply() {
             done
         fi
     fi
-    printf '  ── política aplicada: %d usb dorme · %d controlador(es) desarmado(s) · despertar = power/sleep/PS2K/LID (1.0-107.2)\n' "$n_off" "$n_ctrl"
+    printf '  ── política aplicada: %d usb dorme · %d controlador(es) desarmado(s) · despertar = power/sleep/PS2K/LID (a lei PURA 1.0-108: todo *enabled fora da allowlist dorme)\n' "$n_off" "$n_ctrl"
     [ "$TEST_MODE" -eq 1 ] && printf '  (modo perícia WAKE_SYSFS=%s — nada real foi tocado)\n' "$S"
     return 0
 }
 
 do_status() {
     local dev cls
-    printf '── A POLÍTICA (1.0-107.2): TODO o USB dorme (teclado incluso — o dongle 2.4G fingidor\n'
+    printf '── A POLÍTICA (1.0-108 — a LEI PURA): TODO o USB dorme (teclado incluso — o dongle\n'
     printf '   matou a exceção de era); despertar SÓ na mão do dono UNIVERSAL — power (PWRB/PBTN),\n'
     printf '   sleep (SLPB), PS2K e LID (a tampa do notebook; dongle nenhum finge ser PS/2)\n'
     printf '── controladores USB PCI (todos dormem — o elo ACPI de cada um idem):\n'
@@ -200,7 +213,7 @@ do_status() {
         [ -f "$dev/power/wakeup" ] || continue
         printf '  %-12s dorme (wakeup=%s)\n' "${dev##*/}" "$(cat "$dev/power/wakeup" 2>/dev/null)"
     done
-    printf '── ACPI (o que o hardware oferece — PWRB/SLPB/PBTN/PS2K/LID são a mão do dono):\n'
+    printf '── ACPI (a allowlist da mão do dono: PWRB/SLPB/PBTN/PS2K/LID — TODO o resto dorme):\n'
     grep -E '\*enabled' "$ACPI_TABLE" 2>/dev/null | sed 's/^/  /' \
         || printf '  (nenhuma armada — tudo desarmado)\n'
     printf '── mem_sleep (o modo que o hardware entrega)\n'

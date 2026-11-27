@@ -917,6 +917,26 @@ if [ -e "$_EC_DST" ] && [ -e /etc/sddm.conf.d/kde_settings.conf ] \
 fi
 unset _EC_SRC _EC_DST
 
+# ── 1.0-108 — O 99-elite.conf (O CHÃO TÉCNICO DO GREETER: InputMethod=
+#      vazio · CursorTheme=Adwaita · ReuseSession=false — as três chaves
+#      da diretriz, UM dono por chave; o 99 vence a ordem alfabética e é
+#      o único a falar delas). A dose entrega o mestre por cmp (a
+#      escola E150: igual = no-op; divergente = renova com .bak ÚNICO).
+_E99_SRC="/usr/local/share/elite/sddm/99-elite.conf"
+_E99_DST="/etc/sddm.conf.d/99-elite.conf"
+if [ -r "$_E99_SRC" ]; then
+    if [ ! -e "$_E99_DST" ]; then
+        mkdir -p "${_E99_DST%/*}" 2>/dev/null || true
+        cp -p "$_E99_SRC" "$_E99_DST" 2>/dev/null \
+            && tlog "greeter: 99-elite.conf ENTREGUE (InputMethod vazio + CursorTheme=Adwaita + ReuseSession=false — o chão técnico da diretriz 1.0-108)"
+    elif ! cmp -s "$_E99_SRC" "$_E99_DST"; then
+        [ -e "$_E99_DST.bak" ] || cp -p "$_E99_DST" "$_E99_DST.bak" 2>/dev/null || true
+        cp -p "$_E99_SRC" "$_E99_DST" 2>/dev/null \
+            && tlog "greeter: 99-elite.conf RENOVADO (cmp divergia do mestre — 1.0-108; backup .bak ao lado)"
+    fi
+fi
+unset _E99_SRC _E99_DST
+
 # ── E151 — O GREETER EM WAYLAND NATIVO (a diretriz do debloat: o Xorg
 #      ocioso de ~91 MB morre): o drop-in da casa
 #      (/usr/local/share/elite/sddm/elite_wayland.conf — mestre no
@@ -1089,6 +1109,40 @@ for _hdir in /home/*; do
         ''|0|*[!0-9]*) continue ;;
     esac
     [ "$_auid" -ge 1000 ] || continue
+    # 1.0-108 — O _sh/_suid NASCEM NA PORTA DO LOOP (o aborto de era sob
+    # set -u: o bloco das peles AMOLED aqui embaixo usava $_sh/$_suid
+    # ANTES da sync_skel os definir — a 1ª iteração morria com
+    # `_sh: parameter not set` e a dose inteira abortava calada, a
+    # cura de sessão NUNCA chegava ao home; o relato do rig 1.0-107.3).
+    _sh="$_hdir"
+    _suid="$_auid"
+    # ── 1.0-108 — O ZERO-TOUCH DO DONO DO $HOME (a diretriz da dose):
+    #      (a) o CHOWN do que é dele: o elite-clean de raiz e os logs de
+    #          raiz deixavam ~/.cache/elite e afins com dono root:root —
+    #          o boot seguinte nascia com Permission denied no papel da
+    #          casa. A dose devolve o $HOME inteiro ao dono (uid:gid do
+    #          passwd — o gid de sempre, nunca uid:uid);
+    #      (b) o MASK do swaync por USUÁRIO (o belt do global: o unit do
+    #          systemd --user nunca mais nasce — o supervisor da sessão
+    #          é o único dono da central);
+    #      (c) os MESTRES do swaync garantidos (config.json + style.css —
+    #          o sync_skel aqui embaixo entrega na ausência; o daemon
+    #          lança com -c/-s nos arquivos do $HOME).
+    _agid="$(getent passwd "$_auid" 2>/dev/null | cut -d: -f4)"
+    [ -n "$_agid" ] || _agid="$_auid"
+    for _adir in "$_hdir/.cache/elite" "$_hdir/.config/labwc" \
+                 "$_hdir/.config/swaync" "$_hdir/.config/elite"; do
+        if [ -d "$_adir" ]; then
+            chown -R "$_auid:$_agid" "$_adir" 2>/dev/null \
+                && tlog "zero-touch $_auid: $_adir devolvido ao dono ($_auid:$_agid — o chown de raiz de era não atravessa o boot)"
+        fi
+    done
+    unset _adir _agid
+    if [ -d "$_hdir/.config/systemd/user" ] \
+        && [ ! -L "$_hdir/.config/systemd/user/swaync.service" ]; then
+        ln -sf /dev/null "$_hdir/.config/systemd/user/swaync.service" 2>/dev/null \
+            && tlog "swaync 1.0-108: unit do uid $_auid MASCARADO por usuário (o belt do global — o supervisor da sessão é o único dono)"
+    fi
     if [ -x /usr/local/bin/elite-heal-sessao ]; then
         _heal_out="$(/usr/local/bin/elite-heal-sessao "$_auid" "$_hdir" 2>/dev/null || true)"
         # o papel do heal viaja no log da dose (veredito por arquivo)
@@ -1141,17 +1195,33 @@ EOF
 done
 unset _hdir _auid _heal_out _hl
 
-# ── 1.0-93 → E151 — O DEBLOAT DOS RIGS VIVOS (a ordem do dono):
-#      waybar, gpsd e o UDISKIE (E151 — o interpretador Python residente
-#      de 58,5 MB morre; o automount é a regra udev 91-elite-automount +
-#      a unit elite-automount@.service, oneshot POR EVENTO de plug) SAEM
-#      quando nenhum pacote depende deles (a consulta é no pacman;
-#      dependente vivo = o pacote fica, com voz no papel); os
-#      .desktop órfãos (xterm/uxterm/qv4l2/qvidcap/xgps/xgpsspeed)
-#      ganham o NoDisplay em /usr/local/share/applications (sombra da
-#      casa: o pacote e o binário seguem intactos, a UI é que não
-#      lista) ────────────────────────────────────────────────────────
-for _deb in waybar gpsd udiskie; do
+# ── 1.0-93 → 1.0-108 — O DEBLOAT DOS RIGS VIVOS (a ordem do dono):
+#      waybar e gpsd saem quando nenhum pacote depende deles (a consulta
+#      é no pacman; dependente vivo = o pacote fica, com voz no papel).
+#      O UDISKIE SAI DAQUI na 1.0-108 (a diretriz do ARRANQUE LIMPO: o
+#      udiskie --automount --notify --no-try é o automounter do frame 0
+#      de novo — o dono reverteu a E151: o pen drive monta no clique
+#      COM notificação, e o par udev oneshot de era aposenta junto
+#      abaixo, com voz); os .desktop órfãos (xterm/uxterm/qv4l2/
+#      qvidcap/xgps/xgpsspeed) ganham o NoDisplay em
+#      /usr/local/share/applications (sombra da casa: o pacote e o
+#      binário seguem intactos, a UI é que não lista) ───────────────
+# ── 1.0-108 — A APOSENTADORIA DO PAR UDEV AUTOMOUNT DE ERA (o enterro
+#      com substituto vivo: o udiskie do arranque limpo é o dono do
+#      automount; a regra 91 e a unit oneshot de era não têm mais
+#      consumidor — o mesmo gesto do craft-bgapps E147: rm com voz na
+#      dose, o rig de era recebe a colheita pela atualização) ───────
+for _fossil_automount in \
+    /usr/lib/udev/rules.d/91-elite-automount.rules \
+    /etc/systemd/system/elite-automount@.service \
+    /usr/local/bin/elite-automount; do
+    if [ -e "$_fossil_automount" ]; then
+        rm -f "$_fossil_automount" 2>/dev/null \
+            && tlog "automount 1.0-108: fóssil de era $_fossil_automount COLHIDO (o udiskie do arranque limpo é o dono — a regra oneshot aposenta)"
+    fi
+done
+unset _fossil_automount
+for _deb in waybar gpsd; do
     if command -v pacman >/dev/null 2>&1 && pacman -Qq "$_deb" >/dev/null 2>&1; then
         if pacman -Qi "$_deb" 2>/dev/null | grep -q '^Required By *: *None'; then
             if pacman -Rns --noconfirm "$_deb" >/dev/null 2>&1; then

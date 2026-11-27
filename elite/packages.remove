@@ -449,13 +449,12 @@ craft-toplevel
 ##     (xorg-xauth/xorg-xhost) fica. Rigs existentes conservam o
 ##     xorg-server como rede de segurança — a ISO é que para de nascer
 ##     com ele (a linha saiu do packages.add no MESMO commit).
-##   · UDISKIE — o interpretador Python residente (58,5 MB) morre: o
-##     automount é a regra udev 91-elite-automount + unit
-##     elite-automount@.service + helper elite-automount (oneshot por
-##     evento, mount no usuário ativo). O elite-dose o REMOVE dos rigs
-##     com voz na próxima dose (o post-upgrade aposenta o residente).
+##   · UDISKIE (1.0-108 — REVERSÃO DA E151, a diretriz do ARRANQUE LIMPO):
+##     o automounter do dono voltou ao autostart do labwc
+##     (--automount --notify --no-tray) e a LINHA DE REMOÇÃO dele aqui
+##     saiu no mesmo commit (o par udev oneshot de era é que aposentou
+##     — ver packages.add); o relato da E151 mora na história/commit.
 xorg-server
-udiskie
 ##   · HYPRPOLKITAGENT — o POLKIT ÚNICO (a diretriz): UM agente leve na
 ##     sessão — o lxqt-policykit (Qt6, WM-agnóstico, roda no labwc v4;
 ##     o hyprpolkitagent 0.2 é hyprtoolkit e binda layer-shell v5 que o

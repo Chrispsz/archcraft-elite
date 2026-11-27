@@ -1,28 +1,39 @@
 #!/bin/sh
-# Archcraft ELITE · labwc autostart v2 (1.0-102 — reescrito limpo e
-# minimalista para a arquitetura `elite-daemon session`). Executado no
-# início da sessão LABWC — termine comandos com & para não bloquear.
+# Archcraft ELITE · labwc autostart v3 (1.0-108 — O ARRANQUE LIMPO: a
+# diretriz do dono palavra por palavra). Executado no início da sessão
+# LABWC — termine comandos com & para não bloquear.
 #
-# A ARQUITETURA (2.0): este arquivo NÃO é mais o rancho de comentários
-# de era — cada bloco abaixo é o que a sessão PRECISA no frame 0, nada
-# além. TODO o resto — top bar, dock, wallpaper, notificações (swaync),
-# agente polkit, vigília/trava, motor de jogo, watch de displays, OSD —
-# é vaga supervisionada do `elite-daemon session` (UM lançador, UM
-# corpo, gate de posse E135). NENHUM residente nasce aqui (a era do
-# painel duplicado morreu com o E137; a era do sed cego morreu com o
-# E146 — o bloco marcado abaixo é o ÚNICO lançador da casa).
+# A ARQUITETURA (2.0 → 1.0-108): o AUTOSTART é o berço do FRAME 0 da
+# sessão — o AMBIENTE, os alicerces que NÃO podem depender do
+# supervisor (wallpaper, agente polkit, automount, keyring, clipboard)
+# e UM SÓ lançador de orquestração: `elite-daemon session &` (o bloco
+# marcado BEGIN/END — o ÚNICO lançador da casa, auditado pelo
+# elite-heal-sessao). TODO o resto — top bar, dock, notificações
+# (swaync), OSD, vigília/trava, motor de jogo, watch de displays — é
+# vaga supervisionada do `elite-daemon session` (UM lançador, UM
+# corpo, gate de posse E135). NENHUM swaync nasce aqui (o daemon é o
+# ÚNICO dono da central — a lei 1.0-107 segue): o residente que
+# aparece no autostart é alicoce de frame 0, supervisionado de perto
+# pelo gate de comm/adoção quando o daemon também o quer (o swaybg da
+# vaga "wallpaper" ADOTA o daqui — nunca duplica).
+#
+# v2 (1.0-102): a reescrita limpa/minimalista da era `elite-daemon
+# session`. v3 (1.0-108): os alicerces voltam ao frame 0 (o relato do
+# rig 1.0-107.3: o daemon em spin de CPU levava o berço junto — o
+# wallpaper e o agente polkit somiam com o motor; agora o frame 0 nasce
+# de pé por conta própria e o daemon só supervisiona o que é dele).
 
-# ── 0. O AMBIENTE WAYLAND NO DBUS/USERD ANTES DE TUDO (1.0-107) ───────────
-#     A cura do COLD BOOT VAZIO (o re-login subia a casa inteira e o
-#     primeiro boot nascia mudo): os processos D-Bus-ativados e as
-#     units --user do systemd só ENXERGAM o WAYLAND_DISPLAY quando ele
-#     mora no activation environment — a exportação corre ANTES do
-#     swaybg/daemon/qualquer cliente de display (a linha da receita
-#     oficial do labwc; idempotente por natureza, falha calada em
-#     sessão sem dbus).
+# ── 0. O AMBIENTE WAYLAND NO DBUS/USERD ANTES DE TUDO (1.0-107/108) ──────
+#     A cura do COLD BOOT VAZIO: os processos D-Bus-ativados e as units
+#     --user do systemd só ENXERGAM o WAYLAND_DISPLAY quando ele mora no
+#     activation environment — a exportação corre ANTES de swaybg/daemon/
+#     qualquer cliente de display (a linha da receita oficial do labwc;
+#     idempotente por natureza, falha calada em sessão sem dbus).
+#     1.0-108: XDG_CURRENT_DESKTOP=labwc:wlroots (a grafia da diretriz —
+#     o xdg-desktop-portal-wlr e o fuzzel casam as DUAS palavras).
 if command -v dbus-update-activation-environment >/dev/null 2>&1; then
     dbus-update-activation-environment --systemd \
-        WAYLAND_DISPLAY XDG_CURRENT_DESKTOP=wlroots >/dev/null 2>&1 || true
+        WAYLAND_DISPLAY XDG_CURRENT_DESKTOP=labwc:wlroots >/dev/null 2>&1 || true
 fi
 
 # ── 1. OS ÓRFÃOS DA SESSÃO ANTERIOR MORREM NO FRAME 0 ────────────────────
@@ -66,7 +77,62 @@ if command -v craft-display >/dev/null 2>&1; then
     craft-display apply-boot >/dev/null 2>&1
 fi
 
-# ── 4. O ORQUESTRADOR ÚNICO DA SESSÃO ─────────────────────────────────────
+# ── 4. O WALLPAPER DO FRAME 0 (1.0-108 — o alicoe que não espera motor) ───
+#     O relato do rig 1.0-107.3: o daemon doente levava o wallpaper
+#     junto — a tela nascia PRETA quando o motor tossia. O swaybg é
+#     alicoe de frame 0: nasce AQUI, na hora; a vaga "wallpaper" do
+#     daemon ADOTA esta instância pelo gate de comm (nunca duplica) e
+#     é a rede de respawn se ela cair (o desenho E138/E150 de sempre).
+if command -v swaybg >/dev/null 2>&1; then
+    if [ -f "$HOME/.config/labwc/wallpaper.png" ]; then
+        swaybg -m fill -i "$HOME/.config/labwc/wallpaper.png" >/dev/null 2>&1 &
+    elif [ -f "$HOME/.config/labwc/wallpaper.jpg" ]; then
+        swaybg -m fill -i "$HOME/.config/labwc/wallpaper.jpg" >/dev/null 2>&1 &
+    else
+        swaybg -m fill -c '#000000' >/dev/null 2>&1 &
+    fi
+fi
+
+# ── 5. O AGENTE POLKIT DO FRAME 0 (guard pgrep — UM só na sessão) ─────────
+#     O agente da casa é o lxqt-policykit (Qt6, WM-agnóstico — 1.0-107);
+#     o guard pgrep nunca soma o segundo (o supressor XDG do skel
+#     amordaça o /etc/xdg/autostart do pacote — E151/1.0-108: o agente
+#     agora nasce no frame 0 do labwc, não na fila do supervisor; o
+#     rc.xml, o craft-update e o pkexec da dose dependem dele no
+#     PRIMEIRO clique — sem motor no meio).
+if command -v lxqt-policykit-agent >/dev/null 2>&1 \
+    && ! pgrep -x lxqt-policykit-agent >/dev/null 2>&1; then
+    lxqt-policykit-agent >/dev/null 2>&1 &
+fi
+
+# ── 6. O AUTOMOUNT DO FRAME 0 (1.0-108 — a diretriz do arranque limpo) ────
+#     O udiskie --automount --notify --no-tray é o automounter da casa
+#     de novo (a ordem do dono — o par udev oneshot de era E151
+#     aposentou na dose junto): o pen drive monta no CLICK do dono com
+#     a notificação na cara, SEM bandeja e SEM daemon de root.
+if command -v udiskie >/dev/null 2>&1; then
+    udiskie --automount --notify --no-tray >/dev/null 2>&1 &
+fi
+
+# ── 7. KEYRING CACHYOS ────────────────────────────────────────────────────
+#     Self-healing de runtime (init → populate → refresh) em background,
+#     idempotente, sudo -n (nunca pede senha no escuro).
+if [ -x /usr/local/bin/craft-fix-keys ]; then
+    /usr/local/bin/craft-fix-keys &
+fi
+
+# ── 8. CLIPBOARD COM HISTÓRICO PERSISTENTE ────────────────────────────────
+#     cliphist — a receita oficial do labwc (W-v abre o histórico no
+#     seletor). A PODA síncrona antes do watcher: o DB cresceria sem
+#     limite (screenshots inteiros em base64) — milissegundos com o DB
+#     podado, estritamente antes do watcher nascer. A camada 2 (timer
+#     diário do user manager) mora no systemd de usuário.
+if command -v wl-paste >/dev/null 2>&1 && command -v cliphist >/dev/null 2>&1; then
+    cliphist wipe -older-than 720h 2>/dev/null
+    wl-paste --watch cliphist store &
+fi
+
+# ── 9. O ORQUESTRADOR ÚNICO DA SESSÃO ─────────────────────────────────────
 #     TODO o resto da casa é filho DELE (gate de posse por flock + nome
 #     no bus E135; caiu → volta em 2s; o logout derruba a sessão inteira
 #     e o session.lock sai do chão — 1.0-102, o relogin nasce limpo).
@@ -83,25 +149,7 @@ else
 fi
 unset BARLOG
 
-# ── 5. KEYRING CACHYOS ────────────────────────────────────────────────────
-#     Self-healing de runtime (init → populate → refresh) em background,
-#     idempotente, sudo -n (nunca pede senha no escuro).
-if [ -x /usr/local/bin/craft-fix-keys ]; then
-    /usr/local/bin/craft-fix-keys &
-fi
-
-# ── 6. CLIPBOARD COM HISTÓRICO PERSISTENTE ────────────────────────────────
-#     cliphist — a receita oficial do labwc (W-v abre o histórico no
-#     seletor). A PODA síncrona antes do watcher: o DB cresceria sem
-#     limite (screenshots inteiros em base64) — milissegundos com o DB
-#     podado, estritamente antes do watcher nascer. A camada 2 (timer
-#     diário do user manager) mora no systemd de usuário.
-if command -v wl-paste >/dev/null 2>&1 && command -v cliphist >/dev/null 2>&1; then
-    cliphist wipe -older-than 720h 2>/dev/null
-    wl-paste --watch cliphist store &
-fi
-
-# ── 7. TEMA ESCURO UNIVERSAL ──────────────────────────────────────────────
+# ── 10. TEMA ESCURO UNIVERSAL ─────────────────────────────────────────────
 #     A libadwaita lê o color-scheme do dconf; o gsettings crava o
 #     escuro na sessão inteira (libadwaita + portal + Qt6 + GTK3-dconf)
 #     e o gtk-theme é o espelho do settings.ini (Catppuccin Mocha Mauve —

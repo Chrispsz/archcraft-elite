@@ -58,6 +58,14 @@ GTK_CSD=0
 #     no Qt: nenhuma janela desenha CSD próprio, o labwc manda na moldura.
 GDK_BACKEND=wayland
 QT_QPA_PLATFORM=wayland
+# 1.0-108 — O PLATAFORMA-TEMA DO Qt (o relato do rig 1.0-107.3: o
+# lxqt-policykit Qt6 nascia SEM tema de plataforma — o Qt caía no tema
+# default e o journal carregava "Fallback Icon Theme (Oxygen) not
+# found" com o diálogo BRANCO na mesa escura). O qt6ct lê o
+# qt6ct.conf da casa (Papirus-Dark + o esquema elite-dark — o
+# ambiente escuro de sempre). O qt5ct fica FORA por desenho (E151:
+# zero apps Qt5 na ISO — nenhum binário leria o conf dele).
+QT_QPA_PLATFORMTHEME=qt6ct
 QT_WAYLAND_DISABLE_WINDOWDECORATION=1
 MOZ_ENABLE_WAYLAND=1
 ELECTRON_OZONE_PLATFORM_HINT=wayland

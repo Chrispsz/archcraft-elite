@@ -194,6 +194,19 @@ static WATCH_FD: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::ne
 /// eterno esperando um evento que não vem). teto_ms = -1 = sem teto.
 /// Zero wake-up em idle: o loop de era pagava 86.400 syscalls/dia para
 /// descobrir que nada aconteceu.
+///
+/// 1.0-108 — O FD MORTO SAI DO poll E DO CHÃO (a auditoria dos
+/// descritores do loop — a perícia do spin de 95,6% de CPU em idle):
+/// `poll(2)` num fd quebrado (POLLERR/POLLHUP/POLLNVAL) retorna
+/// IMEDIATO com o erro em `revents` — o fd que não é tirado da mesa
+/// vira busy-loop puro (o poll acorda no mesmo instante, o loop julga
+/// que não há nada, dorme de novo e o kernel acorda de novo: spin).
+/// O tratamento agora é o clássico de qualquer event loop: fd morto é
+/// FECHADO e DESREGISTRADO da mesa (o atomic vira -1: o próximo giro
+/// nem o lista). O dreno do inotify segue completo (o `read` em laço
+/// até EAGAIN esvazia o buffer INTEIRO do kernel — um evento que
+/// ficasse para trás acordaria o poll no instante seguinte sem nada
+/// novo a julgar).
 pub(crate) fn espera_evento(teto_ms: i32) {
     let pipe_r = WAKE_R.load(Ordering::SeqCst);
     let vigia = WATCH_FD.load(Ordering::SeqCst);
@@ -215,12 +228,38 @@ pub(crate) fn espera_evento(teto_ms: i32) {
     unsafe {
         libc::poll(fds.as_mut_ptr(), fds.len() as libc::nfds_t, teto_ms);
     }
+    // 1.0-108 — o fd MORTO sai do poll e do chão NA HORA (POLLERR/POLLHUP/
+    // POLLNVAL: continuar listando o fd morto seria spin — o poll retorna
+    // imediato com o erro para sempre)
+    for fd in &fds {
+        if fd.revents & (libc::POLLERR | libc::POLLHUP | libc::POLLNVAL) == 0 {
+            continue;
+        }
+        if fd.fd == pipe_r {
+            WAKE_R.store(-1, Ordering::SeqCst);
+            eprintln!(
+                "elite-daemon: o fd do self-pipe morreu no poll ({}) — desregistrado (o handler de sinal segue calado)",
+                fd.revents
+            );
+        } else if fd.fd == vigia {
+            WATCH_FD.store(-1, Ordering::SeqCst);
+            eprintln!(
+                "elite-daemon: o fd da vigia inotify morreu no poll ({}) — desregistrado (o SIGHUP/EPIPE seguem)",
+                fd.revents
+            );
+        }
+        unsafe {
+            libc::close(fd.fd);
+        }
+    }
     // drena o pipe (o próximo evento acha a mesa limpa)
+    let pipe_r = WAKE_R.load(Ordering::SeqCst);
     if pipe_r >= 0 {
         let mut buf = [0u8; 64];
         while unsafe { libc::read(pipe_r, buf.as_mut_ptr().cast(), 64) } > 0 {}
     }
     // drena a vigia (o loop de cima re-julga wayland_pronto — o juiz)
+    let vigia = WATCH_FD.load(Ordering::SeqCst);
     if vigia >= 0 {
         let mut buf = [0u8; 8192];
         while unsafe { libc::read(vigia, buf.as_mut_ptr().cast(), 8192) } > 0 {}

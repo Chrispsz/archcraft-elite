@@ -43,6 +43,7 @@
 
 use std::collections::HashMap;
 use std::io::Write;
+use std::os::unix::io::AsRawFd;
 use std::os::unix::net::UnixStream;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
@@ -195,9 +196,25 @@ impl Drop for BusServer {
 /// papel e o cliente sai da lista — nunca mistério mudo. O servidor
 /// morrendo (viva=false) FECHA os fios: a morte do bus é evento para
 /// o cliente (a reconexão E135 é para ISSO).
+///
+/// 1.0-108 — A LEITURA É POLL, NUNCA TIMEOUT DE FATO (a perícia da
+/// dock reconectando — `bus.cliente 3..24` no bars.log): o leitor de
+/// era vestia `set_read_timeout(500ms)` e chamava `recv_frame` — o
+/// `read_exact` do CORPO do quadro mapeia QUALQUER erro (inclusive
+/// WouldBlock/TimedOut) para `Truncated`: um quadro que atravessou
+/// o fio FATIADO sob starvation de CPU (o daemon em spin de 95,6%
+/// afogando a mesa) tinha o header lido, o corpo cortado no meio pelo
+/// teto de fatia — os bytes lidos MORRIAM com o read_exact, o resto
+/// do quadro virava LIXO DE ALINHAMENTO (o len seguinte era lixo
+/// aleatório > FRAME_MAX) e o `FrameTooBig` fechava o fio: a dock
+/// renascia (backoff ≤100ms), pedia de novo, e o próximo quadro
+/// fatiado recomeçava a contagem (`bus.cliente 3..24`). A leitura
+/// agora é `poll(2)`: SÓ lê quando o KERNEL tem bytes completos à
+/// espera (POLLIN — o `read_exact` completa sem teto nenhum no
+/// meio); a fatia de 500ms vira o re-conferir da vida do servidor,
+/// nunca uma faca no meio do quadro.
 fn atende(inner: Arc<Inner>, id: u32, mut conn: UnixStream) {
-    // o Hello tem teto de 30s; o loop de pedidos dorme em fatias de
-    // 500ms para conferir a vida do servidor (idle CPU ~zero)
+    // o Hello tem teto de 30s (a porta não conversa com calado)
     let _ = conn.set_read_timeout(Some(Duration::from_secs(30)));
     let hello = match recv_frame(&mut conn) {
         Ok(Some(BusMsg::Hello { who })) => who,
@@ -206,6 +223,14 @@ fn atende(inner: Arc<Inner>, id: u32, mut conn: UnixStream) {
     let Ok(out) = conn.try_clone() else {
         return; // sem clone não há full-duplex honesto
     };
+    // 1.0-108 — O TETO DE ESCRITA DA FICHA (o congelamento silencioso):
+    // o `transmite` de era escrevia SEM teto nenhum segurando o lock
+    // da lista de clientes — um cliente surdo (leitor morto, buffer do
+    // socket cheio) congelava o `write_all` PARA SEMPRE com TODO o bus
+    // atrás do lock (bar e dock publicando nada, Ack nunca voltando).
+    // O teto de 500ms é o mesmo da fatia de leitura: cliente que não
+    // bebe o quadro é REMOVIDO da lista (a transmite já ceifa o morto).
+    let _ = out.set_write_timeout(Some(Duration::from_millis(500)));
     let ficha = Arc::new(Ficha {
         stream: Mutex::new(out),
         who: hello.clone(),
@@ -218,11 +243,32 @@ fn atende(inner: Arc<Inner>, id: u32, mut conn: UnixStream) {
         .insert(id, Arc::clone(&ficha));
     inner.n_ligacoes.fetch_add(1, Ordering::Relaxed);
     let _ = inner.tx_incoming.send(Incoming::Hello { id, who: hello });
-    // o LEITOR de pedidos (o mesmo fio, ponta oposta da ficha)
-    let _ = conn.set_read_timeout(Some(Duration::from_millis(500)));
+    // o LEITOR de pedidos (o mesmo fio, ponta oposta da ficha): BLOQUEIO
+    // puro + poll decide a fatia — ver o cabeçalho 1.0-108 acima (o
+    // timeout de leitura de era FATIAVA quadros e virava lixo)
+    let _ = conn.set_read_timeout(None);
+    let fd = conn.as_raw_fd();
     loop {
         if !inner.viva.load(Ordering::Relaxed) {
             break; // o servidor morreu: o fio fecha com ele
+        }
+        let mut pfd = [libc::pollfd { fd, events: libc::POLLIN, revents: 0 }];
+        let rc = unsafe { libc::poll(pfd.as_mut_ptr(), 1, 500) };
+        if rc < 0 {
+            let errno = std::io::Error::last_os_error().raw_os_error().unwrap_or(0);
+            if errno == libc::EINTR {
+                continue; // o sino não é veredito: pergunta de novo
+            }
+            break; // erro real no fd: o fio fecha honesto
+        }
+        if rc == 0 {
+            continue; // fatia sem evento: a vida é re-conferida no giro
+        }
+        if pfd[0].revents & (libc::POLLERR | libc::POLLHUP | libc::POLLNVAL) != 0 {
+            break; // o par morreu no chão do kernel: EOF/erro na hora
+        }
+        if pfd[0].revents & libc::POLLIN == 0 {
+            continue; // acordou sem bytes legíveis: o próximo giro julga
         }
         match recv_frame(&mut conn) {
             Ok(Some(BusMsg::Req { id: req_id, req })) => {
@@ -246,15 +292,11 @@ fn atende(inner: Arc<Inner>, id: u32, mut conn: UnixStream) {
                 }
             }
             Ok(None) => break, // fim de fio limpo
-            Err(e) => {
-                // timeout de fatia é ESPERA (a vida é re-conferida no
-                // giro); erro real é o par morto no meio do quadro
-                let eh_fatia = matches!(&e, crate::ipc::IpcError::Io(io)
-                    if io.kind() == std::io::ErrorKind::WouldBlock
-                        || io.kind() == std::io::ErrorKind::TimedOut);
-                if !eh_fatia {
-                    break;
-                }
+            Err(_) => {
+                // quadro truncado/json inválido: o fio perdeu o
+                // alinhamento de verdade (o par morreu no MEIO do quadro)
+                // — fecha e o cliente honesto renasce pela reconexão E135
+                break;
             }
         }
     }
@@ -395,11 +437,21 @@ impl BusClient {
     /// Envia um pedido ao daemon. O `id` do Ack é o retorno (o eco cru
     /// — a correlação é dever de quem pediu). `None` = fio morto AGORA
     /// (a reconexão vem; o chamador decide repetir ou esperar estado).
+    /// 1.0-108 — O FIO ENVENENADO MORRE LIMPO: a escrita que morre no
+    /// MEIO (teto de 500ms/EPIPE) deixa o stream DESALINHADO — o
+    /// servidor leria o resto do quadro como um len de lixo e fecharia
+    /// o fio mais tarde (churn de reconexão sem dono). O `shutdown`
+    /// fecha o socket NO INTEIRO: o leitor de fundo vê o EOF na hora,
+    /// a reconexão E135 renasce a conexão LIMPA — o erro vira evento,
+    /// nunca lixo alheio no protocolo.
     pub fn send_req(&self, req: BusReq) -> Option<u32> {
         let id = self.next_req_id.fetch_add(1, Ordering::Relaxed);
         let msg = BusMsg::Req { id, req };
         let mut w = self.out.lock().unwrap();
-        send_frame(&mut *w, &msg).ok()?;
+        if send_frame(&mut *w, &msg).is_err() {
+            let _ = w.shutdown(std::net::Shutdown::Both);
+            return None;
+        }
         Some(id)
     }
 
@@ -408,8 +460,15 @@ impl BusClient {
     /// bus retransmite aos demais clientes (o eco NÃO volta — o
     /// remetente já sabe o que publicou). `false` = fio morto agora.
     pub fn publish(&self, msg: &BusMsg) -> bool {
+        // 1.0-108 — o MESMO veneno do send_req: escrita morta no meio
+        // envenena o alinhamento; o shutdown entrega o EOF ao leitor e
+        // a reconexão nasce limpa (ver send_req)
         let mut w = self.out.lock().unwrap();
-        send_frame(&mut *w, msg).is_ok()
+        if send_frame(&mut *w, msg).is_err() {
+            let _ = w.shutdown(std::net::Shutdown::Both);
+            return false;
+        }
+        true
     }
 }
 

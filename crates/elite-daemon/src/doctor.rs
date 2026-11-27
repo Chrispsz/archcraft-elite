@@ -34,7 +34,6 @@
 //      auto_null — o sequestro do monitor é doença nomeada);
 //   7. o GAMEMODE (informativo: o gamemoded é sob demanda — o estado é
 //      a notícia, não o veredito).
-use std::collections::HashMap;
 use std::io::Write;
 use std::path::PathBuf;
 
@@ -48,33 +47,30 @@ pub struct Diag {
     pub nota: String,
 }
 
-/// a família espúria da casa (a MESMA do elite-acpi-wakeup — uma lei só).
-fn wakeup_espurio(nome: &str) -> bool {
-    let bytes = nome.as_bytes();
-    let casa = |p: &str| nome.starts_with(p);
-    casa("XHC")
-        || casa("PTXH")
-        || casa("GPP")
-        || (bytes.len() >= 2
-            && bytes[0] == b'G'
-            && bytes[1] == b'P'
-            && bytes[2..].first().is_some_and(u8::is_ascii_digit))
-        || (casa("X1")
-            && bytes.len() > 2
-            && (bytes[2].is_ascii_digit() || bytes[2] == b'_'))
-}
-
 /// a mão do dono (o allowlist universal da 1.0-107.2).
 fn wakeup_mao(nome: &str) -> bool {
     matches!(nome, "PWRB" | "SLPB" | "PBTN" | "PS2K" | "LID")
 }
 
+/// 1.0-108 — FORA DA MÃO DO DONO (a lei nova do /proc/acpi/wakeup): a
+/// família espúria FIXA de era (XHC*/PTXH/GP*) deixava nomes FORA da
+/// lista (SWUS, SWDS, GP12, GP13…) ACORDADOS sem dono — a regra agora
+/// é PURA: tudo que NÃO é a mão do dono é espúrio (a mesma lei do
+/// `elite-acpi-wakeup`/`craft-wake-guard` — uma lei só na casa).
+fn wakeup_espurio(nome: &str) -> bool {
+    !wakeup_mao(nome)
+}
+
 /// O JULGO DA TABELA (PURO — a sonda de teste alimenta tabela de mentira):
-/// devolve (gatilhos espúrios ARMADOS, nomes da mão do dono DORMINDO) —
-/// ambos vazios é a saúde da casa.
-pub fn julga_wakeup(tabela: &str) -> (Vec<String>, Vec<String>) {
+/// 1.0-108 — devolve (gatilhos espúrios ARMADOS, A MÃO DO DONO ARMADA?) —
+/// saúde = família espúria dormindo E PELO MENOS UMA fonte válida do
+/// dono (PWRB/SLPB/PBTN/PS2K/LID) *enabled. O falso positivo de era:
+/// o julgo exigia a mão TODA armada e o desktop USB-only SEM PS2K/LID
+/// no hardware nascia DOENTE no papel com a mesa sã (o PS2K *disabled
+/// não é réu quando o PWRB acorda a máquina).
+pub fn julga_wakeup(tabela: &str) -> (Vec<String>, bool) {
     let mut espurios = Vec::new();
-    let mut mao = Vec::new();
+    let mut mao_armada = false;
     for linha in tabela.lines() {
         let campos: Vec<&str> = linha.split_whitespace().collect();
         // a gramática do /proc/acpi/wakeup: Name S-state Status Sysfs
@@ -82,15 +78,16 @@ pub fn julga_wakeup(tabela: &str) -> (Vec<String>, Vec<String>) {
         let &[nome, _s_state, estado, ..] = campos.as_slice() else {
             continue;
         };
-        let enabled = estado == "*enabled";
-        if enabled && wakeup_espurio(nome) {
-            espurios.push(nome.to_string());
+        if estado != "*enabled" {
+            continue; // *disabled não é réu (o PS2K ausente do hardware não conta)
         }
-        if !enabled && wakeup_mao(nome) {
-            mao.push(nome.to_string());
+        if wakeup_espurio(nome) {
+            espurios.push(nome.to_string()); // acordado sem dono: o dongle/PCIe da era
+        } else {
+            mao_armada = true; // a mão do dono armada — o despertar é DELA
         }
     }
-    (espurios, mao)
+    (espurios, mao_armada)
 }
 
 /// O RELATÓRIO (PURO): render alinhado + o código de saída (0 = saúde
@@ -115,9 +112,11 @@ pub fn relatorio(diags: &[Diag]) -> (String, i32) {
 
 // ── as sondas (cada uma monta UM Diag; nenhuma panica — o honesto fala) ──
 
-/// (1) o ambiente Wayland no D-Bus: o dbus-update-activation-environment
-/// do autostart é o PRIMEIRO invariante da 1.0-107 — sem ele o systemd do
-/// usuário nasce cego (swaync/polkit sem WAYLAND_DISPLAY).
+/// (1) o ambiente Wayland no D-Bus: a PROPRIEDADE `Environment` do
+/// org.freedesktop.systemd1.Manager é a verdade do systemd do usuário
+/// (1.0-108 — o MÉTODO `GetEnvironment` de era recusava na máquina real
+/// sem voz nenhuma; a PROPRIEDADE é a via canônica e com o `systemctl
+/// --user show-environment` de queda — a mesma leitura, duas portas).
 fn diag_dbus_env(conn: &Option<zbus::blocking::Connection>) -> Diag {
     let Some(c) = conn.as_ref() else {
         return Diag {
@@ -126,17 +125,29 @@ fn diag_dbus_env(conn: &Option<zbus::blocking::Connection>) -> Diag {
             nota: "sem session bus (a sessão não existe aqui?)".into(),
         };
     };
-    let Ok(p) = zbus::blocking::Proxy::new(
+    // 1.0-108 — A PROPRIEDADE primeiro (a leitura canônica: o valor é um
+    // `a{ss}` — o Dict do zvariant vira o MESMO mapa do método de era),
+    // o CLI de queda (o papel do systemctl serve o mesmo ambiente)
+    let env: std::collections::HashMap<String, String> = zbus::blocking::Proxy::new(
         c,
         "org.freedesktop.systemd1",
         "/org/freedesktop/systemd1",
         "org.freedesktop.systemd1.Manager",
-    ) else {
-        return Diag { nome: "ambiente", ok: false, nota: "o systemd do usuário não atende".into() };
-    };
-    let Ok(env) = p.call::<_, _, HashMap<String, String>>("GetEnvironment", &()) else {
-        return Diag { nome: "ambiente", ok: false, nota: "GetEnvironment recusado".into() };
-    };
+    )
+    .and_then(|p| {
+        let val = p.get_property::<zbus::zvariant::OwnedValue>("Environment")?;
+        let mut env = std::collections::HashMap::new();
+        if let zbus::zvariant::Value::Dict(d) = zbus::zvariant::Value::from(val) {
+            for (k, v) in d {
+                if let (Ok(k), Ok(v)) = (<String>::try_from(k), <String>::try_from(v)) {
+                    env.insert(k, v);
+                }
+            }
+        }
+        Ok(env)
+    })
+    .or_else(|_| ambiente_do_systemctl())
+    .unwrap_or_default();
     let wl = env.get("WAYLAND_DISPLAY").map(String::as_str).unwrap_or("");
     let desk = env.get("XDG_CURRENT_DESKTOP").map(String::as_str).unwrap_or("");
     if !wl.is_empty() && !desk.is_empty() {
@@ -148,6 +159,25 @@ fn diag_dbus_env(conn: &Option<zbus::blocking::Connection>) -> Diag {
             nota: "WAYLAND_DISPLAY/XDG_CURRENT_DESKTOP AUSENTES no D-Bus (o dbus-update-activation-environment do autostart não vestiu)".into(),
         }
     }
+}
+
+/// 1.0-108 — A QUEDA DO SYSTEMCTL (o papel KEY=VALUE do `show-environment`
+/// vira o MESMO mapa da propriedade; a saída sem nada é honesta: o mapa
+/// vazio nomeia o réu no diag).
+fn ambiente_do_systemctl() -> zbus::Result<std::collections::HashMap<String, String>> {
+    use std::collections::HashMap;
+    use std::process::Command;
+    let out = Command::new("systemctl")
+        .args(["--user", "show-environment"])
+        .output()
+        .map_err(|e| zbus::Error::Failure(format!("systemctl --user show-environment: {e}")))?;
+    let mut env = HashMap::new();
+    for linha in String::from_utf8_lossy(&out.stdout).lines() {
+        if let Some((k, v)) = linha.split_once('=') {
+            env.insert(k.to_string(), v.to_string());
+        }
+    }
+    Ok(env)
 }
 
 /// (2) o bus.sock VIVO: o handshake da casa (Hello → o snapshot de
@@ -250,8 +280,8 @@ fn diag_notifications(conn: &Option<zbus::blocking::Connection>) -> Diag {
     }
 }
 
-/// (5) a tabela /proc/acpi/wakeup: a família espúria dormindo + a mão do
-/// dono armada (o julgamento PURO é o mesmo do elite-acpi-wakeup).
+/// (5) a tabela /proc/acpi/wakeup: a família espúria dormindo + a mão
+/// do dono armada (o julgamento PURO é o mesmo do elite-acpi-wakeup).
 fn diag_wakeup() -> Diag {
     let Ok(tabela) = std::fs::read_to_string("/proc/acpi/wakeup") else {
         return Diag {
@@ -260,23 +290,23 @@ fn diag_wakeup() -> Diag {
             nota: "/proc/acpi/wakeup não existe (container/exótico)".into(),
         };
     };
-    let (espurios, mao) = julga_wakeup(&tabela);
-    if espurios.is_empty() && mao.is_empty() {
+    let (espurios, mao_armada) = julga_wakeup(&tabela);
+    if espurios.is_empty() && mao_armada {
         Diag {
             nome: "wakeup",
             ok: true,
-            nota: "família espúria dormindo · PWRB/SLPB/PBTN/PS2K/LID armados".into(),
+            nota: "toda a família fora da mão do dono dormindo · PWRB/SLPB/PBTN/PS2K/LID armados".into(),
         }
     } else {
         let mut nota = String::new();
         if !espurios.is_empty() {
             nota.push_str(&format!("espúrios ACORDADOS: {}", espurios.join(",")));
         }
-        if !mao.is_empty() {
+        if !mao_armada {
             if !nota.is_empty() {
                 nota.push_str(" · ");
             }
-            nota.push_str(&format!("mão do dono DORMINDO: {}", mao.join(",")));
+            nota.push_str("NENHUMA fonte da mão do dono armada (PWRB/SLPB/PBTN/PS2K/LID — a máquina nem com o botão acorda)");
         }
         Diag { nome: "wakeup", ok: false, nota }
     }
@@ -369,36 +399,43 @@ mod tests {
     }
 
     #[test]
-    fn e1072_o_julgo_da_tabela_wakeup() {
-        // a saúde: família dormindo, mão armada
-        let (e, m) = julga_wakeup(
+    fn e108_o_julgo_da_tabela_wakeup() {
+        // 1.0-108 — A LEI NOVA: todo *enabled FORA da mão do dono é
+        // espúrio (SWUS/SWDS/GP12/GP13 incluídos — a família fixa de era
+        // deixava-os acordados) e a saúde exige PELO MENOS UMA fonte da
+        // mão armada (o desktop USB-only sem PS2K/LID não é réu)
+        let (e, mao) = julga_wakeup(
             "Device  S-state   Status\n\
              XHC0      S4      *disabled\n\
-             GPP3      S4      *disabled\n\
-             PTXH      S4      *disabled\n\
+             SWUS      S4      *disabled\n\
+             GP12      S4      *disabled\n\
              PWRB      S4      *enabled\n\
-             SLPB      S4      *enabled\n\
-             PBTN      S4      *enabled\n\
-             PS2K      S3      *enabled\n\
-             LID       S3      *enabled\n",
-        );
-        assert!(e.is_empty() && m.is_empty(), "tabela sadia: nada a apontar (e={e:?} m={m:?})");
-        // o dongle acordando a máquina + a tampa dormindo (os dois réus)
-        let (e, m) = julga_wakeup(
-            "XHC0      S4      *enabled\n\
-             GPP3      S4      *enabled\n\
-             X1_2      S4      *enabled\n\
-             GP30      S4      *enabled\n\
-             PTXH      S4      *disabled\n\
-             PWRB      S4      *enabled\n\
-             LID       S3      *disabled\n\
              PS2K      S3      *disabled\n",
         );
-        assert_eq!(e, vec!["XHC0", "GPP3", "X1_2", "GP30"], "a família espúria armada é nomeada");
-        assert_eq!(m, vec!["LID", "PS2K"], "a mão do dono dormindo é nomeada");
-        // o X1 com dígito é espúrio, o XHC12 idem — e o PS2K NUNCA é espúrio
-        let (e, _) = julga_wakeup("X123     S4      *enabled\nXHC12    S4    *enabled\nPS2K     S3    *enabled\n");
-        assert_eq!(e.len(), 2, "as grafias da família casam as duas");
+        assert!(e.is_empty() && mao, "tabela sadia: nada fora da mão acordado, o PWRB acorda a máquina (e={e:?})");
+        // o falso positivo de era CURADO: o desktop USB-only SEM PS2K/LID
+        // no hardware, com o PWRB armado — é SAÚDE (o PS2K *disabled não
+        // é réu; a exigência da mão TODA armada era a doença)
+        let (e, mao) = julga_wakeup(
+            "PWRB      S4      *enabled\n\
+             PS2K      S3      *disabled\n\
+             LID       S3      *disabled\n",
+        );
+        assert!(e.is_empty() && mao, "o PS2K/LID desarmado sem hardware não é réu (o PWRB manda)");
+        // os réus nomeados: o dongle USB, a ponte PCIe e as SOBRAS de era
+        let (e, mao) = julga_wakeup(
+            "XHC0      S4      *enabled\n\
+             GP30      S4      *enabled\n\
+             SWDS      S4      *enabled\n\
+             GP12      S4      *enabled\n\
+             PWRB      S4      *enabled\n",
+        );
+        assert_eq!(e, vec!["XHC0", "GP30", "SWDS", "GP12"], "todo *enabled fora da allowlist é nomeado");
+        assert!(mao, "a mão armada segue armada");
+        // o DESERTO: nenhuma fonte do dono armada — a máquina nem com o
+        // botão acorda (o réu que a exigência da mão TODA não via)
+        let (e, mao) = julga_wakeup("XHC0      S4      *disabled\nPWRB      S4      *disabled\n");
+        assert!(e.is_empty() && !mao, "sem NENHUMA mão armada o sono é armadilha");
     }
 
     #[test]
@@ -416,11 +453,14 @@ mod tests {
     }
 
     #[test]
-    fn e1072_as_familias_do_wakeup_sao_as_das_scripts() {
+    fn e108_as_familias_do_wakeup_sao_as_das_scripts() {
         // a lei UMA: o julgo do doctor é o MESMO do elite-acpi-wakeup (o
-        // espúrio e a mão não divergem entre as portas da casa)
+        // espúrio é "fora da mão do dono" — a allowlist decide, não a
+        // família fixa de era; SWUS/SWDS/GP12/GP13 inclusos)
         assert!(wakeup_espurio("XHC0") && wakeup_espurio("PTXH") && wakeup_espurio("GPP8"));
         assert!(wakeup_espurio("GP30") && wakeup_espurio("X161") && wakeup_espurio("X1_1"));
+        assert!(wakeup_espurio("SWUS") && wakeup_espurio("SWDS") && wakeup_espurio("GP12"));
+        assert!(wakeup_espurio("PS2M"));
         assert!(!wakeup_espurio("PWRB") && !wakeup_espurio("PS2K") && !wakeup_espurio("LID"));
         assert!(!wakeup_espurio("SLPB") && !wakeup_espurio("PBTN"));
         assert!(wakeup_mao("PWRB") && wakeup_mao("SLPB") && wakeup_mao("PBTN") && wakeup_mao("PS2K") && wakeup_mao("LID"));
