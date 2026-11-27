@@ -625,8 +625,8 @@ fn main() {
     }
 
     // ── E150 · O VEREDITO DE XML no papel CURTO (o menu.xml/rc.xml do
-    //    dono: xmllint com o fallback python — o mesmo juiz do --full;
-    //    o labwc REJEITA o menu inteiro quando o XML quebra) ─────────
+    //    dono: o juiz EMBUTIDO da casa julga DENTRO do binário; o labwc
+    //    REJEITA o menu inteiro quando o XML quebra) ─────────
     say("");
     say("XML da sessão (rc.xml · menu.xml):");
     for f in ["rc.xml", "menu.xml"] {
@@ -968,7 +968,7 @@ fn modo_full() {
         say("  [journalctl indisponível]");
     }
 
-    // ── 8. VEREDITO DE XML (xmllint ou python — a prova do heal) ────────
+    // ── 8. VEREDITO DE XML (o juiz embutido da casa — a prova do heal) ─
     say("");
     say("═ 8. VEREDITO DE XML (rc.xml · menu.xml) ═");
     for f in ["rc.xml", "menu.xml"] {

@@ -118,16 +118,9 @@ pub fn mesa_da_janela(janela: u32) -> Option<u32> {
 /// movida entre mesas não arrasta a corrente para trás).
 static SYNC_EM: AtomicU64 = AtomicU64::new(0);
 
-fn agora_ms() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis() as u64)
-        .unwrap_or(0)
-}
-
 fn sync_fresco() -> bool {
     let t = SYNC_EM.load(Ordering::Relaxed);
-    t != 0 && agora_ms().saturating_sub(t) < 1500
+    t != 0 && crate::agora_ms().saturating_sub(t) < 1500
 }
 
 /// o APRENDIZADO: a janela focada crava a mesa dela (chamado pelo
@@ -168,7 +161,7 @@ pub fn define(n: u32) -> bool {
     if n < 1 || n > total_mesas {
         return false;
     }
-    SYNC_EM.store(agora_ms(), Ordering::Relaxed);
+    SYNC_EM.store(crate::agora_ms(), Ordering::Relaxed);
     {
         let mut guard = MESA.lock().unwrap();
         let mesa = guard.get_or_insert_with(|| Mesa { atual: 1, por_janela: HashMap::new() });
@@ -251,7 +244,7 @@ pub fn pula(n: u32) -> bool {
     // 1.0-100 — o pulo também marca o SYNC (a janela de obediência do
     // aprendizado: o foco que chega é prova da mesa nova, não arrasto
     // da tag velha)
-    SYNC_EM.store(agora_ms(), Ordering::Relaxed);
+    SYNC_EM.store(crate::agora_ms(), Ordering::Relaxed);
     // a mesa cravada AGORA (o foco que chega confirma; se nenhum vem,
     // a hipótese segue — o teclado do dono é a fonte final)
     {

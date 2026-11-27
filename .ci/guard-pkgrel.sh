@@ -50,7 +50,11 @@ check() { # $1=pacote  $2=delta (nomes de arquivo)
     old="$(pkgrel_of "$LAST_TAG" "$pkg" || true)"
     # template inexistente na tag (ex.: elite-craft nasceu depois) = 0
     cur="${cur:-0}"; old="${old:-0}"
-    if [ "$cur" -le "$old" ]; then
+    # 1.0-107.1 — comparação de VERSÃO (não de inteiro): o ciclo
+    # intermediário usa pkgrel com ponto (107.1) — sort -V julga
+    # "107.1 > 107" do jeito que o pacman lê (107.1 é uma revisão do 107).
+    if [ "$cur" = "$old" ] || \
+       [ "$(printf '%s\n%s\n' "$cur" "$old" | sort -V | head -n1)" = "$cur" ]; then
         echo "guard-pkgrel: FALHA — $pkg: pkgrel $cur ≤ $old (na $LAST_TAG) com conteúdo mudado."
         echo "  A LEI E41: conteúdo do pacote muda → pkgrel sobe NO MESMO commit."
         echo "  Cure: suba pkgrel= no template de $pkg em .ci/build.sh e recommita."

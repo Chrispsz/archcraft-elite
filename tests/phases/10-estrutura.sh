@@ -61,8 +61,8 @@ file_exists "session_smoke: o contrato da sessão viva nomeado" "tests/session_s
 file_exists "iso-qemu: o contrato da ISO booted nomeado" "tests/iso-qemu/README.md"
 
 # ── o E41 (a lei do bump no mesmo commit) — o pkgrel do MOLDE elite-system ──
-pkgrel="$(grep -B2 "pkgdesc='O sistema da Elite" .ci/build.sh | grep -oE 'pkgrel=[0-9]+' | head -1 | cut -d= -f2)"
-if [ -n "$pkgrel" ] && [ "$pkgrel" -ge 88 ]; then
+pkgrel="$(grep -B2 "pkgdesc='O sistema da Elite" .ci/build.sh | grep -oE 'pkgrel=[0-9.]+' | head -1 | cut -d= -f2)"
+if [ -n "$pkgrel" ] && [ "${pkgrel%%.*}" -ge 88 ]; then
     t_ok "E41: pkgrel da era nativa ($pkgrel ≥ 88 — a dose 2.0 avançou)"
 else
     t_fail "E41: pkgrel da era nativa" "pkgrel='$pkgrel' (< 88)"

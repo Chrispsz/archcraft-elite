@@ -257,8 +257,8 @@ fn main() {
              \x20  · meio: encerra · direito: nova janela/sessão\n\
              \x20  pins: ~/.config/elite/dock-pins (craft-pin) · W-S-d alterna\n\
              \x20  (SIGUSR1) · SIGUSR2 re-lê os pins · o papel mora em\n\
-             \x20  ~/.cache/elite/dock.log. Chamada pelo craft-bars; rodar na\n\
-             \x20  mão nasce dock duplicada (lei E30)."
+             \x20  ~/.cache/elite/dock.log. Chamada pelo elite-daemon session;\n\
+             \x20  rodar na mão nasce dock duplicada (lei E30)."
         );
         return;
     }

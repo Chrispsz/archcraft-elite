@@ -5,9 +5,6 @@
 // ausência TOTAL do legado, os serviços críticos e os parâmetros de boot.
 // O núcleo é PURO (entrada = texto colhido; saída = veredito tipado) —
 // testa em qualquer lugar; o main é a mão que colhe (systemctl/procfs/cmdline).
-// FASE 1: os contratos e os juízos. A coleta completa (bus.sock, journal
-// do PrepareForSleep) é Fase 2 — o bash craft-dump segue vivo até a v2
-// cobrir os dois pés (a aposentadoria tem substituto antes de nascer).
 // ═════════════════════════════════════════════════════════════════════════
 
 /// O legado que NUNCA mais vive na casa 2.0 (processo, bin ou conf).

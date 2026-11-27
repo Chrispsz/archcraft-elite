@@ -357,18 +357,12 @@ pub fn julga_porta(s: &SinkData) -> Option<Veredito> {
 
 // ── os PAPÉIS DA SESSÃO (os mesmos caminhos do Python — rig sem reinvenção)
 
-fn run_dir() -> PathBuf {
-    std::env::var("XDG_RUNTIME_DIR")
-        .map(|d| PathBuf::from(d).join("elite"))
-        .unwrap_or_else(|_| PathBuf::from("/tmp/elite"))
-}
-
 pub fn known_path() -> PathBuf {
-    run_dir().join("audio-known")
+    crate::supervise::run_dir().join("audio-known")
 }
 
 pub fn presleep_path() -> PathBuf {
-    run_dir().join("audio-presleep")
+    crate::supervise::run_dir().join("audio-presleep")
 }
 
 /// o SNAPSHOT DE CONHECIDOS (E139 — a fronteira honesta: a mão do

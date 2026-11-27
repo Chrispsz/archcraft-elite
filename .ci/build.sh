@@ -3150,8 +3150,12 @@ pkgver=1.0
 #      senha rc=126/127 é silêncio; a dose notifica início/conclusão
 #      com o N REAL de pacotes; a limpeza notifica o total liberado) e
 #      o relógio SEM tooltip (o calendário é do clique).
-#      pkgrel 106→107 NO MESMO COMMIT (lei E41 — o guard cobra).
-pkgrel=107
+#      1.0-107.1 — o ciclo intermediário (auditoria byte a byte): o
+#      pkgrel INTERMEDIÁRIO preserva o 108 para o próximo ciclo
+#      funcional (a diretriz do dono: saneamento rastreável sem queimar
+#      a versão). pkgrel 107→107.1 NO MESMO COMMIT (lei E41 — o guard
+#      compara versão, não inteiro).
+pkgrel=107.1
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da sessão; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

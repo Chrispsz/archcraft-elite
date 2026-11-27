@@ -322,14 +322,7 @@ static PULO_EM: AtomicU64 = AtomicU64::new(0);
 
 /// marca o pulo (a janela focada a seguir crava a mesa).
 pub fn marca_pulo() {
-    PULO_EM.store(agora_ms(), Ordering::Relaxed);
-}
-
-fn agora_ms() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis() as u64)
-        .unwrap_or(0)
+    PULO_EM.store(crate::agora_ms(), Ordering::Relaxed);
 }
 
 /// o estado da thread despachante (os globais + o ofício de cada evento).
@@ -356,7 +349,7 @@ impl Estado {
     /// DEPOIS do pulo crava a mesa corrente (a heurística honesta).
     fn aprende_mesa(&mut self) {
         let pulo = PULO_EM.load(Ordering::Relaxed);
-        if pulo != 0 && agora_ms().saturating_sub(pulo) < 1500 {
+        if pulo != 0 && crate::agora_ms().saturating_sub(pulo) < 1500 {
             let focada = {
                 let Some(sh) = SHARED.get() else { return };
                 let mru = sh.mru.lock().unwrap().clone();

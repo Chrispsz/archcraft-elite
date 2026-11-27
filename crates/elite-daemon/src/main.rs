@@ -364,7 +364,7 @@ pub(crate) fn sinal_para_comms(comms: &[&str], sig: i32) -> usize {
 // pontual que a infra shell da casa já sabe fazer).
 // ════════════════════════════════════════════════════════════════════════
 
-fn agora_ms() -> u64 {
+pub(crate) fn agora_ms() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)
