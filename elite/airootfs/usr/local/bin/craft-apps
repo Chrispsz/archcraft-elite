@@ -42,7 +42,12 @@ _uid="$(id -u)"
 _viva=0
 for _d in /proc/[0-9]*; do
     _pid="${_d##*/}"
-    _comm="$(cat "$_d/comm" 2>/dev/null || true)"
+    # 1.0-107.3 — O READ BUILTIN NO LUGAR DO $(cat): o laço varre TODO o
+    # /proc (centenas de pids por toggle do W-d) e cada $(cat ...) era um
+    # fork morto por processo — o read é built-in do shell, zero fork no
+    # caminho (a mesma lei do daemon: leitura direta, sem intermediário)
+    _comm=""
+    read -r _comm < "$_d/comm" 2>/dev/null || true
     [ "$_comm" = "nwg-drawer" ] || continue
     # só a gaveta DO DONO (o comm é a prova, o uid é a cerca)
     _dono="$(sed -n 's/^Uid: \([0-9]*\).*/\1/p' "$_d/status" 2>/dev/null | head -1)"

@@ -903,8 +903,9 @@ do_menu() {
 }
 
 # E90 — O VERBO SEGURO ANTES DE QUALQUER AÇÃO (o contrato 35-ajuda: o
-# desconhecido NUNCA cai no menu fuzzel — a descoberta sai 0 sem tocar
-# em display nenhum)
+# desconhecido NUNCA cai no seletor da casa — a descoberta sai 0 sem
+# tocar em display nenhum; 1.0-107.3: o 'menu fuzzel' de era era a
+# narrativa do seletor antigo — TODO seletor da casa é o craft-pick)
 case "${1:-}" in
     -h|--help|uso)
         printf '%s\n' \
@@ -918,7 +919,7 @@ case "${1:-}" in
             '               do DP sem sinal no pós-resume/pós-unlock — dinâmico,' \
             '               nenhuma saída hardcoded; guard de 10s = um dono só)' \
             '  status       salvo vs atual (+ o stamp da sessão)' \
-            '  menu         o menu fuzzel com TODOS os modos do EDID' \
+            '  menu         o seletor da casa (craft-pick) com TODOS os modos do EDID' \
             '               (+ Nitidez máxima: 1080p no maior Hz · escala inteira 1.0)' \
             '  icc          registra/lista perfis de cor (.icc — fronteira nomeada:' \
             '               o labwc sem protocolo de cor não veste, não finge)' \

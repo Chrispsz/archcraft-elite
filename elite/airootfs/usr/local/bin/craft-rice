@@ -427,9 +427,12 @@ case "${1:-}" in
     --lock-adopt) lock_skin "adopt"; exit 0 ;;
     --rc-adopt)   rc_skin "adopt"; exit 0 ;;
     --menu-adopt) menu_skin "adopt"; exit 0 ;;
-    --skin-adopt) # TODAS as skins da casa de uma vez (backup em cada)
+    --skin-adopt) # TODAS as skins da casa de uma vez (backup em cada) —
+                  # 1.0-107.3: a CENTRAL entra na porta (a swaync_skin
+                  # faltava da festa: a porta que dizia 'TODAS' entregava
+                  # 7 de 8 — a mesma ausência que o SC2120 da suíte nomeou)
                   lock_skin "adopt"; rc_skin "adopt"; osd_skin "adopt"; menu_skin "adopt"
-                  theo_skin "adopt"; gtk_skin "adopt"; qtc_skin "adopt"
+                  swaync_skin "adopt"; theo_skin "adopt"; gtk_skin "adopt"; qtc_skin "adopt"
                   exit 0 ;;
 esac
 

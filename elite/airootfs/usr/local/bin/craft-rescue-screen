@@ -43,6 +43,13 @@ say() {
     else
         LOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/idle.log"
         mkdir -p "${LOG%/*}" 2>/dev/null || true
+        # 1.0-107.3 — O TETO DO IDLE.LOG TAMBÉM É LEI AQUI: o craft-vigil
+        # (o escritor frequente) já corta o papel em 256 KiB, mas o resgate
+        # é ESCRITOR TAMBÉM — o teto da casa vale em TODO caminho que
+        # escreve (o papel nunca cresce sem juiz, nem pelo raro)
+        if [ -f "$LOG" ] && [ "$(wc -c <"$LOG" 2>/dev/null || echo 0)" -gt 262144 ]; then
+            tail -c 131072 "$LOG" > "$LOG.tmp" 2>/dev/null && mv -f "$LOG.tmp" "$LOG" || true
+        fi
         printf '[%s] [rescue] %s\n' "$(date '+%F %T')" "$1" >>"$LOG" 2>/dev/null || true
     fi
 }

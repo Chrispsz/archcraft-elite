@@ -57,10 +57,20 @@ jobs:
           # build nem começar). Elite-tune + craft-* + autostart cobrem os
           # shell — e desde a 1.0-103 NÃO EXISTE mais shebang python na
           # casa (a erradicação do python: o gate cobre TUDO, sem pulo).
+          # 1.0-107.3 — O GATE VESTE A CASA INTEIRA (a auditoria dos ~40
+          # scripts da dose: a família elite-* NÃO-compile só 2 nomes
+          # listados + os hooks de system-sleep + o exo-open + o log do
+          # calamares morriam SEM juiz — 20 arquivos shell fora do gate
+          # desde a v2.3.1, a MESMA classe do buraco dos paths dos
+          # workflows: o gate que não vê o que julga é contrato morto.
+          # A varredura local com -S warning: 100% limpos hoje — o gate
+          # só entra verde porque a casa JÁ é limpa (nada quebrado).
           for f in scripts/*.sh .ci/*.sh elite/fragments/*.sh \
-                   elite/airootfs/usr/local/bin/elite-tune \
-                   elite/airootfs/usr/local/bin/elite-status \
+                   elite/airootfs/usr/local/bin/elite-* \
                    elite/airootfs/usr/local/bin/craft-* \
+                   elite/airootfs/usr/local/bin/exo-open \
+                   elite/airootfs/usr/local/bin/calamares-elite-log \
+                   elite/airootfs/usr/lib/systemd/system-sleep/elite-* \
                    elite/airootfs/etc/skel/.config/labwc/autostart; do
             shellcheck -S warning -x "$f" || rc=1
           done

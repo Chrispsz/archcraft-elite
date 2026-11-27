@@ -155,13 +155,23 @@ file_absent "skel: a pasta waybar não volta" "$AIROOTFS/etc/skel/.config/waybar
 # ══ A QUALIDADE (o shellcheck da casa — 0 avisos warning+, a lei §3) ══
 # O MESMO CONTRATO DA ERA ANTERIOR (2bbca8c, 20-static): -S warning (o
 # SC2016 info é história da casa, não réu) + shebang python fora do escopo
+# 1.0-107.3 — O GATE LOCAL VESTE A CASA INTEIRA (o MESMO recorte do gate
+# do build.yml: a família elite-*, os hooks de system-sleep, o exo-open e
+# o log do calamares entram — o gate que não vê o que o CI julga é
+# contrato morto; a varredura local é o espelho fiel da esteira)
 if command -v shellcheck >/dev/null 2>&1; then
     sh_ok=1
-    sh_out="$(shellcheck -S warning -x scripts/*.sh .ci/*.sh 2>&1)" || sh_ok=0
+    sh_out="$(shellcheck -S warning -x scripts/*.sh .ci/*.sh \
+        elite/airootfs/usr/local/bin/elite-* \
+        elite/airootfs/usr/local/bin/craft-* \
+        elite/airootfs/usr/local/bin/exo-open \
+        elite/airootfs/usr/local/bin/calamares-elite-log \
+        elite/airootfs/usr/lib/systemd/system-sleep/elite-* \
+        elite/airootfs/etc/skel/.config/labwc/autostart 2>&1)" || sh_ok=0
     if [ "$sh_ok" = 1 ]; then
-        t_ok "shellcheck (-S warning): 0 avisos em scripts/ e .ci/"
+        t_ok "shellcheck (-S warning): 0 avisos na casa inteira (scripts/, .ci/, elite-*, craft-*, hooks, autostart)"
     else
-        t_fail "shellcheck (-S warning): 0 avisos em scripts/ e .ci/" "$(printf '%s' "$sh_out" | head -4 | tr '\n' ' ')"
+        t_fail "shellcheck (-S warning): 0 avisos na casa inteira (scripts/, .ci/, elite-*, craft-*, hooks, autostart)" "$(printf '%s' "$sh_out" | head -4 | tr '\n' ' ')"
     fi
 else
     t_skip "shellcheck" "toolchain ausente no ambiente (o CI instala)"
