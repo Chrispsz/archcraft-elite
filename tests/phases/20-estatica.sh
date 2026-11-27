@@ -36,7 +36,11 @@ menu_ok "menu.xml nasce SEM texto órfão fora de tag (E146 — a gramática da 
 xml_ok "rc.xml nasce bem-formado" "$AIROOTFS/etc/skel/.config/labwc/rc.xml"
 ini_ok "fuzzel.ini nasce com seção (a lição E137)" "$AIROOTFS/etc/skel/.config/fuzzel/fuzzel.ini"
 
-file_has "menu: o Suspender é verbo de primeira classe" "$AIROOTFS/etc/skel/.config/labwc/menu.xml" 'systemctl suspend'
+# 1.0-108 — O SONO E O ENCERRAR PELAS PORTAS DA CASA (o systemctl nu e o
+# labwc --exit nu saem das telas: o craft-suspend espera o lock MAPEAR
+# antes do freeze, o craft-logout encerra a família em ORDEM)
+file_has "menu: o Suspender é verbo de primeira classe (1.0-108: pela porta do craft-suspend)" "$AIROOTFS/etc/skel/.config/labwc/menu.xml" 'craft-suspend'
+file_has "menu: o Encerrar sessão veste o encerrar ORDEIRO (craft-logout)" "$AIROOTFS/etc/skel/.config/labwc/menu.xml" 'craft-logout'
 file_has "menu: o Desligar é direto" "$AIROOTFS/etc/skel/.config/labwc/menu.xml" 'systemctl poweroff'
 file_has "menu: o Reiniciar é direto" "$AIROOTFS/etc/skel/.config/labwc/menu.xml" 'systemctl reboot'
 file_hasnt "menu: o ITEM da gaveta fuzzel não volta (comentário de era é história)" "$AIROOTFS/etc/skel/.config/labwc/menu.xml" 'label="Apps da dock"'
@@ -158,9 +162,11 @@ legacy_hits="$(scan_vivo 'craft-bars|craft-connect|craft-pin-pick|craft-dock-gui
 [ -z "$legacy_hits" ] && t_ok "bins: ZERO chamada de código vivo aos fósseis (craft-bars/connect/pin-pick/dock-gui)" \
     || t_fail "bins: ZERO chamada de código vivo aos fósseis" "réus: $legacy_hits"
 # 2.0 Fase 2 — os 12 chamadores do craft-menu APOSENTARAM (a diretriz:
-# popovers nativos + ferramentas dedicadas; o picker é o craft-pick)
-menu_hits="$(scan_vivo 'craft-menu |craft-menu$|craft-menu --|craft-player|craft-power|craft-logout|craft-drawer|craft-audio-route')"
-[ -z "$menu_hits" ] && t_ok "bins: ZERO chamada viva ao craft-menu e sua era (player/power/logout/drawer/audio-route)" \
+# popovers nativos + ferramentas dedicadas; o picker é o craft-pick).
+# 1.0-108 — o craft-logout SAIU da era do craft-menu: renasce como o
+# ENCODER ORDEIRO da dose (contrato próprio, âncoras acima)
+menu_hits="$(scan_vivo 'craft-menu |craft-menu$|craft-menu --|craft-player|craft-power|craft-drawer|craft-audio-route')"
+[ -z "$menu_hits" ] && t_ok "bins: ZERO chamada viva ao craft-menu e sua era (player/power/drawer/audio-route)" \
     || t_fail "bins: ZERO chamada viva ao craft-menu e sua era" "réus: $menu_hits"
 waybar_hits="$(scan_vivo 'pgrep -x waybar|exec waybar|(^|[ &])waybar(&|[ ])')"
 [ -z "$waybar_hits" ] && t_ok "bins: ZERO spawn vivo de waybar (o perito e as ceifas de migração são legítimos)" \
@@ -752,6 +758,37 @@ file_has "canal: o cache MÁXIMO do cargo (target + registry/git juntos, chave p
 file_has "suite: o cache máximo no host (o registry do runner entra no MESMO cache)" ".github/workflows/tests.yml" '~/.cargo/registry'
 file_has "build.sh: o CARGO_HOME do container (o registry/git moram no repo montado — o download das crates paga 1x)" ".ci/build.sh" 'CARGO_HOME="/work/crates/.cargo-home"'
 file_has "lock: o blur é CACHE por evento (wall-blur.png — zero blur por lock)" "$AIROOTFS/usr/local/bin/craft-lock" 'wall-blur.png'
+# 1.0-108 — O MAPEAMENTO INSTANTÂNEO SEM PISCADA PRETA (a evidência do rig
+# 1.0-107.3: o lock nascia com uma piscada preta — o fade-in de era cobria
+# o primeiro frame antes do wallpaper):
+file_has "lock: o conf mestre veste no_fade_in (a CHEGADA é no frame 0)" "$AIROOTFS/etc/skel/.config/hypr/hyprlock.conf" 'no_fade_in = true'
+file_has "lock: o conf mestre veste fade_on_empty = false (o campo não pisca)" "$AIROOTFS/etc/skel/.config/hypr/hyprlock.conf" 'fade_on_empty = false'
+file_has "lock: o craft-lock invoca o hyprlock com --immediate (sem fade de chegada)" "$AIROOTFS/usr/local/bin/craft-lock" 'hyprlock --immediate -c "$conf"'
+file_has "lock: o fallback sem conf também veste o --immediate" "$AIROOTFS/usr/local/bin/craft-lock" 'hyprlock --immediate 9>&-'
+file_has "lock: o cache STALE não segura o map (o ffmpeg renasce DESAPEGADO em setsid)" "$AIROOTFS/usr/local/bin/craft-lock" 'blur_fresco'
+file_has "lock: o blur_passes=0 é LEI SEMPRE (nenhuma passada lenta antes do map)" "$AIROOTFS/usr/local/bin/craft-lock" 'blur_passes = 0|"'
+file_has "bar: o Suspender do menu da barra veste o CRAFT-SUSPEND (lock mapeado antes do freeze)" "crates/craft-bar-rs/src/ui.rs" '("suspend", &["craft-suspend"][..])'
+file_has "bar: o Encerrar do menu da barra veste o CRAFT-LOGOUT (a família cai em ordem)" "crates/craft-bar-rs/src/ui.rs" '("logout", &["craft-logout"][..])'
+# 1.0-108 — O CRAFT-SUSPEND (a ordem do dono: a superfície do lock MAPEADA
+# antes do systemctl suspend):
+file_exists "suspend: o craft-suspend mora na casa" "$AIROOTFS/usr/local/bin/craft-suspend"
+file_has "suspend: o ciclo espera o hyprlock VIVO (pgrep no /proc)" "$AIROOTFS/usr/local/bin/craft-suspend" 'pgrep -x hyprlock'
+file_has "suspend: o assento de 400ms da superfície (a lei do lock_mapeado do daemon)" "$AIROOTFS/usr/local/bin/craft-suspend" 'sleep 0.4'
+file_has "suspend: o teto honesto de 3s pela superfície" "$AIROOTFS/usr/local/bin/craft-suspend" 'lt 30'
+file_has "suspend: o craft-idle veste o craft-suspend no Suspender agora" "$AIROOTFS/usr/local/bin/craft-idle" 'craft-suspend'
+# 1.0-108 — O CRAFT-LOGOUT (o encerrar ORDEIRO: daemon → superfícies →
+# agentes, o fóssil do chão varrido antes do labwc --exit):
+file_exists "logout: o craft-logout mora na casa" "$AIROOTFS/usr/local/bin/craft-logout"
+file_has "logout: o ORQUESTRADOR cai primeiro (quem respawnava a família)" "$AIROOTFS/usr/local/bin/craft-logout" 'encerra elite-daemon'
+file_has "logout: as SUPERFÍCIES caem na ordem (barra e dock)" "$AIROOTFS/usr/local/bin/craft-logout" 'encerra craft-bar-rs craft-dock-rs'
+file_has "logout: os AGENTES auxiliares caem no fim (central, OSD, polkit, automount, clipboard, wallpaper)" "$AIROOTFS/usr/local/bin/craft-logout" 'encerra swaync swayosd-server lxqt-policykit-agent udiskie cliphist wl-paste swaybg'
+file_has "logout: o fóssil de /run é varrido ANTES do labwc --exit" "$AIROOTFS/usr/local/bin/craft-logout" 'exec labwc --exit'
+file_hasnt "logout: o labwc --exit NU não volta ao menu da casa" "$AIROOTFS/etc/skel/.config/labwc/menu.xml" 'command="labwc --exit"'
+# 1.0-108 — OS 120 Hz NO ARRANQUE (o craft-display apply NÃO-BLOQUEANTE na
+# thread própria do arranque do elite-daemon session, sempre que houver
+# perfil salvo — o do_apply reconcilia: sem conf = no-op silencioso):
+file_has "display: o arranque do session re-aplica o perfil do monitor (a thread do boot frio)" "crates/elite-daemon/src/main.rs" 'fn thread_display_boot'
+file_has "display: o apply da thread é o craft-display da casa (não-bloqueante na própria thread)" "crates/elite-daemon/src/main.rs" 'let ok = Command::new("/usr/local/bin/craft-display")'
 
 # ══ E151-d — AS SKILLS PERMANENTES E A LEI DE ENTRADA ══
 file_exists "skills: a filosofia extrema é guia permanente (05)" "docs/skills/05-filosofia-extrema.md"

@@ -56,7 +56,10 @@ file_absent "vendor: o C de 3 gerações saiu do repo" "vendor/craft-toplevel.c"
 for bin in craft-update craft-clean craft-help craft-audit craft-dump; do
     file_absent "bin compilado: $bin não mora no overlay (nasce do cargo)" "elite/airootfs/usr/local/bin/$bin"
 done
-for fossil in craft-bars craft-connect craft-audio craft-pin-pick craft-dock-gui craft-menu craft-menu-dismiss craft-player craft-power craft-logout craft-drawer craft-audio-route; do
+# 1.0-108 — O CRAFT-LOGOUT RENASCE (não é o fóssil de era do craft-menu:
+# é o ENCODER ORDEIRO da dose — a família cai em ordem antes do labwc
+# --exit; sai da lista dos fósseis e veste contrato próprio abaixo)
+for fossil in craft-bars craft-connect craft-audio craft-pin-pick craft-dock-gui craft-menu craft-menu-dismiss craft-player craft-power craft-drawer craft-audio-route; do
     file_absent "fóssil aposentado ausente da árvore: $fossil" "elite/airootfs/usr/local/bin/$fossil"
 done
 

@@ -1,0 +1,97 @@
+#!/bin/sh
+# craft-suspend — o sono SEGURO da casa: o lock MAPEADO antes do freeze
+# ─────────────────────────────────────────────────────────────────────────
+# PAPEL (1.0-108 · Etapa 2-d): a ordem do dono, palavra por palavra:
+# "No Suspender: aguardar a superfície do craft-lock mapear antes de
+# chamar systemctl suspend". O `systemctl suspend` NU de era contava com
+# o inhibitor-delay do logind (PrepareForSleep → trava_pre_sono do
+# daemon, teto de 5s do InhibitDelayMaxSec) — quando o blur do wallpaper
+# comia a janela, o kernel congelava com o lock PELA METADE e o dono
+# acorda em tela preta. AQUI o pedido é SEQUENCIAL: o craft-lock nasce
+# DESAPEGADO (background), o ciclo espera o hyprlock vivo no /proc + o
+# assento de 400ms da superfície (a MESMA lei do lock_mapeado do
+# elite-daemon — a pintura acontece ANTES do freeze), e SÓ ENTÃO o
+# `systemctl suspend` desce. O PrepareForSleep do daemon segue de cinto
+# (o --if-needed dele vê o lock VIVO e não duplica nada).
+#
+# DESENHO:
+#   · o craft-lock roda em BACKGROUND (a senha do dono nunca segura o
+#     script — o hyprlock é quem vive na tela);
+#   · teto HONESTO de 3s pela superfície (a mesma janela do logind — um
+#     lock que não mapeou em 3s não vai mapear com o sistema congelado;
+#     o sono segue MESMO ASSIM: acordar no lock de era é a promessa da
+#     casa, o cinto do daemon cobre o resto);
+#   · o assento de 400ms DEPOIS do vivo (o mapeamento do
+#     ext-session-lock-v1 não é átomo — a pintura é o que o dono vê);
+#   · idempotente com o lock JÁ VIVO (o pgrep fresco na porta: menu da
+#     barra sobre lock de idade não renasce nada).
+#
+# OBSERVÁVEL: uma linha no bars.log por sono (réu nomeado, teto 256 KiB
+# da casa). Acionado por: o menu da barra (Suspender), o menu do desktop
+# (menu.xml), o "Suspender agora" do craft-idle.
+set -u
+
+# E90 — o --help da casa
+uso() {
+    printf '%s\n' \
+        'uso: craft-suspend — trava a tela e SÓ ENTÃO suspende (o lock mapeado' \
+        '     ANTES do freeze)' \
+        '' \
+        '  o craft-lock nasce desapegado, o ciclo espera a superfície do' \
+        '  hyprlock mapear (vivo no /proc + assento de 400ms, teto 3s) e o' \
+        '  systemctl suspend desce com o lock PINTADO na tela — o acordar' \
+        '  sem sinal de era morre.' \
+        '  acionado pelo menu da barra, pelo menu do desktop e pelo' \
+        '  "Suspender agora" do craft-idle.'
+    exit 0
+}
+case "${1:-}" in -h|--help|uso) uso ;; esac
+
+LLOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/bars.log"
+mkdir -p "${LLOG%/*}" 2>/dev/null || true
+# o teto da casa (256 KiB — o papel nunca cresce sem juiz)
+if [ -f "$LLOG" ] && [ "$(wc -c <"$LLOG" 2>/dev/null || echo 0)" -gt 262144 ]; then
+    tail -c 131072 "$LLOG" > "$LLOG.poda" 2>/dev/null && mv -f "$LLOG.poda" "$LLOG" 2>/dev/null || true
+fi
+dlog() { printf '[%s] craft-suspend: %s\n' "$(date '+%F %T')" "$1" >>"$LLOG" 2>/dev/null || true; }
+
+# 1. O LOCK NASCE DESAPEGADO (o lock vivo de idade não renasce — o
+#    pgrep da porta é o MESMO juiz do --if-needed)
+if pgrep -x hyprlock >/dev/null 2>&1; then
+    dlog "sono pedido com lock JÁ VIVO — a espera é só do freeze"
+else
+    if command -v craft-lock >/dev/null 2>&1; then
+        craft-lock >/dev/null 2>&1 &
+    else
+        dlog "craft-lock ausente — o sono segue SEM o nascimento manual (o PrepareForSleep do daemon é o cinto)"
+    fi
+fi
+
+# 2. A ESPERA DA SUPERFÍCIE (a lei do lock_mapeado do daemon, palavra
+#    por palavra: o hyprlock VIVO no /proc + o assento de 400ms — o lock
+#    PINTA antes do freeze; teto de 3s cobre o mapa mais lento)
+_i=0
+_mapeou=0
+while [ "$_i" -lt 30 ]; do
+    if pgrep -x hyprlock >/dev/null 2>&1; then
+        _mapeou=1
+        break
+    fi
+    sleep 0.1
+    _i=$((_i + 1))
+done
+if [ "$_mapeou" = 1 ]; then
+    sleep 0.4
+    dlog "lock vivo e assentado (espera de $((_i * 100))ms + 400ms) — o freeze vem com a pintura na tela"
+else
+    dlog "hyprlock não nasceu em 3s — o sono segue com o cinto do PrepareForSleep do daemon (honesto no papel)"
+fi
+
+# 3. O SISTEMA DORME (com o lock pintado — o acordar nunca é tela preta)
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl suspend >/dev/null 2>&1 &
+    exit 0
+fi
+# a queda honesta (a casa sem systemd é a casa sem sono — a voz nomeia)
+dlog "systemctl ausente — o sono não desceu (o rig tem systemctl de fábrica)"
+exit 1

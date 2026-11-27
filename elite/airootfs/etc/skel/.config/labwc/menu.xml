@@ -275,14 +275,18 @@
          LADO do Reiniciar, `systemctl suspend` DIRETO — sem
          can-suspend, o sleep.conf da casa já disse AllowSuspend=yes
          (E122) e o popover da craft-bar-rs fala a mesma língua). -->
+    <!-- 1.0-108 — O SONO PELO CRAFT-SUSPEND (o lock MAPEADO antes do
+         freeze — a evidência do rig 1.0-107.3) -->
     <item label="Suspender">
-      <action name="Execute" command="systemctl suspend" />
+      <action name="Execute" command="craft-suspend" />
     </item>
     <!-- E106 — O SAIR DIRETO (o dono: reboot e desligar já estão aqui —
          o que faltava era o SAIR). O menu gráfico completo do power
          segue vivo no ⏻ da topbar e nos atalhos (W-Escape/W-x/C-A-Del). -->
+    <!-- 1.0-108 — O ENCERRAR ORDEIRO (a família da casa cai em ORDEM
+         antes do labwc --exit — o fóssil de /run/user/$UID/elite morre) -->
     <item label="Encerrar sessão">
-      <action name="Execute" command="labwc --exit" />
+      <action name="Execute" command="craft-logout" />
     </item>
     <separator />
     <item label="Reiniciar">

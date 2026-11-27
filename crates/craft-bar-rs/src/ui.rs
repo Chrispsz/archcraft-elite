@@ -782,10 +782,14 @@ fn build(app: &gtk::Application) {
         let acoes = gtk::gio::SimpleActionGroup::new();
         for (nome, cmd) in [
             ("lock", &["craft-lock"][..]),
-            ("suspend", &["systemctl", "suspend"][..]),
+            // 1.0-108 — o sono pelo CRAFT-SUSPEND (o lock MAPEADO antes
+            // do freeze: a superfície pintada ANTES do systemctl)
+            ("suspend", &["craft-suspend"][..]),
             ("reboot", &["systemctl", "reboot"][..]),
             ("poweroff", &["systemctl", "poweroff"][..]),
-            ("logout", &["labwc", "--exit"][..]),
+            // 1.0-108 — o encerrar ORDEIRO (a família cai em ordem antes
+            // do labwc --exit: daemon → superfícies → agentes)
+            ("logout", &["craft-logout"][..]),
             // 1.0-108 — OS ATALHOS RÁPIDOS DA ORDEM DO DONO (os essenciais
             // de UM clique no menu da barra: Modo de jogo, Trava
             // automática, Monitores/120 Hz, Atualizar, Limpar, Snapshots)

@@ -38,6 +38,18 @@
 #       (preto AMOLED — o mesmo fallback do autostart).
 #   O arquivo mora no XDG_RUNTIME_DIR com nome FIXO: sobrescrito a cada
 #   lock, zero acumulação (sem mktemp — o exec não roda trap de cleanup).
+# 1.0-108 — O MAPEAMENTO INSTANTÂNEO SEM PISCADA PRETA (a evidência do
+#   rig 1.0-107.3: o lock nascia com uma piscada preta — o hyprlock
+#   vestia o fade-in de era ANTES do wallpaper mapear). Três leis novas:
+#   (1) o hyprlock nasce com --immediate + general { no_fade_in = true }
+#   do conf mestre (a CHEGADA é no frame 0, VESTIDA); (2) o wallpaper
+#   ÉTICO entra DIRETO no path — o blur cache E151 é usado SÓ quando
+#   já está FRESCO (mtime casa); stale/ausente = o ESTÁTICO assume com
+#   blur_passes=0 e o ffmpeg renasce DESAPEGADO (setsid, fora do
+#   caminho crítico — o lock NUNCA espera passada lenta antes do map;
+#   o próximo lock já encontra o cache pronto); (3) o conf veste
+#   fade_on_empty = false (de fábrica no mestre desde sempre) — o campo
+#   não pisca no primeiro toque.
 # v1.5: o locker da Elite é o hyprlock (~/.config/hypr/hyprlock.conf —
 #   wallpaper + blur + dim + relógio + campo estilizado). Roda no labwc
 #   via ext-session-lock-v1 (protocolo nativo). O swaylock (tela branca
@@ -175,15 +187,31 @@ if command -v hyprlock >/dev/null 2>&1; then
     # caminho crítico do suspend). ffmpeg ausente/falho = o caminho antigo
     # (o hyprlock borra ele mesmo — honesto, como sempre).
     blur="$HOME/.cache/elite/wall-blur.png"
-    if [ -r "$bg" ] && command -v ffmpeg >/dev/null 2>&1; then
-        if [ ! -r "$blur" ] || [ "$bg" -nt "$blur" ]; then
-            mkdir -p "${blur%/*}" 2>/dev/null || true
-            ffmpeg -y -loglevel error -i "$bg" \
+    # 1.0-108 — O CAMINHO CRÍTICO NUNCA ESPERA O FFMPEG (a diretriz do
+    # dono: usar direto o wallpaper ESTÁTICO sem passada lenta antes do
+    # map): o cache FRESCO (mtime casa com o wallpaper) veste na hora
+    # (custo ZERO — o E151 segue); o cache STALE/AUSENTE não segura o
+    # lock NENHUM milissegundo — o ESTÁTICO assume com blur_passes=0 e
+    # o ffmpeg renasce DESAPEGADO (setsid) para o PRÓXIMO lock (o rig
+    # paga o borrão UMA vez por mudança de wallpaper, nunca na cara do
+    # suspend).
+    blur_fresco=0
+    if [ -r "$blur" ] && [ -r "$bg" ] && [ ! "$bg" -nt "$blur" ]; then
+        blur_fresco=1
+    elif [ -r "$bg" ] && command -v ffmpeg >/dev/null 2>&1; then
+        mkdir -p "${blur%/*}" 2>/dev/null || true
+        setsid sh -c 'ffmpeg -y -loglevel error -i "$1" \
                 -vf "gblur=sigma=10:steps=3" \
-                "$blur" >/dev/null 2>&1 || true
-        fi
+                "$2" >/dev/null 2>&1 || true' _ "$bg" "$blur" \
+            >/dev/null 2>&1 </dev/null &
     fi
-    [ -r "$blur" ] && [ -r "$bg" ] && bg="$blur" && blur_off=1 || blur_off=0
+    if [ "$blur_fresco" = 1 ]; then
+        # o cache FRESCO veste (o borrão já mora na imagem — custo ZERO)
+        bg="$blur"
+    fi
+    # o ESTÁTICO (sem cache fresco) entra DIRETO no path: o sed abaixo
+    # veste blur_passes=0 SEMPRE — nenhuma passada lenta antes do map
+    # (o ffmpeg desapegado de cima já prepara o cache do PRÓXIMO lock)
     conf="${XDG_RUNTIME_DIR:-/tmp}/elite-hyprlock.conf"
     if [ -r "$bg" ]; then
       # v2.5.0-fix: a linha path é INDENTADA no conf (bloco background) —
@@ -196,13 +224,13 @@ if command -v hyprlock >/dev/null 2>&1; then
       # E151 — o blur vem do CACHE: blur_passes=0 no MESMO escopo (a
       # parede) — o hyprlock só pinta, nunca borra.
       bg_esc=$(printf '%s' "$bg" | sed 's/[&|\\]/\\&/g')
-      if [ "$blur_off" = 1 ]; then
-        sed -e "/^background {/,/^}/ s|^[[:space:]]*path = .*|    path = $bg_esc|" \
-            -e "/^background {/,/^}/ s|^[[:space:]]*blur_passes = .*|    blur_passes = 0|" \
-            "$src" > "$conf"
-      else
-        sed "/^background {/,/^}/ s|^[[:space:]]*path = .*|    path = $bg_esc|" "$src" > "$conf"
-      fi
+      # 1.0-108 — O blur_passes=0 é LEI SEMPRE (a passada lenta de render
+      # ANTES do map era a outra metade da piscada preta): o borrão vem
+      # do CACHE (fresco) ou NÃO VEM (o estático assume — o próximo lock
+      # encontra o cache do ffmpeg desapegado)
+      sed -e "/^background {/,/^}/ s|^[[:space:]]*path = .*|    path = $bg_esc|" \
+          -e "/^background {/,/^}/ s|^[[:space:]]*blur_passes = .*|    blur_passes = 0|" \
+          "$src" > "$conf"
     else
       # sem wallpaper: path vazio → o color do bloco assume (preto);
       # mesmo escopo E105: só o bloco background
@@ -223,14 +251,16 @@ if command -v hyprlock >/dev/null 2>&1; then
     # pedida DUAS vezes: o hyprlock que encerrou é o MESMO da tela, o
     # recover só mexe no LINK do monitor).
     _rc=0
-    hyprlock -c "$conf" 9>&- || _rc=$?
+    # 1.0-108 — o --immediate (com o no_fade_in do conf mestre): a
+    # CHEGADA é no frame 0, VESTIDA — a piscada preta de era morre
+    hyprlock --immediate -c "$conf" 9>&- || _rc=$?
     if command -v craft-display >/dev/null 2>&1; then
         craft-display recover >/dev/null 2>&1 || true
     fi
     exit "$_rc"
   fi
   _rc=0
-  hyprlock 9>&- || _rc=$?
+  hyprlock --immediate 9>&- || _rc=$?
   if command -v craft-display >/dev/null 2>&1; then
       craft-display recover >/dev/null 2>&1 || true
   fi

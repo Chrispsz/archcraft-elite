@@ -194,10 +194,15 @@ if [ "${1:-}" = "menu" ]; then
                     fi
                     ;;
                 "Suspender agora")
-                    # a diretriz §5: o sono pela porta SEGURA (o
-                    # PrepareForSleep trava ANTES do freeze — acorda no
-                    # lock, com o sinal de vídeo estável no retorno)
-                    if command -v systemctl >/dev/null 2>&1; then
+                    # 1.0-108 — O SONO PELA PORTA DO LOCK MAPEADO (a
+                    # evidência do rig: o freeze de era às vezes colhia
+                    # o lock pela metade e o dono acordava em tela preta
+                    # — o craft-suspend espera a SUPERFÍCIE pintar antes
+                    # do systemctl; o PrepareForSleep do daemon segue de
+                    # cinto com o --if-needed)
+                    if command -v craft-suspend >/dev/null 2>&1; then
+                        craft-suspend >/dev/null 2>&1 &
+                    elif command -v systemctl >/dev/null 2>&1; then
                         systemctl suspend >/dev/null 2>&1 &
                     fi
                     ;;

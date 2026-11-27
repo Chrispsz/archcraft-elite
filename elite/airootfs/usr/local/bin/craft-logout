@@ -1,0 +1,106 @@
+#!/bin/sh
+# craft-logout — o ENCERRAR ORDEIRO da sessão da casa
+# ─────────────────────────────────────────────────────────────────────────
+# PAPEL (1.0-108 · Etapa 2-d): a ordem do dono, palavra por palavra:
+# "No Encerrar sessão: encerrar ordenadamente elite-daemon, craft-bar-rs,
+# craft-dock-rs e agentes auxiliares antes de sair do labwc". O
+# `labwc --exit` NU de era derrubava o compositor COM a família viva
+# pendurada nele — os filhos morriam na ordem que o kernel decidia
+# (SIGTERM em cascata do cgroup), os logs cortavam no meio da linha, o
+# bus.sock e os locks de /run/user/$UID/elite viravam fósseis que a
+# sessão nova tinha que colher. AQUI a saída é ORDEIRA: cada morador da
+# casa recebe o SIGTERM PRÓPRIO, o ciclo espera o assentamento (teto
+# curto), e SÓ ENTÃO o `labwc --exit` fecha a porta.
+#
+# DESENHO:
+#   · a ORDEM do encerramento: o ORQUESTRADOR morre primeiro (o
+#     elite-daemon é quem respawna a família — derrubar a barra antes
+#     dele nascia de novo em 2s, a comédia de era), depois as
+#     superfícies (craft-bar-rs, craft-dock-rs) e por fim os agentes
+#     auxiliares do frame 0 (swaync, swayosd, lxqt-policykit-agent,
+#     udiskie, cliphist/wl-paste, swaybg);
+#   · SIGTERM (nunca KILL de cara): a casa inteira trata TERM com a
+#     saída limpa (o flock da sessão volta ao chão, o socket morre
+#     assentado); KILL é só o remédio de quem não cedeu no teto;
+#   · teto de 4s no assentamento (a porta nunca trava: o labwc --exit
+#     desce com quem cedeu, o cgroup do systemd recolhe quem ficou);
+#   · o labwc --exit é o ÚLTIMO gesto (o dono sai pela porta da casa,
+#     não pela janela do compositor).
+#
+# OBSERVÁVEL: uma linha no bars.log por encerramento (réu nomeado, teto
+# 256 KiB da casa). Acionado por: o menu da barra (Encerrar sessão) e o
+# menu do desktop (menu.xml).
+set -u
+
+# E90 — o --help da casa
+uso() {
+    printf '%s\n' \
+        'uso: craft-logout — encerra a família da casa em ORDEM e sai do labwc' \
+        '' \
+        '  o elite-daemon cai primeiro (quem respawnava a família), depois as' \
+        '  superfícies (craft-bar-rs, craft-dock-rs) e os agentes auxiliares' \
+        '  (swaync, swayosd, polkit, udiskie, cliphist, swaybg) — cada um com' \
+        '  o PRÓPRIO SIGTERM e o assentamento esperado (teto 4s) — e SÓ ENTÃO' \
+        '  o labwc --exit fecha a porta. Zero fóssil em /run/user/$UID/elite.' \
+        '  acionado pelo menu da barra e pelo menu do desktop.'
+    exit 0
+}
+case "${1:-}" in -h|--help|uso) uso ;; esac
+
+LLOG="${XDG_CACHE_HOME:-$HOME/.cache}/elite/bars.log"
+mkdir -p "${LLOG%/*}" 2>/dev/null || true
+# o teto da casa (256 KiB — o papel nunca cresce sem juiz)
+if [ -f "$LLOG" ] && [ "$(wc -c <"$LLOG" 2>/dev/null || echo 0)" -gt 262144 ]; then
+    tail -c 131072 "$LLOG" > "$LLOG.poda" 2>/dev/null && mv -f "$LLOG.poda" "$LLOG" 2>/dev/null || true
+fi
+dlog() { printf '[%s] craft-logout: %s\n' "$(date '+%F %T')" "$1" >>"$LLOG" 2>/dev/null || true; }
+
+# a colheita: TERM → espera curta → KILL para quem ficou (a ordem é a
+# mesma da lista; cada nome é UM cidadão da casa, nenhum herói anônimo)
+encerra() { # encerra <nome...> — TERM, assenta, KILL o teimoso
+    for nome do
+        if pgrep -x "$nome" >/dev/null 2>&1; then
+            pkill -TERM -x "$nome" 2>/dev/null || true
+        fi
+    done
+    _i=0
+    while [ "$_i" -lt 20 ]; do
+        _vivos=""
+        for nome do
+            pgrep -x "$nome" >/dev/null 2>&1 && _vivos="$_vivos $nome"
+        done
+        [ -z "$_vivos" ] && return 0
+        sleep 0.2
+        _i=$((_i + 1))
+    done
+    for nome do
+        pkill -KILL -x "$nome" 2>/dev/null || true
+    done
+}
+
+# 1. O ORQUESTRADOR PRIMEIRO (quem respawnava a família — derrubar a
+#    barra antes dele era a comédia de era: nascia de novo em 2s)
+encerra elite-daemon
+# 2. AS SUPERFÍCIES (a barra e a dock — os clientes de display)
+encerra craft-bar-rs craft-dock-rs
+# 3. OS AGENTES AUXILIARES DO FRAME 0 (a central, o OSD, o polkit, o
+#    automount, o clipboard, o wallpaper)
+encerra swaync swayosd-server lxqt-policykit-agent udiskie cliphist wl-paste swaybg
+
+# 4. OS FÓSSEIS DO CHÃO (o relogin limpo de sempre: socket morto não
+#    atravessa sessão — a varredura do elite-daemon é o cinto, a daqui é
+#    a vassoura própria do logout)
+_elite_run="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/elite"
+if [ -d "$_elite_run" ]; then
+    find "$_elite_run" -mindepth 1 -maxdepth 1 \( -type s -o -type f \) -delete 2>/dev/null || true
+fi
+
+# 5. A PORTA FECHA (o labwc sai com a casa já vazia — o dono sai pela
+#    porta, não pela janela do compositor)
+dlog "família encerrada em ordem (daemon → superfícies → agentes) — o labwc fecha a porta"
+if command -v labwc >/dev/null 2>&1; then
+    exec labwc --exit
+fi
+# a queda honesta (sem labwc não há sessão para encerrar — a voz nomeia)
+dlog "labwc ausente — a porta não existia (o rig tem labwc de fábrica)"
+exit 1
