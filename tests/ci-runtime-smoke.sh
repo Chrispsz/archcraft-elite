@@ -142,7 +142,8 @@ t_ok "labwc headless no ar (WAYLAND_DISPLAY=$WAYLAND_DISPLAY, pixman/cairo)"
 
 # ── 2. a sessão da casa (o daemon lança a família toda) ──────────────────
 daemon_log="$HOME_SMOKE/.cache/elite/bars.log"
-elite-daemon session >/dev/null 2>&1 &
+daemon_err="$STAGE/daemon.err"
+elite-daemon session >"$daemon_err" 2>&1 &
 DAEMON_PID=$!
 
 bus_sock="$XDG/elite/bus.sock"
@@ -211,28 +212,47 @@ for par in craft-game craft-idle; do
     fi
 done
 
-# ── 6.5 o CRAFT-DOCTOR na sessão viva (1.0-107.2 — o diagnóstico prova os
-#      invariantes que ESTE smoke garante: ambiente + bus.sock; o polkit/
-#      pipewire do container headless NÃO são promessa daqui — o doctor os
-#      nomeia honesto, o smoke exige o que a sessão dele TEM) ─────────────
+# ── 6.5 o CRAFT-DOCTOR na sessão viva (1.0-107.2 — o contrato do container
+#      é o que o container PODE prometer: o doctor NOMEA os 7 réus num tiro
+#      rápido e o código de saída casa com os quebrados — o 'ambiente' exige
+#      o systemd --user do rig (aqui só há dbus-daemon de sessão) e o
+#      'áudio' o PipeWire: NÃO são promessa daqui; o bus.sock É — o mesmo
+#      socket que a seção 2 viu ligar, agora com o HANDSHAKE de verdade) ───
 _t0="$(date +%s%N)"
-_doctor_out="$("$BIN_STAGED/craft-doctor" 2>&1 || true)"
+_doctor_out="$("$BIN_STAGED/craft-doctor" 2>&1)"; _doctor_rc=$?
 _t1="$(date +%s%N)"
 _ms=$(( (_t1 - _t0) / 1000000 ))
-if printf '%s' "$_doctor_out" | grep -q '✓ ambiente'; then
-    t_ok "craft-doctor: o ambiente Wayland julgado VIVO no D-Bus da sessão real"
-else
-    t_fail "craft-doctor: ambiente Wayland" "saída: $(printf '%s' "$_doctor_out" | tr '\n' ' ')"
-fi
-if printf '%s' "$_doctor_out" | grep -q '✓ bus.sock'; then
-    t_ok "craft-doctor: o bus.sock responde ao handshake na sessão real"
-else
-    t_fail "craft-doctor: bus.sock" "o handshake não voltou (saída: $(printf '%s' "$_doctor_out" | tr '\n' ' '))"
-fi
 if [ "$_ms" -lt 2000 ]; then
     t_ok "craft-doctor: o tiro é rápido (${_ms}ms — o contrato é <50ms no hardware, o container paga a folga)"
 else
     t_fail "craft-doctor: tiro rápido" "demorou ${_ms}ms (o contrato é <50ms no hardware)"
+fi
+_doctor_nomes=0
+for _nome in ambiente bus.sock polkit notify wakeup áudio gamemode; do
+    if printf '%s' "$_doctor_out" | grep -q "$_nome"; then
+        _doctor_nomes=$((_doctor_nomes + 1))
+    else
+        t_fail "craft-doctor nomeia o réu $_nome" "o relatório calou com $_nome"
+    fi
+done
+[ "$_doctor_nomes" = 7 ] \
+    && t_ok "craft-doctor: os 7 invariantes vitais nomeados no relatório" \
+    || true
+_doctor_ok="$(printf '%s' "$_doctor_out" | grep -c '✓' || true)"
+_doctor_br="$(printf '%s' "$_doctor_out" | grep -c '✗' || true)"
+if [ "$_doctor_rc" = "$_doctor_br" ]; then
+    t_ok "craft-doctor: o código de saída casa com os quebrados (rc=$_doctor_rc, ✓=$_doctor_ok ✗=$_doctor_br — honesto)"
+else
+    t_fail "craft-doctor: código de saída honesto" "rc=$_doctor_rc mas ✗=$_doctor_br na cara do relatório"
+fi
+if printf '%s' "$_doctor_out" | grep -q '✓ bus.sock'; then
+    t_ok "craft-doctor: o bus.sock responde ao handshake na sessão real"
+else
+    # o DOSSIÊ do réu (a prova que o log da run carrega): o daemon vivo?
+    # o que o stderr dele disse? o que o chão do runtime mostra?
+    if kill -0 "$DAEMON_PID" 2>/dev/null; then _dav="VIVO"; else _dav="MORTO"; fi
+    t_fail "craft-doctor: bus.sock responde ao handshake" \
+        "daemon $_dav (pid $DAEMON_PID) · chão: $(ls -la "$XDG/elite/" 2>/dev/null | tr '\n' ' ') · stderr: $(tail -4 "$daemon_err" 2>/dev/null | tr '\n' ' ') · saída: $(printf '%s' "$_doctor_out" | tr '\n' ' ')"
 fi
 
 # ── 7. a lei E90 executiva nos compilados (o réu carrega O ERRO REAL:
