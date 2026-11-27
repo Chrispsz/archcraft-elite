@@ -101,16 +101,24 @@ jobs:
               echo "release estável: $TAG (a Lei da Release Única — nada é criada aqui)"
               mkdir -p /tmp/repo && cd /tmp/repo
               # o db ATUAL da estável é a base: repo-add ADICIONA as entradas
-              # validadas — os demais pacotes NEM são baixados.
-              gh release download "$TAG" --repo "$REPO" --pattern "elite-local.db.tar.gz"
-              mkdir -p db-prune && tar -xzf elite-local.db.tar.gz -C db-prune
-              for d in db-prune/*-debug-*/; do
-                [ -d "$d" ] || continue
-                echo "── db-base: órfão fora do ar: ${d#db-prune/}"
-                rm -rf "$d"
-              done
-              tar -czf elite-local.db.tar.gz -C db-prune $(ls db-prune)
-              rm -rf db-prune
+              # validadas — os demais pacotes NEM são baixados. Ausente =
+              # db NOVO (o gate de existência — a mesma cura do canal).
+              if ! gh release download "$TAG" --repo "$REPO" --pattern "elite-local.db.tar.gz"; then
+                echo "── db ausente na estável: a promoção nasce com db NOVO"
+                rm -f elite-local.db.tar.gz
+              fi
+              if [ -f elite-local.db.tar.gz ]; then
+                mkdir -p db-prune && tar -xzf elite-local.db.tar.gz -C db-prune
+                for d in db-prune/*-debug-*/; do
+                  [ -d "$d" ] || continue
+                  echo "── db-base: órfão fora do ar: ${d#db-prune/}"
+                  rm -rf "$d"
+                done
+                if [ -n "$(ls -A db-prune 2>/dev/null)" ]; then
+                  tar -czf elite-local.db.tar.gz -C db-prune $(ls db-prune)
+                fi
+                rm -rf db-prune
+              fi
               cp /work/promo/elite-system-*.pkg.tar.zst .
               PKGARGS="elite-system-*.pkg.tar.zst"
               # o brave da ESTÁVEL permanece o da build completa de tag; o

@@ -188,22 +188,29 @@ jobs:
               mkdir -p /tmp/repo && cd /tmp/repo
               # o db ATUAL da prerelease é a base: repo-add ADICIONA as
               # entradas novas — os demais pacotes (brave-origin 186MB,
-              # pwvucontrol, …) NEM são baixados. Ausente = db nasce vazio.
-              gh release download "$TAG" --repo "$REPO" --pattern "elite-local.db.tar.gz" || echo "── db ausente: a prerelease nasce com db NOVO"
-              # E103 — OS ÓRFÃOS DO DB-BASE (a era pré-E101 publicou -debug
-              # que nunca embarcou: pwvucontrol-debug/wlrctl-debug no db e
-              # 404 no rig — a prova do papel, 10/nov). A entrada órfã sai
-              # do db ANTES do repo-add: o rig novo não herda o fantasma
-              # (o cinto case *-debug da dose cobre quem já sincronizou o
-              # db doente).
-              mkdir -p db-prune && tar -xzf elite-local.db.tar.gz -C db-prune
-              for d in db-prune/*-debug-*/; do
-                [ -d "$d" ] || continue
-                echo "── db-base: órfão fora do ar: ${d#db-prune/}"
-                rm -rf "$d"
-              done
-              tar -czf elite-local.db.tar.gz -C db-prune $(ls db-prune)
-              rm -rf db-prune
+              # pwvucontrol, …) NEM são baixados. Ausente = db NOVO (a
+              # 1ª publicação da prerelease nasce SEM db: o tar da base
+              # JAMAIS roda sobre arquivo que não existe — a run #45991130226
+              # provou a classe; o gate de existência é a cura).
+              if ! gh release download "$TAG" --repo "$REPO" --pattern "elite-local.db.tar.gz"; then
+                echo "── db ausente: a prerelease nasce com db NOVO"
+                rm -f elite-local.db.tar.gz
+              fi
+              if [ -f elite-local.db.tar.gz ]; then
+                # E103 — OS ÓRFÃOS DO DB-BASE (a era pré-E101 publicou -debug
+                # que nunca embarcou: pwvucontrol-debug/wlrctl-debug no db e
+                # 404 no rig). A entrada órfã sai do db ANTES do repo-add.
+                mkdir -p db-prune && tar -xzf elite-local.db.tar.gz -C db-prune
+                for d in db-prune/*-debug-*/; do
+                  [ -d "$d" ] || continue
+                  echo "── db-base: órfão fora do ar: ${d#db-prune/}"
+                  rm -rf "$d"
+                done
+                if [ -n "$(ls -A db-prune 2>/dev/null)" ]; then
+                  tar -czf elite-local.db.tar.gz -C db-prune $(ls db-prune)
+                fi
+                rm -rf db-prune
+              fi
               cp /work/out/pacotes/elite-system-*.pkg.tar.zst .
               # E114 — O BRAVE NO CANAL (o buraco nomeado pela E113: o canal
               # publicava SÓ elite-system (+ a ponte) e o rig ficava em
