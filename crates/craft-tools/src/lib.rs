@@ -228,7 +228,8 @@ pub fn mapa_comandos() -> Vec<(&'static str, Vec<(&'static str, &'static str)>)>
                 ("craft-update", "a dose direto no terminal (o elite-update corre vivo na tela; o diálogo de senha pergunta UMA vez)"),
                 ("craft-clean", "a limpeza direto no terminal (a fase 1 auto-segura; a avançada é elite-clean menu)"),
                 ("craft-help", "este mapa — os comandos da casa em pt_BR (direto no terminal)"),
-                ("craft-pick", "o seletor nativo da casa (as listas dos bins — a gramática dmenu em GTK4)"),
+                ("craft-pick", "o seletor nativo da casa (as listas dos bins — a gramática dmenu em GTK4 na camada de sobreposição)"),
+                ("craft-net", "o seletor de rede de 1 clique (Ethernet e redes Wi-Fi ao alcance com sinal, cadeado e a conexão em 1 clique — a senha em diálogo limpo apenas para a protegida sem perfil salvo; a porta das configurações avançadas mora no fim da lista)"),
                 ("craft-idle", "a trava automática (os minutos no ~/.config/elite/idle.conf — 'craft-idle menu' é a janela com os presets 5/15/30 min, 1 hora, Desativado, Travar agora e Suspender agora — cada preset mostra o sono associado; 'craft-idle 10' muda na hora)"),
                 ("craft-game", "o modo de jogo MANUAL (status/on/off/toggle — o perfil completo: governor + GPU high + inibidor de ocioso/sono + o pill roxo na hora pelo fio; 'craft-game menu' é a janela; 1.0-107: o automático morreu com o watcher)"),
                 ("craft-apps", "a gaveta de aplicativos com toggle (W-d abre · W-d de novo fecha — o nwg-drawer da casa com memória)"),
@@ -312,6 +313,70 @@ pub fn decide_instancia(
     } else {
         InstanciaPick::Substitui
     }
+}
+
+
+// ── 1.0-109 — A GUI COMPARTILHADA DOS SELETORES (pick e net vestem a
+// MESMA janela de camada: a folha mestra, o override do dono, a
+// sobreposição layer-shell e o namespace da casa) ────────────────────────
+
+/// E149 — A PELE AUTOCONTIDA dos seletores (o padrão bar/dock): a folha
+/// mestra do elite-core embutida + o override LIVRE do dono somado
+/// (~/.config/elite/tools.css — a mestra nunca sai, o load_from_data é
+/// a via sempre-presente do gtk4-rs 0.11).
+#[cfg(feature = "gui")]
+pub fn load_css() {
+    let mestra = elite_core::THEME_CSS;
+    let provider = gtk4::CssProvider::new();
+    let css = std::fs::read_to_string(css_override_path())
+        .map(|extra| format!("{mestra}\n{extra}"))
+        .unwrap_or_else(|_| mestra.to_string());
+    provider.load_from_data(&css);
+    if let Some(disp) = gtk4::gdk::Display::default() {
+        gtk4::style_context_add_provider_for_display(
+            &disp,
+            &provider,
+            gtk4::STYLE_PROVIDER_PRIORITY_USER,
+        );
+    }
+}
+
+/// o caminho do override (~/.config/elite/tools.css — o dono veste).
+#[cfg(feature = "gui")]
+pub fn css_override_path() -> std::path::PathBuf {
+    let base = std::env::var("XDG_CONFIG_HOME")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| {
+            std::path::PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| "/root".into()))
+                .join(".config")
+        });
+    base.join("elite/tools.css")
+}
+
+/// A JANELA DE CAMADA DOS SELETORES (1.0-109 — a diretriz: Layer::
+/// Overlay, KeyboardMode::Exclusive, SEM âncoras = centralizada, igual
+/// ao calendário da top bar): exibição imediata acima de qualquer
+/// janela e captura direta de Escape/setas/Enter. Sem layer-shell no
+/// compositor a janela comum segue (honesto, nunca mudo).
+#[cfg(feature = "gui")]
+pub fn janela_camada(
+    app: &gtk4::Application,
+    widget_name: &str,
+    titulo: &str,
+    namespace: &str,
+) -> gtk4::ApplicationWindow {
+    use gtk4::prelude::*;
+    let win = gtk4::ApplicationWindow::new(app);
+    win.set_widget_name(widget_name);
+    win.set_title(Some(titulo));
+    if gtk4_layer_shell::is_supported() {
+        use gtk4_layer_shell::LayerShell;
+        win.init_layer_shell();
+        win.set_layer(gtk4_layer_shell::Layer::Overlay);
+        win.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::Exclusive);
+        win.set_namespace(Some(namespace));
+    }
+    win
 }
 
 #[cfg(test)]

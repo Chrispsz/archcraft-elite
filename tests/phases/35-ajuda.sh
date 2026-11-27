@@ -36,7 +36,7 @@ BS=".ci/build.sh"
 # (a FONTE de cada grupo é o arquivo que entrega o binário — nunca lista
 # dupla que envelhece)
 BINARIOS_VIVOS="$(ls "$BIN" 2>/dev/null || true)"
-COMPILADOS="elite-daemon craft-bar-rs craft-dock-rs craft-dump craft-update craft-clean craft-help craft-pick"
+COMPILADOS="elite-daemon craft-bar-rs craft-dock-rs craft-dump craft-update craft-clean craft-help craft-pick craft-net"
 PACOTES="$(grep -vE '^[[:space:]]*(#|$)' "$PKGS" 2>/dev/null | awk '{print $1}' || true)"
 
 tem_bin() { # tem_bin <nome> — resolve no universo da casa

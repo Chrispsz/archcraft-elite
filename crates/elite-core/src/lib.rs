@@ -20,6 +20,11 @@
 pub mod bus;
 pub mod ipc;
 pub mod persist;
+// 1.0-109 — A LEI DA REDE NA FUNDAÇÃO: o craft-net (o seletor de 1
+// clique da diretriz) e o direito da top bar vestem o MESMO julgamento
+// (a ethernet vence · o last-net.state guarda o par · a queda é o
+// `nmcli device disconnect`, NUNCA `ip link set down`).
+pub mod rede;
 
 // a morada do estado do dono no contrato da raiz (os consumidores falam
 // elite_core::elite_config_dir — o caminho é contrato, não detalhe)

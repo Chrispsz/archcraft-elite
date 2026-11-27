@@ -57,5 +57,9 @@ name = "craft-pick"
 path = "src/bin/craft-pick.rs"
 
 [[bin]]
+name = "craft-net"
+path = "src/bin/craft-net.rs"
+
+[[bin]]
 name = "craft-audit"
 path = "src/bin/craft-audit.rs"

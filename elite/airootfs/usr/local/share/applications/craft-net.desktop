@@ -1,0 +1,30 @@
+# ═════════════════════════════════════════════════════════════════════════
+# Archcraft ELITE · craft-net.desktop (1.0-109 — O GERENCIADOR DE REDE)
+# ────────────────────────────────────────────────────────────────────────
+# A PARIDADE COM O BLUETOOTH (a evidência do dump 1.0-108: o editor
+# técnico `nm-connection-editor` exige CRIAR perfis manualmente em vez
+# de LISTAR as redes Wi-Fi próximas com 1 clique como o blueman-manager
+# lista os dispositivos). O craft-net é o seletor de 1 clique da casa:
+# status da Ethernet (Conectar/Desconectar), as redes Wi-Fi ao alcance
+# com sinal/cadeado/marca de conectada, a conexão com 1 clique (a senha
+# em diálogo limpo apenas para a protegida sem perfil salvo) e a porta
+# "Configurações avançadas" para VPN/IP fixo. A grade do craft-apps
+# ENXERGA o gerenciador como o blueman já era visto — a Rede é cidadã
+# de primeira classe.
+# ═════════════════════════════════════════════════════════════════════════
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Gerenciador de Rede
+Name[pt_BR]=Gerenciador de Rede
+GenericName=Seletor de rede
+GenericName[pt_BR]=Seletor de rede
+Comment=Ethernet e redes Wi-Fi ao alcance com conexão em 1 clique
+Comment[pt_BR]=Ethernet e redes Wi-Fi ao alcance com conexão em 1 clique
+Keywords=network;wifi;ethernet;rede;sem fio;gerenciador;
+Exec=craft-net
+Icon=preferences-system-network
+Terminal=false
+Categories=Network;Settings;X-GNOME-Settings-Panel;
+StartupWMClass=elite.craft.Net
+NoDisplay=false

@@ -71,10 +71,9 @@
 //     ÚNICO popover que resta, e é do GTK, não nosso) e a COVEIRA dos
 //     filhos curtos (E146/C — o spawn→wait, zero <defunct>).
 use crate::state::{
-    alvo_do_id, bt_ligado, estado_rede_nmcli, essid_nmcli, icone_rede, icone_volume, id_do_item,
-    item_rede, json_text, le_bateria, linha_pares, media_pill, parse_volume_wpctl, parse_wifi_radio,
-    parse_wpctl_status, redes_nmcli, relogio_ptbr, tem_ethernet, tooltip_rede, DispositivoAudio,
-    EstadoRede,
+    bt_ligado, estado_rede_nmcli, essid_nmcli, icone_rede, icone_volume, json_text, le_bateria,
+    media_pill, parse_volume_wpctl, parse_wifi_radio, parse_wpctl_status, relogio_ptbr,
+    tooltip_rede, DispositivoAudio, EstadoRede,
 };
 use crate::{bus_sock, css_path, log, VERSION};
 use elite_core::MediaState;
@@ -665,7 +664,11 @@ fn build(app: &gtk::Application) {
                 // o fallback honesto é o nm-connection-editor)
                 let tx = tx.clone();
                 std::thread::spawn(move || {
-                    seletor_rede();
+                    // 1.0-109 — o esquerdo abre o CRAFT-NET (o seletor
+                    // de 1 clique da diretriz: as redes Wi-Fi próximas
+                    // com sinal/cadeado, a conexão com 1 clique e a
+                    // senha em diálogo limpo); a foto renasce no gesto
+                    solta(&["craft-net"]);
                     pede_rede_foto(&tx);
                 });
             });
@@ -1043,147 +1046,15 @@ fn pede_rede_foto(tx: &Sender<Msg>) {
     });
 }
 
-// ── 1.0-106 — O SELETOR RÁPIDO DE REDE (o esquerdo da barra) ──────────
-
-/// O mapa id→alvo do seletor: os pares moram em
-/// $XDG_RUNTIME_DIR/elite/rede-pick.tsv (o tmpfs da sessão) — o
-/// craft-pick devolve o ITEM inteiro e o `[id]` do início traz o ALVO
-/// de volta SEM parse de string livre (SSID exótico sobrevive: o
-/// alvo viaja por CHAVE, nunca por rótulo). None = o mapa não abriu
-/// (o chamador cai na porta honesta do editor).
-fn mapa_do_seletor(pares: &[String]) -> Option<std::path::PathBuf> {
-    let dir = std::env::var("XDG_RUNTIME_DIR")
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|_| std::path::PathBuf::from("/tmp"));
-    let mapa = dir.join("elite/rede-pick.tsv");
-    let pai = mapa.parent()?;
-    std::fs::create_dir_all(pai).ok()?;
-    std::fs::write(&mapa, pares.join("\n")).ok()?;
-    Some(mapa)
-}
-
-/// A ação do alvo escolhido: 'w:' é REDE (o SSID cru é ARGUMENTO do
-/// nmcli — argv puro, o SSID nunca é string de shell), 'a:' é o verbo
-/// da casa (wifi/ethernet/avancado).
-fn acao_do_alvo(alvo: &str) {
-    if let Some(ssid) = alvo.strip_prefix("w:") {
-        let _ = Command::new("nmcli")
-            .args(["dev", "wifi", "connect"])
-            .arg(ssid)
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status();
-        return;
-    }
-    match alvo {
-        "a:wifi" => alterna_nmcli(&["radio", "wifi"]),
-        // 1.0-108 — O ETHERNET DO SELETOR VESTE A MESMA LEI DO DIREITO DA
-        // BARRA (o `nmcli networking` de era derrubava o enp7s0 "não
-        // disponível" sem volta — quem cai é UMA conexão, a principal)
-        "a:ethernet" => alterna_conexao_principal(),
-        _ => solta(&["nm-connection-editor"]), // a:avancado (e o desconhecido honesto)
-    }
-}
-
-/// O SELETOR RÁPIDO da casa (roda em thread própria — o craft-pick é
-/// modal, a barra nunca bloqueia no gesto): armado pelo nmcli (toggles
-/// no início, redes com sinal e status, o editor no fim), o craft-pick
-/// é a ÚNICA janela (o stderr calado — os avisos de portal do GTK não
-/// são evidência; o exit 0/1 do contrato segue INTACTO). Sem
-/// craft-pick no sistema o fallback honesto é o editor (nunca
-/// silêncio).
-fn seletor_rede() {
-    let Some(dev) = um_longo(
-        "nmcli",
-        &["-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "device", "status"],
-    ) else {
-        solta(&["nm-connection-editor"]); // nmcli calado: a porta honesta
-        return;
-    };
-    let radio = um_longo("nmcli", &["radio", "wifi"])
-        .and_then(|t| parse_wifi_radio(&t));
-    // enabled/disabled — o MESMO juízo do rádio (o nmcli fala dos dois)
-    let net_on = um_longo("nmcli", &["networking"])
-        .and_then(|t| parse_wifi_radio(&t));
-    let redes = um_longo("nmcli", &["-t", "-f", "IN-USE,SSID,SIGNAL", "dev", "wifi", "list"])
-        .map(|t| redes_nmcli(&t))
-        .unwrap_or_default();
-
-    let mut itens: Vec<String> = Vec::new();
-    let mut pares: Vec<String> = Vec::new();
-    let mut id = 0u32;
-    id += 1;
-    itens.push(if radio.unwrap_or(false) {
-        format!("[{id}] Wi-Fi LIGADO — desligar")
-    } else {
-        format!("[{id}] Wi-Fi DESLIGADO — ligar")
-    });
-    pares.push(linha_pares(id, "a:wifi"));
-    if tem_ethernet(&dev) {
-        id += 1;
-        itens.push(if net_on.unwrap_or(false) {
-            format!("[{id}] Ethernet LIGADA — desligar")
-        } else {
-            format!("[{id}] Ethernet DESLIGADA — ligar")
-        });
-        pares.push(linha_pares(id, "a:ethernet"));
-    }
-    for (em_uso, ssid, sinal) in redes {
-        id += 1;
-        itens.push(item_rede(id, &ssid, sinal, em_uso));
-        // 'w:' na frente: as duas letras decidem a espécie — 'a:' é
-        // ação, 'w:' é rede; SSID exótico nenhum engana o prefixo
-        pares.push(linha_pares(id, &format!("w:{ssid}")));
-    }
-    id += 1;
-    itens.push(format!("[{id}] Configurações avançadas (nm-connection-editor)"));
-    pares.push(linha_pares(id, "a:avancado"));
-
-    let Some(mapa) = mapa_do_seletor(&pares) else {
-        solta(&["nm-connection-editor"]); // o mapa não abriu: a porta honesta
-        return;
-    };
-    // o seletor da casa: stderr CALADO, o exit 0/1 intacto (0 = escolha)
-    let saida = Command::new("craft-pick")
-        .arg("-T")
-        .arg("Rede")
-        .args(&itens)
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .output();
-    let Ok(saida) = saida else {
-        solta(&["nm-connection-editor"]); // craft-pick ausente: nunca silêncio
-        return;
-    };
-    if !saida.status.success() {
-        return; // Esc/clique fora: nada escolhido, nada a fazer
-    }
-    let escolha = String::from_utf8_lossy(&saida.stdout).trim().to_string();
-    let Some(id) = id_do_item(&escolha) else { return };
-    let Some(papel) = std::fs::read_to_string(&mapa).ok() else { return };
-    let Some(alvo) = alvo_do_id(&papel, id) else { return };
-    acao_do_alvo(alvo);
-}
-
-/// O TOGGLE do nmcli: lê o estado ATUAL (enabled/disabled) e INVERTE
-/// (o juízo é o do parse_wifi_radio — o nmcli fala a mesma palavra para
-/// o rádio e para o networking).
-fn alterna_nmcli(args: &[&str]) {
-    if let Some(t) = um_longo("nmcli", args) {
-        if let Some(on) = parse_wifi_radio(&t) {
-            let cmd = if on { "off" } else { "on" };
-            let _ = Command::new("nmcli")
-                .args(args)
-                .arg(cmd)
-                .stdin(Stdio::null())
-                .stdout(Stdio::null())
-                .stderr(Stdio::null())
-                .status();
-        }
-    }
-}
+// ── 1.0-109 — O SELETOR DE 1 CLIQUE É O CRAFT-NET (a diretriz) ────────
+//      A evidência do dump 1.0-108: o clique esquerdo no ícone de Rede
+//      não executava AÇÃO nenhuma e o seletor de era (craft-pick com
+//      toggles abstratos) não listava as redes Wi-Fi próximas com 1
+//      clique como o Bluetooth. O esquerdo agora abre o craft-net (o
+//      seletor nativo com sinal/cadeado/marca de conectada, a conexão
+//      em 1 clique e a senha em diálogo limpo); a LEI DA CONEXÃO
+//      PRINCIPAL desceu para a FUNDAÇÃO (elite_core::rede — o direito
+//      daqui de baixo veste o MESMO julgamento).
 
 // ── 1.0-108 — A LEI DA CONEXÃO PRINCIPAL (o direito da rede) ───────────
 
@@ -1206,8 +1077,8 @@ fn last_net_path() -> std::path::PathBuf {
 fn religa_conexao_principal(foto: &str) {
     let last = std::fs::read_to_string(last_net_path())
         .ok()
-        .and_then(|t| crate::state::le_last_net(&t));
-    let Some(dev) = crate::state::dev_para_religar(foto, last.clone()) else {
+        .and_then(|t| elite_core::rede::le_last_net(&t));
+    let Some(dev) = elite_core::rede::dev_para_religar(foto, last.clone()) else {
         return; // nada a religar no hardware (honesto, sem gesto fantasma)
     };
     // o link DE PÉ (best-effort: sem root o nmcli abaixo ainda levanta)
@@ -1264,7 +1135,7 @@ fn alterna_conexao_principal() {
     ) else {
         return; // nmcli calado: nada a julgar (o silêncio é honesto)
     };
-    match crate::state::conexao_principal(&foto) {
+    match elite_core::rede::conexao_principal(&foto) {
         Some((dev, con)) => {
             // o par fica no papel ANTES da queda (o clique seguinte tem
             // a quem chamar de volta mesmo com o status mudado)
@@ -1272,7 +1143,7 @@ fn alterna_conexao_principal() {
             if let Some(pai) = caminho.parent() {
                 let _ = std::fs::create_dir_all(pai);
             }
-            let _ = std::fs::write(&caminho, crate::state::conteudo_last_net(&dev, &con));
+            let _ = std::fs::write(&caminho, elite_core::rede::conteudo_last_net(&dev, &con));
             let _ = Command::new("nmcli")
                 .args(["device", "disconnect"])
                 .arg(&dev)

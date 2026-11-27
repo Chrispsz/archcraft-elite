@@ -240,7 +240,7 @@ for f in /work/elite/airootfs/usr/local/bin/*; do
     # superfícies (craft-bar-rs/craft-dock-rs) idem — o molde instala
     # todos da esteira Rust lá embaixo.
     case "$b" in
-        craft-update|craft-clean|craft-help|craft-pick|craft-dump|craft-audit|elite-daemon|craft-bar-rs|craft-dock-rs) continue ;;
+        craft-update|craft-clean|craft-help|craft-pick|craft-net|craft-dump|craft-audit|elite-daemon|craft-bar-rs|craft-dock-rs) continue ;;
     esac
     printf '%s\n' "$b"
 done > /tmp/elite-src/elite-system/files/MANIFEST
@@ -3344,7 +3344,7 @@ package() {
     # 2.0 Fase 2 — AS FERRAMENTAS NATIVAS + A TELEMETRIA v2: o
     # craft-dump v2 É o craft-dump (o shell v1 aposentou — a telemetria
     # da casa fala a língua nova: bus vivo, família nativa, boot flags)
-    for b in craft-update craft-clean craft-help craft-pick craft-dump craft-audit; do
+    for b in craft-update craft-clean craft-help craft-pick craft-net craft-dump craft-audit; do
         [ -f "${CARGO_TARGET_DIR:-rust/target}/release/$b" ] && install -m755 "${CARGO_TARGET_DIR:-rust/target}/release/$b" "${pkgdir}/usr/local/bin/$b"
     done
     # E132 — o elite-polkit-listener NÃO viaja mais (o agente da casa é o

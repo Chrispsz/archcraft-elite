@@ -126,7 +126,7 @@ fi
 # o heredoc do molde PKGBUILD agora é COTADO com @marcas@ (o f-string morreu):
 file_has "build.sh: o molde PKGBUILD é sh puro com marcas" "$BS" "<<'MOLDE_PKGBUILD'"
 file_has "build.sh: a substituição do molde é expansão de parâmetro" "$BS" 'linha="${linha//@$marca@/$esc}"'
-file_has "build.sh: o juiz craft-audit embarca com a família de bins" "$BS" 'craft-update craft-clean craft-help craft-pick craft-dump craft-audit; do'
+file_has "build.sh: o juiz craft-audit embarca com a família de bins" "$BS" 'craft-update craft-clean craft-help craft-pick craft-net craft-dump craft-audit; do'
 # o juiz de casa existe e fala todos os verbos:
 file_has "craft-audit: o núcleo do juiz vive no craft-tools" "crates/craft-tools/src/audit.rs" 'pub fn xml_bem_formado'
 file_has "craft-audit: a gramática E146 do menu" "crates/craft-tools/src/audit.rs" 'pub fn menu_sem_orfao'
@@ -140,7 +140,7 @@ BS=".ci/build.sh"
 file_has "build.sh: o estágio Rust fala /work/crates" "$BS" 'tar -C /work/crates'
 file_has "build.sh: elite-core entra na família" "$BS" 'RUST_CRATES="elite-core elite-daemon"'
 file_has "build.sh: craft-dump-rs entra se presente" "$BS" 'craft-dump-rs'
-file_has "build.sh: o MANIFEST nasce dos bins reais (2.0: os bins COMPILADOS pulam o overlay)" "$BS" 'craft-update|craft-clean|craft-help|craft-pick|craft-dump|craft-audit|elite-daemon|craft-bar-rs|craft-dock-rs) continue'
+file_has "build.sh: o MANIFEST nasce dos bins reais (2.0: os bins COMPILADOS pulam o overlay)" "$BS" 'craft-update|craft-clean|craft-help|craft-pick|craft-net|craft-dump|craft-audit|elite-daemon|craft-bar-rs|craft-dock-rs) continue'
 file_has "build.sh: o CoolerControl viaja com o override --disable-gpu" "$BS" 'org.coolercontrol.CoolerControl.desktop'
 file_has "guard-pkgrel: o Rust é conteúdo do elite-system (crates/** no delta — a lei E41 pega a fundação)" ".ci/guard-pkgrel.sh" "crates/**"
 
@@ -425,21 +425,37 @@ file_has "mpris: o artista veste a lista de era (xesam:artist — o brave manda 
 # Powered do adaptador — zero bluetoothctl de 10s no daemon):
 file_exists "bluetooth: o estado inicial é módulo da casa (bluetooth.rs)" "crates/elite-daemon/src/bluetooth.rs"
 file_has "bluetooth: o Powered do adaptador no D-Bus nativo (o ícone nasce certo)" "crates/elite-daemon/src/bluetooth.rs" '"Powered"'
-# a barra da dose: o esquerdo da rede abre o SELETOR RÁPIDO, o direito
-# liga/desliga a conexão ativa, o botão de apps dispara o fuzzel DIRETO:
-file_has "bar: o esquerdo da rede abre o SELETOR RÁPIDO (craft-pick da casa)" "crates/craft-bar-rs/src/ui.rs" '"craft-pick"'
+# a barra da dose: o esquerdo da rede abre o SELETOR DE 1 CLIQUE (o
+# craft-net de 1.0-109 — a evidência do dump: o esquerdo não executava
+# ação NENHUMA), o direito veste a LEI DA CONEXÃO PRINCIPAL:
+file_has "bar: o esquerdo da rede abre o CRAFT-NET (o seletor de 1 clique da diretriz)" "crates/craft-bar-rs/src/ui.rs" 'solta(&["craft-net"])'
 # 1.0-108 — A LEI DA CONEXÃO PRINCIPAL (a evidência do rig 1.0-107.3: o
 # direito de era derrubava o Networking INTEIRO — o enp7s0 "não
 # disponível" sem volta; ethernet vence, quem cai é UMA conexão):
 file_has "bar: o direito da rede veste a LEI DA CONEXÃO PRINCIPAL (alterna_conexao_principal)" "crates/craft-bar-rs/src/ui.rs" 'alterna_conexao_principal()'
-file_has "bar: o estado da lei mora no núcleo puro (conexao_principal: ethernet vence)" "crates/craft-bar-rs/src/state.rs" 'pub fn conexao_principal'
+# 1.0-109 — A LEI DA REDE NA FUNDAÇÃO (uma lei só, duas superfícies: o
+# craft-net e o direito da top bar vestem o MESMO julgamento) e o
+# SELETOR DE 1 CLIQUE da diretriz:
+file_has "rede: a lei desceu para a fundação (elite-core::rede — a ethernet vence)" "crates/elite-core/src/rede.rs" 'pub fn conexao_principal'
+file_has "rede: a queda é o nmcli device disconnect (NUNCA ip link set down)" "crates/elite-core/src/rede.rs" '["device", "disconnect"]'
+file_has "rede: a lista das redes Wi-Fi com sinal e cadeado (o parser do seletor)" "crates/elite-core/src/rede.rs" 'pub fn redes_wifi'
+file_has "rede: o last-net.state guarda o par (DEVICE, CONNECTION) da volta" "crates/elite-core/src/rede.rs" 'pub fn conteudo_last_net'
+file_has "net: o seletor de 1 clique nasce na família (Ethernet + Wi-Fi + editor)" "crates/craft-tools/src/bin/craft-net.rs" 'Gerenciador de Rede'
+file_has "net: as redes Wi-Fi próximas com o rescan auto da diretriz" "crates/craft-tools/src/bin/craft-net.rs" '"--rescan"'
+file_has "net: a senha em diálogo LIMPO apenas para a protegida sem perfil salvo" "crates/craft-tools/src/bin/craft-net.rs" 'tem_perfil_salvo'
+file_has "net: o toggle da Ethernet veste a LEI DA CONEXÃO PRINCIPAL da fundação" "crates/craft-tools/src/bin/craft-net.rs" 'alterna_conexao_principal'
+file_has "net: a janela veste a MESMA camada do pick (Overlay · exclusiva · centralizada)" "crates/craft-tools/src/bin/craft-net.rs" 'janela_camada(app, "pickwin", "Rede", "craft-net")'
+file_has "net: a entrada Gerenciador de Rede mora na grade (a paridade com o Bluetooth)" "$AIROOTFS/usr/local/share/applications/craft-net.desktop" 'Gerenciador de Rede'
+file_has "net: a entrada da grade é VISÍVEL (NoDisplay=false — o editor de era nascia escondido)" "$AIROOTFS/usr/local/share/applications/craft-net.desktop" 'NoDisplay=false'
+file_has "net: o craft-net embarca no pacote (o bin compilado da família)" "crates/craft-tools/Cargo.toml" 'name = "craft-net"'
+file_has "bar: o estado da lei mora na FUNDAÇÃO (conexao_principal: ethernet vence — 1.0-109, uma lei só)" "crates/elite-core/src/rede.rs" 'pub fn conexao_principal'
 file_has "bar: o par da volta mora no last-net.state (a ordem do dono, palavra por palavra)" "crates/craft-bar-rs/src/ui.rs" 'last-net.state'
 file_has "bar: a queda é pelo nmcli device disconnect (NUNCA ip link set down)" "crates/craft-bar-rs/src/ui.rs" 'args(["device", "disconnect"])'
 file_has "bar: a volta veste o link DE PÉ (ip link set up, best-effort)" "crates/craft-bar-rs/src/ui.rs" 'args(["link", "set", &dev, "up"])'
 file_has "bar: a volta devolve o dev ao NetworkManager (managed yes)" "crates/craft-bar-rs/src/ui.rs" 'args(["device", "set", &dev, "managed", "yes"])'
 file_has "bar: a volta sobe a conexão SALVA (nmcli connection up)" "crates/craft-bar-rs/src/ui.rs" 'args(["connection", "up"])'
 file_has "bar: a queda honesta cai no device cru (nmcli device connect)" "crates/craft-bar-rs/src/ui.rs" 'args(["device", "connect"])'
-file_has "bar: a detecção viva da religação mora no núcleo (dev_para_religar)" "crates/craft-bar-rs/src/state.rs" 'pub fn dev_para_religar'
+file_has "bar: a detecção viva da religação mora na FUNDAÇÃO (dev_para_religar)" "crates/elite-core/src/rede.rs" 'pub fn dev_para_religar'
 file_hasnt "bar: o nmcli networking INTEIRO não derruba mais a rede (o réu de era não volta)" "crates/craft-bar-rs/src/ui.rs" 'alterna_nmcli(&["networking"])'
 # 1.0-108 — A PARIDADE COM O BLUETOOTH: o editor gráfico de rede VISÍVEL
 # na grade do craft-apps (o .desktop upstream nasce NoDisplay=true — o
@@ -613,10 +629,11 @@ file_has "pick: a carência inicial de 300ms após o present() (o frame 0..1 do 
 # background e NENHUM menu na tela do labwc (o GtkApplicationWindow
 # comum não recebe sobreposição nem foco) — o pick veste A CAMADA (a
 # diretriz, palavra por palavra) e a instância única veste o toggle:
-file_has "pick: a janela veste o gtk4-layer-shell (a cura dos 24 pick invisíveis)" "crates/craft-tools/src/bin/craft-pick.rs" 'init_layer_shell'
-file_has "pick: a camada é a de SOBREPOSIÇÃO (acima de qualquer janela — a gramática do calendário)" "crates/craft-tools/src/bin/craft-pick.rs" 'Layer::Overlay'
-file_has "pick: o teclado é EXCLUSIVO da superfície (Escape/setas/Enter direto)" "crates/craft-tools/src/bin/craft-pick.rs" 'KeyboardMode::Exclusive'
-file_has "pick: o namespace da camada é o da casa" "crates/craft-tools/src/bin/craft-pick.rs" 'set_namespace(Some("craft-pick"))'
+file_has "pick: a janela veste o gtk4-layer-shell (a cura dos 24 pick invisíveis)" "crates/craft-tools/src/lib.rs" 'init_layer_shell'
+file_has "pick: a camada é a de SOBREPOSIÇÃO (acima de qualquer janela — a gramática do calendário)" "crates/craft-tools/src/lib.rs" 'Layer::Overlay'
+file_has "pick: o teclado é EXCLUSIVO da superfície (Escape/setas/Enter direto)" "crates/craft-tools/src/lib.rs" 'KeyboardMode::Exclusive'
+file_has "pick: o namespace da camada é o da casa" "crates/craft-tools/src/lib.rs" 'set_namespace(Some(namespace))'
+file_has "pick: a janela-base pede a camada com o namespace próprio" "crates/craft-tools/src/bin/craft-pick.rs" 'janela_camada(app, "pickwin", titulo, "craft-pick")'
 file_has "pick: o gtk4-layer-shell é dependência da gui (o par provado da bar/dock)" "crates/craft-tools/Cargo.toml" 'gtk4-layer-shell'
 file_has "pick: o pidfile da instância única mora no XDG_RUNTIME_DIR/elite (a diretriz)" "crates/craft-tools/src/bin/craft-pick.rs" 'craft-pick.pid'
 file_has "pick: o MESMO título vivo é toggle (fecha o velho e sai limpo)" "crates/craft-tools/src/lib.rs" 'InstanciaPick::Toggle'
