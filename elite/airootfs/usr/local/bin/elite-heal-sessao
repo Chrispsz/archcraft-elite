@@ -360,6 +360,30 @@ cura_xml() {
     return 1
 }
 
+
+# ── A CURA DO ÍCONE GARANTIDO (1.0-109 — a diretriz: aplicar o
+#    gtk-icon-theme-name=Adwaita no home SE AUSENTE — o tema de ícones
+#    que a MÁQUINA garante (adwaita-icon-theme viaja na base do Arch);
+#    o 'Fallback Icon Theme (Oxygen) not found' do lxqt-policykit-agent
+#    no dump morre com o tema que nunca falta. Idempotente: a linha
+#    PRESENTE (qualquer tema) é domínio do dono — a cura só veste a
+#    AUSÊNCIA, nunca troca a escolha) ─────────────────────────────────
+cura_gtk() {
+    for _cg_versao in gtk-3.0 gtk-4.0; do
+        _cg_ini="$HOME_ALVO/.config/$_cg_versao/settings.ini"
+        [ -f "$_cg_ini" ] || continue
+        if grep -q '^gtk-icon-theme-name=' "$_cg_ini" 2>/dev/null; then
+            continue # a escolha do dono vence (a cura é só da ausência)
+        fi
+        # o pai do arquivo é o dono da casa (a dose nunca planta root)
+        mkdir -p "${_cg_ini%/*}" 2>/dev/null || true
+        if printf 'gtk-icon-theme-name=Adwaita\n' >> "$_cg_ini" 2>/dev/null; then
+            chown "$DONO" "$_cg_ini" 2>/dev/null || true
+            printf 'gtk: %s ganhou o ícone GARANTIDO (Adwaita — o tema que a máquina entrega)\n' "$_cg_versao"
+        fi
+    done
+}
+
 # ═══════════════════════════ O FLUXO ════════════════════════════════════
 printf 'heal: sessão do uid %s (%s)\n' "$UID_ALVO" "$HOME_ALVO"
 
@@ -367,6 +391,7 @@ saneia_baks "$LABWC"
 cura_autostart
 cura_xml "menu.xml" menu_ok
 cura_xml "rc.xml" xml_ok
+cura_gtk
 
 # a contagem de daemons no papel (o flock é a lei; a contagem alta = o
 # autostart ainda dispara demais — o papel denuncia)

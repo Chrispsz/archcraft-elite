@@ -232,6 +232,35 @@ fi
 systemctl reset-failed 'polkit-agent-helper@*' >/dev/null 2>&1 || true
 tlog "polkit: reset-failed dos agentes mortos (o journal conta o presente, não o passado)"
 
+# 1.0-109 — A REGRA DA CASA CHEGA DE VERDADE AO RIG (a evidência do
+# dump 1.0-108: o /etc/polkit-1/rules.d/49-elite.rules seguia AUSENTE
+# no rig mesmo com o pacote dono do caminho — o mestre viaja agora em
+# /usr/local/share/elite/polkit/ e ESTA seção o entrega pela escola
+# E150: AUSENTE nasce, DIVERGENTE renova com .bak ÚNICO, IGUAL é
+# no-op. Idempotente de verdade — a dose nunca planta o que já vive).
+_PK49_SRC="/usr/local/share/elite/polkit/49-elite.rules"
+_PK49_DST="/etc/polkit-1/rules.d/49-elite.rules"
+if [ -r "$_PK49_SRC" ]; then
+    if [ ! -e "$_PK49_DST" ]; then
+        mkdir -p "${_PK49_DST%/*}" 2>/dev/null || true
+        # o mode 0644 da regra (a gramática do polkit: legível pelo
+        # polkitd, sem execução nenhuma)
+        if install -m644 "$_PK49_SRC" "$_PK49_DST" 2>/dev/null; then
+            tlog "polkit: 49-elite.rules ENTREGUE (os CINCO motores sem senha — o mestre do pacote no rig sem regra)"
+        else
+            tlog "polkit: FALHA ao gravar o 49-elite.rules ausente (o cp recusou) — o pacote segue dono do caminho"
+        fi
+    elif ! cmp -s "$_PK49_SRC" "$_PK49_DST"; then
+        [ -e "$_PK49_DST.bak" ] || cp -p "$_PK49_DST" "$_PK49_DST.bak" 2>/dev/null || true
+        if install -m644 "$_PK49_SRC" "$_PK49_DST" 2>/dev/null; then
+            tlog "polkit: 49-elite.rules RENOVADO (cmp divergia do mestre — a regra da dose veste; backup .bak ao lado)"
+        else
+            tlog "polkit: FALHA ao renovar o 49-elite.rules — a regra velha segue no lugar"
+        fi
+    fi
+fi
+unset _PK49_SRC _PK49_DST
+
 # ── 7. O OKULAR SAI DO SISTEMA (E128 — idempotente; a ordem do dono:
 #      apenas Papers + Bazaar moram na casa) + os runtimes órfãos
 if command -v flatpak >/dev/null 2>&1; then

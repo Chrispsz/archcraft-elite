@@ -457,6 +457,15 @@ cp -p /work/elite/airootfs/etc/udev/rules.d/99-elite-io.rules \
 mkdir -p /tmp/elite-src/elite-system/files/etc/polkit-1/rules.d
 cp -p /work/elite/airootfs/etc/polkit-1/rules.d/49-elite.rules \
       /tmp/elite-src/elite-system/files/etc/polkit-1/rules.d/49-elite.rules
+# 1.0-109 — O MESTRE POLKIT TAMBÉM VIAJA NO PACOTE (a evidência do dump
+# 1.0-108: o rig recebia a dose e o /etc/polkit-1/rules.d/49-elite.rules
+# continuava AUSENTE — o cinto do elite-post-upgrade entrega o mestre ao
+# rig vivo pela escola E150: ausente nasce, divergente renova com .bak
+# ÚNICO, igual é no-op; o pacote segue sendo o dono do caminho e o cinto
+# cobre o rig que a extração não vestiu)
+mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/polkit
+cp -p /work/elite/airootfs/etc/polkit-1/rules.d/49-elite.rules \
+      /tmp/elite-src/elite-system/files/usr/local/share/elite/polkit/49-elite.rules
 # E129 — O TEMA QT VESTE O RICE: o qt6ct.conf da casa viaja no pacote
 # (icon_theme=Papirus-Dark — o MESMO dos settings.ini GTK) e o
 # elite-post-upgrade o entrega aos homes vivos SE AUSENTE (personalizado
@@ -789,6 +798,9 @@ ${hnames}
     install -m644 "${startdir}/files/etc/polkit-1/rules.d/49-elite.rules" "${pkgdir}/etc/polkit-1/rules.d/49-elite.rules"'$'\n'
     MOLDE[pk_rm]='    [ -e "/etc/polkit-1/rules.d/49-elite.rules" ] && ! pacman -Qo "/etc/polkit-1/rules.d/49-elite.rules" >/dev/null 2>&1 && rm -f "/etc/polkit-1/rules.d/49-elite.rules"
     [ -e "/etc/polkit-1/rules.d/50-elite-wheel.rules" ] && ! pacman -Qo "/etc/polkit-1/rules.d/50-elite-wheel.rules" >/dev/null 2>&1 && rm -f "/etc/polkit-1/rules.d/50-elite-wheel.rules"'$'\n'
+    MOLDE[pkbelt_install]='    install -d "${pkgdir}/usr/local/share/elite/polkit"
+    install -m644 "${startdir}/files/usr/local/share/elite/polkit/49-elite.rules" "${pkgdir}/usr/local/share/elite/polkit/49-elite.rules"'$'\n'
+    MOLDE[pkbelt_rm]='    [ -e "/usr/local/share/elite/polkit/49-elite.rules" ] && rm -f "/usr/local/share/elite/polkit/49-elite.rules"'$'\n'
     MOLDE[pt_install]='    install -Dm644 "${startdir}/elite-post-transaction.hook" "${pkgdir}/usr/share/libalpm/hooks/elite-post-transaction.hook"'$'\n'
     MOLDE[q6_install]='    install -d "${pkgdir}/usr/local/share/elite/qt6ct"
     install -m644 "${startdir}/files/usr/local/share/elite/qt6ct/qt6ct.conf" "${pkgdir}/usr/local/share/elite/qt6ct/qt6ct.conf"
@@ -3304,7 +3316,7 @@ pre_install() {
     ; do
         [ -e "/usr/local/bin/$f" ] && rm -f "/usr/local/bin/$f"
     done
-@unit_loop@@hook_rm@@kmod_rm@@mh_rm@@ff_rm@@lock_rm@@sddm_rm@@rc_rm@@osd_rm@@menu_rm@@gm_rm@@tum_rm@@doc_rm@@gp_rm@@flags_rm@@apps_rm@@pk_rm@@q6_rm@@dc_rm@@sudoers_rm@@swc_rm@@swcmask_rm@    return 0
+@unit_loop@@hook_rm@@kmod_rm@@mh_rm@@ff_rm@@lock_rm@@sddm_rm@@rc_rm@@osd_rm@@menu_rm@@gm_rm@@tum_rm@@doc_rm@@gp_rm@@flags_rm@@apps_rm@@pk_rm@@pkbelt_rm@@q6_rm@@dc_rm@@sudoers_rm@@swc_rm@@swcmask_rm@    return 0
 }
 # E129 — A MIGRAÇÃO AUTÔNOMA (AGENTS.md §4, 2026-11-20): o usuário final
 # NUNCA roda comando manual de pós-instalação — toda correção de /etc,
@@ -3350,7 +3362,7 @@ package() {
     # E132 — o elite-polkit-listener NÃO viaja mais (o agente da casa é o
     # lxqt-policykit-agent NATIVO, eleito no craft-bars; um bin a menos no
     # pacote, um agente a menos na fila — o C vendado aposentou do repo)
-@unit_install@@hook_install@@kmod_install@@mh_install@@ff_install@@lock_install@@sddm_install@@grub_install@@rc_install@@osd_install@@menu_install@@pd_install@@gm_install@@tum_install@@doc_install@@gp_install@@pt_install@@ef_install@@flags_install@@apps_install@@udev_install@@pk_install@@q6_install@@theo_install@@gtk_install@@dc_install@@sudoers_install@@swc_install@@swcmask_install@}
+@unit_install@@hook_install@@kmod_install@@mh_install@@ff_install@@lock_install@@sddm_install@@grub_install@@rc_install@@osd_install@@menu_install@@pd_install@@gm_install@@tum_install@@doc_install@@gp_install@@pt_install@@ef_install@@flags_install@@apps_install@@udev_install@@pk_install@@pkbelt_install@@q6_install@@theo_install@@gtk_install@@dc_install@@sudoers_install@@swc_install@@swcmask_install@}
 MOLDE_PKGBUILD
 )"$'\n'
     molde="${molde%$'\n'}"   # o <<< recoloca o \n final: byte a byte

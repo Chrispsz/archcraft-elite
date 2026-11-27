@@ -808,6 +808,18 @@ file_hasnt "lock: NENHUMA flag de era hard-coded (o réu do 'não mapeou' morre)
 file_hasnt "lock: a chave no_fade_in SAIU do conf (inválida nas versões novas — o parser aborta)" "$AIROOTFS/etc/skel/.config/hypr/hyprlock.conf" 'no_fade_in ='
 file_has "lock: o conf veste SÓ chaves válidas em toda a família (hide_cursor)" "$AIROOTFS/etc/skel/.config/hypr/hyprlock.conf" 'hide_cursor = true'
 file_has "lock: o conf mestre veste fade_on_empty = false (o campo não pisca)" "$AIROOTFS/etc/skel/.config/hypr/hyprlock.conf" 'fade_on_empty = false'
+# 1.0-109 — O CHÃO GARANTIDO: a regra polkit viaja COMO MESTRE no
+# pacote e o cinto do elite-post-upgrade o entrega ao rig vivo (a
+# evidência do dump: o 49-elite.rules AUSENTE no rig instalado) e o
+# tema de ícones é o que a MÁQUINA garante (Adwaita — o Fallback Oxygen
+# do lxqt-policykit-agent no dump morre):
+file_has "build.sh: o mestre polkit viaja no pacote (o cinto do post-upgrade)" "$BS" '/usr/local/share/elite/polkit/49-elite.rules'
+file_has "post-upgrade: o cinto entrega o 49-elite.rules (ausente nasce · divergente renova)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" '_PK49_SRC="/usr/local/share/elite/polkit/49-elite.rules"'
+file_has "post-upgrade: o cinto entrega com mode 0644 (a gramática do polkit)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'install -m644 "$_PK49_SRC" "$_PK49_DST"'
+file_has "gtk: o tema de ícones é o que a MÁQUINA garante (Adwaita no GTK3)" "$AIROOTFS/etc/skel/.config/gtk-3.0/settings.ini" 'gtk-icon-theme-name=Adwaita'
+file_has "gtk: o tema de ícones é o que a MÁQUINA garante (Adwaita no GTK4)" "$AIROOTFS/etc/skel/.config/gtk-4.0/settings.ini" 'gtk-icon-theme-name=Adwaita'
+file_has "heal: o ícone GARANTIDO veste a AUSÊNCIA no home (a escolha do dono vence)" "$AIROOTFS/usr/local/bin/elite-heal-sessao" 'cura_gtk'
+file_has "heal: o guard do ícone só veste a linha AUSENTE (idempotente)" "$AIROOTFS/usr/local/bin/elite-heal-sessao" 'gtk-icon-theme-name='
 # o craft-suspend espera o lock VIVO antes do freeze (a diretriz da dose):
 file_has "suspend: o pgrep -x hyprlock confirma o lock ativo ANTES do systemctl suspend" "$AIROOTFS/usr/local/bin/craft-suspend" 'pgrep -x hyprlock'
 file_has "lock: o cache STALE não segura o map (o ffmpeg renasce DESAPEGADO em setsid)" "$AIROOTFS/usr/local/bin/craft-lock" 'blur_fresco'
