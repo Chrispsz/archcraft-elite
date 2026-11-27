@@ -75,6 +75,12 @@ pub struct SinkData {
     pub description: String,
     #[serde(default)]
     pub active_port: String,
+    /// E156 (1.0-107.3) — o mudo REAL do pactl (a fonte "mute": true/false):
+    /// o AudioState do bus vestia o `false` cravado desde sempre — a
+    /// telemetria do dump reportava "nunca mudo" num trono mudo. O campo
+    /// mora no MESMO json que já chega (zero fork novo no sink).
+    #[serde(default)]
+    pub mute: bool,
     #[serde(default)]
     pub volume: Option<VolumeMap>,
     #[serde(default)]
@@ -405,6 +411,29 @@ pub fn default_sink() -> String {
     pactl(&["get-default-sink"]).unwrap_or_default()
 }
 
+/// E156 — o default SOURCE (a fonte de captação): o mesmo pactl, a porta
+/// de entrada. Vazio = sem fonte viva (o honesto é o falso, nunca palpite).
+pub fn default_source() -> String {
+    pactl(&["get-default-source"]).unwrap_or_default()
+}
+
+/// E156 — O MUDO REAL DA FONTE (o microfone): a mesma tipagem serve (o
+/// json das sources tem o MESMO shape dos sinks — name/mute/volume).
+/// Chamado por EVENTO no publica_estado (debounced — fork eventual,
+/// nunca residente): a telemetria deixa de cravar `false` no microfone
+/// mudo do dono.
+fn fonte_muda() -> bool {
+    let nome = default_source();
+    if nome.is_empty() {
+        return false;
+    }
+    let Some(json) = pactl(&["-f", "json", "list", "sources"]) else {
+        return false;
+    };
+    let fontes: Vec<SinkData> = serde_json::from_str(&json).unwrap_or_default();
+    fontes.iter().find(|s| s.name == nome).map(|s| s.mute).unwrap_or(false)
+}
+
 /// E132 — o default CONFIGURADO do WirePlumber (o wpctl status fala;
 /// 'auto_null' aqui = a doença mesmo com o runtime aparentando saúde).
 pub fn configured_sink() -> String {
@@ -575,12 +604,15 @@ pub fn rodada(trigger: &str) {
 }
 
 /// publica o AudioState no bus (o daemon é a fonte única do estado).
+/// E156 — o MUDO REAL: sink e fonte vestem o `mute` do pactl (o `false`
+/// cravado de era morreu — o dump para de jurar "nunca mudo" num trono
+/// mudo; a perícia de um "sem som" passa a ver o mudo no papel).
 pub fn publica_estado(sinks: &[SinkData], dflt: &str) {
     let atual = sinks.iter().find(|s| s.name == dflt);
     let msg = elite_core::BusMsg::Audio(elite_core::AudioState {
         sink_volume: atual.map(|s| (s.volume() * 100.0).round() as u8).unwrap_or(0),
-        sink_muted: false,
-        source_muted: false,
+        sink_muted: atual.map(|s| s.mute).unwrap_or(false),
+        source_muted: fonte_muda(),
         sink_name: atual.map(|s| s.description.clone()).filter(|d| !d.is_empty()),
         analog_preferred: atual.map(|s| classifica(s) != Classe::Hdmi).unwrap_or(false),
     });
@@ -693,6 +725,7 @@ mod tests {
             name: nome.to_string(),
             description: desc.to_string(),
             active_port: String::new(),
+            mute: false,
             volume: Some(VolumeMap { front_left: Some(VolCanal { value: vol }) }),
             ports: vec![],
             properties: props,
@@ -922,6 +955,23 @@ mod tests {
         let sinks: Vec<SinkData> = serde_json::from_str(json).unwrap();
         assert_eq!(sinks[0].volume(), 0.45);
         assert_eq!(sinks[1].volume(), 45.0);
+    }
+
+    #[test]
+    fn e156_o_mudo_real_do_pactl_vira_estado() {
+        // E156 — o AudioState de era cravava `false` no mudo: o trono MUDO
+        // reportava "nunca mudo" na telemetria. O campo vem no MESMO json
+        // (zero fork novo) e o ausente é o falso honesto (serde default).
+        let json = r#"[
+            {"name":"a","mute":true,"volume":{"front-left":{"value":0.55}}},
+            {"name":"b","volume":{"front-left":{"value":0.40}}}
+        ]"#;
+        let sinks: Vec<SinkData> = serde_json::from_str(json).unwrap();
+        assert!(sinks[0].mute, "o sink mudo vira mudo no estado");
+        assert!(!sinks[1].mute, "o sink sem mute é o falso honesto");
+        // o estado público veste o REAL: o default mudo é mudo, ponto.
+        let atual = sinks.iter().find(|s| s.name == "a");
+        assert!(atual.map(|s| s.mute).unwrap_or(false));
     }
 
     #[test]

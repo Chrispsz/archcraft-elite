@@ -57,6 +57,22 @@ pub fn julga_arvore(
     BluetoothState { radio_on, connected }
 }
 
+/// E156 (1.0-107.3) — O JUÍZO DO RECENSO PURO (a porta dos testes): qual
+/// PropertiesChanged do BlueZ vale um censo de novo? O de era só vestia o
+/// `Powered` do adaptador — a RECONEXÃO de um fone após suspend/resume
+/// (Device1 `Connected` true→false→true) passava em branco e o `connected`
+/// do estado dormia mentiroso até o próximo ciclo do rádio (a A2DP volta
+/// ao trono do áudio pelo pactl, mas o CONTAGEM do estado morria velha).
+/// A regra: `Powered` do Adapter1 OU `Connected` do Device1 — o resto é
+/// ruído de pareamento (o censo é um giro de D-Bus por evento, nunca laço).
+pub fn vale_recenso(iface: &str, dict: &HashMap<String, OwnedValue>) -> bool {
+    match iface {
+        "org.bluez.Adapter1" => dict.contains_key("Powered"),
+        "org.bluez.Device1" => dict.contains_key("Connected"),
+        _ => false,
+    }
+}
+
 /// publica o estado no bus (e guarda para o snapshot da boas-vindas).
 fn publica(st: BluetoothState) {
     *BT.lock().unwrap() = Some(st.clone());
@@ -118,10 +134,13 @@ pub fn thread() {
             else {
                 continue;
             };
-            if iface != "org.bluez.Adapter1" {
-                continue; // o Powered do adaptador é a notícia daqui
+            if iface != "org.bluez.Adapter1" && iface != "org.bluez.Device1" {
+                continue; // só o Powered do adaptador e o Connected do
+                          // dispositivo são notícia daqui (E156)
             }
-            if dict.contains_key("Powered") {
+            // E156 — o RECENSO pela regra pura: o rádio ligando OU o fone
+            // reconectando (o connected pós-resume deixa de dormir velho)
+            if vale_recenso(&iface, &dict) {
                 // o censo de novo (os conectados contam junto — a árvore
                 // inteira num giro, o juízo é sempre o MESMO)
                 if let Some(st) = censo(&c) {
@@ -165,6 +184,32 @@ mod tests {
             );
         }
         arvore
+    }
+
+    #[test]
+    fn e156_o_recenso_veste_a_reconexao_do_fone() {
+        // a RECONEXÃO pós-resume: o Device1 Connected mudou — o estado
+        // dormia velho até o próximo ciclo do rádio. Agora vale censo.
+        let mut d = HashMap::new();
+        d.insert("Connected".to_string(), OwnedValue::from(true));
+        assert!(
+            vale_recenso("org.bluez.Device1", &d),
+            "fone reconectado = censo NO INSTANTE"
+        );
+        // o rádio ligando continua valendo (a lei de 1.0-106 intacta)
+        let mut a = HashMap::new();
+        a.insert("Powered".to_string(), OwnedValue::from(true));
+        assert!(vale_recenso("org.bluez.Adapter1", &a));
+        // o ruído NÃO vale: propriedade alheia no iface certo, iface alheia
+        let mut outra = HashMap::new();
+        outra.insert("Discovering".to_string(), OwnedValue::from(true));
+        assert!(!vale_recenso("org.bluez.Adapter1", &outra), "Discovering é ruído");
+        assert!(!vale_recenso("org.bluez.Device1", &outra), "Discovering no device é ruído");
+        assert!(!vale_recenso("org.freedesktop.DBus.Properties", &a), "iface alheia é ruído");
+        // e o Powered NO DEVICE não é o rádio (a cerca de sempre vira a regra)
+        let mut pd = HashMap::new();
+        pd.insert("Powered".to_string(), OwnedValue::from(true));
+        assert!(!vale_recenso("org.bluez.Device1", &pd), "Powered de Device não vale recenso (o ícone é do ADAPTADOR)");
     }
 
     #[test]
