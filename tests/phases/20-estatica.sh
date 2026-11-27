@@ -610,6 +610,13 @@ file_has "dose: o pacman_agil sobe para 10 downloads paralelos (o -Syu ágil E15
 file_has "dose: a limpeza do cache antigo após a dose (paccache -rk1)" "$AIROOTFS/usr/local/bin/elite-dose" 'cache_enxuga'
 file_has "iso: o NoExtract poda doc/man/gtk-doc na ISO (o apply-overlay)" "scripts/apply-overlay.sh" 'usr/share/doc/*'
 file_has "iso: a compressão da ISO é zstd alto (o profiledef)" "scripts/apply-overlay.sh" 'COMPRESSION="zstd"'
+# ══ 1.0-107.2 — A AUDITORIA DA ESTEIRA (o canal testing × stable, o cache
+#    máximo do cargo e a promessa E103.1 vestida de verdade) ══
+file_has "iso: a compressão CALIBRADA -15 -T0 -b 512K (1.0-107.1 — o -19 pagava CPU máxima pelos últimos 2%)" "scripts/apply-overlay.sh" 'COMPRESSION_OPTIONS=(-15 -T0 -b 512K)'
+file_has "canal: o gatilho do Canal veste o main DE VERDADE (a promessa E103.1 — o typo 'ain]' da E43 nunca casava nada e o GitHub ignorava o filtro inválido)" ".github/workflows/publish-packages.yml" 'branches: [main]'
+file_has "canal: o cache MÁXIMO do cargo (target + registry/git juntos, chave por Cargo.lock)" ".github/workflows/publish-packages.yml" 'crates/.cargo-home'
+file_has "suite: o cache máximo no host (o registry do runner entra no MESMO cache)" ".github/workflows/tests.yml" '~/.cargo/registry'
+file_has "build.sh: o CARGO_HOME do container (o registry/git moram no repo montado — o download das crates paga 1x)" ".ci/build.sh" 'CARGO_HOME="/work/crates/.cargo-home"'
 file_has "lock: o blur é CACHE por evento (wall-blur.png — zero blur por lock)" "$AIROOTFS/usr/local/bin/craft-lock" 'wall-blur.png'
 
 # ══ E151-d — AS SKILLS PERMANENTES E A LEI DE ENTRADA ══
