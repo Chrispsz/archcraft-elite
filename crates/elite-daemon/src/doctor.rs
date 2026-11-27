@@ -90,6 +90,19 @@ pub fn julga_wakeup(tabela: &str) -> (Vec<String>, bool) {
     (espurios, mao_armada)
 }
 
+/// 1.0-109 — A SAÚDE DO DESPERTAR COM O BOTÃO DO KERNEL (a evidência do
+/// dump 1.0-108: o falso positivo em `wakeup` — na placa desktop AM4 o
+/// botão físico de ligar é ACPI FIXED HARDWARE e deixa o /proc/acpi/
+/// wakeup SEM *enabled NENHUM quando os espúrios USB/PCIe estão
+/// desligados; a tabela vazia não é doença, é o botão morando em OUTRO
+/// lugar do kernel). A saúde segue a LEI PURA (zero espúrios *enabled
+/// fora da allowlist) e aceita a fonte do dono ARMADA na tabela OU o
+/// DRIVER do botão presente no kernel (/sys/bus/acpi/drivers/button ·
+/// /proc/acpi/button/power — o hardware fixo é a fonte de sempre).
+pub fn wakeup_saudavel(espurios: &[String], mao_armada: bool, botao_no_kernel: bool) -> bool {
+    espurios.is_empty() && (mao_armada || botao_no_kernel)
+}
+
 /// O RELATÓRIO (PURO): render alinhado + o código de saída (0 = saúde
 /// inteira, 1 = invariante quebrado — o dono vê O réu, não um dump).
 pub fn relatorio(diags: &[Diag]) -> (String, i32) {
@@ -112,11 +125,12 @@ pub fn relatorio(diags: &[Diag]) -> (String, i32) {
 
 // ── as sondas (cada uma monta UM Diag; nenhuma panica — o honesto fala) ──
 
-/// (1) o ambiente Wayland no D-Bus: a PROPRIEDADE `Environment` do
-/// org.freedesktop.systemd1.Manager é a verdade do systemd do usuário
-/// (1.0-108 — o MÉTODO `GetEnvironment` de era recusava na máquina real
-/// sem voz nenhuma; a PROPRIEDADE é a via canônica e com o `systemctl
-/// --user show-environment` de queda — a mesma leitura, duas portas).
+/// (1) o ambiente Wayland da sessão: o `systemctl --user
+/// show-environment` é a via canônica (1.0-109 — a diretriz: validar
+/// via systemctl com o fallback D-Bus na PROPRIEDADE `Environment` do
+/// org.freedesktop.systemd1.Manager; a 1.0-108 lia a propriedade
+/// primeiro e a queda de CLI nunca rodava) — a mesma leitura, duas
+/// portas, o PAPEL primeiro.
 fn diag_dbus_env(conn: &Option<zbus::blocking::Connection>) -> Diag {
     let Some(c) = conn.as_ref() else {
         return Diag {
@@ -125,29 +139,13 @@ fn diag_dbus_env(conn: &Option<zbus::blocking::Connection>) -> Diag {
             nota: "sem session bus (a sessão não existe aqui?)".into(),
         };
     };
-    // 1.0-108 — A PROPRIEDADE primeiro (a leitura canônica: o valor é um
-    // `a{ss}` — o Dict do zvariant vira o MESMO mapa do método de era),
-    // o CLI de queda (o papel do systemctl serve o mesmo ambiente)
-    let env: std::collections::HashMap<String, String> = zbus::blocking::Proxy::new(
-        c,
-        "org.freedesktop.systemd1",
-        "/org/freedesktop/systemd1",
-        "org.freedesktop.systemd1.Manager",
-    )
-    .and_then(|p| {
-        let val = p.get_property::<zbus::zvariant::OwnedValue>("Environment")?;
-        let mut env = std::collections::HashMap::new();
-        if let zbus::zvariant::Value::Dict(d) = zbus::zvariant::Value::from(val) {
-            for (k, v) in d {
-                if let (Ok(k), Ok(v)) = (<String>::try_from(k), <String>::try_from(v)) {
-                    env.insert(k, v);
-                }
-            }
-        }
-        Ok(env)
-    })
-    .or_else(|_| ambiente_do_systemctl())
-    .unwrap_or_default();
+    // 1.0-109 — O PAPEL PRIMEIRO (a diretriz da dose: o systemctl é a
+    // canônica — o CLI roda em QUALQUER ambiente de sessão com o
+    // systemd do usuário de pé; a PROPRIEDADE D-Bus é a queda para o
+    // canto onde o binário do systemctl não mora)
+    let env: std::collections::HashMap<String, String> = ambiente_do_systemctl()
+        .or_else(|_| ambiente_do_dbus(c))
+        .unwrap_or_default();
     let wl = env.get("WAYLAND_DISPLAY").map(String::as_str).unwrap_or("");
     let desk = env.get("XDG_CURRENT_DESKTOP").map(String::as_str).unwrap_or("");
     if !wl.is_empty() && !desk.is_empty() {
@@ -161,20 +159,55 @@ fn diag_dbus_env(conn: &Option<zbus::blocking::Connection>) -> Diag {
     }
 }
 
-/// 1.0-108 — A QUEDA DO SYSTEMCTL (o papel KEY=VALUE do `show-environment`
-/// vira o MESMO mapa da propriedade; a saída sem nada é honesta: o mapa
-/// vazio nomeia o réu no diag).
+/// O PAPEL DO SYSTEMCTL (o `show-environment` KEY=VALUE) vira o MESMO
+/// mapa da propriedade — o PARSE é PURO (a sonda de teste alimenta papel
+/// de mentira); a saída sem nada é honesta: o mapa vazio nomeia o réu.
+fn le_ambiente_do_papel(papel: &str) -> std::collections::HashMap<String, String> {
+    let mut env = std::collections::HashMap::new();
+    for linha in papel.lines() {
+        if let Some((k, v)) = linha.split_once('=') {
+            env.insert(k.to_string(), v.to_string());
+        }
+    }
+    env
+}
+
+/// A CANÔNICA DA DOSE (1.0-109): o `systemctl --user show-environment`
+/// serve o ambiente do systemd do usuário — a porta que TODO rig tem.
 fn ambiente_do_systemctl() -> zbus::Result<std::collections::HashMap<String, String>> {
-    use std::collections::HashMap;
     use std::process::Command;
     let out = Command::new("systemctl")
         .args(["--user", "show-environment"])
         .output()
         .map_err(|e| zbus::Error::Failure(format!("systemctl --user show-environment: {e}")))?;
-    let mut env = HashMap::new();
-    for linha in String::from_utf8_lossy(&out.stdout).lines() {
-        if let Some((k, v)) = linha.split_once('=') {
-            env.insert(k.to_string(), v.to_string());
+    if !out.status.success() {
+        return Err(zbus::Error::Failure(format!(
+            "systemctl --user show-environment: rc {}",
+            out.status.code().unwrap_or(-1)
+        )));
+    }
+    Ok(le_ambiente_do_papel(&String::from_utf8_lossy(&out.stdout)))
+}
+
+/// A QUEDA D-BUS (a PROPRIEDADE `Environment` do org.freedesktop.systemd1.
+/// Manager — o `a{ss}` do zvariant vira o MESMO mapa do papel): o
+/// canto sem o binário do systemctl continua lendo a verdade.
+fn ambiente_do_dbus(
+    c: &zbus::blocking::Connection,
+) -> zbus::Result<std::collections::HashMap<String, String>> {
+    let p = zbus::blocking::Proxy::new(
+        c,
+        "org.freedesktop.systemd1",
+        "/org/freedesktop/systemd1",
+        "org.freedesktop.systemd1.Manager",
+    )?;
+    let val = p.get_property::<zbus::zvariant::OwnedValue>("Environment")?;
+    let mut env = std::collections::HashMap::new();
+    if let zbus::zvariant::Value::Dict(d) = zbus::zvariant::Value::from(val) {
+        for (k, v) in d {
+            if let (Ok(k), Ok(v)) = (<String>::try_from(k), <String>::try_from(v)) {
+                env.insert(k, v);
+            }
         }
     }
     Ok(env)
@@ -291,22 +324,32 @@ fn diag_wakeup() -> Diag {
         };
     };
     let (espurios, mao_armada) = julga_wakeup(&tabela);
-    if espurios.is_empty() && mao_armada {
+    // 1.0-109 — O BOTÃO DE HARDWARE FIXO do desktop AM4 (a ACPI Fixed
+    // Hardware não mora no /proc/acpi/wakeup: o driver do botão no
+    // kernel é a prova de que a máquina acorda com o botão físico)
+    let botao_no_kernel = std::path::Path::new("/sys/bus/acpi/drivers/button").exists()
+        || std::path::Path::new("/proc/acpi/button/power").exists();
+    if wakeup_saudavel(&espurios, mao_armada, botao_no_kernel) {
+        let de_onde = if mao_armada {
+            "PWRB/SLPB/PBTN/PS2K/LID armados"
+        } else {
+            "o botão do kernel (ACPI Fixed Hardware do desktop — a tabela não lista o que é fixo)"
+        };
         Diag {
             nome: "wakeup",
             ok: true,
-            nota: "toda a família fora da mão do dono dormindo · PWRB/SLPB/PBTN/PS2K/LID armados".into(),
+            nota: format!("toda a família fora da mão do dono dormindo · {de_onde}"),
         }
     } else {
         let mut nota = String::new();
         if !espurios.is_empty() {
             nota.push_str(&format!("espúrios ACORDADOS: {}", espurios.join(",")));
         }
-        if !mao_armada {
+        if !mao_armada && !botao_no_kernel {
             if !nota.is_empty() {
                 nota.push_str(" · ");
             }
-            nota.push_str("NENHUMA fonte da mão do dono armada (PWRB/SLPB/PBTN/PS2K/LID — a máquina nem com o botão acorda)");
+            nota.push_str("NENHUMA fonte do dono (a tabela não tem PWRB/SLPB/PBTN/PS2K/LID e o kernel não tem o driver do botão — a máquina nem com o botão físico acorda)");
         }
         Diag { nome: "wakeup", ok: false, nota }
     }
@@ -436,6 +479,42 @@ mod tests {
         // botão acorda (o réu que a exigência da mão TODA não via)
         let (e, mao) = julga_wakeup("XHC0      S4      *disabled\nPWRB      S4      *disabled\n");
         assert!(e.is_empty() && !mao, "sem NENHUMA mão armada o sono é armadilha");
+    }
+
+    #[test]
+    fn e109_a_saude_do_wakeup_aceita_o_botao_do_kernel() {
+        // A EVIDÊNCIA DO DUMP 1.0-108 (a placa desktop AM4): o botão
+        // físico de ligar é ACPI FIXED HARDWARE — o /proc/acpi/wakeup
+        // fica SEM *enabled NENHUM com os espúrios desligados e o
+        // doctor de era nomeava a mesa sã de réu. A saúde exige ZERO
+        // espúrios e aceita a mão do dono NA TABELA ou o DRIVER do
+        // botão NO KERNEL
+        let nenhum: Vec<String> = Vec::new();
+        // a mão armada na tabela: saúde de sempre
+        assert!(wakeup_saudavel(&nenhum, true, false));
+        // o desktop AM4 SEM fonte na tabela mas COM o driver do botão:
+        // SAÚDE (o hardware fixo é a fonte de sempre)
+        assert!(wakeup_saudavel(&nenhum, false, true));
+        // nem a tabela nem o kernel: a máquina nem com o botão acorda
+        assert!(!wakeup_saudavel(&nenhum, false, false));
+        // espúrio ACORDADO: o réu segue nomeado COM ou SEM o botão
+        assert!(!wakeup_saudavel(&["XHC0".to_string()], true, true));
+    }
+
+    #[test]
+    fn e109_o_papel_do_systemctl_vira_o_mapa_do_ambiente() {
+        // o PARSE PURO do `systemctl --user show-environment` (a
+        // canônica da diretriz): KEY=VALUE por linha, o resto é silêncio
+        let mapa = le_ambiente_do_papel(
+            "WAYLAND_DISPLAY=wayland-0
+XDG_CURRENT_DESKTOP=labwc:wlroots
+LIXO_SEM_IGUAL
+",
+        );
+        assert_eq!(mapa.get("WAYLAND_DISPLAY").map(String::as_str), Some("wayland-0"));
+        assert_eq!(mapa.get("XDG_CURRENT_DESKTOP").map(String::as_str), Some("labwc:wlroots"));
+        assert!(!mapa.contains_key("LIXO_SEM_IGUAL"), "linha sem = não é ambiente");
+        assert!(le_ambiente_do_papel("").is_empty());
     }
 
     #[test]

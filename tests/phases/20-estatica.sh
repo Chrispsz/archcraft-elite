@@ -774,7 +774,16 @@ file_has "daemon: o teto ignora a vaga ADOTADA (a cura do spin de 95,6% de CPU)"
 file_has "bus: o atendente lê por POLL, nunca timeout de leitura no meio do quadro" "crates/elite-core/src/bus.rs" 'poll(pfd.as_mut_ptr(), 1, 500)'
 file_has "bus: o fio envenenado morre LIMPO (shutdown no erro de escrita)" "crates/elite-core/src/bus.rs" 'w.shutdown(std::net::Shutdown::Both)'
 file_has "daemon: o fd morto sai do poll e do chão (POLLERR/POLLHUP/POLLNVAL)" "crates/elite-daemon/src/main.rs" 'POLLERR | libc::POLLHUP | libc::POLLNVAL'
-file_has "doctor: o ambiente lê a PROPRIEDADE Environment (com o systemctl de queda)" "crates/elite-daemon/src/doctor.rs" '"Environment"'
+# 1.0-109 — O DOCTOR HONESTO PARA O DESKTOP AM4 (a evidência do dump: o
+# falso positivo em `wakeup` — o botão físico de ligar é ACPI Fixed
+# Hardware e o /proc/acpi/wakeup fica SEM *enabled com os espúrios
+# desligados) e o AMBIENTE pela canônica da diretriz (systemctl
+# primeiro, propriedade D-Bus de queda):
+file_has "doctor: o ambiente valida via systemctl --user show-environment (a canônica da diretriz)" "crates/elite-daemon/src/doctor.rs" '"--user", "show-environment"'
+file_has "doctor: a PROPRIEDADE Environment do D-Bus é a QUEDA (não mais a frente)" "crates/elite-daemon/src/doctor.rs" 'or_else(|_| ambiente_do_dbus(c))'
+file_has "doctor: a saúde do despertar aceita o botão do KERNEL (o ACPI Fixed Hardware do AM4)" "crates/elite-daemon/src/doctor.rs" 'pub fn wakeup_saudavel'
+file_has "doctor: o driver do botão mora em /sys/bus/acpi/drivers/button (o caminho do kernel)" "crates/elite-daemon/src/doctor.rs" '"/sys/bus/acpi/drivers/button"'
+file_has "doctor: o botão de hardware fixo também mora em /proc/acpi/button/power" "crates/elite-daemon/src/doctor.rs" '"/proc/acpi/button/power"'
 file_has "polkit: a regra 49-elite.rules autoriza OS MOTORES da casa sem senha" "$AIROOTFS/etc/polkit-1/rules.d/49-elite.rules" 'elite-acpi-wakeup'
 file_has "polkit: a regra casa pelo lookup EXATO do programa (sem wildcard)" "$AIROOTFS/etc/polkit-1/rules.d/49-elite.rules" 'action.lookup("program")'
 file_has "polkit: o wheel ATIVO é o juiz" "$AIROOTFS/etc/polkit-1/rules.d/49-elite.rules" 'subject.isInGroup("wheel") && subject.active'
