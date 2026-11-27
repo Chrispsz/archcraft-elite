@@ -311,11 +311,23 @@ file_has "build.sh: o mestre do greeter viaja no pacote (elite/sddm)" "$BS" '/us
 file_has "build.sh: o mestre do greeter nasce DA MESMA FONTE do overlay" "$BS" '/work/elite/airootfs/usr/share/sddm/themes/archcraft/theme.conf'
 file_has "post-upgrade: a pele do greeter chega ao rig vivo na dose" "$AIROOTFS/usr/local/bin/elite-post-upgrade" '/usr/share/sddm/themes/archcraft/theme.conf'
 file_has "rice: o fóssil da v7 na rede do lock (quem adotou a v7 renova à v8)" "$AIROOTFS/usr/local/bin/craft-rice" '6e4597244cb625dde1ed33f419afabb8bf9270230a4218311c9c4acf9919b0ea'
-# O MOLDE veste o pkgrel 107.2 (lei E41 — o guard compara versão)
-# (1.0-107.2 — o ciclo da filosofia ao extremo: pkgrel com ponto, o 108
+# O MOLDE veste o pkgrel 107.3 (lei E41 — o guard compara versão)
+# (1.0-107.3 — a auditoria total dos pacotes: pkgrel com ponto, o 108
 #  fica reservado ao ciclo pós-validação no hardware; a âncora viva
 #  sobe junto NO MESMO COMMIT do conteúdo)
-file_has "build.sh: o pkgrel da dose é 107.2 (elite-system 1.0-107.2)" "$BS" 'pkgrel=107.2'
+file_has "build.sh: o pkgrel da dose é 107.3 (elite-system 1.0-107.3)" "$BS" 'pkgrel=107.3'
+
+# ══ 1.0-107.3 — A PERÍCIA DO CONJUNTO FINAL DA ISO (as 4 redundâncias
+#    que a debloat de eras não via + o backend de portais que faltava) ══
+file_has "packages.remove: o pavucontrol vedado (o mixer é o pwvucontrol GTK4 — DOIS mixers é duplicação)" "elite/packages.remove" 'pavucontrol'
+file_has "packages.remove: o pulsemixer vedado (TUI sem chamador na casa zero-TUI)" "elite/packages.remove" 'pulsemixer'
+file_has "packages.remove: o network-manager-applet vedado (a higiene o tira dos rigs — a ISO não nasce com ele)" "elite/packages.remove" 'network-manager-applet'
+file_has "packages.remove: o xf86-input-libinput vedado (DDX de input do xorg-server que a E151 aposentou)" "elite/packages.remove" 'xf86-input-libinput'
+file_line_absent "packages.add: o pavucontrol NÃO volta (o pwvucontrol é o único mixer da ISO)" "$PKG" 'pavucontrol'
+file_line_absent "packages.add: o pulsemixer NÃO volta (zero TUI de fábrica)" "$PKG" 'pulsemixer'
+file_line_absent "packages.add: o network-manager-applet NÃO volta (a rede é módulo nativo da barra)" "$PKG" 'network-manager-applet'
+file_line_absent "packages.add: o xf86-input-libinput NÃO volta (Xwayland tem o próprio input)" "$PKG" 'xf86-input-libinput'
+file_has "packages.add: o backend GTK dos portais (FileChooser para apps Flatpak — 1.0-107.3)" "$PKG" 'xdg-desktop-portal-gtk'
 
 # ══ 1.0-107.2 — O SUPERVISOR É EVENTO (a auditoria da filosofia: o
 #    tick de 1s morre — o kernel toca a campainha) ══

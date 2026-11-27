@@ -3176,7 +3176,19 @@ pkgver=1.0
 #      notebook) e nasce o craft-doctor (diagnóstico 1-comando,
 #      <50ms). pkgrel 107.1→107.2 NO MESMO COMMIT (lei E41 — o 108
 #      segue reservado ao ciclo pós-validação no hardware).
-pkgrel=107.2
+#      1.0-107.3 — a auditoria total dos pacotes do sistema: a perícia
+#      do conjunto FINAL da ISO (234 pacotes simulados contra o
+#      packages.x86_64 REAL do upstream) colhe 4 redundâncias que a
+#      debloat de eras não via (o pavucontrol duplicando o pwvucontrol —
+#      DOIS mixers GUI na mesma ISO; o pulsemixer TUI morto sem chamador
+#      na casa zero-TUI; o network-manager-applet que a higiene TIRA dos
+#      rigs enquanto a ISO NASCE com ele; o xf86-input-libinput — driver
+#      DDX de um xorg-server que a E151 já aposentou) e 1 lacuna (o
+#      xdg-desktop-portal-gtk — o backend FileChooser/Settings que todo
+#      app Flatpak pede; o portal-wlr sozinho só fala ScreenCast).
+#      pkgrel 107.2→107.3 NO MESMO COMMIT (lei E41 — o 108 segue
+#      reservado ao ciclo pós-validação no hardware).
+pkgrel=107.3
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da sessão; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

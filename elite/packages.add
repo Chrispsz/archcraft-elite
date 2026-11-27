@@ -238,6 +238,15 @@ libpulse
 # AGENTE ELEITO da casa, lançado e supervisionado pelo elite-daemon.
 lxqt-policykit
 xdg-desktop-portal-wlr
+# E155 (1.0-107.3) — O BACKEND GTK DOS PORTAIS (a lacuna da perícia do
+# conjunto final): o portal-wlr sozinho só fala ScreenCast/RemoteDesktop
+# — o FileChooser/Settings/OpenURI mora no backend GTK. Todo app FLATPAK
+# da casa (o flatpak vem de fábrica com o remote flathub no hook) pede
+# o FileChooser do portal no primeiro diálogo de arquivos — sem o
+# backend, o app sandboxado abre diálogo MORTO ou cai no fallback do
+# host. O frontend (xdg-desktop-portal) chega por dependência do wlr;
+# o backend é o que faltava na ponta.
+xdg-desktop-portal-gtk
 mpv
 imv
 thunar

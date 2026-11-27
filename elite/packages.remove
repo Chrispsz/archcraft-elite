@@ -473,3 +473,12 @@ openbox              # o binário direto (o metapacote archcraft-openbox já sai
 feh                  # setter de wallpaper X11 (o swaybg da casa)
 i3-wm                # o WM tile X11 (sessão morta no labwc)
 i3status             # a barra do i3 (a top bar é o craft-bar-rs)
+
+## ── E155 (1.0-107.3) · A PERÍCIA DO CONJUNTO FINAL — as redundâncias ──
+##   que a debloat de eras não via (a auditoria simulou BYTE A BYTE o
+##   conjunto final da ISO — o packages.x86_64 REAL do upstream com as
+##   duas listas aplicadas, 234 pacotes ativos — e julgou cada um):
+pavucontrol          # DOIS mixers GUI na MESMA ISO: o pwvucontrol (GTK4/libadwaita, de repo, packages.add) é o mixer da casa que os binds da craft-bar-rs chamam — o pavucontrol do upstream (GTK3) nasce ao lado sem NENHUM chamador (a barra só o usa como fallback de rig antigo sem pwvucontrol — na ISO o pwvucontrol SEMPRE existe). Rigs vivos CONSERVAM (nada de remoção forçada — a ADOCAO já entrega o GTK4).
+pulsemixer           # o TUI de áudio do upstream SEM chamador na casa (o áudio da barra é wpctl direto; o pactl é a CLI) — a diretriz E138 é ZERO interface TUI em terminal (a ordem que aposentou o impala; o pulsemixer escapou por não estar na letra da ordem, só no espírito). Restaurável em 1 comando para quem quiser à mão.
+network-manager-applet # a ESQUIZOFRENIA em 2 atos: a higiene E132 da dose REMOVE o applet dos rigs ('redundante — a casa tem substituto') enquanto a ISO NASCE com ele do upstream — o botão de rede é módulo NATIVO da craft-bar-rs (iwgtk/nm-connection-editor nas portas). Zero chamador em casa (nm-applet só em comentário histórico).
+xf86-input-libinput  # driver DDX de input do Xorg REAL — o xorg-server saiu da ISO na E151 (o greeter é Wayland nativo): o Xwayland tem o PRÓPRIO input (não carrega driver DDX de input, só os apps falam com ele) — o pacote é peso morto desde a E151. Os xf86-video-* da mesma família já saíram; este escapou do bloco.
