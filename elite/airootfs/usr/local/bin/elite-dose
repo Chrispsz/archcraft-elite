@@ -1486,6 +1486,20 @@ manual_rc=0
 # recusa conhecida (órfã sem dono) cura com quarantena bak- e refaz —
 # o dono aperta o botão UMA vez, a casa faz a rodada inteira (teto 2
 # rounds). Classe desconhecida: mensagem honesta, nada tocado.
+# 1.0-107 — O RESUMO REAL NA NOTÍFICAÇÃO (a diretriz §8: "exibir
+# notificações objetivas de início, progresso e conclusão com resumo
+# real (quantidade de pacotes atualizados…)"): o censo ANTES conta os
+# pacotes da fila (checkupdates do pacman-contrib — ausente = silêncio
+# honesto, o resumo fica no terminal) e o INÍCIO sobe na tela do dono.
+_npend=""
+if command -v checkupdates >/dev/null 2>&1; then
+    _npend="$(checkupdates 2>/dev/null | wc -l || true)"
+    case "${_npend:-}" in ''|*[!0-9]*) _npend="" ;; esac
+fi
+if [ -n "$_npend" ] && [ "$_npend" -gt 0 ]; then
+    notify_users -u normal 'Elite: atualização iniciada' \
+        "$_npend pacote(s) para atualizar — a transação corre no terminal"
+fi
 ERRCAP="$(mktemp "${TMPDIR:-/tmp}/elite-err.XXXXXX")"
 manual_round=0
 while :; do
@@ -1553,6 +1567,20 @@ kafter="$(pacman -Q "$KPKG" 2>/dev/null | awk '{print $2}' || true)"
 if [[ -n "$kafter" && "$kafter" != "$kbefore" ]]; then
   echo "==> kernel atualizado (${kbefore:-ausente} → $kafter) — REINICIE para rodá-lo"
 fi
+# 1.0-107 — A CONCLUSÃO COM O RESUMO REAL (a diretriz §8: "notificações
+# objetivas… com resumo real (quantidade de pacotes atualizados…) e
+# orientar sobre reinicialização apenas quando kernel/drivers críticos
+# forem atualizados"): o N é o censo da FILA de antes (o número que o
+# dono viu começar); o conselho de REBOOT só sobe quando o KERNEL
+# mudou na transação (a régua do kbefore/kafter de sempre).
+if [[ -n "$kafter" && "$kafter" != "$kbefore" ]]; then
+  notify_users -u normal 'Elite: atualização concluída' \
+    "${_npend:+$_npend pacote(s) atualizado(s). }Kernel novo ($kafter) — REINICIE para rodá-lo"
+else
+  notify_users -u normal 'Elite: atualização concluída' \
+    "${_npend:+$_npend pacote(s) atualizado(s). }Sistema em dia."
+fi
+unset _npend
 
 # código da casa defasado? (curl com teto de tempo; falha = silêncio)
 if [[ -r "$VMARK" ]] && command -v curl >/dev/null 2>&1; then

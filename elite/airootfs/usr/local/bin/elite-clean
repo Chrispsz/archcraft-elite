@@ -86,6 +86,9 @@ if [ "$_asroot" = 1 ]; then
         exit 2
     fi
     export HOME="$_ar_home" USER="$_ar_user"
+    # 1.0-107 — O UID do dono para o resumo da notificação (o --auto-safe
+    # corre como raiz pelo pkexec; o notify desce pelo bus da SESSÃO dele)
+    _LIMPA_UID="$_ar_uid"
 fi
 unset _asroot _args _ar_user _ar_home _ar_uid
 
@@ -493,6 +496,23 @@ echo
 printf '✔ limpo. cache do pacman: %s MiB → %s MiB (liberado: %s MiB)\n' "$antes" "$depois" "$liberado"
 printf '✔ TOTAL LIBERADO (todas as fases): %s\n' "$(hum_gb "$TOTAL_MIB")"
 printf '   (a fonte de cada número está no passo dele acima e no papel ~/.cache/elite/clean.log)\n'
+# 1.0-107 — O RESUMO REAL NA NOTÍFICAÇÃO (a diretriz §8: "exibir
+# notificações objetivas… com resumo real (…espaço liberado em MB/GB)"):
+# o modo --auto-safe corre COMO RAIZ pelo pkexec — o notify desce pelo
+# bus da SESSÃO de cada usuário logado (a mesma escola do notify_users
+# do elite-dose: /run/user/N/bus; sem bus = sem sessão gráfica, o
+# resumo fica no terminal e no papel — silêncio honesto).
+_clean_resumo="$(hum_gb "$TOTAL_MIB")"
+if [ -n "${_LIMPA_UID:-}" ]; then
+    if [ -S "/run/user/$_LIMPA_UID/bus" ]; then
+        runuser -u "#$_LIMPA_UID" -- env DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$_LIMPA_UID/bus" \
+            notify-send -a 'Elite' -u normal -t 6000 \
+            'Elite: limpeza concluída' "Total liberado: $_clean_resumo" \
+            >/dev/null 2>&1 || true
+        clog "fim: resumo notificado à sessão do uid $_LIMPA_UID (total liberado $_clean_resumo)"
+    fi
+fi
+unset _clean_resumo
 # E136 — A VERIFICAÇÃO DE FALHAS (a PARTE 2/2 do dono): a limpeza termina
 # olhando o PULSO do sistema — units FAILED são o sintoma que sobra
 # depois de qualquer transação grande (o veredito no terminal E no papel;

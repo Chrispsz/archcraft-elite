@@ -33,20 +33,24 @@ fn main() {
             );
             127
         });
+    // 1.0-107 — O CANCELAMENTO É SILÊNCIO (a diretriz §8: "se o usuário
+    // cancelar ou fechar a janela de senha do Polkit (rc=126 ou 127),
+    // encerrar silenciosamente sem exibir alerta de falha" — a senha
+    // fechada não é erro, é o dono mudando de ideia): nada na tela,
+    // nada de pausa — o terminal fecha na hora, zero falso alarme.
     if rc == 0 {
         println!("ELITE · o sistema está atualizado.");
-    } else if rc == 126 {
-        eprintln!("ELITE · a autorização foi NEGADA (senha cancelada) — nada rodou.");
+        pausa_enter();
+    } else if rc == 126 || rc == 127 {
+        // o exit 0 é a verdade do cancelamento (nada rodou, nada falhou —
+        // o dono fechou a janela da senha)
+        std::process::exit(0);
     } else {
         eprintln!(
             "ELITE · a atualização NÃO concluiu (rc={rc}) — a verdade acima é do motor; o papel em ~/.cache/elite/update.log."
         );
+        pausa_enter();
     }
-    // E150 — A PAUSA DO `foot -e` (a ordem do dono, base 1.0-98: o terminal
-    // do menu fechava JUNTO com o processo — inclusive SEM atualizações,
-    // o veredito sumia antes de ser lido). Só veste com stdin TTY (o foot
-    // é TTY; o pipe da prova nunca espera Enter).
-    pausa_enter();
     std::process::exit(rc);
 }
 

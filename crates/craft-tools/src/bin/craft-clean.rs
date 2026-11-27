@@ -44,10 +44,15 @@ fn main() {
             );
             127
         });
+    // 1.0-107 — O CANCELAMENTO É SILÊNCIO (a diretriz §8: "se o usuário
+    // cancelar ou fechar a janela de senha do Polkit (rc=126 ou 127),
+    // encerrar silenciosamente sem exibir alerta de falha" — a senha
+    // fechada não é erro, é o dono mudando de ideia): nada na tela,
+    // zero falso alarme — o exit 0 é a verdade do cancelamento.
     if rc == 0 {
         println!("ELITE · limpeza CONCLUÍDA — o total liberado está no relatório acima.");
-    } else if rc == 126 {
-        eprintln!("ELITE · a autorização foi NEGADA (senha cancelada) — nada rodou.");
+    } else if rc == 126 || rc == 127 {
+        std::process::exit(0);
     } else {
         eprintln!(
             "ELITE · a limpeza NÃO completou (rc={rc}) — a verdade acima é do motor; o papel em ~/.cache/elite/clean.log."
