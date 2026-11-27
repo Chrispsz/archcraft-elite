@@ -4,8 +4,8 @@
  * A identidade visual de TODA a casa mora neste arquivo: a craft-bar-rs,
  * a craft-dock-rs e os popovers nativos (GtkPopoverMenu) o embutem via
  * elite-core::THEME_CSS (include_str! — a pele viaja NO BINÁRIO, sem
- * drift entre eras); o swaync e o nwg-drawer recebem a MESMA paleta pelos
- * skins do pacote (mesmos tokens, gramática própria de cada ferramenta).
+ * drift entre eras); o nwg-drawer recebe a MESMA paleta pelo skin do
+ * pacote (mesmos tokens, gramática própria da ferramenta).
  *
  * Override do dono: arquivo LIVRE (css_path da barra / dock), relido no
  * SIGUSR2 — a folha mestra é o FALLBACK, nunca um arquivo vivo editável.
@@ -114,9 +114,8 @@
  * do dono: o indicador persistente lê-se de longe; o assento do jogo é
  * o acento da casa, o roxo da paleta). */
 #barbox #gamebtn image { color: @elite-accent; }
-/* 1.0-104 — O SINO CORTADO do Não Perturbe (junto do relógio no centro):
- * o acento primário — o estado REAL do swaync lê-se de longe. */
-#barbox #dndimg { color: @elite-accent; margin: 0 2px; }
+/* 1.0-106 — O SINO DO DND MORREU COM A CENTRAL (o relógio é
+ * hora/calendário; nenhum ícone de notificador habita a barra). */
 
 /* ── Popovers nativos (sessão da barra — a mesma cara da barra) ─────────── */
 popover > contents {

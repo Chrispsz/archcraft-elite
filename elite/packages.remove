@@ -275,7 +275,7 @@ archcraft-welcome      # welcome do stock; craft-hello cobre
 archcraft-omz
 
 ## Skel: 6.4MB de configs de sessões extintas (openbox/polybar/rofi) —
-## o skel Elite (labwc/waybar/swaync/fuzzel/.zshrc) é o único dono do
+## o skel Elite (labwc/waybar/fuzzel/.zshrc) é o único dono do
 ## /etc/skel agora ("sistema limpo desse lixo" — diretriz do dono)
 archcraft-skeleton
 

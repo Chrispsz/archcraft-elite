@@ -167,7 +167,6 @@ which
 ##   lista. A âncora iwgtk/blueman entra na ADOCAO do craft-update e
 ##   aqui: as ferramentas DE VERDADE que os botões da barra abrem).
 labwc
-swaync
 fuzzel
 foot
 swaybg
@@ -274,7 +273,7 @@ gtk-layer-shell
 ## categorias e barra de sessão (craft-drawer). wlroots-agnóstico.
 ## catppuccin-gtk-theme-mocha: tema GTK oficial Catppuccin (repo [archcraft])
 ## — variantes Standard-<accent>-Dark; o skel usa a Mauve (= acento do rice:
-## fuzzel/swaync/dock/borda de janela). gtk-engine-murrine: engine exigida.
+## fuzzel/dock/borda de janela). gtk-engine-murrine: engine exigida.
 ##   v2.2: este é o "tema do sistema em si" que o dono mantém — theming de
 ##   apps individuais não entra (não abrange tudo — diretriz do dono).
 ## archcraft-cursor-bibata: cursor Bibata — o cursor dos melhores rices.

@@ -25,21 +25,19 @@
 //     codepoints Nerd Font: a fonte GTK padrão não fala Nerd e o
 //     '\uf085 2' da tela do dono era o réu — o tema Papirus/GNOME da
 //     casa tem todos os nomes, o render NUNCA mais quebra).
-//   · O DEBOUNCE DO DRAWER (a cura A1): o clique que abre a gaveta
-//     nunca renasce a gaveta — 150ms de janela, contados do RELEASE
-//     (o dossiê: "debounce real de 150ms, zero bloqueio"; o freio de
-//     400ms + túmulo de 600ms do craft-drawer shell eram a paliativa
-//     da era que spawnava/matava às cegas — aqui o FILHO é nosso e o
-//     toggle é por pid, mas o eco do clique ainda morre na janela).
+//   · O DEBOUNCE DO DRAWER (a cura A1) MORREU com o próprio drawer: o
+//     botão de apps dispara o fuzzel DIRETO (1.0-106 — o wrapper
+//     craft-apps fica para o W-d do rc.xml, a barra não empurra
+//     gaveta nenhuma);
 //   · A BATERIA pelo /sys (capacity + status) — parâmetro path, a
 //     porta dos testes.
 //
 // ESCOPO HONESTO (o que NÃO mora aqui — nomeado):
 //   ✗ roteamento de áudio (a casa do roteador é o craft-audio-route,
 //     shell, com o snapshot E139 — a barra só MOSTRA e muta);
-//   ✗ a lista de redes/conexões (iwgtk e nm-connection-editor são as
-//     ferramentas de verdade que o clique abre — a barra não faz
-//     papel de painel de controle, a diretriz do dossiê);
+//   ✗ o EDITOR COMPLETO de conexões (nm-connection-editor é a tela de
+//     verdade — o SELETOR RÁPIDO de 1.0-106 é o craft-pick da casa,
+//     armado pelos parses daqui); 
 //   ✗ o veredito do modo de jogo (o elite-daemon é o dono; a barra
 //     acende o pill no SIGRTMIN+8 que ELE manda).
 
@@ -273,48 +271,117 @@ pub fn icone_rede(e: EstadoRede) -> &'static str {
 }
 
 /// O tooltip do estado da rede (o que o dono lê ao parar o mouse).
-/// 1.0-104 — O RÁDIO DO Wi-Fi TEM VOZ MESMO COM O CABO LIGADO (a ordem
-/// do dono: o estado do rádio aparece no tooltip MESMO quando o fio é o
-/// caminho — quem desliga o Wi-Fi pelo clique direito lê o resultado no
-/// mesmo instante, sem adivinhar sob o ícone do cabo).
+/// 1.0-106 — O MAPA NOVO DO CLIQUE (a ordem do dono: esquerdo é o
+/// SELETOR RÁPIDO da casa, meio o editor completo, direito alterna a
+/// CONEXÃO ATIVA — a ação de 1 clique sem janela nenhuma).
 pub fn tooltip_rede(e: EstadoRede, essid: Option<&str>, wifi_on: Option<bool>) -> String {
     let radio = match wifi_on {
         Some(true) => " · Wi-Fi ligado",
         Some(false) => " · Wi-Fi DESLIGADO",
         None => "",
     };
+    let mapa = "clique: seletor rápido · meio: editor · direito: ligar/desligar a conexão ativa";
     match e {
-        EstadoRede::Cabo => format!(
-            "Rede cabeada conectada{radio} — clique: gerenciar redes · direito: ligar/desligar o Wi-Fi"
-        ),
-        EstadoRede::Wifi => format!(
-            "{}{radio} — clique: gerenciar redes · direito: ligar/desligar o Wi-Fi",
-            essid.unwrap_or("Wi-Fi conectado")
-        ),
+        EstadoRede::Cabo => format!("Rede cabeada conectada{radio} — {mapa}"),
+        EstadoRede::Wifi => format!("{}{radio} — {mapa}", essid.unwrap_or("Wi-Fi conectado")),
         EstadoRede::Desligado => match wifi_on {
-            Some(false) => "Wi-Fi desligado — clique: gerenciar redes · direito: LIGAR o Wi-Fi".to_string(),
-            _ => format!(
-                "Sem conexão{radio} — clique: gerenciar redes (o botão nunca sai)"
-            ),
+            Some(false) => format!("Wi-Fi desligado — {mapa}"),
+            _ => format!("Sem conexão{radio} — {mapa}"),
         },
     }
 }
 
-// ── O NÃO PERTURBE DO SWAYNC (o clique direito do relógio alterna) ────
+// ── 1.0-106 — O SELETOR RÁPIDO DE REDE (o esquerdo da barra: o craft-pick
+//    da casa armado pelos parses daqui — a conexão em 1 CLIQUE, sem
+//    janela de editor para trocar de Wi-Fi) ──────────────────────
 
-/// 1.0-104 — O PARSE da saída do `swaync-client -D` ("true"/"false" — o
-/// papel de ajuda do swaync: "Print the current dnd state"; tolerante a
-/// caixa/espaço, a linha de lixo devolve None HONESTO e a barra conserva
-/// o estado anterior — o mesmo contrato dos parsers da casa).
-pub fn parse_dnd_swaync(saida: &str) -> Option<bool> {
-    let t = saida.trim();
-    if t.eq_ignore_ascii_case("true") {
-        Some(true)
-    } else if t.eq_ignore_ascii_case("false") {
-        Some(false)
-    } else {
-        None
+/// O PARSE da linha `nmcli -t` com ESCAPES: o nmcli separa campos por
+/// ':' e ESCAPA o ':' de DENTRO do valor com '\:' ("Minha:Rede" vira
+/// "Minha\:Rede") — o split da casa respeita a barra (SSID exótico
+/// sobrevive à viagem INTEIRA: a id é a chave, o SSID nunca passa por
+/// parse de string livre).
+pub fn split_nmcli_t(linha: &str) -> Vec<String> {
+    let mut campos = Vec::new();
+    let mut atual = String::new();
+    let mut escapado = false;
+    for c in linha.chars() {
+        if escapado {
+            atual.push(c);
+            escapado = false;
+            continue;
+        }
+        match c {
+            '\\' => escapado = true,
+            ':' => {
+                campos.push(atual.clone());
+                atual.clear();
+            }
+            _ => atual.push(c),
+        }
     }
+    campos.push(atual);
+    campos
+}
+
+/// A FOTO das redes ao alcance do `nmcli -t -f IN-USE,SSID,SIGNAL dev
+/// wifi list`: (em uso, SSID, sinal 0-100) por linha — o ':' do SSID
+/// já voltou limpo pelo split de escapes.
+pub fn redes_nmcli(saida: &str) -> Vec<(bool, String, u8)> {
+    let mut out = Vec::new();
+    for linha in saida.lines() {
+        let c = split_nmcli_t(linha);
+        if c.len() < 3 {
+            continue;
+        }
+        let em_uso = c[0].contains('*');
+        let ssid = c[1].clone();
+        let Ok(sinal) = c[2].parse::<u8>() else { continue };
+        out.push((em_uso, ssid, sinal));
+    }
+    out
+}
+
+/// Há placa ETHERNET no `nmcli -t -f DEVICE,TYPE,STATE,CONNECTION
+/// device status`? (qualquer estado — disconnected/unavailable
+/// também é placa: o toggle do cabo merece assento igual).
+pub fn tem_ethernet(saida: &str) -> bool {
+    saida
+        .lines()
+        .any(|l| split_nmcli_t(l).get(1).map(|t| t == "ethernet").unwrap_or(false))
+}
+
+/// O ITEM de rede do seletor: "[id] Wi-Fi NOME — sinal 85 — conectado".
+/// O '[id]' TÉCNICO no início é a CHAVE que volta do craft-pick (o
+/// rótulo é a cara, o id é o contrato — SSID exótico nunca é reparsado).
+pub fn item_rede(id: u32, ssid: &str, sinal: u8, conectado: bool) -> String {
+    let estado = if conectado { " — conectado" } else { "" };
+    format!("[{id}] Wi-Fi {ssid} — sinal {sinal}{estado}")
+}
+
+/// A ID do item escolhido: o número entre os colchetes DO INÍCIO (a
+/// forma é NOSSA — o parse casa só no que a casa construiu).
+pub fn id_do_item(item: &str) -> Option<u32> {
+    let resto = item.strip_prefix('[')?;
+    let fim = resto.find(']')?;
+    resto[..fim].parse().ok()
+}
+
+/// A LINHA do mapa id→alvo do seletor: "<id>\t<alvo>" (o arquivo
+/// temporário em $XDG_RUNTIME_DIR/elite — o SSID de volta SEM parse).
+pub fn linha_pares(id: u32, alvo: &str) -> String {
+    format!("{id}\t{alvo}")
+}
+
+/// O ALVO da id no mapa (a primeira linha que casa): None = id
+/// desconhecida (o mapa morreu entre o clique e a escolha — silêncio
+/// honesto, nunca palpite).
+pub fn alvo_do_id(pares: &str, id: u32) -> Option<&str> {
+    pares
+        .lines()
+        .find_map(|l| {
+            let (i, alvo) = l.split_once('\t')?;
+            (i == id.to_string()).then_some(alvo)
+        })
 }
 
 // ── O BLUETOOTH (o par dedicated da diretriz) ──────────────────────────
@@ -517,15 +584,6 @@ pub fn le_bateria(base: &Path) -> Option<(u8, bool)> {
     Some((cap, status == "Charging" || status == "Full"))
 }
 
-// ── O DEBOUNCE DO DRAWER (a cura A1 — o eco do clique morre aqui) ──────
-
-/// O clique está DENTRO da janela do debounce? (150ms contados do
-/// último release aceito — o eco do segundo clique do mesmo gesto não
-/// renasce a gaveta que o primeiro acabou de fechar).
-pub fn dentro_janela_ms(ultimo_ns: u128, agora_ns: u128, janela_ms: u64) -> bool {
-    agora_ns.saturating_sub(ultimo_ns) < u128::from(janela_ms) * 1_000_000
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -681,7 +739,8 @@ mod tests {
             "network-wireless-offline-symbolic"
         );
         assert!(tooltip_rede(EstadoRede::Wifi, Some("Casa 5G"), None).starts_with("Casa 5G"));
-        assert!(tooltip_rede(EstadoRede::Desligado, None, None).contains("nunca sai"));
+        // 1.0-106 — O MAPA NOVO DO CLIQUE no tooltip (seletor/editor/toggle)
+        assert!(tooltip_rede(EstadoRede::Desligado, None, None).contains("seletor rápido"));
         // 1.0-104 — O RÁDIO DO Wi-Fi TEM VOZ MESMO COM O CABO (o dono lê o
         // estado do rádio no tooltip do ícone do fio — sem adivinhar)
         let cabo_wifi_off = tooltip_rede(EstadoRede::Cabo, None, Some(false));
@@ -703,16 +762,57 @@ mod tests {
         assert!(off_radio.contains("Wi-Fi desligado"), "{off_radio}");
     }
 
-    // ── o DND do swaync: o papel fala true/false ─────────────────────
+    // ── 1.0-106 — o SELETOR RÁPIDO DE REDE (o id traz o SSID de volta) ──
 
     #[test]
-    fn o_dnd_do_swaync_e_lido_com_honestidade() {
-        assert_eq!(parse_dnd_swaync("true\n"), Some(true));
-        assert_eq!(parse_dnd_swaync("False"), Some(false));
-        assert_eq!(parse_dnd_swaync("  true  "), Some(true));
-        // lixo absoluto (swaync ausente): None (o estado anterior CONSERVA)
-        assert_eq!(parse_dnd_swaync(""), None);
-        assert_eq!(parse_dnd_swaync("swaync is not running"), None);
+    fn o_split_do_nmcli_respeita_o_escape_do_dois_pontos() {
+        // o nmcli -t escapa o ':' interno com '\:' — o SSID exótico
+        // sobrevive à viagem INTEIRA
+        assert_eq!(
+            split_nmcli_t("*:Minha\\:Rede:85"),
+            vec!["*", "Minha:Rede", "85"]
+        );
+        // a barra solta no fim não pânica (o campo acaba como veio)
+        assert_eq!(split_nmcli_t("a:b"), vec!["a", "b"]);
+        assert_eq!(split_nmcli_t(""), vec![""]);
+    }
+
+    #[test]
+    fn as_redes_do_nmcli_viram_a_lista_do_seletor() {
+        let saida = "*:Vivo\\:Fibra:82\n:Caf\\:e\\:com\\:Leite:47\nfoo:SemSinal:x\n";
+        let redes = redes_nmcli(saida);
+        assert_eq!(redes.len(), 2, "a linha sem sinal numérico cai fora");
+        assert_eq!(redes[0], (true, "Vivo:Fibra".to_string(), 82));
+        assert_eq!(redes[1], (false, "Caf:e:com:Leite".to_string(), 47));
+        // a placa ethernet é o assento do toggle do cabo
+        assert!(tem_ethernet(
+            "lo:loopback:connected (externally):lo\nenp7s0:ethernet:unavailable:\n"
+        ));
+        assert!(!tem_ethernet("lo:loopback:connected (externally):lo\nwlan0:wifi:disconnected:\n"));
+    }
+
+    #[test]
+    fn a_id_do_item_e_a_chave_que_traz_o_alvo_de_volta() {
+        // o item é a CARA, o [id] é o CONTRATO
+        let item = item_rede(7, "Vivo:Fibra", 82, true);
+        assert_eq!(item, "[7] Wi-Fi Vivo:Fibra — sinal 82 — conectado");
+        assert_eq!(id_do_item(&item), Some(7));
+        assert_eq!(id_do_item(&item_rede(3, "X", 10, false)), Some(3));
+        // o que NÃO é da forma da casa: None honesto
+        assert_eq!(id_do_item("Wi-Fi X — sinal 80"), None);
+        assert_eq!(id_do_item("[abc] X"), None);
+        // o mapa id→alvo: o SSID volta SEM parse de string livre
+        let pares = [
+            linha_pares(1, "a:wifi"),
+            linha_pares(2, "a:ethernet"),
+            linha_pares(7, "w:Vivo:Fibra"),
+            linha_pares(9, "a:avancado"),
+        ]
+        .join("\n");
+        assert_eq!(alvo_do_id(&pares, 7), Some("w:Vivo:Fibra"));
+        assert_eq!(alvo_do_id(&pares, 1), Some("a:wifi"));
+        assert_eq!(alvo_do_id(&pares, 9), Some("a:avancado"));
+        assert_eq!(alvo_do_id(&pares, 99), None, "id desconhecida = silêncio");
     }
 
     // ── o Bluetooth: só o estado, o gerenciador é o blueman ───────────
@@ -761,23 +861,6 @@ mod tests {
         // sem o arquivo: None (desktop — o pill nem nasce)
         assert_eq!(le_bateria(&dir.join("nao-existe")), None);
         let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    // ── o debounce do drawer ──────────────────────────────────────────
-
-    #[test]
-    fn debounce_do_drawer_o_eco_morre_na_janela() {
-        let t0: u128 = 1_000_000_000;
-        // 100ms depois: DENTRO (o eco do mesmo gesto — ignorado)
-        assert!(dentro_janela_ms(t0, t0 + 100 * 1_000_000, 150));
-        // 149ms: ainda dentro (a fronteira é aberta — 150 é FORA)
-        assert!(dentro_janela_ms(t0, t0 + 149 * 1_000_000, 150));
-        // 150ms: FORA (um gesto NOVO — a gaveta responde)
-        assert!(!dentro_janela_ms(t0, t0 + 150 * 1_000_000, 150));
-        // relógio que andou para trás (NTP/ajuste): o saturando devolve 0 =
-        // DENTRO da janela — o eco ignorado é o lado SEGURO (o relógio
-        // doido nunca abre gaveta dupla)
-        assert!(dentro_janela_ms(t0, t0 - 1, 150));
     }
 
     #[test]

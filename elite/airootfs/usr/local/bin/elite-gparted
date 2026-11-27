@@ -170,7 +170,8 @@ set -- env "$@"
 # cada rc pelo seu dono.
 # E150 — O CANCELAMENTO É SILENCIO (a ordem do dono, base 1.0-98: fechar
 # o diálogo de senha NÃO é erro — o dono desistiu, ponto; o toast vermelho
-# no swaync pela desistência dele é RUÍDO, não feedback). rc=126 sai
+# pela desistência dele é RUÍDO, não feedback — 1.0-106: a central de
+# notificações morreu sem substituto). rc=126 sai
 # calado: sem notify-send, sem papel — erro REAL (127, display morto,
 # binário ausente) segue falando.
 errf="$(mktemp "${TMPDIR:-/tmp}/elite-gparted.XXXXXX" 2>/dev/null)" || errf=/dev/null

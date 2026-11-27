@@ -5,7 +5,8 @@
 // session E o modo game chamam; o segundo é no-op honesto) e a THREAD
 // NÚCLEO, que fala com o mundo:
 //   · Hello de cliente → o SNAPSHOT DE BOAS-VINDAS dirigido (janelas +
-//     mesa + mídia + jogo — o frame 0 da barra e da dock nasce cheio);
+//     mesa + mídia + bluetooth + jogo — o frame 0 da barra e da dock
+//     nasce cheio);
 //   · Req → o VERBO certo no módulo certo + o Ack ecoado (o pedido
 //     mora no módulo que É a verdade daquele domínio: janela no
 //     wayland.rs, mídia no mpris.rs, mesa no workspace.rs, jogo no
@@ -122,6 +123,12 @@ fn boas_vindas(bus: &BusServer, cliente: u32) {
     }));
     if let Some(media) = crate::mpris::estado() {
         bus.send_to(cliente, &BusMsg::Media(media));
+    }
+    // 1.0-106 — o BLUETOOTH no snapshot (o ícone da barra nasce com a
+    // verdade do adaptador — o Powered do BlueZ consultado no arranque;
+    // None = BlueZ calado, a barra conserva o cinto próprio dela)
+    if let Some(bt) = crate::bluetooth::estado() {
+        bus.send_to(cliente, &BusMsg::Bluetooth(bt));
     }
     // o modo de jogo do momento (o QueryStatus é a verdade de sempre)
     let gm = match zbus::blocking::Connection::session() {

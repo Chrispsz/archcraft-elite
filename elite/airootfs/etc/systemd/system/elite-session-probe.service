@@ -4,7 +4,8 @@ Documentation=man:elite-session-probe(8)
 # POR QUÊ EXISTE: o gate do CI parava no LOGIN e nunca via a sessão — a
 # classe "barras mortas" (v1.6.2→v1.7.0) atravessou 3 releases invisível.
 # Este unit dispara o probe 60s após o graphical.target, quando o SDDM
-# autologin + labwc + autostart (craft-bars, swaync) já subiram e estabilizaram.
+# autologin + labwc + o orquestrador elite-daemon session já subiram e
+# estabilizaram.
 After=graphical.target
 
 [Service]

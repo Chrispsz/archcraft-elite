@@ -1,10 +1,12 @@
 // ELITE · craft-bar-rs — main.rs (E140). A TOP BAR nativa da casa:
 // a aposentadoria do waybar (a ordem do dono, dossiê 1.0-80→1.0-88 —
 // "100% Rust Nativo na Interface Própria"). Um binário, GTK4 +
-// gtk4-layer-shell, falando wpctl/nmcli/swaync-client pelos filhos
+// gtk4-layer-shell, falando wpctl/nmcli/bluetoothctl pelos filhos
 // curtos que a casa já tem e ouvindo o elite-daemon pelos sinais
-// SIGRTMIN+8/+9 (o modo de jogo e os 2º planos acendem por EVENTO,
-// nunca por polling dos 3s da era waybar).
+// SIGRTMIN+8 (o modo de jogo acende por EVENTO, nunca por polling
+// dos 3s da era waybar) e pelo FIO do bus.sock (mídia, jogo e
+// bluetooth — 1.0-106: o Powered do BlueZ chega consultado no
+// arranque do daemon).
 //
 // A ARQUITETURA (a lei do degrau — ver Cargo.toml):
 //   · state.rs — o NÚCLEO PURO (datas pt_BR, parsers, glifos,
@@ -13,12 +15,13 @@
 //     pacote valida; o sandbox sem GTK testa o núcleo).
 //
 // O QUE A BARRA FAZ (E147 — o contrato mouse-first reconstruído):
-//   · APPS (nwg-drawer): abre/fecha NO released com debounce real de
-//     150ms — o toggle é pelo FILHO próprio (o craft-apps do W-d é a
-//     mesma gaveta; o stderr vai para /dev/null);
+//   · APPS (1.0-106): o clique dispara o FUZZEL DIRETO — sem wrapper
+//     de gaveta no caminho do botão (o craft-apps segue para o W-d do
+//     rc.xml; o stderr vai para /dev/null);
 //   · RELÓGIO pt_BR FIXO ("Seg, 23 Nov · 19:30") que NUNCA muda de
-//     texto ao clicar: esquerdo alterna o painel do swaync, direito
-//     alterna o DND, hover abre o calendário GTK4 — o texto é UM só;
+//     texto ao clicar: o clique abre o CALENDÁRIO GTK4 (1.0-106 — a
+//     central de notificações morreu sem substituto, zero D-Bus no
+//     caminho do clique), o hover abre o mesmo — o texto é UM só;
 //   · ÁUDIO (A CENTRAL UNIFICADA E147): esquerdo abre o painel
 //     Saída+Entrada — mute imediato dos dois lados, volume por slider
 //     (commit debounce de 150ms), troca de dispositivo a um clique
@@ -26,8 +29,9 @@
 //     (pwvucontrol) no rodapé; direito = pwvucontrol; scroll = volume;
 //   · REDE PERSISTENTE: o botão NÃO EXISTE a estado "sumido" — Cabo /
 //     Wi-Fi / Desligado têm ÍCONE GTK e tooltip SEMPRE; esquerdo abre
-//     o seletor rápido (Switch Wi-Fi + redes ao alcance + iwgtk),
-//     direito o nm-connection-editor;
+//     o SELETOR RÁPIDO da casa (craft-pick: toggles Wi-Fi/Ethernet +
+//     redes ao alcance com sinal, a conexão em 1 clique pelo nmcli),
+//     meio o nm-connection-editor e direito alterna a conexão ativa;
 //   · BLUETOOTH (E147 — o painel que RESPONDE): esquerdo abre o painel
 //     com o Switch do power e conectar/desconectar a um clique pelo
 //     bluetoothctl; direito o blueman-manager (que o elite-clean NÃO
@@ -163,16 +167,14 @@ fn main() {
              \x20  · clique DIREITO = a ferramenta avançada de verdade;\n\
              \x20  · scroll = ajuste fino (volume).\n\
              \n\
-             \x20  · Aplicativos (esq): a gaveta nwg-drawer · (dir): menu rápido\n\
-             \x20  · relógio (LOCAL): painel do swaync (esq) / DND (dir) / hover:\n\
-             \x20    calendário — o texto NUNCA muda ao clicar\n\
-             \x20  · ÁUDIO (esq): a CENTRAL unificada — saída + microfone com\n\
-             \x20    mute imediato, volume por slider, troca de dispositivo a um\n\
-             \x20    clique e o mixer completo (pwvucontrol) · (dir): o mixer\n\
-             \x20  · rede (esq): seletor rápido — toggle Wi-Fi, redes, cabo\n\
-             \x20  · bluetooth (esq): painel — power, conectar/desconectar\n\
-             \x20    a um clique · (dir): blueman-manager (o elite-clean NÃO o\n\
-             \x20    remove mais — o conflito E147 morreu)\n\
+             \x20  · Aplicativos (esq): o FUZZEL direto (o lançador da casa)\n\
+             \x20  · relógio (LOCAL): o clique abre o CALENDÁRIO — o texto NUNCA\n\
+             \x20    muda ao clicar (a central de notificações morreu sem substituto)\n\
+             \x20  · ÁUDIO (esq): o pwvucontrol · scroll: volume · (dir): mudo\n\
+             \x20  · rede (esq): SELETOR rápido — toggles Wi-Fi/Ethernet, redes ao\n\
+             \x20    alcance com sinal, a conexão em 1 clique · (meio): editor ·\n\
+             \x20    (dir): liga/desliga a conexão ativa\n\
+             \x20  · bluetooth (esq): blueman-manager · (dir): liga/desliga o power\n\
              \x20  · sessão: popover nativo (Bloquear/Suspender/Reiniciar/\n\
              \x20    Desligar/Encerrar) · bateria: o resumo (quando existe)\n\
              \x20  · os ícones são SÓ nomes de ícone GTK — NUNCA mais glifo Nerd\n\

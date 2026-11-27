@@ -65,9 +65,12 @@ unset _nao_residente
 # ══ O PACOTE (as ferramentas dedicadas da diretriz, o debloat) ══
 # 2.0 Fase 2 — o swayidle APOSENTOU (a vigília é do elite-daemon nativo)
 PKG="elite/packages.add"
-for p in iwgtk blueman nm-connection-editor pwvucontrol coolercontrol swaync nwg-drawer gnome-text-editor papers brave-origin cliphist swayosd lxqt-policykit; do
+for p in iwgtk blueman nm-connection-editor pwvucontrol coolercontrol nwg-drawer gnome-text-editor papers brave-origin cliphist swayosd lxqt-policykit; do
     file_line_exact "packages.add: a ferramenta dedicada $p" "$PKG" "$p"
 done
+# 1.0-106 — a central de notificações MORREU por ordem do dono (o
+# relógio é hora/calendário e a casa não carrega notificador)
+file_hasnt "packages.add: o swaync NÃO volta (a central de notificações morreu — 1.0-106)" "$PKG" '^swaync$'
 file_hasnt "packages.add: o waybar NÃO volta (a top bar é nativa)" "$PKG" '^waybar$'
 # E151 — O DEBLOAT EXTREMO: o Xorg ocioso e o udiskie Python saem da ISO
 file_hasnt "packages.add: o xorg-server NÃO volta (o greeter é wayland nativo)" "$PKG" '^xorg-server$'
@@ -278,7 +281,6 @@ file_has "jogo: o AUTO=1 nasce na casa (a vaga automática do skel)" "elite/airo
 file_has "trava: a fábrica do idle trava em 5 (LOCK_MIN da casa)" "elite/airootfs/etc/skel/.config/elite/idle.conf" 'LOCK_MIN=5'
 # E150 — o gesto separado: a tela APAGA no tempo PRÓPRIO (fábrica 10)
 file_has "trava: a fábrica do idle apaga em 10 (o gesto separado E150)" "elite/airootfs/etc/skel/.config/elite/idle.conf" 'OFF_MIN=10'
-file_has "daemon: a pele do swaync chega do skel ANTES do fork (o Config not found! morre)" "crates/elite-daemon/src/supervise.rs" 'fn entrega_pele_swaync'
 # a gaveta com memória
 file_line_exact "apps: o craft-apps é bin da casa (a gaveta com toggle)" "$AIROOTFS/usr/local/bin/craft-apps" '#!/bin/sh'
 file_has "apps: o toggle mata a gaveta DO DONO pelo comm" "$AIROOTFS/usr/local/bin/craft-apps" 'nwg-drawer'
@@ -337,15 +339,37 @@ file_hasnt "monitor: o trio morto do gdk4 0.11 não volta (dock idem)" "crates/c
 file_has "monitor: o ouvidor vivo é o items-changed do GListModel (barra)" "crates/craft-bar-rs/src/ui.rs" 'connect_items_changed'
 file_has "monitor: o ouvidor vivo é o items-changed do GListModel (dock)" "crates/craft-dock-rs/src/ui.rs" 'connect_items_changed'
 
-# ══ 1.0-105 — O SWAYNC ÚNICO COM A PELE DO DONO, O SCX SEM O ALHEIO E O
-#    TOPLEVEL_COUNT DO FIO VIVO ══
-# o lançamento EXPLÍCITO da casa: o -c E o -s apontam nos arquivos do
-# dono (o /etc/xdg/swaync do upstream nunca é rede — o CSS não some):
-file_has "daemon: o swaync sobe com -c E -s nos arquivos do dono (1.0-105)" "crates/elite-daemon/src/supervise.rs" '-c $HOME/.config/swaync/config.json -s $HOME/.config/swaync/style.css'
-# a trava de instância única do painel (o SWAYNC_COUNT=5 do rig):
-file_has "daemon: a fila única do swaync (o mais velho fica, extras caem)" "crates/elite-daemon/src/supervise.rs" 'fn swaync_instancia_unica'
-file_has "heal: a cura do swaync (pele entregue + extras ceifados)" "elite/airootfs/usr/local/bin/elite-heal-sessao" 'cura_swaync'
-file_has "update: a fila única do swaync antes da dose (a rede da porta)" "elite/airootfs/usr/local/bin/elite-update" 'pgrep -x swaync'
+# ══ 1.0-106 — A CENTRAL DE NOTIFICAÇÕES MORREU, O CENSO MPRIS E O
+#    BLUETOOTH INICIAL NO ARRANQUE ══
+# o swaync MORREU por ordem do dono (o relógio é hora/calendário; a
+# casa não carrega notificador NENHUM): AUSENTE da árvore, do pacote e
+# do fluxo vivo do build:
+file_absent "skel: o skel swaync NÃO existe mais na árvore (a pele morreu com o dono)" "elite/airootfs/etc/skel/.config/swaync"
+file_hasnt "pkg: o staging da pele do swaync NÃO viaja no build.sh (1.0-106)" "$BS" 'files/etc/skel/.config/swaync'
+file_hasnt "pkg: o molde swc_install NÃO viaja no PKGBUILD (zero costura de peça morta)" "$BS" 'MOLDE[swc'
+file_hasnt "daemon: o residente swaync NÃO volta à fila (RESIDENTES_DEFAULT limpa)" "crates/elite-daemon/src/supervise.rs" '("swaync",'
+file_hasnt "heal: a cura do swaync NÃO volta (o morto não se cura)" "elite/airootfs/usr/local/bin/elite-heal-sessao" 'cura_swaync'
+file_hasnt "update: a porta da dose NÃO relança/ceifa o swaync (1.0-106)" "elite/airootfs/usr/local/bin/elite-update" 'swaync'
+# o censo MPRIS no arranque: a thread NASCE com os nomes do bus
+# (ListNames → GetNameOwner) e o estado inicial vestido (GetAll), com
+# o título/autor lidos por CHAVE dentro do dict Metadata:
+file_has "mpris: o censo de arranque varre os nomes do bus (ListNames)" "crates/elite-daemon/src/mpris.rs" 'ListNames'
+file_has "mpris: a posse do nome é o GetNameOwner (o censo adota, não duplica)" "crates/elite-daemon/src/mpris.rs" 'GetNameOwner'
+file_has "mpris: o estado inicial vem do GetAll (o contrato nasce vestido)" "crates/elite-daemon/src/mpris.rs" '"GetAll"'
+file_has "mpris: o título/autor moram por chave no dict Metadata (xesam:title)" "crates/elite-daemon/src/mpris.rs" '"xesam:title"'
+file_has "mpris: o artista veste a lista de era (xesam:artist — o brave manda array)" "crates/elite-daemon/src/mpris.rs" '"xesam:artist"'
+# o bluetooth inicial consultado no arranque (o D-Bus nativo veste o
+# Powered do adaptador — zero bluetoothctl de 10s no daemon):
+file_exists "bluetooth: o estado inicial é módulo da casa (bluetooth.rs)" "crates/elite-daemon/src/bluetooth.rs"
+file_has "bluetooth: o Powered do adaptador no D-Bus nativo (o ícone nasce certo)" "crates/elite-daemon/src/bluetooth.rs" '"Powered"'
+# a barra da dose: o esquerdo da rede abre o SELETOR RÁPIDO, o direito
+# liga/desliga a conexão ativa, o botão de apps dispara o fuzzel DIRETO:
+file_has "bar: o esquerdo da rede abre o SELETOR RÁPIDO (craft-pick da casa)" "crates/craft-bar-rs/src/ui.rs" '"craft-pick"'
+file_has "bar: o direito da rede liga/desliga a conexão ativa (nmcli)" "crates/craft-bar-rs/src/ui.rs" 'alterna_nmcli(&["networking"])'
+file_has "bar: o meio da rede abre o editor completo (nm-connection-editor)" "crates/craft-bar-rs/src/ui.rs" 'solta(&["nm-connection-editor"])'
+file_has "bar: o botão de aplicativos dispara o fuzzel DIRETO (1.0-106)" "crates/craft-bar-rs/src/ui.rs" 'solta(&["fuzzel"])'
+file_has "bar: o relógio é HORA/CALENDÁRIO (o clique abre o popover da casa)" "crates/craft-bar-rs/src/ui.rs" 'abre_calendario'
+file_hasnt "bar: o painel do notificador de era NÃO volta ao relógio" "crates/craft-bar-rs/src/ui.rs" 'swaync-client'
 # o conflito do /etc/default/scx morre (o caminho é do scx-scheds oficial):
 file_hasnt "pkg: o /etc/default/scx NÃO viaja no pacote (o caminho é do scx-scheds — zero conflito)" ".ci/build.sh" 'files/etc/default/scx'
 file_absent "airootfs: o /etc/default/scx não existe mais (o dono é o scx-scheds)" "elite/airootfs/etc/default/scx"
@@ -432,16 +456,6 @@ file_has "daemon: o cão de guarda do socket no supervisa (a 2ª via do fim)" "c
 # nome não mente mais):
 file_has "daemon: o relogin julga o órfão pela identidade (XDG_SESSION_ID)" "crates/elite-daemon/src/supervise.rs" 'julga_orfao_relogin'
 file_has "daemon: o lock do órfão teimoso é assumido na hora" "crates/elite-daemon/src/supervise.rs" 'ASSUME'
-# a config padrão do swaync viaja na DOSE (o "Config not found!" do
-# audit 102 morre; 1.0-104 — o CONFLITO do /etc/xdg morre junto: o
-# caminho é do swaync upstream, dois pacotes no mesmo arquivo é
-# --overwrite em TODA dose — o mestre da casa + o skel do rig bastam):
-file_has "pkg: o mestre do swaync viaja no pacote (a cadeia do daemon lê 1º)" ".ci/build.sh" 'files/usr/local/share/elite/swaync/config.json'
-file_has "pkg: o SKEL do swaync viaja no pacote (o rig recém-nascido já veste)" ".ci/build.sh" 'files/etc/skel/.config/swaync/config.json'
-file_hasnt "pkg: o /etc/xdg/swaync NÃO viaja no pacote (o caminho é do swaync upstream — zero conflito de arquivo)" ".ci/build.sh" 'files/etc/xdg/swaync'
-file_hasnt "skel-etc: o gêmeo /etc/xdg/swaync do airootfs NÃO existe mais (1.0-104)" "elite/airootfs/etc/xdg/swaync/config.json" 'positionX'
-file_has "daemon: a cadeia de mestres do entrega_pele_swaync (pacote 1º, skel 2º)" "crates/elite-daemon/src/supervise.rs" 'usr/local/share/elite/swaync'
-file_has "update: a pele do swaync (config E estilo) veste o $HOME ANTES da dose" "elite/airootfs/usr/local/bin/elite-update" 'config.json style.css'
 # 1.0-104 — O PROBE LÊ O LOCK VIVO (o SUPERVISOR_LOCK reflete o
 # session.lock do elite-daemon — o bars.lock fóssil nunca mais mente):
 file_has "probe: o SUPERVISOR_LOCK julga pelo session.lock do elite-daemon" "elite/airootfs/usr/local/bin/elite-session-probe" 'elite/session.lock'
@@ -481,7 +495,7 @@ file_has "css: a lista do seletor veste o nó real do ListBox (o listview de era
 file_has "terminal: o craft-help pausa no Enter (o mapa não some)" "crates/craft-tools/src/bin/craft-help.rs" 'Pressione Enter para fechar'
 file_has "terminal: o craft-update pausa no Enter (o veredito não some)" "crates/craft-tools/src/bin/craft-update.rs" 'Pressione Enter para fechar'
 # o cancelamento do pkexec é silêncio (o 126 não é erro):
-file_has "pkexec: o rc 126 (senha cancelada) sai calado — sem toast no swaync" "$AIROOTFS/usr/local/bin/elite-gparted" 'ne 126'
+file_has "pkexec: o rc 126 (senha cancelada) sai calado (o toast de era morreu)" "$AIROOTFS/usr/local/bin/elite-gparted" 'ne 126'
 # o greeter REAL no rig (cmp manda, sem trava de SHA único) + o cursor:
 file_has "greeter: o juízo é POR CONTEÚDO (cmp — o SHA único morreu)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'cmp -s "$_GREET_SRC" "$_GREET_DST"'
 file_has "greeter: o kde_settings.conf do Bibata viaja no pacote" "$BS" '/usr/local/share/elite/sddm/kde_settings.conf'
@@ -531,7 +545,8 @@ file_has "bar: o microfone é ASSENTO PRÓPRIO (o fim do clique do meio escondid
 file_has "bar: o ícone do mudo do MIC é o próprio do microfone" "crates/craft-bar-rs/src/state.rs" 'microphone-sensitivity-muted-symbolic'
 file_has "bar: o foco do tema morre nos botões (focus_on_click false)" "crates/craft-bar-rs/src/ui.rs" 'set_focus_on_click(false)'
 file_has "bar: a pálida do foco corre na árvore pronta (apaga_foco_da_barra)" "crates/craft-bar-rs/src/ui.rs" 'apaga_foco_da_barra'
-file_has "bar: o relógio esquerdo alterna o painel swaync (a ordem do dono)" "crates/craft-bar-rs/src/ui.rs" '"swaync-client", "-t", "-sw"'
+# o relógio de era do painel morreu com a central (1.0-106): o clique
+# abre o CALENDÁRIO NATIVO (a âncora mora no bloco 1.0-106 acima)
 file_has "skel: a pele da barra é a MESTRA NO BINÁRIO (o override SOMA — 1.0-104)" "elite/airootfs/etc/skel/.config/elite/bar.css" 'SOMA POR BAIXO do cascade'
 file_has "skel: a pele da dock é a MESTRA NO BINÁRIO (o override SOMA — 1.0-104)" "elite/airootfs/etc/skel/.config/elite/dock.css" 'SOMA POR BAIXO do cascade'
 file_has "post-upgrade: a pele de fábrica 1.0-98 sai do home (a E151 veste embaixo)" "elite/airootfs/usr/local/bin/elite-post-upgrade" 'elite/bar.css:rgba(17, 17, 27, 0.96'

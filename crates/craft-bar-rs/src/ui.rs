@@ -7,25 +7,34 @@
 //
 // O MAPA DE CLIQUES E149 (a lei nova da casa, válida para TODOS os
 // botões da barra):
-//   · CLIQUE ESQUERDO = a FERRAMENTA DEDICADA abre DIRETO — áudio →
+//   · CLIQUE ESQUERDO = o controle principal abre DIRETO — áudio →
 //     pwvucontrol (pavucontrol honesto quando só ele existe), rede →
-//     nm-connection-editor (1.0-105: o front-end GRÁFICO do
-//     NetworkManager — a distro é NetworkManager, o iwgtk cede), 
-//     bluetooth → blueman-manager, notificações → o painel swaync,
-//     apps → a gaveta (craft-apps), bateria → craft-bat;
+//     o SELETOR RÁPIDO da casa (craft-pick — 1.0-106: toggles de
+//     Wi-Fi/Ethernet + redes ao alcance com sinal + a porta do editor
+//     no fim; a conexão em 1 CLIQUE pelo nmcli), bluetooth →
+//     blueman-manager, apps → o FUZZEL DIRETO (1.0-106 — sem wrapper
+//     de gaveta no caminho do botão), bateria → craft-bat;
 //   · CLIQUE DIREITO = a AÇÃO RÁPIDA sem janela nenhuma — mute/desmute
-//     da SAÍDA, rádio Wi-Fi liga/desliga, power do Bluetooth, Não
-//     Perturbe;
+//     da SAÍDA, a CONEXÃO ATIVA liga/desliga (networking para o cabo,
+//     rádio para o Wi-Fi — 1.0-106), power do Bluetooth;
 //   · 1.0-105 — O ESQUERDO VESTE O `clicked` DO PRÓPRIO GtkButton: o
 //     GestureClick externo NUNCA via o botão 1 (o botão consome o
 //     gesto interno e emite `clicked` — o mesmo caminho do botão
 //     Sessão que SEMPRE funcionou). O GestureClick fica EXCLUSIVO do
 //     direito/meio e o EventControllerScroll da rolagem;
-//   · CLIQUE DO MEIO = o segundo lado (mudo do MICROFONE) / o
-//     calendário;
+//   · CLIQUE DO MEIO = o segundo lado (mudo do MICROFONE) / o editor
+//     completo de conexões (rede);
 //   · SCROLL = o gesto de ajuste fino (volume, faixa do player);
 //   · HOVER = o feedback visual da pele (theme.css) + o tooltip que
 //     diz o que cada clique faz.
+//
+// 1.0-106 — O RELÓGIO É HORA/CALENDÁRIO: a central de notificações da
+// era MORREU por ordem do dono (o rig fotografou o crash-loop do
+// start-limit-hit e as chamadas travadas ao bus dela — dispensada
+// INTEIRA, sem substituto): o esquerdo abre o CALENDÁRIO (o popover
+// GTK4 que já existia no clique do meio), NENHUM timeout D-Bus em
+// org.freedesktop.Notifications existe no caminho do clique — o
+// relógio nunca mais trava em notificador nenhum.
 //
 // O QUE MORREU NESTA SIMPLIFICAÇÃO (o enterro com prova):
 //   · OS POPOVERS CUSTOMIZADOS de áudio/rede/bluetooth (sliders,
@@ -52,19 +61,21 @@
 // funciona):
 //   · a FAIXA layer-shell + a LEI DO CLIQUE no released (5px de
 //     tolerância de arrasto, E140);
-//   · a GAVETA com UM dono (o craft-apps da casa — o mesmo toggle do
-//     W-d; a receita duplicada que se matava morreu) e o debounce de
-//     150ms;
-//   · o RELÓGIO pt_BR que nunca muda de texto + o calendário no hover;
+//   · o FUZZEL DIRETO no botão de apps (1.0-106 — o wrapper de gaveta
+//     sai do caminho do botão; o craft-apps segue vivo para o W-d do
+//     rc.xml, o debounce de gaveta morre junto);
+//   · o RELÓGIO pt_BR que nunca muda de texto + o calendário no clique
+//     e no hover;
 //   · o MPRIS/jogo PELO FIO DO BUS + os sinais SIGRTMIN+8 (jogo) e
 //     SIGUSR2 (a pele);
 //   · a SESSÃO em PopoverMenu NATIVO (o MenuButton canônico do GTK — o
 //     ÚNICO popover que resta, e é do GTK, não nosso) e a COVEIRA dos
 //     filhos curtos (E146/C — o spawn→wait, zero <defunct>).
 use crate::state::{
-    bt_ligado, dentro_janela_ms, essid_nmcli, estado_rede_nmcli, icone_rede, icone_volume,
-    json_text, le_bateria, media_pill, parse_dnd_swaync, parse_volume_wpctl, parse_wifi_radio,
-    parse_wpctl_status, relogio_ptbr, tooltip_rede, DispositivoAudio, EstadoRede,
+    alvo_do_id, bt_ligado, estado_rede_nmcli, essid_nmcli, icone_rede, icone_volume, id_do_item,
+    item_rede, json_text, le_bateria, linha_pares, media_pill, parse_volume_wpctl, parse_wifi_radio,
+    parse_wpctl_status, redes_nmcli, relogio_ptbr, tem_ethernet, tooltip_rede, DispositivoAudio,
+    EstadoRede,
 };
 use crate::{bus_sock, css_path, log, VERSION};
 use elite_core::MediaState;
@@ -86,8 +97,6 @@ use gtk4_layer_shell::LayerShell;
 const ALTURA: i32 = 28;
 /// O dreno do canal da thread de fundo (latência dos estados ≤100ms).
 const DRAIN_MS: u64 = 100;
-/// O DEBOUNCE do drawer (a ordem do dono: 150ms, zero bloqueio).
-const DRAWER_MS: u64 = 150;
 /// A tolerância de arrasto: released a >10px do press é ARRASTO, não
 /// clique (a cura 1.0-101 do audit 99: 5px descartava cliques REAIS em
 /// telas de 120Hz — o jitter do pointer entre pressed e released passa
@@ -119,7 +128,9 @@ enum Msg {
     /// PERSISTENTE por desenho; o rádio tem voz no tooltip MESMO com o
     /// cabo ligado (1.0-104).
     Rede(EstadoRede, Option<String>, Option<bool>),
-    /// Powered do adaptador (None = bluetoothctl ausente/sem adaptador).
+    /// Powered do adaptador (None = bluetoothctl ausente/sem adaptador;
+    /// 1.0-106 — o fio do daemon também veste: o BluetoothState do bus
+    /// chega com o Powered consultado NO ARRANQUE do BlueZ).
     Bt(Option<bool>),
     /// O texto do pill do modo de jogo — None = apagado.
     Game(Option<String>),
@@ -130,10 +141,6 @@ enum Msg {
     /// 2.0 — o handle do bus vivo (o Arc do cliente — os cliques pedem
     /// por ele; chega por mensagem porque o Rc da UI não cruza threads)
     Bus(std::sync::Arc<elite_core::bus::BusClient>),
-    /// 1.0-104 — o DND REAL do swaync (`swaync-client -D`): o sino
-    /// cortado acende/colore na barra no mesmo instante do clique
-    /// direito (None = swaync calado — o estado anterior conserva).
-    Dnd(Option<bool>),
 }
 
 /// A FOTO do áudio da casa (o padrão de SAÍDA e o de ENTRADA — os dois
@@ -173,16 +180,10 @@ struct State {
     /// Próxima faixa — o Próximo é assento próprio ao lado do pill,
     /// nasce e morre JUNTO com ele).
     btn_next: gtk::Button,
-    /// 1.0-104 — O SINO CORTADO do Não Perturbe (visível quando o DND
-    /// REAL do swaync está LIGADO — a mensagem do clique direito).
-    dnd_img: gtk::Image,
     /// 1.0-104 — o rádio do Wi-Fi (None = nmcli calado — o tooltip não
     /// inventa o que não leu).
     wifi_radio: Option<bool>,
     btn_bat: Option<gtk::Button>,
-    /// O instante do último release ACEITO na gaveta (o eco morre na
-    /// janela de 150ms — state::dentro_janela_ms é o juiz).
-    drawer_ns: u128,
     /// O último minuto desenhado no relógio (o label só toca na
     /// virada — nenhum gesto por segundo).
     minuto_desenhado: u32,
@@ -313,6 +314,12 @@ fn build(app: &gtk::Application) {
                             elite_core::BusMsg::GameMode(gm) => {
                                 let _ = tx.send(Msg::BusGame(gm.active));
                             }
+                            // 1.0-106 — o BlueZ do daemon (o Powered
+                            // consultado no arranque + cada mudança): o
+                            // ícone veste o fio ANTES do primeiro frame
+                            elite_core::BusMsg::Bluetooth(bt) => {
+                                let _ = tx.send(Msg::Bt(Some(bt.radio_on)));
+                            }
                             _ => {} // áudio/rede da casa seguem nos belts próprios
                         }
                     }
@@ -339,10 +346,8 @@ fn build(app: &gtk::Application) {
         player_img: gtk::Image::from_icon_name("media-playback-start-symbolic"),
         player_label: gtk::Label::new(None),
         btn_next: gtk::Button::new(),
-        dnd_img: gtk::Image::from_icon_name("notification-disabled-symbolic"),
         wifi_radio: None,
         btn_bat: None,
-        drawer_ns: 0,
         minuto_desenhado: u32::MAX,
         rede: EstadoRede::Desligado,
         essid: None,
@@ -354,7 +359,6 @@ fn build(app: &gtk::Application) {
     st.borrow().mic_img.set_pixel_size(16);
     st.borrow().rede_img.set_pixel_size(16);
     st.borrow().bt_img.set_pixel_size(16);
-    st.borrow().dnd_img.set_pixel_size(14);
 
     // E151 — ZERO VAZAMENTO DE TEMA GTK4 (a diretriz do dono: o seletor
     // roxo travado e o quadrado branco morrem pela RAIZ): nenhum botão
@@ -365,21 +369,22 @@ fn build(app: &gtk::Application) {
 
     // ── ESQUERDA (E149 — minimalista, a ordem do dono): o botão de
     //    apps com ÍCONE GTK de verdade + a palavra "Aplicativos" (sem
-    //    siglas técnicas); AMBOS os cliques são o toggle do craft-apps
-    //    (o menu rápido MORREU — "Bloquear tela" e "Encerrar sessão"
-    //    têm endereço ÚNICO na sessão e no menu do desktop). As pílulas da
-    //    mesa (`1 2 3 4`) e o título ativo SAÍRAM da barra: a troca de
-    //    mesa é o scroll/atalhos W-1..4 do labwc, o título mora na
-    //    moldura da própria janela — a barra fica LIMPA
-    let btn_apps = botao_apps(&st);
+    //    siglas técnicas); o clique dispara o FUZZEL DIRETO (1.0-106 —
+    //    sem wrapper de gaveta no caminho do botão; o craft-apps segue
+    //    para o W-d do rc.xml). As pílulas da mesa (`1 2 3 4`) e o
+    //    título ativo SAÍRAM da barra: a troca de mesa é o
+    //    scroll/atalhos W-1..4 do labwc, o título mora na moldura da
+    //    própria janela — a barra fica LIMPA
+    let btn_apps = botao_apps();
     esq.append(&btn_apps);
 
     // ── CENTRO (1.0-93): o relógio em HORÁRIO LOCAL (a ordem do dono,
     //    rig da 1.0-92: o epoch puro vestia UTC — o glib::DateTime
     //    now_local veste o fuso DO SISTEMA), o TEXTO nunca muda ao
     //    clicar (a cura A2 intacta), o CALENDÁRIO nasce em popover GTK4
-    //    no hover (a pele roxa/escuro da casa), esquerdo abre/fecha as
-    //    notificações e direito alterna o Não Perturbe
+    //    (a pele roxa/escuro da casa) no clique E no hover — o relógio é
+    //    HORA/CALENDÁRIO (1.0-106: a central de era morreu sem
+    //    substituto, nenhum notificador no caminho do clique)
     let btn_clock = gtk::Button::new();
     btn_clock.set_widget_name("clockbtn");
     btn_clock.set_has_frame(false);
@@ -388,7 +393,7 @@ fn build(app: &gtk::Application) {
         btn_clock.set_child(Some(&lbl));
     }
     btn_clock.set_tooltip_text(Some(
-        "Notificações — clique: painel · hover: calendário · direito: não perturbe",
+        "Calendário — clique: abrir/fechar · hover: calendário",
     ));
     // 1.0-93 — O CALENDÁRIO (a ordem do dono: popover GTK4 com o tema
     // roxo/escuro ao passar o mouse; some quando o mouse sai — o clique
@@ -431,56 +436,29 @@ fn build(app: &gtk::Application) {
         }
         btn_clock.add_controller(motion);
     }
-    // 1.0-105 — O ESQUERDO PELO `clicked` DO PRÓPRIO BOTÃO (o GestureClick
-    // externo nunca via o botão 1 — o GtkButton consome o gesto interno;
-    // o esquerdo abre/fecha o painel do swaync SEM sequestrar o foco -sw)
+    // 1.0-106 — O ESQUERDO ABRE O CALENDÁRIO (a ordem do dono: o relógio é
+    // HORA/CALENDÁRIO — a central de notificações morreu SEM substituto, o
+    // popover que já existia no clique do meio é PROMOVIDO ao esquerdo; o
+    // `clicked` do próprio botão é o caminho de sempre, ZERO D-Bus no
+    // caminho — nenhum notificador trava o clique)
     {
+        let pop_cal = pop_cal.clone();
         btn_clock.connect_clicked(move |_| {
-            solta(&["swaync-client", "-t", "-sw"]);
+            abre_calendario(&pop_cal);
         });
     }
     // UM gesture só para os botões do MEIO/DIREITO do relógio (a lição da
     // dock: dois GestureClick no mesmo widget disputam a sequência — e o
-    // botão 1 é do `clicked`, nunca do gesture)
+    // botão 1 é do `clicked`, nunca do gesture): o calendário é o ÚNICO
+    // lado que resta — o meio abre/fecha e o direito acompanha (quem
+    // esperava o DND de era tem o calendário no gesto de qualquer forma)
     {
         let pop_cal = pop_cal.clone();
-        let tx = tx.clone();
-        clique_solto(&btn_clock, move |botao| {
-            // direito: o DND (idem -sw) COM o sino cortado acendendo NA
-            // HORA (1.0-104: a thread lê o estado REAL do swaync e a
-            // barra veste — o feedback nunca é o palpite, é o fato);
-            // meio: o calendário. O TEXTO NÃO MUDA — o clique é ação, a
-            // data é a data (a cura do "alterna o texto exibido").
-            if botao == 3 {
-                solta(&["swaync-client", "-d", "-sw"]);
-                pede_dnd(&tx);
-            } else if botao == 2 {
-                if pop_cal.is_visible() {
-                    pop_cal.popdown();
-                } else {
-                    pop_cal.popup();
-                }
-            }
+        clique_solto(&btn_clock, move |_botao| {
+            abre_calendario(&pop_cal);
         });
     }
-    // 1.0-104 — O SINO CORTADO AO LADO DO RELÓGIO (o feedback visual do
-    // DND REAL do swaync: o ícone mora no CENTRO junto da hora — quem
-    // alterna o Não Perturbe lê o resultado no MESMO lugar do clique;
-    // o estado chega pelo fio de fundo no frame seguinte ao gesto).
-    {
-        let dnd_img = st.borrow().dnd_img.clone();
-        dnd_img.set_widget_name("dndimg");
-        dnd_img.set_valign(gtk::Align::Center);
-        dnd_img.set_visible(false);
-        let caixa_rel = gtk::Box::new(gtk::Orientation::Horizontal, 4);
-        caixa_rel.set_valign(gtk::Align::Center);
-        caixa_rel.append(&btn_clock);
-        caixa_rel.append(&dnd_img);
-        centro.append(&caixa_rel);
-        // o frame 0 do DND (a thread pergunta ao swaync e a resposta veste
-        // o sino — sem palpite, o estado REAL)
-        pede_dnd(&tx);
-    }
+    centro.append(&btn_clock);
 
     // ── DIREITA (E147 — o contrato mouse-first: game → player → áudio →
     //    microfone (E151) → rede → bluetooth → bateria → sessão) ──
@@ -687,51 +665,53 @@ fn build(app: &gtk::Application) {
         dir.append(&btn_mic);
 
         // A REDE PERSISTENTE (a cura A4: o botão NUNCA sai — Cabo/
-        // Wi-Fi/Desligado com ÍCONE GTK SEMPRE). 1.0-105 — O ESQUERDO
-        // É O FRONT-END GRÁFICO DO NETWORKMANAGER (a ordem do dono:
-        // nm-connection-editor — a distro É NetworkManager; o iwgtk
-        // cede o assento: o editor cobre Wi-Fi, cabo, VPN e banda
-        // larga, sem exigir perfil na mão do dono — dependência dura
-        // do pacote, nunca botão morto). O DIREITO segue a ação
-        // imediata: alterna o RÁDIO Wi-Fi (a leitura do estado re-lê
-        // o rádio E as placas no frame seguinte — mesmo com o cabo
-        // ligado, quem desligou lê o feito no tooltip).
+        // Wi-Fi/Desligado com ÍCONE GTK SEMPRE). 1.0-106 — O ESQUERDO É
+        // O SELETOR RÁPIDO DA CASA (a ordem do dono, rig da dose: o
+        // clique abria o EDITOR inteiro para trocar de rede — o
+        // craft-pick escuro com os toggles no início, as redes ao
+        // alcance com sinal e status, o editor no fim; a conexão em 1
+        // CLIQUE pelo nmcli). O MEIO abre o editor completo (o antigo
+        // esquerdo). O DIREITO alterna a CONEXÃO ATIVA do momento:
+        // `nmcli networking on/off` quando o cabo é o caminho, o rádio
+        // Wi-Fi quando é o sem fio (o estado é o da própria foto — o
+        // dreno re-veste o ícone/tooltip no frame seguinte ao gesto).
         btn_rede.set_has_frame(false);
         btn_rede.set_child(Some(&rede_img));
         btn_rede.set_tooltip_text(Some(
-            "Rede — clique: gerenciar as conexões (NetworkManager) · direito: ligar/desligar o Wi-Fi",
+            "Rede — clique: seletor rápido · meio: editor de conexões · direito: ligar/desligar a conexão ativa",
         ));
         {
+            let tx = tx.clone();
             btn_rede.connect_clicked(move |_| {
-                // 1.0-105 — O EDITOR COMPLETO DO NETWORKMANAGER é o
-                // esquerdo da rede (Wi-Fi, cabo, VPN e banda larga —
-                // dependência dura do pacote: nunca botão morto)
-                solta(&["nm-connection-editor"]);
+                // 1.0-106 — O SELETOR RÁPIDO na thread própria (o
+                // craft-pick é modal — a barra NUNCA bloqueia no gesto;
+                // o fallback honesto é o nm-connection-editor)
+                let tx = tx.clone();
+                std::thread::spawn(move || {
+                    seletor_rede();
+                    pede_rede_foto(&tx);
+                });
             });
         }
         clique_solto(&btn_rede, {
-            // 1.0-104 — o clone do canal NASCE ANTES do move (a resposta da
-            // rede é o gesto: o clique direito re-lê o rádio E as placas)
+            // o estado da foto É a conexão ativa (Cabo → networking;
+            // Wi-Fi/Desligado → o rádio) e a resposta é o gesto: o
+            // dreno re-veste no frame seguinte
+            let st = st.clone();
             let tx = tx.clone();
             move |botao| if botao == 3 {
-                std::thread::spawn(|| {
-                    let on = um_longo("nmcli", &["radio", "wifi"])
-                        .and_then(|t| parse_wifi_radio(&t));
-                    if let Some(on) = on {
-                        let cmd = if on { "off" } else { "on" };
-                        let _ = Command::new("nmcli")
-                            .args(["radio", "wifi", cmd])
-                            .stdin(Stdio::null())
-                            .stdout(Stdio::null())
-                            .stderr(Stdio::null())
-                            .status();
+                let ativo = st.borrow().rede;
+                let tx = tx.clone();
+                std::thread::spawn(move || {
+                    match ativo {
+                        EstadoRede::Cabo => alterna_nmcli(&["networking"]),
+                        _ => alterna_nmcli(&["radio", "wifi"]),
                     }
+                    pede_rede_foto(&tx);
                 });
-                // 1.0-104 — O TOOLTIP REFLETE O GESTO NA HORA (a thread
-                // curta re-lê o rádio + o estado das placas e o dreno
-                // veste o ícone/tooltip no frame seguinte — quem desligou
-                // o Wi-Fi com o cabo ligado lê o feito no MESMO instante)
-                pede_rede_foto(&tx);
+            } else if botao == 2 {
+                // o antigo esquerdo: o editor COMPLETO do NetworkManager
+                solta(&["nm-connection-editor"]);
             }
         });
         dir.append(&btn_rede);
@@ -867,8 +847,10 @@ fn build(app: &gtk::Application) {
         "craft-bar-rs {VERSION} no ar (E151 — a barra obsidiana): 28px · a MESMA ilha escura da dock · \
          SAÍDA e MICROFONE em assentos próprios (esquerdo abre o pwvucontrol · direito muda) · \
          foco de tema DESATIVADO nos botões (zero seletor travado/quadrado branco — só hover) · \
-         relógio esquerdo abre/fecha o painel swaync · rede/Bluetooth sob demanda (iwgtk · blueman) · \
-         relógio pt_BR + calendário · MPRIS/jogo PELO FIO DO BUS"
+         relógio HORA/CALENDÁRIO (o clique abre o calendário — zero notificador no caminho) · \
+         apps no FUZZEL direto · rede com SELETOR rápido (craft-pick) + editor no meio · \
+         Bluetooth vestindo o fio do daemon + o belt próprio · relógio pt_BR + calendário · \
+         MPRIS/jogo PELO FIO DO BUS"
     ));
 
     // o DRENO do canal + os sinais (100ms — a latência dos estados)
@@ -923,11 +905,12 @@ fn build(app: &gtk::Application) {
 
 // ── a THREAD DE FUNDO (os filhos curtos nas cadências belt) ───────────
 
-/// Roda PARA SEMPRE: áudio 2s · rede 5s · bluetooth 10s · cinto 30s.
-/// Bloquear AQUI é de graça (a UI segue viva — a thread é dona dos
-/// subprocessos, nunca do GTK). E147: o áudio manda A FOTO COMPLETA
-/// (wpctl status + a verdade do padrão) e o cinto só carrega o jogo
-/// (o bgapps morreu com o próprio módulo).
+/// Roda PARA SEMPRE: a foto 0 NA HORA (rede + bluetooth — o estado
+/// inicial nunca mente) · áudio 2s · rede 5s · bluetooth 10s · cinto
+/// 30s. Bloquear AQUI é de graça (a UI segue viva — a thread é dona
+/// dos subprocessos, nunca do GTK). O bluetooth também veste o FIO do
+/// daemon (1.0-106: o Powered do BlueZ consultado no arranque); este
+/// belt é a rede de segurança.
 fn poller(tx: Sender<Msg>) {
     // 2.0 — O PLAYER NÃO MORA MAIS AQUI: o MPRIS chega pelo fio do bus
     // (o daemon escuta o PropertiesChanged — o polling de 1s do
@@ -938,12 +921,17 @@ fn poller(tx: Sender<Msg>) {
     let mut t_rede = Instant::now();
     let mut t_bt = Instant::now();
     let mut t_cinto = Instant::now();
+    // 1.0-106 — O FRAME 0 NÃO MENTE: a PRIMEIRA foto de rede e bluetooth
+    // sai NA HORA (a bandeira vale UM giro — o estado inicial mentiroso
+    // do rig, ícone cortado com o adaptador ligado, morre aqui; o
+    // bluetooth do fio do daemon é o complemento no frame 0 do bus)
+    let mut primeira_foto = true;
     loop {
         if t_audio.elapsed() >= Duration::from_secs(POLL_AUDIO_S) {
             t_audio = Instant::now();
             let _ = tx.send(Msg::AudioDet(foto_audio()));
         }
-        if t_rede.elapsed() >= Duration::from_secs(POLL_REDE_S) {
+        if primeira_foto || t_rede.elapsed() >= Duration::from_secs(POLL_REDE_S) {
             t_rede = Instant::now();
             if let Some(t) = um_longo(
                 "nmcli",
@@ -953,18 +941,15 @@ fn poller(tx: Sender<Msg>) {
                     .and_then(|r| parse_wifi_radio(&r));
                 let _ = tx.send(Msg::Rede(estado_rede_nmcli(&t), essid_nmcli(&t), radio));
             }
-            // 1.0-104 — o DND REAL junto do cinto da rede (5s: quem alterna
-            // pelo PAINEL do swaync também veste o sino na hora certa — o
-            // belt é a rede de segurança, o clique é o gesto imediato)
-            let _ = tx.send(Msg::Dnd(
-                um_longo("swaync-client", &["-D"]).and_then(|t| parse_dnd_swaync(&t)),
-            ));
         }
-        if t_bt.elapsed() >= Duration::from_secs(POLL_BT_S) {
+        if primeira_foto || t_bt.elapsed() >= Duration::from_secs(POLL_BT_S) {
             t_bt = Instant::now();
             let _ = tx.send(Msg::Bt(
                 um_longo("bluetoothctl", &["show"]).map(|t| bt_ligado(&t)),
             ));
+        }
+        if primeira_foto {
+            primeira_foto = false;
         }
         if t_cinto.elapsed() >= Duration::from_secs(POLL_CINTO_S) {
             t_cinto = Instant::now();
@@ -1047,17 +1032,155 @@ fn pede_rede_foto(tx: &Sender<Msg>) {
     });
 }
 
-/// 1.0-104 — A PERGUNTA DO DND (o clique direito do relógio responde na
-/// hora): a thread curta pergunta ao swaync (`-D`) e o dreno veste o sino
-/// cortado no frame seguinte — o feedback é o estado REAL, nunca o
-/// palpite do gesto (None = swaync calado: o estado anterior conserva).
-fn pede_dnd(tx: &Sender<Msg>) {
-    let tx = tx.clone();
-    std::thread::spawn(move || {
-        let _ = tx.send(Msg::Dnd(
-            um_longo("swaync-client", &["-D"]).and_then(|t| parse_dnd_swaync(&t)),
-        ));
+// ── 1.0-106 — O SELETOR RÁPIDO DE REDE (o esquerdo da barra) ──────────
+
+/// O mapa id→alvo do seletor: os pares moram em
+/// $XDG_RUNTIME_DIR/elite/rede-pick.tsv (o tmpfs da sessão) — o
+/// craft-pick devolve o ITEM inteiro e o `[id]` do início traz o ALVO
+/// de volta SEM parse de string livre (SSID exótico sobrevive: o
+/// alvo viaja por CHAVE, nunca por rótulo). None = o mapa não abriu
+/// (o chamador cai na porta honesta do editor).
+fn mapa_do_seletor(pares: &[String]) -> Option<std::path::PathBuf> {
+    let dir = std::env::var("XDG_RUNTIME_DIR")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| std::path::PathBuf::from("/tmp"));
+    let mapa = dir.join("elite/rede-pick.tsv");
+    let pai = mapa.parent()?;
+    std::fs::create_dir_all(pai).ok()?;
+    std::fs::write(&mapa, pares.join("\n")).ok()?;
+    Some(mapa)
+}
+
+/// A ação do alvo escolhido: 'w:' é REDE (o SSID cru é ARGUMENTO do
+/// nmcli — argv puro, o SSID nunca é string de shell), 'a:' é o verbo
+/// da casa (wifi/ethernet/avancado).
+fn acao_do_alvo(alvo: &str) {
+    if let Some(ssid) = alvo.strip_prefix("w:") {
+        let _ = Command::new("nmcli")
+            .args(["dev", "wifi", "connect"])
+            .arg(ssid)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
+        return;
+    }
+    match alvo {
+        "a:wifi" => alterna_nmcli(&["radio", "wifi"]),
+        "a:ethernet" => alterna_nmcli(&["networking"]),
+        _ => solta(&["nm-connection-editor"]), // a:avancado (e o desconhecido honesto)
+    }
+}
+
+/// O SELETOR RÁPIDO da casa (roda em thread própria — o craft-pick é
+/// modal, a barra nunca bloqueia no gesto): armado pelo nmcli (toggles
+/// no início, redes com sinal e status, o editor no fim), o craft-pick
+/// é a ÚNICA janela (o stderr calado — os avisos de portal do GTK não
+/// são evidência; o exit 0/1 do contrato segue INTACTO). Sem
+/// craft-pick no sistema o fallback honesto é o editor (nunca
+/// silêncio).
+fn seletor_rede() {
+    let Some(dev) = um_longo(
+        "nmcli",
+        &["-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "device", "status"],
+    ) else {
+        solta(&["nm-connection-editor"]); // nmcli calado: a porta honesta
+        return;
+    };
+    let radio = um_longo("nmcli", &["radio", "wifi"])
+        .and_then(|t| parse_wifi_radio(&t));
+    // enabled/disabled — o MESMO juízo do rádio (o nmcli fala dos dois)
+    let net_on = um_longo("nmcli", &["networking"])
+        .and_then(|t| parse_wifi_radio(&t));
+    let redes = um_longo("nmcli", &["-t", "-f", "IN-USE,SSID,SIGNAL", "dev", "wifi", "list"])
+        .map(|t| redes_nmcli(&t))
+        .unwrap_or_default();
+
+    let mut itens: Vec<String> = Vec::new();
+    let mut pares: Vec<String> = Vec::new();
+    let mut id = 0u32;
+    id += 1;
+    itens.push(if radio.unwrap_or(false) {
+        format!("[{id}] Wi-Fi LIGADO — desligar")
+    } else {
+        format!("[{id}] Wi-Fi DESLIGADO — ligar")
     });
+    pares.push(linha_pares(id, "a:wifi"));
+    if tem_ethernet(&dev) {
+        id += 1;
+        itens.push(if net_on.unwrap_or(false) {
+            format!("[{id}] Ethernet LIGADA — desligar")
+        } else {
+            format!("[{id}] Ethernet DESLIGADA — ligar")
+        });
+        pares.push(linha_pares(id, "a:ethernet"));
+    }
+    for (em_uso, ssid, sinal) in redes {
+        id += 1;
+        itens.push(item_rede(id, &ssid, sinal, em_uso));
+        // 'w:' na frente: as duas letras decidem a espécie — 'a:' é
+        // ação, 'w:' é rede; SSID exótico nenhum engana o prefixo
+        pares.push(linha_pares(id, &format!("w:{ssid}")));
+    }
+    id += 1;
+    itens.push(format!("[{id}] Configurações avançadas (nm-connection-editor)"));
+    pares.push(linha_pares(id, "a:avancado"));
+
+    let Some(mapa) = mapa_do_seletor(&pares) else {
+        solta(&["nm-connection-editor"]); // o mapa não abriu: a porta honesta
+        return;
+    };
+    // o seletor da casa: stderr CALADO, o exit 0/1 intacto (0 = escolha)
+    let saida = Command::new("craft-pick")
+        .arg("-T")
+        .arg("Rede")
+        .args(&itens)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .output();
+    let Ok(saida) = saida else {
+        solta(&["nm-connection-editor"]); // craft-pick ausente: nunca silêncio
+        return;
+    };
+    if !saida.status.success() {
+        return; // Esc/clique fora: nada escolhido, nada a fazer
+    }
+    let escolha = String::from_utf8_lossy(&saida.stdout).trim().to_string();
+    let Some(id) = id_do_item(&escolha) else { return };
+    let Some(papel) = std::fs::read_to_string(&mapa).ok() else { return };
+    let Some(alvo) = alvo_do_id(&papel, id) else { return };
+    acao_do_alvo(alvo);
+}
+
+/// O TOGGLE do nmcli: lê o estado ATUAL (enabled/disabled) e INVERTE
+/// (o juízo é o do parse_wifi_radio — o nmcli fala a mesma palavra para
+/// o rádio e para o networking).
+fn alterna_nmcli(args: &[&str]) {
+    if let Some(t) = um_longo("nmcli", args) {
+        if let Some(on) = parse_wifi_radio(&t) {
+            let cmd = if on { "off" } else { "on" };
+            let _ = Command::new("nmcli")
+                .args(args)
+                .arg(cmd)
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status();
+        }
+    }
+}
+
+/// O CALENDÁRIO do relógio: o popover que já existia no clique do meio
+/// PROMOVIDO ao clique esquerdo (1.0-106 — o relógio é HORA/CALENDÁRIO,
+/// nenhum notificador no caminho: o clique é TODO do GTK, zero D-Bus,
+/// zero timeout — o popover abre/fecha no MESMO instante do gesto).
+fn abre_calendario(pop: &gtk::Popover) {
+    if pop.is_visible() {
+        pop.popdown();
+    } else {
+        pop.popup();
+    }
 }
 
 // ── o DRENO (as mensagens viram widgets) ──────────────────────────────
@@ -1194,14 +1317,6 @@ fn aplica(st: &Rc<RefCell<State>>, msg: Msg) {
             let s = st.borrow_mut();
             s.btn_game.set_visible(ativa);
         }
-        Msg::Dnd(estado) => {
-            // 1.0-104 — O SINO CORTADO VESTE O FATO REAL (`swaync-client -D`):
-            // Some(true) = o Não Perturbe LIGADO (o sino acende no centro);
-            // Some(false) = desligado (o sino some); None = swaync calado
-            // (o estado anterior conserva — a barra nunca palpite o DND)
-            let s = st.borrow_mut();
-            s.dnd_img.set_visible(estado == Some(true));
-        }
         Msg::Bus(cli) => {
             // o fio (re)nasceu: o handle fica com a UI para os pedidos
             *st.borrow_mut().bus_cli.borrow_mut() = Some(cli);
@@ -1269,40 +1384,13 @@ fn desenha_relogio(st: &Rc<RefCell<State>>) {
             m,
         ));
         s.clock_label.set_tooltip_text(Some(&format!(
-            "{:02}/{:02}/{} — clique: notificações · hover: calendário · direito: não perturbe",
+            "{:02}/{:02}/{} — clique: calendário · hover: calendário",
             agora.day_of_month(),
             agora.month(),
             agora.year()
         )));
         s.minuto_desenhado = m;
     }
-}
-
-// ── O DRAWER (E149 — UM dono: o craft-apps da casa) ──────────────────
-
-/// Abre/fecha a gaveta pela porta ÚNICA (craft-apps — o mesmo toggle
-/// do W-d: o bin mata a gaveta viva DO DONO ou abre uma nova; a barra
-/// NUNCA DUPLICA a receita — o atraso/falha intermitente do rig morria
-/// na receita duplicada que se matava). O eco do mesmo gesto morre na
-/// janela de 150ms (a cura A1 intacta — o juízo puro segue no state).
-fn toggle_gaveta(st: &Rc<RefCell<State>>) {
-    let agora = agora_ns();
-    {
-        let mut s = st.borrow_mut();
-        if s.drawer_ns > 0 && dentro_janela_ms(s.drawer_ns, agora, DRAWER_MS) {
-            return; // o eco do mesmo gesto — a janela fala
-        }
-        s.drawer_ns = agora;
-    }
-    solta(&["craft-apps"]);
-    log("drawer: toggle pela porta única (craft-apps — o mesmo verbo do W-d)");
-}
-
-fn agora_ns() -> u128 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_nanos())
-        .unwrap_or(0)
 }
 
 // ── OS WIDGETS da casa ────────────────────────────────────────────────
@@ -1341,19 +1429,16 @@ fn apaga_foco_da_barra(raiz: &gtk::Widget) {
     }
 }
 
-/// E149 — O BOTÃO DE APPS (ícone GTK + palavra). UM dono do toggle: o
-/// craft-apps da casa — o W-d e o botão partilham a MESMA porta (o
-/// atraso intermitente do rig era a RECEITA DUPLICADA: a barra abria
-/// a gaveta, o craft-apps a matava). O menu rápido do clique direito
-/// MORRE (as ações dele já moram no menu do desktop e no de energia —
-/// o dedupe da diretriz: "Bloquear tela" e "Encerrar sessão" tinham
-/// dois endereços).
-/// 1.0-101 — O GESTO É O CLIQUE ESQUERDO (a cura do audit 99: o toggle
-/// disparava em QUALQUER botão — o direito (contexto de menu) abria a
-/// gaveta sem o dono pedir; agora só o botão 1 manda). O alinhamento
-/// vive nos 28px da faixa: Box verticalmente CENTRADO, ícone 16px e
-/// label sem margem própria (o padding da pele manda — theme.css).
-fn botao_apps(st: &Rc<RefCell<State>>) -> gtk::Button {
+/// E149 — O BOTÃO DE APPS (ícone GTK + palavra). 1.0-106 — O CLIQUE
+/// DISPARA O FUZZEL DIRETO (a ordem do dono: sem wrapper de gaveta no
+/// caminho do botão — o craft-apps segue vivo para o W-d do rc.xml, a
+/// barra não empurra gaveta nenhuma; o fuzzel é de UM tiro, sem toggle
+/// nenhum para preservar). O menu rápido do clique direito MORREU (as
+/// ações dele moram no menu do desktop e no de energia — o dedupe da
+/// diretriz). O alinhamento vive nos 28px da faixa: Box verticalmente
+/// CENTRADO, ícone 16px e label sem margem própria (o padding da pele
+/// manda — theme.css).
+fn botao_apps() -> gtk::Button {
     let btn = gtk::Button::new();
     btn.set_widget_name("appbtn");
     btn.set_has_frame(false);
@@ -1373,16 +1458,14 @@ fn botao_apps(st: &Rc<RefCell<State>>) -> gtk::Button {
     linha.append(&lbl);
     btn.set_child(Some(&linha));
     btn.set_tooltip_text(Some(
-        "Aplicativos — clique esquerdo: abre/fecha a gaveta (toggle de verdade)",
+        "Aplicativos — clique: o fuzzel (o lançador direto da casa)",
     ));
     {
-        let st = st.clone();
-        // 1.0-105 — o ESQUERDO pelo `clicked` DO PRÓPRIO BOTÃO (o
-        // GestureClick externo nunca via o botão 1: o GtkButton consome
-        // o gesto interno — a gaveta abre pelo MESMO caminho do botão
-        // Sessão, que sempre funcionou)
+        // 1.0-106 — O FUZZEL DIRETO pelo `clicked` DO PRÓPRIO BOTÃO (o
+        // launcher de UM tiro, sem wrapper de gaveta no caminho — quem
+        // quer a gaveta tem o W-d do rc.xml no craft-apps de sempre)
         btn.connect_clicked(move |_| {
-            toggle_gaveta(&st);
+            solta(&["fuzzel"]);
         });
     }
     btn
@@ -1452,10 +1535,10 @@ fn pede_bus(
 /// próprio (o processo sobrevive à barra por desenho — ferramentas
 /// de verdade não são filhos que a barra colhe).
 /// E146/C — A COVEIRA: o Child abandonado no Drop virava <defunct>
-/// (o rig 1.0-94 fotografou 6 zumbis pendurados no pid da barra:
-/// swaync-client ×4, brave e craft-shot — o Linux deixa o morto na
-/// tabela até ALGUÉM colher). A thread dedicada é a coveira: spawn →
-/// wait — o exit status é colhido ANTES do Child morrer no escopo.
+/// (o rig 1.0-94 fotografou 6 zumbis pendurados no pid da barra — o
+/// Linux deixa o morto na tabela até ALGUÉM colher). A thread
+/// dedicada é a coveira: spawn → wait — o exit status é colhido
+/// ANTES do Child morrer no escopo.
 /// O grupo próprio SEGUE (a ferramenta não morre com a coveira nem
 /// com a barra; o wait só COLHE, não espera viver).
 fn solta(argv: &[&str]) {

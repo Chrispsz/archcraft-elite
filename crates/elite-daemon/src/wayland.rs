@@ -302,7 +302,7 @@ pub fn start() -> Option<()> {
                         // nova batia no flock do morto-vivo e saía 0). O
                         // erro do fio agora é a SENTENÇA da sessão: o
                         // fim_da_sessao acende o STOP, encerra os filhos
-                        // gerenciados (bar, dock, swayosd, polkit, swaync,
+                        // gerenciados (bar, dock, swayosd, polkit,
                         // wallpaper, jogo), remove o session.lock do chão
                         // e finaliza (exit 0) — o relogin nasce LIMPO.
                         crate::fim_da_sessao(&format!("wayland dispatch {e}"));

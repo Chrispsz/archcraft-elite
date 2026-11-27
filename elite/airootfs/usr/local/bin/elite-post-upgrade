@@ -600,7 +600,7 @@ fi
 
 sync_skel() {
     # sync_skel <home> <uid> — entrega do /etc/skel/.config o que o rig
-    # NÃO tem (swaync, gtk-3.0, gtk-4.0, fuzzel, nwg-drawer, swayosd —
+    # NÃO tem (gtk-3.0, gtk-4.0, fuzzel, nwg-drawer, swayosd —
     # as peles da diretriz UI/UX; E149: o game.conf do modo de jogo — a
     # vaga automática é a fábrica; BLOCO 3: o drawer e o OSD entram na
     # lista — a paleta oficial os veste no rig sem pele); arquivo
@@ -608,7 +608,7 @@ sync_skel() {
     _sh="$1"
     _suid="$2"
     _entregues=0
-    for _cfg in swaync gtk-3.0 gtk-4.0 fuzzel nwg-drawer swayosd; do
+    for _cfg in gtk-3.0 gtk-4.0 fuzzel nwg-drawer swayosd; do
         [ -d "/etc/skel/.config/$_cfg" ] || continue
         for _sf in "/etc/skel/.config/$_cfg"/*; do
             [ -f "$_sf" ] || continue
@@ -640,7 +640,7 @@ sync_skel() {
         fi
     fi
     if [ "$_entregues" -gt 0 ]; then
-        tlog "skel $_suid: $_entregues arquivo(s) de peles ENTREGUE(S) (swaync/gtk-3.0/gtk-4.0/fuzzel/game.conf ausentes no rig — a pele e a vaga da casa chegam pela dose; o personalizado é intocável)"
+        tlog "skel $_suid: $_entregues arquivo(s) de peles ENTREGUE(S) (gtk-3.0/gtk-4.0/fuzzel/game.conf ausentes no rig — a pele e a vaga da casa chegam pela dose; o personalizado é intocável)"
     fi
 }
 
@@ -906,7 +906,7 @@ EOF
     # a paleta oficial do guia 02 chega ao rig VIVO): o skin que ainda É
     # O DE FÁBRICA da era anterior (o marcador AMOLED no byte — nenhum
     # toque do dono) SAI com voz; logo abaixo o sync_skel re-veste o
-    # oficial (swaync/fuzzel/drawer/osd) e a FOLHA MESTRA NO BINÁRIO
+    # oficial (fuzzel/drawer/osd) e a FOLHA MESTRA NO BINÁRIO
     # regra bar/dock (o override deles morre com a pele velha). O dono
     # que editou a pele PRÓPRIA fica intocado (presente ≠ fábrica =
     # domínio dele — a lei das peles).
@@ -914,7 +914,6 @@ EOF
                  "elite/bar.css:rgba(17, 17, 27, 0.96" \
                  "elite/dock.css:alpha(#050508" \
                  "elite/dock.css:alpha(#11111b, 0.92" \
-                 "swaync/style.css:#0a0a12" \
                  "nwg-drawer/drawer.css:#16161f" \
                  "fuzzel/fuzzel.ini:background=000000f2" \
                  "swayosd/style.css:rgba(0, 0, 0, 0.88"; do

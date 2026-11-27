@@ -445,7 +445,7 @@ rm -f /var/cache/elite-local/*.pkg.tar.zst
 ##      sessões/satélites que saíram (openbox, bspwm, polybar, tint2, rofi,
 ##      dunst, alacritty, kitty vieram do archcraft-skeleton). Sem isto o
 ##      home do liveuser nasce com diretórios mortos de apps que não existem.
-##      Os configs Elite (labwc/waybar/swaync/fuzzel) permanecem; v1.1
+##      Os configs Elite (labwc/fuzzel) permanecem; v1.1
 ##      também varre os configs órfãos da purga GTK3 (thunar/zathura/
 ##      mousepad/file-roller/blueman/pavucontrol vieram do skeleton).
 for d in openbox bspwm polybar tint2 rofi dunst alacritty kitty zathura mousepad file-roller blueman pavucontrol yazi helix; do

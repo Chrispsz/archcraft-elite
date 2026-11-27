@@ -315,55 +315,11 @@ for _d in /run/user/[0-9]*; do
     unset _st
 done
 
-# ── 8. O SEGUNDO TRONO DO SWAYNC MORRE DE OUTRA FORMA (E117 → 1.0-101) ──
-#      O journal do dump 163548 fotografou CINCO 'Failed to start Swaync
-#      notification daemon' por boot: a unit de usuário subia ANTES da
-#      sessão existir e o systemd repetia. A cura E117 MASCAROU a unit
-#      e o audit 99 fotografou o EFEITO COLATERAL: com a unit mascarada,
-#      a ATIVAÇÃO D-BUS que o dbus-broker tenta (org.freedesktop.
-#      Notifications / org.erikreider.swaync.cc) falha com "masked" a
-#      cada pedido sem dono — o journal nasce vermelho de novo, agora
-#      pela máscara. A cura 1.0-101: a máscara legada é REVOGADA (unmask
-#      + remoção do elo /dev/null) e a unit é DESABILITADA globalmente
-#      (disable: sem auto-start do systemd --user, MAS carregável — a
-#      ativação D-Bus fica LIMPA). O dono único segue a Lei E135: o
-#      elite-daemon session adota o nome no bus e o flock impede o
-#      segundo trono.
-_mask="/etc/systemd/user/swaync.service"
-if [ ! -e /run/archiso ] && command -v systemctl >/dev/null 2>&1; then
-    if [ -e "$_mask" ] && [ "$(readlink -f "$_mask" 2>/dev/null)" = "/dev/null" ]; then
-        if systemctl --global unmask swaync.service >/dev/null 2>&1; then
-            rm -f "$_mask" 2>/dev/null || true
-            tlog "swaync: máscara E117 REVOGADA (1.0-101 — a ativação D-Bus do org.freedesktop.Notifications fica LIMPA no dbus-broker; o dono único é o gate E135 do elite-daemon)"
-        else
-            tlog "swaync: FALHOU revogar a máscara da unit de usuário (réu nomeado no papel)"
-        fi
-    fi
-    if systemctl --global disable swaync.service >/dev/null 2>&1; then
-        tlog "swaync: unit de usuário DESABILITADA globalmente (sem auto-start, sem máscara — o swaync vivo é o do orquestrador elite-daemon session)"
-    fi
-fi
-unset _mask
-
-# ── 8-b. A CHAVE MORTA DO SWAYNC SAI DOS RIGS (E135) ─────────────────────
-#      O dump 101339 crava: o config.json do home carrega
-#      "image-visibility" — chave que o swaync 0.12.6 NÃO deserializa
-#      (Json-WARNING a cada arranque) e o skel da casa já nasce sem ela.
-#      A cura percorre os homes vivos e apaga SÓ a linha morta (JSON de
-#      uma linha por chave — o sed honesto; o idempotente é não tocar o
-#      arquivo que não tem a chave).
-for _h in /home/*; do
-    _swc="$_h/.config/swaync/config.json"
-    if [ -f "$_swc" ] && grep -q '"image-visibility"' "$_swc" 2>/dev/null; then
-        if sed -i '/"image-visibility"/d' "$_swc"; then
-            chown --reference="${_h}" "$_swc" 2>/dev/null || true
-            tlog "swaync: chave morta 'image-visibility' REMOVIDA de $_swc (E135 — o Json-WARNING morre; o default do swaync é o when-available)"
-        else
-            tlog "swaync: FALHOU apagar a chave 'image-visibility' em $_swc (réu nomeado)"
-        fi
-    fi
-done
-unset _h _swc
+# ── 8. (1.0-106 — HISTÓRIA: o swaync morreu por completo) ────────────────
+#      Os blocos de cura de era (a máscara E117 revogada pela 1.0-101 e
+#      a chave morta 'image-visibility' da E135) saíram com o dono: a
+#      casa não carrega central de notificações NENHUMA (o relógio é
+#      hora/calendário) e nenhum fluxo vivo toca no notificador morto.
 
 # ── 9. O TEMA DE ÍCONES É UM SÓ (E130 — a ordem do dono 2026-11-21) ────
 #      "Garanta Papirus-Dark nos settings.ini GTK dos usuários ativos e o

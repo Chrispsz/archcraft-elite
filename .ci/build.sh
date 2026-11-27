@@ -484,18 +484,14 @@ cat > /tmp/elite-src/elite-system/files/usr/local/share/elite/daemon.conf <<'EOD
 # Um residente por linha: `nome::comando` ou `nome::bus::comando` (a
 # gramática E135 — o nome no session bus que prova a posse: se o nome
 # TEM dono, a vaga é ADOTADA, nunca relançada por cima — o gate que
-# matou o loop de 809 relanças do swaync no dump 101339). Edite à
+# matou o loop de 809 relanças do dump 101339). Edite à
 # vontade; linhas '#' e vazias são ignoradas. SEM este arquivo os
-# defaults da casa valem (swaync com gate de bus e lançamento
-# EXPLÍCITO -c/-s nos arquivos do $HOME do dono — 1.0-105: o
-# /etc/xdg/swaync do upstream nunca é rede; o $HOME nos tokens é
-# expandido no spawn, swayosd, craft-audio-route — o udiskie SAIU da
-# fila na E151: o automount é a regra udev 91-elite-automount,
-# oneshot por evento, zero daemon). Cada vaga também trava em flock
-# exclusivo no $XDG_RUNTIME_DIR/elite/resident-<nome>.lock — a posse
-# dupla (e o ciclo ceifa instâncias extra do swaync: o mais velho
-# fica, o SWAYNC_COUNT=5 do rig morre).
-#swaync::org.erikreider.swaync.cc::swaync -c $HOME/.config/swaync/config.json -s $HOME/.config/swaync/style.css
+# defaults da casa valem (swayosd — o $HOME nos tokens é expandido no
+# spawn; o udiskie SAIU da fila na E151: o automount é a regra udev
+# 91-elite-automount, oneshot por evento, zero daemon; a central de
+# notificações da era morreu na 1.0-106 — o dono dispensou o
+# notificador). Cada vaga também trava em flock exclusivo no
+# $XDG_RUNTIME_DIR/elite/resident-<nome>.lock — a posse dupla.
 #swayosd::swayosd-server
 #craft-audio-route::craft-audio-route
 EODCONF
@@ -544,28 +540,6 @@ cp -p /work/elite/airootfs/etc/gamemode.ini \
 mkdir -p /tmp/elite-src/elite-system/files/etc/xdg/tumbler
 cp -p /work/elite/airootfs/etc/xdg/tumbler/tumbler.rc \
       /tmp/elite-src/elite-system/files/etc/xdg/tumbler/tumbler.rc
-# 1.0-102→1.0-104 — A CONFIG PADRÃO DO SWAYNC NO PACOTE (a cura do
-# "Config not found! Using default config..." do audit 102): o conf da
-# casa era VEÍCULO DA ISO (só o skel) — o rig instalado NEM O TINHA.
-# Entrega em DUAS moradas: o MESTRE da dose (/usr/local/share/elite/
-# swaync — a cadeia do entrega_pele_swaync do elite-daemon lê primeiro;
-# caiu → o daemon veste o $HOME antes do fork) e o SKEL DO RIG
-# (/etc/skel/.config/swaync — o recém-nascido do archinstall já veste).
-# 1.0-104 — O /etc/xdg/swaync SAI DO PACOTE (a cura do --overwrite do
-# pacman -Syu: o swaync UPSTREAM é o dono de /etc/xdg/swaync/config.json
-# — dois pacotes reclamando o mesmo caminho é conflito de arquivo em
-# TODA dose; o mestre da casa entrega ANTES do fork, o fallback de
-# sistema é o DEFAULT do próprio swaync — a casa não disputa o alheio).
-mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/swaync
-cp -p /work/elite/airootfs/etc/skel/.config/swaync/config.json \
-      /tmp/elite-src/elite-system/files/usr/local/share/elite/swaync/config.json
-cp -p /work/elite/airootfs/etc/skel/.config/swaync/style.css \
-      /tmp/elite-src/elite-system/files/usr/local/share/elite/swaync/style.css
-mkdir -p /tmp/elite-src/elite-system/files/etc/skel/.config/swaync
-cp -p /work/elite/airootfs/etc/skel/.config/swaync/config.json \
-      /tmp/elite-src/elite-system/files/etc/skel/.config/swaync/config.json
-cp -p /work/elite/airootfs/etc/skel/.config/swaync/style.css \
-      /tmp/elite-src/elite-system/files/etc/skel/.config/swaync/style.css
 # E90 — O MAPA VIAJA NO PACOTE: a doc completa (SCRIPTS.md — a linha de
 # cada peça) morava só no repo; o craft-help aponta para ela e o dono
 # ganha o mapa DENTRO do sistema (a fonte única continua sendo o repo —
@@ -781,15 +755,6 @@ ${hnames}
     MOLDE[sudoers_install]='    install -dm750 "${pkgdir}/etc/sudoers.d"
     install -m440 "${startdir}/files/etc/sudoers.d/99-elite-clean" "${pkgdir}/etc/sudoers.d/99-elite-clean"'$'\n'
     MOLDE[sudoers_rm]='    [ -e "/etc/sudoers.d/99-elite-clean" ] && rm -f "/etc/sudoers.d/99-elite-clean"'$'\n'
-    MOLDE[swc_install]='    install -d "${pkgdir}/usr/local/share/elite/swaync"
-    install -m644 "${startdir}/files/usr/local/share/elite/swaync/config.json" "${pkgdir}/usr/local/share/elite/swaync/config.json"
-    install -m644 "${startdir}/files/usr/local/share/elite/swaync/style.css" "${pkgdir}/usr/local/share/elite/swaync/style.css"
-    install -d "${pkgdir}/etc/skel/.config/swaync"
-    install -m644 "${startdir}/files/etc/skel/.config/swaync/config.json" "${pkgdir}/etc/skel/.config/swaync/config.json"
-    install -m644 "${startdir}/files/etc/skel/.config/swaync/style.css" "${pkgdir}/etc/skel/.config/swaync/style.css"'$'\n'
-    MOLDE[swc_rm]='    for f in /usr/local/share/elite/swaync/config.json /usr/local/share/elite/swaync/style.css /etc/skel/.config/swaync/config.json /etc/skel/.config/swaync/style.css; do
-        [ -e "$f" ] && ! pacman -Qo "$f" >/dev/null 2>&1 && rm -f "$f"
-    done'$'\n'
     MOLDE[theo_install]='    install -d "${pkgdir}/usr/local/share/elite/labwc"
     install -m644 "${startdir}/files/usr/local/share/elite/labwc/themerc-override" "${pkgdir}/usr/local/share/elite/labwc/themerc-override"'$'\n'
     MOLDE[tum_install]='    install -Dm644 "${startdir}/files/etc/xdg/tumbler/tumbler.rc" "${pkgdir}/etc/xdg/tumbler/tumbler.rc"'$'\n'
@@ -3207,7 +3172,7 @@ pre_install() {
     ; do
         [ -e "/usr/local/bin/$f" ] && rm -f "/usr/local/bin/$f"
     done
-@unit_loop@@hook_rm@@kmod_rm@@mh_rm@@ff_rm@@lock_rm@@sddm_rm@@rc_rm@@osd_rm@@menu_rm@@gm_rm@@tum_rm@@swc_rm@@doc_rm@@gp_rm@@flags_rm@@apps_rm@@pk_rm@@q6_rm@@dc_rm@@sudoers_rm@    return 0
+@unit_loop@@hook_rm@@kmod_rm@@mh_rm@@ff_rm@@lock_rm@@sddm_rm@@rc_rm@@osd_rm@@menu_rm@@gm_rm@@tum_rm@@doc_rm@@gp_rm@@flags_rm@@apps_rm@@pk_rm@@q6_rm@@dc_rm@@sudoers_rm@    return 0
 }
 # E129 — A MIGRAÇÃO AUTÔNOMA (AGENTS.md §4, 2026-11-20): o usuário final
 # NUNCA roda comando manual de pós-instalação — toda correção de /etc,
@@ -3249,7 +3214,7 @@ package() {
     # E132 — o elite-polkit-listener NÃO viaja mais (o agente da casa é o
     # lxqt-policykit-agent NATIVO, eleito no craft-bars; um bin a menos no
     # pacote, um agente a menos na fila — o C vendado aposentou do repo)
-@unit_install@@hook_install@@kmod_install@@mh_install@@ff_install@@lock_install@@sddm_install@@grub_install@@rc_install@@osd_install@@menu_install@@pd_install@@gm_install@@tum_install@@swc_install@@doc_install@@gp_install@@pt_install@@ef_install@@flags_install@@apps_install@@udev_install@@pk_install@@q6_install@@theo_install@@gtk_install@@dc_install@@sudoers_install@}
+@unit_install@@hook_install@@kmod_install@@mh_install@@ff_install@@lock_install@@sddm_install@@grub_install@@rc_install@@osd_install@@menu_install@@pd_install@@gm_install@@tum_install@@doc_install@@gp_install@@pt_install@@ef_install@@flags_install@@apps_install@@udev_install@@pk_install@@q6_install@@theo_install@@gtk_install@@dc_install@@sudoers_install@}
 MOLDE_PKGBUILD
 )"$'\n'
     molde="${molde%$'\n'}"   # o <<< recoloca o \n final: byte a byte

@@ -4,19 +4,22 @@
 // DIRETOS deste processo — try_wait(2) nativo, respawn com backoff de 2s
 // por filho, stdout+stderr no MESMO bars.log da casa.
 //
-// E135 — O GATE DE POSSE (a cura do loop 809 do dump 101339): o swaync
-// exit 1 ("An instance is already running!") era RELANÇADO às cegas a
-// cada 2s — 809 mortes no bars.log de UM boot. O gate é DUPLO e cada
-// respawn o atravessa antes de qualquer fork:
+// E135 — O GATE DE POSSE (a lição do crash-loop de era que o dump
+// fotografou: um residente que recusa subir com instância viva era
+// RELANÇADO às cegas a cada 2s — centenas de mortes no bars.log de UM
+// boot). O gate é DUPLO e cada respawn o atravessa antes de qualquer
+// fork:
 //   1. flock exclusivo em $XDG_RUNTIME_DIR/elite/resident-<nome>.lock —
 //      a vaga é de quem segura a trava; o irmão do daemon não duplica;
 //   2. o NOME no session bus (a gramática nova `nome::bus::comando`):
-//      swaync dono de org.erikreider.swaync.cc — se o nome TEM dono
-//      (instância lançada por fora — o craft-bars velho, o dono à mão),
+//      se o nome TEM dono (instância lançada por fora — o dono à mão),
 //      A VAGA É ADOTADA: nenhum spawn, zero morte, zero relança.
 // A adoção morre quando o dono morre: o próximo ciclo tenta a trava,
 // o nome ficou livre e a casa cria o filho dela (a supervisão assume).
-//
+// 1.0-106 — a central de notificações da era MORREU por ordem do dono
+// (o rig fotografou o crash-loop do start-limit-hit e as chamadas
+// travadas ao bus dela — dispensada INTEIRA, sem substituto); a fila
+// DEFAULT é o swayosd sozinho.
 // ESCOPO HONESTO: NÃO moram aqui o craft-game watch (nativo do próprio
 // elite-daemon — modo game), nem o craft-display watch, nem a waybar/
 // dock/toplevel (clientes de display com gate próprio — nenhum
@@ -41,18 +44,6 @@ use std::time::{Duration, Instant};
 /// oneshot POR EVENTO de plug, zero daemon, o udisksctl do usuário
 /// ativo monta em /run/media/$USER via o udisksd nativo).
 pub const RESIDENTES_DEFAULT: &[(&str, &str, Option<&str>)] = &[
-    (
-        "swaync",
-        // 1.0-105 — O LANÇAMENTO EXPLÍCITO DA CASA (a cura do
-        // "COULD NOT FIND CSS FILE!" e do /etc/xdg/swaync alheio): o
-        // painel SOBE com o -c E o -s APONTANDO nos arquivos do dono
-        // ($HOME expandido no spawn — a pele é entregue/sincronizada
-        // pelos mestres ANTES do fork no ramo do swaync) — o
-        // /etc/xdg/swaync/style.css do upstream NUNCA mais é rede de
-        // ninguém da casa.
-        "swaync -c $HOME/.config/swaync/config.json -s $HOME/.config/swaync/style.css",
-        Some("org.erikreider.swaync.cc"),
-    ),
     ("swayosd", "swayosd-server", None),
 ];
 
@@ -244,75 +235,6 @@ pub fn peek_lock_livre(caminho: &std::path::Path) -> bool {
     rc == 0 // 0 = ninguém segura (livre); != 0 = motor de fora vivo
 }
 
-/// 1.0-105 — OS PID VIVOS de um comm com o NASCIMENTO (o SWAYNC_COUNT=5
-/// do rig): a mesma varredura /proc pura do comm_vivo (zero fork de
-/// pgrep — zumbi não conta, dono é o NOSSO uid), mas devolvendo a LISTA
-/// com o instante de nascimento de cada um (/proc/<pid>/stat campo 22
-/// APÓS o último ')' — o starttime em jiffies desde o boot: menor =
-/// mais velho). A porta de teste é a função pura de baixo.
-fn comms_pids_nascimento(esperado: &str) -> Vec<(i32, u64)> {
-    let alvo = comm_corta(esperado);
-    let meu_uid = unsafe { libc::getuid() };
-    let mut out = Vec::new();
-    let Ok(dir) = std::fs::read_dir("/proc") else { return out };
-    for e in dir.flatten() {
-        let pid = match e.file_name().to_string_lossy().parse::<i32>() {
-            Ok(p) => p,
-            Err(_) => continue,
-        };
-        let Ok(comm) = std::fs::read_to_string(format!("/proc/{pid}/comm")) else { continue };
-        if comm.trim() != alvo {
-            continue;
-        }
-        let Ok(stat) = std::fs::read_to_string(format!("/proc/{pid}/stat")) else { continue };
-        let Some(depois) = stat.rsplit(')').next() else { continue };
-        // estado (1º) + starttime (20º, contando do depois-')' — o comm
-        // pode ter espaço/parêntese, o rsplit corta na ÚLTIMA fechadura)
-        let mut campos = depois.split_whitespace();
-        let estado = campos.next().unwrap_or("R");
-        if estado == "Z" {
-            continue; // zumbi não é vida
-        }
-        let nascimento: u64 = campos.nth(18).and_then(|t| t.parse().ok()).unwrap_or(0);
-        // dono: só o processo do NOSSO usuário prova a sessão daqui
-        let Ok(status) = std::fs::read_to_string(format!("/proc/{pid}/status")) else { continue };
-        let uid_dele = status
-            .lines()
-            .find_map(|l| l.strip_prefix("Uid:").map(|r| r.to_string()))
-            .and_then(|r| r.split_whitespace().next().and_then(|u| u.parse::<u32>().ok()))
-            .unwrap_or(u32::MAX);
-        if uid_dele == meu_uid {
-            out.push((pid, nascimento));
-        }
-    }
-    out
-}
-
-/// 1.0-105 — A TRAVA DE INSTÂNCIA ÚNICA (o SWAYNC_COUNT=5 do rig: o
-/// painel de notificações é UM por sessão — instâncias extra nascem de
-/// eras/relançamentos manuais e cada uma disputa o bus e o painel).
-/// Dados os pids vivos com nascimento, o MAIS VELHO FICA (o dono
-/// legítimo dos nomes do bus) e os EXTRAS recebem SIGTERM — função
-/// PURA sobre a lista (a porta dos testes); o chamador é quem sinaliza.
-fn extras_da_fila(pids: &[(i32, u64)]) -> Vec<i32> {
-    let mut ordenados = pids.to_vec();
-    ordenados.sort_unstable_by_key(|(_, t)| *t);
-    ordenados.into_iter().skip(1).map(|(p, _)| p).collect()
-}
-
-/// 1.0-105 — O GESTO da trava de instância única do swaync (a peça do
-/// ciclo do supervise): varre os pids vivos e sinaliza os extras
-/// (SIGTERM — a passada seguinte do ciclo colhe quem teimar; o dono do
-/// bus, o mais velho, segue de pé). Devolve os pids mortos (para o
-/// papel do supervisor — 0 = nada a fazer).
-fn swaync_instancia_unica() -> Vec<i32> {
-    let extras = extras_da_fila(&comms_pids_nascimento("swaync"));
-    for p in &extras {
-        unsafe { libc::kill(*p, libc::SIGTERM) };
-    }
-    extras
-}
-
 /// 1.0-100 — A VARREDURA DOS LOCKS ÓRFÃOS DE /tmp (o audit-99.txt §2
 /// fotografou `/tmp/elite-daemon.lock` e `/tmp/elite-daemon-session.lock`
 /// parados no chão entre relogins): o flock é estado do INODE — o dono
@@ -498,38 +420,6 @@ fn lanca(comando: &str, log: &PathBuf, nome_vaga: &str) -> io::Result<Child> {
         cmd.arg0("elite-daemon-game");
     }
     cmd.spawn()
-}
-
-/// E149 — A PELE DO RESIDENTE ANTES DO FORK (a cura do "Config not
-/// found!" do dump): o rig que antecedeu a dose acorda o swaync SEM o
-/// conf do dono — o painel nasce cego e o journal nasce vermelho. O
-/// daemon session é o ÚLTIMO portão antes do spawn: o conf do skel é
-/// entregue UMA vez; o PRESENTE é domínio do dono e NUNCA tocado (a
-/// mesma lei do sync_skel do post-upgrade). Função PURA sobre caminhos
-/// (a porta do contrato) — 0 entregas = nada mudou, nada no papel.
-/// 1.0-102 — A CADEIA DE MESTRES (a cura do "Config not found!" do
-/// audit 102): o skel é VEÍCULO DA ISO — o rig instalado NEM O TEM em
-/// /etc/skel; o mestre que VIAJA NA DOSE é o do pacote
-/// (/usr/local/share/elite/swaync), com o /etc/xdg/swaync da casa e o
-/// skel como redes (nessa ordem — o primeiro que TEM a peça veste).
-fn entrega_pele_swaync(mestres: &[PathBuf], conf_dir: &std::path::Path) -> usize {
-    let mut entregues = 0;
-    for arquivo in ["config.json", "style.css"] {
-        let alvo = conf_dir.join(arquivo);
-        if alvo.exists() {
-            continue; // o dono veste o que é dele
-        }
-        for mestre in mestres {
-            let Ok(bytes) = std::fs::read(mestre.join(arquivo)) else {
-                continue; // este mestre sem a peça: a rede seguinte veste
-            };
-            if std::fs::create_dir_all(conf_dir).is_ok() && std::fs::write(&alvo, &bytes).is_ok() {
-                entregues += 1;
-            }
-            break; // o primeiro mestre com a peça decidiu (vestiu OU falhou na escrita — as redes não reescrevem)
-        }
-    }
-    entregues
 }
 
 /// E151 — A MORDAÇA DO AUTOSTART DUPLICADO DO AGENTE POLKIT (a diretriz
@@ -1078,24 +968,6 @@ fn supervisa(
                     }
                 }
             }
-            // 1.0-105 — A TRAVA DE INSTÂNCIA ÚNICA DO SWAYNC (o
-            // SWAYNC_COUNT=5 do rig: instâncias extra disputam o MESMO
-            // bus e o painel — o MAIS VELHO fica (o dono legítimo dos
-            // nomes do bus), os extras caem com SIGTERM no MESMO ciclo.
-            // A peça só caminha no /proc da vaga do swaync — a MESMA
-            // escola do gate de comm de baixo; cobre os DOIS caminhos:
-            // o filho NOSSO vivo E o caminho de spawn (o gate adota o
-            // sobrevivente, nunca relança por cima de quem ficou).
-            if v.res.nome == "swaync" {
-                let extras = swaync_instancia_unica();
-                if !extras.is_empty() {
-                    eprintln!(
-                        "elite-daemon supervise: swaync instância ÚNICA — {} extra(s) sinalizado(s) {:?} (o mais velho fica: o dono do bus)",
-                        extras.len(),
-                        extras
-                    );
-                }
-            }
             if v.filho.is_some() || v.ausente {
                 continue;
             }
@@ -1148,40 +1020,7 @@ fn supervisa(
                 v.trava = trava;
                 continue;
             }
-            //    (c') E149→1.0-105 — A PELE DO SWAYNC SINCRONIZADA ANTES
-            //        DE SUBIR: o lançamento da casa é EXPLÍCITO (-c E -s
-            //        nos arquivos do $HOME do dono) — os DOIS arquivos
-            //        (config.json E style.css) são entregues pelos
-            //        mestres ANTES do fork (o rig que antecedeu a dose
-            //        acorda o painel SEM o conf; o presente do dono
-            //        nunca é tocado); o /etc/xdg/swaync do upstream sai
-            //        da rede de TODO lançamento da casa (o "COULD NOT
-            //        FIND CSS FILE!" morre no ÚLTIMO portão).
-            if v.res.nome == "swaync" {
-                let conf_base = std::env::var("XDG_CONFIG_HOME")
-                    .map(PathBuf::from)
-                    .unwrap_or_else(|_| {
-                        PathBuf::from(std::env::var("HOME").unwrap_or_default()).join(".config")
-                    });
-                // 1.0-102→1.0-104 — A CADEIA DE MESTRES: o pacote primeiro
-                // (o mestre da dose), o skel do rig de segundo (o pacote
-                // o entrega desde a 1.0-104) e o /etc/xdg como a ÚLTIMA
-                // rede (o DEFAULT do próprio swaync upstream — a casa
-                // não disputa o caminho do alheio, mas quem existe veste)
-                let mestres = [
-                    PathBuf::from("/usr/local/share/elite/swaync"),
-                    PathBuf::from("/etc/skel/.config/swaync"),
-                    PathBuf::from("/etc/xdg/swaync"),
-                ];
-                let entregues = entrega_pele_swaync(&mestres, &conf_base.join("swaync"));
-                if entregues > 0 {
-                    eprintln!(
-                        "elite-daemon supervise: swaync pele ENTREGUE do mestre da dose ({}) — config.json E style.css no lugar ANTES do fork explícito (-c e -s)",
-                        entregues
-                    );
-                }
-            }
-            //    (c'') E151 — A MORDAÇA DO AUTOSTART DO AGENTE (a diretriz
+            //    (c') E151 — A MORDAÇA DO AUTOSTART DO AGENTE (a diretriz
             //        do polkit ÚNICO): o lxqt-policykit traz o
             //        /etc/xdg/autostart/lxqt-policykit-agent.desktop —
             //        a sessão nascia com DOIS agentes (o do XDG autostart
@@ -1279,25 +1118,25 @@ mod tests {
         let r = parse_conf(
             "# a fila da casa (E132)\n\
              \n\
-             swaync::swaync\n\
-             swayosd::swayosd-server\n",
+             swayosd::swayosd-server\n\
+             osd-noturno::swayosd-server --top-margin 40\n",
         );
         assert_eq!(r.len(), 2, "comentário e linha vazia não são residentes");
-        assert_eq!(r[0].nome, "swaync");
-        assert_eq!(r[0].comando, "swaync");
+        assert_eq!(r[0].nome, "swayosd");
+        assert_eq!(r[0].comando, "swayosd-server");
         assert_eq!(r[0].bus, None, "gramática velha = sem gate de bus");
-        assert_eq!(r[1].comando, "swayosd-server");
+        assert_eq!(r[1].comando, "swayosd-server --top-margin 40");
     }
 
     #[test]
     fn conf_e135_gramatica_do_bus() {
         // a gramática nova: nome::bus::comando — o gate de posse viaja
         // no conf da casa (o dono edita à vontade)
-        let r = parse_conf("swaync::org.erikreider.swaync.cc::swaync\n");
+        let r = parse_conf("osd::org.casa.Osd::swayosd-server\n");
         assert_eq!(r.len(), 1);
-        assert_eq!(r[0].nome, "swaync");
-        assert_eq!(r[0].bus.as_deref(), Some("org.erikreider.swaync.cc"));
-        assert_eq!(r[0].comando, "swaync");
+        assert_eq!(r[0].nome, "osd");
+        assert_eq!(r[0].bus.as_deref(), Some("org.casa.Osd"));
+        assert_eq!(r[0].comando, "swayosd-server");
     }
 
     #[test]
@@ -1328,8 +1167,15 @@ mod tests {
             );
         }
         let nomes: Vec<&str> = RESIDENTES_DEFAULT.iter().map(|(n, _, _)| *n).collect();
-        assert!(nomes.contains(&"swaync"));
         assert!(nomes.contains(&"swayosd"));
+        // 1.0-106 — A CENTRAL DE NOTIFICAÇÕES MORREU por ordem do dono
+        // (o rig fotografou o crash-loop do start-limit-hit — dispensada
+        // INTEIRA, sem substituto: nenhuma vaga, nenhum gate, nenhum
+        // lançamento — e o pacote sai da ISO)
+        assert!(
+            !nomes.contains(&"swaync"),
+            "swaync não é mais residente (1.0-106 — a central morreu sem substituto)"
+        );
         // E151 — o udiskie SAI da fila (o debloat extremo: o Python
         // residente de 58,5 MB morre — o automount é a regra udev
         // 91-elite-automount, oneshot POR EVENTO, zero daemon)
@@ -1364,8 +1210,9 @@ mod tests {
     #[test]
     fn e135_o_gate_de_posse_adota_quem_ja_e_dono() {
         // o nome no bus com dono = instância de fora viva: ADOTA mesmo
-        // com a trava livre (o réu do loop 809 — swaync exit 1 relançado
-        // às cegas — morre exatamente aqui)
+        // com a trava livre (o réu do crash-loop de era — o residente
+        // relançado às cegas sobre a instância viva — morre exatamente
+        // aqui)
         assert!(matches!(
             decide_posse(true, true, false),
             Posse::Adotada
@@ -1391,33 +1238,6 @@ mod tests {
             decide_posse(false, true, true),
             Posse::Adotada
         ));
-    }
-
-    #[test]
-    fn e157_o_swaync_sobe_com_a_pele_explicita_do_dono() {
-        // 1.0-105 — o lançamento EXPLÍCITO: o -c E o -s apontam nos
-        // arquivos do $HOME do dono (a pele entregue pelos mestres
-        // ANTES do fork) — o /etc/xdg/swaync/style.css do upstream
-        // NUNCA mais é rede (o "COULD NOT FIND CSS FILE!" morre); o
-        // 1º token segue "swaync" (o comm do gate de posse adota a
-        // instância viva de fora, nunca duplica)
-        let swaync = RESIDENTES_DEFAULT
-            .iter()
-            .find(|(n, _, _)| *n == "swaync")
-            .expect("o swaync é residente default da casa");
-        assert_eq!(swaync.1.split_whitespace().next(), Some("swaync"));
-        assert!(swaync.1.contains("-c $HOME/.config/swaync/config.json"));
-        assert!(swaync.1.contains("-s $HOME/.config/swaync/style.css"));
-    }
-
-    #[test]
-    fn e157_a_fila_unica_ceifa_so_os_extras() {
-        // 1.0-105 — o SWAYNC_COUNT=5 morre: o MAIS VELHO fica (o dono
-        // legítimo dos nomes do bus — menor starttime), os EXTRAS caem
-        let extras = extras_da_fila(&[(30, 900), (10, 100), (20, 500)]);
-        assert_eq!(extras, vec![20, 30], "o mais velho (10) fica");
-        assert!(extras_da_fila(&[(10, 100)]).is_empty(), "um só = nada a ceifar");
-        assert!(extras_da_fila(&[]).is_empty(), "nenhum = silêncio");
     }
 
     #[test]
@@ -1459,12 +1279,12 @@ mod tests {
         assert!(spec.peek_lock.is_none(), "conf não tem peek");
         // gramática com bus: o comm continua sendo o 1º token do comando
         let r2 = Residente {
-            nome: "swaync".into(),
-            comando: "swaync".into(),
-            bus: Some("org.erikreider.swaync.cc".into()),
+            nome: "osd".into(),
+            comando: "swayosd-server".into(),
+            bus: Some("org.casa.Osd".into()),
         };
         let spec2: VagaSpec = r2.into();
-        assert_eq!(spec2.comm.as_deref(), Some("swaync"));
+        assert_eq!(spec2.comm.as_deref(), Some("swayosd-server"));
     }
 
     // ── 1.0-100 — A VARREDURA DOS LOCKS ÓRFÃOS (audit 99 §2) ─────────

@@ -51,6 +51,10 @@ wb_list="$(pgrep -a waybar 2>/dev/null | tr '\n' ';' | sed 's/;$//')"
 wb_count="$(count waybar)"
 tb_list="$(pgrep -a craft-bar-rs 2>/dev/null | tr '\n' ';' | sed 's/;$//')"
 tb_count="$(count craft-bar-rs)"
+# 1.0-106 — a central de notificações MORREU: o contador segue no papel
+# como a fronteira das eras (o perito lê: rig velho com o fóssil vivo
+# responde >0; a casa nova responde 0 — a mesma gramática do waybar de
+# cima)
 sn_count="$(count swaync)"
 # E137 — O PROBE AUDITA O LANÇADOR REAL: a sessão é filha do
 # `elite-daemon session` (o craft-bars execa o binário — E135). As

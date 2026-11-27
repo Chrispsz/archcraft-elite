@@ -20,9 +20,9 @@
 //     transitório do Hydra não é notícia — o INÍCIO só sobe depois de
 //     3s com o QueryStatus ATIVO; o FIM só notifica sessões CONFIRMADAS;
 //     a decisão mora numa função PURA com teste de unidade);
-//   · `supervise` — o supervisor dos RESIDENTES da sessão (swaync,
-//     udiskie, swayosd, craft-audio-route) com try_wait nativo e backoff
-//     de 2s (o módulo supervise.rs — o craft-bars passa a delegar quando
+//   · `supervise` — o supervisor dos RESIDENTES da sessão (swayosd,
+//     craft-audio-route) com try_wait nativo e backoff de 2s (o módulo
+//     supervise.rs — o craft-bars passa a delegar quando
 //     este binário existe);
 //   · instância ÚNICA por flock de arquivo (a lei E30 — o 2º sai 0);
 //   · --once: UMA rodada de varredura (a porta dos testes);
@@ -49,6 +49,7 @@ use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 mod audio;
+mod bluetooth;
 mod idle;
 mod mpris;
 mod nucleo;
@@ -106,8 +107,8 @@ fn usage() -> &'static str {
      \x20 a waybar (SIGRTMIN+8) e notifica com debounce de 3s; instância única\n\
      \x20 por flock; SIGTERM des-registra, devolve o EPP e sai limpo.\n\
      \x20 --once = uma rodada (a porta dos testes).\n\
-     \x20 supervise = o supervisor dos residentes da sessão (swaync, udiskie,\n\
-     \x20 swayosd — respawn com backoff de 2s).\n\
+     \x20 supervise = o supervisor dos residentes da sessão (swayosd —\n\
+     \x20 respawn com backoff de 2s).\n\
      \x20 session = E135 — O LANÇADOR ÚNICO da sessão gráfica (clientes de\n\
      \x20 display + residentes com o gate de posse; o craft-bars shell vira\n\
      \x20 `exec elite-daemon session` — zero /bin/sh residente).\n\
@@ -275,10 +276,14 @@ fn main() {
             espera_wayland(10);
             nucleo::liga_bus();
             wayland::start();
+            // 1.0-106 — o MPRIS nasce com o CENSO INICIAL (o pill acende no
+            // frame 0 de quem já tocava) e o BlueZ entra com o Powered
+            // consultado NO ARRANQUE (o ícone da barra nasce com a verdade)
             std::thread::spawn(mpris::thread);
             std::thread::spawn(audio::thread_subscribe);
             std::thread::spawn(|| audio::rodada("start"));
             std::thread::spawn(thread_netlink);
+            std::thread::spawn(bluetooth::thread);
             std::thread::spawn(|| thread_logind("PrepareForSleep", true));
             std::thread::spawn(|| thread_logind("Unlock", false));
             std::thread::spawn(thread_wakeguard);
@@ -576,7 +581,7 @@ pub fn wayland_pronto() -> bool {
 /// EPIPE/EOF — e o corpo da sessão desce JUNTO, GRACIOSAMENTE:
 ///   1. STOP acende (o supervisor da sessão vê no ciclo de ≤1s: SIGTERM
 ///      aos filhos NOSSOS via handle — craft-bar-rs, craft-dock-rs,
-///      swayosd-server, agente polkit, swaync, wallpaper, watch-save, o
+///      swayosd-server, agente polkit, wallpaper, watch-save, o
 ///      motor de jogo — e os COLHE com wait);
 ///   2. o sinal por COMM é o cinto imediato (o filho que nasceu fora do
 ///      mapa do supervisor na janela da queda também é alcançado);
@@ -609,7 +614,6 @@ pub(crate) fn fim_da_sessao(motivo: &str) {
             "craft-bar-rs",
             "craft-dock-rs",
             "swayosd-server",
-            "swaync",
             "lxqt-policykit-",
             "swaybg",
             "craft-display",
@@ -1016,24 +1020,6 @@ fn gpu_profile_restaura(mem: Vec<(PathBuf, String)>) -> usize {
     n
 }
 
-/// E135 — o Não Perturbe do swaync na sessão de jogo (D-Bus NATIVO do
-/// org.erikreider.swaync.cc — GetDnd primeiro: só TOGGLA quem estava
-/// desligado, o restauro é SIMÉTRICO; o dono que já dormia o swaync
-/// não acorda com o jogo). Sem bus/sem swaync = None (honesto).
-fn dnd_troca() -> Option<bool> {
-    let c = zbus::blocking::Connection::session().ok()?;
-    let p = zbus::blocking::Proxy::new(
-        &c,
-        "org.erikreider.swaync.cc",
-        "/org/erikreider/swaync/cc",
-        "org.erikreider.swaync.cc",
-    )
-    .ok()?;
-    let estava: bool = p.call::<_, _, bool>("GetDnd", &()).ok()?;
-    let _: Result<(), _> = p.call_noreply("ToggleDnd", &());
-    Some(estava)
-}
-
 fn daemon_loop() -> Result<(), String> {
     // instância única (E30): flock no arquivo — o 2º processo sai 0.
     let lock = PathBuf::from("/tmp/elite-daemon.lock");
@@ -1145,12 +1131,12 @@ fn daemon_loop() -> Result<(), String> {
     // sempre vem depois da 1ª escrita (era `= 0u64` nunca lido — warning)
     let mut iniciada_em: u64;
     // E135 — a memória da SESSÃO: o perfil de GPU anterior (o sysfs
-    // devolve), o estado do DND do swaync e o inhibitor lock do logind
-    // (o lock/apagamento de tela NÃO morrem durante a partida — o fd
-    // solto é o fim da inibição; o dono suspender à mão segue livre).
+    // devolve) e o inhibitor lock do logind (o lock/apagamento de tela
+    // NÃO morrem durante a partida — o fd solto é o fim da inibição; o
+    // dono suspender à mão segue livre). 1.0-106 — o Não Perturbe de era
+    // morreu com a central de notificações (dispensada pelo dono).
     let mut gpu_mem: Vec<(PathBuf, String)> = Vec::new();
     let mut gpu_perf_mem: Vec<(PathBuf, String)> = Vec::new();
-    let mut dnd_era: Option<bool> = None;
     let mut inhibitor: Option<zbus::zvariant::OwnedFd> = None;
     // o token de geração cancela a thread de debounce pendente quando a
     // sessão cai dentro da janela (o AtomicBool 'confirmada' é escrita
@@ -1212,7 +1198,6 @@ fn daemon_loop() -> Result<(), String> {
             let n = epp_aplica("performance");
             gpu_mem = gpu_aplica("high");
             gpu_perf_mem = gpu_profile_aplica();
-            dnd_era = dnd_troca();
             // o inhibitor do logind (nativo): o lock/apagamento dorme
             {
                 if let Ok(c) = zbus::blocking::Connection::system() {
@@ -1238,11 +1223,10 @@ fn daemon_loop() -> Result<(), String> {
                 gpu_performance: true,
             }));
             eprintln!(
-                "elite-daemon: sessão de jogo ATIVA — EPP performance em {} cpu(s) + GPU high em {} card(s) + perfil 3D_FULL_SCREEN em {} card(s) + DND {} + {} waybar(s) avisada(s) + inhibitor logind {}",
+                "elite-daemon: sessão de jogo ATIVA — EPP performance em {} cpu(s) + GPU high em {} card(s) + perfil 3D_FULL_SCREEN em {} card(s) + {} waybar(s) avisada(s) + inhibitor logind {}",
                 n,
                 gpu_mem.len(),
                 gpu_perf_mem.len(),
-                if dnd_era.is_some() { "ligado" } else { "indisponível" },
                 sinal_waybar(),
                 if inhibitor.is_some() { "ARMADO" } else { "sem (honesto)" }
             );
@@ -1280,10 +1264,6 @@ fn daemon_loop() -> Result<(), String> {
                 game: None,
                 gpu_performance: false,
             }));
-            if dnd_era.take() == Some(false) {
-                // só DEVOLVE quem a casa ligou (o toggles são simétricos)
-                let _ = dnd_troca();
-            }
             drop(inhibitor.take());
             eprintln!(
                 "elite-daemon: sessão de jogo FIM — EPP balance_performance em {} cpu(s) + GPU restaurada em {} card(s) + perfil devolvido em {} card(s) + {} waybar(s) avisada(s){}",
@@ -1326,9 +1306,6 @@ fn daemon_loop() -> Result<(), String> {
                 let n = epp_aplica("balance_performance");
                 let gpu_devolvida = gpu_restaura(std::mem::take(&mut gpu_mem));
                 let perf_devolvida = gpu_profile_restaura(std::mem::take(&mut gpu_perf_mem));
-                if dnd_era.take() == Some(false) {
-                    let _ = dnd_troca();
-                }
                 drop(inhibitor.take());
                 nucleo::pub_bus(&elite_core::BusMsg::GameMode(elite_core::GameModeState {
                     active: false,

@@ -8,7 +8,7 @@ license = "GPL-3.0"
 [dependencies]
 # 2.0 — A FUNDAÇÃO: os contratos tipados, o bus vivo e a persistência
 elite-core = { path = "../elite-core" }
-# zbus: o cliente D-Bus NATIVO (GameMode, logind, MPRIS, swaync) — zero
+# zbus: o cliente D-Bus NATIVO (GameMode, logind, MPRIS, BlueZ) — zero
 # subprocesso dbus-send por rodada (o bash pagava um fork a cada chamada).
 zbus = { version = "4", features = ["blocking"] }
 # regex: a MESMA família ERE do bash (o padrão GAME_PATS traduzido 1:1)
