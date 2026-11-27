@@ -671,19 +671,23 @@ fn build(app: &gtk::Application) {
             });
         }
         clique_solto(&btn_rede, {
-            // o estado da foto É a conexão ativa (Cabo → networking;
-            // Wi-Fi/Desligado → o rádio) e a resposta é o gesto: o
-            // dreno re-veste no frame seguinte
-            let st = st.clone();
+            // 1.0-108 — A LEI DA CONEXÃO PRINCIPAL (a evidência do rig
+            // 1.0-107.3: o direito de era derrubava o Networking INTEIRO
+            // com `nmcli networking off` — o enp7s0 ficava "não
+            // disponível" SEM volta, o rádio Wi-Fi junto no escuro; a
+            // ordem do dono, palavra por palavra: priorizar ethernet
+            // sobre wifi, guardar o par (DEVICE, CONNECTION) no
+            // last-net.state e desconectar SÓ a principal pelo `nmcli
+            // device disconnect` — NUNCA `ip link set down`); na volta o
+            // par guardado (ou a ethernet com cabo, senão o wifi) sobe
+            // com `ip link set up` + `nmcli device set managed yes` +
+            // `nmcli connection up` / `nmcli device connect`. A resposta
+            // é o gesto: o dreno re-veste no frame seguinte.
             let tx = tx.clone();
             move |botao| if botao == 3 {
-                let ativo = st.borrow().rede;
                 let tx = tx.clone();
                 std::thread::spawn(move || {
-                    match ativo {
-                        EstadoRede::Cabo => alterna_nmcli(&["networking"]),
-                        _ => alterna_nmcli(&["radio", "wifi"]),
-                    }
+                    alterna_conexao_principal();
                     pede_rede_foto(&tx);
                 });
             } else if botao == 2 {
@@ -1070,7 +1074,10 @@ fn acao_do_alvo(alvo: &str) {
     }
     match alvo {
         "a:wifi" => alterna_nmcli(&["radio", "wifi"]),
-        "a:ethernet" => alterna_nmcli(&["networking"]),
+        // 1.0-108 — O ETHERNET DO SELETOR VESTE A MESMA LEI DO DIREITO DA
+        // BARRA (o `nmcli networking` de era derrubava o enp7s0 "não
+        // disponível" sem volta — quem cai é UMA conexão, a principal)
+        "a:ethernet" => alterna_conexao_principal(),
         _ => solta(&["nm-connection-editor"]), // a:avancado (e o desconhecido honesto)
     }
 }
@@ -1171,6 +1178,106 @@ fn alterna_nmcli(args: &[&str]) {
                 .stderr(Stdio::null())
                 .status();
         }
+    }
+}
+
+// ── 1.0-108 — A LEI DA CONEXÃO PRINCIPAL (o direito da rede) ───────────
+
+/// O CAMINHO do last-net.state (o tmpfs da sessão — o par que volta a
+/// viver no clique seguinte; o mesmo endereço da diretriz do dono).
+fn last_net_path() -> std::path::PathBuf {
+    let dir = std::env::var("XDG_RUNTIME_DIR")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| std::path::PathBuf::from("/tmp"));
+    dir.join("elite/last-net.state")
+}
+
+/// O RELIGAR DA CONEXÃO PRINCIPAL (o caminho da ordem do dono, palavra
+/// por palavra): o par do last-net.state (ou a ETHERNET com cabo, senão
+/// a Wi-Fi — `dev_para_religar` julga no papel vivo) volta com o link DE
+/// PÉ (`ip link set up`, best-effort — o polkit do rig decide), o
+/// dispositivo DEVOLVIDO ao NetworkManager (`managed yes`) e a conexão
+/// SALVA em cena (`nmcli connection up`) com a queda honesta para o
+/// `nmcli device connect` quando o papel não casa mais.
+fn religa_conexao_principal(foto: &str) {
+    let last = std::fs::read_to_string(last_net_path())
+        .ok()
+        .and_then(|t| crate::state::le_last_net(&t));
+    let Some(dev) = crate::state::dev_para_religar(foto, last.clone()) else {
+        return; // nada a religar no hardware (honesto, sem gesto fantasma)
+    };
+    // o link DE PÉ (best-effort: sem root o nmcli abaixo ainda levanta)
+    let _ = Command::new("ip")
+        .args(["link", "set", &dev, "up"])
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status();
+    // o dispositivo VOLTA ao NetworkManager (o "não disponível" de era
+    // morre: o manager é o dono do link)
+    let _ = Command::new("nmcli")
+        .args(["device", "set", &dev, "managed", "yes"])
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status();
+    // a conexão SALVA primeiro; sem papel casa, o device cru
+    if let Some((_, con)) = last {
+        if !con.is_empty() {
+            let ok = Command::new("nmcli")
+                .args(["connection", "up"])
+                .arg(&con)
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status()
+                .map(|s| s.success())
+                .unwrap_or(false);
+            if ok {
+                return;
+            }
+        }
+    }
+    let _ = Command::new("nmcli")
+        .args(["device", "connect"])
+        .arg(&dev)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status();
+}
+
+/// O DERRUBAR/RELIGAR DA CONEXÃO PRINCIPAL (a ethernet vence — a lei da
+/// dose): a principal VIVA cai com o par GUARDADO no last-net.state e o
+/// `nmcli device disconnect` (NUNCA `ip link set down` — o link do driver
+/// não é do dono); SEM principal viva o mesmo clique RELIGA (o toggle de
+/// 1 clique que o dono pediu — o estado de era "não disponível" sem
+/// volta morre por desenho).
+fn alterna_conexao_principal() {
+    let Some(foto) = um_longo(
+        "nmcli",
+        &["-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "device", "status"],
+    ) else {
+        return; // nmcli calado: nada a julgar (o silêncio é honesto)
+    };
+    match crate::state::conexao_principal(&foto) {
+        Some((dev, con)) => {
+            // o par fica no papel ANTES da queda (o clique seguinte tem
+            // a quem chamar de volta mesmo com o status mudado)
+            let caminho = last_net_path();
+            if let Some(pai) = caminho.parent() {
+                let _ = std::fs::create_dir_all(pai);
+            }
+            let _ = std::fs::write(&caminho, crate::state::conteudo_last_net(&dev, &con));
+            let _ = Command::new("nmcli")
+                .args(["device", "disconnect"])
+                .arg(&dev)
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status();
+        }
+        None => religa_conexao_principal(&foto),
     }
 }
 

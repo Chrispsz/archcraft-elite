@@ -422,7 +422,26 @@ file_has "bluetooth: o Powered do adaptador no D-Bus nativo (o ícone nasce cert
 # a barra da dose: o esquerdo da rede abre o SELETOR RÁPIDO, o direito
 # liga/desliga a conexão ativa, o botão de apps dispara o fuzzel DIRETO:
 file_has "bar: o esquerdo da rede abre o SELETOR RÁPIDO (craft-pick da casa)" "crates/craft-bar-rs/src/ui.rs" '"craft-pick"'
-file_has "bar: o direito da rede liga/desliga a conexão ativa (nmcli)" "crates/craft-bar-rs/src/ui.rs" 'alterna_nmcli(&["networking"])'
+# 1.0-108 — A LEI DA CONEXÃO PRINCIPAL (a evidência do rig 1.0-107.3: o
+# direito de era derrubava o Networking INTEIRO — o enp7s0 "não
+# disponível" sem volta; ethernet vence, quem cai é UMA conexão):
+file_has "bar: o direito da rede veste a LEI DA CONEXÃO PRINCIPAL (alterna_conexao_principal)" "crates/craft-bar-rs/src/ui.rs" 'alterna_conexao_principal()'
+file_has "bar: o estado da lei mora no núcleo puro (conexao_principal: ethernet vence)" "crates/craft-bar-rs/src/state.rs" 'pub fn conexao_principal'
+file_has "bar: o par da volta mora no last-net.state (a ordem do dono, palavra por palavra)" "crates/craft-bar-rs/src/ui.rs" 'last-net.state'
+file_has "bar: a queda é pelo nmcli device disconnect (NUNCA ip link set down)" "crates/craft-bar-rs/src/ui.rs" 'args(["device", "disconnect"])'
+file_has "bar: a volta veste o link DE PÉ (ip link set up, best-effort)" "crates/craft-bar-rs/src/ui.rs" 'args(["link", "set", &dev, "up"])'
+file_has "bar: a volta devolve o dev ao NetworkManager (managed yes)" "crates/craft-bar-rs/src/ui.rs" 'args(["device", "set", &dev, "managed", "yes"])'
+file_has "bar: a volta sobe a conexão SALVA (nmcli connection up)" "crates/craft-bar-rs/src/ui.rs" 'args(["connection", "up"])'
+file_has "bar: a queda honesta cai no device cru (nmcli device connect)" "crates/craft-bar-rs/src/ui.rs" 'args(["device", "connect"])'
+file_has "bar: a detecção viva da religação mora no núcleo (dev_para_religar)" "crates/craft-bar-rs/src/state.rs" 'pub fn dev_para_religar'
+file_hasnt "bar: o nmcli networking INTEIRO não derruba mais a rede (o réu de era não volta)" "crates/craft-bar-rs/src/ui.rs" 'alterna_nmcli(&["networking"])'
+# 1.0-108 — A PARIDADE COM O BLUETOOTH: o editor gráfico de rede VISÍVEL
+# na grade do craft-apps (o .desktop upstream nasce NoDisplay=true — o
+# applet de era era a porta dele e o applet NEM EXISTE na casa):
+file_exists "rede: o override do nm-connection-editor mora na frente do XDG_DATA_DIRS" "elite/airootfs/usr/local/share/applications/nm-connection-editor.desktop"
+file_has "rede: o override fala a cara pt_BR (Conexões de Rede na grade)" "elite/airootfs/usr/local/share/applications/nm-connection-editor.desktop" 'Name=Conexões de Rede'
+file_hasnt "rede: o override SEM NoDisplay (a grade enxerga o editor)" "elite/airootfs/usr/local/share/applications/nm-connection-editor.desktop" 'NoDisplay'
+file_hasnt "rede: o override SEM NotShowIn (nenhuma casa escondida)" "elite/airootfs/usr/local/share/applications/nm-connection-editor.desktop" 'NotShowIn'
 file_has "bar: o meio da rede abre o editor completo (nm-connection-editor)" "crates/craft-bar-rs/src/ui.rs" 'solta(&["nm-connection-editor"])'
 # 1.0-108 — A EVIDÊNCIA DO RIG 1.0-107.3: o botão Aplicativos abria o
 # FUZZEL enquanto a tecla Windows abria a grade do craft-apps (a casa

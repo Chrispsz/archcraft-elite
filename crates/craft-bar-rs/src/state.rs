@@ -384,6 +384,100 @@ pub fn alvo_do_id(pares: &str, id: u32) -> Option<&str> {
         })
 }
 
+// ── 1.0-108 — A LEI DA CONEXÃO PRINCIPAL (o clique direito da rede) ──────
+//      A evidência do rig 1.0-107.3: o clique direito derrubava o CABO
+//      com `nmcli networking off` — o Networking INTEIRO morria (o
+//      enp7s0 ficava "não disponível" e não religava nunca mais, o
+//      rádio Wi-Fi junto no escuro). A lei nova: quem cai é UMA
+//      conexão (a PRINCIPAL — ethernet vence wifi), quem volta é ELA
+//      mesma, pelo par (DEVICE, CONNECTION) guardado no
+//      ${XDG_RUNTIME_DIR}/elite/last-net.state — NUNCA `ip link set
+//      down` (o link do driver não é do dono, o NetworkManager é).
+
+/// A CONEXÃO PRINCIPAL do `nmcli -t -f DEVICE,TYPE,STATE,CONNECTION
+/// device status`: a ETHERNET conectada vence (a lei da dose: cabo é o
+/// caminho de menor dúvida), senão a Wi-Fi conectada. Devolve
+/// (dispositivo, conexão) — None quando nenhuma rede viva mora no
+/// papel (nada a derrubar: o clique é RELIGAR).
+pub fn conexao_principal(saida: &str) -> Option<(String, String)> {
+    let mut wifi: Option<(String, String)> = None;
+    for linha in saida.lines() {
+        let c = split_nmcli_t(linha);
+        if c.len() < 3 {
+            continue;
+        }
+        let (dev, tipo, estado) = (c[0].as_str(), c[1].as_str(), c[2].as_str());
+        if dev == "lo" || tipo == "loopback" {
+            continue;
+        }
+        if estado != "connected" {
+            continue;
+        }
+        let con = c.get(3).cloned().unwrap_or_default();
+        if tipo == "ethernet" {
+            // a ETHERNET vence na hora (a lei: cabo > sem fio)
+            return Some((dev.to_string(), con));
+        }
+        if tipo == "wifi" && wifi.is_none() {
+            wifi = Some((dev.to_string(), con));
+        }
+    }
+    wifi
+}
+
+/// O CONTEÚDO do last-net.state (o par que volta a viver no clique
+/// seguinte — "DEVICE=…" / "CONNECTION=…" em linhas próprias).
+pub fn conteudo_last_net(dev: &str, con: &str) -> String {
+    format!("DEVICE={dev}\nCONNECTION={con}\n")
+}
+
+/// A LEITURA do last-net.state: o par (DEVICE, CONNECTION) guardado no
+/// clique de derrubar — None quando o papel está vazio/torto (a
+/// detecção viva assume).
+pub fn le_last_net(conteudo: &str) -> Option<(String, String)> {
+    let mut dev = None;
+    let mut con = None;
+    for linha in conteudo.lines() {
+        // o valor VAZIO é ausência, não dispositivo (o papel torto de era
+        // devolvia "" e o religar nascia com um fantasma sem nome)
+        if let Some(v) = linha.strip_prefix("DEVICE=") {
+            if !v.trim().is_empty() {
+                dev = Some(v.trim().to_string());
+            }
+        } else if let Some(v) = linha.strip_prefix("CONNECTION=") {
+            if !v.trim().is_empty() {
+                con = Some(v.trim().to_string());
+            }
+        }
+    }
+    Some((dev?, con.unwrap_or_default()))
+}
+
+/// O DISPOSITIVO PARA RELIGAR (a detecção viva quando o papel cala):
+/// o DEVICE do last-net.state que AINDA mora no status ganha; senão a
+/// primeira ETHERNET com CABO (state != unavailable — sem cabo não há
+/// religação de cabo); senão a primeira placa Wi-Fi. None = nada a
+/// religar no hardware (o clique é honesto: sem placa, sem gesto).
+pub fn dev_para_religar(saida: &str, last: Option<(String, String)>) -> Option<String> {
+    let devs: Vec<Vec<String>> = saida
+        .lines()
+        .map(split_nmcli_t)
+        .filter(|c| c.len() >= 3 && c[0] != "lo" && c[1] != "loopback")
+        .collect();
+    // 1. o last-net que ainda vive no papel do hardware
+    if let Some((dev, _con)) = last {
+        if devs.iter().any(|c| c[0] == dev) {
+            return Some(dev);
+        }
+    }
+    // 2. a ETHERNET com cabo (unavailable = SEM cabo — não é religação, é esperiência)
+    if let Some(c) = devs.iter().find(|c| c[1] == "ethernet" && c[2] != "unavailable") {
+        return Some(c[0].clone());
+    }
+    // 3. a primeira placa Wi-Fi
+    devs.iter().find(|c| c[1] == "wifi").map(|c| c[0].clone())
+}
+
 // ── O BLUETOOTH (o par dedicated da diretriz) ──────────────────────────
 
 /// O Bluetooth está LIGADO na saída do `bluetoothctl show`? (procura a
@@ -895,6 +989,80 @@ mod tests {
         let pill3 = media_pill(&longo).unwrap();
         assert!(pill3.texto.chars().count() <= 28, "pill largo: {:?}", pill3.texto);
         assert!(pill3.tooltip.contains("de jeito nenhum"));
+    }
+
+    /// 1.0-108 — A LEI DA CONEXÃO PRINCIPAL (a evidência do rig: o clique
+    /// direito de era derrubava o Networking INTEIRO e o enp7s0 ficava
+    /// "não disponível" sem volta — ethernet vence, quem cai é UMA).
+    #[test]
+    fn a_conexao_principal_e_a_ethernet_viva() {
+        let foto = "lo:loopback:connected (externally):lo\n\
+                    enp7s0:ethernet:connected:Cabo de casa\n\
+                    wlp3s0:wifi:connected:Vizinho_2G";
+        // a ETHERNET conectada vence (o cabo é o caminho de menor dúvida)
+        assert_eq!(
+            conexao_principal(foto),
+            Some(("enp7s0".to_string(), "Cabo de casa".to_string()))
+        );
+        // sem o cabo: a Wi-Fi viva assume (o pill da rede não mente)
+        let sem_cabo = "enp7s0:ethernet:unavailable:\n\
+                        wlp3s0:wifi:connected:Vizinho_2G";
+        assert_eq!(
+            conexao_principal(sem_cabo),
+            Some(("wlp3s0".to_string(), "Vizinho_2G".to_string()))
+        );
+        // nada vivo: None (nada a derrubar — o clique é RELIGAR)
+        assert_eq!(conexao_principal("enp7s0:ethernet:disconnected:\n"), None);
+    }
+
+    /// 1.0-108 — O PAPEL DA VOLTA (last-net.state): o par guardado no
+    /// derrubar é o par que religa no clique seguinte.
+    #[test]
+    fn o_last_net_guarda_e_devolve_o_par_da_conexao() {
+        let papel = conteudo_last_net("enp7s0", "Cabo de casa");
+        assert!(papel.contains("DEVICE=enp7s0"));
+        assert!(papel.contains("CONNECTION=Cabo de casa"));
+        // a leitura devolve o par INTACTO (o SSID exótico sobrevive)
+        assert_eq!(
+            le_last_net(&papel),
+            Some(("enp7s0".to_string(), "Cabo de casa".to_string()))
+        );
+        // papel torto/vazio: None honesto (a detecção viva assume)
+        assert_eq!(le_last_net(""), None);
+        assert_eq!(le_last_net("DEVICE=\n"), None);
+        // DEVICE sem CONNECTION: o dispositivo volta (a conexão é opcional)
+        assert_eq!(
+            le_last_net("DEVICE=wlp3s0\n"),
+            Some(("wlp3s0".to_string(), String::new()))
+        );
+    }
+
+    /// 1.0-108 — A DETECÇÃO VIVA da religação (o papel cala ou o hardware
+    /// mudou): o last-net VIVO ganha; senão a ethernet com CABO; senão o
+    /// Wi-Fi; nada = None (sem placa não há gesto).
+    #[test]
+    fn a_religacao_detecta_o_caminho_vivo() {
+        let foto = "lo:loopback:connected (externally):lo\n\
+                    enp7s0:ethernet:disconnected:\n\
+                    wlp3s0:wifi:disconnected:";
+        // 1. o last-net que AINDA mora no hardware
+        assert_eq!(
+            dev_para_religar(foto, Some(("enp7s0".to_string(), "Cabo".to_string()))),
+            Some("enp7s0".to_string())
+        );
+        // o last-net de placa REMOVIDA não religa fantasma (o hardware manda)
+        assert_eq!(
+            dev_para_religar(foto, Some(("eth9".to_string(), "x".to_string()))),
+            Some("enp7s0".to_string()) // caiu na ethernet com cabo
+        );
+        // 2. sem papel: a ethernet com CABO (disconnected tem cabo;
+        //    unavailable é SEM cabo — não é religação, é esperiência)
+        assert_eq!(dev_para_religar(foto, None), Some("enp7s0".to_string()));
+        let sem_cabo = "enp7s0:ethernet:unavailable:\nwlp3s0:wifi:disconnected:";
+        // 3. sem cabo nenhum: a placa Wi-Fi assume
+        assert_eq!(dev_para_religar(sem_cabo, None), Some("wlp3s0".to_string()));
+        // nada no hardware: None honesto
+        assert_eq!(dev_para_religar("lo:loopback:connected::\n", None), None);
     }
 
 }
