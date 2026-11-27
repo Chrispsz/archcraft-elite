@@ -3101,7 +3101,7 @@ pkgver=1.0
 #      Thunar segue em C-A-f) e os ÍCONES DE JOGO vestem o Hydra de
 #      ~/.config/hydra + o cache ~/.cache/elite/icons.
 #      pkgrel 104→105 NO MESMO COMMIT (lei E41 — o guard cobra).
-pkgrel=105
+pkgrel=106
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da sessão; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
