@@ -248,6 +248,17 @@ OSD_DST="${XDG_CONFIG_HOME:-$HOME/.config}/swayosd/config.toml"
 OSDCSS_SRC="${ELITE_OSDCSS_SRC:-/usr/local/share/elite/swayosd/style.css}"
 OSDCSS_DST="${XDG_CONFIG_HOME:-$HOME/.config}/swayosd/style.css"
 
+# 1.0-107 — AS PELES DO SWAYNC (a volta da central com dono único): a
+# config.json e o style.css moram NO $HOME — o daemon lança o swaync com
+# o -c E o -s APONTANDO neles (o 'COULD NOT FIND CSS FILE!' morre com o
+# arquivo EXISTENTE). A gramática é a do domínio v3 SOB AUSÊNCIA: o
+# arquivo PRESENTE é do dono e NUNCA é tocado; o AUSENTE recebe o mestre
+# do pacote (primeiro uso — a mesma lei E156/5 da dose antiga).
+SWAYNCCFG_SRC="${ELITE_SWAYNCCFG_SRC:-/usr/local/share/elite/swaync/config.json}"
+SWAYNCCFG_DST="${XDG_CONFIG_HOME:-$HOME/.config}/swaync/config.json"
+SWAYNCCSS_SRC="${ELITE_SWAYNCCSS_SRC:-/usr/local/share/elite/swaync/style.css}"
+SWAYNCCSS_DST="${XDG_CONFIG_HOME:-$HOME/.config}/swaync/style.css"
+
 # E104 — A PELE DO MENU (a gramática E91 na 3ª pele — a ferida do dono:
 # "cliquei com o botão direito… ele não mudou nada, não foi atualizado"):
 # o menu.xml morava SÓ no skel — veículo da ISO — e o menu do rig vivo
@@ -373,6 +384,17 @@ osd_skin() {
     skin_ensure "$OSDCSS_SRC" "$OSDCSS_DST" "" "${1:-none}" "CSS do OSD" && _osd_rc=0
     return "$_osd_rc"
 }
+swaync_skin() {
+    # 1.0-107 — DOIS arquivos, UMA central: a config.json e o style.css
+    # do $HOME (o daemon lança o swaync com -c E -s apontando neles — o
+    # 'COULD NOT FIND CSS FILE!' morre com o arquivo EXISTENTE). O
+    # veredito é o OU dos dois: qualquer um ENTREGUE derruba a central
+    # viva (o supervisor da sessão relança em ≤2s VESTIDO da pele nova).
+    _swy_rc=1
+    skin_ensure "$SWAYNCCFG_SRC" "$SWAYNCCFG_DST" "" "${1:-none}" "config do swaync" && _swy_rc=0
+    skin_ensure "$SWAYNCCSS_SRC" "$SWAYNCCSS_DST" "" "${1:-none}" "CSS do swaync" && _swy_rc=0
+    return "$_swy_rc"
+}
 menu_skin() {
     # E107 — o gate de XML antes da entrega (o menu de fábrica de 3 itens
     # do labwc é o preço de uma pele que não parseia: o rig perde TODAS as
@@ -427,6 +449,11 @@ qtc_skin   || true       # E130 — qt6ct.conf vale no próximo app Qt (a dança
                          # das irmãs; personalizado segue intocável)
 osd_skin   && CHANGED=2  # config do OSD renovado: o server RE-LÊ no nascimento
                          # (o pkill abaixo ressuscita com a pele nova)
+swaync_skin && {        # 1.0-107 — a central RELANÇA com a pele nova (o
+                         # supervisor da sessão traz de volta em ≤2s com o
+                         # -c/-s apontando nos arquivos ENTREGUES)
+    pkill -x swaync 2>/dev/null || true
+}
 lock_skin  || true       # a lock skin NÃO mexe no CHANGED (o hyprlock lê no
                          # próximo lock — o craft-lock chama ANTES de cada
                          # lock, E100; a lei E91/E100: a dose vale no PRÓXIMO

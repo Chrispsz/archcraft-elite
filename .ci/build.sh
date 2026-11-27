@@ -392,6 +392,17 @@ cp -p /work/elite/airootfs/etc/skel/.config/swayosd/config.toml \
 # como UMA pele; o swayosd lê style.css do dir de config automaticamente)
 cp -p /work/elite/airootfs/etc/skel/.config/swayosd/style.css \
       /tmp/elite-src/elite-system/files/usr/local/share/elite/swayosd/style.css
+# 1.0-107 — AS PELES DO SWAYNC NO PACOTE (a volta da central com dono
+# único): os mestres moram em /usr/local/share/elite/swaync/ e o
+# craft-rice os entrega ao $HOME SÓ na AUSÊNCIA (o arquivo presente é
+# domínio do dono — a lei E156/5 de sempre); o daemon lança o swaync
+# com -c E -s APONTANDO neles (o 'COULD NOT FIND CSS FILE!' morre com
+# o style.css EXISTENTE em disco).
+mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/swaync
+cp -p /work/elite/airootfs/etc/skel/.config/swaync/config.json \
+      /tmp/elite-src/elite-system/files/usr/local/share/elite/swaync/config.json
+cp -p /work/elite/airootfs/etc/skel/.config/swaync/style.css \
+      /tmp/elite-src/elite-system/files/usr/local/share/elite/swaync/style.css
 # E126 — A REGRA DO DESPERTAR EMBARCA NO PACOTE (o buraco de entrega que o
 # dump 173137 fotografou: a regra E122 morava só no airootfs da ISO — os
 # rigs instalados seguiam com o fóssil E24 de 3/nov desarmando TODO o USB
@@ -779,6 +790,20 @@ ${hnames}
     MOLDE[sudoers_install]='    install -dm750 "${pkgdir}/etc/sudoers.d"
     install -m440 "${startdir}/files/etc/sudoers.d/99-elite-clean" "${pkgdir}/etc/sudoers.d/99-elite-clean"'$'\n'
     MOLDE[sudoers_rm]='    [ -e "/etc/sudoers.d/99-elite-clean" ] && rm -f "/etc/sudoers.d/99-elite-clean"'$'\n'
+    # 1.0-107 — AS PELES DO SWAYNC + A MASK DO UNIT DE USUÁRIO: os
+    # mestres viajam no pacote (o craft-rice entrega ao $HOME na
+    # AUSÊNCIA) e o /etc/systemd/user/swaync.service nasce APONTANDO
+    # para /dev/null — o start-limit-hit do systemd --user morre SEM
+    # gatilho; o dono único do processo é o supervisor da sessão.
+    MOLDE[swc_install]='    install -d "${pkgdir}/usr/local/share/elite/swaync"
+    install -m644 "${startdir}/files/usr/local/share/elite/swaync/config.json" "${pkgdir}/usr/local/share/elite/swaync/config.json"
+    install -m644 "${startdir}/files/usr/local/share/elite/swaync/style.css" "${pkgdir}/usr/local/share/elite/swaync/style.css"'$'\n'
+    MOLDE[swc_rm]='    for f in /usr/local/share/elite/swaync/config.json /usr/local/share/elite/swaync/style.css; do
+        [ -e "$f" ] && rm -f "$f"
+    done'$'\n'
+    MOLDE[swcmask_install]='    install -d "${pkgdir}/etc/systemd/user"
+    ln -sfn /dev/null "${pkgdir}/etc/systemd/user/swaync.service"'$'\n'
+    MOLDE[swcmask_rm]='    [ -L "/etc/systemd/user/swaync.service" ] && rm -f "/etc/systemd/user/swaync.service"'$'\n'
     MOLDE[theo_install]='    install -d "${pkgdir}/usr/local/share/elite/labwc"
     install -m644 "${startdir}/files/usr/local/share/elite/labwc/themerc-override" "${pkgdir}/usr/local/share/elite/labwc/themerc-override"'$'\n'
     MOLDE[tum_install]='    install -Dm644 "${startdir}/files/etc/xdg/tumbler/tumbler.rc" "${pkgdir}/etc/xdg/tumbler/tumbler.rc"'$'\n'
@@ -3101,7 +3126,32 @@ pkgver=1.0
 #      Thunar segue em C-A-f) e os ÍCONES DE JOGO vestem o Hydra de
 #      ~/.config/hydra + o cache ~/.cache/elite/icons.
 #      pkgrel 104→105 NO MESMO COMMIT (lei E41 — o guard cobra).
-pkgrel=106
+# 1.0-107 — CONSOLIDAÇÃO, ESTABILIDADE E POLIMENTO (a dose E107): o
+#      AMBIENTE WAYLAND no dbus/userd ANTES de tudo no autostart (a cura
+#      do cold boot vazio), o AGENTE POLKIT da máquina (lxqt primeiro,
+#      polkit-gnome de queda — a vaga sabe o que existe), o SWAYNC
+#      VOLTA com dono único (unit do systemd --user MASCARADO
+#      /etc/systemd/user → /dev/null; a vaga supervisionada lança com
+#      -c/-s nos arquivos do $HOME; o mestre + skel + craft-rice
+#      entregam o style.css EXISTENTE), o SDDM técnico (InputMethod=
+#      vazio, ReuseSession=false), o craft-pick NON_UNIQUE com o
+#      notify::is-active (o 2º menu nunca mais morre), o DESPERTAR só
+#      no power/PS2K (a família espúria XHC*/GPP*/GP[0-9]*/X1* por
+#      PADRÃO no elite-acpi-wakeup; o craft-wake-guard põe TODO o USB
+#      para dormir — o dongle 2.4G fingidor matou a exceção de
+#      teclado), o SONO SEQUENCIADO (hyprlock mapeado ANTES do wlopm
+#      --off; o retorno com backoff de 800ms do link DP/HDMI, o
+#      recover, o hyprlock vivo e o connectivity check da rede), o
+#      craft-game MANUAL (o watcher/AUTO/WINE_HELPER_PATS/gm_whois
+#      morrem com o automático; o daemon LIVRE de varredura de
+#      processos; o inibidor prende idle:sleep), o craft-idle
+#      COORDENADO (o preset veste o sono associado, o Desativado zera
+#      OS DOIS, Travar/Suspender agora), o FEEDBACK honesto (cancelar
+#      senha rc=126/127 é silêncio; a dose notifica início/conclusão
+#      com o N REAL de pacotes; a limpeza notifica o total liberado) e
+#      o relógio SEM tooltip (o calendário é do clique).
+#      pkgrel 106→107 NO MESMO COMMIT (lei E41 — o guard cobra).
+pkgrel=107
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da sessão; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
@@ -3196,7 +3246,7 @@ pre_install() {
     ; do
         [ -e "/usr/local/bin/$f" ] && rm -f "/usr/local/bin/$f"
     done
-@unit_loop@@hook_rm@@kmod_rm@@mh_rm@@ff_rm@@lock_rm@@sddm_rm@@rc_rm@@osd_rm@@menu_rm@@gm_rm@@tum_rm@@doc_rm@@gp_rm@@flags_rm@@apps_rm@@pk_rm@@q6_rm@@dc_rm@@sudoers_rm@    return 0
+@unit_loop@@hook_rm@@kmod_rm@@mh_rm@@ff_rm@@lock_rm@@sddm_rm@@rc_rm@@osd_rm@@menu_rm@@gm_rm@@tum_rm@@doc_rm@@gp_rm@@flags_rm@@apps_rm@@pk_rm@@q6_rm@@dc_rm@@sudoers_rm@@swc_rm@@swcmask_rm@    return 0
 }
 # E129 — A MIGRAÇÃO AUTÔNOMA (AGENTS.md §4, 2026-11-20): o usuário final
 # NUNCA roda comando manual de pós-instalação — toda correção de /etc,
@@ -3238,7 +3288,7 @@ package() {
     # E132 — o elite-polkit-listener NÃO viaja mais (o agente da casa é o
     # lxqt-policykit-agent NATIVO, eleito no craft-bars; um bin a menos no
     # pacote, um agente a menos na fila — o C vendado aposentou do repo)
-@unit_install@@hook_install@@kmod_install@@mh_install@@ff_install@@lock_install@@sddm_install@@grub_install@@rc_install@@osd_install@@menu_install@@pd_install@@gm_install@@tum_install@@doc_install@@gp_install@@pt_install@@ef_install@@flags_install@@apps_install@@udev_install@@pk_install@@q6_install@@theo_install@@gtk_install@@dc_install@@sudoers_install@}
+@unit_install@@hook_install@@kmod_install@@mh_install@@ff_install@@lock_install@@sddm_install@@grub_install@@rc_install@@osd_install@@menu_install@@pd_install@@gm_install@@tum_install@@doc_install@@gp_install@@pt_install@@ef_install@@flags_install@@apps_install@@udev_install@@pk_install@@q6_install@@theo_install@@gtk_install@@dc_install@@sudoers_install@@swc_install@@swcmask_install@}
 MOLDE_PKGBUILD
 )"$'\n'
     molde="${molde%$'\n'}"   # o <<< recoloca o \n final: byte a byte

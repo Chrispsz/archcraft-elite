@@ -223,9 +223,10 @@ cura_autostart() {
     # — com o lançador do daemon EM ORDEM e a sintaxe sã — e ainda
     # assim DOENTE: spawns de residentes da era morta na mesma linha
     # de comando (craft-bars removido, polkit-gnome removido, udiskie
-    # debloatado, waybar aposentado, craft-toplevel/swayidle de C/era;
-    # o swaync aposentou de vez na 1.0-106 — o dono dispensou central
-    # de notificações e nenhum binário dele habita a casa). O skel novo é
+    # debloatado, waybar aposentado, craft-toplevel/swayidle de C/era; o
+    # swaync voltou na 1.0-107 como VAGA supervisionada do elite-daemon
+    # session — nenhum residente nasce no autostart, o dono dele é o
+    # supervisor). O skel novo é
     # MINIMALISTA: nenhum residente nasce no autostart — quem lança é
     # o elite-daemon session (UM corpo, gate E135). Spawn fóssil em
     # linha VIVA (fora de comentário) = reconstrução do mestre.

@@ -315,11 +315,13 @@ for _d in /run/user/[0-9]*; do
     unset _st
 done
 
-# ── 8. (1.0-106 — HISTÓRIA: o swaync morreu por completo) ────────────────
-#      Os blocos de cura de era (a máscara E117 revogada pela 1.0-101 e
-#      a chave morta 'image-visibility' da E135) saíram com o dono: a
-#      casa não carrega central de notificações NENHUMA (o relógio é
-#      hora/calendário) e nenhum fluxo vivo toca no notificador morto.
+# ── 8. (1.0-106→1.0-107 — HISTÓRIA: o swaync morreu e VOLTOU curado) ──────
+#      A 1.0-106 aposentou a central (crash-loop start-limit-hit); a
+#      1.0-107 a trouxe de volta COM DONO ÚNICO: o unit do systemd --user
+#      MASCARADO (o pacote grava /etc/systemd/user/swaync.service →
+#      /dev/null) e o supervisor da sessão lança o ÚNICO processo com
+#      -c/-s nos arquivos do $HOME (o craft-rice entrega as peles).
+#      Nenhuma cura de era mora aqui — o fluxo é o da dose.
 
 # ── 9. O TEMA DE ÍCONES É UM SÓ (E130 — a ordem do dono 2026-11-21) ────
 #      "Garanta Papirus-Dark nos settings.ini GTK dos usuários ativos e o

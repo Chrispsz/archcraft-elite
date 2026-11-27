@@ -182,6 +182,13 @@ foot
 swaybg
 hyprlock
 wlopm
+# 1.0-107 — A CENTRAL DE NOTIFICAÇÕES VOLTA COM DONO ÚNICO (a ordem do
+# dono, revisão da 1.0-106): o swaync é o da casa (AGENTS.md §7 — "Não
+# reinventar o que o mundo já fez bem"); o crash-loop da era morre no
+# unit do systemd --user MASCARADO (/etc/systemd/user/swaync.service →
+# /dev/null) e o SUPERVISOR da sessão é o único dono — o style.css do
+# skel viaja na bagagem (o 'COULD NOT FIND CSS FILE!' não renasce).
+swaync
 ## v2.10.6 — o dump v2.0 mostra o layout REAL de monitores (posição/scale/
 ## modo ATUAL de cada saída); a receita canônica do labwc já o citava —
 ## a ferramenta agora viaja na ISO

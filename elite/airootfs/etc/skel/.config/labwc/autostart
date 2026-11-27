@@ -12,6 +12,19 @@
 # painel duplicado morreu com o E137; a era do sed cego morreu com o
 # E146 — o bloco marcado abaixo é o ÚNICO lançador da casa).
 
+# ── 0. O AMBIENTE WAYLAND NO DBUS/USERD ANTES DE TUDO (1.0-107) ───────────
+#     A cura do COLD BOOT VAZIO (o re-login subia a casa inteira e o
+#     primeiro boot nascia mudo): os processos D-Bus-ativados e as
+#     units --user do systemd só ENXERGAM o WAYLAND_DISPLAY quando ele
+#     mora no activation environment — a exportação corre ANTES do
+#     swaybg/daemon/qualquer cliente de display (a linha da receita
+#     oficial do labwc; idempotente por natureza, falha calada em
+#     sessão sem dbus).
+if command -v dbus-update-activation-environment >/dev/null 2>&1; then
+    dbus-update-activation-environment --systemd \
+        WAYLAND_DISPLAY XDG_CURRENT_DESKTOP=wlroots >/dev/null 2>&1 || true
+fi
+
 # ── 1. OS ÓRFÃOS DA SESSÃO ANTERIOR MORREM NO FRAME 0 ────────────────────
 #     ${XDG_RUNTIME_DIR:-/run/user/$UID}/elite/ é tmpfs da SESSÃO, mas o
 #     relogin rápido e o crash deixam fósseis que MENTEM à sessão nova
