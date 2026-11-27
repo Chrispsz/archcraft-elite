@@ -48,6 +48,11 @@ on:
       # features, que NUNCA compila o corpo da gui — a classe exata que
       # só o Canal pega). Agora o Canal enxerga crates/ e re-valida a GUI
       # compilada em cada push do fio.
+      # 1.0-107.2 — O SMOKE É PORTÃO DO CANAL: tests/ci-runtime-smoke.sh roda
+      # DENTRO deste workflow (o portão do db) — mudança no smoke sem run do
+      # Canal é a MESMA classe do buraco de crates/ (a cura do smoke 6.5
+      # da 1.0-107.2 ficou sem validação porque o gatilho era cego a ele).
+      - 'tests/ci-runtime-smoke.sh'
       - 'crates/**'
       - '.ci/build.sh'
       - '.ci/guard-pkgrel.sh'
