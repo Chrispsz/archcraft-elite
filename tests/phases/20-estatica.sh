@@ -606,9 +606,26 @@ file_has "pick: o NON_UNIQUE destrava o 2º menu (a instância única matava o p
 # ativar a janela) não mata mais o menu dos chamadores:
 file_has "pick: as QUATRO formas do título (-T T · -TT · --title T · --title=T)" "crates/craft-tools/src/lib.rs" '-TTÍTULO'
 file_has "pick: a flag inválida é ERRO NOMEADO (nunca item fantasma do zumbi)" "crates/craft-tools/src/lib.rs" 'opção desconhecida'
-file_has "pick: o exit 2 fecha a porta ANTES de qualquer GTK (o juiz antes do init)" "crates/craft-tools/src/bin/craft-pick.rs" 'std::process::exit(2)'
+file_has "pick: o exit 2 fecha a porta ANTES de qualquer GTK (o juiz antes do init — a saída única colhe o pidfile)" "crates/craft-tools/src/bin/craft-pick.rs" 'sai(2)'
 file_has "pick: a guarda de foco do labwc (ja_teve_foco — o primeiro frame é cortesia)" "crates/craft-tools/src/bin/craft-pick.rs" 'ja_teve_foco'
 file_has "pick: a carência inicial de 300ms após o present() (o frame 0..1 do compositor)" "crates/craft-tools/src/bin/craft-pick.rs" 'from_millis(300)'
+# 1.0-109 — A EVIDÊNCIA DO DUMP 1.0-108: 24 craft-pick presos em
+# background e NENHUM menu na tela do labwc (o GtkApplicationWindow
+# comum não recebe sobreposição nem foco) — o pick veste A CAMADA (a
+# diretriz, palavra por palavra) e a instância única veste o toggle:
+file_has "pick: a janela veste o gtk4-layer-shell (a cura dos 24 pick invisíveis)" "crates/craft-tools/src/bin/craft-pick.rs" 'init_layer_shell'
+file_has "pick: a camada é a de SOBREPOSIÇÃO (acima de qualquer janela — a gramática do calendário)" "crates/craft-tools/src/bin/craft-pick.rs" 'Layer::Overlay'
+file_has "pick: o teclado é EXCLUSIVO da superfície (Escape/setas/Enter direto)" "crates/craft-tools/src/bin/craft-pick.rs" 'KeyboardMode::Exclusive'
+file_has "pick: o namespace da camada é o da casa" "crates/craft-tools/src/bin/craft-pick.rs" 'set_namespace(Some("craft-pick"))'
+file_has "pick: o gtk4-layer-shell é dependência da gui (o par provado da bar/dock)" "crates/craft-tools/Cargo.toml" 'gtk4-layer-shell'
+file_has "pick: o pidfile da instância única mora no XDG_RUNTIME_DIR/elite (a diretriz)" "crates/craft-tools/src/bin/craft-pick.rs" 'craft-pick.pid'
+file_has "pick: o MESMO título vivo é toggle (fecha o velho e sai limpo)" "crates/craft-tools/src/lib.rs" 'InstanciaPick::Toggle'
+file_has "pick: OUTRO menu vivo é substituição na hora" "crates/craft-tools/src/lib.rs" 'InstanciaPick::Substitui'
+file_has "pick: a saída única colhe o pidfile do dono (nenhum invisível captura ponteiro)" "crates/craft-tools/src/bin/craft-pick.rs" 'fn sai(codigo: i32)'
+# o ESC sai LIMPO (exit 0 — a diretriz da instância única): os
+# chamadores julgam pelo CONTEÚDO (vazio = cancelado benigno)
+file_has "rollback: a descrição vazia é cancelamento benigno (o juízo é o conteúdo)" "$AIROOTFS/usr/local/bin/craft-rollback" 'descrição vazia/cancelada'
+file_has "game: a escolha vazia é o cancelamento benigno (nenhum despacho corre)" "$AIROOTFS/usr/local/bin/craft-game" 'fechado sem escolha'
 # as flags reais do craft-pick --help (a cura do 'Opção --title=... desconhecida'
 # — 1.0-105: a forma do foot -T com espaço é a bandeira da casa):
 file_has "pick: o craft-idle sonda o --help antes do -T (a flag de era não mata o painel)" "$AIROOTFS/usr/local/bin/craft-idle" 'craft-pick --help'

@@ -180,8 +180,10 @@ if [ "${1:-}" = "menu" ]; then
         _ed="Desativado (nunca sozinho)"
         _escolha="$(printf '%s\n' "$_e5" "$_e15" "$_e30" "$_e60" "$_ed" "Travar agora" "Suspender agora" \
             | _pick "$_titulo")" || _rc=$?
-        # rc 1/2/143 = ESC/fora — a lei dos menus, benigno
-        if [ "$_rc" = 0 ]; then
+        # rc 1/2/143 = ESC/fora — a lei dos menus, benigno. 1.0-109 —
+        # o ESC agora sai LIMPO (exit 0): a escolha VAZIA cai no case
+        # vazio (benigno) — o conteúdo é o juiz
+        if [ -n "$_escolha" ]; then
             case "$_escolha" in
                 "$_e5")  escreve 5  ;;
                 "$_e15") escreve 15 ;;

@@ -14,7 +14,12 @@ license = "GPL-3.0"
 # 1.0-108 — o libc é da FUNDAÇÃO: a guarda do pkexec órfão (lib.rs)
 # mora no caminho SEM gui também.
 default = ["gui"]
-gui = ["gtk4"]
+# 1.0-109 — O PICK VESTE A CAMADA (a evidência do dump 1.0-108: 24
+# craft-pick presos em background porque o GtkApplicationWindow comum
+# não recebe sobreposição nem foco no labwc — o mesmo par provado da
+# bar/dock: gtk4 0.11 + gtk4-layer-shell 0.8, links="gtk-4" proíbe cópia
+# duplicada do sys-crate).
+gui = ["gtk4", "gtk4-layer-shell"]
 
 [dependencies]
 # 1.0-103 — A FUNDAÇÃO É DIRETA (não mais da feature gui): o módulo audit
@@ -23,6 +28,8 @@ gui = ["gtk4"]
 elite-core = { path = "../elite-core" }
 libc = "0.2"
 gtk4 = { version = "0.11", optional = true }
+# 1.0-109 — a camada de sobreposição do pick (o par provado da bar/dock)
+gtk4-layer-shell = { version = "0.8", optional = true }
 # O JUIZ NATIVO (1.0-103 — o porte dos heredocs python):
 #   quick-xml   — o bem-formado + a gramática E146 do menu + os Execute
 #   yaml-rust2  — o gate da v1.1 (Calamares) + o branding.desc

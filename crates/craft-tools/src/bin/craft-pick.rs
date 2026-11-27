@@ -18,6 +18,23 @@
 // app.run() sem escolha (1). Nenhum caminho espera o GTK: o processo
 // morre no MESMO instante da decisão.
 //
+// 1.0-109 — A CAMADA DE SOBREPOSIÇÃO + A INSTÂNCIA ÚNICA COM TOGGLE (a
+// evidência real do dump 1.0-108: o ps fotografou 24 processos
+// craft-pick presos em background (~24 MB cada) e NENHUM menu
+// (craft-game/craft-idle/craft-rollback) apareceu na tela do labwc —
+// o GtkApplicationWindow COMUM não recebe camada de sobreposição nem
+// foco automático no compositor. A diretriz do dono, palavra por
+// palavra: (1) o pick veste gtk4-layer-shell — Layer::Overlay,
+// KeyboardMode::Exclusive, SEM âncoras (centralizado na tela), igual
+// ao calendário da top bar: exibição imediata acima de qualquer
+// janela e captura direta de Escape/setas/Enter; (2) a instância
+// única lê ${XDG_RUNTIME_DIR}/elite/craft-pick.pid — outro pick VIVO
+// cai com SIGTERM (MESMO título = toggle que sai limpo com exit 0;
+// OUTRO menu = substituição na hora), o próprio PID é gravado e o
+// arquivo sai com o dono; (3) Escape fecha IMEDIATO com exit 0 e o
+// perder foco APÓS mapeado fecha sem nunca ficar invisível
+// capturando ponteiro.
+//
 // 1.0-107 — O SELETOR NÃO-BLOQUEANTE (a cura dos menus travados: o
 // craft-idle/craft-game/etc. abriam o pick e o SEGUNDO pedido nascia
 // MORTO — a instância única `elite.craft.Pick` deixava o 2º chamador
@@ -29,6 +46,61 @@
 
 #[cfg(feature = "gui")]
 use std::io::Read;
+
+
+// ── 1.0-109 — A INSTÂNCIA ÚNICA (o pidfile da diretriz) ─────────────
+
+#[cfg(feature = "gui")]
+fn pick_pid_path() -> std::path::PathBuf {
+    let dir = std::env::var("XDG_RUNTIME_DIR")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| std::path::PathBuf::from("/tmp"));
+    dir.join("elite/craft-pick.pid")
+}
+
+/// o pick VIVO do /proc (o comm decide — pid reciclado não mente):
+/// a sonda da casa, lida direto do procfs.
+#[cfg(feature = "gui")]
+fn pick_do_pid_vivo(pid: u32) -> bool {
+    std::fs::read_to_string(format!("/proc/{pid}/comm"))
+        .map(|c| c.trim() == "craft-pick")
+        .unwrap_or(false)
+}
+
+/// O VELHO CAI (a diretriz: encerrá-lo com SIGTERM — o mesmo título é
+/// toggle, outro é substituição): o TERM desce, a morte é esperada com
+/// teto honesto de 500ms e o pidfile do velho é colhido (o velho não
+/// roda cleanup de TERM — o assassino é o coveiro do papel dele).
+#[cfg(feature = "gui")]
+fn mata_o_pick_velho(pidfile: &std::path::Path) {
+    let Ok(papel) = std::fs::read_to_string(pidfile) else { return };
+    let Some((pid_linha, _)) = papel.split_once('\n') else { return };
+    let Ok(pid) = pid_linha.trim().parse::<i32>() else { return };
+    unsafe {
+        libc::kill(pid, libc::SIGTERM);
+    }
+    for _ in 0..25 {
+        if !pick_do_pid_vivo(pid as u32) {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    let _ = std::fs::remove_file(pidfile);
+}
+
+/// A SAÍDA ÚNICA (o pidfile sai com o dono — SEM processo invisível
+/// capturando ponteiro): todo caminho de fuga do pick atravessa AQUI.
+#[cfg(feature = "gui")]
+fn sai(codigo: i32) -> ! {
+    let pidfile = pick_pid_path();
+    if let Ok(papel) = std::fs::read_to_string(&pidfile) {
+        // só o DONO colhe (o substituto já nasceu com o próprio papel)
+        if papel.lines().next() == Some(std::process::id().to_string().as_str()) {
+            let _ = std::fs::remove_file(&pidfile);
+        }
+    }
+    std::process::exit(codigo);
+}
 
 #[cfg(not(feature = "gui"))]
 fn main() {
@@ -66,7 +138,7 @@ fn main() {
             eprintln!(
                 "uso: craft-pick [-T TÍTULO | -TTÍTULO | --title TÍTULO | --title=TÍTULO] [itens...] (-h ajuda)"
             );
-            std::process::exit(2);
+            sai(2);
         }
     };
     // stdin é a interface dmenu (listas dinâmicas dos chamadores: os
@@ -83,8 +155,38 @@ fn main() {
     if itens.is_empty() {
         // nada a mostrar: o contrato do craft-menu (exit 0 silencioso —
         // lista vazia não é erro, é nada a escolher)
-        std::process::exit(0);
+        sai(0);
     }
+
+    // 1.0-109 — A INSTÂNCIA ÚNICA (a diretriz, palavra por palavra):
+    // ler o pidfile ANTES de qualquer GTK — o MESMO menu vivo é TOGGLE
+    // (o velho cai e o chamador sai LIMPO), outro menu é SUBSTITUIÇÃO e
+    // o fóssil de um pick morto nunca trava o próximo (o comm do /proc
+    // decide quem vive).
+    let pidfile = pick_pid_path();
+    match std::fs::read_to_string(&pidfile)
+        .map(|papel| {
+            craft_tools::decide_instancia(&papel, pick_do_pid_vivo, &titulo)
+        })
+        .unwrap_or(craft_tools::InstanciaPick::Livre)
+    {
+        craft_tools::InstanciaPick::Toggle => {
+            // o mesmo menu na tela: o toggle da diretriz — fecha o velho
+            // e sai LIMPO (exit 0, zero janela nova)
+            mata_o_pick_velho(&pidfile);
+            sai(0);
+        }
+        craft_tools::InstanciaPick::Substitui => {
+            // outro menu: o velho cai e o novo veste NA HORA
+            mata_o_pick_velho(&pidfile);
+        }
+        craft_tools::InstanciaPick::Livre => {} // o lugar é nosso
+    }
+    // grava o PRÓPRIO pid (o título na 2ª linha — o próximo pedido julga)
+    if let Some(pai) = pidfile.parent() {
+        let _ = std::fs::create_dir_all(pai);
+    }
+    let _ = std::fs::write(&pidfile, format!("{}\n{titulo}", std::process::id()));
 
     // 1.0-107 — NON_UNIQUE (a cura dos menus travados): a instância única
     // `elite.craft.Pick` matava o SEGUNDO pedido na hora (o craft-idle
@@ -114,13 +216,13 @@ fn main() {
     let codigo = app.run();
     // o veredito: Some(escolha) → stdout + 0; None → 1 (o contrato)
     let escolha = rx.recv().ok().flatten();
+    let _ = codigo;
     match escolha {
         Some(e) => {
             println!("{e}");
-            let _ = codigo;
-            std::process::exit(0);
+            sai(0);
         }
-        None => std::process::exit(1),
+        None => sai(1),
     }
 }
 
@@ -144,6 +246,24 @@ fn build(
 
     load_css();
     let win = janela_base(app, "pickwin", titulo);
+    // 1.0-109 — A CAMADA DE SOBREPOSIÇÃO (a diretriz, palavra por
+    // palavra: gtk4-layer-shell — Layer::Overlay, KeyboardMode::
+    // Exclusive, centralizada na tela, IGUAL ao calendário da top
+    // bar): exibição imediata acima de qualquer janela e captura
+    // DIRETA de Escape/setas/Enter (o GtkApplicationWindow comum de
+    // era não recebia camada NEM foco — os 24 pick presos em
+    // background sem menu nenhum na tela do dump). Sem layer-shell no
+    // compositor (protocolo ausente) a janela comum segue com a guarda
+    // de foco de 1.0-108 — honesto, nunca mudo.
+    if gtk4_layer_shell::is_supported() {
+        use gtk4_layer_shell::LayerShell;
+        win.init_layer_shell();
+        win.set_layer(gtk4_layer_shell::Layer::Overlay);
+        win.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::Exclusive);
+        // SEM âncoras: a superfície flutua CENTRALIZADA (a gramática do
+        // layer-shell — âncora nenhum = centro da tela)
+        win.set_namespace(Some("craft-pick"));
+    }
     win.set_default_size(560, 420);
     let corpo = gtk4::Box::new(gtk4::Orientation::Vertical, 10);
     corpo.set_margin_top(14);
@@ -180,6 +300,9 @@ fn build(
         let ec = gtk4::EventControllerKey::new();
         ec.connect_key_pressed(move |_, key, _, _| {
             if key == gtk4::gdk::Key::Escape {
+                // 1.0-109 — a diretriz: fechar IMEDIATO com exit 0 (o
+                // toggle de novo pedido também sai limpo — fechar menu
+                // não é erro, é o gesto do dono)
                 let _ = tx.send(None);
                 win_c.close();
                 return gtk4::glib::Propagation::Stop;
@@ -238,8 +361,10 @@ fn build(
             }
             // a partir daqui o FALSE é a VERDADE do compositor: o palco
             // é de OUTRA janela — stdin calado, stdout calado, exit 1
+            // (a saída única colhe o pidfile: nenhum invisível captura
+            // ponteiro, a diretriz 1.0-109)
             let _ = tx_leave.send(None);
-            std::process::exit(1);
+            sai(1);
         });
     }
     // o Enter na busca: escolhe o PRIMEIRO visível (o dmenu de sempre)
@@ -253,12 +378,12 @@ fn build(
                     if let Some(txt) = btn.label() {
                         println!("{txt}");
                         let _ = tx.send(Some(txt.to_string()));
-                        std::process::exit(0); // o contrato: stdout + 0
+                        sai(0); // o contrato: stdout + 0
                     }
                 }
             }
             let _ = tx.send(None);
-            std::process::exit(1);
+            sai(1);
         });
     }
 
@@ -285,7 +410,7 @@ fn build(
                 btn.connect_clicked(move |_| {
                     println!("{valor}");
                     let _ = tx.send(Some(valor.clone()));
-                    std::process::exit(0);
+                    sai(0);
                 });
                 lista.append(&btn);
                 montados.borrow_mut().push(btn);
@@ -309,7 +434,7 @@ fn build(
                 btn.connect_clicked(move |_| {
                     println!("{valor}");
                     let _ = tx.send(Some(valor.clone()));
-                    std::process::exit(0);
+                    sai(0);
                 });
                 lista.append(&btn);
                 montados.borrow_mut().push(btn);

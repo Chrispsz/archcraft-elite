@@ -313,6 +313,7 @@ version = "2.0.0"
 dependencies = [
  "elite-core",
  "gtk4",
+ "gtk4-layer-shell",
  "libc",
  "quick-xml 0.36.2",
  "regex",

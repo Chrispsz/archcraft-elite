@@ -106,10 +106,11 @@ case "$choice" in
         ec=0
         errf="$(mktemp)"
         desc="$(craft-pick -T 'Descrição' 2>"$errf")" || ec=$?
-        if [ "$ec" -ne 0 ]; then
-            [ "$ec" -eq 1 ] && [ ! -s "$errf" ] \
-                && mlog "Rollback: descrição cancelada — benigno" \
-                || mlog "Rollback: prompt de descrição falhou exit=$ec"
+        # 1.0-109 — O ESC AGORA SAI LIMPO (exit 0 — a diretriz da
+        # instância única do pick): o JULGO é o CONTEÚDO — descrição
+        # vazia é cancelamento benigno seja qual for o código
+        if [ -z "$desc" ]; then
+            mlog "Rollback: descrição vazia/cancelada — benigno (exit=$ec)"
             rm -f "$errf"
             exit 0
         fi
@@ -133,20 +134,15 @@ case "$choice" in
         ec=0
         errf="$(mktemp)"
         pick="$(printf '%s\n' "$list" | craft-pick -T 'Restaurar' 2>"$errf")" || ec=$?
-        if [ "$ec" -eq 143 ]; then
-            mlog "Rollback: fechado de fora (SIGTERM — toggle/cross-dismiss) — benigno"
+        # 1.0-109 — o MESMO juízo de conteúdo: vazio = cancelado (o ESC
+        # sai limpo e o toggle da instância única também)
+        if [ -z "$pick" ]; then
+            mlog "Rollback: restauração cancelada/vazia — benigno (exit=$ec)"
             rm -f "$errf"
             exit 0
         fi
-        if [ "$ec" -eq 2 ]; then
-            mlog "Rollback: toggle — 2ª chamada fechou o picker — benigno"
-            rm -f "$errf"
-            exit 0
-        fi
-        if [ "$ec" -ne 0 ]; then
-            [ "$ec" -eq 1 ] && [ ! -s "$errf" ] \
-                && mlog "Rollback: restauração cancelada — benigno" \
-                || mlog "Rollback: picker de snapshot falhou exit=$ec"
+        if [ -z "$pick" ]; then
+            mlog "Rollback: restauração cancelada — benigno (exit=$ec)"
             rm -f "$errf"
             exit 0
         fi

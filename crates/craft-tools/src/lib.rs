@@ -270,6 +270,50 @@ pub fn mapa_comandos() -> Vec<(&'static str, Vec<(&'static str, &'static str)>)>
     ]
 }
 
+// ── 1.0-109 — A INSTÂNCIA ÚNICA DO PICK (a diretriz do dono, palavra
+// por palavra: ao iniciar, ler ${XDG_RUNTIME_DIR}/elite/craft-pick.pid;
+// se existir outro craft-pick vivo, encerrá-lo com SIGTERM — MESMO
+// título = toggle que sai limpo, OUTRO menu = substituição na hora — e
+// gravar o próprio PID, removendo o arquivo ao sair) ──────────────────
+
+/// a decisão da instância (o julgamento PURO: a sonda de teste alimenta
+/// conteúdo de mentira — a gramática do pidfile é "PID\nTÍTULO").
+#[derive(Debug, PartialEq, Eq)]
+pub enum InstanciaPick {
+    /// ninguém vivo (fóssil ou ausente): o lugar é nosso
+    Livre,
+    /// o MESMO menu está na tela: o toggle — fecha o velho e o chamador
+    /// sai LIMPO (exit 0, sem janela nova)
+    Toggle,
+    /// OUTRO menu está na tela: o velho cai e o novo veste
+    Substitui,
+}
+
+/// O JULGO DA INSTÂNCIA (PURO): dado o conteúdo do pidfile, o oráculo de
+/// vida do PID e o título de quem pergunta, a diretriz decide. O pid
+/// reciclado não mente (quem decide "vivo" é o chamador — o comm do
+/// /proc na carne do binário).
+pub fn decide_instancia(
+    conteudo: &str,
+    pid_vivo: impl Fn(u32) -> bool,
+    meu_titulo: &str,
+) -> InstanciaPick {
+    let Some((pid_linha, titulo)) = conteudo.split_once('\n') else {
+        return InstanciaPick::Livre; // fóssil sem gramática: ninguém vivo
+    };
+    let Ok(pid) = pid_linha.trim().parse::<u32>() else {
+        return InstanciaPick::Livre; // papel torto: fóssil honesto
+    };
+    if !pid_vivo(pid) {
+        return InstanciaPick::Livre; // o pick de era morreu: o lugar é nosso
+    }
+    if titulo.trim() == meu_titulo {
+        InstanciaPick::Toggle
+    } else {
+        InstanciaPick::Substitui
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -430,4 +474,24 @@ mod tests {
         let descricao = mapa[0].1[0].1;
         assert!(descricao.contains("orquestrador"), "a descrição fala a língua da casa");
     }
+
+    #[test]
+    fn e109_a_instancia_unica_do_pick_decide_pela_diretriz() {
+        use InstanciaPick::*;
+        // o fóssil (pid morto): o lugar é NOSSO — o pidfile de um pick
+        // que o TERM colheu sem dono nunca trava o próximo menu
+        assert_eq!(decide_instancia("999999\nRede", |_| false, "Rede"), Livre);
+        // papel torto: fóssil honesto
+        assert_eq!(decide_instancia("não-um-pid", |_| true, "Rede"), Livre);
+        assert_eq!(decide_instancia("sem-gramática", |_| true, "Rede"), Livre);
+        // o MESMO título vivo: TOGGLE (fecha o velho e o chamador sai limpo)
+        assert_eq!(decide_instancia("42\nModo de jogo", |_| true, "Modo de jogo"), Toggle);
+        // OUTRO menu vivo: SUBSTITUI (o velho cai, o novo veste)
+        assert_eq!(decide_instancia("42\nModo de jogo", |_| true, "Rede"), Substitui);
+        // o pid RECENTE de OUTRO binário não é pick: o comm do /proc
+        // decide (a sonda viva é do chamador — aqui, o falso-positivo
+        // fica nomeado)
+        assert_eq!(decide_instancia("42\nRede", |p| p != 42, "Rede"), Livre);
+    }
+
 }

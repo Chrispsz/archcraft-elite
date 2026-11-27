@@ -251,8 +251,15 @@ gm_menu() {
     items+=("Status")
     # E119 — O PAPEL DA PORTA (o clique que chega deixa a escolha; o
     # fecho benigno segue na lei dos menus; o rc anômalo fica nomeado).
+    # 1.0-109 — o ESC do pick agora sai LIMPO (exit 0 — a instância
+    # única da diretriz): a escolha VAZIA é o cancelamento benigno (o
+    # juízo é o CONTEÚDO, o código só nomeia o anômalo)
     _gm_rc=0
     choice="$(printf '%s\n' "${items[@]}" | gm_pick 'Modo de jogo')" || _gm_rc=$?
+    if [ -z "$choice" ]; then
+        glog "menu: fechado sem escolha (esc/foco — exit=$_gm_rc) — nenhum despacho correu"
+        exit 0
+    fi
     if [ "$_gm_rc" = 0 ]; then
         glog "menu: escolha '$choice' (despacho = papel)"
     else
