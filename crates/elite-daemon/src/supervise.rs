@@ -217,8 +217,7 @@ pub fn peek_lock_livre(caminho: &std::path::Path) -> bool {
     else {
         return true; // inobservável = livre (honesto nos dois mundos)
     };
-    let rc = unsafe { libc::flock(f.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
-    rc == 0 // 0 = ninguém segura (livre); != 0 = motor de fora vivo
+    !sonda_flock(f.as_raw_fd()) // 0 = ninguém segura (livre); != 0 = motor de fora vivo
 }
 
 /// 1.0-100 — A VARREDURA DOS LOCKS ÓRFÃOS DE /tmp (o audit-99.txt §2
@@ -270,8 +269,7 @@ pub fn limpa_locks_orfos_em(dir: &std::path::Path) -> usize {
         else {
             continue;
         };
-        let rc = unsafe { libc::flock(f.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
-        if rc != 0 {
+        if sonda_flock(f.as_raw_fd()) {
             continue; // dono VIVO segurando — o arquivo é dele, de pé
         }
         // portão 2 — o PID: registrado e vivo = conservador (não toca);
@@ -830,6 +828,28 @@ pub fn run_session() -> Result<(), String> {
     supervisa(&lock_session, specs, "session")
 }
 
+/// 1.0-107.3 — O FLOCK EINTR-PROVADO (a sonda única): o flock pode
+/// retornar EINTR quando um sinal qualquer atravessa a chamada — rc≠0 de
+/// EINTR é "pergunta de novo", NÃO veredito (a run 46010509590 provou na
+/// carne: o teste do guarda falhou NO CI com o lock LIVRE — a sonda de
+/// era lia o sino como porta ocupada e o pretendente saía do nada; a
+/// janela é de µs, mas a esteira sob carga acorda sinais o tempo todo).
+/// O loop é a correção clássica de qualquer wrapper de syscall: EINTR =
+/// retry; o resto é o veredito de sempre.
+/// true = OCUPADA (EWOULDBLOCK ou erro); false = a sonda entrou (LIVRE).
+fn sonda_flock(fd: libc::c_int) -> bool {
+    loop {
+        let rc = unsafe { libc::flock(fd, libc::LOCK_EX | libc::LOCK_NB) };
+        if rc == 0 {
+            return false; // a sonda entrou: porta LIVRE
+        }
+        if std::io::Error::last_os_error().raw_os_error() != Some(libc::EINTR) {
+            return true; // EWOULDBLOCK (ou o resto): porta OCUPADA
+        }
+        // o sino não é veredito: pergunta de novo
+    }
+}
+
 /// 1.0-107.2 — A SONDA DO GUARDA (PURO sobre o caminho — a porta do
 /// teste sem tocar em env do processo): o flock LOCK_EX|LOCK_NB num
 /// caminho CONFLITA com o irmão vivo que o segura = porta ocupada.
@@ -842,8 +862,7 @@ fn trava_irmao(lock: &std::path::Path) -> bool {
     else {
         return false; // sem chão pra julgar: o trono do supervisa decide
     };
-    let rc = unsafe { libc::flock(f.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
-    rc != 0 // o File cai no return — o lock do guarda solta sozinho
+    sonda_flock(f.as_raw_fd()) // o File cai no return — o lock do guarda solta sozinho
 }
 
 /// 1.0-107.2 — O GUARDA DO BUS (a corrida que o craft-doctor nomeou no
