@@ -116,9 +116,14 @@ SMOKE="$(mktemp -d /tmp/elite-smoke-headless-XXXXXX)"
 XDG="$SMOKE/xdg"; HOMES="$SMOKE/home"
 mkdir -p "$XDG" "$HOMES/.cache/elite" "$SMOKE/shim"
 chmod 700 "$XDG"
-# o shim: craft-pick/craft-doctor resolvem para os BINÁRIOS COMPILADOS
+# o shim: os bins da casa resolvem para os BINÁRIOS COMPILADOS (a prova da
+# run 46056062240: o daemon chamado por PATH morria 'command not found' —
+# o shim precisa cobrir TODOS os executáveis que a sessão invoca por nome)
 ln -sf "$BINS/craft-pick" "$SMOKE/shim/craft-pick"
+ln -sf "$BINS/elite-daemon" "$SMOKE/shim/elite-daemon"
 ln -sf "$BINS/elite-daemon" "$SMOKE/shim/craft-doctor"
+ln -sf "$BINS/craft-bar-rs" "$SMOKE/shim/craft-bar-rs"
+ln -sf "$BINS/craft-dock-rs" "$SMOKE/shim/craft-dock-rs"
 export HOME="$HOMES"
 export XDG_RUNTIME_DIR="$XDG"
 export PATH="$SMOKE/shim:$REPO/elite/airootfs/usr/local/bin:$PATH"
