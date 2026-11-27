@@ -67,10 +67,56 @@ static STOP: AtomicBool = AtomicBool::new(false);
 pub(crate) static PORTA_SESSION: AtomicBool = AtomicBool::new(false);
 
 extern "C" fn ao_sinal(_sig: i32) {
-    STOP.store(true, Ordering::SeqCst);
+    unsafe {
+        // a casa salva o errno (o write do pipe pode pisar — a norma
+        // async-signal-safe é a lei; o handler de era pisava calado)
+        let e = libc::__errno_location();
+        let salvo = *e;
+        STOP.store(true, Ordering::SeqCst);
+        wake_escreve();
+        *e = salvo;
+    }
+}
+
+// 1.0-107.2 — O SIGCHLD SEM STOP (a auditoria da filosofia: um filho
+// que morre é EVENTO do kernel, não tick de relógio — o supervisor de
+// era acordava 1×/s para adivinhar; agora o kernel TOCA a campainha).
+extern "C" fn ao_chld(_sig: i32) {
+    unsafe {
+        let e = libc::__errno_location();
+        let salvo = *e;
+        wake_escreve();
+        *e = salvo;
+    }
+}
+
+// ── 1.0-107.2 — O SELF-PIPE DOS EVENTOS (a lei do zero-tick) ────────────
+// O pipe nasce em instala_sinais e NUNCA morre: o handler escreve um
+// byte (async-signal-safe: write(2) de 1 byte num pipe O_NONBLOCK — a
+// norma POSIX; pipe cheio = EAGAIN ignorado, o byte de sobra não faz
+// falta) e quem esperava acorda no poll(2). O fim_da_sessao chama da
+// THREAD dele (a via normal — sem sinal, mesmo destino).
+static WAKE_R: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(-1);
+static WAKE_W: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(-1);
+
+fn wake_escreve() {
+    let fd = WAKE_W.load(Ordering::SeqCst);
+    if fd >= 0 {
+        let byte = [1u8];
+        unsafe {
+            libc::write(fd, byte.as_ptr().cast(), 1);
+        }
+    }
 }
 
 fn instala_sinais() {
+    // 1.0-107.2 — O PIPE DOS EVENTOS (antes dos handlers: o handler que
+    // acorda antes do pipe nascer é silêncio perdido — o pipe vem 1º)
+    let mut fds = [-1i32; 2];
+    if unsafe { libc::pipe2(fds.as_mut_ptr(), libc::O_CLOEXEC | libc::O_NONBLOCK) } == 0 {
+        WAKE_R.store(fds[0], Ordering::SeqCst);
+        WAKE_W.store(fds[1], Ordering::SeqCst);
+    }
     let h = ao_sinal as extern "C" fn(i32) as usize;
     unsafe {
         libc::signal(libc::SIGTERM, h);
@@ -84,6 +130,99 @@ fn instala_sinais() {
         // MESMA saída limpa do SIGTERM: unregister, EPP devolvido, filhos
         // colhidos, lock solto — o relogin nasce limpo.
         libc::signal(libc::SIGHUP, h);
+        // 1.0-107.2 — O EVENTO DE FILHO: todo filho da casa que morre
+        // toca o pipe (o supervisor acorda NO instante; o try_wait
+        // dele colhe na mesma passada — o waitpid dos filhos ALHEIOS
+        // das outras threads segue intocado: handler não colhe, só toca)
+        libc::signal(libc::SIGCHLD, ao_chld as extern "C" fn(i32) as usize);
+    }
+}
+
+/// 1.0-107.2 — A VIGIA DO SOCKET DO COMPOSITOR (inotify — a 2ª via do
+/// fim da sessão vira EVENTO): o watchdog de era estatava o socket a
+/// cada 1s para adivinhar o sumiço; o kernel agora avisa — IN_DELETE
+/// no diretório do socket (o nome sai do chão). A checagem de verdade
+/// continua no loop (o evento é a CAMPAINHA, wayland_pronto é o JUÍZO
+/// — um arquivo alheio saindo do runtime dir acorda o vigia 1× e o
+/// juiz diz "não era ele" com um stat de microssegundo).
+fn liga_vigia_socket() {
+    let Ok(nome) = std::env::var("WAYLAND_DISPLAY") else {
+        return; // sem compositor esperado: sem vigia (a era idem)
+    };
+    if nome.is_empty() {
+        return;
+    }
+    let dir: PathBuf = if nome.starts_with('/') {
+        let p = PathBuf::from(&nome);
+        match p.parent() {
+            Some(d) if !d.as_os_str().is_empty() => d.to_path_buf(),
+            _ => return,
+        }
+    } else {
+        let runtime = std::env::var("XDG_RUNTIME_DIR")
+            .unwrap_or_else(|_| format!("/run/user/{}", unsafe { libc::getuid() }));
+        PathBuf::from(runtime)
+    };
+    let Some(c_dir) = std::ffi::CString::new(dir.as_os_str().as_encoded_bytes()).ok() else {
+        return;
+    };
+    unsafe {
+        let fd = libc::inotify_init1(libc::IN_CLOEXEC | libc::IN_NONBLOCK);
+        if fd < 0 {
+            return; // container exótico sem inotify: sem vigia (o SIGHUP/EPIPE seguem)
+        }
+        // IN_DELETE: o NOME saindo do chão do dir (o socket sumiu); a
+        // vigia é de TODO o dir — o juiz do loop filtra (um arquivo
+        // alheio custa 1 stat)
+        let wd = libc::inotify_add_watch(fd, c_dir.as_ptr(), libc::IN_DELETE);
+        if wd < 0 {
+            libc::close(fd);
+            return;
+        }
+        WATCH_FD.store(fd, Ordering::SeqCst);
+    }
+}
+
+// a vigia do socket (fd do inotify; -1 = sem vigia no ambiente)
+static WATCH_FD: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(-1);
+
+/// 1.0-107.2 — A ESPERA DOS EVENTOS (o tick de 1s MORRE): bloqueia em
+/// poll(2) até o KERNEL falar (SIGCHLD/STOP no self-pipe, o socket do
+/// compositor sumindo na vigia inotify) ou o TETO do respawn bater (o
+/// backoff de 2s de uma vaga morta — sem teto, o dormir da espera seria
+/// eterno esperando um evento que não vem). teto_ms = -1 = sem teto.
+/// Zero wake-up em idle: o loop de era pagava 86.400 syscalls/dia para
+/// descobrir que nada aconteceu.
+pub(crate) fn espera_evento(teto_ms: i32) {
+    let pipe_r = WAKE_R.load(Ordering::SeqCst);
+    let vigia = WATCH_FD.load(Ordering::SeqCst);
+    let mut fds: Vec<libc::pollfd> = Vec::with_capacity(2);
+    if pipe_r >= 0 {
+        fds.push(libc::pollfd { fd: pipe_r, events: libc::POLLIN, revents: 0 });
+    }
+    if vigia >= 0 {
+        fds.push(libc::pollfd { fd: vigia, events: libc::POLLIN, revents: 0 });
+    }
+    if fds.is_empty() {
+        // pipe que não nasceu (impossível na prática — o honesto cai aqui):
+        // dorme o teto em vez de girar
+        if teto_ms > 0 {
+            std::thread::sleep(Duration::from_millis(teto_ms as u64));
+        }
+        return;
+    }
+    unsafe {
+        libc::poll(fds.as_mut_ptr(), fds.len() as libc::nfds_t, teto_ms);
+    }
+    // drena o pipe (o próximo evento acha a mesa limpa)
+    if pipe_r >= 0 {
+        let mut buf = [0u8; 64];
+        while unsafe { libc::read(pipe_r, buf.as_mut_ptr().cast(), 64) } > 0 {}
+    }
+    // drena a vigia (o loop de cima re-julga wayland_pronto — o juiz)
+    if vigia >= 0 {
+        let mut buf = [0u8; 8192];
+        while unsafe { libc::read(vigia, buf.as_mut_ptr().cast(), 8192) } > 0 {}
     }
 }
 
@@ -470,6 +609,10 @@ pub(crate) fn fim_da_sessao(motivo: &str) {
          (STOP → filhos encerrados → session.lock fora do chão → exit 0 — 1.0-102)"
     );
     STOP.store(true, Ordering::SeqCst);
+    // 1.0-107.2 — A CAMPAINHA DIRETA (o STOP nasce de uma THREAD, não
+    // de um sinal: sem o byte do pipe, o supervisor dormindo no poll(2)
+    // esperaria até o teto — o STOP ACORDA quem espera)
+    wake_escreve();
     // o cinto imediato por comm (o comm do agente lxqt é cortado pelo
     // kernel em 15: 'lxqt-policykit-' — TASK_COMM_LEN de sempre)
     let n = sinal_para_comms(
@@ -486,10 +629,11 @@ pub(crate) fn fim_da_sessao(motivo: &str) {
     eprintln!(
         "elite-daemon: fim da sessão — SIGTERM aos filhos gerenciados ({n} sinalizado(s) por comm; o supervisor colhe os NOSSOS pelo handle no ciclo seguinte)"
     );
-    // o vigia de teto: o supervisor (STOP no ciclo de ≤1s) encerra os
-    // filhos, remove o session.lock e sai 0; se um filho recusar morrer
-    // e o wait dele pendurar o supervisor, o teto de 8s finaliza o
-    // processo NA MESMA SAÍDA (exit 0 — o chão nunca fica retido)
+    // o vigia de teto: o supervisor (STOP no ciclo — acordado pelo byte
+    // do pipe) encerra os filhos, remove o session.lock e sai 0; se um
+    // filho recusar morrer e o wait dele pendurar o supervisor, o teto
+    // de 8s finaliza o processo NA MESMA SAÍDA (exit 0 — o chão nunca
+    // fica retido)
     std::thread::Builder::new()
         .name("elite-fim-sessao".into())
         .spawn(|| {
@@ -813,5 +957,59 @@ mod tests {
         assert!(wayland_pronto());
         std::fs::remove_file(&t).ok();
         std::env::remove_var("WAYLAND_DISPLAY");
+    }
+
+    #[test]
+    fn e1072_o_self_pipe_toca_e_acorda_na_hora() {
+        // 1.0-107.2 — a CAMPAINHA do kernel: o byte escrito acorda o
+        // poll NA HORA — teto de 5.000ms de prova: sem o byte o poll
+        // dorme os 5s inteiros; com ele, volta em microssegundos. O
+        // SIGCHLD de filhos ALHEIOS dos testes paralelos pode escrever
+        // o PRÓPRIO byte (é o contrato vivo do handler!) — por isso a
+        // prova é o CAMINHO CURTO com byte na mesa, nunca o caminho
+        // longo sem (este último é da vida real, sem paralelos).
+        instala_sinais();
+        wake_escreve();
+        wake_escreve(); // dois bytes, UMA mesa (o dreno varre tudo)
+        let inicio = std::time::Instant::now();
+        espera_evento(5_000);
+        let custo = inicio.elapsed().as_millis();
+        assert!(
+            custo < 4_500,
+            "o byte acordou o poll na hora ({custo}ms — sem o byte seriam 5.000)"
+        );
+    }
+
+    #[test]
+    fn e1072_a_vigia_do_socket_nasce_e_calada() {
+        // sem WAYLAND_DISPLAY: a vigia nem nasce (o fd segue -1)
+        std::env::remove_var("WAYLAND_DISPLAY");
+        liga_vigia_socket();
+        assert!(WATCH_FD.load(Ordering::SeqCst) < 0, "sem compositor esperado, sem vigia");
+        // com um dir de verdade: a vigia nasce (e morre com o teste)
+        let dir = std::env::temp_dir().join(format!("elite-prova-vigia-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::env::set_var("XDG_RUNTIME_DIR", &dir);
+        std::env::set_var("WAYLAND_DISPLAY", "labwc-0");
+        liga_vigia_socket();
+        let fd = WATCH_FD.load(Ordering::SeqCst);
+        assert!(fd >= 0, "com runtime dir de verdade, a vigia nasce");
+        // o evento de verdade: o NOME sumindo do chão acorda o poll — e
+        // a leitura do inotify devolve o buffer com o nome de dentro
+        let socket = dir.join("labwc-0");
+        std::fs::write(&socket, b"").ok();
+        std::thread::sleep(Duration::from_millis(50));
+        std::fs::remove_file(&socket).ok();
+        std::thread::sleep(Duration::from_millis(50));
+        let mut buf = [0u8; 256];
+        let n = unsafe { libc::read(fd, buf.as_mut_ptr().cast(), 256) };
+        assert!(n > 0, "o IN_DELETE do socket chega no inotify da vigia");
+        let eventos = String::from_utf8_lossy(&buf[..n as usize]);
+        assert!(eventos.contains("labwc-0"), "o nome do socket viaja no evento (achei: {eventos:?})");
+        unsafe { libc::close(fd) };
+        WATCH_FD.store(-1, Ordering::SeqCst);
+        std::env::remove_var("WAYLAND_DISPLAY");
+        std::env::remove_var("XDG_RUNTIME_DIR");
+        let _ = std::fs::remove_dir(&dir);
     }
 }

@@ -3155,7 +3155,15 @@ pkgver=1.0
 #      funcional (a diretriz do dono: saneamento rastreável sem queimar
 #      a versão). pkgrel 107→107.1 NO MESMO COMMIT (lei E41 — o guard
 #      compara versão, não inteiro).
-pkgrel=107.1
+#      1.0-107.2 — o ciclo da filosofia ao extremo (auditoria integral
+#      do repo): o supervisor vira EVENTO puro (self-pipe SIGCHLD +
+#      vigia inotify do socket do compositor — o tick de 1s morre), o
+#      bars.log ganha teto (256 KiB, rabiço de 128 KiB), o ACPI
+#      allowlist vira UNIVERSAL (PWRB/SLPB/PBTN/PS2K/LID — desktop E
+#      notebook) e nasce o craft-doctor (diagnóstico 1-comando,
+#      <50ms). pkgrel 107.1→107.2 NO MESMO COMMIT (lei E41 — o 108
+#      segue reservado ao ciclo pós-validação no hardware).
+pkgrel=107.2
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da sessão; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

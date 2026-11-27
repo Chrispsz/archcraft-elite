@@ -371,11 +371,38 @@ fn tenta_trava(nome: &str) -> io::Result<std::fs::File> {
     Ok(f)
 }
 
+/// 1.0-107.2 — O TETO DO PAPEL (a auditoria dos logs: todo .log da casa
+/// tem teto rígido — o bars.log era o último sem juiz). O MESMO regime
+/// do elite-acpi-wakeup: passou de 256 KiB, o rabiço de 128 KiB fica
+/// (a prova forense das últimas mortes sobrevive, o spam de anos não).
+/// Chama no lanca (spawn é raro por desenho — o custo é um metadata).
+fn cap_log(log: &std::path::Path) {
+    let Ok(meta) = std::fs::metadata(log) else { return };
+    if meta.len() <= 262_144 {
+        return;
+    }
+    use std::io::{Read, Seek, SeekFrom, Write};
+    let Ok(mut f) = std::fs::File::options().read(true).open(log) else { return };
+    if f.seek(SeekFrom::End(-131_072)).is_err() {
+        return;
+    }
+    let mut rabiço = Vec::new();
+    if f.read_to_end(&mut rabiço).is_err() {
+        return;
+    }
+    let _ = std::fs::OpenOptions::new()
+        .write(true)
+        .truncate(true)
+        .open(log)
+        .and_then(|mut nf| nf.write_all(&rabiço));
+}
+
 /// o spawn: stdin /dev/null, stdout+stderr em APPEND no bars.log
 /// (tokens por espaço — SEM shell no meio; o parser segue o contrato).
 /// E135 — o $HOME inicial de cada token é expandido (a fila de display
 /// é genérica; nenhum sh no meio para expandir por nós).
 fn lanca(comando: &str, log: &PathBuf) -> io::Result<Child> {
+    cap_log(log);
     let home = std::env::var("HOME").unwrap_or_default();
     let partes: Vec<String> = comando
         .split_whitespace()
@@ -871,6 +898,11 @@ fn supervisa(
         }
     }
     super::instala_sinais();
+    // 1.0-107.2 — A VIGIA DO SOCKET (só a porta session: o watchdog do
+    // compositor é da sessão; a vigia inotify morre com o processo)
+    if porta == "session" {
+        super::liga_vigia_socket();
+    }
 
     let log = log_path();
     if let Some(pai) = log.parent() {
@@ -908,6 +940,10 @@ fn supervisa(
     // WAYLAND_DISPLAY SUMIR do chão é a prova do chão: visto VIVO uma
     // vez, o sumiço é o compositor encerrado — a casa desce INTEIRA
     // (relogin limpo: filhos encerrados, lock fora do chão, exit 0).
+    // 1.0-107.2 — O CÃO VIROU EVENTO: a vigia inotify (liga_vigia_socket,
+    // ali em cima) acorda ESTE loop NO instante do IN_DELETE do dir do
+    // socket — o juízo (wayland_pronto acima) segue o mesmo, a rede de
+    // era pagava o tick de 1s para pescar o que o kernel entrega grátis.
     let mut viu_wayland = crate::wayland_pronto();
 
     loop {
@@ -1070,8 +1106,45 @@ fn supervisa(
             }
             return Ok(());
         }
-        std::thread::sleep(Duration::from_secs(1));
+        // 1.0-107.2 — O TICK MORREU: a espera é EVENTO (SIGCHLD/STOP no
+        // self-pipe, o socket do compositor sumindo na vigia inotify)
+        // com o TETO do respawn (o backoff restante da vaga morta — sem
+        // teto, o dormir esperaria um evento que não vem). O loop de era
+        // pagava 1 syscall/segundo para descobrir que nada aconteceu.
+        let teto = teto_respawn(&vagas);
+        super::espera_evento(if teto < 0 { KEEPALIVE_MS } else { teto });
     }
+}
+
+/// 1.0-107.2 — O KEEPALIVE DA ADOÇÃO (o honesto do desenho): a vaga
+/// ADOTADA (o dono de fora que segura o nome no bus) não é FILHA nossa
+/// — o SIGCHLD da morte dele nunca chega. O keepalive de 15s re-julga
+/// as adoções (5.760 syscalls/dia contra as 86.400 do tick de era — o
+/// custo cai 93% e a adoção vaga vira nossa no fio seguinte; os filhos
+/// NOSSOS e o STOP continuam com o ZERO do kernel-event).
+const KEEPALIVE_MS: i32 = 15_000;
+
+/// 1.0-107.2 — O TETO DA ESPERA (PURO — o teste julga): o menor backoff
+/// RESTANTE entre as vagas mortas (filho None, já nasceu ao menos uma
+/// vez, não ausente) — o instante em que uma vaga pode renascer. -1 =
+/// sem vaga esperando: dorme até o KERNEL falar (zero wake-up).
+fn teto_respawn(vagas: &[Vaga]) -> i32 {
+    let mut teto: i32 = -1;
+    for v in vagas {
+        if v.filho.is_some() || v.ausente || !v.nasceu {
+            continue; // viva, ausente ou nunca-nascida: nada à espera
+        }
+        let resta = BACKOFF
+            .saturating_sub(v.desde.elapsed())
+            .as_millis() as i32;
+        if resta <= 0 {
+            return 0; // já pode renascer: nem dorme
+        }
+        if teto < 0 || resta < teto {
+            teto = resta;
+        }
+    }
+    teto
 }
 
 #[cfg(test)]
@@ -1352,5 +1425,75 @@ mod tests {
         // a sessão de teste (sem nada): o WAYLAND vazio do irmão de CLI
         // segue divergente como na era de sempre
         assert!(julga_orfao_relogin("", "", "", "wayland-0"));
+    }
+
+    /// 1.0-107.2 — a vaga de teste (o molde puro do teto_respawn).
+    fn vaga_teste(nasceu: bool, desde: Instant, ausente: bool) -> Vaga {
+        Vaga {
+            res: Residente {
+                nome: "vaga".into(),
+                comando: "bin".into(),
+                bus: None,
+            },
+            filho: None,
+            trava: None,
+            desde,
+            nasceu,
+            ausente,
+            comm: None,
+        }
+    }
+
+    #[test]
+    fn e1072_o_teto_da_viva_e_adotada_e_infinito() {
+        // a sessão inteira no ar (nossa, viva): o KERNEL é o dono do
+        // relógio — nenhuma vaga à espera, o teto é o keepalive (-1 →
+        // quem chama veste o 15s da adoção). O filho vivo de mentira é
+        // um 'true' de 1 respiração — o teto julga a PRESENÇA do handle,
+        // não a vida do processo (a colheita é do try_wait, não daqui)
+        let viva = Vaga {
+            filho: Command::new("true").spawn().ok(),
+            ..vaga_teste(true, Instant::now(), false)
+        };
+        assert_eq!(teto_respawn(&[viva]), -1, "viva com handle não espera");
+        // adotada (nunca nasceu nossa — o gate do bus segurou): idem
+        assert_eq!(teto_respawn(&[vaga_teste(false, Instant::now(), false)]), -1);
+        // ausente (o binário não existe no sistema): idem
+        assert_eq!(teto_respawn(&[vaga_teste(true, Instant::now(), true)]), -1);
+    }
+
+    #[test]
+    fn e1072_o_teto_da_morta_e_o_backoff_restante() {
+        // vaga morta AGORA: o backoff inteiro resta (dorme ~2s — não
+        // mais, não menos: o respawn acorda na HORA, não no tick)
+        let morta = vaga_teste(true, Instant::now(), false);
+        let teto = teto_respawn(&[morta]);
+        assert!(teto > 1_900 && teto <= 2_000, "teto = backoff restante, achei {teto}");
+        // vaga morta VELHA (o backoff já passou): acorda NA HORA (0)
+        let velha = vaga_teste(true, Instant::now() - Duration::from_secs(3), false);
+        assert_eq!(teto_respawn(&[velha]), 0, "backoff vencido = 0 (renasce já)");
+        // a MAIS URGENTE manda (2.000ms vs 100ms → 100ms)
+        let urgente = vaga_teste(true, Instant::now() - Duration::from_millis(1_900), false);
+        let paciente = vaga_teste(true, Instant::now(), false);
+        let teto = teto_respawn(&[paciente, urgente]);
+        assert!(teto > 0 && teto <= 200, "a vaga mais urgente vence, achei {teto}");
+    }
+
+    #[test]
+    fn e1072_o_teto_do_papel_do_bars_log() {
+        // 1.0-107.2 — o teto do papel: passou de 256 KiB, o rabiço de
+        // 128 KiB fica (o fim da história, não o começo de novo)
+        let dir = std::env::temp_dir().join(format!("elite-prova-teto-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let log = dir.join("bars.log");
+        std::fs::write(&log, vec![b'x'; 300_000]).unwrap();
+        cap_log(&log);
+        let tam = std::fs::metadata(&log).unwrap().len();
+        assert_eq!(tam, 131_072, "o teto deixa o rabiço de 128 KiB (achei {tam})");
+        // abaixo do teto: INTOCADO (idempotência do dia a dia)
+        std::fs::write(&log, b"pequeno").unwrap();
+        cap_log(&log);
+        assert_eq!(std::fs::metadata(&log).unwrap().len(), 7, "abaixo do teto, nada muda");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

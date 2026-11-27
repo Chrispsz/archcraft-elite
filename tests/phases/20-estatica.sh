@@ -311,10 +311,22 @@ file_has "build.sh: o mestre do greeter viaja no pacote (elite/sddm)" "$BS" '/us
 file_has "build.sh: o mestre do greeter nasce DA MESMA FONTE do overlay" "$BS" '/work/elite/airootfs/usr/share/sddm/themes/archcraft/theme.conf'
 file_has "post-upgrade: a pele do greeter chega ao rig vivo na dose" "$AIROOTFS/usr/local/bin/elite-post-upgrade" '/usr/share/sddm/themes/archcraft/theme.conf'
 file_has "rice: o fóssil da v7 na rede do lock (quem adotou a v7 renova à v8)" "$AIROOTFS/usr/local/bin/craft-rice" '6e4597244cb625dde1ed33f419afabb8bf9270230a4218311c9c4acf9919b0ea'
-# O MOLDE veste o pkgrel 107.1 (lei E41 — o guard compara versão)
-# (1.0-107.1 — o ciclo intermediário: pkgrel com ponto, o 108 fica
-#  reservado ao próximo ciclo funcional; a âncora viva sobe junto)
-file_has "build.sh: o pkgrel da dose é 107.1 (elite-system 1.0-107.1)" "$BS" 'pkgrel=107.1'
+# O MOLDE veste o pkgrel 107.2 (lei E41 — o guard compara versão)
+# (1.0-107.2 — o ciclo da filosofia ao extremo: pkgrel com ponto, o 108
+#  fica reservado ao ciclo pós-validação no hardware; a âncora viva
+#  sobe junto NO MESMO COMMIT do conteúdo)
+file_has "build.sh: o pkgrel da dose é 107.2 (elite-system 1.0-107.2)" "$BS" 'pkgrel=107.2'
+
+# ══ 1.0-107.2 — O SUPERVISOR É EVENTO (a auditoria da filosofia: o
+#    tick de 1s morre — o kernel toca a campainha) ══
+file_has "daemon: o self-pipe dos eventos (SIGCHLD acorda o supervisor)" "crates/elite-daemon/src/main.rs" 'libc::signal(libc::SIGCHLD, ao_chld'
+file_has "daemon: a espera do supervisor é poll(2) com teto (espera_evento)" "crates/elite-daemon/src/main.rs" 'pub(crate) fn espera_evento(teto_ms: i32)'
+file_has "daemon: a vigia inotify do socket do compositor (o cão vira evento)" "crates/elite-daemon/src/main.rs" 'libc::inotify_add_watch(fd, c_dir.as_ptr(), libc::IN_DELETE)'
+file_has "daemon: o STOP da thread acorda o que espera (fim_da_sessao toca o pipe)" "crates/elite-daemon/src/main.rs" 'A CAMPAINHA DIRETA (o STOP nasce de uma THREAD'
+file_has "supervise: o loop dorme nos eventos com o teto do respawn" "crates/elite-daemon/src/supervise.rs" 'super::espera_evento(if teto < 0 { KEEPALIVE_MS } else { teto });'
+file_has "supervise: o keepalive da adoção é honesto e nomeado (15s)" "crates/elite-daemon/src/supervise.rs" 'const KEEPALIVE_MS: i32 = 15_000;'
+file_has "supervise: o teto do papel do bars.log (256 KiB, rabiço 128 KiB)" "crates/elite-daemon/src/supervise.rs" 'fn cap_log(log: &std::path::Path)'
+file_hasnt "supervise: o tick de 1s de era não volta (a espera é evento)" "crates/elite-daemon/src/supervise.rs" 'std::thread::sleep(Duration::from_secs(1));'
 # A CURA DO CANAL VERMELHO (#45632905510 — o E0599 pela 2ª era): o gdk4
 # 0.11.5 NÃO gera monitor-added/removed/monitors-changed (deprecated desde
 # o GTK 4.16, fora de DisplayExt) — a via viva é o items-changed do
