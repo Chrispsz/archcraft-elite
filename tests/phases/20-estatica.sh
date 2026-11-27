@@ -672,10 +672,13 @@ file_has "pick: o NON_UNIQUE destrava o 2º menu (a instância única matava o p
 file_has "pick: o notify::is-active desce o seletor quando o palco é de outro (1.0-107 — zero zumbi)" "crates/craft-tools/src/bin/craft-pick.rs" 'is-active'
 # §5 — OS WAKEUPS ESPÚRIOS POR PADRÃO (a família inteira, a mão do dono no allowlist)
 file_has "acpi: a família espúria por PADRÃO (XHC*/PTXH/GPP* — o dongle 2.4G não é mão)" "$AIROOTFS/usr/local/bin/elite-acpi-wakeup" 'XHC*|PTXH|GPP*|GP[0-9]*|X1[0-9]*|X1_[0-9]*'
-file_has "acpi: o allowlist da mão do dono (PWRB/PS2K/LID acordam)" "$AIROOTFS/usr/local/bin/elite-acpi-wakeup" 'MANTEM="PWRB PS2K LID"'
 file_hasnt "wake: o gate do teclado de era MORREU (o dongle fingidor o vencia)" "$AIROOTFS/usr/local/bin/craft-wake-guard" 'ctrl_tem_teclado'
 file_hasnt "wake: a exceção de teclado USB morre com o fingidor (todo USB dorme)" "$AIROOTFS/usr/local/bin/craft-wake-guard" 'HID 01 na própria árvore'
-file_has "wake: TODO o USB dorme na política nova (o despertar é do power/PS2K)" "$AIROOTFS/usr/local/bin/craft-wake-guard" 'despertar = power/PS2K'
+file_has "wake: TODO o USB dorme na política nova (o despertar é da mão do dono universal)" "$AIROOTFS/usr/local/bin/craft-wake-guard" 'despertar = power/sleep/PS2K/LID (1.0-107.2)'
+# 1.0-107.2 — O ALLOWLIST UNIVERSAL (desktop E notebook em qualquer AMD/Intel)
+file_has "acpi: o allowlist universal da mão do dono (PWRB/SLPB/PBTN/PS2K/LID)" "$AIROOTFS/usr/local/bin/elite-acpi-wakeup" 'MANTEM="PWRB SLPB PBTN PS2K LID"'
+file_has "acpi: o cinto ARMA o allowlist dormindo de fábrica (a outra face da lei)" "$AIROOTFS/usr/local/bin/elite-acpi-wakeup" 'O CINTO DO DESPERTAR'
+file_has "wake: o cinto universal veste as DUAS grafias do power e o sleep físico" "$AIROOTFS/usr/local/bin/craft-wake-guard" 'for _m in PWRB SLPB PBTN PS2K LID; do'
 # §5 — A SEQUÊNCIA SEGURA DO SONO (hyprlock mapeado ANTES do wlopm --off)
 file_has "sono: a espera da superfície do lock ANTES do apagar (a ordem da diretriz)" "crates/elite-daemon/src/idle.rs" 'fn lock_mapeado'
 file_has "sono: o backoff do link DP/HDMI entre o wlopm --on e o recover (o amdgpu assenta)" "crates/elite-daemon/src/main.rs" 'from_millis(800)'

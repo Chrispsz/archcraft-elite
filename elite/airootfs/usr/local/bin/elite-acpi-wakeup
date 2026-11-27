@@ -25,6 +25,13 @@
 # dono — o craft-wake-guard da 1.0-107 segue a MESMA lei (todo USB
 # dorme; ninguém rearma o que aqui desarma).
 #
+# 1.0-107.2 — O ALLOWLIST UNIVERSAL (a diretriz do hardware moderno:
+# desktops E notebooks AMD/Intel): PWRB e PBTN (as DUAS grafias do
+# botão do power que as placas imprimem), SLPB (o botão de sleep
+# físico), PS2K e LID. E a OUTRA FACE da lei: o allowlist é ARMADO no
+# boot — o firmware que entrega o botão DORMINDO de fábrica não rouba
+# o despertar do dono (a escrita é o mesmo TOGGLE com juízo).
+#
 # O OFÍCIO: os gatilhos *enabled da família ficam *disabled no
 # /proc/acpi/wakeup (o arquivo é TOGGLE — escrever o nome inverte o
 # estado; escrever o de quem já dorme REARMARIA o espúrio, por isso o
@@ -36,9 +43,13 @@
 # nada é setado — /proc/acpi/wakeup é o caminho vivo.
 # ═════════════════════════════════════════════════════════════════════════
 WAKEUP="${ELITE_ACPI_WAKEUP:-/proc/acpi/wakeup}"
-# 1.0-107 — A MÃO DO DONO (o allowlist do despertar: botão do power, o
-# teclado PS/2 de sempre e a tampa do notebook — o resto da fila dorme)
-MANTEM="PWRB PS2K LID"
+# 1.0-107.2 — A MÃO DO DONO UNIVERSAL (a diretriz do hardware moderno:
+# desktop E notebook em QUALQUER placa AMD/Intel — o allowlist cobre as
+# grafias de fábrica das duas): PWRB/PBTN (o botão do power — a grafia
+# que a placa escolher), SLPB (o botão de sleep físico), PS2K (o teclado
+# PS/2 de sempre — dongle 2.4G nenhum finge ser) e LID (a tampa do
+# notebook). O resto da família espúria dorme.
+MANTEM="PWRB SLPB PBTN PS2K LID"
 
 LOG_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/elite"
 LOG="$LOG_DIR/acpi-wakeup.log"
@@ -72,6 +83,24 @@ mantido() { # $1 = nome do gatilho
 }
 
 apagou=0
+armou=0
+
+# 1.0-107.2 — O CINTO DO DESPERTAR (a outra face da mesma lei: desarmar
+# o espúrio JAMAIS pode desarmanhar a mão do dono): um nome do allowlist
+# *disabled na tabela é REARMADO no boot (o firmware de algumas placas
+# entrega o PWRB ou o LID dormindo de fábrica — o botão físico tem de
+# ACORDAR a máquina em qualquer AMD/Intel; o arquivo é TOGGLE e o juízo
+# antes da escrita é a idempotência de sempre: já armed = silêncio).
+while read -r _nome _estado _st _resto; do
+    [ -n "${_nome:-}" ] || continue
+    [ "${_st:-}" = "*disabled" ] || continue
+    mantido "$_nome" || continue
+    if printf '%s\n' "$_nome" >>"$WAKEUP" 2>/dev/null; then
+        wlog "acpi-wakeup: $_nome *disabled → rearmado (o allowlist da mão do dono — $MANTEM)"
+        armou=$((armou + 1))
+    fi
+done <"$WAKEUP" 2>/dev/null
+
 # a leitura VIVA da tabela: cada linha *enabled da família é invertida
 # (nome status — a 3ª palavra do registro é o *enabled/*disabled)
 while read -r _nome _estado _st _resto; do
@@ -89,5 +118,6 @@ while read -r _nome _estado _st _resto; do
     fi
 done <"$WAKEUP" 2>/dev/null
 # já todo dormindo: zero linha no papel (o silêncio é a idempotência)
-[ "$apagou" -gt 0 ] && wlog "acpi-wakeup: varredura fechada ($apagou gatilho(s) da família desarmado(s) nesta passada — despertar só no botão do power e no allowlist $MANTEM)"
+[ "$armou" -gt 0 ] && wlog "acpi-wakeup: o cinto do despertar vestiu ($armou gatilho(s) da mão do dono rearmado(s) — $MANTEM)"
+[ "$apagou" -gt 0 ] && wlog "acpi-wakeup: varredura fechada ($apagou gatilho(s) da família desarmado(s) nesta passada — despertar só na mão do dono: $MANTEM)"
 exit 0

@@ -425,6 +425,10 @@ run_wakeup() { # run_wakeup <num>
     # a tabela ACPI do rig (1.0-107: a família INTEIRA por padrão — 9
     # gatilhos *enabled, incluindo os padrões de era GP30/X161/X1_1 que a
     # fila FIXA de 6 nomes da 1.0-106 nunca via + a mão do dono + o botão)
+    # 1.0-107.2 — a prova do CINTO UNIVERSAL: SLPB e PBTN chegam
+    # *disabled de fábrica (o firmware dormindo o botão de sleep e a
+    # grafia alternativa do power — a mesa da diretriz do hardware
+    # moderno) e LID *enabled (a tampa do notebook já armada)
     cat > "$r/wakeup" <<'EOF'
 Device  S-state   Status          Sysfs node
 GPP0      S4      *enabled  pci:0000:00:01.1
@@ -438,23 +442,31 @@ X161      S4      *enabled  pci:0000:00:13.1
 X1_1      S4      *enabled  pci:0000:00:13.2
 PS2K      S3      *enabled  pnp:00:04
 PWRB      S4      *enabled  button
+SLPB      S4      *disabled  button
+PBTN      S4      *disabled  button
+LID       S3      *enabled  button
 EOF
     XDG_CACHE_HOME="$h/.cache" ELITE_ACPI_WAKEUP="$r/wakeup" \
         sh "$REPO/elite/airootfs/usr/local/bin/elite-acpi-wakeup"
 
-    # a 1ª passada: os 6 nomes no papel da tabela (o toggle do kernel)
+    # a 1ª passada: os nomes no papel da tabela (o toggle do kernel — a
+    # tabela nova tem 16 linhas, o apêndice do script mora do 16 em diante)
     local n
-    n="$(tail -n +13 "$r/wakeup" | grep -cE '^(GPP0|GPP8|GP30|XHC0|XHC1|XHCI|PTXH|X161|X1_1)$' || true)"
-    [ "$n" = 9 ] \
-        && emit_ok "P$num wakeup: a 1ª passada desarma os 9 gatilhos da família (XHC*/GPP*/GP[0-9]*/X1* — o padrão, não a lista)" \
-        || emit_fail "P$num wakeup: a 1ª passada desarma os 9 gatilhos" "foram $n/9 escritas na tabela"
+    n="$(tail -n +16 "$r/wakeup" | grep -cE '^(GPP0|GPP8|GP30|XHC0|XHC1|XHCI|PTXH|X161|X1_1|SLPB|PBTN)$' || true)"
+    [ "$n" = 11 ] \
+        && emit_ok "P$num wakeup: a 1ª passada escreve os 11 toggles (9 da família espúria + o cinto armando SLPB/PBTN)" \
+        || emit_fail "P$num wakeup: a 1ª passada escreve os 11 toggles" "foram $n/11 escritas na tabela"
 
-    # o kernel da casa falsa aplica o toggle (a escrita INVERTE o estado)
+    # o kernel da casa falsa aplica o toggle (a escrita INVERTE o estado —
+    # os 9 espúrios *enabled→*disabled; o cinto universal *disabled→*enabled)
     local d
     for d in GPP0 GPP8 GP30 XHC0 XHC1 XHCI PTXH X161 X1_1; do
         sed -i "/^$d / s/\*enabled/*disabled/" "$r/wakeup"
     done
-    sed -i '/^\(GPP0\|GPP8\|GP30\|XHC0\|XHC1\|XHCI\|PTXH\|X161\|X1_1\)$/d' "$r/wakeup"
+    for d in SLPB PBTN; do
+        sed -i "/^$d / s/\*disabled/*enabled/" "$r/wakeup"
+    done
+    sed -i '/^\(GPP0\|GPP8\|GP30\|XHC0\|XHC1\|XHCI\|PTXH\|X161\|X1_1\|SLPB\|PBTN\)$/d' "$r/wakeup"
 
     cat > "$HW/esp-$num/wakeup" <<'EOF'
 Device  S-state   Status          Sysfs node
@@ -469,12 +481,26 @@ X161      S4      *disabled  pci:0000:00:13.1
 X1_1      S4      *disabled  pci:0000:00:13.2
 PS2K      S3      *enabled  pnp:00:04
 PWRB      S4      *enabled  button
+SLPB      S4      *enabled  button
+PBTN      S4      *enabled  button
+LID       S3      *enabled  button
 EOF
     cmp_bytes "P$num wakeup: os 9 espúrios da família *disabled na tabela (desarmados no boot)" \
         "$r/wakeup" "$HW/esp-$num/wakeup"
     grep -Eq '^PS2K +S3 +\*enabled' "$r/wakeup" \
         && emit_ok "P$num wakeup: a mão do dono PS2K segue *enabled (o allowlist da 1.0-107)" \
         || emit_fail "P$num wakeup: a mão do dono PS2K segue *enabled" "a linha PS2K mudou na tabela"
+    # 1.0-107.2 — o CINTO UNIVERSAL: SLPB e PBTN dormindo de fábrica são
+    # REARMADOS pela 1ª passada (o botão físico acorda em QUALQUER placa)
+    grep -Eq '^SLPB +S4 +\*enabled' "$r/wakeup" \
+        && emit_ok "P$num wakeup: o cinto universal arma o SLPB (o botão de sleep dormindo de fábrica)" \
+        || emit_fail "P$num wakeup: o cinto arma o SLPB" "a linha SLPB não está *enabled"
+    grep -Eq '^PBTN +S4 +\*enabled' "$r/wakeup" \
+        && emit_ok "P$num wakeup: o cinto universal arma o PBTN (a grafia alternativa do power)" \
+        || emit_fail "P$num wakeup: o cinto arma o PBTN" "a linha PBTN não está *enabled"
+    grep -Eq '^LID +S3 +\*enabled' "$r/wakeup" \
+        && emit_ok "P$num wakeup: a tampa LID segue *enabled (o allowlist não toca o que já está armado)" \
+        || emit_fail "P$num wakeup: a tampa LID segue *enabled" "a linha LID mudou na tabela"
 
     # a 2ª passada: NADA no papel (idempotente — o grep antes de escrever)
     local sha_antes sha_depois
@@ -487,6 +513,8 @@ EOF
         || emit_fail "P$num wakeup: a 2ª passada é silêncio" "a tabela mudou na 2ª corrida"
     count_is "P$num wakeup: o papel da casa conta os 9 desarmados" \
         "$h/.cache/elite/acpi-wakeup.log" 'desarmado (gatilho espúrio' 9
+    count_is "P$num wakeup: o papel conta os 2 do cinto universal rearmados (SLPB/PBTN)" \
+        "$h/.cache/elite/acpi-wakeup.log" '→ rearmado (o allowlist' 2
 }
 
 # ═════════════════════════════════════════════════════════════════════

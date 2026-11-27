@@ -17,8 +17,12 @@
 #     · TODO controlador USB PCI (class 0x0c03) dorme — o elo ACPI dele
 #       idem (ninguém REARMA o que o elite-acpi-wakeup desarma: as duas
 #       leis da casa agora dizem a MESMA coisa);
-#     · PS2K (teclado PS/2) acorda — o dispositivo EXPLICITAMENTE
-#       desejado da E122, que dongle nenhum consegue fingir;
+#     · 1.0-107.2 — O ALLOWLIST UNIVERSAL acorda (desktop E notebook,
+#       QUALQUER placa AMD/Intel): PWRB/PBTN (as duas grafias do botão
+#       do power), SLPB (o botão de sleep físico), PS2K (teclado PS/2
+#       — o dispositivo EXPLICITAMENTE desejado da E122, que dongle
+#       nenhum consegue fingir) e LID (a tampa do notebook) — o cinto
+#       ARMA o que o firmware entrega dormindo de fábrica;
 #     · PS2M e TODO o resto do ACPI dorme; WoL segue morto POR FORÇA.
 #
 # QUEM APLICA: a regra udev da casa (ISO: 90-elite-wake-guard.rules;
@@ -107,7 +111,7 @@ do_apply() {
     #     é prova de mão) + o elo ACPI de cada um dorme junto
     for dev in $(usb_pci_ctrls); do
         if set_wakeup "$dev/power/wakeup" disabled; then
-            printf '  controlador DORME   %s (todo USB dorme — 1.0-107: despertar só no power/PS2K)\n' "${dev##*/}"
+            printf '  controlador DORME   %s (todo USB dorme — 1.0-107.2: despertar só na mão do dono)\n' "${dev##*/}"
         fi
         _acpi_elo "$dev"
         n_ctrl=$((n_ctrl + 1))
@@ -122,14 +126,23 @@ do_apply() {
             n_off=$((n_off + 1))
         fi
     done
-    # (3) ACPI: PS2K acorda (a MÃO de sempre — dongle nenhum finge ser
-    #     PS/2), PS2M dorme (o /proc/acpi/wakeup é TOGGLE — escrever
-    #     só quando o estado não é o desejado)
+    # (3) ACPI — O CINTO UNIVERSAL DA MÃO DO DONO (1.0-107.2 — a diretriz
+    #     do hardware moderno: desktop E notebook em QUALQUER AMD/Intel):
+    #     PWRB/PBTN (as duas grafias do botão do power), SLPB (o botão de
+    #     sleep físico), PS2K (teclado PS/2 — dongle nenhum finge) e LID
+    #     (a tampa) ACORDAM — o firmware que entrega o botão DORMINDO de
+    #     fábrica não rouba o despertar do dono; PS2M e TODO o resto do
+    #     ACPI dorme (o /proc/acpi/wakeup é TOGGLE — escrever só quando o
+    #     estado não é o desejado; a mesma família do elite-acpi-wakeup)
     if [ -f "$ACPI_TABLE" ] && [ "$TEST_MODE" -eq 0 ]; then
-        if grep -qE '^PS2K.*\*disabled' "$ACPI_TABLE" 2>/dev/null; then
-            printf 'PS2K' > "$ACPI_TABLE" 2>/dev/null || true
-            printf '  PS2K      acorda (ACPI rearmado — o teclado PS/2 é a mão explicitamente desejada)\n'
-        fi
+        local _m
+        for _m in PWRB SLPB PBTN PS2K LID; do
+            if grep -qE "^${_m} .*\*disabled" "$ACPI_TABLE" 2>/dev/null; then
+                if printf '%s' "$_m" > "$ACPI_TABLE" 2>/dev/null; then
+                    printf '  %-10s acorda (o cinto do allowlist universal — a mão do dono 1.0-107.2)\n' "$_m"
+                fi
+            fi
+        done
         if grep -qE '^PS2M.*\*enabled' "$ACPI_TABLE" 2>/dev/null; then
             printf 'PS2M' > "$ACPI_TABLE" 2>/dev/null || true
             printf '  PS2M      dorme (ACPI desarmado)\n'
@@ -166,16 +179,16 @@ do_apply() {
             done
         fi
     fi
-    printf '  ── política aplicada: %d usb dorme · %d controlador(es) desarmado(s) · despertar = power/PS2K (1.0-107)\n' "$n_off" "$n_ctrl"
+    printf '  ── política aplicada: %d usb dorme · %d controlador(es) desarmado(s) · despertar = power/sleep/PS2K/LID (1.0-107.2)\n' "$n_off" "$n_ctrl"
     [ "$TEST_MODE" -eq 1 ] && printf '  (modo perícia WAKE_SYSFS=%s — nada real foi tocado)\n' "$S"
     return 0
 }
 
 do_status() {
     local dev cls
-    printf '── A POLÍTICA (1.0-107): TODO o USB dorme (teclado incluso — o dongle 2.4G fingidor\n'
-    printf '   matou a exceção de era); despertar SÓ no botão do power e no PS2K (a mão\n'
-    printf '   explicitamente desejada — dongle nenhum finge ser PS/2)\n'
+    printf '── A POLÍTICA (1.0-107.2): TODO o USB dorme (teclado incluso — o dongle 2.4G fingidor\n'
+    printf '   matou a exceção de era); despertar SÓ na mão do dono UNIVERSAL — power (PWRB/PBTN),\n'
+    printf '   sleep (SLPB), PS2K e LID (a tampa do notebook; dongle nenhum finge ser PS/2)\n'
     printf '── controladores USB PCI (todos dormem — o elo ACPI de cada um idem):\n'
     for dev in $(usb_pci_ctrls); do
         cls="$(cat "$dev/class" 2>/dev/null)"
@@ -187,7 +200,7 @@ do_status() {
         [ -f "$dev/power/wakeup" ] || continue
         printf '  %-12s dorme (wakeup=%s)\n' "${dev##*/}" "$(cat "$dev/power/wakeup" 2>/dev/null)"
     done
-    printf '── ACPI (o que o hardware oferece — PS2K/PWRB são a mão do dono):\n'
+    printf '── ACPI (o que o hardware oferece — PWRB/SLPB/PBTN/PS2K/LID são a mão do dono):\n'
     grep -E '\*enabled' "$ACPI_TABLE" 2>/dev/null | sed 's/^/  /' \
         || printf '  (nenhuma armada — tudo desarmado)\n'
     printf '── mem_sleep (o modo que o hardware entrega)\n'
@@ -213,7 +226,7 @@ do_set() { # $1 = enabled|disabled — A MARRETA LEGADA (família 0x0c0x inteira
 case "${1:-status}" in
     apply)
         [ "$TEST_MODE" -eq 1 ] || [ "$(id -u)" -eq 0 ] || { printf '%s: aplicar a política precisa root (sudo %s apply)\n' "$PROG" "$PROG" >&2; exit 1; }
-        printf 'Aplicando a política do despertar (1.0-107 — todo USB dorme; despertar só no power/PS2K):\n'
+        printf 'Aplicando a política do despertar (1.0-107.2 — todo USB dorme; despertar só na mão do dono: power/sleep/PS2K/LID):\n'
         do_apply
         ;;
     usb-apply)
