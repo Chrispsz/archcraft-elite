@@ -318,7 +318,7 @@ file_has "greeter: o blur leve está ligado (FullBlur true, custo só do instant
 file_has "greeter: ZERO saudação (HeaderText vazio — uma voz por tela)" "$AIROOTFS/usr/share/sddm/themes/archcraft/theme.conf" 'HeaderText=""'
 file_has "greeter: o hover NUNCA inverte para claro (acento suave #cba6f7)" "$AIROOTFS/usr/share/sddm/themes/archcraft/theme.conf" 'HoverSessionButtonTextColor="#cba6f7"'
 # A SESSÃO DE ENTRADA: cursor único, sessão labwc direta:
-file_has "greeter: o cursor do login é Bibata (o último sotaque do ponteiro morre)" "$AIROOTFS/etc/sddm.conf.d/kde_settings.conf" 'CursorTheme=Bibata'
+file_has "greeter: o cursor do login é Bibata (o último sotaque do ponteiro morre)" "$AIROOTFS/etc/sddm.conf.d/elite.conf" 'CursorTheme=Bibata'
 file_has "greeter: a sessão do autologin é labwc (sem ruído de seletor)" "$AIROOTFS/etc/sddm.conf.d/kde_settings.conf" 'Session=labwc'
 file_hasnt "packages.add: o archcraft-cursor-qogirr não volta (pacote órfão aposentado)" "$PKG" '^archcraft-cursor-qogirr$'
 # A ENTREGA (uma fonte, dois veículos — ISO via overlay, rig via mestre):
@@ -620,6 +620,42 @@ file_has "skills 05: o udiskie morto com substituto nomeado" "docs/skills/05-fil
 file_exists "ci: o workflow de manutenção mensal existe" ".github/workflows/maintenance.yml"
 file_has "ci: o cron mensal é o dia 1 (a vigilância sem dedo do dono)" ".github/workflows/maintenance.yml" '0 7 1 *'
 file_has "ci: o check das features completas contra o Arch do dia (a quebra upstream nomeada 1 mês antes)" ".github/workflows/maintenance.yml" 'cargo check --workspace --all-features --locked'
+
+# ══ E106/5b — A CURA DO BOOT + O GREETER pt_BR DA CASA (o journal do rig:
+#      coolercontrold/liqctld, o portal sem RealtimeKit, o sddm em inglês
+#      sem cursor; snapper/grub-btrfsd só no btrfs; sensores da diretriz) ══
+file_has "greeter elite: a ficha do tema nomeia o Theme-Id" "$AIROOTFS/usr/share/sddm/themes/elite/metadata.desktop" 'Theme-Id=elite'
+file_has "greeter elite: o Main.qml é pt_BR (Bem-vindo!)" "$AIROOTFS/usr/share/sddm/themes/elite/Main.qml" 'text: "Bem-vindo!"'
+file_has "greeter elite: o rótulo do usuário é pt_BR" "$AIROOTFS/usr/share/sddm/themes/elite/Main.qml" 'text: "Usuário"'
+file_has "greeter elite: o rótulo da senha é pt_BR" "$AIROOTFS/usr/share/sddm/themes/elite/Main.qml" 'text: "Senha"'
+file_has "greeter elite: o botão de entrada é Entrar" "$AIROOTFS/usr/share/sddm/themes/elite/Main.qml" 'text: "Entrar"'
+file_has "greeter elite: o suspender é pt_BR" "$AIROOTFS/usr/share/sddm/themes/elite/Main.qml" 'text: "Suspender"'
+file_has "greeter elite: a data do topo usa o locale pt_BR nativo" "$AIROOTFS/usr/share/sddm/themes/elite/Main.qml" 'Qt.locale("pt_BR")'
+file_has "greeter elite: o login fala com o sddm (sessão incluída)" "$AIROOTFS/usr/share/sddm/themes/elite/Main.qml" 'sddm.login('
+file_has "greeter elite: o desligar fala com o sddm" "$AIROOTFS/usr/share/sddm/themes/elite/Main.qml" 'sddm.powerOff()'
+file_has "greeter elite: o conf da casa veste o tema" "$AIROOTFS/etc/sddm.conf.d/elite.conf" 'Current=elite'
+file_has "greeter elite: o cursor é o Bibata da casa (o default morto)" "$AIROOTFS/etc/sddm.conf.d/elite.conf" 'CursorTheme=Bibata'
+file_hasnt "greeter elite: UM dono por chave (kde_settings sem a chave de tema)" "$AIROOTFS/etc/sddm.conf.d/kde_settings.conf" 'Current='
+file_hasnt "greeter elite: UM dono por chave (kde_settings sem a chave de cursor)" "$AIROOTFS/etc/sddm.conf.d/kde_settings.conf" 'CursorTheme='
+file_has "greeter elite: o Main.qml viaja no pacote (mestre sddm/elite)" "$BS" '/usr/local/share/elite/sddm/elite/Main.qml'
+file_has "greeter elite: o drop-in elite.conf viaja no pacote" "$BS" '/usr/local/share/elite/sddm/elite.conf'
+file_has "post-upgrade: o tema elite chega ao rig vivo (cmp manda)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" '/usr/share/sddm/themes/elite'
+file_has "post-upgrade: as chaves antigas saem do kde_settings vivo (UM dono)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" '/^CursorTheme=/d'
+file_has "coolercontrol: o liquidctl fecha quando o pacote não existe" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'liquidctl_integration = false'
+file_has "coolercontrol: a cura SÓ desce sem o pacote liquidctl (o AIO do dono é respeitado)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'pacman -Qq liquidctl'
+file_has "coolercontrol: a transação segue a mesma mão única (guard do pacman)" "$AIROOTFS/usr/local/bin/elite-post-transaction" 'pacman -Qq liquidctl'
+file_has "rtkit: o daemon do RealtimeKit habilitado na dose (o portal sem choro)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'rtkit-daemon.service'
+file_line_exact "packages.add: rtkit no boot (a prioridade realtime do áudio)" "$PKG" 'rtkit'
+file_line_exact "packages.add: goverlay (a GUI do MangoHud da diretriz)" "$PKG" 'goverlay'
+file_line_exact "sensores: o candidato Nuvoton no rol da fábrica" "$AIROOTFS/etc/modules-load.d/elite-sensors.conf" 'nct6775'
+file_line_exact "sensores: o candidato ITE no rol da fábrica" "$AIROOTFS/etc/modules-load.d/elite-sensors.conf" 'it87'
+file_line_exact "sensores: o termômetro AMD no rol da fábrica" "$AIROOTFS/etc/modules-load.d/elite-sensors.conf" 'k10temp'
+file_line_exact "sensores: o termômetro Intel no rol da fábrica" "$AIROOTFS/etc/modules-load.d/elite-sensors.conf" 'coretemp'
+file_has "sensores: a sonda da dose prova contra o hwmon vivo" "$AIROOTFS/usr/local/bin/elite-post-upgrade" '/sys/class/hwmon'
+file_has "snapshot: o findmnt na raiz decide (a lei do btrfs)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'findmnt -n -o FSTYPE /'
+file_has "snapshot: o config do root nasce guardado (idempotente)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" '/etc/snapper/configs/root'
+file_has "snapshot: grub-btrfsd ligado SÓ no btrfs" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'grub-btrfsd.service'
+file_has "snapshot: snapper-cleanup.timer vigiado no btrfs" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'snapper-cleanup.timer'
 
 printf '%s\n' "$OK_COUNT $FAIL_COUNT $SKIP_COUNT" > "$WORK/fase20.txt"
 exit 0

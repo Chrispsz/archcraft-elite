@@ -473,6 +473,55 @@ if systemctl list-unit-files coolercontrold.service >/dev/null 2>&1 \
    && systemctl cat coolercontrold.service >/dev/null 2>&1; then
     systemctl enable --now coolercontrold.service >/dev/null 2>&1 \
         && tlog "coolercontrol: coolercontrold habilitado na dose (os sensores PWM da placa-mãe destravados — as curvas são do dono, no GUI)"
+    # E106/5b — O LÍQUIDO QUE NÃO EXISTE SAI DO BOOT: o journal do rig
+    # fotografou o coolercontrold acordando o liqctld (Python do
+    # liquidctl) e estampando "Python liquidctl system package not
+    # detected... liqctld exited with a non-zero exit code: 1" em TODO
+    # boot — o rig NÃO tem AIO USB nenhum e o PACOTE liquidctl não está
+    # instalado. O porteiro OFICIAL do daemon é o config.toml: a seção
+    # [settings] com liquidctl_integration = false cala o liqctld SEM
+    # tocar nos dispositivos hwmon da placa-mãe (as curvas do dono
+    # seguem no GUI). IDEMPOTENTE e de mão única: se o dono INSTALAR o
+    # liquidctl (AIO de verdade chegou à mesa), a dose NÃO desliga o
+    # que ele comprou — o guarda do pacman decide.
+    if ! pacman -Qq liquidctl >/dev/null 2>&1; then
+        _cc=/etc/coolercontrol/config.toml
+        _cc_ok=0
+        if [ ! -e "$_cc" ]; then
+            # o papel AUSENTE nasce mínimo (a seção da casa + a chave):
+            mkdir -p "${_cc%/*}" 2>/dev/null || true
+            printf '%s\n' \
+                '# ELITE (E106/5b): sem liquidctl no sistema — a integração fecha' \
+                '[settings]' \
+                'liquidctl_integration = false' > "$_cc" 2>/dev/null && _cc_ok=1
+        elif ! grep -Eq '^[[:space:]]*liquidctl_integration[[:space:]]*=[[:space:]]*false' "$_cc" 2>/dev/null; then
+            if grep -Eq '^[[:space:]]*liquidctl_integration[[:space:]]*=' "$_cc" 2>/dev/null; then
+                # a chave EXISTE com outro valor: só normaliza A CHAVE
+                # (o resto do papel do dono fica intocado)
+                sed -i 's/^[[:space:]]*liquidctl_integration[[:space:]]*=.*/liquidctl_integration = false/' "$_cc" 2>/dev/null && _cc_ok=1
+            elif grep -q '^\[settings\]' "$_cc" 2>/dev/null; then
+                # a seção existe sem a chave: nasce DENTRO dela (append
+                # no fim do arquivo cairia na seção errada)
+                sed -i '/^\[settings\]/a liquidctl_integration = false' "$_cc" 2>/dev/null && _cc_ok=1
+            else
+                printf '\n[settings]\nliquidctl_integration = false\n' >> "$_cc" 2>/dev/null && _cc_ok=1
+            fi
+        fi
+        [ "$_cc_ok" = 1 ] \
+            && tlog "coolercontrol: liquidctl_integration = false (E106/5b — o 'Python liquidctl system package not detected' do journal morre; o hwmon da placa-mãe segue no GUI)"
+    fi
+    unset _cc _cc_ok
+fi
+# E106/5b — O REALTIMEKIT QUE O PORTAL PROCURA: o journal do rig viu o
+# xdg-desktop-portal chorando "Failed to load RealtimeKit property" —
+# o rtkit inativo deixa o portal sem a prioridade realtime dos streams
+# de áudio. O pacote entra na ISO (packages.add) e a unit é dbus-
+# ativada por natureza; o enable é o guard idempotente da casa (unit
+# ausente = pulo honesto, nunca erro).
+if systemctl list-unit-files rtkit-daemon.service >/dev/null 2>&1 \
+   && systemctl cat rtkit-daemon.service >/dev/null 2>&1; then
+    systemctl enable --now rtkit-daemon.service >/dev/null 2>&1 \
+        && tlog "rtkit: rtkit-daemon habilitado na dose (o 'Failed to load RealtimeKit property' do portal morre — a prioridade realtime do áudio volta)"
 fi
 if systemctl list-unit-files lactd.service >/dev/null 2>&1 \
    && systemctl cat lactd.service >/dev/null 2>&1 \
@@ -491,6 +540,76 @@ if [ -x /usr/local/bin/elite-acpi-wakeup ] \
    && systemctl cat elite-acpi-wakeup.service >/dev/null 2>&1; then
     systemctl enable --now elite-acpi-wakeup.service >/dev/null 2>&1 \
         && tlog "acpi-wakeup: a varredura dos gatilhos espúrios habilitada na dose (GPP0/GPP8/XHC0/XHC1/XHCI/PTXH desarmados no boot — depois do wake-guard, a política do teclado segue de pé)"
+fi
+# ── E106/5b — O SNAPSHOT SÓ NADE EM BTRFS (a lei da casa: ext4/xfs =
+#      NADA de snapper/grub-btrfsd acordando — o findmnt decide, não o
+#      gosto). No btrfs: o config do root NASCE guardado pelo arquivo
+#      (/etc/snapper/configs/root — o create-config idempotente por
+#      natureza NÃO repete com o guard), o grub-btrfsd vigia o
+#      /.snapshots e o cleanup varre os velhos. FORA do btrfs: os
+#      units DESCEM se existirem (disable idempotente — um rig que
+#      migrou de filesystem não carrega daemon de snapshot morto nem
+#      linha vermelha no journal).
+if [ "$(findmnt -n -o FSTYPE / 2>/dev/null)" = "btrfs" ]; then
+    if command -v snapper >/dev/null 2>&1 && [ ! -e /etc/snapper/configs/root ]; then
+        snapper --no-dbus -c root create-config / >/dev/null 2>&1 \
+            && tlog "snapper: config do root NASCEU (E106/5b — o par snap-pac/grub-btrfs precisa do config para os hooks fotografarem)"
+    fi
+    if systemctl cat grub-btrfsd.service >/dev/null 2>&1; then
+        systemctl enable --now grub-btrfsd.service >/dev/null 2>&1 \
+            && tlog "btrfs: grub-btrfsd habilitado na dose (o /.snapshots do snapper no menu do GRUB)"
+    fi
+    if systemctl cat snapper-cleanup.timer >/dev/null 2>&1; then
+        systemctl enable --now snapper-cleanup.timer >/dev/null 2>&1 \
+            && tlog "btrfs: snapper-cleanup.timer habilitado (os snapshots velhos saem sozinhos)"
+    fi
+else
+    for _snap_u in grub-btrfsd.service snapper-cleanup.timer snapper-timeline.timer; do
+        if systemctl list-unit-files "$_snap_u" >/dev/null 2>&1 \
+           && systemctl is-enabled "$_snap_u" >/dev/null 2>&1; then
+            systemctl disable --now "$_snap_u" >/dev/null 2>&1 \
+                && tlog "snapshot: $_snap_u DESLIGADO (a raiz não é btrfs — daemon de snapshot em filesystem errado é journal vermelho à toa)"
+        fi
+    done
+    unset _snap_u
+fi
+# ── E106/5b — A SONDA DOS SENSORES EM CADA DOSE: o elite-sensors.conf
+#      da fábrica carrega os QUATRO candidatos da diretriz (nct6775/it87/
+#      k10temp/coretemp) mas o chip é DA MÁQUINA — a sonda do elite-tune
+#      (E138) reescreve o arquivo com quem PROVOU hwmon no
+#      /sys/class/hwmon; a dose traz a MESMA sonda para o rig vivo
+#      (idempotente: módulo já carregado fica; sobe sem hwmon novo =
+#      desce na hora — o driver ocioso não paga pedágio de boot).
+if command -v modprobe >/dev/null 2>&1 && [ -d /sys/class/hwmon ]; then
+    _provou=""
+    _hw_antes="$(ls /sys/class/hwmon 2>/dev/null | sort | tr '\n' ' ')"
+    for _sm in nct6775 it87 k10temp coretemp; do
+        if [ -d "/sys/module/$_sm" ]; then
+            # já carregado (autoload do kernel ou dose passada): o chip
+            # já provou vida — mantém, NUNCA descarrega o sensor ativo
+            _provou="$_provou $_sm"
+            continue
+        fi
+        modprobe "$_sm" >/dev/null 2>&1 || continue
+        _hw_agora="$(ls /sys/class/hwmon 2>/dev/null | sort | tr '\n' ' ')"
+        if [ "$_hw_agora" != "$_hw_antes" ]; then
+            _provou="$_provou $_sm"
+            _hw_antes="$_hw_agora"
+        else
+            modprobe -r "$_sm" >/dev/null 2>&1 || true
+        fi
+    done
+    _provou="${_provou# }"
+    if [ -n "$_provou" ]; then
+        printf '%s\n' \
+            '# ── ELITE (E106/5b): os chips que ESTA máquina provou no' \
+            '# /sys/class/hwmon (a sonda da dose; os 4 candidatos da' \
+            '# fábrica: nct6775/it87/k10temp/coretemp — quem sobe sem' \
+            '# hwmon novo desce na hora).' \
+            $_provou > /etc/modules-load.d/elite-sensors.conf 2>/dev/null \
+            && tlog "sensores: sonda provou [$_provou] (elite-sensors.conf — as ventoinhas da placa-mãe nascem no CoolerControl)"
+    fi
+    unset _sm _provou _hw_antes _hw_agora
 fi
 # E138 — o fóssil 81-elite-zram da ISO 1.0-85 morre com voz (a 99 do
 # pacote reina no mesmo evento do zram0 — um dono só por número)
@@ -709,36 +828,78 @@ if [ -r "$_GREET_SRC" ] && [ -d "/usr/share/sddm/themes/archcraft" ]; then
 fi
 unset _GREET_SRC _GREET_DST
 
-# E150 — O CURSOR DO GREETER CHEGA JUNTO (a ordem do dono: o
-# kde_settings.conf do Bibata viaja no pacote e a dose entrega): o
-# arquivo INTEIRO só nasce se NENHUM existe (a instalação limpa); com
-# o arquivo do rig VIVO, a dose garante só as LINHAS da casa (Current
-# e CursorTheme — o Autologin/Relogin do dono é domínio DELE, intocável
-# pela dose; a v1 do liveuser nunca vira autologin de rig instalado).
+# E150 → E106/5b — O PAPEL DO AUTLOGIN/CADÊNCIA CHEGA JUNTO: o
+# kde_settings.conf INTEIRO só nasce se NENHUM existe (a instalação
+# limpa — o Autologin do liveuser e a Halt/Reboot cadência); com o
+# arquivo do rig VIVO, o papel do dono fica INTOCÁVEL (a dose NUNCA
+# reescreve o conf alheio — E106/5b tirou daqui as chaves de tema:
+# Current/CursorTheme mudaram de dono, o elite.conf abaixo).
 _KS_SRC="/usr/local/share/elite/sddm/kde_settings.conf"
 _KS_DST="/etc/sddm.conf.d/kde_settings.conf"
-if [ -r "$_KS_SRC" ]; then
-    if [ ! -e "$_KS_DST" ]; then
-        if mkdir -p "${_KS_DST%/*}" 2>/dev/null \
-            && cp -p "$_KS_SRC" "$_KS_DST" 2>/dev/null; then
-            tlog "greeter: kde_settings.conf ENTREGUE (cursor Bibata + tema archcraft — o greeter nasce vestido)"
-        fi
-    else
-        _ks_tocou=0
-        if ! grep -q '^CursorTheme=Bibata' "$_KS_DST" 2>/dev/null; then
-            cp -p "$_KS_DST" "$_KS_DST.bak" 2>/dev/null || true
-            if grep -q '^CursorTheme=' "$_KS_DST" 2>/dev/null; then
-                sed -i 's|^CursorTheme=.*|CursorTheme=Bibata|' "$_KS_DST" 2>/dev/null && _ks_tocou=1
-            else
-                printf 'CursorTheme=Bibata\n' >> "$_KS_DST" 2>/dev/null && _ks_tocou=1
-            fi
-        fi
-        if [ "$_ks_tocou" = 1 ]; then
-            tlog "greeter: CursorTheme=Bibata cravado no kde_settings.conf vivo (o resto do papel do dono intocado — backup .bak ao lado)"
-        fi
+if [ -r "$_KS_SRC" ] && [ ! -e "$_KS_DST" ]; then
+    if mkdir -p "${_KS_DST%/*}" 2>/dev/null \
+        && cp -p "$_KS_SRC" "$_KS_DST" 2>/dev/null; then
+        tlog "greeter: kde_settings.conf ENTREGUE (o autologin/cadência da casa no greeter ausente — BLOCO 4)"
     fi
 fi
-unset _KS_SRC _KS_DST _ks_tocou
+unset _KS_SRC _KS_DST
+
+# ── E106/5b — O GREETER PT_BR DA CASA (o tema `elite`): o journal do rig
+#      fotografou o sddm "Could not setup default cursor" e a tela de
+#      login cinza/azul EM INGLÊS ("Welcome!", "Login", "Suspend") — o
+#      tema do upstream nunca falou a língua da casa. O tema NASCE na
+#      árvore (usr/share/sddm/themes/elite: Main.qml 100% pt_BR na
+#      paleta obsidiana, fundo retângulo pintado — zero binário de
+#      papel) e o MESTRE viaja no pacote em
+#      /usr/local/share/elite/sddm/elite/. A dose entrega por cmp (a
+#      escola E150: igual = no-op; divergente = renova com .bak ÚNICO).
+for _et in metadata.desktop theme.conf Main.qml; do
+    _ET_SRC="/usr/local/share/elite/sddm/elite/$_et"
+    _ET_DST="/usr/share/sddm/themes/elite/$_et"
+    if [ -r "$_ET_SRC" ]; then
+        if [ ! -e "$_ET_DST" ]; then
+            mkdir -p "${_ET_DST%/*}" 2>/dev/null || true
+            cp -p "$_ET_SRC" "$_ET_DST" 2>/dev/null \
+                && tlog "greeter elite: $_et ENTREGUE (o tema pt_BR da casa no rig sem pele)"
+        elif ! cmp -s "$_ET_SRC" "$_ET_DST"; then
+            [ -e "$_ET_DST.bak" ] || cp -p "$_ET_DST" "$_ET_DST.bak" 2>/dev/null || true
+            cp -p "$_ET_SRC" "$_ET_DST" 2>/dev/null \
+                && tlog "greeter elite: $_et RENOVADO (cmp divergia do mestre — E150; backup .bak ao lado)"
+        fi
+    fi
+done
+unset _et _ET_SRC _ET_DST
+
+# O DROP-IN elite.conf — UM DONO POR CHAVE (Current/CursorTheme moram
+# AQUI): dois drop-ins brigando pela MESMA chave é o SDDM lendo só o
+# último em ordem alfabética (elite.conf < kde_settings.conf — o
+# fóssil vivo venceria a briga e o tema pt_BR nunca subiria). A dose
+# entrega o mestre por cmp e SÓ DEPOIS colhe as chaves antigas do
+# kde_settings.conf do rig (a colheita NUNCA desce sem o novo dono no
+# lugar — a rede anti-tela-inglesa é a lei).
+_EC_SRC="/usr/local/share/elite/sddm/elite.conf"
+_EC_DST="/etc/sddm.conf.d/elite.conf"
+if [ -r "$_EC_SRC" ]; then
+    if [ ! -e "$_EC_DST" ]; then
+        mkdir -p "${_EC_DST%/*}" 2>/dev/null || true
+        cp -p "$_EC_SRC" "$_EC_DST" 2>/dev/null \
+            && tlog "greeter elite: elite.conf ENTREGUE (o tema elite + o cursor Bibata — UM dono por chave)"
+    elif ! cmp -s "$_EC_SRC" "$_EC_DST"; then
+        [ -e "$_EC_DST.bak" ] || cp -p "$_EC_DST" "$_EC_DST.bak" 2>/dev/null || true
+        cp -p "$_EC_SRC" "$_EC_DST" 2>/dev/null \
+            && tlog "greeter elite: elite.conf RENOVADO (cmp divergia do mestre — E150)"
+    fi
+fi
+if [ -e "$_EC_DST" ] && [ -e /etc/sddm.conf.d/kde_settings.conf ] \
+   && grep -q '^Current=\|^CursorTheme=' /etc/sddm.conf.d/kde_settings.conf 2>/dev/null; then
+    # só as DUAS chaves mudadas de dono saem do papel velho (o
+    # Autologin/Font do dono ficam — backup .bak ao lado)
+    cp -p /etc/sddm.conf.d/kde_settings.conf /etc/sddm.conf.d/kde_settings.conf.bak 2>/dev/null || true
+    if sed -i '/^Current=/d;/^CursorTheme=/d' /etc/sddm.conf.d/kde_settings.conf 2>/dev/null; then
+        tlog "greeter elite: as chaves de tema saem do kde_settings.conf (o dono é o elite.conf — dois arquivos pela mesma chave é o SDDM lendo só um)"
+    fi
+fi
+unset _EC_SRC _EC_DST
 
 # ── E151 — O GREETER EM WAYLAND NATIVO (a diretriz do debloat: o Xorg
 #      ocioso de ~91 MB morre): o drop-in da casa

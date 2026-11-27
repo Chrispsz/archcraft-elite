@@ -49,6 +49,10 @@ ananicy-cpp
 gamemode
 gamescope
 mangohud
+# E106/5b — A GUI DO MANGOHUD (o journal do dono não pediu, a diretriz
+# sim: o overlay gráfico que desenha as curvas do overlay no clique —
+# sem ele o mangohud só fala por arquivo de texto na mão).
+goverlay
 vulkan-radeon
 vulkan-intel
 # E138 — A CAMADA DE HARDWARE DESTRAVADA (a diretriz arquitetural do dono,
@@ -67,6 +71,12 @@ coolercontrol
 intel-media-driver
 btop
 lact
+# E106/5b — O REALTIMEKIT NO BOOT (o journal do rig fotografou o
+# xdg-desktop-portal chorando 'Failed to load RealtimeKit property'
+# com o rtkit inativo: sem o daemon o portal não negocia a prioridade
+# realtime dos streams de áudio). O pacote entra na ISO e a DOSE liga a
+# unit (elite-post-upgrade — guard idempotente, unit ausente = pulo).
+rtkit
 # E74 — Fase 5 (reconciliação): o /etc/systemd/zram-generator.conf viaja
 # na ISO desde sempre, mas o PACOTE que o executa não vinha na lista — o
 # zram nascia só no elite-tune do primeiro boot. O conf agora tem dono.

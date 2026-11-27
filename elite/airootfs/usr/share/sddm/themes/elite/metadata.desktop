@@ -1,0 +1,15 @@
+# Archcraft ELITE · tema sddm `elite` — metadata.desktop (E106/5b)
+# A ficha que o SDDM lê para achar o tema: MainScript/MainConfig apontam
+# os vizinhos desta pasta; Theme-Id é o nome que o Current= do drop-in
+# elite.conf nomeia (UM dono por chave — a lei da casa).
+[SddmGreeterTheme]
+Name=Elite
+Description=Archcraft ELITE — greeter pt-BR na paleta obsidiana da casa
+Author=Archcraft ELITE
+Type=sddm-theme
+License=GPL-3.0-or-later
+Version=1.0.0
+Website=https://archcraft.io
+MainScript=Main.qml
+ConfigFile=theme.conf
+Theme-Id=elite

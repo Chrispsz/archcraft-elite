@@ -429,9 +429,13 @@ fi
 #      com o liquidctl; os dispositivos hwmon da placa-mãe ficam — as
 #      curvas do dono no GUI não mudam). Idempotente: valor já false =
 #      silêncio; reinício do daemon SÓ quando o papel mudou de verdade.
+#      E106/5b — MÃO ÚNICA: a cura SÓ desce SEM o pacote liquidctl no
+#      sistema (o guarda do pacman decide — o dono que INSTALOU o
+#      liquidctl comprou um AIO de verdade e a transação NÃO desliga o
+#      que ele pagou; a dose segue a mesma lei).
 _cc=/etc/coolercontrol/config.toml
 _cc_mudou=0
-if [ -f "$_cc" ]; then
+if [ -f "$_cc" ] && ! pacman -Qq liquidctl >/dev/null 2>&1; then
     if grep -Eq '^[[:space:]]*liquidctl_integration[[:space:]]*=' "$_cc" 2>/dev/null; then
         if ! grep -Eq '^[[:space:]]*liquidctl_integration[[:space:]]*=[[:space:]]*false' "$_cc" 2>/dev/null; then
             if sed -i 's/^[[:space:]]*liquidctl_integration[[:space:]]*=.*/liquidctl_integration = false/' "$_cc"; then

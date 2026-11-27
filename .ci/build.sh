@@ -312,6 +312,23 @@ cp -p /work/elite/airootfs/etc/sddm.conf.d/kde_settings.conf \
 # volta ao X11 de sempre — a rede anti-tela-preta é a lei)
 cp -p /work/elite/airootfs/etc/sddm.conf.d/elite_wayland.conf \
       /tmp/elite-src/elite-system/files/usr/local/share/elite/sddm/elite_wayland.conf
+# E106/5b — O TEMA PT_BR DA CASA NO PACOTE: o tema `elite` do SDDM
+# (metadata.desktop + theme.conf + Main.qml — 100% pt_BR, fundo pintado
+# no QML, zero binário de papel no repo) viaja como mestre em
+# /usr/local/share/elite/sddm/elite/ e o elite-post-upgrade o entrega ao
+# rig vivo em /usr/share/sddm/themes/elite/ (cmp manda — a escola E150).
+# O drop-in elite.conf (Current=elite + CursorTheme=Bibata — UM dono por
+# chave, o kde_settings.conf perdeu as duas linhas) viaja JUNTO e a dose
+# entrega em /etc/sddm.conf.d (colhendo as chaves antigas do papel vivo).
+mkdir -p /tmp/elite-src/elite-system/files/usr/local/share/elite/sddm/elite
+cp -p /work/elite/airootfs/usr/share/sddm/themes/elite/metadata.desktop \
+      /tmp/elite-src/elite-system/files/usr/local/share/elite/sddm/elite/metadata.desktop
+cp -p /work/elite/airootfs/usr/share/sddm/themes/elite/theme.conf \
+      /tmp/elite-src/elite-system/files/usr/local/share/elite/sddm/elite/theme.conf
+cp -p /work/elite/airootfs/usr/share/sddm/themes/elite/Main.qml \
+      /tmp/elite-src/elite-system/files/usr/local/share/elite/sddm/elite/Main.qml
+cp -p /work/elite/airootfs/etc/sddm.conf.d/elite.conf \
+      /tmp/elite-src/elite-system/files/usr/local/share/elite/sddm/elite.conf
 # E150 — O TEMA GRUB DA CASA NO PACOTE (a pele roxa no boot: o wallpaper
 # escuro/roxo + a barra de seleção #a855f7): o mestre mora em
 # /usr/local/share/elite/grub/ e o elite-post-upgrade entrega ao rig
@@ -748,10 +765,17 @@ ${hnames}
     MOLDE[sddm_install]='    install -d "${pkgdir}/usr/local/share/elite/sddm"
     install -m644 "${startdir}/files/usr/local/share/elite/sddm/theme.conf" "${pkgdir}/usr/local/share/elite/sddm/theme.conf"
     install -m644 "${startdir}/files/usr/local/share/elite/sddm/kde_settings.conf" "${pkgdir}/usr/local/share/elite/sddm/kde_settings.conf"
-    install -m644 "${startdir}/files/usr/local/share/elite/sddm/elite_wayland.conf" "${pkgdir}/usr/local/share/elite/sddm/elite_wayland.conf"'$'\n'
+    install -m644 "${startdir}/files/usr/local/share/elite/sddm/elite_wayland.conf" "${pkgdir}/usr/local/share/elite/sddm/elite_wayland.conf"
+    install -d "${pkgdir}/usr/local/share/elite/sddm/elite"
+    install -m644 "${startdir}/files/usr/local/share/elite/sddm/elite/metadata.desktop" "${pkgdir}/usr/local/share/elite/sddm/elite/metadata.desktop"
+    install -m644 "${startdir}/files/usr/local/share/elite/sddm/elite/theme.conf" "${pkgdir}/usr/local/share/elite/sddm/elite/theme.conf"
+    install -m644 "${startdir}/files/usr/local/share/elite/sddm/elite/Main.qml" "${pkgdir}/usr/local/share/elite/sddm/elite/Main.qml"
+    install -m644 "${startdir}/files/usr/local/share/elite/sddm/elite.conf" "${pkgdir}/usr/local/share/elite/sddm/elite.conf"'$'\n'
     MOLDE[sddm_rm]='    [ -e "/usr/local/share/elite/sddm/theme.conf" ] && rm -f "/usr/local/share/elite/sddm/theme.conf"
     [ -e "/usr/local/share/elite/sddm/kde_settings.conf" ] && rm -f "/usr/local/share/elite/sddm/kde_settings.conf"
-    [ -e "/usr/local/share/elite/sddm/elite_wayland.conf" ] && rm -f "/usr/local/share/elite/sddm/elite_wayland.conf"'$'\n'
+    [ -e "/usr/local/share/elite/sddm/elite_wayland.conf" ] && rm -f "/usr/local/share/elite/sddm/elite_wayland.conf"
+    [ -e "/usr/local/share/elite/sddm/elite" ] && rm -rf "/usr/local/share/elite/sddm/elite"
+    [ -e "/usr/local/share/elite/sddm/elite.conf" ] && rm -f "/usr/local/share/elite/sddm/elite.conf"'$'\n'
     MOLDE[sudoers_install]='    install -dm750 "${pkgdir}/etc/sudoers.d"
     install -m440 "${startdir}/files/etc/sudoers.d/99-elite-clean" "${pkgdir}/etc/sudoers.d/99-elite-clean"'$'\n'
     MOLDE[sudoers_rm]='    [ -e "/etc/sudoers.d/99-elite-clean" ] && rm -f "/etc/sudoers.d/99-elite-clean"'$'\n'
