@@ -795,10 +795,21 @@ file_has "lock: o blur é CACHE por evento (wall-blur.png — zero blur por lock
 # 1.0-108 — O MAPEAMENTO INSTANTÂNEO SEM PISCADA PRETA (a evidência do rig
 # 1.0-107.3: o lock nascia com uma piscada preta — o fade-in de era cobria
 # o primeiro frame antes do wallpaper):
-file_has "lock: o conf mestre veste no_fade_in (a CHEGADA é no frame 0)" "$AIROOTFS/etc/skel/.config/hypr/hyprlock.conf" 'no_fade_in = true'
+# 1.0-109 — A AUDITORIA DAS FLAGS REAIS (a evidência do dump 1.0-108:
+# o idle.log registrou 'lock não nasceu em 15s — réu: o lock não mapeou'
+# porque o --immediate de 1.0-108 virou INTEIRO deprecated no hyprlock
+# novo (sem valor o parser morre) e o no_fade_in SAIU das chaves válidas
+# — o juiz agora é o --help do PRÓPRIO binário instalado):
+file_has "lock: o juiz das flags é o --help do PRÓPRIO binário instalado" "$AIROOTFS/usr/local/bin/craft-lock" 'hyprlock_flags()'
+file_has "lock: o --no-fade-in só nasce quando o binário o conhece" "$AIROOTFS/usr/local/bin/craft-lock" 'case "$_ajuda" in *--no-fade-in*) HYPRFLAGS+=(--no-fade-in) ;; esac'
+file_has "lock: o --grace 0 das versões novas com a queda honesta para o --immediate bool de era" "$AIROOTFS/usr/local/bin/craft-lock" '*--grace*) HYPRFLAGS+=(--grace 0)'
+file_has "lock: os DOIS caminhos vestem as flags auditadas" "$AIROOTFS/usr/local/bin/craft-lock" 'hyprlock "${HYPRFLAGS[@]}" -c "$conf" 9>&-'
+file_hasnt "lock: NENHUMA flag de era hard-coded (o réu do 'não mapeou' morre)" "$AIROOTFS/usr/local/bin/craft-lock" 'hyprlock --immediate'
+file_hasnt "lock: a chave no_fade_in SAIU do conf (inválida nas versões novas — o parser aborta)" "$AIROOTFS/etc/skel/.config/hypr/hyprlock.conf" 'no_fade_in ='
+file_has "lock: o conf veste SÓ chaves válidas em toda a família (hide_cursor)" "$AIROOTFS/etc/skel/.config/hypr/hyprlock.conf" 'hide_cursor = true'
 file_has "lock: o conf mestre veste fade_on_empty = false (o campo não pisca)" "$AIROOTFS/etc/skel/.config/hypr/hyprlock.conf" 'fade_on_empty = false'
-file_has "lock: o craft-lock invoca o hyprlock com --immediate (sem fade de chegada)" "$AIROOTFS/usr/local/bin/craft-lock" 'hyprlock --immediate -c "$conf"'
-file_has "lock: o fallback sem conf também veste o --immediate" "$AIROOTFS/usr/local/bin/craft-lock" 'hyprlock --immediate 9>&-'
+# o craft-suspend espera o lock VIVO antes do freeze (a diretriz da dose):
+file_has "suspend: o pgrep -x hyprlock confirma o lock ativo ANTES do systemctl suspend" "$AIROOTFS/usr/local/bin/craft-suspend" 'pgrep -x hyprlock'
 file_has "lock: o cache STALE não segura o map (o ffmpeg renasce DESAPEGADO em setsid)" "$AIROOTFS/usr/local/bin/craft-lock" 'blur_fresco'
 file_has "lock: o blur_passes=0 é LEI SEMPRE (nenhuma passada lenta antes do map)" "$AIROOTFS/usr/local/bin/craft-lock" 'blur_passes = 0|"'
 file_has "bar: o Suspender do menu da barra veste o CRAFT-SUSPEND (lock mapeado antes do freeze)" "crates/craft-bar-rs/src/ui.rs" '("suspend", &["craft-suspend"][..])'

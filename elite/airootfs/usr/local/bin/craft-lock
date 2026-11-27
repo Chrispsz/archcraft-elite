@@ -41,15 +41,27 @@
 # 1.0-108 — O MAPEAMENTO INSTANTÂNEO SEM PISCADA PRETA (a evidência do
 #   rig 1.0-107.3: o lock nascia com uma piscada preta — o hyprlock
 #   vestia o fade-in de era ANTES do wallpaper mapear). Três leis novas:
-#   (1) o hyprlock nasce com --immediate + general { no_fade_in = true }
-#   do conf mestre (a CHEGADA é no frame 0, VESTIDA); (2) o wallpaper
-#   ÉTICO entra DIRETO no path — o blur cache E151 é usado SÓ quando
-#   já está FRESCO (mtime casa); stale/ausente = o ESTÁTICO assume com
-#   blur_passes=0 e o ffmpeg renasce DESAPEGADO (setsid, fora do
-#   caminho crítico — o lock NUNCA espera passada lenta antes do map;
-#   o próximo lock já encontra o cache pronto); (3) o conf veste
-#   fade_on_empty = false (de fábrica no mestre desde sempre) — o campo
-#   não pisca no primeiro toque.
+#   (1) o hyprlock nasce com as FLAGS REAIS DO BINÁRIO INSTALADO (ver
+#   1.0-109 abaixo); (2) o wallpaper ÉTICO entra DIRETO no path — o blur
+#   cache E151 é usado SÓ quando já está FRESCO (mtime casa); stale/
+#   ausente = o ESTÁTICO assume com blur_passes=0 e o ffmpeg renasce
+#   DESAPEGADO (setsid, fora do caminho crítico — o lock NUNCA espera
+#   passada lenta antes do map; o próximo lock já encontra o cache
+#   pronto); (3) o conf veste fade_on_empty = false (de fábrica no
+#   mestre desde sempre) — o campo não pisca no primeiro toque.
+#
+# 1.0-109 — A AUDITORIA DAS FLAGS REAIS (a evidência do dump 1.0-108:
+#   o idle.log registrou 'VIGÍLIA: lock não nasceu em 15s — braço
+#   desarmado (réu: o lock não mapeou)' porque a flag/chave de 1.0-108
+#   era INVÁLIDA para a versão do hyprlock instalada e abortava ANTES
+#   de mapear — o `--immediate` é um inteiro DEPRECATED no hyprlock novo
+#   (0.9+: sem valor o parser morre na porta) e o `general: no_fade_in`
+#   SAIU das chaves válidas nas versões novas (0.8+). O juiz agora é o
+#   `--help` do PRÓPRIO binário instalado, AUDITADO em cada
+#   nascimento: --no-fade-in e --immediate-render quando o binário os
+#   conhece, --grace 0 quando ele o conhece (0.9+, o substituto do
+#   --immediate) com a queda honesta para o --immediate bool das versões
+#   0.6-0.8 — NENHUMA flag nasce sem o binário dizer que a conhece).
 # v1.5: o locker da Elite é o hyprlock (~/.config/hypr/hyprlock.conf —
 #   wallpaper + blur + dim + relógio + campo estilizado). Roda no labwc
 #   via ext-session-lock-v1 (protocolo nativo). O swaylock (tela branca
@@ -84,6 +96,23 @@ uso() {
     exit 0
 }
 case "${1:-}" in -h|--help|uso) uso ;; esac
+
+# 1.0-109 — O JUIZ DAS FLAGS (a auditoria da diretriz: `hyprlock --help`
+# é a verdade do binário instalado — cada nascimento monta o EXÉRCITO
+# que o PRÓPRIO hyprlock declara conhecer; a versão nova (0.9.7) tem o
+# --immediate como inteiro deprecated (sem valor o parser MORRE — o réu
+# do 'lock não mapeou') e o --grace é o substituto dela)
+hyprlock_flags() {
+    HYPRFLAGS=()
+    _ajuda="$(hyprlock --help 2>&1 || true)"
+    case "$_ajuda" in *--no-fade-in*) HYPRFLAGS+=(--no-fade-in) ;; esac
+    case "$_ajuda" in *--immediate-render*) HYPRFLAGS+=(--immediate-render) ;; esac
+    case "$_ajuda" in
+        *--grace*) HYPRFLAGS+=(--grace 0) ;; # 0.9+: o instante de verdade
+        *--immediate*) HYPRFLAGS+=(--immediate) ;; # 0.6-0.8: o bool de era
+    esac
+    printf '%s\n' "as flags auditadas do binário: ${HYPRFLAGS[*]:-nenhuma}"
+}
 
 # E105 — A PORTEIRA DO NASCIMENTO (a corrida que o dump não conseguiu
 # fotografar: 'pediu a senha duas vezes'). TODO craft-lock atravessa a
@@ -251,16 +280,21 @@ if command -v hyprlock >/dev/null 2>&1; then
     # pedida DUAS vezes: o hyprlock que encerrou é o MESMO da tela, o
     # recover só mexe no LINK do monitor).
     _rc=0
-    # 1.0-108 — o --immediate (com o no_fade_in do conf mestre): a
-    # CHEGADA é no frame 0, VESTIDA — a piscada preta de era morre
-    hyprlock --immediate -c "$conf" 9>&- || _rc=$?
+    # 1.0-109 — as FLAGS AUDITADAS do binário instalado (o réu do 'lock
+    # não mapeou' era a flag de era morta no parser novo): a CHEGADA é
+    # no frame 0, VESTIDA — com as flags que o PRÓPRIO binário declara
+    hyprlock_flags
+    hyprlock "${HYPRFLAGS[@]}" -c "$conf" 9>&- || _rc=$?
     if command -v craft-display >/dev/null 2>&1; then
         craft-display recover >/dev/null 2>&1 || true
     fi
     exit "$_rc"
   fi
   _rc=0
-  hyprlock --immediate 9>&- || _rc=$?
+  # 1.0-109 — as FLAGS AUDITADAS valem nos DOIS caminhos (o conf do
+  # home ausente não nasce com o parser de era morto)
+  hyprlock_flags
+  hyprlock "${HYPRFLAGS[@]}" 9>&- || _rc=$?
   if command -v craft-display >/dev/null 2>&1; then
       craft-display recover >/dev/null 2>&1 || true
   fi
