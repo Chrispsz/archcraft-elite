@@ -256,6 +256,20 @@ registrada no mesmo commit.
 
 ## §8 · Dose 1.0-106 → 1.0-107 — o registro vivo (a matriz, o sono e a consolidação)
 
+> **1.0-107.3 — o registro do ciclo da auditoria total** vive em
+> `docs/releases/1.0-107.3.md`: a perícia do conjunto FINAL de pacotes da
+> ISO (234 simulados byte a byte: 4 redundâncias colhidas — o pavucontrol
+> duplicando o pwvucontrol, o pulsemixer TUI sem chamador, o
+> network-manager-applet que a higiene tirava dos rigs enquanto a ISO
+> nascia com ele, o xf86-input-libinput órfão da E151 — e 1 lacuna: o
+> xdg-desktop-portal-gtk, o backend FileChooser dos apps Flatpak), as
+> lógicas de borda endurecidas (o MUDO REAL do AudioState — o `mute` do
+> pactl; o RECENSO da reconexão BT pós-resume — `vale_recenso`), o
+> CEMITÉRIO DE CSS (12 regras fantasmas da E147/E149 + a grade morta do
+> swaync) e o GATE DE SHELLCHECK vestindo a casa inteira (a família
+> elite-* e os hooks de system-sleep entram no juiz — a mesma lei do
+> gate que não via o que julgava).
+
 > **1.0-107.2 — o registro do ciclo da filosofia ao extremo** vive em
 > `docs/releases/1.0-107.2.md`: o supervisor EVENTO puro (self-pipe
 > SIGCHLD + vigia inotify), o teto do `bars.log` (256 KiB), o allowlist

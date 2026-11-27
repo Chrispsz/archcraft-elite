@@ -6,6 +6,30 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **1.0-107.3 — A AUDITORIA TOTAL (pacotes do sistema, lógicas de borda,
+  zero dead code e arquitetura impecável)**: a perícia do **conjunto
+  final da ISO** (234 pacotes simulados byte a byte contra o
+  `packages.x86_64` REAL do upstream) colhe **4 redundâncias** que a
+  debloat de eras não via (o `pavucontrol` duplicando o `pwvucontrol`,
+  o `pulsemixer` TUI sem chamador na casa zero-TUI, o
+  `network-manager-applet` que a higiene TIRA dos rigs enquanto a ISO
+  NASCIA com ele, o `xf86-input-libinput` — DDX de um xorg-server que a
+  E151 aposentou) e **1 lacuna** (o `xdg-desktop-portal-gtk` — o backend
+  FileChooser que todo app Flatpak pede). As lógicas de borda:
+  **o mudo cravado** (o `AudioState` jurava "nunca mudo" na telemetria —
+  o `mute` real do pactl passa a vestir o estado), **o recenso cego à
+  reconexão BT** (o fone que reconecta após resume não atualizava o
+  estado — a regra pura `vale_recenso`), **o cemitério de CSS** (12
+  regras fantasma da E147 vestindo popovers que a E149 enterrou —
+  scales/switches/rótulos/headerbar/destrutivo + a grade de botões do
+  swaync), **o gate de shellcheck cego a 20 arquivos** (a família
+  `elite-*` + hooks de system-sleep + exo-open entram no juiz — a casa
+  já era limpa, o gate só passa a ver), **a porta `--skin-adopt`
+  7-de-8** (a swaync_skin faltava da festa que dizia "TODAS"), o fork
+  morto do laço do `/proc` do craft-apps (read builtin, zero fork) e o
+  teto do idle.log no resgate. Detalhe:
+  `docs/releases/1.0-107.3.md`.
+
 - **1.0-107.2 — A FILOSOFIA AO EXTREMO (auditoria integral, hardware
   moderno, inovação zero-bloat e otimização máxima)**: o supervisor
   vira **EVENTO puro do kernel** (SIGCHLD via self-pipe + vigia inotify
