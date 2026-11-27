@@ -639,44 +639,6 @@ do_recover() {
     return 0
 }
 
-# ── E134 — O OUVIDOR DO LOGIND: Unlock e PrepareForSleep(false) são ────
-#     EVENTOS, e evento não se espera por heartbeat. O ouvidor é um
-#     FILHO do watch (um processo por sessão, âncora própria no cmdline
-#     — o órfão da sessão anterior morre pelo pkill na nascença) e
-#     escuta o D-Bus do sistema (org.freedesktop.login1.Manager): ao
-#     DESTRAVAR a sessão ou VOLTAR do sono, toca a marca do resume (a
-#     reversão do driver não é escolha — E118) e chama o apply NA HORA
-#     (latência zero do 'display instantâneo' da ordem do dono 1.0-81;
-#     o sleep-hook elite-resume-display segue cobrindo o resume SEM
-#     watch vivo — as duas portas são idempotentes, o flock do apply
-#     serializa a corrida).
-login1_ouvidor() {
-    command -v dbus-monitor >/dev/null 2>&1 || return 0
-    # UM ouvidor por sessão (E30): o órfão do relogin morre pela âncora
-    # ANTES do nascimento — dois ouvidores seriam duas corridas de apply
-    # por evento (o flock seguraria, mas o papel contaria a dobradinha).
-    pkill -f "craft-display __login1-watch$" 2>/dev/null || true
-    ( /usr/local/bin/craft-display __login1-watch ) >/dev/null 2>&1 &
-}
-
-login1_watch() {
-    dbus-monitor --system "type='signal',interface='org.freedesktop.login1.Manager'" 2>/dev/null | awk '
-        /member=Unlock$/          { pend = "unlock"; next }
-        /member=PrepareForSleep$/ { pend = "sleep"; next }
-        pend == "sleep" && /boolean false/ { print "despertar"; fflush(); pend = "" }
-        pend == "sleep" && /boolean true/  { pend = "" }
-        pend == "unlock" && /^ *uint32 /   { print "destravar"; fflush(); pend = "" }
-    ' | while IFS= read -r _ev; do
-        case "$_ev" in
-            despertar|destravar)
-                : > "${XDG_RUNTIME_DIR:-/tmp}/elite/display-resume" 2>/dev/null || true
-                /usr/local/bin/craft-display apply >/dev/null 2>&1 || true
-                ;;
-        esac
-    done
-    exit 0
-}
-
 # ── watch: a escolha do dono grava sozinha (com o gate do arranjo) ───────
 do_watch_loop() {
     # o watch nasce DEPOIS do apply (ordem do autostart): o primeiro
@@ -750,18 +712,6 @@ do_watch_loop() {
         base="$agora"
         estavel=0
     done
-}
-
-# E139 — O WATCH LEGADO (a porta de fora) volta a ter o OUVIDOR LOGIND:
-# o guard E135 manda o rig COM o daemon session sair 0 (o daemon é o
-# ouvidor nativo); nos rigs sem o binário, o ouvidor nasce aqui como
-# sempre nasceu — e o corpo do watch é o MESMO do_watch_loop (a escolha
-# grava sozinha).
-do_watch() {
-    # E134 — o ouvidor do logind nasce com o watch (Unlock/PrepareForSleep
-    # viram apply IMEDIATO — a latência zero do 'display instantâneo')
-    login1_ouvidor
-    do_watch_loop
 }
 
 # ── o MENU (craft-display nu): todos os modos do EDID, aplicado+salvo ────
@@ -958,12 +908,12 @@ do_menu() {
 case "${1:-}" in
     -h|--help|uso)
         printf '%s\n' \
-            'uso: craft-display [apply|apply-boot|save|watch|recover|status|menu|icc] — a tela que lembra' \
+            'uso: craft-display [apply|apply-boot|save|recover|status|menu|icc] — a tela que lembra' \
             '' \
-            '  apply        aplica e GRAVA o arranjo atual (o watch chama depois)' \
+            '  apply        aplica e GRAVA o arranjo atual' \
             '  apply-boot   o arranjo salvo nasce aplicado (a 1ª linha da sessão)' \
             '  save         fotografa o AGORA no displays.conf' \
-            '  watch        grava a mudança ESTÁVEL do dono feita por QUALQUER porta' \
+            '  watch-save   grava a mudança ESTÁVEL do dono (vaga da sessão)' \
             '  recover      ciclo off→1s→on COM o modo salvo, POR SAÍDA VIVA (a cura' \
             '               do DP sem sinal no pós-resume/pós-unlock — dinâmico,' \
             '               nenhuma saída hardcoded; guard de 10s = um dono só)' \
@@ -985,33 +935,13 @@ case "${1:-}" in
     # sistema e a volta do sono no craft-vigil — o guard de 10s casa UM
     # dono por veredito e TODAS saem idempotentes.
     recover) do_recover; exit 0 ;;
-    watch)
-        # E135 — O GUARD DO OUVIDOR LEGADO: o elite-daemon session é o
-        # dono dos eventos de display agora (netlink drm + logind — os
-        # threads dele dormem nos sinais). Vivo o daemon, este watch
-        # shell É O RESIDENTE QUE A ORDEM DO DONO MANDOU MATAR (o dump
-        # 101339: 3 processos craft-display residentes) — sai 0 sem
-        # tocar em nada (o fallback só vale para rig sem o binário).
-        if pgrep -f '^/usr/local/bin/elite-daemon session$' >/dev/null 2>&1; then
-            _l="${XDG_CACHE_HOME:-$HOME/.cache}/elite/display.log"
-            printf '[%s] watch: elite-daemon session é o ouvidor (E135) — residente shell não nasce\n' "$(date '+%F %T')" >>"$_l" 2>/dev/null
-            exit 0
-        fi
-        do_watch ;;
     watch-save)
         # E139 — A VAGA SUPERVISIONADA (a sessão é quem lança — o slot
-        # 'displaysave' do elite-daemon session): o MESMO corpo do watch
-        # (a escolha do wdisplays grava de novo) SEM o guard E135 e SEM
-        # o ouvidor logind próprio — o daemon session é o ouvidor
-        # nativo do resume (dois ouvidos = duas corridas de apply por
-        # evento). Caiu → o supervisor ressuscita em 2s.
+        # 'displaysave' do elite-daemon session): o laço que grava a
+        # escolha ESTÁVEL do dono (do_watch_loop). O ouvidor do resume
+        # é o daemon session (netlink drm + logind nativo). Caiu → o
+        # supervisor ressuscita em 2s.
         do_watch_loop ;;
-    __login1-watch)
-        # E135 — idem: o daemon session tem o thread logind nativo.
-        if pgrep -f '^/usr/local/bin/elite-daemon session$' >/dev/null 2>&1; then
-            exit 0
-        fi
-        login1_watch ;;   # E134: o ouvidor do logind (filho do watch)
     status)
         # E106 — O STATUS QUE FALAVA SOZINHO: seções vazias ganham LINHA
         # NOMEADA e exit ≠ 0 quando a realidade não responde. E107 — o

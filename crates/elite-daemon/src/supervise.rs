@@ -745,12 +745,11 @@ pub fn run_session() -> Result<(), String> {
         });
     }
     // E139 — A VAGA DO WATCH-SAVE (a tela que lembra SEMPRE): o
-    // craft-display watch é vaga supervisionada da SESSÃO — a escolha
-    // do wdisplays grava de novo sem depender do autostart ter nascido
-    // antes, e caiu → volta em 2s (o mesmo contrato dos irmãos). O
-    // verbo próprio tem o guard E135 intocado: a porta LEGADA `watch`
-    // segue saindo 0 com o session vivo — quem residia de verdade é
-    // ESTA vaga, pelo verbo watch-save.
+    // craft-display watch-save é vaga supervisionada da SESSÃO — a
+    // escolha do wdisplays grava de novo sem depender do autostart
+    // ter nascido antes, e caiu → volta em 2s (o mesmo contrato dos
+    // irmãos). A porta legada `watch` morreu com a era shell — o
+    // ouvidor nativo dos eventos é o PRÓPRIO daemon.
     specs.push(VagaSpec {
         res: Residente {
             nome: "displaysave".to_string(),

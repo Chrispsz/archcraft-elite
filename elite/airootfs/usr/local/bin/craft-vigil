@@ -1,134 +1,34 @@
 #!/bin/sh
-# craft-vigil — A VIGÍLIA do lock (E60) com OUVIDOS (E61)
+# craft-vigil — a vigília do lock: suspende com o hyprlock vivo e quieto
 # ─────────────────────────────────────────────────────────────────────────
-# O RELATO DO DONO (v2.10.28+): "quando bloqueia, não entra a suspensão
-# automática de forma alguma. Então passa o tempo, nada acontece." — e o
-# update não mudou nada. A perícia no papel (E60) apontou o desenho:
-# a receita swayidle conta LOCK/SUSPEND do MESMO zero (última atividade),
-# e o braço do lock chamava 'craft-lock' SEM --if-needed — se o lock
-# screen rearmar o relógio de idle do compositor (surface nova + grab do
-# teclado é atividade em compositor wlroots), o ciclo vira escrachador:
-# lock aos 5min → relock aos 10 → relock aos 15 → o suspend aos 20 NUNCA
-# chega. O update não curou porque o defeito é de DESENHO, não de valor.
+# PAPEL: armada pelo craft-lock a todo lock novo. Com o hyprlock vivo,
+# suspende via `systemctl suspend -i` após SUSPEND_MIN minutos TRAVADOS
+# sem mãos no lock. O tempo TRAVADO decide (nunca o idle do compositor).
 #
-# A OUTRA ABORDAGEM (o dono pediu outra): o suspend deixa de depender do
-# relógio de idle POR COMPLETO. Quem arma é o LOCK (craft-lock): este
-# vigia conta o tempo TRAVADO (hyprlock vivo) e dorme o PC quando o lock
-# completar SUSPEND_MIN minutos. Desarmou? O hyprlock morreu (usuário
-# destravou) → vigia sai. O braço swayidle (timeout SUSPEND_MIN) fica no
-# ar como SEGUNDA rede — e desde a E61 como rede DEFERIDA: lock vivo com
-# vigília no ar, o braço idle NÃO dorme (o tempo TRAVADO é a autoridade
-# enquanto travado).
+# DESENHO:
+#   · orelha de CPU: utime+stime do hyprlock por tick de 30s — pico de
+#     ≥ 8 jiffies = tentativa de senha (mão de verdade); o relógio de
+#     render (+1/+2 jiffies) é ruído e NÃO renova a contagem;
+#   · dormir exige ≥ 2 ticks quietos: falso-positivo custa um sono mais
+#     tarde (inofensivo); falso-negativo é o que não pode existir;
+#   · contagem CONTÍNUA: mãos no lock zeram teto E contador — a senha
+#     digitada empurra o sono um período INTEIRO para a frente;
+#   · portão (idle-suspend-gate, XDG_RUNTIME_DIR): fechado no pós-sono;
+#     aberto no destravo (evento NOVO — o ciclo recomeça do zero);
+#   · ciclo persistente: a vigília obsoleta (sono sob a própria vigília)
+#     aposenta-se e arma a sucessora com a contagem nova do wake; a
+#     sucessora nasce após CADA sono pago OU recusado — UMA vigília por
+#     ciclo (flock no XDG_RUNTIME_DIR, lei E30);
+#   · veredito do sono pelo JOURNAL: 'Suspending system' → 'Awake from
+#     suspend' — a chamada systemctl é assíncrona, o papel não chuta;
+#   · última olhada: pgrep fresco imediatamente antes do systemctl —
+#     lock morto = destravo no intervalo do tick = nada de sono sobre
+#     destravo.
 #
-# E61 — O RELATO ESCLARECIDO (a ordem errada): "ele até suspendia, mas só
-# DEPOIS que eu colocava a senha para desbloquear... ele vai lá e entra
-# em suspensão depois que eu coloco a senha... a suspensão tá no lugar
-# errado". A arma identificada: o braço idle de suspend — o deadline de
-# idle não vê a digitação quando o compositor não conta input travado
-# como atividade: o timeout vencia com a senha NO MEIO e o PC dormia em
-# vez de desbloquear (o dono ligava de novo, digitava de novo — o ciclo
-# que ele viveu). A cura tem duas camadas:
-#   (1) o braço idle defere com lock vivo + vigia no ar (no craft-idle);
-#   (2) ESTA vigília ganhou OUVIDOS — ela não suspende com mãos no lock:
-#       · orelha de CPU (universal): o hyprlock é o único que RECEBE a
-#         digitação em TODOS os mundos — queimou ≥ 1 jiffy de CPU desde
-#         o último tick = mãos (a única voz da mão quando o compositor
-#         não conta input travado);
-#       · orelha do compositor (mundo A): o RESUME do swayidle renova a
-#         marca idle-activity (mtime) — input travado contado como
-#         atividade renova a marca a cada tecla;
-#       · dormir EXIGE ticks quietos (≥ 60s sem nenhuma orelha gritar):
-#         falso-positivo custa só um suspend mais tarde (inofensivo);
-#         falso-negativo é o que não pode existir.
-#
-# SEMÂNTICA DO TEMPO: SUSPEND_MIN passou a valer DUAS leituras, ambas
-# legítimas — minutos de idle até dormir (rede swayidle) E minutos
-# TRAVADO até dormir (a vigília). O knob é o mesmo (idle.conf), o menu do
-# craft-idle continua sendo a única porta de ajuste. O sleep do vigia usa
-# contagem de ticks — o tempo SUSPENSO não conta (o vigia morre no
-# suspend de qualquer forma: a missão acabou).
-#
-# GRAVIDADE: spawn ANTES do exec do hyprlock (craft-lock) → o lock pode
-# ainda não ter mapeado quando o vigia acorda. Graça de 15s pelo primeiro
-# aliveness; lock que não nasce = braço desarmado com réu no papel.
-#
-# LIMITAÇÃO HONESTA: o vigia lê a vida do HYPRLOCK — é o locker da Elite
-# (v1.5). No fallback loginctl (hyprlock ausente) o craft-lock NÃO arma
-# (armar seria prometer o que não pode vigiar — a lei da casa). As
-# orelhas têm limites próprios: a orelha de CPU pode não ver UMA tecla
-# isolada (o limiar é ≥ 1 jiffy); o limiar ≥ 60s de quieto pode suspender
-# com o dono PARADO na frente do lock (parado = idle por definição —
-# acordar dá o lock de volta com a senha, o fluxo prometido).
-#
-# OBSERVÁVEL: todo braço deixa linha no idle.log (a lei E33/E44 do corpo
-# do craft-idle) — 'não suspendeu' ganha réu NOMEADO com rc, não opinião.
-#
-# E77 — O PORTÃO E A AUTORIDADE ÚNICA (a spec do dono: timers de
-# bloqueio/DPMS/suspensão estritamente sequenciais e mutuamente
-# exclusivos; resume não re-suspende até o destravo e um novo período
-# completo de inatividade):
-#   · AUTORIDADE ÚNICA: sob lock vivo, esta vigília é o ÚNICO juiz do
-#     suspend (o braço idle do craft-idle defere SEMPRE e a re-arma se
-#     ela morreu — a janela 'vigia morto + senha no meio' morreu);
-#   · O PORTÃO (idle-suspend-gate, XDG_RUNTIME_DIR): fechado no pós-sono
-#     (o sleep-hook do before-sleep fecha em TODO sono; esta vigília
-#     fecha de novo antes do próprio suspend — swayidle morto também
-#     fica coberto). O destravo mata esta vigília pelo próprio laço — e
-#     a saída natural ABRE o portão (o lock que morreu é evento NOVO: o
-#     ciclo pode recomeçar do zero — T1 → lock novo → vigília nova).
-#   · A GRAÇA que falha (lock não nasceu em 15s) também abre: um braço
-#     desarmado não pode segurar o ciclo para sempre.
-#
-# E78 — O CICLO PERSISTENTE (a EMENDA do dono ao isolamento E77 — 07/nov:
-#   "se eu ligar o PC e tirar ele do modo suspensão, mas continuar
-#   deixando na tela de bloqueio, aí ele vai reiniciar esse ciclo para
-#   uma nova contagem para suspender e tudo funcionar normalmente...
-#   persistência, lógica correta para TODAS as formas de uso"). A E77
-#   tinha o limite honesto registrado: wake travado esperando a senha
-#   ficava ACORDADO PARA SEMPRE (o portão só abria no destravo) — a
-#   prisão perpétua do suspend. A emenda: o wake travado NÃO é prisão;
-#   é o INÍCIO de uma contagem nova. Três curas:
-#   (1) O PAGAMENTO: a vigília RENASCIDA no wake (screenon/re-arme)
-#       nasce DEPOIS do portão fechado — o período completo que ela
-#       conta É o 'novo período de inatividade' da spec. No teto com
-#       orelhas quietas e portão fechado com a MINHA contagem: PAGA —
-#       suspende (escuro e travado) e o ciclo PERSISTE:
-#       dorme/acorda(parado)/conta/dorme — cada rodada com o período
-#       INTEIRO desde o wake, nunca um loop apertado.
-#   (2) A VIGÍLIA OBSOLETA SE APOSENTA: portão fechado com mtime DEPOIS
-#       do meu nascimento = um sono real aconteceu ENQUANTO eu vigiava
-#       (sono manual do menu, tampa) — a minha contagem nasceu ANTES do
-#       sono e morreu com ele. Saio SEM dormir e ARMO a sucessora com a
-#       contagem NOVA do wake (o ciclo não herda tempo pré-sono).
-#   (3) AS MÃOS RENOVAM A CONTAGEM (a spec do dono: T3 só corre com o
-#       sistema CONTINUAMENTE idle — input reseta T3): cada episódio de
-#       mãos zera o teto, não só o quiet. A senha digitada empurra o
-#       suspend um período INTEIRO para a frente: interromper o dono no
-#       meio do pensamento (a pausa de 60s com o tempo total estourado)
-#       morre aqui. O destravo segue abrindo o portão na hora (E77).
-#
-# E79 — A SUCESSORA DO PRÓPRIO CICLO (o dump 4nsos do rig, 07/nov: o wake
-#   travado das 14:11:35 ACORDOU — 'tela: ACORDOU' no papel — e NENHUMA
-#   vigília nova apareceu: nem 'armada', nem 're-armada no resume'. A
-#   máquina ficou ESCURA, TRAVADA e ACORDADA por 2h08min até o Power do
-#   dono — e o logind default DESLIGOU no aperto (boot novo às 16:35:59).
-#   O ciclo persistente da E78 morria no PRIMEIRO wake). A perícia no
-#   código provou a janela: o screenon que EU chamo após o meu suspend
-#   executa o pgrep de re-arme enquanto EU ainda estou vivo — o pgrep vê
-#   o CHAMADOR, nunca um sucessor (o comm do script-shebang é o próprio
-#   nome, provado na E78) — e o callback resume do swayidle, o segundo
-#   candidato, perde a corrida contra o meu exit. A cura: a sucessora
-#   nasce EXPLÍCITA no fim do meu ciclo (o MESMO gesto do ramo
-#   OBSOLETA), no sucesso E no FALHA do sono:
-#     · no sucesso ela é a contagem NOVA do wake — nascida DEPOIS do
-#       touch do portão, PAGA o período inteiro no teto: dorme/acorda
-#       (parado)/conta/dorme SEM FIM, cada rodada com o período INTEIRO;
-#     · no FALHA ela é a ANTI-PRISÃO: o sono que não veio não pode deixar
-#       ninguém contando — a sucessora re-tenta a cada período, com o réu
-#       nomeado no papel a cada tentativa.
-#   pgrep duplo não existe: o screenon (meu filho) me vê vivo e não arma;
-#   o callback resume me vê (ou já vê a sucessora) e não arma; UMA vigília
-#   por ciclo, a lei E30 intacta.
+# OBSERVÁVEL: todo braço deixa linha no idle.log com réu NOMEADO.
+# LIMITAÇÃO HONESTA: vigia o hyprlock (o locker da casa); sem hyprlock
+# o craft-lock nem arma. Daemon interno — NÃO rodar na mão (Uma vigília
+# por ciclo; o papel completo está no --help).
 set -u
 
 # E90 — o --help que faltava (a lacuna nº 1 do UX-ROADMAP). A vigília é um
@@ -178,26 +78,10 @@ vlog() {
     return 0
 }
 
-ACT_EPOCH="${XDG_RUNTIME_DIR:-/tmp}/elite/idle-activity"
 # E77 — o portão do pós-sono (a MESMA lei do craft-idle: existe = fechado
 # = nenhum timer suspende; a vigília obedece, fecha no próprio sono e
 # abre na saída natural — o destravo é o dono da chave).
 GATE="${XDG_RUNTIME_DIR:-/tmp}/elite/idle-suspend-gate"
-# E106 — O TERMÔMETRO DO DESTRAVO: o craft-vigil toca ESTE stamp no
-# momento em que o lock morre (a saída natural do laço — 'destravado'),
-# e o sleep-hook do before-sleep + o braço idle do suspend consultam a
-# idade: destravo com menos de 15s = NINGUÉM recria lock nem suspende
-# (a corrida 'unlock × suspend em voo' do dump 20261112 morre aqui: a
-# máquina congelou com um lock #2 recém-nascido e acordou pedindo a
-# senha DUAS vezes). Vive no XDG_RUNTIME_DIR — morre com a sessão.
-UNLOCK_STAMP="${XDG_RUNTIME_DIR:-/tmp}/elite/unlock.stamp"
-unlock_fresco() { # 0 = o destravo foi há MENOS de $1 segundos
-    _janela="${1:-15}"
-    [ -r "$UNLOCK_STAMP" ] || return 1
-    _marca="$(stat -c %Y "$UNLOCK_STAMP" 2>/dev/null || echo 0)"
-    _agora="$(date +%s)"
-    [ "$((_agora - _marca))" -lt "$_janela" ]
-}
 
 # E97 — A TRAVA DA LEI E30 (o dump 163423 do rig flagrou DUAS vigílias
 # vivas no mesmo lock — pids 37301+59893: a sucessora da E79 e o re-arme
@@ -264,7 +148,7 @@ if ! alive; then
     exit 0
 fi
 
-vlog "VIGÍLIA: armada — suspende com o lock vivo por ${SUSPEND_MIN}min sem mãos (orelhas: CPU do hyprlock + marca de atividade do compositor; dormir exige ticks quietos)"
+vlog "VIGÍLIA: armada — suspende com o lock vivo por ${SUSPEND_MIN}min sem mãos (orelha: CPU do hyprlock; dormir exige ticks quietos)"
 cpu_ant="$(cpu_of 2>/dev/null || echo 0)"
 quiet=0
 elapsed=0
@@ -275,32 +159,11 @@ while alive; do
     [ "$delta" -lt 0 ] && delta=0
     cpu_ant="$cpu_agora"
     motivo=""
-    # E97 — A ORELHA DE CPU PERDEU O DIREITO DE RENOVAR SOZINHA (o rig
-    # provou no papel: 62 minutos — 15:31→16:33 do dump 163423 — de
-    # 'mãos no lock (hyprlock +1/+2 jiffies)' com o dono AUSENTE: o
-    # RELÓGIO do hyprlock queima +1 jiffie a cada tick de render e a
-    # orelha gritava 'mãos' a cada 30-90s, zerando a contagem — o sono
-    # automático NUNCA foi pago travado, e o dono viveu o absurdo: a
-    # máquina só dormia na hora da senha dele). O limiar agora é PIKE
-    # DE VERDADE: ≥ 8 jiffies num único tick de 30s = a tentativa de
-    # senha (PAM + crypt + o redraw completo do lock) — o relógio e o
-    # cursor do campo (+1/+2) são ruído de render, não mão. A outra
-    # orelha (compositor, ACT_EPOCH < 90s) segue como a voz legítima
-    # do input. Falso-positivo custa um sono mais tarde; falso-
-    # negativo em excesso custava O SONO AUTOMÁTICO INTEIRO.
+    # o limiar da orelha: ≥ 8 jiffies num único tick de 30s = a
+    # tentativa de senha (PAM + crypt + o redraw completo do lock) — o
+    # relógio e o cursor do campo (+1/+2) são ruído de render, não mão.
     if [ "$delta" -ge 8 ]; then
         motivo="hyprlock +${delta} jiffies (pike de senha — mão de verdade, não o relógio)"
-    fi
-    if [ -r "$ACT_EPOCH" ]; then
-        marca="$(stat -c %Y "$ACT_EPOCH" 2>/dev/null || echo 0)"
-        idade=$(( $(date +%s) - marca ))
-        if [ "$idade" -lt 90 ]; then
-            if [ -n "$motivo" ]; then
-                motivo="$motivo; compositor viu atividade há ${idade}s"
-            else
-                motivo="compositor viu atividade há ${idade}s"
-            fi
-        fi
     fi
     if [ -n "$motivo" ]; then
         # E61 — UM log por episódio: a mão que volta depois de um tick
@@ -357,7 +220,6 @@ while alive; do
         # systemctl — lock morto = o dono acabou de sair: nada de sono,
         # portão abre e o vigia sai (o próximo lock arma vigília nova).
         if ! pgrep -x hyprlock >/dev/null 2>&1; then
-            : > "$UNLOCK_STAMP" 2>/dev/null || true
             rm -f "$GATE" 2>/dev/null || true
             vlog "E106: suspend ABORTADO na última olhada — o lock morreu AGORA (o dono destravou no intervalo do tick; sono sobre destravo nunca mais)"
             exit 0
@@ -468,10 +330,6 @@ done
 # acaba aqui: o próximo ciclo (T1 → lock novo → vigília nova) é o 'novo
 # período completo de inatividade' da spec. Sem isto, um vigia morto antes
 # de abrir deixaria o portão preso fechado para sempre.
-# E106 — O TERMÔMETRO: o stamp do destravo é tocado AQUI (o sleep-hook do
-# before-sleep e o braço idle do suspend leem a idade — destravo fresco
-# = ninguém recria lock nem suspende; a corrida do dump morre aqui).
 rm -f "$GATE" 2>/dev/null || true
-: > "$UNLOCK_STAMP" 2>/dev/null || true
-vlog "VIGÍLIA: destravado com o lock vivo por ${elapsed}s (últimos ${quiet} ticks quietos) — braço desarmado sem suspend · portão ABERTO (E77) · termômetro do destravo tocado (E106)"
+vlog "VIGÍLIA: destravado com o lock vivo por ${elapsed}s (últimos ${quiet} ticks quietos) — braço desarmado sem suspend · portão ABERTO"
 exit 0

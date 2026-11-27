@@ -114,10 +114,11 @@ case "${1:-}" in
             printf 'elite-mangohud: a gramática é: elite-mangohud run <perfil> -- COMANDO...\n' >&2
             exit 1
         }
-        [ -r "$MASTERS/$2.conf" ] || { printf 'elite-mangohud: mestre %s.conf ausente\n' "$2" >&2; exit 1; }
+        _perfil="$2"
+        [ -r "$MASTERS/$_perfil.conf" ] || { printf 'elite-mangohud: mestre %s.conf ausente\n' "$_perfil" >&2; exit 1; }
         shift 3
         [ "$#" -gt 0 ] || { printf 'elite-mangohud: faltou o COMANDO depois do --\n' >&2; exit 1; }
-        exec env MANGOHUD_CONFIGFILE="$MASTERS/$2.conf" "$@"
+        exec env MANGOHUD_CONFIGFILE="$MASTERS/$_perfil.conf" "$@"
         ;;
     "")
         # O MENU (o motor da casa — o fuzzel que o dono já conhece)

@@ -421,7 +421,7 @@ if [ -f /etc/gamemode.ini ]; then
     fi
 fi
 
-# ── 9. O LIQUIDCTL DO COOLERCONTROL SAI DO BOOT (1.0-101) ────────────────
+# ── 12. O LIQUIDCTL DO COOLERCONTROL SAI DO BOOT (1.0-101) ───────────────
 #      O audit 99 fotografou o liqctld (Python do liquidctl) FALHANDO
 #      no boot do rig (o daemon do CoolerControl o acorda e o rig não
 #      tem NENHUM dispositivo USB de AIO/hub que o liquidctl fale —

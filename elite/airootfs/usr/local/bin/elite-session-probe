@@ -12,8 +12,8 @@
 # elite-session-probe.service), colhe o ESTADO REAL da sessão (barras vivas,
 # mortes registradas no bars.log, memória, versões) e imprime um bloco
 # MARCADO no console — no QEMU do gate o console é o serial, que o gate
-# grepa (ELITE_PROBE_BEGIN/END, WAYBAR_COUNT, DOCK_COUNT, BARS_EXITS). No
-# stdout vai a mesma carga (→ journal do systemd, forense pós-mortem).
+# grepa (ELITE_PROBE_BEGIN/END, DOCK_COUNT, BARS_EXITS). No stdout vai a
+# mesma carga (→ journal do systemd, forense pós-mortem).
 #
 # v2.1.1 (run #93): a sessão v2.0 é waybar top + dock NATIVA — o probe
 # só contava waybar e o gate cobrava "2 waybars" (contrato da era
@@ -43,12 +43,9 @@ count() {
     printf '%s' "$c"
 }
 
-# E140 — a top bar é o craft-bar-rs (o waybar aposentou); o token
-# WAYBAR_* segue no papel para a transição dos rigs (o perito lê
-# os DOIS: uma sessão E140 responde BAR e waybar=0; um rig velho
-# responde waybar e BAR=0 — a fronteira entre as eras é legível)
-wb_list="$(pgrep -a waybar 2>/dev/null | tr '\n' ';' | sed 's/;$//')"
-wb_count="$(count waybar)"
+# E140 — a top bar é o craft-bar-rs (o waybar aposentou com a era 2.0 —
+# os tokens de fronteira WAYBAR_* morreram com o último rig de era: o
+# ciclo 1.0-107.1 erradica o fóssil do papel da casa)
 tb_list="$(pgrep -a craft-bar-rs 2>/dev/null | tr '\n' ';' | sed 's/;$//')"
 tb_count="$(count craft-bar-rs)"
 # 1.0-106 — a central de notificações MORREU: o contador segue no papel
@@ -82,9 +79,7 @@ done
 unset _lk _session_locks
 # os residentes da família (o painel completo da sessão em números)
 # 2.0 — o swayidle APOSENTOU (a vigília é o ext-idle-notify nativo do
-# elite-daemon; o contador de era segue como fronteira legível dos
-# rigs velhos — a mesma lei do WAYBAR_*)
-idle_count="$(count swayidle)"
+# elite-daemon; o contador de era morreu com o último rig velho)
 osd_count="$(count swayosd-server)"
 udiskie_count="$(count udiskie)"
 pk_count="$(pgrep -c -f 'lxqt-policykit-agent' 2>/dev/null)"; [ -n "$pk_count" ] || pk_count=0
@@ -133,31 +128,8 @@ for f in /root/.cache/elite/bars.log /home/*/.cache/elite/bars.log; do
     logf="$f"
 done
 
-# E138 — O MOTOR DO JOGO NA PROVA (a ordem do dono, dump v2.13: AUTO=1
-# ativo mas 'watch FORA — sem daemon vivo' — a vaga do jogo é filha da
-# sessão desde a E138; a métrica lê o game-watch.pid que o MOTOR escreve
-# e o AUTO do conf — ON = AUTO=1 E pid vivo; OFF = AUTO=0 (ausência
-# intencional); FORA = AUTO=1 sem motor (a doença do dump, nomeada)
-game_watch="FORA"
-_gw_auto=0
-for _gw_home in /home/* /root; do
-    [ -r "$_gw_home/.config/elite/game.conf" ] || continue
-    grep -qx 'AUTO=1' "$_gw_home/.config/elite/game.conf" 2>/dev/null && { _gw_auto=1; break; }
-done
-if [ "$_gw_auto" = 1 ]; then
-    game_watch="FORA"
-    for _gwp in /run/user/*/elite/game-watch.pid; do
-        [ -r "$_gwp" ] || continue
-        _gwd="$(cat "$_gwp" 2>/dev/null)"
-        [ -n "$_gwd" ] && [ -d "/proc/$_gwd" ] && { game_watch="ON"; break; }
-    done
-else
-    game_watch="OFF"
-fi
-unset _gw_auto _gw_home _gwp _gwd
 
 say "ELITE_PROBE_BEGIN"
-say "WAYBAR_COUNT=$wb_count"
 say "DOCK_COUNT=$dk_count"
 # 1.0-105 — o TOPLEVEL_COUNT é a LISTA DE JANELAS ABERTAS do fio VIVO
 # (o snapshot de boas-vindas do bus.sock do elite-daemon — o socket
@@ -165,20 +137,18 @@ say "DOCK_COUNT=$dk_count"
 say "TOPLEVEL_COUNT=$tp_count"
 say "BUS_SOCKET=$bus_sock"
 say "SWAYNC_COUNT=$sn_count"
-say "IDLE_COUNT=$idle_count"
 say "OSD_COUNT=$osd_count"
 say "UDISKIE_COUNT=$udiskie_count"
 say "POLICYKIT_COUNT=$pk_count"
-# E137 — O MOTOR NA PROVA: o elite-daemon (session/game/supervise) e a
+# E137 — O MOTOR NA PROVA: o elite-daemon (session/supervise) e a
 # TRAVA da porta session (posse provada por flock — a métrica que
-# substitui a fóssil do craft-bars; o gate do QEMU segue consumindo
-# os tokens de sempre, WAYBAR/DOCK/TOPLEVEL/BARS_EXITS)
+# substitui a fóssil do craft-bars; o gate do QEMU consome os tokens
+# vivos: DOCK/TOPLEVEL/BARS_EXITS)
 say "ELITE_DAEMON_COUNT=$daemon_count"
 say "DAEMON_SESSION=$daemon_session"
 # E138 — ON = AUTO=1 com o motor vivo (vaga da sessão); OFF = AUTO=0
 # (ausência intencional assinada); FORA = AUTO=1 SEM motor (o réu do
 # dump v2.13, agora visível no papel da casa)
-say "GAME_WATCH=$game_watch"
 # E43/1.0-104 — a verdade da supervisão é a POSSE DO session.lock DO
 # elite-daemon (a métrica FOSSIL do bars.lock da era craft-bars MENTIA
 # 'LIVRE' na sessão E156+ — o orquestrador único trava o SESSION.LOCK,
@@ -205,13 +175,6 @@ unset _bars_lock
 say "SUPERVISOR_LOCK=$sup_lock"
 say "BARS_RESTARTS=$restarts"
 say "BARS_EXITS=$exits"
-# E117 — O RÓTULO QUE JURAVA CONTAGEM E MOSTRAVA LISTA (dump 163548: o
-# perito leria 'WAYBAR_PROCS=997 waybar -c …' como NOVECENTAS waybars
-# vivas — era o PID do processo ÚNICO concatenado com o cmdline do
-# pgrep -a). Hoje: a contagem de verdade numa linha, a lista na outra —
-# a família E33 aplicada ao próprio papel da casa.
-say "WAYBAR_PROCS=$wb_count"
-say "WAYBAR_LIST=$wb_list"
 say "BARS_LOG=$logf"
 if [ -n "$logf" ]; then
     tail -12 "$logf" 2>/dev/null | while IFS= read -r line; do
@@ -220,7 +183,6 @@ if [ -n "$logf" ]; then
 fi
 mem="$(free -m 2>/dev/null | awk 'NR==2 {printf "%s/%sMB", $3, $2}')"
 say "MEM=$mem"
-say "WAYBAR_VER=$(waybar --version 2>/dev/null | head -1)"
 say "TOPBAR_COUNT=$tb_count"
 say "TOPBAR_LIST=$tb_list"
 say "LABWC_VER=$(labwc --version 2>/dev/null | head -1)"

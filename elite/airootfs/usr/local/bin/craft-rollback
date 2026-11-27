@@ -31,7 +31,7 @@ mlog() {
 note() { command -v notify-send >/dev/null 2>&1 && timeout 5 notify-send -a 'Elite' "$@" || true; }
 
 # E90 — O VERBO SEGURO ANTES DE QUALQUER MENU (o contrato 35-ajuda: o
-# desconhecido NUNCA abre o fuzzel do rollback — a descoberta sai 0
+# desconhecido NUNCA abre o seletor do rollback — a descoberta sai 0
 # sem tocar em snapshot nenhum)
 case "${1:-}" in
     -h|--help|uso)
@@ -105,13 +105,7 @@ case "$choice" in
     'Criar snapshot agora')
         ec=0
         errf="$(mktemp)"
-        # v2.10.5 — A FLAG É PROBADA (lei do craft-menu/pin-pick: 'flag nova
-        # que mata'): --anchor sem probe matava o prompt em fuzzel velho.
-        ANCHOR=''
-        fuzzel --help 2>&1 | grep -q -- '--anchor' && ANCHOR='--anchor=center'
-        desc="$(fuzzel --dmenu </dev/null \
-            $ANCHOR \
-            --lines=0 --width=30 --prompt='Descrição  ' 2>"$errf")" || ec=$?
+        desc="$(craft-pick -T 'Descrição' 2>"$errf")" || ec=$?
         if [ "$ec" -ne 0 ]; then
             [ "$ec" -eq 1 ] && [ ! -s "$errf" ] \
                 && mlog "Rollback: descrição cancelada — benigno" \

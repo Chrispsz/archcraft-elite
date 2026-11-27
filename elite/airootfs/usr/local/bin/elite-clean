@@ -36,9 +36,7 @@
 #        (Mesa/Vulkan/NVIDIA — recriados sozinhos no uso) → limpar? [s/N]
 #   PORTAS:
 #     · --auto-safe: SÓ a fase 1, sem PERGUNTA nenhuma (a porta da
-#       automação e dos testes — o mesmo desenho honesto do --yes);
-#     · --yes: fase 1 + fase 2 SEM pergunta (a porta velha, preservada
-#       para scripts que já a chamam);
+#       automação e dos testes — o craft-clean da casa chama por aqui);
 #     · menu: terminal de pé — as perguntas [s/N] funcionam no terminal.
 #     · --as-root USUÁRIO HOME (E134): a porta do pkexec DIRETO — o
 #       alvo raiz do pkexec nasce com ambiente limpo, então o menu
@@ -103,23 +101,20 @@ clog() {
     return 0
 }
 
-ASSUME_YES=0
 AUTO_SAFE=0
 MENU_HOLD=0
 for arg in "$@"; do
   case "$arg" in
-    -y|--yes) ASSUME_YES=1 ;;
     --auto-safe) AUTO_SAFE=1 ;;
     menu) MENU_HOLD=1 ;;
-    -h|--help) printf 'uso: elite-clean [--as-root USUÁRIO HOME] [--yes|--auto-safe|menu] — a limpeza em DUAS FASES (E133)\n\n'; sed -n '2,40p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
-    *) echo "elite-clean: arg desconhecido: $arg (use --yes, --auto-safe ou menu)" >&2; exit 2 ;;
+    -h|--help) printf 'uso: elite-clean [--as-root USUÁRIO HOME] [--auto-safe|menu] — a limpeza em DUAS FASES (E133)\n\n'; sed -n '2,40p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) echo "elite-clean: arg desconhecido: $arg (use --auto-safe ou menu)" >&2; exit 2 ;;
   esac
 done
 
 _modo="interativo"
-[ "$ASSUME_YES" = 1 ] && _modo="--yes"
-[ "$ASSUME_YES" != 1 ] && [ "$AUTO_SAFE" = 1 ] && _modo="--auto-safe"
-[ "$ASSUME_YES" != 1 ] && [ "$AUTO_SAFE" != 1 ] && [ "$MENU_HOLD" = 1 ] && _modo="menu"
+[ "$AUTO_SAFE" = 1 ] && _modo="--auto-safe"
+[ "$AUTO_SAFE" != 1 ] && [ "$MENU_HOLD" = 1 ] && _modo="menu"
 clog "═══ elite-clean iniciado (TTY: $([ -t 0 ] && echo sim || echo não) · modo: $_modo · uid: $(id -u) · HOME: ${HOME:-?})"
 
 # E118 — a testemunha da porta + a morte deixa testemunho + o flock.
@@ -153,7 +148,7 @@ skipped() { printf '   (pulado: %s — sudo indisponível/sem TTY; nada quebrou)
 srun() {
   # sudo que NÃO mata o script: sem root/TTY o passo é pulado com aviso
   if (( EUID == 0 )); then "$@"; return 0; fi
-  if command -v sudo >/dev/null 2>&1 && [[ -t 0 || ${ASSUME_YES} -eq 1 ]]; then
+  if command -v sudo >/dev/null 2>&1 && [[ -t 0 ]]; then
     sudo "$@"
   else
     return 127
@@ -391,20 +386,15 @@ orphans="$(pacman -Qtdq 2>/dev/null || true)"
 if [[ -n "$orphans" ]]; then
   echo "$orphans" | sed 's/^/  /'
   clog "órfãos achados: $(echo "$orphans" | tr '\n' ' ')"
-  if (( ASSUME_YES == 1 )); then
+  # E133 — a pergunta do fechamento, palavra por palavra, padrão NÃO.
+  # v2.10.6 preservada: o EOF não mata calado (read com fallback).
+  read -r -p "Remover pacotes órfãos/mortos listados acima? [s/N] " ans || ans=''
+  if [[ "${ans,,}" == "s" ]]; then
     srun pacman -Rns --noconfirm $orphans || skipped "remoção dos órfãos"
-    clog "órfãos: removidos (--yes)"
+    clog "órfãos: removidos (escolha do dono no TTY)"
   else
-    # E133 — a pergunta do fechamento, palavra por palavra, padrão NÃO.
-    # v2.10.6 preservada: o EOF não mata calado (read com fallback).
-    read -r -p "Remover pacotes órfãos/mortos listados acima? [s/N] " ans || ans=''
-    if [[ "${ans,,}" == "s" ]]; then
-      srun pacman -Rns --noconfirm $orphans || skipped "remoção dos órfãos"
-      clog "órfãos: removidos (escolha do dono no TTY)"
-    else
-      echo "  (órfãos mantidos — padrão NÃO; escolha do usuário no papel)"
-      clog "órfãos: mantidos (escolha do usuário)"
-    fi
+    echo "  (órfãos mantidos — padrão NÃO; escolha do usuário no papel)"
+    clog "órfãos: mantidos (escolha do usuário)"
   fi
 else
   echo "  nenhum órfão (o sistema já está limpo desta praga)"
@@ -413,19 +403,15 @@ fi
 
 step "fase 2 · runtimes Flatpak não utilizados"
 if command -v flatpak >/dev/null 2>&1; then
-  if (( ASSUME_YES == 1 )); then
+  # E133 — o flatpak LISTA o que vai no próprio comando; a casa pergunta
+  # ANTES (padrão NÃO) e o -y só desce com o sim do dono.
+  read -r -p "Remover runtimes Flatpak não utilizados? [s/N] " ans || ans=''
+  if [[ "${ans,,}" == "s" ]]; then
     flatpak uninstall --unused -y 2>/dev/null || echo "  (nada a remover ou sem sessão — pulado)"
+    clog "flatpak --unused: corrido (escolha do dono)"
   else
-    # E133 — o flatpak LISTA o que vai no próprio comando; a casa pergunta
-    # ANTES (padrão NÃO) e o -y só desce com o sim do dono.
-    read -r -p "Remover runtimes Flatpak não utilizados? [s/N] " ans || ans=''
-    if [[ "${ans,,}" == "s" ]]; then
-      flatpak uninstall --unused -y 2>/dev/null || echo "  (nada a remover ou sem sessão — pulado)"
-      clog "flatpak --unused: corrido (escolha do dono)"
-    else
-      echo "  (runtimes mantidos — padrão NÃO)"
-      clog "flatpak --unused: mantidos (escolha do usuário)"
-    fi
+    echo "  (runtimes mantidos — padrão NÃO)"
+    clog "flatpak --unused: mantidos (escolha do usuário)"
   fi
 else
   echo "  (flatpak ausente — pulado)"
@@ -445,11 +431,7 @@ for _d in "$HOME/.cache/mesa_shader_cache" "$HOME/.cache/mesa_shader_cache_db" \
 done
 echo "  miniaturas: ${_thumb} MiB · shaders (Mesa/Vulkan/NVIDIA): ${_shm} MiB"
 clog "fase 2 caches: miniaturas ${_thumb} MiB · shaders ${_shm} MiB"
-if (( ASSUME_YES == 1 )); then
-  _ans=s
-else
-  read -r -p "Limpar caches de miniaturas e shaders (recriados automaticamente)? [s/N] " _ans || _ans=''
-fi
+read -r -p "Limpar caches de miniaturas e shaders (recriados automaticamente)? [s/N] " _ans || _ans=''
 if [[ "${_ans,,}" == "s" ]]; then
   _freed=0
   for _d in "$HOME/.cache/thumbnails" "$HOME/.cache/mesa_shader_cache" \
@@ -477,12 +459,12 @@ if [ "$AUTO_SAFE" = 1 ]; then
   echo "  --auto-safe: fase 2 (órfãos/flatpak/shaders) NÃO corre — a porta da automação não pergunta"
   clog "--auto-safe: fase 2 pulada (sem prompts por desenho)"
 else
-  if [[ -t 0 && -t 1 ]] || (( ASSUME_YES == 1 )); then
+  if [[ -t 0 && -t 1 ]]; then
     fase2
   else
     echo
     echo "  (sem TTY de pergunta: a fase 2 interativa fica para a próxima corrida com terminal — nada foi perguntado, nada foi removido)"
-    clog "fase 2: PULADA (sem TTY — as perguntas [s/N] exigem terminal; use --yes ou --auto-safe)"
+    clog "fase 2: PULADA (sem TTY — as perguntas [s/N] exigem terminal; use --auto-safe)"
   fi
 fi
 
@@ -528,6 +510,6 @@ fi
 # E96/E110 — o relatório não some: o modo menu pausa INCONDICIONAL.
 if (( MENU_HOLD == 1 )); then
   read -r -p 'Enter para fechar' _ || true
-elif (( ASSUME_YES == 0 )) && [[ -t 0 ]] && [[ -t 1 ]]; then
+elif [[ -t 0 ]] && [[ -t 1 ]]; then
   read -r -p 'Enter para fechar' _ || true
 fi

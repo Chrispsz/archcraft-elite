@@ -277,7 +277,7 @@ HOUSE_OVERWRITE=(
 # E101 — O OSD CHEGA AO RIG: o swayosd está no packages.add desde a E74,
 # mas o rig do dono nasceu ANTES (o dump 211627 não o tem — os binds
 # degradavam ao pactl sem barra NUNCA). A adoção fecha o furo: sudo
-# craft-update → o daemon e a barra nascem na sessão viva (o craft-bars
+# craft-update → o daemon e a barra nascem na sessão viva (o elite-daemon
 # supervisiona).
 # E136 — A PARTE 2/2 DO DONO: o EDITOR GRÁFICO DA CASA vira o
 # GNOME TEXT EDITOR ('padronize gnome-text-editor como editor gráfico
@@ -807,32 +807,27 @@ craft_tl_q() {
     pacman -Q craft-toplevel 2>/dev/null | awk '{print $2}' || true
 }
 
-# E48→E49→E50 — A CURA NA SESSÃO VIVA, agora com UM dono: o update troca
-# ARQUIVOS, mas o daemon vivo corre a receita ANTERIOR até relogin. O
-# pkill é cirúrgico DUAS VEZES: por DELTA (só morre quem mudou de pacote)
-# e por SUPERVISOR (só morre quem tem craft-bars vivo para ressuscitar em
-# ~1s com o código novo). A ORDEM importa: o toplevel primeiro — a dock
-# nova nasce sobre o daemon de janelas já de pé (ELITE_TL_SETTLE é a
-# porta de prova da espera, mesma escola do VMARK/ELITE_UNIT_DIR). No E50
-# o daemon de janelas viaja DENTRO do pacote único: mudou a casa → o
-# toplevel também reinicia (os deltas LEGADOS preservam os rigs de
-# transição).
+# E48→E49→E50 — A CURA NA SESSÃO VIVA: o update troca ARQUIVOS, mas o
+# daemon vivo corre a receita ANTERIOR até relogin. O pkill é cirúrgico
+# DUAS VEZES: por DELTA (só morre quem mudou de pacote) e por SUPERVISOR
+# (só morre quem tem o elite-daemon session vivo para ressuscitar em ~1s
+# com o código novo — o supervisor único desde a E135). A ORDEM importa:
+# o toplevel primeiro — a dock nova nasce sobre o daemon de janelas já
+# de pé (ELITE_TL_SETTLE é a porta de prova da espera, mesma escola do
+# VMARK/ELITE_UNIT_DIR). No E50 o daemon de janelas viaja DENTRO do
+# pacote único: mudou a casa → o toplevel também reinicia.
 refresh_session() {
     local casa_mudou="$1" tl_mudou="$2" uid
     [ "$casa_mudou" = 1 ] || [ "$tl_mudou" = 1 ] || return 0
     while read -r uid _; do
         [ -n "$uid" ] || continue
-        # E139 — O GATE DO SUPERVISOR DE VERDADE: o pgrep -x craft-bars
-        # nunca mais casa desde a E135 (o craft-bars EXECA o
-        # elite-daemon session — o /bin/sh sumiu do ps) e o ramo AUSENTE
-        # acima recusava TODA a cura da sessão em toda dose (o respawn
-        # que não acontecia). As DUAS eras pelo comm certo: elite-daemon
-        # (a porta session é O supervisor — o corpo da sessão) ou
-        # craft-bars (o fallback bash dos rigs sem binário). Sem NENHUM
-        # dos dois: pkill sem volta é dano, não cura (a lei E48 mantida).
-        if ! pgrep -u "$uid" -x elite-daemon >/dev/null 2>&1 \
-           && ! pgrep -u "$uid" -x craft-bars >/dev/null 2>&1; then
-            ulog "sessão: supervisor vivo AUSENTE (uid $uid — nem elite-daemon nem craft-bars) — a sessão segue com o código antigo até relogin (pkill sem volta seria dano, não cura)"
+        # E139 — O GATE DO SUPERVISOR: a porta session do elite-daemon É
+        # o corpo da sessão (o craft-bars de era morreu no E135 — o
+        # supervisor único de sempre). Sem o daemon vivo: pkill sem volta
+        # é dano, não cura (a lei E48 mantida — a sessão segue com o
+        # código antigo até relogin).
+        if ! pgrep -u "$uid" -x elite-daemon >/dev/null 2>&1; then
+            ulog "sessão: supervisor vivo AUSENTE (uid $uid — sem elite-daemon) — a sessão segue com o código antigo até relogin (pkill sem volta seria dano, não cura)"
             continue
         fi
         if { [ "$tl_mudou" = 1 ] || [ "$casa_mudou" = 1 ]; } && pgrep -u "$uid" -x craft-toplevel >/dev/null 2>&1; then
@@ -859,8 +854,8 @@ refresh_session() {
             # SCRIPTS.md v4.2): o pgrep -x JAMAIS casou (nome ≠ comm, e 17
             # chars não cabem no comm de 15) e o pkill nunca mordeu — o
             # roteador de áudio envelhecia no update até o relogin, calado.
-            # A forma -f é a MESMA que o supervisor (craft-bars) usa no
-            # próprio guard — supervisor e refresh enxergam o mesmo mundo.
+            # A forma -f casa o cmdline INTEIRO do residente de era — o
+            # refresh só morde quem o padrão nomeia, nunca a mais.
             # 2.0 — OS RESIDENTES DE ERA QUE MORRERAM: o roteador python
             # (craft-audio-route) e o swayidle saem da sessão viva na dose
             # (o elite-daemon É o roteador e a vigília agora — o próprio
@@ -883,7 +878,7 @@ refresh_session() {
             # morreu na corrida do IPC). AQUI a dose renova as seis peles
             # (menu/rc/topbar/OSD/lock) na sessão viva e o craft-rice
             # aplica o reconfigure com rede de tentativas. GUARD: só com o
-            # craft-bars de pé (o supervisor garante o respawn da barra —
+            # supervisor de pé (o elite-daemon session garante o respawn da barra —
             # o pkill do rice sem supervisor seria dano, não cura; o ramo
             # AUSENTE acima já devolveu). WAYLAND_DISPLAY descoberto no
             # /run/user/$uid (o socket do compositor vivo); sem socket =

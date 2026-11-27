@@ -68,14 +68,6 @@ if [ -e /usr/local/bin/calamares-elite-log ]; then
     echo "elite-sweep: wrapper removido: /usr/local/bin/calamares-elite-log"
 fi
 
-# cache do nwg-drawer que listou o fantasma: re-indexa limpo na 1ª abertura
-for c in /home/*/.cache/nwg-drawer/cache.db; do
-    [ -f "$c" ] || continue
-    if grep -aq calamares "$c" 2>/dev/null; then
-        rm -f -- "$c"
-        echo "elite-sweep: cache do drawer purgado (listava calamares): $c"
-    fi
-done
 
 echo "elite-sweep: concluído ($removed atalho(s) de instalador removidos)"
 exit 0
