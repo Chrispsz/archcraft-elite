@@ -1,0 +1,204 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# Promover testing → stable — o fluxo EXPLÍCITO de promoção do canal
+# ───────────────────────────────────────────────────────────────────────────
+# 1.0-107.1 — A SEPARAÇÃO TESTING × STABLE (a diretriz do ciclo
+# intermediário): o canal testing publica builds contínuos de validação na
+# prerelease `testing`; o rig só recebe o que o dono PROVOU no hardware
+# real. A promoção é GATILHO HUMANO (workflow_dispatch): o workflow copia
+# a build validada da prerelease testing para a release ESTÁVEL
+# (releases/latest — o endereço que o pacman.conf de todo rig lê),
+# regravando o elite-local.db com repo-add e o selo sha256sums-pacotes.
+# Idempotente: a mesma build promovida 2× escreve o mesmo estado final.
+name: Promover testing → stable
+
+on:
+  workflow_dispatch:
+    inputs:
+      notas:
+        description: 'Notas da validação no hardware real (opcional — entra no resumo)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: promover-testing-stable
+  cancel-in-progress: false
+
+jobs:
+  promove:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Marco T0 (o relógio da promoção)
+        run: echo "TS_T0=$(date +%s)" >> "$GITHUB_ENV"
+
+      - name: Marco da coleta (início)
+        run: echo "TS_COLETA_INICIO=$(date +%s)" >> "$GITHUB_ENV"
+
+      # ── GATE 1 · A ORIGEM EXISTE: sem build validada não há promoção ──
+      - name: Gate da origem — a prerelease testing tem o que promover
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release view testing --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || {
+            echo "ERRO: a prerelease testing NÃO existe — nada a promover (o canal publica builds de validação a cada push de casa)." >&2
+            exit 1
+          }
+          if ! gh release view testing --repo "$GITHUB_REPOSITORY" --json assets \
+               --jq '.assets[].name' | grep -qE '^elite-system-.*\.pkg\.tar\.zst$'; then
+            echo "ERRO: a prerelease testing NÃO carrega elite-system — nada a promover." >&2
+            exit 1
+          fi
+          echo "── origem válida: a prerelease testing carrega a build de validação"
+
+      # ── COLETA · a build validada sai da prerelease testing ──
+      - name: Coletar a build validada da prerelease testing
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p promo && cd promo
+          gh release download testing --repo "$GITHUB_REPOSITORY" \
+            --pattern 'elite-system-*.pkg.tar.zst' \
+            --pattern 'brave-origin-*.pkg.tar.zst' \
+            --pattern 'elite-local.db.tar.gz' \
+            --pattern 'sha256sums-pacotes.txt' || true
+          # o selo da testing é a prova do que sobe: conferido antes do upload
+          if [ -f sha256sums-pacotes.txt ]; then
+            sha256sum -c sha256sums-pacotes.txt --ignore-missing || {
+              echo "ERRO: o selo da prerelease testing não confere — a build promovida divergiu." >&2
+              exit 1
+            }
+          fi
+          ls -lh
+      - name: Marco da coleta (fim) + publicação (início)
+        run: echo "TS_COLETA_FIM=$(date +%s)" >> "$GITHUB_ENV"
+
+      # ── PUBLICAÇÃO · repo-add contra o db da release ESTÁVEL ──
+      # O endereço do rig é releases/latest (elite-customize.sh E32): a
+      # promoção regrava o db ESTÁVEL com as entradas validadas — o
+      # `pacman -Syu` de todo rig entrega a build na transação seguinte.
+      - name: Publicar na release estável (repo-add → upload --clobber → dieta)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          docker run --rm \
+            -v "$PWD":/work -w /work \
+            -e GH_TOKEN="$GH_TOKEN" \
+            -e REPO="$GITHUB_REPOSITORY" \
+            archlinux:base-devel \
+            bash -euc '
+              pacman -Syu --noconfirm --needed github-cli >/dev/null 2>&1
+              TAG="$(gh api "repos/$REPO/releases/latest" --jq .tag_name)"
+              echo "release estável: $TAG (a Lei da Release Única — nada é criada aqui)"
+              mkdir -p /tmp/repo && cd /tmp/repo
+              # o db ATUAL da estável é a base: repo-add ADICIONA as entradas
+              # validadas — os demais pacotes NEM são baixados.
+              gh release download "$TAG" --repo "$REPO" --pattern "elite-local.db.tar.gz"
+              mkdir -p db-prune && tar -xzf elite-local.db.tar.gz -C db-prune
+              for d in db-prune/*-debug-*/; do
+                [ -d "$d" ] || continue
+                echo "── db-base: órfão fora do ar: ${d#db-prune/}"
+                rm -rf "$d"
+              done
+              tar -czf elite-local.db.tar.gz -C db-prune $(ls db-prune)
+              rm -rf db-prune
+              cp /work/promo/elite-system-*.pkg.tar.zst .
+              PKGARGS="elite-system-*.pkg.tar.zst"
+              # o brave da ESTÁVEL permanece o da build completa de tag; o
+              # da testing SÓ entra se ela o carregar (a build de validação
+              # completa — o pin pode ter mudado entre tags)
+              if ls /work/promo/brave-origin-*.pkg.tar.zst >/dev/null 2>&1; then
+                cp /work/promo/brave-origin-*.pkg.tar.zst .
+                PKGARGS="$PKGARGS brave-origin-*.pkg.tar.zst"
+              fi
+              repo-add --quiet elite-local.db.tar.gz $PKGARGS
+              rm -f elite-local.db && cp elite-local.db.tar.gz elite-local.db
+              sha256sum elite-system-*.pkg.tar.zst > sha256sums-pacotes.txt
+              if ls brave-origin-*.pkg.tar.zst >/dev/null 2>&1; then
+                sha256sum brave-origin-*.pkg.tar.zst >> sha256sums-pacotes.txt
+              fi
+              echo "── selo da promoção:"
+              cat sha256sums-pacotes.txt
+              gh release upload "$TAG" elite-local.db elite-local.db.tar.gz \
+                elite-system-*.pkg.tar.zst sha256sums-pacotes.txt \
+                --repo "$REPO" --clobber
+              # a LOJA SEM PILHA: publicada a versão promovida, toda OUTRA
+              # versão do MESMO pacote sai do ar (a dieta de sempre).
+              for nm in elite-system brave-origin; do
+                  keep="$(ls ./${nm}-*.pkg.tar.zst 2>/dev/null | head -1 | xargs -r -n1 basename)"
+                  [ -n "$keep" ] || continue
+                  gh release view "$TAG" --repo "$REPO" --json assets --jq ".assets[].name" \
+                    | grep -E "^${nm}-.*\.pkg\.tar\.zst$" | grep -vxF "$keep" \
+                    | while read -r old; do
+                        echo "── loja limpa: $old fora do ar (a promovida é $keep)"
+                        gh release delete-asset "$TAG" "$old" --repo "$REPO" --yes || true
+                      done
+              done
+              # A VERIFICAÇÃO: cada entrada do db com asset no ar (a classe
+              # 404 é impossível — o rig nunca paga a recusa da dose).
+              echo "── verificação db↔assets:"
+              fail=0
+              verify_dir="$(mktemp -d)"
+              tar -xzf elite-local.db.tar.gz -C "$verify_dir"
+              for d in "$verify_dir"/*/; do
+                [ -f "$d/desc" ] || continue
+                arq="$(awk "/%FILENAME%/{getline; print; exit}" "$d/desc")"
+                [ -n "$arq" ] || continue
+                if gh release view "$TAG" --repo "$REPO" --json assets \
+                     --jq ".assets[].name" | grep -qx "$arq"; then
+                  echo "  ok: $arq"
+                else
+                  echo "FALTOU: $arq — asset ausente para uma entrada do db" >&2
+                  fail=1
+                fi
+              done
+              rm -rf "$verify_dir"
+              if [ "$fail" -eq 1 ]; then
+                echo "ERRO: o db ficou ADIANTE da release — a promoção é VERMELHA." >&2
+                exit 1
+              fi
+              echo "── prontos: o craft-update do rig entrega no próximo -Syu."
+            '
+
+      - name: Marco da publicação (fim)
+        run: echo "TS_PUBLICACAO_FIM=$(date +%s)" >> "$GITHUB_ENV"
+
+      # ── O RESUMO TÉCNICO DA PROMOÇÃO ──
+      - name: Resumo técnico da promoção ($GITHUB_STEP_SUMMARY)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          pkgrel="$(grep -B2 "pkgdesc='O sistema da Elite" .ci/build.sh | grep -oE 'pkgrel=[0-9.]+' | head -1 | cut -d= -f2)"
+          dur() { _a="${1}"; _b="${2}"; [ -n "$_a" ] && [ -n "$_b" ] && echo "$(( _b - _a ))s" || echo "—"; }
+          stable_tag="$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)"
+          selo="$(head -1 promo/sha256sums-pacotes.txt 2>/dev/null | awk '{print $1}' || true)"
+          {
+            echo "## Promoção testing → stable (elite-local)"
+            echo
+            echo "| campo | valor |"
+            echo "|---|---|"
+            echo "| canal | **stable** (promovido da prerelease testing) |"
+            echo "| release estável | ${stable_tag:-?} |"
+            echo "| versão (elite-system pkgrel) | ${pkgrel:-?} |"
+            echo "| duração · gate + coleta validada | $(dur "$TS_T0" "$TS_COLETA_FIM") |"
+            echo "| duração · publicação no estável | $(dur "$TS_COLETA_FIM" "$TS_PUBLICACAO_FIM") |"
+            echo "| sha256 (elite-system) | \`${selo:0:16}…\` |"
+            if [ -n "${{ inputs.notas }}" ]; then
+              echo
+              echo "### Notas da validação"
+              echo
+              echo "${{ inputs.notas }}"
+            fi
+            echo
+            echo "A build foi validada no hardware real antes da promoção (o critério do canal)."
+            echo "O próximo \`pacman -Syu\` de cada rig entrega a build promovida."
+          } >> "$GITHUB_STEP_SUMMARY"

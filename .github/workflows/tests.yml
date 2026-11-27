@@ -82,6 +82,22 @@ jobs:
           restore-keys: |
             cargo-target-
       - name: Montar o quebra-cabeça (5 fases + veredito)
-        run: bash tests/run-tests.sh
+        run: |
+          bash tests/run-tests.sh 2>&1 | tee porteira.log; rc=${PIPESTATUS[0]}
+          # 1.0-107.1 — o RESUMO TÉCNICO da suíte (canal · contratos · veredito)
+          veredito="$(grep -oE 'VEREDICTO: [A-Z]+' porteira.log | tail -1 | cut -d' ' -f2 || true)"
+          contratos="$(grep -oE 'CONTRATOS: [0-9]+' porteira.log | tail -1 | grep -oE '[0-9]+' || true)"
+          falhas="$(grep -oE 'falhas: [0-9]+' porteira.log | tail -1 | grep -oE '[0-9]+' || true)"
+          {
+            echo "## Porteira — contratos da árvore"
+            echo
+            echo "| campo | valor |"
+            echo "|---|---|"
+            echo "| canal | testing (suíte de contratos do push) |"
+            echo "| contratos | ${contratos:-?} |"
+            echo "| falhas | ${falhas:-?} |"
+            echo "| veredito | ${veredito:-?} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$rc"
       - name: shfmt (informativo — não bloqueia)
         run: shfmt -d scripts/*.sh .ci/*.sh elite/fragments/*.sh || true

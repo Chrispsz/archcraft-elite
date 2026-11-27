@@ -6,6 +6,23 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **1.0-107.1 — O CICLO INTERMEDIÁRIO (auditoria, build & organização)**:
+  a forense byte a byte da base (zero fósseis: o zumbi `cond/peek_lock`
+  do supervise, o watch legado do craft-display, os tokens de era do
+  probe, o `--yes` morto do elite-clean, o bug REAL do
+  `elite-mangohud run` que comia o perfil no shift), o saneamento da
+  suíte (~25 contratos artificiais saem: o `file_hasnt` vacuo com
+  âncora regex nunca casava no `grep -qF`; pins de comentário/log/prosa
+  de documento morrem; a porteira fica em 652 contratos REAIS), a
+  compressão da ISO calibrada (`zstd -15 -T0 -b 512K`), o cache Cargo
+  unificado (mensal + juiz do verify-install), o build fail-fast
+  (`needs: [lint, suite]`) e a separação **testing × stable**: o canal
+  publica builds de validação na prerelease `testing` e o rig só
+  recebe pela promoção explícita (`promover-testing.yml`) depois da
+  validação no hardware real — com resumo técnico no
+  `$GITHUB_STEP_SUMMARY` de cada workflow. Detalhe:
+  `docs/releases/1.0-107.1.md`.
+
 - **E105 — O QUE O DUMP 195332 NOMEOU** (o dono: "ela voltou duas vezes
   para a tela de bloqueio, pediu a senha de novo"; "o íconezinho de
   perfil fica cortado pela metade"; "mostra um preview feio do papel de

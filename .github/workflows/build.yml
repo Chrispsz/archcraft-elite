@@ -113,7 +113,10 @@ jobs:
   # jobs.container: não tem permissão de mount (pacstrap monta /proc
   # no chroot) — por isso o docker run --privileged a partir do runner.
   build:
-    needs: lint
+    # 1.0-107.1 — FAIL-FAST: a suíte é lei — o build pesado (~40min de ISO
+    # + ~2 QEMU) NUNCA corre sobre contrato vermelho (a era pagava o build
+    # inteiro em paralelo para morrer na porta da release)
+    needs: [lint, suite]
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     steps:
@@ -407,8 +410,12 @@ jobs:
           TAG="${GITHUB_REF#refs/tags/}"
           echo "── releases vivas antes da lei:"
           gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[] | "\(.id) \(.tag_name)"' || true
+          # 1.0-107.1 — O CANAL TESTING É EXEMPÇÃO VIVA da lei: a prerelease
+          # `testing` carrega os builds de validação do ciclo — ela NÃO é
+          # release de tag, não é estável, e NÃO morre na lei da única.
           gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[].tag_name' \
             | grep -vxF "$TAG" \
+            | grep -vxF testing \
             | while read -r OLD; do
                 [ -n "$OLD" ] || continue
                 echo "── lei: apagando release '$OLD' (tag PRESERVADA)"
@@ -418,8 +425,29 @@ jobs:
                   echo "   FALHOU apagar $OLD — resolver manualmente (a tag e a release atual seguem íntegras)"
                 fi
               done
-          echo "── releases vivas depois da lei (deve sobrar só $TAG):"
+          echo "── releases vivas depois da lei (deve sobrar só $TAG + testing):"
           gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[] | "\(.id) \(.tag_name)"' || true
+
+      # ── 1.0-107.1 — O RESUMO TÉCNICO DO RELEASE ESTÁVEL ──
+      - name: Resumo técnico do release ($GITHUB_STEP_SUMMARY)
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          iso_mb=$(( $(stat -c%s out/archcraft-elite-*.iso 2>/dev/null | head -1 || echo 0) / 1048576 ))
+          selo="$(head -1 sha256sums.txt 2>/dev/null | awk '{print $1}' || true)"
+          {
+            echo "## Release estável — $TAG"
+            echo
+            echo "| campo | valor |"
+            echo "|---|---|"
+            echo "| canal | **stable** (tag → releases/latest) |"
+            echo "| tag | $TAG |"
+            echo "| ISO | ${iso_mb} MiB |"
+            echo "| sha256 (ISO) | \`${selo:0:16}…\` |"
+            echo "| compressão | zstd -15 -T0 -b 512K (calibrado 1.0-107.1) |"
+            echo
+            echo "O selo \`sha256sums.txt\` (asset) é a prova byte a byte da ISO."
+            echo "O canal testing segue vivo na prerelease \`testing\` (exempção da lei da única)."
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # ── Verificação pós-build: a ISO recém-nascida BOOTA? (gate QEMU) ─
   # Diretriz do dono do projeto: "você testando, você dando o boot" —

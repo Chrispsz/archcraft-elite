@@ -551,15 +551,19 @@ sed -i -e 's|iso_name="archcraft"|iso_name="archcraft-elite"|' \
        -e 's|iso_application="Archcraft Live/Installation/Rescue CD"|iso_application="Archcraft Elite Edition - Gaming Tuned Live/Installer"|' \
        "$PROFILE/profiledef.sh"
 
-# ── [9.1] E151 · A compressão da ISO = zstd ALTO ─────────────────
-#  A diretriz do debloat extremo: o xz -9e da era upstream paga horas
-#  de CPU por ~5% a menos de tamanho — o zstd nível 19 comprime
-#  comparável com descompressão MUITO mais rápida (o boot do live e o
-#  copy-to-RAM aceleram por causa do descompressor) e o build cai de
-#  horas para minutos. multithread (-T0) usa o runner inteiro.
-say "Compressão da ISO: zstd nível 19 multithread (o xz -9e aposenta)"
+# ── [9.1] E151 → 1.0-107.1 · A compressão da ISO = zstd CALIBRADO ──
+#  O xz -9e da era upstream pagava horas de CPU por ~5% de tamanho — o
+#  zstd aposentou a era (descompressão MUITO mais rápida no boot do
+#  live e no copy-to-RAM). A calibração do ciclo intermediário: o -19
+#  pagava CPU máxima pelos ÚLTIMOS ~2% de tamanho em cima de dados já
+#  comprimidos (os .pkg.tar.zst do [elite-local] no /var/cache e os
+#  binários LTO+strip do Rust são quase incompressíveis — nível 19 é
+#  desperdício duplo); o nível 15 com bloco de 512K equilibra tempo de
+#  CI, tamanho da ISO e velocidade de descompressão. multithread
+#  (-T0) usa o runner inteiro.
+say "Compressão da ISO: zstd nível 15 multithread, bloco 512K (calibrado)"
 sed -i -e 's|^COMPRESSION=.*|COMPRESSION="zstd"|' \
-       -e 's|^COMPRESSION_OPTIONS=.*|COMPRESSION_OPTIONS=(-19 -T0)|' \
+       -e 's|^COMPRESSION_OPTIONS=.*|COMPRESSION_OPTIONS=(-15 -T0 -b 512K)|' \
        "$PROFILE/profiledef.sh"
 grep -E '^COMPRESSION' "$PROFILE/profiledef.sh"
 

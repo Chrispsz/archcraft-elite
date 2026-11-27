@@ -1,14 +1,17 @@
 # ═══════════════════════════════════════════════════════════════════════════
-# Canal diário [elite-local] — commits de casa chegam como ATUALIZAÇÃO
+# Canal testing [elite-local] — builds contínuos de VALIDAÇÃO
 # ───────────────────────────────────────────────────────────────────────────
-# A demanda do dono (04/nov): "antes mesmo da iso sair esses commits já
-# devem sair como atualização… evitar ficar formatando e reinstalando a
-# cada update". A ISO fica sendo o retrato ESTÁVEL (mensal); a evolução
-# diária viaja pelo pacman:
+# 1.0-107.1 — A SEPARAÇÃO TESTING × STABLE (a diretriz do ciclo
+# intermediário): o push de casa gera o build de VALIDAÇÃO na prerelease
+# `testing` (NUNCA na release estável — o rig só recebe o que o dono
+# PROMOVEU depois de provar no hardware real, pelo workflow de
+# promoção; a ISO de tag continua sendo o retrato estável). A prerelease
+# rola ÚNICA (uma só `testing` viva) com dieta automática de assets: o
+# build antigo de teste é substituído no ar, nunca acumulado.
 #
 #   push no main (código de casa) → guarda da lei E41 → makepkg dos pacotes
 #   da casa (PACKAGES_ONLY, minutos — sem ISO) → repo-add contra o db do
-#   release vivo → upload --clobber → o craft-update do rig (-Syu) entrega.
+#   prerelease testing → upload --clobber (a promoção leva ao rig).
 #   E50 — O CANAL PUBLICA A ERA NOVA: elite-system (O PACOTE ÚNICO). O
 #   elite-craft PAROU de ser publicado (a era dos dois veículos encerrou;
 #   o último 1.0-6 segue no db como fóssil — os rigs que o têm são
@@ -17,11 +20,12 @@
 #   ÚNICA porta automática dos rigs v2 (craft-update sem alvos — a ISO 28
 #   inteira). Ela permanece publicada até a última era-v2 se extinguir.
 #
-# A LEI DA RELEASE ÚNICA VIVA fica intacta: NENHUMA release é criada/apagada;
-# os assets de ISO/sha256sums/JUNTAR-ISO/body da release viva NUNCA são
-# tocados aqui — só elite-local.db, os .pkg.tar.zst da casa e o selo
-# sha256sums-pacotes.txt. (E43)
-name: Canal diário [elite-local]
+# A RELEASE ESTÁVEL NUNCA é tocada aqui: ISO/sha256sums/JUNTAR-ISO/body
+# da release de tag seguem intocados — só a prerelease testing carrega
+# elite-local.db, os .pkg.tar.zst da casa e o selo sha256sums-pacotes.txt.
+# A promoção a estável é o workflow dedicado (gatilho humano, depois da
+# prova no hardware real). (E43 → 1.0-107.1)
+name: Canal testing [elite-local]
 
 on:
   push:
@@ -67,6 +71,9 @@ jobs:
           fetch-depth: 0            # a lei E41 compara contra a última tag
           persist-credentials: false
 
+      - name: Marco T0 (o relógio das etapas do resumo)
+        run: echo "TS_T0=$(date +%s)" >> "$GITHUB_ENV"
+
       - name: Lei E41 — conteúdo de casa mudou ⇒ pkgrel sobe (guard executável)
         run: bash .ci/guard-pkgrel.sh
 
@@ -109,6 +116,9 @@ jobs:
           restore-keys: |
             cargo-target-
 
+      - name: Marco do build (início)
+        run: echo "TS_BUILD_INICIO=$(date +%s)" >> "$GITHUB_ENV"
+
       - name: Construir os pacotes da casa (container Arch privilegiado)
         run: |
           set -o pipefail
@@ -135,6 +145,9 @@ jobs:
       # run vermelha = NADA sobe para o rig (a classe 'dose cega no rig'
       # morre na origem). Compositor que não sobe NO CONTAINER = SKIP
       # honesto nomeado (o juízo de ambiente, nunca um verde de cortesia).
+      - name: Marco do build (fim) + smoke (início)
+        run: echo "TS_BUILD_FIM=$(date +%s)" >> "$GITHUB_ENV"
+
       - name: Smoke de runtime sobre o pacote (labwc headless — o portão do db)
         run: |
           set -o pipefail
@@ -149,7 +162,10 @@ jobs:
             archlinux:base-devel \
             bash tests/ci-runtime-smoke.sh 2>&1 | tee smoke-runtime.log
 
-      - name: Repo completo do release vivo → repo-add → upload --clobber
+      - name: Marco do smoke (fim) + publicação (início)
+        run: echo "TS_SMOKE_FIM=$(date +%s)" >> "$GITHUB_ENV"
+
+      - name: Publicar na prerelease testing → repo-add → upload --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -160,13 +176,20 @@ jobs:
             archlinux:base-devel \
             bash -euc '
               pacman -Syu --noconfirm --needed github-cli >/dev/null 2>&1
-              TAG="$(gh api "repos/$REPO/releases/latest" --jq .tag_name)"
-              echo "release viva: $TAG (a Lei mantém só uma — nada é criada aqui)"
+              TAG="testing"
+              if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+                echo "prerelease de validação: $TAG (a rola ÚNICA de teste — a stable NÃO é tocada)"
+              else
+                echo "── a prerelease testing NASCE (a primeira publicação do canal)"
+                gh release create "$TAG" --repo "$REPO" --prerelease --latest=false \
+                  --title "Canal Testing — elite-local" \
+                  --notes "Builds contínuos de VALIDAÇÃO do canal [elite-local]. A release ESTÁVEL é a de tag (releases/latest) — o que chega ao rig é SÓ o que o dono promoveu depois de validar no hardware real. Dieta automática: só a build mais recente de cada pacote fica no ar."
+              fi
               mkdir -p /tmp/repo && cd /tmp/repo
-              # o db ATUAL da release viva é a base: repo-add ADICIONA as
+              # o db ATUAL da prerelease é a base: repo-add ADICIONA as
               # entradas novas — os demais pacotes (brave-origin 186MB,
-              # pwvucontrol, …) NEM são baixados.
-              gh release download "$TAG" --repo "$REPO" --pattern "elite-local.db.tar.gz"
+              # pwvucontrol, …) NEM são baixados. Ausente = db nasce vazio.
+              gh release download "$TAG" --repo "$REPO" --pattern "elite-local.db.tar.gz" || echo "── db ausente: a prerelease nasce com db NOVO"
               # E103 — OS ÓRFÃOS DO DB-BASE (a era pré-E101 publicou -debug
               # que nunca embarcou: pwvucontrol-debug/wlrctl-debug no db e
               # 404 no rig — a prova do papel, 10/nov). A entrada órfã sai
@@ -301,5 +324,41 @@ jobs:
                 echo "ERRO: o db ficou ADIANTE da release — a run é VERMELHA (o rig nunca deve ver 404)" >&2
                 exit 1
               fi
-              echo "── prontos: o craft-update do rig entrega no próximo -Syu."
-            '
+              echo "── prontos: a build de validação está na prerelease testing."
+            '''
+
+      - name: Resumo técnico do canal ($GITHUB_STEP_SUMMARY)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          pkgrel="$(grep -B2 "pkgdesc='O sistema da Elite" .ci/build.sh | grep -oE 'pkgrel=[0-9.]+' | head -1 | cut -d= -f2)"
+          dur() { _a="${1}"; _b="${2}"; [ -n "$_a" ] && [ -n "$_b" ] && echo "$(( _b - _a ))s" || echo "—"; }
+          gh_out="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/testing" --jq '[.assets[] | [.name, (.size|tostring)] | @tsv] | .[]' 2>/dev/null || true)"
+          {
+            echo "## Canal testing [elite-local] — build de validação"
+            echo
+            echo "| campo | valor |"
+            echo "|---|---|"
+            echo "| canal | testing (prerelease — a stable segue em releases/latest) |"
+            echo "| versão (elite-system pkgrel) | ${pkgrel:-?} |"
+            echo "| commit | \`${GITHUB_SHA:0:10}\` |"
+            echo "| duração · guarda E41 + modo | $(dur "$TS_T0" "$TS_BUILD_INICIO") |"
+            echo "| duração · makepkg (elite-system + brave) | $(dur "$TS_BUILD_INICIO" "$TS_BUILD_FIM") |"
+            echo "| duração · smoke de runtime | $(dur "$TS_BUILD_FIM" "$TS_SMOKE_FIM") |"
+            echo
+            echo "### Assets da prerelease testing"
+            echo
+            echo "| asset | tamanho |"
+            echo "|---|---|"
+            if [ -n "$gh_out" ]; then
+              while IFS=$'\t' read -r nome tamanho; do
+                mb=$(( tamanho / 1048576 ))
+                echo "| $nome | ${mb} MiB |"
+              done <<< "$gh_out"
+            else
+              echo "| (sem assets — primeira publicação) | — |"
+            fi
+            echo
+            echo "O selo \`sha256sums-pacotes.txt\` da prerelease é a prova byte a byte da build."
+            echo "Promoção a estável: workflow **Promover testing → stable** (gatilho manual, após a validação no hardware real)."
+          } >> "$GITHUB_STEP_SUMMARY"

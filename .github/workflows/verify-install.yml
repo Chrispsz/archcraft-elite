@@ -93,6 +93,17 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Cache do juiz craft-audit (target do cargo)
+        # 1.0-107.1 — o gate [1b/8] compilava o juiz DO ZERO em toda run
+        # (cargo frio do Ubuntu, ~2min): o target persiste entre runs com
+        # a chave do Cargo.lock (mudou a dependência = cache novo)
+        uses: actions/cache@v4
+        with:
+          path: /tmp/elite-judge-target
+          key: elite-judge-target-${{ hashFiles('crates/Cargo.lock') }}
+          restore-keys: |
+            elite-judge-target-
+
       - name: Ferramentas (QEMU, 7z, btrfs-progs, arch-install-scripts)
         run: |
           sudo apt-get update -qq

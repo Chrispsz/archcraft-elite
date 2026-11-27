@@ -116,8 +116,25 @@ O greeter é o tema `/usr/share/sddm/themes/elite` (QML puro, fundo
 |---|---|
 | **cargo · 2 portas** | `cargo test/clippy --workspace` no núcleo (sem gui) E com `--features gui` (prefix GTK4 do toolchain) — clippy `-D warnings` zero é lei |
 | **porteira GO** | `bash tests/run-tests.sh` — cadeia de fases (estrutura → estática → cargo → ajuda → compositor → runtime/IPC → **hardware** → veredito); GO = zero falhas |
-| **CI (GitHub)** | `tests.yml` (a suíte), `build.yml` (a ISO), `publish-packages.yml` (o canal diário) — nada entra sem porteira |
+| **CI (GitHub)** | `tests.yml` (a suíte), `build.yml` (a ISO estável de tag), `publish-packages.yml` (o canal testing), `promover-testing.yml` (a promoção a estável) — nada entra sem porteira |
 | **smoke vivo** | `tests/session_smoke` (o rig do dono) e `tests/iso-qemu` (a ISO bootada) |
+
+## 7.1 · Os canais de publicação (testing × stable — 1.0-107.1)
+
+- **testing (prerelease `testing`)**: todo push de casa publica a build
+  de validação (makepkg + smoke headless + repo-add) na prerelease
+  `testing` — NUNCA na estável; dieta automática de assets (só a build
+  mais recente de cada pacote fica no ar);
+- **stable (release de tag — `releases/latest`)**: o endereço que o
+  `pacman.conf` de todo rig lê (`elite-customize.sh` E32). A build
+  validada só chega ao rig pelo **fluxo explícito de promoção**
+  (`promover-testing.yml`, gatilho humano) DEPOIS da validação no
+  hardware real; a ISO de tag também regrava o db estável no release;
+- **observabilidade**: cada workflow escreve o resumo técnico no
+  `$GITHUB_STEP_SUMMARY` (canal, versão, duração por etapa, tamanhos,
+  SHA256);
+- **compressão calibrada**: ISO em `zstd -15 -T0 -b 512K` (a era -19
+  pagava CPU máxima por ~2% sobre dados já comprimidos).
 
 ## 8 · A MATRIZ DOS 6 PERFIS DE HARDWARE (o contrato vivo)
 

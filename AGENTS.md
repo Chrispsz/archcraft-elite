@@ -115,10 +115,15 @@ continuam valendo: toda chamada de API autenticada, honestidade absoluta).
      mensal);
   4. consultar a API do GitHub Actions ATÉ confirmar que os workflows de
      build/publicação concluíram com **`success`** (verdes) e que o novo
-     `.pkg.tar.zst` está publicado no índice do repositório `elite-local`
-     pronto para `sudo pacman -Syu`. CI vermelha = entrega inacabada: a
-     cura é imediata (ou nomeada com run id para a irmã das 16:00 assumir
-     — réu escondido é proibido).
+     `.pkg.tar.zst` está publicado no índice do canal `elite-local`
+     pronto para a entrega. 1.0-107.1 — os canais são DOIS: o push
+     publica a build de VALIDAÇÃO na prerelease `testing`
+     (`publish-packages.yml`); o rig recebe pela PROMOÇÃO explícita
+     (`promover-testing.yml`, gatilho humano) DEPOIS da prova no
+     hardware real — a promoção é parte da entrega quando a dose exige
+     o rig. CI vermelha = entrega inacabada: a cura é imediata (ou
+     nomeada com run id para a irmã das 16:00 assumir — réu escondido é
+     proibido).
 - Mudança de papel/documentação (diários, constituições, comentários) não
   bumpa `pkgrel` — jurisprudência E114/E41: bump só com conteúdo de
   sistema mudando.
