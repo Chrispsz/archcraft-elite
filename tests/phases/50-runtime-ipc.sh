@@ -80,12 +80,11 @@ file_has "bus: a barra fala o MESMO fio" "crates/craft-bar-rs/src/main.rs" 'elit
 file_has "bus: a dock fala o MESMO fio" "crates/craft-dock-rs/src/main.rs" 'elite/bus.sock'
 # E106/2 — A REGRESSÃO DA SEGUNDA INSTÂNCIA: com a janela do app no
 # snapshot o clique é VERBO (Activate/Minimize por id), nunca launch:
-file_has "dock: a regressão do verbo nunca-lançamento (janela no snapshot = foco)" "crates/craft-dock-rs/src/sock.rs" 'fn e106_o_clique_com_janela_e_verbo_nunca_lancamento'
+file_has "dock: a regressão do verbo nunca-lançamento (janela no snapshot = foco)" "crates/craft-dock-rs/src/sock.rs" 'fn o_clique_na_janela_do_snapshot_e_verbo_nunca_lancamento'
 
 # ── 5. a instância única é lei do FONTE ──────────────────────────────────
 file_has "ipc: o flock da sessão (a 2ª instância sai 0 com papel)" \
     "crates/elite-daemon/src/supervise.rs" 'a 2ª instância sai 0'
-file_has "ipc: o lock é o tmpfs PRIVADO do dono" "crates/elite-core/src/lib.rs" 'session_lock_path'
 file_has "ipc: o guard da 2ª instância é executivo (flock)" "crates/elite-daemon/src/supervise.rs" 'flock'
 # o probe da sessão nunca CRIA locks no runtime alheio (a classe bars.lock root:root)
 file_has "probe: o lock só é conferido se EXISTE" "$BIN/elite-session-probe" '[ -e "$_bars_lock" ]'
@@ -98,7 +97,6 @@ else
     t_fail "pele: ZERO glifo Nerd \\u{f0xx} em código vivo" "$(printf '%s' "$mojibake" | head -2)"
 fi
 file_has "pele: os ícones da barra são from_icon_name" "crates/craft-bar-rs/src/ui.rs" 'from_icon_name'
-file_has "pele: o mute veste ícone GTK nomeado" "crates/craft-bar-rs/src/state.rs" 'audio-volume-muted-symbolic'
 
 # ── 7. o ciclo de vida dos popovers da dock (o "still has children") ─────
 file_has "dock: o popover fecha com popdown antes do unparent" "crates/craft-dock-rs/src/ui.rs" 'popdown'

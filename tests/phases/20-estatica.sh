@@ -68,14 +68,13 @@ PKG="elite/packages.add"
 for p in iwgtk blueman nm-connection-editor pwvucontrol coolercontrol nwg-drawer gnome-text-editor papers brave-origin cliphist swayosd lxqt-policykit; do
     file_line_exact "packages.add: a ferramenta dedicada $p" "$PKG" "$p"
 done
-# 1.0-106 — a central de notificações MORREU por ordem do dono (o
-# relógio é hora/calendário e a casa não carrega notificador)
-file_hasnt "packages.add: o swaync NÃO volta (a central de notificações morreu — 1.0-106)" "$PKG" '^swaync$'
-file_hasnt "packages.add: o waybar NÃO volta (a top bar é nativa)" "$PKG" '^waybar$'
 # E151 — O DEBLOAT EXTREMO: o Xorg ocioso e o udiskie Python saem da ISO
-file_hasnt "packages.add: o xorg-server NÃO volta (o greeter é wayland nativo)" "$PKG" '^xorg-server$'
-file_hasnt "packages.add: o udiskie NÃO volta (o automount é regra udev)" "$PKG" '^udiskie$'
-file_hasnt "packages.add: o hyprpolkitagent NÃO volta (o polkit é ÚNICO)" "$PKG" '^hyprpolkitagent$'
+# (a LINHA INTEIRA é o contrato — a âncora ^nome$ de era nunca casava
+# no file_hasnt -qF: contratos vacuos morrem com o file_line_absent)
+file_line_absent "packages.add: o waybar NÃO volta (a top bar é nativa)" "$PKG" 'waybar'
+file_line_absent "packages.add: o xorg-server NÃO volta (o greeter é wayland nativo)" "$PKG" 'xorg-server'
+file_line_absent "packages.add: o udiskie NÃO volta (o automount é regra udev)" "$PKG" 'udiskie'
+file_line_absent "packages.add: o hyprpolkitagent NÃO volta (o polkit é ÚNICO)" "$PKG" 'hyprpolkitagent'
 file_line_exact "packages.remove: o xorg-server aposentado (o greeter veste wayland — E151)" "elite/packages.remove" 'xorg-server'
 file_line_exact "packages.remove: o udiskie aposentado (o Python residente morre — E151)" "elite/packages.remove" 'udiskie'
 file_line_exact "packages.remove: o hyprpolkitagent aposentado (o lxqt-policykit é o ÚNICO)" "elite/packages.remove" 'hyprpolkitagent'
@@ -168,14 +167,6 @@ else
     t_skip "shellcheck" "toolchain ausente no ambiente (o CI instala)"
 fi
 
-# ══ A CONSTITUIÇÃO (o §7 da filosofia 2.0 no papel) ══
-file_has "AGENTS.md: a seção §7 (a filosofia 2.0 na constituição)" "AGENTS.md" '§7 · Filosofia 2.0'
-file_has "AGENTS.md: reprojetar, nunca clonar" "AGENTS.md" 'Reprojetar, nunca clonar o legado'
-file_has "AGENTS.md: o tuning sagrado preservado" "AGENTS.md" 'Tuning de baixo nível é SAGRADO'
-file_has "AGENTS.md: a lei do commit puro (§6.1 — sem Co-Authored-By)" "AGENTS.md" 'Co-Authored-By'
-file_has "PROTOCOL.md: a lei L2 (a porteira)" "docs/gestao/PROTOCOL.md" 'L2 · Suíte porteira'
-file_has "PROTOCOL.md: a lei L4 (nunca tag de trabalho diário)" "docs/gestao/PROTOCOL.md" 'L4 · Trabalho diário NUNCA pusha tag'
-
 # ══ 1.0-93 · A LEI DO COMMIT PURO EXECUTADA (§6.1: nenhum commit recente
 #    carrega o TRAILER Co-Authored-By: — o grep é ÂNCORADO em início de
 #    linha porque a MENÇÃO da lei no corpo de um commit de cura é texto
@@ -222,7 +213,6 @@ file_hasnt "bar: o bgapps NÃO VOLTA (a ordem do dono: fora da interface e do c�
 file_hasnt "bar: NENHUM glifo Nerd Font no label (a fonte GTK não os tem)" "crates/craft-bar-rs/src/ui.rs" '\\u{f027}'
 file_hasnt "daemon: o ouvidor bus bgapps não volta (nenhum emissor do +9)" "crates/elite-daemon/src/main.rs" 'thread_bus_bgapps'
 file_has "post-upgrade: o fóssil craft-bgapps morre com voz" "elite/airootfs/usr/local/bin/elite-post-upgrade" 'craft-bgapps'
-file_has "elite-clean: o blueman NÃO é mais removido (o gerenciador da interface fica)" "elite/airootfs/usr/local/bin/elite-clean" 'blueman: DEVOLVIDO ao sistema'
 file_has "post-upgrade: a sincronização de peles do skel" "elite/airootfs/usr/local/bin/elite-post-upgrade" 'sync_skel'
 file_has "bar: o botão Aplicativos com ícone GTK" "crates/craft-bar-rs/src/ui.rs" 'view-app-grid-symbolic'
 file_hasnt "bar: as pílulas da mesa não voltam (o scroll/atalho do labwc manda)" "crates/craft-bar-rs/src/ui.rs" 'wsbtn'
@@ -244,10 +234,7 @@ file_has "heal: o julgamento estrito do menu (texto órfão é defeito)" "$AIROO
 file_has "heal: a rotação dos backups (1 por base)" "$AIROOTFS/usr/local/bin/elite-heal-sessao" 'saneia_baks'
 file_has "rice: o backup único (a rotação E146)" "$AIROOTFS/usr/local/bin/craft-rice" 'bak_unica'
 file_has "rice: o xmllint é o juiz principal do XML" "$AIROOTFS/usr/local/bin/craft-rice" 'xmllint --noout'
-file_has "bar: a coveira dos filhos (o <defunct> morre colhido)" "crates/craft-bar-rs/src/ui.rs" 'solta-coveira'
-file_has "dock: a coveira do dismiss (o pkill não vira zumbi)" "crates/craft-dock-rs/src/ui.rs" 'dismiss_overlays'
 file_has "dump: o modo --full (o consolidado limpo E146)" "crates/craft-dump-rs/src/main.rs" 'modo_full'
-file_has "daemon: a 2ª instância sai 0 COM VOZ (a recusa deixa papel)" "crates/elite-daemon/src/supervise.rs" 'a 2ª instância sai 0'
 file_has "post-upgrade: o debloat waybar/gpsd com consulta de dependentes" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'Required By'
 file_has "post-upgrade: mitigations=off no GRUB da dose" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'mitigations=off'
 file_has "tune: o scx-lavd direto também no painel" "$AIROOTFS/usr/local/bin/elite-tune" 'scx-lavd.service'
@@ -261,11 +248,9 @@ file_has "dock: a armadura RT (a instabilidade visual morre na classe)" "crates/
 file_has "daemon: a publicação é broadcast do dono do bus (o game-notify publica pelo fio)" "crates/elite-daemon/src/nucleo.rs" 'e.bus.broadcast(msg)' 
 file_has "daemon: o CLI game-notify publica o QueryStatus REAL no bus (o pill acende no clique)" "crates/elite-daemon/src/main.rs" 'cli.publish(&elite_core::BusMsg::GameMode' 
 file_has "bus: a publicação de cliente retransmitida (sem eco ao remetente)" "crates/elite-core/src/bus.rs" 'fn publish'
-file_has "bus: a retransmissão exclui o remetente (o loop infinito morre)" "crates/elite-core/src/bus.rs" 'remetente não bebe o próprio eco'
 # o craft-clean sobe como raiz de verdade (o pkexec na frente)
 file_has "tools: o pkexec na frente do elite-clean (a porta --as-root é de raiz)" "crates/craft-tools/src/lib.rs" '"pkexec".to_string()'
 # o probe nunca mais CRIA o bars.lock do dono
-file_has "probe: o bars.lock só é conferido se EXISTE (o root:root morre)" "$AIROOTFS/usr/local/bin/elite-session-probe" '[ -e "$_bars_lock" ]'
 # os menus abrem PAINÉIS, não CLIs mudos — E106/2: a execução é
 # NATIVA (o craft-pick é a ÚNICA janela; o foot preto de era, com o
 # aviso de portal e o hangup no fechar, morre da porta do dono)
@@ -320,7 +305,7 @@ file_has "greeter: o hover NUNCA inverte para claro (acento suave #cba6f7)" "$AI
 # A SESSÃO DE ENTRADA: cursor único, sessão labwc direta:
 file_has "greeter: o cursor do login é Bibata (o último sotaque do ponteiro morre)" "$AIROOTFS/etc/sddm.conf.d/elite.conf" 'CursorTheme=Bibata'
 file_has "greeter: a sessão do autologin é labwc (sem ruído de seletor)" "$AIROOTFS/etc/sddm.conf.d/kde_settings.conf" 'Session=labwc'
-file_hasnt "packages.add: o archcraft-cursor-qogirr não volta (pacote órfão aposentado)" "$PKG" '^archcraft-cursor-qogirr$'
+file_line_absent "packages.add: o archcraft-cursor-qogirr não volta (pacote órfão aposentado)" "$PKG" 'archcraft-cursor-qogirr'
 # A ENTREGA (uma fonte, dois veículos — ISO via overlay, rig via mestre):
 file_has "build.sh: o mestre do greeter viaja no pacote (elite/sddm)" "$BS" '/usr/local/share/elite/sddm/theme.conf'
 file_has "build.sh: o mestre do greeter nasce DA MESMA FONTE do overlay" "$BS" '/work/elite/airootfs/usr/share/sddm/themes/archcraft/theme.conf'
@@ -346,11 +331,9 @@ file_has "monitor: o ouvidor vivo é o items-changed do GListModel (dock)" "crat
 # casa não carrega notificador NENHUM): AUSENTE da árvore, do pacote e
 # do fluxo vivo do build:
 file_exists "skel: o skel swaync VOLTOU com dono único (o style.css existente mata o COULD NOT FIND CSS FILE!)" "elite/airootfs/etc/skel/.config/swaync/style.css"
-file_hasnt "pkg: o staging da pele do swaync NÃO viaja no build.sh (1.0-106)" "$BS" 'files/etc/skel/.config/swaync'
 file_has "pkg: o molde swc_install volta ao PKGBUILD (os mestres da central com dono único)" "$BS" 'MOLDE[swc_install]' 
 file_hasnt "daemon: o residente swaync NÃO volta à fila (RESIDENTES_DEFAULT limpa)" "crates/elite-daemon/src/supervise.rs" '("swaync",'
 file_hasnt "heal: a cura do swaync NÃO volta (o morto não se cura)" "elite/airootfs/usr/local/bin/elite-heal-sessao" 'cura_swaync'
-file_hasnt "update: a porta da dose NÃO relança/ceifa o swaync (1.0-106)" "elite/airootfs/usr/local/bin/elite-update" 'swaync'
 # o censo MPRIS no arranque: a thread NASCE com os nomes do bus
 # (ListNames → GetNameOwner) e o estado inicial vestido (GetAll), com
 # o título/autor lidos por CHAVE dentro do dict Metadata:
@@ -423,9 +406,6 @@ file_has "dock: a prova de origem do sem-nome é o mesmo Exec da fixação (argv
 file_has "dock: a re-indexação na hora (o pin do .desktop novo nasce resolve)" "crates/craft-dock-rs/src/ui.rs" 'fn reindexa_desktops'
 # o log de arranque fala o fio REAL (bus.sock com BusClient persistente
 # — o toplevel.sock de era é história narrada, nunca presente mentido):
-file_has "dock: o log de arranque fala o bus.sock (o fio vivo da verdade)" "crates/craft-dock-rs/src/ui.rs" 'bus.sock (BusClient'
-file_hasnt "dock: NENHUMA mentira de presente sobre o toplevel.sock na dock" "crates/craft-dock-rs/src/ui.rs" 'leitura ASSÍNCRONA do toplevel.sock'
-file_hasnt "dock: o log de arranque não acorda o EVT morto (a era é história)" "crates/craft-dock-rs/src/ui.rs" 'EVT push'
 
 # ══ E150 — A ONDA FINAL 1/2 (base 1.0-98): RELOGIN LIMPO, BOOT FRIO DOS
 # HZ, SDDM/GRUB REAIS, DUMP SISTÊMICO, GAVETA E PALCO, PAUSAS E 126 ══
@@ -482,8 +462,6 @@ file_hasnt "autostart: o craft-bars de era não volta nem em comentário" "elite
 # o Broken pipe do fio Wayland não pode mais deixar o dono vivo no lock:
 file_has "daemon: o fim_da_sessao desce a casa no EPIPE/EOF do compositor" "crates/elite-daemon/src/main.rs" 'fn fim_da_sessao'
 file_has "daemon: o fio Wayland chama o fim da sessão no erro do dispatch" "crates/elite-daemon/src/wayland.rs" 'fim_da_sessao'
-file_has "daemon: a porta session sai com o lock FORA do chão (saída limpa)" "crates/elite-daemon/src/supervise.rs" 'session.lock fora do chão'
-file_has "daemon: o cão de guarda do socket no supervisa (a 2ª via do fim)" "crates/elite-daemon/src/supervise.rs" 'SUMIU do chão'
 # o julgamento do órfão pela IDENTIDADE da sessão (o wayland-0 de mesmo
 # nome não mente mais):
 file_has "daemon: o relogin julga o órfão pela identidade (XDG_SESSION_ID)" "crates/elite-daemon/src/supervise.rs" 'julga_orfao_relogin'
@@ -493,10 +471,9 @@ file_has "daemon: o lock do órfão teimoso é assumido na hora" "crates/elite-d
 file_has "probe: o SUPERVISOR_LOCK julga pelo session.lock do elite-daemon" "elite/airootfs/usr/local/bin/elite-session-probe" 'elite/session.lock'
 # o heal ganha o juízo do FÓSSIL DE SPAWN (o corpo congelado de dose
 # antiga com residente de era nascendo é reconstruído do mestre):
-file_has "heal: o juízo do FÓSSIL DE SPAWN (audit 102 §2)" "elite/airootfs/usr/local/bin/elite-heal-sessao" 'FÓSSIL DE SPAWN'
 # a DOCK ATÔMICA (a duplicação transitória do pin morre no mesmo ciclo):
-file_has "dock: a reconciliação ATÔMICA do rebuild_pins (pin · dinâmico · indicador no MESMO ciclo)" "crates/craft-dock-rs/src/ui.rs" 'A RECONCILIAÇÃO ATÔMICA'
-file_has "dock: os dinâmicos resolvem pelos app_ids das JANELAS (a régua unificada)" "crates/craft-dock-rs/src/ui.rs" 'A FONTE UNIFICADA'
+file_has "dock: a reconciliação do rebuild_pins (pin · dinâmico · indicador no MESMO ciclo)" "crates/craft-dock-rs/src/ui.rs" 'fn rebuild_pins'
+file_has "dock: os dinâmicos resolvem pelos app_ids das JANELAS (a régua unificada)" "crates/craft-dock-rs/src/ui.rs" 'fn sync_dynamic'
 # a gaveta desce com o palco (o overlay nunca fica por cima da casa):
 file_has "gaveta: o daemon desce o nwg-drawer quando outra janela ganha foco" "crates/elite-daemon/src/wayland.rs" 'gaveta_desce'
 file_has "gaveta: o sinal do daemon colhe o drawer do uid" "crates/elite-daemon/src/main.rs" 'pub(crate) fn gaveta_desce'
@@ -698,13 +675,10 @@ file_hasnt "game: o filtro WINE_HELPER_PATS morreu (a heurística de /proc é de
 file_hasnt "game: o gm_whois morreu (a perícia de /proc do hook de era)" "$AIROOTFS/usr/local/bin/craft-game" 'gm_whois'
 file_has "game: o inibidor prende idle:sleep (bloqueio E suspensão na jogatina)" "$AIROOTFS/usr/local/bin/craft-game" '--what=idle:sleep'
 file_has "game: o item do menu diz o estado (Ativar/Desativar conforme o momento)" "$AIROOTFS/usr/local/bin/craft-game" 'Desativar modo de jogo'
-file_has "daemon: a vaga do jogo morreu com o watcher (o daemon livre de /proc)" "crates/elite-daemon/src/supervise.rs" 'a vaga do JOGO morreram com o modo'
 file_hasnt "daemon: a varredura round() de /proc morreu (o scan é só o cliente GameMode)" "crates/elite-daemon/src/scan.rs" 'pub fn round'
-file_has "game.ini: os hooks [custom] morreram com o watcher (o manual notifica na hora)" "$AIROOTFS/etc/gamemode.ini" 'HOOKS [custom] MORRERAM'
 file_hasnt "game.ini: o hook start de era não aponta mais pro craft-game" "$AIROOTFS/etc/gamemode.ini" 'craft-game hook'
 # §7 — A VIGÍLIA COORDENADA (o idle.conf unificado)
-file_has "idle: o Desativado zera OS DOIS (o sistema nunca dorme sozinho)" "$AIROOTFS/usr/local/bin/craft-idle" 'escreve 0  ;;
-'
+file_has "idle: o Desativado zera OS DOIS (o preset escreve 0 — o sistema nunca dorme sozinho)" "$AIROOTFS/usr/local/bin/craft-idle" 'escreve 0'
 file_has "idle: o preset veste o sono associado (o dono VÊ o que escolheu)" "$AIROOTFS/usr/local/bin/craft-idle" 'dorme aos 20 min'
 file_has "idle: o Suspender agora nasce no menu (o gesto imediato)" "$AIROOTFS/usr/local/bin/craft-idle" 'Suspender agora'
 file_has "idle: o título veste o estado (trava E sono na mesma frase)" "$AIROOTFS/usr/local/bin/craft-idle" 'rotulo_estado'

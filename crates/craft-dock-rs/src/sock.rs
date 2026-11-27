@@ -474,7 +474,7 @@ mod tests {
     /// presente no snapshot + guard aposentado pelo MAP. O launch só mora
     /// no ramo do VAZIO comprovado (a LIST fresca E135 no clique).
     #[test]
-    fn e106_o_clique_com_janela_e_verbo_nunca_lancamento() {
+    fn o_clique_na_janela_do_snapshot_e_verbo_nunca_lancamento() {
         let snap = de_bus_windows(&[WindowInfo {
             id: 21,
             app_id: "thunar".into(),

@@ -117,6 +117,14 @@ ini_ok() { # ini_ok <desc> <arquivo>
     fi
 }
 
+# a linha EXATA está AUSENTE do arquivo (o grep -x com -F — a âncora
+# ^nome$ de era nunca foi casada pelo file_hasnt -qF: contratos VACUOS
+# morrem aqui; a linha inteira, sem âncora regex, é o contrato honesto)
+file_line_absent() { # file_line_absent <desc> <arquivo> <linha>
+    if [ ! -f "$2" ] || ! grep -qxF -- "$3" "$2"; then t_ok "$1"
+    else t_fail "$1" "linha '$3' AINDA em $2"; fi
+}
+
 # a linha EXATA mora no arquivo (grep -x — âncoras regex não confundem)
 file_line_exact() { # file_line_exact <desc> <arquivo> <linha>
     if [ -f "$2" ] && grep -qxF -- "$3" "$2"; then t_ok "$1"
