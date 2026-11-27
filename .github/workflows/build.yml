@@ -154,12 +154,21 @@ jobs:
       # a mesma chave da suíte/Canal (cargo-target-*) herda de quem rodou
       # antes no MESMO Cargo.lock. Os .db do pacman NUNCA são cacheados
       # (mirror skew, lição #17) — só o cargo aluga o cache aqui.
-      - name: Cache do Cargo (crates/target — as deps da ISO pagam 1x)
+      - name: Cache do Cargo (target + registry/git — 1.0-107.2 o cache máximo)
+        # 1.0-107.2 — O REGISTRY JUNTO DO TARGET: o CARGO_HOME do container
+        # (.ci/build.sh) faz o registry/git do cargo morarem em
+        # crates/.cargo-home (o repo montado em /work) — a MESMA chave
+        # persiste target E downloads (a era re-baixava o registry
+        # inteiro em todo build do canal); a chave nova veste o par e o
+        # restore antigo ainda herda o target da era
         uses: actions/cache@v4
         with:
-          path: crates/target
-          key: cargo-target-${{ hashFiles('crates/Cargo.lock') }}
+          path: |
+            crates/target
+            crates/.cargo-home
+          key: cargo-v2-${{ hashFiles('crates/Cargo.lock') }}
           restore-keys: |
+            cargo-v2-
             cargo-target-
 
       - name: Construir ISO (container Arch privilegiado)

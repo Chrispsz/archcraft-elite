@@ -108,12 +108,21 @@ jobs:
       # cargo-target-* vs canal-cargo-target-* = o compile das deps pago
       # DUAS vezes a cada push de fio. Uma chave só: quem compila primeiro
       # alimenta o outro pelo restore-key).
-      - name: Cache do Cargo (crates/target — o build das deps paga 1x)
+      - name: Cache do Cargo (target + registry/git — 1.0-107.2 o cache máximo)
+        # 1.0-107.2 — O REGISTRY JUNTO DO TARGET: o CARGO_HOME do container
+        # (.ci/build.sh) faz o registry/git do cargo morarem em
+        # crates/.cargo-home (o repo montado em /work) — a MESMA chave
+        # persiste target E downloads (a era re-baixava o registry
+        # inteiro em todo build do canal); a chave nova veste o par e o
+        # restore antigo ainda herda o target da era
         uses: actions/cache@v4
         with:
-          path: crates/target
-          key: cargo-target-${{ hashFiles('crates/Cargo.lock') }}
+          path: |
+            crates/target
+            crates/.cargo-home
+          key: cargo-v2-${{ hashFiles('crates/Cargo.lock') }}
           restore-keys: |
+            cargo-v2-
             cargo-target-
 
       - name: Marco do build (início)

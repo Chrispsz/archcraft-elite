@@ -1,1 +1,4 @@
 /target/
+# 1.0-107.2 — o CARGO_HOME do container da esteira (o cache máximo do
+# Canal: registry/git do cargo persistem junto do target pela MESMA chave)
+/.cargo-home/

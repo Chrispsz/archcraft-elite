@@ -56,16 +56,21 @@ jobs:
       - uses: actions/checkout@v5
       - name: git confia no workspace (o safe.directory do checkout é temporário)
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
-      - name: Cache do Cargo (crates/target — a chave UNIFICADA do canal)
-        # 1.0-107.1 — a chave mensal separada pagava compile FRIO todo mês
-        # e nunca alimentava o canal: a suíte/Canal/ISO e a manutenção
-        # compartilham o MESMO cache (mudou o Cargo.lock = cache novo;
-        # o restore-key aproveita o que servir entre versões)
+      - name: Cache do Cargo (target + registry/git — 1.0-107.2 o cache máximo)
+        # 1.0-107.2 — O REGISTRY JUNTO DO TARGET: o CARGO_HOME do container
+        # (.ci/build.sh) faz o registry/git do cargo morarem em
+        # crates/.cargo-home (o repo montado em /work) — a MESMA chave
+        # persiste target E downloads (a era re-baixava o registry
+        # inteiro em todo build do canal); a chave nova veste o par e o
+        # restore antigo ainda herda o target da era
         uses: actions/cache@v4
         with:
-          path: crates/target
-          key: cargo-target-${{ hashFiles('crates/Cargo.lock') }}
+          path: |
+            crates/target
+            crates/.cargo-home
+          key: cargo-v2-${{ hashFiles('crates/Cargo.lock') }}
           restore-keys: |
+            cargo-v2-
             cargo-target-
       # O JUÍZO ANTECIPADO: as features completas (gui) contra as versões
       # do DIA — o réu upstream vem nomeado no E0599/versão do gir.

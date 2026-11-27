@@ -74,12 +74,20 @@ jobs:
       # 1.0-93 — O CACHE CARGO (a ordem do dono: cache do target no workflow
       # — as deps pagam o compile 1x; a chave é o Cargo.lock, mudou a
       # dependência = cache novo, o restore-key dá o incremental no meio)
-      - name: Cache do Cargo (crates/target — o compile das deps paga 1x)
+      # 1.0-107.2 — O CACHE MÁXIMO no host: o runner é o dono do ~/.cargo —
+      # o registry e o git do cargo entram no MESMO cache (a era baixava
+      # as crates inteiras em toda run da suíte); a chave nova veste o par
+      # e o restore antigo ainda herda o target da era
+      - name: Cache do Cargo (target + registry/git — o cache máximo)
         uses: actions/cache@v4
         with:
-          path: crates/target
-          key: cargo-target-${{ hashFiles('crates/Cargo.lock') }}
+          path: |
+            crates/target
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: cargo-v2-${{ hashFiles('crates/Cargo.lock') }}
           restore-keys: |
+            cargo-v2-
             cargo-target-
       - name: Montar o quebra-cabeça (5 fases + veredito)
         run: |

@@ -8,6 +8,17 @@
 #  Saída:   /work/out/archcraft-elite-<data>-x86_64.iso + sha256sums
 # =====================================================================
 set -euo pipefail
+# 1.0-107.2 — O CARGO_HOME DO CONTAINER (o cache máximo do Canal): dentro
+# do container o /work é o repo MONTADO (docker -w /work) — o registry e
+# o git do cargo passam a viver em /work/crates/.cargo-home, onde a
+# actions/cache da esteira os persiste JUNTO do target com a MESMA chave:
+# o download das crates paga 1x por Cargo.lock, não 1x por run (a era
+# baixava e extraía o registry inteiro em TODO build do canal). O host
+# de sempre (rustup, CARGO_HOME do dono) NÃO é tocado: a troca só veste
+# quando o pwd É o /work do container e ninguém declarou CARGO_HOME.
+if [ "$(pwd)" = "/work" ] && [ -d /work/crates ] && [ -z "${CARGO_HOME:-}" ]; then
+    export CARGO_HOME="/work/crates/.cargo-home"
+fi
 
 say() { echo -e "\033[1;32m==>\033[0m $1"; }
 
@@ -2953,7 +2964,9 @@ pkgver=1.0
 #          Hidden=true por usuário); o UDISKIE morre (58,5 MB de Python
 #          residente) pelo trio udev/unit/bin elite-automount (oneshot
 #          por plug, mount no usuário ativo); NoExtract man/doc/gtk-doc
-#          na ISO e no sistema; ISO em zstd -19 -T0 (o xz -9e aposenta);
+#          na ISO e no sistema; ISO em zstd -15 -T0 -b 512K (o xz -9e
+#          aposenta; 1.0-107.1 calibrou o nível: -19 pagava CPU máxima
+#          pelos últimos ~2% sobre dados já comprimidos);
 #          ParallelDownloads=10 e a cache_enxuga (paccache -rk1) nas
 #          duas portas da dose; a regra 99-elite-io.rules (NVMe none,
 #          SSD mq-deadline); panic=abort no release; blur do lock em
