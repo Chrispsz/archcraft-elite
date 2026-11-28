@@ -238,7 +238,7 @@ file_has "bar: o mute RÁPIDO no direito (wpctl set-mute na hora, sem janela)" "
 file_has "bar: o mapa E149 do bluetooth — o ESQUERDO abre o blueman-manager" "crates/craft-bar-rs/src/ui.rs" 'blueman-manager'
 # 1.0-105 — o esquerdo da rede é o FRONT-END GRÁFICO do NetworkManager
 # (a distro é NetworkManager; o iwgtk cede o assento do clique)
-file_has "bar: o mapa E149 da rede — o ESQUERDO abre o nm-connection-editor (1.0-105)" "crates/craft-bar-rs/src/ui.rs" 'nm-connection-editor'
+file_has "bar: o mapa 1.0-110 T4 da rede — o ESQUERDO abre o NMTUI flutuante (o 'Redes' de verdade)" "crates/craft-bar-rs/src/ui.rs" '--app-id=craft-net-tui'
 file_has "bar: o direito da rede alterna o RÁDIO Wi-Fi na hora" "crates/craft-bar-rs/src/ui.rs" '["radio", "wifi"]'
 file_has "bar: a sessão é O endereço único de Bloquear/Encerrar (o dedupe da diretriz)" "crates/craft-bar-rs/src/ui.rs" '("Encerrar sessão", &["craft-logout"][..])'
 file_has "bar: o ícone por NOME GTK (o glifo Nerd quebrado morre)" "crates/craft-bar-rs/src/ui.rs" 'audio-volume-high-symbolic'
@@ -437,7 +437,7 @@ file_has "bluetooth: o Powered do adaptador no D-Bus nativo (o ícone nasce cert
 # a barra da dose: o esquerdo da rede abre o SELETOR DE 1 CLIQUE (o
 # craft-net de 1.0-109 — a evidência do dump: o esquerdo não executava
 # ação NENHUMA), o direito veste a LEI DA CONEXÃO PRINCIPAL:
-file_has "bar: o esquerdo da rede abre o CRAFT-NET (o seletor de 1 clique da diretriz)" "crates/craft-bar-rs/src/ui.rs" 'solta(&["craft-net"])'
+file_has "bar: o esquerdo da rede abre o NMTUI flutuante (a diretriz 1.0-110: o 'Redes' de verdade — Wi-Fi com senha, cabo, VPN e DNS)" "crates/craft-bar-rs/src/ui.rs" 'solta(&["foot", "--app-id=craft-net-tui", "-T", "Redes", "-w", "60%x60%", "nmtui"])'
 # 1.0-108 — A LEI DA CONEXÃO PRINCIPAL (a evidência do rig 1.0-107.3: o
 # direito de era derrubava o Networking INTEIRO — o enp7s0 "não
 # disponível" sem volta; ethernet vence, quem cai é UMA conexão):
@@ -454,7 +454,8 @@ file_has "net: as redes Wi-Fi próximas com o rescan auto da diretriz" "crates/c
 file_has "net: a senha em diálogo LIMPO apenas para a protegida sem perfil salvo" "crates/craft-tools/src/bin/craft-net.rs" 'tem_perfil_salvo'
 file_has "net: o toggle da Ethernet veste a LEI DA CONEXÃO PRINCIPAL da fundação" "crates/craft-tools/src/bin/craft-net.rs" 'alterna_conexao_principal'
 file_has "net: a janela veste a MESMA camada do pick (Overlay · exclusiva · centralizada)" "crates/craft-tools/src/bin/craft-net.rs" 'janela_camada(app, "pickwin", "Rede", "craft-net")'
-file_has "net: a entrada Gerenciador de Rede mora na grade (a paridade com o Bluetooth)" "$AIROOTFS/usr/local/share/applications/craft-net.desktop" 'Gerenciador de Rede'
+file_has "net: a entrada Redes mora na grade (o nmtui flutuante da casa)" "$AIROOTFS/usr/local/share/applications/craft-net.desktop" 'Name=Redes'
+file_has "net: a entrada aponta para o nmtui flutuante (a MESMA janela do clique da barra)" "$AIROOTFS/usr/local/share/applications/craft-net.desktop" 'Exec=foot --app-id=craft-net-tui -T Redes -w 60%x60% nmtui'
 file_has "net: a entrada da grade é VISÍVEL (NoDisplay=false — o editor de era nascia escondido)" "$AIROOTFS/usr/local/share/applications/craft-net.desktop" 'NoDisplay=false'
 file_has "net: o craft-net embarca no pacote (o bin compilado da família)" "crates/craft-tools/Cargo.toml" 'name = "craft-net"'
 file_has "bar: o estado da lei mora na FUNDAÇÃO (conexao_principal: ethernet vence — 1.0-109, uma lei só)" "crates/elite-core/src/rede.rs" 'pub fn conexao_principal'
@@ -471,9 +472,18 @@ file_hasnt "bar: o nmcli networking INTEIRO não derruba mais a rede (o réu de 
 # applet de era era a porta dele e o applet NEM EXISTE na casa):
 file_exists "rede: o override do nm-connection-editor mora na frente do XDG_DATA_DIRS" "elite/airootfs/usr/local/share/applications/nm-connection-editor.desktop"
 file_has "rede: o override fala a cara pt_BR (Conexões de Rede na grade)" "elite/airootfs/usr/local/share/applications/nm-connection-editor.desktop" 'Name=Conexões de Rede'
-file_hasnt "rede: o override SEM NoDisplay (a grade enxerga o editor)" "elite/airootfs/usr/local/share/applications/nm-connection-editor.desktop" 'NoDisplay'
 file_hasnt "rede: o override SEM NotShowIn (nenhuma casa escondida)" "elite/airootfs/usr/local/share/applications/nm-connection-editor.desktop" 'NotShowIn'
-file_has "bar: o meio da rede abre o editor completo (nm-connection-editor)" "crates/craft-bar-rs/src/ui.rs" 'solta(&["nm-connection-editor"])'
+# 1.0-110 T4 — a gaveta limpa: a entrada ÚNICA de rede é o 'Redes'; o
+# editor técnico vira a SOMBRA da casa (NoDisplay=true — o binário e o
+# W-n seguem vivos, a GRADE não lista duas portas de rede)
+file_has "rede: o override com NoDisplay (a gaveta exibe UMA entrada de rede — o nmtui)" "elite/airootfs/usr/local/share/applications/nm-connection-editor.desktop" 'NoDisplay=true'
+file_has "bar: o meio da rede abre o NMTUI flutuante (a MESMA porta do esquerdo)" "crates/craft-bar-rs/src/ui.rs" 'solta(&["foot", "--app-id=craft-net-tui", "-T", "Redes", "-w", "60%x60%", "nmtui"])'
+# 1.0-110 T4 — o direito sensível ao contexto: o kind do fio decide
+# (Ethernet ativa alterna SÓ o cabo; senão o RÁDIO Wi-Fi — a placa E o LED)
+file_has "bar: o direito da rede alterna SÓ O RÁDIO Wi-Fi quando o sem fio é o caminho" "crates/craft-bar-rs/src/ui.rs" '["nmcli", "radio", "wifi", cmd]'
+file_has "bar: o direito da rede veste a LEI DA CONEXÃO PRINCIPAL no cabo" "crates/craft-bar-rs/src/ui.rs" 'alterna_conexao_principal();'
+file_hasnt "bar: o NUNCA `nmcli networking off` da casa segue morto" "crates/craft-bar-rs/src/ui.rs" '"networking", "off"'
+file_has "bar: o gesto da rede notifica no swaync (a confirmação da diretriz)" "crates/craft-bar-rs/src/ui.rs" '"Elite · Rede"'
 # 1.0-108 — A EVIDÊNCIA DO RIG 1.0-107.3: o botão Aplicativos abria o
 # FUZZEL enquanto a tecla Windows abria a grade do craft-apps (a casa
 # tem UMA gaveta), e o relógio abria o calendário ao PASSAR O MOUSE:
@@ -481,14 +491,22 @@ file_has "bar: o botão de aplicativos dispara o CRAFT-APPS (a MESMA porta da te
 file_hasnt "bar: o fuzzel NÃO mora mais no botão de apps (a gaveta é do craft-apps)" "crates/craft-bar-rs/src/ui.rs" 'solta(&["fuzzel"])'
 file_has "bar: o relógio é HORA/CALENDÁRIO (o clique abre o card da casa)" "crates/craft-bar-rs/src/ui.rs" 'abre_calendario'
 file_hasnt "bar: o hover do relógio MORREU (nenhum enter/leave abre o calendário — só o clique)" "crates/craft-bar-rs/src/ui.rs" 'connect_enter'
-# 1.0-108 — OS ATALHOS RÁPIDOS do menu da barra (a ordem do dono: Modo de
-# jogo, Auto-suspensão, Monitores/120 Hz, Atualizar, Limpar, Snapshots):
-file_has "bar: o cardápio da sessão veste o MODO DE JOGO (craft-game menu)" "crates/craft-bar-rs/src/ui.rs" '("Modo de jogo", &["craft-game", "menu"][..])'
-file_has "bar: o cardápio veste a AUTO-SUSENSÃO (craft-idle menu — o rótulo CURTO de 14 caracteres)" "crates/craft-bar-rs/src/ui.rs" '("Auto-suspensão", &["craft-idle", "menu"][..])'
-file_has "bar: o cardápio veste os MONITORES/120Hz (wdisplays)" "crates/craft-bar-rs/src/ui.rs" '("Monitores (120 Hz)", &["wdisplays"][..])'
-file_has "bar: o cardápio veste o ATUALIZAR sistema (craft-update)" "crates/craft-bar-rs/src/ui.rs" '("Atualizar sistema", &["craft-update"][..])'
-file_has "bar: o cardápio veste o LIMPAR sistema (craft-clean)" "crates/craft-bar-rs/src/ui.rs" '("Limpar sistema", &["craft-clean"][..])'
-file_has "bar: o cardápio veste os SNAPSHOTS (craft-rollback)" "crates/craft-bar-rs/src/ui.rs" '("Snapshots (Rollback)", &["craft-rollback"][..])'
+# 1.0-110 T3 — O CARDÁPIO ENXUTO (a diretriz: o popover do ⏻ contém
+# EXCLUSIVAMENTE as 5 ações de sessão — o bloco legado de atalhos de
+# 1.0-108 e o separador órfão MORRERAM; os verbos seguem vivos nos seus
+# lugares próprios — o menu-raiz do desktop, o terminal e os CLIs):
+file_has "bar: o cardápio veste o BLOQUEAR tela (a 1ª das 5 ações)" "crates/craft-bar-rs/src/ui.rs" '"Bloquear tela", &["craft-lock"][..]'
+file_has "bar: o cardápio veste o SUSPENDER pelo VERBO NATIVO (BusReq::Suspend do E188)" "crates/craft-bar-rs/src/ui.rs" 'elite_core::BusReq::Suspend'
+file_has "bar: o cardápio veste o REINICIAR" "crates/craft-bar-rs/src/ui.rs" '"Reiniciar", &["systemctl", "reboot"][..]'
+file_has "bar: o cardápio veste o DESLIGAR" "crates/craft-bar-rs/src/ui.rs" '"Desligar", &["systemctl", "poweroff"][..]'
+file_has "bar: o cardápio veste o ENCERRAR sessão (o encerrar ORDEIRO)" "crates/craft-bar-rs/src/ui.rs" '"Encerrar sessão", &["craft-logout"][..]'
+file_hasnt "bar: o atalho MODO DE JOGO NÃO volta ao cardápio (o endereço é o craft-game)" "crates/craft-bar-rs/src/ui.rs" '"Modo de jogo", '
+file_hasnt "bar: o atalho AUTO-SUSPENSÃO NÃO volta ao cardápio (o endereço é o craft-idle)" "crates/craft-bar-rs/src/ui.rs" '"Auto-suspensão", '
+file_hasnt "bar: o rótulo cravado de Hz NÃO volta (o 'Monitores (120 Hz)' mentia o monitor)" "crates/craft-bar-rs/src/ui.rs" 'Monitores ('
+file_hasnt "bar: o ATUALIZAR NÃO volta ao cardápio (o endereço é o craft-update)" "crates/craft-bar-rs/src/ui.rs" '"Atualizar sistema", '
+file_hasnt "bar: o LIMPAR NÃO volta ao cardápio (o endereço é o craft-clean)" "crates/craft-bar-rs/src/ui.rs" '"Limpar sistema", '
+file_hasnt "bar: o SNAPSHOTS NÃO voltam ao cardápio (o endereço é o craft-rollback)" "crates/craft-bar-rs/src/ui.rs" '"Snapshots (Rollback)", '
+file_has "bar: o fallback do sono é o craft-suspend (o MESMO caminho nativo do daemon ausente)" "crates/craft-bar-rs/src/ui.rs" 'solta(&["craft-suspend"]);'
 file_hasnt "bar: o painel do notificador de era NÃO volta ao relógio" "crates/craft-bar-rs/src/ui.rs" 'swaync-client'
 # o conflito do /etc/default/scx morre (o caminho é do scx-scheds oficial):
 file_hasnt "pkg: o /etc/default/scx NÃO viaja no pacote (o caminho é do scx-scheds — zero conflito)" ".ci/build.sh" 'files/etc/default/scx'
@@ -517,7 +535,7 @@ file_has "dock: o teclado NUNCA é da dock (KeyboardMode::None — 1.0-105)" "cr
 # conexão persistente, zero IPC bloqueante no clique):
 file_has "dock: o fio persistente nasce no bus (a thread de fundo entrega o Arc à UI)" "crates/craft-dock-rs/src/ui.rs" 'Bus(std::sync::Arc<elite_core::bus::BusClient>)'
 file_has "dock: os VERBOS viajam pelo fio persistente (fire-and-forget — nunca round-trip)" "crates/craft-dock-rs/src/ui.rs" 'fn pede_verbo'
-file_has "dock: o eco do verbo chega pelo MESMO fio (o Ack nomeado no papel)" "crates/craft-dock-rs/src/ui.rs" 'Ok(Msg::Ack { ok })'
+file_has "dock: o eco do verbo chega pelo MESMO fio (o Ack nomeado no papel)" "crates/craft-dock-rs/src/ui.rs" 'Msg::Ack { ok }'
 file_has "dock: o snapshot do clique é o PUSH (o round-trip de LIST de era morre)" "crates/craft-dock-rs/src/ui.rs" 'A PROVA NO CLIQUE É O PUSH'
 file_has "dock: o Estado guarda o fio único (bus: Option<Arc<BusClient>>)" "crates/craft-dock-rs/src/ui.rs" 'bus: Option<std::sync::Arc<elite_core::bus::BusClient>>'
 file_hasnt "dock: o ToplevelClient por clique MORREU (o réu do bus.cliente 3..7)" "crates/craft-dock-rs/src/sock.rs" 'pub struct ToplevelClient'
@@ -869,7 +887,10 @@ file_has "heal: o guard do ícone só veste a linha AUSENTE (idempotente)" "$AIR
 file_has "suspend: o pgrep -x hyprlock confirma o lock ativo ANTES do systemctl suspend" "$AIROOTFS/usr/local/bin/craft-suspend" 'pgrep -x hyprlock'
 file_has "lock: o cache STALE não segura o map (o ffmpeg renasce DESAPEGADO em setsid)" "$AIROOTFS/usr/local/bin/craft-lock" 'blur_fresco'
 file_has "lock: o blur_passes=0 é LEI SEMPRE (nenhuma passada lenta antes do map)" "$AIROOTFS/usr/local/bin/craft-lock" 'blur_passes = 0|"'
-file_has "bar: o Suspender do cardápio veste o CRAFT-SUSPEND (lock mapeado antes do freeze)" "crates/craft-bar-rs/src/ui.rs" '("Suspender", &["craft-suspend"][..])'
+# 1.0-110 T3 — o Suspender veste o VERBO NATIVO do E188 (o fallback é o
+# craft-suspend quando o daemon está ausente):
+file_has "bar: o Suspender do cardápio veste o VERBO NATIVO (BusReq::Suspend — o login1 de verdade)" "crates/craft-bar-rs/src/ui.rs" 'cli.send_req(elite_core::BusReq::Suspend)'
+file_has "bar: o Suspender cai no craft-suspend quando o daemon falta (o MESMO caminho)" "crates/craft-bar-rs/src/ui.rs" 'solta(&["craft-suspend"]);'
 file_has "bar: o Encerrar do cardápio veste o CRAFT-LOGOUT (a família cai em ordem)" "crates/craft-bar-rs/src/ui.rs" '("Encerrar sessão", &["craft-logout"][..])'
 # 1.0-108 — O CRAFT-SUSPEND (a ordem do dono: a superfície do lock MAPEADA
 # antes do systemctl suspend):
@@ -1037,7 +1058,9 @@ file_hasnt "hello: o pointer de 3 linhas de era morre (a versão/dose não é no
 #    resumo REAL dos pacotes antes de aplicar)
 file_has "menu: o rótulo Auto-suspensão (14 caracteres — SEM truncar com '...')" "$AIROOTFS/etc/skel/.config/labwc/menu.xml" '<item label="Auto-suspensão">'
 file_hasnt "menu: o rótulo longo Trava automática de era morre (16 caracteres truncavam na largura monoespaçada)" "$AIROOTFS/etc/skel/.config/labwc/menu.xml" '<item label="Trava automática">'
-file_has "bar: o cardápio da sessão veste o rótulo CURTO Auto-suspensão de 14 caracteres (nenhum '...' truncando)" "crates/craft-bar-rs/src/ui.rs" 'o rótulo CURTO Auto-suspensão de 14 caracteres do §2.3'
+# 1.0-110 T3 — o rótulo CURTO do §2.3 era do BLOCO LEGADO que morreu com
+# o cardápio enxuto (o Auto-suspensão mora no craft-idle — o ✓ de 1.0-110
+# marca a opção SALVA lá)
 file_hasnt "bar: o rótulo longo Trava automática morre no menu da barra" "crates/craft-bar-rs/src/ui.rs" '"Trava automática"'
 file_has "css: o divisor sutil dos grupos da faixa na folha mestra (Mídia · Hardware · Sessão)" "crates/elite-core/assets/theme.css" '#barbox separator'
 file_has "bar: o divisor ENTRE mídia e hardware (a direita em BLOCOS)" "crates/craft-bar-rs/src/ui.rs" 'dir.append(&separa_grupo())'

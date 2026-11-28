@@ -1,24 +1,16 @@
 # ═════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · nm-connection-editor.desktop (1.0-108 — A PARIDADE)
+# Archcraft ELITE · nm-connection-editor.desktop (1.0-110 — A GAVETA LIMPA)
 # ────────────────────────────────────────────────────────────────────────
-# POR QUE ELE EXISTE (a evidência do rig 1.0-107.3): o editor gráfico de
-# rede estava OCULTO da grade de apps — o .desktop upstream do pacote
-# nasce ESCONDIDO da grade (as chaves upstream escondem o editor — o
-# applet de era era a porta dele, e o applet NEM EXISTE mais na casa
-# desde a E132) e o dono só alcançava o editor pelo W-n ou pelo botão
-# da barra. A diretriz da dose: PARIDADE VISUAL
-# COM O BLUETOOTH — o blueman-manager mora na grade do craft-apps, o
-# editor de conexões também mora (a Rede é cidadã de primeira classe
-# como o Bluetooth: o botão esquerdo abre o SELETOR rápido, o W-n abre o
-# editor, e a GRADE abre o editor também).
-# COMO FUNCIONA (a mesma fronteira da E95): o upstream em
-# /usr/share/applications segue INTOCADO — este arquivo é a MESMA
-# desktop-id na FRENTE do XDG_DATA_DIRS (/usr/local/share vem primeiro
-# no environment da sessão labwc), então dock, gaveta (craft-apps) e
-# fuzzel resolvem nm-connection-editor.desktop para AQUI. SEM
-# nenhuma chave de esconderijo — a grade ENXERGA o editor. Zero ícone
-# duplicado na tray: o applet de era (network-manager-applet) NÃO vive
-# na casa — este é o editor, janela de UM tiro, sem bandeja nenhuma.
+# 1.0-108 nasceu para dar PARIDADE com o Bluetooth: o editor técnico
+# morava OCULTO da grade (o applet de era era a única porta) — e a
+# entrada visível trouxe o dono. 1.0-110 T4 fecha o ciclo (a diretriz:
+# "deixando apenas UMA entrada de rede no craft-apps"): a entrada ÚNICA
+# é o "Redes" (craft-net.desktop → o nmtui FLUTUANTE — Wi-Fi conectando
+# apenas com senha, cabo, VPN e DNS); o editor GRÁFICO técnico vira a
+# SOMBRA da casa (o mesmo frontão do xterm/qv4l2 de 1.0-108): a MESMA
+# desktop-id na FRENTE do XDG_DATA_DIRS com NoDisplay=true — o binário e
+# o W-n seguem vivos, a GRADE não lista (o dono não fica na frente de
+# DUAS portas de rede no mesmo ícone de grade).
 # ═════════════════════════════════════════════════════════════════════════
 [Desktop Entry]
 Name=Conexões de Rede
@@ -35,3 +27,4 @@ Categories=GNOME;GTK;Settings;Network;
 Keywords=Network;Wireless;Wi-Fi;Ethernet;VPN;Connection;
 StartupNotify=true
 StartupWMClass=nm-connection-editor
+NoDisplay=true

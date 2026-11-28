@@ -1,30 +1,29 @@
 # ═════════════════════════════════════════════════════════════════════════
-# Archcraft ELITE · craft-net.desktop (1.0-109 — O GERENCIADOR DE REDE)
+# Archcraft ELITE · craft-net.desktop (1.0-110 — O NMTUI FLUTUANTE DA CASA)
 # ────────────────────────────────────────────────────────────────────────
-# A PARIDADE COM O BLUETOOTH (a evidência do dump 1.0-108: o editor
-# técnico `nm-connection-editor` exige CRIAR perfis manualmente em vez
-# de LISTAR as redes Wi-Fi próximas com 1 clique como o blueman-manager
-# lista os dispositivos). O craft-net é o seletor de 1 clique da casa:
-# status da Ethernet (Conectar/Desconectar), as redes Wi-Fi ao alcance
-# com sinal/cadeado/marca de conectada, a conexão com 1 clique (a senha
-# em diálogo limpo apenas para a protegida sem perfil salvo) e a porta
-# "Configurações avançadas" para VPN/IP fixo. A grade do craft-apps
-# ENXERGA o gerenciador como o blueman já era visto — a Rede é cidadã
-# de primeira classe.
+# 1.0-110 T4 — A GAVETA LIMPA (a diretriz: apenas UMA entrada de rede no
+# craft-apps). O binário craft-net (o seletor de 1 clique de 1.0-109)
+# SEGUE VIVO como ferramenta de terminal; a ENTRADA da grade agora veste
+# o nmtui FLUTUANTE — o mesmo "Redes" que o clique no botão de rede da
+# barra abre: Wi-Fi conectando apenas com senha, cabo, VPN e DNS, na
+# janela foot centrada em ~60% da tela (a windowRule identifier
+# "craft-net-tui" do rc.xml centra; o foot veste o tamanho percentual).
+# O editor técnico nm-connection-editor ganhou NoDisplay (a sombra da
+# casa em /usr/local/share/applications) — a rede tem UM endereço só.
 # ═════════════════════════════════════════════════════════════════════════
 [Desktop Entry]
 Type=Application
 Version=1.0
-Name=Gerenciador de Rede
-Name[pt_BR]=Gerenciador de Rede
-GenericName=Seletor de rede
-GenericName[pt_BR]=Seletor de rede
-Comment=Ethernet e redes Wi-Fi ao alcance com conexão em 1 clique
-Comment[pt_BR]=Ethernet e redes Wi-Fi ao alcance com conexão em 1 clique
-Keywords=network;wifi;ethernet;rede;sem fio;gerenciador;
-Exec=craft-net
+Name=Redes
+Name[pt_BR]=Redes
+GenericName=Gerenciador de rede
+GenericName[pt_BR]=Gerenciador de rede
+Comment=Wi-Fi, cabo, VPN e DNS — o nmtui flutuante da casa
+Comment[pt_BR]=Wi-Fi, cabo, VPN e DNS — o nmtui flutuante da casa
+Keywords=network;wifi;ethernet;rede;sem fio;gerenciador;nmtui;
+Exec=foot --app-id=craft-net-tui -T Redes -w 60%x60% nmtui
 Icon=preferences-system-network
 Terminal=false
-Categories=Network;Settings;X-GNOME-Settings-Panel;
-StartupWMClass=elite.craft.Net
+Categories=Network;Settings;
+StartupWMClass=craft-net-tui
 NoDisplay=false

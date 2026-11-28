@@ -108,6 +108,12 @@
 }
 #barbox #playerbtn label { font-size: 13px; }
 #barbox #playerbtn image { color: @elite-accent-strong; }
+/* 1.0-110 T5 — A MICRO-ANIMAÇÃO DA PÍLULA (a diretriz: 140ms suaves
+ * SÓ opacity/transform — zero layout thrash, GPU-friendly; a classe
+ * .faixa-nova acorda NA TROCA de faixa e o timeout devolve: o pulso
+ * é o aviso visual do que mudou, nunca um piscar de layout). */
+#barbox #playerbtn { transition: opacity 140ms ease; }
+#barbox #playerbtn.faixa-nova { opacity: 0.35; }
 /* 1.0-104 — O PRÓXIMO DA FAIXA (assento próprio de era). 1.0-109 §2.2 —
  * O ASSENTO MORRE COM O PILL ÚNICO (a diretriz: zero botões extras — o
  * scroll do próprio pill veste a faixa; a regra #nextbtn sai da pele). */
@@ -115,6 +121,16 @@
  * do dono: o indicador persistente lê-se de longe; o assento do jogo é
  * o acento da casa, o roxo da paleta). */
 #barbox #gamebtn image { color: @elite-accent; }
+/* 1.0-110 T5 — O BADGE ROXO DO MODO DE JOGO (a diretriz: acender
+ * ícone/badge na barra enquanto o modo vive): a classe .on veste o
+ * acento na SUPERFÍCIE do assento — o ícone branco lê-se DE LONGE e o
+ * badge é o assento INTEIRO aceso, não só o glifo pequeno). */
+#barbox #gamebtn.on image { color: @elite-text-bright; }
+#barbox #gamebtn.on {
+  background: @elite-accent;
+  border-radius: 8px;
+  transition: background 140ms ease;
+}
 /* 1.0-106 — O SINO DO DND MORREU COM A CENTRAL (o relógio é
  * hora/calendário; nenhum ícone de notificador habita a barra). */
 /* 1.0-109 §2.3 — OS GRUPOS DA FAIXA LIDOS DE LONGE (a diretriz: Mídia ·
@@ -286,6 +302,14 @@
   padding: 10px 22px;
   font-weight: 600;
 }
+/* 1.0-110 T5 — A PARIDADE VISUAL COM OS POPUPS DA BARRA (a diretriz:
+ * o pick veste a MESMA borda lilás e os cantos ARREDONDADOS da casa —
+ * #border 1px @elite-border + 14px, as quinas quadradas de 90° de
+ * era morrem; o #menuwin abaixo unifica no MESMO 14px). */
+#pickwin {
+  border: 1px solid @elite-border;
+  border-radius: 14px;
+}
 /* E106 — O ITEM DA LISTA ESCURO DE VERDADE (a prova do rig: a lista do
  * seletor nascia com o fundo CLARO do tema externo no hover — os botões
  * sem regra de fundo deixavam o tema de fora pintar). O repouso é a
@@ -300,12 +324,34 @@
  * pele da casa); o fundo mora na obsidiana, o hover sobe o degrau e a
  * seleção veste o acento de sempre (R4/R5 abaixo) */
 #pickwin list { background: @elite-bg; }
+/* 1.0-110 T5 — O BOTÃO DENTRO DO BOTÃO MORRE (a diretriz: o item é um
+ * GtkButton DENTRO do row do ListBox — os DOIS pintavam o próprio
+ * fundo no hover = dois contornos empilhados). O ROW é o ÚNICO que
+ * pinta: o botão de dentro fica TRANSPARENTE, sem moldura e sem
+ * padding próprio — o row é quem respira. */
 #pickwin list row { padding: 8px 14px; border-radius: 8px; color: @elite-text; }
-#pickwin list row:hover { background: @elite-surface; }
-/* R4/R5 na espinha do craft-pick (teclado-primeiro): seleção veste o
- * acento suave com texto da base (9.23:1 AAA) e o foco é VISÍVEL. */
-#pickwin list row:selected { background: @elite-accent-strong; color: @elite-base; }
-#pickwin list row:focus { outline: 2px solid @elite-accent-strong; outline-offset: -2px; }
+#pickwin list row button {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+/* 1.0-110 T5 — O TEXTO ESCURO EM TODO ESTADO DESTACADO (a diretriz:
+ * contraste legível em hover/foco/seleção/ativo — o fundo destacado é
+ * o ACENTO SUAVE da casa e o texto veste a BASE #11111b: 9.23:1 AAA
+ * medido, a escola libadwaita; o outline DUPLICADO de row:focus de
+ * era morreu — a seleção JÁ é o contorno visível). */
+#pickwin list row:hover,
+#pickwin list row:active,
+#pickwin list row:selected {
+  background: @elite-accent-strong;
+}
+#pickwin list row:hover button,
+#pickwin list row:active button,
+#pickwin list row:selected button,
+#pickwin list row:focus button {
+  color: @elite-base;
+  font-weight: 600;
+}
 #pickwin entry { background: @elite-surface; color: @elite-text; border-radius: 8px; }
 
 /* ── 1.0-109 §2.1 · O MENU DE CAMADA (o menu do clique direito da dock e
@@ -315,7 +361,7 @@
 #menuwin {
   background: @elite-bg;
   border: 1px solid @elite-border;
-  border-radius: 12px;
+  border-radius: 14px;
 }
 #menuwin box { color: @elite-text; }
 #menuwin button {

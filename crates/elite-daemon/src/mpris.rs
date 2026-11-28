@@ -1208,4 +1208,207 @@ mod tests {
         }));
         assert!(estado_de_props("org.mpris.MediaPlayer2.mpv", &exato).is_some());
     }
+
+    // ── 1.0-110 T7 — O PLAYER MOCK VIVO DO BUS (a suíte executiva
+    //      58-ipc-vivo.sh chama ESTE contrato): um player D-Bus DE
+    //      VERDADE (interface servida num dbus-daemon de prova) e o
+    //      mpris::thread INTEIRO (censo + DUAS threads + o canal do
+    //      refresco), com os prazos da diretriz medidos NO RELÓGIO:
+    //      o censo veste a pílula · a PAUSA ≤300ms · O FIM É FIM
+    //      (Stopped + título vazio) limpa a pílula <200ms · o player
+    //      MORRENDO (nome solto no barramento) desce o pill no MESMO
+    //      evento. É o cenário do YouTube Music no Brave do rig, sem
+    //      rig: o barramento é o de prova, o juízo é o do motor.
+    struct PlayerVivo {
+        status: String,
+        titulo: String,
+        artista: String,
+    }
+
+    /// o valor OWNED do mock (o Value pede a vida curta do &str — o
+    /// try_to_owned clona a verdade para o dict do GetAll)
+    fn ov(v: zbus::zvariant::Value<'_>) -> zbus::zvariant::OwnedValue {
+        v.try_to_owned().expect("o owned do mock")
+    }
+
+    #[zbus::interface(name = "org.mpris.MediaPlayer2.Player")]
+    impl PlayerVivo {
+        #[zbus(property)]
+        fn playback_status(&self) -> &str {
+            &self.status
+        }
+        #[zbus(property)]
+        fn metadata(&self) -> std::collections::HashMap<String, zbus::zvariant::OwnedValue> {
+            let mut m = std::collections::HashMap::new();
+            m.insert("xesam:title".to_string(), ov(zbus::zvariant::Value::from(self.titulo.as_str())));
+            m.insert("xesam:artist".to_string(), ov(zbus::zvariant::Value::from(self.artista.as_str())));
+            m.insert("mpris:length".to_string(), ov(zbus::zvariant::Value::from(213_000_000i64)));
+            m
+        }
+        /// O DIALECTO DO MOTOR (a leitura de sempre da casa: o GetAll
+        /// mora NA INTERFACE do player — o mock veste o MESMO
+        /// contrato que o motor lê, com o dict COMPLETO do censo)
+        #[zbus(name = "GetAll")]
+        fn get_all(&self) -> std::collections::HashMap<String, zbus::zvariant::OwnedValue> {
+            let mut m = std::collections::HashMap::new();
+            m.insert(
+                "PlaybackStatus".to_string(),
+                ov(zbus::zvariant::Value::from(self.status.as_str())),
+            );
+            m.insert("Metadata".to_string(), ov(self.dict_metadata()));
+            m.insert("CanGoNext".to_string(), ov(zbus::zvariant::Value::from(true)));
+            m.insert("CanGoPrevious".to_string(), ov(zbus::zvariant::Value::from(true)));
+            m
+        }
+        fn dict_metadata(&self) -> zbus::zvariant::Value<'_> {
+            zbus::zvariant::Value::Dict(zbus::zvariant::Dict::from({
+                let mut m: std::collections::HashMap<String, zbus::zvariant::Value> =
+                    std::collections::HashMap::new();
+                m.insert("xesam:title".into(), zbus::zvariant::Value::from(self.titulo.as_str()));
+                m.insert("xesam:artist".into(), zbus::zvariant::Value::from(self.artista.as_str()));
+                m.insert("mpris:length".into(), zbus::zvariant::Value::from(213_000_000i64));
+                m
+            }))
+        }
+    }
+
+    /// espera o juízo virar verdade DENTRO do prazo (ms) — o relógio é
+    /// a prova dos prazos da diretriz (10ms por pergunta, sem pressa)
+    fn espera_ms(ms: u64, juizo: impl Fn() -> bool) -> bool {
+        let inicio = std::time::Instant::now();
+        while inicio.elapsed() < std::time::Duration::from_millis(ms) {
+            if juizo() {
+                return true;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        false
+    }
+
+    #[test]
+    fn vivo_o_player_mock_do_bus() {
+        // o BARRAMENTO DE PROVA (um dbus-daemon de sessão privado — o
+        // endereço mora no env SÓ pelo tempo do teste: o mpris::thread
+        // lê o endereço como qualquer cliente de verdade)
+        let mut daemon = std::process::Command::new("dbus-daemon")
+            .args(["--session", "--nofork", "--print-address=1", "--nopidfile"])
+            .stdout(std::process::Stdio::piped())
+            .spawn()
+            .expect("dbus-daemon de prova (a suíte 58 exige o barramento)");
+        let endereco = {
+            use std::io::{BufRead, BufReader};
+            let out = daemon.stdout.take().expect("o stdout do bus de prova");
+            let mut leitor = BufReader::new(out);
+            let mut linha = String::new();
+            leitor
+                .read_line(&mut linha)
+                .expect("o endereço do bus de prova");
+            linha.trim().to_string()
+        };
+        let env_antigo = std::env::var("DBUS_SESSION_BUS_ADDRESS").ok();
+        std::env::set_var("DBUS_SESSION_BUS_ADDRESS", &endereco);
+
+        // o PLAYER DE VERDADE: nome próprio + interface SERVIDA (o
+        // GetAll do censo lê as propriedades DELE como lê o do Brave)
+        let player = zbus::blocking::ConnectionBuilder::address(endereco.as_str())
+            .expect("o barramento de prova")
+            .name("org.mpris.MediaPlayer2.vivo")
+            .expect("o nome do player de prova")
+            .serve_at(
+                "/org/mpris/MediaPlayer2",
+                PlayerVivo {
+                    status: "Playing".into(),
+                    titulo: "Need 2".into(),
+                    artista: "Pinegrove".into(),
+                },
+            )
+            .expect("a interface do player de prova")
+            .build()
+            .expect("a conexão do player de prova");
+
+        // o MOTOR inteiro acorda (censo + props + owner + refresco)
+        std::thread::spawn(crate::mpris::thread);
+
+        // (1) O CENSO veste a pílula do player que já tocava
+        assert!(
+            espera_ms(2000, || {
+                estado()
+                    .as_ref()
+                    .is_some_and(|m| m.playing && m.title.as_deref() == Some("Need 2"))
+            }),
+            "o censo do motor não vestiu o player vivo a tempo"
+        );
+
+        // o muda-estado do mock: a interface SERVE o estado novo E
+        // emite o PropertiesChanged DE VERDADE (o sinal que o motor
+        // assina — o corpo é o (interface, dict, invalidadas) da casa;
+        // o dict PARCIAL é a vida real: o Brave pausa mandando SÓ o
+        // PlaybackStatus — o título mora no cache do merge, o estado
+        // Stopped é o FIM É FIM do juízo)
+        let muta = |status: &str, titulo: &str| {
+            {
+                let server = player.object_server();
+                let iface_ref = server
+                    .interface::<_, PlayerVivo>("/org/mpris/MediaPlayer2")
+                    .expect("a interface do mock");
+                let mut iface = iface_ref.get_mut();
+                iface.status = status.to_string();
+                iface.titulo = titulo.to_string();
+            }
+            let mut dict = std::collections::HashMap::new();
+            dict.insert(
+                "PlaybackStatus".to_string(),
+                ov(zbus::zvariant::Value::from(status)),
+            );
+            player
+                .emit_signal(
+                    None::<&str>,
+                    "/org/mpris/MediaPlayer2",
+                    "org.freedesktop.DBus.Properties",
+                    "PropertiesChanged",
+                    &(
+                        "org.mpris.MediaPlayer2.Player".to_string(),
+                        dict,
+                        Vec::<String>::new(),
+                    ),
+                )
+                .expect("o PropertiesChanged do mock");
+        };
+
+        // (2) A PAUSA veste o ▶ em ≤300ms (o prazo da diretriz)
+        muta("Paused", "Need 2");
+        assert!(
+            espera_ms(300, || {
+                estado().as_ref().is_some_and(|m| !m.playing)
+            }),
+            "a pausa não vestiu o ícone em ≤300ms"
+        );
+
+        // (3) O FIM É FIM: Stopped SEM título (a aba fechou, o player
+        // continua no bus) limpa a pílula em <200ms
+        muta("Stopped", "");
+        assert!(
+            espera_ms(200, || estado().is_none()),
+            "a mídia encerrada (Stopped sem título) não desceu a pílula em <200ms"
+        );
+
+        // (4) O PLAYER MORRE (o nome solto no barramento): o
+        // NameOwnerChanged limpa o pill no MESMO evento
+        player
+            .release_name("org.mpris.MediaPlayer2.vivo")
+            .expect("o nome solto");
+        // o estado já é None do (3) — o juízo aqui é que NADA renasce:
+        // o censo da morte do dono não veste fantasma nenhum
+        std::thread::sleep(std::time::Duration::from_millis(250));
+        assert!(estado().is_none(), "a morte do dono deixou fantasma");
+
+        // a faxina do barramento de prova (o env volta ao que era)
+        if let Some(velho) = env_antigo {
+            std::env::set_var("DBUS_SESSION_BUS_ADDRESS", velho);
+        } else {
+            std::env::remove_var("DBUS_SESSION_BUS_ADDRESS");
+        }
+        let _ = daemon.kill();
+        let _ = daemon.wait();
+    }
 }

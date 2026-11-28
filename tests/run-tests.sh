@@ -66,8 +66,11 @@ fi
 BROKEN=0
 # 1.0-108 — a fase 57 (smoke headless dos binários compilados) roda DEPOIS
 # do hardware: o juízo executivo do rig (o CPU <5% do idle e os menus do
-# pick) é o ÚLTIMO degrau antes do veredito
-for name in 10-estrutura 20-estatica 30-cargo 35-ajuda 40-compositor 50-runtime-ipc 55-hardware 57-smoke-headless 60-veredito; do
+# pick) é o PENÚLTIMO degrau antes do veredito; a 1.0-110 (E189 T7)
+# acrescenta a fase 58 — a suíte executiva do IPC VIVO (o player mock
+# D-Bus de verdade, os verbos do bus com Ack, o reexec do USR1 preservando
+# o PID e os contratos vivos da dose no último degrau antes do veredito)
+for name in 10-estrutura 20-estatica 30-cargo 35-ajuda 40-compositor 50-runtime-ipc 55-hardware 57-smoke-headless 58-ipc-vivo 60-veredito; do
     if (( BROKEN )); then
         printf '  ▓▓ FASE %s — BLOQUEADA (a peça anterior quebrou a cadeia)\n' "$name"
         continue

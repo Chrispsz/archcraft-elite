@@ -81,7 +81,6 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicI32, Ordering};
-use std::sync::mpsc::{Receiver, Sender, TryRecvError};
 use std::time::{Duration, Instant};
 
 use gtk4::prelude::*;
@@ -103,15 +102,15 @@ const ICON_SIZE: i32 = 36;
 /// O float da pílula DENTRO da superfície (margem GTK — a zona
 /// exclusiva cobre pílula + vão).
 const PILL_FLOAT: i32 = 6;
-/// O tick de segurança (o push do bus domina a latência do snapshot;
-/// 5s = ceifa dos filhos + guard + reload dos pins — o mesmo desenho
-/// v2.10.26 do Python, SEM o LIST de snapshot de era: o fio é push).
+/// O tick de segurança (o push do bus domina a latência do
+/// snapshot; 5s = ceifa dos filhos + guard — o MESMO desenho
+/// v2.10.26 do Python SEM o LIST de snapshot de era: o fio é push e o
+/// reload dos pins é do VIGIA do arquivo desde a 1.0-110 T1).
 const TICK_S: u64 = 5;
-/// O dreno do canal da thread de fundo (E140 — 200ms era o "frame
-/// seguinte" dos espaços pretos do dossiê: o evento de fecho chega
-/// com o LIST fresco e a pílula remonta no MESMO giro — 50ms é o
-/// dreno que o olho não vê, a mesma janela de um frame a 60Hz).
-const DRAIN_MS: u64 = 50;
+/// 1.0-110 T1 — O DRAIN_MS DE 50ms MORREU COM O CANAL mpsc (a entrega
+/// é um idle POR QUADRO na ponte viva: zero cadência acordando a dock
+/// em idle — a mesma lei da barra).
+///
 /// E140 — A TOLERÂNCIA DE ARRASTO: released a ≥5px do press é ARRASTO,
 /// não clique (a ordem do dono, Parte 2 do dossiê — a mesma lei da
 /// barra; o clique curto que o press×click duplicava nunca mais).
@@ -127,10 +126,20 @@ const SIGUSR2: i32 = 12;
 static SIG: AtomicI32 = AtomicI32::new(0);
 extern "C" fn on_signal(sig: i32) {
     SIG.store(sig, Ordering::SeqCst);
+    // 1.0-110 T1 — O CANO acorda a leitora (write(2) é async-signal-safe;
+    // o veredito mora no SIG de sempre e a entrega é por MENSAGEM)
+    let w = CANO_W.load(Ordering::SeqCst);
+    if w >= 0 {
+        let byte: u8 = 1;
+        unsafe {
+            libc::write(w, &byte as *const u8 as *const libc::c_void, 1);
+        }
+    }
 }
 
-/// As mensagens da thread de fundo para a UI (canal mpsc — a thread
-/// NUNCA toca GTK; a UI drena a cada 50ms).
+/// As mensagens da thread de fundo para a UI (a ENTREGA é um idle POR
+/// quadro na ponte viva — 1.0-110 T1: a thread NUNCA toca GTK e a UI
+/// NUNCA mais drena em cadência de 50ms).
 enum Msg {
     /// Um snapshot do bus (None = transporte morto — a graça decide).
     Snapshot(Option<sock::Snapshot>),
@@ -149,6 +158,13 @@ enum Msg {
     /// NO MESMO idle, sem remontagem nenhuma (estado é classe, não
     /// árvore — a lei E139 do diff-guard).
     Mesa(u32),
+    /// 1.0-110 T1 — OS SINAIS PELO CANO (self-pipe: o handler cru
+    /// async-signal-safe escreve 1 byte; a leitora dedicada entrega o
+    /// veredito do atomic POR MENSAGEM na ponte — W-S-d toggle · SIGUSR2
+    /// reload dos pins). A glib 0.22 não tem unix_signal_add NEM
+    /// MainContext::channel (provado no compilador da casa); o dreno
+    /// de 50ms morreu com ele — a dock dorme até o fio/falar.
+    Sinal(i32),
 }
 
 /// O alvo dos cliques de um botão: um app COM .desktop (pin/dinâmico)
@@ -184,7 +200,6 @@ struct State {
     window: gtk::ApplicationWindow,
     pill: gtk::Box,
     shown: bool,
-    tx: Sender<Msg>,
     // pins: os fixados (dock-pins, NA ORDEM do arquivo) · dyns/raws:
     // os dinâmicos por desktop-id e os SEM-NOME por chave de app_id
     pins: Vec<PinRow>,
@@ -228,6 +243,45 @@ struct State {
     /// era era FILHO da superfície top da dock e a gaveta que nascia
     /// DEPOIS o cobria inteiro — a evidência do dump 1.0-108).
     menu: craft_tools::MenuCamada,
+    /// 1.0-110 T1 — O VIGIA DO PAPEL DOS PINS (gio::FileMonitor/inotify
+    /// no diretório do dock-pins: o craft-pin add/rm de FORA veste NO
+    /// MESMO evento do arquivo — o tick de 5s segue só para ceifa e
+    /// guard, a re-leitura periódica morreu com o vigia).
+    pins_watch: Option<gtk4::gio::FileMonitor>,
+}
+
+// ── 1.0-110 T1 — A PONTE VIVA DA DOCK (o canal que a glib 0.22 não ───
+//      tem — provado NO COMPILADOR: MainContext::channel morreu da
+//      glib-rs e o unix_signal_add nunca morou lá. O EFEITO da
+//      diretriz é o mesmo: a thread de fundo acorda o main loop SÓ
+//      POR MENSAGEM (um glib::idle_add POR quadro — o closure Send
+//      carrega a Msg; o corpo corre na MAIN THREAD e lê o estado Rc
+//      da thread-local dEle) — ZERO dreno periódico, ZERO wakeup em
+//      idle: a dock dorme até o bus/um sinal/um pin falar.
+// ─────────────────────────────────────────────────────────────────────
+thread_local! {
+    static ESTADO_UI: RefCell<Option<Rc<RefCell<State>>>> = const { RefCell::new(None) };
+}
+
+/// A ENTREGA (chamada de QUALQUER thread: a Msg Send acorda UM idle
+/// no main loop — a aplicação veste o estado Rc no corpo do idle).
+fn entrega(msg: Msg) {
+    let mut msg = Some(msg);
+    glib::idle_add(move || {
+        if let Some(msg) = msg.take() {
+            ESTADO_UI.with(|caixa| {
+                if let Some(st) = caixa.borrow().as_ref() {
+                    aplica(st, msg);
+                }
+            });
+        }
+        glib::ControlFlow::Break
+    });
+}
+
+/// A MÃE dos idles (a build registra o estado UMA vez).
+fn registra_estado(st: &Rc<RefCell<State>>) {
+    ESTADO_UI.with(|caixa| *caixa.borrow_mut() = Some(st.clone()));
 }
 
 pub fn run() -> i32 {
@@ -359,20 +413,23 @@ fn build(app: &gtk::Application) {
         name_index.len()
     ));
 
-    // o canal da thread de fundo (a assinatura do bus.sock — o fio vivo
-    // do elite-daemon; o toplevel.sock de era morreu com o C)
-    // E-auditoria 2026-11-22 (3ª camada): o tx.clone() DENTRO da closure
-    // movia o tx e o Estado de baixo o usava de novo (E0382) — o clone
-    // nasce ANTES do spawn e a thread fica com a cópia dona.
-    let (tx, rx) = std::sync::mpsc::channel::<Msg>();
-    let tx_bg = tx.clone();
-    std::thread::spawn(move || bg_reader(bus_sock(), tx_bg));
+    // o canal mpsc MORREU INTEIRO na 1.0-110 T1 (a diretriz: o dreno de
+    // 50ms acordava a dock 20 vezes por segundo para ver se o fio falou
+    // — a entrega é AGORA um idle POR quadro na ponte viva: a thread de
+    // fundo fala e a main thread acorda NO MESMO instante; sem nada a
+    // dizer, a dock DORME). O fio do bus.sock segue DONO de um BusClient
+    // persistente (reconexão 5→20→100ms E135) e o CANO dos sinais tem
+    // leitora própria (self-pipe → entrega por mensagem).
+    std::thread::spawn(move || bg_reader(bus_sock()));
+    // a leitora do CANO dos sinais (self-pipe: o handler cru escreve 1
+    // byte; a leitora dorme no read(2) e entrega o veredito do atomic
+    // POR MENSAGEM — W-S-d toggle · SIGUSR2 reload dos pins)
+    arma_cano_sinais();
 
     let st = Rc::new(RefCell::new(State {
         window,
         pill,
         shown: true,
-        tx,
         pins: Vec::new(),
         dyns: HashMap::new(),
         raws: HashMap::new(),
@@ -395,7 +452,10 @@ fn build(app: &gtk::Application) {
         pin_misses: HashMap::new(),
         home,
         uid: procapp::current_uid(),
+        pins_watch: None,
     }));
+    // a PONTE registra a mãe dos idles (todo entrega tem a quem vestir)
+    registra_estado(&st);
 
     // 1.0-109 §2.1 — O CLIQUE FORA QUE NÃO É ENGOLIDO: o press em
     // QUALQUER filho da dock fecha o menu ANTES do ícone agir — o
@@ -428,6 +488,14 @@ fn build(app: &gtk::Application) {
     }
 
     rebuild_pins(&st);
+    // 1.0-110 T1 — O VIGIA DO PAPEL DOS PINS (gio::FileMonitor/inotify):
+    // o craft-pin add/rm de FORA veste NO MESMO evento do arquivo (a
+    // escrita é tmp+rename NO MESMO dir — o vigia mora no DIRETÓRIO e
+    // filtra o nome do papel; o evento de burst vira UM rebuild com a
+    // geração trailing de 150ms). O tick de 5s segue VIVO só para
+    // ceifa/guard (a diretriz: a re-leitura periódica dos pins morre
+    // com o vigia).
+    arma_vigia_pins(&st);
     load_css();
     st.borrow().window.show();
 
@@ -445,17 +513,11 @@ fn build(app: &gtk::Application) {
         st.borrow().pins.len(),
     ));
 
-    // o dreno do canal + a bandeira de sinais (50ms — a latência do
-    // push do bus e do W-Sd, documentada no DRAIN_MS)
-    {
-        let st = st.clone();
-        glib::timeout_add_local(Duration::from_millis(DRAIN_MS), move || {
-            drain(&st, &rx);
-            glib::ControlFlow::Continue
-        });
-    }
-    // o tick de segurança (5s): ceifa, guard, pins, dinâmicos, raws,
-    // indicadores (o scan /proc NÃO tem evento no kernel — é o preço).
+    // o dreno de 50ms MORREU COM O CANAL (1.0-110 T1: a entrega é um
+    // idle por quadro na ponte — zero cadência acordando a dock);
+    // o tick de 5s SEGUE VIVO (segurança — o push do bus domina a
+    // latência do snapshot; aqui mora AGORA SÓ a ceifa dos filhos e o
+    // guard dos lançamentos: o reload dos pins é do VIGIA do arquivo)
     {
         let st = st.clone();
         glib::timeout_add_seconds_local(TICK_S as u32, move || {
@@ -473,21 +535,11 @@ fn build(app: &gtk::Application) {
 /// EMBUTIDA — o daemon renasce, a dock reaparece; o Hello novo arranca
 /// as boas-vindas com o snapshot inteiro. Cada `Windows` publicado é
 /// push de latência ~0; o snapshot NÃO tem tick nenhum (o tick de 5s
-/// VIVO mora no poll_tick: ceifa dos filhos, guard, reload dos pins).
-/// NUNCA toca GTK: tudo via canal mpsc. Morreu o fio? O próximo giro
-/// reconecta — a dock NUNCA depende dele (a lei v2.10.3). (O
-/// toplevel.sock de era — handshake "EVT ON" E38, LIST de segurança
-/// de 5s, o espaço preto E140 da reconexão — morreu com o C de 3
-/// gerações; a história mora nos commits.)
-fn bg_reader(sock_path: PathBuf, tx: Sender<Msg>) {
-    // 2.0 — A ASSINATURA DO BUS VIVO: o BusClient da fundação conecta,
-    // se apresenta ("craft-dock-rs") e lê QUADROS PARA SEMPRE com a
-    // reconexão honesta 5→20→100ms E135 EMBUTIDA (o daemon renasce, a
-    // dock reaparece — o Hello novo arranca as boas-vindas com o
-    // snapshot inteiro). Cada `Windows` publicado vira Snapshot no
-    // canal: o botão da janela que FECHOU some NO MESMO frame do evento
-    // (a fonte é o compositor — zero poll de snapshot, zero espaço
-    // preto; o tick de 5s VIVO mora no poll_tick: ceifa/guard/pins).
+/// VIVO mora no poll_tick: ceifa dos filhos e guard — o reload dos
+/// pins é do VIGIA do arquivo, 1.0-110 T1). NUNCA toca GTK: tudo pela
+/// PONTE (um idle por quadro). Morreu o fio? O próximo giro reconecta
+/// — a dock NUNCA depende dele (a lei v2.10.3).
+fn bg_reader(sock_path: PathBuf) {
     loop {
         if let Some((cli, rx)) = elite_core::bus::BusClient::connect(&sock_path, "craft-dock-rs") {
             // 1.0-109 — O FIO PERSISTENTE NASCE: a UI guarda o Arc e os
@@ -495,36 +547,24 @@ fn bg_reader(sock_path: PathBuf, tx: Sender<Msg>) {
             // — o `bus.cliente 3..7` do dump era um ToplevelClient novo
             // POR CLIQUE; o BusClient da fundação RECONECTA sozinho quando
             // o daemon renasce: a mesma conexão para sempre)
-            if tx.send(Msg::Bus(std::sync::Arc::clone(&cli))).is_err() {
-                return; // a UI morreu: a thread vai junto
-            }
+            entrega(Msg::Bus(std::sync::Arc::clone(&cli)));
             for msg in rx {
                 match msg {
                     elite_core::BusMsg::Windows { windows } => {
                         let snap = sock::de_bus_windows(&windows);
-                        if tx.send(Msg::Snapshot(Some(snap))).is_err() {
-                            return; // a UI morreu: a thread vai junto
-                        }
+                        entrega(Msg::Snapshot(Some(snap)));
                     }
                     // 1.0-109 — o eco do verbo chega pelo MESMO fio: a UI
                     // nomeia o resultado no papel (o clique NUNCA esperou)
                     elite_core::BusMsg::Ack { ok, .. } => {
-                        if tx.send(Msg::Ack { ok }).is_err() {
-                            return;
-                        }
+                        entrega(Msg::Ack { ok });
                     }
                     // 1.0-100 — A MESA CORRENTE (audit 99 §4): o sync do
-                    // rc.xml publica Workspace — a dock veste/.desnuda o
-                    // .other-workspace no idle seguinte (classes, nunca
-                    // remontagem). O GUARD do match é o juízo da casa (a
-                    // lente clippy o cobra): o envio que FALHA casa o
-                    // braço e a thread sai — o braço seguinte é o silêncio.
-                    elite_core::BusMsg::Workspace(w)
-                        if tx.send(Msg::Mesa(w.current)).is_err() =>
-                    {
-                        return; // a UI morreu: a thread vai junto
+                    // rc.xml publica Workspace — a dock re-julga a MESA
+                    // CORRENTE no idle seguinte (classes, nunca remontagem)
+                    elite_core::BusMsg::Workspace(w) => {
+                        entrega(Msg::Mesa(w.current));
                     }
-                    elite_core::BusMsg::Workspace(_) => {}
                     _ => {} // os estados dos outros domínios não são da dock
                 }
             }
@@ -535,80 +575,165 @@ fn bg_reader(sock_path: PathBuf, tx: Sender<Msg>) {
     }
 }
 
-/// O dreno (idle de 50ms — E140): aplica snapshots, ícones extraídos em
-/// thread e a bandeira dos sinais (SIGUSR1 toggle · SIGUSR2 reload).
-fn drain(st: &Rc<RefCell<State>>, rx: &Receiver<Msg>) {
-    loop {
-        match rx.try_recv() {
-            Ok(Msg::Snapshot(opt)) => {
-                let mut s = st.borrow_mut();
-                apply_snapshot(&mut s, opt);
-                update_indicators(&s);
-                drop(s); // (o sync_dynamic pede o estado emprestado DE NOVO)
-                sync_dynamic(st);
-                // E135/E151 — O FLUSH SÍNCRONO UNIVERSAL no fim de TODA
-                // rodada do dreno (o recálculo real da superfície mora
-                // na função única flush_superficie): TODO evento de
-                // janela (Closed · Minimize · Maximize · abertura) vale
-                // no frame corrente INDEPENDENTE de o conjunto ter
-                // mudado — o Minimize/Maximize só move flags e o flush
-                // segue acontecendo (nenhum atraso esperando outra
-                // ação na tela)
-                recalcula_superficie(st);
-            }
-            Ok(Msg::Bus(cli)) => {
-                // 1.0-109 — o fio persistente vestiu a UI: os cliques
-                // daqui em diante falam por ELE (uma conexão só)
-                st.borrow_mut().bus = Some(cli);
-            }
-            Ok(Msg::Ack { ok }) => {
-                log(if ok {
-                    "verbo ecoado pelo daemon (ok — o fio persistente falou)"
-                } else {
-                    "verbo RECUSADO pelo daemon (o id não casa com janela viva — o snapshot corrige no frame seguinte)"
-                });
-            }
-            Ok(Msg::IconReady { key, path }) => {
-                // o botão vivo ganha a cara nova (idle = main thread)
-                let s = st.borrow();
-                if let Some(row) = s.raws.get(&key) {
-                    row.image.set_from_file(Some(&path));
-                    row.image.set_pixel_size(ICON_SIZE);
-                    log(&format!(
-                        "raw ícone: '{key}' EXTRAÍDO em thread para o cache ({})",
-                        path.display()
-                    ));
-                }
-            }
-            Ok(Msg::Mesa(n)) => {
-                // 1.0-100 — A MESA NOVA (sync do rc.xml): só CLASSES —
-                // zero remontagem (o diff-guard E139 manda: o conjunto
-                // de botões não mudou, a árvore é a mesma)
-                {
-                    let mut s = st.borrow_mut();
-                    s.mesa = n.max(1);
-                }
-                update_indicators(&st.borrow());
-            }
-            Err(TryRecvError::Empty) | Err(TryRecvError::Disconnected) => break,
-        }
+/// 1.0-110 T1 — OS SINAIS PELO CANO (self-pipe): o handler cru guarda o
+/// veredito no atomic E escreve 1 byte no pipe; a leitora dedicada dorme
+/// no read(2) e entrega o sinal POR MENSAGEM na ponte — zero dreno de
+/// 50ms acordando a dock em idle (o drain morreu com o canal mpsc).
+fn arma_cano_sinais() {
+    let mut fds = [0i32; 2];
+    if unsafe { libc::pipe(fds.as_mut_ptr()) } != 0 {
+        log("sinais: o cano não abriu — os sinais ficam no atomic (honesto)");
+        return;
     }
-    // os sinais da casa (a bandeira atômica do handler cru)
-    match SIG.swap(0, Ordering::SeqCst) {
-        SIGUSR1 => {
+    CANO_W.store(fds[1], Ordering::SeqCst);
+    std::thread::Builder::new()
+        .name("elite-cano-sinais".into())
+        .spawn(move || {
+            let leitura = fds[0];
+            let mut byte = [0u8; 1];
+            loop {
+                let n = unsafe { libc::read(leitura, byte.as_mut_ptr().cast(), 1) };
+                if n <= 0 {
+                    return; // o cano fechou: a thread vai junto (honesto)
+                }
+                let sig = SIG.swap(0, Ordering::SeqCst);
+                if sig != 0 {
+                    entrega(Msg::Sinal(sig));
+                }
+            }
+        })
+        .ok();
+}
+
+/// o CANO DE ESCRITA dos sinais (o handler cru escreve 1 byte por sinal).
+static CANO_W: AtomicI32 = AtomicI32::new(-1);
+
+/// 1.0-110 T1 — O VIGIA DO PAPEL DOS PINS (gio::FileMonitor no DIRETÓRIO
+/// do dock-pins: a escrita da casa é tmp+rename NO MESMO dir — o vigia
+/// filtra o NOME do papel e o burst de eventos vira UM rebuild com a
+/// geração trailing de 150ms; o tick de 5s segue só para ceifa/guard).
+fn arma_vigia_pins(st: &Rc<RefCell<State>>) {
+    let caminho = pins_path();
+    let Some(dir) = caminho.parent() else { return };
+    let Some(pasta) = gtk4::gio::File::for_path(dir)
+        .monitor_directory(gtk4::gio::FileMonitorFlags::NONE, gtk4::gio::Cancellable::NONE)
+        .ok()
+    else {
+        log("pins: o vigia do diretório não nasceu — o tick de segurança cobre (honesto)");
+        return;
+    };
+    let nome = caminho
+        .file_name()
+        .and_then(|n| n.to_str().map(str::to_string))
+        .unwrap_or_else(|| "dock-pins".to_string());
+    let st = st.clone();
+    let st_cb = st.clone();
+    // a geração trailing: cada evento REARMA a janela de 150ms (a
+    // última janela veste — as velhas calam; o burst inteiro é UM rebuild)
+    let geracao = Rc::new(std::cell::Cell::new(0u64));
+    let geracao_cb = geracao.clone();
+    pasta.connect_changed(move |_m, arquivo, _outro, evento| {
+        let da_vez = matches!(
+            evento,
+            gtk4::gio::FileMonitorEvent::Created
+                | gtk4::gio::FileMonitorEvent::Moved
+                | gtk4::gio::FileMonitorEvent::Changed
+                | gtk4::gio::FileMonitorEvent::ChangesDoneHint
+                | gtk4::gio::FileMonitorEvent::Deleted
+        ) && arquivo
+            .basename()
+            .is_some_and(|b| b.to_string_lossy() == nome);
+        if !da_vez {
+            return; // evento do vizinho: o vigia é do papel dos pins só
+        }
+        geracao_cb.set(geracao_cb.get().wrapping_add(1));
+        let minha = geracao_cb.get();
+        // o clone do Rc atravessa o move do timer (o outer é Fn: os
+        // clones nascem DENTRO do giro, nunca movidos do capturado)
+        let geracao = geracao_cb.clone();
+        let st = st_cb.clone();
+        glib::timeout_add_local_once(Duration::from_millis(150), move || {
+            if geracao.get() != minha {
+                return; // a janela velha: o último evento veste (trailing)
+            }
+            log("pins: o papel mudou no disco — o vigia re-veste NA HORA (inotify, sem tick)");
+            rebuild_pins(&st);
+        });
+    });
+    st.borrow_mut().pins_watch = Some(pasta);
+}
+
+/// A APLICAÇÃO (a PONTE chama na main thread: uma mensagem vira widget —
+/// o corpo do antigo drena de 50ms, acordado AGORA só por mensagem).
+fn aplica(st: &Rc<RefCell<State>>, msg: Msg) {
+    match msg {
+        Msg::Snapshot(opt) => {
             let mut s = st.borrow_mut();
-            if s.shown {
-                s.window.hide();
-                s.shown = false;
-                log("toggle: dock escondida (W-S-d)");
+            apply_snapshot(&mut s, opt);
+            update_indicators(&s);
+            drop(s); // (o sync_dynamic pede o estado emprestado DE NOVO)
+            sync_dynamic(st);
+            // E135/E151 — O FLUSH SÍNCRONO UNIVERSAL no fim de TODA
+            // rodada de evento (o recálculo real da superfície mora na
+            // função única flush_superficie): TODO evento de janela
+            // (Closed · Minimize · Maximize · abertura) vale no frame
+            // corrente INDEPENDENTE de o conjunto ter mudado
+            recalcula_superficie(st);
+        }
+        Msg::Bus(cli) => {
+            // 1.0-109 — o fio persistente vestiu a UI: os cliques
+            // daqui em diante falam por ELE (uma conexão só)
+            st.borrow_mut().bus = Some(cli);
+        }
+        Msg::Ack { ok } => {
+            log(if ok {
+                "verbo ecoado pelo daemon (ok — o fio persistente falou)"
             } else {
-                s.window.show();
-                s.shown = true;
-                log("toggle: dock visível (W-S-d)");
+                "verbo RECUSADO pelo daemon (o id não casa com janela viva — o snapshot corrige no frame seguinte)"
+            });
+        }
+        Msg::IconReady { key, path } => {
+            // o botão vivo ganha a cara nova (idle = main thread)
+            let s = st.borrow();
+            if let Some(row) = s.raws.get(&key) {
+                row.image.set_from_file(Some(&path));
+                row.image.set_pixel_size(ICON_SIZE);
+                log(&format!(
+                    "raw ícone: '{key}' EXTRAÍDO em thread para o cache ({})",
+                    path.display()
+                ));
             }
         }
-        SIGUSR2 => rebuild_pins(st),
-        _ => {}
+        Msg::Mesa(n) => {
+            // 1.0-100 — A MESA NOVA (sync do rc.xml): só CLASSES —
+            // zero remontagem (o diff-guard E139 manda: o conjunto
+            // de botões não mudou, a árvore é a mesma)
+            {
+                let mut s = st.borrow_mut();
+                s.mesa = n.max(1);
+            }
+            update_indicators(&st.borrow());
+        }
+        Msg::Sinal(sig) => {
+            // 1.0-110 T1 — o veredito do CANO (o handler cru guardou o
+            // sinal no atomic e a leitora entregou por mensagem)
+            match sig {
+                SIGUSR1 => {
+                    let mut s = st.borrow_mut();
+                    if s.shown {
+                        s.window.hide();
+                        s.shown = false;
+                        log("toggle: dock escondida (W-S-d)");
+                    } else {
+                        s.window.show();
+                        s.shown = true;
+                        log("toggle: dock visível (W-S-d)");
+                    }
+                }
+                SIGUSR2 => rebuild_pins(st),
+                _ => {}
+            }
+        }
     }
 }
 
@@ -643,10 +768,9 @@ fn apply_snapshot(s: &mut State, opt: Option<sock::Snapshot>) {
 }
 
 /// O TICK de 5s (segurança — o push do bus domina a latência do
-/// snapshot; aqui mora a ceifa dos filhos, o guard e o reload dos
-/// pins): ceifa os filhos, aposenta os guards mapeados, EXPIRA os
-/// guards velhos, re-lê os pins (a rede que o Python não tinha) e
-/// sincroniza tudo.
+/// snapshot; aqui mora a ceifa dos filhos e o guard dos lançamentos:
+/// o reload dos pins é do VIGIA do arquivo desde a 1.0-110 T1 — a
+/// re-leitura periódica morreu por desenho da diretriz).
 fn poll_tick(st: &Rc<RefCell<State>>) {
     {
         let mut s = st.borrow_mut();
@@ -670,14 +794,9 @@ fn poll_tick(st: &Rc<RefCell<State>>) {
         s.launching
             .retain(|_k, t| now.duration_since(*t).as_secs_f64() < GUARD_S);
     }
-    // os pins: re-julgamento POR TICK (E139 — a escada ÚNICA avalia,
-    // as faltas contam e a poda honesta cresce com o próprio tick; a
-    // remontagem lá dentro é diff-guard — só o conjunto mudando mexe
-    // nos widgets). 1.0-102 — o rebuild É o ciclo ATÔMICO: a
-    // reconciliação com os dinâmicos/raws/indicadores mora DENTRO dele
-    // (o pin de app aberto promove in-place, o duplicado transitório
-    // morreu) — o tick não chama mais as partes separadas.
-    rebuild_pins(st);
+    // 1.0-110 T1 — O RELOAD PERIÓDICO DOS PINS MORREU COM O VIGIA: o
+    // craft-pin add/rm acorda o FileMonitor do diretório NO MESMO
+    // evento do arquivo (inotify) — o tick segue só para ceifa/guard.
 }
 
 /// A ceifa dos zumbis (v2.10.3): todo app lançado pela dock é filho
@@ -1161,9 +1280,9 @@ fn make_raw_button(st: &Rc<RefCell<State>>, key: &str, name: &str) -> gtk::Butto
 
     let display = gdk::Display::default().expect("sem display GDK");
     let theme = gtk::IconTheme::for_display(&display);
-    let (home, uid, tx) = {
+    let (home, uid) = {
         let s = st.borrow();
-        (s.home.clone(), s.uid, s.tx.clone())
+        (s.home.clone(), s.uid)
     };
 
     let mut done = false;
@@ -1235,12 +1354,13 @@ fn make_raw_button(st: &Rc<RefCell<State>>, key: &str, name: &str) -> gtk::Butto
     // (6) a EXTRAÇÃO EM THREAD
     if !done {
         if let (Some(ai), Some(m)) = (appimg.clone(), mount.clone()) {
-            let tx = tx.clone();
             let key = key.to_string();
             std::thread::spawn(move || {
                 let dest = icons::appicon_cache_path(&appicon_cache_dir(), &ai.to_string_lossy());
                 if let Some(got) = procapp::extract_diricon(&m, &dest) {
-                    let _ = tx.send(Msg::IconReady { key, path: got });
+                    // 1.0-110 T1 — a extração entrega pela PONTE (o idle
+                    // da main thread veste o ícone — sem canal, sem dreno)
+                    entrega(Msg::IconReady { key, path: got });
                 }
             });
         }
@@ -1290,12 +1410,12 @@ fn make_raw_button(st: &Rc<RefCell<State>>, key: &str, name: &str) -> gtk::Butto
                 }
             }
             if !done {
-                let tx = tx.clone();
                 let key = key.to_string();
                 std::thread::spawn(move || {
                     let dest = icons::exe_icon_cache_path(&crate::exeicon_cache_dir(), &exe.to_string_lossy());
                     if let Some(got) = icons::extract_pe_icon(&exe, &dest) {
-                        let _ = tx.send(Msg::IconReady { key, path: got });
+                        // 1.0-110 T1 — a extração entrega pela PONTE
+                        entrega(Msg::IconReady { key, path: got });
                     }
                 });
             }
@@ -1645,13 +1765,33 @@ fn remove_desktop_gerado(st: &Rc<RefCell<State>>, id_local: &str) {
 
 /// As janelas REAIS de um alvo no snapshot atual (strict = o verbo
 /// DESTRUTIVO: o título nunca manda WM_DELETE — a lei E36).
+/// 1.0-110 T6 — A DOCK É DA MESA CORRENTE (a diretriz: o espelho do
+/// Alt+Tab — as janelas que contam são as DA MESA ATUAL, s.mesa): a
+/// janela de mesa CONHECIDA ≠ corrente não acende o indicador, não
+/// conta no clique e não nasce botão dinâmico; o desk None segue
+/// PRESUMIDO VISÍVEL (a convenção 1.0-100: o desconhecido não mentiu).
+fn janela_da_mesa(s: &State, id: u64) -> bool {
+    s.snap
+        .windows
+        .get(&id)
+        .and_then(|w| w.desk)
+        .map(|d| d == s.mesa)
+        .unwrap_or(true)
+}
+
+/// 1.0-110 T6 — as janelas do alvo NA MESA CORRENTE (o casamento de
+/// sempre do sock::windows_of_key filtrado pela mesa — on_left,
+/// on_middle e update_indicators vestem TODOS a mesma régua: 0 janelas
+/// na mesa atual = SEM bolinha de aberto e o esquerdo LANÇA nova
+/// instância na mesa atual em vez de pular para outra).
 fn windows_of_state(s: &State, act: &Act, strict: bool) -> Vec<u64> {
-    match act {
+    let todos = match act {
         Act::App { cands, name, .. } => {
             sock::windows_of_key(&s.snap, cands, name, strict)
         }
         Act::Raw { key, .. } => sock::raw_windows(&s.snap, key, strict),
-    }
+    };
+    todos.into_iter().filter(|id| janela_da_mesa(s, *id)).collect()
 }
 
 /// A chave do guard/anel de um alvo (did do .desktop ou "raw:<key>").
@@ -1901,6 +2041,12 @@ fn sync_dynamic(st: &Rc<RefCell<State>>) {
     {
         let s = st.borrow();
         for w in s.snap.windows.values() {
+            // 1.0-110 T6 — O PORTAL NUNCA NASCE BOTÃO (a diretriz: o
+            // xdg-desktop-portal-gtk dos diálogos de arquivo era o
+            // ícone temporário que PISCA na dock — o prefixo é a cerca)
+            if w.app_id.starts_with("xdg-desktop-portal") {
+                continue;
+            }
             if !w.app_id.is_empty() && !chaves.contains(&w.app_id) {
                 chaves.push(w.app_id.clone());
             }
@@ -1924,7 +2070,9 @@ fn sync_dynamic(st: &Rc<RefCell<State>>) {
             {
                 continue;
             }
-            // v2.10.3 — daemon vivo: SEM janela real não é "aberto"
+            // v2.10.3 — daemon vivo: SEM janela real não é "aberto";
+            // 1.0-110 T6 — e a janela tem que ser DA MESA CORRENTE (o
+            // dinâmico de OUTRA mesa não nasce botão na dock daqui)
             if s.tl_alive
                 && sock::windows_of_key(
                     &s.snap,
@@ -1932,7 +2080,8 @@ fn sync_dynamic(st: &Rc<RefCell<State>>) {
                     &entry.name,
                     false,
                 )
-                .is_empty()
+                .iter()
+                .all(|id| !janela_da_mesa(&s, *id))
             {
                 continue;
             }
@@ -1966,14 +2115,16 @@ fn sync_dynamic(st: &Rc<RefCell<State>>) {
                     continue;
                 }
                 // v2.10.3 — daemon vivo: SEM janela real não é "aberto"
-                // (o windows_of_key casa título×nome no não-strict)
+                // (o windows_of_key casa título×nome no não-strict);
+                // 1.0-110 T6 — e a janela tem que ser DA MESA CORRENTE
                 if sock::windows_of_key(
                     &s.snap,
                     &icons::focus_candidates(entry, ""),
                     &entry.name,
                     false,
                 )
-                .is_empty()
+                .iter()
+                .all(|id| !janela_da_mesa(&s, *id))
                 {
                     continue;
                 }
@@ -2001,6 +2152,17 @@ fn sync_dynamic(st: &Rc<RefCell<State>>) {
             }
             for w in s.snap.windows.values() {
                 if covered.contains(&w.id) {
+                    continue;
+                }
+                // 1.0-110 T6 — janela de OUTRA mesa não nasce botão NA
+                // MESA CORRENTE (a diretriz: os dinâmicos e raws são da
+                // mesa de quem OLHA — o espelho do Alt+Tab)
+                if !janela_da_mesa(&s, w.id) {
+                    continue;
+                }
+                // 1.0-110 T6 — O PORTAL NÃO PISCA (o xdg-desktop-portal-gtk
+                // dos diálogos de arquivo nunca veste ícone temporário)
+                if w.app_id.starts_with("xdg-desktop-portal") {
                     continue;
                 }
                 if let Some((key, name)) = icons::raw_key(&w.app_id, &w.title) {

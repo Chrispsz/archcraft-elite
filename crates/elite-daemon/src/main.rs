@@ -45,6 +45,10 @@ mod bluetooth;
 mod doctor;
 mod idle;
 mod mpris;
+// 1.0-110 T1 — A REDE NO FIO (o publicador event-driven de
+// BusMsg::Network: o censo NM no arranque + cada PropertiesChanged /
+// StateChanged / DeviceAdded vale um censo novo — zero nmcli em loop)
+mod network;
 mod nucleo;
 mod scan;
 mod supervise;
@@ -579,6 +583,10 @@ fn main() {
             std::thread::spawn(|| audio::rodada("start"));
             std::thread::spawn(thread_netlink);
             std::thread::spawn(bluetooth::thread);
+            // 1.0-110 T1 — A REDE NO FIO (o ícone da barra reage ao
+            // plug/unplug <500ms PELO EVENTO do NM — o belt de 5s de
+            // nmcli da barra morre na fonte: o daemon é o único ouvidor)
+            std::thread::spawn(network::thread);
             std::thread::spawn(|| thread_logind("PrepareForSleep", true));
             std::thread::spawn(|| thread_logind("Unlock", false));
             std::thread::spawn(thread_wakeguard);
@@ -593,8 +601,9 @@ fn main() {
             std::thread::spawn(thread_display_boot);
             eprintln!(
                 "elite-daemon session: ouvidores no ar (bus.sock + wayland \
-                 nativo + mpris + áudio + netlink som/drm + logind sono/unlock \
-                 + wake-guard pré-sono + re-aplicação do monitor do boot)"
+                 nativo + mpris + áudio + netlink som/drm + bluetooth + rede \
+                 NM por evento + logind sono/unlock + wake-guard pré-sono \
+                 + re-aplicação do monitor do boot)"
             );
             match supervise::run_session() {
                 Ok(()) => std::process::exit(0),

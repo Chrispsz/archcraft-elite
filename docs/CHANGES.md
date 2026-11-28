@@ -6,6 +6,55 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **1.0-110 · Commit 2/2 (E189) — UI/UX EVENT-DRIVEN, REDE, CRAFT-PICK,
+  DOCK POR MESA E CONTRATOS VIVOS**: **T1 o barramento vivo sem polling**
+  (o daemon publica `BusMsg::Network` POR EVENTO — módulo network.rs com
+  o censo NM no arranque e cada sinal do NetworkManager valendo um censo
+  novo; o POLLER da barra morreu inteiro — áudio/rede/bluetooth/jogo vêm
+  EXCLUSIVAMENTE por push do bus e o snapshot de boas-vindas carrega
+  Audio+Network; a entrega é UM idle por quadro na "ponte" da casa —
+  provado NO COMPILADOR que a glib 0.22 não tem mais
+  `MainContext::channel`/`unix_signal_add`, o EFEITO é o mesmo com
+  `glib::idle_add` + thread-local: zero dreno periódico, zero wakeup em
+  idle; os sinais pelo CANO self-pipe com leitora dedicada; o relógio
+  agenda a VIRADA do minuto; o volume scroll TRAILING de 70ms; a dock
+  ganha o VIGIA inotify do dock-pins — o tick de 5s fica só
+  ceifa/guard), **T2 o MenuCamada educado** (`KeyboardMode::OnDemand` —
+  comprovado na FONTE do labwc: o Overlay sob demanda recebe o teclado
+  no map E o primeiro clique fora devolve — o Exclusive de era bloqueava
+  Backspace/Ctrl+V na sessão inteira e o clique fora nunca fechava; o
+  clique no papel de parede veste a ação NATIVA `Unfocus` do rc.xml; o
+  carimbo `fechou_em` mata a corrida foco-sai-fecha → clique-reabre — o
+  2º clique fecha LIMPO sem piscar), **T3 o menu ⏻ enxuto** (EXATAMENTE
+  as 5 ações de sessão — o bloco de atalhos de 1.0-108 e o separador
+  órfão morrem; o Suspender dispara o verbo nativo `BusReq::Suspend` do
+  E188 pelo bus), **T4 a rede sensível ao contexto** (o direito alterna
+  SÓ o que está ativo: cabo → `nmcli device disconnect/connect` com o
+  ícone de Ethernet e o rádio Wi-Fi INTOCADOS; sem fio → `nmcli radio
+  wifi off/on` apagando a placa E o LED; notificação no swaync por
+  gesto; o esquerdo/meio abrem o "Redes" flutuante — `foot
+  --app-id=craft-net-tui -w 60%x60% nmtui` centrado pela windowRule;
+  a gaveta exibe UMA entrada de rede — o nm-connection-editor vira
+  sombra NoDisplay), **T5 a paridade visual do craft-pick** (a borda
+  lilás de 14px unificada com o #menuwin; o "botão dentro de botão"
+  morre — o row é o único que pinta; o texto ESCURO em todo estado
+  destacado; a busca some sem reservar espaço com ≤8 opções — Enter
+  escolhe e as setas andam a seleção; o ✓ CARIMBA a opção salva na
+  Auto-suspensão e no Modo de jogo com notificação ao alterar; o badge
+  roxo `.on` no #gamebtn; a pílula de mídia PULSA 140ms SÓ em opacity
+  na troca de faixa) e **T6 a dock da mesa corrente** (o espelho do
+  Alt+Tab: `janela_da_mesa` filtra on_left/windows_of_state/
+  update_indicators/sync_dynamic — 0 janelas na mesa atual = sem
+  bolinha e o clique LANÇA nova instância na mesa atual; o prefixo
+  `xdg-desktop-portal` nunca pisca ícone; o elite-post-upgrade MIGRA o
+  rc.xml vivo com backup — o Execute do scroll de mesa que o sync
+  absent-only nunca entregou) + **T7 a suíte executiva
+  58-ipc-vivo.sh** (o player mock D-Bus DE VERDADE sob um dbus-daemon
+  de prova com os prazos NO RELÓGIO — pausa ≤300ms · fim <200ms ·
+  morte do dono; os verbos do bus com eco Ack; a sessão viva sob o
+  labwc headless — reexec preservando o PID, 2ª instância recusada;
+  porteira GO 998 · 0 · 11). O pkgrel fica em **110** (lei E41: os dois
+  commits vestem o MESMO release — a publicação do canal testing é UMA).
 - **1.0-110 · Commit 1/2 — O MOTOR EM TEMPO REAL (a perícia da 1.0-109
   virou contrato)**: **T1 o MPRIS vivo** (DUAS threads independentes
   props/owner por CANAL — o `for props_iter` bloqueante de era engolia o

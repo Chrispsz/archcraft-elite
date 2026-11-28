@@ -317,6 +317,71 @@ registrada no mesmo commit.
 > conhecido). Provas: porteira GO com as âncoras novas do motor ·
 > `cargo test --workspace` verde com a gui viva · clippy `-D warnings`
 > ZERO · shellcheck ZERO · sem deps novas, sem polling novo.
+>
+> **1.0-110 · Commit 2/2 (E189 — a diretriz do dono: a INTERFACE
+> EVENT-DRIVEN, a rede sensível ao contexto, o craft-pick de primeira,
+> a dock por mesa e a suíte executiva; o pkgrel fica NO 110 — os dois
+> commits vestem o MESMO release porque a publicação do canal testing
+> é UMA, lei E41)** — o registro vivo: a dose vive em
+> `docs/releases/1.0-110.md`. **T1 O BARRAMENTO VIVO SEM POLLING**: o
+> daemon publica `BusMsg::Network` POR EVENTO (o módulo `network.rs`:
+> censo NM no arranque + cada sinal do NetworkManager no system bus
+> vale um censo novo — o julgamento puro `julga_dispositivos`:
+> ethernet ativa vence, o offline é tipado); o POLLER da barra morreu
+> INTEIRO (áudio/rede/bluetooth/jogo vêm EXCLUSIVAMENTE por push do
+> bus — o boas-vindas carrega Audio+Network); a entrega é UM idle por
+> quadro (a "ponte" da casa: provado NO COMPILADOR que a glib 0.22
+> NÃO tem mais `MainContext::channel` nem `unix_signal_add` — o
+> `glib::idle_add` + a thread-local do estado entregam o MESMO
+> efeito: zero dreno periódico, zero wakeup em idle); os sinais pelo
+> CANO (self-pipe com leitora dedicada — o handler cru escreve 1
+> byte); o relógio agenda a VIRADA do minuto; o volume scroll
+> TRAILING de 70ms; e a dock ganha o VIGIA inotify do dock-pins (o
+> tick de 5s fica só ceifa/guard). **T2 O MENUCAMADA EDUCADO**:
+> `KeyboardMode::OnDemand` (comprovado NA FONTE do labwc — o Overlay
+> sob demanda recebe o teclado no map E o primeiro clique fora
+> devolve: o Exclusive de era prendia Backspace/Ctrl+V na sessão
+> inteira); o clique no papel de parede veste a ação NATIVA `Unfocus`
+> do rc.xml (o swaybg é layer NONE — sem ele o clique era invisível
+> para a guarda); e o carimbo `fechou_em` mata a corrida
+> foco-sai-fecha → clique-reabre (o 2º clique no relógio/⏻ fecha
+> LIMPO, sem piscar). **T3 O MENU ⏻ ENXUTO**: EXATAMENTE as 5 ações
+> de sessão (Bloquear · Suspender pelo VERBO NATIVO `BusReq::Suspend`
+> do E188 · Reiniciar · Desligar · Encerrar) — o bloco de atalhos de
+> 1.0-108 e o separador órfão morrem (os verbos seguem nos seus
+> lugares próprios). **T4 A REDE SENSÍVEL AO CONTEXTO**: o direito
+> alterna SÓ o que está ativo (cabo → `nmcli device
+> disconnect/connect` com o rádio Wi-Fi INTOCADO; sem fio → `nmcli
+> radio wifi off/on` apagando a placa E o LED) com notificação no
+> swaync por gesto; o esquerdo/meio abrem o "Redes" flutuante (foot
+> `craft-net-tui` centrado pela windowRule, `-w 60%x60%` do próprio
+> foot); e a gaveta exibe UMA entrada de rede (o nm-connection-editor
+> vira sombra NoDisplay; o craft-net.desktop aponta o nmtui).
+> **T5 A PARIDADE VISUAL DO CRAFT-PICK + O FEEDBACK DE ESTADO**: a
+> borda lilás 14px unificada com o #menuwin; o "botão dentro de
+> botão" morre (o ROW é o único que pinta) e o texto ESCURO em todo
+> estado destacado; a busca some SEM reservar espaço com ≤8 opções
+> (Enter escolhe, as setas andam a seleção); o ✓ CARIMBA a opção
+> salva na Auto-suspensão e no Modo de jogo (com notificação ao
+> alterar); o badge roxo `.on` no #gamebtn; e a pílula de mídia PULSA
+> 140ms SÓ em opacity na troca de faixa. **T6 A DOCK DA MESA
+> CORRENTE** (o espelho do Alt+Tab: `janela_da_mesa` filtra
+> on_left/windows_of_state/update_indicators/sync_dynamic — 0 janelas
+> na mesa atual = SEM bolinha e o clique LANÇA nova instância na mesa
+> atual; o prefixo `xdg-desktop-portal` nunca pisca ícone) e o
+> MIGRADOR do rc.xml vivo no elite-post-upgrade (com backup — o
+> Execute do scroll de mesa que o sync absent-only nunca entregou aos
+> rigs de antes da 1.0-100). **T7 A SUÍTE EXECUTIVA 58-ipc-vivo.sh**:
+> o player mock D-Bus DE VERDADE (interface servida num dbus-daemon
+> de prova — `vivo_o_player_mock_do_bus`: o motor inteiro em carne
+> com os prazos NO RELÓGIO — pausa ≤300ms · FIM É FIM <200ms · morte
+> do dono), os verbos do bus com eco Ack, os contratos do reexec e a
+> sessão viva sob o labwc headless (reexec preservando o PID · 2ª
+> instância recusada — o Canal/rig paga o ambiente com o pulo
+> nomeado). Provas: porteira **GO 998 · 0 · 11** (fases 10–58) ·
+> `cargo test --workspace` **220/0** · clippy `-D warnings` ZERO ·
+> shellcheck ZERO · sem deps novas, sem polling novo (o poller
+> morreu — a barra e a dock dormem até o fio falar).
 
 ## §8 · Dose 1.0-108 → 1.0-109 — o registro vivo (a interface que o labwc não matava, o seletor de rede de 1 clique, o lock que mapeia e o bus que não multiplica)
 

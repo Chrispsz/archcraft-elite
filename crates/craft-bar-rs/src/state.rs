@@ -270,48 +270,13 @@ pub enum EstadoRede {
     Desligado,
 }
 
-/// O estado da rede da saída do `nmcli -t -f DEVICE,TYPE,STATE,CONNECTION
-/// device status` (uma linha por placa, campos por ':'). O julgamento:
-/// lo não é rede; qualquer ethernet connected = Cabo; senão qualquer
-/// wifi connected = Wifi; todo o resto (unavailable/disconnected/off)
-/// desemboca no Desligado PERSISTENTE — o tooltip nomeia o estado e o
-/// clique abre o iwgtk (Wi-Fi) / nm-connection-editor (conexões), as
-/// ferramentas DE VERDADE da diretriz do dossiê.
-pub fn estado_rede_nmcli(saida: &str) -> EstadoRede {
-    let mut wifi = false;
-    for linha in saida.lines() {
-        let c: Vec<&str> = linha.split(':').collect();
-        if c.len() < 3 {
-            continue;
-        }
-        let (dev, tipo, estado) = (c[0], c[1], c[2]);
-        if dev == "lo" || tipo == "loopback" {
-            continue;
-        }
-        if tipo == "ethernet" && estado == "connected" {
-            return EstadoRede::Cabo;
-        }
-        if tipo == "wifi" && estado == "connected" {
-            wifi = true;
-        }
-    }
-    if wifi {
-        EstadoRede::Wifi
-    } else {
-        EstadoRede::Desligado
-    }
-}
-
-/// O NOME da conexão Wi-Fi ativa (para o tooltip) — None quando não há.
-pub fn essid_nmcli(saida: &str) -> Option<String> {
-    for linha in saida.lines() {
-        let c: Vec<&str> = linha.split(':').collect();
-        if c.len() >= 4 && c[1] == "wifi" && c[2] == "connected" && !c[3].is_empty() {
-            return Some(c[3].to_string());
-        }
-    }
-    None
-}
+// ── 1.0-110 T1 — OS PARSERS nmcli DA BARRA MORRERAM COM O POLLER ──
+//      (enterro com voz): o `nmcli -t device status` da barra era o
+//      belt de 5s — o estado da rede agora é o PUSH do daemon
+//      (BusMsg::Network por evento do NetworkManager, o judgamento puro
+//      mora no elite-daemon::network::julga_dispositivos). O
+//      `estado_rede_nmcli`/`essid_nmcli` de era saíram junto: nenhum
+//      fantasma de parser vive sem chamador na casa.
 
 /// O ÍCONE do estado da rede (nomes GTK — a família visual sobrevive
 /// sem Nerd Font: o cabo tem fio, o Wi-Fi tem sinal, o off é o offline).
@@ -669,33 +634,11 @@ mod tests {
         assert_eq!(icone_mic(true), "microphone-sensitivity-muted-symbolic");
     }
 
-    // ── a rede: TRÊS estados, o botão NUNCA some ──────────────────────
-
-    #[test]
-    fn nmcli_os_tres_estados_e_o_lo_ignorado() {
-        // o cenário DO DUMP (cabo ativo + Wi-Fi em baixo)
-        let cabo = "enp7s0:ethernet:connected:Conexão cabeada 1\n\
-                    wlp5s0:wifi:unavailable:\n\
-                    lo:loopback:connected (externally):lo\n";
-        assert_eq!(estado_rede_nmcli(cabo), EstadoRede::Cabo);
-        // Wi-Fi no ar (o cabo fora)
-        let wifi = "wlp5s0:wifi:connected:Casa 5G\nlo:loopback:ignored\n";
-        assert_eq!(estado_rede_nmcli(wifi), EstadoRede::Wifi);
-        assert_eq!(essid_nmcli(wifi).as_deref(), Some("Casa 5G"));
-        // o OFF PERSISTENTE do dossiê: cabo desligado pelo menu + Wi-Fi
-        // desligado — o ícone FICA (uf92d), o dono nunca fica trancado
-        let off = "enp7s0:ethernet:unavailable:\nwlp5s0:wifi:unavailable:\n";
-        assert_eq!(estado_rede_nmcli(off), EstadoRede::Desligado);
-        assert_eq!(essid_nmcli(off), None);
-        // ethernet disconnected (cabo fora, placa viva) também é OFF
-        let cabo_fora = "enp7s0:ethernet:disconnected:\n";
-        assert_eq!(estado_rede_nmcli(cabo_fora), EstadoRede::Desligado);
-        // vazio/erro do nmcli: OFF honesto (o botão persiste mesmo assim)
-        assert_eq!(estado_rede_nmcli(""), EstadoRede::Desligado);
-        // o CABO vence o Wi-Fi (ambos conectados: o fio é o caminho)
-        let ambos = "enp7s0:ethernet:connected:X\nwlp5s0:wifi:connected:Y\n";
-        assert_eq!(estado_rede_nmcli(ambos), EstadoRede::Cabo);
-    }
+    // ── 1.0-110 T1 — O TESTE nmcli_os_tres_estados MORREU COM O PARSER:
+    //      o julgamento Cabo/Wifi/Offline é o MESMO de sempre e mora
+    //      AGORA no elite-daemon::network::julga_dispositivos (testado
+    //      LÁ contra o NM DeviceType/State do D-Bus — o belt de nmcli
+    //      da barra foi quem morreu, o ícone é o push do fio).
 
     #[test]
     fn icones_e_tooltips_da_rede() {

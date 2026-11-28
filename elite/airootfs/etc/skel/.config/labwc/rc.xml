@@ -655,14 +655,19 @@
            o craft-menu-dismiss morreu com o motor; o menu do labwc fecha
            SOZINHO no clique fora, Lei do próprio compositor). AQUI fica
            o essencial de sempre:
-             · ESQUERDO → None (mudo na prática — a lei v2.7 segue; sem
-               Execute o clique é consumido pelo bind casado);
+             · ESQUERDO → Unfocus (1.0-110 T2: o clique no papel de
+               parede LIMPA o foco de teclado — labwc-actions(5):
+               "Remove focus from the window that is currently focused";
+               é o gesto nativo que desce os menus de camada da casa —
+               o is-active do MenuCamada acorda NO MESMO instante. Sem
+               menu aberto é o "ir para casa" de sempre: nenhum popup,
+               nenhum menu acidental — a lei v2.7 segue);
              · MÉDIO → None (limpa o default);
              · DIREITO → ShowMenu root-menu (o menu-raiz no lugar).
            SCROLL no desktop segue trocando de workspace (o gesto que
            o dono prefere). -->
       <mousebind button="Left" action="Press">
-        <action name="None" />
+        <action name="Unfocus" />
       </mousebind>
       <mousebind button="Middle" action="Press">
         <action name="None" />
@@ -736,6 +741,19 @@
          identifier="org.pulseaudio.pavucontrol"><action
          name="ToggleAlwaysOnTop" /></windowRule> -->
     <!-- Outro exemplo: <windowRule identifier="foot" skipTaskbar="yes" /> -->
+    <!-- 1.0-110 T4 — O NMTUI FLUTUANTE CENTRALIZADO (a diretriz: o clique
+         na rede abre o "Redes" de verdade — o nmtui no foot com app-id
+         PRÓPRIO craft-net-tui, para gerenciar Wi-Fi conectando apenas com
+         senha, cabo, VPN e DNS). O Nascimento é FLUTUANTE (nenhuma regra
+         Maximize casa o identifier) e a regra CENTRA no primeiro mapa
+         (labwc-config(5) §WINDOW RULES + labwc-actions(5): AutoPlace
+         policy="center" — "will always place windows at the center of
+         the active output"); o TAMANHO ~60% da tela mora no NASCIMENTO
+         do foot (-w 60%x60% — o próprio foot interpreta a porcentagem
+         do MONITOR, sem pixel cravado de rig nenhum). -->
+    <windowRule identifier="craft-net-tui" serverDecoration="yes">
+      <action name="AutoPlace" policy="center" />
+    </windowRule>
   </windowRules>
 
 </labwc_config>

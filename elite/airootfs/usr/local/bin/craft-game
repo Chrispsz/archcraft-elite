@@ -243,10 +243,14 @@ gm_menu() {
     # 1.0-107 — O ITEM DIZ O ESTADO (a diretriz §6: "Ativar modo de
     # jogo / Desativar modo de jogo (conforme o estado atual)"): o
     # holder vivo vira a porta de SAÍDA do modo.
+    # 1.0-110 T5 — O CARIMBO ✓ NA OPÇÃO SALVA (a diretriz: o feedback
+    # de estado ativo — o ESTADO CORRENTE nasce CARIMBADO no item: o
+    # dono VÊ o modo aceso ANTES de escolher; a alteração notifica no
+    # swaync como sempre — gm_on/gm_off são os verbos que falam).
     if [ -r "$(holder_pid_file)" ]; then
-        items+=("Desativar modo de jogo")
+        items+=("✓ Ativo — Desativar modo de jogo")
     else
-        items+=("Ativar modo de jogo")
+        items+=("✓ Parado — Ativar modo de jogo")
     fi
     items+=("Status")
     # E119 — O PAPEL DA PORTA (o clique que chega deixa a escolha; o

@@ -73,8 +73,8 @@
 //     popover pendurado) e a COVEIRA dos filhos curtos (E146/C — o
 //     spawn→wait, zero <defunct>).
 use crate::state::{
-    bt_ligado, estado_rede_nmcli, essid_nmcli, icone_rede, icone_volume, json_text, le_bateria,
-    media_pill, parse_volume_wpctl, parse_wifi_radio, parse_wpctl_status, relogio_ptbr,
+    bt_ligado, icone_rede, icone_volume, json_text, le_bateria, media_pill,
+    parse_volume_wpctl, parse_wifi_radio, parse_wpctl_status, relogio_ptbr,
     tooltip_rede, DispositivoAudio, EstadoRede,
 };
 use crate::{bus_sock, css_path, log, VERSION};
@@ -84,8 +84,7 @@ use std::os::unix::process::CommandExt;
 use std::process::{Command, Stdio};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicI32, Ordering};
-use std::sync::mpsc::{Receiver, Sender};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use gtk4::prelude::*;
 use gtk4::{gdk, glib};
@@ -95,42 +94,56 @@ use gtk4_layer_shell::LayerShell;
 /// A altura da faixa (E151 — a ordem do dono: 28px, a proporção da
 /// barra obsidiana; a zona exclusiva segue automática e honesta).
 const ALTURA: i32 = 28;
-/// O dreno do canal da thread de fundo (latência dos estados ≤100ms).
-const DRAIN_MS: u64 = 100;
+/// 1.0-110 T1 — O DEBOUNCE TRAILING do volume no scroll (a diretriz:
+/// a rajada de rolagem só dispara UM wpctl DEPOIS que o gesto silencia
+/// por 70ms — cada passo REARMA a janela; o daemon coalesce 400ms na
+/// frente dele).
+const VOLUME_TRAILING_MS: u64 = 70;
 /// A tolerância de arrasto: released a >10px do press é ARRASTO, não
 /// clique (a cura 1.0-101 do audit 99: 5px descartava cliques REAIS em
 /// telas de 120Hz — o jitter do pointer entre pressed e released passa
 /// da metade do frame; 10px é a folga que o dono pediu).
 const ARRASTO_PX: f64 = 10.0;
-/// As cadências da thread de fundo (segundos — o belt do polling; os
-/// EVENTOS do daemon chegam por sinal/fio, o belt é a rede de segurança).
-const POLL_AUDIO_S: u64 = 2;
-const POLL_REDE_S: u64 = 5;
-const POLL_BT_S: u64 = 10;
-const POLL_CINTO_S: u64 = 30;
 
-/// Os sinais da casa (o handler cru async-signal-safe + o dreno do
-/// idle — a glib 0.22 não traz unix_signal_add; a via da dock E132).
+/// Os sinais da casa (o handler cru async-signal-safe + O CANO: o
+/// handler guarda o veredito no atomic E escreve 1 byte no pipe — a
+/// leitora dedicada (arma_cano_sinais, no fim do arquivo) dorme no
+/// read(2) e entrega por MENSAGEM na ponte. A glib 0.22 não traz
+/// unix_signal_add NEM MainContext::channel — provado no compilador
+/// da casa; o self-pipe é a via crua do Unix de sempre, zero dreno
+/// periódico acordando a faixa).
 static SIG: AtomicI32 = AtomicI32::new(0);
 extern "C" fn on_signal(sig: i32) {
     SIG.store(sig, Ordering::SeqCst);
+    // o CANO acorda a leitora (write(2) é async-signal-safe — o mesmo
+    // gesto do wake pipe do daemon)
+    let w = CANO_W.load(Ordering::SeqCst);
+    if w >= 0 {
+        let byte: u8 = 1;
+        unsafe {
+            libc::write(w, &byte as *const u8 as *const libc::c_void, 1);
+        }
+    }
 }
 
 /// As mensagens da thread de fundo para a UI (a thread NUNCA toca
-/// GTK — a lei da casa; a UI drena no idle de 100ms).
+/// GTK — a lei da casa; a entrega é POR MENSAGEM no main loop: cada
+/// quadro acorda UM idle — zero dreno periódico em idle, 1.0-110 T1).
 enum Msg {
-    /// A FOTO DO ÁUDIO (E149 — o ÍCONE e o tooltip do botão; o mixer
-    /// completo mora no pwvucontrol, a ferramenta que o esquerdo abre).
-    /// None = o wpctl engasgou — o estado anterior CONSERVADO, a barra
-    /// não pisca no vácuo.
+    /// A FOTO DO ÁUDIO DO GESTO (o clique de mudo/scroll pede o refresh
+    /// NA HORA — thread curta, fork por gesto e nunca em belt).
+    /// None = o wpctl engasgou — o estado anterior CONSERVADO.
     AudioDet(Option<AudioDetalhe>),
-    /// (estado, essid, rádio do Wi-Fi) da rede — o assento é
-    /// PERSISTENTE por desenho; o rádio tem voz no tooltip MESMO com o
-    /// cabo ligado (1.0-104).
+    /// 1.0-110 T1 — O ÁUDIO PELO FIO (o daemon publica o AudioState a
+    /// cada evento do PipeWire — a barra sem belts veste o ícone e o
+    /// percentual do push, zero wpctl por cadência).
+    AudioBus(elite_core::AudioState),
+    /// (estado, essid, rádio do Wi-Fi) da rede — 1.0-110 T1: a fonte
+    /// VIVA é o push do daemon (BusMsg::Network por evento do NM); o
+    /// assento é PERSISTENTE por desenho.
     Rede(EstadoRede, Option<String>, Option<bool>),
     /// Powered do adaptador (None = bluetoothctl ausente/sem adaptador;
-    /// 1.0-106 — o fio do daemon também veste: o BluetoothState do bus
-    /// chega com o Powered consultado NO ARRANQUE do BlueZ).
+    /// o fio do daemon é a fonte de sempre: o BlueZ PropertiesChanged).
     Bt(Option<bool>),
     /// O texto do pill do modo de jogo — None = apagado.
     Game(Option<String>),
@@ -141,6 +154,12 @@ enum Msg {
     /// 2.0 — o handle do bus vivo (o Arc do cliente — os cliques pedem
     /// por ele; chega por mensagem porque o Rc da UI não cruza threads)
     Bus(std::sync::Arc<elite_core::bus::BusClient>),
+    /// 1.0-110 T1 — O SINAL DA CASA PELO CANO (self-pipe: o handler
+    /// async-signal-safe escreve 1 byte; a leitora dedicada veste o
+    /// atomic e ENTREGA por idle — a glib 0.22 não tem unix_signal_add
+    /// NEM MainContext::channel, provado no compilador; o cano é a via
+    /// crua do Unix de sempre, zero dreno de 100ms acordando a faixa).
+    Sinal(i32),
 }
 
 /// A FOTO do áudio da casa (o padrão de SAÍDA e o de ENTRADA — os dois
@@ -184,6 +203,10 @@ struct State {
     minuto_desenhado: u32,
     rede: EstadoRede,
     essid: Option<String>,
+    /// 1.0-110 T5 — O TÍTULO DA FAIXA VIVA (o juízo da micro-animação:
+    /// a troca de faixa acorda o pulso de opacity de 140ms da pílula —
+    /// o título IGUAL não anima nada).
+    media_titulo: Option<String>,
     /// 2.0 — o handle do bus (o Arc do cliente vivo — os pedidos dos
     /// cliques: PlayPause/Next/Focus/mesa/jogo)
     bus_cli: Rc<RefCell<Option<std::sync::Arc<elite_core::bus::BusClient>>>>,
@@ -195,6 +218,46 @@ struct State {
     /// 1.0-109 §2.1 — O CARDÁPIO DA SESSÃO na MESMA camada Overlay (o
     /// MenuButton/PopoverMenu de era morreu com o popover pendurado).
     menu_power: craft_tools::MenuCamada,
+}
+
+// ── 1.0-110 T1 — A PONTE VIVA DA CASA (o canal que a glib 0.22 não ───
+//      tem: a diretriz pede `glib::MainContext::channel` — provado NO
+//      COMPILADOR da casa (gtk4 0.11 → glib 0.22.11): a API morreu da
+//      glib-rs e o unix_signal_add NUNCA morou lá. O EFEITO é o mesmo
+//      que a diretriz pede: a thread de fundo SÓ acorda o main loop
+//      POR MENSAGEM (um `glib::idle_add` POR quadro — o closure Send
+//      carrega a Msg; o corpo corre na MAIN THREAD e lê o estado Rc
+//      da thread-local dEle) — ZERO dreno periódico, ZERO wakeup em
+//      idle: a faixa dorme até o fio do bus/um gesto falar).
+// ─────────────────────────────────────────────────────────────────────
+thread_local! {
+    static ESTADO_UI: RefCell<Option<Rc<RefCell<State>>>> = const { RefCell::new(None) };
+}
+
+/// A ENTREGA (chamada de QUALQUER thread: a Msg Send acorda UM idle
+/// no main loop — a aplicação veste o estado Rc no corpo do idle,
+/// onde tocar GTK é da lei).
+fn entrega(msg: Msg) {
+    // o Option carrega a Msg para DENTRO do FnMut (o idle_add é FnMut
+    // por tipo — o take() de UMA vez preserva a semântica de um idle
+    // por quadro: a Break desce o idle depois do primeiro giro)
+    let mut msg = Some(msg);
+    glib::idle_add(move || {
+        if let Some(msg) = msg.take() {
+            ESTADO_UI.with(|caixa| {
+                if let Some(st) = caixa.borrow().as_ref() {
+                    aplica(st, msg);
+                }
+            });
+        }
+        glib::ControlFlow::Break
+    });
+}
+
+/// A MÃE das mensagens da UI (a build registra o estado UMA vez: os
+/// idles da ponte sempre têm a quem vestir).
+fn registra_estado(st: &Rc<RefCell<State>>) {
+    ESTADO_UI.with(|caixa| *caixa.borrow_mut() = Some(st.clone()));
 }
 
 pub fn run() -> i32 {
@@ -270,32 +333,20 @@ fn build(app: &gtk::Application) {
     corpo.set_end_widget(Some(&dir));
     window.set_child(Some(&corpo));
 
-    // o CANAL da thread de fundo (criado ANTES dos botões: o clique
-    // de áudio pede o refresh imediato pelo MESMO canal)
-    let (tx, rx) = std::sync::mpsc::channel::<Msg>();
-    std::thread::spawn({
-        let tx = tx.clone();
-        move || poller(tx)
-    });
-    // o frame 0 do jogo: thread curta própria (o arranque do daemon pode
-    // demorar um instante — 300ms de cortesia). E147: o bgapps saiu do
-    // frame 0 junto com o próprio módulo (a ordem do dono).
-    std::thread::spawn({
-        let tx = tx.clone();
-        move || {
-            std::thread::sleep(Duration::from_millis(300));
-            if let Some(t) = um_longo("craft-game", &["pill"]) {
-                let _ = tx.send(Msg::Game(json_text(&t)));
-            }
-        }
-    });
+    // 1.0-110 T1 — O POLLER MORREU INTEIRO (a diretriz: Audio, Bluetooth,
+    // GameMode e Rede vêm EXCLUSIVAMENTE por push do bus — o daemon é a
+    // fonte de tudo e o snapshot de boas-vindas é o frame 0 honesto; o
+    // belt de 2s/5s/10s/30s de wpctl/nmcli/bluetoothctl/craft-game era
+    // um fork por cadência que a casa não paga mais). O que fica é o
+    // GESTO: o clique de mudo e o scroll de volume pedem o refresh NA
+    // HORA em thread curta própria (fork por gesto, nunca em belt).
     // 2.0 — O FIO VIVO: o BusClient persistente (Hello 'craft-bar-rs';
     // a reconexão 5→20→100ms é da fundação — o daemon renasce e a barra
     // reaparece com o snapshot das boas-vindas). O Arc fica com a UI
     // (os pedidos dos cliques); a thread lê QUADROS PARA SEMPRE e veste
-    // cada estado na Msg da casa
+    // cada estado na Msg da casa — a ENTREGA é um idle por quadro (a
+    // ponte viva acima: zero dreno periódico acordando a faixa)
     {
-        let tx = tx.clone();
         let caminho = bus_sock();
         std::thread::spawn(move || {
             loop {
@@ -304,26 +355,48 @@ fn build(app: &gtk::Application) {
                 {
                     // o Arc chega à UI por mensagem (o Rc não cruza
                     // threads — a lei do GTK; o BusClient é Send+Sync)
-                    let _ = tx.send(Msg::Bus(std::sync::Arc::clone(&cli)));
+                    entrega(Msg::Bus(std::sync::Arc::clone(&cli)));
                     for msg in rx {
                         match msg {
                             elite_core::BusMsg::Media(m) => {
-                                let _ = tx.send(Msg::Media(if m.player.is_none() && m.title.is_none() {
+                                entrega(Msg::Media(if m.player.is_none() && m.title.is_none() {
                                     None
                                 } else {
                                     Some(m)
                                 }));
                             }
                             elite_core::BusMsg::GameMode(gm) => {
-                                let _ = tx.send(Msg::BusGame(gm.active));
+                                entrega(Msg::BusGame(gm.active));
                             }
                             // 1.0-106 — o BlueZ do daemon (o Powered
                             // consultado no arranque + cada mudança): o
                             // ícone veste o fio ANTES do primeiro frame
                             elite_core::BusMsg::Bluetooth(bt) => {
-                                let _ = tx.send(Msg::Bt(Some(bt.radio_on)));
+                                entrega(Msg::Bt(Some(bt.radio_on)));
                             }
-                            _ => {} // áudio/rede da casa seguem nos belts próprios
+                            // 1.0-110 T1 — O ÁUDIO PELO FIO (o daemon
+                            // publica o AudioState a cada evento do
+                            // PipeWire: o ícone/percentual veste o push
+                            // — zero belt de wpctl na barra)
+                            elite_core::BusMsg::Audio(a) => {
+                                entrega(Msg::AudioBus(a));
+                            }
+                            // 1.0-110 T1 — A REDE PELO FIO (o daemon
+                            // publica o NetworkState POR EVENTO do NM:
+                            // plug/unplug veste o ícone <500ms, zero
+                            // belt de nmcli — o essid vira o label)
+                            elite_core::BusMsg::Network(n) => {
+                                entrega(Msg::Rede(
+                                    match n.kind {
+                                        elite_core::NetworkKind::Cabo => EstadoRede::Cabo,
+                                        elite_core::NetworkKind::Wifi => EstadoRede::Wifi,
+                                        elite_core::NetworkKind::Offline => EstadoRede::Desligado,
+                                    },
+                                    n.label,
+                                    None,
+                                ));
+                            }
+                            _ => {} // os outros domínios não são da barra
                         }
                     }
                 }
@@ -353,10 +426,13 @@ fn build(app: &gtk::Application) {
         minuto_desenhado: u32::MAX,
         rede: EstadoRede::Desligado,
         essid: None,
+        media_titulo: None,
         bus_cli: Rc::new(RefCell::new(None)),
         menu_cal: craft_tools::MenuCamada::novo("craft-calendario"),
         menu_power: craft_tools::MenuCamada::novo("craft-sessao"),
     }));
+    // a PONTE registra a mãe dos idles (todo entrega tem a quem vestir)
+    registra_estado(&st);
     // os ícones da barra nascem no tamanho do assento (16px — a unidade
     // visual da casa; o label Nerd nunca mais entra aqui)
     st.borrow().audio_img.set_pixel_size(16);
@@ -602,25 +678,23 @@ fn build(app: &gtk::Application) {
             });
         }
         {
-            let tx = tx.clone();
             clique_solto(&btn_audio, move |botao| if botao == 3 {
                 solta(&["wpctl", "set-mute", "@DEFAULT_AUDIO_SINK@", "toggle"]);
-                pede_audio_detalhe(&tx);
+                pede_audio_detalhe();
             });
         }
         {
-            // 1.0-110 T5 — O VOLUME COALESCIDO NO SCROLL (a rajada de
-            // rolagem de era era UM wpctl POR passo — dez scrolls do dono
-            // = DEZ forks em fila, DEZ rodadas do pactl subscribe; o
-            // acumulador junta a rajada numa janela curta e aplica o
-            // TOTAL num wpctl SÓ — o drain-to-last da casa no gesto que
-            // mais repete)
-            let acumulado: Rc<RefCell<(i64, bool)>> = Rc::new(RefCell::new((0, false)));
+            // 1.0-110 T5 — O VOLUME COALESCIDO NO SCROLL TRAILING (a
+            // diretriz: a rajada de rolagem de era era UM wpctl POR
+            // passo — dez scrolls = DEZ forks; o acumulador soma a rajada
+            // e cada passo REARMA a janela de 70ms: o gesto silenciou,
+            // UM wpctl com o TOTAL — a geração guarda quem é a última
+            // janela; o daemon coalesce 400ms na frente dele)
+            let acumulado: Rc<RefCell<(i64, u64)>> = Rc::new(RefCell::new((0, 0)));
             scroll(&btn_audio, {
                 let acumulado = Rc::clone(&acumulado);
-                let tx = tx.clone();
                 move |dy| {
-                    acumula_volume(&acumulado, dy < 0.0, 5, "@DEFAULT_AUDIO_SINK@", tx.clone());
+                    acumula_volume(&acumulado, dy < 0.0, 5, "@DEFAULT_AUDIO_SINK@");
                 }
             });
         }
@@ -645,86 +719,65 @@ fn build(app: &gtk::Application) {
             });
         }
         {
-            let tx = tx.clone();
             clique_solto(&btn_mic, move |botao| if botao == 3 {
                 solta(&["wpctl", "set-mute", "@DEFAULT_AUDIO_SOURCE@", "toggle"]);
-                pede_audio_detalhe(&tx);
+                pede_audio_detalhe();
             });
         }
         {
             // 1.0-110 T5 — idem do áudio: o ganho do mic veste o MESMO
-            // acumulador (a rajada vira UM wpctl com o total — o
-            // acumulador nasce FORA do closure: a rajada inteira soma
-            // na MESMA janela)
-            let acumulado: Rc<RefCell<(i64, bool)>> = Rc::new(RefCell::new((0, false)));
+            // acumulador trailing (a rajada vira UM wpctl com o total —
+            // o acumulador nasce FORA do closure: a rajada inteira soma
+            // na MESMA janela de 70ms)
+            let acumulado: Rc<RefCell<(i64, u64)>> = Rc::new(RefCell::new((0, 0)));
             scroll(&btn_mic, {
                 let acumulado = Rc::clone(&acumulado);
-                let tx = tx.clone();
                 move |dy| {
-                    acumula_volume(&acumulado, dy < 0.0, 3, "@DEFAULT_AUDIO_SOURCE@", tx.clone());
+                    acumula_volume(&acumulado, dy < 0.0, 3, "@DEFAULT_AUDIO_SOURCE@");
                 }
             });
         }
         dir.append(&btn_mic);
 
         // A REDE PERSISTENTE (a cura A4: o botão NUNCA sai — Cabo/
-        // Wi-Fi/Desligado com ÍCONE GTK SEMPRE). 1.0-106 — O ESQUERDO É
-        // O SELETOR RÁPIDO DA CASA (a ordem do dono, rig da dose: o
-        // clique abria o EDITOR inteiro para trocar de rede — o
-        // craft-pick escuro com os toggles no início, as redes ao
-        // alcance com sinal e status, o editor no fim; a conexão em 1
-        // CLIQUE pelo nmcli). O MEIO abre o editor completo (o antigo
-        // esquerdo). O DIREITO alterna a CONEXÃO ATIVA do momento:
-        // `nmcli networking on/off` quando o cabo é o caminho, o rádio
-        // Wi-Fi quando é o sem fio (o estado é o da própria foto — o
-        // dreno re-veste o ícone/tooltip no frame seguinte ao gesto).
+        // Wi-Fi/Desligado com ÍCONE GTK SEMPRE). 1.0-110 T1/T4 — O
+        // ESTADO é o PUSH do daemon (BusMsg::Network por evento do NM:
+        // plug/unplug veste <500ms, zero belt de nmcli). O MAPA NOVO da
+        // diretriz 1.0-110: ESQUERDO e MEIO abrem o "Redes" de verdade
+        // (o nmtui flutuante no foot com app-id craft-net-tui — Wi-Fi
+        // conectando apenas com senha, cabo, VPN e DNS; a windowRule do
+        // rc.xml CENTRA a janela); o DIREITO alterna SÓ O QUE ESTÁ
+        // ATIVO — o kind do fio decide: Ethernet ativa alterna APENAS o
+        // cabo (nmcli device disconnect/connect do par guardado — o
+        // ícone de Ethernet fica, NUNCA a animação de Wi-Fi, NUNCA o
+        // rádio do sem fio); Wi-Fi ativo (ou sem cabo) alterna APENAS o
+        // RÁDIO Wi-Fi (nmcli radio wifi off/on — a placa física E o LED
+        // apagam). A notificação do swaync confirma o gesto.
         btn_rede.set_has_frame(false);
         btn_rede.set_child(Some(&rede_img));
         btn_rede.set_tooltip_text(Some(
-            "Rede — clique: seletor rápido · meio: editor de conexões · direito: ligar/desligar a conexão ativa",
+            "Rede — clique: Redes (nmtui) · meio: Redes (nmtui) · direito: ligar/desligar o que está ativo",
         ));
         {
-            let tx = tx.clone();
             btn_rede.connect_clicked(move |_| {
-                // 1.0-106 — O SELETOR RÁPIDO na thread própria (o
-                // craft-pick é modal — a barra NUNCA bloqueia no gesto;
-                // o fallback honesto é o nm-connection-editor)
-                let tx = tx.clone();
-                std::thread::spawn(move || {
-                    // 1.0-109 — o esquerdo abre o CRAFT-NET (o seletor
-                    // de 1 clique da diretriz: as redes Wi-Fi próximas
-                    // com sinal/cadeado, a conexão com 1 clique e a
-                    // senha em diálogo limpo); a foto renasce no gesto
-                    solta(&["craft-net"]);
-                    pede_rede_foto(&tx);
-                });
+                // o "Redes" flutuante (a thread própria do solta: a
+                // barra NUNCA bloqueia no gesto)
+                solta(&["foot", "--app-id=craft-net-tui", "-T", "Redes", "-w", "60%x60%", "nmtui"]);
             });
         }
-        clique_solto(&btn_rede, {
-            // 1.0-108 — A LEI DA CONEXÃO PRINCIPAL (a evidência do rig
-            // 1.0-107.3: o direito de era derrubava o Networking INTEIRO
-            // com `nmcli networking off` — o enp7s0 ficava "não
-            // disponível" SEM volta, o rádio Wi-Fi junto no escuro; a
-            // ordem do dono, palavra por palavra: priorizar ethernet
-            // sobre wifi, guardar o par (DEVICE, CONNECTION) no
-            // last-net.state e desconectar SÓ a principal pelo `nmcli
-            // device disconnect` — NUNCA `ip link set down`); na volta o
-            // par guardado (ou a ethernet com cabo, senão o wifi) sobe
-            // com `ip link set up` + `nmcli device set managed yes` +
-            // `nmcli connection up` / `nmcli device connect`. A resposta
-            // é o gesto: o dreno re-veste no frame seguinte.
-            let tx = tx.clone();
-            move |botao| if botao == 3 {
-                let tx = tx.clone();
-                std::thread::spawn(move || {
-                    alterna_conexao_principal();
-                    pede_rede_foto(&tx);
-                });
-            } else if botao == 2 {
-                // o antigo esquerdo: o editor COMPLETO do NetworkManager
-                solta(&["nm-connection-editor"]);
-            }
-        });
+        {
+            let st = st.clone();
+            clique_solto(&btn_rede, move |botao| if botao == 2 {
+                solta(&["foot", "--app-id=craft-net-tui", "-T", "Redes", "-w", "60%x60%", "nmtui"]);
+            } else if botao == 3 {
+                // O KIND DO FIO decide o alvo (a diretriz palavra por
+                // palavra: o direito da rede alterna APENAS o caminho
+                // ativo — o cabo vivo nunca anima o ícone de Wi-Fi nem
+                // toca no rádio; o sem fio vivo apaga a placa E o LED)
+                let kind = st.borrow().rede;
+                std::thread::spawn(move || alterna_rede_do_kind(kind));
+            });
+        }
         dir.append(&btn_rede);
 
         // E149 — O BLUETOOTH DIRETO (a diretriz: o clique ESQUERDO abre
@@ -748,15 +801,16 @@ fn build(app: &gtk::Application) {
             });
         }
         {
-            let tx = tx.clone();
             clique_solto(&btn_bt, move |botao| if botao == 3 {
-                let tx = tx.clone();
                 std::thread::spawn(move || {
                     let ligado = um_longo("bluetoothctl", &["show"]).map(|t| bt_ligado(&t));
                     if let Some(on) = ligado {
                         let cmd = if on { "off" } else { "on" };
                         solta(&["bluetoothctl", "power", cmd]);
-                        let _ = tx.send(Msg::Bt(Some(!on)));
+                        // 1.0-110 T1 — o refresh do GESTO veste pela
+                        // PONTE (o fio do daemon confirma logo depois:
+                        // o PropertiesChanged do BlueZ publica no bus)
+                        entrega(Msg::Bt(Some(!on)));
                     }
                 });
             });
@@ -821,8 +875,7 @@ fn build(app: &gtk::Application) {
     btn_power.set_tooltip_text(Some("Sessão — Bloquear / Suspender / Reiniciar / Desligar / Encerrar"));
     // o CARDÁPIO nasce UMA vez na janela própria (o clone do RefCell
     // morre no mesmo fôlego — o borrow de dentro nunca disputa o de fora)
-    let menu_sessao = st.borrow().menu_power.clone();
-    menu_sessao.conteudo(&monta_menu_sessao(&menu_sessao));
+    st.borrow().menu_power.conteudo(&monta_menu_sessao(&st));
     {
         let st = st.clone();
         let btn = btn_power.clone();
@@ -876,39 +929,28 @@ fn build(app: &gtk::Application) {
     window.show();
 
     log(&format!(
-        "craft-bar-rs {VERSION} no ar (E151 — a barra obsidiana): 28px · a MESMA ilha escura da dock · \
-         SAÍDA e MICROFONE em assentos próprios (esquerdo abre o pwvucontrol · direito muda) · \
-         foco de tema DESATIVADO nos botões (zero seletor travado/quadrado branco — só hover) · \
-         relógio HORA/CALENDÁRIO (o clique abre o calendário — zero notificador no caminho) · \
-         apps no CRAFT-APPS (a gaveta da tecla Windows) · rede com SELETOR rápido (craft-pick) + editor no meio · \
-         Bluetooth vestindo o fio do daemon + o belt próprio · relógio pt_BR + calendário · \
-         MPRIS/jogo PELO FIO DO BUS"
+        "craft-bar-rs {VERSION} no ar (1.0-110 — a barra EVENT-DRIVEN): 28px · a MESMA ilha escura da dock · \
+         TODO estado PELO PUSH do bus (áudio/rede/bluetooth/jogo — o poller de 2s/5s/10s/30s morreu) · \
+         a PONTE acorda o main loop SÓ por mensagem (um idle por quadro — zero dreno periódico) · \
+         relógio na VIRADA do minuto (desenha só na virada) · \
+         SAÍDA e MICROFONE em assentos próprios · o volume scroll com TRAILING de 70ms · \
+         rede: esquerdo/meio o nmtui flutuante 'Redes' · direito alterna SÓ o caminho ativo do fio"
     ));
 
-    // o DRENO do canal + os sinais (100ms — a latência dos estados)
-    {
-        let st = st.clone();
-        let rx = Rc::new(RefCell::new(rx));
-        let tx = Rc::new(RefCell::new(tx));
-        glib::timeout_add_local(Duration::from_millis(DRAIN_MS), move || {
-            let rx = rx.borrow();
-            let tx = tx.borrow();
-            drena(&st, &rx, &tx);
-            glib::ControlFlow::Continue
-        });
-    }
-    // o RELÓGIO: 1s de olho, o label só toca na virada do minuto
-    {
-        let st = st.clone();
-        glib::timeout_add_seconds_local(1, move || {
-            desenha_relogio(&st);
-            glib::ControlFlow::Continue
-        });
-    }
+    // 1.0-110 T1 — OS SINAIS PELO CANO (self-pipe): o handler
+    // async-signal-safe escreve 1 byte; a leitora dedicada dorme no
+    // read(2) e entrega o veredito do atomic POR MENSAGEM na ponte —
+    // zero dreno de 100ms acordando a faixa em idle (o drena morreu
+    // com o canal mpsc; o cano é a via crua do Unix de sempre)
+    arma_cano_sinais();
+    // o RELÓGIO NA VIRADA: agenda a próxima virada do MINUTO (um
+    // timeout por minuto, não um por segundo — o label só muda na
+    // virada; a faixa dorme o minuto inteiro)
+    agenda_relogio(&st);
     // o BELT de 30s da bateria (o /sys é barato — sem fork na casa)
     if st.borrow().btn_bat.is_some() {
         let st = st.clone();
-        glib::timeout_add_seconds_local(POLL_CINTO_S as u32, move || {
+        glib::timeout_add_seconds_local(30, move || {
             // a TUPLA explícita casa o par (o botão pode ter nascido e a
             // bateria ido — cada lado é julgado sozinho); o ícone e o
             // percentual vestem juntos (Image + Label do filho)
@@ -935,63 +977,13 @@ fn build(app: &gtk::Application) {
     }
 }
 
-// ── a THREAD DE FUNDO (os filhos curtos nas cadências belt) ───────────
-
-/// Roda PARA SEMPRE: a foto 0 NA HORA (rede + bluetooth — o estado
-/// inicial nunca mente) · áudio 2s · rede 5s · bluetooth 10s · cinto
-/// 30s. Bloquear AQUI é de graça (a UI segue viva — a thread é dona
-/// dos subprocessos, nunca do GTK). O bluetooth também veste o FIO do
-/// daemon (1.0-106: o Powered do BlueZ consultado no arranque); este
-/// belt é a rede de segurança.
-fn poller(tx: Sender<Msg>) {
-    // 2.0 — O PLAYER NÃO MORA MAIS AQUI: o MPRIS chega pelo fio do bus
-    // (o daemon escuta o PropertiesChanged — o polling de 1s do
-    // craft-player morreu com o playerctl); aqui ficam os belts que
-    // NÃO têm evento ainda (áudio/rede/bluetooth + o cinto do jogo —
-    // os EVENTOS seguem sendo donos do reflexo)
-    let mut t_audio = Instant::now();
-    let mut t_rede = Instant::now();
-    let mut t_bt = Instant::now();
-    let mut t_cinto = Instant::now();
-    // 1.0-106 — O FRAME 0 NÃO MENTE: a PRIMEIRA foto de rede e bluetooth
-    // sai NA HORA (a bandeira vale UM giro — o estado inicial mentiroso
-    // do rig, ícone cortado com o adaptador ligado, morre aqui; o
-    // bluetooth do fio do daemon é o complemento no frame 0 do bus)
-    let mut primeira_foto = true;
-    loop {
-        if t_audio.elapsed() >= Duration::from_secs(POLL_AUDIO_S) {
-            t_audio = Instant::now();
-            let _ = tx.send(Msg::AudioDet(foto_audio()));
-        }
-        if primeira_foto || t_rede.elapsed() >= Duration::from_secs(POLL_REDE_S) {
-            t_rede = Instant::now();
-            if let Some(t) = um_longo(
-                "nmcli",
-                &["-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "device", "status"],
-            ) {
-                let radio = um_longo("nmcli", &["radio", "wifi"])
-                    .and_then(|r| parse_wifi_radio(&r));
-                let _ = tx.send(Msg::Rede(estado_rede_nmcli(&t), essid_nmcli(&t), radio));
-            }
-        }
-        if primeira_foto || t_bt.elapsed() >= Duration::from_secs(POLL_BT_S) {
-            t_bt = Instant::now();
-            let _ = tx.send(Msg::Bt(
-                um_longo("bluetoothctl", &["show"]).map(|t| bt_ligado(&t)),
-            ));
-        }
-        if primeira_foto {
-            primeira_foto = false;
-        }
-        if t_cinto.elapsed() >= Duration::from_secs(POLL_CINTO_S) {
-            t_cinto = Instant::now();
-            if let Some(t) = um_longo("craft-game", &["pill"]) {
-                let _ = tx.send(Msg::Game(json_text(&t)));
-            }
-        }
-        std::thread::sleep(Duration::from_millis(200));
-    }
-}
+// ── a THREAD DE FUNDO morreu INTEIRA na 1.0-110 T1 (a diretriz: TODO ──
+//      estado chega por PUSH do bus — o poller de belts (áudio 2s · rede
+//      5s · bluetooth 10s · cinto de jogo 30s) era um fork por cadência
+//      para ler o que o daemon já publica POR EVENTO no fio. O que fica
+//      é o GESTO: `pede_audio_detalhe` (o clique de mudo/scroll pergunta
+//      ao wpctl NA HORA em thread curta) e os solta()s dos cliques.
+//      A leitora do CANO dos sinais mora no fim do arquivo.
 
 /// Roda UM comando curto e devolve a stdout (None em qualquer erro —
 /// a UI CONSERVA o estado anterior: um engasgo nunca apaga o que o
@@ -1037,31 +1029,67 @@ fn foto_audio() -> Option<AudioDetalhe> {
     Some(AudioDetalhe { sink, fonte })
 }
 
-/// A UI pede a FOTO do áudio NA HORA (o clique de mute/slide/dispositivo
-/// não espera o belt de 2s — a resposta é o gesto; o belt é a rede).
-fn pede_audio_detalhe(tx: &Sender<Msg>) {
-    let tx = tx.clone();
+/// A UI pede a FOTO do áudio NA HORA (o gesto do mute não espera o
+/// push do daemon — a resposta é o gesto; o fio veste logo depois e
+/// é idempotente no ícone).
+fn pede_audio_detalhe() {
     std::thread::spawn(move || {
-        let _ = tx.send(Msg::AudioDet(foto_audio()));
+        entrega(Msg::AudioDet(foto_audio()));
     });
 }
 
-/// 1.0-104 — A FOTO DA REDE NA HORA (o clique direito do rádio Wi-Fi não
-/// espera o cinto de 5s — a resposta é o gesto): as placas E o rádio numa
-/// resposta só (o tooltip do cabo fala do Wi-Fi no MESMO frame).
-fn pede_rede_foto(tx: &Sender<Msg>) {
-    let tx = tx.clone();
-    std::thread::spawn(move || {
-        let Some(t) = um_longo(
-            "nmcli",
-            &["-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "device", "status"],
-        ) else {
-            return;
-        };
-        let radio = um_longo("nmcli", &["radio", "wifi"])
-            .and_then(|r| parse_wifi_radio(&r));
-        let _ = tx.send(Msg::Rede(estado_rede_nmcli(&t), essid_nmcli(&t), radio));
-    });
+/// 1.0-110 T4 — O DIREITO DA REDE SENSÍVEL AO CONTEXTO (a diretriz
+/// palavra por palavra): o kind do FIO decide o alvo — a ETHERNET ativa
+/// alterna APENAS o cabo (a lei da conexão principal de 1.0-108:
+/// derrubou `nmcli device disconnect` com o par guardado, religou pelo
+/// par; o ícone de Ethernet fica, o rádio Wi-Fi NUNCA é tocado, a
+/// animação de Wi-Fi nunca acende); o Wi-Fi ativo (ou SEM cabo) alterna
+/// APENAS o RÁDIO (`nmcli radio wifi off/on` — a placa física E o LED
+/// apagam). O swaync confirma o gesto na tela.
+fn alterna_rede_do_kind(kind: EstadoRede) {
+    match kind {
+        EstadoRede::Cabo => {
+            alterna_conexao_principal();
+            // a notificação da diretriz (o toggle do cabo fala qual é
+            // o estado DEPOIS do gesto: sem principal viva o clique
+            // RELIGOU, com principal o clique DERRUBOU)
+            let foto = um_longo(
+                "nmcli",
+                &["-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "device", "status"],
+            );
+            let vivo = foto
+                .as_deref()
+                .and_then(elite_core::rede::conexao_principal)
+                .is_some();
+            solta(&[
+                "notify-send",
+                "-a",
+                "Elite · Rede",
+                "-t",
+                "4000",
+                "Rede",
+                if vivo { "Rede cabeada conectada" } else { "Rede cabeada desconectada" },
+            ]);
+        }
+        _ => {
+            // o RÁDIO Wi-Fi manda (o LED da placa junto): a consulta é
+            // do próprio gesto — ligado desliga, desligado liga
+            let ligado = um_longo("nmcli", &["radio", "wifi"])
+                .and_then(|r| parse_wifi_radio(&r))
+                .unwrap_or(true);
+            let cmd = if ligado { "off" } else { "on" };
+            solta(&["nmcli", "radio", "wifi", cmd]);
+            solta(&[
+                "notify-send",
+                "-a",
+                "Elite · Rede",
+                "-t",
+                "4000",
+                "Rede",
+                if ligado { "Wi-Fi desativado" } else { "Wi-Fi ativado" },
+            ]);
+        }
+    }
 }
 
 // ── 1.0-109 — O SELETOR DE 1 CLIQUE É O CRAFT-NET (a diretriz) ────────
@@ -1187,37 +1215,59 @@ fn abre_calendario(st: &Rc<RefCell<State>>, btn: &gtk::Button) {
     st.borrow().menu_cal.alterna(btn, false); // a mãe mora no TOPO: o card desce
 }
 
-/// 1.0-109 §2.1 — O CARDÁPIO DA SESSÃO (a diretriz: o menu do ⏻ veste
-/// a camada Overlay — SEMPRE acima da gaveta; o MenuButton/PopoverMenu
-/// de era era FILHO da superfície top e a gaveta o cobria inteiro): os
-/// ATALHOS RÁPIDOS de 1 clique no topo (1.0-108, a ordem do dono — com
-/// o rótulo CURTO Auto-suspensão de 14 caracteres do §2.3), a sessão
-/// no meio e a máquina embaixo — os mesmos verbos de sempre na pele
-/// #menuwin da folha mestra.
-fn monta_menu_sessao(menu: &craft_tools::MenuCamada) -> gtk::Box {
+/// 1.0-110 T3 — O CARDÁPIO ENXUTO (a diretriz: o popover do ⏻ contém
+/// EXCLUSIVAMENTE as 5 ações de sessão — o bloco legado de atalhos de
+/// 1.0-108 e o separador órfão MORREM AQUI: Modo de jogo, Auto-suspensão,
+/// Monitores, Atualizar, Limpar e Snapshots seguem vivos nos seus
+/// lugares próprios — o menu-raiz do clique direito no desktop, o
+/// terminal e os verbos de sempre — sem endereço duplicado na sessão;
+/// o rótulo cravado de Hz de era mentia o refresh do rig em qualquer
+/// outro monitor e morreu junto). O cardápio é a SESSÃO e só:
+/// Bloquear tela · Suspender (o verbo nativo BusReq::Suspend do E188 —
+/// trava desacoplado, espera a superfície e chama o login1) · Reiniciar
+/// · Desligar · Encerrar sessão (o encerrar ORDEIRO da família).
+fn monta_menu_sessao(st: &Rc<RefCell<State>>) -> gtk::Box {
+    let menu = st.borrow().menu_power.clone();
     let corpo = gtk::Box::new(gtk::Orientation::Vertical, 2);
     corpo.set_margin_top(4);
     corpo.set_margin_bottom(4);
-    for (rotulo, argv) in [
-        ("Modo de jogo", &["craft-game", "menu"][..]),
-        ("Auto-suspensão", &["craft-idle", "menu"][..]),
-        ("Monitores (120 Hz)", &["wdisplays"][..]),
-        ("Atualizar sistema", &["craft-update"][..]),
-        ("Limpar sistema", &["craft-clean"][..]),
-        ("Snapshots (Rollback)", &["craft-rollback"][..]),
-    ] {
-        corpo.append(&linha_menu_bar(rotulo, argv, menu));
+    // o LOCK é a porta de sempre
+    corpo.append(&linha_menu_bar("Bloquear tela", &["craft-lock"][..], &menu));
+    // O SONO PELO VERBO NATIVO (o E188: o daemon trava DESACOPLADO,
+    // espera a superfície do lock mapeada e chama o
+    // org.freedesktop.login1.Manager.Suspend — o journalctl do logind
+    // registra a chamada de verdade); a queda honesta é o craft-suspend
+    // (o mesmo caminho vestido de CLI para o daemon ausente)
+    {
+        let btn = gtk::Button::new();
+        let rot = gtk::Label::new(Some("Suspender"));
+        rot.set_halign(gtk::Align::Start);
+        btn.set_child(Some(&rot));
+        btn.set_has_frame(false);
+        btn.set_hexpand(true);
+        {
+            let st = st.clone();
+            let menu = menu.clone();
+            btn.connect_clicked(move |_| {
+                menu.fecha(); // o verbo parte com o menu fechado (§2.1)
+                // o handle do fio colhe na MAIN thread (o Rc nunca cruza
+                // threads — o Arc do BusClient é o Send de sempre)
+                let bus = st.borrow().bus_cli.borrow().clone();
+                std::thread::spawn(move || {
+                    let ok = bus
+                        .as_ref()
+                        .map(|cli| cli.send_req(elite_core::BusReq::Suspend).is_some())
+                        .unwrap_or(false);
+                    if !ok {
+                        // daemon ausente: a porta curta do craft-suspend
+                        // veste o MESMO caminho nativo (E188)
+                        solta(&["craft-suspend"]);
+                    }
+                });
+            });
+        }
+        corpo.append(&btn);
     }
-    corpo.append(&separa_menu());
-    // o sono pelo CRAFT-SUSPEND (1.0-108: o lock MAPEADO antes do
-    // freeze — a superfície pintada ANTES do systemctl)
-    for (rotulo, argv) in [
-        ("Bloquear tela", &["craft-lock"][..]),
-        ("Suspender", &["craft-suspend"][..]),
-    ] {
-        corpo.append(&linha_menu_bar(rotulo, argv, menu));
-    }
-    corpo.append(&separa_menu());
     for (rotulo, argv) in [
         ("Reiniciar", &["systemctl", "reboot"][..]),
         ("Desligar", &["systemctl", "poweroff"][..]),
@@ -1225,7 +1275,7 @@ fn monta_menu_sessao(menu: &craft_tools::MenuCamada) -> gtk::Box {
         // --exit: daemon → superfícies → agentes)
         ("Encerrar sessão", &["craft-logout"][..]),
     ] {
-        corpo.append(&linha_menu_bar(rotulo, argv, menu));
+        corpo.append(&linha_menu_bar(rotulo, argv, &menu));
     }
     corpo
 }
@@ -1250,42 +1300,61 @@ fn linha_menu_bar(rotulo: &str, argv: &[&str], menu: &craft_tools::MenuCamada) -
     btn
 }
 
-/// 1.0-109 §2.1 — o divisor sutil entre os grupos do cardápio (a
-/// mesma régua do §2.3: 1px na cor da borda — a pele mora no
-/// `#menuwin separator` da mestra).
-fn separa_menu() -> gtk::Separator {
-    gtk::Separator::new(gtk::Orientation::Horizontal)
-}
+// 1.0-110 T3 — o separa_menu MORREU COM O CARDÁPIO ENXUTO (as 5 ações
+// de sessão são UM grupo: nenhum divisor órfão no cardápio do ⏻; a
+// régua do divisor mora no #menuwin separator da folha mestra para
+// os menus de GRUPOS — o da dock).
 
-// ── o DRENO (as mensagens viram widgets) ──────────────────────────────
+// ── a APLICAÇÃO (a PONTE chama na main thread: uma mensagem vira widget) ──
 
-fn drena(st: &Rc<RefCell<State>>, rx: &Receiver<Msg>, tx: &Sender<Msg>) {
-    // os SINAIS do daemon (o atomic cru → o gesto aqui; o refresh
-    // pedido nasce em thread própria — o dreno NUNCA espera)
-    let sig = SIG.swap(0, Ordering::SeqCst);
-    if sig != 0 {
-        let sig8 = libc::SIGRTMIN() + 8;
-        if sig == sig8 {
-            let tx = tx.clone();
-            std::thread::spawn(move || {
-                if let Some(t) = um_longo("craft-game", &["pill"]) {
-                    let _ = tx.send(Msg::Game(json_text(&t)));
+/// 1.0-110 T1 — O SINAL PELO CANO (a leitora dedicada dorme no read(2)
+/// do pipe; cada byte acordou = UM sinal da casa): SIGRTMIN+8 (a
+/// transição do modo de jogo — a thread curta pergunta o pill),
+/// SIGUSR2 (a pele relê). Os demais RT são ruído inofensivo (a arma_rt
+/// já impediu a morte pela disposição padrão).
+fn arma_cano_sinais() {
+    // o pipe(2) de sempre (O_CLOEXEC: o cano não vaza para os filhos)
+    let mut fds = [0i32; 2];
+    if unsafe { libc::pipe(fds.as_mut_ptr()) } != 0 {
+        log("sinais: o cano não abriu — os sinais ficam no atomic (honesto)");
+        return;
+    }
+    CANO_W.store(fds[1], Ordering::SeqCst);
+    std::thread::Builder::new()
+        .name("elite-cano-sinais".into())
+        .spawn(move || {
+            let leitura = fds[0];
+            let mut byte = [0u8; 1];
+            loop {
+                let n = unsafe { libc::read(leitura, byte.as_mut_ptr().cast(), 1) };
+                if n <= 0 {
+                    return; // o cano fechou: a thread vai junto (honesto)
                 }
-            });
-        } else if sig == libc::SIGUSR2 {
-            load_css();
-            log("bar.css relido (SIGUSR2 — a pele da casa sem renascer)");
-        }
-        // E147: o SIGRTMIN+9 dos 2º planos NÃO TEM mais consumidor (o
-        // módulo morreu com a ordem do dono) — o sinal é engolido
-        // silenciosamente (a arma_rt já impediu a morte pela disposição).
-    }
-    // o FILHO do drawer não mora mais aqui (E149 — a gaveta é do
-    // craft-apps, um processo de UM tiro: o solta() é o coveiro dele)
-    while let Ok(msg) = rx.try_recv() {
-        aplica(st, msg);
-    }
+                let sig = SIG.swap(0, Ordering::SeqCst);
+                if sig == 0 {
+                    continue; // o byte era eco de um sinal já colhido
+                }
+                let sig8 = libc::SIGRTMIN() + 8;
+                if sig == sig8 {
+                    std::thread::spawn(move || {
+                        if let Some(t) = um_longo("craft-game", &["pill"]) {
+                            entrega(Msg::Game(json_text(&t)));
+                        }
+                    });
+                } else if sig == libc::SIGUSR2 {
+                    // a pele relê NA MAIN THREAD (o idle da ponte veste)
+                    entrega(Msg::Sinal(libc::SIGUSR2));
+                }
+            }
+        })
+        .ok();
+    // o handler de sempre agora ACORDA o cano (write é async-signal-safe)
+    // — o atomic segue como veredito da leitora
 }
+
+/// o CANO DE ESCRITA dos sinais (o handler escreve 1 byte por sinal —
+/// acordar a leitora dedicada; o valor mora no SIG de sempre).
+static CANO_W: AtomicI32 = AtomicI32::new(-1);
 
 /// Uma mensagem vira widget (emprestimos CURTOS — o gesto mora no
 /// clone, nunca no borrow aninhado; a lição da dock E-auditoria).
@@ -1333,6 +1402,42 @@ fn aplica(st: &Rc<RefCell<State>>, msg: Msg) {
                 );
             }
         }
+        Msg::AudioBus(a) => {
+            // 1.0-110 T1 — o PUSH do fio veste o ÍCONE e o percentual
+            // (o AudioState do daemon: a foto do gesto é o mesmo juízo
+            // do AudioDet acima — a idempotência do fio é de sempre)
+            let s = st.borrow_mut();
+            s.audio_img.set_icon_name(Some(icone_volume(
+                f64::from(a.sink_volume) / 100.0,
+                a.sink_muted,
+            )));
+            if a.sink_muted {
+                s.btn_audio.add_css_class("muted");
+            } else {
+                s.btn_audio.remove_css_class("muted");
+            }
+            veste_tooltip(
+                &s.btn_audio,
+                &format!(
+                    "Áudio {}%{} — clique: pwvucontrol · scroll: volume · direito: mudo",
+                    a.sink_volume,
+                    if a.sink_muted { " · MUDO" } else { "" },
+                ),
+            );
+            s.mic_img.set_icon_name(Some(crate::state::icone_mic(a.source_muted)));
+            if a.source_muted {
+                s.btn_mic.add_css_class("muted");
+            } else {
+                s.btn_mic.remove_css_class("muted");
+            }
+            veste_tooltip(
+                &s.btn_mic,
+                &format!(
+                    "Microfone{} — clique: pwvucontrol · scroll: ganho · direito: mudo",
+                    if a.source_muted { " MUDO" } else { "" },
+                ),
+            );
+        }
         Msg::Rede(estado, essid, radio) => {
             let mut s = st.borrow_mut();
             s.rede = estado;
@@ -1370,15 +1475,33 @@ fn aplica(st: &Rc<RefCell<State>>, msg: Msg) {
             // 1.0-101 (ícone de AÇÃO + "Título — Artista" ≤28; sem
             // player no bus o assento SAI — oculto 0px)
             // 1.0-109 §2.2 — O PILL ÚNICO (o ⏭ avulso de era MORREU: o
-            // scroll/cique do PRÓPRIO pill veste a faixa inteira — uma
+            // scroll/clique do PRÓPRIO pill veste a faixa inteira — uma
             // pílula só de mídia em cena)
-            let s = st.borrow_mut();
-            match m.as_ref().and_then(media_pill) {
+            // 1.0-110 T5 — A MICRO-ANIMAÇÃO DA TROCA (140ms, SÓ opacity:
+            // a faixa NOVA acorda o pulso .faixa-nova da folha mestra
+            // — a transição suave da pele veste e devolve; o título
+            // IGUAL não anima NADA, o play/pause não paga pulso)
+            let pill = m.as_ref().and_then(media_pill);
+            let trocou = match (&pill, st.borrow().media_titulo.as_ref()) {
+                (Some(novo), Some(velho)) => Some(novo.texto.clone()) != Some(velho.clone()),
+                (Some(_), None) => true,
+                (None, _) => false,
+            };
+            let mut s = st.borrow_mut();
+            s.media_titulo = pill.as_ref().map(|p| p.texto.clone());
+            match pill {
                 Some(pill) => {
                     s.player_img.set_icon_name(Some(pill.icone));
                     s.player_label.set_text(&pill.texto);
                     s.btn_player.set_tooltip_text(Some(&pill.tooltip));
                     s.btn_player.set_visible(true);
+                    if trocou {
+                        s.btn_player.add_css_class("faixa-nova");
+                        let btn = s.btn_player.clone();
+                        glib::timeout_add_local_once(Duration::from_millis(140), move || {
+                            btn.remove_css_class("faixa-nova");
+                        });
+                    }
                 }
                 None => {
                     s.btn_player.set_visible(false);
@@ -1386,8 +1509,17 @@ fn aplica(st: &Rc<RefCell<State>>, msg: Msg) {
             }
         }
         Msg::BusGame(ativa) => {
+            // 1.0-110 T5 — O BADGE ROXO DO MODO DE JOGO (a diretriz: o
+            // ícone/badge acende NA HORA enquanto o modo vive — o botão
+            // nasce VISÍVEL com a classe .on da folha mestra: o fundo
+            // veste o acento da casa e o ícone branco lê-se DE LONGE)
             let s = st.borrow_mut();
             s.btn_game.set_visible(ativa);
+            if ativa {
+                s.btn_game.add_css_class("on");
+            } else {
+                s.btn_game.remove_css_class("on");
+            }
         }
         Msg::Bus(cli) => {
             // o fio (re)nasceu: o handle fica com a UI para os pedidos
@@ -1396,6 +1528,17 @@ fn aplica(st: &Rc<RefCell<State>>, msg: Msg) {
         Msg::Game(txt) => {
             let s = st.borrow_mut();
             s.btn_game.set_visible(txt.is_some());
+            if txt.is_some() {
+                s.btn_game.add_css_class("on");
+            } else {
+                s.btn_game.remove_css_class("on");
+            }
+        }
+        Msg::Sinal(sig) => {
+            if sig == libc::SIGUSR2 {
+                load_css();
+                log("bar.css relido (SIGUSR2 — a pele da casa sem renascer)");
+            }
         }
     }
 }
@@ -1463,6 +1606,28 @@ fn desenha_relogio(st: &Rc<RefCell<State>>) {
         )));
         s.minuto_desenhado = m;
     }
+}
+
+/// 1.0-110 T1 — A AGENDA DA VIRADA (a diretriz: a faixa SEM wakeups
+/// periódicos em idle — o timer de 1s de era acordava o relógio 60
+/// vezes por minuto para tocar o label UMA vez). A agenda conta os
+/// milissegundos até a PRÓXIMA virada do minuto (+50ms de folga do
+/// frame) e reagenda a si mesma: um timeout POR MINUTO, a faixa dorme
+/// o minuto inteiro.
+fn agenda_relogio(st: &Rc<RefCell<State>>) {
+    let espera = match glib::DateTime::now_local() {
+        Ok(agora) => {
+            let uso = (agora.second() * 1_000_000 + agora.microsecond()) as u64;
+            // a PRÓXIMA virada do minuto (+50ms de folga do frame)
+            Duration::from_micros(60_000_000u64 - uso + 50_000)
+        }
+        Err(_) => Duration::from_secs(1), // sem fuso: tenta de novo em 1s
+    };
+    let st = st.clone();
+    glib::timeout_add_local_once(espera, move || {
+        desenha_relogio(&st);
+        agenda_relogio(&st); // a próxima virada (o ciclo da casa)
+    });
 }
 
 // ── OS WIDGETS da casa ────────────────────────────────────────────────
@@ -1601,31 +1766,36 @@ fn scroll<W: IsA<gtk::Widget>>(btn: &W, acao: impl Fn(f64) + 'static) {
     btn.add_controller(sc);
 }
 
-/// 1.0-110 T5 — O ACUMULADOR DO VOLUME NO SCROLL (o drain-to-last da
-/// casa no gesto que mais repete): cada passo da rajada SOMA no
-/// acumulador compartilhado e o PRIMEIRO passo arma o timer de
-/// ~150ms — os passos seguintes SÓ acumulam (a janela é curta: o dono
-/// sente o volume subir JUNTO, não em rajada de forks); quando a
-/// janela fecha, UM wpctl aplica o TOTAL e o pedido de detalhe veste o
-/// ícone/percentual no frame seguinte. Rajada de scroll = UM fork.
+/// 1.0-110 T1/T5 — O ACUMULADOR DO VOLUME NO SCROLL TRAILING (a
+/// diretriz: cada passo da rajada SOMA no acumulador compartilhado E
+/// rearma a janela de 70ms — o gesto silenciou, UM wpctl aplica o
+/// TOTAL e o pedido de detalhe veste o ícone/percentual no frame
+/// seguinte; o daemon coalesce 400ms na frente dele). Rajada de
+/// scroll = UM fork, DEPOIS do silêncio do gesto.
 fn acumula_volume(
-    acumulado: &Rc<RefCell<(i64, bool)>>,
+    acumulado: &Rc<RefCell<(i64, u64)>>,
     para_cima: bool,
     passo: i64,
     alvo: &'static str,
-    tx: Sender<Msg>,
 ) {
     let mut acc = acumulado.borrow_mut();
     acc.0 += if para_cima { passo } else { -passo };
-    if acc.1 {
-        return; // a janela JÁ está aberta: só acumula (o timer veste)
-    }
-    acc.1 = true;
+    // 1.0-110 T1 — O TRAILING DE 70ms (a diretriz: o debounce é FINAL —
+    // cada passo REARMA a janela; a GERAÇÃO guarda quem é a última: as
+    // janelas velhas acordam e CALAM, a última aplica o TOTAL acumulado
+    // num wpctl SÓ quando o gesto silencia)
+    acc.1 = acc.1.wrapping_add(1);
+    let geracao = acc.1;
     drop(acc);
     let acumulado = Rc::clone(acumulado);
-    glib::timeout_add_local_once(Duration::from_millis(150), move || {
-        let (total, _) = *acumulado.borrow();
-        *acumulado.borrow_mut() = (0, false);
+    glib::timeout_add_local_once(Duration::from_millis(VOLUME_TRAILING_MS), move || {
+        let mut acc = acumulado.borrow_mut();
+        if acc.1 != geracao {
+            return; // a janela VELHA: a última geração veste (trailing)
+        }
+        let total = acc.0;
+        *acc = (0, 0);
+        drop(acc);
         if total != 0 {
             // a gramática de sempre do wpctl: "10%+" / "10%-" (o número
             // primeiro, o sinal colado no fim — o passo de era era 5%+)
@@ -1638,10 +1808,10 @@ fn acumula_volume(
                 alvo,
                 &argumento,
             ]);
-            // 1.0-104 — o ícone/percentual veste no gesto (sem esperar o
-            // cinto de 2s — a thread curta pergunta ao wpctl e o dreno
-            // veste no frame seguinte)
-            pede_audio_detalhe(&tx);
+            // 1.0-104 — o ícone/percentual veste no gesto (a thread curta
+            // pergunta ao wpctl e o push do daemon veste no fio logo
+            // depois — idempotente no ícone)
+            pede_audio_detalhe();
         }
     });
 }

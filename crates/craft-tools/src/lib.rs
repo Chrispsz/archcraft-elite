@@ -402,6 +402,15 @@ pub struct MenuCamada {
     win: gtk4::Window,
     ja: std::rc::Rc<std::cell::Cell<bool>>,
     nasc: std::rc::Rc<std::cell::RefCell<std::time::Instant>>,
+    /// 1.0-110 T2 — O INSTANTE DO ÚLTIMO FECHO (a cura da corrida
+    /// foco-sai-fecha → clique-reabre: o clique no botão-âncora com o
+    /// menu aberto TIRA o palco do menu ANTES do `clicked` chegar ao
+    /// botão — o alterna de era lia `aberto()==false` e REABRIA no
+    /// MESMO gesto (o menu piscava/reabria ao clicar de novo no ícone).
+    /// O alterna agora CONSULTA o carimbo: fechou há menos de 200ms é
+    /// O GESTO DE FECHAR se consumando — o 2º clique fecha LIMPO, sem
+    /// reabrir e sem piscar.
+    fechou_em: std::rc::Rc<std::cell::RefCell<std::time::Instant>>,
 }
 
 #[cfg(feature = "gui")]
@@ -417,18 +426,37 @@ impl MenuCamada {
             use gtk4_layer_shell::LayerShell;
             win.init_layer_shell();
             win.set_layer(gtk4_layer_shell::Layer::Overlay);
-            win.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::Exclusive);
+            // 1.0-110 T2 — O TECLADO SOB DEMANDA (a cura do réu real do rig:
+            // com Exclusive o menu SEGURAVA o teclado da sessão INTEIRA —
+            // Backspace/Ctrl+V mortos nas janelas de fundo enquanto o
+            // popup vivesse, e o clique fora NUNCA movia o foco (o guard
+            // is-active não via o palco mudar) porque o exclusive BLOQUEIA
+            // qualquer outra superfície de tomar o teclado no labwc).
+            // OnDemand é o equilíbrio comprovado na FONTE do labwc
+            // (src/layers.c, commit 155c153: uma superfície Overlay
+            // sob demanda RECEBE o teclado no map — o Esc mora nela e o
+            // clique em QUALQUER janela/dock da volta o tira na hora, a
+            // guarda do palco veste) SEM o sequestro: o primeiro clique
+            // numa janela de fundo fecha o popup E devolve o teclado a
+            // quem o dono clicou (o Exclusive de era prendia o palco para
+            // sempre).
+            win.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::OnDemand);
             win.set_namespace(Some(namespace));
         }
         let ja = std::rc::Rc::new(std::cell::Cell::new(false));
         let nasc = std::rc::Rc::new(std::cell::RefCell::new(std::time::Instant::now()));
+        let fechou_em =
+            std::rc::Rc::new(std::cell::RefCell::new(std::time::Instant::now()
+                - std::time::Duration::from_secs(10)));
         // O ESC é a porta do teclado (a diretriz: fechar IMEDIATO)
         {
             let w = win.clone();
+            let fechou_em = fechou_em.clone();
             let ec = gtk4::EventControllerKey::new();
             ec.connect_key_pressed(move |_, key, _, _| {
                 if key == gtk4::gdk::Key::Escape {
                     w.hide();
+                    *fechou_em.borrow_mut() = std::time::Instant::now();
                     return gtk4::glib::Propagation::Stop;
                 }
                 gtk4::glib::Propagation::Proceed
@@ -438,10 +466,14 @@ impl MenuCamada {
         // A GUARDA DO PALCO (a escola do pick: o is-active FALSE depois
         // do foco REAL é o clique que foi PARA FORA — outra janela tomou
         // o teclado; o frame 0 do labwc é cortesia, a carência de 300ms
-        // cobre o present())
+        // cobre o present()). 1.0-110 T2 — a guarda agora FECHA DE
+        // VERDADE: com OnDemand o menu SOLTARA o teclado no primeiro
+        // clique fora (janela, dock, barra, papel de parede pelo Unfocus
+        // do rc.xml) e o is-active desce NO MESMO instante
         {
             let ja = ja.clone();
             let nasc = nasc.clone();
+            let fechou_em = fechou_em.clone();
             win.connect_notify_local(Some("is-active"), move |w, _| {
                 if w.is_active() {
                     ja.set(true);
@@ -454,9 +486,10 @@ impl MenuCamada {
                     return; // a carência do present()
                 }
                 w.hide(); // o palco é de outro: o menu desce NO MESMO instante
+                *fechou_em.borrow_mut() = std::time::Instant::now();
             });
         }
-        Self { win, ja, nasc }
+        Self { win, ja, nasc, fechou_em }
     }
 
     /// a janela crua (para `add_controller` e o que a mãe precisar).
@@ -477,10 +510,13 @@ impl MenuCamada {
     }
 
     /// a porta comum de fecho (o item escolhido, o clique na mãe, o Esc
-    /// de outra janela — quem chama fecha por AQUI).
+    /// de outra janela — quem chama fecha por AQUI). 1.0-110 T2 — TODO
+    /// fecho CARIMBA o instante: o alterna consulta o carimbo contra a
+    /// corrida do 2º clique no botão-âncora.
     pub fn fecha(&self) {
         use gtk4::prelude::*;
         self.win.hide();
+        *self.fechou_em.borrow_mut() = std::time::Instant::now();
     }
 
     /// A ABERTURA POSICIONADA: o menu nasce ACIMA/ABAIXO da superfície
@@ -497,10 +533,19 @@ impl MenuCamada {
 
     /// o clique no botão que é a âncora do menu (o relógio, o ícone da
     /// dock): aberto FECHA, fechado ABRE — o toggle de sempre.
+    /// 1.0-110 T2 — A CORRIDA MORTA (o bug real do rig: o clique no
+    /// botão-âncora TIRA o palco do menu ANTES do `clicked` chegar — o
+    /// is-active fecha, o alterna vê `!aberto()` e REABRIA no MESMO
+    /// gesto: o menu piscava e voltava). O carimbo do fechou_em é o
+    /// juiz: fechou há menos de 200ms é o MESMO gesto de fechar se
+    /// consumando — o clique não reabre NADA (o 2º clique no relógio
+    /// ou no ⏻ fecha LIMPO, sem piscar).
     pub fn alterna(&self, ancora: &impl gtk4::prelude::IsA<gtk4::Widget>, no_fundo: bool) {
         if self.aberto() {
             self.fecha();
-        } else {
+        } else if self.fechou_em.borrow().elapsed()
+            >= std::time::Duration::from_millis(200)
+        {
             self.abre(ancora, no_fundo);
         }
     }

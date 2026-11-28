@@ -170,14 +170,21 @@ if [ "${1:-}" = "menu" ]; then
     else
         _titulo="$(rotulo_estado)"
         _rc=0
-        # cada preset VESTE o sono associado (a diretriz: o feedback
-        # inclui o tempo de suspensão automática — o dono VÊ o que
-        # escolheu antes de fechar o menu)
-        _e5="5 min (dorme aos 20 min)"
-        _e15="15 min (dorme aos 30 min)"
-        _e30="30 min (dorme aos 45 min)"
-        _e60="1 hora (dorme aos 75 min)"
-        _ed="Desativado (nunca sozinho)"
+        # 1.0-110 T5 — O CARIMBO ✓ NA OPÇÃO SALVA (a diretriz: o feedback
+        # de estado ativo — a opção CORRENTE nasce CARIMBADA e o dono VÊ
+        # onde está ANTES de escolher) + cada preset VESTE o sono
+        # associado (a diretriz §7: o dono vê o que escolheu antes de
+        # fechar o menu) e A MUDANÇA NOTIFICA no swaync (a diretriz:
+        # notificação ao alterar).
+        _atual="$(le_lock)"
+        _marca() {
+            if [ "$_atual" = "$1" ]; then printf '✓ '; else printf ''; fi
+        }
+        _e5="$(_marca 5)5 min (dorme aos 20 min)"
+        _e15="$(_marca 15)15 min (dorme aos 30 min)"
+        _e30="$(_marca 30)30 min (dorme aos 45 min)"
+        _e60="$(_marca 60)1 hora (dorme aos 75 min)"
+        _ed="$(_marca 0)Desativado (nunca sozinho)"
         _escolha="$(printf '%s\n' "$_e5" "$_e15" "$_e30" "$_e60" "$_ed" "Travar agora" "Suspender agora" \
             | _pick "$_titulo")" || _rc=$?
         # rc 1/2/143 = ESC/fora — a lei dos menus, benigno. 1.0-109 —
@@ -185,11 +192,11 @@ if [ "${1:-}" = "menu" ]; then
         # vazio (benigno) — o conteúdo é o juiz
         if [ -n "$_escolha" ]; then
             case "$_escolha" in
-                "$_e5")  escreve 5  ;;
-                "$_e15") escreve 15 ;;
-                "$_e30") escreve 30 ;;
-                "$_e60") escreve 60 ;;
-                "$_ed")  escreve 0  ;;
+                "$_e5")  escreve 5;  nota "Trava em 5 min · dorme aos $(suspend_do_preset 5) min" ;;
+                "$_e15") escreve 15; nota "Trava em 15 min · dorme aos $(suspend_do_preset 15) min" ;;
+                "$_e30") escreve 30; nota "Trava em 30 min · dorme aos $(suspend_do_preset 30) min" ;;
+                "$_e60") escreve 60; nota "Trava em 1 hora · dorme aos $(suspend_do_preset 60) min" ;;
+                "$_ed")  escreve 0;  nota "Desativado — W-l manda na mão e o sistema NUNCA dorme sozinho" ;;
                 "Travar agora")
                     if command -v craft-lock >/dev/null 2>&1; then
                         craft-lock >/dev/null 2>&1 &

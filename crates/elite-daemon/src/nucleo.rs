@@ -86,6 +86,16 @@ fn boas_vindas(bus: &BusServer, cliente: u32) {
     if let Some(bt) = crate::bluetooth::estado() {
         bus.send_to(cliente, &BusMsg::Bluetooth(bt));
     }
+    // 1.0-110 T1 — O ÁUDIO E A REDE NO FRAME 0 (a barra sem belts:
+    // TODO estado chega por PUSH do daemon — o boas-vindas é o frame 0
+    // honesto, o ícone nasce com a verdade do pactl e do NM sem fork
+    // nenhum do lado de lá)
+    if let Some(audio) = crate::audio::estado() {
+        bus.send_to(cliente, &BusMsg::Audio(audio));
+    }
+    if let Some(rede) = crate::network::estado() {
+        bus.send_to(cliente, &BusMsg::Network(rede));
+    }
     // o modo de jogo do momento (o QueryStatus é a verdade de sempre)
     let gm = match zbus::blocking::Connection::session() {
         Ok(c) => {

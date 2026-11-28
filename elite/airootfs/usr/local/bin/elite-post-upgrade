@@ -1225,6 +1225,36 @@ EOF
     fi
     unset _pele _pele_path _pele_marcador _palvo _falvo
     sync_skel "$_hdir" "$_auid"
+    # ── 1.0-110 T6 — A MIGRAÇÃO DO rc.xml VIVO (o scroll da mesa no ──
+    #      desktop): o sync_skel é ABSENT-ONLY e o rig instalado antes
+    #      da 1.0-100 nunca ganhou o Execute do 'elite-daemon desk' nos
+    #      binds de troca de mesa — o daemon ficava CEGO da troca pelo
+    #      scroll do desktop (a dock não isola, o elite não aprende).
+    #      A migração insere o Execute que falta DEPOIS de cada
+    #      GoToDesktop left/right (o Root scroll E o W-bracket do
+    #      teclado — os dois ganham o MESMO par do skel), COM BACKUP,
+    #      ÚNICA vez (grep-gated: rc.xml que já fala 'elite-daemon desk'
+    #      é domínio do dono, intocado).
+    _rcxml="$_hdir/.config/labwc/rc.xml"
+    if [ -f "$_rcxml" ] && ! grep -q 'elite-daemon desk' "$_rcxml" 2>/dev/null; then
+        _rctmp="$(mktemp 2>/dev/null || echo /tmp/elite-rc.$$.tmp)"
+        if awk '
+            { print }
+            /<action name="GoToDesktop" to="left" wrap="yes" \/>/ {
+                print "        <action name=\"Execute\" command=\"elite-daemon desk left\" />"
+            }
+            /<action name="GoToDesktop" to="right" wrap="yes" \/>/ {
+                print "        <action name=\"Execute\" command=\"elite-daemon desk right\" />"
+            }
+        ' "$_rcxml" >"$_rctmp" 2>/dev/null && [ -s "$_rctmp" ]; then
+            if cp -p "$_rcxml" "$_rcxml.bak-elite-desk" 2>/dev/null \
+                && cat "$_rctmp" >"$_rcxml" 2>/dev/null; then
+                tlog "skel $_auid: labwc/rc.xml MIGRADO (o GoToDesktop ganhou o Execute do elite-daemon desk — o scroll do desktop volta a ser visto pelo daemon; backup em rc.xml.bak-elite-desk)"
+            fi
+        fi
+        rm -f "$_rctmp" 2>/dev/null || true
+    fi
+    unset _rcxml _rctmp
 done
 unset _hdir _auid _heal_out _hl
 

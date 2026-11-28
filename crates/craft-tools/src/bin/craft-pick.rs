@@ -259,8 +259,16 @@ fn build(
     corpo.set_margin_end(16);
 
     // a BUSCA: o foco nasce AQUI (o dedo do dono já digita)
+    // 1.0-110 T5 — A BARRA "Digite para filtrar" SOME SEM RESERVAR
+    // ESPAÇO quando a lista tem ≤ 8 opções (a diretriz: a busca é das
+    // listas LONGAS — a curta nasce LIMPA e o teclado segue INTEIRO:
+    // Enter escolhe, as setas andam a seleção, Esc cancela)
+    let lista_curta = itens.len() <= 8;
     let busca = gtk4::Entry::new();
     busca.set_placeholder_text(Some("Digite para filtrar — Enter escolhe, Esc cancela"));
+    if lista_curta {
+        busca.set_visible(false);
+    }
 
     // a LISTA: um botão por item (o clique escolhe DIRETO — mouse é
     // primeira classe na casa; o teclado navega com as setas nativas
@@ -429,6 +437,59 @@ fn build(
         });
     }
 
+    // 1.0-110 T5 — O TECLADO DA LISTA CURTA (sem a busca não há campo
+    // de digitar — as SETAS andam a seleção e o ENTER escolhe a
+    // marcada; a ativação é CLIQUE ÚNICO de sempre nos botões — o Enter
+    // veste a MESMA saída única stdout+0)
+    if lista_curta {
+        let lista = lista.clone();
+        let tx = tx.clone();
+        let ec = gtk4::EventControllerKey::new();
+        ec.connect_key_pressed(move |_, key, _, _| {
+            // as linhas do ListBox (os filhos DIRETOS são os rows — a
+            // contagem vive na árvore, não em índice de API)
+            let linhas: Vec<gtk4::Widget> =
+                std::iter::successors(lista.first_child(), |w| w.next_sibling()).collect();
+            match key {
+                gtk4::gdk::Key::Down | gtk4::gdk::Key::Up => {
+                    let passo = if key == gtk4::gdk::Key::Down { 1 } else { -1 };
+                    let agora = linhas
+                        .iter()
+                        .position(|w| w.downcast_ref::<gtk4::ListBoxRow>().is_some_and(|r| r.is_selected()))
+                        .unwrap_or(0) as i32
+                        + passo;
+                    let proximo = agora.clamp(0, (linhas.len() as i32 - 1).max(0));
+                    if let Some(row) = linhas
+                        .get(proximo as usize)
+                        .and_then(|w| w.downcast_ref::<gtk4::ListBoxRow>())
+                    {
+                        lista.select_row(Some(row));
+                    }
+                    gtk4::glib::Propagation::Stop
+                }
+                gtk4::gdk::Key::Return | gtk4::gdk::Key::KP_Enter => {
+                    // a marcada (senão a PRIMEIRA) veste a saída única
+                    let escolhida = linhas
+                        .iter()
+                        .find(|w| w.downcast_ref::<gtk4::ListBoxRow>().is_some_and(|r| r.is_selected()))
+                        .or(linhas.first())
+                        .and_then(|w| w.downcast_ref::<gtk4::ListBoxRow>())
+                        .and_then(|r| r.child())
+                        .and_downcast::<gtk4::Button>()
+                        .and_then(|b| b.label());
+                    if let Some(txt) = escolhida {
+                        println!("{txt}");
+                        let _ = tx.send(Some(txt.to_string()));
+                        sai(0);
+                    }
+                    gtk4::glib::Propagation::Stop
+                }
+                _ => gtk4::glib::Propagation::Proceed,
+            }
+        });
+        win.add_controller(ec);
+    }
+
     corpo.append(&busca);
     corpo.append(&scroll);
     win.set_child(Some(&corpo));
@@ -437,7 +498,16 @@ fn build(
     // apresentação da janela — o primeiro frame do labwc vem DEPOIS do
     // present(), a cortesia cobre o frame 0..1 dele)
     *nasceu.borrow_mut() = std::time::Instant::now();
-    busca.grab_focus();
+    // 1.0-110 T5 — a lista CURTA nasce com a PRIMEIRA linha marcada (o
+    // Enter de quem não tocou nas setas veste a primeira); a LONGA
+    // segue com o dedo do dono NA BUSCA de sempre
+    if lista_curta {
+        if let Some(row) = lista.row_at_index(0) {
+            lista.select_row(Some(&row));
+        }
+    } else {
+        busca.grab_focus();
+    }
 }
 
 /// o stdin é pipe ou terminal? (sem pipe não há leitura — o argv manda)

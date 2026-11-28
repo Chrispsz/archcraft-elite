@@ -607,16 +607,31 @@ pub fn rodada(trigger: &str) {
 /// E156 — o MUDO REAL: sink e fonte vestem o `mute` do pactl (o `false`
 /// cravado de era morreu — o dump para de jurar "nunca mudo" num trono
 /// mudo; a perícia de um "sem som" passa a ver o mudo no papel).
+/// 1.0-110 T1 — o ÚLTIMO publicado fica GUARDADO (a mesma escola do
+/// bluetooth::BT: o snapshot de boas-vindas veste o áudio no frame 0
+/// do cliente — a barra sem belts só acorda por push e o frame 0 é o
+/// fio).
 pub fn publica_estado(sinks: &[SinkData], dflt: &str) {
     let atual = sinks.iter().find(|s| s.name == dflt);
-    let msg = elite_core::BusMsg::Audio(elite_core::AudioState {
+    let estado = elite_core::AudioState {
         sink_volume: atual.map(|s| (s.volume() * 100.0).round() as u8).unwrap_or(0),
         sink_muted: atual.map(|s| s.mute).unwrap_or(false),
         source_muted: fonte_muda(),
         sink_name: atual.map(|s| s.description.clone()).filter(|d| !d.is_empty()),
         analog_preferred: atual.map(|s| classifica(s) != Classe::Hdmi).unwrap_or(false),
-    });
-    crate::nucleo::pub_bus(&msg);
+    };
+    *AUDIO.lock().unwrap() = Some(estado.clone());
+    crate::nucleo::pub_bus(&elite_core::BusMsg::Audio(estado));
+}
+
+/// 1.0-110 T1 — o estado vivo para o snapshot de boas-vindas (None =
+/// o pactl nunca falou — sem snapshot, sem mentira).
+static AUDIO: std::sync::Mutex<Option<elite_core::AudioState>> =
+    std::sync::Mutex::new(None);
+
+/// o estado publicado (None = áudio ainda não censoado).
+pub fn estado() -> Option<elite_core::AudioState> {
+    AUDIO.lock().unwrap().clone()
 }
 
 /// E139 — a FOTO PRÉ-SONO (o PrepareForSleep(true) chama ANTES do
