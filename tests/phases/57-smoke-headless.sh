@@ -169,13 +169,19 @@ t_ok "labwc headless no ar (WLR_BACKENDS=headless, pixman/cairo)"
 # EM CARNE — inválido = o residente morre = o contrato da fase falha; o
 # 'swaync SAIU exit status: 1' e o 'COULD NOT FIND CSS FILE!' do dump
 # morrem aqui, com as peles do pacote na mesa)
-mkdir -p "$HOMES/.config/swaync" "$HOMES/.config/swayosd"
+mkdir -p "$HOMES/.config/swaync" "$HOMES/.config/swayosd" "$HOMES/.config/hypr"
 cp -p "$REPO/elite/airootfs/etc/skel/.config/swaync/config.json" \
       "$HOMES/.config/swaync/config.json" 2>/dev/null || true
 cp -p "$REPO/elite/airootfs/etc/skel/.config/swaync/style.css" \
       "$HOMES/.config/swaync/style.css" 2>/dev/null || true
 cp -p "$REPO/elite/airootfs/etc/skel/.config/swayosd/style.css" \
       "$HOMES/.config/swayosd/style.css" 2>/dev/null || true
+# 1.0-109-b — O MESTRE DO LOCK TAMBÉM (a prova da run 46084597503: o
+# craft-lock corria o caminho SEM conf — no rig de verdade o $HOME tem o
+# hyprlock.conf do skel/rice; o juízo de agora veste o caminho REAL: o
+# sed do wallpaper, o conf efêmero e as flags auditadas em carne)
+cp -p "$REPO/elite/airootfs/etc/skel/.config/hypr/hyprlock.conf" \
+      "$HOMES/.config/hypr/hyprlock.conf" 2>/dev/null || true
 
 # a sessão da casa (o daemon lança a família toda — o spawn da barra
 # pode falhar sem layer-shell aqui, a sessão SEGUE de pé: o contrato
@@ -339,7 +345,70 @@ else
     fi
 fi
 
-# ── 4. O TOGGLE DA INSTÂNCIA ÚNICA DO PICK (a diretriz 1.0-109: outro
+# ── 4. O SWAYNC DONO DAS NOTIFICAÇÕES NO BUS DE VERDADE (a diretriz:
+#      validar em labwc headless até o busctl --user get-name-owner
+#      responder SEM exit status 1 — o 'swaync SAIU exit status: 1' do
+#      dump morre com as peles do skel julgadas em carne). 1.0-109-b — O
+#      JUÍZO DE OBSERVAÇÃO VEM ANTES DO JUÍZO DO LOCK (a prova da run
+#      46084597503: este contrato corria DEPOIS do lock e o réu vinha
+#      POLUÍDO — o daemon.err terminava no craft-doctor (bus.cliente 4)
+#      sem NENHUMA voz depois, e o rc≠0 do busctl não distinguia o nome
+#      órfão do BUS morto; agora a diferença é cirúrgica: falha AQUI = o
+#      réu é a central; passa aqui e a casa cai no lock adiante = o réu
+#      mora no caminho do lock) ────────────────────────────────────────
+if [ "$TEM_DBUS" = 1 ] && [ -f "$XDG/dbus.addr" ]; then
+    export DBUS_SESSION_BUS_ADDRESS
+    DBUS_SESSION_BUS_ADDRESS="$(cat "$XDG/dbus.addr" 2>/dev/null || printf '%s' "$DBUS_SESSION_BUS_ADDRESS")"
+    if ! command -v busctl >/dev/null 2>&1; then
+        t_skip "swaync: dono das notificações" "busctl ausente (o systemd do runner traz — o Canal veste o juízo)"
+    elif command -v swaync >/dev/null 2>&1; then
+        # o dono do nome (o residente supervisionado subiu com as peles do
+        # skel — o config.json inválido o mataria e o nome ficaria órfão);
+        # 1.0-109-b: o stderr do busctl VIAJA com a falha (o rc nu não
+        # distingue 'sem dono' de 'bus morto')
+        _dono=1
+        _berr=""
+        for _ in $(seq 1 40); do
+            if _berr="$(busctl --user get-name-owner org.freedesktop.Notifications 2>&1)"; then
+                _dono=0
+                break
+            fi
+            sleep 0.5
+        done
+        if [ "$_dono" = 0 ]; then
+            t_ok "swaync: DONO de org.freedesktop.Notifications no bus de verdade (o config.json/style.css do skel são VÁLIDOS — a central não morre)"
+        else
+            # 1.0-109-b — O RÉU COM CARA E NOME: o stderr do busctl, os
+            # VIVOS do instante e a última fala da central no bars.log (a
+            # run 46084597503 julgava às cegas: 'segue rc≠0' e nada mais)
+            _bus_vivo="MORTO"; pgrep -x dbus-daemon >/dev/null 2>&1 && _bus_vivo="vivo"
+            _dae_vivo="MORTO"; pgrep -x elite-daemon >/dev/null 2>&1 && _dae_vivo="vivo"
+            _swy_vivo="MORTO"; pgrep -x swaync >/dev/null 2>&1 && _swy_vivo="vivo"
+            t_fail "swaync: dono de org.freedesktop.Notifications" \
+                "busctl rc≠0 em 20s (stderr do busctl: $(printf '%s' "$_berr" | head -c 120)) · vivos no instante: dbus=${_bus_vivo} daemon=${_dae_vivo} swaync=${_swy_vivo} · daemon.err: $(tail -6 "$daemon_err" 2>/dev/null | tr '\n' ' ') · bars.log: $(tail -4 "$HOMES/.cache/elite/bars.log" 2>/dev/null | tr '\n' ' ')"
+        fi
+    else
+        t_skip "swaync: dono das notificações" "swaync ausente — o Canal veste o juízo (tests.yml)"
+    fi
+    # o OSD com a PELE (o --style do $HOME só nasce quando o arquivo
+    # existe — o 'COULD NOT FIND CSS FILE!' do dump é a ausência de pele)
+    if command -v swayosd-server >/dev/null 2>&1; then
+        sleep 1
+        if pgrep -x swayosd-server >/dev/null 2>&1; then
+            if grep -q "COULD NOT FIND CSS FILE" "$HOMES/.cache/elite/bars.log" 2>/dev/null; then
+                t_fail "swayosd: o OSD vivo SEM o lamento do CSS" "o bars.log carrega o COULD NOT FIND CSS FILE de era"
+            else
+                t_ok "swayosd: o OSD vivo com a PELE do $HOME (o --style existe — o lamento do dump morre)"
+            fi
+        else
+            t_skip "swayosd: o OSD vivo" "o swayosd-server não subiu neste ambiente (a falha da central acima nomeia o réu se for o caso)"
+        fi
+    fi
+else
+    t_skip "swaync: dono das notificações" "dbus-run-session ausente — o Canal veste o juízo (tests.yml)"
+fi
+
+# ── 5. O TOGGLE DA INSTÂNCIA ÚNICA DO PICK (a diretriz 1.0-109: outro
 #      pick VIVO cai com SIGTERM — MESMO título = toggle que sai LIMPO,
 #      OUTRO menu = substituição na hora) ─────────────────────────────────
 "$BINS/craft-pick" -T "Teste" a b >/dev/null 2>&1 &
@@ -370,11 +439,27 @@ else
 fi
 sleep 0.4
 
-# ── 5. O HYPRLOCK VIVO NO HEADLESS (a auditoria das flags de 1.0-109
+# ── 6. A VIDA DA CASA ANTES DO LOCK (1.0-109-b — a rede da run
+#      46084597503: a morte do daemon era SILENCIOSA — nenhum 'SAIU',
+#      nenhum 'COMPOSITOR caiu', o daemon.err parava no craft-doctor;
+#      três postes de vida separam os suspeitos: os menus do pick, o
+#      caminho do lock e o silêncio de depois) ──────────────────────────
+if pgrep -x elite-daemon >/dev/null 2>&1; then
+    t_ok "sessão: o elite-daemon vivo antes do lock (os menus do pick não derrubam a casa)"
+else
+    t_fail "sessão: o elite-daemon vivo antes do lock" \
+        "o daemon já morreu no caminho dos menus (as últimas 8 do daemon.err: $(tail -8 "$daemon_err" 2>/dev/null | tr '\n' ' '))"
+fi
+
+# ── 7. O HYPRLOCK VIVO NO HEADLESS (a auditoria das flags de 1.0-109
 #      paga o juízo EXECUTIVO: o réu do idle.log era a flag inválida que
 #      abortava ANTES de mapear — 'lock não nasceu em 15s'. O labwc fala
 #      ext-session-lock-v1: o craft-lock tem que pôr o hyprlock VIVO no
-#      /proc com as flags auditadas do --help) ───────────────────────────
+#      /proc com as flags auditadas do --help). 1.0-109-b — O STDERR DO
+#      NASCIMENTO NA MESA (a run 46084597503 corria o craft-lock com o
+#      stderr no /dev/null: o 'não nasceu em 8s' não nomeava réu NENHUM
+#      — o choro do próprio hyprlock morava no vácuo; agora ele viaja
+#      com a falha, junto com a PROVA NUA do binário isolado) ────────────
 if command -v hyprlock >/dev/null 2>&1; then
     # a AUDITORIA em si (o --help do binário responde — o juiz das flags)
     if hyprlock --help >/dev/null 2>&1; then
@@ -382,7 +467,8 @@ if command -v hyprlock >/dev/null 2>&1; then
     else
         t_fail "lock: o hyprlock --help responde" "o juiz das flags nem nasceu (hyprlock quebrado no runner?)"
     fi
-    craft-lock >/dev/null 2>&1 &
+    lock_err="$SMOKE/lock.err"
+    craft-lock >"$lock_err" 2>&1 &
     _lock_vivo=0
     for _ in $(seq 1 32); do
         if pgrep -x hyprlock >/dev/null 2>&1; then _lock_vivo=1; break; fi
@@ -398,56 +484,36 @@ if command -v hyprlock >/dev/null 2>&1; then
         sleep 0.4
     else
         pkill -TERM -x craft-vigil 2>/dev/null || true
-        t_fail "lock: o hyprlock MAPA no headless" "não nasceu em 8s (lock.log: $(tail -2 "$HOMES/.cache/elite/lock.log" 2>/dev/null | tr '\n' ' '))"
+        # A PROVA NUA DO BINÁRIO (isola o réu: o hyprlock morre SOZINHO no
+        # headless ou é o caminho do craft-lock?): o MESMO conf efêmero
+        # que o craft-lock gerou (a falta dele nomeia o home), teto de 3s
+        # com o KILL de resposta — vivo ao teto = o réu é o caminho do
+        # craft-lock; morto antes = o stderr abaixo é a confissão do
+        # PRÓPRIO binário (EGL/seat/protocolo nomeado na cara)
+        _pconf="$XDG/elite-hyprlock.conf"
+        [ -r "$_pconf" ] || _pconf="$HOMES/.config/hypr/hyprlock.conf"
+        _prc=0
+        _probe_out="$(timeout -s TERM -k 2 3 hyprlock -c "$_pconf" 2>&1)" || _prc=$?
+        if pgrep -x elite-daemon >/dev/null 2>&1; then _dae_txt="vivo"; else _dae_txt="MORTO"; fi
+        t_fail "lock: o hyprlock MAPA no headless" \
+            "não nasceu em 8s (lock.log: $(tail -2 "$HOMES/.cache/elite/lock.log" 2>/dev/null | tr '\n' ' ') · stderr do nascimento: $(tail -4 "$lock_err" 2>/dev/null | tr '\n' ' ') · a prova nua 3s rc=$_prc: $(printf '%s' "$_probe_out" | head -c 200) · daemon: $_dae_txt)"
     fi
 else
     t_skip "lock: o hyprlock vivo no headless" "hyprlock ausente — o Canal veste o juízo (tests.yml)"
 fi
 
-# ── 6. O SWAYNC DONO DAS NOTIFICAÇÕES NO BUS DE VERDADE (a diretriz:
-#      validar em labwc headless até o busctl --user get-name-owner
-#      responder SEM exit status 1 — o 'swaync SAIU exit status: 1' do
-#      dump morre com as peles do skel julgadas em carne) ──────────────────
-if [ "$TEM_DBUS" = 1 ] && [ -f "$XDG/dbus.addr" ]; then
-    export DBUS_SESSION_BUS_ADDRESS
-    DBUS_SESSION_BUS_ADDRESS="$(cat "$XDG/dbus.addr" 2>/dev/null || printf '%s' "$DBUS_SESSION_BUS_ADDRESS")"
-    if ! command -v busctl >/dev/null 2>&1; then
-        t_skip "swaync: dono das notificações" "busctl ausente (o systemd do runner traz — o Canal veste o juízo)"
-    elif command -v swaync >/dev/null 2>&1; then
-        # o dono do nome (o residente supervisionado subiu com as peles do
-        # skel — o config.json inválido o mataria e o nome ficaria órfão)
-        _dono=1
-        for _ in $(seq 1 40); do
-            if busctl --user get-name-owner org.freedesktop.Notifications >/dev/null 2>&1; then
-                _dono=0
-                break
-            fi
-            sleep 0.5
-        done
-        if [ "$_dono" = 0 ]; then
-            t_ok "swaync: DONO de org.freedesktop.Notifications no bus de verdade (o config.json/style.css do skel são VÁLIDOS — a central não morre)"
-        else
-            t_fail "swaync: dono de org.freedesktop.Notifications" "busctl --user get-name-owner segue rc≠0 em 20s (stderr do daemon: $(tail -2 "$daemon_err" 2>/dev/null | tr '\n' ' '))"
-        fi
-    else
-        t_skip "swaync: dono das notificações" "swaync ausente — o Canal veste o juízo (tests.yml)"
-    fi
-    # o OSD com a PELE (o --style do $HOME só nasce quando o arquivo
-    # existe — o 'COULD NOT FIND CSS FILE!' do dump é a ausência de pele)
-    if command -v swayosd-server >/dev/null 2>&1; then
-        sleep 1
-        if pgrep -x swayosd-server >/dev/null 2>&1; then
-            if grep -q "COULD NOT FIND CSS FILE" "$HOMES/.cache/elite/bars.log" 2>/dev/null; then
-                t_fail "swayosd: o OSD vivo SEM o lamento do CSS" "o bars.log carrega o COULD NOT FIND CSS FILE de era"
-            else
-                t_ok "swayosd: o OSD vivo com a PELE do $HOME (o --style existe — o lamento do dump morre)"
-            fi
-        else
-            t_skip "swayosd: o OSD vivo" "o swayosd-server não subiu neste ambiente (o daemon segue de pé)"
-        fi
-    fi
+# ── 8. A SESSÃO SOBREVIVE AO JUÍZO DO LOCK (1.0-109-b — a rede da run
+#      46084597503: o daemon terminou SEM VOZ (a última linha do
+#      daemon.err era o craft-doctor de bus.cliente 4) e o BUS morreu
+#      JUNTO — o dbus-run-session desce com o filho; com o poste de vida
+#      de ANTES e este de DEPOIS, a janela da queda fica cercada dos
+#      dois lados e o réu do lock.err acima é o mesmo crime) ─────────────
+sleep 1
+if pgrep -x elite-daemon >/dev/null 2>&1; then
+    t_ok "sessão: o elite-daemon sobrevive ao juízo do lock (a família e o bus seguem de pé)"
 else
-    t_skip "swaync: dono das notificações" "dbus-run-session ausente — o Canal veste o juízo (tests.yml)"
+    t_fail "sessão: o elite-daemon sobrevive ao juízo do lock" \
+        "o daemon morreu SEM voz no daemon.err (as últimas 8 linhas: $(tail -8 "$daemon_err" 2>/dev/null | tr '\n' ' '))"
 fi
 
 # a limpeza SEM órfãos (a lição do ci-runtime-smoke)
