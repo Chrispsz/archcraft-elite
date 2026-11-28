@@ -1023,6 +1023,21 @@ file_has "bar: o divisor ENTRE mídia e hardware (a direita em BLOCOS)" "crates/
 file_has "tools: o texto honesto do atualizador (sincronizando e verificando — a senha NUNCA foi daqui)" "crates/craft-tools/src/bin/craft-update.rs" 'sincronizando repositórios e verificando pacotes'
 file_hasnt "tools: o texto mentiroso de era morre (a senha é do diálogo do polkit)" "crates/craft-tools/src/bin/craft-update.rs" 'digite sua senha para continuar'
 file_has "tools: o resumo dos pacotes ANTES de aplicar (pacman -Qu sem elevação)" "crates/craft-tools/src/bin/craft-update.rs" '"-Qu"'
+# ── 1.0-109 Etapa 2 — O PLAYER DE MÍDIA MINIMALISTA E REATIVO (a
+#    diretriz §2.2: o pill único 100% interativo, o ciclo de vida pelo
+#    NameOwnerChanged < 200ms, o ícone de AÇÃO e o filtro anti-ruído)
+file_hasnt "bar: o botão avulso ⏭ de era MORREU (o pill único reina — zero botões extras)" "crates/craft-bar-rs/src/ui.rs" 'btn_next'
+file_hasnt "css: a pele do assento avulso de era sai da folha mestra" "crates/elite-core/assets/theme.css" '#nextbtn {'
+file_has "bar: o scroll do pill com o DEBOUNCE de 250ms (a diretriz: sem salto duplo)" "crates/craft-bar-rs/src/ui.rs" 'from_millis(250)'
+file_has "bar: o nome AMIGÁVEL do app (org.mpris...brave.instance15578 → 'Brave')" "crates/craft-bar-rs/src/state.rs" 'fn nome_amigavel'
+file_has "bar: o tooltip com a LEGENDA DOS GESTOS (a diretriz §2.2.5)" "crates/craft-bar-rs/src/state.rs" 'Clique: Play/Pause · Scroll: Faixa · Dir.: Abrir janela'
+file_hasnt "bar: o tooltip NUNCA fala o nome técnico do bus (o org.mpris morre)" "crates/craft-bar-rs/src/state.rs" 'org.mpris.MediaPlayer2.brave.instance15578 (pausado)'
+file_has "daemon: o MERGE com o cache da faixa (a cura do ícone travado — o sinal parcial)" "crates/elite-daemon/src/mpris.rs" 'fn funde_track'
+file_has "daemon: o FILTRO dos títulos genéricos da diretriz (WhatsApp/Audio/Voice message)" "crates/elite-daemon/src/mpris.rs" '"mensagem de voz"'
+file_has "daemon: o TETO do áudio curto em µs (60s — o mpris:length da ficha)" "crates/elite-daemon/src/mpris.rs" 'TETO_CURTO_US: i64 = 60_000_000'
+file_has "daemon: a ficha da faixa lida (mpris:length + CanGoNext/CanGoPrevious)" "crates/elite-daemon/src/mpris.rs" '"CanGoNext"'
+file_has "daemon: a faixa do nome MORTO morre JUNTO (NameOwnerChanged limpa o cache)" "crates/elite-daemon/src/mpris.rs" 'A FAIXA DO NOME MORTO MORRE JUNTO'
+file_has "daemon: a preferência do TOCANDO (o pausado não rouba o assento de quem toca)" "crates/elite-daemon/src/mpris.rs" 'NÃO ROUBA O ASSENTO DE QUEM TOCA'
 
 printf '%s\n' "$OK_COUNT $FAIL_COUNT $SKIP_COUNT" > "$WORK/fase20.txt"
 exit 0

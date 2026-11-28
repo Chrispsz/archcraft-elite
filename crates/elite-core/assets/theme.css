@@ -106,10 +106,9 @@
 }
 #barbox #playerbtn label { font-size: 13px; }
 #barbox #playerbtn image { color: @elite-accent-strong; }
-/* 1.0-104 — O PRÓXIMO DA FAIXA (assento próprio do pill de mídia) */
-#barbox #nextbtn { padding: 0 4px; min-height: 24px; }
-#barbox #nextbtn image { color: @elite-text; }
-#barbox #nextbtn:hover image { color: @elite-accent-strong; }
+/* 1.0-104 — O PRÓXIMO DA FAIXA (assento próprio de era). 1.0-109 §2.2 —
+ * O ASSENTO MORRE COM O PILL ÚNICO (a diretriz: zero botões extras — o
+ * scroll do próprio pill veste a faixa; a regra #nextbtn sai da pele). */
 /* 1.0-104 — O MODO DE JOGO ACENDE O ACENTO PRIMÁRIO (#a855f7 — a ordem
  * do dono: o indicador persistente lê-se de longe; o assento do jogo é
  * o acento da casa, o roxo da paleta). */

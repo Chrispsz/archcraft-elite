@@ -169,15 +169,10 @@ struct State {
     bt_img: gtk::Image,
     btn_game: gtk::Button,
     btn_player: gtk::Button,
-    /// 1.0-101 — o ÍCONE DE STATUS da mídia (media-playback-start/pause
+    /// 1.0-101 — o ÍCONE DE AÇÃO da mídia (media-playback-start/pause
     /// — o glifo Nerd da pílula morre com a fonte que não o tem).
     player_img: gtk::Image,
     player_label: gtk::Label,
-    /// 1.0-104 — O BOTÃO DE PRÓXIMA FAIXA (a ordem do dono: o pill do
-    /// player mostra o título curto COM os botões de Play/Pause e
-    /// Próxima faixa — o Próximo é assento próprio ao lado do pill,
-    /// nasce e morre JUNTO com ele).
-    btn_next: gtk::Button,
     /// 1.0-104 — o rádio do Wi-Fi (None = nmcli calado — o tooltip não
     /// inventa o que não leu).
     wifi_radio: Option<bool>,
@@ -343,7 +338,6 @@ fn build(app: &gtk::Application) {
         btn_player: gtk::Button::new(),
         player_img: gtk::Image::from_icon_name("media-playback-start-symbolic"),
         player_label: gtk::Label::new(None),
-        btn_next: gtk::Button::new(),
         wifi_radio: None,
         btn_bat: None,
         minuto_desenhado: u32::MAX,
@@ -447,7 +441,6 @@ fn build(app: &gtk::Application) {
         let s = st.borrow();
         let btn_game = s.btn_game.clone();
         let btn_player = s.btn_player.clone();
-        let btn_next = s.btn_next.clone();
         let player_img = s.player_img.clone();
         let player_label = s.player_label.clone();
         let btn_audio = s.btn_audio.clone();
@@ -535,7 +528,21 @@ fn build(app: &gtk::Application) {
         }
         {
             let bus = st.borrow().bus_cli.clone();
+            // 1.0-109 §2.2 — O SCROLL COM DEBOUNCE DE 250ms (a diretriz:
+            // o gesto do trackpad/roda dispara VÁRIOS eventos no mesmo
+            // toque — sem o freio a faixa saltava em DOBRO; o Instant
+            // segura o segundo salto dentro da janela)
+            let ultimo = std::rc::Rc::new(std::cell::Cell::new(
+                std::time::Instant::now() - std::time::Duration::from_secs(10),
+            ));
             scroll(&btn_player, move |dy| {
+                let agora = std::time::Instant::now();
+                if agora.duration_since(ultimo.get()) < std::time::Duration::from_millis(250) {
+                    return; // o eco do MESMO gesto — o debounce come
+                }
+                ultimo.set(agora);
+                // a diretriz: scroll para CIMA (dy<0) = PRÓXIMA faixa ·
+                // para BAIXO (dy>0) = faixa ANTERIOR
                 pede_bus(&bus, if dy < 0.0 {
                     elite_core::MediaCmd::Next
                 } else {
@@ -545,31 +552,11 @@ fn build(app: &gtk::Application) {
         }
         dir.append(&btn_player);
 
-        // 1.0-104 — O BOTÃO DE PRÓXIMA FAIXA (a ordem do dono: o pill do
-        // player mostra o título curto COM os botões de Play/Pause e
-        // Próxima faixa). O play/pause é o clique do pill DE ALWAYS; o
-        // PRÓXIMO é assento próprio — ícone media-skip-forward, nasce e
-        // morre JUNTO com o pill (uma pílula só de mídia em cena).
-        btn_next.set_widget_name("nextbtn");
-        btn_next.set_has_frame(false);
-        btn_next.set_valign(gtk::Align::Center);
-        {
-            let img = gtk::Image::from_icon_name("media-skip-forward-symbolic");
-            img.set_pixel_size(14);
-            img.set_valign(gtk::Align::Center);
-            btn_next.set_child(Some(&img));
-        }
-        btn_next.set_visible(false);
-        btn_next.set_tooltip_text(Some("Mídia — próxima faixa"));
-        // 1.0-105 — o ESQUERDO pelo `clicked` (o gesture nunca via o
-        // botão 1 — o botão de UM verbo só veste o caminho nativo)
-        {
-            let bus = st.borrow().bus_cli.clone();
-            btn_next.connect_clicked(move |_| {
-                pede_bus(&bus, elite_core::MediaCmd::Next);
-            });
-        }
-        dir.append(&btn_next);
+        // 1.0-109 §2.2 — O PILL ÚNICO (a diretriz: ZERO botões extras —
+        // o ⏭ avulso de era ocupava a faixa sem botão de retroceder; o
+        // scroll do PRÓPRIO pill veste a faixa: cima = próxima, baixo =
+        // anterior, com o DEBOUNCE de 250ms que mata o salto duplo do
+        // gesto — os controles vivem TODOS no próprio pill).
 
         // 1.0-109 §2.3 — O DIVISOR ENTRE MÍDIA E HARDWARE (o grupo da
         // direita nasce: o divisor sutil separa os pílulas (game/mídia)
@@ -1294,11 +1281,11 @@ fn aplica(st: &Rc<RefCell<State>>, msg: Msg) {
         }
         Msg::Media(m) => {
             // 2.0 — o MPRIS pelo fio: o estado tipado vira a pílula
-            // 1.0-101 (ícone de STATUS + Artista - Título ≤28; sem
+            // 1.0-101 (ícone de AÇÃO + "Título — Artista" ≤28; sem
             // player no bus o assento SAI — oculto 0px)
-            // 1.0-104 — o PRÓXIMO nasce com o pill (a ordem do dono:
-            // Play/Pause no clique do pill + Próxima faixa no assento
-            // próprio — os DOIS botões da mídia em cena)
+            // 1.0-109 §2.2 — O PILL ÚNICO (o ⏭ avulso de era MORREU: o
+            // scroll/cique do PRÓPRIO pill veste a faixa inteira — uma
+            // pílula só de mídia em cena)
             let s = st.borrow_mut();
             match m.as_ref().and_then(media_pill) {
                 Some(pill) => {
@@ -1306,11 +1293,9 @@ fn aplica(st: &Rc<RefCell<State>>, msg: Msg) {
                     s.player_label.set_text(&pill.texto);
                     s.btn_player.set_tooltip_text(Some(&pill.tooltip));
                     s.btn_player.set_visible(true);
-                    s.btn_next.set_visible(true);
                 }
                 None => {
                     s.btn_player.set_visible(false);
-                    s.btn_next.set_visible(false);
                 }
             }
         }

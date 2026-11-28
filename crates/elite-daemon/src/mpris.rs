@@ -24,6 +24,19 @@
 // "Playing" (ou o único vivo); a janela dele (o clique direito da
 // barra = focar) casa pelo Identity/nome contra o app_id/título no
 // wayland.rs (o match benigno).
+//
+// 1.0-109 §2.2 — O PILL REATIVO E O FILTRO ANTI-RUÍDO: (1) o
+// PropertiesChanged manda SÓ o que MUDOU — o CACHE DA FAIXA por player
+// funde o sinal parcial (pausar com PlaybackStatus sozinho NUNCA mais
+// derruba o título: o ícone travado do dump morre) e o dict Metadata
+// PRESENTE sem xesam:* é a faixa LIMPA (veredito, não ausência); (2)
+// o NameOwnerChanged do nome MORTO limpa o cache NA HORA e o censo
+// ou veste o próximo elegível ou OCULTA o pill no MESMO instante do
+// evento (a diretriz: < 200 ms); (3) o FILTRO: título genérico
+// (WhatsApp/Audio/Voice message/…) é ruído; faixa curta (< 60s) com
+// ficha vazia (sem artista OU sem controles) é ruído — a preferência
+// é SEMPRE do elegível TOCANDO, sem tocando o último elegível vivo
+// fica em Pausado.
 // ═════════════════════════════════════════════════════════════════════════
 
 use std::collections::HashMap;
@@ -53,6 +66,26 @@ static PLAYER_ATIVO: Mutex<Option<String>> = Mutex::new(None);
 /// e a fila de players de uma sessão é minúscula.
 static NOMES_DE_BUS: Mutex<Option<HashMap<String, String>>> = Mutex::new(None);
 
+/// 1.0-109 §2.2 — O CACHE DA FAIXA POR PLAYER (a cura do ÍCONE TRAVADO:
+/// o PropertiesChanged manda SÓ o que MUDOU — pausar manda UM dict com
+/// PlaybackStatus sozinho, e o título que NÃO vejo não pode sumir; sem
+/// o merge o estado parcial virava None e o ícone ficava travado no
+/// que era ANTES do clique). O cache morre com o player (NameOwnerChanged
+/// limpa na hora — a faixa de um morto é ruído). O corpo é o RAW
+/// FUNDIDO: o filtro anti-ruído lê o MESMO estado que o pill mostra.
+#[derive(Debug, Clone, PartialEq)]
+struct TrackCache {
+    raw: PropsRaw,
+}
+
+static TRACKS: Mutex<Option<HashMap<String, TrackCache>>> = Mutex::new(None);
+
+/// 1.0-109 §2.2 — A ORDEM DOS ANÚNCIOS (o "último elegível vivo" é o
+/// player que anunciou por ÚLTIMO — o ListNames do censo é ordem
+/// alfabética, não ordem de vida; a fila mora aqui, mais recente no
+/// FIM para o juízo .rev() da escolhe_ativo).
+static ORDEM: Mutex<Option<Vec<String>>> = Mutex::new(None);
+
 /// o estado atual (para o snapshot de boas-vindas e a vigília).
 pub fn estado() -> Option<MediaState> {
     MEDIA.lock().unwrap().clone()
@@ -74,6 +107,21 @@ pub fn escolhe_ativo(players: &[(String, bool, Option<MediaState>)]) -> Option<&
         .or_else(|| players.iter().rev().find(|(_, _, estado)| estado.is_some()))
 }
 
+/// 1.0-109 §2.2.6 — OS TÍTULOS DE RUÍDO DA DIRETRIZ (os áudios curtos
+/// de WhatsApp Web / redes sociais sequestravam o pill com título
+/// genérico): a lista da diretriz, comparada em minúsculas.
+pub const TITULOS_RUIDO: [&str; 5] = [
+    "whatsapp",
+    "whatsapp web",
+    "audio",
+    "voice message",
+    "mensagem de voz",
+];
+
+/// o teto do áudio curto (60s em µs — o contrato do mpris:length):
+/// faixa mais curta QUE ISSO com ficha vazia é ruído de rede social.
+pub const TETO_CURTO_US: i64 = 60_000_000;
+
 /// os campos crus que a casa lê do PropertiesChanged (a normalização
 /// de DOIS mundos: o dict do zvariant na produção, o serde_json nos
 /// testes — o juízo mora em `estado_de_props`, UM lugar só).
@@ -89,22 +137,42 @@ pub struct PropsRaw {
     pub playback: Option<String>,
     pub title: Option<String>,
     pub artist: Option<String>,
+    /// 1.0-109 §2.2.6 — o FILTRO ANTI-RUÍDO lê a ficha da faixa:
+    /// mpris:length (i64, µs) · CanGoNext/CanGoPrevious (bool) e a
+    /// PRESENÇA do dict Metadata (o dict PRESENTE sem xesam:* é a
+    /// faixa LIMPA pelo player — o None DELE é veredito, não ausência).
+    pub length: Option<i64>,
+    pub can_next: Option<bool>,
+    pub can_prev: Option<bool>,
+    /// Some(true) quando o dict VEIO com a chave Metadata (o sinal de
+    /// que a faixa foi LIMPA: o None de título/artista NELE é verdict,
+    /// não ausência de informação).
+    pub meta_limpa: Option<bool>,
 }
 
 impl PropsRaw {
     /// o dict VIVO do zvariant: PlaybackStatus no topo + o "Metadata"
-    /// (a{sv}) lido CHAVE POR CHAVE — o campo que não pedimos (length
-    /// i64, trackid ObjectPath) cai no `_` e não derruba NADA.
+    /// (a{sv}) lido CHAVE POR CHAVE — o campo que não pedimos (trackid
+    /// ObjectPath) cai no `_` e não derruba NADA.
     pub fn do_dict(dict: &std::collections::HashMap<String, zbus::zvariant::OwnedValue>) -> Self {
         let playback = dict
             .get("PlaybackStatus")
             .and_then(|v| v.downcast_ref::<String>().ok());
+        let can_next = dict
+            .get("CanGoNext")
+            .and_then(|v| v.downcast_ref::<bool>().ok());
+        let can_prev = dict
+            .get("CanGoPrevious")
+            .and_then(|v| v.downcast_ref::<bool>().ok());
         let mut title = None;
         let mut artist = None;
+        let mut length = None;
+        let mut meta_limpa = None;
         if let Some(meta) = dict
             .get("Metadata")
             .and_then(|v| v.downcast_ref::<zbus::zvariant::Dict>().ok())
         {
+            meta_limpa = Some(true);
             for (chave, valor) in meta.iter() {
                 let Ok(chave) = chave.downcast_ref::<String>() else { continue };
                 match chave.as_str() {
@@ -124,12 +192,13 @@ impl PropsRaw {
                             })
                             .or_else(|| valor.downcast_ref::<String>().ok());
                     }
-                    // mpris:length/mpris:trackid: não pedimos — silêncio
+                    "mpris:length" => length = valor.downcast_ref::<i64>().ok(),
+                    // mpris:trackid/artUrl: não pedimos — silêncio
                     _ => {}
                 }
             }
         }
-        PropsRaw { playback, title, artist }
+        PropsRaw { playback, title, artist, length, can_next, can_prev, meta_limpa }
     }
 
     /// o dict de papel (os testes alimentam o mesmo juízo — a MESMA
@@ -148,6 +217,12 @@ impl PropsRaw {
             playback: props.get("PlaybackStatus").and_then(|v| v.as_str()).map(str::to_string),
             title: texto("xesam:title"),
             artist: texto("xesam:artist").or_else(|| lista("xesam:artist")),
+            length: meta
+                .and_then(|m| m.get("mpris:length"))
+                .and_then(|v| v.as_i64()),
+            can_next: props.get("CanGoNext").and_then(|v| v.as_bool()),
+            can_prev: props.get("CanGoPrevious").and_then(|v| v.as_bool()),
+            meta_limpa: meta.map(|_| true),
         }
     }
 }
@@ -156,9 +231,32 @@ impl PropsRaw {
 /// sem FAIXA (nem título nem artista) é o vazio honesto: o "Stopped"
 /// com Metadata vazio não acende pill nenhum (o assento é da mídia que
 /// o dono LÊ, não do player respirando).
+/// 1.0-109 §2.2.6 — O FILTRO ANTI-RUÍDO (a diretriz: os áudios curtos de
+/// WhatsApp Web / redes sociais NUNCA mais sequestram o player da barra):
+/// (a) o título GENÉRICO da lista da diretriz é ruído (comparado em
+/// minúsculas com o trim); (b) a faixa CURTA conhecida (mpris:length
+/// < 60_000_000 µs) com ficha VAZIA (sem xesam:artist OU sem os controles
+/// CanGoNext/CanGoPrevious) é ruído — o ping da rede social não é música.
 pub fn estado_de_props(player: &str, raw: &PropsRaw) -> Option<MediaState> {
     if raw.title.is_none() && raw.artist.is_none() {
         return None;
+    }
+    // (a) o título genérico da rede social (a lista da diretriz)
+    if let Some(t) = raw.title.as_deref() {
+        if TITULOS_RUIDO.contains(&t.trim().to_lowercase().as_str()) {
+            return None;
+        }
+    }
+    // (b) a faixa curta com ficha vazia: <60s E (sem artista OU sem
+    // controles) — o áudio do WhatsApp não é a mídia do dono
+    let curta = matches!(raw.length, Some(l) if l > 0 && l < TETO_CURTO_US);
+    if curta {
+        let sem_artista = raw.artist.as_deref().map(str::is_empty).unwrap_or(true);
+        let sem_controles =
+            !raw.can_next.unwrap_or(true) && !raw.can_prev.unwrap_or(true);
+        if sem_artista || sem_controles {
+            return None;
+        }
     }
     let playback = raw.playback.as_deref().unwrap_or("");
     let tocando = playback.eq_ignore_ascii_case("playing");
@@ -309,10 +407,79 @@ fn on_props(msg: &zbus::Message) {
         return;
     };
     let raw = PropsRaw::do_dict(&dict);
-    if let Some(estado) = estado_de_props(&player, &raw) {
+    // 1.0-109 §2.2 — O MERGE COM O CACHE DA FAIXA (o PropertiesChanged
+    // manda SÓ o que MUDOU: pausar é UM dict com PlaybackStatus sozinho
+    // — o título que NÃO veio mora no cache; sem o merge a faixa
+    // parcial morria e o ícone TRAVAVA no estado anterior)
+    let Some(estado) = funde_track(&player, raw) else {
+        return;
+    };
+    if estado.playing {
+        *PLAYER_ATIVO.lock().unwrap() = Some(player);
+        publica(Some(estado));
+        return;
+    }
+    // 1.0-109 §2.2.6 — o PAUSADO NÃO ROUBA O ASSENTO DE QUEM TOCA (a
+    // preferência é SEMPRE do elegível tocando; o PRÓPRIO ativo pausado
+    // renova o estado na hora — o ícone veste o ▶ no instante do clique)
+    let ativo = PLAYER_ATIVO.lock().unwrap().clone();
+    let veste = match ativo.as_deref() {
+        None => true,
+        Some(nome) if nome == player => true,
+        Some(_) => !MEDIA.lock().unwrap().as_ref().map(|m| m.playing).unwrap_or(false),
+    };
+    if veste {
         *PLAYER_ATIVO.lock().unwrap() = Some(player);
         publica(Some(estado));
     }
+}
+
+/// 1.0-109 §2.2 — O MERGE COM O CACHE (a porta dos testes): o sinal
+/// parcial casa com a FAIXA viva do player — o que veio vence, o que
+/// não veio mora no cache; o dict Metadata PRESENTE sem xesam:* é a
+/// faixa LIMPA (o None dele é veredito, não ausência). O cache morre
+/// com a faixa (o juízo de elegibilidade é o MESMO da publicação).
+pub fn funde_track(player: &str, novo: PropsRaw) -> Option<MediaState> {
+    let mut tracks = TRACKS.lock().unwrap();
+    let mapa = tracks.get_or_insert_with(HashMap::new);
+    let base = mapa.get(player).map(|c| c.raw.clone());
+    let fundido = match base {
+        Some(base) => {
+            let limpa = novo.meta_limpa == Some(true);
+            PropsRaw {
+                playback: novo.playback.or(base.playback),
+                title: if limpa { None } else { novo.title.or(base.title) },
+                artist: if limpa { None } else { novo.artist.or(base.artist) },
+                length: if limpa { None } else { novo.length.or(base.length) },
+                can_next: novo.can_next.or(base.can_next),
+                can_prev: novo.can_prev.or(base.can_prev),
+                meta_limpa: novo.meta_limpa.or(base.meta_limpa),
+            }
+        }
+        None => novo.clone(),
+    };
+    let estado = estado_de_props(player, &fundido);
+    match estado {
+        Some(_) => {
+            mapa.insert(player.to_string(), TrackCache { raw: fundido });
+        }
+        None => {
+            mapa.remove(player);
+        }
+    }
+    drop(tracks);
+    bumpa_ordem(player);
+    estado
+}
+
+/// 1.0-109 §2.2 — o anúncio do player toca a fila da ORDEM (o mais
+/// recente no FIM — o "último elegível vivo" é o ÚLTIMO que anunciou,
+/// não o alfabético do ListNames).
+fn bumpa_ordem(player: &str) {
+    let mut fila = ORDEM.lock().unwrap();
+    let fila = fila.get_or_insert_with(Vec::new);
+    fila.retain(|n| n != player);
+    fila.push(player.to_string());
 }
 
 /// O NASCIMENTO/MORTE de players (o pill some quando o player morre):
@@ -338,24 +505,37 @@ fn on_owner(msg: &zbus::Message) {
             mapa.remove(&novo);
         }
     }
+    // 1.0-109 §2.2.2 — A FAIXA DO NOME MORTO MORRE JUNTO (a diretriz:
+    // o nome perdeu o dono → o cache da faixa é limpo NA HORA e o
+    // watcher daquele player é zerado — a faixa de um morto é ruído;
+    // o censo a seguir ou veste o próximo elegível ou OCULTA o pill
+    // no MESMO instante do evento, < 200 ms)
+    {
+        let mut tracks = TRACKS.lock().unwrap();
+        if let Some(mapa) = tracks.as_mut() {
+            mapa.remove(&nome);
+        }
+    }
+    {
+        let mut fila = ORDEM.lock().unwrap();
+        if let Some(f) = fila.as_mut() {
+            f.retain(|n| n != &nome);
+        }
+    }
     varre_players();
 }
 
 /// O CENSO (a varredura de TODOS os players — o censo inicial da
 /// thread E a resposta ao nascimento/morte): lista os vivos, lê o
-/// estado de cada um, publica o ativo. O ativo VIVO segue no assento
-/// (o aniversário do vizinho não rouba o palco de quem toca).
+/// estado de cada um, publica o ativo. 1.0-109 §2.2.6 — a preferência
+/// é SEMPRE do elegível TOCANDO; sem tocando, o ÚLTIMO elegível vivo
+/// fica em Pausado; sem elegível NENHUM, o pill OCULTA na hora (a
+/// diretriz: o pill some no mesmo instante do último player morrer).
 pub fn varre_players() {
     let Ok(c) = zbus::blocking::Connection::session() else {
         return;
     };
     let players = varre_todos(&c);
-    let ativo = PLAYER_ATIVO.lock().unwrap().clone();
-    if let Some(nome) = ativo.as_deref() {
-        if players.iter().any(|(n, _, _)| n == nome) {
-            return; // o ativo segue vivo: silêncio (a casa não pisca)
-        }
-    }
     match escolhe_ativo(&players).cloned() {
         Some((nome, _, estado)) => {
             *PLAYER_ATIVO.lock().unwrap() = Some(nome);
@@ -370,7 +550,11 @@ pub fn varre_players() {
 
 /// a FAMÍLIA dos vivos: cada org.mpris.MediaPlayer2.* com o estado lido
 /// (GetAll) e o cache de tradução alimentado (o PropertiesChanged que
-/// vier depois responde na hora, sem ir ao bus de novo).
+/// vier depois responde na hora, sem ir ao bus de novo). 1.0-109 §2.2 —
+/// o GetAll VESTE O CACHE DA FAIXA (o sinal parcial de depois funde com
+/// a leitura COMPLETA de agora) e a fila sai na ORDEM DOS ANÚNCIOS (o
+/// "último elegível vivo" é o último que anunciou — o ListNames é
+/// alfabético, não ordem de vida).
 fn varre_todos(c: &zbus::blocking::Connection) -> Vec<(String, bool, Option<MediaState>)> {
     let mut out = Vec::new();
     for (nome, dono) in nomes_com_dono(c) {
@@ -383,12 +567,21 @@ fn varre_todos(c: &zbus::blocking::Connection) -> Vec<(String, bool, Option<Medi
         let tocando = estado.as_ref().map(|e| e.playing).unwrap_or(false);
         out.push((nome, tocando, estado));
     }
+    // a ordem dos ANÚNCIOS manda (o mais recente no fim — o .rev() do
+    // escolhe_ativo casa o "último que anunciou"); quem nunca anunciou
+    // fica na frente (o veterano anunciado ganha o desempate)
+    if let Some(fila) = ORDEM.lock().unwrap().clone() {
+        let pos = |n: &str| fila.iter().position(|x| x == n).unwrap_or(usize::MAX - 1);
+        out.sort_by_key(|(n, _, _)| pos(n));
+    }
     out
 }
 
 /// o estado INICIAL de UM player: GetAll do org.mpris.MediaPlayer2.
 /// Player (o mesmo dict do PropertiesChanged — o MESMO juízo do
-/// PropsRaw; quem nasce tocando nasce publicado).
+/// PropsRaw; quem nasce tocando nasce publicado). 1.0-109 §2.2 — a
+/// leitura COMPLETA VESTE O CACHE da faixa (o sinal parcial que vier
+/// depois funde com ela — a cura do ícone travado).
 fn le_player(c: &zbus::blocking::Connection, player: &str) -> Option<MediaState> {
     let Ok(proxy) = zbus::blocking::Proxy::new(
         c,
@@ -405,7 +598,23 @@ fn le_player(c: &zbus::blocking::Connection, player: &str) -> Option<MediaState>
         return None;
     };
     let raw = PropsRaw::do_dict(&dict);
-    estado_de_props(player, &raw)
+    // a leitura é COMPLETA: o cache da faixa veste ELA (não o merge — o
+    // dict do GetAll é a verdade inteira do player neste instante)
+    let estado = estado_de_props(player, &raw);
+    {
+        let mut tracks = TRACKS.lock().unwrap();
+        let mapa = tracks.get_or_insert_with(HashMap::new);
+        match estado {
+            Some(_) => {
+                mapa.insert(player.to_string(), TrackCache { raw });
+            }
+            None => {
+                mapa.remove(player);
+            }
+        }
+    }
+    bumpa_ordem(player);
+    estado
 }
 
 /// O JUÍZO PURO da tradução (a porta dos testes): dado o sender ÚNICO
@@ -635,5 +844,124 @@ mod tests {
         assert_eq!(traduz_sender(":1.99", &pares), None);
         // lista vazia (o bus sem players): nada — a barra segue sem mídia
         assert_eq!(traduz_sender(":1.42", &[]), None);
+    }
+
+    // ── 1.0-109 §2.2 — O ÍCONE REATIVO E O FILTRO ANTI-RUÍDO ──────────
+
+    #[test]
+    fn o_sinal_parcial_funde_com_o_cache_da_faixa() {
+        // A EVIDÊNCIA DO RIG: o pill ficava TRAVADO em ⏸ — pausar manda
+        // UM dict com PlaybackStatus SOZINHO e a faixa parcial virava
+        // None (o título morava no sinal que NÃO veio)
+        let bravo = "org.mpris.MediaPlayer2.brave.instance15578";
+        let inteiro = PropsRaw::do_json(&json!({
+            "PlaybackStatus": "Playing",
+            "CanGoNext": true,
+            "CanGoPrevious": true,
+            "Metadata": {
+                "xesam:title": "Need 2",
+                "xesam:artist": ["Pinegrove"],
+                "mpris:length": 213000000
+            }
+        }));
+        let tocando = funde_track(bravo, inteiro).unwrap();
+        assert!(tocando.playing);
+        assert_eq!(tocando.title.as_deref(), Some("Need 2"));
+        // o PAUSAR chega PARCIAL (só o status): o título mora no CACHE
+        let parcial = PropsRaw::do_json(&json!({
+            "PlaybackStatus": "Paused"
+        }));
+        let pausado = funde_track(bravo, parcial).unwrap();
+        assert!(!pausado.playing, "o ícone veste o ▶ NA HORA do clique");
+        assert_eq!(pausado.title.as_deref(), Some("Need 2"), "a faixa não morre com o sinal parcial");
+        assert_eq!(pausado.artist.as_deref(), Some("Pinegrove"));
+    }
+
+    #[test]
+    fn a_faixa_limpa_pelo_player_mata_o_cache() {
+        // o player LIMPOU o Metadata (Stopped de verdade): o dict PRESENTE
+        // sem xesam:* é veredito — o None dele não é ausência de informação
+        let mpv = "org.mpris.MediaPlayer2.mpv";
+        let tocando = PropsRaw::do_json(&json!({
+            "PlaybackStatus": "Playing",
+            "Metadata": {"xesam:title": "X", "mpris:length": 213000000}
+        }));
+        assert!(funde_track(mpv, tocando).is_some());
+        let limpa = PropsRaw::do_json(&json!({
+            "PlaybackStatus": "Stopped",
+            "Metadata": {}
+        }));
+        assert!(funde_track(mpv, limpa).is_none(), "a faixa limpa é o None honesto");
+        // e o cache MORRE: o próximo sinal parcial não ressuscita fantasma
+        let eco = PropsRaw::do_json(&json!({"PlaybackStatus": "Paused"}));
+        assert!(funde_track(mpv, eco).is_none());
+    }
+
+    #[test]
+    fn o_filtro_anti_ruido_do_whatsapp_e_da_rede_social() {
+        // (a) os TÍTULOS GENÉRICOS da diretriz — em qualquer caixa
+        for titulo in ["WhatsApp", "whatsapp web", "Audio", "Voice message", "Mensagem de voz"] {
+            let raw = PropsRaw::do_json(&json!({
+                "PlaybackStatus": "Playing",
+                "Metadata": {"xesam:title": titulo, "mpris:length": 30000000}
+            }));
+            assert!(
+                estado_de_props("org.mpris.MediaPlayer2.brave.instance1", &raw).is_none(),
+                "o título genérico '{titulo}' é ruído, nunca mídia do dono"
+            );
+        }
+        // (b) a faixa CURTA com ficha VAZIA: 15s SEM artista e SEM
+        // controles — o ping da rede social
+        let curto = PropsRaw::do_json(&json!({
+            "PlaybackStatus": "Playing",
+            "CanGoNext": false,
+            "CanGoPrevious": false,
+            "Metadata": {"xesam:title": "Uma nota de voz real", "mpris:length": 15000000}
+        }));
+        assert!(estado_de_props("org.mpris.MediaPlayer2.firefox", &curto).is_none());
+        // o curto com ficha COMPLETA é música (artista E controles — o
+        // jingle de 40s do player que navega faixas)
+        let curto_completo = PropsRaw::do_json(&json!({
+            "PlaybackStatus": "Playing",
+            "CanGoNext": true,
+            "CanGoPrevious": true,
+            "Metadata": {"xesam:title": "Jingle", "xesam:artist": ["A Casa"], "mpris:length": 40000000}
+        }));
+        assert!(estado_de_props("org.mpris.MediaPlayer2.firefox", &curto_completo).is_some());
+        // o curto SEM controles é ruído MESMO com artista (o ping da
+        // rede social tem título de música e nome de canal como artista)
+        let curto_sem_controles = PropsRaw::do_json(&json!({
+            "PlaybackStatus": "Playing",
+            "CanGoNext": false,
+            "CanGoPrevious": false,
+            "Metadata": {"xesam:title": "Clipe", "xesam:artist": ["Canal"], "mpris:length": 45000000}
+        }));
+        assert!(estado_de_props("org.mpris.MediaPlayer2.firefox", &curto_sem_controles).is_none());
+        // o curto SEM artista é ruído MESMO com controles (a ficha
+        // vazia denuncia o áudio de rede social)
+        let curto_sem_artista = PropsRaw::do_json(&json!({
+            "PlaybackStatus": "Playing",
+            "CanGoNext": true,
+            "CanGoPrevious": true,
+            "Metadata": {"xesam:title": "Single curto", "mpris:length": 45000000}
+        }));
+        assert!(estado_de_props("org.mpris.MediaPlayer2.firefox", &curto_sem_artista).is_none());
+        // a faixa NORMAL (>60s) sem artista é MÚSICA de verdade
+        let longo = PropsRaw::do_json(&json!({
+            "PlaybackStatus": "Playing",
+            "Metadata": {"xesam:title": "Missa em Ré", "mpris:length": 300000000}
+        }));
+        assert!(estado_de_props("org.mpris.MediaPlayer2.mpv", &longo).is_some());
+        // o teto é 60s EM µs: 59.9s curto · 60.0s já é música
+        let quase = PropsRaw::do_json(&json!({
+            "PlaybackStatus": "Playing",
+            "Metadata": {"xesam:title": "T", "mpris:length": 59900000}
+        }));
+        assert!(estado_de_props("org.mpris.MediaPlayer2.mpv", &quase).is_none());
+        let exato = PropsRaw::do_json(&json!({
+            "PlaybackStatus": "Playing",
+            "Metadata": {"xesam:title": "T", "mpris:length": 60000000}
+        }));
+        assert!(estado_de_props("org.mpris.MediaPlayer2.mpv", &exato).is_some());
     }
 }

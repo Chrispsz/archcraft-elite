@@ -50,17 +50,61 @@ use elite_core::MediaState;
 /// O TEXTO DO PLAYER pelo estado do bus (2.0: zero playerctl, o
 /// PropertiesChanged do MPRIS chega pelo fio; o pill some sem mídia).
 /// 1.0-101 — A PÍLULA REFINADA do audit 99: ícone de STATUS como NOME
-/// de ícone GTK (media-playback-start/pause — o glifo Nerd \u{f047b}
-/// era o réu da era E147 e morre aqui também: a fonte GTK não o tem),
-/// o rótulo é "Artista - Título" (a ordem que o dono lê) TRUNCADO em
-/// 28 caracteres com o texto INTEIRO no tooltip do hover.
+/// de ícone GTK (media-playback-start/pause), o rótulo truncado em 28.
+/// 1.0-109 §2.2 — O PILL ÚNICO E REATIVO: o rótulo é "Título — Artista"
+/// (a ordem que o dono LÊ na diretriz); o ÍCONE é a AÇÃO (▶ quando
+/// Pausado/Parado — o ▶ convida o clique; ⏸ quando Tocando — o ⏸
+/// promete a pausa; o pill de era tinha o ícone INVERTIDO e travado);
+/// o TOOLTIP é LIMPO E DESCRITIVO: nunca o nome técnico
+/// org.mpris.MediaPlayer2.* — só o título, o app AMIGÁVEL com o estado
+/// e a legenda dos gestos.
 pub struct PilulaMidia {
-    /// o ícone de status GTK (tocando/pausado) para o Image da barra.
+    /// o ícone de AÇÃO GTK (tocando=⏸ pausa · parado=▶ play).
     pub icone: &'static str,
-    /// "Artista - Título" ≤ 28 chars (a largura da barra manda).
+    /// "Título — Artista" ≤ 28 chars (a largura da barra manda).
     pub texto: String,
-    /// o texto COMPLETO (a lei da casa: nada de recorte no tooltip).
+    /// o tooltip COMPLETO em 3 linhas limpas (a lei da casa: nada de
+    /// nome técnico, nada de recorte).
     pub tooltip: String,
+}
+
+/// 1.0-109 §2.2 — O NOME AMIGÁVEL DO APP (a diretriz: o tooltip NUNCA
+/// mostra org.mpris.MediaPlayer2.brave.instance15578 — mostra "Brave").
+/// O juízo PURO: tira o prefixo MPRIS, tira o sufixo de instância
+/// (.instanceNNNN — o contrato do MPRIS para múltiplas janelas) e veste
+/// o nome da família com a inicial maiúscula (brave → Brave, mpv → mpv).
+pub fn nome_amigavel(player: &str) -> String {
+    let base = player
+        .strip_prefix("org.mpris.MediaPlayer2.")
+        .unwrap_or(player);
+    let base = match base.find(".instance") {
+        Some(i) => &base[..i],
+        None => base,
+    };
+    let base = base.trim();
+    if base.is_empty() {
+        return "Mídia".to_string();
+    }
+    // a família conhecida vestida com o nome que o dono lê na loja
+    match base.to_ascii_lowercase().as_str() {
+        "brave" => "Brave".to_string(),
+        "firefox" => "Firefox".to_string(),
+        "chromium" => "Chromium".to_string(),
+        "chrome" | "google-chrome" => "Chrome".to_string(),
+        "spotify" => "Spotify".to_string(),
+        "vlc" => "VLC".to_string(),
+        "mpv" => "mpv".to_string(),
+        "elisa" => "Elisa".to_string(),
+        _ => {
+            // desconhecido: a primeira letra maiúscula, o resto como o
+            // player se apresentou (honesto, sem inventar)
+            let mut cs = base.chars();
+            match cs.next() {
+                Some(p) => p.to_uppercase().collect::<String>() + cs.as_str(),
+                None => "Mídia".to_string(),
+            }
+        }
+    }
 }
 
 pub fn media_pill(m: &MediaState) -> Option<PilulaMidia> {
@@ -72,7 +116,7 @@ pub fn media_pill(m: &MediaState) -> Option<PilulaMidia> {
     let inteiro = if artista.is_empty() {
         titulo.clone()
     } else {
-        format!("{artista} - {titulo}")
+        format!("{titulo} — {artista}")
     };
     // a largura da barra: 28 chars no TOTAL (o pill não empurra o
     // relógio para fora da tela; o hover diz o inteiro)
@@ -82,16 +126,25 @@ pub fn media_pill(m: &MediaState) -> Option<PilulaMidia> {
     } else {
         inteiro.clone()
     };
+    // 1.0-109 §2.2 — O ÍCONE É A AÇÃO (a diretriz: ▶ quando Pausado ou
+    // Stopped — o play convida o clique; ⏸ quando Tocando — a pausa é a
+    // promessa do clique; o ícone de era INVERTIDO travava em ⏸)
     let icone = if m.playing {
-        "media-playback-start-symbolic"
-    } else {
         "media-playback-pause-symbolic"
+    } else {
+        "media-playback-start-symbolic"
     };
-    let estado = if m.playing { "tocando" } else { "pausado" };
-    let tooltip = match m.player.as_deref() {
-        Some(p) => format!("{inteiro} · {p} ({estado})"),
-        None => format!("{inteiro} ({estado})"),
-    };
+    // 1.0-109 §2.2 — O TOOLTIP LIMPO (3 linhas: a faixa · o app amigável
+    // com o estado · a legenda dos gestos — NUNCA o nome técnico)
+    let app = m
+        .player
+        .as_deref()
+        .map(nome_amigavel)
+        .unwrap_or_else(|| "Mídia".to_string());
+    let estado = if m.playing { "Tocando" } else { "Pausado" };
+    let tooltip = format!(
+        "{inteiro}\n{app} · {estado}\nClique: Play/Pause · Scroll: Faixa · Dir.: Abrir janela"
+    );
     Some(PilulaMidia { icone, texto, tooltip })
 }
 
@@ -736,16 +789,21 @@ mod tests {
             playing: true,
         };
         let pill = media_pill(&m).unwrap();
-        // 1.0-101 — a ordem é "Artista - Título" e o ícone é GTK
-        assert!(pill.texto.contains("ConcernedApe - Stardew OST"));
-        assert_eq!(pill.icone, "media-playback-start-symbolic");
-        assert!(pill.tooltip.contains("firefox"));
+        // 1.0-109 §2.2 — a ordem é "Título — Artista" e o ícone é a AÇÃO
+        assert_eq!(pill.texto, "Stardew OST — ConcernedApe");
+        // tocando: o ícone é a PAUSA (⏸ — o clique promete pausar)
+        assert_eq!(pill.icone, "media-playback-pause-symbolic");
+        // o tooltip NUNCA fala o nome técnico — só o app amigável
+        assert!(!pill.tooltip.contains("org.mpris"));
+        assert!(!pill.tooltip.contains("MediaPlayer2"));
+        assert!(pill.tooltip.contains("Firefox · Tocando"));
         assert!(pill.tooltip.contains("Stardew OST"));
-        // pausado: o estado tem voz no ícone e no tooltip
+        assert!(pill.tooltip.contains("Clique: Play/Pause · Scroll: Faixa · Dir.: Abrir janela"));
+        // pausado: o ▶ é o convite do clique (o ícone de era INVERTIDO)
         let pausado = MediaState { playing: false, ..m.clone() };
         let pill2 = media_pill(&pausado).unwrap();
-        assert_eq!(pill2.icone, "media-playback-pause-symbolic");
-        assert!(pill2.tooltip.contains("pausado"));
+        assert_eq!(pill2.icone, "media-playback-start-symbolic");
+        assert!(pill2.tooltip.contains("Firefox · Pausado"));
         // sem mídia: o pill NÃO NASCE (o botão sai da barra)
         let vazio = MediaState { player: None, title: None, artist: None, playing: false };
         assert!(media_pill(&vazio).is_none());
@@ -759,6 +817,31 @@ mod tests {
         let pill3 = media_pill(&longo).unwrap();
         assert!(pill3.texto.chars().count() <= 28, "pill largo: {:?}", pill3.texto);
         assert!(pill3.tooltip.contains("de jeito nenhum"));
+    }
+
+    // ── 1.0-109 §2.2 — o nome amigável do app (a diretriz: o tooltip
+    //    NUNCA mostra org.mpris.MediaPlayer2.brave.instance15578) ──────
+
+    #[test]
+    fn o_nome_amigavel_da_familia() {
+        // a instância do Brave (YouTube Music) veste o nome da loja
+        assert_eq!(
+            nome_amigavel("org.mpris.MediaPlayer2.brave.instance15578"),
+            "Brave"
+        );
+        assert_eq!(nome_amigavel("org.mpris.MediaPlayer2.firefox"), "Firefox");
+        assert_eq!(nome_amigavel("org.mpris.MediaPlayer2.chromium"), "Chromium");
+        assert_eq!(nome_amigavel("org.mpris.MediaPlayer2.spotify"), "Spotify");
+        assert_eq!(nome_amigavel("org.mpris.MediaPlayer2.vlc"), "VLC");
+        // o mpv é o mpv (o nome que o dono conhece é minúsculo)
+        assert_eq!(nome_amigavel("org.mpris.MediaPlayer2.mpv"), "mpv");
+        // o desconhecido veste a inicial maiúscula SEM inventar nome
+        assert_eq!(nome_amigavel("org.mpris.MediaPlayer2.audacious"), "Audacious");
+        // sem o prefixo MPRIS: o nome NU também veste o juízo
+        assert_eq!(nome_amigavel("brave"), "Brave");
+        // o vazio honesto: Mídia (nunca nome quebrado)
+        assert_eq!(nome_amigavel(""), "Mídia");
+        assert_eq!(nome_amigavel("org.mpris.MediaPlayer2."), "Mídia");
     }
 
 }
