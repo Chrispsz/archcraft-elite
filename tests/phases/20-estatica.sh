@@ -1049,6 +1049,20 @@ file_has "menu: a margem da base é a altura da mãe + respiro (o menu da dock s
 file_has "css: a janela do menu veste a obsidiana com a borda sutil da casa" "crates/elite-core/assets/theme.css" '#menuwin {'
 file_has "css: o botão do menu veste a escada do pick (repouso transparente · hover sobe UM degrau)" "crates/elite-core/assets/theme.css" '#menuwin button:hover'
 file_has "css: o divisor sutil dos grupos do menu (a mesma régua do §2.3)" "crates/elite-core/assets/theme.css" '#menuwin separator'
+# ── 1.0-109 Etapa 2 — O MENU DA DOCK VESTE A CAMADA (a diretriz §2.1:
+#    o popover de era era FILHO da superfície top e a gaveta o cobria
+#    inteiro; o menu agora é a janela Overlay do MenuCamada — e o clique
+#    fora o desce SEM engolir o clique do ícone)
+file_has "dock: o menu do direito é a JANELA DE CAMADA (o MenuCamada da fundação)" "crates/craft-dock-rs/src/ui.rs" 'fn abre_menu_dock'
+file_has "dock: o conteúdo do menu do botão que chamou (Fixar/Desafixar + Nova janela + Fechar)" "crates/craft-dock-rs/src/ui.rs" 'fn monta_menu_dock'
+file_has "dock: o Estado guarda o menu de camada (a MESMA janela, o conteúdo do act)" "crates/craft-dock-rs/src/ui.rs" 'menu: craft_tools::MenuCamada'
+file_has "dock: o menu abre ATRÁS da mãe (a dock mora na BASE — o menu sobe)" "crates/craft-dock-rs/src/ui.rs" 'menu.abre(btn, true)'
+file_has "dock: O CLIQUE FORA SEM ENGOLIR — o gesto em CAPTURA na janela fecha o menu" "crates/craft-dock-rs/src/ui.rs" 'set_propagation_phase(gtk::PropagationPhase::Capture)'
+file_has "dock: a Nova janela do menu desce a gaveta JUNTO (a janela nova nasce À VISTA)" "crates/craft-dock-rs/src/ui.rs" 'dismiss_overlays();'
+file_hasnt "dock: o PopoverMenu de era morre (o menu é a janela de camada — nada de popover filho)" "crates/craft-dock-rs/src/ui.rs" 'gtk::PopoverMenu::from_model'
+file_hasnt "dock: o enterro do popover pendurado morre (não há popover filho de botão)" "crates/craft-dock-rs/src/ui.rs" 'fn dispensa_popovers'
+file_has "apps: a gaveta mora na camada TOP (a flag -ovl que sobe NUNCA é passada)" "elite/airootfs/usr/local/bin/craft-apps" 'A GAVETA MORA NA CAMADA TOP'
+file_has "apps: a invocação ÍNTEGRA sem -ovl (a gaveta é o degrau top do layer-shell)" "elite/airootfs/usr/local/bin/craft-apps" 'setsid nwg-drawer -fm thunar -term foot -is 64 -c 8 -spacing 16 -nocats'
 
 printf '%s\n' "$OK_COUNT $FAIL_COUNT $SKIP_COUNT" > "$WORK/fase20.txt"
 exit 0

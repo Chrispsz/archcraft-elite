@@ -98,9 +98,10 @@ else
 fi
 file_has "pele: os ícones da barra são from_icon_name" "crates/craft-bar-rs/src/ui.rs" 'from_icon_name'
 
-# ── 7. o ciclo de vida dos popovers da dock (o "still has children") ─────
-file_has "dock: o popover fecha com popdown antes do unparent" "crates/craft-dock-rs/src/ui.rs" 'popdown'
-file_has "dock: o unparent ANTES do remove (o órfão morre no frame)" "crates/craft-dock-rs/src/ui.rs" 'unparent'
+# ── 7. o ciclo de vida dos menus da dock (o "still has children" MORREU
+#      com o popover: 1.0-109 §2.1 — o menu de camada é janela TOPLEVEL
+#      própria, nunca filho de botão; o enterro do botão morto é SECO) ──
+file_has "dock: o botão morto sai SECO da pílula (zero filho pendurado — o menu é janela própria)" "crates/craft-dock-rs/src/ui.rs" 'morto sai SECO da pílula: o menu de camada é janela própria'
 file_has "dock: o queue_resize da pílula e da janela no MESMO frame" "crates/craft-dock-rs/src/ui.rs" 'queue_resize'
 file_has "dock: a coveira do dismiss (o pkill não vira zumbi)" "crates/craft-dock-rs/src/ui.rs" 'dismiss_overlays'
 file_has "bar: a coveira dos filhos (o <defunct> morre colhido)" "crates/craft-bar-rs/src/ui.rs" 'solta-coveira'

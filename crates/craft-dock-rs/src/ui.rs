@@ -64,8 +64,10 @@
 //     o daemon morto o indicador fica APAGADO nesta v1 (honesto — não
 //     é a mentira de acender sem janela).
 // E140 — O QUE ENTROU (a Parte 2 do dossiê 1.0-88): o MENU E74 do
-//   direito é REAL (PopoverMenu nativo com Fixar/Desafixar da Dock +
-//   Nova janela + Fechar — a gaveta fuzzel dos pins morre), o clique
+//   direito é REAL (Fixar/Desafixar da Dock + Nova janela + Fechar —
+//   a gaveta fuzzel dos pins morreu; 1.0-109 §2.1: o menu de era em
+//   PopoverMenu virou a JANELA DE CAMADA Overlay — SEMPRE acima da
+//   gaveta), o clique
 //   é EXCLUSIVAMENTE no released com tolerância de arrasto <5px (o
 //   press×click duplicava o verbo) e a assinatura do fio não falece por
 //   silêncio (o BusClient de hoje reconecta sozinho — zero espaço
@@ -221,6 +223,11 @@ struct State {
     /// o teto de escrita de 500ms da fundação, NUNCA um round-trip
     /// bloqueando a main thread do GTK).
     bus: Option<std::sync::Arc<elite_core::bus::BusClient>>,
+    /// 1.0-109 §2.1 — O MENU DE CAMADA (o clique direito veste a camada
+    /// Overlay — SEMPRE acima da gaveta top do craft-apps; o popover de
+    /// era era FILHO da superfície top da dock e a gaveta que nascia
+    /// DEPOIS o cobria inteiro — a evidência do dump 1.0-108).
+    menu: craft_tools::MenuCamada,
 }
 
 pub fn run() -> i32 {
@@ -314,9 +321,11 @@ fn build(app: &gtk::Application) {
     // 1.0-105 — O TECLADO NUNCA É DA DOCK (KeyboardMode::None — a ordem
     // do dono: a dock JAMAIS rouba o foco de teclado no primeiro clique;
     // o OnDemand de era roubava o foco da janela real e o primeiro clique
-    // só "acordava" a dock — o app abria no SEGUNDO. Os menus/popovers
-    // da dock são mouse-first; o contorno :focus/:focus-visible morre
-    // no CSS (outline/box-shadow none) e o anel roxo nunca mais acende).
+    // só "acordava" a dock — o app abria no SEGUNDO. Os menus da dock
+    // são mouse-first e veste o teclado exclusivo a janela PRÓPRIA do
+    // menu de camada (1.0-109 §2.1 — a dock em si segue NONE); o contorno
+    // :focus/:focus-visible morre no CSS (outline/box-shadow none) e o
+    // anel roxo nunca mais acende).
     window.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::None);
     window.set_namespace(Some("craft-dock"));
 
@@ -330,23 +339,11 @@ fn build(app: &gtk::Application) {
     // existe neste ponto).
     ouve_monitores(&window, &pill);
 
-    // E149 — O TEARDOWN SEM ÓRFÃOS (a classe inteira do 'still has
-    // children left: GtkPopoverMenu': o repack já enterrou os botões
-    // mortos com popdown+unparent — o EXIT do processo era a porta que
-    // faltava: os botões VIVOS finalizavam com o popover ainda filho):
-    // o close_request dispensa os popovers de TODOS os botões antes do
-    // fechamento (o pkill TERM da casa passa por aqui).
-    {
-        let pill = pill.clone();
-        window.connect_close_request(move |_| {
-            let mut w = pill.first_child();
-            while let Some(c) = w {
-                w = c.next_sibling();
-                dispensa_popovers(&c);
-            }
-            glib::Propagation::Proceed
-        });
-    }
+    // E149 — O TEARDOWN SEM ÓRFÃOS MORREU COM O POPOVER (1.0-109 §2.1: o
+    // menu de camada é UMA janela TOPLEVEL própria — não é filho de
+    // botão nenhum, o 'still has children left: GtkPopoverMenu' de era
+    // era o enterro do repack E do EXIT; hoje nada mora pendurado: a
+    // janela do menu desce com o processo da dock no mesmo tombamento).
 
     // o índice de .desktops (com os EXPORTS do Flatpak e as chaves
     // reverse-DNS — o "bazaar" do io.github.kolunmi.Bazaar.desktop)
@@ -392,12 +389,35 @@ fn build(app: &gtk::Application) {
         last_act: HashMap::new(),
         launching: HashMap::new(),
         bus: None,
+        menu: craft_tools::MenuCamada::novo("craft-dock-menu"),
         children: Vec::new(),
         pins_chave: String::new(),
         pin_misses: HashMap::new(),
         home,
         uid: procapp::current_uid(),
     }));
+
+    // 1.0-109 §2.1 — O CLIQUE FORA QUE NÃO É ENGOLIDO: o press em
+    // QUALQUER filho da dock fecha o menu ANTES do ícone agir — o
+    // gesto mora na JANELA em fase de CAPTURA (vê o press primeiro, de
+    // cima para baixo) e NUNCA reclama a sequência: o botão embaixo
+    // recebe o MESMO evento (o clique destinado ao ícone passa DIRETO,
+    // o menu desce no MESMO instante — o 1º clique engolido pelo grab
+    // do popover de era morre aqui).
+    {
+        let st_clica = st.clone();
+        let gesto_fora = gtk::GestureClick::new();
+        gesto_fora.set_button(0);
+        gesto_fora.set_propagation_phase(gtk::PropagationPhase::Capture);
+        gesto_fora.connect_pressed(move |_g, _n, _x, _y| {
+            if st_clica.borrow().menu.aberto() {
+                st_clica.borrow().menu.fecha();
+                log("menu da dock desceu pelo clique na mãe (o clique do ícone segue — nada é engolido)");
+            }
+        });
+        let janela = st.borrow().window.clone();
+        janela.add_controller(gesto_fora);
+    }
 
     // os sinais da casa (W-S-d toggle · reload dos pins)
     unsafe {
@@ -418,8 +438,10 @@ fn build(app: &gtk::Application) {
          ceifa/guard/pins) · cadeia de \
          ícones E130/E132 ON (Flatpak reverse-DNS + Gear Lever + cache + \
          .DirIcon + extração em thread) · Layer::Top com teclado NUNCA \
-         da dock (KeyboardMode::None — 1.0-105) · o ESCOPO HONESTO mora \
-         no cabeçalho deste arquivo",
+         da dock (KeyboardMode::None — 1.0-105) · o MENU do direito na \
+         camada Overlay (1.0-109 §2.1 — SEMPRE acima da gaveta, o clique \
+         fora o desce SEM engolir o clique do ícone) · o ESCOPO HONESTO \
+         mora no cabeçalho deste arquivo",
         st.borrow().pins.len(),
     ));
 
@@ -860,9 +882,9 @@ fn rebuild_pins(st: &Rc<RefCell<State>>) {
     // pílula no mesmo frame, nunca dois botões do mesmo app por alguns
     // instantes) e o update_indicators acende o .running no botão NOVO
     // NA HORA (o indicador de estado aberto não espera o tick de 5s).
-    // Todo caminho que remonta os pins — o popover (Fixar/Desafixar),
-    // o SIGUSR2 (craft-pin de fora), o tick de segurança — sai daqui
-    // com a pílula COERENTE com o snapshot vivo, num ciclo só.
+    // Todo caminho que remonta os pins — o menu de camada (Fixar/
+    // Desafixar), o SIGUSR2 (craft-pin de fora), o tick de segurança — sai
+    // daqui com a pílula COERENTE com o snapshot vivo, num ciclo só.
     sync_dynamic(st);
     update_indicators(&st.borrow());
 }
@@ -872,33 +894,21 @@ fn rebuild_pins(st: &Rc<RefCell<State>>) {
 /// v2.10.0 do diff-guard na forma que a GTK4 simplifica: widgets são
 /// REORDENADOS, nunca recriados — o flicker da recriação é o que o
 /// dono rejeitou). A transição ANIMADA v2.11 é degrau seguinte.
-/// E148 — O CICLO DE VIDA DOS POPOVERS (a evidência do dono: o
+/// E148 — O CICLO DE VIDA DOS POPOVERS MORREU COM ELES (1.0-109 §2.1:
+/// o menu de camada é UMA janela TOPLEVEL — nunca filho de botão, o
 /// 'Gtk-WARNING: Finalizing dockbtn … still has children left:
-/// GtkPopoverMenu' e os ESPAÇOS PRETOS ÓRFÃOS na dock — o botão
-/// morria com o popover AINDA FILHO dele e o GTK avisava/lia vazando):
-/// antes da REMOÇÃO de qualquer botão morto, o popover dele é
-/// popdown() + unparent() — a remoção limpa, sem aviso e sem órfão.
+/// GtkPopoverMenu' e os ESPAÇOS PRETOS ÓRFÃOS de era eram o enterro
+/// do popover pendurado; hoje o botão morto sai SECO da pílula).
 /// O queue_resize da pílula E da JANELA fecha o ciclo no MESMO frame
 /// (a largura nova do layer-shell nasce sem espaço residual).
 fn repack(s: &State) {
     let pill = &s.pill;
-    // o conjunto de widgets que SOBREVIVEM a esta remontagem (os vivos
-    // nas maps — só os FORA delas morrem e ganham o enterro limpo)
-    let vivos: Vec<gtk::Widget> = s
-        .pins
-        .iter()
-        .map(|r| r.button.clone().upcast::<gtk::Widget>())
-        .chain(s.dyns.values().map(|r| r.button.clone().upcast::<gtk::Widget>()))
-        .chain(s.raws.values().map(|r| r.button.clone().upcast::<gtk::Widget>()))
-        .collect();
-    // solta todos (os widgets vivem nas maps — só a ORDEM muda)
+    // solta todos (os widgets vivem nas maps — só a ORDEM muda; o botão
+    // morto sai SECO da pílula: o menu de camada é janela própria, nada
+    // mora pendurado nele — 1.0-109 §2.1)
     let kids: Vec<gtk::Widget> = std::iter::successors(pill.first_child(), |w| w.next_sibling())
         .collect();
     for w in kids {
-        let morre = !vivos.iter().any(|v| v == &w);
-        if morre {
-            dispensa_popovers(&w);
-        }
         pill.remove(&w);
     }
     for row in &s.pins {
@@ -922,8 +932,8 @@ fn repack(s: &State) {
     pill.show();
     // E151 — o fecho do repack É o flush ÚNICO (o recálculo da superfície
     // mora numa função só; todo caminho que mexe na pílula — tick de 5s,
-    // SIGUSR2, pin do popover, snapshot do bus, abertura/fecho — sai com
-    // a surface commitada no MESMO frame)
+    // SIGUSR2, pin do menu de camada, snapshot do bus, abertura/fecho —
+    // sai com a surface commitada no MESMO frame)
     flush_superficie(pill, &s.window);
 }
 
@@ -963,7 +973,7 @@ fn flush_superficie(pill: &gtk::Box, window: &gtk::ApplicationWindow) {
 /// encolhe NO FRAME do evento, sem espaço preto à direita): o
 /// queue_draw + o queue_resize da pílula E da janela e o flush do
 /// display numa função única — o repack do tick de 5s, o SIGUSR2, a
-/// ação do popover e o snapshot do bus partilham o MESMO fecho (o
+/// ação do menu de camada e o snapshot do bus partilham o MESMO fecho (o
 /// flush era só do caminho do snapshot — os outros deixavam o frame
 /// velho respirar até o próximo repaint).
 fn recalcula_superficie(st: &Rc<RefCell<State>>) {
@@ -1037,24 +1047,6 @@ fn ouve_monitores(window: &gtk::ApplicationWindow, pill: &gtk::Box) {
                 log("GdkDisplay: items-changed no modelo de monitores — âncora/zona exclusiva re-afirmadas");
             }
         });
-    }
-}
-
-/// E148 — O ENTERRO LIMPO DE UM WIDGET COM POPUP: fecha (popdown) e
-/// DESANEXA (unparent) qualquer Popover ainda filho do widget que
-/// morre — o aviso 'still has children left' e o espaço preto órfão
-/// morrem pela RAIZ (a evidência do dono era a classe inteira).
-fn dispensa_popovers(w: &gtk::Widget) {
-    let mut filho = w.first_child();
-    while let Some(c) = filho {
-        filho = c.next_sibling();
-        // PopoverMenu É um Popover na hierarquia do GTK4 (a herança
-        // segura o par inteiro com um downcast só; o c já foi avançado
-        // — o downcast consome o clone seguro do iterador)
-        if let Ok(pop) = c.clone().downcast::<gtk::Popover>() {
-            pop.popdown();
-            pop.unparent();
-        }
     }
 }
 
@@ -1355,196 +1347,211 @@ fn make_raw_button(st: &Rc<RefCell<State>>, key: &str, name: &str) -> gtk::Butto
 /// (o release do gesto marca; o clicked que vem logo atrás do mouse
 /// encontra a bandeira e sai — o do teclado encontra limpa e age).
 fn wire_clicks(st: &Rc<RefCell<State>>, btn: &gtk::Button, act: Act) {
-    // E140 — O POPOVER NATIVO DO BOTÃO DIREITO (a gaveta fuzzel dos
-    // pins morre: Fixar/Desafixar mora AGORA no botão do próprio app,
+    // E140 — O MENU DO BOTÃO DIREITO (a gaveta fuzzel dos pins morreu
+    // E140 atrás: Fixar/Desafixar mora AGORA no botão do próprio app,
     // com Nova janela e Fechar — a ordem do dono, Parte 2 do dossiê).
-    // Nasce UMA vez por botão (filho do botão — morre com ele); o
-    // MODELO muda por clique (Fixar/Desafixar pela leitura do estado).
-    let pop = gtk::PopoverMenu::from_model(None::<&gtk::gio::MenuModel>);
-    pop.set_position(gtk::PositionType::Top);
-    pop.insert_action_group("dock", Some(&grupo_do_popover(st, &act)));
+    // 1.0-109 §2.1 — O MENU VESTE A CAMADA: o PopoverMenu de era era
+    // FILHO da superfície top da dock — a gaveta do craft-apps (a
+    // MESMA camada top) que nascia DEPOIS o cobria inteiro, e o grab
+    // dele engolia o 1º clique destinado ao ícone (o dump 1.0-108
+    // fotografou os dois); o menu agora é UMA janela Overlay própria
+    // (o MenuCamada da fundação) — SEMPRE acima da gaveta e o clique
+    // fora o desce SEM engolir nada.
+    let btn_c = btn.clone();
+    let press = std::rc::Rc::new(std::cell::Cell::new((0.0f64, 0.0f64)));
+    let eco = std::rc::Rc::new(std::cell::Cell::new(false));
+    let gesture = gtk::GestureClick::new();
+    gesture.set_button(0);
     {
-        let pop = pop.clone();
-        let press = std::rc::Rc::new(std::cell::Cell::new((0.0f64, 0.0f64)));
-        let eco = std::rc::Rc::new(std::cell::Cell::new(false));
-        let gesture = gtk::GestureClick::new();
-        gesture.set_button(0);
-        {
-            let press = press.clone();
-            gesture.connect_pressed(move |_g, _n, x, y| {
-                press.set((x, y));
-            });
-        }
-        {
-            let st = st.clone();
-            let act = act.clone();
-            let press = press.clone();
-            let eco = eco.clone();
-            gesture.connect_released(move |g, _n, x, y| {
-                let (px, py) = press.get();
-                if ((x - px) * (x - px) + (y - py) * (y - py)).sqrt() >= ARRASTO_PX {
-                    return; // ARRASTO, não clique (a tolerância do dossiê)
-                }
-                eco.set(true); // o eco do clicked do mouse morre aqui
-                match g.current_button() {
-                    1 => on_left(&st, &act),
-                    3 => {
-                        // o direito é o MENU agora (o verbo "nova
-                        // sessão" mora no item dele)
-                        pop.set_menu_model(Some(&menu_do(&st, &act)));
-                        pop.popup();
-                    }
-                    _ => {}
-                }
-                // E151 — O MEIO MORREU COM DIREITO: o verbo "encerrar"
-                // escondido num clique do meio era redundância (o mesmo
-                // verbo mora no item "Fechar" do menu completo do
-                // direito — um destino = um lugar, a lição do dump);
-                // cliques do meio não fazem NADA na dock da casa.
-            });
-        }
-        btn.add_controller(gesture);
-        // o TECLADO segue (Espaço/Enter = o verbo do esquerdo): o
-        // clicked do mouse encontra a bandeira `eco` e sai calado
-        {
-            let st = st.clone();
-            let act = act.clone();
-            btn.connect_clicked(move |_| {
-                if eco.get() {
-                    eco.set(false);
-                    return; // o eco do release do mouse — o gesto já falou
-                }
-                on_left(&st, &act);
-            });
-        }
+        let press = press.clone();
+        gesture.connect_pressed(move |_g, _n, x, y| {
+            press.set((x, y));
+        });
     }
-    // o popover é FILHO do botão (a âncora do posicionamento GTK4 —
-    // nasce depois dos controllers para nunca cobrir o gesto)
-    pop.set_parent(btn);
+    {
+        let st = st.clone();
+        let act = act.clone();
+        let press = press.clone();
+        let eco = eco.clone();
+        gesture.connect_released(move |g, _n, x, y| {
+            let (px, py) = press.get();
+            if ((x - px) * (x - px) + (y - py) * (y - py)).sqrt() >= ARRASTO_PX {
+                return; // ARRASTO, não clique (a tolerância do dossiê)
+            }
+            eco.set(true); // o eco do clicked do mouse morre aqui
+            match g.current_button() {
+                1 => on_left(&st, &act),
+                // o direito é o MENU de camada (o verbo "nova sessão"
+                // mora no item dele — o menu do botão que chamou)
+                3 => abre_menu_dock(&st, &act, &btn_c),
+                _ => {}
+            }
+            // E151 — O MEIO MORREU COM DIREITO: o verbo "encerrar"
+            // escondido num clique do meio era redundância (o mesmo
+            // verbo mora no item "Fechar" do menu completo do
+            // direito — um destino = um lugar, a lição do dump);
+            // cliques do meio não fazem NADA na dock da casa.
+        });
+    }
+    btn.add_controller(gesture);
+    // o TECLADO segue (Espaço/Enter = o verbo do esquerdo): o
+    // clicked do mouse encontra a bandeira `eco` e sai calado
+    {
+        let st = st.clone();
+        let act = act.clone();
+        btn.connect_clicked(move |_| {
+            if eco.get() {
+                eco.set(false);
+                return; // o eco do release do mouse — o gesto já falou
+            }
+            on_left(&st, &act);
+        });
+    }
 }
 
-/// E140 — o menu contextual do botão (Fixar/Desafixar conforme o estado
-/// VIVO dos pins + Nova janela + Fechar). E106/5 — O SEM-NOME TAMBÉM
-/// FIXA: com a PROVA de origem do /proc (ou já fixado pelo .desktop
-/// LOCAL gerado), o par de pins nasce no raw — a fixação gera o
-/// endereço e segue o fluxo normal; SEM prova o item SOME (o menu não
-/// promete o que não lança — honestidade).
-fn menu_do(st: &Rc<RefCell<State>>, act: &Act) -> gtk::gio::Menu {
-    let m = gtk::gio::Menu::new();
+/// 1.0-109 §2.1 — O DIREITO ABRE O MENU DE CAMADA: aberto FECHA
+/// (toggle), fechado NASCE vestido para ESTE botão (a MESMA janela,
+/// o conteúdo do act — o menu do botão que chamou, centrado nele,
+/// ACIMA da pílula: a mãe mora na BASE e o menu sobe ATRÁS dela).
+fn abre_menu_dock(st: &Rc<RefCell<State>>, act: &Act, btn: &gtk::Button) {
+    let menu = st.borrow().menu.clone();
+    if menu.aberto() {
+        menu.fecha(); // o toggle de sempre: o direito de novo desce
+        return;
+    }
+    menu.conteudo(&monta_menu_dock(st, act));
+    menu.abre(btn, true); // a mãe mora na BASE: o menu sobe ATRÁS dela
+}
+
+/// O CONTEÚDO do menu do botão (Fixar/Desafixar conforme o estado VIVO
+/// dos pins + Nova janela + Fechar — E140 intacto na carne nova).
+/// E106/5 — O SEM-NOME TAMBÉM FIXA: com a PROVA de origem do /proc (ou
+/// já fixado pelo .desktop LOCAL gerado), o par de pins nasce no raw —
+/// a fixação gera o endereço e segue o fluxo normal; SEM prova o item
+/// SOME (o menu não promete o que não lança — honestidade).
+fn monta_menu_dock(st: &Rc<RefCell<State>>, act: &Act) -> gtk::Box {
+    let corpo = gtk::Box::new(gtk::Orientation::Vertical, 2);
+    corpo.set_margin_top(4);
+    corpo.set_margin_bottom(4);
     match act {
-        Act::App { did, .. } => {
+        Act::App { did, name, .. } => {
             let fixado = st.borrow().pin_ids.contains(did);
-            m.append(
-                Some(if fixado {
-                    "Desafixar da Dock"
-                } else {
-                    "Fixar na Dock"
-                }),
-                Some("dock.pin"),
-            );
+            let rotulo = if fixado { "Desafixar da Dock" } else { "Fixar na Dock" };
+            corpo.append(&linha_de_menu(rotulo, {
+                let st = st.clone();
+                let did = did.clone();
+                let name = name.clone();
+                move || {
+                    let fixado = st.borrow().pin_ids.contains(&did);
+                    if fixado {
+                        if pins_aplica(&PodaOp::Remove(did.clone())) {
+                            log(&format!(
+                                "pin: {name} DESAFIXADO pelo menu de camada (E140 — escrita atômica + remontagem na hora)"
+                            ));
+                            rebuild_pins(&st);
+                        }
+                    } else if pins_adiciona(&did) {
+                        log(&format!(
+                            "pin: {name} FIXADO pelo menu de camada (E140 — a gaveta fuzzel dos pins morreu)"
+                        ));
+                        rebuild_pins(&st);
+                    }
+                    st.borrow().menu.fecha();
+                }
+            }));
         }
-        // E106/5 — o par de pins do SEM-NOME (a prova do /proc decide)
-        Act::Raw { key, .. } => {
+        // E106/5 — o par de pins do SEM-NOME (a prova do /proc decide;
+        // sem prova o item NEM NASCE — o menu não promete o que não lança)
+        Act::Raw { key, name } => {
             let id_local = icons::elite_desktop_id(key);
-            if st.borrow().pin_ids.contains(&id_local) {
-                m.append(Some("Desafixar da Dock"), Some("dock.pin"));
-            } else if procapp::raw_exec_provavel(
-                Path::new("/proc"),
-                key,
-                st.borrow().uid,
-            )
-            .is_some()
-            {
-                m.append(Some("Fixar na Dock"), Some("dock.pin"));
+            let ja_fixado = st.borrow().pin_ids.contains(&id_local);
+            let prova = procapp::raw_exec_provavel(Path::new("/proc"), key, st.borrow().uid);
+            if ja_fixado || prova.is_some() {
+                let rotulo = if ja_fixado { "Desafixar da Dock" } else { "Fixar na Dock" };
+                corpo.append(&linha_de_menu(rotulo, {
+                    let st = st.clone();
+                    let key = key.clone();
+                    let name = name.clone();
+                    move || {
+                        let id_local = icons::elite_desktop_id(&key);
+                        let fixado = st.borrow().pin_ids.contains(&id_local);
+                        if fixado {
+                            if pins_aplica(&PodaOp::Remove(id_local.clone())) {
+                                remove_desktop_gerado(&st, &id_local);
+                                log(&format!(
+                                    "pin: {name} DESAFIXADO pelo menu de camada (o .desktop \
+                                     local gerado saiu junto — E106/5, escrita atômica + remontagem na hora)"
+                                ));
+                                reindexa_desktops(&st);
+                                rebuild_pins(&st);
+                            }
+                        } else if fixa_raw(&st, &key, &name) {
+                            log(&format!(
+                                "pin: {name} FIXADO pelo menu de camada (o sem-nome ganhou \
+                                 .desktop local — E106/5, o AppImage virou app de verdade)"
+                            ));
+                            reindexa_desktops(&st);
+                            rebuild_pins(&st);
+                        } else {
+                            log(&format!(
+                                "pin do sem-nome sem prova de origem ({key}) — nada fixado \
+                                 (E106/5; instale o .desktop do app e ele vira dinâmico completo)"
+                            ));
+                        }
+                        st.borrow().menu.fecha();
+                    }
+                }));
             }
-            // sem prova de lançamento: o item NEM NASCE
         }
     }
-    m.append(Some("Nova janela"), Some("dock.new"));
-    m.append(Some("Fechar"), Some("dock.close"));
-    m
+    corpo.append(&separa_menu());
+    // NOVA JANELA (o verbo do direito antigo) — 1.0-109 §2.1: a gaveta
+    // aberta desce JUNTO (a diretriz: o menu fecha o craft-apps para a
+    // janela nova nascer À VISTA na hora)
+    corpo.append(&linha_de_menu("Nova janela", {
+        let st = st.clone();
+        let act = act.clone();
+        move || {
+            st.borrow().menu.fecha();
+            dismiss_overlays();
+            on_right_antigo(&st, &act);
+        }
+    }));
+    // FECHAR (o verbo do meio antigo — CLOSE gracioso por id)
+    corpo.append(&linha_de_menu("Fechar", {
+        let st = st.clone();
+        let act = act.clone();
+        move || {
+            st.borrow().menu.fecha();
+            dismiss_overlays(); // a gaveta desce JUNTO do fecho (§2.1)
+            on_middle(&st, &act);
+        }
+    }));
+    corpo
 }
 
-/// E140 — as ações do popover (o grupo vive NO popover: um por botão,
-/// o act viaja no closure — nada de grupo global com estado velho).
-fn grupo_do_popover(st: &Rc<RefCell<State>>, act: &Act) -> gtk::gio::SimpleActionGroup {
-    let grupo = gtk::gio::SimpleActionGroup::new();
-    // FIXAR/DESAFIXAR (o App tem .desktop; o raw GERA o local — E106/5)
-    if let Act::App { did, name, .. } = act {
-        let a_pin = gtk::gio::SimpleAction::new("pin", None);
-        let st = st.clone();
-        let did = did.clone();
-        let name = name.clone();
-        a_pin.connect_activate(move |_, _| {
-            let fixado = st.borrow().pin_ids.contains(&did);
-            if fixado {
-                if pins_aplica(&PodaOp::Remove(did.clone())) {
-                    log(&format!("pin: {name} DESAFIXADO pelo popover (E140 — escrita atômica + remontagem na hora)"));
-                    rebuild_pins(&st);
-                }
-            } else if pins_adiciona(&did) {
-                log(&format!("pin: {name} FIXADO pelo popover (E140 — a gaveta fuzzel dos pins morreu)"));
-                rebuild_pins(&st);
-            }
-        });
-        grupo.add_action(&a_pin);
-    }
-    // E106/5 — FIXAR/DESAFIXAR do SEM-NOME (a fixação gera o .desktop
-    // LOCAL no ~/.local do dono e segue o fluxo normal; o desafixar
-    // tira o pin E o arquivo QUE A CASA GEROU — a assinatura da
-    // primeira linha é o contrato do apagar)
-    if let Act::Raw { key, name } = act {
-        let a_pin = gtk::gio::SimpleAction::new("pin", None);
-        let st = st.clone();
-        let key = key.clone();
-        let name = name.clone();
-        a_pin.connect_activate(move |_, _| {
-            let id_local = icons::elite_desktop_id(&key);
-            let fixado = st.borrow().pin_ids.contains(&id_local);
-            if fixado {
-                if pins_aplica(&PodaOp::Remove(id_local.clone())) {
-                    remove_desktop_gerado(&st, &id_local);
-                    log(&format!(
-                        "pin: {name} DESAFIXADO pelo popover (o .desktop local gerado \
-                         saiu junto — E106/5, escrita atômica + remontagem na hora)"
-                    ));
-                    reindexa_desktops(&st);
-                    rebuild_pins(&st);
-                }
-            } else if fixa_raw(&st, &key, &name) {
-                log(&format!(
-                    "pin: {name} FIXADO pelo popover (o sem-nome ganhou .desktop \
-                     local — E106/5, o AppImage virou app de verdade)"
-                ));
-                reindexa_desktops(&st);
-                rebuild_pins(&st);
-            } else {
-                log(&format!(
-                    "pin do sem-nome sem prova de origem ({key}) — nada fixado \
-                     (E106/5; instale o .desktop do app e ele vira dinâmico completo)"
-                ));
-            }
-        });
-        grupo.add_action(&a_pin);
-    }
-    // NOVA JANELA (o verbo do direito antigo)
-    let a_new = gtk::gio::SimpleAction::new("new", None);
-    {
-        let st = st.clone();
-        let act = act.clone();
-        a_new.connect_activate(move |_, _| on_right_antigo(&st, &act));
-    }
-    grupo.add_action(&a_new);
-    // FECHAR (o verbo do meio antigo — CLOSE gracioso por id)
-    let a_close = gtk::gio::SimpleAction::new("close", None);
-    {
-        let st = st.clone();
-        let act = act.clone();
-        a_close.connect_activate(move |_, _| on_middle(&st, &act));
-    }
-    grupo.add_action(&a_close);
-    grupo
+/// 1.0-109 §2.1 — A LINHA DO MENU DE CAMADA (o botão puro da casa: a
+/// pele mora no `#menuwin` da folha mestra, o rótulo mora à esquerda e
+/// o verbo viaja no closure do clique — nada de grupo global com
+/// estado velho).
+fn linha_de_menu(rotulo: &str, verbo: impl Fn() + 'static) -> gtk::Button {
+    let btn = gtk::Button::new();
+    let rot = gtk::Label::new(Some(rotulo));
+    rot.set_halign(gtk::Align::Start);
+    btn.set_child(Some(&rot));
+    btn.set_has_frame(false);
+    btn.set_hexpand(true);
+    btn.connect_clicked(move |_| verbo());
+    btn
 }
+
+/// 1.0-109 §2.1 — o divisor sutil entre o grupo dos pins e os verbos
+/// da janela (a mesma régua do §2.3: 1px na cor da borda, com o
+/// respiro dos lados — a pele mora no `#menuwin separator` da mestra).
+fn separa_menu() -> gtk::Separator {
+    gtk::Separator::new(gtk::Orientation::Horizontal)
+}
+
 
 /// E140 — A FIXAÇÃO ATÔMICA (o par da pins_aplica): lê o papel FRESCO,
 /// o id ausente entra NO FIM (a ordem do arquivo é a ordem da pílula),
@@ -1767,7 +1774,7 @@ fn on_left(st: &Rc<RefCell<State>>, act: &Act) {
 }
 
 /// O DIREITO ANTIGO — NOVA SESSÃO (v2.10.10, agora o item "Nova
-/// janela" do popover E140): o verbo EXPLÍCITO de duplicar NÃO passa
+/// janela" do menu E140): o verbo EXPLÍCITO de duplicar NÃO passa
 /// chave (o guard é para o vão do foco, não para o pedido claro do
 /// dono). No SEM-NOME, a PROVA de origem do /proc é quem lança (o
 /// argv[0] executável → o AppImage do environ — E106/5: o MESMO
@@ -2150,10 +2157,10 @@ fn update_indicators(s: &State) {
 /// do cascade — o dono vence em empate, a casa nunca fica pelada).
 /// 1.0-104 — A MESTRA NUNCA MAIS MORRE NO OVERRIDE (a cura do menu de
 /// contexto BRANCO: o dock.css de era SUBSTITUÍA a folha inteira e as
-/// regras `popover > contents` da mestra — a pele escura dos menus —
+/// regras `#menuwin` da mestra — a pele escura dos menus —
 /// morriam com ela; o menu de clique direito nascia com o fundo DEFAULT
 /// do tema externo. A mestra entra PRIMEIRO, o override vence os
-/// empates — o popover é da casa em QUALQUER rig, com ou sem override).
+/// empates — o menu de camada é da casa em QUALQUER rig, com ou sem override).
 fn load_css() {
     let mestra = elite_core::THEME_CSS;
     let css = std::fs::read_to_string(css_path()).map(|extra| format!("{mestra}\n{extra}"));

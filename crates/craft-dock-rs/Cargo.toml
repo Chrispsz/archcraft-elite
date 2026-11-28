@@ -32,12 +32,20 @@ license = "GPL-3.0"
 # stub sem-gui NÃO carrega — a auditoria byte a byte não carrega peso):
 # o TESTE segue coberto pelo dev-dependencies do mesmo digest.
 default = ["gui"]
-gui = ["gtk4", "gtk4-layer-shell", "libc", "sha2"]
+# 1.0-109 §2.1 — o craft-tools (o MenuCamada da camada Overlay) é da
+# GUI: sem a feature a dependência NÃO carrega (o núcleo std-only
+# testa em qualquer lugar, a lei do degrau)
+gui = ["gtk4", "gtk4-layer-shell", "libc", "sha2", "craft-tools"]
 
 [dependencies]
 # 2.0 — a FUNDAÇÃO da casa: os contratos tipados + a folha mestra única
 # (Theme CSS embutido via include_str do elite-core, zero drift de pele).
 elite-core = { path = "../elite-core" }
+# 1.0-109 §2.1 — O MENU DE CAMADA (o clique direito veste a camada
+# Overlay do layer-shell — SEMPRE acima da gaveta top do craft-apps; o
+# MenuCamada/posiciona_menu moram na fundação compartilhada das
+# ferramentas, a MESMA janela dos seletores do pick/craft-net).
+craft-tools = { path = "../craft-tools", optional = true }
 # sha2: o digest do CAMINHO do AppImage para o nome do cache de ícones
 # (~/.cache/elite/appimage-icons/<sha256[0..24]>.png — o mesmo formato
 # do craft-dock-gui E130: os caches são COMPARTILHADOS entre os dois).

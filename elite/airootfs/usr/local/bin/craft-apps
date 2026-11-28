@@ -19,6 +19,15 @@
 # OUTRA janela ganha foco (alt-tab, dock, janela nova) e o drawer já
 # desce sozinho ao ABRIR um app (MainQuit nativo do corpo dele). O
 # overlay nunca fica sobre janelas ou menus da barra.
+#
+# 1.0-109 §2.1 — A GAVETA MORA NA CAMADA TOP (a diretriz: o layer-shell
+# tem degraus — bottom · top · overlay — e a gaveta é o degrau TOPO; o
+# nwg-drawer NASCE na top por desenho: a flag dele é o -ovl, que SOBE
+# para a overlay — e a casa NÃO a passa, a evidência do dump 1.0-108
+# era o menu da dock ATRÁS da gaveta porque os menus de era nasciam no
+# MESMO degrau; agora os menus vestem a camada Overlay da casa (o
+# MenuCamada) e a gaveta segue top: o menu SEMPRE veste por cima, a
+# gaveta nunca esconde os menus da casa).
 # ═════════════════════════════════════════════════════════════════════════
 set -u
 

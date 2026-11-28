@@ -397,6 +397,7 @@ pub fn janela_camada(
 /// `fecha` no press ANTES do ícone — o clique na mãe fecha o menu SEM
 /// ser engolido: o gesto de captura nunca reclama a sequência).
 #[cfg(feature = "gui")]
+#[derive(Clone)]
 pub struct MenuCamada {
     win: gtk4::Window,
     ja: std::rc::Rc<std::cell::Cell<bool>>,
