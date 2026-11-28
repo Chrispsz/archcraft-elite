@@ -116,6 +116,15 @@
 #barbox #gamebtn image { color: @elite-accent; }
 /* 1.0-106 — O SINO DO DND MORREU COM A CENTRAL (o relógio é
  * hora/calendário; nenhum ícone de notificador habita a barra). */
+/* 1.0-109 §2.3 — OS GRUPOS DA FAIXA LIDOS DE LONGE (a diretriz: Mídia ·
+ * Hardware · Sessão em BLOCOS — o divisor vertical sutil na cor da
+ * borda da casa; os ícones de cada grupo seguem com o padding uniforme
+ * de sempre, o divisor é o único que respira). */
+#barbox separator {
+  background: @elite-border;
+  min-width: 1px;
+  margin: 6px 6px;
+}
 
 /* ── Popovers nativos (sessão da barra — a mesma cara da barra) ─────────── */
 popover > contents {

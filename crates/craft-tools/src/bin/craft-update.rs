@@ -22,7 +22,17 @@ fn main() {
         return; // a ajuda sai ANTES de qualquer elevação (lei E90)
     }
     let argv = craft_tools::args_atualizacao();
-    println!("ELITE · Atualização do Sistema — digite sua senha para continuar");
+    // 1.0-109 §2.3 — O TEXTO HONESTO DA ETAPA (a diretriz: o 'digite sua
+    // senha para continuar' de era MENTIA — a senha é do diálogo do
+    // polkit, o que roda ANTES é a sincronização e a verificação).
+    println!("ELITE · Atualização do Sistema — sincronizando repositórios e verificando pacotes");
+    // 1.0-109 §2.3 — O RESUMO DOS PACOTES ANTES DE APLICAR (a diretriz:
+    // o dono VÊ o que a dose veste — o pacman -Qu do usuário lista o
+    // que o db CORRENTE conhece; a sync de verdade é do motor
+    // privilegiado a seguir, o resumo é o retrato de agora; rc 1 do
+    // pacman = 'nada novo' — a casa sabe ler o silêncio; pacman
+    // ausente = sem resumo, a dose segue).
+    resumo_pacotes();
     // 1.0-108 — A GUARDA DO PKEXEC ÓRFÃO: o terminal que morrer no meio
     // (HUP/INT/TERM) leva o pkexec filho JUNTO — o diálogo branco do
     // polkit nunca mais fica travado na tela (ver craft_tools::corre_com_guarda)
@@ -46,6 +56,29 @@ fn main() {
         pausa_enter();
     }
     std::process::exit(rc);
+}
+
+/// 1.0-109 §2.3 — o resumo dos pacotes disponíveis ANTES de aplicar (a
+/// diretriz: "exibir o resumo dos pacotes disponíveis (pacman -Qu) antes
+/// de aplicar"). O pacman -Qu roda SEM elevação (a leitura do db é de
+/// usuário); a saída é "nome 1.2-3 -> 1.3-1" por linha — o N e a lista
+/// vestem o terminal antes do motor subir. rc≠0 e saída vazia = nada
+/// novo no db corrente (o pacman devolve 1 quando não há novidade); o
+/// binário ausente cala o resumo SEM matar a dose (a porta é honesta).
+fn resumo_pacotes() {
+    let Ok(out) = std::process::Command::new("pacman").arg("-Qu").output() else {
+        return; // sem pacman na mesa (ISO exótica/juizo): sem resumo, a dose segue
+    };
+    let texto = String::from_utf8_lossy(&out.stdout);
+    let linhas: Vec<&str> = texto.lines().filter(|l| !l.trim().is_empty()).collect();
+    if linhas.is_empty() {
+        println!("ELITE · nenhum pacote novo no db corrente (o motor sincroniza antes de aplicar)");
+        return;
+    }
+    println!("ELITE · {} pacote(s) disponíveis no db corrente:", linhas.len());
+    for l in &linhas {
+        println!("  {l}");
+    }
 }
 
 /// E150 — a pausa do terminal do menu (TTY = `foot -e`; pipe = segue).

@@ -33,7 +33,7 @@ CONF="$CONF_DIR/idle.conf"
 
 uso() {
     printf '%s\n' \
-        'uso: craft-idle [N | cycle | menu | status] — a trava automática da casa' \
+        'uso: craft-idle [N | cycle | menu | status] — a auto-suspensão da casa' \
         '' \
         '  1.0-107: a vigília é do elite-daemon (ext-idle-notify nativo); este' \
         '  bin escreve ~/.config/elite/idle.conf e o daemon lê na ARMAÇÃO' \
@@ -95,7 +95,7 @@ escreve() {
 nota() {
     _msg="$1"
     command -v notify-send >/dev/null 2>&1 \
-        && notify-send -a 'Elite · Trava automática' -u normal -t 4000 'Trava automática' "$_msg" &
+        && notify-send -a 'Elite · Auto-suspensão' -u normal -t 4000 'Auto-suspensão' "$_msg" &
 }
 
 # E150→1.0-105 — O PICK VESTE AS FLAGS REAIS DO `craft-pick --help` E A
@@ -119,12 +119,12 @@ _pick() {
 rotulo_estado() {
     _l="$(le_lock)"; _s="$(le_suspend)"
     if [ "$_l" = "0" ]; then
-        printf 'Trava automática — DESATIVADA (W-l manual; o sistema nunca dorme sozinho)'
+        printf 'Auto-suspensão — DESATIVADA (W-l manual; o sistema nunca dorme sozinho)'
     else
         if [ "$_s" = "0" ]; then
-            printf 'Trava automática — agora: %s min (o sono automático está desligado)' "$_l"
+            printf 'Auto-suspensão — agora: %s min (o sono automático está desligado)' "$_l"
         else
-            printf 'Trava automática — agora: %s min · dorme aos %s min' "$_l" "$_s"
+            printf 'Auto-suspensão — agora: %s min · dorme aos %s min' "$_l" "$_s"
         fi
     fi
 }
@@ -133,10 +133,10 @@ rotulo_estado() {
 if [ "${1:-}" = "status" ]; then
     _lock="$(le_lock)"; _susp="$(le_suspend)"
     if [ "$_lock" = "0" ]; then
-        printf 'trava automática: NUNCA sozinha (W-l manual manda)\n'
+        printf 'auto-suspensão: NUNCA sozinha (W-l manual manda)\n'
         printf 'sono automático:   DESLIGADO (Desativado zera OS DOIS — 1.0-107)\n'
     else
-        printf 'trava automática: %s min de inatividade → trava (a tela apaga junto)\n' "$_lock"
+        printf 'auto-suspensão: %s min de inatividade → trava (a tela apaga junto)\n' "$_lock"
         if [ "$_susp" != "0" ]; then
             printf 'sono automático:  %s min de inatividade (o mesmo zero da trava — a vigília E60)\n' "$_susp"
         else

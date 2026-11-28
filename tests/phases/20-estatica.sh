@@ -286,7 +286,7 @@ file_has "tools: o pkexec na frente do elite-clean (a porta --as-root é de raiz
 # NATIVA (o craft-pick é a ÚNICA janela; o foot preto de era, com o
 # aviso de portal e o hangup no fechar, morre da porta do dono)
 file_has "menu: o Modo de jogo roda NATIVO (craft-game menu — sem foot)" "elite/airootfs/etc/skel/.config/labwc/menu.xml" "command=\"craft-game menu\""
-file_has "menu: a Trava automática roda NATIVA (craft-idle menu — sem foot)" "elite/airootfs/etc/skel/.config/labwc/menu.xml" "command=\"craft-idle menu\""
+file_has "menu: a Auto-suspensão roda NATIVA (craft-idle menu — sem foot)" "elite/airootfs/etc/skel/.config/labwc/menu.xml" "command=\"craft-idle menu\""
 # 1.0-105 — a forma do foot (com espaço) é a bandeira do seletor: o -T
 # com ESPAÇO no craft-pick e nos wrappers da casa (o --title= colado morre)
 file_has "idle: o verbo menu existe (o painel do dono — forma do foot -T)" "$AIROOTFS/usr/local/bin/craft-idle" 'craft-pick -T "$1"'
@@ -473,7 +473,7 @@ file_hasnt "bar: o fuzzel NÃO mora mais no botão de apps (a gaveta é do craft
 file_has "bar: o relógio é HORA/CALENDÁRIO (o clique abre o popover da casa)" "crates/craft-bar-rs/src/ui.rs" 'abre_calendario'
 file_hasnt "bar: o hover do relógio MORREU (nenhum enter/leave abre o calendário — só o clique)" "crates/craft-bar-rs/src/ui.rs" 'connect_enter'
 # 1.0-108 — OS ATALHOS RÁPIDOS do menu da barra (a ordem do dono: Modo de
-# jogo, Trava automática, Monitores/120 Hz, Atualizar, Limpar, Snapshots):
+# jogo, Auto-suspensão, Monitores/120 Hz, Atualizar, Limpar, Snapshots):
 file_has "bar: o menu da barra veste o MODO DE JOGO (craft-game menu)" "crates/craft-bar-rs/src/ui.rs" '("game", &["craft-game", "menu"][..])'
 file_has "bar: o menu da barra veste a TRAVA AUTOMÁTICA (craft-idle menu)" "crates/craft-bar-rs/src/ui.rs" '("idle", &["craft-idle", "menu"][..])'
 file_has "bar: o menu da barra veste os MONITORES/120Hz (wdisplays)" "crates/craft-bar-rs/src/ui.rs" '("displays", &["wdisplays"][..])'
@@ -1010,6 +1010,19 @@ file_has "zsh: o verbo monitores abre o wdisplays" "$AIROOTFS/etc/skel/.zshrc" "
 # a linha única sutil abaixo do retrato
 file_has "hello: a LINHA ÚNICA dos verbos rápidos abaixo do retrato (a diretriz: uma linha sutil)" "$AIROOTFS/usr/local/bin/craft-hello" 'Comandos rápidos: ajuda · saude · atualizar · limpar · rede · jogo'
 file_hasnt "hello: o pointer de 3 linhas de era morre (a versão/dose não é notícia do card)" "$AIROOTFS/usr/local/bin/craft-hello" 'última dose'
+# ── 1.0-109 Etapa 2 — O RÓTULO CURTO, OS GRUPOS DA FAIXA E O TEXTO HONESTO
+#    (a diretriz §2.3: Auto-suspensão de 14 caracteres SEM truncar; a
+#    direita em BLOCOS Mídia · Hardware · Sessão; o atualizador com o
+#    resumo REAL dos pacotes antes de aplicar)
+file_has "menu: o rótulo Auto-suspensão (14 caracteres — SEM truncar com '...')" "$AIROOTFS/etc/skel/.config/labwc/menu.xml" '<item label="Auto-suspensão">'
+file_hasnt "menu: o rótulo longo Trava automática de era morre (16 caracteres truncavam na largura monoespaçada)" "$AIROOTFS/etc/skel/.config/labwc/menu.xml" '<item label="Trava automática">'
+file_has "bar: o menu da barra veste o rótulo CURTO Auto-suspensão" "crates/craft-bar-rs/src/ui.rs" 'Some("Auto-suspensão"), Some("bar.idle")'
+file_hasnt "bar: o rótulo longo Trava automática morre no menu da barra" "crates/craft-bar-rs/src/ui.rs" '"Trava automática"'
+file_has "css: o divisor sutil dos grupos da faixa na folha mestra (Mídia · Hardware · Sessão)" "crates/elite-core/assets/theme.css" '#barbox separator'
+file_has "bar: o divisor ENTRE mídia e hardware (a direita em BLOCOS)" "crates/craft-bar-rs/src/ui.rs" 'dir.append(&separa_grupo())'
+file_has "tools: o texto honesto do atualizador (sincronizando e verificando — a senha NUNCA foi daqui)" "crates/craft-tools/src/bin/craft-update.rs" 'sincronizando repositórios e verificando pacotes'
+file_hasnt "tools: o texto mentiroso de era morre (a senha é do diálogo do polkit)" "crates/craft-tools/src/bin/craft-update.rs" 'digite sua senha para continuar'
+file_has "tools: o resumo dos pacotes ANTES de aplicar (pacman -Qu sem elevação)" "crates/craft-tools/src/bin/craft-update.rs" '"-Qu"'
 
 printf '%s\n' "$OK_COUNT $FAIL_COUNT $SKIP_COUNT" > "$WORK/fase20.txt"
 exit 0

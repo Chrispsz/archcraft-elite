@@ -232,12 +232,17 @@
     <!-- v1.6.1: presets do idle no fuzzel, efeito imediato, sem
          relogin. E124: 'Trava automática' entrou cortando o tempo;
          E125: os três pontinhos morrem — a palavra fica INTEIRA.
+         1.0-109: A PALAVRA CURTA (a diretriz §2.3 da Etapa 2: o rótulo
+         veste 'Auto-suspensão' — 14 caracteres, mais curta que os 16
+         de era, cabendo com folga na largura monoespaçada do menu do
+         labwc e no menu da barra superior SEM truncar com '...').
          1.0-94: o item abre o PAINEL NATIVO (craft-idle menu — o
          relato do dono: 'clico e não abre nada'; o cycle mudo morre
          como porta do menu, segue vivo no CLI). -->
-        <!-- E106 — idem: o painel da trava roda NATIVO (sem foot atrás;
-         o craft-pick é a única janela e a escolha vale na hora) -->
-<item label="Trava automática">
+        <!-- E106 — idem: o painel da auto-suspensão roda NATIVO (sem
+         foot atrás; o craft-pick é a única janela e a escolha vale na
+         hora) -->
+<item label="Auto-suspensão">
       <action name="Execute" command="craft-idle menu" />
     </item>
     <separator />

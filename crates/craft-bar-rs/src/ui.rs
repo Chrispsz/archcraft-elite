@@ -437,7 +437,12 @@ fn build(app: &gtk::Application) {
     centro.append(&btn_clock);
 
     // ── DIREITA (E147 — o contrato mouse-first: game → player → áudio →
-    //    microfone (E151) → rede → bluetooth → bateria → sessão) ──
+    //    microfone (E151) → rede → bluetooth → bateria → sessão.
+    //    1.0-109 §2.3 — OS TRÊS GRUPOS LIDOS DE LONGE (a diretriz: Mídia
+    //    (game+player) · Hardware (áudio/microfone/rede/bluetooth/
+    //    bateria) · Sessão (⏻) separados CLARAMENTE pelo divisor sutil,
+    //    padding UNIFORME entre os ícones de cada grupo — a faixa lê em
+    //    grupos, não em 8 ícones soltos)) ──
     {
         let s = st.borrow();
         let btn_game = s.btn_game.clone();
@@ -565,6 +570,12 @@ fn build(app: &gtk::Application) {
             });
         }
         dir.append(&btn_next);
+
+        // 1.0-109 §2.3 — O DIVISOR ENTRE MÍDIA E HARDWARE (o grupo da
+        // direita nasce: o divisor sutil separa os pílulas (game/mídia)
+        // dos ícones de máquina (🔊 🎙 🌐 ᛒ / bateria) — o padding dos
+        // ícones segue UNIFORME dentro de cada grupo)
+        dir.append(&separa_grupo());
 
         // E149/E151 — O MAPA DIRETO DO ÁUDIO: SAÍDA é o botão de
         // cima; o ESQUERDO abre a FERRAMENTA dedicada (pwvucontrol), o
@@ -767,13 +778,17 @@ fn build(app: &gtk::Application) {
         st.borrow_mut().btn_bat = Some(btn_bat);
     }
 
+    // 1.0-109 §2.3 — O DIVISOR ENTRE HARDWARE E SESSÃO (o último grupo
+    //    da faixa: o ⏻ da sessão lê-se DE LONGE, separado da máquina)
+    dir.append(&separa_grupo());
+
     // ── A SESSÃO em popover NATIVO (a cura A5: sem fuzzel, sem
     //    can-suspend — o MenuButton é o par canônico do PopoverMenu;
     //    o clique/dismiss é TODO do GTK, zero gesture nosso aqui).
     //    E147: o ícone é Image de ÍCONE (system-shutdown — nunca mais
     //    codepoint Nerd no label) ─────────────────────────────────────
     // 1.0-108 — OS ATALHOS RÁPIDOS NO TOPO (a ordem do dono: Modo de
-    //    jogo, Trava automática, Monitores/120 Hz, Atualizar, Limpar e
+    //    jogo, Auto-suspensão, Monitores/120 Hz, Atualizar, Limpar e
     //    Snapshots ganham PORTA DIRETA no menu — os essenciais de 1
     //    clique, sem terminal e sem gaveta no caminho)
     let btn_power = gtk::MenuButton::new();
@@ -794,8 +809,8 @@ fn build(app: &gtk::Application) {
             // do labwc --exit: daemon → superfícies → agentes)
             ("logout", &["craft-logout"][..]),
             // 1.0-108 — OS ATALHOS RÁPIDOS DA ORDEM DO DONO (os essenciais
-            // de UM clique no menu da barra: Modo de jogo, Trava
-            // automática, Monitores/120 Hz, Atualizar, Limpar, Snapshots)
+            // de UM clique no menu da barra: Modo de jogo,
+            // Auto-suspensão, Monitores/120 Hz, Atualizar, Limpar, Snapshots)
             ("game", &["craft-game", "menu"][..]),
             ("idle", &["craft-idle", "menu"][..]),
             ("displays", &["wdisplays"][..]),
@@ -815,12 +830,13 @@ fn build(app: &gtk::Application) {
         let menu = gtk::gio::Menu::new();
         // 1.0-108 — A SEÇÃO DOS ATALHOS (a ordem do dono: acesso direto
         // às funções essenciais no menu da barra superior — Modo de jogo,
-        // Trava automática, Monitores / 120 Hz, Atualizar sistema, Limpar
-        // sistema, Snapshots / Rollback; as ferramentas já existiam, o
-        // menu é a PORTA de 1 clique delas)
+        // Auto-suspensão (1.0-109 §2.3: o rótulo CURTO de 14 caracteres
+        // — nenhum '...' no menu da barra), Monitores / 120 Hz,
+        // Atualizar sistema, Limpar sistema, Snapshots / Rollback; as
+        // ferramentas já existiam, o menu é a PORTA de 1 clique delas)
         let s0 = gtk::gio::Menu::new();
         s0.append(Some("Modo de jogo"), Some("bar.game"));
-        s0.append(Some("Trava automática"), Some("bar.idle"));
+        s0.append(Some("Auto-suspensão"), Some("bar.idle"));
         s0.append(Some("Monitores (120 Hz)"), Some("bar.displays"));
         s0.append(Some("Atualizar sistema"), Some("bar.update"));
         s0.append(Some("Limpar sistema"), Some("bar.clean"));
@@ -1388,6 +1404,17 @@ fn caixa_lateral(halign: gtk::Align) -> gtk::Box {
     b.set_halign(halign);
     b.set_valign(gtk::Align::Center);
     b
+}
+
+/// 1.0-109 §2.3 — O DIVISOR SUTIL DOS GRUPOS DA FAIXA (a diretriz: Mídia
+/// · Hardware · Sessão lidos DE LONGE como blocos — o separador vertical
+/// de 1px na cor da borda da casa com o respiro dos 6px dos lados; o
+/// padding dos ícones DENTRO de cada grupo segue uniforme, o divisor é
+/// o único que respira — a pele `#barbox separator` da folha mestra).
+fn separa_grupo() -> gtk::Separator {
+    let sep = gtk::Separator::new(gtk::Orientation::Vertical);
+    sep.set_valign(gtk::Align::Center);
+    sep
 }
 
 /// E151 — A PÁLIDA DO FOCO (zero vazamento de tema GTK4): corre sobre

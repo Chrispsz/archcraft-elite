@@ -230,7 +230,7 @@ pub fn mapa_comandos() -> Vec<(&'static str, Vec<(&'static str, &'static str)>)>
                 ("craft-help", "este mapa — os comandos da casa em pt_BR (direto no terminal)"),
                 ("craft-pick", "o seletor nativo da casa (as listas dos bins — a gramática dmenu em GTK4 na camada de sobreposição)"),
                 ("craft-net", "o seletor de rede de 1 clique (Ethernet e redes Wi-Fi ao alcance com sinal, cadeado e a conexão em 1 clique — a senha em diálogo limpo apenas para a protegida sem perfil salvo; a porta das configurações avançadas mora no fim da lista)"),
-                ("craft-idle", "a trava automática (os minutos no ~/.config/elite/idle.conf — 'craft-idle menu' é a janela com os presets 5/15/30 min, 1 hora, Desativado, Travar agora e Suspender agora — cada preset mostra o sono associado; 'craft-idle 10' muda na hora)"),
+                ("craft-idle", "a auto-suspensão (os minutos no ~/.config/elite/idle.conf — 'craft-idle menu' é a janela com os presets 5/15/30 min, 1 hora, Desativado, Travar agora e Suspender agora — cada preset mostra o sono associado; 'craft-idle 10' muda na hora)"),
                 ("craft-game", "o modo de jogo MANUAL (status/on/off/toggle — o perfil completo: governor + GPU high + inibidor de ocioso/sono + o pill roxo na hora pelo fio; 'craft-game menu' é a janela; 1.0-107: o automático morreu com o watcher)"),
                 ("craft-apps", "a gaveta de aplicativos com toggle (W-d abre · W-d de novo fecha — o nwg-drawer da casa com memória)"),
             ],
