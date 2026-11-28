@@ -363,20 +363,26 @@ if [ "$TEM_DBUS" = 1 ] && [ -f "$XDG/dbus.addr" ]; then
         t_skip "swaync: dono das notificações" "busctl ausente (o systemd do runner traz — o Canal veste o juízo)"
     elif command -v swaync >/dev/null 2>&1; then
         # o dono do nome (o residente supervisionado subiu com as peles do
-        # skel — o config.json inválido o mataria e o nome ficaria órfão);
-        # 1.0-109-b: o stderr do busctl VIAJA com a falha (o rc nu não
-        # distingue 'sem dono' de 'bus morto')
+        # skel — o config.json inválido o mataria e o nome ficaria órfão).
+        # 1.0-109-c — O VERBO DE VERDADE DO BUSCTL (a prova da run
+        # 46086860241: o 'get-name-owner' NUNCA foi verbo do busctl — 'Unknown
+        # command verb' em TODAS as 40 tentadas, com dbus/daemon/swaync VIVOS
+        # no instante; o contrato nascera TORTO na 1.0-109): o dono é o
+        # MÉTODO GetNameOwner do org.freedesktop.DBus, chamado na CARNE —
+        # rc 0 com o dono na mão, rc≠0 com 'no such name' no stderr. O
+        # stderr da tentativa VIAJA com a falha (o rc nu não distingue
+        # 'sem dono' de 'bus morto')
         _dono=1
         _berr=""
         for _ in $(seq 1 40); do
-            if _berr="$(busctl --user get-name-owner org.freedesktop.Notifications 2>&1)"; then
+            if _berr="$(busctl --user call org.freedesktop.DBus /org/freedesktop/DBus org.freedesktop.DBus GetNameOwner s org.freedesktop.Notifications 2>&1)"; then
                 _dono=0
                 break
             fi
             sleep 0.5
         done
         if [ "$_dono" = 0 ]; then
-            t_ok "swaync: DONO de org.freedesktop.Notifications no bus de verdade (o config.json/style.css do skel são VÁLIDOS — a central não morre)"
+            t_ok "swaync: DONO de org.freedesktop.Notifications no bus de verdade ($(printf '%s' "$_berr" | head -c 40) — o config.json/style.css do skel são VÁLIDOS, a central não morre)"
         else
             # 1.0-109-b — O RÉU COM CARA E NOME: o stderr do busctl, os
             # VIVOS do instante e a última fala da central no bars.log (a
