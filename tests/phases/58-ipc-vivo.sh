@@ -288,10 +288,18 @@ else
                     t_fail "vivo: o verbo desk ecoa Ack" "exit != 0 contra o daemon vivo"
                 fi
                 # (c) a 2ª instância SAI 0 (o guard do dono único do bus)
-                if timeout 5 elite-daemon session >/dev/null 2>&1; then
+                # E190-c — o dossiê da recusa (o réu do Canal: a 3ª
+                # carne depois do reexec pendurou NO TETO do timeout — a
+                # captura do stderr DELA + o estado do dono + o chão do
+                # lock nomeiam se foi recusa quebrada, colheita de órfão
+                # ou o dono morto no caminho)
+                timeout 5 elite-daemon session >"$VIVO/3a.out" 2>&1
+                _3a_rc=$?
+                if [ "$_3a_rc" = 0 ]; then
                     t_ok "vivo: a 2ª instância sai limpa (o dono único do bus segue dono)"
                 else
-                    t_fail "vivo: a 2ª instância sai limpa" "exit != 0 (o guard do dono único)"
+                    _dav="MORTO"; kill -0 "$DAEMON_PID" 2>/dev/null && _dav="VIVO"
+                    t_fail "vivo: a 2ª instância sai limpa" "rc=$_3a_rc (timeout=124: virou SESSÃO — o lock estava livre?) · dono $_dav (pid $DAEMON_PID) · daemon.pid.papel=$(cat "$XDG/daemon.pid" 2>/dev/null || echo ausente) · 3ª.stderr: $(tail -5 "$VIVO/3a.out" 2>/dev/null | tr '\n' ' ') · dono.stderr: $(tail -5 "$VIVO/daemon.err" 2>/dev/null | tr '\n' ' ')"
                 fi
             else
                 t_skip "vivo: a sessão headless" "o bus.sock não nasceu (stderr: $(tail -3 "$VIVO/daemon.err" 2>/dev/null | tr '\n' ' '))"
