@@ -282,6 +282,7 @@ dependencies = [
 name = "craft-bar-rs"
 version = "1.0.0"
 dependencies = [
+ "craft-tools",
  "elite-core",
  "gtk4",
  "gtk4-layer-shell",

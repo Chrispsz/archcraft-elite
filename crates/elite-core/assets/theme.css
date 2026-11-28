@@ -31,9 +31,9 @@
  *   os botões da barra nascem com focus_on_click(false)+can_focus(false)
  *   (o Rust anda o mesmo gesto) e o CSS NÃO define contorno :focus para
  *   eles — nenhum seletor roxo travado, nenhum quadrado branco de tema
- *   externo. O MenuButton de energia veste background-image: none e
- *   box-shadow: none nos estados :checked/:active/:focus (o foco do
- *   popover fechando nunca deixa o quadrado preso). A reação da barra é
+ *   externo. O ⏻ da sessão é BOTÃO PURO (1.0-109 §2.1: o cardápio é a
+ *   janela de camada Overlay — nenhum ToggleButton por dentro veste
+ *   :checked/:active/:focus com fundo de seleção). A reação da barra é
  *   EXCLUSIVAMENTE o :hover suave.
  *
  * DISCIPLINA DO TOKEN ÚNICO (R1 — o grep é o juiz): nenhuma regra abaixo
@@ -62,7 +62,9 @@
 /* ── Barra (craft-bar-rs · layer-shell topo · E151 obsidiana 28px) ──────── */
 #barwindow { background: @elite-bg; }
 #barbox { padding: 1px 8px; min-height: 26px; }
-#barbox button, #barbox menubutton, #barbox > button, #barbox > menubutton {
+/* 1.0-109 §2.1: o seletor menubutton de era saiu com o MenuButton (o ⏻
+ * é botão puro — o cardápio é a janela de camada #menuwin) */
+#barbox button, #barbox > button {
   background: transparent;
   border: none;
   border-radius: 8px;
@@ -74,12 +76,12 @@
 /* R3 — hover sobe um degrau (grafite), o texto NUNCA muda de cor.
  * E151: a barra NÃO tem contorno de foco (a pálida do foco vive no
  * Rust — apaga_foco_da_barra — e aqui não nasce regra :focus). */
-#barbox button:hover, #barbox menubutton:hover { background: @elite-surface; }
-#barbox button:active, #barbox menubutton:active { background: @elite-surface-strong; }
+#barbox button:hover { background: @elite-surface; }
+#barbox button:active { background: @elite-surface-strong; }
 /* E151 — O ESTADO ATIVO É O ACENTO SUAVE (a ordem do dono: acento
  * #cba6f7 no ativo, perigo #f38ba8 no mutado/desligado — os ícones
  * cinza-apagados morrem). */
-#barbox button:checked, #barbox menubutton:checked { color: @elite-accent-strong; }
+#barbox button:checked { color: @elite-accent-strong; }
 #barbox button.muted, #barbox button.off { color: @elite-danger; }
 #barbox #playerbtn label { color: @elite-text; font-size: 13px; }
 /* A cura do "relógio apagado em cinza" do dump: o token MAIS NÍTIDO da
@@ -125,55 +127,28 @@
   margin: 6px 6px;
 }
 
-/* ── Popovers nativos (sessão da barra — a mesma cara da barra) ─────────── */
-popover > contents {
-  background: @elite-bg;
-  border: 1px solid @elite-border;
-  border-radius: 12px;
-  padding: 6px;
-}
-/* A cura dos "itens apagados sem contraste" do menu de energia (guia 01
- * §1: o item e o fundo tinham o MESMO degrau): o GtkModelButton dos menus
- * nativos veste a gramática da casa — repouso transparente sobre a ilha
- * (texto #cdd6f4) e hover SOBE um degrau (R3). */
-popover > contents button, popover > contents modelbutton {
-  background: transparent;
-  border: none;
-  border-radius: 8px;
-  padding: 7px 14px;
-  color: @elite-text;
-}
-popover > contents button:hover, popover > contents modelbutton:hover {
-  background: @elite-surface;
-}
-popover > contents button:active, popover > contents modelbutton:active {
-  background: @elite-surface-strong;
-}
-/* 1.0-107.3 — O SELETOR DESTRUTIVO de era saiu: a E147 o vestiu para os
- * popovers CUSTOMIZADOS que a E149 enterrou — nenhum widget da casa
- * casa a classe hoje (a auditoria seletor a seletor da folha mestra). */
-/* 1.0-104 — O MENU DE CONTEXTO DA DOCK (PopoverMenu: Desafixar/Nova
- * janela/Fechar): a paleta escura da casa, NUNCA o fundo branco do tema
- * externo — o item do menu (modelbutton) veste o texto claro da casa e
- * o HOVER ROXO do acento primário (#a855f7) com o texto da base (R4 —
- * 9.23:1 AAA, o padrão libadwaita de seleção da casa). */
-popover > contents modelbutton:hover {
-  background: @elite-accent;
-  color: @elite-base;
-}
-popover > contents modelbutton:active {
-  background: @elite-accent-strong;
-  color: @elite-base;
-}
+/* ── OS POPOVERS NATIVOS MORRERAM INTEIROS (1.0-109 §2.1) ───────────────── */
+/* O ÚLTIMO popover da família morreu: o card do calendário, o cardápio
+ * da sessão (MenuButton da barra) e o menu do clique direito da dock
+ * vestem AGORA a janela de camada Overlay (o #menuwin acima — SEMPRE
+ * acima da gaveta top do craft-apps; o popover de era era FILHO da
+ * superfície top e a gaveta que nascia DEPOIS o cobria inteiro). Os
+ * seletores de popover de era (o fundo da ilha, os
+ * modelbuttons e o hover roxo da dock) vivem SEPULTADOS aqui: nenhum
+ * popover nativo mora na casa — a auditoria seletor a seletor da folha
+ * mestra não veste fantasma. */
+
 /* R5 — foco de teclado VISÍVEL nas superfícies onde o teclado CHEGA
- * (popovers/janelas). A barra é mouse-first com foco morto (E151):
- * ela sai desta lista DE PROPÓSITO — nenhum contorno roxo preso no
- * botão que o dono clicou. 1.0-105 — A DOCK SAI TAMBÉM (a ordem do
- * dono: a dock é KeyboardMode::None — o teclado JAMAIS é dela, o
- * primeiro clique nunca rouba foco; o ANEL ROXO de foco morre no
- * outline/box-shadow NONE dos estados :focus/:focus-visible). */
-popover > contents button:focus, popover > contents modelbutton:focus,
-#pickwin button:focus {
+ * (janelas/menus — 1.0-109 §2.1: os popovers nativos morreram, o foco
+ * visível é das janelas de seleção e do menu de camada). A barra é
+ * mouse-first com foco morto (E151): ela sai desta lista DE PROPÓSITO
+ * — nenhum contorno roxo preso no botão que o dono clicou. 1.0-105 —
+ * A DOCK SAI TAMBÉM (a ordem do dono: a dock é KeyboardMode::None — o
+ * teclado JAMAIS é dela, o primeiro clique nunca rouba foco; o ANEL
+ * ROXO de foco morre no outline/box-shadow NONE dos estados
+ * :focus/:focus-visible). */
+#pickwin button:focus,
+#menuwin button:focus {
   outline: 2px solid @elite-accent-strong;
   outline-offset: -2px;
 }
@@ -182,10 +157,8 @@ popover > contents button:focus, popover > contents modelbutton:focus,
   outline: none;
   box-shadow: none;
 }
-popover > contents separator {
-  background: alpha(@elite-off, 0.45);
-  margin: 4px 6px;
-}
+/* o divisor de era dos popovers nativos morreu junto (§2.1): o divisor
+ * vivo dos menus mora no #menuwin separator acima) */
 
 /* ── Dock (craft-dock-rs v2 · layer-shell base · E151 obsidiana) ──────────
  * 1.0-104 — A SUPERFÍCIE ALINHADA COM A BARRA (a ordem do dono: os tokens
@@ -248,16 +221,16 @@ popover > contents separator {
 #barbox #appbtn:hover label { color: @elite-text-bright; }
 /* E151 — O CALENDÁRIO LEGÍVEL (a diretriz: o cabeçalho mês/ano veste o
  * #f8fafc — o "mês e ano invisíveis" do dump morrem). */
-popover > contents calendar {
+#menuwin calendar {
   background: @elite-bg;
   color: @elite-text;
   border: none;
   padding: 6px;
 }
-popover > contents calendar > header {
+#menuwin calendar > header {
   color: @elite-text-bright;
 }
-popover > contents calendar header button { color: @elite-text-bright; }
+#menuwin calendar header button { color: @elite-text-bright; }
 /* R4 — seleção com "hover invertido": fundo acento suave, texto da base
  * (#11111b sobre #cba6f7 = 9.23:1 AAA medido — o padrão libadwaita).
  * 1.0-104 — O MARCADOR DE SELEÇÃO NO DIA CERTO (a ordem do dono: o roxo
@@ -269,21 +242,21 @@ popover > contents calendar header button { color: @elite-text-bright; }
  * o dia é que veste — o azul DEFAULT do tema externo era o réu).
  * O HOJE ganha o sublinhado do acento (label.today, o recorte do
  * _common.scss — no tema externo era a borda cinza). */
-popover > contents calendar > grid > label.day-number:selected {
+#menuwin calendar > grid > label.day-number:selected {
   background: @elite-accent;
   color: @elite-base;
   border-radius: 3px;
 }
-popover > contents calendar > grid > label.today {
+#menuwin calendar > grid > label.today {
   box-shadow: inset 0px -2px @elite-accent;
 }
-popover > contents calendar > grid > label.today:selected {
+#menuwin calendar > grid > label.today:selected {
   background: @elite-accent;
   color: @elite-base;
   box-shadow: none;
   border-radius: 3px;
 }
-popover > contents calendar > grid > label.day-number:checked {
+#menuwin calendar > grid > label.day-number:checked {
   background: @elite-surface-strong;
 }
 
@@ -362,23 +335,13 @@ popover > contents calendar > grid > label.day-number:checked {
 
 #barbox button image { -gtk-icon-style: symbolic; }
 
-/* ── E151 · O SELETOR DE ENERGIA NUNCA MAIS FICA PRESO ──────────────────── */
-/* O GtkMenuButton de energia é um ToggleButton por dentro: o tema externo
- * pinta `:checked`/`:focus` com fundo de seleção e sombra — o quadrado
- * branco que o dono fotografou. Os estados veste NADA aqui: o fundo
- * transparente da ilha + o :hover suave são a gramática inteira; fechou
- * o popover, o botão volta ao repouso sem nenhum resíduo. */
-#barbox menubutton:checked,
-#barbox menubutton:active,
-#barbox menubutton:focus,
-#barbox menubutton > button:checked,
-#barbox menubutton > button:active,
-#barbox menubutton > button:focus {
-  background: transparent;
-  background-image: none;
-  box-shadow: none;
-  outline: none;
-}
-/* o hover continua suave MESMO nos estados (o degrau é a única reação) */
-#barbox menubutton:hover,
-#barbox menubutton > button:hover { background: @elite-surface; }
+/* ── E151 · O SELETOR DE ENERGIA · 1.0-109 §2.1: O MENUBUTTON MORREU ──── */
+/* O GtkMenuButton de energia era um ToggleButton por dentro (o tema
+ * externo pintava `:checked`/`:focus` com fundo de seleção e sombra —
+ * o quadrado branco que o dono fotografou; a cura de era escondia os
+ * estados). Hoje o ⏻ é um BOTÃO PURO (o cardápio é a janela de camada
+ * Overlay do MenuCamada — SEMPRE acima da gaveta): o repouso é o fundo
+ * transparente da ilha, o :hover suave é a reação inteira e nenhum
+ * estado persistente existe para o tema externo vestir. */
+#barbox button:hover { background: @elite-surface; }
+#barbox button:active { background: @elite-surface-strong; }

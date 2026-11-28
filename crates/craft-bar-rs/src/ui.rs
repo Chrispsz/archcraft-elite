@@ -67,9 +67,11 @@
 //     clique (1.0-108 — o hover de era morreu);
 //   · o MPRIS/jogo PELO FIO DO BUS + os sinais SIGRTMIN+8 (jogo) e
 //     SIGUSR2 (a pele);
-//   · a SESSÃO em PopoverMenu NATIVO (o MenuButton canônico do GTK — o
-//     ÚNICO popover que resta, e é do GTK, não nosso) e a COVEIRA dos
-//     filhos curtos (E146/C — o spawn→wait, zero <defunct>).
+//   · a SESSÃO e o CALENDÁRIO em JANELAS DE CAMADA Overlay (1.0-109
+//     §2.1: os menus vestem o MenuCamada — SEMPRE acima da gaveta top
+//     do craft-apps; o PopoverMenu/MenuButton de era morreu com o
+//     popover pendurado) e a COVEIRA dos filhos curtos (E146/C — o
+//     spawn→wait, zero <defunct>).
 use crate::state::{
     bt_ligado, estado_rede_nmcli, essid_nmcli, icone_rede, icone_volume, json_text, le_bateria,
     media_pill, parse_volume_wpctl, parse_wifi_radio, parse_wpctl_status, relogio_ptbr,
@@ -185,6 +187,14 @@ struct State {
     /// 2.0 — o handle do bus (o Arc do cliente vivo — os pedidos dos
     /// cliques: PlayPause/Next/Focus/mesa/jogo)
     bus_cli: Rc<RefCell<Option<std::sync::Arc<elite_core::bus::BusClient>>>>,
+    /// 1.0-109 §2.1 — O CARD DO CALENDÁRIO VESTE A CAMADA (a janela
+    /// Overlay — SEMPRE acima da gaveta top do craft-apps; o popover
+    /// de era era FILHO da superfície top da barra e a gaveta o cobria
+    /// inteiro — a evidência do dump 1.0-108)
+    menu_cal: craft_tools::MenuCamada,
+    /// 1.0-109 §2.1 — O CARDÁPIO DA SESSÃO na MESMA camada Overlay (o
+    /// MenuButton/PopoverMenu de era morreu com o popover pendurado).
+    menu_power: craft_tools::MenuCamada,
 }
 
 pub fn run() -> i32 {
@@ -344,6 +354,8 @@ fn build(app: &gtk::Application) {
         rede: EstadoRede::Desligado,
         essid: None,
         bus_cli: Rc::new(RefCell::new(None)),
+        menu_cal: craft_tools::MenuCamada::novo("craft-calendario"),
+        menu_power: craft_tools::MenuCamada::novo("craft-sessao"),
     }));
     // os ícones da barra nascem no tamanho do assento (16px — a unidade
     // visual da casa; o label Nerd nunca mais entra aqui)
@@ -394,27 +406,34 @@ fn build(app: &gtk::Application) {
     // proximidade do ponteiro — o clique é o ÚNICO gesto que abre o
     // calendário; a pele do hover do theme.css segue como sempre)
     btn_clock.set_has_tooltip(false);
-    // 1.0-93 — O CALENDÁRIO (a ordem do dono: popover GTK4 com o tema
-    // roxo/escuro da casa; 1.0-108 — EXCLUSIVAMENTE NO CLIQUE)
-    let pop_cal = {
+    // 1.0-93 — O CALENDÁRIO (a ordem do dono: o card roxo/escuro da
+    // casa; 1.0-108 — EXCLUSIVAMENTE NO CLIQUE; 1.0-109 §2.1 — O CARD
+    // VESTE A CAMADA: o popover de era era FILHO da superfície top da
+    // barra — a gaveta do craft-apps (a MESMA camada top) que nascia
+    // DEPOIS o cobria inteiro; a janela Overlay do MenuCamada nasce
+    // SEMPRE acima, o conteúdo nasce UMA vez (o card é estático)
+    {
         let cal = gtk::Calendar::new();
-        let pop = gtk::Popover::new();
-        pop.set_autohide(false);
-        pop.set_child(Some(&cal));
-        pop.set_parent(&btn_clock);
-        pop
-    };
+        let corpo = gtk::Box::new(gtk::Orientation::Vertical, 0);
+        corpo.set_margin_top(8);
+        corpo.set_margin_bottom(8);
+        corpo.set_margin_start(8);
+        corpo.set_margin_end(8);
+        corpo.append(&cal);
+        st.borrow().menu_cal.conteudo(&corpo);
+    }
     // 1.0-106 — O ESQUERDO ABRE O CALENDÁRIO (a ordem do dono: o relógio é
     // HORA/CALENDÁRIO — a central de notificações morreu SEM substituto, o
-    // popover que já existia no clique do meio é PROMOVIDO ao esquerdo; o
+    // card que já existia no clique do meio é PROMOVIDO ao esquerdo; o
     // `clicked` do próprio botão é o caminho de sempre, ZERO D-Bus no
     // caminho — nenhum notificador trava o clique)
     // 1.0-108: o clique é o ÚNICO gesto — o hover/enter de era
-    // (o popover que saltava ao encostar o mouse) morreu inteiro
+    // (o card que saltava ao encostar o mouse) morreu inteiro
     {
-        let pop_cal = pop_cal.clone();
+        let st = st.clone();
+        let btn = btn_clock.clone();
         btn_clock.connect_clicked(move |_| {
-            abre_calendario(&pop_cal);
+            abre_calendario(&st, &btn);
         });
     }
     // UM gesture só para os botões do MEIO/DIREITO do relógio (a lição da
@@ -423,9 +442,10 @@ fn build(app: &gtk::Application) {
     // lado que resta — o meio abre/fecha e o direito acompanha (quem
     // esperava o DND de era tem o calendário no gesto de qualquer forma)
     {
-        let pop_cal = pop_cal.clone();
+        let st = st.clone();
+        let btn = btn_clock.clone();
         clique_solto(&btn_clock, move |_botao| {
-            abre_calendario(&pop_cal);
+            abre_calendario(&st, &btn);
         });
     }
     centro.append(&btn_clock);
@@ -769,77 +789,38 @@ fn build(app: &gtk::Application) {
     //    da faixa: o ⏻ da sessão lê-se DE LONGE, separado da máquina)
     dir.append(&separa_grupo());
 
-    // ── A SESSÃO em popover NATIVO (a cura A5: sem fuzzel, sem
-    //    can-suspend — o MenuButton é o par canônico do PopoverMenu;
-    //    o clique/dismiss é TODO do GTK, zero gesture nosso aqui).
-    //    E147: o ícone é Image de ÍCONE (system-shutdown — nunca mais
-    //    codepoint Nerd no label) ─────────────────────────────────────
+    // ── A SESSÃO (a cura A5: sem fuzzel, sem can-suspend). E147: o
+    //    ícone é Image de ÍCONE (system-shutdown — nunca mais codepoint
+    //    Nerd no label). 1.0-109 §2.1 — O MENU VESTE A CAMADA: o
+    //    MenuButton/PopoverMenu de era era FILHO da superfície top da
+    //    barra — a gaveta do craft-apps (a MESMA camada top) que nascia
+    //    DEPOIS o cobria inteiro; o menu agora é a janela Overlay do
+    //    MenuCamada (SEMPRE acima, o clique no ⏻ é o toggle de sempre)
+    //    e o CARDÁPIO nasce UMA vez (o conteúdo é estático) ─────────
     // 1.0-108 — OS ATALHOS RÁPIDOS NO TOPO (a ordem do dono: Modo de
     //    jogo, Auto-suspensão, Monitores/120 Hz, Atualizar, Limpar e
     //    Snapshots ganham PORTA DIRETA no menu — os essenciais de 1
     //    clique, sem terminal e sem gaveta no caminho)
-    let btn_power = gtk::MenuButton::new();
+    let btn_power = gtk::Button::new();
     btn_power.set_widget_name("powerbtn");
-    btn_power.set_icon_name("system-shutdown-symbolic");
-    btn_power.set_tooltip_text(Some("Sessão — Bloquear / Suspender / Reiniciar / Desligar / Encerrar"));
+    btn_power.set_has_frame(false);
     {
-        // as AÇÕES da casa (o grupo mora na window; o menu nomeia)
-        let acoes = gtk::gio::SimpleActionGroup::new();
-        for (nome, cmd) in [
-            ("lock", &["craft-lock"][..]),
-            // 1.0-108 — o sono pelo CRAFT-SUSPEND (o lock MAPEADO antes
-            // do freeze: a superfície pintada ANTES do systemctl)
-            ("suspend", &["craft-suspend"][..]),
-            ("reboot", &["systemctl", "reboot"][..]),
-            ("poweroff", &["systemctl", "poweroff"][..]),
-            // 1.0-108 — o encerrar ORDEIRO (a família cai em ordem antes
-            // do labwc --exit: daemon → superfícies → agentes)
-            ("logout", &["craft-logout"][..]),
-            // 1.0-108 — OS ATALHOS RÁPIDOS DA ORDEM DO DONO (os essenciais
-            // de UM clique no menu da barra: Modo de jogo,
-            // Auto-suspensão, Monitores/120 Hz, Atualizar, Limpar, Snapshots)
-            ("game", &["craft-game", "menu"][..]),
-            ("idle", &["craft-idle", "menu"][..]),
-            ("displays", &["wdisplays"][..]),
-            ("update", &["craft-update"][..]),
-            ("clean", &["craft-clean"][..]),
-            ("rollback", &["craft-rollback"][..]),
-        ] {
-            let act = gtk::gio::SimpleAction::new(nome, None);
-            let cmd: Vec<String> = cmd.iter().map(|s| s.to_string()).collect();
-            act.connect_activate(move |_, _| {
-                let argv: Vec<&str> = cmd.iter().map(|s| s.as_str()).collect();
-                solta(&argv);
-            });
-            acoes.add_action(&act);
-        }
-        window.insert_action_group("bar", Some(&acoes));
-        let menu = gtk::gio::Menu::new();
-        // 1.0-108 — A SEÇÃO DOS ATALHOS (a ordem do dono: acesso direto
-        // às funções essenciais no menu da barra superior — Modo de jogo,
-        // Auto-suspensão (1.0-109 §2.3: o rótulo CURTO de 14 caracteres
-        // — nenhum '...' no menu da barra), Monitores / 120 Hz,
-        // Atualizar sistema, Limpar sistema, Snapshots / Rollback; as
-        // ferramentas já existiam, o menu é a PORTA de 1 clique delas)
-        let s0 = gtk::gio::Menu::new();
-        s0.append(Some("Modo de jogo"), Some("bar.game"));
-        s0.append(Some("Auto-suspensão"), Some("bar.idle"));
-        s0.append(Some("Monitores (120 Hz)"), Some("bar.displays"));
-        s0.append(Some("Atualizar sistema"), Some("bar.update"));
-        s0.append(Some("Limpar sistema"), Some("bar.clean"));
-        s0.append(Some("Snapshots (Rollback)"), Some("bar.rollback"));
-        let s1 = gtk::gio::Menu::new();
-        s1.append(Some("Bloquear tela"), Some("bar.lock"));
-        s1.append(Some("Suspender"), Some("bar.suspend"));
-        let s2 = gtk::gio::Menu::new();
-        s2.append(Some("Reiniciar"), Some("bar.reboot"));
-        s2.append(Some("Desligar"), Some("bar.poweroff"));
-        s2.append(Some("Encerrar sessão"), Some("bar.logout"));
-        menu.append_section(None, &s0);
-        menu.append_section(None, &s1);
-        menu.append_section(None, &s2);
-        let pop = gtk::PopoverMenu::from_model(Some(&menu));
-        btn_power.set_popover(Some(&pop));
+        let img = gtk::Image::from_icon_name("system-shutdown-symbolic");
+        img.set_pixel_size(16);
+        btn_power.set_child(Some(&img));
+    }
+    btn_power.set_tooltip_text(Some("Sessão — Bloquear / Suspender / Reiniciar / Desligar / Encerrar"));
+    // o CARDÁPIO nasce UMA vez na janela própria (o clone do RefCell
+    // morre no mesmo fôlego — o borrow de dentro nunca disputa o de fora)
+    let menu_sessao = st.borrow().menu_power.clone();
+    menu_sessao.conteudo(&monta_menu_sessao(&menu_sessao));
+    {
+        let st = st.clone();
+        let btn = btn_power.clone();
+        btn_power.connect_clicked(move |_| {
+            // a mãe mora no TOPO: o menu desce ABAIXO do ⏻
+            st.borrow().menu_power.alterna(&btn, false);
+        });
     }
     dir.append(&btn_power);
 
@@ -850,6 +831,31 @@ fn build(app: &gtk::Application) {
     unsafe {
         libc::signal(libc::SIGRTMIN() + 8, on_signal as *const () as libc::sighandler_t);
         libc::signal(libc::SIGUSR2, on_signal as *const () as libc::sighandler_t);
+    }
+
+    // 1.0-109 §2.1 — O CLIQUE FORA QUE NÃO É ENGOLIDO: o press em
+    // QUALQUER filho da barra fecha os menus de camada ANTES do botão
+    // agir — o gesto mora na JANELA em fase de CAPTURA (vê o press
+    // primeiro, de cima para baixo) e NUNCA reclama a sequência: o
+    // botão embaixo recebe o MESMO evento (o clique destinado ao ícone
+    // passa DIRETO, o menu desce no MESMO instante).
+    {
+        let st = st.clone();
+        let gesto_fora = gtk::GestureClick::new();
+        gesto_fora.set_button(0);
+        gesto_fora.set_propagation_phase(gtk::PropagationPhase::Capture);
+        gesto_fora.connect_pressed(move |_g, _n, _x, _y| {
+            let cal = st.borrow().menu_cal.aberto();
+            let power = st.borrow().menu_power.aberto();
+            if cal || power {
+                let s = st.borrow();
+                s.menu_cal.fecha();
+                s.menu_power.fecha();
+                drop(s);
+                crate::log("menus da barra desceram pelo clique na mãe (o clique do ícone segue — nada é engolido)");
+            }
+        });
+        window.add_controller(gesto_fora);
     }
 
     load_css();
@@ -1159,16 +1165,87 @@ fn alterna_conexao_principal() {
     }
 }
 
-/// O CALENDÁRIO do relógio: o popover que já existia no clique do meio
+/// O CALENDÁRIO do relógio: o card que já existia no clique do meio
 /// PROMOVIDO ao clique esquerdo (1.0-106 — o relógio é HORA/CALENDÁRIO,
 /// nenhum notificador no caminho: o clique é TODO do GTK, zero D-Bus,
-/// zero timeout — o popover abre/fecha no MESMO instante do gesto).
-fn abre_calendario(pop: &gtk::Popover) {
-    if pop.is_visible() {
-        pop.popdown();
-    } else {
-        pop.popup();
+/// zero timeout — o card abre/fecha no MESMO instante do gesto).
+/// 1.0-109 §2.1 — O CARD VESTE A CAMADA (a diretriz: a janela Overlay
+/// nasce SEMPRE acima da gaveta top do craft-apps; o popover de era era
+/// FILHO da superfície top da barra e a gaveta o cobria inteiro): o
+/// clique é o TOGGLE de sempre — aberto FECHA, fechado ABRE ABAIXO do
+/// relógio.
+fn abre_calendario(st: &Rc<RefCell<State>>, btn: &gtk::Button) {
+    st.borrow().menu_cal.alterna(btn, false); // a mãe mora no TOPO: o card desce
+}
+
+/// 1.0-109 §2.1 — O CARDÁPIO DA SESSÃO (a diretriz: o menu do ⏻ veste
+/// a camada Overlay — SEMPRE acima da gaveta; o MenuButton/PopoverMenu
+/// de era era FILHO da superfície top e a gaveta o cobria inteiro): os
+/// ATALHOS RÁPIDOS de 1 clique no topo (1.0-108, a ordem do dono — com
+/// o rótulo CURTO Auto-suspensão de 14 caracteres do §2.3), a sessão
+/// no meio e a máquina embaixo — os mesmos verbos de sempre na pele
+/// #menuwin da folha mestra.
+fn monta_menu_sessao(menu: &craft_tools::MenuCamada) -> gtk::Box {
+    let corpo = gtk::Box::new(gtk::Orientation::Vertical, 2);
+    corpo.set_margin_top(4);
+    corpo.set_margin_bottom(4);
+    for (rotulo, argv) in [
+        ("Modo de jogo", &["craft-game", "menu"][..]),
+        ("Auto-suspensão", &["craft-idle", "menu"][..]),
+        ("Monitores (120 Hz)", &["wdisplays"][..]),
+        ("Atualizar sistema", &["craft-update"][..]),
+        ("Limpar sistema", &["craft-clean"][..]),
+        ("Snapshots (Rollback)", &["craft-rollback"][..]),
+    ] {
+        corpo.append(&linha_menu_bar(rotulo, argv, menu));
     }
+    corpo.append(&separa_menu());
+    // o sono pelo CRAFT-SUSPEND (1.0-108: o lock MAPEADO antes do
+    // freeze — a superfície pintada ANTES do systemctl)
+    for (rotulo, argv) in [
+        ("Bloquear tela", &["craft-lock"][..]),
+        ("Suspender", &["craft-suspend"][..]),
+    ] {
+        corpo.append(&linha_menu_bar(rotulo, argv, menu));
+    }
+    corpo.append(&separa_menu());
+    for (rotulo, argv) in [
+        ("Reiniciar", &["systemctl", "reboot"][..]),
+        ("Desligar", &["systemctl", "poweroff"][..]),
+        // o encerrar ORDEIRO (a família cai em ordem antes do labwc
+        // --exit: daemon → superfícies → agentes)
+        ("Encerrar sessão", &["craft-logout"][..]),
+    ] {
+        corpo.append(&linha_menu_bar(rotulo, argv, menu));
+    }
+    corpo
+}
+
+/// a linha do cardápio da sessão (o verbo viaja no closure do clique —
+/// a MESMA escola da dock: o rótulo à esquerda, a pele no #menuwin da
+/// mestra; o verbo parte com o menu FECHADO, a diretriz §2.1).
+fn linha_menu_bar(rotulo: &str, argv: &[&str], menu: &craft_tools::MenuCamada) -> gtk::Button {
+    let btn = gtk::Button::new();
+    let rot = gtk::Label::new(Some(rotulo));
+    rot.set_halign(gtk::Align::Start);
+    btn.set_child(Some(&rot));
+    btn.set_has_frame(false);
+    btn.set_hexpand(true);
+    let menu = menu.clone();
+    let argv: Vec<String> = argv.iter().map(|s| s.to_string()).collect();
+    btn.connect_clicked(move |_| {
+        menu.fecha(); // o verbo parte com o menu fechado (§2.1)
+        let argv: Vec<&str> = argv.iter().map(|s| s.as_str()).collect();
+        solta(&argv);
+    });
+    btn
+}
+
+/// 1.0-109 §2.1 — o divisor sutil entre os grupos do cardápio (a
+/// mesma régua do §2.3: 1px na cor da borda — a pele mora no
+/// `#menuwin separator` da mestra).
+fn separa_menu() -> gtk::Separator {
+    gtk::Separator::new(gtk::Orientation::Horizontal)
 }
 
 // ── o DRENO (as mensagens viram widgets) ──────────────────────────────
@@ -1406,19 +1483,19 @@ fn separa_grupo() -> gtk::Separator {
 /// a árvore da barra e DESATIVA o foco persistente em TODO botão —
 /// `focus_on_click(false)` (o clique não rouba a Banana do tema) e
 /// `can_focus(false)` (o contorno `:focus` do tema externo nunca
-/// pinta). O seletor roxo travado do popover de energia e o quadrado
-/// branco do MenuButton `:checked` morrem aqui E no CSS (os estados
-/// `:checked`/`:active`/`:focus` veste `background-image: none` +
-/// `box-shadow: none`). A barra reage EXCLUSIVAMENTE ao `:hover`.
+/// pinta). O seletor roxo travado do menu de energia de era e o
+/// quadrado branco do MenuButton `:checked` morreram aqui E no CSS
+/// (1.0-109 §2.1: o ⏻ é BOTÃO PURO — nenhum ToggleButton por dentro,
+/// o cardápio é a janela de camada). A barra reage EXCLUSIVAMENTE ao
+/// `:hover`.
 fn apaga_foco_da_barra(raiz: &gtk::Widget) {
     if let Ok(b) = raiz.clone().downcast::<gtk::Button>() {
         b.set_focus_on_click(false);
         b.set_can_focus(false);
     }
-    if let Ok(mb) = raiz.clone().downcast::<gtk::MenuButton>() {
-        mb.set_focus_on_click(false);
-        mb.set_can_focus(false);
-    }
+    // 1.0-109 §2.1: o MenuButton MORREU (o cardápio é a janela de
+    // camada) — o downcast de era saiu com ele (nenhum menubutton na
+    // árvore da barra)
     let mut c = raiz.first_child();
     while let Some(filho) = c {
         c = filho.next_sibling();

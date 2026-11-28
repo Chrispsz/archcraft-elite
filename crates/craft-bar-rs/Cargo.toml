@@ -28,12 +28,20 @@ license = "GPL-3.0"
 # default = gui: o binário completo. Sem a feature, o main compila com
 # uma mensagem HONESTA e exit 1 (nunca uma barra fantasma silenciosa).
 default = ["gui"]
-gui = ["gtk4", "gtk4-layer-shell", "libc"]
+# 1.0-109 §2.1 — o craft-tools (o MenuCamada da camada Overlay) é da
+# GUI: sem a feature a dependência NÃO carrega (o núcleo std-only
+# testa em qualquer lugar, a lei do degrau)
+gui = ["gtk4", "gtk4-layer-shell", "libc", "craft-tools"]
 
 [dependencies]
 # 2.0 — a FUNDAÇÃO da casa: os contratos tipados + a folha mestra única
 # (Theme CSS embutido via include_str do elite-core, zero drift de pele).
 elite-core = { path = "../elite-core" }
+# 1.0-109 §2.1 — O MENU DE CAMADA (o card do calendário e o cardápio
+# da sessão vestem a camada Overlay — SEMPRE acima da gaveta top do
+# craft-apps; o MenuCamada/posiciona_menu moram na fundação
+# compartilhada das ferramentas, a MESMA janela dos seletores).
+craft-tools = { path = "../craft-tools", optional = true }
 # libc (só na gui): o handler cru dos sinais da casa — SIGRTMIN+8 (o
 # pill do modo de jogo acende/apaga na transição que o elite-daemon
 # avisa) e SIGRTMIN+9 (a pílula dos apps em 2º plano, o evento

@@ -330,12 +330,14 @@ mod tests {
     #[test]
     fn folha_mestra_tem_os_tokens_da_casa() {
         // a pele única: a paleta e as três famílias vivem no mesmo papel
+        // (1.0-109 §2.1: os popovers nativos morreram — a família dos
+        // menus é a janela de camada #menuwin, SEMPRE acima da gaveta)
         for token in [
             "@define-color elite-bg",
             "@define-color elite-danger",
             "#barwindow",
             "#dockbox",
-            "popover > contents",
+            "#menuwin {",
             "button.running",
         ] {
             assert!(

@@ -23,7 +23,9 @@ file_has "dock: os pins nascem pela persistência atômica do elite-core" "crate
 file_has "design system: os tokens da paleta no papel único" "crates/elite-core/assets/theme.css" '@define-color elite-bg'
 file_has "design system: a barra na folha" "crates/elite-core/assets/theme.css" '#barwindow'
 file_has "design system: a dock na folha" "crates/elite-core/assets/theme.css" '#dockbox'
-file_has "design system: os popovers nativos na folha" "crates/elite-core/assets/theme.css" 'popover > contents'
+# 1.0-109 §2.1 — os popovers nativos MORRERAM (os menus são janelas de camada Overlay)
+file_hasnt "design system: os popovers nativos não voltam à folha (o menu é a janela #menuwin)" "crates/elite-core/assets/theme.css" 'popover > contents'
+file_has "design system: a janela do menu de camada na folha (a Overlay dos menus)" "crates/elite-core/assets/theme.css" '#menuwin {'
 file_hasnt "design system: a era waybar não volta na pele" "crates/elite-core/assets/theme.css" 'waybar'
 
 # ── o bus.sock é o fio da casa ──

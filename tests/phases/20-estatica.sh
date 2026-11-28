@@ -237,7 +237,7 @@ file_has "bar: o mapa E149 do bluetooth — o ESQUERDO abre o blueman-manager" "
 # (a distro é NetworkManager; o iwgtk cede o assento do clique)
 file_has "bar: o mapa E149 da rede — o ESQUERDO abre o nm-connection-editor (1.0-105)" "crates/craft-bar-rs/src/ui.rs" 'nm-connection-editor'
 file_has "bar: o direito da rede alterna o RÁDIO Wi-Fi na hora" "crates/craft-bar-rs/src/ui.rs" '["radio", "wifi"]'
-file_has "bar: a sessão é O endereço único de Bloquear/Encerrar (o dedupe da diretriz)" "crates/craft-bar-rs/src/ui.rs" 'bar.logout'
+file_has "bar: a sessão é O endereço único de Bloquear/Encerrar (o dedupe da diretriz)" "crates/craft-bar-rs/src/ui.rs" '("Encerrar sessão", &["craft-logout"][..])'
 file_has "bar: o ícone por NOME GTK (o glifo Nerd quebrado morre)" "crates/craft-bar-rs/src/ui.rs" 'audio-volume-high-symbolic'
 file_has "bar: o juízo do ícone de volume pelo estado (o núcleo nomeia)" "crates/craft-bar-rs/src/state.rs" 'audio-volume-muted-symbolic'
 file_hasnt "bar: o bgapps NÃO VOLTA (a ordem do dono: fora da interface e do código)" "crates/craft-bar-rs/src/ui.rs" 'craft-bgapps'
@@ -355,7 +355,11 @@ file_has "rice: o fóssil da v7 na rede do lock (quem adotou a v7 renova à v8)"
 # (1.0-107.3 — a auditoria total dos pacotes: pkgrel com ponto, o 108
 #  fica reservado ao ciclo pós-validação no hardware; a âncora viva
 #  sobe junto NO MESMO COMMIT do conteúdo)
-file_has "build.sh: o pkgrel da dose é 108 (elite-system 1.0-108 — a dose completa: motor/infra da Etapa 1 + camada visual da Etapa 2, lei E41 no MESMO commit)" "$BS" 'pkgrel=108'
+# 1.0-109 §2.1 — A ESCADA DE CAMADAS FECHA A DOSE (a última peça de
+# conteúdo da Etapa 2 carrega o número, lei E41: o 109 veste a dose
+# COMPLETA — o terminal inteligente · o rótulo Auto-suspensão · o player
+# reativo · os menus em janelas Overlay SEMPRE acima da gaveta)
+file_has "build.sh: o pkgrel da dose é 109 (elite-system 1.0-109 — a dose completa: o terminal, o rótulo, o player e a escada de camadas, lei E41 no MESMO commit)" "$BS" 'pkgrel=109'
 
 # ══ 1.0-107.3 — A PERÍCIA DO CONJUNTO FINAL DA ISO (as 4 redundâncias
 #    que a debloat de eras não via + o backend de portais que faltava) ══
@@ -470,16 +474,16 @@ file_has "bar: o meio da rede abre o editor completo (nm-connection-editor)" "cr
 # tem UMA gaveta), e o relógio abria o calendário ao PASSAR O MOUSE:
 file_has "bar: o botão de aplicativos dispara o CRAFT-APPS (a MESMA porta da tecla Windows)" "crates/craft-bar-rs/src/ui.rs" 'solta(&["craft-apps"])'
 file_hasnt "bar: o fuzzel NÃO mora mais no botão de apps (a gaveta é do craft-apps)" "crates/craft-bar-rs/src/ui.rs" 'solta(&["fuzzel"])'
-file_has "bar: o relógio é HORA/CALENDÁRIO (o clique abre o popover da casa)" "crates/craft-bar-rs/src/ui.rs" 'abre_calendario'
+file_has "bar: o relógio é HORA/CALENDÁRIO (o clique abre o card da casa)" "crates/craft-bar-rs/src/ui.rs" 'abre_calendario'
 file_hasnt "bar: o hover do relógio MORREU (nenhum enter/leave abre o calendário — só o clique)" "crates/craft-bar-rs/src/ui.rs" 'connect_enter'
 # 1.0-108 — OS ATALHOS RÁPIDOS do menu da barra (a ordem do dono: Modo de
 # jogo, Auto-suspensão, Monitores/120 Hz, Atualizar, Limpar, Snapshots):
-file_has "bar: o menu da barra veste o MODO DE JOGO (craft-game menu)" "crates/craft-bar-rs/src/ui.rs" '("game", &["craft-game", "menu"][..])'
-file_has "bar: o menu da barra veste a TRAVA AUTOMÁTICA (craft-idle menu)" "crates/craft-bar-rs/src/ui.rs" '("idle", &["craft-idle", "menu"][..])'
-file_has "bar: o menu da barra veste os MONITORES/120Hz (wdisplays)" "crates/craft-bar-rs/src/ui.rs" '("displays", &["wdisplays"][..])'
-file_has "bar: o menu da barra veste o ATUALIZAR sistema (craft-update)" "crates/craft-bar-rs/src/ui.rs" '("update", &["craft-update"][..])'
-file_has "bar: o menu da barra veste o LIMPAR sistema (craft-clean)" "crates/craft-bar-rs/src/ui.rs" '("clean", &["craft-clean"][..])'
-file_has "bar: o menu da barra veste os SNAPSHOTS (craft-rollback)" "crates/craft-bar-rs/src/ui.rs" '("rollback", &["craft-rollback"][..])'
+file_has "bar: o cardápio da sessão veste o MODO DE JOGO (craft-game menu)" "crates/craft-bar-rs/src/ui.rs" '("Modo de jogo", &["craft-game", "menu"][..])'
+file_has "bar: o cardápio veste a AUTO-SUSENSÃO (craft-idle menu — o rótulo CURTO de 14 caracteres)" "crates/craft-bar-rs/src/ui.rs" '("Auto-suspensão", &["craft-idle", "menu"][..])'
+file_has "bar: o cardápio veste os MONITORES/120Hz (wdisplays)" "crates/craft-bar-rs/src/ui.rs" '("Monitores (120 Hz)", &["wdisplays"][..])'
+file_has "bar: o cardápio veste o ATUALIZAR sistema (craft-update)" "crates/craft-bar-rs/src/ui.rs" '("Atualizar sistema", &["craft-update"][..])'
+file_has "bar: o cardápio veste o LIMPAR sistema (craft-clean)" "crates/craft-bar-rs/src/ui.rs" '("Limpar sistema", &["craft-clean"][..])'
+file_has "bar: o cardápio veste os SNAPSHOTS (craft-rollback)" "crates/craft-bar-rs/src/ui.rs" '("Snapshots (Rollback)", &["craft-rollback"][..])'
 file_hasnt "bar: o painel do notificador de era NÃO volta ao relógio" "crates/craft-bar-rs/src/ui.rs" 'swaync-client'
 # o conflito do /etc/default/scx morre (o caminho é do scx-scheds oficial):
 file_hasnt "pkg: o /etc/default/scx NÃO viaja no pacote (o caminho é do scx-scheds — zero conflito)" ".ci/build.sh" 'files/etc/default/scx'
@@ -729,7 +733,15 @@ file_has "css: a barra veste a obsidiana #0d0d12 (a ilha do dono)" "crates/elite
 file_has "css: a dock veste a MESMA obsidiana da barra (1.0-104 — os tokens alinhados)" "crates/elite-core/assets/theme.css" 'background: @elite-bg;'
 file_has "css: a borda interna de luz da dock (1px rgba(255,255,255,0.12) — ícones escuros não somem)" "crates/elite-core/assets/theme.css" 'rgba(255, 255, 255, 0.12)'
 file_has "css: a borda sutil mauve rgba(203, 166, 247, 0.16)" "crates/elite-core/assets/theme.css" 'rgba(203, 166, 247, 0.16)'
-file_has "css: o MenuButton de energia fica SOLTO (background-image none no :checked)" "crates/elite-core/assets/theme.css" 'background-image: none'
+# 1.0-109 §2.1 — o MenuButton morreu: o ⏻ é BOTÃO PURO e o cardápio é a janela de camada Overlay (o MenuCamada)
+file_hasnt "css: o MenuButton de era não volta à folha (o ⏻ é botão puro)" "crates/elite-core/assets/theme.css" '#barbox menubutton'
+file_hasnt "bar: o MenuButton de era morre no corpo (o cardápio é a janela de camada)" "crates/craft-bar-rs/src/ui.rs" 'gtk::MenuButton::new()'
+file_hasnt "bar: o PopoverMenu de era morre no corpo (o card do calendário é a janela de camada)" "crates/craft-bar-rs/src/ui.rs" 'gtk::Popover'
+file_has "bar: o card do calendário veste a janela Overlay (o MenuCamada da fundação)" "crates/craft-bar-rs/src/ui.rs" 'menu_cal.alterna'
+file_has "bar: o cardápio da sessão veste a janela Overlay (os mesmos verbos, a pele #menuwin)" "crates/craft-bar-rs/src/ui.rs" 'fn monta_menu_sessao'
+file_has "bar: o ⏻ é o toggle do cardápio (aberto fecha, fechado abre ABAIXO do botão)" "crates/craft-bar-rs/src/ui.rs" 'menu_power.alterna'
+file_has "bar: o clique FORA fecha os menus SEM engolir o clique (o gesto em CAPTURA na janela)" "crates/craft-bar-rs/src/ui.rs" 'set_propagation_phase(gtk::PropagationPhase::Capture)'
+file_has "css: o calendário veste a MESMA pele na janela do menu (os seletores migraram do popover)" "crates/elite-core/assets/theme.css" '#menuwin calendar'
 file_has "css: o cabeçalho do calendário veste o #f8fafc (mês e ano legíveis)" "crates/elite-core/assets/theme.css" 'calendar > header'
 file_has "css: o relógio veste tabular-nums (os dígitos não dançam)" "crates/elite-core/assets/theme.css" 'font-variant-numeric: tabular-nums'
 # ══ 1.0-107.3 — A AUDITORIA DE CSS MORTO (seletor a seletor: a E149
@@ -852,8 +864,8 @@ file_has "heal: o guard do ícone só veste a linha AUSENTE (idempotente)" "$AIR
 file_has "suspend: o pgrep -x hyprlock confirma o lock ativo ANTES do systemctl suspend" "$AIROOTFS/usr/local/bin/craft-suspend" 'pgrep -x hyprlock'
 file_has "lock: o cache STALE não segura o map (o ffmpeg renasce DESAPEGADO em setsid)" "$AIROOTFS/usr/local/bin/craft-lock" 'blur_fresco'
 file_has "lock: o blur_passes=0 é LEI SEMPRE (nenhuma passada lenta antes do map)" "$AIROOTFS/usr/local/bin/craft-lock" 'blur_passes = 0|"'
-file_has "bar: o Suspender do menu da barra veste o CRAFT-SUSPEND (lock mapeado antes do freeze)" "crates/craft-bar-rs/src/ui.rs" '("suspend", &["craft-suspend"][..])'
-file_has "bar: o Encerrar do menu da barra veste o CRAFT-LOGOUT (a família cai em ordem)" "crates/craft-bar-rs/src/ui.rs" '("logout", &["craft-logout"][..])'
+file_has "bar: o Suspender do cardápio veste o CRAFT-SUSPEND (lock mapeado antes do freeze)" "crates/craft-bar-rs/src/ui.rs" '("Suspender", &["craft-suspend"][..])'
+file_has "bar: o Encerrar do cardápio veste o CRAFT-LOGOUT (a família cai em ordem)" "crates/craft-bar-rs/src/ui.rs" '("Encerrar sessão", &["craft-logout"][..])'
 # 1.0-108 — O CRAFT-SUSPEND (a ordem do dono: a superfície do lock MAPEADA
 # antes do systemctl suspend):
 file_exists "suspend: o craft-suspend mora na casa" "$AIROOTFS/usr/local/bin/craft-suspend"
@@ -1016,7 +1028,7 @@ file_hasnt "hello: o pointer de 3 linhas de era morre (a versão/dose não é no
 #    resumo REAL dos pacotes antes de aplicar)
 file_has "menu: o rótulo Auto-suspensão (14 caracteres — SEM truncar com '...')" "$AIROOTFS/etc/skel/.config/labwc/menu.xml" '<item label="Auto-suspensão">'
 file_hasnt "menu: o rótulo longo Trava automática de era morre (16 caracteres truncavam na largura monoespaçada)" "$AIROOTFS/etc/skel/.config/labwc/menu.xml" '<item label="Trava automática">'
-file_has "bar: o menu da barra veste o rótulo CURTO Auto-suspensão" "crates/craft-bar-rs/src/ui.rs" 'Some("Auto-suspensão"), Some("bar.idle")'
+file_has "bar: o cardápio da sessão veste o rótulo CURTO Auto-suspensão de 14 caracteres (nenhum '...' truncando)" "crates/craft-bar-rs/src/ui.rs" 'o rótulo CURTO Auto-suspensão de 14 caracteres do §2.3'
 file_hasnt "bar: o rótulo longo Trava automática morre no menu da barra" "crates/craft-bar-rs/src/ui.rs" '"Trava automática"'
 file_has "css: o divisor sutil dos grupos da faixa na folha mestra (Mídia · Hardware · Sessão)" "crates/elite-core/assets/theme.css" '#barbox separator'
 file_has "bar: o divisor ENTRE mídia e hardware (a direita em BLOCOS)" "crates/craft-bar-rs/src/ui.rs" 'dir.append(&separa_grupo())'

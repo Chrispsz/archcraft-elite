@@ -39,8 +39,10 @@
 //   · MODO DE JOGO: pill que acende no SIGRTMIN+8 do elite-daemon (o
 //     mesmo contrato da era waybar — o daemon avisa, a barra acende);
 //   · PLAYER: o MPRIS PELO FIO DO BUS (o PropertiesChanged do daemon);
-//   · SESSÃO: GtkPopoverMenu NATIVO — Bloquear / Suspender / Reiniciar
-//     / Desligar / Encerrar sessão. SEM fuzzel e SEM can-suspend: o
+//   · SESSÃO: o cardápio na JANELA DE CAMADA Overlay (1.0-109 §2.1:
+//     SEMPRE acima da gaveta — o popover de era era FILHO da superfície
+//     top e a gaveta o cobria) — Bloquear / Suspender / Reiniciar /
+//     Desligar / Encerrar sessão. SEM fuzzel e SEM can-suspend: o
 //     sleep.conf da casa já disse AllowSuspend=yes (E122), o
 //     `systemctl suspend` é a palavra final.
 //   · TODOS os ícones são NOMES DE ÍCONE GTK (Image::from_icon_name) —
@@ -163,7 +165,7 @@ fn main() {
             "uso: craft-bar-rs — a TOP BAR nativa da casa (GTK4 + layer-shell; sem argumentos)\n\
              \n\
              \x20  E147 — O CONTRATO DE INTERAÇÃO ÚNICO (a UI reconstruída):\n\
-             \x20  · clique ESQUERDO = o controle principal (popover nativo GTK4);\n\
+             \x20  · clique ESQUERDO = o controle principal;\n\
              \x20  · clique DIREITO = a ferramenta avançada de verdade;\n\
              \x20  · scroll = ajuste fino (volume).\n\
              \n\
@@ -175,8 +177,9 @@ fn main() {
              \x20    alcance com sinal, a conexão em 1 clique · (meio): editor ·\n\
              \x20    (dir): liga/desliga a conexão ativa\n\
              \x20  · bluetooth (esq): blueman-manager · (dir): liga/desliga o power\n\
-             \x20  · sessão: popover nativo (Bloquear/Suspender/Reiniciar/\n\
-             \x20    Desligar/Encerrar) · bateria: o resumo (quando existe)\n\
+             \x20  · sessão: o cardápio na janela Overlay — SEMPRE acima da\n\
+             \x20    gaveta (Bloquear/Suspender/Reiniciar/Desligar/Encerrar) ·\n\
+             \x20    bateria: o resumo (quando existe)\n\
              \x20  · os ícones são SÓ nomes de ícone GTK — NUNCA mais glifo Nerd\n\
              \x20    quebrado (o '\\uf085' foi a evidência do dono)\n\
              \x20  SIGRTMIN+8: pill do modo de jogo (o elite-daemon avisa) ·\n\

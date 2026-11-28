@@ -3221,7 +3221,16 @@ pkgver=1.0
 #      diretriz do dono — conteúdo e número no MESMO commit; a Etapa 1
 #      comitou o conteúdo de INFRA local sem número por desenho, o 108
 #      veste a release completa que o rig recebe pelo botão Atualizar).
-pkgrel=108
+#      1.0-109 — A ESCADA DE CAMADAS FECHA A DOSE (Etapa 2: o terminal
+#      inteligente (fastfetch + verbos) · o rótulo Auto-suspensão e os
+#      grupos da faixa · o player reativo pelo NameOwnerChanged · os
+#      menus em janelas Overlay SEMPRE acima da gaveta top do
+#      craft-apps — o card do calendário, o cardápio da sessão e o menu
+#      do clique direito da dock: o popover de era era FILHO da
+#      superfície top e a gaveta o cobria inteiro): o pkgrel 108→109 NO
+#      MESMO COMMIT DA ÚLTIMA PEÇA DE CONTEÚDO da Etapa 2 (lei E41 — o
+#      109 veste a dose COMPLETA que o rig recebe pelo botão Atualizar).
+pkgrel=109
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da sessão; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite
