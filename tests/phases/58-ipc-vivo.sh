@@ -242,20 +242,34 @@ else
             # a sessão da casa sob o bus de prova (o dbus-run-session
             # veste a session bus REAL dos verbos do daemon)
             if command -v dbus-run-session >/dev/null 2>&1; then
+                # E190 — O PID DO CORPO, NÃO DO ENVÓLUCRO (o réu herdado
+                # do E189: o kill -USR1 matava o dbus-run-session — o
+                # 'User defined signal 1' na cara do bash — e nunca
+                # vestia o daemon; o bash INTERNO grava o pid DELE no
+                # papel e o exec veste o MESMO pid — o reexec in-place
+                # é provado no CORPO, não no embrulho)
                 dbus-run-session -- bash -c '
                     printf "%s\n" "$DBUS_SESSION_BUS_ADDRESS" > "$0/dbus.addr"
+                    printf "%s\n" "$$" > "$0/daemon.pid"
                     exec elite-daemon session
                 ' "$XDG" >"$VIVO/daemon.err" 2>&1 &
             else
                 elite-daemon session >"$VIVO/daemon.err" 2>&1 &
             fi
-            DAEMON_PID=$!
+            WRAP_PID=$!
+            DAEMON_PID="$WRAP_PID"
             _bus_ok=0
             for _ in $(seq 1 40); do
                 [ -S "$XDG/elite/bus.sock" ] && { _bus_ok=1; break; }
                 kill -0 "$DAEMON_PID" 2>/dev/null || break
                 sleep 0.5
             done
+            # E190 — o PID verdadeiro do papel (o envólucro não é o corpo)
+            _corpo_pid="$(cat "$XDG/daemon.pid" 2>/dev/null || true)"
+            if [ -n "$_corpo_pid" ] && kill -0 "$_corpo_pid" 2>/dev/null; then
+                DAEMON_PID="$_corpo_pid"
+            fi
+            unset _corpo_pid
             if [ "$_bus_ok" = 1 ]; then
                 t_ok "vivo: o bus.sock da sessão headless nasceu (o núcleo no ar)"
                 # (a) o REEXEC preserva o PID (o kill -USR1 veste o MESMO

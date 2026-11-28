@@ -192,6 +192,18 @@ else
     t_fail "família continua de pé" "morreu depois de nascer (crash-loop?)"
 fi
 
+# E190 — A LINHA DO TEMPO DO HANDSHAKE (o réu herdado do E189 morre o
+#      ACCEPT instantâneo e ECONNREFUSED: SABER QUANDO o fio morre é a
+#      prova que a run carrega — cada marco é ECO, não gate: 1s·2s·3s·5s·8s
+#      após a família, o doctor inteiro em cada um (7ms cada, o
+#      container paga) ────────────────────────────────────────────────
+for _t in 1 2 3 5 8; do
+    sleep "$_t"
+    _probe="$(printf '%s' "$("$BIN_STAGED/craft-doctor" 2>/dev/null)" \
+        | grep -oE '✓ bus.sock|não conecta|fio surdo' | head -1)"
+    printf '  (timeline bus.sock +%ss: %s)\n' "$((_t))" "${_probe:-sem-veredito}"
+done
+
 # ── 5. os logs SEM warnings críticos (o pilare 3 da diretriz) ────────────
 bar_log="$HOME_SMOKE/.cache/elite/bars.log"
 dock_log="$HOME_SMOKE/.cache/elite/dock.log"
@@ -251,8 +263,14 @@ else
     # o DOSSIÊ do réu (a prova que o log da run carrega): o daemon vivo?
     # o que o stderr dele disse? o que o chão do runtime mostra?
     if kill -0 "$DAEMON_PID" 2>/dev/null; then _dav="VIVO"; else _dav="MORTO"; fi
+    # E190 — O DOSSIÊ COMPLETO (o réu herdado do E189 foge do tail -4: a
+    # morte do ACCEPT do bus é instantânea e o ECONNREFUSED não nomeia a
+    # thread morta — o papel INTEIRO do daemon + o chão de /proc (as
+    # threads vivas) + o bars.log da sessão entram na run vermelha)
+    _th_n="$(ls "/proc/$DAEMON_PID/task" 2>/dev/null | wc -l)"
+    _fd_n="$(ls "/proc/$DAEMON_PID/fd" 2>/dev/null | wc -l)"
     t_fail "craft-doctor: bus.sock responde ao handshake" \
-        "daemon $_dav (pid $DAEMON_PID) · chão: $(ls -la "$XDG/elite/" 2>/dev/null | tr '\n' ' ') · stderr: $(tail -4 "$daemon_err" 2>/dev/null | tr '\n' ' ') · saída: $(printf '%s' "$_doctor_out" | tr '\n' ' ')"
+        "daemon $_dav (pid $DAEMON_PID; threads:$_th_n fds:$_fd_n) · chão: $(ls -la "$XDG/elite/" 2>/dev/null | tr '\n' ' ') · stderr(20): $(tail -20 "$daemon_err" 2>/dev/null | tr '\n' ' ') · bars.log(12): $(tail -12 "$daemon_log" 2>/dev/null | tr '\n' ' ') · saída: $(printf '%s' "$_doctor_out" | tr '\n' ' ')"
 fi
 
 # ── 7. a lei E90 executiva nos compilados (o réu carrega O ERRO REAL:
