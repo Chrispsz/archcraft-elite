@@ -1104,6 +1104,10 @@ fn sonda_flock(fd: libc::c_int) -> bool {
 /// 1.0-107.2 — A SONDA DO GUARDA (PURO sobre o caminho — a porta do
 /// teste sem tocar em env do processo): o flock LOCK_EX|LOCK_NB num
 /// caminho CONFLITA com o irmão vivo que o segura = porta ocupada.
+// E190-c — a espiada de era mora nos TESTES (o guarda de verdade
+// ADQUIRI a posse — ver guarda_bus; a sonda de ocupação segue sendo o
+// juízo puro da porta que os testes cravam)
+#[cfg(test)]
 fn trava_irmao(lock: &std::path::Path) -> bool {
     let Ok(f) = std::fs::OpenOptions::new()
         .create(true)
@@ -1116,20 +1120,48 @@ fn trava_irmao(lock: &std::path::Path) -> bool {
     sonda_flock(f.as_raw_fd()) // o File cai no return — o lock do guarda solta sozinho
 }
 
-/// 1.0-107.2 — O GUARDA DO BUS (a corrida que o craft-doctor nomeou no
-/// smoke do Canal, run 46001730365): o `liga_bus` de era corria ANTES
-/// do flock da sessão — a 2ª instância BINDAVA o bus.sock POR CIMA do
-/// dono vivo e saía pela recusa do flock: o socket novo morria com o
-/// processo e o CAMINHO apontava pra NINGUÉM (o bus do dono ficava
-/// morto pelo path — bar/dock reconectando para sempre num arquivo
-/// surdo; o dossiê do smoke provou: daemon VIVO, bus.sock no chão,
-/// handshake RECUSADO). O guarda JULGA o lock ANTES do bind: porta
-/// ocupada = o pretendente sai 0 NA HORA, com o papel da recusa no
-/// bars.log, SEM tocar o chão do bus do dono. A AUTORIDADE segue no
-/// flock do supervisa (a janela de µs entre o guarda e o trono é a
-/// mesma lei E30 de sempre).
+/// 1.0-107.2 → E190-c — A POSSE DA PORTA ANTES DO BUS (a corrida que o
+/// craft-doctor nomeou no smoke do Canal VOLTOU pela janela — e o reexec
+/// de 1.0-110 T6 morria NO PRÓPRIO guarda):
+///   · A CORRIDA DO CANAL: o guarda de era só ESPIAVA o lock e o flock
+///     de verdade morava no FIM do arranque (DEPOIS do liga_bus) — com os
+///     ouvidores de E189/E190 a janela de µs virou MILISSEGUNDOS e a
+///     2ª instância despachada DENTRO dela passava pelo guarda com o
+///     lock ainda LIVRE, REBINDAVA o bus.sock por cima do dono vivo e
+///     morria no trono do supervisa: o socket novo dela caía com o
+///     processo e o CAMINHO ficava apontando pra NINGUÉM (bar/dock
+///     reconectando para sempre num arquivo surdo — ECONNREFUSED; o
+///     dossiê do smoke provou: daemon VIVO, bus.sock no chão, handshake
+///     RECUSADO, o papel da recusa com o texto do TRONO e não do guarda).
+///     A TRAVA veste AGORA, ANTES do bind: quem chega de fora flocka
+///     ANTES de tocar o bus — ZERO janela.
+///   · O SUICÍDIO DO REEXEC: o corpo renascido do SIGUSR1 herda o fd do
+///     flock (ELITE_LOCK_FD, CLOEXEC limpo) e o guarda de via 'dono' NO
+///     FD DELE MESMO (o flock de um fd NOVO contra o herdado devolve
+///     EWOULDBLOCK — o próprio corpo é o dono!) e saía 0 NA PORTA: o
+///     reexec nunca viveu de verdade fora do compilador. A POSSE
+///     HERDADA é a posse — o reexecado veste a porta DIRETO.
+/// true = a porta é NOSSA (o fd vivo mora no LOCK_FD e o ELITE_LOCK_FD
+/// entrega pro supervisa ADOTAR — o mesmo caminho do reexec: UM dono,
+/// ZERO segunda abertura). false = irmão vivo: o papel da recusa e o
+/// chamador sai 0 (a era de sempre).
 pub fn guarda_bus() -> bool {
     let uid = unsafe { libc::getuid() };
+    // 1) O REEXECADO: o fd herdado É a posse (o próprio flock do MESMO
+    //    pid atravessou o execve — flockar de novo seria EWOULDBLOCK
+    //    contra SI MESMO): o guarda NÃO recusa o dono — ele VESTE a
+    //    porta que já é dele (o suicídio do reexec morre aqui)
+    let herdado = std::env::var("ELITE_LOCK_FD")
+        .ok()
+        .and_then(|v| v.parse::<i32>().ok())
+        .filter(|fd| *fd >= 0);
+    if let Some(fd) = herdado {
+        super::LOCK_FD.store(fd, std::sync::atomic::Ordering::SeqCst);
+        eprintln!(
+            "elite-daemon: a porta session já é DESTA carne (ELITE_LOCK_FD={fd} herdado do exec — a posse atravessou o reexec, o guarda não julga o próprio dono)"
+        );
+        return true;
+    }
     // o espelho da ESCADA do supervisa: o privado primeiro, o fallback
     // de /tmp SÓ quando o privado não abre (o guarda que tocasse o /tmp
     // com o privado vivo plantaria fóssil no chão de todos)
@@ -1139,8 +1171,35 @@ pub fn guarda_bus() -> bool {
     } else {
         vec![PathBuf::from(elite_core::SESSION_LOCK_FALLBACK)]
     };
-    if !locks.iter().any(|l| trava_irmao(l)) {
-        return false; // livre: o trono do supervisa decide o resto
+    // 2) E190-c — A TRAVA DE VERDADE (não a espiada de era): o flock
+    //    EX|NB adQUIRIDO AGORA — a posse veste ANTES do bind e o fd
+    //    vivo é entregue ao supervisa pela adoção do reexec
+    let mut dono = None;
+    for l in &locks {
+        let Ok(f) = std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .write(true)
+            .open(l)
+        else {
+            continue; // sem chão pra julgar: o trono do supervisa decide
+        };
+        if sonda_flock(f.as_raw_fd()) {
+            break; // irmão vivo segurando: a recusa honesta de sempre
+        }
+        // rc == 0: A POSSE É NOSSA — o fd NÃO cai (into_raw_fd: o lock
+        // vive até o fim do corpo; o supervisa o ADOTA pelo env)
+        let fd = {
+            use std::os::fd::IntoRawFd;
+            f.into_raw_fd()
+        };
+        super::LOCK_FD.store(fd, std::sync::atomic::Ordering::SeqCst);
+        std::env::set_var("ELITE_LOCK_FD", fd.to_string());
+        dono = Some(true);
+        break;
+    }
+    if dono == Some(true) {
+        return true;
     }
     // o dono vivo segura a porta: o papel da recusa NA HORA (a
     // mensagem casa com a do trono — o smoke confere o papel)
@@ -1159,7 +1218,7 @@ pub fn guarda_bus() -> bool {
         "elite-daemon: a porta session já tem dono — a 2ª instância sai 0 \
          ANTES de tocar o bus (flock E30; o bind de era matava o socket do dono — 1.0-107.2)"
     );
-    true
+    false
 }
 
 fn supervisa(
@@ -1213,11 +1272,15 @@ fn supervisa(
             // renascido (o flock é do open-file-description — o execve
             // não solta o que o MESMO PID segura); o fd aberto agora é
             // SOBRANDO (o herdado já é o dono do lock)
+            // E190-c — a adoção veste os DOIS corpos: o REEXECADO (o fd
+            // atravessou o execve) E a 1ª instância de hoje (a posse
+            // vestiu ANTES do bind no guarda — ver guarda_bus; ZERO
+            // segunda abertura, ZERO janela entre a trava e o trono)
             drop(f_aberto);
             let f = unsafe { std::os::unix::io::FromRawFd::from_raw_fd(fd) };
             super::LOCK_FD.store(fd, std::sync::atomic::Ordering::SeqCst);
             eprintln!(
-                "elite-daemon: o flock da porta {porta} HERDADO do reexec (ELITE_LOCK_FD={fd}) — mesmo PID {}, mesma trava",
+                "elite-daemon: o flock da porta {porta} ADOTADO pelo fd da posse (ELITE_LOCK_FD={fd}) — reexec ou 1ª instância: MESMO dono {}, mesma trava",
                 std::process::id()
             );
             (f, true)

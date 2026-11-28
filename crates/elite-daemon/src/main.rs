@@ -570,11 +570,16 @@ fn main() {
             // barata (stat a cada 100ms) — a sessão só descola quando o
             // WAYLAND_DISPLAY EXISTE de verdade.
             espera_wayland(10);
-            // 1.0-107.2 — O GUARDA DO BUS: o pretendente com a porta
-            // ocupada sai 0 ANTES do liga_bus (o bind de era da 2ª
-            // instância matava o socket do dono PELO PATH — o
-            // craft-doctor nomeou o réu no smoke do Canal)
-            if supervise::guarda_bus() {
+            // 1.0-107.2 → E190-c — A POSSE ANTES DO BUS: o guarda de era
+            // só ESPIAVA o lock (o bind do liga_bus corria com a janela
+            // aberta — a 2ª instância despachada dentro dela REBINDAVA o
+            // bus.sock do dono e o caminho morria; o reexec de 1.0-110 T6
+            // suicidava NO guarda com o próprio flock herdado). AGORA o
+            // guarda ADQUIRE: true = a porta é NOSSA (o fd vivo mora no
+            // LOCK_FD — o supervisa o ADOTA pelo ELITE_LOCK_FD, ZERO
+            // janela entre a trava e o bind); false = irmão vivo, o papel
+            // da recusa e saída 0 da era de sempre
+            if !supervise::guarda_bus() {
                 std::process::exit(0);
             }
             nucleo::liga_bus();
