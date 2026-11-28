@@ -91,6 +91,79 @@ extern "C" fn ao_chld(_sig: i32) {
     }
 }
 
+// 1.0-110 T6 — O SIGUSR1 DO REEXEC (a ordem do dono: reexec in-place,
+// mesmo PID, sem 2ª instância): o handler SÓ acende a bandeira e toca
+// o pipe (async-signal-safe — o execve mora NA THREAD do supervisor,
+// longe dos mallocs do handler; o corpo vive no reexec_in_place).
+extern "C" fn ao_reexec(_sig: i32) {
+    unsafe {
+        let e = libc::__errno_location();
+        let salvo = *e;
+        REEXEC.store(true, Ordering::SeqCst);
+        wake_escreve();
+        *e = salvo;
+    }
+}
+
+/// 1.0-110 T6 — a bandeira do reexec (o supervisor veste o gesto na
+/// thread DELE, acordado pelo byte do self-pipe).
+pub(crate) static REEXEC: AtomicBool = AtomicBool::new(false);
+
+/// 1.0-110 T6 — o fd do FLOCK single-instance desta instância (o
+/// reexec limpa o CLOEXEC dele e o entrega pelo env ELITE_LOCK_FD: a
+/// instância renascida ADOTA o mesmo fd — ver supervisa).
+pub(crate) static LOCK_FD: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(-1);
+
+/// 1.0-110 T6 — O REEXEC IN-PLACE (o corpo do SIGUSR1): execve de SI
+/// MESMO preservando o fd do flock single-instance (ELITE_LOCK_FD
+/// contínuo — o CLOEXEC do fd da trava é LIMPO antes do exec): MESMO
+/// PID, os clientes do bus.sock RECONECTAM no fio novo, SEM 2ª instância
+/// (o flock é do open-file-description — o execve não solta o que o
+/// MESMO processo segura; os filhos vivos são ADOTADOS pelos gates de
+/// posse na renascida, os mortos são colhidos pelo dreno de lá).
+pub(crate) fn reexec_in_place() {
+    let fd = LOCK_FD.load(Ordering::SeqCst);
+    if fd >= 0 {
+        unsafe {
+            let fl = libc::fcntl(fd, libc::F_GETFD);
+            if fl >= 0 {
+                // o CLOEXEC MORRE no fd da trava: o execve de si mesmo
+                // PRESERVA a posse (o lock atravessa o nascimento)
+                let _ = libc::fcntl(fd, libc::F_SETFD, fl & !libc::FD_CLOEXEC);
+            }
+        }
+        std::env::set_var("ELITE_LOCK_FD", fd.to_string());
+    }
+    let exe = std::env::current_exe()
+        .map(|p| p.to_string_lossy().into_owned())
+        .unwrap_or_else(|_| "elite-daemon".to_string());
+    let Ok(exe_c) = std::ffi::CString::new(exe.as_str()) else {
+        eprintln!("elite-daemon: o reexec não vestiu o caminho próprio — a sessão segue viva (honesto)");
+        return;
+    };
+    // o argv RENASCE igual (a porta "session" segue sendo a porta)
+    let mut argv: Vec<std::ffi::CString> = vec![exe_c.clone()];
+    for a in std::env::args().skip(1) {
+        if let Ok(c) = std::ffi::CString::new(a) {
+            argv.push(c);
+        }
+    }
+    eprintln!(
+        "elite-daemon: SIGUSR1 — reexec in-place (execve de si mesmo; PID {} e flock preservados)",
+        std::process::id()
+    );
+    let mut ptrs: Vec<*const libc::c_char> = argv.iter().map(|c| c.as_ptr()).collect();
+    ptrs.push(std::ptr::null());
+    unsafe {
+        libc::execv(exe_c.as_ptr(), ptrs.as_mut_ptr());
+    }
+    // execv só volta no ERRO: a sessão segue viva (honesto no papel)
+    eprintln!(
+        "elite-daemon: o reexec FALHOU ({}) — a sessão segue viva",
+        std::io::Error::last_os_error()
+    );
+}
+
 // ── 1.0-107.2 — O SELF-PIPE DOS EVENTOS (a lei do zero-tick) ────────────
 // O pipe nasce em instala_sinais e NUNCA morre: o handler escreve um
 // byte (async-signal-safe: write(2) de 1 byte num pipe O_NONBLOCK — a
@@ -136,6 +209,9 @@ fn instala_sinais() {
         // dele colhe na mesma passada — o waitpid dos filhos ALHEIOS
         // das outras threads segue intocado: handler não colhe, só toca)
         libc::signal(libc::SIGCHLD, ao_chld as extern "C" fn(i32) as usize);
+        // 1.0-110 T6 — O REEXEC IN-PLACE: o SIGUSR1 acorda o supervisor
+        // pelo pipe (a bandeira REEXEC) — o mesmo PID renasce vestido
+        libc::signal(libc::SIGUSR1, ao_reexec as extern "C" fn(i32) as usize);
     }
 }
 
@@ -267,7 +343,7 @@ pub(crate) fn espera_evento(teto_ms: i32) {
 }
 
 fn usage() -> &'static str {
-    "uso: elite-daemon [session | supervise | game-notify | desk … | --help | --version]\n\
+    "uso: elite-daemon [session | supervise | game-notify | desk … | suspend | doctor | --help | --version]\n\
      \x20 o orquestrador ÚNICO da sessão (1.0-107 — o daemon LIVRE de varredura\n\
      \x20 de processos: o modo de jogo é o MANUAL do craft-game, o daemon só\n\
      \x20 publica o estado que o CLI reporta no bus da sessão).\n\
@@ -276,12 +352,15 @@ fn usage() -> &'static str {
      \x20 `exec elite-daemon session` — zero /bin/sh residente) e os ouvidores\n\
      \x20 de evento (bus.sock + wayland + mpris + áudio + netlink + logind).\n\
      \x20 supervise = o supervisor dos residentes da sessão (swayosd, swaync\n\
-     \x20 — respawn com backoff de 2s).\n\
+     \x20 — respawn com backoff exponencial e teto).\n\
      \x20 game-notify = 1.0-104 — o craft-game CLI reporta o toggle manual: publica\n\
      \x20 o estado REAL (QueryStatus) no bus da sessão e a barra acende o pill\n\
      \x20 do jogo no MESMO instante (o cinto do 30s é a rede, o fio é o gesto).\n\
      \x20 desk N|left|right|left-occupied|right-occupied = o SYNC da mesa\n\
      \x20 (1.0-100 — o rc.xml registra a troca; a dock veste .other-workspace).\n\
+     \x20 suspend = 1.0-110 — a PORTA CURTA DO SONO (o verbo SUSPEND no bus da\n\
+     \x20 sessão: o daemon trava desacoplado, espera a superfície do lock e\n\
+     \x20 chama login1.Manager.Suspend nativo — o caminho do craft-suspend).\n\
      \x20 doctor = 1.0-107.2 — O DIAGNÓSTICO EM 1 COMANDO (o elo craft-doctor é\n\
      \x20 este mesmo binário): julga os invariantes vitais da máquina real —\n\
      \x20 o ambiente Wayland no D-Bus, o bus.sock, o agente Polkit, o dono\n\
@@ -372,6 +451,38 @@ fn main() {
                     }
                     Ok(_) => continue, // boas-vindas do frame 0: segue
                     Err(_) => break,   // o fio caiu: o estado publicado decide
+                }
+            }
+            std::process::exit(if ok { 0 } else { 1 });
+        }
+        // 1.0-110 T3 — A PORTA CURTA DO SONO (o craft-suspend veste ESTA
+        // porta: o verbo SUSPEND viaja pelo bus da sessão e o daemon
+        // desce o caminho NATIVO — lock desacoplado, superfície mapeada
+        // e login1.Manager.Suspend pela conexão COMPARTILHADA, com o
+        // fallback systemctl). CORPO CURTO como o desk: manda o pedido,
+        // espera o Ack com teto de 3s (a espera da superfície do lock)
+        // e MORRE — zero residente, zero lock. Sem bus vivo = queda
+        // honesta 1 (o craft-suspend veste o caminho local dele).
+        Some("suspend") => {
+            let uid = unsafe { libc::getuid() };
+            let sock = elite_core::bus_sock_path(uid);
+            let Some((cli, rx)) =
+                elite_core::bus::BusClient::connect(&sock, "elite-daemon-suspend")
+            else {
+                eprintln!("elite-daemon suspend: sem bus da sessão — o caminho local do craft-suspend veste (honesto)");
+                std::process::exit(1);
+            };
+            let _ = cli.send_req(elite_core::BusReq::Suspend);
+            let teto = std::time::Instant::now() + std::time::Duration::from_millis(3000);
+            let mut ok = false;
+            while std::time::Instant::now() < teto {
+                match rx.recv_timeout(std::time::Duration::from_millis(100)) {
+                    Ok(elite_core::BusMsg::Ack { ok: veredito, .. }) => {
+                        ok = veredito;
+                        break;
+                    }
+                    Ok(_) => continue,
+                    Err(_) => break,
                 }
             }
             std::process::exit(if ok { 0 } else { 1 });
@@ -770,6 +881,15 @@ fn thread_display_boot() {
 /// amdgpu perde o sinal no freeze e o modo de DPMS não volta sozinho) e
 /// o relógio de idle RENASCE do zero (o tempo DORMIDO não conta como
 /// inatividade — o lock logo após o acordar era a mentira do contador).
+/// 1.0-110 T5 — O DESPERTAR SEQUENCIAL E DEDUPLICADO: o acordar de uma
+/// suspensão DISPARA Unlock E PrepareForSleep(false) quase NO MESMO
+/// instante (o despertar de era nascia DUAS vezes — cada um com os DOIS
+/// forks de recover+apply soltos ao vento: a corrida de modo de era era
+/// uma roleta: o apply lia o wlr-randr ANTES do recover religar o link
+/// e o 60 Hz voltava por sorte). A janela de 3s DEDUPLICA o gêmeo e a
+/// sequência é LEI dentro da thread: wlopm → assento → recover
+/// BLOQUEANTE (status()) → SÓ ENTÃO apply (o modo confere DEPOIS do
+/// link re-treinado, nunca na carona de um fork solto).
 fn despertar() {
     // 1.0-100 — A ORDEM DO DESPERTAR (o audit 99 §4: ao acordar do
     // suspend às 20:35 a sessão caiu para o greeter do SDDM — o
@@ -800,12 +920,39 @@ fn despertar() {
     // NENHUM destes gestos mata o compositor: wlopm fala o protocolo
     // wlr-output-power (estado de DPMS), o apply fala wlr-randr (modos)
     // — os dois são clientes Wayland comuns; o labwc continua de pé.
+    // 1.0-110 T5 — A DEDUPLICAÇÃO: Unlock + PrepareForSleep(false) são
+    // O MESMO acordar (chegam colados no despertar do sono); a janela
+    // de 3s colhe UM gesto só — o gêmeo que chegar no intervalo é eco.
+    {
+        static ULTIMO: std::sync::Mutex<Option<std::time::Instant>> = std::sync::Mutex::new(None);
+        let mut ultimo = ULTIMO.lock().unwrap();
+        if let Some(t) = *ultimo {
+            if t.elapsed() < Duration::from_secs(3) {
+                eprintln!(
+                    "elite-daemon: o despertar JÁ corre há {:.1}s (Unlock+PrepareForSleep são O MESMO acordar — o gêmeo é eco, 1.0-110)",
+                    t.elapsed().as_secs_f64()
+                );
+                return;
+            }
+        }
+        *ultimo = Some(std::time::Instant::now());
+    }
     std::thread::spawn(|| {
         dispara("wlopm", &["--on", "*"]);
         // o assento do link DP/HDMI do amdgpu (a GPU precisa dele entre
         // o DPMS acordar e o re-treino do modo)
         std::thread::sleep(Duration::from_millis(800));
-        dispara("/usr/local/bin/craft-display", &["recover"]);
+        // 1.0-110 T5 — A SEQUÊNCIA É LEI (recover BLOQUEANTE ANTES do
+        // apply: de era os dois forks soltos corriam em paralelo e o
+        // apply lia o modo do link AINDA morto — a corrida de modo de
+        // era era uma roleta; o recover termina, o link está re-treinado,
+        // SÓ ENTÃO o apply veste o arranjo do dono)
+        let _ = Command::new("/usr/local/bin/craft-display")
+            .arg("recover")
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status();
         dispara("/usr/local/bin/craft-display", &["apply"]);
         // 1.0-107 — A REDE REAVALIADA NO ACORDAR (a ordem do dono: "no
         // evento PrepareForSleep(false)… o estado de conectividade
@@ -869,6 +1016,25 @@ fn thread_netlink() {
                 0,
             );
             if n <= 0 {
+                // 1.0-110 T5 — O ENOBUFS RESSINCRONIZA (o kernel descarta
+                // a fila multicast de uevents quando o buffer enche — o
+                // sono de 500ms de era DEVOLVIA o estado VELHO: o monitor
+                // plugado na janela perdida ficava sem o arranjo até o
+                // PRÓXIMO evento): o estado completo é REFEITO (a rodada
+                // de áudio + o apply do display) com o guard de 800ms da
+                // casa — a rajada de resyncs nunca vira fork-storm
+                let enobufs = n < 0 && *libc::__errno_location() == libc::ENOBUFS;
+                if enobufs {
+                    let agora = agora_ms();
+                    if agora.saturating_sub(last_drm) > 800 {
+                        last_drm = agora;
+                        eprintln!(
+                            "elite-daemon: netlink ENOBUFS — a fila do kernel transbordou, o estado é RESSINCRONIZADO (áudio + display, 1.0-110)"
+                        );
+                        std::thread::spawn(|| audio::rodada("enobufs"));
+                        dispara("/usr/local/bin/craft-display", &["apply"]);
+                    }
+                }
                 std::thread::sleep(Duration::from_millis(500));
                 continue;
             }

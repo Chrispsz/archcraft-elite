@@ -229,6 +229,13 @@ pub enum BusReq {
     /// é o daemon (o CLI do rc.xml não sabe) — o cálculo com wrap e a
     /// ocupação aprendida moram no workspace.rs.
     DeskStep { dir: String },
+    /// 1.0-110 T3 — A SUSPENSÃO NATIVA (o verbo do item "Suspender" da
+    /// barra E do craft-suspend): o daemon trava DESACOPLADO, espera a
+    /// superfície do lock MAPEADA (teto 3s + assento 400ms) e chama
+    /// org.freedesktop.login1.Manager.Suspend(true) pela conexão zbus
+    /// system COMPARTILHADA (fallback systemctl suspend) — o caminho
+    /// ÚNICO do sono da casa (o journalctl do logind registra a chamada).
+    Suspend,
 }
 
 /// Os verbos de mídia (MPRIS) no fio do bus.

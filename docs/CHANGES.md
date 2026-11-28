@@ -6,6 +6,37 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **1.0-110 · Commit 1/2 — O MOTOR EM TEMPO REAL (a perícia da 1.0-109
+  virou contrato)**: **T1 o MPRIS vivo** (DUAS threads independentes
+  props/owner por CANAL — o `for props_iter` bloqueante de era engolia o
+  `NameOwnerChanged` e a pílula FANTASMA ficava presa; o "FIM É FIM":
+  fechar só a aba do YouTube Music não emite NameOwnerChanged — o player
+  vira `Stopped` E limpa o Metadata, o juízo novo encerra a mídia e o
+  pill desce < 200 ms; o refresco GetAll COALESCIDO ~180 ms após cada
+  comando — pausa ▶/⏸ ≤ 300 ms, troca de faixa ≤ 1s; e o PAUSAR acorda
+  a vigília com `reseta_idle`), **T2 o estado ÚNICO de janelas** (UM
+  `Mutex<Janelas>` — a corrida lista×MRU morre), **T3 a suspensão
+  REAL** (`idle::suspende`: hyprlock desacoplado + superfície mapeada +
+  `login1.Manager.Suspend(true)` pela conexão zbus system COMPARTILHADA,
+  com o verbo `BusReq::Suspend` no bus, a porta curta `elite-daemon
+  suspend` e o craft-suspend vestindo o caminho nativo; o retry de 30 s
+  do idle inibido que NUNCA mais deixa a cadeia morrer), **T4 o swaync à
+  prova de CSS** (o style.css nasce ATOMICAMENTE no $HOME antes da vaga
+  — do skel com o fallback embutido; o backoff EXPONENCIAL com teto
+  2s→60s mata o crash-loop de 30 respawn/minuto), **T5 a robustez**
+  (volume COALESCIDO no scroll da barra — rajada vira UM wpctl; a
+  GUARDA DE SEQUÊNCIA do write_atomic — a atrasada nunca enterra a
+  nova; o ENOBUFS do netlink que RESSINCRONIZA o estado; o despertar
+  SEQUENCIAL deduplicado com recover bloqueante antes do apply) e **T6
+  o upgrade e o boot** (o reexec IN-PLACE no SIGUSR1 com o flock
+  herdado por `ELITE_LOCK_FD` — mesmo PID, sem 2ª instância; o debloat
+  `pacman -Rns` FORA do scriptlet para o hook PostTransaction — sem
+  corrida de pacman dentro do pacman; o `pacman-init.service`
+  desabilitado + mascarado no sistema INSTALADO — boot **−4,35 s**, a
+  Live preservada; o craft-dump com `LC_ALL=C`, a cabeça de output do
+  wlr-randr RECONHECIDA indentada e o aviso do portal Inhibit como
+  benigno conhecido). O pkgrel **110** no MESMO commit do conteúdo
+  (lei E41).
 - **1.0-109 · Etapa 2 — A DIRETRIZ DO DONO INTEIRA (a escada de camadas, o
   player reativo, o rótulo curto e o terminal inteligente)**: **§2.1 a
   escada de camadas** (os menus da casa vestem a janela **Overlay** do

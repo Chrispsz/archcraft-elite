@@ -128,6 +128,15 @@ fn despacho(bus: Arc<BusServer>, rx: std::sync::mpsc::Receiver<Incoming>) {
                     // sintetizar aqui fechava o loop W-<n> → sync → W-<n>)
                     BusReq::DeskSet { to } => crate::workspace::define(to),
                     BusReq::DeskStep { dir } => crate::workspace::passo(&dir),
+                    // 1.0-110 T3 — O VERBO DA SUSPENSÃO NATIVA (o item
+                    // "Suspender" da barra E o craft-suspend mandam AQUI):
+                    // a thread própria segura o Ack NA HORA — o lock e a
+                    // espera da superfície (teto 3s) moram no idle::suspende,
+                    // longe do despacho (a fila do bus nunca espera o sono)
+                    BusReq::Suspend => std::thread::Builder::new()
+                        .name("elite-suspende".into())
+                        .spawn(crate::idle::suspende)
+                        .is_ok(),
                 };
                 bus.send_to(cliente, &BusMsg::Ack { id: req_id, ok });
             }

@@ -693,9 +693,15 @@ fn uid_e_dono() -> (u32, Option<String>) {
 
 /// Colhe UM comando (stdout cru; None honesto em qualquer engasgo —
 /// a ausência é nomeada, nunca inventada).
+/// 1.0-110 T6 — O LC_ALL=C DA COLHEITA (a evidência do rig: sob
+/// pt_BR.UTF-8 o `free -m` imprime `Mem.:` em vez de `Mem:` — o
+/// parse_free_m devolvia None e o papel dizia "formato inesperado"
+/// para um free PERFEITO; o C é o contrato do PARSE, o papel continua
+/// na língua do dono).
 fn colhe(argv: &[&str]) -> Option<String> {
     let out = std::process::Command::new(argv[0])
         .args(&argv[1..])
+        .env("LC_ALL", "C")
         .stdin(std::process::Stdio::null())
         .output()
         .ok()?;

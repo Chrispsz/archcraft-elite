@@ -68,7 +68,28 @@ pub const CLIENTES_DISPLAY: &[(&str, &str)] = &[
 ];
 
 const CONF_PATH: &str = "/usr/local/share/elite/daemon.conf";
+/// E135 — o backoff BASE do respawn (o 1º renasce em 2s — a lei de
+/// sempre; 1.0-110 T4 dobra a espera a CADA morte seguida, com teto).
 const BACKOFF: Duration = Duration::from_secs(2);
+/// 1.0-110 T4 — O TETO DO BACKOFF EXPONENCIAL (a evidência do
+/// bars.log: `COULD NOT FIND CSS FILE!` + coredump main.vala:60 com
+/// respawn de 2s fixo PARA SEMPRE — a vaga doente não pode acordar o
+/// sistema 30 vezes por minuto; a espera dobra 2s→4s→8s→16s→32s→60s
+/// e CAPA em 60s: o crash-loop vira um pulso calado que o papel
+/// continua nomeando).
+const BACKOFF_TETO: Duration = Duration::from_secs(60);
+/// 1.0-110 T4 — o filho que VIVEU isto é VIDA ESTÁVEL: a morte dele
+/// renasce o backoff do CHÃO (2s) — o crash de vez em quando de um
+/// residente são não é o crash-loop do doente.
+const VIDA_ESTAVEL: Duration = Duration::from_secs(30);
+
+/// 1.0-110 T4 — o próximo backoff (o contrato puro da suíte): dobra o
+/// anterior até o teto. O 2s fixo de era relançava um binário quebrado
+/// 30×/minuto para sempre — agora cada morte seguida paga o DOBRO e o
+/// teto de 60s veste a honestidade (o papel segue nomeando cada morte).
+fn proximo_backoff(anterior: Duration) -> Duration {
+    anterior.saturating_mul(2).min(BACKOFF_TETO)
+}
 
 #[derive(Default)]
 pub struct Residente {
@@ -466,15 +487,73 @@ fn entrega_mordaca_polkit(conf_base: &std::path::Path) -> bool {
     std::fs::create_dir_all(conf_base.join("autostart")).is_ok() && std::fs::write(&alvo, corpo).is_ok()
 }
 
+/// 1.0-110 T4 — ENTREGA O STYLE.CSS DO SWAYNC NO $HOME (a cura do
+/// crash-loop `COULD NOT FIND CSS FILE!` + coredump main.vala:60): o
+/// arquivo ausente ou VAZIO recebe o MESTRE do skel do pacote; o skel
+/// sem o mestre veste o fallback EMBUTIDO da casa (a MESMA paleta da
+/// folha mestra na gramática do swaync — um CSS válido de verdade, a
+/// última rede). A escrita é ATÔMICA (write_atomic da fundação): o
+/// swaync nunca lê meia folha. true = o mestre NASCEU; false = já havia
+/// folha viva (o dono é o dono — intocado).
+fn entrega_css_swaync(alvo: &str) -> bool {
+    // o dono JÁ tem folha viva? intocado (a personalização é dele)
+    if std::fs::read_to_string(alvo)
+        .map(|t| !t.trim().is_empty())
+        .unwrap_or(false)
+    {
+        return false;
+    }
+    let corpo = std::fs::read_to_string("/etc/skel/.config/swaync/style.css")
+        .ok()
+        .filter(|t| !t.trim().is_empty())
+        .unwrap_or_else(|| CSS_SWAYNC_CASA.to_string());
+    elite_core::persist::write_atomic(std::path::Path::new(alvo), corpo.as_bytes()).is_ok()
+}
+
+/// 1.0-110 T4 — O FALLBACK EMBUTIDO da casa (a última rede do CSS do
+/// swaync: o skel sem o mestre — o mundo container/probe — entrega a
+/// MESMA paleta da folha mestra na gramática do swaync; um CSS VÁLIDO
+/// de verdade: o coredump main.vala:60 é de FOLHA AUSENTE, nunca de
+/// folha simples).
+const CSS_SWAYNC_CASA: &str = r#"/* Archcraft ELITE · style.css de última rede (1.0-110) — o mestre
+ * vivo mora em /etc/skel/.config/swaync/style.css (a folha INTEIRA da
+ * paleta oficial); este fallback veste o MÍNIMO que o swaync exige sem
+ * crash: superfícies elevadas da casa, hover um degrau, nunca claro. */
+@define-color accent    #a855f7;
+@define-color accent-2  #cba6f7;
+@define-color text      #cdd6f4;
+@define-color bright    #f8fafc;
+@define-color base      #11111b;
+@define-color mantle    #181825;
+@define-color surface   #262637;
+@define-color red       #f38ba8;
+
+.notification-row { outline: none; }
+.notification-content { background: @mantle; }
+.notification-action { background: @base; color: @text; border: 1px solid @surface; }
+.notification-action:hover { background: @surface; }
+.close-button { background: @base; color: @text; }
+.close-button:hover { background: @red; }
+.control-center { background: @mantle; color: @text; }
+.widget-title { color: @bright; }
+"#;
+
 struct Vaga {
     res: Residente,
     filho: Option<Child>,
     /// E135 — a trava da vaga SEGURA enquanto o filho nosso vive (a
     /// prova de posse que o outro processo vê; solta quando ele morre).
     trava: Option<std::fs::File>,
-    /// o instante da MORTE (ou do arranque recusado) — o backoff de 2s
+    /// o instante da MORTE (ou do arranque recusado) — o backoff
     /// conta daqui (um respawn por filho, nunca uma rajada).
     desde: Instant,
+    /// 1.0-110 T4 — A ESPERA CORRENTE do respawn (o backoff
+    /// EXPONENCIAL com teto: a morte seguida dobra, a vida estável
+    /// ≥ VIDA_ESTAVEL renasce do CHÃO — ver proximo_backoff).
+    espera: Duration,
+    /// o instante do NASCIMENTO do filho nosso (a vida dele julga a
+    /// estabilidade — 1.0-110 T4).
+    vida: Instant,
     /// o arranque inicial já correu: da morte em diante é TODO respawn
     /// com backoff (a 1ª subida não espera — a sessão quer a fila no ar).
     nasceu: bool,
@@ -771,17 +850,42 @@ pub fn run_session() -> Result<(), String> {
     // vaga veste o binário puro (o upstream /etc/xdg é a última rede).
     // O gate é o NOME NO BUS: outro daemon de notificações vivo
     // (mako/dunst de fora) é ADOTADO — a casa não soma centros.
+    // 1.0-110 T4 — O CSS À PROVA DE CRASH (a evidência do bars.log da
+    // 1.0-109: `COULD NOT FIND CSS FILE! REINSTALL THE PACKAGE!` +
+    // coredump main.vala:60 a cada 2s e pgrep SEM swaync vivo — a
+    // sessão sem style.css lançava o binário NU e ele morria no berço
+    // 30×/minuto): o mestre nasce ATOMICAMENTE no $HOME ANTES da vaga
+    // subir — do skel do pacote, com o fallback embutido da casa; o
+    // respawn RE-CHECA o dono de org.freedesktop.Notifications antes
+    // de spawnar (o gate de posse da sempre: outro dono vivo é
+    // ADOTADO, nunca sobreposto).
     {
         let home = std::env::var("HOME").unwrap_or_default();
         let conf = format!("{home}/.config/swaync/config.json");
         let css = format!("{home}/.config/swaync/style.css");
+        // o CSS EXISTENTE e NÃO-VAZIO é o contrato (vazio = ausente)
+        let css_vivo = PathBuf::from(&css)
+            .metadata()
+            .map(|m| m.len() > 0)
+            .unwrap_or(false);
+        if !home.is_empty()
+            && !css_vivo
+            && entrega_css_swaync(&css)
+        {
+            eprintln!(
+                "elite-daemon session: o style.css do swaync NASCEU no $HOME (mestre do skel — o crash-loop 'COULD NOT FIND CSS FILE!' morre, 1.0-110)"
+            );
+        }
         let comando = if !home.is_empty()
             && PathBuf::from(&conf).exists()
             && PathBuf::from(&css).exists()
         {
             format!("swaync -c {conf} -s {css}")
         } else {
-            "swaync".to_string()
+            // 1.0-110 T4 — NUNCA o binário NU: sem config.json o -s
+            // segue apontando o CSS entregue (o upstream veste o
+            // default de conf; a FOLHA é o que matava o swaync)
+            format!("swaync -s {css}")
         };
         specs.push(VagaSpec {
             res: Residente {
@@ -942,13 +1046,23 @@ fn supervisa(
     // instância única (E30): flock PRÓPRIO da porta — o modo game, o
     // supervise e o session são corpos distintos, locks distintos (o
     // 2º sai 0).
+    // 1.0-110 T6 — O FLOCK HERDADO DO REEXEC: o SIGUSR1 faz execve de
+    // SI MESMO preservando o fd da trava (ELITE_LOCK_FD, o CLOEXEC
+    // limpo antes do exec) — o MESMO processo NÃO pode flockar duas
+    // vezes o mesmo arquivo (o open+flock de sempre devolveria
+    // EWOULDBLOCK contra o fd HERDADO): o reexec ADOPTA o fd herdado
+    // como o lock desta porta — MESMO PID, MESMA trava, SEM 2ª instância.
+    let herdado = std::env::var("ELITE_LOCK_FD")
+        .ok()
+        .and_then(|v| v.parse::<i32>().ok())
+        .filter(|fd| *fd >= 0);
     let mut lock = PathBuf::from(lock_path);
     // 1.0-93 — o endereço PRIVADO precisa existir (o tmpfs do dono
     // quase sempre já existe — o bind do bus cria; aqui o cinto)
     if let Some(pai) = lock.parent() {
         let _ = std::fs::create_dir_all(pai);
     }
-    let f = std::fs::OpenOptions::new()
+    let f_aberto = std::fs::OpenOptions::new()
         .create(true)
         .truncate(false)
         .write(true)
@@ -969,28 +1083,51 @@ fn supervisa(
                 .open(&lock)
         })
         .map_err(|e| format!("lock {}: {}", lock.display(), e))?;
-    let rc = unsafe { libc::flock(f.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
-    if rc != 0 {
-        // E146 — A SAÍDA SILENCIOSA GANHA VOZ: o rig da 1.0-94 mostrou o
-        // AUTOSTART CORROMPIDO disparando `elite-daemon session &` OITO
-        // vezes (sed cego de agente fora do repo) — o flock segurou o
-        // dano (UM só dono de pé, os sete excedentes saíram 0 calados),
-        // mas o silêncio escondia o SINTOMA: agora cada recusa deixa a
-        // linha no papel do daemon — a contagem alta é a assinatura da
-        // corrupção que o elite-heal-sessao cura.
-        let log_r = log_path();
-        if let Ok(mut fh) = std::fs::OpenOptions::new().append(true).create(true).open(&log_r) {
-            use std::io::Write;
-            let _ = writeln!(
-                fh,
-                "elite-daemon: a porta {porta} já tem dono — a 2ª instância sai 0 (flock E30; recusas repetidas = autostart corrompido, o elite-heal-sessao cura)"
+    let (f, veio_do_reexec): (std::fs::File, bool) = match herdado {
+        Some(fd) => {
+            // o fd herdado é a PRÓPRIA trava: vira o File do processo
+            // renascido (o flock é do open-file-description — o execve
+            // não solta o que o MESMO PID segura); o fd aberto agora é
+            // SOBRANDO (o herdado já é o dono do lock)
+            drop(f_aberto);
+            let f = unsafe { std::os::unix::io::FromRawFd::from_raw_fd(fd) };
+            super::LOCK_FD.store(fd, std::sync::atomic::Ordering::SeqCst);
+            eprintln!(
+                "elite-daemon: o flock da porta {porta} HERDADO do reexec (ELITE_LOCK_FD={fd}) — mesmo PID {}, mesma trava",
+                std::process::id()
             );
+            (f, true)
         }
-        eprintln!(
-            "elite-daemon: a porta {porta} já tem dono — a 2ª instância sai 0 (flock E30)"
-        );
-        return Ok(()); // o irmão está no ar — a casa segue com UM dono
-    }
+        None => {
+            let rc = unsafe { libc::flock(f_aberto.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
+            if rc != 0 {
+                // E146 — A SAÍDA SILENCIOSA GANHA VOZ: o rig da 1.0-94
+                // mostrou o AUTOSTART CORROMPIDO disparando
+                // `elite-daemon session &` OITO vezes (sed cego de
+                // agente fora do repo) — o flock segurou o dano (UM só
+                // dono de pé, os sete excedentes saíram 0 calados),
+                // mas o silêncio escondia o SINTOMA: agora cada recusa
+                // deixa a linha no papel do daemon — a contagem alta é
+                // a assinatura da corrupção que o elite-heal-sessao cura.
+                let log_r = log_path();
+                if let Ok(mut fh) =
+                    std::fs::OpenOptions::new().append(true).create(true).open(&log_r)
+                {
+                    use std::io::Write;
+                    let _ = writeln!(
+                        fh,
+                        "elite-daemon: a porta {porta} já tem dono — a 2ª instância sai 0 (flock E30; recusas repetidas = autostart corrompido, o elite-heal-sessao cura)"
+                    );
+                }
+                eprintln!(
+                    "elite-daemon: a porta {porta} já tem dono — a 2ª instância sai 0 (flock E30)"
+                );
+                return Ok(()); // o irmão está no ar — a casa segue com UM dono
+            }
+            super::LOCK_FD.store(f_aberto.as_raw_fd(), std::sync::atomic::Ordering::SeqCst);
+            (f_aberto, false)
+        }
+    };
     // E150 — O PID NO LOCK (a identidade do dono da vaga: o relogin
     // lê este número para julgar o órfão — ver colhe_relogin; a
     // varredura dos fósseis do chão já correu LÁ, antes do liga_bus).
@@ -1025,6 +1162,8 @@ fn supervisa(
             filho: None,
             trava: None,
             desde: Instant::now(),
+            espera: BACKOFF,
+            vida: Instant::now(),
             nasceu: false,
             ausente: false,
             adotada: false,
@@ -1068,9 +1207,24 @@ fn supervisa(
             if let Some(filho) = v.filho.as_mut() {
                 match filho.try_wait() {
                     Ok(Some(st)) => {
+                        // 1.0-110 T4 — O BACKOFF EXPONENCIAL COM TETO: a
+                        // morte SEGUIDA dobra a espera (2s→4s→8s→…→60s
+                        // — o crash-loop de 30/minuto vira um pulso
+                        // calado); a vida ESTÁVEL (≥ VIDA_ESTAVEL)
+                        // renasce o backoff do CHÃO (a morte de vez em
+                        // quando do residente são é vida normal)
+                        let viveu = v.vida.elapsed();
+                        v.espera = if viveu >= VIDA_ESTAVEL {
+                            BACKOFF
+                        } else {
+                            proximo_backoff(v.espera)
+                        };
                         eprintln!(
-                            "elite-daemon supervise: {} SAIU {} — relança em 2s",
-                            v.res.nome, st
+                            "elite-daemon supervise: {} SAIU {} (viveu {:.0}s) — relança em {}s",
+                            v.res.nome,
+                            st,
+                            viveu.as_secs_f64(),
+                            v.espera.as_secs()
                         );
                         v.filho = None;
                         v.trava = None;
@@ -1081,6 +1235,7 @@ fn supervisa(
                         eprintln!("elite-daemon supervise: {} try_wait falhou: {}", v.res.nome, e);
                         v.filho = None;
                         v.trava = None;
+                        v.espera = proximo_backoff(v.espera);
                         v.desde = Instant::now();
                     }
                 }
@@ -1127,8 +1282,9 @@ fn supervisa(
                 continue;
             }
             //    (c) a vaga é NOSSA: a 1ª subida é IMEDIATA; da morte em
-            //        diante TODO respawn espera o backoff de 2s.
-            if v.nasceu && v.desde.elapsed() < BACKOFF {
+            //        diante TODO respawn espera o backoff DELA (1.0-110:
+            //        EXPONENCIAL com teto — ver proximo_backoff).
+            if v.nasceu && v.desde.elapsed() < v.espera {
                 // guarda a trava até a hora do spawn (a posse não vaga
                 // durante o backoff — nenhum irmão entra no meio)
                 v.trava = trava;
@@ -1144,6 +1300,8 @@ fn supervisa(
                     v.filho = Some(filho);
                     v.trava = trava;
                     v.nasceu = true;
+                    v.vida = Instant::now();
+                    v.espera = BACKOFF; // a subida SÃ renasce o chão
                     v.adotada = false; // filho NOSSO no ar: a adoção acabou
                 }
                 Err(e) if e.kind() == io::ErrorKind::NotFound => {
@@ -1157,12 +1315,38 @@ fn supervisa(
                 }
                 Err(e) => {
                     eprintln!(
-                        "elite-daemon supervise: {} não subiu ({}) — tenta em 2s",
-                        v.res.nome, e
+                        "elite-daemon supervise: {} não subiu ({}) — tenta em {}s",
+                        v.res.nome, e, v.espera.as_secs()
                     );
                     v.nasceu = true;
                     v.desde = Instant::now();
+                    v.espera = proximo_backoff(v.espera);
                     v.trava = trava;
+                }
+            }
+        }
+        // 1.0-110 T6 — O REEXEC IN-PLACE NO SIGUSR1 (a ordem do dono:
+        // mesmo PID, MESMO flock, clientes reconectam — o corpo vive no
+        // main.rs; o supervisor acorda pelo byte do self-pipe e veste
+        // o gesto NA THREAD dele, longe do handler assíncrono)
+        if super::REEXEC.load(std::sync::atomic::Ordering::SeqCst) {
+            super::reexec_in_place();
+            // o exec FALHOU (a voz dele já nomeou o réu): a bandeira
+            // desce e a sessão segue viva como se nada
+            super::REEXEC.store(false, std::sync::atomic::Ordering::SeqCst);
+        }
+        // 1.0-110 T6 — A COLHEITA DOS FILHOS DE ERA: só na instância
+        // reexecutada (o estado das vagas renasce — os handles de era
+        // NÃO atravessam o execve; os filhos VIVOS são adotados pelos
+        // gates de posse, os que morrerem depois são colhidos AQUI,
+        // senão viram <defunct> pendurados no MESMO PID)
+        if veio_do_reexec {
+            unsafe {
+                loop {
+                    let r = libc::waitpid(-1, std::ptr::null_mut(), libc::WNOHANG);
+                    if r <= 0 {
+                        break;
+                    }
                 }
             }
         }
@@ -1235,7 +1419,9 @@ fn teto_respawn(vagas: &[Vaga]) -> i32 {
         if v.filho.is_some() || v.ausente || !v.nasceu || v.adotada {
             continue; // viva, ausente, nunca-nascida ou ADOTADA: nada à espera
         }
-        let resta = BACKOFF
+        // 1.0-110 T4 — o backoff é DA VAGA (exponencial com teto)
+        let resta = v
+            .espera
             .saturating_sub(v.desde.elapsed())
             .as_millis() as i32;
         if resta <= 0 {
@@ -1251,6 +1437,21 @@ fn teto_respawn(vagas: &[Vaga]) -> i32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn t4_o_backoff_exponencial_dobra_ate_o_teto() {
+        // 1.0-110 T4 — a evidência do bars.log: `COULD NOT FIND CSS
+        // FILE!` + coredump com respawn de 2s FIXO — a vaga doente
+        // acordava o sistema 30×/minuto PARA SEMPRE; agora a morte
+        // SEGUIDA paga o DOBRO e o teto de 60s veste a honestidade
+        assert_eq!(proximo_backoff(BACKOFF), Duration::from_secs(4));
+        assert_eq!(proximo_backoff(Duration::from_secs(4)), Duration::from_secs(8));
+        assert_eq!(proximo_backoff(Duration::from_secs(8)), Duration::from_secs(16));
+        assert_eq!(proximo_backoff(Duration::from_secs(16)), Duration::from_secs(32));
+        // e o TETO é a LEI: o dobro de 32s seria 64s — a espera capa em 60s
+        assert_eq!(proximo_backoff(Duration::from_secs(32)), BACKOFF_TETO);
+        assert_eq!(proximo_backoff(BACKOFF_TETO), BACKOFF_TETO);
+    }
 
     #[test]
     fn conf_casa_os_residentes_nome_comando() {
@@ -1539,6 +1740,8 @@ mod tests {
             filho: None,
             trava: None,
             desde,
+            espera: BACKOFF,
+            vida: Instant::now(),
             nasceu,
             ausente,
             adotada: false,

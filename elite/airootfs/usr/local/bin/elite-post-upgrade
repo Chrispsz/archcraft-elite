@@ -1254,18 +1254,15 @@ for _fossil_automount in \
     fi
 done
 unset _fossil_automount
-for _deb in waybar gpsd; do
-    if command -v pacman >/dev/null 2>&1 && pacman -Qq "$_deb" >/dev/null 2>&1; then
-        if pacman -Qi "$_deb" 2>/dev/null | grep -q '^Required By *: *None'; then
-            if pacman -Rns --noconfirm "$_deb" >/dev/null 2>&1; then
-                tlog "debloat 1.0-93: $_deb REMOVIDO (nenhum dependente — a barra é o craft-bar-rs)"
-            fi
-        else
-            tlog "debloat 1.0-93: $_deb FICA (há dependente no db — a remoção forçada quebraria a casa)"
-        fi
-    fi
-done
-unset _deb
+# 1.0-110 T6 — O DEBLOAT MUDOU DE CASA (a corrida do pacman DENTRO do
+# pacman): a REMOÇÃO de pacotes de era corria AQUI — o elite-post-upgrade
+# é o scriptlet post_upgrade do PKGBUILD, filho da PRÓPRIA transação com
+# o db.lck SEGURADO; chamar o pacman de remoção ali dentro era corrida
+# morta à espera de acontecer (a remoção podia rodar NO MEIO da
+# instalação que ainda extraía). O bloco inteiro vive AGORA no
+# elite-post-transaction (hook libalpm PostTransaction: roda DEPOIS do
+# db.lck solto — a remoção consulta o dependente com o banco LIVRE; o
+# veredito Required By de sempre segue o mesmo juízo).
 install -d /usr/local/share/applications 2>/dev/null || true
 for _ofan in xterm uxterm qv4l2 qvidcap xgps xgpsspeed; do
     _alvo="/usr/local/share/applications/$_ofan.desktop"

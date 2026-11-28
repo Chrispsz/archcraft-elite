@@ -133,11 +133,26 @@ struct Rec {
 }
 
 /// o lado compartilhado entre a despachante e as threads de verbo.
+/// 1.0-110 T2 — O ESTADO ÚNICO DE JANELAS: `windows` e `mru` de era
+/// eram DOIS Mutexes independentes — todo leitor pegava UM e DEPOIS o
+/// outro (a corrida lista×MRU: a janela fechava ENTRE os dois locks e o
+/// anel apontava para id sem Rec, ou o anel novo nascia com a lista
+/// velha; o foca_player e o aprende_mesa fotografavam estados que
+/// NUNCA existiram juntos). UM Mutex<Janelas> — todo leitor e todo
+/// escritor pega o MESMO lock: a lista e o anel nunca divergem, o
+/// snapshot do bus é UMA foto atômica.
 struct Wl {
     conn: Connection,
     seat: wayland_client::protocol::wl_seat::WlSeat,
-    windows: Mutex<HashMap<u32, Rec>>,
-    mru: Mutex<Vec<u32>>,
+    janelas: Mutex<Janelas>,
+}
+
+/// 1.0-110 T2 — a tabela e o anel MORAM JUNTOS (a mesma foto).
+#[derive(Default)]
+struct Janelas {
+    windows: HashMap<u32, Rec>,
+    /// o anel MRU (índice 0 = a mais recentemente focada)
+    mru: Vec<u32>,
 }
 
 static SHARED: OnceLock<Arc<Wl>> = OnceLock::new();
@@ -148,11 +163,13 @@ static SHARED: OnceLock<Arc<Wl>> = OnceLock::new();
 /// só com mesa CONHECIDA ≠ a corrente: o desconhecido é presumido vivo).
 pub fn windows_mru() -> Vec<WindowInfo> {
     let Some(sh) = SHARED.get() else { return Vec::new() };
-    let mru = sh.mru.lock().unwrap().clone();
-    let wins = sh.windows.lock().unwrap();
-    mru.iter()
+    // 1.0-110 T2 — UM lock só: a lista e o anel são a MESMA foto (a
+    // corrida lista×MRU morre com o estado único)
+    let j = sh.janelas.lock().unwrap();
+    j.mru
+        .iter()
         .filter_map(|id| {
-            wins.get(id).map(|r| WindowInfo {
+            j.windows.get(id).map(|r| WindowInfo {
                 id: *id,
                 app_id: r.app_id.clone(),
                 title: if r.title.is_empty() { None } else { Some(r.title.clone()) },
@@ -195,8 +212,8 @@ fn aplica(
 ) -> bool {
     let Some(sh) = SHARED.get() else { return false };
     let handle = {
-        let wins = sh.windows.lock().unwrap();
-        wins.get(&id).map(|r| r.handle.clone())
+        let j = sh.janelas.lock().unwrap();
+        j.windows.get(&id).map(|r| r.handle.clone())
     };
     let Some(handle) = handle else { return false };
     verbo(&handle, &sh.seat);
@@ -210,10 +227,11 @@ pub fn foca_player(identidade: &str) -> bool {
     let Some(sh) = SHARED.get() else { return false };
     let alvo = identidade.to_lowercase();
     let id = {
-        let wins = sh.windows.lock().unwrap();
-        let mru = sh.mru.lock().unwrap().clone();
-        mru.iter()
-            .filter_map(|id| wins.get(id).map(|r| (*id, r)))
+        // 1.0-110 T2 — UM lock: o anel e a lista na MESMA foto (o match
+        // de era atravessava DOIS mundos que podiam divergir)
+        let j = sh.janelas.lock().unwrap();
+        j.mru.iter()
+            .filter_map(|id| j.windows.get(id).map(|r| (*id, r)))
             .find(|(_, r)| {
                 let a = r.app_id.to_lowercase();
                 let t = r.title.to_lowercase();
@@ -259,8 +277,7 @@ pub fn start() -> Option<()> {
     let shared = Arc::new(Wl {
         conn: conn.clone(),
         seat: seat.clone(),
-        windows: Mutex::new(HashMap::new()),
-        mru: Mutex::new(Vec::new()),
+        janelas: Mutex::new(Janelas::default()),
     });
     SHARED.set(Arc::clone(&shared)).ok()?;
     let mut arma_inicial = true;
@@ -352,10 +369,9 @@ impl Estado {
         if pulo != 0 && crate::agora_ms().saturating_sub(pulo) < 1500 {
             let focada = {
                 let Some(sh) = SHARED.get() else { return };
-                let mru = sh.mru.lock().unwrap().clone();
-                let wins = sh.windows.lock().unwrap();
-                mru.iter()
-                    .filter_map(|id| wins.get(id).map(|r| (*id, r.focused)))
+                let j = sh.janelas.lock().unwrap();
+                j.mru.iter()
+                    .filter_map(|id| j.windows.get(id).map(|r| (*id, r.focused)))
                     .find(|(_, focado)| *focado)
                     .map(|(id, _)| id)
             };
@@ -433,7 +449,7 @@ impl Dispatch<tl_mod::zwlr_foreign_toplevel_manager_v1::ZwlrForeignToplevelManag
                 return; // sem id não há contrato (nunca devia acontecer)
             }
             let Some(sh) = SHARED.get() else { return };
-            sh.windows.lock().unwrap().insert(id, Rec {
+            sh.janelas.lock().unwrap().windows.insert(id, Rec {
                 handle: toplevel,
                 app_id: String::new(),
                 title: String::new(),
@@ -458,12 +474,12 @@ impl Dispatch<tl_mod::zwlr_foreign_toplevel_handle_v1::ZwlrForeignToplevelHandle
         let Some(sh) = SHARED.get() else { return };
         match event {
             E::AppId { app_id } => {
-                if let Some(r) = sh.windows.lock().unwrap().get_mut(id) {
+                if let Some(r) = sh.janelas.lock().unwrap().windows.get_mut(id) {
                     r.app_id = app_id;
                 }
             }
             E::Title { title } => {
-                if let Some(r) = sh.windows.lock().unwrap().get_mut(id) {
+                if let Some(r) = sh.janelas.lock().unwrap().windows.get_mut(id) {
                     r.title = title;
                 }
             }
@@ -482,19 +498,20 @@ impl Dispatch<tl_mod::zwlr_foreign_toplevel_handle_v1::ZwlrForeignToplevelHandle
                 }
                 let focou;
                 {
-                    let mut wins = sh.windows.lock().unwrap();
-                    let Some(r) = wins.get_mut(id) else { return };
+                    // 1.0-110 T2 — UM lock: a flag, o anel MRU e a lista
+                    // mudam JUNTOS (o estado único)
+                    let mut j = sh.janelas.lock().unwrap();
+                    let Some(r) = j.windows.get_mut(id) else { return };
                     let era_focado = r.focused;
                     r.minimized = min;
                     r.focused = act;
                     r.fullscreen = full;
                     focou = act && !era_focado;
-                }
-                if act {
-                    // o anel MRU: quem ganha foco sobe para o TOPO
-                    let mut mru = sh.mru.lock().unwrap();
-                    mru.retain(|x| *x != *id);
-                    mru.insert(0, *id);
+                    if act {
+                        // o anel MRU: quem ganha foco sobe para o TOPO
+                        j.mru.retain(|x| *x != *id);
+                        j.mru.insert(0, *id);
+                    }
                 }
                 if focou {
                     estado.aprende_mesa();
@@ -515,9 +532,11 @@ impl Dispatch<tl_mod::zwlr_foreign_toplevel_handle_v1::ZwlrForeignToplevelHandle
             // remove o botão no mesmo frame — zero espaço preto)
             E::Closed => {
                 {
-                    let mut wins = sh.windows.lock().unwrap();
-                    wins.remove(id);
-                    sh.mru.lock().unwrap().retain(|x| *x != *id);
+                    // 1.0-110 T2 — UM lock: a janela sai da lista E do
+                    // anel no MESMO gesto (o fantasma do anel morto)
+                    let mut j = sh.janelas.lock().unwrap();
+                    j.windows.remove(id);
+                    j.mru.retain(|x| *x != *id);
                 }
                 handle.destroy();
                 estado.publica();
@@ -561,7 +580,16 @@ impl Dispatch<idle_mod::ext_idle_notification_v1::ExtIdleNotificationV1, u8> for
                     // > LOCK_MIN = o gesto separado; igual = o MESMO
                     // instante, a lei E43 de sempre)
                     if casa_idle::inibidores_seguram() {
-                        eprintln!("elite-daemon: idle batido — inibidores de jogo/mídia seguram (a trava espera)");
+                        eprintln!(
+                            "elite-daemon: idle batido — inibidores de jogo/mídia seguram (a trava espera — o retry de 30s renasce armado, 1.0-110)"
+                        );
+                        // 1.0-110 T3 — O RETRY DE 30s (a cadeia NUNCA
+                        // para: de era o inibido só LOGAVA e DESARMAVA —
+                        // o lock morria junto e o dono que pausasse o
+                        // jogo/mídia ficava SEM vigília nenhuma até o
+                        // próximo Resumed; o relógio de 30s re-julga o
+                        // mundo a cada meia volta)
+                        arma_idle_ms(30_000, 0);
                     } else {
                         let conf = casa_idle::conf_vivo();
                         if conf.off_min > conf.lock_min {
@@ -600,17 +628,31 @@ impl Dispatch<idle_mod::ext_idle_notification_v1::ExtIdleNotificationV1, u8> for
                     desarma_idle(notif);
                 }
                 _ => {
-                    // TRAVADO há SUSPEND_MIN: dorme de verdade (E60)
-                    if estado.trava_armada && !casa_idle::inibidores_seguram() {
+                    // TRAVADO há SUSPEND_MIN: dorme de verdade (E60) —
+                    // 1.0-110 T3: o inibido REARMA o retry de 30s COM
+                    // a trava viva (de era só desarmava calado: a
+                    // cadeia MORRIA no inibidor — o dono que pausasse
+                    // a mídia travado nunca mais dormia)
+                    if estado.trava_armada && casa_idle::inibidores_seguram() {
+                        eprintln!(
+                            "elite-daemon: vigília E60 — travado, inibidores seguram o sono (o retry de 30s mantém a trava armada — 1.0-110)"
+                        );
+                        arma_idle_ms(30_000, 2);
+                        desarma_idle(notif);
+                        return; // trava_armada MANTIDA — a cadeia segue
+                    }
+                    if estado.trava_armada {
                         eprintln!(
                             "elite-daemon: vigília E60 — travado {}min, dormindo",
                             casa_idle::conf_vivo().suspend_min
                         );
-                        let _ = std::process::Command::new("systemctl")
-                            .arg("suspend")
-                            .stdout(std::process::Stdio::null())
-                            .stderr(std::process::Stdio::null())
-                            .status();
+                        // 1.0-110 T3 — A SUSPENSÃO NATIVA (o fork do
+                        // systemctl morre: o journalctl -b -u
+                        // systemd-logind de era registrava ZERO chamadas
+                        // de suspensão — o verbo login1.Manager.Suspend
+                        // desce pela conexão COMPARTILHADA, com o hyprlock
+                        // DESACOPLADO e MAPEADO antes do freeze)
+                        casa_idle::suspende();
                     }
                     desarma_idle(notif);
                     estado.trava_armada = false;

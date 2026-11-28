@@ -14,6 +14,17 @@
 # `systemctl suspend` desce. O PrepareForSleep do daemon segue de cinto
 # (o --if-needed dele vê o lock VIVO e não duplica nada).
 #
+# 1.0-110 T3 — O CAMINHO NATIVO PRIMEIRO (a suspensão de verdade): o
+# `elite-daemon suspend` manda o verbo SUSPEND no bus da sessão e o
+# daemon desce o CAMINHO ÚNICO do sono da casa — lock desacoplado,
+# superfície mapeada (teto 3s + assento 400ms) e
+# org.freedesktop.login1.Manager.Suspend(true) pela conexão zbus system
+# COMPARTILHADA (com o fallback systemctl — o journalctl -b -u
+# systemd-logind do rig de era registrava ZERO chamadas de suspensão:
+# o item "Suspender" disparava só o hyprlock). O caminho LOCAL abaixo
+# segue como a QUEDA honesta (mundo sem daemon/bus — o boot frio sem
+# sessão, o TTY nu: o mesmo ofício, as mesmas âncoras de sempre).
+#
 # DESENHO:
 #   · o craft-lock roda em BACKGROUND (a senha do dono nunca segura o
 #     script — o hyprlock é quem vive na tela);
@@ -37,10 +48,13 @@ uso() {
         'uso: craft-suspend — trava a tela e SÓ ENTÃO suspende (o lock mapeado' \
         '     ANTES do freeze)' \
         '' \
-        '  o craft-lock nasce desapegado, o ciclo espera a superfície do' \
-        '  hyprlock mapear (vivo no /proc + assento de 400ms, teto 3s) e o' \
-        '  systemctl suspend desce com o lock PINTADO na tela — o acordar' \
-        '  sem sinal de era morre.' \
+        '  o caminho NATIVO primeiro (1.0-110): o verbo SUSPEND vai ao daemon' \
+        '  da sessão pelo bus — lock desacoplado, superfície mapeada e o' \
+        '  Suspend nativo do logind (journalctl visível). Sem daemon, a queda' \
+        '  local segue a lei de sempre: o craft-lock nasce desapegado, o' \
+        '  ciclo espera a superfície do hyprlock mapear (vivo no /proc +' \
+        '  assento de 400ms, teto 3s) e o systemctl suspend desce com o lock' \
+        '  PINTADO na tela — o acordar sem sinal de era morre.' \
         '  acionado pelo menu da barra, pelo menu do desktop e pelo' \
         '  "Suspender agora" do craft-idle.'
     exit 0
@@ -54,6 +68,16 @@ if [ -f "$LLOG" ] && [ "$(wc -c <"$LLOG" 2>/dev/null || echo 0)" -gt 262144 ]; t
     tail -c 131072 "$LLOG" > "$LLOG.poda" 2>/dev/null && mv -f "$LLOG.poda" "$LLOG" 2>/dev/null || true
 fi
 dlog() { printf '[%s] craft-suspend: %s\n' "$(date '+%F %T')" "$1" >>"$LLOG" 2>/dev/null || true; }
+
+# 0. 1.0-110 T3 — O CAMINHO NATIVO PRIMEIRO (o verbo SUSPEND no bus da
+#    sessão: o daemon trava desacoplado, espera a superfície e chama o
+#    login1.Manager.Suspend nativo — a MESMA sequência daqui, sem fork
+#    de systemctl; a saída 0 do daemon é a promessa cumprida)
+if command -v elite-daemon >/dev/null 2>&1 && elite-daemon suspend; then
+    dlog "sono nativo despachado ao daemon da sessão (o verbo SUSPEND no bus — lock mapeado ANTES do freeze, Suspend nativo do logind — 1.0-110)"
+    exit 0
+fi
+dlog "elite-daemon suspend indisponível — a queda local sequencial veste (o cinto de sempre)"
 
 # 1. O LOCK NASCE DESAPEGADO (o lock vivo de idade não renasce — o
 #    pgrep da porta é o MESMO juiz do --if-needed)

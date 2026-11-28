@@ -409,6 +409,18 @@ pub fn home_do_uid(uid: u32, passwd: &str) -> Option<String> {
 /// kernel/hardware ganham o veredito NA CARA; None = linha sem perícia
 /// conhecida, segue crua como sempre).
 pub fn anota_conhecido(linha: &str) -> Option<&'static str> {
+    // 1.0-110 T6 — O PORTAL GTK QUE NÃO INIBE (a evidência do bars.log
+    // do rig: `Cannot get portal org.freedesktop.portal.Inhibit` — o
+    // app GTK pede o portal de inibição de ocioso e o xdg-desktop-
+    // portal-gtk não o serve; a app segue VIVA sem inibir, o erro é do
+    // lado DO PORTAL — benigno, nomeado, nunca alarme)
+    if linha.contains("Cannot get portal org.freedesktop.portal.Inhibit") {
+        return Some(
+            "→ conhecido: o portal GTK não serve a interface Inhibit (o app \
+             pede inibição de ocioso ao portal e ele recusa — o app segue \
+             vivo sem inibir; benigno do portal)",
+        );
+    }
     if linha.contains("bluetoothd")
         && (linha.contains("Refusing input device connect")
             || linha.contains("Refusing connection from"))
@@ -532,28 +544,58 @@ pub fn conta_linhas(texto: &str) -> usize {
 /// E150 — o modo ATUAL de cada output no wlr-randr (a marca "(current)"
 /// da 0.5 — o mesmo parser de verdade do craft-display, agora no papel):
 /// devolve (nome_do_output, "WxH@RATE") por tela viva.
+/// 1.0-110 T6 — A CABEÇA INDENTADA (o falso-positivo "DP-1: tela
+/// ausente no wlr-randr" do rig: o wlr-randr de família nova INDENTA
+/// a cabeça de output — a linha `DP-1 "AOC" (connected)` chega com
+/// espaços e o parser de era só via cabeça na COLUNA ZERO: nenhum
+/// output era reconhecido, TODO mode caía fora da lista e o dump
+/// mentia ausência); a cabeça é RECONHECIDA MESMO INDENTADA pelo
+/// padrão de NOME (DP-1 · HDMI-A-1 · eDP-1 — letras, dígitos, hífen,
+/// sufixo numérico; o modo WxH@RATE nunca casa).
 pub fn randr_modos_atuais(randr: &str) -> Vec<(String, String)> {
     let mut out = Vec::new();
     let mut atual = String::new();
     for linha in randr.lines() {
-        if linha.starts_with(char::is_whitespace) {
-            if linha.contains("(current)") {
-                if let Some(tok) = linha.split_whitespace().find(|t| modo_parece(t)) {
-                    if !atual.is_empty() {
-                        out.push((atual.clone(), tok.to_string()));
-                    }
-                }
-            }
-            continue;
-        }
-        // cabeça de output: o primeiro token sem indent é o NOME
-        if let Some(nome) = linha.split_whitespace().next() {
-            if !nome.is_empty() && !nome.contains(':') {
+        // a CABEÇA vale INDENTADA ou NÃO (trim_start + padrão de nome:
+        // o primeiro token da linha arrumada é um nome de output — o
+        // token de modo `WxH@RATE` e os rótulos `Make:`/`Model:` NUNCA
+        // casam o padrão)
+        let arranjo = linha.trim_start();
+        if let Some(nome) = arranjo.split_whitespace().next() {
+            if e_cabeca_output(nome) {
                 atual = nome.to_string();
+                continue;
+            }
+        }
+        if linha.starts_with(char::is_whitespace) && linha.contains("(current)") {
+            if let Some(tok) = linha.split_whitespace().find(|t| modo_parece(t)) {
+                if !atual.is_empty() {
+                    out.push((atual.clone(), tok.to_string()));
+                }
             }
         }
     }
     out
+}
+
+/// 1.0-110 T6 — o token é o NOME de uma cabeça de output? (o padrão
+/// da casa: `DP-1` · `HDMI-A-1` · `eDP-1` — começa em LETRA, veste
+/// letras/dígitos/hífen e TERMINA em hífen+número; o dois-pontos dos
+/// rótulos `Make:`/`Current:` e o `x`/`@` dos modos descartam na porta)
+fn e_cabeca_output(tok: &str) -> bool {
+    let Some((nome, num)) = tok.rsplit_once('-') else { return false };
+    if num.is_empty() || !num.bytes().all(|b| b.is_ascii_digit()) {
+        return false;
+    }
+    let mut chars = nome.chars();
+    match chars.next() {
+        Some(c) if c.is_ascii_alphabetic() => {}
+        _ => return false,
+    }
+    !nome.is_empty()
+        && nome
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-')
 }
 
 /// o token parece um modo? (WxH@RATE — os dígitos conferidos)
@@ -976,6 +1018,44 @@ mod tests_e150_sistemico {
         assert_eq!(randr_modos_atuais(v04).len(), 0);
         // sem randr: vazio (a ausência é nomeada no main)
         assert!(randr_modos_atuais("").is_empty());
+    }
+
+    #[test]
+    fn t6_a_cabeca_de_output_indentada_e_reconhecida() {
+        // A EVIDÊNCIA DO RIG DA 1.0-109: o falso-positivo "DP-1: tela
+        // ausente no wlr-randr" — o wlr-randr de família nova INDENTA a
+        // cabeça de output (a casa nova do upstream); o parser de era
+        // só via cabeça na COLUNA ZERO e TODO output sumia do papel
+        let indentado = "  DP-1 \"AOC 24G42HE\" (connected)\n    Physical: 530x300 mm\n    Modes:\n      1920x1080@144.003006 (current)\n      1920x1080@200.000\n";
+        let vivos = randr_modos_atuais(indentado);
+        assert_eq!(vivos.len(), 1, "a cabeça INDENTADA casa o output");
+        assert_eq!(
+            vivos[0],
+            ("DP-1".to_string(), "1920x1080@144.003006".to_string())
+        );
+        // e o rótulo de campo NÃO é cabeça: o dois-pontos e o nome sem
+        // o sufixo numérico descartam na porta (Make:/Model:/Current:)
+        for rotulo in ["Make:", "Model:", "Current:", "Modes:", "Physical:"] {
+            assert!(!e_cabeca_output(rotulo), "{rotulo} NUNCA é cabeça");
+        }
+        // o modo NUNCA é cabeça (o x e o @ descartam)
+        assert!(!e_cabeca_output("1920x1080@144.003006"));
+        // os nomes da família de sempre casam TODOS
+        for nome in ["DP-1", "HDMI-A-1", "eDP-1", "Virtual-1", "HEADLESS-1"] {
+            assert!(e_cabeca_output(nome), "{nome} é cabeça de output");
+        }
+    }
+
+    #[test]
+    fn t6_o_portal_inhibit_e_ruido_benigno_conhecido() {
+        // a evidência do bars.log do rig: o app GTK pede o portal de
+        // inibição de ocioso e o portal não serve — a app segue viva
+        let linha = "swaync: Cannot get portal org.freedesktop.portal.Inhibit: GDBus.Error";
+        let nota = anota_conhecido(linha);
+        assert!(nota.is_some(), "o aviso do portal é benigno CONHECIDO");
+        assert!(nota.unwrap().contains("benigno"));
+        // e a linha sem perícia segue crua (None honesto)
+        assert!(anota_conhecido("kernel: algo estranho aconteceu").is_none());
     }
 
     #[test]

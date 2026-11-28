@@ -37,10 +37,29 @@
 // ficha vazia (sem artista OU sem controles) é ruído — a preferência
 // é SEMPRE do elegível TOCANDO, sem tocando o último elegível vivo
 // fica em Pausado.
+//
+// 1.0-110 T1 — O MOTOR EM TEMPO REAL (os TRÊS bugs provados no rig da
+// 1.0-109): (1) o duplex de era era UM laço só — o `for props_iter.
+// by_ref()` é BLOQUEANTE e NUNCA termina, o `for owner_iter` era
+// INALCANÇÁVEL: fechar o navegador deixava a PÍLULA FANTASMA (o
+// NameOwnerChanged morria na fila de um fio que nunca chegava lá);
+// agora são DUAS THREADS INDEPENDENTES (props/owner) comunicando por
+// CANAL — nenhuma bloqueia a outra; (2) fechar SÓ A ABA do YouTube
+// Music mantendo o Brave aberto NÃO emite NameOwnerChanged NENHUM (o
+// player muda PlaybackStatus para "Stopped" E LIMPA o Metadata — o
+// juízo novo: Stopped OU faixa sem título fora do Playing é mídia
+// ENCERRADA, o cache morre e o pill desce NO MESMO evento); (3) o
+// REFRESCO COALESCIDO ~180ms após cada COMANDO de mídia (o Brave não
+// avisa tudo: a releitura GetAll veste o ▶/⏸ e o título no MESMO
+// clique — pausa ≤300ms, troca de faixa ≤1s); e o PAUSAR acorda o
+// relógio da vigília (reseta_idle — a mídia tocando segura o idle,
+// pausada o contador renasce do zero).
 // ═════════════════════════════════════════════════════════════════════════
 
 use std::collections::HashMap;
+use std::sync::mpsc;
 use std::sync::Mutex;
+use std::time::Duration;
 
 use elite_core::{BusMsg, MediaState};
 
@@ -85,6 +104,18 @@ static TRACKS: Mutex<Option<HashMap<String, TrackCache>>> = Mutex::new(None);
 /// alfabética, não ordem de vida; a fila mora aqui, mais recente no
 /// FIM para o juízo .rev() da escolhe_ativo).
 static ORDEM: Mutex<Option<Vec<String>>> = Mutex::new(None);
+
+/// 1.0-110 T1 — O CANAL DO REFRESCO (a terceira via do motor): o cmd()
+/// de mídia roda em QUALQUER thread (o despacho do bus) — ele manda UM
+/// byte por este canal e a THREAD DO REFRESCO acorda, drena a rajada
+/// (coalescida ~180ms — o drain-to-last da casa) e RE-LÊ o GetAll do
+/// ativo: o Brave que não avisa o ▶/⏸ veste o estado REAL no mesmo
+/// clique (a diretriz: pausa ≤300ms, troca de faixa ≤1s).
+static REFRESCO_TX: Mutex<Option<mpsc::Sender<()>>> = Mutex::new(None);
+
+/// o atraso do refresco coalescido (ms — a diretriz: ~180ms após cada
+/// comando de mídia).
+const REFRESCO_MS: u64 = 180;
 
 /// o estado atual (para o snapshot de boas-vindas e a vigília).
 pub fn estado() -> Option<MediaState> {
@@ -237,7 +268,23 @@ impl PropsRaw {
 /// minúsculas com o trim); (b) a faixa CURTA conhecida (mpris:length
 /// < 60_000_000 µs) com ficha VAZIA (sem xesam:artist OU sem os controles
 /// CanGoNext/CanGoPrevious) é ruído — o ping da rede social não é música.
+/// 1.0-110 T1 — O FIM É FIM (a evidência do rig: fechar SÓ a aba do
+/// YouTube Music mantém o Brave ABERTO — NÃO emite NameOwnerChanged
+/// nenhum, o player muda para "Stopped" E LIMPA o Metadata; o juízo de
+/// era casava o título do CACHE e a pílula ficava CONGELADA na
+/// primeira música para sempre): `PlaybackStatus == "Stopped"` é a
+/// mídia ENCERRADA (mesmo com a faixa do cache — o player parou de
+/// servir); fora do Playing, faixa SEM título idem (a aba fechou, o
+/// xesam:title sumiu). O MESMO juízo veste o censo (o varre_players
+/// ignora a instância parada sem faixa — o pill é da mídia VIVA).
 pub fn estado_de_props(player: &str, raw: &PropsRaw) -> Option<MediaState> {
+    let playback = raw.playback.as_deref().unwrap_or("");
+    let tocando = playback.eq_ignore_ascii_case("playing");
+    if playback.eq_ignore_ascii_case("stopped")
+        || (!tocando && raw.title.as_deref().map(str::is_empty).unwrap_or(true))
+    {
+        return None; // a mídia ENCERROU — o assento é da faixa VIVA
+    }
     if raw.title.is_none() && raw.artist.is_none() {
         return None;
     }
@@ -258,7 +305,6 @@ pub fn estado_de_props(player: &str, raw: &PropsRaw) -> Option<MediaState> {
             return None;
         }
     }
-    let playback = raw.playback.as_deref().unwrap_or("");
     let tocando = playback.eq_ignore_ascii_case("playing");
     Some(MediaState {
         player: Some(player.to_string()),
@@ -269,7 +315,13 @@ pub fn estado_de_props(player: &str, raw: &PropsRaw) -> Option<MediaState> {
 }
 
 /// publica o estado no bus (e guarda para o snapshot da boas-vindas).
+/// 1.0-110 T3 — PAUSOU: o relógio da vigília RENASCE (a mídia tocando
+/// segura o idle pelo inibidor da vigília; PAUSADA o contador volta do
+/// ZERO — a casa de era contava o tempo tocado como inatividade em
+/// potencial e o dono que pausasse a música topava o lock NA CARA dele
+/// com a última sílaba do áudio ainda no ar).
 fn publica(estado: Option<MediaState>) {
+    let tocando = estado.as_ref().map(|m| m.playing).unwrap_or(false);
     *MEDIA.lock().unwrap() = estado.clone();
     crate::nucleo::pub_bus(&BusMsg::Media(estado.unwrap_or(MediaState {
         player: None,
@@ -277,6 +329,9 @@ fn publica(estado: Option<MediaState>) {
         artist: None,
         playing: false,
     })));
+    if !tocando {
+        crate::wayland::reseta_idle();
+    }
 }
 
 /// OS VERBOS no player ativo (D-Bus direto — zero playerctl).
@@ -300,30 +355,68 @@ pub fn cmd(verb: elite_core::MediaCmd) -> bool {
     let Ok(c) = zbus::blocking::Connection::session() else {
         return false;
     };
-    zbus::blocking::Proxy::new(
+    let ok = zbus::blocking::Proxy::new(
         &c,
         player.as_str(),
         "/org/mpris/MediaPlayer2",
         "org.mpris.MediaPlayer2.Player",
     )
     .and_then(|p| p.call_noreply::<_, _>(metodo, &()))
-    .is_ok()
+    .is_ok();
+    // 1.0-110 T1 — O REFRESCO COALESCIDO APÓS O COMANDO (o Brave NÃO
+    // avisa tudo: a pausa/troca de faixa nem sempre chega pelo
+    // PropertiesChanged dele) — o byte acorda a thread do refresco e a
+    // releitura GetAll ~180ms depois veste o ▶/⏸ e o título no MESMO
+    // clique (a diretriz: pausa ≤300ms, troca de faixa ≤1s).
+    if ok {
+        agenda_refresco();
+    }
+    ok
 }
 
-/// A THREAD: o ouvidor MPRIS. Nasce com o CENSO INICIAL (o pill acende
-/// no frame 0 de quem já tocava), UMA match rule para o PropertiesChanged
-/// de TODO player (arg0 = org.mpris.MediaPlayer2.Player) + o
-/// NameOwnerChanged para o nascimento/morte (o botão da barra nasce e
-/// morre com o player de verdade).
+/// 1.0-110 T1 — agenda o refresco coalescido: UM byte no canal (a
+/// thread do refresco drena a rajada — rajada de scroll vira UMA
+/// releitura só, o drain-to-last da casa). Sem canal vivo (a thread
+/// ainda não nasceu) é silêncio honesto — os sinais seguem sozinhos.
+fn agenda_refresco() {
+    if let Some(tx) = REFRESCO_TX.lock().unwrap().as_ref() {
+        let _ = tx.send(());
+    }
+}
+
+/// AS THREADS: o ouvidor MPRIS nasce com o CENSO INICIAL (o pill acende
+/// no frame 0 de quem já tocava) e se parte em DUAS THREADS INDEPENDENTES
+/// comunicando por CANAL — nenhuma bloqueia a outra.
+/// 1.0-110 T1 — O DUPLEX DESCOSTURADO (o bug provado no rig da 1.0-109:
+/// o `for props_iter.by_ref()` de era é BLOQUEANTE e NUNCA termina — o
+/// `for owner_iter` morava DEPOIS dele no MESMO laço e era INALCANÇÁVEL:
+/// o NameOwnerChanged do navegador fechando morria na fila de um fio que
+/// nunca chegava lá, a PÍLULA FANTASMA ficava presa na barra):
+///   · a THREAD PROPS — o PropertiesChanged de TODO player (UMA match
+///     rule — arg0 é a interface do MPRIS, o sender NÃO é hardcoded: o
+///     nome de quem vier, traduzido pela posse);
+///   · a THREAD OWNER — o NameOwnerChanged: nome MPRIS com dono NOVO
+///     vira censo na hora (a regra é do BARRAMENTO, sem prefixo de
+///     remetente — o dono novo é reassinado pelo próprio juízo da
+///     varredura); nome SEM dono (new_owner vazio) limpa o cache e
+///     publica em <200ms;
+///   · a THREAD REFRESCO — o consumidor do canal: cada comando de
+///     mídia acorda, a rajada é drenada (coalescida ~180ms) e a
+///     releitura GetAll veste o ▶/⏸ e o título na hora.
 pub fn thread() {
     let Ok(c) = zbus::blocking::Connection::session() else {
         return;
     };
     // 1.0-106 — O CENSO INICIAL: quem já toca ao daemon nascer já é
     // notícia (o rig fotografou o brave Playing sem pill — a era só
-    // vestia o estado no PRIMEIRO PropertiesChanged)
+    // vestia o estado no PRIMEIRO PropertiesChanged). O censo mora no
+    // NASCIMENTO (antes das threads): as duas portas leem o MESMO
+    // estado compartilhado.
     varre_players();
-    // as propriedades de TODO player (UMA regra só — o arg0 é o player)
+    drop(c);
+    // as propriedades de TODO player (UMA regra só — o arg0 é a
+    // INTERFACE do player, nunca o remetente: sem hardcode de prefixo,
+    // o player que nascer é atendido pela MESMA assinatura)
     let regra_props = match zbus::MatchRule::builder()
         .msg_type(zbus::message::Type::Signal)
         .interface("org.freedesktop.DBus.Properties")
@@ -334,10 +427,8 @@ pub fn thread() {
         Ok(r) => r,
         Err(_) => return,
     };
-    let Ok(mut props_iter) = zbus::blocking::MessageIterator::for_match_rule(regra_props, &c, Some(8)) else {
-        return;
-    };
-    // os nomes nascendo/morrendo no bus (a pílula some quando o player morre)
+    // os nomes nascendo/morrendo no bus (a pílula some quando o player
+    // morre — A PRÓPRIA thread dela, desbloqueada dos props)
     let regra_owner = match zbus::MatchRule::builder()
         .msg_type(zbus::message::Type::Signal)
         .sender("org.freedesktop.DBus")
@@ -348,26 +439,77 @@ pub fn thread() {
         Ok(r) => r,
         Err(_) => return,
     };
-    let Ok(mut owner_iter) = zbus::blocking::MessageIterator::for_match_rule(regra_owner, &c, Some(64)) else {
+    // o canal do refresco (a terceira via do motor — ver REFRESCO_TX)
+    let (tx, rx) = mpsc::channel::<()>();
+    *REFRESCO_TX.lock().unwrap() = Some(tx);
+    // A THREAD OWNER (desbloqueada: a morte do navegador é notícia
+    // DELA — o duplex de era engolia o NameOwnerChanged para sempre)
+    std::thread::Builder::new()
+        .name("elite-mpris-owner".into())
+        .spawn(move || {
+            let Ok(c) = zbus::blocking::Connection::session() else {
+                return;
+            };
+            let Ok(mut owner_iter) =
+                zbus::blocking::MessageIterator::for_match_rule(regra_owner, &c, Some(64))
+            else {
+                return;
+            };
+            loop {
+                if crate::STOP.load(std::sync::atomic::Ordering::SeqCst) {
+                    return;
+                }
+                for msg in owner_iter.by_ref() {
+                    if crate::STOP.load(std::sync::atomic::Ordering::SeqCst) {
+                        return;
+                    }
+                    match msg {
+                        Ok(msg) => on_owner(&msg),
+                        Err(_) => continue,
+                    }
+                }
+            }
+        })
+        .ok();
+    // A THREAD REFRESCO (o consumidor do canal: recv bloqueia SEM tick —
+    // a rajada de comandos vira UMA releitura, o drain-to-last coalesce
+    // ~180ms e o GetAll veste o estado REAL do player na hora)
+    std::thread::Builder::new()
+        .name("elite-mpris-refresco".into())
+        .spawn(move || {
+            while !crate::STOP.load(std::sync::atomic::Ordering::SeqCst) {
+                if rx.recv().is_err() {
+                    return; // o emissor morreu com a sessão (honesto)
+                }
+                // drena a rajada: o ÚLTIMO comando é o que vale — a
+                // janela de REFRESCO_MS junta o scroll inteiro NUMA
+                // releitura só
+                while rx.recv_timeout(Duration::from_millis(REFRESCO_MS)).is_ok() {}
+                varre_players();
+            }
+        })
+        .ok();
+    // A THREAD PROPS (o fio de SEMPRE: o PropertiesChanged veste o
+    // estado no instante do evento — a thread() de era vira o CORPO
+    // desta thread, SEM o laço do dono preso dentro dela)
+    let Ok(c) = zbus::blocking::Connection::session() else {
         return;
     };
-    // o duplex: cada PropertiesChanged atualiza o estado; cada
-    // nascimento/morte de nome MPRIS varre o ativo (o frame 0 do
-    // botão nasce e morre com o player de verdade)
+    let Ok(mut props_iter) =
+        zbus::blocking::MessageIterator::for_match_rule(regra_props, &c, Some(8))
+    else {
+        return;
+    };
     loop {
         if crate::STOP.load(std::sync::atomic::Ordering::SeqCst) {
             return;
         }
-        // as mensagens chegam nos DOIS iteradores — drena o que houver
         for msg in props_iter.by_ref() {
+            if crate::STOP.load(std::sync::atomic::Ordering::SeqCst) {
+                return;
+            }
             match msg {
                 Ok(msg) => on_props(&msg),
-                Err(_) => continue,
-            }
-        }
-        for msg in owner_iter.by_ref() {
-            match msg {
-                Ok(msg) => on_owner(&msg),
                 Err(_) => continue,
             }
         }
@@ -412,6 +554,13 @@ fn on_props(msg: &zbus::Message) {
     // — o título que NÃO veio mora no cache; sem o merge a faixa
     // parcial morria e o ícone TRAVAVA no estado anterior)
     let Some(estado) = funde_track(&player, raw) else {
+        // 1.0-110 T1 — A MÍDIA ENCERROU (aba fechada OU player parado):
+        // fechar SÓ a aba do YouTube Music NÃO emite NameOwnerChanged
+        // nenhum — o Brave muda para "Stopped" E LIMPA o Metadata; o
+        // pill de era ficava CONGELADO na primeira música para sempre.
+        // O censo NA HORA ou veste o próximo elegível vivo ou publica
+        // None (o pill desce NO MESMO evento, <200ms).
+        varre_players();
         return;
     };
     if estado.playing {
@@ -445,7 +594,18 @@ pub fn funde_track(player: &str, novo: PropsRaw) -> Option<MediaState> {
     let base = mapa.get(player).map(|c| c.raw.clone());
     let fundido = match base {
         Some(base) => {
-            let limpa = novo.meta_limpa == Some(true);
+            // 1.0-110 T1 — A FAIXA LIMPA SÓ É LIMPA SEM FICHA (o réu do
+            // título que não trocava no rig: o `meta_limpa` de era era
+            // Some(true) para QUALQUER dict Metadata PRESENTE — e a
+            // troca de faixa do Brave MANDA o dict COM o título NOVO;
+            // o merge via "dict presente" e LIMPAVA o título que
+            // ACABARA de chegar, o fundido ficava sem faixa e o pill
+            // não vestia a música nova). O veredito de LIMPA é o dict
+            // presente E SEM ficha nenhuma (sem título E sem artista):
+            // só então o None do dict é veredito, não ausência.
+            let limpa = novo.meta_limpa == Some(true)
+                && novo.title.is_none()
+                && novo.artist.is_none();
             PropsRaw {
                 playback: novo.playback.or(base.playback),
                 title: if limpa { None } else { novo.title.or(base.title) },
@@ -847,6 +1007,90 @@ mod tests {
     }
 
     // ── 1.0-109 §2.2 — O ÍCONE REATIVO E O FILTRO ANTI-RUÍDO ──────────
+    // ── 1.0-110 T1 — O FIM É FIM (aba fechada / player parado) ────────
+
+    #[test]
+    fn o_stopped_e_fim_de_midia_mesmo_com_a_faixa_do_cache() {
+        // A EVIDÊNCIA DO RIG DA 1.0-109: fechar SÓ a aba do YouTube
+        // Music deixa o Brave VIVO — NÃO emite NameOwnerChanged NENHUM
+        // (o player muda para "Stopped" E LIMPA o Metadata); o juízo de
+        // era casava o título do CACHE e o pill CONGELAVA na primeira
+        // música para sempre (a pílula fantasma da aba fechada)
+        let brave = "org.mpris.MediaPlayer2.brave.instance15578";
+        let tocando = PropsRaw::do_json(&json!({
+            "PlaybackStatus": "Playing",
+            "Metadata": {"xesam:title": "Need 2", "xesam:artist": ["Pinegrove"], "mpris:length": 213000000}
+        }));
+        assert!(funde_track(brave, tocando).is_some());
+        // o Stopped chega PARCIAL (só o status — o título mora no cache):
+        // Stopped é FIM, não pausa com faixa viva
+        let parou = PropsRaw::do_json(&json!({"PlaybackStatus": "Stopped"}));
+        assert!(
+            funde_track(brave, parou).is_none(),
+            "Stopped = mídia ENCERRADA (o pill desce, nunca congela)"
+        );
+        // e o cache MORRE com o fim: o eco parcial nunca ressuscita fantasma
+        let eco = PropsRaw::do_json(&json!({"PlaybackStatus": "Paused"}));
+        assert!(funde_track(brave, eco).is_none());
+        // o censo julga o MESMO fim: a instância parada sem faixa viva
+        // NÃO é elegível (a preferência é da mídia VIVA)
+        let parada_sem_faixa = PropsRaw::do_json(&json!({
+            "PlaybackStatus": "Stopped",
+            "Metadata": {"xesam:title": "Need 2", "mpris:length": 213000000}
+        }));
+        assert!(
+            estado_de_props(brave, &parada_sem_faixa).is_none(),
+            "o varre_players ignora a instância parada (mesmo com a última faixa no papel)"
+        );
+    }
+
+    #[test]
+    fn t1_a_troca_de_faixa_veste_o_titulo_novo_do_dict() {
+        // O BUG 3 DO RIG: o PropertiesChanged da TROCA vem com o dict
+        // Metadata COM o título NOVO — o `meta_limpa` de era via "dict
+        // presente" e LIMPAVA o título recém-chegado (o fundido ficava
+        // sem faixa e o pill NUNCA vestia a música nova)
+        let brave = "org.mpris.MediaPlayer2.brave.instance15579";
+        let atual = PropsRaw::do_json(&json!({
+            "PlaybackStatus": "Playing",
+            "Metadata": {"xesam:title": "Need 2", "xesam:artist": ["Pinegrove"], "mpris:length": 213000000}
+        }));
+        assert!(funde_track(brave, atual).is_some());
+        // a TROCA: o dict chega com o título NOVO dentro (não é faixa
+        // limpa — a ficha CHEGOU)
+        let troca = PropsRaw::do_json(&json!({
+            "PlaybackStatus": "Playing",
+            "Metadata": {"xesam:title": "Orange", "xesam:artist": ["Pinegrove"], "mpris:length": 187000000}
+        }));
+        let nova = funde_track(brave, troca).unwrap();
+        assert_eq!(
+            nova.title.as_deref(),
+            Some("Orange"),
+            "o título NOVO do dict veste NA HORA (o meta_limpa de era o limpava)"
+        );
+        assert!(nova.playing);
+    }
+
+    #[test]
+    fn a_faixa_sem_titulo_fora_do_playing_e_fim() {
+        // o outro rosto da aba fechada: o player limpa o xesam:title —
+        // fora do Playing, faixa sem título é mídia ENCERRADA
+        let mpv = "org.mpris.MediaPlayer2.mpv";
+        let vazia = PropsRaw::do_json(&json!({
+            "PlaybackStatus": "Paused",
+            "Metadata": {"xesam:title": ""}
+        }));
+        assert!(estado_de_props(mpv, &vazia).is_none());
+        // a pausa COM faixa segue viva (o ▶ honesto de sempre)
+        let pausada = PropsRaw::do_json(&json!({
+            "PlaybackStatus": "Paused",
+            "Metadata": {"xesam:title": "X"}
+        }));
+        assert!(estado_de_props(mpv, &pausada).is_some());
+        // e o tocando sem título de raiz idem (o título é o assento)
+        let muda = PropsRaw::do_json(&json!({"PlaybackStatus": "Playing", "Metadata": {}}));
+        assert!(estado_de_props(mpv, &muda).is_none());
+    }
 
     #[test]
     fn o_sinal_parcial_funde_com_o_cache_da_faixa() {

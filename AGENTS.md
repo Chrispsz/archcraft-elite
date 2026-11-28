@@ -254,6 +254,70 @@ registrada no mesmo commit.
 
 ---
 
+## §8 · Dose 1.0-109 → 1.0-110 — o registro vivo (o motor em tempo real, a suspensão de verdade e o boot −4,35s)
+
+> **1.0-110 · Commit 1/2 (a diretriz do dono: o MOTOR — nenhum pixel muda,
+> o pkgrel 109→110 no MESMO commit do conteúdo, lei E41)** — o registro
+> vivo: a dose inteira vive em `docs/releases/1.0-110.md`. **T1 O MPRIS
+> EM TEMPO REAL** (a perícia do rig: os TRÊS bugs provados — o duplex de
+> era era UM laço só e o `for owner_iter` era INALCANÇÁVEL, a pílula
+> FANTASMA ao fechar o navegador; fechar SÓ a aba do YouTube Music não
+> emite NameOwnerChanged — o player vira Stopped E LIMPA o Metadata, e o
+> juízo de era casava o título do CACHE congelando o pill na primeira
+> música; e o pill que não vestia ▶/⏸ nem o título na pausa): DUAS
+> THREADS independentes (props/owner) comunicando por CANAL (nenhuma
+> bloqueia a outra), o FIM É FIM (`PlaybackStatus == "Stopped"` OU
+> faixa sem título fora do Playing = mídia ENCERRADA, o juízo em
+> `estado_de_props` veste o sinal E o censo) e o REFRESCO COALESCIDO
+> ~180ms após cada COMANDO (o drain-to-last no canal + a releitura
+> GetAll: pausa ≤300ms, faixa ≤1s) — e o PAUSAR acorda a vigília
+> (`reseta_idle` na publica: a mídia tocando segura o idle, pausada o
+> contador renasce). **T2 O ESTADO ÚNICO DE JANELAS** (os DOIS Mutex de
+> era — windows E mru — fundidos num `Mutex<Janelas>`: a corrida
+> lista×MRU morre, o snapshot do bus é UMA foto atômica). **T3 A
+> SUSPENSÃO REAL** (a evidência: "Suspender" no ⏻ disparava SÓ o hyprlock
+> e o journalctl -b -u systemd-logind registrava ZERO chamadas — a nova
+> `idle::suspende`: hyprlock DESACOPLADO + `lock_mapeado` (teto 3s +
+> assento 400ms) + `org.freedesktop.login1.Manager.Suspend(true)` pela
+> conexão zbus system COMPARTILHADA com fallback systemctl; o verbo
+> `BusReq::Suspend` no bus + a porta curta `elite-daemon suspend` + o
+> craft-suspend vestindo o caminho nativo com a queda local de cinto; o
+> IDLE INIBIDO rearma o retry de 30s — tipo-0 `arma_idle_ms(30_000, 0)`
+> e tipo-2 `arma_idle_ms(30_000, 2)` MANTENDO trava_armada, a cadeia
+> nunca mais morre no inibidor; e a `conn_system()` compartilhada —
+> proibido abrir conexão por chamada). **T4 O SWAYNC À PROVA DE CSS** (o
+> bars.log da 1.0-109: `COULD NOT FIND CSS FILE!` + coredump main.vala:60
+> com respawn de 2s fixo — o mestre nasce ATOMICAMENTE (write_atomic) no
+> $HOME ANTES da vaga, do skel com o FALLBACK EMBUTIDO da casa; a vaga
+> NUNCA sobe o binário NU; o respawn RE-CHECA nome_tem_dono e ADOTA
+> outro dono vivo) + O BACKOFF EXPONENCIAL COM TETO (`proximo_backoff`:
+> 2s→4s→8s→16s→32s→60s — a vida estável ≥30s renasce o chão; o
+> teto_respawn espera a espera DA VAGA). **T5 A ROBUSTEZ DE MOTOR** (o
+> VOLUME COALESCIDO no scroll da barra — `acumula_volume`: a rajada vira
+> UM wpctl com o total; a GUARDA DE SEQUÊNCIA do `write_atomic` — a
+> reserva crescente + o sufixo único + a atrasada DESCARTADA na cara do
+> rename (usada em last-net.state e pins); o ENOBUFS do netlink que
+> RESSINCRONIZA o estado (audio::rodada + craft-display apply com o
+> guard de 800ms); e o DESPERTAR SEQUENCIAL DEDUPLICADO — Unlock +
+> PrepareForSleep(false) são O MESMO acordar (janela de 3s) e o recover
+> BLOQUEANTE corre ANTES do apply: a corrida de modo morre). **T6 O
+> UPGRADE, O REEXEC E O BOOT** (o REEXEC IN-PLACE no SIGUSR1 —
+> `reexec_in_place` com o CLOEXEC do fd da trava LIMPO antes do exec e o
+> `ELITE_LOCK_FD` herdado/adotado em supervisa: MESMO PID, MESMO flock,
+> os filhos vivos ADOTADOS pelos gates e os mortos colhidos pelo dreno;
+> o DEBLOAT pacman -Rns MUDOU do scriptlet post_upgrade (corrida de
+> pacman DENTRO do pacman, db.lck segurado) para o
+> elite-post-transaction (hook PostTransaction, db.lck solto); o
+> PACMAN-INIT mascarado no sistema INSTALADO (4,358s dos 6,060s do
+> graphical.target — detecção /run/archiso, a Live preservada); e o
+> CRAFT-DUMP honesto sob pt_BR — `LC_ALL=C` na colheita (o free imprime
+> `Mem:`), a CABEÇA DE OUTPUT reconhecida MESMO INDENTADA
+> (`e_cabeca_output`: DP-1/HDMI-A-1/eDP-1 — o falso-positivo "DP-1:
+> tela ausente" morre) e o aviso do portal Inhibit como benigno
+> conhecido). Provas: porteira GO com as âncoras novas do motor ·
+> `cargo test --workspace` verde com a gui viva · clippy `-D warnings`
+> ZERO · shellcheck ZERO · sem deps novas, sem polling novo.
+
 ## §8 · Dose 1.0-108 → 1.0-109 — o registro vivo (a interface que o labwc não matava, o seletor de rede de 1 clique, o lock que mapeia e o bus que não multiplica)
 
 > **1.0-109 · Etapa 2 (a diretriz do dono inteira — E181..E187) — o

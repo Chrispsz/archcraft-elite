@@ -18,6 +18,7 @@
 // ═════════════════════════════════════════════════════════════════════════
 
 use std::path::PathBuf;
+use std::sync::OnceLock;
 
 /// o conf da vigília (os nomes do papel da casa — compat total).
 #[derive(Debug, Clone, PartialEq)]
@@ -156,6 +157,58 @@ pub fn apaga() {
         .status();
 }
 
+/// 1.0-110 T3 — A CONEXÃO ZBUS SYSTEM COMPARTILHADA (a casa de era
+/// abria UMA conexão POR CHAMADA — o inibidores_seguram de cada Idled
+/// batido construía um fio NOVO ao logind; a conexão nasce UMA vez e
+/// serve a vigília inteira: o juízo dos inibidores E o verbo do sono
+/// falam pelo MESMO fio).
+pub(crate) fn conn_system() -> Option<&'static zbus::blocking::Connection> {
+    static CONN: OnceLock<Option<zbus::blocking::Connection>> = OnceLock::new();
+    CONN
+        .get_or_init(|| zbus::blocking::Connection::system().ok())
+        .as_ref()
+}
+
+/// 1.0-110 T3 — A SUSPENSÃO NATIVA DA CASA (a evidência do rig: o item
+/// "Suspender" do menu ⏻ disparava SÓ o hyprlock — o journalctl -b -u
+/// systemd-logind registrava ZERO chamadas de suspensão): a trava nasce
+/// DESACOPLADA (trava — o craft-lock --if-needed em segundo plano, sem
+/// bloquear o chamador), a superfície é ESPERADA (lock_mapeado — o teto
+/// de 3s e o assento de 400ms da lei de sempre) e SÓ ENTÃO o sono desce
+/// pelo VERBO NATIVO org.freedesktop.login1.Manager.Suspend(true) pela
+/// conexão zbus system COMPARTILHADA (com o fallback honesto para o
+/// `systemctl suspend` se o D-Bus retornar erro). O verbo IPC
+/// (BusReq::Suspend) e o craft-suspend vestem ESTE caminho.
+pub fn suspende() {
+    trava();
+    lock_mapeado();
+    if !dorme_login1() {
+        eprintln!(
+            "elite-daemon: o Suspend do logind falhou — a queda honesta veste o systemctl suspend (1.0-110 T3)"
+        );
+        let _ = std::process::Command::new("systemctl")
+            .arg("suspend")
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status();
+    }
+}
+
+/// o verbo nativo do logind (S true = interativo): Ok = o sono desceu
+/// pela via PRÓPRIA do daemon (zero fork — a lei do orquestrador).
+fn dorme_login1() -> bool {
+    let Some(c) = conn_system() else { return false };
+    let Ok(p) = zbus::blocking::Proxy::new(
+        c,
+        "org.freedesktop.login1",
+        "/org/freedesktop/login1",
+        "org.freedesktop.login1.Manager",
+    ) else {
+        return false;
+    };
+    p.call::<_, _, ()>("Suspend", &(true)).is_ok()
+}
+
 /// O PRÉ-SONO ATÔMICO (PrepareForSleep(true)): trava ANTES do freeze —
 /// e 1.0-107, A SEQUÊNCIA SEGURA da ordem do dono: hyprlock NASCE →
 /// espera a SUPERFÍCIE mapeada (lock_mapeado — o teto de 3s cobre o
@@ -185,11 +238,13 @@ pub fn inibidores_seguram() -> bool {
     }
     // 2) os inhibitors "idle"/"sleep" do logind (o jogo manual da casa
     //    E o de fora — modo block, delay não segura)
-    let Ok(c) = zbus::blocking::Connection::system() else {
+    // 1.0-110 T3 — A CONEXÃO COMPARTILHADA (proibido abrir por chamada):
+    // o mesmo fio do verbo do sono julga os inibidores
+    let Some(c) = conn_system() else {
         return false;
     };
     let Ok(p) = zbus::blocking::Proxy::new(
-        &c,
+        c,
         "org.freedesktop.login1",
         "/org/freedesktop/login1",
         "org.freedesktop.login1.Manager",

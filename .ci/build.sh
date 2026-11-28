@@ -3227,16 +3227,20 @@ pkgver=1.0
 #      diretriz do dono — conteúdo e número no MESMO commit; a Etapa 1
 #      comitou o conteúdo de INFRA local sem número por desenho, o 108
 #      veste a release completa que o rig recebe pelo botão Atualizar).
-#      1.0-109 — A ESCADA DE CAMADAS FECHA A DOSE (Etapa 2: o terminal
-#      inteligente (fastfetch + verbos) · o rótulo Auto-suspensão e os
-#      grupos da faixa · o player reativo pelo NameOwnerChanged · os
-#      menus em janelas Overlay SEMPRE acima da gaveta top do
-#      craft-apps — o card do calendário, o cardápio da sessão e o menu
-#      do clique direito da dock: o popover de era era FILHO da
-#      superfície top e a gaveta o cobria inteiro): o pkgrel 108→109 NO
-#      MESMO COMMIT DA ÚLTIMA PEÇA DE CONTEÚDO da Etapa 2 (lei E41 — o
-#      109 veste a dose COMPLETA que o rig recebe pelo botão Atualizar).
-pkgrel=109
+#      1.0-110 — O MOTOR DA 1.0-110 (Commit 1/2: MPRIS em tempo real
+#      com DUAS threads + canal · o estado ÚNICO de janelas · a
+#      suspensão NATIVA do logind (login1.Manager.Suspend pela zbus
+#      system COMPARTILHADA) + o retry de 30s da vigília inibida · o
+#      swaync à prova de CSS (style.css entregue ATOMICAMENTE antes da
+#      vaga) + o backoff EXPONENCIAL com teto · a robustez de motor
+#      (volume coalescido no scroll · a guarda de sequência do
+#      write_atomic · o ENOBUFS que ressincroniza · o despertar
+#      sequencial deduplicado) · o reexec in-place no SIGUSR1 · o
+#      debloat pacman FORA do pacman (elite-post-transaction) · o
+#      pacman-init mascarado no instalado (−4,35s de boot) · o
+#      craft-dump que lê Mem sob pt_BR e casa a cabeça indentada do
+#      wlr-randr): o pkgrel 109→110 NO MESMO COMMIT (lei E41).
+pkgrel=110
 pkgdesc='O sistema da Elite em um pacote só — craft-*, elite-*, exo-open, daemon de janelas e units da sessão; substitui elite-craft/craft-toplevel'
 arch=(x86_64)
 url=https://github.com/Chrispsz/archcraft-elite

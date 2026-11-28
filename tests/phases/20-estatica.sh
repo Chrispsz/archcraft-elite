@@ -152,8 +152,11 @@ scan_vivo() { # scan_vivo <regex> — só linhas de CÓDIGO (não comentário),
     # 1.0-102 — o elite-heal-sessao entra na lista: o juízo do FÓSSIL DE
     # SPAWN NOMEA os fósseis para os CAÇAR no autostart doente — o
     # grep dele é a perícia, nunca o uso)
+    # 1.0-110 — o elite-post-transaction entra na lista: o debloat
+    # CEIFA o waybar no hook pós-transação (a remoção é a migração —
+    # o hook NUNCA lança nada)
     grep -rnE "$1" "$AIROOTFS/usr/local/bin" 2>/dev/null \
-        | awk -F: '$0 !~ /craft-dump|elite-session-probe|elite-post-upgrade|elite-dose|elite-clean|craft-bgapps|elite-heal-sessao/ {
+        | awk -F: '$0 !~ /craft-dump|elite-session-probe|elite-post-upgrade|elite-post-transaction|elite-dose|elite-clean|craft-bgapps|elite-heal-sessao/ {
             line=$3; gsub(/^[ \t]+/, "", line)
             if (line !~ /^#/) print $1":"$2
         }'
@@ -266,7 +269,9 @@ file_has "heal: a rotação dos backups (1 por base)" "$AIROOTFS/usr/local/bin/e
 file_has "rice: o backup único (a rotação E146)" "$AIROOTFS/usr/local/bin/craft-rice" 'bak_unica'
 file_has "rice: o xmllint é o juiz principal do XML" "$AIROOTFS/usr/local/bin/craft-rice" 'xmllint --noout'
 file_has "dump: o modo --full (o consolidado limpo E146)" "crates/craft-dump-rs/src/main.rs" 'modo_full'
-file_has "post-upgrade: o debloat waybar/gpsd com consulta de dependentes" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'Required By'
+file_has "post-transaction: o debloat waybar/gpsd com consulta de dependentes (1.0-110: FORA do scriptlet — o hook roda com o db.lck SOLTO)" "$AIROOTFS/usr/local/bin/elite-post-transaction" 'Required By'
+file_has "post-transaction: o pacman-init mascarado no sistema instalado (−4,35s de boot; a Live preservada pelo /run/archiso)" "$AIROOTFS/usr/local/bin/elite-post-transaction" 'pacman-init.service'
+file_hasnt "post-upgrade: o pacman -Rns NÃO volta ao scriptlet (corrida de pacman dentro do pacman)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'pacman -Rns'
 file_has "post-upgrade: mitigations=off no GRUB da dose" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'mitigations=off'
 file_has "tune: o scx-lavd direto também no painel" "$AIROOTFS/usr/local/bin/elite-tune" 'scx-lavd.service'
 file_has "probe: o lock privado também no probe da sessão" "$AIROOTFS/usr/local/bin/elite-session-probe" 'session.lock'
@@ -359,7 +364,7 @@ file_has "rice: o fóssil da v7 na rede do lock (quem adotou a v7 renova à v8)"
 # conteúdo da Etapa 2 carrega o número, lei E41: o 109 veste a dose
 # COMPLETA — o terminal inteligente · o rótulo Auto-suspensão · o player
 # reativo · os menus em janelas Overlay SEMPRE acima da gaveta)
-file_has "build.sh: o pkgrel da dose é 109 (elite-system 1.0-109 — a dose completa: o terminal, o rótulo, o player e a escada de camadas, lei E41 no MESMO commit)" "$BS" 'pkgrel=109'
+file_has "build.sh: o pkgrel da dose é 110 (elite-system 1.0-110 — o motor: MPRIS em tempo real, suspensão nativa, swaync à prova de CSS, robustez e boot −4,35s; lei E41 no MESMO commit)" "$BS" 'pkgrel=110'
 
 # ══ 1.0-107.3 — A PERÍCIA DO CONJUNTO FINAL DA ISO (as 4 redundâncias
 #    que a debloat de eras não via + o backend de portais que faltava) ══
@@ -596,7 +601,7 @@ file_has "display: a pausa de estabilização do ciclo (a constante da casa)" "$
 file_has "lock: o pós-unlock dispara o recover (a rede da imagem na porta da senha)" "$AIROOTFS/usr/local/bin/craft-lock" 'craft-display recover'
 file_has "vigil: a volta do sono dispara o recover (a rede de imagem)" "$AIROOTFS/usr/local/bin/craft-vigil" 'craft-display recover'
 file_has "hook: o resume-display dispara o recover por usuário (com o modo salvo)" "elite/airootfs/usr/lib/systemd/system-sleep/elite-resume-display" 'craft-display recover'
-file_has "daemon: o despertar dispara o recover (PrepareForSleep(false)/Unlock)" "crates/elite-daemon/src/main.rs" '"recover"]'
+file_has "daemon: o despertar dispara o recover (PrepareForSleep(false)/Unlock — 1.0-110: BLOQUEANTE antes do apply)" "crates/elite-daemon/src/main.rs" '.arg("recover")'
 # o áudio pós-resume sem o fone BT (o HDMI do monitor nunca fica mudo):
 file_has "audio: o juízo do resume é PURO (o BT morto no sono não deixa o HDMI)" "crates/elite-daemon/src/audio.rs" 'pub fn julga_resume'
 file_has "audio: o auto_null preso NÃO reafirma o HDMI do monitor (a lei E140)" "crates/elite-daemon/src/audio.rs" 'pub fn julga_autonull'
@@ -780,7 +785,7 @@ file_absent "automount: a regra udev 91 de era APOSENTOU (o udiskie é o dono)" 
 file_absent "automount: a unit oneshot de era APOSENTOU" "$AIROOTFS/etc/systemd/system/elite-automount@.service"
 file_absent "automount: o helper elite-automount de era APOSENTOU (nada de fóssil na árvore)" "$AIROOTFS/usr/local/bin/elite-automount"
 file_has "post-upgrade: os fósseis do par udev de era COLHIDOS na dose (com voz)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'fóssil de era $_fossil_automount'
-file_has "post-upgrade: o udiskie FORA da lista de debloat (o automounter da casa)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'for _deb in waybar gpsd; do'
+file_has "post-transaction: o udiskie FORA da lista de debloat (o automounter da casa — 1.0-110: o bloco mora NO hook com o db.lck solto)" "$AIROOTFS/usr/local/bin/elite-post-transaction" 'for _deb in waybar gpsd; do'
 file_has "daemon: o udiskie segue FORA da fila do supervisor (o autostart é o dono)" "crates/elite-daemon/src/supervise.rs" 'RESIDENTES_DEFAULT'
 file_hasnt "daemon: o residente udiskie não volta à fila (o arranque limpo é o dono)" "crates/elite-daemon/src/supervise.rs" '("udiskie",'
 file_has "daemon: a mordaca do autostart duplicado do agente (Hidden=true por usuário)" "crates/elite-daemon/src/supervise.rs" 'entrega_mordaca_polkit'
@@ -1079,6 +1084,33 @@ file_hasnt "dock: o PopoverMenu de era morre (o menu é a janela de camada — n
 file_hasnt "dock: o enterro do popover pendurado morre (não há popover filho de botão)" "crates/craft-dock-rs/src/ui.rs" 'fn dispensa_popovers'
 file_has "apps: a gaveta mora na camada TOP (a flag -ovl que sobe NUNCA é passada)" "elite/airootfs/usr/local/bin/craft-apps" 'A GAVETA MORA NA CAMADA TOP'
 file_has "apps: a invocação ÍNTEGRA sem -ovl (a gaveta é o degrau top do layer-shell)" "elite/airootfs/usr/local/bin/craft-apps" 'setsid nwg-drawer -fm thunar -term foot -is 64 -c 8 -spacing 16 -nocats'
+
+# ── 1.0-110 Commit 1/2 — O MOTOR (a diretriz do dono: MPRIS em tempo
+#    real, estado único de janelas, suspensão nativa, swaync à prova
+#    de CSS, robustez de motor, reexec e boot −4,35s)
+file_has "mpris: as DUAS threads independentes (o props bloqueante de era engolia o owner — pílula fantasma)" "crates/elite-daemon/src/mpris.rs" 'elite-mpris-owner'
+file_has "mpris: o canal do refresco coalescido (a rajada de comandos vira UMA releitura)" "crates/elite-daemon/src/mpris.rs" 'REFRESCO_TX'
+file_has "mpris: o FIM É FIM (Stopped OU faixa sem título fora do Playing = mídia ENCERRADA)" "crates/elite-daemon/src/mpris.rs" 'O FIM É FIM'
+file_has "wayland: o estado ÚNICO de janelas (a corrida lista×MRU morre com UM Mutex)" "crates/elite-daemon/src/wayland.rs" 'janelas: Mutex<Janelas>'
+file_has "wayland: o retry de 30s da vigília inibida (a cadeia nunca para)" "crates/elite-daemon/src/wayland.rs" 'arma_idle_ms(30_000, 0)'
+file_has "wayland: o retry de 30s do sono inibido (a trava armada MANTIDA)" "crates/elite-daemon/src/wayland.rs" 'arma_idle_ms(30_000, 2)'
+file_has "idle: a suspensão NATIVA (login1.Manager.Suspend — o journalctl do logind registra)" "crates/elite-daemon/src/idle.rs" 'pub fn suspende'
+file_has "idle: a conexão zbus system COMPARTILHADA (proibido abrir por chamada)" "crates/elite-daemon/src/idle.rs" 'pub(crate) fn conn_system'
+file_has "core: o verbo SUSPEND no bus (o item Suspender da barra e o craft-suspend mandam AQUI)" "crates/elite-core/src/lib.rs" 'Suspend,'
+file_has "daemon: a porta curta suspend (o craft-suspend veste o caminho nativo)" "crates/elite-daemon/src/main.rs" 'Some("suspend") => {'
+file_has "daemon: o reexec in-place no SIGUSR1 (mesmo PID, ELITE_LOCK_FD contínuo)" "crates/elite-daemon/src/main.rs" 'pub(crate) fn reexec_in_place'
+file_has "daemon: o flock HERDADO do reexec (a instância renascida ADOTA o fd)" "crates/elite-daemon/src/supervise.rs" 'ELITE_LOCK_FD'
+file_has "supervise: o swaync NUNCA sobe NU (o style.css nasce ATOMICAMENTE antes da vaga)" "crates/elite-daemon/src/supervise.rs" 'fn entrega_css_swaync'
+file_has "supervise: o backoff EXPONENCIAL com teto (o crash-loop vira um pulso calado)" "crates/elite-daemon/src/supervise.rs" 'fn proximo_backoff'
+file_has "core: a GUARDA DE SEQUÊNCIA do write_atomic (a atrasada nunca enterra a nova)" "crates/elite-core/src/persist.rs" 'fn write_atomic_seq'
+file_has "daemon: o ENOBUFS ressincroniza o estado (áudio + display — nunca devolve estado velho)" "crates/elite-daemon/src/main.rs" 'RESSINCRONIZADO'
+file_has "daemon: o despertar SEQUENCIAL deduplicado (recover bloqueante ANTES do apply)" "crates/elite-daemon/src/main.rs" 'Unlock+PrepareForSleep são O MESMO acordar'
+file_has "bar: o volume COALESCIDO no scroll (a rajada vira UM wpctl com o total)" "crates/craft-bar-rs/src/ui.rs" 'fn acumula_volume'
+file_has "dump: o LC_ALL=C da colheita (o free imprime Mem: — o parse nunca morre no pt_BR)" "crates/craft-dump-rs/src/main.rs" '.env("LC_ALL", "C")'
+file_has "dump: a cabeça de output RECONHECIDA indentada (o falso-positivo DP-1 ausente morre)" "crates/craft-dump-rs/src/lib.rs" 'fn e_cabeca_output'
+file_has "dump: o aviso do portal Inhibit é benigno CONHECIDO (nunca alarme falso)" "crates/craft-dump-rs/src/lib.rs" 'org.freedesktop.portal.Inhibit'
+file_has "suspend: o craft-suspend veste o CAMINHO NATIVO primeiro (o verbo no bus)" "$AIROOTFS/usr/local/bin/craft-suspend" 'elite-daemon suspend'
+file_has "mpris: o PAUSAR acorda a vigília (o contador renasce do zero)" "crates/elite-daemon/src/mpris.rs" 'PAUSOU: o relógio da vigília RENASCE'
 
 printf '%s\n' "$OK_COUNT $FAIL_COUNT $SKIP_COUNT" > "$WORK/fase20.txt"
 exit 0

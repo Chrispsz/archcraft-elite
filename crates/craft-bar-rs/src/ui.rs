@@ -609,15 +609,19 @@ fn build(app: &gtk::Application) {
             });
         }
         {
-            let tx = tx.clone();
-            scroll(&btn_audio, move |dy| {
-                let passo = if dy < 0.0 { "5%+" } else { "5%-" };
-                solta(&["wpctl", "set-volume", "--limit", "1.5", "@DEFAULT_AUDIO_SINK@", passo]);
-                // 1.0-104 — O ÍCONE/PERCENTUAL VESTE NO GESTO (a ordem do
-                // dono: a atualização é INSTANTÂNEA no scroll — sem
-                // esperar o cinto de 2s; a thread curta pergunta ao wpctl
-                // e o dreno veste no frame seguinte)
-                pede_audio_detalhe(&tx);
+            // 1.0-110 T5 — O VOLUME COALESCIDO NO SCROLL (a rajada de
+            // rolagem de era era UM wpctl POR passo — dez scrolls do dono
+            // = DEZ forks em fila, DEZ rodadas do pactl subscribe; o
+            // acumulador junta a rajada numa janela curta e aplica o
+            // TOTAL num wpctl SÓ — o drain-to-last da casa no gesto que
+            // mais repete)
+            let acumulado: Rc<RefCell<(i64, bool)>> = Rc::new(RefCell::new((0, false)));
+            scroll(&btn_audio, {
+                let acumulado = Rc::clone(&acumulado);
+                let tx = tx.clone();
+                move |dy| {
+                    acumula_volume(&acumulado, dy < 0.0, 5, "@DEFAULT_AUDIO_SINK@", tx.clone());
+                }
             });
         }
         dir.append(&btn_audio);
@@ -648,12 +652,17 @@ fn build(app: &gtk::Application) {
             });
         }
         {
-            let tx = tx.clone();
-            scroll(&btn_mic, move |dy| {
-                let passo = if dy < 0.0 { "3%+" } else { "3%-" };
-                solta(&["wpctl", "set-volume", "--limit", "1.5", "@DEFAULT_AUDIO_SOURCE@", passo]);
-                // 1.0-104 — idem do áudio: o ganho veste NO GESTO
-                pede_audio_detalhe(&tx);
+            // 1.0-110 T5 — idem do áudio: o ganho do mic veste o MESMO
+            // acumulador (a rajada vira UM wpctl com o total — o
+            // acumulador nasce FORA do closure: a rajada inteira soma
+            // na MESMA janela)
+            let acumulado: Rc<RefCell<(i64, bool)>> = Rc::new(RefCell::new((0, false)));
+            scroll(&btn_mic, {
+                let acumulado = Rc::clone(&acumulado);
+                let tx = tx.clone();
+                move |dy| {
+                    acumula_volume(&acumulado, dy < 0.0, 3, "@DEFAULT_AUDIO_SOURCE@", tx.clone());
+                }
             });
         }
         dir.append(&btn_mic);
@@ -1590,6 +1599,51 @@ fn scroll<W: IsA<gtk::Widget>>(btn: &W, acao: impl Fn(f64) + 'static) {
         glib::Propagation::Stop
     });
     btn.add_controller(sc);
+}
+
+/// 1.0-110 T5 — O ACUMULADOR DO VOLUME NO SCROLL (o drain-to-last da
+/// casa no gesto que mais repete): cada passo da rajada SOMA no
+/// acumulador compartilhado e o PRIMEIRO passo arma o timer de
+/// ~150ms — os passos seguintes SÓ acumulam (a janela é curta: o dono
+/// sente o volume subir JUNTO, não em rajada de forks); quando a
+/// janela fecha, UM wpctl aplica o TOTAL e o pedido de detalhe veste o
+/// ícone/percentual no frame seguinte. Rajada de scroll = UM fork.
+fn acumula_volume(
+    acumulado: &Rc<RefCell<(i64, bool)>>,
+    para_cima: bool,
+    passo: i64,
+    alvo: &'static str,
+    tx: Sender<Msg>,
+) {
+    let mut acc = acumulado.borrow_mut();
+    acc.0 += if para_cima { passo } else { -passo };
+    if acc.1 {
+        return; // a janela JÁ está aberta: só acumula (o timer veste)
+    }
+    acc.1 = true;
+    drop(acc);
+    let acumulado = Rc::clone(acumulado);
+    glib::timeout_add_local_once(Duration::from_millis(150), move || {
+        let (total, _) = *acumulado.borrow();
+        *acumulado.borrow_mut() = (0, false);
+        if total != 0 {
+            // a gramática de sempre do wpctl: "10%+" / "10%-" (o número
+            // primeiro, o sinal colado no fim — o passo de era era 5%+)
+            let argumento = format!("{}%{}", total.abs(), if total > 0 { "+" } else { "-" });
+            solta(&[
+                "wpctl",
+                "set-volume",
+                "--limit",
+                "1.5",
+                alvo,
+                &argumento,
+            ]);
+            // 1.0-104 — o ícone/percentual veste no gesto (sem esperar o
+            // cinto de 2s — a thread curta pergunta ao wpctl e o dreno
+            // veste no frame seguinte)
+            pede_audio_detalhe(&tx);
+        }
+    });
 }
 
 /// O filho FORK-AND-FORGET da casa: stdout/stderr no vazio, grupo

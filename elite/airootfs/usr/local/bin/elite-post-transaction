@@ -466,4 +466,56 @@ if [ -f "$_cc" ] && ! pacman -Qq liquidctl >/dev/null 2>&1; then
 fi
 unset _cc _cc_mudou
 
+# ── 13. O DEBLOAT DO PACMAN FORA DO PACMAN (1.0-110 T6 — o bloco muda de
+#      casa): o `pacman -Rns` de era corria no elite-post-upgrade — o
+#      scriptlet post_upgrade é filho da PRÓPRIA transação (o db.lck
+#      SEGURADO): chamar pacman ali dentro era corrida morta à espera de
+#      acontecer. ESTE hook (libalpm PostTransaction) roda DEPOIS do
+#      db.lck solto — a remoção consulta o dependente com o banco
+#      LIVRE. O veredito é o de sempre: sem dependente nenhum, sai; com
+#      dependente no db, FICA (a remoção forçada quebraria a casa).
+if command -v pacman >/dev/null 2>&1; then
+    for _deb in waybar gpsd; do
+        if pacman -Qq "$_deb" >/dev/null 2>&1; then
+            if pacman -Qi "$_deb" 2>/dev/null | grep -q '^Required By *: *None'; then
+                if pacman -Rns --noconfirm "$_deb" >/dev/null 2>&1; then
+                    tlog "debloat 1.0-93/1.0-110: $_deb REMOVIDO na pós-transação (nenhum dependente — a barra é o craft-bar-rs; o db.lck já está solto)"
+                fi
+            else
+                tlog "debloat 1.0-93/1.0-110: $_deb FICA (há dependente no db — a remoção forçada quebraria a casa)"
+            fi
+        fi
+    done
+fi
+unset _deb
+
+# ── 14. O PACMAN-INIT SÓ VIVE NA LIVE (1.0-110 T6 — telemetria do boot:
+#      o pacman-init.service do archiso gasta 4,358s dos 6,060s do
+#      graphical.target NO SISTEMA INSTALADO — a unit popula o keyring
+#      do LIVE e não tem ofício NENHUM no rig; a Live conserva TUDO: o
+#      drop-in 10-elite-retry.conf segue no pacote e a unidade segue
+#      enabled no boot do médio). A detecção é o MARCADOR da Live
+#      (/run/archiso — o carimbo do archiso de fábrica): sem ele, o
+#      chão é INSTALADO — disable + mask e os 4,35s voltam para o dono.
+if [ -d /run/archiso ]; then
+    : # a Live é o endereço dele: o pacman-init segue vivo com o drop-in
+    # da casa (o silêncio é o estado de sempre — a unit é da Live)
+elif command -v systemctl >/dev/null 2>&1 \
+     && systemctl list-unit-files pacman-init.service >/dev/null 2>&1 \
+     && systemctl cat pacman-init.service >/dev/null 2>&1; then
+    _maskou=0
+    systemctl disable pacman-init.service >/dev/null 2>&1 || true
+    # a MASK é o manto que o update do archiso não tira (o disable sozinho
+    # era desfeito pela unit nova do pacote; a máscara /etc é do DONO)
+    if [ ! -e /etc/systemd/system/pacman-init.service ] \
+       && [ ! -L /etc/systemd/system/pacman-init.service ]; then
+        ln -s /dev/null /etc/systemd/system/pacman-init.service && _maskou=1
+    fi
+    if [ "$_maskou" = 1 ] || systemctl is-enabled pacman-init.service >/dev/null 2>&1; then
+        systemctl daemon-reload >/dev/null 2>&1 || true
+    fi
+    tlog "boot 1.0-110: pacman-init.service DESABILITADO+MASCARADO no sistema instalado (os 4,358s dos 6,060s do graphical.target voltam para o dono; a Live conserva o drop-in)"
+fi
+unset _maskou
+
 exit 0
