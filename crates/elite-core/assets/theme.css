@@ -335,6 +335,31 @@ popover > contents calendar > grid > label.day-number:checked {
 #pickwin list row:focus { outline: 2px solid @elite-accent-strong; outline-offset: -2px; }
 #pickwin entry { background: @elite-surface; color: @elite-text; border-radius: 8px; }
 
+/* ── 1.0-109 §2.1 · O MENU DE CAMADA (o menu do clique direito da dock e
+ * os popups da barra vestem a camada Overlay — SEMPRE acima da gaveta do
+ * craft-apps, que mora na camada top do layer-shell; o popover de era
+ * nascia FILHO da superfície top e a gaveta cobria o menu inteiro) ── */
+#menuwin {
+  background: @elite-bg;
+  border: 1px solid @elite-border;
+  border-radius: 12px;
+}
+#menuwin box { color: @elite-text; }
+#menuwin button {
+  background: transparent;
+  color: @elite-text;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-weight: 500;
+}
+/* a mesma escada do pick: o repouso é a obsidiana transparente, o hover
+ * sobe UM degrau e o ativo veste a superfície forte (E106) */
+#menuwin button:hover { background: @elite-surface; }
+#menuwin button:active { background: @elite-surface-strong; }
+/* o divisor sutil entre os grupos do menu (a mesma régua do §2.3 da
+ * barra: 1px na cor da borda, com o respiro dos lados) */
+#menuwin separator { background: @elite-border; min-height: 1px; margin: 6px 10px; }
+
 #barbox button image { -gtk-icon-style: symbolic; }
 
 /* ── E151 · O SELETOR DE ENERGIA NUNCA MAIS FICA PRESO ──────────────────── */

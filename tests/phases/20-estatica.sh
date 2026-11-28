@@ -1038,6 +1038,17 @@ file_has "daemon: o TETO do áudio curto em µs (60s — o mpris:length da ficha
 file_has "daemon: a ficha da faixa lida (mpris:length + CanGoNext/CanGoPrevious)" "crates/elite-daemon/src/mpris.rs" '"CanGoNext"'
 file_has "daemon: a faixa do nome MORTO morre JUNTO (NameOwnerChanged limpa o cache)" "crates/elite-daemon/src/mpris.rs" 'A FAIXA DO NOME MORTO MORRE JUNTO'
 file_has "daemon: a preferência do TOCANDO (o pausado não rouba o assento de quem toca)" "crates/elite-daemon/src/mpris.rs" 'NÃO ROUBA O ASSENTO DE QUEM TOCA'
+# ── 1.0-109 Etapa 2 — A ESCADA DE CAMADAS WAYLAND (a diretriz §2.1: os
+#    menus da dock e os popups da barra vestem a camada Overlay — SEMPRE
+#    acima da gaveta do craft-apps, que mora na camada top do layer-shell)
+file_has "menu: a janela do menu veste a camada Overlay (a diretriz §2.1 — acima da gaveta top)" "crates/craft-tools/src/lib.rs" 'win.set_layer(gtk4_layer_shell::Layer::Overlay)'
+file_has "menu: o teclado EXCLUSIVO do menu (o Esc é a porta do teclado — fecha imediato)" "crates/craft-tools/src/lib.rs" 'MenuCamada'
+file_has "menu: a GUARDA DO PALCO (is-active FALSE = o clique foi PARA FORA — o menu desce)" "crates/craft-tools/src/lib.rs" 'o palco é de outro: o menu desce NO MESMO instante'
+file_has "menu: o posicionamento pelas ÂNCORAS do layer-shell (nunca a janela comum absoluta)" "crates/craft-tools/src/lib.rs" 'pub fn posiciona_menu'
+file_has "menu: a margem da base é a altura da mãe + respiro (o menu da dock sobe ATRÁS dela)" "crates/craft-tools/src/lib.rs" 'raiz.height() + 6'
+file_has "css: a janela do menu veste a obsidiana com a borda sutil da casa" "crates/elite-core/assets/theme.css" '#menuwin {'
+file_has "css: o botão do menu veste a escada do pick (repouso transparente · hover sobe UM degrau)" "crates/elite-core/assets/theme.css" '#menuwin button:hover'
+file_has "css: o divisor sutil dos grupos do menu (a mesma régua do §2.3)" "crates/elite-core/assets/theme.css" '#menuwin separator'
 
 printf '%s\n' "$OK_COUNT $FAIL_COUNT $SKIP_COUNT" > "$WORK/fase20.txt"
 exit 0

@@ -379,6 +379,205 @@ pub fn janela_camada(
     win
 }
 
+/// 1.0-109 §2.1 — O MENU DE CAMADA (a diretriz: o menu do clique direito
+/// da dock e os popups da barra vestem a camada Overlay — SEMPRE acima
+/// da gaveta do craft-apps, que mora na camada top do layer-shell). O
+/// popover de era era FILHO da superfície top da mãe: a gaveta que
+/// nascia DEPOIS cobria o menu inteiro (a evidência do dump 1.0-108 —
+/// o menu escondido atrás da gaveta, o 1º clique engolido pelo grab do
+/// popover). A janela do menu é UMA superfície Overlay PRÓPRIA: nasce
+/// acima da gaveta e de qualquer janela — e como cobre SÓ o retângulo
+/// do menu, o clique destinado aos ícones da mãe passa DIRETO.
+///
+/// AS PORTAS DE FECHO (a diretriz: o 1º clique externo OU o Esc): o Esc
+/// mora no teclado exclusivo do menu; o clique FORA mora na GUARDA DO
+/// PALCO (notify::is-active — a escola do craft-pick/craft-net: outra
+/// janela tomou o teclado = o palco é de outro = o menu desce no mesmo
+/// instante) e no gesto de CAPTURA da superfície mãe (a casa chama
+/// `fecha` no press ANTES do ícone — o clique na mãe fecha o menu SEM
+/// ser engolido: o gesto de captura nunca reclama a sequência).
+#[cfg(feature = "gui")]
+pub struct MenuCamada {
+    win: gtk4::Window,
+    ja: std::rc::Rc<std::cell::Cell<bool>>,
+    nasc: std::rc::Rc<std::cell::RefCell<std::time::Instant>>,
+}
+
+#[cfg(feature = "gui")]
+impl MenuCamada {
+    /// A JANELA NASCE UMA VEZ (as guardas de Esc e do palco moram nela
+    /// para sempre); o conteúdo troca por `conteudo` a cada abertura —
+    /// a mesma janela, o menu do botão que chamou.
+    pub fn novo(namespace: &str) -> Self {
+        use gtk4::prelude::*;
+        let win = gtk4::Window::new();
+        win.set_widget_name("menuwin");
+        if gtk4_layer_shell::is_supported() {
+            use gtk4_layer_shell::LayerShell;
+            win.init_layer_shell();
+            win.set_layer(gtk4_layer_shell::Layer::Overlay);
+            win.set_keyboard_mode(gtk4_layer_shell::KeyboardMode::Exclusive);
+            win.set_namespace(Some(namespace));
+        }
+        let ja = std::rc::Rc::new(std::cell::Cell::new(false));
+        let nasc = std::rc::Rc::new(std::cell::RefCell::new(std::time::Instant::now()));
+        // O ESC é a porta do teclado (a diretriz: fechar IMEDIATO)
+        {
+            let w = win.clone();
+            let ec = gtk4::EventControllerKey::new();
+            ec.connect_key_pressed(move |_, key, _, _| {
+                if key == gtk4::gdk::Key::Escape {
+                    w.hide();
+                    return gtk4::glib::Propagation::Stop;
+                }
+                gtk4::glib::Propagation::Proceed
+            });
+            win.add_controller(ec);
+        }
+        // A GUARDA DO PALCO (a escola do pick: o is-active FALSE depois
+        // do foco REAL é o clique que foi PARA FORA — outra janela tomou
+        // o teclado; o frame 0 do labwc é cortesia, a carência de 300ms
+        // cobre o present())
+        {
+            let ja = ja.clone();
+            let nasc = nasc.clone();
+            win.connect_notify_local(Some("is-active"), move |w, _| {
+                if w.is_active() {
+                    ja.set(true);
+                    return;
+                }
+                if !ja.get() {
+                    return; // nunca teve o palco: o frame 0 é cortesia
+                }
+                if nasc.borrow().elapsed() < std::time::Duration::from_millis(300) {
+                    return; // a carência do present()
+                }
+                w.hide(); // o palco é de outro: o menu desce NO MESMO instante
+            });
+        }
+        Self { win, ja, nasc }
+    }
+
+    /// a janela crua (para `add_controller` e o que a mãe precisar).
+    pub fn win(&self) -> &gtk4::Window {
+        &self.win
+    }
+
+    /// o conteúdo da abertura corrente (substitui o filho da janela).
+    pub fn conteudo(&self, c: &impl gtk4::prelude::IsA<gtk4::Widget>) {
+        use gtk4::prelude::*;
+        self.win.set_child(Some(c));
+    }
+
+    /// o menu está na tela?
+    pub fn aberto(&self) -> bool {
+        use gtk4::prelude::*;
+        self.win.is_visible()
+    }
+
+    /// a porta comum de fecho (o item escolhido, o clique na mãe, o Esc
+    /// de outra janela — quem chama fecha por AQUI).
+    pub fn fecha(&self) {
+        use gtk4::prelude::*;
+        self.win.hide();
+    }
+
+    /// A ABERTURA POSICIONADA: o menu nasce ACIMA/ABAIXO da superfície
+    /// mãe, centrado no botão que o chamou — `no_fundo`: true = a mãe
+    /// mora na BASE (a dock: o menu sobe); false = a mãe mora no TOPO
+    /// (a barra: o menu desce).
+    pub fn abre(&self, ancora: &impl gtk4::prelude::IsA<gtk4::Widget>, no_fundo: bool) {
+        use gtk4::prelude::*;
+        posiciona_menu(&self.win, ancora.upcast_ref(), no_fundo);
+        self.ja.set(false); // a guarda do palco rearma a cada nascimento
+        *self.nasc.borrow_mut() = std::time::Instant::now();
+        self.win.show();
+    }
+
+    /// o clique no botão que é a âncora do menu (o relógio, o ícone da
+    /// dock): aberto FECHA, fechado ABRE — o toggle de sempre.
+    pub fn alterna(&self, ancora: &impl gtk4::prelude::IsA<gtk4::Widget>, no_fundo: bool) {
+        if self.aberto() {
+            self.fecha();
+        } else {
+            self.abre(ancora, no_fundo);
+        }
+    }
+}
+
+/// A POSIÇÃO DO MENU (a geometria layer-shell: âncoras + margens no
+/// monitor — nunca o posicionamento absoluto da janela comum). O botão
+/// mora numa superfície mãe: a dock (só a base, CENTRADA no eixo livre)
+/// ou a barra (topo+lados, a faixa INTEIRA da tela). O menu ancora na
+/// MESMA borda da mãe, centrado no botão pela margem esquerda medida
+/// NO MONITOR.
+#[cfg(feature = "gui")]
+pub fn posiciona_menu(win: &gtk4::Window, ancora: &gtk4::Widget, no_fundo: bool) {
+    use gtk4::prelude::*;
+    if !gtk4_layer_shell::is_supported() {
+        return; // janela comum: sem camada, sem âncoras (honesto)
+    }
+    use gtk4_layer_shell::LayerShell;
+    let Some(native) = ancora.native() else {
+        return; // sem superfície mãe: sem posição de verdade
+    };
+    let mae: gtk4::glib::Object = native.upcast_ref::<gtk4::glib::Object>().clone();
+    let Some(raiz) = mae.downcast_ref::<gtk4::Window>() else {
+        return;
+    };
+    // os limites do botão no espaço da mãe (a âncora da margem)
+    let Some(b) = ancora.compute_bounds(raiz) else {
+        return;
+    };
+    // o monitor da mãe (as margens são medidas NO OUTPUT dela)
+    let Some(mon) = raiz
+        .surface()
+        .and_then(|s| s.display().monitor_at_surface(&s))
+        .or_else(|| {
+            // a queda honesta: o 1º monitor do display (a mãe sem
+            // superfície ainda não mapeou — o menu segue o display dela)
+            gtk4::gdk::Display::default().and_then(|d| {
+                let lista = d.monitors();
+                lista
+                    .item(0)
+                    .and_then(|m| m.downcast::<gtk4::gdk::Monitor>().ok())
+            })
+        })
+    else {
+        return;
+    };
+    let geo = mon.geometry();
+    // a origem da mãe no monitor: a barra é a faixa INTEIRA (0, 0); a
+    // dock CENTRADA no eixo livre do layer-shell
+    let px = if no_fundo {
+        (geo.width() - raiz.width()) / 2
+    } else {
+        0
+    };
+    let cx = px as f64 + b.x() as f64 + b.width() as f64 / 2.0;
+    // a largura NATURAL do conteúdo mede a margem ANTES de mapear (o
+    // menu centra no botão; o clamp segura as bordas do monitor)
+    let (_, larg, _, _) = win
+        .child()
+        .map(|c| c.measure(gtk4::Orientation::Horizontal, -1))
+        .unwrap_or((0, 0, 0, 0));
+    let ml = (cx - larg as f64 / 2.0).round() as i32;
+    let ml = ml.clamp(8, (geo.width() - larg - 8).max(8));
+    win.set_anchor(gtk4_layer_shell::Edge::Left, true);
+    win.set_margin(gtk4_layer_shell::Edge::Left, ml);
+    if no_fundo {
+        // a dock mora na BASE: o menu sobe ATRÁS da mãe (a margem da
+        // base é a ALTURA da mãe + o respiro de 6px)
+        win.set_anchor(gtk4_layer_shell::Edge::Bottom, true);
+        win.set_margin(gtk4_layer_shell::Edge::Bottom, raiz.height() + 6);
+    } else {
+        // a barra mora no TOPO: o menu desce ABAIXO do botão que o
+        // chamou (o fundo do botão + o respiro de 6px)
+        win.set_anchor(gtk4_layer_shell::Edge::Top, true);
+        win.set_margin(gtk4_layer_shell::Edge::Top, (b.y() + b.height()) as i32 + 6);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
