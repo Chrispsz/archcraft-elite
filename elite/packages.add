@@ -188,7 +188,10 @@ wlopm
 # clique com a notificação na cara, SEM bandeja e SEM daemon de root.
 # O par udev oneshot de era (regra 91 + elite-automount@.service)
 # aposentou no mesmo commit (um dono por domínio — zero corrida).
-udiskie
+# E190 T4 — O AUTOMOUNT VIROU EVENTO DO DAEMON (o udiskie APOSENTOU de
+# novo e AGORA de verdade: o ouvidor UDisks2 do elite-daemon monta no
+# evento com a notificação na cara; a LINHA sai do packages.add e volta
+# para o debloat — ver packages.remove, a entrada nova do E190).
 # 1.0-107 — A CENTRAL DE NOTIFICAÇÕES VOLTA COM DONO ÚNICO (a ordem do
 # dono, revisão da 1.0-106): o swaync é o da casa (AGENTS.md §7 — "Não
 # reinventar o que o mundo já fez bem"); o crash-loop da era morre no

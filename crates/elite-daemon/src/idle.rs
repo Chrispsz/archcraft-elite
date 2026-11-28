@@ -20,6 +20,8 @@
 use std::path::PathBuf;
 use std::sync::OnceLock;
 
+use crate::audio;
+
 /// o conf da vigília (os nomes do papel da casa — compat total).
 #[derive(Debug, Clone, PartialEq)]
 pub struct Conf {
@@ -169,32 +171,131 @@ pub(crate) fn conn_system() -> Option<&'static zbus::blocking::Connection> {
         .as_ref()
 }
 
-/// 1.0-110 T3 — A SUSPENSÃO NATIVA DA CASA (a evidência do rig: o item
-/// "Suspender" do menu ⏻ disparava SÓ o hyprlock — o journalctl -b -u
-/// systemd-logind registrava ZERO chamadas de suspensão): a trava nasce
-/// DESACOPLADA (trava — o craft-lock --if-needed em segundo plano, sem
-/// bloquear o chamador), a superfície é ESPERADA (lock_mapeado — o teto
-/// de 3s e o assento de 400ms da lei de sempre) e SÓ ENTÃO o sono desce
-/// pelo VERBO NATIVO org.freedesktop.login1.Manager.Suspend(true) pela
-/// conexão zbus system COMPARTILHADA (com o fallback honesto para o
-/// `systemctl suspend` se o D-Bus retornar erro). O verbo IPC
-/// (BusReq::Suspend) e o craft-suspend vestem ESTE caminho.
+/// 1.0-110 T3 / E190 T3 — A SUSPENSÃO NATIVA DA CASA (a evidência do rig:
+/// o item "Suspender" do menu ⏻ disparava SÓ o hyprlock — o journalctl -b
+/// -u systemd-logind registrava ZERO chamadas de suspensão; o relato
+/// E190 nomeou o réu de novo: "Suspender estava apenas bloqueando a tela
+/// em vez de suspender a máquina"): o FLUXO é LEI —
+///   1º a FOTO pré-sono (o sink de áudio padrão gravado + a MARCA de
+///      pós-sono carimbada — quem acorda SABE que dormiu);
+///   2º a trava DESACOPLADA nasce (trava — o craft-lock --if-needed em
+///      segundo plano, sem bloquear o chamador);
+///   3º a superfície é ESPERADA (lock_mapeado — o teto de 3s e o
+///      assento de 400ms da lei de sempre: a tela de bloqueio PINTA
+///      antes do mergulho, o dono acorda NELA);
+///   4º SÓ ENTÃO o sono desce pelo VERBO NATIVO
+///      org.freedesktop.login1.Manager.Suspend(false) pela conexão zbus
+///      system COMPARTILHADA — o `false` é a ordem E190: sem o modo
+///      interativo da 1.0-110, o HARDWARE dorme de verdade (nunca
+///      parar apenas no lock) — com o fallback honesto para o
+///      `systemctl suspend` se o D-Bus retornar erro.
+/// O verbo IPC (BusReq::Suspend) e o craft-suspend vestem ESTE caminho.
+/// Os hooks pós-sono (display-recover no modo salvo, áudio e
+/// wake-guard) seguem INTACTOS nas thread_logind/wakeguard/despertar —
+/// a marca de pós-sono cobre o acordar que só VÊ o Unlock (o sinal do
+/// PrepareForSleep perdido no limbo).
 pub fn suspende() {
-    trava();
-    lock_mapeado();
+    // o PLANO é LEI (a trava anti-regressão: `suspende` veste o
+    // contrato PURO — o teste quebra ANTES de o rig quebrar)
+    let plano = plano_de_sono();
+    if plano.foto_pre_sono {
+        audio::sleep_save();
+        marca_sono();
+    }
+    if plano.trava {
+        trava();
+    }
+    if plano.espera_superficie {
+        lock_mapeado();
+    }
+    debug_assert!(!plano.suspend_interativo, "E190 T3: o verbo é Suspend(false) — sem modo interativo");
     if !dorme_login1() {
         eprintln!(
             "elite-daemon: o Suspend do logind falhou — a queda honesta veste o systemctl suspend (1.0-110 T3)"
         );
-        let _ = std::process::Command::new("systemctl")
-            .arg("suspend")
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status();
+        if plano.fallback_systemctl {
+            let _ = std::process::Command::new("systemctl")
+                .arg("suspend")
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .status();
+        }
     }
 }
 
-/// o verbo nativo do logind (S true = interativo): Ok = o sono desceu
+/// E190 T3 — O PLANO DO SONO (o contrato PURO da trava anti-regressão:
+/// a porta dos testes — `suspende` executa EXATAMENTE esta sequência;
+/// quem mudar a ordem ou o modo interativo quebra o teste ANTES de
+/// quebrar o rig. O `S false` é a ordem E190 palavra por palavra: o
+/// hardware dorme sem perguntar).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PlanoSono {
+    /// a FOTO pré-sono do sink (audio::sleep_save) corre primeiro
+    pub foto_pre_sono: bool,
+    /// a trava (craft-lock --if-needed) nasce antes do mergulho
+    pub trava: bool,
+    /// a espera da superfície do lock (lock_mapeado) segue a trava
+    pub espera_superficie: bool,
+    /// o verbo login1.Manager.Suspend — false = o hardware dorme
+    /// DE VERDADE (true de era = o modo interativo que o rig nunca viu
+    /// descer; NUNCA parar apenas no lock)
+    pub suspend_interativo: bool,
+    /// a queda honesta no systemctl quando o D-Bus falha
+    pub fallback_systemctl: bool,
+}
+
+/// o plano de FÁBRICA (o que `suspende` executa — o teste crava).
+pub fn plano_de_sono() -> PlanoSono {
+    PlanoSono {
+        foto_pre_sono: true,
+        trava: true,
+        espera_superficie: true,
+        suspend_interativo: false,
+        fallback_systemctl: true,
+    }
+}
+
+/// E190 T3 — A MARCA DE PÓS-SONO (o carimbo no tmpfs da sessão: quem
+/// acorda SABE que dormiu — o despertar que só vê o Unlock (o sinal
+/// PrepareForSleep perdido no limbo) consulta a marca FRESCA e devolve
+/// o áudio do jeito que o sono encontrou; a marca expira sozinha).
+pub fn marca_sono() {
+    use std::io::Write;
+    // o tmpfs PRIVADO da sessão ($XDG_RUNTIME_DIR/elite — o MESMO
+    // endereço do bus e do session.lock; a marca morre com a sessão)
+    let dir = elite_core::bus_dir(unsafe { libc::getuid() });
+    let _ = std::fs::create_dir_all(&dir);
+    if let Ok(mut f) = std::fs::File::create(dir.join("sono.stamp")) {
+        let _ = writeln!(f, "{}", crate::agora_ms());
+    }
+}
+
+/// E190 T3 — A MARCA É FRESCA? (o acordar consulta: uma marca com
+/// menos de JANELA_SONO ms é um sono que TERMINOU AGORA — o áudio
+/// volta à foto pré-sono mesmo sem o sinal do PrepareForSleep).
+pub const JANELA_SONO_MS: u64 = 10 * 60 * 1_000;
+
+/// o julgamento PURO da marca (a porta dos testes).
+pub fn marca_fresca(idade_ms: u64) -> bool {
+    idade_ms <= JANELA_SONO_MS
+}
+
+/// E190 T3 — A CONSULTA VIVA (o despertar chama: marca fresca = um
+/// sono de verdade acabou de terminar).
+pub fn sono_recente() -> bool {
+    let uid = unsafe { libc::getuid() };
+    let Ok(meta) = std::fs::metadata(elite_core::bus_dir(uid).join("sono.stamp")) else {
+        return false;
+    };
+    let Ok(m) = meta.modified() else { return false };
+    let idade = m
+        .elapsed()
+        .unwrap_or(std::time::Duration::from_secs(u64::MAX / 2));
+    marca_fresca(idade.as_millis() as u64)
+}
+
+/// o verbo nativo do logind (S false = o hardware dorme — E190 T3: sem
+/// o modo interativo, o sono desce de verdade). Ok = o sono desceu
 /// pela via PRÓPRIA do daemon (zero fork — a lei do orquestrador).
 fn dorme_login1() -> bool {
     let Some(c) = conn_system() else { return false };
@@ -206,7 +307,7 @@ fn dorme_login1() -> bool {
     ) else {
         return false;
     };
-    p.call::<_, _, ()>("Suspend", &(true)).is_ok()
+    p.call::<_, _, ()>("Suspend", &(false)).is_ok()
 }
 
 /// O PRÉ-SONO ATÔMICO (PrepareForSleep(true)): trava ANTES do freeze —
@@ -340,5 +441,34 @@ mod tests {
         // SUSPEND_MIN ≤ LOCK_MIN nunca foi pausa extra no swayidle)
         assert_eq!(faltam_ms(10, 10), 1_000);
         assert_eq!(faltam_ms(5, 10), 1_000);
+    }
+
+    #[test]
+    fn e190_t3_o_sono_e_lock_mais_suspender_real_nunca_so_o_lock() {
+        // A TRAVA ANTI-REGRESSÃO do fluxo real (o relato do dono:
+        // "Suspender estava apenas bloqueando a tela em vez de
+        // suspender a máquina" — o rig via o hyprlock e ZERO chamadas
+        // no logind): o PLANO é LEI — a foto pré-sono e a trava ANTES,
+        // a espera da superfície, e o verbo login1.Manager.Suspend SEM
+        // o modo interativo (o `false` manda o hardware dormir de
+        // verdade), com a queda honesta no systemctl de rede
+        let p = plano_de_sono();
+        assert!(p.foto_pre_sono, "a foto pré-sono (sink + marca) corre primeiro");
+        assert!(p.trava, "o lock nasce antes do mergulho — o dono acorda NELE");
+        assert!(p.espera_superficie, "a superfície do lock é esperada (teto 3s)");
+        assert!(!p.suspend_interativo, "Suspend(false): o hardware dorme de verdade — nunca apenas o lock");
+        assert!(p.fallback_systemctl, "a queda honesta no systemctl quando o D-Bus falha");
+    }
+
+    #[test]
+    fn e190_t3_a_marca_de_pos_sono_expira_na_janela() {
+        // a marca FRESCA cobre o acordar que só viu o Unlock (o sinal
+        // PrepareForSleep perdido); fora da janela de 10min ela é
+        // palpite velho — o áudio segue como está
+        assert!(marca_fresca(0));
+        assert!(marca_fresca(59_999));
+        assert!(marca_fresca(JANELA_SONO_MS));
+        assert!(!marca_fresca(JANELA_SONO_MS + 1));
+        assert!(!marca_fresca(u64::MAX));
     }
 }

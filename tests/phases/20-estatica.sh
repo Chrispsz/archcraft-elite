@@ -62,18 +62,20 @@ file_hasnt "autostart: nenhuma spawn direta de waybar" "$AIROOTFS/etc/skel/.conf
 file_has "autostart: o AMBIENTE no D-Bus antes de tudo (labwc:wlroots da diretriz)" "$AIROOTFS/etc/skel/.config/labwc/autostart" 'XDG_CURRENT_DESKTOP=labwc:wlroots'
 file_has "autostart: o swaybg é alicerce de frame 0 (não depende do motor)" "$AIROOTFS/etc/skel/.config/labwc/autostart" 'swaybg -m fill'
 file_has "autostart: o agente polkit nasce com guard pgrep (UM só na sessão)" "$AIROOTFS/etc/skel/.config/labwc/autostart" 'pgrep -x lxqt-policykit-agent'
-file_has "autostart: o automount é o udiskie da diretriz (--notify --no-tray)" "$AIROOTFS/etc/skel/.config/labwc/autostart" 'udiskie --automount --notify --no-tray'
+file_has "autostart: o automount é EVENTO do daemon (E190 T4 — o udiskie APOSENTOU)" "$AIROOTFS/etc/skel/.config/labwc/autostart" 'ouvidor UDisks2'
 file_has "autostart: o keyring de sempre (craft-fix-keys)" "$AIROOTFS/etc/skel/.config/labwc/autostart" 'craft-fix-keys'
 file_has "autostart: o clipboard de sempre (cliphist)" "$AIROOTFS/etc/skel/.config/labwc/autostart" 'cliphist store'
 file_has "autostart: o bloco gerenciado do orquestrador (E146)" "$AIROOTFS/etc/skel/.config/labwc/autostart" 'BEGIN ELITE-DAEMON-SESSION'
 # PROIBIDO no autostart (linha VIVA): o swaync é do SUPERVISOR (a lei
-# 1.0-107 — o elite-daemon session é o ÚNICO dono da central) e o
+# 1.0-107 — o elite-daemon session é o ÚNICO dono da central), o
+# udiskie/blueman-applet são APOSENTADOS (E190 T4 — o automount é evento
+# do ouvidor UDisks2 do daemon e o Bluetooth é da barra) e o
 # resto é fóssil de era; o corpo congelado de dose antiga é fóssil que
 # o elite-heal-sessao reconstrói do mestre
 _nao_residente="$(grep -vE '^[[:space:]]*(#|$)' "$AIROOTFS/etc/skel/.config/labwc/autostart" 2>/dev/null \
-    | grep -cE '(^|[[:space:]/])(swaync|swayosd-server|polkit-gnome|waybar|craft-bars|craft-toplevel|swayidle)([[:space:]]|&|$)' || true)"
+    | grep -cE '(^|[[:space:]/])(swaync|swayosd-server|polkit-gnome|waybar|craft-bars|craft-toplevel|swayidle|udiskie|blueman-applet)([[:space:]]|&|$)' || true)"
 if [ "${_nao_residente:-0}" -eq 0 ]; then
-    t_ok "autostart: ZERO residente proibido em linha viva (o swaync é do supervisor — 1.0-108)"
+    t_ok "autostart: ZERO residente proibido em linha viva (o swaync é do supervisor; o automount e o bluetooth são do daemon — 1.0-108/E190)"
 else
     t_fail "autostart: ZERO residente proibido em linha viva" \
         "$_nao_residente spawn(s) fóssil(is) — o swaync/swayosd são do supervisor, os outros são de era morta"
@@ -86,16 +88,15 @@ PKG="elite/packages.add"
 for p in iwgtk blueman nm-connection-editor pwvucontrol coolercontrol nwg-drawer gnome-text-editor papers brave-origin cliphist swayosd lxqt-policykit; do
     file_line_exact "packages.add: a ferramenta dedicada $p" "$PKG" "$p"
 done
-# 1.0-108 — O ARRANQUE LIMPO NOS PACOTES (a reversão da E151 pela
-# diretriz: o udiskie é o automounter do frame 0 de novo — o par udev
-# oneshot de era aposentou; a LINHA INTEIRA é o contrato)
-file_line_absent "packages.add: o waybar NÃO volta (a top bar é nativa)" "$PKG" 'waybar'
-file_line_absent "packages.add: o xorg-server NÃO volta (o greeter é wayland nativo)" "$PKG" 'xorg-server'
-file_line_exact "packages.add: o udiskie VOLTA (o automounter do arranque limpo)" "$PKG" 'udiskie'
+# E190 T4 — O AUTOMOUNT É EVENTO DO DAEMON (zero residentes legados):
+# o udiskie Python APOSENTOU de novo e AGORA de verdade (o ouvidor
+# UDisks2 do elite-daemon monta no evento) — a linha sai do packages.add
+# de volta e o debloat da pós-transação colhe o rig vivo
+file_line_absent "packages.add: o udiskie NÃO volta (E190 — o automount é evento do daemon)" "$PKG" 'udiskie'
 file_line_exact "packages.add: o adwaita-icon-theme garante o cursor do greeter (CursorTheme=Adwaita)" "$PKG" 'adwaita-icon-theme'
 file_line_absent "packages.add: o hyprpolkitagent NÃO volta (o polkit é ÚNICO)" "$PKG" 'hyprpolkitagent'
 file_line_exact "packages.remove: o xorg-server aposentado (o greeter veste wayland — E151)" "elite/packages.remove" 'xorg-server'
-file_line_absent "packages.remove: o udiskie NÃO sai mais (a reversão 1.0-108 — o arranque limpo é o dono do automount)" "elite/packages.remove" 'udiskie'
+file_line_exact "packages.remove: o udiskie APOSENTADO de verdade (E190 T4 — o automount é evento do daemon)" "elite/packages.remove" 'udiskie'
 file_line_exact "packages.remove: o hyprpolkitagent aposentado (o lxqt-policykit é o ÚNICO)" "elite/packages.remove" 'hyprpolkitagent'
 file_has "packages.remove: os legados i3-wm/feh/openbox/i3status vedados (a faxina E151)" "elite/packages.remove" 'feh'
 file_line_exact "packages.remove: o swayidle aposentado (a vigília é do daemon)" "elite/packages.remove" 'swayidle'
@@ -803,7 +804,7 @@ file_absent "automount: a regra udev 91 de era APOSENTOU (o udiskie é o dono)" 
 file_absent "automount: a unit oneshot de era APOSENTOU" "$AIROOTFS/etc/systemd/system/elite-automount@.service"
 file_absent "automount: o helper elite-automount de era APOSENTOU (nada de fóssil na árvore)" "$AIROOTFS/usr/local/bin/elite-automount"
 file_has "post-upgrade: os fósseis do par udev de era COLHIDOS na dose (com voz)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'fóssil de era $_fossil_automount'
-file_has "post-transaction: o udiskie FORA da lista de debloat (o automounter da casa — 1.0-110: o bloco mora NO hook com o db.lck solto)" "$AIROOTFS/usr/local/bin/elite-post-transaction" 'for _deb in waybar gpsd; do'
+file_has "post-transaction: o debloat na lista nova com o udiskie (E190 T4 — o automount é evento do daemon; o bloco mora NO hook com o db.lck solto)" "$AIROOTFS/usr/local/bin/elite-post-transaction" 'for _deb in waybar gpsd udiskie; do'
 file_has "daemon: o udiskie segue FORA da fila do supervisor (o autostart é o dono)" "crates/elite-daemon/src/supervise.rs" 'RESIDENTES_DEFAULT'
 file_hasnt "daemon: o residente udiskie não volta à fila (o arranque limpo é o dono)" "crates/elite-daemon/src/supervise.rs" '("udiskie",'
 file_has "daemon: a mordaca do autostart duplicado do agente (Hidden=true por usuário)" "crates/elite-daemon/src/supervise.rs" 'entrega_mordaca_polkit'
@@ -835,7 +836,7 @@ file_has "qt: o esquema ESCURO da casa viaja no pacote (custom_palette + scheme)
 file_exists "qt: o esquema elite-dark.conf existe (a paleta Catppuccin-Mocha do Qt)" "$AIROOTFS/usr/local/share/elite/qt6ct/elite-dark.conf"
 file_has "update: a GUARDA do pkexec órfão veste o craft-update (HUP/INT/TERM)" "crates/craft-tools/src/lib.rs" 'pub fn corre_com_guarda'
 file_has "heal: a linha 178 curada (_sb_vistas nasce vazio — set -u nunca aborta)" "$AIROOTFS/usr/local/bin/elite-heal-sessao" '_sb_vistas=""'
-file_has "heal: o fóssil de spawn veste a lei 1.0-108 (swaybg/udiskie são alicerces; swaync NÃO)" "$AIROOTFS/usr/local/bin/elite-heal-sessao" 'swayosd|swaync|swaync-client'
+file_has "heal: o fóssil de spawn veste a lei (swaync NUNCA; o udiskie aposentou E190 — swaybg/polkit são os alicerces)" "$AIROOTFS/usr/local/bin/elite-heal-sessao" 'swayosd|swaync|swaync-client'
 file_has "post-upgrade: o _sh/_suid nascem na PORTA do loop (o aborto de era morre)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" '_sh="$_hdir"'
 file_has "post-upgrade: o ZERO-TOUCH devolve o cache/config ao dono (chown -R uid:gid)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'chown -R "$_auid:$_agid"'
 file_has "clean: o papel podado herda o dono do original (chown --reference)" "$AIROOTFS/usr/local/bin/elite-clean" 'herda_dono'
@@ -952,8 +953,12 @@ file_line_exact "packages.add: rtkit no boot (a prioridade realtime do áudio)" 
 file_line_exact "packages.add: goverlay (a GUI do MangoHud da diretriz)" "$PKG" 'goverlay'
 file_line_exact "sensores: o candidato Nuvoton no rol da fábrica" "$AIROOTFS/etc/modules-load.d/elite-sensors.conf" 'nct6775'
 file_line_exact "sensores: o candidato ITE no rol da fábrica" "$AIROOTFS/etc/modules-load.d/elite-sensors.conf" 'it87'
-file_line_exact "sensores: o termômetro AMD no rol da fábrica" "$AIROOTFS/etc/modules-load.d/elite-sensors.conf" 'k10temp'
-file_line_exact "sensores: o termômetro Intel no rol da fábrica" "$AIROOTFS/etc/modules-load.d/elite-sensors.conf" 'coretemp'
+# E190 T1 — O VENDOR DECIDE O TERMÔMETRO: o termômetro da casa CERTA é
+# autoloadado pelo udev (AMD k10temp · Intel coretemp) e o da casa ERRADA
+# NUNCA é convidado pela fábrica — a sonda da dose pergunta o cpuinfo
+file_line_absent "sensores: o k10temp NÃO é linha de fábrica (autoload do udev em AMD — E190)" "$AIROOTFS/etc/modules-load.d/elite-sensors.conf" 'k10temp'
+file_line_absent "sensores: o coretemp NÃO é linha de fábrica (autoload do udev em Intel — E190)" "$AIROOTFS/etc/modules-load.d/elite-sensors.conf" 'coretemp'
+file_has "sensores: o termômetro AMD nunca carrega em Intel e vice-versa (o vendor do cpuinfo decide — E190)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'vendor_id[[:space:]]*:[[:space:]]*AuthenticAMD'
 file_has "sensores: a sonda da dose prova contra o hwmon vivo" "$AIROOTFS/usr/local/bin/elite-post-upgrade" '/sys/class/hwmon'
 file_has "snapshot: o findmnt na raiz decide (a lei do btrfs)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'findmnt -n -o FSTYPE /'
 file_has "snapshot: o config do root nasce guardado (idempotente)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" '/etc/snapper/configs/root'
@@ -1134,6 +1139,56 @@ file_has "dump: a cabeça de output RECONHECIDA indentada (o falso-positivo DP-1
 file_has "dump: o aviso do portal Inhibit é benigno CONHECIDO (nunca alarme falso)" "crates/craft-dump-rs/src/lib.rs" 'org.freedesktop.portal.Inhibit'
 file_has "suspend: o craft-suspend veste o CAMINHO NATIVO primeiro (o verbo no bus)" "$AIROOTFS/usr/local/bin/craft-suspend" 'elite-daemon suspend'
 file_has "mpris: o PAUSAR acorda a vigília (o contador renasce do zero)" "crates/elite-daemon/src/mpris.rs" 'PAUSOU: o relógio da vigília RENASCE'
+
+# ══ E190 (1.0-110 · Commit 1/2) — O BOOT EXTREMO, A COLISÃO DO SWAYNC,
+# ══ A SUSPENSÃO REAL, OS ZERO RESIDENTES LEGADOS E A PERSISTÊNCIA VIVA ══
+# T1 — O BOOT EXTREMO (a auditoria do systemd-analyze do rig):
+#       o probe é DA LIVE, o coolercontrold desacoplado, os serviços
+#       sem ofício descem, o GRUB_TIMEOUT=2, o splash duplicado morre,
+#       o noatime do btrfs veste a transação E o firstboot
+file_has "boot E190: o probe da sessão é DA LIVE (ConditionPathExists=/run/archiso — o rig não paga o oneshot de 60s)" "$AIROOTFS/etc/systemd/system/elite-session-probe.service" 'ConditionPathExists=/run/archiso'
+file_has "boot E190: o post-transaction desce o probe no instalado (o cinto da dose)" "$AIROOTFS/usr/local/bin/elite-post-transaction" 'elite-session-probe DESABILITADO+MASCARADO no instalado'
+file_has "boot E190: o drop-in do coolercontrold desacoplado do caminho crítico (After=graphical.target)" "$AIROOTFS/etc/systemd/system/coolercontrold.service.d/10-elite-boot.conf" 'After=graphical.target'
+file_has "boot E190: o post-transaction muda a vaga do coolercontrold (graphical.target.wants — os 2,37s voltam pro dono)" "$AIROOTFS/usr/local/bin/elite-post-transaction" 'graphical.target.wants/coolercontrold.service'
+file_has "boot E190: o choose-mirror MASCARADO no instalado (a ferramenta é da Live)" "$AIROOTFS/usr/local/bin/elite-post-transaction" 'choose-mirror DESABILITADO+MASCARADO no instalado'
+file_has "boot E190: o NM-wait-online MASCARADO pela transação idem (E132 renova o manto)" "$AIROOTFS/usr/local/bin/elite-post-transaction" 'NetworkManager-wait-online DESABILITADO+MASCARADO'
+file_has "boot E190: o wpa_supplicant DESABILITADO sem máscara (o NM o ativa por demanda — o Wi-Fi segue)" "$AIROOTFS/usr/local/bin/elite-post-transaction" 'wpa_supplicant DESABILITADO do boot'
+file_has "boot E190: o lvm2-monitor desce sem volume LVM (o vgs decide)" "$AIROOTFS/usr/local/bin/elite-post-transaction" 'lvm2-monitor DESABILITADO (nenhum volume LVM'
+file_has "boot E190: o GRUB_TIMEOUT=2 no post-upgrade (o loader de 10s prendia 5,184s)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=2/'
+file_has "boot E190: o GRUB_TIMEOUT=2 no tune firstboot (o espelho da instalação limpa)" "$AIROOTFS/usr/local/bin/elite-tune" 'GRUB_TIMEOUT=2'
+file_has "boot E190: o splash DUPLICADO morre no post-upgrade (a dedup preserva a ordem)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'cmdline DEDUPADA'
+file_has "boot E190: o splash DUPLICADO morre no tune idem (o contrato crava os DOIS lados)" "$AIROOTFS/usr/local/bin/elite-tune" 'cmdline DEDUPADA'
+file_has "boot E190: o noatime do btrfs na pós-transação (backup .bak + findmnt --verify)" "$AIROOTFS/usr/local/bin/elite-post-transaction" 'findmnt --verify --fstab /etc/fstab.elite-noatime'
+file_has "boot E190: o noatime do btrfs no firstboot (o espelho da ISO limpa)" "$AIROOTFS/usr/local/bin/elite-tune" 'noatime nas montagens btrfs'
+file_has "boot E190: o fstab que NÃO valida é RESTAURADO (a dose nunca entrega fstab torto)" "$AIROOTFS/usr/local/bin/elite-post-transaction" 'findmnt --verify'
+file_has "boot E190: a dedup dos módulos de sensor (nct6775 nunca carrega duas vezes)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'módulo duplicado saiu de'
+# T2 — A COLISÃO D-BUS DO SWAYNC (o bars.log do rig: duas instâncias
+#      juntas no login 15:36:38 → main.vala:60 SIGABRT):
+file_has "swaync E190: a CEIFA do órfão antes da vaga (nenhum swaync de sessão passada)" "crates/elite-daemon/src/supervise.rs" 'fn ceifa_orfaos_swaync'
+file_has "swaync E190: o config.json nasce ATÔMICO E VÁLIDO no MESMO gesto do CSS" "crates/elite-daemon/src/supervise.rs" 'fn entrega_conf_swaync'
+file_has "swaync E190: o filho nasce com o G_DEBUG LIMPO (o fatal-warnings de era virava SIGABRT)" "crates/elite-daemon/src/supervise.rs" 'env_remove("G_DEBUG")'
+file_has "swaync E190: o comando é SEMPRE o par completo (-c E -s — o ramo meio vestido morreu)" "crates/elite-daemon/src/supervise.rs" 'let comando = format!("swaync -c {conf} -s {css}")'
+file_has "swaync E190: o autostart VIVO é MIGRADO na dose (spawn de era colhido com backup)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'autostart vivo do uid'
+# T3 — A SUSPENSÃO REAL (Lock + Suspend + Lock Screen ao despertar):
+file_has "suspend E190: o verbo é Suspend(false) — o hardware dorme DE VERDADE (sem modo interativo)" "crates/elite-daemon/src/idle.rs" '"Suspend", &(false)'
+file_has "suspend E190: a FOTO pré-sono no fluxo (o sink padrão gravado ANTES do mergulho)" "crates/elite-daemon/src/idle.rs" 'pub fn suspende'
+file_has "suspend E190: o PLANO é LEI (a trava anti-regressão pura — o teste quebra antes do rig)" "crates/elite-daemon/src/idle.rs" 'pub fn plano_de_sono'
+file_has "suspend E190: a MARCA de pós-sono carimbada no tmpfs da sessão" "crates/elite-daemon/src/idle.rs" 'pub fn marca_sono'
+file_has "suspend E190: o acordar que só viu o Unlock veste a marca (o áudio volta à foto pré-sono)" "crates/elite-daemon/src/main.rs" 'a marca de pós-sono está FRESCA'
+# T4 — ZERO RESIDENTES LEGADOS + A PERSISTÊNCIA VIVA + O DUMP PRECISO:
+file_has "discos E190: o ouvidor UDisks2 do daemon (o automount por evento — o udiskie morre)" "crates/elite-daemon/src/discos.rs" 'org.freedesktop.UDisks2.Filesystem'
+file_has "discos E190: o juízo puro da montagem (o disco do sistema NUNCA monta)" "crates/elite-daemon/src/discos.rs" 'pub fn deve_montar'
+file_has "discos E190: o thread do daemon no ar (o mesmo desenho do NM por evento)" "crates/elite-daemon/src/main.rs" 'std::thread::spawn(discos::thread)'
+file_has "blueman E190: o applet da bandeja AMORDAÇADO por usuário (o Bluetooth é da barra)" "$AIROOTFS/etc/skel/.config/autostart/blueman-applet.desktop" 'Hidden=true'
+file_has "display E190: o ouvidor do wl_output NATIVO (a persistência por evento)" "crates/elite-daemon/src/wayland.rs" 'wl_output::Event::Mode'
+file_has "display E190: o debounce TRAILING de 400ms (a rajada vira UM save-event)" "crates/elite-daemon/src/wayland.rs" 'from_millis(400)'
+file_has "display E190: a janela de graça do arranque (a foto do boot NÃO é escolha)" "crates/elite-daemon/src/wayland.rs" 'fn arranque_recente'
+file_has "display E190: o save-event na porta do craft-display (os gates de sempre vestem o evento)" "$AIROOTFS/usr/local/bin/craft-display" 'save-event)'
+file_has "display E190: o wlr-randr calado no encerramento NUNCA sobrescreve o conf" "$AIROOTFS/usr/local/bin/craft-display" 'NADA grava (o conf do dono fica)'
+file_has "display E190: o watch-save APOSENTADO com eco honesto (nunca mais laço)" "$AIROOTFS/usr/local/bin/craft-display" 'watch-save: APOSENTADO'
+file_has "audio E190: o sink falso do Fifine AM8 nominado (o mic de gravação NUNCA é saída)" "crates/elite-daemon/src/audio.rs" 'alsa_output.usb-MV-SILICON_fifine_Microphone'
+file_has "dump E190: o ntsync do KERNEL VIVO (o módulo ou o device provam SEM o token do grub)" "crates/craft-dump-rs/src/lib.rs" 'pub fn ntsync_presente'
+file_has "mpris E190: a pílula em carnes vivas (o fundido preserva o título na pausa — 1.0-110)" "crates/elite-daemon/src/mpris.rs" 'meta_limpa: novo.meta_limpa.or(base.meta_limpa)'
 
 printf '%s\n' "$OK_COUNT $FAIL_COUNT $SKIP_COUNT" > "$WORK/fase20.txt"
 exit 0

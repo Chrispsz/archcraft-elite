@@ -71,6 +71,17 @@ pub fn cmdline_tem(cmdline: &str, parametro: &str) -> bool {
     })
 }
 
+/// E190 T4 — O NTSYNC DE VERDADE (o relato do rig: o cmdline nem sempre
+/// carrega o token — a regra udev 60-ntsync da casa carrega o módulo no
+/// evento do device INDEPENDENTE do loader: o /sys/module/ntsync vivo OU
+/// o /dev/ntsync aberto provam o ntsync PRESENTE mesmo sem o token do
+/// grub; o cmdline é a via do loader, o kernel vivo é a verdade).
+/// `sys_mod` = /sys/module/ntsync existe; `dev` = /dev/ntsync existe;
+/// a via do loader conta JUNTO (qualquer uma veste o PRESENTE).
+pub fn ntsync_presente(cmdline: &str, sys_mod: bool, dev: bool) -> bool {
+    cmdline_tem(cmdline, "ntsync") || sys_mod || dev
+}
+
 /// A linha do relatório: honesta — PRESENTE/AUSENTE com o nome.
 pub fn linha_servico(saida: &str, unit: &str) -> String {
     if servico_presente(saida, unit) {
@@ -147,6 +158,21 @@ bluetooth.service                            enabled         enabled
         assert!(juizo.iter().all(|l| l.contains("PRESENTE")));
         let juizo = juizo_boot("quiet splash");
         assert!(juizo.iter().all(|l| l.contains("AUSENTE")));
+    }
+
+    #[test]
+    fn e190_o_ntsync_do_kernel_vivo_vale_sem_o_token_do_loader() {
+        // E190 T4 — o ntsync PRESENTE não depende mais SÓ do cmdline:
+        // o módulo vivo (/sys/module/ntsync) ou o device aberto
+        // (/dev/ntsync) provam o ntsync MESMO sem o token do grub (a
+        // regra udev da casa carrega o módulo no evento do device)
+        assert!(ntsync_presente("quiet splash", true, false), "o módulo vivo prova");
+        assert!(ntsync_presente("quiet splash", false, true), "o device aberto prova");
+        assert!(ntsync_presente("quiet ntsync=1", false, false), "o token do loader ainda prova");
+        assert!(
+            !ntsync_presente("quiet splash", false, false),
+            "sem token, sem módulo e sem device = AUSENTE honesto"
+        );
     }
 }
 

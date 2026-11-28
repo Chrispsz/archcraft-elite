@@ -131,7 +131,15 @@ fn main() {
     for linha in craft_dump_rs::juizo_boot(&cmdline) {
         say(&format!("  {linha}"));
     }
-    if craft_dump_rs::cmdline_tem(&cmdline, "ntsync") {
+    // E190 T4 — O NTSYNC DO KERNEL VIVO (não apenas o /proc/cmdline):
+    // o módulo carregado (/sys/module/ntsync — a regra udev da casa
+    // veste no evento do device) ou o device aberto (/dev/ntsync)
+    // provam o PRESENTE mesmo sem o token do grub
+    if craft_dump_rs::ntsync_presente(
+        &cmdline,
+        std::path::Path::new("/sys/module/ntsync").exists(),
+        std::path::Path::new("/dev/ntsync").exists(),
+    ) {
         say("  boot: ntsync PRESENTE");
     } else {
         say("  boot: ntsync AUSENTE");

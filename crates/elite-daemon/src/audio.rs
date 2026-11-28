@@ -140,12 +140,20 @@ impl Classe {
 /// E30/E36 — o juízo de classe do sink (desc + name + form_factor +
 /// bus + profile). A MARCA fifine e o genérico 'microphone' ENTRAM: a
 /// reincidência da doença p6aw por outro nome morre aqui.
+/// E190 T4 — O MIC USB FIFINE AM8 NOMINADO (o sink falso de SAÍDA do
+/// rig: 'alsa_output.usb-MV-SILICON_fifine_Microphone' — um
+/// MICROFONE que o PipeWire lista como saída; a marca 'fifine' pega
+/// a geração passada, mas o chip MV-SILICON é o dono do nome em
+/// qualquer geração AMX) — 'mv-silicon' e 'am8' entram na lista da
+/// mesma família (o mic de gravação NUNCA é a saída da casa).
 pub fn classifica(s: &SinkData) -> Classe {
     let desc = format!("{} {}", s.description, s.name).to_lowercase();
     for ruim in [
         "microfone",
         "microphone",
         "fifine",
+        "mv-silicon",
+        "am8",
         "webcam",
         "câmera",
         "camera",
@@ -782,6 +790,22 @@ mod tests {
         assert_eq!(classifica(&bad), Classe::Bad);
         let bad2 = sink("x", "USB Microphone", "", "usb", "", 0.5);
         assert_eq!(classifica(&bad2), Classe::Bad);
+        // E190 T4 — O SINK FALSO DE SAÍDA DO FIFINE AM8 DO RIG: o
+        // PipeWire lista o mic USB como SAÍDA — o nome inteiro
+        // 'alsa_output.usb-MV-SILICON_fifine_Microphone' (a marca, o
+        // chip E o modelo: a família inteira nunca é saída da casa)
+        let am8 = sink(
+            "alsa_output.usb-MV-SILICON_fifine_Microphone",
+            "Fifine AM8 Analog Stereo",
+            "",
+            "usb",
+            "analog-stereo",
+            0.5,
+        );
+        assert_eq!(classifica(&am8), Classe::Bad);
+        // e o chip sozinho idem (a geração nova sem a marca no desc)
+        let mvs = sink("alsa_output.usb-MV-SILICON_Microphone", "AM8 Analog Stereo", "", "usb", "", 0.5);
+        assert_eq!(classifica(&mvs), Classe::Bad);
         // o fone BT é TARGET
         let bt = sink("bluez_output.00_11_22", "WH-1000XM5", "headset", "bluetooth", "a2dp-sink", 0.7);
         assert_eq!(classifica(&bt), Classe::Target);

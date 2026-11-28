@@ -292,6 +292,43 @@ apply_grub_tokens() { # tokens de kernel + grub-mkconfig ([4] firstboot / [3] in
   # o arquivo mudou): o ensure_cmdline_token agora DIZ se editou (0=mudou,
   # 1=sem mudança — idempotente) e o mkconfig só desce com conteúdo novo.
   local _mudou=0
+  # E190 T1 — O TIMEOUT DO LOADER (a auditoria do rig: GRUB_TIMEOUT=10
+  # prendia 5,184s do boot; 2s veste a escolha do dono com a margem
+  # do menu)
+  local _to_atual
+  _to_atual="$(grep -E '^GRUB_TIMEOUT=' /etc/default/grub 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '"' | tr -d '[:space:]')"
+  if [[ -f /etc/default/grub && "$_to_atual" != "2" ]]; then
+    backup /etc/default/grub
+    if [[ -n "$_to_atual" ]]; then
+      sed -i -E 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=2/' /etc/default/grub
+    else
+      printf 'GRUB_TIMEOUT=2\n' >> /etc/default/grub
+    fi
+    _mudou=1
+    say "grub: GRUB_TIMEOUT=2 (o loader de 10s de era prendia 5,184s do boot — E190)"
+  fi
+  # E190 T1 — O SPLASH DUPLICADO MORRE (a auditoria do rig: o cmdline
+  # carregava 'splash ... splash' — o token entrou DUAS vezes pelas
+  # eras de migrate); a dedup preserva a ORDEM e o PRIMEIRO de cada
+  # token (o espelho do elite-post-upgrade — o CONTRATO da suíte crava
+  # os DOIS lados)
+  local _cmdlinha _valor _unicos _novo _tok
+  if _cmdlinha="$(grep '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub 2>/dev/null)" && [[ -n "$_cmdlinha" ]]; then
+    _valor="${_cmdlinha#*\"}"; _valor="${_valor%\"*}"
+    _unicos=" "; _novo=""
+    for _tok in $_valor; do
+      case "$_unicos" in *" $_tok "*) continue ;; esac
+      _unicos="$_unicos$_tok "
+      _novo="$_novo$_tok "
+    done
+    _novo="${_novo% }"
+    if [[ -n "$_novo" && "$_novo" != "$_valor" ]]; then
+      backup /etc/default/grub
+      sed -i "s|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT=\"${_novo}\"|" /etc/default/grub
+      _mudou=1
+      say "grub: cmdline DEDUPADA ('${_valor}' → '${_novo}' — o splash duplicado de era morre, E190)"
+    fi
+  fi
   if (( CPU_AMD )); then
     ensure_cmdline_token /etc/default/grub amd_pstate=active && _mudou=1
   fi
@@ -454,12 +491,20 @@ EOF
   # (it87) e os termômetros de CPU (k10temp=AMD, coretemp=Intel — estes
   # bindam sempre que a CPU é da casa certa e são inócuos no outro).
   _sens_conf=/etc/modules-load.d/elite-sensors.conf
+  # E190 T1 — O VENDOR DECIDE O TERMÔMETRO (a ordem do dono: 'não carregar
+  # coretemp em CPUs AMD (nem k10temp em Intel)') — o termômetro da casa
+  # certa autoloada pelo udev de fábrica e o da casa ERRADA nunca é
+  # convidado: AMD → k10temp, Intel → coretemp (os Super I/O nct6775/it87
+  # seguem convidados SEMPRE — o chip é da placa-mãe, não do vendor)
+  _termo="coretemp"
+  (( CPU_AMD )) && _termo="k10temp"
+  _sens_cands="nct6775 it87 $_termo"
   if (( DRY )); then
-    say "[dry] sondagem de sensores (nct6775 it87 k10temp coretemp → $_sens_conf)"
+    say "[dry] sondagem de sensores ($_sens_cands → $_sens_conf)"
   else
     _mods=""
     _hwmon_before="$(ls /sys/class/hwmon 2>/dev/null | sort | tr '\n' ' ')"
-    for _m in nct6775 it87 k10temp coretemp; do
+    for _m in $_sens_cands; do
       modprobe "$_m" >/dev/null 2>&1 || continue
       _hwmon_now="$(ls /sys/class/hwmon 2>/dev/null | sort | tr '\n' ' ')"
       if [ "$_hwmon_now" != "$_hwmon_before" ]; then
@@ -511,19 +556,56 @@ EOF
   else
     say "sensores: lm_sensors ausente (pacote não instalado — ISO nova traz de fábrica)"
   fi
+  # E190 T1 — NENHUM MÓDULO CARREGA DUAS VEZES (a ordem do dono: 'evitar
+  # duplicar nct6775 com nct6775.conf' — o sensors-detect escreve os
+  # módulos DELE em /etc/modules-load.d; o dono dos sensores de ventoinha
+  # da casa é o elite-sensors.conf: a linha duplicada no arquivo de FORA
+  # sai, com voz — um dono só por módulo)
+  if (( ! DRY )); then
+    for _s_outro in /etc/modules-load.d/*.conf; do
+      [ -f "$_s_outro" ] || continue
+      case "$_s_outro" in */elite-sensors.conf) continue ;; esac
+      if grep -qE '^(nct6775|it87|k10temp|coretemp)[[:space:]]*$' "$_s_outro" 2>/dev/null; then
+        sed -i -E '/^(nct6775|it87|k10temp|coretemp)[[:space:]]*$/d' "$_s_outro"
+        say "sensores: módulo duplicado saiu de $(basename "$_s_outro") (o dono do boot é o elite-sensors.conf — E190)"
+      fi
+    done
+    unset _s_outro
+  fi
   # ── E138 — O COOLERCONTROL (a ordem do dono, dump v2.13: 'Inclua e
   # habilite CoolerControl (coolercontrold.service + interface gráfica)')
   # com os SENSORES PWM já destravados (a sondagem acima + o daemon no
   # boot): as CURVAS são do dono, montadas no GUI — a casa NÃO entrega
   # preset genérico de ventoinha (a diretriz arquitetural: infraestrutura
   # destravada, calibração do especialista em quem usa).
+  # E190 T1 — DESACOPLADO DO CAMINHO CRÍTICO (a auditoria do rig: o
+  # enable --now de era criava o wants no multi-user.target e o
+  # coolercontrold prendia o graphical.target por 2,369s — o firstboot
+  # agora veste o MESMO gesto do elite-post-transaction: o drop-in
+  # After=graphical.target do pacote + a vaga em graphical.target.wants
+  # — as curvas nascem em TODO boot, só nunca mais NA FRENTE do desktop)
   if (( DRY )); then
-    say "[dry] coolercontrold enable --now (as curvas de ventoinha no GUI do dono)"
+    say "[dry] coolercontrold no ar DESACOPLADO (graphical.target.wants + After=graphical.target — E190)"
   else
     if systemctl list-unit-files coolercontrold.service >/dev/null 2>&1 \
        && systemctl cat coolercontrold.service >/dev/null 2>&1; then
-      run systemctl enable --now coolercontrold.service 2>/dev/null || true
-      say "coolercontrol: coolercontrold no ar (os PWM da placa-mãe nascem destravados — as curvas são do dono, no CoolerControl)"
+      systemctl disable coolercontrold.service >/dev/null 2>&1 || true
+      rm -f /etc/systemd/system/multi-user.target.wants/coolercontrold.service 2>/dev/null || true
+      _cc_unit="$(systemctl show -p FragmentPath coolercontrold.service 2>/dev/null | cut -d= -f2)"
+      _cc_ok=0
+      case "$_cc_unit" in
+        /usr/lib/systemd/system/*|/lib/systemd/system/*)
+          mkdir -p /etc/systemd/system/graphical.target.wants
+          ln -sfn "$_cc_unit" /etc/systemd/system/graphical.target.wants/coolercontrold.service && _cc_ok=1 ;;
+      esac
+      systemctl daemon-reload >/dev/null 2>&1 || true
+      systemctl start coolercontrold.service >/dev/null 2>&1 || true
+      if [ "$_cc_ok" = 1 ]; then
+        say "coolercontrol: coolercontrold no ar DESACOPLADO (os PWM da placa-mãe nascem destravados DEPOIS do desktop — os 2,369s do boot voltam pro dono, E190)"
+      else
+        say "coolercontrol: vaga nova não criada (unit de caminho estranho '$_cc_unit') — o daemon segue no ar do enable de era"
+      fi
+      unset _cc_unit _cc_ok
     else
       say "coolercontrol: unit ausente (pacote não instalado — a ISO nova traz de fábrica)"
     fi
@@ -1122,6 +1204,42 @@ EOF
 
   # 4. tokens de kernel (GRUB) — E37: apply_grub_tokens (o espelho morreu)
   apply_grub_tokens
+  # E190 T1 — O NOATIME DO BTRFS NO PRIMEIRO BOOT (a ordem do dono:
+  # 'garantir noatime nas montagens btrfs (/, /home, /var/cache,
+  # /var/log) durante o firstboot' — o espelho do elite-post-transaction
+  # que veste os rigs vivos; com backup .bak e a VALIDAÇÃO findmnt
+  # --verify: fstab que não valida é RESTAURADO na hora)
+  if [ -f /etc/fstab ] && command -v findmnt >/dev/null 2>&1 \
+     && awk '$3 == "btrfs" && $4 !~ /(^|,)noatime(,|$)/ && NF >= 4 { found = 1 } END { exit !found }' /etc/fstab; then
+    if (( DRY )); then
+      say "[dry] noatime nas montagens btrfs do fstab (backup .bak + findmnt --verify)"
+    else
+      _bak_fstab="/etc/fstab.bak-elite-e190-$(date +%s)"
+      cp -p /etc/fstab "$_bak_fstab" 2>/dev/null || true
+      awk 'BEGIN { FS = "[ \t]+" }
+          $3 == "btrfs" && NF >= 4 && $4 !~ /(^|,)noatime(,|$)/ {
+              sub(/^[ \t]+/, "")
+              n = split($0, campos, "[ \t]+")
+              if (campos[4] == "" || campos[4] == "-") campos[4] = "noatime"
+              else campos[4] = "noatime," campos[4]
+              _novo = campos[1]
+              for (i = 2; i <= n; i++) _novo = _novo "\t" campos[i]
+              print _novo
+              next
+          }
+          { print }' /etc/fstab > /etc/fstab.elite-noatime 2>/dev/null
+      if [ -s /etc/fstab.elite-noatime ] \
+         && ! cmp -s /etc/fstab /etc/fstab.elite-noatime 2>/dev/null \
+         && findmnt --verify --fstab /etc/fstab.elite-noatime >/dev/null 2>&1 \
+         && mv -f /etc/fstab.elite-noatime /etc/fstab 2>/dev/null; then
+        say "fstab: noatime nas montagens btrfs (backup $(basename "$_bak_fstab") + findmnt --verify OK — o atime silencioso de cada leitura morre)"
+      else
+        rm -f /etc/fstab.elite-noatime 2>/dev/null || true
+        say "fstab: o noatime NÃO passou no findmnt --verify — o fstab do dono fica (backup preservado)"
+      fi
+      unset _bak_fstab
+    fi
+  fi
   # E132 — o THP madvise no kernel VIVO + o tmpfiles de TODO boot
   ensure_thp_madvise
   # E136 — O KERNEL MODERNO DA PARTE 2/2: MGLRU no reclaim + ntsync/

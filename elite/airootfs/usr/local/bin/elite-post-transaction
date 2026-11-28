@@ -475,7 +475,10 @@ unset _cc _cc_mudou
 #      LIVRE. O veredito é o de sempre: sem dependente nenhum, sai; com
 #      dependente no db, FICA (a remoção forçada quebraria a casa).
 if command -v pacman >/dev/null 2>&1; then
-    for _deb in waybar gpsd; do
+    # E190 T4 — o udiskie entra na lista (zero residentes legados: o
+    # automount é EVENTO do ouvidor UDisks2 do elite-daemon; o mesmo
+    # veredito de sempre — sem dependente sai, com dependente fica)
+    for _deb in waybar gpsd udiskie; do
         if pacman -Qq "$_deb" >/dev/null 2>&1; then
             if pacman -Qi "$_deb" 2>/dev/null | grep -q '^Required By *: *None'; then
                 if pacman -Rns --noconfirm "$_deb" >/dev/null 2>&1; then
@@ -517,5 +520,135 @@ elif command -v systemctl >/dev/null 2>&1 \
     tlog "boot 1.0-110: pacman-init.service DESABILITADO+MASCARADO no sistema instalado (os 4,358s dos 6,060s do graphical.target voltam para o dono; a Live conserva o drop-in)"
 fi
 unset _maskou
+
+# ── 15. E190 T1 — O BOOT EXTREMO (a auditoria do systemd-analyze do ────────
+#      rig: o elite-session-probe levava 1min 00.231s no gráfico crítico;
+#      o coolercontrold prendia o graphical.target por 2,369s; o
+#      choose-mirror, o NetworkManager-wait-online, o wpa_supplicant e o
+#      lvm2-monitor seguiam habilitados sem ofício; o fstab btrfs estava
+#      sem noatime — TUDO isso veste a transação: upgrades E ISO nova,
+#      idempotente por natureza — mask/disable já presente é no-op, o
+#      noatime só entra onde falta, o fstab só vira quando muda de
+#      verdade E passa no findmnt --verify).
+#      A Live é a fronteira de sempre: sem o marcador /run/archiso nada
+#      abaixo é executado no meio do boot do médio (o gate do CI boota a
+#      ISO e NÃO paga o desenho do sistema instalado).
+if [ -d /run/archiso ]; then
+    : # a Live é o endereço do instalador: o desenho do INSTALADO mora no else
+elif command -v systemctl >/dev/null 2>&1; then
+    # 15a. O PROBE DA SESSÃO É DA LIVE (o unit novo carrega a
+    #      ConditionPathExists=/run/archiso — a dose veste o CINTO nos
+    #      rigs que ainda carregam o unit de era sem a cerca)
+    if systemctl cat elite-session-probe.service >/dev/null 2>&1; then
+        systemctl disable elite-session-probe.service >/dev/null 2>&1 || true
+        if [ ! -e /etc/systemd/system/elite-session-probe.service ] \
+            && [ ! -L /etc/systemd/system/elite-session-probe.service ]; then
+            ln -s /dev/null /etc/systemd/system/elite-session-probe.service
+        fi
+        systemctl daemon-reload >/dev/null 2>&1 || true
+        tlog "boot E190: elite-session-probe DESABILITADO+MASCARADO no instalado (o daemon supervisiona a sessão em tempo real; a prova é da Live — 1min 00.231s do gráfico crítico volta pro dono)"
+    fi
+    # 15b. O COOLERCONTROLD DESACOPLADO (o drop-in 10-elite-boot.conf do
+    #      pacote ordena After=graphical.target; AQUI a vaga muda de
+    #      multi-user.target.wants para graphical.target.wants: as curvas
+    #      nascem em TODO boot, só nunca MAIS na frente do desktop)
+    if systemctl cat coolercontrold.service >/dev/null 2>&1; then
+        _cc_decoupled=0
+        systemctl disable coolercontrold.service >/dev/null 2>&1 || true
+        rm -f /etc/systemd/system/multi-user.target.wants/coolercontrold.service 2>/dev/null || true
+        if [ ! -e /etc/systemd/system/graphical.target.wants/coolercontrold.service ]; then
+            mkdir -p /etc/systemd/system/graphical.target.wants
+            _cc_sys_unit="$(systemctl show -p FragmentPath coolercontrold.service 2>/dev/null | cut -d= -f2)"
+            case "$_cc_sys_unit" in
+                /usr/lib/systemd/system/*|/lib/systemd/system/*)
+                    ln -sfn "$_cc_sys_unit" /etc/systemd/system/graphical.target.wants/coolercontrold.service \
+                        && _cc_decoupled=1 ;;
+            esac
+        else
+            _cc_decoupled=1
+        fi
+        if [ "$_cc_decoupled" = 1 ]; then
+            systemctl daemon-reload >/dev/null 2>&1 || true
+            systemctl start coolercontrold.service >/dev/null 2>&1 || true
+            tlog "boot E190: coolercontrold DESACOPLADO do caminho crítico (graphical.target.wants + After=graphical.target — as curvas nascem no boot de TODO jeito, os 2,369s do desktop voltam pro dono)"
+        fi
+        unset _cc_decoupled _cc_sys_unit
+    fi
+    # 15c. OS SERVIÇOS SEM OFÍCIO (presente = desce; ausente = silêncio):
+    #      · choose-mirror — a ferramenta da LIVE (o mirrorlist do
+    #        instalado é curadoria, o reflector do craft-update é a porta)
+    #      · NetworkManager-wait-online — o desktop não espera a rede
+    #        levantar (E132 — a máscara do post-upgrade veste a
+    #        transação idem: o unit novo do pacote pode renascer a
+    #        vontade do enable)
+    if systemctl cat choose-mirror.service >/dev/null 2>&1; then
+        systemctl disable choose-mirror.service >/dev/null 2>&1 || true
+        [ -e /etc/systemd/system/choose-mirror.service ] \
+            || [ -L /etc/systemd/system/choose-mirror.service ] \
+            || ln -s /dev/null /etc/systemd/system/choose-mirror.service
+        systemctl daemon-reload >/dev/null 2>&1 || true
+        tlog "boot E190: choose-mirror DESABILITADO+MASCARADO no instalado (a ferramenta é da Live)"
+    fi
+    if systemctl cat NetworkManager-wait-online.service >/dev/null 2>&1; then
+        systemctl disable NetworkManager-wait-online.service >/dev/null 2>&1 || true
+        [ -e /etc/systemd/system/NetworkManager-wait-online.service ] \
+            || [ -L /etc/systemd/system/NetworkManager-wait-online.service ] \
+            || ln -s /dev/null /etc/systemd/system/NetworkManager-wait-online.service
+        systemctl daemon-reload >/dev/null 2>&1 || true
+        tlog "boot E190: NetworkManager-wait-online DESABILITADO+MASCARADO (o desktop não espera a rede — E132 pela via da transação)"
+    fi
+    #      · wpa_supplicant — DISABLE (nunca MASK: o NetworkManager o
+    #        ativa POR DEMANDA pelo D-Bus — fi.w1.wpa_supplicant1 — e o
+    #        Wi-Fi nasce com o primeiro perfil; a máscara mataria a
+    #        ativação)
+    if systemctl is-enabled wpa_supplicant.service >/dev/null 2>&1; then
+        systemctl disable wpa_supplicant.service >/dev/null 2>&1 \
+            && tlog "boot E190: wpa_supplicant DESABILITADO do boot (o NM o ativa por demanda no D-Bus — o Wi-Fi segue)"
+    fi
+    #      · lvm2-monitor — só quando NÃO há volumes LVM (o vgs decide;
+    #        com volume vivo o monitor fica, com lista vazia o polling
+    #        não paga pedágio)
+    if systemctl is-enabled lvm2-monitor.service >/dev/null 2>&1 \
+        && command -v vgs >/dev/null 2>&1 \
+        && [ -z "$(vgs --noheadings --name-prefixes 2>/dev/null | tr -d '[:space:]')" ]; then
+        systemctl disable lvm2-monitor.service >/dev/null 2>&1 \
+            && tlog "boot E190: lvm2-monitor DESABILITADO (nenhum volume LVM na máquina — o polling não paga pedágio)"
+    fi
+    # 15d. O NOATIME DO BTRFS (/, /home, /var/cache, /var/log — TODAS as
+    #      montagens btrfs do fstab): atime em btrfs é custo de I/O
+    #      silencioso a CADA leitura; com backup .bak e a VALIDAÇÃO
+    #      findmnt --verify (fstab que não valida é RESTAURADO na hora —
+    #      a dose nunca entrega um fstab torto)
+    if [ -f /etc/fstab ] && command -v findmnt >/dev/null 2>&1 \
+        && awk '$3 == "btrfs" && $4 !~ /(^|,)noatime(,|$)/ && NF >= 4 { found = 1 } END { exit !found }' /etc/fstab; then
+        _bak_fstab="/etc/fstab.bak-elite-e190-$(date +%s)"
+        cp -p /etc/fstab "$_bak_fstab" 2>/dev/null || true
+        awk 'BEGIN { FS = "[ \t]+" }
+            $3 == "btrfs" && NF >= 4 && $4 !~ /(^|,)noatime(,|$)/ {
+                sub(/^[ \t]+/, "")
+                n = split($0, campos, "[ \t]+")
+                if (campos[4] == "" || campos[4] == "-") campos[4] = "noatime"
+                else campos[4] = "noatime," campos[4]
+                _novo = campos[1]
+                for (i = 2; i <= n; i++) _novo = _novo "\t" campos[i]
+                print _novo
+                next
+            }
+            { print }' /etc/fstab > /etc/fstab.elite-noatime 2>/dev/null
+        if [ -s /etc/fstab.elite-noatime ] \
+            && cmp -s /etc/fstab /etc/fstab.elite-noatime 2>/dev/null; then
+            rm -f /etc/fstab.elite-noatime 2>/dev/null || true
+        elif [ -s /etc/fstab.elite-noatime ] \
+            && findmnt --verify --fstab /etc/fstab.elite-noatime >/dev/null 2>&1; then
+            if mv -f /etc/fstab.elite-noatime /etc/fstab 2>/dev/null; then
+                tlog "boot E190: noatime nas montagens btrfs do fstab (backup em $(basename "$_bak_fstab") + findmnt --verify OK — o atime silencioso de cada leitura morre)"
+            fi
+        else
+            rm -f /etc/fstab.elite-noatime 2>/dev/null || true
+            tlog "boot E190: fstab com noatime NÃO passou no findmnt --verify — o fstab do dono fica (backup preservado)"
+        fi
+        unset _bak_fstab
+    fi
+fi
 
 exit 0

@@ -190,6 +190,47 @@ _ensure_token() {
 }
 _grub_mudou=0
 [ -f /etc/default/grub ] || { printf 'GRUB_CMDLINE_LINUX_DEFAULT="quiet"\n' > /etc/default/grub 2>/dev/null; _grub_mudou=1; }
+# E190 T1 — O TIMEOUT DO LOADER (a auditoria do rig: GRUB_TIMEOUT=10
+# prendia o boot por 5,184s no carregador — 2s veste a escolha do dono
+# com a margem do menu; muda = o rebuild corre no mesmo gesto)
+_grub_atual="$(grep -E '^GRUB_TIMEOUT=' /etc/default/grub 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '"' | tr -d '[:space:]')"
+if [ "$_grub_atual" != "2" ]; then
+    cp -p /etc/default/grub "/etc/default/grub.bak-post-upgrade-$(date +%s)" 2>/dev/null || true
+    if [ -n "$_grub_atual" ]; then
+        sed -i -E 's/^GRUB_TIMEOUT=.*/GRUB_TIMEOUT=2/' /etc/default/grub 2>/dev/null && {
+            tlog "grub: GRUB_TIMEOUT=2 (o loader de 10s de era prendia 5,184s do boot — E190)"
+            _grub_mudou=1
+        }
+    else
+        printf 'GRUB_TIMEOUT=2\n' >> /etc/default/grub 2>/dev/null && {
+            tlog "grub: GRUB_TIMEOUT=2 entrou (o loader de 10s de era prendia 5,184s do boot — E190)"
+            _grub_mudou=1
+        }
+    fi
+fi
+# E190 T1 — O SPLASH DUPLICADO MORRE (a auditoria do rig: o cmdline
+# carregava 'splash ... splash' — o token entrou DUAS vezes pelas eras
+# de migrate); a dedup preserva a ORDEM e o PRIMEIRO de cada token (o
+# cmdline é a soma das eras — só o repetido sai)
+if _cmdlinha="$(grep '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub 2>/dev/null)" \
+    && [ -n "$_cmdlinha" ]; then
+    _valor="${_cmdlinha#*\"}"; _valor="${_valor%\"*}"
+    _unicos=" "; _novo=""
+    for _tok in $_valor; do
+        case "$_unicos" in *" $_tok "*) continue ;; esac
+        _unicos="$_unicos$_tok "
+        _novo="$_novo$_tok "
+    done
+    _novo="${_novo% }"
+    if [ -n "$_novo" ] && [ "$_novo" != "$_valor" ]; then
+        cp -p /etc/default/grub "/etc/default/grub.bak-post-upgrade-$(date +%s)" 2>/dev/null || true
+        sed -i "s|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT=\"$_novo\"|" /etc/default/grub 2>/dev/null && {
+            tlog "grub: cmdline DEDUPADA ('$_valor' → '$_novo' — o splash duplicado de era morre, E190)"
+            _grub_mudou=1
+        }
+    fi
+    unset _cmdlinha _valor _unicos _novo _tok
+fi
 # o FÓSSIL 'always' SAI (E129: o rig da era E74 amanheceu com o token
 # antigo — a migração o remove ANTES de cravar o madvise; o sed é no-op
 # se o fóssil não existe — idempotente)
@@ -630,16 +671,27 @@ else
     unset _snap_u
 fi
 # ── E106/5b — A SONDA DOS SENSORES EM CADA DOSE: o elite-sensors.conf
-#      da fábrica carrega os QUATRO candidatos da diretriz (nct6775/it87/
-#      k10temp/coretemp) mas o chip é DA MÁQUINA — a sonda do elite-tune
-#      (E138) reescreve o arquivo com quem PROVOU hwmon no
-#      /sys/class/hwmon; a dose traz a MESMA sonda para o rig vivo
-#      (idempotente: módulo já carregado fica; sobe sem hwmon novo =
-#      desce na hora — o driver ocioso não paga pedágio de boot).
+#      da fábrica carrega os candidatos Super I/O da diretriz (nct6775/
+#      it87) mas o chip é DA MÁQUINA — a sonda do elite-tune (E138)
+#      reescreve o arquivo com quem PROVOU hwmon no /sys/class/hwmon;
+#      a dose traz a MESMA sonda para o rig vivo (idempotente: módulo
+#      já carregado fica; sobe sem hwmon novo = desce na hora — o
+#      driver ocioso não paga pedágio de boot).
+#      E190 T1 — O VENDOR DECIDE O TERMÔMETRO (a ordem do dono: 'não
+#      carregar coretemp em CPUs AMD (nem k10temp em Intel)') E
+#      NENHUM MÓDULO CARREGA DUAS VEZES ('evitar duplicar nct6775 com
+#      nct6775.conf' — o arquivo de FORA que carrega o módulo da casa
+#      perde a linha: o dono do boot de sensores é UM só).
 if command -v modprobe >/dev/null 2>&1 && [ -d /sys/class/hwmon ]; then
     _provou=""
+    # o termômetro da casa CERTA (AMD → k10temp · Intel → coretemp —
+    # o da casa errada nunca é convidado)
+    _sens_termo="coretemp"
+    if grep -q '^vendor_id[[:space:]]*:[[:space:]]*AuthenticAMD' /proc/cpuinfo 2>/dev/null; then
+        _sens_termo="k10temp"
+    fi
     _hw_antes="$(ls /sys/class/hwmon 2>/dev/null | sort | tr '\n' ' ')"
-    for _sm in nct6775 it87 k10temp coretemp; do
+    for _sm in nct6775 it87 $_sens_termo; do
         if [ -d "/sys/module/$_sm" ]; then
             # já carregado (autoload do kernel ou dose passada): o chip
             # já provou vida — mantém, NUNCA descarrega o sensor ativo
@@ -658,14 +710,26 @@ if command -v modprobe >/dev/null 2>&1 && [ -d /sys/class/hwmon ]; then
     _provou="${_provou# }"
     if [ -n "$_provou" ]; then
         printf '%s\n' \
-            '# ── ELITE (E106/5b): os chips que ESTA máquina provou no' \
-            '# /sys/class/hwmon (a sonda da dose; os 4 candidatos da' \
-            '# fábrica: nct6775/it87/k10temp/coretemp — quem sobe sem' \
+            '# ── ELITE (E106/5b · E190): os chips que ESTA máquina provou no' \
+            '# /sys/class/hwmon (a sonda da dose; os candidatos da fábrica:' \
+            '# nct6775/it87 + o termômetro do VENDOR — AMD k10temp · Intel' \
+            '# coretemp, o da casa errada nunca é convidado — quem sobe sem' \
             '# hwmon novo desce na hora).' \
             $_provou > /etc/modules-load.d/elite-sensors.conf 2>/dev/null \
             && tlog "sensores: sonda provou [$_provou] (elite-sensors.conf — as ventoinhas da placa-mãe nascem no CoolerControl)"
     fi
-    unset _sm _provou _hw_antes _hw_agora
+    # E190 T1 — NENHUM MÓDULO CARREGA DUAS VEZES ('evitar duplicar
+    # nct6775 com nct6775.conf'): o arquivo de FORA que carrega o
+    # módulo da casa perde a linha — o dono do boot de sensores é UM só
+    for _s_outro in /etc/modules-load.d/*.conf; do
+        [ -f "$_s_outro" ] || continue
+        case "$_s_outro" in */elite-sensors.conf) continue ;; esac
+        if grep -qE '^(nct6775|it87|k10temp|coretemp)[[:space:]]*$' "$_s_outro" 2>/dev/null; then
+            sed -i -E '/^(nct6775|it87|k10temp|coretemp)[[:space:]]*$/d' "$_s_outro" 2>/dev/null \
+                && tlog "sensores: módulo duplicado saiu de $(basename "$_s_outro") (o dono do boot é o elite-sensors.conf — E190)"
+        fi
+    done
+    unset _sm _provou _hw_antes _hw_agora _sens_termo _s_outro
 fi
 # E138 — o fóssil 81-elite-zram da ISO 1.0-85 morre com voz (a 99 do
 # pacote reina no mesmo evento do zram0 — um dono só por número)
@@ -1020,8 +1084,57 @@ for _hdir2 in /home/*; do
             tlog "skel $_auid2: agente polkit ÚNICO (o autostart duplicado do lxqt-policykit amordaçado por usuário — E151)"
         fi
     fi
+    # E190 T4 — O MORDAÇA DO BLUEMAN-APPLET idem (o applet da bandeja
+    # APOSENTOU: o Bluetooth é CONTROLADO pelo daemon na barra e o
+    # blueman-manager abre SOB DEMANDA no clique — nenhum tray applet
+    # nasce com a sessão)
+    _morca_bt="$_hdir2/.config/autostart/blueman-applet.desktop"
+    if [ ! -f "$_morca_bt" ]; then
+        mkdir -p "${_morca_bt%/*}" 2>/dev/null || true
+        if printf '[Desktop Entry]\nType=Application\nName=blueman-applet\nHidden=true\nNoDisplay=true\nX-GNOME-Autostart-enabled=false\n' > "$_morca_bt" 2>/dev/null; then
+            chown "$_auid2:$(stat -c %g "$_hdir2" 2>/dev/null || echo "$_auid2")" "$_morca_bt" 2>/dev/null || true
+            tlog "skel $_auid2: blueman-applet AMORDAÇADO por usuário (E190 — zero residentes legados: o Bluetooth é da barra, o manager é sob demanda)"
+        fi
+    fi
 done
-unset _hdir2 _auid2 _morca
+unset _hdir2 _auid2 _morca _morca_bt
+
+# ── E190 T2/T4 — A MIGRAÇÃO DO AUTOSTART VIVO + A CEIFA DOS ─────────────
+#      RESIDENTES LEGADOS (a evidência do bars.log do rig: DUAS
+#      instâncias do swaync nasceram juntas no login 15:36:38 — o
+#      autostart VIVO de era no $HOME lançava a dele e o supervisor a
+#      nossa; a perdedora da corrida do socket IPC morria em
+#      main.vala:60 'Remote peer disconnected' + SIGABRT). O sync do
+#      skel é absent-only e NUNCA entregou o autostart novo aos rigs
+#      velhos: a MIGRAÇÃO é aqui, com backup, grep-gated e idempotente
+#      (a linha só sai se existir; o comentário é do dono e fica).
+#      Junto morrem os spawns do udiskie (o automount é EVENTO do
+#      daemon agora — E190 T4) e do blueman-applet (o Bluetooth é da
+#      barra). E a CEIFA desce nos residentes vivos no mesmo gesto (o
+#      próximo login já nasce limpo).
+for _hdir3 in /home/*; do
+    [ -d "$_hdir3" ] || continue
+    _auid3="$(stat -c %u "$_hdir3" 2>/dev/null || echo 0)"
+    case "$_auid3" in ''|0|*[!0-9]*) continue ;; esac
+    [ "$_auid3" -ge 1000 ] || continue
+    _au3="$_hdir3/.config/labwc/autostart"
+    [ -f "$_au3" ] || continue
+    if grep -vE '^[[:space:]]*(#|$)' "$_au3" 2>/dev/null \
+        | grep -qE '(^|[[:space:]/])(swaync|swaync-client|udiskie|blueman-applet)([[:space:]]|&|$)'; then
+        cp -p "$_au3" "$_au3.bak-elite-e190-$(date +%s)" 2>/dev/null || true
+        sed -i -E '/^[[:space:]]*(#|$)/!{/(^|[[:space:]\/])(swaync|swaync-client|udiskie|blueman-applet)([[:space:]]|&|$)/d;}' "$_au3" 2>/dev/null \
+            && tlog "E190: autostart vivo do uid $_auid3 MIGRADO (spawn de era swaync/udiskie/blueman-applet REMOVIDO com backup — a colisão D-Bus do swaync e os residentes legados morrem no rig vivo)"
+    fi
+    if pgrep -u "$_auid3" -x udiskie >/dev/null 2>&1; then
+        pkill -u "$_auid3" -x udiskie 2>/dev/null || true
+        tlog "E190: udiskie do uid $_auid3 CEIFADO (o automount é evento do daemon — o ouvidor UDisks2 já está no ar)"
+    fi
+    if pgrep -u "$_auid3" -x blueman-applet >/dev/null 2>&1; then
+        pkill -u "$_auid3" -x blueman-applet 2>/dev/null || true
+        tlog "E190: blueman-applet do uid $_auid3 CEIFADO (o Bluetooth é da barra; o manager abre no clique)"
+    fi
+done
+unset _hdir3 _auid3 _au3
 
 # ── 1.0-93 — O SCX_LAVD DE VERDADE (a ordem do dono: o scx-scheds
 #      instala /usr/bin/scx_lavd SEM .service nenhum — a unit nova da

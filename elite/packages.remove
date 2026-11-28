@@ -39,7 +39,7 @@ nvidia-settings
 ## continua tentando o -Rns no build para o dia em que upstream soltar.
 ## v1.5 (spec do dono): THUNAR VOLTOU — é o FM padrão (GUI + xdg-mime
 ## inode/directory). thunar/tumbler SAEM desta lista; o thunar-volman
-## segue fora (automount = udiskie, que já roda).
+## segue fora (automount = o ouvidor UDisks2 do elite-daemon, E190).
 ## v2.8.0: o thunar-archive-plugin TAMBÉM saiu daqui — o dono pediu
 ## compactar/descompactar TUDO no explorador ("o sistema e explorador de
 ## arquivos tem 7zip implementado pra conseguir descompactar e compactar
@@ -454,6 +454,13 @@ craft-toplevel
 ##     (--automount --notify --no-tray) e a LINHA DE REMOÇÃO dele aqui
 ##     saiu no mesmo commit (o par udev oneshot de era é que aposentou
 ##     — ver packages.add); o relato da E151 mora na história/commit.
+##     E190 T4 — APOSENTADO DE VERDADE (zero residentes legados): o
+##     automount é EVENTO do elite-daemon (o ouvidor UDisks2 no system
+##     bus monta cada bloco removível pela via PRÓPRIA do D-Bus com a
+##     notificação na cara) — o udiskie Python residente sai da ISO
+##     de novo e dos rigs vivos pelo elite-post-transaction (debloat
+##     com o veredito de dependente de sempre).
+udiskie
 xorg-server
 ##   · HYPRPOLKITAGENT — o POLKIT ÚNICO (a diretriz): UM agente leve na
 ##     sessão — o lxqt-policykit (Qt6, WM-agnóstico, roda no labwc v4;

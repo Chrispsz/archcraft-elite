@@ -230,18 +230,21 @@ cura_autostart() {
     # assim DOENTE: spawns de residentes da era morta na mesma linha
     # de comando (craft-bars removido, polkit-gnome removido, waybar
     # aposentado, craft-toplevel/swayidle/swayosd de C/era). O ARRANQUE
-    # LIMPO 1.0-108 carrega os ALICERCES do frame 0 — o swaybg, o agente
-    # polkit (guard pgrep) e o udiskie --automount são LEGÍTIMOS (o
-    # relato do rig 1.0-107.3: o daemon doente não pode levar o berço
-    # junto); o swaync é do SUPERVISOR (a lei 1.0-107: NENHUM swaync no
-    # autostart — spawn em linha viva = reconstrução do mestre).
+    # LIMPO 1.0-108 carregava os ALICERCES do frame 0 — o swaybg e o
+    # agente polkit (guard pgrep) seguem LEGÍTIMOS (o relato do rig
+    # 1.0-107.3: o daemon doente não pode levar o berço junto); o
+    # swaync é do SUPERVISOR (a lei 1.0-107: NENHUM swaync no
+    # autostart — spawn em linha viva = reconstrução do mestre) e o
+    # udiskie APOSENTOU com o automount de evento do daemon (E190 T4:
+    # linha viva no autostart de rig velho = fóssil da era — o
+    # elite-post-upgrade o ceifa com backup).
     _ca_fossil=0
     if [ "$_ca_era" -eq 0 ] \
         && head -n 20 "$_ca_f" 2>/dev/null | grep -q 'Archcraft ELITE' \
         && grep -vE '^[[:space:]]*(#|$)' "$_ca_f" 2>/dev/null \
             | grep -qE '(^|[[:space:]/])(craft-bars|polkit-gnome|waybar|craft-toplevel|swayidle|swayosd|swaync|swaync-client)([[:space:]]|&|$)'; then
         _ca_fossil=1
-        printf 'autostart: DOENTE — FÓSSIL DE SPAWN de era (residente da era morta nascendo no autostart; o arranque limpo 1.0-108 carrega só os alicerces — swaybg/polkit/udiskie — o swaync é do supervisor)\n'
+        printf 'autostart: DOENTE — FÓSSIL DE SPAWN de era (residente da era morta nascendo no autostart; o arranque limpo carrega só os alicerces — swaybg/polkit; o swaync é do supervisor e o automount é evento do daemon E190)\n'
     fi
 
     if [ "$_ca_era" -eq 0 ] && [ "$_ca_fossil" -eq 0 ] && [ "$_ca_n" -eq 1 ] && sh_ok "$_ca_f"; then

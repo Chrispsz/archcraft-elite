@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Name=blueman-applet
+Hidden=true
+NoDisplay=true
+X-GNOME-Autostart-enabled=false
+# E190 T4 (archcraft-elite): o applet da bandeja APOSENTOU — o
+# Bluetooth da casa é CONTROLADO pelo elite-daemon na barra (o ícone
+# vive com a verdade do adaptador BlueZ e o DIREITO liga/desliga o
+# rádio na hora) e o blueman-manager abre SOB DEMANDA no clique do
+# ícone (e no W-S-b do rc.xml). Este supressor (a gramática XDG:
+# mesmo basename + Hidden=true vence o do sistema) amordaça o
+# autostart duplicado que o pacote blueman instala em
+# /etc/xdg/autostart — sem tocar o arquivo do pacote. Zero residentes
+# legados: nenhum tray applet nasce com a sessão.

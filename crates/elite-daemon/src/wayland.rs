@@ -40,7 +40,7 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 
-use wayland_client::protocol::wl_registry;
+use wayland_client::protocol::{wl_output, wl_registry};
 use wayland_client::{Connection, Dispatch, Proxy, QueueHandle};
 use wayland_protocols::ext::idle_notify::v1::client as idle_mod;
 use wayland_protocols_wlr::foreign_toplevel::v1::client as tl_mod;
@@ -55,6 +55,59 @@ fn proximo_id() -> u32 {
 }
 
 static NEXT_ID: AtomicU32 = AtomicU32::new(1);
+
+// ── E190 T4 — O OUIDOR DO WL_OUTPUT (a persistência dos 200 Hz por ────
+// EVENTO, o último polling de shell da casa morreu): o laço de 4s do
+// craft-display watch-save cedeu o lugar ao PROTOCOLO — cada
+// Mode/Scale do wl_output (a escolha do dono por QUALQUER porta:
+// wdisplays, wlr-randr, o menu) acorda o DEBOUNCE TRAILING de 400ms;
+// a rajada de eventos de UMA troca vira UM `craft-display save-event`
+// no silêncio do gesto (os gates de sempre — resume fresco, transição,
+// stamp — vestem o evento lá dentro; o estado VAZIO do encerramento
+// nunca sobrescreve o conf).
+static OUTPUT_EVENTOS: AtomicU64 = AtomicU64::new(0);
+static OUTPUT_SAVE_CORRENDO: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+/// E190 T4 — O DEBOUNCE TRAILING de 400ms (o MESMO juízo do volume da
+/// barra: cada passo rearma a janela, o gesto vira UM fork no
+/// silêncio).
+fn agenda_save_display() {
+    OUTPUT_EVENTOS.fetch_add(1, Ordering::Relaxed);
+    if OUTPUT_SAVE_CORRENDO
+        .compare_exchange(false, true, Ordering::Relaxed, Ordering::Relaxed)
+        .is_err()
+    {
+        return; // o poupador já está de pé e acordará com a geração NOVA
+    }
+    std::thread::Builder::new()
+        .name("elite-display-save".into())
+        .spawn(|| {
+            let mut ultima = OUTPUT_EVENTOS.load(Ordering::Relaxed);
+            loop {
+                std::thread::sleep(std::time::Duration::from_millis(400));
+                let agora = OUTPUT_EVENTOS.load(Ordering::Relaxed);
+                if agora == ultima {
+                    // o silêncio do gesto chegou: UM save-event
+                    crate::dispara("/usr/local/bin/craft-display", &["save-event"]);
+                    OUTPUT_SAVE_CORRENDO.store(false, Ordering::Relaxed);
+                    // a corrida da última hora: um evento que chega
+                    // ENTRE o store e a saída re-acorda o poupador
+                    if OUTPUT_EVENTOS.load(Ordering::Relaxed) != agora
+                        && OUTPUT_SAVE_CORRENDO
+                            .compare_exchange(false, true, Ordering::Relaxed, Ordering::Relaxed)
+                            .is_ok()
+                    {
+                        ultima = OUTPUT_EVENTOS.load(Ordering::Relaxed);
+                        continue;
+                    }
+                    return;
+                }
+                ultima = agora;
+            }
+        })
+        .ok();
+}
 
 // ── E150 — A VIGÍLIA REARMÁVEL DE FORA ────────────────────────────
 // O ouvido externo (logind: PrepareForSleep(false) e Unlock) precisa
@@ -422,8 +475,59 @@ impl Dispatch<wl_registry::WlRegistry, ()> for Estado {
                     >(name, version.min(1), qh, ());
                     estado.seat = Some(s);
                 }
+                // E190 T4 — O WL_OUTPUT NO FIO (a persistência dos 200 Hz
+                // por evento: cada Mode/Scale do protocolo acorda o
+                // debounce de 400ms — o polling de shell morreu)
+                "wl_output" => {
+                    registry.bind::<wl_output::WlOutput, _, _>(
+                        name,
+                        version.min(3),
+                        qh,
+                        (),
+                    );
+                }
                 _ => {}
             }
+        }
+    }
+}
+
+/// E190 T4 — O ARRANQUE DO FIO (a janela de graça do bind): cada
+/// wl_output bindado ENTREGA o estado inicial do protocolo (Geometry→
+/// Mode→Scale→Done por saída) — a rajada de arranque NÃO é escolha do
+/// dono, é a foto do boot (gravá-la seria o envenenamento que o gate
+/// E107 matou de era: o conf recém-nascido com o default de 60 Hz).
+/// A janela de 5s cobre o apply-boot e o assento do link — depois
+/// dela TODO evento é gesto do dono (a MESMA gramática do laço de
+/// era: a base inicial era fotografada e só MUDANÇA gravava).
+fn arranque_recente() -> bool {
+    static ARRANQUE: OnceLock<std::time::Instant> = OnceLock::new();
+    let inicio = ARRANQUE.get_or_init(std::time::Instant::now);
+    inicio.elapsed() < std::time::Duration::from_secs(5)
+}
+
+/// E190 T4 — O OUIDOR DO WL_OUTPUT: cada Mode/Scale é a ESCOLHA do
+/// dono em carne de protocolo (a escolha por QUALQUER porta — o
+/// wdisplays, o wlr-randr, o menu da casa — atravessa o MESMO
+/// evento); o debounce de 400ms veste a rajada da troca em UM
+/// save-event. A Geometry/Name/Description (posição e rótulo) não são
+/// escolha persistida — o displays.conf guarda MODO.
+impl Dispatch<wl_output::WlOutput, ()> for Estado {
+    fn event(
+        _estado: &mut Estado,
+        _output: &wl_output::WlOutput,
+        event: wl_output::Event,
+        _data: &(),
+        _conn: &Connection,
+        _qh: &QueueHandle<Self>,
+    ) {
+        match event {
+            wl_output::Event::Mode { .. } | wl_output::Event::Scale { .. }
+                if !arranque_recente() =>
+            {
+                agenda_save_display();
+            }
+            _ => {}
         }
     }
 }

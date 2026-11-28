@@ -185,6 +185,10 @@ run_dose() { # run_dose <root>
             mount --bind "$r/home"  /home    2>/dev/null || true
             mount --bind "$r/run"   /run      2>/dev/null || true
             mount --bind "$r/varlog" /var/log 2>/dev/null || true
+            # E190 — o VENDOR da CPU é do PERFIL (o bind sobre o
+            # /proc/cpuinfo dentro do namespace: a sonda da dose pergunta
+            # o cpuinfo e o termômetro da casa certa é o do perfil)
+            mount --bind "$r/proc_cpuinfo" /proc/cpuinfo 2>/dev/null || true
             sh "$r/elite-post-upgrade" >>"$r/dose.log" 2>&1
         ' _ "$r" 2>>"$r/ns.err"
 }
@@ -199,15 +203,20 @@ chaves_sha() { # chaves_sha <root>
 # ═════════════════════════════════════════════════════════════════════
 # A MATRIZ — os 6 perfis reais (cada um sela o sandbox do seu hardware)
 # ═════════════════════════════════════════════════════════════════════
-# args: <nº> <nome> <fstype> <hwmod_ok> <lspci> <mem_sleep> <deep:0|1>
+# args: <nº> <nome> <fstype> <hwmod_ok> <lspci> <mem_sleep> <deep:0|1> <vendor:E190>
 rodar_perfil() {
     local num="$1" nome="$2" fstype="$3" hwok="$4" lspci="$5" memsleep="$6" deep="$7"
+    local vendor="${8:-GenuineIntel}"
     local r="$HW/perfil$num"
     emit_info "── perfil $num · $nome ──"
 
     # ── o mundo do perfil ──
     mkdir -p "$r"/sys/power "$r"/sys/class/hwmon "$r"/sys/module \
              "$r"/home "$r"/run "$r"/varlog
+    # E190 — o VENDOR da CPU do perfil (a sonda da dose decide o
+    # termômetro pelo cpuinfo: AMD→k10temp · Intel→coretemp — o da casa
+    # errada NUNCA é convidado; o perfil sela a resposta)
+    printf 'processor\t: 0\nvendor_id\t: %s\n' "$vendor" > "$r/proc_cpuinfo"
     seed_etc "$r"
     mk_stubs "$r" "$fstype" "$hwok" "$lspci"
     printf '%s\n' "$memsleep" > "$r/sys/power/mem_sleep"
@@ -260,14 +269,14 @@ EOF
     if [ "$deep" = 1 ]; then
         cat > "$esp/grub" <<EOF
 GRUB_DEFAULT=0
-GRUB_TIMEOUT=5
+GRUB_TIMEOUT=2
 GRUB_CMDLINE_LINUX_DEFAULT="quiet splash zswap.enabled=0 transparent_hugepage=madvise mem_sleep_default=deep mitigations=off nowatchdog"
 GRUB_CMDLINE_LINUX="loglevel=3"
 EOF
     else
         cat > "$esp/grub" <<EOF
 GRUB_DEFAULT=0
-GRUB_TIMEOUT=5
+GRUB_TIMEOUT=2
 GRUB_CMDLINE_LINUX_DEFAULT="quiet splash zswap.enabled=0 transparent_hugepage=madvise mitigations=off nowatchdog"
 GRUB_CMDLINE_LINUX="loglevel=3"
 EOF
@@ -295,9 +304,10 @@ EOF
 
     # 3. os sensores do perfil (a sonda prova contra o hwmon FALSO)
     cat > "$esp/sensors" <<EOF
-# ── ELITE (E106/5b): os chips que ESTA máquina provou no
-# /sys/class/hwmon (a sonda da dose; os 4 candidatos da
-# fábrica: nct6775/it87/k10temp/coretemp — quem sobe sem
+# ── ELITE (E106/5b · E190): os chips que ESTA máquina provou no
+# /sys/class/hwmon (a sonda da dose; os candidatos da fábrica:
+# nct6775/it87 + o termômetro do VENDOR — AMD k10temp · Intel
+# coretemp, o da casa errada nunca é convidado — quem sobe sem
 # hwmon novo desce na hora).
 ${hwok:+$hwok}
 EOF
@@ -540,13 +550,13 @@ main() {
     #    o termômetro da CPU provado
     rodar_perfil 2 "Entrada 2 · AMD APU k10temp + btrfs" btrfs k10temp \
         '00:08.0 VGA compatible controller: Advanced Micro Devices, Inc. [AMD/ATI] Raphael (rev c8)' \
-        '[s2idle]' 0
+        '[s2idle]' 0 AuthenticAMD
 
     # ── PERFIL 3 · INTERMEDIÁRIO 1 — O RIG DO DONO: Ryzen 5600 + ASUS
     #    (nct6775), RX 7600 (amdgpu), DP-1 1920x1080@119.88, btrfs, deep
     rodar_perfil 3 "Intermediário 1 · O RIG DO DONO (nct6775 + RX 7600 + DP-1, btrfs deep)" btrfs nct6775 \
         '00:08.0 VGA compatible controller: Advanced Micro Devices, Inc. [AMD/ATI] Navi 32 [Radeon RX 7600]' \
-        's2idle [deep]' 1
+        's2idle [deep]' 1 AuthenticAMD
 
     # ── PERFIL 4 · INTERMEDIÁRIO 2 — Intel + RTX, btrfs, deep (o papel
     #    do CoolerControl JÁ EXISTIA — a chave entra na seção do dono)
@@ -558,13 +568,13 @@ main() {
     #    deep, MULTI-MONITOR (DP-1 + HDMI-A-1)
     rodar_perfil 5 "High-End 1 · Ryzen X3D + RX 7900 (k10temp, btrfs deep)" btrfs k10temp \
         '00:08.0 VGA compatible controller: Advanced Micro Devices, Inc. [AMD/ATI] Navi 31 [Radeon RX 7900 XT]' \
-        's2idle [deep]' 1
+        's2idle [deep]' 1 AuthenticAMD
 
     # ── PERFIL 6 · HIGH-END 2 — Intel + RTX 4080, btrfs, deep,
     #    multi-monitor (DP-1 + DP-2)
     rodar_perfil 6 "High-End 2 · Intel + RTX 4080 (btrfs deep, DP-1+DP-2)" btrfs nct6775 \
         '01:00.0 VGA compatible controller: NVIDIA Corporation AD103 [GeForce RTX 4080]' \
-        's2idle [deep]' 1
+        's2idle [deep]' 1 GenuineIntel
 
     # ── A TELA QUE VOLTA (perfis com display na matriz) ──
     run_display 3 "o rig do dono" \

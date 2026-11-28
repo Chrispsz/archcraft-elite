@@ -81,6 +81,10 @@ unset _lk _session_locks
 # 2.0 — o swayidle APOSENTOU (a vigília é o ext-idle-notify nativo do
 # elite-daemon; o contador de era morreu com o último rig velho)
 osd_count="$(count swayosd-server)"
+# E190 T4 — o udiskie APOSENTOU (o automount é evento do ouvidor UDisks2
+# do elite-daemon): o contador segue como a FRONTEIRA das eras (o
+# perito lê: rig velho com o fóssil vivo responde >0; a casa nova
+# responde 0 — a mesma gramática do swaync de cima)
 udiskie_count="$(count udiskie)"
 pk_count="$(pgrep -c -f 'lxqt-policykit-agent' 2>/dev/null)"; [ -n "$pk_count" ] || pk_count=0
 # 2.0 Fase 2 — O CLIENTE WAYLAND É O PRÓPRIO elite-daemon (o

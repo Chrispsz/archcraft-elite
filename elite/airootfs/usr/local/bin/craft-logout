@@ -17,8 +17,9 @@
 #     elite-daemon é quem respawna a família — derrubar a barra antes
 #     dele nascia de novo em 2s, a comédia de era), depois as
 #     superfícies (craft-bar-rs, craft-dock-rs) e por fim os agentes
-#     auxiliares do frame 0 (swaync, swayosd, lxqt-policykit-agent,
-#     udiskie, cliphist/wl-paste, swaybg);
+#     auxiliares (swaync, swayosd, lxqt-policykit-agent, cliphist/
+#     wl-paste, swaybg — E190 T4: o udiskie APOSENTOU, o automount é
+#     evento do daemon que já caiu);
 #   · SIGTERM (nunca KILL de cara): a casa inteira trata TERM com a
 #     saída limpa (o flock da sessão volta ao chão, o socket morre
 #     assentado); KILL é só o remédio de quem não cedeu no teto;
@@ -39,7 +40,7 @@ uso() {
         '' \
         '  o elite-daemon cai primeiro (quem respawnava a família), depois as' \
         '  superfícies (craft-bar-rs, craft-dock-rs) e os agentes auxiliares' \
-        '  (swaync, swayosd, polkit, udiskie, cliphist, swaybg) — cada um com' \
+        '  (swaync, swayosd, polkit, cliphist, swaybg) — cada um com' \
         '  o PRÓPRIO SIGTERM e o assentamento esperado (teto 4s) — e SÓ ENTÃO' \
         '  o labwc --exit fecha a porta. Zero fóssil em /run/user/$UID/elite.' \
         '  acionado pelo menu da barra e pelo menu do desktop.'
@@ -84,7 +85,9 @@ encerra elite-daemon
 # 2. AS SUPERFÍCIES (a barra e a dock — os clientes de display)
 encerra craft-bar-rs craft-dock-rs
 # 3. OS AGENTES AUXILIARES DO FRAME 0 (a central, o OSD, o polkit, o
-#    automount, o clipboard, o wallpaper)
+#    clipboard, o wallpaper — E190 T4: o udiskie APOSENTOU com o
+#    automount evento do daemon; o fóssil de rig velho que ainda
+#    esteja vivo desce na mesma vassourada)
 encerra swaync swayosd-server lxqt-policykit-agent udiskie cliphist wl-paste swaybg
 
 # 4. OS FÓSSEIS DO CHÃO (o relogin limpo de sempre: socket morto não

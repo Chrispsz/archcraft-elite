@@ -42,6 +42,10 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 mod audio;
 mod bluetooth;
+// E190 T4 — O AUTOMOUNT NATIVO UDISKS2 (o ouvidor do ObjectManager no
+// system bus: cada bloco novo com Filesystem em drive removível monta
+// pelo VERBO do D-Bus — o udiskie Python residente sai da sessão)
+mod discos;
 mod doctor;
 mod idle;
 mod mpris;
@@ -587,6 +591,10 @@ fn main() {
             // plug/unplug <500ms PELO EVENTO do NM — o belt de 5s de
             // nmcli da barra morre na fonte: o daemon é o único ouvidor)
             std::thread::spawn(network::thread);
+            // E190 T4 — O AUTOMOUNT NO FIO (o udiskie residente morre: o
+            // pen drive monta no EVENTO do UDisks2 — o mesmo gesto do
+            // áudio e da rede: a thread dorme no iterator do bus)
+            std::thread::spawn(discos::thread);
             std::thread::spawn(|| thread_logind("PrepareForSleep", true));
             std::thread::spawn(|| thread_logind("Unlock", false));
             std::thread::spawn(thread_wakeguard);
@@ -602,7 +610,8 @@ fn main() {
             eprintln!(
                 "elite-daemon session: ouvidores no ar (bus.sock + wayland \
                  nativo + mpris + áudio + netlink som/drm + bluetooth + rede \
-                 NM por evento + logind sono/unlock + wake-guard pré-sono \
+                 NM por evento + discos UDisks2 por evento + logind \
+                 sono/unlock + wake-guard pré-sono \
                  + re-aplicação do monitor do boot)"
             );
             match supervise::run_session() {
@@ -768,8 +777,8 @@ pub fn wayland_pronto() -> bool {
 /// EPIPE/EOF — e o corpo da sessão desce JUNTO, GRACIOSAMENTE:
 ///   1. STOP acende (o supervisor da sessão vê no ciclo de ≤1s: SIGTERM
 ///      aos filhos NOSSOS via handle — craft-bar-rs, craft-dock-rs,
-///      swayosd-server, agente polkit, wallpaper, watch-save, o
-///      motor de jogo — e os COLHE com wait);
+///      swayosd-server, agente polkit, wallpaper, o motor de jogo — e
+///      os COLHE com wait);
 ///   2. o sinal por COMM é o cinto imediato (o filho que nasceu fora do
 ///      mapa do supervisor na janela da queda também é alcançado);
 ///   3. o vigia de teto: se algum filho recusar morrer e o supervisor
@@ -978,6 +987,16 @@ fn despertar() {
                 "elite-daemon: o hyprlock não sobreviveu ao sono — o --if-needed renasce o lock NA HORA (a tela nunca acorda nua)"
             );
             idle::trava();
+        }
+        // E190 T3 — A MARCA DE PÓS-SONO cobre o acordar que só viu o
+        // Unlock (o sinal PrepareForSleep do logind PERDIDO no limbo:
+        // sem a marca o áudio seguia no sequestro do HDMI/DP do monitor
+        // pós-sono; com ela a foto pré-sono veste o default de volta)
+        if idle::sono_recente() {
+            eprintln!(
+                "elite-daemon: a marca de pós-sono está FRESCA — o áudio veste a foto pré-sono (E190 T3)"
+            );
+            audio::resume();
         }
         wayland::reseta_idle();
     });

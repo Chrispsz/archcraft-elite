@@ -879,3 +879,62 @@ if command -v flatpak >/dev/null 2>&1; then
 else
     echo "E23 AVISO: flatpak ausente no chroot — ecossistema de fábrica PULADO" >&2
 fi
+
+
+## [E24] E190 T1 — O BOOT EXTREMO DA LIVE (a auditoria do systemd-analyze
+##      do rig: o loader de 10s, o coolercontrold prendendo 2,369s, o
+##      choose-mirror/NM-wait-online/wpa_supplicant/lvm2-monitor
+##      habilitados sem ofício — a LIVE veste o MESMO desenho do
+##      instalado: o unpackfs copia o /etc daqui pro alvo, um gesto
+##      veste os dois mundos). O ln -sf DIRETO é a lei do build em
+##      container SEM PID 1 (a mesma escola do E17).
+##   a) MÁSCARAS: choose-mirror.service (a escolha de espelho é da
+##      LIVE de série — o mirrorlist é baked; o reflector do
+##      craft-update é a porta) e NetworkManager-wait-online.service
+##      (o desktop NUNCA espera a rede levantar — E132);
+##   b) wpa_supplicant.service: DISABLE (só remove o wants do boot —
+##      NUNCA mask: o NetworkManager o ativa POR DEMANDA no D-Bus
+##      (fi.w1.wpa_supplicant1) e o Wi-Fi da Live segue vivo);
+##   c) lvm2-monitor.service: DISABLE (a Live não tem volumes LVM —
+##      o polling não paga pedágio; o INSTALADO re-avalia pelo
+##      elite-post-transaction com o vgs na mão);
+##   d) coolercontrold.service: DESACOPLADO do caminho crítico (fora
+##      do multi-user.target.wants, vaga em graphical.target.wants com
+##      o drop-in After=graphical.target do pacote — as curvas nascem
+##      em TODO boot, só nunca mais NA FRENTE do desktop; os -2,37s).
+_e24_masked=0
+for _e24_u in choose-mirror.service NetworkManager-wait-online.service; do
+    # a máscara veste quando a unit existe em QUALQUER endereço (o
+    # choose-mirror de perfil archiso mora no /etc — a máscara /dev/null
+    # no MESMO caminho o substitui; o alvo já-mascarado é idempotente)
+    if [ -e "/usr/lib/systemd/system/$_e24_u" ] || [ -e "/lib/systemd/system/$_e24_u" ] \
+        || { [ -e "/etc/systemd/system/$_e24_u" ] && [ ! -L "/etc/systemd/system/$_e24_u" ]; }; then
+        ln -sfn /dev/null "/etc/systemd/system/$_e24_u"
+        _e24_masked=$((_e24_masked + 1))
+    elif [ -L "/etc/systemd/system/$_e24_u" ] \
+        && [ "$(readlink "/etc/systemd/system/$_e24_u" 2>/dev/null)" = "/dev/null" ]; then
+        _e24_masked=$((_e24_masked + 1))   # já mascarado de build passado (idempotente)
+    fi
+done
+if (( _e24_masked > 0 )); then
+    echo "E24: $_e24_masked unit(s) MASCARADA(S) (choose-mirror + NM-wait-online — o boot da Live não espera rede morta)"
+fi
+for _e24_u in wpa_supplicant.service lvm2-monitor.service; do
+    rm -f "/etc/systemd/system/multi-user.target.wants/$_e24_u" \
+        "/etc/systemd/system/sysinit.target.wants/$_e24_u" 2>/dev/null || true
+done
+echo "E24: wpa_supplicant/lvm2-monitor FORA do boot da Live (o NM ativa o wpa por demanda; a Live não tem LVM)"
+if [ -e /usr/lib/systemd/system/coolercontrold.service ] || [ -e /lib/systemd/system/coolercontrold.service ]; then
+    rm -f /etc/systemd/system/multi-user.target.wants/coolercontrold.service 2>/dev/null || true
+    mkdir -p /etc/systemd/system/graphical.target.wants
+    _e24_cc=""
+    for _e24_p in /usr/lib/systemd/system/coolercontrold.service /lib/systemd/system/coolercontrold.service; do
+        [ -e "$_e24_p" ] && _e24_cc="$_e24_p" && break
+    done
+    if [ -n "$_e24_cc" ]; then
+        ln -sfn "$_e24_cc" /etc/systemd/system/graphical.target.wants/coolercontrold.service
+        echo "E24: coolercontrold DESACOPLADO (graphical.target.wants + After=graphical.target — as curvas nascem depois do desktop)"
+    fi
+    unset _e24_cc
+fi
+unset _e24_u _e24_masked

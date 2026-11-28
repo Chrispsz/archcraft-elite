@@ -165,6 +165,35 @@ file_has "menu-camada: o teclado SOB DEMANDA (o Exclusive de era bloqueava Backs
 file_has "menu-camada: o carimbo do fechou_em mata a corrida do 2º clique (sem piscar)" "crates/craft-tools/src/lib.rs" 'fechou_em'
 file_has "rc.xml: o clique no papel de parede LIMPA o foco (o Unfocus desce os menus)" "elite/airootfs/etc/skel/.config/labwc/rc.xml" '<action name="Unfocus" />'
 
+# ── 10b. E190 (Commit 1/2) — A TRAVA ANTI-REGRESSÃO DA SUSPENSÃO REAL ───
+#      (o relato do dono: "Suspender estava apenas bloqueando a tela em
+#      vez de suspender a máquina" — o contrato do FLUXO é LEI: a foto
+#      pré-sono + a trava + a espera da superfície + o Suspend(false) do
+#      logind com a queda honesta no systemctl; o teste RUST crava o
+#      plano puro ANTES de o rig quebrar, e a marca de pós-sono cobre o
+#      acordar que só viu o Unlock)
+if command -v cargo >/dev/null 2>&1 && pkg-config --exists gtk4 2>/dev/null; then
+    if (cd "$CRATES" && cargo test -q -p elite-daemon --no-default-features e190_t3 >/dev/null 2>&1); then
+        t_ok "suspend E190: o PLANO DO SONO é LEI em carne de compilação (lock + Suspend(false) — nunca só o lock)"
+    else
+        t_fail "suspend E190: o plano do sono (cargo test -p elite-daemon e190_t3)" "o contrato do fluxo real quebrou — lock/Suspend(false)/marca"
+    fi
+else
+    t_skip "suspend E190: o plano do sono em carne" "cargo/gtk4 ausentes — o Canal veste (tests.yml)"
+fi
+file_has "suspend E190: a FOTO pré-sono no fluxo (audio::sleep_save ANTES do mergulho)" "crates/elite-daemon/src/idle.rs" 'audio::sleep_save()'
+file_has "suspend E190: o verbo login1 é Suspend(false) — o hardware dorme de verdade" "crates/elite-daemon/src/idle.rs" '"Suspend", &(false)'
+file_has "suspend E190: a marca de pós-sono consultada no despertar (o áudio volta à foto)" "crates/elite-daemon/src/main.rs" 'idle::sono_recente()'
+
+# ── 10c. E190 (Commit 1/2) — ZERO RESIDENTES LEGADOS + AUTOMOUNT VIVO ────
+#      (o udiskie/blueman-applet saem da sessão; o automount é o EVENTO
+#      do ouvidor UDisks2 do daemon com a notificação na cara)
+file_has "discos E190: o ouvidor UDisks2 no ar da sessão (o udiskie morre)" "crates/elite-daemon/src/main.rs" 'std::thread::spawn(discos::thread)'
+file_hasnt "autostart E190: o spawn do udiskie NÃO volta (o automount é evento)" "$AIROOTFS/etc/skel/.config/labwc/autostart" 'udiskie --automount'
+file_has "boot E190: o autostart VIVO de era é MIGRADO (swaync/udiskie/blueman-applet com backup)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'spawn de era swaync/udiskie/blueman-applet REMOVIDO'
+file_has "boot E190: a CEIFA dos residentes legados vivos (o próximo login nasce limpo)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'udiskie do uid'
+file_has "discos E190: o disco do sistema NUNCA monta (HintSystem é a cerca)" "crates/elite-daemon/src/discos.rs" '!hint_system && id_usage == "filesystem"'
+
 # ── 11. A SESSÃO VIVA sob o labwc headless (o Canal/rig paga o ambiente) ─
 # o mesmo gate do 57-smoke: sem labwc o juízo PULA com o réu nomeado —
 # o reexec preservando o PID, os verbos do bus com Ack e a 2ª instância

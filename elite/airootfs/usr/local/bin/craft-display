@@ -639,79 +639,59 @@ do_recover() {
     return 0
 }
 
-# ── watch: a escolha do dono grava sozinha (com o gate do arranjo) ───────
-do_watch_loop() {
-    # o watch nasce DEPOIS do apply (ordem do autostart): o primeiro
-    # estado é fotografiado como base — só MUDANÇA estável depois dele
-    # vira conf. Sem conf inicial, o estado atual É a base (nada é salvo
-    # "à toa" no arranque — a mudança tem que ser uma ESCOLHA visível).
-    base="$(state_keys | sort | md5sum | cut -d' ' -f1)"
-    estavel=0
-    while :; do
-        sleep 4
-        agora="$(state_keys | sort | md5sum | cut -d' ' -f1)"
-        [ -z "$agora" ] && continue                     # sessão sem resposta — espera
-        if [ "$agora" = "$base" ]; then
-            estavel=0
-            continue
+# ── E190 T4 — save-event: o evento NATIVO do wl_output grava AGORA ────────
+#     O laço de 4s (do_watch_loop) MORREU com o seu residente: o daemon
+#     agora ouve o wl_output POR EVENTO (cada Mode/Scale do protocolo —
+#     a escolha do dono por QUALQUER porta: wdisplays, wlr-randr, o menu)
+#     e dispara `craft-display save-event` com o DEBOUNCE TRAILING de
+#     400ms já pago lá (a rajada de eventos de uma troca vira UM gesto).
+#     OS MESMOS GATES de sempre vestem o evento: o resume fresco (a
+#     reversão do driver NÃO é escolha), o modo em transição (sem a
+#     marca de atual não entra no conf) e o stamp do arranjo (o boot
+#     não envenena o conf salvo). A gravação é IMEDIATA em relação à
+#     escolha — era o laço de era cobrando 8-12s de estabilidade para
+#     cravar o que o evento entregou no MESMO instante.
+save_event() {
+    _agora="$(state_keys 2>/dev/null | sort | md5sum | cut -d' ' -f1)"
+    # E190 T4 — O ENCERRAMENTO NÃO GRAVA NADA: o wlr-randr falha/muda
+    # quando o compositor desce (wayland-0 fechando) — estado VAZIO é a
+    # recusa HONESTA (o displays.conf do dono NUNCA é sobrescrito com o
+    # lixo da queda da sessão)
+    if [ -z "$_agora" ]; then
+        dlog "save-event: wlr-randr sem resposta (sessão fechando?) — NADA grava (o conf do dono fica)"
+        return 1
+    fi
+    # E106 — A FRONTEIRA ENTRE ESCOLHA E REVERSÃO: divergência com o
+    # marco do resume fresco (<45s) = reversão do driver, NÃO é
+    # escolha: NÃO grava — o reconcile do apply re-assegura o conf.
+    if resume_fresco; then
+        dlog "save-event: mudança DURANTE o resume (marca fresca) — NÃO grava (a reversão do driver não é escolha; o apply re-assegura o conf salvo)"
+        return 0
+    fi
+    # E107 — A TRANSIÇÃO NÃO É ESTABILIDADE: leitura sem a marca de
+    # modo atual é o MEIO de uma troca — o do_save espera a marca (até
+    # 5s) e recusa com a prova no papel se ela não assentar
+    if modo_em_curso; then
+        dlog "save-event: modo em transição — o do_save espera a marca assentar (a guarda de 5s de sempre)"
+    fi
+    # E107/E126 — O GATE DO ARRANJO com a DESCULPA EXPIRADA: o apply
+    # desta sessão ainda não assentou (stamp fail) — o estado agora é o
+    # DEFAULT DO BOOT, não a mão do dono; mas o stamp fail com MAIS DE
+    # 2 MINUTOS é arranjo desistido: É ESCOLHA por qualquer porta.
+    if ! grep -qx 'ok' "$STAMP" 2>/dev/null; then
+        _st_age=$(( $(date +%s) - $(stat -c %Y "$STAMP" 2>/dev/null || echo 0) ))
+        if [ "$_st_age" -le 120 ]; then
+            dlog "save-event: o apply desta sessão ainda não assentou (stamp '$(cat "$STAMP" 2>/dev/null || echo ausente)' há ${_st_age}s) — NÃO grava (o conf salvo é a fonte da verdade até o arranjo assentar)"
+            return 0
         fi
-        estavel=$((estavel + 1))
-        if [ "$estavel" -lt 2 ]; then
-            continue                                    # mudança instável — pode ser transição
-        fi
-        # E106 — A FRONTEIRA ENTRE ESCOLHA E REVERSÃO: divergência com o
-        # marco do resume fresco (<45s) = reversão do driver, NÃO é
-        # escolha: NÃO grava — o reconcile do apply re-assegura o conf.
-        if resume_fresco; then
-            dlog "watch: mudança estável DURANTE o resume (marca fresca) — NÃO grava (a reversão do driver não é escolha; o apply re-assegura o conf salvo)"
-            base="$agora"
-            estavel=0
-            continue
-        fi
-        # E107 — A TRANSIÇÃO NÃO É ESTABILIDADE: leitura sem a marca de
-        # modo atual é o MEIO de uma troca, não o fim dela — a base
-        # atualiza e a escolha REAL (o estado com marca) grava no
-        # próximo tick.
-        if modo_em_curso; then
-            base="$agora"
-            estavel=0
-            continue
-        fi
-        # E107 — O GATE DO ARRANJO: o apply desta sessão ainda não
-        # assentou (stamp fail) — o estado estável agora é o DEFAULT DO
-        # BOOT, não a mão do dono: gravá-lo seria destruir o conf salvo
-        # (o envenenamento que o dump 200537 fotografou — o conf
-        # sobrescrito 1 minuto após o boot). O conf é a fonte da
-        # verdade até o arranjo de pé; a porta do MENU grava sempre (é
-        # escolha explícita, com o stamp ok na mão).
-        # E126 — A DESCULPA EXPIRA (a janela de perda do item da
-        # resolução: o rig ficou fail:6 ETERNO após a tempestade do
-        # compositor mudo — o dono escolheu o modo pelo wdisplays na
-        # sessão recuperada e o watch NUNCA gravou; o reboot devolvia o
-        # conf velho — 'a resolução escolhida precisa ser salva'). Um
-        # stamp fail com MAIS DE 2 MINUTOS de idade não é 'arranjo a
-        # caminho' — é arranjo desistido: se o wlr-randr RESPONDE ao
-        # watch agora (condição de entrada deste bloco) e o estado está
-        # estável com marca, é a mão do dono por qualquer porta — grava
-        # COM VOZ. O envenenamento do boot (a razão do gate) mora nos
-        # primeiros 2min — a janela original segue intacta lá.
-        if ! grep -qx 'ok' "$STAMP" 2>/dev/null; then
-            _st_age=$(( $(date +%s) - $(stat -c %Y "$STAMP" 2>/dev/null || echo 0) ))
-            if [ "$_st_age" -le 120 ]; then
-                dlog "watch: mudança estável com o apply pendente (stamp '$(cat "$STAMP" 2>/dev/null || echo ausente)' há ${_st_age}s) — NÃO grava (o conf salvo é a fonte da verdade até o arranjo assentar)"
-                base="$agora"
-                estavel=0
-                continue
-            fi
-            dlog "watch: mudança estável com stamp fail VELHO (${_st_age}s — a desculpa do arranjo a caminho expirou) — o wlr-randr responde e o estado assentou: É ESCOLHA — gravando (E126)"
-        fi
-        # mudança estável com marca e arranjo assentado: é a escolha do
-        # dono por qualquer porta — grava.
-        do_save || true
+        dlog "save-event: stamp fail VELHO (${_st_age}s — a desculpa do arranjo a caminho expirou) — é ESCOLHA — gravando (E126)"
+    fi
+    # a escolha do dono por qualquer porta: grava NA HORA
+    if do_save; then
         dnotify "Arranjo de telas salvo — volta assim nos próximos boots"
-        base="$agora"
-        estavel=0
-    done
+        return 0
+    fi
+    return 1
 }
 
 # ── o MENU (craft-display nu): todos os modos do EDID, aplicado+salvo ────
@@ -914,7 +894,7 @@ case "${1:-}" in
             '  apply        aplica e GRAVA o arranjo atual' \
             '  apply-boot   o arranjo salvo nasce aplicado (a 1ª linha da sessão)' \
             '  save         fotografa o AGORA no displays.conf' \
-            '  watch-save   grava a mudança ESTÁVEL do dono (vaga da sessão)' \
+            '  save-event   o evento do wl_output gravado (o daemon ouve o modo/Hz/res e dispara AQUI — debounce 400ms)' \
             '  recover      ciclo off→1s→on COM o modo salvo, POR SAÍDA VIVA (a cura' \
             '               do DP sem sinal no pós-resume/pós-unlock — dinâmico,' \
             '               nenhuma saída hardcoded; guard de 10s = um dono só)' \
@@ -937,12 +917,21 @@ case "${1:-}" in
     # dono por veredito e TODAS saem idempotentes.
     recover) do_recover; exit 0 ;;
     watch-save)
-        # E139 — A VAGA SUPERVISIONADA (a sessão é quem lança — o slot
-        # 'displaysave' do elite-daemon session): o laço que grava a
-        # escolha ESTÁVEL do dono (do_watch_loop). O ouvidor do resume
-        # é o daemon session (netlink drm + logind nativo). Caiu → o
-        # supervisor ressuscita em 2s.
-        do_watch_loop ;;
+        # E190 T4 — A VAGA MORREU (o laço de 4s de era e o seu residente):
+        # o ouvidor é o wl_output NATIVO do daemon (cada Mode/Scale vale
+        # UM save-event com debounce de 400ms) — a porta antiga responde
+        # honesto e NUNCA mais faz laço (o rig de era que ainda chama
+        # recebe o eco da aposentadoria no papel)
+        dlog "watch-save: APOSENTADO (E190 — o evento do wl_output no daemon é o dono; o laço de 4s morreu)"
+        printf 'watch-save: aposentado — o evento wl_output do elite-daemon gravou o lugar (E190)\n'
+        exit 0 ;;
+    save-event)
+        # E190 T4 — O EVENTO NATIVO (o daemon ouve o wl_output e dispara
+        # AQUI com o debounce trailing de 400ms pago): os gates de sempre
+        # (resume fresco, transição, stamp) vestem o evento — a gravação
+        # é IMEDIATA em relação à escolha do dono
+        save_event
+        exit $? ;;
     status)
         # E106 — O STATUS QUE FALAVA SOZINHO: seções vazias ganham LINHA
         # NOMEADA e exit ≠ 0 quando a realidade não responde. E107 — o

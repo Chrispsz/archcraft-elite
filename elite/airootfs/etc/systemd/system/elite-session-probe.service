@@ -6,6 +6,16 @@ Documentation=man:elite-session-probe(8)
 # Este unit dispara o probe 60s após o graphical.target, quando o SDDM
 # autologin + labwc + o orquestrador elite-daemon session já subiram e
 # estabilizaram.
+# E190 T1 — O PROBE É DA LIVE (a auditoria do boot do rig: o oneshot de
+# 60s INFLAVA o systemd-analyze instalado em 1min 00.231s — o
+# elite-daemon supervisiona a sessão em tempo real e o probe não tem
+# ofício NENHUM no rig; o gate do CI boota a ISO e é LÁ que o console
+# serial do probe é lido). O MARCADOR /run/archiso (o carimbo do
+# archiso de fábrica) é a cerca: na Live o gate segue com a prova
+# inteira; no sistema INSTALADO a unit é PULADA no arranque (o
+# post-upgrade ainda a desabilita + mascara como cinto — a dose veste
+# os dois lados).
+ConditionPathExists=/run/archiso
 After=graphical.target
 
 [Service]

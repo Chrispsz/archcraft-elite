@@ -1,27 +1,25 @@
 #!/bin/sh
-# Archcraft ELITE · labwc autostart v3 (1.0-108 — O ARRANQUE LIMPO: a
-# diretriz do dono palavra por palavra). Executado no início da sessão
+# Archcraft ELITE · labwc autostart v4 (E190 T4 — O ARRANQUE LIMPO DE
+# VERDADE: zero residentes legados) — executado no início da sessão
 # LABWC — termine comandos com & para não bloquear.
 #
-# A ARQUITETURA (2.0 → 1.0-108): o AUTOSTART é o berço do FRAME 0 da
+# A ARQUITETURA (2.0 → E190): o AUTOSTART é o berço do FRAME 0 da
 # sessão — o AMBIENTE, os alicerces que NÃO podem depender do
-# supervisor (wallpaper, agente polkit, automount, keyring, clipboard)
-# e UM SÓ lançador de orquestração: `elite-daemon session &` (o bloco
-# marcado BEGIN/END — o ÚNICO lançador da casa, auditado pelo
-# elite-heal-sessao). TODO o resto — top bar, dock, notificações
-# (swaync), OSD, vigília/trava, motor de jogo, watch de displays — é
-# vaga supervisionada do `elite-daemon session` (UM lançador, UM
-# corpo, gate de posse E135). NENHUM swaync nasce aqui (o daemon é o
-# ÚNICO dono da central — a lei 1.0-107 segue): o residente que
-# aparece no autostart é alicoce de frame 0, supervisionado de perto
-# pelo gate de comm/adoção quando o daemon também o quer (o swaybg da
-# vaga "wallpaper" ADOTA o daqui — nunca duplica).
+# supervisor (wallpaper, agente polkit, keyring, clipboard) e UM SÓ
+# lançador de orquestração: `elite-daemon session &` (o bloco marcado
+# BEGIN/END — o ÚNICO lançador da casa, auditado pelo elite-heal-
+# sessao). TODO o resto — top bar, dock, notificações (swaync), OSD,
+# vigília/trava, motor de jogo, watch de displays e AGORA O AUTOMOUNT
+# — é evento do daemon (E190 T4: o ouvidor UDisks2 do elite-daemon
+# monta o pen drive NO EVENTO com a notificação na cara — o udiskie
+# Python residente APOSENTOU; o watch de telas idem — o wl_output
+# nativo grava cada escolha com debounce de 400ms). NENHUM swaync
+# nasce aqui (o daemon é o ÚNICO dono da central — a lei 1.0-107
+# segue) e NENHUM udiskie/blueman-applet volta NUNCA (E190 T4).
 #
-# v2 (1.0-102): a reescrita limpa/minimalista da era `elite-daemon
-# session`. v3 (1.0-108): os alicerces voltam ao frame 0 (o relato do
-# rig 1.0-107.3: o daemon em spin de CPU levava o berço junto — o
-# wallpaper e o agente polkit somiam com o motor; agora o frame 0 nasce
-# de pé por conta própria e o daemon só supervisiona o que é dele).
+# v2 (1.0-102): a reescrita limpa da era `elite-daemon session`.
+# v3 (1.0-108): os alicerces voltam ao frame 0. v4 (E190): o
+# udiskie sai — o automount é evento do daemon.
 
 # ── 0. O AMBIENTE WAYLAND NO DBUS/USERD ANTES DE TUDO (1.0-107/108) ──────
 #     A cura do COLD BOOT VAZIO: os processos D-Bus-ativados e as units
@@ -105,16 +103,15 @@ if command -v lxqt-policykit-agent >/dev/null 2>&1 \
     lxqt-policykit-agent >/dev/null 2>&1 &
 fi
 
-# ── 6. O AUTOMOUNT DO FRAME 0 (1.0-108 — a diretriz do arranque limpo) ────
-#     O udiskie --automount --notify --no-tray é o automounter da casa
-#     de novo (a ordem do dono — o par udev oneshot de era E151
-#     aposentou na dose junto): o pen drive monta no CLICK do dono com
-#     a notificação na cara, SEM bandeja e SEM daemon de root.
-if command -v udiskie >/dev/null 2>&1; then
-    udiskie --automount --notify --no-tray >/dev/null 2>&1 &
-fi
+# ── 6. O AUTOMOUNT É EVENTO DO DAEMON (E190 T4 — o udiskie APOSENTOU) ────
+#     O pen drive monta sozinho NO EVENTO: o ouvidor UDisks2 do
+#     elite-daemon (discos.rs) escuta o ObjectManager do system bus e
+#     monta cada bloco removível com Filesystem pela via PRÓPRIA do
+#     D-Bus (Filesystem.Mount) com a notificação na cara — zero
+#     residente Python, zero bandeja. O udiskie NUNCA volta ao
+#     autostart (o elite-post-upgrade ceifa a linha dos rigs vivos).
 
-# ── 7. KEYRING CACHYOS ────────────────────────────────────────────────────
+# ── 7. KEYRING CACHYOS ──────────────────────────────────────────────────────
 #     Self-healing de runtime (init → populate → refresh) em background,
 #     idempotente, sudo -n (nunca pede senha no escuro).
 if [ -x /usr/local/bin/craft-fix-keys ]; then

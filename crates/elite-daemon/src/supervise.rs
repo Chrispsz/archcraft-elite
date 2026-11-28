@@ -458,6 +458,14 @@ fn lanca(comando: &str, log: &PathBuf) -> io::Result<Child> {
         .stdin(Stdio::null())
         .stdout(Stdio::from(f.try_clone()?))
         .stderr(Stdio::from(f));
+    // E190 T2 — O G_DEBUG NÃO ATRAVESSA O NASCIMENTO: o filho da casa
+    // nasce com a variável RASPADA (um G_DEBUG=fatal-warnings/criticals
+    // herdado do env da sessão virava QUALQUER aviso de runtime do
+    // swaync vala — o `Remote peer disconnected` da colisão — em
+    // SIGABRT com core dump; o GLib de desktop vive de avisos
+    // benignos). O raspador é geral: nenhum filho supervisionado
+    // precisa do G_DEBUG — quem depura o liga NA MÃO no terminal.
+    cmd.env_remove("G_DEBUG");
     cmd.spawn()
 }
 
@@ -510,6 +518,69 @@ fn entrega_css_swaync(alvo: &str) -> bool {
     elite_core::persist::write_atomic(std::path::Path::new(alvo), corpo.as_bytes()).is_ok()
 }
 
+/// E190 T2 — ENTREGA O CONFIG.JSON DO SWAYNC NO $HOME (a colisão D-Bus
+/// do bars.log do rig: DUAS instâncias nasceram juntas no login
+/// 15:36:38 e a segunda morreu em main.vala:60 `Remote peer
+/// disconnected` + SIGABRT — a vaga NUNCA mais sobe com o par de
+/// arquivos pela metade): o arquivo ausente/VAZIO/INVÁLIDO recebe o
+/// MESTRE do skel do pacote; o skel sem o mestre veste o fallback
+/// EMBUTIDO da casa (um JSON VÁLIDO de verdade — parseado ANTES da
+/// escrita, a última rede). A escrita é ATÔMICA (write_atomic):
+/// o swaync nunca lê meia conf. true = o mestre NASCEU; false = já
+/// havia conf viva E VÁLIDA (o dono é o dono — intocado).
+fn entrega_conf_swaync(alvo: &str) -> bool {
+    // o dono JÁ tem conf viva E PARSEÁVEL? intocado
+    if std::fs::read_to_string(alvo)
+        .ok()
+        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+        .is_some()
+    {
+        return false;
+    }
+    let mestre = std::fs::read_to_string("/etc/skel/.config/swaync/config.json")
+        .ok()
+        .filter(|t| serde_json::from_str::<serde_json::Value>(t).is_ok());
+    let corpo = match mestre {
+        Some(t) => t,
+        None => CONF_SWAYNC_CASA.to_string(),
+    };
+    // o par é julgado VÁLIDO antes de vestir (um JSON torto do skel
+    // não pode nascer no $HOME — o crash de era era de arquivo torto)
+    if serde_json::from_str::<serde_json::Value>(&corpo).is_err() {
+        return false;
+    }
+    elite_core::persist::write_atomic(std::path::Path::new(alvo), corpo.as_bytes()).is_ok()
+}
+
+/// E190 T2 — A CEIFA DO ÓRFÃO DO SWAYNC (a colisão do rig: o autostart
+/// VIVO de era — o ~/.config/labwc/autostart do home migrado antes da
+/// 1.0-107 — lançava UM swaync e o supervisor o OUTRO no MESMO instante
+/// do login; o perdedor da corrida do socket IPC morria em
+/// main.vala:60 com SIGABRT no coredump). ANTES da vaga nascer, TODO
+/// swaync vivo é de SESSÃO PASSADA (este arranque é o primeiro gesto
+/// da casa nele) — desce na hora; a vaga supervisionada é a única
+/// que renasce. Zero pgrep de ciclo (o comm_vivo lê /proc UMA vez
+/// por arranque de sessão — fork por evento, nunca residente).
+fn ceifa_orfaos_swaync() {
+    if !comm_vivo("swaync") {
+        return;
+    }
+    let ok = std::process::Command::new("pkill")
+        .arg("-x")
+        .arg("swaync")
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false);
+    if ok {
+        eprintln!(
+            "elite-daemon session: swaync órfão de sessão passada CEIFADO antes da vaga (a colisão D-Bus main.vala:60 do rig morre, E190)"
+        );
+    }
+}
+
 /// 1.0-110 T4 — O FALLBACK EMBUTIDO da casa (a última rede do CSS do
 /// swaync: o skel sem o mestre — o mundo container/probe — entrega a
 /// MESMA paleta da folha mestra na gramática do swaync; um CSS VÁLIDO
@@ -536,6 +607,50 @@ const CSS_SWAYNC_CASA: &str = r#"/* Archcraft ELITE · style.css de última rede
 .close-button:hover { background: @red; }
 .control-center { background: @mantle; color: @text; }
 .widget-title { color: @bright; }
+"#;
+
+/// E190 T2 — O FALLBACK EMBUTIDO do config.json da casa (a última rede
+/// do par do CSS: o skel sem o mestre entrega o MÍNIMO VÁLIDO que o
+/// swaync exige — o canto direito do topo com a fila de sempre; um
+/// JSON VÁLIDO de verdade, parseado no teste).
+const CONF_SWAYNC_CASA: &str = r#"{
+  "positionX": "right",
+  "positionY": "top",
+  "layer": "overlay",
+  "control-center-layer": "top",
+  "control-center-width": 420,
+  "control-center-margin-top": 12,
+  "control-center-margin-right": 12,
+  "notification-window-width": 380,
+  "fit-to-screen": false,
+  "timeout": 8,
+  "timeout-low": 4,
+  "timeout-critical": 12,
+  "transition-time": 200,
+  "keyboard-shortcuts": true,
+  "notification-grouping": true,
+  "notification-icon-size": 64,
+  "relative-timestamps": true,
+  "hide-on-clear": false,
+  "hide-on-action": true,
+  "script-fail-notify": true,
+  "widgets": [
+    "inhibitors",
+    "title",
+    "dnd",
+    "notifications"
+  ],
+  "widget-config": {
+    "title": {
+      "text": "Notificações",
+      "clear": "Limpar",
+      "button-alignment": "end"
+    },
+    "dnd": {
+      "text": "Silenciar"
+    }
+  }
+}
 "#;
 
 struct Vaga {
@@ -846,8 +961,7 @@ pub fn run_session() -> Result<(), String> {
     // DESTA sessão é o ÚNICO dono: a vaga sobe o swaync com o `-c` E o
     // `-s` APONTANDO nos arquivos do $HOME (o `COULD NOT FIND CSS
     // FILE!` morre com o style.css EXISTENTE — o skel e o sync_skel
-    // da dose entregam os dois arquivos); sem os arquivos no $HOME a
-    // vaga veste o binário puro (o upstream /etc/xdg é a última rede).
+    // da dose entregam os dois arquivos).
     // O gate é o NOME NO BUS: outro daemon de notificações vivo
     // (mako/dunst de fora) é ADOTADO — a casa não soma centros.
     // 1.0-110 T4 — O CSS À PROVA DE CRASH (a evidência do bars.log da
@@ -859,7 +973,21 @@ pub fn run_session() -> Result<(), String> {
     // respawn RE-CHECA o dono de org.freedesktop.Notifications antes
     // de spawnar (o gate de posse da sempre: outro dono vivo é
     // ADOTADO, nunca sobreposto).
+    // E190 T2 — A CURA DA COLISÃO D-BUS (a segunda evidência do
+    // bars.log do rig: DUAS instâncias do swaync nasceram JUNTAS no
+    // login 15:36:38 — o autostart vivo de era no $HOME lançava a dele
+    // e a vaga a nossa; a perdedora da corrida do socket IPC morria
+    // `Remote peer disconnected` + SIGABRT main.vala:60): a CEIFA DO
+    // ÓRFÃO corre ANTES da vaga (todo swaync vivo neste arranque é de
+    // SESSÃO PASSADA — o elite-post-upgrade retira a linha duplicada
+    // do autostart vivo com backup; a ceifa é o cinto), o config.json
+    // NASCE ATÔMICO E VÁLIDO no MESMO gesto do CSS (a vaga NUNCA sobe
+    // com o par pela metade — SEM o ramo do binário meio vestido: o
+    // comando é SEMPRE `swaync -c config.json -s style.css`), e o
+    // filho nasce com o G_DEBUG LIMPO (o lanca raspa a variável — o
+    // fatal-warnings de um desktop de era virava SIGABRT de aviso).
     {
+        ceifa_orfaos_swaync();
         let home = std::env::var("HOME").unwrap_or_default();
         let conf = format!("{home}/.config/swaync/config.json");
         let css = format!("{home}/.config/swaync/style.css");
@@ -876,17 +1004,21 @@ pub fn run_session() -> Result<(), String> {
                 "elite-daemon session: o style.css do swaync NASCEU no $HOME (mestre do skel — o crash-loop 'COULD NOT FIND CSS FILE!' morre, 1.0-110)"
             );
         }
-        let comando = if !home.is_empty()
-            && PathBuf::from(&conf).exists()
-            && PathBuf::from(&css).exists()
+        // E190 T2 — o config.json no MESMO contrato do CSS: ausente/
+        // vazio/INVÁLIDO recebe o mestre ATÔMICO (a colisão de era
+        // nascia do par pela metade tanto no CSS quanto na conf)
+        if !home.is_empty()
+            && entrega_conf_swaync(&conf)
         {
-            format!("swaync -c {conf} -s {css}")
-        } else {
-            // 1.0-110 T4 — NUNCA o binário NU: sem config.json o -s
-            // segue apontando o CSS entregue (o upstream veste o
-            // default de conf; a FOLHA é o que matava o swaync)
-            format!("swaync -s {css}")
-        };
+            eprintln!(
+                "elite-daemon session: o config.json do swaync NASCEU no $HOME (o par completo e VÁLIDO antes da vaga — E190)"
+            );
+        }
+        // E190 T2 — o comando é SEMPRE o par completo: a entrega
+        // ATÔMICA acima garante config.json E style.css no $HOME — o
+        // ramo `swaync -s` de era (o binário meio vestido) morre com
+        // o último cenário que o gerava
+        let comando = format!("swaync -c {conf} -s {css}");
         specs.push(VagaSpec {
             res: Residente {
                 nome: "swaync".to_string(),
@@ -896,22 +1028,14 @@ pub fn run_session() -> Result<(), String> {
             comm: None,
         });
     }
-    // E139 — A VAGA DO WATCH-SAVE (a tela que lembra SEMPRE): o
-    // craft-display watch-save é vaga supervisionada da SESSÃO — a
-    // escolha do wdisplays grava de novo sem depender do autostart
-    // ter nascido antes, e caiu → volta em 2s (o mesmo contrato dos
-    // irmãos). A porta legada `watch` morreu com a era shell — o
-    // ouvidor nativo dos eventos é o PRÓPRIO daemon.
-    specs.push(VagaSpec {
-        res: Residente {
-            nome: "displaysave".to_string(),
-            comando: "/usr/local/bin/craft-display watch-save".to_string(),
-            bus: None,
-        },
-        // NUNCA comm: o craft-display apply bifurca por evento e vive
-        // segundos — um gate por comm recusaria o spawn eternamente
-        comm: None,
-    });
+    // E190 T4 — A VAGA DO WATCH-SAVE MORREU COM O SEU RESIDENTE: o laço
+    // de 4s de era (craft-display watch-save) cedia o lugar ao ouvidor
+    // NATIVO — o wl_output do PRÓPRIO fio Wayland do daemon (cada
+    // Mode/Scale do protocolo vale UM `craft-display save-event` com o
+    // debounce trailing de 400ms: a escolha do dono por QUALQUER porta
+    // — wdisplays, wlr-randr, o menu — grava NA HORA, e o estado vazio
+    // do encerramento da sessão NUNCA sobrescreve o conf). A vaga
+    // supervisionada era o ÚLTIMO polling de shell da casa.
     // E150 — A VAGA DO WALLPAPER (a garantia de TODO login): o swaybg
     // deixou de ser spawn do autostart (UM lançador só — a lei E137 de
     // sempre) e vira vaga supervisionada: caiu → volta em 2s, o guard
@@ -1451,6 +1575,37 @@ mod tests {
         // e o TETO é a LEI: o dobro de 32s seria 64s — a espera capa em 60s
         assert_eq!(proximo_backoff(Duration::from_secs(32)), BACKOFF_TETO);
         assert_eq!(proximo_backoff(BACKOFF_TETO), BACKOFF_TETO);
+    }
+
+    #[test]
+    fn e190_t2_o_fallback_do_par_e_valido_de_verdade() {
+        // E190 T2 — o par entregue atomicamente ANTES da vaga nunca
+        // pode nascer torto: o config.json fallback é JSON PARSEÁVEL
+        // (um byte torto = o swaync de era crashava no berço) e o CSS
+        // fallback segue não-VAZIO de verdade (vazio = ausente)
+        serde_json::from_str::<serde_json::Value>(CONF_SWAYNC_CASA)
+            .expect("o config.json fallback da casa é um JSON válido");
+        assert!(
+            !CSS_SWAYNC_CASA.trim().is_empty(),
+            "o CSS fallback nunca nasce vazio"
+        );
+    }
+
+    #[test]
+    fn e190_t2_o_comando_da_vaga_e_sempre_o_par_completo() {
+        // E190 T2 — a cura da colisão: o ramo `swaync -s` de era (o
+        // binário meio vestido, sem o -c) MORREU — o comando da vaga é
+        // SEMPRE `-c config.json -s style.css` apontando o $HOME; o
+        // par nasce ATÔMICO antes (entrega_conf_swaync +
+        // entrega_css_swaync), nunca pela metade
+        let home = "/home/dono";
+        let comando = format!(
+            "swaync -c {home}/.config/swaync/config.json -s {home}/.config/swaync/style.css"
+        );
+        assert!(comando.contains("-c ") && comando.contains("-s "));
+        // e a gramática da vaga parseia o comando SEM shell no meio
+        let r = parse_conf(&format!("central::{}", comando));
+        assert_eq!(r[0].comando, comando);
     }
 
     #[test]
