@@ -998,6 +998,10 @@ file_has "rede: o connectivity check no retorno do sono (fork pontual por evento
 #    fastfetch enxuto na abertura + os verbos rápidos em português)
 # o fastfetch é DEPENDÊNCIA DURA do pacote (a instalação da dose é o depends)
 file_has "pkg: o fastfetch viaja no depends do elite-system (o card do terminal é garantido pela transação)" ".ci/build.sh" 'depends=(bash wayland wlopm xorg-xhost xorg-xauth blueman fastfetch)'
+# 1.0-109 — A CURA DA RUN 46097816510 (a lição E75.1 de novo: o makepkg
+# do container confere o depends contra o AMBIENTE DE BUILD — sem o
+# pacote no cinto do preflight, o canal morre em 'Missing dependencies')
+file_has "ci: o fastfetch no cinto do container (o ramos do canal — a lição E75.1 provada de novo)" ".ci/build.sh" 'xorg-xhost xorg-xauth blueman fastfetch'
 # o card enxuto: os módulos de era (host/packages/shell/colors) saem
 file_has "fetch: o card da casa veste o módulo de disco na RAIZ (o juízo da diretriz §2.4)" "$AIROOTFS/usr/local/share/elite/fastfetch/config.jsonc" '"type": "disk"'
 file_hasnt "fetch: o card de 17 módulos morre (o packages/shell de era saem — o card é enxuto)" "$AIROOTFS/usr/local/share/elite/fastfetch/config.jsonc" '"packages"'

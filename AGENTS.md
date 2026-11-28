@@ -256,6 +256,59 @@ registrada no mesmo commit.
 
 ## §8 · Dose 1.0-108 → 1.0-109 — o registro vivo (a interface que o labwc não matava, o seletor de rede de 1 clique, o lock que mapeia e o bus que não multiplica)
 
+> **1.0-109 · Etapa 2 (a diretriz do dono inteira — E181..E187) — o
+> registro vivo:** a dose fecha com o pkgrel **109** no MESMO commit da
+> última peça de conteúdo (lei E41). **§2.4 O TERMINAL INTELIGENTE
+> (E181)**: o fastfetch é DEPENDÊNCIA DURA do elite-system (a instalação
+> da dose é a transação do pacman — rodar pacman DENTRO do hook seria
+> deadlock no db.lck; a run 46097816510 provou a lição E75.1 de novo: o
+> cinto do container do canal veste o pacote), o card nasce MINIMALISTA
+> (logo Arch em paleta obsidiana/ciano/roxo, SÓ os módulos que o dono
+> lê — o card de 17 módulos de era morre), o guarda triplo cala o card
+> em script/pipe/subshell (`[[ $- == *i* ]] && [ -t 1 ]` +
+> `ELITE_NO_FETCH`) e os VERBOS em português (`ajuda`/`saude`/
+> `atualizar`/`limpar`/`rede`/`jogo`/`monitores`) viajam ao skel e às
+> homes vivas pela seção [10] do elite-tune, com a linha única
+> "Comandos rápidos" abaixo do retrato. **§2.3 O RÓTULO E OS GRUPOS
+> (E182)**: "Trava automática" (16, truncava em "...") vira
+> "Auto-suspensão" (14) nas TRÊS faces (menu.xml · menu da barra ·
+> craft-idle inteiro), a direita da barra lê-se em BLOCOS (Mídia ·
+> Hardware · Sessão pelo divisor sutil de 1px) e o atualizador veste o
+> texto HONESTO ("sincronizando repositórios e verificando pacotes") +
+> o RESUMO REAL do `pacman -Qu` antes de aplicar. **§2.2 O PLAYER
+> REATIVO (E183)**: o pill único `[Ícone Estado] Título — Artista` (o
+> botão avulso ⏭ morre), o sinal PARCIAL do PropertiesChanged funde com
+> o CACHE da faixa por jogador (`funde_track` — a cura do ícone
+> travado em ⏸), o NameOwnerChanged limpa o cache NO INSTANTE e o censo
+> oculta o pill NO MESMO evento (< 200ms — a evidência: o pill preso na
+> barra com o player fechado), o ícone veste a AÇÃO (▶ pausado · ⏸
+> tocando), o scroll troca de faixa com DEBOUNCE de 250ms, o direito
+> foca a janela do player, o tooltip em 3 linhas NUNCA fala
+> `org.mpris...` (o `nome_amigavel` veste "Brave · Pausado") e o FILTRO
+> anti-ruído mata o ping das redes (título genérico WhatsApp/Audio/
+> Voice message e faixa curta < 60s com ficha vazia; a preferência é do
+> TOCANDO). **§2.1 A ESCADA DE CAMADAS (E184..E186)**: o `MenuCamada`
+> novo na fundação `craft-tools` — a janela do menu é UMA superfície
+> **Overlay** própria (Layer::Overlay · teclado exclusivo · Esc
+> imediato; a guarda do palco `is-active` desce o menu quando outra
+> janela toma o teclado; o posicionamento pelas ÂNCORAS + margens no
+> MONITOR, centrado no botão que chamou). O MENU DO DIREITO DA DOCK
+> (E185): o PopoverMenu de era era FILHO da superfície top — a gaveta
+> do craft-apps (a MESMA camada top) cobria o menu inteiro e o grab
+> engolia o 1º clique do ícone (as DUAS evidências do dump 1.0-108);
+> agora o gesto de CAPTURA na janela da dock fecha o menu SEM reclamar
+> a sequência (o ícone recebe o MESMO clique), "Nova janela"/"Fechar"
+> descem a gaveta JUNTO (`dismiss_overlays`) e o enterro do popover
+> pendurado morre com ele (o botão morto sai SECO — nenhum "still has
+> children left"). O CARD DO CALENDÁRIO e o CARDÁPIO DA SESSÃO da
+> barra (E186): os MESMOS verbos de sempre na janela Overlay (o ⏻ é
+> BOTÃO PURO — o ToggleButton do MenuButton era o réu do quadrado
+> branco), os seletores `popover > contents` da folha mestra morrem
+> SEPULTADOS e o calendário migra as regras ÍNTEGRO para o
+> `#menuwin calendar`; a gaveta do craft-apps é o degrau TOP por
+> desenho (a flag `-ovl` do nwg-drawer NUNCA é passada — documentada e
+> ancorada; a escada fica: gaveta top · menus Overlay).
+
 > **1.0-109 · Etapa 1 (correções críticas de funcionamento) — o
 > registro vivo:** a evidência real do dump 1.0-108 dirigiu a dose
 > inteira. **O PICK VESTE A CAMADA**: 24 processos craft-pick presos em

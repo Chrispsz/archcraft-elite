@@ -6,6 +6,31 @@ do profile oficial. Nada é deletado do upstream — pacotes removidos são
 
 ## 🗺️ Visão por versão
 
+- **1.0-109 · Etapa 2 — A DIRETRIZ DO DONO INTEIRA (a escada de camadas, o
+  player reativo, o rótulo curto e o terminal inteligente)**: **§2.1 a
+  escada de camadas** (os menus da casa vestem a janela **Overlay** do
+  `MenuCamada` novo na fundação `craft-tools` — SEMPRE acima da gaveta
+  top do `craft-apps`; o popover de era era FILHO da superfície top e a
+  gaveta que nascia depois o cobria inteiro, com o grab engolindo o 1º
+  clique do ícone: o menu do clique direito da dock, o card do calendário
+  e o cardápio da sessão do ⏻ migram para a camada com o Esc no teclado
+  exclusivo, o clique fora SEM engolir o clique do ícone — o gesto de
+  captura na mãe fecha o menu e o botão recebe o MESMO evento — e a
+  gaveta desce JUNTO de Nova janela/Fechar; o ⏻ vira botão PURO e os
+  seletores `popover > contents` da folha mestra morrem sepultados), **§2.2
+  o player de mídia reativo** (o pill único `[Ícone] Título — Artista`; o
+  ciclo de vida pelo `NameOwnerChanged` com o cache limpo no instante — o
+  pill some < 200ms do player fechado; o ícone veste a AÇÃO; o scroll
+  troca de faixa com debounce de 250ms; o tooltip limpo com nome amigável
+  e o filtro anti-ruído — WhatsApp/mensagem de voz/áudio curto não são
+  faixa), **§2.3 o rótulo e os grupos** ("Auto-suspensão" de 14
+  caracteres nas três faces; a direita em BLOCOS Mídia · Hardware ·
+  Sessão; o atualizador com o resumo REAL `pacman -Qu` antes de aplicar) e
+  **§2.4 o terminal inteligente** (o fastfetch dependência dura do
+  pacote; o card minimalista com o guarda triplo para scripts/pipes; os
+  verbos `ajuda`/`saude`/`atualizar`/`limpar`/`rede`/`jogo`/`monitores`;
+  a linha única dos comandos rápidos). O pkgrel **109** veste a dose
+  COMPLETA no MESMO commit da última peça de conteúdo (lei E41).
 - **1.0-109 · Etapa 1 — CORREÇÕES CRÍTICAS DE FUNCIONAMENTO (a perícia do
   dump 1.0-108)**: **o pick veste a camada** (24 processos presos em
   background e NENHUM menu na tela: gtk4-layer-shell Overlay +

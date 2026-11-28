@@ -48,14 +48,20 @@ if [[ "${PACKAGES_ONLY:-0}" == "1" ]]; then
     # repo CachyOS/AUR — a garantia deles é a ADOCAO da dose no rig e a
     # lista da ISO: depends= deles mataria o canal do pacote no
     # container Arch puro, 'target not found').
+    # 1.0-109 — O FASTFETCH É depends= DO PACOTE (a diretriz §2.4: o card
+    # do terminal nasce pela MESMA transação do pacman — E181; a run
+    # 46097816510 provou a lição E75.1 DE NOVO: o makepkg do container
+    # morre em 'Missing dependencies: fastfetch' sem o pacote no
+    # ambiente de build — o fastfetch é de repo oficial [extra] e entra
+    # no cinto dos DOIS ramos).
     pacman -Syu --noconfirm --needed git rsync curl base-devel sudo python \
         wayland wayland-protocols libxkbcommon wlopm polkit rust cargo \
-        gtk4 gtk4-layer-shell xorg-xhost xorg-xauth blueman
+        gtk4 gtk4-layer-shell xorg-xhost xorg-xauth blueman fastfetch
 else
     pacman -Syu --noconfirm --needed \
         git rsync curl archiso xorriso mtools dosfstools \
         e2fsprogs squashfs-tools openssl arch-install-scripts \
-        base-devel sudo rust cargo gtk4 gtk4-layer-shell \
+        base-devel sudo rust cargo gtk4 gtk4-layer-shell fastfetch \
         meson ninja wayland wayland-protocols libxkbcommon wlopm polkit blueman
 fi
 

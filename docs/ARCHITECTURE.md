@@ -15,14 +15,19 @@
 |---|---|
 | **`elite-core`** | a fundação: contratos tipados do estado, o protocolo do `bus.sock`, persistência atômica e o Design System (a folha mestra embutida) |
 | **`elite-daemon`** | o orquestrador único da sessão (`elite-daemon session`): supervisiona as superfícies, escuta Wayland/D-Bus/netlink nativamente e publica o estado no bus |
-| **`craft-bar-rs`** | a top bar GTK4 + layer-shell (pílulas, mídia, relógio/calendário SÓ no clique, rede com a Lei da Conexão Principal, a gaveta única do `craft-apps` e os atalhos rápidos no menu de sessão) |
-| **`craft-dock-rs`** | a dock GTK4 + layer-shell (ícones, pins, popover do botão direito) |
-| **`craft-tools`** | as janelas nativas (`craft-update`, `craft-clean`, `craft-help`, o seletor `craft-pick`) + o juiz `craft-audit` |
+| **`craft-bar-rs`** | a top bar GTK4 + layer-shell (pílulas, mídia reativa pelo MPRIS do daemon, relógio/calendário SÓ no clique, rede com a Lei da Conexão Principal, a gaveta única do `craft-apps` e os atalhos rápidos no menu de sessão) |
+| **`craft-dock-rs`** | a dock GTK4 + layer-shell (ícones, pins, o menu do botão direito em janela de camada) |
+| **`craft-tools`** | as janelas nativas (`craft-update`, `craft-clean`, `craft-help`, os seletores `craft-pick`/`craft-net`) + o juiz `craft-audit` + o `MenuCamada` (a janela Overlay dos menus da casa) |
 | **`craft-dump-rs`** | a telemetria v2 (o retrato do rig para o diagnóstico da casa) |
 
 Toda a superfície gráfica é **uma família visual**: os ícones são NOMES
-GTK (zero glifo Nerd), os popovers fecham com `popdown`+`unparent` antes
-do `remove`, e a armadura RT (`fn arma_rt`) veste as duas janelas.
+GTK (zero glifo Nerd), os menus são **JANELAS DE CAMADA Overlay**
+(1.0-109 §2.1 — o `MenuCamada` da fundação: SEMPRE acima da gaveta top do
+`craft-apps`, com o Esc no teclado exclusivo e o clique fora que NUNCA
+engole o clique do ícone — o gesto de captura na superfície mãe fecha o
+menu sem reclamar a sequência; o popover pendurado `popdown`+`unparent`
+de era morreu com o último popover) e a armadura RT (`fn arma_rt`) veste
+as duas janelas.
 
 ## 2 · O protocolo do bus (`/run/user/$UID/elite/bus.sock`)
 
