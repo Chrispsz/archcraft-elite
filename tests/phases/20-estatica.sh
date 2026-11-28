@@ -982,6 +982,34 @@ file_has "clean: o resumo real notificado à sessão (o total liberado em MiB/GB
 file_has "bar: o tooltip do relógio morre (o calendário é EXCLUSIVO do clique)" "crates/craft-bar-rs/src/ui.rs" 'set_has_tooltip(false)'
 # §9 — a rede reavaliada no retorno do sono (sem travar o módulo)
 file_has "rede: o connectivity check no retorno do sono (fork pontual por evento)" "crates/elite-daemon/src/main.rs" '"networking", "connectivity", "check"'
+# ── 1.0-109 Etapa 2 — O TERMINAL INTELIGENTE (a diretriz §2.4: o card
+#    fastfetch enxuto na abertura + os verbos rápidos em português)
+# o fastfetch é DEPENDÊNCIA DURA do pacote (a instalação da dose é o depends)
+file_has "pkg: o fastfetch viaja no depends do elite-system (o card do terminal é garantido pela transação)" ".ci/build.sh" 'depends=(bash wayland wlopm xorg-xhost xorg-xauth blueman fastfetch)'
+# o card enxuto: os módulos de era (host/packages/shell/colors) saem
+file_has "fetch: o card da casa veste o módulo de disco na RAIZ (o juízo da diretriz §2.4)" "$AIROOTFS/usr/local/share/elite/fastfetch/config.jsonc" '"type": "disk"'
+file_hasnt "fetch: o card de 17 módulos morre (o packages/shell de era saem — o card é enxuto)" "$AIROOTFS/usr/local/share/elite/fastfetch/config.jsonc" '"packages"'
+file_hasnt "fetch: o bloco de cores de era sai (o retrato é minimalista)" "$AIROOTFS/usr/local/share/elite/fastfetch/config.jsonc" '"colors"'
+# o preset no skel + a entrega ao rig vivo (a dose veste quem já nasceu)
+file_exists "fetch: o preset do card no skel (as instalações novas nascem com ele)" "$AIROOTFS/etc/skel/.config/fastfetch/config.jsonc"
+file_has "heal: o cura_fetch entrega o MESTRE do pacote ao home AUSENTE (o skel do rig é da época da instalação)" "$AIROOTFS/usr/local/bin/elite-heal-sessao" 'cura_fetch'
+file_has "heal: o card entregue é o mestre do pacote (sempre corrente na dose)" "$AIROOTFS/usr/local/bin/elite-heal-sessao" '/usr/local/share/elite/fastfetch/config.jsonc'
+file_has "post: o sync_skel veste o fastfetch (a mesma escola das outras peles)" "$AIROOTFS/usr/local/bin/elite-post-upgrade" 'gtk-3.0 gtk-4.0 fuzzel nwg-drawer swayosd swaync fastfetch'
+# o GUARDA TRIPLO (a diretriz: scripts, pipes, subshells e testes nunca recebem saída extra)
+file_has "zsh: o guarda julga o shell INTERATIVO (o $- da diretriz — o pipe nunca vira card)" "$AIROOTFS/etc/skel/.zshrc" '[[ $- == *i* ]] && [ -t 1 ]'
+file_has "zsh: a fuga honesta ELITE_NO_FETCH nasce (a diretriz da Etapa 2)" "$AIROOTFS/etc/skel/.zshrc" 'ELITE_NO_FETCH'
+file_has "tune: a injeção da saudação veste o guarda novo nas homes vivas" "$AIROOTFS/usr/local/bin/elite-tune" 'elite-verbos-2'
+# os verbos rápidos em português (ninguém memoriza craft-*)
+file_has "zsh: o verbo ajuda abre o mapa da casa" "$AIROOTFS/etc/skel/.zshrc" "alias ajuda='craft-help'"
+file_has "zsh: o verbo saude abre o doutor da casa" "$AIROOTFS/etc/skel/.zshrc" "alias saude='craft-doctor'"
+file_has "zsh: o verbo atualizar abre a dose" "$AIROOTFS/etc/skel/.zshrc" "alias atualizar='craft-update'"
+file_has "zsh: o verbo limpar abre a limpeza" "$AIROOTFS/etc/skel/.zshrc" "alias limpar='craft-clean'"
+file_has "zsh: o verbo rede abre o seletor de 1 clique" "$AIROOTFS/etc/skel/.zshrc" "alias rede='craft-net'"
+file_has "zsh: o verbo jogo abre o painel do modo de jogo" "$AIROOTFS/etc/skel/.zshrc" "alias jogo='craft-game'"
+file_has "zsh: o verbo monitores abre o wdisplays" "$AIROOTFS/etc/skel/.zshrc" "alias monitores='wdisplays'"
+# a linha única sutil abaixo do retrato
+file_has "hello: a LINHA ÚNICA dos verbos rápidos abaixo do retrato (a diretriz: uma linha sutil)" "$AIROOTFS/usr/local/bin/craft-hello" 'Comandos rápidos: ajuda · saude · atualizar · limpar · rede · jogo'
+file_hasnt "hello: o pointer de 3 linhas de era morre (a versão/dose não é notícia do card)" "$AIROOTFS/usr/local/bin/craft-hello" 'última dose'
 
 printf '%s\n' "$OK_COUNT $FAIL_COUNT $SKIP_COUNT" > "$WORK/fase20.txt"
 exit 0

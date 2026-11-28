@@ -82,6 +82,24 @@ alias zshconfig='nano ~/.zshrc'
 # fallback próprio) roda a cada shell interativo novo — kernel, uptime e
 # pacotes na cara sem comando nenhum. Fuga honesta: export
 # ELITE_NO_HELLO=1 desliga (o W-S-h usa a mesma porta pra não dobrar).
-if [[ -o interactive ]] && (( $+commands[craft-hello] )) && [[ -z "${ELITE_NO_HELLO}" ]]; then
+# 1.0-109 — O GUARDA TRIPLO (a diretriz da Etapa 2: scripts, pipes,
+# subshells e testes da porteira NUNCA recebem saída extra): o $- julga
+# o shell INTERATIVO, o [ -t 1 ] julga a saída TTY de verdade (o pipe
+# e o redirecionamento calam o card) e o ELITE_NO_FETCH/ELITE_NO_HELLO
+# são as fugas honestas da casa.
+if [[ $- == *i* ]] && [ -t 1 ] && (( $+commands[craft-hello] )) \
+   && [[ -z "${ELITE_NO_FETCH:-}" && -z "${ELITE_NO_HELLO:-}" ]]; then
   craft-hello
 fi
+
+# ── elite-verbos-2 · Os verbos da casa em português, sem decorar nada ──
+# 1.0-109 (a diretriz da Etapa 2: ninguém memoriza craft-* — os verbos
+# de 1 palavra abrem a ferramenta certa; a linha "Comandos rápidos" do
+# craft-hello os apresenta a cada terminal).
+alias ajuda='craft-help'
+alias saude='craft-doctor'
+alias atualizar='craft-update'
+alias limpar='craft-clean'
+alias rede='craft-net'
+alias jogo='craft-game'
+alias monitores='wdisplays'

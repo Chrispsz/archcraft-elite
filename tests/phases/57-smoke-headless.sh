@@ -522,6 +522,46 @@ else
         "o daemon morreu SEM voz no daemon.err (as últimas 8 linhas: $(tail -8 "$daemon_err" 2>/dev/null | tr '\n' ' '))"
 fi
 
+# ── 9. O TERMINAL NÃO EMITE CARD NO SHELL SURDO (1.0-109 Etapa 2 — a
+#      diretriz §2.4: scripts, pipes, subshells e testes da porteira
+#      NUNCA recebem saída extra — o guarda triplo do .zshrc julga
+#      interatividade ($-), TTY de verdade ([ -t 1 ]) e a fuga honesta
+#      ELITE_NO_FETCH; aqui o juízo é na CARNE: o shell NÃO-interativo
+#      com o .zshrc da casa acoplado NASCE MUDO) ────────────────────────
+if command -v zsh >/dev/null 2>&1; then
+    _fetch_casa=0
+    _fetch_out=""
+    # o .zshrc DO SKEL no home de juízo (o guarda da casa julgado em
+    # CARNE — a MESMA escola dos mestres do swaync/swayosd/hyprlock
+    # acima: o arquivo de verdade da árvore, não um mock)
+    mkdir -p "$HOMES/.config/fastfetch"
+    cp -p "$REPO/elite/airootfs/etc/skel/.zshrc" "$HOMES/.zshrc" 2>/dev/null || true
+    cp -p "$REPO/elite/airootfs/usr/local/share/elite/fastfetch/config.jsonc" \
+          "$HOMES/.config/fastfetch/config.jsonc" 2>/dev/null || true
+    # o home de juízo TEM o .zshrc da casa acoplado (ZDOTDIR abaixo) — o
+    # shell surdo lê ele e tem que sair SEM UMA LINHA de card
+    _fetch_out="$(ZDOTDIR="$HOMES" zsh -c 'true' 2>&1)" || true
+    if [ -z "$(printf '%s' "$_fetch_out" | tr -d '[:space:]')" ]; then
+        t_ok "fetch: o shell NÃO-interativo nasce MUDO (o guarda do .zshrc segura o card — zero saída extra)"
+    else
+        t_fail "fetch: o shell NÃO-interativo nasce MUDO" "o shell surdo cospiu: $(printf '%s' "$_fetch_out" | head -c 200)"
+    fi
+    # o pipe também cala o card: shell INTERATIVO com stdout em PIPE não
+    # é TTY — o [ -t 1 ] do guarda é o juiz (o craft-hello no PATH é a
+    # PROVA de que o guarda segura: sem ele o card nasceria pelo fallback)
+    _fetch_out="$(ZDOTDIR="$HOMES" PATH="$REPO/elite/airootfs/usr/local/bin:$PATH" zsh -ic 'true' 2>&1 | head -c 4000)" || true
+    if ! printf '%s' "$_fetch_out" | grep -q 'Archcraft\|Arch Linux\|kernel'; then
+        _fetch_casa=1
+    fi
+    if [ "$_fetch_casa" = 1 ]; then
+        t_ok "fetch: o pipe cala o card (o [ -t 1 ] do guarda — o shell interativo SEM TTY não fala)"
+    else
+        t_fail "fetch: o pipe cala o card" "o shell interativo em PIPE emitiu o card (o guarda [ -t 1 ] não segurou)"
+    fi
+else
+    t_skip "fetch: o shell surdo nasce mudo" "zsh ausente no runner — o Canal veste o juízo (tests.yml)"
+fi
+
 # a limpeza SEM órfãos (a lição do ci-runtime-smoke)
 mata "$DAEMON_PID" 2>/dev/null || true
 pkill -TERM -x craft-bar-rs 2>/dev/null || true

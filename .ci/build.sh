@@ -3230,7 +3230,12 @@ license=(GPL3)
 # do elite-gparted — a adoção best-effort só convergia quando o dono
 # rodava a dose; o pacote NASCE com o cinto). xorg-xhost abre o
 # +SI:localuser:root do XWayland; xorg-xauth extrai o cookie do usuário.
-depends=(bash wayland wlopm xorg-xhost xorg-xauth blueman)
+# 1.0-109 — O FASTFETCH É DEPENDÊNCIA DURA (a diretriz da Etapa 2: o
+# terminal abre com o retrato do sistema — o card do craft-hello exige o
+# binário; a dependência É a instalação do post-upgrade: o pacman entrega
+# o fastfetch NA MESMA transação da dose (rodar pacman dentro do hook de
+# transação seria deadlock no db.lck — a via canônica é o depends).
+depends=(bash wayland wlopm xorg-xhost xorg-xauth blueman fastfetch)
 # E138 — o sysctl consolidado é EDITÁVEL pelo dono (a régua da casa o
 # regenera; a edição manual sobrevive como .pacnew, nunca perdida)
 backup=(etc/sysctl.d/99-elite-performance.conf)

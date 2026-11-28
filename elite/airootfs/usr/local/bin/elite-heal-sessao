@@ -384,6 +384,23 @@ cura_gtk() {
     done
 }
 
+# ── A CURA DO CARD DO TERMINAL (1.0-109 — a diretriz: o preset limpo do
+#    fastfetch no home SE AUSENTE — o card enxuto do retrato que abre o
+#    terminal; o MESTRE do pacote é a fonte (sempre corrente na dose —
+#    o /etc/skel do rig é da época da instalação); arquivo presente é
+#    domínio do dono — a cura só veste a AUSÊNCIA, idempotente) ────────
+cura_fetch() {
+    _cf_mestre="/usr/local/share/elite/fastfetch/config.jsonc"
+    _cf_alvo="$HOME_ALVO/.config/fastfetch/config.jsonc"
+    [ -r "$_cf_mestre" ] || return 0
+    [ -e "$_cf_alvo" ] && return 0 # a cara do dono vence (a cura é da ausência)
+    mkdir -p "${_cf_alvo%/*}" 2>/dev/null || true
+    if cp -p "$_cf_mestre" "$_cf_alvo" 2>/dev/null; then
+        chown "$DONO" "$_cf_alvo" 2>/dev/null || true
+        printf 'fastfetch: o card ENXUTO entregue (o preset da casa — o dono edita o dele à vontade)\n'
+    fi
+}
+
 # ═══════════════════════════ O FLUXO ════════════════════════════════════
 printf 'heal: sessão do uid %s (%s)\n' "$UID_ALVO" "$HOME_ALVO"
 
@@ -392,6 +409,7 @@ cura_autostart
 cura_xml "menu.xml" menu_ok
 cura_xml "rc.xml" xml_ok
 cura_gtk
+cura_fetch
 
 # a contagem de daemons no papel (o flock é a lei; a contagem alta = o
 # autostart ainda dispara demais — o papel denuncia)

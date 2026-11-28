@@ -1529,7 +1529,8 @@ if [[ -f "$ZSKEL" ]] && ! grep -q 'elite-hello-1' "$ZSKEL" 2>/dev/null; then
 # E73 (injetado pela seção [10] do elite-tune — o craft-hello = fastfetch
 # com o logo Archcraft + fallback próprio; kernel, uptime e pacotes na
 # cara sem comando nenhum). Fuga honesta: export ELITE_NO_HELLO=1 desliga.
-if [[ -o interactive ]] && (( $+commands[craft-hello] )) && [[ -z "${ELITE_NO_HELLO}" ]]; then
+if [[ $- == *i* ]] && [ -t 1 ] && (( $+commands[craft-hello] )) \
+   && [[ -z "${ELITE_NO_FETCH:-}" && -z "${ELITE_NO_HELLO:-}" ]]; then
   craft-hello
 fi
 E73HELLO
@@ -1552,12 +1553,65 @@ for h in /home/*/; do
 # E73 (injetado pela seção [10] do elite-tune — o craft-hello = fastfetch
 # com o logo Archcraft + fallback próprio; kernel, uptime e pacotes na
 # cara sem comando nenhum). Fuga honesta: export ELITE_NO_HELLO=1 desliga.
-if [[ -o interactive ]] && (( $+commands[craft-hello] )) && [[ -z "${ELITE_NO_HELLO}" ]]; then
+if [[ $- == *i* ]] && [ -t 1 ] && (( $+commands[craft-hello] )) \
+   && [[ -z "${ELITE_NO_FETCH:-}" && -z "${ELITE_NO_HELLO:-}" ]]; then
   craft-hello
 fi
 E73HELLO
   chown "$(stat -c '%U:%G' "$h")" "$ZRC" 2>/dev/null || true
   say "Terminal ($u): saudação injetada no .zshrc (E73 — o terminal abre com o retrato do sistema)"
+done
+# ── 1.0-109 · OS VERBOS DA CASA EM PORTUGUÊS (a diretriz da Etapa 2:
+#      ninguém memoriza craft-* — os aliases de 1 palavra vestem as
+#      ferramentas em TODO home vivo e no skel; idempotente pelo marcador
+#      elite-verbos-2, a mesma escola do bloco da saudação E73).
+ZSKEL_V=/etc/skel/.zshrc
+if [[ -f "$ZSKEL_V" ]] && ! grep -q 'elite-verbos-2' "$ZSKEL_V" 2>/dev/null; then
+  if (( DRY )); then
+    say "[dry] Terminal: os verbos rápidos seriam injetados no /etc/skel/.zshrc (1.0-109)"
+  else
+    backup "$ZSKEL_V"
+    cat >> "$ZSKEL_V" <<'E109VERBOS'
+
+# ── elite-verbos-2 · Os verbos da casa em português, sem decorar nada ──
+# 1.0-109 (injetado pela seção [10] do elite-tune — a linha "Comandos
+# rápidos" do craft-hello os apresenta a cada terminal).
+alias ajuda='craft-help'
+alias saude='craft-doctor'
+alias atualizar='craft-update'
+alias limpar='craft-clean'
+alias rede='craft-net'
+alias jogo='craft-game'
+alias monitores='wdisplays'
+E109VERBOS
+    say "Terminal: os verbos rápidos injetados no /etc/skel/.zshrc (1.0-109 — os futuros usuários não decoram nada)"
+  fi
+fi
+for h in /home/*/; do
+  ZRC="$h/.zshrc"
+  [[ -f "$ZRC" ]] || continue
+  grep -q 'elite-verbos-2' "$ZRC" 2>/dev/null && continue
+  u="$(stat -c '%U' "$h")"; [[ "$u" == "root" ]] && continue
+  if (( DRY )); then
+    say "[dry] Terminal ($u): os verbos rápidos seriam injetados no .zshrc (1.0-109)"
+    continue
+  fi
+  backup "$ZRC"
+  cat >> "$ZRC" <<'E109VERBOS'
+
+# ── elite-verbos-2 · Os verbos da casa em português, sem decorar nada ──
+# 1.0-109 (injetado pela seção [10] do elite-tune — a linha "Comandos
+# rápidos" do craft-hello os apresenta a cada terminal).
+alias ajuda='craft-help'
+alias saude='craft-doctor'
+alias atualizar='craft-update'
+alias limpar='craft-clean'
+alias rede='craft-net'
+alias jogo='craft-game'
+alias monitores='wdisplays'
+E109VERBOS
+  chown "$(stat -c '%U:%G' "$h")" "$ZRC" 2>/dev/null || true
+  say "Terminal ($u): os verbos rápidos injetados no .zshrc (1.0-109 — ajuda · saude · atualizar · limpar · rede · jogo · monitores)"
 done
 for h in /home/*/; do
   RXML="$h/.config/labwc/rc.xml"

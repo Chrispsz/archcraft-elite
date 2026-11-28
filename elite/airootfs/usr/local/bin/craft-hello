@@ -13,6 +13,10 @@
 #     builtin do fastfetch, nome provado no fonte oficial): o usuário que
 #     quiser a própria cara cria ~/.config/fastfetch/config.jsonc e o dele
 #     VENCE — a casa não briga com o dono do home.
+# 1.0-109 — O CARD ENXUTO E A LINHA DOS VERBOS (a diretriz da Etapa 2: o
+#     retrato é MINIMALISTA e instantâneo — logo do Arch em paleta
+#     obsidiana/ciano/roxo com SÓ os módulos que o dono lê; abaixo, UMA
+#     linha sutil apresenta os atalhos em português que o .zshrc veste).
 set -euo pipefail
 
 # E90 — o --help que faltava (a lacuna nº 1 do UX-ROADMAP)
@@ -22,34 +26,24 @@ uso() {
         '     (fastfetch com o logo Archcraft) a cada shell interativo' \
         '' \
         '  o .zshrc chama (W-S-h repete no terminal com shell limpo após).' \
-        '  ELITE_NO_HELLO=1 desliga. O config da casa mora em' \
+        '  ELITE_NO_FETCH=1 (ou ELITE_NO_HELLO=1) desliga. O config da casa mora em' \
         '  /usr/local/share/elite/fastfetch/config.jsonc — o ~/.config/fastfetch/' \
-        '  config.jsonc do usuário VENCE (a casa não briga com o dono).'
+        '  config.jsonc do usuário VENCE (a casa não briga com o dono).' \
+        '  Abaixo do retrato: a linha dos verbos rápidos (ajuda · saude ·' \
+        '  atualizar · limpar · rede · jogo — os aliases do .zshrc da casa).'
     exit 0
 }
 case "${1:-}" in -h|--help|uso) uso ;; esac
 
 CFG_SYS=/usr/local/share/elite/fastfetch/config.jsonc
 CFG_USR="$HOME/.config/fastfetch/config.jsonc"
-# E90 — O ONBOARDING COMPACTO (a lacuna nº 3 do UX-ROADMAP: o craft-hello
-# era SÓ um retrato; agora ele APRESENTA a casa — 3 linhas baratas após o
-# retrato: a versão do pacote, o mapa dos comandos e a última dose do
-# canal. Lê 2 arquivos + 1 pacman -Q — cada shell paga ~15ms, o preço de
-# nunca mais ter sistema "cirúrgico e invisível").
+# 1.0-109 — A LINHA ÚNICA DOS VERBOS RÁPIDOS (a diretriz da Etapa 2: UMA
+#     linha sutil abaixo do retrato apresentando os atalhos em português
+#     que o .zshrc da casa veste — a versão/dose do pointer de era e o
+#     mapa de 3 linhas saem; o card é a cara, a linha é o mapa: quem quer
+#     o mapa inteiro pede `ajuda`).
 elite_pointer() {
-  # (pipefail da casa: pacman -Q morre rc 1/127 quando o pacote não existe
-  # ou o pacman não está — o RETRATO nunca pode morrer pela saudação; os
-  # || true viajam na FONTE de cada pipeline)
-  local ver dose
-  ver="$( { pacman -Q elite-system 2>/dev/null || true; } | awk '{print $2}')"
-  dose=""
-  if [ -r /var/log/elite-update.log ]; then
-    dose="$( { grep -E 'canal: |manual: |sistema: ' /var/log/elite-update.log 2>/dev/null || true; } | tail -1 | sed 's/^\[[^]]*\] //' | cut -c1-52)"
-  fi
-  printf '\n  \033[2m──\033[0m Elite \033[1m%s\033[0m' "${ver:-?}"
-  [ -n "$dose" ] && printf ' \033[2m· última dose: %s\033[0m' "$dose"
-  printf '\n'
-  printf '  \033[2mcraft-help abre o mapa dos comandos · craft-update --check diz se há novidade\033[0m\n'
+  printf '  \033[2mComandos rápidos: ajuda · saude · atualizar · limpar · rede · jogo\033[0m\n'
 }
 if command -v fastfetch >/dev/null 2>&1; then
   if [[ -f "$CFG_USR" ]]; then fastfetch; elite_pointer; exit 0; fi       # config do usuário manda

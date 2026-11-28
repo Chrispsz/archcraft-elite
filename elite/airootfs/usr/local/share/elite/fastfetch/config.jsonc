@@ -1,4 +1,14 @@
 {
+  // ═══════════════════════════════════════════════════════════════════
+  // Archcraft ELITE · fastfetch — O CARD ENXUTO DO TERMINAL (1.0-109)
+  // ═══════════════════════════════════════════════════════════════════
+  // A diretriz da Etapa 2: o retrato que abre o terminal é MINIMALISTA e
+  // instantâneo (estilo CachyOS) — o logo ANSI do Arch em paleta
+  // obsidiana/ciano/roxo e SÓ os módulos que o dono LÊ: OS, Kernel, WM,
+  // Terminal, CPU, GPU, Memória, Disco (/) e Uptime. O card de 17 módulos
+  // de era (host/packages/shell/colors) sai — o emblema é a cara, não o
+  // inventário. O ~/.config/fastfetch/config.jsonc do usuário VENCE
+  // (a casa não briga com o dono do home — lei do domínio v3).
   "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
   "logo": {
     "type": "builtin",
@@ -11,14 +21,14 @@
   "display": {
     "separator": "  ",
     "color": {
-      "keys": "magenta",
+      "keys": "cyan",
       "title": "magenta"
     }
   },
   "modules": [
     {
       "type": "custom",
-      "format": "⚡ Archcraft Elite — labwc · engine CachyOS",
+      "format": "⚡ Archcraft ELITE — labwc",
       "outputColor": "magenta"
     },
     {
@@ -26,11 +36,8 @@
     },
     "separator",
     "os",
-    "host",
     "kernel",
     "uptime",
-    "packages",
-    "shell",
     "wm",
     "terminal",
     "cpu",
@@ -39,8 +46,6 @@
     {
       "type": "disk",
       "folders": ["/"]
-    },
-    "break",
-    "colors"
+    }
   ]
 }

@@ -804,7 +804,11 @@ sync_skel() {
     _sh="$1"
     _suid="$2"
     _entregues=0
-    for _cfg in gtk-3.0 gtk-4.0 fuzzel nwg-drawer swayosd swaync; do
+    # 1.0-109 — o fastfetch ENTRA na lista (a diretriz: o preset do card
+    # do terminal no home SE AUSENTE; o cura_fetch do heal cobre o rig
+    # de skel VELHO com o MESTRE do pacote — aqui é a via do /etc/skel
+    # das instalações novas, a mesma escola das outras peles).
+    for _cfg in gtk-3.0 gtk-4.0 fuzzel nwg-drawer swayosd swaync fastfetch; do
         [ -d "/etc/skel/.config/$_cfg" ] || continue
         for _sf in "/etc/skel/.config/$_cfg"/*; do
             [ -f "$_sf" ] || continue
